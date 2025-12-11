@@ -44,6 +44,8 @@ const std::string DeviceMahineCompiler = GetMachineCompilerPath();
 }
 namespace npu::tile_fwk {
 
+constexpr int DUMP_LEVEL_FOUR = 4;
+
 void GenCustomOpInfo(const std::string &funcName, const std::string &controlAicpuPath, const std::string &constrolSoName) {
     Json customOp;
     AicpuOpConfig costomInit;
@@ -58,7 +60,7 @@ void GenCustomOpInfo(const std::string &funcName, const std::string &controlAicp
 
     GenAicpuOpInfoJson(customOp, {costomInit, costomRun});
     std::string fileName = controlAicpuPath + "/" + constrolSoName + ".json";
-    if (!DumpFile(customOp.dump(4), fileName)) {
+    if (!DumpFile(customOp.dump(DUMP_LEVEL_FOUR), fileName)) {
         ALOG_ERROR_F("Contrust custom op json failed");
         return;
     }

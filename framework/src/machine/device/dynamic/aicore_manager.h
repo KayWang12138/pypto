@@ -120,7 +120,7 @@ public:
 
         if (!preFetchSuccess_) {
             int64_t funcdata;
-            auto dyntask = (DynDeviceTask *)curDevTask_;
+            auto dyntask = reinterpret_cast<DynDeviceTask *>(curDevTask_);
             funcdata = static_cast<int64_t>(PtrToValue(dyntask->GetDynFuncDataList()));
             ForEachManageAicore([&](int coreIdx) {
                 auto logbuf = logger_ ? logger_[coreIdx].GetBuffer() : nullptr;
@@ -505,14 +505,14 @@ private:
             return;
         }
         int64_t funcdata;
-        auto dyntask = (DynDeviceTask *)preFetchNextDevTaskCtrl_->devTask;
+        auto dyntask = reinterpret_cast<DynDeviceTask *>(preFetchNextDevTaskCtrl_->devTask);
         funcdata = static_cast<int64_t>(PtrToValue(dyntask->GetDynFuncDataList()));
         auto logbuf = logger_ ? logger_[coreIdx].GetBuffer() : nullptr;
         aicoreHal_.InitTaskData(coreIdx, funcdata, (uint64_t)logbuf);
         return;
     }
 
-    enum AicoreStatus {
+    enum class AicoreStatus {
         CORE_TASK_WAIT_FINISH = 0,
         CORE_SEND_STOP,
         CORE_FINISH_STOP,
@@ -521,9 +521,9 @@ private:
     inline AicoreStatus AicoreDevTaskFinishProc(int coreIdx,  AicoreStatus curCoreStatus) {
         auto dyntask = reinterpret_cast<DynDeviceTask *>(curDevTask_);
         uint64_t waitAckStopVal =
-            ((uint64_t)curTaskId_ << REG_HIGH_DTASKID_SHIFT) | (AICORE_FUNC_STOP | AICORE_FIN_MASK);
+            (static_cast<uint64_t>(curTaskId_) << REG_HIGH_DTASKID_SHIFT) | (AICORE_FUNC_STOP | AICORE_FIN_MASK);
         DEV_IF_DEVICE {
-            if ((curCoreStatus == CORE_SEND_STOP) && (aicoreHal_.GetFinishedTask(coreIdx) == waitAckStopVal)) {
+            if ((curCoreStatus == AicoreStatus::CORE_SEND_STOP) && (aicoreHal_.GetFinishedTask(coreIdx) == waitAckStopVal)) {
                 if (!dyntask->IsLastTask()) {
                     /* With the previous DevTask verified as stopped, the next DevTask can be sent early,
                     bypassing the delay for its control flow response. */
@@ -534,7 +534,7 @@ private:
                     DEV_DEBUG("Last devtask ,core %d send AICORE_TASK_STOP.", coreIdx);
                     NormalStopSingleCore(coreIdx);
                 }
-                return CORE_FINISH_STOP;
+                return AicoreStatus::CORE_FINISH_STOP;
             }
         }
 
@@ -546,14 +546,14 @@ private:
                        as it may result in the nextDevTask being stopped. */
                     aicoreHal_.SetReadyQueue(coreIdx, AICORE_FUNC_STOP + 1);
                     DEV_DEBUG("core %d send AICORE_FUNC_STOP.", coreIdx);
-                    return CORE_SEND_STOP;
+                    return AicoreStatus::CORE_SEND_STOP;
                 } else {
                     DEV_DEBUG("Last devtask ,core %d send AICORE_TASK_STOP.", coreIdx);
                     NormalStopSingleCore(coreIdx);
-                    return CORE_FINISH_STOP;
+                    return AicoreStatus::CORE_FINISH_STOP;
                 }
             } else {
-                return CORE_FINISH_STOP;
+                return AicoreStatus::CORE_FINISH_STOP;
             }
         }
 
@@ -564,7 +564,7 @@ private:
     inline int SyncAicoreDevTaskFinish() {
         int stopNum = 0;
         int mngCoreNum = aicEnd_ - aicStart_ + aivEnd_ - aivStart_;
-        AicoreStatus coreStatus[MAX_AICORE_NUM] = {CORE_TASK_WAIT_FINISH};
+        AicoreStatus coreStatus[MAX_AICORE_NUM] = {AicoreStatus::CORE_TASK_WAIT_FINISH};
         bool aicAllStop = false;
         bool aivAllStop = false;
 
@@ -574,12 +574,12 @@ private:
             bool curIterAicAllStop = true;
             bool curIterAivAllStop = true;
             for (int i = aicStart_; (!aicAllStop) && i < aicEnd_; i++) {
-                if (coreStatus[i] == CORE_FINISH_STOP) {
+                if (coreStatus[i] == AicoreStatus::CORE_FINISH_STOP) {
                     continue;
                 }
 
                 coreStatus[i] = AicoreDevTaskFinishProc(i, coreStatus[i]);
-                if (coreStatus[i] == CORE_FINISH_STOP) {
+                if (coreStatus[i] == AicoreStatus::CORE_FINISH_STOP) {
                     stopNum++;
                 } else {
                     curIterAicAllStop = false;
@@ -588,12 +588,12 @@ private:
             aicAllStop = curIterAicAllStop;
 
             for (int i = aivStart_; (!aivAllStop) && i < aivEnd_; i++) {
-                if (coreStatus[i] == CORE_FINISH_STOP) {
+                if (coreStatus[i] == AicoreStatus::CORE_FINISH_STOP) {
                     continue;
                 }
 
                 coreStatus[i] = AicoreDevTaskFinishProc(i, coreStatus[i]);
-                if (coreStatus[i] == CORE_FINISH_STOP) {
+                if (coreStatus[i] == AicoreStatus::CORE_FINISH_STOP) {
                     stopNum++;
                 } else {
                     curIterAivAllStop = false;

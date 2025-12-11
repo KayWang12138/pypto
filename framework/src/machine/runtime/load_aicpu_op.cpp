@@ -42,6 +42,8 @@ namespace {
 
 namespace npu::tile_fwk {
 
+constexpr int DUMP_LEVEL_FOUR = 4;
+
 void LoadAicpuOp::GenBuiltInOpInfo(const std::string &jsonPath) {
     Json builtInOp;
     AicpuOpConfig pyptoInit;
@@ -60,9 +62,9 @@ void LoadAicpuOp::GenBuiltInOpInfo(const std::string &jsonPath) {
     pyptoNull.functionName = BuiltInKernelNullName;
 
     GenAicpuOpInfoJson(builtInOp, {pyptoInit, pyptoRun, pyptoNull});
-    builtInOp.dump(4);
+    builtInOp.dump(DUMP_LEVEL_FOUR);
     builtInOpJsonPath_ = jsonPath + "/pypto_op_info.json";
-    if (!DumpFile(builtInOp.dump(4), builtInOpJsonPath_)) {
+    if (!DumpFile(builtInOp.dump(DUMP_LEVEL_FOUR), builtInOpJsonPath_)) {
         ALOG_ERROR_F("Contrust custom op json failed");
         return;
     }

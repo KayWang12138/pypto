@@ -69,7 +69,7 @@ struct AOTBinary {
         auto &pool = AOTCodePool::GetCodePool();
         PerfBegin(PERF_EVT_CONTROL_FLOW_MAPEXE_MEMCPY);
         memcpy_s(reinterpret_cast<void *>(pool.base), size, data, size);
-        __builtin___clear_cache(reinterpret_cast<void *>(pool.base), reinterpret_cast<uint8_t *>(pool.base) + size);
+        __builtin___clear_cache(reinterpret_cast<char *>(pool.base), reinterpret_cast<char *>(pool.base) + size);
         PerfEnd(PERF_EVT_CONTROL_FLOW_MAPEXE_MEMCPY);
         code_ = reinterpret_cast<unsigned char *>(pool.base);
         size_ = size;
@@ -85,7 +85,7 @@ struct AOTBinary {
 struct DeviceExecuteContext;
 
 struct AOTBinaryControlFlow : AOTBinary {
-    typedef void (*controlFlowEntry)(
+    using controlFlowEntry = void (*)(
             struct DeviceExecuteContext *ctx, uint64_t *symbolTable, CallRootEntryType callRootList[T_CALLROOT_MAX], DevStartArgsBase *startArgsBase);
 
     AOTBinaryControlFlow() = default;
@@ -98,7 +98,7 @@ struct AOTBinaryControlFlow : AOTBinary {
 
     AOTBinaryControlFlow(const void *code, uint64_t codeSize, controlFlowEntry entry = nullptr) {
         if (entry != nullptr) {
-            InitCode((void *)entry);
+            InitCode(reinterpret_cast<void *>(entry));
         } else {
             InitCodeSize(code, codeSize);
         }
@@ -106,7 +106,7 @@ struct AOTBinaryControlFlow : AOTBinary {
 
     void CallControlFlow(
             struct DeviceExecuteContext *ctx, uint64_t *symbolTable, CallRootEntryType callRootList[T_CALLROOT_MAX], DevStartArgsBase *startArgsBase) {
-        ((controlFlowEntry)code_)(ctx, symbolTable, callRootList, startArgsBase);
+        (reinterpret_cast<controlFlowEntry>(code_))(ctx, symbolTable, callRootList, startArgsBase);
     }
 };
 
@@ -119,7 +119,7 @@ struct AOTBinaryExpressionTable : AOTBinary {
     }
 
     uint64_t CallExpr(struct DeviceExecuteContext *ctx, uint64_t *symbolTable, uint64_t index) {
-        return ((exprEntry)(code_ + offsetList[index]))(ctx, symbolTable);
+        return (reinterpret_cast<exprEntry>(code_ + offsetList[index]))(ctx, symbolTable);
     }
 
     const uint64_t *offsetList{nullptr};

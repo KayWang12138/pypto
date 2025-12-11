@@ -21,6 +21,10 @@
 #define ENABLE_STITCH 1
 
 namespace npu::tile_fwk::dynamic {
+const int SKIP_EMPTY = -2;
+const int INVALID_TOO_AHEAD = -1;
+const int NO_DEP = 0;
+const int NEEDS_DEP = 1;
 using StitchedList = Vector<DevAscendFunctionDupped, WsMemCategory::VECTOR_STITCHED_LIST, DeviceWorkspaceAllocator>;
 struct DeviceStitchContext {
     struct StitchReuseContext {

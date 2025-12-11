@@ -415,8 +415,6 @@ void DeviceStitchContext::ReuseStitch(DevAscendFunctionDupped &nextDup, size_t d
         return;
     }
 
-    enum { SKIP_EMPTY = -2, INVALID_TOO_AHEAD = -1, NO_DEP = 0, NEEDS_DEP = 1 };
-
     auto needsDependency = [&](uint32_t prevIdx) -> int {
         if (prevIdx >= devNextIdx) {
             // invalid idx
