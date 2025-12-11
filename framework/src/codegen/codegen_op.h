@@ -147,6 +147,9 @@ private:
     void UpdateScalarValue(const npu::tile_fwk::Operation &ops);
     void UpdateOpAttribute(const npu::tile_fwk::Operation &ops);
     void CombineAxis(const Operation &oper, int operandIdx, bool isInput, size_t ioIdx);
+    std::string PrintSyncComm() const;
+    std::string PrintSyncSetTileTensor() const;
+    std::string PrintSyncWaitTileTensor() const;
 };
 } // namespace npu::tile_fwk
 

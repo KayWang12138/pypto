@@ -297,8 +297,8 @@ OpcodeManager::OpcodeManager() {
     registerInfo(Opcode::OP_VST, OpCoreType::ANY, "VST", {}, {}, {}, OpCalcType::MOVE_IN);
 
     // sync need check
-    registerInfo(Opcode::OP_SYNC_SRC, OpCoreType::ANY, "SYNC_SRC", {}, {}, {"SYNC_SRC", PIPE_S, PIPE_S, CoreType::AIC}, OpCalcType::SYNC);
-    registerInfo(Opcode::OP_SYNC_DST, OpCoreType::ANY, "SYNC_DST", {}, {}, {"SYNC_DST", PIPE_S, PIPE_S, CoreType::AIC}, OpCalcType::SYNC);
+    registerInfo(Opcode::OP_SYNC_SRC, OpCoreType::ANY, "SYNC_SRC", {}, {}, {"set_flag", PIPE_S, PIPE_S, CoreType::AIC}, OpCalcType::SYNC);
+    registerInfo(Opcode::OP_SYNC_DST, OpCoreType::ANY, "SYNC_DST", {}, {}, {"wait_flag", PIPE_S, PIPE_S, CoreType::AIC}, OpCalcType::SYNC);
     registerInfo(Opcode::OP_CV_SYNC_SRC, OpCoreType::ANY, "CV_SYNC_SRC", {}, {}, {"CV_SYNC_SRC", PIPE_S, PIPE_S, CoreType::AIC}, OpCalcType::SYNC);
     registerInfo(Opcode::OP_CV_SYNC_DST, OpCoreType::ANY, "CV_SYNC_DST", {}, {}, {"CV_SYNC_DST", PIPE_S, PIPE_S, CoreType::AIC}, OpCalcType::SYNC);
     registerInfo(Opcode::OP_PHASE1, OpCoreType::ANY, "PHASE1", {}, {}, {"PHASE1", PIPE_S, PIPE_S, CoreType::AIC}, OpCalcType::SYNC);
@@ -467,5 +467,7 @@ OpcodeManager::OpcodeManager() {
         {            Opcode::OP_PAIRMAX,       "TPairMax"},
         {            Opcode::OP_PAIRMIN,       "TPairMin"},
         {        Opcode::OP_L0C_COPY_UB,       "TExtract"},
+        {           Opcode::OP_SYNC_SRC,  "__pto_set_flag"},
+        {           Opcode::OP_SYNC_DST, "__pto_wait_flag"},
     };
 } // namespace npu::tile_fwk
