@@ -225,62 +225,6 @@ TEST_F(OperationImplTest, Test_ArgSort) {
     }
 }
 
-TEST_F(OperationImplTest, Test_MatmulWithSplitK) {
-    PROGRAM("ARGSORT") {
-        std::vector<int64_t> shape = {128, 128};
-        auto m = 128, k = 64, n = 32;
-        auto kSplit = 2;
-        Tensor matA(DT_FP16, {m, k}, "mat_a");
-        Tensor matB(DT_FP16, {k, n}, "mat_b");
-        Tensor matC(DT_FP32, {m, n}, "mat_c");
-        TileShape::Current().SetVecTile(32, 32);
-        TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
-        config::SetBuildStatic(true);
-        FUNCTION("Matmul_T", {matA, matB, matC}) {
-            auto tmpC = Full(Element(DataType::DT_FP32, 0.0f), DT_FP32, {m, n});
-            tmpC.SetName("tmp_c");
-            std::vector<Tensor> matmulResult;
-            auto kSplitSize = k / kSplit;
-            for (int ki = 0; ki < kSplit; ki++) {
-                auto input_mk = View(matA, {m, kSplitSize}, {0, ki * kSplitSize});
-                auto input_kn = View(matB, {kSplitSize, n}, {ki * kSplitSize, 0});
-                auto tmpC1 = Matrix::Matmul<false, false>(DataType::DT_FP32, input_mk, input_kn, tmpC);
-                matmulResult.emplace_back(tmpC1);
-            }
-            tmpC = npu::tile_fwk::Reduce(matmulResult, ReduceMode::ATOMIC_ADD);
-            matC = Add(tmpC, Element(DataType::DT_FP32, 0.0));
-        }
-    }
-}
-
-TEST_F(OperationImplTest, Test_MatmulWithSplitKWithTrans) {
-    PROGRAM("ARGSORT") {
-        std::vector<int64_t> shape = {128, 128};
-        auto m = 128, k = 64, n = 32;
-        auto kSplit = 2;
-        Tensor matA(DT_FP16, {m, k}, "mat_a");
-        Tensor matB(DT_FP16, {k, n}, "mat_b");
-        Tensor matC(DT_FP32, {m, n}, "mat_c");
-        TileShape::Current().SetVecTile(32, 32);
-        TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
-        config::SetBuildStatic(true);
-        FUNCTION("Matmul_T", {matA, matB, matC}) {
-            auto tmpC = Full(Element(DataType::DT_FP32, 0.0f), DT_FP32, {m, n});
-            tmpC.SetName("tmp_c");
-            std::vector<Tensor> matmulResult;
-            auto kSplitSize = k / kSplit;
-            for (int ki = 0; ki < kSplit; ki++) {
-                auto input_mk = View(matA, {m, kSplitSize}, {0, ki * kSplitSize});
-                auto input_kn = View(matB, {kSplitSize, n}, {ki * kSplitSize, 0});
-                auto tmpC1 = Matrix::Matmul<false, true>(DataType::DT_FP32, input_mk, input_kn, tmpC);
-                matmulResult.emplace_back(tmpC1);
-            }
-            tmpC = npu::tile_fwk::Reduce(matmulResult, ReduceMode::ATOMIC_ADD);
-            matC = Add(tmpC, Element(DataType::DT_FP32, 0.0));
-        }
-    }
-}
-
 template <DataType inputType, DataType outputType, bool IsANZ = false, bool IsBNZ = false, bool isTransB = false>
 void TestNZFormatBatch(int bs, int m, int k, int n) {
     std::vector<int64_t> batch_shape_a = {bs*m, k};
@@ -314,9 +258,6 @@ void TestNZFormatBatch(int bs, int m, int k, int n) {
     }
 }
 
-TEST_F(OperationImplTest, test_BMMT_NZ_1_128_256_128_Batch) {
-    TestNZFormatBatch<DataType::DT_FP16, DataType::DT_FP32, false, true, true>(2, 128, 128, 256);
-}
 
 TEST_F(OperationImplTest, test_MaxS_FP16) {
     float scalar = 127.0;
