@@ -107,9 +107,9 @@ TEST_F(DuplicateViewTest, TestThreeConsumersAfterView) {
     PrintGraphInfoDuplicateView(func);
     // ================== Verify the effect of the Pass ==================
     auto updated_operations = func->Operations();
-    int opSize = 10;
+    int opSize = 9;
 
-    EXPECT_EQ(updated_operations.size(), opSize) << "After the Pass, there should be 10 operations, two new VIEW be genearted";
+    EXPECT_EQ(updated_operations.size(), opSize) << "After the Pass, there should be 9 operations, two new VIEW be genearted";
     EXPECT_EQ(updated_operations[0].GetOpcode(), Opcode::OP_VIEW) << "The first operation should be VIEW";
     EXPECT_EQ(updated_operations[1].GetOpcode(), Opcode::OP_VIEW) << "The second operation should be newly generated VIEW";
     EXPECT_EQ(updated_operations[2].GetOpcode(), Opcode::OP_VIEW) << "The first operation should be newly generated VIEW";

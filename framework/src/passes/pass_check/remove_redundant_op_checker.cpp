@@ -23,7 +23,7 @@ namespace tile_fwk {
 Status RemoveRedundantOpChecker::PreCheckAssemble(const Operation &op, const LogicalTensorPtr &in) {
     uint32_t assembleRemoveNum = 0;
     uint32_t otherOpNum = 0;
-    for (auto &childOp : in->GetConsumers()) {
+    for (const auto &childOp : in->GetConsumers()) {
         if (childOp->GetOpcode() != Opcode::OP_ASSEMBLE) {
             ++otherOpNum;
             continue;
@@ -152,7 +152,7 @@ Status RemoveRedundantOpChecker::PostCheckCopyIn(const Operation &op) {
     auto copy_out = op.oOperand.front();
     if (copy_in->shape == copy_out->shape && copy_out->GetMemoryTypeOriginal() == npu::tile_fwk::MEM_L1) {
         bool isRedundant = true;
-        for (auto &producerOp : op.ProducerOps()) {
+        for (const auto &producerOp : op.ProducerOps()) {
             if (producerOp == nullptr) {
                 APASS_LOG_ERROR_F(Elements::Operation, 
                 "Found null producer of op[%d]; Please check the producers of op[%d].%s", op.GetOpMagic(), op.GetOpMagic(), GetFormatBacktrace(op).c_str());
@@ -233,7 +233,7 @@ Status RemoveRedundantOpChecker::DoPreCheck(Function &function) {
         APASS_LOG_ERROR_F(Elements::Function, "Found invalid input/output from the function.");
         return FAILED;
     }
-    for (auto &op : function.Operations()) {
+    for (const auto &op : function.Operations()) {
         if (ProcessPreCheck(function, op) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "PreCheck for RemoveRedundantOp failed.%s", GetFormatBacktrace(op).c_str());
             return FAILED;
@@ -248,7 +248,7 @@ Status RemoveRedundantOpChecker::DoPostCheck(Function &function) {
         APASS_LOG_ERROR_F(Elements::Function, "Found invalid input or output in the function.");
         return FAILED;
     }
-    for (auto &op : function.Operations()) {
+    for (const auto &op : function.Operations()) {
         if (ProcessPostCheck(op) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "PostCheck for RemoveRedundantOp failed.%s", GetFormatBacktrace(op).c_str());
             return FAILED;

@@ -361,6 +361,13 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest7) {
     EXPECT_EQ(regcopy_num, kNumOne);
 }
 
+/*
+RemoveRedundantOpUTest8(Error)
+inCast{8,4}->exp->ubTensor1{8,4}->view->outCast1{8,4}->exp->outCast5{8,4}
+                                ->exp->ubTensor2{8,4}->view->ubtensor3{8,4}->exp->outCast2{8,4}
+                                                                        ->RECIPROCAL->outCast3{8,4}
+                                                                        ->sqrt->outCast4{8,4}     
+*/                                                                     
 TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest8) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestRemoveRedundantOp", "TestRemoveRedundantOp", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);

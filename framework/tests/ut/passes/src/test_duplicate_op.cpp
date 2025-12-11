@@ -207,7 +207,7 @@ TEST_F(TestDuplicateOpPass, DuplicateViewUTest3) {
             ++viewNum;
         }
     }
-    EXPECT_EQ(viewNum, kNumSix);
+    EXPECT_EQ(viewNum, kNumFour);
     EXPECT_EQ(div1.GetInputOperandSize(), kNumTwo);
     EXPECT_EQ(div2.GetInputOperandSize(), kNumTwo);
     EXPECT_EQ(div3.GetInputOperandSize(), kNumTwo);
@@ -680,8 +680,8 @@ TEST_F(TestDuplicateOpPass, DuplicateViewGatherInUTest2) {
             ++viewNum;
         }
     }
-    EXPECT_EQ(gatherinNum, kNumFive);
-    EXPECT_EQ(viewNum, KNumThree);
+    EXPECT_EQ(gatherinNum, kNumFour);
+    EXPECT_EQ(viewNum, kNumTwo);
 }
 
 /*
@@ -733,8 +733,8 @@ TEST_F(TestDuplicateOpPass, DuplicateViewGatherInUTest3) {
             ++gatherinNum;
         }
     }
-    EXPECT_EQ(viewNum, kNumSeven);
-    EXPECT_EQ(gatherinNum, KNumThree);
+    EXPECT_EQ(viewNum, kNumFour);
+    EXPECT_EQ(gatherinNum, kNumTwo);
 }
 }
 }

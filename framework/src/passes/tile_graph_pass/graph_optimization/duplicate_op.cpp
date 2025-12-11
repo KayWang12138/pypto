@@ -14,7 +14,7 @@
  */
 
 #include "duplicate_op.h"
-
+#include "passes/pass_utils/dead_operation_eliminate.h"
 #include "interface/function/function.h"
 #include "interface/tensor/logical_tensor.h"
 #include "passes/pass_log/pass_log.h"
@@ -24,18 +24,18 @@
 namespace npu::tile_fwk {
 Status DuplicateOp::RunOnFunction(Function &function) {
     APASS_LOG_INFO_F(Elements::Function,
-    "===> Start DuplicateOp for function [%s].", function.GetRawName().c_str());
+    "===> Start %s for function [%s].", MODULE_NAME, function.GetRawName().c_str());
     if (Process(function) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Function, "Process failed.");
         return FAILED;
     }
     APASS_LOG_INFO_F(Elements::Function,
-    "===> End DuplicateOp for function [%s].", function.GetRawName().c_str());
+    "===> End %s for function [%s].", MODULE_NAME, function.GetRawName().c_str());
     return SUCCESS;
 }
 
 Status DuplicateOp::ProcessGatherIn(Function &function, Operation &operation) const {
-    for (auto &oOperand : operation.GetOOperands()) {
+    for (const auto &oOperand : operation.GetOOperands()) {
         if (oOperand == nullptr) {
             APASS_LOG_ERROR_F(Elements::Operation,
             "%s[%d]'s oOperand cannot be nullptr; Please check if the oOperand of %s[%d] is nullptr.%s",
@@ -82,7 +82,7 @@ Status DuplicateOp::ProcessView(Function &function, Operation &operation) const 
         return SUCCESS;
     }
     auto iOperand = operation.iOperand[0];
-    for (auto &oOperand : operation.oOperand) {
+    for (const auto &oOperand : operation.oOperand) {
         if (oOperand == nullptr) {
             APASS_LOG_ERROR_F(Elements::Operation, "Null output operand detected while iterating over the output operands of the operation [%d].%s",
             operation.opmagic, GetFormatBacktrace(operation).c_str());
@@ -143,7 +143,7 @@ Status DuplicateOp::ProcessOp(Function &function, Operation &operation) const {
 Status DuplicateOp::Process(Function &function) const {
     std::stack<Operation *> stack;
     std::unordered_set<Operation *> visited;
-    for (auto &outcast : function.GetOutcast()) {
+    for (const auto &outcast : function.GetOutcast()) {
         for (auto op : outcast->GetProducers()) {
             stack.push(op);
         }
@@ -165,6 +165,8 @@ Status DuplicateOp::Process(Function &function) const {
             }
         }
     }
+    DeadOperationEliminator eliminator;
+    eliminator.EliminateDeadOperationBackward(function);
     return SUCCESS;
 }
 } // namespace npu::tile_fwk

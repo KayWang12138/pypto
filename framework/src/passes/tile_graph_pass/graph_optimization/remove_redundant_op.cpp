@@ -55,14 +55,14 @@ bool EqualShapeInOut(const Operation &op) {
 
 bool AllValidProdView(const Operation &op, const Function &function) {
     bool allProdView = true;
-    for (auto &prod : function.FindProducers(op)) {
+    for (const auto &prod : function.FindProducers(op)) {
         if (prod->GetOpcode() != Opcode::OP_VIEW) {
             allProdView = false;
         }
     }
     if (allProdView) {
         allProdView = false;
-        for (auto &prod : function.FindProducers(op)) {
+        for (const auto &prod : function.FindProducers(op)) {
             auto in = prod->iOperand.front();
             auto out = prod->oOperand.front();
             // 只要存在无法被删除的就表明allprodview为true(标记为无法删除)
@@ -368,7 +368,7 @@ Status RemoveRedundantOp::RemoveViewAssemble(Function &function) const {
         auto inputMemtype = startTensor->GetMemoryTypeOriginal();
         auto consumers = function.FindConsumers(op);
         //获取view级联的assemble消费者
-        for (auto &consumer : consumers) {
+        for (const auto &consumer : consumers) {
             if (consumer->GetOpcode() != Opcode::OP_ASSEMBLE) {
                 //跳过不是assemble的消费者
                 continue;

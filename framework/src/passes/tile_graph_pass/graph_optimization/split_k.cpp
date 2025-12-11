@@ -27,7 +27,7 @@ Status SplitK::PreCheck(Function &function) {
         APASS_LOG_ERROR_F(Elements::Function, "Loopcheck failed before PreGraph; Please check if there is a Loop.");
         return FAILED;
     }
-    for (auto &op : function.Operations()) {
+    for (const auto &op : function.Operations()) {
         if (op.GetOpcode() == Opcode::OP_A_MUL_B && op.GetOpcode() == Opcode::OP_A_MULACC_B) {
             // L0C tensor 有且只有一个非空consumer op
             if (op.GetOOperands().size() != 1) {
@@ -56,14 +56,14 @@ Status SplitK::PreCheck(Function &function) {
                 return FAILED;
             }
             // Reduce Acc 的输入和输出必须都是DDR类型
-            for (auto &in : op.GetIOperands()) {
+            for (const auto &in : op.GetIOperands()) {
                 if (in->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
                     APASS_LOG_ERROR_F(Elements::Operation, "Op[%d] has non-DDR input tenosr[%d]; Please check the memory type of the input tensor.%s", 
                     op.GetOpMagic(), in->magic, GetFormatBacktrace(op).c_str());
                     return FAILED;
                 }
             }
-            for (auto &out : op.GetOOperands()) {
+            for (const auto &out : op.GetOOperands()) {
                 if (out->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
                     APASS_LOG_ERROR_F(Elements::Operation, "Op[%d] has non-DDR output tenosr[%d]; Please check the memory type of the output tensor.%s", 
                     op.GetOpMagic(), out->magic, GetFormatBacktrace(op).c_str());
@@ -117,7 +117,7 @@ Status SplitK::EliminateReduceAcc(Function &function) {
             auto reduceOut = op.GetOOperands().front();
             reduceOut->GetProducers().clear();
 
-            for (auto &input : op.GetIOperands()) {
+            for (const auto &input : op.GetIOperands()) {
                 auto producersBackup = input->GetProducers();
                 for (auto &produceCopyOutOp : producersBackup) {
                     produceCopyOutOp->ReplaceOOperand(0, reduceOut);
