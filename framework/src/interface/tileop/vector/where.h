@@ -115,9 +115,9 @@ TILEOP void TWhere(
                     }
 
                     using TileDefine =
-                        pto::Tile<pto::Location::Vec, typename TDst::Type, 1, tileW, pto::BLayout::RowMajor, -1, -1>;
+                        pto::Tile<pto::TileType::Vec, typename TDst::Type, 1, tileW, pto::BLayout::RowMajor, -1, -1>;
                     using TileDefine1 =
-                        pto::Tile<pto::Location::Vec, typename TCond::Type, 1, conditionTileW, pto::BLayout::RowMajor, -1, -1>;
+                        pto::Tile<pto::TileType::Vec, typename TCond::Type, 1, conditionTileW, pto::BLayout::RowMajor, -1, -1>;
                     TileDefine dstTile(1, shape4), src0Tile(1, shape4), src1Tile(1, shape4);
                     TileDefine1 conditionTile(1, conditionShape);
                     auto offset = n0Index * stride0 + n1Index * stride1 + n2Index * stride2 + n3Index * stride3;

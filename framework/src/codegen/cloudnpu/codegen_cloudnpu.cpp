@@ -461,6 +461,18 @@ std::string CodeGenCloudNPU::GetIncludePathForCompileCCE() const {
     return "";
 }
 
+std::string CodeGenCloudNPU::GetPtoTileLibPathByEnv() const {
+    const char *homePath = std::getenv(ENV_ASCEND_HOME_PATH.c_str());
+    if (homePath == nullptr) {
+        return "";
+    }
+    std::string includePath = std::string(homePath) + "/include";
+    if (IsPathExist(includePath)) {
+        return includePath;
+    }
+    return "";
+}
+
 std::string CodeGenCloudNPU::BuildCompileOptions(
     const CompileInfo &compileInfo, const std::string &compileOptions) const {
     const std::string corePredefine = compileInfo.IsCube() ? "-D__AIC__" : "-D__AIV__";
@@ -471,6 +483,7 @@ std::string CodeGenCloudNPU::BuildCompileOptions(
     }
     // NEXTNEXT: need to adapt different platform for future
     compileOpts.emplace_back("-D__DAV_V220");
+    compileOpts.emplace_back("-DMEMORY_BASE");
     std::string allCompileOpts = JoinString(compileOpts, " ");
     return allCompileOpts;
 }
@@ -481,9 +494,12 @@ void CodeGenCloudNPU::BuildIncludes(std::ostringstream &oss) const {
     oss << "-I" << includePath << "/tilefwk "
         << "-I" << includePath << "/tileop "
         << "-I" << includePath << "/tileop/a2a3 "
-        << "-I" << includePath << "/tileop/PTOTileLib/include "
-        << "-I" << includePath << "/tileop/PTOTileLib/include/common "
         << "-I" << includePath << " ";
+
+    std::string ptoTileLibPath = GetPtoTileLibPathByEnv();
+    if (!ptoTileLibPath.empty()) {
+        oss << "-I" << ptoTileLibPath << " ";
+    }
 }
 
 void CodeGenCloudNPU::BuildLLVMParams(std::ostringstream &oss) const {

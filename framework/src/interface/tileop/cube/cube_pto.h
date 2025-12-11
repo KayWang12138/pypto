@@ -93,7 +93,7 @@ INLINE void TLoadND2NZ(T &dst, U &src, const int64_t &offset0, const int64_t &of
     globalData src0Global((__gm__ typename U::Type *)(src.GetAddr() + gmOffset),
                           pto::Shape<1, 1, 1, -1, -1>(staticL1H, staticL1W),
                           pto::Stride<1, 1, 1, -1, -1>(srcStride0, srcStride1));
-    using tileData = pto::Tile<pto::Location::Mat, typename T::Type, staticL1H, staticL1W, pto::BLayout::ColMajor, -1,
+    using tileData = pto::Tile<pto::TileType::Mat, typename T::Type, staticL1H, staticL1W, pto::BLayout::ColMajor, -1,
                                -1, SLayout::RowMajor>;
     tileData dstL1(dstShape0, dstShape1);
     pto::TASSIGN(dstL1, (uint64_t)dst.GetAddr());
@@ -122,7 +122,7 @@ INLINE void TLoadNZ2NZ(T &dst, U &src, const int64_t &offset0, const int64_t &of
         (__gm__ typename U::Type *)(src.GetAddr() + gmOffset),
         pto::Shape<1, -1, -1, c0Size, c0Size>(staticL1W / c0Size, staticL1H / c0Size),
         pto::Stride<-1, -1, -1, c0Size, 1>(srcShape0 * srcShape1, srcShape0 * c0Size, c0Size * c0Size));
-    using tileData = pto::Tile<pto::Location::Mat, typename T::Type, staticL1H, staticL1W, pto::BLayout::ColMajor, -1,
+    using tileData = pto::Tile<pto::TileType::Mat, typename T::Type, staticL1H, staticL1W, pto::BLayout::ColMajor, -1,
                                -1, SLayout::RowMajor>;
     tileData dstL1(dstShape0, dstShape1);
     pto::TASSIGN(dstL1, (uint64_t)dst.GetAddr());
@@ -150,7 +150,7 @@ INLINE void TLoadND2ND(T &dst, U &src, const int64_t &offset0, const int64_t &of
                           pto::Shape<1, 1, 1, -1, -1>(staticL1H, staticL1W),
                           pto::Stride<1, 1, 1, -1, -1>(srcStride0, srcStride1));
     using tileData =
-        pto::Tile<pto::Location::Mat, typename T::Type, staticL1H, staticL1W, pto::BLayout::RowMajor, -1, -1>;
+        pto::Tile<pto::TileType::Mat, typename T::Type, staticL1H, staticL1W, pto::BLayout::RowMajor, -1, -1>;
     tileData dstL1(dstShape0, dstShape1);
     pto::TASSIGN(dstL1, (uint64_t)dst.GetAddr());
     pto::TLOAD(dstL1, src0Global);
@@ -172,7 +172,7 @@ TILEOP void TExtract(T &dst, U &src, const Coord &coord)
         constexpr auto staticL0H = Std::tuple_element<shapeSize - SHAPE_DIM2, typename T::TileShape>::type::value;
         constexpr auto staticL0W = Std::tuple_element<shapeSize - 1, typename T::TileShape>::type::value;
         using tileL1Tensor =
-            pto::Tile<pto::Location::Mat, typename U::Type, isTrans ? staticL1W : staticL1H,
+            pto::Tile<pto::TileType::Mat, typename U::Type, isTrans ? staticL1W : staticL1H,
                       isTrans ? staticL1H : staticL1W, isTrans ? pto::BLayout::RowMajor : pto::BLayout::ColMajor,
                       isTrans ? staticL1W : staticL1H, isTrans ? staticL1H : staticL1W,
                       isTrans ? pto::SLayout::ColMajor : pto::SLayout::RowMajor>;
@@ -190,8 +190,8 @@ TILEOP void TExtract(T &dst, U &src, const Coord &coord)
     if constexpr ((T::FORMAT == Hardware::BIAS || T::FORMAT == Hardware::FIXBUF) && U::FORMAT == Hardware::L1) {
         constexpr auto staticL0BW = Std::tuple_element<shapeSize - 1, typename U::TileShape>::type::value;
         using tileL1Tensor =
-            pto::Tile<pto::Location::Mat, typename T::Type, 1, staticL0BW, pto::BLayout::RowMajor, 1, staticL0BW>;
-        using tileBiasOrFbTensor = pto::Tile<T::FORMAT == Hardware::BIAS ? Location::Bias : Location::Scaling,
+            pto::Tile<pto::TileType::Mat, typename T::Type, 1, staticL0BW, pto::BLayout::RowMajor, 1, staticL0BW>;
+        using tileBiasOrFbTensor = pto::Tile<T::FORMAT == Hardware::BIAS ? TileType::Bias : TileType::Scaling,
                                              typename T::Type, 1, staticL0BW, BLayout::RowMajor, 1, staticL0BW>;
         tileL1Tensor l1Tensor;
         tileBiasOrFbTensor biasOrFbTensor;
@@ -218,7 +218,7 @@ TILEOP void TExtract(T &dst, U &src, const Coord &coord, int16_t subblockId)
         int64_t srcShape1 = GetShape<1>(src);
         int64_t l0cOffset = CalNZOffset(srcShape0, srcShape1, offset0, offset1, c0Size);
         using tileUBTensor =
-            pto::Tile<pto::Location::Vec, typename T::Type, staticUBH, staticUBW, pto::BLayout::RowMajor, staticUBH,
+            pto::Tile<pto::TileType::Vec, typename T::Type, staticUBH, staticUBW, pto::BLayout::RowMajor, staticUBH,
                       staticUBW, enableNZ2ND ? pto::SLayout::NoneBox : pto::SLayout::ColMajor>;
         using tileL0CTensor = pto::TileAcc<typename U::Type, staticL0CH, staticL0CW>;
         tileUBTensor UBTile;
@@ -288,7 +288,7 @@ TILEOP void Matmul(T0 &c, T1 &a, T2 &b, T3 &bias)
     using tileL0BTensor = pto::TileRight<typename T2::Type, staticL0BH, staticL0BW>;
     using tileL0CTensor = pto::TileAcc<typename T0::Type, staticL0CH, staticL0CW>;
     using tileBiasTensor =
-        pto::Tile<Location::Bias, typename T3::Type, 1, staticL0BW, BLayout::RowMajor, 1, staticL0BW>;
+        pto::Tile<TileType::Bias, typename T3::Type, 1, staticL0BW, BLayout::RowMajor, 1, staticL0BW>;
 
     tileL0ATensor l0a;
     tileL0BTensor l0b;
@@ -323,7 +323,7 @@ INLINE void TStoreNZ2ND(T &dst, U &src, const int64_t &offset0, const int64_t &o
     globalData dstGlobal((__gm__ typename T::Type *)(dst.GetAddr() + gmOffset),
                          pto::Shape<1, 1, 1, -1, -1>(srcShape0, srcShape1),
                          pto::Stride<1, 1, 1, -1, -1>(dstStride0, dstStride1));
-    using tileData = pto::Tile<pto::Location::Acc, typename U::Type, tileH, tileW, pto::BLayout::ColMajor, -1, -1,
+    using tileData = pto::Tile<pto::TileType::Acc, typename U::Type, tileH, tileW, pto::BLayout::ColMajor, -1, -1,
                                SLayout::RowMajor>;
     tileData srcL0C(srcShape0, srcShape1);
     pto::TASSIGN(srcL0C, (uint64_t)src.GetAddr());
@@ -354,7 +354,7 @@ INLINE void TStoreNZ2NZ(T &dst, U &src, const int64_t &offset0, const int64_t &o
         (__gm__ typename T::Type *)(dst.GetAddr() + gmOffset),
         pto::Shape<1, -1, -1, c0Size, c0Size>(dstShape1 / c0Size, dstShape0 / c0Size),
         pto::Stride<-1, -1, -1, c0Size, 1>(dstShape0 * dstShape1, dstShape0 * c0Size, c0Size * c0Size));
-    using tileData = pto::Tile<pto::Location::Acc, typename U::Type, tileH, tileW, pto::BLayout::ColMajor, -1, -1,
+    using tileData = pto::Tile<pto::TileType::Acc, typename U::Type, tileH, tileW, pto::BLayout::ColMajor, -1, -1,
                                SLayout::RowMajor>;
     tileData srcL0C(srcShape0, srcShape1);
     pto::TASSIGN(srcL0C, (uint64_t)src.GetAddr());

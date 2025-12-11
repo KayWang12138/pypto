@@ -149,6 +149,7 @@ private:
     bool isUnderDynamicFunction_{false};
 
     std::string GetIncludePathForCompileCCE() const;
+    std::string GetPtoTileLibPathByEnv() const;
 };
 
 } // namespace npu::tile_fwk

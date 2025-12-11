@@ -53,7 +53,7 @@ TILEOP void BinaryCompute(T0 dst, T1 src0, T2 src1) {
         constexpr auto tileH = TileOp::GetOutterAxisMergeResult<shapeSize, typename T0::TileShape>();
         constexpr auto tileW = Std::tuple_element<shapeSize - 1, typename T0::TileShape>::type::value;
         using TileDefine =
-            pto::Tile<pto::Location::Vec, typename T0::Type, tileH, tileW, pto::BLayout::RowMajor, tileH, tileW>;
+            pto::Tile<pto::TileType::Vec, typename T0::Type, tileH, tileW, pto::BLayout::RowMajor, tileH, tileW>;
         TileDefine dstTile, src0Tile, src1Tile;
         pto::TASSIGN(dstTile, (uint64_t)dst.GetAddr());
         pto::TASSIGN(src0Tile, (uint64_t)src0.GetAddr());
@@ -80,7 +80,7 @@ TILEOP void BinaryCompute(T0 dst, T1 src0, T2 src1) {
         for (size_t n1Index = 0; n1Index < shape1; ++n1Index) {
             for (size_t n2Index = 0; n2Index < shape2; ++n2Index) {
                 using TileDefine =
-                    pto::Tile<pto::Location::Vec, typename T0::Type, tileH, tileW, pto::BLayout::RowMajor, -1, -1>;
+                    pto::Tile<pto::TileType::Vec, typename T0::Type, tileH, tileW, pto::BLayout::RowMajor, -1, -1>;
                 TileDefine dstTile(shape3, shape4), src0Tile(shape3, shape4), src1Tile(shape3, shape4);
                 auto offset = n0Index * stride0 + n1Index * stride1 + n2Index * stride2;
                 pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + offset * dstTypeSize));

@@ -94,9 +94,9 @@ TILEOP void TgatherElement(T0 dst, T1 src0, T2 src1) {
         constexpr auto dstTypeSize = sizeof(typename T0::Type);
         constexpr auto idxTypeSize = sizeof(typename T2::Type);
         constexpr auto srcTileShape1 = TileOp::GetOutterAxisMergeResult<shapeSize, typename T1::TileShape>();
-        using srcTileDefine = pto::Tile<pto::Location::Vec, typename T1::Type, srcTileShape1, srcTileW, pto::BLayout::RowMajor>;
-        using idxTileDefine = pto::Tile<pto::Location::Vec, typename T2::Type, idxTileH, idxTileW, pto::BLayout::RowMajor, -1, -1>;
-        using dstTileDefine = pto::Tile<pto::Location::Vec, typename T0::Type, idxTileH, idxTileW, pto::BLayout::RowMajor, -1, -1>;
+        using srcTileDefine = pto::Tile<pto::TileType::Vec, typename T1::Type, srcTileShape1, srcTileW, pto::BLayout::RowMajor>;
+        using idxTileDefine = pto::Tile<pto::TileType::Vec, typename T2::Type, idxTileH, idxTileW, pto::BLayout::RowMajor, -1, -1>;
+        using dstTileDefine = pto::Tile<pto::TileType::Vec, typename T0::Type, idxTileH, idxTileW, pto::BLayout::RowMajor, -1, -1>;
         srcTileDefine srcTile;
         idxTileDefine idxTile(n3IdxShape, n4IdxShape);
         dstTileDefine dstTile(n3IdxShape, n4IdxShape);

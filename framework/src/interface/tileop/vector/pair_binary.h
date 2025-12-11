@@ -162,11 +162,11 @@ TILEOP void InnerPairBinaryCompute(T0 dst, T1 src0, T2 src1) {
         auto src1Shape4 = GetWidthValidSize<reduceAxisIndex, shapeSize, T2>(src1);
 
         using DstTileDefine =
-            pto::Tile<pto::Location::Vec, typename T0::Type, dstTileH, dstTileW, pto::BLayout::RowMajor, -1, -1>;
+            pto::Tile<pto::TileType::Vec, typename T0::Type, dstTileH, dstTileW, pto::BLayout::RowMajor, -1, -1>;
         using Src0TileDefine =
-            pto::Tile<pto::Location::Vec, typename T0::Type, src0TileH, src0TileW, pto::BLayout::RowMajor, -1, -1>;
+            pto::Tile<pto::TileType::Vec, typename T0::Type, src0TileH, src0TileW, pto::BLayout::RowMajor, -1, -1>;
         using Src1TileDefine =
-            pto::Tile<pto::Location::Vec, typename T0::Type, src1TileH, src1TileW, pto::BLayout::RowMajor, -1, -1>;
+            pto::Tile<pto::TileType::Vec, typename T0::Type, src1TileH, src1TileW, pto::BLayout::RowMajor, -1, -1>;
 
         for (size_t n0Index = 0; n0Index < dstShape0; ++n0Index) {
             for (size_t n1Index = 0; n1Index < dstShape1; ++n1Index) {
