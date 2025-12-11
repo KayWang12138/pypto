@@ -195,11 +195,8 @@ void CubeProcess::DFSSearch(Operation *op, std::vector<Operation *> &l0CCopyOuts
         return;
     }
     visitedOp.insert(op);
-    bool isL0CCopyOut{false};
-    if (op->GetOpcode() == Opcode::OP_COPY_OUT && op->GetIOperands().front()->GetMemoryTypeOriginal() == MemoryType::MEM_L0C) {
-        isL0CCopyOut = true;
-    }
-    if (isL0CCopyOut || op->GetOpcode() == Opcode::OP_L0C_TO_L1) {
+    OpCalcType opCalType = OpcodeManager::Inst().GetOpCalcType(op->GetOpcode());
+    if (opCalType == OpCalcType::MOVE_OUT && op->GetIOperands().front()->GetMemoryTypeOriginal() == MemoryType::MEM_L0C) {
         l0CCopyOuts.emplace_back(op);
     }
     for (auto consumerOp : op->ConsumerOps()) {
@@ -211,7 +208,7 @@ Status CubeProcess::GetL0CCopyOuts(Operation &op, std::vector<Operation *> &l0CC
     std::unordered_set<Operation *> visitedOp;
     DFSSearch(&op, l0CCopyOuts, visitedOp);
     if (l0CCopyOuts.size() == 0) {
-        APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] has nullptr L0C_COPY_OUT or L0C_TO_L1, please check chainEndCopyOut. %s", op.GetOpcodeStr().c_str(), op.GetOpMagic(), GetFormatBacktrace(op).c_str());
+        APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] has no l0CCopyOuts, please check. %s", op.GetOpcodeStr().c_str(), op.GetOpMagic(), GetFormatBacktrace(op).c_str());
         return FAILED;
     }
     for (auto chainEndCopyOut : l0CCopyOuts) {
@@ -220,7 +217,7 @@ Status CubeProcess::GetL0CCopyOuts(Operation &op, std::vector<Operation *> &l0CC
             return FAILED;
         }
         auto finalOutput = chainEndCopyOut->GetOOperands().front();
-        if (finalOutput->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR && finalOutput->GetMemoryTypeOriginal() != MemoryType::MEM_L1) {
+        if (finalOutput->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR && finalOutput->GetMemoryTypeOriginal() != MemoryType::MEM_L1 && finalOutput->GetMemoryTypeOriginal() != MemoryType::MEM_UB) {
             APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] has invlid output memType: %s. %s",
                 chainEndCopyOut->GetOpcodeStr().c_str(), chainEndCopyOut->GetOpMagic(),
                 MemoryTypeToString(finalOutput->GetMemoryTypeOriginal()).c_str(), GetFormatBacktrace(op).c_str());
@@ -258,7 +255,7 @@ Status CubeProcess::TransferAttr(Operation &mulOp, std::vector<Operation *> copy
 Status CubeProcess::AlignGMTensor(Function &function, std::vector<Operation *> &l0CCopyOuts, Operation &mulOp) {
     Operation *chainEndCopyOut{nullptr};
     for (auto &copyOut : l0CCopyOuts) {
-        if (copyOut->GetOpcode() == Opcode::OP_COPY_OUT) {
+        if (copyOut->GetOOperands().front()->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
             if (function.IsFromOutCast(copyOut->GetOOperands().front())) {
                 chainEndCopyOut = copyOut;
                 break;
@@ -282,7 +279,7 @@ Status CubeProcess::AlignGMTensor(Function &function, std::vector<Operation *> &
         auto finalOutput = chainEndCopyOut->GetOOperands().front();
         input->tensor = finalOutput->tensor;
         for (auto &copyOut : l0CCopyOuts) {
-            if (copyOut->GetOpcode() == Opcode::OP_COPY_OUT) {
+            if (copyOut->GetOOperands().front()->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
                 copyOut->GetOOperands().front()->tensor = finalOutput->tensor;
             }
         }
@@ -304,7 +301,7 @@ Status CubeProcess::UpdateCubeOp(Function &function) {
             APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] is invalid. %s", op.GetOpcodeStr().c_str(), op.GetOpMagic(), GetFormatBacktrace(op).c_str());
             return FAILED;
         }
-        // l0CCopyOuts包含L0C_COPY_OUT和L0C_TO_L1
+        // l0CCopyOuts包含所有从L0C搬出的op
         std::vector<Operation *> l0CCopyOuts{};
         if (GetL0CCopyOuts(op, l0CCopyOuts) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "Get CopyOuts for %s[%d] failed. %s", 
