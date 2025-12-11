@@ -685,7 +685,7 @@ int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, r
         ALOG_ERROR_F("rtmemcpy failed %p rc %d\n", kernelArgs->cfgdata, rc);
         return rc;
     }
-    rc = RunPrepare();	
+    rc = RunPrepare();
     if (rc < 0) {
         ALOG_ERROR_F("prepare failed %d\n", rc);
         return rc;

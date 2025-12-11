@@ -24,6 +24,7 @@
 #include "interface/utils/common.h"
 #include "tilefwk/data_type.h"
 #include "tilefwk/error.h"
+#include "verifier.h"
 namespace npu::tile_fwk {
 enum class Opcode {
     // Unary Vector
@@ -348,6 +349,11 @@ public:
         return info.attrs;
     }
 
+    VerifyOperationEntry GetVerifyOperationEntry(Opcode opcode) const {
+        auto &info = opcodeInfos_[static_cast<int>(opcode)];
+        return info.verifyOperationEntry;
+    }
+
     bool HasStaticAttribute(Opcode opcode, const std::string &attribute) const {
         if (attribute.empty()) {
             return false;
@@ -427,6 +433,7 @@ private:
         TileOpCfg tileOpCfg;
         OpCalcType calcType;
         std::vector<std::string> attrs;
+        VerifyOperationEntry verifyOperationEntry;
     };
 
 private:

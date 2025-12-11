@@ -58,7 +58,7 @@ bool CheckAssembleNeedCopy(Function &function, const std::shared_ptr<Operation> 
     }
     for (size_t i = 1; i < op->oOperand[0]->shape.size(); i++) {
         if (op->oOperand[0]->shape[i] != op->iOperand[0]->shape[i]) {
-            APASS_LOG_INFO_F(Elements::Operation, "Assemble [%d] need to check expansion.",  op->GetOpMagic());
+            APASS_LOG_INFO_F(Elements::Operation, "Assemble op [%d] need to check expansion.",  op->GetOpMagic());
             return true;
         }
     }
@@ -114,12 +114,24 @@ Status ExpandFunction::PostCheck(Function &function) {
 }
 
 Status ExpandFunction::RunOnFunction(Function &function) {
-    APASS_LOG_INFO_F(Elements::Function, "Start ExpandFunction for function [%s].", function.GetRawName().c_str());
+    APASS_LOG_INFO_F(Elements::Function, "Start ExpandFunction function [%s].", function.GetRawName().c_str());
+    std::ostringstream oss;
+    bool verifyResult = true;
+    for (auto &op : function.Operations(false)) {
+        auto verifyOperationEntry = OpcodeManager::Inst().GetVerifyOperationEntry(op.GetOpcode());
+        if (verifyOperationEntry) {
+            verifyResult = verifyResult && verifyOperationEntry(function, op, oss);
+        }
+    }
+    if (!verifyResult) {
+        APASS_LOG_ERROR_F(Elements::Function, "FUnction[%s] ExpandFunction failed: %s", function.GetRawName().c_str(), oss.str().c_str());
+        return FAILED;
+    }
     if (Expandfunction(function) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Function, "Function[%s] ExpandFunction failed.", function.GetRawName().c_str());
         return FAILED;
     }
-    APASS_LOG_INFO_F(Elements::Function, "End ExpandFunction for function [%s].", function.GetRawName().c_str());
+    APASS_LOG_INFO_F(Elements::Function, "End ExpandFunction function [%s].", function.GetRawName().c_str());
     return SUCCESS;
 }
 
@@ -153,7 +165,7 @@ Status ExpandFunction::Expandfunction(Function &function) const {
         }
         SourceLocation::SetLocation(op->GetLocation());
         bool needCopy = CheckAssembleNeedCopy(function, op);
-        APASS_LOG_DEBUG_F(Elements::Operation, "Op %s[%d] needCopy: %d", op->GetOpcodeStr().c_str(), op->GetOpMagic(), needCopy);
+        APASS_LOG_DEBUG_F(Elements::Operation, "Op %s[%d] is needCopy: %d", op->GetOpcodeStr().c_str(), op->GetOpMagic(), needCopy);
         if (NotNeedExpand(op->GetOpcode(), needCopy)) {
             ProcessForNotExpandOp(function, *op);
             continue;

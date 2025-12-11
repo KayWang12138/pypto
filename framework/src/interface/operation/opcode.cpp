@@ -19,6 +19,7 @@
 #include <sstream>
 #include <unordered_set>
 #include "interface/operation/operation.h"
+#include "interface/operation/verifier.h"
 #include "interface/utils/common.h"
 #include "tilefwk/data_type.h"
 #include "tilefwk/error.h"
@@ -33,7 +34,8 @@ OpcodeManager::OpcodeManager() {
                             std::vector<MemoryType> inputsMemType, std::vector<MemoryType> outputsMemType,
                             const TileOpCfg tileOpCfg,
                             OpCalcType calcType,
-                            const std::vector<std::string> &attrs = {}) {
+                            const std::vector<std::string> &attrs = {},
+                            VerifyOperationEntry verifyOperationEntry = nullptr) {
         ASSERT(opcode < Opcode::OP_UNKNOWN);
         ASSERT(strToEnum_.count(str) == 0);
         ASSERT(registered.count(opcode) == 0);
@@ -41,7 +43,7 @@ OpcodeManager::OpcodeManager() {
         strToEnum_.emplace(str, opcode);
         opcodeInfos_[static_cast<int>(opcode)] =
             OpcodeInfo{opcode, coreType, std::move(str), std::move(inputsMemType), std::move(outputsMemType),
-            tileOpCfg, calcType, attrs};
+            tileOpCfg, calcType, attrs, verifyOperationEntry};
     };
 
     std::vector<std::string> convAttrStrList{
@@ -177,8 +179,8 @@ OpcodeManager::OpcodeManager() {
         {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::Trowmaxline", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::REDUCE);
     registerInfo(Opcode::OP_ROWMINLINE, OpCoreType::AIV, "ROWMINLINE",
         {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::Trowminline", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::REDUCE);
-    registerInfo(Opcode::OP_LOGICALAND, OpCoreType::AIV, "LOGICALAND", 
-        {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB, MemoryType::MEM_UB}, 
+    registerInfo(Opcode::OP_LOGICALAND, OpCoreType::AIV, "LOGICALAND",
+        {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB, MemoryType::MEM_UB},
         {"TileOp::TlogicalAnd", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE);
     // Range
     registerInfo(Opcode::OP_RANGE, OpCoreType::AIV, "RANGE", {MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::Range", PIPE_S, PIPE_V, CoreType::AIV}, OpCalcType::OTHER, {OP_ATTR_PREFIX + "START", OP_ATTR_PREFIX + "STEP"});
