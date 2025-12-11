@@ -775,6 +775,7 @@ void RecordFunc::RecordDynFuncInner(const std::vector<std::reference_wrapper<con
 }
 
 RecordFunc::RecordFunc(const std::string &name) : funcName(FUNCTION_PREFIX + name) {
+    ConfigManager::Instance().ResetLog();
     Program::GetInstance().BeginFunction(funcName, config::GetFunctionType());
 }
 
@@ -782,6 +783,7 @@ RecordFunc::RecordFunc(const std::string &name,
     const std::vector<std::reference_wrapper<const Tensor>> &explicitOpArgs)
     : funcName(FUNCTION_PREFIX + name) {
     // RecordFunc start with TENSOR_GRAPH
+    ConfigManager::Instance().ResetLog();
     if (config::GetFunctionType() == FunctionType::DYNAMIC) {
         RecordDynFuncInner(explicitOpArgs, {}, {});
     } else {
@@ -794,6 +796,7 @@ RecordFunc::RecordFunc(const std::string &name,
     const std::vector<std::reference_wrapper<const Tensor>> &startArgsOutputTensorList,
     const std::vector<std::pair<std::reference_wrapper<const Tensor>, std::reference_wrapper<const Tensor>>> &inplaceArgs)
     : funcName(FUNCTION_PREFIX + name) {
+    ConfigManager::Instance().ResetLog();
     RecordDynFuncInner(startArgsInputTensorList, startArgsOutputTensorList, inplaceArgs);
 }
 

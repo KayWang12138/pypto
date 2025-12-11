@@ -271,6 +271,7 @@ public:
     const std::string &LogTopFolder();
     const std::string &LogTensorGraphFolder();
     const std::string &LogFile();
+    void ResetLog();
 
 private:
     bool isInit_ = false;

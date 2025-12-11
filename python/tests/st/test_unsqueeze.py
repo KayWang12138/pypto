@@ -25,7 +25,7 @@ def test_unsqueeze_shape_dim():
     dtype = pypto.DT_FP32
     x = pypto.tensor(shape, dtype)
     dim = 0
-    with pypto.function("UNSQUEEZE_SHAPE", x, static=True):
+    with pypto.function("UNSQUEEZE_SHAPE", [x]):
         pypto.set_vec_tile_shapes(8, 8, 8, 8)
 
         #Test each valid dim:[-4, -3, -2, -1, 0, 1, 2, 3]
@@ -69,7 +69,7 @@ def test_tensor_unsqueeze_shape_dim():
     dtype = pypto.DT_FP32
     x = pypto.tensor(shape, dtype)
     dim = 1
-    with pypto.function("TENSOR_UNSQUEEZE_SHAPE", x, static=True):
+    with pypto.function("TENSOR_UNSQUEEZE_SHAPE", [x]):
         pypto.set_vec_tile_shapes(8, 8, 8, 8)
 
         res = x.unsqueeze(dim)

@@ -49,7 +49,7 @@ def test_tensor_add_plus_op():
     a = pypto.tensor(shape, dtype, "tensor_a")
     b = pypto.tensor(shape, dtype, "tensor_b")
 
-    with pypto.function("ADD", a, b, static=True):
+    with pypto.function("ADD", [a, b]):
         pypto.set_vec_tile_shapes(8, 8)
         c = a + b
 
@@ -62,7 +62,7 @@ def test_tensor_add_tensor_element():
     shape = [8, 8]
     a = pypto.tensor(shape, dtype, "tensor_a")
 
-    with pypto.function("ADD", a, static=True):
+    with pypto.function("ADD", [a]):
         pypto.set_vec_tile_shapes(8, 8)
         c = a + 3.14
 
@@ -75,7 +75,7 @@ def test_tensor_add_element_tensor():
     shape = [8, 8]
     a = pypto.tensor(shape, dtype, "tensor_a")
 
-    with pypto.function("ADD", a, static=True):
+    with pypto.function("ADD", [a]):
         pypto.set_vec_tile_shapes(8, 8)
         c = 3.14 + a
 
@@ -89,7 +89,7 @@ def test_tensor_sub_op():
     a = pypto.tensor(shape, dtype, "tensor_a")
     b = pypto.tensor(shape, dtype, "tensor_b")
 
-    with pypto.function("SUB", a, b, static=True):
+    with pypto.function("SUB", [a, b]):
         pypto.set_vec_tile_shapes(8, 8)
         c = a - b
 
@@ -102,7 +102,7 @@ def test_tensor_subs_tensor_element():
     shape = [8, 8]
     a = pypto.tensor(shape, dtype, "tensor_a")
 
-    with pypto.function("SUBS", a, static=True):
+    with pypto.function("SUBS", [a]):
         pypto.set_vec_tile_shapes(8, 8)
         c = a - 3.14
 

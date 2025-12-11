@@ -28,7 +28,7 @@ def test_reshape_shape():
     dst_shape = [d, s]
     q = pypto.tensor(shape, dtype)
 
-    with pypto.function("Reshape1", q, static=True):
+    with pypto.function("Reshape1", [q]):
         pypto.set_vec_tile_shapes(16, 16)
         res = pypto.reshape(q, dst_shape)
 

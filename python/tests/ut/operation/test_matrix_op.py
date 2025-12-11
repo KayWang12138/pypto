@@ -19,7 +19,7 @@ def test_matrix_matmul():
     b = pypto.tensor((64, 32), dtype, "B")
     c = None
 
-    with pypto.function("MATMUL", a, b, static=True):
+    with pypto.function("MATMUL", [a, b]):
         pypto.set_cube_tile_shapes([64, 64], [64, 64], [64, 64])
         c = pypto.matmul(a, b, dtype)
         d = pypto.matmul(a, b, dtype, a_trans=True, b_trans=True)
@@ -37,7 +37,7 @@ def test_matrix_batch_matmul():
     b = pypto.tensor((2, 32, 64), dtype, "B")
     c = None
 
-    with pypto.function("BATCH_MATMUL", a, b, static=True):
+    with pypto.function("BATCH_MATMUL", [a, b]):
         pypto.set_cube_tile_shapes([64, 64], [64, 64], [64, 64])
         c = pypto.matmul(a, b, dtype)
         d = pypto.matmul(a, b, dtype, a_trans=True, b_trans=True)
@@ -55,7 +55,7 @@ def test_matrix_matmul_with_syntactic_sugar():
     b = pypto.tensor((32, 64), dtype, "B")
     c = None
 
-    with pypto.function("MATMUL", a, b, static=True):
+    with pypto.function("MATMUL", [a, b]):
         pypto.set_cube_tile_shapes([64, 64], [64, 64], [64, 64])
         c = a @ b
 
@@ -71,7 +71,7 @@ def test_matrix_matmul_with_tensor_interface():
     b = pypto.tensor((3, 32, 64), input_dtype, "B")
     c = None
 
-    with pypto.function("BATCH_MATMUL", a, b, static=True):
+    with pypto.function("BATCH_MATMUL", [a, b]):
         pypto.set_cube_tile_shapes([64, 64], [64, 64], [64, 64])
         c = a.matmul(b, out_dtype, a_trans=True, b_trans=True)
 

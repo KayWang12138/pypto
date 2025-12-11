@@ -28,7 +28,7 @@ def test_softmax_shape_dim():
     x = pypto.tensor(x_shape, dtype)
     dim = -1
 
-    with pypto.function("SOFTMAX_SHAPE", x, static=True):
+    with pypto.function("SOFTMAX_SHAPE", [x]):
         pypto.set_vec_tile_shapes(32, 32)
         res = pypto.softmax(x, dim)
         torch_case_tensor = torch.randn((4, 4), dtype = torch.float32)

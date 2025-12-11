@@ -337,7 +337,7 @@ def function(name: str, *args, **kwargs):
 
     Examples
     --------
-    >>> with pypto.function("main", a, b, c, static=True):
+    >>> with pypto.function("main", a, b, c):
             c[:] = a+b
 
     """
@@ -346,35 +346,22 @@ def function(name: str, *args, **kwargs):
 
 @contextmanager
 def function(name: str, *args, **kwargs):
-    if "static" in kwargs:
-        set_build_static(kwargs["static"])
-        try:
-            Controller.reset()
-            set_source_location(level=2)
-            yield begin_function(name, pypto_impl.GraphType.TENSOR_GRAPH,
-                                 pypto_impl.FunctionType.STATIC, *args)
-            clear_source_location()
-        except Exception as e:
-            logging.error("Record function %s failed: %s", name, e)
-            raise
-        finally:
-            end_function(name)
-    else:
-        in_tensors, out_tensors = args[0], args[1]
-        inputs = [t.base() for t in in_tensors]
-        outputs = [t.base() for t in out_tensors]
-        func = None
-        try:
-            Controller.reset()
-            set_source_location(level=2)
-            func = pypto_impl.RecordFunc(name, inputs, outputs, [])
-            clear_source_location()
-            yield func
-        except Exception as e:
-            logging.error("Record function %s failed: %s", name, e)
-            raise
-        finally:
-            del func
+    in_tensors = [] if len(args) == 0 else args[0]
+    out_tensors = [] if len(args) <= 1 else args[1]
+    inputs = [t.base() for t in in_tensors]
+    outputs = [t.base() for t in out_tensors]
+    func = None
+    try:
+        Controller.reset()
+        set_source_location(level=2)
+        func = pypto_impl.RecordFunc(name, inputs, outputs, [])
+        clear_source_location()
+        yield func
+    except Exception as e:
+        logging.error("Record function %s failed: %s", name, e)
+        raise
+    finally:
+        del func
 
 
 def cond(scalar: SymInt):

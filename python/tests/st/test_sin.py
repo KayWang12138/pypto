@@ -27,7 +27,7 @@ def test_sin_shape_dim():
     dtype = pypto.DT_FP32
     x = pypto.tensor(x_shape, dtype)
 
-    with pypto.function("SIN_SHAPE", x, static=True):
+    with pypto.function("SIN_SHAPE", [x]):
         pypto.set_vec_tile_shapes(4, 4)
         res = pypto.sin(x)
         torch_case_tensor = torch.randn((4, 4), dtype = torch.float32)

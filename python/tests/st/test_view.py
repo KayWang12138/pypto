@@ -27,7 +27,7 @@ def test_view_basic_shape():
     x = pypto.tensor(x_shape, dtype)
     view_shape = [32, 32]
     offset = [0, 32]
-    with pypto.function("VIEW_SHAPE", x, static=True):
+    with pypto.function("VIEW_SHAPE", [x]):
         pypto.set_vec_tile_shapes(32, 32)
         res = pypto.view(x, view_shape, offset)
 

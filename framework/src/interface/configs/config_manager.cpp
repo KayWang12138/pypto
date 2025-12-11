@@ -47,7 +47,6 @@ static const nlohmann::json *GetJsonChild(const nlohmann::json &root, const std:
 
 ConfigManager::ConfigManager() {
     Initialize();
-    LoggerManager::FileLoggerRegister(LogFile(), true);
 }
 
 ConfigManager &ConfigManager::Instance() {
@@ -168,6 +167,12 @@ const std::string &ConfigManager::LogFile() {
         globalConfigs_.logFile = LogTopFolder() + "/run.log";
     }
     return globalConfigs_.logFile;
+}
+
+void ConfigManager::ResetLog() {
+    globalConfigs_.logTopFolder = CreateLogTopFolder();
+    globalConfigs_.logFile = LogTopFolder() + "/run.log";
+    LoggerManager::FileLoggerRegister(globalConfigs_.logFile, true);
 }
 
 PassConfigs ConfigManager::GetPassConfigs(const std::string &strategy, const std::string &identifier) const {
