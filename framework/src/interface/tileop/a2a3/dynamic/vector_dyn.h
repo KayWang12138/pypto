@@ -3416,16 +3416,16 @@ TILEOP void DynWhere_TT(__ubuf__ T *dst, __ubuf__ uint8_t *temp, __ubuf__ U *con
     static_assert((CS2 * sizeof(bool)) % BLOCK_SIZE == 0);
     static_assert((S0S2 * sizeof(T)) % BLOCK_SIZE == 0);
     for (int i = 0; i < T0; i++) {
-        __ubuf__ T *dst_ = dst;
-        __ubuf__ U *condition_ = condition;
-        __ubuf__ T *src0_ = src0;
-        __ubuf__ T *src1_ = src1;
+        __ubuf__ T *dstLoop = dst;
+        __ubuf__ U *conditionLoop = condition;
+        __ubuf__ T *src0Loop = src0;
+        __ubuf__ T *src1Loop = src1;
         for (int j = 0; j < T1; j++) {
-            DynWhere_TT<T, U, DS2, CS2, S0S2>(dst_, temp, condition, src0_, src1_, T2, T3);
-            dst_ += DS1 * DS2;
-            src0_ += S0S1 * S0S2;
-            src1_ += S0S1 * S0S2;
-            condition_ += CS1 * CS2;
+            DynWhere_TT<T, U, DS2, CS2, S0S2>(dstLoop, temp, conditionLoop, src0Loop, src1Loop, T2, T3);
+            dstLoop += DS1 * DS2;
+            conditionLoop += CS1 * CS2;
+            src0Loop += S0S1 * S0S2;
+            src1Loop += S0S1 * S0S2;
         }
         dst += DS0 * DS1 * DS2;
         src0 += S0S0 * S0S1 * S0S2;
@@ -3515,14 +3515,14 @@ TILEOP void DynWhere_TS(__ubuf__ T *dst, __ubuf__ uint8_t *temp, __ubuf__ U *con
     static_assert((CS2 * sizeof(bool)) % BLOCK_SIZE == 0);
     static_assert((S0S2 * sizeof(T)) % BLOCK_SIZE == 0);
     for (int i = 0; i < T0; i++) {
-        __ubuf__ T *dst_ = dst;
-        __ubuf__ U *condition_ = condition;
-        __ubuf__ T *src0_ = src0;
+        __ubuf__ T *dstLoop = dst;
+        __ubuf__ U *conditionLoop = condition;
+        __ubuf__ T *src0Loop = src0;
         for (int j = 0; j < T1; j++) {
-            DynWhere_TS<T, U, DS2, CS2, S0S2>(dst_, temp, condition, src0_, src1, T2, T3);
-            dst_ += DS1 * DS2;
-            src0_ += S0S1 * S0S2;
-            condition_ += CS1 * CS2;
+            DynWhere_TS<T, U, DS2, CS2, S0S2>(dstLoop, temp, conditionLoop, src0Loop, src1, T2, T3);
+            dstLoop += DS1 * DS2;
+            conditionLoop += CS1 * CS2;
+            src0Loop += S0S1 * S0S2;
         }
         dst += DS0 * DS1 * DS2;
         src0 += S0S0 * S0S1 * S0S2;
@@ -3610,14 +3610,14 @@ TILEOP void DynWhere_ST(__ubuf__ T *dst, __ubuf__ uint8_t *temp, __ubuf__ U *con
     static_assert((CS2 * sizeof(bool)) % BLOCK_SIZE == 0);
     static_assert((S0S2 * sizeof(T)) % BLOCK_SIZE == 0);
     for (int i = 0; i < T0; i++) {
-        __ubuf__ T *dst_ = dst;
-        __ubuf__ U *condition_ = condition;
-        __ubuf__ T *src1_ = src1;
+        __ubuf__ T *dstLoop = dst;
+        __ubuf__ U *conditionLoop = condition;
+        __ubuf__ T *src1Loop = src1;
         for (int j = 0; j < T1; j++) {
-            DynWhere_ST<T, U, DS2, CS2, S0S2>(dst_, temp, condition, src0, src1_, T2, T3);
-            dst_ += DS1 * DS2;
-            src1_ += S0S1 * S0S2;
-            condition_ += CS1 * CS2;
+            DynWhere_ST<T, U, DS2, CS2, S0S2>(dstLoop, temp, conditionLoop, src0, src1Loop, T2, T3);
+            dstLoop += DS1 * DS2;
+            conditionLoop += CS1 * CS2;
+            src1Loop += S0S1 * S0S2;
         }
         dst += DS0 * DS1 * DS2;
         src1 += S0S0 * S0S1 * S0S2;
@@ -3706,12 +3706,12 @@ TILEOP void DynWhere_SS(__ubuf__ T *dst, __ubuf__ uint8_t *temp, __ubuf__ U *con
     static_assert((DS2 * sizeof(T)) % BLOCK_SIZE == 0);
     static_assert((CS2 * sizeof(bool)) % BLOCK_SIZE == 0);
     for (int i = 0; i < T0; i++) {
-        __ubuf__ T *dst_ = dst;
-        __ubuf__ U *condition_ = condition;
+        __ubuf__ T *dstLoop = dst;
+        __ubuf__ U *conditionLoop = condition;
         for (int j = 0; j < T1; j++) {
-            DynWhere_SS<T, U, DS2, CS2, S0S2>(dst_, temp, condition, src0, src1, T2, T3);
-            dst_ += DS1 * DS2;
-            condition_ += CS1 * CS2;
+            DynWhere_SS<T, U, DS2, CS2, S0S2>(dstLoop, temp, conditionLoop, src0, src1, T2, T3);
+            dstLoop += DS1 * DS2;
+            conditionLoop += CS1 * CS2;
         }
         dst += DS0 * DS1 * DS2;
         condition += CS0 * CS1 * CS2;
