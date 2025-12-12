@@ -390,10 +390,15 @@ void AssignMemoryType::AssignMoveOpForView(Operation &operation) {
         //跳过前端指定mem类型的view
         return;
     }
+    auto outputTensor = operation.GetOOperands().front();
+    auto viewOffset = viewOpAttribute->GetFromOffset();
+    bool unaligned = ((BytesOf(outputTensor->Datatype()) * viewOffset.back()) % 32 != 0);
     for (size_t i = 0; i < operation.iOperand.size(); ++i) {
         auto &tensor = operation.iOperand[i];
         MemoryType toType = operation.oOperand.front()->GetMemoryTypeOriginal();
-        if(toType == MemoryType::MEM_UNKNOWN && tensor->GetMemoryTypeOriginal() != MemoryType::MEM_UNKNOWN) {
+        // 当view的offset不对齐，需要插DDR时，不能将view前tensor的MemoryTypeOriginal向view后的tensor传递
+        // 避免插DDR后出现original—>DDR->original而DDR->original不存在通路的场景（如original为L0C时）
+        if(!unaligned && toType == MemoryType::MEM_UNKNOWN && tensor->GetMemoryTypeOriginal() != MemoryType::MEM_UNKNOWN) {
             //view输出的消费者是assemble或者reshape
             operation.oOperand.front()->SetMemoryTypeOriginal(tensor->GetMemoryTypeOriginal());
             viewOpAttribute->SetToType(tensor->GetMemoryTypeOriginal());
@@ -405,9 +410,6 @@ void AssignMemoryType::AssignMoveOpForView(Operation &operation) {
         inserter.UpdateTensorTobeMap(*tensor, operation, toType);
         viewOpAttribute->SetToType(toType);
     }
-    auto outputTensor = operation.GetOOperands().front();
-    auto viewOffset = viewOpAttribute->GetFromOffset();
-    bool unaligned = ((BytesOf(outputTensor->Datatype()) * viewOffset.back()) % 32 != 0);
     if(unaligned) {
         auto inputTensor = operation.GetIOperands().front();
         inserter.UpdateTensorTobeMap(*inputTensor, operation, MemoryType::MEM_DEVICE_DDR);
