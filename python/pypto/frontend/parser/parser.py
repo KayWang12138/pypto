@@ -11,6 +11,7 @@
 
 """PTO Script Parser."""
 from collections.abc import Iterator
+import functools
 import re
 from typing import Any, Optional, Union
 
@@ -29,6 +30,32 @@ DEFAULT_VISIT = {
     "Expression",
     "Pass",
 }
+
+
+def _catch_parser_errors(func):
+    """Decorator to normalize parser error handling for public APIs."""
+
+    @functools.wraps(func)
+    def wrapper(self, *args, **kwargs):
+        try:
+            return func(self, *args, **kwargs)
+        except RenderedParserError:
+            # Already rendered; just re-raise.
+            raise
+        except ParserError as err:
+            # User-triggered parser error with location info.
+            self.diag.error(err.node, str(err))
+        except Exception as err:  # pylint: disable=broad-except
+            # Unexpected native error, surface as bug; try to find a node.
+            node = kwargs.get("node")
+            if node is None:
+                for arg in args:
+                    if isinstance(arg, doc.AST):
+                        node = arg
+                        break
+            self.diag.bug(node, str(err))
+
+    return wrapper
 
 
 class Parser(doc.NodeVisitor):
@@ -54,6 +81,10 @@ class Parser(doc.NodeVisitor):
         tuple[list[pypto.Tensor], list[tuple[str, type]], list[pypto.Tensor]]
     ]
 
+    # ==========================================================================================
+    # Public API
+    # ==========================================================================================
+
     def __init__(
         self, source: Source, extra_vars: Optional[dict[str, Any]] = None
     ) -> None:
@@ -66,6 +97,7 @@ class Parser(doc.NodeVisitor):
         self._signature_cache = None
         self._bound_dim_values: Optional[dict[str, int]] = None
 
+    @_catch_parser_errors
     def parse(self) -> "Parser":
         """The main parse method for parser (lazy mode).
 
@@ -85,6 +117,7 @@ class Parser(doc.NodeVisitor):
         self._parsed_node = node
         return self
 
+    @_catch_parser_errors
     def match_input_shapes(
         self,
         input_shapes: list[list[int]],
@@ -138,6 +171,7 @@ class Parser(doc.NodeVisitor):
 
         return dim_value_map
 
+    @_catch_parser_errors
     def bind_dynamic_dims_from_inputs(self, inputs: list[list[int]]) -> None:
         """Bind symbolic dimensions to concrete values using sample inputs.
 
@@ -151,30 +185,12 @@ class Parser(doc.NodeVisitor):
 
         self._bound_dim_values = self.match_input_shapes(inputs)
 
+    @_catch_parser_errors
     def bind_non_tensor_args(self, args: dict[str, Any]) -> None:
         """Inject concrete non-tensor argument values for parsing/execution."""
         self._parsed_extra_vars.update(args)
 
-    def _apply_bound_dim_values_to_context_frame(self) -> None:
-        """Replace symbolic scalars in the current frame with bound concrete values."""
-        if not self._bound_dim_values:
-            return
-        if not self.context.frames:
-            return
-
-        current_frame = self.context.frames[-1]
-        for var_name in list(current_frame.vars):
-            values_stack = self.context.name2value.get(var_name, [])
-            if not values_stack:
-                continue
-            current_value = values_stack[-1]
-            if (
-                isinstance(current_value, SymbolicScalar)
-                and str(current_value) in self._bound_dim_values
-            ):
-                concrete_value = self._bound_dim_values[str(current_value)]
-                self.context.add(var_name, concrete_value, allow_update=True)
-
+    @_catch_parser_errors
     def get_signature(
         self,
     ) -> tuple[list[pypto.Tensor], list[tuple[str, type]], list[pypto.Tensor]]:
@@ -215,12 +231,12 @@ class Parser(doc.NodeVisitor):
             self._apply_bound_dim_values_to_context_frame()
 
             # Get input arguments
-            tensor_input_args, non_tensor_input_args = self.visit_arguments(
+            tensor_input_args, non_tensor_input_args = self._visit_arguments(
                 function_node.args
             )
 
             # Get and validate output arguments
-            output_expr = self.visit_expr(function_node.returns)
+            output_expr = self._visit_expr(function_node.returns)
             output_tensors = self._normalize_output_annotation(
                 output_expr, function_node.returns
             )
@@ -233,6 +249,7 @@ class Parser(doc.NodeVisitor):
 
             return self._signature_cache
 
+    @_catch_parser_errors
     def execute(self) -> Any:
         """Execute the deferred parsing.
 
@@ -262,6 +279,46 @@ class Parser(doc.NodeVisitor):
             self._result = self.visit(self._parsed_node)
         return self._result
 
+    def report(self, node: doc.AST, msg: str, level: DiagnosticLevel) -> None:
+        """Report a diagnostic."""
+        self.diag.emit(node, msg, level)
+
+    # ==========================================================================================
+    # Private APIs (implementation details)
+    # ==========================================================================================
+
+    def _eval_expr(
+        self,
+        node: Union[doc.Expression, doc.expr],
+        extra_vars: Optional[dict[str, Any]] = None,
+    ) -> Any:
+        """Expression evaluation when parsing."""
+        var_values = self.context.get()
+        if extra_vars is not None:
+            for k, v in extra_vars.items():
+                var_values[k] = v
+        return ExprEvaluator.eval(node, var_values, self.diag)
+
+    def _apply_bound_dim_values_to_context_frame(self) -> None:
+        """Replace symbolic scalars in the current frame with bound concrete values."""
+        if not self._bound_dim_values:
+            return
+        if not self.context.frames:
+            return
+
+        current_frame = self.context.frames[-1]
+        for var_name in list(current_frame.vars):
+            values_stack = self.context.name2value.get(var_name, [])
+            if not values_stack:
+                continue
+            current_value = values_stack[-1]
+            if (
+                isinstance(current_value, SymbolicScalar)
+                and str(current_value) in self._bound_dim_values
+            ):
+                concrete_value = self._bound_dim_values[str(current_value)]
+                self.context.add(var_name, concrete_value, allow_update=True)
+
     def _normalize_output_annotation(
         self, output_expr: Any, node: doc.AST
     ) -> list[pypto.Tensor]:
@@ -290,32 +347,6 @@ class Parser(doc.NodeVisitor):
             ),
         )
 
-    def eval_expr(
-        self,
-        node: Union[doc.Expression, doc.expr],
-        extra_vars: Optional[dict[str, Any]] = None,
-    ) -> Any:
-        """Expression evaluation when parsing.
-
-        Parameters
-        ----------
-        node : Union[doc.expr, doc.Expression]
-            The root node of AST tree node of expression to evaluate.
-
-        extra_vars : Optional[dict[str, Any]]
-            The optional global value table for expression evaluation.
-
-        Returns
-        -------
-        res : Any
-            The evaluation result.
-        """
-        var_values = self.context.get()
-        if extra_vars is not None:
-            for k, v in extra_vars.items():
-                var_values[k] = v
-        return ExprEvaluator.eval(node, var_values, self.diag)
-
     def visit(self, node: doc.AST) -> Any:
         """The general visiting method.
 
@@ -337,34 +368,27 @@ class Parser(doc.NodeVisitor):
                     result = res
             return result
         if not isinstance(node, doc.AST):
-            return
+            raise ParserError(
+                node,
+                TypeError(f"Expected doc.AST, got {type(node)}."),
+            )
         name = node.__class__.__name__.split(".")[-1]
 
         if name in DEFAULT_VISIT:
-            func = self.generic_visit
+            func = self._generic_visit
         else:
             # Convert CamelCase to snake_case for function names
             snake_case_name = re.sub(r"(?<!^)(?=[A-Z])", "_", name).lower()
-            func = getattr(self, f"visit_{snake_case_name}", None)
+            func = getattr(self, f"_visit_{snake_case_name}", None)
         if func is None:
             raise ParserError(
                 node,
                 f"{name} is not supported by the PTO parser yet. "
                 f"Please check the documentation for supported Python features.",
             )
-        try:
-            return func(node)
-        except RenderedParserError:  # prevent the bug from being reported again
-            # If it is a rendered parser error, do not report it again.
-            raise
-        except ParserError as err:
-            # If it is a parser error, report it.
-            self.diag.error(err.node, str(err))
-        except Exception as err:  # pylint: disable=broad-except
-            # If it is a python native error, report it as a bug. Note that all users error should be reported as ParserError.
-            self.diag.bug(node, str(err))
+        return func(node)
 
-    def generic_visit(self, node: doc.AST) -> Any:
+    def _generic_visit(self, node: doc.AST) -> Any:
         """Generic visit method that visits all child nodes.
 
         This is called when no specific visit_* method exists for a node type.
@@ -391,7 +415,7 @@ class Parser(doc.NodeVisitor):
                     result = res
         return result
 
-    def visit_body(self, node: list[doc.stmt]) -> Any:
+    def _visit_body(self, node: list[doc.stmt]) -> Any:
         """The general body visiting method.
 
         Parameters
@@ -678,14 +702,14 @@ class Parser(doc.NodeVisitor):
         output_var_mapping : dict[str, pypto.Tensor]
             Mapping from variable names to output tensors.
         """
-        # Store function name for use in visit_return
+        # Store function name for use in _visit_return
         # TODO: Move to ir builder context once it is implemented.
         self.context.add("__func_name__", func_name)
         # Add output variable mapping to context
         # This tells the parser to use pre-defined output tensors for these variables
         self.context.add("__output_var_mapping__", output_var_mapping)
 
-    def visit_function_def(self, node: doc.FunctionDef) -> pypto.Function:
+    def _visit_function_def(self, node: doc.FunctionDef) -> pypto.Function:
         """The general function definition visit method.
 
         Parameters
@@ -729,11 +753,11 @@ class Parser(doc.NodeVisitor):
             # Step 7: Create PTO function and parse body
             with pypto.function(node.name, tensor_input_args, output_args):
                 for _ in pypto.loop(1):
-                    self.visit_body(node.body)
+                    self._visit_body(node.body)
 
         return pypto.functions.get_last_function()
 
-    def visit_arg(self, node: doc.arg) -> Union[list, tuple]:
+    def _visit_arg(self, node: doc.arg) -> Union[list, tuple]:
         """The general arg visiting method.
 
         Parameters
@@ -756,13 +780,13 @@ class Parser(doc.NodeVisitor):
             annotation: expr
         """
         if isinstance(node, (doc.Tuple, doc.List)):
-            return [self.visit_arg(arg) for arg in node.elts]
+            return [self._visit_arg(arg) for arg in node.elts]
         name = node.arg
         if node.annotation is None:
             raise ParserError(
                 node, ValueError("Annotation is required for function arguments.")
             )
-        anno = self.visit_expr(node.annotation)
+        anno = self._visit_expr(node.annotation)
         if isinstance(anno, pypto.Tensor):
             anno.name = name
             return name, anno
@@ -777,7 +801,7 @@ class Parser(doc.NodeVisitor):
                 ),
             )
 
-    def visit_arguments(
+    def _visit_arguments(
         self, node: doc.arguments
     ) -> tuple[list[pypto.Tensor], list[tuple[str, type]]]:
         """The general arguments visiting method.
@@ -848,7 +872,7 @@ class Parser(doc.NodeVisitor):
         non_tensor_args = []
 
         for arg in node.args:
-            result = self.visit_arg(arg)
+            result = self._visit_arg(arg)
             if isinstance(result, tuple):
                 name, value = result
                 if isinstance(value, pypto.Tensor):
@@ -867,7 +891,7 @@ class Parser(doc.NodeVisitor):
 
         return tensor_args, non_tensor_args
 
-    def visit_for(self, node: doc.For) -> Any:
+    def _visit_for(self, node: doc.For) -> Any:
         """The general for visiting method.
 
         Parameters
@@ -911,7 +935,7 @@ class Parser(doc.NodeVisitor):
         # Try to evaluate the iterator expression (e.g., range(10))
         # This works even with symbolic values in range bounds because
         # Python's range() is lazily evaluated
-        iter_expr = self.eval_expr(node.iter)
+        iter_expr = self._eval_expr(node.iter)
 
         # Support range() calls - extract start, stop, step parameters
         # These parameters can be concrete values or symbolic expressions
@@ -944,7 +968,7 @@ class Parser(doc.NodeVisitor):
                 # Add the loop variable to the context
                 self.context.add(loop_var_name, loop_var)
                 # Visit the loop body
-                self.visit_body(node.body)
+                self._visit_body(node.body)
 
     def _assign_target(self, target: doc.expr, expr: Any) -> None:
         """Helper method to assign an expression to a target.
@@ -988,9 +1012,9 @@ class Parser(doc.NodeVisitor):
             # Subscript assignment: b[:] = expr or b[0] = expr
             # This handles in-place tensor updates using Python's subscript syntax.
             # Evaluate the value (e.g., b) to get the tensor being assigned to
-            tensor = self.eval_expr(target.value)
+            tensor = self._eval_expr(target.value)
             # Evaluate the slice (e.g., : or 0) to get the slice/index object
-            slice_obj = self.eval_expr(target.slice)
+            slice_obj = self._eval_expr(target.slice)
             # Perform the assignment using __setitem__, which translates to
             # the appropriate PTO IR operation for tensor element/slice updates
             tensor[slice_obj] = expr
@@ -1003,7 +1027,7 @@ class Parser(doc.NodeVisitor):
                 ),
             )
 
-    def visit_assign(self, node: doc.Assign) -> None:
+    def _visit_assign(self, node: doc.Assign) -> None:
         """The general assign visiting method.
 
         Parameters
@@ -1022,12 +1046,12 @@ class Parser(doc.NodeVisitor):
             targets: list[expr]
             value: expr
         """
-        expr = self.visit_expr(node.value)
+        expr = self._visit_expr(node.value)
 
         for target in node.targets:
             self._assign_target(target, expr)
 
-    def visit_ann_assign(self, node: doc.AnnAssign) -> Any:
+    def _visit_ann_assign(self, node: doc.AnnAssign) -> Any:
         """The general annotated assign visiting method.
 
         Parameters
@@ -1048,9 +1072,9 @@ class Parser(doc.NodeVisitor):
             value: Optional[expr]
         """
         # Reuse the assign visiting method to visit the annotated assign node.
-        return self.visit_assign(node)
+        return self._visit_assign(node)
 
-    def visit_expr(self, node: doc.Expr) -> Any:
+    def _visit_expr(self, node: doc.Expr) -> Any:
         """The general expression visiting method.
 
         Parameters
@@ -1063,9 +1087,9 @@ class Parser(doc.NodeVisitor):
         res : Any
             The visiting result.
         """
-        return self.eval_expr(node)
+        return self._eval_expr(node)
 
-    def visit_if(self, node: doc.If) -> Any:
+    def _visit_if(self, node: doc.If) -> Any:
         """The general if visiting method.
 
         Parameters
@@ -1086,7 +1110,7 @@ class Parser(doc.NodeVisitor):
             orelse: list[stmt] (else/elif body)
         """
         # Evaluate the test condition
-        test_expr = self.eval_expr(node.test)
+        test_expr = self._eval_expr(node.test)
 
         if isinstance(test_expr, pypto.SymbolicScalar):
             cond = pypto.cond(test_expr)
@@ -1103,13 +1127,13 @@ class Parser(doc.NodeVisitor):
         # Execute the if statement using the condition as a context manager
         if cond:
             # Visit the if body
-            self.visit_body(node.body)
+            self._visit_body(node.body)
         else:
             # Visit the else body (if it exists)
             if node.orelse:
-                self.visit_body(node.orelse)
+                self._visit_body(node.orelse)
 
-    def visit_return(self, node: doc.Return) -> Any:
+    def _visit_return(self, node: doc.Return) -> Any:
         """The general return visiting method.
 
         Parameters
@@ -1126,7 +1150,7 @@ class Parser(doc.NodeVisitor):
             # Case 1: return without any value
             return None
 
-        expr = self.visit_expr(node.value)
+        expr = self._visit_expr(node.value)
 
         # Case 2: return None (explicit)
         if expr is None:
@@ -1167,7 +1191,7 @@ class Parser(doc.NodeVisitor):
 
         return result
 
-    def visit_delete(self, node: doc.Delete) -> None:
+    def _visit_delete(self, node: doc.Delete) -> None:
         """The general delete visiting method.
 
         Parameters
@@ -1217,10 +1241,3 @@ class Parser(doc.NodeVisitor):
             vars_to_delete = self.delete_after[stmt_id]
             self.context.mark_for_deletion(vars_to_delete)
             self.context.cleanup_marked()
-
-    # ============================================================
-    # Reporting methods
-    # ============================================================
-    def report(self, node: doc.AST, msg: str, level: DiagnosticLevel) -> None:
-        """Report a diagnostic."""
-        self.diag.emit(node, msg, level)

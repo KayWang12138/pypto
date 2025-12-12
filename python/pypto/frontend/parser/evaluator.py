@@ -67,7 +67,7 @@ class ExprEvaluator:
         if isinstance(node, ast.expr):
             # Case 1: a simple expression
             mod = ast.fix_missing_locations(ast.Expression(body=node))
-            exe = compile(mod, filename="<ast>", mode="eval")
+            exe = compile(mod, filename=self.diag.source.source_name, mode="eval")
             dict_locals = var_table.copy()
             # Replace SymbolicScalars with concrete values if available
             for key, value in dict_locals.items():
@@ -80,7 +80,7 @@ class ExprEvaluator:
         elif isinstance(node, ast.Expr):
             # Case 2: a expression in a statement
             mod = ast.fix_missing_locations(ast.Module(body=[node], type_ignores=[]))
-            exe = compile(mod, filename="<ast>", mode="exec")
+            exe = compile(mod, filename=self.diag.source.source_name, mode="exec")
             dict_locals = var_table.copy()
             # Replace SymbolicScalars with concrete values if available
             for key, value in dict_locals.items():

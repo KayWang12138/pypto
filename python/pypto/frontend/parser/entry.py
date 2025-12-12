@@ -130,11 +130,37 @@ class JitCallableWrapper:
         if hasattr(original_func, "__doc__"):
             self.__doc__ = original_func.__doc__
 
+    @staticmethod
+    def _get_func_nonlocals(func: Callable) -> dict[str, Any]:
+        """A modified version of `inspect.getclosurevars`"""
+
+        if inspect.ismethod(func):
+            func = func.__func__
+
+        if not inspect.isfunction(func):
+            raise TypeError(f"{func!r} is not a Python function")
+
+        code = func.__code__
+        # Nonlocal references are named in co_freevars and resolved
+        # by looking them up in __closure__ by positional index
+        nonlocal_vars = {}
+        if func.__closure__ is not None:
+            for var, cell in zip(code.co_freevars, func.__closure__):
+                try:
+                    nonlocal_vars[var] = cell.cell_contents
+                except ValueError as err:
+                    # cell_contents may raise ValueError if the cell is empty.
+                    if "empty" not in str(err):
+                        raise
+        return nonlocal_vars
+
     def _create_parser(self) -> Parser:
         """Create and prepare a parser for the wrapped function."""
         source = Source(self._original_func)
-        closure_vars = inspect.getclosurevars(self._original_func)
-        captured_vars = {**closure_vars.nonlocals, **closure_vars.globals}
+        captured_vars = {
+            **self._original_func.__globals__,
+            **self._get_func_nonlocals(self._original_func),
+        }
         parser = Parser(source, captured_vars)
         return parser
 
