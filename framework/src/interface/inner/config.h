@@ -56,7 +56,8 @@ constexpr const char *CFGCACHE_DEVICE_TASK_NUM = "cfgcache_device_task_num";
 constexpr const char *CFGCACHE_ROOT_TASK_NUM = "cfgcache_root_task_num";
 constexpr const char *CFGCACHE_LEAF_TASK_NUM = "cfgcache_leaf_task_num";
 constexpr const char *CFG_RUN_MODE = "run_mode";
-constexpr const char *CFG_RUN_MODE_SIM = "simulator";
+const int64_t CFG_RUN_MODE_NPU = 0;
+const int64_t CFG_RUN_MODE_SIM = 1;
 
 /* Rundata KEYS */
 constexpr const char *KEY_RUNTYPE = "runtype";

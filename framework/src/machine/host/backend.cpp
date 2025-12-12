@@ -56,10 +56,7 @@ extern "C" bool MatchCache(const std::string &cacheKey) {
 static void InitSocVersion()
 {
 #ifdef BUILD_WITH_CANN
-    if (std::getenv("ASCEND_HOME_PATH") == nullptr) {
-        config::SetRuntimeOption(CFG_RUN_MODE, CFG_RUN_MODE_SIM);
-    }
-    if (config::GetRuntimeOption<std::string>(CFG_RUN_MODE) == CFG_RUN_MODE_SIM) {
+    if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) == CFG_RUN_MODE_SIM) {
         return;
     }
     static constexpr uint32_t kMaxVersionLengh = 50;
@@ -681,7 +678,7 @@ static void CompileControlFlow(const std::string &aicpuDirPath,
         return;
     }
 #ifdef BUILD_WITH_CANN
-    if (config::GetRuntimeOption<std::string>(CFG_RUN_MODE) != CFG_RUN_MODE_SIM) {
+    if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) != CFG_RUN_MODE_SIM) {
         if (std::getenv("ASCEND_HOME_PATH") != nullptr) {
             ASSERT(TileFwkAiCpuCompile(funcName, aicpuDirPath)) << ": PyPto Control Flow compile failed"; 
         }
@@ -793,7 +790,7 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, cons
     encodeDevAscendFunctionParam.inoutLink = &attr->inoutLink;
 
 #ifdef BUILD_WITH_CANN
-    if (config::GetRuntimeOption<std::string>(CFG_RUN_MODE) != CFG_RUN_MODE_SIM) {
+    if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) != CFG_RUN_MODE_SIM) {
         int ret = CompileAICoreKernel(leafDict, encodeDevAscendFunctionParam,
                                     ccePath, function->GetFunctionHash().Data(), kernelPath);
         if (ret != 0) {

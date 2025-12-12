@@ -106,7 +106,7 @@ struct AOTBinaryControlFlow : AOTBinary {
 
     void CallControlFlow(
             struct DeviceExecuteContext *ctx, uint64_t *symbolTable, CallRootEntryType callRootList[T_CALLROOT_MAX], DevStartArgsBase *startArgsBase) {
-        (reinterpret_cast<controlFlowEntry>(code_))(ctx, symbolTable, callRootList, startArgsBase);
+        (reinterpret_cast<controlFlowEntry>(const_cast<unsigned char *>(code_)))(ctx, symbolTable, callRootList, startArgsBase);
     }
 };
 
@@ -119,7 +119,7 @@ struct AOTBinaryExpressionTable : AOTBinary {
     }
 
     uint64_t CallExpr(struct DeviceExecuteContext *ctx, uint64_t *symbolTable, uint64_t index) {
-        return (reinterpret_cast<exprEntry>(code_ + offsetList[index]))(ctx, symbolTable);
+        return (reinterpret_cast<exprEntry>(const_cast<unsigned char *>(code_ + offsetList[index])))(ctx, symbolTable);
     }
 
     const uint64_t *offsetList{nullptr};

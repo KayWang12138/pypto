@@ -95,7 +95,7 @@ DeviceExecuteContext::DeviceExecuteContext(DevStartArgs *startArgs) {
     }
 
     PerfBegin(PERF_EVT_CONTROL_FLOW_MAPEXE);
-    execProg = DeviceExecuteProgram(devProg, reinterpret_cast<AOTBinaryControlFlow::controlFlowEntry>(startArgs->controlFlowEntry));
+    execProg = DeviceExecuteProgram(devProg, reinterpret_cast<AOTBinaryControlFlow::controlFlowEntry>(const_cast<void *>(startArgs->controlFlowEntry)));
     AOTCodePool::GetCodePool().MapExec();
     PerfEnd(PERF_EVT_CONTROL_FLOW_MAPEXE);
     PerfEnd(PERF_EVT_INIT);

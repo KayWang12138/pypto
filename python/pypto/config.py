@@ -220,7 +220,7 @@ def set_runtime_options(*,
                         cfgcache_root_task_num: Optional[int] = None,
                         cfgcache_leaf_task_num: Optional[int] = None,
                         stitch_callop_max_num: int = None,
-                        run_mode: Optional[str] = None
+                        run_mode: Optional[int] = None
                         ) -> None:
     """
     Set runtime options.

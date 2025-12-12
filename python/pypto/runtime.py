@@ -90,8 +90,7 @@ def _device_run_once_data_from_host(inputs: List[pypto.Tensor], outputs: List[py
 
 
 class JIT:
-    def __init__(self, dyn_func, codegen_options=None,
-                 host_options=None, pass_options=None, runtime_options=None):
+    def __init__(self, dyn_func, codegen_options=None, host_options=None, pass_options=None, runtime_options=None):
         self.dyn_func = dyn_func
         self._is_compiled: bool = False
         self._handler = None
@@ -128,8 +127,9 @@ class JIT:
 
     def run_with_npu(self, inputs, outputs, device):
         if device.type == 'cpu':
-            self.run_with_cpu(inputs, outputs)
+            _device_run_once_data_from_host(inputs, outputs)
         elif device.type == 'npu':
+            import torch_npu
             in_tensor_data = _pto_to_tensor_data(inputs)
             out_tensor_data = _pto_to_tensor_data(outputs)
             ori_device = current_device()
@@ -149,18 +149,27 @@ class JIT:
     def dispatch_with_run_mode(self, in_tensor_data, out_tensor_data, device):
         cann_is_configed: bool = bool(os.environ.get("ASCEND_HOME_PATH"))
         print(pypto.get_runtime_options(), flush=True)
-        run_mode = pypto.get_runtime_options().get('run_mode', None)
-        if run_mode == '':
-            if cann_is_configed:
-                self.run_with_npu(in_tensor_data, out_tensor_data, device)
-            else:
-                self.run_with_cpu(in_tensor_data, out_tensor_data)
-        elif run_mode == 'npu':
+        run_mode = pypto.get_runtime_options().get('run_mode', 0)
+        if run_mode == 0:
             if cann_is_configed == False:
                 raise RuntimeError("please source cann env, when run with {run_mode}")
             self.run_with_npu(in_tensor_data, out_tensor_data, device)
         else:
             self.run_with_cpu(in_tensor_data, out_tensor_data)
+
+    def set_run_mode(self):
+        if self.runtime_options is None:
+            self.runtime_options = {}
+
+        run_mode = self.runtime_options.get("run_mode", None)
+        if run_mode is not None:
+            return
+
+        cann_is_configed: bool = bool(os.environ.get("ASCEND_HOME_PATH"))
+        if cann_is_configed:
+            self.runtime_options.update({"run_mode": 0})
+        else:
+            self.runtime_options.update({"run_mode": 1})
 
     def __call__(self, *args, **kwargs):
         if len(args) < 2:
@@ -183,10 +192,13 @@ class JIT:
         out_tensor_data = _pto_to_tensor_data(outputs)
         real_shapes = [t.GetShape() for t in in_tensor_data + out_tensor_data]
 
+        self.set_run_mode()
         if not self._is_compiled or not self._hit_cache(real_shapes):
             self.compile(inputs, outputs, *args[2:], **kwargs)
             self._cached_shapes = real_shapes
             pypto_impl.BuildCache(self._handler, in_tensor_data, out_tensor_data)
+        else:
+            self._set_config_option()
 
         # dispatch run mode based on ASCEND_HOME_PATH or run_mode
         '''
