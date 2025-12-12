@@ -9,7 +9,7 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 """PyPTO"""
-from typing import List, Optional, Union, overload
+from typing import List, Optional, Union, overload, Sequence
 
 from .. import pypto_impl
 from ..element import Element
@@ -166,3 +166,77 @@ def full(
         return pypto_impl.Full(
             pypto_impl.Element(dtype, fill_value), dtype, size, to_syms(valid_shape)
         )
+
+
+@op_wrapper
+def zeros(
+    *size: Union[int, Sequence[int]],
+    dtype: Optional[DataType] = None) -> Tensor:
+    """
+    Returns a tensor filled with the scalar value 0, with the shape defined by the variable argument `size`.
+
+    Parameters
+    ----------
+    size : int or sequence of ints
+        Dimensionalities of the tensor. Can be multiple integer arguments or a single sequence.
+    dtype : DataType, optional
+        The desired data type of returned tensor. Default: DT_FP32.
+
+    Returns
+    -------
+    Tensor
+        A tensor filled with zeros.
+
+    Examples
+    --------
+    >>> import pto
+    >>> pto.zeros(2, 3)
+    tensor([[0., 0., 0.],
+            [0., 0., 0.]])
+    """
+    if len(size) == 1 and isinstance(size[0], (list, tuple)):
+        shape = list(size[0])
+    else:
+        shape = list(size)
+
+    if dtype is None:
+        dtype = pypto_impl.DataType.DT_FP32
+    zero_element = pypto_impl.Element(dtype, 0)
+    return pypto_impl.Full(zero_element, dtype, shape, to_syms([]))
+
+
+@op_wrapper
+def ones(
+    *size: Union[int, Sequence[int]],
+    dtype: Optional[DataType] = None) -> Tensor:
+    """
+    Returns a tensor filled with the scalar value 1, with the shape defined by the variable argument `size`.
+
+    Parameters
+    ----------
+    size : int or sequence of ints
+        Dimensionalities of the tensor. Can be multiple integer arguments or a single sequence.
+    dtype : DataType, optional
+        The desired data type of returned tensor. Default: DT_FP32.
+
+    Returns
+    -------
+    Tensor
+        A tensor filled with ones.
+
+    Examples
+    --------
+    >>> import pto
+    >>> pto.ones(2, 3)
+    tensor([[1., 1., 1.],
+            [1., 1., 1.]])
+    """
+    if len(size) == 1 and isinstance(size[0], (list, tuple)):
+        shape = list(size[0])
+    else:
+        shape = list(size)
+
+    if dtype is None:
+        dtype = pypto_impl.DataType.DT_FP32
+    one_element = pypto_impl.Element(dtype, 1)
+    return pypto_impl.Full(one_element, dtype, shape, to_syms([]))
