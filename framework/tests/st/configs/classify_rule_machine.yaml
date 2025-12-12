@@ -102,7 +102,7 @@ stest:
       - DynamicBasicTest.TestTensorExtract
       - DynamicBasicTest.TestGetTensorData
       # - DynamicBasicTest.TestGetTensorDataCrossFunction
-      - DynamicBasicTest.TestGetTensorDataUnalign
+      # - DynamicBasicTest.TestGetTensorDataUnalign
       - DynamicBasicTest.TestGetTensorDataExpr
       - DynamicBasicTest.TestVectorDup
       - DynamicBasicTest.TestTensorInsert

@@ -91,7 +91,7 @@ namespace npu::tile_fwk {
 inline void CheckDeviceId() {
     int32_t devId = 0;
     int32_t getDeviceResult = rtGetDevice(&devId);
-    if (getDeviceResult == RT_ERROR_NONE) {
+    if (getDeviceResult != RT_ERROR_NONE) {
         ALOG_ERROR_F("fail get device id, check if set device id");
         return;
     }
