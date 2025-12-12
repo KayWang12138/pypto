@@ -104,7 +104,8 @@ def get_vec_tile_shapes() -> List[int]:
     return pypto_impl.GetVecTile()
 
 
-def set_cube_tile_shapes(m: List[int], k: List[int], n: List[int], set_l1_tile: bool = False):
+def set_cube_tile_shapes(m: List[int], k: List[int], n: List[int], set_l1_tile: bool = False, 
+                        enable_split_k: bool = False):
     """ set the tile shapes in cube computation
 
     This operation sets the value of the tile shapes
@@ -126,8 +127,12 @@ def set_cube_tile_shapes(m: List[int], k: List[int], n: List[int], set_l1_tile: 
         The length of the list must be 2.
 
     set_l1_tile: bool
-        whether the tile shape is set for L1 or L0.
-        default is false (i.e. set for L0)
+        whether the process of moving L1 to L0 is multi data load.
+        default is false (i.e. not multi data load)
+
+    enable_split_k: bool
+        whether the matmul result accumulated in the GM.
+        default is false (i.e. not GM ACC)
 
     Returns
     -------
@@ -141,7 +146,7 @@ def set_cube_tile_shapes(m: List[int], k: List[int], n: List[int], set_l1_tile: 
 
     """
     # implementation
-    pypto_impl.SetCubeTile(m, k, n, set_l1_tile)
+    pypto_impl.SetCubeTile(m, k, n, set_l1_tile, enable_split_k)
 
 
 def get_cube_tile_shapes() -> Tuple[List[int], List[int], List[int], bool]:

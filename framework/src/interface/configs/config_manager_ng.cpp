@@ -130,7 +130,7 @@ TileShape ConfigScope::GenerateTileShape() const {
     CubeTile cubeTile = GetConfig<CubeTile>("cube_tile_shapes");
     std::vector<int64_t> vec1 = GetConfig<std::vector<int64_t>>("vec_tile_shapes");
     std::vector<int64_t> vec2 = GetConfig<std::vector<int64_t>>("matrix_size");
-    tileShape.SetCubeTile(cubeTile.m, cubeTile.k, cubeTile.n, cubeTile.setL1Tile);
+    tileShape.SetCubeTile(cubeTile.m, cubeTile.k, cubeTile.n, cubeTile.setL1Tile, cubeTile.enableSplitK);
     tileShape.SetVecTile(vec1);
     tileShape.SetMatrixSize(vec2);
     return tileShape;

@@ -93,8 +93,29 @@ void PadLocalBuffer::PadMatmul(Operation &op, LogicalTensorPtr &in) {
         && ((*producers.begin())->GetOpcode() == Opcode::OP_L1_TO_FIX_QUANT_PRE || (*producers.begin())->GetOpcode() == Opcode::OP_L1_TO_BT
             || (*consumers.begin())->GetOpcode() == Opcode::OP_L1_TO_BT || (*consumers.begin())->GetOpcode() == Opcode::OP_L1_TO_FIX_QUANT_PRE);
     const bool isInt8Input = IsInputInt8(op, in);
-
+    /*
+    首先，可以通过in的数据类型是否为int8来判断是否要做32B对齐。
+    再者，存在两种情况
+    第一种：in (dtype:fp16/int32) -> iOperands (dtype:int8) -> Matmul系列(A_MUL_B, AT_MUL_B, A_MUL_BT, AT_MUL_BT)
+    这种情况需要通过op.GetIOperands来判断输入是否为int8。
+    第二种：iOperands (dtype:int8) -> Matmul系列(A_MUL_B, AT_MUL_B, A_MUL_BT, AT_MUL_BT, A_MULACC_B) -> in (dtype:fp16/int32) -> iOperands (dtype:fp16/int32) -> COPY_OUT
+    这种情况是COPY_OUT需要根据in的producer的iOperands来进行判断，所以会需要获取到in的producer的iOperands的数据类型。
+    */
     if (isL1ConvertScene) {
+        /*
+        输入带bias或fixpipe场景，切分tileShape为[1, N]，在L1_TO_BT和L1_TO_FIX_QUANT_PRE时，BT统一为FP32，BT BUFFER要求64B对齐，FixPipe为uint64，FB BUFFER为128B对齐，均要求N满足16元素对齐，否则会出现address misalign异常
+        示例场景：biasShape = [1, 3208]，tileShapeN = [32, 128]，3208 % 32 = 8尾块非对齐
+        另外，bias或fixpipe场景只做低维16元素对齐，高维保持不变
+        Before:
+        L1_TO_L0A --> L0A (shape:[24, 400]) ------------------------->    \
+        L1_TO_BT --> bias_BT (shape:[1, 8]) -----> (address misalign)  A_MUL_B 
+        L1_TO_L0B --> L0B (shape:[400, 16]) ------------------------->    /
+
+        After:
+        L1_TO_L0A --> L0A (shape:[32, 400])  -->   \
+        L1_TO_BT --> bias_BT (shape:[1, 16]) --> A_MUL_B --> output(shape:[32, 16])
+        L1_TO_L0B --> L0B (shape:[400, 16])  -->   /
+        */
         in->shape[lowIndex] = Pad(in->shape[lowIndex], CUBE_PAD_VALUE);
     } else if (isInt8Input) {
         in->shape[highIndex] = Pad(in->shape[highIndex], CUBE_PAD_INT8_VALUE);

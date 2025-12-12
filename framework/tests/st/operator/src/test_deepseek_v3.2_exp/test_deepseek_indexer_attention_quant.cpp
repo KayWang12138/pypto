@@ -343,7 +343,6 @@ TEST_F(DeepSeekIndexerAttentionQuantSTest, 4B_mtp) {
 }
 
 TEST_F(DeepSeekIndexerAttentionQuantSTest, 4B_mtp_perf) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     DSIASimpleParams params = DSIASimpleParams::getDecodeParams();
     test_common(params);
 }

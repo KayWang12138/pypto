@@ -45,6 +45,9 @@ set(_CaseFilterList
         "TestSuite_Backend.SimulationBackend_Err1"
         "DynamicMatmulUTest.mm_A_B_ND_bf16"
         "DynamicMatmulUTest.mm_A_B_ND_pertensor"
+        "DynamicMatmulUTest.mm_A_B_ND_KSplit_bf16"
+        "DynamicMatmulUTest.mm_A_B_ND_bf16_C_NZ"
+        "DynamicMatmulUTest.mm_A_NZ_B_NZ_int8_C_NZ"
 )
 
 set(_Target ${PTO_Fwk_UTestNamePrefix}_machine)

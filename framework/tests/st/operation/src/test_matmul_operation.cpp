@@ -75,27 +75,6 @@ static Tensor CallMatmulOpWithL0C2L1(const Tensor &tensorA, const Tensor &tensor
     return funcs[index](outDtype, tensorA, tensorB);
 }
 
-static Tensor CallKSplitMatmulOp(const Tensor &tensorA, const Tensor &tensorB, const Tensor &tensorC,
-                                 const MatmulTestCaseParam &param) {
-    if (!param.transA && !param.transB && !param.isCMatrixNz) {
-        return Matrix::Matmul<false, false, false>(param.outDtype, tensorA, tensorB, tensorC);
-    } else if (!param.transA && !param.transB && param.isCMatrixNz) {
-        return Matrix::Matmul<false, false, true>(param.outDtype, tensorA, tensorB, tensorC);
-    } else if (!param.transA && param.transB && !param.isCMatrixNz) {
-        return Matrix::Matmul<false, true, false>(param.outDtype, tensorA, tensorB, tensorC);
-    } else if (!param.transA && param.transB && param.isCMatrixNz) {
-        return Matrix::Matmul<false, true, true>(param.outDtype, tensorA, tensorB, tensorC);
-    } else if (param.transA && !param.transB && !param.isCMatrixNz) {
-        return Matrix::Matmul<true, false, false>(param.outDtype, tensorA, tensorB, tensorC);
-    } else if (param.transA && !param.transB && param.isCMatrixNz) {
-        return Matrix::Matmul<true, false, true>(param.outDtype, tensorA, tensorB, tensorC);
-    } else if (param.transA && param.transB && !param.isCMatrixNz) {
-        return Matrix::Matmul<true, true, false>(param.outDtype, tensorA, tensorB, tensorC);
-    } else {
-        return Matrix::Matmul<true, true, true>(param.outDtype, tensorA, tensorB, tensorC);
-    }
-}
-
 static void MatmulOperationExeFuncNoSplitWithL0C2L1(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     auto args = static_cast<const MatmulOpFuncArgs *>(opArgs);
@@ -185,48 +164,6 @@ static void MatmulOperationExeFuncNoSplit(
     }
 }
 
-static void MatmulOperationExeFuncSplitK(const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs,
-                                         const OpFuncArgs *opArgs) {
-    auto args = static_cast<const MatmulOpFuncArgs *>(opArgs);
-    bool transA = args->param_.transA;
-    bool transB = args->param_.transB;
-    SymbolicScalar mDim = transA ? inputs[0].GetShape()[1] : inputs[0].GetShape()[0];
-    SymbolicScalar kDim = transA ? inputs[0].GetShape()[0] : inputs[0].GetShape()[1];
-    SymbolicScalar nDim = transB ? inputs[1].GetShape()[0] : inputs[1].GetShape()[1];
-    const int64_t kSplitSize = args->tileShape_[1][1];
-    if (kSplitSize == 0) return;
-    FUNCTION("testKSplit", {inputs[0], inputs[1]}, {outputs[0]}) {
-        LOOP("mLoop", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(1)) {
-            (void)mIdx;
-            const int64_t kSplit = (kDim + kSplitSize - 1) / kSplitSize;
-            TileShape::Current().SetVecTile({args->tileShape_[0][0], args->tileShape_[2][0]});
-            Tensor tmpC = Full(Element(args->param_.outDtype, static_cast<int64_t>(0)),
-                                          args->param_.outDtype, {mDim, nDim});
-            std::vector<Tensor> matmulResult;
-            int64_t kL1Size = std::min(kDim, kSplitSize);
-            for (int64_t ki = 0; ki < kSplit; ki++) {
-                int64_t kValidshape = std::min(kDim - kL1Size * ki, kL1Size);
-                Tensor tensorB;
-                if (transB) {
-                    tensorB = View(inputs[1], {nDim, kL1Size}, {nDim, kValidshape}, {0, kL1Size * ki});
-                } else {
-                    tensorB = View(inputs[1], {kL1Size, nDim}, {kValidshape, nDim}, {kL1Size * ki, 0});
-                }
-                Tensor tensorA;
-                if (transA) {
-                    tensorA = View(inputs[0], {kL1Size, mDim}, {kValidshape, mDim}, {kL1Size * ki, 0});
-                } else {
-                    tensorA = View(inputs[0], {mDim, kL1Size}, {mDim, kValidshape}, {0, kL1Size * ki});
-                }
-                Tensor tmp = CallKSplitMatmulOp(tensorA, tensorB, tmpC, args->param_);
-                matmulResult.emplace_back(tmp);
-            }
-            tmpC = npu::tile_fwk::Reduce(matmulResult, ReduceMode::ATOMIC_ADD);
-            Assemble(tmpC, {0, 0}, outputs[0]);
-        }
-    }
-}
-
 static void MatmulOperationExeFuncSplitM(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     auto args = static_cast<const MatmulOpFuncArgs *>(opArgs);
@@ -267,50 +204,6 @@ static void MatmulOperationExeFuncSplitM(
             param.scaleValue = scaleValue;
             Tensor tensorC = CallMatmulOp(tensorA, tensorB, args->param_, param);
             Assemble(tensorC, {mIdx * mView, 0}, outputs[0]);
-        }
-    }
-}
-
-static void MatmulOperationExeFuncSplitMK(const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs,
-                                          const OpFuncArgs *opArgs) {
-    auto args = static_cast<const MatmulOpFuncArgs *>(opArgs);
-    bool transA = args->param_.transA;
-    bool transB = args->param_.transB;
-    SymbolicScalar mDim = transA ? inputs[0].GetShape()[1] : inputs[0].GetShape()[0];
-    SymbolicScalar kDim = transA ? inputs[0].GetShape()[0] : inputs[0].GetShape()[1];
-    SymbolicScalar nDim = transB ? inputs[1].GetShape()[0] : inputs[1].GetShape()[1];
-    const int64_t mView = args->viewShape_[0];
-    const int64_t kSplitSize = args->tileShape_[1][1];
-    if (kSplitSize == 0) return;
-    FUNCTION("testMKSplit", {inputs[0], inputs[1]}, {outputs[0]}) {
-        LOOP("mLoop", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(0, CeilDivSymbolicScalar(mDim, mView), 1)) {
-            const int64_t kSplit = (kDim + kSplitSize - 1) / kSplitSize;
-            TileShape::Current().SetVecTile({args->tileShape_[0][0], args->tileShape_[2][0]});
-            Tensor tmpC = Full(Element(args->param_.outDtype, static_cast<int64_t>(0)),
-                                          args->param_.outDtype, {std::min(mView, mDim), nDim});
-            std::vector<Tensor> matmulResult;
-            int64_t kL1Size = std::min(kDim, kSplitSize);
-            for (int64_t ki = 0; ki < kSplit; ki++) {
-                int64_t kValidshape = std::min(kDim - kL1Size * ki, kL1Size);
-                Tensor tensorA;
-                if (transA) {
-                    tensorA = View(inputs[0], {kL1Size, mView},
-                                   {kValidshape, std::min(mDim - mView * mIdx, mView)}, {kL1Size * ki, mIdx * mView});
-                } else {
-                    tensorA = View(inputs[0], {mView, kL1Size},
-                                   {std::min(mDim - mView * mIdx, mView),kValidshape}, {mIdx * mView, kL1Size * ki});
-                }
-                Tensor tensorB;
-                if (transB) {
-                    tensorB = View(inputs[1], {nDim, kL1Size}, {nDim, kValidshape}, {0, kL1Size * ki});
-                } else {
-                    tensorB = View(inputs[1], {kL1Size, nDim}, {kValidshape, nDim}, {kL1Size * ki, 0});
-                }
-                Tensor tmp = CallKSplitMatmulOp(tensorA, tensorB, tmpC, args->param_);
-                matmulResult.emplace_back(tmp);
-            }
-            tmpC = npu::tile_fwk::Reduce(matmulResult, ReduceMode::ATOMIC_ADD);
-            Assemble(tmpC, {mIdx * mView, 0}, outputs[0]);
         }
     }
 }
@@ -357,50 +250,6 @@ static void MatmulOperationExeFuncSplitN(
             }
             Tensor tensorC = CallMatmulOp(tensorA, tensorB, args->param_, param);
             Assemble(tensorC, {0, nIdx * nView}, outputs[0]);
-        }
-    }
-}
-
-static void MatmulOperationExeFuncSplitKN(const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs,
-                                          const OpFuncArgs *opArgs) {
-    auto args = static_cast<const MatmulOpFuncArgs *>(opArgs);
-    bool transA = args->param_.transA;
-    bool transB = args->param_.transB;
-    SymbolicScalar mDim = transA ? inputs[0].GetShape()[1] : inputs[0].GetShape()[0];
-    SymbolicScalar kDim = transA ? inputs[0].GetShape()[0] : inputs[0].GetShape()[1];
-    SymbolicScalar nDim = transB ? inputs[1].GetShape()[0] : inputs[1].GetShape()[1];
-    const int64_t nView = args->viewShape_[1];
-    const int64_t kSplitSize = args->tileShape_[1][1];
-    if (kSplitSize == 0) return;
-    FUNCTION("testKNSplit", {inputs[0], inputs[1]}, {outputs[0]}) {
-        LOOP("nLoop", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, CeilDivSymbolicScalar(nDim, nView), 1)) {
-            const int64_t kSplit = (kDim + kSplitSize - 1) / kSplitSize;
-            TileShape::Current().SetVecTile({args->tileShape_[0][0], args->tileShape_[2][0]});
-            Tensor tmpC = Full(Element(args->param_.outDtype, static_cast<int64_t>(0)),
-                                          args->param_.outDtype, {mDim, std::min(nView, nDim)});
-            std::vector<Tensor> matmulResult;
-            int64_t kL1Size = std::min(kDim, kSplitSize);
-            for (int64_t ki = 0; ki < kSplit; ki++) {
-                int64_t kValidshape = std::min(kDim - kL1Size * ki, kL1Size);
-                Tensor tensorA;
-                if (transA) {
-                    tensorA = View(inputs[0], {kL1Size, mDim}, {kValidshape, mDim}, {kL1Size * ki, 0});
-                } else {
-                    tensorA = View(inputs[0], {mDim, kL1Size}, {mDim, kValidshape}, {0, kL1Size * ki});
-                }
-                Tensor tensorB;
-                if (transB) {
-                    tensorB = View(inputs[1], {nView, kL1Size},
-                                   {std::min(nDim - nIdx * nView, nView), kValidshape}, {nIdx * nView, kL1Size * ki});
-                } else {
-                    tensorB = View(inputs[1], {kL1Size, nView},
-                                   {kValidshape, std::min(nDim - nIdx * nView, nView)}, {kL1Size * ki, nIdx * nView});
-                }
-                Tensor tmp = CallKSplitMatmulOp(tensorA, tensorB, tmpC, args->param_);
-                matmulResult.emplace_back(tmp);
-            }
-            tmpC = npu::tile_fwk::Reduce(matmulResult, ReduceMode::ATOMIC_ADD);
-            Assemble(tmpC, {0, nIdx * nView}, outputs[0]);
         }
     }
 }
@@ -456,55 +305,6 @@ static void MatmulOperationExeFuncSplitMN(
     }
 }
 
-static void MatmulOperationExeFuncSplitMKN(const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs,
-                                          const OpFuncArgs *opArgs) {
-    auto args = static_cast<const MatmulOpFuncArgs *>(opArgs);
-    bool transA = args->param_.transA;
-    bool transB = args->param_.transB;
-    SymbolicScalar mDim = transA ? inputs[0].GetShape()[1] : inputs[0].GetShape()[0];
-    SymbolicScalar kDim = transA ? inputs[0].GetShape()[0] : inputs[0].GetShape()[1];
-    SymbolicScalar nDim = transB ? inputs[1].GetShape()[0] : inputs[1].GetShape()[1];
-    const int64_t mView = args->viewShape_[0];
-    const int64_t nView = args->viewShape_[1];
-    const int64_t kSplitSize = args->tileShape_[1][1];
-    if (kSplitSize == 0) return;
-    FUNCTION("testMKNSplit", {inputs[0], inputs[1]}, {outputs[0]}) {
-        LOOP("mLoop", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(0, CeilDivSymbolicScalar(mDim, mView), 1)) {
-            LOOP("nLoop", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, CeilDivSymbolicScalar(nDim, nView), 1)) {
-                const int64_t kSplit = (kDim + kSplitSize - 1) / kSplitSize;
-                TileShape::Current().SetVecTile({args->tileShape_[0][0], args->tileShape_[2][0]});
-                Tensor tmpC = Full(Element(args->param_.outDtype, static_cast<int64_t>(0)),
-                                              args->param_.outDtype, {std::min(mView, mDim), std::min(nView, nDim)});
-                std::vector<Tensor> matmulResult;
-                int64_t kL1Size = std::min(kDim, kSplitSize);
-                for (int64_t ki = 0; ki < kSplit; ki++) {
-                    int64_t kValidshape = std::min(kDim - kL1Size * ki, kL1Size);
-                    Tensor tensorA;
-                    if (transA) {
-                        tensorA = View(inputs[0], {kL1Size, mView}, {kValidshape, std::min(mDim - mView * mIdx, mView)},
-                                       {kL1Size * ki, mIdx * mView});
-                    } else {
-                        tensorA = View(inputs[0], {mView, kL1Size}, {std::min(mDim - mView * mIdx, mView), kValidshape},
-                                       {mIdx * mView, kL1Size * ki});
-                    }
-                    Tensor tensorB;
-                    if (transB) {
-                        tensorB = View(inputs[1], {nView, kL1Size}, {std::min(nDim - nIdx * nView, nView), kValidshape},
-                                       {nIdx * nView, kL1Size * ki});
-                    } else {
-                        tensorB = View(inputs[1], {kL1Size, nView}, {kValidshape, std::min(nDim - nIdx * nView, nView)},
-                                       {kL1Size * ki, nIdx * nView});
-                    }
-                    Tensor tmp = CallKSplitMatmulOp(tensorA, tensorB, tmpC, args->param_);
-                    matmulResult.emplace_back(tmp);
-                }
-                tmpC = npu::tile_fwk::Reduce(matmulResult, ReduceMode::ATOMIC_ADD);
-                Assemble(tmpC, {mIdx * mView, nIdx * nView}, outputs[0]);
-            }
-        }
-    }
-}
-
 static void MatmulOperationExeFunc(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
@@ -516,11 +316,11 @@ static void MatmulOperationExeFunc(
             (args->tileShape_[2][0] < args->tileShape_[2][1]) ? args->tileShape_[2][0] : args->tileShape_[2][1];
         TileShape::Current().SetCubeTile({args->tileShape_[0][0], args->tileShape_[0][1]},
                                          {args->tileShape_[1][0], args->tileShape_[1][1]},
-                                         {nTile, nTile}, true);
+                                         {nTile, nTile}, true, args->param_.enableKSplit);
     } else {
         TileShape::Current().SetCubeTile({args->tileShape_[0][0], args->tileShape_[0][1]},
                                          {args->tileShape_[1][0], args->tileShape_[1][1]},
-                                         {args->tileShape_[2][0], args->tileShape_[2][1]}, true);
+                                         {args->tileShape_[2][0], args->tileShape_[2][1]}, true, args->param_.enableKSplit);
     }
 
     const size_t MM_VIEW_SHAPE_DIM = 2;
@@ -530,26 +330,14 @@ static void MatmulOperationExeFunc(
     if (args->param_.enable_l0c2l1) {
         return MatmulOperationExeFuncNoSplitWithL0C2L1(inputs, outputs, opArgs);
     }
-    if (!args->param_.enableKSplit) {
-        if (mView > 0 && nView > 0) {
-            return MatmulOperationExeFuncSplitMN(inputs, outputs, opArgs);
-        } else if (mView > 0) {
-            return MatmulOperationExeFuncSplitM(inputs, outputs, opArgs);
-        } else if (nView > 0) {
-            return MatmulOperationExeFuncSplitN(inputs, outputs, opArgs);
-        } else {
-            return MatmulOperationExeFuncNoSplit(inputs, outputs, opArgs);
-        }
+    if (mView > 0 && nView > 0) {
+        return MatmulOperationExeFuncSplitMN(inputs, outputs, opArgs);
+    } else if (mView > 0) {
+        return MatmulOperationExeFuncSplitM(inputs, outputs, opArgs);
+    } else if (nView > 0) {
+        return MatmulOperationExeFuncSplitN(inputs, outputs, opArgs);
     } else {
-        if (mView > 0 && nView > 0) {
-            return MatmulOperationExeFuncSplitMKN(inputs, outputs, opArgs);
-        } else if (mView > 0) {
-            return MatmulOperationExeFuncSplitMK(inputs, outputs, opArgs);
-        } else if (nView > 0) {
-            return MatmulOperationExeFuncSplitKN(inputs, outputs, opArgs);
-        } else {
-            return MatmulOperationExeFuncSplitK(inputs, outputs, opArgs);
-        }
+        return MatmulOperationExeFuncNoSplit(inputs, outputs, opArgs);
     }
 }
 
@@ -581,7 +369,7 @@ TEST_P(MatmulOperationTest, TestMatmul) {
     testCase.opFunc = GetParam().opFunc_;
     testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0].GetStorage()->Symbol() + ".bin",
         GetGoldenDir() + "/" + testCase.inputTensors[1].GetStorage()->Symbol() + ".bin"};
-    if (!args.param_.enableKSplit && !args.param_.enable_l0c2l1) {
+    if (!args.param_.enable_l0c2l1) {
         // scale tensor
         Tensor scaleTensor = GetParamTensor(test_data, "scale_tensors");
         testCase.inputTensors.push_back(scaleTensor);

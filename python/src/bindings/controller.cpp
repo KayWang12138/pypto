@@ -98,7 +98,7 @@ void bind_controller_set_tile(py::module &m) {
     m.def(
         "SetCubeTile",
         [](const std::vector<int64_t> &mvec, const std::vector<int64_t> &kvec, const std::vector<int64_t> &nvec,
-            bool setL1Tile) {
+            bool setL1Tile, bool enableSplitK) {
             if (mvec.size() > MAX_M_DIM_SIZE) {
                 throw py::value_error(
                     "Parameter 'm' must have exactly " + std::to_string(MAX_M_DIM_SIZE) + " elements");
@@ -119,13 +119,13 @@ void bind_controller_set_tile(py::module &m) {
             std::copy(mvec.begin(), mvec.end(), marr.begin());
             std::copy(kvec.begin(), kvec.end(), karr.begin());
             std::copy(nvec.begin(), nvec.end(), narr.begin());
-            TileShape::Current().SetCubeTile(marr, karr, narr, setL1Tile);
+            TileShape::Current().SetCubeTile(marr, karr, narr, setL1Tile, enableSplitK);
         },
-        py::arg("m"), py::arg("k"), py::arg("n"), py::arg("set_l1_tile"),
+        py::arg("m"), py::arg("k"), py::arg("n"), py::arg("set_l1_tile"), py::arg("enable_split_k"), 
         "Set cube tile shapes with specified dimensions");
     m.def("GetCubeTile", []() {
         auto cubeTile = TileShape::Current().GetCubeTile();
-        return std::tuple(cubeTile.m, cubeTile.k, cubeTile.n, cubeTile.setL1Tile);
+        return std::tuple(cubeTile.m, cubeTile.k, cubeTile.n, cubeTile.setL1Tile, cubeTile.enableSplitK);
     });
 }
 

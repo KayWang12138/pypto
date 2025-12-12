@@ -32,6 +32,13 @@ namespace Matrix {
 const float EPSILON = 1e-6f;
 namespace Deprecate {
 
+#define OP_CHECK(cond, exec_expr) \
+    do { \
+        if (cond) { \
+            exec_expr; \
+        } \
+    } while (0)
+
 const int32_t GMACC = 3;
 const int32_t BIASINDEX = 2;
 const int32_t SCALEINDEX = 3;
@@ -276,7 +283,7 @@ void DoAMulB(Function &function, const AggregationMap &aggregations, const Matmu
     std::vector<int64_t> shape = {cubeTile.m[0], cubeTile.n[0]};
     const std::vector<int64_t> matrixSize = {matmulAttrParam.mValue, matmulAttrParam.kValue, matmulAttrParam.nValue};
     for (const auto &[offset, aggregation] : aggregations) {
-        ASSERT(!aggregation.empty());
+        OP_CHECK(true, {ASSERT(!aggregation.empty()) << "AggregationMap is empty." << std::endl;});
         auto cL0PartialTensor = std::make_shared<LogicalTensor>(function, dataType, shape);
         shape[0] = std::min(cubeTile.m[0], cTensorPtr->shape[0] - offset[0]);
         shape[1] = std::min(cubeTile.n[0], cTensorPtr->shape[1] - offset[1]);
@@ -338,15 +345,15 @@ void TiledInnerAMulB(Function &function, const TileShape &tileShape, const std::
     const auto operand2 = matmulInputs.bTensorPtr;
 
     // 2为shape的维度，当前只支持2维
-    if (operand1->shape.size() != 2) {
-        ASSERT(false && "only supported two dimension");
-    }
+    OP_CHECK(operand1->shape.size() != 2, { ASSERT(false && "only supported two dimension"); });
     const int64_t orgM = isTransA ? operand1->shape[1] : operand1->shape[0];
     const int64_t orgKa = isTransA ? operand1->shape[0] : operand1->shape[1];
     const int64_t orgKb = isTransB ? operand2->shape[1] : operand2->shape[0];
     const int64_t orgN = isTransB ? operand2->shape[0] : operand2->shape[1];
-    ASSERT(orgKa == orgKb) << "K-axis mismatch: "
-                           << "orgKa = " << orgKa << ", orgKb = " << orgKb << std::endl;
+    OP_CHECK(true, {
+        ASSERT(orgKa == orgKb) << "K-axis mismatch: "
+                                 << "orgKa: " << orgKa << ", orgKb: " << orgKb << std::endl;
+    });
 
     const int32_t kBL1Idx = 2;
     auto &cubeTile = tileShape.GetCubeTile();
@@ -387,6 +394,8 @@ void TiledInnerAMulB(Function &function, const TileShape &tileShape, const std::
 }
 } // namespace Deprecate
 
+const int32_t MATRIX_SHAPE_DIM = 2;
+
 template <typename T>
 auto CeilAlign(T num_1, T num_2) -> T
 {
@@ -409,10 +418,15 @@ LogicalTensorPtr AddOpView(Function &function, const LogicalTensorPtr &srcTensor
                            const MatmulTensorInfo &dstTensorInfo, const std::map<std::string, T1> opAttr = {},
                            const std::map<std::string, T2> extraOpAttr = {})
 {
-    ASSERT(srcTensorPtr != nullptr);
+    OP_CHECK(true, {
+        ASSERT(srcTensorPtr != nullptr) << "Original tensor for OpView operation is nullptr." << std::endl; });
     auto dstShape = dstTensorInfo.shape;
     if (dstTensorInfo.transFlag) {
-        ASSERT(dstShape.size() == SHAPE_DIM2);
+        OP_CHECK(true, {
+             ASSERT(dstShape.size() == SHAPE_DIM2) << "destination shape dimension is invalid: "
+                                     << "Expected dimensions: "
+                                     << SHAPE_DIM2 << ", actual dimensions: " << dstShape.size() << std::endl;
+        });
         std::swap(dstShape[0], dstShape[1]);
     }
     LogicalTensorPtr dstTensorPtr =
@@ -422,7 +436,11 @@ LogicalTensorPtr AddOpView(Function &function, const LogicalTensorPtr &srcTensor
         GetViewValidShape(srcTensorPtr->GetDynValidShape(), dstTensorInfo.offset, {}, dstTensorInfo.shape));
     if (dstTensorInfo.transFlag) {
         auto &dstValidShape = dstTensorPtr->GetDynValidShape();
-        ASSERT(dstValidShape.size() == SHAPE_DIM2);
+        OP_CHECK(true, {
+            ASSERT(dstValidShape.size() == SHAPE_DIM2) << "dstValidShape dimension is invalid: "
+                                     << "Expected dimensions: " <<SHAPE_DIM2
+                                     << ", actual dimensions: " << dstValidShape.size() << std::endl;
+        });
         std::swap(dstValidShape[0], dstValidShape[1]);
     }
     auto &viewOp = function.AddOperation(Opcode::OP_VIEW, {srcTensorPtr}, {dstTensorPtr});
@@ -447,8 +465,13 @@ LogicalTensorPtr AddOpView(Function &function, const LogicalTensorPtr &srcTensor
 
 void SetAMulBAttr(const MatmulGraphNodes &tensorGraphNodes, const MatmulAttrParam &attrParam, Operation &op)
 {
-    ASSERT(tensorGraphNodes.aTensorPtr != nullptr && tensorGraphNodes.bTensorPtr != nullptr &&
-           tensorGraphNodes.outTensorPtr != nullptr);
+    OP_CHECK(true,
+        {
+                ASSERT(tensorGraphNodes.aTensorPtr != nullptr && tensorGraphNodes.bTensorPtr != nullptr &&
+           tensorGraphNodes.outTensorPtr != nullptr)
+        << "Expected aTensorPtr, bTensorPtr, and outTensorPtr to be non-nullptr." << std::endl;
+        });
+
     int64_t nzAttr = (static_cast<int64_t>(tensorGraphNodes.aTensorPtr->Format())) |
                      (static_cast<int64_t>(tensorGraphNodes.bTensorPtr->Format()) << 1) |
                      // 2含义：cTensorPtr的索引，同时也是cTensor NZ信息的编码偏移位数
@@ -516,12 +539,22 @@ void SetMatmulAttrParam(const Operation &op, MatmulAttrParam &param)
 void SetTensorGraphNodes(const std::vector<LogicalTensorPtr> &operandVec, const LogicalTensorPtr &cTensorPtr,
                          const MatmulAttrParam &param, MatmulGraphNodes &tensorGraphNodes)
 {
-    ASSERT(operandVec.size() ==
-           SHAPE_DIM2 + static_cast<size_t>(param.hasScale + param.hasBias + param.gmAccumulationFlag));
+    size_t operandVecSize = SHAPE_DIM2 + static_cast<size_t>(param.hasScale + param.hasBias + param.gmAccumulationFlag);
+    OP_CHECK(true, {
+            ASSERT(operandVec.size() == operandVecSize)    
+        << "Operand vector size mismatch: "
+        << "Expected size: " << operandVecSize << ", actual size: " << operandVec.size()
+        << ", SHAPE_DIM2: " << SHAPE_DIM2 << ", hasScale: " << param.hasScale << ", hasBias: " << param.hasBias
+        << ", gmAccumulationFlag: " << param.gmAccumulationFlag << std::endl;
+    });
+
     tensorGraphNodes.aTensorPtr = operandVec[0];
     tensorGraphNodes.bTensorPtr = operandVec[1];
-    ASSERT(tensorGraphNodes.aTensorPtr != nullptr && tensorGraphNodes.bTensorPtr != nullptr);
-    ASSERT(cTensorPtr != nullptr);
+    OP_CHECK(true, 
+    {     ASSERT(tensorGraphNodes.aTensorPtr != nullptr && tensorGraphNodes.bTensorPtr != nullptr)
+        << "Expected aTensorPtr and bTensorPtr to be non-nullptr." << std::endl; });
+
+    OP_CHECK(true, { ASSERT(cTensorPtr != nullptr) << "cTensorPtr is nullptr." << std::endl;});
     tensorGraphNodes.outTensorPtr = cTensorPtr;
 
     size_t extraDim = static_cast<size_t>(param.hasScale) | (static_cast<size_t>(param.hasBias) << 1) |
@@ -543,38 +576,62 @@ void SetTensorGraphNodes(const std::vector<LogicalTensorPtr> &operandVec, const 
             tensorGraphNodes.gmAccumulationTensorPtr = operandVec[SHAPE_DIM2];
             break;
         default:
-            ASSERT(false) << "Invalid tensor graph\n";
+            OP_CHECK(true, { ASSERT(false) << "Invalid tensor graph\n";});
     }
 }
 
 void CheckOperandShape(const Tensor &operand1, const Tensor &operand2)
 {
-    ASSERT(operand1.GetShape().size() == operand2.GetShape().size());
-    ASSERT(operand1.GetShape().size() == operand1.GetStorage()->offset.size());
-    ASSERT(operand2.GetShape().size() == operand2.GetStorage()->offset.size());
+    OP_CHECK(true, {
+            ASSERT(operand1.GetShape().size() == operand2.GetShape().size())
+        << "Shape dimension mismatch between operand1 and operand2. "
+        << "operand1 shape size: " << operand1.GetShape().size()
+        << ", operand2 shape size: " << operand2.GetShape().size() << std::endl;
+    });
 
+    OP_CHECK(true, {
+        ASSERT(operand1.GetShape().size() == operand1.GetStorage()->offset.size())
+        << "Shape dimension mismatch with offset size for operand1. "
+        << "shape size: " << operand1.GetShape().size() << ", offset size: " << operand1.GetStorage()->offset.size()
+        << std::endl;
+    });
+
+    OP_CHECK(true, {
+            ASSERT(operand2.GetShape().size() == operand2.GetStorage()->offset.size())
+        << "Shape dimension mismatch with offset size for operand2. "
+        << "shape size: " << operand2.GetShape().size() << ", offset size: " << operand2.GetStorage()->offset.size()
+        << std::endl;
+    });
+
+    OP_CHECK(true, {
     ASSERT(operand1.GetShape().size() >= SHAPE_DIM2)
         << "The dimension of operand1 must be larger than 2! The dimensin of operand1:" << operand1.GetShape().size()
         << std::endl;
+    });
 
-    ASSERT(operand2.GetShape().size() >= SHAPE_DIM2)
+    OP_CHECK(true, {
+            ASSERT(operand2.GetShape().size() >= SHAPE_DIM2)
         << "The dimension of operand2 must be larger than 2! The dimensin of operand2:" << operand2.GetShape().size()
         << std::endl;
+    });
 
     for (size_t i = 0; i < operand1.GetShape().size(); ++i) {
-        ASSERT(operand1.GetShape()[i] > 0)
+        OP_CHECK(true, {
+            ASSERT(operand1.GetShape()[i] > 0)
             << "The value of the " << i << "-th dimension of operand1 must be larger than 0" << std::endl;
+        });
     }
 
     for (size_t i = 0; i < operand2.GetShape().size(); ++i) {
-        ASSERT(operand2.GetShape()[i] > 0)
+        OP_CHECK(true, {
+             ASSERT(operand2.GetShape()[i] > 0)
             << "The value of the " << i << "-th dimension of operand2 must be larger than 0" << std::endl;
+        });
     }
 }
 
 template <bool isTransA>
-void CheckCubeTiling(const Tensor &operand1, const Tensor &operand2)
-{
+void CheckCubeTiling(const Tensor &operand1, const Tensor &operand2) {
     auto cubeTile = TileShape::Current().GetCubeTile();
     const int32_t kBL1Idx = 2;
     const int64_t kL0 = cubeTile.k[0];
@@ -584,57 +641,78 @@ void CheckCubeTiling(const Tensor &operand1, const Tensor &operand2)
     const int64_t mL1 = cubeTile.m[1];
     const int64_t nL0 = cubeTile.n[0];
     const int64_t nL1 = cubeTile.n[1];
-    ASSERT(kL0 > 0 && kL1a > 0 && kL1b > 0 && mL0 > 0 && mL1 > 0 && nL0 > 0 && nL1 > 0)
-        << "Current kL0: " << kL0 << ", kL1a: " << kL1a << ", kL1b: " << kL1b << ", mL0: " << mL0 << ", mL1: " << mL1
-        << ", nL0: " << nL0 << ", nL1: " << nL1
-        << " Requirement: kL0 > 0 && kL1a > 0 && mL0 > 0 && mL1 > 0 && nL0 > 0 && nL1 > 0" << std::endl;
-    ASSERT(kL0 <= kL1a && kL1a % kL0 == 0)
-        << "Current kL0: " << kL0 << ", kL1a: " << kL1a << ", Requirement: kL0 <= kL1a && kL1a % kL0 == 0" << std::endl;
-    ASSERT(kL0 <= kL1b && kL1b % kL0 == 0)
-        << "Current kL0: " << kL0 << ", kL1b: " << kL1b << ", Requirement: kL0 <= kL1b && kL1b % kL0 == 0" << std::endl;
-    ASSERT(nL0 <= nL1 && nL1 % nL0 == 0) << "Current nL0: " << nL0 << ", nL1: " << nL1
-                                         << ", Requirement: nL0 <= nL1 && nL1 % nL0 == 0" << std::endl;
-    ASSERT(mL0 <= mL1 && mL1 % mL0 == 0) << "Current mL0: " << mL0 << ", mL1: " << mL1
-                                         << ", Requirement: mL0 <= mL1 && mL1 % mL0 == 0" << std::endl;
-    ASSERT(kL0 * BytesOf(operand1.GetDataType()) % ALIGN_SIZE_32 == 0)
-        << "Current length of kL0: " << (kL0 * BytesOf(operand1.GetDataType()))
-        << " bytes, the length must be aligned to 32 bytes" << std::endl;
-    ASSERT(nL0 * BytesOf(operand2.GetDataType()) % ALIGN_SIZE_32 == 0)
-        << "Current length of nL0: " << (nL0 * BytesOf(operand1.GetDataType()))
-        << " bytes, the length must be aligned to 32 bytes" << std::endl;
+    OP_CHECK(true, {
+        ASSERT(kL0 > 0 && kL1a > 0 && kL1b > 0 && mL0 > 0 && mL1 > 0 && nL0 > 0 && nL1 > 0)
+            << "Current kL0: " << kL0 << ", kL1a: " << kL1a << ", kL1b: " << kL1b << ", mL0: " << mL0
+            << ", mL1: " << mL1 << ", nL0: " << nL0 << ", nL1: " << nL1
+            << " Requirement: kL0 > 0 && kL1a > 0 && mL0 > 0 && mL1 > 0 && nL0 > 0 && nL1 > 0" << std::endl;
+    });
+    OP_CHECK(true, {
+        ASSERT(kL0 <= kL1a && kL1a % kL0 == 0) << "Current kL0: " << kL0 << ", kL1a: " << kL1a
+                                               << ", Requirement: kL0 <= kL1a && kL1a % kL0 == 0" << std::endl;
+    });
+    OP_CHECK(true, {
+        ASSERT(kL0 <= kL1b && kL1b % kL0 == 0) << "Current kL0: " << kL0 << ", kL1b: " << kL1b
+                                               << ", Requirement: kL0 <= kL1b && kL1b % kL0 == 0" << std::endl;
+    });
+    OP_CHECK(true, {
+        ASSERT(nL0 <= nL1 && nL1 % nL0 == 0)
+            << "Current nL0: " << nL0 << ", nL1: " << nL1 << ", Requirement: nL0 <= nL1 && nL1 % nL0 == 0" << std::endl;
+    });
+    OP_CHECK(true, {
+        ASSERT(mL0 <= mL1 && mL1 % mL0 == 0)
+            << "Current mL0: " << mL0 << ", mL1: " << mL1 << ", Requirement: mL0 <= mL1 && mL1 % mL0 == 0" << std::endl;
+    });
+    OP_CHECK(true, {
+        ASSERT(kL0 * BytesOf(operand1.GetDataType()) % ALIGN_SIZE_32 == 0)
+            << "Current length of kL0: " << (kL0 * BytesOf(operand1.GetDataType()))
+            << " bytes, the length must be aligned to 32 bytes" << std::endl;
+    });
+    OP_CHECK(true, {
+        ASSERT(nL0 * BytesOf(operand2.GetDataType()) % ALIGN_SIZE_32 == 0)
+            << "Current length of nL0: " << (kL0 * BytesOf(operand1.GetDataType()))
+            << " bytes, the length must be aligned to 32 bytes" << std::endl;
+    });
     if (operand1.Format() == TileOpFormat::TILEOP_ND) {
-        if constexpr (isTransA) {  // For ND A transpose, mL0 must be 32B aligned
-            ASSERT(mL0 * BytesOf(operand1.GetDataType()) % ALIGN_SIZE_32 == 0)
-                << "Current length of mL0: " << (mL0 * BytesOf(operand1.GetDataType()))
-                << " bytes, the length must be aligned to 32 bytes when A is transposed" << std::endl;
+        if constexpr (isTransA) { // For ND A transpose, mL0 must be 32B aligned
+            OP_CHECK(true, { ASSERT(mL0 * BytesOf(operand1.GetDataType()) % ALIGN_SIZE_32 == 0)
+                                << "Current length of mL0: " << (mL0 * BytesOf(operand1.GetDataType()))
+                                << " bytes, the length must be aligned to 32 bytes when A is transposed" << std::endl;
+            });
         }
     }
 }
 
-void CheckOperandShapeBound(const Tensor &operand)
-{
+void CheckOperandShapeBound(const Tensor &operand) {
     auto opFormat = operand.Format();
     if (opFormat == TileOpFormat::TILEOP_ND) {
-        ASSERT(operand.GetShape().back() <= SHAPE_INNER_AXIS_MAX_SIZE)
-            << "Current inner axis: " << operand.GetShape().back()
-            << ", when input is ND format, inner axis must be less than 65535" << std::endl;
-
-        ASSERT(operand.GetShape()[operand.GetShape().size() - SHAPE_DIM2] <= std::numeric_limits<int32_t>::max())
-            << "Current outer axis: " << (operand.GetShape()[operand.GetShape().size() - SHAPE_DIM2])
-            << ", when input is ND format, outer axis must be less than 2^31 - 1" << std::endl;
+        OP_CHECK(true, {
+            ASSERT(operand.GetShape().back() <= SHAPE_INNER_AXIS_MAX_SIZE)
+                << "Current inner axis: " << operand.GetShape().back()
+                << ", when input is ND format, inner axis must be less than 65535" << std::endl;
+        });
+        OP_CHECK(true, {
+            ASSERT(operand.GetShape()[operand.GetShape().size() - SHAPE_DIM2] <= std::numeric_limits<int32_t>::max())
+                << "Current outer axis: " << (operand.GetShape()[operand.GetShape().size() - SHAPE_DIM2])
+                << ", when input is ND format, outer axis must be less than 2^31 - 1" << std::endl;
+        });
     } else {
-        ASSERT(operand.GetShape().back() * BytesOf(operand.GetDataType()) % ALIGN_SIZE_32 == 0)
-            << "Current inner axis: " << operand.GetShape().back() << ", when input "
-            << "is NZ format, inner axis shape must be 32-byte aligned" << std::endl;
-        ASSERT(operand.GetShape()[operand.GetShape().size() - SHAPE_DIM2] % ALIGN_SIZE_16 == 0)
-            << "Current outer axis: " << operand.GetShape()[operand.GetShape().size() - SHAPE_DIM2] << ", when input "
-            << "is NZ format, outer axis shape must be 16-element aligned" << std::endl;
+        OP_CHECK(true, {
+            ASSERT(operand.GetShape().back() * BytesOf(operand.GetDataType()) % ALIGN_SIZE_32 == 0)
+                << "Current inner axis: " << operand.GetShape().back() << ", when input "
+                << "is NZ format, inner axis shape must be 32-byte aligned" << std::endl;
+        });
+        OP_CHECK(true, {
+            ASSERT(operand.GetShape()[operand.GetShape().size() - SHAPE_DIM2] % ALIGN_SIZE_16 == 0)
+                << "Current outer axis: " << operand.GetShape()[operand.GetShape().size() - SHAPE_DIM2]
+                << ", when input "
+                << "is NZ format, outer axis shape must be 16-element aligned" << std::endl;
+        });
     }
 }
 
 template <bool isTransA, bool isTransB>
-void CheckNZFormatAligned(const Tensor &operand1, const Tensor &operand2)
-{
+void CheckNZFormatAligned(const Tensor &operand1, const Tensor &operand2) {
     auto cubeTile = TileShape::Current().GetCubeTile();
     const int64_t kL0 = cubeTile.k[0];
     const int64_t mL0 = cubeTile.m[0];
@@ -643,101 +721,165 @@ void CheckNZFormatAligned(const Tensor &operand1, const Tensor &operand2)
     auto opFormatB = operand2.Format();
     if (opFormatA == TileOpFormat::TILEOP_NZ) {
         if constexpr (isTransA) {
-            ASSERT(mL0 * BytesOf(operand1.GetDataType()) % ALIGN_SIZE_32 == 0)
-                << "Current length of mL0: " << (mL0 * BytesOf(operand1.GetDataType()))
-                << " bytes, the length must be aligned to 32 bytes" << std::endl;
-            ASSERT(kL0 % ALIGN_SIZE_16 == 0) << "Current length of kL0: " << kL0
-                                             << " elements, the length must be aligned to 16 elements" << std::endl;
+            OP_CHECK(true, {ASSERT(mL0 * BytesOf(operand1.GetDataType()) % ALIGN_SIZE_32 == 0)
+                                << "Current length of mL0: " << (mL0 * BytesOf(operand1.GetDataType()))
+                                << " bytes, the length must be aligned to 32 bytes" << std::endl;
+            });
+            OP_CHECK(true, {
+                ASSERT(kL0 % ALIGN_SIZE_16 == 0) << "Current length of kL0: " << kL0
+                                                 << " elements, the length must be aligned to 16 elements" << std::endl;
+            });
         } else {
-            ASSERT(kL0 * BytesOf(operand1.GetDataType()) % ALIGN_SIZE_32 == 0)
-                << "Current length of kL0: " << (kL0 * BytesOf(operand1.GetDataType()))
-                << " bytes, the length must be aligned to 32 bytes" << std::endl;
-            ASSERT(mL0 % ALIGN_SIZE_16 == 0) << "Current length of mL0: " << mL0
-                                             << " elements, the length must be aligned to 16 elements" << std::endl;
+            OP_CHECK(true, { ASSERT(kL0 * BytesOf(operand1.GetDataType()) % ALIGN_SIZE_32 == 0)
+                                << "Current length of kL0: " << (kL0 * BytesOf(operand1.GetDataType()))
+                                << " bytes, the length must be aligned to 32 bytes" << std::endl;
+            });
+            OP_CHECK(true, {
+                ASSERT(mL0 % ALIGN_SIZE_16 == 0) << "Current length of mL0: " << mL0
+                                                 << " elements, the length must be aligned to 16 elements" << std::endl;
+            });
         }
     }
     if (opFormatB == TileOpFormat::TILEOP_NZ) {
         if constexpr (isTransB) {
-            ASSERT(kL0 * BytesOf(operand1.GetDataType()) % ALIGN_SIZE_32 == 0)
-                << "Current length of kL0: " << (kL0 * BytesOf(operand1.GetDataType()))
-                << " bytes, the length must be aligned to 32 bytes" << std::endl;
-            ASSERT(nL0 % ALIGN_SIZE_16 == 0) << "Current length of nL0: " << nL0
-                                             << " elements, the length must be aligned to 16 elements" << std::endl;
+            OP_CHECK(true, {ASSERT(kL0 * BytesOf(operand1.GetDataType()) % ALIGN_SIZE_32 == 0)
+                                << "Current length of kL0: " << (kL0 * BytesOf(operand1.GetDataType()))
+                                << " bytes, the length must be aligned to 32 bytes" << std::endl;
+            });
+            OP_CHECK(true, {
+                ASSERT(nL0 % ALIGN_SIZE_16 == 0) << "Current length of nL0: " << nL0
+                                                 << " elements, the length must be aligned to 16 elements" << std::endl;
+            });
         } else {
-            ASSERT(nL0 * BytesOf(operand1.GetDataType()) % ALIGN_SIZE_32 == 0)
-                << "Current length of nL0: " << (nL0 * BytesOf(operand1.GetDataType()))
-                << " bytes, the length must be aligned to 32 bytes" << std::endl;
-            ASSERT(kL0 % ALIGN_SIZE_16 == 0) << "Current length of kL0: " << kL0
-                                             << " elements, the length must be aligned to 16 elements" << std::endl;
+            OP_CHECK(true, {ASSERT(nL0 * BytesOf(operand1.GetDataType()) % ALIGN_SIZE_32 == 0)
+                                << "Current length of nL0: " << (nL0 * BytesOf(operand1.GetDataType()))
+                                << " bytes, the length must be aligned to 32 bytes" << std::endl;
+            });
+            OP_CHECK(true, {
+                ASSERT(kL0 % ALIGN_SIZE_16 == 0) << "Current length of kL0: " << kL0
+                                                 << " elements, the length must be aligned to 16 elements" << std::endl;
+            });
         }
     }
 }
 
 template <bool isTransB, bool isCMatrixNZ>
-void CheckCMatrixNZFormatAligned(const DataType &outType, const Tensor &operand)
-{
+void CheckCMatrixNZFormatAligned(const DataType &outType, const Tensor &operand) {
     auto &cubeType = TileShape::Current().GetCubeTile();
     const int64_t nL0 = cubeType.n[0];
     if constexpr (isCMatrixNZ) {
         int64_t nView = isTransB ? operand.GetShape()[0] : operand.GetShape()[1];
         if (outType == DataType::DT_INT32) {
-            ASSERT(nView % ALIGN_SIZE_16 == 0)
-                << "Current nView: " << nView
-                << " elements, nView must be aligned to 16 elements when CMatrix is NZ and outType is int32"
-                << std::endl;
-            ASSERT(nL0 % ALIGN_SIZE_16 == 0)
-                << "Current nL0: " << nL0
-                << " elements, nL0 must be aligned to 16 elements when CMatrix is NZ and outType is int32" << std::endl;
+            OP_CHECK(true, {
+                ASSERT(nView % ALIGN_SIZE_16 == 0)
+                    << "Current nView: " << nView
+                    << " elements, nView must be aligned to 16 elements when CMatrix is NZ and outType is int32"
+                    << std::endl;
+            });
+
+            OP_CHECK(true, {
+                ASSERT(nL0 % ALIGN_SIZE_16 == 0)
+                    << "Current nL0: " << nL0
+                    << " elements, nL0 must be aligned to 16 elements when CMatrix is NZ and outType is int32"
+                    << std::endl;
+            });
         } else {
-            ASSERT(nView * BytesOf(outType) % ALIGN_SIZE_32 == 0)
-                << "Current nView: " << (nView * BytesOf(outType))
-                << " bytes, nView must be aligned to 32 bytes when CMatrix is NZ" << std::endl;
-            ASSERT(nL0 * BytesOf(outType) % ALIGN_SIZE_32 == 0)
-                << "Current nL0: " << (nL0 * BytesOf(outType))
-                << " bytes, nL0 must be aligned to 32 bytes when CMatrix is NZ" << std::endl;
+            OP_CHECK(true, {
+                ASSERT(nView * BytesOf(outType) % ALIGN_SIZE_32 == 0)
+                    << "Current nView: " << (nView * BytesOf(outType))
+                    << " bytes, nView must be aligned to 32 bytes when CMatrix is NZ" << std::endl;
+            });
+
+            OP_CHECK(true, {
+                ASSERT(nL0 * BytesOf(outType) % ALIGN_SIZE_32 == 0)
+                    << "Current nL0: " << (nL0 * BytesOf(outType))
+                    << " bytes, nL0 must be aligned to 32 bytes when CMatrix is NZ" << std::endl;
+            });
         }
     }
 }
 
-void CheckBiasParam(DataType inDtype, const MatmulExtendParam &param = {})
-{
+void CheckBiasParam(DataType inDtype, const MatmulExtendParam &param = {}) {
     if (param.biasTensor.GetStorage() == nullptr) {
         return;
     }
-    ASSERT(param.biasTensor.Format() == TileOpFormat::TILEOP_ND);
+    OP_CHECK(true,
+        { ASSERT(param.biasTensor.Format() == TileOpFormat::TILEOP_ND) << "Only support TILEOP_ND." << std::endl; });
+
     if (inDtype == DataType::DT_BF16 || inDtype == DataType::DT_FP32) {
-        ASSERT(param.biasTensor.GetDataType() == DataType::DT_FP32);
+        OP_CHECK(true, {
+            ASSERT(param.biasTensor.GetDataType() == DataType::DT_FP32) << "When input tensor is DT_BF16 or DT_FP32, "
+                                                                           "bias must be DT_FP32."
+                                                                        << std::endl;
+        });
     } else if (inDtype == DataType::DT_FP16) {
-        ASSERT(param.biasTensor.GetDataType() == DataType::DT_FP32 ||
-               param.biasTensor.GetDataType() == DataType::DT_FP16);
+        OP_CHECK(true, {
+            ASSERT(param.biasTensor.GetDataType() == DataType::DT_FP32 ||
+                   param.biasTensor.GetDataType() == DataType::DT_FP16)
+                << "When input tensor is DT_FP16, bias must be DT_FP32 or DT_FP16." << std::endl;
+        });
     } else if (inDtype == DataType::DT_INT8) {
-        ASSERT(param.biasTensor.GetDataType() == DataType::DT_INT32);
+        OP_CHECK(true, {
+            ASSERT(param.biasTensor.GetDataType() == DataType::DT_INT32)
+                << "When input tensor is DT_INT8, bias must be DT_INT32." << std::endl;
+        });
     }
-    ASSERT(param.biasTensor.GetShape().size() == SHAPE_DIM2);
-    ASSERT(param.biasTensor.GetShape()[0] == 1);
+    OP_CHECK(true, {
+        ASSERT(param.biasTensor.GetShape().size() == SHAPE_DIM2)
+            << "Bias tensor shape dimension mismatch: "
+            << "Expected " << SHAPE_DIM2 << " dimensions, got " << param.biasTensor.GetShape().size() << std::endl;
+    });
+    OP_CHECK(true, {
+        ASSERT(param.biasTensor.GetShape()[0] == 1)
+            << "Bias tensor first dimension mismatch: "
+            << "Expected first dimension to be 1, got " << param.biasTensor.GetShape()[0] << std::endl;
+    });
 }
 
-void CheckFixpipeParam(DataType inDtype, DataType outDtype, const MatmulExtendParam &param = {})
-{
+void CheckFixpipeParam(DataType inDtype, DataType outDtype, const MatmulExtendParam &param = {}) {
     if (param.scaleTensor.GetStorage() != nullptr) {
-        ASSERT(param.scaleTensor.Format() == TileOpFormat::TILEOP_ND);
-        ASSERT(outDtype == DataType::DT_FP16 && inDtype == DataType::DT_INT8);
-        ASSERT(param.scaleTensor.GetShape()[0] == 1);
+        OP_CHECK(true, {
+            ASSERT(param.scaleTensor.Format() == TileOpFormat::TILEOP_ND) << "Only support TILEOP_ND." << std::endl;
+        });
+
+        OP_CHECK(true, {
+            ASSERT(outDtype == DataType::DT_FP16 && inDtype == DataType::DT_INT8)
+                << "Data type mismatch in fixpipe scenario. "
+                << "Expected inDtype to be DT_INT8 and outDtype to be DT_FP16." << std::endl;
+        });
+
+        OP_CHECK(true, {
+            ASSERT(param.scaleTensor.GetShape()[0] == 1)
+                << "Scale tensor first dimension mismatch. "
+                << "Expected first dimension to be 1, got " << param.scaleTensor.GetShape()[0] << std::endl;
+        });
     }
     if (fabs(param.scaleValue - 0) > EPSILON) {
-        ASSERT(outDtype == DataType::DT_FP16 && inDtype == DataType::DT_INT8);
+        OP_CHECK(true, {
+            ASSERT(outDtype == DataType::DT_FP16 && inDtype == DataType::DT_INT8)
+                << "Data type mismatch in pertensor scenario. "
+                << "Expected inDtype to be DT_INT8 and outDtype to be DT_FP16." << std::endl;
+        });
     }
     if (inDtype == DataType::DT_INT8 && outDtype == DataType::DT_FP16) {
         ASSERT(fabs(param.scaleValue - 0) > EPSILON || param.scaleTensor.GetStorage() != nullptr);
+
+        OP_CHECK(true, {
+            ASSERT(fabs(param.scaleValue - 0) > EPSILON || param.scaleTensor.GetStorage() != nullptr)
+                << "Quantization error in INT8→FP16 path: scaleValue must not be 0.0f, OR scaleTensor must not be null."
+                << std::endl; ;
+        });
     }
 }
 
 template <bool isTransA, bool isTransB, bool isCMatrixNZ>
-void CheckMatmulOperands(DataType outType, const Tensor &operand1, const Tensor &operand2,
-                         const MatmulExtendParam &param = {})
-{
-    ASSERT(outType == DataType::DT_FP32 || outType == DataType::DT_FP16 || outType == DataType::DT_BF16 ||
-           outType == DataType::DT_INT32);
+void CheckMatmulOperands(
+    DataType outType, const Tensor &operand1, const Tensor &operand2, const MatmulExtendParam &param = {}) {
+    OP_CHECK(true, {
+        ASSERT(outType == DataType::DT_FP32 || outType == DataType::DT_FP16 || outType == DataType::DT_BF16 ||
+               outType == DataType::DT_INT32)
+            << "Unsupported output data type. Only DT_FP32, DT_FP16, DT_BF16, DT_INT32 are supported.";
+    });
     // shape valid check
     CheckOperandShape(operand1, operand2);
     // tile valid check
@@ -755,18 +897,30 @@ void CheckMatmulOperands(DataType outType, const Tensor &operand1, const Tensor 
 }
 
 void SetMatmulTileInfo(const TileShape &tileShape, const MatmulAttrParam &attrParam,
-                       const MatmulGraphNodes &tensorGraphNodes, MatmulTileInfo &tileInfo)
-{
-    ASSERT(tensorGraphNodes.aTensorPtr != nullptr && tensorGraphNodes.bTensorPtr != nullptr);
-    ASSERT(tensorGraphNodes.aTensorPtr->GetShape().size() == SHAPE_DIM2 &&
-           tensorGraphNodes.bTensorPtr->GetShape().size() == SHAPE_DIM2);
+    const MatmulGraphNodes &tensorGraphNodes, MatmulTileInfo &tileInfo) {
+    OP_CHECK(true, {
+        ASSERT(tensorGraphNodes.aTensorPtr != nullptr && tensorGraphNodes.bTensorPtr != nullptr)
+            << "Both inputs must be non-nullptr." << std::endl;
+    });
+
+    OP_CHECK(true, {
+        ASSERT(tensorGraphNodes.aTensorPtr->GetShape().size() == SHAPE_DIM2 &&
+               tensorGraphNodes.bTensorPtr->GetShape().size() == SHAPE_DIM2)
+            << "Invalid tensor shape dimension, expected both tensors to have exactly. " << SHAPE_DIM2
+            << " dimensions. "
+            << "aTensorPtr shape dim: " << tensorGraphNodes.aTensorPtr->GetShape().size()
+            << ", bTensorPtr shape dim: " << tensorGraphNodes.bTensorPtr->GetShape().size() << std::endl;
+    });
 
     tileInfo.mView = attrParam.transA ? tensorGraphNodes.aTensorPtr->shape[1] : tensorGraphNodes.aTensorPtr->shape[0];
     tileInfo.nView = attrParam.transB ? tensorGraphNodes.bTensorPtr->shape[0] : tensorGraphNodes.bTensorPtr->shape[1];
     int64_t kViewA = attrParam.transA ? tensorGraphNodes.aTensorPtr->shape[0] : tensorGraphNodes.aTensorPtr->shape[1];
     int64_t kViewB = attrParam.transB ? tensorGraphNodes.bTensorPtr->shape[1] : tensorGraphNodes.bTensorPtr->shape[0];
-    ASSERT(kViewA == kViewB) << "Matrix K dimemsion mismatch, kViewA: " << kViewA << ", kViewB: " << kViewB
-                             << std::endl;
+
+    OP_CHECK(true, {
+        ASSERT(kViewA == kViewB) << "Matrix K dimemsion mismatch, kViewA: " << kViewA << ", kViewB: " << kViewB
+                                 << std::endl;
+    });
     tileInfo.kView = kViewA;
 
     auto &cubeTile = tileShape.GetCubeTile();
@@ -776,11 +930,23 @@ void SetMatmulTileInfo(const TileShape &tileShape, const MatmulAttrParam &attrPa
     tileInfo.tileNL1 = cubeTile.n[1];
     tileInfo.tileKL0 = cubeTile.k[0];
     tileInfo.tileKAL1 = cubeTile.k[1];
-    tileInfo.tileKBL1 = cubeTile.k[2];  // 2含义：kBL1 tile的偏移
+    tileInfo.tileKBL1 = cubeTile.k[2]; // 2含义：kBL1 tile的偏移
     int64_t tileKL1Min = std::min(tileInfo.tileKAL1, tileInfo.tileKBL1);
     int64_t tileKL1Max = std::max(tileInfo.tileKAL1, tileInfo.tileKBL1);
-    ASSERT(tileKL1Max >= kViewA || (tileKL1Max > 0 && tileKL1Min > 0 && tileKL1Max % tileKL1Min == 0));
-    ASSERT(tileInfo.tileKL0 > 0 && tileKL1Min % tileInfo.tileKL0 == 0);
+
+    OP_CHECK(true, {
+        ASSERT(tileKL1Max >= kViewA || (tileKL1Max > 0 && tileKL1Min > 0 && tileKL1Max % tileKL1Min == 0))
+            << "Invalid tileKL1 configuration: tileKL1Max: " << tileKL1Max << ", kViewA: " << kViewA
+            << ", tileKL1Min: " << tileKL1Min
+            << ". Must satisfy: tileKL1Max >= kViewA OR (all values > 0 and tileKL1Max is divisible by tileKL1Min)."
+            << std::endl;
+    });
+
+    OP_CHECK(true, {
+        ASSERT(tileInfo.tileKL0 > 0 && tileKL1Min % tileInfo.tileKL0 == 0)
+            << "tileKL0: " << tileInfo.tileKL0 << ", tileKL1Min: " << tileKL1Min
+            << ". Must have: tileKL0 > 0 AND tileKL1Min is divisible by tileKL0." << std::endl;
+    });
 }
 
 LogicalTensorPtr LinkBias(Function &function, const MatmulGraphNodes &tensorGraphNodes, const TileInfo &tileInfoL1,
@@ -898,24 +1064,30 @@ LogicalTensorPtr LinkTensorB(Function &function, const MatmulGraphNodes &tensorG
 }
 
 void LinkAMulB(Function &function, const MatmulGraphNodes &tensorGraphNodes, const MatmulAttrParam &attrParam,
-               const MatmulIterInfo &iterInfo, MatmulGraphNodes &tileGraphNodes)
-{
-    ASSERT(tileGraphNodes.aTensorPtr != nullptr && tileGraphNodes.bTensorPtr != nullptr &&
-           tileGraphNodes.outTensorPtr != nullptr);
+    const MatmulIterInfo &iterInfo, MatmulGraphNodes &tileGraphNodes) {
+    OP_CHECK(true, {
+        ASSERT(tileGraphNodes.aTensorPtr != nullptr && tileGraphNodes.bTensorPtr != nullptr &&
+               tileGraphNodes.outTensorPtr != nullptr)
+            << "Inputs must be non-nullptr." << std::endl;
+    });
     std::vector<LogicalTensorPtr> aMulBInputs;
     std::vector<LogicalTensorPtr> aMulBOutputs;
     const std::string matmulOpStr = iterInfo.isFirstK ? "TILE_A_MUL_B" : "TILE_A_MULACC_B";
     if (attrParam.gmAccumulationFlag) {
         // GM 累加场景
-        ASSERT(tensorGraphNodes.gmAccumulationTensorPtr != nullptr && attrParam.hasBias == false &&
-               attrParam.hasScale == false);
+        OP_CHECK(true, {
+            ASSERT(tensorGraphNodes.gmAccumulationTensorPtr != nullptr && attrParam.hasBias == false &&
+                   attrParam.hasScale == false)
+                << "In GM accumulation mode, neither bias nor scale is allowed." << std::endl;
+        });
         tileGraphNodes.gmAccumulationTensorPtr = tensorGraphNodes.gmAccumulationTensorPtr->View(
             function, {iterInfo.mL0Size, iterInfo.nL0Size}, {iterInfo.mOffset, iterInfo.nOffset});
         if (iterInfo.isFirstK) {
-            aMulBInputs = {tileGraphNodes.aTensorPtr, tileGraphNodes.bTensorPtr,
-                           tileGraphNodes.gmAccumulationTensorPtr};
+            aMulBInputs = {
+                tileGraphNodes.aTensorPtr, tileGraphNodes.bTensorPtr, tileGraphNodes.gmAccumulationTensorPtr};
         } else {
-            aMulBInputs = {tileGraphNodes.aTensorPtr, tileGraphNodes.bTensorPtr, tileGraphNodes.cL0PartialSumPtr};
+            aMulBInputs = {tileGraphNodes.aTensorPtr, tileGraphNodes.bTensorPtr, tileGraphNodes.cL0PartialSumPtr,
+                tileGraphNodes.gmAccumulationTensorPtr};
         }
     } else {
         // 普通场景
@@ -946,14 +1118,18 @@ void LinkAMulB(Function &function, const MatmulGraphNodes &tensorGraphNodes, con
     SetAMulBAttr(tensorGraphNodes, attrParam, aMulBOp);
 }
 
-void UpdateIterInfo(const MatmulTileInfo &tileInfo, MatmulIterInfo &iterInfo)
-{
+void UpdateIterInfo(const MatmulTileInfo &tileInfo, MatmulIterInfo &iterInfo) {
     iterInfo.kAL1Size = std::min(tileInfo.tileKAL1, tileInfo.kView - iterInfo.kOffset);
     iterInfo.kBL1Size = std::min(tileInfo.tileKBL1, tileInfo.kView - iterInfo.kOffset);
     iterInfo.kL0Size = std::min(tileInfo.tileKL0, tileInfo.kView - iterInfo.kOffset);
     iterInfo.isFirstK = (iterInfo.kOffset == 0);
     iterInfo.isLastK = (iterInfo.kOffset + tileInfo.tileKL0 >= tileInfo.kView);
-    ASSERT(tileInfo.tileKAL1 > 0 && tileInfo.tileKBL1 > 0);
+
+    OP_CHECK(true, {
+        ASSERT(tileInfo.tileKAL1 > 0 && tileInfo.tileKBL1 > 0)
+            << "Both tileKAL1 and tileKBL1 must be positive: tileKAL1: " << tileInfo.tileKAL1
+            << "tileKBL1: " << tileInfo.tileKBL1 << std::endl;
+    });
 }
 
 void ConstructTileGraph(Function &function, const TileShape &tileShape, const std::vector<LogicalTensorPtr> &operandVec,
@@ -1004,14 +1180,12 @@ void ConstructTileGraph(Function &function, const TileShape &tileShape, const st
 
 template <bool isATrans, bool isBTrans>
 void AddAMulBNode(const LogicalTensorPtr &aTensorPtr, const LogicalTensorPtr &bTensorPtr,
-                  const LogicalTensorPtr &cTensorPtr, const LogicalTensorPtr &gmTensorPtr,
-                  const MatmulExtendParam &param = {})
-{
+    const LogicalTensorPtr &cTensorPtr, const LogicalTensorPtr &gmTensorPtr, const MatmulExtendParam &param = {}) {
     if (CheckValidShape(aTensorPtr) && CheckValidShape(bTensorPtr)) {
         SymbolicScalar mSizeDyn = isATrans ? aTensorPtr->GetDynValidShape()[1] : aTensorPtr->GetDynValidShape()[0];
         SymbolicScalar kSizeDyn = isATrans ? aTensorPtr->GetDynValidShape()[0] : aTensorPtr->GetDynValidShape()[1];
         SymbolicScalar nSizeDyn = isBTrans ? bTensorPtr->GetDynValidShape()[0] : bTensorPtr->GetDynValidShape()[1];
-        ASSERT(cTensorPtr != nullptr);
+        OP_CHECK(true, { ASSERT(cTensorPtr != nullptr) << "cTensorPtr is nullptr." << std::endl; });
         cTensorPtr->UpdateDynValidShape({mSizeDyn, nSizeDyn});
     }
 
@@ -1028,36 +1202,110 @@ void AddAMulBNode(const LogicalTensorPtr &aTensorPtr, const LogicalTensorPtr &bT
         operandVec.push_back(param.scaleTensor.GetStorage());
     }
     Function *functionPtr = Program::GetInstance().GetCurrentFunction();
-    ASSERT(functionPtr != nullptr);
+
+    OP_CHECK(true, { ASSERT(functionPtr != nullptr) << "functionPtr is nullptr." << std::endl; });
     auto &op = functionPtr->AddOperation(Opcode::OP_A_MUL_B, operandVec, {cTensorPtr});
     SetTensorGraphAttr<isATrans, isBTrans>(op, param, gmAccumulationFlag);
 }
 
 template <bool isATrans, bool isBTrans, bool isCMatrixNZ>
 Tensor ConstructTensorGraph(DataType dataType, const Tensor &aMatrix, const Tensor &bMatrix, const Tensor &gmMatrix,
-                            const MatmulExtendParam &param = {})
-{
+    const MatmulExtendParam &param = {}) {
     int64_t mSize = isATrans ? aMatrix.GetShape()[1] : aMatrix.GetShape()[0];
     int64_t kSizeA = isATrans ? aMatrix.GetShape()[0] : aMatrix.GetShape()[1];
     int64_t kSizeB = isBTrans ? bMatrix.GetShape()[1] : bMatrix.GetShape()[0];
     int64_t nSize = isBTrans ? bMatrix.GetShape()[0] : bMatrix.GetShape()[1];
-    ASSERT(kSizeA == kSizeB) << "Matrix K dimemsion mismatch, kSizeA: " << kSizeA << ", kSizeB: " << kSizeB
-                             << std::endl;
+
+    OP_CHECK(true, {
+        ASSERT(kSizeA == kSizeB) << "Matrix K dimemsion mismatch, kSizeA: " << kSizeA << ", kSizeB: " << kSizeB
+                                 << std::endl;
+    });
     Tensor cMatrix(dataType, {mSize, nSize}, "TensorC");
     if constexpr (isCMatrixNZ) {
-        ASSERT(BytesOf(dataType) > 0);
+        OP_CHECK(true, {
+            ASSERT(BytesOf(dataType) > 0)
+                << "BytesOf(dataType): " << BytesOf(dataType) << ". Must be positive." << std::endl;
+        });
         int64_t c0Size = dataType == DataType::DT_INT32 ? ALIGN_SIZE_16 : ALIGN_SIZE_32 / BytesOf(dataType);
         cMatrix = Tensor(dataType, {mSize, CeilAlign(nSize, c0Size)}, "TensorC", TileOpFormat::TILEOP_NZ);
     }
-    AddAMulBNode<isATrans, isBTrans>(aMatrix.GetStorage(), bMatrix.GetStorage(), cMatrix.GetStorage(),
-                                     gmMatrix.GetStorage(), param);
+    AddAMulBNode<isATrans, isBTrans>(
+        aMatrix.GetStorage(), bMatrix.GetStorage(), cMatrix.GetStorage(), gmMatrix.GetStorage(), param);
     return cMatrix;
+}
+
+template<bool isCMatrixNZ>
+static Tensor AssembleGmAccumulationTensor(DataType outType, const Tensor gmAccumulationTensor, SymbolicScalar mSize, SymbolicScalar nSize, 
+                SymbolicScalar mValidShape, SymbolicScalar nValidShape){
+    OP_CHECK(true, {
+        ASSERT(mSize != 0 && nSize != 0 && mValidShape != 0 && nValidShape != 0)
+            << "Matrix size and validShape cannot be 0 " << std::endl;
+    });
+    Tensor assembleTensor(outType, {mSize, nSize}, "", isCMatrixNZ ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND);
+    OP_CHECK(true, { ASSERT(assembleTensor.GetStorage() != nullptr) << "Can not get assembleTensor's storage" << std::endl; });
+    assembleTensor.GetStorage()->UpdateDynValidShape({mValidShape, nValidShape});
+    Assemble(gmAccumulationTensor, {0, 0}, assembleTensor);
+    return assembleTensor;
+}
+
+template <bool isTransA, bool isTransB, bool isCMatrixNZ>
+static Tensor ConstructGmAccumulationTensorGraph(DataType outType, const Tensor &aMatrix, const Tensor &bMatrix) {
+    auto &cubeTile = TileShape::Current().GetCubeTile();
+    OP_CHECK(true, {
+        ASSERT(aMatrix.GetStorage() != nullptr && bMatrix.GetStorage() != nullptr)
+            << "Both aMatrix and bMatrix cannot get storage" << std::endl;
+    });
+    auto aMatrixValidShape = aMatrix.GetStorage()->GetDynValidShape();
+    auto bMatrixValidShape = bMatrix.GetStorage()->GetDynValidShape();
+    OP_CHECK(true, {
+        ASSERT(aMatrixValidShape.size() == MATRIX_SHAPE_DIM && bMatrixValidShape.size() == MATRIX_SHAPE_DIM && cubeTile.k.size() == MAX_K_DIM_SIZE)
+            << "The validShapes of aMatrix and bMatrix must be 2 Dim. Additionally, the K TileShape must be 3 Dim" << std::endl;
+    });
+    SymbolicScalar mValidShape = isTransA ? aMatrixValidShape[1] : aMatrixValidShape[0];
+    SymbolicScalar nValidShape = isTransB ? bMatrixValidShape[0] : bMatrixValidShape[1];
+    SymbolicScalar kL1TileShape = std::min(cubeTile.k[1], cubeTile.k[2]);
+    OP_CHECK(true, {
+        ASSERT(aMatrix.GetShape().size() == MATRIX_SHAPE_DIM && bMatrix.GetShape().size() == MATRIX_SHAPE_DIM)
+            << "The shapes of aMatrix and bMatrix must be 2 Dim" << std::endl;
+    });
+    SymbolicScalar mSize = isTransA ? aMatrix.GetShape()[1] : aMatrix.GetShape()[0];
+    SymbolicScalar kSize = isTransA ? aMatrix.GetShape()[0] : aMatrix.GetShape()[1];
+    SymbolicScalar nSize = isTransB ? bMatrix.GetShape()[0] : bMatrix.GetShape()[1];
+    TileShape::Current().SetVecTile({cubeTile.m[0], cubeTile.n[0]});
+    Tensor gmAccumulationTensor = Full(Element(outType, static_cast<int64_t>(0)), outType, {mSize, nSize}, {mValidShape, nValidShape});
+    std::vector<Tensor> gmPartialSums;
+    OP_CHECK(true, { ASSERT(kL1TileShape != 0) << "kL1TileShape can not be 0" << std::endl; });
+    const int64_t kLoop = (kSize + kL1TileShape - 1) / kL1TileShape;
+    const int64_t kL1Size = std::min(kSize, kL1TileShape);
+    for (int64_t kIdx = 0; kIdx < kLoop; ++kIdx) {
+            int64_t kValidshape = std::min(kSize - kL1Size * kIdx, kL1Size);
+            Tensor tensorA;
+            if (isTransA) {
+                tensorA = View(aMatrix, {kL1Size, mSize}, {kValidshape, mValidShape}, {kL1Size * kIdx, 0});
+            } else {
+                tensorA = View(aMatrix, {mSize, kL1Size}, {mValidShape, kValidshape}, {0, kL1Size * kIdx});
+            }
+            Tensor tensorB;
+            if (isTransB) {
+                tensorB = View(bMatrix, {nSize, kL1Size}, {nValidShape, kValidshape}, {0, kL1Size * kIdx});
+            } else {
+                tensorB = View(bMatrix, {kL1Size, nSize}, {kValidshape, nValidShape}, {kL1Size * kIdx, 0});
+            }
+            Tensor gmPartialSum = ConstructTensorGraph<isTransA, isTransB, isCMatrixNZ>(outType, tensorA, tensorB, gmAccumulationTensor);
+            gmPartialSums.emplace_back(gmPartialSum);
+    }
+    gmAccumulationTensor = npu::tile_fwk::Reduce(gmPartialSums, ReduceMode::ATOMIC_ADD);
+    return AssembleGmAccumulationTensor<isCMatrixNZ>(outType, gmAccumulationTensor, mSize, nSize, mValidShape, nValidShape);
 }
 
 template <bool isATrans, bool isBTrans, bool isCMatrixNZ>
 Tensor Matmul(DataType outType, const Tensor &aMatrix, const Tensor &bMatrix)
 {
     CheckMatmulOperands<isATrans, isBTrans, isCMatrixNZ>(outType, aMatrix, bMatrix);
+    auto& cubeTile = TileShape::Current().GetCubeTile();
+    if (cubeTile.enableSplitK){
+        return ConstructGmAccumulationTensorGraph<isATrans, isBTrans, isCMatrixNZ>(outType, aMatrix, bMatrix);
+    }
     return ConstructTensorGraph<isATrans, isBTrans, isCMatrixNZ>(outType, aMatrix, bMatrix, Tensor());
 }
 
@@ -1065,6 +1313,18 @@ template <bool isATrans, bool isBTrans, bool isCMatrixNZ>
 Tensor Matmul(DataType outType, const Tensor &aMatrix, const Tensor &bMatrix, const MatmulExtendParam &param)
 {
     CheckMatmulOperands<isATrans, isBTrans, isCMatrixNZ>(outType, aMatrix, bMatrix, param);
+    auto& cubeTile = TileShape::Current().GetCubeTile();
+    if (cubeTile.enableSplitK){
+        OP_CHECK(true, {
+            ASSERT(param.scaleTensor.IsEmpty() && param.biasTensor.IsEmpty())
+                << "Fixpipe and bias cannot be used simultaneously with GM ACC" << std::endl;
+        });
+        OP_CHECK(true, {
+            ASSERT(outType != DT_FP16 && outType != DT_BF16)
+                << "Output data type can not be FP16 and BF16" << std::endl;
+        });
+        return ConstructGmAccumulationTensorGraph<isATrans, isBTrans, isCMatrixNZ>(outType, aMatrix, bMatrix);
+    }
     return ConstructTensorGraph<isATrans, isBTrans, isCMatrixNZ>(outType, aMatrix, bMatrix, Tensor(), param);
 }
 
@@ -1102,18 +1362,25 @@ template Tensor Matmul<true, false, true>(DataType, const Tensor &, const Tensor
 template Tensor Matmul<true, true, true>(DataType, const Tensor &, const Tensor &, const Tensor &);
 
 template <bool isTransA, bool isTransB, bool isCMatrixNZ>
-Tensor ABatchMulB3D(DataType dataType, const Tensor &operand1, const Tensor &operand2)
-{
-    ASSERT(operand1.GetShape().size() == operand2.GetShape().size() && operand1.GetShape().size() == SHAPE_DIM3);
+Tensor ABatchMulB3D(DataType dataType, const Tensor &operand1, const Tensor &operand2) {
+    OP_CHECK(true, {
+        ASSERT(operand1.GetShape().size() == operand2.GetShape().size() && operand1.GetShape().size() == SHAPE_DIM3)
+            << "Shape dimension miamatch, expected exactly " << SHAPE_DIM3 << "dimension for both operands. "
+            << "operand1: " << operand1.GetShape().size() << " , operand2: " << operand2.GetShape().size() << std::endl;
+    });
     const int64_t batchSizeA = operand1.GetShape()[0];
     const int64_t batchSizeB = operand2.GetShape()[0];
-    ASSERT(batchSizeA == batchSizeB || batchSizeB == 1 || batchSizeA == 1);
-
+    OP_CHECK(true, {
+        ASSERT(batchSizeA == batchSizeB || batchSizeB == 1 || batchSizeA == 1)
+            << "batchSize invalid, only allowed batchSizeA = batchSizeB, batchSizeA = 1, or batchSizeB = 1: batchSizeA "
+               "= "
+            << batchSizeA << ". batchSizeB: " << batchSizeB << std::endl;
+    });
     const int64_t orgM = isTransA ? operand1.GetShape()[SHAPE_DIM2] : operand1.GetShape()[1];
     const int64_t orgKa = isTransA ? operand1.GetShape()[1] : operand1.GetShape()[SHAPE_DIM2];
     const int64_t orgKb = isTransB ? operand2.GetShape()[2] : operand2.GetShape()[1];
     const int64_t orgN = isTransB ? operand2.GetShape()[1] : operand2.GetShape()[SHAPE_DIM2];
-    ASSERT(orgKa == orgKb);
+    OP_CHECK(true, { ASSERT(orgKa == orgKb) << "orgK mismatch: Ka: " << orgKa << ", Kb: " << orgKb << std::endl; });
     int64_t firstDimA = isTransA ? orgKa : orgM;
     int64_t secondDimA = isTransA ? orgM : orgKa;
     int64_t firstDimB = isTransB ? orgN : orgKb;
@@ -1140,22 +1407,33 @@ Tensor ABatchMulB3D(DataType dataType, const Tensor &operand1, const Tensor &ope
 };
 
 template <bool isTransA, bool isTransB, bool isCMatrixNZ>
-Tensor ABatchMulB4D(DataType dataType, const Tensor &operand1, const Tensor &operand2)
-{
-    ASSERT(operand1.GetShape().size() == SHAPE_DIM4 && operand2.GetShape().size() == SHAPE_DIM4);
-
+Tensor ABatchMulB4D(DataType dataType, const Tensor &operand1, const Tensor &operand2) {
+    OP_CHECK(true, {
+        ASSERT(operand1.GetShape().size() == SHAPE_DIM4 && operand2.GetShape().size() == SHAPE_DIM4)
+            << "Expected 4D tensor, but got: "
+            << "op1Size: " << operand1.GetShape().size() << ", op2Size: " << operand2.GetShape().size() << std::endl;
+    });
     const int64_t batchSizeA1 = operand1.GetShape()[0];
     const int64_t batchSizeA2 = operand1.GetShape()[1];
     const int64_t batchSizeB1 = operand2.GetShape()[0];
     const int64_t batchSizeB2 = operand2.GetShape()[1];
-    ASSERT(batchSizeA1 == batchSizeB1 || batchSizeB1 == 1 || batchSizeA1 == 1);
-    ASSERT(batchSizeA2 == batchSizeB2 || batchSizeB2 == 1 || batchSizeA2 == 1);
+
+    OP_CHECK(true, {
+        ASSERT(batchSizeA1 == batchSizeB1 || batchSizeB1 == 1 || batchSizeA1 == 1)
+            << "batchSize invalid: A1=B1 or 1 allowed. A1: " << batchSizeA1 << ", B1: " << batchSizeB1 << std::endl;
+    });
+
+    OP_CHECK(true, {
+        ASSERT(batchSizeA2 == batchSizeB2 || batchSizeB2 == 1 || batchSizeA2 == 1)
+            << "batchSize invalid: A2=B2 or 1 allowed. A2: " << batchSizeA2 << ", B2: " << batchSizeB2 << std::endl;
+    });
 
     const int64_t orgM = isTransA ? operand1.GetShape()[SHAPE_DIM3] : operand1.GetShape()[SHAPE_DIM2];
     const int64_t orgKa = isTransA ? operand1.GetShape()[SHAPE_DIM2] : operand1.GetShape()[SHAPE_DIM3];
     const int64_t orgKb = isTransB ? operand2.GetShape()[SHAPE_DIM3] : operand2.GetShape()[SHAPE_DIM2];
     const int64_t orgN = isTransB ? operand2.GetShape()[SHAPE_DIM2] : operand2.GetShape()[SHAPE_DIM3];
-    ASSERT(orgKa == orgKb);
+    OP_CHECK(true,
+        { ASSERT(orgKa == orgKb) << "orgK mismatch: Ka: " << orgKa << ", Kb: " << orgKb << std::endl; });
     int64_t firstDimA = isTransA ? orgKa : orgM;
     int64_t secondDimA = isTransA ? orgM : orgKa;
     int64_t firstDimB = isTransB ? orgN : orgKb;
@@ -1200,7 +1478,11 @@ Tensor BatchMatmul(DataType dataType, const Tensor &aMatrix, const Tensor &bMatr
         TileShape::Current().SetVecTile({vecTileShape, vecTileShape});
     }
     DECLARE_TRACER();
-    ASSERT(aMatrix.GetShape().size() == bMatrix.GetShape().size());
+    OP_CHECK(true, {
+        ASSERT(aMatrix.GetShape().size() == bMatrix.GetShape().size())
+            << "Matrix dimension mismatch: a: " << aMatrix.GetShape().size() << ", b: " << bMatrix.GetShape().size()
+            << std::endl;
+    });
     Tensor res;
     if (aMatrix.GetShape().size() == SHAPE_DIM4) {
         res = ABatchMulB4D<isTransA, isTransB, isCMatrixNZ>(dataType, aMatrix, bMatrix);
@@ -1221,3 +1503,4 @@ template Tensor BatchMatmul<true, true, true>(DataType, const Tensor &, const Te
 }  // namespace Matrix
 }  // namespace tile_fwk
 }  // namespace npu
+ 

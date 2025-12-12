@@ -36,12 +36,12 @@ void TileShape::SetVecTile(const VecTile &tile) {
 void TileShape::SetCubeTile(const std::array<int64_t, MAX_M_DIM_SIZE> &m,
                             const std::array<int64_t, MAX_K_DIM_SIZE> &k,
                             const std::array<int64_t, MAX_N_DIM_SIZE> &n,
-                            bool setL1Tile) {
+                            bool setL1Tile, bool enableSplitK) {
     auto nk = k;
     if (nk[2] == 0) {
         nk[2] = nk[1];
     }
-    cubeTile = {m, nk, n, setL1Tile};
+    cubeTile = {m, nk, n, setL1Tile, enableSplitK};
     ConfigManagerNg::GetInstance().CurrentScope()->AddValue("cube_tile_shapes", cubeTile);
 }
 
