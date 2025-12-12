@@ -80,7 +80,7 @@ struct SourceLocationHelper {
     // lr is return address, we need find caller address, minus 4 here
     SourceLocationHelper(const void *lr) {
         if (SourceLocation::IsCppMode()) {
-            SourceLocation::SetLocation((const uint8_t *)lr - 4);
+            SourceLocation::SetLocation(static_cast<const uint8_t *>(lr) - 4);
         }
     }
     ~SourceLocationHelper() {
