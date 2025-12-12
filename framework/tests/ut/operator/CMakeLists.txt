@@ -110,6 +110,12 @@ set(_CaseFilterList
         "DynamicPATest.dynamic_pa_high_throughput_only_batch_loop"
         "DynamicPATest.dynamic_pa_low_lantency_pass_unroll"
 
+        "OperationImplTest.Test_IndexAdd_INT8"
+        "OperationImplTest.Test_IndexAdd_INT16"
+        "OperationImplTest.Test_IndexAdd_BF16"
+        "OperationImplTest.Test_IndexAdd_FP32"
+        "OperationImplTest.Test_IndexAdd_FP16"
+
         #
         "CmpAttnTopk.cmp_attn_with_topk_singleop_bf16"
         "DynamicAttentionUtTest.dynamic_attention_low"

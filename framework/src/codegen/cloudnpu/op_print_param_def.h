@@ -45,13 +45,11 @@ struct PrintScatterParam {
 
 struct PrintIndexAddParam {
     int axis;
-    const std::string &dVar;
-    const std::string &s0Var;
-    const std::string &s1Var;
-    const std::string &idxVar;
+    const std::string &dstVar;
+    const std::string &srcVar;
+    const std::string &indicesVar;
     std::vector<int64_t> &dstRawShape;
-    std::vector<int64_t> &src0RawShape;
-    std::vector<int64_t> &src1RawShape;
+    std::vector<int64_t> &srcRawShape;
     const std::string *dataTypeExpr;
 };
 

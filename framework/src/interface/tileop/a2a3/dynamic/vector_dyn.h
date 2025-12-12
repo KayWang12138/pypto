@@ -179,6 +179,64 @@ namespace TileOp {
 #undef T_UNA
 #undef V_UNA_FUNC
 
+constexpr uint32_t BF16_FP32_MAN_LEN = 16;
+
+// fp32->bf16, rint mode
+INLINE bfloat16_t Fp32ToBf16R(const float fVal) {
+    union Bfloat16Union {
+        bfloat16_t bVal;
+        uint16_t bNum;
+    } bf16Union = {};
+    union Float32Union {
+        float fVal;
+        uint32_t fNum;
+    } fp32Union;
+    fp32Union.fVal = fVal;
+    uint32_t x = fp32Union.fNum;
+    // 处理特殊值
+    uint32_t exp = x & 0x7F800000;
+    if (exp == 0x7F800000) { // NaN 或无穷大
+        bf16Union.bNum = static_cast<uint16_t>((x >> BF16_FP32_MAN_LEN) | 0x7F80);
+        return bf16Union.bVal;
+    }
+    if (exp == 0) { // 0或非规格化
+        bf16Union.bNum = static_cast<uint16_t>((x >> BF16_FP32_MAN_LEN) & 0x8000);
+        return bf16Union.bVal;
+    }
+    // RINT舍入
+    uint32_t lsb = (x >> BF16_FP32_MAN_LEN) & 1;
+    uint32_t rounding_bit = (x >> (BF16_FP32_MAN_LEN - 1)) & 1;
+    uint32_t sticky = x & 0x7FFF;
+
+    uint32_t round_up = 0;
+    if (rounding_bit) {
+        round_up = (sticky != 0) ? 1 : lsb;
+    }
+
+    uint32_t result = (x + (round_up << (BF16_FP32_MAN_LEN - 1))) >> BF16_FP32_MAN_LEN;
+    // 溢出检查
+    if ((result & 0x7F80) == 0x7F80) {
+        result = (result & 0x8000) | 0x7F80;
+    }
+    bf16Union.bNum = static_cast<uint16_t>(result);
+    return bf16Union.bVal;
+}
+
+// bf16->fp32
+INLINE float Bf16ToFp32(const bfloat16_t bVal) {
+    union Bfloat16Union {
+        bfloat16_t bVal;
+        uint16_t bNum;
+    } bf16Union;
+    union Float32Union {
+        float fVal;
+        uint32_t fNum;
+    } fp32Union = {};
+    bf16Union.bVal = bVal;
+    fp32Union.fNum = static_cast<uint32_t>(bf16Union.bNum) << BF16_FP32_MAN_LEN;
+    return fp32Union.fVal;
+}
+
 template <typename T, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned srcRawShape1,
     unsigned srcRawShape2, unsigned axis0, unsigned axis1>
 TILEOP void DynTtransposeMoveOutBase(__gm__ T *dst, __ubuf__ T *src, unsigned dstShape1, unsigned dstShape2) {
@@ -2285,120 +2343,196 @@ TILEOP void DynTgatherElement(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *sr
     wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
 }
 
-template <typename T, typename T1>
-TILEOP void indexAddPublicTool(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1, T alpha, unsigned TShape3,
-    uint64_t dstOffset, uint64_t src1Offset) {
+template <typename T, typename T2>
+TILEOP void IndexAddPublicTool(
+    __ubuf__ T *dst, __ubuf__ T *src, T2 alpha, unsigned TShape3, uint64_t dstOffset, uint64_t srcOffset) {
     uint32_t rptElm = REPEAT_BYTE / sizeof(T);
     uint32_t repeatTime = TShape3 / rptElm;
     uint32_t remainElm = TShape3 % rptElm;
-
     if (repeatTime) {
-        vmuls(src1 + src1Offset, src1 + src1Offset, alpha, repeatTime, 1, 1, 8, 8);
+        if (static_cast<float>(alpha) != 1.0f) {
+            vmuls(src + srcOffset, src + srcOffset, (T)alpha, repeatTime, 1, 1, 8, 8);
+            pipe_barrier(PIPE_V);
+            if constexpr (std::is_same_v<T2, bfloat16_t>) {
+                vconv_f322bf16r((__ubuf__ bfloat16_t *)(src + srcOffset), src + srcOffset, repeatTime, 1, 1, 8, 8);
+                pipe_barrier(PIPE_V);
+                vconv_bf162f32(src + srcOffset, (__ubuf__ bfloat16_t *)(src + srcOffset), repeatTime, 1, 1, 8, 8);
+                pipe_barrier(PIPE_V);
+            }
+        }
+        vadd(dst + dstOffset, dst + dstOffset, src + srcOffset, repeatTime, 1, 1, 1, 8, 8, 8);
         pipe_barrier(PIPE_V);
-        vadd(dst + dstOffset, src0 + dstOffset, src1 + src1Offset, repeatTime, 1, 1, 1, 8, 8, 8);
-        pipe_barrier(PIPE_V);
+        if constexpr (std::is_same_v<T2, bfloat16_t>) {
+            vconv_f322bf16r((__ubuf__ bfloat16_t *)(dst + dstOffset), dst + dstOffset, repeatTime, 1, 1, 8, 8);
+            pipe_barrier(PIPE_V);
+            vconv_bf162f32(dst + dstOffset, (__ubuf__ bfloat16_t *)(dst + dstOffset), repeatTime, 1, 1, 8, 8);
+            pipe_barrier(PIPE_V);
+        }
     }
     if (remainElm) {
         SetContinuousMask(remainElm);
-        vmuls(src1 + src1Offset + repeatTime * rptElm, src1 + src1Offset + repeatTime * rptElm, alpha, 1, 1,1, 8, 8);
-        pipe_barrier(PIPE_V);
-        vadd(dst + dstOffset + repeatTime * rptElm, src0 + dstOffset + repeatTime * rptElm,
-            src1 + src1Offset + repeatTime * rptElm, 1, 1, 1, 1, 8, 8, 8);
+        if (static_cast<float>(alpha) != 1.0f) {
+            vmuls(src + srcOffset + repeatTime * rptElm, src + srcOffset + repeatTime * rptElm, (T)alpha, 1, 1, 1, 8, 8);
+            pipe_barrier(PIPE_V);
+            if constexpr (std::is_same_v<T2, bfloat16_t>) {
+                vconv_f322bf16r((__ubuf__ bfloat16_t *)(src + srcOffset + repeatTime * rptElm),
+                    src + srcOffset + repeatTime * rptElm, 1, 1, 1, 8, 8);
+                pipe_barrier(PIPE_V);
+                vconv_bf162f32(src + srcOffset + repeatTime * rptElm,
+                    (__ubuf__ bfloat16_t *)(src + srcOffset + repeatTime * rptElm), 1, 1, 1, 8, 8);
+                pipe_barrier(PIPE_V);
+            }
+        }
+        vadd(dst + dstOffset + repeatTime * rptElm, dst + dstOffset + repeatTime * rptElm,
+            src + srcOffset + repeatTime * rptElm, 1, 1, 1, 1, 8, 8, 8);
+        if constexpr (std::is_same_v<T2, bfloat16_t>) {
+            pipe_barrier(PIPE_V);
+            vconv_f322bf16r((__ubuf__ bfloat16_t *)(dst + dstOffset + repeatTime * rptElm),
+                dst + dstOffset + repeatTime * rptElm, 1, 1, 1, 8, 8);
+            pipe_barrier(PIPE_V);
+            vconv_bf162f32(dst + dstOffset + repeatTime * rptElm,
+                (__ubuf__ bfloat16_t *)(dst + dstOffset + repeatTime * rptElm), 1, 1, 1, 8, 8);
+        }
         set_vector_mask(-1, -1);
     }
 }
 
-template <typename T, typename T1>
-TILEOP void indexAddAxis0(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1, __ubuf__ T1 *src2, T alpha,
+template <typename T, typename T1, typename T2>
+TILEOP void IndexAddAxis0(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T1 *indices, T2 alpha,
     unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned TShape3, uint64_t dstBlock1, uint64_t dstBlock2,
-    uint64_t dstBlock3, uint64_t src1Block1, uint64_t src1Block2, uint64_t src1Block3) {
+    uint64_t dstBlock3, uint64_t srcBlock1, uint64_t srcBlock2, uint64_t srcBlock3) {
     uint64_t dstOffset = 0;
-    uint64_t src1Offset = 0;
+    uint64_t srcOffset = 0;
     for (uint32_t idx = 0; idx < TShape0; ++idx) {
-        T1 index = *(src2 + idx);
+        T1 index = *(indices + idx);
         for (uint32_t i = 0; i < TShape1; ++i) {
             for (uint32_t j = 0; j < TShape2; ++j) {
                 dstOffset = index * dstBlock1 + i * dstBlock2 + j * dstBlock3;
-                src1Offset = idx * dstBlock1 + i * dstBlock2 + j * dstBlock3;
-                indexAddPublicTool<T, T1>(dst, src0, src1, alpha, TShape3, dstOffset, src1Offset);
+                srcOffset = idx * srcBlock1 + i * srcBlock2 + j * srcBlock3;
+                IndexAddPublicTool<T, T2>(dst, src, alpha, TShape3, dstOffset, srcOffset);
             }
         }
     }
 }
 
-template <typename T, typename T1>
-TILEOP void indexAddAxis1(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1, __ubuf__ T1 *src2, T alpha,
+template <typename T, typename T1, typename T2>
+TILEOP void IndexAddAxis1(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T1 *indices, T2 alpha,
     unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned TShape3, uint64_t dstBlock1, uint64_t dstBlock2,
-    uint64_t dstBlock3, uint64_t src1Block1, uint64_t src1Block2, uint64_t src1Block3) {
+    uint64_t dstBlock3, uint64_t srcBlock1, uint64_t srcBlock2, uint64_t srcBlock3) {
     uint64_t dstOffset = 0;
-    uint64_t src1Offset = 0;
+    uint64_t srcOffset = 0;
     for (uint32_t i = 0; i < TShape0; ++i) {
         for (uint32_t idx = 0; idx < TShape1; ++idx) {
-            T1 index = *(src2 + idx);
+            T1 index = *(indices + idx);
             for (uint32_t j = 0; j < TShape2; ++j) {
                 dstOffset = i * dstBlock1 + index * dstBlock2 + j * dstBlock3;
-                src1Offset = i * src1Block1 + idx * src1Block2 + j * src1Block3;
-                indexAddPublicTool<T, T1>(dst, src0, src1, alpha, TShape3, dstOffset, src1Offset);
+                srcOffset = i * srcBlock1 + idx * srcBlock2 + j * srcBlock3;
+                IndexAddPublicTool<T, T2>(dst, src, alpha, TShape3, dstOffset, srcOffset);
             }
         }
     }
 }
 
-template <typename T, typename T1>
-TILEOP void indexAddAxis2(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1, __ubuf__ T1 *src2, T alpha,
+template <typename T, typename T1, typename T2>
+TILEOP void IndexAddAxis2(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T1 *indices, T2 alpha,
     unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned TShape3, uint64_t dstBlock1, uint64_t dstBlock2,
-    uint64_t dstBlock3, uint64_t src1Block1, uint64_t src1Block2, uint64_t src1Block3) {
+    uint64_t dstBlock3, uint64_t srcBlock1, uint64_t srcBlock2, uint64_t srcBlock3) {
     uint64_t dstOffset = 0;
-    uint64_t src1Offset = 0;
+    uint64_t srcOffset = 0;
     for (uint32_t i = 0; i < TShape0; ++i) {
         for (uint32_t j = 0; j < TShape1; ++j) {
             for (uint32_t idx = 0; idx < TShape2; ++idx) {
-                T1 index = *(src2 + idx);
+                T1 index = *(indices + idx);
                 dstOffset = i * dstBlock1 + j * dstBlock2 + index * dstBlock3;
-                src1Offset = i * src1Block1 + j * src1Block2 + idx * src1Block3;
-                indexAddPublicTool<T, T1>(dst, src0, src1, alpha, TShape3, dstOffset, src1Offset);
+                srcOffset = i * srcBlock1 + j * srcBlock2 + idx * srcBlock3;
+                IndexAddPublicTool<T, T2>(dst, src, alpha, TShape3, dstOffset, srcOffset);
             }
         }
     }
 }
 
-template <typename T, typename T1, unsigned src1RawShape1, unsigned src1RawShape2, unsigned src1RawShape3,
+template <typename T, typename T1, typename T2>
+TILEOP void IndexAddAxis3(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T1 *indices, T2 alpha, unsigned TShape0,
+    unsigned TShape1, unsigned TShape2, unsigned TShape3, uint64_t dstBlock1, uint64_t dstBlock2, uint64_t dstBlock3,
+    uint64_t srcBlock1, uint64_t srcBlock2, uint64_t srcBlock3) {
+    uint64_t dstOffset = 0;
+    uint64_t srcOffset = 0;
+    // 乘法
+    if (static_cast<float>(alpha) != 1.0f) {
+        for (uint32_t i = 0; i < TShape0; ++i) {
+            for (uint32_t j = 0; j < TShape1; ++j) {
+                for (uint32_t k = 0; k < TShape2; ++k) {
+                    for (uint32_t idx = 0; idx < TShape3; ++idx) {
+                        T1 index = *(indices + idx);
+                        dstOffset = i * dstBlock1 + j * dstBlock2 + k * dstBlock3 + index;
+                        srcOffset = i * srcBlock1 + j * srcBlock2 + k * srcBlock3 + idx;
+                        if constexpr (std::is_same_v<T2, half>) { // half
+                            T2 mulsResult = static_cast<float>(src[srcOffset]) * static_cast<float>(alpha);
+                            src[srcOffset] = mulsResult;
+                        } else if constexpr (std::is_same_v<T2, bfloat16_t>) { // bf16
+                            float mulsResult = src[srcOffset] * Bf16ToFp32(alpha);
+                            bfloat16_t mulsResBf16 = Fp32ToBf16R(mulsResult);
+                            src[srcOffset] = Bf16ToFp32(mulsResBf16);
+                        } else { // int8,int16,int32,float32,T2=int8时,T=half
+                            T2 mulsResult = static_cast<T2>(src[srcOffset]) * alpha;
+                            src[srcOffset] = static_cast<T>(mulsResult);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    // 加法
+    for (uint32_t i = 0; i < TShape0; ++i) {
+        for (uint32_t j = 0; j < TShape1; ++j) {
+            for (uint32_t k = 0; k < TShape2; ++k) {
+                for (uint32_t idx = 0; idx < TShape3; ++idx) {
+                    T1 index = *(indices + idx);
+                    dstOffset = i * dstBlock1 + j * dstBlock2 + k * dstBlock3 + index;
+                    srcOffset = i * srcBlock1 + j * srcBlock2 + k * srcBlock3 + idx;
+                    if constexpr (std::is_same_v<T2, half>) {
+                        T2 addResult = static_cast<float>(dst[dstOffset]) + static_cast<float>(src[srcOffset]);
+                        dst[dstOffset] = addResult;
+                    } else if constexpr (std::is_same_v<T2, bfloat16_t>) {
+                        float addResult = dst[dstOffset] + src[srcOffset];
+                        bfloat16_t addResBf16 = Fp32ToBf16R(addResult);
+                        dst[dstOffset] = Bf16ToFp32(addResBf16);
+                    } else { // int8,int16,int32,float32
+                        T2 addResult = static_cast<T2>(dst[dstOffset]) + static_cast<T2>(src[srcOffset]);
+                        dst[dstOffset] = static_cast<T2>(addResult);
+                    }
+                }
+            }
+        }
+    }
+}
+
+// support 2-4 dim
+template <typename T, typename T1, typename T2, unsigned srcRawShape1, unsigned srcRawShape2, unsigned srcRawShape3,
     unsigned dstRawShape1, unsigned dstRawShape2, unsigned dstRawShape3, unsigned axis>
-TILEOP void DynTindexAdd(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1, __ubuf__ T1 *src2, T alpha,
-    unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned TShape3) {
+TILEOP void DynTindexAdd(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T1 *indices,
+    T2 alpha, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned TShape3) {
     set_flag(PIPE_V, PIPE_S, EVENT_ID7);
     wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
     uint64_t dstBlock1 = dstRawShape1 * dstRawShape2 * dstRawShape3;
     uint64_t dstBlock2 = dstRawShape2 * dstRawShape3;
     uint64_t dstBlock3 = dstRawShape3;
-    uint64_t src1Block1 = src1RawShape1 * src1RawShape2 * src1RawShape3;
-    uint64_t src1Block2 = src1RawShape2 * src1RawShape3;
-    uint64_t src1Block3 = src1RawShape3;
+    uint64_t srcBlock1 = srcRawShape1 * srcRawShape2 * srcRawShape3;
+    uint64_t srcBlock2 = srcRawShape2 * srcRawShape3;
+    uint64_t srcBlock3 = srcRawShape3;
 
     if constexpr (axis == 0) {
-        indexAddAxis0<T, T1>(dst, src0, src1, src2, alpha, TShape0, TShape1, TShape2, TShape3, dstBlock1, dstBlock2,
-            dstBlock3, src1Block1, src1Block2, src1Block3);
+        IndexAddAxis0<T, T1, T2>(dst, src, indices, alpha, TShape0, TShape1, TShape2, TShape3, dstBlock1, dstBlock2,
+            dstBlock3, srcBlock1, srcBlock2, srcBlock3);
     } else if constexpr (axis == 1) {
-        indexAddAxis1<T, T1>(dst, src0, src1, src2, alpha, TShape0, TShape1, TShape2, TShape3, dstBlock1, dstBlock2,
-            dstBlock3, src1Block1, src1Block2, src1Block3);
+        IndexAddAxis1<T, T1, T2>(dst, src, indices, alpha, TShape0, TShape1, TShape2, TShape3, dstBlock1, dstBlock2,
+            dstBlock3, srcBlock1, srcBlock2, srcBlock3);
     } else if constexpr (axis == 2) {
-        indexAddAxis2<T, T1>(dst, src0, src1, src2, alpha, TShape0, TShape1, TShape2, TShape3, dstBlock1, dstBlock2,
-            dstBlock3, src1Block1, src1Block2, src1Block3);
+        IndexAddAxis2<T, T1, T2>(dst, src, indices, alpha, TShape0, TShape1, TShape2, TShape3, dstBlock1, dstBlock2,
+            dstBlock3, srcBlock1, srcBlock2, srcBlock3);
     } else {
-        uint64_t dstOffset = 0;
-        uint64_t src1Offset = 0;
-        for (uint32_t i = 0; i < TShape0; ++i) {
-            for (uint32_t j = 0; j < TShape1; ++j) {
-                for (uint32_t k = 0; k < TShape2; ++k) {
-                    for (uint32_t idx = 0; idx < TShape3; ++idx) {
-                        T1 index = *(src2 + idx);
-                        dstOffset = i * dstBlock1 + j * dstBlock2 + k * dstBlock3 + index;
-                        src1Offset = i * src1Block1 + j * src1Block2 + k * src1Block3 + idx;
-                        dst[dstOffset] = dst[dstOffset] + src1[src1Offset] * alpha;
-                    }
-                }
-            }
-        }
+        IndexAddAxis3<T, T1, T2>(dst, src, indices, alpha, TShape0, TShape1, TShape2, TShape3, dstBlock1, dstBlock2,
+            dstBlock3, srcBlock1, srcBlock2, srcBlock3);
     }
     set_flag(PIPE_S, PIPE_V, EVENT_ID7);
     wait_flag(PIPE_S, PIPE_V, EVENT_ID7);

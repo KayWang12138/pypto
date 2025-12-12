@@ -537,7 +537,7 @@ const std::unordered_set<Opcode> SUPPORT_DYNAMIC_UNALIGNED_OPS{Opcode::OP_RANGE,
     Opcode::OP_COMPARE_SWAP, Opcode::OP_MERGE, Opcode::OP_L0C_TO_L1, Opcode::OP_SCATTER};
 
 const std::unordered_set<Opcode> UNSUPPORT_BF16_OPS{Opcode::OP_EXP, Opcode::OP_RSQRT, Opcode::OP_SQRT,
-    Opcode::OP_RECIPROCAL, Opcode::OP_ABS, Opcode::OP_LN, Opcode::OP_LOGICALNOT, Opcode::OP_INDEX_ADD,
+    Opcode::OP_RECIPROCAL, Opcode::OP_ABS, Opcode::OP_LN, Opcode::OP_LOGICALNOT,
     Opcode::OP_LOGICALAND, Opcode::OP_ADDS, Opcode::OP_SUBS, Opcode::OP_MULS, Opcode::OP_DIVS,
     Opcode::OP_MAXS, Opcode::OP_MINS, Opcode::OP_S_ADDS, Opcode::OP_S_SUBS, Opcode::OP_S_MULS, Opcode::OP_S_DIVS,
     Opcode::OP_S_MAXS, Opcode::OP_S_MINS, Opcode::OP_ADD, Opcode::OP_SUB, Opcode::OP_MUL, Opcode::OP_DIV,

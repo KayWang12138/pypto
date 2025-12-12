@@ -1377,19 +1377,37 @@ def gen_gatherelement_op_golden(
     return gen_op_golden("GatherElement", golden_func, output, case_index)
 
 
+def from_numpy(array: np.array):
+    is_bfloat16 = array.dtype == bfloat16
+    if is_bfloat16:
+        result = torch.tensor(array.astype(np.float32), dtype=torch.bfloat16)
+    else:
+        result = torch.tensor(array)
+    return result
+
+
+def to_numpy(tensor: torch.Tensor):
+    is_bfloat16 = tensor.dtype == torch.bfloat16
+    if is_bfloat16:
+        result = tensor.to(torch.float32).numpy().astype(bfloat16)
+    else:
+        result = tensor.numpy()
+    return result
+
+
 def indexadd_golden_func(inputs: list, config: dict):
     params = config.get("params")
     axis = params["axis"]
-    self = torch.from_numpy(inputs[0])
-    source = torch.from_numpy(inputs[1])
-    indices = torch.from_numpy(inputs[2])
+    self = from_numpy(inputs[0])
+    source = from_numpy(inputs[1])
+    indices = from_numpy(inputs[2])
     try:
         alp = float(params["alpha"])
     except (KeyError, ValueError, TypeError):
         alp = 1
     res = self.index_add(axis, indices, source, alpha=alp)
-
-    return [res.numpy()]
+    
+    return [to_numpy(res)]
 
 
 @GoldenRegister.reg_golden_func(

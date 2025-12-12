@@ -307,7 +307,6 @@ private:
     std::string PrintScatterElementSOpDynamicUnaligned(const PrintScatterElemParam &param) const;
     std::string PrintScatterOpDynamicUnaligned(const PrintScatterParam &param) const;
 
-    std::string PrintIndexAddStatic(const PrintIndexAddParam &param) const;
     std::string PrintIndexAddDynamicUnaligned(const PrintIndexAddParam &param) const;
 
     WhereParam PrepareWhereParam() const;

@@ -14,12 +14,198 @@
  */
 
 #include <climits>
+#include <limits>
+#include <cmath>
 #include "interface/utils/operator_tracer.h"
 #include "passes/pass_utils/graph_utils.h"
 #include "interface/function/function.h"
 #include "interface/program/program.h"
 
 namespace npu::tile_fwk {
+
+
+constexpr float FP16_MAX = 65504.0f;
+
+struct IndexAddPara {
+    const LogicalTensorPtr &selfInput;
+    const LogicalTensorPtr &srcInput;
+    const LogicalTensorPtr &indicesInput;
+    const LogicalTensorPtr &dstTensor;
+    const int axis;
+    const Element &alpha;
+};
+
+struct IndexAddTileInfoPara {
+    TileInfo selfTileInfo;
+    TileInfo srcTileInfo;
+    TileInfo indicesTileInfo;
+    TileInfo dstTileInfo;
+};
+
+void IndexAddExpandFunc(Function &function, const IndexAddPara indexaddPara, IndexAddTileInfoPara &indexaddTileInfo) {
+    const LogicalTensorPtr &selfInput = indexaddPara.selfInput;
+    const LogicalTensorPtr &srcInput = indexaddPara.srcInput;
+    const LogicalTensorPtr &indicesInput = indexaddPara.indicesInput;
+    const LogicalTensorPtr &dstTensor = indexaddPara.dstTensor;
+    const int axis = indexaddPara.axis;
+    const Element &alpha = indexaddPara.alpha;
+
+    auto dstTile = dstTensor->View(function, indexaddTileInfo.dstTileInfo.shape, indexaddTileInfo.dstTileInfo.offset);
+    auto selfTile =selfInput->View(function, indexaddTileInfo.selfTileInfo.shape, indexaddTileInfo.selfTileInfo.offset);
+    auto srcTile = srcInput->View(function, indexaddTileInfo.srcTileInfo.shape, indexaddTileInfo.srcTileInfo.offset);
+    indexaddTileInfo.indicesTileInfo.offset = {indexaddTileInfo.srcTileInfo.offset[axis]}; // 按照srcShape所在的axis轴切分
+    indexaddTileInfo.indicesTileInfo.shape = {indexaddTileInfo.srcTileInfo.shape[axis]};
+    auto indexTile =indicesInput->View(function, indexaddTileInfo.indicesTileInfo.shape, indexaddTileInfo.indicesTileInfo.offset);
+
+    if (selfTile->Datatype() == DT_INT8) { // vector指令不支持int8的直接计算
+        LogicalTensorPtr selfConvertedTile = std::make_shared<LogicalTensor>(function, DT_FP16, selfTile->GetShape());
+        Operation &castSelfOp = function.AddOperation(Opcode::OP_CAST, {selfTile}, {selfConvertedTile});
+        castSelfOp.SetAttribute(OP_ATTR_PREFIX + "mode", CastMode::CAST_NONE);
+        LogicalTensorPtr srcConvertedTile = std::make_shared<LogicalTensor>(function, DT_FP16, srcTile->GetShape());
+        Operation &castSrcOp = function.AddOperation(Opcode::OP_CAST, {srcTile}, {srcConvertedTile});
+        castSrcOp.SetAttribute(OP_ATTR_PREFIX + "mode", CastMode::CAST_NONE);
+        LogicalTensorPtr dstConvertedTile = std::make_shared<LogicalTensor>(function, DT_FP16, dstTile->GetShape());
+
+        auto &op = function.AddOperation(Opcode::OP_INDEX_ADD, {selfConvertedTile, srcConvertedTile, indexTile}, {dstConvertedTile});
+        op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
+        op.SetAttribute(OpAttributeKey::scalar, alpha);
+        Operation &castDstOp = function.AddOperation(Opcode::OP_CAST, {dstConvertedTile}, {dstTile});
+        castDstOp.SetAttribute(OP_ATTR_PREFIX + "mode", CastMode::CAST_NONE);
+    } else if (selfTile->Datatype() == DT_BF16) { // vector和scalar均不支持BF16直接计算
+        LogicalTensorPtr selfConvertedTile = std::make_shared<LogicalTensor>(function, DT_FP32, selfTile->GetShape());
+        Operation &castSelfOp = function.AddOperation(Opcode::OP_CAST, {selfTile}, {selfConvertedTile});
+        castSelfOp.SetAttribute(OP_ATTR_PREFIX + "mode", CastMode::CAST_NONE);
+        LogicalTensorPtr srcConvertedTile = std::make_shared<LogicalTensor>(function, DT_FP32, srcTile->GetShape());
+        Operation &castSrcOp = function.AddOperation(Opcode::OP_CAST, {srcTile}, {srcConvertedTile});
+        castSrcOp.SetAttribute(OP_ATTR_PREFIX + "mode", CastMode::CAST_NONE);
+        LogicalTensorPtr dstConvertedTile = std::make_shared<LogicalTensor>(function, DT_FP32, dstTile->GetShape());
+
+        auto &op = function.AddOperation(Opcode::OP_INDEX_ADD, {selfConvertedTile, srcConvertedTile, indexTile}, {dstConvertedTile});
+        op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
+        op.SetAttribute(OpAttributeKey::scalar, alpha);
+        Operation &castDstOp = function.AddOperation(Opcode::OP_CAST, {dstConvertedTile}, {dstTile});
+        castDstOp.SetAttribute(OP_ATTR_PREFIX + "mode", CastMode::CAST_RINT);
+    } else {
+        auto &op = function.AddOperation(Opcode::OP_INDEX_ADD, {selfTile, srcTile, indexTile}, {dstTile});
+        op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
+        op.SetAttribute(OpAttributeKey::scalar, alpha);
+    }
+}
+
+void InnerTiledIndexAdd(size_t cur, Function &function, const TileShape &tileShape, const IndexAddPara indexaddPara,
+    IndexAddTileInfoPara &indexaddTileInfo) {
+    if (cur == indexaddPara.dstTensor->shape.size()) {
+        IndexAddExpandFunc(function, indexaddPara, indexaddTileInfo);
+        return;
+    }
+
+    auto &vecTile = tileShape.GetVecTile();
+    int64_t tmpTile = vecTile[cur];
+    // axis所在轴按照dstShape[axis]进行切分
+    if (static_cast<int>(cur) == indexaddPara.axis) {
+        tmpTile = indexaddPara.dstTensor->GetShape()[cur];
+    }
+    // srcInput在axis的维度=indicesInput的维度，且可能比selfInput.shape[axis]大
+    for (int i = 0; i < indexaddPara.srcInput->GetShape()[cur]; i += tmpTile) {
+        if (static_cast<int>(cur) == indexaddPara.axis) {
+            // self和dst不切
+            indexaddTileInfo.dstTileInfo.offset[cur] = 0;
+            indexaddTileInfo.dstTileInfo.shape[cur] = indexaddPara.dstTensor->shape[cur];
+            indexaddTileInfo.selfTileInfo.offset[cur] = 0;
+            indexaddTileInfo.selfTileInfo.shape[cur] = indexaddPara.selfInput->shape[cur];
+        } else {
+            indexaddTileInfo.dstTileInfo.offset[cur] = i;
+            indexaddTileInfo.dstTileInfo.shape[cur] = std::min(indexaddPara.dstTensor->shape[cur] - i, tmpTile);
+            indexaddTileInfo.selfTileInfo.offset[cur] = i;
+            indexaddTileInfo.selfTileInfo.shape[cur] = std::min(indexaddPara.selfInput->shape[cur] - i, tmpTile);
+        }
+        indexaddTileInfo.srcTileInfo.offset[cur] = i;
+        indexaddTileInfo.srcTileInfo.shape[cur] = std::min(indexaddPara.srcInput->GetShape()[cur] - i, tmpTile);
+        InnerTiledIndexAdd(cur + 1, function, tileShape, indexaddPara, indexaddTileInfo);
+    }
+}
+
+void TiledIndexAdd(Function &function, const TileShape &tileShape, const IndexAddPara indexaddPara) {
+    // Check Operands Valid
+    ASSERT(indexaddPara.selfInput->GetShape().size() == indexaddPara.selfInput->GetOffset().size());
+    ASSERT(indexaddPara.srcInput->GetShape().size() == indexaddPara.srcInput->GetOffset().size());
+    ASSERT(indexaddPara.indicesInput->GetShape().size() == indexaddPara.indicesInput->GetOffset().size());
+
+    IndexAddTileInfoPara indexaddTileInfo{
+        TileInfo(indexaddPara.selfInput->GetShape().size(), indexaddPara.selfInput->GetOffset().size()),
+        TileInfo(indexaddPara.srcInput->GetShape().size(), indexaddPara.srcInput->GetOffset().size()),
+        TileInfo(indexaddPara.indicesInput->GetShape().size(), indexaddPara.indicesInput->GetOffset().size()),
+        TileInfo(indexaddPara.dstTensor->GetShape().size(), indexaddPara.dstTensor->GetOffset().size())};
+    InnerTiledIndexAdd(0, function, tileShape, indexaddPara, indexaddTileInfo);
+}
+
+void TensorIndexAdd(Function &function, const IndexAddPara indexaddPara) {
+    auto &op = GraphUtils::AddDynOperation(function, Opcode::OP_INDEX_ADD,
+        {indexaddPara.selfInput, indexaddPara.srcInput, indexaddPara.indicesInput}, {indexaddPara.dstTensor});
+    op.SetAttribute(OP_ATTR_PREFIX + "axis", indexaddPara.axis);
+    op.SetAttribute(OpAttributeKey::scalar, indexaddPara.alpha);
+}
+
+bool CheckAlphaOverflow(Element alpha, DataType dtype) {
+    double value = alpha.Cast<double>();
+    if (std::isnan(value) || std::isinf(value))
+        return true;
+    switch (dtype) {
+        case DT_INT8: return value < std::numeric_limits<int8_t>::min() || value > std::numeric_limits<int8_t>::max();
+        case DT_INT16:
+            return value < std::numeric_limits<int16_t>::min() || value > std::numeric_limits<int16_t>::max();
+        case DT_INT32:
+            return value < std::numeric_limits<int32_t>::min() || value > std::numeric_limits<int32_t>::max();
+        case DT_FP16: return std::abs(value) > FP16_MAX;
+        case DT_BF16: return std::abs(value) > std::numeric_limits<float>::max();
+        case DT_FP32: return std::abs(value) > std::numeric_limits<float>::max();
+        default: return false;
+    }
+}
+
+void CheckIndexAddParamsInvalid(
+    const Tensor &self, const Tensor &src, const Tensor &indices, const int axis, const Element &alpha) {
+    ASSERT(axis < static_cast<int>(self.GetShape().size()) && axis >= -static_cast<int>(self.GetShape().size()));
+    int axis_ = axis < 0 ? self.GetShape().size() + axis : axis;
+    ASSERT(self.GetShape().size() == src.GetShape().size());
+    ASSERT(src.GetShape()[axis_] == indices.GetShape()[0]);
+    for (size_t i = 0; i < self.GetShape().size(); ++i) {
+        if (static_cast<int>(i) == axis_) {
+            continue;
+        }
+        ASSERT(src.GetShape()[i] == self.GetShape()[i]);
+    }
+
+    const std::unordered_set<DataType> SRC_SUPPORT_DATATYPES = {DT_FP32, DT_FP16, DT_BF16, DT_INT32, DT_INT16, DT_INT8};
+    ASSERT(SRC_SUPPORT_DATATYPES.count(self.GetDataType()) > 0);
+    ASSERT(self.GetDataType() == src.GetDataType());
+    ASSERT(indices.GetDataType() == DT_INT32 || indices.GetDataType() == DT_INT64);
+    // 检验 alpha 溢出
+    if (CheckAlphaOverflow(alpha, self.GetDataType())) {
+        std::string errorMessage =
+            "Value cannot be converted to type " + DataType2String(self.GetDataType()) + " without overflow!";
+        ASSERT(false) << errorMessage;
+    }
+}
+
+Tensor IndexAdd(const Tensor &self, const Tensor &src, const Tensor &indices, int axis, const Element &alpha) {
+    DECLARE_TRACER();
+    Tensor result = self;
+    return IndexAdd_(result, src, indices, axis, alpha);
+}
+
+Tensor IndexAdd_(const Tensor &self, const Tensor &src, const Tensor &indices, int axis, const Element &alpha) {
+    DECLARE_TRACER();
+    CheckIndexAddParamsInvalid(self, src, indices, axis, alpha);
+    axis = axis < 0 ? self.GetShape().size() + axis : axis;
+    DataType selfDataType = self.GetDataType();
+    Element alpha_ = Element(selfDataType, alpha.Cast<float>());
+    Tensor result(selfDataType, self.GetShape());
+    CALL(IndexAdd, *Program::GetInstance().GetCurrentFunction(),
+        {self.GetStorage(), src.GetStorage(), indices.GetStorage(), result.GetStorage(), axis, alpha_});
+
+    return result;
+}
 
 void TiledGatherOperation(Function &function, const TileShape &tileShape, size_t cur, Input &paramsInput,
     Input &indicesInput, int axis, const LogicalTensorPtr &result, TileInfo &resultTileInfo) {
@@ -981,6 +1167,13 @@ Tensor Range(const Element &start, const Element &end, const Element &step) {
     return RealRange(realStart, realEnd, realStep);
 }
 
+void IndexAddOperationTileFunc(Function &function, const TileShape &tileShape,
+    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand, const Operation &op) {
+    int axis = op.GetIntAttribute(OP_ATTR_PREFIX + "axis");
+    Element alpha = op.GetElementAttribute(OpAttributeKey::scalar);
+    TiledIndexAdd(function, tileShape, {iOperand[0], iOperand[1], iOperand[2], oOperand[0], axis, alpha});
+}
+
 void GatherOperationTileFunc(Function &function, const TileShape &tileShape,
     const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand, const Operation &op) {
     int axis = op.GetIntAttribute(OP_ATTR_PREFIX + "axis");
@@ -1031,6 +1224,7 @@ void RangeOperationTileFunc(Function &function, const TileShape &tileShape,
     TiledRange(function, tileShape, start, step, oOperand[0]);
 }
 
+REGISTER_OPERATION_TILED_FUNC(OP_INDEX_ADD, Opcode::OP_INDEX_ADD, IndexAddOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_GATHER, Opcode::OP_GATHER, GatherOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_GATHER_ELEMENT, Opcode::OP_GATHER_ELEMENT, GatherElementOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_SCATTER_ELEMENT, Opcode::OP_SCATTER_ELEMENT, ScatterElementSOperationTileFunc);

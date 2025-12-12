@@ -2404,34 +2404,6 @@ TILEOP void TscatterElementS(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *src
     }
 }
 
-/*
-src0:self, src1:src, src2: indices;
-TShape:src1validShape，只关心src1的真实数据;
-src2的切分要跟src1切分一一对应
-*/
-template <typename T, typename T2, unsigned src1RawShape1, unsigned dstRawShape1, unsigned src1Shape0,
-    unsigned src1Shape1, unsigned axis>
-TILEOP void TindexAdd(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1, __ubuf__ T2 *src2, float alpha) {
-    set_flag(PIPE_V, PIPE_S, EVENT_ID7);
-    wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
-    for (int i = 0; i < src1Shape0; ++i) {
-        for (int j = 0; j < src1Shape1; ++j) {
-            T2 index = 0;
-            int dstOffset = 0;
-            if constexpr (axis == 0) {
-                index = (T2)(*(src2 + i));            // indices[i]
-                dstOffset = index * dstRawShape1 + j; // dst[ index[i,j] ][j]
-            } else {
-                index = (T2)(*(src2 + j));            // indices[j]
-                dstOffset = i * dstRawShape1 + index; // dst[i][ index[i,j] ]
-            }
-            dst[dstOffset] += alpha * src1[i * src1RawShape1 + j];
-        }
-    }
-    set_flag(PIPE_S, PIPE_V, EVENT_ID7);
-    wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
-}
-
 template <typename T, unsigned TShape0, unsigned TShape1, unsigned dstShape0, unsigned dstShape1,
  unsigned srcShape0, unsigned srcShape1, unsigned reverseOperand>
 TILEOP void TSadds(__ubuf__ T *dst, __ubuf__ T *src, float scalar) {

@@ -54,7 +54,7 @@ static void IndexAddOperationExeFunc2Dims(
         std::vector<int64_t> viewShape = args->viewShape_;
 
         ASSERT(idxDim == inputs[1].GetShape()[axis]);
-        ASSERT(viewShape[axis] == std::max(inputs[0].GetShape()[axis], idxDim)); // 确保viewshape按最大的切
+        ASSERT(viewShape[axis] >= std::max(inputs[0].GetShape()[axis], idxDim)); // 确保viewshape按最大的切
 
         const int64_t firstViewShape = viewShape[0];
         const int64_t secondViewShape = viewShape[1];
@@ -102,7 +102,7 @@ static void IndexAddOperationExeFunc3Dims(
         std::vector<int64_t> viewShape = args->viewShape_;
 
         ASSERT(idxDim == inputs[1].GetShape()[axis]);
-        ASSERT(viewShape[axis] == std::max(inputs[0].GetShape()[axis], idxDim)); // 确保viewshape按最大的切
+        ASSERT(viewShape[axis] >= std::max(inputs[0].GetShape()[axis], idxDim)); // 确保viewshape按最大的切
 
         const int64_t firstViewShape = viewShape[0];
         const int64_t secondViewShape = viewShape[1];
@@ -160,7 +160,7 @@ static void IndexAddOperationExeFunc4Dims(
         std::vector<int64_t> viewShape = args->viewShape_;
 
         ASSERT(idxDim == inputs[1].GetShape()[axis]);
-        ASSERT(viewShape[axis] == std::max(inputs[0].GetShape()[axis], idxDim)); // 确保viewshape按最大的切
+        ASSERT(viewShape[axis] >= std::max(inputs[0].GetShape()[axis], idxDim)); // 确保viewshape按最大的切
 
         const int64_t firstViewShape = viewShape[0];
         const int64_t secondViewShape = viewShape[1];

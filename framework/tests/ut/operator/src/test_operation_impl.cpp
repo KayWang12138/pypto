@@ -212,6 +212,76 @@ TEST_F(OperationImplTest, Test_TopK) {
     }
 }
 
+TEST_F(OperationImplTest, Test_IndexAdd_BF16) {
+    float scalar = 1.2f;
+    int axis = 0;
+    TileShape::Current().SetVecTile({8, 16});
+    Tensor self(DT_BF16, {10, 16}, "operand0");
+    Tensor src(DT_BF16, {8, 16}, "operand1");
+    Tensor index(DT_INT32, {8}, "operand2");
+    Element alpha(DT_BF16, scalar);
+    Tensor result;
+    FUNCTION("TestIndxAdd") {
+        result = IndexAdd(self, src, index, axis, alpha);
+    }
+}
+
+TEST_F(OperationImplTest, Test_IndexAdd_INT8) {
+    int scalar = 2;
+    int axis = 1;
+    TileShape::Current().SetVecTile({8, 16});
+    Tensor self(DT_INT8, {10, 16}, "operand0");
+    Tensor src(DT_INT8, {10, 18}, "operand1");
+    Tensor index(DT_INT32, {18}, "operand2");
+    Element alpha(DT_INT8, scalar);
+    Tensor result;
+    FUNCTION("TestIndxAdd") {
+        result = IndexAdd(self, src, index, axis, alpha);
+    }
+}
+
+TEST_F(OperationImplTest, Test_IndexAdd_INT16) {
+    int scalar = 2;
+    int axis = 1;
+    TileShape::Current().SetVecTile({8, 16});
+    Tensor self(DT_INT16, {10, 5}, "operand0");
+    Tensor src(DT_INT16, {10, 2}, "operand1");
+    Tensor index(DT_INT64, {2}, "operand2");
+    Element alpha(DT_INT16, scalar);
+    Tensor result;
+    FUNCTION("TestIndxAdd") {
+        result = IndexAdd(self, src, index, axis, alpha);
+    }
+}
+
+TEST_F(OperationImplTest, Test_IndexAdd_FP32) {
+    float scalar = 1.2f;
+    int axis = 0;
+    TileShape::Current().SetVecTile({8, 8, 16});
+    Tensor self(DT_FP32, {10, 10, 16}, "operand0");
+    Tensor src(DT_FP32, {15, 10, 16}, "operand1");
+    Tensor index(DT_INT32, {15}, "operand2");
+    Element alpha(DT_FP32, scalar);
+    Tensor result;
+    FUNCTION("TestIndxAdd") {
+        result = IndexAdd(self, src, index, axis, alpha);
+    }
+}
+
+TEST_F(OperationImplTest, Test_IndexAdd_FP16) {
+    float scalar = 1.2f;
+    int axis = 0;
+    TileShape::Current().SetVecTile({8, 8, 8, 16});
+    Tensor self(DT_FP16, {10, 10, 10, 16}, "operand0");
+    Tensor src(DT_FP16, {8, 10, 10, 16}, "operand1");
+    Tensor index(DT_INT32, {8}, "operand2");
+    Element alpha(DT_FP16, scalar);
+    Tensor result;
+    FUNCTION("TestIndxAdd") {
+        result = IndexAdd(self, src, index, axis, alpha);
+    }
+}
+
 TEST_F(OperationImplTest, Test_ArgSort) {
     PROGRAM("ARGSORT") {
         std::vector<int64_t> shape = {128, 32};

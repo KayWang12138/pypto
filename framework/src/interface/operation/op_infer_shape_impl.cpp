@@ -121,7 +121,6 @@ REGISTER_INFER_SHAPE_FUNC(OP_S_DIV, Opcode::OP_S_DIV, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_S_MAX, Opcode::OP_S_MAX, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_S_MIN, Opcode::OP_S_MIN, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_REGISTER_COPY, Opcode::OP_REGISTER_COPY, ElewiseInferFunc);
-REGISTER_INFER_SHAPE_FUNC(OP_INDEX_ADD, Opcode::OP_INDEX_ADD, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_SCATTER_ELEMENT, Opcode::OP_SCATTER_ELEMENT, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_SCATTER, Opcode::OP_SCATTER, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_CMP, Opcode::OP_CMP, ElewiseInferFunc);
@@ -157,6 +156,21 @@ void GatherElementInferFunc(Operation* op,
     }
 }
 REGISTER_INFER_SHAPE_FUNC(OP_GATHER_ELEMENT, Opcode::OP_GATHER_ELEMENT, GatherElementInferFunc);
+
+void IndexAddInferFunc(Operation* op,
+                      std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
+    std::vector<SymbolicScalar> outValidShape;
+    auto inValidShape = op->GetIOperands()[0]->GetDynValidShape();
+
+    for (size_t i = 0; i < inValidShape.size(); ++i) {
+        outValidShape.push_back(inValidShape[i]);
+    }
+
+    for (auto output : op->GetOOperands()) {
+        outValidShapes.push_back(outValidShape);
+    }
+}
+REGISTER_INFER_SHAPE_FUNC(OP_INDEX_ADD, Opcode::OP_INDEX_ADD, IndexAddInferFunc);
 
 void LogicalNotInferFunc(Operation* op,
                         std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
