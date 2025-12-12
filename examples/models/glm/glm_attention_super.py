@@ -14,20 +14,19 @@
 import numpy as np
 import os
 import torch
+import pytest
 import torch_npu
 import pypto
 from dataclasses import dataclass
 
-from test_attention_pre import add_rms_norm_npu_golden, rms_norm_npu_golden, \
+from glm_attention_pre import add_rms_norm_npu_golden, rms_norm_npu_golden, \
     apply_rotary_pos_emb_v2, rms_norm_bias, rope_data
-from test_scatter import scatter_update_golden
-from test_attention import gen_block_table, kv_cache_concat_bsnd, softmax, \
+from glm_scatter import scatter_update_golden	
+from glm_attention import gen_block_table, kv_cache_concat_bsnd, softmax, \
     AttentionConfig, AttentionTileConfig
-
 np.random.seed(0)
 torch.manual_seed(0)
 np.set_printoptions(formatter={'float': '{:.6f}'.format})
-
 
 
 @dataclass
@@ -644,7 +643,6 @@ def ifa(atten_cfg, device_id):
     # 6. 与PyTorch参考实现对比
     detailed_allclose_manual(np.array(attention_output.flatten().tolist()), np.array(y_data.flatten().tolist()),
                              "attention", rtol=0.003, atol=0.003)
-
 
 def test_super_attention():
     # 1. 设置参数
