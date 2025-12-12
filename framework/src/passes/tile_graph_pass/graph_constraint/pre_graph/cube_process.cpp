@@ -198,6 +198,7 @@ void CubeProcess::DFSSearch(Operation *op, std::vector<Operation *> &l0CCopyOuts
     OpCalcType opCalType = OpcodeManager::Inst().GetOpCalcType(op->GetOpcode());
     if (opCalType == OpCalcType::MOVE_OUT && op->GetIOperands().front()->GetMemoryTypeOriginal() == MemoryType::MEM_L0C) {
         l0CCopyOuts.emplace_back(op);
+        return;
     }
     for (auto consumerOp : op->ConsumerOps()) {
         DFSSearch(consumerOp, l0CCopyOuts, visitedOp);
@@ -265,8 +266,7 @@ Status CubeProcess::AlignGMTensor(Function &function, std::vector<Operation *> &
         }
     }
     if (chainEndCopyOut == nullptr) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Cannot find chainEndCopyOut, AlignGMTensor failed.");
-        return FAILED;
+        return SUCCESS;
     }
     for (auto &input : mulOp.GetIOperands()) {
         if (input->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
