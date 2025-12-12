@@ -601,7 +601,9 @@ struct FunctionInterpreter {
     }
 
     void ExecuteControlFlow(Function *func, FunctionControlFlowExecution &controlFlowExecution) {
-        func->SortOperations();
+        if (func->GetFunctionType() != FunctionType::DYNAMIC && func->GetFunctionType() != FunctionType::DYNAMIC_LOOP_PATH) {
+            func->SortOperations();
+        }
         auto funcType = func->GetFunctionType();
         if (funcType == FunctionType::DYNAMIC) {
             ExecuteFunctionDynamic(func, controlFlowExecution);

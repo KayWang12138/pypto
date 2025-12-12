@@ -484,6 +484,7 @@ public:
     }
     std::unordered_set<int> LoopCheck(bool includeInternalSubgraphID = false);
     FunctionHash ComputeHash();
+    std::vector<std::shared_ptr<Operation>> GetSortedOperations() const;
     OperationsViewer Operations(bool sorted = true);
     OperationsViewer OperationsAfterOOO();
     void RecordOOOSeq();
@@ -500,7 +501,7 @@ public:
         ASSERT(groupID < operationGroups_.size());
         return operationGroups_[groupID];
     }
-    void ClearOperationGroups() { operationGroups_.clear(); }
+    void ClearOperationGroups();
     void CheckGroupValid() const;
 
     void CreateLeafInAndOutCast(const LogicalTensorPtr &inOrOut, LogicalTensors &inOrOutList) const;
@@ -800,7 +801,6 @@ private:
     std::string funcMagicName_; // Function name
     std::string funcRawName_;   // raw name
     bool sorted_{false};
-    bool hasCallOp_{false};
     size_t totalAicSubGraphCount_ = 0;
     size_t totalAivSubGraphCount_ = 0;
     size_t totalSubGraphCount_ = 0;

@@ -232,10 +232,6 @@ Operation &Program::ConnectCallerGusket(Function &caller, FunctionCallArgs &args
     auto &callFunc = caller.AddRawOperation(Opcode::OP_CALL, args.iOperands, args.oOperands, false);
     callFunc.SetOpAttribute(currentFunctionPtr_->CreateCallOpAttribute(args.argList, args.outIndexToExpr));
     callFunc.SetOpOffset(args.iOpAttrOffset, args.oOpAttrOffset);
-    if (caller.IsFunctionType({FunctionType::DYNAMIC, FunctionType::DYNAMIC_LOOP_PATH})) {
-        // Keep callOp order under DYNAMIC and DYNAMIC_LOOP_PATH function
-        caller.AddLoopCallToOrderGroup(&callFunc);
-    }
     return callFunc;
 }
 

@@ -334,7 +334,12 @@ void *Function::GetParamAddress(int index) {
 }
 
 bool Function::HasCallOperation() {
-    return hasCallOp_;
+    for (const auto &op : Operations()) {
+        if (op.GetOpcode() == Opcode::OP_CALL) {
+            return true;
+        }
+    }
+    return false;
 }
 
 void Function::CreateLeafInAndOutCast(const LogicalTensorPtr &inOrOut, LogicalTensors &inOrOutList) const {
@@ -589,18 +594,19 @@ void Function::CleanRedundantOutCast() {
 
 FunctionCallArgs Function::EndFunction(const std::shared_ptr<TensorSlotScope> &scope) {
     // Deduce Incast and Outcast here, need by TENSOR_GRAPH & STATIC_TILE_GRAPH
+    std::vector<Operation *> operationList = Operations(false).DuplicatedOpList();
     if (IsGraphType(GraphType::TENSOR_GRAPH) || IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::TILE_GRAPH)) {
         OrderedSet<LogicalTensorPtr> incasts;
         OrderedSet<LogicalTensorPtr> outcasts;
 
-        for (auto &op : Operations()) {
-            for (auto &iOperand : op.iOperand) {
-                if (op.IsCall() || (tensorMap_.tensorMap_.count(iOperand->tensor->rawmagic) == 0 && (&iOperand->BelongFunction() != this))) {
+        for (auto &op : operationList) {
+            for (auto &iOperand : op->iOperand) {
+                if (op->IsCall() || (tensorMap_.tensorMap_.count(iOperand->tensor->rawmagic) == 0 && (&iOperand->BelongFunction() != this))) {
                     incasts.Insert(iOperand);
                 }
             }
-            for (auto &oOperand : op.oOperand) {
-                if (op.IsCall() || oOperand->tensor->GetRefCount() > 0) {
+            for (auto &oOperand : op->oOperand) {
+                if (op->IsCall() || oOperand->tensor->GetRefCount() > 0) {
                     outcasts.Insert(oOperand);
                     ASSERT(incasts.count(oOperand) == 0);
                 }
@@ -621,7 +627,10 @@ FunctionCallArgs Function::EndFunction(const std::shared_ptr<TensorSlotScope> &s
         outArgumentList = MakeOutcasts(scope);
         auto iodescDict = GetTensorDataForTensorGraph();
         GetTensorDataRefreshIO(iodescDict);
+        /* tensor graph function should keep the order of operations */
+        AddOperationGroup(operationList);
         SortOperations();
+        ClearOperationGroups();
         if (Program::GetInstance().GetCurrentDynamicFunction()) {
             DyndevFunctionAttribute::ValueDependDesc desc = LookupValueDepend();
             auto currDynFuncAttr = Program::GetInstance().GetCurrentDynamicFunction()->GetDyndevAttribute();
@@ -946,10 +955,7 @@ std::unordered_set<int> Function::LoopCheck(bool includeInternalSubgraphID) {
     return std::unordered_set<int>{};
 }
 
-void Function::SortOperations() {
-    if (hasCallOp_ && this->functionType_ == FunctionType::DYNAMIC) {
-        return;
-    }
+std::vector<std::shared_ptr<Operation>> Function::GetSortedOperations() const {
     std::unordered_map<const Operation *, int> opToIndex;
     std::unordered_map<const Operation *, std::set<std::pair<int, int>>> usageDict;
 
@@ -963,7 +969,7 @@ void Function::SortOperations() {
         }
     }
     std::vector<int> outDegree(operations_.size(), 0);
-    std::vector<int> groupOutDegree(operationGroups_.size(), 0);
+    std::vector<int> prevOperation(operations_.size(), -1);
 
     auto addProd = [&] (auto operation, auto ioperand) {
         for (const auto &prod : ioperand->GetProducers()) {
@@ -971,11 +977,7 @@ void Function::SortOperations() {
                 continue;
             }
             ASSERT(opToIndex.count(prod) != 0);
-            if (prod->GroupID() == NON_GROUP) {
-                outDegree[opToIndex[prod]]++;
-            } else if (operation->GroupID() != prod->GroupID()) {
-                groupOutDegree[prod->GroupID()]++;
-            }
+            outDegree[opToIndex[prod]]++;
         }
     };
 
@@ -991,21 +993,16 @@ void Function::SortOperations() {
             }
         }
     }
-
-    std::queue<int> q;
-    for (size_t i = 0; i < operations_.size(); i++) {
-        if (outDegree[i] == 0 && operations_[i]->GroupID() == NON_GROUP) {
-            q.emplace(i);
+    for (auto &opGroup : operationGroups_) {
+        for (size_t i = 1; i < opGroup.size(); i++) {
+            prevOperation[opToIndex[opGroup[i]]] = opToIndex[opGroup[i - 1]];
+            outDegree[opToIndex[opGroup[i - 1]]]++;
         }
     }
-
-    for (size_t i = 0; i < operationGroups_.size(); i++) {
-        if (groupOutDegree[i] == 0) {
-            auto &group = operationGroups_[i];
-            for (auto riter = group.rbegin(); riter != group.rend(); ++riter) {
-                ASSERT(opToIndex.count(*riter) != 0);
-                q.emplace(opToIndex[*riter]);
-            }
+    std::queue<int> q;
+    for (size_t i = 0; i < operations_.size(); i++) {
+        if (outDegree[i] == 0) {
+            q.emplace(i);
         }
     }
 
@@ -1014,19 +1011,9 @@ void Function::SortOperations() {
             if (producer->BelongTo() != this || producer == operation) {
                 continue;
             }
-            if (producer->GroupID() == NON_GROUP) {
-                auto nxtOpIndex = opToIndex[producer];
-                if (--outDegree[nxtOpIndex] == 0) {
-                    q.emplace(nxtOpIndex);
-                }
-            } else if (operation->GroupID() != producer->GroupID()) {
-                if (--groupOutDegree[producer->GroupID()] == 0) {
-                    auto &group = operationGroups_[producer->GroupID()];
-                    for (auto riter = group.rbegin(); riter != group.rend(); ++riter) {
-                        ASSERT(opToIndex.count(*riter) != 0);
-                        q.emplace(opToIndex[*riter]);
-                    }
-                }
+            auto nxtOpIndex = opToIndex[producer];
+            if (--outDegree[nxtOpIndex] == 0) {
+                q.emplace(nxtOpIndex);
             }
         }
     };
@@ -1036,6 +1023,12 @@ void Function::SortOperations() {
         const auto &op = operations_[q.front()];
         q.pop();
         sortedOperations.emplace_back(op);
+        int prevOpIndex = prevOperation[opToIndex[op.get()]];
+        if (prevOpIndex >= 0) {
+            if (--outDegree[prevOpIndex] == 0) {
+                q.emplace(prevOpIndex);
+            }
+        }
         for (auto &iop : op->iOperand) {
             visit(op.get(), iop);
         }
@@ -1048,16 +1041,17 @@ void Function::SortOperations() {
         }
     }
     for (auto &op : operations_) {
-        if (op->GroupID() == NON_GROUP) {
-            ASSERT(outDegree[opToIndex[op.get()]] == 0);
-        } else {
-            ASSERT(groupOutDegree[op->GroupID()] == 0);
-        }
+        ASSERT(outDegree[opToIndex[op.get()]] == 0);
     }
     ASSERT(operations_.size() == sortedOperations.size());
-    std::reverse_copy(sortedOperations.begin(), sortedOperations.end(), operations_.begin());
-    RefreshOpPosition();
+    std::reverse(sortedOperations.begin(), sortedOperations.end());
+    return sortedOperations;
+}
 
+void Function::SortOperations() {
+    std::vector<std::shared_ptr<Operation>> sortedOperations = GetSortedOperations();
+    operations_ = sortedOperations;
+    RefreshOpPosition();
     sorted_ = true;
 }
 
@@ -1085,6 +1079,15 @@ void Function::AddOperationGroup(std::vector<Operation *> operationGroup) {
     }
     operationGroups_.emplace_back(std::move(operationGroup));
     sorted_ = false;
+}
+
+void Function::ClearOperationGroups() {
+    for (auto &opGroup : operationGroups_) {
+        for (auto &op : opGroup) {
+            op->SetGroupID(NON_GROUP);
+        }
+    }
+    operationGroups_.clear();
 }
 
 void Function::CheckGroupValid() const {
@@ -1398,9 +1401,6 @@ const Opcode opCode, const LogicalTensors &iOperands, const LogicalTensors &oOpe
     auto &op =
         operations_.emplace_back(std::make_shared<Operation>(*this, opCode, iOperands, oOperands, updateTensorMap));
     opPosition_.emplace(op.get(), operations_.size() - 1);
-    if (operations_.back()->GetOpcode() == Opcode::OP_CALL) {
-        hasCallOp_ = true;
-    }
     return *operations_.back();
 }
 
@@ -1611,7 +1611,7 @@ void Function::CreateFromIncast(const std::shared_ptr<LogicalTensor> &symbol,
     incastOp.SetOpAttribute(std::make_shared<ViewOpAttribute>(originIncast->GetOffset(),
         originIncast->GetDynOffset(), validShape));
     newIncast->UpdateDynValidShape(validShape);
-    newIncast->GetRawTensor()->UpdateDynRawShape(validShape);
+    newIncast->GetRawTensor()->UpdateDynRawShape(symbol->GetDynValidShape());
 }
 
 void Function::ReplaceMaybeParams(const std::shared_ptr<LogicalTensor> &newIncast,

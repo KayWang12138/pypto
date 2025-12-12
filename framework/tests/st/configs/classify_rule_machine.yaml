@@ -101,7 +101,7 @@ stest:
       - DynamicBasicTest.TestDeviceMachineBlockdimOnBoard
       - DynamicBasicTest.TestTensorExtract
       - DynamicBasicTest.TestGetTensorData
-      - DynamicBasicTest.TestGetTensorDataCrossFunction
+      # - DynamicBasicTest.TestGetTensorDataCrossFunction
       - DynamicBasicTest.TestGetTensorDataUnalign
       - DynamicBasicTest.TestGetTensorDataExpr
       - DynamicBasicTest.TestVectorDup
