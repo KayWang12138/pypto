@@ -32,7 +32,7 @@ DeviceStream DeviceGetAicoreStream();
 class DeviceTensorData {
 public:
     DeviceTensorData(DataType dtype, uintptr_t devAddr, const std::vector<int64_t> &shape)
-        : dtype_(dtype), devAddr_(devAddr), shape_(shape){}
+        : dtype_(dtype), devAddr_(devAddr), shape_(shape) {}
     uintptr_t GetDevAddr() const { return devAddr_; }
     const std::vector<int64_t> &GetShape() const { return shape_; }
     DataType GetDataType() const { return dtype_; }

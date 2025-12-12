@@ -160,7 +160,7 @@ private:
             return;
         }
         MachineAgent::AgentProc(gDeviceAgentTaskPtr.get());
-        SetDefaultDevice();
+        CheckDeviceId();
         MachinePipe::PipeProc(gDeviceAgentTaskPtr.get());
     }
 
@@ -261,7 +261,7 @@ private:
             ALOG_ERROR_F("Acl init failed!!!");
             return;
         }
-        SetDefaultDevice();
+        CheckDeviceId();
         AstKernelArgs kArgs;
         DeviceInitTilingData(MemoryHelper(false), kArgs, function_->GetDyndevAttribute()->devProgBinary, config_, nullptr);
         auto aicpuStream = machine::GetRA()->GetScheStream();

@@ -440,7 +440,7 @@ bool HasCalleeConsumer(Function &func, Function &calleeFunc, size_t outcastIdx) 
     auto outcast = calleeFunc.GetOutcast()[outcastIdx];
     auto outcastSlots = calleeFunc.GetOutCastSlot(outcast);
     for (auto otherCallee : func.GetCalleeFunctionList()) {
-        ASSERT(otherCallee != nullptr) << func.GetRawName() << " has nullptr callee";
+        ASSERT(otherCallee != nullptr) << func.GetRawName() << "has nullptr callee";
         for (auto &incast : otherCallee->GetIncast()) {
             auto incastSlots = otherCallee->GetInCastSlot(incast);
             if (TensorSlotManager::HasSameSlot(incastSlots, outcastSlots)) {
@@ -499,7 +499,7 @@ void Function::CheckAndUpdateGetTensorData(size_t currOutcastIdx, size_t newOutc
 }
 
 void Function::CleanRedundantOutcast(
-    std::map<Function *, std::set<size_t>> &removeRecord, std::map<Function *, std::set<size_t>> &getTensorDataRecord) {
+    std::map<Function *, std::set<size_t>> &removeRecord, std::map<Function*, std::set<size_t>> &getTensorDataRecord) {
     for (auto &[func, removeList] : removeRecord) {
         for (auto it = removeList.rbegin(); it != removeList.rend(); ++it) {
             auto outCastIdx = *it;
@@ -523,7 +523,7 @@ void Function::CleanRedundantOutcast(
 void RedundantOutCastCheck(std::map<Function *, std::set<size_t>> &removeRecord,
     std::map<Function *, std::set<size_t>> &getTensorDataRecord, Function *func, std::map<size_t, size_t> &outcasts) {
     for (auto calleeFunc : func->GetCalleeFunctionList()) {
-        ASSERT(calleeFunc != nullptr) << func->GetMagicName() << " has nullptr calleeFunc";
+        ASSERT(calleeFunc != nullptr) << func->GetMagicName() << "has nullptr calleeFunc";
         std::map<size_t, size_t> outcastIdx2parent; // key: callee outcastIdx, value: caller outcastIdx
         CalleeSlotNoConsumer(*calleeFunc, *func, outcasts, outcastIdx2parent);
         if (!outcastIdx2parent.empty()) {
@@ -1350,6 +1350,7 @@ Operation &Function::AddOperation(const std::string &opName, LogicalTensors iOpe
 Operation &Function::AddOperation(const Opcode opCode, LogicalTensors iOperands, const LogicalTensors &oOperands,
     const bool updateTensorMap) {
     for (auto &iOperand : iOperands) {
+        ASSERT(iOperand->shape.size() != 0) << "tensor shape size invalid";
         iOperand = ConnectWithOverlap(iOperand);
     }
     return AddRawOperation(opCode, iOperands, oOperands, updateTensorMap);
@@ -1404,7 +1405,7 @@ const Opcode opCode, const LogicalTensors &iOperands, const LogicalTensors &oOpe
 }
 
 void Function::SetSameMemId(const LogicalTensorPtr &operand, LogicalTensorPtr &dst) {
-    ASSERT(operand->Datatype() == dst->Datatype()) << " Check Dtype failed!";
+    ASSERT(operand->Datatype() == dst->Datatype()) << "Check Dtype failed!";
 
     auto dstRaw = dst->GetRawTensor();
     auto operandRaw = operand->GetRawTensor();

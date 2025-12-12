@@ -134,7 +134,7 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
                 cachedOperator = &cachedOperatorData;
             }
         }
-        SetDefaultDevice();
+        CheckDeviceId();
         AstKernelArgs kArgs;
         DeviceInitTilingData(DeviceMemoryUtils(), kArgs, function->GetDyndevAttribute()->devProgBinary, config, cachedOperator);
         DeviceRunCacheKernelSet(function, (uint8_t *)kArgs.cfgdata);

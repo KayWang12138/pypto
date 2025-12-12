@@ -88,15 +88,13 @@ namespace npu::tile_fwk {
 
 #ifdef BUILD_WITH_CANN
 
-inline void SetDefaultDevice() {
+inline void CheckDeviceId() {
     int32_t devId = 0;
     int32_t getDeviceResult = rtGetDevice(&devId);
-    (void)getDeviceResult;
     if (getDeviceResult == RT_ERROR_NONE) {
-        ALOG_WARN_F("fail get device id, check if set device id");
+        ALOG_ERROR_F("fail get device id, check if set device id");
         return;
     }
-    rtSetDevice(devId);
  }
 
 struct HugePageDesc {
@@ -291,7 +289,7 @@ public:
 private:
     void Init() {
         ALOG_INFO_F("RuntimeAgent: Init acl runtime!");
-        SetDefaultDevice();
+        CheckDeviceId();
         ALOG_DEBUG_F("RuntimeAgent: Create a default stream!");
         CreateStream();
     }
