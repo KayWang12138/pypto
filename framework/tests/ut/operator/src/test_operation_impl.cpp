@@ -325,3 +325,33 @@ TEST_F(OperationImplTest, test_MinS_FP16) {
         result = Maximum(operand1, operand2);
     }
 }
+
+TEST_F(OperationImplTest, test_Expand_8_1_to_8_8) {
+    TileShape::Current().SetVecTile({4, 4});
+    Tensor operand1(DT_FP32, {8, 1}, "operand1");
+    std::vector<int64_t> dstShape = {8, 8};
+    Tensor result;
+    FUNCTION("TestExpand") {
+        result = Expand(operand1, dstShape);
+    }
+}
+
+TEST_F(OperationImplTest, test_Expand_8_1_to_8_8_dyn) {
+    TileShape::Current().SetVecTile({3, 3});
+    Tensor operand1(DT_FP32, {8, 1}, "operand1");
+    std::vector<int64_t> dstShape = {8, 8};
+    Tensor result;
+    FUNCTION("TestExpand") {
+        result = Expand(operand1, dstShape);
+    }
+}
+
+TEST_F(OperationImplTest, test_Expand_32_8_1_to_32_8_32) {
+    TileShape::Current().SetVecTile({8, 8, 16});
+    Tensor operand1(DT_FP32, {32, 8, 1}, "operand1");
+    std::vector<int64_t> dstShape = {32, 8, 32};
+    Tensor result;
+    FUNCTION("TestExpand") {
+        result = Expand(operand1, dstShape);
+    }
+}

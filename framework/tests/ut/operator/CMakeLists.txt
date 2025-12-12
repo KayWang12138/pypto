@@ -148,6 +148,10 @@ set(_CaseFilterList
         "ViewTypeUtest.cast_add0_test"
         "ViewTypeUtest.quant_test"
         "ViewTypeUtest.dequant_test"
+
+        # Operation
+        "OperationImplTest.test_Expand_8_1_to_8_8"
+        "OperationImplTest.test_Expand_8_1_to_8_8_dyn"
 )
 
 set(_Target ${PTO_Fwk_UTestNamePrefix}_operator)
