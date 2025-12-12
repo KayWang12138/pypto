@@ -251,7 +251,9 @@ Status OoOScheduler::CreateSpillReloadIssue(LogicalTensorPtr spillOutTensor,
     // 创建spill搬出数据搬回OP_COPY_IN/OP_ALLOC
     Opcode allocOp = memType == MemoryType::MEM_UB ? Opcode::OP_UB_ALLOC : Opcode::OP_L1_ALLOC;
     auto &spillAllocOp = function_.AddRawOperation(allocOp, {}, {localTensor});
-    auto &spillCopyInOp = function_.AddRawOperation(Opcode::OP_COPY_IN, {spillOutTensor}, {localTensor});
+    auto &spillCopyInOp = (spillIssue->tileOp.GetOpcode() == Opcode::OP_COPY_IN) ?
+        spillIssue->tileOp.CloneOperation(function_, {spillOutTensor}, {localTensor}) :
+        function_.AddRawOperation(Opcode::OP_COPY_IN, {spillOutTensor}, {localTensor});
 
     if (spillIssue->tileOp.GetOpcode() == Opcode::OP_COPY_IN) {
         spillCopyInOp.SetIOpAttrOffset(0, spillIssue->tileOp.GetIOpAttrOffset(0));

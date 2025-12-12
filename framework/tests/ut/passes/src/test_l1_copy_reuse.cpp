@@ -288,6 +288,9 @@ TEST_F(L1CopyInReuseTest, TestInvalidL1Map) {
     EXPECT_EQ(LCRM.RunOnFunction(*function), SUCCESS);
     function->paramConfigs_.l1ReuseMap = {{0, -3}};
     EXPECT_EQ(LCRM.RunOnFunction(*function), FAILED);
+    function->paramConfigs_.l1ReuseMap = {{-1, 2}};
+    function->paramConfigs_.cubeNBufferMap = {{0, -5}};
+    EXPECT_EQ(LCRM.RunOnFunction(*function), FAILED);
 }
 
 // 健康检查用例:静态图和非静态图

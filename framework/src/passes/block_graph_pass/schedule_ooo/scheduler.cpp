@@ -270,9 +270,6 @@ Status OoOScheduler::SpillOnBlock() {
     bool rearrangeUBBF16{false};
     if (RearrangeBuffers(allocIssueQueue[spillMemType].Front(), false, rearrangeUBBF16) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "SpillOnBlock failed at RearrangeBuffers.");
-        return FAILED;
-    }
-    if (rearrangeUBBF16) {
         if (GenBufferSpill(allocIssueQueue[spillMemType].Front()) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "SpillOnBlock failed at GenBufferSpill.");
             return FAILED;
@@ -847,7 +844,7 @@ Status OoOScheduler::CheckOpBufferSize(Operation *op) {
                 APASS_LOG_ERROR_F(Elements::Operation, "    %s.", dumpOpInfo(*producer).c_str());
             }
         } else {
-            APASS_LOG_ERROR_F(Elements::Operation, "OP %s[%d] in/output total size[%d] exceeds %s size[%d]!", 
+            APASS_LOG_ERROR_F(Elements::Operation, "OP %s[%d] in/output total size[%ld] exceeds %s size[%d]!", 
                 op->GetOpcodeStr().c_str(), op->GetOpMagic(), buffer.second, MemoryTypeToString(buffer.first).c_str(),
                 localMemorySize[buffer.first]);
             APASS_LOG_ERROR_F(Elements::Operation, "%s.", dumpOpInfo(*op).c_str());
@@ -1079,7 +1076,9 @@ Status OoOScheduler::GenRearrangeCopyOp(MemoryType memType, int oldMemId, int &n
         APASS_LOG_ERROR_F(Elements::Tensor, "GenRearrangeCopyOp failed at GetMoveOpInTensor.");
         return FAILED;
     }
-    auto &moveOp = function_.AddRawOperation(moveOpcode, {inTensor}, {moveToTensor});
+    auto &moveOp = (moveOpcode == Opcode::OP_COPY_IN && occupyOp.GetOpcode() == Opcode::OP_COPY_IN) ?
+        occupyOp.CloneOperation(function_, {inTensor}, {moveToTensor}) :
+        function_.AddRawOperation(moveOpcode, {inTensor}, {moveToTensor});
     newOperations_.push_back(&moveOp);
     // UpdateMoveOpAttr & 创建moveop的issueEntry
     auto moveIssuePtr = ProcessMoveOp(moveOp, occupyOp, oldMemId, newMemId);
@@ -1163,7 +1162,7 @@ Status OoOScheduler::RearrangeBuffers(IssueEntryPtr issue, bool isGenSpillStage,
                 return FAILED;
             }
             if (rearrangeUBBF16) {
-                return SUCCESS;
+                return FAILED;
             }
             // 更新moveToTensor的localbuffer和bufferslice range
             if (UpdateRange(newMemId, offset, allocBuffer->memType, bufferManager) != SUCCESS) {

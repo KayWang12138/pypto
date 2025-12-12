@@ -174,7 +174,7 @@ bool BufferPool::isAllocate(const uint32_t tensorId) {
 
 Status BufferPool::Free(const uint32_t tensorId) {
     if (bufferSlices.find(tensorId) == bufferSlices.end()) { 
-        APASS_LOG_ERROR_F(Elements::Tensor, "Tensor[%d] not in bufferSlices. %s", tensorId); 
+        APASS_LOG_ERROR_F(Elements::Tensor, "Tensor[%d] not in bufferSlices.", tensorId); 
         return FAILED; 
     }
     APASS_LOG_DEBUG_F(Elements::Tensor, "    Free tensor[%u], range:[%lu, %lu]", tensorId,

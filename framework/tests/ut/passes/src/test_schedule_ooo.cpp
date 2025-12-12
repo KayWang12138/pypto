@@ -319,13 +319,10 @@ TEST_F(ScheduleOoOTest, TestDependenciesFailed) {
 
     OoOScheduler ooOScheduler(*function);
     Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
-    std::rotate(ooOScheduler.issueEntries.begin(), ooOScheduler.issueEntries.begin() + 1, ooOScheduler.issueEntries.end());
-    ooOScheduler.InitDependencies();
-    IssueEntryPtr add = GetIssueEntry("Add1", subGraph, ooOScheduler);
-    EXPECT_NE(add, nullptr);
-    EXPECT_TRUE(CheckExists(add->successors, subGraph.GetOp("Alloc1"), ooOScheduler.issueEntryMap));
-    EXPECT_TRUE(CheckExists(add->predecessors, subGraph.GetOp("Copyin1"), ooOScheduler.issueEntryMap));
     EXPECT_EQ(res, SUCCESS);
+    std::rotate(ooOScheduler.issueEntries.begin(), ooOScheduler.issueEntries.begin() + 1, ooOScheduler.issueEntries.end());
+    res = ooOScheduler.InitDependencies();
+    EXPECT_EQ(res, FAILED);
 }
 
 TEST_F(ScheduleOoOTest, TestSpillCopyIn) {
@@ -905,7 +902,7 @@ TEST_F(ScheduleOoOTest, TestScheduleSpillView) {
     res = ooOScheduler.SortOps();
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.ScheduleMainLoop();
-    EXPECT_EQ(res, FAILED);
+    EXPECT_EQ(res, SUCCESS);
 }
 
 TEST_F(ScheduleOoOTest, TestScheduleSpillAssemble) {
@@ -931,6 +928,18 @@ TEST_F(ScheduleOoOTest, TestScheduleSpillAssemble) {
     std::shared_ptr<LogicalTensor> tensor2 = subGraph.GetTensor("t6");
     tensor2->memoryrange.memId =
         subGraph.GetTensor("t5")->memoryrange.memId;
+    std::shared_ptr<LogicalTensor> tensor5 = subGraph.GetTensor("t5");
+    std::shared_ptr<LogicalTensor> tensor6 = subGraph.GetTensor("t6");
+    tensor5->shape = {64, 128};
+    tensor6->shape = {64, 128};
+    std::vector<int64_t> offset1 = {0, 0};
+    std::vector<int64_t> offset2 = {64, 0};
+    auto assembleAttr1 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UB, offset1);
+    auto assemble1 = subGraph.GetOp("Assemble1");
+    assemble1->SetOpAttribute(assembleAttr1);
+    auto assembleAttr2 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UB, offset2);
+    auto assemble2 = subGraph.GetOp("Assemble2");
+    assemble2->SetOpAttribute(assembleAttr2);
 
     OoOScheduler ooOScheduler(*function);
     Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
@@ -938,6 +947,7 @@ TEST_F(ScheduleOoOTest, TestScheduleSpillAssemble) {
     res = ooOScheduler.SortOps();
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.ScheduleMainLoop();
+    // 待ScheduleMainloop支持assemble
     EXPECT_EQ(res, FAILED);
 }
 
