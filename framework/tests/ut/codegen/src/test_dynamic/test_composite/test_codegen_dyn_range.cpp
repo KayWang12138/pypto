@@ -9,13 +9,12 @@
  */
 
 /*!
- * \file test_codegen_dyn_transpose_data_move.cpp
+ * \file test_codegen_dyn_range.cpp
  * \brief Unit test for codegen.
  */
 
 #include "gtest/gtest.h"
 
-#include "interface/tensor/logical_tensor.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/configs/config_manager.h"
@@ -25,10 +24,10 @@
 #include "codegen/symbol_mgr/codegen_symbol.h"
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
 #include "codegen/cloudnpu/codegen_op_cloudnpu.h"
+#include "test_codegen_utils.h"
 
 namespace npu::tile_fwk {
-
-class TestCodegenDynTransposeDataMove : public ::testing::Test {
+class TestCodegenDynRange : public ::testing::Test {
 public:
     static void SetUpTestCase() {}
 
@@ -37,61 +36,42 @@ public:
     void SetUp() override {
         Program::GetInstance().Reset();
         config::Reset();
-        config::SetPlatformConfig(KEY_ONLY_TENSOR_GRAPH, true);
+        config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
         config::SetPlatformConfig("ENABLE_COST_MODEL", false);
     }
 
     void TearDown() override {}
 };
 
-void TestTransposeDataMoveBody(int dim = 3) {
-    std::vector<int64_t> shape = {64, 64, 64};
-    if (dim == SHAPE_DIM4) {
-        shape = {64, 64, 64, 64};
-    }
+TEST_F(TestCodegenDynRange, TestDynOpRange) {
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
+
+    std::vector<int64_t> shape = {64, 64};
     auto shapeImme = OpImmediate::Specified(shape);
     TileShape::Current().SetVecTile(shape);
-
     Tensor inputA(DT_FP32, shape, "A");
     Tensor inputB(DT_FP32, shape, "B");
     Tensor output(DT_FP32, shape, "C");
 
-    std::string funcName = "ADD";
-    config::SetBuildStatic(true);
+    Element start(DataType::DT_FP32, 1.0);
+    Element step(DataType::DT_FP32, 2.0);
+    Element size(DataType::DT_FP32, 3.0);
+
+    std::string funcName = "TestDynOpRange";
     FUNCTION(funcName, {inputA, inputB, output}) {
         output = Add(inputA, inputB);
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
     function->SetUnderDynamicFunction(true);
-    std::shared_ptr<RawTensor> ddrRawTensor =
-        std::make_shared<RawTensor>(DataType::DT_FP32, shape, TileOpFormat::TILEOP_ND, "TransposeDataMove", 123);
-    std::vector<int64_t> offset = {0, 0, 0};
-    if (dim == SHAPE_DIM4) {
-        offset = {0, 0, 0, 0};
-    }
-    auto ddrTensor = std::make_shared<LogicalTensor>(*function, ddrRawTensor, offset, shape);
-    ddrTensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
-    ddrTensor->SetMemoryTypeToBe(MemoryType::MEM_DEVICE_DDR);
+    std::vector<SymbolicScalar> dynValidShape = {64, 64};
+    auto localTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
+    localTensor->UpdateDynValidShape(dynValidShape);
 
-    auto localTensor = std::make_shared<LogicalTensor>(*function, DT_FP32, shape);
-    localTensor->UpdateSubgraphID(0);
-    localTensor->SetMemoryTypeOriginal(MemoryType::MEM_UB);
-    localTensor->SetMemoryTypeToBe(MemoryType::MEM_UB);
-    localTensor->SetMagic(3);
-    localTensor->SetAttr(OpAttributeKey::needAlloc, true);
-    localTensor->memoryrange.memId = 0;
-    localTensor->memoryrange.start = 0;
-    localTensor->memoryrange.end = 0;
-
-    auto &op = function->AddOperation(Opcode::OP_TRANSPOSE_MOVEOUT, {localTensor}, {ddrTensor});
-    op.SetAttribute(OP_ATTR_PREFIX + "shape", shape);
-    auto to_offset = OpImmediate::Specified({0, 0, 0});
-    if (dim == SHAPE_DIM4) {
-        to_offset = OpImmediate::Specified({0, 0, 0, 0});
-    }
-    op.SetOpAttribute(std::make_shared<CopyOpAttribute>(MEM_UB, to_offset, shapeImme, shapeImme));
-    op.SetOOpAttrOffset(0, 0);
+    auto &op = function->AddOperation(Opcode::OP_RANGE, {}, {localTensor});
     op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
+    op.SetAttribute(OP_ATTR_PREFIX + "START", start);
+    op.SetAttribute(OP_ATTR_PREFIX + "STEP", step);
+    op.SetAttribute(OP_ATTR_PREFIX + "SIZE", size);
 
     std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
     CodeGenCtx ctx;
@@ -101,14 +81,11 @@ void TestTransposeDataMoveBody(int dim = 3) {
     function->GetTensorMap().inverseMap_[localTensor->GetMagic()] = localTensor;
 
     cop.Init(op);
-    cop.GenOpCode();
+    std::string res = cop.GenOpCode();
+    std::string expect =
+        R"!!!(TileOp::DynRange<float, 64>((__ubuf__ float*)UB_S0_E0, 64, 1.000000, 2.000000);
+)!!!";
+    EXPECT_EQ(res, expect);
 }
 
-TEST_F(TestCodegenDynTransposeDataMove, TransposeDataMoveDim3) {
-    TestTransposeDataMoveBody();
-}
-
-TEST_F(TestCodegenDynTransposeDataMove, TransposeDataMoveDim4) {
-    TestTransposeDataMoveBody(SHAPE_DIM4);
-}
 } // namespace npu::tile_fwk

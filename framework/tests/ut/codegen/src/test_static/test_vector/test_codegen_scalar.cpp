@@ -24,6 +24,7 @@
 #include "interface/configs/config_manager.h"
 #include "codegen/codegen.h"
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
+#include "codegen/cloudnpu/codegen_op_cloudnpu.h"
 #include "test_codegen_utils.h"
 
 namespace npu::tile_fwk {
@@ -140,14 +141,48 @@ TEST_F(TestCodegenScalar, TestPipeAll) {
     Operation &syncOp = function->AddOperation(npu::tile_fwk::Opcode::OP_BAR_ALL, {ddrTensor}, {ubTensor});
     syncOp.syncQueue_ = {PipeType::PIPE_ALL, PipeType::PIPE_ALL, CoreType::AIV, CoreType::AIV, -1};
 
-    SymbolManager sm;
+    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
-    CodeGenOpCloudNPU cop({sm, *function, *function->rootFunc_->programs_[0], syncOp});
+    CodeGenOpCloudNPU cop({symbolManager, *function, *(function->rootFunc_->programs_[0]), syncOp});
     function->GetTensorMap().inverseMap_[ubTensor->GetMagic()] = ubTensor;
 
     std::string res = cop.GenOpCode();
     std::string expect = R"!!!(pipe_barrier(PIPE_ALL);
+)!!!";
+
+    EXPECT_EQ(res, expect);
+}
+
+TEST_F(TestCodegenScalar, TestAicpuCallOp) {
+    const std::vector<int64_t> shape = {64, 64};
+    auto shapeImme = OpImmediate::Specified(shape);
+    TileShape::Current().SetVecTile(shape);
+
+    Tensor inputA(DT_FP32, shape, "A");
+    Tensor inputB(DT_FP32, shape, "B");
+    Tensor output(DT_FP32, shape, "C");
+
+    std::string funcName = "TestAicpuCallOp";
+    config::SetBuildStatic(true);
+    FUNCTION(funcName, {inputA, inputB, output}) {
+        output = Add(inputA, inputB);
+    }
+
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
+
+    auto ubTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
+    Operation &op = function->AddOperation(npu::tile_fwk::Opcode::OP_AICPU_CALL_AIV, {ubTensor}, {});
+    op.SetAttribute(OpAttributeKey::aicpuCall, 0);
+
+    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
+    CodeGenCtx ctx;
+    CodeGenCloudNPU cga(ctx);
+    CodeGenOpCloudNPU cop({symbolManager, *function, *(function->rootFunc_->programs_[0]), op});
+    function->GetTensorMap().inverseMap_[ubTensor->GetMagic()] = ubTensor;
+
+    std::string res = cop.GenOpCode();
+    std::string expect = R"!!!(TileOp::AicpuCall<0,0>(GET_CURRENT_TASKID());
 )!!!";
 
     EXPECT_EQ(res, expect);

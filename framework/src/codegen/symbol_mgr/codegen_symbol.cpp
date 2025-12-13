@@ -21,10 +21,7 @@ namespace npu::tile_fwk {
 AllocKey SymbolManager::CreateAllocKey(const std::shared_ptr<LogicalTensor> &tensor) const {
     auto memType = tensor->GetMemoryTypeOriginal();
     if (OPERAND_TYPE_TO_MEMORY_TYPE.count(memType) == 0) {
-        ALOG_ERROR_F("%s: invalid memory type(%d) of tensor: ", __FUNCTION__, static_cast<size_t>(memType));
-        ALOG_ERROR_F("    %s", tensor->Dump().c_str());
-
-        ASSERT(false);
+        ASSERT(false) << "invalid memory type: " << static_cast<size_t>(memType) << ", tensor is " << tensor->Dump();
         return {};
     }
 

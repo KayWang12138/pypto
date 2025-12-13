@@ -92,11 +92,11 @@ TEST_F(TestCodegenDynIndexOutCast, IndexOutCast) {
     op.SetOOpAttrOffset(0, 0);
     op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
 
-    SymbolManager memAlloc;
+    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
-    cga.GenAllocForLocalBuffer(op, memAlloc);
-    CodeGenOpCloudNPU cop(memAlloc, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
+    cga.GenAllocForLocalBuffer(op, symbolManager);
+    CodeGenOpCloudNPU cop(symbolManager, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
     function->GetTensorMap().inverseMap_[localTensorSrc0->GetMagic()] = localTensorSrc0;
     function->GetTensorMap().inverseMap_[localTensorSrc1->GetMagic()] = localTensorSrc1;
 

@@ -54,10 +54,10 @@ std::string CodeGenOpCloudNPU::PrintCastDynamicUnaligned(const PrintUnaryParam &
     return oss.str();
 }
 std::string CodeGenOpCloudNPU::PrintCastLayout() const {
-    std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(DISOIdx::DST_IDX)]);
-    std::string srcTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(DISOIdx::SRC0_IDX)]);
+    std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::DST_IDX)]);
+    std::string srcTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::SRC0_IDX)]);
     auto mode = opAttrs.at(OP_ATTR_PREFIX + "mode");
-    int64_t modeEnum;
+    int64_t modeEnum{0};
     if (mode.HasValue()) {
         modeEnum = npu::tile_fwk::AnyCast<int64_t>(mode);
     }
@@ -157,8 +157,8 @@ std::string CodeGenOpCloudNPU::PrintRowSumlineDynamicUnaligned(const PrintUnaryP
 }
 
 std::string CodeGenOpCloudNPU::PrintRowSumlineLayout() const {
-    std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(DISOIdx::DST_IDX)]);
-    std::string src0Tensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(DISOIdx::SRC0_IDX)]);
+    std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::DST_IDX)]);
+    std::string src0Tensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::SRC0_IDX)]);
     int reduceAxis{-1};
     auto axis = opAttrs.at(OP_ATTR_PREFIX + "AXIS");
     if (axis.HasValue()) {
@@ -316,8 +316,8 @@ std::string CodeGenOpCloudNPU::PrintExpandDynamicUnaligned(const PrintUnaryParam
 }
 
 std::string CodeGenOpCloudNPU::PrintExpandLayout(int expandAxis) const {
-    std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(DISOIdx::DST_IDX)]);
-    std::string srcTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(DISOIdx::SRC0_IDX)]);
+    std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::DST_IDX)]);
+    std::string srcTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::SRC0_IDX)]);
     std::ostringstream oss;
     oss << tileOpName << "<" << expandAxis << ">"
         << "(" << dstTensor << ", " << srcTensor << ");\n";
@@ -341,7 +341,7 @@ std::string CodeGenOpCloudNPU::PrintExpand(const std::string &s0Var, const std::
     // modify expandAxis for SHAPE_DIM4
     expandAxis += SHAPE_DIM4 - shape[1].size();
 
-    if(isSupportLayout){
+    if (isSupportLayout) {
         return PrintExpandLayout(expandAxis);
     }
     if (isSupportDynamicUnaligned) {
@@ -478,9 +478,9 @@ std::string CodeGenOpCloudNPU::PrintUnaryStatic(const PrintUnaryParam &param) co
 }
 
 std::string CodeGenOpCloudNPU::PrintUnaryTileTensor() const {
-    std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(SISOIdx::DST_IDX)]);
-    std::string srcTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(SISOIdx::SRC_IDX)]);
-    
+    std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::DST_IDX)]);
+    std::string srcTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::SRC0_IDX)]);
+
     std::ostringstream oss;
     oss << tileOpName << "(" << dstTensor << ", " << srcTensor << ");\n";
     return oss.str();
@@ -489,7 +489,7 @@ std::string CodeGenOpCloudNPU::PrintUnaryTileTensor() const {
 std::string CodeGenOpCloudNPU::PrintUnary(const PrintUnaryParam &param) const {
     if (isSupportLayout) {
         return PrintUnaryTileTensor();
-}
+    }
     if (isSupportDynamicUnaligned) {
         return PrintUnaryDynamicUnaligned(param);
     }
@@ -500,7 +500,7 @@ std::string CodeGenOpCloudNPU::GenUnaryOp() const {
     std::string s0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
     std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
 
-    AppendLocalBufferVarOffset(std::vector{&dVar, &s0Var});
+    AppendLocalBufVarOffsetInOrder(dVar, s0Var);
 
     std::string srcDtypeStr = DataType2CCEStr(operandDtype[ID1]);
     std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
@@ -526,7 +526,7 @@ std::string CodeGenOpCloudNPU::GenUnaryOp() const {
     } else if (opCode == Opcode::OP_ROWSUM) {
         return PrintReduceSum({s0Var, dVar, srcDtypeStr, dstDtypeStr});
     }
-    ALOG_INFO_F("unsupported tileop: %s", OpcodeManager::Inst().GetOpcodeStr(opCode));
+    ALOG_INFO_F("unsupported tileop: %s", opCodeStr.c_str());
     return "CG_ERROR";
 }
 

@@ -75,6 +75,13 @@ set(_CaseFilterList
         "TestCodegenUnary.TestVecDupUnaligned"
         "TestCodegenUnary.ExpandDim2Axis0TileTensor"
         "TestCodegenGatherInUB.gather_in_a_"
+        "TestCodegenScalar.TestAicpuCallOp"
+        "TestCodegenMaxPool.TestOpMaxPool"
+        "TestCodegenWhere.TestOpWhereSS"
+        "TestCodegenWhere.TestOpWhereST"
+        "TestCodegenWhere.TestOpWhereTS"
+        "TestCodegenWhere.TestOpWhereTT"
+
         # distributed
         "TestCodegenDispatch.TestMoeDispatchMultipyExperts"
         "TestCodegenMoeCombine.TestMoeCombine"
@@ -82,6 +89,8 @@ set(_CaseFilterList
         "TestDistributedShmemImpl.TestShmemAllReduce"
 
         ########################## DYNAMIC ##########################
+        # cube
+        "TestCodegenDynMM.TestDynMatmulTileTensor"
         # mte
         "TestCodegenDynCopy.L1ToFB"
         "TestCodegenDynCopy.L0CToOut"
@@ -118,10 +127,19 @@ set(_CaseFilterList
         "TestCodegenDynVnchwconv.TransposeDynVnchwconvDim3"
         "TestCodegenDynSpillOut.UBSpillOut"
         "TestCodegenDynSpillOut.L1SpillOut"
+        "TestCodegenDynScatter.TestDynOpScatterElement"
+        "TestCodegenDynScatter.TestOpDynScatter"
+        "TestCodegenDynWhere.TestDynOpWhere"
+        "TestCodegenDynSort.TestDynTiledMgrSort"
         # composite
         "TestCodegenDynFFN.FFNQuantDynamicTest"
         "TestCodegenDynPa.PaHighThroughputDviewLargeDynamicValidShape"
         "TestCodegenStaticUnderDyn.TestStaticFuncUnderDyn"
+        "TestCodegenDynRange.TestDynOpRange"
+        "TestCodegenDynLogicalNot.TestDynOpLogicalNot"
+        "TestCodegenDynLogicalAnd.TestDynOpLogicalAnd"
+        "TestCodegenDynCmp.TestDynOpCmp"
+        "TestCodegenDynCmp.TestDynOpCmpS"
 )
 
 set(_Target ${PTO_Fwk_UTestNamePrefix}_codegen)

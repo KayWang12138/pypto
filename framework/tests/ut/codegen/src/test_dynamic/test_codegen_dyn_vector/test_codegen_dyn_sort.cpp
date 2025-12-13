@@ -37,9 +37,7 @@ class TestCodegenDynSort : public ::testing::Test {
 public:
     static void SetUpTestCase() {}
 
-    static void TearDownTestCase() {
-        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
-    }
+    static void TearDownTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false); }
 
     void SetUp() override {
         Program::GetInstance().Reset();
@@ -62,11 +60,11 @@ struct TestContext {
 };
 
 std::string generateCodeForOp(Operation *op) {
-    SymbolManager memAlloc;
+    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
-    cga.GenAllocForLocalBuffer(*op, memAlloc);
-    CodeGenOpCloudNPU cop(memAlloc, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
+    cga.GenAllocForLocalBuffer(*op, symbolManager);
+    CodeGenOpCloudNPU cop(symbolManager, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
     cop.Init(*op);
     return cop.GenOpCode();
 }
@@ -155,7 +153,7 @@ struct TopKParams {
     bool isLargest;
 };
 
-void TopKOnBoardFunc(TopKParams& params){
+void TopKOnBoardFunc(TopKParams &params) {
     config::SetHostOption(ONLY_CODEGEN, true);
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
@@ -170,8 +168,8 @@ void TopKOnBoardFunc(TopKParams& params){
     std::vector<int64_t> output_shape = {shape0, k};
     TileShape::Current().SetVecTile({shape0, shape1});
     Tensor input_a(DataType::DT_FP32, input_shape, "A");
-    auto output = std::make_tuple(Tensor(DataType::DT_FP32, output_shape, "npu_val"),
-                                    Tensor(DataType::DT_FP32, output_shape, "resDics"));
+    auto output = std::make_tuple(
+        Tensor(DataType::DT_FP32, output_shape, "npu_val"), Tensor(DataType::DT_FP32, output_shape, "resDics"));
     config::SetBuildStatic(true);
     FUNCTION("TOPK_T_TILETENSOR", {input_a, std::get<0>(output), std::get<1>(output)}) {
         output = TopK(input_a, k, -1, isLargest);
@@ -248,6 +246,56 @@ TEST_F(TestCodegenDynSort, TestDynTopKTileTensor) {
     params.k = 32;
     params.isLargest = true;
     TopKOnBoardFunc(params);
+}
+
+TEST_F(TestCodegenDynSort, TestDynTiledMgrSort) {
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
+    std::vector<int64_t> shape = {64, 64};
+    std::vector<SymbolicScalar> dynValidShape = {64, 64};
+    auto shapeImme = OpImmediate::Specified(shape);
+    TileShape::Current().SetVecTile(shape);
+    Tensor inputA(DT_FP32, shape, "A");
+    Tensor inputB(DT_FP32, shape, "B");
+    Tensor output(DT_FP32, shape, "C");
+    
+    std::string funcName = "TestDynTiledMgrSort";
+    FUNCTION(funcName, {inputA, inputB, output}) {
+        output = Add(inputA, inputB);
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
+    function->SetUnderDynamicFunction(true);
+    auto localTensorInput1 =
+        CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
+    auto localTensorInput2 =
+        CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
+    auto localTensorInput3 =
+        CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
+    auto localTensorRes = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
+    auto localTensorTmp = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
+
+    auto &op = function->AddOperation(Opcode::OP_TILEDMRGSORT,
+        {localTensorInput1, localTensorInput2, localTensorInput3, localTensorInput3}, {localTensorRes, localTensorTmp});
+    op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
+    op.SetAttribute(OP_ATTR_PREFIX + "validBit", 2);
+    op.SetAttribute(OP_ATTR_PREFIX + "kvalue", 3);
+
+    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
+    CodeGenCtx ctx;
+    CodeGenCloudNPU cga(ctx);
+    cga.GenAllocForLocalBuffer(op, symbolManager);
+    CodeGenOpCloudNPU cop(symbolManager, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
+    function->GetTensorMap().inverseMap_[localTensorInput1->GetMagic()] = localTensorInput1;
+    function->GetTensorMap().inverseMap_[localTensorInput2->GetMagic()] = localTensorInput2;
+    function->GetTensorMap().inverseMap_[localTensorInput3->GetMagic()] = localTensorInput3;
+    function->GetTensorMap().inverseMap_[localTensorRes->GetMagic()] = localTensorRes;
+    function->GetTensorMap().inverseMap_[localTensorTmp->GetMagic()] = localTensorTmp;
+
+    cop.Init(op);
+    std::string res = cop.GenOpCode();
+    std::string expect =
+        R"!!!(TileOp::DynTiledMrgSort<float, 1, 1, 64, 64, 1, 1, 64, 64, 64, 3, 2>((__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, 1, 1, 64, 64, 64);
+)!!!";
+    EXPECT_EQ(res, expect);
 }
 
 } // namespace npu::tile_fwk

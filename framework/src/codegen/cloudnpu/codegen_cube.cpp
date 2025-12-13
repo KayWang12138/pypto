@@ -20,17 +20,17 @@
 
 namespace npu::tile_fwk {
 std::string CodeGenOpCloudNPU::PrintMatmulTileTensor(bool isAcc) const {
-    std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(DISOIdx::DST_IDX)]);
-    std::string src0Tensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(DISOIdx::SRC0_IDX)]);
-    std::string src1Tensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(DISOIdx::SRC1_IDX)]);
+    std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::DST_IDX)]);
+    std::string src0Tensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::SRC0_IDX)]);
+    std::string src1Tensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::SRC1_IDX)]);
 
     std::ostringstream oss;
     if (opAttrs.count(OP_ATTR_PREFIX + "has_bias")) {
         bool hasBias = npu::tile_fwk::AnyCast<bool>(opAttrs.at(OP_ATTR_PREFIX + "has_bias"));
         if (hasBias) {
-            std::string biasTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(DISOIdx::SRC2_IDX)]);
-            oss << tileOpName << "(" << dstTensor << ", " << src0Tensor << ", "
-                << src1Tensor << ", " << biasTensor << ");\n";
+            std::string biasTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::SRC2_IDX)]);
+            oss << tileOpName << "(" << dstTensor << ", " << src0Tensor << ", " << src1Tensor << ", " << biasTensor
+                << ");\n";
             return oss.str();
         }
     }
@@ -74,13 +74,13 @@ std::string CodeGenOpCloudNPU::GenCubeOp(bool zeroC) const {
         auto kSymbol = l0aShapeDyn[ID1];
         auto nSymbol = l0cShapeDyn[ID1];
         bool hasBias = 0;
-        if(opAttrs.count(OP_ATTR_PREFIX + "has_bias")){
+        if (opAttrs.count(OP_ATTR_PREFIX + "has_bias")) {
             hasBias = npu::tile_fwk::AnyCast<bool>(opAttrs.at(OP_ATTR_PREFIX + "has_bias"));
         }
         std::string biasStr = ", " + std::to_string(hasBias);
 
         oss << tileOpName << "<" << cDtypeStr << ", " << aDtypeStr << ", " << bDtypeStr << ", " << offset[ID0][ID0]
-            << ", " << offset[ID0][ID1] << biasStr <<">"
+            << ", " << offset[ID0][ID1] << biasStr << ">"
             << "((" << GetAddrTypeByOperandType(operandType[ID0]) << " " << cDtypeStr << "*)" << cVar << ", "
             << "(" << GetAddrTypeByOperandType(operandType[ID1]) << " " << aDtypeStr << "*)" << aVar << ", "
             << "(" << GetAddrTypeByOperandType(operandType[ID2]) << " " << bDtypeStr << "*)" << bVar << ", "
@@ -137,19 +137,13 @@ std::string CodeGenOpCloudNPU::GenParamsStr(const std::unordered_set<int32_t> &s
                 // 非大包搬运场景下，L1与L0数据大小一致，也不需要地址偏移
                 // 偏移计算仅用于L1_Copy_In 和 L1_Copy_Out
                 AppendLocalBufferVarOffset({
-                    {static_cast<unsigned>(i), &var}
+                    {static_cast<unsigned>(i), std::ref(var)}
                 });
             }
 
             std::ostringstream oss;
-            if (this->addrOffset[i] == 0) {
-                ALOG_DEBUG_F("GenParamsStr var: %s", var.c_str());
-                oss << "(" << prefix << " " << dtypeStr << "*)" << var;
-            } else {
-                oss << "(" << prefix << " " << dtypeStr << "*)"
-                    << "((" << prefix << " uint8_t*)" << var << " + 0x" << std::hex << this->addrOffset[i] << ")";
-            }
-
+            ALOG_DEBUG_F("GenParamsStr var: %s", var.c_str());
+            oss << "(" << prefix << " " << dtypeStr << "*)" << var;
             params.emplace_back(oss.str());
         }
     }

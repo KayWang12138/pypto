@@ -54,14 +54,14 @@ const int NULL_OPERAND = 0;
 
 class CodeGenOp {
 public:
-    CodeGenOp(SymbolManager &symbolManager, FunctionType funcType, const std::map<int, int> &locToOffset = {},
-        bool isUnderDynamicFunc = false)
+    CodeGenOp(const std::shared_ptr<SymbolManager> &symbolManager, FunctionType funcType,
+        const std::map<int, int> &locToOffset = {}, bool isUnderDynamicFunc = false)
         : functionType(funcType), paramLocToParamListOffset(locToOffset), isUnderDynamicFunction(isUnderDynamicFunc) {
         for (size_t i = 0; i < MAX_OPERANDS; i++) {
             operand[i] = NULL_OPERAND;
             operandType[i] = BUF_UNKNOWN;
         }
-        sm = &symbolManager;
+        sm = symbolManager;
     }
     virtual ~CodeGenOp() = default;
 
@@ -112,7 +112,7 @@ protected:
 
     std::map<std::string, npu::tile_fwk::Any> opAttrs;
 
-    SymbolManager *sm{nullptr};
+    std::shared_ptr<SymbolManager> sm{nullptr};
 
     const FunctionType functionType;
     std::string tileOpName;
@@ -134,7 +134,6 @@ private:
     void ConvertPoolAttribute(const Operation &operation);
     void ConvertAttribute(const Operation &operation);
     void UpdateShape(const Operation &oper, const LogicalTensor &logicalTensor, int operandIdx);
-    bool IsUpdateOffsetByAttr(const LogicalTensor &logicalTensor, bool useAttrShapeOffset);
     void UpdateOffsetForInput(const Operation &oper, const LogicalTensor &logicalTensor, int operandIdx);
     void UpdateOffsetForOutput(const Operation &oper, const LogicalTensor &logicalTensor, int operandIdx);
     void UpdateOffsetValueForGM(const std::vector<OpImmediate> &offsets, int operandIdx);

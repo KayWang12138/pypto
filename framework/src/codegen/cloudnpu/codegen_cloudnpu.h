@@ -24,7 +24,6 @@
 #include "codegen/codegen_cce.h"
 #include "codegen/symbol_mgr/codegen_symbol.h"
 #include "codegen/codegen_common.h"
-#include "codegen/cloudnpu/codegen_vf.h"
 #include "interface/configs/config_manager.h"
 
 namespace npu::tile_fwk {
@@ -38,7 +37,6 @@ public:
           attr_(subFuncPair.second->GetLeafFuncAttribute()) {
         Init(topFunc, subFuncPair.first);
     };
-    std::string GetVFHeaderAbsPath() const { return vfHeaderAbsPath_; }
     std::string GetCCEAbsPath() const { return cceAbsPath_; }
     void SetCCEAbsPath(const std::string &cceAbsPath) { cceAbsPath_ = cceAbsPath; }
 
@@ -82,9 +80,6 @@ private:
         ss.str("");
         ss << userSpecCCEDir_ << "/" << cceFileName_ << ".o";
         binAbsPath_ = ss.str();
-        ss.str("");
-        ss << userSpecCCEDir_ << "/" << cceFileName_ << "_vf.h";
-        vfHeaderAbsPath_ = ss.str();
     }
     std::string GetSuffix() const {
         std::string suffix = ".cpp";
@@ -99,13 +94,12 @@ private:
     std::string binAbsPath_;
     std::string kernelName_;
     std::string funcDeclare_;
-    std::string vfHeaderAbsPath_;
     std::shared_ptr<LeafFuncAttribute> attr_{nullptr};
 };
 
 class CodeGenCloudNPU : public CodeGenCCE {
 public:
-    explicit CodeGenCloudNPU(const CodeGenCtx &cctx) : CodeGenCCE(cctx) {};
+    explicit CodeGenCloudNPU(const CodeGenCtx &cgCtx) : CodeGenCCE(cgCtx) {};
     ~CodeGenCloudNPU() override = default;
 
     void GenCode(Function &topFunc, const std::map<uint64_t, std::list<InvokeParaOffset>> &invokeParaOffset) override;
@@ -113,13 +107,13 @@ public:
         const std::string &jsonPath, const std::map<uint64_t, std::list<InvokeParaOffset>> &invokeParaOffset) override;
     std::pair<int, std::string> CompileCCE(const CompileInfo &compileInfo, const std::string &compileOptions) const;
     std::optional<std::string> GenExtraAlloc(
-        SymbolManager &memAlloc, const std::shared_ptr<LogicalTensor> &tensor) const;
-    std::string GenAllocForLocalBuffer(const Operation &op, SymbolManager &memAlloc) const;
+        const std::shared_ptr<SymbolManager> &sm, const std::shared_ptr<LogicalTensor> &tensor) const;
+    std::string GenAllocForLocalBuffer(const Operation &op, const std::shared_ptr<SymbolManager> &sm) const;
 
 private:
-    std::string GenFuncBodyBefore(const std::pair<uint64_t, Function *> &subFuncPair, Function &topFunc,
-        const VFCodeGen &vfCg, CompileInfo &compileInfo) const;
-    std::string GenInclude(const VFCodeGen &vfCg) const;
+    std::string GenFuncBodyBefore(
+        const std::pair<uint64_t, Function *> &subFuncPair, Function &topFunc, CompileInfo &compileInfo) const;
+    std::string GenInclude() const;
     static std::string GenCommentBeforeFuncHeader(Function &subFunc);
     std::string GenFuncHeader(uint64_t programId, Function &topFunc, CompileInfo &compileInfo) const;
     std::string GenFuncBody(Function &subFunc, Function &topFunc) const;
@@ -135,8 +129,8 @@ private:
     void BuildIncludes(std::ostringstream &oss) const;
     void BuildLLVMParams(std::ostringstream &oss) const;
 
-    std::string GenAlloc(SymbolManager &manager, BufferType bufferType, npu::tile_fwk::DataType dataType,
-        const npu::tile_fwk::TileRange &range) const;
+    std::string GenAlloc(const std::shared_ptr<SymbolManager> &manager, BufferType bufferType,
+        npu::tile_fwk::DataType dataType, const npu::tile_fwk::TileRange &range) const;
 
     std::string GetParamType(const Function &func) const;
 

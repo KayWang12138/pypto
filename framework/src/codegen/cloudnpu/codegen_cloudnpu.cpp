@@ -27,7 +27,6 @@
 #include "securec.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/program/program.h"
-#include "codegen_vf.h"
 #include "interface/utils/op_info_manager.h"
 #include "codegen_cloudnpu.h"
 #include "interface/operation/distributed/distributed_common.h"
@@ -48,7 +47,7 @@ bool HasAllocAttr(const std::shared_ptr<LogicalTensor> &tensor) {
     return needAlloc;
 }
 
-std::string CodeGenCloudNPU::GenInclude(const VFCodeGen &vfCg) const {
+std::string CodeGenCloudNPU::GenInclude() const {
     std::ostringstream include;
     // expression fusion
     if (config::GetCodeGenOption<bool>(CODEGEN_EXPRESSION_FUSION)) {
@@ -56,10 +55,6 @@ std::string CodeGenCloudNPU::GenInclude(const VFCodeGen &vfCg) const {
         std::string expFileName = "../kernel_aicpu/expression_" + std::to_string(tilingKey) + ".h";
         // expression.h depend on __TILE_FWK_AICORE__
         include << "#define __TILE_FWK_AICORE__ 1\n#include \"" << expFileName << "\"\n";
-    }
-
-    if (vfCg.IsGenSuccess()) {
-        include << vfCg.GetVFHeaderForInclude() << "\n\n";
     }
 
     include << "#include \"TileOpImpl.h\"\n\n";
@@ -98,10 +93,10 @@ std::string CodeGenCloudNPU::GenFuncHeader(uint64_t programId, Function &topFunc
     return funcHeader.str();
 }
 
-std::string CodeGenCloudNPU::GenFuncBodyBefore(const std::pair<uint64_t, Function *> &subFuncPair, Function &topFunc,
-    const VFCodeGen &vfCg, CompileInfo &compileInfo) const {
+std::string CodeGenCloudNPU::GenFuncBodyBefore(
+    const std::pair<uint64_t, Function *> &subFuncPair, Function &topFunc, CompileInfo &compileInfo) const {
     std::ostringstream codeBefore;
-    codeBefore << GenInclude(vfCg);
+    codeBefore << GenInclude();
     codeBefore << GenCommentBeforeFuncHeader(*subFuncPair.second);
     codeBefore << GenFuncHeader(subFuncPair.first, topFunc, compileInfo);
     return codeBefore.str();
@@ -140,7 +135,7 @@ std::string CodeGenCloudNPU::GenFuncBody(Function &subFunc, Function &topFunc) c
     ALOG_INFO_F("TopFunc Type is %s\nFunction to codegen:\n %s\n", topFunc.GetFunctionTypeStr().c_str(),
         topFunc.Dump().c_str());
 
-    SymbolManager symbolMgr;
+    std::shared_ptr<SymbolManager> symbolMgr = std::make_shared<SymbolManager>();
     std::string allocSourceRegion;
     std::string tileOpSourceRegion;
     auto locToOffsetMap = GenRealizeIdMap(subFunc.GetParameter());
@@ -178,15 +173,15 @@ std::string CodeGenCloudNPU::GenFuncBody(Function &subFunc, Function &topFunc) c
 
     std::ostringstream oss;
     oss << GenLimitValue(hasNan, hasPosInf, hasNegInf) << allocSourceRegion << GenDynParamForExpr(subFunc)
-        << symbolMgr.GenUsingList() << symbolMgr.GenTileTensorDefList() << tileOpSourceRegion;
+        << symbolMgr->GenUsingList() << symbolMgr->GenTileTensorDefList() << tileOpSourceRegion;
     std::string programCode = oss.str();
     return programCode;
 }
 
-std::string CodeGenCloudNPU::GenAllocForLocalBuffer(const Operation &op, SymbolManager &symbolMgr) const {
+std::string CodeGenCloudNPU::GenAllocForLocalBuffer(
+    const Operation &op, const std::shared_ptr<SymbolManager> &symbolMgr) const {
     std::string allocSourceCode{};
-    auto genExtraAllocForTensor = [this, &symbolMgr, &op](
-                                      const std::shared_ptr<LogicalTensor> &operand) -> std::string {
+    auto genExtraAllocForTensor = [this, &symbolMgr](const std::shared_ptr<LogicalTensor> &operand) -> std::string {
         if (HasAllocAttr(operand)) {
             ALOG_INFO_F("operand has an alloc attr, need to gen extra alloc\n%s", operand->Dump().c_str());
             std::optional<std::string> allocCodeMaybe = GenExtraAlloc(symbolMgr, operand);
@@ -197,12 +192,12 @@ std::string CodeGenCloudNPU::GenAllocForLocalBuffer(const Operation &op, SymbolM
         return "";
     };
     for (const std::shared_ptr<LogicalTensor> &operand : op.GetIOperands()) {
-        symbolMgr.AddToTensorMap(operand->GetMagic(), operand);
+        symbolMgr->AddToTensorMap(operand->GetMagic(), operand);
         PrintOperand("IOperand", operand);
         allocSourceCode += genExtraAllocForTensor(operand);
     }
     for (const std::shared_ptr<LogicalTensor> &operand : op.GetOOperands()) {
-        symbolMgr.AddToTensorMap(operand->GetMagic(), operand);
+        symbolMgr->AddToTensorMap(operand->GetMagic(), operand);
         PrintOperand("OOperand", operand);
         allocSourceCode += genExtraAllocForTensor(operand);
     }
@@ -280,10 +275,8 @@ void CodeGenCloudNPU::GenCode(
             isUnderDynamicFunction_ = subFunc->IsUnderDynamicFunction();
             bool isCube = subFunc->IsCube();
             CompileInfo compileInfo(topFunc, ctx.cceDir, subFuncPair, isCube, isUnderDynamicFunction_);
-            VFCodeGen vfCodeGen;
-            vfCodeGen.GenCode(subFunc, compileInfo.GetVFHeaderAbsPath());
             std::ostringstream leafKernelFunc;
-            leafKernelFunc << GenFuncBodyBefore(subFuncPair, topFunc, vfCodeGen, compileInfo);
+            leafKernelFunc << GenFuncBodyBefore(subFuncPair, topFunc, compileInfo);
             leafKernelFunc << GenFuncBody(*subFunc, topFunc);
             leafKernelFunc << GenFuncEnd();
 #ifdef BUILD_WITH_CANN
@@ -339,7 +332,7 @@ void CodeGenCloudNPU::DumpCCE(const std::string &fileName, const std::string &co
 }
 
 std::optional<std::string> CodeGenCloudNPU::GenExtraAlloc(
-    SymbolManager &symbolMgr, const std::shared_ptr<LogicalTensor> &tensor) const {
+    const std::shared_ptr<SymbolManager> &symbolMgr, const std::shared_ptr<LogicalTensor> &tensor) const {
     auto memType = tensor->GetMemoryTypeOriginal();
     if (OPERAND_TYPE_TO_MEMORY_TYPE.find(memType) == OPERAND_TYPE_TO_MEMORY_TYPE.end()) {
         ALOG_ERROR_F("%s: invalid memory type(%d) of tensor tensor: ", __FUNCTION__, static_cast<size_t>(memType));
@@ -367,10 +360,9 @@ std::pair<std::string, std::string> GenAllocVarName(const std::string &prefix, c
 }
 
 std::string CodeGenCloudNPU::GenAlloc(
-    SymbolManager &manager, BufferType bufferType, DataType dataType, const TileRange &range) const {
+    const std::shared_ptr<SymbolManager> &sm, BufferType bufferType, DataType dataType, const TileRange &range) const {
     if ((BUFFER_TYPE_TO_PREFIX.count(bufferType) == 0) || (OPERAND_TYPE_TO_ADDR_TYPE.count(bufferType) == 0)) {
-        ALOG_ERROR_F("%s: invalid bufferType: %d", __FUNCTION__, static_cast<size_t>(bufferType));
-        ASSERT(false);
+        ASSERT(false) << "invalid bufferType: " << static_cast<size_t>(bufferType);
         return "";
     }
 
@@ -380,13 +372,12 @@ std::string CodeGenCloudNPU::GenAlloc(
 
     // must conform to CodeGenOpCloudNPU::createAllocKey
     AllocKey key = AllocKey(bufferType, range.start, range.end);
-    bool reuse = manager.BindAddrWithVariableName(key, allocVarName, allocVarNameTileTensor);
+    bool reuse = sm->BindAddrWithVariableName(key, allocVarName, allocVarNameTileTensor);
     if (reuse) {
         return "";
     }
 
-    ALOG_INFO_F(
-        "%s: bind key to name: %s->%s", __FUNCTION__, manager.FormatAllocKey(key).c_str(), allocVarName.c_str());
+    ALOG_INFO_F("%s: bind key to name: %s->%s", __FUNCTION__, sm->FormatAllocKey(key).c_str(), allocVarName.c_str());
 
     std::string dataTypeStr = DataType2CCEStr(dataType);
 

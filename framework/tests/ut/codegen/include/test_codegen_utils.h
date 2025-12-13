@@ -23,10 +23,13 @@ namespace npu::tile_fwk {
 const constexpr int DummyFuncMagic = 1;
 struct LogicalTensorInfo {
     LogicalTensorInfo(Function &func, DataType dataType, MemoryType memoryType, const std::vector<int64_t> &tShape)
-        : function(func), dType(dataType), memType(memoryType), shape(tShape){};
+        : function(func), dType(dataType), memType(memoryType), shape(tShape) {};
     LogicalTensorInfo(
         Function &func, DataType dataType, MemoryType memoryType, const std::vector<int64_t> &tShape, std::string tName)
-        : function(func), dType(dataType), memType(memoryType), shape(tShape), tensorName(std::move(tName)){};
+        : function(func), dType(dataType), memType(memoryType), shape(tShape), tensorName(std::move(tName)) {};
+    LogicalTensorInfo(Function &func, DataType dataType, MemoryType memoryType, const std::vector<int64_t> &tShape,
+        const std::vector<SymbolicScalar> &dynShape)
+        : function(func), dType(dataType), memType(memoryType), shape(tShape), dynValidShape(dynShape) {};
     LogicalTensorInfo(Function &func, DataType dataType, MemoryType memoryType, const std::vector<int64_t> &tShape,
         int magicVal, std::vector<SymbolicScalar> dynShape)
         : function(func),
@@ -34,7 +37,7 @@ struct LogicalTensorInfo {
           memType(memoryType),
           shape(tShape),
           magic(magicVal),
-          dynValidShape(dynShape){};
+          dynValidShape(dynShape) {};
 
     Function &function;
     DataType dType;

@@ -40,7 +40,7 @@ namespace CostModel
 
     static std::string GenerateBuf(const TileOpPtr &tileOp)
     {
-        SimplifiedMemoryAllocator memoryAllocator;
+        std::shared_ptr<SimplifiedMemoryAllocator> memoryAllocator = std::make_shared<SimplifiedMemoryAllocator>();
         auto locToOffsetMap = GenRealizeIdMap(tileOp->funcPtr->parentFunction->GetParameter());
         CodeGenCtx ctx;
         CodeGenCloudNPU cga(ctx);

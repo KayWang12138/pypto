@@ -55,7 +55,6 @@
             "CODEGEN_DUMP_TO_OUTPUT": true,
             "CODEGEN_FORCE_DUMP_CCE_ON_EXIST": true,
             "codegen_expression_fusion": false,
-            "COMPILE_CCE_BY_MACHINE": false,
             "CODEGEN_SUPPORT_TILE_TENSOR": false,
             "CODEGEN_NEED_COMPILE": true
         },

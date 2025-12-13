@@ -126,9 +126,9 @@ std::string CodeGenOpCloudNPU::PrintBinaryDynamicUnaligned(const PrintBinaryPara
 }
 
 std::string CodeGenOpCloudNPU::PrintBinaryTileTensor() const {
-    std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(DISOIdx::DST_IDX)]);
-    std::string src0Tensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(DISOIdx::SRC0_IDX)]);
-    std::string src1Tensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(DISOIdx::SRC1_IDX)]);
+    std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::DST_IDX)]);
+    std::string src0Tensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::SRC0_IDX)]);
+    std::string src1Tensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::SRC1_IDX)]);
     std::ostringstream oss;
     oss << tileOpName << "(" << dstTensor << ", " << src0Tensor << ", " << src1Tensor << ");\n";
     return oss.str();
@@ -156,7 +156,7 @@ std::string CodeGenOpCloudNPU::GenBinaryOp() const {
 
     std::string s1Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID2]);
 
-    AppendLocalBufferVarOffset(std::vector{&dVar, &s0Var, &s1Var});
+    AppendLocalBufVarOffsetInOrder(dVar, s0Var, s1Var);
     return PrintBinary({s0Var, s1Var, dVar, src0DtypeStr, src1DtypeStr, dstDtypeStr});
 }
 
@@ -286,7 +286,7 @@ std::string CodeGenOpCloudNPU::GenBinaryWithBrc() const {
     std::string tmpVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
     std::string tmpDtypeStr = DataType2CCEStr(operandDtype[ID1]);
 
-    AppendLocalBufferVarOffset(std::vector{&dVar, &s0Var, &s1Var, &tmpVar});
+    AppendLocalBufVarOffsetInOrder(dVar, s0Var, s1Var, tmpVar);
     int ret = 0;
     if (opCode == Opcode::OP_ADD_BRC || opCode == Opcode::OP_SUB_BRC || opCode == Opcode::OP_MUL_BRC ||
         opCode == Opcode::OP_DIV_BRC || opCode == Opcode::OP_MAX_BRC) {
@@ -393,8 +393,8 @@ std::string CodeGenOpCloudNPU::PrintBinaryScalarDynamicUnaligned(const PrintBina
 
 std::string CodeGenOpCloudNPU::PrintVectorScalarTileTensor(const PrintUnaryParam &param) const {
     const std::string &dstDtypeStr = param.dstDtypeStr;
-    std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(SISOIdx::DST_IDX)]);
-    std::string srcTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(SISOIdx::SRC_IDX)]);
+    std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::DST_IDX)]);
+    std::string srcTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::SRC0_IDX)]);
     std::string scalarTmpBuffer = FormatFloat(extOperandVal.Cast<float>());
 
     std::vector<std::string> tileOpParamList = {dstTensor, srcTensor};
@@ -462,7 +462,7 @@ std::string CodeGenOpCloudNPU::GenVectorScalarOpByMode(VecScalMode mode) const {
     char buffer[BUFFER_SIZE_512] = "CG_ERROR";
     std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
 
-    AppendLocalBufferVarOffset(std::vector{&dVar, &s0Var});
+    AppendLocalBufVarOffsetInOrder(dVar, s0Var);
 
     std::vector src0RawShape = this->rawShape[1];
     std::vector dstRawShape = this->rawShape[0];

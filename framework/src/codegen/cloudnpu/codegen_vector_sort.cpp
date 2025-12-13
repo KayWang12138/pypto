@@ -150,8 +150,8 @@ std::string CodeGenOpCloudNPU::PrintBitSortStatic(const SortParam &param) const 
 }
 
 std::string CodeGenOpCloudNPU::PrintSortLayout() const {
-    std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(DISOIdx::DST_IDX)]);
-    std::string srcTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(DISOIdx::SRC0_IDX)]);
+    std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::DST_IDX)]);
+    std::string srcTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::SRC0_IDX)]);
     std::ostringstream oss;
     oss << tileOpName << "<" << GenOpAttr(false) << ">" << "(" << dstTensor << ", " << srcTensor << ");\n";
     return oss.str();
@@ -194,7 +194,7 @@ SortParam CodeGenOpCloudNPU::PrepareSortParam() const {
 
     std::string dstDtypeStr = DataType2CCEStr(dstDtype);
     std::string src0DtypeStr = DataType2CCEStr(src0Dtype);
-    AppendLocalBufferVarOffset(std::vector{&dstVar, &src0Var});
+    AppendLocalBufVarOffsetInOrder(dstVar, src0Var);
     return {
         {ds[ID0], ds[ID1], ds[ID2], ds[ID3]},
         {ss[ID0], ss[ID1], ss[ID2], ss[ID3]},
@@ -234,7 +234,7 @@ TiledSortParam CodeGenOpCloudNPU::PrepareTiledSortParam() const {
 
     std::string dstDtypeStr = DataType2CCEStr(dstDtype);
     std::string srcDtypeStr = DataType2CCEStr(srcDtype);
-    AppendLocalBufferVarOffset(std::vector{&dstVar, &tmpVar, &src0Var, &src1Var, &src2Var, &src3Var});
+    AppendLocalBufVarOffsetInOrder(dstVar, tmpVar, src0Var, src1Var, src2Var, src3Var);
     return {
         {ds[ID0], ds[ID1], ds[ID2], ds[ID3]},
         {s0[ID0], s0[ID1], s0[ID2], s0[ID3], s3[ID3]},
@@ -273,7 +273,7 @@ std::string CodeGenOpCloudNPU::GenSortOp() const {
     std::string yIdxVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
     std::string tmpVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID2]);
     std::string xVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID3]);
-    AppendLocalBufferVarOffset(std::vector{&yVar, &yIdxVar, &tmpVar, &xVar});
+    AppendLocalBufVarOffsetInOrder(yVar, yIdxVar, tmpVar, xVar);
 
     auto xShape = this->rawShape[ID0];
     auto idxShape = this->rawShape[ID1];
@@ -310,7 +310,7 @@ std::string CodeGenOpCloudNPU::GenMergeOp() const {
     std::string tmpVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID2]);
     std::string xVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID3]);
     std::string idxVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID4]);
-    AppendLocalBufferVarOffset(std::vector{&yVar, &yIdxVar, &tmpVar, &xVar, &idxVar});
+    AppendLocalBufVarOffsetInOrder(yVar, yIdxVar, tmpVar, xVar, idxVar);
 
     auto xShape = this->rawShape[ID0];
     auto idxShape = this->rawShape[ID1];
@@ -351,7 +351,7 @@ std::string CodeGenOpCloudNPU::GenCompareAndSwapOp() const {
     std::string idx0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID5]);
     std::string x1Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID6]);
     std::string idx1Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID7]);
-    AppendLocalBufferVarOffset(std::vector{&y0Var, &yIdx0Var, &y1Var, &yIdx1Var, &x0Var, &idx0Var, &x1Var, &idx1Var});
+    AppendLocalBufVarOffsetInOrder(y0Var, yIdx0Var, y1Var, yIdx1Var, x0Var, idx0Var, x1Var, idx1Var);
 
     auto xShape = this->rawShape[ID0];
     auto idxShape = this->rawShape[ID1];

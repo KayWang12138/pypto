@@ -100,11 +100,11 @@ std::string TestL0COutBody(bool isDynamicUnalign) {
         op.SetAttribute("op_attr_is_nz", 1);
     }
 
-    SymbolManager memAlloc;
+    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
-    cga.GenAllocForLocalBuffer(op, memAlloc);
-    CodeGenOpCloudNPU cop(memAlloc, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
+    cga.GenAllocForLocalBuffer(op, symbolManager);
+    CodeGenOpCloudNPU cop(symbolManager, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
     function->GetTensorMap().inverseMap_[localTensor->GetMagic()] = localTensor;
 
     cop.Init(op);
@@ -161,11 +161,11 @@ TEST_F(TestCodegenDynCopy, L1ToFB) {
     op.SetOpAttribute(std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}), MEM_FIX, shapeImme, shapeImme));
     op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
 
-    SymbolManager memAlloc;
+    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
-    cga.GenAllocForLocalBuffer(op, memAlloc);
-    CodeGenOpCloudNPU cop(memAlloc, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
+    cga.GenAllocForLocalBuffer(op, symbolManager);
+    CodeGenOpCloudNPU cop(symbolManager, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
     function->GetTensorMap().inverseMap_[localInTensor->GetMagic()] = localInTensor;
     function->GetTensorMap().inverseMap_[localOutTensor->GetMagic()] = localOutTensor;
 
@@ -223,11 +223,11 @@ std::string TestL1CopyInBody(bool isNz = false, int outerValueForNz = 0, int inn
         op.SetAttribute(OP_ATTR_PREFIX + "inner_value", innerValueForNz);
     }
 
-    SymbolManager memAlloc;
+    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
-    cga.GenAllocForLocalBuffer(op, memAlloc);
-    CodeGenOpCloudNPU cop(memAlloc, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
+    cga.GenAllocForLocalBuffer(op, symbolManager);
+    CodeGenOpCloudNPU cop(symbolManager, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
     function->GetTensorMap().inverseMap_[localTensor->GetMagic()] = localTensor;
 
     cop.Init(op);
@@ -293,11 +293,11 @@ TEST_F(TestCodegenDynCopy, L1ToBt) {
     op.SetOpAttribute(std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}), MEM_BT, shapeImme, shapeImme));
     op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
 
-    SymbolManager memAlloc;
+    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
-    cga.GenAllocForLocalBuffer(op, memAlloc);
-    CodeGenOpCloudNPU cop(memAlloc, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
+    cga.GenAllocForLocalBuffer(op, symbolManager);
+    CodeGenOpCloudNPU cop(symbolManager, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
     function->GetTensorMap().inverseMap_[localTensor->GetMagic()] = localTensor;
     function->GetTensorMap().inverseMap_[localOutTensor->GetMagic()] = localOutTensor;
 
@@ -358,11 +358,11 @@ void TestMatmulMteBody(Opcode opcode, MemoryType inType, MemoryType outType) {
             std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}), MEM_L0A, shapeImme, shapeImme));
     }
 
-    SymbolManager memAlloc;
+    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
-    cga.GenAllocForLocalBuffer(op, memAlloc);
-    CodeGenOpCloudNPU cop(memAlloc, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
+    cga.GenAllocForLocalBuffer(op, symbolManager);
+    CodeGenOpCloudNPU cop(symbolManager, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
     function->GetTensorMap().inverseMap_[localTensor->GetMagic()] = localTensor;
     function->GetTensorMap().inverseMap_[localOutTensor->GetMagic()] = localOutTensor;
 
@@ -430,11 +430,11 @@ TEST_F(TestCodegenDynCopy, UBCopyIn) {
     op.SetIOpAttrOffset(0, 0);
     op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
 
-    SymbolManager memAlloc;
+    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
-    cga.GenAllocForLocalBuffer(op, memAlloc);
-    CodeGenOpCloudNPU cop(memAlloc, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
+    cga.GenAllocForLocalBuffer(op, symbolManager);
+    CodeGenOpCloudNPU cop(symbolManager, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
     function->GetTensorMap().inverseMap_[localTensor->GetMagic()] = localTensor;
 
     cop.Init(op);
@@ -476,11 +476,11 @@ TEST_F(TestCodegenDynCopy, L0CToL1) {
     auto &op = function->AddOperation(Opcode::OP_L0C_TO_L1, {localTensor}, {localOutTensor});
     op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
 
-    SymbolManager memAlloc;
+    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
-    cga.GenAllocForLocalBuffer(op, memAlloc);
-    CodeGenOpCloudNPU cop(memAlloc, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
+    cga.GenAllocForLocalBuffer(op, symbolManager);
+    CodeGenOpCloudNPU cop(symbolManager, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
     function->GetTensorMap().inverseMap_[localTensor->GetMagic()] = localTensor;
     function->GetTensorMap().inverseMap_[localOutTensor->GetMagic()] = localOutTensor;
 
@@ -521,11 +521,11 @@ void TestCVSyncBody(Opcode syncOpcode) {
     auto &op = function->AddOperation(syncOpcode, {localTensor}, {localOutTensor});
     op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
 
-    SymbolManager memAlloc;
+    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
-    cga.GenAllocForLocalBuffer(op, memAlloc);
-    CodeGenOpCloudNPU cop(memAlloc, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
+    cga.GenAllocForLocalBuffer(op, symbolManager);
+    CodeGenOpCloudNPU cop(symbolManager, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
     function->GetTensorMap().inverseMap_[localTensor->GetMagic()] = localTensor;
 
     cop.Init(op);
@@ -534,7 +534,7 @@ void TestCVSyncBody(Opcode syncOpcode) {
 
     std::string res = cop.GenOpCode();
     std::string expect;
-    if(syncOpcode == Opcode::OP_CV_SYNC_SRC){
+    if (syncOpcode == Opcode::OP_CV_SYNC_SRC) {
         expect = R"!!!(set_intra_block(PIPE_S, 0);
 )!!!";
     } else {
@@ -544,11 +544,11 @@ void TestCVSyncBody(Opcode syncOpcode) {
     EXPECT_EQ(res, expect);
 }
 
-TEST_F(TestCodegenDynCopy, InjectSyncSet){
+TEST_F(TestCodegenDynCopy, InjectSyncSet) {
     TestCVSyncBody(Opcode::OP_CV_SYNC_SRC);
 }
 
-TEST_F(TestCodegenDynCopy, InjectSyncWait){
+TEST_F(TestCodegenDynCopy, InjectSyncWait) {
     TestCVSyncBody(Opcode::OP_CV_SYNC_DST);
 }
 } // namespace npu::tile_fwk

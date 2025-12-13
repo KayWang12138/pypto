@@ -74,7 +74,6 @@ const std::string KEY_PARALLEL_THREAD_NUM = "PARALLEL_THREAD_NUM";
 const std::string KEY_CODEGEN_BY_JSON = "CODEGEN_BY_JSON";
 const std::string KEY_CODEGEN_DUMP_TO_OUTPUT = "CODEGEN_DUMP_TO_OUTPUT"; // if true, dump cce to output directory
 const std::string KEY_CODEGEN_FORCE_DUMP_CCE_ON_EXIST = "CODEGEN_FORCE_DUMP_CCE_ON_EXIST"; // if true, don't dump cce when file exists
-const std::string KEY_COMPILE_CCE_BY_MACHINE = "COMPILE_CCE_BY_MACHINE";       // if true, compile cce in machine agent
 const std::string KEY_CODEGEN_SUPPORT_TILE_TENSOR = "CODEGEN_SUPPORT_TILE_TENSOR";       // if true, gen code with layout mode
 const std::string KEY_CODEGEN_NEED_COMPILE = "CODEGEN_NEED_COMPILE";       // if true, gen code & compile code
 

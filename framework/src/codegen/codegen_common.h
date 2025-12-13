@@ -55,14 +55,8 @@ constexpr const int BUFFER_SIZE_256 = 256;
 constexpr const int BUFFER_SIZE_512 = 512;
 constexpr const int BUFFER_SIZE_1024 = 1024;
 
-// single input single output
-enum class SISOIdx : int {
-    DST_IDX = 0,
-    SRC_IDX = 1,
-};
-
-// dual input single output
-enum class DISOIdx : int {
+// multi input single output
+enum class MISOIdx : int {
     DST_IDX = 0,
     SRC0_IDX = 1,
     SRC1_IDX = 2,

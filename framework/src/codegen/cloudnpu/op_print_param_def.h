@@ -1,7 +1,7 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.|Hisilicon Technologies Co., Ltd.
- * This file is a part of the CANN Open Software.
- * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -28,7 +28,7 @@ struct PrintScatterElemParam {
     const std::string &s1Var;
     std::vector<int64_t> &dstRawShape;
     std::vector<int64_t> &src1RawShape;
-    const std::string *dataTypeExpr;
+    const std::vector<std::string> &dataTypeExpr;
 };
 
 struct PrintScatterParam {
@@ -40,7 +40,7 @@ struct PrintScatterParam {
     std::vector<int64_t> &dstRawShape;
     std::vector<int64_t> &src1RawShape;
     std::vector<int64_t> &src2RawShape;
-    const std::string *dataTypeExpr;
+    const std::vector<std::string> &dataTypeExpr;
 };
 
 struct PrintIndexAddParam {
@@ -50,16 +50,10 @@ struct PrintIndexAddParam {
     const std::string &indicesVar;
     std::vector<int64_t> &dstRawShape;
     std::vector<int64_t> &srcRawShape;
-    const std::string *dataTypeExpr;
+    const std::vector<std::string> &dataTypeExpr;
 };
 
-enum class WhereOpIdx : int {
-    resIdx = 0,
-    tempIdx,
-    condIdx,
-    src0Idx,
-    src1Idx
-};
+enum class WhereOpIdx : int { resIdx = 0, tempIdx, condIdx, src0Idx, src1Idx };
 struct WhereParam {
     std::vector<std::string> templateList;
     std::vector<std::string> paramList;
@@ -94,30 +88,30 @@ struct PrintMemCopyWithL0CParam {
     unsigned uf;
     unsigned gmIdx;
     unsigned localIdx;
-    const std::string *addrTypeHead;
-    const std::string *addrExpr;
+    const std::vector<std::string> &addrTypeHead;
+    const std::vector<std::string> &addrExpr;
     const std::vector<int64_t> &gmShape;
     const std::vector<int64_t> &tileShapeForMT;
-    const std::string *dataTypeExpr;
+    const std::vector<std::string> &dataTypeExpr;
 };
 
 struct PrintMemCopyWithL1Param {
     unsigned uf;
     unsigned gmIdx;
     unsigned localIdx;
-    const std::string *addrTypeHead;
-    const std::string *addrExpr;
+    const std::vector<std::string> &addrTypeHead;
+    const std::vector<std::string> &addrExpr;
     const std::vector<int64_t> &gmShape;
     const std::vector<int64_t> &tileShapeForMT;
-    const std::string *dataTypeExpr;
+    const std::vector<std::string> &dataTypeExpr;
 };
 
 struct PrintMemCopyWithUBParam {
     unsigned gmIdx;
     unsigned localIdx;
-    const std::string *addrTypeHead;
-    std::string *addrExpr;
-    std::string *dataTypeExpr;
+    const std::vector<std::string> &addrTypeHead;
+    std::vector<std::string> &addrExpr;
+    std::vector<std::string> &dataTypeExpr;
     bool isSpillIntoGM;
 };
 
@@ -177,19 +171,19 @@ struct PrintGatherEleParam {
     std::vector<int64_t> &dstRawShape;
     std::vector<int64_t> &src0RawShape;
     std::vector<int64_t> &src1RawShape;
-    const std::string *dataTypeExpr;
+    const std::vector<std::string> &dataTypeExpr;
 };
 
 struct PrintIndexOutCastParam {
     const std::string &s0Var;
     const std::string &s1Var;
-    const std::string *addrExpr;
+    const std::vector<std::string> &addrExpr;
     const std::vector<int64_t> &gmShape;
     std::vector<int64_t> &src0OriginShape;
     std::vector<int64_t> &src0RawShape;
     std::vector<int64_t> &src1OriginShape;
     std::vector<int64_t> &src1RawShape;
-    const std::string *dataTypeExpr;
+    const std::vector<std::string> &dataTypeExpr;
     const std::string &cacheMode;
     const std::string &blockSize;
 };

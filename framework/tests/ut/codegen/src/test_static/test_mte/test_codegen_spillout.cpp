@@ -78,11 +78,11 @@ TEST_F(TestCodegenSpillOut, UBSpillOut) {
     auto &op = function->AddOperation(Opcode::OP_COPY_OUT, {ubTensor}, {ddrTensor});
     op.SetOpAttribute(std::make_shared<CopyOpAttribute>(MEM_UB, OpImmediate::Specified({0, 0}), shapeImme, shapeImme));
 
-    SymbolManager memAlloc;
+    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
-    cga.GenAllocForLocalBuffer(op, memAlloc);
-    CodeGenOpCloudNPU cop(memAlloc, function->GetFunctionType());
+    cga.GenAllocForLocalBuffer(op, symbolManager);
+    CodeGenOpCloudNPU cop(symbolManager, function->GetFunctionType());
     function->GetTensorMap().inverseMap_[ubTensor->GetMagic()] = ubTensor;
 
     cop.Init(op);
@@ -129,11 +129,11 @@ TEST_F(TestCodegenSpillOut, UBSpillOutTileTensor) {
     op.SetOpAttribute(
         std::make_shared<CopyOpAttribute>(MEM_UB, OpImmediate::Specified({16, 16}), shapeImme, shapeImme));
 
-    SymbolManager symbolMgr;
+    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
-    cga.GenAllocForLocalBuffer(op, symbolMgr);
-    CodeGenOpCloudNPU cop(symbolMgr, function->GetFunctionType());
+    cga.GenAllocForLocalBuffer(op, symbolManager);
+    CodeGenOpCloudNPU cop(symbolManager, function->GetFunctionType());
     function->GetTensorMap().inverseMap_[ubTensor->GetMagic()] = ubTensor;
 
     cop.Init(op);
@@ -141,7 +141,7 @@ TEST_F(TestCodegenSpillOut, UBSpillOutTileTensor) {
     cop.originShape[1] = shape;
     cop.UpdateTileTensorInfo();
 
-    std::string res = symbolMgr.GenTileTensorDefList();
+    std::string res = symbolManager->GenTileTensorDefList();
     std::string expect = R"!!!(UBTileTensorFP32Dim2_2 ubTensor_2((uint64_t)UB_S0_E0_T);
 GMTileTensorFP32Dim2_1 gmTensor_1((__gm__ float*)((__gm__ uint8_t*)GMStackBase + 16), DynLayout2Dim(Shape2Dim(64, 64), Stride2Dim(64, 1)));
 )!!!";
@@ -190,11 +190,11 @@ TEST_F(TestCodegenSpillOut, L1SpillOut) {
     auto &op = function->AddOperation(Opcode::OP_L1_COPY_OUT, {l1Tensor}, {ddrTensor});
     op.SetOpAttribute(std::make_shared<CopyOpAttribute>(MEM_L1, OpImmediate::Specified({0, 0}), shapeImme, shapeImme));
 
-    SymbolManager memAlloc;
+    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
-    cga.GenAllocForLocalBuffer(op, memAlloc);
-    CodeGenOpCloudNPU cop(memAlloc, function->GetFunctionType());
+    cga.GenAllocForLocalBuffer(op, symbolManager);
+    CodeGenOpCloudNPU cop(symbolManager, function->GetFunctionType());
     function->GetTensorMap().inverseMap_[l1Tensor->GetMagic()] = l1Tensor;
 
     cop.Init(op);

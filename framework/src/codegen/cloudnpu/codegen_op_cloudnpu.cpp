@@ -21,8 +21,8 @@
 #include "securec.h"
 
 namespace npu::tile_fwk {
-CodeGenOpCloudNPU::CodeGenOpCloudNPU(
-    SymbolManager &symbolManager, FunctionType funcType, const std::map<int, int> &locToOffset, bool isUnderDynamicFunc)
+CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbolManager, FunctionType funcType,
+    const std::map<int, int> &locToOffset, bool isUnderDynamicFunc)
     : CodeGenOp(symbolManager, funcType, locToOffset, isUnderDynamicFunc),
       mteFixPipeOps_({
           // UB <-> GM
@@ -152,9 +152,6 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(
           // max pool
           {Opcode::OP_MAX_POOL, [this]() { return GenPoolOp(); }},
 
-          // fused pool
-          {Opcode::OP_FUSED_OP, [this]() { return GenFusedOp(); }},
-
           // cmp op
           {Opcode::OP_CMP, [this]() { return GenCmpOp(); }},
           {Opcode::OP_CMPS, [this]() { return GenCmpOp(); }},
@@ -240,7 +237,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(
     InitOpsGenMap();
 }
 
-CodeGenOpCloudNPU::CodeGenOpCloudNPU(CodeGenOpCloudNPUCtx ctx)
+CodeGenOpCloudNPU::CodeGenOpCloudNPU(const CodeGenOpCloudNPUCtx &ctx)
     : CodeGenOpCloudNPU(
           ctx.symbolManager, ctx.topFunc.GetFunctionType(), ctx.locToOffset, ctx.topFunc.IsUnderDynamicFunction()) {
     CodeGenOp::Init(ctx.ops);
@@ -289,31 +286,26 @@ void CodeGenOpCloudNPU::InitAICPUOpsMap() {
     opsGenMap_.insert(aicpuOps_.cbegin(), aicpuOps_.cend());
 }
 
-void CodeGenOpCloudNPU::AppendLocalBufferVarOffset(const std::vector<std::string *> &vars) const {
-    std::map<unsigned, std::string *> varsMap;
-    int idx = 0;
-    std::for_each(vars.begin(), vars.end(), [&](std::string *var) { varsMap.emplace(idx++, var); });
-    AppendLocalBufferVarOffset(varsMap);
-}
-
-void CodeGenOpCloudNPU::AppendLocalBufferVarOffset(const std::map<unsigned, std::string *> &vars) const {
+void CodeGenOpCloudNPU::AppendLocalBufferVarOffset(
+    const std::map<unsigned, std::reference_wrapper<std::string>> &vars) const {
     for (auto &kv : vars) {
         auto operandIdx = kv.first;
         int64_t resOffset{0};
 
-        std::vector varOffset = offset[operandIdx];
+        std::vector<int64_t> varOffset = offset[operandIdx];
         if (varOffset.empty()) {
             continue;
         }
 
-        std::vector varRawShape = rawShape[operandIdx];
-        ASSERT(!varRawShape.empty()) << "varRawShape is empty!!";
+        std::vector<int64_t> varRawShape = rawShape[operandIdx];
+        ASSERT(!varRawShape.empty()) << "varRawShape is empty!! operandIdx: " << operandIdx;
         ASSERT(varOffset.size() == varRawShape.size())
             << "varOffset " << IntVecToStr(varOffset) << ", size " << varOffset.size() << " vs varRawShape "
-            << IntVecToStr(varRawShape) << ", size " << varRawShape.size() << " is not equal!!";
+            << IntVecToStr(varRawShape) << ", size " << varRawShape.size()
+            << " is not equal!! operandIdx: " << operandIdx;
 
         int64_t base = 1;
-        for (int i = varOffset.size() - 1; i >= 0; i--) {
+        for (int i = static_cast<int>(varOffset.size()) - 1; i >= 0; i--) {
             resOffset += varOffset[i] * base;
             base *= varRawShape[i];
         }
@@ -322,13 +314,13 @@ void CodeGenOpCloudNPU::AppendLocalBufferVarOffset(const std::map<unsigned, std:
             continue;
         }
 
-        std::string *var = kv.second;
-        ASSERT(var) << "operandIdx: " << operandIdx << ", var is null !!";
-        ALOG_DEBUG_F(" var: %s", var->c_str());
-        ALOG_DEBUG_F(" varRawShape: %s", IntVecToStr(varRawShape).c_str());
-        ALOG_DEBUG_F(" varOffset: %s", IntVecToStr(varOffset).c_str());
-        ALOG_DEBUG_F(" resOffset: %d", resOffset);
-        *var += " + " + std::to_string(resOffset);
+        std::string &var = kv.second.get();
+
+        ASSERT(!var.empty()) << "operandIdx: " << operandIdx << ", var is empty !!";
+        ALOG_DEBUG_F("var: %s, varRawShape: %s, varOffset: %s, resOffset: %lld", var.c_str(),
+            IntVecToStr(varRawShape).c_str(), IntVecToStr(varOffset).c_str(), resOffset);
+
+        var.append(" + ").append(std::to_string(resOffset));
     }
 }
 
@@ -383,13 +375,14 @@ std::vector<std::string> CodeGenOpCloudNPU::GenSymbolicArgument(const std::vecto
     return argList;
 }
 
-bool CodeGenOpCloudNPU::CombineAxis(std::vector<std::vector<int64_t> *> &shapes, bool secondLastAxis) const {
+bool CodeGenOpCloudNPU::CombineAxis(
+    std::vector<std::reference_wrapper<std::vector<int64_t>>> &shapes, bool secondLastAxis) const {
     size_t num;
     {
         auto iter = shapes.begin();
-        num = (*iter)->size();
+        num = iter->get().size();
         for (; iter != shapes.end(); ++iter) {
-            ASSERT(num == (*iter)->size()) << "shapes have to be the same!";
+            ASSERT(num == iter->get().size()) << "shapes have to be the same!";
         }
     }
 
@@ -401,9 +394,9 @@ bool CodeGenOpCloudNPU::CombineAxis(std::vector<std::vector<int64_t> *> &shapes,
     for (; i >= 0; i--) {
         bool match = true;
         auto iter = shapes.begin();
-        int s = (*iter)->at(i);
+        int64_t s = iter->get().at(i);
         for (; iter != shapes.end(); ++iter) {
-            if (s != (*iter)->at(i)) {
+            if (s != iter->get().at(i)) {
                 match = false;
                 break;
             }
@@ -421,19 +414,21 @@ bool CodeGenOpCloudNPU::CombineAxis(std::vector<std::vector<int64_t> *> &shapes,
     std::vector<int> acc(numVec, 1);
     for (size_t j = i; j < num - 1; j++) {
         for (size_t k = 0; k < numVec; k++) {
-            acc[k] *= shapes[k]->at(j);
-            shapes[k]->at(j) = 1;
+            // 核心修改：shapes[k].get() 替代 shapes[k]->
+            acc[k] *= shapes[k].get().at(j);
+            shapes[k].get().at(j) = 1; // 直接修改原始vector
         }
     }
     for (size_t k = 0; k < numVec; k++) {
-        shapes[k]->at(num - 1) = acc[k] * shapes[k]->at(num - 1);
+        shapes[k].get().at(num - 1) = acc[k] * shapes[k].get().at(num - 1);
     }
 
     for (size_t k = 0; k < numVec; k++) {
+        auto &vec = shapes[k].get();
         // remove redundant ones so better chance for repeat
-        shapes[k]->erase(shapes[k]->begin() + i, shapes[k]->begin() + (num - 1));
+        vec.erase(vec.begin() + i, vec.begin() + (num - 1));
         // pad ones to preserve shape length
-        shapes[k]->insert(shapes[k]->begin(), (num - 1) - i, 1);
+        vec.insert(vec.begin(), (num - 1) - i, 1);
     }
 
     return true;

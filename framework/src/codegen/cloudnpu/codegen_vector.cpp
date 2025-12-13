@@ -34,7 +34,7 @@ std::string CodeGenOpCloudNPU::GenCastOp() const {
     std::string srcDtypeStr = DataType2CCEStr(operandDtype[ID1]);
     std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
 
-    AppendLocalBufferVarOffset(std::vector{&dVar, &s0Var});
+    AppendLocalBufVarOffsetInOrder(dVar, s0Var);
     std::vector<int64_t> os = NormalizeShape(originShape[0], SHAPE_DIM4);
     std::vector<int64_t> ss = NormalizeShape(rawShape[1], SHAPE_DIM4);
     std::vector<int64_t> ds = NormalizeShape(rawShape[0], SHAPE_DIM4);
@@ -125,7 +125,7 @@ std::string CodeGenOpCloudNPU::PrintDupOp(const PrintDupOpParam &param) const {
 
 std::string CodeGenOpCloudNPU::GenDupOp() const {
     std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
-    AppendLocalBufferVarOffset(std::vector{&dVar});
+    AppendLocalBufVarOffsetInOrder(dVar);
     std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
 
     std::string dupV;
@@ -166,8 +166,8 @@ std::string CodeGenOpCloudNPU::GenTransposeDataMove() const {
     ALOG_INFO_F("GenTransposeDataMove: gmShape is %s", IntVecToStr(gmShape).c_str());
 
     AppendLocalBufferVarOffset({
-        {   gmIdx,    &gmVar},
-        {localIdx, &localVar}
+        {   gmIdx,    std::ref(gmVar)},
+        {localIdx, std::ref(localVar)}
     });
 
     std::string localDtypeStr = DataType2CCEStr(operandDtype[localIdx]);
@@ -332,37 +332,6 @@ std::string CodeGenOpCloudNPU::PrintTransposeDataMoveDynamicUnaligned(const Prin
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::GenFusedOp() const {
-    ASSERT(opAttrs.count("VF_WRAPPER_NAME")) << "cannot get VF_WRAPPER_NAME.";
-    std::string fusedOpName = "TileOp::" + npu::tile_fwk::AnyCast<std::string>(opAttrs.at("VF_WRAPPER_NAME"));
-    int operandsNum = 0;
-    for (auto ele : operand) {
-        if (ele == NULL_OPERAND) {
-            break;
-        }
-        operandsNum++;
-    }
-    std::string paramString;
-    std::map<unsigned, std::string *> varMap;
-    for (int i = 0; i < operandsNum; i++) {
-        std::string s0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[i]);
-        std::string dtypeStr = DataType2CCEStr(operandDtype[i]);
-        paramString.append("(__ubuf__ ").append(dtypeStr).append("*)").append(s0Var);
-        if (i < operandsNum - 1) {
-            paramString += ", ";
-        }
-        varMap[i] = &s0Var;
-    }
-    AppendLocalBufferVarOffset(varMap);
-
-    char buffer[256] = "CG_ERROR";
-    int ret = 0;
-    ret = sprintf_s(buffer, sizeof(buffer), "%s(%s);\n", fusedOpName.c_str(), paramString.c_str());
-    ASSERT(ret >= 0) << "GenFusedOp sprintf_s failed ";
-    std::string ostring(buffer);
-    return ostring;
-}
-
 std::string CodeGenOpCloudNPU::PrintGatherStatic(const PrintGatherParam &param) const {
     const std::string &dstDtypeStr = param.dstDtypeStr;
     const std::string &src0DtypeStr = param.src0DtypeStr;
@@ -491,7 +460,7 @@ std::string CodeGenOpCloudNPU::GenGatherOp() const {
     std::string src0DtypeStr = DataType2CCEStr(operandDtype[ID1]);
     std::string src1DtypeStr = DataType2CCEStr(operandDtype[ID2]);
 
-    AppendLocalBufferVarOffset({&dVar, &s0Var, &s1Var});
+    AppendLocalBufVarOffsetInOrder(dVar, s0Var, s1Var);
     return PrintGather({s0Var, s1Var, dVar, src0DtypeStr, src1DtypeStr, dstDtypeStr, axis});
 }
 
@@ -503,7 +472,7 @@ std::string CodeGenOpCloudNPU::PrintGatherElementStatic(const PrintGatherElePara
     std::vector<int64_t> &dstOriginShape = param.dstOriginShape;
     std::vector<int64_t> &dstRawShape = param.dstRawShape;
     std::vector<int64_t> &src0RawShape = param.src0RawShape;
-    const std::string *dataTypeExpr = param.dataTypeExpr;
+    const std::vector<std::string> &dataTypeExpr = param.dataTypeExpr;
     // template param
     std::ostringstream oss;
     std::vector<std::string> paramList;
@@ -534,12 +503,12 @@ std::string CodeGenOpCloudNPU::PrintGatherElementDynamicUnaligned(const PrintGat
     std::vector<int64_t> dstRawShape = NormalizeShape(param.dstRawShape, SHAPE_DIM4);
     std::vector<int64_t> src0RawShape = NormalizeShape(param.src0RawShape, SHAPE_DIM4);
     std::vector<int64_t> src1RawShape = NormalizeShape(param.src1RawShape, SHAPE_DIM4);
-    const std::string *dataTypeExpr = param.dataTypeExpr;
+    const std::vector<std::string> &dataTypeExpr = param.dataTypeExpr;
     // template param
     std::ostringstream oss;
     std::vector<std::string> paramList;
     paramList.insert(paramList.end(),
-        {dataTypeExpr[ToUnderlying(DISOIdx::SRC0_IDX)], dataTypeExpr[ToUnderlying(DISOIdx::SRC1_IDX)]});
+        {dataTypeExpr[ToUnderlying(MISOIdx::SRC0_IDX)], dataTypeExpr[ToUnderlying(MISOIdx::SRC1_IDX)]});
     for (size_t i = 1; i < src0RawShape.size(); ++i) {
         paramList.emplace_back(std::to_string(src0RawShape[i]));
     }
@@ -554,11 +523,11 @@ std::string CodeGenOpCloudNPU::PrintGatherElementDynamicUnaligned(const PrintGat
     std::string templateParam = JoinString(paramList, CONN_COMMA);
     // func actual param
     paramList.clear();
-    std::string dst = "(__ubuf__ " + dataTypeExpr[ToUnderlying(DISOIdx::DST_IDX)] + "*)" + dVar;
-    std::string src0 = "(__ubuf__ " + dataTypeExpr[ToUnderlying(DISOIdx::SRC0_IDX)] + "*)" + s0Var;
-    std::string src1 = "(__ubuf__ " + dataTypeExpr[ToUnderlying(DISOIdx::SRC1_IDX)] + "*)" + s1Var;
+    std::string dst = "(__ubuf__ " + dataTypeExpr[ToUnderlying(MISOIdx::DST_IDX)] + "*)" + dVar;
+    std::string src0 = "(__ubuf__ " + dataTypeExpr[ToUnderlying(MISOIdx::SRC0_IDX)] + "*)" + s0Var;
+    std::string src1 = "(__ubuf__ " + dataTypeExpr[ToUnderlying(MISOIdx::SRC1_IDX)] + "*)" + s1Var;
     paramList.insert(paramList.end(), {dst, src0, src1});
-    auto dstValidShape = dynamicValidShape[ToUnderlying(DISOIdx::DST_IDX)];
+    auto dstValidShape = dynamicValidShape[ToUnderlying(MISOIdx::DST_IDX)];
     FillIntVecWithDummyInHead<SymbolicScalar>(dstValidShape, SHAPE_DIM4 - dstValidShape.size(), 1);
     for (int i = 0; i < SHAPE_DIM4; i++) {
         paramList.emplace_back(SymbolicExpressionTable::BuildExpression(dstValidShape[i]));
@@ -570,9 +539,9 @@ std::string CodeGenOpCloudNPU::PrintGatherElementDynamicUnaligned(const PrintGat
 }
 
 std::string CodeGenOpCloudNPU::PrintGatherElementTileTensor(const PrintGatherEleParam &param) const {
-    std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(DISOIdx::DST_IDX)]);
-    std::string src0Tensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(DISOIdx::SRC0_IDX)]);
-    std::string src1Tensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(DISOIdx::SRC1_IDX)]);
+    std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::DST_IDX)]);
+    std::string src0Tensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::SRC0_IDX)]);
+    std::string src1Tensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::SRC1_IDX)]);
     std::vector<std::string> paramList;
     int axis = param.axis + SHAPE_DIM5 - param.src1RawShape.size();
     paramList.emplace_back(std::to_string(axis));
@@ -584,24 +553,24 @@ std::string CodeGenOpCloudNPU::PrintGatherElementTileTensor(const PrintGatherEle
 }
 
 std::string CodeGenOpCloudNPU::GenGatherElementOp() const {
-    std::string s0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(DISOIdx::SRC0_IDX)]);
-    std::string s1Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(DISOIdx::SRC1_IDX)]);
-    std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(DISOIdx::DST_IDX)]);
+    std::string s0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(MISOIdx::SRC0_IDX)]);
+    std::string s1Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(MISOIdx::SRC1_IDX)]);
+    std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(MISOIdx::DST_IDX)]);
 
-    std::vector dstShape = this->rawShape[ToUnderlying(DISOIdx::DST_IDX)];
-    std::vector src0Shape = this->rawShape[ToUnderlying(DISOIdx::SRC0_IDX)];
-    std::vector src1Shape = this->rawShape[ToUnderlying(DISOIdx::SRC1_IDX)];
-    std::string dstDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(DISOIdx::DST_IDX)]);
-    std::string src0DtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(DISOIdx::SRC0_IDX)]);
-    std::string src1DtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(DISOIdx::SRC1_IDX)]);
-    AppendLocalBufferVarOffset(std::vector{&dVar, &s0Var, &s1Var});
+    std::vector dstShape = this->rawShape[ToUnderlying(MISOIdx::DST_IDX)];
+    std::vector src0Shape = this->rawShape[ToUnderlying(MISOIdx::SRC0_IDX)];
+    std::vector src1Shape = this->rawShape[ToUnderlying(MISOIdx::SRC1_IDX)];
+    std::string dstDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(MISOIdx::DST_IDX)]);
+    std::string src0DtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(MISOIdx::SRC0_IDX)]);
+    std::string src1DtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(MISOIdx::SRC1_IDX)]);
+    AppendLocalBufVarOffsetInOrder(dVar, s0Var, s1Var);
 
     // [case1] src0: [S2,D], src1: [B,S], axis: 0, dst: [B,S]
     std::vector<int64_t> dos = originShape[ID0];
     std::vector<int64_t> s0s = src0Shape;
     std::vector<int64_t> s1s = src1Shape;
     std::vector<int64_t> ds = dstShape;
-    std::string dataTypeExpr[3] = {dstDtypeStr, src0DtypeStr, src1DtypeStr};
+    const std::vector<std::string> dataTypeExpr = {dstDtypeStr, src0DtypeStr, src1DtypeStr};
     int gatherEleAxis{-1};
     auto axis = opAttrs.at(OP_ATTR_PREFIX + "axis");
     if (axis.HasValue()) {
@@ -619,12 +588,10 @@ std::string CodeGenOpCloudNPU::GenGatherElementOp() const {
 std::string CodeGenOpCloudNPU::GenRangeOp() const {
     // only support 1 dim
     std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
-
     std::vector dstShape = this->rawShape[0];
-
     std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
 
-    AppendLocalBufferVarOffset(std::vector{&dVar});
+    AppendLocalBufVarOffsetInOrder(dVar);
 
     auto start = opAttrs.at(OP_ATTR_PREFIX + "START");
     auto step = opAttrs.at(OP_ATTR_PREFIX + "STEP");
@@ -673,7 +640,8 @@ std::string CodeGenOpCloudNPU::PrintIndexAddDynamicUnaligned(const PrintIndexAdd
     const std::string &indicesVar = param.indicesVar;
     std::vector<int64_t> dstRawShape = NormalizeShape(param.dstRawShape, SHAPE_DIM4);
     std::vector<int64_t> srcRawShape = NormalizeShape(param.srcRawShape, SHAPE_DIM4);
-    const std::string *dataTypeExpr = param.dataTypeExpr;
+    const std::vector<std::string> &dataTypeExpr = param.dataTypeExpr;
+
     const Element &alph = extOperandVal;
 
     // template params
@@ -733,21 +701,19 @@ std::string CodeGenOpCloudNPU::GenIndexAddOp() const {
     std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
     std::string srcDtypeStr = DataType2CCEStr(operandDtype[ID2]);
     std::string indicesDtypeStr = DataType2CCEStr(operandDtype[ID3]);
-    constexpr int NumOperands = 3;
-    std::string dataTypeExpr[NumOperands] = {dstDtypeStr, srcDtypeStr, indicesDtypeStr};
+    const std::vector<std::string> dataTypeExpr = {dstDtypeStr, srcDtypeStr, indicesDtypeStr};
 
-    AppendLocalBufferVarOffset(std::vector{&dstVar, &selfVar, &srcVar, &indicesVar});
+    AppendLocalBufVarOffsetInOrder(dstVar, selfVar, srcVar, indicesVar);
 
     ASSERT(opAttrs.count(OP_ATTR_PREFIX + "axis")) << "cannot get axis attr";
     int axis = npu::tile_fwk::AnyCast<int64_t>(opAttrs.at(OP_ATTR_PREFIX + "axis"));
-    return PrintIndexAddDynamicUnaligned(
-            {axis, dstVar, srcVar, indicesVar, dstRawShape, srcRawShape, dataTypeExpr});
+    return PrintIndexAddDynamicUnaligned({axis, dstVar, srcVar, indicesVar, dstRawShape, srcRawShape, dataTypeExpr});
 }
 
 std::string CodeGenOpCloudNPU::PrintScatterElementSOpStatic(const PrintScatterElemParam &param) const {
     // Static only support 2Dim
-    int dstRank = shape[ToUnderlying(DISOIdx::DST_IDX)].size();
-    int src1Rank = shape[ToUnderlying(DISOIdx::SRC1_IDX)].size();
+    int dstRank = shape[ToUnderlying(MISOIdx::DST_IDX)].size();
+    int src1Rank = shape[ToUnderlying(MISOIdx::SRC1_IDX)].size();
     ASSERT(src1Rank == RANK2) << "GenScatterElementSOp: src1 shape rank is not supported!";
     ASSERT(dstRank == RANK2) << "GenScatterElementSOp: dst shape rank is not supported!";
 
@@ -756,30 +722,30 @@ std::string CodeGenOpCloudNPU::PrintScatterElementSOpStatic(const PrintScatterEl
     const std::string &src1Var = param.s1Var;
     std::vector<int64_t> &dstShape = param.dstRawShape;
     std::vector<int64_t> &src1RawShape = param.src1RawShape;
-    const std::string *dataTypeExpr = param.dataTypeExpr;
+    const std::vector<std::string> &dataTypeExpr = param.dataTypeExpr;
     const Element &scala = extOperandVal;
 
-    std::vector src1Shape = this->originShape[ToUnderlying(DISOIdx::SRC1_IDX)];
+    std::vector src1Shape = this->originShape[ToUnderlying(MISOIdx::SRC1_IDX)];
     std::vector<int64_t> s1os = NormalizeShape(src1Shape, SHAPE_DIM2);
     std::vector<int64_t> s1rs = NormalizeShape(src1RawShape, SHAPE_DIM2);
     std::vector<int64_t> drs = NormalizeShape(dstShape, SHAPE_DIM2);
 
     std::vector<std::string> templateParams;
-    templateParams.emplace_back(dataTypeExpr[ToUnderlying(DISOIdx::DST_IDX)]);
-    templateParams.emplace_back(dataTypeExpr[ToUnderlying(DISOIdx::SRC1_IDX)]);
-    templateParams.emplace_back(std::to_string(s1rs[ToUnderlying(DISOIdx::SRC0_IDX)]));
-    templateParams.emplace_back(std::to_string(drs[ToUnderlying(DISOIdx::SRC0_IDX)]));
-    templateParams.emplace_back(std::to_string(s1os[ToUnderlying(DISOIdx::DST_IDX)]));
-    templateParams.emplace_back(std::to_string(s1os[ToUnderlying(DISOIdx::SRC0_IDX)]));
+    templateParams.emplace_back(dataTypeExpr[ToUnderlying(MISOIdx::DST_IDX)]);
+    templateParams.emplace_back(dataTypeExpr[ToUnderlying(MISOIdx::SRC1_IDX)]);
+    templateParams.emplace_back(std::to_string(s1rs[ToUnderlying(MISOIdx::SRC0_IDX)]));
+    templateParams.emplace_back(std::to_string(drs[ToUnderlying(MISOIdx::SRC0_IDX)]));
+    templateParams.emplace_back(std::to_string(s1os[ToUnderlying(MISOIdx::DST_IDX)]));
+    templateParams.emplace_back(std::to_string(s1os[ToUnderlying(MISOIdx::SRC0_IDX)]));
     std::string templateParamStr = JoinString(templateParams, ", ");
     templateParamStr += ", " + std::to_string(param.axis);
 
     std::vector<std::string> callParams;
-    callParams.emplace_back("(__ubuf__ " + dataTypeExpr[ToUnderlying(DISOIdx::DST_IDX)] + "*)" + dstVar);
-    callParams.emplace_back("(__ubuf__ " + dataTypeExpr[ToUnderlying(DISOIdx::SRC0_IDX)] + "*)" + src0Var);
-    callParams.emplace_back("(__ubuf__ " + dataTypeExpr[ToUnderlying(DISOIdx::SRC1_IDX)] + "*)" + src1Var);
+    callParams.emplace_back("(__ubuf__ " + dataTypeExpr[ToUnderlying(MISOIdx::DST_IDX)] + "*)" + dstVar);
+    callParams.emplace_back("(__ubuf__ " + dataTypeExpr[ToUnderlying(MISOIdx::SRC0_IDX)] + "*)" + src0Var);
+    callParams.emplace_back("(__ubuf__ " + dataTypeExpr[ToUnderlying(MISOIdx::SRC1_IDX)] + "*)" + src1Var);
     std::string scalarTmpBuffer = FormatFloat(scala.Cast<float>());
-    callParams.emplace_back("(" + dataTypeExpr[ToUnderlying(DISOIdx::DST_IDX)] + ")" + scalarTmpBuffer);
+    callParams.emplace_back("(" + dataTypeExpr[ToUnderlying(MISOIdx::DST_IDX)] + ")" + scalarTmpBuffer);
 
     std::string callParamStr = JoinString(callParams, ", ");
 
@@ -794,16 +760,16 @@ std::string CodeGenOpCloudNPU::PrintScatterElementSOpDynamicUnaligned(const Prin
     const std::string &src1Var = param.s1Var;
     std::vector<int64_t> dstRawShape = NormalizeShape(param.dstRawShape, SHAPE_DIM4);
     std::vector<int64_t> src1RawShape = NormalizeShape(param.src1RawShape, SHAPE_DIM4);
-    const std::string *dataTypeExpr = param.dataTypeExpr;
+    const std::vector<std::string> &dataTypeExpr = param.dataTypeExpr;
     const Element &scala = extOperandVal;
 
-    auto dynSrc1Shape = dynamicValidShape[ToUnderlying(DISOIdx::SRC1_IDX)];
+    auto dynSrc1Shape = dynamicValidShape[ToUnderlying(MISOIdx::SRC1_IDX)];
     FillIntVecWithDummyInHead<SymbolicScalar>(
-        dynSrc1Shape, SHAPE_DIM4 - dynamicValidShape[ToUnderlying(DISOIdx::SRC1_IDX)].size(), 1);
+        dynSrc1Shape, SHAPE_DIM4 - dynamicValidShape[ToUnderlying(MISOIdx::SRC1_IDX)].size(), 1);
 
     std::vector<std::string> templateParams;
-    templateParams.emplace_back(dataTypeExpr[ToUnderlying(DISOIdx::DST_IDX)]);
-    templateParams.emplace_back(dataTypeExpr[ToUnderlying(DISOIdx::SRC1_IDX)]);
+    templateParams.emplace_back(dataTypeExpr[ToUnderlying(MISOIdx::DST_IDX)]);
+    templateParams.emplace_back(dataTypeExpr[ToUnderlying(MISOIdx::SRC1_IDX)]);
     for (size_t i = 1; i < src1RawShape.size(); ++i) {
         templateParams.emplace_back(std::to_string(src1RawShape[i]));
     }
@@ -816,11 +782,11 @@ std::string CodeGenOpCloudNPU::PrintScatterElementSOpDynamicUnaligned(const Prin
     std::string templateParamStr = JoinString(templateParams, ", ");
 
     std::vector<std::string> callParams;
-    callParams.emplace_back("(__ubuf__ " + dataTypeExpr[ToUnderlying(DISOIdx::DST_IDX)] + "*)" + dstVar);
-    callParams.emplace_back("(__ubuf__ " + dataTypeExpr[ToUnderlying(DISOIdx::SRC0_IDX)] + "*)" + src0Var);
-    callParams.emplace_back("(__ubuf__ " + dataTypeExpr[ToUnderlying(DISOIdx::SRC1_IDX)] + "*)" + src1Var);
+    callParams.emplace_back("(__ubuf__ " + dataTypeExpr[ToUnderlying(MISOIdx::DST_IDX)] + "*)" + dstVar);
+    callParams.emplace_back("(__ubuf__ " + dataTypeExpr[ToUnderlying(MISOIdx::SRC0_IDX)] + "*)" + src0Var);
+    callParams.emplace_back("(__ubuf__ " + dataTypeExpr[ToUnderlying(MISOIdx::SRC1_IDX)] + "*)" + src1Var);
     std::string scalarTmpBuffer = FormatFloat(scala.Cast<float>());
-    callParams.emplace_back("(" + dataTypeExpr[ToUnderlying(DISOIdx::DST_IDX)] + ")" + scalarTmpBuffer);
+    callParams.emplace_back("(" + dataTypeExpr[ToUnderlying(MISOIdx::DST_IDX)] + ")" + scalarTmpBuffer);
     for (size_t i = 0; i < SHAPE_DIM4; ++i) {
         callParams.emplace_back(SymbolicExpressionTable::BuildExpression(dynSrc1Shape[i]));
     }
@@ -836,20 +802,20 @@ std::string CodeGenOpCloudNPU::GenScatterElementSOp() const {
     ASSERT(opAttrs.count(OP_ATTR_PREFIX + "axis")) << "cannot get axis attr";
     int axis = npu::tile_fwk::AnyCast<int64_t>(opAttrs.at(OP_ATTR_PREFIX + "axis"));
     int scatterMode = npu::tile_fwk::AnyCast<int64_t>(opAttrs.at(OP_ATTR_PREFIX + "scatter_mode"));
-    const DataType dstDtype = operandDtype[ToUnderlying(DISOIdx::DST_IDX)];
-    const DataType src0Dtype = operandDtype[ToUnderlying(DISOIdx::SRC0_IDX)];
-    const DataType src1Dtype = operandDtype[ToUnderlying(DISOIdx::SRC1_IDX)];
+    const DataType dstDtype = operandDtype[ToUnderlying(MISOIdx::DST_IDX)];
+    const DataType src0Dtype = operandDtype[ToUnderlying(MISOIdx::SRC0_IDX)];
+    const DataType src1Dtype = operandDtype[ToUnderlying(MISOIdx::SRC1_IDX)];
 
-    std::string src0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(DISOIdx::SRC0_IDX)]);
-    std::string src1Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(DISOIdx::SRC1_IDX)]);
-    std::string dstVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(DISOIdx::DST_IDX)]);
+    std::string src0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(MISOIdx::SRC0_IDX)]);
+    std::string src1Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(MISOIdx::SRC1_IDX)]);
+    std::string dstVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(MISOIdx::DST_IDX)]);
 
-    ALOG_INFO_F("GenScatterElementSOp, dst Shape is %s", IntVecToStr(shape[ToUnderlying(DISOIdx::DST_IDX)]).c_str());
-    ALOG_INFO_F("GenScatterElementSOp, src0 Shape is %s", IntVecToStr(shape[ToUnderlying(DISOIdx::SRC0_IDX)]).c_str());
-    ALOG_INFO_F("GenScatterElementSOp, src1 Shape is %s", IntVecToStr(shape[ToUnderlying(DISOIdx::SRC1_IDX)]).c_str());
+    ALOG_INFO_F("GenScatterElementSOp, dst Shape is %s", IntVecToStr(shape[ToUnderlying(MISOIdx::DST_IDX)]).c_str());
+    ALOG_INFO_F("GenScatterElementSOp, src0 Shape is %s", IntVecToStr(shape[ToUnderlying(MISOIdx::SRC0_IDX)]).c_str());
+    ALOG_INFO_F("GenScatterElementSOp, src1 Shape is %s", IntVecToStr(shape[ToUnderlying(MISOIdx::SRC1_IDX)]).c_str());
 
-    std::vector dstRawShape = this->rawShape[ToUnderlying(DISOIdx::DST_IDX)];
-    std::vector src1RawShape = this->rawShape[ToUnderlying(DISOIdx::SRC1_IDX)];
+    std::vector dstRawShape = this->rawShape[ToUnderlying(MISOIdx::DST_IDX)];
+    std::vector src1RawShape = this->rawShape[ToUnderlying(MISOIdx::SRC1_IDX)];
 
     std::string dstDtypeStr = DataType2CCEStr(dstDtype);
     std::string src0DtypeStr = DataType2CCEStr(src0Dtype);
@@ -857,11 +823,9 @@ std::string CodeGenOpCloudNPU::GenScatterElementSOp() const {
     ALOG_INFO_F("GenScatterElementSOp, dstDtypeStr%s", dstDtypeStr.c_str());
     ALOG_INFO_F("GenScatterElementSOp, src1DtypeStr%s", src1DtypeStr.c_str());
 
-    AppendLocalBufferVarOffset(std::vector{&dstVar, &src0Var, &src1Var});
+    AppendLocalBufVarOffsetInOrder(dstVar, src0Var, src1Var);
 
-    constexpr int NumOperands = 3;
-    std::string dataTypeExpr[NumOperands] = {dstDtypeStr, src0DtypeStr, src1DtypeStr};
-
+    const std::vector<std::string> dataTypeExpr = {dstDtypeStr, src0DtypeStr, src1DtypeStr};
     if (isSupportDynamicUnaligned) {
         return PrintScatterElementSOpDynamicUnaligned(
             {axis, scatterMode, dstVar, src0Var, src1Var, dstRawShape, src1RawShape, dataTypeExpr});
@@ -877,11 +841,10 @@ std::string CodeGenOpCloudNPU::PrintScatterOpDynamicUnaligned(const PrintScatter
     std::vector<int64_t> dstRawShape = NormalizeShape(param.dstRawShape, SHAPE_DIM4);
     std::vector<int64_t> src1RawShape = NormalizeShape(param.src1RawShape, SHAPE_DIM4);
     std::vector<int64_t> src2RawShape = NormalizeShape(param.src2RawShape, SHAPE_DIM4);
-    const std::string *dataTypeExpr = param.dataTypeExpr;
+    const std::vector<std::string> &dataTypeExpr = param.dataTypeExpr;
 
     auto dynSrc1Shape = dynamicValidShape[ID2];
-    FillIntVecWithDummyInHead<SymbolicScalar>(
-        dynSrc1Shape, SHAPE_DIM4 - dynamicValidShape[ID2].size(), 1);
+    FillIntVecWithDummyInHead<SymbolicScalar>(dynSrc1Shape, SHAPE_DIM4 - dynamicValidShape[ID2].size(), 1);
 
     std::vector<std::string> templateParams;
     templateParams.emplace_back(dataTypeExpr[ID0]);
@@ -935,13 +898,11 @@ std::string CodeGenOpCloudNPU::GenScatterOp() const {
     std::string src1DtypeStr = DataType2CCEStr(src1Dtype);
     std::string src2DtypeStr = DataType2CCEStr(src2Dtype);
 
-    AppendLocalBufferVarOffset(std::vector{&dstVar, &src1Var, &src2Var});
+    AppendLocalBufVarOffsetInOrder(dstVar, src1Var, src2Var);
 
-    constexpr int NumOperands = 3;
-    std::string dataTypeExpr[NumOperands] = {dstDtypeStr, src1DtypeStr, src2DtypeStr};
-
-    return PrintScatterOpDynamicUnaligned({axis, scatterMode, dstVar, src1Var, src2Var, 
-        dstRawShape, src1RawShape, src2RawShape, dataTypeExpr});
+    const std::vector<std::string> dataTypeExpr = {dstDtypeStr, src1DtypeStr, src2DtypeStr};
+    return PrintScatterOpDynamicUnaligned(
+        {axis, scatterMode, dstVar, src1Var, src2Var, dstRawShape, src1RawShape, src2RawShape, dataTypeExpr});
 }
 
 std::string CodeGenOpCloudNPU::PrintExtractStatic() const {
@@ -955,7 +916,7 @@ std::string CodeGenOpCloudNPU::PrintExtractStatic() const {
     std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
     std::string src0DtypeStr = DataType2CCEStr(operandDtype[ID1]);
     std::vector src0Shape = this->rawShape[0];
-    AppendLocalBufferVarOffset(std::vector{&dVar, &s0Var});
+    AppendLocalBufVarOffsetInOrder(dVar, s0Var);
     constexpr unsigned defaultDim = 1u;
     if (this->rawShape[1].size() == 1) {
         tShape1 = std::min(src0RawShape[0], shape[0][0]);
@@ -989,7 +950,7 @@ std::string CodeGenOpCloudNPU::PrintExtractDynamicUnaligned() const {
 
     std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
     std::string src0DtypeStr = DataType2CCEStr(operandDtype[ID1]);
-    AppendLocalBufferVarOffset(std::vector{&dVar, &s0Var});
+    AppendLocalBufVarOffsetInOrder(dVar, s0Var);
 
     std::vector<std::string> paramList;
     paramList.insert(paramList.end(), {dstDtypeStr, src0DtypeStr});
@@ -1021,8 +982,8 @@ std::string CodeGenOpCloudNPU::PrintExtractDynamicUnaligned() const {
 }
 
 std::string CodeGenOpCloudNPU::PrintExtractLayout() const {
-    std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(DISOIdx::DST_IDX)]);
-    std::string src0Tensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(DISOIdx::SRC0_IDX)]);
+    std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::DST_IDX)]);
+    std::string src0Tensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::SRC0_IDX)]);
 
     std::ostringstream oss;
     oss << tileOpName << "<" << GenOpAttr(false) << ">"
@@ -1045,7 +1006,7 @@ static const std::unordered_map<int, std::string> aicpuCallNumDict = {
 };
 
 std::string CodeGenOpCloudNPU::GenAicpuCallOp() const {
-    ASSERT(opAttrs.count(OpAttributeKey::aicpuCall));
+    ASSERT(opAttrs.count(OpAttributeKey::aicpuCall)) << "OpAttributeKey::aicpuCall not found";
     uint32_t call =
         static_cast<uint32_t>(npu::tile_fwk::AnyCast<int64_t>(opAttrs.find(OpAttributeKey::aicpuCall)->second));
     uint16_t callNum = call >> AICPU_CALL_ARG_BIT;
@@ -1062,7 +1023,7 @@ std::string CodeGenOpCloudNPU::GenAicpuCallOp() const {
 
 std::string CodeGenOpCloudNPU::GenPoolOp() const {
     const int poolParamsSize = 8;
-    ASSERT(poolParams.size() == poolParamsSize);
+    ASSERT(poolParams.size() == poolParamsSize) << "poolParams size must be equal to 8";
 
     std::string sVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
     std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
@@ -1070,7 +1031,7 @@ std::string CodeGenOpCloudNPU::GenPoolOp() const {
     std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
     std::string srcDtypeStr = DataType2CCEStr(operandDtype[ID1]);
 
-    AppendLocalBufferVarOffset(std::vector{&dVar, &sVar});
+    AppendLocalBufVarOffsetInOrder(dVar, sVar);
 
     int paddingLeft = poolParams[0];
     int paddingTop = poolParams[1];
@@ -1190,7 +1151,27 @@ void CodeGenOpCloudNPU::GetVarAndTypeParam(
     std::string dstVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(WhereOpIdx::resIdx)]);
     std::string tempVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(WhereOpIdx::tempIdx)]);
     std::string condVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(WhereOpIdx::condIdx)]);
+
     varExpr = {dstVar, tempVar, condVar};
+    std::map<unsigned, std::reference_wrapper<std::string>> varMap;
+    const unsigned idxs[] = {
+        ToUnderlying(WhereOpIdx::resIdx), ToUnderlying(WhereOpIdx::tempIdx), ToUnderlying(WhereOpIdx::condIdx)};
+    for (unsigned idx : idxs) {
+        varMap.emplace(idx, std::ref(varExpr[idx]));
+    }
+    if (opCode == Opcode::OP_WHERE_ST || opCode == Opcode::OP_WHERE_TS || opCode == Opcode::OP_WHERE_TT) {
+        std::string src0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(WhereOpIdx::src0Idx)]);
+        varExpr.emplace_back(src0Var);
+        varMap.emplace(ToUnderlying(WhereOpIdx::src0Idx), std::ref(src0Var));
+    }
+    if (opCode == Opcode::OP_WHERE_TT) {
+        std::string src1Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(WhereOpIdx::src1Idx)]);
+        varExpr.emplace_back(src1Var);
+        varMap.emplace(ToUnderlying(WhereOpIdx::src1Idx), std::ref(src1Var));
+    }
+
+    AppendLocalBufferVarOffset(varMap);
+
     std::string dstDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(WhereOpIdx::resIdx)]);
     std::string tempDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(WhereOpIdx::tempIdx)]);
     std::string condDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(WhereOpIdx::condIdx)]);
@@ -1238,84 +1219,62 @@ WhereParam CodeGenOpCloudNPU::PrepareWhereParam() const {
     return param;
 }
 
-std::string CodeGenOpCloudNPU::printWhereOp(const WhereParam &param) const {
+std::string CodeGenOpCloudNPU::PrintWhereOp(const WhereParam &param) const {
     std::vector<std::string> templateList = param.templateList;
     std::vector<std::string> paramList = param.paramList;
     std::vector<std::string> dynParamList = param.dynParamList;
     std::vector<std::string> varExpr = param.varExpr;
     std::vector<std::string> dataTypeExpr = param.dataTypeExpr;
-    std::string templateParam = JoinString(templateList, ", ");
+    std::string templateParam = JoinString(templateList, CONN_COMMA);
     std::string funcParam = JoinString(paramList, CONN_COMMA);
-    std::string dynFuncParam = JoinString(dynParamList, ", ");
+    std::string dynFuncParam = JoinString(dynParamList, CONN_COMMA);
     std::vector<std::string> extList;
-
-    auto varPtr = [&](WhereOpIdx idx) -> const std::string * { return &varExpr[ToUnderlying(idx)]; };
-    std::map<unsigned, std::string *> varMap;
-
-    const unsigned idxs[] = {ToUnderlying(WhereOpIdx::resIdx), ToUnderlying(WhereOpIdx::tempIdx),
-        ToUnderlying(WhereOpIdx::condIdx)};
-    for (unsigned idx : idxs) {
-        WhereOpIdx opIdx = static_cast<WhereOpIdx>(idx);
-        varMap[idx] = const_cast<std::string *>(varPtr(opIdx));
-    }
 
     std::ostringstream os;
     if (opCode == Opcode::OP_WHERE_SS) {
         std::string src0Var = FormatFloat(extScalarVec[0].Cast<float>());
         std::string src1Var = FormatFloat(extScalarVec[1].Cast<float>());
-        extList.emplace_back(dataTypeExpr[0] + " (" + src0Var + ")");
-        extList.emplace_back(dataTypeExpr[0] + " (" + src1Var + ")");
+        extList.emplace_back(dataTypeExpr[0] + "(" + src0Var + ")");
+        extList.emplace_back(dataTypeExpr[0] + "(" + src1Var + ")");
         auto extParam = JoinString(extList, ", ");
-
-        AppendLocalBufferVarOffset(varMap);
         os << tileOpName.c_str() << "<" << templateParam << ">"
-           << "(" << funcParam << ", " << extParam << "," << dynFuncParam << ");\n";
+           << "(" << funcParam << ", " << extParam << ", " << dynFuncParam << ");\n";
         return os.str();
     } else if (opCode == Opcode::OP_WHERE_ST) {
-        std::string src0Var = FormatFloat(extOperandVal.Cast<float>());
-        std::string src1Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(WhereOpIdx::src0Idx)]);
+        std::string scalarVar = FormatFloat(extOperandVal.Cast<float>());
+        std::string src0Var = varExpr[ToUnderlying(WhereOpIdx::src0Idx)];
         std::string src1DtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(WhereOpIdx::src0Idx)]);
-        extList.emplace_back(dataTypeExpr[0] + " (" + src0Var + ")");
-        extList.emplace_back("(__ubuf__ " + src1DtypeStr + "*)" + src1Var);
+        extList.emplace_back(dataTypeExpr[0] + "(" + scalarVar + ")");
+        extList.emplace_back("(__ubuf__ " + src1DtypeStr + "*)" + src0Var);
         auto extParam = JoinString(extList, ", ");
-
-        varMap[ToUnderlying(WhereOpIdx::src0Idx)] = &src1Var;
-        AppendLocalBufferVarOffset(varMap);
         os << tileOpName.c_str() << "<" << templateParam << ">"
-           << "(" << funcParam << ", " << extParam << "," << dynFuncParam << ");\n";
+           << "(" << funcParam << ", " << extParam << ", " << dynFuncParam << ");\n";
         return os.str();
     } else if (opCode == Opcode::OP_WHERE_TS) {
-        std::string src1Var = FormatFloat(extOperandVal.Cast<float>());
-        std::string src0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(WhereOpIdx::src0Idx)]);
+        std::string scalarVar = FormatFloat(extOperandVal.Cast<float>());
+        std::string src0Var = varExpr[ToUnderlying(WhereOpIdx::src0Idx)];
         std::string src0DtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(WhereOpIdx::src0Idx)]);
         extList.emplace_back("(__ubuf__ " + src0DtypeStr + "*)" + src0Var);
-        extList.emplace_back(dataTypeExpr[0] + " (" + src1Var + ")");
+        extList.emplace_back(dataTypeExpr[0] + "(" + scalarVar + ")");
         auto extParam = JoinString(extList, ", ");
-
-        varMap[ToUnderlying(WhereOpIdx::src0Idx)] = &src0Var;
-        AppendLocalBufferVarOffset(varMap);
         os << tileOpName.c_str() << "<" << templateParam << ">"
-           << "(" << funcParam << ", " << extParam << "," << dynFuncParam << ");\n";
+           << "(" << funcParam << ", " << extParam << ", " << dynFuncParam << ");\n";
         return os.str();
-    } else {
-        std::string src1Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(WhereOpIdx::src1Idx)]);
-        std::string src1DtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(WhereOpIdx::src1Idx)]);
-        std::string src0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(WhereOpIdx::src0Idx)]);
+    } else { // opCode == Opcode::OP_WHERE_TT
+        std::string src0Var = varExpr[ToUnderlying(WhereOpIdx::src0Idx)];
         std::string src0DtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(WhereOpIdx::src0Idx)]);
+        std::string src1Var = varExpr[ToUnderlying(WhereOpIdx::src1Idx)];
+        std::string src1DtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(WhereOpIdx::src1Idx)]);
         extList.emplace_back("(__ubuf__ " + src0DtypeStr + "*)" + src0Var);
         extList.emplace_back("(__ubuf__ " + src1DtypeStr + "*)" + src1Var);
         auto extParam = JoinString(extList, ", ");
-
-        varMap[ToUnderlying(WhereOpIdx::src0Idx)] = &src0Var;
-        varMap[ToUnderlying(WhereOpIdx::src1Idx)] = &src1Var;
-        AppendLocalBufferVarOffset(varMap);
         os << tileOpName.c_str() << "<" << templateParam << ">"
-           << "(" << funcParam << ", " << extParam << "," << dynFuncParam << ");\n";
+           << "(" << funcParam << ", " << extParam << ", " << dynFuncParam << ");\n";
         return os.str();
     }
 }
 
-std::string CodeGenOpCloudNPU::printWhereOpTileTensor() const {
+std::string CodeGenOpCloudNPU::PrintWhereOpTileTensor() const {
     std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[static_cast<int>(WhereOpIdx::resIdx)]);
     std::string tempTensor = sm->QueryTileTensorByMagic(operandWithMagic[static_cast<int>(WhereOpIdx::tempIdx)]);
     std::string condTensor = sm->QueryTileTensorByMagic(operandWithMagic[static_cast<int>(WhereOpIdx::condIdx)]);
@@ -1323,17 +1282,17 @@ std::string CodeGenOpCloudNPU::printWhereOpTileTensor() const {
     std::string src1Tensor = sm->QueryTileTensorByMagic(operandWithMagic[static_cast<int>(WhereOpIdx::src1Idx)]);
 
     std::ostringstream oss;
-    oss << tileOpName << "(" << dstTensor << ", " << tempTensor << ", " << condTensor << ", "
-        << src0Tensor << ", " << src1Tensor << ");\n";
+    oss << tileOpName << "(" << dstTensor << ", " << tempTensor << ", " << condTensor << ", " << src0Tensor << ", "
+        << src1Tensor << ");\n";
     return oss.str();
 }
 
 std::string CodeGenOpCloudNPU::GenWhereOp() const {
     WhereParam param = PrepareWhereParam();
     if (isSupportLayout) {
-        return printWhereOpTileTensor();
+        return PrintWhereOpTileTensor();
     }
-    return printWhereOp(param);
+    return PrintWhereOp(param);
 }
 
 std::string CodeGenOpCloudNPU::GenLogicalNotOp() const {
@@ -1359,7 +1318,7 @@ std::string CodeGenOpCloudNPU::GenLogicalNotOp() const {
     std::string oneCondDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(OpIdx::oneCondIdx)]);
     std::string srcDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(OpIdx::srcIdx)]);
 
-    AppendLocalBufferVarOffset(std::vector{&dstVar, &castVar, &cmpVar, &vcmpVar, &startAddrVar, &oneCondVar, &srcVar});
+    AppendLocalBufVarOffsetInOrder(dstVar, castVar, cmpVar, vcmpVar, startAddrVar, oneCondVar, srcVar);
 
     std::ostringstream os;
     std::vector<std::string> paramList;
@@ -1398,7 +1357,7 @@ std::string CodeGenOpCloudNPU::GenLogicalNotOp() const {
 }
 
 std::string CodeGenOpCloudNPU::GenCmpOp() const {
-    enum class TensorIdx : int {dstIdx = 0, tmpIdx, src0Idx, src1Idx};
+    enum class TensorIdx : int { dstIdx = 0, tmpIdx, src0Idx, src1Idx };
 
     std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(TensorIdx::dstIdx)]);
     std::string tVar1 = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(TensorIdx::tmpIdx)]);
@@ -1411,24 +1370,24 @@ std::string CodeGenOpCloudNPU::GenCmpOp() const {
     if (isScalarMode) {
         s0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(TensorIdx::src0Idx)]);
         src0RawShape = NormalizeShape(rawShape[ToUnderlying(TensorIdx::src0Idx)], SHAPE_DIM4);
-        FillIntVecWithDummyInHead<SymbolicScalar>(newDynSrcValidShape, 
-            SHAPE_DIM4 - dynamicValidShape[ToUnderlying(TensorIdx::src0Idx)].size(), 1);
+        FillIntVecWithDummyInHead<SymbolicScalar>(
+            newDynSrcValidShape, SHAPE_DIM4 - dynamicValidShape[ToUnderlying(TensorIdx::src0Idx)].size(), 1);
     } else {
         s0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(TensorIdx::src0Idx)]);
         s1Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(TensorIdx::src1Idx)]);
         src0RawShape = NormalizeShape(rawShape[ToUnderlying(TensorIdx::src0Idx)], SHAPE_DIM4);
         src1RawShape = NormalizeShape(rawShape[ToUnderlying(TensorIdx::src1Idx)], SHAPE_DIM4);
-        FillIntVecWithDummyInHead<SymbolicScalar>(newDynSrcValidShape, 
-            SHAPE_DIM4 - dynamicValidShape[ToUnderlying(TensorIdx::src0Idx)].size(), 1);
+        FillIntVecWithDummyInHead<SymbolicScalar>(
+            newDynSrcValidShape, SHAPE_DIM4 - dynamicValidShape[ToUnderlying(TensorIdx::src0Idx)].size(), 1);
     }
 
     std::vector<int64_t> dstRawShape = NormalizeShape(rawShape[ToUnderlying(TensorIdx::dstIdx)], SHAPE_DIM4);
     std::string srcDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(TensorIdx::src0Idx)]);
 
     if (isScalarMode) {
-        AppendLocalBufferVarOffset(std::vector{&dVar, &tVar1, &s0Var});
+        AppendLocalBufVarOffsetInOrder(dVar, tVar1, s0Var);
     } else {
-        AppendLocalBufferVarOffset(std::vector{&dVar, &tVar1, &s0Var, &s1Var});
+        AppendLocalBufVarOffsetInOrder(dVar, tVar1, s0Var, s1Var);
     }
 
     auto cmpOp = opAttrs.at(OP_ATTR_PREFIX + "cmp_operation");
@@ -1490,12 +1449,7 @@ std::string CodeGenOpCloudNPU::GenCmpOp() const {
 
 std::string CodeGenOpCloudNPU::GenLogicalAndOp() const {
     // Support 2 dim
-    enum class OpIdx : int {
-        resIdx = 0,
-        tmpIdx,
-        srcIdx0,
-        srcIdx1
-    };
+    enum class OpIdx : int { resIdx = 0, tmpIdx, srcIdx0, srcIdx1 };
 
     std::string dstVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(OpIdx::resIdx)]);
     std::string tmpVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(OpIdx::tmpIdx)]);
@@ -1511,8 +1465,8 @@ std::string CodeGenOpCloudNPU::GenLogicalAndOp() const {
     std::string srcDtypeStr0 = DataType2CCEStr(operandDtype[ToUnderlying(OpIdx::srcIdx0)]);
     std::string srcDtypeStr1 = DataType2CCEStr(operandDtype[ToUnderlying(OpIdx::srcIdx1)]);
 
-    AppendLocalBufferVarOffset(std::vector{&dstVar, &tmpVar, &srcVar0, &srcVar1});
-    
+    AppendLocalBufVarOffsetInOrder(dstVar, tmpVar, srcVar0, srcVar1);
+
     std::ostringstream os;
     std::vector<std::string> paramList;
     paramList.emplace_back(srcDtypeStr0);
@@ -1537,7 +1491,7 @@ std::string CodeGenOpCloudNPU::GenLogicalAndOp() const {
     paramList.emplace_back("(" + addrType + " " + dstDtypeStr + "*)" + dstVar);
     paramList.emplace_back("(" + addrType + " " + srcDtypeStr0 + "*)" + srcVar0);
     paramList.emplace_back("(" + addrType + " " + srcDtypeStr1 + "*)" + srcVar1);
-    paramList.emplace_back("(" + addrType + " "  + tmpDtypeStr + "*)" + tmpVar);
+    paramList.emplace_back("(" + addrType + " " + tmpDtypeStr + "*)" + tmpVar);
 
     auto dynSrcShape = dynamicValidShape[ToUnderlying(OpIdx::srcIdx0)];
     for (auto dyn : dynSrcShape) {
@@ -1557,7 +1511,7 @@ std::string CodeGenOpCloudNPU::GenTopKSortOp() const {
     std::string yVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
     std::string tmpVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
     std::string xVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID2]);
-    AppendLocalBufferVarOffset(std::vector{&yVar, &tmpVar, &xVar});
+    AppendLocalBufVarOffsetInOrder(yVar, tmpVar, xVar);
 
     std::string startIdx;
     if (opAttrs.count(OpAttributeKey::dynScalar)) {
@@ -1604,7 +1558,7 @@ std::string CodeGenOpCloudNPU::GenTopKMergeOp() const {
 
     std::string yVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
     std::string xVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
-    AppendLocalBufferVarOffset(std::vector{&yVar, &xVar});
+    AppendLocalBufVarOffsetInOrder(yVar, xVar);
 
     auto xShape = this->rawShape[ID0];
 
@@ -1632,7 +1586,7 @@ std::string CodeGenOpCloudNPU::GenTopKExtractOp() const {
 
     std::string yVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
     std::string xVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
-    AppendLocalBufferVarOffset(std::vector{&yVar, &xVar});
+    AppendLocalBufVarOffsetInOrder(yVar, xVar);
 
     auto yShape = this->rawShape[ID0];
     auto xShape = this->rawShape[ID1];
