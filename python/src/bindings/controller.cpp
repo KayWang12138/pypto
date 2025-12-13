@@ -152,7 +152,8 @@ void bind_controller_function(py::module &m) {
                 const std::vector<std::pair<std::reference_wrapper<const Tensor>, std::reference_wrapper<const Tensor>>>
                     &>(),
             py::arg("name"), py::arg("inputs"), py::arg("outputs"),
-            py::arg("in_place_args"));
+            py::arg("in_place_args"))
+        .def("EndFunction", &RecordFunc::EndFunction);
     py::class_<RecordLoopFunc>(m, "RecordLoopFunc")
         .def(py::init<const std::string &, FunctionType, const std::string &, const LoopRange &, const std::set<int> &,
                  bool>(),

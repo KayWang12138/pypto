@@ -138,7 +138,9 @@ public:
         const std::vector<std::reference_wrapper<const Tensor>> &startArgsOutputTensorList,
         const std::vector<std::pair<std::reference_wrapper<const Tensor>, std::reference_wrapper<const Tensor>>> &inplaceArgs = {});
 
-    ~RecordFunc();
+    void EndFunction();
+
+    ~RecordFunc() { if (!isEnd_) EndFunction(); }
 
 private:
     void RecordDynFuncInner(const std::vector<std::reference_wrapper<const Tensor>> &startArgsInputTensorList,
@@ -146,6 +148,7 @@ private:
         const std::vector<std::pair<std::reference_wrapper<const Tensor>, std::reference_wrapper<const Tensor>>> &inplaceArgs);
     Function *dynFunc_{nullptr};
     std::string funcName;
+    bool isEnd_{false};
 };
 
 class RecordLoopFunc {

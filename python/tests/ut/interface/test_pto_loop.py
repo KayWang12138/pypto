@@ -257,8 +257,7 @@ def test_pto_auto_unroll():
             ATile = A[idx * 64:(idx + 1) * 64, :]
             if pypto.cond(pypto.is_loop_begin(idx)):
                 ATile = ATile + 1
-                ATile = ATile.sin()
             elif pypto.cond(pypto.is_loop_end(idx)):
-                ATile = ATile.cos()
+                ATile = ATile + 2
             B[idx * 64:, 0:] = ATile + 1
     pypto.runtime._device_fini()

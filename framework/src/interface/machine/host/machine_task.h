@@ -79,11 +79,14 @@ public:
     void SetCacheReuseType(const CacheReuseType cacheReuseType) { cacheReuseType_ = cacheReuseType; }
     const std::string& GetCacheKey() const { return cacheKey_; }
     void SetCacheKey(const std::string &cacheKey) { cacheKey_ = cacheKey; }
+    void SetError(std::string msg) { error = std::move(msg); }
+    const std::string &Error() { return error; }
 private:
     uint64_t taskId_;
     Function *function_;
     std::string cacheKey_;
     CacheReuseType cacheReuseType_;
+    std::string error;
 };
 }
 #endif // MACHINE_TASK_H

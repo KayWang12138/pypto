@@ -104,6 +104,9 @@ target_link_directories(tile_fwk_intf_pub
 target_link_options(tile_fwk_intf_pub
         INTERFACE
             # 安全编译选项
+            -Wl,-z,relro
+            -Wl,-z,now
+            -Wl,-z,noexecstack
             $<$<CONFIG:Release>:-s>
 )
 
@@ -151,10 +154,6 @@ if (BUILD_OPEN_PROJECT)
     )
     target_link_options(intf_pub_cxx17
             INTERFACE
-                # 安全编译选项
-                -Wl,-z,relro
-                -Wl,-z,now
-                -Wl,-z,noexecstack
                 # GCOV
                 $<$<BOOL:${ENABLE_GCOV}>:$<$<CXX_COMPILER_ID:GNU>:-fprofile-arcs -ftest-coverage>>
                 # ASAN

@@ -226,7 +226,7 @@ Status PassManager::RunPass(Program &program, Function &function, const std::str
         std::string logFolder = pass->LogFolder(config::LogTopFolder(), i);
         std::string logfilePath = logFolder + "/" + (pass->GetName() + function.GetMagicName() + ".log");
         LoggerManager::FileLoggerReplace(originLogOutPath, logfilePath, true);
-        AutoDestructorCallback adc([logfilePath, originLogOutPath]() {
+        Defer rollback([logfilePath, originLogOutPath]() {
             LoggerManager::FileLoggerReplace(logfilePath, originLogOutPath, true);
         });
         auto passDfxCfg = ConfigManager::Instance().GetPassConfigs(strategy, identifier);

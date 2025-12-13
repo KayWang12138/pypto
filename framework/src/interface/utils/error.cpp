@@ -15,10 +15,13 @@
 
 #include "tilefwk/error.h"
 
+#include <stdlib.h>
 #include <execinfo.h>
+#include <signal.h>
 #include <cstring>
 #include <sstream>
 #include <functional>
+#include <iostream>
 #include <cxxabi.h>
 #include <securec.h>
 
@@ -39,7 +42,8 @@ public:
     void ParseFrame(std::stringstream &ss, char *line) const {
         auto funcName = strstr(line, "(");
         auto funcOffset = strstr(line, "+");
-        if (funcName == nullptr || funcOffset == nullptr) {
+        auto libname = strrchr(line, '/');
+        if (funcName == nullptr || funcOffset == nullptr || libname == nullptr) {
             ss << line << '\n';
             return;
         }
@@ -52,7 +56,7 @@ public:
             /* deleter */ free);
         if (status == 0)
             funcName = demangled.get();
-        ss << line << '(' << funcName << '+' << funcOffset << '\n';
+        ss << (libname + 1) << '(' << funcName << '+' << funcOffset << '\n';
     }
 
     const std::string &Get() const {
@@ -89,5 +93,27 @@ const char *Error::what() const noexcept {
         })
         .c_str();
 }
+
+struct SignalHandler {
+    SignalHandler() {
+        struct sigaction sa;
+        sa.sa_handler = SignalHandler::SigAction;
+        sigemptyset(&sa.sa_mask);
+        sa.sa_flags = SA_RESTART;
+        sigaction(SIGSEGV, &sa, &ori);
+    }
+
+    static void SigAction(int signo) {
+        (void)signo;
+        std::cerr << "segment fault!!!\n" << GetBacktrace(0x2, 0x10)->Get() << std::endl;
+        _Exit(1);
+    }
+
+    ~SignalHandler() {
+        sigaction(SIGSEGV, &ori, nullptr);
+    }
+
+    struct sigaction ori;
+} signalHandler;
 
 } // namespace npu::tile_fwk

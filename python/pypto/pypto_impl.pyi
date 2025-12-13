@@ -298,6 +298,8 @@ class RecordFunc:
     def __init__(self, name: str, inputs: List[Tensor] = [], outputs: List[Tensor] = [],
                  inplaces: List[tuple[Tensor, Tensor]] = []): ...
 
+    def EndFunction(self): ...
+
 
 class RecordLoopFunc:
 
@@ -308,7 +310,7 @@ class RecordLoopFunc:
 
 
 def BeginFunction(name: str, graph_type: GraphType,
-                  func_type: FunctionType, *args) -> RecordFunc: ...
+                  func_type: FunctionType, *args): ...
 
 
 def EndFunction(name: str, generate_call: bool = True): ...

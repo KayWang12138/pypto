@@ -315,10 +315,10 @@ void ExecuteOpCompare(ExecuteOperationContext *ctx) {
     auto oop = ctx->ooperandInplaceDataViewList->at(0);
     auto iop_self = ctx->ioperandDataViewList->at(0);
     auto iop_other = ctx->ioperandDataViewList->at(1);
-    auto operation = static_cast<npu::tile_fwk::calc::CmpOperationType>(
+    auto operation = static_cast<CmpOperationType>(
         ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "cmp_operation")
     );
-    auto mode = static_cast<npu::tile_fwk::calc::CmpModeType>(
+    auto mode = static_cast<CmpModeType>(
         ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "cmp_mode")
     );
     calc::Compare(oop, iop_self, iop_other, operation, mode);

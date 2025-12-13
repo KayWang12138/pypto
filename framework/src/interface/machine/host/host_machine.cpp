@@ -199,12 +199,20 @@ void HostMachine::SubTask(Function *function) {
 
 void HostMachine::WaitTaskFinish() {
     while (curTaskId_ != finishQueue_.Size()) {
+        usleep(1000); // sleep 1000 us
     } // wait all task finish
     ALOG_DEBUG("Finish all host machine task count: %lu", curTaskId_);
 
     /* reset counter */
     curTaskId_ = 0;
-    finishQueue_.Clear();
+    while (!finishQueue_.Empty()) {
+        auto task = finishQueue_.Pop();
+        auto &error = task->Error();
+        if (!error.empty()) {
+            finishQueue_.Clear();
+            throw std::runtime_error(error);
+        }
+    }
 }
 
 void HostMachine::StashTask(Function* function) {
@@ -306,7 +314,15 @@ void HostMachine::CompileThreadFunc() {
         }
         task = compileQueue_.Pop();
         lock.unlock();
-        (void)Compile(task.get());
+
+        try {
+            (void)Compile(task.get());
+        } catch (const Error &e) {
+            task->SetError(e.what());
+            PushFinishQueue(std::move(task));
+            return;
+        }
+
         PushAgentQueue(std::move(task));
     }
 }
@@ -319,7 +335,6 @@ void HostMachine::AgentThreadFunc() {
     while (!stopFlag_.load()) {
         std::unique_ptr<MachineTask> task;
         std::unique_lock<std::mutex> lock(agentQueueMutex_);
-
         agentQueueCv_.wait(lock, [this] { return !agentQueue_.Empty() || stopFlag_.load(); });
         if (stopFlag_.load()) {
             break;
@@ -327,15 +342,19 @@ void HostMachine::AgentThreadFunc() {
         task = agentQueue_.Pop();
         lock.unlock();
 
-        auto &cache = Program::GetInstance().GetFunctionCache();
-        auto &backend = Backend::GetBackend();
-        if (backend.simuExecute && config::GetPlatformConfig(KEY_ENABLE_COST_MODEL, true)) {
-            ALOG_INFO("Simulate function %s", task->GetFunction()->GetMagicName());
-            backend.simuExecute(task.get(), cache);
-        }
-        if (backend.execute && config::GetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true)) {
-            ALOG_INFO("Compile function %s", task->GetFunction()->GetMagicName());
-            backend.execute(task.get(), cache);
+        try {
+            auto &cache = Program::GetInstance().GetFunctionCache();
+            auto &backend = Backend::GetBackend();
+            if (backend.simuExecute && config::GetPlatformConfig(KEY_ENABLE_COST_MODEL, true)) {
+                ALOG_INFO("Simulate function %s", task->GetFunction()->GetMagicName());
+                backend.simuExecute(task.get(), cache);
+            }
+            if (backend.execute && config::GetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true)) {
+                ALOG_INFO("Compile function %s", task->GetFunction()->GetMagicName());
+                backend.execute(task.get(), cache);
+            }
+        } catch (const std::exception &e) {
+            task->SetError(std::move(e.what()));
         }
         PushFinishQueue(std::move(task));
     }

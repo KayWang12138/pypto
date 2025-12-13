@@ -513,13 +513,11 @@ def lightning_indexer_prolog_inner(args: LightningIndexerPrologArgs):
         args.block_table,
     ]
     output_tensors = [args.query, args.weight]
-    inplace_tensors = [[args.k_cache_out, args.k_cache]]
 
     with pypto.function(
         "LightningIndexerProlog",
         input_tensors,
-        output_tensors,
-        inplace_tensors,
+        output_tensors
     ):
         lightning_indexer_prolog_impl(args)
 

@@ -42,3 +42,8 @@ TEST(CommonTest, OrderedMap) {
     EXPECT_EQ(key, mkey);
     EXPECT_EQ(val, mval);
 }
+
+TEST(CommonTest, GetBacktrace) {
+    auto str = GetBacktrace(1, 0x8)->Get();
+    EXPECT_TRUE(str.find("tile_fwk_utest") != std::string::npos);
+}

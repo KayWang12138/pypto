@@ -27,6 +27,9 @@ public:
     static void SetUpTestCase() {}
 
     void SetUp() override {
+        if (!calc::IsVerifyEnabled()) {
+            GTEST_SKIP() << "Verify not supported skip the verify test";
+        }
         Program::GetInstance().Reset();
         config::Reset();
     }
@@ -57,6 +60,15 @@ TEST_F(TorchAdaptorTest, LogicalNot) {
     ASSERT_ALLCLOSE(out, golden);
 }
 
+TEST_F(TorchAdaptorTest, LogicalAnd) {
+    auto self = makeTensorData(DT_BOOL, {16, 16}, true);
+    auto other = makeTensorData(DT_BOOL, {16, 16}, true);
+    auto out = makeTensorData(DT_BOOL, {16, 16}, false);
+    auto golden = makeTensorData(DT_BOOL, {16, 16}, true);
+    calc::LogicalAnd(out, self, other);
+    ASSERT_ALLCLOSE(out, golden);
+}
+
 TEST_F(TorchAdaptorTest, Range) {
     std::vector<float> gdata = {1.1, 2.2, 3.3, 4.4, 5.5, 6.6, 7.7};
     auto out = makeTensorData(DT_FP32, {7}, 0.0f);
@@ -69,9 +81,58 @@ TEST_F(TorchAdaptorTest, Compare) {
     auto self = makeTensorData(DT_FP32, {16, 16}, 4.0f);
     auto other = makeTensorData(DT_FP32, {16, 16}, 4.0f);
     auto out = makeTensorData(DT_BOOL, {16, 16}, false);
-    auto golden = makeTensorData(DT_BOOL, {16, 16}, true);
-    calc::Compare(out, self, other, npu::tile_fwk::calc::CmpOperationType::EQ, npu::tile_fwk::calc::CmpModeType::BOOL);
-    ASSERT_ALLCLOSE(out, golden);
+    auto golden_true = makeTensorData(DT_BOOL, {16, 16}, true);
+    auto golden_false = makeTensorData(DT_BOOL, {16, 16}, false);
+
+    struct {
+        CmpOperationType type;
+        CmpModeType mode;
+        bool expect;
+    } cases[] = {
+        {CmpOperationType::EQ, CmpModeType::BOOL, true},
+        {CmpOperationType::NE, CmpModeType::BOOL, false},
+        {CmpOperationType::LT, CmpModeType::BOOL, false},
+        {CmpOperationType::LE, CmpModeType::BOOL, true},
+        {CmpOperationType::GT, CmpModeType::BOOL, false},
+        {CmpOperationType::GE, CmpModeType::BOOL, true},
+    };
+    for (const auto &test : cases) {
+        calc::Compare(out, self, other, test.type, test.mode);
+        if (test.expect) {
+            ASSERT_ALLCLOSE(out, golden_true);
+        } else {
+            ASSERT_ALLCLOSE(out, golden_false);
+        }
+    }
+}
+
+TEST_F(TorchAdaptorTest, CompareBit) {
+    auto self = makeTensorData(DT_FP32, {16, 16}, 4.0f);
+    auto other = makeTensorData(DT_FP32, {16, 16}, 4.0f);
+    auto out = makeTensorData(DT_UINT8, {16, 2}, false);
+    auto golden_1 = makeTensorData(DT_UINT8, {16, 2}, (uint8_t)0xFF);
+    auto golden_0 = makeTensorData(DT_UINT8, {16, 2}, (uint8_t)0);
+
+    struct {
+        CmpOperationType type;
+        CmpModeType mode;
+        bool expect;
+    } cases[] = {
+        {CmpOperationType::EQ, CmpModeType::BIT, true},
+        {CmpOperationType::NE, CmpModeType::BIT, false},
+        {CmpOperationType::LT, CmpModeType::BIT, false},
+        {CmpOperationType::LE, CmpModeType::BIT, true},
+        {CmpOperationType::GT, CmpModeType::BIT, false},
+        {CmpOperationType::GE, CmpModeType::BIT, true},
+    };
+    for (const auto &test : cases) {
+        calc::Compare(out, self, other, test.type, test.mode);
+        if (test.expect) {
+            ASSERT_ALLCLOSE(out, golden_1);
+        } else {
+            ASSERT_ALLCLOSE(out, golden_0);
+        }
+    }
 }
 
 TEST_F(TorchAdaptorTest, UnaryOps) {

@@ -802,11 +802,13 @@ inline bool IsVerifyEnable() {
         config::GetVerifyOption<bool>(KEY_VERIFY_PASS);
 }
 
-RecordFunc::~RecordFunc() {
+void RecordFunc::EndFunction() {
     if (IsVerifyEnable()) {
         config::SetRunDataOption(KEY_FLOW_VERIFY_PATH, config::GetAbsoluteTopFolder() + "/verify");
     }
 
+    // might raise exception in EndFunction, force isEnd_ is always set
+    Defer clean([this](){ isEnd_ = true;});
     (void)Program::GetInstance().EndFunction(funcName);
     if (dynFunc_) {
         Program::GetInstance().SetLastFunction(dynFunc_);

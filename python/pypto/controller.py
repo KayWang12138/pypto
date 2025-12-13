@@ -186,7 +186,7 @@ def begin_function(
     graph_type: pypto_impl.GraphType,
     func_type: pypto_impl.FunctionType,
     *args
-) -> pypto_impl.RecordFunc:
+):
     args = [arg.base() for arg in args]
     Controller.reset()
     return pypto_impl.BeginFunction(name, graph_type, func_type, *args)
@@ -281,13 +281,8 @@ def is_loop_end(scalar: SymInt):
         pypto_impl.IsLoopEnd(to_sym(scalar), getattr(scalar, "_loop_end")))
 
 
-@overload
-def function(
-    name: str,
-    in_tensors: List[Tensor],
-    out_tensors: List[Tensor],
-    **kwargs
-):
+@contextmanager
+def function(name: str, in_tensors: List[Tensor], out_tensors: Optional[List[Tensor]] = None):
     """ defining the function
 
     This API record the function and dataflow user has defined. A computing
@@ -310,49 +305,15 @@ def function(
 
     Examples
     --------
-    >>> with pypto.function("main", [a, b], c):
+    >>> with pypto.function("main", [a, b], [c]):
             pypto.set_vec_tile_shapes(16, 16)
             for _ in pypto.loop(0, b_loop, 1, name, = "LOOP_L0_bIdx_mla_prolog",
                 idx_name = "b_idx"):
                 c[:] = a+b
 
     """
-    ...
-
-
-@overload
-def function(name: str, *args, **kwargs):
-    """
-    The function with only name and tensors. The function type is static.
-
-    Parameters
-    ----------
-    name: str
-        The name of the function
-    *args: List[Tensor]
-        The list of input and output tensors
-    static: bool, optional
-        Whether the function is static or not. Default is True.
-
-    Returns
-    -------
-    return the function in pypto framework. Operations will be added
-    under this API. It will produce the computing graph of the function
-    in the end.
-
-    Examples
-    --------
-    >>> with pypto.function("main", a, b, c):
-            c[:] = a+b
-
-    """
-    ...
-
-
-@contextmanager
-def function(name: str, *args, **kwargs):
-    in_tensors = [] if len(args) == 0 else args[0]
-    out_tensors = [] if len(args) <= 1 else args[1]
+    if out_tensors is None:
+        out_tensors = []
     inputs = [t.base() for t in in_tensors]
     outputs = [t.base() for t in out_tensors]
     func = None
@@ -361,12 +322,13 @@ def function(name: str, *args, **kwargs):
         set_source_location(level=2)
         func = pypto_impl.RecordFunc(name, inputs, outputs, [])
         clear_source_location()
-        yield func
+        yield
     except Exception as e:
         logging.error("Record function %s failed: %s", name, e)
         raise
     finally:
-        del func
+        assert func
+        func.EndFunction()
 
 
 def cond(scalar: SymInt):

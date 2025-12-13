@@ -35,12 +35,6 @@ def load_shared_libs():
 
     _load_shared_lib(_desc=["libc_sec.so", not use_cann, ])
 
-    calc_file: Path = Path(lib_dir, "libtile_fwk_calculator.so")
-    if calc_file.exists():
-        import torch
-        # calculator.so depends on torch, so load it after torch
-        ctypes.CDLL(str(calc_file), mode=ctypes.RTLD_LOCAL)
-
     # name, load
     desc_lst: List[List[Any]] = [
         ["libtile_fwk_interface.so", True, ],

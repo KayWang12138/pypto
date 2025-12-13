@@ -539,10 +539,10 @@ inline std::set<int> PowersOf2(int n) {
     return result;
 }
 
-class AutoDestructorCallback {
+class Defer {
 public:
-    AutoDestructorCallback(std::function<void()> callback) : callback_(std::move(callback)) {}
-    ~AutoDestructorCallback() { callback_(); }
+    Defer(std::function<void()> callback) : callback_(std::move(callback)) {}
+    ~Defer() { callback_(); }
 
 private:
     std::function<void()> callback_;

@@ -58,16 +58,13 @@ PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_interface)
 
 if (ENABLE_TORCH_VERIFIER)
     add_library(tile_fwk_calculator SHARED)
-    target_link_libraries(tile_fwk_interface
-            PUBLIC
-                tile_fwk_calculator
-    )
     target_sources(tile_fwk_calculator
             PRIVATE
                 interpreter/calculator/calc_torch.cpp
     )
-    target_compile_definitions(tile_fwk_calculator
+    target_compile_options(tile_fwk_calculator
             PRIVATE
+                $<$<BOOL:${ENABLE_GCOV}>:$<$<CXX_COMPILER_ID:GNU>:--coverage -fprofile-arcs -ftest-coverage>>
                 -D_GLIBCXX_USE_CXX11_ABI=${PY3_MOD_TORCH_C_GLIBCXX_USE_CXX11_ABI}
                 -D__DEVICE__
             PUBLIC
@@ -93,10 +90,13 @@ if (ENABLE_TORCH_VERIFIER)
                 json
                 c_sec
                 torch
+                tile_fwk_intf_pub
+                $<$<BOOL:${ENABLE_GCOV}>:$<$<CXX_COMPILER_ID:GNU>:gcov>>
     )
     target_link_options(tile_fwk_calculator
             PRIVATE
                 -Wl,-no-as-needed,${PY3_MOD_TORCH_ROOT_PATH}/lib/libtorch_cpu.so -Wl,-as-needed
                 -Wl,-no-as-needed,${PY3_MOD_TORCH_ROOT_PATH}/lib/libc10.so -Wl,-as-needed
+                $<$<BOOL:${ENABLE_GCOV}>:$<$<CXX_COMPILER_ID:GNU>:-fprofile-arcs -ftest-coverage>>
     )
 endif () ## ENABLE_TORCH_VERIFIER
