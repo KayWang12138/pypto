@@ -153,7 +153,7 @@ OpcodeManager::OpcodeManager() {
     registerInfo(Opcode::OP_SCATTER_ELEMENT, OpCoreType::AIV, "SCATTER_ELEMENT",
         {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::TscatterElementS", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::OTHER, {OP_ATTR_PREFIX + "axis", OpAttributeKey::scalar, OP_ATTR_PREFIX + "scatter_mode"}, TileShapeVerifier::Verify);
     registerInfo(Opcode::OP_SCATTER, OpCoreType::AIV, "SCATTER",
-        {MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::Tscatter", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::OTHER, {OP_ATTR_PREFIX + "axis", OP_ATTR_PREFIX + "scatter_mode"}, TileShapeVerifier::Verify);
+        {MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::Tscatter", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::OTHER, {OP_ATTR_PREFIX + "axis", OP_ATTR_PREFIX + "scatter_mode"}, TileShapeVerifier::Verify);
     registerInfo(Opcode::OP_INDEX_PUT, OpCoreType::AIV, "INDEX_PUT",
         {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::Tindexput", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER, {"axis"}, TileShapeVerifier::Verify);
     registerInfo(Opcode::OP_SCATTER_UPDATE, OpCoreType::ANY, "SCATTER_UPDATE",
@@ -446,6 +446,8 @@ OpcodeManager::OpcodeManager() {
         {                Opcode::OP_SUB,           "TSub"},
         {                Opcode::OP_DIV,           "TDiv"},
         {                Opcode::OP_MUL,           "TMul"},
+        {    Opcode::OP_SCATTER_ELEMENT, "TscatterElementS"},
+        {            Opcode::OP_SCATTER,       "Tscatter"},
         {             Opcode::OP_EXPAND,        "TExpand"},
         {            Opcode::OP_BITSORT,       "TBitSort"},
         {            Opcode::OP_MRGSORT,       "TMrgSort"},

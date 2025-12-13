@@ -1543,13 +1543,13 @@ def scatter_tensor_golden_func(inputs, config: dict):
     reduceop = params["reduce"]
     indices = torch.from_numpy(inputs[1])
 
-    if inputs[0].dtype == bfloat16:
+    if inputs[0].dtype == bfloat16 or inputs[0].dtype == np.float16:
         dst = torch.from_numpy(inputs[0].astype(np.float32))
         src = torch.from_numpy(inputs[2].astype(np.float32))
         if len(reduceop) == 0 or reduceop == "None":
-            res = dst.scatter(axis, indices, src).numpy().astype(bfloat16)
+            res = dst.scatter(axis, indices, src).numpy().astype(inputs[0].dtype)
         else:
-            res = dst.scatter(axis, indices, src, reduce=reduceop).numpy().astype(bfloat16)
+            res = dst.scatter(axis, indices, src, reduce=reduceop).numpy().astype(inputs[0].dtype)
     else:
         dst = torch.from_numpy(inputs[0])
         src = torch.from_numpy(inputs[2])
