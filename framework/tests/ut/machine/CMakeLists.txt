@@ -41,8 +41,6 @@ set(_CaseFilterList
         "PlatformTest.TestPlatfromCase1"
         # 框架相关用例
         "TestMemoryAttribute.MemorySizeTest"
-        #"TestIncastOverlap.AddSubExp_12_8"
-        #"SerializationTest.TestAddSub"
         "TestSuite_Backend.AihacBackend_Err1"
         "TestSuite_Backend.SimulationBackend_Err1"
         "DynamicMatmulUTest.mm_A_B_ND_bf16"

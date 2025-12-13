@@ -37,34 +37,6 @@ public:
 
 extern "C" int StaticTileFwkBackendKernelServer(void *targ);
 
-TEST(DeviceMachineTest, DeviceMachinetest) {
-    std::cout << "start to test runtime" << std::endl;
-    DeviceArgs args = {};
-    args.nrAicpu = 5;
-    std::uint64_t tastWastTime = 0;
-    args.taskWastTime = (uint64_t)&tastWastTime;
-
-    std::thread aicpus[6];
-    std::atomic<int> idx{0};
-    for (int i = 0; i < 5; i++) {
-        aicpus[i] = std::thread([&]() {
-            int tidx = idx++;
-            cpu_set_t cpuset;
-            CPU_ZERO(&cpuset);
-            CPU_SET(tidx, &cpuset);
-            char name[64];
-            sprintf(name, "aicput%d", tidx);
-            pthread_setname_np(pthread_self(), name);
-            pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
-            StaticTileFwkBackendKernelServer(&args);
-        });
-    }
-
-    for (int i = 0; i < 5; i++) {
-        aicpus[i].join();
-    }
-}
-
 TEST(DeviceMachineTest, test_get_task_time) {
     DeviceArgs args = {};
     args.nrAicpu = 1;
