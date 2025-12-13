@@ -201,6 +201,16 @@ static void FindAllExpression(FunctionCache &cache, Linker &linker, Function *fu
             Function *leafFunc = cache.GetCacheFunction(hash);
             FindAllExpression(cache, linker, leafFunc);
         }
+        for (auto &incast : func->inCasts_) {
+            for (auto  &arg : incast->GetRawTensor()->GetDynRawShape()) {
+                linker.AddPrimaryExpressionForDevRootCoa(func, arg);
+            }
+        }
+        for (auto &outcast : func->outCasts_) {
+            for (auto  &arg : outcast->GetRawTensor()->GetDynRawShape()) {
+                linker.AddPrimaryExpressionForDevRootCoa(func, arg);
+            }
+        }
     } else if (func->GetGraphType() == GraphType::BLOCK_GRAPH) {
         for (auto &op : func->Operations()) {
             if (op.GetOpcode() == Opcode::OP_VEC_DUP) {

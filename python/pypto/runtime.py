@@ -114,10 +114,10 @@ class JIT:
         self._handler = handler
         self._is_compiled = True
 
-    def run(self, in_tensor_data, out_tensor_data, device_id):
+    def run(self, in_tensor_data, out_tensor_data, device):
         assert self._handler is not None
         workspace_size = pypto_impl.GetWorkSpaceSize(self._handler)
-        workspace_tensor = torch.zeros(workspace_size, dtype=torch.uint8, device=device_id)
+        workspace_tensor = torch.empty(workspace_size, dtype=torch.uint8, device=device)
         pypto_impl.OperatorDeviceRunOnceDataFromDevice(
             self._handler,
             in_tensor_data,
@@ -135,10 +135,10 @@ class JIT:
             ori_device = current_device()
             if device and device.index != ori_device:
                 set_device(device.index)
-                self.run(in_tensor_data, out_tensor_data, device.index)
+                self.run(in_tensor_data, out_tensor_data, device)
                 set_device(ori_device)
             else:
-                self.run(in_tensor_data, out_tensor_data, ori_device)
+                self.run(in_tensor_data, out_tensor_data, device)
 
     def run_with_cpu(self, in_tensor_data, out_tensor_data):
         # call cost_model interface
