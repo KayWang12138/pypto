@@ -812,7 +812,7 @@ void SimSys::PrintCoreStat()
 
 void SimSys::PrintStat()
 {
-    std::streambuf *coutBuf;
+    std::streambuf *coutBuf = nullptr;
     if (config.statisticReportToFile) {
         std::string outPath = GetFileName(outdir, jsonPath, "", "stat.report.txt");
         MLOG_WARN("Statistic Path:", outPath);

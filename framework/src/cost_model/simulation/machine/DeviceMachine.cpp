@@ -65,7 +65,7 @@ void DeviceMachine::RunAtBegin()
         if (submachine->machineType == MachineType::CPU) {
             auto core = std::dynamic_pointer_cast<AICPUMachine>(submachine);
             if (!core->localReadyQueues.Empty()) {
-                uint64_t taskId;
+                uint64_t taskId = 0;
                 core->localReadyQueues.Dequeue(taskId);
                 MLOG_INFO("Dequeued task ID:", taskId);
                 PushReadyQueue(taskMap.at(taskId)->machineType, taskId);
