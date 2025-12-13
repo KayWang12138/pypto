@@ -351,6 +351,274 @@ Status OoOScheduler::PriorDFS(std::unordered_map<Opcode, int> preNodePriority) {
     return SUCCESS;
 }
 
+// 在 curIssueEntries 中将 preIssue 中的序列提前到 startIndex 之后，更新 curIssueEntries
+Status OoOScheduler::ReorderIssue(std::vector<size_t> &preIdx, std::vector<IssueEntryPtr> &curIssueEntries,
+    size_t startIndex) {
+    // 对 perIssue 排序，再进行插入
+    if (preIdx.empty()) {
+        APASS_LOG_ERROR_F(Elements::Operation, "ReorderIssue failed; Please check the size of preIdx.");
+        return FAILED;
+    }
+    std::sort(preIdx.begin(), preIdx.end());
+    std::vector<IssueEntryPtr> moveIssueEntries;
+    for (auto i : preIdx) {
+        if (i <= startIndex) {
+            APASS_LOG_ERROR_F(Elements::Operation, "ReorderIssue failed; Please check the contents of preIdx.");
+            return FAILED;
+        }
+        moveIssueEntries.push_back(curIssueEntries[i]);
+    }
+    for (auto it = preIdx.rbegin(); it != preIdx.rend(); ++it) {
+        curIssueEntries.erase(curIssueEntries.begin() + (*it));
+    }
+    curIssueEntries.insert(curIssueEntries.begin() + startIndex + 1, moveIssueEntries.begin(), moveIssueEntries.end());
+    return SUCCESS;
+}
+
+void OoOScheduler::FindIndex(IssueEntryPtr issue, std::vector<IssueEntryPtr> curIssueEntries, size_t &index) {
+    for (size_t i = 0; i < curIssueEntries.size(); i++) {
+        if (curIssueEntries[i] == issue) {
+            index = i;
+            return;
+        }
+    }
+}
+
+// 在curIssueEntries中，向前遍历找到consumerIndex的前序未被访问的节点，并放入preIssue中
+void OoOScheduler::FindConsumerList(size_t consumerIndex, std::vector<size_t> &preIssue, std::vector<IssueEntryPtr> &curIssueEntries) {
+    visitedIssue[curIssueEntries[consumerIndex]] = true;
+    preIssue.push_back(consumerIndex);
+    for (auto preId : curIssueEntries[consumerIndex]->predecessors) {
+        auto issue =  issueEntryMap[preId];
+        if (visitedIssue[issue] == false) {
+            size_t index;
+            FindIndex(issue, curIssueEntries, index);
+            FindConsumerList(index, preIssue, curIssueEntries);
+        }
+    }
+}
+
+// 将 consumersGroup 和其前序依赖按原有顺序放入 preIssue
+Status OoOScheduler::UpdateOOperandPreDependence(size_t startIndex, std::vector<IssueEntryPtr> &curIssueEntries,
+    std::vector<IssueEntryPtr> consumersGroup) {
+    // curIssueEntries 中向后找
+    std::vector<size_t> preIssue;
+    size_t index = startIndex;
+    while (index < curIssueEntries.size()) {
+        if (std::find(consumersGroup.begin(), consumersGroup.end(), curIssueEntries[index]) != consumersGroup.end()) {
+            FindConsumerList(index, preIssue, curIssueEntries);
+        }
+        index++;
+    }
+    if (ReorderIssue(preIssue, curIssueEntries, startIndex) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Function, "ReorderIssue failed; Please check the ReorderIssue method.");
+        return FAILED;
+    }
+    return SUCCESS;
+}
+
+// 回溯后，将队列后面 issue 的 retire 状态和 visitedIssue 状态还原回 false，并对应增加 refcount
+void OoOScheduler::RecoverSymbol(size_t startIndex, std::vector<IssueEntryPtr> curIssueEntries) {
+    size_t index = startIndex + 1;
+    while (index < curIssueEntries.size()) {
+        auto issue = curIssueEntries[index];
+        visitedIssue[issue] = false;
+        issue->isRetired = false;
+        for (auto memId : issue->reqMemIds) {
+            bufRefCount[memId]++;
+        }
+        index++;
+    }
+}
+
+// 找未被执行的 consumer
+void OoOScheduler::GetConsumerGroup(std::vector<IssueEntryPtr> consumers, std::vector<IssueEntryPtr> &consumersGroup) {
+    for (auto issue : consumers) {
+        if (visitedIssue[issue] == false) {
+            consumersGroup.push_back(issue);
+        }
+    }
+}
+
+Status OoOScheduler::BacktraceOnMemoryExceeded(size_t &startIndex,
+    std::vector<IssueEntryPtr> &curIssueEntries, std::map<MemoryType, int64_t> &curMemoryMap) {
+    APASS_LOG_DEBUG_F(Elements::Tensor, "=====> Start Backtrace.");
+    MemoryType memType = curIssueEntries[startIndex]->tileOp.GetOutputOperand(0)->GetMemoryTypeOriginal();
+    while (startIndex < curIssueEntries.size() && startIndex > 0) {
+        startIndex--;
+        IssueEntryPtr issue = curIssueEntries[startIndex];
+        RecoverSymbol(startIndex, curIssueEntries);
+        if (!needFreeIssueStack.empty() && needFreeIssueStack.top().first == curIssueEntries[startIndex]) {
+            break;
+        }
+        if (recordIssueBuffer[issue] != memType || issue->isAlloc) {
+            continue;
+        }
+        std::vector<IssueEntryPtr> consumers;
+        consumers.reserve(issue->successors.size());
+        for (auto succIdx : issue->successors) {
+            consumers.push_back(issueEntryMap[succIdx]);
+        }
+        std::vector<IssueEntryPtr> consumersGroup;
+        GetConsumerGroup(consumers, consumersGroup);
+        if (consumersGroup.empty()) {
+            continue;
+        }
+        curMemoryMap = recordBufferAllocate[issue];
+        needFreeIssueStack.push(make_pair(issue, recordIssueBuffer[issue]));
+        UpdateOOperandPreDependence(startIndex, curIssueEntries, consumersGroup);
+        startIndex++;
+        return SUCCESS;
+    }
+    if (needFreeIssueStack.empty()) {
+        APASS_LOG_ERROR_F(Elements::Tensor, "Stack is empty. Failed to find problem");
+        return FAILED;
+    }
+    auto topNode = needFreeIssueStack.top();
+    needFreeIssueStack.pop();
+    curIssueEntries = recordIssueEntries[topNode.first].second;
+    size_t index = recordIssueEntries[topNode.first].first;
+    curMemoryMap = recordBufferAllocate[topNode.first];
+    if (BacktraceOnMemoryExceeded(index, curIssueEntries, curMemoryMap) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Tensor, "BacktraceOnMemoryExceeded Failed");
+        return FAILED;
+    }
+    return SUCCESS;
+}
+
+// 计算 tensor 对应的 memType （只对 L0C L0A L0B 进行内存处理） 是否已满
+bool OoOScheduler::IsBufferFull(std::map<MemoryType, int64_t> curMemoryMap, MemoryType memType, int64_t size) {
+    if (memType != MemoryType::MEM_L0A && memType != MemoryType::MEM_L0B && memType != MemoryType::MEM_L0C) {
+        APASS_LOG_DEBUG_F(Elements::Operation, "MemoryType is not L0A, L0B, or L0C.");
+        return false;
+    }
+    if (curMemoryMap[memType] + size > localMemorySize[memType]) {
+        return true;
+    }
+    return false;
+}
+
+// 修改内存
+Status OoOScheduler::ModifyBuffer(std::map<MemoryType, int64_t> &curMemoryMap, MemoryType memType, int64_t size, bool isAdd) {
+    if (memType != MemoryType::MEM_L0A && memType != MemoryType::MEM_L0B && memType != MemoryType::MEM_L0C) {
+        APASS_LOG_DEBUG_F(Elements::Operation, "MemoryType is not L0A, L0B, or L0C.");
+        return SUCCESS;
+    }
+    if (isAdd) {
+        if (curMemoryMap[memType] + size > localMemorySize[memType]) {
+            APASS_LOG_ERROR_F(Elements::Tensor, "Failed to increase memory");
+            return FAILED;
+        }
+        curMemoryMap[memType] = curMemoryMap[memType] + size;
+        return SUCCESS;
+    }
+    if (curMemoryMap[memType] - size < 0) {
+        APASS_LOG_ERROR_F(Elements::Tensor, "Failed to reduce memory");
+        return FAILED;
+    }
+    curMemoryMap[memType] = curMemoryMap[memType] - size;
+    return SUCCESS;
+}
+
+// 释放内存
+Status OoOScheduler::RetireIssueBuffer(std::map<MemoryType, int64_t> &curMemoryMap, IssueEntryPtr issue) {
+    issue->isRetired = true;
+    for (auto memId : issue->reqMemIds) {
+        if (DelBufRefCount(memId) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Tensor, "DelBufRefCount tensor[%d] failed.", memId);
+            return FAILED;
+        }
+        if (bufRefCount[memId] == 0) {
+            if (ModifyBuffer(curMemoryMap, localBufferMap[memId]->memType, localBufferMap[memId]->size, false) != SUCCESS) {
+                APASS_LOG_ERROR_F(Elements::Tensor, "Free tensor[%d] failed.", memId);
+                return FAILED;
+            }
+        }
+    }
+    return SUCCESS;
+}
+
+void OoOScheduler::issueMemoryUpdate(IssueEntryPtr issue, size_t startIndex, std::vector<IssueEntryPtr> curIssueEntries,
+    std::map<MemoryType, int64_t> curMemoryMap) {
+    recordIssueEntries[issue] = make_pair(startIndex, curIssueEntries);
+    recordBufferAllocate[issue] = curMemoryMap;
+    recordIssueBuffer[issue] = issue->tileOp.GetOutputOperand(0)->GetMemoryTypeOriginal();
+}
+
+Status OoOScheduler::AllocExecute(IssueEntryPtr issue, std::vector<IssueEntryPtr> &curIssueEntries,
+    std::map<MemoryType, int64_t> &curMemoryMap, size_t &startIndex, bool &isContinue) {
+    auto allocBuffer = localBufferMap[issue->reqMemIds[0]];
+    if (IsBufferFull(curMemoryMap, allocBuffer->memType, allocBuffer->size)) {
+        if (BacktraceOnMemoryExceeded(startIndex, curIssueEntries, curMemoryMap) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Tensor, "AllocExecute failed.");
+            return FAILED;
+        }
+        isContinue = true;
+        return SUCCESS;
+    }
+    return SUCCESS;
+}
+
+Status OoOScheduler::IssueEntriesExecute(std::vector<IssueEntryPtr> &curIssueEntries,
+    std::map<MemoryType, int64_t> &curMemoryMap, size_t &startIndex) {
+    if (curIssueEntries.empty()) {
+        curIssueEntries = issueEntries;
+    }
+    while (startIndex < curIssueEntries.size()) {
+        auto issue = curIssueEntries[startIndex];
+        APASS_LOG_DEBUG_F(Elements::Operation, "execute issue: %s", issue->GetOpInfo());
+        if (issue->isAlloc) {
+            bool isContinue = false;
+            if (AllocExecute(issue, curIssueEntries, curMemoryMap,  startIndex, isContinue) != SUCCESS) {
+                APASS_LOG_ERROR_F(Elements::Tensor, "AllocExecute failed.");
+                return FAILED;
+            }
+            if (isContinue) {
+                return SUCCESS;
+            }
+            auto allocBuffer = localBufferMap[issue->reqMemIds[0]];
+            if (ModifyBuffer(curMemoryMap, allocBuffer->memType, allocBuffer->size, true) != SUCCESS) {
+                APASS_LOG_ERROR_F(Elements::Tensor, "Allocate tensor[%u] failed.", allocBuffer->id);
+                return FAILED;
+            }
+        }
+        visitedIssue[issue] = true;
+        issueMemoryUpdate(issue, startIndex, curIssueEntries, curMemoryMap);
+        if (RetireIssueBuffer(curMemoryMap, issue) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Operation, "RetireIssue failed! %s", GetFormatBacktrace(issue->tileOp).c_str());
+            return FAILED;
+        }
+        issueMemoryUpdate(issue, startIndex, curIssueEntries, curMemoryMap);
+        startIndex += 1;
+    }
+    issueFinish = true;
+    return SUCCESS;
+}
+
+Status OoOScheduler::ExecuteIssue() {
+    std::vector<IssueEntryPtr> curIssueEntries;
+    std::map<MemoryType, int64_t> curMemoryMap = {{MemoryType::MEM_L0A, 0}, {MemoryType::MEM_L0B, 0},
+        {MemoryType::MEM_L0C, 0}};
+    size_t startIndex{0};
+    for (auto &issue : issueEntries) {
+        visitedIssue[issue] = false;
+    }
+    while(!issueFinish) {
+        if (IssueEntriesExecute(curIssueEntries, curMemoryMap, startIndex) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Operation, "IssueEntriesExecute failed.");
+            return FAILED;
+        }
+    }
+    issueEntries = curIssueEntries;
+    // 初始化修改了的 isretired 和 refcount
+    InitBufRefCount();
+    if (InitDependencies() != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "InitDependencies failed!");
+        return FAILED;
+    }
+    return SUCCESS;
+}
+
 Status OoOScheduler::SortOps() {
     std::string sortMethodStr;
     std::string funcName = function_.GetMagicName();
@@ -375,6 +643,10 @@ Status OoOScheduler::SortOps() {
         };
         if (PriorDFS(preNodePriority) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "PriorDFS failed.");
+            return FAILED;
+        }
+        if (ExecuteIssue() != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Operation, "ExecuteIssueEntries failed.");
             return FAILED;
         }
     } else if (sortMethodStr == "LayerBasedDFS") {

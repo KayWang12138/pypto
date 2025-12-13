@@ -28,6 +28,22 @@
 namespace npu::tile_fwk {
 constexpr int OOO_NUM2 = 2;
 constexpr int OOO_NUM209 = 209;
+std::unordered_map<Opcode, int> preNodePriority = {
+            // ALLOC 节点优先级最高，因为一个节点的前序ALLOC节点要在最靠近该节点的地方访问。
+            {Opcode::OP_UB_ALLOC, 0}, {Opcode::OP_L1_ALLOC, 0}, {Opcode::OP_L0A_ALLOC, 0}, {Opcode::OP_L0B_ALLOC, 0},
+            {Opcode::OP_L0C_ALLOC, 0}, {Opcode::OP_BT_ALLOC, 0}, {Opcode::OP_FIX_ALLOC, 0},
+            // 其次是L0级数据搬运Op。
+            {Opcode::OP_L1_TO_L0A, 1}, {Opcode::OP_L1_TO_L0B, 1}, {Opcode::OP_L1_TO_L0_AT, 1},
+            {Opcode::OP_L1_TO_L0_BT, 1}, {Opcode::OP_L1_TO_FIX, 1}, {Opcode::OP_L1_TO_FIX_QUANT_PRE, 1},
+            {Opcode::OP_L1_TO_FIX_RELU_PRE, 1}, {Opcode::OP_L1_TO_FIX_RELU_POST, 1},
+            {Opcode::OP_L1_TO_FIX_QUANT_POST, 1}, {Opcode::OP_L1_TO_FIX_ELT_ANTIQ, 1},
+            {Opcode::OP_L1_TO_FIX_MTE2_ANTIQ, 1}, {Opcode::OP_L1_TO_BT, 1},
+            // 再其次是L1级数据搬运Op。
+            {Opcode::OP_COPY_IN, 2}, {Opcode::OP_UB_COPY_IN, 2}, {Opcode::OP_L1_COPY_IN, 2},
+            {Opcode::OP_L1_COPY_IN_FRACTAL_Z, 2}, {Opcode::OP_L1_COPY_UB, 2},
+            {Opcode::OP_L0C_COPY_UB, 2}, {Opcode::OP_UB_COPY_L1, 2},
+            // 最后访问其它计算节点（其它节点默认的优先级为10）。
+        };
 class ScheduleOoOTest : public ::testing::Test {
 public:
     static void SetUpTestCase() {}
@@ -613,7 +629,7 @@ TEST_F(ScheduleOoOTest, TestSpillL0AFailed) {
     Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.SortOps();
-    EXPECT_EQ(res, SUCCESS);
+    EXPECT_EQ(res, FAILED);
     res = ooOScheduler.GenSpillSchedule();
     EXPECT_EQ(res, FAILED);
 }
@@ -1013,7 +1029,7 @@ TEST_F(ScheduleOoOTest, TestScheduleSpillL0AFailed) {
     Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.SortOps();
-    EXPECT_EQ(res, SUCCESS);
+    EXPECT_EQ(res, FAILED);
     res = ooOScheduler.ScheduleMainLoop();
     EXPECT_EQ(res, FAILED);
 }
@@ -1420,6 +1436,60 @@ TEST_F(ScheduleOoOTest, TestCheckAllocBufferSize) {
     OoOScheduler ooOScheduler(*function);
     Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
     EXPECT_EQ(res, FAILED);
+}
+
+TEST_F(ScheduleOoOTest, TestOoOMemoryRefactoring) {
+    ComputationalGraphBuilder subGraph;
+    std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9", "t10", "t11", "t12", "t13", "t14"};
+    std::vector<MemoryType> tensorMemTypes{MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L0A, MemoryType::MEM_L0B,
+        MemoryType::MEM_L0C, MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L0A, MemoryType::MEM_L0B,
+        MemoryType::MEM_L0C,  MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_L1, MemoryType::MEM_L0A};
+    std::vector<Opcode> opCodes{Opcode::OP_L1_ALLOC, Opcode::OP_L1_ALLOC, Opcode::OP_L0A_ALLOC, Opcode::OP_L0B_ALLOC, Opcode::OP_L0C_ALLOC,
+        Opcode::OP_L1_ALLOC, Opcode::OP_L1_ALLOC, Opcode::OP_L0A_ALLOC, Opcode::OP_L0B_ALLOC, Opcode::OP_L0C_ALLOC,
+        Opcode::OP_L1_TO_L0A, Opcode::OP_L1_TO_L0B, Opcode::OP_A_MUL_B, Opcode::OP_L0C_TO_L1, Opcode::OP_L1_TO_L0A,
+        Opcode::OP_L1_TO_L0B, Opcode::OP_A_MUL_B, Opcode::OP_L0C_COPY_OUT, Opcode::OP_L0C_COPY_OUT, Opcode::OP_L1_TO_L0A,
+        Opcode::OP_L1_ALLOC, Opcode::OP_L0A_ALLOC};
+    std::vector<std::vector<std::string>> ioperands{{}, {}, {}, {}, {}, {}, {}, {}, {}, {},
+        {"t1"}, {"t2"}, {"t3", "t4"}, {"t5"}, {"t6"}, {"t7"}, {"t8", "t9"}, {"t10"}, {"t5"}, {"t13"},
+        {}, {}};
+    std::vector<std::vector<std::string>> ooperands{{"t1"}, {"t2"}, {"t3"}, {"t4"}, {"t5"}, {"t6"}, {"t7"}, {"t9"}, {"t8"}, {"t10"},
+        {"t3"}, {"t4"}, {"t5"}, {"t6"}, {"t8"}, {"t9"}, {"t10"}, {"t11"}, {"t12"}, {"t14"},
+        {"t13"}, {"t14"}};
+    std::vector<std::string> opNames{"Alloc1", "Alloc2", "Alloc3", "Alloc4", "Alloc5", "Alloc6", "Alloc7", "Alloc8", "Alloc9", "Alloc10",
+        "OP_L1_TO_L0A_1", "OP_L1_TO_L0B_1", "OP_A_MUL_B_1", "OP_L0C_TO_L1_1", "OP_L1_TO_L0A_2",
+        "OP_L1_TO_L0B_2", "OP_A_MUL_B_2", "OP_L0C_COPY_OUT_1", "OP_L0C_COPY_OUT_2", "OP_L1_TO_L0A_3",
+        "Alloc11", "Alloc12"
+    };
+    EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {16, 16}, tensorMemTypes, tensorNames, 0), true);
+    EXPECT_EQ(subGraph.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
+    Function *function = subGraph.GetFunction();
+    EXPECT_NE(function, nullptr);
+
+    EXPECT_NE(subGraph.GetTensor("t5"), nullptr);
+    std::shared_ptr<LogicalTensor> tensor4 = subGraph.GetTensor("t5");
+    tensor4->shape = {256, 128};
+
+    OoOScheduler ooOScheduler(*function);
+    Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
+    EXPECT_EQ(res, SUCCESS);
+
+    res = ooOScheduler.PriorDFS(preNodePriority);
+    EXPECT_EQ(res, SUCCESS);
+         
+    EXPECT_NE(subGraph.GetOp("OP_L0C_COPY_OUT_2"), nullptr);
+    Operation *op = subGraph.GetOp("OP_L0C_COPY_OUT_2");
+    int idx = 0;
+    for (auto &issue : ooOScheduler.issueEntries) {
+        if (&(issue->tileOp) == op) {
+            break;
+        }
+        idx++;
+    }
+    std::rotate(ooOScheduler.issueEntries.begin(), ooOScheduler.issueEntries.begin() + idx + 1, ooOScheduler.issueEntries.end());
+    EXPECT_EQ(res, SUCCESS);
+
+    res = ooOScheduler.ExecuteIssue();
+    EXPECT_EQ(res, SUCCESS);
 }
 
 TEST_F(ScheduleOoOTest, TestHasEnoughBuffer) {

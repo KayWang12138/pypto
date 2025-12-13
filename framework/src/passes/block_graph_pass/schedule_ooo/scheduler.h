@@ -152,6 +152,13 @@ private:
     uint64_t numTotalIssues{0};
     std::vector<Operation *> newOperations_;
 
+    bool issueFinish{false};
+    std::map<IssueEntryPtr, std::map<MemoryType, int64_t>> recordBufferAllocate;
+    std::map<IssueEntryPtr, std::pair<size_t, std::vector<IssueEntryPtr>>> recordIssueEntries;
+    std::map<IssueEntryPtr, MemoryType> recordIssueBuffer;
+    std::stack<std::pair<IssueEntryPtr, MemoryType>> needFreeIssueStack;
+    std::map<IssueEntryPtr, bool> visitedIssue;
+
     // scheduler
     Status Init(const std::vector<Operation *> &operations);
     void InitMemorySize();
@@ -171,7 +178,6 @@ private:
     Status GenSpillSchedule();
     Status ExecuteAllocIssue(IssueEntryPtr issue, size_t &pcIdx);
     Status RetireIssue(IssueEntryPtr issue);
-
     Status ScheduleMainLoop();
     void LaunchReadyIssue();
     Status RetireIssueStage(uint64_t& commitCnt, int& nextCycle);
@@ -216,6 +222,26 @@ private:
         std::unordered_set<IssueEntryPtr> &preNodeTotal, std::map<IssueEntryPtr, bool>& visited);
     
     Status LayerBasedDFS(int layerDepth);
+
+    Status ReorderIssue(std::vector<size_t> &preIdx, std::vector<IssueEntryPtr> &curIssueEntries, size_t startIndex);
+    void FindIndex(IssueEntryPtr issue, std::vector<IssueEntryPtr> curIssueEntries, size_t &index);
+    void FindConsumerList(size_t consumerIndex, std::vector<size_t> &preIssue, std::vector<IssueEntryPtr> &curIssueEntries);
+    Status UpdateOOperandPreDependence(size_t startIndex, std::vector<IssueEntryPtr> &curIssueEntries,
+        std::vector<IssueEntryPtr> consumersGroup);
+    void RecoverSymbol(size_t startIndex, std::vector<IssueEntryPtr> curIssueEntries);
+    void GetConsumerGroup(std::vector<IssueEntryPtr> consumers, std::vector<IssueEntryPtr> &consumersGroup);
+    Status BacktraceOnMemoryExceeded(size_t &startIndex,
+        std::vector<IssueEntryPtr> &curIssueEntries, std::map<MemoryType, int64_t> &curMemoryMap);
+    bool IsBufferFull(std::map<MemoryType, int64_t> curMemoryMap, MemoryType memType, int64_t size);
+    Status ModifyBuffer(std::map<MemoryType, int64_t> &curMemoryMap, MemoryType memType, int64_t size, bool isAdd);
+    Status RetireIssueBuffer(std::map<MemoryType, int64_t> &curMemoryMap, IssueEntryPtr issue);
+    void issueMemoryUpdate(IssueEntryPtr issue, size_t startIndex, std::vector<IssueEntryPtr> curIssueEntries,
+        std::map<MemoryType, int64_t> curMemoryMap);
+    Status AllocExecute(IssueEntryPtr issue, std::vector<IssueEntryPtr> &curIssueEntries,
+        std::map<MemoryType, int64_t> &curMemoryMap, size_t &startIndex, bool &isContinue);
+    Status IssueEntriesExecute(std::vector<IssueEntryPtr> &curIssueEntries,
+        std::map<MemoryType, int64_t> &curMemoryMap, size_t &startIndex);
+    Status ExecuteIssue();
 
     // gen spill  
     Status GenSpillOp(LocalBufferPtr allocBuffer, size_t &pcIdx);
@@ -274,7 +300,8 @@ private:
     Status UpdateRange(int newMemId, size_t offset, MemoryType memType, BufferPool &bufferManager);
     Status FindMoveFromTensor(Operation &occupyOp, int oldMemId, MemoryType memType, bool &rearrangeUBBF16, LogicalTensorPtr &moveFromTensor);
     Status GetMoveOpInTensor(Opcode moveOpcode, Operation &occupyOp, LogicalTensorPtr &inTensor, LogicalTensorPtr &moveFromTensor);
-public:
+
+    public:
     Status Schedule(const std::vector<Operation *> &operations);
     OoOScheduler(Function &function) : function_(function) {}
 

@@ -762,8 +762,8 @@ Status OoOScheduler::InitDependencies() {
         for (auto &producer : issue->tileOp.ProducerOps()) {
             if (producer->GetOpcode() == Opcode::OP_VIEW) {
                 for (auto viewProducer : producer->ProducerOps()) {
-                    auto viewProdIsue = op2IssueEntryMap[viewProducer];
-                    AddDependency(viewProdIsue, issue, false);
+                    auto viewProdIssue = op2IssueEntryMap[viewProducer];
+                    AddDependency(viewProdIssue, issue, false);
                 }
             } else {
                 auto prodIssue = op2IssueEntryMap[producer];
