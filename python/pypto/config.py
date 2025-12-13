@@ -30,8 +30,8 @@ class CachedOptions:
         for name, value in options.items():
             key = f"{prefix}.{name}"
             if key in self._options and value is not None:
-                self._options[key] = value
                 pypto_impl.SetOption(key, value)
+                self._options[key] = value
 
     def __getitem__(self, key):
         return self._options[key]

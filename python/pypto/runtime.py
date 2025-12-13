@@ -148,7 +148,6 @@ class JIT:
 
     def dispatch_with_run_mode(self, in_tensor_data, out_tensor_data, device):
         cann_is_configed: bool = bool(os.environ.get("ASCEND_HOME_PATH"))
-        print(pypto.get_runtime_options(), flush=True)
         run_mode = pypto.get_runtime_options().get('run_mode', 0)
         if run_mode == 0:
             if cann_is_configed == False:
