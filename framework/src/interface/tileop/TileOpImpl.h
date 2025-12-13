@@ -42,6 +42,7 @@
 #include "vector/mte.h"
 #include "vector/logicalnot.h"
 #include "vector/gather.h"
+#include "vector/scatter.h"
 #include "vector/expand.h"
 #include "vector/extract.h"
 #include "vector/pair_binary.h"
