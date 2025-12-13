@@ -58,7 +58,13 @@ int RuntimeAgentMemory::GetAicoreRegInfo(std::vector<int64_t> &aic, std::vector<
     return 0;
 }
 
-void RuntimeAgentMemory::GetAicoreRegInfoForA5(std::vector<int64_t> &regs, std::vector<int64_t> &regsPmu) {
+void RuntimeAgentMemory::GetAicoreRegInfoForArch35(std::vector<int64_t> &regs, std::vector<int64_t> &regsPmu) {
+    static constexpr uint32_t kMaxVersionLengh = 50;
+    char version[kMaxVersionLengh] = {0};
+    auto ret = rtGetSocVersion(version, kMaxVersionLengh);
+    if (ret != 0 || std::string(version) == "Ascend910B1") {
+        return;
+    }
     constexpr uint32_t AICORE_PER_DIE = 18;
     constexpr uint32_t AIV_BASE_OFFSET = 18;
     constexpr uint32_t SUB_CORE_PER_DIE = AICORE_PER_DIE * SUB_CORE_PER_AICORE;

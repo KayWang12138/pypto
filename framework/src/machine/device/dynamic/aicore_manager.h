@@ -277,14 +277,12 @@ public:
     void ResetRegAll() {
       ForEachManageAicore([this](int coreIdx) {
         uint32_t regDataMainBase = aicoreHal_.GetRegSprDataMainBase();
-        if (isNeedWriteRegForFastPath_) {
-            if (aicoreHal_.ReadReg32(coreIdx, REG_SPR_FAST_PATH_ENABLE) == REG_SPR_FAST_PATH_OPEN) {
+            if (aicoreHal_.ReadReg32Optional(coreIdx, REG_SPR_FAST_PATH_ENABLE, isNeedWriteRegForFastPath_) == REG_SPR_FAST_PATH_OPEN) {
                 aicoreHal_.WriteReg32(coreIdx, regDataMainBase, AICORE_TASK_STOP + 1);
                 aicoreHal_.WriteReg32(coreIdx, REG_SPR_FAST_PATH_ENABLE, REG_SPR_FAST_PATH_CLOSE);
+            } else {
+                aicoreHal_.WriteReg32Optional(coreIdx, regDataMainBase, AICORE_TASK_STOP + 1, !isNeedWriteRegForFastPath_);
             }
-        } else {
-            aicoreHal_.WriteReg32(coreIdx, regDataMainBase, AICORE_TASK_STOP + 1);
-        }
       });
     }
 
@@ -1489,7 +1487,7 @@ private:
         pendingResolveIndexList_.fill(0);
         taskDfxStatPos_.fill(REG_LOW_TASK_PING);
 
-        if (deviceArgs->socVersion == SocVersion::AIC_310) {
+        if (deviceArgs->archInfo == ArchInfo::ARCH_35) {
             isNeedWriteRegForFastPath_ = false;
         }
         if (deviceArgs->machineConfig != static_cast<uint8_t>(MachineScheduleConfig::DEFAULT_SCH)) {
@@ -1545,11 +1543,9 @@ private:
             return rc;
         }
 
-        if (isNeedWriteRegForFastPath_) {
-            ForEachManageAicore([this](int coreIdx) {
-                aicoreHal_.WriteReg32(coreIdx, REG_SPR_FAST_PATH_ENABLE, REG_SPR_FAST_PATH_OPEN);
-            });
-        }
+        ForEachManageAicore([this](int coreIdx) {
+            aicoreHal_.WriteReg32Optional(coreIdx, REG_SPR_FAST_PATH_ENABLE, REG_SPR_FAST_PATH_OPEN, isNeedWriteRegForFastPath_);
+        });
         /* write to MAINBASE reg need reg 0x18 open first */
         __sync_synchronize();
         DEV_INFO("Aicpu %d handshake sucess end.", aicpuIdx_);
@@ -1650,9 +1646,7 @@ private:
         /* write to MAINBASE reg must be done before close 0x18 */
         __sync_synchronize();
         ForEachManageAicore([this](auto coreIdx) {
-            if (isNeedWriteRegForFastPath_) {
-                aicoreHal_.WriteReg32(coreIdx, REG_SPR_FAST_PATH_ENABLE, REG_SPR_FAST_PATH_CLOSE);
-            }
+            aicoreHal_.WriteReg32Optional(coreIdx, REG_SPR_FAST_PATH_ENABLE, REG_SPR_FAST_PATH_CLOSE, isNeedWriteRegForFastPath_);
             aicoreHal_.ResetShakeBuf(coreIdx);
         });
         DEV_INFO("aicore manager %d normal stopped.", aicpuIdx_);
@@ -1661,7 +1655,7 @@ private:
     inline void NormalStopSingleCore(int coreIdx) {
         aicoreHal_.SetReadyQueue(coreIdx, AICORE_TASK_STOP + 1);
         __sync_synchronize();
-        aicoreHal_.WriteReg32(coreIdx, REG_SPR_FAST_PATH_ENABLE, REG_SPR_FAST_PATH_CLOSE);
+        aicoreHal_.WriteReg32Optional(coreIdx, REG_SPR_FAST_PATH_ENABLE, REG_SPR_FAST_PATH_CLOSE, isNeedWriteRegForFastPath_);
         aicoreHal_.ResetShakeBuf(coreIdx);
     }
 

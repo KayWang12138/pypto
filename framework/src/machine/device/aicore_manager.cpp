@@ -696,12 +696,6 @@ void AiCoreManager::Init(int threadIdx, DeviceArgs *deviceArgs) {
     pendingIds_.fill(AICORE_STATUS_INIT);
     taskDfxStatPos_.fill(REG_LOW_TASK_PING);
 
-    if (deviceArgs->socVersion == SocVersion::AIC_310) {
-        isNeedWriteRegForFastPath_ = false;
-        regSprDataMainBase_ = C310::REG_SPR_DATA_MAIN_BASE;
-        regSprCond_ = C310::REG_SPR_COND;
-    }
-
     blockIdToPhyCoreId_.fill(-1);
     readyRegQueues_.fill(nullptr);
     finishRegQueues_.fill(nullptr);

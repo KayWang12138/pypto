@@ -18,6 +18,8 @@ set(_CaseFilterList
         "DeviceMachineTest.test_get_task_time"
         "TestDeviceRunner.test_set_pmu_event"
         "TestDeviceRunner.test_ini_device_runner"
+        "TestDeviceRunner.test_ini_device_args_arch32"
+        "TestDeviceRunner.test_ini_device_args_arch35"
         # Others
         "RuntimeTest.Runtime01"
         "TestDeviceRunner.test_device_runner_get_task_time"

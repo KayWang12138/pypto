@@ -160,7 +160,7 @@ void DeviceRunner::ResetPerfTraceDfxMem() {
 }
 
 int DeviceRunner::InitDeviceArgs(DeviceArgs &args) {
-    addressMappingTable_["AIC-C-220"] = [&args](std::vector<int64_t>& regs, std::vector<int64_t>& regsPmu) {
+    addressMappingTable_[ArchInfo::ARCH_32] = [&args](std::vector<int64_t>& regs, std::vector<int64_t>& regsPmu) {
         std::vector<int64_t> aiv;
         std::vector<int64_t> aic;
         std::vector<int64_t> aivPmu;
@@ -175,25 +175,26 @@ int DeviceRunner::InitDeviceArgs(DeviceArgs &args) {
         regs.insert(regs.end(), aiv.begin(), aiv.end());
         regsPmu.insert(regsPmu.end(), aicPmu.begin(), aicPmu.end());
         regsPmu.insert(regsPmu.end(), aivPmu.begin(), aivPmu.end());
-        args.socVersion = SocVersion::AIC_220;
     };
 
-    addressMappingTable_["AIC-C-310"] = [&args](std::vector<int64_t>& regs, std::vector<int64_t>& regsPmu) {
-        machine::GetRA()->GetAicoreRegInfoForA5(regs, regsPmu);
-        args.socVersion = SocVersion::AIC_310;
+    addressMappingTable_[ArchInfo::ARCH_35] = [&args](std::vector<int64_t>& regs, std::vector<int64_t>& regsPmu) {
+        machine::GetRA()->GetAicoreRegInfoForArch35(regs, regsPmu);
     };
     
     hostProf_.RegHostProf();
 
-    std::string aicVersion = PlatformManager::Instance().GetAicVersion();
     aicpuNum_ = aicpuNum_ < PlatformManager::Instance().GetAiCpuCnt() - 1 ? aicpuNum_ : PlatformManager::Instance().GetAiCpuCnt() - 1;
+    if ( PlatformManager::Instance().GetAicVersion() == "AIC-C-310") {
+        args.archInfo = ArchInfo::ARCH_35;
+    }
+
     GetHostProfTypeSwtich();
 
     memset_s(&args, sizeof(args), 0, sizeof(args));
     std::vector<int64_t> regs;
     std::vector<int64_t> regsPmu;
 
-    auto it = addressMappingTable_.find(aicVersion);
+    auto it = addressMappingTable_.find(args.archInfo);
     if (it != addressMappingTable_.end()){
         it->second(regs, regsPmu);
     }

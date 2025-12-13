@@ -106,6 +106,9 @@ public:
         }
 
         auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
+        if (PlatformManager::Instance().GetAicVersion() == "AIC-C-310") {
+            devProg->devArgs.archInfo = ArchInfo::ARCH_35;
+        }
         devProg->devArgs.nrAic = kDefaultAicNum;
         devProg->devArgs.nrAiv = kDefaultAivNum;
         devProg->devArgs.nrValidAic = config.blockdim;

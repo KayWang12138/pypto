@@ -173,7 +173,7 @@ public:
     }
 
     int GetAicoreRegInfo(std::vector<int64_t> &aic, std::vector<int64_t> &aiv, const int &addrType) const;
-    void GetAicoreRegInfoForA5(std::vector<int64_t> &regs, std::vector<int64_t> &regsPmu);
+    void GetAicoreRegInfoForArch35(std::vector<int64_t> &regs, std::vector<int64_t> &regsPmu);
 
     // Only used in test case.
     void *MapAiCoreReg();

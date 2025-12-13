@@ -45,12 +45,12 @@ const uint32_t REG_SPR_MAGIC = 0x78;
 constexpr int32_t AICORE_COREID_MASK = 0x0FFF;
 constexpr int32_t AICORE_BLOCKID_MASK = 0x0FFF;
 
-namespace C220 {
+namespace Arch32 {
     const uint32_t REG_SPR_DATA_MAIN_BASE = 0xA0;
     const uint32_t REG_SPR_COND = 0x4C8;
 }
 
-namespace C310 {
+namespace Arch35 {
     const uint32_t REG_SPR_DATA_MAIN_BASE = 0xD0;
     const uint32_t REG_SPR_COND = 0x5108;
 }
@@ -65,9 +65,9 @@ public:
         finishRegQueues_.fill(nullptr);
         blockIdToPhyCoreId_.fill(-1);
         args_.fill(nullptr);
-        if (deviceArgs->socVersion == SocVersion::AIC_310) {
-            regSprDataMainBase_ = C310::REG_SPR_DATA_MAIN_BASE;
-            regSprCond_ = C310::REG_SPR_COND;
+        if (deviceArgs->archInfo == ArchInfo::ARCH_35) {
+            regSprDataMainBase_ = Arch35::REG_SPR_DATA_MAIN_BASE;
+            regSprCond_ = Arch35::REG_SPR_COND;
         } 
     }
 
@@ -96,12 +96,28 @@ public:
         return 0;
     }
 
+    inline uint32_t ReadReg32Optional(int coreIdx, int offset, bool isNeedRead = true) {
+        if (!isNeedRead) {
+            return 0;
+        }
+
+        return ReadReg32(coreIdx, offset);
+    }
+
     inline void WriteReg32(int coreIdx, int offset, uint32_t val) {
         auto idx = GetPhyIdByBlockId(coreIdx);
         if (idx != -1) {
           *(reinterpret_cast<volatile uint32_t*>(regAddrs_[idx] + offset)) = val;
         }
         return;
+    }
+
+    inline void WriteReg32Optional(int coreIdx, int offset, uint32_t val, bool isNeedWrite = true) {
+        if (!isNeedWrite) {
+            return;
+        }
+
+        WriteReg32(coreIdx, offset, val);
     }
 
     inline void WriteReg32All(int aicNum, int aivNum, int offset, uint32_t val) {
@@ -608,8 +624,8 @@ private:
     std::array<int, MAX_AICORE_NUM> blockIdToPhyCoreId_;
     std::array<bool, MAX_AICORE_NUM> *validCore_{nullptr};
 
-    uint32_t regSprDataMainBase_{C220::REG_SPR_DATA_MAIN_BASE};
-    uint32_t regSprCond_{C220::REG_SPR_COND};
+    uint32_t regSprDataMainBase_{Arch32::REG_SPR_DATA_MAIN_BASE};
+    uint32_t regSprCond_{Arch32::REG_SPR_COND};
 
     AiCoreProf *aicoreProf_{nullptr};
     CostModel::AiCoreModel *costModel_{nullptr};

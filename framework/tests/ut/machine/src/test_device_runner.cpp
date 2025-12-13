@@ -21,6 +21,7 @@
 #include "interface/inner/tilefwk.h"
 #include "machine/runtime/device_runner.h"
 #include "machine/utils/machine_ws_intf.h"
+#include "machine/platform/platform_manager.h"
 class TestDeviceRunner : public testing::Test {
 public:
     static void SetUpTestCase() {
@@ -53,4 +54,18 @@ TEST_F(TestDeviceRunner, test_set_pmu_event) {
 TEST_F(TestDeviceRunner, test_ini_device_runner) {
     npu::tile_fwk::DeviceRunner runner;
     runner.Init();
+}
+
+TEST_F(TestDeviceRunner, test_ini_device_args_arch32) {
+    DeviceArgs args_;
+    args_.archInfo = ArchInfo::ARCH_32;
+    npu::tile_fwk::DeviceRunner runner;
+    runner.InitDeviceArgs(args_);
+}
+
+TEST_F(TestDeviceRunner, test_ini_device_args_arch35) {
+    DeviceArgs args_;
+    args_.archInfo = ArchInfo::ARCH_35;
+    npu::tile_fwk::DeviceRunner runner;
+    runner.InitDeviceArgs(args_);
 }
