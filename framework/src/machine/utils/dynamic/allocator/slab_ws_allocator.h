@@ -318,25 +318,25 @@ public:
     }
 
     void DumpMemoryStatusWhenAbnormal(const char *title) const {
-        DEV_ERROR("[SlabWsAllocator]%s\n", title);
+        DEV_WARN("[SlabWsAllocator]%s\n", title);
         int percent = 100;
         
         // Dump allocator-level statistics
         AllocatorStats allocStats = GetAllocatorStats();
-        DEV_ERROR("Slab allocator Stats: BaseMemAddr=%p, TotalSize=%u, TotalSlabs=%u,"
-                "AllocatedSlabs=%u, FreeSlabs=%u, SlabSize=%u, Usage=%.2f%%\n",
-                memBaseaddr_, totalMemSize_, allocStats.totalSlabCount, allocStats.allocatedSlabCount, 
-                allocStats.freeSlabCount, allocStats.slabSize, allocStats.usage * percent);
+        DEV_WARN("Slab allocator Stats: BaseMemAddr=%p, TotalSize=%u, TotalSlabs=%u,"
+                 "AllocatedSlabs=%u, FreeSlabs=%u, SlabSize=%u, Usage=%.2f%%\n",
+                 memBaseaddr_, totalMemSize_, allocStats.totalSlabCount, allocStats.allocatedSlabCount, 
+                 allocStats.freeSlabCount, allocStats.slabSize, allocStats.usage * percent);
         
         // Dump cache-level statistics
         for (int i = 0; i < SLAB_ALLOCATOR_MAX_CACHES; i++) {
             if (caches_[i].objSize == 0) continue;
             
             CacheStats cacheStats = GetCacheStats(i);
-            DEV_ERROR("Slab cache[%d]: ObjSize=%u, AlloCatedSlabs=%u, TotalObjs=%u,"
-                "AllocatedObjs=%u, FreeObjs=%u, Usage=%.2f%%\n",
-                i, cacheStats.objSize, cacheStats.slabCount, cacheStats.totalObjCount,
-                cacheStats.allocatedObjCount, cacheStats.freeObjCount, cacheStats.usage * percent);
+            DEV_WARN("Slab cache[%d]: ObjSize=%u, AlloCatedSlabs=%u, TotalObjs=%u,"
+                     "AllocatedObjs=%u, FreeObjs=%u, Usage=%.2f%%\n",
+                     i, cacheStats.objSize, cacheStats.slabCount, cacheStats.totalObjCount,
+                     cacheStats.allocatedObjCount, cacheStats.freeObjCount, cacheStats.usage * percent);
         }
     }
 
