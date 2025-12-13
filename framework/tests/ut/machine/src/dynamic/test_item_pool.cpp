@@ -8,6 +8,11 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+/*!
+ * \file test_item_pool.cpp
+ * \brief
+ */
+
 #include <gtest/gtest.h>
 #include "machine/utils/dynamic/item_pool.h"
 
