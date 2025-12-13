@@ -497,7 +497,7 @@ def clip(
     Returns
     -------
     Tensor
-        A new tensor containing the element-wise minimum.
+        A new tensor containing the values greater than `min_` and less than `max_`.
 
     Examples
     --------
@@ -521,4 +521,11 @@ def clip(
     )
     min_ = min_ or default
     max_ = max_ or default
+
+    if not isinstance(min_, pypto_impl.Element) and isinstance(min_, element_types):
+        min_ = pypto_impl.Element(input.GetDataType(), min_)
+    
+    if not isinstance(max_, pypto_impl.Element) and isinstance(min_, element_types):
+        max_ = pypto_impl.Element(input.GetDataType(), max_)
+    
     return pypto_impl.Clip(input, min_, max_)

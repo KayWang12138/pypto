@@ -727,6 +727,18 @@ def gen_exp_op_golden(case_name: str, output: Path, case_index: int = None) -> b
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("Exp", golden_func, output, case_index)
 
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestAbs/AbsOperationTest.TestAbs",
+    ]
+)
+def gen_abs_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
+    def golden_func(inputs, _config: dict):
+        return [np.abs(inputs[0])]
+
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("Abs", golden_func, output, case_index)
 
 @GoldenRegister.reg_golden_func(
     case_names=[
@@ -1221,8 +1233,16 @@ def gen_numpy_op_golden(case_name: str, output: Path, case_index: int = None) ->
         start = params["start"]
         end = params["end"]
         step = params["step"]
+        output_tensors_type = config["output_tensors"][0]["dtype"]
+        inputdata_type = get_dtype_by_name(output_tensors_type)
         if isinstance(start, float) or isinstance(end, float) or isinstance(step, float):
-            return [torch.arange(np.float32(start), np.float32(end), np.float32(step), dtype=torch.float32).numpy()]
+            if inputdata_type == bfloat16:
+                result = torch.arange(np.float32(start), np.float32(end), np.float32(step), dtype=torch.float32)
+                return [result.numpy().astype(bfloat16)]
+            elif inputdata_type == np.float16:
+                return [torch.arange(np.float32(start), np.float32(end), np.float32(step), dtype=torch.float16).numpy()]
+            else:
+                return [torch.arange(np.float32(start), np.float32(end), np.float32(step), dtype=torch.float32).numpy()]
         return [torch.arange(start, end, step).numpy()]
 
     logging.debug("Case(%s), Golden creating...", case_name)

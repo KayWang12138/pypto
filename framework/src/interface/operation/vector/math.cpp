@@ -99,11 +99,12 @@ Tensor Neg(const Tensor &self) {
 Tensor Log(const Tensor &self, LogBaseType base) {
     DECLARE_TRACER();
     ASSERT(base == LogBaseType::LOG_E || base == LogBaseType::LOG_2 || base == LogBaseType::LOG_10);
-    ASSERT(self.GetStorage()->tensor->datatype == DataType::DT_FP16 ||
+    ASSERT(self.GetStorage()->tensor->datatype == DataType::DT_BF16 ||
+           self.GetStorage()->tensor->datatype == DataType::DT_FP16 ||
            self.GetStorage()->tensor->datatype == DataType::DT_FP32);
 
     auto operandCast = Tensor(DataType::DT_FP32, self.GetShape());
-    if (self.GetStorage()->tensor->datatype == DataType::DT_FP16) {
+    if (self.GetStorage()->tensor->datatype == DataType::DT_FP16 || self.GetStorage()->tensor->datatype == DataType::DT_BF16) {
         operandCast = CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(),
             self.GetStorage(), DataType::DT_FP32, CastMode::CAST_NONE);
     } else {
@@ -130,6 +131,9 @@ Tensor Log(const Tensor &self, LogBaseType base) {
     if (self.GetStorage()->tensor->datatype == DataType::DT_FP16) {
         RETURN_CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(),
             resTensorBeforeCast.GetStorage(), DataType::DT_FP16, CastMode::CAST_NONE);
+    } else if (self.GetStorage()->tensor->datatype == DataType::DT_BF16) {
+        RETURN_CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(),
+            resTensorBeforeCast.GetStorage(), DataType::DT_BF16, CastMode::CAST_NONE);
     }
     return resTensorBeforeCast;
 }
@@ -386,10 +390,14 @@ Tensor Clip(const Tensor &self, const Element &min, const Element &max) {
     Element min_ = min, max_ = max;
 
     Tensor result = self;
-    ASSERT(min_.GetDataType() == self.GetDataType());
-    result = Maximum(result, min_);
-    ASSERT(max_.GetDataType() == self.GetDataType());
-    result = Minimum(result, max_);
+    if (min_.GetDataType() != DT_BOTTOM) {
+        ASSERT(min_.GetDataType() == self.GetDataType());
+        result = Maximum(result, min_);
+    }
+    if (max_.GetDataType() != DT_BOTTOM) {
+        ASSERT(max_.GetDataType() == self.GetDataType());
+        result = Minimum(result, max_);
+    }
     result.GetStorage()->UpdateDynValidShape(self.GetStorage()->GetDynValidShape());
     return result;
 }

@@ -96,6 +96,52 @@ TEST_F(OperationImplTest, TestTranspose_BNDS_BNSD) {
     std::cout << Program::GetInstance().Dump() << std::endl;
 }
 
+TEST_F(OperationImplTest, test_Compare_BOOL) {
+    TileShape::Current().SetVecTile({4, 4});
+    Tensor operand1(DT_FP32, {8, 8}, "operand1");
+    Tensor operand2(DT_FP32, {8, 8}, "operand2");
+    std::vector<int64_t> dstShape = {8, 8};
+    Tensor result;
+    FUNCTION("TestCompare") {
+        result = Compare(operand1, operand2, OpType::EQ, OutType::BOOL);
+    }
+}
+
+TEST_F(OperationImplTest, test_Compare_BIT) {
+    TileShape::Current().SetVecTile({8, 8});
+    Tensor operand1(DT_FP16, {16, 16}, "operand1");
+    Tensor operand2(DT_FP16, {16, 16}, "operand2");
+    std::vector<int64_t> dstShape = {16, 2};
+    Tensor result;
+    FUNCTION("TestCompare") {
+        result = Compare(operand1, operand2, OpType::EQ, OutType::BIT);
+    }
+}
+
+TEST_F(OperationImplTest, test_Cmps_BOOL) {
+    TileShape::Current().SetVecTile({4, 4});
+    Tensor operand1(DT_FP32, {8, 8}, "operand1");
+    float scalar = 10.0;
+    Element operand2(DT_FP32, scalar);
+    std::vector<int64_t> dstShape = {8, 8};
+    Tensor result;
+    FUNCTION("TestCompare") {
+        result = Compare(operand1, operand2, OpType::EQ, OutType::BOOL);
+    }
+}
+
+TEST_F(OperationImplTest, test_Cmps_BIT) {
+    TileShape::Current().SetVecTile({8, 8});
+    Tensor operand1(DT_FP16, {16, 16}, "operand1");
+    float scalar = 10.0;
+    Element operand2(DT_FP16, scalar);
+    std::vector<int64_t> dstShape = {16, 2};
+    Tensor result;
+    FUNCTION("TestCompare") {
+        result = Compare(operand1, operand2, OpType::EQ, OutType::BIT);
+    }
+}
+
 TEST_F(OperationImplTest, Test_multiReshape) {
     TileShape::Current().SetVecTile(16, 16, 16, 16);
     Tensor input(DT_FP32, {8, 16, 16}, "a");
@@ -365,6 +411,87 @@ void TestNZFormatBatch(int bs, int m, int k, int n) {
     }
 }
 
+TEST_F(OperationImplTest, test_Range_FP16) {
+    float startValue = (float)1.0;
+    float endValue = (float)10.0;
+    float stepValue = (float)1.1;
+    int NUM_Eight = 8;
+    Element start(DT_FP16, startValue);
+    Element end(DT_FP16, endValue);
+    Element step(DT_FP16, stepValue);
+    TileShape::Current().SetVecTile(NUM_Eight);
+    Tensor result;
+    FUNCTION("TestRange") {
+        result = Range(start, end, step);
+    }
+}
+
+TEST_F(OperationImplTest, test_Range_BF16) {
+    float startValue = (float)1.0;
+    float endValue = (float)10.0;
+    float stepValue = (float)1.1;
+    int NUM_Eight = 8;
+    Element start(DT_BF16, startValue);
+    Element end(DT_BF16, endValue);
+    Element step(DT_BF16, stepValue);
+    TileShape::Current().SetVecTile(NUM_Eight);
+    Tensor result;
+    FUNCTION("TestRange") {
+        result = Range(start, end, step);
+    }
+}
+
+TEST_F(OperationImplTest, test_Range_FP32) {
+    float startValue = (float)1.0;
+    float endValue = (float)10.0;
+    float stepValue = (float)1.1;
+    int NUM_Eight = 8;
+    Element start(DT_FP32, startValue);
+    Element end(DT_FP32, endValue);
+    Element step(DT_FP32, stepValue);
+    TileShape::Current().SetVecTile(NUM_Eight);
+    Tensor result;
+    FUNCTION("TestRange") {
+        result = Range(start, end, step);
+    }
+}
+
+TEST_F(OperationImplTest, test_Range_INT32) {
+    int startValue = 1;
+    int endValue = 10;
+    int stepValue = 3;
+    int NUM_Eight = 8;
+    Element start(DT_INT32, startValue);
+    Element end(DT_INT32, endValue);
+    Element step(DT_INT32, stepValue);
+    TileShape::Current().SetVecTile(NUM_Eight);
+    Tensor result;
+    FUNCTION("TestRange") {
+        result = Range(start, end, step);
+    }
+}
+
+TEST_F(OperationImplTest, test_Rsqrt_FP16) {
+    constexpr int TILE_SHAPE = 32;
+    constexpr int SHAPE = 128;
+    TileShape::Current().SetVecTile(TILE_SHAPE, TILE_SHAPE);
+    Tensor operand1(DT_FP16, {SHAPE, SHAPE}, "operand1");
+    Tensor result;
+    FUNCTION("TestRsqrt") {
+        result = Rsqrt(operand1);
+    }
+}
+
+TEST_F(OperationImplTest, test_Rsqrt_FP32) {
+    constexpr int TILE_SHAPE = 32;
+    constexpr int SHAPE = 128;
+    TileShape::Current().SetVecTile(TILE_SHAPE, TILE_SHAPE);
+    Tensor operand1(DT_FP32, {SHAPE, SHAPE}, "operand1");
+    Tensor result;
+    FUNCTION("TestRsqrt") {
+        result = Rsqrt(operand1);
+    }
+}
 
 TEST_F(OperationImplTest, test_MaxS_FP16) {
     float scalar = 127.0;
@@ -460,5 +587,103 @@ TEST_F(OperationImplTest, test_Expand_32_8_1_to_32_8_32) {
     Tensor result;
     FUNCTION("TestExpand") {
         result = Expand(operand1, dstShape);
+    }
+}
+
+TEST_F(OperationImplTest, test_Clip_FP16) {
+    float minValue = 1.0, maxValue = 10.0;
+    TileShape::Current().SetVecTile(8, 8, 8);
+
+    Tensor src(DT_FP16, {8, 16, 16}, "src");
+    Element min(DT_FP16, minValue);
+    Element max(DT_FP16, maxValue);
+
+    Tensor result;
+    FUNCTION("TestClip") {
+        result = Clip(src, min, max);
+    }
+}
+
+TEST_F(OperationImplTest, test_Clip_FP32_VS) {
+    float minValue = 1.0, maxValue = 10.0;
+    TileShape::Current().SetVecTile(8, 8, 8);
+
+    Tensor src(DT_FP32, {8, 16, 16}, "src");
+    Element min(DT_FP32, minValue);
+    Element max(DT_FP32, maxValue);
+
+    Tensor result;
+    FUNCTION("TestClip") {
+        result = Clip(src, min, max);
+    }
+}
+
+TEST_F(OperationImplTest, test_Clip_FP16_VS) {
+    float minValue = 1.0, maxValue = 10.0;
+    TileShape::Current().SetVecTile(8, 8, 8);
+
+    Tensor src(DT_FP16, {8, 16, 16}, "src");
+    Element min(DT_FP16, minValue);
+    Element max(DT_FP16, maxValue);
+
+    Tensor result;
+    FUNCTION("TestClip") {
+        result = Clip(src, min, max);
+    }
+}
+
+TEST_F(OperationImplTest, test_Clip_FP32_VV) {
+    TileShape::Current().SetVecTile(8, 8, 8);
+
+    Tensor src(DT_FP32, {8, 16, 16}, "src");
+    Tensor min(DT_FP32, {8, 16, 16}, "min");
+    Tensor max(DT_FP32, {8, 16, 16}, "max");
+
+    Tensor result;
+    FUNCTION("TestClip") {
+        result = Clip(src, min, max);
+    }
+}
+
+TEST_F(OperationImplTest, test_Clip_FP32_VV_BRC) {
+    TileShape::Current().SetVecTile(8, 8, 8);
+
+    Tensor src(DT_FP32, {8, 16, 16}, "src");
+    Tensor min(DT_FP32, {8, 1, 16}, "min");
+    Tensor max(DT_FP32, {1, 16, 16}, "max");
+
+    Tensor result;
+    FUNCTION("TestClip") {
+        result = Clip(src, min, max);
+    }
+}
+
+TEST_F(OperationImplTest, Test_Amax) {
+    TileShape::Current().SetVecTile(8, 8);
+    Tensor operand(DT_FP32, {16, 16}, "operand");
+    Tensor result;
+    FUNCTION("TestAmax") {
+        result = Amax(operand, -1, true);
+    }
+}
+
+TEST_F(OperationImplTest, test_Gather) {
+    TileShape::Current().SetVecTile(8, 8, 8);
+    Tensor operand1(DT_FP16, {8, 16}, "operand1");
+    Tensor operand2(DT_INT32, {8, 16}, "operand1");
+    Tensor result;
+    FUNCTION("TestMinS") {
+        result = Gather(operand1, operand2, -1);
+    }
+}
+
+TEST_F(OperationImplTest, test_Where) {
+    TileShape::Current().SetVecTile(8, 8);
+    Tensor condition(DT_UINT8, {8, 2}, "condition");
+    Tensor input(DT_FP32, {8, 16}, "input");
+    Tensor other(DT_FP32, {8, 16}, "other");
+    Tensor result;
+    FUNCTION("TestWhere") {
+        result = Where(condition, input, other);
     }
 }

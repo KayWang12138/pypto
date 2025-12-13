@@ -138,6 +138,10 @@ set(_CaseFilterList
         # Quantized lightning indexer topk
         "TestLightningIndexerUtest.lightning_indexer_b_4_s1_2_s2_64k_quant"
 
+        # Operation
+        "OperationImplTest.test_Rsqrt_FP16"
+        "OperationImplTest.test_Rsqrt_FP32"
+
         # DecodeIndexerAttention
         "DecodeIndexerAttentionUtest.utest_decode_indexer_attention"
         "DeepSeekIndexerAttentionQuantUTest.4B_mtp_ut"
@@ -145,6 +149,12 @@ set(_CaseFilterList
         # DSA gatherSlcAttn
         "DynamicGatherSlcFlashAttnUtest.dsa_gather_slc_attn_bf16_b32_s4"
         "DynamicGatherSlcFlashAttnUtest.dsa_gather_slc_attn_bf16_b32_s4_int8"
+
+        # Range
+        "OperationImplTest.test_Range_FP16"
+        "OperationImplTest.test_Range_BF16"
+        "OperationImplTest.test_Range_FP32"
+        "OperationImplTest.test_Range_INT32"
 
         # QuantLightningIndexerProlog
         "DynamicQuantLightningIndexerPrologUtest.b4_s1_2_s2_64k"
@@ -163,8 +173,20 @@ set(_CaseFilterList
         "ViewTypeUtest.dequant_test"
 
         # Operation
-        "OperationImplTest.test_Expand_8_1_to_8_8"
+        "OperationImplTest.test_Compare_BOOL"
+        "OperationImplTest.test_Compare_BIT"
+        "OperationImplTest.test_Cmps_BOOL"
+        "OperationImplTest.test_Cmps_BIT"
         "OperationImplTest.test_Expand_8_1_to_8_8_dyn"
+        "OperationImplTest.test_Expand_8_1_to_8_8"
+        "OperationImplTest.test_Clip_FP32_VV_BRC"
+        "OperationImplTest.test_Clip_FP32_VV"
+        "OperationImplTest.test_Clip_FP16_VS"
+        "OperationImplTest.test_Clip_FP32_VS"
+        "OperationImplTest.test_Clip_FP16"
+        "OperationImplTest.Test_Amax"
+        "OperationImplTest.test_Gather"
+        "OperationImplTest.test_Where"
 )
 
 set(_Target ${PTO_Fwk_UTestNamePrefix}_operator)

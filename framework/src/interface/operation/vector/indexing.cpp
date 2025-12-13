@@ -1112,23 +1112,30 @@ Tensor RealRange(Element &start, Element &end, Element &step) {
     RETURN_CALL(Range, *Program::GetInstance().GetCurrentFunction(), resTensor.GetStorage(), start, step);
 }
 
+bool IsDataTypeUnsupport (DataType dType){
+    return dType != DT_FP32 && dType != DT_INT64 && dType != DT_INT32 && dType != DT_FP16 && dType != DT_BF16;
+}
+
 DataType GetResultDataType(const Element &start, const Element &end, const Element &step) {
     DataType startType = start.GetDataType();
     DataType endType = end.GetDataType();
     DataType stepType = step.GetDataType();
-    if (startType != DT_FP32 && startType != DT_INT64 && startType != DT_INT32) {
-        std::string errorMessage = "Unsupported Start DataType " + DataType2String(start.GetDataType());
+    if (IsDataTypeUnsupport(startType)) {
+        std::string errorMessage = "Unsupported Start DataType " + DataType2String(startType);
         ASSERT(false && errorMessage.c_str());
     }
-    if (endType != DT_FP32 && endType != DT_INT64 && endType != DT_INT32) {
-        std::string errorMessage = "Unsupported End DataType " + DataType2String(start.GetDataType());
+    if (IsDataTypeUnsupport(endType)) {
+        std::string errorMessage = "Unsupported End DataType " + DataType2String(endType);
         ASSERT(false && errorMessage.c_str());
     }
-    if (stepType != DT_FP32 && stepType != DT_INT64 && stepType != DT_INT32) {
-        std::string errorMessage = "Unsupported Step DataType " + DataType2String(start.GetDataType());
+    if (IsDataTypeUnsupport(stepType)) {
+        std::string errorMessage = "Unsupported Step DataType " + DataType2String(stepType);
         ASSERT(false && errorMessage.c_str());
     }
-    if (startType == DT_FP32 || endType == DT_FP32 || stepType == DT_FP32) {
+    bool startIsFloat = (startType == DT_FP32 || startType == DT_FP16 || startType == DT_BF16);
+    bool endIsFloat = (endType == DT_FP32 || endType == DT_FP16 || endType == DT_BF16);
+    bool stepIsFloat = (stepType == DT_FP32 || stepType == DT_FP16 || stepType == DT_BF16);
+    if (startIsFloat || endIsFloat || stepIsFloat) {
         return DT_FP32;
     }
     int64_t startValue = start.GetSignedData();
@@ -1143,12 +1150,27 @@ DataType GetResultDataType(const Element &start, const Element &end, const Eleme
     return DT_INT64;
 }
 
+DataType GetFloatDataType(const Element &start, const Element &end, const Element &step) {
+    DataType startType = start.GetDataType();
+    DataType endType = end.GetDataType();
+    DataType stepType = step.GetDataType();
+    if (startType == DT_FP32 || endType == DT_FP32 || stepType == DT_FP32) {
+        return DT_FP32;
+    }
+    if (startType == DT_FP16 || endType == DT_FP16 || stepType == DT_FP16) {
+        return DT_FP16;
+    }
+    return DT_BF16;
+}
+
 Element GetElementWithDataType(const Element &element, DataType dataType) {
-    if (element.GetDataType() == DT_FP32 && dataType == DT_FP32) {
+    DataType elementType = element.GetDataType();
+    bool elementIsFloat = (elementType == DT_FP32) || (elementType == DT_FP16) || (elementType == DT_BF16);
+    if (elementIsFloat && dataType == DT_FP32) {
         return Element(dataType, element.GetFloatData());
-    } else if (element.GetDataType() == DT_FP32 && dataType != DT_FP32) {
+    } else if (elementIsFloat && dataType != DT_FP32) {
         return Element(dataType, (int64_t)element.GetFloatData());
-    } else if (element.GetDataType() != DT_FP32 && dataType == DT_FP32) {
+    } else if (!elementIsFloat && dataType == DT_FP32) {
         return Element(dataType, (double)element.GetSignedData());
     }
     return Element(dataType, element.GetSignedData());
@@ -1157,14 +1179,24 @@ Element GetElementWithDataType(const Element &element, DataType dataType) {
 Tensor Range(const Element &start, const Element &end, const Element &step) {
     DataType dataType = GetResultDataType(start, end, step);
     if (dataType != DT_FP32 && dataType != DT_INT32) {
-        std::string errorMessage = "Unsupported DataType " + DataType2String(start.GetDataType());
+        std::string errorMessage = "Unsupported Output DataType " + DataType2String(dataType);
         ASSERT(false && errorMessage.c_str());
     }
-    ASSERT(dataType == DT_FP32 || dataType == DT_INT32);
+    DataType floatDataType = DT_INT32;
+    if (dataType == DT_FP32) {
+        floatDataType = GetFloatDataType(start, end, step);
+    }
     Element realStart = GetElementWithDataType(start, dataType);
     Element realEnd = GetElementWithDataType(end, dataType);
     Element realStep = GetElementWithDataType(step, dataType);
-    return RealRange(realStart, realEnd, realStep);
+    auto resTensor = RealRange(realStart, realEnd, realStep);
+    if (floatDataType == DT_BF16) {
+        return Cast(resTensor, DT_BF16);
+    }
+    if (floatDataType == DT_FP16) {
+        return Cast(resTensor, DT_FP16);
+    }
+    return resTensor;
 }
 
 void IndexAddOperationTileFunc(Function &function, const TileShape &tileShape,

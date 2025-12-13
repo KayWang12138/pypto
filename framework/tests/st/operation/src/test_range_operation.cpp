@@ -59,7 +59,7 @@ INSTANTIATE_TEST_SUITE_P(TestRange, RangeOperationTest,
     ::testing::ValuesIn(GetOpMetaData<RangeOpMetaData>({RangeOperationExeFunc}, "Range")));
 
 Element GetElementByType(DataType dataType, nlohmann::json test_data, string name) {
-    if (dataType == DT_FP32) {
+    if (dataType == DT_FP32 || dataType == DT_BF16 || dataType == DT_FP16) {
         Element element(dataType, GetValueByName<float>(test_data, name));
         return element;
     } else if (dataType == DT_INT32) {

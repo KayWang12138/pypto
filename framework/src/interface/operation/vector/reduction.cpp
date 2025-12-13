@@ -181,11 +181,6 @@ void TileReduceNew(Function &function, const TileShape &tileShape, const std::st
             } else {
                 tmpShape[1] = REPEAT_BYTE / BytesOf(in->Datatype());
             }
-            if ((sourceReg->shape[0] % BLOCK_NUM == 0) &&
-                ((vecTile[axis] == LEN1024 && sourceReg->shape[0] * NUM_VALUE_16 <= MAX_REPEAT) ||
-                    (vecTile[axis] == LEN512 && sourceReg->shape[0] * BLOCK_NUM <= MAX_REPEAT))) {
-                tmpShape[1] = vecTile[axis] / BLOCK_NUM;
-            }
             if (static_cast<size_t>(axis) == (in->shape.size() - 1)) {
                 auto tempTensor = std::make_shared<LogicalTensor>(function, in->Datatype(), tmpShape);
                 tempTensor->dynValidShape_ = SymbolicScalar::FromConcrete(tmpShape);

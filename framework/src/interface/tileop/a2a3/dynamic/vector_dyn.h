@@ -3018,6 +3018,8 @@ TILEOP void DynRange(__ubuf__ T *dst, unsigned oriShape0, T start, T step) {
         for (int32_t j = 0; j < oriShape0; j++) {
             *(dst + j) = start + step * (T)j;
         }
+        set_flag(PIPE_S, PIPE_V, EVENT_ID7);
+        wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
         return;
     }
     for (int32_t j = 0; j < eleCntOfOneBlock; j++) {

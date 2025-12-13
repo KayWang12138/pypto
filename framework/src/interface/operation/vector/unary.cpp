@@ -13,7 +13,9 @@
  * \brief
  */
 
+#include "binary.h"
 #include "unary.h"
+#include "tensor_transformation.h"
 #include "interface/utils/operator_tracer.h"
 
 namespace npu::tile_fwk {
@@ -66,7 +68,20 @@ Tensor Ln(const Tensor &operand) {
 Tensor Rsqrt(const Tensor &self) {
     DECLARE_TRACER();
 
-    RETURN_CALL(UnaryOperation<UnaryOpType::RSQRT>, *Program::GetInstance().GetCurrentFunction(), self.GetStorage());
+    auto castSelf = self.GetStorage();
+    if (self.GetDataType() != DataType::DT_FP32) {
+        castSelf = CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(), self.GetStorage(),
+            DataType::DT_FP32, CastMode::CAST_NONE);
+    }
+    auto sqrtSelf = CALL(UnaryOperation<UnaryOpType::SQRT>, *Program::GetInstance().GetCurrentFunction(), castSelf);
+    auto ones = CALL(FullOperation, *Program::GetInstance().GetCurrentFunction(), Element(DataType::DT_FP32, 1.0),
+        SymbolicScalar(), DataType::DT_FP32, self.GetShape(), self.GetStorage()->GetDynValidShape());
+    auto result = CALL(BinaryOperation<BinaryOpType::DIV>, *Program::GetInstance().GetCurrentFunction(), ones, sqrtSelf);
+    if (self.GetDataType() != DataType::DT_FP32) {
+        RETURN_CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(), result,
+            self.GetDataType(), CastMode::CAST_NONE);
+    }
+    return result;
 }
 
 Tensor Sqrt(const Tensor &self) {

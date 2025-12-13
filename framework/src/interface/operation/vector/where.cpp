@@ -112,14 +112,16 @@ void TiledWhereOperation(Function &function, const TileShape &tileShape, size_t 
 void ExpandTensorLastDimension(const LogicalTensorPtr &TensorPtr) {
     std::vector<int64_t> inputShape(TensorPtr->shape);
     int lastDim = inputShape.back();
-    int expandLastDim = lastDim * 8;
+    int bitsNumOfByte = 8;
+    int expandLastDim = lastDim * bitsNumOfByte;
     TensorPtr->shape.back() = expandLastDim;
 }
 
 void ShrinkTensorLastDimension(const LogicalTensorPtr &TensorPtr) {
     std::vector<int64_t> inputShape(TensorPtr->shape);
     int lastDim = inputShape.back();
-    int shrinkLastDim = std::max(lastDim / 8, NUM_VALUE_1);
+    int bitsNumOfByte = 8;
+    int shrinkLastDim = std::max(lastDim / bitsNumOfByte, NUM_VALUE_1);
     TensorPtr->shape.back() = shrinkLastDim;
 }
 
@@ -139,9 +141,10 @@ void TiledWhereOperation(Function &function, const TileShape &tileShape, const L
     std::vector<SymbolicScalar> conditionValidShape = result->GetDynValidShape();
     std::vector<int64_t> conditionExpandShape(result->shape);
     if (condition->Datatype() == DT_UINT8) {
-        ASSERT(tileShape.GetVecTile().tile.back() % 8 == 0);
-        conditionValidShape.back() = conditionValidShape.back() / NUM_VALUE_8;
-        conditionExpandShape.back() = conditionExpandShape.back() / NUM_VALUE_8;
+        int bitsNumOfByte = 8;
+        ASSERT(tileShape.GetVecTile().tile.back() % bitsNumOfByte == 0);
+        conditionValidShape.back() = conditionValidShape.back() / bitsNumOfByte;
+        conditionExpandShape.back() = conditionExpandShape.back() / bitsNumOfByte;
     }
     if (condition->shape != conditionExpandShape) {
         auto tmp = std::make_shared<LogicalTensor>(function, condition->Datatype(), conditionExpandShape);
@@ -278,9 +281,12 @@ LogicalTensorPtr TensorWhereOperation(Function &function, const Tensor &conditio
     ASSERT(condition.GetShape().size() == condition.GetStorage()->offset.size());
     ASSERT(input.GetShape().size() == input.GetStorage()->offset.size());
     ASSERT(other.GetShape().size() == other.GetStorage()->offset.size());
+
     if (condition.GetStorage()->Datatype() == DT_UINT8) {
-        ASSERT(input.GetStorage()->shape.back() % 8 == 0 || input.GetStorage()->shape.back() == 1);
-        ASSERT(other.GetStorage()->shape.back() % 8 == 0 || other.GetStorage()->shape.back() == 1);
+        int bitsNumOfByte = 8;
+        int broadcastFlag = 1;
+        ASSERT(input.GetStorage()->shape.back() % bitsNumOfByte == 0 || input.GetStorage()->shape.back() == broadcastFlag);
+        ASSERT(other.GetStorage()->shape.back() % bitsNumOfByte == 0 || other.GetStorage()->shape.back() == broadcastFlag);
     }
     auto conditionT0 = condition.GetStorage();
     auto inputT1 = input.GetStorage();
@@ -312,7 +318,9 @@ LogicalTensorPtr TensorWhereOperation(Function &function, const Tensor &conditio
     ASSERT(condition.GetShape().size() == condition.GetStorage()->offset.size());
     ASSERT(input.GetShape().size() == input.GetStorage()->offset.size());
     if (condition.GetStorage()->Datatype() == DT_UINT8) {
-        ASSERT(input.GetStorage()->shape.back() % 8 == 0 || input.GetStorage()->shape.back() == 1);
+        int bitsNumOfByte = 8;
+        int broadcastFlag = 1;
+        ASSERT(input.GetStorage()->shape.back() % bitsNumOfByte == 0 || input.GetStorage()->shape.back() == broadcastFlag);
     }
     auto conditionT0 = condition.GetStorage();
     auto inputT1 = input.GetStorage();
@@ -342,7 +350,9 @@ LogicalTensorPtr TensorWhereOperation(Function &function, const Tensor &conditio
     ASSERT(condition.GetShape().size() == condition.GetStorage()->offset.size());
     ASSERT(other.GetShape().size() == other.GetStorage()->offset.size());
     if (condition.GetStorage()->Datatype() == DT_UINT8) {
-        ASSERT(other.GetStorage()->shape.back() % 8 == 0 || other.GetStorage()->shape.back() == 1);
+        int bitsNumOfByte = 8;
+        int broadcastFlag = 1;
+        ASSERT(other.GetStorage()->shape.back() % bitsNumOfByte == 0 || other.GetStorage()->shape.back() == broadcastFlag);
     }
     auto conditionT0 = condition.GetStorage();
     auto otherT1 = other.GetStorage();
