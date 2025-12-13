@@ -23,7 +23,7 @@ if (NOT DEFINED Python3_EXECUTABLE)
 endif ()
 message(STATUS "Python3_EXECUTABLE=${Python3_EXECUTABLE}")
 
-get_filename_component(_Py3CMakeFile "${PTO_FWK_BIN_ROOT}/_py3_env.cmake" REALPATH)
+get_filename_component(_Py3CMakeFile "${PTO_FWK_BIN_ROOT}/_pypto_py3_env.cmake" REALPATH)
 PTO_Fwk_AnalysisPython3Environ(OUTPUT_FILE ${_Py3CMakeFile})
 include(${_Py3CMakeFile})
 

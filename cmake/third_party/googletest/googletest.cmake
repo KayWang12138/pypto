@@ -30,6 +30,7 @@ if (PYPTO_THIRD_PARTY_PATH)
         find_package(GTest ${_TargetVersion} EXACT CONFIG PATHS ${_TargetSourceDir} NO_DEFAULT_PATH)
     endif ()
 else ()
+    # 从环境上查找
     find_package(GTest ${_TargetVersion} EXACT CONFIG)
     if (NOT ${GTest_FOUND})
         message(FATAL_ERROR "Failed to find GTest ${_TargetVersion}, need to specify its path through the PYPTO_THIRD_PARTY_PATH")

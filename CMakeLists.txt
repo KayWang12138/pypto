@@ -37,7 +37,8 @@ option(ENABLE_UBSAN "Enable UndefinedBehaviorSanitizer" OFF)
 option(ENABLE_GCOV "Enable GNU Coverage Instrumentation Tool" OFF)
 
 # 公开编译开关(Feature 特性级开关)
-option(ENABLE_FEATURE_PYTHON_FRONT_END "Enable Python Front-end, Specify whl name" ON)
+option(ENABLE_FEATURE_PYTHON_FRONT_END "Enable Python Front-end" ON)
+option(ENABLE_FEATURE_INSTALL_EXPERIMENT "Enable experiment header or binary file install" OFF)
 option(ENABLE_TORCH_VERIFIER "Flow verify with libtorch" OFF)
 
 # 公开编译开关(tests)
@@ -97,7 +98,15 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END AND BUILD_OPEN_PROJECT)
 
     # 安装 二进制文件
     set(InstallExport ${PROJECT_NAME}Targets)
-    set(InstallTargets tile_fwk_interface tile_fwk_codegen tile_fwk_compiler tile_fwk_runtime tile_fwk_runtime_stub tile_fwk_simulation tile_fwk_simulation_ca)
+    set(InstallTargets
+            tile_fwk_interface
+            tile_fwk_codegen
+            tile_fwk_compiler
+            tile_fwk_runtime
+            tile_fwk_runtime_stub
+            tile_fwk_simulation
+            tile_fwk_simulation_ca
+    )
     if (BUILD_WITH_CANN)
         install(TARGETS tile_fwk_server LIBRARY DESTINATION "${PyPTO_WhlName}/lib")
         install(TARGETS pypto_ctrl_server ARCHIVE DESTINATION "${PyPTO_WhlName}/lib")
@@ -105,7 +114,7 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END AND BUILD_OPEN_PROJECT)
     # 不判断 c_sec_shared 存在, 不存在时属异常场景, 应在构建阶段发现
     get_target_property(cSecSharedFile c_sec_shared IMPORTED_LOCATION)
     install(FILES ${cSecSharedFile}
-            DESTINATION "${PyPTO_WhlName}/${CMAKE_INSTALL_LIBDIR}"
+            DESTINATION "${PyPTO_WhlName}/lib"
             PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
     )
     if (ENABLE_TORCH_VERIFIER)
@@ -132,13 +141,15 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END AND BUILD_OPEN_PROJECT)
     )
 
     # 安装 头文件
-    install(DIRECTORY framework/include/
-            DESTINATION ${PyPTO_WhlName}/include
-            PATTERN "*.h"
-            PATTERN "*.hpp"
-            PATTERN ".svn" EXCLUDE
-            PATTERN ".git" EXCLUDE
-    )
+    if (ENABLE_FEATURE_INSTALL_EXPERIMENT)
+        install(DIRECTORY framework/include/
+                DESTINATION ${PyPTO_WhlName}/include
+                PATTERN "*.h"
+                PATTERN "*.hpp"
+                PATTERN ".svn" EXCLUDE
+                PATTERN ".git" EXCLUDE
+        )
+    endif ()
     install(DIRECTORY framework/src/interface/tileop/
             DESTINATION ${PyPTO_WhlName}/lib/include/tileop
             PATTERN "*.h"
@@ -162,10 +173,12 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END AND BUILD_OPEN_PROJECT)
     )
 
     # 生成和安装配置文件
-    PTO_Fwk_InstallCMakeConfig(
-            EXPORT              ${InstallExport}
-            WHL_NAME            ${PyPTO_WhlName}
-            CMAKE_PARENT_DIR    ${PyPTO_WhlName}/lib
-            TARGETS             ${InstallTargets}
-    )
+    if (ENABLE_FEATURE_INSTALL_EXPERIMENT)
+        PTO_Fwk_InstallCMakeConfig(
+                EXPORT              ${InstallExport}
+                WHL_NAME            ${PyPTO_WhlName}
+                CMAKE_PARENT_DIR    ${PyPTO_WhlName}/lib
+                TARGETS             ${InstallTargets}
+        )
+    endif ()
 endif ()
