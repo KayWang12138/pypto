@@ -180,6 +180,9 @@ void bind_operation(py::module &m) {
         const bool inplace) { return npu::tile_fwk::Reshape(input, dstShape, inplace); },
         py::arg("input"), py::arg("dstShape"), py::arg("inplace"),
         "Tensor reshapeInplace.");
+    m.def("ReshapeInplace", [](const Tensor &input, Tensor &dst) { npu::tile_fwk::Reshape(input, dst); },
+        py::arg("input"), py::arg("dst"),
+        "Tensor reshapeInplace.");
     m.def("Assign", [](const Tensor &input) { return npu::tile_fwk::Assign(input);},
         py::arg("input"), "Tensor clone.");
     m.def(

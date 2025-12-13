@@ -149,7 +149,7 @@ def prolog_quant(input: pypto.tensor):
     pypto.set_semantic_label("Prolog-Quant")
     s8_max_value = 127.0
     s8_one_value = 1.0
-    input_fp32 = pypto.cast(input, pypto.DT_FP32)
+    input_fp32 = pypto.cast(input, pypto.DT_FP32, pypto.CastMode.CAST_NONE)
 
     abs_res = pypto.abs(input_fp32)
     max_value = pypto.amax(abs_res, dim=-1, keepdim=True)
@@ -157,9 +157,9 @@ def prolog_quant(input: pypto.tensor):
 
     scale_quant = temp127 / max_value
     out_fp32 = input_fp32 * scale_quant
-    out_int32 = pypto.cast(out_fp32, pypto.DT_INT32)
-    out_half = pypto.cast(out_int32, pypto.DT_FP16)
-    out_int8 = pypto.cast(out_half, pypto.DT_INT8)
+    out_int32 = pypto.cast(out_fp32, pypto.DT_INT32, pypto.CastMode.CAST_RINT)
+    out_half = pypto.cast(out_int32, pypto.DT_FP16, pypto.CastMode.CAST_ROUND)
+    out_int8 = pypto.cast(out_half, pypto.DT_INT8, pypto.CastMode.CAST_TRUNC)
     temp1 = pypto.full(scale_quant.shape, s8_one_value, pypto.DT_FP32)
     scale_dequant = temp1 / scale_quant
     return (out_int8, scale_dequant)
@@ -336,13 +336,11 @@ def lightning_indexer_prolog_quant_compute(inputs, outputs, attrs, configs):
 
 @pypto.jit
 def lightning_indexer_prolog_quant(input_tensors, output_tensors, attrs, configs):
-
-    pypto.set_codegen_options(support_dynamic_unaligned=True)
-    pypto.set_host_options(only_codegen=True)
-
     pypto.set_pass_options(nbuffer_merge_mode=0)
     pypto.set_pass_options(l1_reuse_map=configs.l1_reuse_param)
     pypto.set_pass_options(copyin_threshold=configs.copy_in_threshold)
     pypto.set_pass_options(cycle_upper_bound=configs.cycle_upper_bound)
+
+    pypto.set_runtime_options(machine_sched_mode=1)
 
     lightning_indexer_prolog_quant_compute(input_tensors, output_tensors, attrs, configs)

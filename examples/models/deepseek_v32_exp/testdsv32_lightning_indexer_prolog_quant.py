@@ -76,7 +76,6 @@ def gen_block_table(act_seq, block_size, s1):
     return block_num, block_table, cache_index
 
 
-
 def gen_cache_tensor(k_cache_bsnd, block_table, block_num, block_size):
     dtype = k_cache_bsnd.dtype
     b, s2, n_kv, d = k_cache_bsnd.shape
@@ -354,11 +353,11 @@ def lighting_indexer_prolog_quant_dyn(inputs: IndexerPrologQuantInput, outputs: 
         inputs.k_cache_index: [0],
     }
     output_tensors = {
-        outputs.q_int8: [],
-        outputs.q_scale: [],
-        outputs.k_int8: [],
-        outputs.k_scale: [],
-        outputs.weights: []
+        outputs.q_int8: [0],
+        outputs.q_scale: [0],
+        outputs.k_int8: [0],
+        outputs.k_scale: [0],
+        outputs.weights: [0]
     }
     pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in input_tensors.items()]
     pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in output_tensors.items()]
@@ -426,38 +425,32 @@ def do_test_lighting_indexer_prolog_quant(case_name, configs):
 
     lighting_indexer_prolog_quant_dyn(inputs, outputs, attrs, configs)
 
-    if "b2_s1_4k_s2_64k" in case_name:
-        error_count_threshold = 8
-    elif "b128_s1_4_s2_8k" in case_name:
-        error_count_threshold = 1
-    else:
-        error_count_threshold = 0
-    compare(outputs.q_int8.cpu(), q_int8_golden, "q_int8", 1, 0, error_count_threshold)
-    compare(outputs.q_scale.cpu(), q_scale_golden, "q_scale", 0.0001, 0, error_count_threshold)
+    compare(outputs.q_int8.cpu(), q_int8_golden, "q_int8", 1, 0, 0)
+    compare(outputs.q_scale.cpu(), q_scale_golden, "q_scale", 0.000025, 0, 0.005, 1)
     compare(outputs.k_int8.cpu(), k_cache_golden, "k_int8", 1, 0, 0)
-    compare(outputs.k_scale.cpu(), k_cache_scale_golden, "k_scale", 0.0001, 0, 0)
-    compare(outputs.weights.cpu(), weights_golden, "weights", 0.0001, 0., 0)
+    compare(outputs.k_scale.cpu(), k_cache_scale_golden, "k_scale", 0.000025, 0, 0)
+    compare(outputs.weights.cpu(), weights_golden, "weights", 0.000025, 0., 0)
 
     print(f"=== {case_name}: PASS ===")
 
     pypto.runtime._device_fini()
 
 
-def compare(t: torch.Tensor, t_ref: torch.Tensor, name, atol, rtol, error_count_threshold=0):
+def compare(t: torch.Tensor, t_ref: torch.Tensor, name, atol, rtol, max_error_ratio=0.005, max_error_count=10):
     assert t.shape == t_ref.shape
     assert t.dtype == t_ref.dtype
     assert t.device == t_ref.device
-    diff_mask1 = (t - t_ref).abs() > atol
-    diff_mask2 = (t - t_ref).abs() > rtol * t_ref.abs()
-    diff_mask = diff_mask1 & diff_mask2
+    max_error_count = min(max_error_count, round(max_error_ratio * t_ref.numel()))
+
+    diff_mask = (t - t_ref).abs() > atol + rtol * t_ref.abs()
     error_count = diff_mask.sum().item()
     max_diff, max_pos = torch.max((t - t_ref).abs().flatten(), dim=0)
     max_pos = torch.unravel_index(max_pos, t.shape)
     max_pos = tuple(idx.item() for idx in max_pos)
 
-    assert error_count <= error_count_threshold, \
+    assert error_count <= max_error_count, \
         (f"compare fail: {name}, max diff: {max_diff} at {max_pos}, "
-         f"error_count: {error_count}, error_count_threshold: {error_count_threshold}")
+         f"error_count: {error_count}, error_count_threshold: {max_error_count}")
 
 
 @pytest.mark.skip(reason="similar to test_b8_s1_2_s2_64k")
@@ -531,7 +524,6 @@ def test_b2_s1_4k_s2_64k():
     do_test_lighting_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b2_s1_4k_s2_64k", configs)
 
 
-# @pytest.mark.skip(reason="perf case"))
 def test_b128_s1_4_s2_8k():
     configs = IndexerPrologQuantConfigs(
         q_linear=[128, 128, 256, 256, 256, 256],
