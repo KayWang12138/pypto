@@ -19,6 +19,25 @@
 
 namespace npu::tile_fwk {
 
+// using pmu
+
+#define PMU_COLLECT 0
+
+#if PMU_COLLECT
+#define PERF_PMU_TEST_SWITCH 1
+#define SCHEDULE_USE_PENDING_AND_RUNING_SWITCH 0
+#define PROF_DFX_HOST_PREPARE_MEMORY_MODE 0
+#else
+#define PERF_PMU_TEST_SWITCH 0 // PMU test switch
+// whether to use the pending and running async task mode(set macro 1) or just use running sync mode(set macro 0)
+#define SCHEDULE_USE_PENDING_AND_RUNING_SWITCH 1
+/* The DFX swimlane performance statistics use host pre-allocated memory mode, which avoids data collection during
+   AICPU scheduling to minimize scheduling interference. However, each AICore only supports tracking up to
+   MAX_DFX_TASK_NUM_PER_CORE tasks, with excess tasks being discarded.
+*/
+#define PROF_DFX_HOST_PREPARE_MEMORY_MODE 1
+#endif
+
 // When enabled, logs will be written to the /tmp directory.
 #define ENABLE_TMP_LOG 0
 
@@ -40,16 +59,6 @@ namespace npu::tile_fwk {
 // whether to support hand shake by reg
 #define ENABLE_AICORE_HAND_SHAKE_BY_REG 0
 
-// whether to use the pending and running async task mode(set macro 1) or just use running sync mode(set macro 0)
-#define SCHEDULE_USE_PENDING_AND_RUNING_SWITCH 1
-
-/* The DFX swimlane performance statistics use host pre-allocated memory mode, which avoids data collection during
-   AICPU scheduling to minimize scheduling interference. However, each AICore only supports tracking up to
-   MAX_DFX_TASK_NUM_PER_CORE tasks, with excess tasks being discarded.
-*/
-#define PROF_DFX_HOST_PREPARE_MEMORY_MODE 1
-
-#define PERF_PMU_TEST_SWITCH 0 // PMU test switch
 #define PERF_AICPU_TEST_SWITCH 0 //性能AICPU数据测试
 
 // ready quene mode for aicore task : Last-in-first-out(LIFO stack mode) or first-in-first-out(FIFO quene mode)

@@ -83,17 +83,15 @@ void AiCoreProf::ProInitAiCpuTaskStat() {
     sleep(1);
 }
 
-void AiCoreProf::ProfInit(int64_t *regAddrs, int64_t *pmuEventAddrs) {
+void AiCoreProf::ProfInit([[maybe_unused]]int64_t *regAddrs, [[maybe_unused]]int64_t *pmuEventAddrs) {
     coreNum_ = hostAicoreMng_.GetAllAiCoreNum();
     if (ProfCheckLevel(PROF_TASK_TIME_L2) == true) {
-        profLevel_ = PROF_LEVEL_FUNC_LOG_PMU;
-        ProfInitLog();
-        ProfInitPmu(regAddrs, pmuEventAddrs);
-    } else if (ProfCheckLevel(PROF_TASK_TIME_L1) == true) {
         profLevel_ = PROF_LEVEL_FUNC_LOG;
         ProfInitLog();
-    } else if (ProfCheckLevel(PROF_TASK_TIME_L0) == true) {
-        profLevel_ = PROF_LEVEL_FUNC;
+        #if PMU_COLLECT
+            ProfInitPmu(regAddrs, pmuEventAddrs);
+            profLevel_ = PROF_LEVEL_FUNC_LOG_PMU;
+        #endif
     } else {
         profLevel_ = PROF_LEVEL_OFF;
         DEV_INFO("aicore profiling is closed..");
