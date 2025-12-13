@@ -1909,6 +1909,97 @@ TILEOP void DynTtransposeMoveIn4dim_(__ubuf__ T *dst, __gm__ T *src, unsigned TS
     }
 }
 
+TILEOP void splitNumber(__ubuf__ float *dst, __ubuf__ float *src0) {
+    float k = *src0;
+    // a = 2 ^ p * k, p is Z, 0.7 <= |k| <= 1.4
+    constexpr float NUM_0_7 = 0.7;
+    constexpr float NUM_1_4 = 1.4;
+    int p = 0;
+    while (k < -NUM_1_4 || k > NUM_1_4) {
+        k /= 2;
+        p++;
+    }
+    while (k > -NUM_0_7 && k < NUM_0_7) {
+        k *= 2;
+        p--;
+    }
+    *dst = static_cast<float>(p);
+    *src0 = k;
+}
+
+template <unsigned DS0, unsigned DS1, unsigned S0S0, unsigned S0S1, unsigned S1S0, unsigned S1S1>
+TILEOP void DynTpow_(__ubuf__ float *dst, __ubuf__ float *src0, __ubuf__ float *src1, unsigned src0T0, unsigned src0T1,
+    unsigned src1T0, unsigned src1T1) {
+    unsigned T0 = src0T0 < src1T0 ? src1T0 : src0T0;
+    unsigned T1 = src0T1 < src1T1 ? src1T1 : src0T1;
+    auto dst_ = dst;
+    auto src0_ = src0;
+    for (int i = 0; i < T0; i++) {
+        auto dst__ = dst_;
+        auto src0__ = src0_;
+        for (int j = 0; j < T1; j++) {
+            // dst: p, src0: k
+            splitNumber(dst__, src0__);
+            dst__++;
+            src0__++;
+        }
+        dst_ += DS1;
+        src0_ += S0S1;
+    }
+    set_flag(PIPE_S, PIPE_V, EVENT_ID0);
+    wait_flag(PIPE_S, PIPE_V, EVENT_ID0);
+    constexpr float LN2 = 0.6931471805599453094172321;
+    // ln a = p * ln 2 + ln k
+    // dst: p * ln 2
+    DynTmuls_<float, DS1, DS1>(dst, dst, LN2, T0, T1);
+    // src0: ln k
+    DynTln_<float, S0S1, S0S1>(src0, src0, T0, T1);
+    pipe_barrier(PIPE_V);
+    // dst: p * ln 2 + ln k
+    DynTadd_<float, DS1, DS0, DS1, S0S0, S0S1>(dst, dst, src0, T0, T1, T0, T1);
+    pipe_barrier(PIPE_V);
+    // a ^ b = e ^ (b * ln a)
+    // src0: b * ln a
+    DynTmul_<float, S0S1, DS0, DS1, S1S0, S1S1>(src0, dst, src1, T0, T1, T0, T1);
+    pipe_barrier(PIPE_V);
+    // dst: e ^ (b * ln a)
+    DynTexp_<float, DS1, S0S1>(dst, src0, T0, T1);
+    set_flag(PIPE_V, PIPE_S, EVENT_ID0);
+    wait_flag(PIPE_V, PIPE_S, EVENT_ID0);
+}
+
+template <typename T, unsigned DS0, unsigned DS1, unsigned DS2, unsigned DS3, unsigned S0S0, unsigned S0S1,
+    unsigned S0S2, unsigned S0S3, unsigned S1S0, unsigned S1S1, unsigned S1S2, unsigned S1S3>
+TILEOP void DynTpow_(__ubuf__ float *dst, __ubuf__ float *src0, __ubuf__ float *src1,
+    unsigned src0T0, unsigned src0T1, unsigned src0T2, unsigned src0T3,
+    unsigned src1T0, unsigned src1T1, unsigned src1T2, unsigned src1T3) {
+    static_assert(std::is_same<T, float>::value);
+    static_assert((DS3 * sizeof(float)) % BLOCK_SIZE == 0);
+    static_assert((S0S3 * sizeof(float)) % BLOCK_SIZE == 0);
+    static_assert((S1S3 * sizeof(float)) % BLOCK_SIZE == 0);
+    if (src0T0 == 0 || src0T1 == 0 || src0T2 == 0 || src0T3 == 0 ||
+        src1T0 == 0 || src1T1 == 0 || src1T2 == 0 || src1T3 == 0) {
+        return;
+    }
+
+    unsigned T0 = src0T0 < src1T0 ? src1T0 : src0T0;
+    unsigned T1 = src0T1 < src1T1 ? src1T1 : src0T1;
+    for (int i = 0; i < T0; i++) {
+        auto dst_ = dst;
+        auto src0_ = src0;
+        auto src1_ = src1;
+        for (int j = 0; j < T1; j++) {
+            DynTpow_<DS2, DS3, S0S2, S0S3, S1S2, S1S3>(dst_, src0_, src1_, src0T2, src0T3, src1T2, src1T3);
+            dst_ += DS2 * DS3;
+            src0_ += S0S2 * S0S3;
+            src1_ += S1S2 * S1S3;
+        }
+        dst += DS1 * DS2 * DS3;
+        src0 += S0S1 * S0S2 * S0S3;
+        src1 += S1S1 * S1S2 * S1S3;
+    }
+}
+
 template <typename T, typename U>
 TILEOP void ProcessLogicalNot(__ubuf__ bool *dst, __ubuf__ T *src, __ubuf__ half *castCondition,
                 __ubuf__ int8_t *vcmpBitResult, __ubuf__ U *compareCondition,__ubuf__ U *oneCondition,

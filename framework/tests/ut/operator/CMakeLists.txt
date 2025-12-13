@@ -149,6 +149,13 @@ set(_CaseFilterList
         # QuantLightningIndexerProlog
         "DynamicQuantLightningIndexerPrologUtest.b4_s1_2_s2_64k"
 
+        # Operation
+        "OperationImplTest.Test_Pows__1_5_FP32"
+        "OperationImplTest.Test_Pows_1_5_FP32"
+        "OperationImplTest.Test_Pows_1_5_FP16"
+        "OperationImplTest.Test_Pows_2_FP32"
+        "OperationImplTest.Test_Pows_3_FP32"
+
         # ViewType
         "ViewTypeUtest.add0_test"
         "ViewTypeUtest.cast_add0_test"

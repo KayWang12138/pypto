@@ -137,23 +137,11 @@ Tensor Log(const Tensor &self, LogBaseType base) {
 LogicalTensorPtr GenAllOneTensor(const Shape &shape, std::vector<SymbolicScalar> validShape, const DataType &dataType) {
     auto result = CALL(FullOperation, *Program::GetInstance().GetCurrentFunction(),
         Element(DataType::DT_FP32, 1.0), SymbolicScalar(), DataType::DT_FP32, shape, validShape);
-    if (dataType == DataType::DT_FP16) {
+    if (dataType != DataType::DT_FP32) {
         RETURN_CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(), result.GetStorage(),
-            DataType::DT_FP16, CastMode::CAST_NONE);
+            dataType, CastMode::CAST_NONE);
     }
     return result.GetStorage();
-}
-
-LogicalTensorPtr NormalPow(const Tensor &self, const double &exponent) {
-    // a^b = e^(b * lna)
-    // lna
-    auto lnSelf =
-        CALL(UnaryOperation<UnaryOpType::LN>, *Program::GetInstance().GetCurrentFunction(), self.GetStorage());
-    // b * lna
-    auto expMulLnSelf = CALL(BinaryOperationScalar<BinaryOpType::MUL>, *Program::GetInstance().GetCurrentFunction(),
-        lnSelf, Element(DataType::DT_FP32, exponent));
-    // e ^ (b * lna)
-    RETURN_CALL(UnaryOperation<UnaryOpType::EXP>, *Program::GetInstance().GetCurrentFunction(), expMulLnSelf);
 }
 
 LogicalTensorPtr IntegerPow(const Tensor &self, int32_t intExponent) {
@@ -179,16 +167,13 @@ LogicalTensorPtr GeneralPow(const Tensor &self, double exponent) {
     exponent = std::abs(exponent);
 
     LogicalTensorPtr result;
-    // 将指数分为整数部分和小数部分
     int32_t intExponent = static_cast<int32_t>(std::floor(exponent));
-    if (intExponent != NUM_VALUE_0) {
+    if (exponent - intExponent < NUM_VALUE_EPS) {
         result = IntegerPow(self, intExponent);
-        if (exponent - intExponent > NUM_VALUE_EPS) {
-            result = CALL(BinaryOperation<BinaryOpType::MUL>, *Program::GetInstance().GetCurrentFunction(), result,
-                NormalPow(self, exponent - intExponent));
-        }
     } else {
-        result = NormalPow(self, exponent);
+        auto exponents = CALL(FullOperation, *Program::GetInstance().GetCurrentFunction(), Element(DataType::DT_FP32, exponent),
+            SymbolicScalar(), DataType::DT_FP32, self.GetShape(), self.GetStorage()->GetDynValidShape());
+        result = CALL(BinaryOperation<BinaryOpType::POW>, *Program::GetInstance().GetCurrentFunction(), self, exponents);
     }
 
     // 指数小于零，结果取倒数
@@ -209,24 +194,29 @@ Tensor Pow(const Tensor &self, const Element &other) {
     if (std::abs(exponent) < NUM_VALUE_EPS) {
         return GenAllOneTensor(self.GetShape(), self.GetStorage()->GetDynValidShape(), self.GetDataType());
     }
-    // 特殊指数
-    if (std::abs(exponent - -NUM_VALUE_0_5) < NUM_VALUE_EPS) {
-        RETURN_CALL(
-            UnaryOperation<UnaryOpType::RSQRT>, *Program::GetInstance().GetCurrentFunction(), self.GetStorage());
+    Tensor castSelf = self;
+    DataType dataType = self.GetDataType();
+    if (dataType != DT_FP32) {
+        castSelf = CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(), self.GetStorage(),
+            DataType::DT_FP32, CastMode::CAST_NONE);
     }
+    auto result = castSelf.GetStorage();
     if (std::abs(exponent - NUM_VALUE_0_5) < NUM_VALUE_EPS) {
-        RETURN_CALL(UnaryOperation<UnaryOpType::SQRT>, *Program::GetInstance().GetCurrentFunction(), self.GetStorage());
-    }
-    if (std::abs(exponent - NUM_VALUE_2) < NUM_VALUE_EPS) {
-        RETURN_CALL(BinaryOperation<BinaryOpType::MUL>, *Program::GetInstance().GetCurrentFunction(), self, self);
-    }
-    if (std::abs(exponent - NUM_VALUE_3) < NUM_VALUE_EPS) {
+        result = CALL(UnaryOperation<UnaryOpType::SQRT>, *Program::GetInstance().GetCurrentFunction(), result);
+    } else if (std::abs(exponent - NUM_VALUE_2) < NUM_VALUE_EPS) {
+        result = CALL(BinaryOperation<BinaryOpType::MUL>, *Program::GetInstance().GetCurrentFunction(), result, result);
+    } else if (std::abs(exponent - NUM_VALUE_3) < NUM_VALUE_EPS) {
         auto doubleSelf =
-            CALL(BinaryOperation<BinaryOpType::MUL>, *Program::GetInstance().GetCurrentFunction(), self, self);
-        RETURN_CALL(BinaryOperation<BinaryOpType::MUL>, *Program::GetInstance().GetCurrentFunction(), doubleSelf, self);
+            CALL(BinaryOperation<BinaryOpType::MUL>, *Program::GetInstance().GetCurrentFunction(), result, result);
+        result = CALL(BinaryOperation<BinaryOpType::MUL>, *Program::GetInstance().GetCurrentFunction(), doubleSelf, result);
+    } else {
+        result = GeneralPow(result, exponent);
     }
-    // 其余情况处理
-    return GeneralPow(self, exponent);
+    if (dataType != DT_FP32) {
+        RETURN_CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(), result,
+            dataType, CastMode::CAST_NONE);
+    }
+    return result;
 }
 
 void TiledOneHot(

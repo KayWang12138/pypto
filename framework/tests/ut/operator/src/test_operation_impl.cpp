@@ -295,6 +295,43 @@ TEST_F(OperationImplTest, Test_ArgSort) {
     }
 }
 
+void TestPow(DataType dataType, double exponent) {
+    PROGRAM("POWS") {
+        std::vector<int64_t> shape = {32, 32};
+        TileShape::Current().SetVecTile({32, 32});
+        Tensor input_a(dataType, shape, "input");
+        auto output = Tensor(dataType, shape, "res");
+        FUNCTION("POWS_FUC") {
+            output = Pow(input_a, Element(dataType, exponent));
+        }
+    }
+}
+
+TEST_F(OperationImplTest, Test_Pows__1_5_FP32) {
+    constexpr double EXP = -1.5;
+    TestPow(DataType::DT_FP32, EXP);
+}
+
+TEST_F(OperationImplTest, Test_Pows_1_5_FP32) {
+    constexpr double EXP = 1.5;
+    TestPow(DataType::DT_FP32, EXP);
+}
+
+TEST_F(OperationImplTest, Test_Pows_1_5_FP16) {
+    constexpr double EXP = 1.5;
+    TestPow(DataType::DT_FP16, EXP);
+}
+
+TEST_F(OperationImplTest, Test_Pows_2_FP32) {
+    constexpr double EXP = 2;
+    TestPow(DataType::DT_FP32, EXP);
+}
+
+TEST_F(OperationImplTest, Test_Pows_3_FP32) {
+    constexpr double EXP = 3;
+    TestPow(DataType::DT_FP32, EXP);
+}
+
 template <DataType inputType, DataType outputType, bool IsANZ = false, bool IsBNZ = false, bool isTransB = false>
 void TestNZFormatBatch(int bs, int m, int k, int n) {
     std::vector<int64_t> batch_shape_a = {bs*m, k};
