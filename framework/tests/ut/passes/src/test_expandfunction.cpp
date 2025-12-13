@@ -160,7 +160,7 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionUTest2) {
             EXPECT_NE(view_op.GetOpMagic(), op.GetOpMagic());
             ++view_num;
         } else if (op.GetOpcode() == Opcode::OP_PAD) {
-            EXPECT_EQ(nullptr, pad_op.GetOpAttribute());
+            EXPECT_TRUE(pad_op.GetOpAttribute() == nullptr);
             EXPECT_NE(pad_op.GetOpMagic(), op.GetOpMagic());
             ++pad_num;
         } else if (op.GetOpcode() == Opcode::OP_NOP) {
