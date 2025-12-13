@@ -1,99 +1,79 @@
 # Pypto
 ## Pypto简介
-*pypto的介绍, 特点, *
-*TileLang参考: Tile Language (tile-lang) is a concise domain-specific language designed to streamline the development of high-performance GPU/CPU kernels (e.g., GEMM, Dequant GEMM, FlashAttention, LinearAttention). By employing a Pythonic syntax with an underlying compiler infrastructure on top of TVM, tile-lang allows developers to focus on productivity without sacrificing the low-level optimizations necessary for state-of-the-art performance.*
-## 核心特性
-- 易用性
-- 高性能
-- ...
-## 典型Examples介绍
-## QuickStart
-### 安装指导
-#### 方法1: 通过whl包(pip)安装
-1. whl包安装
-#### 方法2: 通过源码编译安装
-##### 场景1: 仿真环境(无NPU环境, 适合仿真调测)
 
-1. 环境准备: 
+## 最佳实践样例
+Pypto提供了xxxx。一些最佳实践样例参考：
+-  [DeepSeekV3,2 xxxxx]()
+- [DeepSeekV3.2 xxxx]()
+- [GlmV4.5 XXXXX]()
+- [GLMV4,5 XXXX]()
 
-   确保本地 Python3 版本 >= 3.9, 并已正确安装 python3-dev (或 python3-devel) 包. 以conda为例，安装方式如下:
-   ```shell
-   # conda 创建 Python 3.9 环境 环境名：py39
-   conda create -n py39 python=3.9 -y # 可通过修改python=3.9 => python=3.9.5 指定具体版本号
-   
-   # 激活/切换至Python 3.9 环境
-   conda activate py39
+在Example目录下，我们规划了多个层级的样例，可以供学习如何开始写一个pypto算子，也提供了多个典型的大模型实现样例，供快速移植和部署
 
-   # 查看python版本, 应 >= 3.9
-   python --version
-   ```
+## 性能对比
+参考tilelang，提供部分大模型推理典型算子的性能对比数据？
 
-2. 依赖安装: 
-   1. 编译工具
-      - cmake >= 3.16
-      - make
-      - ninja (可选, 可提升编译速度)
-      - gcc >= 7.3.0
+## 目录结构说明
 
-   2. 开源第三方软件源码准备
+## 运行环境搭建
+可查看[环境安装说明]()，根据使用环境，获取环境安装指南，快速搭建pypto运行基础环境
 
-      如果您的本地开发环境能够访问 [CANN 开源第三方软件仓库](https://gitcode.com/cann-src-third-party),
-      构建脚本将自动下载所需软件(详见下文“编译”章节). 
+*docs/installation/pre_env.md : 内容包括 有卡搭建说明和无卡搭建说明，并提供脚本一键式获取CANN包和安装运行依赖*
 
-      如果无法访问, 则需要手动下载以下开源软件的源码压缩包(**必须为 .tar.gz格式**)至开发环境的任意目录(例如 /home/third_party_path): 
+## 安装说明
+### 方法1：通过PyPI安装
+Pypto已发布在PyPI上，可以通过pip直接安装：
 
-      - [JSON for Modern C++ version 3.11.3](https://gitcode.com/cann-src-third-party/json/releases/v3.11.3)
-      - [libboundscheck v1.1.16](https://gitcode.com/cann-src-third-party/libboundscheck/releases/v1.1.16)
+`pip3 install pypto`
 
-3. 编译: 
+### 方法2：通过源码安装
+#### 基础构建环境依赖：
+- CMake版本 >= 3.16
+- make
+- ninja（可选，可提升编译性能）
+- gcc >= 7.3.0
+- python 3.9+ 推荐使用`venu`模式
+#### 编译过程
+##### clone代码 & 安装Python编译时依赖
+```
+git clone <pypto-url>
+cd pypto
+pip install -r python/requirments.txt # 编译时的依赖
+```
+##### 编译过程
+如果部署环境可以访问[xxxx]()，可以使用默认编译安装方法
 
-   推荐使用一键式构建脚本 `build.py` 完成编译. 编译完成后, 将在 `build_out` 目录生成 `pypto` 对应的 `whl` 包.
+``` pip3 install -e .```
 
-   对应命令如下:
-   ```shell
-   # 说明:
-   # 1. --clean 表示在构建前清理构建缓存;
-   # 2. --third_party_path 指定依赖的开源软件源码包的下载、解压、构建和安装路径, 
-   #      若可访问 CANN 开源软件仓库, 构建时将自动下载并安装依赖至该路径.
-   python3 build.py --clean --third_party_path=/home/third_party_path
-   ```
+如果部署环境无法访问[xxxxx]()，参考[编译依赖下载安装指导]()，编译安装使用如下方法
+*docs/installation/third_party_install.md 内容包括需要下载哪些依赖*
+```
+export PYPTO_THIRD_PARTY_PATH=<path-to-thirdparty>
+pip3 install -e .
+```
+### 方法3：使用docker环境
 
-   本项目也支持使用标准的 Python 包安装命令: 
-   ```shell
-   # 使用前需设置环境变量 PYPTO_THIRD_PARTY_PATH, 其值为 build.py 中 --third_party_path 指定的路径
-   export PYPTO_THIRD_PARTY_PATH=/home/third_party_path
+为了方便快速搭建环境，同样提供已完成pypto运行环境搭建的docker镜像，详细使用请参考[docker-ReadMe]()，docker运行命令：
+```
+<pypto-sourcecode-path>/docker/docker_bash.sh  <docker-file-name>
+```
 
-   python3 -m pip install .    # 常规安装
-   python3 -m pip install -e . # 可编辑模式安装
-   ```
+## 样例运行
+仿真环境（无NPU真实硬件）
 
-4. 安装
+```
+cd examples/Initialization
+python3 init_example.py simulator
+```
+真实可运行环境（有NPU真实硬件）
 
-   使用 `build.py` 脚本生成 whl 包后, 可通过 pip命令安装. 例如(在 pypto 源码根目录下, 以 Python 3.9 和 x86_64 平台为例): 
-   ```shell
-   python3 -m pip install build_out/pypto-1.0.0-cp39-cp39-linux_x86_64.whl
-   ```
+```
+cd examples/Initialization
 
-##### 场景2: 实际运行环境(有NPU环境, 适合实际精度、性能调测和部署验证)
-1. 环境准备: 
-2. 依赖安装: 
-3. 编译: 
-4. 安装
-#### 方法3: 使用docker镜像
-*代码中归档docker参考tilelang*
-1. docker下载
-2. docker运行
-### Sample运行指南(有没有docker, 运行方式相同, 用docker不需要再安装依赖)
-#### 仿真sample运行
-- 依赖安装
-- 执行sample
-- 计算图、泳道图？
-#### 真实环境sample运行
-- 依赖安装
-- 执行sample
-- 计算图、泳道图？
-### 测试用例运行指南
-- 测试用例运行依赖安装
-- 测试用例运行指南
-## 性能基准
+python3 init_example.py npu
+```
 ## 贡献指南
+
+## 安全声明
+
+## 许可证
