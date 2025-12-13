@@ -47,7 +47,7 @@ def test_unsqueeze_content_equal():
     dim = 0
     with pypto.function("UNSQUEEZE_CONTENT", [x], [res]):
         for _ in pypto.loop(1, name="LOOP_L0", idx_name="a_idx"):
-            pypto.set_vec_tile_shapes(2, 2, 2)
+            pypto.set_vec_tile_shapes(2, 2, 8)
             res.move(pypto.unsqueeze(x, dim))
 
     torch_case_tensor = torch.rand(2, 2, dtype=torch.float32)

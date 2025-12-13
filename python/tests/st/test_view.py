@@ -47,7 +47,7 @@ def test_view_content_equal():
 
     with pypto.function("VIEW_CONTENT", [x], [res]):
         for _ in pypto.loop(1, name="LOOP_L0", idx_name="a_idx"):
-            pypto.set_vec_tile_shapes(4, 4)
+            pypto.set_vec_tile_shapes(4, 8)
             res.move(pypto.view(x, view_shape, offset))
 
     torch_tensor = torch.rand(4, 8, dtype=torch.float32) * 200 - 100
@@ -75,7 +75,7 @@ def test_view_content_equal_validshape():
 
     with pypto.function("VIEW_CONTENT_VALIDSHAPE", [x], [res]):
         for _ in pypto.loop(1, name="LOOP_L0", idx_name="a_idx"):
-            pypto.set_vec_tile_shapes(4, 4)
+            pypto.set_vec_tile_shapes(4, 8)
             res.move(pypto.view(x, view_shape, offset, valid_shape=validshape))
 
     torch_tensor = torch.rand(4, 4, dtype=torch.float32) * 200 - 100
@@ -103,7 +103,7 @@ def test_tensor_view_content_equal():
 
     with pypto.function("Tensor_VIEW_CONTENT", [x], [res]):
         for _ in pypto.loop(1, name="LOOP_L0", idx_name="a_idx"):
-            pypto.set_vec_tile_shapes(4, 4)
+            pypto.set_vec_tile_shapes(4, 8)
             res.move(x.view(view_shape, offset))
 
     torch_tensor = torch.rand(4, 8, dtype=torch.float32) * 200 - 100
@@ -133,7 +133,7 @@ def test_tensor_view_content_validshape_equal():
 
     with pypto.function("Tensor_VIEW_CONTENT_VALIDSHAPE", [x], [res]):
         for _ in pypto.loop(1, name="LOOP_L0", idx_name="a_idx"):
-            pypto.set_vec_tile_shapes(4, 4)
+            pypto.set_vec_tile_shapes(4, 8)
             res.move(x.view(view_shape, offset, valid_shape=validshape))
 
     torch_tensor = torch.rand(4, 4, dtype=torch.float32) * 200 - 100
@@ -161,7 +161,7 @@ def test_syntactic_sugar_view_content_equal():
 
     with pypto.function("SURGER_VIEW_CONTENT", [x], [res]):
         for _ in pypto.loop(1, name="LOOP_L0", idx_name="a_idx"):
-            pypto.set_vec_tile_shapes(4, 4)
+            pypto.set_vec_tile_shapes(4, 8)
             res.move(x[:offset[0] + view_shape[0], offset[1]:offset[1] + view_shape[1]])
 
     torch_tensor = torch.rand(4, 8, dtype=torch.float32) * 200 - 100

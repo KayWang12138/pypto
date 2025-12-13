@@ -744,7 +744,7 @@ TEST_F(FunctionTest, testRmsNormNewMultiDims) {
 }
 
 TEST_F(FunctionTest, TestConcat) {
-    TileShape::Current().SetVecTile(16, 6, 6, 6);
+    TileShape::Current().SetVecTile(16, 6, 6, 8);
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
     std::vector<int64_t> shape1 = {10, 10, 10, 10};

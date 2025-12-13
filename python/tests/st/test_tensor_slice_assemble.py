@@ -30,7 +30,7 @@ def test_slice_neg_index():
 
     with pypto.function("SLICE_NEG_INDEX", [x], [res]):
         for _ in pypto.loop(1, name="LOOP_L0", idx_name="a_idx"):
-            pypto.set_vec_tile_shapes(4, 4)
+            pypto.set_vec_tile_shapes(4, 8)
             res[-3:-1, -2:-1] = x # equivalent to a[1:3, 6:7]
 
     torch_tensor = torch.rand(x_shape, dtype=torch.float32) * 200 - 100
@@ -59,7 +59,7 @@ def test_1d_assemble_to_2d():
 
     with pypto.function("SLICE_NEG_INDEX", [x], [res]):
         for a_idx in pypto.loop(res_shape[1], name="LOOP_L0", idx_name="a_idx"):
-            pypto.set_vec_tile_shapes(4, 4)
+            pypto.set_vec_tile_shapes(4, 8)
             res[0:, a_idx] = x
 
     torch_tensor = torch.rand(x_shape, dtype=torch.float32) * 200 - 100
@@ -91,7 +91,7 @@ def test_2d_assemble_to_3d():
         for b_idx in pypto.loop(res.shape[0], name="LOOP_L0", idx_name="a_idx"):
             s_loop = pypto.ceil(res.shape[1], x.shape[0])
             for s_idx in pypto.loop(s_loop, name="LOOP_L1", idx_name="s_idx"):
-                pypto.set_vec_tile_shapes(4, 4, 4)
+                pypto.set_vec_tile_shapes(4, 4, 8)
                 offset = s_idx * x.shape[1]
                 res[b_idx, offset:, :] = x
 
@@ -124,7 +124,7 @@ def test_slice_int_index():
 
     with pypto.function("SLICE_INT_INDEX", [x], [res]):
         for _ in pypto.loop(1, name="LOOP_L0", idx_name="a_idx"):
-            pypto.set_vec_tile_shapes(4, 4, 4, 4, 4)
+            pypto.set_vec_tile_shapes(4, 4, 4, 4, 8)
             res[-2, -3:8, :, 1:4, 2] = x # reshape x to (1, 3, 8, 3, 1), res[2:, 5:8, 0:8, 1:4, 2:3] = x
 
     torch_tensor = torch.rand(x_shape, dtype=torch.float32) * 200 - 100
@@ -160,7 +160,7 @@ def test_slice_ellipsis_index():
 
     with pypto.function("SLICE_INT_ELLIPSIS_INDEX", [x0, x1, x2, x3], [res0, res1, res2, res3]):
         for _ in pypto.loop(1, name="LOOP_L0", idx_name="a_idx"):
-            pypto.set_vec_tile_shapes(4, 4, 4, 4)
+            pypto.set_vec_tile_shapes(4, 4, 4, 8)
             res0[..., 2] = x0
             res1[1:2, :, ..., 3:5] = x1
             res2[2, 3, ...] = x2

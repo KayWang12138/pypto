@@ -26,7 +26,7 @@ void ViewTypeFunc(const Tensor &x, Tensor &result, DataType dstDtype) {
         int n = x.GetShape()[2];
         int tileM = m / 4;
         SymbolicScalar mLoop = m / tileM;
-        
+
         LOOP("LOOP_L0_nIdx_view_type", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(0, mLoop, 1)) {
             SymbolicScalar mOffset = mIdx * tileM;
             TileShape::Current().SetVecTile({tileM, k, n});
@@ -50,7 +50,7 @@ void ViewTypeCastFunc(const Tensor &x, Tensor &result, DataType dstDtype, DataTy
         int n = x.GetShape()[2];
         int tileM = m / 4;
         SymbolicScalar mLoop = m / tileM;
-        
+
         LOOP("LOOP_L0_nIdx_view_type_cast", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(0, mLoop, 1)) {
             SymbolicScalar mOffset = mIdx * tileM;
             TileShape::Current().SetVecTile({tileM, k, n});
@@ -109,10 +109,11 @@ void ViewTypeQuantTestFunc(const Tensor &x, Tensor &result) {
 
             TileShape::Current().SetVecTile({tileM, k, 4, n/4});
             auto outInt8Reshape = Reshape(outInt8, {tileM, k, n});
-            TileShape::Current().SetVecTile({tileM, k, 4});
+            TileShape::Current().SetVecTile({tileM, k, 8});
             auto scaleDeQuantReshape = Reshape(scaleDeQuant, {tileM, k, 4});
-            TileShape::Current().SetVecTile({tileM, k, 4});
+            TileShape::Current().SetVecTile({tileM, k, 8});
             auto scaleQuantView = View(scaleDeQuantReshape, DT_INT8);
+            TileShape::Current().SetVecTile({tileM, k, 32});
             auto scaleQuantViewRes = Reshape(scaleQuantView, {tileM, k, 16});
             TileShape::Current().SetVecTile({tileM, k, n});
             auto combinedRes = Cat({outInt8Reshape, scaleQuantViewRes}, -1);
@@ -132,7 +133,7 @@ void ViewTypeDequantTestFunc(const Tensor &x, Tensor &result) {
 
         LOOP("LOOP_L0_nIdx_view_type_dequant", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(0, mLoop, 1)) {
             SymbolicScalar mOffset = mIdx * tileM;
-            
+
             TileShape::Current().SetVecTile({tileM, k, 128});
             auto ropeView = View(x, {tileM, k, 128}, {mOffset, 0, 512});
             TileShape::Current().SetVecTile({tileM, k, 64});
@@ -144,11 +145,11 @@ void ViewTypeDequantTestFunc(const Tensor &x, Tensor &result) {
             auto nopeCastCast = Cast(nopeCast, DT_FP32);
             auto nopeRehape = Reshape(nopeCastCast, {tileM, k, 4, 128});
 
-            TileShape::Current().SetVecTile({tileM, k, 8});
+            TileShape::Current().SetVecTile({tileM, k, 32});
             auto scaleView = View(x, {tileM, k, 16}, {mOffset, 0, 640});
-            TileShape::Current().SetVecTile({tileM, k, 16});
+            TileShape::Current().SetVecTile({tileM, k, 32});
             auto scaleRes = View(scaleView, DT_FP32);
-            TileShape::Current().SetVecTile({tileM, k, 4});
+            TileShape::Current().SetVecTile({tileM, k, 8});
             auto scaleReshape = Reshape(scaleRes, {tileM, k, 4, 1});
 
             TileShape::Current().SetVecTile({tileM, k, 4, 16});

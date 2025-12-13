@@ -159,7 +159,7 @@ class ScatterParamInfo:
         self.src_shape = (b, s)
         self.indices_shape = (idx0, idx1)
         self.view_shape = (b, s)
-        self.tile_shape = (b, s)
+        self.tile_shape = (b, 16)
         self.sdata = sdata
         self.axis = axis
 
@@ -260,7 +260,7 @@ def test_scatter_add_onboard():
     src_shape = (b, s)
     indices_shape = (idx0, idx1)
     view_shape = (b, s)
-    tile_shape = (b, s)
+    tile_shape = (b, 16)
 
     self_tensor = pypto.tensor(src_shape, pypto.DT_FP32, "PTO_TENSOR_SRC")
     indices_tensor = pypto.tensor(indices_shape, pypto.DT_INT64, "PTO_TENSOR_INDEX")
