@@ -196,7 +196,7 @@ inline bool IsPairMergeable(DSU &dsu, int uRoot, int vRoot, int upperBound, doub
     return true;
 }
 
-inline void UpdateDSUForLowerBound(DSU &dsu, std::unordered_set<int> &updatedGraphId, std::pair<double, double> thres) {
+inline void UpdateDSUForLowerBound(DSU &dsu, std::unordered_set<int> &updatedGraphId, const std::pair<double, double> &thres) {
     APASS_LOG_INFO_F(Elements::Operation, "Checking mix result: AIV threshold lowerbound=%f, upperbound=%f.", thres.first, thres.second);
     std::unordered_set<int> cancelMergeRootColor;
     std::unordered_set<int> visitedRootColor;
@@ -396,7 +396,7 @@ Status ReduceCopyRunner::MergePrepare(std::map<std::pair<int, int>, std::set<int
     return SUCCESS;
 }
 
-Status ReduceCopyRunner::MergeLoop(std::vector<std::tuple<int, int, size_t>> &candidates, std::pair<double, double> thres,
+Status ReduceCopyRunner::MergeLoop(std::vector<std::tuple<int, int, size_t>> &candidates, const std::pair<double, double> &thres,
     bool &mergedInLoop, std::map<int, int> &rootToDense) {
     for (const auto& candidate : candidates) {
         int uRoot = dsu.Find(std::get<0>(candidate));

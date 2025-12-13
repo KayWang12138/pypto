@@ -47,7 +47,7 @@ public:
     Status Init(Function &func); 
     Status MergePrepare(std::map<std::pair<int, int>, std::set<int>> &superGraphEdges, 
         std::vector<std::tuple<int, int, size_t>> &candidates, std::map<int, int> &rootToDense);
-    Status MergeLoop(std::vector<std::tuple<int, int, size_t>> &candidates, std::pair<double, double> thres,
+    Status MergeLoop(std::vector<std::tuple<int, int, size_t>> &candidates, const std::pair<double, double> &thres,
     bool &mergedInLoop, std::map<int, int> &rootToDense);
     Status RemarkInternalSubgraphID(Function &func);
     std::map<int, size_t> magic2Size;
