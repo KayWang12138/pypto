@@ -906,8 +906,8 @@ static void ScatterUpdate(LogicalTensorDataPtr out, LogicalTensorDataPtr self, L
 
 static const std::vector<std::string> scatterModeString = {"add", "multiply"};
 
-static void Scatter(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr index, const Element &src,
-    int axis, int reduce) {
+static void ScatterElement(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr index,
+    const Element &src, int axis, int reduce) {
     auto output = From(out);
     auto inputSelf = From(self);
     auto inputIndices = From(index);
@@ -916,6 +916,20 @@ static void Scatter(LogicalTensorDataPtr out, LogicalTensorDataPtr self, Logical
         From(out) = torch::scatter(inputSelf, axis, inputIndices, From(src));
     } else {
         From(out) = torch::scatter(inputSelf, axis, inputIndices, From(src), scatterModeString.at(reduce - 1));
+    }
+}
+
+static void Scatter(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr index,
+    LogicalTensorDataPtr src, int axis, int reduce) {
+    auto output = From(out);
+    auto inputSelf = From(self);
+    auto inputIndices = From(index);
+    auto inputSrc = From(src);
+
+    if (reduce == 0) {
+        From(out) = torch::scatter(inputSelf, axis, inputIndices, inputSrc);
+    } else {
+        From(out) = torch::scatter(inputSelf, axis, inputIndices, inputSrc, scatterModeString.at(reduce - 1));
     }
 }
 
@@ -971,6 +985,7 @@ static struct CalcOps calcOps = {
     .Copy = Copy,
     .ScatterUpdate = ScatterUpdate,
     .LogicalView = LogicalView,
+    .ScatterElement = ScatterElement,
     .Scatter = Scatter,
     .FormatND2NZ = FormatND2NZ,
     .FormatNZ2ND = FormatNZ2ND,
