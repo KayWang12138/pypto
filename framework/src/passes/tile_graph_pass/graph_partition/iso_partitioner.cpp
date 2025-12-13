@@ -175,6 +175,7 @@ Status IsomorphismGraphGroup::BuildGraphGroup(std::shared_ptr<OperationGraphInfo
             return FAILED;
         }
         sgPtr->AddNode(nodeIdx);
+        sgPtr->scopeId_ = superNodeInfo->nodeScope_[nodeIdx];
         isoGraphs_.push_back(sgPtr);
     }
     mergeable_ = superNodeInfo_->nodeMergeable_[expandCandidate[0]];
@@ -298,6 +299,15 @@ bool IsomorphismGraphGroup::IsLegalIsoGraphExtender(std::vector<int32_t> &expand
     int32_t newLatency = isoGraphs_[0]->GetLatency() + superNodeInfo_->GetNodeCycle(expandCandidate[0]);
     if (newLatency > cycleUpperBound) {
         return false;
+    }
+    for (size_t i = 0; i < expandCandidate.size(); i++) {
+        int origScopeId = isoGraphs_[i]->scopeId_;
+        int mergeScopeId = superNodeInfo_->nodeScope_[expandCandidate[i]];
+        if (origScopeId != mergeScopeId) {
+            APASS_LOG_INFO_F(Elements::Operation, "Cannot merge supernodes with different scopeId %d and %d.",
+                origScopeId, mergeScopeId);
+            return false;
+        }
     }
     std::set<int32_t> candSet(expandCandidate.begin(), expandCandidate.end());
     if (candSet.size() != expandCandidate.size()) {
@@ -480,6 +490,16 @@ std::vector<int32_t> IsoPartitioner::GetCandidateMergeColors(int32_t currColor,
 
 bool IsoPartitioner::SuitableForMergeCheck(int32_t currColor, int32_t mergeColor, bool nonIsoGraphsMerge) const
 {
+    for (auto graphPtr : isoSubGroups_[currColor]->isoGraphs_) {
+        if (graphPtr->scopeId_ != -1) {
+            return false;
+        }
+    }
+    for (auto graphPtr : isoSubGroups_[mergeColor]->isoGraphs_) {
+        if (graphPtr->scopeId_ != -1) {
+            return false;
+        }
+    }
     std::set<OpCoreType> opcoreTypes{isoSubGroups_[currColor]->GetSubGraph(0)->coreType_,
                                      isoSubGroups_[mergeColor]->GetSubGraph(0)->coreType_};
     bool coreTypeMergable = operationInfo_->CoreTypeMergeable(opcoreTypes);

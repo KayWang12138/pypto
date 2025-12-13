@@ -47,6 +47,7 @@ public:
     int32_t GetNodeCycle(int32_t nodeIdx) const;
     bool GetNodeMergeable(const std::shared_ptr<OperationGraphInfo> operationGraphInfo, int32_t nodeIdx);
     std::vector<std::vector<int32_t>> node2Op_;
+    std::vector<int32_t> nodeScope_;
     std::vector<int32_t> op2Node_;
     std::vector<std::set<int32_t>> nodeInGraph_;
     std::vector<std::set<int32_t>> nodeOutGraph_;

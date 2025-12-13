@@ -51,6 +51,7 @@ static std::map<std::string, ValueType> g_passConfig = {
     {SG_CUBE_PARALLEL_NUM, 24L},
     {SG_SKIP_PARTITION, false},
     {COPYOUT_RESOLVE_COALESCING, 0L},
+    {SG_SET_SCOPE, -1L}
 };
 
 static std::map<std::string, ValueType> g_runtimeConfig = {

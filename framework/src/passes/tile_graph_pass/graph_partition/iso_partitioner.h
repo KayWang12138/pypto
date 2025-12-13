@@ -47,6 +47,7 @@ public:
     int32_t cycle_{0};
     OpCoreType coreType_{OpCoreType::ANY};
     bool mergeable_{true};
+    int32_t scopeId_{-1};
 };
 
 class IsomorphismGraphGroup {

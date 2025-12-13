@@ -300,12 +300,18 @@ Status NodeGraphInfo::Build(const std::shared_ptr<OperationGraphInfo> operationG
     }
     op2Node_.resize(opList.size());
     nodeCycles_.resize(opList.size());
+    std::vector<int32_t> nodeScopeTmp(node2Op_.size(), -1);
+    nodeScope_.swap(nodeScopeTmp);
     for (size_t nodeIdx = 0; nodeIdx < node2Op_.size(); nodeIdx++) {
         nodeCycles_[nodeIdx] = 0;
         for (size_t opNodeIdx = 0; opNodeIdx < node2Op_[nodeIdx].size(); opNodeIdx++) {
             int32_t opIdx = node2Op_[nodeIdx][opNodeIdx];
             op2Node_[opIdx] = nodeIdx;
             nodeCycles_[nodeIdx] += operationGraphInfo->opList_[opIdx]->GetLatency();
+            int32_t scopeId = operationGraphInfo->opList_[opIdx]->GetScopeId();
+            if (scopeId != -1) {
+                nodeScope_[nodeIdx] = scopeId;
+            }
         }
     }
     BuildInOutGraph(operationGraphInfo, markIsCube);
@@ -320,6 +326,11 @@ bool NodeGraphInfo::GetNodeMergeable(const std::shared_ptr<OperationGraphInfo> o
                          (nodeInGraph_[nodeIdx].size() > 1 && nodeOutGraph_[nodeIdx].empty()) ||
                          (nodeInGraph_[nodeIdx].empty() && nodeOutGraph_[nodeIdx].size() > 1))
                          );
+    for (auto opIdx : node2Op_[nodeIdx]) {
+        if (operationGraphInfo->opList_[opIdx]->GetScopeId() != -1) {
+            isMergeable = false;
+        }
+    }
     return isMergeable;
 }
 
@@ -580,6 +591,17 @@ Status SuperNodeGraphBuilder::BuildSuperNodeGraph()
         return FAILED;
     }
     std::vector<std::pair<int32_t, int32_t>> mergePair;
+    for (size_t i = 0; i < opList.size(); i++) {
+        auto targetScope = opList[i]->GetScopeId();
+        if (targetScope == -1) {
+            continue;
+        }
+        for (auto outputNode : operationInfo_->outGraph_[i]) {
+            if (opList[outputNode]->GetScopeId() == targetScope) {
+                mergePair.emplace_back(outputNode, i);
+            }
+        }
+    }
     for (size_t i = 0; i < opList.size(); i++) {
         if (ConvertCombine(operationInfo_, opList, i, mergePair)) {
             continue;

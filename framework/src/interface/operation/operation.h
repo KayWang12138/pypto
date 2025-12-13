@@ -311,6 +311,10 @@ public:
 
     void ClearOutCtrlOperations() { outputCtrlOps.clear(); }
 
+    int scopeId_{-1};
+    void SetScopeId(int scopeId) {scopeId_ = scopeId; };
+    int GetScopeId() const { return scopeId_; };
+
     void AddInCtrlOperation(Operation &operation);
 
     void RemoveInCtrlOperation(Operation &operation);

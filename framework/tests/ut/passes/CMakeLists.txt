@@ -111,6 +111,7 @@ set(_CaseFilterList
         "GraphPartitionTest.TestLargeWideGraph"
         "GraphPartitionTest.TestLargeDeepGraph"
         "GraphPartitionTest.TestIsomorphismGraph"
+        "GraphPartitionTest.TestScopeId"
         "GraphPartitionTest.TestNonIsomorphismGraph"
         "GraphPartitionTest.TestAvoidSuperNodeLoop"
         "ReduceCopyTest.TestCase0"

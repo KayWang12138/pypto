@@ -172,7 +172,9 @@ Status ExpandFunction::Expandfunction(Function &function) const {
         }
         config::SetSemanticLabel(op->GetSemanticLabel());
         size_t opListPreSize = function.Operations(false).size();
+        config::SetPassOption(SG_SET_SCOPE, op->GetScopeId());
         ExpandOperationInto(function, op->GetTileShape(), op->GetOpcode(), op->GetIOperands(), op->GetOOperands(), *op);
+        config::SetPassOption(SG_SET_SCOPE, -1);
         auto opListPost = function.Operations(false);
         if (op->GetOpcode() == Opcode::OP_ADDS) {
             for (size_t i = opListPreSize; i < opListPost.size(); i++) {

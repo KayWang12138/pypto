@@ -1401,6 +1401,7 @@ const Opcode opCode, const LogicalTensors &iOperands, const LogicalTensors &oOpe
     auto &op =
         operations_.emplace_back(std::make_shared<Operation>(*this, opCode, iOperands, oOperands, updateTensorMap));
     opPosition_.emplace(op.get(), operations_.size() - 1);
+    operations_.back()->SetScopeId(config::GetPassOption<int>(SG_SET_SCOPE));
     return *operations_.back();
 }
 

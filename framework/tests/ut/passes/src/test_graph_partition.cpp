@@ -540,6 +540,35 @@ TEST_F(GraphPartitionTest, TestIsomorphismGraph) {
     EXPECT_EQ(function->GetTotalSubGraphCount(), subGraphNum);
 }
 
+TEST_F(GraphPartitionTest, TestScopeId) {
+    ComputationalGraphBuilder G;
+    std::vector<int64_t> tileShape{32,32};
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {"h1", "h2", "h3", "h41", "h42", "h5", "h6"}), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_COPY_IN, {"h1"}, {"h2"}, "COPY_IN", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_ABS, {"h2"}, {"h3"}, "ABS", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_ADDS, {"h3"}, {"h41"}, "A1", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_ADDS, {"h3"}, {"h42"}, "A2", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_MUL, {"h41", "h42"}, {"h5"}, "M", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_COPY_OUT, {"h5"}, {"h6"}, "COPY_OUT", true), true);
+    EXPECT_EQ(G.SetInCast({"h1"}), true);
+    EXPECT_EQ(G.SetOutCast({"h6"}), true);
+    G.GetOp("A1")->SetScopeId(1);
+    G.GetOp("A2")->SetScopeId(1);
+    G.GetOp("M")->SetScopeId(1);
+    G.GetOp("COPY_OUT")->SetScopeId(1);
+
+    Function *function = G.GetFunction();
+    const int cycleUB = 100000;
+    const int parallelTH = 20;
+    const int cycleLB = 100000;
+    const int useNodeHash = false;
+    IsoPartitioner partitioner;
+    EXPECT_EQ(partitioner.SetParameter(cycleUB, parallelTH, cycleLB, useNodeHash), SUCCESS);
+    EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
+    const int subGraphNum = 2;
+    EXPECT_EQ(function->GetTotalSubGraphCount(), subGraphNum);
+}
+
 TEST_F(GraphPartitionTest, TestNonIsomorphismGraph) {
     ComputationalGraphBuilder G;
     std::vector<int64_t> tileShape{16,16};

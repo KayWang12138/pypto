@@ -82,7 +82,8 @@ def set_pass_options(*,
                      cube_nbuffer: Optional[int] = None,
                      cube_nbuffer_map: Optional[Dict[int, int]] = None,
                      copyin_threshold: Optional[int] = None,
-                     ooo_preschedule_method: Optional[str] = None
+                     ooo_preschedule_method: Optional[str] = None,
+                     sg_set_scope: Optional[int] = None,
                      ) -> None:
     """
     Set pass options.

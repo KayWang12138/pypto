@@ -549,6 +549,7 @@ std::string Operation::DumpSSA(const std::string &prefix) const {
         oss << ((i == oOperand.size() - 1) ? " = " : "");
     }
     oss << "!" << GetOpMagic() << " " << GetOpcodeStr(true);
+    oss << "(g:" << GetSubgraphID() << ", s:" << GetScopeId() << ")";
     for (size_t i = 0; i < iOperand.size(); i++) {
         oss << ((i == 0) ? " " : ", ");
         oss << iOperand[i]->DumpSSA(false, true, false);

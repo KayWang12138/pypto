@@ -23,6 +23,7 @@ namespace npu::tile_fwk {
 constexpr const char *SG_PARALLEL_NUM = "parallel_threshold";
 constexpr const char *SG_CYCLE_UPPER_BOUND = "cycle_upper_bound";
 constexpr const char *SG_CYCLE_LOWER_BOUND = "cycle_lower_bound";
+constexpr const char *SG_SET_SCOPE = "sg_set_scope";
 constexpr const char *L1_REUSE = "l1_reuse";
 constexpr const char *L1_REUSE_MAP = "l1_reuse_map";
 constexpr const char *CUBE_NBUFFER = "cube_nbuffer";
