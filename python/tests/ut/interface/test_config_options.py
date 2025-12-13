@@ -11,6 +11,7 @@
 """
 """
 import pypto
+from pypto.experimental import set_operation_config, get_operation_config
 
 
 def test_print_options():
@@ -58,3 +59,9 @@ def test_option():
     pypto.set_option("profile_enable", True)
     option = pypto.get_option("profile_enable")
     assert option == True
+
+
+def test_operation_option():
+    set_operation_config(force_combine_axis=True)
+    option = get_operation_config()
+    assert option["force_combine_axis"] == True

@@ -9,7 +9,7 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 """ """
-
+from typing import List, Union, Dict
 from . import pypto_impl
 from .op_wrapper import op_wrapper
 from .tensor import Tensor
@@ -24,7 +24,7 @@ def load(a: pypto_impl.Tensor, offsets: pypto_impl.Tensor) -> pypto_impl.Tensor:
 def gather_in_l1(src: pypto_impl.Tensor, indices: pypto_impl.Tensor, blockTable: pypto_impl.Tensor, blockSize: int,
                  size: int, is_b_matrix: bool, is_trans: bool):
     """gather_in_l1."""
- 
+
     return pypto_impl.gather_in_l1(src, indices, blockTable, blockSize, size, is_b_matrix, is_trans)
 
 
@@ -33,30 +33,30 @@ def gather_in_ub(param: pypto_impl.Tensor, indices: pypto_impl.Tensor, blockTabl
                  blockSize: int, axis: int):
     """gather_in_ub."""
     """
-    Custom Operator for Sparse Attention Mechanism:  
+    Custom Operator for Sparse Attention Mechanism:
     Extracts selected key-value (KV) vectors from the PagedAttention KV cache based on token indices.
 
-    This operator assumes that the KV cache is stored in GM (Global Memory), 
+    This operator assumes that the KV cache is stored in GM (Global Memory),
     and the extracted results are written to UB (Unified Buffer).
 
     Parameters:
     -----------
     param : Tensor
-        Input tensor representing the KV cache in GM. 
+        Input tensor representing the KV cache in GM.
         Only 2-D tensors are supported, with shape [token_num, hidden_size].
     indices : Tensor
-        Input tensor containing the indices of selected tokens (e.g., TopK results). 
+        Input tensor containing the indices of selected tokens (e.g., TopK results).
         Only 2-D tensors are supported, with shape [1, k].
     blockTable : Tensor
-        Input tensor representing the page table in PagedAttention. 
+        Input tensor representing the page table in PagedAttention.
         Only 2-D tensors are supported, with shape [1, block_table_size].
     blockSize : int
         Input scalar indicating the number of tokens per block in PagedAttention.
     axis : int
-        Input scalar specifying the dimension along which the operation is applied. 
+        Input scalar specifying the dimension along which the operation is applied.
         Only -2 (second-to-last dimension) is currently supported.
     out: Tensor
-        Contains the KV vectors (either key or value, depending on the input param) corresponding to 
+        Contains the KV vectors (either key or value, depending on the input param) corresponding to
         the k selected tokens specified by indices with shape [k, hidden_size].
 
     Examples
@@ -67,7 +67,7 @@ def gather_in_ub(param: pypto_impl.Tensor, indices: pypto_impl.Tensor, blockTabl
     blockSize = 2
     out = pypto.experimental.gather_in_ub(param, offsets, pageTable, blockSize, -2)
 
-    Input param:  
+    Input param:
     [
         [  0,  1,  2,  3],  # 0
         [ 10, 11, 12, 13],  # 1
@@ -79,7 +79,7 @@ def gather_in_ub(param: pypto_impl.Tensor, indices: pypto_impl.Tensor, blockTabl
     Input indices:  [0, 4, 3]
     Input blockTable:  [0, 2, 1]
 
-    Output out: 
+    Output out:
     [
         [  0,  1,  2,  3],
         [ 20, 21, 22, 23],
@@ -87,3 +87,29 @@ def gather_in_ub(param: pypto_impl.Tensor, indices: pypto_impl.Tensor, blockTabl
     ]
     """
     return pypto_impl.gather_in_ub(param, indices, blockTable, blockSize, axis)
+
+
+def set_operation_config(*, force_combine_axis: bool):
+    """
+    Set operation config.
+
+    Parameters
+    ---------
+    force_combine_axis : bool
+        Codegen forced axis fusion optimization.
+    """
+    pypto_impl.SetOperationConfig("FORCE_COMBINE_AXIS", force_combine_axis)
+
+
+def get_operation_config() -> Dict[str, Union[str, int, List[int], Dict[int, int]]]:
+    """
+    Get operation config.
+
+    Returns
+    -------
+    Dict[str, Union[str, int, List[int], Dict[int, int]]]
+        All operation config
+    """
+    return {
+        "force_combine_axis": pypto_impl.GetOperationConfig("FORCE_COMBINE_AXIS", False),
+    }
