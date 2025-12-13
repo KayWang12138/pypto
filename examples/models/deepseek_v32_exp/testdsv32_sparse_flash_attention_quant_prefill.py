@@ -314,83 +314,75 @@ def gen_gather_select_attention_golden(dtype, bn1n2s1, is_kn_quant, actual_seq):
     return input_params, input_data_map, atten_out
 
 
+def get_case_config(case_name: str):
+    # case参数配置字典，key为case名称，value为对应的参数元组(bn1n2s1, is_kn_quant, actual_seq)
+    test_case_config = {
+        "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b4_s2_seqtest1_int8": (
+            (4, 128, 1, 2), 1, [666, 532, 768, 900]
+        ),
+        "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b32_s1_seq511": (
+            (32, 128, 1, 1), 0, [511] * 32
+        ),
+        "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b32_s1_seq511_int8": (
+            (32, 128, 1, 1), 1, [511] * 32
+        ),
+        "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b1_s1_seq2049": (
+            (1, 128, 1, 1), 0, [2049]
+        ),
+        "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b1_s1_seq2049_int8": (
+            (1, 128, 1, 1), 1, [2049]
+        ),
+        "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b1_s3_seq2047": (
+            (1, 128, 1, 3), 0, [2047]
+        ),
+        "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b1_s3_seq2047_int8": (
+            (1, 128, 1, 3), 1, [2047]
+        ),
+        "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b1_s256_seq2047": (
+            (1, 128, 1, 256), 0, [2047]
+        ),
+        "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b1_s256_seq2047_int8": (
+            (1, 128, 1, 256), 1, [2047]
+        ),
+        "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b1_s512_seq2047": (
+            (1, 128, 1, 512), 0, [2047]
+        ),
+        "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b1_s512_seq2047_int8": (
+            (1, 128, 1, 512), 1, [2047]
+        ),
+        "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s1_seq128k": (
+            (8, 128, 1, 1), 0, [131072] * 8  
+        ),
+        "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s1_seq128k_int8": (
+            (8, 128, 1, 1), 1, [131072] * 8
+        ),
+        "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b4_s1_seqtest1": (
+            (4, 128, 1, 1), 0, [666, 532, 768, 900]
+        ),
+        "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b4_s1_seqtest1_int8": (
+            (4, 128, 1, 1), 1, [666, 532, 768, 900]
+        ),
+        "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s4_seqtest2": (
+            (8, 128, 1, 4), 0, [666, 532, 768, 900, 5698, 2358, 324, 2048]
+        ),
+        "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s4_seqtest2_int8": (
+            (8, 128, 1, 4), 1, [666, 532, 768, 900, 5698, 2358, 324, 2048]
+        ),
+    }
+    
+    case_config = test_case_config.get(case_name)
+    return case_config
+
+
 def do_test_QSFA_p(case_name: str):
     bn1n2s1 = (4, 128, 1, 2)
     is_kn_quant = 1
     actual_seq = [666, 532, 768, 900]
-    if case_name == "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b4_s2_seqtest1_int8":
-        bn1n2s1 = (4, 128, 1, 2)
-        is_kn_quant = 1
-        actual_seq = [666, 532, 768, 900]
-    elif case_name == "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b32_s1_seq511":
-        # bn1n2s1数据: b, n_q, n_kv, s_q; n_kv=1
-        bn1n2s1 = (32, 128, 1, 1)
-        # 0为kn非量化情况，1为kn量化情况
-        is_kn_quant = 0
-        actual_seq = [511] * 32
-    elif case_name == "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b32_s1_seq511_int8":
-        bn1n2s1 = (32, 128, 1, 1)
-        is_kn_quant = 1
-        actual_seq = [511] * 32
-    elif case_name == "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b1_s1_seq2049":
-        bn1n2s1 = (1, 128, 1, 1)
-        is_kn_quant = 0
-        actual_seq = [2049]
-    elif case_name == "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b1_s1_seq2049_int8":
-        bn1n2s1 = (1, 128, 1, 1)
-        is_kn_quant = 1
-        actual_seq = [2049]
-    elif case_name == "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b1_s3_seq2047":
-        bn1n2s1 = (1, 128, 1, 3)
-        is_kn_quant = 0
-        actual_seq = [2047]
-    elif case_name == "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b1_s3_seq2047_int8":
-        bn1n2s1 = (1, 128, 1, 3)
-        is_kn_quant = 1
-        actual_seq = [2047]
-    elif case_name == "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b1_s256_seq2047":
-        bn1n2s1 = (1, 128, 1, 256)
-        is_kn_quant = 0
-        actual_seq = [2047]
-    elif case_name == "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b1_s256_seq2047_int8":
-        bn1n2s1 = (1, 128, 1, 256)
-        is_kn_quant = 1
-        actual_seq = [2047]
-    elif case_name == "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b1_s512_seq2047":
-        bn1n2s1 = (1, 128, 1, 512)
-        is_kn_quant = 0
-        actual_seq = [2047]
-    elif case_name == "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b1_s512_seq2047_int8":
-        bn1n2s1 = (1, 128, 1, 512)
-        is_kn_quant = 1
-        actual_seq = [2047]
-    elif case_name == "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s1_seq128k":
-        bn1n2s1 = (8, 128, 1, 1)
-        is_kn_quant = 0
-        actual_seq = [131072] * 8  # 128k
-    elif case_name == "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s1_seq128k_int8":
-        bn1n2s1 = (8, 128, 1, 1)
-        is_kn_quant = 1
-        actual_seq = [131072] * 8
-    elif case_name == "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b4_s1_seqtest1":
-        bn1n2s1 = (4, 128, 1, 1)
-        is_kn_quant = 0
-        actual_seq = [666, 532, 768, 900]
-    elif case_name == "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b4_s1_seqtest1_int8":
-        bn1n2s1 = (4, 128, 1, 1)
-        is_kn_quant = 1
-        actual_seq = [666, 532, 768, 900]
-    elif case_name == "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s4_seqtest2":
-        bn1n2s1 = (8, 128, 1, 4)
-        is_kn_quant = 0
-        actual_seq = [666, 532, 768, 900, 5698, 2358, 324, 2048]
-    elif case_name == "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s4_seqtest2_int8":
-        bn1n2s1 = (8, 128, 1, 4)
-        is_kn_quant = 1
-        actual_seq = [666, 532, 768, 900, 5698, 2358, 324, 2048]
-    else:
+    case_config = get_case_config(case_name)
+    if not case_config:
         logging.error("Can't get func to gen golden, Case(%s)", case_name)
         assert False
+    bn1n2s1, is_kn_quant, actual_seq = case_config
     
     print("============bn1n2s1 is: =====================")
     print(bn1n2s1)
