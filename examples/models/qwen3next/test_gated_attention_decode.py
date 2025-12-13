@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 # coding: utf-8
 # Copyright (c) 2025 Huawei Technologies Co., Ltd.
-# This file is a part of the CANN Open Software.
-# Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+# This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+# CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
 # THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
-# ======================================================================================================================
+# -----------------------------------------------------------------------------------------------------------
 """
 """
 from dataclasses import dataclass
@@ -36,14 +36,16 @@ def get_qwen_common_config():
     return tile_cfg
 
 
-def get_s1size(act_seqs, b_idx):
+def get_s1_size(act_seqs, b_idx):
+    # torch 获取TND格式下每个batch的s1大小
     if b_idx == 0:
         return act_seqs[b_idx]
     else:
         return act_seqs[b_idx] - act_seqs[b_idx - 1]
 
 
-def get_bsoffset(act_seqs, b_idx):
+def get_b_offset(act_seqs, b_idx):
+    # torch 获取TND格式下每个batch的起始索引
     if b_idx == 0:
         return 0
     else:
@@ -51,6 +53,7 @@ def get_bsoffset(act_seqs, b_idx):
 
 
 def kv_cache_concat_bsnd(k_cache, v_cache, kv_cache_actual_seq, block_table, b):
+    # torch 将kvcache转为bsnd格式
     block_size = k_cache.shape[1]
     n2 = k_cache.shape[2]
     d = k_cache.shape[3]
@@ -105,7 +108,7 @@ def gated_attention_decode_func(inputs, outputs):
     weight = inputs[7]
     atten_out = outputs[0]
 
-    # 3. 定义动态函数
+    # 3. 获取参数信息
     tile_cfg = get_qwen_common_config()
     nq = q.shape[1]
     dn = q.shape[2]
@@ -132,6 +135,7 @@ def gated_attention_decode_func(inputs, outputs):
         cur_seq = kv_act_seqs[b_idx]
         s1_scalar = 0
         b_ofs = 0
+        # 5. 动态获取TND格式下每个batch的s1大小与起始索引位置
         if pypto.cond(pypto.is_loop_begin(b_idx)):
             s1_scalar = q_act_seqs[b_idx]
             b_ofs = 0
@@ -151,9 +155,9 @@ def gated_attention_decode_func(inputs, outputs):
                         block_idx = block_table[b_idx, s2_idx]
                         n1g_ofs = n2_idx * g_scalar + g_idx * g_tile
                         actual_s2_tile = (cur_seq - s2_idx * s2_tile).min(s2_tile)
-                        # 5. 按照计算图实现运算逻辑，设置set_vec_tile_shapes时应尽可能用满UB，但不要超过UB的大小。
+                        # 6. 按照计算图实现运算逻辑，设置set_vec_tile_shapes时应尽可能用满UB，但不要超过UB的大小。
                         pypto.set_vec_tile_shapes(16, v1_tile[0], v1_tile[1])
-                        # 6. 通过view得到tile_q
+                        # 7. 通过view得到tile_q
                         qi = pypto.view(q, [1, g_tile, dn], [bs_ofs, n1g_ofs, 0],
                                         valid_shape=[1, g_tile, dn])
                         qi = pypto.reshape(qi, [g_tile, dn])
@@ -166,18 +170,18 @@ def gated_attention_decode_func(inputs, outputs):
                         vj = pypto.reshape(vj, [block_size, dn], valid_shape=[actual_s2_tile, dn])
 
                         # c1
-                        # 7. 下面是flash attention的计算逻辑
+                        # 8. 下面是flash attention的计算逻辑
                         pypto.set_cube_tile_shapes(c1_tile[0], c1_tile[1], c1_tile[2])
                         sij = pypto.matmul(qi, kj, pypto.DT_FP32, a_trans=False, b_trans=True)
                         sij = pypto.reshape(sij, [g_tile, s2_tile], valid_shape=[g_tile, actual_s2_tile])
                         # v1
                         pypto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
                         sij_scale = pypto.mul(sij, softmax_scale)
-                        tilda_mij = pypto.amax(sij_scale, keepdim=True)
+                        tilda_mij = pypto.amax(sij_scale, -1, keepdim=True)
                         tsub = pypto.sub(sij_scale, tilda_mij)
                         tilda_pij = pypto.exp(tsub)
                         tilda_pij_fp16 = pypto.cast(tilda_pij, dtype)
-                        tilda_lij = pypto.sum(tilda_pij, keepdim=True)
+                        tilda_lij = pypto.sum(tilda_pij, -1, keepdim=True)
                         if pypto.cond(pypto.is_loop_begin(s2_idx)):
                             # c2
                             pypto.set_cube_tile_shapes(c2_tile[0], c2_tile[1], c2_tile[2])
@@ -186,7 +190,7 @@ def gated_attention_decode_func(inputs, outputs):
                             pypto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
                             if pypto.cond(pypto.is_loop_end(s2_idx)):
                                 oi_upd[:] = pypto.div(oi_tmp, tilda_lij)
-                                # 8. 将结果搬运到输出tensor上
+                                # 9. 将attention结果搬运到临时tensor上
                                 pypto.assemble(oi_upd, [n1g_ofs, 0], bs_out)
                             else:
                                 oi_upd[:] = oi_tmp
@@ -216,7 +220,7 @@ def gated_attention_decode_func(inputs, outputs):
                             oi_tmp = pypto.add(q3, q2)
                             if pypto.cond(pypto.is_loop_end(s2_idx)):
                                 oi_upd[:] = pypto.div(oi_tmp, li_new)
-                                # 9. 将结果搬运到输出tensor上
+                                # 9. 将attention结果搬运到临时tensor上
                                 pypto.assemble(oi_upd, [n1g_ofs, 0], bs_out)
                             else:
                                 oi_upd[:] = oi_tmp
@@ -231,9 +235,11 @@ def gated_attention_decode_func(inputs, outputs):
                 pypto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
                 weight_bs = pypto.view(weight, [hidden_size, nq * dn], [0, 0])
                 weight_fp32 = pypto.cast(weight_bs, pypto.DT_FP32)
+                # 10、gate相乘
                 out_gate = pypto.mul(bs_out, gate_bs_fp32)
                 out_gate = pypto.reshape(out_gate, [1, nq * dn])
                 pypto.set_cube_tile_shapes(c2_tile[0], c2_tile[1], c2_tile[2])
+                # 11、出口linear
                 out_linear = pypto.matmul(out_gate, weight_fp32, pypto.DT_FP32, a_trans=False, b_trans=True)
                 out_linear = pypto.cast(out_linear, dtype)
                 pypto.assemble(out_linear, [bs_ofs, 0], atten_out)
@@ -324,8 +330,8 @@ def test_gated_attention_decode():
     k_bsnd, v_bsnd = kv_cache_concat_bsnd(k_torch, v_torch, kv_act_seq_torch, block_table_torch, b)
 
     for i in range(b):
-        s1 = get_s1size(q_act_seq_torch, i)
-        b_ofs = get_bsoffset(q_act_seq_torch, i)
+        s1 = get_s1_size(q_act_seq_torch, i)
+        b_ofs = get_b_offset(q_act_seq_torch, i)
         for j in range(s1):
             bs_ofs = b_ofs + j
             atten_out = torch.zeros([nq, d], dtype=torch.float32).to(device=device)

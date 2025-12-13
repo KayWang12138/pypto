@@ -89,7 +89,7 @@ def cust_add_rms_norm(in_tensor, out_tensor):
         x_f32 = pypto.add(tile_residual_fp32, tile_hidden_states_fp32) # tile_hidden_states
         square = pypto.mul(x_f32, x_f32) # square
         mean_res = pypto.mul(square, mean_coff) # mean_res = square * mean_coff
-        reduce_asum = pypto.sum(mean_res, keepdim=True) # reduce_asum = mean_res.sum(dim=-1, keepdim=True)
+        reduce_asum = pypto.sum(mean_res, dim=-1, keepdim=True) # reduce_asum = mean_res.sum(dim=-1, keepdim=True)
         reduce_sum = pypto.add(reduce_asum, eps) # reduce_sum = reduce_asum + eps
         reduce_sqrt = pypto.sqrt(reduce_sum) # reduce_sqrt = torch.sqrt(reduce_sum)
         res_div = pypto.div(x_f32, reduce_sqrt) # res_div = x_f32 / reduce_sqrt

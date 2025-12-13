@@ -85,7 +85,7 @@ def rms_norm(tensor_value, gamma, eps, tile_shape):
     mean_coff = 1.0 / tensor_value_fp32.shape[-1]
     mean_res = pypto.mul(square, mean_coff)
     # reduce sum
-    reduce_asum = pypto.sum(mean_res, keepdim=True)
+    reduce_asum = pypto.sum(mean_res, dim=-1, keepdim=True)
     reduce_sum = pypto.add(reduce_asum, eps)
     # sqrt
     reduce_sqrt = pypto.sqrt(reduce_sum)
@@ -102,6 +102,7 @@ def rms_norm(tensor_value, gamma, eps, tile_shape):
 
 def rope_data(x1, x2, cos, sin, tile_shape):
     pypto.set_vec_tile_shapes(*tile_shape)
+    # mul
     o1 = pypto.sub(pypto.mul(x1, cos), pypto.mul(x2, sin))
     o2 = pypto.add(pypto.mul(x2, cos), pypto.mul(x1, sin))
     # concat
@@ -125,14 +126,11 @@ def attention_pre_pto_inner(in_tensors, out_tensors):
     k_gamma = in_tensors[3]
     cos = in_tensors[4]
     sin = in_tensors[5]
-    loc = in_tensors[6]
 
     q = out_tensors[0]
     k = out_tensors[1]
     v = out_tensors[2]
     z = out_tensors[3]
-    k_buffer = out_tensors[4]
-    v_buffer = out_tensors[5]
 
     # 3. 得到动态tensor的shape
     bs = x.shape[0]
@@ -157,10 +155,11 @@ def attention_pre_pto_inner(in_tensors, out_tensors):
         sin_tile = pypto.view(sin, [bs_tile, 1, half_rotary_dim], [bs_idx * bs_tile, 0, 0])
         
         # 6. 按照计算图实现运算逻辑
-        # matmul
+        # Linear projection
         pypto.set_cube_tile_shapes([128, 128], [128, 128], [128, 128])
         mm_res = pypto.matmul(x_tile, weight_qkvz, pypto.DT_BF16, a_trans=False, b_trans=True)  
 
+        # Split into Q, K, V, Z
         qz_tile = pypto.view(mm_res, [bs_tile, 2 * q_size], [0, 0])      
         k_tile = pypto.view(mm_res, [bs_tile, kv_size], [0, 2 * q_size])
         v_tile = pypto.view(mm_res, [bs_tile, kv_size], [0, 2 * q_size + kv_size])   
@@ -171,16 +170,17 @@ def attention_pre_pto_inner(in_tensors, out_tensors):
         q_tile = pypto.reshape(q_temp, [bs_tile, q_size])      
         z_tile = pypto.reshape(z_temp, [bs_tile, q_size])      
         
+        # Reshape to 3D
         pypto.set_vec_tile_shapes(bs_tile, q_num_head, head_dim)
         q_3d = pypto.reshape(q_tile, [bs_tile, q_num_head, head_dim])
         k_3d = pypto.reshape(k_tile, [bs_tile, kv_num_head, head_dim])
         v_3d = pypto.reshape(v_tile, [bs_tile, kv_num_head, head_dim])
 
-        # rms norm
+        # RMS normalization for Q and K
         q_norm = rms_norm(q_3d, q_gamma, eps, [bs_tile, q_num_head, head_dim])
         k_norm = rms_norm(k_3d, k_gamma, eps, [bs_tile, kv_num_head, head_dim])
 
-        # apply rope
+        # Apply Rotary Position Embedding (RoPE)
         # cast
         pypto.set_vec_tile_shapes(bs_tile, q_num_head, head_dim)
         q_fp32 = pypto.cast(q_norm, pypto.DT_FP32)
@@ -210,14 +210,10 @@ def attention_pre_pto_inner(in_tensors, out_tensors):
         k_rope = rope_data(k1, k2, cos_fp32, sin_fp32, [bs_tile, kv_num_head, half_rotary_dim])
         k_res1 = pypto.concat([k_rope, k_pass1], -1)
 
-        #sigmoid
+        #Sigmoid
         z_sig = pypto.sigmoid(z_tile)
 
-        #set_kv_cache
-        cacheindex = loc[bs_idx]
-        pypto.assemble(k_res1, [cacheindex, 0, 0], k_buffer)
-        pypto.assemble(v_3d, [cacheindex, 0, 0], v_buffer)
-
+        # Reshape outputs
         q_res = pypto.reshape(q_res1, [bs_tile, q_size])
         k_res = pypto.reshape(k_res1, [bs_tile, kv_size])
         v_res = pypto.reshape(v_3d, [bs_tile, kv_size])
@@ -230,8 +226,8 @@ def attention_pre_pto_inner(in_tensors, out_tensors):
         z[bs_idx * bs_tile:, 0:] = z_sig
 
 
+# 封装pypto实现代码
 def attention_pre_pto(**kwargs):
-    # 入参信息获取
     x = kwargs.get("x")
     weight_qkvz = kwargs.get("weight_qkvz")
     q_gamma = kwargs.get("q_gamma")
@@ -240,26 +236,21 @@ def attention_pre_pto(**kwargs):
     positions = kwargs.get("positions")
     num_kv_heads = kwargs.get("num_kv_heads")
     num_heads = kwargs.get("num_heads")
-    loc_torch = kwargs.get("loc_torch")
-    k_buffer_torch = kwargs.get("k_buffer_torch")
-    v_buffer_torch = kwargs.get("v_buffer_torch")
 
     dtype = x.dtype
     device = x.device
 
+    # 从入参中获取维度
     bs = x.shape[0]
     head_dim = q_gamma.shape[0]
 
+    # 从传进的cos_sin_cache获取旋转位置编码所需的cos，sin
     cos_sin = cos_sin_cache.index_select(0, positions)
     half = cos_sin.size(-1) // 2
     cos = cos_sin[:, :half]
     sin = cos_sin[:, half:]
     cos = cos.view(-1, 1, half).contiguous()
     sin = sin.view(-1, 1, half).contiguous()
-
-    k_buffer_torch = k_buffer_torch.view(-1, num_kv_heads, head_dim)
-    v_buffer_torch = v_buffer_torch.view(-1, num_kv_heads, head_dim)
-    loc_int32 = loc_torch.to(torch.int32)
 
     # outputs
     q = torch.zeros((bs, num_heads * head_dim), dtype=dtype, device=device)
@@ -273,29 +264,25 @@ def attention_pre_pto(**kwargs):
         q_gamma: [],
         k_gamma: [],
         cos: [0],
-        sin: [0],
-        loc_int32: []
+        sin: [0]
     }
     outputs = {
         q: [0],
         k: [0],
         v: [0],
-        gate: [0],
-        k_buffer_torch: [],
-        v_buffer_torch: []
+        gate: [0]
     }
 
     pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
     pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
 
     attention_pre_pto_inner(pto_inputs, pto_outputs)
-    pypto.runtime._device_synchronize()
 
     return q, k, v, gate
 
 
+# torch实现的对比代码
 def attention_pre(**kwargs):
-    # 入参信息获取
     x = kwargs.get("x")
     weight_qkvz = kwargs.get("weight_qkvz")
     q_gamma = kwargs.get("q_gamma")
@@ -304,10 +291,8 @@ def attention_pre(**kwargs):
     positions = kwargs.get("positions")
     num_kv_heads = kwargs.get("num_kv_heads")
     num_heads = kwargs.get("num_heads")
-    loc_torch = kwargs.get("loc_torch")
-    k_buffer_c = kwargs.get("k_buffer_c")
-    v_buffer_c = kwargs.get("v_buffer_c")
 
+    # 从传进的cos_sin_cache获取旋转位置编码所需的cos，sin
     cos_sin = cos_sin_cache.index_select(0, positions)
     half = cos_sin.size(-1) // 2
     cos = cos_sin[:, :half]
@@ -315,6 +300,7 @@ def attention_pre(**kwargs):
     cos = cos.view(-1, 1, half).contiguous()
     sin = sin.view(-1, 1, half).contiguous()
 
+    # 从参数中获取维度
     bs = x.shape[0]
     head_dim = q_gamma.shape[0]
     q_size = num_heads * head_dim
@@ -323,9 +309,9 @@ def attention_pre(**kwargs):
     rotary_dim = half_rotary_dim * 2
     eps = 1e-6
 
-    # 5. 与PyTorch参考实现对比
-    # matmul
+    # linear
     mm_golden = torch.matmul(x, weight_qkvz.T)
+    # split
     q_gate, k_g, v_g = mm_golden.split([q_size * 2, kv_size, kv_size], dim=-1)
     orig_shape = q_gate.shape[:-1]
     q_gate = q_gate.view(*orig_shape, num_heads, -1)
@@ -333,6 +319,7 @@ def attention_pre(**kwargs):
     q_g = q_g.reshape(*orig_shape, -1)
     z_g = z_g.reshape(*orig_shape, -1)
 
+    # reshape
     q_by_head = q_g.view(*q_g.shape[:-1], q_g.shape[-1] // head_dim, head_dim)
     k_by_head = k_g.view(*k_g.shape[:-1], k_g.shape[-1] // head_dim, head_dim)
     # nms norm   
@@ -351,13 +338,7 @@ def attention_pre(**kwargs):
     #sigmoid
     z_s = torch.sigmoid(z_g)
 
-    #set_kv_cache
-    k_buffer_c = k_buffer_c.view(-1, num_kv_heads, head_dim)
-    v_buffer_c = v_buffer_c.view(-1, num_kv_heads, head_dim)
-    for i in range(bs):
-        k_buffer_c[loc_torch[i]] = k_r[i]
-        v_buffer_c[loc_torch[i]] = v_g[i]
-
+    #reshape 
     q_r = q_r.view(bs, q_size)
     k_r = k_r.view(bs, kv_size)
 
@@ -376,10 +357,9 @@ def test_attention_pre():
     kv_size = 256
     total_hidden_size = 2 * q_size + 2 * kv_size
     max_embbending_size = 262144
-    page_size = 128
-    page_num = max_embbending_size // page_size + 1
+    rotary_dim = 64
     loc_shape = [bs, ]
-    buffer_shape = [page_num, page_size, 1, head_dim]
+
     
     # 准备测试数据
     np.random.seed(0)
@@ -388,16 +368,11 @@ def test_attention_pre():
     weight_qkvz = torch.rand(total_hidden_size, hidden_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
     q_gamma = torch.rand(head_dim, dtype=torch.bfloat16, device=f'npu:{device_id}')
     k_gamma = torch.rand(head_dim, dtype=torch.bfloat16, device=f'npu:{device_id}')
-    cos_sin_cache = torch.rand(max_embbending_size, bs, dtype=torch.bfloat16, device=f'npu:{device_id}')
+    cos_sin_cache = torch.rand(max_embbending_size, rotary_dim, dtype=torch.bfloat16, device=f'npu:{device_id}')
     positions = torch.randint(0, max_embbending_size, loc_shape, dtype=torch.int64).to(device=f'npu:{device_id}')
-    loc_torch = torch.randint(0, max_embbending_size, loc_shape, dtype=torch.int64).to(device=f'npu:{device_id}')
-    k_buffer_torch = torch.full(buffer_shape, 9, dtype=torch.bfloat16, device=f'npu:{device_id}')
-    v_buffer_torch = torch.full(buffer_shape, 9, dtype=torch.bfloat16, device=f'npu:{device_id}')
+
     num_kv_heads = 1
     num_heads = 4
-
-    k_buffer_c = k_buffer_torch.clone()
-    v_buffer_c = v_buffer_torch.clone()
 
     q, k, v, gate = attention_pre_pto(
                         x=x, 
@@ -407,10 +382,7 @@ def test_attention_pre():
                         cos_sin_cache=cos_sin_cache, 
                         positions=positions, 
                         num_kv_heads=num_kv_heads, 
-                        num_heads=num_heads, 
-                        loc_torch=loc_torch, 
-                        k_buffer_torch=k_buffer_torch, 
-                        v_buffer_torch=v_buffer_torch
+                        num_heads=num_heads
                         )
     q_r, k_r, v_r, gate_r = attention_pre(
                                 x=x.clone(), 
@@ -420,12 +392,9 @@ def test_attention_pre():
                                 cos_sin_cache=cos_sin_cache.clone(), 
                                 positions=positions.clone(), 
                                 num_kv_heads=num_kv_heads, 
-                                num_heads=num_heads, 
-                                loc_torch=loc_torch.clone(), 
-                                k_buffer_c=k_buffer_c, 
-                                v_buffer_c=v_buffer_c
+                                num_heads=num_heads
                                 )
-    # compare result
+    # 与PyTorch参考实现对比
     assert_allclose(np.array(q_r.cpu().flatten().tolist()), np.array(q.cpu().flatten().tolist()), 
                     rtol=0.001, atol=0.001)
     assert_allclose(np.array(k_r.cpu().flatten().tolist()), np.array(k.cpu().flatten().tolist()), 
@@ -434,10 +403,7 @@ def test_attention_pre():
                     rtol=0.001, atol=0.001)
     assert_allclose(np.array(gate_r.cpu().flatten().tolist()), np.array(gate.cpu().flatten().tolist()),
                     rtol=0.001, atol=0.001)
-    assert_allclose(np.array(k_buffer_c.cpu().flatten().tolist()), np.array(k_buffer_torch.cpu().flatten().tolist()),
-                    rtol=0.001, atol=0.001)
-    assert_allclose(np.array(v_buffer_c.cpu().flatten().tolist()), np.array(v_buffer_torch.cpu().flatten().tolist()),
-                    rtol=0.001, atol=0.001)
+
 
 if __name__ == "__main__":
     test_attention_pre()
