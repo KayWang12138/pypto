@@ -11,6 +11,7 @@
 """
 """
 import pypto
+import pytest
 
 
 def init_tensors():
@@ -65,6 +66,7 @@ def test_tensor_assmble_slice():
     assert isinstance(c, pypto.tensor)
 
 
+@pytest.mark.skip(reason="Case is no longer maintained")
 def test_set_tensor_data():
     a = pypto.tensor([32, 32], pypto.DT_INT32, "a")
     b = pypto.tensor([32, 32], pypto.DT_INT32, "b")

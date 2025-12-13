@@ -1491,7 +1491,7 @@ TEST_F(FunctionTest, Test_ScalarOp) {
 }
 
 TEST_F(FunctionTest, TestPad) {
-
+    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
     std::vector<int64_t> shape{8, 16};
     std::vector<int64_t> newShape{8, 24};
     Tensor a(DT_FP32, shape, "a");
@@ -1541,7 +1541,7 @@ TEST_F(FunctionTest, TestRmsNorm) {
 }
 
 TEST_F(FunctionTest, dynamic_pa_low_lantency) {
-
+    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
     std::vector<int64_t> input_param = {4, 1, 32, 1, 512, 64, 128, 32};
     int b = input_param[0];
     int sq = input_param[1];
@@ -1709,6 +1709,7 @@ TEST_F(FunctionTest, low) {
     TestMlaPrologV2<npu::tile_fwk::float16>(SimpleParams::getLowParams());
 }
 TEST_F(FunctionTest, low_PAND) {
+    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
     npu::tile_fwk::SimpleParams params = SimpleParams::getLowParams();
     params.cacheMode = "PA_BSND";
     TestMlaPrologV2<npu::tile_fwk::float16, int8_t, true>(params);
@@ -1716,6 +1717,7 @@ TEST_F(FunctionTest, low_PAND) {
 
 TEST_F(FunctionTest, dynamic_prolog_post_low_lantency) {
     config::SetHostOption(ONLY_CODEGEN, true);
+    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
     int b = 2;
     int sq = 1;

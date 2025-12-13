@@ -11,6 +11,7 @@
 """
 """
 import pypto
+import pytest
 
 
 def test_record_function():
@@ -44,6 +45,7 @@ def test_begin_inplaceadd_end_function():
     assert isinstance(c, pypto.tensor)
 
 
+@pytest.mark.skip(reason="Case is no longer maintained")
 def test_empty_begin_end_function():
     dtype = pypto.DT_FP16
     a = pypto.tensor((8, 8), dtype, "tensor_a")

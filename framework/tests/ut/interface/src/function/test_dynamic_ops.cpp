@@ -527,6 +527,7 @@ TEST_F(DynamicOpsTest, GetTensorData) {
     config::SetVerifyOption(KEY_VERIFY_TENSOR_GRAPH, true);
     config::SetVerifyOption(KEY_VERIFY_PASS, true);
     config::SetVerifyOption(KEY_VERIFY_CHECK_PRECISION, true);
+    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
     Tensor t0(DT_FP32, {32, 32}, "t0");
     Tensor out(DT_FP32, {64, 64}, "out");

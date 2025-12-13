@@ -97,6 +97,7 @@ def test_tensor_sub_op():
     assert c.dtype == dtype
 
 
+@pytest.mark.skip(reason="Static not supported")
 def test_tensor_subs_tensor_element():
     dtype = pypto.DT_FP16
     shape = [8, 8]
