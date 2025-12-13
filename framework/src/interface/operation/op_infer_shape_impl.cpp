@@ -124,7 +124,6 @@ REGISTER_INFER_SHAPE_FUNC(OP_S_MIN, Opcode::OP_S_MIN, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_CUM_SUM, Opcode::OP_CUM_SUM, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_REGISTER_COPY, Opcode::OP_REGISTER_COPY, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_SCATTER_ELEMENT, Opcode::OP_SCATTER_ELEMENT, ElewiseInferFunc);
-REGISTER_INFER_SHAPE_FUNC(OP_SCATTER, Opcode::OP_SCATTER, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_CMP, Opcode::OP_CMP, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_CMPS, Opcode::OP_CMPS, ElewiseInferFunc);
 void IndexOutCastInferFunc(Operation* op,
@@ -142,6 +141,15 @@ void IndexOutCastInferFunc(Operation* op,
     }
 }
 REGISTER_INFER_SHAPE_FUNC(OP_INDEX_OUTCAST, Opcode::OP_INDEX_OUTCAST, IndexOutCastInferFunc);
+
+void ScatterInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
+    ElewiseInferFunc(op, outValidShapes);
+    outValidShapes.erase(outValidShapes.begin() + 1, outValidShapes.end());
+    int64_t tmpBufShape = op->GetIOperands()[1]->GetShape()[op->GetIOperands()[1]->GetShape().size()  - 1];
+
+    outValidShapes.push_back({tmpBufShape});
+}
+REGISTER_INFER_SHAPE_FUNC(OP_SCATTER, Opcode::OP_SCATTER, ScatterInferFunc);
 
 void GatherElementInferFunc(Operation* op,
                       std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
