@@ -444,10 +444,6 @@ void DevAscendFunction::InitOperation(
     operationAttrList_.HostInitDataSizeOffset(initOffset, staticAttrSize);
     opAttrOffsetList_.HostInitDataSizeOffset(initOffset, callList.size());
     opCalleeList_.HostInitDataSizeOffset(initOffset, callList.size());
-#ifdef SUPPORT_WRAP
-    opWrapList_.HostInitDataSizeOffset(initOffset, callList.size());
-    opWrapTaskNumList_.HostInitDataSizeOffset(initOffset, callList.size());
-#endif
     operationSuccList_.HostInitDataSizeOffset(initOffset, succSize);
     operationCopyOutResolveSuccIndexList_.HostInitDataSizeOffset(initOffset, copyOutResolveSuccIndexSize);
 
@@ -457,18 +453,6 @@ void DevAscendFunction::InitOperation(
         staticAttrSize = 0;
         succSize = 0;
         copyOutResolveSuccIndexSize = 0;
-
-#ifdef SUPPORT_WRAP
-        std::unordered_map<int, int> wrapTaskNumMap;
-        for (size_t i = 0; i < callList.size(); i++) {
-            auto callop = std::static_pointer_cast<CallOpAttribute>(callList[i]->GetOpAttribute());
-            if (callop->wrapId != -1) {
-                wrapTaskNumMap[callop->wrapId]++;
-            }
-            wrapIdNum_ = wrapTaskNumMap.size();
-        }
-#endif
-
         for (size_t i = 0; i < callList.size(); i++) {
             Operation *op = callList[i];
             auto callop = std::static_pointer_cast<CallOpAttribute>(callList[i]->GetOpAttribute());
@@ -520,10 +504,6 @@ void DevAscendFunction::InitOperation(
 
             At(opAttrOffsetList_, i) = staticAttrSize;
             At(opCalleeList_, i) = calleeHashIndexDict.at(callop->GetCalleeHash().GetHash());
-#ifdef SUPPORT_WRAP
-            At(opWrapList_, i) = callop->wrapId;
-            At(opWrapTaskNumList_, i) = wrapTaskNumMap[callop->wrapId];
-#endif
             staticAttrSize += opStaticAttrSize;
 
             // Fill succ
@@ -562,6 +542,29 @@ void DevAscendFunction::InitOperation(
         dupData->GetSource() = nullptr;
     }
 }
+
+#ifdef SUPPORT_MIX_SUBGRAPH_SCHE
+void DevAscendFunction::InitWrapInfo(uintdevptr_t &initOffset, const OrderedSet<Operation *> &callList, bool fillContent) {
+    opWrapList_.HostInitDataSizeOffset(initOffset, callList.size());
+    opWrapTaskNumList_.HostInitDataSizeOffset(initOffset, callList.size());
+
+    ONFILLCONTENT {
+        std::unordered_map<int, int> wrapTaskNumMap;
+        for (size_t i = 0; i < callList.size(); i++) {
+            auto callop = std::static_pointer_cast<CallOpAttribute>(callList[i]->GetOpAttribute());
+            if (callop->wrapId != -1) {
+                wrapTaskNumMap[callop->wrapId]++;
+            }
+        }
+        wrapIdNum_ = wrapTaskNumMap.size();
+        for (size_t i = 0; i < callList.size(); i++) {
+            auto callop = std::static_pointer_cast<CallOpAttribute>(callList[i]->GetOpAttribute());
+            At(opWrapList_, i) = callop->wrapId;
+            At(opWrapTaskNumList_, i) = wrapTaskNumMap[callop->wrapId];
+        }
+    }
+}
+#endif
 
 void DevAscendFunction::InitIncastOutcast(
         uintdevptr_t &initOffset,
@@ -1491,6 +1494,9 @@ struct EncodeDevAscendFunctionInfo {
                 initOffset, expressionTable, callList, tensorList, rawTensorList,
                 callOpPredDict, callOpSuccDict, calleeHashIndexDict, outcastStitchIndexList,
                 noPredOpList, noSuccOpList, copyOutResolveSuccIndexListDict, fillContent);
+#ifdef SUPPORT_MIX_SUBGRAPH_SCHE
+        devFunc->InitWrapInfo(initOffset, callList, fillContent);
+#endif
         devFunc->InitIncastOutcast(initOffset, incastList, outcastList, tensorList, incastOpAttrDict, outcastOpAttrDict, slot, rawName, fillContent);
     }
 };
@@ -1585,7 +1591,7 @@ void DevAscendProgram::InitCceCodeList(uintdevptr_t &initOffset, const std::vect
             cceCodeList[i].coreType = cceInfo[i].coreType;
             cceCodeList[i].psgId = cceInfo[i].psgId;
             cceCodeList[i].funcHash = cceInfo[i].funcHash;
-#ifdef SUPPORT_WRAP
+#ifdef SUPPORT_MIX_SUBGRAPH_SCHE
             cceCodeList[i].wrapVecId = cceInfo[i].wrapVecId;
             cceCodeList[i].mixResourceType = cceInfo[i].mixResourceType;
 #endif

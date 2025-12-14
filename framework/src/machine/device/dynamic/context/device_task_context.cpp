@@ -68,50 +68,9 @@ void DeviceTaskContext::ShowStats() {
     DEV_ERROR("   Leaf function data size: %10lu bytes.", leafFuncDataSize);
 }
 
-#ifdef SUPPORT_WRAP
-void DeviceTaskContext::ProcessWrapQueue(DynDeviceTask *dyntask, uint32_t wrapId, int funcIndex, size_t opIndex, WrapInfoQueue *wrapQueue, uint32_t *wrapTasklistAddr) {
-    DEV_VERBOSE_DEBUG("add task to wrap queue, wrapId = %u, funcIndex = %d, opIndex = %lu", wrapId, funcIndex, opIndex);
-    if (wrapQueue == nullptr || wrapTasklistAddr == nullptr) {
-        DEV_VERBOSE_DEBUG("wrapQueue or wrapTasklistAddr = nullptr");
-        return;
-    }
-
-    for (uint32_t idx = wrapQueue->head; idx < wrapQueue->tail; idx++) {
-        if (wrapQueue->elem[idx].wrapId == wrapId) {
-            ReadyCoreFunctionQueue* tasklist = &wrapQueue->elem[idx].tasklist;
-            tasklist->elem[tasklist->tail++] = MakeTaskID(funcIndex, opIndex);
-            return;
-        }
-    }
-
-    auto opWrapTaskNumList = dyntask->dynFuncDataCacheList[funcIndex].opWrapTaskNumList;
-    auto cceBinary = dyntask->cceBinary;
-    auto callList = dyntask->dynFuncDataCacheList[funcIndex].calleeList;
-
-    // add new wrap id to wrapQueue
-    WrapInfo *info = &wrapQueue->elem[wrapQueue->tail];
-    info->wrapId = wrapId;
-    info->aicCoreIdx = 0;
-    info->aivCoreIdxZero = 0;
-    info->aivCoreIdxOne = 0;
-    info->taskCnt = opWrapTaskNumList[opIndex];
-    info->mixResourceType = cceBinary[callList[opIndex]].mixResourceType;
-    info->tasklist.head = 0;
-    info->tasklist.tail = 0;
-    info->tasklist.capacity = opWrapTaskNumList[opIndex];
-    if (wrapQueue->tail == 0) {
-        info->tasklist.elem = wrapTasklistAddr;
-    } else {
-        WrapInfo *preQueueInfo = &wrapQueue->elem[wrapQueue->tail - 1];
-        info->tasklist.elem = preQueueInfo->tasklist.elem + preQueueInfo->tasklist.capacity;
-    }
-    info->tasklist.elem[info->tasklist.tail++] = MakeTaskID(funcIndex, opIndex);
-    wrapQueue->tail++;
-}
-#endif
-
 void DeviceTaskContext::BuildReadyQueue(DynDeviceTask *dyntask, DevAscendProgram *devProg) {
     PerfBegin(PERF_EVT_READY_QUEUE_IN);
+
     uint32_t size = sizeof(ReadyCoreFunctionQueue) + dyntask->devTask.coreFunctionCnt * sizeof(taskid_t);
     DEV_ASSERT(dyntask->devTask.coreFunctionCnt <= devProg->stitchCallopMaxNum);
     ReadyCoreFunctionQueue *queue[READY_QUEUE_SIZE];
@@ -130,17 +89,7 @@ void DeviceTaskContext::BuildReadyQueue(DynDeviceTask *dyntask, DevAscendProgram
     ReadyCoreFunctionQueue *aivQueue = queue[DynDeviceTask::GetReadyQueueIndexByCoreType(CoreType::AIV)];
     ReadyCoreFunctionQueue *aicQueue = queue[DynDeviceTask::GetReadyQueueIndexByCoreType(CoreType::AIC)];
     ReadyCoreFunctionQueue *aicpuQueue = queue[DynDeviceTask::GetReadyQueueIndexByCoreType(CoreType::AICPU)];
-#ifdef SUPPORT_WRAP
-    dyntask->devTask.wrapIdNum = 0;
-    for (size_t funcIndex = 0; funcIndex < dyntask->dynFuncDataCacheListSize; ++funcIndex) {
-        dyntask->devTask.wrapIdNum += dyntask->dynFuncDataCacheList[funcIndex].devFunc->wrapIdNum_;
-    }
-    bool isNeedWrap = dyntask->devTask.wrapIdNum > 0;
-    uint32_t *wrapTasklistAddr = isNeedWrap ? AllocWrapTasklist(dyntask) : nullptr;
-    WrapInfoQueue *wrapQueue = isNeedWrap ? AllocWrapQueue(dyntask) : nullptr;
 
-    int wrapTaskNum = 0;
-#endif
     int aivQueueTail = 0;
     int aicQueueTail = 0;
     int aicpuQueueTail = 0;
@@ -152,13 +101,8 @@ void DeviceTaskContext::BuildReadyQueue(DynDeviceTask *dyntask, DevAscendProgram
     for (size_t funcIndex = 0; funcIndex < funcSize; ++funcIndex) {
         DevAscendFunctionDuppedData *duppedData = dynFuncDataCacheList->At(funcIndex).duppedData;
         predcount_t *dupPredCountList = &duppedData->GetOperationCurrPredCount(0);
-
         auto &predInfo = duppedData->GetSource()->GetPredInfo();
-#ifdef SUPPORT_WRAP
-        size_t totalZeroPredAIVBatchEnd = isNeedWrap ? 0 :predInfo.totalZeroPredAIV & ~0x7; // wrap doesnt support batch process
-#else
         size_t totalZeroPredAIVBatchEnd = predInfo.totalZeroPredAIV & ~0x7;
-#endif
         taskid_t *aivQueueElemList = reinterpret_cast<taskid_t *>(aivQueue->elem);
         for (size_t opIndex = 0; opIndex < totalZeroPredAIVBatchEnd; opIndex += DUP_PRED_COUNT_LOOP_MAX) {
             if (likely((*reinterpret_cast<uint64_t *>(&dupPredCountList[opIndex]) | *reinterpret_cast<uint64_t *>(&dupPredCountList[opIndex + DUP_PRED_COUNT_PRE_LOOP_CNT]))) == 0) {
@@ -178,38 +122,19 @@ void DeviceTaskContext::BuildReadyQueue(DynDeviceTask *dyntask, DevAscendProgram
                 }
             }
         }
+
         for (size_t opIndex = totalZeroPredAIVBatchEnd; opIndex < predInfo.totalZeroPredAIV; ++opIndex) {
             if (likely(dupPredCountList[opIndex] == 0)) {
-#ifdef SUPPORT_WRAP
-                auto opWrapList = dyntask->dynFuncDataCacheList[funcIndex].opWrapList;
-                if (isNeedWrap && opWrapList[opIndex] != -1) {
-                    ProcessWrapQueue(dyntask, MakeWrapID(funcIndex, static_cast<uint32_t>(opWrapList[opIndex])), funcIndex, opIndex, wrapQueue, wrapTasklistAddr);
-                    wrapTaskNum++;
-                } else {
-#endif
                     aivQueue->elem[aivQueueTail] = MakeTaskID(funcIndex, opIndex);
                     aivQueueTail++;
-#ifdef SUPPORT_WRAP
-                }
-#endif
             }
         }
 
         auto aicEnd = predInfo.totalZeroPredAIV + predInfo.totalZeroPredAIC;
         for (size_t opIndex = predInfo.totalZeroPredAIV; opIndex < aicEnd; ++opIndex) {
             if (likely(dupPredCountList[opIndex] == 0)) {
-#ifdef SUPPORT_WRAP
-                auto opWrapList = dyntask->dynFuncDataCacheList[funcIndex].opWrapList;
-                if (isNeedWrap && opWrapList[opIndex] != -1) {
-                    ProcessWrapQueue(dyntask, MakeWrapID(funcIndex, static_cast<uint32_t>(opWrapList[opIndex])), funcIndex, opIndex, wrapQueue, wrapTasklistAddr);
-                    wrapTaskNum++;
-                } else {
-#endif
                     aicQueue->elem[aicQueueTail] = MakeTaskID(funcIndex, opIndex);
                     aicQueueTail++;
-#ifdef SUPPORT_WRAP
-                }
-#endif
             }
         }
         auto aicpuEnd = predInfo.totalZeroPredAIV + predInfo.totalZeroPredAIC + predInfo.totalZeroPredAicpu;
@@ -227,13 +152,7 @@ void DeviceTaskContext::BuildReadyQueue(DynDeviceTask *dyntask, DevAscendProgram
     dyntask->devTask.readyAivCoreFunctionQue = PtrToValue(aivQueue);
     dyntask->devTask.readyAicCoreFunctionQue = PtrToValue(aicQueue);
     dyntask->devTask.readyAicpuFunctionQue = PtrToValue(aicpuQueue);
-#ifdef SUPPORT_WRAP
-    dyntask->devTask.readyWrapCoreFunctionQue = PtrToValue(wrapQueue);
-    dyntask->devTask.wrapTasklist = PtrToValue(wrapTasklistAddr);
-    readyTaskNum += static_cast<uint64_t>(aivQueueTail + aicQueueTail + aicpuQueueTail + wrapTaskNum);
-#else
     readyTaskNum += static_cast<uint64_t>(aivQueueTail + aicQueueTail + aicpuQueueTail);
-#endif
     PerfEnd(PERF_EVT_READY_QUEUE_IN);
 }
 
@@ -477,7 +396,11 @@ void DeviceTaskContext::BuildDeviceTaskDataAndReadyQueue(DynDeviceTask *dyntask,
 
     DEV_VERBOSE_DEBUG("build ready queue.");
     PerfBegin(PERF_EVT_READY_QUEUE);
+#ifdef SUPPORT_MIX_SUBGRAPH_SCHE
+    BuildReadyQueueWithMixTask(dyntask, devProg);
+#else
     BuildReadyQueue(dyntask, devProg);
+#endif
     PerfEnd(PERF_EVT_READY_QUEUE);
 
     PerfBegin(PERF_EVT_RESOLVE_EARLY);

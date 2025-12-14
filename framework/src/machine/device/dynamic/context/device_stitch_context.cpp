@@ -219,11 +219,10 @@ void DeviceStitchContext::MoveTo(DynDeviceTask *dynTask) {
     for (int i = 0; i < size; ++i) {
         auto &funcDup = dynTask->stitchedList[i];
         dynTask->dynFuncDataCacheList[i] = {
-#ifdef SUPPORT_WRAP
-            funcDup.GetSource(), &funcDup.GetOperationCurrPredCount(0), funcDup.GetSource()->GetCalleeIndexAddr(),
-            funcDup.GetSource()->GetOpWrapListAddr(), funcDup.GetSource()->GetOpWrapTaskNumListAddr(), funcDup.DupDataForDynFuncData()};
-#else
             funcDup.GetSource(), &funcDup.GetOperationCurrPredCount(0), funcDup.GetSource()->GetCalleeIndexAddr(), funcDup.DupDataForDynFuncData()};
+#ifdef SUPPORT_MIX_SUBGRAPH_SCHE
+        dynTask->devTask.opWrapList[i] = PtrToValue(funcDup.GetSource()->GetOpWrapListAddr());
+        dynTask->devTask.opWrapTaskNumList[i] = PtrToValue(funcDup.GetSource()->GetOpWrapTaskNumListAddr());
 #endif
     }
     dynTask->dynFuncDataCacheListSize = size;

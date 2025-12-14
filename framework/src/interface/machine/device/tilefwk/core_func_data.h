@@ -22,6 +22,7 @@
 #include "tilefwk/aicore_data.h"
 
 inline constexpr uint32_t DIST_COMM_GROUP_NUM = 8;
+inline constexpr size_t MAX_CACHED_FUNC_NUM = 128;
 constexpr int MAX_DIMS = 8;
 using taskid_t = uint32_t;
 
@@ -111,10 +112,12 @@ struct DeviceTask {
     uint64_t readyAicCoreFunctionQue; // 指针指向ReadyCoreFunctionQueue 结构
     uint64_t readyAivCoreFunctionQue; // 指针指向ReadyCoreFunctionQueue 结构
     uint64_t readyAicpuFunctionQue; // 指针指向ReadyCoreFunctionQueue 结构
-#ifdef SUPPORT_WRAP
+#ifdef SUPPORT_MIX_SUBGRAPH_SCHE
     uint64_t readyWrapCoreFunctionQue; // 指针指向WrapInfoqQueue 结构
     uint64_t wrapTasklist; // 指针指向tasklist数组
     uint64_t wrapIdNum; // 包含的有效wrapId个数
+    uint64_t opWrapList[MAX_CACHED_FUNC_NUM]; // 指针数组，指向每个function的callop对应的wrapId
+    uint64_t opWrapTaskNumList[MAX_CACHED_FUNC_NUM]; // 指针数组，指向每个function的callop对应的wrapTaskNum
 #endif
     CoreFunctionData coreFuncData;
     L2PreInfo l2Info;
@@ -162,7 +165,7 @@ struct DynFuncBin {
     uint32_t coreType;
     uint32_t psgId;
     uint64_t funcHash;
-#ifdef SUPPORT_WRAP
+#ifdef SUPPORT_MIX_SUBGRAPH_SCHE
     int32_t wrapVecId {-1};
     uint32_t mixResourceType {0};
 #endif

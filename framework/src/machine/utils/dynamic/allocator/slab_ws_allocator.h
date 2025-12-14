@@ -29,7 +29,7 @@ enum class WsAicpuSlabMemType : uint8_t {
     VEC_STITCHED_LIST,
     DEV_DYN_TASK,
     READY_QUE,
-#ifdef SUPPORT_WRAP
+#ifdef SUPPORT_MIX_SUBGRAPH_SCHE
     WRAP_QUEUE,
     WRAP_TASKLIST,
 #endif

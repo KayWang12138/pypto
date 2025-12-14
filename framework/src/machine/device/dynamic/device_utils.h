@@ -74,6 +74,10 @@ constexpr uint64_t NSEC_PER_SEC = 1000000000;
 constexpr uint64_t HAND_SHAKE_TIMEOUT = 10000000000;
 constexpr int32_t MAX_MNG_AICORE_AVG_NUM = 8;
 constexpr uint32_t NEED_LAUNCH_AICPU_MINNUM = 3;
+constexpr uint32_t CORE_IDX_AIV = 0;
+constexpr uint32_t CORE_IDX_AIC = 1;
+const uint32_t AIV_NUM_PER_AI_CORE = 2;
+const int INVALID_CORE_IDX = 0xFF;
 
 #ifdef __aarch64__
 constexpr uint64_t TIMEOUT_CYCLES = 500 * 1000 * 1000;

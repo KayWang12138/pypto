@@ -305,7 +305,7 @@ struct DevCceBinary {
     uint32_t coreType;
     uint32_t psgId;
     uint64_t funcHash;
-#ifdef SUPPORT_WRAP
+#ifdef SUPPORT_MIX_SUBGRAPH_SCHE
     int32_t wrapVecId {-1};
     uint32_t mixResourceType {0};
 #endif
@@ -451,11 +451,9 @@ inline uint32_t MakeTaskID(uint32_t funcId, uint32_t taskId) {
     return (funcId << TASKID_TASK_BITS) | taskId;
 }
 
-#ifdef SUPPORT_WRAP
-inline uint32_t MakeWrapID(uint32_t funcId, uint32_t wrapId) {
+inline uint32_t MakeMixWrapID(uint32_t funcId, uint32_t wrapId) {
     return (funcId << TASKID_TASK_BITS) | wrapId;
 }
-#endif
 
 inline uint32_t MakeBatchTaskID(uint32_t batchNum) {
     return MakeTaskID(FUNC_ID_BATCH, batchNum);
@@ -680,8 +678,14 @@ struct DevAscendFunction {
     uint64_t duppedDataAllocSize_;
     uint64_t duppedDataCopySize_;
     DevLocalVector<uint8_t> duppedData_;
-#ifdef SUPPORT_WRAP
-    uint64_t wrapIdNum_;
+#ifdef SUPPORT_MIX_SUBGRAPH_SCHE
+public:
+    uint64_t wrapIdNum_{0};
+    int *GetOpWrapListAddr() { return &At(opWrapList_, 0); }
+    int *GetOpWrapTaskNumListAddr() { return &At(opWrapTaskNumList_, 0); }
+private:
+    DevLocalVector<int> opWrapList_;
+    DevLocalVector<int> opWrapTaskNumList_;
 #endif
 public:
     // total memory requirement of non-root-incast/outcast raw tensors
@@ -699,10 +703,6 @@ private:
     DevLocalVector<SymInt> operationAttrList_;
     DevLocalVector<int> opAttrOffsetList_;
     DevLocalVector<int> opCalleeList_;
-#ifdef SUPPORT_WRAP
-    DevLocalVector<int> opWrapList_;
-    DevLocalVector<int> opWrapTaskNumList_;
-#endif
     DevLocalVector<int> operationSuccList_;
     DevLocalVector<int> operationCopyOutResolveSuccIndexList_;
 
@@ -1060,10 +1060,7 @@ public:
     int32_t *GetOpAttrOffsetAddr() { return &At(opAttrOffsetList_, 0); }
     inline int32_t GetOpAttrOffsetSize() { return opAttrOffsetList_.size(); }
     int *GetCalleeIndexAddr() { return &At(opCalleeList_, 0); }
-#ifdef SUPPORT_WRAP
-    int *GetOpWrapListAddr() { return &At(opWrapList_, 0); }
-    int *GetOpWrapTaskNumListAddr() { return &At(opWrapTaskNumList_, 0); }
-#endif
+
     uint64_t *GetExpressionAddr() { return &At(expressionList, 0); }
     uint64_t GetAllocateSize() const { return GetEndOffset(allocateLastField); }
 
@@ -1574,7 +1571,9 @@ private:
             const std::vector<int> &noSuccOpList,
             const std::unordered_map<Operation *, std::vector<int>> &copyOutResolveSuccIndexListDict,
             bool fillContent);
-
+#ifdef SUPPORT_MIX_SUBGRAPH_SCHE
+    void InitWrapInfo(uintdevptr_t &initOffset, const OrderedSet<Operation *> &callList, bool fillContent);
+#endif
     void InitIncastOutcast(uintdevptr_t &initOffset, const std::vector<std::shared_ptr<LogicalTensor>> &incastTensorList,
         const std::vector<std::shared_ptr<LogicalTensor>> &outcastTensorList,
         const OrderedSet<std::shared_ptr<LogicalTensor>> &tlist,
@@ -2298,10 +2297,6 @@ struct DynFuncDataCache {
     DevAscendFunction *devFunc;
     predcount_t *predCount;
     int *calleeList;
-#ifdef SUPPORT_WRAP
-    int *opWrapList;
-    int *opWrapTaskNumList;
-#endif
     DevAscendFunctionDuppedData *duppedData;
 
     const DynFuncDataCache &At(size_t index) const { return this[index]; }

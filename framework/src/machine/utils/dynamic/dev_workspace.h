@@ -613,7 +613,7 @@ private:
     uint32_t ReadyQueSlabMemObjSize() {
         return sizeof(ReadyCoreFunctionQueue) + devProg_-> stitchCallopMaxNum * sizeof(uint32_t);
     }
-#ifdef SUPPORT_WRAP
+#ifdef SUPPORT_MIX_SUBGRAPH_SCHE
     uint32_t WrapQueSlabMemObjSize() {
         return sizeof(ReadyCoreFunctionQueue) + devProg_-> stitchCallopMaxNum * sizeof(uint32_t);
     }
@@ -629,7 +629,7 @@ private:
         &DeviceWorkspaceAllocator::VecStitchListSLabMemObjSize,
         &DeviceWorkspaceAllocator::DynDevTaskSlabMemObjSize,
         &DeviceWorkspaceAllocator::ReadyQueSlabMemObjSize,
-#ifdef SUPPORT_WRAP
+#ifdef SUPPORT_MIX_SUBGRAPH_SCHE
         &DeviceWorkspaceAllocator::WrapQueSlabMemObjSize,
         &DeviceWorkspaceAllocator::WrapTasklistSlabMemObjSize,
 #endif
