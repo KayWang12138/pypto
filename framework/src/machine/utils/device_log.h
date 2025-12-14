@@ -149,27 +149,8 @@ enum class LogType {
 };
 
 // 创建日志文件
-inline void CreateLogFile(LogType type, int threadIdx) {
-    (void)type;
-    (void)threadIdx;
-#if ENABLE_TMP_LOG || !defined(__DEVICE__)
-    char logfile[256];
-    switch (type) {
-        case LogType::LOG_TYPE_SCHEDULER:
-            (void)sprintf_s(logfile, sizeof(logfile), "/tmp/pypto_aicpu_sch%d.txt", threadIdx);
-            break;
-        case LogType::LOG_TYPE_CONTROLLER:
-            (void)sprintf_s(logfile, sizeof(logfile), "/tmp/pypto_aicpu_ctrl.txt");
-            break;
-        case LogType::LOG_TYPE_PREFETCH:
-            (void)sprintf_s(logfile, sizeof(logfile), "/tmp/pypto_aicpu_prefetch.txt");
-            break;
-        default:
-            return;
-    }
-    GetLogger(logfile);
-#endif
-}
+void SetLogFilePrefix(const std::string &prefix);
+void CreateLogFile(LogType type, int threadIdx);
 
 void InitLogSwitch();
 

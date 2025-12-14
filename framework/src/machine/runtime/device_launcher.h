@@ -92,9 +92,7 @@ public:
         return devProg->outputInplaceSlotList.size() != 0;
     }
 
-    template<typename DeviceMemoryTy>
-    static void DeviceInitTilingData(DeviceMemoryTy devMem, AstKernelArgs &kArgs, const std::vector<uint8_t> &devProgData,
-        const DeviceLauncherConfig &config, CachedOperator *cachedOperator) {
+    static void DeviceLauncherConfigFillDeviceInfo(const DeviceLauncherConfig &config) {
 #ifdef BUILD_WITH_CANN
         int maxBlockDim = GetCfgBlockdim();
 #else
@@ -104,7 +102,13 @@ public:
         if (config.blockdim == 0 || config.blockdim > maxBlockDim) {
             launchConfig.blockdim = maxBlockDim;
         }
+    }
 
+    template<typename DeviceMemoryTy>
+    static void DeviceInitTilingData(DeviceMemoryTy devMem, AstKernelArgs &kArgs, const std::vector<uint8_t> &devProgData,
+        const DeviceLauncherConfig &config, CachedOperator *cachedOperator) {
+        DeviceLauncherConfig &launchConfig = const_cast<DeviceLauncherConfig &>(config);
+        ASSERT(launchConfig.blockdim != 0);
         auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
         if (PlatformManager::Instance().GetAicVersion() == "AIC-C-310") {
             devProg->devArgs.archInfo = ArchInfo::ARCH_35;

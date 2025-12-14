@@ -12,6 +12,7 @@ set(_CaseFilterList
         # Dynamic Function
         "spscqueue.normal"
         "TestDynamicDeviceRunner.*"
+        "ControlFlowTest.RunDeviceContext"
         # Machine
         "HostMachineCompileTest.test_MlaProlog_float16_32_2_1_256_256_512"
         "HostMachineCompileTest.test_codegen_by_json"
@@ -57,10 +58,12 @@ list(APPEND _Sources ${PTO_FWK_SRC_ROOT}/framework/src/machine/device/aicore_pro
 list(APPEND _Sources ${PTO_FWK_SRC_ROOT}/framework/src/machine/device/device_machine.cpp)
 list(APPEND _Sources ${PTO_FWK_SRC_ROOT}/framework/src/machine/device/distributed/comm_wait_flag.cpp)
 list(APPEND _Sources ${PTO_FWK_SRC_ROOT}/framework/src/machine/device/distributed/shmem_wait_until.cpp)
+set(_Include "include")
 
 PTO_Fwk_UTest_AddCaseLib(
         TARGET ${_Target}
         SOURCES ${_Sources}
+        PRIVATE_INCLUDE_DIRECTORIES ${_Include}
         PUBLIC_LINK_LIBRARIES tile_fwk_compiler tile_fwk_runtime tile_fwk_interface dl
         GTEST_FILTER_LIST ${_CaseFilterList}
 )

@@ -30,6 +30,7 @@ extern "C" __attribute__((visibility("default"))) void* GetCtrlFlowFunc();
 #endif
 
 namespace npu::tile_fwk::dynamic {
+
 class DeviceCtrlMachine {
  public:
     void InitTaskCtrl(int idx, int type, uint64_t taskId, DeviceTask *devTask, DeviceExecuteContext *ctx) {
@@ -107,6 +108,11 @@ class DeviceCtrlMachine {
         return ret;
     }
 
+    void RegisterTaskInspector(DeviceTaskInspectorEntry inspectorEntry, void *inspector) {
+        inspectorEntry_ = inspectorEntry;
+        inspector_ = inspector;
+    }
+
     int InitDyn(AstKernelArgs *kargs) {
         DEV_INFO("AscendCppDyInitTask begin");
         auto devProg = PtrToPtr<int64_t, DevAscendProgram>(kargs->cfgdata);
@@ -182,6 +188,9 @@ class DeviceCtrlMachine {
         PerfBegin(PERF_EVT_EXEC_DYN);
         PerfBegin(PERF_EVT_CONTROL_FLOW_CALL);
         ctx.GELaunch(devStartArgs, [this](DynDeviceTask *dynTask, DeviceExecuteContext *exeCtx) {
+            if (unlikely(inspectorEntry_ != nullptr)) {
+                inspectorEntry_(inspector_, exeCtx, dynTask);
+            }
             DEV_IF_DEBUG {
                 DumpTask(dynTask->GetIndex(), (DeviceTask *)dynTask, true);
             }
@@ -266,10 +275,14 @@ private:
         (void)taskId;
         DEV_DEBUG("===== dev task end =====");
     }
- private:
+private:
     uint32_t taskCtrlIndex_{0};
     DeviceTaskCtrl *taskctrl_{nullptr};
     SPSCQueue<DeviceTaskCtrl *, DEFAULT_QUEUE_SIZE> *taskQueue_{nullptr};
     uint32_t schAicpuNum_{MAX_SCHEDULE_AICPU_NUM};
+
+    /* inspector entry */
+    DeviceTaskInspectorEntry inspectorEntry_;
+    void *inspector_;
 };
 } // namespace npu::tile_fwk

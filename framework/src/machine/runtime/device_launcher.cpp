@@ -136,6 +136,7 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
         }
         CheckDeviceId();
         AstKernelArgs kArgs;
+        DeviceLauncherConfigFillDeviceInfo(config);
         DeviceInitTilingData(DeviceMemoryUtils(), kArgs, function->GetDyndevAttribute()->devProgBinary, config, cachedOperator);
         DeviceRunCacheKernelSet(function, (uint8_t *)kArgs.cfgdata);
         DeviceInitKernelInOuts(DeviceMemoryUtils(), kArgs, inputList, outputList);

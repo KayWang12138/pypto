@@ -22,6 +22,13 @@ namespace {
     DeviceCtrlMachine g_ctrl_machine;
 }
 
+extern "C" __attribute__((visibility("default"))) int PyptoKernelCtrlServerRegisterTaskInspector(
+        DeviceTaskInspectorEntry inspectorEntry,
+        void *inspector) {
+    g_ctrl_machine.RegisterTaskInspector(inspectorEntry, inspector);
+    return 0;
+}
+
 extern "C" __attribute__((visibility("default"))) int PyptoKernelCtrlServerInit(void *targ) {
     PerfBegin(PERF_EVT_DEVICE_MACHINE_INIT_DYN);
 #if DEBUG_PLOG && defined(__DEVICE__)

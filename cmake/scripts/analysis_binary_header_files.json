@@ -384,6 +384,7 @@
         "framework/include/"
       ],
       "WhiteList": [
+        "framework/src/cost_model/simulation/"
       ],
       "BlackList": [
       ]

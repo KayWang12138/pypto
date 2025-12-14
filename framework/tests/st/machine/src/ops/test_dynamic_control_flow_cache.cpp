@@ -87,14 +87,15 @@ TEST_F(DynamicControlFlowCacheTest, KernelReuse) {
             output = Add(sum, sum);
         }
     }
-
-    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction()));
+    DeviceLauncherConfig config;
+    config.blockdim = 24; // 24:max aicore num
+    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), {}, {}, config));
 
     DeviceLauncher::DeviceRunCacheKernelEnable(Program::GetInstance().GetLastFunction(), true);
 
 #ifdef BUILD_WITH_CANN
     for (int k = 0; k < 3; k++) {
-        EXPECT_EQ(0, DeviceLauncher::DeviceRunOnce(Program::GetInstance().GetLastFunction()));
+        EXPECT_EQ(0, DeviceLauncher::DeviceRunOnce(Program::GetInstance().GetLastFunction(), config));
         auto outputResult = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
         EXPECT_TRUE(resultCmp(outputGolden, (int32_t *)outputResult->data(), 0.001f));
     }
@@ -144,8 +145,9 @@ TEST_F(DynamicControlFlowCacheTest, CheckShape) {
             }
         }
     }
-
-    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction()));
+    DeviceLauncherConfig config;
+    config.blockdim = 24; // 24:max aicore num
+    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), {}, {}, config));
 
     DevAscendProgram *devProg = reinterpret_cast<DevAscendProgram *>(
         const_cast<uint8_t*>(DeviceLauncher::GetDevProg(Program::GetInstance().GetLastFunction()).data()));
@@ -200,7 +202,7 @@ TEST_F(DynamicControlFlowCacheTest, CheckShape) {
 
     std::vector<int32_t> outputGolden(n2 * n2, 10);
 #ifdef BUILD_WITH_CANN
-    EXPECT_EQ(0, DeviceLauncher::DeviceRunOnce(Program::GetInstance().GetLastFunction()));
+    EXPECT_EQ(0, DeviceLauncher::DeviceRunOnce(Program::GetInstance().GetLastFunction(), config));
     auto outputResult = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(outputGolden, (int32_t *)outputResult->data(), 0.001f));
 #endif
@@ -247,8 +249,9 @@ TEST_F(DynamicControlFlowCacheTest, CheckLackMemory) {
             }
         }
     }
-
-    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction()));
+    DeviceLauncherConfig config;
+    config.blockdim = 24; // 24:max aicore num
+    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), {}, {}, config));
 
     DevAscendProgram *devProg = reinterpret_cast<DevAscendProgram *>(
         const_cast<uint8_t*>(DeviceLauncher::GetDevProg(Program::GetInstance().GetLastFunction()).data()));
@@ -257,7 +260,7 @@ TEST_F(DynamicControlFlowCacheTest, CheckLackMemory) {
 
     std::vector<int32_t> outputGolden(n1 * n1, 6);
 #ifdef BUILD_WITH_CANN
-    EXPECT_EQ(0, DeviceLauncher::DeviceRunOnce(Program::GetInstance().GetLastFunction()));
+    EXPECT_EQ(0, DeviceLauncher::DeviceRunOnce(Program::GetInstance().GetLastFunction(), config));
     auto outputResult = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(outputGolden, (int32_t *)outputResult->data(), 0.001f));
 #endif
@@ -295,8 +298,9 @@ TEST_F(DynamicControlFlowCacheTest, CheckGetTensorData) {
             }
         }
     }
-
-    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction()));
+    DeviceLauncherConfig config;
+    config.blockdim = 24; // 24:max aicore num
+    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), {}, {}, config));
 }
 
 TEST_F(DynamicControlFlowCacheTest, PartialCache) {
@@ -349,7 +353,9 @@ TEST_F(DynamicControlFlowCacheTest, PartialCache) {
 
     std::vector<DeviceTensorData> inputList = {DeviceTensorData::Create(inputA.GetStorage()), DeviceTensorData::Create(inputB.GetStorage())};
     std::vector<DeviceTensorData> outputList = {DeviceTensorData::Create(output.GetStorage())};
-    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), inputList, outputList));
+    DeviceLauncherConfig config;
+    config.blockdim = 24; // 24:max aicore num
+    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), inputList, outputList, config));
 
     DevAscendProgram *devProg = reinterpret_cast<DevAscendProgram *>(
         const_cast<uint8_t*>(DeviceLauncher::GetDevProg(Program::GetInstance().GetLastFunction()).data()));
@@ -370,11 +376,11 @@ TEST_F(DynamicControlFlowCacheTest, PartialCache) {
 
     DeviceLauncher::DeviceRunCacheKernelEnable(Program::GetInstance().GetLastFunction(), true);
 
-    EXPECT_EQ(0, EmulationLauncher::EmulationRunOnce(Program::GetInstance().GetLastFunction()));
+    EXPECT_EQ(0, EmulationLauncher::EmulationRunOnce(Program::GetInstance().GetLastFunction(), config));
 
 #ifdef BUILD_WITH_CANN
     for (int k = 0; k < 0x3; k++) {
-        EXPECT_EQ(0, DeviceLauncher::DeviceRunOnce(Program::GetInstance().GetLastFunction()));
+        EXPECT_EQ(0, DeviceLauncher::DeviceRunOnce(Program::GetInstance().GetLastFunction(), config));
         auto outputResult = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
         EXPECT_TRUE(resultCmp(outputGolden, (int32_t *)outputResult->data(), 0.001f));
     }
@@ -456,7 +462,9 @@ TEST_F(DynamicControlFlowCacheTest, PartialCacheChangeWorkspaceAddress) {
     std::vector<DeviceTensorData> outputList = {
         DeviceTensorData::Create(output.GetStorage()),
     };
-    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), inputList, outputList));
+    DeviceLauncherConfig config;
+    config.blockdim = 24; // 24:max aicore num
+    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), inputList, outputList, config));
 
     DevAscendProgram *devProg = reinterpret_cast<DevAscendProgram *>(
         const_cast<uint8_t*>(DeviceLauncher::GetDevProg(Program::GetInstance().GetLastFunction()).data()));
@@ -489,7 +497,8 @@ TEST_F(DynamicControlFlowCacheTest, PartialCacheChangeWorkspaceAddress) {
         }
 
         uint64_t workspaceAddr = (uint64_t)devAddr;
-        DeviceLauncherConfig config = DeviceLauncherConfig::CreateConfigWithWorkspaceAddr(workspaceAddr);
+        config = DeviceLauncherConfig::CreateConfigWithWorkspaceAddr(workspaceAddr);
+        config.blockdim = 24; // 24:max aicore num
         auto outputResult = (float *)npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0)->data();
         auto outputSize = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0)->size();
         memset_s(outputResult, outputSize, 0, outputSize);
@@ -557,8 +566,9 @@ TEST_F(DynamicControlFlowCacheTest, PartialCacheValueDependData) {
             output = Add(sum, sum);
         }
     }
-
-    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction()));
+    DeviceLauncherConfig config;
+    config.blockdim = 24; // 24:max aicore num
+    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), {}, {}, config));
 
     DevAscendProgram *devProg = reinterpret_cast<DevAscendProgram *>(
         const_cast<uint8_t*>(DeviceLauncher::GetDevProg(Program::GetInstance().GetLastFunction()).data()));
@@ -577,11 +587,11 @@ TEST_F(DynamicControlFlowCacheTest, PartialCacheValueDependData) {
 
     DeviceLauncher::DeviceRunCacheKernelEnable(Program::GetInstance().GetLastFunction(), true);
 
-    EXPECT_EQ(0, EmulationLauncher::EmulationRunOnce(Program::GetInstance().GetLastFunction()));
+    EXPECT_EQ(0, EmulationLauncher::EmulationRunOnce(Program::GetInstance().GetLastFunction(), config));
 
 #ifdef BUILD_WITH_CANN
     for (int k = 0; k < 0x3; k++) {
-        EXPECT_EQ(0, DeviceLauncher::DeviceRunOnce(Program::GetInstance().GetLastFunction()));
+        EXPECT_EQ(0, DeviceLauncher::DeviceRunOnce(Program::GetInstance().GetLastFunction(), config));
         auto outputResult = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
         EXPECT_TRUE(resultCmp(outputGolden, (int32_t *)outputResult->data(), 0.001f));
     }
@@ -639,7 +649,9 @@ TEST_F(DynamicControlFlowCacheTest, PartialCacheValueDependControl) {
 
     std::vector<DeviceTensorData> inputList = {DeviceTensorData::Create(inputA.GetStorage()), DeviceTensorData::Create(inputB.GetStorage())};
     std::vector<DeviceTensorData> outputList = {DeviceTensorData::Create(output.GetStorage())};
-    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), inputList, outputList));
+    DeviceLauncherConfig config;
+    config.blockdim = 24; // 24:max aicore num
+    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), inputList, outputList, config));
 
     DevAscendProgram *devProg = reinterpret_cast<DevAscendProgram *>(
         const_cast<uint8_t*>(DeviceLauncher::GetDevProg(Program::GetInstance().GetLastFunction()).data()));
@@ -658,11 +670,11 @@ TEST_F(DynamicControlFlowCacheTest, PartialCacheValueDependControl) {
 
     DeviceLauncher::DeviceRunCacheKernelEnable(Program::GetInstance().GetLastFunction(), true);
 
-    EXPECT_EQ(0, EmulationLauncher::EmulationRunOnce(Program::GetInstance().GetLastFunction()));
+    EXPECT_EQ(0, EmulationLauncher::EmulationRunOnce(Program::GetInstance().GetLastFunction(), config));
 
 #ifdef BUILD_WITH_CANN
     for (int k = 0; k < 0x3; k++) {
-        EXPECT_EQ(0, DeviceLauncher::DeviceRunOnce(Program::GetInstance().GetLastFunction()));
+        EXPECT_EQ(0, DeviceLauncher::DeviceRunOnce(Program::GetInstance().GetLastFunction(), config));
         auto outputResult = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
         EXPECT_TRUE(resultCmp(outputGolden, (int32_t *)outputResult->data(), 0.001f));
     }

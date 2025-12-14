@@ -23,6 +23,9 @@
 #include "machine/device/dynamic/costmodel_utils.h"
 
 namespace npu::tile_fwk::dynamic {
+
+typedef void (*DeviceTaskInspectorEntry)(void *inspector_, DeviceExecuteContext *execCtx, DynDeviceTask *task);
+
 struct DeviceExecuteContext {
     using PushTaskEntry = std::function<void(DynDeviceTask *, DeviceExecuteContext *)>;
     PushTaskEntry pushTask;

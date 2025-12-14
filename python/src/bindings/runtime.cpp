@@ -126,9 +126,12 @@ std::string OperatorDeviceRunOnceDataFromDevice(py::int_ pythonOperatorPython,
         return "mismatch input/output";
     }
 
-    if (config::GetOption<bool>(PROFILE_ENABLE) &&
-        EmulationLauncher::EmulationLaunchDeviceTensorData(func, inputs, outputs) != 0) {
-        return "emulation run failed";
+    if (config::GetOption<bool>(PROFILE_ENABLE)) {
+        DeviceLauncherConfig config;
+        DeviceLauncher::DeviceLauncherConfigFillDeviceInfo(config);
+        if (EmulationLauncher::EmulationLaunchDeviceTensorData(func, inputs, outputs, config) != 0) {
+            return "emulation run failed";
+        }
     }
 
     auto incomingStream = static_cast<uintptr_t>(incomingStreamPython);
@@ -207,9 +210,12 @@ std::string BuildCache(uintptr_t opAddr, const std::vector<DeviceTensorData> &in
         const std::vector<DeviceTensorData> &outputList) {
     ExportedOperator *op = reinterpret_cast<ExportedOperator *>(opAddr);
 
-    if (config::GetRuntimeOption<int64_t>(CFGCACHE_DEVICE_TASK_NUM) != 0 &&
-        EmulationLauncher::BuildControlFlowCache(op->GetFunction(), inputList, outputList) != 0) {
-        return "control flow cache failed";
+    if (config::GetRuntimeOption<int64_t>(CFGCACHE_DEVICE_TASK_NUM) != 0) {
+        DeviceLauncherConfig config;
+        DeviceLauncher::DeviceLauncherConfigFillDeviceInfo(config);
+        if (EmulationLauncher::BuildControlFlowCache(op->GetFunction(), inputList, outputList, config) != 0) {
+            return "control flow cache failed";
+        }
     }
 
     return "";
