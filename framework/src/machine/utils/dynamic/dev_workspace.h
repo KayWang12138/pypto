@@ -27,12 +27,11 @@
 namespace npu::tile_fwk::dynamic {
 inline constexpr int64_t TENSOR_ADDR_ALIGNMENT = 512;
 inline constexpr uint32_t SUBMMIT_TASK_QUE_SIZE = 32;
-
 class DeviceWorkspaceAllocator {
 public:
     DeviceWorkspaceAllocator() = default;
+    explicit DeviceWorkspaceAllocator(DevAscendProgram *base) : devProg_(base) {}
     ~DeviceWorkspaceAllocator() = default;
-
     void Init(DevStartArgs *args) {
         uintdevptr_t baseAddr = args->contextWorkspaceAddr;
         DevAscendProgram *devProg = args->devProg;
@@ -435,7 +434,28 @@ public:
             }
         }
     }
-
+    uint32_t CalcSlabMemObjmaxSize () {
+        uint32_t slabMemObjmaxSize = CalcAicpuMetaSlabAlloctorSlabMemObjmaxSize();
+        DEV_DEBUG ("slabMemObjmaxSize is: %u", slabMemObjmaxSize);
+        return slabMemObjmaxSize;
+    }
+    void CalculateSlabCapacityPerType (uint32_t slabSize, uint32_t* slabCapacity, uint32_t slabTypeNum) {
+        if (slabCapacity == nullptr) {
+            DEV_ERROR("slabCapacity is nullptr");
+            return;
+        }
+        constexpr uint32_t maxSlabTypes = ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT);
+        if (slabTypeNum > maxSlabTypes) {
+            DEV_ERROR("slabTypeNum exceeds the allowed typenum %u ", maxSlabTypes);
+            return;
+        }
+        for (size_t i = 0; i < slabTypeNum; ++i) {
+          if (slabMemObjSizeFunc[i] != nullptr && (this->*slabMemObjSizeFunc[i])() !=0) {
+             DEV_DEBUG("WsAicpuSlabMemType[%zu] is %u", i, (this->*slabMemObjSizeFunc[i])());
+              slabCapacity[i] = slabSize / (this->*slabMemObjSizeFunc[i])();
+           }
+        }
+    }
     WsAllocation SlabAlloc(uint32_t objSize, WsAicpuSlabMemType type) {
         void* ptr = nullptr;
         DEV_VERBOSE_DEBUG("SlabAlloc type = %u, size = %u.", ToUnderlying(type), objSize);
@@ -638,19 +658,23 @@ private:
     };
 
     /* 根据当前算子的业务模型分析计算出slab 管理内存页大小, 基于当前可评估的所有内存类型的最大值评估 */
-    uint32_t CalcAicpuMetaSlabAlloctorSlabPageSize(uint32_t totalMemSize) {
-        uint32_t slabSize = 0;
+    uint32_t CalcAicpuMetaSlabAlloctorSlabMemObjmaxSize() {
+        uint32_t slabMemObjmaxSize = 0;
         constexpr uint32_t extendBuf = 1024;
-        uint32_t allocNumOneSlab = 4; // default
         for (size_t i = 0; i < ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT); ++i) {
             if (slabMemObjSizeFunc[i] != nullptr) {
                 uint32_t currentSize = (this->*slabMemObjSizeFunc[i])();
-                if (currentSize > slabSize) {
-                    slabSize = currentSize;
+                if (currentSize > slabMemObjmaxSize) {
+                    slabMemObjmaxSize = currentSize;
                 }
             }
         }
-        slabSize += extendBuf;
+        slabMemObjmaxSize += extendBuf;
+        return slabMemObjmaxSize;
+    }
+    uint32_t CalcAicpuMetaSlabAlloctorSlabPageSize(uint32_t totalMemSize) {
+        uint32_t allocNumOneSlab = 4; // default
+        uint32_t slabSize = CalcAicpuMetaSlabAlloctorSlabMemObjmaxSize();
         uint32_t leastSlabReqMem = (ToUnderlying(WsAicpuSlabMemType::SLAB_MEM_TYPE_BUTT)) * slabSize;
         DEV_ASSERT(leastSlabReqMem < totalMemSize);
         uint32_t realMaxAllocNum = totalMemSize / leastSlabReqMem;

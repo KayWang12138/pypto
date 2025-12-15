@@ -14,6 +14,7 @@
  */
 
 #include "machine/utils/dynamic/dev_encode.h"
+#include "machine/utils/dynamic/dev_workspace.h"
 
 #include "interface/operation/attribute.h"
 #include "interface/tensor/logical_tensor.h"
@@ -35,14 +36,13 @@ using namespace npu::tile_fwk;
 namespace npu::tile_fwk {
 namespace dynamic {
 #define ONFILLCONTENT if (fillContent)
-
 constexpr int32_t CALLOP_ARG_ATTR_BASE_INDEX = 1;
 constexpr int32_t MINI_TILE_LIST_SIZE_THRESHOLD = 16;
 constexpr int32_t DEFAULT_CORE_NUM = 75;
 constexpr int32_t SLOTS_NEED_ALLOC_SIZE = 2;
-constexpr int64_t TENSOR_ADDR_ALIGNMENT = 512;
 constexpr int64_t MAX_STATIC_MEM_WARN_THRESHOLE = 512 * 512;
-
+constexpr int32_t ALLOC_NUM_ONE_SLAB = 4;
+static constexpr uint64_t GENERAL_METADATA_SIZE_MIN = 4 * MEBI;
 struct EncodeRawTensorAttr {
     std::shared_ptr<Storage> storage;
     uint64_t storageOffset = 0;
@@ -535,7 +535,13 @@ void DevAscendFunction::InitOperation(
             Operation *op = callList[i];
             ASSERT(callOpPredDict.count(op));
             ASSERT(At(operationList_, i).depGraphPredCount == callOpPredDict.find(op)->second);
-            ASSERT(dupData->GetOperationCurrPredCount(i) == callOpPredDict.find(op)->second);
+            if(dupData->GetOperationCurrPredCount(i) != callOpPredDict.find(op)->second) {
+                ALOG_ERROR_F("OperationCurrPredCount: %d Callopsize is %u exceeds the maximum allowed value of 65535.", 
+                dupData->GetOperationCurrPredCount(i), dupData ->GetOperationSize());
+            }
+            ASSERT(dupData->GetOperationCurrPredCount(i) == callOpPredDict.find(op)->second) << "OperationCurrPredCount: "
+            << dupData->GetOperationCurrPredCount(i) << " Callopsize is " <<  dupData ->GetOperationSize()
+            << "exceeds the maximum allowed value of 65535.";
         }
         dupData->GetSource() = this;
         for (size_t i = 0; i < callList.size(); i++) {
@@ -2024,10 +2030,40 @@ static TensorWorkspaceResult CalcTensorWorkspace(DevAscendProgram &devProg) {
     return res;
 }
 
-static uint64_t CalcGeneralMetadataWorkspace(DevAscendProgram &devProg) {
-    (void)devProg;
-    static constexpr uint64_t GENERAL_METADATA_SIZE = 4 * MEBI;
-    return GENERAL_METADATA_SIZE;
+static uint64_t CalcGeneralMetadataWorkspace(DevAscendProgram *devProg) {
+    DeviceWorkspaceAllocator workspace(devProg);
+    uint64_t generalMetadataSize = 0;
+    uint32_t slabSize = workspace.CalcSlabMemObjmaxSize() * ALLOC_NUM_ONE_SLAB;
+    uint32_t slabCapacity[ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT)];
+    size_t objUsedNum [ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT)] {
+        MAX_CACHED_FUNC_NUM, //DevFunctionDupped
+        1,// DynFuncData
+        1,// VecStitchList
+        1,// DynDevTask
+        READY_QUEUE_SIZE, //ReadyQue
+        #ifdef SUPPORT_MIX_SUBGRAPH_SCHE
+        1,
+        1,
+        #endif
+    };
+    workspace.CalculateSlabCapacityPerType(slabSize, slabCapacity, 
+    ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT));
+    
+    for (int i=0; i < ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT); i++) {
+        ALOG_DEBUG_F("slabCapacity[%d] is %u", i, slabCapacity[i]);
+        if (slabCapacity[i] == 0) {
+            continue;
+        }
+        uint32_t requiredSlabNum = (objUsedNum[i] + slabCapacity[i] - 1) / slabCapacity[i];
+        // alloc redundant slabpage for DuppedFunction and Readyque to prevent memory border situations
+        if(i == ToUnderlying(WsAicpuSlabMemType::DUPPED_FUNC_DATA) ||
+         i == ToUnderlying(WsAicpuSlabMemType::READY_QUE)) requiredSlabNum++;
+        ALOG_DEBUG_F("requiredSlabNum[%d] is %u", i, requiredSlabNum);
+        generalMetadataSize += static_cast<uint64_t>(requiredSlabNum) * slabSize;
+    }
+    ALOG_DEBUG_F("generalMetadataSize is %u", generalMetadataSize);
+    generalMetadataSize = (generalMetadataSize < GENERAL_METADATA_SIZE_MIN) ? GENERAL_METADATA_SIZE_MIN : generalMetadataSize;
+    return generalMetadataSize;
 }
 
 static uint64_t CalcStitchWorkspace(DevAscendProgram &devProg) {
@@ -2058,24 +2094,19 @@ void EncodeDevAscendProgram(Function *func, uint64_t &offset, DevAscendProgram *
 
         // Calc workspace size
         TensorWorkspaceResult tensorWsRes = CalcTensorWorkspace(*base);
-
         base->memBudget.tensor.rootInner = tensorWsRes.rootInnerMem;
         base->memBudget.tensor.devTaskInnerOutcasts = tensorWsRes.devTaskInnerOutcastsMem;
         base->memBudget.tensor.singleSlotMem = tensorWsRes.singleSlotMem;
         base->memBudget.tensor.pooledSlotNum = tensorWsRes.pooledSlotNum;
         base->memBudget.tensor.dassembleDests = tensorWsRes.globalTensorMem;
-
         base->memBudget.aicoreSpilled = tensorWsRes.perCoreSpilledMem * DEFAULT_CORE_NUM;
-
-        base->memBudget.metadata.general = CalcGeneralMetadataWorkspace(*base);
-        base->memBudget.metadata.stitchPool = CalcStitchWorkspace(*base);
-
-        base->memBudget.debug.dumpTensor = DumpTensorWorkspace();
-
         base->devArgs.machineConfig = func->paramConfigs_.machineConfig_;
         base->firstStitchTaskLoopNum = func->paramConfigs_.firstStitchTaskLoopNum_;
         base->stitchTaskIncrLoopNum = func->paramConfigs_.stitchTaskIncrLoopNum_;
         base->stitchCallopMaxNum = config::GetRuntimeOption<uint32_t>(STITCH_CALLOP_MAX_NUM);
+        base->memBudget.metadata.general = CalcGeneralMetadataWorkspace(base);
+        base->memBudget.metadata.stitchPool = CalcStitchWorkspace(*base);
+        base->memBudget.debug.dumpTensor = DumpTensorWorkspace();
     }
 }
 } // namespace dynamic

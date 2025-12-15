@@ -33,7 +33,7 @@ enum class WsAicpuSlabMemType : uint8_t {
     WRAP_QUEUE,
     WRAP_TASKLIST,
 #endif
-    COHERENT_SLAB_MEM_TYPE_BUTT,
+    COHERENT_SLAB_MEM_TYPE_BUTT, //add new slabmemtype should be above this type
 
     DUPPED_STITCH, // stitch pool memory
     SLAB_MEM_TYPE_BUTT
