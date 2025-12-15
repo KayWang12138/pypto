@@ -41,6 +41,7 @@ constexpr int32_t MINI_TILE_LIST_SIZE_THRESHOLD = 16;
 constexpr int32_t DEFAULT_CORE_NUM = 75;
 constexpr int32_t SLOTS_NEED_ALLOC_SIZE = 2;
 constexpr int64_t TENSOR_ADDR_ALIGNMENT = 512;
+constexpr int64_t MAX_STATIC_MEM_WARN_THRESHOLE = 512 * 512;
 
 struct EncodeRawTensorAttr {
     std::shared_ptr<Storage> storage;
@@ -199,8 +200,8 @@ void DevAscendFunction::UpdateRawTensorDesc(const std::shared_ptr<RawTensor> &ra
     desc->offsetOrIndex = offsetOrIndex;
 }
 
-static void EncodeRawShape(const SymbolicExpressionTable *expressionTable,
-    DevAscendRawTensor *encoded, std::shared_ptr<RawTensor> rawTensor, bool isIndependentMemory) {
+static void EncodeRawShape(const SymbolicExpressionTable *expressionTable, DevAscendRawTensor *encoded, 
+    std::shared_ptr<RawTensor> rawTensor, bool isIndependentMemory, const std::string rawName = "") {
     std::vector<SymInt> shape;
     bool isDyn = false;
     for (auto x : rawTensor->GetDynRawShape()) {
@@ -232,6 +233,10 @@ static void EncodeRawShape(const SymbolicExpressionTable *expressionTable,
     encoded->maxStaticMemReq = std::max(
         static_cast<uint64_t>(AlignUp(maxPossibleNumel * BytesOf(rawTensor->GetDataType()), TENSOR_ADDR_ALIGNMENT)),
         encoded->memoryRequirement);
+    if (encoded->maxStaticMemReq > MAX_STATIC_MEM_WARN_THRESHOLE) {
+        ALOG_WARN_F("Root=[%s], symbol=[%s], staticMemReq=[%lu] might be an error.",
+            rawName.c_str(), rawTensor->symbol.c_str(), encoded->maxStaticMemReq);
+    }
 }
 
 void DevAscendFunction::FillOutputSlotMark(const IncastOutcastLink *inoutLink, std::vector<bool>& isOutputSlotMarks) {
@@ -271,7 +276,7 @@ void DevAscendFunction::InitRawTensorAndMemoryRequirement(
                 continue;
             }
             auto &encoded = *GetRawTensor(i);
-            EncodeRawShape(expressionTable, &encoded, rawTensor, !param.devRoot->outIncastLinkMap.count(rawTensor));
+            EncodeRawShape(expressionTable, &encoded, rawTensor, !param.devRoot->outIncastLinkMap.count(rawTensor), param.devRoot->GetRawName());
             encoded.rawMagic = rawTensor->GetRawMagic();
             if (incastRawList.count(rawTensor)) {
                 // No need to allocate memory for root incasts
@@ -319,7 +324,7 @@ void DevAscendFunction::InitRawTensorAndMemoryRequirement(
                 continue;
             }
             auto &encoded = *GetRawTensor(i);
-            EncodeRawShape(expressionTable, &encoded, rawTensor, false);
+            EncodeRawShape(expressionTable, &encoded, rawTensor, false, param.devRoot->GetRawName());
             HandleActualRaw(incastRawList, outcastRawList, rawMagicToRawTensor, rawTensor, encoded);
             UpdateRawTensorDesc(rawTensor, i, incastRawList.size(), encoded);
         }

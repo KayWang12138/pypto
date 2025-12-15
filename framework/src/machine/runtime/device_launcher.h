@@ -134,7 +134,13 @@ public:
         devProg->devArgs.enableCtrl = 1; // need set 0 if use custom cpu launch ctrl cpu
         devProg->memBudget.tensor.dynDAssembleDests = AlignUp(config.dynWorkspaceSize, TENSOR_ADDR_ALIGNMENT);
         devProg->workspaceSize = devProg->memBudget.Total();
-
+        ALOG_INFO_F("workspaceSize=%lu, tensor=%lu, metadata=%lu, aicoreSpillen=%lu, debug.DumpTensor=%lu",
+            devProg->workspaceSize, devProg->memBudget.tensor.Total(), devProg->memBudget.metadata.Total(),
+            devProg->memBudget.aicoreSpilled, devProg->memBudget.debug.dumpTensor);
+        ALOG_INFO_F("Tensor:rootInner=%lu, dessembleDests=%lu, devTaskInnerOutCasts=%lu, slotted=%lux%lu(slots).",
+            devProg->memBudget.tensor.rootInner, devProg->memBudget.tensor.dassembleDests,
+            devProg->memBudget.tensor.devTaskInnerOutcasts, devProg->memBudget.tensor.singleSlotMem,
+            devProg->memBudget.tensor.pooledSlotNum);
         devProg->l2CacheOffset = devMem.GetL2Offset();
         ASSERT(devProg->commGroupNum == config.hcclContext.size());
         ASSERT(devProg->commGroupNum <= (sizeof(devProg->hcclContext) / sizeof(uint64_t)));
