@@ -378,6 +378,102 @@ void OneHotOperationTileFunc(Function &function, const TileShape &tileShape,
     TiledOneHot(function, tileShape, iOperand[0], oOperand[0], numClasses);
 }
 
+struct CumSumTileInfoPara {
+    TileInfo inputTileInfo;
+    TileInfo dstTileInfo;
+};
+
+struct CumSumPara {
+    const LogicalTensorPtr &Input;
+    const LogicalTensorPtr &dstTensor;
+    const int axis;
+    const bool flag;
+};
+
+void InnerTiledCumSum(size_t cur, Function &function, const TileShape &tileShape, const CumSumPara &cumSumPara,
+    CumSumTileInfoPara &cumSumTileInfo) {
+    const LogicalTensorPtr &input = cumSumPara.Input;
+    const LogicalTensorPtr &dstTensor = cumSumPara.dstTensor;
+    const int axis = cumSumPara.axis;
+    const bool flag = cumSumPara.flag;
+
+    if (cur == dstTensor->shape.size()) {
+        auto dstTile = dstTensor->View(function, cumSumTileInfo.dstTileInfo.shape, cumSumTileInfo.dstTileInfo.offset);
+        auto inputTile = input->View(function, cumSumTileInfo.inputTileInfo.shape, cumSumTileInfo.inputTileInfo.offset);
+        auto &op = function.AddOperation(Opcode::OP_CUM_SUM, {inputTile}, {dstTile});
+        op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
+        op.SetAttribute(OP_ATTR_PREFIX + "flag", flag);
+        return;
+    }
+
+    auto &vecTile = tileShape.GetVecTile();
+    int64_t tmpTile = vecTile[cur];
+
+    if (static_cast<int>(cur) == axis) {
+        tmpTile = input->GetShape()[cur];
+    }
+
+    for (int i = 0; i < input->GetShape()[cur]; i += tmpTile) {
+        if (static_cast<int>(cur) == axis) {
+            cumSumTileInfo.dstTileInfo.offset[cur] = 0;
+            cumSumTileInfo.dstTileInfo.shape[cur] = dstTensor->shape[cur];
+            cumSumTileInfo.inputTileInfo.offset[cur] = 0;
+            cumSumTileInfo.inputTileInfo.shape[cur] = input->shape[cur];
+        } else {
+            cumSumTileInfo.dstTileInfo.offset[cur] = i;
+            cumSumTileInfo.dstTileInfo.shape[cur] = std::min(input->shape[cur] - i, tmpTile);
+            cumSumTileInfo.inputTileInfo.offset[cur] = i;
+            cumSumTileInfo.inputTileInfo.shape[cur] = std::min(input->shape[cur] - i, tmpTile);
+        }
+        InnerTiledCumSum(cur + 1, function, tileShape, cumSumPara, cumSumTileInfo);
+    }
+}
+
+void TiledCumSum(Function &function, const TileShape &tileShape, const CumSumPara &cumSumPara) {
+    assert(cumSumPara.Input->GetShape().size() == cumSumPara.Input->GetOffset().size());
+
+    CumSumTileInfoPara cumSumTileInfo{
+        TileInfo(cumSumPara.Input->GetShape().size(), cumSumPara.Input->GetOffset().size()),
+        TileInfo(cumSumPara.dstTensor->GetShape().size(), cumSumPara.dstTensor->GetOffset().size())};
+    InnerTiledCumSum(0, function, tileShape, cumSumPara, cumSumTileInfo);
+    return;
+}
+
+void TensorCumSum(Function &function, const CumSumPara &cumSumPara) {
+    auto &op = function.AddOperation(Opcode::OP_CUM_SUM, {cumSumPara.Input}, {cumSumPara.dstTensor});
+    op.SetAttribute(OP_ATTR_PREFIX + "axis", cumSumPara.axis);
+    op.SetAttribute(OP_ATTR_PREFIX + "flag", cumSumPara.flag);
+    return;
+}
+
+Tensor CumSum(const Tensor &input, const int &axis) {
+    DECLARE_TRACER();
+    auto shapeSize = input.GetShape().size();
+    auto dataType = input.GetDataType();
+
+    ASSERT(SHAPE_DIM1 <= shapeSize && shapeSize <= SHAPE_DIM4);
+    std::vector<DataType> CUMSUM_SUPPORT_DATATYPES = {DataType::DT_FP32, DataType::DT_INT32, DataType::DT_INT16};
+    ASSERT(std::find(CUMSUM_SUPPORT_DATATYPES.begin(), CUMSUM_SUPPORT_DATATYPES.end(), dataType) != CUMSUM_SUPPORT_DATATYPES.end());
+    int tmpAxis = axis < 0 ? shapeSize + axis : axis;
+    bool flag = input.GetShape().size() == 1 ? true : false;
+    if (flag) {
+        ASSERT(tmpAxis == 0) << "when input.GetShape().size() is 1, axis must be 0";
+    }
+    ASSERT(tmpAxis == 0 || static_cast<size_t>(tmpAxis) < shapeSize);
+
+    Tensor result(input.GetDataType(), input.GetShape());
+    CALL(CumSum, *Program::GetInstance().GetCurrentFunction(), {input.GetStorage(), result.GetStorage(), tmpAxis, flag});
+    result.GetStorage()->UpdateDynValidShape(input.GetStorage()->dynValidShape_);
+    return result;
+}
+
+void CumSumOperationTileFunc(Function &function, const TileShape &tileShape,
+    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand, const Operation &op) {
+    int axis = op.GetIntAttribute(OP_ATTR_PREFIX + "axis");
+    bool flag = op.GetBoolAttribute(OP_ATTR_PREFIX + "flag");
+    TiledCumSum(function, tileShape, {iOperand[0], oOperand[0], axis, flag});
+}
+
 // beginregin: Clip
 
 Tensor Clip(const Tensor &self, const Element &min, const Element &max) {
@@ -435,4 +531,5 @@ void LogicAndOperationTileFunc(Function &function, const TileShape &tileShape,
 REGISTER_OPERATION_TILED_FUNC(OP_LOGICALNOT, Opcode::OP_LOGICALNOT, LogicNotOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_ONEHOT, Opcode::OP_ONEHOT, OneHotOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_LOGICALAND, Opcode::OP_LOGICALAND, LogicAndOperationTileFunc);
+REGISTER_OPERATION_TILED_FUNC(OP_CUM_SUM, Opcode::OP_CUM_SUM, CumSumOperationTileFunc);
 } // namespace npu::tile_fwk

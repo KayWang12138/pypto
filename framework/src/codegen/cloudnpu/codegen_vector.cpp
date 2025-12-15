@@ -710,6 +710,72 @@ std::string CodeGenOpCloudNPU::GenIndexAddOp() const {
     return PrintIndexAddDynamicUnaligned({axis, dstVar, srcVar, indicesVar, dstRawShape, srcRawShape, dataTypeExpr});
 }
 
+std::string CodeGenOpCloudNPU::PrintCumSumDynamicUnaligned(const PrintCumSumParam &param) const {
+    // support 2-4 dims
+    const std::string &dstVar = param.dVar;
+    const std::string &inputVar = param.inputVar;
+
+    std::vector<int64_t> inputRawShape = NormalizeShape(param.inputRawShape, SHAPE_DIM4);
+    const std::string *dataTypeExpr = param.dataTypeExpr;
+
+    // template params
+    std::vector<std::string> paramList;
+    paramList.insert(paramList.end(), {dataTypeExpr[ID0]});
+    for (size_t i = 1; i < inputRawShape.size(); ++i) {
+        paramList.emplace_back(std::to_string(inputRawShape[i]));
+    }
+
+    int axis = param.axis + SHAPE_DIM4 - param.inputRawShape.size(); // 调用4维tileop需要切换axis
+    bool flag = param.flag;
+    paramList.emplace_back(std::to_string(axis));
+    paramList.emplace_back(std::to_string(flag));
+    std::string templateParam = JoinString(paramList, ", ");
+
+    // function actual params
+    paramList.clear();
+    std::string addrType = GetAddrTypeByOperandType(BUF_UB);
+    std::string dst = "(" + addrType + " " + dataTypeExpr[ID0] + "*)" + dstVar;
+    std::string input = "(" + addrType + " " + dataTypeExpr[ID1] + "*)" + inputVar;
+
+    paramList.insert(paramList.end(), {dst, input});
+
+    auto validShape = dynamicValidShape[ID1];
+    FillIntVecWithDummyInHead<SymbolicScalar>(validShape, SHAPE_DIM4 - validShape.size(), 1);
+    for (int i = 0; i < SHAPE_DIM4; i++) {
+        paramList.emplace_back(SymbolicExpressionTable::BuildExpression(validShape[i]));
+    }
+    std::string tiloOpCallParam = JoinString(paramList, ", ");
+    std::ostringstream oss;
+    oss << tileOpName << "<" << templateParam << ">"
+        << "(" << tiloOpCallParam << ");\n";
+    return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::GenCumSumOp() const {
+    std::string dstVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
+    std::string inputVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
+
+    ALOG_INFO_F("GenCumSumOp, dst Shape is %s", IntVecToStr(shape[ID0]).c_str());
+    ALOG_INFO_F("GenCumSumOp, input Shape is %s", IntVecToStr(shape[ID1]).c_str());
+
+    std::vector inputRawShape = this->rawShape[ID1];
+
+    std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
+    std::string inputDtypeStr = DataType2CCEStr(operandDtype[ID1]);
+
+    constexpr int NumOperands = 2;
+    std::string dataTypeExpr[NumOperands] = {dstDtypeStr, inputDtypeStr};
+    AppendLocalBufVarOffsetInOrder(dstVar, inputVar);
+
+    ASSERT(opAttrs.count(OP_ATTR_PREFIX + "axis")) << "cannot get axis attr";
+    int axis = npu::tile_fwk::AnyCast<int64_t>(opAttrs.at(OP_ATTR_PREFIX + "axis"));
+
+    ASSERT(opAttrs.count(OP_ATTR_PREFIX + "flag")) << "cannot get flag attr";
+    bool flag = npu::tile_fwk::AnyCast<bool>(opAttrs.at(OP_ATTR_PREFIX + "flag"));
+
+    return PrintCumSumDynamicUnaligned({axis, flag, dstVar, inputVar, inputRawShape, dataTypeExpr});
+}
+
 std::string CodeGenOpCloudNPU::PrintScatterElementSOpStatic(const PrintScatterElemParam &param) const {
     // Static only support 2Dim
     int dstRank = shape[ToUnderlying(MISOIdx::DST_IDX)].size();

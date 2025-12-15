@@ -246,6 +246,10 @@ void bind_operation(py::module &m) {
             return npu::tile_fwk::Cat(tensors, axis);
         }, "Tensor concat.");
     m.def(
+        "cumsum", [](const Tensor &input, int axis) {
+            return npu::tile_fwk::CumSum(input, axis);
+        }, "Tensor cumsum.");
+    m.def(
         "Pad", [](const Tensor &old, const std::vector<int64_t> &newShape) {
             return npu::tile_fwk::Pad(old, newShape);
         }, "Tensor pad.");

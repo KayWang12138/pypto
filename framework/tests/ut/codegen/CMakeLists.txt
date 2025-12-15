@@ -65,6 +65,8 @@ set(_CaseFilterList
         "TestCodegenUnary.ExpandDim4Axis0"
         "TestCodegenUnary.ExpandDim4Axis1"
         "TestCodegenUnary.ExpandDim2Axis0"
+        "TestCodegenDynCumSum.test_CumSum_dim2_0"
+        "TestCodegenDynCumSum.test_CumSum_dim2_1"
         "TestCodegenScalar.TestScalarOp"
         "TestCodegenScalar.TestQuant_32_1_7168"
         "TestCodegenScalar.TestPipeAll"

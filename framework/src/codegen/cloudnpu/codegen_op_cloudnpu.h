@@ -96,6 +96,8 @@ public:
 
     std::string GenIndexOutCastOp() const;
 
+    std::string GenCumSumOp() const;
+
     std::string GenGatherOp() const;
 
     std::string GenMemCopyCube(bool isLocalToGM, unsigned uf = 0) const;
@@ -312,6 +314,8 @@ private:
     std::string PrintScatterOpDynamicUnaligned(const PrintScatterParam &param) const;
 
     std::string PrintIndexAddDynamicUnaligned(const PrintIndexAddParam &param) const;
+
+    std::string PrintCumSumDynamicUnaligned(const PrintCumSumParam &param) const;
 
     WhereParam PrepareWhereParam() const;
     void GetVarAndTypeParam(std::vector<std::string> &varExpr, std::vector<std::string> &dataTypeExpr) const;

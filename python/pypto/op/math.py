@@ -529,3 +529,32 @@ def clip(
         max_ = pypto_impl.Element(input.GetDataType(), max_)
     
     return pypto_impl.Clip(input, min_, max_)
+
+
+@op_wrapper
+def cumsum(
+    input: Tensor,
+    dim: int
+) -> Tensor:
+    """
+    This function returns the cumulative sum over a given axis.
+    Parameters
+    ---------
+    input: Tensor
+        tensor to be calculated.
+    dim : int
+        specified dimension.
+    out: Tensor
+        The tensor after calculating the cumulative sum.
+    Examples
+    ---------
+    x = pto.tensor([2, 3], pto.data_type.DT_FP32) 
+    y = pto.tensor([2, 3], pto.data_type.DT_FP32) 
+    dim = 0
+    out = pto.cumsum(x, dim)
+    Input  x : [[0 1 2],
+                [3 4 5]]
+    Output out:[[0 1 2],
+                [3 5 7]]
+    """
+    return pypto_impl.cumsum(input, dim)

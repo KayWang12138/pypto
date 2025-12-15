@@ -279,7 +279,7 @@ Tensor ScalarMulS(const Tensor &operand, const Element &value, bool reverseOpera
 
 Tensor ScalarSub(const Tensor &operand1, const Tensor &operand2);
 Tensor ScalarDiv(const Tensor &operand1, const Tensor &operand2);
-
+Tensor CumSum(const Tensor &input, const int &axis);
 struct PaTileShapeConfig {
     int headNumQTile;
     std::array<int, TILE_VEC_DIMS> v0TileShape;

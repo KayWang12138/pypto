@@ -173,6 +173,11 @@ set(_CaseFilterList
         "ViewTypeUtest.dequant_test"
 
         # Operation
+        "OperationImplTest.test_CumSum_dim2_1"
+        "OperationImplTest.test_CumSum_dim2_0"
+        "OperationImplTest.test_CumSum_dim1"
+        "OperationImplTest.test_CumSum_dim3"
+        "OperationImplTest.test_CumSum_dim4"
         "OperationImplTest.test_Compare_BOOL"
         "OperationImplTest.test_Compare_BIT"
         "OperationImplTest.test_Cmps_BOOL"

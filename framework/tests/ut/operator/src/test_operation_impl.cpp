@@ -40,6 +40,56 @@ public:
     void TearDown() override {}
 };
 
+TEST_F(OperationImplTest, test_CumSum_dim2_1) {
+    int axis = 1;
+    TileShape::Current().SetVecTile(9, 9);
+    Tensor input(DT_FP32, {13, 8}, "input");
+    Tensor result;
+    FUNCTION("TestCumSum") {
+        result = CumSum(input, axis);
+    }
+}
+
+TEST_F(OperationImplTest, test_CumSum_dim2_0) {
+    int axis = 0;
+    TileShape::Current().SetVecTile(4, 3);
+    Tensor input(DT_FP32, {11, 7}, "input");
+    Tensor result;
+    FUNCTION("TestCumSum") {
+        result = CumSum(input, axis);
+    }
+}
+
+TEST_F(OperationImplTest, test_CumSum_dim1) {
+    int axis = 0;
+    TileShape::Current().SetVecTile(5);
+    Tensor input(DT_FP32, {13}, "input");
+    Tensor result;
+    FUNCTION("TestCumSum") {
+        result = CumSum(input, axis);
+    }
+}
+
+TEST_F(OperationImplTest, test_CumSum_dim3) {
+    int axis = 0;
+    TileShape::Current().SetVecTile(4, 5, 3);
+    Tensor input(DT_FP32, {8, 8, 8}, "input");
+    Tensor result;
+    FUNCTION("TestCumSum") {
+        result = CumSum(input, axis);
+    }
+}
+
+TEST_F(OperationImplTest, test_CumSum_dim4) {
+    int axis = 0;
+    TileShape::Current().SetVecTile(4, 5, 5, 3);
+    Tensor input(DT_FP32, {7, 7, 7, 7}, "input");
+    Tensor result;
+    FUNCTION("TestCumSum") {
+        result = CumSum(input, axis);
+    }
+}
+
 TEST_F(OperationImplTest, TestTranspose_BNSD_BSND) {
     std::vector<int64_t> shape{3, 32, 64, 16};
     Tensor a(DT_FP32, shape, "a");

@@ -143,6 +143,9 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           // indexadd
           {Opcode::OP_INDEX_ADD, [this]() { return GenIndexAddOp(); }},
 
+          //cumsum
+          {Opcode::OP_CUM_SUM,   [this]() { return GenCumSumOp(); }},
+
           // vector where
           {Opcode::OP_WHERE_SS, [this]() { return GenWhereOp(); }},
           {Opcode::OP_WHERE_TS, [this]() { return GenWhereOp(); }},

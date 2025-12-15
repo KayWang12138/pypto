@@ -513,6 +513,9 @@ class Tensor:
                     alpha: Optional[List[Union[int, float]]] = 1) -> 'Tensor':
         return pypto.index_add(self, dim, index, source, alpha=alpha)
 
+    def cumsum(self: 'Tensor', dim: int) -> 'Tensor':
+        return pypto.cumsum(self, dim)
+
     def expand_clone(self, shape: List[int], *,
                      valid_shape: Optional[List[Union[int, SymbolicScalar]]] = None) -> 'Tensor':
         if valid_shape is None:

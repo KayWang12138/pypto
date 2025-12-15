@@ -1397,6 +1397,24 @@ def gen_gatherelement_op_golden(
     return gen_op_golden("GatherElement", golden_func, output, case_index)
 
 
+def cumsum_golden_func(inputs: list, config: dict):
+    params = config.get("params")
+    axis = params["axis"]
+    inputTensor = torch.from_numpy(inputs[0])
+    res = torch.cumsum(inputTensor, axis)
+    
+    return [res.numpy()]
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestCumSum/CumSumOperationTest.TestCumSum",
+    ]
+)
+def gen_cumsum_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("CumSum", cumsum_golden_func, output, case_index)
+
+
 def from_numpy(array: np.array):
     is_bfloat16 = array.dtype == bfloat16
     if is_bfloat16:

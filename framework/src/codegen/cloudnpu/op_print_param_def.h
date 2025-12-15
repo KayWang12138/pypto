@@ -188,6 +188,15 @@ struct PrintIndexOutCastParam {
     const std::string &blockSize;
 };
 
+struct PrintCumSumParam {
+    int axis;
+    bool flag;
+    const std::string &dVar;
+    const std::string &inputVar;
+    std::vector<int64_t> &inputRawShape;
+    const std::string *dataTypeExpr;
+};
+
 struct DynamicParamPackMTE {
     std::vector<std::string> gmShapeExpr;
     std::vector<std::string> gmOffsetExpr;
