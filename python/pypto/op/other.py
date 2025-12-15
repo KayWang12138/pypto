@@ -88,12 +88,18 @@ def where(
     if isinstance(input, pypto_impl.Tensor):
         input_base = input
     else:
-        input_base = pypto_impl.Element(pypto_impl.DT_FP32, input)
+        if isinstance(input, float):
+            input_base = pypto_impl.Element(pypto_impl.DT_FP32, input)
+        else:
+            input_base = pypto_impl.Element(pypto_impl.DT_FP16, input)
 
     if isinstance(other, pypto_impl.Tensor):
         other_base = other
     else:
-        other_base = pypto_impl.Element(pypto_impl.DT_FP32, other)
+        if isinstance(other, float):
+            other_base = pypto_impl.Element(pypto_impl.DT_FP32, other)
+        else:
+            other_base = pypto_impl.Element(pypto_impl.DT_FP16, other)
     return pypto_impl.Where(condition, input_base, other_base)
 
 
