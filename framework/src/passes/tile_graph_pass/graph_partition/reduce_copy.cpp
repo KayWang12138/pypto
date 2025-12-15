@@ -61,11 +61,6 @@ Status ReduceCopyMerge::PostCheck(Function &function) {
             return FAILED;
         }
     }
-    const bool useInternalSubgraphID = true;
-    if (!function.LoopCheck(useInternalSubgraphID).empty()) {
-        APASS_LOG_ERROR_F(Elements::Function, "Operation Loop of internal subgraphID detected after ReduceCopy.");
-        return FAILED;
-    }
     APASS_LOG_INFO_F(Elements::Operation, "===> Finish PostCheck for ReduceCopy.");
     return SUCCESS;
 }

@@ -2550,3 +2550,60 @@ TEST_F(OnBoardTest, test_mul_large_row) {
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
 }
+
+TEST_F(OnBoardTest, test_matmul_add_dynamic) {
+    TileShape::Current().SetVecTile({128, 128});
+    TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
+    const int m = 128;
+    const int k = 256;
+    const int n = 512;
+    SetInterpreterConfig();
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetHostOption(ONLY_CODEGEN, true);
+
+    Tensor tensor_a = Tensor(DataType::DT_FP16, {m, k}, "tensor_a", TileOpFormat::TILEOP_ND);
+    Tensor tensor_b = Tensor(DataType::DT_FP16, {k, n}, "tensor_b", TileOpFormat::TILEOP_ND);
+    Tensor tensor_c = Tensor(DataType::DT_FP16, {m, n}, "tensor_c", TileOpFormat::TILEOP_ND);
+    Tensor tensor_d = Tensor(DataType::DT_FP16, {m, n}, "tensor_d", TileOpFormat::TILEOP_ND);
+    Tensor tensor_o = Tensor(DataType::DT_FP16, {m, n}, "tensor_o", TileOpFormat::TILEOP_ND);
+
+    std::vector<float16> aData(m * k, 0);
+    std::vector<float16> bData(k * n, 0);
+    std::vector<float16> cData(m * n, 0);
+    std::vector<float16> dData(m * n, 0);
+    std::vector<float16> golden(m * n, 0);
+
+    readInput<float16>(GetGoldenDir() + "/matmulx.bin", aData);
+    readInput<float16>(GetGoldenDir() + "/matmuly.bin", bData);
+    readInput<float16>(GetGoldenDir() + "/add1.bin", cData);
+    readInput<float16>(GetGoldenDir() + "/add2.bin", dData);
+    readInput<float16>(GetGoldenDir() + "/res.bin", golden);
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateTensor<float16>(tensor_a, aData),
+        RawTensorData::CreateTensor<float16>(tensor_b, bData),
+        RawTensorData::CreateTensor<float16>(tensor_c, cData),
+        RawTensorData::CreateTensor<float16>(tensor_d, dData),
+    });
+
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<float16>(tensor_o, static_cast<float16>(0.0)),
+    });
+
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<float16>(tensor_o, golden),
+    });
+
+    FUNCTION("matmul_add", {tensor_a, tensor_b, tensor_c, tensor_d}, {tensor_o}) {
+        LOOP("mLoop", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(1)) {
+            (void)mIdx;
+            Tensor tmp1 = npu::tile_fwk::Matrix::Matmul<false, false, false>(DataType::DT_FP16, tensor_a, tensor_b);
+            Tensor tmp2 = Add(tmp1, tensor_c);
+            tensor_o = Add(tmp2, tensor_d);
+        }
+    }
+
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
+    auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
+    EXPECT_TRUE(resultCmp(golden, (float16 *)outs->data(), 0.001f));
+}

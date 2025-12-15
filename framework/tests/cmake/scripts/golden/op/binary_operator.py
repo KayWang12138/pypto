@@ -102,6 +102,8 @@ else:
         "OnBoardTest.test_mul_large_row",
         # single tile op test
         "TestTileOpAdd.TestAddDim2",
+        # matmul add
+        "OnBoardTest.test_matmul_add_dynamic",
     ]
 )
 def binary_operator_func1(case_name: str, output: Path) -> bool:
@@ -979,6 +981,33 @@ def binary_operator_func1(case_name: str, output: Path) -> bool:
             y.tofile(y_path)
             x = x * y
             x.tofile(o_path)
+    elif case_name == "OnBoardTest.test_matmul_add_dynamic":
+        fp16 = np.float16
+        m = 128
+        k = 256
+        n = 512
+        matmul_inshape1 = [m, k]
+        matmul_inshape2 = [k, n]
+        add_inshape = [m, n]
+        matmul1_path = Path(output, 'matmulx.bin')
+        matmul2_path = Path(output, 'matmuly.bin')
+        add1_path = Path(output, 'add1.bin')
+        add2_path = Path(output, 'add2.bin')
+        o_path = Path(output, 'res.bin')
+        complete = matmul1_path.exists() and matmul2_path.exists() and add1_path.exists() and add2_path.exists() and o_path.exists()
+        if complete:
+            logging.debug("Case(%s), Golden complete.", case_name)
+        else:
+            x = np.random.uniform(-1, 1, matmul_inshape1).astype(fp16)
+            x.tofile(matmul1_path)
+            y = np.random.uniform(-1, 1, matmul_inshape2).astype(fp16)
+            y.tofile(matmul2_path)
+            a1 = np.random.uniform(-1, 1, add_inshape).astype(fp16)
+            a1.tofile(add1_path)
+            a2 = np.random.uniform(-1, 1, add_inshape).astype(fp16)
+            a2.tofile(add2_path)
+            z = np.dot(x, y) + a1 + a2
+            z.tofile(o_path)
     else:
         logging.error("Can't get func to gen golden, Case(%s)", case_name)
         return False

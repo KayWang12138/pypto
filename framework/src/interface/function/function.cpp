@@ -835,7 +835,7 @@ void Function::GetAnIslandIncastsOutcasts(const std::map<int, int> &opToSubgraph
     std::sort(oOperands.begin(), oOperands.end(), TensorPtrComparator());
 }
 
-auto Function::AnnotateOperation(bool includeInternalSubgraphID) {
+auto Function::AnnotateOperation() {
     std::map<int, std::vector<Operation *>> subgraphs;
     std::map<int, int> opToSubgraph;
     for (auto &&op : Operations()) {
@@ -845,15 +845,7 @@ auto Function::AnnotateOperation(bool includeInternalSubgraphID) {
             ALOG_DEBUG("Op magic: ", op.GetOpMagic(), "less than 0 graph: ", op.GetSubgraphID());
             continue;
         }
-        if (includeInternalSubgraphID && op.GetInternalSubgraphID() < 0) {
-            ALOG_DEBUG("Op magic: ", op.GetOpMagic(), "less than 0 internal graph: ", op.GetSubgraphID());
-            continue;
-        }
-        int graphId = op.GetSubgraphID();
-        if (includeInternalSubgraphID) {
-            graphId = graphId + op.GetInternalSubgraphID() * GetTotalSubGraphCount();
-        }
-        subgraphs[graphId].emplace_back(&op);
+        subgraphs[op.GetSubgraphID()].emplace_back(&op);
         opToSubgraph[op.GetOpMagic()] = op.GetSubgraphID();
         ALOG_DEBUG("Operation: ", op.GetOpMagic(), "Belong To subgraph: ", op.GetSubgraphID());
     }
@@ -867,13 +859,13 @@ auto Function::AnnotateOperation(bool includeInternalSubgraphID) {
     return std::make_pair(std::move(subgraphs), std::move(opToSubgraph));
 }
 
-std::unordered_set<int> Function::LoopCheck(bool includeInternalSubgraphID) {
+std::unordered_set<int> Function::LoopCheck() {
     if (totalSubGraphCount_ == 0) {
         return {};
     }
     ALOG_INFO("LoopCheck begin.");
 
-    auto [subgraphs, opToSubgraph] = AnnotateOperation(includeInternalSubgraphID);
+    auto [subgraphs, opToSubgraph] = AnnotateOperation();
     std::map<LogicalTensor *, std::vector<int>> producers;
     std::map<LogicalTensor *, std::vector<int>> consumers;
 
