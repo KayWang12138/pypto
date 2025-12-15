@@ -21,6 +21,10 @@ namespace pypto {
 void bind_pass_const(py::module &m) {
     m.attr("KEY_DUMP_FUNCTION_GRAPH_BEFORE_PASS") = KEY_DUMP_FUNCTION_GRAPH_BEFORE_PASS;
     m.attr("KEY_DUMP_FUNCTION_GRAPH_AFTER_PASS") = KEY_DUMP_FUNCTION_GRAPH_AFTER_PASS;
+    m.attr("KEY_PRINT_FUNCTION") = KEY_PRINT_FUNCTION;
+    m.attr("KEY_PRE_CHECK") = KEY_PRE_CHECK;
+    m.attr("KEY_POST_CHECK") = KEY_POST_CHECK;
+    m.attr("KEY_HEALTH_CHECK") = KEY_HEALTH_CHECK;
 }
 
 // config pass_global_configs.x parameters

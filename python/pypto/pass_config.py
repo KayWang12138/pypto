@@ -10,8 +10,16 @@
 # -----------------------------------------------------------------------------------------------------------
 """
 """
+__all__ = [
+    "PassConfigs",
+    "PassConfigKey",
+    "get_pass_default_config",
+    "set_pass_default_config",
+    "get_pass_config",
+    "set_pass_config",
+    "get_pass_configs"
+]
 from enum import Enum
-
 from . import pypto_impl
 
 
@@ -183,3 +191,25 @@ def get_pass_configs(strategy: str, identifier: str) -> PassConfigs:
         A complete configuration object containing all parameters for the specified pass under the given strategy.
     """
     return pypto_impl.GetPassConfigs(strategy, identifier)
+
+
+def __set_pass_debug_options(option: str, up: bool):
+    config_map = {
+        "print_function": pypto_impl.KEY_PRINT_FUNCTION,
+        "dump_graph": [pypto_impl.KEY_DUMP_FUNCTION_GRAPH_BEFORE_PASS, pypto_impl.KEY_DUMP_FUNCTION_GRAPH_AFTER_PASS],
+        "pre_check": pypto_impl.KEY_PRE_CHECK,
+        "post_check": pypto_impl.KEY_POST_CHECK,
+        "health_check": pypto_impl.KEY_HEALTH_CHECK
+    }
+
+    def ensure_list(x):
+        return x if isinstance(x, list) else [x]
+
+    if option == "all":
+        targets = [e for v in config_map.values() for e in ensure_list(v)]
+    else:
+        if option not in config_map:
+            raise KeyError(f"not support debug option {option}")
+        targets = ensure_list(config_map[option])
+    for opt in targets:
+        pypto_impl.SetPassDefaultConfig(opt, up)

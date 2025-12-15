@@ -21,6 +21,9 @@ def test_pass_config():
     assert pypto.get_pass_default_config(pypto.PassConfigKey.KEY_DUMP_FUNCTION_GRAPH_AFTER_PASS, True) is False
     pypto.set_pass_default_config(pypto.PassConfigKey.KEY_DUMP_FUNCTION_GRAPH_AFTER_PASS, True)
     assert pypto.get_pass_default_config(pypto.PassConfigKey.KEY_DUMP_FUNCTION_GRAPH_AFTER_PASS, False) is True
+    # reset
+    pypto.set_pass_default_config(pypto.PassConfigKey.KEY_DUMP_FUNCTION_GRAPH_BEFORE_PASS, False)
+    pypto.set_pass_default_config(pypto.PassConfigKey.KEY_DUMP_FUNCTION_GRAPH_AFTER_PASS, False)
 
     pypto.set_pass_config("PVC2_OOO", "ExpandFunction", pypto.PassConfigKey.KEY_DUMP_FUNCTION_GRAPH_BEFORE_PASS, True)
     assert pypto.get_pass_config("PVC2_OOO", "ExpandFunction",
@@ -33,3 +36,6 @@ def test_pass_config():
     configs = pypto.get_pass_configs("PVC2_OOO", "ExpandFunction")
     assert configs.dumpFunctionGraphBeforePass is True
     assert configs.dumpFunctionGraphAfterPass is True
+    # reset
+    pypto.set_pass_config("PVC2_OOO", "ExpandFunction", pypto.PassConfigKey.KEY_DUMP_FUNCTION_GRAPH_BEFORE_PASS, False)
+    pypto.set_pass_config("PVC2_OOO", "ExpandFunction", pypto.PassConfigKey.KEY_DUMP_FUNCTION_GRAPH_AFTER_PASS, False)
