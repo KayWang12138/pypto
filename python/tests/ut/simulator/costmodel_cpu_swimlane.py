@@ -97,7 +97,7 @@ def softmax(inputs, outputs):
     pypto.set_runtime_options(cfgcache_device_task_num=100)
     pypto.set_runtime_options(cfgcache_root_task_num=100)
     pypto.set_runtime_options(cfgcache_leaf_task_num=10000)
-    pypto.set_runtime_options(run_mode='cpu')
+    pypto.set_runtime_options(run_mode=1)
     
     input_tensor = inputs[0]
     output_tensor = outputs[0]
