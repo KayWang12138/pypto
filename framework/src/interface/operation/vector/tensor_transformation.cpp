@@ -354,8 +354,8 @@ bool MergeTransposeAxis(const Tensor &operand, std::vector<int64_t> &inputShape,
     if (preNum <= 1 && midNum <= 1 && afterNum <= 1) {
         return false;
     }
-    if (operand.GetShape().size() <= 5 &&
-        oldTransposeShape[0] == (int)operand.GetShape().size() - 2 && // tileop支持5维，最后2维转置
+    if (operand.GetShape().size() <= 5 && // tileop支持5维
+        oldTransposeShape[0] == (int)operand.GetShape().size() - 2 && // 最后2维转置
         oldTransposeShape[1] == (int)operand.GetShape().size() - 1) {
         return false;
     }
