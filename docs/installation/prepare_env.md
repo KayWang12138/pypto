@@ -4,12 +4,21 @@
 Pypto支持在CPU仿真环境运行，可以支持在CPU环境上查看计算图和泳道图
 ### 依赖安装 ### 
 ```
-
+安装gcc等基础依赖
+# check env
+sudo yum makecache
+# install dev-deps
+sudo yum install -y make dkms gcc kernel-headers-$(uname -r) kernel-devel-$(uname -r)
+# install python
+sudo yum install -y python3 python3-pip
+# install g++
+sudo yum install -y gcc-c++
 ```
 ## 真实环境（有NPU硬件） ##
 在上诉仿真环境的基础上，如果需要在实际NPU设备上运行，需要安装Ascend-toolkit包和torch_npu包
 ### Ascend-Toolkit安装指南 ###
-参考[Ascend安装指南]()
+配套Ascend-Toolkit版本：xxxx
+下载链接：xxxxx
 
 ### 安装torch_npu ###
 参考[TorchNpu安装指南]()
