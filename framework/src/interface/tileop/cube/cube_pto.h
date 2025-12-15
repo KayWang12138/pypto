@@ -226,9 +226,9 @@ TILEOP void TExtract(T &dst, U &src, const Coord &coord, int16_t subblockId)
         pto::TASSIGN(UBTile, (uint64_t)dst.GetAddr() + l0cOffset);
         pto::TASSIGN(l0cTile, (uint64_t)src.GetAddr());
         if (subblockId == 0) {
-            pto::TMOV<tileUBTensor, tileL0CTensor, L0cToUBMode::SingleModeUB0>(UBTile, l0cTile);
+            pto::TMOV<tileUBTensor, tileL0CTensor, AccToVecMode::SingleModeVec0>(UBTile, l0cTile);
         } else {
-            pto::TMOV<tileUBTensor, tileL0CTensor, L0cToUBMode::SingleModeUB1>(UBTile, l0cTile);
+            pto::TMOV<tileUBTensor, tileL0CTensor, AccToVecMode::SingleModeVec1>(UBTile, l0cTile);
         }
     }
 }
