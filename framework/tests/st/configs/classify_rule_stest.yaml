@@ -15,13 +15,22 @@
 
 stest:
   write_list:
-    - ops
-    - python
+    - docker
+    - docs
+    - examples
     - framework/tests/ut
     - framework/tests/README.md
+    - ops
+    - python
     - .clang-format
     - .gitignore
+    - classify_rule.yaml
+    - CONTRIBUTION.md
     - LICENSE
+    - MANIFEST.in
+    - OAT.xml
     - pyproject.toml
     - README.en.md
     - README.md
+    - README.new.md
+    - setup.py
