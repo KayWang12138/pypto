@@ -114,18 +114,36 @@ void L1CopyInReuseRunner::TackleOp(int i, Operation *op,
     }
 }
 
-// 合并重复的L1_COPY_IN和L1_ALLOC节点
-Status L1CopyInReuseRunner::MergeDupL1CopyIn(Function &func, std::vector<std::vector<int>> &colorNode, int color) {
-    std::vector<Operation *> oriList;
+void GetOriList(Function &func, std::vector<Operation *> &oriList) {
     for (auto &op : func.Operations()) {
         oriList.emplace_back(&op);
     }
+}
+
+void L1CopyInReuseRunner::MergeProcessIdUpdate(Function &func, std::vector<std::vector<int>> &colorNode, int color) {
+    std::vector<Operation *> oriList;
+    GetOriList(func, oriList);
     int colorCount = 0;
     for (int j = 0; j < color; j++) {
         if (colorNode[j].empty()) {
             continue;
         }
         colorCount++;
+        for (int i : colorNode[j]) {
+            oriList[i]->UpdateSubgraphID(colorCount-1);
+        }
+    }
+    func.SetTotalSubGraphCount(colorCount);
+}
+
+// 合并重复的L1_COPY_IN和L1_ALLOC节点
+Status L1CopyInReuseRunner::MergeDupL1CopyIn(Function &func, std::vector<std::vector<int>> &colorNode, int color) {
+    std::vector<Operation *> oriList;
+    GetOriList(func, oriList);
+    for (int j = 0; j < color; j++) {
+        if (colorNode[j].empty()) {
+            continue;
+        }
         std::sort(colorNode[j].begin(), colorNode[j].end());
         if (GetDuplicateOps(oriList, colorNode[j]) == FAILED) {
             APASS_LOG_ERROR_F(Elements::Operation, "MergeDupL1CopyIn: GetDuplicateOps failed.");
@@ -133,7 +151,6 @@ Status L1CopyInReuseRunner::MergeDupL1CopyIn(Function &func, std::vector<std::ve
         }
         std::vector<std::vector<int>> replacedInputs, replacedOutputs;
         for (int i : colorNode[j]) {
-            oriList[i]->UpdateSubgraphID(colorCount-1);
             L1CopyInReuseRunner::TackleOp(i, oriList[i], replacedInputs, replacedOutputs);
         }
         // 重新连边
@@ -150,7 +167,6 @@ Status L1CopyInReuseRunner::MergeDupL1CopyIn(Function &func, std::vector<std::ve
             assert(func.TensorReuse(rewriteOp->GetOOperands()[replacedOutput[1]], copyinOp->GetOOperands()[0]));
         }
     }
-    func.SetTotalSubGraphCount(colorCount);
     return SUCCESS;
 }
 
@@ -377,7 +393,13 @@ Status L1CopyInReuseRunner::Phase1(Function &func, int color, std::vector<std::v
 }
 
 Status L1CopyInReuseRunner::SetNumDB(std::vector<int> &hashMergeNum) {
-    hashMergeNum.assign(hashMap.size(), numDB_);
+    if (numDBMap.size() == 0 && cubeNBufferMergeMode == 1) {
+        hashMergeNum.assign(hashMap.size(), -1);
+    }
+    auto numDB = numDBMap.find(-1);
+    if (numDB != numDBMap.end()) {
+        hashMergeNum.assign(hashMap.size(), numDB->second);
+    }
     for (auto &entry : numDBMap) {
         int i = entry.first;
         if (i >= 0 && i < static_cast<int>(hashMap.size())) {
@@ -402,8 +424,36 @@ Status L1CopyInReuseRunner::SetNumDB(std::vector<int> &hashMergeNum) {
     return SUCCESS;
 }
 
-inline std::vector<int> AdjustNumDBCore(int color, int numDB) {
+inline std::vector<int> AdjustNumDBCore(int color, int numDB, int mx) {
     std::vector<int> pingColorList(color, 1);
+    if (numDB == -1) {
+        int coreNum = PassConfigManager::Instance().GetPlatformConfig().GetCoreNum(NpuCoreType::CUBECORE);
+        if (coreNum == 0) {
+            APASS_LOG_WARN_F(Elements::Config, "Failed to get number of cores. CubeMergeProcess will be ignored.");
+            pingColorList.assign(color, 0);
+            return pingColorList;
+        }
+        int rm = color % (mx * coreNum);
+        if (color <= (mx + 1) * coreNum) {
+            coreNum += coreNum;
+            rm = color;
+        }
+        else {
+            for (int i = 0; i < color - rm; i += mx) {
+                pingColorList[i] = 0;
+            }
+        }
+        for (int i = 0; i < rm % coreNum; i++) {
+            pingColorList[color - rm + i * ((rm + coreNum - 1) / coreNum)] = 0;
+        }
+        if (rm >= coreNum) {
+            for (int i = 1; i < coreNum + 1 - rm % coreNum; i++) {
+                pingColorList[color - i * (rm / coreNum)] = 0;
+            }
+        }
+        return pingColorList;
+    }
+    numDB = std::min(numDB, mx);
     int numMerged = (color + numDB - 1) / numDB;
     for (int i = 0; i < numMerged; i++) {
         pingColorList[numDB * i] = 0;
@@ -416,11 +466,13 @@ void L1CopyInReuseRunner::CubeMergeProcess(std::vector<std::vector<int>> &colorN
     for (auto &entry : hashMap) {
         uint64_t colorHashValue = entry.first;
         std::vector<int> &colorValues = entry.second;
-        if (colorCopyIn[colorValues[0]] > copyInThreshold) {
+        int sz = colorCopyIn[colorValues[0]];
+        if (sz > copyInThreshold) {
             continue;
         }
         int pingColor = -1;
-        std::vector<int> pingColorList = AdjustNumDBCore(colorValues.size(), hashMergeNum[hashOrder[colorHashValue]]);
+        int mxMerge = copyInThreshold / sz;
+        std::vector<int> pingColorList = AdjustNumDBCore(colorValues.size(), hashMergeNum[hashOrder[colorHashValue]], mxMerge);
         for (size_t i = 0; i < colorValues.size(); i++) {
             if (pingColorList[i] == 0) {
                 pingColor = colorValues[i];
@@ -444,28 +496,29 @@ Status L1CopyInReuseRunner::Run(Function &func, int color, std::vector<std::vect
     auto colorCopyIn = GetCopyIn(opOriList, color, colorNode);   // 记录各子图的大小
     copyInThreshold = func.paramConfigs_.sgCopyInThreshold;
     numLR = func.paramConfigs_.l1ReuseNum;
-    numDB_ = func.paramConfigs_.cubeNBufferNum;
     numLRMap = func.paramConfigs_.l1ReuseMap;
     numDBMap = func.paramConfigs_.cubeNBufferMap;    // 合并阈值参数设置
-    APASS_LOG_INFO_F(Elements::Operation, "Param Setting numLR %d, numDB %d, copyInThreshold %d.", numLR, numDB_, copyInThreshold);
+    cubeNBufferMergeMode = func.paramConfigs_.cubeNBufferMergeMode;
+    APASS_LOG_INFO_F(Elements::Operation, "Param Setting numLR %d, copyInThreshold %d.", numLR, copyInThreshold);
     if (numLR != 0 || numLRMap.size() != 0) {
         if (Phase1(func, color, colorNode, colorCopyIn, hashColor) == FAILED) {
             APASS_LOG_ERROR_F(Elements::Function, "Phase1 failed; Please check the Phase1 method.");
             return FAILED;
         }
+        if (MergeDupL1CopyIn(func, colorNode, color) == FAILED) {
+            APASS_LOG_ERROR_F(Elements::Function, "Run: MergeDupL1CopyIn failed.");
+            return FAILED;
+        }
         HashUpdate(hashMap, hashOrder, color, hashColor);
     }
-    std::vector<int> hashMergeNum;  
+    std::vector<int> hashMergeNum(hashMap.size(), 1);  
     //NBuffer参数设置
     if (SetNumDB(hashMergeNum) == FAILED) {
         APASS_LOG_ERROR_F(Elements::Config, "Invalid configuration: %s.", "cubeNBufferMap");
         return FAILED;
     } 
     CubeMergeProcess(colorNode, opOriList, hashMergeNum, colorCopyIn);
-    if (MergeDupL1CopyIn(func, colorNode, color) == FAILED) {
-        APASS_LOG_ERROR_F(Elements::Function, "Run: MergeDupL1CopyIn failed.");
-        return FAILED;
-    }
+    MergeProcessIdUpdate(func, colorNode, color);
     for (auto &op : func.Operations()) {
         if (static_cast<size_t>(op.GetSubgraphID()) > func.GetTotalSubGraphCount()) {
             APASS_LOG_ERROR_F(Elements::Operation, "Run: op SubGraph ID %d out of range. %s", op.GetSubgraphID(), GetFormatBacktrace(op).c_str());
@@ -553,16 +606,16 @@ Status L1CopyInReuseMerge::CheckOpListValid(Function &func) const {
 Status L1CopyInReuseMerge::L1CopyInReuse(Function &func) const {
     auto numLR = func.paramConfigs_.l1ReuseNum;
     auto numLRMap = func.paramConfigs_.l1ReuseMap;
-    auto numDB = func.paramConfigs_.cubeNBufferNum;
     auto numDBMap = func.paramConfigs_.cubeNBufferMap;
+    auto cubeNBufferMergeMode = func.paramConfigs_.cubeNBufferMergeMode;
     APASS_LOG_INFO_F(Elements::Config, "L1 Reuse Setting: %d", numLR);
-    if (numLR < 0 || numDB < 1) {
+    if (numLR < 0) {
         APASS_LOG_ERROR_F(Elements::Config, 
-                            "Invalid parameters: l1ReuseNum must be >= 0, cubeNBufferNum must be >= 1. "
-                            "(got l1ReuseNum=%d, cubeNBufferNum=%d)", numLR, numDB);
+                            "Invalid parameters: l1ReuseNum must be >= 0. "
+                            "(got l1ReuseNum=%d)", numLR);
         return FAILED;
     }
-    if (numLR == 0 && numDB == 1 && numLRMap.size() == 0 && numDBMap.size() == 0) {
+    if (numLR == 0 && cubeNBufferMergeMode == 0 && numLRMap.size() == 0 && numDBMap.size() == 0) {
         APASS_LOG_INFO_F(Elements::Config, "Init Param default.");
         return SUCCESS;
     }

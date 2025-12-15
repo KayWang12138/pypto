@@ -427,7 +427,6 @@ struct DynParamInfo{
 };
 struct ParamConfigs {
     int l1ReuseNum{0};
-    int cubeNBufferNum{1};
     bool dynamicUnalignedOps;
     int sgCycleUpperBound{1};
     int sgCycleLowerBound{1};
@@ -440,6 +439,7 @@ struct ParamConfigs {
     std::map<int64_t, int64_t> cubeNBufferMap;
     std::string OoOPreScheduleMethod{"PriorDFS"};
     int nBufferMergeMode{1};
+    int cubeNBufferMergeMode{0};
     int sgVecParallelNum{48};
     int sgCubeParallelNum{24};
     bool sgSkipPartition{false};

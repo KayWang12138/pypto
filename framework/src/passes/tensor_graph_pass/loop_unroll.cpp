@@ -342,7 +342,7 @@ Status LoopUnroll::CreateLoopUnrollFunc(Function *function) {
     auto &paramConfigs = Program::GetInstance().GetCurrentFunction()->paramConfigs_;
     std::shared_ptr<ConfigScope> currentScope = ConfigManagerNg::GetInstance().CurrentScope();
     paramConfigs.l1ReuseNum = currentScope->GetPassConfig<int>(L1_REUSE);
-    paramConfigs.cubeNBufferNum = currentScope->GetPassConfig<int>(CUBE_NBUFFER);
+    paramConfigs.cubeNBufferMergeMode = currentScope->GetPassConfig<int>(CUBE_NBUFFER_MERGE_MODE);
     paramConfigs.sgCycleUpperBound = currentScope->GetPassConfig<int>(SG_CYCLE_UPPER_BOUND);
     paramConfigs.sgCycleLowerBound = currentScope->GetPassConfig<int>(SG_CYCLE_LOWER_BOUND);
     paramConfigs.sgParallelNum = currentScope->GetPassConfig<int>(SG_PARALLEL_NUM);

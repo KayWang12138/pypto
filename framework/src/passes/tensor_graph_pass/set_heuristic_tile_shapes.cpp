@@ -249,7 +249,7 @@ void SetHeuristicTileShapes::SetHeuristicTileShapesFunc(Function &function) cons
     std::unordered_set<Operation *> cubeOperations;
 
     int64_t l1Reuse = (function.paramConfigs_.l1ReuseNum == 0) ? 1 : function.paramConfigs_.l1ReuseNum;
-    int64_t cubeNBuffer = (function.paramConfigs_.cubeNBufferNum == 0) ? 1 : function.paramConfigs_.cubeNBufferNum;
+    int64_t cubeNBuffer = (function.paramConfigs_.cubeNBufferMap.size() == 1 && function.paramConfigs_.cubeNBufferMap.begin()->first == -1) ? 1 : function.paramConfigs_.cubeNBufferMap.begin()->second;
 
     std::pair<std::vector<int64_t>, std::vector<DataType>> curShapeAndType = {{0, 0, 0}, {DataType::DT_FP16, DataType::DT_FP16}}; // shapeM, shapeK, shapeN, InputType, OutputType
     for (auto &op : function.Operations()) {

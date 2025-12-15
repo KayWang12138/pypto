@@ -41,7 +41,7 @@ static std::map<std::string, ValueType> g_passConfig = {
     {SG_CYCLE_LOWER_BOUND, 512L},
     {L1_REUSE, 0L},
     {L1_REUSE_MAP, std::map<int64_t, int64_t>{}},
-    {CUBE_NBUFFER, 1L},
+    {CUBE_NBUFFER_MERGE_MODE, 0L},
     {CUBE_NBUFFER_MAP, std::map<int64_t, int64_t>{}},
     {COPYIN_THRESHOLD, 1024 * 1024L},
     {OOO_PRESCHEDULE_METHOD, std::string("PriorDFS")}, // bugs in gcc 9.4

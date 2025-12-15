@@ -4,7 +4,7 @@
         "cycle_upper_bound": 10000,
         "cycle_lower_bound": 512,
         "l1_reuse": 0,
-        "cube_nbuffer": 1,
+        "cube_nbuffer_merge_mode": 0,
         "copyin_threshold": 1048576,
         "ooo_preschedule_method": "PriorDFS",
         "nbuffer_merge_mode": 1,

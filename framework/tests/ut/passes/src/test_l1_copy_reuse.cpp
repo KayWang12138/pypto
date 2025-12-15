@@ -42,7 +42,6 @@ public:
 
         config::SetPassOption(L1_REUSE, 4);
         config::SetPassOption(L1_REUSE_MAP, std::map<int64_t, int64_t>{{0,2}});
-        config::SetPassOption(CUBE_NBUFFER, 1);
         config::SetPassOption(CUBE_NBUFFER_MAP, std::map<int64_t, int64_t>{{0,1}});
     }
 
@@ -131,7 +130,7 @@ TEST_F(L1CopyInReuseTest, TestInvalidOp) {
     ComputationalGraphBuilder G;
     std::vector<int64_t> tileShape{16, 16};
     auto shapeImme = OpImmediate::Specified(tileShape);
-    const int cube_nbuffer_num = 4;
+    const int cube_nbuffer = 4;
     const int l1_reuse_num = 2;
     const int sg_cube_parallel_num = 4;
     const int subGraphNum = 20;
@@ -141,8 +140,7 @@ TEST_F(L1CopyInReuseTest, TestInvalidOp) {
     EXPECT_EQ(G.AddOps({Opcode::OP_GATHER_IN_L1}, {{"incast1"}}, {{"tensorL1"}}, {"gather_in_l1"}, true), true);
     G.GetOp("gather_in_l1")->UpdateSubgraphID(1);
     Function *function = G.GetFunction();
-    function->paramConfigs_.cubeNBufferNum = cube_nbuffer_num;
-    function->paramConfigs_.cubeNBufferMap = {{1, 2}};
+    function->paramConfigs_.cubeNBufferMap = {{1, 2}, {-1, cube_nbuffer}};
     function->paramConfigs_.l1ReuseNum = l1_reuse_num;
     function->paramConfigs_.l1ReuseMap = {{1, 2}};
     function->paramConfigs_.sgCubeParallelNum = sg_cube_parallel_num;
@@ -156,15 +154,14 @@ TEST_F(L1CopyInReuseTest, TestNormal) {
     ComputationalGraphBuilder G;
     std::vector<int64_t> tileShape{16, 16};
     auto shapeImme = OpImmediate::Specified(tileShape);
-    const int cube_nbuffer_num = 4;
+    const int cube_nbuffer = 4;
     const int l1_reuse_num = 2;
     const int sg_cube_parallel_num = 4;
     const int result = 5;
     const int subGraphNum = 20;
     InitGraphBuilder(G, tileShape, subGraphNum);
     Function *function = G.GetFunction();
-    function->paramConfigs_.cubeNBufferNum = cube_nbuffer_num;
-    function->paramConfigs_.cubeNBufferMap = {{1, 2}};
+    function->paramConfigs_.cubeNBufferMap = {{1, 2}, {-1, cube_nbuffer}};
     function->paramConfigs_.l1ReuseNum = l1_reuse_num;
     function->paramConfigs_.l1ReuseMap = {{1, 2}};
     function->paramConfigs_.sgCubeParallelNum = sg_cube_parallel_num;
@@ -177,16 +174,35 @@ TEST_F(L1CopyInReuseTest, TestNormal) {
 TEST_F(L1CopyInReuseTest, TestNoL1Num) {
     ComputationalGraphBuilder G;
     std::vector<int64_t> tileShape{16, 16};
-    const int cube_nbuffer_num = 2;
+    const int cube_nbuffer = 2;
     const int sg_cube_parallel_num = 4;
     const int result = 11;
     auto shapeImme = OpImmediate::Specified(tileShape);
     const int subGraphNum = 20;
     InitGraphBuilder(G, tileShape, subGraphNum);
     Function *function = G.GetFunction();
-    function->paramConfigs_.cubeNBufferNum = cube_nbuffer_num;
-    function->paramConfigs_.cubeNBufferMap = {{1, 2}};
+    function->paramConfigs_.cubeNBufferMap = {{1, 2}, {-1, cube_nbuffer}};
     function->paramConfigs_.l1ReuseMap = {{1, 2}};
+    function->paramConfigs_.sgCubeParallelNum = sg_cube_parallel_num;
+    function->SetTotalSubGraphCount(subGraphNum);
+    L1CopyInReuseMerge LCRM;
+    EXPECT_EQ(LCRM.RunOnFunction(*function), SUCCESS);
+    EXPECT_EQ(function->GetTotalSubGraphCount(), result);
+}
+
+TEST_F(L1CopyInReuseTest, TestAutoBuffer) {
+    ComputationalGraphBuilder G;
+    std::vector<int64_t> tileShape{16, 16};
+    const int cube_nbuffer_merge_mode = 1;
+    const int sg_cube_parallel_num = 4;
+    const int result = 3;
+    auto shapeImme = OpImmediate::Specified(tileShape);
+    const int subGraphNum = 20;
+    InitGraphBuilder(G, tileShape, subGraphNum);
+    EXPECT_EQ(G.SetInCast({"incast0"}), true);
+    EXPECT_EQ(G.SetOutCast({"outcast"}), true);
+    Function *function = G.GetFunction();
+    function->paramConfigs_.cubeNBufferMergeMode = cube_nbuffer_merge_mode;
     function->paramConfigs_.sgCubeParallelNum = sg_cube_parallel_num;
     function->SetTotalSubGraphCount(subGraphNum);
     L1CopyInReuseMerge LCRM;
@@ -197,7 +213,7 @@ TEST_F(L1CopyInReuseTest, TestNoL1Num) {
 TEST_F(L1CopyInReuseTest, TestNoL1Map) {
     ComputationalGraphBuilder G;
     std::vector<int64_t> tileShape{16, 16};
-    const int cube_nbuffer_num = 4;
+    const int cube_nbuffer = 4;
     const int l1_reuse_num = 2;
     const int sg_cube_parallel_num = 4;
     const int result = 5;
@@ -205,8 +221,7 @@ TEST_F(L1CopyInReuseTest, TestNoL1Map) {
     const int subGraphNum = 20;
     InitGraphBuilder(G, tileShape, subGraphNum);
     Function *function = G.GetFunction();
-    function->paramConfigs_.cubeNBufferNum = cube_nbuffer_num;
-    function->paramConfigs_.cubeNBufferMap = {{1, 2}};
+    function->paramConfigs_.cubeNBufferMap = {{1, 2}, {-1, cube_nbuffer}};
     function->paramConfigs_.l1ReuseNum = l1_reuse_num;
     function->paramConfigs_.sgCubeParallelNum = sg_cube_parallel_num;
     function->SetTotalSubGraphCount(subGraphNum);
@@ -218,7 +233,7 @@ TEST_F(L1CopyInReuseTest, TestNoL1Map) {
 TEST_F(L1CopyInReuseTest, TestNoBufferMap) {
     ComputationalGraphBuilder G;
     std::vector<int64_t> tileShape{16, 16};
-    const int cube_nbuffer_num = 4;
+    const int cube_nbuffer = 4;
     const int l1_reuse_num = 2;
     const int sg_cube_parallel_num = 4;
     const int result = 5;
@@ -226,7 +241,7 @@ TEST_F(L1CopyInReuseTest, TestNoBufferMap) {
     auto shapeImme = OpImmediate::Specified(tileShape);
     InitGraphBuilder(G, tileShape, subGraphNum);
     Function *function = G.GetFunction();
-    function->paramConfigs_.cubeNBufferNum = cube_nbuffer_num;
+    function->paramConfigs_.cubeNBufferMap = {{-1, cube_nbuffer}};
     function->paramConfigs_.l1ReuseNum = l1_reuse_num;
     function->paramConfigs_.l1ReuseMap = {{1, 2}};
     function->paramConfigs_.sgCubeParallelNum = sg_cube_parallel_num;
@@ -254,13 +269,13 @@ TEST_F(L1CopyInReuseTest, TestInvalidL1Num) {
     ComputationalGraphBuilder G;
     std::vector<int64_t> tileShape{16, 16};
     auto shapeImme = OpImmediate::Specified(tileShape);
-    const int cube_nbuffer_num = 4;
+    const int cube_nbuffer = 4;
     const int l1_reuse_num = -1;
     const int sg_cube_parallel_num = 4;
     const int subGraphNum = 20;
     InitGraphBuilder(G, tileShape, subGraphNum);
     Function *function = G.GetFunction();
-    function->paramConfigs_.cubeNBufferNum = cube_nbuffer_num;
+    function->paramConfigs_.cubeNBufferMap = {{-1, cube_nbuffer}};
     function->paramConfigs_.l1ReuseNum = l1_reuse_num;
     function->paramConfigs_.sgCubeParallelNum = sg_cube_parallel_num;
     function->SetTotalSubGraphCount(subGraphNum);
@@ -272,14 +287,13 @@ TEST_F(L1CopyInReuseTest, TestInvalidL1Map) {
     ComputationalGraphBuilder G;
     std::vector<int64_t> tileShape{16, 16};
     auto shapeImme = OpImmediate::Specified(tileShape);
-    const int cube_nbuffer_num = 4;
+    const int cube_nbuffer = 4;
     const int l1_reuse_num = 2;
     const int sg_cube_parallel_num = 4;
     const int subGraphNum = 20;
     InitGraphBuilder(G, tileShape, subGraphNum);
     Function *function = G.GetFunction();
-    function->paramConfigs_.cubeNBufferNum = cube_nbuffer_num;
-    function->paramConfigs_.cubeNBufferMap = {{-1, 2}};
+    function->paramConfigs_.cubeNBufferMap = {{-2, 2}, {-1, cube_nbuffer}};
     function->paramConfigs_.l1ReuseNum = l1_reuse_num;
     function->paramConfigs_.l1ReuseMap = {{-1, 2}};
     function->paramConfigs_.sgCubeParallelNum = sg_cube_parallel_num;
@@ -297,7 +311,7 @@ TEST_F(L1CopyInReuseTest, TestInvalidL1Map) {
 TEST_F(L1CopyInReuseTest, TestHealthReport) {
     ComputationalGraphBuilder G;
     std::vector<int64_t> tileShape{16, 16};
-    const int cube_nbuffer_num = 4;
+    const int cube_nbuffer = 4;
     const int l1_reuse_num = 2;
     const int sg_cube_parallel_num = 4;
     const int result = 5;
@@ -305,8 +319,7 @@ TEST_F(L1CopyInReuseTest, TestHealthReport) {
     InitGraphBuilder(G, tileShape, subGraphNum);
 
     Function *function = G.GetFunction();
-    function->paramConfigs_.cubeNBufferNum = cube_nbuffer_num;
-    function->paramConfigs_.cubeNBufferMap = {{1, 2}};
+    function->paramConfigs_.cubeNBufferMap = {{1, 2}, {-1, cube_nbuffer}};
     function->paramConfigs_.l1ReuseNum = l1_reuse_num;
     function->paramConfigs_.l1ReuseMap = {{1, 2}};
     function->paramConfigs_.sgCubeParallelNum = sg_cube_parallel_num;
@@ -317,9 +330,9 @@ TEST_F(L1CopyInReuseTest, TestHealthReport) {
     EXPECT_EQ(function->GetTotalSubGraphCount(), result);
 
     nlohmann::json report;
-    const int maxFaninOpsResult = 23;
-    const int maxFanoutOpsResult = 2;
-    const int totalOpCount = 24;
+    const int maxFaninOpsResult = 29;
+    const int maxFanoutOpsResult = 1;
+    const int totalOpCount = 30;
     const int peakMemoryUsage = 512;
     const int copyDataCount = 0;
     // 计算operation节点信息
@@ -352,7 +365,7 @@ TEST_F(L1CopyInReuseTest, TestGeneralizationL1CopyIn) {
     ComputationalGraphBuilder G;
     std::vector<int64_t> tileShape{16, 16};
     auto shapeImme = OpImmediate::Specified(tileShape);
-    const int cube_nbuffer_num = 4;
+    const int cube_nbuffer = 4;
     const int l1_reuse_num = 2;
     const int sg_cube_parallel_num = 4;
     const int result = 5;
@@ -379,8 +392,7 @@ TEST_F(L1CopyInReuseTest, TestGeneralizationL1CopyIn) {
     EXPECT_EQ(G.SetInCast({"incast0"}), true);
     EXPECT_EQ(G.SetOutCast({"outcast0", "outcast1"}), true);
     Function *function = G.GetFunction();
-    function->paramConfigs_.cubeNBufferNum = cube_nbuffer_num;
-    function->paramConfigs_.cubeNBufferMap = {{1, 2}};
+    function->paramConfigs_.cubeNBufferMap = {{1, 2}, {-1, cube_nbuffer}};
     function->paramConfigs_.l1ReuseNum = l1_reuse_num;
     function->paramConfigs_.l1ReuseMap = {{1, 2}};
     function->paramConfigs_.sgCubeParallelNum = sg_cube_parallel_num;

@@ -217,12 +217,11 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
         SymbolicScalar nQ = qNopeOut.GetShape()[0] / batchSizeScalar;
         SymbolicScalar nLoop = nQ / nTile;
 
-        config::SetPassOption(CUBE_NBUFFER_MAP,  std::map<int64_t, int64_t>{});
+        config::SetPassOption(CUBE_NBUFFER_MAP,  std::map<int64_t, int64_t>{{-1, 2}});
         config::SetPassOption(L1_REUSE, 0);
         config::SetPassOption(COPYIN_THRESHOLD, 1 * NUM_1024 * NUM_1024);
         config::SetPassOption(SG_CYCLE_UPPER_BOUND, NUM_100000);
         config::SetPassOption(SG_PARALLEL_NUM, NUM_2);
-        config::SetPassOption(CUBE_NBUFFER, NUM_2);
         config::SetOperationConfig("FORCE_COMBINE_AXIS", true);
 
         LOOP("LOOP_L0_bIdx_pa", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, batchSizeScalar, 1), {}, true) {
@@ -334,7 +333,6 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
         config::SetPassOption(COPYIN_THRESHOLD, 1 * NUM_1024 * NUM_1024);
         config::SetPassOption(SG_CYCLE_UPPER_BOUND, NUM_500000);
         config::SetPassOption(SG_PARALLEL_NUM, NUM_20);
-        config::SetPassOption(CUBE_NBUFFER, 1);
         config::SetOperationConfig("FORCE_COMBINE_AXIS", false);
         config::SetPassOption(CUBE_NBUFFER_MAP, std::map<int64_t, int64_t>{{0, 4}});
         TileShape::Current().SetMatrixSize({});

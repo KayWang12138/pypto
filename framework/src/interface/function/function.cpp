@@ -1941,7 +1941,7 @@ Json Function::DumpJson(bool useTable) {
     funcDump["_rawid"] = IdGen<IdType::RAW_TENSOR>::Inst().CurId();
     funcDump["_funcid"] = IdGen<IdType::FUNCTION>::Inst().CurId();
     funcDump["_l1_reuse_num"] = paramConfigs_.l1ReuseNum;
-    funcDump["_cube_nbuffer_num"] = paramConfigs_.cubeNBufferNum;
+    funcDump["_cube_nbuffer_merge_mode"] = paramConfigs_.cubeNBufferMergeMode;
     funcDump["_sg_cycle_upperbound"] = paramConfigs_.sgCycleUpperBound;
     funcDump["_sg_cycle_lowerbound"] = paramConfigs_.sgCycleLowerBound;
     funcDump["_sg_parallel_num"] = paramConfigs_.sgParallelNum;
@@ -2262,7 +2262,7 @@ std::shared_ptr<Function> Function::LoadJson(Program &belongTo, const Json &func
     int funcid = funcDump["_funcid"].get<int>();
     IdGen<IdType::FUNCTION>::Inst().SetId(funcid);
     func->paramConfigs_.l1ReuseNum = funcDump["_l1_reuse_num"].get<int>();
-    func->paramConfigs_.cubeNBufferNum = funcDump["_cube_nbuffer_num"].get<int>();
+    func->paramConfigs_.cubeNBufferMergeMode = funcDump["_cube_nbuffer_merge_mode"].get<int>();
     func->paramConfigs_.sgCycleUpperBound = funcDump["_sg_cycle_upperbound"].get<int>();
     func->paramConfigs_.sgCycleLowerBound = funcDump["_sg_cycle_lowerbound"].get<int>();
     func->paramConfigs_.sgParallelNum = funcDump["_sg_parallel_num"].get<int>();

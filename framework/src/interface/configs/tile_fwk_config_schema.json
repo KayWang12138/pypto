@@ -11,7 +11,7 @@
                 "cycle_lower_bound": {"type": "integer"},
                 "l1_reuse": {"type": "integer"},
                 "l1_reuse_map": {"type": "object", "typeHints": "intmap"},
-                "cube_nbuffer": {"type": "integer"},
+                "cube_nbuffer_merge_mode": {"type": "integer"},
                 "cube_nbuffer_map": {"type": "object", "typeHints": "intmap"},
                 "copyin_threshold": {"type": "integer"},
                 "ooo_preschedule_method": {"type": "string"},

@@ -45,6 +45,7 @@ class L1CopyInReuseRunner {
     void GetColorHash(const OperationsViewer &opOriList, std::vector<uint64_t> &hashColor);
     int GetMaxInColor(const std::vector<int> &nodes, const OperationsViewer &opOriList, int curColor);
     Status MergeDupL1CopyIn(Function &func, std::vector<std::vector<int>> &colorNode, int color);
+    void MergeProcessIdUpdate(Function &func, std::vector<std::vector<int>> &colorNode, int color);
     std::vector<int> GetOpInputFeature(const OperationsViewer &opOriList,
                                       const int opIdx, const int ioperandIdx);
     void RemoveUselessViews(Function &func) const;
@@ -68,9 +69,9 @@ class L1CopyInReuseRunner {
     std::unordered_map<uint64_t, int> hashOrder;
     int numLR;
     std::map<int64_t, int64_t> numLRMap;
-    int numDB_;
     std::map<int64_t, int64_t> numDBMap;
     int copyInThreshold;
+    int cubeNBufferMergeMode;
 };
 
 class L1CopyInReuseMerge : public Pass {

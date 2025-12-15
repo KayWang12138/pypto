@@ -79,7 +79,7 @@ def set_pass_options(*,
                      vec_nbuffer_map: Optional[Dict[int, int]] = None,
                      l1_reuse: Optional[int] = None,
                      l1_reuse_map: Optional[Dict[int, int]] = None,
-                     cube_nbuffer: Optional[int] = None,
+                     cube_nbuffer_merge_mode: Optional[int] = None,
                      cube_nbuffer_map: Optional[Dict[int, int]] = None,
                      copyin_threshold: Optional[int] = None,
                      ooo_preschedule_method: Optional[str] = None,
@@ -127,7 +127,7 @@ def set_pass_options(*,
         the merging quantity of subgraphs with the same structure
         and repeated transfer of the same GM data.
 
-    cube_nbuffer : int
+    cube_nbuffer_merge_mode : int
         Merged graph parameter, used to configure
         the merging strategy for AIC subgraphs with the same structure.
 

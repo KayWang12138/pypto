@@ -205,7 +205,7 @@ bool Program::BeginFunction(const std::string &funcName,
 
     std::shared_ptr<ConfigScope> currentScope = ConfigManagerNg::GetInstance().CurrentScope();
     currentFunctionPtr_->paramConfigs_.l1ReuseNum = currentScope->GetPassConfig<int>(L1_REUSE);
-    currentFunctionPtr_->paramConfigs_.cubeNBufferNum = currentScope->GetPassConfig<int>(CUBE_NBUFFER);
+    currentFunctionPtr_->paramConfigs_.cubeNBufferMergeMode = currentScope->GetPassConfig<int>(CUBE_NBUFFER_MERGE_MODE);
     currentFunctionPtr_->paramConfigs_.sgCycleUpperBound = currentScope->GetPassConfig<int>(SG_CYCLE_UPPER_BOUND);
     currentFunctionPtr_->paramConfigs_.sgCycleLowerBound = currentScope->GetPassConfig<int>(SG_CYCLE_LOWER_BOUND);
     currentFunctionPtr_->paramConfigs_.sgParallelNum = currentScope->GetPassConfig<int>(SG_PARALLEL_NUM);

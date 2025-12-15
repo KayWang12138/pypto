@@ -3,7 +3,7 @@
     "entryhash": 264407823019170628,
     "functions": [
      {
-      "_cube_nbuffer_num": 1,
+      "_cube_nbuffer_merge_mode": 0,
       "_dbtype": 0,
       "_funcid": 32,
       "_l1_reuse_num": 0,
@@ -245,7 +245,7 @@
       ]
      },
      {
-      "_cube_nbuffer_num": 1,
+      "_cube_nbuffer_merge_mode": 0,
       "_dbtype": 0,
       "_funcid": 32,
       "_l1_reuse_num": 0,
@@ -590,7 +590,7 @@
       ]
      },
      {
-      "_cube_nbuffer_num": 1,
+      "_cube_nbuffer_merge_mode": 0,
       "_dbtype": 0,
       "_funcid": 32,
       "_l1_reuse_num": 0,
@@ -3732,7 +3732,7 @@
       ]
      },
      {
-      "_cube_nbuffer_num": 1,
+      "_cube_nbuffer_merge_mode": 0,
       "_dbtype": 0,
       "_funcid": 32,
       "_l1_reuse_num": 0,
@@ -5891,7 +5891,7 @@
       ]
      },
      {
-      "_cube_nbuffer_num": 1,
+      "_cube_nbuffer_merge_mode": 0,
       "_dbtype": 0,
       "_funcid": 32,
       "_l1_reuse_num": 0,
@@ -6252,7 +6252,7 @@
       ]
      },
      {
-      "_cube_nbuffer_num": 1,
+      "_cube_nbuffer_merge_mode": 0,
       "_dbtype": 0,
       "_funcid": 32,
       "_l1_reuse_num": 0,
@@ -11765,7 +11765,7 @@
       ]
      },
      {
-      "_cube_nbuffer_num": 1,
+      "_cube_nbuffer_merge_mode": 0,
       "_dbtype": 0,
       "_funcid": 32,
       "_l1_reuse_num": 0,
@@ -13219,7 +13219,7 @@
       ]
      },
      {
-      "_cube_nbuffer_num": 1,
+      "_cube_nbuffer_merge_mode": 0,
       "_dbtype": 0,
       "_funcid": 32,
       "_l1_reuse_num": 0,
@@ -32753,7 +32753,7 @@
       }
      },
      {
-      "_cube_nbuffer_num": 1,
+      "_cube_nbuffer_merge_mode": 0,
       "_dbtype": 0,
       "_funcid": 32,
       "_l1_reuse_num": 0,

@@ -39,6 +39,7 @@ set(_CaseFilterList
         "L1CopyInReuseTest.TestInvalidL1Map"
         "L1CopyInReuseTest.TestHealthReport"
         "L1CopyInReuseTest.TestGeneralizationL1CopyIn"
+        "L1CopyInReuseTest.TestAutoBuffer"
         "SubgraphToFunctionTest.DifferentOffset"
         "SubgraphToFunctionTest.test_json_dump_and_load"
         "SubgraphToFunctionTest.test_json_dump_and_load_1"
