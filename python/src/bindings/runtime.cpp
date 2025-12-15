@@ -96,9 +96,9 @@ std::string DeviceRunOnceDataFromHost(
     return "";
 }
 
-std::string OperatorDeviceRunOnceDataFromDevice(py::int_ pythonOperatorPython,
-    const std::vector<DeviceTensorData> &inputs, const std::vector<DeviceTensorData> &outputs,
-    py::int_ incomingStreamPython, py::int_ workspaceData) {
+std::string OperatorDeviceRunOnceDataFromDevice([[maybe_unused]] py::int_ pythonOperatorPython,
+    [[maybe_unused]] const std::vector<DeviceTensorData> &inputs, [[maybe_unused]] const std::vector<DeviceTensorData> &outputs,
+    [[maybe_unused]] py::int_ incomingStreamPython, [[maybe_unused]] py::int_ workspaceData) {
 #ifdef BUILD_WITH_CANN
     auto opAddr = static_cast<uintptr_t>(pythonOperatorPython);
     if (opAddr == 0) {

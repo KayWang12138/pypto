@@ -186,6 +186,7 @@ private:
         }
         AstKernelArgs kArgs;
         config_.onBoard = false;
+        DeviceLauncherConfigFillDeviceInfo(config_);
         DeviceInitTilingData(MemoryHelper(true), kArgs, function_->GetDyndevAttribute()->devProgBinary, config_, nullptr);
         InitKernelInOuts(kArgs, inputs, outputs, true);
         std::cout << "!!! Run CostModel " << "\n";

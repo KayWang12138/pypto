@@ -696,7 +696,7 @@ static void CompileControlFlow(const std::string &aicpuDirPath,
 #endif
 }
 
-static void CompileDyndevFunction(Function *function, FunctionCache &cache, const std::string &ccePath,
+static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[maybe_unused]] const std::string &ccePath,
                                   std::string &kernelPath) {
     if (config::GetCodeGenOption<bool>(CODEGEN_EXPRESSION_FUSION)) {
         PassManager::Instance().RunPass(Program::GetInstance(), *function, "ScalarOptimize");
