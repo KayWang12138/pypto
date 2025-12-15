@@ -34,7 +34,6 @@ namespace tile_fwk {
     否则将当前tensor的覆盖范围添加到记录的覆盖范围中进行后续比较。output的所有input都未出现交集则校验通过。
 */
 Status AssembleChecker::CheckAssembleOverlap(Function &function) {
-    auto operations = function.Operations();
     for (const auto &tMap : function.GetTensorMap().tensorMap_) {
         for (const auto &outputTensor : tMap.second) {
             if (outputTensor->GetProducers().size() == 0 || 
