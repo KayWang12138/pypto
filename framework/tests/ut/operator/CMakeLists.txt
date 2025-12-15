@@ -191,6 +191,7 @@ set(_CaseFilterList
         "OperationImplTest.test_Clip_FP16"
         "OperationImplTest.Test_Amax"
         "OperationImplTest.test_Gather"
+        "OperationImplTest.test_Scatter_FP16"
         "OperationImplTest.test_Where"
 )
 

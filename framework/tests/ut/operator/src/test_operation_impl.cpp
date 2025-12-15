@@ -745,6 +745,17 @@ TEST_F(OperationImplTest, test_Gather) {
     }
 }
 
+TEST_F(OperationImplTest, test_Scatter_FP16) {
+    TileShape::Current().SetVecTile(8, 16);
+    Tensor operand1(DT_FP16, {8, 16}, "operand1");
+    Tensor operand2(DT_INT64, {2, 16}, "operand2");
+    Element operand3(DT_FP16, 1.0);
+    Tensor result;
+    FUNCTION("TestScatter") {
+        result = Scatter(operand1, operand2, operand3, 0);
+    }
+}
+
 TEST_F(OperationImplTest, test_Where) {
     TileShape::Current().SetVecTile(8, 8);
     Tensor condition(DT_UINT8, {8, 2}, "condition");

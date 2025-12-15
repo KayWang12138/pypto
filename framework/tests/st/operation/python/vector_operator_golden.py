@@ -1485,15 +1485,16 @@ def scatter_golden_func(inputs, config: dict):
     scalar = params["src"]
     indices = torch.from_numpy(inputs[1])
 
-    if inputs[0].dtype == bfloat16:
+    # 和pypto测试golden生成保持一致，fp16和bf16先转换为fp32在进行计算，否则golden精度会不如实际npu计算结果，导致比对失败
+    if inputs[0].dtype == bfloat16 or inputs[0].dtype == np.float16:
         src = torch.from_numpy(inputs[0].astype(np.float32))
         if len(reduceop) == 0 or reduceop == "None":
-            res = src.scatter(axis, indices, scalar).numpy().astype(bfloat16)
+            res = src.scatter(axis, indices, scalar).numpy().astype(inputs[0].dtype)
         else:
             res = (
                 src.scatter(axis, indices, scalar, reduce=reduceop)
                 .numpy()
-                .astype(bfloat16)
+                .astype(inputs[0].dtype)
             )
     else:
         src = torch.from_numpy(inputs[0])

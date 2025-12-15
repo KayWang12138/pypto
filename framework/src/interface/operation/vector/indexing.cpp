@@ -20,6 +20,7 @@
 #include "passes/pass_utils/graph_utils.h"
 #include "interface/function/function.h"
 #include "interface/program/program.h"
+#include "tensor_transformation.h"
 
 namespace npu::tile_fwk {
 
@@ -562,11 +563,26 @@ Tensor Scatter(const Tensor &self, const Tensor &indices, const Element &src, in
 Tensor Scatter_(const Tensor &self, const Tensor &indices, const Element &src, int axis, ScatterMode reduce) {
     DECLARE_TRACER();
 
-    axis = axis < 0 ? self.GetShape().size() + axis : axis;
-    CheckScatterElementSParamsInvalid(self, indices, axis, reduce);
-    Tensor result(self.GetStorage()->tensor->datatype, self.GetShape());
+    DataType orgDtype = self.GetDataType();
+    auto operandCast = Tensor(DataType::DT_FP32, self.GetShape());
+    if ((orgDtype == DataType::DT_FP16 || orgDtype == DataType::DT_BF16) &&
+        (reduce == ScatterMode::ADD || reduce == ScatterMode::MULTIPLY)) {
+        operandCast = CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(),
+            self.GetStorage(), DataType::DT_FP32, CastMode::CAST_NONE);
+    } else {
+        operandCast = self;
+    }
+    axis = axis < 0 ? operandCast.GetShape().size() + axis : axis;
+    CheckScatterElementSParamsInvalid(operandCast, indices, axis, reduce);
+    Tensor result(operandCast.GetStorage()->tensor->datatype, operandCast.GetShape());
     CALL(ScatterElementS, *Program::GetInstance().GetCurrentFunction(),
-        {result.GetStorage(), self.GetStorage(), indices.GetStorage(), src, axis, static_cast<int>(reduce)});
+        {result.GetStorage(), operandCast.GetStorage(), indices.GetStorage(), src, axis, static_cast<int>(reduce)});
+
+    if ((orgDtype == DataType::DT_FP16 || orgDtype == DataType::DT_BF16) &&
+        (reduce == ScatterMode::ADD || reduce == ScatterMode::MULTIPLY)) {
+        RETURN_CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(),
+            result.GetStorage(), orgDtype, CastMode::CAST_RINT);
+    }
     return result;
 }
 
