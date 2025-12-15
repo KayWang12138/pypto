@@ -23,11 +23,6 @@ def scalar_div(input, other, is_reserve=False):
     return pypto_impl.ScalarDivS(input, pypto_impl.Element(input.dtype, other), is_reserve)
 
 
-@op_wrapper
-def reshape_inplace(input, output):
-    return pypto_impl.ReshapeInplace(input, output)
-
-
 @dataclass
 class MlaQuantInputs:
     dequant_scale_x: pypto.tensor = None
@@ -55,7 +50,7 @@ def k_nope_quant(x):
     out_int32 = pypto.cast(out_fp32, pypto.DataType.DT_INT32, pypto.CastMode.CAST_RINT)
     out_half = pypto.cast(out_int32, pypto.DataType.DT_FP16)
     out_int8 = pypto.cast(out_half, pypto.DataType.DT_INT8)
-    scale_de_quant = pypto.div(pypto.full(scale_quant.shape, 1.0, pypto.DataType.DT_FP32), scale_quant)
+    scale_de_quant = scalar_div(scale_quant, 127.0, True)
     return out_int8, scale_de_quant
 
 
@@ -98,7 +93,7 @@ def quant(input_tensor, is_symmetry=False, has_smooth_factor=False, smooth_facto
         min_value = pypto.amin(input_fp32, -1, keepdim=True)
         scale_de_quant = pypto.max(pypto.div(pypto.sub(max_value, min_value), 255.0), 1e-12)
         offset = pypto.sub(127.0, pypto.div(max_value, scale_de_quant))
-        scale_quant = pypto.div(pypto.full(scale_quant.shape, 1.0, pypto.DataType.DT_FP32), scale_de_quant)
+        scale_quant = scalar_div(max_value, 1.0, True)
         out_fp32 = pypto.mul(input_fp32, scale_quant)
         out_int32 = pypto.cast(out_fp32, pypto.DataType.DT_INT32, pypto.CastMode.CAST_RINT)
         out_half = pypto.cast(out_int32, pypto.DataType.DT_FP16, pypto.CastMode.CAST_ROUND)
@@ -207,7 +202,7 @@ def pre_compute_2d(token_x, w_dq, w_uq_qr, w_dkv_kr, gamma_cq, epsilon_cq, quant
         input_quant = quant_res[0]
         input_quant_scale = quant_res[1]
         pypto.set_semantic_label("QuantMatmul_qa")
-        q_a_proj = pypto.matmul(input_quant, w_dq, dequant_scale_a_out)
+        q_a_proj = pypto.matmul(input_quant, w_dq, dtype_quant_a_out)
         pypto.set_semantic_label("Dequant_qa")
         q_a_proj[:] = dequant(dtype, q_a_proj, input_quant_scale, dequant_scale_w_dq)
     else:
@@ -381,37 +376,60 @@ def mla_prolog_quant_compute(input_tensors, output_tensors, epsilon_cq, epsilon_
             k_nope_2d[:] = pypto.reshape(k_nope_quant_tensor, [tile_bs, kv_lora_rank])
             k_scale_2d[:] = pypto.reshape(k_nope_scale, [tile_bs, 4])
 
-        for _ in pypto.loop(0, 1, 1, name="MLA_CACHE_RESHAPE_4D_2D", idx_name="unused_idx"):
-            kr_cache_2d = pypto.reshape(kr_cache, [block_num * block_size * n2, qk_rope_head_dim], inplace=True)
-            kv_cache_2d = pypto.reshape(kv_cache, [block_num * block_size * n2, kv_lora_rank], inplace=True)
-            k_scale_cache_2d = pypto.reshape(k_scale_cache, [block_num * block_size * n2, 4], inplace=True)
-
         for _ in pypto.loop(0, 1, 1, name="MLA_UPDATE_CACHE", idx_name="unused_idx"):
+            k_rope_4d = pypto.reshape(k_rope_2d, [tile_bs, 1, 1, qk_rope_head_dim], inplace=True)
+            k_nope_4d = pypto.reshape(k_nope_2d, [tile_bs, 1, 1, kv_lora_rank], inplace=True)
+            k_scale_4d = pypto.reshape(k_scale_2d, [tile_bs, 1, 1, 4], inplace=True)
             index = pypto.view(k_cache_index_2d, [tile_bs, 1], [bs_offset, 0])
             pypto.set_semantic_label("ScatterUpdate_krCache")
             pypto.set_vec_tile_shapes(32, qk_rope_head_dim)
-            kr_cache_out2d = pypto.scatter_update(kr_cache_2d, -2, index, k_rope_2d)
+            kr_cache_out[:] = pypto.scatter_update(kr_cache, -2, index, k_rope_4d)
             pypto.set_semantic_label("ScatterUpdate_kvCache")
             pypto.set_vec_tile_shapes(32, kv_lora_rank)
-            kv_cache_out2d = pypto.scatter_update(kv_cache_2d, -2, index, k_nope_2d)
+            kv_cache_out[:] = pypto.scatter_update(kv_cache, -2, index, k_nope_4d)
             pypto.set_semantic_label("ScatterUpdate_kScaleCache")
             pypto.set_vec_tile_shapes(32, 4)
-            k_scale_cache_out2d = pypto.scatter_update(k_scale_cache_2d, -2, index, k_scale_2d)
-
-        for _ in pypto.loop(0, 1, 1, name="MLA_2D_4D_LOOP", idx_name="unused_idx"):
-            reshape_inplace(kr_cache_out2d, kr_cache_out)
-            reshape_inplace(kv_cache_out2d, kv_cache_out)
-            reshape_inplace(k_scale_cache_out2d, k_scale_cache_out)
+            k_scale_cache_out[:] = pypto.scatter_update(k_scale_cache, -2, index, k_scale_4d)
 
 
 @pypto.jit
 def mla_prolog_quant_p(
+    input_tensors, 
+    output_tensors, 
+    epsilon_cq, 
+    epsilon_ckv, 
+    cache_mode, 
+    tile_config):
+    '''
+    prefill
+    '''
+    pypto.set_codegen_options(support_dynamic_unaligned=True)
+    pypto.set_pass_options(nbuffer_merge_mode=1,
+                           l1_reuse=4,
+                           cube_nbuffer_map={3: 4},
+                           copyin_threshold=2 * 1024 * 1024)
+    pypto.set_host_options(only_codegen=True)
+    mla_prolog_quant_compute(
         input_tensors,
         output_tensors,
         epsilon_cq,
         epsilon_ckv,
         cache_mode,
-        tile_config):
+        tile_config
+    )
+
+
+@pypto.jit
+def mla_prolog_quant_d(
+    input_tensors, 
+    output_tensors, 
+    epsilon_cq, 
+    epsilon_ckv, 
+    cache_mode, 
+    tile_config):
+    '''
+    decode
+    '''
     pypto.set_codegen_options(support_dynamic_unaligned=True)
     pypto.set_pass_options(nbuffer_merge_mode=1,
                            l1_reuse=4,
