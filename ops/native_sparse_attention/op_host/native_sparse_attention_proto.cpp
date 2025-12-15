@@ -9,7 +9,7 @@
  */
  
 /*!
- * \file flash_attention_score_proto.cpp
+ * \file native_sparse_attention_proto.cpp
  * \brief
  */
 
