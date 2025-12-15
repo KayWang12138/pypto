@@ -8,49 +8,6 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 
-set(_CaseFilterList
-        # Dynamic Function
-        "spscqueue.normal"
-        "TestDynamicDeviceRunner.*"
-        "ControlFlowTest.RunDeviceContext"
-        # Machine
-        "HostMachineCompileTest.test_MlaProlog_float16_32_2_1_256_256_512"
-        "HostMachineCompileTest.test_codegen_by_json"
-        "DeviceMachineTest.test_get_task_time"
-        "TestDeviceRunner.test_set_pmu_event"
-        "TestDeviceRunner.test_ini_device_runner"
-        "TestDeviceRunner.test_ini_device_args_arch32"
-        "TestDeviceRunner.test_ini_device_args_arch35"
-        # Others
-        "RuntimeTest.Runtime01"
-        "TestDeviceRunner.test_device_runner_get_task_time"
-        # device UT
-        "TestPro.test_ini"
-        "TestAicoreDump.test_aicore_dump_special"
-        "TestAicoreDump.test_aicore_dump_normal"
-        # binary cache
-        "CacheManagerUnitTest.test_*"
-        # encode
-        "DevEncode.*"
-        # distributed
-        "CommWaitFlagTest.CommWaitFlag_EnqueueOp_and_PollCompleted_success"
-        "ShmemWaitUntilTest.*"
-        # runtime
-        "SlabWsAllocatorTest.*"
-        "ItemPoolTest.*"
-        # Platform
-        "PlatformTest.TestPlatfromCase1"
-        # 框架相关用例
-        "TestMemoryAttribute.MemorySizeTest"
-        "TestSuite_Backend.AihacBackend_Err1"
-        "TestSuite_Backend.SimulationBackend_Err1"
-        "DynamicMatmulUTest.mm_A_B_ND_bf16"
-        "DynamicMatmulUTest.mm_A_B_ND_pertensor"
-        "DynamicMatmulUTest.mm_A_B_ND_KSplit_bf16"
-        "DynamicMatmulUTest.mm_A_B_ND_bf16_C_NZ"
-        "DynamicMatmulUTest.mm_A_NZ_B_NZ_int8_C_NZ"
-)
-
 set(_Target ${PTO_Fwk_UTestNamePrefix}_machine)
 
 file(GLOB_RECURSE _Sources src/*.cpp)

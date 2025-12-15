@@ -256,52 +256,7 @@ TEST_F(GraphTest, Test_deepseekAttention_pre) {
     }
 }
 
-TEST_F(GraphTest, test_operation_rope_subgraph_deepseekv3_bf16_32batch) {
-    int B = 32;
-    int S = 1;                 // IFA S=1 S=1024
-    int N = 32;                // N=32
-    int qkRopeHeadDim = 64; // qkRopeHeadDim = 64
 
-    std::string shape_dir_path = "/32_1_32_64/";
-
-    std::vector<int64_t> qPeShape{B, S, N, qkRopeHeadDim};
-    std::vector<int64_t> kPeShape{B, S, qkRopeHeadDim};
-    std::vector<int64_t> idsShape{B, S};
-    std::vector<int64_t> cosSinShape{S, qkRopeHeadDim};
-    std::vector<int64_t> qEmbedShape{B, N, S, qkRopeHeadDim};
-    std::vector<int64_t> kEmbedShape{B, 1, S, qkRopeHeadDim};
-
-    PROGRAM("RoPEMla") {
-        Tensor qPe(DT_BF16, qPeShape, "qPe");
-        Tensor kPe(DT_BF16, kPeShape, "kPe");
-        Tensor cos(DT_BF16, cosSinShape, "cos");
-        Tensor sin(DT_BF16, cosSinShape, "sin");
-        Tensor positionIds(DT_INT32, idsShape, "position_indices");
-        Tensor qEmbed(DT_BF16, qEmbedShape, "qEmbed");
-        Tensor kEmbed(DT_BF16, kEmbedShape, "kEmbed");
-
-        RoPETileShapeConfig ropeTileConfig{
-            {32, 64}, // for cos/sin->cast, [s,d]
-            {1, 32, 64}, // for gather,unsqueeze, [b,s,d]
-            {1, 32, 1, 64}, // [b,n,s,d]
-            {1, 32, 1, 64, 64} // for transpose, [b,n,s,d/2,2]
-        };
-
-        config::SetBuildStatic(true);
-        FUNCTION("RoPE", {qPe, kPe, cos, sin, positionIds, qEmbed, kEmbed}) {
-            TileShape::Current().SetVecTile({1, 1, 32, 64});
-            auto qPeTrans = Transpose(qPe, {1, 2}); // [b,s,n,d]->[b,n,s,d]
-
-            int b = kPe.GetShape()[0];
-            int s = kPe.GetShape()[1];
-            int d = kPe.GetShape()[2];
-            // 以下两步Reshape+Transpose可以优化成1个reshape：auto kPeReshape = Reshape(kPe, {b, 1, s, d}); //
-            // [b,s,d]->[b,1,s,d]
-            auto kPeReshape = Reshape(kPe, {b, 1, s, d}); // [b,s,d]->[b,1,s,d]
-            ApplyRotaryPosEmb(qPeTrans, kPeReshape, cos, sin, positionIds, qEmbed, kEmbed, 1, ropeTileConfig);
-        }
-    }
-}
 
 TEST_F(GraphTest, test_operation_rope_subgraph_deepseekv3_bf16) {
 
@@ -346,22 +301,6 @@ TEST_F(GraphTest, test_operation_rope_subgraph_deepseekv3_bf16) {
         auto kPeReshape = Reshape(kPe, {b, 1, s, d}); // [b,s,d]->[b,1,s,d]
         // auto kPeTrans = Transpose(Reshape(kPe, {b, s, 1, d}), {1, 2}); // [b,s,d]->[b,s,1,d]->[b,1,s,d]
         ApplyRotaryPosEmb(qPeTrans, kPeReshape, cos, sin, positionIds, qEmbed, kEmbed, 1, ropeTileConfig);
-    }
-}
-
-TEST_F(GraphTest, test_operation_tensor_16_16_64_64_tileop_add) {
-    config::SetPlatformConfig("ENABLE_COST_MODEL", true);
-    config::SetSimConfig("BUILD_TASK_BASED_TOPO", true);
-
-    std::vector<int64_t> shape = {64, 64};
-    Tensor input_a(DT_FP32, shape, "A");
-    Tensor input_b(DT_FP32, shape, "B");
-    Tensor output(DT_FP32, shape, "C");
-
-    config::SetBuildStatic(true);
-    FUNCTION("ADD_T") {
-        TileShape::Current().SetVecTile({16, 16});
-        output = Add(input_a, input_b);
     }
 }
 

@@ -11,6 +11,7 @@
 """Args处理辅助.
 """
 import argparse
+import subprocess
 from typing import Sequence, Optional, Any, List
 
 
@@ -36,13 +37,37 @@ class ArgsGTestFilterListAction(argparse.Action):
             nargs = '+'
         super().__init__(option_strings, dest, nargs=nargs, **kwargs)
 
+    @staticmethod
+    def parse_all_cases(binary: str) -> List[str]:
+        """获取gtest ut测试用例
+        """
+        result = subprocess.run([binary, '--gtest_list_tests'],
+                            capture_output=True, text=True)
+        cases = []
+        current_suite = ""
+        for line in result.stdout.split('\n'):
+            line = line.rstrip()
+            if not line or "GoogleTestVerification" in line:
+                continue
+            if line.endswith('.'):
+                current_suite = line[:-1]
+            elif line.startswith('  '):
+                test_name = line.strip()
+                cases.append(f"{current_suite}.{test_name}")
+        return cases
+
     def __call__(self, parser: argparse.ArgumentParser, namespace: argparse.Namespace, values: List[str],
                  option_string: Optional[str] = None) -> None:
         # 解析每个字符串，按冒号分隔并展平
         case_list: List[str] = []
-        for value in values:
-            # 分割每个字符串，并过滤空字符串
-            cases = [cs.strip() for cs in value.split(':') if cs.strip()]
-            case_list.extend(cases)
+
+        target = getattr(namespace, 'target')
+        if (len(values) == 1 and values[0] == "*"):
+            case_list = self.parse_all_cases(target[0])
+        else:
+            for value in values:
+                # 分割每个字符串，并过滤空字符串
+                cases = [cs.strip() for cs in value.split(':') if cs.strip()]
+                case_list.extend(cases)
         # 将结果设置到命名空间
         setattr(namespace, self.dest, case_list)

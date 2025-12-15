@@ -8,62 +8,6 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 
-set(_CaseFilterList
-        # Cache
-
-        # Configs
-        "TestConfigManager.PassDefaultConfig"
-        "TestConfigManager.PassGloablConfig"
-        "TestConfigManager.PassStrategies2"
-        "TestConfigManager.PassStrategies3"
-        "TestConfigManager.Dump"
-
-        # Function
-        "ExpectedValueTest.TestCheck"
-        "FunctionCoverageTest.*"
-        "FunctionUtilsTest.TestCloneOperation"
-        # "FunctionUtilsTest.TestRemoveOperationCase1"
-
-        # Tensor
-        "TestTensor.*"
-        "TensorElement.*"
-
-        # Function
-        "SubFunctionTest.*"
-        "FunctionWithPass.*"
-        "DynamicOpsTest.Cube"
-        "DynamicOpsTest.ElementScalar"
-        "DynamicOpsTest.Assemble"
-        "DynamicOpsTest.AssembleFp16"
-        "DynamicOpsTest.OpsElementWise"
-        "DynamicOpsTest.GetTensorData"
-        "DynamicOpsTest.Matmul*"
-        "DynamicFunctionTest.TestGetInputDataInt32Dim3"
-        "DynamicFunctionTest.TestGetInputDataInt32Dim4"
-        "DynamicFunctionTest.TestSymbolic"
-        "DynamicFunctionTest.TestLoopRange"
-        "DynamicFunctionTest.TestOnlyExpression"
-        "DynamicFunctionTest.TestOnlySymbol"
-        "DynamicFunctionTest.TestStaticLoopStatic"
-        "DynamicFunctionTest.TestHybridLoopIf"
-        "DynamicFunctionTest.TestLoopWithRank"
-        "DynamicFunctionTest.TestLoopIfWithRank"
-        "DynamicFunctionTest.TestLoopWithManualRank"
-        "DynamicFunctionTest.TestSymbolicScalarDumpLoad"
-        "DynamicFunctionTest.TestDynOffset"
-        "DynamicFunctionTest.MopCall"
-
-        # Interpreter
-        "ThreadPoolTest.*"
-        "DeterminismTest.*"
-
-        # Utils
-        "CommonTest.*"
-        "StringUtils.*"
-
-        "TorchAdaptorTest.*"
-)
-
 set(_Target ${PTO_Fwk_UTestNamePrefix}_interface)
 
 file(GLOB_RECURSE _Sources

@@ -8,36 +8,6 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 
-set(_CaseFilterList
-        # CostModelUT
-        #"CostModelTest.TestAttentionPost"
-        "CostModelTest.TestAttentionPostAccuracy1"
-        "CostModelTest.TestAttentionPostAccuracy2"
-        "CostModelTest.TestAttentionPostAccuracyFromJson"
-        "CostModelTest.TestAttentionPostFunctional"
-        "CostModelTest.TestFixedLatencyTasks"
-        "CostModelTest.TestErrorInput"
-        "CostModelTest.TestGenCalendarSchedule"
-        # "CostModelTest.TestGenCalendarScheduleFronJson"
-        "CostModelTest.TestAttentionPostCVMIXMode"
-        "CostModelTest.TestAttentionPostSimulationSchedule"
-        "CostModelTest.TestAttentionPostL2Cache"
-        "CostModelTest.TestBuildBasedOnConfigs"
-        "CostModelTest.TestCoreMachineDeadlock"
-        #"CostModelTest.TestReplayDispatch"
-        #"CostModelTest.TestReplayAll"
-        "CostModelTest.TestComm"
-        "CostModelTest.TestGlobalCalendar"
-        "CostModelTest.TestLeafFunctionMode"
-        #"CostModelTest.TestAttentionPostBf16Real"
-        "CostModelTest.TestAttentionPostPvModel"
-        "PvModelTest.TestAddGlobalAttr"
-        "PvModelTest.TestDynFactory"
-        "PvModelTest.TestDynImpl"
-        "PvModelTest.TestDynCodegen"
-        "CostModelDynTest.TestDD"
-)
-
 set(_Target ${PTO_Fwk_UTestNamePrefix}_simulation)
 
 file(GLOB_RECURSE _Sources src/*.cpp)

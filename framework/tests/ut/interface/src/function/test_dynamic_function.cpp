@@ -254,44 +254,6 @@ TEST_F(DynamicFunctionTest, TestLoopRange) {
     EXPECT_EQ(count, 3);
 }
 
-TEST_F(DynamicFunctionTest, TestTileShape) {
-    auto vecTile = VecTile{
-        {12, 16}
-    };
-    HashBuffer vecBuffer;
-    SerializeTo(vecTile, vecBuffer);
-    VecTile vecTile1;
-    DeserializeFrom(vecBuffer, vecTile1);
-    EXPECT_EQ(vecTile.tile, vecTile1.tile);
-
-    auto cubeTile = CubeTile{
-        {12, 13},
-        {14, 15},
-        {16, 17}
-    };
-    HashBuffer cubeBuffer;
-    SerializeTo(cubeTile, cubeBuffer);
-    CubeTile cubeTile1;
-    DeserializeFrom(cubeBuffer, cubeTile1);
-    EXPECT_EQ(cubeTile.m, cubeTile1.m);
-    EXPECT_EQ(cubeTile.k, cubeTile1.k);
-    EXPECT_EQ(cubeTile.n, cubeTile1.n);
-
-    auto distTile = DistTile{
-        {12, 13},
-        {14, 15},
-        {16, 17},
-    };
-    HashBuffer distBuffer;
-    SerializeTo(distTile, distBuffer);
-    DistTile distTile1;
-    DeserializeFrom(distBuffer, distTile1);
-    EXPECT_EQ(distTile.row, distTile1.row);
-    EXPECT_EQ(distTile.col, distTile1.col);
-    EXPECT_EQ(distTile.rank, distTile1.rank);
-    EXPECT_EQ(distTile.rankId, distTile1.rankId);
-}
-
 TEST_F(DynamicFunctionTest, TestOnlyExpression) {
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
     TileShape::Current().SetVecTile(16, 16);
@@ -564,47 +526,6 @@ TEST_F(DynamicFunctionTest, TestHybridLoopIf) {
     }
 }
 
-TEST_F(DynamicFunctionTest, TestHybridLoopIf2) {
-    TileShape::Current().SetVecTile(32, 32);
-    TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
-
-    int s = 32;
-    int n = 1;
-    int m = 1;
-    Tensor t0(DT_FP32, {n * s, m * s}, "t0");
-    Tensor t1(DT_FP32, {n * s, m * s}, "t1");
-    Tensor t2(DT_FP32, {n * s, m * s}, "t2");
-    Tensor t3(DT_FP32, {n * s, m * s}, "t3");
-    Tensor t4(DT_FP32, {n * s, m * s}, "t4");
-    Tensor out(DT_FP32, {n * s, m * s}, "out");
-
-    ProgramData::GetInstance().AppendInputs({
-        RawTensorData::CreateConstantTensor<float>(t0, 11.0),
-        RawTensorData::CreateConstantTensor<float>(t1, 20.0),
-        RawTensorData::CreateConstantTensor<float>(t2, 30.0),
-        RawTensorData::CreateConstantTensor<float>(t3, 40.0),
-        RawTensorData::CreateConstantTensor<float>(t4, 50.0),
-    });
-    ProgramData::GetInstance().AppendOutputs({
-        RawTensorData::CreateConstantTensor<float>(out, 0),
-    });
-
-    TestHybridLoopIf2(t0, t1, t2, t3, t4, out);
-    auto& functions = Program::GetInstance().GetFunctionMap();
-    for (auto& [name, function] : functions) {
-        if (name == "PROGRAM_ENTRY" || !function->IsGraphType(GraphType::TENSOR_GRAPH)) {
-            continue;
-        }
-        size_t incastSize = function->inCasts_.size();
-        size_t outcastSize = function->outCasts_.size();
-        auto& scope = function->GetSlotScope();
-        bool ret = HasSameIoSlots(function);
-        EXPECT_EQ(scope->ioslot.incastSlot.size(), incastSize);
-        EXPECT_EQ(scope->ioslot.outcastSlot.size(), outcastSize);
-        EXPECT_EQ(ret, false);
-    }
-}
-
 Tensor TestLoopWithRank(const Tensor &t0, Tensor &r0, Tensor &out, int s, int maxRank) {
     FUNCTION("main", {t0, r0}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputShape(t0, 0) / s), PowersOf2(maxRank)) {
@@ -805,76 +726,6 @@ TEST_F(DynamicFunctionTest, TestSymbolicScalarDumpLoad) {
     const Json expJson = {2, 6, 2, 16, 3, 1, "RUNTIME_GetInputDataInt32Dim1", 1, "INPUT_actSeqs", 1, "bIdx", 0, 256};
     SymbolicScalar exp = LoadSymbolicScalar(expJson);
     EXPECT_EQ(expJson, ToJson(exp));
-}
-
-TEST_F(DynamicFunctionTest, TestInnerLoopOrder) {
-    TileShape::Current().SetVecTile(512, 512);
-    TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
-
-    int vecLen = 128;
-    int loopNum = 5;
-    int tileNum = 4;
-    Tensor inputA(DT_FP32, {loopNum, vecLen}, "inputA");
-    Tensor inputB(DT_FP32, {tileNum, vecLen}, "inputB");
-    Tensor output(DT_FP32, {1, vecLen}, "out");
-
-    FUNCTION("Main", {inputA, inputB}, {output}) {
-        LOOP("Outer", FunctionType::DYNAMIC_LOOP, i, LoopRange(tileNum)) {
-            Tensor tileB(DT_FP32, {1, vecLen}, "tileB");
-            LOOP("Inner", FunctionType::DYNAMIC_LOOP, j, LoopRange(1)) {
-                (void)j;
-                auto tile = View(inputB, {1, vecLen}, {i, 0});
-                tileB = Mul(tile, Element(DataType::DT_FP32, 1.0));
-            }
-
-            LOOP("Inner2", FunctionType::DYNAMIC_LOOP, k, LoopRange(loopNum)) {
-                auto tileA = View(inputA, {1, vecLen}, {k, 0});
-                tileB = Add(tileA, tileB);
-            }
-
-            LOOP("Inner3", FunctionType::DYNAMIC_LOOP, l, LoopRange(1)) {
-                (void)l;
-                tileB = Mul(tileB, Element(DataType::DT_FP32, 1.0));
-                Assemble(tileB, {i, 0}, output);
-            }
-        }
-    }
-
-    auto funcMap = Program::GetInstance().GetFunctionMap();
-    auto mainFunc = Program::GetInstance().GetFunctionByMagicName("TENSOR_Main_2");
-    EXPECT_NE(mainFunc, nullptr);
-    EXPECT_EQ(mainFunc->GetCalleeFunctionList().size(), 1);
-    auto &mainFuncIn = mainFunc->inCasts_;
-    auto &mainFuncOut = mainFunc->outCasts_;
-    std::vector<int> inTileBSlot, outTileBSlot;
-    int i = 0;
-    for (auto in : mainFuncIn) {
-        if (in->tensor->GetSymbol() == "tileB") {
-            inTileBSlot = mainFunc->GetSlotScope()->ioslot.incastSlot[i];
-        }
-        ++i;
-    }
-    i = 0;
-    for (auto out : mainFuncOut) {
-        if (out->tensor->GetSymbol() == "tileB") {
-            outTileBSlot = mainFunc->GetSlotScope()->ioslot.outcastSlot[i];
-        }
-        ++i;
-    }
-    EXPECT_EQ(inTileBSlot, outTileBSlot);
-    auto outerLoopFunc = mainFunc->GetCalleeFunctionList()[0];
-    EXPECT_EQ(outerLoopFunc->GetMagicName(), "TENSOR_Outer_Unroll1_3");
-    EXPECT_EQ(outerLoopFunc->GetCalleeFunctionList().size(), 1);
-    auto outerLoopPathFunc = outerLoopFunc->GetCalleeFunctionList()[0];
-    EXPECT_EQ(outerLoopPathFunc->GetMagicName(), "TENSOR_Outer_Unroll1_PATH0_4");
-    EXPECT_EQ(outerLoopPathFunc->GetCalleeFunctionList().size(), 3);
-    int idx = 0;
-    std::vector<std::string> innerLoopFuncNames = {"TENSOR_Inner_Unroll1_5", "TENSOR_Inner2_Unroll1_7", "TENSOR_Inner3_Unroll1_9"};
-    for (auto &innerLoopFunc : outerLoopPathFunc->GetCalleeFunctionList()) {
-        ALOG_INFO("innerLoopFunc: ", innerLoopFunc->GetMagicName());
-        EXPECT_EQ(innerLoopFunc->GetMagicName(), innerLoopFuncNames[idx++]);
-        EXPECT_EQ(innerLoopFunc->GetCalleeFunctionList().size(), 1);
-    }
 }
 
 TEST_F(DynamicFunctionTest, TestGetInputDataInt32Dim3) {

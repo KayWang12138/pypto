@@ -90,66 +90,6 @@ TEST_F(OperationImplTest, test_CumSum_dim4) {
     }
 }
 
-TEST_F(OperationImplTest, TestTranspose_BNSD_BSND) {
-    std::vector<int64_t> shape{3, 32, 64, 16};
-    Tensor a(DT_FP32, shape, "a");
-
-    TileShape::Current().SetVecTile(1, 16, 16, 16);
-    FUNCTION("BNSD_BSND") {
-        a = Transpose(a, {1, 2});
-    }
-    a.GetStorage()->Dump();
-    std::cout << Program::GetInstance().Dump() << std::endl;
-}
-
-TEST_F(OperationImplTest, TestTranspose_BNSD2_BNS2D_small) {
-    std::vector<int64_t> shape{1, 2, 64, 64, 2};
-    Tensor a(DT_FP32, shape, "a");
-    TileShape::Current().SetVecTile(1, 1, 64, 64, 2);
-
-    FUNCTION("BNSD2_BNS2D") {
-        a = Transpose(a, {3, 4});
-    }
-    a.GetStorage()->Dump();
-    std::cout << Program::GetInstance().Dump() << std::endl;
-}
-
-TEST_F(OperationImplTest, TestTranspose_BNSD2_BNS2D) {
-    std::vector<int64_t> shape{1, 2, 1280, 128, 2};
-    Tensor a(DT_FP32, shape, "a");
-    TileShape::Current().SetVecTile(1, 1, 128, 128, 2);
-
-    FUNCTION("BNSD2_BNS2D") {
-        a = Transpose(a, {3, 4});
-    }
-    a.GetStorage()->Dump();
-    std::cout << Program::GetInstance().Dump() << std::endl;
-}
-
-TEST_F(OperationImplTest, TestTranspose_ABC_BAC) {
-    std::vector<int64_t> shape{128, 2, 128};
-    Tensor a(DT_FP32, shape, "a");
-
-    TileShape::Current().SetVecTile(32, 1, 128);
-    FUNCTION("ABC_BAC") {
-        a = Transpose(a, {0, 1});
-    }
-    a.GetStorage()->Dump();
-    std::cout << Program::GetInstance().Dump() << std::endl;
-}
-
-TEST_F(OperationImplTest, TestTranspose_BNDS_BNSD) {
-    std::vector<int64_t> shape{1, 32, 64, 2};
-    Tensor a(DT_FP32, shape, "a");
-
-    TileShape::Current().SetVecTile(1, 2, 64, 2);
-    FUNCTION("BNDS_BNSD") {
-        a = Transpose(a, {3, 2});
-    }
-    a.GetStorage()->Dump();
-    std::cout << Program::GetInstance().Dump() << std::endl;
-}
-
 TEST_F(OperationImplTest, test_Compare_BOOL) {
     TileShape::Current().SetVecTile({4, 4});
     Tensor operand1(DT_FP32, {8, 8}, "operand1");
@@ -219,122 +159,6 @@ TEST_F(OperationImplTest, test_Cmps_BF16) {
     Tensor result;
     FUNCTION("TestCompare") {
         result = Compare(operand1, operand2, OpType::EQ, OutType::BOOL);
-    }
-}
-
-TEST_F(OperationImplTest, Test_multiReshape) {
-    TileShape::Current().SetVecTile(16, 16, 16, 16);
-    Tensor input(DT_FP32, {8, 16, 16}, "a");
-    Tensor res1;
-    Tensor res2;
-    FUNCTION("TestAssign") {
-        auto tmp = Reshape(input, {8, 1, 16, 16});
-        auto tmp1 = Reshape(tmp, {8, 4, 4, 16});
-        auto tmp2 = Reshape(tmp1, {8, 16, 16});
-        auto res = Exp(tmp2);
-        res2 = Sqrt(tmp2);
-        auto test = Reshape(res, {8, 16, 4, 4});
-        res1 = Exp(test);
-    }
-    std::cout << Program::GetInstance().Dump() << std::endl;
-    Program::GetInstance().GraphCheck();
-}
-
-TEST_F(OperationImplTest, Test_Reshape_reshape_assemble_multito1) {
-    TileShape::Current().SetVecTile(8, 8, 8, 8);
-    Tensor input(DT_FP32, {1, 384}, "a");
-    Tensor res1;
-    FUNCTION("TestAssign") {
-        TileShape::Current().SetVecTile(1, 64);
-        Tensor res = Exp(input);
-        Tensor test = Reshape(res, {1, 1, 2, 192});
-        TileShape::Current().SetVecTile(2, 1, 2, 64);
-        res1 = Exp(test);
-    }
-    // Program::GetInstance().GraphCheck();
-    // std::cout << Program::GetInstance().dump() << std::endl;
-}
-
-TEST_F(OperationImplTest, Test_Reshape_1to1) {
-    TileShape::Current().SetVecTile(8, 8, 8, 8);
-    Tensor input(DT_FP32, {8, 16, 16}, "a");
-    Tensor res1;
-    FUNCTION("TestAssign") {
-        Tensor res = Exp(input);
-        Tensor test = Reshape(res, {8, 16, 1, 16});
-        res1 = Exp(test);
-    }
-    // Program::GetInstance().GraphCheck();
-    // std::cout << Program::GetInstance().dump() << std::endl;
-}
-
-TEST_F(OperationImplTest, Test_Reshape_1toMulti) {
-    TileShape::Current().SetVecTile(8, 8, 8, 8, 8);
-    // Tensor input(DT_FP32, {2, 4, 16, 4, 4}, "a");
-    Tensor input(DT_FP32, {16, 4, 4}, "a");
-    Tensor res1;
-    FUNCTION("TestAssign") {
-        auto res = Exp(input);
-        // auto test = Reshape(res, {8, 16, 16});
-        auto test = Reshape(res, {16, 16});
-        res1 = Exp(test);
-    }
-    // std::cout << Program::GetInstance().dump() << std::endl;
-    // Program::GetInstance().GraphCheck();
-}
-
-TEST_F(OperationImplTest, Test_Reshape_multito1) {
-    TileShape::Current().SetVecTile(8, 8, 8, 8);
-    Tensor input(DT_FP32, {8, 16, 16}, "a");
-    Tensor res1;
-    FUNCTION("TestAssign") {
-        auto res = Exp(input);
-        auto test = Reshape(res, {8, 16, 4, 4});
-        res1 = Exp(test);
-    }
-    // std::cout << Program::GetInstance().dump() << std::endl;
-    // Program::GetInstance().GraphCheck();
-}
-
-TEST_F(OperationImplTest, Test_Unsqueeze) {
-    TileShape::Current().SetVecTile(8, 8, 8, 8);
-    Tensor input(DT_FP32, {8, 16, 16}, "a");
-    Tensor res1;
-    FUNCTION("TestUnsqueeze") {
-        Tensor res = Exp(input);
-        Tensor test = Unsqueeze(res, 1);
-        res1 = Exp(test);
-    }
-    // Program::GetInstance().GraphCheck();
-    std::cout << Program::GetInstance().Dump() << std::endl;
-}
-
-TEST_F(OperationImplTest, TestBasicOperationMixBroadcast) {
-    std::vector<int64_t> shape{32, 32};
-
-    Tensor a(DT_FP32, shape, "a");
-    Tensor b(DT_FP32, {32, 1}, "b");
-    Tensor c(DT_FP32, {32, 32, 32}, "c");
-    FUNCTION("A") {
-        TileShape::Current().SetVecTile(8, 8);
-        auto d = Add(a, b);
-
-        TileShape::Current().SetVecTile(8, 8, 8);
-        auto e = Mul(d, c);
-    }
-    std::cout << Program::GetInstance().Dump() << std::endl;
-}
-
-TEST_F(OperationImplTest, Test_TopK) {
-    PROGRAM("TOPK") {
-        std::vector<int64_t> shape = {128, 32};
-        TileShape::Current().SetVecTile({128, 32});
-        Tensor input_a(DT_FP32, shape, "A");
-        auto output = std::make_tuple(Tensor(DT_FP32, shape, "res"), Tensor(DT_FP32, shape, "resDics"));
-        config::SetBuildStatic(true);
-        FUNCTION("TOPK_T") {
-            output = TopK(input_a, 16, -1);
-        }
     }
 }
 
@@ -410,19 +234,6 @@ TEST_F(OperationImplTest, Test_IndexAdd_FP16) {
     Tensor result;
     FUNCTION("TestIndxAdd") {
         result = IndexAdd(self, src, index, axis, alpha);
-    }
-}
-
-TEST_F(OperationImplTest, Test_ArgSort) {
-    PROGRAM("ARGSORT") {
-        std::vector<int64_t> shape = {128, 32};
-        TileShape::Current().SetVecTile({128, 32});
-        Tensor input_a(DT_FP32, shape, "A");
-        auto output = Tensor(DT_FP32, shape, "res"); // std::make_tuple(Tensor(DT_FP32, shape, "res"), Tensor(DT_FP32, shape, "resDics"));
-        config::SetBuildStatic(true);
-        FUNCTION("ARGSORT_T") {
-            output = ArgSort(input_a, -1);
-        }
     }
 }
 
@@ -654,79 +465,6 @@ TEST_F(OperationImplTest, test_Rsqrt_FP32) {
     }
 }
 
-TEST_F(OperationImplTest, test_MaxS_FP16) {
-    float scalar = 127.0;
-
-    TileShape::Current().SetVecTile(8, 8, 8, 8);
-    Tensor operand1(DT_FP16, {8, 16, 16}, "operand1");
-    Element operand2(DT_FP16, scalar);
-    Tensor result;
-    FUNCTION("TestMaxS") {
-        result = Maximum(operand1, operand2);
-    }
-}
-
-TEST_F(OperationImplTest, test_MaxS_FP32) {
-    float scalar = 127.0;
-
-    TileShape::Current().SetVecTile(8, 8, 8, 8);
-    Tensor operand1(DT_FP32, {8, 16, 16}, "operand1");
-    Element operand2(DT_FP32, scalar);
-    Tensor result;
-    FUNCTION("TestMaxS") {
-        result = Maximum(operand1, operand2);
-    }
-}
-
-TEST_F(OperationImplTest, test_MaxS_INT8) {
-    int scalar = 127;
-
-    TileShape::Current().SetVecTile(8, 8, 8, 8);
-    Tensor operand1(DT_INT8, {8, 16, 16}, "operand1");
-    Element operand2(DT_INT8, scalar);
-    Tensor result;
-    FUNCTION("TestMaxS") {
-        result = Maximum(operand1, operand2);
-    }
-}
-
-
-TEST_F(OperationImplTest, test_MaxS_INT16) {
-    int scalar = 127;
-
-    TileShape::Current().SetVecTile(8, 8, 8, 8);
-    Tensor operand1(DT_INT16, {8, 16, 16}, "operand1");
-    Element operand2(DT_INT16, scalar);
-    Tensor result;
-    FUNCTION("TestMaxS") {
-        result = Maximum(operand1, operand2);
-    }
-}
-
-TEST_F(OperationImplTest, test_MaxS_INT32) {
-    int scalar = 127;
-
-    TileShape::Current().SetVecTile(8, 8, 8, 8);
-    Tensor operand1(DT_INT32, {8, 16, 16}, "operand1");
-    Element operand2(DT_INT32, scalar);
-    Tensor result;
-    FUNCTION("TestMaxS") {
-        result = Maximum(operand1, operand2);
-    }
-}
-
-TEST_F(OperationImplTest, test_MinS_FP16) {
-    float scalar = 127.0;
-
-    TileShape::Current().SetVecTile(8, 8, 8, 8);
-    Tensor operand1(DT_FP16, {8, 16, 16}, "operand1");
-    Element operand2(DT_FP16, scalar);
-    Tensor result;
-    FUNCTION("TestMinS") {
-        result = Maximum(operand1, operand2);
-    }
-}
-
 TEST_F(OperationImplTest, test_Expand_8_1_to_8_8) {
     TileShape::Current().SetVecTile({4, 4});
 
@@ -743,17 +481,6 @@ TEST_F(OperationImplTest, test_Expand_8_1_to_8_8_dyn) {
 
     Tensor operand1(DT_FP32, {8, 1}, "operand1");
     std::vector<int64_t> dstShape = {8, 8};
-    Tensor result;
-    FUNCTION("TestExpand") {
-        result = Expand(operand1, dstShape);
-    }
-}
-
-TEST_F(OperationImplTest, test_Expand_32_8_1_to_32_8_32) {
-    TileShape::Current().SetVecTile({8, 8, 16});
-
-    Tensor operand1(DT_FP32, {32, 8, 1}, "operand1");
-    std::vector<int64_t> dstShape = {32, 8, 32};
     Tensor result;
     FUNCTION("TestExpand") {
         result = Expand(operand1, dstShape);

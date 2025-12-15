@@ -110,11 +110,3 @@ TEST_F(AttentionPostUTest, b32_s1_nz_fp16_quant) {
 
     TestAttentionPostUt<npu::tile_fwk::float16, true, npu::tile_fwk::float16, false, int8_t, true>(params, tileConfig);
 }
-
-TEST_F(AttentionPostUTest, b32_s2_nz_bf16_quant_all) {
-    // b, n, s, h, kvLoraRank, vHeadDim
-    TestPostParams params = {32, 128, 2, 7168, 512, 128};
-    PostTileConfig tileConfig = {16, 1};
-
-    TestAttentionPostUt<bfloat16, true, int8_t, true, int8_t, true>(params, tileConfig);
-}

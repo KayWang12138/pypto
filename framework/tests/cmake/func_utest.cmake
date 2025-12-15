@@ -157,8 +157,9 @@ function(PTO_Fwk_UTest_AddExe_RunExe)
             $<$<BOOL:${BUILD_WITH_CANN}>:${PTO_Fwk_UTestNamePrefix}_stubs>
     )
 
+    # 默认全部执行
+    set(GTestFilterList "*")
     # 支持由 ENABLE_UTEST 传入指定的 Filter
-    set(GTestFilterList ${PTO_Fwk_UTestCaseGTestFilterList})
     if (NOT "${ENABLE_UTEST}" STREQUAL "ON")
         set(GTestFilterList ${ENABLE_UTEST})
         string(REPLACE ":" ";" GTestFilterList "${GTestFilterList}")

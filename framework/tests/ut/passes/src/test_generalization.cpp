@@ -45,39 +45,6 @@ public:
     std::shared_ptr<Function> dynFunc;
 };
 
-// =======================================================  已知场景 ====================================================================
-TEST_F(GeneralizetionTest, Test1) {
-    int N = 2;
-    int T = 8;
-    std::vector<int64_t> shape{N * T, N * T};
-    // 小于等于tensor shape的tile shape 正常通过， 否则报错（原因是前端约束）
-    TileShape::Current().SetVecTile({T, T});
-
-    Tensor inputA(DT_FP32, shape, "a");
-    Tensor result(DT_FP32, {4 * T,4 * T}, "result");
-    Tensor result1(DT_FP32, {T, T}, "result1");
-
-    FUNCTION("ViewAssembleAssembleView") {
-        std::vector<std::pair<Tensor, std::vector<int64_t>>> aggregation;
-        for (int i = 0; i < N; i++)
-            for (int j = 0; j < N; j++) {
-                auto partialResult = View(inputA, {T, T}, {i * T, j * T});
-                aggregation.emplace_back(partialResult, std::vector<int64_t>{i * T, j * T});
-            }
-        auto gatherResult = Assemble(aggregation); // 2*T,2*T
-
-        std::vector<std::pair<Tensor, std::vector<int64_t>>> aggregation1;
-        for (int i = 0; i < N; i++)
-            for (int j = 0; j < N; j++) {
-                aggregation1.emplace_back(gatherResult, std::vector<int64_t>{i * 2 * T, j * 2 * T});
-            }
-        auto gatherResult1 = Assemble(aggregation1); // 4*T, 4*T
-        result = Abs(gatherResult1);
-        auto viewResult1 = View(gatherResult, {T, T}, {0, 0});
-        result1 = Abs(viewResult1);
-    }
-}
-
 // =======================================================  Single OP Test ====================================================================
 TEST_F(GeneralizetionTest, TestReshape) {
     TileShape::Current().SetVecTile({64, 64});

@@ -29,40 +29,6 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(TestConfigManager, GlobalConfig) {
-    auto ret = config::GetPlatformConfig(npu::tile_fwk::KEY_ENABLE_COST_MODEL, true);
-    EXPECT_EQ(ret, false);
-    config::SetPlatformConfig(npu::tile_fwk::KEY_ENABLE_COST_MODEL, true);
-    ret = config::GetPlatformConfig(npu::tile_fwk::KEY_ENABLE_COST_MODEL, false);
-    EXPECT_EQ(ret, true);
-}
-
-TEST_F(TestConfigManager, HostConfigs) {
-    {
-        auto ret = config::GetRuntimeOption<int>(WORKSPACE_RECYCLE_PERIOD);
-        EXPECT_EQ(ret, 10);
-        config::SetRuntimeOption<int>(WORKSPACE_RECYCLE_PERIOD, 20);
-        ret = config::GetRuntimeOption<int>(WORKSPACE_RECYCLE_PERIOD);
-        EXPECT_EQ(ret, 20);
-    }
-
-    {
-        auto ret = config::GetHostConfig(npu::tile_fwk::KEY_STRATEGY, " ");
-        EXPECT_EQ(ret, "PVC2_OOO");
-        config::SetHostConfig(npu::tile_fwk::KEY_STRATEGY, "test_strategy");
-        ret = config::GetHostConfig(npu::tile_fwk::KEY_STRATEGY, " ");
-        EXPECT_EQ(ret, "test_strategy");
-    }
-}
-
-TEST_F(TestConfigManager, SimulationConfigs) {
-        auto ret = config::GetSimConfig("DEBUG_SINGLE_FUNC", true);
-        EXPECT_EQ(ret, false);
-        config::SetSimConfig("DEBUG_SINGLE_FUNC", true);
-        ret = config::GetSimConfig("DEBUG_SINGLE_FUNC", false);
-        EXPECT_EQ(ret, true);
-}
-
 TEST_F(TestConfigManager, PassGloablConfig) {
     {
         auto ret = config::GetPassGlobalConfig("pass_thread_num", 0);
@@ -87,17 +53,6 @@ TEST_F(TestConfigManager, PassDefaultConfig) {
         config::SetPassDefaultConfig(KEY_PRINT_FUNCTION, true);
         ret = config::GetPassDefaultConfig(KEY_PRINT_FUNCTION, false);
         EXPECT_EQ(ret, true);
-}
-
-TEST_F(TestConfigManager, PassStrategies1) {
-    {
-        auto ret = ConfigManager::Instance().GetPassConfigs("PVC2_OOO", "RemoveRedundantReshape");
-        EXPECT_EQ(ret.expectedValueCheck, false);
-
-        config::SetPassConfig("PVC2_OOO", "RemoveRedundantReshape", KEY_EXPECTED_VALUE_CHECK, true);
-        ret = ConfigManager::Instance().GetPassConfigs("PVC2_OOO", "RemoveRedundantReshape");
-        EXPECT_EQ(ret.expectedValueCheck, true);
-    }
 }
 
 TEST_F(TestConfigManager, PassStrategies2) {

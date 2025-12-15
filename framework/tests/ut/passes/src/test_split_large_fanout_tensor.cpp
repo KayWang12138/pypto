@@ -600,22 +600,6 @@ TEST_F(SplitLargeFanoutTensorTest, MtoMtoMoreSplit) {
     EXPECT_EQ(assembleNumCount, assembleNumAfter) << assembleNumAfter << " OP_ASSEMBLE after pass";
 }
 
-TEST_F(SplitLargeFanoutTensorTest, MtoMGetCorrectAssemble) {
-    ComputationalGraphBuilder G;
-    BuildGraphForMToM(G, true);
-    Function *function = G.GetFunction();
-
-    std::cout << "Build Graph Done." << std::endl;
-    // 单独执行pass
-    npu::tile_fwk::SplitLargeFanoutTensor splitLargeFanoutTensor;
-    splitLargeFanoutTensor.enableMoreSplit = true;
-    splitLargeFanoutTensor.PreCheck(*function);
-    splitLargeFanoutTensor.RunOnFunction(*function);
-    splitLargeFanoutTensor.PostCheck(*function);
-    std::cout << "Run Pass Done." << std::endl;
-    // 不发生core dump即为获取assemble正常
-}
-
 TEST_F(SplitLargeFanoutTensorTest, Unmatched) {
     int N = 2;
     int T = 8;

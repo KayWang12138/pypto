@@ -8,11 +8,6 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 
-set(_CaseFilterList
-        "AicoreRuntimeManagerUnitTest.test_tile_fwk_hidden_input_for_ge"
-        "AicoreRuntimeManagerUnitTest.test_tile_fwk_hidden_input_for_aclnn"
-)
-
 set(_Target ${PTO_Fwk_UTestNamePrefix}_execute)
 
 file(GLOB_RECURSE _Sources src/*.cpp)

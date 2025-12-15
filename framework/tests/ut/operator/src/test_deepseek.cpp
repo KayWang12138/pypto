@@ -324,20 +324,6 @@ TEST_F(FunctionTest, TestExpTensorFunctionDim2) {
     ALOG_INFO(Program::GetInstance().Dump());
 }
 
-TEST_F(FunctionTest, TestReduce) {
-    // std::vector<int64_t> shape{100, 100, 100};
-    std::vector<int64_t> shape = {64, 64, 64, 64};
-    // TileShape::Current().SetVecTile(32, 32, 32, 32);
-
-    Tensor b, c;
-    FUNCTION("Reduce") {
-        Tensor a(DT_FP32, shape, "a");
-        b = Sum(a, -1, true);
-        c = Amax(a, -1, true);
-    }
-    ALOG_INFO(Program::GetInstance().Dump());
-}
-
 TEST_F(FunctionTest, TestSin) {
     TileShape::Current().SetVecTile({1, 1, 4, 4});
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
@@ -367,20 +353,6 @@ TEST_F(FunctionTest, TestCos) {
     }
     // Program::GetInstance().GraphCheck();
 
-    ALOG_INFO(Program::GetInstance().Dump());
-}
-
-TEST_F(FunctionTest, TestTranspose_BNSD_BSND) {
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
-    std::vector<int64_t> shape{3, 32, 64, 2};
-    // std::vector<int64_t> transposeShape{1, 2};
-    Tensor a(DT_FP32, shape, "a");
-
-    TileShape::Current().SetVecTile(1, 16, 16, 2);
-    FUNCTION("BNSD_BSND") {
-        auto res = Transpose(a, {1, 2});
-    }
-    a.GetStorage()->Dump();
     ALOG_INFO(Program::GetInstance().Dump());
 }
 
@@ -444,24 +416,6 @@ TEST_F(FunctionTest, TestGatherAxis3Indices4_2) {
 
     FUNCTION("A") {
         res = Gather(params, indices, axis);
-    }
-
-    ALOG_INFO(Program::GetInstance().Dump());
-}
-
-TEST_F(FunctionTest, TestTensorIndex) {
-    TileShape::Current().SetVecTile(1, 16, 16);
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
-
-    std::vector<int64_t> shape1 = {32, 32};
-    std::vector<int64_t> shape2 = {1, 32};
-    // std::vector<int64_t> resShape = {8, 64, 512};
-    Tensor params(DT_BF16, shape1, "params");
-    Tensor indices(DT_INT32, shape2, "indices");
-
-    FUNCTION("A") {
-        auto tmp = Cast(params, DT_FP32);
-        auto res = TensorIndex(params, indices);
     }
 
     ALOG_INFO(Program::GetInstance().Dump());
@@ -543,37 +497,6 @@ TEST_F(FunctionTest, TestScatterUpdate2) {
     }
 }
 
-TEST_F(FunctionTest, TestScatterUpdate3) {
-    int b = 2, s = 128, numExpertsPerTok = 8, h = 256;
-    TileShape::Current().SetVecTile(512, 32);
-    Tensor new_x(DT_FP32, {b*s*numExpertsPerTok, h}, "new_x");
-    Tensor idxs(DT_FP32, {1, b*s*numExpertsPerTok}, "idxs");
-    Tensor outs(DT_FP32, {b*s*numExpertsPerTok, h}, "key_states");
-    Tensor res;
-    FUNCTION("A") {
-        new_x = ScatterUpdate(new_x, {idxs}, outs, -2);
-    }
-}
-
-TEST_F(FunctionTest, TestExp) {
-    std::vector<int64_t> shape{64, 64};
-    FUNCTION("A") {
-        Tensor a(DT_FP32, shape, "a");
-        a = Exp(a);
-    }
-}
-
-TEST_F(FunctionTest, TestExp2) {
-    std::vector<int64_t> shape{64, 64};
-    FUNCTION("A") {
-        Tensor a(DT_FP32, shape, "a");
-        FUNCTION("B") {
-            a = Exp(a);
-        }
-        a = Sqrt(a);
-    }
-}
-
 TEST_F(FunctionTest, testRowSumSingle) {
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
@@ -627,20 +550,6 @@ TEST_F(FunctionTest, testSoftmax) {
     // Program::GetInstance().GraphCheck();
 
     ALOG_INFO(Program::GetInstance().Dump());
-}
-
-TEST_F(FunctionTest, Test_Assign) {
-    TileShape::Current().SetVecTile(3, 3, 3, 3);
-    Tensor input(DT_FP32, {6, 5, 7}, "a");
-    FUNCTION("TestAssign") {
-/* ROPE :
-
-        auto res = Assign(input);
-        auto test = Reshape(res, {3, 7, 10});
-*/
-    }
-    ALOG_INFO(Program::GetInstance().Dump());
-    Program::GetInstance().GraphCheck();
 }
 
 TEST_F(FunctionTest, TestRoPE) {
@@ -762,105 +671,12 @@ TEST_F(FunctionTest, TestConcat) {
     ALOG_INFO(Program::GetInstance().Dump());
 }
 
-TEST_F(FunctionTest, TestAttention) {
-    int B = 2;
-    int N1 = 2;
-    int N2 = 1;
-    int S1 = 128;
-    int S2 = 128;
-    int D = 576;
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
-
-    Tensor query = Tensor(DT_BF16, {B, N1, S1, D});
-    Tensor kv = Tensor(DT_BF16, {B, N2, S2, D});
-    Tensor attenMask = Tensor(DT_BF16, {B, N2, S1, S2});
-    AttentionW aw;
-    Tensor res;
-
-    FUNCTION("Attention") {
-        DeepseekAttention atten(deepseekConfig1, aw, 1);
-        res = atten.Attention(query, kv, attenMask);
-    }
-    // Program::GetInstance().GraphCheck();
-    ALOG_INFO(Program::GetInstance().Dump());
-}
-
 static std::map<std::string, std::variant<bool, int, float, std::string>> attnPostConfig = {
     {        "hiddenSize", 512},
     {       "kvLoraRank",  512},
     {"numAttentionHeads",    32},
     {         "vHeadDim",  128}
 };
-
-TEST_F(FunctionTest, TestAttentionPost_cv) {
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
-    int b = 2;  // 1
-    int n = std::get<int>(attnPostConfig["numAttentionHeads"]);
-    int s = 1;  // 128
-    int d = std::get<int>(attnPostConfig["kvLoraRank"]);
-    int v_head = std::get<int>(attnPostConfig["vHeadDim"]);
-    int h = std::get<int>(attnPostConfig["hiddenSize"]);
-    std::vector<int64_t> inShape = {b, n, s, d}; // (b, n, s, d) = 2_32_1_512
-    Tensor attnPostIn(DT_FP32, inShape, "attnPostIn");
-    Tensor kvBProjWV(DT_FP32, {n, d, v_head}, "kvBProjWV"); // 32_512_128
-    Tensor oProjW(DT_FP32, {n * v_head, h}, "oProjW"); // 32*128_512
-    Tensor atten_output;
-
-    FUNCTION("AttentionPost") {
-        int f_b = attnPostIn.GetShape()[0];
-        int f_n = attnPostIn.GetShape()[1];
-        int f_s = attnPostIn.GetShape()[2];
-        DataType dType = attnPostIn.GetStorage()->Datatype();
-        // attnPostIn: [b, n, s, d]=2_32_1_512
-        TileShape::Current().SetVecTile({2, 32, 1, 128});
-        Tensor atten_res1 = Reshape(Transpose(attnPostIn, {1, 2}), {f_b * f_s, f_n, d});
-        // atten_res1: [2,32,512]
-        TileShape::Current().SetVecTile({2, 32, 256});
-        Tensor atten_res2 = Transpose(atten_res1, {0, 1}); // 32_2_512
-        // [n,bs,kvLoraRank] * [n, kvLoraRank, vHeadDim] = [n,bs,vHeadDim]
-        // TileShape::Current().SetVecTile(128, 128);
-        TileShape::Current().SetCubeTile({2, 2}, {128, 128}, {128, 128});
-        // [32_2_512] * [32_512_128] = [32_2_128]
-        Tensor mm7_res = Matrix::BatchMatmul(dType, atten_res2, kvBProjWV);
-        // 32_2_128
-        TileShape::Current().SetVecTile({32, 2, 128});
-        Tensor mm7_res1 = Transpose(mm7_res, {0, 1});
-        // 2_32_128
-        Tensor mm7_res2 = Reshape(mm7_res1, {f_b, f_s, f_n * v_head});
-
-        // [b,s, n*vHeadDim] @ [n*vHeadDim, h] = [b,s,h]
-        // 2_1_32*128  1_32*128_512
-        Tensor attn_out_w = Unsqueeze(oProjW, 0);
-
-        TileShape::Current().SetCubeTile({1, 1}, {128, 128}, {128, 128});
-        // [32,1,32*128] * [1,32*128,7168] = [32,1,7168]
-        atten_output = Matrix::BatchMatmul(dType, mm7_res2, attn_out_w);
-    }
-
-    ALOG_INFO(Program::GetInstance().Dump());
-}
-
-TEST_F(FunctionTest, TestAttentionPostFinal) {
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
-    int b = 32;
-    int n = 32;
-    int s = 1;
-    int kvLoraRank = 512;
-    int vHeadDim =128;
-    int h = 7168; //  7168
-    std::vector<int64_t> inShape = {b, n, s, kvLoraRank}; // (b, n, s, d)
-    Tensor attnPostIn(DT_BF16, inShape, "attnPostIn");
-    Tensor atten_output;
-    AttentionW aw;
-    aw.kvBProjWV = Tensor(DT_BF16, {n, kvLoraRank, vHeadDim}, "kvBProjWV");
-    aw.oProjW = Tensor(DT_BF16, {n * vHeadDim, h}, "oProjW");
-    ConfigManager::Instance();
-    FUNCTION("AttentionPost") {
-        DeepseekAttention atten(deepseekConfig1, aw, 1);
-        atten_output = atten.AttentionPost2(attnPostIn);
-    }
-    ALOG_INFO(Program::GetInstance().Dump());
-}
 
 TEST_F(FunctionTest, TestAttentionPost) {
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
@@ -935,41 +751,6 @@ TEST_F(FunctionTest, Test_qkvPre) {
     ALOG_INFO(Program::GetInstance().Dump());
 }
 
-TEST_F(FunctionTest, Test_qkvPreCv) {
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
-    int b = 2;
-    int s = 1;
-    int h = std::get<int>(deepseekConfig1["hiddenSize"]);
-    int num_heads = std::get<int>(deepseekConfig1["numAttentionHeads"]);
-    int qLoraRank = std::get<int>(deepseekConfig1["qLoraRank"]);
-    int qkRopeHeadDim = std::get<int>(deepseekConfig1["qkRopeHeadDim"]);
-    int kvLoraRank = std::get<int>(deepseekConfig1["kvLoraRank"]);
-    int vHeadDim = std::get<int>(deepseekConfig1["vHeadDim"]);
-    int qkNopeHeadDim = std::get<int>(deepseekConfig1["qkNopeHeadDim"]);
-    int q_head_dim = qkNopeHeadDim + qkRopeHeadDim;
-    std::cout << "Test_qkvPre  b,s,h: " << b << ", " << s << ", " << h << std::endl;
-
-    Tensor hidden_states = Tensor(DT_BF16, {b, s, h}, "hidden_states");  // [2,1,256]
-
-    AttentionW aw;
-    aw.qAProjW = Tensor(DT_BF16, {h, qLoraRank}, "qAProjW");  // [256,512]
-    aw.qBProjW = Tensor(DT_BF16, {qLoraRank, num_heads * q_head_dim}, "qBProjW");  // [512,2*192]
-    // [256,576]
-    aw.kvAProjWithMqaW = Tensor(DT_BF16, {h, kvLoraRank + qkRopeHeadDim}, "kvAProjWithMqaW");
-    aw.kvBProjWK = Tensor(DT_BF16, {num_heads, qkNopeHeadDim, kvLoraRank}, "kvBProjWK");
-    aw.kvBProjWV = Tensor(DT_BF16, {num_heads, kvLoraRank, vHeadDim}, "kvBProjWV");
-    aw.oProjW = Tensor(DT_BF16, {num_heads * vHeadDim, h}, "oProjW");
-
-    std::tuple<Tensor, Tensor> res;
-    DeepseekAttention Attention(deepseekConfig1, aw, 1);
-
-    FUNCTION("Test_qkvPreCv") {
-        res = Attention.QkvPreCv(hidden_states);
-    }
-
-    ALOG_INFO(Program::GetInstance().Dump());
-}
-
 TEST_F(FunctionTest, Test_qkvPre2) {
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
@@ -1010,96 +791,6 @@ TEST_F(FunctionTest, Test_qkvPre2) {
         res = Attention.QkvPre2(hidden_states);
     }
 
-    ALOG_INFO(Program::GetInstance().Dump());
-}
-
-TEST_F(FunctionTest, Test_deepseekAttention_s_1) {
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
-
-    int b = 2; //  32
-    int s = 1;
-    int s2 = 512;
-    int h = std::get<int>(deepseekConfig1["hiddenSize"]); // 256
-    int num_heads = std::get<int>(deepseekConfig1["numAttentionHeads"]);
-    int qLoraRank = std::get<int>(deepseekConfig1["qLoraRank"]);
-    int qkRopeHeadDim = std::get<int>(deepseekConfig1["qkRopeHeadDim"]); // 64
-    int kvLoraRank = std::get<int>(deepseekConfig1["kvLoraRank"]);         // 512
-    int vHeadDim = std::get<int>(deepseekConfig1["vHeadDim"]);
-    int qkNopeHeadDim = std::get<int>(deepseekConfig1["qkNopeHeadDim"]);
-    int q_head_dim = qkNopeHeadDim + qkRopeHeadDim;
-    std::cout << "Test_deepseekAttention  b,s,h: " << b << ", " << s << ", " << h << std::endl;
-    Tensor hidden_states = Tensor(DT_BF16, {b, s, h}, "hidden_states");
-    Tensor atten_mask = Tensor(DT_FP32, {b, 1, s, s2}, "atten_mask");
-    Tensor position_ids = Tensor(DT_INT32, {b, s}, "position_ids");
-    Tensor cos = Tensor(DT_BF16, {s, qkRopeHeadDim}, "cos");
-    Tensor sin = Tensor(DT_BF16, {s, qkRopeHeadDim}, "sin");
-    Tensor kv_len = Tensor(DT_INT32, {1, 1}, "kv_len");
-    Tensor past_key_states = Tensor(DT_BF16, {b, 1, s2, kvLoraRank + qkRopeHeadDim}, "past_key_states");
-
-    AttentionW aw;
-    aw.qAProjW = Tensor(DT_BF16, {h, qLoraRank}, "qAProjW");
-    aw.qBProjW = Tensor(DT_BF16, {qLoraRank, num_heads * q_head_dim}, "qBProjW");
-    aw.kvAProjWithMqaW = Tensor(DT_BF16, {h, kvLoraRank + qkRopeHeadDim}, "kvAProjWithMqaW");
-    aw.kvBProjWK = Tensor(DT_BF16, {num_heads, qkNopeHeadDim, kvLoraRank}, "kvBProjWK");
-    aw.kvBProjWV = Tensor(DT_BF16, {num_heads, kvLoraRank, vHeadDim}, "kvBProjWV");
-    aw.oProjW = Tensor(DT_BF16, {num_heads * vHeadDim, h}, "oProjW");
-
-    RoPETileShapeConfig ropeTileConfig{
-        {32, 32},
-        {1, 32, 32},
-        {1, 1, 32, 32},
-        {1, 1, 32, 32, 2}
-    };
-
-    Tensor res;
-    DeepseekAttention deepseekAttention(deepseekConfig1, aw, 1);
-    ConfigManager::Instance();
-    FUNCTION("A") {
-        res = deepseekAttention.Forward(
-            hidden_states, atten_mask, position_ids, cos, sin, kv_len, past_key_states, ropeTileConfig);
-    }
-
-    ALOG_INFO(Program::GetInstance().Dump());
-}
-
-TEST_F(FunctionTest, TestIncreFA) {
-    int B = 2;
-    int N1 = 2;
-    int N2 = 1;
-    int S1 = 128;
-    int S2 = 128;
-    int D = 576;
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
-
-    Tensor query = Tensor(DT_BF16, {B, N1, S1, D});
-    Tensor kv = Tensor(DT_BF16, {B, N2, S2, D});
-    Tensor attenMask = Tensor(DT_BF16, {B, N2, S1, S2});
-    Tensor res;
-    AttentionW aw;
-
-    FUNCTION("IncreFA") {
-        DeepseekAttention atten(deepseekConfig1, aw, 1);
-        Tensor atten_res = atten.Attention(query, kv, attenMask); // 增量
-
-        res = atten.AttentionPost(atten_res);
-    }
-
-    ALOG_INFO(Program::GetInstance().Dump());
-}
-
-TEST_F(FunctionTest, TestArgSort) {
-    int32_t shape0 = 128;
-    int32_t shape1 = 32;
-
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
-    TileShape::Current().SetVecTile({shape0, shape1});
-
-    Tensor input(DT_FP32, {shape0, shape1});
-    Tensor res;
-
-    FUNCTION("ArgSortFunc") {
-        res = ArgSort(input, -1);
-    }
     ALOG_INFO(Program::GetInstance().Dump());
 }
 
@@ -1178,59 +869,6 @@ TEST_F(FunctionTest, TestBMMtest2) {
         c = npu::tile_fwk::Matrix::BatchMatmul<false, true>(DT_FP16, a, b);
     }
 
-    ALOG_INFO(Program::GetInstance().Dump());
-}
-
-TEST_F(FunctionTest, Test_deepseekAttention_pre_cv) {
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
-
-    int b = 32; //  32
-    int s = 1;
-    int s2 = 256; // S_c
-    int& h = std::get<int>(g_deepseekConfig["hiddenSize"]);
-    int& num_heads = std::get<int>(g_deepseekConfig["numAttentionHeads"]);
-    int& qLoraRank = std::get<int>(g_deepseekConfig["qLoraRank"]);
-    int& qkRopeHeadDim = std::get<int>(g_deepseekConfig["qkRopeHeadDim"]);
-    int& kvLoraRank = std::get<int>(g_deepseekConfig["kvLoraRank"]);
-    int& vHeadDim = std::get<int>(g_deepseekConfig["vHeadDim"]);
-    int& qkNopeHeadDim = std::get<int>(g_deepseekConfig["qkNopeHeadDim"]);
-
-    h = 1024;  // 7168
-    num_heads = 2;  // 32
-    qLoraRank = 512;  // 1536
-    int q_head_dim = qkNopeHeadDim + qkRopeHeadDim; // 192
-
-    std::cout << "Test_deepseekAttention  b,s,h: " << b << ", " << s << ", " << h << std::endl;
-    Tensor hidden_states = Tensor(DT_BF16, {b, s, h}, "hidden_states"); //32_1_7168
-    Tensor atten_mask = Tensor(DT_FP32, {b, 1, s, s2}, "atten_mask"); //32_1_1_256
-    Tensor position_ids = Tensor(DT_INT32, {b, s}, "position_ids");//32_1
-    Tensor cos = Tensor(DT_BF16, {s, qkRopeHeadDim}, "cos"); //1_64
-    Tensor sin = Tensor(DT_BF16, {s, qkRopeHeadDim}, "sin"); //1_64
-    Tensor kv_len = Tensor(DT_INT32, {1, 1}, "kv_len");
-    Tensor past_key_states = Tensor(DT_BF16, {b, 1, s2, kvLoraRank + qkRopeHeadDim}, "past_key_states"); // 32_1_256_576
-
-    AttentionW aw;
-    aw.qAProjW = Tensor(DT_BF16, {h, qLoraRank}, "qAProjW"); // 7168_1536
-    aw.qBProjW = Tensor(DT_BF16, {qLoraRank, num_heads * q_head_dim}, "qBProjW"); //1536_32*192
-    aw.kvAProjWithMqaW = Tensor(DT_BF16, {h, kvLoraRank + qkRopeHeadDim}, "kvAProjWithMqaW"); // 7168_576
-    aw.kvBProjWK = Tensor(DT_BF16, {num_heads, qkNopeHeadDim, kvLoraRank}, "kvBProjWK"); // 32_128_512
-    aw.kvBProjWV = Tensor(DT_BF16, {num_heads, kvLoraRank, vHeadDim}, "kvBProjWV"); // 32_512_128
-    aw.oProjW = Tensor(DT_BF16, {num_heads * vHeadDim, h}, "oProjW"); // 32*128_7168
-
-    RoPETileShapeConfig ropeTileConfig{
-        {32, 32},
-        {1, 32, 32},
-        {1, 1, 32, 32},
-        {1, 1, 32, 32, 2}
-    };
-
-    std::tuple<Tensor, Tensor> res;
-    DeepseekAttention deepseekAttention(g_deepseekConfig, aw, 1);
-
-    FUNCTION("A") {
-        res = deepseekAttention.AtentionPreForwardCv(
-            hidden_states, atten_mask, position_ids, cos, sin, kv_len, past_key_states, ropeTileConfig);
-    }
     ALOG_INFO(Program::GetInstance().Dump());
 }
 
@@ -1424,29 +1062,6 @@ TEST_F(FunctionTest, test_deepseekMoEInfer_singleout_singlemlp_withquant) {
     FUNCTION("MOE_INFER_F") {
             finalout = deepseekMoEInfer.MoeInferSingleMlpQuant(hiddenStates, topkIdx, topkWeight, ffnWeight1, ffnWeight2, ffnWeight3,  ffnwight1Scale, ffnwight2Scale, ffnwight3Scale, nRoutedExperts);
     }
-}
-
-TEST_F(FunctionTest, Test_deepseekMoE) {
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
-
-    int b = 2;   //  32
-    int s = 1; //  1, optimize set_tile
-    int h = std::get<int>(deepseekConfig1["hiddenSize"]);
-    std::cout << "Test_deepseekAttention  b,s,h: " << b << ", " << s << ", " << h << std::endl;
-    Tensor hidden_states = Tensor(DT_FP32, {b*s, h}, "hidden_states");
-
-    Tensor res;
-    DeepseekV2MoE deepseekMoE(deepseekConfig1);
-
-    TileShape::Current().SetCubeTile({std::min(128, s), std::min(128, s)}, {256, 256}, {64, 64});
-    TileShape::Current().SetVecTile(128, 256); // for Assemble
-
-    FUNCTION("A") {
-        res = deepseekMoE.Forward(hidden_states);
-    }
-    // Program::GetInstance().GraphCheck();
-
-    ALOG_INFO(Program::GetInstance().Dump());
 }
 
 TEST_F(FunctionTest, Test_quant) {

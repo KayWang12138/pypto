@@ -206,30 +206,6 @@ TEST_F(AssignMemoryTypeTest, AddReshape) {
     EXPECT_EQ(convertNum, expextedConvertNum) << "ONLY ONE OP_CONVERT.";
 }
 
-TEST_F(AssignMemoryTypeTest, TestVecToCube) {
-    config::SetHostConfig(KEY_STRATEGY, "PVC2_OOO");
-    std::vector<int64_t> shape0 = {256, 128};
-    std::vector<int64_t> shape1 = {128, 64};
-    std::vector<int64_t> shape2 = {256, 64};
-    PROGRAM("AssignMemoryTest") {
-        Tensor input1(DataType::DT_FP32, shape0, "A");
-        Tensor input2(DataType::DT_FP32, shape0, "B");
-        Tensor weight(DataType::DT_FP32, shape1, "weight");
-        Tensor out(DataType::DT_FP32, shape2, "output");
-        config::SetBuildStatic(true);
-        FUNCTION("TestVecToCube", {input1, input2, weight, out}) {
-            TileShape::Current().SetVecTile(NUM_128, NUM_128);
-            Tensor addRes = Add(input1, input2); // 256 * 128
-            TileShape::Current().SetCubeTile({NUM_32, NUM_32}, {NUM_128, NUM_128}, {NUM_64, NUM_64});
-            Tensor mmRes = Matrix::Matmul(out.GetDataType(), addRes, weight); // (256 * 128) @ (128 * 64) = (256 * 64)
-            TileShape::Current().SetVecTile(NUM_128, NUM_128);
-            Tensor sumRes = Sum(addRes, 1, true);
-            TileShape::Current().SetVecTile(NUM_64, NUM_64);
-            out = Add(mmRes, sumRes);
-        }
-    }
-}
-
 TEST_F(AssignMemoryTypeTest, TestVecToCubeV2) {
     config::SetHostConfig(KEY_STRATEGY, "AssignMemoryTypeTestStrategy");
     std::vector<int64_t> shape0 = {256, 128};

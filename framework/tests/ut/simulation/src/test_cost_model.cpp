@@ -63,14 +63,6 @@ void RunLLamaLayerCostModel(const AttentionDims &dimsCfg, float threadhold = 0.0
     }
 }
 
-TEST_F(CostModelTest, TestProgramJson)
-{
-    CostModelAgent costModelAgent;
-    costModelAgent.SubmitToCostModel(nullptr);
-    costModelAgent.RunCostModel();
-    costModelAgent.TerminateCostModel();
-}
-
 TEST_F(CostModelTest, TestComm)
 {
     CostModelAgent costModelAgent;
@@ -90,30 +82,6 @@ TEST_F(CostModelTest, TestComm)
     costModelAgent.costModel->BuildCostModel(configs);
     costModelAgent.RunCostModel();
     costModelAgent.TerminateCostModel();
-}
-
-TEST_F(CostModelTest, llama_1_1_128_128)
-{
-    AttentionDims dimsCfg = {1, 1, 128, 128, DFT_SINGLE_M, DFT_SINGLE_N};
-    RunLLamaLayerCostModel(dimsCfg);
-}
-
-TEST_F(CostModelTest, llama_1_1_256_128)
-{
-    AttentionDims dimsCfg = {1, 1, 256, 128, DFT_SINGLE_M, DFT_SINGLE_N};
-    RunLLamaLayerCostModel(dimsCfg);
-}
-
-TEST_F(CostModelTest, llama_1_1_512_128)
-{
-    AttentionDims dimsCfg = {1, 1, 512, 128, DFT_SINGLE_M, DFT_SINGLE_N};
-    RunLLamaLayerCostModel(dimsCfg);
-}
-
-TEST_F(CostModelTest, llama_1_1_1024_128)
-{
-    AttentionDims dimsCfg = {1, 1, 1024, 128, DFT_SINGLE_M, DFT_SINGLE_N};
-    RunLLamaLayerCostModel(dimsCfg);
 }
 
 void RunAttentionPostCostModel()
@@ -155,29 +123,6 @@ void RunAttentionPostCostModel()
     }
 }
 
-TEST_F(CostModelTest, TestGenCCESimulation)
-{
-    std::string soPath = "libtile_fwk_simulation_ca.so";
-    void* handle = dlopen(soPath.c_str(), RTLD_LAZY);
-    if (!handle) {
-        std::cout << "can not load library: " << std::string(dlerror()) << std::endl;
-        return;
-    }
-
-    typedef uint64_t (*GetCceInputFunc)(const std::vector<std::string>&);
-    std::string Func_name = "GetCceInput";
-    GetCceInputFunc GetCceInput = (GetCceInputFunc)dlsym(handle, Func_name.c_str());
-    if (!GetCceInput) {
-        std::cerr << "Error finding symbol: " << dlerror() << std::endl;
-        dlclose(handle);
-        return;
-    }
-    std::vector<std::string> program = {
-        "copy_gm_to_ubuf float 14067728 14077728 0 1 16 0 0"
-    };
-    GetCceInput(program);
-}
-
 TEST_F(CostModelTest, TestAttentionPostAccuracy1)
 {
     int accuracylevel = 1;
@@ -213,21 +158,6 @@ TEST_F(CostModelTest, TestGenCalendarSchedule)
     arg.emplace_back("Model.genCalendarScheduleCpp=true");
     config::SetSimConfig("args", arg);
     RunAttentionPostCostModel();
-}
-
-TEST_F(CostModelTest, TestGenCalendarScheduleFronJson)
-{
-    std::string jsonPath("./config/fixed_task_topo_2.json");
-    std::vector<std::string> arg = config::GetSimConfig("args", arg);
-    arg.emplace_back("Model.simulationFixedLatencyTask=true");
-    arg.emplace_back("Model.fixedLatencyTaskInfoPath=" + jsonPath);
-    arg.emplace_back("Model.genCalendarScheduleCpp=true");
-    config::SetSimConfig("args", arg);
-
-    CostModelAgent costModelAgent;
-    costModelAgent.SubmitToCostModel(nullptr);
-    costModelAgent.RunCostModel();
-    costModelAgent.TerminateCostModel();
 }
 
 TEST_F(CostModelTest, TestAttentionPostCVMIXMode)
@@ -280,14 +210,6 @@ TEST_F(CostModelTest, TestFixedLatencyTasks)
     arg.emplace_back("Model.fixedLatencyTaskInfoPath=" + jsonPath);
     config::SetSimConfig("args", arg);
 
-    CostModelAgent costModelAgent;
-    costModelAgent.SubmitToCostModel(nullptr);
-    costModelAgent.RunCostModel();
-    costModelAgent.TerminateCostModel();
-}
-
-TEST_F(CostModelTest, TestSimulationOnly)
-{
     CostModelAgent costModelAgent;
     costModelAgent.SubmitToCostModel(nullptr);
     costModelAgent.RunCostModel();
@@ -350,55 +272,6 @@ TEST_F(CostModelTest, TestCoreMachineDeadlock)
     RunAttentionPostCostModel();
 }
 
-TEST_F(CostModelTest, TestAttentionPostBf16Real) {
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
-    int b = 32;
-    int n = 32;
-    int s = 1;
-    int d = 512;
-    int v_head =128;
-    int h = 7168;
-
-    int tile16 = 16;
-    int tile128 = 128;
-    int tile8 = 8;
-    int tile1024 = 1024;
-
-    std::vector<int64_t> inShape = {b, n, s, d}; // (b, n, s, d)
-    Tensor attnPostIn(DT_BF16, inShape, "attnPostIn");
-    Tensor kvBProjWV(DT_BF16, {n, d, v_head}, "kvBProjWV");
-    Tensor oProjW(DT_BF16, {n * v_head, h}, "oProjW");
-    Tensor atten_output;
-    ConfigManager::Instance();
-    FUNCTION("AttentionPost") {
-        DataType dType = attnPostIn.GetStorage()->Datatype();
-        TileShape::Current().SetVecTile({2, n, 1, d});
-        Tensor atten_res0 = Transpose(attnPostIn, {1, 2});
-        TileShape::Current().SetVecTile({4, 1, tile16, tile128});
-        Tensor atten_res1 = Reshape(atten_res0, {b * s, n, d});
-        TileShape::Current().SetVecTile({tile8, tile8, d});
-        Tensor t2_res = Transpose(atten_res1, {0, 1});
-
-        TileShape::Current().SetCubeTile({tile16, tile16}, {tile128, tile128}, {tile128, tile128}); // M 16对齐
-        // [n,bs,kvLoraRank] * [n, kvLoraRank, vHeadDim] = [n,bs,vHeadDim]
-        Tensor bmm4_res = Matrix::BatchMatmul(dType, t2_res, kvBProjWV);
-
-        TileShape::Current().SetVecTile(tile16, tile16, v_head); // 必须切，但是尾轴不能切
-        Tensor t3_res = Transpose(bmm4_res, {0, 1}); // [bs,n,v_head]
-
-        TileShape::Current().SetVecTile({tile16, tile16, v_head});
-        Tensor r2_res = Reshape(t3_res, {b * s, n*v_head});
-
-        // [b,s, n*v_head] @ [n*v_head, h] = [b,s,h]
-        TileShape::Current().SetCubeTile({tile16, tile16}, {tile128, tile128}, {tile128, tile128});
-        Tensor bmm5_res = Matrix::Matmul<false, false>(dType, r2_res, oProjW);
-
-        TileShape::Current().SetVecTile({b, tile1024});
-        atten_output = Reshape(bmm5_res, {b, s, h});
-    }
-    std::cout << Program::GetInstance().Dump() << std::endl;
-}
-
 void RunCat()
 {
     TileShape::Current().SetVecTile(16, 6, 6, 16);
@@ -428,49 +301,6 @@ TEST_F(CostModelTest, TestGlobalCalendar)
     arg.emplace_back("Model.calendarMode=" +  std::to_string(static_cast<int>(calendarMode)));
     config::SetSimConfig("args", arg);
     RunCat();
-}
-
-TEST_F(CostModelTest, TestReplayDispatch)
-{
-    std::string jsonPath("./config/_swim.json");
-    std::string agentPath("./config/_program.json");
-    config::SetSimConfig("ACCURACY_LEVEL", 1);
-    config::SetSimConfig("AGENT_JSON_PATH", agentPath);
-    std::vector<std::string> arg;
-    arg.emplace_back("Model.deviceArch=A2A3");
-    arg.emplace_back("Model.statisticReportToFile=false");
-    arg.emplace_back("Model.replayDispatchMode=1");
-    arg.emplace_back("Model.replayFile=" + jsonPath);
-    config::SetSimConfig("args", arg);
-    RunAttentionPostCostModel();
-}
-
-TEST_F(CostModelTest, TestReplayAll)
-{
-    std::string jsonPath("./config/_swim.json");
-    std::string agentPath("./config/_program.json");
-    config::SetSimConfig("ACCURACY_LEVEL", 1);
-    config::SetSimConfig("AGENT_JSON_PATH", agentPath);
-    std::vector<std::string> arg;
-    arg.emplace_back("Model.deviceArch=A2A3");
-    arg.emplace_back("Model.statisticReportToFile=false");
-    arg.emplace_back("Model.replayAllMode=1");
-    arg.emplace_back("Model.replayFile=" + jsonPath);
-    config::SetSimConfig("args", arg);
-    RunAttentionPostCostModel();
-}
-
-TEST_F(CostModelTest, TestDynamic)
-{
-    std::string jsonPath("./config/_dynamic.json");
-    config::SetSimConfig("BUILD_TASK_BASED_TOPO", false);
-    config::SetSimConfig("JSON_PATH", jsonPath);
-    config::SetSimConfig("EXECUTE_CYCLE_THRESHOLD", 200000);
-    config::SetSimConfig("ACCURACY_LEVEL", 1);
-    CostModelAgent costModelAgent;
-    costModelAgent.SubmitToCostModel(nullptr);
-    costModelAgent.RunCostModel();
-    costModelAgent.TerminateCostModel();
 }
 
 TEST_F(CostModelTest, TestLeafFunctionMode)

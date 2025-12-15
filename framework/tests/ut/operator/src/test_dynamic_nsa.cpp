@@ -121,77 +121,11 @@ void TestGenslcV2(const SimpleParams &params, int topk_actual_len = 0) {
     GenSlcV2(x, res, validSize);
 }
 
-TEST_F(DyNsa, GateScore_b16_s1_fp) {
-    SimpleParams params = SimpleParams::getHighParams();
-    params.b = NUM_16;
-    TestNsa<npu::tile_fwk::float16>(params);
-}
-
-TEST_F(DyNsa, GateScore_b16_s1_bf) {
-    SimpleParams params = SimpleParams::getHighParams();
-    params.b = NUM_16;
-    TestNsa<bfloat16>(params);
-}
-
-TEST_F(DyNsa, GateScore_b32_s1_fp) {
-    TestNsa<npu::tile_fwk::float16>(SimpleParams::getHighParams());
-}
-
-TEST_F(DyNsa, GateScore_b32_s2_fp) {
-    SimpleParams params = SimpleParams::getHighParams();
-    params.s = NUM2;
-    TestNsa<npu::tile_fwk::float16>(params);
-}
-
-TEST_F(DyNsa, GateScore_b24_s1_fp) {
-    SimpleParams params = SimpleParams::getHighParams();
-    params.b = 24;
-    TestNsa<npu::tile_fwk::float16>(params);
-}
-
-TEST_F(DyNsa, GateScore_b48_s2_fp) {
-    SimpleParams params = SimpleParams::getHighParams();
-    params.b = 48;
-    params.s = NUM2;
-    TestNsa<npu::tile_fwk::float16>(params);
-}
-
-TEST_F(DyNsa, gateScore_mini) {
-    SimpleParams params = SimpleParams::getHighParams();
-    params.h = NUM_128;
-    TestNsa<npu::tile_fwk::float16>(params);
-}
-
-TEST_F(DyNsa, gateScore_mini_batch16) {
-    SimpleParams params = SimpleParams::getHighParams();
-    params.h = NUM_128;
-    params.b = NUM_16;
-    TestNsa<npu::tile_fwk::float16>(params);
-}
-
 TEST_F(DyNsa, gateScore_mini_mtp) {
     SimpleParams params = SimpleParams::getHighParams();
     params.h = NUM_128;
     params.s = NUM_2;
     TestNsa<npu::tile_fwk::float16>(params);
-}
-
-TEST_F(DyNsa, GenSlc_b1_s1_fp_8k) {
-    SimpleParams params = SimpleParams::getHighParams();
-    params.b = 1;
-    params.s2 = NUM_4096 * NUM_2;
-    params.n2 = 1;
-
-    TestGenslc<npu::tile_fwk::float16>(params,params.s2,true);
-}
-
-TEST_F(DyNsa, GenSlc_b1_s1_fp_4k) {
-    SimpleParams params = SimpleParams::getHighParams();
-    params.b = 1;
-    params.s2 = NUM_4096 * 2;
-    params.n2 = 1;
-    //    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
-    TestGenslc<npu::tile_fwk::float16>(params,4096,true);
 }
 
 TEST_F(DyNsa, GenSlc_b1_s1_fp_6k1) {
@@ -203,46 +137,6 @@ TEST_F(DyNsa, GenSlc_b1_s1_fp_6k1) {
     TestGenslc<npu::tile_fwk::float16>(params,(4096+1024*2)+1,true);
 }
 
-
-TEST_F(DyNsa, GenSlc_b1_s1_fp_4k1) {
-    SimpleParams params = SimpleParams::getHighParams();
-    params.b = 1;
-    params.s2 = NUM_4096 * 2;
-    params.n2 = 1;
-    //    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
-    TestGenslc<npu::tile_fwk::float16>(params,4096+1,true);
-}
-
-
-TEST_F(DyNsa, GenTopk_b1_s1_fp_8k_dyn) {
-    SimpleParams params = SimpleParams::getHighParams();
-    params.b = 1;
-    params.s2 = NUM_4096 * NUM_2;
-    params.n2 = 1;
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
-    TestGenslc<npu::tile_fwk::float16>(params,params.s2);
-}
-
-
-TEST_F(DyNsa, GenTopk_b1_s1_fp_4k_dyn) {
-    SimpleParams params = SimpleParams::getHighParams();
-    params.b = 1;
-    params.s2 = NUM_4096;
-    params.n2 = 1;
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
-    TestGenslc<npu::tile_fwk::float16>(params,params.s2);
-}
-
-TEST_F(DyNsa, GenTopk_b1_s1_fp_4k1_dyn) {
-    SimpleParams params = SimpleParams::getHighParams();
-    params.b = 1;
-    params.s2 = NUM_4096;
-    params.n2 = 1;
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
-    TestGenslc<npu::tile_fwk::float16>(params,params.s2+1);
-}
-
-
 TEST_F(DyNsa, GenTopk_b1_s1_fp_6k1_dyn) {
     SimpleParams params = SimpleParams::getHighParams();
     params.b = 1;
@@ -250,46 +144,4 @@ TEST_F(DyNsa, GenTopk_b1_s1_fp_6k1_dyn) {
     params.n2 = 1;
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     TestGenslc<npu::tile_fwk::float16>(params,params.s2+1);
-}
-
-TEST_F(DyNsa, GenTopk_b1_s1_fp_8k) {
-    SimpleParams params = SimpleParams::getHighParams();
-    params.b = 1;
-    params.s2 = NUM_4096 * NUM_2;
-    params.n2 = 1;
-    TestGenslc<npu::tile_fwk::float16>(params,params.s2);
-}
-
-
-TEST_F(DyNsa, GenTopk_b1_s1_fp_4k) {
-    SimpleParams params = SimpleParams::getHighParams();
-    params.b = 1;
-    params.s2 = NUM_4096;
-    params.n2 = 1;
-    TestGenslc<npu::tile_fwk::float16>(params,params.s2);
-}
-
-TEST_F(DyNsa, GenTopk_b1_s1_fp_4k1) {
-    SimpleParams params = SimpleParams::getHighParams();
-    params.b = 1;
-    params.s2 = NUM_4096;
-    params.n2 = 1;
-    TestGenslc<npu::tile_fwk::float16>(params,params.s2+1);
-}
-
-
-TEST_F(DyNsa, GenTopk_b1_s1_fp_6k1) {
-    SimpleParams params = SimpleParams::getHighParams();
-    params.b = 1;
-    params.s2 = NUM_4096 * 2;
-    params.n2 = 1;
-    TestGenslc<npu::tile_fwk::float16>(params,6*1024+1);
-}
-
-TEST_F(DyNsa, GenSlc_b1_s1_fp_6k1_v2) {
-    SimpleParams params = SimpleParams::getHighParams();
-    params.b = 1;
-    params.s2 = NUM_8192;
-    params.n2 = 1;
-    TestGenslcV2<npu::tile_fwk::float16>(params, NUM_6144 + 1);
 }

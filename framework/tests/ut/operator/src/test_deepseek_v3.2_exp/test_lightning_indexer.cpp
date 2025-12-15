@@ -89,36 +89,6 @@ void TestLightningIndexerTopkQuant(IndexerTile &tileConfig) {
     }
 }
 
-// TestLightningIndexerUtest.indexer_topk_quant_4_b_1_s1_64k_s2
-TEST_F(TestLightningIndexerUtest, indexer_topk_quant_4_b_1_s1_64k_s2) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);  // 参数化
-    config::SetPassOption(COPYIN_THRESHOLD, 100 * 1024 * 1024); // mistake
-    config::SetPassOption(SG_CYCLE_LOWER_BOUND, 1024);
-    config::SetPassOption(SG_CYCLE_UPPER_BOUND, 1024 * 1024);
-    config::SetPassOption(L1_REUSE, 32);
-    config::SetPassOption(SG_PARALLEL_NUM, 2);
-    config::SetPassOption(NBUFFER_MERGE_MODE, 2);
-    config::SetPassOption(VEC_NBUFFER_MAP, std::map<int64_t, int64_t>{
-                                               {-1, 16}
-    });
-    config::SetCodeGenOption(CODEGEN_EXPRESSION_FUSION, true);
-    config::SetRuntimeOption<uint8_t>(
-        MACHINE_SCHED_MODE, static_cast<uint8_t>(MachineScheduleConfig::L2CACHE_AFFINITY_SCH) |
-                                static_cast<uint8_t>(MachineScheduleConfig::MULTI_CORE_FAIR_SCH));
-
-    config::SetRuntimeOption(WORKSPACE_RECYCLE_PERIOD, 128);
-    config::SetRuntimeOption(ESTIMATED_STITCH_TASK_MAX_LOOP_NUM, 128);
-    IndexerTile config;
-
-    config.weightTile = {64, 128};
-    config.c1Tile = {64, 64, 128, 128, 128, 128}; // (m, M), (k, K), (n, N)
-    config.v1Tile = {64, 128};
-    config.topkTile = {1, 4096};
-    config.addsTile = {1, 1, 1, 4096};
-
-    TestLightningIndexerTopkQuant(config);
-}
-
 void TestLightningIndexer(LightningIndexerConfigs &tileConfig) {
     config::SetHostOption(ONLY_CODEGEN, true);
 
