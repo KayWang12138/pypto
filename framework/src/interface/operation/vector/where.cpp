@@ -30,6 +30,12 @@ void TiledWhereOperation(Function &function, const TileShape &tileShape, size_t 
         } else if constexpr (std::is_same_v<U, const Element>) {
             inputDatatype = input.GetDataType();
         }
+        DataType selectDtype;
+        if (inputDatatype == DT_FP32 || inputDatatype == DT_BF16) {
+            selectDtype = DT_FP32;
+        } else {
+            selectDtype = DT_FP16;
+        }
         const size_t ALIGN_SIZE = 32;
         int64_t castConditionTensorSize = 1024;
         int64_t compareConditionTensorSize = 1024;
@@ -40,7 +46,7 @@ void TiledWhereOperation(Function &function, const TileShape &tileShape, size_t 
         int64_t tempByteSize = (castConditionTensorSize + compareConditionTensorSize) * BytesOf(DT_FP16) +
                                 vcmpBitResultTensorSize * BytesOf(DT_UINT8) +
                                 ((startAddrUBTensorSize * BytesOf(DT_UINT64) + ALIGN_SIZE - 1) / ALIGN_SIZE) * ALIGN_SIZE +
-                                (inputTempTensorSize + otherTempTensorSize) * BytesOf(inputDatatype);
+                                (inputTempTensorSize + otherTempTensorSize) * BytesOf(selectDtype);
 
         auto conditionTile = condition.tensor.GetStorage()->View(function, condition.tileInfo.shape, condition.tileInfo.offset);
         auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
@@ -51,6 +57,26 @@ void TiledWhereOperation(Function &function, const TileShape &tileShape, size_t 
         if (condition.tensor.GetDataType() == DT_UINT8) {
             whereBitMode = 1;
         }
+
+        Element convertedInput;
+        Element convertedOther;
+        if constexpr (std::is_same_v<U, const Element>) {
+            if (input.GetDataType() == DT_BF16) {
+                double inputValue = input.GetFloatData();
+                convertedInput = Element(DataType::DT_FP32, inputValue);
+            } else {
+                convertedInput = input;
+            }
+        }
+        if constexpr (std::is_same_v<W, const Element>) {
+            if (other.GetDataType() == DT_BF16) {
+                double otherValue = other.GetFloatData();
+                convertedOther = Element(DataType::DT_FP32, otherValue);
+            } else {
+                convertedOther = other;
+            }
+        }
+
         if constexpr (std::is_same_v<U, Input> && std::is_same_v<W, Input>) {
             auto inputTile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
             auto otherTile = other.tensor.GetStorage()->View(function, other.tileInfo.shape, other.tileInfo.offset);
@@ -61,18 +87,18 @@ void TiledWhereOperation(Function &function, const TileShape &tileShape, size_t 
             auto inputTile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
             auto &op = function.AddOperation(Opcode::OP_WHERE_TS, {conditionTile, inputTile},
                                 {resultTile, tempTensor});
-            op.SetAttribute(OpAttributeKey::scalar, other);
+            op.SetAttribute(OpAttributeKey::scalar, convertedOther);
             op.SetAttribute(OP_ATTR_PREFIX + "whereBitMode", static_cast<int64_t>(whereBitMode));
         } else if constexpr (std::is_same_v<U, const Element> && std::is_same_v<W, Input>) {
             auto otherTile = other.tensor.GetStorage()->View(function, other.tileInfo.shape, other.tileInfo.offset);
             auto &op = function.AddOperation(Opcode::OP_WHERE_ST, {conditionTile, otherTile},
                                 {resultTile, tempTensor});
-            op.SetAttribute(OpAttributeKey::scalar, input);
+            op.SetAttribute(OpAttributeKey::scalar, convertedInput);
             op.SetAttribute(OP_ATTR_PREFIX + "whereBitMode", static_cast<int64_t>(whereBitMode));
         } else if constexpr (std::is_same_v<U, const Element> && std::is_same_v<W, const Element>) {
             auto &op = function.AddOperation(Opcode::OP_WHERE_SS, {conditionTile},
                                 {resultTile, tempTensor});
-            std::vector<Element> scalars = {input, other};
+            std::vector<Element> scalars = {convertedInput, convertedOther};
             op.SetAttribute(OpAttributeKey::vectorScalar, scalars);
             op.SetAttribute(OP_ATTR_PREFIX + "whereBitMode", static_cast<int64_t>(whereBitMode));
         }
@@ -309,7 +335,8 @@ LogicalTensorPtr TensorWhereOperation(Function &function, const Tensor &conditio
     otherT2 = BinaryOperationUnsqueeze(otherT2, resultShape);
     std::vector<SymbolicScalar> resultValidShape = GetResultValidShape(conditionT0, inputT1, otherT2, resultShape);
     auto result = std::make_shared<LogicalTensor>(function, input.GetStorage()->Datatype(), resultShape, resultValidShape);
-    GraphUtils::AddDynOperation(function, Opcode::OP_WHERE_TT, {conditionT0, inputT1, otherT2}, {result}, {resultValidShape});
+    function.AddOperation(Opcode::OP_WHERE_TT, {conditionT0, inputT1, otherT2}, {result});
+    result->UpdateDynValidShape(resultValidShape);
     return result;
 }
 
@@ -340,7 +367,8 @@ LogicalTensorPtr TensorWhereOperation(Function &function, const Tensor &conditio
     inputT1 = BinaryOperationUnsqueeze(inputT1, resultShape);
     std::vector<SymbolicScalar> resultValidShape = GetResultValidShape(conditionT0, inputT1, other, resultShape);
     auto result = std::make_shared<LogicalTensor>(function, inputT1->Datatype(), resultShape, resultValidShape);
-    auto &op = GraphUtils::AddDynOperation(function, Opcode::OP_WHERE_TS, {conditionT0, inputT1}, {result}, {resultValidShape});
+    auto &op = function.AddOperation(Opcode::OP_WHERE_TS, {conditionT0, inputT1}, {result});
+    result->UpdateDynValidShape(resultValidShape);
     op.SetAttribute(OpAttributeKey::scalar, other);
     return result;
 }
@@ -373,7 +401,8 @@ LogicalTensorPtr TensorWhereOperation(Function &function, const Tensor &conditio
     std::vector<SymbolicScalar> resultValidShape= GetResultValidShape(conditionT0, input, otherT1, resultShape);
     
     auto result = std::make_shared<LogicalTensor>(function, otherT1->Datatype(), resultShape, resultValidShape);
-    auto &op = GraphUtils::AddDynOperation(function, Opcode::OP_WHERE_ST, {conditionT0, otherT1}, {result}, {resultValidShape});
+    auto &op = function.AddOperation(Opcode::OP_WHERE_ST, {conditionT0, otherT1}, {result});
+    result->UpdateDynValidShape(resultValidShape);
     op.SetAttribute(OpAttributeKey::scalar, input);
     return result;
 }
@@ -401,7 +430,8 @@ LogicalTensorPtr TensorWhereOperation(Function &function, const Tensor &conditio
         }
     }
     auto result = std::make_shared<LogicalTensor>(function, input.GetDataType(), resultShape, resultValidShape);
-    auto &op = GraphUtils::AddDynOperation(function, Opcode::OP_WHERE_SS, {conditionT0}, {result}, {resultValidShape});
+    auto &op = function.AddOperation(Opcode::OP_WHERE_SS, {conditionT0}, {result});
+    result->UpdateDynValidShape(resultValidShape);
     std::vector<Element> scalars = {input, other};
     op.SetAttribute(OpAttributeKey::vectorScalar, scalars);
     return result;

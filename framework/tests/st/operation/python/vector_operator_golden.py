@@ -849,7 +849,7 @@ def gen_logical_not_op_golden(
 ) -> bool:
     # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
     def golden_func(inputs: list, _config: dict):
-        x = torch.tensor(inputs[0])
+        x = torch.safe_tensor_conversion(inputs[0])
         x = torch.logical_not(x)
         return [np.array(x)]
 
@@ -1155,8 +1155,6 @@ def gen_where_op_golden(case_name: str, output: Path, case_index: int = None) ->
     # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
     def golden_func(inputs: list, config: dict):
         condition_np = inputs[0]
-        x = torch.from_numpy(inputs[1])
-        y = torch.from_numpy(inputs[2])
         params = config.get("params")
         flag = params["flag"]
         x_scalar = params["x_scalar"]
@@ -1177,6 +1175,10 @@ def gen_where_op_golden(case_name: str, output: Path, case_index: int = None) ->
             else:
                 raise TypeError(f"Unsupported condition dtype: {cond.dtype}")
         condition = castCondition(condition_np)
+
+        x = safe_tensor_conversion(inputs[1])
+        y = safe_tensor_conversion(inputs[2])
+
         if flag == 0:
             res = torch.where(condition, x, y)
         elif flag == 1:
@@ -1187,7 +1189,11 @@ def gen_where_op_golden(case_name: str, output: Path, case_index: int = None) ->
             res = torch.where(condition, x_scalar, y_scalar)
         else:
             raise ValueError(f"Invalid flag value: {flag}")
-        res = res.numpy()
+
+        if res.dtype == torch.bfloat16:
+            res = res.to(torch.float32).numpy()
+        else:
+            res = res.numpy()
         return [res]
 
     logging.debug("Case(%s), Golden creating...", case_name)
@@ -1616,15 +1622,13 @@ def gen_compare_op_golden(case_name: str, output: Path, case_index: int = None) 
         params = config.get("params", {})
         operation = params["compare_op"]
         mode = params.get("mode", "bool")
-        input1 = torch.tensor(inputs[0])
-
+        input1 = safe_tensor_conversion(inputs[0])
         if len(inputs) > 1:
-            input2 = torch.tensor(inputs[1])
+            input2 = safe_tensor_conversion(inputs[1])
         elif "scalar" in params:
             input2 = params["scalar"]
         else:
             input2 = params.get("other", 0)
-
         cmp_operations = {
             "eq": torch.eq,
             "ne": torch.ne,
@@ -1649,7 +1653,6 @@ def gen_compare_op_golden(case_name: str, output: Path, case_index: int = None) 
             result = torch.tensor(bitmask, dtype=torch.uint8)
         else:
             result = result.to(torch.bool)
-
         return [result.numpy()]
 
     op_type = "Compare" if "Compare" in case_name else "Cmps"
@@ -1665,6 +1668,13 @@ def as_float(value):
             return None
     value = float(value)
     return value
+
+
+def safe_tensor_conversion(arr):
+    if isinstance(arr, np.ndarray) and arr.dtype == np.dtype('bfloat16'):
+        return torch.tensor(arr.astype(np.float32), dtype=torch.bfloat16)
+    else:
+        return torch.tensor(arr)
 
 
 def element_mode(inputs, params, is_bfloat16):

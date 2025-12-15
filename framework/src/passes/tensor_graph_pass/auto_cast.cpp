@@ -116,7 +116,7 @@ Status AutoCast::InsertCast(Function &function) {
                 op->ReplaceInput(newInput, iop);
                 continue;
             }
-            auto newInput = std::make_shared<LogicalTensor>(function, DataType::DT_FP32, iop->shape, iop->Format());
+            auto newInput = std::make_shared<LogicalTensor>(function, DataType::DT_FP32, iop->shape, iop->GetDynValidShape(), iop->Format());
             InsertCastOp(function, iop, newInput, op->GetTileShape());
             op->ReplaceInput(newInput, iop);
             oldMagic2Input[iop->GetMagic()] = newInput;
@@ -132,7 +132,7 @@ Status AutoCast::InsertCast(Function &function) {
             }
             visitedOOp.insert(oop->GetMagic());
             if (oop->Datatype() == DataType::DT_BF16) {
-                auto newOutput = std::make_shared<LogicalTensor>(function, DataType::DT_FP32, oop->shape, oop->Format());
+                auto newOutput = std::make_shared<LogicalTensor>(function, DataType::DT_FP32, oop->shape, oop->GetDynValidShape(), oop->Format());
                 op->ReplaceOutput(newOutput, oop);
                 InsertCastOp(function, newOutput, oop, op->GetTileShape());
                 oldMagic2Input[oop->GetMagic()] = newOutput;

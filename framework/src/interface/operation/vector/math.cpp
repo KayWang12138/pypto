@@ -31,7 +31,7 @@ void TiledLogicalNotOperation(
         auto castConditionTensor = std::make_shared<LogicalTensor>(function, DT_FP16, castConditionShape);
 
         DataType selectDtype;
-        if (input.tensor.GetDataType() == DT_FP32) {
+        if (input.tensor.GetDataType() == DT_FP32 || input.tensor.GetDataType() == DT_BF16) {
             selectDtype = DT_FP32;
         } else {
             selectDtype = DT_FP16;
@@ -76,7 +76,7 @@ Tensor LogicalNot(const Tensor &self) {
     DECLARE_TRACER();
     bool dtypeIsValid = self.GetDataType() == DT_FP32 || self.GetDataType() == DT_FP16 ||
                         self.GetDataType() == DT_UINT8 || self.GetDataType() == DT_INT8 ||
-                        self.GetDataType() == DT_BOOL;
+                        self.GetDataType() == DT_BOOL || self.GetDataType() == DT_BF16;
     if (!dtypeIsValid) {
         std::string errorMessage = "Unsurpported Dtype " + DataType2String(self.GetDataType());
         ASSERT(false) << errorMessage;

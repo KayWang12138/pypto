@@ -53,11 +53,20 @@ static LogicalTensorDataPtr makeTensorData(DataType t, const std::vector<int64_t
     ASSERT(calc::AllClose(self, other)) << "lhs:\n" << self->ToString() << "\nrhs:\n" << other->ToString() << "\n"
 
 TEST_F(TorchAdaptorTest, LogicalNot) {
-    auto self = makeTensorData(DT_FP32, {16, 16}, 4.0f);
-    auto out = makeTensorData(DT_BOOL, {16, 16}, true);
-    auto golden = makeTensorData(DT_BOOL, {16, 16}, false);
-    calc::LogicalNot(out, self);
-    ASSERT_ALLCLOSE(out, golden);
+    {
+        auto self = makeTensorData(DT_FP32, {16, 16}, 4.0f);
+        auto out = makeTensorData(DT_BOOL, {16, 16}, true);
+        auto golden = makeTensorData(DT_BOOL, {16, 16}, false);
+        calc::LogicalNot(out, self);
+        ASSERT_ALLCLOSE(out, golden);
+    }
+    {
+        auto self = makeTensorData(DT_BF16, {16, 16}, static_cast<bfloat16>(4.0f));
+        auto out = makeTensorData(DT_BOOL, {16, 16}, true);
+        auto golden = makeTensorData(DT_BOOL, {16, 16}, false);
+        calc::LogicalNot(out, self);
+        ASSERT_ALLCLOSE(out, golden);
+    }
 }
 
 TEST_F(TorchAdaptorTest, LogicalAnd) {
@@ -533,6 +542,15 @@ TEST_F(TorchAdaptorTest, Where) {
         auto other = Element(DT_FP32, 4.0f);
         auto golden = makeTensorData(DT_FP32, {16, 16}, 4.0f);
         calc::WhereSS(out, condition, input, other);
+        ASSERT_ALLCLOSE(out, golden);
+    }
+    {
+        auto out = makeTensorData(DT_BF16, {16, 16}, static_cast<bfloat16>(0.0f));
+        auto condition = makeTensorData(DT_BOOL, {16, 16}, false);
+        auto input = makeTensorData(DT_BF16, {16, 16}, static_cast<bfloat16>(6.0f));
+        auto other = makeTensorData(DT_BF16, {16, 16}, static_cast<bfloat16>(4.0f));
+        auto golden = makeTensorData(DT_BF16, {16, 16}, static_cast<bfloat16>(4.0f));
+        calc::WhereTT(out, condition, input, other);
         ASSERT_ALLCLOSE(out, golden);
     }
 }
