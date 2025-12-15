@@ -170,7 +170,7 @@ Status InferParamIndex::SetSubValidShape(Function &subFunc, std::map<int, std::v
             }
             auto paramInfo = DynParamInfo{
                 static_cast<int>(validShape.second.size()), tensorIndex, tensorBaseAddrCoaIndex, DynParamInfoType::VALID_SHAPE,
-                dimIdx, dynDim};
+                dimIdx, dynDim, false, ""};
             subFunc.InsertDynParam(dim.Dump(), paramInfo);
             dimIdx++;
         }

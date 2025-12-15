@@ -422,6 +422,8 @@ struct DynParamInfo{
     DynParamInfoType type;
     int dimIndex;
     SymbolicScalar dim;
+    bool isBaseParam{false};
+    std::string replacedSymbol;
 };
 struct ParamConfigs {
     int l1ReuseNum{0};
@@ -693,6 +695,10 @@ public:
     }
     void InsertDynParam(std::string dim, DynParamInfo &info) {
         dynParamTable_.emplace(dim, info);
+    }
+
+    DynParamInfo &GetMutableDynParam(std::string dim){
+        return dynParamTable_[dim];
     }
 
     bool IsUnderDynamicFunction() const { return isUnderDynamicFunction_; }

@@ -73,10 +73,12 @@ TEST_F(TestCodegenDynDataMove, TestDatamoveUnalignDim3) {
                 op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
             }
         }
-        DynParamInfo fakeParam = {3, 0, 0, DynParamInfoType::VALID_SHAPE, 0, SymbolicScalar()};
+        DynParamInfo fakeParam = {3, 0, 0, DynParamInfoType::VALID_SHAPE, 0, SymbolicScalar(), true, ""};
+        DynParamInfo replaceParam = {3, 0, 0, DynParamInfoType::VALID_SHAPE, 0, SymbolicScalar(), false, "sym_2_dim_0"};
+        DynParamInfo baseParam = {3, 0, 0, DynParamInfoType::OFFSET, 0, SymbolicScalar(), false, ""};
         subFunc.second->dynParamTable_.emplace("sym_2_dim_0", fakeParam);
-        subFunc.second->dynParamTable_.emplace("sym_2_dim_1", fakeParam);
-        subFunc.second->dynParamTable_.emplace("sym_2_dim_2", fakeParam);
+        subFunc.second->dynParamTable_.emplace("sym_2_dim_1", replaceParam);
+        subFunc.second->dynParamTable_.emplace("sym_2_dim_2", baseParam);
     }
 
     npu::tile_fwk::CodeGenCtx ctx;
@@ -115,7 +117,7 @@ TEST_F(TestCodegenDynDataMove, TestDatamoveUnalignDim4) {
                 op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
             }
         }
-        DynParamInfo fakeParam = {4, 0, 0, DynParamInfoType::VALID_SHAPE, 0, SymbolicScalar()};
+        DynParamInfo fakeParam = {4, 0, 0, DynParamInfoType::VALID_SHAPE, 0, SymbolicScalar(), false, ""};
         subFunc.second->dynParamTable_.emplace("sym_13_dim_0", fakeParam);
         subFunc.second->dynParamTable_.emplace("sym_13_dim_1", fakeParam);
         subFunc.second->dynParamTable_.emplace("sym_13_dim_2", fakeParam);

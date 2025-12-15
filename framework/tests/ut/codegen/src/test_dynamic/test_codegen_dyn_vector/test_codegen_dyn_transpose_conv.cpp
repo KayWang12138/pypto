@@ -67,7 +67,7 @@ void TestDynVnchwconvBody(std::vector<int64_t> shape, std::vector<int64_t> outSh
                 op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
             }
         }
-        DynParamInfo fakeParam = {4, 0, 0, DynParamInfoType::VALID_SHAPE, 0, SymbolicScalar()};
+        DynParamInfo fakeParam = {4, 0, 0, DynParamInfoType::VALID_SHAPE, 0, SymbolicScalar(), false, ""};
         subFunc.second->dynParamTable_.emplace("sym_21_dim_0", fakeParam);
         subFunc.second->dynParamTable_.emplace("sym_21_dim_1", fakeParam);
         subFunc.second->dynParamTable_.emplace("sym_21_dim_2", fakeParam);

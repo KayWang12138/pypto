@@ -221,19 +221,29 @@ std::string CodeGenCloudNPU::GenDynParamForExpr(const Function &func) const {
     }
     std::string dynParamList;
     for (const auto &dynParam : func.GetDynParamTable()) {
-        std::string dynParamExpr = "uint64_t " + dynParam.first + " = ";
-        DynParamInfo info = dynParam.second;
-        if (info.dim.IsValid()) {
-            dynParamExpr += SymbolicExpressionTable::BuildExpression(info.dim) + "; //";
+        if (dynParam.second.replacedSymbol.empty()) {
+            std::string dynParamExpr = "uint64_t " + dynParam.first + " = ";
+            DynParamInfo info = dynParam.second;
+            if (info.dim.IsValid()) {
+                dynParamExpr += SymbolicExpressionTable::BuildExpression(info.dim) + "; //";
+            }
+            if (info.type == DynParamInfoType::VALID_SHAPE) {
+                dynParamExpr += GET_PARAM_VALID_SHAPE_BY_IDX;
+            } else if (info.type == DynParamInfoType::OFFSET) {
+                dynParamExpr += GET_PARAM_OFFSET_BY_IDX;
+            }
+            std::string params = BuildDynParamInfo(info);
+            dynParamExpr.append(params).append(";\n");
+            dynParamList += dynParamExpr;
         }
-        if (info.type == DynParamInfoType::VALID_SHAPE) {
-            dynParamExpr += GET_PARAM_VALID_SHAPE_BY_IDX;
-        } else if (info.type == DynParamInfoType::OFFSET) {
-            dynParamExpr += GET_PARAM_OFFSET_BY_IDX;
+    }
+    for (const auto &dynParam : func.GetDynParamTable()) {
+        if (!dynParam.second.replacedSymbol.empty()) {
+            std::string dynParamExpr = "uint64_t " + dynParam.first + " = ";
+            dynParamExpr += dynParam.second.replacedSymbol;
+            dynParamExpr.append(";\n");
+            dynParamList += dynParamExpr;
         }
-        std::string params = BuildDynParamInfo(info);
-        dynParamExpr.append(params).append(";\n");
-        dynParamList += dynParamExpr;
     }
     return dynParamList;
 }

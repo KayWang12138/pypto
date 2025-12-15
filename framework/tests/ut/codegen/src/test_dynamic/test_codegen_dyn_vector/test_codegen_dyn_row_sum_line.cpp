@@ -82,7 +82,7 @@ TEST_F(TestCodegenDynRowSumLine, TestOperationRowSumLine) {
                 op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
             }
         }
-        DynParamInfo fakeParam = {3, 0, 0, DynParamInfoType::VALID_SHAPE, 0, SymbolicScalar()};
+        DynParamInfo fakeParam = {3, 0, 0, DynParamInfoType::VALID_SHAPE, 0, SymbolicScalar(), false, ""};
         subFunc.second->InsertDynParam("sym_23_dim_0", fakeParam);
         subFunc.second->InsertDynParam("sym_23_dim_1", fakeParam);
         subFunc.second->InsertDynParam("sym_23_dim_2", fakeParam);
@@ -126,7 +126,7 @@ TEST_F(TestCodegenDynRowSumLine, TestOperationRowSumLineTileTensor) {
                 op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
             }
         }
-        DynParamInfo fakeParam = {3, 0, 0, DynParamInfoType::VALID_SHAPE, 0, SymbolicScalar()};
+        DynParamInfo fakeParam = {3, 0, 0, DynParamInfoType::VALID_SHAPE, 0, SymbolicScalar(), false, ""};
         subFunc.second->InsertDynParam("sym_23_dim_0", fakeParam);
         subFunc.second->InsertDynParam("sym_23_dim_1", fakeParam);
         subFunc.second->InsertDynParam("sym_23_dim_2", fakeParam);

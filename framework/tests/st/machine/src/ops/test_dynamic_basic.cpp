@@ -154,6 +154,7 @@ void TestLoopViewAssemble(const Tensor &t0, const Tensor &t1, const Tensor &bloc
 TEST_F(DynamicBasicTest, TestDD) {
     SetInterpreterConfig();
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
+    config::SetCodeGenOption(CODEGEN_EXPRESSION_FUSION, true);
     int s = 32;
     int n = 8;
     Tensor t0(DT_FP32, {n * s, s}, "t0");  // [32*8, 32]

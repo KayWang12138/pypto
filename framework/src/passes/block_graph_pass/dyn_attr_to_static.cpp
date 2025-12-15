@@ -18,6 +18,123 @@
 namespace npu {
 namespace tile_fwk {
 
+struct CoaInfo {
+    CoaType macroType = CoaType::INVALID;
+    int dim = -1;
+    int base = -1;
+    int idx = -1;
+
+    static bool ParseParamOffset(const std::string &coaExpr, std::smatch &match) {
+         static std::regex pattern("RUNTIME_COA_GET_PARAM_OFFSET\\((\\d+), (\\d+), (\\d+)\\)");
+         return std::regex_search(coaExpr, match, pattern);
+    }
+
+    static bool ParseParamValidShape(const std::string &coaExpr, std::smatch &match) {
+         static std::regex pattern("RUNTIME_COA_GET_PARAM_VALID_SHAPE\\((\\d+), (\\d+), (\\d+)\\)");
+         return std::regex_search(coaExpr, match, pattern);
+    }
+
+    static bool ParseParam(const std::string &coaExpr, std::smatch &match) {
+            static std::regex pattern("RUNTIME_COA_GET_PARAM\\((\\d+)\\)");
+            return std::regex_search(coaExpr, match, pattern);
+    }
+
+    Status SToIParamShapeAndOffset(const std::smatch &match) {
+        if (SToIWrapper(match[INPUT_PARAM_POS_ONE].str(), dim) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Operation, "Failed to convert dim.");
+            return FAILED;
+        }
+        if (SToIWrapper(match[INPUT_PARAM_POS_TWO].str(), base) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Operation, "Failed to convert base.");
+            return FAILED;
+        }
+        if (SToIWrapper(match[INPUT_PARAM_POS_THREE].str(), idx) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Operation, "Failed to convert idx.");
+            return FAILED;
+        }
+        return SUCCESS;
+    }
+
+    Status ParseCoaString(const std::string &coaExpr) {
+        std::smatch match;
+        if (ParseParamOffset(coaExpr, match)) {
+            macroType = CoaType::PARAM_OFFSET;
+            if (SToIParamShapeAndOffset(match) != SUCCESS) {
+                APASS_LOG_ERROR_F(Elements::Operation, "ParseCoaString failed to convert indices,"
+                    "CoaType::PARAM_OFFSET, input coaExpr %s.", coaExpr.c_str());
+                return FAILED;
+            }
+        } else if (ParseParamValidShape(coaExpr, match)) {
+            macroType = CoaType::PARAM_VALID_SHAPE;
+            if (SToIParamShapeAndOffset(match) != SUCCESS) {
+                APASS_LOG_ERROR_F(Elements::Operation, "ParseCoaString failed to convert indices,"
+                    "CoaType::PARAM_VALID_SHAPE, input coaExpr %s.", coaExpr.c_str());
+                return FAILED;
+            }
+        } else if (ParseParam(coaExpr, match)) {
+            macroType = CoaType::PARAM;
+            if (SToIWrapper(match[INPUT_PARAM_POS_ONE].str(), idx) != SUCCESS) {
+                APASS_LOG_ERROR_F(Elements::Operation, "ParseCoaString failed to convert indices,"
+                    "CoaType::PARAM, input coaExpr %s.", coaExpr.c_str());
+                return FAILED;
+            }
+        } else if (coaExpr.find(MAYBE_CONST_POSTFIX) != std::string::npos) {
+            APASS_LOG_ERROR_F(Elements::Function, "This function has already been processed. %s only supportsd be turned on or off using %s, "
+                "don't register it in custom strategy.", MODULE_NAME, CODEGEN_EXPRESSION_FUSION);
+            return FAILED;
+        } else {
+            APASS_LOG_ERROR_F(Elements::Operation, "ParseCoaString input coaExpr %s is not recognized.", coaExpr.c_str());
+            return FAILED;
+        }
+        return SUCCESS;
+    }
+
+    int CalculateCoaIndex() {
+        if (macroType == CoaType::PARAM_OFFSET) {
+            return ((base) + 1) + OFFSET_INDEX_ORDER * (dim) + idx;
+        } else if (macroType == CoaType::PARAM_VALID_SHAPE) {
+            return ((base) + 1) + VALID_SHAPE_INDEX_ORDER * (dim) + idx;
+        } else if (macroType == CoaType::PARAM) {
+            return idx;
+        }
+        APASS_LOG_ERROR_F(Elements::Operation, "GetCoaFinalIdx Coa type is invalid.");
+        return 0;
+    }
+
+    SymbolicScalar BuildMaybeConstCoa(int isConst, int attrValue) {
+        if (macroType == CoaType::PARAM_OFFSET) {
+            return MAYBE_CONST_COA_GetOffset(isConst, attrValue, dim, base, idx);
+        } else if (macroType == CoaType::PARAM_VALID_SHAPE) {
+            return MAYBE_CONST_COA_GetValidShape(isConst, attrValue, dim, base, idx);
+        } else if (macroType == CoaType::PARAM) {
+            return MAYBE_CONST_COA_GetParam(isConst, attrValue, idx);
+        }
+        APASS_LOG_ERROR_F(Elements::Operation, "BuildMaybeConstCoa Coa type is invalid.");
+        return 0;
+    }
+};
+
+struct IsConstMetric {
+    int isConst = 1;
+    int attrValue = -1;
+
+    void MarkNotConst() {isConst = 0;}
+    int GetIsConst() {return isConst;}
+    int GetAttrValue() {return attrValue;}
+    bool UpdateValue(int newValue) {
+        if (attrValue == -1) {
+            attrValue = newValue;
+            return true;
+        }
+
+        if (newValue < 0 || newValue != attrValue) {
+            isConst = 0;
+            return false;
+        }
+        return false;
+    }
+};
+
 Status SToIWrapper(const std::string str, int& result) {
     try {
         result = std::stoi(str);
@@ -171,6 +288,88 @@ Status DynAttrToStatic::BuildNewCoa(
     return SUCCESS;
 }
 
+inline int GetCoaIndex(const DynParamInfo &paramInfo) {
+    if (paramInfo.type == DynParamInfoType::VALID_SHAPE) {
+        return ((paramInfo.tensorBaseAddrCoaIndex + 1) + VALID_SHAPE_INDEX_ORDER * paramInfo.dimSize + paramInfo.dimIndex);
+    }
+    if (paramInfo.type == DynParamInfoType::OFFSET) {
+       return ((paramInfo.tensorBaseAddrCoaIndex + 1) + OFFSET_INDEX_ORDER * paramInfo.dimSize + paramInfo.dimIndex);
+    }
+    return paramInfo.dimIndex;
+}
+
+void ReplaceCommonSymbol(Function *leafFunc, std::vector<std::vector<SymbolicScalar>> &callopArglistOneDim) {
+    VectorParamConsistencyChecker checker;
+    for (auto argList : callopArglistOneDim) {
+        checker.RegisterCall(argList);
+    }
+    auto allRes1 = checker.GetAllConsistentIndexGroups();
+    APASS_LOG_DEBUG_F(Elements::Operation, "Get all condicate params: %s.",checker.PrintIndexGroups(allRes1).c_str());
+    std::map<size_t, size_t> index2GroupId;
+    std::map<size_t, std::vector<size_t>> groupId2Index;
+    for (size_t i = 0; i < allRes1.size(); i++) {
+        for (size_t j = 0; j < allRes1[i].size(); j++) {
+            index2GroupId[allRes1[i][j]] = i;
+        }
+    } 
+    std::map<std::string, int> symbol2CoaIdx;
+    for (const auto &dynParam : leafFunc->GetDynParamTable()) {
+        int coaIndex = GetCoaIndex(dynParam.second);
+        symbol2CoaIdx.emplace(dynParam.first, coaIndex);
+        APASS_LOG_DEBUG_F(Elements::Operation, "Need Replace symbols %s idx %d", dynParam.first.c_str(), coaIndex);
+    }
+    std::map<size_t, std::string> index2BaseSymbol;
+    for (auto [symbolStr, coaIdx] : symbol2CoaIdx) {
+        if (index2GroupId.find(coaIdx) != index2GroupId.end()) {
+            if (index2BaseSymbol.find(index2GroupId[coaIdx]) == index2BaseSymbol.end()) {
+                leafFunc->GetMutableDynParam(symbolStr).isBaseParam = true;
+                index2BaseSymbol[index2GroupId[coaIdx]] = symbolStr;
+            } else {
+                leafFunc->GetMutableDynParam(symbolStr).replacedSymbol = index2BaseSymbol[index2GroupId[coaIdx]];
+            }
+        }
+    }
+}
+
+inline SymbolicScalar BuildMaybeConstCoa(int attrValue, const DynParamInfo &paramInfo) {
+    if (paramInfo.type == DynParamInfoType::OFFSET) {
+        return MAYBE_CONST_COA_GetOffset(1, attrValue, paramInfo.dimSize, paramInfo.tensorBaseAddrCoaIndex, paramInfo.dimIndex);
+    }
+    if (paramInfo.type == DynParamInfoType::VALID_SHAPE) {
+        return MAYBE_CONST_COA_GetValidShape(1, attrValue,paramInfo.dimSize, paramInfo.tensorBaseAddrCoaIndex, paramInfo.dimIndex);
+    }
+    return MAYBE_CONST_COA_GetParam(1, attrValue, paramInfo.dimIndex);
+}
+
+void ReBuildConcreteParam(Function *leafFunc, std::vector<std::vector<SymbolicScalar>> &callopArglistOneDim) {
+    std::map<std::string, int> concreteParamCoaIdx;
+    for (auto &dynParam : leafFunc->GetDynParamTable()) {
+        if (!(dynParam.second.isBaseParam) && !(dynParam.second.replacedSymbol.empty())) {
+            continue;
+        }
+        auto coaIdx = GetCoaIndex(dynParam.second);
+        APASS_LOG_DEBUG_F(Elements::Operation, "Get concrete symbols %s idx %d", dynParam.first.c_str(), coaIdx);
+        IsConstMetric scalarValue;
+        auto isConstParam = [&callopArglistOneDim, &scalarValue](int argIdx) {
+            for (auto& calleeArgs : callopArglistOneDim) {
+                auto callopAttr = calleeArgs[argIdx];
+                if (!callopAttr.IsImmediate()) {
+                    return false;
+                }
+                if (!scalarValue.UpdateValue(callopAttr.Concrete())) {
+                    return false; 
+                }
+            }
+            return true;
+        };
+        if (!isConstParam(coaIdx)) {
+            continue;
+        }
+        auto constParam = BuildMaybeConstCoa(scalarValue.attrValue, dynParam.second);
+        leafFunc->GetMutableDynParam(dynParam.first).dim = constParam;
+    }
+}
+
 Status DynAttrToStatic::TryRemoveDynAttr(Function* leafFunc, std::vector<Operation*> callList) {
     // 1. 为leafFunc拿到它所有caller的一维的callopArglistOneDim
     std::vector<std::vector<SymbolicScalar>> callopArglistOneDim;
@@ -198,17 +397,8 @@ Status DynAttrToStatic::TryRemoveDynAttr(Function* leafFunc, std::vector<Operati
     if (!isSupportUnaligned) {
         return SUCCESS;
     }
-    for (const auto &dynParam : leafFunc->GetDynParamTable()) {
-        if (dynParam.second.dim.IsValid()) {
-            std::reference_wrapper<SymbolicScalar> dynExpr = const_cast<SymbolicScalar&>(dynParam.second.dim);
-            if (BuildNewCoa(dynExpr, callopArglistOneDim) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Operation, "TryRemoveDynAttr failed to execute BuildNewCoa for dynExpr %s.",
-                    SymbolicExpressionTable::BuildExpression(dynExpr).c_str());
-                return FAILED;
-            }
-        }
-    }
-
+    ReplaceCommonSymbol(leafFunc, callopArglistOneDim);
+    ReBuildConcreteParam(leafFunc, callopArglistOneDim);
     return SUCCESS;
 }
 

@@ -76,7 +76,7 @@ TEST_F(TestCodegenDynUna, TestAbsDynamic) {
                 op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
             }
         }
-        DynParamInfo fakeParam = {3, 0, 0, DynParamInfoType::VALID_SHAPE, 0, SymbolicScalar()};
+        DynParamInfo fakeParam = {3, 0, 0, DynParamInfoType::VALID_SHAPE, 0, SymbolicScalar(), false, ""};
         subFunc.second->dynParamTable_.emplace("sym_113_dim_0", fakeParam);
         subFunc.second->dynParamTable_.emplace("sym_113_dim_1", fakeParam);
     }
