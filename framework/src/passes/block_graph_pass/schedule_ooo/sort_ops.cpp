@@ -649,12 +649,6 @@ Status OoOScheduler::SortOps() {
             APASS_LOG_ERROR_F(Elements::Operation, "ExecuteIssueEntries failed.");
             return FAILED;
         }
-    } else if (sortMethodStr == "LayerBasedDFS") {
-        const int layerDepth = 10;
-        if (LayerBasedDFS(layerDepth) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "LayerBasedDFS failed.");
-            return FAILED;
-        }
     } else {
         APASS_LOG_ERROR_F(Elements::Operation, "PreSchedule method not recognized.");
         return FAILED;

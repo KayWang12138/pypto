@@ -538,6 +538,47 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest11) {
 }
 
 /*
+TESTPostExpand(DynValidShape not same)
+inCast{8,16}->sqrt->ubTensor1{8,16}->expand->ubTensor2{8,16}->exp->outCast1{8,16}
+inCast{8,16}->sqrt->ubTensor1{8,16}->expand->ubTensor2{8,16}->exp->outCast1{8,16}
+*/
+TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest12) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestRemoveRedundantOp", "TestRemoveRedundantOp", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+
+    // Prepare the graph
+    std::vector<int64_t> shape = {kNumEight, kNumExpFour};
+    auto inCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto ubTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto ubTensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    std::vector<SymbolicScalar> dynValidShape1;
+    std::vector<SymbolicScalar> dynValidShape2;
+    dynValidShape1.push_back(SymbolicScalar("Tensor1"));
+    dynValidShape2.push_back(SymbolicScalar("Tensor2"));
+    ubTensor1->UpdateDynValidShape(dynValidShape1);
+    ubTensor2->UpdateDynValidShape(dynValidShape2);
+    currFunctionPtr->AddOperation(Opcode::OP_EXPAND, {ubTensor1}, {ubTensor2});
+    currFunctionPtr->AddOperation(Opcode::OP_SQRT, {inCast}, {ubTensor1});
+    currFunctionPtr->AddOperation(Opcode::OP_EXP, {ubTensor2}, {outCast});
+
+    currFunctionPtr->inCasts_.push_back(inCast);
+    currFunctionPtr->outCasts_.push_back(outCast);
+
+    RemoveRedundantOp removeredundantpass;
+    EXPECT_EQ(removeredundantpass.RunOnFunction(*currFunctionPtr), SUCCESS);
+    EXPECT_EQ(removeredundantpass.PostCheck(*currFunctionPtr), SUCCESS);
+
+    uint32_t expand_num = kNumZero;
+    for (auto &op : currFunctionPtr->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_EXPAND) {
+            ++expand_num;
+        }
+    }
+    EXPECT_EQ(expand_num, kNumOne);
+}
+
+/*
 view->exp(end assemble)->view(end assemble)->expand(end assemble)->exp(end assemble)
                                                                  ->exp(end assemble)
 

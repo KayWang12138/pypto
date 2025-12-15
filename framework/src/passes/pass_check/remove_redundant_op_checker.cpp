@@ -174,9 +174,33 @@ Status RemoveRedundantOpChecker::PostCheckCopyIn(const Operation &op) {
 }
 
 Status RemoveRedundantOpChecker::PostCheckExpand(const Operation &op) {
-    auto expand_in = op.iOperand.front();
-    auto expand_out = op.oOperand.front();
-    if (expand_in->shape == expand_out->shape) {
+    auto in = op.GetIOperands().front();
+    auto out = op.GetOOperands().front();
+    // 比较静态shape
+    bool equalShape = (in->GetShape() == out->GetShape());
+    // 比较动态dynValidShape_
+    bool equalDynValidShape = true;
+    if (!in->GetDynValidShape().empty() && !out->GetDynValidShape().empty()) {
+        auto inDynValidShape = in->GetDynValidShape();
+        auto outDynValidShape = out->GetDynValidShape();
+        for (size_t i = 0; i < inDynValidShape.size(); i++) {
+            // 比较SymbolicScalar dump后的string是否相等
+            // 可能是 1.concrete value; 2.symbol; 3.expression
+            if (inDynValidShape[i].Dump() == outDynValidShape[i].Dump()) {
+                continue;
+            } else {
+                equalDynValidShape = false;
+                break;
+            }
+        }
+    } else if (in->GetDynValidShape().empty() && out->GetDynValidShape().empty()) {
+        // 输入和输出同时没有 dynamic valid shape
+        equalDynValidShape = true;
+    } else {
+        // 输入和输出必须同时有 dynamic valid shape
+        equalDynValidShape = false;
+    }
+    if (equalShape && equalDynValidShape) {
         APASS_LOG_ERROR_F(Elements::Operation, 
         "PostCheck for expand op[%d] failed: the shape of input equals to the output; Please check expand op[%d].%s", 
         op.GetOpMagic(), op.GetOpMagic(), GetFormatBacktrace(op).c_str());

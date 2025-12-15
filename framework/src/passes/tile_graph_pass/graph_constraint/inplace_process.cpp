@@ -246,7 +246,7 @@ void InplaceProcess::ProcessView(Function &function, Operation &op) const {
             continue;
         }
         if (function.IsFromOutCast(consumer->oOperand[0])) {
-            APASS_LOG_WARN_F(Elements::Operation, "InplaceProcess::ProcessView: OP_VIEW oOperand tensor[%d] is outCast.",
+            APASS_LOG_WARN_F(Elements::Tensor, "InplaceProcess::ProcessView: OP_VIEW oOperand tensor[%d] is outCast.",
                 consumer->oOperand[0]->GetMagic());
             continue;
         }
