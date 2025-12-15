@@ -40,49 +40,11 @@
 #include "tilefwk/data_type.h"
 
 #ifdef BUILD_WITH_CANN
+#include "driver/ascend_hal_define.h"
 #include "acl/acl.h"
 #include "runtime/rt.h"
 #include "runtime/rt_preload_task.h"
 #endif
-
-constexpr int ADDR_MAP_TYPE_REG_AIC_CTRL = 2;
-constexpr int ADDR_MAP_TYPE_REG_AIC_PMU_CTRL = 3;
-
-struct AddrMapInPara {
-    unsigned int addr_type;
-    unsigned int devid;
-};
-
-struct AddrMapOutPara {
-    unsigned long long ptr;
-    unsigned long long len;
-};
-
-typedef enum tagProcType {
-    PROCESS_CP1 = 0,
-    PROCESS_CP2,
-    PROCESS_DEV_ONLY,
-    PROCESS_QS,
-    PROCESS_HCCP,
-    PROCESS_USER,
-    PROCESS_CPTYPE_MAX
-} processType_t;
-
-enum res_map_type {
-    RES_AICORE = 0,
-    RES_HSCB_AICORE,
-    RES_L2BUFF,
-    RES_C2C,
-    RES_MAP_TYPE_MAX
-};
-
-struct res_map_info {
-    processType_t target_proc_type;
-    enum res_map_type res_type;
-    unsigned int res_id;
-    unsigned int flag;
-    unsigned int rsv[1];
-};
 
 namespace npu::tile_fwk {
 
@@ -109,10 +71,15 @@ inline size_t MemSizeAlign(const size_t bytes, const uint32_t aligns = 512U) {
     return (((bytes + alignSize) - 1U) / alignSize) * alignSize;
 }
 
-inline int32_t GetLogDeviceId() {
+inline int32_t GetUserDeviceId() {
     int32_t userDeviceId = 0;
-    int32_t logicDeviceId = 0;
     rtGetDevice(&userDeviceId);
+    return userDeviceId;
+}
+
+inline int32_t GetLogDeviceId() {
+    int32_t logicDeviceId = 0;
+    int32_t userDeviceId = GetUserDeviceId();
     ASSERT(rtGetLogicDevIdByUserDevId(userDeviceId, &logicDeviceId) == RT_ERROR_NONE) << "Trans usrDeviceId: " <<
            userDeviceId << " to logDevId not success";
     ALOG_DEBUG_F("Current userDeviceId is %d, logic Deviceid is %d", userDeviceId, logicDeviceId);
@@ -252,8 +219,8 @@ public:
 public:
     static uint64_t GetL2Offset () {
         uint64_t offset = 0;
-        int32_t logDeviceId = GetLogDeviceId();
-        rtGetL2CacheOffset(logDeviceId, &offset);
+        int32_t userDeviceId = GetUserDeviceId();
+        rtGetL2CacheOffset(userDeviceId, &offset);
         ALOG_DEBUG_F("rtGetL2CacheOffset %lu", offset);
         return offset;
     }
