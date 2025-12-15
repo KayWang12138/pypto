@@ -25,7 +25,7 @@ public:
         std::cout << "PlatformTest SetUpTestCase" << std::endl;
         std::cout << "current path = " << RealPath("./") << std::endl;
         ASSERT_FALSE(RealPath("./stubs").empty());
-        setenv("ASCEND_AICPU_PATH", "./stubs", 1);
+        setenv("ASCEND_HOME_PATH", "./stubs", 1);
     }
 
     static void TearDownTestCase() {

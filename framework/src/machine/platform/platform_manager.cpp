@@ -20,10 +20,16 @@
 #include "interface/utils/file_utils.h"
 
 namespace npu::tile_fwk {
+#ifdef PROCESSOR_SUBPATH
+    constexpr const char *CONFIG_SUBPATH = PROCESSOR_SUBPATH;
+#else
+    constexpr const char *CONFIG_SUBPATH = "";
+#endif
 namespace {
 const int64_t INVALID_ITEM_VALUE = -1;
-const std::string CPU_PATH_ENV_NAME = "ASCEND_AICPU_PATH";
-const std::string CONFIG_RELATIVE_PATH = "/compiler/data/platform_config/";
+const std::string HOME_PATH_ENV_NAME = "ASCEND_HOME_PATH";
+const std::string COMPILER_CONFIG_RELATIVE_PATH = "/compiler/data/platform_config/";
+const std::string CONFIG_RELATIVE_PATH = "/data/platform_config/";
 const std::string AICORE_INTRINSIC_DTYPE_MAP = "AICoreintrinsicDtypeMap";
 const std::string VECTORCORE_INTRINSIC_DTYPE_MAP = "VectorCoreintrinsicDtypeMap";
 const std::string INTRIC_PREFIX = "Intrinsic_";
@@ -84,13 +90,18 @@ bool PlatformManager::Initialize(const std::string &socVersion) {
         return false;
     }
     // get platform file path
-    const char *envPath = std::getenv(CPU_PATH_ENV_NAME.c_str());
+    const char *envPath = std::getenv(HOME_PATH_ENV_NAME.c_str());
     if (envPath == nullptr) {
-        ALOG_ERROR("Env[" + CPU_PATH_ENV_NAME + "] is not existed or empty.");
+        ALOG_ERROR("Env[" + HOME_PATH_ENV_NAME + "] is not existed or empty.");
         return false;
     }
 
-    std::string platformFile = std::string(envPath) + CONFIG_RELATIVE_PATH + socVersion + ".ini";
+    std::string platformConfDir = std::string(envPath) + "/" + std::string(CONFIG_SUBPATH) + CONFIG_RELATIVE_PATH;
+    if (RealPath(platformConfDir).empty()) {
+        platformConfDir = std::string(envPath) + COMPILER_CONFIG_RELATIVE_PATH;
+    }
+
+    std::string platformFile = platformConfDir + socVersion + ".ini";
     if (RealPath(platformFile).empty()) {
         ALOG_ERROR("Platform file[" + platformFile + "] is not existed.");
         return false;
