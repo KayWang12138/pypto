@@ -143,7 +143,6 @@ def quant_attention_pre_kernel(in_tensors, out_tensors):
     # 1. 添加支持动态的config
     pypto.set_codegen_options(support_dynamic_unaligned=True)
     pypto.set_host_options(only_codegen=True)
-    pypto.set_option('profile_enable', True)
     pypto.set_runtime_options(estimated_stitch_task_max_loop_num=256)
     pypto.set_runtime_options(workspace_recycle_period=256)
     # 2. 从入参拿到输入和输出tensor
