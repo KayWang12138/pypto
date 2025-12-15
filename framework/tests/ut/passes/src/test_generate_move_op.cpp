@@ -618,5 +618,59 @@ TEST_F(GenerateMoveOpPassTest, TransViewWithAttr) {
     EXPECT_EQ(l12Bt_count_after_pass,expectedL1toBt) << "1 operations shoulde be OP_L1_TO_BT.";
     EXPECT_EQ(l12Fb_count_after_pass,expectedL1toFb) << "1 operations shoulde be OP_L1_TO_FIX_QUANT_PRE.";
 }
+void ViewconnectAssemble (std::shared_ptr<Function> &currFunctionPtr) {
+    std::shared_ptr<LogicalTensor> input = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});
+    input -> SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
+    std::shared_ptr<LogicalTensor> tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});
+    tensor1 -> SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
+    std::shared_ptr<LogicalTensor> output = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});
+    output -> SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
+
+    auto &view_op = currFunctionPtr->AddRawOperation(Opcode::OP_VIEW, {input}, {tensor1});
+    auto viewAttribute =std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0,0});
+    viewAttribute->SetToType(MemoryType::MEM_DEVICE_DDR);
+    view_op.SetOpAttribute(viewAttribute);
+    auto &assemble_op = currFunctionPtr->AddRawOperation(Opcode::OP_ASSEMBLE, {tensor1}, {output});
+    auto assembleAttribute =std::make_shared<AssembleOpAttribute>(std::vector<int64_t>{0,0});
+    assemble_op.SetOpAttribute(assembleAttribute);
+
+    currFunctionPtr->inCasts_.push_back(input);
+    currFunctionPtr->outCasts_.push_back(output);
+}
+TEST_F(GenerateMoveOpPassTest, ViewconnectAssemble) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "ViewconnectAssemble", "ViewconnectAssemble", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    Program::GetInstance().InsertFuncToFunctionMap("ViewconnectAssemble", currFunctionPtr);
+
+    ViewconnectAssemble(currFunctionPtr);
+
+    std::stringstream ssBefore;
+    ssBefore << "Before_GenerateMoveOp";
+
+    // Call the pass
+    GenerateMoveOp generateMoveOp;
+    generateMoveOp.PreCheck(*currFunctionPtr);
+    currFunctionPtr->DumpJsonFile("./config/pass/json/generateMoveOp_ViewconnectAssemble_before.json");
+    generateMoveOp.RunOnFunction(*currFunctionPtr);
+    currFunctionPtr->DumpJsonFile("./config/pass/json/generateMoveOp_ViewconnectAssemble_after.json");
+
+    std::stringstream ss;
+    ss << "After_GenerateMoveOp";
+
+    // Validate the results
+    int check_Op_inputsMemType = 0;
+    for (auto &op : currFunctionPtr->Operations()) {
+        auto consumerOps = op.oOperand[0]->GetConsumers(); 
+        for (auto childOp : consumerOps) {
+            auto opcode = childOp->GetOpcode();
+            const auto &inputsMemType = OpcodeManager::Inst().GetInputsMemType(opcode);
+            if (inputsMemType.empty()) {
+                check_Op_inputsMemType++;
+            }
+        }
+    }
+    constexpr int expectedcheck = 1;
+    EXPECT_EQ(check_Op_inputsMemType,expectedcheck) << "1 operation inputsMemType shoulde be OP_COPY_IN.";
+}
 }
 } // namespace npu::tile_fwk

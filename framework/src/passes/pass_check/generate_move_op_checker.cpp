@@ -120,6 +120,9 @@ bool GenerateMoveOpChecker::CheckViewOutTensorMemType(const Operation &op) const
         }
         auto opcode = childOp->GetOpcode();
         const auto &inputsMemType = OpcodeManager::Inst().GetInputsMemType(opcode);
+        if (inputsMemType.empty()) {
+           continue;
+        }
         bool hasDDRinput = std::find(inputsMemType.begin(),inputsMemType.end(),MemoryType::MEM_DEVICE_DDR) != inputsMemType.end();
         if (opcode == Opcode::OP_RESHAPE || hasDDRinput) {
             continue;

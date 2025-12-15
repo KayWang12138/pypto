@@ -150,6 +150,7 @@ set(_CaseFilterList
         "GenerateMoveOpPassTest.ScatterUpdate"
         "GenerateMoveOpPassTest.L1TOL0"
         "GenerateMoveOpPassTest.TransViewWithAttr"
+        "GenerateMoveOpPassTest.ViewconnectAssemble"
         "SplitLargeFanoutTensorTest.TestLCM"
         "SplitLargeFanoutTensorTest.Unmatched"
         "SplitLargeFanoutTensorTest.BeCovered_Full"
