@@ -14,9 +14,9 @@ from dataclasses import dataclass
 import os
 import math
 import math
+import torch
 import pypto
 import pytest
-import torch
 import numpy as np
 from numpy.testing import assert_allclose
 import logging
@@ -395,7 +395,9 @@ def do_test_QSFA_p(case_name: str):
                                                                                           is_kn_quant, actual_seq)
    
     b, n1, n2, s1 = bn1n2s1
-    torch.npu.set_device(8)
+
+    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
+    torch.npu.set_device(device_id)
 
     tile_config = SaTileShapeConfig(
         g_tile=128,
