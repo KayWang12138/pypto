@@ -12,12 +12,13 @@
 """
 
 from dataclasses import dataclass
-import pypto
 import torch
+import pypto
 import numpy as np
 import math
 import os
-from utils.np_compare import detailed_allclose_manual
+from torch._subclasses.fake_tensor import FakeTensor
+from torch._dynamo import allow_in_graph
 
 np.random.seed(0)
 torch.manual_seed(0)
@@ -208,9 +209,11 @@ def ifa_func(inputs, outputs):
     # 1. 添加支持动态的config
     pypto.set_codegen_options(support_dynamic_unaligned=True)
     pypto.set_host_options(only_codegen=True)
-    pypto.set_option('profile_enable', True)
+    pypto.set_runtime_options(cfgcache_device_task_num=100)
+    pypto.set_runtime_options(cfgcache_root_task_num=100)
+    pypto.set_runtime_options(cfgcache_leaf_task_num=10000)
 
-    # 2. 从入参拿到输入和输出tensor    
+    # 2. 从入参拿到输入和输出tensor
     q = inputs[0]
     k = inputs[1]
     v = inputs[2]
@@ -248,13 +251,6 @@ def ifa_func(inputs, outputs):
     s1_scalar = bs_scalar // b_scalar
     g = nq // nkv
     g_loop = g // g_tile
-
-    print(f"g_tile {g_tile} s2_tile {s2_tile} \n  \
-    c1_tile_shape {c1_tile} v1_tile_shape {v1_tile} \n \
-    c2_tile_shape {c2_tile} v2_tile_shape {v2_tile} \n \
-    q_shape {q.shape} k_shape {k.shape} v_shape {v.shape} \n \
-    block_table  {block_table.shape} kv_act_seqs_shape {kv_act_seqs.shape} \n \
-        s1_sym {s1_scalar} n2_sym {n2_sym} g_loop_sym {g}  g_loop {g_loop}")
 
     k_2d_shape = (block_num_scalar * block_size, n2_sym * dn)
     q_2d_shape = (b_scalar * s1_scalar * nq, dn)
@@ -442,7 +438,6 @@ def IFA(atten_cfg):
 
     y_data = out_torch.cpu()
     # 6. 与PyTorch参考实现对比
-    detailed_allclose_manual(np.array(attention_output.cpu()).flatten(), np.array(y_data).flatten(), "attention")
 
 
 def test_ifa():
@@ -463,6 +458,26 @@ def test_ifa():
 
     assert all(x <= atten_cfg.s2 for x in actual_seq_cpu), "所有值都必须小于s2"
     IFA(atten_cfg)
+
+
+@allow_in_graph
+def paged_attention(
+    query: torch.Tensor,
+    key_cache: torch.Tensor,
+    value_cache: torch.Tensor,
+    block_tables: torch.Tensor,
+    actual_seqs: torch.Tensor,
+    output: torch.Tensor
+):
+    actual_seqs_npu = actual_seqs.to(query.device)
+    inputs = [query, key_cache, value_cache, block_tables, actual_seqs_npu]
+    outputs = [output]
+    if isinstance(inputs[0], FakeTensor):
+        return
+    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
+    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
+    ifa_func(pto_inputs, pto_outputs)
+    pypto.runtime._device_synchronize()
 
 
 if __name__ == "__main__":

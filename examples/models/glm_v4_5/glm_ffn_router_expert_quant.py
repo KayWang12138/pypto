@@ -11,36 +11,35 @@
 """
 """
 import os
-import pypto
-import numpy as np
-import pytest
-from numpy.testing import assert_allclose
-from glm_ffn_quant_common import symmetric_quantization_per_token, dequant_dynamic
 import torch
 import torch_npu
+import pypto
+import numpy as np
+from numpy.testing import assert_allclose
+from glm_ffn_common_interface import symmetric_quantization_per_token, dequant_dynamic, swiglu
 from torch._subclasses.fake_tensor import FakeTensor
 from torch._dynamo import allow_in_graph
 
 
 def main():
-    test_glm4_ffn_router()
+    test_ffn_router()
 
 
-def ffn_router_torch_npu(expand_x_int8, expand_x_scale, group_list, w13_int8, w13_scale, w2_int8, w2_scale):
+def ffn_router_torch_npu(hidden_states, hidden_states_scale, group_list, w13, w13_scale, w2, w2_scale):
     group_list = group_list.to(torch.int64)
     group_list_cumsum = group_list.cumsum(dim=0)
     output_dtype = w2_scale.dtype
-    w13_int8_nz = torch_npu.npu_format_cast(w13_int8, 29)
+    w13_int8_nz = torch_npu.npu_format_cast(w13, 29)
     hidden_states, swiglu_out_scale, _ = torch_npu.npu_grouped_matmul_swiglu_quant(
-                x=expand_x_int8,
+                x=hidden_states,
                 weight=w13_int8_nz,
                 bias=None,
                 group_list=group_list_cumsum,
                 weight_scale=w13_scale,
-                x_scale=expand_x_scale)
+                x_scale=hidden_states_scale)
     hidden_states = torch_npu.npu_grouped_matmul(
             x=[hidden_states],
-            weight=[w2_int8],
+            weight=[w2],
             scale=[w2_scale],
             bias=None,
             per_token_scale=[swiglu_out_scale],
@@ -88,22 +87,22 @@ def ffn_golden_quan_per_channel_3d(x):
 
 def gen_input(b, s, topk, per_expert_num, hidden_size, intermediate_size, dtypes, device_id):
     torch.manual_seed(42)
-    expand_x_tensor = torch.randn((b * s * topk, hidden_size), dtype = dtypes, device = f'npu:{device_id}') * 0.01 * 2 - 0.01
-    expand_x_int8, expand_x_scale = ffn_golden_quan_per_token(expand_x_tensor)
-    expand_x_scale = expand_x_scale.reshape(-1).to(torch.float32)
+    hidden_states = torch.randn((b * s * topk, hidden_size), dtype = dtypes, device = f'npu:{device_id}') * 0.01 * 2 - 0.01
+    hidden_states, hidden_states_scale = ffn_golden_quan_per_token(hidden_states)
+    hidden_states_scale = hidden_states_scale.reshape(-1).to(torch.float32)
 
     group_list = torch.tensor([1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], dtype = torch.int32, device = f'npu:{device_id}')
     group_list_cumsum = get_token_acc_table(group_list).to(torch.int32)
     w13 = torch.randn((per_expert_num, hidden_size, intermediate_size * 2), dtype = dtypes, device = f'npu:{device_id}')  * 0.01 * 2 - 0.01
-    w13_int8, w13_scale = ffn_golden_quan_per_channel_3d(w13)
+    w13, w13_scale = ffn_golden_quan_per_channel_3d(w13)
     w13_scale = w13_scale.squeeze(1).to(torch.float32)
 
     w2 = torch.randn((per_expert_num, intermediate_size, hidden_size), dtype = dtypes, device = f'npu:{device_id}')  * 0.01 * 2 - 0.01
-    w2_int8, w2_scale = ffn_golden_quan_per_channel_3d(w2)
+    w2, w2_scale = ffn_golden_quan_per_channel_3d(w2)
     w2_scale = w2_scale.squeeze(1).to(dtypes)
 
-    out_tensor = torch.zeros_like(expand_x_tensor, device = f'npu:{device_id}')
-    return expand_x_int8, expand_x_scale, group_list, group_list_cumsum, w13_int8, w13_scale, w2_int8, w2_scale, out_tensor
+    ffn_res = torch.empty(hidden_states.shape, dtype =w2_scale.dtype, device = f'npu:{device_id}')
+    return hidden_states, hidden_states_scale, group_list, group_list_cumsum, w13, w13_scale, w2, w2_scale, ffn_res
 
 
 def expert_infer_base(**kwargs):
@@ -111,21 +110,21 @@ def expert_infer_base(**kwargs):
     exp_idx = kwargs.get("exp_idx")
     token_loop_idx = kwargs.get("token_loop_idx")
     loop_base = kwargs.get("loop_base")
-    expand_x_int8 = kwargs.get("expand_x_int8")
-    expand_x_scale = kwargs.get("expand_x_scale")
+    hidden_states = kwargs.get("hidden_states")
+    hidden_states_scale = kwargs.get("hidden_states_scale")
     group_list = kwargs.get("group_list")
     group_list_cumsum = kwargs.get("group_list_cumsum")
-    w13_int8 = kwargs.get("w13_int8")
+    w13 = kwargs.get("w13")
     w13_scale = kwargs.get("w13_scale")
-    w2_int8 = kwargs.get("w2_int8")
+    w2 = kwargs.get("w2")
     w2_scale = kwargs.get("w2_scale")
-    ffn_out = kwargs.get("ffn_out")
+    ffn_res = kwargs.get("ffn_res")
     mm1_cube_tile_shape = kwargs.get("mm1_cube_tile_shape")
     mm2_cube_tile_shape = kwargs.get("mm2_cube_tile_shape")
 
-    hidden_size = expand_x_int8.shape[1]
-    intermediate_size = w13_int8.shape[1] // 2
-    x_Dtype = w2_scale.dtype
+    hidden_size = hidden_states.shape[1]
+    intermediate_size = w13.shape[1] // 2
+    x_dtype = w2_scale.dtype
 
     # 计算对应激活专家的偏移地址
     pypto.set_vec_tile_shapes(32)
@@ -133,9 +132,9 @@ def expert_infer_base(**kwargs):
     token_num = group_list[exp_idx,]
 
     # 获取该激活专家在当前loop参与计算部分，有效token的偏移地址和scale偏移地址
-    expand_x_offset_start = group_list_cumsum[exp_idx, ]
-    expand_x_offset = [expand_x_offset_start + token_loop_idx * loop_base, 0]
-    x_scale_offset = [expand_x_offset_start + token_loop_idx * loop_base, 0]
+    hidden_states_offset_start = group_list_cumsum[exp_idx, ]
+    hidden_states_offset = [hidden_states_offset_start + token_loop_idx * loop_base, 0]
+    x_scale_offset = [hidden_states_offset_start + token_loop_idx * loop_base, 0]
 
     # 获取该激活专家权重和scale的偏移地址
     weight_13_offset = [exp_idx * hidden_size, 0]
@@ -145,50 +144,42 @@ def expert_infer_base(**kwargs):
 
     # 获取当前专家的实际token数和scale
     cur_valid_size = pypto.min(token_num - token_loop_idx * loop_base, loop_base)
-    x = pypto.view(expand_x_int8, [loop_base, hidden_size], expand_x_offset, valid_shape=[cur_valid_size, hidden_size])
-    x_scale = pypto.view(expand_x_scale, [loop_base, 1], x_scale_offset, valid_shape=[cur_valid_size, 1])
+    x = pypto.view(hidden_states, [loop_base, hidden_size], hidden_states_offset, valid_shape=[cur_valid_size, hidden_size])
+    x_scale = pypto.view(hidden_states_scale, [loop_base, 1], x_scale_offset, valid_shape=[cur_valid_size, 1])
 
     # 获取当前专家的weght_13和scale
-    w13_int8_2d = pypto.view(w13_int8, [hidden_size, intermediate_size * 2], weight_13_offset)
-    w13_exp_scale = pypto.view(w13_scale, [1, intermediate_size * 2], w13_scale_offset)
+    w13_weight_2d = pypto.view(w13, [hidden_size, intermediate_size * 2], weight_13_offset)
+    w13_scale_valid = pypto.view(w13_scale, [1, intermediate_size * 2], w13_scale_offset)
 
     # # 获取当前专家的weght_2和scale
-    w2_int8_2d = pypto.view(w2_int8, [intermediate_size, hidden_size], weight_2_offset)
-    w2_exp_scale = pypto.view(w2_scale, [1, hidden_size], w2_scale_offset)
+    w2_weight_2d = pypto.view(w2, [intermediate_size, hidden_size], weight_2_offset)
+    w2_scale_valid = pypto.view(w2_scale, [1, hidden_size], w2_scale_offset)
 
     # up_proj的matmul计算
-    pypto.set_cube_tile_shapes([mm1_cube_tile_shape[0], mm1_cube_tile_shape[0]], [mm1_cube_tile_shape[1], mm1_cube_tile_shape[1]], [mm1_cube_tile_shape[2], mm1_cube_tile_shape[2]])
-    pypto.set_matrix_size({loop_base, w13_int8_2d.shape[0], w13_int8_2d.shape[1]})
-    gate_int32 = pypto.matmul(x, w13_int8_2d, pypto.DT_INT32)
+    pypto.set_cube_tile_shapes([mm1_cube_tile_shape[0], mm1_cube_tile_shape[0]], [mm1_cube_tile_shape[1], mm1_cube_tile_shape[1] * 2], \
+                               [mm1_cube_tile_shape[2], mm1_cube_tile_shape[2]], True, True)
+    pypto.set_matrix_size({loop_base, w13_weight_2d.shape[0], w13_weight_2d.shape[1]})
+    up_proj = pypto.matmul(x, w13_weight_2d, pypto.DT_INT32)
 
     # dequant
     pypto.set_vec_tile_shapes(1, intermediate_size * 2)
-    gate = dequant_dynamic(gate_int32, w13_exp_scale, x_scale)
-
-    gate_left = pypto.view(gate, [loop_base, intermediate_size], [0, 0])
-    gate_right = pypto.view(gate, [loop_base, intermediate_size], [0, intermediate_size])
-
-    # SwiGlu & mul : [x / (1 + e^(-x)) * right]
-    pypto.set_vec_tile_shapes(1, intermediate_size)
-    swiglu_a = pypto.mul(gate_left, -1.0)
-    swiglu_b = pypto.exp(swiglu_a)
-    swiglu_c = pypto.add(swiglu_b, 1.0)
-    swiglu_out = pypto.div(gate_left, swiglu_c)
-    swiglu = pypto.mul(swiglu_out, gate_right)
+    up_proj_out = dequant_dynamic(up_proj, w13_scale_valid, x_scale)
+    swiglu_out = swiglu(up_proj_out, loop_base)
 
     # down_proj
     # quant
-    swiglu_int8, swiglu_int8_scale = symmetric_quantization_per_token(swiglu)
+    down_proj_quant, down_proj_scale = symmetric_quantization_per_token(swiglu_out)
 
-    pypto.set_cube_tile_shapes([mm2_cube_tile_shape[0], mm2_cube_tile_shape[0]], [mm2_cube_tile_shape[1], mm2_cube_tile_shape[1]], [mm2_cube_tile_shape[2], mm2_cube_tile_shape[2]])
-    pypto.set_matrix_size({loop_base, w2_int8_2d.shape[0], w2_int8_2d.shape[1]})
-    out_int32 = pypto.matmul(swiglu_int8, w2_int8_2d, pypto.DT_INT32)
+    pypto.set_cube_tile_shapes([mm2_cube_tile_shape[0], mm2_cube_tile_shape[0]], [mm2_cube_tile_shape[1], mm2_cube_tile_shape[1] * 2], \
+                               [mm2_cube_tile_shape[2], mm2_cube_tile_shape[2]], True, True)
+    pypto.set_matrix_size({loop_base, w2_weight_2d.shape[0], w2_weight_2d.shape[1]})
+    down_proj = pypto.matmul(down_proj_quant, w2_weight_2d, pypto.DT_INT32)
 
     # dequant
     pypto.set_vec_tile_shapes(1, hidden_size)
-    gate = dequant_dynamic(out_int32, w2_exp_scale, swiglu_int8_scale)
-    out = pypto.cast(gate, x_Dtype)
-    pypto.assemble(out, expand_x_offset, ffn_out)
+    down_proj_dequant = dequant_dynamic(down_proj, w2_scale_valid, down_proj_scale)
+    out = pypto.cast(down_proj_dequant, x_dtype)
+    pypto.assemble(out, hidden_states_offset, ffn_res)
 
 
 # tiling config
@@ -201,30 +192,32 @@ loop_base = 8
 def moe_router_expert_main(inputs, outputs):
     pypto.set_host_options(only_codegen=True)
     pypto.set_codegen_options(support_dynamic_unaligned=True)
+    pypto.set_codegen_options(codegen_expression_fusion=True)
     pypto.set_runtime_options(machine_sched_mode=1)
+    pypto.set_pass_options(l1_reuse=2)
 
-    # expand_x_int8, expand_x_scale, group_list, group_list_cumsum, w13_int8, w13_scale, w2_int8, w2_scale
-    expand_x_int8 = inputs[0]
-    expand_x_scale = inputs[1]
+    # hidden_states, hidden_states_scale, group_list, group_list_cumsum, w13, w13_scale, w2, w2_scale
+    hidden_states = inputs[0]
+    hidden_states_scale = inputs[1]
     group_list = inputs[2]
     group_list_cumsum = inputs[3]
-    w13_int8 = inputs[4]
+    w13 = inputs[4]
     w13_scale = inputs[5]
-    w2_int8 = inputs[6]
+    w2 = inputs[6]
     w2_scale = inputs[7]
-    ffn_out = outputs[0]
+    ffn_res = outputs[0]
 
     # 获取当前device上专家总数
     expert_num = group_list.shape[0]
 
-    w13_2d_shape = (w13_int8.shape[0] * w13_int8.shape[1], w13_int8.shape[2])
-    w2_2d_shape = (w2_int8.shape[0] * w2_int8.shape[1], w2_int8.shape[2])
-    expand_x_scale_shape = (expand_x_scale.shape[0], 1)
+    w13_2d_shape = (w13.shape[0] * w13.shape[1], w13.shape[2])
+    w2_2d_shape = (w2.shape[0] * w2.shape[1], w2.shape[2])
+    hidden_states_scale_shape = (hidden_states_scale.shape[0], 1)
 
     for _ in pypto.loop(0, 1, 1, name="LOOP_FFN_ROUTER_MLP_RESHAPE", idx_name="reshape_idx"):
-        w13_2d = pypto.reshape(w13_int8, w13_2d_shape, inplace=True)
-        w2_int8_2d = pypto.reshape(w2_int8, w2_2d_shape, inplace=True)
-        expand_x_scale_2d = pypto.reshape(expand_x_scale, expand_x_scale_shape, inplace=True)
+        w13_2d = pypto.reshape(w13, w13_2d_shape, inplace=True)
+        w2_weight_2d = pypto.reshape(w2, w2_2d_shape, inplace=True)
+        hidden_states_scale_2d = pypto.reshape(hidden_states_scale, hidden_states_scale_shape, inplace=True)
 
     for exp_idx in pypto.loop(0, expert_num, 1, name="LOOP_FFN_ROUTER_MLP_L0", idx_name="exp_idx"):
         def loop_expert(exp_idx):
@@ -239,15 +232,15 @@ def moe_router_expert_main(inputs, outputs):
                         exp_idx=exp_idx,
                         token_loop_idx=token_loop_idx,
                         loop_base=loop_base,
-                        expand_x_int8=expand_x_int8,
-                        expand_x_scale=expand_x_scale_2d,
+                        hidden_states=hidden_states,
+                        hidden_states_scale=hidden_states_scale_2d,
                         group_list=group_list,
                         group_list_cumsum=group_list_cumsum,
-                        w13_int8=w13_2d,
+                        w13=w13_2d,
                         w13_scale=w13_scale,
-                        w2_int8=w2_int8_2d,
+                        w2=w2_weight_2d,
                         w2_scale=w2_scale,
-                        ffn_out=ffn_out,
+                        ffn_res=ffn_res,
                         mm1_cube_tile_shape=mm1_cube_tile_shape,
                         mm2_cube_tile_shape=mm2_cube_tile_shape,
                         )
@@ -256,41 +249,44 @@ def moe_router_expert_main(inputs, outputs):
 
 
 @allow_in_graph
-def glm_router_expert_quant(hidden_states, pertoken_scale, group_list, w13, w13_scale, w2, w2_scale):
-    if isinstance(hidden_states, FakeTensor):
-        return
+def ffn_router_expert_quant(hidden_states: torch.Tensor,
+                            pertoken_scale: torch.Tensor,
+                            group_list: torch.Tensor,
+                            w13: torch.Tensor,
+                            w13_scale: torch.Tensor,
+                            w2: torch.Tensor,
+                            w2_scale: torch.Tensor
+)-> torch.Tensor:
     x_dtype = w2_scale.dtype
     b_s_topk, hidden_size = hidden_states.shape[0:2]
     group_list_int32 = group_list.to(torch.int32)
-    # cumsum torch_npu
-    # group_list_cumsum = (torch.cumsum(group_list_int32, dim=0) - group_list_int32).to(torch.int32)
 
     from glm_ffn_group_list_cumsum import glm_router_expert_cumsum
     group_list_cumsum = glm_router_expert_cumsum(group_list)
 
-    pypto_out = torch.zeros((b_s_topk, hidden_size), dtype=x_dtype, device=hidden_states.device)
+    ffn_res = torch.empty((b_s_topk, hidden_size), dtype=x_dtype, device=hidden_states.device)
     inputs = {
         hidden_states: [0],
         pertoken_scale: [0],
-        group_list_int32: [0],
-        group_list_cumsum: [0],
+        group_list_int32: [],
+        group_list_cumsum: [],
         w13: [],
         w13_scale: [],
         w2: [],
         w2_scale: []
     }
     outputs = {
-        pypto_out: [0]
+        ffn_res: [0]
     }
-    pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
-    pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
-    moe_router_expert_main(pto_inputs, pto_outputs)
-    pypto.runtime._device_synchronize()
-    return pypto_out
+    if not isinstance(hidden_states, FakeTensor):
+        pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
+        pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
+        moe_router_expert_main(pto_inputs, pto_outputs)
+        pypto.runtime._device_synchronize()
+    return ffn_res
 
 
-@pytest.mark.skip(reason="failure")
-def test_glm4_ffn_router():
+def test_ffn_router():
     dtype = torch.bfloat16
     # parameter config
     b = 1
@@ -299,6 +295,7 @@ def test_glm4_ffn_router():
     hidden_size = 5120
     per_expert_num = 20
     topk = 8
+    torch_npu.npu.config.allow_internal_format = True
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
     for i in range(0, 2):
@@ -306,22 +303,22 @@ def test_glm4_ffn_router():
             b = 1
         if (i == 1):
             b = 2
-        # expand_x_int8, expand_x_scale, group_list, group_list_cumsum, w13_int8, w13_scale, w2_int8, w2_scale, out_tensor
-        expand_x_int8, expand_x_scale, group_list, group_list_cumsum, w13_int8, w13_scale, w2_int8, w2_scale, out_tensor = \
+        # hidden_states, hidden_states_scale, group_list, group_list_cumsum, w13, w13_scale, w2, w2_scale, ffn_res
+        hidden_states, hidden_states_scale, group_list, group_list_cumsum, w13, w13_scale, w2, w2_scale, ffn_res = \
             gen_input(b, s, topk, per_expert_num, hidden_size, intermediate_size, dtype, device_id)
 
         inputs = {
-            expand_x_int8: [0],
-            expand_x_scale: [0],
-            group_list: [0],
-            group_list_cumsum: [0],
-            w13_int8: [],
+            hidden_states: [0],
+            hidden_states_scale: [0],
+            group_list: [],
+            group_list_cumsum: [],
+            w13: [],
             w13_scale: [],
-            w2_int8: [],
+            w2: [],
             w2_scale: []
         }
         outputs = {
-            out_tensor: [0]
+            ffn_res: [0]
         }
         pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
         pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
@@ -329,12 +326,13 @@ def test_glm4_ffn_router():
         pypto.runtime._device_synchronize()
 
         # golden
-        golden = ffn_router_torch_npu(expand_x_int8, expand_x_scale, group_list, w13_int8, w13_scale, w2_int8, w2_scale)
+        golden = ffn_router_torch_npu(hidden_states, hidden_states_scale, group_list, w13, w13_scale, w2, w2_scale)
 
         # calc valid token num for compare
         vaild_token_cumsum = group_list.cumsum(dim=0)
         valid_size = vaild_token_cumsum[vaild_token_cumsum.shape[0] - 1] * hidden_size
-        assert_allclose(np.array(out_tensor.cpu().flatten().tolist()[0 : valid_size]), np.array(golden.cpu().flatten().tolist()[0 : valid_size]), rtol=0.0078125, atol=0.0001)
+        assert_allclose(np.array(ffn_res.cpu().flatten().tolist()[0 : valid_size]),\
+                        np.array(golden.cpu().flatten().tolist()[0 : valid_size]), rtol=0.0078125, atol=0.0001)
 
 
 if __name__ == "__main__":

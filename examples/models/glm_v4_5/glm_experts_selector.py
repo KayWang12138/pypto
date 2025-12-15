@@ -11,8 +11,8 @@
 """
 """
 import os
-import pypto
 import torch
+import pypto
 import numpy as np
 from numpy.testing import assert_allclose
 from torch._subclasses.fake_tensor import FakeTensor
@@ -32,54 +32,106 @@ def powers_of_2(n: int) -> set[int]:
     return result
 
 
-def main():
-    test_select_experts()
+def process_main_loop_interation(
+    bs_idx,
+    logits_input,
+    e_score_bias_2d,
+    weight_k,
+    ids_k,
+    bs,
+    ne,
+    view_shape,
+    view_first,
+    topk,
+    topk_group,
+    num_expert_group,
+    renormalize_flag
+):
+    # 6. 通过view得到tile_logits
+    tile_logits = pypto.view(logits_input, view_shape,
+                                [bs_idx * view_shape[0], 0],
+                                valid_shape=[(bs - bs_idx * view_shape[0]).min(view_shape[0]), ne])
 
+    # 7. 按照计算图实现运算逻辑，设置set_vec_tile_shapes时应尽可能用满UB，但不要超过UB的大小。
+    pypto.set_vec_tile_shapes(view_first, ne)
+    tile_logits_fp32 = pypto.cast(tile_logits, pypto.DT_FP32)
+    e_score_bias_2d_cast = pypto.cast(e_score_bias_2d, tile_logits_fp32.dtype)
 
-@allow_in_graph
-def graph_select_experts_glm(router_logits, e_score_correction_bias, renormalize_flag, topk_group, num_expert_group,
-                             topk_weights, topk_ids):
-    if isinstance(router_logits, FakeTensor):
-        return
-    inputs = {
-        router_logits: [0],
-        e_score_correction_bias: []
-    }
-    outputs = {
-        topk_weights: [0],
-        topk_ids: [0]
-    }
-    pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
-    pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
-    select_experts_glm(pto_inputs, pto_outputs, renormalize_flag, topk_group, num_expert_group)
-    pypto.runtime._device_synchronize()
+    # sigmoid
+    topk_weights = pypto.sigmoid(tile_logits_fp32)  # (bs, ne) fp32
 
+    # add
+    topk_weights_add = pypto.add(topk_weights, e_score_bias_2d_cast)  # (8, 160) fp32
+    # reshape
+    group_unit = ne // num_expert_group
+    r1 = pypto.reshape(topk_weights_add,
+                        [view_shape[0], num_expert_group, group_unit],
+                        valid_shape=[(bs - bs_idx * view_shape[0]).min(view_shape[0]), num_expert_group,
+                                    group_unit])
 
-def select_experts_pto(router_logits: torch.Tensor,
-                       top_k: int,  # number of top k experts.
-                       # Whether to renormalize the routing weights.
-                       renormalize: bool,
-                       # Number of expert groups to select from.
-                       topk_group: int,
-                       # Number of experts in each group.
-                       num_expert_group: int,
-                       # Correction bias to apply to expert scores.
-                       e_score_correction_bias: torch.Tensor,
-                       ) -> tuple[torch.Tensor, torch.Tensor]:  # topk_weights, topk_ids
-    bs = router_logits.shape[0]
-    device_info = router_logits.device
-    topk_weights = torch.empty(
-        (bs, top_k), dtype=router_logits.dtype, device=device_info)
-    topk_ids = torch.empty((bs, top_k), dtype=torch.int32, device=device_info)
+    # amax
+    pypto.set_vec_tile_shapes(view_first, num_expert_group, group_unit)
+    max1 = pypto.amax(r1, -1, False)
+    group_weight = max1
 
-    # 4. 执行kernel并获取结果
-    graph_select_experts_glm(router_logits, e_score_correction_bias, renormalize,
-                             topk_group, num_expert_group, topk_weights, topk_ids)
-    return topk_weights, topk_ids
+    # topk
+    pypto.set_vec_tile_shapes(view_first, num_expert_group)
+    _, topk_group_indices = pypto.topk(group_weight, topk_group, -1, True)  # (2, topk_group) int32
+
+    # zeros -> full(0)
+    topk_group_mask = pypto.full([view_shape[0], num_expert_group], 0.0, group_weight.dtype,
+                                    valid_shape=[(bs - bs_idx * view_shape[0]).min(view_shape[0]),
+                                                num_expert_group])  # (16, 1)
+
+    # scatter 尾轴不能切
+    topk_group_mask_scatter_trans = pypto.scatter_(topk_group_mask, 1, topk_group_indices, 1.0)
+
+    # unsqueeze
+    twm_unsqueeze = pypto.unsqueeze(topk_group_mask_scatter_trans, -1)  # (1, 1, 1) fp32
+
+    # expand
+    pypto.set_vec_tile_shapes(view_first, num_expert_group, ne)  # ne时 可以切成一块
+    twm_expand = pypto.expand_clone(twm_unsqueeze, [view_shape[0], num_expert_group, group_unit],
+                                    valid_shape=[(bs - bs_idx * view_shape[0]).min(view_shape[0]),
+                                                    num_expert_group, group_unit])
+
+    # reshape
+    pypto.set_vec_tile_shapes(view_first, num_expert_group, group_unit)  # (1,1,160)
+    twm_reshape = pypto.reshape(twm_expand,
+                                [view_shape[0], ne],
+                                valid_shape=[(bs - bs_idx * view_shape[0]).min(view_shape[0]), ne])
+
+    # logical_not
+    pypto.set_vec_tile_shapes(view_first, ne)
+    twm_not = pypto.logical_not(twm_reshape)
+
+    # where
+    topk_weights_maskfill = pypto.where(twm_not, 0.0, topk_weights_add)
+
+    # topk2
+    _, topk_ids = pypto.topk(topk_weights_maskfill, topk, -1, True)  # (bs, topk) int32
+
+    # tw_gather
+    tw_gather = pypto.gather(topk_weights, 1, topk_ids)  # (bs, 8)
+
+    # sum & div
+    pypto.set_vec_tile_shapes(view_first, topk)
+    if pypto.cond(pypto.symbolic_scalar(renormalize_flag)):
+        # sum
+        denominator = pypto.sum(tw_gather, -1, True)  # (bs, 1)
+        # div for shape (b*s, topk) (b*s, 1)
+        topk_weight_out = pypto.div(tw_gather, denominator)  # (bs, topk)
+    else:
+        denominator = tw_gather
+        topk_weight_out = denominator
+
+    # # 8. 将结果搬运到输出tensor上
+    weight_k[bs_idx * view_shape[0]:, 0:] = topk_weight_out
+    ids_k[bs_idx * view_shape[0]:, 0:] = topk_ids
 
 
 @pypto.jit(
-    runtime_options={"first_stitch_task_loop_num": 128, 
+    runtime_options={"first_stitch_task_loop_num": 128,
     "estimated_stitch_task_max_loop_num": 128,
     "workspace_recycle_period": 128,
     "cfgcache_device_task_num": 100,
@@ -88,7 +140,7 @@ def select_experts_pto(router_logits: torch.Tensor,
     host_options={"only_codegen": True},
     codegen_options={"support_dynamic_unaligned": True}
 )
-def select_experts_glm(in_tensors, out_tensors, renormalize_flag, topk_group, num_expert_group):
+def select_experts_kernel(in_tensors, out_tensors, renormalize_flag, topk_group, num_expert_group):
     # 泳道图使能  pypto.set_option('profile_enable', True)
 
     # 2. 从入参拿到输入和输出tensor
@@ -113,88 +165,21 @@ def select_experts_glm(in_tensors, out_tensors, renormalize_flag, topk_group, nu
 
     # 5. 实现kernel逻辑，循环展开BS动态轴
     for bs_idx in pypto.loop(bs_loop, name="LOOP_MOEGATE_L0", idx_name="bs_idx"):
-        # 6. 通过view得到tile_logits
-        tile_logits = pypto.view(logits_input, view_shape,
-                                    [bs_idx * view_shape[0], 0],
-                                    valid_shape=[(bs - bs_idx * view_shape[0]).min(view_shape[0]), ne])
-
-        # 7. 按照计算图实现运算逻辑，设置set_vec_tile_shapes时应尽可能用满UB，但不要超过UB的大小。
-        pypto.set_vec_tile_shapes(view_first, ne)
-        tile_logits_fp32 = pypto.cast(tile_logits, pypto.DT_FP32)
-        e_score_bias_2d_cast = pypto.cast(e_score_bias_2d, tile_logits_fp32.dtype)
-
-        # sigmoid
-        topk_weights = pypto.sigmoid(tile_logits_fp32)  # (bs, ne) fp32
-
-        # add
-        topk_weights_add = pypto.add(topk_weights, e_score_bias_2d_cast)  # (8, 160) fp32
-        # reshape
-        group_unit = ne // num_expert_group
-        r1 = pypto.reshape(topk_weights_add,
-                            [view_shape[0], num_expert_group, group_unit],
-                            valid_shape=[(bs - bs_idx * view_shape[0]).min(view_shape[0]), num_expert_group,
-                                        group_unit])
-
-        # amax
-        pypto.set_vec_tile_shapes(view_first, num_expert_group, group_unit)
-        max1 = pypto.amax(r1, -1, False)
-        group_weight = max1
-
-        # topk
-        pypto.set_vec_tile_shapes(view_first, num_expert_group)
-        _, topk_group_indices = pypto.topk(group_weight, topk_group, -1, True)  # (2, topk_group) int32
-
-        # zeros -> full(0)
-        topk_group_mask = pypto.full([view_shape[0], num_expert_group], 0.0, group_weight.dtype,
-                                        valid_shape=[(bs - bs_idx * view_shape[0]).min(view_shape[0]),
-                                                    num_expert_group])  # (16, 1)
-
-        # scatter 尾轴不能切
-        topk_group_mask_scatter_trans = pypto.scatter_(topk_group_mask, 1, topk_group_indices, 1.0)
-
-        # unsqueeze
-        twm_unsqueeze = pypto.unsqueeze(topk_group_mask_scatter_trans, -1)  # (1, 1, 1) fp32
-
-        # expand
-        pypto.set_vec_tile_shapes(view_first, num_expert_group, ne)  # ne时 可以切成一块
-        twm_expand = pypto.expand_clone(twm_unsqueeze, [view_shape[0], num_expert_group, group_unit],
-                                        valid_shape=[(bs - bs_idx * view_shape[0]).min(view_shape[0]),
-                                                        num_expert_group, group_unit])
-
-        # reshape
-        pypto.set_vec_tile_shapes(view_first, num_expert_group, group_unit)  # (1,1,160)
-        twm_reshape = pypto.reshape(twm_expand,
-                                    [view_shape[0], ne],
-                                    valid_shape=[(bs - bs_idx * view_shape[0]).min(view_shape[0]), ne])
-
-        # logical_not
-        pypto.set_vec_tile_shapes(view_first, ne)
-        twm_not = pypto.logical_not(twm_reshape)
-
-        # where
-        topk_weights_maskfill = pypto.where(twm_not, 0.0, topk_weights_add)
-
-        # topk2
-        _, topk_ids = pypto.topk(topk_weights_maskfill, topk, -1, True)  # (bs, topk) int32
-
-        # tw_gather
-        tw_gather = pypto.gather(topk_weights, 1, topk_ids)  # (bs, 8)
-
-        # sum & div
-        pypto.set_vec_tile_shapes(view_first, topk)
-        if pypto.cond(pypto.symbolic_scalar(renormalize_flag)):
-            # sum
-            denominator = pypto.sum(tw_gather, -1, True)  # (bs, 1)
-            # div for shape (b*s, topk) (b*s, 1)
-            topk_weight_out = pypto.div(tw_gather, denominator)  # (bs, topk)
-        else:
-            denominator = tw_gather
-            topk_weight_out = denominator
-
-        # # 8. 将结果搬运到输出tensor上
-        weight_k[bs_idx * view_shape[0]:, 0:] = topk_weight_out
-        ids_k[bs_idx * view_shape[0]:, 0:] = topk_ids
-
+        process_main_loop_interation(
+            bs_idx,
+            logits_input,
+            e_score_bias_2d,
+            weight_k,
+            ids_k,
+            bs,
+            ne,
+            view_shape,
+            view_first,
+            topk,
+            topk_group,
+            num_expert_group,
+            renormalize_flag
+        )
 
 
 def gen_row_idx_gloden(hidden_states, top_k):
@@ -207,6 +192,7 @@ def gen_row_idx_gloden(hidden_states, top_k):
 
 def test_select_experts():
     # 1. 设置参数
+
     bs = 32
     ne = 160
     top_k = 8
@@ -245,7 +231,7 @@ def test_select_experts():
         pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
         g = torch.npu.NPUGraph()
         with torch.npu.graph(g):
-            select_experts_glm(pto_inputs, pto_outputs, renormalize, topk_group, num_expert_group)
+            select_experts_kernel(pto_inputs, pto_outputs, renormalize, topk_group, num_expert_group)
         g.replay()
         pypto.runtime._device_synchronize()
 
@@ -298,6 +284,46 @@ def test_select_experts():
         assert_allclose(np.array(topk_ids.cpu().flatten().tolist()),
                         np.array(topk_ids_tensor_list),
                         rtol=5e-3, atol=5e-3)
+
+
+@allow_in_graph
+def select_experts(router_logits: torch.Tensor,
+                       top_k: int,  # number of top k experts.
+                       # Whether to renormalize the routing weights.
+                       renormalize: bool,
+                       # Number of expert groups to select from.
+                       topk_group: int,
+                       # Number of experts in each group.
+                       num_expert_group: int,
+                       # Correction bias to apply to expert scores.
+                       e_score_correction_bias: torch.Tensor,
+                       ) -> tuple[torch.Tensor, torch.Tensor]:  # topk_weights, topk_ids
+    bs = router_logits.shape[0]
+    device_info = router_logits.device
+    topk_weights = torch.empty(
+        (bs, top_k), dtype=router_logits.dtype, device=device_info)
+    topk_ids = torch.empty((bs, top_k), dtype=torch.int32, device=device_info)
+
+    # 4. 执行kernel并获取结果
+    if isinstance(router_logits, FakeTensor):
+        return topk_weights, topk_ids
+    inputs = {
+        router_logits: [0],
+        e_score_correction_bias: []
+    }
+    outputs = {
+        topk_weights: [0],
+        topk_ids: [0]
+    }
+    pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
+    pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
+    select_experts_kernel(pto_inputs, pto_outputs, renormalize, topk_group, num_expert_group)
+    pypto.runtime._device_synchronize()
+    return topk_weights, topk_ids
+
+
+def main():
+    test_select_experts()
 
 
 if __name__ == "__main__":

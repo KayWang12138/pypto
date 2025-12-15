@@ -14,8 +14,8 @@
 import numpy as np
 import os
 import torch
-import pytest
 import torch_npu
+import pytest
 import pypto
 from dataclasses import dataclass
 

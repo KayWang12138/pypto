@@ -11,8 +11,8 @@
 """
 """
 import os
-import pypto
 import torch
+import pypto
 import numpy as np
 from numpy.testing import assert_allclose
 from torch._subclasses.fake_tensor import FakeTensor
@@ -30,31 +30,6 @@ def powers_of_2(n: int) -> set[int]:
         result.add(current)
         power += 1
     return result
-
-
-def main():
-    test_rms_norm_main()
-
-
-@allow_in_graph
-def graph_add_rms_norm_custom(hidden_states, residual, input_norm_weight, input_norm_bias, eps,
-                              output_hidden_states, output_residual):
-    if isinstance(hidden_states, FakeTensor):
-        return
-    inputs = {
-        hidden_states: [0],
-        residual: [0],
-        input_norm_weight: [],
-        input_norm_bias: []
-    }
-    outputs = {
-        output_hidden_states: [0],
-        output_residual: [0]
-    }
-    pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
-    pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
-    add_rms_norm_custom(pto_inputs, pto_outputs, eps)
-    pypto.runtime._device_synchronize()
 
 
 def add_rms_norm_golden(hidden_states, residual, gamma, bias_input, eps):
@@ -76,25 +51,6 @@ def add_rms_norm_golden(hidden_states, residual, gamma, bias_input, eps):
     return res, x_out
 
 
-def post_attention_layernorm_pto(layer_input_layernorm,
-                                 hidden_states: torch.Tensor,
-                                 residual: torch.Tensor
-                                 ) -> tuple[torch.Tensor, torch.Tensor]:
-    input_norm_bias = layer_input_layernorm.bias
-    input_norm_eps = layer_input_layernorm.variance_epsilon
-    input_norm_weight = layer_input_layernorm.weight
-    bs, h_num = hidden_states.shape
-    device_info = hidden_states.device
-    output_hidden_states = torch.empty(
-        (bs, h_num), dtype=hidden_states.dtype, device=device_info)
-    output_residual = torch.empty(
-        (bs, h_num), dtype=hidden_states.dtype, device=device_info)
-
-    graph_add_rms_norm_custom(hidden_states, residual, input_norm_weight, input_norm_bias, input_norm_eps,
-                              output_hidden_states, output_residual)
-    return output_hidden_states, output_residual
-
-
 @pypto.jit(
     runtime_options={
     "cfgcache_device_task_num": 100,
@@ -103,9 +59,8 @@ def post_attention_layernorm_pto(layer_input_layernorm,
     host_options={"only_codegen": True},
     codegen_options={"support_dynamic_unaligned": True}
 )
-def add_rms_norm_custom(in_tensor, out_tensor, eps):
+def add_rms_norm_kernel(in_tensor, out_tensor, eps):
     # 泳道图使能  pypto.set_option('profile_enable', True)
-
     # 从入参拿到输入和输出tensor
     x = in_tensor[0]
     residual_input = in_tensor[1]
@@ -122,7 +77,6 @@ def add_rms_norm_custom(in_tensor, out_tensor, eps):
     bs = x.shape[0]
     hidden_size = x.shape[1]
     view_shape = (8, hidden_size)
-
     bs_loop = (bs + view_shape[0] - 1) // view_shape[0]
 
     # 实现kernel逻辑， 包在函数中实现变量自动回收
@@ -210,7 +164,7 @@ def test_rms_norm_main():
         pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
         g = torch.npu.NPUGraph()
         with torch.npu.graph(g):
-            add_rms_norm_custom(pto_inputs, pto_outputs, eps)
+            add_rms_norm_kernel(pto_inputs, pto_outputs, eps)
         g.replay()
         pypto.runtime._device_synchronize()
 
@@ -221,6 +175,37 @@ def test_rms_norm_main():
                         np.array(golden_residual.flatten().tolist()), rtol=1e-5, atol=1e-5)
         assert_allclose(np.array(output_hidden_states.cpu().flatten().tolist()),
                         np.array(golden_hidden_states.flatten().tolist()), rtol=8e-3, atol=8e-3)
+
+
+@allow_in_graph
+def add_rms_norm(
+    hidden_states: torch.Tensor,
+    residual: torch.Tensor,
+    weight: torch.Tensor,
+    bias: torch.Tensor,
+    eps: float,
+    hidden_states_res: torch.Tensor,
+    residual_res: torch.Tensor) -> None:
+    if isinstance(hidden_states, FakeTensor):
+        return
+    inputs = {
+        hidden_states: [0],
+        residual: [0],
+        weight: [],
+        bias: []
+    }
+    outputs = {
+        hidden_states_res: [0],
+        residual_res: [0]
+    }
+    pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
+    pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
+    add_rms_norm_kernel(pto_inputs, pto_outputs, eps)
+    pypto.runtime._device_synchronize()
+
+
+def main():
+    test_rms_norm_main()
 
 
 if __name__ == "__main__":

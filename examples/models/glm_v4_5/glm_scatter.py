@@ -11,8 +11,8 @@
 """
 """
 import os
-import pypto
 import torch
+import pypto
 from utils.np_compare import detailed_allclose_manual
 import numpy as np
 
@@ -134,11 +134,9 @@ def test_scatter_update():
         key_cache_clone_2d_select = key_cache_clone_2d[index.cpu().numpy()]
         npu_key_cache_out_2d_select = npu_key_cache_out_2d[index.cpu().numpy()]
         value_cache_clone_2d_select = value_cache_clone_2d[index.cpu().numpy()]
-        npu_value_cache_out_2d_select = npu_value_cache_out_2d[index.cpu().numpy()]        
-        print('5555')
+        npu_value_cache_out_2d_select = npu_value_cache_out_2d[index.cpu().numpy()]
         detailed_allclose_manual(key_cache_clone_2d_select.flatten(), npu_key_cache_out_2d_select.flatten(), "key cache")
         detailed_allclose_manual(value_cache_clone_2d_select.flatten(), npu_value_cache_out_2d_select.flatten(), "key cache")
-        print('6666')
     else:
         detailed_allclose_manual(np.array(key_cache_clone.cpu()).flatten(), np.array(npu_key_cache_out).flatten(), "key cache")
         detailed_allclose_manual(np.array(value_cache_clone.cpu()).flatten(), np.array(npu_value_cache_out).flatten(), "value cache")

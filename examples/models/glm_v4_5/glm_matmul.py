@@ -11,8 +11,8 @@
 """
 """
 import os
-import pypto
 import torch
+import pypto
 import numpy as np
 from numpy.testing import assert_allclose
 from torch._subclasses.fake_tensor import FakeTensor
@@ -53,7 +53,7 @@ def graph_select_experts_mm(hidden_states, gate_weight, router_logits_out):
     pypto.runtime._device_synchronize()
 
 
-def gate_pto(gate_weight: torch.Tensor,  # gate matmul weights
+def gate(gate_weight: torch.Tensor,  # gate matmul weights
              hidden_states: torch.Tensor  # Hidden states of shape (num_tokens, hidden_size).
              ) -> torch.Tensor:
     bs = hidden_states.shape[0]
