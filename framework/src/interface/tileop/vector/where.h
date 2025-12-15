@@ -52,27 +52,17 @@ TILEOP void ProcessBool(uint64_t vcmpBitResult, uint64_t condition,
     }
 }
 
-template <
-    typename TDst,
-    typename TCastCond, typename TCmpCond,
-    typename TVCmpRes,
-    typename TStartAddrUB,
-    typename TInpTmp, typename TOtherTmp,
-    typename TCond,
-    typename TSrc0, typename TSrc1>
-TILEOP void TWhere(
-    TDst dst,
-    TCastCond castCondition,
-    TCmpCond compareCondition,
-    TVCmpRes vcmpBitResult,
-    TStartAddrUB startAddrUB,
-    TInpTmp inputTempTensor,
-    TOtherTmp otherTempTensor,
-    TCond condition,
-    TSrc0 src0,
-    TSrc1 src1) {
+template <typename TDst, typename TTmp, typename TCond, typename TSrc0, typename TSrc1>
+TILEOP void TWhere(TDst dst, TTmp tmpbuf, TCond condition, TSrc0 src0, TSrc1 src1) {
     using ShapeValueType = typename Std::tuple_element<0, typename TDst::Shape>::type;
     constexpr auto shapeSize = Std::tuple_size<typename TDst::Shape>::value;
+
+    unsigned elementsPerCount = 1024;
+    unsigned bitsOfByte = 8;
+    uint64_t tmpbufAddr = tmpbuf.GetAddr();
+    __ubuf__ half *castCondition = reinterpret_cast<__ubuf__ half*>(tmpbufAddr);
+    __ubuf__ half *compareCondition = castCondition + elementsPerCount;
+    __ubuf__ int8_t *vcmpBitResult = reinterpret_cast<__ubuf__ int8_t*>(compareCondition + elementsPerCount);
 
     constexpr size_t expectSize = 5;
     const auto dstLayout = dst.GetLayout();
@@ -109,9 +99,14 @@ TILEOP void TWhere(
                                            n2Index * conditionStride2 + n3Index * conditionStride3;
                     uint64_t conditionAddr = condition.GetAddr() + conditionOffset * conditionTypeSize;
                     if constexpr (std::is_same_v<typename TCond::Type, bool>) {
-                        ProcessBool(vcmpBitResult.GetAddr(), conditionAddr, 
-                                    castCondition.GetAddr(), compareCondition.GetAddr(), shape4);
-                        conditionAddr = vcmpBitResult.GetAddr();
+                        ProcessBool(
+                            reinterpret_cast<uint64_t>(vcmpBitResult),
+                            conditionAddr,
+                            reinterpret_cast<uint64_t>(castCondition),
+                            reinterpret_cast<uint64_t>(compareCondition),
+                            shape4
+                        );
+                        conditionAddr = reinterpret_cast<uint64_t>(vcmpBitResult);
                     }
 
                     using TileDefine =
