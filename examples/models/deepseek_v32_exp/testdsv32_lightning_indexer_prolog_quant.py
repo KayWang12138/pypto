@@ -10,9 +10,9 @@
 # -----------------------------------------------------------------------------------------------------------
 """
 """
-import pypto
 import torch
 import torch_npu
+import pypto
 import os
 import pytest
 import math
