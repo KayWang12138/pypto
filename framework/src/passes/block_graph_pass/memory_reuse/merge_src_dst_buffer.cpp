@@ -53,12 +53,12 @@ Status SrcDstBufferMergeImpl::CheckOpValid(const Operation *op, int opId) {
     return SUCCESS;
 }
 
-void SrcDstBufferMergeImpl::InitOpOutput(const Operation *op) {
+void SrcDstBufferMergeImpl::InitOpOutput(const Operation &op) {
     int outId = 0;
-    for (auto &output : op->GetOOperands()) {
+    for (auto &output : op.GetOOperands()) {
         if (output == nullptr) {
             APASS_LOG_DEBUG_F(Elements::Tensor, "Op:%s, magic:%d, output:%d is null.",
-                op->GetOpcodeStr().c_str(), op->GetOpMagic(), outId);
+                op.GetOpcodeStr().c_str(), op.GetOpMagic(), outId);
             ++outId;
             continue;
         }
@@ -87,28 +87,28 @@ Status SrcDstBufferMergeImpl::Init(const std::vector<Operation *> &opList) {
             return FAILED;
         }
         InitializeTensorMemorymap(*op);
-        InitOpOutput(op);
+        InitOpOutput(*op);
         ++opId;
     }
 
     return SUCCESS;
 }
 
-bool SrcDstBufferMergeImpl::CheckIgnoreScene(const Operation *oriOps) {
+bool SrcDstBufferMergeImpl::CheckIgnoreScene(const Operation &oriOps) {
     /* use opcode is unfavorable for reading and modification, maybe use opcalctype */
     const std::set<Opcode> ignoreOps = {Opcode::OP_UB_ALLOC, Opcode::OP_COPY_IN, Opcode::OP_COPY_OUT};
-    if (ignoreOps.count(oriOps->GetOpcode()) != 0) {
+    if (ignoreOps.count(oriOps.GetOpcode()) != 0) {
         return true;
     }
     
-    if (OpcodeManager::Inst().HasStaticAttribute(oriOps->GetOpcode(), OpAttributeKey::excludeBufferReuse)) {
+    if (OpcodeManager::Inst().HasStaticAttribute(oriOps.GetOpcode(), OpAttributeKey::excludeBufferReuse)) {
         return true;
     }
 
-    if (OpcodeManager::Inst().GetCoreType(oriOps->GetOpcode()) == OpCoreType::AIC) {
+    if (OpcodeManager::Inst().GetCoreType(oriOps.GetOpcode()) == OpCoreType::AIC) {
         return true;
     }
-    for (auto &output : oriOps->GetOOperands()) {
+    for (auto &output : oriOps.GetOOperands()) {
         if (output == nullptr) {
             return true;
         }
@@ -116,17 +116,17 @@ bool SrcDstBufferMergeImpl::CheckIgnoreScene(const Operation *oriOps) {
     return false;
 }
 
-std::pair<bool, Status> SrcDstBufferMergeImpl::CheckHasInplaced(const Operation *oriOps, const Operation *ops,
+std::pair<bool, Status> SrcDstBufferMergeImpl::CheckHasInplaced(const Operation &oriOps, const Operation &ops,
     std::unordered_map<int, std::shared_ptr<LogicalTensor>> &replacedTensors) {
-    if (oriOps->HasAttr(OpAttributeKey::inplaceInfo)) {
+    if (oriOps.HasAttr(OpAttributeKey::inplaceInfo)) {
         std::map<int, int> inplaceInfo;
-        if (!oriOps->GetAttr(OpAttributeKey::inplaceInfo, inplaceInfo)) {
-            APASS_LOG_ERROR_F(Elements::Tensor, "OriOps:%s[%d] get inplaceInfo error.%s", oriOps->GetOpcodeStr().c_str(), oriOps->GetOpMagic(), GetFormatBacktrace(oriOps).c_str());
+        if (!oriOps.GetAttr(OpAttributeKey::inplaceInfo, inplaceInfo)) {
+            APASS_LOG_ERROR_F(Elements::Tensor, "OriOps:%s[%d] get inplaceInfo error.%s", oriOps.GetOpcodeStr().c_str(), oriOps.GetOpMagic(), GetFormatBacktrace(oriOps).c_str());
             return std::make_pair(false, FAILED);
         }
         for (auto &[iIdx, oIdx] : inplaceInfo) {
-            auto in = ops->GetIOperands()[iIdx];
-            auto out = ops->GetOOperands()[oIdx];
+            auto in = ops.GetIOperands()[iIdx];
+            auto out = ops.GetOOperands()[oIdx];
             out->memoryrange.memId = in->memoryrange.memId;
             tensorConsumers_[in->memoryrange.memId].insert(
                 tensorConsumers_[out->memoryrange.memId].begin(),
@@ -138,12 +138,12 @@ std::pair<bool, Status> SrcDstBufferMergeImpl::CheckHasInplaced(const Operation 
     return std::make_pair(false, SUCCESS);
 }
 
-bool SrcDstBufferMergeImpl::FindReplaced(const Operation *oriOps, const Operation *ops,
+bool SrcDstBufferMergeImpl::FindReplaced(const Operation &oriOps, const Operation &ops,
     std::unordered_map<int, std::shared_ptr<LogicalTensor>> &replacedTensors) {
-    for (auto in : oriOps->GetIOperands()) {
+    for (auto in : oriOps.GetIOperands()) {
         if (in != nullptr && CanSrcDstReuse(oriOps, in, true)) {
             // 当前输出复用输入
-            auto out = ops->GetOOperands()[0];
+            auto out = ops.GetOOperands()[0];
             auto inTensorMagic = in->memoryrange.memId;
             auto outTensorMagic = out->memoryrange.memId;
             if (inTensorMagic == outTensorMagic) {
@@ -163,12 +163,12 @@ bool SrcDstBufferMergeImpl::FindReplaced(const Operation *oriOps, const Operatio
     return false;
 }
 
-void SrcDstBufferMergeImpl::NotFindReplacedProcess(const Operation *ops,
+void SrcDstBufferMergeImpl::NotFindReplacedProcess(const Operation &ops,
     std::unordered_map<int, std::shared_ptr<LogicalTensor>> &replacedTensors) {
-    for (auto &out : ops->GetOOperands()) {
+    for (auto &out : ops.GetOOperands()) {
         auto outTensorMagic = out->memoryrange.memId;
         APASS_LOG_DEBUG_F(Elements::Tensor, "Op %d out tensor magic: %d",
-            ops->GetOpMagic(), outTensorMagic);
+            ops.GetOpMagic(), outTensorMagic);
         if (replacedTensors.find(outTensorMagic) != replacedTensors.end()) {
             APASS_LOG_DEBUG_F(Elements::Tensor, "Find tensor: %d replaced by tensor: %d",
                 outTensorMagic, replacedTensors[outTensorMagic]->memoryrange.memId);
@@ -196,10 +196,10 @@ Status SrcDstBufferMergeImpl::Run(Function &func) {
         for (size_t i = 0; i < oriOps.size(); i++) {
             APASS_LOG_DEBUG_F(Elements::Operation, "Try reuse op [%d] input by out tensor.",
                 oriOps[i]->GetOpMagic());
-            if (CheckIgnoreScene(oriOps[i])) {
+            if (CheckIgnoreScene(*oriOps[i])) {
                 continue;
             }
-            auto hasInplaced = CheckHasInplaced(oriOps[i], opList[i], replacedTensors);
+            auto hasInplaced = CheckHasInplaced(*oriOps[i], *opList[i], replacedTensors);
             if (hasInplaced.second == FAILED) {
                 APASS_LOG_ERROR_F(Elements::Operation, "CheckHasInplaced failed; Please check the CheckHasInplaced method.");
                 return FAILED;
@@ -207,9 +207,9 @@ Status SrcDstBufferMergeImpl::Run(Function &func) {
             if (hasInplaced.first) {
                 continue;
             }
-            bool findReplaced = FindReplaced(oriOps[i], opList[i], replacedTensors);
+            bool findReplaced = FindReplaced(*oriOps[i], *opList[i], replacedTensors);
             if (!findReplaced) {
-                NotFindReplacedProcess(opList[i], replacedTensors);
+                NotFindReplacedProcess(*opList[i], replacedTensors);
             }
         }
     }
@@ -231,17 +231,17 @@ bool SrcDstBufferMergeImpl::CheckAssembleReuse(const LogicalTensorPtr &outOperan
     return true;
 }
 
-bool SrcDstBufferMergeImpl::CanSrcDstReuse(const Operation *ops,
+bool SrcDstBufferMergeImpl::CanSrcDstReuse(const Operation &ops,
     std::shared_ptr<LogicalTensor> ioperand, bool strict) {
-    if (ops->GetOOperands().size() == 0) {
+    if (ops.GetOOperands().size() == 0) {
         return false;
     }
-    if (std::find(SCATTER_ELEMENT_OPS.begin(), SCATTER_ELEMENT_OPS.end(), ops->GetOpcode()) != SCATTER_ELEMENT_OPS.end()) {
-        if (ioperand == ops->GetIOperands()[0]) {
+    if (std::find(SCATTER_ELEMENT_OPS.begin(), SCATTER_ELEMENT_OPS.end(), ops.GetOpcode()) != SCATTER_ELEMENT_OPS.end()) {
+        if (ioperand == ops.GetIOperands()[0]) {
             return true;
         }
     }
-    auto outOperand = ops->GetOOperands()[0];
+    auto outOperand = ops.GetOOperands()[0];
     APASS_LOG_DEBUG_F(Elements::Operation, "Try reuse src %d dst %d",
         ioperand->GetMagic(), outOperand->GetMagic());
     if (outOperand->GetMemoryTypeOriginal() != ioperand->GetMemoryTypeOriginal()) {
@@ -265,7 +265,7 @@ bool SrcDstBufferMergeImpl::CanSrcDstReuse(const Operation *ops,
     // 确保复用UB buffer后不会被覆写
     auto iter = tensorConsumers_.find(ioperand->memoryrange.memId);
     if (iter != tensorConsumers_.end() && iter->second.size() > 1) {
-        APASS_LOG_DEBUG_F(Elements::Operation, "Op:%s[%d] has more than 1 output.", ops->GetOpcodeStr().c_str(), ops->GetOpMagic());
+        APASS_LOG_DEBUG_F(Elements::Operation, "Op:%s[%d] has more than 1 output.", ops.GetOpcodeStr().c_str(), ops.GetOpMagic());
         return false;
     }
     return true;

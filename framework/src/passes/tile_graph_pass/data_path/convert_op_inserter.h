@@ -47,23 +47,23 @@ public:
         key: Tensor 指针
         value: consumer op的指针到该op所需内存类型的映射map
     */
-    std::unordered_map<LogicalTensor *, std::map<Operation *, MemoryType>> tensorTobeMap;
+    std::unordered_map<LogicalTensorPtr, std::map<Operation *, MemoryType>> tensorTobeMap;
     std::unordered_map<int, std::map<MemoryType, std::set<Operation *>>> conflictMap;
 
     // 设置指定tensor的指定consumer op所需的mem tobe 类型
-    void UpdateTensorTobeMap(LogicalTensor &tensor, Operation &operation, MemoryType t);
+    void UpdateTensorTobeMap(const LogicalTensorPtr &tensor, Operation &operation, MemoryType t);
 
     // 将指定tensor的tobe map中的unknown项更新为指定的mem类型
-    void UpdateTensorTobeMapUnknown(LogicalTensor &tensor, MemoryType t);
+    void UpdateTensorTobeMapUnknown(LogicalTensorPtr &tensor, MemoryType t);
 
     // 打印指定tensor的tobe map
-    void PrintTensorTobeMap(LogicalTensor &tensor) const;
+    void PrintTensorTobeMap(LogicalTensorPtr &tensor) const;
 
     // 提取指定tensor的tobe map，默认格式，key为consumer op，val为对应的mem类型
-    std::map<Operation *, MemoryType> GetTobeDefault(LogicalTensor &tensor) const;
+    std::map<Operation *, MemoryType> GetTobeDefault(LogicalTensorPtr &tensor) const;
 
     // 提取指定tensor的tobe map，新格式，key为Mem类型，val为需要改mem类型的op指针set
-    std::map<MemoryType, std::set<Operation *>> GetRequiredTobe(LogicalTensor &tensor) const;
+    std::map<MemoryType, std::set<Operation *>> GetRequiredTobe(LogicalTensorPtr &tensor) const;
 
     // 过滤得到所有有conflict的tensor信息
     void FilterConflictTensor();
@@ -72,7 +72,7 @@ public:
     std::map<MemoryType, std::set<Operation *>> ReformMap(std::map<Operation *, MemoryType> &oriMap) const;
 
     // 提取指定tensor的指定consumer op所需的mem类型
-    MemoryType GetMemoryTypeFromTensorTobeMap(LogicalTensor &tensor, Operation &operation) const;
+    MemoryType GetMemoryTypeFromTensorTobeMap(LogicalTensorPtr &tensor, Operation &operation) const;
 
     // 将 tensor tobe map初始化当前tensor的memory type original
     void RefreshTensorTobeMap(Function &function);

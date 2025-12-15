@@ -90,8 +90,8 @@ std::vector<std::reference_wrapper<SymbolicScalar>> DynAttrToStatic::GetOpDynami
     return dynamicAttributeList;
 }
 
-Status DynAttrToStatic::GetCallee(const Operation *callop, Function *&callFunc) {
-    auto callopAttr = std::static_pointer_cast<CallOpAttribute>(callop->GetOpAttribute());
+Status DynAttrToStatic::GetCallee(const Operation &callop, Function *&callFunc) {
+    auto callopAttr = std::static_pointer_cast<CallOpAttribute>(callop.GetOpAttribute());
     callFunc = Program::GetInstance().GetFunctionByMagicName(callopAttr->GetCalleeMagicName());
     if (callFunc == nullptr) {
         APASS_LOG_ERROR_F(Elements::Operation, "Get callee function %s failed.", callopAttr->GetCalleeMagicName().c_str());
@@ -105,7 +105,7 @@ Status DynAttrToStatic::BuildLeafToCaller(Function *func) {
         {FunctionType::DYNAMIC, FunctionType::DYNAMIC_LOOP, FunctionType::DYNAMIC_LOOP_PATH}, GraphType::TENSOR_GRAPH)) {
         for (auto callop : func->GetCallopList()) {
             Function *nextFunc = nullptr;
-            if (GetCallee(callop, nextFunc) != SUCCESS) {
+            if (GetCallee(*callop, nextFunc) != SUCCESS) {
                 APASS_LOG_ERROR_F(Elements::Operation, "BuildLeafToCaller at %s, %s[%d] GetCallee failed.%s",
                     func->GetRawName().c_str(), callop->GetOpcodeStr().c_str(), callop->GetOpMagic(), GetFormatBacktrace(callop).c_str());
                 return FAILED;
@@ -123,7 +123,7 @@ Status DynAttrToStatic::BuildLeafToCaller(Function *func) {
     } else if (func->GetGraphType() == GraphType::EXECUTE_GRAPH) {
         for (auto callop : func->GetCallopList()) {
             Function *leafFunc = nullptr;
-            if (GetCallee(callop, leafFunc) != SUCCESS) {
+            if (GetCallee(*callop, leafFunc) != SUCCESS) {
                 APASS_LOG_ERROR_F(Elements::Operation, "BuildLeafToCaller at %s, %s[%d] GetCallee failed.%s",
                     func->GetRawName().c_str(), callop->GetOpcodeStr().c_str(), callop->GetOpMagic(), GetFormatBacktrace(callop).c_str());
                 return FAILED;

@@ -189,7 +189,7 @@ bool SplitReshape::CheckSameRawInput(const LogicalTensorPtr &reshapeSource) {
         return true;
     }
     auto copyoutSourceFirst = copySources.begin();
-    for (auto &copyOutSource : copySources) {
+    for (const auto &copyOutSource : copySources) {
         if (copyOutSource->GetRawTensor()->GetRawMagic() != (*copyoutSourceFirst)->GetRawTensor()->GetRawMagic()) {
             return false;
         }
@@ -317,7 +317,7 @@ std::vector<int64_t> SplitReshape::ObtainMapOffset(const LogicalTensorPtr &input
 }
 
 Status SplitReshape::CollectCopyOut(Function &function) {
-    for (auto &op : function.Operations()) {
+    for (const auto &op : function.Operations()) {
         if (op.GetOpcode() == Opcode::OP_RESHAPE) {
             auto input = op.GetIOperands().front();
             auto output = op.GetOOperands().front();
@@ -566,7 +566,7 @@ Status SplitReshape::ObtainCopyOutTile(Function &function, const copyOutTilePara
     auto reshapeSource = copyOutTile.reshapeSource;
     auto alignedShape = copyOutTile.alignedShape;
     auto newInputView = copyOutTile.newInputView;
-    for (auto &copyOutSource : AssembleOutToInput[reshapeSource->GetRawTensor()->GetRawMagic()]) {
+    for (const auto &copyOutSource : AssembleOutToInput[reshapeSource->GetRawTensor()->GetRawMagic()]) {
         // 存在多个tensor assemble成一个tensor再reshape的场景，需要使用assemble op的offset计算
         std::vector<int64_t> copyOutOffset = ObtainMapOffset(copyOutSource, reshapeSource);
         std::vector<int64_t> newCopyOutTileShape;
@@ -882,7 +882,7 @@ Status SplitReshape::UpdateForPerfectlyMatchWithAll(Function &function, Operatio
     }
     reshapeOutput->UpdateOffset(inputView->GetTensorOffset());
     reshapeOutput->SetMemoryTypeBoth(output->GetMemoryTypeOriginal());
-    for (auto &overlap : overlaps) {
+    for (const auto &overlap : overlaps) {
         std::vector<int64_t> overlapOffset = ObtainMapOffset(overlap, reshapeSource);
         if (AddAssembleOp(overlap->GetMemoryTypeOriginal(), overlapOffset, overlap, newReshapeSource) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "AddAssembleOp failed. %s", GetFormatBacktrace(op).c_str());
@@ -1133,7 +1133,7 @@ Status SplitReshape::GetReshapeDynShape(const std::shared_ptr<ReshapeOp> &op, st
 
 Status SplitReshape::AddOperation(Function &function) {
     std::vector<SymbolicScalar> dynValidShape;
-    for (auto &a : assembles) {
+    for (const auto &a : assembles) {
         dynValidShape.clear();
         if (GetAssembleDynShape(a.input, a.output, a.toOffset, dynValidShape) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Tensor, "Get assemble dynamic shape for AddOperation failed.");
@@ -1143,7 +1143,7 @@ Status SplitReshape::AddOperation(Function &function) {
         APASS_LOG_INFO_F(Elements::Operation, "ADD OP_ASSEMBLE, magic %d, IOperand tensor magic %d OOperand tensor magic %d, dynValidShape %s.", newCopyOut.opmagic,
             a.input->GetMagic(), a.output->GetMagic(), GetStr(a.output->GetDynValidShape()).c_str());
     }
-    for (auto &b : reshapes) {
+    for (const auto &b : reshapes) {
         dynValidShape.clear();
         if (GetReshapeDynShape(b.second, dynValidShape) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Tensor, "Get reshape dynamic shape for AddOperation failed.");
@@ -1158,7 +1158,7 @@ Status SplitReshape::AddOperation(Function &function) {
 
 Status SplitReshape::EraseReshape(Function &function) {
     // 先删除view使reshape的Consumers为空
-    for (auto &opView : redundantViewops) {
+    for (const auto &opView : redundantViewops) {
         if (opView == nullptr) {
             APASS_LOG_ERROR_F(Elements::Operation, "Found null ptr for opView.");
             return FAILED;
@@ -1205,11 +1205,11 @@ Status SplitReshape::EraseReshape(Function &function) {
 }
 
 Status SplitReshape::SetMemoryType(Function &function) {
-    for (auto& op: function.Operations()) {
+    for (const auto& op: function.Operations()) {
         if (op.GetOpcode() != Opcode::OP_VIEW) {
             continue;
         }
-        for (auto consumerOp : op.ConsumerOps()) {
+        for (const auto consumerOp : op.ConsumerOps()) {
             if (consumerOp->GetOpcode() == Opcode::OP_RESHAPE &&
                 op.GetOOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_UNKNOWN) {
                 op.GetOOperands()[0]->SetMemoryTypeBoth(consumerOp->GetOOperands()[0]->GetMemoryTypeOriginal());

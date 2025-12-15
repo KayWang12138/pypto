@@ -36,11 +36,16 @@ Status SubgraphToFunction::RunOnFunction(Function &function) {
     /* 需要将所有缓存在类成员的信息清零 */
     Init();
 
-    TransViewToCopyInBeforeGenSubgraph(function);
-
+    if (TransViewToCopyInBeforeGenSubgraph(function) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Function, "Failed to transfer view into copy in.");
+        return FAILED;
+    }
     // build in-graph and out-graph at first
     // GetTensorData: Add dependency
-    GetTensorDataDependencyInsert(function);
+    if (GetTensorDataDependencyInsert(function) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Function, "Failed to build the data dependency structure.");
+        return FAILED;
+    }
     // 只在静态流程中构建图
     if (function.GetFunctionType() == FunctionType::STATIC) {
         // 1. Construct in-graph & out-graph
@@ -62,10 +67,14 @@ Status SubgraphToFunction::RunOnFunction(Function &function) {
     IslandToFunction(function);
     Function::EnableMagicLookupRecord(false, &function);
     // GetTensorData: Remove dependency
-    GetTensorDataDependencyClear(function);
-
-    RecoverCopyInToViewAfterGenSubgraph(function);
-
+    if (GetTensorDataDependencyClear(function) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Function, "Failed to clear data dependency.");
+        return FAILED;
+    }
+    if (RecoverCopyInToViewAfterGenSubgraph(function) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Function, "Failed to recover copy in into view.");
+        return FAILED;
+    }
     return SUCCESS;
 }
 
@@ -271,7 +280,7 @@ void SubgraphToFunction::ConstructParamMap(Function &function) {
     }
 }
 
-void SubgraphToFunction::ProcessInputOperands(Function* rootFunc, Operation& tileOp, SubfuncParam& pSgParamInfo, int& tParamLoc, int& iParamLoc) const {
+void SubgraphToFunction::ProcessInputOperands(Function &rootFunc, Operation& tileOp, SubfuncParam& pSgParamInfo, int& tParamLoc, int& iParamLoc) const {
     for (size_t k = 0; k < tileOp.GetIOperands().size(); k++) {
         auto iOperand = tileOp.GetInputOperand(k);
         std::string name = FindSymbolName(iOperand, iOperand->GetRawMagic());
@@ -285,7 +294,7 @@ void SubgraphToFunction::ProcessInputOperands(Function* rootFunc, Operation& til
         if (IsCopyIn(tileOp.GetOpcode())){
             ProcessCopyInOperand(tileOp, offset, shape);
         }
-        if (rootFunc->IsFromInCast(iOperand) || rootFunc->IsFromOutCast(iOperand)) {
+        if (rootFunc.IsFromInCast(iOperand) || rootFunc.IsFromOutCast(iOperand)) {
             // Offsets are a part of each parameter, but we need to keep their original value to
             // keep track of dependencies within a subgraph.
             pSgParamInfo.AppendTensorParam(k, iOperand->GetRawMagic(), shape, offset, name, tParamLoc,
@@ -304,7 +313,7 @@ void SubgraphToFunction::ProcessInputOperands(Function* rootFunc, Operation& til
     }
 }
 
-void SubgraphToFunction::ProcessOutputOperands(Function* rootFunc, Operation& tileOp, SubfuncParam& pSgParamInfo, int& tParamLoc, int& oParamLoc) const {
+void SubgraphToFunction::ProcessOutputOperands(Function& rootFunc, Operation& tileOp, SubfuncParam& pSgParamInfo, int& tParamLoc, int& oParamLoc) const {
     for (size_t k = 0; k < tileOp.GetOOperands().size(); k++) {
         auto oOperand = tileOp.GetOutputOperand(k);
         std::string name = FindSymbolName(oOperand, oOperand->GetRawMagic());
@@ -316,7 +325,7 @@ void SubgraphToFunction::ProcessOutputOperands(Function* rootFunc, Operation& ti
         if (IsCopyOut(tileOp.GetOpcode())){
             ProcessCopyOutOperand(tileOp, offset, shape);
         }
-        if (rootFunc->IsFromOutCast(oOperand) || rootFunc->IsFromInCast(oOperand)) {
+        if (rootFunc.IsFromOutCast(oOperand) || rootFunc.IsFromInCast(oOperand)) {
             pSgParamInfo.AppendTensorParam(k, oOperand->GetRawMagic(), shape, offset, name, tParamLoc,
                 oOperand->tensor->GetSymbol(), oOperand->tensor->GetDataType());
             tileOp.outParamLocation_.push_back(tParamLoc);
@@ -371,7 +380,7 @@ void SubgraphToFunction::ProcessCopyOutOperand(
     }
 }
 
-void SubgraphToFunction::SymbolizeEachFunction(Function *rootFunc, std::vector<Function *> &mergedFuncList1, size_t i) const{
+void SubgraphToFunction::SymbolizeEachFunction(Function &rootFunc, std::vector<Function *> &mergedFuncList1, size_t i) const{
     int pSgId = i;
     int tParamLoc = 0;
     int iParamLoc = 0 | 0x10000000;
@@ -388,29 +397,29 @@ void SubgraphToFunction::SymbolizeEachFunction(Function *rootFunc, std::vector<F
     pSgParamInfo.Finalize();
     mergedFuncList1[pSgId]->SetParameter(pSgParamInfo);
     mergedFuncList1[pSgId]->SetProgramId(pSgId);
-    rootFunc->programs_.insert({pSgId, mergedFuncList1[pSgId]});
+    rootFunc.programs_.insert({pSgId, mergedFuncList1[pSgId]});
 }
 
-void SubgraphToFunction::SymbolizeFunction(Function *rootFunc, std::vector<Function *> &mergedFuncList1) const{
+void SubgraphToFunction::SymbolizeFunction(Function &rootFunc, std::vector<Function *> &mergedFuncList1) const{
     for (size_t i = 0; i < mergedFuncList1.size(); i++) {
         SymbolizeEachFunction(rootFunc, mergedFuncList1, i);
     }
 }
 
-void SubgraphToFunction::InsertParameter(size_t i, Function* leafFunc) {
+void SubgraphToFunction::InsertParameter(size_t i, Function& leafFunc) {
     for (auto &in : subFuncInvokeInfos[i].GetIncastTensorParamList()) {
-        leafFunc->AppendIncast(in.tensor, in.opMagic, in.operandIdx);
+        leafFunc.AppendIncast(in.tensor, in.opMagic, in.operandIdx);
     }
     for (auto &out : subFuncInvokeInfos[i].GetOutcastTensorParamList()) {
-        leafFunc->AppendOutcast(out.tensor, out.opMagic, out.operandIdx);
+        leafFunc.AppendOutcast(out.tensor, out.opMagic, out.operandIdx);
     }
     for (auto &tensor : subFuncInvokeInfos[i].GetTensorParamList()) {
-        leafFunc->AddGlobalTensor(tensor.tensor);
+        leafFunc.AddGlobalTensor(tensor.tensor);
         if (tensor.isOutputToGM) {
-            leafFunc->AppendOutcast(tensor.tensor, tensor.opMagic, tensor.operandIdx);
+            leafFunc.AppendOutcast(tensor.tensor, tensor.opMagic, tensor.operandIdx);
             continue;
         }
-        leafFunc->AppendIncast(tensor.tensor, tensor.opMagic, tensor.operandIdx);
+        leafFunc.AppendIncast(tensor.tensor, tensor.opMagic, tensor.operandIdx);
     }
 }
 
@@ -424,7 +433,7 @@ Status SubgraphToFunction::ProcessSubgraph(
     auto leafFunc = Program::GetInstance().GetCurrentFunction();
     leafFunc->SetProgramOp(subgraph);
     leafFunc->SetLeafFuncAttribute(std::make_shared<LeafFuncAttribute>());
-    InsertParameter(i, leafFunc);
+    InsertParameter(i, *leafFunc);
 
     //In EndFunction to calculate cache hash
     auto result = Program::GetInstance().EndFunction(leafName);
@@ -436,20 +445,20 @@ Status SubgraphToFunction::ProcessSubgraph(
     callOp->UpdateSubgraphID(i);
     callOp->SetSubFuncInvokeInfo(subFuncInvokeInfos[i]);
 
-    SetSemanticLabel(subgraph, callOp);
+    SetSemanticLabel(subgraph, *callOp);
 
-    return ProcessCacheResult(result, i, programIdx, outputFuncList, callOp);
+    return ProcessCacheResult(result, i, programIdx, outputFuncList, *callOp);
 }
 
 Status SubgraphToFunction::ProcessCacheResult(const std::tuple<Function *, Operation *, bool> &result, size_t i,
-    size_t &programIdx, std::vector<Function *> &outputFuncList, Operation *callOp) {
+    size_t &programIdx, std::vector<Function *> &outputFuncList, Operation &callOp) {
     const int getValue = 2;
     // 3.1 Hit subgraph
     if (std::get<getValue>(result)) {
         APASS_LOG_DEBUG_F(Elements::Operation, "LeafFunc %zu Hit Current hashValue is %lu.", i,
             std::get<0>(result)->ComputeHash().GetHash());
         psgToESgMap.insert({std::get<0>(result)->GetProgramId(), i});
-        auto callAttr = dynamic_cast<CallOpAttribute *>(callOp->GetOpAttribute().get());
+        auto callAttr = dynamic_cast<CallOpAttribute *>(callOp.GetOpAttribute().get());
         if (callAttr == nullptr) { APASS_LOG_ERROR_F(Elements::Operation, "Failed to get CallOpAttribute for operation %zu. %s", i, GetFormatBacktrace(callOp).c_str()); return FAILED; }
         auto cacheValue = Program::GetInstance().TryHitCahce(callAttr->GetCalleeHash());
         if (!cacheValue) {
@@ -465,7 +474,7 @@ Status SubgraphToFunction::ProcessCacheResult(const std::tuple<Function *, Opera
         "LeafFunc %zu Not Hit. hashValue is %lu.", i, std::get<0>(result)->ComputeHash().GetHash());
     psgToESgMap.insert({programIdx, i});
     std::get<0>(result)->SetProgramId(programIdx);
-    auto callAttr = dynamic_cast<CallOpAttribute *>(callOp->GetOpAttribute().get());
+    auto callAttr = dynamic_cast<CallOpAttribute *>(callOp.GetOpAttribute().get());
     if (callAttr == nullptr) { APASS_LOG_ERROR_F(Elements::Operation, "Failed to get CallOpAttribute for operation %zu. %s", i, GetFormatBacktrace(callOp).c_str()); return FAILED; }
     callAttr->invokeInfo_->UpdateProgramSubgraphId(programIdx);
     programIdx++;
@@ -474,7 +483,7 @@ Status SubgraphToFunction::ProcessCacheResult(const std::tuple<Function *, Opera
     return SUCCESS;
 }
 
-void SubgraphToFunction::SetSemanticLabel(const std::vector<std::shared_ptr<Operation>>& subgraph, Operation* callOp) {
+void SubgraphToFunction::SetSemanticLabel(const std::vector<std::shared_ptr<Operation>>& subgraph, Operation& callOp) {
     std::shared_ptr<SemanticLabel> label;
     if (GetConfig("USE_MAX_FREQ_LABEL", false)) {
         std::unordered_map<std::string, int> freqMap;
@@ -499,7 +508,7 @@ void SubgraphToFunction::SetSemanticLabel(const std::vector<std::shared_ptr<Oper
             label = subgraph[0]->GetSemanticLabel();
         }
     }
-    callOp->SetSemanticLabel(label);
+    callOp.SetSemanticLabel(label);
 }
 
 Status SubgraphToFunction::IslandToFunction(Function &function) {
@@ -508,7 +517,7 @@ Status SubgraphToFunction::IslandToFunction(Function &function) {
     Program::GetInstance().BeginFunction(rootName, function.GetFunctionType(), GraphType::EXECUTE_GRAPH);
     auto rootFunc = Program::GetInstance().GetCurrentFunction();
     if (rootFunc == nullptr) { APASS_LOG_ERROR_F(Elements::Function, "Failed to create root function."); return FAILED; }
-    InitializeRootFunction(function, rootFunc);
+    InitializeRootFunction(function, *rootFunc);
 
     // 2. Call HashInterface to compute hash value to determine isomorphism of each subgraph.
     size_t programIdx = 0;
@@ -535,41 +544,41 @@ Status SubgraphToFunction::IslandToFunction(Function &function) {
         }
     }
     // 5. symbolize esg to program subgraph for both static and dynamic paths
-    SymbolizeFunction(rootFunc, mergedFuncList);
+    SymbolizeFunction(*rootFunc, mergedFuncList);
 
     auto graphNum = nLIST.size();
     APASS_LOG_INFO_F(Elements::Operation, "Compressed Graph %zu, total_Graph %zu.", programIdx, graphNum);
     return SUCCESS;
 }
 
-void SubgraphToFunction::InitializeRootFunction(Function& function, Function* rootFunc) {
-    rootFunc->SetParent(nullptr);
+void SubgraphToFunction::InitializeRootFunction(Function& function, Function& rootFunc) {
+    rootFunc.SetParent(nullptr);
     if (function.IsFunctionTypeAndGraphType(FunctionType::DYNAMIC_LOOP_PATH, {GraphType::TENSOR_GRAPH, GraphType::TILE_GRAPH})) {
-        rootFunc->SetDynloopAttribute(function.GetDynloopAttribute());
+        rootFunc.SetDynloopAttribute(function.GetDynloopAttribute());
     }
 
     for (auto &tensor: function.outCasts_) {
-        auto newOutcast = tensor->Clone(*rootFunc);
-        rootFunc->outCasts_.push_back(newOutcast);
+        auto newOutcast = tensor->Clone(rootFunc);
+        rootFunc.outCasts_.push_back(newOutcast);
         // update outcast
         auto it = function.outIncastLinkMap.find(tensor->tensor);
         if (it != function.outIncastLinkMap.end()) {
-            rootFunc->outIncastLinkMap[newOutcast->tensor] = it->second;
+            rootFunc.outIncastLinkMap[newOutcast->tensor] = it->second;
         }
     }
 
     for (auto &tensor: function.inCasts_) {
-        auto newIncast = tensor->Clone(*rootFunc);
-        rootFunc->inCasts_.push_back(newIncast);
+        auto newIncast = tensor->Clone(rootFunc);
+        rootFunc.inCasts_.push_back(newIncast);
         //update rootFunc incast
-        for (auto it : rootFunc->outIncastLinkMap) {
+        for (auto it : rootFunc.outIncastLinkMap) {
             if (it.second == tensor->tensor) {
-                rootFunc->outIncastLinkMap[it.first] = newIncast->tensor;
+                rootFunc.outIncastLinkMap[it.first] = newIncast->tensor;
             }
         }
     }
     APASS_LOG_DEBUG_F(Elements::Operation, "Root function tensor map size is %zu %zu.",
-        rootFunc->GetTensorMap().inverseMap_.size(), rootFunc->GetTensorMap().tensorMap_.size());
+        rootFunc.GetTensorMap().inverseMap_.size(), rootFunc.GetTensorMap().tensorMap_.size());
 }
 
 struct GetTensorDataOutcastDesc {
@@ -590,12 +599,12 @@ static std::unordered_map<int, GetTensorDataOutcastDesc> GetTensorDataBuildOutca
     }
     for (auto &[index, desc] : getTensorDataOutcastDescDict) {
         (void)index;
-        ASSERT(desc.opListDict[Opcode::OP_ADDS].size() == 1);
+        ASSERT(desc.opListDict[Opcode::OP_ADDS].size() == 1) << "Expect the size is 1 for opListDict, but we get " << desc.opListDict[Opcode::OP_ADDS].size() << "OP_ADDS";
         auto mark = desc.opListDict[Opcode::OP_ADDS][0];
 
         std::shared_ptr<LogicalTensor> addsOpOut = mark->GetOOperands()[0];
         auto copyout = *addsOpOut->GetConsumers().begin();
-        ASSERT(copyout->GetOpcode() == Opcode::OP_COPY_OUT);
+        ASSERT(copyout->GetOpcode() == Opcode::OP_COPY_OUT) << "Expect Opcode OP_COPY_OUT, but we get " << copyout->GetOpcodeStr() << " at operation[" << copyout->GetOpMagic() << "].";;
 
         auto outcast = copyout->GetOOperands()[0];
 
@@ -616,20 +625,20 @@ struct GetTensorDataUsageDesc {
         : refOp(refOp_), usageDict(usageDict_), subgraphMemoryType(subgraphMemoryType_), subgraphID(subgraphID_) {}
 };
 
-std::shared_ptr<LogicalTensor> GetTensorDataSubgraphTensor(Operation *refOp) {
+std::shared_ptr<LogicalTensor> GetTensorDataSubgraphTensor(Operation &refOp) {
     std::shared_ptr<LogicalTensor> subgraphTensor;
-    switch (refOp->GetOpcode()) {
+    switch (refOp.GetOpcode()) {
         case Opcode::OP_COPY_IN:
-            subgraphTensor = refOp->GetOOperands()[0];
+            subgraphTensor = refOp.GetOOperands()[0];
             break;
         case Opcode::OP_COPY_OUT:
-            subgraphTensor = refOp->GetIOperands()[0];
+            subgraphTensor = refOp.GetIOperands()[0];
             break;
         case Opcode::OP_VEC_DUP:
-            subgraphTensor = refOp->GetOOperands()[0];
+            subgraphTensor = refOp.GetOOperands()[0];
             break;
         case Opcode::OP_BIND_TENSOR:
-            subgraphTensor = refOp->GetOOperands()[0];
+            subgraphTensor = refOp.GetOOperands()[0];
             break;
         default:
             break;
@@ -651,8 +660,8 @@ static std::vector<GetTensorDataUsageDesc> GetTensorDataBuildUsageDesc(Function 
             continue;
         }
         // subgraphTensor should be the same subgraph to the copyin.
-        std::shared_ptr<LogicalTensor> subgraphTensor = GetTensorDataSubgraphTensor(&refOp);
-        ASSERT(subgraphTensor != nullptr);
+        std::shared_ptr<LogicalTensor> subgraphTensor = GetTensorDataSubgraphTensor(refOp);
+        ASSERT(subgraphTensor != nullptr) << "Expect operation[" << refOp.GetOpMagic() << "] has valid IOperand/OOperand, but we get nullptr. Please check the operation.";
         MemoryType subgraphMemoryType = subgraphTensor->GetMemoryTypeToBe();
         int subgraphID = subgraphTensor->GetSubgraphID();
         getTensorDataUsageDescList.emplace_back(&refOp, usageDict, subgraphMemoryType, subgraphID);
@@ -660,14 +669,16 @@ static std::vector<GetTensorDataUsageDesc> GetTensorDataBuildUsageDesc(Function 
     return getTensorDataUsageDescList;
 }
 
-void SubgraphToFunction::GetTensorDataDependencyInsert(Function &function) {
+Status SubgraphToFunction::GetTensorDataDependencyInsert(Function &function) {
     std::unordered_map<int, GetTensorDataOutcastDesc> getTensorDataOutcastDescDict = GetTensorDataBuildOutcastDescDict(function);
     std::vector<GetTensorDataUsageDesc> getTensorDataUsageDescList = GetTensorDataBuildUsageDesc(function);
 
     for (auto &[refOp, usageDict, subgraphMemoryType, subgraphID] : getTensorDataUsageDescList) {
         for (auto &[index, callList] : usageDict) {
             std::shared_ptr<LogicalTensor> copyInTensor;
-            ASSERT(callList.size() != 0);
+            if (callList.size() == 0) {
+                APASS_LOG_ERROR_F(Elements::Function, "Call list is empty in funciton %s. Please check whether the input graph is complete.", function.GetRawName()); return FAILED;
+            }
             // For the same index, only one copyin is necessary.
             auto getTensorDataIOType = callList[0]->GetExpressionOperandList()[GET_TENSOR_DATA_OPERAND_INDEX_IOTYPE]->GetImmediateValue();
             auto getTensorDataIOTypeIndex = callList[0]->GetExpressionOperandList()[GET_TENSOR_DATA_OPERAND_INDEX_IOTYPE_INDEX]->GetImmediateValue();
@@ -676,15 +687,16 @@ void SubgraphToFunction::GetTensorDataDependencyInsert(Function &function) {
             std::shared_ptr<CopyOpAttribute> copyInAttr;
             if (getTensorDataIOType == GET_TENSOR_DATA_OPERAND_IOTYPE_INCAST) {
                 copyInSourceTensor = function.GetIncast()[getTensorDataIOTypeIndex];
-                copyInTensor = std::make_shared<LogicalTensor>(function, copyInSourceTensor->Datatype(),
-                    copyInSourceTensor->GetShape(), copyInSourceTensor->Format());
+                copyInTensor = std::make_shared<LogicalTensor>(function, copyInSourceTensor->Datatype(), copyInSourceTensor->GetShape(), copyInSourceTensor->Format());
                 GraphUtils::CopyDynStatus(copyInTensor, copyInSourceTensor);
                 std::vector<OpImmediate> copyInOffset(OpImmediate::Specified(std::vector<int64_t>(copyInTensor->GetShape().size(), 0)));
                 std::vector<OpImmediate> copyInShape(OpImmediate::Specified(copyInTensor->GetShape()));
                 std::vector<OpImmediate> copyInRawShape(OpImmediate::Specified(copyInTensor->GetShape()));
                 copyInAttr = std::make_shared<CopyOpAttribute>(copyInOffset, MemoryType::MEM_UB, copyInShape, copyInRawShape);
             } else if (getTensorDataIOType == GET_TENSOR_DATA_OPERAND_IOTYPE_OUTCAST) {
-                ASSERT(getTensorDataOutcastDescDict.count(index)) << "Index: " << index << " not found!\n";
+                if (!getTensorDataOutcastDescDict.count(index)) {
+                    APASS_LOG_ERROR_F(Elements::Function, "Index %d is not found in function %s. Please check whether the input graph is complete.", index, function.GetRawName()); return FAILED;
+                }
                 auto &outcastDesc = getTensorDataOutcastDescDict[index];
                 auto outcastAttr = std::static_pointer_cast<CopyOpAttribute>(outcastDesc.copyout->GetOpAttribute());
                 copyInSourceTensor = outcastDesc.outcast;
@@ -694,7 +706,7 @@ void SubgraphToFunction::GetTensorDataDependencyInsert(Function &function) {
                 copyInAttr = std::make_shared<CopyOpAttribute>(outcastAttr->GetToOffset(), MemoryType::MEM_UB, outcastAttr->GetShape(), outcastAttr->GetRawShape());
             } else {
                 // Impossible
-                ASSERT(false);
+                APASS_LOG_ERROR_F(Elements::Function, "The operation is neither MOVE_IN nor MOVE_OUT in function %s. Please check whether the input graph is valid.", function.GetRawName()); return FAILED;
             }
 
             copyInTensor->UpdateSubgraphID(subgraphID);
@@ -709,13 +721,14 @@ void SubgraphToFunction::GetTensorDataDependencyInsert(Function &function) {
             copyInTensor->AddConsumer(refOp);
         }
     }
+    return SUCCESS;
 }
 
-void SubgraphToFunction::GetTensorDataDependencyClear(Function &function) {
+Status SubgraphToFunction::GetTensorDataDependencyClear(Function &function) {
     auto root = function.GetRootFunction();
 
     SymbolicScalar getAddr = SymbolicScalar(AddRuntimeCoaPrefix("GET_PARAM_ADDR"));
-    for (auto &[psgId, leaf] : root->programs_) {
+    for (const auto &[psgId, leaf] : root->programs_) {
         (void)psgId;
         auto iodescDict = leaf->GetTensorDataForLeafGraph();
 
@@ -725,11 +738,16 @@ void SubgraphToFunction::GetTensorDataDependencyClear(Function &function) {
             }
             auto &copyInOp = op;
             copyInOp.SetAsDeleted();
-
-            int tensorIndex = GetTensorDataGetIndex(&op);
-            ASSERT(tensorIndex != -1);
-            int addrCoaIndex = GetTensorDataGetCoaIndex(&op);
-            ASSERT(addrCoaIndex != -1);
+            int tensorIndex = GetTensorDataGetIndex(&op); 
+            int addrCoaIndex = GetTensorDataGetCoaIndex(&op); 
+            if (tensorIndex == -1) {
+                APASS_LOG_ERROR_F(Elements::Operation, "Atrribute op_emuop_GetTensorData_index is not found for operation[%d]. %s", op.GetOpMagic(), GetFormatBacktrace(copyInOp).c_str());
+                return FAILED;
+            }
+            if (addrCoaIndex == -1) {
+                APASS_LOG_ERROR_F(Elements::Operation, "Atrribute op_emuop_GetTensorData_coaIndex is not found for operation[%d]. %s", op.GetOpMagic(), GetFormatBacktrace(copyInOp).c_str());
+                return FAILED;
+            }
             auto incastIndex = leaf->GetIncastIndex(copyInOp.GetIOperands()[0]);
             auto desc = GetTensorDataIODesc(GET_TENSOR_DATA_OPERAND_IOTYPE_INCAST, incastIndex, getAddr(-1, addrCoaIndex));
             iodescDict[tensorIndex] = desc;
@@ -737,6 +755,8 @@ void SubgraphToFunction::GetTensorDataDependencyClear(Function &function) {
         leaf->GetTensorDataRefreshIO(iodescDict);
         leaf->EraseOperations(true, true);
     }
+
+    return SUCCESS;
 }
 
 void SubgraphToFunction::DoHealthCheckAfter(Function &function, const std::string &folderPath) {
@@ -767,7 +787,7 @@ void SubgraphToFunction::GenerateAndExportCombinedReport(
     outfile.close();
 }
 
-void SubgraphToFunction::TransViewToCopyInBeforeGenSubgraph(Function &function) {
+Status SubgraphToFunction::TransViewToCopyInBeforeGenSubgraph(Function &function) {
     for (auto &op : function.Operations(false)) {
         if (op.GetOpcode() != Opcode::OP_VIEW) {
             continue;
@@ -775,7 +795,10 @@ void SubgraphToFunction::TransViewToCopyInBeforeGenSubgraph(Function &function) 
         if (!op.HasAttribute(OpAttributeKey::inplaceIdx)) {
             continue;
         }
-        ASSERT(op.GetOOperands().size() == 1);
+        if (op.GetOOperands().size() != 1) {
+            APASS_LOG_ERROR_F(Elements::Operation, "Operation[%d] is OP_VIEW. We Expect it has one OOperand but get %d instead. %s", op.GetOpMagic(), op.GetOOperands().size(), GetFormatBacktrace(op).c_str());
+            return FAILED;
+        }
         auto oOperand = op.GetOutputOperand(0);
         bool canTrans = true;
         for (const auto &consumer : oOperand->GetConsumers()) {
@@ -789,7 +812,10 @@ void SubgraphToFunction::TransViewToCopyInBeforeGenSubgraph(Function &function) 
         }
         op.SetOpCode(Opcode::OP_COPY_IN);
         auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(op.GetOpAttribute().get());
-        ASSERT(viewOpAttribute != nullptr);
+        if (viewOpAttribute == nullptr) {
+            APASS_LOG_ERROR_F(Elements::Operation, "OP Attribute is not found at Operation[%d]. %s", op.GetOpMagic(), GetFormatBacktrace(op).c_str());
+            return FAILED;
+        }
         viewToCopyInMapping_.emplace(&op, op.GetOpAttribute());
         op.SetOpAttribute(
             std::make_shared<CopyOpAttribute>(OpImmediate::Specified(viewOpAttribute->GetFromTensorOffset()),
@@ -797,18 +823,24 @@ void SubgraphToFunction::TransViewToCopyInBeforeGenSubgraph(Function &function) 
                 OpImmediate::Specified(op.iOperand.front()->tensor->GetDynRawShape()),
                 OpImmediate::Specified(viewOpAttribute->GetToDynValidShape())));
     }
+    return SUCCESS;
 }
 
-void SubgraphToFunction::RecoverCopyInToViewAfterGenSubgraph(Function &function) {
+Status SubgraphToFunction::RecoverCopyInToViewAfterGenSubgraph(Function &function) {
     for (auto &program : function.rootFunc_->programs_) {
         for (auto &op: program.second->Operations(false)) {
             if (op.HasAttribute(OpAttributeKey::inplaceIdx) && op.GetOpcode() == Opcode::OP_COPY_IN) {
-                ASSERT(viewToCopyInMapping_.count(&op) > 0);
+                if (viewToCopyInMapping_.count(&op) <= 0) {
+                    APASS_LOG_ERROR_F(Elements::Operation, "Operation[%d] is not found after SubgrahToFunction. It exists before the pass. %s", op.GetOpMagic(), GetFormatBacktrace(op).c_str());
+                    return FAILED;
+                }
                 op.SetOpCode(Opcode::OP_VIEW);
                 op.SetOpAttribute(viewToCopyInMapping_.at(&op));
             }
         }
     }
+        
+    return SUCCESS;
 }
 
 Status SubgraphToFunction::PreCheck(Function &function) {

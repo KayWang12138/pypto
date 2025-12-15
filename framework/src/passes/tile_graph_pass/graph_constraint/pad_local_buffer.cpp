@@ -206,9 +206,9 @@ bool PadLocalBuffer::IsExpandLastDim(const Operation &op) {
     return false;
 }
 
-void PadLocalBuffer::TraverseCopyInConsumers(Function &function, Operation *consumer, std::unordered_set<LogicalTensorPtr> &visitedTensors) {
+void PadLocalBuffer::TraverseCopyInConsumers(Function &function, Operation &consumer, std::unordered_set<LogicalTensorPtr> &visitedTensors) {
     bool allBrodOrElem = true;
-    for (auto &nextConsumer : function.FindConsumers(*consumer)) {
+    for (const auto &nextConsumer : function.FindConsumers(consumer)) {
         auto nextCalcType = OpcodeManager::Inst().GetOpCalcType(nextConsumer->GetOpcode());
         if (nextCalcType != OpCalcType::ELMWISE && nextCalcType != OpCalcType::BROADCAST) {
             allBrodOrElem = false;
@@ -216,31 +216,31 @@ void PadLocalBuffer::TraverseCopyInConsumers(Function &function, Operation *cons
         }
     }
     if (allBrodOrElem) {
-        APASS_LOG_DEBUG_F(Elements::Operation, "op %d %s consumers are all broadcast or elmwise op, output's last dim should not be padded.", consumer->opmagic, consumer->GetOpcodeStr().c_str());
-        consumer->SetAttr(OpAttributeKey::outputCombineAxis, AXIS_COMBINED);
-        TraverseAndSetAttr(consumer->GetOOperands()[0], function, visitedTensors);
+        APASS_LOG_DEBUG_F(Elements::Operation, "op %d %s consumers are all broadcast or elmwise op, output's last dim should not be padded.", consumer.opmagic, consumer.GetOpcodeStr().c_str());
+        consumer.SetAttr(OpAttributeKey::outputCombineAxis, AXIS_COMBINED);
+        TraverseAndSetAttr(consumer.GetOOperands()[0], function, visitedTensors);
     }
 }
 
-void PadLocalBuffer::TraverseBroadcast(Function &function, Operation *consumer, LogicalTensorPtr output, std::unordered_set<LogicalTensorPtr> &visitedTensors) {
-    std::vector<bool> broadcastInputCombined(consumer->GetIOperands().size(), false);
-    consumer->GetAttr(OpAttributeKey::inputCombineAxis, broadcastInputCombined);
-    for (size_t index = 0; index < consumer->GetIOperands().size(); ++index) {
-        if (consumer->GetIOperands()[index] == output) {
+void PadLocalBuffer::TraverseBroadcast(Function &function, Operation &consumer, LogicalTensorPtr output, std::unordered_set<LogicalTensorPtr> &visitedTensors) {
+    std::vector<bool> broadcastInputCombined(consumer.GetIOperands().size(), false);
+    consumer.GetAttr(OpAttributeKey::inputCombineAxis, broadcastInputCombined);
+    for (size_t index = 0; index < consumer.GetIOperands().size(); ++index) {
+        if (consumer.GetIOperands()[index] == output) {
             broadcastInputCombined[index] = true;
         }
     }
     if (broadcastInputCombined.empty()) {
-        APASS_LOG_ERROR_F(Elements::Tensor, "cannot find tensor %d in input of op %d %s; Please check the input tensor.", output->magic, consumer->opmagic,
-            consumer->GetOpcodeStr().c_str());
+        APASS_LOG_ERROR_F(Elements::Tensor, "cannot find tensor %d in input of op %d %s; Please check the input tensor.", output->magic, consumer.opmagic,
+            consumer.GetOpcodeStr().c_str());
         return;
     }
-    APASS_LOG_DEBUG_F(Elements::Operation, "op %d %s input's last dim should not be padded.", consumer->opmagic, consumer->GetOpcodeStr().c_str());
-    consumer->SetAttr(OpAttributeKey::inputCombineAxis, std::move(broadcastInputCombined));
+    APASS_LOG_DEBUG_F(Elements::Operation, "op %d %s input's last dim should not be padded.", consumer.opmagic, consumer.GetOpcodeStr().c_str());
+    consumer.SetAttr(OpAttributeKey::inputCombineAxis, std::move(broadcastInputCombined));
     if (broadcastInputCombined == BROADCAST_AXIS_COMBINED) {
-        APASS_LOG_DEBUG_F(Elements::Tensor, "op %d %s output's last dim should not be padded.", consumer->opmagic, consumer->GetOpcodeStr().c_str());
-        consumer->SetAttr(OpAttributeKey::outputCombineAxis, AXIS_COMBINED);
-        TraverseAndSetAttr(consumer->GetOOperands()[0], function, visitedTensors);
+        APASS_LOG_DEBUG_F(Elements::Tensor, "op %d %s output's last dim should not be padded.", consumer.opmagic, consumer.GetOpcodeStr().c_str());
+        consumer.SetAttr(OpAttributeKey::outputCombineAxis, AXIS_COMBINED);
+        TraverseAndSetAttr(consumer.GetOOperands()[0], function, visitedTensors);
     }
 }
 
@@ -273,11 +273,11 @@ void PadLocalBuffer::TraverseAndSetAttr(LogicalTensorPtr &output, Function &func
         }
         if (opcode == Opcode::OP_COPY_IN) {
             // CopyIn只有在CopyIn的后续算子仍然是VectorOp的情况下才做合轴
-            TraverseCopyInConsumers(function, consumer, visitedTensors);
+            TraverseCopyInConsumers(function, *consumer, visitedTensors);
             continue;
         }
         if (consCalcType == OpCalcType::BROADCAST) {
-            TraverseBroadcast(function, consumer, output, visitedTensors);
+            TraverseBroadcast(function, *consumer, output, visitedTensors);
             continue;
         }
         if (consCalcType == OpCalcType::MOVE_OUT) {
@@ -340,7 +340,7 @@ void PadLocalBuffer::ProcessReduce(Function &function, Operation &op) {
 void PadLocalBuffer::ProcessBroadcast(Operation &op, size_t blockPadding) {
     int64_t maxLastAxis = 0;
     bool existLessBlock = false;
-    for (auto &in : op.iOperand) {
+    for (const auto &in : op.iOperand) {
         if (in->shape.back() <= static_cast<int>(blockPadding)) {
             existLessBlock = true;
         }
@@ -413,7 +413,7 @@ void PadLocalBuffer::DoPadding(Function &function) {
 
 // 对ub上transpose的特殊处理,其他类型的transpose不做处理
 Status PadLocalBuffer::ProcessTranspose(Function &function) {
-    for (auto &op : function.Operations()) {
+    for (const auto &op : function.Operations()) {
         if (op.GetOpcode() != Opcode::OP_TRANSPOSE_VNCHWCONV || op.GetIOperands()[0]->shape.size() < TRANSPOSE_MIN_SHAPE_SIZE) {
             continue;
         }

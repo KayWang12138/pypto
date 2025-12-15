@@ -48,7 +48,7 @@ void CopyOutResolve::CheckOutcastProducer(Function *leafFunc) const {
             if (leafFunc->GetOutcastIndex(outcast) < (int)outcastIndex) {
                 // duplicated outcast in the leaf function
             } else {
-                for (auto &producer : outcast->GetProducers()) {
+                for (const auto &producer : outcast->GetProducers()) {
                     Opcode producerOpCode = producer->GetOpcode();
                     if (!OpcodeManager::Inst().IsCopyOut(producerOpCode)) {
                         // not a copyout outcast, which should be ignored

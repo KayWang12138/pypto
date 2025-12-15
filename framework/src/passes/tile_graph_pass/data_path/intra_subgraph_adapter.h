@@ -44,7 +44,7 @@ private:
     Status AdapteTensorProducers(Function &function, LogicalTensorPtr tensor);
     Status AdapteTensorConsumers(Function &function, LogicalTensorPtr tensor);
 
-    LogicalTensorPtr InsertOpBetween(Function &function, Opcode opcode, Operation *op,
+    LogicalTensorPtr InsertOpBetween(Function &function, Opcode opcode, Operation &op,
         LogicalTensorPtr tensor);
     LogicalTensorPtr InsertOpBetween(Function &function, Opcode opcode, LogicalTensorPtr tensor,
         const std::vector<Operation*> &ops, int newOpSubgraphID=-1);

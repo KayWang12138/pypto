@@ -27,7 +27,7 @@ void PreGraphProcess::UpdateCopyOpIsCube(Operation &op) const {
     op(copy_in) --> input --> consumerOp(isCube?)
     */
     if (IsCopyIn(op.GetOpcode())) {
-        for (auto &consumerOps : op.ConsumerOps()) {
+        for (const auto &consumerOps : op.ConsumerOps()) {
             if ((consumerOps->HasAttr(OpAttributeKey::isCube)) &&
                 (consumerOps->GetSubgraphID() == op.GetSubgraphID())) {
                 op.SetAttribute(OpAttributeKey::isCube, consumerOps->GetBoolAttribute(OpAttributeKey::isCube));
@@ -40,7 +40,7 @@ void PreGraphProcess::UpdateCopyOpIsCube(Operation &op) const {
     producerOp(isCube?) --> input --> op(copy_out)
     */
     if (IsCopyOut(op.GetOpcode())) {
-        for (auto &producerOps : op.ProducerOps()) {
+        for (const auto &producerOps : op.ProducerOps()) {
             if ((producerOps->HasAttr(OpAttributeKey::isCube)) &&
                 (producerOps->GetSubgraphID() == op.GetSubgraphID())) {
                 op.SetAttribute(OpAttributeKey::isCube, producerOps->GetBoolAttribute(OpAttributeKey::isCube));

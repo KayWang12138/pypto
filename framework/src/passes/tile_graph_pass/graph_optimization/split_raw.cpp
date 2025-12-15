@@ -46,7 +46,7 @@ void SplitRawTensor::UpdateConsumerView(
     /* All the consumer View op's attr offset should be corret */
     /* 1. 更新View相关的属性 */
     TensorOffset tensorOffset = logicalTensor->GetTensorOffset();
-    for (auto &viewOp : logicalTensor->GetConsumers()) {
+    for (const auto &viewOp : logicalTensor->GetConsumers()) {
         if (viewOp->GetOpcode() != Opcode::OP_VIEW) {
             continue;
         }
@@ -76,7 +76,7 @@ void SplitRawTensor::UpdateProducerAssemble(
     //              logicalTensor(UB) -> Reshape -> UB
     // Assemble2 ->
     TensorOffset tensorOffset = logicalTensor->GetTensorOffset();
-    for (auto &assembleOp : logicalTensor->GetProducers()) {
+    for (const auto &assembleOp : logicalTensor->GetProducers()) {
         if (assembleOp->GetOpcode() != Opcode::OP_ASSEMBLE) {
             continue;
         }
@@ -127,10 +127,10 @@ void SplitRawTensor::SplitRaw(Function &function) const {
     for (const auto &kv : tensorMap) {
         omap.insert(kv);
     }
-    for (auto &ele : omap) {
+    for (const auto &ele : omap) {
         bool needDelete = false;
         std::unordered_set<LogicalTensorPtr> relatedViewOutput;
-        for (auto &singleLogicalTensor : ele.second) {
+        for (const auto &singleLogicalTensor : ele.second) {
             auto rawShape = singleLogicalTensor->tensor->GetRawShape();
             if (!ShouldProcessTensor(function, singleLogicalTensor)) {
                 continue;
@@ -163,10 +163,10 @@ void SplitRawTensor::SplitRaw(Function &function) const {
     for (const auto &kv : omap) {
         tensorMap.insert(kv);
     }
-    for (auto &ele : newRawVec) {
+    for (const auto &ele : newRawVec) {
         function.GetTensorMap().tensorMap_.emplace(ele);
     }
-    for (auto &id : rawIdNeedDelete) {
+    for (const auto &id : rawIdNeedDelete) {
         function.GetTensorMap().tensorMap_.erase(id);
     }
 }

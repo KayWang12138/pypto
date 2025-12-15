@@ -172,7 +172,7 @@ void NBufferMerge::InitParam(OperationsViewer &opOriList) {
                 colorCycles_[subgraphId] += opOriList[i].GetLatency();
                 colorNode_[subgraphId].push_back(i);
             }
-            for (auto inputNode : opOriList[i].ProducerOps()) {
+            for (const auto inputNode : opOriList[i].ProducerOps()) {
                 auto parentColor = inputNode->GetSubgraphID();
                 auto currentColor = opOriList[i].GetSubgraphID();
                 if (parentColor != -1 && parentColor != currentColor) {
@@ -232,12 +232,12 @@ Status NBufferMerge::Init(Function &func) {
 std::map<int, size_t> NBufferMerge::GetIsoColorMergeNum(const OperationsViewer &opOriList,
     const std::map<uint64_t, std::vector<int>> &hashMap) const {
     std::map<int, size_t> hashCoreNum;
-    for (auto& entry : hashMap) {
+    for (const auto& entry : hashMap) {
         if (entry.first == 0 || entry.second.empty()) {
             continue;
         }
         auto subGraphIdx = entry.second.front();
-        for (auto& opIdx : colorNode_[subGraphIdx]) {
+        for (const auto& opIdx : colorNode_[subGraphIdx]) {
             if (OpcodeManager::Inst().GetCoreType(opOriList[opIdx].GetOpcode()) == OpCoreType::AIC) {
                 hashCoreNum[entry.first] = sgCubeParallelNum;
                 break;
@@ -379,7 +379,7 @@ void NBufferMerge::MergePingPong(std::vector<std::vector<int>> &sortedColors,
                                      std::vector<uint64_t> &hashColor, 
                                      int &numDBmerge) {
     int pingColor = -1;
-    for (auto &input2Color : sortedColors) {
+    for (const auto &input2Color : sortedColors) {
         for (size_t i = 0; i < input2Color.size(); i++) {
             if (numDBmerge == 0) {
                 continue;
@@ -407,7 +407,7 @@ Status NBufferMerge::MergeProcess(const OperationsViewer &opOriList,
                                       std::map<int, size_t> &hashMergeNum, 
                                       std::vector<uint64_t> &hashColor) {
     std::vector<uint64_t> hashMapKeys;
-    for (auto &entry : hashMap) {
+    for (const auto &entry : hashMap) {
         hashMapKeys.push_back(entry.first);
     }
     ParallelTool::Instance().Parallel_for(0, hashMapKeys.size(),1,[&](int st,int et,int tid) {
@@ -440,7 +440,7 @@ std::map<int, size_t> NBufferMerge::SetNumDB(std::map<uint64_t, std::vector<int>
             numDBList[i] = 1;
         }
     }
-    for (auto &entry : vecNBufferMap) {
+    for (const auto &entry : vecNBufferMap) {
         if (entry.first >= 0 && entry.first < static_cast<int>(hashMap.size())) {
             numDBList[entry.first] = entry.second;
         }

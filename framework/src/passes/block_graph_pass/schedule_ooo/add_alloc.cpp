@@ -22,7 +22,7 @@ namespace npu::tile_fwk {
 Status AddAlloc::GenTensorAllocMsgMap(Function &function, 
     std::unordered_map<int, TensorAllocMsg> &tensorAllocMsgMap) const {
     for (auto& op : function.Operations(false).DuplicatedOpList()) {
-        if (FindTensorAllocMsg(op, tensorAllocMsgMap) != SUCCESS) {
+        if (FindTensorAllocMsg(*op, tensorAllocMsgMap) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "FindTensorAllocMsg failed.");
             return FAILED;
         }
@@ -63,10 +63,10 @@ Status AddAlloc::AddAndCheckAlloc(Function &function) {
     return SUCCESS;
 }
 
-TensorAllocMsg AddAlloc::ConstructTensorAllocMsg(Operation *op, size_t i, int memId, const std::vector<int> &allocMagic) const {
+TensorAllocMsg AddAlloc::ConstructTensorAllocMsg(Operation &op, size_t i, int memId, const std::vector<int> &allocMagic) const {
     TensorAllocMsg tensorAllocMsg;
-    tensorAllocMsg.producer.push_back(op);
-    tensorAllocMsg.memType = op->GetOutputOperand(i)->GetMemoryTypeOriginal();
+    tensorAllocMsg.producer.push_back(std::ref(op));
+    tensorAllocMsg.memType = op.GetOutputOperand(i)->GetMemoryTypeOriginal();
     tensorAllocMsg.memId = memId;
     if (allocMagic.empty() || i >= allocMagic.size()) {
         APASS_LOG_INFO_F(Elements::Tensor, "Tensor [%d] is not allocted.", memId);
@@ -75,11 +75,11 @@ TensorAllocMsg AddAlloc::ConstructTensorAllocMsg(Operation *op, size_t i, int me
     return tensorAllocMsg;
 }
 
-Status AddAlloc::UpdateTensorAllocMsg(Operation *op, size_t i, const std::vector<int> &allocMagic,
+Status AddAlloc::UpdateTensorAllocMsg(Operation &op, size_t i, const std::vector<int> &allocMagic,
                                       std::unordered_map<int, TensorAllocMsg> &tensorAllocMsgMap) const {
-    auto memId = op->GetOutputOperand(i)->memoryrange.memId;
+    auto memId = op.GetOutputOperand(i)->memoryrange.memId;
     if (memId == -1) {
-        APASS_LOG_ERROR_F(Elements::Tensor, "Get memId in memoryrange failed, op:%d, operand: %zu.%s", op->GetOpMagic(), i, GetFormatBacktrace(op).c_str());
+        APASS_LOG_ERROR_F(Elements::Tensor, "Get memId in memoryrange failed, op:%d, operand: %zu.%s", op.GetOpMagic(), i, GetFormatBacktrace(op).c_str());
         return FAILED;
     }
     if (tensorAllocMsgMap.find(memId) == tensorAllocMsgMap.end()) {
@@ -94,10 +94,10 @@ Status AddAlloc::UpdateTensorAllocMsg(Operation *op, size_t i, const std::vector
     return SUCCESS;
 }
 
-Status AddAlloc::SetTensorAllocMsg(Operation *op, 
+Status AddAlloc::SetTensorAllocMsg(Operation &op, 
     std::unordered_map<int, TensorAllocMsg> &tensorAllocMsgMap, const std::vector<int> &allocMagic) const {
-    for (size_t i = 0; i < op->GetOOperands().size(); i++) {
-        if (op->GetOutputOperand(i)->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
+    for (size_t i = 0; i < op.GetOOperands().size(); i++) {
+        if (op.GetOutputOperand(i)->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
             continue;
         }
         if (UpdateTensorAllocMsg(op, i, allocMagic, tensorAllocMsgMap) != SUCCESS) {
@@ -108,11 +108,11 @@ Status AddAlloc::SetTensorAllocMsg(Operation *op,
     return SUCCESS;
 }
 
-Status AddAlloc::FindTensorAllocMsg(Operation *op, 
+Status AddAlloc::FindTensorAllocMsg(Operation &op, 
     std::unordered_map<int, TensorAllocMsg> &tensorAllocMsgMap) const {
     // 遍历所有节点，找到需要分配Alloc的tensor以及其第一次出现时候的位置
     std::vector<int> allocMagic;
-    for (const auto &inCtrlOp : op->GetInCtrlOperations()) {
+    for (const auto &inCtrlOp : op.GetInCtrlOperations()) {
         if (inCtrlOp->GetOpcodeStr().find("ALLOC") != std::string::npos) {
             allocMagic.emplace_back(inCtrlOp->GetOpMagic());
         }
@@ -125,7 +125,7 @@ Status AddAlloc::FindTensorAllocMsg(Operation *op,
 }
 
 Status AddAlloc::GenAllocOpcode(const Opcode &allocOpcode, const TensorAllocMsg& tensorAllocMsg, Function& function) {
-    for (auto &oOperand : tensorAllocMsg.producer[0]->GetOOperands()) {
+    for (auto &oOperand : tensorAllocMsg.producer[0].get().GetOOperands()) {
         if (oOperand->memoryrange.memId != tensorAllocMsg.memId) {
             continue;
         }

@@ -148,12 +148,12 @@ void RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOps(Function &function) {
         auto inDynValidShape = input->GetDynValidShape();
         auto outDynValidShape = output->GetDynValidShape();
 
-        for (auto &dim : changedDims) {
+        for (const auto &dim : changedDims) {
             if (dim + 1 > (int)outDynValidShape.size()) {
                 APASS_LOG_WARN_F(Elements::Operation, "The dynValidShape of output[%d] of op[%d] has no [%d] index.",
                 output->GetMagic(), op.GetOpMagic(), dim);
                 break;
-            }else if (!outDynValidShape[dim].IsImmediate()) {
+            } else if (!outDynValidShape[dim].IsImmediate()) {
                 op.SetAsDeleted();
                 auto tmpWorkSpaceIn = std::make_shared<LogicalTensor>(function, input->Datatype(), input->oriShape, input->Format());
                 auto tmpWorkSpaceOut = std::make_shared<LogicalTensor>(function, input->Datatype(), output->oriShape, output->Format());

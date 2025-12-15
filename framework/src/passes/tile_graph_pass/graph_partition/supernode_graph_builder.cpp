@@ -29,20 +29,20 @@ uint64_t OperationGraphInfo::GetHash(const Operation *op) const
 {
     std::string hashString;
     hashString.append(op->GetOpcodeStr());
-    for (auto tensor : op->GetIOperands()) {
+    for (const auto &tensor : op->GetIOperands()) {
         hashString.append("IOperand-");
         hashString.append(std::to_string(tensor->GetMemoryTypeOriginal()));
         hashString.append(std::to_string(tensor->tensor->datatype));
-        for (auto tensorDim : tensor->shape) {
+        for (const auto &tensorDim : tensor->shape) {
             hashString.append(std::to_string(tensorDim));
             hashString.append("-");
         }
     }
-    for (auto tensor : op->GetOOperands()) {
+    for (const auto &tensor : op->GetOOperands()) {
         hashString.append("OOperand-");
         hashString.append(std::to_string(tensor->GetMemoryTypeOriginal()));
         hashString.append(std::to_string(tensor->tensor->datatype));
-        for (auto tensorDim : tensor->shape) {
+        for (const auto &tensorDim : tensor->shape) {
             hashString.append(std::to_string(tensorDim));
             hashString.append("-");
         }
@@ -57,7 +57,7 @@ std::vector<int32_t> OperationGraphInfo::GetSameLevelOpIdx(int32_t opIdx, Opcode
     }
     std::vector<int32_t> res;
     std::shared_ptr<LogicalTensor> output = opList_[opIdx]->GetOOperands()[0];
-    for (auto &parentOpPtr : output->GetProducers()) {
+    for (const auto &parentOpPtr : output->GetProducers()) {
         if (parentOpPtr->GetOpcode() == opLabel) {
             int32_t parentOpMagic = parentOpPtr->GetOpMagic();
             if (magic2Idx_.count(parentOpMagic) > 0) {
@@ -409,8 +409,8 @@ Status SuperNodeGraphBuilder::BuildOpGraph(const std::vector<Operation*> &opList
         operationInfo_->magic2Idx_[opList[i]->GetOpMagic()] = i;
     }
     for (size_t i = 0; i < opList.size(); i++) {
-        for (auto &input : opList[i]->GetIOperands()) {
-            for (auto &parentOpPtr : input->GetProducers()) {
+        for (const auto &input : opList[i]->GetIOperands()) {
+            for (const auto &parentOpPtr : input->GetProducers()) {
                 if (operationInfo_->magic2Idx_.count(parentOpPtr->GetOpMagic()) == 0) {
                     continue;
                 }

@@ -101,7 +101,7 @@ inline constexpr const char *PassNameStr(PassName name){
         case PassName::CODEGEN_PREPROC: return "CodegenPreproc";
         case PassName::DYN_ATTR_TO_STATIC: return "DynAttrToStatic";
         default: 
-            ASSERT(false) << "PassName not defined.";
+            ASSERT(false) << "[PassDependency][Manager][ERROR]: PassName not defined.";
             return "NotDefined";
     }
 }

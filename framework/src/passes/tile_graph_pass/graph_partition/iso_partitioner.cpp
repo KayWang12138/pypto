@@ -660,22 +660,22 @@ bool IsomorphismGraphGroup::IsoGraphMerge(std::shared_ptr<IsomorphismGraphGroup>
     }
     for (int32_t i = 0; i < static_cast<int32_t>(currSize); i++) {
         for (int32_t j : connection[i]) {
-            currGraph->GetSubGraph(i)->Merge(mergeGraph->GetSubGraph(j).get());
+            currGraph->GetSubGraph(i)->Merge(*mergeGraph->GetSubGraph(j));
         }
     }
     mergeGraph->Clear();
     return true;
 }
 
-void SubGraph::Merge(SubGraph *sg)
+void SubGraph::Merge(SubGraph &sg)
 {
-    nodeList_.insert(nodeList_.end(), sg->nodeList_.begin(), sg->nodeList_.end());
-    if (nodeSet_.size() < sg->nodeSet_.size()) {
-        nodeSet_.swap(sg->nodeSet_);
+    nodeList_.insert(nodeList_.end(), sg.nodeList_.begin(), sg.nodeList_.end());
+    if (nodeSet_.size() < sg.nodeSet_.size()) {
+        nodeSet_.swap(sg.nodeSet_);
     }
-    nodeSet_.insert(sg->nodeSet_.begin(), sg->nodeSet_.end());
-    cycle_ += sg->cycle_;
-    mergeHistoryIsoSub_.insert(sg->mergeHistoryIsoSub_.begin(), sg->mergeHistoryIsoSub_.end());
+    nodeSet_.insert(sg.nodeSet_.begin(), sg.nodeSet_.end());
+    cycle_ += sg.cycle_;
+    mergeHistoryIsoSub_.insert(sg.mergeHistoryIsoSub_.begin(), sg.mergeHistoryIsoSub_.end());
 
     std::unordered_set<int32_t> inNodesTmp;
     std::unordered_set<int32_t> outNodesTmp;
@@ -684,7 +684,7 @@ void SubGraph::Merge(SubGraph *sg)
             inNodesTmp.insert(nodeIdx);
         }
     }
-    for (int32_t nodeIdx : sg->inNodes_) {
+    for (int32_t nodeIdx : sg.inNodes_) {
         if (nodeSet_.count(nodeIdx) == 0) {
             inNodesTmp.insert(nodeIdx);
         }
@@ -694,7 +694,7 @@ void SubGraph::Merge(SubGraph *sg)
             outNodesTmp.insert(nodeIdx);
         }
     }
-    for (int32_t nodeIdx : sg->outNodes_) {
+    for (int32_t nodeIdx : sg.outNodes_) {
         if (nodeSet_.count(nodeIdx) == 0) {
             outNodesTmp.insert(nodeIdx);
         }

@@ -28,17 +28,17 @@ std::vector<OpImmediate> SumOffset(const std::vector<OpImmediate> offset1, const
 }
 
 // 当前op为Copy Out时，需要将后继Assemble上的offset累加到当前op的CopyOpAttr上
-void UpdateCopyOutAttr(Operation *op, Operation *opNext) {
-    auto opAttr = std::static_pointer_cast<CopyOpAttribute>(op->GetOpAttribute());
-    auto opNextAttr = std::static_pointer_cast<AssembleOpAttribute>(opNext->GetOpAttribute());
+void UpdateCopyOutAttr(Operation &op, Operation &opNext) {
+    auto opAttr = std::static_pointer_cast<CopyOpAttribute>(op.GetOpAttribute());
+    auto opNextAttr = std::static_pointer_cast<AssembleOpAttribute>(opNext.GetOpAttribute());
     if (opNextAttr->GetToDynOffset().size() != 0) {
-        if (op->GetOpcode() != Opcode::OP_COPY_OUT) {
+        if (op.GetOpcode() != Opcode::OP_COPY_OUT) {
             opAttr->SetToOffset(OpImmediate::Specified(opNextAttr->GetToDynOffset()));
         } else {
             opAttr->SetToOffset(SumOffset(OpImmediate::Specified(opNextAttr->GetToDynOffset()), opAttr->GetToOffset()));
         }
     }
-    opAttr->SetRawShape(OpImmediate::Specified(op->GetOOperands().front()->tensor->GetDynRawShape()));
+    opAttr->SetRawShape(OpImmediate::Specified(op.GetOOperands().front()->tensor->GetDynRawShape()));
 }
 
 bool CalculateNewRawShape(const std::vector<int64_t> &oriShape, const std::vector<int64_t> &newShape,
@@ -96,7 +96,7 @@ bool CalculateNewRawShape(const std::vector<int64_t> &oriShape, const std::vecto
 void RemoveRedundantAssemble::HandleForAssembleFromInOut(Function &function, std::unordered_set<Operation *> &concurrentAssembles,
     std::set<Operation *, LogicalTensor::CompareOp> &producersBackup) const {
     LogicalTensorPtr inOrOutTensor = nullptr;
-    for (auto &assemble : concurrentAssembles) {
+    for (const auto &assemble : concurrentAssembles) {
         if (function.IsFromInCast(assemble->iOperand[0]) || function.IsFromOutCast(assemble->iOperand[0])) {
             inOrOutTensor = assemble->iOperand[0];
             break;
@@ -106,7 +106,7 @@ void RemoveRedundantAssemble::HandleForAssembleFromInOut(Function &function, std
         return;
     }
     APASS_LOG_DEBUG_F(Elements::Tensor, "find in or out, tensor magic: %d, raw magic: %d.", inOrOutTensor->magic, inOrOutTensor->GetRawMagic());
-    for (auto &producer : producersBackup) {
+    for (const auto &producer : producersBackup) {
         producer->oOperand[0]->tensor = inOrOutTensor->tensor;
         for (auto &cons : producer->oOperand[0]->GetConsumers()) {
             if (cons->GetOpcode() == Opcode::OP_RESHAPE && cons->oOperand[0]->tensor->actualRawmagic != -1) {
@@ -120,7 +120,10 @@ void RemoveRedundantAssemble::HandleForAssembleFromInOut(Function &function, std
 void GetDynOffsetBeforeReshape(const std::vector<SymbolicScalar> &oriOffset, const std::vector<int64_t> &oriShape,
     const std::vector<int64_t> &newShape, std::vector<SymbolicScalar> &newOffset) {
     // 计算原始shape的步长（stride）
-    ASSERT(oriShape.size() == oriOffset.size());
+    if (oriShape.size() != oriOffset.size()) {
+        APASS_LOG_ERROR_F(Elements::Tensor, "OriShape and oriOffset size mismatch.");
+        return;
+    }
     size_t oriSize = oriOffset.size();
     size_t newSize = newShape.size();
     std::vector<int64_t> oriStride(oriShape.size());
@@ -162,7 +165,7 @@ void HandleDynOffsetForReshape(const LogicalTensorPtr &oriBackUp, std::unordered
     const std::set<Operation *, LogicalTensor::CompareOp> &producers) {
     std::vector<SymbolicScalar> newDynOffset;
     std::vector<int64_t> newRawShape;
-    for (auto assemble : concurrentAssembles) {
+    for (const auto assemble : concurrentAssembles) {
         auto opAttr = dynamic_cast<AssembleOpAttribute *>(assemble->GetOpAttribute().get());
         if (opAttr == nullptr) {
             continue;
@@ -186,7 +189,7 @@ void HandleDynOffsetForReshape(const LogicalTensorPtr &oriBackUp, std::unordered
             return;
         }
         GetDynOffsetBeforeReshape(dynOffset, assembleOutShape, newRawShape, newDynOffset);
-        for (auto copyOut : producer->GetIOperands()[0]->GetProducers()) {
+        for (const auto copyOut : producer->GetIOperands()[0]->GetProducers()) {
             if (!IsCopyOut(copyOut->GetOpcode())) {
                 continue;
             }
@@ -208,8 +211,8 @@ void HandleDynOffsetForReshape(const LogicalTensorPtr &oriBackUp, std::unordered
 }
 
 /* 将某个op的输入是expected的替换为newTensor并刷新Producer、Consumer关系 */
-void SubstituteInput(Operation *op, LogicalTensorPtr &expected, LogicalTensorPtr &newTensor) {
-    for (auto &input : op->iOperand) {
+void SubstituteInput(Operation &op, LogicalTensorPtr &expected, LogicalTensorPtr &newTensor) {
+    for (auto &input : op.iOperand) {
         if (input == expected) {
             newTensor->AddConsumer(op);
             input->RemoveConsumer(op);
@@ -332,7 +335,7 @@ void RemoveRedundantAssemble::DeleteRedundantAssemble(Function &function) const 
                 input --> cons[Assemble] --> consOutput
                 */
                 for (auto &consOfCons : consConsumersBackup) {
-                    SubstituteInput(consOfCons, cons->GetOOperands().front(), output);
+                    SubstituteInput(*consOfCons, cons->GetOOperands().front(), output);
                 }
                 continue;
             }
@@ -344,7 +347,7 @@ void RemoveRedundantAssemble::DeleteRedundantAssemble(Function &function) const 
                 if (!IsCopyOut(producer->GetOpcode())) {
                     continue;
                 }
-                UpdateCopyOutAttr(producer, cons);
+                UpdateCopyOutAttr(*producer, *cons);
             }
         }
         HandleForAssembleFromInOut(function, concurrentAssembles, producersBackup);

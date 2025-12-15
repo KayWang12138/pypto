@@ -29,7 +29,7 @@ public:
     {}
     int32_t GetExpandCandidate(size_t expandNodeIdx, size_t expandLinkIdx, GraphExtendResult &res);
     void AddNode(int32_t nodeIdx);
-    void Merge(SubGraph *sg);
+    void Merge(SubGraph &sg);
     bool HasNode(int32_t nodeIdx) const;
     void BuildInOutSet();
     int32_t GetLatency() const;

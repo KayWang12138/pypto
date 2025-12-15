@@ -777,7 +777,7 @@ Status MixSubgraphSplit::CreateCallOpInRootFunction(Function& rootFunc,
     if (componentIndex < subgraphToFunction.subFuncInvokeInfos.size()) {
         callOp.SetSubFuncInvokeInfo(subgraphToFunction.subFuncInvokeInfos[componentIndex]);
     }
-    subgraphToFunction.SetSemanticLabel(leafFunc.GetProgramOp(), &callOp);
+    subgraphToFunction.SetSemanticLabel(leafFunc.GetProgramOp(), callOp);
     if (callOpAttr != nullptr && callOpAttr->invokeInfo_ != nullptr) {
         callOpAttr->invokeInfo_->UpdateProgramSubgraphId(newProgramID);
     }
@@ -1442,7 +1442,7 @@ Function* MixSubgraphSplit::CreateSplitLeafFunction(Function& rootFunc,
     // 注册到program的function map中
     auto* resultFunc = newFunc.get();
     Program::GetInstance().InsertFuncToFunctionMap(funcMagicName, newFunc);
-    subgraphToFunction.InsertParameter(i, resultFunc);
+    subgraphToFunction.InsertParameter(i, *resultFunc);
     ALOG_DEBUG_F("Created leaf function: %s.", leafName.c_str());
     return resultFunc;
 }

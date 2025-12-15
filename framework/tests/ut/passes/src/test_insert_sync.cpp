@@ -111,6 +111,37 @@ public:
         config::SetPlatformConfig("ENABLE_COST_MODEL", false);
     }
     void TearDown() override {}
+
+    void AdjustCopyOpTileCfg(Operation &op, TileOpCfg &opcfg) {
+        if (op.GetOpcode() == Opcode::OP_COPY_IN) {
+            opcfg.pipeIdStart_ = PipeType::PIPE_MTE2;
+            opcfg.pipeIdEnd_ = PipeType::PIPE_MTE2;
+            opcfg.coreType_ = CoreType::AIV;
+        } else if (op.GetOpcode() == Opcode::OP_COPY_OUT) {
+            opcfg.pipeIdStart_ = PipeType::PIPE_MTE3;
+            opcfg.pipeIdEnd_ = PipeType::PIPE_MTE3;
+            opcfg.coreType_ = CoreType::AIV;
+        }
+    }
+
+    void BuildDeps(PipeSync &ps, DataDependencySearcher &dataDependencySearcher, std::vector<Operation *> &opLogPtr, std::vector<IndexOp> &synced) {
+        for (size_t i = 0; i < opLogPtr.size(); i++) {
+            auto opcfg = OpcodeManager::Inst().GetTileOpCfg(opLogPtr[i]->GetOpcode());
+            AdjustCopyOpTileCfg(*opLogPtr[i], opcfg);
+            PipeSync::DepOp op(i, {opcfg.pipeIdStart_, opcfg.pipeIdEnd_, opcfg.coreType_});
+            PipeSync::DepOp &currOp = ps.depOps_.emplace_back(op);
+            auto dataDependencySet = dataDependencySearcher.Find(opLogPtr[i]);
+            for (auto it = dataDependencySet.rbegin(); it != dataDependencySet.rend(); it++) {
+                size_t k = *it;
+                PipeSync::DepOp &prevOp = ps.depOps_[k];
+                if (ps.HasDataDependency(*opLogPtr[k], *opLogPtr[i], k, i)) {
+                    ps.UpdateDep(currOp, prevOp);
+                }
+            }
+            dataDependencySearcher.Insert(opLogPtr[i], i);
+            ps.EnqueueOp(currOp, opLogPtr, synced);
+        }
+    }
 };
 
 TEST_F(InsertSyncTest, TestEnableDebug) {
@@ -147,13 +178,7 @@ TEST_F(InsertSyncTest, TestEnableDebug) {
     EXPECT_TRUE(true);
 }
 
-TEST_F(InsertSyncTest, TestFindDep) {
-    auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestFindDep", "TestFindDep", nullptr);
-    rootFuncPtr->rootFunc_ = rootFuncPtr.get();
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestFindDepLeaf", "TestFindDepLeaf", rootFuncPtr.get());
-    EXPECT_TRUE(currFunctionPtr != nullptr);
-    rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
-
+std::vector<std::shared_ptr<LogicalTensor>> AddOpForTestFindDep(std::vector<Operation *>& opLogPtr, std::shared_ptr<Function> currFunctionPtr) {
     // Build graph
     std::vector<int64_t> shape1 = {IS_NUM16, IS_NUM16};
     std::vector<int64_t> shape2 = {IS_NUM8, IS_NUM16};
@@ -181,7 +206,6 @@ TEST_F(InsertSyncTest, TestFindDep) {
     tensor6->SetMemoryTypeBoth(MemoryType::MEM_UB);
     tensor6->memoryrange.start = IS_NUM150;
     tensor6->memoryrange.end = IS_NUM200;
-    std::vector<Operation *> opLogPtr;
     auto &expend = currFunctionPtr->AddRawOperation(Opcode::OP_EXPAND, {tensor1}, {tensor2});
     opLogPtr.emplace_back(&expend);
     auto &copyin1 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor2}, {tensor3});
@@ -192,32 +216,51 @@ TEST_F(InsertSyncTest, TestFindDep) {
     opLogPtr.emplace_back(&copyin3);
     auto &exp = currFunctionPtr->AddRawOperation(Opcode::OP_EXP, {tensor3}, {tensor6});
     opLogPtr.emplace_back(&exp);
+    return {tensor1, tensor2, tensor3, tensor4, tensor5, tensor6};
+}
+
+void CheckDependencyForTestFindDep(PipeSync &ps, std::set<int> dataDependencySet, std::vector<Operation *> &opLogPtr, size_t i) {
+    for (auto it = dataDependencySet.rbegin(); it != dataDependencySet.rend(); it++) {
+        size_t k = *it;
+        // start tests
+        if (i == IS_NUM1 && k == 0) {
+            EXPECT_EQ(ps.CheckRawDependency(*opLogPtr[k], *opLogPtr[i], k, i), true);
+            EXPECT_EQ(ps.CheckWarDependency(*opLogPtr[k], *opLogPtr[i], k, i), false);
+            EXPECT_EQ(ps.CheckWawDependency(*opLogPtr[k], *opLogPtr[i], k, i), false);
+        }
+        if (i == IS_NUM4 && k == 0) {
+            EXPECT_EQ(ps.CheckRawDependency(*opLogPtr[k], *opLogPtr[i], k, i), false);
+            EXPECT_EQ(ps.CheckWarDependency(*opLogPtr[k], *opLogPtr[i], k, i), false);
+            EXPECT_EQ(ps.CheckWawDependency(*opLogPtr[k], *opLogPtr[i], k, i), true);
+        }
+        if (i == IS_NUM4 && k == IS_NUM1) {
+            EXPECT_EQ(ps.CheckRawDependency(*opLogPtr[k], *opLogPtr[i], k, i), true);
+            EXPECT_EQ(ps.CheckWarDependency(*opLogPtr[k], *opLogPtr[i], k, i), true);
+            EXPECT_EQ(ps.CheckWawDependency(*opLogPtr[k], *opLogPtr[i], k, i), false);
+        }
+        // end tests
+    }
+}
+
+TEST_F(InsertSyncTest, TestFindDep) {
+    auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestFindDep", "TestFindDep", nullptr);
+    rootFuncPtr->rootFunc_ = rootFuncPtr.get();
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestFindDepLeaf", "TestFindDepLeaf", rootFuncPtr.get());
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
+
+    std::vector<Operation *> opLogPtr;
+    auto tensors = AddOpForTestFindDep(opLogPtr, currFunctionPtr);
     PipeSync ps;
     DataDependencySearcher dataDependencySearcher;
     for (size_t i = 0; i < opLogPtr.size(); i++) {
         auto opcfg = OpcodeManager::Inst().GetTileOpCfg(opLogPtr[i]->GetOpcode());
-        if (opLogPtr[i]->GetOpcode() == Opcode::OP_COPY_IN) {
-            opcfg.pipeIdStart_ = PipeType::PIPE_MTE2;
-            opcfg.pipeIdEnd_ = PipeType::PIPE_MTE2;
-            opcfg.coreType_ = CoreType::AIV;
-        } else if (opLogPtr[i]->GetOpcode() == Opcode::OP_COPY_OUT) {
-            opcfg.pipeIdStart_ = PipeType::PIPE_MTE3;
-            opcfg.pipeIdEnd_ = PipeType::PIPE_MTE3;
-            opcfg.coreType_ = CoreType::AIV;
-        }
+        AdjustCopyOpTileCfg(*opLogPtr[i], opcfg);
         PipeSync::DepOp op(i, {opcfg.pipeIdStart_, opcfg.pipeIdEnd_, opcfg.coreType_});
         ps.depOps_.emplace_back(op);
         auto dataDependencySet = dataDependencySearcher.Find(opLogPtr[i]);
         // start tests
-        if (i == IS_NUM1) {
-            std::set<int> res = {0};
-            EXPECT_EQ(dataDependencySet, res);
-        }
-        if (i == IS_NUM2) {
-            std::set<int> res = {0};
-            EXPECT_EQ(dataDependencySet, res);
-        }
-        if (i == IS_NUM3) {
+        if (i == IS_NUM1 || i == IS_NUM2 || i == IS_NUM3) {
             std::set<int> res = {0};
             EXPECT_EQ(dataDependencySet, res);
         }
@@ -226,47 +269,28 @@ TEST_F(InsertSyncTest, TestFindDep) {
             EXPECT_EQ(dataDependencySet, res);
         }
         // end tests
-
-        for (auto it = dataDependencySet.rbegin(); it != dataDependencySet.rend(); it++) {
-            size_t k = *it;
-            // start tests
-            if (i == IS_NUM1 && k == 0) {
-                EXPECT_EQ(ps.CheckRawDependency(opLogPtr[k], opLogPtr[i], k, i), true);
-                EXPECT_EQ(ps.CheckWarDependency(opLogPtr[k], opLogPtr[i], k, i), false);
-                EXPECT_EQ(ps.CheckWawDependency(opLogPtr[k], opLogPtr[i], k, i), false);
-            }
-            if (i == IS_NUM4 && k == 0) {
-                EXPECT_EQ(ps.CheckRawDependency(opLogPtr[k], opLogPtr[i], k, i), false);
-                EXPECT_EQ(ps.CheckWarDependency(opLogPtr[k], opLogPtr[i], k, i), false);
-                EXPECT_EQ(ps.CheckWawDependency(opLogPtr[k], opLogPtr[i], k, i), true);
-            }
-            if (i == IS_NUM4 && k == IS_NUM1) {
-                EXPECT_EQ(ps.CheckRawDependency(opLogPtr[k], opLogPtr[i], k, i), true);
-                EXPECT_EQ(ps.CheckWarDependency(opLogPtr[k], opLogPtr[i], k, i), true);
-                EXPECT_EQ(ps.CheckWawDependency(opLogPtr[k], opLogPtr[i], k, i), false);
-            }
-            // end tests
-        }
+        CheckDependencyForTestFindDep(ps, dataDependencySet, opLogPtr, i);
         dataDependencySearcher.Insert(opLogPtr[i], i);
     }
 
     // test ignorable intra pipe dep
     EXPECT_EQ(ps.IgnorableIntraPipeDep(0, IS_NUM4, opLogPtr), false);
-    tensor2->shape = {IS_NUM16, IS_NUM32, IS_NUM32};
+    tensors[1]->shape = {IS_NUM16, IS_NUM32, IS_NUM32};
     EXPECT_EQ(ps.IgnorableIntraPipeDep(0, IS_NUM4, opLogPtr), false);
 
     // test AdjustOpCfg
     auto opcfg1 = OpcodeManager::Inst().GetTileOpCfg(opLogPtr[1]->GetOpcode());
-    EXPECT_EQ(ps.AdjustOpCfg(opcfg1, opLogPtr[1]), FAILED);
+    EXPECT_EQ(ps.AdjustOpCfg(opcfg1, *opLogPtr[1]), FAILED);
 
-    auto tensor7 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
+    std::vector<int64_t> shape = {IS_NUM8, IS_NUM16};
+    auto tensor7 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     tensor7->SetMemoryTypeBoth(MemoryType::MEM_UB);
     tensor7->memoryrange.start = IS_NUM1000;
     tensor7->memoryrange.end = IS_NUM1100;
-    auto &copyout = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_OUT, {tensor5}, {tensor7});
+    auto &copyout = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_OUT, {tensors[4]}, {tensor7});
     opLogPtr.emplace_back(&copyout);
     auto opcfg2 = OpcodeManager::Inst().GetTileOpCfg(opLogPtr[IS_NUM1]->GetOpcode());
-    EXPECT_EQ(ps.AdjustOpCfg(opcfg2, opLogPtr[IS_NUM5]), FAILED);
+    EXPECT_EQ(ps.AdjustOpCfg(opcfg2, *opLogPtr[IS_NUM5]), FAILED);
 }
 
 TEST_F(InsertSyncTest, TestPhaseKernelProcess) {
@@ -393,13 +417,7 @@ TEST_F(InsertSyncTest, TestViewAssembleProcess) {
     EXPECT_EQ(ps.ProcessViewAssembleOrder(opLogPtr, resLogPtr), FAILED);
 }
 
-TEST_F(InsertSyncTest, TestUpdateDep) {
-    auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestUpdateDep", "TestUpdateDep", nullptr);
-    rootFuncPtr->rootFunc_ = rootFuncPtr.get();
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestUpdateDepLeaf", "TestUpdateDepLeaf", rootFuncPtr.get());
-    EXPECT_TRUE(currFunctionPtr != nullptr);
-    rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
-
+void AddOpForTestUpdateDep(std::vector<Operation *>& opLogPtr, std::shared_ptr<Function> currFunctionPtr) {
     std::vector<int64_t> shape = {IS_NUM16, IS_NUM16};
     auto tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     tensor1->SetMemoryTypeBoth(MemoryType::MEM_UB);
@@ -433,7 +451,6 @@ TEST_F(InsertSyncTest, TestUpdateDep) {
     tensor8->SetMemoryTypeBoth(MemoryType::MEM_UB);
     tensor8->memoryrange.start = IS_NUM101;
     tensor8->memoryrange.end = IS_NUM199;
-    std::vector<Operation *> opLogPtr;
     auto &copyin1 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor1}, {tensor8});
     opLogPtr.emplace_back(&copyin1);
     auto &copyin2 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor2}, {tensor3});
@@ -444,27 +461,30 @@ TEST_F(InsertSyncTest, TestUpdateDep) {
     opLogPtr.emplace_back(&cast2);
     auto &copyout = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_OUT, {tensor6}, {tensor7});
     opLogPtr.emplace_back(&copyout);
+}
+
+TEST_F(InsertSyncTest, TestUpdateDep) {
+    auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestUpdateDep", "TestUpdateDep", nullptr);
+    rootFuncPtr->rootFunc_ = rootFuncPtr.get();
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestUpdateDepLeaf", "TestUpdateDepLeaf", rootFuncPtr.get());
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
+
+    std::vector<Operation *> opLogPtr;
+    AddOpForTestUpdateDep(opLogPtr, currFunctionPtr);
 
     PipeSync ps;
     DataDependencySearcher dataDependencySearcher;
     for (size_t i = 0; i < opLogPtr.size(); i++) {
         auto opcfg = OpcodeManager::Inst().GetTileOpCfg(opLogPtr[i]->GetOpcode());
-        if (opLogPtr[i]->GetOpcode() == Opcode::OP_COPY_IN) {
-            opcfg.pipeIdStart_ = PipeType::PIPE_MTE2;
-            opcfg.pipeIdEnd_ = PipeType::PIPE_MTE2;
-            opcfg.coreType_ = CoreType::AIV;
-        } else if (opLogPtr[i]->GetOpcode() == Opcode::OP_COPY_OUT) {
-            opcfg.pipeIdStart_ = PipeType::PIPE_MTE3;
-            opcfg.pipeIdEnd_ = PipeType::PIPE_MTE3;
-            opcfg.coreType_ = CoreType::AIV;
-        }
+        AdjustCopyOpTileCfg(*opLogPtr[i], opcfg);
         PipeSync::DepOp op(i, {opcfg.pipeIdStart_, opcfg.pipeIdEnd_, opcfg.coreType_});
-        PipeSync::DepOp &currOp = ps.depOps_.emplace_back(op);
+        auto &currOp = ps.depOps_.emplace_back(op);
         auto dataDependencySet = dataDependencySearcher.Find(opLogPtr[i]);
         for (auto it = dataDependencySet.rbegin(); it != dataDependencySet.rend(); it++) {
             size_t k = *it;
-            PipeSync::DepOp &prevOp = ps.depOps_[k];
-            if (ps.HasDataDependency(opLogPtr[k], opLogPtr[i], k, i)) {
+            auto &prevOp = ps.depOps_[k];
+            if (ps.HasDataDependency(*opLogPtr[k], *opLogPtr[i], k, i)) {
                 // start tests
                 ps.UpdateDep(currOp, prevOp);
                 PipeSync::PipeCoreReal pcCurr(PipeType::PIPE_MTE3, CoreType::AIV);
@@ -488,13 +508,7 @@ TEST_F(InsertSyncTest, TestUpdateDep) {
     }
 }
 
-TEST_F(InsertSyncTest, TestHandleEventID) {
-    auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestHandleEventID", "TestHandleEventID", nullptr);
-    rootFuncPtr->rootFunc_ = rootFuncPtr.get();
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestHandleEventIDLeaf", "TestHandleEventIDLeaf", rootFuncPtr.get());
-    EXPECT_TRUE(currFunctionPtr != nullptr);
-    rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
-
+void AddOpForTestHandleEventID(std::vector<Operation *>& opLogPtr, std::shared_ptr<Function> currFunctionPtr) {
     std::vector<int64_t> shape = {IS_NUM16, IS_NUM16};
     auto tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     tensor1->SetMemoryTypeBoth(MemoryType::MEM_UB);
@@ -516,42 +530,29 @@ TEST_F(InsertSyncTest, TestHandleEventID) {
     tensor5->SetMemoryTypeBoth(MemoryType::MEM_UB);
     tensor5->memoryrange.start = IS_NUM700;
     tensor5->memoryrange.end = IS_NUM800;
-    std::vector<Operation *> opLogPtr;
     auto &copyin1 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor1}, {tensor2});
     opLogPtr.emplace_back(&copyin1);
     auto &cast = currFunctionPtr->AddRawOperation(Opcode::OP_CAST, {tensor2}, {tensor3});
     opLogPtr.emplace_back(&cast);
     auto &copyin2 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor4}, {tensor5});
     opLogPtr.emplace_back(&copyin2);
+}
+
+TEST_F(InsertSyncTest, TestHandleEventID) {
+    auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestHandleEventID", "TestHandleEventID", nullptr);
+    rootFuncPtr->rootFunc_ = rootFuncPtr.get();
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestHandleEventIDLeaf", "TestHandleEventIDLeaf", rootFuncPtr.get());
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
+
+    std::vector<Operation *> opLogPtr;
+    AddOpForTestHandleEventID(opLogPtr, currFunctionPtr);
 
     PipeSync ps;
     // PipeDispatch
     DataDependencySearcher dataDependencySearcher;
     std::vector<IndexOp> synced;
-    for (size_t i = 0; i < opLogPtr.size(); i++) {
-        auto opcfg = OpcodeManager::Inst().GetTileOpCfg(opLogPtr[i]->GetOpcode());
-        if (opLogPtr[i]->GetOpcode() == Opcode::OP_COPY_IN) {
-            opcfg.pipeIdStart_ = PipeType::PIPE_MTE2;
-            opcfg.pipeIdEnd_ = PipeType::PIPE_MTE2;
-            opcfg.coreType_ = CoreType::AIV;
-        } else if (opLogPtr[i]->GetOpcode() == Opcode::OP_COPY_OUT) {
-            opcfg.pipeIdStart_ = PipeType::PIPE_MTE3;
-            opcfg.pipeIdEnd_ = PipeType::PIPE_MTE3;
-            opcfg.coreType_ = CoreType::AIV;
-        }
-        PipeSync::DepOp op(i, {opcfg.pipeIdStart_, opcfg.pipeIdEnd_, opcfg.coreType_});
-        PipeSync::DepOp &currOp = ps.depOps_.emplace_back(op);
-        auto dataDependencySet = dataDependencySearcher.Find(opLogPtr[i]);
-        for (auto it = dataDependencySet.rbegin(); it != dataDependencySet.rend(); it++) {
-            size_t k = *it;
-            PipeSync::DepOp &prevOp = ps.depOps_[k];
-            if (ps.HasDataDependency(opLogPtr[k], opLogPtr[i], k, i)) {
-                ps.UpdateDep(currOp, prevOp);
-            }
-        }
-        dataDependencySearcher.Insert(opLogPtr[i], i);
-        ps.EnqueueOp(currOp, opLogPtr, synced);
-    }
+    BuildDeps(ps, dataDependencySearcher, opLogPtr, synced);
 
     EXPECT_EQ(ps.depOps_[0].setPipe[0], IS_NUM1);
     EXPECT_EQ(ps.depOps_[IS_NUM1].waitPipe[0], 0);
@@ -762,30 +763,7 @@ TEST_F(InsertSyncTest, TestRelaxFakeDataDep) {
     std::vector<IndexOp> synced;
     size_t index = UINT64_MAX;
     EXPECT_EQ(ps.InjectSync(*currFunctionPtr, opLogPtr, index, synced), FAILED);
-    for (size_t i = 0; i < opLogPtr.size(); i++) {
-        auto opcfg = OpcodeManager::Inst().GetTileOpCfg(opLogPtr[i]->GetOpcode());
-        if (opLogPtr[i]->GetOpcode() == Opcode::OP_COPY_IN) {
-            opcfg.pipeIdStart_ = PipeType::PIPE_MTE2;
-            opcfg.pipeIdEnd_ = PipeType::PIPE_MTE2;
-            opcfg.coreType_ = CoreType::AIV;
-        } else if (opLogPtr[i]->GetOpcode() == Opcode::OP_COPY_OUT) {
-            opcfg.pipeIdStart_ = PipeType::PIPE_MTE3;
-            opcfg.pipeIdEnd_ = PipeType::PIPE_MTE3;
-            opcfg.coreType_ = CoreType::AIV;
-        }
-        PipeSync::DepOp op(i, {opcfg.pipeIdStart_, opcfg.pipeIdEnd_, opcfg.coreType_});
-        PipeSync::DepOp &currOp = ps.depOps_.emplace_back(op);
-        auto dataDependencySet = dataDependencySearcher.Find(opLogPtr[i]);
-        for (auto it = dataDependencySet.rbegin(); it != dataDependencySet.rend(); it++) {
-            size_t k = *it;
-            PipeSync::DepOp &prevOp = ps.depOps_[k];
-            if (ps.HasDataDependency(opLogPtr[k], opLogPtr[i], k, i)) {
-                ps.UpdateDep(currOp, prevOp);
-            }
-        }
-        dataDependencySearcher.Insert(opLogPtr[i], i);
-        ps.EnqueueOp(currOp, opLogPtr, synced);
-    }
+    BuildDeps(ps, dataDependencySearcher, opLogPtr, synced);
 
     // Issue op
     size_t totalIssued = 0;

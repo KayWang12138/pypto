@@ -32,18 +32,18 @@ Status InferDynShape::InferShape(Function& function){
     size_t i = 0U;
     std::map<int, size_t> opMagic2Idx;
     std::vector<Operation*> opList = function.Operations().DuplicatedOpList();
-    for (auto op : opList) {
+    for (const auto op : opList) {
         opMagic2Idx[op->GetOpMagic()] = i;
         i++;
     }
     std::vector<std::vector<size_t>> opInGraph(opList.size());
     std::vector<std::vector<size_t>> opOutGraph(opList.size());
     for (size_t opIdx = 0; opIdx < opList.size(); opIdx++) {
-        auto& op = opList[opIdx];
-        for (auto producer : op->ProducerOpsOrdered()) {
+        const auto& op = opList[opIdx];
+        for (const auto producer : op->ProducerOpsOrdered()) {
             opInGraph[opMagic2Idx[op->GetOpMagic()]].push_back(opMagic2Idx[producer->GetOpMagic()]);
         }
-        for (auto consumer : op->ConsumerOpsOrdered()) {
+        for (const auto consumer : op->ConsumerOpsOrdered()) {
             opOutGraph[opMagic2Idx[op->GetOpMagic()]].push_back(opMagic2Idx[consumer->GetOpMagic()]);
         }
     }

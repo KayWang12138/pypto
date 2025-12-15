@@ -45,8 +45,8 @@ Status AssignMemoryType::RunOnFunction(Function &function) {
                 \--> op3 --> tensor3 -->
         */
         incast->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
-        for (auto &consumerOp : incast->GetConsumers()) {
-            inserter.UpdateTensorTobeMap(*incast, *consumerOp, MemoryType::MEM_DEVICE_DDR);
+        for (const auto &consumerOp : incast->GetConsumers()) {
+            inserter.UpdateTensorTobeMap(incast, *consumerOp, MemoryType::MEM_DEVICE_DDR);
         }
     }
     for (auto &outcast : function.outCasts_) {
@@ -102,7 +102,7 @@ void AssignMemoryType::RunOnOperation(Operation &operation) {
             continue;
         }
         tensor->SetMemoryTypeOriginal(inputsMemType[i]); // 如果tensor之前做为oOperand被设置过, 那么这里不生效
-        inserter.UpdateTensorTobeMap(*tensor, operation, inputsMemType[i]);
+        inserter.UpdateTensorTobeMap(tensor, operation, inputsMemType[i]);
     }
     const auto &outputsMemType = OpcodeManager::Inst().GetOutputsMemType(opcode);
     for (size_t i = 0; i < operation.oOperand.size(); ++i) {
@@ -112,16 +112,16 @@ void AssignMemoryType::RunOnOperation(Operation &operation) {
                 operation.GetOpMagic(), tensor->magic, BriefMemoryTypeToString(tensor->GetMemoryTypeOriginal()).c_str(),
                 BriefMemoryTypeToString(outputsMemType[i]).c_str());
             tensor->SetMemoryTypeOriginal(outputsMemType[i]);
-            for (auto &consumerOp : tensor->GetConsumers()) {
-                inserter.UpdateTensorTobeMap(*tensor, *consumerOp, outputsMemType[i]);
+            for (const auto &consumerOp : tensor->GetConsumers()) {
+                inserter.UpdateTensorTobeMap(tensor, *consumerOp, outputsMemType[i]);
             }
             continue;
         }
         tensor->SetMemoryTypeOriginal(MemoryType::MEM_UNKNOWN);
-        for (auto &consumerOp : tensor->GetConsumers()) {
+        for (const auto &consumerOp : tensor->GetConsumers()) {
             APASS_LOG_DEBUG_F(Elements::Operation, "Set for Unknown Op's consumer %s[%d].",
                 consumerOp->GetOpcodeStr().c_str(), consumerOp->GetOpMagic());
-            inserter.UpdateTensorTobeMap(*tensor, *consumerOp, MemoryType::MEM_UNKNOWN);
+            inserter.UpdateTensorTobeMap(tensor, *consumerOp, MemoryType::MEM_UNKNOWN);
         }
     }
     if(operation.GetOpcode() == Opcode::OP_VIEW) {
@@ -134,28 +134,28 @@ void AssignMemoryType::ProcessAmulBInput(Operation &operation, LogicalTensorPtr 
     tensor: an input of OP_A_MUL_B
     */
     auto &producerOps = tensor->GetProducers();
-    for(auto &producerOp : producerOps) {
+    for(const auto &producerOp : producerOps) {
         auto producerOpcode = producerOp->GetOpcode();
         if (producerOpcode == Opcode::OP_A_MUL_B || producerOpcode == Opcode::OP_A_MULACC_B) {
             tensor->SetMemoryTypeOriginal(MemoryType::MEM_L0C, true);
-            inserter.UpdateTensorTobeMap(*tensor, operation, MemoryType::MEM_L0C);
+            inserter.UpdateTensorTobeMap(tensor, operation, MemoryType::MEM_L0C);
             continue;
         } else if (producerOpcode == Opcode::OP_VIEW) {
             auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(producerOp->GetOpAttribute().get());
             MemoryType attrToType = viewOpAttribute->GetTo();
             tensor->SetMemoryTypeOriginal(attrToType, true);
-            inserter.UpdateTensorTobeMap(*tensor,operation, attrToType);
+            inserter.UpdateTensorTobeMap(tensor,operation, attrToType);
             continue;
         }else if (producerOpcode == Opcode::OP_L1_TO_L0A || producerOpcode == Opcode::OP_L1_TO_L0_AT) {
             tensor->SetMemoryTypeOriginal(MemoryType::MEM_L0A, true);
-            inserter.UpdateTensorTobeMap(*tensor, operation, MemoryType::MEM_L0A);
+            inserter.UpdateTensorTobeMap(tensor, operation, MemoryType::MEM_L0A);
             continue;
         }else if (producerOpcode == Opcode::OP_L1_TO_L0B || producerOpcode == Opcode::OP_L1_TO_L0_BT) {
             tensor->SetMemoryTypeOriginal(MemoryType::MEM_L0B, true);
-            inserter.UpdateTensorTobeMap(*tensor, operation, MemoryType::MEM_L0B);
+            inserter.UpdateTensorTobeMap(tensor, operation, MemoryType::MEM_L0B);
             continue;
         }else{
-            inserter.UpdateTensorTobeMap(*tensor,operation, MemoryType::MEM_DEVICE_DDR);
+            inserter.UpdateTensorTobeMap(tensor,operation, MemoryType::MEM_DEVICE_DDR);
         }
     }
 }
@@ -170,7 +170,7 @@ void AssignMemoryType::ProcessViewwithSpecificMem(Operation &operation) {
     auto out = operation.GetOOperands().front();
     out->SetMemoryTypeOriginal(attrToType,true); 
     for (auto &consumerOp : out->GetConsumers()) {
-        inserter.UpdateTensorTobeMap(*out,*consumerOp,attrToType);
+        inserter.UpdateTensorTobeMap(out,*consumerOp,attrToType);
     }
     if(attrToType == MemoryType::MEM_L1) {
         /*处理大包搬运场景，推导前端插入的MEM_L1 view和框架插入的view的输入tensor的mem类型
@@ -185,14 +185,14 @@ void AssignMemoryType::ProcessViewwithSpecificMem(Operation &operation) {
         op ---> in2(tobe=DDR) ---> view（后续转为copyIn) ---> in(ori=L1/UB, to=L1/UB) ---> view(to=L1/UB)
         */
         auto in =operation.iOperand.front();
-        inserter.UpdateTensorTobeMap(*in,operation,MemoryType::MEM_DEVICE_DDR);
+        inserter.UpdateTensorTobeMap(in,operation,MemoryType::MEM_DEVICE_DDR);
         auto producerOps = operation.ProducerOps();
-        for(auto &producerOp : producerOps) {
+        for(const auto &producerOp : producerOps) {
             if(producerOp->GetOpcode() == Opcode::OP_VIEW) {
                 in->SetMemoryTypeOriginal(attrToType,true);
-                inserter.UpdateTensorTobeMap(*in,operation,attrToType);
+                inserter.UpdateTensorTobeMap(in,operation,attrToType);
                 auto in2 =producerOp->iOperand.front();
-                inserter.UpdateTensorTobeMap(*in2,*producerOp,MemoryType::MEM_DEVICE_DDR);
+                inserter.UpdateTensorTobeMap(in2,*producerOp,MemoryType::MEM_DEVICE_DDR);
             }
         }
     }
@@ -207,10 +207,10 @@ void AssignMemoryType::AssignMemtypeForSplitReshape(Operation &op, const Logical
     Operation* consumer = *consumers.begin();
     if (producer != nullptr && consumer != nullptr && producer->GetOpcode() == Opcode::OP_ASSEMBLE && consumer->GetOpcode() == Opcode::OP_VIEW) {
         if (input->GetMemoryTypeOriginal() == MemoryType::MEM_UB && output->GetMemoryTypeOriginal() == MemoryType::MEM_UB && input->GetDataSize() <= UB_SIZE_THRESHOLD) {
-            inserter.UpdateTensorTobeMap(*input, op, MemoryType::MEM_UB);
-            for (auto &consumerOp : output->GetConsumers()) {
+            inserter.UpdateTensorTobeMap(input, op, MemoryType::MEM_UB);
+            for (const auto &consumerOp : output->GetConsumers()) {
                 if (consumerOp->oOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
-                    inserter.UpdateTensorTobeMap(*output, *consumerOp, MemoryType::MEM_UB);
+                    inserter.UpdateTensorTobeMap(output, *consumerOp, MemoryType::MEM_UB);
                 }
             }
         }
@@ -222,11 +222,11 @@ void AssignMemoryType::AssignOpReshapeMemtype(Operation &op){
         auto &input = op.iOperand.front();
         auto &output = op.oOperand.front();
         AssignMemtypeForSplitReshape(op, input, output);
-        auto inputMemType = inserter.GetMemoryTypeFromTensorTobeMap(*input, op);
+        auto inputMemType = inserter.GetMemoryTypeFromTensorTobeMap(input, op);
         if (inputMemType != output->GetMemoryTypeOriginal()) {
             APASS_LOG_DEBUG_F(Elements::Operation, "OP_RESHAPE[%d] input: %s, output: %s.",
                 op.opmagic, PrintTensorMem(input).c_str(), PrintTensorMem(output).c_str());
-            inserter.UpdateTensorTobeMap(*input, op, MemoryType::MEM_DEVICE_DDR);
+            inserter.UpdateTensorTobeMap(input, op, MemoryType::MEM_DEVICE_DDR);
             output->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, true);
         }
     }
@@ -236,14 +236,14 @@ void AssignMemoryType::AssignOpViewTypeMemtype(Operation &op){
     if (op.GetOpcode() == npu::tile_fwk::Opcode::OP_VIEW_TYPE) {
         auto &viewTypeIn = op.iOperand.front();
         auto &viewTypeOut = op.oOperand.front();
-        auto inputMemType = inserter.GetMemoryTypeFromTensorTobeMap(*viewTypeIn, op);
-        auto outTobeMem = inserter.GetTobeDefault(*viewTypeOut);
+        auto inputMemType = inserter.GetMemoryTypeFromTensorTobeMap(viewTypeIn, op);
+        auto outTobeMem = inserter.GetTobeDefault(viewTypeOut);
         auto prod = *(viewTypeIn->GetProducers().begin());
         if (prod->GetOpcode() == Opcode::OP_VIEW) {
             viewTypeOut->SetMemoryTypeOriginal(outTobeMem.begin()->second, true);
             if (inputMemType != viewTypeOut->GetMemoryTypeOriginal()) {
                 if (inputMemType == MemoryType::MEM_DEVICE_DDR) {
-                    inserter.UpdateTensorTobeMap(*viewTypeIn, op, viewTypeOut->GetMemoryTypeOriginal());
+                    inserter.UpdateTensorTobeMap(viewTypeIn, op, viewTypeOut->GetMemoryTypeOriginal());
                     if (OpcodeManager::Inst().GetOutputsMemType(prod->GetOpcode()).empty()) {
                         viewTypeIn->SetMemoryTypeOriginal(viewTypeOut->GetMemoryTypeOriginal(), true);
                     }
@@ -254,7 +254,7 @@ void AssignMemoryType::AssignOpViewTypeMemtype(Operation &op){
         if (inputMemType != viewTypeOut->GetMemoryTypeOriginal()) {
             APASS_LOG_DEBUG_F(Elements::Operation, "OP_RESHAPE[%d] input: %s, output: %s.",
                 op.opmagic, PrintTensorMem(viewTypeIn).c_str(), PrintTensorMem(viewTypeOut).c_str());
-            inserter.UpdateTensorTobeMap(*viewTypeIn, op, MemoryType::MEM_DEVICE_DDR);
+            inserter.UpdateTensorTobeMap(viewTypeIn, op, MemoryType::MEM_DEVICE_DDR);
             viewTypeOut->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, true);
         }
     }
@@ -285,7 +285,7 @@ void AssignMemoryType::AssignSpecialOpMemtype(Operation &op, bool &infoBufferSiz
         每个输入都为DDR
         */
         for (auto &input : op.GetIOperands()) {
-            inserter.UpdateTensorTobeMap(*input, op, MemoryType::MEM_DEVICE_DDR);
+            inserter.UpdateTensorTobeMap(input, op, MemoryType::MEM_DEVICE_DDR);
         }
     }
 
@@ -360,7 +360,7 @@ void AssignMemoryType::AssignMoveOpForAssemble(Operation &operation) {
     for (size_t i = 0; i < operation.oOperand.size(); ++i) {
         auto &tensor = operation.oOperand[i];
         // Only change original type
-        MemoryType fromType = inserter.GetMemoryTypeFromTensorTobeMap(*operation.iOperand.front(), operation);
+        MemoryType fromType = inserter.GetMemoryTypeFromTensorTobeMap(operation.iOperand.front(), operation);
         APASS_LOG_DEBUG_F(Elements::Operation, "%s[%d] output %d mem original %s --> %s.", operation.GetOpcodeStr().c_str(),
             operation.GetOpMagic(), tensor->magic, BriefMemoryTypeToString(tensor->GetMemoryTypeOriginal()).c_str(),
             BriefMemoryTypeToString(fromType).c_str());
@@ -407,60 +407,60 @@ void AssignMemoryType::AssignMoveOpForView(Operation &operation) {
         APASS_LOG_DEBUG_F(Elements::Operation, "%s[%d] input %d mem original %s --> %s.", operation.GetOpcodeStr().c_str(),
             operation.GetOpMagic(), tensor->magic, BriefMemoryTypeToString(tensor->GetMemoryTypeOriginal()).c_str(),
             BriefMemoryTypeToString(toType).c_str());
-        inserter.UpdateTensorTobeMap(*tensor, operation, toType);
+        inserter.UpdateTensorTobeMap(tensor, operation, toType);
         viewOpAttribute->SetToType(toType);
     }
     if(unaligned) {
         auto inputTensor = operation.GetIOperands().front();
-        inserter.UpdateTensorTobeMap(*inputTensor, operation, MemoryType::MEM_DEVICE_DDR);
+        inserter.UpdateTensorTobeMap(inputTensor, operation, MemoryType::MEM_DEVICE_DDR);
     }
 }
 
 void AssignMemoryType::AssignMemUnknown(Function &function) {
-    std::unordered_set<LogicalTensor*> inputOperandVisited;
-    std::unordered_set<LogicalTensor*> outputOperandVisited;
+    std::unordered_set<LogicalTensorPtr> inputOperandVisited;
+    std::unordered_set<LogicalTensorPtr> outputOperandVisited;
     for (auto &op : function.Operations()) {
         for (auto &i : op.iOperand) {
-            if (inputOperandVisited.count(i.get()) > 0) {
+            if (inputOperandVisited.count(i) > 0) {
                 continue;
             }
-            inputOperandVisited.insert(i.get());
+            inputOperandVisited.insert(i);
             if (i->GetMemoryTypeOriginal() == MemoryType::MEM_UNKNOWN) {
                 MemoryType fromType = MemoryType::MEM_DEVICE_DDR;
-                std::map<MemoryType, std::set<Operation *>> localTobeMap = inserter.GetRequiredTobe(*i);
+                std::map<MemoryType, std::set<Operation *>> localTobeMap = inserter.GetRequiredTobe(i);
                 if (localTobeMap.size() == 1 && localTobeMap.begin()->first != MemoryType::MEM_UNKNOWN) {
                     fromType = localTobeMap.begin()->first;
                 }
                 APASS_LOG_DEBUG_F(Elements::Operation, "%s[%d] iOperand %d mem original is UNKNOWN, force setting as %s.",
                     op.GetOpcodeStr().c_str(), op.GetOpMagic(), i->magic, BriefMemoryTypeToString(fromType).c_str());
                 i->SetMemoryTypeOriginal(fromType);
-                inserter.UpdateTensorTobeMap(*i, op, fromType);
+                inserter.UpdateTensorTobeMap(i, op, fromType);
             }
-            inserter.UpdateTensorTobeMapUnknown(*i, i->GetMemoryTypeOriginal());
+            inserter.UpdateTensorTobeMapUnknown(i, i->GetMemoryTypeOriginal());
         }
         for (auto &o : op.oOperand) {
-            if (outputOperandVisited.count(o.get()) > 0) {
+            if (outputOperandVisited.count(o) > 0) {
                 continue;
             }
-            outputOperandVisited.insert(o.get());
+            outputOperandVisited.insert(o);
             if (o->GetMemoryTypeOriginal() == MemoryType::MEM_UNKNOWN) {
                 /*
                 说明该op的输出mem type 没有在opcode.cpp总定义，当前有 OP_VIEW, OP_COPY_IN, OP_RESHAPE，并且大概率为级联
                 或者图上op的输出数量超过了opcode.cpp中的定义，目前仅有OP_REDUCE_ACC，已有特殊处理
                 */
                 MemoryType fromType = MemoryType::MEM_DEVICE_DDR;
-                std::map<MemoryType, std::set<Operation *>> localTobeMap = inserter.GetRequiredTobe(*o);
+                std::map<MemoryType, std::set<Operation *>> localTobeMap = inserter.GetRequiredTobe(o);
                 if (localTobeMap.size() == 1 && localTobeMap.begin()->first != MemoryType::MEM_UNKNOWN) {
                     fromType = localTobeMap.begin()->first;
                 }
                 APASS_LOG_DEBUG_F(Elements::Operation, "%s[%d] oOperand %d mem original is UNKNOWN, force setting as %s.",
                     op.GetOpcodeStr().c_str(), op.GetOpMagic(), o->magic, BriefMemoryTypeToString(fromType).c_str());
                 o->SetMemoryTypeOriginal(fromType);
-                for (auto &consumerOp : o->GetConsumers()) {
-                    inserter.UpdateTensorTobeMap(*o, *consumerOp, fromType);
+                for (const auto &consumerOp : o->GetConsumers()) {
+                    inserter.UpdateTensorTobeMap(o, *consumerOp, fromType);
                 }
             }
-            inserter.UpdateTensorTobeMapUnknown(*o, o->GetMemoryTypeOriginal());
+            inserter.UpdateTensorTobeMapUnknown(o, o->GetMemoryTypeOriginal());
         }
     }
 }

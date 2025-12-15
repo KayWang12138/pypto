@@ -27,12 +27,26 @@ Status Process(Function &function) {
         if (op.GetOpcode() != Opcode::OP_ASSEMBLE_SSA) {
             continue;
         }
-        ASSERT(op.HasAttribute(OpAttributeKey::inplaceIdx));
+        if (!op.HasAttribute(OpAttributeKey::inplaceIdx)) {
+            APASS_LOG_ERROR_F(Elements::Operation, "Missing required attribute 'INPLACE_IDX' for ASSEMBLE_SSA [%d]. %s", 
+                              op.GetOpMagic(), GetFormatBacktrace(op).c_str());
+            return FAILED;
+        }
         auto inplaceIdx = op.GetIntAttribute(OpAttributeKey::inplaceIdx);
         auto iOperand = op.GetInputOperand(inplaceIdx);
-        ASSERT(iOperand->GetProducers().size() == 1);
+        if (iOperand->GetProducers().size() != 1) {
+            APASS_LOG_ERROR_F(Elements::Operation, 
+                              "Invalid producer count for ASSEMBLE_SSA [%d]. Expected 1, got %d. %s", 
+                              op.GetOpMagic(), iOperand->GetProducers().size(), GetFormatBacktrace(op).c_str());
+            return FAILED;
+        }
         auto &producerOp = **iOperand->GetProducers().begin();
-        ASSERT(producerOp.GetOpcode() == Opcode::OP_VIEW);
+        if (producerOp.GetOpcode() != Opcode::OP_VIEW) {
+            APASS_LOG_ERROR_F(Elements::Operation, 
+                              "Invalid producer type for ASSEMBLE_SSA [%d]. Expected OP_VIEW, got %s. %s", 
+                              op.GetOpMagic(), producerOp.GetOpcodeStr().c_str(), GetFormatBacktrace(op).c_str());
+            return FAILED;
+        }
         if (!producerOp.GetInputOperand(0)->GetProducers().empty()) {
             continue;
         }
@@ -52,11 +66,11 @@ Status Process(Function &function) {
 }
 
 Status RemoveUndrivenView::RunOnFunction(Function &function) {
-    APASS_LOG_INFO_F(Elements::Operation, "===> Start RemoveUndrivenView.");
+    APASS_LOG_INFO_F(Elements::Function, "===> Start RemoveUndrivenView.");
     if (Process(function) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "===> Process failed.");
+        APASS_LOG_ERROR_F(Elements::Function, "===> Process failed.");
         return FAILED;
     }
-    APASS_LOG_INFO_F(Elements::Operation, "===> End RemoveUndrivenView.");
+    APASS_LOG_INFO_F(Elements::Function, "===> End RemoveUndrivenView.");
     return SUCCESS;
 }

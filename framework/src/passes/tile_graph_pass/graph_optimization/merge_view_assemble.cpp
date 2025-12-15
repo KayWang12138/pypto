@@ -139,7 +139,7 @@ Status MergeViewAssemble::CleanUp(Function &function) {
 
 Status MergeViewAssemble::MergeViewChain(
     Function &function, Operation &operation, std::vector<Operation *> &chain) {
-    auto viewOpAttribute =dynamic_cast<ViewOpAttribute *>(operation.GetOpAttribute().get());
+    auto viewOpAttribute = std::dynamic_pointer_cast<ViewOpAttribute>(operation.GetOpAttribute());
     APASS_LOG_INFO_F(Elements::Operation, "Processing View operation %d, memory_to: %d, chain size: %zu.",
                 operation.GetOpMagic(),
                 viewOpAttribute ? static_cast<int>(viewOpAttribute->GetTo()) : -1,
@@ -179,7 +179,7 @@ Status MergeViewAssemble::ProcessConsumerChain(
         return SUCCESS;
     }
     Operation *currentOp = chain.back();
-    auto currentViewAttr = dynamic_cast<ViewOpAttribute *>(currentOp->GetOpAttribute().get());
+    auto currentViewAttr = std::dynamic_pointer_cast<ViewOpAttribute>(currentOp->GetOpAttribute());
     if (!currentViewAttr) {
         APASS_LOG_ERROR_F(Elements::Operation, "Failed to get current view attribute.%s", GetFormatBacktrace(*currentOp).c_str());
         return FAILED;
@@ -191,7 +191,11 @@ Status MergeViewAssemble::ProcessConsumerChain(
             return FAILED;
         }
         if (op->GetOpcode() == Opcode::OP_VIEW) {
-            auto viewOpAttribute =dynamic_cast<ViewOpAttribute *>(op->GetOpAttribute().get());
+            auto viewOpAttribute = std::dynamic_pointer_cast<ViewOpAttribute>(op->GetOpAttribute());
+            if (viewOpAttribute == nullptr) {
+                APASS_LOG_ERROR_F(Elements::Operation, "View operation %d has null viewOpAttribute.", op->GetOpMagic());
+                return FAILED;
+            }
             auto memory_to = viewOpAttribute->GetTo();
             // 根据新的合并原则判断是否可以合并
             bool canMerge = false;
@@ -279,7 +283,7 @@ Status MergeViewAssemble::CalculateMergedOffsets(const std::vector<Operation *> 
             APASS_LOG_ERROR_F(Elements::Operation, "Null view operation in chain.");
             return FAILED;
         }
-        auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(view->GetOpAttribute().get());
+        auto viewOpAttribute = std::dynamic_pointer_cast<ViewOpAttribute>(view->GetOpAttribute());
         if (!viewOpAttribute) {
             APASS_LOG_ERROR_F(Elements::Operation, "Failed to get ViewOpAttribute.%s", GetFormatBacktrace(*view).c_str());
             return FAILED;
@@ -311,7 +315,7 @@ void MergeViewAssemble::RecordMergedViewOperation(Operation* lastViewOp, const s
     const std::shared_ptr<LogicalTensor> &endTensor, const std::vector<int64_t> &newOffset,
     const std::vector<SymbolicScalar> &newDynOffset, const std::vector<SymbolicScalar> &newDynValidShape) {
     // 获取最后一个VIEW的属性
-    auto* lastViewAttr = dynamic_cast<ViewOpAttribute*>(lastViewOp->GetOpAttribute().get());
+    auto lastViewAttr = std::dynamic_pointer_cast<ViewOpAttribute>(lastViewOp->GetOpAttribute());
     if (!lastViewAttr) {
         APASS_LOG_ERROR_F(Elements::Operation, "Failed to get last ViewOpAttribute for opmagic: %d.%s", 
                     lastViewOp->GetOpMagic(), GetFormatBacktrace(*lastViewOp).c_str());
@@ -423,7 +427,7 @@ std::pair<std::vector<int64_t>, std::vector<SymbolicScalar>> MergeViewAssemble::
             APASS_LOG_ERROR_F(Elements::Operation, "Null assemble operation in chain.");
             return {};
         }
-        auto assembleOpAttribute = dynamic_cast<AssembleOpAttribute *>(assemble->GetOpAttribute().get());
+        auto assembleOpAttribute = std::dynamic_pointer_cast<AssembleOpAttribute>(assemble->GetOpAttribute());
         if (!assembleOpAttribute) {
             APASS_LOG_ERROR_F(Elements::Operation, "Failed to get AssembleOpAttribute.%s", GetFormatBacktrace(*assemble).c_str());
             return {};

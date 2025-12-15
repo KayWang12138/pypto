@@ -21,11 +21,12 @@
 namespace npu {
 namespace tile_fwk {
 Status InferDynShapeChecker::DoPostCheck(Function &function) {
-    for (auto& op : function.Operations()) {
+    APASS_LOG_INFO_F(Elements::Function, "PostCheck for InferDynShape.");
+    for (const auto& op : function.Operations()) {
         if (OpcodeManager::Inst().IsCopyIn(op.GetOpcode())) {
             const std::shared_ptr<OpAttribute> &attr = op.GetOpAttribute();
             if (attr == nullptr) {
-                APASS_LOG_ERROR_F(Elements::Operation, "Copy In attr is null.");
+                APASS_LOG_ERROR_F(Elements::Operation, "Copy In [%d] attr is null.", op.GetOpMagic());
                 return FAILED;
             }
             std::shared_ptr<CopyOpAttribute> copyAttr = std::static_pointer_cast<CopyOpAttribute>(attr);
@@ -35,7 +36,7 @@ Status InferDynShapeChecker::DoPostCheck(Function &function) {
                 return FAILED;
             }
         }
-        for (auto opOut : op.GetOOperands()) {
+        for (const auto& opOut : op.GetOOperands()) {
             if (opOut->GetDynValidShape().empty()) {
                 APASS_LOG_ERROR_F(Elements::Tensor, "Op %s[%d] output [%d] has no dynamic valid shape.",
                     op.GetOpcodeStr().c_str(), op.GetOpMagic(), opOut->GetMagic());

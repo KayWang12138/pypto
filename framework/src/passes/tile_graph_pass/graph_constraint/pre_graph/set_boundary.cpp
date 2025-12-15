@@ -50,8 +50,8 @@ void SetBoundary::InsertTemporaryCopyIn(Function &function, Operation &op) const
     }
 }
 
-bool IsDiffSubgraphId(int &oriSubgraphId, Operation *op) {
-    int opSubgraphId = op->GetSubgraphID();
+bool IsDiffSubgraphId(int &oriSubgraphId, Operation &op) {
+    int opSubgraphId = op.GetSubgraphID();
     if (oriSubgraphId == -1) {
         oriSubgraphId = opSubgraphId;
     }
@@ -63,13 +63,13 @@ bool IsDiffSubgraphId(int &oriSubgraphId, Operation *op) {
 
 bool IsTensorSubgraphBoundary(LogicalTensorPtr t) {
     int subgraphId = -1;
-    for (auto &op : t->GetProducers()) {
-        if (IsDiffSubgraphId(subgraphId, op) == true) {
+    for (const auto &op : t->GetProducers()) {
+        if (IsDiffSubgraphId(subgraphId, *op) == true) {
             return true;
         }
     }
-    for (auto &op : t->GetConsumers()) {
-        if (IsDiffSubgraphId(subgraphId, op) == true) {
+    for (const auto &op : t->GetConsumers()) {
+        if (IsDiffSubgraphId(subgraphId, *op) == true) {
             return true;
         }
     }

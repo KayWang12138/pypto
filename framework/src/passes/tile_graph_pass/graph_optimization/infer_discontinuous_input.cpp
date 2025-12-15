@@ -121,7 +121,7 @@ inline std::vector<size_t> GetInputTileConflict(
     std::vector<Offset> offsetTos;
 
     bool assembleCheck = true;
-    for (auto &pr : inplaceTensors) {
+    for (const auto &pr : inplaceTensors) {
         if (pr.first->GetMemoryTypeOriginal() != pr.second->GetOOperands()[0]->GetMemoryTypeOriginal()) {
             assembleCheck = false;
             break;

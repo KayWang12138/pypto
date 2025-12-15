@@ -189,7 +189,7 @@ private:
 
     Status RunOnFunction(Function &function) override;
     std::vector<std::reference_wrapper<SymbolicScalar>> GetOpDynamicAttributeList(Operation &op);
-    Status GetCallee(const Operation *callop, Function *&callFunc);
+    Status GetCallee(const Operation &callop, Function *&callFunc);
     void RefSpecifiedValue(std::vector<SymbolicScalar> &oriList,
         std::vector<std::reference_wrapper<SymbolicScalar>> &newList) const;
     void FilterSpecifiedValue(std::vector<OpImmediate> &oriList,

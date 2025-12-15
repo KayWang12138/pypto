@@ -44,8 +44,8 @@ private:
     size_t GetPaddingValue(LogicalTensorPtr &in);
     void PadVector(Operation &op, LogicalTensorPtr &in, std::unordered_set<std::shared_ptr<RawTensor>> &visitedRaw, bool noPadding);
     bool IsExpandLastDim(const Operation &op);
-    void TraverseCopyInConsumers(Function &function, Operation *consumer, std::unordered_set<LogicalTensorPtr> &visitedTensors);
-    void TraverseBroadcast(Function &function, Operation *consumer, LogicalTensorPtr output, std::unordered_set<LogicalTensorPtr> &visitedTensors);
+    void TraverseCopyInConsumers(Function &function, Operation &consumer, std::unordered_set<LogicalTensorPtr> &visitedTensors);
+    void TraverseBroadcast(Function &function, Operation &consumer, LogicalTensorPtr output, std::unordered_set<LogicalTensorPtr> &visitedTensors);
     void TraverseAndSetAttr(LogicalTensorPtr &output, Function &function, std::unordered_set<LogicalTensorPtr> &visitedTensors);
     bool IsReduceLastDim(const Operation &op);
     void ProcessReduce(Function &function, Operation &op);

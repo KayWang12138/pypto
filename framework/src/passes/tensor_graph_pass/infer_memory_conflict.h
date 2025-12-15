@@ -42,13 +42,13 @@ private:
     Status InsertPrecededCopys(Function &function);
     Status InsertPostCopys(Function &function);
     Status InsertCopys(Function& function);
-    Status ObtainReshapeTile(Operation *op, Shape &inTileShape, Shape &outTileShape);
+    Status ObtainReshapeTile(Operation &op, Shape &inTileShape, Shape &outTileShape);
     Status InferTileShape(Operation &op, const LogicalTensorPtr &tensor, TileShape parentTile, Shape &reshapeTile);
     Status SetDefaultShape(const LogicalTensorPtr &tensor, std::vector<int64_t> &defaultTile);
 
     TileShape ObtainTileShape(const std::unordered_set<Operation *> &origOp);
 
-    bool CheckTransmit(Operation* curOp);
+    bool CheckTransmit(Operation &curOp);
     bool CheckConflict(const LogicalTensorPtr &inTensor, const LogicalTensorPtr &outTensor);
     bool CheckRawShapeConflict(const LogicalTensorPtr &inTensor, const LogicalTensorPtr &outTensor);
     bool IsValidTileShape(const Operation &op) const;

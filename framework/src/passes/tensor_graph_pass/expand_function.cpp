@@ -42,7 +42,7 @@ bool CheckAssembleNeedCopy(Function &function, const std::shared_ptr<Operation> 
     if (op->oOperand.empty() || op->iOperand.empty()) {
         return false;
     }
-    auto assembleOpAttribute = dynamic_cast<AssembleOpAttribute *>(op->GetOpAttribute().get());
+    std::shared_ptr<AssembleOpAttribute> assembleOpAttribute = std::dynamic_pointer_cast<AssembleOpAttribute>(op->GetOpAttribute());
     if (assembleOpAttribute == nullptr) {
         return false;
     }

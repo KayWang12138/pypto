@@ -57,9 +57,9 @@ Status ColorGraph::PreColorSort(Function &function)
     int colorNum = function.GetTotalSubGraphCount();
     std::vector<std::set<int>> colorInGraph(colorNum);
     std::vector<std::set<int>> colorOutGraph(colorNum);
-    for (auto &op : function.Operations()) {
+    for (const auto &op : function.Operations()) {
         int opColor = op.GetSubgraphID();
-        for (auto &consumer : op.ConsumerOps()) {
+        for (const auto &consumer : op.ConsumerOps()) {
             int consumerColor = consumer->GetSubgraphID();
             if (opColor != consumerColor) {
                 colorInGraph[consumerColor].insert(opColor);

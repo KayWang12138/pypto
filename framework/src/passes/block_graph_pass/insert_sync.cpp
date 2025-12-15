@@ -252,7 +252,7 @@ Status PipeSync::InsertSync(Function &function, std::vector<Operation *> &synced
     });
 
     for (auto &log : synced) {
-        syncedOpLog.push_back(log.second);
+        syncedOpLog.push_back(&log.second.get());
     }
     return SUCCESS;
 }
@@ -363,25 +363,25 @@ PipeSync::PipeCoreReal PipeSync::GetPipeFromSeq(PipeSeq seq) {
     return seq2pipe.at(seq);
 }
 
-Status PipeSync::AdjustReshapeCfg(TileOpCfg &opcfg, Operation *opptr) {
-    if (opptr->GetIOperands().size() < 1 || opptr->GetOOperands().size() < 1) {
-        APASS_LOG_ERROR_F(Elements::Operation, "%d RESHAPE op operands size is 0, AdjustOpCfg failed.%s", opptr->GetOpMagic(), GetFormatBacktrace(opptr).c_str());
+Status PipeSync::AdjustReshapeCfg(TileOpCfg &opcfg, Operation &op) {
+    if (op.GetIOperands().size() < 1 || op.GetOOperands().size() < 1) {
+        APASS_LOG_ERROR_F(Elements::Operation, "%d RESHAPE op operands size is 0, AdjustOpCfg failed.%s", op.GetOpMagic(), GetFormatBacktrace(op).c_str());
         return FAILED;
     }
-    if (opptr->GetIOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
-        opptr->GetOOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
+    if (op.GetIOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
+        op.GetOOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
         opcfg.pipeIdStart_ = PipeType::PIPE_MTE3;
         opcfg.pipeIdEnd_ = PipeType::PIPE_MTE3;
     }
     return SUCCESS;
 }
 
-Status PipeSync::AdjustCopyInCfg(TileOpCfg &opcfg, Operation *opptr) {
-    if (opptr->GetOpAttribute() == nullptr) {
-        APASS_LOG_ERROR_F(Elements::Operation, "%d COPYIN op attr is nullptr, AdjustOpCfg failed.%s", opptr->GetOpMagic(), GetFormatBacktrace(opptr).c_str());
+Status PipeSync::AdjustCopyInCfg(TileOpCfg &opcfg, Operation &op) {
+    if (op.GetOpAttribute() == nullptr) {
+        APASS_LOG_ERROR_F(Elements::Operation, "%d COPYIN op attr is nullptr, AdjustOpCfg failed.%s", op.GetOpMagic(), GetFormatBacktrace(op).c_str());
         return FAILED;
     }
-    std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(opptr->GetOpAttribute());
+    std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(op.GetOpAttribute());
     auto dstMemType = attr->GetCopyInAttr().second;
     if (dstMemType == MemoryType::MEM_L1) {
         opcfg.pipeIdStart_ = PipeType::PIPE_MTE2;
@@ -397,12 +397,12 @@ Status PipeSync::AdjustCopyInCfg(TileOpCfg &opcfg, Operation *opptr) {
     return SUCCESS;
 }
 
-Status PipeSync::AdjustCopyOutCfg(TileOpCfg &opcfg, Operation *opptr) {
-    if (opptr->GetOpAttribute() == nullptr) {
-        APASS_LOG_ERROR_F(Elements::Operation, "%d COPYOUT op attr is nullptr, AdjustOpCfg failed.%s", opptr->GetOpMagic(), GetFormatBacktrace(opptr).c_str());
+Status PipeSync::AdjustCopyOutCfg(TileOpCfg &opcfg, Operation &op) {
+    if (op.GetOpAttribute() == nullptr) {
+        APASS_LOG_ERROR_F(Elements::Operation, "%d COPYOUT op attr is nullptr, AdjustOpCfg failed.%s", op.GetOpMagic(), GetFormatBacktrace(op).c_str());
         return FAILED;
     }
-    std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(opptr->GetOpAttribute());
+    std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(op.GetOpAttribute());
     auto srcMemType = attr->GetCopyOutAttr().first;
     if (srcMemType == MemoryType::MEM_L0C) {
         opcfg.pipeIdStart_ = PipeType::PIPE_FIX;
@@ -424,21 +424,21 @@ Status PipeSync::AdjustCopyOutCfg(TileOpCfg &opcfg, Operation *opptr) {
     return SUCCESS;
 }
 
-Status PipeSync::AdjustOpCfg(TileOpCfg &opcfg, Operation *opptr) {
-    if (opptr->GetOpcode() == Opcode::OP_RESHAPE) {
-        if (AdjustReshapeCfg(opcfg, opptr) != SUCCESS) {
+Status PipeSync::AdjustOpCfg(TileOpCfg &opcfg, Operation &op) {
+    if (op.GetOpcode() == Opcode::OP_RESHAPE) {
+        if (AdjustReshapeCfg(opcfg, op) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "AdjustReshapeCfg failed.");
             return FAILED;
         }
     }
-    if (opptr->GetOpcode() == Opcode::OP_COPY_IN) {
-        if (AdjustCopyInCfg(opcfg, opptr) != SUCCESS) {
+    if (op.GetOpcode() == Opcode::OP_COPY_IN) {
+        if (AdjustCopyInCfg(opcfg, op) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "AdjustCopyInCfg failed.");
             return FAILED;
         }
     }
-    if (opptr->GetOpcode() == Opcode::OP_COPY_OUT) {
-        if (AdjustCopyOutCfg(opcfg, opptr) != SUCCESS) {
+    if (op.GetOpcode() == Opcode::OP_COPY_OUT) {
+        if (AdjustCopyOutCfg(opcfg, op) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "AdjustCopyOutCfg failed.");
             return FAILED;
         }
@@ -454,7 +454,7 @@ Status PipeSync::PipeDispatch(const std::vector<Operation *> opLogPtr, std::vect
             return FAILED;
         }
         auto opcfg = OpcodeManager::Inst().GetTileOpCfg(opLogPtr[i]->GetOpcode());
-        if (AdjustOpCfg(opcfg, opLogPtr[i]) != SUCCESS) { 
+        if (AdjustOpCfg(opcfg, *opLogPtr[i]) != SUCCESS) { 
             APASS_LOG_ERROR_F(Elements::Operation, "PipeDispatch failed at function AdjustOpCfg.");
             return FAILED; 
         }
@@ -475,7 +475,7 @@ void PipeSync::InitIssueQueue() {
 void PipeSync::EnqueueOp(DepOp &op, const std::vector<Operation *> opLogPtr, std::vector<IndexOp> &syncedOpLog) {
    if (opLogPtr[op.idx]->GetOpcode() == Opcode::OP_ASSEMBLE || opLogPtr[op.idx]->GetOpcode() == Opcode::OP_VIEW ||
         opLogPtr[op.idx]->GetOpcode() == Opcode::OP_NOP || opLogPtr[op.idx]->GetOpcode() == Opcode::OP_HUB) {
-        syncedOpLog.emplace_back(std::make_pair(op.idx * SEQUENCE_IDX, opLogPtr[op.idx]));
+        syncedOpLog.emplace_back(std::make_pair(op.idx * SEQUENCE_IDX, std::ref(*opLogPtr[op.idx])));
         return;
     }
     PipeCoreReal opPipeCore(op.selfPipeCore.pipeEnd, op.selfPipeCore.core);
@@ -667,17 +667,16 @@ Status PipeSync::InjectWaitFlag(Function &function, size_t idx, std::vector<Inde
         std::vector<std::shared_ptr<LogicalTensor>> input;
         std::vector<std::shared_ptr<LogicalTensor>> output;
         Operation &syncOp = function.AddRawOperation(npu::tile_fwk::Opcode::OP_SYNC_DST, {input}, {output});
-        Operation *syncOpPtr = &syncOp;
-        bool res = GenSyncOp(setPipeReal, currPipeReal, eventId, false, syncOpPtr);
+        bool res = GenSyncOp(setPipeReal, currPipeReal, eventId, false, syncOp);
         if (!res) {
-            syncOpPtr->SetAsDeleted();
+            syncOp.SetAsDeleted();
             continue;
         }
         // insert wait_flag
-        syncedOpLog.emplace_back(std::make_pair(++waitIdx, syncOpPtr));
+        syncedOpLog.emplace_back(std::make_pair(++waitIdx, std::ref(syncOp)));
         APASS_LOG_DEBUG_F(Elements::Operation, "Insert %d %s, setpipe: %s, waitpipe: %s, eventid: %d",
-            syncOpPtr->GetOpMagic(), syncOpPtr->GetOpcodeStr().c_str(), GetPipeTypeDict().Find(syncOpPtr->syncQueue_.pipeId_).c_str(),
-            GetPipeTypeDict().Find(syncOpPtr->syncQueue_.trigPipeId_).c_str(), syncOpPtr->syncQueue_.eventId_);
+            syncOp.GetOpMagic(), syncOp.GetOpcodeStr().c_str(), GetPipeTypeDict().Find(syncOp.syncQueue_.pipeId_).c_str(),
+            GetPipeTypeDict().Find(syncOp.syncQueue_.trigPipeId_).c_str(), syncOp.syncQueue_.eventId_);
         GetFreeEventIdQueue({setPipeReal, currPipeReal}).push_back(eventId);
     }
     return SUCCESS;
@@ -698,18 +697,17 @@ Status PipeSync::InjectSetFlag(Function &function, size_t idx, std::vector<Index
         std::vector<std::shared_ptr<LogicalTensor>> input;
         std::vector<std::shared_ptr<LogicalTensor>> output;
         Operation &syncOp = function.AddRawOperation(npu::tile_fwk::Opcode::OP_SYNC_SRC, {input}, {output});
-        Operation *syncOpPtr = &syncOp;
-        bool res = GenSyncOp(currPipeReal, waitPipeReal, eventId, true, syncOpPtr);
+        bool res = GenSyncOp(currPipeReal, waitPipeReal, eventId, true, syncOp);
         if (res) {
             // insert set_flag
-            syncedOpLog.emplace_back(std::make_pair(++setIdx, syncOpPtr));
+            syncedOpLog.emplace_back(std::make_pair(++setIdx, std::ref(syncOp)));
             APASS_LOG_DEBUG_F(Elements::Operation, "Insert %d %s, setpipe: %s, waitpipe: %s, eventid: %d",
-                syncOpPtr->GetOpMagic(), syncOpPtr->GetOpcodeStr().c_str(), GetPipeTypeDict().Find(syncOpPtr->syncQueue_.pipeId_).c_str(),
-                GetPipeTypeDict().Find(syncOpPtr->syncQueue_.trigPipeId_).c_str(), syncOpPtr->syncQueue_.eventId_);
+                syncOp.GetOpMagic(), syncOp.GetOpcodeStr().c_str(), GetPipeTypeDict().Find(syncOp.syncQueue_.pipeId_).c_str(),
+                GetPipeTypeDict().Find(syncOp.syncQueue_.trigPipeId_).c_str(), syncOp.syncQueue_.eventId_);
             setWaitPairMap_[{idx, ele}] = eventId;
             continue;
         }
-        syncOpPtr->SetAsDeleted();
+        syncOp.SetAsDeleted();
         setWaitPairMap_[{idx, ele}] = eventId;
     }
     return SUCCESS;
@@ -726,7 +724,7 @@ Status PipeSync::InjectSync(Function &function, std::vector<Operation *> opLogPt
     InjectWaitFlag(function, idx, syncedOpLog);
     
     // insert current operation
-    syncedOpLog.emplace_back(std::make_pair(idx * SEQUENCE_IDX, opLogPtr[idx]));
+    syncedOpLog.emplace_back(std::make_pair(idx * SEQUENCE_IDX, std::ref(*opLogPtr[idx])));
     depOps_[idx].issued = true;
     APASS_LOG_DEBUG_F(Elements::Operation, "Insert %d %s", opLogPtr[idx]->GetOpMagic(), opLogPtr[idx]->GetOpcodeStr().c_str());
 
@@ -913,14 +911,14 @@ std::vector<PipeSync::PipePair> PipeSync::dataDepPair = {
 
 bool PipeSync::ConstructDepInfo(DataDepInfo &depInfo, std::vector<IndexOp> &syncedOpLog, int i) {
     auto &log = syncedOpLog[i].second;
-    if (log->GetOpcodeStr() != "SYNC_SRC") {
+    if (log.get().GetOpcodeStr() != "SYNC_SRC") {
         return false;
     }
-    auto setPipe = log->syncQueue_.pipeId_;
-    auto waitPipe = log->syncQueue_.trigPipeId_;
-    auto setCore = log->syncQueue_.coreType_;
-    auto waitCore = log->syncQueue_.trigCoreType_;
-    auto eventId = log->syncQueue_.eventId_;
+    auto setPipe = log.get().syncQueue_.pipeId_;
+    auto waitPipe = log.get().syncQueue_.trigPipeId_;
+    auto setCore = log.get().syncQueue_.coreType_;
+    auto waitCore = log.get().syncQueue_.trigCoreType_;
+    auto eventId = log.get().syncQueue_.eventId_;
     if (!(setPipe == depInfo.setp && setCore == depInfo.setc && waitPipe == depInfo.waitp && waitCore == depInfo.waitc)) {
         return false;
     }
@@ -936,8 +934,8 @@ bool PipeSync::ConstructDepInfo(DataDepInfo &depInfo, std::vector<IndexOp> &sync
 int PipeSync::GetSyncSrcLogIdx(std::vector<IndexOp> &syncedOpLog, int i) {
     int j = i - 1;
     for (; j >= 0; j--) {
-        if (syncedOpLog[j].second->GetOpcodeStr().find("SYNC") == std::string::npos &&
-            syncedOpLog[j].second->GetOpcodeStr().find("BAR") == std::string::npos) {
+        if (syncedOpLog[j].second.get().GetOpcodeStr().find("SYNC") == std::string::npos &&
+            syncedOpLog[j].second.get().GetOpcodeStr().find("BAR") == std::string::npos) {
             break;
         }
     }
@@ -999,7 +997,7 @@ Status PipeSync::SynDependency(int maxOverlapDepIdx, const DataDepInfo &depInfo,
     GetFreeEventIdQueue(pipePair).push_back(eventId1);
     setWaitPairMap_[{set2, wait1}] = eventId2;
     //将靠前的一对有依赖关系op中插入的SYNC_SRC op删除
-    syncedOpLog[syncOpIdx1].second->SetAsDeleted();
+    syncedOpLog[syncOpIdx1].second.get().SetAsDeleted();
     syncedOpLog.erase(syncedOpLog.begin() + syncOpIdx1);
     return SUCCESS;
 }
@@ -1058,33 +1056,33 @@ Status PipeSync::RelaxFakeDataDep(std::vector<IndexOp> &syncedOpLog) {
     return SUCCESS;
 }
 
-bool PipeSync::GenSyncOp(PipeCoreReal set, PipeCoreReal wait, int eventId, bool isSet, Operation *op) {
+bool PipeSync::GenSyncOp(PipeCoreReal set, PipeCoreReal wait, int eventId, bool isSet, Operation &op) {
     if (set.core != wait.core) {
-        op->SetOpCode(isSet ? Opcode::OP_CV_SYNC_SRC : Opcode::OP_CV_SYNC_DST);
+        op.SetOpCode(isSet ? Opcode::OP_CV_SYNC_SRC : Opcode::OP_CV_SYNC_DST);
         if (config::GetDevicePlatform() == DPlatform::ASCEND_950PR_9579 && !isSet && wait.core == CoreType::AIV) {
             set.pipe = PipeType::PIPE_V;
         }
-        op->syncQueue_ = {set.pipe, wait.pipe, set.core, wait.core, eventId};
+        op.syncQueue_ = {set.pipe, wait.pipe, set.core, wait.core, eventId};
         return true;
     }
     if (set.pipe != wait.pipe) {
-        op->SetOpCode(isSet ? Opcode::OP_SYNC_SRC : Opcode::OP_SYNC_DST);
-        op->syncQueue_ = {set.pipe, wait.pipe, set.core, wait.core, eventId};
+        op.SetOpCode(isSet ? Opcode::OP_SYNC_SRC : Opcode::OP_SYNC_DST);
+        op.syncQueue_ = {set.pipe, wait.pipe, set.core, wait.core, eventId};
         return true;
     }
     if (isSet || set.pipe == PipeType::PIPE_S) {
         return false;
     }
     //同步相关的信息放在operation属性里
-    op->syncQueue_ = {set.pipe, wait.pipe, set.core, wait.core, eventId};
+    op.syncQueue_ = {set.pipe, wait.pipe, set.core, wait.core, eventId};
     if (set.core == CoreType::AIV) {
         if (config::GetDevicePlatform() == DPlatform::ASCEND_950PR_9579) {
             return false;
         }
-        op->SetOpCode(Opcode::OP_BAR_V);
+        op.SetOpCode(Opcode::OP_BAR_V);
         return true;
     }
-    op->SetOpCode(Opcode::OP_BAR_M);
+    op.SetOpCode(Opcode::OP_BAR_M);
     return true;
 }
 
@@ -1121,14 +1119,14 @@ bool PipeSync::BufOverlap(const TileRange &range1, int magic1, const TileRange &
     return false;
 }
 
-bool PipeSync::CheckWawDependency(const Operation *opSet, const Operation *opWait, size_t k, size_t idx) const {
-    for (size_t setIdx = 0; setIdx < opSet->GetOOperands().size(); setIdx++) {
-        for (size_t waitIdx = 0; waitIdx < opWait->GetOOperands().size(); waitIdx++) {
-            if (opSet->GetOOperands()[setIdx]->GetMemoryTypeOriginal() == opWait->GetOOperands()[waitIdx]->GetMemoryTypeOriginal() && 
-                BufOverlap(opSet->GetOOperands()[setIdx]->memoryrange, opSet->GetOOperands()[setIdx]->GetMagic(), 
-                    opWait->GetOOperands()[waitIdx]->memoryrange, opWait->GetOOperands()[waitIdx]->GetMagic())) {
-                APASS_LOG_DEBUG_F(Elements::Operation, "%d %zu %s and %d %zu %s has WAW data dependency", opSet->GetOpMagic(), 
-                    k, opSet->GetOpcodeStr().c_str(), opWait->GetOpMagic(), idx, opWait->GetOpcodeStr().c_str());
+bool PipeSync::CheckWawDependency(const Operation &opSet, const Operation &opWait, size_t k, size_t idx) const {
+    for (size_t setIdx = 0; setIdx < opSet.GetOOperands().size(); setIdx++) {
+        for (size_t waitIdx = 0; waitIdx < opWait.GetOOperands().size(); waitIdx++) {
+            if (opSet.GetOOperands()[setIdx]->GetMemoryTypeOriginal() == opWait.GetOOperands()[waitIdx]->GetMemoryTypeOriginal() && 
+                BufOverlap(opSet.GetOOperands()[setIdx]->memoryrange, opSet.GetOOperands()[setIdx]->GetMagic(), 
+                    opWait.GetOOperands()[waitIdx]->memoryrange, opWait.GetOOperands()[waitIdx]->GetMagic())) {
+                APASS_LOG_DEBUG_F(Elements::Operation, "%d %zu %s and %d %zu %s has WAW data dependency", opSet.GetOpMagic(), 
+                    k, opSet.GetOpcodeStr().c_str(), opWait.GetOpMagic(), idx, opWait.GetOpcodeStr().c_str());
                 return true;
             }
         }
@@ -1136,18 +1134,18 @@ bool PipeSync::CheckWawDependency(const Operation *opSet, const Operation *opWai
     return false;
 }
 
-bool PipeSync::CheckRawDependency(const Operation *opSet, const Operation *opWait, size_t k, size_t idx) const {
-    for (size_t outIdx = 0; outIdx < opSet->GetOOperands().size(); outIdx++) {
-        for (size_t inIdx = 0; inIdx < opWait->GetIOperands().size(); inIdx++) {
-            auto memTypeSame = opWait->GetIOperands()[inIdx]->GetMemoryTypeOriginal() == opSet->GetOOperands()[outIdx]->GetMemoryTypeOriginal();
-            auto ddrTensorSame = opSet->GetOOperands()[outIdx]->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
-                opWait->GetIOperands()[inIdx]->memoryrange.memId ==
-                opSet->GetOOperands()[outIdx]->memoryrange.memId;
-            auto overlap = BufOverlap(opWait->GetIOperands()[inIdx]->memoryrange, opWait->GetIOperands()[inIdx]->GetMagic(), 
-                opSet->GetOOperands()[outIdx]->memoryrange, opSet->GetOOperands()[outIdx]->GetMagic());
+bool PipeSync::CheckRawDependency(const Operation &opSet, const Operation &opWait, size_t k, size_t idx) const {
+    for (size_t outIdx = 0; outIdx < opSet.GetOOperands().size(); outIdx++) {
+        for (size_t inIdx = 0; inIdx < opWait.GetIOperands().size(); inIdx++) {
+            auto memTypeSame = opWait.GetIOperands()[inIdx]->GetMemoryTypeOriginal() == opSet.GetOOperands()[outIdx]->GetMemoryTypeOriginal();
+            auto ddrTensorSame = opSet.GetOOperands()[outIdx]->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
+                opWait.GetIOperands()[inIdx]->memoryrange.memId ==
+                opSet.GetOOperands()[outIdx]->memoryrange.memId;
+            auto overlap = BufOverlap(opWait.GetIOperands()[inIdx]->memoryrange, opWait.GetIOperands()[inIdx]->GetMagic(), 
+                opSet.GetOOperands()[outIdx]->memoryrange, opSet.GetOOperands()[outIdx]->GetMagic());
             if (memTypeSame && (overlap || ddrTensorSame)) {
-                APASS_LOG_DEBUG_F(Elements::Operation, "%d %zu %s and %d %zu %s has RAW data dependency", opSet->GetOpMagic(), 
-                    k, opSet->GetOpcodeStr().c_str(), opWait->GetOpMagic(), idx, opWait->GetOpcodeStr().c_str());
+                APASS_LOG_DEBUG_F(Elements::Operation, "%d %zu %s and %d %zu %s has RAW data dependency", opSet.GetOpMagic(), 
+                    k, opSet.GetOpcodeStr().c_str(), opWait.GetOpMagic(), idx, opWait.GetOpcodeStr().c_str());
                 return true;
             }
         }
@@ -1155,18 +1153,18 @@ bool PipeSync::CheckRawDependency(const Operation *opSet, const Operation *opWai
     return false;
 }
 
-bool PipeSync::CheckWarDependency(const Operation *opSet, const Operation *opWait, size_t k, size_t idx) const {
-    for (size_t outIdx = 0; outIdx < opWait->GetOOperands().size(); outIdx++) {
-        for (size_t inIdx = 0; inIdx < opSet->GetIOperands().size(); inIdx++) {
-            auto memTypeSame = opSet->GetIOperands()[inIdx]->GetMemoryTypeOriginal() == opWait->GetOOperands()[outIdx]->GetMemoryTypeOriginal();
-            auto ddrTensorSame = opSet->GetIOperands()[inIdx]->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
-                opWait->GetOOperands()[outIdx]->memoryrange.memId ==
-                opSet->GetIOperands()[inIdx]->memoryrange.memId;
-            auto overlap = BufOverlap(opSet->GetIOperands()[inIdx]->memoryrange, opSet->GetIOperands()[inIdx]->GetMagic(), 
-                opWait->GetOOperands()[outIdx]->memoryrange, opWait->GetOOperands()[outIdx]->GetMagic());
+bool PipeSync::CheckWarDependency(const Operation &opSet, const Operation &opWait, size_t k, size_t idx) const {
+    for (size_t outIdx = 0; outIdx < opWait.GetOOperands().size(); outIdx++) {
+        for (size_t inIdx = 0; inIdx < opSet.GetIOperands().size(); inIdx++) {
+            auto memTypeSame = opSet.GetIOperands()[inIdx]->GetMemoryTypeOriginal() == opWait.GetOOperands()[outIdx]->GetMemoryTypeOriginal();
+            auto ddrTensorSame = opSet.GetIOperands()[inIdx]->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
+                opWait.GetOOperands()[outIdx]->memoryrange.memId ==
+                opSet.GetIOperands()[inIdx]->memoryrange.memId;
+            auto overlap = BufOverlap(opSet.GetIOperands()[inIdx]->memoryrange, opSet.GetIOperands()[inIdx]->GetMagic(), 
+                opWait.GetOOperands()[outIdx]->memoryrange, opWait.GetOOperands()[outIdx]->GetMagic());
             if (memTypeSame && (overlap || ddrTensorSame)) {
-                APASS_LOG_DEBUG_F(Elements::Operation, "%d %zu %s and %d %zu %s has WAR data dependency", opSet->GetOpMagic(), 
-                    k, opSet->GetOpcodeStr().c_str(), opWait->GetOpMagic(), idx, opWait->GetOpcodeStr().c_str());
+                APASS_LOG_DEBUG_F(Elements::Operation, "%d %zu %s and %d %zu %s has WAR data dependency", opSet.GetOpMagic(), 
+                    k, opSet.GetOpcodeStr().c_str(), opWait.GetOpMagic(), idx, opWait.GetOpcodeStr().c_str());
                 return true;
             }
         }
@@ -1174,14 +1172,14 @@ bool PipeSync::CheckWarDependency(const Operation *opSet, const Operation *opWai
     return false;
 }
 
-bool PipeSync::HasDataDependency(const Operation *opSet, const Operation *opWait, size_t k, size_t idx) const {
-    std::string opSetStr = opSet->GetOpcodeStr();
-    std::string opWaitStr = opWait->GetOpcodeStr();
+bool PipeSync::HasDataDependency(const Operation &opSet, const Operation &opWait, size_t k, size_t idx) const {
+    std::string opSetStr = opSet.GetOpcodeStr();
+    std::string opWaitStr = opWait.GetOpcodeStr();
 
     // check WAW
     bool checkWaw = true;
-    auto setCfg = OpcodeManager::Inst().GetTileOpCfg(opSet->GetOpcode());
-    auto waitCfg = OpcodeManager::Inst().GetTileOpCfg(opWait->GetOpcode());
+    auto setCfg = OpcodeManager::Inst().GetTileOpCfg(opSet.GetOpcode());
+    auto waitCfg = OpcodeManager::Inst().GetTileOpCfg(opWait.GetOpcode());
     if (waitCfg.pipeIdStart_ == setCfg.pipeIdStart_ && (opSetStr.find("CUBE_A_MUL") == std::string::npos || opWaitStr.find("CUBE_A_MUL") == std::string::npos)) {
         checkWaw = false;
     }
@@ -1264,7 +1262,7 @@ void PipeSync::FindDep(DepOp &op, const std::vector<Operation *> opLogPtr, size_
         APASS_LOG_DEBUG_F(Elements::Operation, "Current process ops: %d %zu %s and %d %zu %s", prevAOp->GetOpMagic(), k, prevAOp->GetOpcodeStr().c_str(),
             currOp->GetOpMagic(), idx, currOp->GetOpcodeStr().c_str());
 
-        if (HasDataDependency(prevAOp, currOp, k, idx)) {
+        if (HasDataDependency(*prevAOp, *currOp, k, idx)) {
             bool ignorable = false;
             if (IgnorableIntraPipeDep(k, idx, opLogPtr)) {
                 ignorable = true;
@@ -1412,10 +1410,10 @@ Status PipeSync::ReorderViewAssemble(std::vector<Operation *> &opLog, std::vecto
     return SUCCESS;
 }
 
-Status PipeSync::ProcessViewOrder(Operation *opPtr, std::vector<Operation *> &opLog, std::unordered_map<Operation *, Operation *> &changeMap) {
-    auto consumers = opPtr->ConsumerOps();
+Status PipeSync::ProcessViewOrder(Operation &op, std::vector<Operation *> &opLog, std::unordered_map<Operation *, Operation *> &changeMap) {
+    auto consumers = op.ConsumerOps();
     if (consumers.empty()) {
-        APASS_LOG_ERROR_F(Elements::Operation, "%d VIEW op doesn't have consumer, ProcessViewAssembleOrder failed.%s", opPtr->GetOpMagic(), GetFormatBacktrace(opPtr).c_str());
+        APASS_LOG_ERROR_F(Elements::Operation, "%d VIEW op doesn't have consumer, ProcessViewAssembleOrder failed.%s", op.GetOpMagic(), GetFormatBacktrace(op).c_str());
         return FAILED;
     }
     auto minIt = opLog.end();
@@ -1430,15 +1428,15 @@ Status PipeSync::ProcessViewOrder(Operation *opPtr, std::vector<Operation *> &op
             minIt = it;
         }
     }
-    changeMap[opPtr] = *minIt;
-    APASS_LOG_DEBUG_F(Elements::Operation, "%d VIEW consumer: %d", opPtr->GetOpMagic(), (*minIt)->GetOpMagic());
+    changeMap[&op] = *minIt;
+    APASS_LOG_DEBUG_F(Elements::Operation, "%d VIEW consumer: %d", op.GetOpMagic(), (*minIt)->GetOpMagic());
     return SUCCESS;
 }
 
-Status PipeSync::ProcessAssembleOrder(Operation *opPtr, std::vector<Operation *> &opLog, std::unordered_map<Operation *, Operation *> &changeMap) {
-    auto producers = opPtr->ProducerOps();
+Status PipeSync::ProcessAssembleOrder(Operation &op, std::vector<Operation *> &opLog, std::unordered_map<Operation *, Operation *> &changeMap) {
+    auto producers = op.ProducerOps();
     if (producers.empty()) {
-        APASS_LOG_ERROR_F(Elements::Operation, "%d ASSEMBLE op doesn't have producer, ProcessViewAssembleOrder failed.%s", opPtr->GetOpMagic(), GetFormatBacktrace(opPtr).c_str());
+        APASS_LOG_ERROR_F(Elements::Operation, "%d ASSEMBLE op doesn't have producer, ProcessViewAssembleOrder failed.%s", op.GetOpMagic(), GetFormatBacktrace(op).c_str());
         return FAILED;
     }
     auto maxIt = opLog.begin();
@@ -1453,8 +1451,8 @@ Status PipeSync::ProcessAssembleOrder(Operation *opPtr, std::vector<Operation *>
             maxIt = it;
         }
     }
-    changeMap[opPtr] = *maxIt;
-    APASS_LOG_DEBUG_F(Elements::Operation, "%d ASSEMBLE producer: %d", opPtr->GetOpMagic(), (*maxIt)->GetOpMagic());
+    changeMap[&op] = *maxIt;
+    APASS_LOG_DEBUG_F(Elements::Operation, "%d ASSEMBLE producer: %d", op.GetOpMagic(), (*maxIt)->GetOpMagic());
     return SUCCESS;
 }
 
@@ -1462,7 +1460,7 @@ Status PipeSync::ProcessViewAssembleOrder(std::vector<Operation *> &opLog, std::
     std::unordered_map<Operation *, Operation *> changeMap;
     for (auto &opPtr : opLog) {
         if (opPtr->GetOpcode() == Opcode::OP_VIEW) {
-            if (ProcessViewOrder(opPtr, opLog, changeMap)) {
+            if (ProcessViewOrder(*opPtr, opLog, changeMap)) {
                 APASS_LOG_ERROR_F(Elements::Operation, "ProcessViewOrder failed.");
                 return FAILED;
             }
@@ -1471,7 +1469,7 @@ Status PipeSync::ProcessViewAssembleOrder(std::vector<Operation *> &opLog, std::
         if (opPtr->GetOpcode() != Opcode::OP_ASSEMBLE) {
             break;
         }
-        if (ProcessAssembleOrder(opPtr, opLog, changeMap)) {
+        if (ProcessAssembleOrder(*opPtr, opLog, changeMap)) {
             APASS_LOG_ERROR_F(Elements::Operation, "ProcessAssembleOrder failed.");
             return FAILED;
         }

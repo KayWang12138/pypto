@@ -29,18 +29,18 @@ public:
 private:
     void InitializeTensorMemorymap(Operation &op) const;
     void InitTensorMaxSize(const LogicalTensorPtr &output);
-    void InitOpOutput(const Operation *op);
+    void InitOpOutput(const Operation &op);
     Status CheckOpValid(const Operation *op, int opId);
     Status Init(const std::vector<Operation *> &opList);
-    bool CheckIgnoreScene(const Operation *oriOps);
-    std::pair<bool, Status> CheckHasInplaced(const Operation *oriOps, const Operation *ops,
+    bool CheckIgnoreScene(const Operation &oriOps);
+    std::pair<bool, Status> CheckHasInplaced(const Operation &oriOps, const Operation &ops,
         std::unordered_map<int, std::shared_ptr<LogicalTensor>> &replacedTensors);
-    bool FindReplaced(const Operation *oriOps, const Operation *ops,
+    bool FindReplaced(const Operation &oriOps, const Operation &ops,
         std::unordered_map<int, std::shared_ptr<LogicalTensor>> &replacedTensors);
-    void NotFindReplacedProcess(const Operation *ops,
+    void NotFindReplacedProcess(const Operation &ops,
         std::unordered_map<int, std::shared_ptr<LogicalTensor>> &replacedTensors);
     bool CheckAssembleReuse(const LogicalTensorPtr &outOperand);
-    bool CanSrcDstReuse(const Operation *ops, std::shared_ptr<LogicalTensor> ioperand, bool strict = false);
+    bool CanSrcDstReuse(const Operation &ops, std::shared_ptr<LogicalTensor> ioperand, bool strict = false);
 
     std::map<int, std::set<int>> tensorConsumers_;
     std::map<int, int> tensorMaxSize_;

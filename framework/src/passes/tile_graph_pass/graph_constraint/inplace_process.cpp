@@ -21,7 +21,7 @@
 namespace npu {
 namespace tile_fwk {
 bool InplaceProcess::HasSameConsecutive(Operation &op) {
-    for (auto &nextOp : op.ConsumerOps()) {
+    for (const auto &nextOp : op.ConsumerOps()) {
         if (nextOp->GetOpcode() == op.GetOpcode()) {
             return true;
         }
@@ -158,7 +158,7 @@ void InplaceProcess::ProcessHub(Function &function, Operation &op) {
     
     // 1. 查找 HUB 输出的所有消费者（应该是 ASSEMBLE 节点）
     auto consumers = hubOutput->GetConsumers();
-    for (auto consumer : consumers) {
+    for (const auto consumer : consumers) {
         if (consumer->GetOpcode() == Opcode::OP_ASSEMBLE) {
             ProcessHubAssembleChain(function, op, *consumer, hubInput, hubOutput);
         }
@@ -193,7 +193,7 @@ void InplaceProcess::ProcessHubAssembleChain(Function &function, Operation &hubO
     }
     bool isExactOutcast = false;
     auto outcasts = function.GetOutcast();
-    for (auto &outcast : outcasts) {
+    for (const auto &outcast : outcasts) {
         if (outcast.get() == assembleOutput.get()) {
             isExactOutcast = true;
             break;
@@ -395,7 +395,7 @@ void InplaceProcess::ReplaceRawTensor(Function &function, std::shared_ptr<Logica
         inplace op1 --> tensor1 --> inplace op2 --> ... --> inplace opN --> tensorN --> Assemble --> T(可能是OCAST)
         后续需要进行优化
      */
-    for (auto &producerOp : logicalTensor->GetProducers()) {
+    for (const auto &producerOp : logicalTensor->GetProducers()) {
         if (ProcessInplaceOp(function, *producerOp) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "Processing inplace op %s[%d] failed after updating %s[%d]. %s", 
                 producerOp->GetOpcodeStr().c_str(), producerOp->GetOpMagic(),
@@ -412,7 +412,7 @@ void InplaceProcess::ProcessAssemble(Function &function, Operation &op) {
     APASS_LOG_DEBUG_F(Elements::Operation, "assembleIn from Incast: %d.", fromIncast);
 
     // check each producer of the assem_result
-    for (auto &producer : assembleOut->GetProducers()) {
+    for (const auto &producer : assembleOut->GetProducers()) {
         if ((producer->GetOpcode() != Opcode::OP_ASSEMBLE) ||
             std::find(visitedAssembleOp.begin(), visitedAssembleOp.end(), producer->GetOpMagic()) !=
                 visitedAssembleOp.end()) {
@@ -453,7 +453,7 @@ Status InplaceProcess::ProcessInplaceOp(Function &function, Operation &op) const
     } else {
         return SUCCESS;
     }
-    for (auto &reusePair : reusePairList) {
+    for (const auto &reusePair : reusePairList) {
         auto inputIdx = reusePair.first;
         auto outputIdx = reusePair.second;
         if (inputIdx >= op.GetIOperands().size() || outputIdx >= op.GetOOperands().size()) {
@@ -504,10 +504,10 @@ LogicalTensorPtr FindInplaceSource(Function &function, Operation &op, std::unord
         return visited.at(&op);
     }
     auto inplaceIdx = op.GetIntAttribute(OpAttributeKey::inplaceIdx);
-    ASSERT(inplaceIdx >= 0 && inplaceIdx < static_cast<int>(op.GetIOperands().size()));
+    ASSERT(inplaceIdx >= 0 && inplaceIdx < static_cast<int>(op.GetIOperands().size())) << "Invalid inplaceIdx " << inplaceIdx << " for operation " << op.GetOpMagic();
     auto inplaceIOperand = op.GetInputOperand(inplaceIdx);
     LogicalTensorPtr res = nullptr;
-    for (auto producer : inplaceIOperand->GetProducers()) {
+    for (const auto producer : inplaceIOperand->GetProducers()) {
         if (!producer->HasAttribute(OpAttributeKey::inplaceIdx)) {
             continue;
         }
@@ -515,7 +515,7 @@ LogicalTensorPtr FindInplaceSource(Function &function, Operation &op, std::unord
         if (res == nullptr) {
             res = tmp;
         } else {
-            ASSERT(res == tmp); // inplace路径应总是交汇于同一起点
+            ASSERT(res == tmp) << "Inconsistent inplace source for operation " << op.GetOpMagic(); // inplace路径应总是交汇于同一起点
         }
     }
     if (res == nullptr) {
@@ -528,34 +528,35 @@ LogicalTensorPtr FindInplaceSource(Function &function, Operation &op, std::unord
 Status InplaceProcess::RefactorViewConnectForInplace(Function &function) {
     APASS_LOG_INFO_F(Elements::Operation, "===> Start RefactorViewConnectForInplace.");
     for (auto &op : function.Operations()) {
-        if (op.GetOpcode() != Opcode::OP_VIEW) {
-            continue;
-        }
+        if (op.GetOpcode() != Opcode::OP_VIEW) continue;
         if (op.GetInputOperand(0)->GetRawTensor() == op.GetOutputOperand(0)->GetRawTensor()) {
             op.SetAttribute(OpAttributeKey::inplaceIdx, 0);
         }
     }
     std::unordered_map<Operation *, LogicalTensorPtr> visited;
     for (Operation &op : function.Operations()) {
-        if (!op.HasAttribute(OpAttributeKey::inplaceIdx) || visited.count(&op) > 0) {
-            continue;
-        }
+        if (!op.HasAttribute(OpAttributeKey::inplaceIdx) || visited.count(&op) > 0) continue;
         FindInplaceSource(function, op, visited);
     }
 
     for (auto &[op, srcTensor] : visited) {
-        if (op->GetOpcode() != Opcode::OP_VIEW) { // 仅重构View连接
-            continue;
-        }
+        if (op->GetOpcode() != Opcode::OP_VIEW) continue; // 仅重构View连接
         auto inplaceIdx = op->GetIntAttribute(OpAttributeKey::inplaceIdx);
-        ASSERT(inplaceIdx == 0);
+        if (inplaceIdx != 0) {
+            APASS_LOG_ERROR_F(Elements::Operation, "Inconsistent inplaceIdx for opsration %d", op->GetOpMagic());
+            return FAILED;
+        }
         auto iOperand = op->GetInputOperand(inplaceIdx);
         auto oOperand = op->GetOutputOperand(0);
-        if (iOperand == srcTensor) { // 开头的VIEW不需要插入NOP来控制顺序
-            continue;
+        if (iOperand == srcTensor) continue; // 开头的VIEW不需要插入NOP来控制顺序
+        if (iOperand->GetRawTensor() != srcTensor->GetRawTensor()) {
+            APASS_LOG_ERROR_F(Elements::Operation, "RawTensor mismatch for input operand of operation %d", op->GetOpMagic());
+            return FAILED;
         }
-        ASSERT(iOperand->GetRawTensor() == srcTensor->GetRawTensor());
-        ASSERT(oOperand->GetRawTensor() == srcTensor->GetRawTensor());
+        if (oOperand->GetRawTensor() != srcTensor->GetRawTensor()) {
+            APASS_LOG_ERROR_F(Elements::Operation, "RawTensor mismatch for output operand of operation %d", op->GetOpMagic());
+            return FAILED;
+        }
         op->ReplaceIOperand(0, srcTensor);
         // 含inplace语义，都为同一个RawTensor
         auto nopOutput = std::make_shared<LogicalTensor>(function, srcTensor->GetRawTensor(),
@@ -566,9 +567,7 @@ Status InplaceProcess::RefactorViewConnectForInplace(Function &function) {
         nop.UpdateSubgraphID(op->GetSubgraphID());
         auto consumers = oOperand->GetConsumers(); // deep copy
         for (auto consumer : consumers) {
-            if (consumer->GetOpcode() == Opcode::OP_NOP || !consumer->HasAttribute(OpAttributeKey::inplaceIdx)) {
-                continue;
-            }
+            if (consumer->GetOpcode() == Opcode::OP_NOP || !consumer->HasAttribute(OpAttributeKey::inplaceIdx)) continue;
             consumer->ReplaceIOperand(consumer->GetIntAttribute(OpAttributeKey::inplaceIdx), nopOutput);
         }
     }
