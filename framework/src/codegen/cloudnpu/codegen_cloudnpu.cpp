@@ -106,12 +106,11 @@ std::string CodeGenCloudNPU::GenFuncEnd() {
     return "}\n";
 }
 
-std::string CodeGenCloudNPU::GenLimitValue(bool hasNan, bool hasPosInf, bool hasNegInf) const {
+std::string CodeGenCloudNPU::GenLimitValue(FloatSaturateStatus &fs) const {
     std::ostringstream define;
-    static const std::map<std::string, std::pair<bool, const char *>> constants = {
-        {"pos_inf", {hasPosInf, "0x7f800000"}},
-        {"neg_inf", {hasNegInf, "0xff800000"}},
-        {    "nan",    {hasNan, "0x7fc00000"}}
+    const std::map<std::string, std::pair<bool, std::string>> constants = {
+        {"inf", {fs.hasInf, "0x7f800000"}},
+        {"nan", {fs.hasNan, "0x7fc00000"}}
     };
     for (const auto &[name, value] : constants) {
         if (value.first) {
@@ -120,11 +119,7 @@ std::string CodeGenCloudNPU::GenLimitValue(bool hasNan, bool hasPosInf, bool has
     }
     return define.str();
 }
-void UpdateSpecialValue(CodeGenOpCloudNPU &cop, bool &hasNan, bool &hasPosInf, bool &hasNegInf) {
-    hasNan |= cop.hasNan;
-    hasPosInf |= cop.hasPosInf;
-    hasNegInf |= cop.hasNegInf;
-}
+
 std::string CodeGenCloudNPU::GenFuncBody(Function &subFunc, Function &topFunc) const {
     OperationsViewer operationList = subFunc.Operations(false);
     if (operationList.IsEmpty()) {
@@ -139,7 +134,7 @@ std::string CodeGenCloudNPU::GenFuncBody(Function &subFunc, Function &topFunc) c
     std::string allocSourceRegion;
     std::string tileOpSourceRegion;
     auto locToOffsetMap = GenRealizeIdMap(subFunc.GetParameter());
-    bool hasNan{false}, hasPosInf{false}, hasNegInf{false};
+    FloatSaturateStatus fs;
     for (const auto &op : operationList) {
         ALOG_INFO_F(
             "======================== Op CodeGenNPU Start ========================\nGen OP IS: %s", op.Dump().c_str());
@@ -152,8 +147,9 @@ std::string CodeGenCloudNPU::GenFuncBody(Function &subFunc, Function &topFunc) c
         std::string allocSourceCode = GenAllocForLocalBuffer(op, symbolMgr);
 
         CodeGenOpCloudNPU cop({symbolMgr, topFunc, subFunc, op, locToOffsetMap});
-        // update hasNan, hasPosInf, hasNegInf
-        UpdateSpecialValue(cop, hasNan, hasPosInf, hasNegInf);
+        
+        // update fs
+        cop.UpdateSaturateStatus(fs);
         std::string tileOpSourceCode = cop.GenOpCode();
         ASSERT(tileOpSourceCode.find("CG_ERROR") == tileOpSourceCode.npos) << "gen op invalid" << op.Dump();
 
@@ -172,7 +168,7 @@ std::string CodeGenCloudNPU::GenFuncBody(Function &subFunc, Function &topFunc) c
     }
 
     std::ostringstream oss;
-    oss << GenLimitValue(hasNan, hasPosInf, hasNegInf) << allocSourceRegion << GenDynParamForExpr(subFunc)
+    oss << GenLimitValue(fs) << allocSourceRegion << GenDynParamForExpr(subFunc)
         << symbolMgr->GenUsingList() << symbolMgr->GenTileTensorDefList() << tileOpSourceRegion;
     std::string programCode = oss.str();
     return programCode;

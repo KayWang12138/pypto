@@ -74,8 +74,7 @@ public:
     virtual std::string GenOpCode() const = 0;
 
     bool hasNan{false};
-    bool hasPosInf{false};
-    bool hasNegInf{false};
+    bool hasInf{false};
 
 protected:
     std::string GenOpAttr(bool hasExistingParam = true) const;
@@ -90,6 +89,7 @@ protected:
     DataType operandDtype[MAX_OPERANDS] = {
         DataType::DT_BOTTOM, DataType::DT_BOTTOM, DataType::DT_BOTTOM, DataType::DT_BOTTOM};
     Element extOperandVal;
+    SymbolicScalar extSymbolicScalar;
     std::vector<Element> extScalarVec;
     std::vector<int64_t> offset[MAX_OPERANDS] = {};
     std::vector<int64_t> shape[MAX_OPERANDS] = {};
@@ -137,7 +137,7 @@ private:
     void UpdateOffsetForInput(const Operation &oper, const LogicalTensor &logicalTensor, int operandIdx);
     void UpdateOffsetForOutput(const Operation &oper, const LogicalTensor &logicalTensor, int operandIdx);
     void UpdateOffsetValueForGM(const std::vector<OpImmediate> &offsets, int operandIdx);
-    void CheckScaleValue(const npu::tile_fwk::Operation &ops);
+    void UpdateScalarValue(const npu::tile_fwk::Operation &ops);
     void UpdateOpAttribute(const npu::tile_fwk::Operation &ops);
 };
 } // namespace npu::tile_fwk

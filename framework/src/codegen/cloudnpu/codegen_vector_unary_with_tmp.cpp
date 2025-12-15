@@ -95,7 +95,7 @@ std::string CodeGenOpCloudNPU::PrintVnchwconvDynUnaligned(const PrintUnaryTmpBuf
     return os.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintVnchwconvLayout() const {
+std::string CodeGenOpCloudNPU::PrintVnchwconvTileTensor() const {
     std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::DST_IDX)]);
     std::string srcTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::SRC1_IDX)]);
     std::ostringstream oss;
@@ -105,7 +105,7 @@ std::string CodeGenOpCloudNPU::PrintVnchwconvLayout() const {
 
 std::string CodeGenOpCloudNPU::PrintVnchwconv(const PrintUnaryTmpBuffParam &param) const {
     if (isSupportLayout) {
-        return PrintVnchwconvLayout();
+        return PrintVnchwconvTileTensor();
     }
     if (isSupportDynamicUnaligned) {
         return PrintVnchwconvDynUnaligned(param);
@@ -133,7 +133,7 @@ std::string CodeGenOpCloudNPU::PrintReduceLastAxis(const PrintUnaryTmpBuffParam 
     ASSERT(dstOriginShape[ID3] == 1) << "Dst last axis length must be 1";
 
     if (isSupportLayout) {
-        return PrintReduceLastAxisLayout();
+        return PrintReduceLastAxisTileTensor();
     }
     
     if (isSupportDynamicUnaligned) {
@@ -151,7 +151,8 @@ std::string CodeGenOpCloudNPU::PrintReduceLastAxis(const PrintUnaryTmpBuffParam 
                      << ret;
     return buffer;
 }
-std::string CodeGenOpCloudNPU::PrintReduceLastAxisLayout() const {
+
+std::string CodeGenOpCloudNPU::PrintReduceLastAxisTileTensor() const {
     std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::DST_IDX)]);
     std::string tmpTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::SRC0_IDX)]);
     std::string src0Tensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::SRC1_IDX)]);

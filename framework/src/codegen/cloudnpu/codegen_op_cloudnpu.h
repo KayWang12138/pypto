@@ -144,6 +144,8 @@ public:
         return std::string{"CAN NOT HANDLE OP: " + opCodeStr};
     }
 
+    void UpdateSaturateStatus(FloatSaturateStatus &fs);
+
     void UpdateTileTensorInfo();
 
 private:
@@ -194,7 +196,7 @@ private:
     std::string PrintDupOpStatic(const PrintDupOpParam &param) const;
 
     std::string PrintRowSumline(const PrintUnaryParam &param) const;
-    std::string PrintRowSumlineLayout() const;
+    std::string PrintRowSumlineTileTensor() const;
     std::string PrintRowSumlineDynamicUnaligned(const PrintUnaryParam &param) const;
     std::string PrintRowSumlineStatic(const PrintUnaryParam &param) const;
 
@@ -210,7 +212,7 @@ private:
     std::string PrintVnchwconv(const PrintUnaryTmpBuffParam &param) const;
     std::string PrintVnchwconvDynUnaligned(const PrintUnaryTmpBuffParam &param) const;
     std::string PrintVnchwconvStatic(const PrintUnaryTmpBuffParam &param) const;
-    std::string PrintVnchwconvLayout() const;
+    std::string PrintVnchwconvTileTensor() const;
 
     std::string PrintCompact(const PrintUnaryTmpBuffParam &param) const;
     std::string PrintCompactStatic(const PrintUnaryTmpBuffParam &param) const;
@@ -249,12 +251,12 @@ private:
 
     SortParam PrepareSortParam() const;
     TiledSortParam PrepareTiledSortParam() const;
-    std::string PrintTileSortLayout() const;
+    std::string PrintTileSortTileTensor() const;
     std::string PrintTiledSortDynamicUnaligned(const TiledSortParam &param) const;
     std::string PrintTiledMrgSortDynamicUnaligned(const TiledSortParam &param) const;
     std::string PrintSortDynamicUnaligned(const SortParam &param) const;
     std::string PrintSortStatic(const SortParam &param) const;
-    std::string PrintSortLayout() const;
+    std::string PrintSortTileTensor() const;
     std::string PrintBitSortDynamicUnaligned(const SortParam &param) const;
     std::string PrintBitSortStatic(const SortParam &param) const;
     std::string PrintMrgSortDynamicUnaligned(const SortParam &param) const;
@@ -294,14 +296,14 @@ private:
 
     std::string PrintReduceLastAxis(const PrintUnaryTmpBuffParam &param) const;
     std::string PrintReduceLastAxisDynamicUnalign(const PrintUnaryTmpBuffParam &param) const;
-    std::string PrintReduceLastAxisLayout() const;
+    std::string PrintReduceLastAxisTileTensor() const;
 
     std::string PrintExtractStatic() const;
     std::string PrintExtractDynamicUnaligned() const;
-    std::string PrintExtractLayout() const;
+    std::string PrintExtractTileTensor() const;
 
     std::string PrintCastDynamicUnaligned(const PrintUnaryParam &param) const;
-    std::string PrintCastLayout() const;
+    std::string PrintCastTileTensor() const;
     std::string PrintReduceCombine(const PrintUnaryTmpBuffParam &param) const;
     std::string PrintVectorScalarTileTensor(const PrintUnaryParam &param) const;
     std::string PrintVectorScalarOpDynamicUnalign(const PrintUnaryParam &param) const;

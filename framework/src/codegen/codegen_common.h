@@ -157,6 +157,11 @@ const std::map<MemoryType, OperandType> OPERAND_TYPE_TO_MEMORY_TYPE{
     { MemoryType::MEM_FIX_ELT_ANTIQ, BUF_FIX},
     {MemoryType::MEM_FIX_MTE2_ANTIQ, BUF_FIX},
 };
+
+struct FloatSaturateStatus {
+    bool hasNan{false};
+    bool hasInf{false};
+};
 } // namespace npu::tile_fwk
 
 #endif // CODEGEN_COMMON_H

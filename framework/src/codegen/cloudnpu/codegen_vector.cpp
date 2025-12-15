@@ -42,7 +42,7 @@ std::string CodeGenOpCloudNPU::GenCastOp() const {
     char buffer[BUFFER_SIZE_1024] = "CG_ERROR";
     int ret = 0;
     if (isSupportLayout) {
-        return PrintCastLayout();
+        return PrintCastTileTensor();
     }
     if (isSupportDynamicUnaligned) {
         return PrintCastDynamicUnaligned({s0Var, dVar, srcDtypeStr, dstDtypeStr});
@@ -1047,7 +1047,7 @@ std::string CodeGenOpCloudNPU::PrintExtractDynamicUnaligned() const {
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintExtractLayout() const {
+std::string CodeGenOpCloudNPU::PrintExtractTileTensor() const {
     std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::DST_IDX)]);
     std::string src0Tensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::SRC0_IDX)]);
 
@@ -1059,7 +1059,7 @@ std::string CodeGenOpCloudNPU::PrintExtractLayout() const {
 
 std::string CodeGenOpCloudNPU::GenExtractOp() const {
     if (isSupportLayout) {
-        return PrintExtractLayout();
+        return PrintExtractTileTensor();
     }
     if (isSupportDynamicUnaligned) {
         return PrintExtractDynamicUnaligned();
@@ -1298,8 +1298,8 @@ std::string CodeGenOpCloudNPU::PrintWhereOp(const WhereParam &param) const {
 
     std::ostringstream os;
     if (opCode == Opcode::OP_WHERE_SS) {
-        std::string src0Var = FormatFloat(extScalarVec[0].Cast<float>());
-        std::string src1Var = FormatFloat(extScalarVec[1].Cast<float>());
+        std::string src0Var = FormatFloat(extScalarVec[0].GetVariantData());
+        std::string src1Var = FormatFloat(extScalarVec[1].GetVariantData());
         extList.emplace_back(dataTypeExpr[0] + "(" + src0Var + ")");
         extList.emplace_back(dataTypeExpr[0] + "(" + src1Var + ")");
         auto extParam = JoinString(extList, ", ");
@@ -1307,7 +1307,7 @@ std::string CodeGenOpCloudNPU::PrintWhereOp(const WhereParam &param) const {
            << "(" << funcParam << ", " << extParam << ", " << dynFuncParam << ");\n";
         return os.str();
     } else if (opCode == Opcode::OP_WHERE_ST) {
-        std::string scalarVar = FormatFloat(extOperandVal.Cast<float>());
+        std::string scalarVar = FormatFloat(extOperandVal.GetVariantData());
         std::string src0Var = varExpr[ToUnderlying(WhereOpIdx::src0Idx)];
         std::string src1DtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(WhereOpIdx::src0Idx)]);
         extList.emplace_back(dataTypeExpr[0] + "(" + scalarVar + ")");
@@ -1317,7 +1317,7 @@ std::string CodeGenOpCloudNPU::PrintWhereOp(const WhereParam &param) const {
            << "(" << funcParam << ", " << extParam << ", " << dynFuncParam << ");\n";
         return os.str();
     } else if (opCode == Opcode::OP_WHERE_TS) {
-        std::string scalarVar = FormatFloat(extOperandVal.Cast<float>());
+        std::string scalarVar = FormatFloat(extOperandVal.GetVariantData());
         std::string src0Var = varExpr[ToUnderlying(WhereOpIdx::src0Idx)];
         std::string src0DtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(WhereOpIdx::src0Idx)]);
         extList.emplace_back("(__ubuf__ " + src0DtypeStr + "*)" + src0Var);

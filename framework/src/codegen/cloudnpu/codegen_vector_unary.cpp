@@ -53,7 +53,8 @@ std::string CodeGenOpCloudNPU::PrintCastDynamicUnaligned(const PrintUnaryParam &
     oss << tileOpName << "_<" << templateParam << ">" << "(" << tiloOpCallParam << ");\n";
     return oss.str();
 }
-std::string CodeGenOpCloudNPU::PrintCastLayout() const {
+
+std::string CodeGenOpCloudNPU::PrintCastTileTensor() const {
     std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::DST_IDX)]);
     std::string srcTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::SRC0_IDX)]);
     auto mode = opAttrs.at(OP_ATTR_PREFIX + "mode");
@@ -156,7 +157,7 @@ std::string CodeGenOpCloudNPU::PrintRowSumlineDynamicUnaligned(const PrintUnaryP
     return os.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintRowSumlineLayout() const {
+std::string CodeGenOpCloudNPU::PrintRowSumlineTileTensor() const {
     std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::DST_IDX)]);
     std::string src0Tensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::SRC0_IDX)]);
     int reduceAxis{-1};
@@ -174,7 +175,7 @@ std::string CodeGenOpCloudNPU::PrintRowSumlineLayout() const {
 
 std::string CodeGenOpCloudNPU::PrintRowSumline(const PrintUnaryParam &param) const {
     if (isSupportLayout) {
-        return PrintRowSumlineLayout();
+        return PrintRowSumlineTileTensor();
     }
     if (isSupportDynamicUnaligned) {
         return PrintRowSumlineDynamicUnaligned(param);

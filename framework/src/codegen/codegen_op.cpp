@@ -119,31 +119,15 @@ void CodeGenOp::UpdateOffsetForOutput(const Operation &oper, const LogicalTensor
     UpdateOffsetValueForGM(attr->GetCopyOutAttr().second, operandIdx);
 }
 
-void CodeGenOp::CheckScaleValue(const npu::tile_fwk::Operation &ops) {
-    auto checkValue = [&](float value) {
-        if (std::isnan(value)) {
-            hasNan = true;
-        }
-        if (std::isinf(value)) {
-            if (value > 0) {
-                hasPosInf = true;
-            } else {
-                hasNegInf = true;
-            }
-        }
-    };
-
+void CodeGenOp::UpdateScalarValue(const npu::tile_fwk::Operation &ops) {
     if (ops.HasAttr(OpAttributeKey::scalar)) {
         extOperandVal = ops.GetElementAttribute(OpAttributeKey::scalar);
-        float value = extOperandVal.Cast<float>();
-        checkValue(value);
+    }
+    if(ops.HasAttr(OpAttributeKey::dynScalar)){
+         extSymbolicScalar = ops.GetSymbolicScalarAttribute(OpAttributeKey::dynScalar);
     }
     if (ops.HasAttr(OpAttributeKey::vectorScalar)) {
         extScalarVec = ops.GetVectorElementAttribute(OpAttributeKey::vectorScalar);
-        for (auto &scalar : extScalarVec) {
-            float value = scalar.Cast<float>();
-            checkValue(value);
-        }
     }
 }
 
@@ -186,7 +170,7 @@ void CodeGenOp::Init(const npu::tile_fwk::Operation &ops) {
 
     GetGmParamIdx(ops);
     syncQueue = ops.syncQueue_;
-    CheckScaleValue(ops);
+    UpdateScalarValue(ops);
     UpdateOpAttribute(ops);
 }
 

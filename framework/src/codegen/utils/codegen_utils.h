@@ -19,6 +19,7 @@
 #include <iostream>
 #include <vector>
 #include <cmath>
+#include <variant>
 
 #include "codegen/codegen_common.h"
 #include "tilefwk/data_type.h"
@@ -88,7 +89,7 @@ std::string WrapParamByAngleBrackets(const std::vector<T> &params) {
 }
 
 std::vector<int64_t> NormalizeShape(const std::vector<int64_t> &shapeVec, unsigned dim);
-std::string FormatFloat(float f, int precision = 9);
+std::string FormatFloat(const std::variant<int64_t, uint64_t, double> &v, int precision = 9);
 
 std::string GetTypeForB16B32(const DataType &dtype);
 

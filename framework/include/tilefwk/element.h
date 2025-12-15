@@ -17,6 +17,10 @@
 
 #include <cstdint>
 #include "tilefwk/data_type.h"
+#include "tilefwk/error.h"
+#include <limits>
+#include <cmath>
+#include <variant>
 
 namespace npu::tile_fwk {
 class Element {
@@ -32,6 +36,17 @@ public:
     int64_t GetSignedData() const { return data_.sData; }
     uint64_t GetUnsignedData() const { return data_.uData; }
     double GetFloatData() const { return data_.fData; }
+    std::variant<int64_t, uint64_t, double> GetVariantData() const {
+        if (IsSigned()) {
+            return static_cast<int64_t>(data_.sData);
+        } else if (IsUnsigned()) {
+            return static_cast<uint64_t>(data_.uData);
+        } else if (IsFloat()) {
+            return static_cast<double>(data_.fData);
+        }
+        ASSERT(false);
+        return int64_t(0);
+    }
 
     bool IsSigned() const {
         return type_ == DT_INT4 || type_ == DT_INT8 || type_ == DT_INT16 || type_ == DT_INT32 ||

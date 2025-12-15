@@ -149,7 +149,7 @@ std::string CodeGenOpCloudNPU::PrintBitSortStatic(const SortParam &param) const 
     return PrintSortStatic(param);
 }
 
-std::string CodeGenOpCloudNPU::PrintSortLayout() const {
+std::string CodeGenOpCloudNPU::PrintSortTileTensor() const {
     std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::DST_IDX)]);
     std::string srcTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::SRC0_IDX)]);
     std::ostringstream oss;
@@ -160,7 +160,7 @@ std::string CodeGenOpCloudNPU::PrintSortLayout() const {
 std::string CodeGenOpCloudNPU::GenBitSortOp() const {
     SortParam sortParm = PrepareSortParam();
     if (isSupportLayout) {
-        return PrintSortLayout();
+        return PrintSortTileTensor();
     }
     if (isSupportDynamicUnaligned) {
         return PrintBitSortDynamicUnaligned(sortParm);
@@ -206,7 +206,7 @@ SortParam CodeGenOpCloudNPU::PrepareSortParam() const {
 std::string CodeGenOpCloudNPU::GenMrgSortOp() const {
     SortParam sortParm = PrepareSortParam();
     if (isSupportLayout) {
-        return PrintSortLayout();
+        return PrintSortTileTensor();
     }
     if (isSupportDynamicUnaligned) {
         return PrintMrgSortDynamicUnaligned(sortParm);
@@ -243,7 +243,7 @@ TiledSortParam CodeGenOpCloudNPU::PrepareTiledSortParam() const {
     };
 }
 
-std::string CodeGenOpCloudNPU::PrintTileSortLayout() const {
+std::string CodeGenOpCloudNPU::PrintTileSortTileTensor() const {
     std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ID0]);
     std::string tmpTensor = sm->QueryTileTensorByMagic(operandWithMagic[ID1]);
     std::string src1Tensor = sm->QueryTileTensorByMagic(operandWithMagic[ID2]);
@@ -260,7 +260,7 @@ std::string CodeGenOpCloudNPU::PrintTileSortLayout() const {
 std::string CodeGenOpCloudNPU::GenTiledMrgSortOp() const {
     TiledSortParam tiledSortParm = PrepareTiledSortParam();
     if (isSupportLayout) {
-        return PrintTileSortLayout();
+        return PrintTileSortTileTensor();
     }
     return PrintTiledMrgSortDynamicUnaligned(tiledSortParm);
 }
