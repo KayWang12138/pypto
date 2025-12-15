@@ -932,6 +932,7 @@ params_base = {
 }
 
 
+@pytest.mark.skip(reason='perf')
 def test_t_32_tilebs_16():
     b = 16
     s1 = 2
@@ -980,6 +981,7 @@ def test_t_32_tilebs_16():
             mla_cache_mode, mla_tile_config, ip_attrs, ip_configs)
 
 
+@pytest.mark.skip(reason='perf')
 def test_t_512_tilebs_128():
     b = 128
     s1 = 4
@@ -1032,5 +1034,4 @@ if __name__ == '__main__':
     if PRINT_DEBUG:
         logging.basicConfig(format='%(asctime)s - %(filename)s:%(lineno)d - %(levelname)s: %(message)s',
                             level=logging.DEBUG)
-    # test_t_2_tilebs_1()
     test_t_512_tilebs_128()

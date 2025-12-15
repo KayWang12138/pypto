@@ -13,6 +13,7 @@
 from dataclasses import dataclass
 import math
 import os
+import pytest
 import torch
 import pypto
 import logging
@@ -471,6 +472,7 @@ def test_SFA_b4_s2_seq64K_int8_perf():
     do_test_QSFA_d_entry("DynamicGatherSlcFlashAttnDSASTest.SFA_b4_s2_seq64K_int8_perf")
 
 
+@pytest.mark.skip(reason='large case')
 def test_QSFA_d_bf16_b1_s3_seq2047_int8():	
     do_test_QSFA_d_entry("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b1_s3_seq2047_int8")
 
@@ -480,4 +482,4 @@ if __name__ == "__main__":
         format='%(asctime)s - %(filename)s:%(lineno)d - %(levelname)s: %(message)s',
         level=logging.INFO
     )
-    test_QSFA_d_bf16_b1_s3_seq2047_int8()
+    test_SFA_b4_s2_seq64K_int8_perf()

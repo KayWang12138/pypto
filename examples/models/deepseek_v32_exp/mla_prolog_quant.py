@@ -382,13 +382,13 @@ def mla_prolog_quant_compute(input_tensors, output_tensors, epsilon_cq, epsilon_
             k_scale_4d = pypto.reshape(k_scale_2d, [tile_bs, 1, 1, 4], inplace=True)
             index = pypto.view(k_cache_index_2d, [tile_bs, 1], [bs_offset, 0])
             pypto.set_semantic_label("ScatterUpdate_krCache")
-            pypto.set_vec_tile_shapes(32, qk_rope_head_dim)
+            pypto.set_vec_tile_shapes(32, 1, 1, qk_rope_head_dim)
             kr_cache_out[:] = pypto.scatter_update(kr_cache, -2, index, k_rope_4d)
             pypto.set_semantic_label("ScatterUpdate_kvCache")
-            pypto.set_vec_tile_shapes(32, kv_lora_rank)
+            pypto.set_vec_tile_shapes(32, 1, 1, kv_lora_rank)
             kv_cache_out[:] = pypto.scatter_update(kv_cache, -2, index, k_nope_4d)
             pypto.set_semantic_label("ScatterUpdate_kScaleCache")
-            pypto.set_vec_tile_shapes(32, 4)
+            pypto.set_vec_tile_shapes(32, 1, 1, 4)
             k_scale_cache_out[:] = pypto.scatter_update(k_scale_cache, -2, index, k_scale_4d)
 
 

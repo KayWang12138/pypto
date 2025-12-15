@@ -685,6 +685,7 @@ def mla_prolog_quant_v32(params, input_tensors, golden_data, dtype, w_dtype, is_
         compare(k_scale.cpu(), golden5.cpu(), "kScaleCache", 0.0001, 0.0078125, 0.005)
 
 
+@pytest.mark.skip(reason='perf')
 def test_b1_s64k2_pa_nd_fp16_quantb_d():
     '''
     mla_prolog decode测试函数

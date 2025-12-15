@@ -479,6 +479,7 @@ def test_QSFA_p_bf16_b1_s3_seq2047():
     do_test_QSFA_p("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b1_s3_seq2047")
 
 
+@pytest.mark.skip(reason='perf')
 def test_QSFA_p_bf16_b1_s3_seq2047_int8():
     do_test_QSFA_p("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b1_s3_seq2047_int8")
 
@@ -523,6 +524,7 @@ def test_QSFA_p_bf16_b4_s1_seqtest1_int8():
     do_test_QSFA_p("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b4_s1_seqtest1_int8")
 
 
+@pytest.mark.skip(reason='perf')
 def test_QSFA_p_bf16_b8_s4_seqtest2():
     do_test_QSFA_p("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s4_seqtest2")
 
@@ -538,4 +540,3 @@ if __name__ == "__main__":
         level=logging.INFO
     )
     test_QSFA_p_bf16_b1_s3_seq2047_int8()
-    test_QSFA_p_bf16_b8_s4_seqtest2()

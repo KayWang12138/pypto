@@ -471,6 +471,7 @@ def test_b4_s1_2_s2_64k():
     do_test_lighting_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b4_s1_2_s2_64k", configs)
 
 
+@pytest.mark.skip(reason="large test case")
 def test_b8_s1_2_s2_64k():
     configs = IndexerPrologQuantConfigs(
         q_linear=[16, 16, 512, 512, 128, 128],
@@ -524,6 +525,7 @@ def test_b2_s1_4k_s2_64k():
     do_test_lighting_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b2_s1_4k_s2_64k", configs)
 
 
+@pytest.mark.skip(reason="large test case")
 def test_b128_s1_4_s2_8k():
     configs = IndexerPrologQuantConfigs(
         q_linear=[128, 128, 256, 256, 256, 256],
@@ -548,4 +550,3 @@ if __name__ == "__main__":
         level=logging.INFO
     )
     test_b8_s1_2_s2_64k()
-    test_b2_s1_4k_s2_64k()

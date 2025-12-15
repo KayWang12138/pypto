@@ -927,7 +927,7 @@ params_base = {
 }
 
 
-def test_t_32_tilebs_16():
+def test_b_4_s1_2_tilebs_8():
     b = 4
     s1 = 2
     s2 = 64 * 1024
@@ -970,7 +970,7 @@ def test_t_32_tilebs_16():
         chunk_size=2,
     )
 
-    do_test("mla_prolog_indexer_prolog_prefill.test_t_2_tilebs_1",
+    do_test("mla_prolog_indexer_prolog_decode.test_b_4_s1_2_tilebs_8",
             params, mla_epsilon_cq, mla_epsilon_ckv,
             mla_cache_mode, mla_tile_config, ip_attrs, ip_configs)
 
@@ -980,4 +980,4 @@ if __name__ == '__main__':
     if PRINT_DEBUG:
         logging.basicConfig(format='%(asctime)s - %(filename)s:%(lineno)d - %(levelname)s: %(message)s',
                             level=logging.DEBUG)
-    test_t_32_tilebs_16()
+    test_b_4_s1_2_tilebs_8()
