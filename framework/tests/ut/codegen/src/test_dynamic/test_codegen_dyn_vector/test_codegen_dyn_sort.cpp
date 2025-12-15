@@ -293,7 +293,7 @@ TEST_F(TestCodegenDynSort, TestDynTiledMgrSort) {
     cop.Init(op);
     std::string res = cop.GenOpCode();
     std::string expect =
-        R"!!!(TileOp::DynTiledMrgSort<float, 1, 1, 64, 64, 1, 1, 64, 64, 64, 3, 2>((__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, 1, 1, 64, 64, 64);
+        R"!!!(TileOp::DynTiledMrgSort<float, 1, 1, 64, 64, 1, 1, 64, 64, 64, 3, 2>((__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, 1, 1, 64, 64, 64, 64, 64);
 )!!!";
     EXPECT_EQ(res, expect);
 }

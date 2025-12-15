@@ -107,8 +107,12 @@ std::string CodeGenOpCloudNPU::PrintTiledSortDynamicUnaligned(const TiledSortPar
     const std::string &dstDtypeStr = param.dstDtypeStr;
 
     auto dynSrc0Shape = dynamicValidShape[ID2];
+    auto dynSrc1Shape = dynamicValidShape[ID3];
+    auto dynSrc2Shape = dynamicValidShape[ID4];
     auto dynSrc3Shape = dynamicValidShape[ID5];
     FillIntVecWithDummyInHead<SymbolicScalar>(dynSrc0Shape, SHAPE_DIM4 - dynamicValidShape[ID2].size(), 1);
+    FillIntVecWithDummyInHead<SymbolicScalar>(dynSrc1Shape, SHAPE_DIM4 - dynamicValidShape[ID3].size(), 1);
+    FillIntVecWithDummyInHead<SymbolicScalar>(dynSrc2Shape, SHAPE_DIM4 - dynamicValidShape[ID4].size(), 1);
     FillIntVecWithDummyInHead<SymbolicScalar>(dynSrc3Shape, SHAPE_DIM4 - dynamicValidShape[ID5].size(), 1);
 
     std::vector<std::string> paramList;
@@ -133,6 +137,8 @@ std::string CodeGenOpCloudNPU::PrintTiledSortDynamicUnaligned(const TiledSortPar
     for (int i = 0; i < SHAPE_DIM4; ++i) {
         paramList.emplace_back(dynSrc0Shape[i].Dump());
     }
+    paramList.emplace_back(dynSrc1Shape[ID3].Dump());
+    paramList.emplace_back(dynSrc2Shape[ID3].Dump());
     paramList.emplace_back(dynSrc3Shape[ID3].Dump());
     std::string tileCallParam = JoinString(paramList, CONN_COMMA);
 

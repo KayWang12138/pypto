@@ -595,3 +595,47 @@ TEST_F(OperationImplTest, test_Where) {
         result = Where(condition, input, other);
     }
 }
+
+TEST_F(OperationImplTest, Test_TopK_01) {
+    std::vector<int64_t> inputShape = {1, 16384};
+    std::vector<int64_t> outputShape = {1, 2048};
+    TileShape::Current().SetVecTile({1, 8192});
+    Tensor input_a(DT_FP32, inputShape, "A");
+    auto output = std::make_tuple(Tensor(DT_FP32, outputShape, "res"), Tensor(DT_FP32, outputShape, "resDics"));
+    FUNCTION("TOPK_T") {
+        output = TopK(input_a, 2048, -1);
+    }
+}
+
+TEST_F(OperationImplTest, Test_TopK_02) {
+    std::vector<int64_t> inputShape = {1, 24576};
+    std::vector<int64_t> outputShape = {1, 2048};
+    TileShape::Current().SetVecTile({1, 8192});
+    Tensor input_a(DT_FP32, inputShape, "A");
+    auto output = std::make_tuple(Tensor(DT_FP32, outputShape, "res"), Tensor(DT_FP32, outputShape, "resDics"));
+    FUNCTION("TOPK_T") {
+        output = TopK(input_a, 2048, -1);
+    }
+}
+
+TEST_F(OperationImplTest, Test_TopK_03) {
+    std::vector<int64_t> inputShape = {1, 49152};
+    std::vector<int64_t> outputShape = {1, 2048};
+    TileShape::Current().SetVecTile({1, 8192});
+    Tensor input_a(DT_FP32, inputShape, "A");
+    auto output = std::make_tuple(Tensor(DT_FP32, outputShape, "res"), Tensor(DT_FP32, outputShape, "resDics"));
+    FUNCTION("TOPK_T") {
+        output = TopK(input_a, 2048, -1);
+    }
+}
+
+TEST_F(OperationImplTest, Test_TopK_04) {
+    std::vector<int64_t> inputShape = {1, 40960};
+    std::vector<int64_t> outputShape = {1, 2048};
+    TileShape::Current().SetVecTile({1, 8192});
+    Tensor input_a(DT_FP32, inputShape, "A");
+    auto output = std::make_tuple(Tensor(DT_FP32, outputShape, "res"), Tensor(DT_FP32, outputShape, "resDics"));
+    FUNCTION("TOPK_T") {
+        output = TopK(input_a, 2048, -1);
+    }
+}

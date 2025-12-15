@@ -3317,7 +3317,7 @@ template <typename T, unsigned dstShape0, unsigned dstShape1, unsigned srcShape0
 TILEOP void DynMrgSort(__ubuf__ T *dst, __ubuf__ T *src, unsigned oriShape0, unsigned oriShape1) {
     constexpr int32_t kAlign = (k + 7) / 8 * 8; // k需要向32Bytes取整,否则最后搬运出问题
     int32_t totalNum = srcShape1 / 4;
-    oriShape1 = oriShape1 - totalNum * 2;
+    oriShape1 = oriShape1 - (oriShape1 + 31) / 32 * 32 / 3 * 2;
     for (int rowIdx = 0; rowIdx < oriShape0; rowIdx++) {
         // 每4个合并,计算整块
         int32_t z = 32;
@@ -3421,14 +3421,14 @@ TILEOP void DynMrgSort(
 }
 
 template <typename T, unsigned dstShape0, unsigned dstShape1, unsigned srcShape0, unsigned srcShape1,
- unsigned srcShapeLast, int k, int validBit>
+ unsigned srcShapeLast, int k>
 TILEOP void DynTiledMrgSort(
     __ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1, __ubuf__ T *src2, __ubuf__ T *src3, __ubuf__ T *tmp, 
-    unsigned oriShape0, unsigned oriShape1, unsigned oriShapeLast) {
+    unsigned oriShape0, unsigned oriShape1, unsigned oriShapeLast, int validBit) {
     constexpr int32_t kAlign = (k + 7) / 8 * 8;
     int32_t kLast = k * 2 > oriShapeLast ? oriShapeLast / 2 : k;
     for (int rowIdx = 0; rowIdx < oriShape0; rowIdx++) {
-        if constexpr (validBit == 4) {
+        if (validBit == 4) {
             __ubuf__ float *src0Data = reinterpret_cast<__ubuf__ float *>(src0) + rowIdx * srcShape1;
             __ubuf__ float *src1Data = reinterpret_cast<__ubuf__ float *>(src1) + rowIdx * srcShape1;
             __ubuf__ float *src2Data = reinterpret_cast<__ubuf__ float *>(src2) + rowIdx * srcShape1;
@@ -3452,7 +3452,7 @@ TILEOP void DynTiledMrgSort(
             vmrgsort4(tmp, addr_array, count, config);
             pipe_barrier(PIPE_V);
         }
-        if constexpr (validBit == 3) {
+        if (validBit == 3) {
             __ubuf__ float *src0Data = reinterpret_cast<__ubuf__ float *>(src0) + rowIdx * srcShape1;
             __ubuf__ float *src1Data = reinterpret_cast<__ubuf__ float *>(src1) + rowIdx * srcShape1;
             __ubuf__ float *src2Data = reinterpret_cast<__ubuf__ float *>(src2) + rowIdx * srcShapeLast;
@@ -3474,7 +3474,7 @@ TILEOP void DynTiledMrgSort(
             vmrgsort4(tmp, addr_array, count, config);
             pipe_barrier(PIPE_V);
         }
-        if constexpr (validBit == 2) {
+        if (validBit == 2) {
             __ubuf__ float *src0Data = reinterpret_cast<__ubuf__ float *>(src0) + rowIdx * srcShape1;
             __ubuf__ float *src1Data = reinterpret_cast<__ubuf__ float *>(src1) + rowIdx * srcShapeLast;
 
@@ -3506,28 +3506,38 @@ template <typename T, unsigned dstShape0, unsigned dstShape1, unsigned dstShape2
     int k, int validBit>
 TILEOP void DynTiledMrgSort(
     __ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1, __ubuf__ T *src2, __ubuf__ T *src3, __ubuf__ T *tmp,
-    unsigned oriShape0, unsigned oriShape1, unsigned oriShape2, unsigned oriShape3, unsigned oriShapeLast) {
-    for (int i = 0; i < oriShape0; ++i) {
+    unsigned src0T0, unsigned src0T1, unsigned src0T2, unsigned src0T3, unsigned src1T3, unsigned src2T3, unsigned src3T3) {
+    int validBitNew = validBit;
+    if (src0T3 == 0 || src1T3 == 0) {
+        return;
+    } else if (src2T3 == 0) {
+        validBitNew = 2;
+        src3T3 = src1T3;
+    } else if (src3T3 == 0) {
+        validBitNew = 3;
+        src3T3 = src2T3;
+    }
+    for (int i = 0; i < src0T0; ++i) {
         __ubuf__ T *dst_ = dst;
         __ubuf__ T *src0_ = src0;
         __ubuf__ T *src1_ = src1;
         __ubuf__ T *src2_ = src2;
         __ubuf__ T *src3_ = src3;
-        for (int j = 0; j < oriShape1; ++j) {
-            if (oriShape2 != 0 && oriShape3 != 0 && oriShapeLast != 0) {
-                TileOp::DynTiledMrgSort<T, dstShape2, dstShape3, srcShape2, srcShape3, srcShapeLast, k, validBit>
-                (dst_, src0_, src1_, src2_, src3_, tmp, oriShape2, oriShape3, oriShapeLast);
-                pipe_barrier(PIPE_V);
-            }
+        for (int j = 0; j < src0T1; ++j) {
+            TileOp::DynTiledMrgSort<T, dstShape2, dstShape3, srcShape2, srcShape3, srcShapeLast, k>
+            (dst_, src0_, src1_, src2_, src3_, tmp, src0T2, src0T3, src3T3, validBitNew);
+            pipe_barrier(PIPE_V);
+
+
             dst_ += dstShape2 * dstShape3;
-            if constexpr (validBit == 2) {
+            if (validBitNew == 2) {
                 src0_ += srcShape2 * srcShape3;
                 src1_ += srcShape2 * srcShapeLast;
-            } else if constexpr (validBit == 3) {
+            } else if (validBitNew == 3) {
                 src0_ += srcShape2 * srcShape3;
                 src1_ += srcShape2 * srcShape3;
                 src2_ += srcShape2 * srcShapeLast;
-            }  else if constexpr (validBit == 4) {
+            }  else if (validBitNew == 4) {
                 src0_ += srcShape2 * srcShape3;
                 src1_ += srcShape2 * srcShape3;
                 src2_ += srcShape2 * srcShape3;
@@ -3535,14 +3545,14 @@ TILEOP void DynTiledMrgSort(
             }
         }
         dst += dstShape1 * dstShape2 * dstShape3;
-        if constexpr (validBit == 2) {
+        if (validBitNew == 2) {
             src0 += srcShape1 * srcShape2 * srcShape3;
             src1 += srcShape1 * srcShape2 * srcShapeLast;
-        } else if constexpr (validBit == 3) {
+        } else if (validBitNew == 3) {
             src0 += srcShape1 * srcShape2 * srcShape3;
             src1 += srcShape1 * srcShape2 * srcShape3;
             src2 += srcShape1 * srcShape2 * srcShapeLast;
-        }  else if constexpr (validBit == 4) {
+        }  else if (validBitNew == 4) {
             src0 += srcShape1 * srcShape2 * srcShape3;
             src1 += srcShape1 * srcShape2 * srcShape3;
             src2 += srcShape1 * srcShape2 * srcShape3;

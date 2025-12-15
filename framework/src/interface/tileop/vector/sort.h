@@ -131,7 +131,7 @@ TILEOP void TMrgSort(T0 dst, T1 src) {
     constexpr auto srcTileW = Std::tuple_element<srcShapeSize - 1, typename T1::TileShape>::type::value / 2;
     constexpr auto srcTypeSize = sizeof(typename T1::Type);
     uint32_t totalNum = srcTileW / 2;
-    srcShape4 = srcShape4 - srcTileW;
+    srcShape4 = srcShape4 - (srcShape4 + 31) / 32 * 32 / 3 * 2;
     if (srcShape4 == 0) {
         return;
     }
@@ -243,24 +243,21 @@ TILEOP void TTiledMrgSort(T0 dst, T1 src1, T2 src2, T3 src3, T4 src4, T5 tmp) {
     constexpr auto tmpTileH = Std::tuple_element<tmpShapeSize - 2, typename T5::TileShape>::type::value;
     constexpr auto tmpTileW = Std::tuple_element<tmpShapeSize - 1, typename T5::TileShape>::type::value;
     constexpr size_t expectSize = 5;
-    const auto dstLayout = dst.GetLayout();
-    auto dstShape0 = dstLayout.template GetShapeDim<0, expectSize>();
-    auto dstShape1 = dstLayout.template GetShapeDim<1, expectSize>();
-    auto dstShape2 = dstLayout.template GetShapeDim<2, expectSize>();
-    auto dstShape3 = dstLayout.template GetShapeDim<3, expectSize>();
-    auto dstShape4 = dstLayout.template GetShapeDim<4, expectSize>();
-    if (dstShape0 == 0 || dstShape1 == 0 || dstShape2 == 0 || dstShape3 == 0 || dstShape4 == 0) {
-        return;
-    }
-    auto dstStride0 = dstLayout.template GetStrideDim<0, expectSize>();
-    auto dstStride1 = dstLayout.template GetStrideDim<1, expectSize>();
-    auto dstStride2 = dstLayout.template GetStrideDim<2, expectSize>();
-    auto dstStride3 = dstLayout.template GetStrideDim<3, expectSize>();
-    constexpr auto dstTileH = Std::tuple_element<dstShapeSize - 2, typename T0::TileShape>::type::value;
+    const auto dstTiledSortLayout = dst.GetLayout();
+    auto dstShape0 = dstTiledSortLayout.template GetShapeDim<0, expectSize>();
+    auto dstShape1 = dstTiledSortLayout.template GetShapeDim<1, expectSize>();
+    auto dstShape2 = dstTiledSortLayout.template GetShapeDim<2, expectSize>();
+    auto dstShape3 = dstTiledSortLayout.template GetShapeDim<3, expectSize>();
+    auto dstShape4 = dstTiledSortLayout.template GetShapeDim<4, expectSize>();
+    auto dstStride0 = dstTiledSortLayout.template GetStrideDim<0, expectSize>();
+    auto dstStride1 = dstTiledSortLayout.template GetStrideDim<1, expectSize>();
+    auto dstStride2 = dstTiledSortLayout.template GetStrideDim<2, expectSize>();
+    auto dstStride3 = dstTiledSortLayout.template GetStrideDim<3, expectSize>();
+
     constexpr auto dstTileW = Std::tuple_element<dstShapeSize - 1, typename T0::TileShape>::type::value;
 
     const auto src1Layout = src1.GetLayout();
-    auto src1Shape3 = src1Layout.template GetShapeDim<3, expectSize>();
+
     auto src1Shape4 = src1Layout.template GetShapeDim<4, expectSize>();
     auto src1Stride0 = src1Layout.template GetStrideDim<0, expectSize>();
     auto src1Stride1 = src1Layout.template GetStrideDim<1, expectSize>();
@@ -268,8 +265,24 @@ TILEOP void TTiledMrgSort(T0 dst, T1 src1, T2 src2, T3 src3, T4 src4, T5 tmp) {
     auto src1Stride3 = src1Layout.template GetStrideDim<3, expectSize>();
     constexpr auto src1TileW = Std::tuple_element<src1ShapeSize - 1, typename T1::TileShape>::type::value;
 
+    const auto src2Layout = src2.GetLayout();
+    auto src2Shape4 = src2Layout.template GetShapeDim<4, expectSize>();
+    auto src2Stride0 = src2Layout.template GetStrideDim<0, expectSize>();
+    auto src2Stride1 = src2Layout.template GetStrideDim<1, expectSize>();
+    auto src2Stride2 = src2Layout.template GetStrideDim<2, expectSize>();
+    auto src2Stride3 = src2Layout.template GetStrideDim<3, expectSize>();
+    constexpr auto src2TileW = Std::tuple_element<src1ShapeSize - 1, typename T2::TileShape>::type::value;
+
+    const auto src3Layout = src3.GetLayout();
+    auto src3Shape4 = src3Layout.template GetShapeDim<4, expectSize>();
+    auto src3Stride0 = src3Layout.template GetStrideDim<0, expectSize>();
+    auto src3Stride1 = src3Layout.template GetStrideDim<1, expectSize>();
+    auto src3Stride2 = src3Layout.template GetStrideDim<2, expectSize>();
+    auto src3Stride3 = src3Layout.template GetStrideDim<3, expectSize>();
+    constexpr auto src3TileW = Std::tuple_element<src1ShapeSize - 1, typename T3::TileShape>::type::value;
+
     const auto src4Layout = src4.GetLayout();
-    auto src4Shape3 = src4Layout.template GetShapeDim<3, expectSize>();
+
     auto src4Shape4 = src4Layout.template GetShapeDim<4, expectSize>();
     auto src4Stride0 = src4Layout.template GetStrideDim<0, expectSize>();
     auto src4Stride1 = src4Layout.template GetStrideDim<1, expectSize>();
@@ -278,6 +291,17 @@ TILEOP void TTiledMrgSort(T0 dst, T1 src1, T2 src2, T3 src3, T4 src4, T5 tmp) {
     constexpr auto src4TileW = Std::tuple_element<src4ShapeSize - 1, typename T4::TileShape>::type::value;
 
     constexpr auto srcTypeSize = sizeof(typename T1::Type);
+
+    int validBitNew = validBit;
+    if (src1Shape4 == 0 || src2Shape4 == 0) {
+        return;
+    } else if (src3Shape4 == 0) {
+        validBitNew = 2;
+        src4Shape4 = src2Shape4;
+    } else if (src4Shape4 == 0) {
+        validBitNew = 3;
+        src4Shape4 = src3Shape4;
+    }
     int32_t kLast = k * 2;
     if (k * 2 > src4Shape4) {
         kLast = src4Shape4;
@@ -290,6 +314,10 @@ TILEOP void TTiledMrgSort(T0 dst, T1 src1, T2 src2, T3 src3, T4 src4, T5 tmp) {
                         pto::Tile<pto::TileType::Vec, typename T0::Type, 1, dstTileW, pto::BLayout::RowMajor, -1, -1>;
                     using Src1TileDefine =
                         pto::Tile<pto::TileType::Vec, typename T1::Type, 1, src1TileW, pto::BLayout::RowMajor, -1, -1>;
+                    using Src2TileDefine =
+                        pto::Tile<pto::TileType::Vec, typename T1::Type, 1, src2TileW, pto::BLayout::RowMajor, -1, -1>;
+                    using Src3TileDefine =
+                        pto::Tile<pto::TileType::Vec, typename T1::Type, 1, src3TileW, pto::BLayout::RowMajor, -1, -1>;
                     using Src4TileDefine =
                         pto::Tile<pto::TileType::Vec, typename T4::Type, 1, src4TileW, pto::BLayout::RowMajor, -1, -1>;
                     using TmpTileDefine =
@@ -300,37 +328,41 @@ TILEOP void TTiledMrgSort(T0 dst, T1 src1, T2 src2, T3 src3, T4 src4, T5 tmp) {
                      n2Index * dstStride2 + n3Index * dstStride3;
                     auto src1Offset = n0Index * src1Stride0 + n1Index * src1Stride1 +
                      n2Index * src1Stride2 + n3Index * src1Stride3;
+                    auto src2Offset = n0Index * src2Stride0 + n1Index * src2Stride1 +
+                     n2Index * src2Stride2 + n3Index * src2Stride3;
+                    auto src3Offset = n0Index * src3Stride0 + n1Index * src3Stride1 +
+                     n2Index * src3Stride2 + n3Index * src3Stride3;
                     auto src4Offset = n0Index * src4Stride0 + n1Index * src4Stride1 +
                      n2Index * src4Stride2 + n3Index * src4Stride3;
                     pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * srcTypeSize));
                     pto::TASSIGN(tmpTile, (uint64_t)(tmp.GetAddr()));
                     pto::MrgSortExecutedNumList executedNumList;
-                    if constexpr (validBit == 2) {
+                    if (validBitNew == 2) {
                         Src1TileDefine src1Tile(1, k * 2);
-                        Src4TileDefine src2Tile(1, kLast);
+                        Src2TileDefine src2Tile(1, kLast);
                         pto::TASSIGN(src1Tile, (uint64_t)(src1.GetAddr() + src1Offset * srcTypeSize));
-                        pto::TASSIGN(src2Tile, (uint64_t)(src2.GetAddr() + src4Offset * srcTypeSize));
-                        pto::TMRGSORT<DstTileDefine, TmpTileDefine, Src1TileDefine, Src4TileDefine, false>(dstTile,
+                        pto::TASSIGN(src2Tile, (uint64_t)(src2.GetAddr() + src2Offset * srcTypeSize));
+                        pto::TMRGSORT<DstTileDefine, TmpTileDefine, Src1TileDefine, Src2TileDefine, false>(dstTile,
                                 executedNumList, tmpTile, src1Tile, src2Tile);
-                    } else if constexpr (validBit == 3) {
+                    } else if (validBitNew == 3) {
                         Src1TileDefine src1Tile(1, k * 2);
-                        Src1TileDefine src2Tile(1, k * 2);
-                        Src4TileDefine src3Tile(1, kLast);
+                        Src2TileDefine src2Tile(1, k * 2);
+                        Src3TileDefine src3Tile(1, kLast);
                         pto::TASSIGN(src1Tile, (uint64_t)(src1.GetAddr() + src1Offset * srcTypeSize));
-                        pto::TASSIGN(src2Tile, (uint64_t)(src2.GetAddr() + src1Offset * srcTypeSize));
-                        pto::TASSIGN(src3Tile, (uint64_t)(src3.GetAddr() + src4Offset * srcTypeSize));
-                        pto::TMRGSORT<DstTileDefine, TmpTileDefine, Src1TileDefine, Src1TileDefine, Src4TileDefine, false>(dstTile,
+                        pto::TASSIGN(src2Tile, (uint64_t)(src2.GetAddr() + src2Offset * srcTypeSize));
+                        pto::TASSIGN(src3Tile, (uint64_t)(src3.GetAddr() + src3Offset * srcTypeSize));
+                        pto::TMRGSORT<DstTileDefine, TmpTileDefine, Src1TileDefine, Src2TileDefine, Src3TileDefine, false>(dstTile,
                                 executedNumList, tmpTile, src1Tile, src2Tile, src3Tile);
-                    } else if constexpr (validBit == 4) {
+                    } else if (validBitNew == 4) {
                         Src1TileDefine src1Tile(1, k * 2);
-                        Src1TileDefine src2Tile(1, k * 2);
-                        Src1TileDefine src3Tile(1, k * 2);
+                        Src2TileDefine src2Tile(1, k * 2);
+                        Src3TileDefine src3Tile(1, k * 2);
                         Src4TileDefine src4Tile(1, kLast);
                         pto::TASSIGN(src1Tile, (uint64_t)(src1.GetAddr() + src1Offset * srcTypeSize));
-                        pto::TASSIGN(src2Tile, (uint64_t)(src2.GetAddr() + src1Offset * srcTypeSize));
-                        pto::TASSIGN(src3Tile, (uint64_t)(src3.GetAddr() + src1Offset * srcTypeSize));
+                        pto::TASSIGN(src2Tile, (uint64_t)(src2.GetAddr() + src2Offset * srcTypeSize));
+                        pto::TASSIGN(src3Tile, (uint64_t)(src3.GetAddr() + src3Offset * srcTypeSize));
                         pto::TASSIGN(src4Tile, (uint64_t)(src4.GetAddr() + src4Offset * srcTypeSize));
-                        pto::TMRGSORT<DstTileDefine, TmpTileDefine, Src1TileDefine, Src1TileDefine, Src1TileDefine, Src4TileDefine, false>(dstTile,
+                        pto::TMRGSORT<DstTileDefine, TmpTileDefine, Src1TileDefine, Src2TileDefine, Src3TileDefine, Src4TileDefine, false>(dstTile,
                                 executedNumList, tmpTile, src1Tile, src2Tile, src3Tile, src4Tile);
                     }
                     #ifdef __DAV_V220
