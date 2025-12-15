@@ -73,7 +73,7 @@ def gather_after_prolog_compute(args: GatherInputs):
     input_tensors = [top_k_indices, k_nope_cache,
                      k_rope_cache, block_table, act_seqs]
     output_tensors = [gather_res]
-    with pypto.function("main", input_tensors, output_tensors):
+    with pypto.function("main", *input_tensors, *output_tensors):
         for b_idx in pypto.loop(b, submit_before_loop=True):
             for s1_idx in pypto.loop(s1):
                 for n2_idx in pypto.loop(n2):

@@ -149,9 +149,7 @@ def gather_after_prolog_compute(block_size, b, s1, n2, topk, dn, dr, seq_lens):
     pypto.set_codegen_options(support_dynamic_unaligned=True)
 
     @pypto.jit
-    def gather_fwd(in_tensors, out_tensors):
-        topk_indices, k_nope_cache, k_rope_cache, block_table, act_seqs = in_tensors
-        (gather_res,) = out_tensors
+    def gather_fwd(topk_indices, k_nope_cache, k_rope_cache, block_table, act_seqs, gather_res):
         gather_after_prolog_graph(
             topk_indices,
             k_nope_cache,
@@ -172,7 +170,7 @@ def gather_after_prolog_compute(block_size, b, s1, n2, topk, dn, dr, seq_lens):
     output_data = [a.npu() for a in map(torch.zeros_like, output_golden)]
     pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(input_data)]
     pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(output_data)]
-    gather_fwd(pto_inputs, pto_outputs)
+    gather_fwd(*pto_inputs, *pto_outputs)
     compare(output_data[0].cpu(), output_golden[0])
     pypto.runtime._device_fini()
 

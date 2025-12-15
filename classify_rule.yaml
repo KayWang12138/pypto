@@ -16,6 +16,7 @@ pypto:
       - framework/include
       - framework/src
     unrelease:
+      - framework/src/machine/runtime
   llt:
     ut_check: true
     st_check: false

@@ -30,7 +30,7 @@ def test_assmble_2d():
     pypto.runtime._device_init()
     x = pypto.tensor(SHAPE, DTYPE)
     out = pypto.tensor(SHAPE, DTYPE)
-    with pypto.function("main", [x], [out]):
+    with pypto.function("main", x, out):
         pypto.set_vec_tile_shapes(8, 8)
         for a_idx in pypto.loop(4, name="LOOP_assemble_L0", idx_name="a_idx"):
             tmp = pypto.view(x, [8, 8], [0, a_idx * 8])
@@ -55,7 +55,7 @@ def test_assmble_2d():
     golden[:, :32] = 2
     pto_input_tensor = pypto.from_torch(torch_tensor, "pto_input_tensor")
     pto_output_tensor = pypto.from_torch(res_data, "pto_output_tensor")
-    pypto.runtime._device_run_once_data_from_host([pto_input_tensor], [pto_output_tensor])
+    pypto.runtime._device_run_once_data_from_host(pto_input_tensor, pto_output_tensor)
     assert_allclose(res_data, golden, atol=1e-5, verbose=True)
     pypto.runtime._device_fini()
 
@@ -66,7 +66,7 @@ def test_assmble_1d():
     pypto.runtime._device_init()
     x = pypto.tensor([24], DTYPE)
     out = pypto.tensor([24], DTYPE)
-    with pypto.function("main", [x], [out]):
+    with pypto.function("main", x, out):
         pypto.set_vec_tile_shapes(8)
         for a_idx in pypto.loop(2, name="LOOP_assemble_L0", idx_name="a_idx"):
             tmp = pypto.view(x, [8], [a_idx * 8])
@@ -75,12 +75,12 @@ def test_assmble_1d():
             out[a_idx * 8:] = add_tensor
     torch_tensor = torch.ones([24], dtype=torch.float32)
 
-    res_data = torch.ones([24], dtype=torch.float32) * 3
+    res_data = torch.zeros([24], dtype=torch.float32)
 
     golden = torch.zeros([24], dtype=torch.float32)
     golden[:16] = 2
     pto_input_tensor = pypto.from_torch(torch_tensor, "pto_input_tensor")
     pto_output_tensor = pypto.from_torch(res_data, "pto_output_tensor")
-    pypto.runtime._device_run_once_data_from_host([pto_input_tensor], [pto_output_tensor])
+    pypto.runtime._device_run_once_data_from_host(pto_input_tensor, pto_output_tensor)
     assert_allclose(res_data, golden, atol=1e-5, verbose=True)
     pypto.runtime._device_fini()

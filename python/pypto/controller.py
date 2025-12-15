@@ -282,7 +282,7 @@ def is_loop_end(scalar: SymInt):
 
 
 @contextmanager
-def function(name: str, in_tensors: List[Tensor], out_tensors: Optional[List[Tensor]] = None):
+def function(name: str, *args):
     """ defining the function
 
     This API record the function and dataflow user has defined. A computing
@@ -292,11 +292,8 @@ def function(name: str, in_tensors: List[Tensor], out_tensors: Optional[List[Ten
     ----------
     name: str
         The name of the function
-    in_tensors: List[Tensor]
-        The list of input tensors
-    out_tensors: List[Tensor]
-        The list of output tensors
-
+    *args: tuple
+        Tensors passed to the function
     Returns
     -------
     return the function in pypto framework. Operations will be added
@@ -305,22 +302,19 @@ def function(name: str, in_tensors: List[Tensor], out_tensors: Optional[List[Ten
 
     Examples
     --------
-    >>> with pypto.function("main", [a, b], [c]):
+    >>> with pypto.function("main", a, b, c):
             pypto.set_vec_tile_shapes(16, 16)
             for _ in pypto.loop(0, b_loop, 1, name, = "LOOP_L0_bIdx_mla_prolog",
                 idx_name = "b_idx"):
                 c[:] = a+b
 
     """
-    if out_tensors is None:
-        out_tensors = []
-    inputs = [t.base() for t in in_tensors]
-    outputs = [t.base() for t in out_tensors]
+    in_out_tensors = [item for item in args if isinstance(item, Tensor)]
     func = None
     try:
         Controller.reset()
         set_source_location(level=2)
-        func = pypto_impl.RecordFunc(name, inputs, outputs, [])
+        func = pypto_impl.RecordFunc(name, [t.base() for t in in_out_tensors])
         clear_source_location()
         yield
     except Exception as e:

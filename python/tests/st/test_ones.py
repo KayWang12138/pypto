@@ -30,7 +30,7 @@ def test_vector_operation_ones():
     pypto.set_codegen_options(support_dynamic_unaligned=True)
     pypto.runtime._device_init()
     a = pypto.tensor((n, m), dtype, "VEC_DUP_TENSOR_a")
-    with pypto.function("VEC_DUP", [], [a]):
+    with pypto.function("VEC_DUP", a):
         pypto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
         for b_idx in pypto.loop(int(np.ceil(n / view_shape[0])), name="LOOP_VEC_DUP_L0", idx_name="b_idx"):
             for s_idx in pypto.loop(int(np.ceil(m / view_shape[1])), name="LOOP_VEC_DUP_L1", idx_name="s_idx"):
@@ -41,7 +41,7 @@ def test_vector_operation_ones():
                 del tile_a
     a_tensor = torch.zeros(n, m, dtype=torch.float32)
     pto_result_tensor = pypto.from_torch(a_tensor, "output_tensor")
-    pypto.runtime._device_run_once_data_from_host([], [pto_result_tensor])
+    pypto.runtime._device_run_once_data_from_host(pto_result_tensor)
     expected = torch.ones(n, m, dtype=torch.float32)
     assert_allclose(a_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
     pypto.runtime._device_fini()
@@ -60,7 +60,7 @@ def test_vector_operation_zeros():
 
     a = pypto.tensor((n, m), dtype, "VEC_DUP_TENSOR_a")
 
-    with pypto.function("VEC_DUP", [], [a]):
+    with pypto.function("VEC_DUP", a):
         pypto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
         for b_idx in pypto.loop(int(np.ceil(n / view_shape[0])), name="LOOP_VEC_DUP_L0", idx_name="b_idx"):
             for s_idx in pypto.loop(int(np.ceil(m / view_shape[1])), name="LOOP_VEC_DUP_L1", idx_name="s_idx"):
@@ -71,7 +71,7 @@ def test_vector_operation_zeros():
                 del tile_a
     a_tensor = torch.ones(n, m, dtype=torch.float32)
     pto_result_tensor = pypto.from_torch(a_tensor, "output_tensor")
-    pypto.runtime._device_run_once_data_from_host([], [pto_result_tensor])
+    pypto.runtime._device_run_once_data_from_host(pto_result_tensor)
     expected = torch.zeros(n, m, dtype=torch.float32)
     assert_allclose(a_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
     pypto.runtime._device_fini()

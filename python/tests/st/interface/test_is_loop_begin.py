@@ -28,9 +28,7 @@ d = 64
     host_options={"only_codegen": True},
     codegen_options={"support_dynamic_unaligned": True}
 )
-def dyn_loop_with_loop_begin(in_tensors, out_tensors):
-    in_tensor = in_tensors[0]
-    out_tensor = out_tensors[0]
+def dyn_loop_with_loop_begin(in_tensor, out_tensor):
     pypto.set_vec_tile_shapes(1, 1, 64, 64)
 
     for b_idx in pypto.loop(b, name="b_loop", idx_name="b_idx"):
@@ -59,7 +57,7 @@ def test_is_loop_begin():
     pto_outputs = [pypto.from_torch(output_npu, "OUT")]
 
     # compute on npu
-    dyn_loop_with_loop_begin(pto_inputs, pto_outputs)
+    dyn_loop_with_loop_begin(pto_inputs[0], pto_outputs[0])
     pypto.runtime._device_synchronize()
 
 
@@ -78,9 +76,7 @@ def test_is_loop_begin():
     host_options={"only_codegen": True},
     codegen_options={"support_dynamic_unaligned": True}
 )
-def dyn_loop_with_loop_end(in_tensors, out_tensors):
-    in_tensor = in_tensors[0]
-    out_tensor = out_tensors[0]
+def dyn_loop_with_loop_end(in_tensor, out_tensor):
     pypto.set_vec_tile_shapes(1, 1, 64, 64)
 
     for b_idx in pypto.loop(b, name="b_loop", idx_name="b_idx"):
@@ -109,7 +105,7 @@ def test_is_loop_end():
     pto_outputs = [pypto.from_torch(output_npu, "OUT")]
 
     # compute on npu
-    dyn_loop_with_loop_end(pto_inputs, pto_outputs)
+    dyn_loop_with_loop_end(pto_inputs[0], pto_outputs[0])
     pypto.runtime._device_synchronize()
 
     output_cpu = output_npu.cpu()

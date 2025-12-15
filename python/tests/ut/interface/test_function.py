@@ -21,7 +21,7 @@ def test_static_function():
     b = pypto.tensor(shape, dtype, "tensor_b")
     c = pypto.tensor(shape, dtype, "tensor_c")
 
-    with pypto.function("ADD", [a, b]):
+    with pypto.function("ADD", a, b):
         pypto.set_vec_tile_shapes(8, 8)
         c[:] = pypto.add(a, b)
 
@@ -36,7 +36,7 @@ def test_empty_function():
     a = pypto.tensor((8, 8), dtype, "tensor_a")
     fnc_name = "name"
 
-    with pypto.function(fnc_name, [a]):
+    with pypto.function(fnc_name, a):
         pypto.set_vec_tile_shapes(8, 8)
 
     assert True
@@ -49,7 +49,7 @@ def test_dyn_function():
     b = pypto.tensor(shape, dtype, "tensor_b")
     c = pypto.tensor(shape, dtype, "tensor_c")
 
-    with pypto.function("ADD", [a, b], [c]):
+    with pypto.function("ADD", a, b, c):
         pypto.set_vec_tile_shapes(8, 8)
         c[:] = pypto.add(a, b)
 

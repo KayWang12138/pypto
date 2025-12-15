@@ -27,7 +27,7 @@ def test_sin_shape_dim():
     dtype = pypto.DT_FP32
     x = pypto.tensor(x_shape, dtype)
 
-    with pypto.function("SIN_SHAPE", [x]):
+    with pypto.function("SIN_SHAPE", x):
         pypto.set_vec_tile_shapes(4, 4)
         res = pypto.sin(x)
         torch_case_tensor = torch.randn((4, 4), dtype = torch.float32)
@@ -44,7 +44,7 @@ def test_sin_FP32():
     x = pypto.tensor(x_shape, dtype)
     res = pypto.tensor(x_shape, dtype)
 
-    with pypto.function("SIN_CONTENT_FP32", [x], [res]):
+    with pypto.function("SIN_CONTENT_FP32", x, res):
         for _ in pypto.loop(1, name="LOOP_L0", idx_name="a_idx"):
             pypto.set_vec_tile_shapes(4, 4)
             res.move(pypto.sin(x))
@@ -53,7 +53,7 @@ def test_sin_FP32():
     res_tensor = torch.zeros(4, 4, dtype=torch.float32)
     pto_x_tensor = pypto.from_torch(x_tensor, "x_tensor")
     pto_res_tensor = pypto.from_torch(res_tensor, "res_tensor")
-    pypto.runtime._device_run_once_data_from_host([pto_x_tensor], [pto_res_tensor])
+    pypto.runtime._device_run_once_data_from_host(pto_x_tensor, pto_res_tensor)
     expected = torch.sin(x_tensor)
     assert_allclose(res_tensor.flatten(), expected.flatten(), atol=1e-3, verbose=True)
     pypto.runtime._device_fini()
@@ -68,7 +68,7 @@ def test_sin_FP16():
     x = pypto.tensor(x_shape, dtype)
     res = pypto.tensor(x_shape, dtype)
 
-    with pypto.function("SIN_CONTENT_FP16", [x], [res]):
+    with pypto.function("SIN_CONTENT_FP16", x, res):
         for _ in pypto.loop(1, name="LOOP_L0", idx_name="a_idx"):
             pypto.set_vec_tile_shapes(4, 4)
             res.move(pypto.sin(x))
@@ -77,7 +77,7 @@ def test_sin_FP16():
     res_tensor = torch.zeros(4, 4, dtype=torch.float16)
     pto_x_tensor = pypto.from_torch(x_tensor, "x_tensor")
     pto_res_tensor = pypto.from_torch(res_tensor, "res_tensor")
-    pypto.runtime._device_run_once_data_from_host([pto_x_tensor], [pto_res_tensor])
+    pypto.runtime._device_run_once_data_from_host(pto_x_tensor, pto_res_tensor)
     expected = torch.sin(x_tensor)
     assert_allclose(res_tensor.flatten(), expected.flatten(), atol=1e-3, verbose=True)
     pypto.runtime._device_fini()
@@ -92,7 +92,7 @@ def test_tensor_sin_FP32():
     x = pypto.tensor(x_shape, dtype)
     res = pypto.tensor(x_shape, dtype)
 
-    with pypto.function("TENSOR_SIN_CONTENT_FP32", [x], [res]):
+    with pypto.function("TENSOR_SIN_CONTENT_FP32", x, res):
         for _ in pypto.loop(1, name="LOOP_L0", idx_name="a_idx"):
             pypto.set_vec_tile_shapes(4, 4)
             res.move(x.sin())
@@ -101,7 +101,7 @@ def test_tensor_sin_FP32():
     res_tensor = torch.zeros(4, 4, dtype=torch.float32)
     pto_x_tensor = pypto.from_torch(x_tensor, "x_tensor")
     pto_res_tensor = pypto.from_torch(res_tensor, "res_tensor")
-    pypto.runtime._device_run_once_data_from_host([pto_x_tensor], [pto_res_tensor])
+    pypto.runtime._device_run_once_data_from_host(pto_x_tensor, pto_res_tensor)
     expected = torch.sin(x_tensor)
     assert_allclose(res_tensor.flatten(), expected.flatten(), atol=1e-3, verbose=True)
     pypto.runtime._device_fini()

@@ -21,7 +21,7 @@ def test_record_function():
     b = pypto.tensor(shape, dtype, "tensor_b")
     c = None
 
-    with pypto.function("ADD", [a, b]):
+    with pypto.function("ADD", a, b):
         pypto.set_vec_tile_shapes(8, 8)
         c = pypto.add(a, b)
 
@@ -37,7 +37,7 @@ def test_begin_inplaceadd_end_function():
     b = pypto.tensor(shape, dtype, "tensor_b")
     c = None
 
-    with pypto.function("ADD_INPLACE", [a, b]):
+    with pypto.function("ADD_INPLACE", a, b):
         pypto.set_vec_tile_shapes(8, 8)
         c = a + b
 
@@ -50,7 +50,7 @@ def test_empty_begin_end_function():
     dtype = pypto.DT_FP16
     a = pypto.tensor((8, 8), dtype, "tensor_a")
 
-    with pypto.function("MAIN", [a]):
+    with pypto.function("MAIN", a):
         pypto.set_vec_tile_shapes(8, 8)
 
     assert True

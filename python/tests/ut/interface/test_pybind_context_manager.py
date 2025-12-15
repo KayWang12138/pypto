@@ -20,7 +20,7 @@ def test_pybind_context_manager():
     b = pypto.tensor(shape, dtype, "tensor_a")
     c = pypto.tensor(shape, dtype, "tensor_c")
 
-    with pypto.function("fnc_name", [a, b]):
+    with pypto.function("fnc_name", a, b):
         pypto.set_vec_tile_shapes(8, 8)
         c.move(pypto.add(a, b))
 

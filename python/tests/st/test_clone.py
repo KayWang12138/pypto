@@ -28,9 +28,7 @@ d = 64
     host_options={"only_codegen": True},
     codegen_options={"support_dynamic_unaligned": True}
 )
-def kernel_func(in_tensors, out_tensors):
-    in_tensor = in_tensors[0]
-    out_tensor = out_tensors[0]
+def kernel_func(in_tensor, out_tensor):
     pypto.set_vec_tile_shapes(1, 1, 64, 64)
 
     for b_idx in pypto.loop(b, name="b_loop", idx_name="b_idx"):
@@ -56,7 +54,7 @@ def test_clone():
     pto_inputs = [pypto.from_torch(input_npu, "IN")]
     pto_outputs = [pypto.from_torch(output_npu, "OUT")]
     # compute on npu
-    kernel_func(pto_inputs, pto_outputs)
+    kernel_func(pto_inputs[0], pto_outputs[0])
     pypto.runtime._device_synchronize()
 
     output_cpu = output_npu.cpu()

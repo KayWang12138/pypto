@@ -25,7 +25,7 @@ def init_tensors():
 
 def test_dynamic_loop_nomacro():
     a, b, c = init_tensors()
-    with pypto.function("MAIN", [a, b], [c]):
+    with pypto.function("MAIN", a, b, c):
         pypto.set_vec_tile_shapes(16, 16)
         for k in pypto.loop(10, name="LOOP", idx_name="k"):
             b.move(pypto.add(a, a))

@@ -35,7 +35,7 @@ def test_exp_tensor_onboard():
     a = pypto.tensor(shape, dtype, "SQRT_TENSOR_a")
     b = pypto.tensor(shape, dtype, "SQRT_TENSOR_b")
 
-    with pypto.function("EXP", [a], [b]):
+    with pypto.function("EXP", a, b):
         for b_idx in pypto.loop(int(math.ceil(n / view_shape[0])), name="LOOP_SQRT_L0", idx_name="b_idx"):
             for s_idx in pypto.loop(int(math.ceil(m / view_shape[1])), name="LOOP_SQRT_L1", idx_name="s_idx"):
                 tile_a = pypto.view(a, view_shape,
@@ -52,7 +52,7 @@ def test_exp_tensor_onboard():
 
     pto_a_tensor = pypto.from_torch(a_tensor, "a_tensor")
     pto_b_tensor = pypto.from_torch(b_tensor, "b_tensor")
-    pypto.runtime._device_run_once_data_from_host([pto_a_tensor], [pto_b_tensor])
+    pypto.runtime._device_run_once_data_from_host(pto_a_tensor, pto_b_tensor)
 
     expected = torch.exp(a_tensor)
     assert_allclose(b_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
@@ -86,7 +86,7 @@ def test_scatterupdate_tensor_onboard():
     b_loop_num = math.ceil(src_shape[0] / view_shape[0])
     s_loop_num = math.ceil(src_shape[1] / view_shape[1])
     pypto.set_codegen_options(support_dynamic_unaligned=True)
-    with pypto.function("MAIN", [src_tensor, index_tensor, update_tensor], [dst_tensor]):
+    with pypto.function("MAIN", src_tensor, index_tensor, update_tensor, dst_tensor):
         for b_idx in pypto.loop(b_loop_num, name="b0", idx_name="bidx"):
             for s_idx in pypto.loop(s_loop_num, name="s0", idx_name="sidx"):
                 tmp_dst_tensor = pypto.tensor(
@@ -142,7 +142,7 @@ def test_scatterupdate_tensor_onboard():
     pto_d_tensor = pypto.from_torch(d_tensor, "d_tensor")
 
 
-    pypto.runtime._device_run_once_data_from_host([pto_a_tensor, pto_b_tensor, pto_c_tensor], [pto_d_tensor])
+    pypto.runtime._device_run_once_data_from_host(pto_a_tensor, pto_b_tensor, pto_c_tensor, pto_d_tensor)
 
     for _b in range(b):
         for _s in range(s):
@@ -179,7 +179,7 @@ def scatter_2dim_proc(scatter_para, is_inplace):
     b_loop_num = math.ceil(indices_shape[0] / view_shape[0])
     s_loop_num = math.ceil(indices_shape[1] / view_shape[1])
     pypto.set_codegen_options(support_dynamic_unaligned=True)
-    with pypto.function("MAIN", [self_tensor, indices_tensor], [dst_tensor]):
+    with pypto.function("MAIN", self_tensor, indices_tensor, dst_tensor):
         for b_idx in pypto.loop(b_loop_num, name="b0", idx_name="bidx"):
             for s_idx in pypto.loop(s_loop_num, name="s0", idx_name="sidx"):
                 tmp_dst_tensor = pypto.tensor(view_shape, pypto.DT_FP32, "PTO_TENSOR_TMP")
@@ -211,7 +211,7 @@ def scatter_2dim_proc(scatter_para, is_inplace):
     pto_input0_tensor = pypto.from_torch(input0_tensor, "input0_tensor")
     pto_input1_tensor = pypto.from_torch(input1_tensor, "input1_tensor")
     pto_result_tensor = pypto.from_torch(c_tensor, "c_tensor")
-    pypto.runtime._device_run_once_data_from_host([pto_input0_tensor, pto_input1_tensor], [pto_result_tensor])
+    pypto.runtime._device_run_once_data_from_host(pto_input0_tensor, pto_input1_tensor, pto_result_tensor)
 
     result = input0_tensor.clone()
     for i in range(indices_shape[0]):
@@ -272,7 +272,7 @@ def test_scatter_add_onboard():
     b_loop_num = math.ceil(indices_shape[0] / view_shape[0])
     s_loop_num = math.ceil(indices_shape[1] / view_shape[1])
     pypto.set_codegen_options(support_dynamic_unaligned=True)
-    with pypto.function("MAIN", [self_tensor, indices_tensor], [dst_tensor]):
+    with pypto.function("MAIN", self_tensor, indices_tensor, dst_tensor):
         for b_idx in pypto.loop(b_loop_num, name="b0", idx_name="bidx"):
             for s_idx in pypto.loop(s_loop_num, name="s0", idx_name="sidx"):
                 tmp_dst_tensor = pypto.tensor(view_shape, pypto.DT_FP32, "PTO_TENSOR_TMP")
@@ -301,7 +301,7 @@ def test_scatter_add_onboard():
     pto_input0_tensor = pypto.from_torch(input0_tensor, "input0_tensor")
     pto_input1_tensor = pypto.from_torch(input1_tensor, "input1_tensor")
     pto_result_tensor = pypto.from_torch(c_tensor, "c_tensor")
-    pypto.runtime._device_run_once_data_from_host([pto_input0_tensor, pto_input1_tensor], [pto_result_tensor])
+    pypto.runtime._device_run_once_data_from_host(pto_input0_tensor, pto_input1_tensor, pto_result_tensor)
 
     result = input0_tensor.clone()
     for i in range(indices_shape[0]):

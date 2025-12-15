@@ -26,7 +26,7 @@ def test_slice_neg_index():
     x = pypto.tensor([4, 8], dtype)
     res = pypto.tensor([2, 1], dtype)
 
-    with pypto.function("SLICE_NEG_INDEX", [x], [res]):
+    with pypto.function("SLICE_NEG_INDEX", x, res):
         for _ in pypto.loop(1, name="LOOP_L0", idx_name="a_idx"):
             pypto.set_vec_tile_shapes(4, 8)
             res[:] = x[-3:-1, -2:-1]
@@ -35,7 +35,7 @@ def test_slice_neg_index():
     res_tensor = torch.zeros(2, 1, dtype=torch.float32)
     pto_tensor = pypto.from_torch(torch_tensor, "torch_tensor")
     pto_res_tensor = pypto.from_torch(res_tensor, "res_tensor")
-    pypto.runtime._device_run_once_data_from_host([pto_tensor], [pto_res_tensor])
+    pypto.runtime._device_run_once_data_from_host(pto_tensor, pto_res_tensor)
     expected = torch_tensor[-3:-1, -2:-1]
 
     assert torch.equal(res_tensor.flatten(), expected.flatten())
@@ -51,7 +51,7 @@ def test_slice_int_index():
     x = pypto.tensor([4, 8, 8, 8, 8], dtype)
     res = pypto.tensor([3, 8, 3], dtype)
 
-    with pypto.function("SLICE_INT_INDEX", [x], [res]):
+    with pypto.function("SLICE_INT_INDEX", x, res):
         for _ in pypto.loop(1, name="LOOP_L0", idx_name="a_idx"):
             pypto.set_vec_tile_shapes(4, 4, 4, 4, 8)
             res[:] = x[-2, -3:8, :, 1:4, 2]
@@ -60,7 +60,7 @@ def test_slice_int_index():
     res_tensor = torch.zeros(3, 8, 3, dtype=torch.float32)
     pto_tensor = pypto.from_torch(torch_tensor, "torch_tensor")
     pto_res_tensor = pypto.from_torch(res_tensor, "res_tensor")
-    pypto.runtime._device_run_once_data_from_host([pto_tensor], [pto_res_tensor])
+    pypto.runtime._device_run_once_data_from_host(pto_tensor, pto_res_tensor)
     expected = torch_tensor[-2, -3:8, :, 1:4, 2]
 
     assert torch.equal(res_tensor.flatten(), expected.flatten())
@@ -79,7 +79,7 @@ def test_slice_ellipsis_index():
     res3 = pypto.tensor([8, 8], dtype)
     res4 = pypto.tensor([4, 8, 8, 8], dtype)
 
-    with pypto.function("SLICE_INT_ELLIPSIS_INDEX", [x], [res1, res2, res3, res4]):
+    with pypto.function("SLICE_INT_ELLIPSIS_INDEX", x, res1, res2, res3, res4):
         for _ in pypto.loop(1, name="LOOP_L0", idx_name="a_idx"):
             pypto.set_vec_tile_shapes(4, 4, 4, 8)
             res1[:] = x[..., 2]
@@ -99,8 +99,8 @@ def test_slice_ellipsis_index():
     pto_res3_tensor = pypto.from_torch(res3_tensor, "res3_tensor")
     pto_res4_tensor = pypto.from_torch(res4_tensor, "res4_tensor")
 
-    pypto.runtime._device_run_once_data_from_host([pto_tensor],
-                                                [pto_res1_tensor, pto_res2_tensor, pto_res3_tensor, pto_res4_tensor])
+    pypto.runtime._device_run_once_data_from_host(pto_tensor,
+                                                pto_res1_tensor, pto_res2_tensor, pto_res3_tensor, pto_res4_tensor)
     expected1 = torch_tensor[..., 2]
     expected2 = torch_tensor[1:2, :, ..., 3:5]
     expected3 = torch_tensor[2, 3, ...]
@@ -124,7 +124,7 @@ def test_less_dim_index():
     res2 = pypto.tensor([8, 8], dtype)
     res3 = pypto.tensor([8], dtype)
 
-    with pypto.function("LESS_DIM_INDEX", [x], [res1, res2, res3]):
+    with pypto.function("LESS_DIM_INDEX", x, res1, res2, res3):
         for _ in pypto.loop(1, name="LOOP_L0", idx_name="a_idx"):
             pypto.set_vec_tile_shapes(4, 4, 4, 8)
             res1[:] = x[1]
@@ -139,7 +139,7 @@ def test_less_dim_index():
     pto_res1_tensor = pypto.from_torch(res1_tensor, "res1_tensor")
     pto_res2_tensor = pypto.from_torch(res2_tensor, "res2_tensor")
     pto_res3_tensor = pypto.from_torch(res3_tensor, "res3_tensor")
-    pypto.runtime._device_run_once_data_from_host([pto_tensor], [pto_res1_tensor, pto_res2_tensor, pto_res3_tensor])
+    pypto.runtime._device_run_once_data_from_host(pto_tensor, pto_res1_tensor, pto_res2_tensor, pto_res3_tensor)
     expected1 = torch_tensor[1]
     expected2 = torch_tensor[1, 2]
     expected3 = torch_tensor[1, 2, 3]

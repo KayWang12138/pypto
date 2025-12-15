@@ -122,11 +122,11 @@ def dynamic_matmul_onboard_util(input_config: ShapeConfig, extend_params: Option
     pto_c_device_tensor = pypto.from_torch(c_device_data, "c_device_data")
     # onboard execute
     if extend_params is None:
-        pypto.runtime._device_run_once_data_from_host([pto_a_tensor, pto_b_tensor], [pto_c_device_tensor])
+        pypto.runtime._device_run_once_data_from_host(pto_a_tensor, pto_b_tensor, pto_c_device_tensor)
     if bias is not None:
         pto_bias_tensor = pypto.from_torch(bias, "bias_data")
-        pypto.runtime._device_run_once_data_from_host([pto_a_tensor, pto_b_tensor, pto_bias_tensor],
-                                                        [pto_c_device_tensor])
+        pypto.runtime._device_run_once_data_from_host(pto_a_tensor, pto_b_tensor, pto_bias_tensor,
+                                                        pto_c_device_tensor)
 
     # compare golden with onboard data
     assert_allclose(c_data, c_device_data, rtol=0.001, atol=0.001)
@@ -141,7 +141,7 @@ def no_split_m_n(tensor_a, tensor_b, tensor_c, input_config):
     valid_shape_a = [shape_a[0], shape_a[1]]
     valid_shape_b = [shape_b[0], shape_b[1]]
     dtype = convert_np_dtype_to_pto_dtype(input_config.out_dtype)
-    with pypto.function("test_no_split", [tensor_a, tensor_b], [tensor_c]):
+    with pypto.function("test_no_split", tensor_a, tensor_b, tensor_c):
         for idx in pypto.loop(1, name="loop", idx_name="idx"):
             dyn_a = pypto.view(tensor_a, shape_a, [idx, 0], valid_shape=valid_shape_a)
             dyn_b = pypto.view(tensor_b, shape_b, [0, 0], valid_shape=valid_shape_b)
@@ -159,7 +159,7 @@ def no_split_m_n_with_extend_param(tensor_a, tensor_b, tensor_c, input_config, e
     valid_shape_b = [shape_b[0], shape_b[1]]
 
     dtype = convert_np_dtype_to_pto_dtype(input_config.out_dtype)
-    with pypto.function("test_no_split", [tensor_a, tensor_b, tensor_bias], [tensor_c]):
+    with pypto.function("test_no_split", tensor_a, tensor_b, tensor_bias, tensor_c):
         for idx in pypto.loop(1, name="loop", idx_name="idx"):
             dyn_a = pypto.view(tensor_a, shape_a, [idx, 0], valid_shape=valid_shape_a)
             dyn_b = pypto.view(tensor_b, shape_b, [0, 0], valid_shape=valid_shape_b)
@@ -180,7 +180,7 @@ def split_m_axis(tensor_a, tensor_b, tensor_c, input_config):
     m_axis = shape_a[1] if a_trans else shape_a[0]
     loop_end = ceil_div_util(m_axis, view_shape[0])
 
-    with pypto.function("test_m_split", [tensor_a, tensor_b], [tensor_c]):
+    with pypto.function("test_m_split", tensor_a, tensor_b, tensor_c):
         for m_idx in pypto.loop(0, loop_end, 1, name="m_loop", idx_name="m_idx"):
             matmul_split_m_utils(tensor_a, tensor_b, tensor_c, input_config, m_idx)
 
@@ -215,7 +215,7 @@ def split_n_axis(tensor_a, tensor_b, tensor_c, input_config):
     n_axis = shape_b[0] if b_trans else shape_b[1]
     loop_end = ceil_div_util(n_axis, view_shape[1])
 
-    with pypto.function("test_n_split", [tensor_a, tensor_b], [tensor_c]):
+    with pypto.function("test_n_split", tensor_a, tensor_b, tensor_c):
         for n_idx in pypto.loop(0, loop_end, 1, name="n_loop", idx_name="n_idx"):
             matmul_split_n_utils(tensor_a, tensor_b, tensor_c, input_config, n_idx)
 
@@ -252,7 +252,7 @@ def split_m_n_axis(tensor_a, tensor_b, tensor_c, input_config):
     m_axis = shape_a[1] if a_trans else shape_a[0]
     m_loop_end = ceil_div_util(m_axis, view_shape[0])
 
-    with pypto.function("test_m_n_split", [tensor_a, tensor_b], [tensor_c]):
+    with pypto.function("test_m_n_split", tensor_a, tensor_b, tensor_c):
         for m_idx in pypto.loop(0, m_loop_end, 1, name="m_loop", idx_name="m_idx"):
             matmul_split_m_n_util(tensor_a, tensor_b, tensor_c, input_config, m_idx)
 

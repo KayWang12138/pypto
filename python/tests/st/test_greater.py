@@ -32,7 +32,7 @@ def test_vector_operation_greater():
     a = pypto.tensor(shape, dtype, "Greater_TENSOR_a")
     b = pypto.tensor(shape, dtype, "Greater_TENSOR_b")
     c = pypto.tensor(shape, pypto.DT_BOOL, "Greater_TENSOR_c")
-    with pypto.function("Greater", [a, b], [c]):
+    with pypto.function("Greater", a, b, c):
         pypto.set_codegen_options(support_dynamic_unaligned=True)
 
         for b_idx in pypto.loop(int(np.ceil(n / view_shape[0])), name="LOOP_GREATER_L0", idx_name="b_idx"):
@@ -68,7 +68,7 @@ def test_vector_operation_greater():
     pto_c_tensor = pypto.from_torch(c_tensor, "c_tensor")
 
     pypto.runtime._device_run_once_data_from_host(
-        [pto_a_tensor, pto_b_tensor], [pto_c_tensor])
+        pto_a_tensor, pto_b_tensor, pto_c_tensor)
     expected = torch.greater(a_tensor, b_tensor)
     assert_allclose(c_tensor.flatten(), expected.flatten(),
                     rtol=1e-3, atol=1e-3)
@@ -89,7 +89,7 @@ def test_greater_scalar():
     pypto.runtime._device_init()
     input_tensor = pypto.tensor(shape, dtype, "GREATER_SCALAR_INPUT")
     output_tensor = pypto.tensor(shape, pypto.DT_BOOL, "GREATER_SCALAR_OUTPUT")
-    with pypto.function("GreaterScalar", [input_tensor], [output_tensor]):
+    with pypto.function("GreaterScalar", input_tensor, output_tensor):
         pypto.set_codegen_options(support_dynamic_unaligned=True)
         b_loop_num = int(np.ceil(n / view_shape[0]))
         s_loop_num = int(np.ceil(m / view_shape[1]))
@@ -120,7 +120,7 @@ def test_greater_scalar():
     pto_input_tensor = pypto.from_torch(input_data, "input_data")
     pto_output_tensor = pypto.from_torch(output_data, "output_data")
 
-    pypto.runtime._device_run_once_data_from_host([pto_input_tensor], [pto_output_tensor])
+    pypto.runtime._device_run_once_data_from_host(pto_input_tensor, pto_output_tensor)
     expected_result = torch.greater(input_data, scalar_value)
     assert_allclose(output_data.flatten(), expected_result.flatten(),
                     rtol=1e-6, atol=1e-6)
@@ -141,7 +141,7 @@ def test_vector_operation_equal():
     a = pypto.tensor(shape, dtype, "Equal_TENSOR_a")
     b = pypto.tensor(shape, dtype, "Equal_TENSOR_b")
     c = pypto.tensor(shape, pypto.DT_BOOL, "Equal_TENSOR_c")
-    with pypto.function("Equal", [a, b], [c]):
+    with pypto.function("Equal", a, b, c):
         pypto.set_codegen_options(support_dynamic_unaligned=True)
 
         for b_idx in pypto.loop(int(np.ceil(n / view_shape[0])), name="LOOP_EQUAL_L0", idx_name="b_idx"):
@@ -176,7 +176,7 @@ def test_vector_operation_equal():
     pto_c_tensor = pypto.from_torch(c_tensor, "c_tensor")
 
     pypto.runtime._device_run_once_data_from_host(
-        [pto_a_tensor, pto_b_tensor], [pto_c_tensor])
+        pto_a_tensor, pto_b_tensor, pto_c_tensor)
     expected = torch.eq(a_tensor, b_tensor)
     assert_allclose(c_tensor.flatten(), expected.flatten(),
                     rtol=1e-3, atol=1e-3)
@@ -197,7 +197,7 @@ def test_equal_scalar():
     pypto.runtime._device_init()
     input_tensor = pypto.tensor(shape, dtype, "EQUAL_SCALAR_INPUT")
     output_tensor = pypto.tensor(shape, pypto.DT_BOOL, "EQUAL_SCALAR_OUTPUT")
-    with pypto.function("EqualScalar", [input_tensor], [output_tensor]):
+    with pypto.function("EqualScalar", input_tensor, output_tensor):
         pypto.set_codegen_options(support_dynamic_unaligned=True)
         b_loop_num = int(np.ceil(n / view_shape[0]))
         s_loop_num = int(np.ceil(m / view_shape[1]))
@@ -228,7 +228,7 @@ def test_equal_scalar():
     pto_input_tensor = pypto.from_torch(input_data, "input_data")
     pto_output_tensor = pypto.from_torch(output_data, "output_data")
 
-    pypto.runtime._device_run_once_data_from_host([pto_input_tensor], [pto_output_tensor])
+    pypto.runtime._device_run_once_data_from_host(pto_input_tensor, pto_output_tensor)
     expected_result = torch.eq(input_data, scalar_value)
     assert_allclose(output_data.flatten(), expected_result.flatten(),
                     rtol=1e-6, atol=1e-6)
@@ -249,7 +249,7 @@ def test_vector_operation_less():
     a = pypto.tensor(shape, dtype, "Less_TENSOR_a")
     b = pypto.tensor(shape, dtype, "Less_TENSOR_b")
     c = pypto.tensor(shape, pypto.DT_BOOL, "Less_TENSOR_c")
-    with pypto.function("Less", [a, b], [c]):
+    with pypto.function("Less", a, b, c):
         pypto.set_codegen_options(support_dynamic_unaligned=True)
 
         for b_idx in pypto.loop(int(np.ceil(n / view_shape[0])), name="LOOP_LESS_L0", idx_name="b_idx"):
@@ -284,7 +284,7 @@ def test_vector_operation_less():
     pto_c_tensor = pypto.from_torch(c_tensor, "c_tensor")
 
     pypto.runtime._device_run_once_data_from_host(
-        [pto_a_tensor, pto_b_tensor], [pto_c_tensor])
+        pto_a_tensor, pto_b_tensor, pto_c_tensor)
     expected = torch.lt(a_tensor, b_tensor)
     assert_allclose(c_tensor.flatten(), expected.flatten(),
                     rtol=1e-3, atol=1e-3)
@@ -305,7 +305,7 @@ def test_less_scalar():
     pypto.runtime._device_init()
     input_tensor = pypto.tensor(shape, dtype, "LESS_SCALAR_INPUT")
     output_tensor = pypto.tensor(shape, pypto.DT_BOOL, "LESS_SCALAR_OUTPUT")
-    with pypto.function("LessScalar", [input_tensor], [output_tensor]):
+    with pypto.function("LessScalar", input_tensor, output_tensor):
         pypto.set_codegen_options(support_dynamic_unaligned=True)
         b_loop_num = int(np.ceil(n / view_shape[0]))
         s_loop_num = int(np.ceil(m / view_shape[1]))
@@ -335,7 +335,7 @@ def test_less_scalar():
     pto_input_tensor = pypto.from_torch(input_data, "input_data")
     pto_output_tensor = pypto.from_torch(output_data, "output_data")
 
-    pypto.runtime._device_run_once_data_from_host([pto_input_tensor], [pto_output_tensor])
+    pypto.runtime._device_run_once_data_from_host(pto_input_tensor, pto_output_tensor)
     expected_result = torch.lt(input_data, scalar_value)
     assert_allclose(output_data.flatten(), expected_result.flatten(),
                     rtol=1e-6, atol=1e-6)

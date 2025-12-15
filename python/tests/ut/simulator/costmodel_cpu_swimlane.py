@@ -79,7 +79,7 @@ def softmax_core(input_tensor: pypto.tensor) -> pypto.tensor:
 
 
 @pypto.jit
-def softmax(inputs, outputs):
+def softmax(input_tensor, output_tensor):
     """
     Softmax implementation with dynamic batch size support.
     
@@ -98,9 +98,6 @@ def softmax(inputs, outputs):
     pypto.set_runtime_options(cfgcache_root_task_num=100)
     pypto.set_runtime_options(cfgcache_leaf_task_num=10000)
     pypto.set_runtime_options(run_mode=1)
-    
-    input_tensor = inputs[0]
-    output_tensor = outputs[0]
 
     # After the dynamic axis of tensor is marked, get the tensor shape accordingly
     tensor_shape = input_tensor.shape
@@ -153,7 +150,7 @@ def test_softmax():
     pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
 
     # Launch the kernel
-    softmax(pto_inputs, pto_outputs)
+    softmax(*pto_inputs, *pto_outputs)
 
     # Verify against PyTorch reference
     torch_softmax = torch.softmax(input_data, dim=3)

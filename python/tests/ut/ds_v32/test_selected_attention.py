@@ -89,7 +89,7 @@ def selected_attention_compute(args: SAInputs):
     input_tensors = [q_nope, q_rope, k_slc, v_slc, kv_slc_act_seqs]
     output_tensors = [attention_out]
 
-    with pypto.function("SA_MAIN", input_tensors, output_tensors):
+    with pypto.function("SA_MAIN", *input_tensors, *output_tensors):
         for b_idx in pypto.loop(
             0,
             batch_size_sym,

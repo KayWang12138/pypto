@@ -37,7 +37,7 @@ def test_maximum():
 
     first_view_shape, second_view_shape = view_shape
 
-    with function("Maximum", [x, y], [out]):
+    with function("Maximum", x, y, out):
 
         for b_idx in pypto.loop(int(np.ceil(first_dim / view_shape[0])), name="LOOP_ADD_L0", idx_name="b_idx"):
             for s_idx in pypto.loop(int(np.ceil(second_dim / view_shape[1])), name="LOOP_ADD_L1", idx_name="s_idx"):
@@ -92,7 +92,7 @@ def test_maximum():
     pto_ny_tensor = pypto.from_torch(ny_tensor, "ny_tensor")
     pto_nout_tensor = pypto.from_torch(nout_tensor, "nout_tensor")
     pypto.runtime._device_run_once_data_from_host(
-        [pto_nx_tensor, pto_ny_tensor], [pto_nout_tensor])
+        pto_nx_tensor, pto_ny_tensor, pto_nout_tensor)
     golden_data = torch.maximum(nx_tensor, ny_tensor)
     assert torch.allclose(nout_tensor, golden_data, rtol=1e-9, atol=1e-10)
     pypto.runtime._device_fini()

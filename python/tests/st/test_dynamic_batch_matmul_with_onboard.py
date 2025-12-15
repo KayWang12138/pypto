@@ -89,7 +89,7 @@ def dynamic_batch_matmul_onboard_util(input_config: BatchMatmulShapeConfig):
     pto_b_tensor = pypto.from_torch(b_data, "b_data")
     pto_c_device_tensor = pypto.from_torch(c_device_data, "c_device_data")
     # onboard execute
-    pypto.runtime._device_run_once_data_from_host([pto_a_tensor, pto_b_tensor], [pto_c_device_tensor])
+    pypto.runtime._device_run_once_data_from_host(pto_a_tensor, pto_b_tensor, pto_c_device_tensor)
 
     # compare golden with onboard data
     assert_allclose(c_data, c_device_data, rtol=0.001, atol=0.001)
@@ -99,7 +99,7 @@ def dynamic_batch_matmul_onboard_util(input_config: BatchMatmulShapeConfig):
 
 
 def no_split_m_n(tensor_a, tensor_b, tensor_c, input_config):
-    with pypto.function("test_no_split", [tensor_a, tensor_b], [tensor_c]):
+    with pypto.function("test_no_split", tensor_a, tensor_b, tensor_c):
         for idx in pypto.loop(1, name="loop", idx_name="idx"):
             batch_matmul_no_split_util(tensor_a, tensor_b, tensor_c, input_config, idx)
 
@@ -126,7 +126,7 @@ def split_m_axis(tensor_a, tensor_b, tensor_c, input_config):
     m_axis = shape_a[2] if a_trans else shape_a[1]
     loop_end = ceil_div(m_axis, view_shape[1])
 
-    with pypto.function("test_m_split", [tensor_a, tensor_b], [tensor_c]):
+    with pypto.function("test_m_split", tensor_a, tensor_b, tensor_c):
         for m_idx in pypto.loop(0, loop_end, 1, name="m_loop", idx_name="m_idx"):
             batch_matmul_split_m_util(tensor_a, tensor_b, tensor_c, input_config, m_idx)
 
@@ -167,7 +167,7 @@ def split_n_axis(tensor_a, tensor_b, tensor_c, input_config):
     loop_end = ceil_div(n_axis, view_shape[2])
 
     dtype = batch_matmul_convert_dtype(input_config.out_dtype)
-    with pypto.function("test_n_split", [tensor_a, tensor_b], [tensor_c]):
+    with pypto.function("test_n_split", tensor_a, tensor_b, tensor_c):
         for n_idx in pypto.loop(0, loop_end, 1, name="n_loop", idx_name="n_idx"):
             batch_matmul_split_n_utils(tensor_a, tensor_b, tensor_c, input_config, n_idx)
 
@@ -208,7 +208,7 @@ def split_m_n_axis(tensor_a, tensor_b, tensor_c, input_config):
     m_loop_end = ceil_div(m_axis, view_shape[1])
 
     dtype = batch_matmul_convert_dtype(input_config.out_dtype)
-    with pypto.function("test_batch_m_n_split", [tensor_a, tensor_b], [tensor_c]):
+    with pypto.function("test_batch_m_n_split", tensor_a, tensor_b, tensor_c):
         for m_idx in pypto.loop(0, m_loop_end, 1, name="m_loop", idx_name="m_idx"):
             batch_matmul_split_m_n_utils(tensor_a, tensor_b, tensor_c, input_config, m_idx)
 

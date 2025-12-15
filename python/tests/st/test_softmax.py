@@ -28,7 +28,7 @@ def test_softmax_shape_dim():
     x = pypto.tensor(x_shape, dtype)
     dim = -1
 
-    with pypto.function("SOFTMAX_SHAPE", [x]):
+    with pypto.function("SOFTMAX_SHAPE", x):
         pypto.set_vec_tile_shapes(32, 32)
         res = pypto.softmax(x, dim)
         torch_case_tensor = torch.randn((4, 4), dtype = torch.float32)
@@ -46,7 +46,7 @@ def test_softmax_FP32():
     res = pypto.tensor(x_shape, dtype)
     dim = -1
 
-    with pypto.function("SOFTMAX_CONTENT_FP32", [x], [res]):
+    with pypto.function("SOFTMAX_CONTENT_FP32", x, res):
         for _ in pypto.loop(1, name="LOOP_L0", idx_name="a_idx"):
             pypto.set_vec_tile_shapes(32, 32)
             res.move(pypto.softmax(x, dim))
@@ -55,7 +55,7 @@ def test_softmax_FP32():
     res_tensor = torch.zeros(4, 4, dtype=torch.float32)
     pto_x_tensor = pypto.from_torch(x_tensor, "x_tensor")
     pto_res_tensor = pypto.from_torch(res_tensor, "res_tensor")
-    pypto.runtime._device_run_once_data_from_host([pto_x_tensor], [pto_res_tensor])
+    pypto.runtime._device_run_once_data_from_host(pto_x_tensor, pto_res_tensor)
     expected = torch.softmax(x_tensor, dim)
     assert_allclose(res_tensor.flatten(), expected.flatten(), atol=1e-3, verbose=True)
     pypto.runtime._device_fini()
@@ -71,7 +71,7 @@ def test_tensor_softmax_FP32():
     res = pypto.tensor(x_shape, dtype)
     dim = -1
 
-    with pypto.function("TENSOR_SOFTMAX_CONTENT_FP32", [x], [res]):
+    with pypto.function("TENSOR_SOFTMAX_CONTENT_FP32", x, res):
         for _ in pypto.loop(1, name="LOOP_L0", idx_name="a_idx"):
             pypto.set_vec_tile_shapes(32, 32)
             res.move(x.softmax(dim))
@@ -80,7 +80,7 @@ def test_tensor_softmax_FP32():
     res_tensor = torch.zeros(4, 4, dtype=torch.float32)
     pto_x_tensor = pypto.from_torch(x_tensor, "x_tensor")
     pto_res_tensor = pypto.from_torch(res_tensor, "res_tensor")
-    pypto.runtime._device_run_once_data_from_host([pto_x_tensor], [pto_res_tensor])
+    pypto.runtime._device_run_once_data_from_host(pto_x_tensor, pto_res_tensor)
     expected = torch.softmax(x_tensor, dim)
     assert_allclose(res_tensor.flatten(), expected.flatten(), atol=1e-3, verbose=True)
     pypto.runtime._device_fini()

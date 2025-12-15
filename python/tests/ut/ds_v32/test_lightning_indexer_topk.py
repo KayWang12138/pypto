@@ -832,7 +832,7 @@ def lightning_indexer_topk_inner(args: LightningIndexerInputs):
     if args.topk_value is not None:
         output_tensors.append(args.topk_value)
 
-    with pypto.function("LightningIndexerTopkInner", input_tensors, output_tensors):
+    with pypto.function("LightningIndexerTopkInner", *input_tensors, *output_tensors):
 
         def inside_main_function():
             lightning_indexer_topk_impl(args)

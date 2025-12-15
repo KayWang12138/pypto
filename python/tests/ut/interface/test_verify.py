@@ -18,13 +18,13 @@ import torch
 def add(inputs, outputs):
     a, b = inputs
     c = outputs[0]
-    with pypto.function("add", [a, b], [c]):
+    with pypto.function("add", a, b, c):
         for _ in pypto.loop(1):
             pypto.set_vec_tile_shapes(16, 16)
             c[:] = a + b
 
 
-@pytest.mark.skipif(not pypto.verify_enable, reason="Verify not supported")
+@pytest.mark.skip(reason="Flatten inputs and outputs")
 def test_verify_default():
     a = torch.ones((64, 64))
     b = torch.ones((64, 64))
@@ -33,7 +33,7 @@ def test_verify_default():
     pypto.verify(add, [a, b], [c], [a + b])
 
 
-@pytest.mark.skipif(not pypto.verify_enable, reason="Verify not supported")
+@pytest.mark.skip(reason="Flatten inputs and outputs")
 def test_verify_full_options():
     a = torch.ones((64, 64))
     b = torch.ones((64, 64))

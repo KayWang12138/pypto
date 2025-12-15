@@ -28,7 +28,7 @@ def test_reshape_shape():
     dst_shape = [d, s]
     q = pypto.tensor(shape, dtype)
 
-    with pypto.function("Reshape1", [q]):
+    with pypto.function("Reshape1", q):
         pypto.set_vec_tile_shapes(16, 16)
         res = pypto.reshape(q, dst_shape)
 
@@ -48,7 +48,7 @@ def test_reshape_equal():
     q = pypto.tensor(shape, dtype)
     out = pypto.tensor(dst_shape, dtype)
 
-    with pypto.function("Reshape2", [q], [out]):
+    with pypto.function("Reshape2", q, out):
         for _ in pypto.loop(1, name="Reshape2Loop", idx_name="batchId"):
             pypto.set_vec_tile_shapes(16, 16)
             q0 = q.reshape(dst_shape)
@@ -59,7 +59,7 @@ def test_reshape_equal():
 
     pto_q_tensor = pypto.from_torch(q_tensor, "q_tensor")
     pto_out_tensor = pypto.from_torch(out_tensor, "out_tensor")
-    pypto.runtime._device_run_once_data_from_host([pto_q_tensor], [pto_out_tensor])
+    pypto.runtime._device_run_once_data_from_host(pto_q_tensor, pto_out_tensor)
 
     assert torch.equal(out_tensor.flatten(), q_tensor.flatten())
     pypto.runtime._device_fini()
@@ -78,7 +78,7 @@ def test_reshape_equal2():
     t = pypto.tensor(shape, dtype)
     out = pypto.tensor(dst_shape, dtype)
 
-    with pypto.function("Reshape3", [q, t], [out]):
+    with pypto.function("Reshape3", q, t, out):
         for _ in pypto.loop(1, name="Reshape3Loop", idx_name="batchId"):
             pypto.set_vec_tile_shapes(16, 16)
             q0 = pypto.reshape(q, dst_shape, valid_shape=[16, 16])
@@ -92,7 +92,7 @@ def test_reshape_equal2():
     pto_q_tensor = pypto.from_torch(q_tensor, "q_tensor")
     pto_tmp_tensor = pypto.from_torch(tmp_tensor, "tmp_tensor")
     pto_out_tensor = pypto.from_torch(out_tensor, "out_tensor")
-    pypto.runtime._device_run_once_data_from_host([pto_q_tensor, pto_tmp_tensor], [pto_out_tensor])
+    pypto.runtime._device_run_once_data_from_host(pto_q_tensor, pto_tmp_tensor, pto_out_tensor)
     assert torch.equal(out_tensor.flatten(), torch.add(q_tensor, tmp_tensor).flatten())
     pypto.runtime._device_fini()
 
@@ -109,7 +109,7 @@ def test_reshape_validshape():
     q = pypto.tensor(shape, dtype)
     out = pypto.tensor(dst_shape, dtype)
 
-    with pypto.function("Reshape4", [q], [out]):
+    with pypto.function("Reshape4", q, out):
         for _ in pypto.loop(1, name="Reshape4Loop", idx_name="batchId"):
             pypto.set_vec_tile_shapes(16, 16)
             q0 = pypto.reshape(q, dst_shape, valid_shape=[8, 32])
@@ -121,7 +121,7 @@ def test_reshape_validshape():
 
     pto_q_tensor = pypto.from_torch(q_tensor, "q_tensor")
     pto_out_tensor = pypto.from_torch(out_tensor, "out_tensor")
-    pypto.runtime._device_run_once_data_from_host([pto_q_tensor], [pto_out_tensor])
+    pypto.runtime._device_run_once_data_from_host(pto_q_tensor, pto_out_tensor)
     assert torch.equal(out_tensor[:32], q_tensor[:32])
     pypto.runtime._device_fini()
 
@@ -138,7 +138,7 @@ def test_reshape_validshape2():
     q = pypto.tensor(shape, dtype)
     out = pypto.tensor(dst_shape, dtype)
 
-    with pypto.function("Reshape5", [q], [out]):
+    with pypto.function("Reshape5", q, out):
         for _ in pypto.loop(1, name="Reshape5Loop", idx_name="batchId"):
             pypto.set_vec_tile_shapes(16, 16)
             q0 = pypto.reshape(q, dst_shape)
@@ -151,7 +151,7 @@ def test_reshape_validshape2():
 
     pto_q_tensor = pypto.from_torch(q_tensor, "q_tensor")
     pto_out_tensor = pypto.from_torch(out_tensor, "out_tensor")
-    pypto.runtime._device_run_once_data_from_host([pto_q_tensor], [pto_out_tensor])
+    pypto.runtime._device_run_once_data_from_host(pto_q_tensor, pto_out_tensor)
 
     expected = (q_tensor + scalar_tensor).flatten()
     assert torch.equal(out_tensor[:64], expected[:64])

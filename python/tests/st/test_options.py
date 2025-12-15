@@ -33,10 +33,8 @@ def layer_norm_func():
         codegen_options={"support_dynamic_unaligned": True},
         pass_options={"copyin_threshold": 1048},
         )
-def cust_dyn_func_add(in_tensors, out_tensors, tiling=None):
+def cust_dyn_func_add(a, c, tiling=None):
     assert 1048 == get_options("pass.copyin_threshold")
-    a = in_tensors[0]
-    c = out_tensors[0]
 
     # 原接口依然有效，同时修改当前scope中的配置
     pypto.set_vec_tile_shapes(32, 32)
@@ -109,7 +107,7 @@ def test_scope():
     outputs = [c_data]
     pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
     pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
-    cust_dyn_func_add(pto_inputs, pto_outputs, tiling)
+    cust_dyn_func_add(*pto_inputs, *pto_outputs, tiling)
     pypto.runtime._device_synchronize()
     golden = torch.ones((n, m)) * 2
     assert torch.allclose(golden.int(), c_data.cpu(), atol=1e-5)

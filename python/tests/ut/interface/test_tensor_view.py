@@ -24,7 +24,7 @@ def init_tensors():
 
 def test_tensor_view():
     a, b, c = init_tensors()
-    with pypto.function("MAIN", [a, b], [c]):
+    with pypto.function("MAIN", a, b, c):
         pypto.set_vec_tile_shapes(16, 16)
 
         for k in pypto.loop(10):
@@ -39,7 +39,7 @@ def test_tensor_view():
 
 def test_tensor_get_tensor_data():
     a = pypto.tensor((128, 128), pypto.DT_INT32, "a")
-    with pypto.function("MAIN", [a], []):
+    with pypto.function("MAIN", a):
         pypto.set_vec_tile_shapes(16, 16)
         t = a[0, 0]
 

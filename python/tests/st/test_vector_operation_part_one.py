@@ -34,7 +34,7 @@ def test_vector_operation_add():
     b = pypto.tensor(shape, dtype, "ADD_TENSOR_b")
     c = pypto.tensor(shape, dtype, "ADD_TENSOR_c")
 
-    with pypto.function("ADD", [a, b], [c]):
+    with pypto.function("ADD", a, b, c):
         for b_idx in pypto.loop(int(np.ceil(n / view_shape[0])), name="LOOP_ADD_L0", idx_name="b_idx"):
             for s_idx in pypto.loop(int(np.ceil(m / view_shape[1])), name="LOOP_ADD_L1", idx_name="s_idx"):
                 tile_a = pypto.view(a, view_shape,
@@ -59,7 +59,7 @@ def test_vector_operation_add():
     pto_b_tensor = pypto.from_torch(b_tensor, "b_tensor")
     pto_c_tensor = pypto.from_torch(c_tensor, "c_tensor")
 
-    pypto.runtime._device_run_once_data_from_host([pto_a_tensor, pto_b_tensor], [pto_c_tensor])
+    pypto.runtime._device_run_once_data_from_host(pto_a_tensor, pto_b_tensor, pto_c_tensor)
 
     expected = a_tensor + b_tensor
     assert_allclose(c_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
@@ -80,7 +80,7 @@ def test_vector_operation_div():
     b = pypto.tensor(shape, dtype, "DIV_TENSOR_b")
     c = pypto.tensor(shape, dtype, "DIV_TENSOR_c")
 
-    with pypto.function("DIV", [a, b], [c]):
+    with pypto.function("DIV", a, b, c):
         for b_idx in pypto.loop(int(np.ceil(n / view_shape[0])), name="LOOP_DIV_L0", idx_name="b_idx"):
             for s_idx in pypto.loop(int(np.ceil(m / view_shape[1])), name="LOOP_DIV_L1", idx_name="s_idx"):
                 tile_a = pypto.view(a, view_shape,
@@ -105,7 +105,7 @@ def test_vector_operation_div():
     pto_b_tensor = pypto.from_torch(b_tensor, "b_tensor")
     pto_c_tensor = pypto.from_torch(c_tensor, "c_tensor")
 
-    pypto.runtime._device_run_once_data_from_host([pto_a_tensor, pto_b_tensor], [pto_c_tensor])
+    pypto.runtime._device_run_once_data_from_host(pto_a_tensor, pto_b_tensor, pto_c_tensor)
 
     expected = torch.div(a_tensor, b_tensor)
     assert_allclose(c_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
@@ -127,7 +127,7 @@ def test_vector_operation_mul():
     b = pypto.tensor(shape, dtype, "MUL_TENSOR_b")
     c = pypto.tensor(shape, dtype, "MUL_TENSOR_c")
 
-    with pypto.function("MUL", [a, b], [c]):
+    with pypto.function("MUL", a, b, c):
         for b_idx in pypto.loop(int(np.ceil(n / view_shape[0])), name="LOOP_MUL_L0", idx_name="b_idx"):
             for s_idx in pypto.loop(int(np.ceil(m / view_shape[1])), name="LOOP_MUL_L1", idx_name="s_idx"):
                 tile_a = pypto.view(a, view_shape,
@@ -152,7 +152,7 @@ def test_vector_operation_mul():
     pto_b_tensor = pypto.from_torch(b_tensor, "b_tensor")
     pto_c_tensor = pypto.from_torch(c_tensor, "c_tensor")
 
-    pypto.runtime._device_run_once_data_from_host([pto_a_tensor, pto_b_tensor], [pto_c_tensor])
+    pypto.runtime._device_run_once_data_from_host(pto_a_tensor, pto_b_tensor, pto_c_tensor)
 
     expected = torch.mul(a_tensor, b_tensor)
     assert_allclose(c_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
@@ -174,7 +174,7 @@ def test_vector_operation_sub():
     b = pypto.tensor(shape, dtype, "SUB_TENSOR_b")
     c = pypto.tensor(shape, dtype, "SUB_TENSOR_c")
 
-    with pypto.function("SUB", [a, b], [c]):
+    with pypto.function("SUB", a, b, c):
         for b_idx in pypto.loop(int(np.ceil(n / view_shape[0])), name="LOOP_SUB_L0", idx_name="b_idx"):
             for s_idx in pypto.loop(int(np.ceil(m / view_shape[1])), name="LOOP_SUB_L1", idx_name="s_idx"):
                 tile_a = pypto.view(a, view_shape,
@@ -199,7 +199,7 @@ def test_vector_operation_sub():
     pto_b_tensor = pypto.from_torch(b_tensor, "b_tensor")
     pto_c_tensor = pypto.from_torch(c_tensor, "c_tensor")
 
-    pypto.runtime._device_run_once_data_from_host([pto_a_tensor, pto_b_tensor], [pto_c_tensor])
+    pypto.runtime._device_run_once_data_from_host(pto_a_tensor, pto_b_tensor, pto_c_tensor)
 
     expected = a_tensor - b_tensor
     assert_allclose(c_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
@@ -220,7 +220,7 @@ def test_vector_operation_abs():
     a = pypto.tensor(shape, dtype, "ABS_TENSOR_a")
     b = pypto.tensor(shape, dtype, "ABS_TENSOR_b")
 
-    with pypto.function("ABS", [a], [b]):
+    with pypto.function("ABS", a, b):
         for b_idx in pypto.loop(int(np.ceil(n / view_shape[0])), name="LOOP_ABS_L0", idx_name="b_idx"):
             for s_idx in pypto.loop(int(np.ceil(m / view_shape[1])), name="LOOP_ABS_L1", idx_name="s_idx"):
                 tile_a = pypto.view(a, view_shape,
@@ -237,7 +237,7 @@ def test_vector_operation_abs():
 
     pto_a_tensor = pypto.from_torch(a_tensor, "a_tensor")
     pto_b_tensor = pypto.from_torch(b_tensor, "b_tensor")
-    pypto.runtime._device_run_once_data_from_host([pto_a_tensor], [pto_b_tensor])
+    pypto.runtime._device_run_once_data_from_host(pto_a_tensor, pto_b_tensor)
 
     expected = torch.abs(a_tensor)
     assert_allclose(b_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
@@ -258,7 +258,7 @@ def test_vector_operation_sqrt():
     a = pypto.tensor(shape, dtype, "SQRT_TENSOR_a")
     b = pypto.tensor(shape, dtype, "SQRT_TENSOR_b")
 
-    with pypto.function("SQRT", [a], [b]):
+    with pypto.function("SQRT", a, b):
         for b_idx in pypto.loop(int(np.ceil(n / view_shape[0])), name="LOOP_SQRT_L0", idx_name="b_idx"):
             for s_idx in pypto.loop(int(np.ceil(m / view_shape[1])), name="LOOP_SQRT_L1", idx_name="s_idx"):
                 tile_a = pypto.view(a, view_shape,
@@ -275,7 +275,7 @@ def test_vector_operation_sqrt():
 
     pto_a_tensor = pypto.from_torch(a_tensor, "a_tensor")
     pto_b_tensor = pypto.from_torch(b_tensor, "b_tensor")
-    pypto.runtime._device_run_once_data_from_host([pto_a_tensor], [pto_b_tensor])
+    pypto.runtime._device_run_once_data_from_host(pto_a_tensor, pto_b_tensor)
 
     expected = torch.sqrt(a_tensor)
     assert_allclose(b_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
@@ -296,7 +296,7 @@ def test_vector_operation_exp():
     a = pypto.tensor(shape, dtype, "SQRT_TENSOR_a")
     b = pypto.tensor(shape, dtype, "SQRT_TENSOR_b")
 
-    with pypto.function("EXP", [a], [b]):
+    with pypto.function("EXP", a, b):
         for b_idx in pypto.loop(int(np.ceil(n / view_shape[0])), name="LOOP_SQRT_L0", idx_name="b_idx"):
             for s_idx in pypto.loop(int(np.ceil(m / view_shape[1])), name="LOOP_SQRT_L1", idx_name="s_idx"):
                 tile_a = pypto.view(a, view_shape,
@@ -313,7 +313,7 @@ def test_vector_operation_exp():
 
     pto_a_tensor = pypto.from_torch(a_tensor, "a_tensor")
     pto_b_tensor = pypto.from_torch(b_tensor, "b_tensor")
-    pypto.runtime._device_run_once_data_from_host([pto_a_tensor], [pto_b_tensor])
+    pypto.runtime._device_run_once_data_from_host(pto_a_tensor, pto_b_tensor)
 
     expected = torch.exp(a_tensor)
     assert_allclose(b_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
@@ -334,7 +334,7 @@ def test_vector_operation_neg():
     a = pypto.tensor((n, m), dtype, "NEG_TENSOR_a")
     b = pypto.tensor((n, m), dtype, "NEG_TENSOR_b")
 
-    with pypto.function("NEG", [a], [b]):
+    with pypto.function("NEG", a, b):
         for b_idx in pypto.loop(int(np.ceil(n / view_shape[0])), name="LOOP_NEG_L0", idx_name="b_idx"):
             for s_idx in pypto.loop(int(np.ceil(m / view_shape[1])), name="LOOP_NEG_L1", idx_name="s_idx"):
                 tile_a = pypto.view(a, view_shape,
@@ -351,7 +351,7 @@ def test_vector_operation_neg():
 
     pto_a_tensor = pypto.from_torch(a_tensor, "a_tensor")
     pto_b_tensor = pypto.from_torch(b_tensor, "b_tensor")
-    pypto.runtime._device_run_once_data_from_host([pto_a_tensor], [pto_b_tensor])
+    pypto.runtime._device_run_once_data_from_host(pto_a_tensor, pto_b_tensor)
 
     expected = -a_tensor
     assert_allclose(b_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
@@ -372,7 +372,7 @@ def test_vector_operation_full():
     a = pypto.tensor((n, m), dtype, "VEC_DUP_TENSOR_a")
     b = pypto.element(dtype, 2.0)
 
-    with pypto.function("VEC_DUP", [], [a]):
+    with pypto.function("VEC_DUP", a):
         pypto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
         for b_idx in pypto.loop(int(np.ceil(n / view_shape[0])), name="LOOP_VEC_DUP_L0", idx_name="b_idx"):
             for s_idx in pypto.loop(int(np.ceil(m / view_shape[1])), name="LOOP_VEC_DUP_L1", idx_name="s_idx"):
@@ -388,7 +388,7 @@ def test_vector_operation_full():
     a_tensor = torch.zeros(n, m, dtype=torch.float32)
 
     pto_a_tensor = pypto.from_torch(a_tensor, "a_tensor")
-    pypto.runtime._device_run_once_data_from_host([], [pto_a_tensor])
+    pypto.runtime._device_run_once_data_from_host(pto_a_tensor)
 
     expected = torch.full((n, m), 2, dtype=torch.float32)
     assert_allclose(a_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
@@ -408,7 +408,7 @@ def test_vector_operation_logical_not():
     a = pypto.tensor((n, m), pypto.DT_FP32, "LOGICALNOT_TENSOR_a")
     b = pypto.tensor((n, m), pypto.DT_BOOL, "LOGICALNOT_TENSOR_b")
 
-    with pypto.function("LOGICALNOT", [a], [b]):
+    with pypto.function("LOGICALNOT", a, b):
         for b_idx in pypto.loop(int(np.ceil(n / view_shape[0])), name="LOOP_LOGICALNOT_L0", idx_name="b_idx"):
             for s_idx in pypto.loop(int(np.ceil(m / view_shape[1])), name="LOOP_LOGICALNOT_L1", idx_name="s_idx"):
                 tile_a = pypto.view(a, view_shape,
@@ -426,7 +426,7 @@ def test_vector_operation_logical_not():
 
     pto_a_tensor = pypto.from_torch(a_tensor, "a_tensor")
     pto_b_tensor = pypto.from_torch(b_tensor, "b_tensor")
-    pypto.runtime._device_run_once_data_from_host([pto_a_tensor], [pto_b_tensor])
+    pypto.runtime._device_run_once_data_from_host(pto_a_tensor, pto_b_tensor)
 
     expected = torch.logical_not(a_tensor)
     assert_allclose(b_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
@@ -447,7 +447,7 @@ def test_vector_operation_expand():
     a = pypto.tensor((n, 1), dtype, "EXPAND_TENSOR_a")
     b = pypto.tensor((n, m), dtype, "EXPAND_TENSOR_b")
 
-    with pypto.function("EXPAND", [a], [b]):
+    with pypto.function("EXPAND", a, b):
         for b_idx in pypto.loop(int(np.ceil(n / view_shape[0])), name="LOOP_EXPAND_L0", idx_name="b_idx"):
             for s_idx in pypto.loop(int(np.ceil(m / view_shape[1])), name="LOOP_EXPAND_L1", idx_name="s_idx"):
                 tile_a = pypto.view(a, [16, 1],
@@ -471,7 +471,7 @@ def test_vector_operation_expand():
 
     pto_a_tensor = pypto.from_torch(a_tensor, "a_tensor")
     pto_b_tensor = pypto.from_torch(b_tensor, "b_tensor")
-    pypto.runtime._device_run_once_data_from_host([pto_a_tensor], [pto_b_tensor])
+    pypto.runtime._device_run_once_data_from_host(pto_a_tensor, pto_b_tensor)
 
     expected = torch.full((n, m), -16, dtype=torch.float32)
     assert_allclose(b_tensor.flatten(), expected.flatten(),
@@ -495,7 +495,7 @@ def test_vector_operation_concat():
     b = pypto.tensor(shape, dtype, "CONCAT_TENSOR_b")
     c = pypto.tensor([n, m * 2], dtype, "CONCAT_TENSOR_c")
 
-    with pypto.function("CONCAT", [a, b], [c]):
+    with pypto.function("CONCAT", a, b, c):
         for b_idx in pypto.loop(int(np.ceil(n / view_shape[0])), name="LOOP_CONCAT_L0", idx_name="b_idx"):
             tile_a = pypto.view(a, view_shape,
                 [b_idx * view_shape[0], 0],
@@ -520,7 +520,7 @@ def test_vector_operation_concat():
     pto_b_tensor = pypto.from_torch(b_tensor, "b_tensor")
     pto_c_tensor = pypto.from_torch(c_tensor, "c_tensor")
 
-    pypto.runtime._device_run_once_data_from_host([pto_a_tensor, pto_b_tensor], [pto_c_tensor])
+    pypto.runtime._device_run_once_data_from_host(pto_a_tensor, pto_b_tensor, pto_c_tensor)
 
     expected = torch.cat([a_tensor, b_tensor], dim=-1)
     assert_allclose(c_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
@@ -543,7 +543,7 @@ def test_vector_operation_rowmaxsingle():
     b = pypto.tensor(output_shape, dtype, "ROWMAXSINGLE_TENSOR_b")
     dim = 0
 
-    with pypto.function("ROWMAXSINGLE", [a], [b]):
+    with pypto.function("ROWMAXSINGLE", a, b):
         for s_idx in pypto.loop(int(np.ceil(m / view_shape[1])), name="LOOP_ROWMAXSINGLE_L1", idx_name="s_idx"):
             tile_a = pypto.view(a, [32, view_shape[1]],
                 [0, s_idx * view_shape[1]],
@@ -560,7 +560,7 @@ def test_vector_operation_rowmaxsingle():
 
     pto_a_tensor = pypto.from_torch(a_tensor, "a_tensor")
     pto_b_tensor = pypto.from_torch(b_tensor, "b_tensor")
-    pypto.runtime._device_run_once_data_from_host([pto_a_tensor], [pto_b_tensor])
+    pypto.runtime._device_run_once_data_from_host(pto_a_tensor, pto_b_tensor)
 
     expected = a_tensor.max(dim=dim, keepdim=True)[0].reshape(output_shape)
     assert_allclose(b_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
@@ -583,7 +583,7 @@ def test_vector_operation_rowsumsingle():
     b = pypto.tensor(output_shape, dtype, "ROWSUMSINGLE_TENSOR_b")
     dim = 0
 
-    with pypto.function("ROWSUMSINGLE", [a], [b]):
+    with pypto.function("ROWSUMSINGLE", a, b):
         for s_idx in pypto.loop(int(np.ceil(m / view_shape[1])), name="LOOP_ROWSUMSINGLE_L1", idx_name="s_idx"):
             tile_a = pypto.view(a, [32, view_shape[1]],
                 [0, s_idx * view_shape[1]],
@@ -600,7 +600,7 @@ def test_vector_operation_rowsumsingle():
 
     pto_a_tensor = pypto.from_torch(a_tensor, "a_tensor")
     pto_b_tensor = pypto.from_torch(b_tensor, "b_tensor")
-    pypto.runtime._device_run_once_data_from_host([pto_a_tensor], [pto_b_tensor])
+    pypto.runtime._device_run_once_data_from_host(pto_a_tensor, pto_b_tensor)
 
     expected = a_tensor.sum(dim=dim, keepdim=True).reshape(output_shape)
     assert_allclose(b_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
@@ -623,7 +623,7 @@ def test_vector_operation_rowminsingle():
     b = pypto.tensor(output_shape, dtype, "ROWMINSINGLE_TENSOR_b")
     dim = 0
 
-    with pypto.function("ROWMINSINGLE", [a], [b]):
+    with pypto.function("ROWMINSINGLE", a, b):
         for s_idx in pypto.loop(int(np.ceil(m / view_shape[1])), name="LOOP_ROWMINSINGLE_L1", idx_name="s_idx"):
             tile_a = pypto.view(a, [32, view_shape[1]],
                 [0, s_idx * view_shape[1]],
@@ -640,7 +640,7 @@ def test_vector_operation_rowminsingle():
 
     pto_a_tensor = pypto.from_torch(a_tensor, "a_tensor")
     pto_b_tensor = pypto.from_torch(b_tensor, "b_tensor")
-    pypto.runtime._device_run_once_data_from_host([pto_a_tensor], [pto_b_tensor])
+    pypto.runtime._device_run_once_data_from_host(pto_a_tensor, pto_b_tensor)
 
     expected = a_tensor.min(dim=dim, keepdim=True)[0].reshape(output_shape)
     assert_allclose(b_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
@@ -661,7 +661,7 @@ def test_tensor_operation_expand():
     a = pypto.tensor((n, 1), dtype, "EXPAND_TENSOR_a")
     b = pypto.tensor((n, m), dtype, "EXPAND_TENSOR_b")
 
-    with pypto.function("EXPAND", [a], [b]):
+    with pypto.function("EXPAND", a, b):
         for b_idx in pypto.loop(int(np.ceil(n / view_shape[0])), name="LOOP_EXPAND_L0", idx_name="b_idx"):
             for s_idx in pypto.loop(int(np.ceil(m / view_shape[1])), name="LOOP_EXPAND_L1", idx_name="s_idx"):
                 tile_a = pypto.view(a, [16, 1],
@@ -685,7 +685,7 @@ def test_tensor_operation_expand():
 
     pto_a_tensor = pypto.from_torch(a_tensor, "a_tensor")
     pto_b_tensor = pypto.from_torch(b_tensor, "b_tensor")
-    pypto.runtime._device_run_once_data_from_host([pto_a_tensor], [pto_b_tensor])
+    pypto.runtime._device_run_once_data_from_host(pto_a_tensor, pto_b_tensor)
 
     expected = torch.full((n, m), -16, dtype=torch.float32)
     assert_allclose(b_tensor.flatten(), expected.flatten(),

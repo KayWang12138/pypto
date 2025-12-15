@@ -25,7 +25,7 @@ def init_tensors():
 
 def test_tensor_setitem_inside_loop():
     a, b, c = init_tensors()
-    with pypto.function("MAIN", [a, b], [c]):
+    with pypto.function("MAIN", a, b, c):
         pypto.set_vec_tile_shapes(16, 16)
         for k in pypto.loop(10, name="LOOP", idx_name="k"):
             b[:] = pypto.add(a, a)
@@ -46,7 +46,7 @@ def test_tensor_setitem_inside_loop():
 
 def test_tensor_assmble_slice():
     a, b, c = init_tensors()
-    with pypto.function("MAIN", [a, b], [c]):
+    with pypto.function("MAIN", a, b, c):
         pypto.set_vec_tile_shapes(16, 16)
 
         for k in pypto.loop(10, name="LOOP", idx_name="k"):
@@ -71,7 +71,7 @@ def test_set_tensor_data():
     a = pypto.tensor([32, 32], pypto.DT_INT32, "a")
     b = pypto.tensor([32, 32], pypto.DT_INT32, "b")
     c = pypto.tensor([32, 32], pypto.DT_INT32, "c")
-    with pypto.function("MAIN", [a, b], [c]):
+    with pypto.function("MAIN", a, b, c):
         pypto.set_vec_tile_shapes(16, 16)
         sym_a = a[0, 0]
         sym_b = b[0, 0]

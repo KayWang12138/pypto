@@ -44,7 +44,7 @@ def indexadd_2dim_comm_test_body(indexadd_para, test_func):
     b_loop_num = math.ceil(src_shape[0] / view_shape[0])
     s_loop_num = math.ceil(src_shape[1] / view_shape[1])
     pypto.set_codegen_options(support_dynamic_unaligned=True)
-    with pypto.function("INDEXADD", [self_tensor, src_tensor, index_tensor], [dst_tensor]):
+    with pypto.function("INDEXADD", self_tensor, src_tensor, index_tensor, dst_tensor):
         for b_idx in pypto.loop(b_loop_num, name="LOOP_B0", idx_name="b_idx"):
             for s_idx in pypto.loop(s_loop_num, name="LOOP_S0", idx_name="s_idx"):
                 pypto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
@@ -80,7 +80,7 @@ def indexadd_2dim_comm_test_body(indexadd_para, test_func):
     pto_x3_tensor = pypto.from_torch(index_input, "x3_tensor")
     pto_res_tensor = pypto.from_torch(result_tensor, "res_tensor")
 
-    pypto.runtime._device_run_once_data_from_host([pto_x1_tensor, pto_x2_tensor, pto_x3_tensor], [pto_res_tensor])
+    pypto.runtime._device_run_once_data_from_host(pto_x1_tensor, pto_x2_tensor, pto_x3_tensor, pto_res_tensor)
 
     expect = self_input.index_add(axis, index_input, src_input, alpha=value)
     assert torch.allclose(result_tensor, expect, rtol=1e-4, atol=1e-5)

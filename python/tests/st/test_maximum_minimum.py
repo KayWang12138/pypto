@@ -57,7 +57,7 @@ def test_with_tensor_scalar_minimum(
     y = pypto.tensor(shape, data_type)
     scalar_data = pypto.element(data_type, scalar)
 
-    with pypto.function(function_name, [x], [y]):
+    with pypto.function(function_name, x, y):
         for b_idx in pypto.loop(math.ceil(shape[0] / view_shape[0])):
             for s_idx in pypto.loop(math.ceil(shape[1] / view_shape[1])):
                 tile_tensor_0 = pypto.view(
@@ -87,7 +87,7 @@ def test_with_tensor_scalar_minimum(
     ny_tensor = torch.zeros(shape, dtype=pto_dtype_to_torch_dtype(data_type))
     pto_nx_tensor = pypto.from_torch(nx_tensor, "nx_tensor")
     pto_ny_tensor = pypto.from_torch(ny_tensor, "ny_tensor")
-    pypto.runtime._device_run_once_data_from_host([pto_nx_tensor], [pto_ny_tensor])
+    pypto.runtime._device_run_once_data_from_host(pto_nx_tensor, pto_ny_tensor)
 
     golden_data = torch.minimum(
         nx_tensor, torch.tensor(scalar, dtype=pto_dtype_to_torch_dtype(data_type)))
@@ -119,7 +119,7 @@ def test_with_tensor_scalar_maximum(
     y = pypto.tensor(shape, data_type)
     scalar_data = pypto.element(data_type, scalar)
 
-    with pypto.function(function_name, [x], [y]):
+    with pypto.function(function_name, x, y):
         for b_idx in pypto.loop(math.ceil(shape[0] / view_shape[0])):
             for s_idx in pypto.loop(math.ceil(shape[1] / view_shape[1])):
                 tile_tensor_0 = pypto.view(
@@ -149,7 +149,7 @@ def test_with_tensor_scalar_maximum(
     ny_tensor = torch.zeros(shape, dtype=pto_dtype_to_torch_dtype(data_type))
     pto_nx_tensor = pypto.from_torch(nx_tensor, "nx_tensor")
     pto_ny_tensor = pypto.from_torch(ny_tensor, "ny_tensor")
-    pypto.runtime._device_run_once_data_from_host([pto_nx_tensor], [pto_ny_tensor])
+    pypto.runtime._device_run_once_data_from_host(pto_nx_tensor, pto_ny_tensor)
 
     golden_data = torch.maximum(
         nx_tensor, torch.tensor(scalar, dtype=pto_dtype_to_torch_dtype(data_type)))
@@ -180,7 +180,7 @@ def test_with_tensor_tensor_minimum(
     y = pypto.tensor(shape, data_type)
     z = pypto.tensor(shape, data_type)
 
-    with pypto.function(function_name, [x, y], [z]):
+    with pypto.function(function_name, x, y, z):
         for b_idx in pypto.loop(math.ceil(shape[0] / view_shape[0])):
             for s_idx in pypto.loop(math.ceil(shape[1] / view_shape[1])):
                 tile_tensor_0 = pypto.view(
@@ -228,7 +228,7 @@ def test_with_tensor_tensor_minimum(
     pto_ny_tensor = pypto.from_torch(ny_tensor, "ny_tensor")
     pto_nz_tensor = pypto.from_torch(nz_tensor, "nz_tensor")
 
-    pypto.runtime._device_run_once_data_from_host([pto_nx_tensor, pto_ny_tensor], [pto_nz_tensor])
+    pypto.runtime._device_run_once_data_from_host(pto_nx_tensor, pto_ny_tensor, pto_nz_tensor)
 
     golden_data = torch.minimum(nx_tensor, ny_tensor)
     assert torch.allclose(nz_tensor, golden_data, rtol=1e-9, atol=1e-10)
@@ -258,7 +258,7 @@ def test_with_tensor_tensor_maximum(
     y = pypto.tensor(shape, data_type)
     z = pypto.tensor(shape, data_type)
 
-    with pypto.function(function_name, [x, y], [z]):
+    with pypto.function(function_name, x, y, z):
         for b_idx in pypto.loop(math.ceil(shape[0] / view_shape[0])):
             for s_idx in pypto.loop(math.ceil(shape[1] / view_shape[1])):
                 tile_tensor_0 = pypto.view(
@@ -306,7 +306,7 @@ def test_with_tensor_tensor_maximum(
     pto_ny_tensor = pypto.from_torch(ny_tensor, "ny_tensor")
     pto_nz_tensor = pypto.from_torch(nz_tensor, "nz_tensor")
 
-    pypto.runtime._device_run_once_data_from_host([pto_nx_tensor, pto_ny_tensor], [pto_nz_tensor])
+    pypto.runtime._device_run_once_data_from_host(pto_nx_tensor, pto_ny_tensor, pto_nz_tensor)
 
     golden_data = torch.maximum(nx_tensor, ny_tensor)
     assert torch.allclose(nz_tensor, golden_data, rtol=1e-9, atol=1e-10)

@@ -33,7 +33,7 @@ def test_vector_operation_log():
     a = pypto.tensor((n, m), pypto.DT_FP32, "LOG_TENSOR_a")
     b = pypto.tensor((n, m), pypto.DT_FP32, "LOG_TENSOR_b")
 
-    with pypto.function("LOG", [a], [b]):
+    with pypto.function("LOG", a, b):
         for b_idx in pypto.loop(int(np.ceil(n / view_shape[0])), name="LOOP_LOG_L0", idx_name="b_idx"):
             for s_idx in pypto.loop(int(np.ceil(n / view_shape[0])), name="LOOP_LOG_L1", idx_name="s_idx"):
                 tile_a = pypto.view(a, view_shape, [b_idx * view_shape[0], s_idx * view_shape[1]],
@@ -51,7 +51,7 @@ def test_vector_operation_log():
     b_tensor = torch.zeros(n, m, dtype=torch.float32)
     pto_a_tensor = pypto.from_torch(a_tensor, "a_tensor")
     pto_b_tensor = pypto.from_torch(b_tensor, "b_tensor")
-    pypto.runtime._device_run_once_data_from_host([pto_a_tensor], [pto_b_tensor])
+    pypto.runtime._device_run_once_data_from_host(pto_a_tensor, pto_b_tensor)
     golden_data = torch.log(a_tensor)
     assert torch.allclose(b_tensor, golden_data, rtol=1e-6, atol=1e-7)
     pypto.runtime._device_fini()
@@ -72,7 +72,7 @@ def test_vector_operation_log2():
     a = pypto.tensor((n, m), pypto.DT_FP32, "LOG2_TENSOR_a")
     b = pypto.tensor((n, m), pypto.DT_FP32, "LOG2_TENSOR_b")
 
-    with pypto.function("LOG2", [a], [b]):
+    with pypto.function("LOG2", a, b):
         for b_idx in pypto.loop(int(np.ceil(n / view_shape[0])), name="LOOP_LOG2_L0", idx_name="b_idx"):
             for s_idx in pypto.loop(int(np.ceil(m / view_shape[1])), name="LOOP_LOG2_L1", idx_name="s_idx"):
                 tile_a = pypto.view(a, view_shape,
@@ -91,7 +91,7 @@ def test_vector_operation_log2():
     b_tensor = torch.zeros(n, m, dtype=torch.float32)
     pto_a_tensor = pypto.from_torch(a_tensor, "a_tensor")
     pto_b_tensor = pypto.from_torch(b_tensor, "b_tensor")
-    pypto.runtime._device_run_once_data_from_host([pto_a_tensor], [pto_b_tensor])
+    pypto.runtime._device_run_once_data_from_host(pto_a_tensor, pto_b_tensor)
     golden_data = torch.log2(a_tensor)
     assert torch.allclose(b_tensor, golden_data, rtol=1e-6, atol=1e-7)
     pypto.runtime._device_fini()
@@ -112,7 +112,7 @@ def test_vector_operation_log10():
     a = pypto.tensor((n, m), pypto.DT_FP32, "LOG10_TENSOR_a")
     b = pypto.tensor((n, m), pypto.DT_FP32, "LOG10_TENSOR_b")
 
-    with pypto.function("LOG10", [a], [b]):
+    with pypto.function("LOG10", a, b):
         for b_idx in pypto.loop(int(np.ceil(n / view_shape[0])), name="LOOP_LOG2_L0", idx_name="b_idx"):
             for s_idx in pypto.loop(int(np.ceil(m / view_shape[1])), name="LOOP_LOG2_L1", idx_name="s_idx"):
                 tile_a = pypto.view(a, view_shape, [b_idx * view_shape[0], s_idx * view_shape[1]],
@@ -129,7 +129,7 @@ def test_vector_operation_log10():
     b_tensor = torch.zeros(n, m, dtype=torch.float32)
     pto_a_tensor = pypto.from_torch(a_tensor, "a_tensor")
     pto_b_tensor = pypto.from_torch(b_tensor, "b_tensor")
-    pypto.runtime._device_run_once_data_from_host([pto_a_tensor], [pto_b_tensor])
+    pypto.runtime._device_run_once_data_from_host(pto_a_tensor, pto_b_tensor)
     golden_data = torch.log10(a_tensor)
     assert torch.allclose(b_tensor, golden_data, rtol=1e-6, atol=1e-7)
     pypto.runtime._device_fini()

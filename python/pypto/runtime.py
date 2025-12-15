@@ -71,22 +71,16 @@ def _pto_to_tensor_data(tensors: List[pypto.Tensor]) -> List[pypto_impl.DeviceTe
     return datas
 
 
-def _device_run_once_data_from_host(inputs: List[pypto.Tensor], outputs: List[pypto.Tensor]):
-    for i, inp in enumerate(inputs):
+def _device_run_once_data_from_host(*args):
+    in_out_tensors = [item for item in args]
+    for i, inp in enumerate(in_out_tensors):
         if not isinstance(inp, pypto.Tensor):
             raise TypeError(
                 f"Expected pypto.Tensor at inputs[{i}], "f"but got {type(inp).__name__}. "
                 "Use from_torch() to convert torch.Tensor to pypto.Tensor."
             )
-
-    for i, out in enumerate(outputs):
-        if not isinstance(out, pypto.Tensor):
-            raise TypeError(
-                f"Expected pypto.Tensor at outputs[{i}], "f"but got {type(out).__name__}. "
-                "Use from_torch() to convert torch.Tensor to pypto.Tensor."
-            )
     pypto_impl.DeviceRunOnceDataFromHost(
-        _pto_to_tensor_data(inputs), _pto_to_tensor_data(outputs))
+        _pto_to_tensor_data(in_out_tensors), [])
 
 
 class JIT:
@@ -100,15 +94,14 @@ class JIT:
         self.pass_options = pass_options
         self.runtime_options = runtime_options
 
-    def compile(self, inputs, outputs, *args, **kwargs):
+    def compile(self, *args, **kwargs):
         pypto_impl.DeviceInit()
-
-
-        handler = pypto_impl.OperatorBegin([t.base() for t in inputs], [t.base() for t in outputs])
+        in_out_tensors = [item for item in args if isinstance(item, pypto.Tensor)]
+        handler = pypto_impl.OperatorBegin([t.base() for t in in_out_tensors], [])
         with pypto.options("jit_scope"):
             self._set_config_option()
-            with pypto.function(self.dyn_func.__name__, inputs, outputs):
-                self.dyn_func(inputs, outputs, *args, **kwargs)
+            with pypto.function(self.dyn_func.__name__, *in_out_tensors):
+                self.dyn_func(*args, **kwargs)
         pypto_impl.OperatorEnd(handler)
 
         self._handler = handler
@@ -171,31 +164,26 @@ class JIT:
             self.runtime_options.update({"run_mode": 1})
 
     def __call__(self, *args, **kwargs):
-        if len(args) < 2:
-            raise ValueError("inputs or outputs missing")
+        if len(args) < 1:
+            raise ValueError("at least one tensor is required")
         device = None
-        inputs, outputs = args[0], args[1]
-        if len(inputs + outputs) < 1:
-            raise ValueError("inputs or outputs missing")
-        for t in inputs + outputs:
+        in_out_tensors = [item for item in args if isinstance(item, pypto.Tensor)]
+
+        for t in in_out_tensors:
             if device is None:
                 device = t.device
             elif device != t.device:
                 raise RuntimeError("not all tensors are on the same device")
-            if not isinstance(t, pypto.Tensor):
-                raise RuntimeError("Expected pypto.tensor input. Use `from_torch` to convert torch.Tensor " + \
-                    "before passing it into a @pypto.jit-decorated kernel function")
 
         # Convert tensors to tensor data before compile, as compile turns tensor shapes into symbolic scalars.
-        in_tensor_data = _pto_to_tensor_data(inputs)
-        out_tensor_data = _pto_to_tensor_data(outputs)
-        real_shapes = [t.GetShape() for t in in_tensor_data + out_tensor_data]
+        in_out_tensors_data = _pto_to_tensor_data(in_out_tensors)
+        real_shapes = [t.GetShape() for t in in_out_tensors_data]
 
         self.set_run_mode()
         if not self._is_compiled or not self._hit_cache(real_shapes):
-            self.compile(inputs, outputs, *args[2:], **kwargs)
+            self.compile(*args, **kwargs)
             self._cached_shapes = real_shapes
-            pypto_impl.BuildCache(self._handler, in_tensor_data, out_tensor_data)
+            pypto_impl.BuildCache(self._handler, in_out_tensors_data, [])
         else:
             self._set_config_option()
 
@@ -209,7 +197,7 @@ class JIT:
           if run_mode is npu , check env, than run with differnet tensor type (support cpu or npu)
           if run_mode is simulator, dont check env, change all tensor to cpu, and run
         '''
-        self.dispatch_with_run_mode(inputs, outputs, device)
+        self.dispatch_with_run_mode(in_out_tensors, [], device)
 
     @property
     def handler(self):

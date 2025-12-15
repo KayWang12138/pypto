@@ -25,7 +25,7 @@ def test_unsqueeze_shape_dim():
     dtype = pypto.DT_FP32
     x = pypto.tensor(shape, dtype)
     dim = 0
-    with pypto.function("UNSQUEEZE_SHAPE", [x]):
+    with pypto.function("UNSQUEEZE_SHAPE", x):
         pypto.set_vec_tile_shapes(8, 8, 8, 8)
 
         #Test each valid dim:[-4, -3, -2, -1, 0, 1, 2, 3]
@@ -45,7 +45,7 @@ def test_unsqueeze_content_equal():
     x = pypto.tensor(shape, dtype)
     res = pypto.tensor([1, 2, 2], dtype)
     dim = 0
-    with pypto.function("UNSQUEEZE_CONTENT", [x], [res]):
+    with pypto.function("UNSQUEEZE_CONTENT", x, res):
         for _ in pypto.loop(1, name="LOOP_L0", idx_name="a_idx"):
             pypto.set_vec_tile_shapes(2, 2, 8)
             res.move(pypto.unsqueeze(x, dim))
@@ -55,7 +55,7 @@ def test_unsqueeze_content_equal():
 
     pto_case_tensor = pypto.from_torch(torch_case_tensor, "torch_case_tensor")
     pto_res_tensor = pypto.from_torch(res_tensor, "res_tensor")
-    pypto.runtime._device_run_once_data_from_host([pto_case_tensor], [pto_res_tensor])
+    pypto.runtime._device_run_once_data_from_host(pto_case_tensor, pto_res_tensor)
 
     torch_case_res = torch.unsqueeze(torch_case_tensor, dim)
 
@@ -69,7 +69,7 @@ def test_tensor_unsqueeze_shape_dim():
     dtype = pypto.DT_FP32
     x = pypto.tensor(shape, dtype)
     dim = 1
-    with pypto.function("TENSOR_UNSQUEEZE_SHAPE", [x]):
+    with pypto.function("TENSOR_UNSQUEEZE_SHAPE", x):
         pypto.set_vec_tile_shapes(8, 8, 8, 8)
 
         res = x.unsqueeze(dim)

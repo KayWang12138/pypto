@@ -109,7 +109,7 @@ class TestBuilder(abc.ABC):
 
         logging.info("Function compile ...")
         pypto.set_vec_tile_shapes(tiling, tiling)
-        with pypto.function("MAIN", self.input_pto_list, self.output_pto_list):
+        with pypto.function("MAIN", *self.input_pto_list, *self.output_pto_list):
             kernel(self.params, *self.input_pto_list, *self.output_pto_list)
         assert all(isinstance(x, pypto.tensor) for x in self.output_pto_list)
         logging.info("Function compile done.")
@@ -120,7 +120,7 @@ class TestBuilder(abc.ABC):
                                 for idx, tensor in enumerate(self.input_data_list)]
             pto_output_data = [pypto.from_torch(tensor, f"OUT_{idx}")
                                 for idx, tensor in enumerate(self.output_data_list)]
-            pypto.runtime._device_run_once_data_from_host(pto_input_data, pto_output_data)
+            pypto.runtime._device_run_once_data_from_host(*pto_input_data, *pto_output_data)
             logging.info("Kernel run finish.")
 
             result_len = len(self.golden_output)
@@ -137,7 +137,7 @@ class TestBuilder(abc.ABC):
         self.init_output_jit(goldens)
         pto_inputs = self._convert_torch_to_pto(self.input_pto_list, self.input_dyn_axes)
         pto_outputs = self._convert_torch_to_pto(self.output_pto_list, self.output_dyn_axes)
-        self.kernel(pto_inputs, pto_outputs, self.params)
+        self.kernel(*pto_inputs, *pto_outputs, self.params)
         pypto.runtime._device_synchronize()
         result_len = len(goldens)
         for idx in range(result_len):

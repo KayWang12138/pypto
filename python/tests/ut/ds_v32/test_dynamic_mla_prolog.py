@@ -530,7 +530,7 @@ def mla_prolog(args: MlaArgs):
         args.tensors.kr_cache_out,
         args.tensors.rms_res,
     ]
-    with pypto.function("MLAProlog", inp, out):
+    with pypto.function("MLAProlog", *inp, *out):
         mla_prolog_compute(args)
 
 

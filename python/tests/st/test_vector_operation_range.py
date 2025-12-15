@@ -39,7 +39,7 @@ def test_vector_operation_range():
     end = 32.1
     step = 1.0
 
-    with pypto.function("RANGE", [a], [b]):
+    with pypto.function("RANGE", a, b):
         for b_idx in pypto.loop(1, name="LOOP_L0_b_idex", idx_name="b_idx"):
             pypto.set_vec_tile_shapes(tile_shape[0])
             res = pypto.tensor()
@@ -50,7 +50,7 @@ def test_vector_operation_range():
     res_tensor = torch.zeros(size, dtype=torch.float32)
     pto_a_tensor = pypto.from_torch(a_tensor, "a_tensor")
     pto_res_tensor = pypto.from_torch(res_tensor, "res_tensor")
-    pypto.runtime._device_run_once_data_from_host([pto_a_tensor], [pto_res_tensor])
+    pypto.runtime._device_run_once_data_from_host(pto_a_tensor, pto_res_tensor)
 
     expected = torch.arange(start_data, end_data, step_data)
     assert_allclose(res_tensor.flatten(), expected.flatten(), rtol=1e-6, atol=1e-7)

@@ -28,7 +28,7 @@ def test_slice_neg_index():
     x = pypto.tensor(x_shape, dtype)
     res = pypto.tensor(res_shape, dtype)
 
-    with pypto.function("SLICE_NEG_INDEX", [x], [res]):
+    with pypto.function("SLICE_NEG_INDEX", x, res):
         for _ in pypto.loop(1, name="LOOP_L0", idx_name="a_idx"):
             pypto.set_vec_tile_shapes(4, 8)
             res[-3:-1, -2:-1] = x # equivalent to a[1:3, 6:7]
@@ -40,7 +40,7 @@ def test_slice_neg_index():
 
     pto_tensor = pypto.from_torch(torch_tensor, "torch_tensor")
     pto_res_tensor = pypto.from_torch(res_tensor, "res_tensor")
-    pypto.runtime._device_run_once_data_from_host([pto_tensor], [pto_res_tensor])
+    pypto.runtime._device_run_once_data_from_host(pto_tensor, pto_res_tensor)
 
     assert torch.equal(res_tensor.flatten(), expected.flatten())
     pypto.runtime._device_fini()
@@ -57,7 +57,7 @@ def test_1d_assemble_to_2d():
     x = pypto.tensor(x_shape, dtype)
     res = pypto.tensor(res_shape, dtype)
 
-    with pypto.function("SLICE_NEG_INDEX", [x], [res]):
+    with pypto.function("SLICE_NEG_INDEX", x, res):
         for a_idx in pypto.loop(res_shape[1], name="LOOP_L0", idx_name="a_idx"):
             pypto.set_vec_tile_shapes(4, 8)
             res[0:, a_idx] = x
@@ -70,7 +70,7 @@ def test_1d_assemble_to_2d():
 
     pto_tensor = pypto.from_torch(torch_tensor, "torch_tensor")
     pto_res_tensor = pypto.from_torch(res_tensor, "res_tensor")
-    pypto.runtime._device_run_once_data_from_host([pto_tensor], [pto_res_tensor])
+    pypto.runtime._device_run_once_data_from_host(pto_tensor, pto_res_tensor)
 
     assert torch.equal(res_tensor.flatten(), expected.flatten())
     pypto.runtime._device_fini()
@@ -87,7 +87,7 @@ def test_2d_assemble_to_3d():
     x = pypto.tensor(x_shape, dtype)
     res = pypto.tensor(res_shape, dtype)
 
-    with pypto.function("SLICE_NEG_INDEX", [x], [res]):
+    with pypto.function("SLICE_NEG_INDEX", x, res):
         for b_idx in pypto.loop(res.shape[0], name="LOOP_L0", idx_name="a_idx"):
             s_loop = pypto.ceil(res.shape[1], x.shape[0])
             for s_idx in pypto.loop(s_loop, name="LOOP_L1", idx_name="s_idx"):
@@ -104,7 +104,7 @@ def test_2d_assemble_to_3d():
 
     pto_tensor = pypto.from_torch(torch_tensor, "torch_tensor")
     pto_res_tensor = pypto.from_torch(res_tensor, "res_tensor")
-    pypto.runtime._device_run_once_data_from_host([pto_tensor], [pto_res_tensor])
+    pypto.runtime._device_run_once_data_from_host(pto_tensor, pto_res_tensor)
 
     assert torch.equal(res_tensor.flatten(), expected.flatten())
     pypto.runtime._device_fini()
@@ -122,7 +122,7 @@ def test_slice_int_index():
     x = pypto.tensor(x_shape, dtype)
     res = pypto.tensor(res_shape, dtype)
 
-    with pypto.function("SLICE_INT_INDEX", [x], [res]):
+    with pypto.function("SLICE_INT_INDEX", x, res):
         for _ in pypto.loop(1, name="LOOP_L0", idx_name="a_idx"):
             pypto.set_vec_tile_shapes(4, 4, 4, 4, 8)
             res[-2, -3:8, :, 1:4, 2] = x # reshape x to (1, 3, 8, 3, 1), res[2:, 5:8, 0:8, 1:4, 2:3] = x
@@ -133,7 +133,7 @@ def test_slice_int_index():
     expected[-2, -3:8, :, 1:4, 2] = torch_tensor
     pto_tensor = pypto.from_torch(torch_tensor, "torch_tensor")
     pto_res_tensor = pypto.from_torch(res_tensor, "res_tensor")
-    pypto.runtime._device_run_once_data_from_host([pto_tensor], [pto_res_tensor])
+    pypto.runtime._device_run_once_data_from_host(pto_tensor, pto_res_tensor)
 
     assert torch.equal(res_tensor, expected)
     pypto.runtime._device_fini()
@@ -158,7 +158,7 @@ def test_slice_ellipsis_index():
     res2 = pypto.tensor(res_shape, dtype)
     res3 = pypto.tensor(res_shape, dtype)
 
-    with pypto.function("SLICE_INT_ELLIPSIS_INDEX", [x0, x1, x2, x3], [res0, res1, res2, res3]):
+    with pypto.function("SLICE_INT_ELLIPSIS_INDEX", x0, x1, x2, x3, res0, res1, res2, res3):
         for _ in pypto.loop(1, name="LOOP_L0", idx_name="a_idx"):
             pypto.set_vec_tile_shapes(4, 4, 4, 8)
             res0[..., 2] = x0
@@ -181,7 +181,10 @@ def test_slice_ellipsis_index():
 
     pto_x_tensor = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(x_tensor)]
     pto_res_tensor = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(res_tensor)]
-    pypto.runtime._device_run_once_data_from_host(pto_x_tensor, pto_res_tensor)
+    pypto.runtime._device_run_once_data_from_host(pto_x_tensor[0], pto_x_tensor[1],
+                                                  pto_x_tensor[2], pto_x_tensor[3],
+                                                  pto_res_tensor[0], pto_res_tensor[1],
+                                                  pto_res_tensor[2], pto_res_tensor[3])
 
     assert torch.equal(res_tensor[0].flatten(), res0_copy.flatten())
     assert torch.equal(res_tensor[1].flatten(), res1_copy.flatten())

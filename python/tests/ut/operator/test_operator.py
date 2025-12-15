@@ -23,27 +23,27 @@ class TestOperator(BaseTest):
     def test_sin(self):
         A = pypto.tensor(shape, dtype, 'A')
         C = pypto.tensor(shape, dtype, 'C')
-        with pypto.function("sign", [A], [C]):
+        with pypto.function("sign", A, C):
             pypto.set_vec_tile_shapes(*tiles)
             C[:] = pypto.sin(A)
 
     def test_cos(self):
         A = pypto.tensor(shape, dtype, 'A')
         C = pypto.tensor(shape, dtype, 'C')
-        with pypto.function("cos", [A], [C]):
+        with pypto.function("cos", A, C):
             pypto.set_vec_tile_shapes(*tiles)
             C[:] = pypto.cos(A)
 
     def test_sigmoid(self):
         A = pypto.tensor(shape, dtype, 'A')
         C = pypto.tensor(shape, dtype, 'C')
-        with pypto.function("sigmoid", [A], [C]):
+        with pypto.function("sigmoid", A, C):
             pypto.set_vec_tile_shapes(*tiles)
             C[:] = pypto.sigmoid(A)
 
     def test_softmax(self):
         A = pypto.tensor(shape, dtype, 'A')
         C = pypto.tensor(shape, dtype, 'C')
-        with pypto.function("softmax", [A], [C]):
+        with pypto.function("softmax", A, C):
             pypto.set_vec_tile_shapes(*tiles)
             C[:] = pypto.softmax(A, dim=-1)

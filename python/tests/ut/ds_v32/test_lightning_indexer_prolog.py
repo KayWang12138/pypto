@@ -516,8 +516,8 @@ def lightning_indexer_prolog_inner(args: LightningIndexerPrologArgs):
 
     with pypto.function(
         "LightningIndexerProlog",
-        input_tensors,
-        output_tensors
+        *input_tensors,
+        *output_tensors
     ):
         lightning_indexer_prolog_impl(args)
 

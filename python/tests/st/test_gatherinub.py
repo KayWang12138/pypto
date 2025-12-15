@@ -234,7 +234,7 @@ def test_vector_operator_gatherinub():
     pageTable = pypto.tensor(
         pageTableShapes, pypto.DataType.DT_INT32, "pageTable")
     dst = pypto.tensor(dstShapes, pypto.DataType.DT_FP16, "dst")
-    with pypto.function("MAIN", [src, offsets, pageTable], [dst]):
+    with pypto.function("MAIN", src, offsets, pageTable, dst):
         for _ in pypto.loop(1, name="b0", idx_name="bidx"):
             pypto.set_codegen_options(support_dynamic_unaligned=True)
             pypto.set_vec_tile_shapes(32, 64)
@@ -251,6 +251,6 @@ def test_vector_operator_gatherinub():
     pto_c_tensor = pypto.from_torch(page_table, "page_table")
     pto_d_tensor = pypto.from_torch(result, "result")
     pypto.runtime._device_run_once_data_from_host(
-        [pto_a_tensor, pto_b_tensor, pto_c_tensor], [pto_d_tensor])
+        pto_a_tensor, pto_b_tensor, pto_c_tensor, pto_d_tensor)
     assert_allclose(result.flatten(), golden.flatten(), rtol=3e-3, atol=3e-3)
     pypto.runtime._device_fini()

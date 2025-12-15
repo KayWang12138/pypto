@@ -87,7 +87,7 @@ std::string DeviceRunOnceDataFromHost(
         StringUtils::DataCopy((uint8_t *)outputs[i].GetDevAddr(), output->GetDataSize(), output->data(), output->GetDataSize());
     }
 
-    if (HasInplaceArgs(Program::GetInstance().GetLastFunction())) {
+    if (HasInplaceArgs(Program::GetInstance().GetLastFunction()) || outputs.size() == 0) {
         for (size_t i = 0; i < inputs.size(); i++) {
             auto input = ProgramData::GetInstance().GetInputData(i);
             StringUtils::DataCopy((uint8_t *)inputs[i].GetDevAddr(), input->GetDataSize(), input->data(), input->GetDataSize());

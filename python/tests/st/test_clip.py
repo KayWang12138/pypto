@@ -173,7 +173,7 @@ def process_tensor_mode(tile_tensor_0, inputs, args, loop_vars):
 def build_clip_2d(inputs, outputs, view_shape, tile_shape, args):
     shape = inputs[0].shape
     view_shape = [min(v, self_dim) for v, self_dim in zip(view_shape, shape)]
-    with function("Clip", inputs, outputs):
+    with function("Clip", inputs[0], inputs[1], inputs[2], outputs[0]):
         for b_idx in pypto.loop(math.ceil(shape[0] / view_shape[0])):
             for s_idx in pypto.loop(math.ceil(shape[1] / view_shape[1])):
                 loop_vars = [b_idx, s_idx]
@@ -200,7 +200,7 @@ def run_clip(inputs: List[torch.Tensor], outputs: List[torch.Tensor], args: Clip
     build_clip_2d(input_tensors, output_tensors, args.view_shape, args.tile_shape, args)
     pto_input_tensors = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
     pto_output_tensors = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(outputs)]
-    pypto.runtime._device_run_once_data_from_host(pto_input_tensors, pto_output_tensors)
+    pypto.runtime._device_run_once_data_from_host(*pto_input_tensors, *pto_output_tensors)
     pypto.runtime._device_fini()
     return outputs
 

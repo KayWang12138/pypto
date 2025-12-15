@@ -24,7 +24,9 @@ def main():
 
 
 @pypto.jit
-def select_experts_glm(in_tensors, out_tensors, renormalize_flag, topk_group, num_expert_group, row_ids_flag, eps):
+def select_experts_glm(hidden_states, residual, weight, bias_input, mm_weight, e_score_bias_input,
+                       weight_k, ids_k, row_idx, residual_out,
+                       renormalize_flag, topk_group, num_expert_group, row_ids_flag, eps):
     # 添加支持动态的config
     pypto.set_codegen_options(support_dynamic_unaligned=True)
     pypto.set_host_options(only_codegen=True)
@@ -32,19 +34,6 @@ def select_experts_glm(in_tensors, out_tensors, renormalize_flag, topk_group, nu
     pypto.set_runtime_options(cfgcache_root_task_num=1000)
     pypto.set_runtime_options(cfgcache_leaf_task_num=10000)
     pypto.set_option('profile_enable', True)
-
-    # 2. 从入参拿到输入和输出tensor
-    hidden_states = in_tensors[0]
-    residual = in_tensors[1]
-    weight = in_tensors[2]
-    bias_input = in_tensors[3]
-    mm_weight = in_tensors[4]
-    e_score_bias_input = in_tensors[5]
-    # output tensor
-    weight_k = out_tensors[0]
-    ids_k = out_tensors[1]
-    row_idx = out_tensors[2]
-    residual_out = out_tensors[3]
 
     # 3. 得到动态tensor的shape
     bs = hidden_states.shape[0]
@@ -303,7 +292,7 @@ def select_experts(residual: torch.Tensor,
 
     g = torch.npu.NPUGraph()
     with torch.npu.graph(g):
-        select_experts_glm(pto_inputs, pto_outputs, renormalize, topk_group, num_expert_group,
+        select_experts_glm(*pto_inputs, *pto_outputs, renormalize, topk_group, num_expert_group,
                            row_ids_flag, input_norm_eps)
     g.replay()
     pypto.runtime._device_synchronize()

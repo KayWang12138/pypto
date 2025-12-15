@@ -156,7 +156,7 @@ class PTOTestCaseRunner(TestCaseRunner):
         function += """torch.npu.set_device(device_id)\n"""
         function += "\n"
         function += (
-            f"with pypto.function('{self._operation}', input_tensors, output_tensors):\n"
+            f"with pypto.function('{self._operation}', *input_tensors, *output_tensors):\n"
         )
         for index in list(range(len(loop_range_tuple))):
             function += prefix + (tab * (index + 1))
@@ -233,7 +233,7 @@ class PTOTestCaseRunner(TestCaseRunner):
         pto_inputs_tensor = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
         pto_output_tensor = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(output)]
 
-        pypto.runtime._device_run_once_data_from_host(pto_inputs_tensor, pto_output_tensor)
+        pypto.runtime._device_run_once_data_from_host(*pto_inputs_tensor, *pto_output_tensor)
         return [
             torch.tensor(
                 output[index],

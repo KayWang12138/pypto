@@ -21,13 +21,9 @@ from st.pypto_test import TestBuilder
     host_options={"only_codegen": True},
     codegen_options={"support_dynamic_unaligned": True}
 )
-def op_select_experts(input_tensors, output_tensors, params):
+def op_select_experts(router_logits, ids_k, weight_k, params):
 
     bs, ne, topk, renormalize_flag = params
-    router_logits = input_tensors[0]
-    ids_k = output_tensors[0]
-    weight_k = output_tensors[1]
-
     view_shape = [1024, ne]
     bs_loop = (bs + view_shape[0] - 1) // view_shape[0]
 

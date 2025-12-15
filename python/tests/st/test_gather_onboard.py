@@ -44,7 +44,7 @@ def test_gather_onboard():
     b_loop_num = math.ceil(index_shape[0] / view_shape[0])
     s_loop_num = math.ceil(index_shape[1] / view_shape[1])
     pypto.set_codegen_options(support_dynamic_unaligned=True)
-    with pypto.function("GATHER", [src_tensor, index_tensor], [dst_tensor]):
+    with pypto.function("GATHER", src_tensor, index_tensor, dst_tensor):
         for b_idx in pypto.loop(b_loop_num, name="LOOP_DIV_L0", idx_name="b_idx"):
             for s_idx in pypto.loop(s_loop_num, name="LOOP_SIV_L0", idx_name="s_idx"):
                 pypto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
@@ -86,7 +86,7 @@ def test_gather_onboard():
     pto_result_tensor = pypto.from_torch(result_tensor, "result_tensor")
 
     pypto.runtime._device_run_once_data_from_host(
-        [pto_input0_tensor, pto_input1_tensor], [pto_result_tensor])
+        pto_input0_tensor, pto_input1_tensor, pto_result_tensor)
 
     result = torch.zeros(index_shape, dtype=torch.int32)
     for i in range(index_shape[0]):

@@ -34,7 +34,7 @@ def test_adds_onboard():
     b_loop_num = math.ceil(shape[0] / view_shape[0])
     s_loop_num = math.ceil(shape[1] / view_shape[1])
     pypto.set_codegen_options(support_dynamic_unaligned=True)
-    with pypto.function("MAIN", [input1], [output]):
+    with pypto.function("MAIN", input1, output):
         for b_idx in pypto.loop(b_loop_num, name="b0", idx_name="bidx"):
             for s_idx in pypto.loop(s_loop_num, name="s0", idx_name="sidx"):
                 view_tensor_a = pypto.view(input1, view_shape,
@@ -48,7 +48,7 @@ def test_adds_onboard():
                                          ],
                                          )
                 pypto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
-                view_tensor_a.move(pypto.add(view_tensor_a, input2))
+                view_tensor_a = pypto.add(view_tensor_a, input2)
                 pypto.assemble(view_tensor_a, [
                              b_idx * view_shape[0], s_idx * view_shape[1]], output)
 
@@ -59,7 +59,7 @@ def test_adds_onboard():
     b_tensor = torch.zeros(shape[0], shape[1], dtype=torch.int32)
     pto_a_tensor = pypto.from_torch(a_tensor, "a_tensor")
     pto_b_tensor = pypto.from_torch(b_tensor, "b_tensor")
-    pypto.runtime._device_run_once_data_from_host([pto_a_tensor], [pto_b_tensor])
+    pypto.runtime._device_run_once_data_from_host(pto_a_tensor, pto_b_tensor)
 
     golden = torch.add(a_tensor, input2)
     assert_allclose(b_tensor.flatten(), golden.flatten(), rtol=3e-3, atol=3e-3)

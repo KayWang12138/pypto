@@ -173,7 +173,7 @@ int DeviceLauncher::DeviceRunOnce(Function *function, const DeviceLauncherConfig
     std::tie(inputDeviceDataList, outputDeviceDataList) = BuildInputOutputFromHost(DeviceMemoryUtils(), inputDataList, outputDataList);
     int rc = DeviceLaunchOnceWithDeviceTensorData(function, inputDeviceDataList, outputDeviceDataList, aicpuStream, aicoreStream, true, nullptr, config);
     CopyFromDev(DeviceMemoryUtils(), outputDataList);
-    if (HasInplaceArgs(function)) {
+    if (HasInplaceArgs(function) || outputDataList.size() == 0) {
         CopyFromDev(DeviceMemoryUtils(), inputDataList);
     }
     return rc;

@@ -226,10 +226,10 @@ def view(
         The Shape Size must not exceed 2147483647 (i.e., INT32_MAX).
     offsets: List[int]
         Get the offset of each dimension relative to the input when obtaining the view.
-        It is required that thr offsets are smaller than the shape of the input.
+        It is required that the offsets are smaller than the shape of the input.
     valid_shape: List[int] = None
         Optional parameter to retrieve the effective data size of the schematic block.
-        It is required that thr offsets are smaller than the shape of the input.
+        It is required that the valid_shape is smaller than the shape of the input.
 
     Returns
     -------
