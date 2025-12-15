@@ -187,7 +187,7 @@ public:
 
     static ConfigManagerNg &GetInstance();
 
-    std::string ToString();
+    std::string GetOptionsTree();
 
     ~ConfigManagerNg();
 

@@ -257,7 +257,7 @@ struct ConfigManagerImpl {
         }
     }
 
-    std::string ToString() {
+    std::string GetOptionsTree() {
         std::stringstream os;
         Dump(os, root.get(), "");
         return os.str();
@@ -333,8 +333,8 @@ const std::type_info &ConfigManagerNg::Type(const std::string &key) const {
     return impl_->typeInfo.Type(key);
 }
 
-std::string ConfigManagerNg::ToString() {
-    return impl_->ToString();
+std::string ConfigManagerNg::GetOptionsTree() {
+    return impl_->GetOptionsTree();
 }
 
 ConfigManagerNg::ConfigManagerNg() : impl_(std::make_unique<ConfigManagerImpl>()) {}

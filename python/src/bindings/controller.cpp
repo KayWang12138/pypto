@@ -264,8 +264,8 @@ void bind_controller_scope(py::module &m) {
     m.def("CurrentScope",
         []() { return ConfigManagerNg::GetInstance().CurrentScope(); });
 
-    m.def("ToString",
-        []() { return ConfigManagerNg::GetInstance().ToString(); });
+    m.def("GetOptionsTree",
+        []() { return ConfigManagerNg::GetInstance().GetOptionsTree(); });
 }
 
 void bind_controller_scope_classes(py::module &m) {

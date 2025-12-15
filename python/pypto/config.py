@@ -531,7 +531,7 @@ def set_options(
 
 def get_options_tree():
     """Get the tree structure string of configuration options"""
-    return pypto_impl.ToString()
+    return pypto_impl.GetOptionsTree()
 
 
 class CubeTile:

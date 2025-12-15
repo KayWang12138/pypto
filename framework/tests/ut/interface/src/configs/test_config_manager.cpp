@@ -153,7 +153,7 @@ TEST_F(TestConfigManager, Dump) {
     auto scope4 = cm.CurrentScope();
     cm.EndScope();
 
-    std::cout << cm.ToString() << std::endl;
+    std::cout << cm.GetOptionsTree() << std::endl;
     std::cout << "-- scope3 -- " << std::endl;
     std::cout << scope3->ToString() << std::endl;
 }
