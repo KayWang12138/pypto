@@ -14,11 +14,12 @@ from typing import Union
 from .. import pypto_impl
 from ..op_wrapper import op_wrapper
 from ..tensor import Tensor
+from ..element import Element
 
 
 @op_wrapper
 def where(
-    condition: Tensor, input: Union[Tensor, float], other: Union[Tensor, float]
+    condition: Tensor, input: Union[Tensor, float, Element], other: Union[Tensor, float, Element]
 ) -> Tensor:
     """
     Return a tensor of elements selected from either `input` or `other`, depending on `condition`.
@@ -85,21 +86,15 @@ def where(
     Output out3: [[1 0],
                   [0 2]])
     """
-    if isinstance(input, pypto_impl.Tensor):
+    if isinstance(input, pypto_impl.Tensor) or isinstance(input, pypto_impl.Element):
         input_base = input
     else:
-        if isinstance(input, float):
-            input_base = pypto_impl.Element(pypto_impl.DT_FP32, input)
-        else:
-            input_base = pypto_impl.Element(pypto_impl.DT_FP16, input)
+        input_base = pypto_impl.Element(pypto_impl.DT_FP32, input)
 
-    if isinstance(other, pypto_impl.Tensor):
+    if isinstance(other, pypto_impl.Tensor) or isinstance(other, pypto_impl.Element):
         other_base = other
     else:
-        if isinstance(other, float):
-            other_base = pypto_impl.Element(pypto_impl.DT_FP32, other)
-        else:
-            other_base = pypto_impl.Element(pypto_impl.DT_FP16, other)
+        other_base = pypto_impl.Element(pypto_impl.DT_FP32, other)
     return pypto_impl.Where(condition, input_base, other_base)
 
 
