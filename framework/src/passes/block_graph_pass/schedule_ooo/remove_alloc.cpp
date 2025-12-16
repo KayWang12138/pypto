@@ -14,6 +14,7 @@
  */
 
 #include "remove_alloc.h"
+#include "interface/function/kernel_function.h"
 
 namespace npu::tile_fwk {
 void RemoveAlloc::RemoveAllocCall(Function &function) const {

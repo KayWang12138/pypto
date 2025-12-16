@@ -14,6 +14,7 @@
  */
 
 #include "interface/function/function.h"
+#include "interface/function/kernel_function.h"
 #include <queue>
 #include <algorithm>
 #include <unordered_map>
@@ -316,29 +317,6 @@ void Function::RecordOOOSeq()
 {
     operationsAfterOOO_ = operations_;
     opPositionAfterOOO_ = opPosition_;
-}
-
-std::vector<OperationPtr> &Function::GetProgramOp() {
-    ASSERT(graphType_ == GraphType::BLOCK_GRAPH)
-        << "Function::GetProgramOp called. Current graph type: " << static_cast<int>(graphType_);
-    return operations_;
-}
-
-void Function::SetProgramOp(const std::vector<OperationPtr> &operations) {
-    ASSERT(graphType_ == GraphType::BLOCK_GRAPH)
-        << "Function::SetProgramOp called. Current graph type: " << static_cast<int>(graphType_);
-    operations_ = operations;
-
-    RefreshOpPosition();
-    sorted_ = true;
-}
-
-void Function::UpdateBelongToThis() {
-    ASSERT(graphType_ == GraphType::BLOCK_GRAPH)
-        << "Function::UpdateBelongToThis called. Current graph type: " << static_cast<int>(graphType_);
-    for (auto &ele : operations_) {
-        ele->function_ = this;
-    }
 }
 
 const SubfuncInvokeInfoTy &Function::GetSubFuncInvokeInfo(const size_t i) const {
@@ -703,7 +681,7 @@ FunctionCallArgs Function::EndFunction(const std::shared_ptr<TensorSlotScope> &s
             CreateLeafInAndOutCast(out, outArgumentList);
         }
         for (auto &in : inCasts_) {
-            /* actualRawmagic存在的场景下，前序 LogicalTensor 应该已经创建好，直接获取 */
+            /* actualRawmagic存在的场�?下，前序 LogicalTensor 应�?�已经创建好，直接获�? */
             CreateLeafInAndOutCast(in, inArgumentList);
         }
         for (const auto &op : operations_) {
@@ -1119,25 +1097,6 @@ void Function::SortOperations() {
     sorted_ = true;
 }
 
-void Function::ScheduleBy(const std::vector<Operation *> &newList, bool needRefresh) {
-    if (needRefresh) {
-        RefreshOpPosition();
-    }
-    ASSERT(newList.size() == operations_.size())
-        << "Size mismatch: newList size = " << newList.size()
-        << ", operations_ size = " << operations_.size();
-    std::vector<std::shared_ptr<Operation>> newOperations;
-    for (auto op : newList) {
-        ASSERT(opPosition_.count(op) > 0)
-            << "Operation not found in opPosition_:" << op->Dump();
-        newOperations.emplace_back(operations_[opPosition_.at(op)]);
-    }
-    operations_ = newOperations;
-    RefreshOpPosition();
-
-    sorted_ = true;
-}
-
 void Function::AddOperationGroup(std::vector<Operation *> operationGroup) {
     size_t groupID = operationGroups_.size();
     for (const auto &operation : operationGroup) {
@@ -1146,45 +1105,6 @@ void Function::AddOperationGroup(std::vector<Operation *> operationGroup) {
         operation->SetGroupID(groupID);
     }
     operationGroups_.emplace_back(std::move(operationGroup));
-    sorted_ = false;
-}
-
-void Function::ClearOperationGroups() {
-    for (auto &opGroup : operationGroups_) {
-        for (auto &op : opGroup) {
-            op->SetGroupID(NON_GROUP);
-        }
-    }
-    operationGroups_.clear();
-}
-
-void Function::CheckGroupValid() const {
-    std::unordered_set<const Operation *> inGroupOp;
-    for (size_t i = 0; i < operationGroups_.size(); i++) {
-        for (auto &operation : operationGroups_[i]) {
-            ASSERT(operation->GroupID() == i)
-                << "Operation GroupID mismatch:\n" << "Expected: " << i << ", Actual: " << operation->GroupID() << "\n"
-                << "Operation:" << operation->Dump();
-            ASSERT(inGroupOp.count(operation) == 0) << "Duplicate operation in group:" << operation->Dump();
-            inGroupOp.emplace(operation);
-        }
-    }
-    for (const auto &operation : operations_) {
-        ASSERT(inGroupOp.count(operation.get()) == (operation->GroupID() != NON_GROUP))
-            << "Operation group membership mismatch:\n" << "Operation: " << operation->Dump() << "\n"
-            << "GroupID: " << operation->GroupID();
-    }
-}
-
-void Function::RefreshOpPosition() {
-    opPosition_.clear();
-    for (size_t idx = 0; idx < operations_.size(); ++idx) {
-        ASSERT(opPosition_.count(operations_[idx].get()) == 0)
-            << "Duplicate operation found in opPosition_:\n"
-            << operations_[idx]->Dump();
-        opPosition_.emplace(operations_[idx].get(), idx);
-    }
-}
 
 bool Function::enableMagicLookupRecord_{false};
 std::map<std::pair<int, int>, std::set<Operation *, LogicalTensor::CompareOp>> Function::tensorAndSubgraphToProducer_;
@@ -1207,14 +1127,14 @@ void Function::ProducerMagicLookup(const Function *function, const LogicalTensor
         }
         bool isInBoundary = OpcodeManager::Inst().IsBoundaryIn(op->GetOpcode());
         if (isInBoundary) {
-            /* 除了最高轴之外的所有内轴都纳入到hash的计算中 */
+            /* 除了最高轴之�?�的所有内轴都纳入到hash的�?�算�? */
             for (size_t idx = 1; idx < op->iOperand[0]->tensor->rawshape.size(); idx++) {
                 ss << op->iOperand[0]->tensor->rawshape[idx] << " ";
             }
         }
         bool isOutBoundary = OpcodeManager::Inst().IsBoundaryOut(op->GetOpcode());
         if (isOutBoundary) {
-            /* 除了最高轴之外的所有内轴都纳入到hash的计算中 */
+            /* 除了最高轴之�?�的所有内轴都纳入到hash的�?�算�? */
             for (size_t idx = 1; idx < op->oOperand[0]->tensor->rawshape.size(); idx++) {
                 ss << op->oOperand[0]->tensor->rawshape[idx] << " ";
             }
@@ -1288,7 +1208,7 @@ unsigned long Function::ComputeHashOrderless() const {
     // Build using Polish Notation
     int index = 0;
     std::unordered_map<int, int> magic2index;
-    // 只有leaf graph需要判断边界
+    // �?有leaf graph需要判�?边界
     if (graphType_ == GraphType::BLOCK_GRAPH) {
         if (operations_.size()) {
             MagicLookup(
@@ -1408,7 +1328,7 @@ void Function::EraseOperations(const OperationDeleter &deleter) {
 FunctionHash Function::ComputeHash() {
     if (functionHash_.GetHash() != 0 &&
         (functionType_ != FunctionType::DYNAMIC_LOOP && functionType_ != FunctionType::DYNAMIC)) {
-        /* 动态类型的graph里面的op和tensor会随着循环的展开而变化，每次都需要刷新 */
+        /* 动态类型的graph里面的op和tensor会随着�?�?的展开而变化，每�?�都需要刷�? */
         return functionHash_;
     }
     for (auto &ele : inCasts_) {
@@ -1581,13 +1501,13 @@ void Function::SubstituteIn(std::shared_ptr<LogicalTensor> oldTensor,
                 continue;
             }
             if (auto viewOpAttribute = std::dynamic_pointer_cast<ViewOpAttribute>(cur.GetOpAttribute())) {
-                // VIEW操作的offset要相应被修改。
+                // VIEW操作的offset要相应�??�?改�?
                 auto &fromOffset = viewOpAttribute->GetFrom();
                 for (size_t j = 0; j < fromOffset.size(); j++) {
                     fromOffset[j] -= oldTensor->offset[j] - newTensor->offset[j];
                 }
             } else if (auto copyOpAttribute = std::dynamic_pointer_cast<CopyOpAttribute>(cur.GetOpAttribute())) {
-                // CopyIn操作的offset要相应被修改。
+                // CopyIn操作的offset要相应�??�?改�?
                 if (!copyOpAttribute->IsCopyOut()) {
                     auto [fromOffset, memType] = copyOpAttribute->GetCopyInAttr();
                     (void)memType;
@@ -1629,7 +1549,7 @@ void Function::Substitute(std::shared_ptr<LogicalTensor> oldTensor,
 }
 
 void Function::RemoveOriginIncastConsumer(const std::shared_ptr<LogicalTensor> &originIncast) const {
-    // 因为originIncast不输出本function，因此originIncast的producer的oOperand在本function外，需要移除对function内的消费者
+    // 因为originIncast不输出本function，因�?originIncast的producer的oOperand在本function外，需要移除�?�function内的消费�?
     for (const auto &producer : originIncast->GetProducers()) {
         auto targetFunc = this;
         while (targetFunc != producer->BelongTo()) {
@@ -2153,8 +2073,14 @@ Json Function::DumpJson(bool useTable) {
     funcDump["operations"] = operations;
     funcDump["hash"] = functionHash_.Data();
 
-    if (leafFuncAttr_ != nullptr && leafFuncAttr_->coreType != CoreType::INVALID) {
-        funcDump["leaf_func_attr"]["coretype"] = leafFuncAttr_->coreType;
+    // Handle KernelFunction specific attributes
+    if (graphType_ == GraphType::BLOCK_GRAPH) {
+        auto leafFuncAttr = GetLeafFuncAttribute();
+        if (leafFuncAttr->coreType != CoreType::INVALID) {
+            funcDump["leaf_func_attr"]["coretype"] = leafFuncAttr->coreType;
+        }
+        funcDump["subfunc_param"] = GetParameter().ToJson();
+        funcDump["static"]["subfunc_param"] = funcDump["subfunc_param"];
     }
 
     if (rootFunc_ != nullptr) {
@@ -2168,10 +2094,6 @@ Json Function::DumpJson(bool useTable) {
         funcDump["programs"] = programsJson;
         funcDump["topo"] = topoInfo_.DumpJson();
         funcDump["static"]["topo"] = funcDump["topo"];
-    }
-    if (graphType_ == GraphType::BLOCK_GRAPH) {
-        funcDump["subfunc_param"] = parameter_.ToJson();
-        funcDump["static"]["subfunc_param"] = funcDump["subfunc_param"];
     }
 
     auto aicIt = readySubGraphIds_.find(CoreType::AIC);
@@ -2355,12 +2277,21 @@ std::shared_ptr<Function> Function::LoadJson(Program &belongTo, const Json &func
         << "Invalid function kind in JSON";
     int funcmagic = funcDump["funcmagic"].get<int>();
     std::string rawname = funcDump["rawname"].get<std::string>();
-    std::shared_ptr<Function> func =
-        std::make_shared<Function>(belongTo, rawname + "_" + std::to_string(funcmagic), rawname, nullptr);
+    GraphType graphType = static_cast<GraphType>(funcDump["graphtype"].get<int>());
+    
+    std::shared_ptr<Function> func;
+    if (graphType == GraphType::BLOCK_GRAPH) {
+        // Create KernelFunction for BLOCK_GRAPH
+        func = std::make_shared<KernelFunction>(belongTo, rawname + "_" + std::to_string(funcmagic), rawname, nullptr);
+    } else {
+        // Create regular Function for other graph types
+        func = std::make_shared<Function>(belongTo, rawname + "_" + std::to_string(funcmagic), rawname, nullptr);
+    }
+    
     func->funcMagicName_ = funcDump["func_magicname"];
     func->functionMagic_ = funcmagic;
     func->functionType_ = static_cast<FunctionType>(funcDump["functype"].get<int>());
-    func->graphType_ = static_cast<GraphType>(funcDump["graphtype"].get<int>());
+    func->graphType_ = graphType;
     func->sorted_ = true;
     std::unordered_map<int, std::shared_ptr<RawTensor>> rawTensorDict;
     if (funcDump.count("rawtensors") != 0) {
@@ -2456,7 +2387,7 @@ std::shared_ptr<Function> Function::LoadJson(Program &belongTo, const Json &func
     }
 
     if (funcDump.count("subfunc_param") != 0) {
-        func->parameter_.FromJson(funcDump["subfunc_param"]);
+        func->GetParameter().FromJson(funcDump["subfunc_param"]);
     }
 
     if (funcDump.count("aic_ready_subgraph_ids") != 0) {
@@ -2518,274 +2449,6 @@ std::shared_ptr<Function> Function::LoadJson(Program &belongTo, const Json &func
     }
     func->RefreshOpPosition();
     return func;
-}
-
-static const SymbolicScalar RUNTIME_COA_GetOffset = AddRuntimeCoaPrefix("GET_PARAM_OFFSET");
-static const SymbolicScalar RUNTIME_COA_GetValidShape = AddRuntimeCoaPrefix("GET_PARAM_VALID_SHAPE");
-static const SymbolicScalar RUNTIME_COA_GetParam = AddRuntimeCoaPrefix("GET_PARAM");
-
-static void MaybeNormalizeValue(
-        const SymbolicScalar &coaFunc,
-        std::vector<SymbolicScalar> &operandCoaList,
-        int operandCoaIndex,
-        std::vector<OpImmediate> &opImmList,
-        int coaIndex,
-        bool valueToIndex) {
-    for (size_t dimIndex = 0; dimIndex < opImmList.size(); dimIndex++) {
-        auto &opImm = opImmList[dimIndex];
-        SymbolicScalar scalar = opImm.GetSpecifiedValue();
-        auto getTensorDataDict = GetTensorDataDict(scalar);
-        if (getTensorDataDict.size() == 0) {
-            OpImmediate::NormalizeValue(operandCoaList[operandCoaIndex + dimIndex], opImm,
-                                        coaFunc(opImmList.size(), coaIndex, dimIndex), valueToIndex);
-        }
-    }
-};
-
-static void MaybeNormalizeValue(
-        std::vector<SymbolicScalar> &valueCoa,
-        SymbolicScalar &value,
-        int coaIndex,
-        bool valueToIndex) {
-    auto getTensorDataDict = GetTensorDataDict(value);
-    if (getTensorDataDict.size() == 0) {
-        valueCoa.push_back(value);
-        if (valueToIndex) {
-            value = RUNTIME_COA_GetParam(coaIndex);
-        }
-    }
-}
-
-static std::vector<SymbolicScalar> NormalizeCopyIn(Operation *op, int coaIndexBase, bool valueToIndex) {
-    auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(op->GetOpAttribute());
-    int dim = copyAttr->GetShape().size();
-    int operandCoaIndex = COA_INDEX_DIM_BASE;
-    int coaIndex = coaIndexBase + COA_INDEX_DIM_BASE;
-    std::vector<SymbolicScalar> operandCoaList(COA_INDEX_DIM_BASE + dim * COA_INDEX_TYPE_COUNT, 0);
-
-    auto opImmList = copyAttr->GetFromOffset();
-    MaybeNormalizeValue(RUNTIME_COA_GetOffset, operandCoaList, operandCoaIndex,
-                        opImmList, coaIndexBase, valueToIndex);
-    copyAttr->SetFromOffset(opImmList);
-    operandCoaIndex += dim;
-    coaIndex += dim;
-
-    // shape to normal
-    opImmList = copyAttr->GetShape();
-    OpImmediate::NormalizeValue(operandCoaList, operandCoaIndex, opImmList, coaIndex, valueToIndex);
-    copyAttr->SetShape(opImmList);
-    operandCoaIndex += dim;
-    coaIndex += dim;
-
-    opImmList = copyAttr->GetRawShape();
-    OpImmediate::NormalizeValue(operandCoaList, operandCoaIndex, opImmList, coaIndex, valueToIndex);
-    copyAttr->SetRawShape(opImmList);
-    operandCoaIndex += dim;
-    coaIndex += dim;
-
-    opImmList = copyAttr->GetToDynValidShape();
-    MaybeNormalizeValue(RUNTIME_COA_GetValidShape, operandCoaList, operandCoaIndex,
-                        opImmList, coaIndexBase, valueToIndex);
-    copyAttr->SetToDynValidShape(opImmList);
-
-    return operandCoaList;
-}
-
-static std::vector<SymbolicScalar> NormalizeCopyOut(Operation *op, int coaIndexBase, bool valueToIndex) {
-    auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(op->GetOpAttribute());
-    int dim = copyAttr->GetShape().size();
-    int operandCoaIndex = COA_INDEX_DIM_BASE;
-    int coaIndex = coaIndexBase + COA_INDEX_DIM_BASE;
-    std::vector<SymbolicScalar> operandCoaList(COA_INDEX_DIM_BASE + dim * COA_INDEX_TYPE_COUNT, 0);
-
-    auto opImmList = copyAttr->GetToOffset();
-    MaybeNormalizeValue(RUNTIME_COA_GetOffset, operandCoaList, operandCoaIndex,
-                        opImmList, coaIndexBase, valueToIndex);
-    copyAttr->SetToOffset(opImmList);
-    operandCoaIndex += dim;
-    coaIndex += dim;
-
-    // shape to normals
-    opImmList = copyAttr->GetShape();
-    OpImmediate::NormalizeValue(operandCoaList, operandCoaIndex, opImmList, coaIndex, valueToIndex);
-    copyAttr->SetShape(opImmList);
-    operandCoaIndex += dim;
-    coaIndex += dim;
-
-    opImmList = copyAttr->GetRawShape();
-    OpImmediate::NormalizeValue(operandCoaList, operandCoaIndex, opImmList, coaIndex, valueToIndex);
-    copyAttr->SetRawShape(opImmList);
-    operandCoaIndex += dim;
-    coaIndex += dim;
-
-    opImmList = copyAttr->GetFromDynValidShape();
-    MaybeNormalizeValue(RUNTIME_COA_GetValidShape, operandCoaList, operandCoaIndex,
-                        opImmList, coaIndexBase, valueToIndex);
-    copyAttr->SetFromDynValidShape(opImmList);
-
-    return operandCoaList;
-}
-
-static std::vector<SymbolicScalar> NormalizeTensor(LogicalTensorPtr operand, int coaIndexBase, bool isNop = false) {
-    auto offset = OpImmediate::Specified(operand->GetOffset());
-    auto dynOffset = OpImmediate::Specified(operand->GetDynOffset());
-    auto shape = OpImmediate::Specified(operand->GetShape());
-    auto rawshape = OpImmediate::Specified(operand->GetRawTensor()->GetRawShape());
-    auto dynRawshape = OpImmediate::Specified(operand->GetRawTensor()->GetDynRawShape());
-    auto dynValidShape = OpImmediate::Specified(operand->GetDynValidShape());
-    if (isNop) {
-        offset = OpImmediate::Specified(Offset(operand->GetShape().size()));
-        dynOffset = OpImmediate::Specified(Offset(operand->GetShape().size()));
-        shape = OpImmediate::Specified(Shape(operand->GetShape().size()));
-        dynValidShape = OpImmediate::Specified(Shape(operand->GetShape().size()));
-    }
-
-    int dim = shape.size();
-    int operandCoaIndex = COA_INDEX_DIM_BASE;
-    int coaIndex = coaIndexBase + COA_INDEX_DIM_BASE;
-    std::vector<SymbolicScalar> operandCoaList(COA_INDEX_DIM_BASE + dim * COA_INDEX_TYPE_COUNT, 0);
-
-    if (dynOffset.size()) {
-        OpImmediate::NormalizeValue(operandCoaList, operandCoaIndex, dynOffset, coaIndex, false);
-    } else {
-        OpImmediate::NormalizeValue(operandCoaList, operandCoaIndex, offset, coaIndex, false);
-    }
-    operandCoaIndex += dim;
-    coaIndex += dim;
-
-    OpImmediate::NormalizeValue(operandCoaList, operandCoaIndex, shape, coaIndex, false);
-    operandCoaIndex += dim;
-    coaIndex += dim;
-
-    if (dynRawshape.size()) {
-        OpImmediate::NormalizeValue(operandCoaList, operandCoaIndex, dynRawshape, coaIndex, false);
-    } else {
-        OpImmediate::NormalizeValue(operandCoaList, operandCoaIndex, rawshape, coaIndex, false);
-    }
-
-    operandCoaIndex += dim;
-    coaIndex += dim;
-
-    if (dynValidShape.size()) {
-        OpImmediate::NormalizeValue(operandCoaList, operandCoaIndex, dynValidShape, coaIndex, false);
-    } else {
-        OpImmediate::NormalizeValue(operandCoaList, operandCoaIndex, shape, coaIndex, false);
-    }
-    operandCoaIndex += dim;
-    coaIndex += dim;
-
-    return operandCoaList;
-}
-
-void Function::GetOutcastSymbolicExpr(std::map<int, SymbolicScalar>& tabel) {
-    for (size_t idx = 0; idx< outCasts_.size(); idx++) {
-        auto op = *outCasts_[idx]->GetProducers().begin();
-        if (op->GetOpcode() == Opcode::OP_BIND_TENSOR) {
-            if (op->HasAttr(OpAttributeKey::bindTensor) && (op->GetOOperands().size() == 1UL)) {
-                tabel[idx] = op->GetSymbolicScalarAttribute(OpAttributeKey::bindTensor);
-            }
-        }
-    }
-}
-
-std::vector<std::vector<SymbolicScalar>> Function::NormalizeCoa(
-    std::vector<int> &iOffset, std::vector<int> &oOffset) {
-    std::unordered_map<int, Operation *> opmagicToOp;
-    std::vector<std::pair<Operation*, int>> extraOutcasts;
-
-    opmagicToOp.reserve(operations_.size());
-    for (auto &op : operations_) {
-        opmagicToOp[op->GetOpMagic()] = op.get();
-        /* The valid-shape of following OP could not be deduced
-           should be normalized also */
-        if (op->GetOpcode() == Opcode::OP_VEC_DUP ||
-            op->GetOpcode() == Opcode::OP_RESHAPE ||
-            op->GetOpcode() == Opcode::OP_EXPAND ||
-            op->GetOpcode() == Opcode::OP_LOAD ||
-            op->GetOpcode() == Opcode::OP_GATHER_IN_UB ||
-            op->GetOpcode() == Opcode::OP_GATHER_IN_L1 ||
-            op->GetOpcode() == Opcode::OP_L1_TO_BT ||
-            op->GetOpcode() == Opcode::OP_L1_TO_FIX_QUANT_PRE) {
-            extraOutcasts.emplace_back(op.get(), 0);
-        }
-    }
-
-    int coaIndex = COA_INDEX_BASE;
-    std::vector<std::vector<SymbolicScalar>> coaLists;
-    bool valueToIndex = parent_->GetFunctionType() == FunctionType::DYNAMIC_LOOP_PATH;
-    coaLists.reserve(incastPosition.size() + outcastPosition.size() + extraOutcasts.size());
-    iOffset.reserve(incastPosition.size());
-    SymbolicScalar getParamOffset = SymbolicScalar(AddRuntimeCoaPrefix("GET_PARAM_OFFSET"));
-    for (auto [opmagic, k] : incastPosition) {
-        auto op = opmagicToOp[opmagic];
-        if (op->GetIOpAttrOffset(k) != -1) {
-            continue;
-        }
-        std::vector<SymbolicScalar> operandCoaList;
-        if (IsCopyIn(op->GetOpcode()) && k == 0) {
-            operandCoaList = NormalizeCopyIn(op, coaIndex, valueToIndex);
-            if (CheckEmuOpcode(op, EMUOP_TENSOR_GETDATA_DEPEND)) {
-                GetTensorDataSetCoaIndex(op, coaIndex);
-            }
-        } else {
-            operandCoaList = NormalizeTensor(op->GetIOperands()[k], coaIndex, op->GetOpcode() == Opcode::OP_NOP);
-        }
-        op->SetIOpAttrOffset(k, coaIndex);
-        iOffset.emplace_back(coaIndex);
-        coaIndex += operandCoaList.size();
-        coaLists.emplace_back(std::move(operandCoaList));
-    }
-
-    oOffset.reserve(outcastPosition.size() + extraOutcasts.size());
-    for (auto [opmagic, k] : outcastPosition) {
-        auto op = opmagicToOp[opmagic];
-        if (op->GetOOpAttrOffset(k) != -1) {
-            continue;
-        }
-        std::vector<SymbolicScalar> operandCoaList;
-        if (IsCopyOut(op->GetOpcode()) && k == 0) {
-            operandCoaList = NormalizeCopyOut(op, coaIndex, valueToIndex);
-        } else {
-            operandCoaList = NormalizeTensor(op->GetOOperands()[k], coaIndex);
-        }
-        op->SetOOpAttrOffset(k, coaIndex);
-        oOffset.emplace_back(coaIndex);
-        coaIndex += operandCoaList.size();
-        coaLists.emplace_back(std::move(operandCoaList));
-    }
-
-    for (auto [op, k]: extraOutcasts) {
-        if (op->GetOOpAttrOffset(k) != -1)
-            continue;
-        auto operandCoaList = NormalizeTensor(op->GetOOperands()[k], coaIndex);
-        op->SetOOpAttrOffset(k, coaIndex);
-        oOffset.emplace_back(coaIndex);
-        coaIndex += operandCoaList.size();
-        coaLists.emplace_back(std::move(operandCoaList));
-    }
-
-    for (auto &op : operations_) {
-        if (op->GetOpcode() == Opcode::OP_VEC_DUP) {
-            if (op->HasAttr(OpAttributeKey::dynScalar)) {
-                SymbolicScalar dynScalar = op->GetSymbolicScalarAttribute(OpAttributeKey::dynScalar);
-                std::vector<SymbolicScalar> valueCoaList;
-                MaybeNormalizeValue(valueCoaList, dynScalar, coaIndex, valueToIndex);
-                op->SetAttribute(OpAttributeKey::dynScalar, dynScalar);
-                coaLists.emplace_back(valueCoaList);
-                coaIndex += 1;
-            }
-        } else if (op->GetOpcode() == Opcode::OP_BIND_TENSOR) {
-            if (op->HasAttr(OpAttributeKey::bindTensor) && (op->GetOOperands().size() == 1UL)) {
-                SymbolicScalar bindTensor = op->GetSymbolicScalarAttribute(OpAttributeKey::bindTensor);
-                std::vector<SymbolicScalar> valueCoaList;
-                MaybeNormalizeValue(valueCoaList, bindTensor, coaIndex, valueToIndex);
-                coaLists.emplace_back(valueCoaList);
-                coaIndex += 1;
-            }
-        }
-    }
-
-    return coaLists;
 }
 
 void Function::DumpTopoFile(const std::string &fileName) const
@@ -3381,7 +3044,7 @@ void Function::OpValidCheck(Operation &op) const {
     ASSERT(op.GetOpMagic() >= 0 && op.GetOpMagic() < opSeed_)
         << "Operation magic number is out of bounds: " << op.GetOpMagic()
         << ", function opSeed_ is: " << opSeed_;
-    if (!op.IsCall()) { // call 允许多输出，其余操作目前不允许
+    if (!op.IsCall()) { // call 允�?��?�输出，其余操作�?前不允�??
         ASSERT(op.GetOOperands().size() <= 1)
             << "Non-call operation should have at most 1 output operand, but has " << op.GetOOperands().size();
     }
@@ -3713,4 +3376,90 @@ DefineProg::~DefineProg() {
     if (isRecording_) {
         ALOG_INFO("prog.end: name=", Program::GetInstance().Name());
     }
+}
+
+// Default implementations for KernelFunction virtual functions
+// These should only be called on KernelFunction instances
+namespace {
+    static std::vector<OperationPtr> emptyOperationList;
+    static SubfuncParam emptySubfuncParam;
+    static std::shared_ptr<LeafFuncAttribute> emptyLeafFuncAttr;
+}
+
+std::vector<OperationPtr> &Function::GetProgramOp() {
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "GetProgramOp() should only be called on KernelFunction");
+    return emptyOperationList;
+}
+
+void Function::SetProgramOp(const std::vector<OperationPtr> &operations) {
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "SetProgramOp() should only be called on KernelFunction");
+    (void)operations;
+}
+
+void Function::UpdateBelongToThis() {
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "UpdateBelongToThis() should only be called on KernelFunction");
+}
+
+void Function::ScheduleBy(const std::vector<Operation *> &newList, bool needRefresh) {
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "ScheduleBy() should only be called on KernelFunction");
+    (void)newList;
+    (void)needRefresh;
+}
+
+const SubfuncParam &Function::GetParameter() const {
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "GetParameter() should only be called on KernelFunction");
+    return emptySubfuncParam;
+}
+
+SubfuncParam &Function::GetParameter() {
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "GetParameter() should only be called on KernelFunction");
+    return emptySubfuncParam;
+}
+
+void Function::SetParameter(const SubfuncParam &parameter) {
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "SetParameter() should only be called on KernelFunction");
+    (void)parameter;
+}
+
+int Function::GetProgramId() const {
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "GetProgramId() should only be called on KernelFunction");
+    return -1;
+}
+
+void Function::SetProgramId(int programId) {
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "SetProgramId() should only be called on KernelFunction");
+    (void)programId;
+}
+
+void Function::SetLeafFuncAttribute(const std::shared_ptr<LeafFuncAttribute> &attr) {
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "SetLeafFuncAttribute() should only be called on KernelFunction");
+    (void)attr;
+}
+
+const std::shared_ptr<LeafFuncAttribute> &Function::GetLeafFuncAttribute() const {
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "GetLeafFuncAttribute() should only be called on KernelFunction");
+    return emptyLeafFuncAttr;
+}
+
+std::shared_ptr<LeafFuncAttribute> &Function::GetLeafFuncAttribute() {
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "GetLeafFuncAttribute() should only be called on KernelFunction");
+    return emptyLeafFuncAttr;
+}
+
+std::vector<std::vector<SymbolicScalar>> Function::NormalizeCoa(
+    std::vector<int> &iOffset, std::vector<int> &oOffset) {
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "NormalizeCoa() should only be called on KernelFunction");
+    (void)iOffset;
+    (void)oOffset;
+    return {};
+}
+
+void Function::GetOutcastSymbolicExpr(std::map<int, SymbolicScalar>& tabel) {
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "GetOutcastSymbolicExpr() should only be called on KernelFunction");
+    (void)tabel;
+}
+
+std::pair<bool, Opcode> Function::IsAicpuSubFunction() const {
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "IsAicpuSubFunction() should only be called on KernelFunction");
+    return std::make_pair(false, Opcode::OP_UNKNOWN);
 }

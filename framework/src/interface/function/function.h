@@ -485,6 +485,8 @@ public:
     Function(const Program &belongTo, const std::string &funcMagicName, const std::string &funcRawName,
         Function *parentFunc);
 
+    virtual ~Function() = default;
+
     Function(const Function &other) = delete;
     Function(Function &&other) = delete;
     Function &operator=(const Function &other) = delete;
@@ -499,11 +501,7 @@ public:
     OperationsViewer Operations(bool sorted = true);
     OperationsViewer OperationsAfterOOO();
     void RecordOOOSeq();
-    // 这个LeafOperations写法破坏封装性，但是是针对LeafFunction特有的，后续在Function按类拆分的时候会将其只放到LeafFunction中
-    std::vector<OperationPtr> &GetProgramOp();
-    void SetProgramOp(const std::vector<OperationPtr> &operations);
     void SortOperations();
-    void ScheduleBy(const std::vector<Operation *> &newList, bool needRefresh = false);
     void EraseOperations(bool eraseRelatedTensor = true, bool sorted = true);
     void EraseOperations(const OperationDeleter &deleter);
     void AddGlobalTensor(std::shared_ptr<LogicalTensor> tensor) { globalTensors_.emplace(tensor); };
@@ -557,10 +555,6 @@ public:
     Json DumpJson(bool useTable = true);
     static std::shared_ptr<Function> LoadJson(Program &belongTo, const Json &funcDump);
 
-    std::vector<std::vector<SymbolicScalar>> NormalizeCoa(
-        std::vector<int> &iOffset, std::vector<int> &oOffset);
-    void GetOutcastSymbolicExpr(std::map<int, SymbolicScalar>& tabel);
-
     void DumpTopoFile(const std::string &fileName) const;
     std::string DumpSSA() const;
     std::string Dump() const;                                    // Serialize brief format
@@ -608,7 +602,6 @@ public:
     void SetParent(Function *parent) { parent_ = parent; }
 
     const Program &BelongTo() const { return belongTo_; }
-    void UpdateBelongToThis();
     bool IsFlattening() const;
 
     FunctionType GetFunctionType() const;
@@ -656,10 +649,6 @@ public:
     const std::shared_ptr<DyndevFunctionAttribute> &GetDyndevAttribute() const { return dyndevAttr_; }
     std::shared_ptr<DyndevFunctionAttribute> &GetDyndevAttribute() { return dyndevAttr_; }
 
-    void SetLeafFuncAttribute(const std::shared_ptr<LeafFuncAttribute> &attr) { leafFuncAttr_ = attr; }
-    const std::shared_ptr<LeafFuncAttribute> &GetLeafFuncAttribute() const { return leafFuncAttr_; }
-    std::shared_ptr<LeafFuncAttribute> &GetLeafFuncAttribute() { return leafFuncAttr_; }
-
     void SetSlotScope(const std::shared_ptr<TensorSlotScope> &slotScope) { slotScope_ = slotScope; }
     const std::shared_ptr<TensorSlotScope> &GetSlotScope() const { return slotScope_; }
     std::shared_ptr<TensorSlotScope> &GetSlotScope() { return slotScope_; }
@@ -676,18 +665,6 @@ public:
 
     void HandleControlOps(Operation &op, std::vector<Operation *> &toRemoveOps) const;
     void UpdateOperandBeforeRemoveOp(Operation &op, const bool keepOutTensor = false);
-    std::pair<bool, Opcode> IsAicpuSubFunction() const {
-        Opcode code = Opcode::OP_UNKNOWN;
-        for (size_t i = 0UL; i < operations_.size(); i++) {
-            if ((operations_[i]->GetOpcode() != Opcode::OP_VIEW) &&
-                (operations_[i]->GetCoreType() != CoreType::AICPU)) {
-                    return std::make_pair(false, Opcode::OP_UNKNOWN);
-            } else if (operations_[i]->GetCoreType() == CoreType::AICPU) {
-                   code = operations_[i]->GetOpcode();
-            }
-        }
-        return std::make_pair(true, code);
-    }
 
     bool IsDummyFunction() const {
         return std::all_of(operations_.begin(), operations_.end(), [](auto &op) {
@@ -743,13 +720,6 @@ public:
         outcastSlot.erase(outcastSlot.begin() + idx);
     }
 
-    const SubfuncParam &GetParameter() const { return parameter_; }
-    SubfuncParam &GetParameter() { return parameter_; }
-    void SetParameter(const SubfuncParam &parameter) { parameter_ = parameter; }
-
-    int GetProgramId() const { return programId_; }
-    void SetProgramId(int programId) { programId_ = programId; }
-
     void SetReadySubGraphIds(CoreType coreType, const std::vector<int> &readySubGraphIds) {
         readySubGraphIds_[coreType] = readySubGraphIds;
     }
@@ -762,15 +732,13 @@ public:
     size_t GetReadySubGraphCount(CoreType coreType) const {
         auto it = readySubGraphIds_.find(coreType);
         if (it == readySubGraphIds_.end()) {
-            return 0;  // 返回 0 而不是抛出异常
+            return 0;
         }
         return it->second.size();
     }
     int GetReadySubGraphId(CoreType coreType, int index) const {
         auto it = readySubGraphIds_.find(coreType);
         if (it == readySubGraphIds_.end()) {
-            // 如果 coreType 不存在，返回一个默认值或者抛出异常
-            // 这里选择抛出异常，因为调用者应该先检查 count 是否为 0
             throw std::out_of_range("CoreType not found in readySubGraphIds_");
         }
         if (index >= static_cast<int>(it->second.size())) {
@@ -812,16 +780,42 @@ public:
     std::shared_ptr<SourceLocation> GetSourceLocation() const { return sourceLocation_; }
     void CleanRedundantOutCast();
 
-    void SetHiddenFunction(bool hiddenFunction) { hiddenFunction_ = hiddenFunction; }
-    bool IsHiddenFunction() const { return hiddenFunction_; }
+    // Virtual functions for KernelFunction interface compatibility
+    // These functions allow calling KernelFunction methods through Function* pointer
+    virtual std::vector<OperationPtr> &GetProgramOp();
+    virtual void SetProgramOp(const std::vector<OperationPtr> &operations);
+    virtual void UpdateBelongToThis();
+    virtual void ScheduleBy(const std::vector<Operation *> &newList, bool needRefresh = false);
 
-    const std::unordered_set<std::string> &LoopIdxNameList() { return loopIdxNameList_; }
-    bool InsertLoopIdxNameList(const std::string &idxName);
-private:
+    virtual const SubfuncParam &GetParameter() const;
+    virtual SubfuncParam &GetParameter();
+    virtual void SetParameter(const SubfuncParam &parameter);
+
+    virtual int GetProgramId() const;
+    virtual void SetProgramId(int programId);
+
+    virtual void SetLeafFuncAttribute(const std::shared_ptr<LeafFuncAttribute> &attr);
+    virtual const std::shared_ptr<LeafFuncAttribute> &GetLeafFuncAttribute() const;
+    virtual std::shared_ptr<LeafFuncAttribute> &GetLeafFuncAttribute();
+
+    virtual std::vector<std::vector<SymbolicScalar>> NormalizeCoa(
+        std::vector<int> &iOffset, std::vector<int> &oOffset);
+    virtual void GetOutcastSymbolicExpr(std::map<int, SymbolicScalar>& tabel);
+
+    virtual std::pair<bool, Opcode> IsAicpuSubFunction() const;
+
+protected:
+    std::vector<std::shared_ptr<Operation>> operations_; // operation的获取必须要使用Operations函数，来获取到符合拓扑序的List
+    bool sorted_{false};
+    Function *parent_{nullptr};
+    std::vector<std::pair<int, int>> incastPosition;
+    std::vector<std::pair<int, int>> outcastPosition;
+    std::unordered_map<const Operation *, int> opPosition_; // position of operation in Operation.operations_
+
     int functionMagic_{-1};
     std::string funcMagicName_; // Function name
     std::string funcRawName_;   // raw name
-    bool sorted_{false};
+    bool hasCallOp_{false};
     size_t totalAicSubGraphCount_ = 0;
     size_t totalAivSubGraphCount_ = 0;
     size_t totalSubGraphCount_ = 0;
@@ -833,29 +827,20 @@ private:
 
     std::vector<std::shared_ptr<LogicalTensor>> originInCasts_;
     std::unordered_set<std::shared_ptr<LogicalTensor>> inCastsSet_; // Input tensors set
-    std::vector<std::pair<int, int>> incastPosition;
 
     std::vector<std::shared_ptr<LogicalTensor>> originOutCasts_;
     std::map<int, int> opmagicToOutcastIdx_;
-    std::vector<std::pair<int, int>> outcastPosition;
 
     TensorMap tensorMap_; // TensorMap to register tensors
     std::unordered_set<std::shared_ptr<LogicalTensor>> globalTensors_; // global tensors
 
-    // -----------------------子图信息------------------------
-    SubfuncParam parameter_; // 每一个异构子图的形参
-    int programId_; // 异构子图的id
-
-    // we use int instead of int64 to reduce memory usage and cache miss on aicpu
+    // Ready subgraph IDs for different core types
     std::map<CoreType, std::vector<int>> readySubGraphIds_;
 
     std::vector<std::vector<Operation *>> operationGroups_;
-    std::vector<std::shared_ptr<Operation>> operations_; // operation的获取必须要使用Operations函数，来获取到符合拓扑序的List
-    std::unordered_map<const Operation *, int> opPosition_; // position of operation in Operation.operations_
     std::vector<std::shared_ptr<Operation>> operationsAfterOOO_;
     std::unordered_map<const Operation *, int> opPositionAfterOOO_; // position of operation sequence after OOO schedule
     const Program &belongTo_;
-    Function *parent_{nullptr};
     FunctionType functionType_{FunctionType::INVALID};
     GraphType graphType_{GraphType::INVALID};
     std::vector<TensorSlot> explicitArgSlots_;
@@ -865,7 +850,6 @@ private:
 
     std::shared_ptr<DynloopFunctionAttribute> dynloopAttr_;
     std::shared_ptr<DyndevFunctionAttribute> dyndevAttr_;
-    std::shared_ptr<LeafFuncAttribute> leafFuncAttr_;
     std::shared_ptr<Distributed::TilingManager> distTilingManager_ = std::make_shared<Distributed::TilingManager>();
     std::shared_ptr<TensorSlotScope> slotScope_;
 
@@ -877,7 +861,7 @@ private:
     std::shared_ptr<SourceLocation> sourceLocation_;
     bool hiddenFunction_{false};
 
-private:
+    void RefreshOpPosition();
     unsigned long ComputeHashOrderless() const;
     void OpValidCheck(Operation &op) const;
     std::shared_ptr<LogicalTensor> ConnectWithOverlap(std::shared_ptr<LogicalTensor> iOperand);
@@ -907,8 +891,7 @@ private:
     std::string DumpSSAAttribute(int indent = 2) const;
     friend class FunctionInterpreter;
 
-    void RefreshOpPosition();
-    auto AnnotateOperation();
+    auto AnnotateOperation(bool includeInternalSubgraphID = false);
 
     void SetCallOpSlot();
     void UpdateOriIocastSlot(const std::shared_ptr<TensorSlotScope> scope);
