@@ -14,6 +14,17 @@ file(GLOB_RECURSE _Sources src/*.cpp)
 file(GLOB_RECURSE _Device_Srcs ${PTO_FWK_SRC_ROOT}/framework/src/machine/device/*.cpp)
 list(APPEND _Sources ${_Device_Srcs})
 
+get_target_property(GTest_Gtest_Inc GTest::gtest INTERFACE_INCLUDE_DIRECTORIES)
+add_library(Dist_GTest_Inc INTERFACE)
+target_compile_options(Dist_GTest_Inc
+        INTERFACE
+            -Wno-float-equal
+)
+target_include_directories(Dist_GTest_Inc
+        INTERFACE
+            ${GTest_Gtest_Inc}
+)
+
 add_library(${_Target} SHARED)
 target_sources(${_Target}
         PRIVATE
@@ -27,7 +38,7 @@ target_include_directories(${_Target}
 target_link_libraries(${_Target}
         PRIVATE
             ${PTO_Fwk_STestNamePrefix}_utils
-            GTest::gtest
+            Dist_GTest_Inc
             tile_fwk_interface
             tile_fwk_compiler
             tile_fwk_runtime
