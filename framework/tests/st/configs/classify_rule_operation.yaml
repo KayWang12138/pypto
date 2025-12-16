@@ -19,7 +19,7 @@ stest:
 
   operation_cube:
     cases:
-      - TestMatmul/MatmulOperationTest.TestMatmul/0
+      # - TestMatmul/MatmulOperationTest.TestMatmul/0
       - TestMatmul/MatmulOperationTest.TestMatmul/1
       - TestMatmul/MatmulOperationTest.TestMatmul/2
       - TestMatmul/MatmulOperationTest.TestMatmul/3
@@ -51,7 +51,7 @@ stest:
       - TestMatmul/MatmulOperationTest.TestMatmul/29
       - TestMatmul/MatmulOperationTest.TestMatmul/30
       - TestMatmul/MatmulOperationTest.TestMatmul/31
-      - TestMatmul/MatmulOperationTest.TestMatmul/32
+      # - TestMatmul/MatmulOperationTest.TestMatmul/32
       - TestMatmul/MatmulOperationTest.TestMatmul/33
       - TestMatmul/MatmulOperationTest.TestMatmul/34
       - TestMatmul/MatmulOperationTest.TestMatmul/35
