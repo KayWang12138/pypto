@@ -1513,4 +1513,33 @@ TEST_F(ScheduleOoOTest, TestHasEnoughBuffer) {
     EXPECT_EQ(res, false);
 }
 
+TEST_F(ScheduleOoOTest, TestHasEnoughBufferAddMemId) {
+    ComputationalGraphBuilder subGraph;
+    std::vector<std::string> tensorNames{"t1", "t2"};
+    std::vector<MemoryType> tensorMemTypes{MemoryType::MEM_UB, MemoryType::MEM_UB};
+    std::vector<Opcode> opCodes{Opcode::OP_UB_ALLOC, Opcode::OP_COPY_IN};
+    std::vector<std::vector<std::string>> ioperands{{}, {"t2"}};
+    std::vector<std::vector<std::string>> ooperands{{"t1"}, {"t1"}};
+    std::vector<std::string> opNames{"Alloc1", "COPY_IN"};
+    EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {128, 128}, tensorMemTypes, tensorNames, 0), true);
+    EXPECT_EQ(subGraph.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
+    Function *function = subGraph.GetFunction();
+    EXPECT_NE(function, nullptr);
+    auto op = subGraph.GetOp("Alloc1");
+    auto opCopyIn = subGraph.GetOp("COPY_IN");
+    auto tensor1 = subGraph.GetTensor("t1");
+    auto tensor2 = subGraph.GetTensor("t2");
+    auto issue = std::make_shared<IssueEntry>(*op, 1);
+    auto issue2 = std::make_shared<IssueEntry>(*opCopyIn, 2);
+    issue->successors.insert(issue2->id);
+    issue->tileOp.GetOutputOperand(0)->ClearAllProducers();
+    issue->tileOp.GetOutputOperand(0)->AddProducer(*opCopyIn);
+    OoOScheduler ooOScheduler(*function);
+    ooOScheduler.issueEntryMap[issue2->id] = issue2;
+    ooOScheduler.issueEntryMap[issue2->id]->reqMemIds = {1};
+    ooOScheduler.InitLocalBuffer(tensor2, 1);
+    bool res = ooOScheduler.HasEnoughBuffer(issue, MemoryType::MEM_UB);
+    EXPECT_EQ(res, false);
+}
+
 } // namespace npu::tile_fwk

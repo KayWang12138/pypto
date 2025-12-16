@@ -776,7 +776,9 @@ bool OoOScheduler::HasEnoughBuffer(IssueEntryPtr allocIssue, MemoryType memType)
             if (bufferManagerMap[memType].isAllocate(memId)) {
                 continue;
             }
-            memIds.push_back(memId);
+            if (std::count(memIds.begin(), memIds.end(), memId) == 0) {
+                memIds.push_back(memId);
+            }
         }
     }
     std::sort(memIds.begin(), memIds.end(), [&](int a, int b) {

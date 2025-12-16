@@ -164,7 +164,10 @@ Status L1CopyInReuseRunner::MergeDupL1CopyIn(Function &func, std::vector<std::ve
         for (auto &replacedOutput : replacedOutputs) {
             auto rewriteOp = oriList[replacedOutput[0]];
             auto copyinOp = oriList[replacedOutput[2]];
-            assert(func.TensorReuse(rewriteOp->GetOOperands()[replacedOutput[1]], copyinOp->GetOOperands()[0]));
+            if (!func.TensorReuse(rewriteOp->GetOOperands()[replacedOutput[1]], copyinOp->GetOOperands()[0])) {
+                APASS_LOG_ERROR_F(Elements::Operation, "MergeDupL1CopyIn: TensorReuse failed!");
+                return FAILED;
+            }
         }
     }
     return SUCCESS;

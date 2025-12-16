@@ -406,5 +406,35 @@ TEST_F(L1CopyInReuseTest, TestGeneralizationL1CopyIn) {
     EXPECT_EQ(ret, SUCCESS);
     EXPECT_EQ(function->GetTotalSubGraphCount(), result);
 }
+
+TEST_F(L1CopyInReuseTest, TestTensorReuseFailed) {
+    ComputationalGraphBuilder G;
+    std::vector<int64_t> tileShape{16, 16};
+    auto shapeImme = OpImmediate::Specified(tileShape);
+    const int l1_reuse_num = 2;
+    const int sg_cube_parallel_num = 4;
+    const int subGraphNum = 20;
+    InitGraphBuilder(G, tileShape, subGraphNum);
+    for (int i = 1; i < subGraphNum; i++) {
+        std::string strID = std::to_string(i);
+        EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {"tensor_before" + strID}), true);
+        std::vector<Opcode> opLists{Opcode::OP_EXP};
+        std::vector<std::vector<std::string>> iOperands{{"tensor_before" + strID}};
+        std::vector<std::vector<std::string>> oOperands{{"tensor" + strID}};
+        std::vector<std::string> opNames{"EXP_BEFORE_" + strID};
+        EXPECT_EQ(G.AddOps(opLists, iOperands, oOperands, opNames, true), true);
+        G.GetOp("EXP_BEFORE_" + strID)->UpdateSubgraphID(i);
+        G.GetTensor("tensor_before" + strID)->SetMemoryTypeOriginal(MEM_L1);
+    }
+    G.GetTensor("tensor_before1")->tensor->datatype = DataType::DT_FP16;
+    G.GetTensor("tensor1")->tensor->datatype = DataType::DT_FP16;
+    Function *function = G.GetFunction();
+    function->paramConfigs_.l1ReuseNum = l1_reuse_num;
+    function->paramConfigs_.l1ReuseMap = {{1, 2}};
+    function->paramConfigs_.sgCubeParallelNum = sg_cube_parallel_num;
+    function->SetTotalSubGraphCount(subGraphNum);
+    L1CopyInReuseMerge LCRM;
+    EXPECT_EQ(LCRM.RunOnFunction(*function), FAILED);
+}
 }
 }
