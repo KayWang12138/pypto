@@ -435,6 +435,10 @@ def view(a: Tensor, shapes: List[int], valid_shape: List[SymbolicScalar],
          offsets: List[SymbolicScalar]) -> Tensor: ...
 
 
+@overload
+def view(a: Tensor, dtype: DataType) -> Tensor: ...
+
+
 def exp(a: Tensor) -> Tensor: ...
 
 

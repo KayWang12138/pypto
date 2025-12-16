@@ -62,6 +62,12 @@ void bind_operation(py::module &m) {
             return npu::tile_fwk::View(operand, shapes, newValidShapes, newOffsets); },
         py::arg("operand"), py::arg("shapes"), py::arg("new_valid_shapes"), py::arg("new_offsets"),
         "Tensor dview_pad.");
+    m.def(
+        "View",
+        [](const Tensor &operand, const DataType dstDataType) {
+            return npu::tile_fwk::View(operand, dstDataType); },
+        py::arg("operand"), py::arg("dstDataType"),
+        "Tensor view_type.");
 
     m.def("Exp", [](const Tensor &self) { return npu::tile_fwk::Exp(self); }, "Tensor exp.");
 

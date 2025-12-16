@@ -12,6 +12,7 @@
 from typing import Optional, Union, List
 
 from . import pypto_impl
+from .enum import DataType
 from .op_wrapper import op_wrapper
 from .pypto_utils import to_syms
 from .symbolic_scalar import SymbolicScalar
@@ -207,10 +208,11 @@ def unsqueeze(input: Tensor, dim: int) -> Tensor:
 @op_wrapper
 def view(
         input: Tensor,
-        shape: List[int],
-        offsets: List[Union[int, SymbolicScalar]],
+        shape: List[int] = None,
+        offsets: List[Union[int, SymbolicScalar]] = None,
         *,
-        valid_shape: Optional[List[Union[int, SymbolicScalar]]] = None
+        valid_shape: Optional[List[Union[int, SymbolicScalar]]] = None,
+        dtype: DataType = None,
 ) -> Tensor:
     """Extract a partial view from the input tensor for subsequent computations.
        WARNING: view has a very different behavior from torch.view, it is more like slice.
@@ -230,6 +232,9 @@ def view(
     valid_shape: List[int] = None
         Optional parameter to retrieve the effective data size of the schematic block.
         It is required that the valid_shape is smaller than the shape of the input.
+    dtype: DataType
+        The target data type for bitwise splitting operations.
+        The supported data types are: DT_FP32, DT_FP16, DT_BF16, DT_INT8.
 
     Returns
     -------
@@ -267,8 +272,14 @@ def view(
               [5 5 6 6],
               [0 0 0 0],
               [0 0 0 0]]
+
+    # use view_type
+    x = pypto.tensor([4, 8], pypto.DT_FP32)
+    y = pypto.view(x, dtype=pypto.DT_INT8)
     """
-    if valid_shape is None:
+    if dtype is not None:
+        return pypto_impl.View(input, dtype)
+    elif valid_shape is None:
         return pypto_impl.View(input, shape, offsets)
     else:
         return pypto_impl.View(input, shape, to_syms(valid_shape), to_syms(offsets))
