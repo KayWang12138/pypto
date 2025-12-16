@@ -60,6 +60,58 @@ enum class ArchInfo : uint32_t {
 #define DEVICE_TASK_TYPE_DYN     1
 #define DEVICE_TASK_TYPE_INVALID 0xf
 
+template <typename DerivedType, typename UnderlyingType>
+class BitmaskBase {
+public:
+    using underlying_type = UnderlyingType;
+    underlying_type value{0};
+    constexpr BitmaskBase(underlying_type v = 0) : value(v) {}
+    constexpr bool Empty() const {
+        return value == 0;
+    }
+    constexpr bool Contains(underlying_type mask) const {
+        return (value & mask) == mask;
+    }
+    constexpr bool Overlaps(underlying_type mask) const {
+        return (value & mask) != 0;
+    }
+    constexpr void Add(underlying_type mask) {
+        value |= mask;
+    }
+    constexpr void Remove(underlying_type mask) {
+        value &= ~mask;
+    }
+    friend constexpr DerivedType operator|(DerivedType lhs, DerivedType rhs) {
+        return DerivedType(lhs.value | rhs.value);
+    }
+    friend constexpr DerivedType operator&(DerivedType lhs, DerivedType rhs) {
+        return DerivedType(lhs.value & rhs.value);
+    }
+    friend constexpr DerivedType operator^(DerivedType lhs, DerivedType rhs) {
+        return DerivedType(lhs.value ^ rhs.value);
+    }
+    friend constexpr DerivedType operator~(DerivedType lhs) {
+        return DerivedType(~lhs.value);
+    }
+    constexpr operator underlying_type() const {
+        return value;
+    }
+};
+
+struct ProfConfig : public BitmaskBase<ProfConfig, uint32_t> {
+    using BitmaskBase::BitmaskBase;
+    enum : underlying_type {
+        OFF = 0x0,
+        AICPU_FUNC = 0x1 << 0,
+        AICORE_TIME = 0x1 << 1,
+        AICORE_PMU = 0x1 << 2,
+    };
+};
+
+struct ToSubMachineConfig {
+    ProfConfig profConfig{ProfConfig::OFF};
+};
+
 struct DeviceArgs {
     uint32_t nrAic{0};
     uint32_t nrAiv{0};
@@ -87,5 +139,6 @@ struct DeviceArgs {
     uint32_t enableCtrl{0};    // if enable builtin ctrl
     uint64_t GetBlockNum() { return nrValidAic * (nrAiv / nrAic + 1); }
     ArchInfo archInfo{ArchInfo::ARCH_32};
+    ToSubMachineConfig toSubMachineConfig;
 };
 #endif

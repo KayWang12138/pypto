@@ -381,7 +381,8 @@
         "framework/tests/runtime/"
       ],
       "Include": [
-        "framework/include/"
+        "framework/include/",
+        "framework/src/cost_model/simulation/common/"
       ],
       "WhiteList": [
         "framework/src/cost_model/simulation/"

@@ -168,6 +168,7 @@ private:
         kArgs->workspace = (int64_t *)h.AllocDev(devProg->workspaceSize);
         kArgs->cfgdata = (int64_t *)h.CopyToDev(devProg_);
         kArgs->machineConfig = devProg->devArgs.machineConfig;
+        kArgs->toSubMachineConfig = devProg->devArgs.toSubMachineConfig;
         return;
     }
 

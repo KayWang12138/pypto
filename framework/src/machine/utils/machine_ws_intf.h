@@ -111,6 +111,7 @@ struct AstKernelArgs {
     void *aicoreModel{nullptr};
     uint64_t taskWastTime{0};
     uint8_t machineConfig;
+    ToSubMachineConfig toSubMachineConfig;
 };
 
 struct LogHead {

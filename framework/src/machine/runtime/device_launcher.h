@@ -161,6 +161,15 @@ public:
             kArgs.cfgdata = (int64_t *)devMem.CopyToDev(devProgData, CachedOperator::GetCfgDataDevAddrHolder(cachedOperator));
         }
         kArgs.machineConfig = devProg->devArgs.machineConfig;
+        if (config::GetPlatformConfig(KEY_ENABLE_PROF_FUNC, false)) {
+            kArgs.toSubMachineConfig.profConfig.Add(ProfConfig::AICPU_FUNC);
+        }
+        if (config::GetPlatformConfig(KEY_ENABLE_PROF_AICORE_TIME, false) || config::GetOption<bool>(PROFILE_ENABLE))  {
+            kArgs.toSubMachineConfig.profConfig.Add(ProfConfig::AICORE_TIME);
+        }
+        if (config::GetPlatformConfig(KEY_ENABLE_PROF_AICORE_PMU, false)) {
+            kArgs.toSubMachineConfig.profConfig.Add(ProfConfig::AICORE_PMU);
+        }
         return;
     }
 

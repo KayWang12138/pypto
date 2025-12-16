@@ -15,6 +15,7 @@
 
 #include "aicore_prof.h"
 #include "aicore_manager.h"
+#include "machine/device/tilefwk/aicpu_common.h"
 namespace {
 constexpr int AICPUNUM = 6;
 constexpr int64_t NUM_TWO = 2;
@@ -83,9 +84,24 @@ void AiCoreProf::ProInitAiCpuTaskStat() {
     sleep(1);
 }
 
-void AiCoreProf::ProfInit([[maybe_unused]]int64_t *regAddrs, [[maybe_unused]]int64_t *pmuEventAddrs) {
+AiCoreProfLevel AiCoreProf::CreateProfLevel(ProfConfig profConfig) {
+    if (AdprofReportAdditionalInfo == nullptr) {
+        return PROF_LEVEL_OFF;
+    }
+    if (profConfig.Contains(ProfConfig::AICORE_PMU)) {
+        return PROF_LEVEL_FUNC_LOG_PMU;
+    } else if (profConfig.Contains(ProfConfig::AICORE_TIME) ) {
+        return PROF_LEVEL_FUNC_LOG;
+    } else if (profConfig.Contains(ProfConfig::AICPU_FUNC)) {
+        return PROF_LEVEL_FUNC;
+    }
+    return PROF_LEVEL_OFF;
+}
+
+void AiCoreProf::ProfInit([[maybe_unused]]int64_t *regAddrs, [[maybe_unused]]int64_t *pmuEventAddrs, ProfConfig profConfig) {
     coreNum_ = hostAicoreMng_.GetAllAiCoreNum();
-    if (ProfCheckLevel(PROF_TASK_TIME_L2) == true) {
+    profLevel_ = CreateProfLevel(profConfig);
+    if ((ProfCheckLevel(PROF_TASK_TIME_L2) == true) || (profLevel_ = PROF_LEVEL_FUNC_LOG))  {
         profLevel_ = PROF_LEVEL_FUNC_LOG;
         ProfInitLog();
         #if PMU_COLLECT

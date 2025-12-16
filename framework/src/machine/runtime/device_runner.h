@@ -93,6 +93,9 @@ private:
     void InitAiCpuSoBin();
     void GetHostProfTypeSwtich();
     void ReportHostProfInfo(uint64_t startTime, uint32_t blockDim, uint16_t taskType, bool isCore = false);
+    void DumpAiCoreExecutionTimeData();
+    void DumpAiCorePmuData();
+    void SynchronizeDeviceToHostProfData();
     int DynamicKernelLaunch(rtStream_t aicpuStream, rtStream_t aicoreStream, AstKernelArgs *kernelArgs, int blockdim);
     int DynamicSeparateLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, rtStream_t aicoreStream, AstKernelArgs *kernelArgs, int blockdim);
 private:
@@ -103,6 +106,7 @@ private:
     bool isHostProfL1_{false};
     std::vector<int64_t> pmuEvtType_;
     DeviceArgs args_;
+    ToSubMachineConfig lastLaunchToSubMachineConfig_;
     DeviceArgs *devArgs_;
     std::vector<void *> perfData_;
     std::once_flag once_;

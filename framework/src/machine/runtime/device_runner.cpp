@@ -38,6 +38,9 @@
 #include "prof_common.h"
 #include "load_aicpu_op.h"
 #include "machine/platform/platform_manager.h"
+#include "nlohmann/json.hpp"
+
+using json = nlohmann::json;
 
 extern char _binary_kernel_o_start[];
 extern char _binary_kernel_o_end[];
@@ -416,6 +419,57 @@ void DeviceRunner::Dump() {
 }
 
 /**************************** DynamicFunction *****************************/
+void DeviceRunner::DumpAiCoreExecutionTimeData() {
+    json root_taskStats = json::array();
+    uint32_t block_num_ = args_.GetBlockNum();
+    ALOG_INFO("GetBlockNum : %d",  block_num_);
+    for (uint32_t i = 0; i < block_num_; i++) {
+        void* devPtr = perfData_[i];
+        size_t dataSize = MAX_DFX_TASK_NUM_PER_CORE * sizeof(TaskStat) + sizeof(Metrics);
+        std::vector<uint8_t> hostBuffer(dataSize);
+        rtMemcpy(hostBuffer.data(), dataSize, devPtr, dataSize, RT_MEMCPY_DEVICE_TO_HOST);
+        Metrics *metric = reinterpret_cast<Metrics*>(hostBuffer.data());
+        if (metric->taskCount > MAX_DFX_TASK_NUM_PER_CORE) {metric->taskCount = MAX_DFX_TASK_NUM_PER_CORE;} // Limit to the maximum value 
+        TaskStat* taskStats = metric->tasks;
+        size_t numTasks = metric->taskCount;
+        std::string coreType = (i < args_.nrValidAic) ? "AIC" : "AIV";
+        json coreObj;
+        coreObj["blockIdx"] = i;
+        coreObj["coreType"] = coreType;
+        json tasksArr = json::array();
+        for (size_t j = 0; j < numTasks; ++j) {
+            if (taskStats[j].execEnd != 0) {
+                json taskObj;
+                taskObj["seqNo"] = taskStats[j].seqNo;
+                taskObj["subGraphId"] = taskStats[j].subGraphId;
+                taskObj["taskId"] = taskStats[j].taskId;
+                taskObj["execStart"] = taskStats[j].execStart;
+                taskObj["execEnd"] = taskStats[j].execEnd;
+                tasksArr.push_back(taskObj);
+            }
+        }
+        coreObj["tasks"] = tasksArr;
+        if (!tasksArr.empty()) {
+            root_taskStats.push_back(coreObj);
+        }
+    }
+    std::string jsonFilePath = config::LogTopFolder() + "/tilefwk_L1_prof_data.json";
+    std::ofstream jsonFile(jsonFilePath);
+    jsonFile << root_taskStats << std::endl;
+    jsonFile.close();
+    ALOG_INFO("tilefwk_L1_prof_data have saved in: %s",  jsonFilePath);
+}
+
+void DeviceRunner::DumpAiCorePmuData() {
+    ALOG_INFO_F("TODO: DumpAiCorePmuData");
+}
+
+void DeviceRunner::SynchronizeDeviceToHostProfData() {
+    if (lastLaunchToSubMachineConfig_.profConfig.Contains(ProfConfig::AICORE_TIME)) {
+        DumpAiCoreExecutionTimeData();
+    }
+}
+
 int DeviceRunner::DynamicLaunchSynchronize(rtStream_t aicpuStream, rtStream_t ctrlStream, rtStream_t aicoreStream) {
     int rcAicore = rtStreamSynchronize(aicoreStream);
     int rcAicpu = rtStreamSynchronize(aicpuStream);
@@ -430,6 +484,7 @@ int DeviceRunner::DynamicLaunchSynchronize(rtStream_t aicpuStream, rtStream_t ct
     if (rcAicore != 0 || rcAicpu != 0 || rcCtrl != 0) {
         ALOG_WARN_F("sync stream failed aicpu:%d aicore:%d ctrl cpu:%d", rcAicpu, rcAicore, rcCtrl);
     }
+    SynchronizeDeviceToHostProfData();
     return rcAicore + rcAicpu + rcCtrl;
 }
 
@@ -515,7 +570,7 @@ int DeviceRunner::RunPrepare() {
             sizeof(kernelArgs),
             RT_MEMCPY_HOST_TO_DEVICE);
     }
-
+    ALOG_INFO("captureMode_ is: %d", captureMode_);
     if (isCapture_) {
         aclmdlRICaptureThreadExchangeMode(&captureMode_);
     }
@@ -666,7 +721,9 @@ int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, r
     if (kernelArgs == nullptr) {
         return -1;
     }
+    lastLaunchToSubMachineConfig_ = kernelArgs->toSubMachineConfig;
     localArgs.machineConfig = kernelArgs->machineConfig;
+    localArgs.toSubMachineConfig = kernelArgs->toSubMachineConfig;
     localArgs.nrValidAic = blockdim;
     localArgs.nrAicpu = launchAicpuNum;
     blockDim_ = blockdim;

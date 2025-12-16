@@ -211,7 +211,7 @@ public:
     explicit AiCoreProf(AiCoreManager &aicoreMng) : hostAicoreMng_(aicoreMng) {}
     ~AiCoreProf() {}
 
-    void ProfInit([[maybe_unused]]int64_t *regAddrs, [[maybe_unused]]int64_t *pmuEventAddrs);
+    void ProfInit([[maybe_unused]]int64_t *regAddrs, [[maybe_unused]]int64_t *pmuEventAddrs, ProfConfig profConfig);
     void ProfStart();
     void ProfGet(int32_t coreIdx, uint32_t subGraphId, uint32_t taskId, const struct TaskStat *taskStat);
     void ProfGetSwitch(int64_t &flag) const;
@@ -226,7 +226,8 @@ public:
     void ProInitAiCpuTaskStat();
     void ProInitHandShake();
     bool ProfIsEnable() { return profLevel_ != PROF_LEVEL_OFF; }
-
+    AiCoreProfLevel CreateProfLevel(ProfConfig profConfig);
+    
 private:
     inline void ProfInitLog();
     inline void ProfStopLog();

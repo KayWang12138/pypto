@@ -46,7 +46,11 @@ TEST_F(TestDynamicDeviceRunner, TestInitArgs) {
     [[maybe_unused]]DeviceArgs args;
     args.nrAic = 2;
     args.nrAiv = 2;
+    args.nrValidAic = args.nrAic;
     runner.InitDynamicArgs(args);
+    runner.DumpAiCoreExecutionTimeData();
+    runner.DumpAiCorePmuData();
+    runner.SynchronizeDeviceToHostProfData();
 }
 
 TEST_F(TestDynamicDeviceRunner, TestDynamicRun) {

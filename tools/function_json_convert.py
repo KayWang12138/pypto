@@ -37,7 +37,13 @@ dt_mem_usage = {
     7: 4,
     8: 2,
     9: 0.5,
-    10: 1
+    10: 1,
+    11: 1,
+    12: 2,
+    13: 4,
+    14: 8,
+    15: 1,
+    16: 8
 }
 
 
@@ -176,6 +182,10 @@ def convert_operands_data(operands):
 def get_tensors_life_range(func_hash, func_hash_data):
     tensors_life_range = dict()
     tensors_life_data = dict()
+    if func_hash not in func_hash_data:
+        tensors_life_range['data'] = tensors_life_data
+        tensors_life_range['max_range'] = 0
+        return tensors_life_range
     tensors = func_hash_data[func_hash]['tensors']
     max_life_range = 0
     tensors_life_range['data'] = tensors_life_data
@@ -201,6 +211,8 @@ def get_tensors_life_range(func_hash, func_hash_data):
 
 def get_tensors(func_hash, func_hash_data):
     tensors_dict = dict()
+    if func_hash not in func_hash_data:
+        return tensors_dict
     tensors = func_hash_data[func_hash]['tensors']
     for tensor in tensors:
         tensors_dict[tensor['magic']] = tensor
@@ -209,6 +221,8 @@ def get_tensors(func_hash, func_hash_data):
 
 def get_rawtensors(func_hash, func_hash_data):
     rawtensors_dict = dict()
+    if func_hash not in func_hash_data:
+        return rawtensors_dict
     rawtensors = func_hash_data[func_hash]['rawtensors']
     for rawtensor in rawtensors:
         rawtensors_dict[rawtensor['rawmagic']] = rawtensor

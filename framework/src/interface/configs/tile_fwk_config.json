@@ -12,7 +12,10 @@
             "TEST_IS_TIG": false,
             "DUMP_SOURCE_LOCATION": true,
             "ENABLE_CHECKER": false,
-            "DEVICE_PLATFORM":"ASCEND_910B2"
+            "DEVICE_PLATFORM":"ASCEND_910B2",
+            "ENABLE_PROF_FUNC": false,
+            "ENABLE_PROF_AICORE_TIME": false,
+            "ENABLE_PROF_AICORE_PMU": false
         },
         "host_configs": {
             "STRATEGY": "PVC2_OOO",
