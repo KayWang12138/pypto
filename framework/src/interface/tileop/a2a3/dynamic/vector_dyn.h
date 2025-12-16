@@ -439,7 +439,10 @@ TILEOP void DynTrowmaxsingle_(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp,
     }
 
     constexpr uint16_t tmpRepeatStride = TBS * sizeof(T) / BLOCK_SIZE;
-    if (srcRepeatStride >= BLOCK_MAX_PER_REPEAT && srcRepeatPerRow == 1 && remain > 0) {
+    if ((srcRepeatStride < BLOCK_MAX_PER_REPEAT) || (tmpRepeatStride < BLOCK_MAX_PER_REPEAT)) {
+        return;
+    }
+    if (srcRepeatPerRow == 1 && remain > 0) {
         copy_ubuf_to_ubuf(tmp, src, 0, OS0, BLOCK_MAX_PER_REPEAT, srcRepeatStride - BLOCK_MAX_PER_REPEAT,
             tmpRepeatStride - BLOCK_MAX_PER_REPEAT);
     } else {
@@ -882,207 +885,88 @@ TILEOP void DynTduplicate_(__ubuf__ T *dst, T value, unsigned T0, unsigned T1, u
 }
 
 // dim2
-template <typename T, unsigned srcRawShape1>
-TILEOP void DynTrowsumline_(__ubuf__ T *dst, __ubuf__ T *src0, unsigned TShape0, unsigned TShape1) {
+template <typename T, unsigned tmpRawShape1>
+TILEOP void DynTrowsumline_(__ubuf__ T *dst, __ubuf__ T *src0,  __ubuf__ T *tmp, unsigned TShape0, unsigned TShape1, 
+    unsigned srcRawShape1) {
     static_assert(sizeof(T) == 4);
-    uint32_t rptElm = REPEAT_BYTE / sizeof(T);
-    uint32_t repeatTime = (TShape1 + rptElm - 1) / rptElm;
-    uint32_t remainElm = TShape1 % rptElm;
-    if (!remainElm) {
-        vcopy((__ubuf__ uint32_t *)dst, (__ubuf__ uint32_t *)src0, repeatTime, 1, 1, 8, 8);
-    } else {
-        if (repeatTime == 1) {
-            SetContinuousMask(remainElm);
-            vcopy((__ubuf__ uint32_t *)dst, (__ubuf__ uint32_t *)src0, 1, 1, 1, 8, 8);
-            set_vector_mask(-1, -1);
-        } else {
-            vcopy((__ubuf__ uint32_t *)dst, (__ubuf__ uint32_t *)src0, repeatTime - 1, 1, 1, 8, 8);
-            SetContinuousMask(remainElm);
-            vcopy((__ubuf__ uint32_t *)(dst + (repeatTime - 1) * rptElm),
-                (__ubuf__ uint32_t *)(src0 + (repeatTime - 1) * rptElm), 1, 1, 1, 8, 8);
-            set_vector_mask(-1, -1);
-        }
+    constexpr unsigned DTypeSize = sizeof(T);
+    unsigned lenBurst = (TShape1 * DTypeSize + BLOCK_SIZE - 1) / BLOCK_SIZE;
+    if (TShape0 == 1) {
+        copy_ubuf_to_ubuf(dst, src0, 0, 1, lenBurst, 0, 0);
+        pipe_barrier(PIPE_V);
+        return;
     }
+    for (uint32_t i = 0; i < TShape0 / 2; i++) {
+        set_mask_count();
+        set_vector_mask(0, TShape1);
+        vadd(tmp + i * tmpRawShape1, src0 + 2 * i * srcRawShape1,
+                src0 + (2 * i + 1) * srcRawShape1, 0, 1, 1, 1, 8, 8, 8);
+        set_mask_norm();
+        set_vector_mask(-1, -1);
+        pipe_barrier(PIPE_V);
+    }
+    if (TShape0 % 2 == 1) {
+        set_mask_count();
+        set_vector_mask(0, TShape1);
+        vadd(tmp, tmp, src0 + (TShape0 - 1) * srcRawShape1, 0, 1, 1, 1, 8, 8, 8);
+        set_mask_norm();
+        set_vector_mask(-1, -1);
+        pipe_barrier(PIPE_V);
+    }
+
+    unsigned cnt = TShape0 / 2;
+    while (cnt > 1) {
+        for (uint32_t i = 0; i < cnt / 2; i++) {
+            set_mask_count();
+            set_vector_mask(0, TShape1);
+            vadd(tmp + i * tmpRawShape1, tmp + 2 * i * tmpRawShape1,
+                tmp + (2 * i + 1) * tmpRawShape1, 0, 1, 1, 1, 8, 8, 8);
+            set_mask_norm();
+            set_vector_mask(-1, -1);
+            pipe_barrier(PIPE_V);
+        }
+        if (cnt % 2 == 1){
+            set_mask_count();
+            set_vector_mask(0, TShape1);
+            vadd(tmp, tmp, tmp + (cnt -1) * tmpRawShape1, 0, 1, 1, 1, 8, 8, 8);
+            set_mask_norm();
+            set_vector_mask(-1, -1);
+            pipe_barrier(PIPE_V);
+        }
+        cnt /= 2;    
+    }
+    copy_ubuf_to_ubuf(dst, tmp, 0, 1, lenBurst, 0, 0);
     pipe_barrier(PIPE_V);
-
-    for (uint32_t j = 1; j < TShape0; j++) {
-        if (!remainElm) {
-            vadd(dst, dst, src0 + j * srcRawShape1, repeatTime, 1, 1, 1, 8, 8, 8);
-        } else {
-            if (repeatTime == 1) {
-                SetContinuousMask(remainElm);
-                vadd(dst, dst, src0 + j * srcRawShape1, 1, 1, 1, 1, 8, 8, 8);
-                set_vector_mask(-1, -1);
-            } else {
-                vadd(dst, dst, src0 + j * srcRawShape1, repeatTime - 1, 1, 1, 1, 8, 8, 8);
-                pipe_barrier(PIPE_V);
-                SetContinuousMask(remainElm);
-                vadd(dst + (repeatTime - 1) * rptElm, dst + (repeatTime - 1) * rptElm,
-                    src0 + j * srcRawShape1 + (repeatTime - 1) * rptElm, 1, 1, 1, 1, 8, 8, 8);
-                set_vector_mask(-1, -1);
-            }
-        }
-        pipe_barrier(PIPE_V);
-    }
-}
-
-// dim3
-template <typename T, unsigned srcRawShape1, unsigned srcRawShape2, unsigned dstRawShape1, unsigned dstRawShape2,
-    unsigned axis>
-TILEOP void DynTrowsumline_(__ubuf__ T *dst, __ubuf__ T *src0, unsigned TShape0, unsigned TShape1, unsigned TShape2) {
-    static_assert(sizeof(T) == 4);
-    if (axis == 0) {
-        uint32_t rptElm = REPEAT_BYTE / sizeof(T);
-        uint32_t repeatTime = (TShape2 + rptElm - 1) / rptElm;
-        uint32_t remainElm = TShape2 % rptElm;
-        for (unsigned i = 0; i < TShape1; i++) {
-            if (!remainElm) {
-                vcopy((__ubuf__ uint32_t *)(dst + i * dstRawShape2), (__ubuf__ uint32_t *)(src0 + i * srcRawShape2),
-                    repeatTime, 1, 1, 8, 8);
-            } else {
-                if (repeatTime == 1) {
-                    SetContinuousMask(remainElm);
-                    vcopy((__ubuf__ uint32_t *)(dst + i * dstRawShape2), (__ubuf__ uint32_t *)(src0 + i * srcRawShape2),
-                        1, 1, 1, 8, 8);
-                    set_vector_mask(-1, -1);
-                } else {
-                    vcopy((__ubuf__ uint32_t *)(dst + i * dstRawShape2), (__ubuf__ uint32_t *)(src0 + i * srcRawShape2),
-                        repeatTime - 1, 1, 1, 8, 8);
-                    pipe_barrier(PIPE_V);
-                    SetContinuousMask(remainElm);
-                    vcopy((__ubuf__ uint32_t *)(dst + i * dstRawShape2 + (repeatTime - 1) * rptElm),
-                        (__ubuf__ uint32_t *)(src0 + i * srcRawShape2 + (repeatTime - 1) * rptElm), 1, 1, 1, 8, 8);
-                    set_vector_mask(-1, -1);
-                }
-            }
-            pipe_barrier(PIPE_V);
-        }
-        pipe_barrier(PIPE_V);
-        for (unsigned i = 1; i < TShape0; i++) {
-            for (unsigned j = 0; j < TShape1; j++) {
-                if (!remainElm) {
-                    vadd(dst + j * dstRawShape2, dst + j * dstRawShape2,
-                        src0 + i * srcRawShape1 * srcRawShape2 + j * srcRawShape2, repeatTime, 1, 1, 1, 8, 8, 8);
-                } else {
-                    if (repeatTime == 1) {
-                        set_vector_mask(0, (((static_cast<uint64_t>(1)) << static_cast<uint32_t>(remainElm)) - 1UL));
-                        vadd(dst + j * dstRawShape2, dst + j * dstRawShape2,
-                            src0 + i * srcRawShape1 * srcRawShape2 + j * srcRawShape2, repeatTime, 1, 1, 1, 8, 8, 8);
-                        set_vector_mask(-1, -1);
-                    } else {
-                        vadd(dst + j * dstRawShape2, dst + j * dstRawShape2,
-                            src0 + i * srcRawShape1 * srcRawShape2 + j * srcRawShape2, repeatTime - 1, 1, 1, 1, 8, 8,
-                            8);
-                        pipe_barrier(PIPE_V);
-                        set_vector_mask(0, (((static_cast<uint64_t>(1)) << static_cast<uint32_t>(remainElm)) - 1UL));
-                        vadd(dst + j * dstRawShape2 + (repeatTime - 1) * rptElm,
-                            dst + j * dstRawShape2 + (repeatTime - 1) * rptElm,
-                            src0 + i * srcRawShape1 * srcRawShape2 + j * srcRawShape2 + (repeatTime - 1) * rptElm, 1, 1,
-                            1, 1, 8, 8, 8);
-                        set_vector_mask(-1, -1);
-                    }
-                }
-                pipe_barrier(PIPE_V);
-            }
-        }
-    } else if (axis == 1) {
-        for (unsigned i = 0; i < TShape0; i++) {
-            DynTrowsumline_<T, srcRawShape2>(
-                dst + i * dstRawShape1 * dstRawShape2, src0 + i * srcRawShape1 * srcRawShape2, TShape1, TShape2);
-            pipe_barrier(PIPE_V);
-        }
-    }
 }
 
 // dim4
-template <typename T, unsigned srcRawShape1, unsigned srcRawShape2, unsigned srcRawShape3, unsigned dstRawShape1,
-    unsigned dstRawShape2, unsigned dstRawShape3, unsigned axis>
+template <typename T, unsigned srcRawShape1, unsigned srcRawShape2, unsigned srcRawShape3, 
+    unsigned dstRawShape1, unsigned dstRawShape2, unsigned dstRawShape3, 
+    unsigned tmpRawShape1, unsigned tmpRawShape2, unsigned tmpRawShape3, 
+    unsigned axis>
 TILEOP void DynTrowsumline_(
-    __ubuf__ T *dst, __ubuf__ T *src0, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned TShape3) {
+    __ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *tmp, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned TShape3) {
     static_assert(sizeof(T) == 4);
     if (TShape0 == 0 || TShape1 == 0 || TShape2 == 0 || TShape3 == 0) {
         return;
     }
-    if (axis == 0) {
-        uint32_t rptElm = REPEAT_BYTE / sizeof(T);
-        uint32_t repeatTime = (TShape3 + rptElm - 1) / rptElm;
-        uint32_t remainElm = TShape3 % rptElm;
-        for (unsigned i = 0; i < TShape1; i++) {
-            for (unsigned j = 0; j < TShape2; j++) {
-                if (!remainElm) {
-                    vcopy((__ubuf__ uint32_t *)(dst + i * dstRawShape2 * dstRawShape3 + j * dstRawShape3),
-                        (__ubuf__ uint32_t *)(src0 + i * srcRawShape2 * srcRawShape3 + j * srcRawShape3), repeatTime, 1,
-                        1, 8, 8);
-                } else {
-                    if (repeatTime == 1) {
-                        SetContinuousMask(remainElm);
-                        vcopy((__ubuf__ uint32_t *)(dst + i * dstRawShape2 * dstRawShape3 + j * dstRawShape3),
-                            (__ubuf__ uint32_t *)(src0 + i * srcRawShape2 * srcRawShape3 + j * srcRawShape3), 1, 1, 1,
-                            8, 8);
-                        set_vector_mask(-1, -1);
-                    } else {
-                        vcopy((__ubuf__ uint32_t *)(dst + i * dstRawShape2 * dstRawShape3 + j * dstRawShape3),
-                            (__ubuf__ uint32_t *)(src0 + i * srcRawShape2 * srcRawShape3 + j * srcRawShape3),
-                            repeatTime - 1, 1, 1, 8, 8);
-                        pipe_barrier(PIPE_V);
-                        SetContinuousMask(remainElm);
-                        vcopy((__ubuf__ uint32_t *)(dst + i * dstRawShape2 * dstRawShape3 + j * dstRawShape3 +
-                                                    (repeatTime - 1) * rptElm),
-                            (__ubuf__ uint32_t *)(src0 + i * srcRawShape2 * srcRawShape3 + j * srcRawShape3 +
-                                                  (repeatTime - 1) * rptElm),
-                            1, 1, 1, 8, 8);
-                        set_vector_mask(-1, -1);
-                    }
-                }
+    unsigned srcRawShape;
+    if constexpr (axis == 1) {
+        srcRawShape = srcRawShape2 * srcRawShape3;
+    } else if constexpr (axis == 0) {
+        srcRawShape = srcRawShape1 * srcRawShape2 * srcRawShape3;
+    } else if constexpr (axis == 2) {
+        srcRawShape = srcRawShape3;
+    }
+    unsigned validShape[] = {TShape0, TShape1, TShape2, TShape3};
+    for (unsigned n0Index = 0, n0Size = (axis == 0 ? (size_t) 1 : TShape0); n0Index < n0Size; ++n0Index){
+        for (unsigned n1Index = 0, n1Size = (axis == 1 ? (size_t) 1 : TShape1); n1Index < n1Size; ++n1Index) {
+            for (unsigned n2Index = 0, n2Size = (axis == 2 ? (size_t) 1 : TShape2); n2Index < n2Size; ++n2Index) {
+                auto dstOffset = n0Index * dstRawShape1 * dstRawShape2 * dstRawShape3 + n1Index * dstRawShape2 * dstRawShape3 + n2Index * dstRawShape3;
+                auto srcOffset = n0Index * srcRawShape1 * srcRawShape2 * srcRawShape3 + n1Index * srcRawShape2 * srcRawShape3 + n2Index * srcRawShape3;
+                DynTrowsumline_<T, tmpRawShape3>(dst + dstOffset, src0 + srcOffset, tmp, validShape[axis], TShape3, srcRawShape);
                 pipe_barrier(PIPE_V);
             }
-        }
-        pipe_barrier(PIPE_V);
-        for (unsigned i = 1; i < TShape0; i++) {
-            for (unsigned j = 0; j < TShape1; j++) {
-                for (unsigned k = 0; k < TShape2; k++) {
-                    if (!remainElm) {
-                        vadd(dst + j * dstRawShape2 * dstRawShape3 + k * dstRawShape3,
-                            dst + j * dstRawShape2 * dstRawShape3 + k * dstRawShape3,
-                            src0 + i * srcRawShape1 * srcRawShape2 * srcRawShape3 + j * srcRawShape2 * srcRawShape3 +
-                                k * srcRawShape3,
-                            repeatTime, 1, 1, 1, 8, 8, 8);
-                    } else {
-                        if (repeatTime == 1) {
-                            set_vector_mask(
-                                0, (((static_cast<uint64_t>(1)) << static_cast<uint32_t>(remainElm)) - 1UL));
-                            vadd(dst + j * dstRawShape2 * dstRawShape3 + k * dstRawShape3,
-                                dst + j * dstRawShape2 * dstRawShape3 + k * dstRawShape3,
-                                src0 + i * srcRawShape1 * srcRawShape2 * srcRawShape3 +
-                                    j * srcRawShape2 * srcRawShape3 + k * srcRawShape3,
-                                repeatTime, 1, 1, 1, 8, 8, 8);
-                            set_vector_mask(-1, -1);
-                        } else {
-                            vadd(dst + j * dstRawShape2 * dstRawShape3 + k * dstRawShape3,
-                                dst + j * dstRawShape2 * dstRawShape3 + k * dstRawShape3,
-                                src0 + i * srcRawShape1 * srcRawShape2 * srcRawShape3 +
-                                    j * srcRawShape2 * srcRawShape3 + k * srcRawShape3,
-                                repeatTime - 1, 1, 1, 1, 8, 8, 8);
-                            pipe_barrier(PIPE_V);
-                            set_vector_mask(
-                                0, (((static_cast<uint64_t>(1)) << static_cast<uint32_t>(remainElm)) - 1UL));
-                            vadd(dst + j * dstRawShape2 * dstRawShape3 + k * dstRawShape3 + (repeatTime - 1) * rptElm,
-                                dst + j * dstRawShape2 * dstRawShape3 + k * dstRawShape3 + (repeatTime - 1) * rptElm,
-                                src0 + i * srcRawShape1 * srcRawShape2 * srcRawShape3 +
-                                    j * srcRawShape2 * srcRawShape3 + k * srcRawShape3 + (repeatTime - 1) * rptElm,
-                                1, 1, 1, 1, 8, 8, 8);
-                            set_vector_mask(-1, -1);
-                        }
-                    }
-                    pipe_barrier(PIPE_V);
-                }
-            }
-        }
-    } else if (axis == 1 || axis == 2) {
-        for (unsigned i = 0; i < TShape0; i++) {
-            DynTrowsumline_<T, srcRawShape2, srcRawShape3, dstRawShape2, dstRawShape3, axis - 1>(
-                dst + i * dstRawShape1 * dstRawShape2 * dstRawShape3,
-                src0 + i * srcRawShape1 * srcRawShape2 * srcRawShape3, TShape1, TShape2, TShape3);
         }
     }
 }

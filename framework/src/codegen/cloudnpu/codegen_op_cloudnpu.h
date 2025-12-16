@@ -195,10 +195,10 @@ private:
     std::string PrintDupOpDynUnaligned(const PrintDupOpParam &param) const;
     std::string PrintDupOpStatic(const PrintDupOpParam &param) const;
 
-    std::string PrintRowSumline(const PrintUnaryParam &param) const;
-    std::string PrintRowSumlineTileTensor() const;
-    std::string PrintRowSumlineDynamicUnaligned(const PrintUnaryParam &param) const;
-    std::string PrintRowSumlineStatic(const PrintUnaryParam &param) const;
+    std::string PrintRowMaxline(const PrintUnaryParam &param) const;
+    std::string PrintRowMaxlineTileTensor() const;
+    std::string PrintRowMaxlineDynamicUnaligned(const PrintUnaryParam &param) const;
+    std::string PrintRowMaxlineStatic(const PrintUnaryParam &param) const;
 
     std::string PrintReduceEx(const PrintUnaryParam &param) const;
     std::string PrintReduceExStatic(const PrintUnaryParam &param) const;
@@ -297,6 +297,11 @@ private:
     std::string PrintReduceLastAxis(const PrintUnaryTmpBuffParam &param) const;
     std::string PrintReduceLastAxisDynamicUnalign(const PrintUnaryTmpBuffParam &param) const;
     std::string PrintReduceLastAxisTileTensor() const;
+
+    std::string PrintRowSumline(const PrintUnaryTmpBuffParam &param) const;
+    std::string PrintRowSumlineTileTensor() const;
+    std::string PrintRowSumlineDynamicUnaligned(const PrintUnaryTmpBuffParam &param) const;
+    std::string PrintRowSumlineStatic(const PrintUnaryTmpBuffParam &param) const;
 
     std::string PrintExtractStatic() const;
     std::string PrintExtractDynamicUnaligned() const;

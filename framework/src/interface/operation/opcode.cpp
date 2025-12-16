@@ -177,7 +177,7 @@ OpcodeManager::OpcodeManager() {
     registerInfo(Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE, OpCoreType::AIV, "ROWSUM_COMBINE_AXIS_SINGLE",
         {MemoryType::MEM_UB}, {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::Trowsumsinglecombine", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::REDUCE, {OP_ATTR_PREFIX + "AXIS", OpAttributeKey::outputCombineAxis});
     registerInfo(Opcode::OP_ROWSUMLINE, OpCoreType::AIV, "ROWSUMLINE",
-        {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::Trowsumline", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::REDUCE, {}, TileShapeVerifier::Verify);
+        {MemoryType::MEM_UB}, {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::Trowsumline", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::REDUCE, {}, TileShapeVerifier::Verify);
     registerInfo(Opcode::OP_ROWMAXLINE, OpCoreType::AIV, "ROWMAXLINE",
         {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::Trowmaxline", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::REDUCE, {}, TileShapeVerifier::Verify);
     registerInfo(Opcode::OP_ROWMINLINE, OpCoreType::AIV, "ROWMINLINE",

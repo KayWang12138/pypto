@@ -2640,10 +2640,12 @@ TILEOP void Trowsumline_(__ubuf__ T *dst, __ubuf__ T *src0) {
 }
 
 // dim4
-template <typename T, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned TShape3, unsigned srcRawShape1,
-    unsigned srcRawShape2, unsigned srcRawShape3, unsigned dstRawShape1, unsigned dstRawShape2, unsigned dstRawShape3,
+template <typename T, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned TShape3, 
+    unsigned srcRawShape1, unsigned srcRawShape2, unsigned srcRawShape3, 
+    unsigned dstRawShape1, unsigned dstRawShape2, unsigned dstRawShape3,
+    unsigned tmpRawShape1, unsigned tmpRawShape2, unsigned tmpRawShape3,
     unsigned axis>
-TILEOP void Trowsumline_(__ubuf__ T *dst, __ubuf__ T *src0) {
+TILEOP void Trowsumline_(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *tmp) {
     static_assert(sizeof(T) == 4);
     if (axis == 0) {
         uint32_t rptElm = REPEAT_BYTE / sizeof(T);

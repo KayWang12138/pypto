@@ -281,6 +281,137 @@ std::string CodeGenOpCloudNPU::PrintCompact(const PrintUnaryTmpBuffParam &param)
     return PrintCompactStatic(param);
 }
 
+std::string CodeGenOpCloudNPU::PrintRowSumlineStatic(const PrintUnaryTmpBuffParam &param) const {
+    int reduceAxis{-1};
+    auto axis = opAttrs.at(OP_ATTR_PREFIX + "AXIS");
+    if (axis.HasValue()) {
+        reduceAxis = npu::tile_fwk::AnyCast<int64_t>(axis);
+    }
+    ASSERT(((reduceAxis >= 0) && (reduceAxis < (int(shape[ID2].size()) - 1)))) << "unsupported reduce axis";
+    const std::string &dstDtypeStr = param.dstDtypeStr;
+    const std::string &srcDtypeStr = param.srcDtypeStr;
+    const std::string &tmpDtypeStr = param.tmpDtypeStr;
+    const std::string &dVar = param.dVar;
+    const std::string &s0Var = param.s0Var;
+    const std::string &tmpVar = param.tmpVar;
+
+    reduceAxis += SHAPE_DIM4 - rawShape[0].size();
+    std::vector<int64_t> dstShape = NormalizeShape(rawShape[ID0], SHAPE_DIM4);
+    std::vector<int64_t> tmpShape = NormalizeShape(rawShape[ID1], SHAPE_DIM4);
+    std::vector<int64_t> srcShape = NormalizeShape(rawShape[ID2], SHAPE_DIM4);
+    std::vector<int64_t> os = NormalizeShape(originShape[ID2], SHAPE_DIM4);
+    std::ostringstream oss;
+    std::vector<std::string> paramList;
+    paramList.emplace_back(dstDtypeStr);
+    for (int i = 0; i < SHAPE_DIM4; ++i) {
+        paramList.emplace_back(std::to_string(os[i]));
+    }
+    for (int i = 1; i < SHAPE_DIM4; ++i) {
+        paramList.emplace_back(std::to_string(srcShape[i]));
+    }
+    for (int i = 1; i < SHAPE_DIM4; ++i) {
+        paramList.emplace_back(std::to_string(dstShape[i]));
+    }
+    for (int i = 1; i < SHAPE_DIM4; ++i) {
+        paramList.emplace_back(std::to_string(tmpShape[i]));
+    }
+    paramList.emplace_back(std::to_string(reduceAxis));
+    std::string templateParam = JoinString(paramList, CONN_COMMA);
+
+    paramList.clear();
+    std::string dst = "(__ubuf__ " + dstDtypeStr + "*)" + dVar;
+    std::string src = "(__ubuf__ " + srcDtypeStr + "*)" + s0Var;
+    std::string tmp = "(__ubuf__ " + tmpDtypeStr + "*)" + tmpVar;
+    paramList.insert(paramList.end(), {dst, src, tmp});
+
+    std::string tiloOpCallParam = JoinString(paramList, CONN_COMMA);
+    oss << tileOpName << "_<" << templateParam << ">"
+        << "(" << tiloOpCallParam << ");\n";
+    return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::PrintRowSumlineDynamicUnaligned(const PrintUnaryTmpBuffParam &param) const {
+    int reduceAxis{-1};
+    auto axis = opAttrs.at(OP_ATTR_PREFIX + "AXIS");
+    if (axis.HasValue()) {
+        reduceAxis = npu::tile_fwk::AnyCast<int64_t>(axis);
+    }
+    ASSERT(((reduceAxis >= 0) && (reduceAxis < (int(shape[ID2].size()) - 1)))) << "unsupported reduce axis";
+    const std::string &dstDtypeStr = param.dstDtypeStr;
+    const std::string &srcDtypeStr = param.srcDtypeStr;
+    const std::string &tmpDtypeStr = param.tmpDtypeStr;
+    const std::string &dVar = param.dVar;
+    const std::string &s0Var = param.s0Var;
+    const std::string &tmpVar = param.tmpVar;
+
+    auto dynSrcShape = dynamicValidShape[ID2];
+    // adjust reduceAxis for dim4
+    reduceAxis += SHAPE_DIM4 - rawShape[0].size();
+    std::vector<int64_t> dstShape = NormalizeShape(rawShape[ID0], SHAPE_DIM4);
+    std::vector<int64_t> tmpShape = NormalizeShape(rawShape[ID1], SHAPE_DIM4);
+    std::vector<int64_t> srcShape = NormalizeShape(rawShape[ID2], SHAPE_DIM4);
+    FillIntVecWithDummyInHead<SymbolicScalar>(dynSrcShape, SHAPE_DIM4 - rawShape[ID2].size(), 1);
+
+    std::ostringstream os;
+    std::vector<std::string> paramList;
+    paramList.emplace_back(dstDtypeStr);
+    for (int i = 1; i < SHAPE_DIM4; ++i) {
+        paramList.emplace_back(std::to_string(srcShape[i]));
+    }
+    for (int i = 1; i < SHAPE_DIM4; ++i) {
+        paramList.emplace_back(std::to_string(dstShape[i]));
+    }
+    for (int i = 1; i < SHAPE_DIM4; ++i) {
+        paramList.emplace_back(std::to_string(tmpShape[i]));
+    }
+    paramList.emplace_back(std::to_string(reduceAxis));
+    std::string templateParam = JoinString(paramList, CONN_COMMA);
+
+    paramList.clear();
+
+    std::string dst = "(__ubuf__ " + dstDtypeStr + "*)" + dVar;
+    std::string src = "(__ubuf__ " + srcDtypeStr + "*)" + s0Var;
+    std::string tmp = "(__ubuf__ " + tmpDtypeStr + "*)" + tmpVar;
+    paramList.emplace_back(dst);
+    paramList.emplace_back(src);
+    paramList.emplace_back(tmp);
+    for (auto dynShape : dynSrcShape) {
+        paramList.emplace_back(SymbolicExpressionTable::BuildExpression(dynShape));
+    }
+
+    std::string tiloOpCallParam = JoinString(paramList, CONN_COMMA);
+    os << tileOpName.c_str() << "_<" << templateParam << ">"
+       << "(" << tiloOpCallParam << ");\n";
+    return os.str();
+}
+
+std::string CodeGenOpCloudNPU::PrintRowSumlineTileTensor() const {
+    std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ID0]);
+    std::string tmpTensor = sm->QueryTileTensorByMagic(operandWithMagic[ID1]);
+    std::string src0Tensor = sm->QueryTileTensorByMagic(operandWithMagic[ID2]);
+    int reduceAxis{-1};
+    auto axis = opAttrs.at(OP_ATTR_PREFIX + "AXIS");
+    if (axis.HasValue()) {
+        reduceAxis = npu::tile_fwk::AnyCast<int64_t>(axis);
+    }
+    ASSERT(((reduceAxis >= 0) && (reduceAxis < (int(shape[ID2].size()) - 1)))) << "unsupported reduce axis";
+    reduceAxis += SHAPE_DIM5 - rawShape[0].size();
+    std::ostringstream oss;
+    oss << tileOpName << "<" << reduceAxis << ">"
+        << "(" << dstTensor << ", " << src0Tensor << ", " << tmpTensor << ");\n";
+    return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::PrintRowSumline(const PrintUnaryTmpBuffParam &param) const {
+    if (isSupportLayout) {
+        return PrintRowSumlineTileTensor();
+    }
+    if (isSupportDynamicUnaligned) {
+        return PrintRowSumlineDynamicUnaligned(param);
+    }
+    return PrintRowSumlineStatic(param);
+}
+
 std::string CodeGenOpCloudNPU::GenUnaryOpWithTmpBuff() const {
     // In this scenario, frontend set tmp buffer in output to optimize ooo schedule result.
     std::string s0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID2]);
@@ -304,6 +435,9 @@ std::string CodeGenOpCloudNPU::GenUnaryOpWithTmpBuff() const {
         return PrintVnchwconv({s0Var, tmpVar, dVar, srcDtypeStr, tmpDtypeStr, dstDtypeStr});
     }
 
+    if(opCode == Opcode::OP_ROWSUMLINE) {
+        return PrintRowSumline({s0Var, tmpVar, dVar, srcDtypeStr, tmpDtypeStr, dstDtypeStr});
+    }
     if (opCode == Opcode::OP_ROWSUM_SINGLE || opCode == Opcode::OP_ROWMAX_SINGLE ||
         opCode == Opcode::OP_ROWMIN_SINGLE) {
         return PrintReduceLastAxis({s0Var, tmpVar, dVar, srcDtypeStr, tmpDtypeStr, dstDtypeStr});

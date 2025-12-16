@@ -79,7 +79,6 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {Opcode::OP_ROWEXPSUM, [this]() { return GenUnaryOp(); }},
           {Opcode::OP_ROWEXPMAX, [this]() { return GenUnaryOp(); }},
           {Opcode::OP_COPY_UB_TO_UB, [this]() { return GenUnaryOp(); }},
-          {Opcode::OP_ROWSUMLINE, [this]() { return GenUnaryOp(); }},
           {Opcode::OP_ROWMAXLINE, [this]() { return GenUnaryOp(); }},
           {Opcode::OP_ROWMINLINE, [this]() { return GenUnaryOp(); }},
           {Opcode::OP_ABS, [this]() { return GenUnaryOp(); }},
@@ -87,6 +86,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
 
           // unary with temp buffer
           {Opcode::OP_COMPACT, [this]() { return GenUnaryOpWithTmpBuff(); }},
+          {Opcode::OP_ROWSUMLINE, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_ROWSUM_SINGLE, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_ROWMAX_SINGLE, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_ROWMIN_SINGLE, [this]() { return GenUnaryOpWithTmpBuff(); }},

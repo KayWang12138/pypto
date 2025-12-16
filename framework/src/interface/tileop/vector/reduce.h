@@ -40,23 +40,7 @@ TILEOP void ReduceCompute(T0 dst, T1 src, T2 tmp) {
     using TmpTileDefine =
             pto::Tile<pto::TileType::Vec, typename T2::Type, tmpTileH, tmpTileW, pto::BLayout::RowMajor, tmpTileH, tmpTileW>;
     TmpTileDefine tmpTile;
-    if constexpr (TileOp::IsConstContinous<T0, T1>() == true) {
-        constexpr auto srcTileH = TileOp::GetOutterAxisMergeResult<srcShapeSize, typename T1::TileShape>();
-        constexpr auto srcTileW = Std::tuple_element<srcShapeSize - 1, typename T1::TileShape>::type::value;
-        constexpr auto dstTileH = TileOp::GetOutterAxisMergeResult<dstShapeSize, typename T0::TileShape>();
-        constexpr auto dstTileW = Std::tuple_element<dstShapeSize - 1, typename T0::TileShape>::type::value;
-        using SrcTileDefine =
-            pto::Tile<pto::TileType::Vec, typename T1::Type, srcTileH, srcTileW, pto::BLayout::RowMajor, srcTileH, srcTileW>;
-        using DstTileDefine =
-            pto::Tile<pto::TileType::Vec, typename T0::Type, dstTileH, dstTileW, pto::BLayout::RowMajor, dstTileH, dstTileW>;
-        SrcTileDefine srcTile;
-        DstTileDefine dstTile;
-        pto::TASSIGN(dstTile, (uint64_t)dst.GetAddr());
-        pto::TASSIGN(srcTile, (uint64_t)src.GetAddr());
-        pto::TASSIGN(tmpTile, (uint64_t)tmp.GetAddr());
-        ReduceComputeImpl<op>(dstTile, srcTile, tmpTile);
-        return;
-    }
+
     constexpr size_t expectSize = 5;
     const auto dstLayout = dst.GetLayout();
     auto dstShape0 = dstLayout.template GetShapeDim<0, expectSize>();
@@ -112,37 +96,44 @@ TILEOP void TRowMaxSingle(T0 dst, T1 src, T2 tmp) {
     ReduceCompute<BinaryOp::AMAX>(dst, src, tmp);
 }
 
-template <int axis, size_t srcShapeSize, size_t dstShapeSize, typename T0, typename T1>
-TILEOP void TRowSumLineStatic(T0 dst, T1 src) {
+template <int axis, size_t srcShapeSize, size_t dstShapeSize, size_t tmpShapeSize, typename T0, typename T1, typename T2>
+TILEOP void TRowSumLineStatic(T0 dst, T1 src, T2 tmp) {
     constexpr auto typeSize = sizeof(typename T1::Type);
     constexpr auto shape = TileOp::GetAnyAxisMergeResult<1, axis, typename T1::TileShape>();
     constexpr auto srcStride = TileOp::GetAnyAxisMergeResult<axis + 1, srcShapeSize, typename T1::TileShape>();
     constexpr auto dstStride = TileOp::GetAnyAxisMergeResult<axis + 1, dstShapeSize, typename T0::TileShape>();
+    constexpr auto tmpStride = TileOp::GetAnyAxisMergeResult<axis + 1, tmpShapeSize, typename T2::TileShape>();
     constexpr auto srcTileH = Std::tuple_element<axis, typename T1::TileShape>::type::value;
     constexpr auto srcTileW = TileOp::GetAnyAxisMergeResult<axis + 2, srcShapeSize, typename T1::TileShape>();
     constexpr auto dstTileH = Std::tuple_element<axis, typename T0::TileShape>::type::value;
     constexpr auto dstTileW = TileOp::GetAnyAxisMergeResult<axis + 2, dstShapeSize, typename T0::TileShape>();
+    constexpr auto tmpTileH = Std::tuple_element<axis, typename T2::TileShape>::type::value;
+    constexpr auto tmpTileW = TileOp::GetAnyAxisMergeResult<axis + 2, tmpShapeSize, typename T0::TileShape>();
     using SrcTileDefine = pto::Tile<pto::TileType::Vec, typename T1::Type,
         srcTileH, srcTileW, pto::BLayout::RowMajor, srcTileH, srcTileW>;
     using DstTileDefine = pto::Tile<pto::TileType::Vec, typename T0::Type,
         dstTileH, dstTileW, pto::BLayout::RowMajor, dstTileH, dstTileW>;
+    using TmpTileDefine = pto::Tile<pto::TileType::Vec, typename T0::Type,
+        tmpTileH, tmpTileW, pto::BLayout::RowMajor, tmpTileH, tmpTileW>;
     SrcTileDefine srcTile;
     DstTileDefine dstTile;
+    TmpTileDefine tmpTile;
     for (size_t nIndex = 0; nIndex < shape; ++nIndex) {
         constexpr auto srcOffset = srcStride * nIndex;
         constexpr auto dstOffset = dstStride * nIndex;
         pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * typeSize));
         pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * typeSize));
-        pto::TCOLSUM(dstTile, srcTile, srcTile, false);
+        pto::TCOLSUM(dstTile, srcTile, tmpTile, true);
     }
 }
 
-template <int axis, typename DstTileDefine, typename SrcTileDefine, typename T0, typename T1>
-TILEOP void TRowSumLineDynamic(T0 dst, T1 src) {
+template <int axis, typename DstTileDefine, typename SrcTileDefine, typename TmpTileDefine, typename T0, typename T1, typename T2>
+TILEOP void TRowSumLineDynamic(T0 dst, T1 src, T2 tmp) {
     constexpr size_t expectSize = 5;
     constexpr auto typeSize = sizeof(typename T1::Type);
     const auto dstLayout = dst.GetLayout();
     const auto srcLayout = src.GetLayout();
+    const auto tmpLayout = tmp.GetLayout();
     size_t dstShape[] = {
         static_cast<size_t>(dstLayout.template GetShapeDim<0, expectSize>()),
         static_cast<size_t>(dstLayout.template GetShapeDim<1, expectSize>()),
@@ -169,39 +160,56 @@ TILEOP void TRowSumLineDynamic(T0 dst, T1 src) {
         static_cast<size_t>(srcLayout.template GetStrideDim<2, expectSize>()),
         static_cast<size_t>(srcLayout.template GetStrideDim<3, expectSize>())
     };
+    size_t tmpShape[] = {
+        static_cast<size_t>(tmpLayout.template GetShapeDim<0, expectSize>()),
+        static_cast<size_t>(tmpLayout.template GetShapeDim<1, expectSize>()),
+        static_cast<size_t>(tmpLayout.template GetShapeDim<2, expectSize>()),
+        static_cast<size_t>(tmpLayout.template GetShapeDim<3, expectSize>()),
+        static_cast<size_t>(tmpLayout.template GetShapeDim<4, expectSize>())
+    };
+    size_t tmpStride[] = {
+        static_cast<size_t>(tmpLayout.template GetStrideDim<0, expectSize>()),
+        static_cast<size_t>(tmpLayout.template GetStrideDim<1, expectSize>()),
+        static_cast<size_t>(tmpLayout.template GetStrideDim<2, expectSize>()),
+        static_cast<size_t>(tmpLayout.template GetStrideDim<3, expectSize>())
+    };
     for (size_t n0Index = 0, n0Size = (axis == 0 ? (size_t) 1 : dstShape[0]); n0Index < n0Size; ++n0Index) {
         for (size_t n1Index = 0, n1Size = (axis == 1 ? (size_t) 1 : dstShape[1]); n1Index < n1Size; ++n1Index) {
             for (size_t n2Index = 0, n2Size = (axis == 2 ? (size_t) 1 : dstShape[2]); n2Index < n2Size; ++n2Index) {
                 for (size_t n3Index = 0, n3Size = (axis == 3 ? (size_t) 1 : dstShape[3]); n3Index < n3Size; ++n3Index) {
                     DstTileDefine dstTile(dstShape[axis], dstShape[4]);
                     SrcTileDefine srcTile(srcShape[axis], srcShape[4]);
+                    TmpTileDefine tmpTile;
                     auto dstOffset = n0Index * dstStride[0] + n1Index * dstStride[1] +
                         n2Index * dstStride[2] + n3Index * dstStride[3];
                     auto srcOffset = n0Index * srcStride[0] + n1Index * srcStride[1] +
                         n2Index * srcStride[2] + n3Index * srcStride[3];
+                    auto tmpOffset = n0Index * tmpStride[0] + n1Index * tmpStride[1] +
+                        n2Index * tmpStride[2] + n3Index * tmpStride[3];
                     pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * typeSize));
                     pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * typeSize));
-                    pto::TCOLSUM(dstTile, srcTile, srcTile, false);
+                    pto::TASSIGN(tmpTile, (uint64_t)(tmp.GetAddr()));
+                    pto::TCOLSUM(dstTile, srcTile, tmpTile, true);
                 }
             }
         }
     }
 }
 
-template <int axis, typename T0, typename T1>
-TILEOP void TRowSumLine(T0 dst, T1 src) {
+template <int axis, typename T0, typename T1, typename T2>
+TILEOP void TRowSumLine(T0 dst, T1 src, T2 tmp) {
     constexpr auto srcShapeSize = Std::tuple_size<typename T1::Shape>::value;
     constexpr auto dstShapeSize = Std::tuple_size<typename T0::Shape>::value;
-    if constexpr (TileOp::IsConstContinous<T0, T1>()) {
-        TRowSumLineStatic<axis, srcShapeSize, dstShapeSize>(dst, src);
-        return;
-    }
+    constexpr auto tmpShapeSize = Std::tuple_size<typename T2::Shape>::value;
     constexpr auto dstTileH = Std::tuple_element<axis + dstShapeSize - 5, typename T0::TileShape>::type::value;
     constexpr auto dstTileW = TileOp::GetAnyAxisMergeResult<axis + dstShapeSize - 3, dstShapeSize, typename T0::TileShape>();
     constexpr auto srcTileH = Std::tuple_element<axis + srcShapeSize - 5, typename T1::TileShape>::type::value;
     constexpr auto srcTileW = TileOp::GetAnyAxisMergeResult<axis + srcShapeSize - 3, srcShapeSize, typename T1::TileShape>();
     using DstTileDefine = pto::Tile<pto::TileType::Vec, typename T0::Type, dstTileH, dstTileW, pto::BLayout::RowMajor, -1, -1>;
     using SrcTileDefine = pto::Tile<pto::TileType::Vec, typename T1::Type, srcTileH, srcTileW, pto::BLayout::RowMajor, -1, -1>;
-    TRowSumLineDynamic<axis, DstTileDefine, SrcTileDefine>(dst, src);
+    constexpr auto tmpTileH = Std::tuple_element<tmpShapeSize - 2, typename T1::TileShape>::type::value;
+    constexpr auto tmpTileW = Std::tuple_element<tmpShapeSize - 1, typename T1::TileShape>::type::value;
+    using TmpTileDefine = pto::Tile<pto::TileType::Vec, typename T2::Type, tmpTileH, tmpTileW, pto::BLayout::RowMajor, tmpTileH, tmpTileW>;
+    TRowSumLineDynamic<axis, DstTileDefine, SrcTileDefine, TmpTileDefine>(dst, src, tmp);
 }
 #endif

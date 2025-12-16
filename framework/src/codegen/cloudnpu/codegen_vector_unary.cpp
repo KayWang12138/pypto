@@ -68,7 +68,7 @@ std::string CodeGenOpCloudNPU::PrintCastTileTensor() const {
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintRowSumlineStatic(const PrintUnaryParam &param) const {
+std::string CodeGenOpCloudNPU::PrintRowMaxlineStatic(const PrintUnaryParam &param) const {
     int reduceAxis{-1};
     auto axis = opAttrs.at(OP_ATTR_PREFIX + "AXIS");
     if (axis.HasValue()) {
@@ -110,7 +110,7 @@ std::string CodeGenOpCloudNPU::PrintRowSumlineStatic(const PrintUnaryParam &para
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintRowSumlineDynamicUnaligned(const PrintUnaryParam &param) const {
+std::string CodeGenOpCloudNPU::PrintRowMaxlineDynamicUnaligned(const PrintUnaryParam &param) const {
     int reduceAxis{-1};
     auto axis = opAttrs.at(OP_ATTR_PREFIX + "AXIS");
     if (axis.HasValue()) {
@@ -157,7 +157,7 @@ std::string CodeGenOpCloudNPU::PrintRowSumlineDynamicUnaligned(const PrintUnaryP
     return os.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintRowSumlineTileTensor() const {
+std::string CodeGenOpCloudNPU::PrintRowMaxlineTileTensor() const {
     std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::DST_IDX)]);
     std::string src0Tensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::SRC0_IDX)]);
     int reduceAxis{-1};
@@ -173,14 +173,14 @@ std::string CodeGenOpCloudNPU::PrintRowSumlineTileTensor() const {
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintRowSumline(const PrintUnaryParam &param) const {
+std::string CodeGenOpCloudNPU::PrintRowMaxline(const PrintUnaryParam &param) const {
     if (isSupportLayout) {
-        return PrintRowSumlineTileTensor();
+        return PrintRowMaxlineTileTensor();
     }
     if (isSupportDynamicUnaligned) {
-        return PrintRowSumlineDynamicUnaligned(param);
+        return PrintRowMaxlineDynamicUnaligned(param);
     }
-    return PrintRowSumlineStatic(param);
+    return PrintRowMaxlineStatic(param);
 }
 
 std::string CodeGenOpCloudNPU::PrintReduceExStatic(const PrintUnaryParam &param) const {
@@ -516,8 +516,8 @@ std::string CodeGenOpCloudNPU::GenUnaryOp() const {
         return PrintOneHot({s0Var, dVar, srcDtypeStr, dstDtypeStr});
     } else if (opCode == Opcode::OP_ROWMAX || opCode == Opcode::OP_ROWEXPMAX || opCode == Opcode::OP_ROWEXPSUM) {
         return PrintReduceEx({s0Var, dVar, srcDtypeStr, dstDtypeStr});
-    } else if (opCode == Opcode::OP_ROWSUMLINE || opCode == Opcode::OP_ROWMAXLINE || opCode == Opcode::OP_ROWMINLINE) {
-        return PrintRowSumline({s0Var, dVar, srcDtypeStr, dstDtypeStr});
+    } else if (opCode == Opcode::OP_ROWMAXLINE || opCode == Opcode::OP_ROWMINLINE) {
+        return PrintRowMaxline({s0Var, dVar, srcDtypeStr, dstDtypeStr});
     } else if (opCode == Opcode::OP_EXP || opCode == Opcode::OP_SQRT || opCode == Opcode::OP_ABS ||
                opCode == Opcode::OP_RECIPROCAL || opCode == Opcode::OP_NEG || opCode == Opcode::OP_RSQRT ||
                opCode == Opcode::OP_LN || opCode == Opcode::OP_LOGICALNOT) {
