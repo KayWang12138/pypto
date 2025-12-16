@@ -74,7 +74,7 @@ inline const BiMap<GraphType> &GetGraphTypeNameDict() {
 
 enum class EndFuncReturnParam { INPUT = 0, OUTPUT, ARGS };
 
-enum MixResourceType {
+enum class MixResourceType {
     UNKNOWN = 0,
     ONE_CUBE_ONE_VECTOR = 1, // 1C1V
     ONE_CUBE_TWO_VECTOR = 2  // 1C2V
