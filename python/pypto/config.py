@@ -18,7 +18,7 @@ from functools import wraps
 from . import pypto_impl
 
 
-class CachedOptions:
+class _CachedOptions:
 
     def __init__(self):
         self._options = pypto_impl.GetOptions()
@@ -45,7 +45,7 @@ class CachedOptions:
         return {k[len(prefix):]: v for k, v in self._options.items() if k.startswith(prefix)}
 
 
-_pto_options = CachedOptions()
+_pto_options = _CachedOptions()
 
 
 def set_print_options(edge_items: int, precision: int, threshold: int, linewidth: int):
@@ -365,7 +365,7 @@ def reset_options() -> None:
     _pto_options.reset()
 
 
-class Options:
+class _Options:
     """Configuration options class, supports context manager and decorator modes"""
     INIT_FIELDS = [
         "name", "codegen_options", "host_options", "pass_options",
@@ -481,7 +481,7 @@ def options(
         pass
     """
     # Automatically collect parameters and pass them with unpacking (eliminate duplicate parameter writing)
-    return Options(**locals())
+    return _Options(**locals())
 
 
 def get_current_scope():

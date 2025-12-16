@@ -12,7 +12,7 @@
 """
 
 
-def load_shared_libs():
+def _load_shared_libs():
     import os
     import ctypes
     from pathlib import Path
@@ -49,27 +49,23 @@ def load_shared_libs():
         _load_shared_lib(_desc=desc)
 
 
-load_shared_libs()
+_load_shared_libs()
 
 from . import experimental
 
 from .config import *  # noqa
-from .controller import *  # noqa
+from ._controller import *  # noqa
 from .converter import from_torch
-from .element import Element
 from .enum import *  # noqa
 from .op import *  # noqa
 from .operation import *  # noqa
 from .operator import *  # noqa
 from .pass_config import *  # noqa
 from .cost_model import *  # noqa
-from .pypto_utils import ceil, bytes_of
+from ._utils import ceil, bytes_of
 from .runtime import jit, verify, set_verify_data
 from .symbolic_scalar import SymbolicScalar
 from .tensor import Tensor
 
 tensor = Tensor
-element = Element
 symbolic_scalar = SymbolicScalar
-
-verify_enable = pypto_impl.IsVerifyEnabled

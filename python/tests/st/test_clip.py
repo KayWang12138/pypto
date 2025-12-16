@@ -60,7 +60,7 @@ class ClipArgs:
 
     def __init__(
         self, tile_shape: List[int], view_shape: List[int], mode: ClipMode,
-        min_: Optional[pypto.Element] = None, max_: Optional[pypto.Element] = None, is_element: bool = False,
+        min_=None, max_=None, is_element: bool = False,
     ) -> None:
         self.tile_shape = tile_shape
         self.view_shape = view_shape

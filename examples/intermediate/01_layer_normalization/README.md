@@ -98,22 +98,21 @@ output = gamma * (x / rms)
 def layer_norm_static(inputs, outputs, config):
     x, gamma, beta = inputs[0], inputs[1], inputs[2]
     out = outputs[0]
-    
+
     hidden_size = x.shape[-1]
-    eps = pypto.element(config.dtype, config.eps)
-    
+
     pypto.set_vec_tile_shapes(64, 128)
-    
+
     # Compute mean
     mean = pypto.sum(x, dim=-1, keepdim=True) / hidden_size
     centered = pypto.sub(x, mean)
-    
+
     # Compute variance
     var = pypto.sum(pypto.mul(centered, centered), dim=-1, keepdim=True) / hidden_size
-    
+
     # Normalize
-    normalized = pypto.div(centered, pypto.sqrt(pypto.add(var, eps)))
-    
+    normalized = pypto.div(centered, pypto.sqrt(pypto.add(var, config.eps)))
+
     # Scale and shift
     out[:] = pypto.add(pypto.mul(normalized, gamma), beta)
 ```
@@ -125,10 +124,10 @@ def layer_norm_static(inputs, outputs, config):
 def layer_norm_dynamic(inputs, outputs, config):
     x, gamma, beta = inputs[0], inputs[1], inputs[2]
     out = outputs[0]
-    
+
     # Enable dynamic unaligned support
     pypto.set_codegen_options(support_dynamic_unaligned=True)
-    
+
     # Same computation as static version
     # ...
 ```
@@ -235,13 +234,13 @@ Layer normalization is typically used in transformer blocks:
 def transformer_block(inputs, outputs):
     x, norm_gamma, norm_beta = inputs[0], inputs[1], inputs[2]
     out = outputs[0]
-    
+
     # Layer normalization
     normed = layer_norm(x, norm_gamma, norm_beta)
-    
+
     # Attention or FFN
     processed = process(normed)
-    
+
     # Residual connection
     out[:] = pypto.add(x, processed)
 ```

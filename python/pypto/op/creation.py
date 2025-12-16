@@ -12,10 +12,10 @@
 from typing import List, Optional, Union, overload, Sequence
 
 from .. import pypto_impl
-from ..element import Element
+from .._element import Element
 from ..enum import DataType
-from ..op_wrapper import op_wrapper
-from ..pypto_utils import to_syms
+from .._op_wrapper import op_wrapper
+from .._utils import to_syms
 from ..symbolic_scalar import SymbolicScalar
 from ..tensor import Tensor
 

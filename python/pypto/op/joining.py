@@ -12,7 +12,7 @@
 from typing import List
 
 from .. import pypto_impl
-from ..op_wrapper import op_wrapper
+from .._op_wrapper import op_wrapper
 from ..tensor import Tensor
 
 

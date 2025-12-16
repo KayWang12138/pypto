@@ -20,6 +20,7 @@ _replacements = {
     "RUNTIME_Max": "max",
     "RUNTIME_Eq": "Eq",
     "RUNTIME_Ne": "Ne",
+    "/": "//",  # 'a' / 8 * 8 may be optomized by sympy, that's bad
 }
 
 _REPLACE_PATTERN = re.compile("|".join(_replacements.keys()))

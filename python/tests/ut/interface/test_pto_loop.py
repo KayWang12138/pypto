@@ -11,7 +11,7 @@
 """
 """
 import pypto
-
+import pypto._controller as controller
 
 def init_tensors():
     dtype = pypto.DT_FP32
@@ -24,7 +24,7 @@ def init_tensors():
 
 def test_pto_loop_end_only():
     a, b, c = init_tensors()
-    pypto.reset()
+    controller.reset()
 
     with pypto.function("MAIN", a, b, c):
         pypto.set_vec_tile_shapes(16, 16)
@@ -48,7 +48,7 @@ def test_pto_loop_end_only():
 
 def test_pto_loop_end_only_with_custom_name():
     a, b, c = init_tensors()
-    pypto.reset()
+    controller.reset()
 
     with pypto.function("MAIN", a, b, c):
         pypto.set_vec_tile_shapes(16, 16)
@@ -72,7 +72,7 @@ def test_pto_loop_end_only_with_custom_name():
 
 def test_pto_loop_start_end():
     a, b, c = init_tensors()
-    pypto.reset()
+    controller.reset()
 
     with pypto.function("MAIN", a, b, c):
         pypto.set_vec_tile_shapes(16, 16)
@@ -96,7 +96,7 @@ def test_pto_loop_start_end():
 
 def test_pto_loop_start_end_step():
     a, b, c = init_tensors()
-    pypto.reset()
+    controller.reset()
 
     with pypto.function("MAIN", a, b, c):
         pypto.set_vec_tile_shapes(16, 16)
@@ -120,7 +120,7 @@ def test_pto_loop_start_end_step():
 
 def test_pto_loop_start_end_step_and_name():
     a, b, c = init_tensors()
-    pypto.reset()
+    controller.reset()
 
     with pypto.function("MAIN", a, b, c):
         pypto.set_vec_tile_shapes(16, 16)
@@ -144,7 +144,7 @@ def test_pto_loop_start_end_step_and_name():
 
 def test_pto_loop_start_end_step_and_name():
     a, b, c = init_tensors()
-    pypto.reset()
+    controller.reset()
 
     with pypto.function("MAIN", a, b, c):
         pypto.set_vec_tile_shapes(16, 16)
@@ -160,7 +160,7 @@ def test_pto_loop_start_end_step_and_name():
 
 def test_pto_loop_unroll_n_submit_before_loop():
     a, b, c = init_tensors()
-    pypto.reset()
+    controller.reset()
 
     with pypto.function("MAIN", a, b, c):
         pypto.set_vec_tile_shapes(16, 16)

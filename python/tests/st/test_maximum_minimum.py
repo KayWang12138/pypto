@@ -55,7 +55,6 @@ def test_with_tensor_scalar_minimum(
 
     x = pypto.tensor(shape, data_type)
     y = pypto.tensor(shape, data_type)
-    scalar_data = pypto.element(data_type, scalar)
 
     with pypto.function(function_name, x, y):
         for b_idx in pypto.loop(math.ceil(shape[0] / view_shape[0])):
@@ -76,7 +75,7 @@ def test_with_tensor_scalar_minimum(
                 )
                 pypto.set_vec_tile_shapes(*tile_shape)
                 res = pypto.tensor()
-                res.move(pypto.minimum(tile_tensor_0, scalar_data))
+                res.move(pypto.minimum(tile_tensor_0, scalar))
                 pypto.assemble(
                     res,
                     [b_idx * view_shape[0], s_idx * view_shape[1]],
@@ -117,7 +116,6 @@ def test_with_tensor_scalar_maximum(
 
     x = pypto.tensor(shape, data_type)
     y = pypto.tensor(shape, data_type)
-    scalar_data = pypto.element(data_type, scalar)
 
     with pypto.function(function_name, x, y):
         for b_idx in pypto.loop(math.ceil(shape[0] / view_shape[0])):
@@ -138,7 +136,7 @@ def test_with_tensor_scalar_maximum(
                 )
                 pypto.set_vec_tile_shapes(*tile_shape)
                 res = pypto.tensor()
-                res.move(pypto.maximum(tile_tensor_0, scalar_data))
+                res.move(pypto.maximum(tile_tensor_0, scalar))
                 pypto.assemble(
                     res,
                     [b_idx * view_shape[0], s_idx * view_shape[1]],

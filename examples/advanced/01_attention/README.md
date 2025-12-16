@@ -90,23 +90,22 @@ Where:
 def scaled_dot_product_attention_static(inputs, outputs, config):
     q, k, v = inputs[0], inputs[1], inputs[2]
     out = outputs[0]
-    
+
     # Calculate scale
     scale = 1.0 / (config.head_dim ** 0.5)
-    scale_val = pypto.element(config.dtype, scale)
-    
+
     pypto.set_cube_tile_shapes([64, 64], [64, 64], [64, 64])
-    
+
     # Q @ K^T
     k_t = pypto.transpose(k, [0, 1, 3, 2])
     scores = pypto.matmul(q, k_t, out_dtype=config.dtype)
-    
+
     # Scale
-    scores_scaled = pypto.mul(scores, scale_val)
-    
+    scores_scaled = pypto.mul(scores, scale)
+
     # Softmax
     attn_weights = pypto.softmax(scores_scaled, dim=-1)
-    
+
     # Apply to values
     out[:] = pypto.matmul(attn_weights, v, out_dtype=config.dtype)
 ```
@@ -118,10 +117,10 @@ def scaled_dot_product_attention_static(inputs, outputs, config):
 def scaled_dot_product_attention_dynamic(inputs, outputs, config):
     q, k, v = inputs[0], inputs[1], inputs[2]
     out = outputs[0]
-    
+
     # Enable dynamic support
     pypto.set_codegen_options(support_dynamic_unaligned=True)
-    
+
     # Same computation as static version
     # ...
 ```
@@ -135,22 +134,22 @@ def attention_with_projection(inputs, outputs, config):
     q_weight, k_weight, v_weight = inputs[1], inputs[2], inputs[3]
     out_weight = inputs[4]
     out = outputs[0]
-    
+
     # 1. Project to Q, K, V
     q_flat = pypto.matmul(hidden_states, q_weight)
     k_flat = pypto.matmul(hidden_states, k_weight)
     v_flat = pypto.matmul(hidden_states, v_weight)
-    
+
     # 2. Reshape to multi-head format
     q = pypto.reshape(q_flat, [batch, seq_len, num_heads, head_dim])
     # ... same for k, v
-    
+
     # 3. Transpose for attention
     q = pypto.transpose(q, [0, 2, 1, 3])  # [batch, num_heads, seq_len, head_dim]
-    
+
     # 4. Scaled dot-product attention
     # ... (as shown above)
-    
+
     # 5. Output projection
     out[:] = pypto.matmul(attn_output_flat, out_weight)
 ```
@@ -166,13 +165,13 @@ import torch_npu
 
 # Create Q, K, V tensors
 batch_size, num_heads, seq_len, head_dim = 2, 8, 32, 64
-q_torch = torch.randn(batch_size, num_heads, seq_len, head_dim, 
+q_torch = torch.randn(batch_size, num_heads, seq_len, head_dim,
                dtype=torch.bfloat16, device='npu:0')
-k_torch = torch.randn(batch_size, num_heads, seq_len, head_dim, 
+k_torch = torch.randn(batch_size, num_heads, seq_len, head_dim,
                dtype=torch.bfloat16, device='npu:0')
-v_torch = torch.randn(batch_size, num_heads, seq_len, head_dim, 
+v_torch = torch.randn(batch_size, num_heads, seq_len, head_dim,
                dtype=torch.bfloat16, device='npu:0')
-out_torch = torch.zeros(batch_size, num_heads, seq_len, head_dim, 
+out_torch = torch.zeros(batch_size, num_heads, seq_len, head_dim,
                  dtype=torch.bfloat16, device='npu:0')
 
 # convert to pypto tensors
@@ -195,13 +194,13 @@ import torch_npu
 
 # Create Q, K, V tensors
 batch_size, num_heads, seq_len, head_dim = 2, 8, 32, 64
-q_torch = torch.randn(batch_size, num_heads, seq_len, head_dim, 
+q_torch = torch.randn(batch_size, num_heads, seq_len, head_dim,
                dtype=torch.bfloat16, device='npu:0')
-k_torch = torch.randn(batch_size, num_heads, seq_len, head_dim, 
+k_torch = torch.randn(batch_size, num_heads, seq_len, head_dim,
                dtype=torch.bfloat16, device='npu:0')
-v_torch = torch.randn(batch_size, num_heads, seq_len, head_dim, 
+v_torch = torch.randn(batch_size, num_heads, seq_len, head_dim,
                dtype=torch.bfloat16, device='npu:0')
-out_torch = torch.zeros(batch_size, num_heads, seq_len, head_dim, 
+out_torch = torch.zeros(batch_size, num_heads, seq_len, head_dim,
                  dtype=torch.bfloat16, device='npu:0')
 
 # convert to pypto tensors
@@ -276,13 +275,13 @@ def transformer_attention_block(inputs, outputs):
     x, norm_gamma, norm_beta = inputs[0], inputs[1], inputs[2]
     q_weight, k_weight, v_weight, out_weight = inputs[3], inputs[4], inputs[5], inputs[6]
     out = outputs[0]
-    
+
     # Layer normalization
     normed = layer_norm(x, norm_gamma, norm_beta)
-    
+
     # Multi-head attention
     attn_out = attention_with_projection(normed, q_weight, k_weight, v_weight, out_weight)
-    
+
     # Residual connection
     out[:] = pypto.add(x, attn_out)
 ```

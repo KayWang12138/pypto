@@ -12,8 +12,8 @@
 from typing import Optional, Union
 
 from .. import pypto_impl
-from ..element import Element
-from ..op_wrapper import op_wrapper
+from .._element import Element
+from .._op_wrapper import op_wrapper
 from ..tensor import Tensor
 
 
@@ -524,10 +524,10 @@ def clip(
 
     if not isinstance(min_, pypto_impl.Element) and isinstance(min_, element_types):
         min_ = pypto_impl.Element(input.GetDataType(), min_)
-    
+
     if not isinstance(max_, pypto_impl.Element) and isinstance(min_, element_types):
         max_ = pypto_impl.Element(input.GetDataType(), max_)
-    
+
     return pypto_impl.Clip(input, min_, max_)
 
 

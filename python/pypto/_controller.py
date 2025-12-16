@@ -18,7 +18,7 @@ from contextlib import contextmanager
 from typing import List, Optional, Tuple, Union, Iterator, overload
 
 from .enum import *  # noqa
-from .pypto_utils import to_sym, set_source_location, clear_source_location
+from ._utils import to_sym, set_source_location, clear_source_location
 from .symbolic_scalar import SymbolicScalar, SymInt
 from .tensor import Tensor
 
@@ -38,9 +38,6 @@ __all__ = [
     "is_loop_begin",
     "is_loop_end",
     "cond",
-
-    "dump",
-    "reset"
 ]
 
 
@@ -104,7 +101,7 @@ def get_vec_tile_shapes() -> List[int]:
     return pypto_impl.GetVecTile()
 
 
-def set_cube_tile_shapes(m: List[int], k: List[int], n: List[int], set_l1_tile: bool = False, 
+def set_cube_tile_shapes(m: List[int], k: List[int], n: List[int], set_l1_tile: bool = False,
                         enable_split_k: bool = False):
     """ set the tile shapes in cube computation
 
@@ -552,11 +549,13 @@ def loop_unroll(*args, **kwargs):
     if 1 not in unroll_list:
         unroll_list.append(1)
 
+    nstart = start
     for p in unroll_list:
         nstep = step * p
-        for idx in loop(start, stop, nstep, **kwargs):
+        left = (stop - start) % nstep
+        for idx in loop(nstart, stop - left, nstep, **kwargs):
             yield (idx, p)
-        start = start + (stop - start) // (nstep) * nstep
+        nstart = stop - left
 
 
 def dump() -> str:

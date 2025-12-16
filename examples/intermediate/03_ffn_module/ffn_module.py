@@ -70,14 +70,12 @@ def gelu_activation(x: pypto.tensor) -> pypto.tensor:
 
     # GELU approximation: x * 0.5 * (1 + tanh(sqrt(2/π) * (x + 0.044715 * x^3)))
     # Using simpler approximation: x * sigmoid(1.702 * x)
-    coeff = pypto.element(x.dtype, 1.702)
-    x_scaled = pypto.mul_s(x, coeff)
+    x_scaled = pypto.mul(x, 1.702)
 
     # sigmoid(x) = 1 / (1 + exp(-x))
-    x_neg = pypto.mul_s(x_scaled, pypto.element(x.dtype, F_NEGA_1))
+    x_neg = pypto.mul(x_scaled, -1.0)
     exp_neg = pypto.exp(x_neg)
-    one = pypto.element(x.dtype, F_1)
-    sigmoid = pypto.div(one, pypto.add_s(exp_neg, one))
+    sigmoid = pypto.div(1, pypto.add(exp_neg, 1.0))
 
     return pypto.mul(x, sigmoid)
 
@@ -102,10 +100,9 @@ def swiglu_activation(gate: pypto.tensor, up: pypto.tensor) -> pypto.tensor:
     pypto.set_vec_tile_shapes(*gate.shape[:2] if len(gate.shape) >= 2 else (32, 128))
 
     # Swish(x) = x * sigmoid(x) = x / (1 + exp(-x))
-    gate_neg = pypto.mul_s(gate, pypto.element(gate.dtype, F_NEGA_1))
+    gate_neg = pypto.mul_s(gate, -1.0)
     exp_neg = pypto.exp(gate_neg)
-    one = pypto.element(gate.dtype, F_1)
-    sigmoid = pypto.div(one, pypto.add_s(exp_neg, one))
+    sigmoid = pypto.div(1.0, pypto.add_s(exp_neg, 1.0))
     swish = pypto.mul(gate, sigmoid)
 
     # Multiply with up projection
@@ -127,8 +124,7 @@ def relu_activation(x: pypto.tensor) -> pypto.tensor:
         ReLU activated tensor
     """
     pypto.set_vec_tile_shapes(*x.shape[:2] if len(x.shape) >= 2 else (32, 128))
-    zero = pypto.element(x.dtype, 0.0)
-    return pypto.maximum(x, zero)
+    return pypto.maximum(x, 0.0)
 
 
 @pypto.jit

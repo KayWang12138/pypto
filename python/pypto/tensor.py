@@ -14,7 +14,7 @@ from typing import Union, List, Optional, Tuple
 import pypto
 
 from .enum import *  # noqa
-from .pypto_utils import to_syms, to_sym
+from ._utils import to_syms, to_sym
 from .symbolic_scalar import SymbolicScalar, SymInt
 
 
@@ -504,11 +504,11 @@ class Tensor:
 
     def gather(self, dim: int, index: 'Tensor') -> 'Tensor':
         return pypto.gather(self, dim, index)
-    
+
     def index_add_(self, dim: int, index: 'Tensor', source: 'Tensor', *,
                     alpha: Optional[List[Union[int, float]]] = 1) -> 'Tensor':
         return pypto.index_add_(self, dim, index, source, alpha=alpha)
-    
+
     def index_add(self, dim: int, index: 'Tensor', source: 'Tensor', *,
                     alpha: Optional[List[Union[int, float]]] = 1) -> 'Tensor':
         return pypto.index_add(self, dim, index, source, alpha=alpha)

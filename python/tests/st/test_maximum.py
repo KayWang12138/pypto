@@ -17,7 +17,7 @@ import pytest
 import torch_npu
 import pypto
 from pypto import (
-    tensor, element, view, symbolic_scalar, function,
+    tensor, view, symbolic_scalar, function,
     set_vec_tile_shapes, set_codegen_options
 )
 
@@ -33,7 +33,6 @@ def test_maximum():
     x = tensor((first_dim, second_dim), pypto.DT_INT32, "Operand1")
     y = tensor((first_dim, second_dim), pypto.DT_INT32, "Operand2")
     out = tensor((first_dim, second_dim), pypto.DT_INT32, "Operand2")
-    scalar = pypto.element(pypto.DT_INT32, scalar_data)
 
     first_view_shape, second_view_shape = view_shape
 

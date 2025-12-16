@@ -384,7 +384,7 @@ class ScalarMaxSTestCase(TestCase):
         )
 
     def run_in_dyn_func(self, inputs, params: dict) -> dict:
-        scalar = pypto.element(inputs[0].dtype, params.get("scalar"))
+        scalar = params.get("scalar")
         return pypto.scalar_maxs(*inputs, scalar, params.get("reverse"))
 
     def golden_func(self, inputs, params: dict) -> list:

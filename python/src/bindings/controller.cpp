@@ -78,7 +78,7 @@ void bind_controller_config(py::module &m) {
             config::SetSemanticLabel(label, filename.c_str(), lineno);
         }, py::arg("label"), py::arg("filename"), py::arg("lineno"));
 
-    m.attr("IsVerifyEnabled") = calc::IsVerifyEnabled();
+    m.def("IsVerifyEnabled", &calc::IsVerifyEnabled);
 }
 
 
@@ -121,7 +121,7 @@ void bind_controller_set_tile(py::module &m) {
             std::copy(nvec.begin(), nvec.end(), narr.begin());
             TileShape::Current().SetCubeTile(marr, karr, narr, setL1Tile, enableSplitK);
         },
-        py::arg("m"), py::arg("k"), py::arg("n"), py::arg("set_l1_tile"), py::arg("enable_split_k"), 
+        py::arg("m"), py::arg("k"), py::arg("n"), py::arg("set_l1_tile"), py::arg("enable_split_k"),
         "Set cube tile shapes with specified dimensions");
     m.def("GetCubeTile", []() {
         auto cubeTile = TileShape::Current().GetCubeTile();

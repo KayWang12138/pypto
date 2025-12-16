@@ -22,8 +22,6 @@ namespace npu::tile_fwk {
 #define NUM_VALUE_8 8
 #define BLOCK_SIZE 32
 
-#define CALC_ASSERT(cond, ...) TORCH_CHECK(cond, __VA_ARGS__)
-
 static torch::ScalarType FromDataType(DataType t) {
     switch (t) {
         case DT_INT8: return torch::kInt8;
@@ -278,13 +276,13 @@ static void Compare(LogicalTensorDataPtr out, LogicalTensorDataPtr self, Logical
             tmp_result = torch::ge(tself, tother);
             break;
         default:
-            CALC_ASSERT(false, "Unsupported compare type");
+            ASSERT(false) << "Unsupported compare type";
             break;
     }
     if (mode == CmpModeType::BIT) {
         if (tmp_result.dim() > 0) {
             int64_t last_dim = tmp_result.size(-1);
-            CALC_ASSERT(last_dim % NUM_VALUE_8 == 0, "Last dimension must be divisible by 8 in BIT mode");
+            ASSERT(last_dim % NUM_VALUE_8 == 0) << "Last dimension must be divisible by 8 in BIT mode";
             auto shape = tmp_result.sizes().vec();
             shape.back() = last_dim / NUM_VALUE_8;
             torch::Tensor packed = torch::empty(shape, torch::kUInt8);
@@ -342,7 +340,7 @@ static inline int64_t alignup(int64_t x, int64_t align) {
 
 static void FormatND2NZ(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     auto &shape = self->GetShape();
-    CALC_ASSERT(shape.size() >= 0x2, "Input tensor must have at least 2 dimensions");
+    ASSERT(shape.size() >= 0x2) << "Input tensor must have at least 2 dimensions";
 
     int64_t ndim = shape.size();
     int64_t m = shape[ndim - 0x2];
@@ -371,7 +369,7 @@ static void FormatND2NZ(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
 
 static void FormatNZ2ND(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     auto &shape = self->GetShape();
-    CALC_ASSERT(shape.size() >= 0x2, "Input tensor must have at least 2 dimensions");
+    ASSERT(shape.size() >= 0x2) << "Input tensor must have at least 2 dimensions";
 
     auto tself = From(self); // [b, m1*m0, n1*n0]
     int64_t ndim = shape.size();
@@ -696,14 +694,14 @@ static void Topk(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int64_t ax
     auto sliceIndices = torch::arange(tself.size(axis) / ACTUAL_VALID_RATIO, torch::dtype(torch::kLong));
     auto tselfHalf = tself.index_select(axis, sliceIndices);
 
-    CALC_ASSERT(axis >= 0 && axis < tselfHalf.dim(),
-        "axis", axis, " is out of bounds for tensor of dimension ", tselfHalf.dim());
+    ASSERT(axis >= 0 && axis < tselfHalf.dim()) <<
+        "axis" << axis << " is out of bounds for tensor of dimension " << tselfHalf.dim();
 
-    CALC_ASSERT(tself.size(axis) % MERGE_SORT_NUM == 0,
-        "Expected self.size(axis) after preprocessing to be divisible by 4, but got ", tself.size(axis));
+    ASSERT(tself.size(axis) % MERGE_SORT_NUM == 0) <<
+        "Expected self.size(axis) after preprocessing to be divisible by 4, but got " << tself.size(axis);
 
     const int64_t maxk = tself.size(axis) / MERGE_SORT_NUM;
-    CALC_ASSERT(k > 0 && k <= maxk, "Expected k to be in (0, ", maxk, "], but got ", k);
+    ASSERT(k > 0 && k <= maxk) << "Expected k to be in (0, " << maxk << "], but got " << k;
 
     std::vector<int64_t>newShape;
     newShape.reserve(tselfHalf.dim() + 1);

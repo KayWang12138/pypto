@@ -12,9 +12,9 @@
 from typing import Union
 
 from .. import pypto_impl
-from ..op_wrapper import op_wrapper
+from .._op_wrapper import op_wrapper
 from ..tensor import Tensor
-from ..element import Element
+from .._element import Element
 
 
 @op_wrapper

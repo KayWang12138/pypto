@@ -13,7 +13,7 @@ from typing import Optional, Union, List
 
 from .. import pypto_impl
 from ..enum import CastMode, DataType
-from ..op_wrapper import op_wrapper
+from .._op_wrapper import op_wrapper
 from ..symbolic_scalar import SymbolicScalar
 from ..tensor import Tensor
 

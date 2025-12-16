@@ -33,15 +33,15 @@ _device_init = pypto_impl.DeviceInit
 _device_fini = pypto_impl.DeviceFini
 
 
-def set_device(device: int):
+def _set_device(device: int):
     torch.npu.set_device(device)
 
 
-def current_device() -> int:
+def _current_device() -> int:
     return torch.npu.current_device()
 
 
-def current_stream():
+def _current_stream():
     return torch.npu.current_stream().npu_stream
 
 
@@ -83,7 +83,7 @@ def _device_run_once_data_from_host(*args):
         _pto_to_tensor_data(in_out_tensors), [])
 
 
-class JIT:
+class _JIT:
     def __init__(self, dyn_func, codegen_options=None, host_options=None, pass_options=None, runtime_options=None):
         self.dyn_func = dyn_func
         self._is_compiled: bool = False
@@ -117,7 +117,7 @@ class JIT:
             self._handler,
             in_tensor_data,
             out_tensor_data,
-            current_stream(),
+            _current_stream(),
             workspace_tensor.data_ptr())
 
     def run_with_npu(self, inputs, outputs, device):
@@ -127,11 +127,11 @@ class JIT:
             import torch_npu
             in_tensor_data = _pto_to_tensor_data(inputs)
             out_tensor_data = _pto_to_tensor_data(outputs)
-            ori_device = current_device()
+            ori_device = _current_device()
             if device and device.index != ori_device:
-                set_device(device.index)
+                _set_device(device.index)
                 self.run(in_tensor_data, out_tensor_data, device)
-                set_device(ori_device)
+                _set_device(ori_device)
             else:
                 self.run(in_tensor_data, out_tensor_data, device)
 
@@ -253,20 +253,20 @@ def jit(dyn_func=None,
         pass_options=None,
         runtime_options=None):
     def decorator(func):
-        return JIT(func,
+        return _JIT(func,
                    codegen_options=codegen_options,
                    host_options=host_options,
                    pass_options=pass_options,
                    runtime_options=runtime_options)
 
     if dyn_func is not None:
-        return JIT(dyn_func)
+        return _JIT(dyn_func)
     else:
         return decorator
 
 
 def _device_synchronize():
-    pypto_impl.OperatorDeviceSynchronize(current_stream())
+    pypto_impl.OperatorDeviceSynchronize(_current_stream())
 
 
 def verify(func, inputs, outputs, goldens, *args,
@@ -326,6 +326,6 @@ def verify(func, inputs, outputs, goldens, *args,
 
 
 def set_verify_data(inputs, outputs, goldens):
-    pypto_impl.SetVerifyData(to_tensor_data(inputs),
-                             to_tensor_data(outputs),
-                             to_tensor_data(goldens))
+    pypto_impl.SetVerifyData(_torch_to_tensor_data(inputs),
+                             _torch_to_tensor_data(outputs),
+                             _torch_to_tensor_data(goldens))

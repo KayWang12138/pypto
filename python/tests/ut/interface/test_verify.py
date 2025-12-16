@@ -24,7 +24,7 @@ def add(inputs, outputs):
             c[:] = a + b
 
 
-@pytest.mark.skip(reason="Flatten inputs and outputs")
+@pytest.mark.skip(reason="Verify not supported")
 def test_verify_default():
     a = torch.ones((64, 64))
     b = torch.ones((64, 64))
@@ -33,7 +33,7 @@ def test_verify_default():
     pypto.verify(add, [a, b], [c], [a + b])
 
 
-@pytest.mark.skip(reason="Flatten inputs and outputs")
+@pytest.mark.skip(reason="Verify not supported")
 def test_verify_full_options():
     a = torch.ones((64, 64))
     b = torch.ones((64, 64))

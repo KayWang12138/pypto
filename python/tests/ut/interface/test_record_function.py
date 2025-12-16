@@ -12,7 +12,7 @@
 """
 import pypto
 import pytest
-
+import pypto._controller as controller
 
 def test_record_function():
     dtype = pypto.DT_FP16
@@ -25,7 +25,7 @@ def test_record_function():
         pypto.set_vec_tile_shapes(8, 8)
         c = pypto.add(a, b)
 
-    print(pypto.dump())
+    print(controller.dump())
     # Replace True with False to see graph
     assert isinstance(c, pypto.tensor)
 
@@ -41,7 +41,7 @@ def test_begin_inplaceadd_end_function():
         pypto.set_vec_tile_shapes(8, 8)
         c = a + b
 
-    print(pypto.dump())
+    print(controller.dump())
     assert isinstance(c, pypto.tensor)
 
 

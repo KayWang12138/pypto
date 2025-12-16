@@ -12,6 +12,7 @@
 """
 import pypto
 import pytest
+import pypto._controller as controller
 
 
 def test_static_function():
@@ -25,7 +26,7 @@ def test_static_function():
         pypto.set_vec_tile_shapes(8, 8)
         c[:] = pypto.add(a, b)
 
-    print(pypto.dump())
+    print(controller.dump())
     # Replace True with False to see graph
     assert isinstance(c, pypto.tensor)
 
@@ -53,4 +54,4 @@ def test_dyn_function():
         pypto.set_vec_tile_shapes(8, 8)
         c[:] = pypto.add(a, b)
 
-    print(pypto.dump())
+    print(controller.dump())

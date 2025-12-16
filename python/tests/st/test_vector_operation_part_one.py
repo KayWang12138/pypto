@@ -370,7 +370,7 @@ def test_vector_operation_full():
     pypto.runtime._device_init()
 
     a = pypto.tensor((n, m), dtype, "VEC_DUP_TENSOR_a")
-    b = pypto.element(dtype, 2.0)
+    b = 2.0
 
     with pypto.function("VEC_DUP", a):
         pypto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])

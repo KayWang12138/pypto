@@ -12,8 +12,8 @@
 import functools
 
 from . import pypto_impl
-from .element import Element
-from .pypto_utils import clear_source_location, set_source_location
+from ._element import Element
+from ._utils import clear_source_location, set_source_location
 from .symbolic_scalar import SymbolicScalar
 from .tensor import Tensor
 

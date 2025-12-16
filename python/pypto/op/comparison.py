@@ -10,10 +10,10 @@
 # -----------------------------------------------------------------------------------------------------------
 """PyPTO"""
 from typing import Optional, Tuple, Union
-from ..element import Element
+from .._element import Element
 from .. import pypto_impl
 from ..enum import OpType, OutType
-from ..op_wrapper import op_wrapper
+from .._op_wrapper import op_wrapper
 from ..tensor import Tensor
 
 

@@ -12,7 +12,7 @@
 from typing import Union
 from .. import pypto_impl
 from ..enum import ScatterMode
-from ..op_wrapper import op_wrapper
+from .._op_wrapper import op_wrapper
 from ..tensor import Tensor
 
 
@@ -36,14 +36,14 @@ def index_add_(
     dim : int
         Dimension along which to index. Negative indexing is supported.
     index : Tensor
-        Indices of `source` to select from, should have dtype either int64 
+        Indices of `source` to select from, should have dtype either int64
         or int32 and the dimension must be 1.The length of `index` must have
         the same size as the `dim` th dimension of `source`.
     source : Tensor
         The tensor containing values to add. The dimth dimension of
-        `source` must have the same size as the length of `index`, and 
+        `source` must have the same size as the length of `index`, and
         all other dimensions must match `self`, or an error will be raised.
-    
+
     Keyword Arguments:
     ----------
     alpha : Number
@@ -320,7 +320,7 @@ def scatter_(input: Tensor, dim: int, index: Tensor, src: float, *, reduce: str 
     index : Tensor
         The indices of elements to scatter.
     src : float
-        The scalar value to scatter. 
+        The scalar value to scatter.
 
     Returns
     -------

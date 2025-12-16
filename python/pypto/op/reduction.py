@@ -12,8 +12,8 @@
 from typing import Union
 
 from .. import pypto_impl
-from ..element import Element
-from ..op_wrapper import op_wrapper
+from .._element import Element
+from .._op_wrapper import op_wrapper
 from ..tensor import Tensor
 
 

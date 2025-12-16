@@ -11,14 +11,15 @@
 """
 """
 import pypto
+import pypto._controller as controller
 
 
 def test_init_loop_range_end():
     expected_val = 123
     print("aaa")
-    scalar = pypto.symbolic_scalar(expected_val)
+    scalar = expected_val
     print("bbbb")
-    loop = pypto.controller._loop_range(scalar)
+    loop = controller._loop_range(scalar)
 
     print("11111")
     loop_end = loop.end()
@@ -33,9 +34,9 @@ def test_init_loop_range_end():
 
 def test_init_loop_range_begin_end():
     expected_begin, expected_end = 11, 22
-    sym_begin = pypto.symbolic_scalar(expected_begin)
-    sym_end = pypto.symbolic_scalar(expected_end)
-    loop = pypto.controller._loop_range(sym_begin, sym_end)
+    sym_begin = expected_begin
+    sym_end = expected_end
+    loop = controller._loop_range(sym_begin, sym_end)
 
     loop_begin = loop.begin()
     loop_end = loop.end()
@@ -50,10 +51,10 @@ def test_init_loop_range_begin_end():
 def test_init_loop_range_begin_end_step():
     expected_begin, expected_end = 11, 22
     expected_step = 2
-    sym_begin = pypto.symbolic_scalar(expected_begin)
-    sym_end = pypto.symbolic_scalar(expected_end)
-    sym_step = pypto.symbolic_scalar(expected_step)
-    loop = pypto.controller._loop_range(sym_begin, sym_end, sym_step)
+    sym_begin = expected_begin
+    sym_end = expected_end
+    sym_step = expected_step
+    loop = controller._loop_range(sym_begin, sym_end, sym_step)
 
     loop_begin = loop.begin()
     loop_end = loop.end()
@@ -72,10 +73,10 @@ def test_init_loop_range_begin_end_step():
 def test_loop_dump():
     expected_begin, expected_end = 11, 22
     expected_step = 2
-    sym_begin = pypto.symbolic_scalar(expected_begin)
-    sym_end = pypto.symbolic_scalar(expected_end)
-    sym_step = pypto.symbolic_scalar(expected_step)
-    loop = pypto.controller._loop_range(sym_begin, sym_end, sym_step)
+    sym_begin = expected_begin
+    sym_end = expected_end
+    sym_step = expected_step
+    loop = controller._loop_range(sym_begin, sym_end, sym_step)
 
     expected = f"LoopRange({expected_begin}, {expected_end}, {expected_step})"
     actual = str(loop)
@@ -85,7 +86,7 @@ def test_loop_dump():
 
 def test_init_loop_range_end_implicit_conversion_from_int():
     expected_val = 123
-    loop = pypto.controller._loop_range(expected_val)
+    loop = controller._loop_range(expected_val)
 
     loop_end = loop.end()
 
