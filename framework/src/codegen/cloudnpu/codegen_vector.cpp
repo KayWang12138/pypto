@@ -19,6 +19,7 @@
 #include "securec.h"
 #include "codegen/utils/codegen_utils.h"
 #include "codegen/symbol_mgr/codegen_symbol.h"
+#include <string>
 
 namespace npu::tile_fwk {
 std::string CodeGenOpCloudNPU::GenCastOp() const {
@@ -585,14 +586,19 @@ std::string CodeGenOpCloudNPU::GenGatherElementOp() const {
     return PrintGatherElementStatic({gatherEleAxis, dVar, s0Var, s1Var, dos, ds, s0s, s1s, dataTypeExpr});
 }
 
+std::string CodeGenOpCloudNPU::PrintRangeTileTensor(std::string startVal, std::string stepVal) const {
+    std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::DST_IDX)]);
+    auto dstValidShape = dynamicValidShape[ToUnderlying(MISOIdx::DST_IDX)];
+    std::vector<std::string> paramList = {
+        dstTensor, SymbolicExpressionTable::BuildExpression(dstValidShape[ID0]), startVal, stepVal};
+    std::ostringstream oss;
+    oss << tileOpName;
+    oss << PrintParams({"(", ")"}, paramList, ", ");
+    oss << ";\n";
+    return oss.str();
+}
+
 std::string CodeGenOpCloudNPU::GenRangeOp() const {
-    // only support 1 dim
-    std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
-    std::vector dstShape = this->rawShape[0];
-    std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
-
-    AppendLocalBufVarOffsetInOrder(dVar);
-
     auto start = opAttrs.at(OP_ATTR_PREFIX + "START");
     auto step = opAttrs.at(OP_ATTR_PREFIX + "STEP");
     std::string startVal;
@@ -623,6 +629,15 @@ std::string CodeGenOpCloudNPU::GenRangeOp() const {
         auto scalarExpr = npu::tile_fwk::AnyCast<SymbolicScalar>(scalarAny);
         tileIdxExpr = "((int64_t)(" + SymbolicExpressionTable::BuildExpression(scalarExpr) + "))"; 
     }   
+    if (isSupportLayout) {
+        return PrintRangeTileTensor(startVal, stepVal);
+    }
+    // only support 1 dim
+    std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
+    std::vector dstShape = this->rawShape[0];
+    std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
+
+    AppendLocalBufVarOffsetInOrder(dVar);
 
     std::ostringstream oss;
     std::vector<std::string> paramList;
@@ -1247,6 +1262,9 @@ std::string CodeGenOpCloudNPU::GenWhereOp() const {
 }
 
 std::string CodeGenOpCloudNPU::GenLogicalNotOp() const {
+    if (isSupportLayout) {
+        return PrintLogicalNotTileTensor();
+    }
     // Support 2 dim
     enum class OpIdx : int { resIdx = 0, tmpIdx, srcIdx };
 
@@ -1294,7 +1312,48 @@ std::string CodeGenOpCloudNPU::GenLogicalNotOp() const {
     return os.str();
 }
 
+std::string CodeGenOpCloudNPU::PrintCmpTileTensor() const {
+    enum class TensorIdx : int { dstIdx = 0, tmpIdx, src0Idx, src1Idx };
+    std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(TensorIdx::dstIdx)]);
+    std::string tmpTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(TensorIdx::tmpIdx)]);
+    std::string src0Tensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(TensorIdx::src0Idx)]);
+    std::string src1Tensor = "";
+    if (opCode == Opcode::OP_CMP) {
+        src1Tensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(TensorIdx::src1Idx)]);
+    }
+
+    auto cmpOp = opAttrs.at(OP_ATTR_PREFIX + "cmp_operation");
+    auto mode = opAttrs.at(OP_ATTR_PREFIX + "cmp_mode");
+    std::string cmpOpVal = std::to_string(npu::tile_fwk::AnyCast<int64_t>(cmpOp));
+    std::string modeVal = std::to_string(npu::tile_fwk::AnyCast<int64_t>(mode));
+
+    std::vector<std::string> tileOpParamList = {dstTensor, src0Tensor, src1Tensor, tmpTensor};
+    std::vector<std::string> templateParamList = {cmpOpVal, modeVal};
+    if (opCode == Opcode::OP_CMPS) {
+        auto scalarAttr = opAttrs.at(OpAttributeKey::scalar);
+        auto scalarElement = npu::tile_fwk::AnyCast<npu::tile_fwk::Element>(scalarAttr);
+        float scalarValue = static_cast<float>(scalarElement.GetFloatData());
+        auto scalarType = scalarElement.GetDataType();
+        if (scalarType == DataType::DT_FP16) {
+            templateParamList.emplace_back("half");
+        } else {
+            templateParamList.emplace_back("float");
+        }
+        tileOpParamList.erase(tileOpParamList.begin() + ID2);
+        tileOpParamList.emplace_back(std::to_string(scalarValue));
+    }
+    std::ostringstream oss;
+    oss << tileOpName;
+    oss << PrintParams({"<", ">"}, templateParamList, ", ");
+    oss << PrintParams({"(", ")"}, tileOpParamList, ", ");
+    oss << ";\n";
+    return oss.str();
+}
+
 std::string CodeGenOpCloudNPU::GenCmpOp() const {
+    if (isSupportLayout) {
+        return PrintCmpTileTensor();
+    }
     enum class TensorIdx : int { dstIdx = 0, tmpIdx, src0Idx, src1Idx };
 
     std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(TensorIdx::dstIdx)]);
@@ -1385,7 +1444,35 @@ std::string CodeGenOpCloudNPU::GenCmpOp() const {
     return oss.str();
 }
 
+std::string CodeGenOpCloudNPU::PrintLogicalAndTileTensor() const {
+    std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MIMOIdx::DST_IDX)]);
+    std::string tmpTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MIMOIdx::TMP_IDX)]);
+    std::string srcTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MIMOIdx::SRC0_IDX)]);
+    std::string src1Tensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MIMOIdx::SRC1_IDX)]);
+    std::vector<std::string> paramList = {dstTensor, srcTensor, src1Tensor, tmpTensor};
+    std::ostringstream oss;
+    oss << tileOpName;
+    oss << PrintParams({"(", ")"}, paramList, ", ");
+    oss << ";\n";
+    return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::PrintLogicalNotTileTensor() const {
+    std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MIMOIdx::DST_IDX)]);
+    std::string tmpTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MIMOIdx::TMP_IDX)]);
+    std::string srcTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MIMOIdx::SRC0_IDX)]);
+    std::vector<std::string> paramList = {dstTensor, srcTensor, tmpTensor};
+    std::ostringstream oss;
+    oss << tileOpName;
+    oss << PrintParams({"(", ")"}, paramList, ", ");
+    oss << ";\n";
+    return oss.str();
+}
+
 std::string CodeGenOpCloudNPU::GenLogicalAndOp() const {
+    if (isSupportLayout) {
+        return PrintLogicalAndTileTensor();
+    }
     // Support 2 dim
     enum class OpIdx : int { resIdx = 0, tmpIdx, srcIdx0, srcIdx1 };
 
