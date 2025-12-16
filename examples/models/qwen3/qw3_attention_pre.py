@@ -24,13 +24,13 @@ def rms_norm_golden(x, gamma, eps):
     x_f32 = x.to(torch.float32)
     square = x_f32 * x_f32
     mean_res = square * mean_coff
-    
+
     reduce_sum = torch.sum(mean_res, dim=-1, keepdim=True) + eps
     reduce_sqrt = torch.sqrt(reduce_sum)
     res_div = x_f32 / reduce_sqrt
-    
+
     res = res_div * gamma
-    
+
     if x_dtype != torch.float32:
         res = res.to(x_dtype)
     return res
@@ -116,21 +116,10 @@ def rope_data(x1, x2, cos, sin, tile_shape):
 
 
 @pypto.jit
-def attention_pre(in_tensors, out_tensors):
+def attention_pre(x, weight, q_gamma, k_gamma, cos, sin, q, k, v):
     # 1. 添加支持动态的config
     pypto.set_codegen_options(support_dynamic_unaligned=True)
     pypto.set_host_options(only_codegen=True)
-    # 2. 从入参拿到输入和输出tensor
-    x = in_tensors[0]
-    weight = in_tensors[1]
-    q_gamma = in_tensors[2]
-    k_gamma = in_tensors[3]
-    cos = in_tensors[4]
-    sin = in_tensors[5]
-
-    q = out_tensors[0]
-    k = out_tensors[1]
-    v = out_tensors[2]
 
     # 3. 得到动态tensor的shape
     bs = x.shape[0]
@@ -257,7 +246,7 @@ def test_attention_pre():
         }
         pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
         pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
-        attention_pre(pto_inputs, pto_outputs)
+        attention_pre(*pto_inputs, *pto_outputs)
         pypto.runtime._device_synchronize()
 
         # 5. 与PyTorch参考实现对比
@@ -279,7 +268,7 @@ def test_attention_pre():
         # compare result
         assert_allclose(np.array(q_r.cpu().flatten().tolist()), np.array(q.flatten().tolist()), rtol=0.001, atol=0.001)
         assert_allclose(np.array(k_r.cpu().flatten().tolist()), np.array(k.flatten().tolist()), rtol=0.001, atol=0.001)
-        assert_allclose(np.array(v_g.cpu().flatten().tolist()), np.array(v.flatten().tolist()), rtol=0.001, atol=0.001)  
+        assert_allclose(np.array(v_g.cpu().flatten().tolist()), np.array(v.flatten().tolist()), rtol=0.001, atol=0.001)
 
 
 def main():

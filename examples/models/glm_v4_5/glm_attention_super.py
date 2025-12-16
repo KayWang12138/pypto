@@ -21,7 +21,7 @@ from dataclasses import dataclass
 
 from glm_attention_pre import add_rms_norm_npu_golden, rms_norm_npu_golden, \
     apply_rotary_pos_emb_v2, rms_norm_bias, rope_data
-from glm_scatter import scatter_update_golden	
+from glm_scatter import scatter_update_golden
 from glm_attention import gen_block_table, kv_cache_concat_bsnd, softmax, \
     AttentionConfig, AttentionTileConfig
 np.random.seed(0)
@@ -59,7 +59,7 @@ class AttentionInputs:
     eps: torch.float32  # rms_norm eps
     enable_residual: torch.bool
     num_decode_tokens: torch.int32 = 0  # 默认值保持原逻辑
-    
+
 
 def _attention(
         tensor_inputs: AttentionInputs
@@ -113,7 +113,7 @@ def _attention(
     pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
 
     # 调用 kernel（使用 config 中的配置参数）
-    ifa_func(pto_inputs, pto_outputs, tensor_inputs.enable_residual, tensor_inputs.eps, tensor_inputs.num_decode_tokens)
+    ifa_func(*pto_inputs, *pto_outputs, tensor_inputs.enable_residual, tensor_inputs.eps, tensor_inputs.num_decode_tokens)
     pypto.runtime._device_synchronize()
     return out_torch, q_tmp, k_tmp, v_tmp, residual_tmp
 
@@ -152,19 +152,19 @@ def get_qwen_common_config(device="cpu"):
 
 
 @pypto.jit
-def ifa_func(inputs, outputs, enable_residual=True, eps=1e-05, num_decode_tokens=0):
+def ifa_func(key_cache, value_cache, block_table, kv_act_seqs,
+             index, x, residual_input, x_gamma, x_bias, x_scale,
+             x_offset, weight, quant_bias, deq_scale, q_gamma,
+             q_bias, k_gamma, k_bias, cos, sin, atten_out, q_tmp,
+             k_tmp, v_tmp, residual, enable_residual=True,
+             eps=1e-05, num_decode_tokens=0):
     # 1. 添加支持动态的config
     pypto.set_codegen_options(support_dynamic_unaligned=True)
     pypto.set_host_options(only_codegen=True)
     pypto.set_option('profile_enable', True)
 
     # 2. 从入参拿到输入和输出tensor
-    key_cache, value_cache, block_table, kv_act_seqs, index, x, residual_input, x_gamma, \
-    x_bias, x_scale, x_offset, weight, quant_bias, deq_scale, q_gamma, q_bias, k_gamma, \
-    k_bias, cos, sin = inputs
     bs_tile = 8
-    atten_out = outputs[0]
-    q_tmp, k_tmp, v_tmp, residual = outputs[1:]
 
     # 4. 得到动态tensor的shape
     bs = x.shape[0]
@@ -599,7 +599,7 @@ def ifa(atten_cfg, device_id):
     actual_seq_lens = kv_cache_actual_seq.to(dtype=torch.int32, device=device)  # 直接使用已有的 tensor
 
     # 5. 执行kernel并获取结果
-    
+
     tensor_inputs = AttentionInputs(
         hidden_states=hidden_states,
         residual=residual,
@@ -623,11 +623,11 @@ def ifa(atten_cfg, device_id):
         slot_mapping=slot_mapping,
         eps=1e-6,
         enable_residual=True,
-        num_decode_tokens=0        
+        num_decode_tokens=0
     )
-    
-    output, q_tmp, k_tmp, v_tmp, residual_tmp = _attention(tensor_inputs)    
-    
+
+    output, q_tmp, k_tmp, v_tmp, residual_tmp = _attention(tensor_inputs)
+
     from utils.np_compare import detailed_allclose_manual
     # compare result
     detailed_allclose_manual(np.array(residual_g.cpu().flatten().tolist()), np.array(residual_tmp.flatten().tolist()),

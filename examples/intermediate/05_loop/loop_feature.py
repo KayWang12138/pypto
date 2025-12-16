@@ -31,7 +31,7 @@ from numpy.testing import assert_allclose
 def get_device_id():
     """
     Get and validate TILE_FWK_DEVICE_ID from environment variable.
-    
+
     Returns:
         int: The device ID if valid, None otherwise.
     """
@@ -40,7 +40,7 @@ def get_device_id():
         print("Please set it before running this example:")
         print("  export TILE_FWK_DEVICE_ID=0")
         return None
-    
+
     try:
         device_id = int(os.environ['TILE_FWK_DEVICE_ID'])
         return device_id
@@ -53,11 +53,7 @@ def get_device_id():
     host_options={"only_codegen": True},
     codegen_options={"support_dynamic_unaligned": True}
 )
-def loop_basic(inputs, outputs):
-    t0 = inputs[0]
-    t1 = inputs[1]
-    out0 = outputs[0]
-    out1 = outputs[1]
+def loop_basic(t0, t1, out0, out1):
     s, n = t0.shape
     pypto.set_vec_tile_shapes(64, 64)
     for bs_idx in pypto.loop(0, n, 1): # start, stop, step
@@ -75,9 +71,7 @@ def loop_basic(inputs, outputs):
     host_options={"only_codegen": True},
     codegen_options={"support_dynamic_unaligned": True}
 )
-def dyn_loop_with_loop_begin(in_tensors, out_tensors):
-    in_tensor = in_tensors[0]
-    out_tensor = out_tensors[0]
+def dyn_loop_with_loop_begin(in_tensor, out_tensor):
     b, s, n1, d = in_tensor.shape
     pypto.set_vec_tile_shapes(1, 1, 64, 64)
     for b_idx in pypto.loop(b):
@@ -93,9 +87,7 @@ def dyn_loop_with_loop_begin(in_tensors, out_tensors):
     host_options={"only_codegen": True},
     codegen_options={"support_dynamic_unaligned": True}
 )
-def dyn_loop_with_loop_end(in_tensors, out_tensors):
-    in_tensor = in_tensors[0]
-    out_tensor = out_tensors[0]
+def dyn_loop_with_loop_end(in_tensor, out_tensor):
     b, s, n1, d = in_tensor.shape
     pypto.set_vec_tile_shapes(1, 1, 64, 64)
     for b_idx in pypto.loop(b):
@@ -104,54 +96,42 @@ def dyn_loop_with_loop_end(in_tensors, out_tensors):
             if pypto.cond(pypto.is_loop_end(b_idx)):
                 out_tensor[b_idx, s_idx, :, :] = pypto.add(a0, 1.0)
             else:
-                out_tensor[b_idx, s_idx, :, :] = pypto.mul(a0, 1.0) 
+                out_tensor[b_idx, s_idx, :, :] = pypto.mul(a0, 1.0)
 
 
 @pypto.jit(
     host_options={"only_codegen": True},
     codegen_options={"support_dynamic_unaligned": True}
 )
-def loop_op_false(in_tensors, out_tensors):
-    in_t0 = in_tensors[0]
-    in_t1 = in_tensors[1]
-    out_t0 = out_tensors[0]
-    out_t1 = out_tensors[1]
+def loop_op_false(in_t0, in_t1, out_t0, out_t1):
     pypto.set_vec_tile_shapes(64, 64)
     for _ in pypto.loop(1, name="outside_loop", idx_name="outside_idx"):
         out_t0[:] = pypto.add(in_t0, in_t0)
         for _ in pypto.loop(5, name="inside_loop", idx_name="inside_idx"):
             out_t1[:] = pypto.add(out_t1[:], in_t1)
- 
+
 
 @pypto.jit(
     host_options={"only_codegen": True},
     codegen_options={"support_dynamic_unaligned": True}
 )
-def loop_op_true(in_tensors, out_tensors):
-    in_t0 = in_tensors[0]
-    in_t1 = in_tensors[1]
-    out_t0 = out_tensors[0]
-    out_t1 = out_tensors[1]
+def loop_op_true(in_t0, in_t1, out_t0, out_t1):
     pypto.set_vec_tile_shapes(64, 64)
     for _ in pypto.loop(1, name="outside_loop", idx_name="outside_idx"):
         for _ in pypto.loop(5, name="inside_loop", idx_name="inside_idx"):
             out_t0[:] = pypto.add(in_t0, in_t0)
-            out_t1[:] = pypto.add(out_t1[:], in_t1) 
+            out_t1[:] = pypto.add(out_t1[:], in_t1)
 
 
 @pypto.jit(
     host_options={"only_codegen": True},
     codegen_options={"support_dynamic_unaligned": True}
 )
-def loop_compile_phase_print(in_tensors, out_tensors):
-    in_t0 = in_tensors[0]
-    in_t1 = in_tensors[1]
-    out_t0 = out_tensors[0]
-    out_t1 = out_tensors[1]
+def loop_compile_phase_print(in_t0, in_t1, out_t0, out_t1):
     pypto.set_vec_tile_shapes(64, 64)
     NOTE = '''
-    Below are demonstrations of print usage within loops. 
-    It executes only during compilation, cannot truly print variable values, 
+    Below are demonstrations of print usage within loops.
+    It executes only during compilation, cannot truly print variable values,
     and the number of prints is related to the number of subgraphs generated.
     '''
     SEPARATOR = "*" * 60
@@ -187,21 +167,21 @@ def test_loop_basic():
     print("=" * 60)
     print("Test: Basic Loop Usage")
     print("=" * 60)
-    
+
     device_id = torch.npu.current_device()
-    
+
     s, n = 64, 8
     shape = (n * s, s)
     input_t1 = torch.randn(shape, dtype=torch.float16, device=f'npu:{device_id}')
     input_t2 = torch.randn(shape, dtype=torch.float16, device=f'npu:{device_id}')
     output1 = torch.zeros(shape, dtype=torch.float16, device=f'npu:{device_id}')
     output2 = torch.zeros(shape, dtype=torch.float16, device=f'npu:{device_id}')
-    
+
     inputs = [input_t1, input_t2]
     outputs = [output1, output2]
     pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
     pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
-    loop_basic(pto_inputs, pto_outputs)
+    loop_basic(*pto_inputs, *pto_outputs)
 
     # Verify
     expected = input_t1 + input_t2
@@ -213,42 +193,42 @@ def test_loop_basic():
     assert max_diff2 < 1e-2, "Result mismatch!"
     print("✓ Basic loop usage completed successfully")
     print()
-    
+
 
 def test_loop_begin_end():
     """Test loop begin and end function"""
     print("=" * 60)
     print("Test: Loop Begin and End Function")
     print("=" * 60)
-    
+
     device_id = torch.npu.current_device()
-    
+
     b, s, n1, d = 3, 4, 64, 64
-    
+
     input_cpu = torch.rand((b, s, n1, d), dtype=torch.float32)
     output_cpu = torch.ones((b, s, n1, d), dtype=torch.float32)
-    
+
     input_npu = input_cpu.to(device=f'npu:{device_id}')
     output_npu = output_cpu.to(device=f'npu:{device_id}')
     pto_inputs = [pypto.from_torch(input_npu, "IN")]
     pto_outputs = [pypto.from_torch(output_npu, "OUT")]
-    dyn_loop_with_loop_begin(pto_inputs, pto_outputs)
+    dyn_loop_with_loop_begin(*pto_inputs, *pto_outputs)
     output_cpu = output_npu.cpu()
-    
+
     ## golden
     output_golde = input_cpu
     output_golde[0:1, :, :, :] = output_golde[0:1, :, :, :] + 1
     assert_allclose(np.array(output_cpu),
                     np.array(output_golde),
                     rtol=1e-3, atol=1e-3)
-    
+
     input_cpu = torch.rand((b, s, n1, d), dtype=torch.float32)
     output_cpu = torch.ones((b, s, n1, d), dtype=torch.float32)
     input_npu = input_cpu.to(device=f'npu:{device_id}')
     output_npu = output_cpu.to(device=f'npu:{device_id}')
     pto_inputs = [pypto.from_torch(input_npu, "IN")]
     pto_outputs = [pypto.from_torch(output_npu, "OUT")]
-    dyn_loop_with_loop_end(pto_inputs, pto_outputs)
+    dyn_loop_with_loop_end(*pto_inputs, *pto_outputs)
     output_cpu = output_npu.cpu()
 
     ## golden
@@ -257,7 +237,7 @@ def test_loop_begin_end():
     assert_allclose(np.array(output_cpu),
                     np.array(output_golde),
                     rtol=1e-3, atol=1e-3)
-    
+
     print("✓ Loop begin and end functions completed successfully")
     print()
 
@@ -267,13 +247,13 @@ def test_loop_unroll():
     print("=" * 60)
     print("Test: Loop Unroll Function")
     print("=" * 60)
-    
+
     pypto.set_vec_tile_shapes(64, 64)
     k_list = []
     for _, k in pypto.loop_unroll(1, 8, unroll_list=[1, 2, 4]):
         k_list.append(k)
     assert k_list == [4, 2, 1]
-    
+
     print("✓ Loop unroll functions completed successfully")
     print()
 
@@ -283,22 +263,22 @@ def test_loop_op():
     print("=" * 60)
     print("Test: Loop OP Position Rule")
     print("=" * 60)
-    
+
     device_id = torch.npu.current_device()
-    
+
     m, n = 6, 8
     shape = (m, n)
     input_t1 = torch.randn(shape, dtype=torch.float16, device=f'npu:{device_id}')
     input_t2 = torch.randn(shape, dtype=torch.float16, device=f'npu:{device_id}')
     output_t1 = torch.randn(shape, dtype=torch.float16, device=f'npu:{device_id}')
     output_t2 = torch.zeros(shape, dtype=torch.float16, device=f'npu:{device_id}')
-    
+
     inputs = [input_t1, input_t2]
     outputs = [output_t1, output_t2]
     pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
     pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
     print("Error: Multi-layer loops: ops must be included in the innermost loop")
-    loop_op_true(pto_inputs, pto_outputs)
+    loop_op_true(*pto_inputs, *pto_outputs)
 
     # Verify
     expected_t1 = input_t1 * 2
@@ -318,22 +298,22 @@ def test_loop_compile_phase_print():
     print("=" * 60)
     print("Test: Loop Compile Phase Print Feature")
     print("=" * 60)
-    
+
     device_id = torch.npu.current_device()
-    
+
     m, n = 6, 8
     shape = (m, n)
     input_t1 = torch.randn(shape, dtype=torch.float16, device=f'npu:{device_id}')
     input_t2 = torch.randn(shape, dtype=torch.float16, device=f'npu:{device_id}')
     output_t1 = torch.randn(shape, dtype=torch.float16, device=f'npu:{device_id}')
     output_t2 = torch.zeros(shape, dtype=torch.float16, device=f'npu:{device_id}')
-    
+
     inputs = [input_t1, input_t2]
     outputs = [output_t1, output_t2]
     pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
     pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
     print("Note: Multi-layer loops: ops must be included in the innermost loop")
-    loop_compile_phase_print(pto_inputs, pto_outputs)
+    loop_compile_phase_print(*pto_inputs, *pto_outputs)
 
     # Verify
     expected_t1 = input_t1 + input_t1
@@ -350,7 +330,7 @@ def test_loop_compile_phase_print():
 
 def main():
     """Run loop_feature examples.
-    
+
     Usage:
         python loop_feature.py          # Run all examples
         python loop_feature.py 1         # Run example 1 only
@@ -377,9 +357,9 @@ Examples:
         action='store_true',
         help='List all available examples and exit'
     )
-    
+
     args = parser.parse_args()
-    
+
     # Define available examples
     examples = {
         1: {
@@ -413,7 +393,7 @@ Examples:
             'requires_npu': True
         }
     }
-    
+
     # List examples if requested
     if args.list:
         print("\n" + "=" * 60)
@@ -424,7 +404,7 @@ Examples:
             print(f"  {ex_id}. {ex_info['name']}{npu_req}")
             print(f"     {ex_info['description']}\n")
         return
-    
+
     # Validate example ID if provided
     if args.example_id is not None:
         if args.example_id not in examples:
@@ -432,46 +412,46 @@ Examples:
             print(f"Valid example IDs are: {', '.join(map(str, sorted(examples.keys())))}")
             print("\nUse --list to see all available examples.")
             sys.exit(1)
-    
+
     print("\n" + "=" * 60)
     print("PyPTO Loop Feature Examples")
     print("=" * 60 + "\n")
-    
+
     # Get and validate device ID (needed for NPU examples)
     device_id = None
     examples_to_run = []
-    
+
     if args.example_id is not None:
         # Run single example
         examples_to_run = [(args.example_id, examples[args.example_id])]
     else:
         # Run all examples
         examples_to_run = list(examples.items())
-    
+
     # Check if any example requires NPU
     requires_npu = any(ex_info['requires_npu'] for _, ex_info in examples_to_run)
-    
+
     if requires_npu:
         device_id = get_device_id()
         if device_id is None:
             return
         # Set the device once for all examples
         torch.npu.set_device(device_id)
-    
+
     try:
         for ex_id, ex_info in examples_to_run:
             if ex_info['requires_npu'] and device_id is None:
                 print(f"Skipping example {ex_id} ({ex_info['name']}): NPU device not configured")
                 continue
-            
+
             print(f"Running Example {ex_id}: {ex_info['name']}")
             ex_info['function']()
-        
+
         if len(examples_to_run) > 1:
             print("=" * 60)
             print("All loop tests passed!")
             print("=" * 60)
-        
+
     except Exception as e:
         print(f"\nError: {e}")
         raise

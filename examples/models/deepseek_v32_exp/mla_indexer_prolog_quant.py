@@ -21,16 +21,20 @@ import mla_prolog_quant as mla
 
 
 @pypto.jit
-def mla_indexer_prolog_quant_debug(inputs, outputs, mla_epsilon_cq, mla_epsilon_ckv, mla_cache_mode, mla_tile_config,
-                                     ip_attrs, ip_configs):
-    (token_x, mla_w_dq, mla_w_uq_qr, mla_dequant_scale, mla_w_uk, mla_w_dkv_kr, mla_gamma_cq,
-     mla_gamma_ckv, cos, sin, cache_index, mla_kv_cache, mla_kr_cache,
-     mla_k_scale_cache, ip_w_qb_in, ip_w_qb_scale_in, ip_wk_in, ip_w_proj_in,
-     ip_ln_gamma_k_in, ip_ln_beta_k_in, ip_hadamard_q_in, ip_hadamard_k_in, ip_k_cache, ip_k_cache_scale,
-     ) = inputs
-    (mla_query_nope_out, mla_query_rope_out, mla_kv_cache_out, mla_kr_cache_out,
-     mla_k_scale_cache_out, ip_q_int8_out, ip_q_scale_out, ip_k_int8_out, ip_k_scale_out, ip_weights_out,
-     mla_q_norm_out, mla_q_norm_scale_out) = outputs
+def mla_indexer_prolog_quant_debug(token_x, mla_w_dq, mla_w_uq_qr, mla_dequant_scale,
+                                   mla_w_uk, mla_w_dkv_kr, mla_gamma_cq,
+                                   mla_gamma_ckv, cos, sin, cache_index,
+                                   mla_kv_cache, mla_kr_cache, mla_k_scale_cache,
+                                   ip_w_qb_in, ip_w_qb_scale_in, ip_wk_in, ip_w_proj_in,
+                                   ip_ln_gamma_k_in, ip_ln_beta_k_in, ip_hadamard_q_in,
+                                   ip_hadamard_k_in, ip_k_cache, ip_k_cache_scale,
+                                   mla_query_nope_out, mla_query_rope_out,
+                                   mla_kv_cache_out, mla_kr_cache_out,
+                                   mla_k_scale_cache_out, ip_q_int8_out, ip_q_scale_out,
+                                   ip_k_int8_out, ip_k_scale_out, ip_weights_out,
+                                   mla_q_norm_out, mla_q_norm_scale_out, mla_epsilon_cq,
+                                   mla_epsilon_ckv, mla_cache_mode, mla_tile_config,
+                                   ip_attrs, ip_configs):
 
     pypto.set_runtime_options(machine_sched_mode=2)
     pypto.set_codegen_options(support_dynamic_unaligned=True)
@@ -61,16 +65,16 @@ def mla_indexer_prolog_quant_debug(inputs, outputs, mla_epsilon_cq, mla_epsilon_
 
 
 @pypto.jit
-def mla_indexer_prolog_quant(inputs, outputs, mla_epsilon_cq, mla_epsilon_ckv, mla_cache_mode, mla_tile_config,
-                               ip_attrs, ip_configs):
-    (token_x, mla_w_dq, mla_w_uq_qr, mla_dequant_scale, mla_w_uk, mla_w_dkv_kr, mla_gamma_cq,
-     mla_gamma_ckv, cos, sin, cache_index, mla_kv_cache, mla_kr_cache,
-     mla_k_scale_cache, ip_w_qb_in, ip_w_qb_scale_in, ip_wk_in, ip_w_proj_in,
-     ip_ln_gamma_k_in, ip_ln_beta_k_in, ip_hadamard_q_in, ip_hadamard_k_in, ip_k_cache, ip_k_cache_scale,
-     ) = inputs
-    (mla_query_nope_out, mla_query_rope_out, mla_kv_cache_out, mla_kr_cache_out,
-     mla_k_scale_cache_out, ip_q_int8_out, ip_q_scale_out, ip_k_int8_out, ip_k_scale_out, ip_weights_out) = outputs
-
+def mla_indexer_prolog_quant(token_x, mla_w_dq, mla_w_uq_qr, mla_dequant_scale, mla_w_uk, mla_w_dkv_kr, mla_gamma_cq,
+                             mla_gamma_ckv, cos, sin, cache_index, mla_kv_cache, mla_kr_cache,
+                             mla_k_scale_cache, ip_w_qb_in, ip_w_qb_scale_in, ip_wk_in, ip_w_proj_in,
+                             ip_ln_gamma_k_in, ip_ln_beta_k_in, ip_hadamard_q_in, ip_hadamard_k_in,
+                             ip_k_cache, ip_k_cache_scale, mla_query_nope_out, mla_query_rope_out,
+                             mla_kv_cache_out, mla_kr_cache_out,
+                             mla_k_scale_cache_out, ip_q_int8_out, ip_q_scale_out, ip_k_int8_out,
+                             ip_k_scale_out, ip_weights_out, mla_epsilon_cq, mla_epsilon_ckv,
+                             mla_cache_mode, mla_tile_config,
+                             ip_attrs, ip_configs):
     t = token_x.shape[0]
     q_lora_rank = ip_w_qb_in.shape[1] * 16
     mla_q_norm_out = pypto.Tensor([t, q_lora_rank], pypto.DT_INT8)
@@ -88,7 +92,7 @@ def mla_indexer_prolog_quant(inputs, outputs, mla_epsilon_cq, mla_epsilon_ckv, m
                          mla_k_scale_cache)
     mla_output_tensors = (mla_q_norm_out, mla_q_norm_scale_out, mla_query_nope_out, mla_query_rope_out,
                           mla_kv_cache_out, mla_kr_cache_out, mla_k_scale_cache_out)
-    mla.mla_prolog_quant_compute(mla_input_tensors, mla_output_tensors, mla_epsilon_cq, mla_epsilon_ckv,
+    mla.mla_prolog_quant_compute(*mla_input_tensors, *mla_output_tensors, mla_epsilon_cq, mla_epsilon_ckv,
                                    mla_cache_mode, mla_tile_config)
 
     ##################### ip #######################
@@ -100,4 +104,4 @@ def mla_indexer_prolog_quant(inputs, outputs, mla_epsilon_cq, mla_epsilon_ckv, m
                         ip_w_proj_in, ip_ln_gamma_k_in, ip_ln_beta_k_in, cos, sin, ip_hadamard_q_in, ip_hadamard_k_in,
                         ip_k_cache, ip_k_cache_scale, cache_index)
     ip_output_tensors = (ip_q_int8_out, ip_q_scale_out, ip_k_int8_out, ip_k_scale_out, ip_weights_out)
-    ip.lightning_indexer_prolog_quant_compute(ip_input_tensors, ip_output_tensors, ip_attrs, ip_configs)
+    ip.lightning_indexer_prolog_quant_compute(*ip_input_tensors, *ip_output_tensors, ip_attrs, ip_configs)

@@ -25,15 +25,7 @@ from numpy.testing import assert_allclose
     host_options={"only_codegen": True},
     codegen_options={"support_dynamic_unaligned": True}
 )
-def set_kv_buffer_func(in_tensors, out_tensors):
-    # 2. 从入参拿到输入和输出tensor
-    k = in_tensors[0]
-    v = in_tensors[1]
-    loc = in_tensors[2]
-
-    k_buffer = out_tensors[0]
-    v_buffer = out_tensors[1]
-
+def set_kv_buffer_func(k, v, loc, k_buffer, v_buffer):
     # 3. 得到动态tensor的shape
     bs_loop = k.shape[0]
     n = k_buffer.shape[1]
@@ -86,7 +78,7 @@ def set_kv_buffer(**kwargs):
     pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
     pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
 
-    set_kv_buffer_func(pto_inputs, pto_outputs)
+    set_kv_buffer_func(*pto_inputs, *pto_outputs)
 
 
 # torch实现的对比代码
@@ -126,7 +118,7 @@ def main():
     loc_shape = [bs, ]
     buffer_shape = [page_num, page_size, 1, head_dim]
     k_shape = [bs, kv_size]
-    
+
     # 准备测试数据
     np.random.seed(0)
     # inputs
@@ -141,18 +133,18 @@ def main():
     v_buffer_c = v_buffer_torch.clone()
 
     set_kv_buffer(
-                k_torch=k_torch, 
-                v_torch=v_torch, 
-                loc_torch=loc_torch, 
-                k_buffer_torch=k_buffer_torch, 
+                k_torch=k_torch,
+                v_torch=v_torch,
+                loc_torch=loc_torch,
+                k_buffer_torch=k_buffer_torch,
                 v_buffer_torch=v_buffer_torch,
                 num_kv_heads=num_kv_heads
                 )
     set_kv_buffer_torch(
-                    k_torch=k_torch, 
-                    v_torch=v_torch, 
-                    loc_torch=loc_torch.clone(), 
-                    k_buffer_c=k_buffer_c, 
+                    k_torch=k_torch,
+                    v_torch=v_torch,
+                    loc_torch=loc_torch.clone(),
+                    k_buffer_c=k_buffer_c,
                     v_buffer_c=v_buffer_c,
                     num_kv_heads=num_kv_heads
                     )

@@ -139,16 +139,16 @@ def rope_data(x1, x2, cos, sin, tile_shape):
 
 
 @pypto.jit
-def quant_attention_pre_kernel(in_tensors, out_tensors):
+def quant_attention_pre_kernel(x, residual_input, x_gamma, x_bias,
+                               x_scale, x_offset, weight, quant_bias,
+                               deq_scale, q_gamma, q_bias, k_gamma,
+                               k_bias, cos, sin, q, k, v, residual):
     # 1. 添加支持动态的config
     pypto.set_codegen_options(support_dynamic_unaligned=True)
     pypto.set_host_options(only_codegen=True)
     pypto.set_runtime_options(estimated_stitch_task_max_loop_num=256)
     pypto.set_runtime_options(workspace_recycle_period=256)
     # 2. 从入参拿到输入和输出tensor
-    x, residual_input, x_gamma, x_bias, x_scale, x_offset, weight, quant_bias, deq_scale, \
-    q_gamma, q_bias, k_gamma, k_bias, cos, sin = in_tensors
-    q, k, v, residual = out_tensors
     bs_tile = 8
 
     # 3. 得到动态tensor的shape
@@ -391,7 +391,7 @@ def test_quant_attention_pre():
         pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
         pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
 
-        quant_attention_pre_kernel(pto_inputs, pto_outputs)
+        quant_attention_pre_kernel(*pto_inputs, *pto_outputs)
         pypto.runtime._device_synchronize()
 
         # 5. 与PyTorch参考实现对比
@@ -493,7 +493,7 @@ def attention_pre_quant(
     if not isinstance(hidden_states, FakeTensor):
         pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
         pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
-        quant_attention_pre_kernel(pto_inputs, pto_outputs)
+        quant_attention_pre_kernel(*pto_inputs, *pto_outputs)
         pypto.runtime._device_synchronize()
     return q, k, v, residual_res
 

@@ -94,8 +94,8 @@ def shared_expert_infer(**kwargs):
     x_block = pypto.view(expand_x, [base_loop, hidden_size], expand_x_offset, valid_shape=[cur_valid_size, hidden_size])
 
     # 上投影
-    pypto.set_cube_tile_shapes([cube_tile_shape[0], cube_tile_shape[0]], 
-                            [cube_tile_shape[1], cube_tile_shape[1]], 
+    pypto.set_cube_tile_shapes([cube_tile_shape[0], cube_tile_shape[0]],
+                            [cube_tile_shape[1], cube_tile_shape[1]],
                             [cube_tile_shape[2], cube_tile_shape[2]])
     pypto.set_matrix_size({base_loop, shared_gate_upper_weight.shape[1], shared_gate_upper_weight.shape[0]})
     gate = pypto.matmul(x_block, shared_gate_upper_weight, pypto.DT_FP32, b_trans=True)
@@ -112,8 +112,8 @@ def shared_expert_infer(**kwargs):
 
     # 下投影
     swiglu_fp16 = pypto.cast(swiglu, x_dtype)
-    pypto.set_cube_tile_shapes([cube_tile_shape[0], cube_tile_shape[0]], 
-                            [cube_tile_shape[1], cube_tile_shape[1]], 
+    pypto.set_cube_tile_shapes([cube_tile_shape[0], cube_tile_shape[0]],
+                            [cube_tile_shape[1], cube_tile_shape[1]],
                             [cube_tile_shape[2], cube_tile_shape[2]])
     pypto.set_matrix_size({base_loop, shared_down_weight.shape[1], shared_down_weight.shape[0]})
     shared_output = pypto.matmul(swiglu_fp16, shared_down_weight, pypto.DT_FP32, b_trans=True)
@@ -142,15 +142,10 @@ base_loop_global = 16
     host_options={"only_codegen": True},
     codegen_options={"support_dynamic_unaligned": True}
 )
-def moe_with_shared_main(inputs, outputs):
-    expand_x = inputs[0]
-    shared_gate_upper_weight = inputs[1]
-    shared_down_weight = inputs[2]
-    shared_router_weight = inputs[3]
-    ffn_out = outputs[0]
-
+def moe_with_shared_main(expand_x, shared_gate_upper_weight, shared_down_weight,
+                         shared_router_weight, ffn_out):
     total_token_num = expand_x.shape[0]
-    
+
     exp_loop_times = (total_token_num + base_loop_global - 1) // base_loop_global
     for token_loop_idx in pypto.loop(0, exp_loop_times, 1, name="LOOP_Shared_Expert", idx_name="token_loop_idx_shared"):
         def loop_token_shared(token_loop_idx):
@@ -191,7 +186,7 @@ def test_qwen3next_ffn():
 
     pypto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
     pypto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
-    moe_with_shared_main(pypto_inputs, pypto_outputs)
+    moe_with_shared_main(*pypto_inputs, *pypto_outputs)
     pypto.runtime._device_synchronize()
 
     # golden

@@ -36,10 +36,7 @@ def get_token_acc_table(group_list):
     host_options={"only_codegen": True},
     codegen_options={"support_dynamic_unaligned": True}
 )
-def moe_group_list_cumsum(inputs, outputs):
-    group_list = inputs[0]
-    group_list_cumsum = outputs[0]
-
+def moe_group_list_cumsum(group_list, group_list_cumsum):
     expert_num = group_list.shape[0]
     pypto.set_vec_tile_shapes(32)
     # 计算每个专家的token的偏移地址
@@ -73,7 +70,7 @@ def glm_router_expert_cumsum(group_list_input):
     if not isinstance(group_list_input, FakeTensor):
         pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
         pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
-        moe_group_list_cumsum(pto_inputs, pto_outputs)
+        moe_group_list_cumsum(*pto_inputs, *pto_outputs)
         pypto.runtime._device_synchronize()
     return group_list_cumsum
 
@@ -100,7 +97,7 @@ def test_group_list_cumsum():
         }
         pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
         pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
-        moe_group_list_cumsum(pto_inputs, pto_outputs)
+        moe_group_list_cumsum(*pto_inputs, *pto_outputs)
         pypto.runtime._device_synchronize()
 
         # golden

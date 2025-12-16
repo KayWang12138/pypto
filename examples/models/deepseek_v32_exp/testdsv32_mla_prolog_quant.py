@@ -2,9 +2,9 @@
 # coding: utf-8
 # Copyright (c) 2025 Huawei Technologies Co., Ltd.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
-# CANN Open Software License Agreement Version 2.0 (the "License").
+# CANN Open Software License Agreement Version 2.0 (the 'License').
 # Please refer to the License for details. You may not use this file except in compliance with the License.
-# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+# THIS SOFTWARE IS PROVIDED ON AN 'AS IS' BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
@@ -478,11 +478,11 @@ def gen_mla_prolog_quant_v32_data(params, dtypes, actual_seq, is_quant=(False, F
                 inputs[key] = value.npu()
 
     q_out, q_embed, rms_norm_out, rms_norm_scale, kv_cache_out, kr_cache_out, \
-                    kv_quant_scale_cache_out = mla_prolog_quant_v32_compute(inputs)         
+                    kv_quant_scale_cache_out = mla_prolog_quant_v32_compute(inputs)
     outputs = {"q_golden": q_out, "q_rope": q_embed, "kr_golden": kr_cache_out, "kv_golden": kv_cache_out}
     outputs["kv_quant_scale_cache_golden"] = kv_quant_scale_cache_out
     outputs["rms_norm_golden"] = rms_norm_out
-    outputs["rms_norm_scale_golden"] = rms_norm_scale 
+    outputs["rms_norm_scale_golden"] = rms_norm_scale
 
     return inputs, outputs
 
@@ -510,7 +510,7 @@ def convert_pypto_to_torch_type(pypto_type):
 
 def compare(t: torch.Tensor, t_ref: torch.Tensor, name, atol, rtol, pct_thd, error_count_threshold=0):
     assert t.shape == t_ref.shape
-    assert t.dtype == t_ref.dtype 
+    assert t.dtype == t_ref.dtype
     assert t.device == t_ref.device
 
     if error_count_threshold == 0:
@@ -646,18 +646,18 @@ def mla_prolog_quant_v32(params, input_tensors, golden_data, dtype, w_dtype, is_
         dequant_scale_w_uq_qr_data = pypto.from_torch( \
                 input_tensors["w_qb_scale"].reshape(dequant_scale_w_uq_qr_shape).npu(), name="dequant_scale_w_uq_qr")
     else:
-        dequant_scale_w_uq_qr_data = None 
-    
-    input_data = [token_x_data, w_dq_data, w_uq_qr_data, dequant_scale_w_uq_qr_data, 
-                w_uk_data, w_dkv_kr_data, rmsnorm_gamma_cq_data, rmsnorm_gamma_ckv_data, 
-                rope_cos_data, rope_sin_data, cache_index_data, 
+        dequant_scale_w_uq_qr_data = None
+
+    input_data = [token_x_data, w_dq_data, w_uq_qr_data, dequant_scale_w_uq_qr_data,
+                w_uk_data, w_dkv_kr_data, rmsnorm_gamma_cq_data, rmsnorm_gamma_ckv_data,
+                rope_cos_data, rope_sin_data, cache_index_data,
                 kv_cache_data, kr_cache_data, k_scale_cache_data]
-    output_data = [out_q_norm, out_q_norm_scale, out_q_nope, 
+    output_data = [out_q_norm, out_q_norm_scale, out_q_nope,
                 out_q_rope, out_kv_cache, out_kr_cache, k_scale_cache_data]
     if is_p:
-        mla_prolog_quant_p(input_data, output_data, 1e-5, 1e-5, cache_mode, tile_config)
+        mla_prolog_quant_p(*input_data, *output_data, 1e-5, 1e-5, cache_mode, tile_config)
     else:
-        mla_prolog_quant_d(input_data, output_data, 1e-5, 1e-5, cache_mode, tile_config)
+        mla_prolog_quant_d(*input_data, *output_data, 1e-5, 1e-5, cache_mode, tile_config)
     pypto.runtime._device_synchronize()
 
     ########### compare #######
@@ -685,23 +685,22 @@ def mla_prolog_quant_v32(params, input_tensors, golden_data, dtype, w_dtype, is_
         compare(k_scale.cpu(), golden5.cpu(), "kScaleCache", 0.0001, 0.0078125, 0.005)
 
 
-@pytest.mark.skip(reason='perf')
 def test_b1_s64k2_pa_nd_fp16_quantb_d():
     '''
     mla_prolog decode测试函数
     '''
     params = {
-        'b': 1, 
+        'b': 1,
         't': 2,
-        's': 2, 
-        's1': 2, 
-        's2': 4 * 1024, 
-        'n1': 128, 
-        'h': 7168, 
-        'q_lora_rank': 1536, 
-        'qk_nope_head_dim': 128, 
-        'qk_rope_head_dim': 64, 
-        'kv_lora_rank': 512, 
+        's': 2,
+        's1': 2,
+        's2': 4 * 1024,
+        'n1': 128,
+        'h': 7168,
+        'q_lora_rank': 1536,
+        'qk_nope_head_dim': 128,
+        'qk_rope_head_dim': 64,
+        'kv_lora_rank': 512,
         'block_size': 128
     }
     dtype = pypto.DataType.DT_BF16
@@ -719,7 +718,7 @@ def test_b1_s64k2_pa_nd_fp16_quantb_d():
 
 if __name__ == "__main__":
     logging.basicConfig(
-        format='%(asctime)s - %(filename)s:%(lineno)d - %(levelname)s: %(message)s', 
+        format='%(asctime)s - %(filename)s:%(lineno)d - %(levelname)s: %(message)s',
         level=logging.INFO
     )
     test_b1_s64k2_pa_nd_fp16_quantb_d()

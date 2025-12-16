@@ -38,7 +38,7 @@ from numpy.testing import assert_allclose
 def get_device_id():
     """
     Get and validate TILE_FWK_DEVICE_ID from environment variable.
-    
+
     Returns:
         int: The device ID if valid, None otherwise.
     """
@@ -47,7 +47,7 @@ def get_device_id():
         print("Please set it before running this example:")
         print("  export TILE_FWK_DEVICE_ID=0")
         return None
-    
+
     try:
         device_id = int(os.environ['TILE_FWK_DEVICE_ID'])
         return device_id
@@ -65,7 +65,7 @@ np.set_printoptions(formatter={'float': '{:.6f}'.format})
 @dataclass
 class TileConfig:
     """Configuration for attention tiling parameters."""
-    head_num_q_tile: int 
+    head_num_q_tile: int
     c1_tile_shape: list  # Cube tile shape for Q@K^T
     v1_tile_shape: list  # Vector tile shape for softmax
     c2_tile_shape: list  # Cube tile shape for attention@V
@@ -86,17 +86,17 @@ class AttentionConfig:
     is_nz_format: bool = False
     dtype: torch.dtype = torch.float32
     max_unroll_times: int = 1
-    
+
 
 def get_qwen_common_config() -> tuple[AttentionConfig, TileConfig]:
     """
     Get common Qwen3 attention configuration for testing.
-    
+
     Parameters
     ----------
     device : str
         Device to create tensors on
-        
+
     Returns
     -------
     tuple[AttentionConfig, TileConfig]
@@ -114,14 +114,14 @@ def get_qwen_common_config() -> tuple[AttentionConfig, TileConfig]:
     is_nz_format = False
     dtype = torch.float32
     max_unroll_times = 1
-    
+
     atten_cfg = AttentionConfig(
         b = b, s_q = s_q, skv = skv, n_q = n_q, n_kv = n_kv,
         dim = dim, block_size = block_size, block_num = block_num,
         is_nz_format = is_nz_format, dtype = dtype,
         max_unroll_times = max_unroll_times
     )
-    
+
     # Tile configuration
     head_num_q_tile = 32
     c1_tile_shape = (32, 32, 64, 64, 128, 128)
@@ -135,7 +135,7 @@ def get_qwen_common_config() -> tuple[AttentionConfig, TileConfig]:
         c2_tile_shape,
         v2_tile_shape
     )
-    
+
     return atten_cfg, tile_cfg
 
 
@@ -144,9 +144,9 @@ def detailed_allclose_manual(cpu: np.ndarray, npu: np.ndarray, name: str,
                              max_prints: int = 50, force_print_first_n: int = 5) -> bool:
     """
     Detailed manual implementation of np.allclose with verbose output.
-    
+
     Prints values that exceed tolerance and NaN values for debugging.
-    
+
     Parameters
     ----------
     cpu : np.ndarray
@@ -163,7 +163,7 @@ def detailed_allclose_manual(cpu: np.ndarray, npu: np.ndarray, name: str,
         Maximum number of mismatches to print
     force_print_first_n : int
         Force print first N elements regardless of errors
-        
+
     Returns
     -------
     bool
@@ -173,24 +173,24 @@ def detailed_allclose_manual(cpu: np.ndarray, npu: np.ndarray, name: str,
     if cpu.shape != npu.shape:
         print(f"Error: Shape mismatch - cpu {cpu.shape} vs npu {npu.shape}")
         return False
-    
+
     total_elements = cpu.size
     abnormal_count = 0
     nan_count = 0
     exceed_tolerance_count = 0
-    
+
     print(f"Starting array comparison, shape: {cpu.shape}, total elements: {total_elements}")
     print(f"Tolerance conditions: rtol={rtol}, atol={atol}")
     print("=" * 80)
-    
+
     # Color codes
     YELLOW = '\033[93m'
     RESET = '\033[0m'
-    
+
     # Flatten arrays for iteration
     cpu_flat = cpu.reshape(-1)
     npu_flat = npu.reshape(-1)
-    
+
     # Helper function to get multi-dimensional index
     def get_multi_index(flat_index: int, shape: tuple) -> tuple:
         indices = []
@@ -199,7 +199,7 @@ def detailed_allclose_manual(cpu: np.ndarray, npu: np.ndarray, name: str,
             indices.append(remaining % dim)
             remaining = remaining // dim
         return tuple(reversed(indices))
-    
+
     # Force print first N elements
     if force_print_first_n > 0:
         print(f"{YELLOW}Force printing first {force_print_first_n} elements:{RESET}")
@@ -207,56 +207,56 @@ def detailed_allclose_manual(cpu: np.ndarray, npu: np.ndarray, name: str,
             cpu_val = cpu_flat[flat_idx]
             npu_val = npu_flat[flat_idx]
             multi_idx = get_multi_index(flat_idx, cpu.shape)
-            
+
             if np.isnan(cpu_val) or np.isnan(npu_val):
                 diff_str = "NaN"
             else:
                 diff_val = np.abs(cpu_val - npu_val)
                 diff_str = f"{diff_val:.6e}"
-            
+
             cpu_str = "NaN" if np.isnan(cpu_val) else f"{cpu_val:.6e}"
             npu_str = "NaN" if np.isnan(npu_val) else f"{npu_val:.6e}"
-            
+
             print(f"{YELLOW}Index {multi_idx}: cpu={cpu_str}, npu={npu_str}, diff={diff_str}{RESET}")
-        
+
         print("-" * 80)
-    
+
     # Check all elements for anomalies
     for flat_idx in range(total_elements):
         cpu_val = cpu_flat[flat_idx]
         npu_val = npu_flat[flat_idx]
         multi_idx = get_multi_index(flat_idx, cpu.shape)
-        
+
         # Check for NaN in NPU output
         if np.isnan(npu_val):
             abnormal_count += 1
             nan_count += 1
-            
+
             if abnormal_count <= max_prints:
                 cpu_str = "NaN" if np.isnan(cpu_val) else f"{cpu_val:.6e}"
                 print(f"Index {multi_idx}: cpu={cpu_str}, npu=NaN, diff=NaN (NPU contains NaN)")
-        
+
         # Check for NaN in CPU reference
         elif np.isnan(cpu_val):
             abnormal_count += 1
             exceed_tolerance_count += 1
-            
+
             if abnormal_count <= max_prints:
                 print(f"Index {multi_idx}: cpu=NaN, npu={npu_val:.6e}, diff=NaN (CPU contains NaN)")
-        
+
         else:
             # Check if difference exceeds tolerance
             abs_diff = np.abs(cpu_val - npu_val)
             allowed_diff = atol + rtol * np.abs(npu_val)
-            
+
             if abs_diff > allowed_diff:
                 abnormal_count += 1
                 exceed_tolerance_count += 1
-                
+
                 if abnormal_count <= max_prints:
                     print(f"Index {multi_idx}: cpu={cpu_val:.6e}, npu={npu_val:.6e}, "
                           f"diff={abs_diff:.6e} (exceeds tolerance {allowed_diff:.6e})")
-    
+
     # Print statistics
     print("=" * 80)
     print(f"\033[1m\033[95m{name} Comparison Statistics:\033[0m")
@@ -265,13 +265,13 @@ def detailed_allclose_manual(cpu: np.ndarray, npu: np.ndarray, name: str,
     print(f"  - NaN count: {nan_count}")
     print(f"  - Exceed tolerance count: {exceed_tolerance_count}")
     print(f"Abnormal ratio: {abnormal_count / total_elements * 100:.4f}%")
-    
+
     is_allclose = (abnormal_count == 0)
     print(f"\nnp.allclose equivalent result: {is_allclose}")
-    
+
     if abnormal_count > max_prints:
         print(f"\nNote: Only showing first {max_prints} anomalies, total {abnormal_count} abnormal elements")
-    
+
     assert_allclose(cpu, npu, rtol, atol)
     return is_allclose
 
@@ -289,7 +289,7 @@ def flash_attn_pa_golden(inputs: list, outputs: list, atten_cfg: AttentionConfig
     block_size = atten_cfg.block_size
     block_num = atten_cfg.block_num
     query, k_cache, v_cache, block_table, actual_seq_len = inputs
-    
+
     q_bnsd = query.reshape(b, n_q, s_q, kv_lora_rank)
     k_cache = k_cache.reshape(block_num, block_size, n_kv * kv_lora_rank)
     v_cache = v_cache.reshape(block_num, block_size, n_kv * d_v)
@@ -316,7 +316,7 @@ def flash_attn_pa_golden(inputs: list, outputs: list, atten_cfg: AttentionConfig
                 vj = v_cache[cur_block_idx, 0:s2_tile_cur, :]
                 kj = kj.reshape(s2_tile_cur, d_k)
                 vj = vj.reshape(s2_tile_cur, d_v)
-                
+
                 sij = torch.matmul(
                     qi.to(matmul_dtype),
                     kj.to(matmul_dtype).mT
@@ -342,7 +342,7 @@ def flash_attn_pa_golden(inputs: list, outputs: list, atten_cfg: AttentionConfig
                 oi = oi_update
                 li = li_update
                 mi = mi_update
-                
+
                 mi_new = torch.maximum(mi, tilda_mij)
                 t1 = mi - mi_new
                 t2 = torch.exp(t1)
@@ -367,14 +367,15 @@ def flash_attn_pa_golden(inputs: list, outputs: list, atten_cfg: AttentionConfig
 
 
 @pypto.jit
-def flash_attention_pa(inputs: list, outputs: list, atten_cfg: AttentionConfig, tile_cfg: TileConfig):
+def flash_attention_pa(query, k_cache, v_cache, block_table, actual_seq_len,
+                       attention_out, atten_cfg: AttentionConfig, tile_cfg: TileConfig):
     """
     PyPTO implementation of Flash Attention with Paged Attention format.
-    
+
     This function implements the Flash Attention algorithm with online softmax
     computation for numerical stability, supporting variable-length sequences
     through block-based KV cache management.
-    
+
     Parameters
     ----------
     inputs : list
@@ -385,7 +386,7 @@ def flash_attention_pa(inputs: list, outputs: list, atten_cfg: AttentionConfig, 
     # Enable dynamic unaligned support
     pypto.set_codegen_options(support_dynamic_unaligned=True)
     pypto.set_host_options(only_codegen=True)
-    
+
     block_size = atten_cfg.block_size
     tile_config = tile_cfg
     max_unroll_times = atten_cfg.max_unroll_times
@@ -397,10 +398,8 @@ def flash_attention_pa(inputs: list, outputs: list, atten_cfg: AttentionConfig, 
     v1_tile = tile_config.v1_tile_shape
     c2_tile = tile_config.c2_tile_shape
     v2_tile = tile_config.v2_tile_shape
-    query, k_cache, v_cache, block_table, actual_seq_len = inputs
     dtype = k_cache.dtype
-    attention_out = outputs[0]
-    
+
     def inside_main_function():
         batch_size = block_table.shape[0]
         n_q = query.shape[0] // batch_size
@@ -418,9 +417,9 @@ def flash_attention_pa(inputs: list, outputs: list, atten_cfg: AttentionConfig, 
                         li_update = pypto.tensor([n_tile, 1], pypto.DT_FP32, "li_update")
                         mi_update = pypto.tensor([n_tile, 1], pypto.DT_FP32, "mi_update")
                         cur_offset = b_idx * n_q + n_idx * n_tile
-                        oi_offset = [cur_offset, 0]  
-                        
-                        for bn in pypto.loop(0, bn_per_batch, 1, name="LOOP_L2_bn", 
+                        oi_offset = [cur_offset, 0]
+
+                        for bn in pypto.loop(0, bn_per_batch, 1, name="LOOP_L2_bn",
                                         idx_name="bn", unroll_List={max_unroll_times}):
                             def inside_bn_loop(**kwargs):
                                 b_idx = kwargs.get("b_idx")
@@ -437,12 +436,12 @@ def flash_attention_pa(inputs: list, outputs: list, atten_cfg: AttentionConfig, 
                                     pypto.TileOpFormat.TILEOP_ND
                                 )
                                 kj = pypto.tensor([cur_s2_tile, d_n], dtype, "kj", kj_format)
-                                kj = pypto.view(k_cache, [cur_s2_tile, d_n], 
+                                kj = pypto.view(k_cache, [cur_s2_tile, d_n],
                                                 [cur_block_idx * block_size, 0],
                                             valid_shape=[(cur_seq - bn * block_size).min(block_size), d_n])
-                                vj = pypto.view(v_cache, 
-                                                [cur_s2_tile, d_n], 
-                                                [cur_block_idx * block_size, 0], 
+                                vj = pypto.view(v_cache,
+                                                [cur_s2_tile, d_n],
+                                                [cur_block_idx * block_size, 0],
                                                 valid_shape=[(cur_seq - bn * block_size).min(block_size), d_n])
 
                                 pypto.set_semantic_label("MatMul")
@@ -539,7 +538,7 @@ def get_input_from_param(atten_cfg: AttentionConfig):
         if dtype == torch.bool:
             return torch.rand(data_shape) < 0.5
         return (torch.rand(data_shape) * (max_value - min_value) + min_value).to(dtype)
-    
+
     def convert_tensors_contiguous(tensor_list):
         for idx, t in enumerate(tensor_list):
             if isinstance(t, torch.Tensor):
@@ -554,11 +553,11 @@ def get_input_from_param(atten_cfg: AttentionConfig):
     s_q = atten_cfg.s_q
     n_kv = atten_cfg.n_kv
     kv_lora_rank = atten_cfg.dim
-    
+
     d_q = kv_lora_rank
     d_k = kv_lora_rank
     d_v = kv_lora_rank
-    actual_seq_len = torch.full((b,), skv, dtype=torch.int32) 
+    actual_seq_len = torch.full((b,), skv, dtype=torch.int32)
     s_max = max(actual_seq_len)
     shape_q = [b * n_q * s_q, d_q]
     shape_k = [b, s_max, n_kv * d_k]
@@ -613,7 +612,7 @@ def get_input_from_param(atten_cfg: AttentionConfig):
 def run_flash_attention_pa():
     """
     Test Flash Attention with PA format implementation.
-    
+
     Parameters
     ----------
     atten_cfg : AttentionConfig
@@ -632,9 +631,9 @@ def run_flash_attention_pa():
     # Execute PyPTO kernel
     pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(kernel_inputs)]
     pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
-    flash_attention_pa(pto_inputs, pto_outputs, atten_cfg, tile_cfg)
+    flash_attention_pa(*pto_inputs, *pto_outputs, atten_cfg, tile_cfg)
     pypto.runtime._device_synchronize()
-    
+
     # Verify results
     attention_output = flash_attn_pa_golden(kernel_inputs, outputs, atten_cfg, tile_cfg)
     y_data = out_torch.cpu()
@@ -656,7 +655,7 @@ def test_ifa():
 
 def main():
     """Run Flash Attention example.
-    
+
     Usage:
         python qwen3_attention.py          # Run example
         python qwen3_attention.py --list   # List available examples
@@ -681,9 +680,9 @@ Examples:
         action='store_true',
         help='List all available examples and exit'
     )
-    
+
     args = parser.parse_args()
-    
+
     # Define available examples
     examples = {
         1: {
@@ -693,7 +692,7 @@ Examples:
             'requires_npu': True
         }
     }
-    
+
     # List examples if requested
     if args.list:
         print("\n" + "=" * 60)
@@ -704,7 +703,7 @@ Examples:
             print(f"  {ex_id}. {ex_info['name']}{npu_req}")
             print(f"     {ex_info['description']}\n")
         return
-    
+
     # Validate example ID if provided
     if args.example_id is not None:
         if args.example_id not in examples:
@@ -712,46 +711,46 @@ Examples:
             print(f"Valid example IDs are: {', '.join(map(str, sorted(examples.keys())))}")
             print("\nUse --list to see all available examples.")
             sys.exit(1)
-    
+
     print("\n" + "=" * 60)
     print("PyPTO Flash Attention with Paged Attention Example (Qwen3)")
     print("=" * 60 + "\n")
-    
+
     # Get and validate device ID (needed for NPU examples)
     device_id = None
     examples_to_run = []
-    
+
     if args.example_id is not None:
         # Run single example
         examples_to_run = [(args.example_id, examples[args.example_id])]
     else:
         # Run all examples
         examples_to_run = list(examples.items())
-    
+
     # Check if any example requires NPU
     requires_npu = any(ex_info['requires_npu'] for _, ex_info in examples_to_run)
-    
+
     if requires_npu:
         device_id = get_device_id()
         if device_id is None:
             return
         # Set the device once for all examples
         torch.npu.set_device(device_id)
-    
+
     try:
         for ex_id, ex_info in examples_to_run:
             if ex_info['requires_npu'] and device_id is None:
                 print(f"Skipping example {ex_id} ({ex_info['name']}): NPU device not configured")
                 continue
-            
+
             print(f"Running Example {ex_id}: {ex_info['name']}")
             ex_info['function']()
-        
+
         if len(examples_to_run) > 1:
             print("\n" + "=" * 60)
             print("All tests completed successfully!")
             print("=" * 60)
-        
+
     except Exception as e:
         print(f"\nError: {e}")
         raise

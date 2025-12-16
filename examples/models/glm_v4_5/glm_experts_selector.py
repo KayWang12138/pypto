@@ -140,15 +140,9 @@ def process_main_loop_interation(
     host_options={"only_codegen": True},
     codegen_options={"support_dynamic_unaligned": True}
 )
-def select_experts_kernel(in_tensors, out_tensors, renormalize_flag, topk_group, num_expert_group):
+def select_experts_kernel(logits_input, e_score_bias_input, weight_k, ids_k,
+                          renormalize_flag, topk_group, num_expert_group):
     # 泳道图使能  pypto.set_option('profile_enable', True)
-
-    # 2. 从入参拿到输入和输出tensor
-    logits_input = in_tensors[0]
-    e_score_bias_input = in_tensors[1]
-    weight_k = out_tensors[0]
-    ids_k = out_tensors[1]
-
     # 3. 得到动态tensor的shape
     bs = logits_input.shape[0]
     ne = logits_input.shape[1]
@@ -231,7 +225,7 @@ def test_select_experts():
         pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
         g = torch.npu.NPUGraph()
         with torch.npu.graph(g):
-            select_experts_kernel(pto_inputs, pto_outputs, renormalize, topk_group, num_expert_group)
+            select_experts_kernel(*pto_inputs, *pto_outputs, renormalize, topk_group, num_expert_group)
         g.replay()
         pypto.runtime._device_synchronize()
 
@@ -317,7 +311,7 @@ def select_experts(router_logits: torch.Tensor,
     }
     pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
     pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
-    select_experts_kernel(pto_inputs, pto_outputs, renormalize, topk_group, num_expert_group)
+    select_experts_kernel(*pto_inputs, *pto_outputs, renormalize, topk_group, num_expert_group)
     pypto.runtime._device_synchronize()
     return topk_weights, topk_ids
 

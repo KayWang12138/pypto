@@ -28,12 +28,7 @@ def main():
     host_options={"only_codegen": True},
     codegen_options={"support_dynamic_unaligned": True}
 )
-def select_experts(in_tensors, out_tensors, renormalize_flag):
-    # 2. 从入参拿到输入和输出tensor
-    logits_input = in_tensors[0]
-    ids_k = out_tensors[0]
-    weight_k = out_tensors[1]
-
+def select_experts(logits_input, ids_k, weight_k, renormalize_flag):
     # 3. 得到动态tensor的shape
     bs = logits_input.shape[0]
     ne = logits_input.shape[1]
@@ -109,7 +104,7 @@ def test_select_experts():
         }
         pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
         pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
-        select_experts(pto_inputs, pto_outputs, renormalize)
+        select_experts(*pto_inputs, *pto_outputs, renormalize)
         pypto.runtime._device_synchronize()
 
         # 5. 与PyTorch参考实现对比

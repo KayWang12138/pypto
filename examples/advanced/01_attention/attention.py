@@ -37,7 +37,7 @@ from typing import Optional
 def get_device_id():
     """
     Get and validate TILE_FWK_DEVICE_ID from environment variable.
-    
+
     Returns:
         int: The device ID if valid, None otherwise.
     """
@@ -46,7 +46,7 @@ def get_device_id():
         print("Please set it before running this example:")
         print("  export TILE_FWK_DEVICE_ID=0")
         return None
-    
+
     try:
         device_id = int(os.environ['TILE_FWK_DEVICE_ID'])
         return device_id
@@ -75,25 +75,25 @@ def scaled_dot_product_attention_golden(
     """PyTorch reference implementation of scaled dot-product attention."""
     # Compute attention scores: Q @ K^T
     scores = torch.matmul(q, k.transpose(-2, -1))  # [batch, num_heads, seq_len_q, seq_len_kv]
-    
+
     # Scale
     scores = scores * scale
-    
+
     # Apply attention mask if provided
     if attn_mask is not None:
         scores = scores + attn_mask
-    
+
     # Softmax
     attn_weights = torch.softmax(scores, dim=-1)  # [batch, num_heads, seq_len_q, seq_len_kv]
-    
+
     # Apply to values: attn_weights @ V
     output = torch.matmul(attn_weights, v)  # [batch, num_heads, seq_len_q, head_dim]
-    
+
     return output
 
 
 @pypto.jit
-def scaled_dot_product_attention_dynamic(inputs, outputs, params, config: AttentionConfig):
+def scaled_dot_product_attention_dynamic(q, k, v, out, params, config: AttentionConfig):
     """Scaled dot-product attention with dynamic batch and sequence lengths."""
     # Enable dynamic unaligned support
     pypto.set_codegen_options(support_dynamic_unaligned=True)
@@ -101,23 +101,18 @@ def scaled_dot_product_attention_dynamic(inputs, outputs, params, config: Attent
     pypto.set_runtime_options(cfgcache_device_task_num=100)
     pypto.set_runtime_options(cfgcache_root_task_num=100)
     pypto.set_runtime_options(cfgcache_leaf_task_num=10000)
-    
-    q = inputs[0]
-    k = inputs[1]
-    v = inputs[2]
-    out = outputs[0]
-    
+
     batch_size, num_heads, seq_len, head_dim = params
 
     # Calculate scale
     scale = config.scale if config.scale is not None else (1.0 / (config.head_dim ** 0.5))
-    
+
     # Configure tiling
     cube_tiling = 64
     pypto.set_cube_tile_shapes([cube_tiling, cube_tiling], [cube_tiling, cube_tiling], [cube_tiling, cube_tiling])
     view_shape = (batch_size, num_heads, seq_len, head_dim)
     bs_loop = (batch_size + view_shape[0] - 1) // view_shape[0]
-    
+
     def inside_scaled_dot_product_attention():
         for bs_idx in pypto.loop(bs_loop, name="LOOP_L0", idx_name="bs_idx", unroll_List={1}):
             def bs_loop_func(bs_idx):
@@ -125,7 +120,7 @@ def scaled_dot_product_attention_dynamic(inputs, outputs, params, config: Attent
                 q_view = pypto.view(q, view_shape, offsets)
                 k_view = pypto.view(k, view_shape, offsets)
                 v_view = pypto.view(v, view_shape, offsets)
-                pypto.set_vec_tile_shapes(1, 8, 16, head_dim) 
+                pypto.set_vec_tile_shapes(1, 8, 16, head_dim)
                 k_t = pypto.transpose(k_view, 2, 3)
                 scores = pypto.matmul(q_view, k_t, out_dtype=config.dtype)
                 scores_scaled = pypto.mul(scores, scale)
@@ -137,32 +132,25 @@ def scaled_dot_product_attention_dynamic(inputs, outputs, params, config: Attent
 
 
 @pypto.jit
-def attention_with_projection(inputs, outputs, config: AttentionConfig):
+def attention_with_projection(hidden_states, q_weight, k_weight, v_weight, out_weight, out, config: AttentionConfig):
     """Complete attention with input projection (Q, K, V from hidden states)."""
-    hidden_states = inputs[0]
-    q_weight = inputs[1]
-    k_weight = inputs[2]
-    v_weight = inputs[3]
-    out_weight = inputs[4]  # Output projection weight
-    out = outputs[0]
-    
     batch_size = hidden_states.shape[0]
     seq_len = hidden_states.shape[1]
     hidden_size = hidden_states.shape[2]
-    
+
     view_shape = (batch_size, config.num_heads, seq_len, config.head_dim)
     bs_loop = (batch_size + view_shape[0] - 1) // view_shape[0]
     # Configure tiling
     cube_tiling = 64
     pypto.set_cube_tile_shapes([cube_tiling, cube_tiling], [cube_tiling, cube_tiling], [cube_tiling, cube_tiling])
-    
+
     def inside_attention_with_projection():
         for bs_idx in pypto.loop(bs_loop, name="LOOP_L0", idx_name="bs_idx", unroll_List={1}):
             def bs_loop_func(bs_idx):
                 q_flat = pypto.matmul(hidden_states, q_weight, out_dtype=config.dtype)
                 k_flat = pypto.matmul(hidden_states, k_weight, out_dtype=config.dtype)
                 v_flat = pypto.matmul(hidden_states, v_weight, out_dtype=config.dtype)
-                
+
                 # Reshape to multi-head format
                 q = pypto.reshape(q_flat, [batch_size, seq_len, config.num_heads, config.head_dim])
                 k = pypto.reshape(k_flat, [batch_size, seq_len, config.num_heads, config.head_dim])
@@ -172,13 +160,13 @@ def attention_with_projection(inputs, outputs, config: AttentionConfig):
                 q = pypto.transpose(q, 1, 2)
                 k = pypto.transpose(k, 1, 2)
                 v = pypto.transpose(v, 1, 2)
-                
+
                 offsets = [bs_idx * view_shape[0], 0, 0, 0]
                 offsets_out = [bs_idx * view_shape[0], 0, 0]
                 q_view = pypto.view(q, view_shape, offsets)
                 k_view = pypto.view(k, view_shape, offsets)
                 v_view = pypto.view(v, view_shape, offsets)
-                
+
                 # Step 2: Scaled dot-product attention
                 scale = config.scale if config.scale is not None else (1.0 / (config.head_dim ** 0.5))
                 k_t = pypto.transpose(k_view, 2, 3)
@@ -188,7 +176,7 @@ def attention_with_projection(inputs, outputs, config: AttentionConfig):
                 attn_output = pypto.matmul(attn_weights, v_view, out_dtype=config.dtype)
                 # Step 3: Transpose back and reshape
                 attn_output = pypto.transpose(attn_output, 1, 2)
-                attn_output_flat = pypto.reshape(attn_output, 
+                attn_output_flat = pypto.reshape(attn_output,
                                                     [view_shape[0], seq_len, config.num_heads * config.head_dim])
                 # Step 4: Output projection
                 res = pypto.matmul(attn_output_flat, out_weight, out_dtype=config.dtype)
@@ -202,23 +190,23 @@ def test_attention_dynamic():
     print("=" * 60)
     print("Test: Scaled Dot-Product Attention (Dynamic)")
     print("=" * 60)
-    
+
     device_id = torch.npu.current_device()
-    
+
     num_heads, head_dim = 8, 64
-    
+
     # Test with different batch sizes and sequence lengths
     test_case = (8, 64, 64)
     batch_size, seq_len_q, seq_len_kv = test_case
-    q_torch = torch.randn(batch_size, num_heads, seq_len_q, head_dim, 
+    q_torch = torch.randn(batch_size, num_heads, seq_len_q, head_dim,
                             dtype=torch.bfloat16, device=f'npu:{device_id}')
-    k_torch = torch.randn(batch_size, num_heads, seq_len_kv, head_dim, 
+    k_torch = torch.randn(batch_size, num_heads, seq_len_kv, head_dim,
                             dtype=torch.bfloat16, device=f'npu:{device_id}')
-    v_torch = torch.randn(batch_size, num_heads, seq_len_kv, head_dim, 
+    v_torch = torch.randn(batch_size, num_heads, seq_len_kv, head_dim,
                             dtype=torch.bfloat16, device=f'npu:{device_id}')
-    out_torch = torch.zeros(batch_size, num_heads, seq_len_q, head_dim, 
+    out_torch = torch.zeros(batch_size, num_heads, seq_len_q, head_dim,
                             dtype=torch.bfloat16, device=f'npu:{device_id}')
-    config = AttentionConfig(num_heads=num_heads, head_dim=head_dim, 
+    config = AttentionConfig(num_heads=num_heads, head_dim=head_dim,
                             dtype=pypto.DT_BF16, use_dynamic_shape=True)
     params = q_torch.shape
     inputs = {
@@ -232,17 +220,17 @@ def test_attention_dynamic():
     pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
     pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
     # Execute
-    scaled_dot_product_attention_dynamic(pto_inputs, pto_outputs, params, config)
+    scaled_dot_product_attention_dynamic(*pto_inputs, *pto_outputs, params, config)
     pypto.runtime._device_synchronize()
-    
+
     # Verify
     scale = 1.0 / (head_dim ** 0.5)
     expected = scaled_dot_product_attention_golden(q_torch, k_torch, v_torch, scale)
     max_diff = (out_torch - expected).abs().max().item()
-    
+
     print(f"Batch={batch_size}, SeqQ={seq_len_q}, SeqKV={seq_len_kv}, Max diff: {max_diff:.6f}")
     assert max_diff < 3e-3, f"Result mismatch for batch={batch_size}!"
-    
+
     print("✓ Attention (dynamic) passed for the test case")
     print()
 
@@ -252,35 +240,35 @@ def test_attention_with_projection():
     print("=" * 60)
     print("Test: Attention with Projections")
     print("=" * 60)
-    
+
     device_id = torch.npu.current_device()
-    
+
     batch_size, seq_len, hidden_size = 2, 32, 512
     num_heads, head_dim = 8, 64
-    
+
     # Create tensors
-    hidden_states = torch.randn(batch_size, seq_len, hidden_size, 
+    hidden_states = torch.randn(batch_size, seq_len, hidden_size,
                                dtype=torch.float32, device=f'npu:{device_id}')
-    q_weight = torch.randn(1, hidden_size, num_heads * head_dim, 
+    q_weight = torch.randn(1, hidden_size, num_heads * head_dim,
                           dtype=torch.float32, device=f'npu:{device_id}')
-    k_weight = torch.randn(1, hidden_size, num_heads * head_dim, 
+    k_weight = torch.randn(1, hidden_size, num_heads * head_dim,
                           dtype=torch.float32, device=f'npu:{device_id}')
-    v_weight = torch.randn(1, hidden_size, num_heads * head_dim, 
+    v_weight = torch.randn(1, hidden_size, num_heads * head_dim,
                           dtype=torch.float32, device=f'npu:{device_id}')
-    out_weight = torch.randn(1, num_heads * head_dim, hidden_size, 
+    out_weight = torch.randn(1, num_heads * head_dim, hidden_size,
                             dtype=torch.float32, device=f'npu:{device_id}')
-    out_torch = torch.zeros(batch_size, seq_len, hidden_size, 
+    out_torch = torch.zeros(batch_size, seq_len, hidden_size,
                            dtype=torch.float32, device=f'npu:{device_id}')
-    
+
     config = AttentionConfig(num_heads=num_heads, head_dim=head_dim, dtype=pypto.DT_FP32)
     inputs = [hidden_states, q_weight, k_weight, v_weight, out_weight]
     outputs = [out_torch]
     pto_inputs = [pypto.from_torch(tensor) for tensor in inputs]
     pto_outputs = [pypto.from_torch(tensor) for tensor in outputs]
     # Execute
-    attention_with_projection(pto_inputs, pto_outputs, config)
+    attention_with_projection(*pto_inputs, *pto_outputs, config)
     pypto.runtime._device_synchronize()
-    
+
     # Verify (simplified - just check output shape and range)
     print(f"Hidden states shape: {hidden_states.shape}")
     print(f"Output shape: {out_torch.shape}")
@@ -291,7 +279,7 @@ def test_attention_with_projection():
 
 def main():
     """Run attention examples.
-    
+
     Usage:
         python attention.py          # Run all examples
         python attention.py 1         # Run example 1 only
@@ -318,9 +306,9 @@ Examples:
         action='store_true',
         help='List all available examples and exit'
     )
-    
+
     args = parser.parse_args()
-    
+
     # Define available examples
     examples = {
         1: {
@@ -336,7 +324,7 @@ Examples:
             'requires_npu': True
         }
     }
-    
+
     # List examples if requested
     if args.list:
         print("\n" + "=" * 60)
@@ -347,7 +335,7 @@ Examples:
             print(f"  {ex_id}. {ex_info['name']}{npu_req}")
             print(f"     {ex_info['description']}\n")
         return
-    
+
     # Validate example ID if provided
     if args.example_id is not None:
         if args.example_id not in examples:
@@ -355,46 +343,46 @@ Examples:
             print(f"Valid example IDs are: {', '.join(map(str, sorted(examples.keys())))}")
             print("\nUse --list to see all available examples.")
             sys.exit(1)
-    
+
     print("\n" + "=" * 60)
     print("PyPTO Scaled Dot-Product Attention Examples")
     print("=" * 60 + "\n")
-    
+
     # Get and validate device ID (needed for NPU examples)
     device_id = None
     examples_to_run = []
-    
+
     if args.example_id is not None:
         # Run single example
         examples_to_run = [(args.example_id, examples[args.example_id])]
     else:
         # Run all examples
         examples_to_run = list(examples.items())
-    
+
     # Check if any example requires NPU
     requires_npu = any(ex_info['requires_npu'] for _, ex_info in examples_to_run)
-    
+
     if requires_npu:
         device_id = get_device_id()
         if device_id is None:
             return
         # Set the device once for all examples
         torch.npu.set_device(device_id)
-    
+
     try:
         for ex_id, ex_info in examples_to_run:
             if ex_info['requires_npu'] and device_id is None:
                 print(f"Skipping example {ex_id} ({ex_info['name']}): NPU device not configured")
                 continue
-            
+
             print(f"Running Example {ex_id}: {ex_info['name']}")
             ex_info['function']()
-        
+
         if len(examples_to_run) > 1:
             print("=" * 60)
             print("All attention tests passed!")
             print("=" * 60)
-        
+
     except Exception as e:
         print(f"\nError: {e}")
         raise

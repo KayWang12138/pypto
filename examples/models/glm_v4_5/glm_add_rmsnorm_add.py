@@ -59,17 +59,10 @@ def add_rms_norm_golden(hidden_states, residual, gamma, bias_input, eps):
     host_options={"only_codegen": True},
     codegen_options={"support_dynamic_unaligned": True}
 )
-def add_rms_norm_kernel(in_tensor, out_tensor, eps):
+def add_rms_norm_kernel(x, residual_input, x_gamma, x_bias,
+                        hidden_states_out, residual_out, eps):
     # 泳道图使能  pypto.set_option('profile_enable', True)
     # 从入参拿到输入和输出tensor
-    x = in_tensor[0]
-    residual_input = in_tensor[1]
-    x_gamma = in_tensor[2]
-    x_bias = in_tensor[3]
-
-    hidden_states_out = out_tensor[0]
-    residual_out = out_tensor[1]
-
     calc_dtype = pypto.DT_FP32
     input_dtype = x.dtype
     x_mean_coff = 1.0 / x.shape[-1]
@@ -164,7 +157,7 @@ def test_rms_norm_main():
         pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
         g = torch.npu.NPUGraph()
         with torch.npu.graph(g):
-            add_rms_norm_kernel(pto_inputs, pto_outputs, eps)
+            add_rms_norm_kernel(*pto_inputs, *pto_outputs, eps)
         g.replay()
         pypto.runtime._device_synchronize()
 
@@ -200,7 +193,7 @@ def add_rms_norm(
     }
     pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
     pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
-    add_rms_norm_kernel(pto_inputs, pto_outputs, eps)
+    add_rms_norm_kernel(*pto_inputs, *pto_outputs, eps)
     pypto.runtime._device_synchronize()
 
 

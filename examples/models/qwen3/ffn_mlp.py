@@ -46,12 +46,12 @@ class ExpertInferConfig:
     vec_tile_shape: tuple
     cube_tile_shape: tuple
     ffn_out: pypto.tensor
-    
+
 
 def get_device_id():
     """
     Get and validate TILE_FWK_DEVICE_ID from environment variable.
-    
+
     Returns:
         int: The device ID if valid, None otherwise.
     """
@@ -60,7 +60,7 @@ def get_device_id():
         print("Please set it before running this example:")
         print("  export TILE_FWK_DEVICE_ID=0")
         return None
-    
+
     try:
         device_id = int(os.environ['TILE_FWK_DEVICE_ID'])
         return device_id
@@ -78,15 +78,15 @@ LOOP_BASE = 16  # Number of tokens processed per expert per iteration
 def get_token_acc_table(expert_tokens: torch.Tensor) -> torch.Tensor:
     """
     Compute token accumulation table (cumulative sum).
-    
+
     This helper function computes the cumulative sum of token counts per expert,
     which is used to determine token offsets for each expert.
-    
+
     Parameters
     ----------
     expert_tokens : torch.Tensor
         Tensor containing token counts per expert
-        
+
     Returns
     -------
     torch.Tensor
@@ -103,7 +103,7 @@ def ffn_golden_torch(topk: int, expand_x: torch.Tensor, expert_tokens: torch.Ten
                      weight_gate_upper: torch.Tensor, weight_down_proj: torch.Tensor) -> torch.Tensor:
     """
     PyTorch reference implementation of MoE FFN.
-    
+
     Parameters
     ----------
     topk : int
@@ -116,7 +116,7 @@ def ffn_golden_torch(topk: int, expand_x: torch.Tensor, expert_tokens: torch.Ten
         Gate and up projection weights [num_experts, intermediate_size * 2, hidden_size]
     weight_down_proj : torch.Tensor
         Down projection weights [num_experts, hidden_size, intermediate_size]
-        
+
     Returns
     -------
     torch.Tensor
@@ -126,52 +126,52 @@ def ffn_golden_torch(topk: int, expand_x: torch.Tensor, expert_tokens: torch.Ten
     hidden_size = expand_x.shape[1]
     intermediate_size = weight_down_proj.shape[2]
     out = torch.zeros_like(expand_x)
-    
+
     start_idx = 0
     for i in range(expert_tokens.shape[0]):
         token_count = expert_tokens[i].item()
         if token_count <= 0:
             continue  # Skip experts with no tokens
-        
+
         end_idx = start_idx + token_count
-        
+
         # Safety check: ensure we don't exceed tensor bounds
         if end_idx > expand_x.shape[0]:
             end_idx = expand_x.shape[0]
-        
+
         # Select tokens for current expert
         selected_x = expand_x[start_idx:end_idx, :]
-        
+
         # Get current expert's weights
         current_gate_weight = weight_gate_upper[i]  # [intermediate_size * 2, hidden_size]
         current_down_weight = weight_down_proj[i]   # [hidden_size, intermediate_size]
-        
+
         # Gate projection: [token_count, hidden_size] @ [hidden_size, intermediate_size * 2]
         gate_output = torch.matmul(selected_x.float(), current_gate_weight.float().T)
-        
+
         # Split gate output into left (gate) and right (up) parts
         split_dim = gate_output.shape[-1] // 2
         left, right = torch.split(gate_output, split_dim, dim=-1)
-        
+
         # SwiGLU activation: Swish(gate) * up
         # Swish(x) = x * sigmoid(x) = x / (1 + exp(-x))
         swiglu = left * torch.sigmoid(left)
-        
+
         # Multiply Swish(gate) with up projection
         swiglu_right = swiglu * right
-        
+
         # Down projection: [token_count, intermediate_size] @ [intermediate_size, hidden_size]
         expert_output = torch.matmul(
             swiglu_right.to(current_down_weight.dtype).float(),
             current_down_weight.float().T
         )
-        
+
         # Store results
         out[start_idx:end_idx, :] = expert_output.to(expand_x.dtype)
-        
+
         # Update start index for next expert
         start_idx = end_idx
-    
+
     return out
 
 
@@ -180,7 +180,7 @@ def gen_input(batch_size: int, seq_len: int, topk: int, per_expert_num: int,
               device_id: int) -> tuple:
     """
     Generate test input data for MoE FFN.
-    
+
     Parameters
     ----------
     batch_size : int
@@ -199,7 +199,7 @@ def gen_input(batch_size: int, seq_len: int, topk: int, per_expert_num: int,
         Data type for tensors
     device_id : int
         NPU device ID
-        
+
     Returns
     -------
     tuple
@@ -210,28 +210,28 @@ def gen_input(batch_size: int, seq_len: int, topk: int, per_expert_num: int,
         dtype=dtype,
         device=f'npu:{device_id}'
     ) * 0.01 * 2 - 0.01
-    
+
     expert_tokens_tensor = torch.randint(
         0, 2,
         (per_expert_num,),
         dtype=torch.int32,
         device=f'npu:{device_id}'
     )
-    
+
     token_acc_table_tensor = get_token_acc_table(expert_tokens_tensor).to(torch.int32)
-    
+
     weight_gate_upper_tensor = torch.randn(
         (per_expert_num, intermediate_size * 2, hidden_size),
         dtype=dtype,
         device=f'npu:{device_id}'
     ) * 0.01 * 2 - 0.01
-    
+
     weight_down_proj_tensor = torch.randn(
         (per_expert_num, hidden_size, intermediate_size),
         dtype=dtype,
         device=f'npu:{device_id}'
     ) * 0.01 * 2 - 0.01
-    
+
     out_tensor = torch.zeros_like(expand_x_tensor, device=f'npu:{device_id}')
     input_datas = (expand_x_tensor, expert_tokens_tensor, token_acc_table_tensor,
             weight_gate_upper_tensor, weight_down_proj_tensor, out_tensor)
@@ -241,12 +241,12 @@ def gen_input(batch_size: int, seq_len: int, topk: int, per_expert_num: int,
 def expert_infer_base(config: ExpertInferConfig):
     """
     Base expert inference function for processing tokens assigned to a specific expert.
-    
+
     This function processes a batch of tokens for one expert, applying:
     1. Gate and up projection
     2. SwiGLU activation
     3. Down projection
-    
+
     Parameters
     ----------
     exp_idx : pypto.symbolic_scalar
@@ -283,24 +283,24 @@ def expert_infer_base(config: ExpertInferConfig):
     vec_tile_shape = config.vec_tile_shape
     cube_tile_shape = config.cube_tile_shape
     ffn_out = config.ffn_out
-    
+
     hidden_size = expand_x.shape[1]
     intermediate_size = weight_down_proj.shape[1]
     x_dtype = expand_x.dtype
-    
+
     # Compute offset for current expert's tokens
     pypto.set_vec_tile_shapes(32)
     token_num = expert_tokens[exp_idx]
     expand_x_offset_start = token_acc_table[exp_idx]
     expand_x_offset = [expand_x_offset_start + token_loop_idx * loop_base, 0]
-    
+
     # Compute weight offsets for current expert
     weight_13_offset = [exp_idx * (intermediate_size * 2), 0]
     weight_2_offset = [exp_idx * hidden_size, 0]
-    
+
     # Get current valid token size (may be less than loop_base for last iteration)
     cur_valid_size = (token_num - token_loop_idx * loop_base).min(loop_base)
-    
+
     # Create view of input tokens for current expert and iteration
     pypto.set_vec_tile_shapes(vec_tile_shape[0], vec_tile_shape[1])
     x = pypto.view(
@@ -309,21 +309,21 @@ def expert_infer_base(config: ExpertInferConfig):
         expand_x_offset,
         valid_shape=[cur_valid_size, hidden_size]
     )
-    
+
     # Get current expert's gate and up projection weights
     ffn_weight_2d = pypto.view(
         weight_gate_upper,
         [intermediate_size * 2, hidden_size],
         weight_13_offset
     )
-    
+
     # Get current expert's down projection weights
     down_proj_2d = pypto.view(
         weight_down_proj,
         [hidden_size, intermediate_size],
         weight_2_offset
     )
-    
+
     # Step 1: Gate and up projection
     pypto.set_cube_tile_shapes(
         [cube_tile_shape[0], cube_tile_shape[0]],
@@ -332,22 +332,22 @@ def expert_infer_base(config: ExpertInferConfig):
     )
     pypto.set_matrix_size({loop_base, ffn_weight_2d.shape[1], ffn_weight_2d.shape[0]})
     gate = pypto.matmul(x, ffn_weight_2d, out_dtype=pypto.DT_FP32, b_trans=True)
-    
+
     # Split gate output into left (gate) and right (up) parts
     pypto.set_vec_tile_shapes(vec_tile_shape[0], vec_tile_shape[1])
     gate_left = pypto.view(gate, [loop_base, intermediate_size], [0, 0])
     gate_right = pypto.view(gate, [loop_base, intermediate_size], [0, intermediate_size])
-    
+
     # Step 2: SwiGLU activation
     # Swish(gate) = gate / (1 + exp(-gate))
     swiglu_a = pypto.mul(gate_left, -1.0)
     swiglu_b = pypto.exp(swiglu_a)
     swiglu_c = pypto.add(swiglu_b, 1.0)
     swiglu_out = pypto.div(gate_left, swiglu_c)
-    
+
     # Multiply Swish(gate) with up projection
     swiglu = pypto.mul(swiglu_out, gate_right)
-    
+
     # Step 3: Down projection
     swish_fp16 = pypto.cast(swiglu, x_dtype)
     pypto.set_cube_tile_shapes(
@@ -357,7 +357,7 @@ def expert_infer_base(config: ExpertInferConfig):
     )
     pypto.set_matrix_size({loop_base, down_proj_2d.shape[1], down_proj_2d.shape[0]})
     out = pypto.matmul(swish_fp16, down_proj_2d, out_dtype=x_dtype, b_trans=True)
-    
+
     # Assemble result back to output tensor
     pypto.assemble(out, expand_x_offset, ffn_out)
 
@@ -366,13 +366,13 @@ def expert_infer_base(config: ExpertInferConfig):
     host_options={"only_codegen": True},
     codegen_options={"support_dynamic_unaligned": True}
 )
-def moe_ffn(inputs: list, outputs: list):
+def moe_ffn(expand_x, expert_tokens, token_acc_table, weight_gate_upper, weight_down_proj, ffn_out):
     """
     PyPTO implementation of MoE FFN with dynamic token support.
-    
+
     This function processes tokens through multiple experts, where each expert
     processes a subset of tokens based on routing decisions.
-    
+
     Parameters
     ----------
     inputs : list
@@ -380,38 +380,30 @@ def moe_ffn(inputs: list, outputs: list):
     outputs : list
         List containing [ffn_out]
     """
-    # Extract input tensors
-    expand_x = inputs[0]
-    expert_tokens = inputs[1]
-    token_acc_table = inputs[2]
-    weight_gate_upper = inputs[3]
-    weight_down_proj = inputs[4]
-    ffn_out = outputs[0]
-    
     # Define the computation graph
     def inside_main_function():
         """Inner function to encapsulate kernel logic for automatic variable cleanup."""
         # Get number of experts
         expert_num = expert_tokens.shape[0]
-        
+
         # Reshape weights to 2D for efficient processing
         w1_2d_shape = (weight_gate_upper.shape[0] * weight_gate_upper.shape[1], weight_gate_upper.shape[2])
         w2_2d_shape = (weight_down_proj.shape[0] * weight_down_proj.shape[1], weight_down_proj.shape[2])
-        
+
         for _ in pypto.loop(0, 1, 1, name="LOOP_RESHAPE", idx_name="reshape_inplace_1"):
             w1_2d = pypto.reshape(weight_gate_upper, w1_2d_shape, inplace=True)
             w2_2d = pypto.reshape(weight_down_proj, w2_2d_shape, inplace=True)
-        
+
         # Loop over experts
         for exp_idx in pypto.loop(0, expert_num, 1, name="LOOP_FFN_L0", idx_name="exp_idx"):
             def loop_expert(exp_idx):
                 """Process one expert."""
                 # Get token count for current expert
                 token_num = expert_tokens[exp_idx]
-                
+
                 # Calculate number of iterations needed (process LOOP_BASE tokens per iteration)
                 exp_loop_times = (token_num + LOOP_BASE - 1) / LOOP_BASE
-                
+
                 # Loop over token batches for current expert
                 for token_loop_idx in pypto.loop(
                     0, exp_loop_times, 1, name="LOOP_FFN_L1", idx_name="token_loop_idx"):
@@ -433,9 +425,9 @@ def moe_ffn(inputs: list, outputs: list):
                             )
                         )
                     loop_token(exp_idx, token_loop_idx)
-            
+
             loop_expert(exp_idx)
-    
+
     inside_main_function()
 
 
@@ -446,7 +438,7 @@ def test_qwen3_ffn():
     print("=" * 60)
     print("Test: MoE FFN (Qwen3)")
     print("=" * 60)
-    
+
     # Configuration
     dtype = torch.bfloat16
     batch_size = 2
@@ -455,9 +447,9 @@ def test_qwen3_ffn():
     hidden_size = 2048
     per_expert_num = 16
     topk = 8
-    
+
     device_id = torch.npu.current_device()
-    
+
     # Generate test inputs
     inputs_list = gen_input(
         batch_size, seq_len, topk, per_expert_num,
@@ -479,9 +471,9 @@ def test_qwen3_ffn():
     pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
 
     # Execute PyPTO kernel
-    moe_ffn(pto_inputs, pto_outputs)
+    moe_ffn(*pto_inputs, *pto_outputs)
     pypto.runtime._device_synchronize()
-    
+
     # Compute reference using PyTorch
     golden = ffn_golden_torch(
         topk,
@@ -490,7 +482,7 @@ def test_qwen3_ffn():
         inputs_list[3],
         inputs_list[4]
     )
-    
+
     # Verify results
     assert_allclose(
         np.array(inputs_list[5].cpu().flatten().tolist()),
@@ -498,7 +490,7 @@ def test_qwen3_ffn():
         rtol=0.005,
         atol=0.005
     )
-    
+
     print(f"Input shape: {inputs_list[0].shape}")
     print(f"Output shape: {inputs_list[5].shape}")
     print(f"Number of experts: {per_expert_num}")
@@ -507,7 +499,7 @@ def test_qwen3_ffn():
 
 def main():
     """Run MoE FFN example.
-    
+
     Usage:
         python ffn_mlp.py          # Run example
         python ffn_mlp.py --list   # List available examples
@@ -532,9 +524,9 @@ Examples:
         action='store_true',
         help='List all available examples and exit'
     )
-    
+
     args = parser.parse_args()
-    
+
     # Define available examples
     examples = {
         1: {
@@ -544,7 +536,7 @@ Examples:
             'requires_npu': True
         }
     }
-    
+
     # List examples if requested
     if args.list:
         print("\n" + "=" * 60)
@@ -555,7 +547,7 @@ Examples:
             print(f"  {ex_id}. {ex_info['name']}{npu_req}")
             print(f"     {ex_info['description']}\n")
         return
-    
+
     # Validate example ID if provided
     if args.example_id is not None:
         if args.example_id not in examples:
@@ -563,46 +555,46 @@ Examples:
             print(f"Valid example IDs are: {', '.join(map(str, sorted(examples.keys())))}")
             print("\nUse --list to see all available examples.")
             sys.exit(1)
-    
+
     print("\n" + "=" * 60)
     print("PyPTO MoE FFN Example (Qwen3)")
     print("=" * 60 + "\n")
-    
+
     # Get and validate device ID (needed for NPU examples)
     device_id = None
     examples_to_run = []
-    
+
     if args.example_id is not None:
         # Run single example
         examples_to_run = [(args.example_id, examples[args.example_id])]
     else:
         # Run all examples
         examples_to_run = list(examples.items())
-    
+
     # Check if any example requires NPU
     requires_npu = any(ex_info['requires_npu'] for _, ex_info in examples_to_run)
-    
+
     if requires_npu:
         device_id = get_device_id()
         if device_id is None:
             return
         # Set the device once for all examples
         torch.npu.set_device(device_id)
-    
+
     try:
         for ex_id, ex_info in examples_to_run:
             if ex_info['requires_npu'] and device_id is None:
                 print(f"Skipping example {ex_id} ({ex_info['name']}): NPU device not configured")
                 continue
-            
+
             print(f"Running Example {ex_id}: {ex_info['name']}")
             ex_info['function']()
-        
+
         if len(examples_to_run) > 1:
             print("\n" + "=" * 60)
             print("All tests completed successfully!")
             print("=" * 60)
-        
+
     except Exception as e:
         print(f"\nError: {e}")
         raise

@@ -901,7 +901,7 @@ def do_test(case_name, params, mla_epsilon_cq, mla_epsilon_ckv, mla_cache_mode, 
         fun = mla_lp_quant.mla_indexer_prolog_quant_debug
     else:
         fun = mla_lp_quant.mla_indexer_prolog_quant
-    fun(pto_inputs, pto_outputs, mla_epsilon_cq, mla_epsilon_ckv, mla_cache_mode,
+    fun(*pto_inputs, *pto_outputs, mla_epsilon_cq, mla_epsilon_ckv, mla_cache_mode,
         mla_tile_config, ip_attrs, ip_configs)
     pypto.runtime._device_synchronize()
     check(case_name, outputs, goldens)

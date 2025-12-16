@@ -164,7 +164,8 @@ loop_base = 8
 
 
 @pypto.jit
-def share_expert_moe_main(inputs, outputs):
+def share_expert_moe_main(hidden_states, w13, w13_scale,
+                          w2, w2_scale, ffn_res):
     pypto.set_host_options(only_codegen=True)
     pypto.set_codegen_options(support_dynamic_unaligned=True)
     pypto.set_codegen_options(codegen_expression_fusion=True)
@@ -173,14 +174,6 @@ def share_expert_moe_main(inputs, outputs):
     pypto.set_runtime_options(cfgcache_root_task_num=1000)
     pypto.set_runtime_options(cfgcache_leaf_task_num=10000)
     pypto.set_pass_options(l1_reuse=2)
-
-    # hidden_states, w13, w13_scale, w2, w2_scale, ffn_res
-    hidden_states = inputs[0]
-    w13 = inputs[1]
-    w13_scale = inputs[2]
-    w2 = inputs[3]
-    w2_scale = inputs[4]
-    ffn_res = outputs[0]
 
     token_nums = hidden_states.shape[0]
     token_loop_times = (token_nums + loop_base - 1) // loop_base
@@ -223,7 +216,7 @@ def ffn_shared_expert_quant(hidden_states: torch.Tensor,
     if not isinstance(hidden_states, FakeTensor):
         pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
         pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
-        share_expert_moe_main(pto_inputs, pto_outputs)
+        share_expert_moe_main(*pto_inputs, *pto_outputs)
         pypto.runtime._device_synchronize()
     return ffn_res
 
@@ -257,7 +250,7 @@ def test_ffn_share():
         }
         pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
         pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
-        share_expert_moe_main(pto_inputs, pto_outputs)
+        share_expert_moe_main(*pto_inputs, *pto_outputs)
         pypto.runtime._device_synchronize()
 
         # golden

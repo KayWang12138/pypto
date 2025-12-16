@@ -33,7 +33,7 @@ from numpy.testing import assert_allclose
 def get_device_id():
     """
     Get and validate TILE_FWK_DEVICE_ID from environment variable.
-    
+
     Returns:
         int: The device ID if valid, None otherwise.
     """
@@ -42,7 +42,7 @@ def get_device_id():
         print("Please set it before running this example:")
         print("  export TILE_FWK_DEVICE_ID=0")
         return None
-    
+
     try:
         device_id = int(os.environ['TILE_FWK_DEVICE_ID'])
         return device_id
@@ -55,13 +55,13 @@ def get_device_id():
     host_options={"only_codegen": True},
     codegen_options={"support_dynamic_unaligned": True}
 )
-def get_token_acc_table(inputs: list, outputs: list):
+def get_token_acc_table(expert_tokens, expert_offset):
     """
     PyPTO implementation of token accumulation table computation.
-    
+
     This function computes the cumulative sum of token counts per expert,
     which is used to determine token offsets for each expert in MoE models.
-    
+
     Parameters
     ----------
     inputs : list
@@ -69,15 +69,12 @@ def get_token_acc_table(inputs: list, outputs: list):
     outputs : list
         List containing [expert_offset]
     """
-    expert_tokens = inputs[0]
-    expert_offset = outputs[0]
-    
     # Define the computation graph
     def inside_main_function():
         """Inner function to encapsulate kernel logic for automatic variable cleanup."""
         expert_num = expert_tokens.shape[0]
         pypto.set_vec_tile_shapes(32)
-        
+
         # Initialize first element to 0
         for _ in pypto.loop(0, 1, 1, name="LOOP_init", idx_name="idx"):
             def loop_for_init_offset():
@@ -86,14 +83,14 @@ def get_token_acc_table(inputs: list, outputs: list):
                 tmp = pypto.full([32], 0, pypto.DT_INT32)
                 pypto.assemble(tmp, [0], expert_offset)
             loop_for_init_offset()
-        
+
         # Compute cumulative sum for remaining experts
-        for exp_idx in pypto.loop(1, expert_num, 1, 
+        for exp_idx in pypto.loop(1, expert_num, 1,
                                     name="LOOP_expert", idx_name="exp_idx", submit_before_loop=True):
             def loop_for_offset(exp_idx):
                 """Compute offset for expert at index exp_idx."""
                 pypto.set_vec_tile_shapes(32)
-                
+
                 # Create view of tokens up to current expert
                 view_shape = [pypto.min(exp_idx, expert_num)]
                 tmp_view = pypto.view(
@@ -102,33 +99,33 @@ def get_token_acc_table(inputs: list, outputs: list):
                     [0],
                     valid_shape=view_shape
                 )
-                
+
                 # Cast to FP32 for sum computation
                 tmp_cast = pypto.cast(tmp_view, pypto.DT_FP32)
-                
+
                 # Compute sum: sum of tokens from expert 0 to exp_idx-1
                 tmp_acc = pypto.sum(tmp_cast, dim=-1, keepdim=True)
-                
+
                 # Cast back to INT32
                 tmp_int = pypto.cast(tmp_acc, pypto.DT_INT32)
-                
+
                 # Store result at position exp_idx
                 pypto.assemble(tmp_int, [exp_idx], expert_offset)
-            
+
             loop_for_offset(exp_idx)
-    
+
     inside_main_function()
 
 
 def get_token_acc_table_golden(expert_tokens: torch.Tensor) -> torch.Tensor:
     """
     PyTorch reference implementation of token accumulation table.
-    
+
     Parameters
     ----------
     expert_tokens : torch.Tensor
         Tensor containing token counts per expert
-        
+
     Returns
     -------
     torch.Tensor
@@ -148,14 +145,14 @@ def test_token_acc_table():
     print("=" * 60)
     print("Test: Token Accumulation Table")
     print("=" * 60)
-    
+
     # Configuration
     batch_size = 16
     per_expert_num = 8
-    
+
     # Get current device ID (set in main)
     device_id = torch.npu.current_device()
-    
+
     # Prepare test data
     np.random.seed(0)
     expert_tokens = torch.randint(
@@ -165,8 +162,8 @@ def test_token_acc_table():
         device=f'npu:{device_id}'
     )
     expert_offset = torch.zeros_like(expert_tokens, device=f'npu:{device_id}')
-    
-    
+
+
     # Initialize PyPTO inputs and outputs, mark expert dimension as dynamic
     inputs = {
         expert_tokens: [0]
@@ -177,12 +174,12 @@ def test_token_acc_table():
     pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
     pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
     # Execute PyPTO kernel
-    get_token_acc_table(pto_inputs, pto_outputs)
+    get_token_acc_table(*pto_inputs, *pto_outputs)
     pypto.runtime._device_synchronize()
-    
+
     # Compute reference using PyTorch
     token_acc_table_tensor = get_token_acc_table_golden(expert_tokens)
-    
+
     # Verify results
     assert_allclose(
         np.array(expert_offset.cpu().flatten().tolist()),
@@ -190,7 +187,7 @@ def test_token_acc_table():
         rtol=0.005,
         atol=0.005
     )
-    
+
     print(f"Expert tokens: {expert_tokens.cpu().tolist()}")
     print(f"Token accumulation table: {expert_offset.cpu().tolist()}")
     print("✓ Token accumulation table test passed")
@@ -198,7 +195,7 @@ def test_token_acc_table():
 
 def main():
     """Run token accumulation table example.
-    
+
     Usage:
         python token_table.py          # Run example
         python token_table.py --list   # List available examples
@@ -223,9 +220,9 @@ Examples:
         action='store_true',
         help='List all available examples and exit'
     )
-    
+
     args = parser.parse_args()
-    
+
     # Define available examples
     examples = {
         1: {
@@ -235,7 +232,7 @@ Examples:
             'requires_npu': True
         }
     }
-    
+
     # List examples if requested
     if args.list:
         print("\n" + "=" * 60)
@@ -246,7 +243,7 @@ Examples:
             print(f"  {ex_id}. {ex_info['name']}{npu_req}")
             print(f"     {ex_info['description']}\n")
         return
-    
+
     # Validate example ID if provided
     if args.example_id is not None:
         if args.example_id not in examples:
@@ -254,46 +251,46 @@ Examples:
             print(f"Valid example IDs are: {', '.join(map(str, sorted(examples.keys())))}")
             print("\nUse --list to see all available examples.")
             sys.exit(1)
-    
+
     print("\n" + "=" * 60)
     print("PyPTO Token Accumulation Table Example (Qwen3 MoE)")
     print("=" * 60 + "\n")
-    
+
     # Get and validate device ID (needed for NPU examples)
     device_id = None
     examples_to_run = []
-    
+
     if args.example_id is not None:
         # Run single example
         examples_to_run = [(args.example_id, examples[args.example_id])]
     else:
         # Run all examples
         examples_to_run = list(examples.items())
-    
+
     # Check if any example requires NPU
     requires_npu = any(ex_info['requires_npu'] for _, ex_info in examples_to_run)
-    
+
     if requires_npu:
         device_id = get_device_id()
         if device_id is None:
             return
         # Set the device once for all examples
         torch.npu.set_device(device_id)
-    
+
     try:
         for ex_id, ex_info in examples_to_run:
             if ex_info['requires_npu'] and device_id is None:
                 print(f"Skipping example {ex_id} ({ex_info['name']}): NPU device not configured")
                 continue
-            
+
             print(f"Running Example {ex_id}: {ex_info['name']}")
             ex_info['function']()
-        
+
         if len(examples_to_run) > 1:
             print("\n" + "=" * 60)
             print("All tests completed successfully!")
             print("=" * 60)
-        
+
     except Exception as e:
         print(f"\nError: {e}")
         raise

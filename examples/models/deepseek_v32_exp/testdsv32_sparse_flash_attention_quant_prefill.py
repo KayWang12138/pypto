@@ -281,7 +281,7 @@ def gen_gather_select_attention_golden(dtype, bn1n2s1, is_kn_quant, actual_seq):
 
     q_bsnd = gen_uniform_data(shape_q, -1, 1, dtype)
     kn_bsnd_tmp = gen_uniform_data(shape_kn, -1, 1, dtype)
-    
+
     kn_bsnd_reshape = kn_bsnd_tmp.reshape(block_num * block_size, 4, 128).to(torch.float32)
     kn_scales = kn_bsnd_reshape.abs().amax(dim=-1, keepdim=True).clamp(min=1e-8) / 127.0
     if is_kn_quant == 1:
@@ -310,7 +310,7 @@ def gen_gather_select_attention_golden(dtype, bn1n2s1, is_kn_quant, actual_seq):
     input_params = [b, s_q, n_q, n_kv, max_kv_seq, kv_lora_rank, qk_rope_dim, block_num, block_size, topk,
                     is_kn_quant, scalar]
     input_data_map = [q_nope, q_rope, kn, kr, kn_scales, topk_indcies, block_table, actual_seq]
-    
+
     return input_params, input_data_map, atten_out
 
 
@@ -351,7 +351,7 @@ def get_case_config(case_name: str):
             (1, 128, 1, 512), 1, [2047]
         ),
         "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s1_seq128k": (
-            (8, 128, 1, 1), 0, [131072] * 8  
+            (8, 128, 1, 1), 0, [131072] * 8
         ),
         "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s1_seq128k_int8": (
             (8, 128, 1, 1), 1, [131072] * 8
@@ -369,7 +369,7 @@ def get_case_config(case_name: str):
             (8, 128, 1, 4), 1, [666, 532, 768, 900, 5698, 2358, 324, 2048]
         ),
     }
-    
+
     case_config = test_case_config.get(case_name)
     return case_config
 
@@ -383,7 +383,7 @@ def do_test_QSFA_p(case_name: str):
         logging.error("Can't get func to gen golden, Case(%s)", case_name)
         assert False
     bn1n2s1, is_kn_quant, actual_seq = case_config
-    
+
     print("============bn1n2s1 is: =====================")
     print(bn1n2s1)
     print("============is_kn_quant is: =====================")
@@ -393,7 +393,7 @@ def do_test_QSFA_p(case_name: str):
 
     input_params, input_data, atten_out = gen_gather_select_attention_golden(torch.bfloat16, bn1n2s1,
                                                                                           is_kn_quant, actual_seq)
-   
+
     b, n1, n2, s1 = bn1n2s1
 
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
@@ -407,7 +407,7 @@ def do_test_QSFA_p(case_name: str):
         c2_tile_shape=[128, 128, 128, 128, 128, 128],
         v2_tile_shape=[16, 128]
     )
-    
+
     b, s1, n_q, n_kv, max_kv_seq, kv_lora_rank, qk_rope_dim, block_num, block_size, \
         topk, is_kn_quant, softmax_scale = input_params
     q_nope, q_rope, kn, kr, kn_scales, topk_indcies, block_table, kv_actual_seqs = input_data
@@ -441,7 +441,7 @@ def do_test_QSFA_p(case_name: str):
     pto_outputs = [calc_attention_out_pto]
 
     max_blocknum_perbatch = math.ceil(max_kv_seq / block_size)
-    sparse_flash_attention_quant_p_compute(pto_inputs, pto_outputs, n_q, n_kv, softmax_scale, topk, block_size,
+    sparse_flash_attention_quant_p_compute(*pto_inputs, *pto_outputs, n_q, n_kv, softmax_scale, topk, block_size,
                                            max_blocknum_perbatch, tile_config)
 
     pypto.runtime._device_synchronize()

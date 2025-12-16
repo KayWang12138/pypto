@@ -204,10 +204,12 @@ def rope_3d(x: pypto.tensor, cos: pypto.tensor, sin: pypto.tensor, configs: Inde
     return res
 
 
-def lightning_indexer_prolog_quant_compute(inputs, outputs, attrs, configs):
-    (x_in, q_norm_in, q_norm_scale_in, w_qb_in, w_qb_scale_in, wk_in, w_proj_in, ln_gamma_k_in, ln_beta_k_in,
-     cos_idx_rope_in, sin_idx_rope_in, hadamard_q_in, hadamard_k_in, k_cache, k_cache_scale, k_cache_index_in) = inputs
-    q_int8_out, q_scale_out, k_int8_out, k_scale_out, weights_out = outputs
+def lightning_indexer_prolog_quant_compute(x_in, q_norm_in, q_norm_scale_in, w_qb_in,
+                                           w_qb_scale_in, wk_in, w_proj_in, ln_gamma_k_in,
+                                           ln_beta_k_in, cos_idx_rope_in, sin_idx_rope_in,
+                                           hadamard_q_in, hadamard_k_in, k_cache, k_cache_scale,
+                                           k_cache_index_in, q_int8_out, q_scale_out, k_int8_out,
+                                           k_scale_out, weights_out, attrs, configs):
 
 
     x_dtype = x_in.dtype
@@ -335,7 +337,12 @@ def lightning_indexer_prolog_quant_compute(inputs, outputs, attrs, configs):
 
 
 @pypto.jit
-def lightning_indexer_prolog_quant(input_tensors, output_tensors, attrs, configs):
+def lightning_indexer_prolog_quant(x_in, q_norm_in, q_norm_scale_in, w_qb_in,
+                                   w_qb_scale_in, wk_in, w_proj_in, ln_gamma_k_in,
+                                   ln_beta_k_in, cos_idx_rope_in, sin_idx_rope_in,
+                                   hadamard_q_in, hadamard_k_in, k_cache, k_cache_scale,
+                                   k_cache_index_in, q_int8_out, q_scale_out, k_int8_out,
+                                   k_scale_out, weights_out, attrs, configs):
     pypto.set_pass_options(nbuffer_merge_mode=0)
     pypto.set_pass_options(l1_reuse_map=configs.l1_reuse_param)
     pypto.set_pass_options(copyin_threshold=configs.copy_in_threshold)
@@ -343,4 +350,9 @@ def lightning_indexer_prolog_quant(input_tensors, output_tensors, attrs, configs
 
     pypto.set_runtime_options(machine_sched_mode=1)
 
-    lightning_indexer_prolog_quant_compute(input_tensors, output_tensors, attrs, configs)
+    lightning_indexer_prolog_quant_compute(x_in, q_norm_in, q_norm_scale_in, w_qb_in,
+                                           w_qb_scale_in, wk_in, w_proj_in, ln_gamma_k_in,
+                                           ln_beta_k_in, cos_idx_rope_in, sin_idx_rope_in,
+                                           hadamard_q_in, hadamard_k_in, k_cache, k_cache_scale,
+                                           k_cache_index_in, q_int8_out, q_scale_out, k_int8_out,
+                                           k_scale_out, weights_out, attrs, configs)

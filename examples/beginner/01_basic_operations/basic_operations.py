@@ -32,7 +32,7 @@ import torch_npu
 def get_device_id():
     """
     Get and validate TILE_FWK_DEVICE_ID from environment variable.
-    
+
     Returns:
         int: The device ID if valid, None otherwise.
     """
@@ -41,7 +41,7 @@ def get_device_id():
         print("Please set it before running this example:")
         print("  export TILE_FWK_DEVICE_ID=0")
         return None
-    
+
     try:
         device_id = int(os.environ['TILE_FWK_DEVICE_ID'])
         return device_id
@@ -55,10 +55,10 @@ def example_tensor_creation():
     print("=" * 60)
     print("Example 1: Tensor Creation")
     print("=" * 60)
-    
+
     # Create a tensor with shape [4, 4] and FP16 data type
     tensor = pypto.tensor([4, 4], pypto.DT_FP16, "my_tensor")
-    
+
     print(f"Tensor name: {tensor.name}")
     print(f"Tensor shape: {tensor.shape}")
     print(f"Tensor dtype: {tensor.dtype}")
@@ -72,21 +72,17 @@ def example_element_wise_operations():
     print("=" * 60)
     print("Example 2: Element-wise Operations")
     print("=" * 60)
-    
+
     device_id = torch.npu.current_device()
     shape = (8, 8)
     a_torch = torch.randn(shape, dtype=torch.float16, device=f'npu:{device_id}')
     b_torch = torch.randn(shape, dtype=torch.float16, device=f'npu:{device_id}')
     c_torch = torch.zeros(shape, dtype=torch.float16, device=f'npu:{device_id}')
-    
+
     @pypto.jit
-    def element_wise_ops(inputs, outputs):
-        a = inputs[0]
-        b = inputs[1]
-        result = outputs[0]
-        
+    def element_wise_ops(a, b, result):
         pypto.set_vec_tile_shapes(8, 8)
-        
+
         for _ in pypto.loop(1, name="dummy_loop", idx_name="dummy_idx"):
             add_result = pypto.add(a, b)
             mul_result = pypto.mul(add_result, 2.0)
@@ -97,7 +93,7 @@ def example_element_wise_operations():
     pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
     element_wise_ops(pto_inputs, pto_outputs)
     pypto.runtime._device_synchronize()
-    
+
     expected = (a_torch + b_torch) * 2.0
     max_diff = (c_torch - expected).abs().max().item()
     print(f"Input A shape: {a_torch.shape}")
@@ -114,31 +110,27 @@ def example_matrix_multiplication():
     print("=" * 60)
     print("Example 3: Matrix Multiplication")
     print("=" * 60)
-    
+
     device_id = torch.npu.current_device()
     M, K, N = 64, 128, 64
     A_torch = torch.randn(M, K, dtype=torch.bfloat16, device=f'npu:{device_id}')
     B_torch = torch.randn(K, N, dtype=torch.bfloat16, device=f'npu:{device_id}')
     C_torch = torch.zeros(M, N, dtype=torch.bfloat16, device=f'npu:{device_id}')
-    
+
     @pypto.jit
-    def matrix_multiply(inputs, outputs):
-        A = inputs[0]
-        B = inputs[1]
-        C = outputs[0]
-        
+    def matrix_multiply(A, B, C):
         pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
-        
+
         for _ in pypto.loop(1, name="dummy_loop", idx_name="dummy_idx"):
             C[:] = pypto.matmul(A, B, out_dtype=pypto.DT_BF16)
-    
+
     inputs = [A_torch, B_torch]
     outputs = [C_torch]
     pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
     pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
     matrix_multiply(pto_inputs, pto_outputs)
     pypto.runtime._device_synchronize()
-    
+
     expected = torch.matmul(A_torch, B_torch)
     max_diff = (C_torch - expected).abs().max().item()
     print(f"Matrix A shape: {A_torch.shape}")
@@ -155,29 +147,26 @@ def example_activation_functions():
     print("=" * 60)
     print("Example 4: Activation Functions")
     print("=" * 60)
-    
+
     device_id = torch.npu.current_device()
     shape = (32, 64)
     input_torch = torch.randn(shape, dtype=torch.float16, device=f'npu:{device_id}')
     output_torch = torch.zeros(shape, dtype=torch.float16, device=f'npu:{device_id}')
-    
+
     @pypto.jit
-    def apply_activations(inputs, outputs):
-        x = inputs[0]
-        result = outputs[0]
-        
+    def apply_activations(x, result):
         pypto.set_vec_tile_shapes(32, 64)
-        
+
         for _ in pypto.loop(1, name="dummy_loop", idx_name="dummy_idx"):
             result[:] = pypto.sigmoid(x)
-            
+
     inputs = [input_torch]
     outputs = [output_torch]
     pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
     pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
     apply_activations(pto_inputs, pto_outputs)
     pypto.runtime._device_synchronize()
-    
+
     expected = torch.sigmoid(input_torch)
     max_diff = (output_torch - expected).abs().max().item()
     print(f"Input shape: {input_torch.shape}")
@@ -194,57 +183,54 @@ def example_view_operations():
     print("=" * 60)
     print("Example 5: View Operations")
     print("=" * 60)
-    
+
     device_id = torch.npu.current_device()
     shape = (256, 512)
     input_torch = torch.randn(shape, dtype=torch.float16, device=f'npu:{device_id}')
     output_torch = torch.zeros(shape, dtype=torch.float16, device=f'npu:{device_id}')
-    
+
     @pypto.jit
-    def tiled_operation(inputs, outputs):
-        input_tensor = inputs[0]
-        output_tensor = outputs[0]
-        
+    def tiled_operation(input_tensor, output_tensor):
         # Get shape
         h, w = input_tensor.shape[0], input_tensor.shape[1]
-        
+
         # Define tile size
         tile_h, tile_w = 32, 32
-        
+
         # Calculate number of tiles
         h_tiles = (h + tile_h - 1) // tile_h
         w_tiles = (w + tile_w - 1) // tile_w
-        
+
         pypto.set_vec_tile_shapes(tile_h, tile_w)
-        
+
         for h_idx in pypto.loop(h_tiles, name="h_loop", idx_name="h_idx"):
             for w_idx in pypto.loop(w_tiles, name="w_loop", idx_name="w_idx"):
                 # Calculate offsets
                 h_offset = h_idx * tile_h
                 w_offset = w_idx * tile_w
-                
+
                 # Create view for this tile
                 view = pypto.view(
                     input_tensor,
                     [tile_h, tile_w],
                     [h_offset, w_offset]
                 )
-                
+
                 # Process tile (simple operation: multiply by 2)
                 result = pypto.mul(view, 2.0)
-                
+
                 # Assemble result back
                 pypto.assemble(result, [h_offset, w_offset], output_tensor)
-    
+
     # Execute
     inputs = [input_torch]
     outputs = [output_torch]
     pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
     pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
-    
+
     tiled_operation(pto_inputs, pto_outputs)
     pypto.runtime._device_synchronize()
-    
+
     # Verify
     expected = input_torch * 2.0
     max_diff = (output_torch - expected).abs().max().item()
@@ -263,37 +249,34 @@ def example_combined_operations():
     print("=" * 60)
     print("Example 6: Combined Operations")
     print("=" * 60)
-    
+
     # Get current device ID (set in main)
     device_id = torch.npu.current_device()
-    
+
     # Simple neural network layer: y = sigmoid(x @ W + b)
     batch, in_features, out_features = 32, 64, 32
     x_torch = torch.randn(batch, in_features, dtype=torch.bfloat16, device=f'npu:{device_id}')
     W_torch = torch.randn(in_features, out_features, dtype=torch.bfloat16, device=f'npu:{device_id}')
     b_torch = torch.randn(out_features, dtype=torch.bfloat16, device=f'npu:{device_id}')
     y_torch = torch.zeros(batch, out_features, dtype=torch.bfloat16, device=f'npu:{device_id}')
-    
+
     @pypto.jit
-    def linear_layer_with_activation(inputs, outputs):
-        x, W, b = inputs[0], inputs[1], inputs[2]
-        y = outputs[0]
-        
+    def linear_layer_with_activation(x, W, b, y):
         pypto.set_vec_tile_shapes(32, 64)
         pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
-        
+
         for _ in pypto.loop(1, name="dummy_loop", idx_name="dummy_idx"):
             linear = pypto.matmul(x, W, out_dtype=pypto.DT_BF16)
             biased = pypto.add(linear, b)
             y[:] = pypto.sigmoid(biased)
-    
+
     inputs = [x_torch, W_torch, b_torch]
     outputs = [y_torch]
     pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
     pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
     linear_layer_with_activation(pto_inputs, pto_outputs)
     pypto.runtime._device_synchronize()
-    
+
     expected = torch.sigmoid(torch.matmul(x_torch, W_torch) + b_torch)
     max_diff = (y_torch - expected).abs().max().item()
     print(f"Input x shape: {x_torch.shape}")
@@ -308,7 +291,7 @@ def example_combined_operations():
 
 def main():
     """Run basic operation examples.
-    
+
     Usage:
         python basic_operations.py          # Run all examples
         python basic_operations.py 2         # Run example 2 only
@@ -335,9 +318,9 @@ Examples:
         action='store_true',
         help='List all available examples and exit'
     )
-    
+
     args = parser.parse_args()
-    
+
     # Define available examples
     examples = {
         1: {
@@ -377,7 +360,7 @@ Examples:
             'requires_npu': True
         }
     }
-    
+
     # List examples if requested
     if args.list:
         print("\n" + "=" * 60)
@@ -388,7 +371,7 @@ Examples:
             print(f"  {ex_id}. {ex_info['name']}{npu_req}")
             print(f"     {ex_info['description']}\n")
         return
-    
+
     # Validate example ID if provided
     if args.example_id is not None:
         if args.example_id not in examples:
@@ -396,22 +379,22 @@ Examples:
             print(f"Valid example IDs are: {', '.join(map(str, sorted(examples.keys())))}")
             print("\nUse --list to see all available examples.")
             sys.exit(1)
-    
+
     print("\n" + "=" * 60)
     print("PyPTO Basic Operations Examples")
     print("=" * 60 + "\n")
-    
+
     # Get and validate device ID (needed for NPU examples)
     device_id = None
     examples_to_run = []
-    
+
     if args.example_id is not None:
         examples_to_run = [(args.example_id, examples[args.example_id])]
     else:
         examples_to_run = list(examples.items())
-    
+
     requires_npu = any(ex_info['requires_npu'] for _, ex_info in examples_to_run)
-    
+
     if requires_npu:
         device_id = get_device_id()
         if device_id is None:
@@ -419,21 +402,21 @@ Examples:
         torch.npu.set_device(device_id)
         print("Running examples that require NPU hardware...")
         print("(Make sure CANN environment is configured and NPU is available)\n")
-    
+
     try:
         for ex_id, ex_info in examples_to_run:
             if ex_info['requires_npu'] and device_id is None:
                 print(f"Skipping example {ex_id} ({ex_info['name']}): NPU device not configured")
                 continue
-            
+
             print(f"Running Example {ex_id}: {ex_info['name']}")
             ex_info['function']()
-        
+
         if len(examples_to_run) > 1:
             print("=" * 60)
             print("All examples completed successfully!")
             print("=" * 60)
-        
+
     except Exception as e:
         print(f"\nError: {e}")
         print("\nTroubleshooting:")

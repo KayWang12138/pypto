@@ -150,19 +150,13 @@ loop_base = 16
 
 
 @pypto.jit
-def dense_moe_main(inputs, outputs):
+def dense_moe_main(hidden_states, w13, w13_scale, w2, ffn_res):
     pypto.set_host_options(only_codegen=True)
     pypto.set_codegen_options(support_dynamic_unaligned=True)
     pypto.set_codegen_options(codegen_expression_fusion=True)
     pypto.set_runtime_options(cfgcache_device_task_num=100)
     pypto.set_runtime_options(cfgcache_root_task_num=1000)
     pypto.set_runtime_options(cfgcache_leaf_task_num=10000)
-
-    hidden_states = inputs[0]
-    w13 = inputs[1]
-    w13_scale = inputs[2]
-    w2 = inputs[3]
-    ffn_res = outputs[0]
 
     token_nums = hidden_states.shape[0]
     token_loop_times = (token_nums + loop_base - 1) // loop_base
@@ -202,7 +196,7 @@ def ffn_dense_quant(hidden_states: torch.Tensor,
     if not isinstance(hidden_states, FakeTensor):
         pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
         pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
-        dense_moe_main(pto_inputs, pto_outputs)
+        dense_moe_main(*pto_inputs, *pto_outputs)
         pypto.runtime._device_synchronize()
     return ffn_res
 
@@ -235,7 +229,7 @@ def test_glm_mlp():
         }
         pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
         pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
-        dense_moe_main(pto_inputs, pto_outputs)
+        dense_moe_main(*pto_inputs, *pto_outputs)
         pypto.runtime._device_synchronize()
 
         # golden

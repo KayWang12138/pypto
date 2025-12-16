@@ -205,7 +205,7 @@ def softmax(x, is_fp16=False):
 
 
 @pypto.jit
-def ifa_func(inputs, outputs):
+def ifa_func(q, k, v, block_table, kv_act_seqs, atten_out):
     # 1. 添加支持动态的config
     pypto.set_codegen_options(support_dynamic_unaligned=True)
     pypto.set_host_options(only_codegen=True)
@@ -214,13 +214,6 @@ def ifa_func(inputs, outputs):
     pypto.set_runtime_options(cfgcache_leaf_task_num=10000)
 
     # 2. 从入参拿到输入和输出tensor
-    q = inputs[0]
-    k = inputs[1]
-    v = inputs[2]
-    block_table = inputs[3]
-    kv_act_seqs = inputs[4]
-    atten_out = outputs[0]
-
     shape_q = q.shape
     shape_k = k.shape
     shape_act_seqs = kv_act_seqs.shape
@@ -433,7 +426,7 @@ def IFA(atten_cfg):
     pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
     pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
     # 5. 执行kernel并获取结果
-    ifa_func(pto_inputs, pto_outputs)
+    ifa_func(*pto_inputs, *pto_outputs)
     pypto.runtime._device_synchronize()
 
     y_data = out_torch.cpu()
@@ -476,7 +469,7 @@ def paged_attention(
         return
     pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
     pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
-    ifa_func(pto_inputs, pto_outputs)
+    ifa_func(*pto_inputs, *pto_outputs)
     pypto.runtime._device_synchronize()
 
 

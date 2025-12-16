@@ -90,24 +90,13 @@ def kv_cache_concat_bsnd(k_cache, v_cache, kv_cache_actual_seq, block_table, b):
 
 
 @pypto.jit
-def gated_attention_decode_func(inputs, outputs):
+def gated_attention_decode_func(q, k, v, block_table, q_act_seqs,
+                                kv_act_seqs, gate, weight, atten_out):
     # 1. 添加支持动态的config
     pypto.set_codegen_options(
         support_dynamic_unaligned=True,
         codegen_expression_fusion=True
     )
-
-    # 2. 从入参拿到输入和输出tensor    
-    q = inputs[0]
-    k = inputs[1]
-    v = inputs[2]
-    block_table = inputs[3]
-    q_act_seqs = inputs[4]
-    kv_act_seqs = inputs[5]
-    gate = inputs[6]
-    weight = inputs[7]
-    atten_out = outputs[0]
-
     # 3. 获取参数信息
     tile_cfg = get_qwen_common_config()
     nq = q.shape[1]
@@ -281,7 +270,7 @@ def gated_attention_decode(
     pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
     pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
 
-    gated_attention_decode_func(pto_inputs, pto_outputs)
+    gated_attention_decode_func(*pto_inputs, *pto_outputs)
 
     return out_torch
 
@@ -355,7 +344,7 @@ def test_gated_attention_decode():
     block_table_torch = block_table_torch.to(device=device)
     q_act_seq_torch = q_act_seq_torch.to(device=device)
     kv_act_seq_torch = kv_act_seq_torch.to(device=device)
-    pto_out = gated_attention_decode(q_torch, k_torch, v_torch, block_table_torch, 
+    pto_out = gated_attention_decode(q_torch, k_torch, v_torch, block_table_torch,
         q_act_seq_torch, kv_act_seq_torch, gate_torch, weight_torch)
 
     assert torch.allclose(pto_out, torch_golden, rtol=1e-3, atol=1e-3)

@@ -35,7 +35,7 @@ from typing import Literal
 def get_device_id():
     """
     Get and validate TILE_FWK_DEVICE_ID from environment variable.
-    
+
     Returns:
         int: The device ID if valid, None otherwise.
     """
@@ -44,7 +44,7 @@ def get_device_id():
         print("Please set it before running this example:")
         print("  export TILE_FWK_DEVICE_ID=0")
         return None
-    
+
     try:
         device_id = int(os.environ['TILE_FWK_DEVICE_ID'])
         return device_id
@@ -77,78 +77,64 @@ def rmsnorm_golden(x: torch.Tensor, gamma: torch.Tensor, eps: float) -> torch.Te
 
 
 @pypto.jit
-def layer_norm(inputs, outputs, config: NormConfig):
+def layer_norm(x, gamma, beta, out, config: NormConfig):
     """Layer Normalization."""
-    x = inputs[0]
-    gamma = inputs[1]
-    beta = inputs[2]
-    out = outputs[0]
-    
     hidden_size = x.shape[-1]
     eps = config.eps
-    
+
     pypto.set_vec_tile_shapes(64, 128)
-    
+
     for _ in pypto.loop(1, name="dummy_loop", idx_name="dummy_idx"):
         # Compute mean
         mean = pypto.sum(x, dim=-1, keepdim=True)
         mean = pypto.div(mean, float(hidden_size))
-        
+
         centered = pypto.sub(x, mean)
-        
+
         squared = pypto.mul(centered, centered)
         var = pypto.sum(squared, dim=-1, keepdim=True)
         var = pypto.div(var, float(hidden_size))
-        
+
         var_eps = pypto.add(var, eps)
         std = pypto.sqrt(var_eps)
         normalized = pypto.div(centered, std)
-        
+
         scaled = pypto.mul(normalized, gamma)
         out[:] = pypto.add(scaled, beta)
 
 
 @pypto.jit
-def rms_norm(inputs, outputs, config: NormConfig):
+def rms_norm(x, gamma, out, config: NormConfig):
     """RMS Normalization."""
-    x = inputs[0]
-    gamma = inputs[1]
-    out = outputs[0]
-    
     hidden_size = x.shape[-1]
     eps = config.eps
-    
+
     pypto.set_vec_tile_shapes(64, 128)
-    
+
     for _ in pypto.loop(1, name="dummy_loop", idx_name="dummy_idx"):
         # Compute RMS: sqrt(mean(x^2) + eps)
         squared = pypto.mul(x, x)
         mean_sq = pypto.sum(squared, dim=-1, keepdim=True)
         mean_sq = pypto.div(mean_sq, float(hidden_size))
         rms = pypto.sqrt(pypto.add(mean_sq, eps))
-        
+
         # Normalize: x / rms
         normalized = pypto.div(x, rms)
-        
+
         # Scale: gamma * normalized
         out[:] = pypto.mul(normalized, gamma)
 
 
 @pypto.jit
-def layer_norm_dynamic(inputs, outputs, config: NormConfig):
+def layer_norm_dynamic(x, gamma, beta, out, config: NormConfig):
     """Layer Normalization with dynamic batch size."""
-    x = inputs[0]
-    gamma = inputs[1]
-    beta = inputs[2]
-    out = outputs[0]
-    
     hidden_size = x.shape[-1]  # Static dimension
     batch_size = x.shape[0]    # Dynamic dimension (SymbolicScalar)
     eps = config.eps
-    
+
     pypto.set_codegen_options(support_dynamic_unaligned=True)
     pypto.set_vec_tile_shapes(64, 128)
-    
+
     for _ in pypto.loop(1, name="dummy_loop", idx_name="dummy_idx"):
         # Same computation as static version
         mean = pypto.sum(x, dim=-1, keepdim=True)
@@ -169,30 +155,30 @@ def test_layer_norm():
     print("=" * 60)
     print("Test: LayerNorm")
     print("=" * 60)
-    
+
     device_id = torch.npu.current_device()
-    
+
     batch_size, hidden_size = 32, 128
     shape = (batch_size, hidden_size)
-    
+
     x_torch = torch.randn(shape, dtype=torch.bfloat16, device=f'npu:{device_id}')
     gamma_torch = torch.ones(hidden_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
     beta_torch = torch.zeros(hidden_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
     out_torch = torch.zeros(shape, dtype=torch.bfloat16, device=f'npu:{device_id}')
-    
+
     config = NormConfig(norm_type="layernorm", dtype=pypto.DT_BF16)
-    
+
     inputs = [x_torch, gamma_torch, beta_torch]
     outputs = [out_torch]
     pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
     pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
 
-    layer_norm(pto_inputs, pto_outputs, config)
+    layer_norm(*pto_inputs, *pto_outputs, config)
     pypto.runtime._device_synchronize()
 
     expected = layernorm_golden(x_torch, gamma_torch, beta_torch, config.eps)
     max_diff = (out_torch - expected).abs().max().item()
-    
+
     print(f"Input shape: {x_torch.shape}")
     print(f"Output shape: {out_torch.shape}")
     print(f"Max difference: {max_diff:.6f}")
@@ -206,28 +192,28 @@ def test_rms_norm():
     print("=" * 60)
     print("Test: RMSNorm")
     print("=" * 60)
-    
+
     device_id = torch.npu.current_device()
-    
+
     batch_size, hidden_size = 32, 128
     shape = (batch_size, hidden_size)
-    
+
     x_torch = torch.randn(shape, dtype=torch.bfloat16, device=f'npu:{device_id}')
     gamma_torch = torch.ones(hidden_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
     out_torch = torch.zeros(shape, dtype=torch.bfloat16, device=f'npu:{device_id}')
-    
+
     config = NormConfig(norm_type="rmsnorm", dtype=pypto.DT_BF16)
 
     inputs = [x_torch, gamma_torch]
     outputs = [out_torch]
     pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
     pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
-    rms_norm(pto_inputs, pto_outputs, config)
+    rms_norm(*pto_inputs, *pto_outputs, config)
     pypto.runtime._device_synchronize()
 
     expected = rmsnorm_golden(x_torch, gamma_torch, config.eps)
     max_diff = (out_torch - expected).abs().max().item()
-    
+
     print(f"Input shape: {x_torch.shape}")
     print(f"Output shape: {out_torch.shape}")
     print(f"Max difference: {max_diff:.6f}")
@@ -238,7 +224,7 @@ def test_rms_norm():
 
 def main():
     """Run layer normalization examples.
-    
+
     Usage:
         python layer_norm.py          # Run all examples
         python layer_norm.py 1         # Run example 1 only
@@ -265,9 +251,9 @@ Examples:
         action='store_true',
         help='List all available examples and exit'
     )
-    
+
     args = parser.parse_args()
-    
+
     examples = {
         1: {
             'name': 'LayerNorm',
@@ -282,7 +268,7 @@ Examples:
             'requires_npu': True
         }
     }
-    
+
     if args.list:
         print("\n" + "=" * 60)
         print("Available Examples")
@@ -292,48 +278,48 @@ Examples:
             print(f"  {ex_id}. {ex_info['name']}{npu_req}")
             print(f"     {ex_info['description']}\n")
         return
-    
+
     if args.example_id is not None:
         if args.example_id not in examples:
             print(f"ERROR: Invalid example ID: {args.example_id}")
             print(f"Valid example IDs are: {', '.join(map(str, sorted(examples.keys())))}")
             print("\nUse --list to see all available examples.")
             sys.exit(1)
-    
+
     print("\n" + "=" * 60)
     print("PyPTO Layer Normalization Examples")
     print("=" * 60 + "\n")
-    
+
     device_id = None
     examples_to_run = []
-    
+
     if args.example_id is not None:
         examples_to_run = [(args.example_id, examples[args.example_id])]
     else:
         examples_to_run = list(examples.items())
-    
+
     requires_npu = any(ex_info['requires_npu'] for _, ex_info in examples_to_run)
-    
+
     if requires_npu:
         device_id = get_device_id()
         if device_id is None:
             return
         torch.npu.set_device(device_id)
-    
+
     try:
         for ex_id, ex_info in examples_to_run:
             if ex_info['requires_npu'] and device_id is None:
                 print(f"Skipping example {ex_id} ({ex_info['name']}): NPU device not configured")
                 continue
-            
+
             print(f"Running Example {ex_id}: {ex_info['name']}")
             ex_info['function']()
-        
+
         if len(examples_to_run) > 1:
             print("=" * 60)
             print("All layer normalization tests passed!")
             print("=" * 60)
-        
+
     except Exception as e:
         print(f"\nError: {e}")
         raise

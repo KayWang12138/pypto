@@ -8,7 +8,7 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
-"""   
+"""
 """
 import pypto
 import torch
@@ -36,7 +36,7 @@ def torch_rms_norm(x, gamma, eps):
     return res
 
 
-def torch_recurrent_gated_delta_rule(q, k, v, g, beta, state, start_list, accept_len_list, norm_weight, 
+def torch_recurrent_gated_delta_rule(q, k, v, g, beta, state, start_list, accept_len_list, norm_weight,
                                         gate_data, linear_weight):
     t_bs, num_head, head_dim = v.shape
     b_size, _, _, _ = state.shape
@@ -69,9 +69,9 @@ def torch_recurrent_gated_delta_rule(q, k, v, g, beta, state, start_list, accept
             delta = v_i - kv_mem_reduced
             delta_beta = delta * beta_i # [num_head, head_dim]
             # [num_head, head_dim, 1] * [num_head, 1, head_dim] -> [num_head, head_dim, head_dim]
-            k_delta = k_norm.unsqueeze(-1) * delta_beta.unsqueeze(-2) 
+            k_delta = k_norm.unsqueeze(-1) * delta_beta.unsqueeze(-2)
             curr_state = k_delta + curr_state
-            
+
             core_out = curr_state * q_norm.unsqueeze(-1)
             core_out = core_out.sum(dim=-2)
 
@@ -90,24 +90,14 @@ def torch_recurrent_gated_delta_rule(q, k, v, g, beta, state, start_list, accept
             state_output[start_idx+t, :] = core_linear_out
 
             final_out[b] = curr_state
-        
+
     return state_output, final_out
 
 
-def torch_all_preproc(inputs, outputs):
-    hidden_states = inputs[0]
-    qkvz_weight = inputs[1]
-    ba_weight = inputs[2]
-    a_log = inputs[3]
-    dt_bias = inputs[4]
-    conv_weight = inputs[5]
-    conv_state_in = inputs[6]
-    init_state = inputs[7]
-    start_list = inputs[8]
-    accept_len_list = inputs[9]
-    norm_weight = inputs[10]
-    linear_weight = inputs[11]
-
+def torch_all_preproc(hidden_states, qkvz_weight, ba_weight, a_log, dt_bias,
+                      conv_weight, conv_state_in, init_state, start_list,
+                      accept_len_list, norm_weight, linear_weight,
+                      core_attn_out, final_state, conv_state_out):
     num_k_heads = 8
     num_v_heads = 16
     batch, seq_len, hidden_size = hidden_states.shape
@@ -150,7 +140,7 @@ def torch_all_preproc(inputs, outputs):
     # Exiting fix_query_key_value_ordering() in HF
 
     # b_size num_head KH*head_dim
-    query, key, value, z = (x.reshape(x.shape[0], x.shape[1], -1) for x in (query, key, value, z)) 
+    query, key, value, z = (x.reshape(x.shape[0], x.shape[1], -1) for x in (query, key, value, z))
     mixed_qkv = torch.cat((query, key, value), dim=-1) # b_size num_head KH*head_dim+KH*head_dim+VH*head_dim
     mixed_qkv = mixed_qkv.transpose(1, 2) # b_size KH*head_dim+KH*head_dim+VH*head_dim num_head
 
@@ -203,12 +193,8 @@ def torch_all_preproc(inputs, outputs):
     beta = beta.reshape([beta.shape[0], beta.shape[2], 1])
     z = z.reshape([z.shape[0], key.shape[1], key.shape[2]])
 
-    attn_out, final_state = torch_recurrent_gated_delta_rule(query, key, value, g, beta, init_state, start_list, 
+    core_attn_out, final_state = torch_recurrent_gated_delta_rule(query, key, value, g, beta, init_state, start_list,
                                 accept_len_list, norm_weight, z, linear_weight)
-
-    outputs[0] = attn_out
-    outputs[1] = final_state
-    outputs[2] = conv_state_out
 
 
 def pto_core_compute_qkvzba(
@@ -220,7 +206,7 @@ def pto_core_compute_qkvzba(
     b, a, # b_size s_size h_size
     k_h, v_h, d
 ):
-    
+
     b_size, s_size, head_dim = hidden_states.shape
 
     s_step = 1
@@ -258,19 +244,19 @@ def pto_core_compute_qkvzba(
     for s_idx in pypto.loop(0, s_size, s_step, name="LOOP04", idx_name="LOOP04IDX"):
         pypto.set_vec_tile_shapes(1, 1, 1, 16)
         # [b_size, s_step, k_h*(2*d+v_h//k_h*d)] -> [b_size, s_step, k_h*2*d]
-        q_view = middle_states_qkvz[:, s_idx:s_idx + s_step, :, :d].reshape([b_size, s_step, k_h * d]) 
+        q_view = middle_states_qkvz[:, s_idx:s_idx + s_step, :, :d].reshape([b_size, s_step, k_h * d])
         # [b_size, s_step, k_h*(2*d+v_h//k_h*d)] -> [b_size, s_step, k_h*2*d]
-        k_view = middle_states_qkvz[:, s_idx:s_idx + s_step, :, d:2 * d].reshape([b_size, s_step, k_h * d]) 
+        k_view = middle_states_qkvz[:, s_idx:s_idx + s_step, :, d:2 * d].reshape([b_size, s_step, k_h * d])
         # [b_size, s_step, k_h*(2*d+v_h//k_h*d)] -> [b_size, s_step, k_h*2*d]
         v_view = middle_states_qkvz[:, s_idx:s_idx + s_step, :, \
-        2 * d: 2 * d + v_h // k_h * d].reshape([b_size, s_step, v_h * d]) 
+        2 * d: 2 * d + v_h // k_h * d].reshape([b_size, s_step, v_h * d])
         z_view = middle_states_qkvz[:, s_idx:s_idx + s_step, :, 2 * d + v_h // k_h * d:]
         pypto.set_vec_tile_shapes(1, 1, 16)
         qkv_view = pypto.concat([q_view, k_view, v_view], 2).reshape([b_size, s_step, 2 * d * k_h + v_h * d])
         qkv_transposed = pypto.transpose(qkv_view, 1, 2)
         mixed_qkv[:, :, s_idx:s_idx + s_step] = qkv_transposed
         middle_z[:, s_idx:s_idx + s_step, :, :] = z_view
-    
+
     for _ in pypto.loop(0, 1, 1, name="foo_reshape", idx_name="foo_idx"):
         pypto.set_vec_tile_shapes(1, 16, 16, 16)
         z[:, :, :] = middle_z.reshape([b_size, v_h, d])
@@ -289,7 +275,7 @@ def pto_core_compute_qkvzba(
         b[:, s_idx:s_idx + s_step, :] = b_view
         a[:, s_idx:s_idx + s_step, :] = a_view
 
-    
+
 def ab_preproc(a, b, a_log, dt_bias, g, beta):
 
     s_size = a.shape[1]
@@ -301,7 +287,7 @@ def ab_preproc(a, b, a_log, dt_bias, g, beta):
         b_view = b[:, s_idx:s_idx + s_step, :]
         b_sigmoid = pypto.sigmoid(b_view)
         beta[:, s_idx:s_idx + s_step, :] = b_sigmoid
-    
+
     for s_idx in pypto.loop(0, s_size, s_step, name="AB_PREPROC_1_S", idx_name="AB_PREPROC_1_S"):
         pypto.set_vec_tile_shapes(2, 1, 16)
         a_view = a[:, s_idx:s_idx + s_step, :]
@@ -365,20 +351,20 @@ class Conv1d():
                 weight_window = pypto.view(weights, [out_group_size, in_group_size, self.kernel_size],
                                             [group_idx * out_group_size, 0, 0])
                 start_idx = conv_idx * self.stride
-   
-                x_window = pypto.view(padded_x, [batch_size, in_group_size, self.kernel_size], 
+
+                x_window = pypto.view(padded_x, [batch_size, in_group_size, self.kernel_size],
                             [0, group_idx * in_group_size, start_idx])
                 pypto.set_vec_tile_shapes(8, 8, 8, 8)
-                conv_out = pypto.sum(pypto.mul(pypto.unsqueeze(x_window, 1), pypto.unsqueeze(weight_window, 0)), -1, 
+                conv_out = pypto.sum(pypto.mul(pypto.unsqueeze(x_window, 1), pypto.unsqueeze(weight_window, 0)), -1,
                                 keepdim=True)
                 conv_out = pypto.reshape(pypto.sum(conv_out, -2, keepdim=True), [batch_size, out_group_size, 1])
                 pypto.assemble(conv_out, [0, group_idx * out_group_size, conv_idx], out_tensor)
-        
+
         if bias is not None:
             for k in pypto.loop(1):
                 out_tensor[:] = out_tensor + pypto.reshape(bias, [1, bias.shape[0], 1])
 
-    
+
 def compute_conv1d(mixed_qkv, weight, conv_state_in, conv_res, conv_state_out):
     conv_dim = weight.shape[0]
     conv_kernel_size = weight.shape[-1]
@@ -391,7 +377,7 @@ def compute_conv1d(mixed_qkv, weight, conv_state_in, conv_res, conv_state_out):
         conv_state_in_view = conv_state_in[:, :, s_idx:s_idx + s_step]
         conv_idx = s_idx - seq_len
         conv_state_out[:, :, conv_idx:conv_idx + s_step] = conv_state_in_view
-    
+
     for _ in pypto.loop(0, 1, 1, name="", idx_name="", submit_before_loop=True):
         pass
     for s_idx in pypto.loop(max(0, seq_len - conv_kernel_size), seq_len, s_step, name="CONCAT_2", idx_name="CONCAT_2"):
@@ -433,7 +419,7 @@ def compute_interleave(mixed_qkv, query, key, value, k_h, v_h, d):
 
     s_step = 1
     replication = v_h // k_h
-    
+
     for s_idx in pypto.loop(0, s_size, s_step, name="LOOP06", idx_name="LOOP06IDX"):
         for h_idx in pypto.loop(0, v_h, 1, name="LOOP07", idx_name="LOOP07IDX"):
             pypto.set_vec_tile_shapes(8, 8, 8)
@@ -462,9 +448,9 @@ def compute_interleave(mixed_qkv, query, key, value, k_h, v_h, d):
             pypto.set_vec_tile_shapes(8, 8, 8, 8)
 
             value[:, h_idx // d:, :] = value_reshaped
-    
 
-def key_state(q, k, v, g, beta, state, start_list, accept_length_list, norm_weight, gate_data, linear_weight, 
+
+def key_state(q, k, v, g, beta, state, start_list, accept_length_list, norm_weight, gate_data, linear_weight,
         core_attn_out, final_out):
     eps = 1e-6
     t_bs, num_head, head_dim = v.shape
@@ -512,18 +498,18 @@ def key_state(q, k, v, g, beta, state, start_list, accept_length_list, norm_weig
             # compute kvmem
             kv_mem = state_i2 * k_i.unsqueeze(-1)
             # [1, num_head, head_dim, head_dim] -> [1, num_head, 1, head_dim] -> [1, num_head, head_dim]
-            kv_mem_reduced = kv_mem.sum(2, keepdim=True).reshape([1, num_head, head_dim]) 
+            kv_mem_reduced = kv_mem.sum(2, keepdim=True).reshape([1, num_head, head_dim])
             # compute delta
             pypto.set_vec_tile_shapes(1, 1, 128)
             delta = v_i - kv_mem_reduced
             delta_beta = delta * beta_i
             # update state
             pypto.set_vec_tile_shapes(1, 1, 128, 128)
-            k_delta = pypto.expand_clone(k_i.unsqueeze(-1), 
+            k_delta = pypto.expand_clone(k_i.unsqueeze(-1),
             [1, num_head, head_dim, head_dim]) * delta_beta.unsqueeze(-2)
             pypto.set_vec_tile_shapes(1, 1, 128)
             state_i3 = state_i2 + k_delta
-            
+
             # get core_attn ouptut
             pypto.set_vec_tile_shapes(1, 1, 128, 128)
             core_out = state_i3 * q_i.unsqueeze(-1)
@@ -537,7 +523,7 @@ def key_state(q, k, v, g, beta, state, start_list, accept_length_list, norm_weig
             norm_weight_fp32 = pypto.cast(norm_weight_3d, pypto.DT_FP32)
             square = pypto.mul(core_out_reduced, core_out_reduced)
             mean_res = pypto.mul(square, mean_coff)
-            reduce_asum = pypto.sum(mean_res, keepdim=True)
+            reduce_asum = pypto.sum(mean_res, -1, keepdim=True)
             reduce_sum = pypto.add(reduce_asum, eps)
             reduce_sqrt = pypto.sqrt(reduce_sum)
             res_div = pypto.div(core_out_reduced, reduce_sqrt)
@@ -555,41 +541,38 @@ def key_state(q, k, v, g, beta, state, start_list, accept_length_list, norm_weig
             pypto.set_vec_tile_shapes(128, 128)
             linear_weight_fp32 = pypto.cast(linear_weight, pypto.DT_FP32)
             pypto.set_cube_tile_shapes([128, 128], [128, 128], [128, 128])
-            core_linear_out = pypto.matmul(core_gate_out, linear_weight_fp32, pypto.DT_FP32, 
+            core_linear_out = pypto.matmul(core_gate_out, linear_weight_fp32, pypto.DT_FP32,
                                 a_trans=False, b_trans=True)
-            
+
             core_attn_out[t_idx:t_idx + 1, :] = core_linear_out
             if pypto.cond(t < length - 1):
                 tmp_state[t_idx + 1:t_idx + 2, :, :, :] = state_i3
             if pypto.cond(t == length - 1):
                 final_out[b:b + 1, :, :, :] = state_i3
-    
+
     del tmp_state
     del length
     del start_idx
 
 
-def compute_all_preproc(
-    inputs, # inputs
-    outputs # outputs
+def compute_all_preproc(hidden_states, qkvz_weight, ba_weight, a_log,
+                        dt_bias, conv_weight, conv_state_in, init_state,
+                        start_list, accept_length_list, norm_weight,
+                        linear_weight, core_attn_out, final_state, conv_state_out
 ):
-    hidden_states, qkvz_weight, ba_weight, a_log, dt_bias, conv_weight, conv_state_in, init_state, \
-    start_list, accept_length_list, norm_weight, linear_weight = inputs
-    core_attn_out, final_state, conv_state_out = outputs
-    
     b_size, num_head, head_dim, _ = init_state.shape
     d = 128
     s_size = 1
     t_bs = b_size
     v_h = num_head
     k_h = qkvz_weight.shape[1] // 2 // head_dim - v_h
-    
+
     mixed_qkv = pypto.tensor([b_size, head_dim * (2 * k_h + v_h), s_size], pypto.DT_FP32, "")
     b = pypto.tensor([b_size, s_size, v_h], pypto.DT_FP32, "")
     a = pypto.tensor([b_size, s_size, v_h], pypto.DT_FP32, "")
     z = pypto.tensor([t_bs, v_h, head_dim], pypto.DT_FP32, "")
 
-    
+
     query = pypto.tensor([t_bs, v_h, head_dim], pypto.DT_FP32, "query_workspace")
     key = pypto.tensor([t_bs, v_h, head_dim], pypto.DT_FP32, "key_workspace")
     value = pypto.tensor([t_bs, v_h, head_dim], pypto.DT_FP32, "value_workspace")
@@ -614,7 +597,7 @@ def compute_all_preproc(
 
     compute_interleave(mixed_qkv_after_conv, query, key, value, k_h, v_h, head_dim)
 
-    key_state(query, key, value, g, beta, init_state, start_list, accept_length_list, norm_weight, z, 
+    key_state(query, key, value, g, beta, init_state, start_list, accept_length_list, norm_weight, z,
                 linear_weight, core_attn_out, final_state)
 
 
@@ -623,8 +606,14 @@ def compute_all_preproc(
     codegen_options={"support_dynamic_unaligned": True},
     pass_options={"cycle_upper_bound": 256, "cycle_lower_bound":128}
 )
-def pto_all_preproc(inputs, outputs):
-    compute_all_preproc(inputs, outputs)
+def pto_all_preproc(hidden_states, qkvz_weight, ba_weight, a_log,
+                    dt_bias, conv_weight, conv_state_in, init_state,
+                    start_list, accept_length_list, norm_weight,
+                    linear_weight, core_attn_out, final_state, conv_state_out):
+    compute_all_preproc(hidden_states, qkvz_weight, ba_weight, a_log,
+                        dt_bias, conv_weight, conv_state_in, init_state,
+                        start_list, accept_length_list, norm_weight,
+                        linear_weight, core_attn_out, final_state, conv_state_out)
 
 
 def test_all_preproc():
@@ -669,7 +658,7 @@ def test_all_preproc():
     final_state_result = torch.ones([b_size, v_h, head_dim, head_dim], dtype=torch.float)
     conv_state_out = torch.ones([b_size, c_d, k_size]).float()
 
-    inputs_cpu = [hidden_states, qkvz_weight, ba_weight, a_log, dt_bias, conv_weight, conv_state_in, 
+    inputs_cpu = [hidden_states, qkvz_weight, ba_weight, a_log, dt_bias, conv_weight, conv_state_in,
                 state_data, start_list, accept_length_list, norm_weight, linear_weight]
     inputs_npu = [tsr.to(device) for tsr in inputs_cpu]
 
@@ -679,8 +668,8 @@ def test_all_preproc():
     pto_inputs = [pypto.from_torch(x, "IN") for x in inputs_npu]
     pto_outputs = [pypto.from_torch(x, "OUT") for x in outputs_npu]
 
-    torch_all_preproc(inputs_cpu, outputs_cpu)
-    pto_all_preproc(pto_inputs, pto_outputs)
+    torch_all_preproc(*inputs_cpu, *outputs_cpu)
+    pto_all_preproc(*pto_inputs, *pto_outputs)
 
     npu_output = outputs_npu[0].cpu()
     cpu_output = outputs_cpu[0].cpu()

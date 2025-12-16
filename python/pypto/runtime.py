@@ -120,7 +120,7 @@ class JIT:
 
     def run_with_npu(self, inputs, outputs, device):
         if device.type == 'cpu':
-            _device_run_once_data_from_host(inputs, outputs)
+            _device_run_once_data_from_host(*inputs, *outputs)
         elif device.type == 'npu':
             import torch_npu
             in_tensor_data = _pto_to_tensor_data(inputs)

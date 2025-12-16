@@ -118,7 +118,7 @@ def compute_attention(input_data, params):
                     slc_kn[cur_s2_idx, :] = kn[slc_idx, :]
                     slc_kr[cur_s2_idx, :] = kr[slc_idx, :]
                     slc_kn_scales[cur_s2_idx, :] = kn_scales[slc_idx, :]
-                
+
                 qn_tmp = qi[..., :dk]
                 qr_tmp = qi[..., dk:]
                 if is_kn_quant:
@@ -281,7 +281,7 @@ def gen_gather_select_attention_golden(dtype, bn1n2s1, is_kn_quant, actual_seq):
 
     q_bsnd = gen_uniform_data(shape_q, -1, 1, dtype)
     kn_bsnd_tmp = gen_uniform_data(shape_kn, -1, 1, dtype)
-    
+
     kn_bsnd_reshape = kn_bsnd_tmp.reshape(block_num * block_size, 4, 128).to(torch.float32)
     kn_scales = kn_bsnd_reshape.abs().amax(dim=-1, keepdim=True).clamp(min=1e-8) / 127.0
     if is_kn_quant == 1:
@@ -361,7 +361,7 @@ def do_test_sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant, input_params
     pto_outputs = [calc_attention_out_pto]
 
     max_blocknum_perbatch = math.ceil(max_kv_seq / block_size)
-    sparse_flash_attention_quant_d_compute(pto_inputs, pto_outputs, n_q, n_kv, softmax_scale, topk,
+    sparse_flash_attention_quant_d_compute(*pto_inputs, *pto_outputs, n_q, n_kv, softmax_scale, topk,
                                            block_size, max_blocknum_perbatch, tile_config)
     pypto.runtime._device_synchronize()
     assert_allclose(np.array(calc_attention_out_npu.cpu().flatten().tolist()),
@@ -473,7 +473,7 @@ def test_SFA_b4_s2_seq64K_int8_perf():
 
 
 @pytest.mark.skip(reason='large case')
-def test_QSFA_d_bf16_b1_s3_seq2047_int8():	
+def test_QSFA_d_bf16_b1_s3_seq2047_int8():
     do_test_QSFA_d_entry("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b1_s3_seq2047_int8")
 
 

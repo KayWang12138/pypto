@@ -27,10 +27,7 @@ def main():
     host_options={"only_codegen": True},
     codegen_options={"support_dynamic_unaligned": True}
 )
-def get_table_main(inputs, outputs):
-    expert_tokens = inputs[0]
-    expert_offset = outputs[0]
-
+def get_table_main(expert_tokens, expert_offset):
     expert_num = expert_tokens.shape[0]
     pypto.set_vec_tile_shapes(32)
     # 计算每个专家的token的偏移地址
@@ -72,7 +69,7 @@ def test_expert_offset_table():
     outputs = {expert_offset: []}
     pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
     pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
-    get_table_main(pto_inputs, pto_outputs)
+    get_table_main(*pto_inputs, *pto_outputs)
     pypto.runtime._device_synchronize()
 
     # golden

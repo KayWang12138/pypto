@@ -26,14 +26,14 @@ def rms_norm_golden(x, gamma, eps):
     x_f32 = x.to(torch.float32)
     square = x_f32 * x_f32
     mean_res = square * mean_coff
-    
+
     reduce_sum = torch.sum(mean_res, dim=-1, keepdim=True) + eps
     reduce_sqrt = torch.sqrt(reduce_sum)
     res_div = x_f32 / reduce_sqrt
-    
+
     gamma_f32 = gamma.to(torch.float32)
     res = res_div * (gamma_f32 + 1)
-    
+
     if x_dtype != torch.float32:
         res = res.to(x_dtype)
     return res
@@ -118,20 +118,8 @@ def rope_data(x1, x2, cos, sin, tile_shape):
     host_options={"only_codegen": True},
     codegen_options={"support_dynamic_unaligned": True}
 )
-def attention_pre_pto_inner(in_tensors, out_tensors):
-    # 2. 从入参拿到输入和输出tensor
-    x = in_tensors[0]
-    weight_qkvz = in_tensors[1]
-    q_gamma = in_tensors[2]
-    k_gamma = in_tensors[3]
-    cos = in_tensors[4]
-    sin = in_tensors[5]
-
-    q = out_tensors[0]
-    k = out_tensors[1]
-    v = out_tensors[2]
-    z = out_tensors[3]
-
+def attention_pre_pto_inner(x, weight_qkvz, q_gamma, k_gamma,
+                            cos, sin, q, k, v, z):
     # 3. 得到动态tensor的shape
     bs = x.shape[0]
     hidden_size = x.shape[1]
@@ -153,23 +141,23 @@ def attention_pre_pto_inner(in_tensors, out_tensors):
         x_tile = pypto.view(x, [bs_tile, hidden_size], [bs_idx * bs_tile, 0])
         cos_tile = pypto.view(cos, [bs_tile, 1, half_rotary_dim], [bs_idx * bs_tile, 0, 0])
         sin_tile = pypto.view(sin, [bs_tile, 1, half_rotary_dim], [bs_idx * bs_tile, 0, 0])
-        
+
         # 6. 按照计算图实现运算逻辑
         # Linear projection
         pypto.set_cube_tile_shapes([128, 128], [128, 128], [128, 128])
-        mm_res = pypto.matmul(x_tile, weight_qkvz, pypto.DT_BF16, a_trans=False, b_trans=True)  
+        mm_res = pypto.matmul(x_tile, weight_qkvz, pypto.DT_BF16, a_trans=False, b_trans=True)
 
         # Split into Q, K, V, Z
-        qz_tile = pypto.view(mm_res, [bs_tile, 2 * q_size], [0, 0])      
+        qz_tile = pypto.view(mm_res, [bs_tile, 2 * q_size], [0, 0])
         k_tile = pypto.view(mm_res, [bs_tile, kv_size], [0, 2 * q_size])
-        v_tile = pypto.view(mm_res, [bs_tile, kv_size], [0, 2 * q_size + kv_size])   
+        v_tile = pypto.view(mm_res, [bs_tile, kv_size], [0, 2 * q_size + kv_size])
 
         qz_temp = pypto.reshape(qz_tile, [bs_tile, q_num_head, 2 * head_dim])
-        q_temp = pypto.view(qz_temp, [bs_tile, q_num_head, head_dim], [0, 0, 0])      
-        z_temp = pypto.view(qz_temp, [bs_tile, q_num_head, head_dim], [0, 0, head_dim])      
-        q_tile = pypto.reshape(q_temp, [bs_tile, q_size])      
-        z_tile = pypto.reshape(z_temp, [bs_tile, q_size])      
-        
+        q_temp = pypto.view(qz_temp, [bs_tile, q_num_head, head_dim], [0, 0, 0])
+        z_temp = pypto.view(qz_temp, [bs_tile, q_num_head, head_dim], [0, 0, head_dim])
+        q_tile = pypto.reshape(q_temp, [bs_tile, q_size])
+        z_tile = pypto.reshape(z_temp, [bs_tile, q_size])
+
         # Reshape to 3D
         pypto.set_vec_tile_shapes(bs_tile, q_num_head, head_dim)
         q_3d = pypto.reshape(q_tile, [bs_tile, q_num_head, head_dim])
@@ -276,7 +264,7 @@ def attention_pre_pto(**kwargs):
     pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
     pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
 
-    attention_pre_pto_inner(pto_inputs, pto_outputs)
+    attention_pre_pto_inner(*pto_inputs, *pto_outputs)
 
     return q, k, v, gate
 
@@ -322,7 +310,7 @@ def attention_pre(**kwargs):
     # reshape
     q_by_head = q_g.view(*q_g.shape[:-1], q_g.shape[-1] // head_dim, head_dim)
     k_by_head = k_g.view(*k_g.shape[:-1], k_g.shape[-1] // head_dim, head_dim)
-    # nms norm   
+    # nms norm
     q_by_head = rms_norm_golden(q_by_head, q_gamma, eps)
     k_by_head = rms_norm_golden(k_by_head, k_gamma, eps)
 
@@ -338,7 +326,7 @@ def attention_pre(**kwargs):
     #sigmoid
     z_s = torch.sigmoid(z_g)
 
-    #reshape 
+    #reshape
     q_r = q_r.view(bs, q_size)
     k_r = k_r.view(bs, kv_size)
 
@@ -360,7 +348,7 @@ def test_attention_pre():
     rotary_dim = 64
     loc_shape = [bs, ]
 
-    
+
     # 准备测试数据
     np.random.seed(0)
     # inputs
@@ -375,31 +363,31 @@ def test_attention_pre():
     num_heads = 4
 
     q, k, v, gate = attention_pre_pto(
-                        x=x, 
-                        weight_qkvz=weight_qkvz, 
-                        q_gamma=q_gamma, 
-                        k_gamma=k_gamma, 
-                        cos_sin_cache=cos_sin_cache, 
-                        positions=positions, 
-                        num_kv_heads=num_kv_heads, 
+                        x=x,
+                        weight_qkvz=weight_qkvz,
+                        q_gamma=q_gamma,
+                        k_gamma=k_gamma,
+                        cos_sin_cache=cos_sin_cache,
+                        positions=positions,
+                        num_kv_heads=num_kv_heads,
                         num_heads=num_heads
                         )
     q_r, k_r, v_r, gate_r = attention_pre(
-                                x=x.clone(), 
-                                weight_qkvz=weight_qkvz.clone(), 
-                                q_gamma=q_gamma.clone(), 
-                                k_gamma=k_gamma.clone(), 
-                                cos_sin_cache=cos_sin_cache.clone(), 
-                                positions=positions.clone(), 
-                                num_kv_heads=num_kv_heads, 
+                                x=x.clone(),
+                                weight_qkvz=weight_qkvz.clone(),
+                                q_gamma=q_gamma.clone(),
+                                k_gamma=k_gamma.clone(),
+                                cos_sin_cache=cos_sin_cache.clone(),
+                                positions=positions.clone(),
+                                num_kv_heads=num_kv_heads,
                                 num_heads=num_heads
                                 )
     # 与PyTorch参考实现对比
-    assert_allclose(np.array(q_r.cpu().flatten().tolist()), np.array(q.cpu().flatten().tolist()), 
+    assert_allclose(np.array(q_r.cpu().flatten().tolist()), np.array(q.cpu().flatten().tolist()),
                     rtol=0.001, atol=0.001)
-    assert_allclose(np.array(k_r.cpu().flatten().tolist()), np.array(k.cpu().flatten().tolist()), 
+    assert_allclose(np.array(k_r.cpu().flatten().tolist()), np.array(k.cpu().flatten().tolist()),
                     rtol=0.001, atol=0.001)
-    assert_allclose(np.array(v_r.cpu().flatten().tolist()), np.array(v.cpu().flatten().tolist()), 
+    assert_allclose(np.array(v_r.cpu().flatten().tolist()), np.array(v.cpu().flatten().tolist()),
                     rtol=0.001, atol=0.001)
     assert_allclose(np.array(gate_r.cpu().flatten().tolist()), np.array(gate.cpu().flatten().tolist()),
                     rtol=0.001, atol=0.001)

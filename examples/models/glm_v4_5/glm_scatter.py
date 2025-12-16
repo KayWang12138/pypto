@@ -32,17 +32,10 @@ def main():
 
 
 @pypto.jit
-def scatter_update(in_tensors, out_tensors):
+def scatter_update(key, value, index, key_cache, value_cache):
     # 1. 添加支持动态的config
     pypto.set_codegen_options(support_dynamic_unaligned=True)
     pypto.set_host_options(only_codegen=True)
-
-    # 2. 从入参拿到输入和输出tensor
-    key = in_tensors[0]
-    value = in_tensors[1]
-    index = in_tensors[2]
-    key_cache = out_tensors[0]
-    value_cache = out_tensors[1]
 
     # 3. 得到动态tensor的shape
     dtype = key.dtype
@@ -105,9 +98,7 @@ def test_scatter_update():
     inputs = {
         key: [0],
         value: [0],
-        index: [0],
-        key_cache: [0],
-        value_cache: [0]
+        index: [0]
     }
     outputs = {
         key_cache: [0],
@@ -115,7 +106,7 @@ def test_scatter_update():
     }
     pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
     pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
-    scatter_update(pto_inputs, pto_outputs)
+    scatter_update(*pto_inputs, *pto_outputs)
     pypto.runtime._device_synchronize()
 
     # 5. 与PyTorch参考实现对比

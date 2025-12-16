@@ -35,7 +35,7 @@ from numpy.testing import assert_allclose
 def get_device_id():
     """
     Get and validate TILE_FWK_DEVICE_ID from environment variable.
-    
+
     Returns:
         int: The device ID if valid, None otherwise.
     """
@@ -44,7 +44,7 @@ def get_device_id():
         print("Please set it before running this example:")
         print("  export TILE_FWK_DEVICE_ID=0")
         return None
-    
+
     try:
         device_id = int(os.environ['TILE_FWK_DEVICE_ID'])
         return device_id
@@ -53,11 +53,11 @@ def get_device_id():
         return None
 
 
-def add_rms_norm_golden(residual: torch.Tensor, hidden_states: torch.Tensor, 
+def add_rms_norm_golden(residual: torch.Tensor, hidden_states: torch.Tensor,
                         gamma: torch.Tensor, eps: float) -> tuple[torch.Tensor, torch.Tensor]:
     """
     PyTorch reference implementation of Add + RMSNorm.
-    
+
     Parameters
     ----------
     residual : torch.Tensor
@@ -68,7 +68,7 @@ def add_rms_norm_golden(residual: torch.Tensor, hidden_states: torch.Tensor,
         RMSNorm weight parameter
     eps : float
         Epsilon value for numerical stability
-        
+
     Returns
     -------
     tuple[torch.Tensor, torch.Tensor]
@@ -78,37 +78,37 @@ def add_rms_norm_golden(residual: torch.Tensor, hidden_states: torch.Tensor,
     x = residual + hidden_states
     x_dtype = x.dtype
     mean_coff = 1.0 / x.shape[-1]
-    
+
     # Convert to FP32 for computation
     x_f32 = x.to(torch.float32)
     square = x_f32 * x_f32
     mean_res = square * mean_coff
-    
+
     # RMS normalization
     reduce_sum = mean_res.sum(dim=-1, keepdim=True) + eps
     reduce_sqrt = torch.sqrt(reduce_sum)
     res_div = x_f32 / reduce_sqrt
     res = res_div * gamma
-    
+
     # Convert back to original dtype
     if x_dtype != torch.float32:
         res = res.to(x_dtype)
         x_out = x_f32.to(x_dtype)
     else:
         x_out = x_f32
-    
+
     return res, x_out
 
 
 @pypto.jit
-def add_rms_norm(inputs: list, outputs: list, eps: float):
+def add_rms_norm(residual, hidden_states, weight, output_hidden_states, output_residual, eps: float):
     """
     PyPTO implementation of Add + RMSNorm with dynamic batch size support.
-    
+
     This function processes input tensors in tiles, applying add + RMSNorm
     to each tile independently. The batch dimension is marked as dynamic,
     allowing variable batch sizes at runtime.
-    
+
     Parameters
     ----------
     inputs : list
@@ -121,26 +121,18 @@ def add_rms_norm(inputs: list, outputs: list, eps: float):
     # Enable dynamic unaligned support for code generation
     pypto.set_codegen_options(support_dynamic_unaligned=True)
     pypto.set_host_options(only_codegen=True)
-    
-    # Extract input and output tensors
-    residual = inputs[0]
-    hidden_states = inputs[1]
-    weight = inputs[2]
-    
-    output_hidden_states = outputs[0]
-    output_residual = outputs[1]
-    
+
     # Get tensor shapes
     calc_dtype = pypto.DT_FP32
     input_dtype = hidden_states.dtype
     m = hidden_states.shape[0]  # Dynamic batch size
     n = hidden_states.shape[1]  # Static hidden size
-    
+
     # Define tiling configuration
     view_shape = (16, n)
     tile_shape = [16, 1024]
     bs_loop = (m + view_shape[0] - 1) // view_shape[0]
-    
+
     # Define the computation graph
     def rms_inside_func():
         """Inner function to encapsulate kernel logic for automatic variable cleanup."""
@@ -150,7 +142,7 @@ def add_rms_norm(inputs: list, outputs: list, eps: float):
                 """Process one batch tile."""
                 # Create views for current batch tile
                 tile_residual = pypto.view(
-                    residual, 
+                    residual,
                     view_shape,
                     [idx_loop * view_shape[0], 0],
                     valid_shape=[(m - idx_loop * view_shape[0]).min(view_shape[0]), n]
@@ -161,61 +153,61 @@ def add_rms_norm(inputs: list, outputs: list, eps: float):
                     [idx_loop * view_shape[0], 0],
                     valid_shape=[(m - idx_loop * view_shape[0]).min(view_shape[0]), n]
                 )
-                
+
                 # Configure tiling: use full UB but don't exceed UB size
                 pypto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
-                
+
                 mean_coff = 1.0 / tile_hidden_states.shape[-1]
-                
+
                 # Cast to computation dtype (FP32)
                 tile_residual_fp32 = pypto.cast(tile_residual, calc_dtype)
                 tile_hidden_states_fp32 = pypto.cast(tile_hidden_states, calc_dtype)
-                
+
                 # Reshape weight to match tensor dimensions
                 weight_shape = [1] * len(tile_hidden_states_fp32.shape)
                 weight_shape[-1] = weight.shape[0]
                 weight_2d = pypto.reshape(weight, weight_shape)
                 tile_weight_fp32 = pypto.cast(weight_2d, calc_dtype)
-                
+
                 # Add residual connection: x = residual + hidden_states
                 x_f32 = pypto.add(tile_residual_fp32, tile_hidden_states_fp32)
-                
+
                 # Compute square: square = x^2
                 square = pypto.mul(x_f32, x_f32)
-                
+
                 # Compute mean: mean_res = square * mean_coff
                 mean_res = pypto.mul(square, mean_coff)
-                
+
                 # Reduce sum: reduce_asum = sum(mean_res, dim=-1, keepdim=True)
                 reduce_asum = pypto.sum(mean_res, dim=-1, keepdim=True)
-                
+
                 # Add epsilon: reduce_sum = reduce_asum + eps
                 reduce_sum = pypto.add(reduce_asum, eps)
-                
+
                 # Square root: reduce_sqrt = sqrt(reduce_sum)
                 reduce_sqrt = pypto.sqrt(reduce_sum)
-                
+
                 res_div = pypto.div(x_f32, reduce_sqrt)
-                
+
                 res = pypto.mul(res_div, tile_weight_fp32)
-                
+
                 # Cast output back to input dtype
                 y_output = pypto.cast(res, input_dtype)
                 output_hidden_states[
                     idx_loop * pypto.symbolic_scalar(view_shape[0]):,
                     pypto.symbolic_scalar(0):
                 ] = y_output
-                
+
                 x_output = pypto.cast(x_f32, input_dtype)
                 output_residual[
                     idx_loop * pypto.symbolic_scalar(view_shape[0]):,
                     pypto.symbolic_scalar(0):
                 ] = x_output
-            
+
             bs_loop_func(idx_loop)
-    
+
     rms_inside_func()
-    
+
     # Type assertions for verification
     assert isinstance(output_hidden_states, pypto.tensor)
     assert isinstance(output_residual, pypto.tensor)
@@ -224,54 +216,54 @@ def add_rms_norm(inputs: list, outputs: list, eps: float):
 def test_add_rms_norm():
     """
     Test Add + RMSNorm implementation against PyTorch reference.
-    
+
     Tests with different batch sizes to verify dynamic shape support.
     """
     print("=" * 60)
     print("Test: Add + RMSNorm (Dynamic Batch)")
     print("=" * 60)
-    
+
     hidden_size = 2048
     eps = 1e-6
-    
+
     device_id = torch.npu.current_device()
-    
+
     # Test with different batch sizes
     for i in range(4):
         if i == 2:
             batch_size = 2  # Test with small batch size
         else:
             batch_size = 5
-        
+
         print(f"\nTesting with batch size: {batch_size}")
-        
+
         # Prepare test data
         residual_tensor = torch.rand(
-            (batch_size, hidden_size), 
-            dtype=torch.float16, 
+            (batch_size, hidden_size),
+            dtype=torch.float16,
             device=f'npu:{device_id}'
         )
         hidden_states_tensor = torch.rand(
-            (batch_size, hidden_size), 
-            dtype=torch.float16, 
+            (batch_size, hidden_size),
+            dtype=torch.float16,
             device=f'npu:{device_id}'
         )
         weight_tensor = torch.rand(
-            hidden_size, 
-            dtype=torch.float16, 
+            hidden_size,
+            dtype=torch.float16,
             device=f'npu:{device_id}'
         )
-        
+
         output_hidden_states = torch.full(
-            (batch_size, hidden_size), 
-            9, 
-            dtype=torch.float16, 
+            (batch_size, hidden_size),
+            9,
+            dtype=torch.float16,
             device=f'npu:{device_id}'
         )
         output_residual = torch.full(
-            (batch_size, hidden_size), 
-            7, 
-            dtype=torch.float16, 
+            (batch_size, hidden_size),
+            7,
+            dtype=torch.float16,
             device=f'npu:{device_id}'
         )
 
@@ -289,9 +281,9 @@ def test_add_rms_norm():
         pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
 
         # Execute PyPTO kernel
-        add_rms_norm(pto_inputs, pto_outputs, eps)
+        add_rms_norm(*pto_inputs, *pto_outputs, eps)
         pypto.runtime._device_synchronize()
-        
+
         # Compute reference using PyTorch
         golden_res, golden_x = add_rms_norm_golden(
             residual_tensor.cpu(),
@@ -299,7 +291,7 @@ def test_add_rms_norm():
             weight_tensor.cpu(),
             eps
         )
-        
+
         # Verify results
         assert_allclose(
             np.array(output_residual.cpu().flatten().tolist()),
@@ -313,15 +305,15 @@ def test_add_rms_norm():
             rtol=0.001,
             atol=0.001
         )
-        
+
         print(f"  ✓ Batch size {batch_size} passed")
-    
+
     print("\n✓ All Add + RMSNorm tests passed")
 
 
 def main():
     """Run Add + RMSNorm example.
-    
+
     Usage:
         python add_rms_norm.py          # Run example
         python add_rms_norm.py --list   # List available examples
@@ -346,9 +338,9 @@ Examples:
         action='store_true',
         help='List all available examples and exit'
     )
-    
+
     args = parser.parse_args()
-    
+
     # Define available examples
     examples = {
         1: {
@@ -358,7 +350,7 @@ Examples:
             'requires_npu': True
         }
     }
-    
+
     # List examples if requested
     if args.list:
         print("\n" + "=" * 60)
@@ -369,7 +361,7 @@ Examples:
             print(f"  {ex_id}. {ex_info['name']}{npu_req}")
             print(f"     {ex_info['description']}\n")
         return
-    
+
     # Validate example ID if provided
     if args.example_id is not None:
         if args.example_id not in examples:
@@ -377,46 +369,46 @@ Examples:
             print(f"Valid example IDs are: {', '.join(map(str, sorted(examples.keys())))}")
             print("\nUse --list to see all available examples.")
             sys.exit(1)
-    
+
     print("\n" + "=" * 60)
     print("PyPTO Add + RMSNorm Example (Qwen3)")
     print("=" * 60 + "\n")
-    
+
     # Get and validate device ID (needed for NPU examples)
     device_id = None
     examples_to_run = []
-    
+
     if args.example_id is not None:
         # Run single example
         examples_to_run = [(args.example_id, examples[args.example_id])]
     else:
         # Run all examples
         examples_to_run = list(examples.items())
-    
+
     # Check if any example requires NPU
     requires_npu = any(ex_info['requires_npu'] for _, ex_info in examples_to_run)
-    
+
     if requires_npu:
         device_id = get_device_id()
         if device_id is None:
             return
         # Set the device once for all examples
         torch.npu.set_device(device_id)
-    
+
     try:
         for ex_id, ex_info in examples_to_run:
             if ex_info['requires_npu'] and device_id is None:
                 print(f"Skipping example {ex_id} ({ex_info['name']}): NPU device not configured")
                 continue
-            
+
             print(f"Running Example {ex_id}: {ex_info['name']}")
             ex_info['function']()
-        
+
         if len(examples_to_run) > 1:
             print("\n" + "=" * 60)
             print("All tests completed successfully!")
             print("=" * 60)
-        
+
     except Exception as e:
         print(f"\nError: {e}")
         raise

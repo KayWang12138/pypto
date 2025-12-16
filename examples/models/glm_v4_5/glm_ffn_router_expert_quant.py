@@ -189,23 +189,14 @@ loop_base = 8
 
 
 @pypto.jit
-def moe_router_expert_main(inputs, outputs):
+def moe_router_expert_main(hidden_states, hidden_states_scale,
+                           group_list, group_list_cumsum, w13,
+                           w13_scale, w2, w2_scale, ffn_res):
     pypto.set_host_options(only_codegen=True)
     pypto.set_codegen_options(support_dynamic_unaligned=True)
     pypto.set_codegen_options(codegen_expression_fusion=True)
     pypto.set_runtime_options(machine_sched_mode=1)
     pypto.set_pass_options(l1_reuse=2)
-
-    # hidden_states, hidden_states_scale, group_list, group_list_cumsum, w13, w13_scale, w2, w2_scale
-    hidden_states = inputs[0]
-    hidden_states_scale = inputs[1]
-    group_list = inputs[2]
-    group_list_cumsum = inputs[3]
-    w13 = inputs[4]
-    w13_scale = inputs[5]
-    w2 = inputs[6]
-    w2_scale = inputs[7]
-    ffn_res = outputs[0]
 
     # 获取当前device上专家总数
     expert_num = group_list.shape[0]
@@ -281,7 +272,7 @@ def ffn_router_expert_quant(hidden_states: torch.Tensor,
     if not isinstance(hidden_states, FakeTensor):
         pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
         pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
-        moe_router_expert_main(pto_inputs, pto_outputs)
+        moe_router_expert_main(*pto_inputs, *pto_outputs)
         pypto.runtime._device_synchronize()
     return ffn_res
 
@@ -322,7 +313,7 @@ def test_ffn_router():
         }
         pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
         pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
-        moe_router_expert_main(pto_inputs, pto_outputs)
+        moe_router_expert_main(*pto_inputs, *pto_outputs)
         pypto.runtime._device_synchronize()
 
         # golden

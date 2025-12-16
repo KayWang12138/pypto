@@ -81,7 +81,7 @@ def softmax_core(input_tensor: pypto.tensor) -> pypto.tensor:
 
 
 @pypto.jit(runtime_options={"run_mode": 0})
-def softmax_npu(inputs, outputs):
+def softmax_npu(input_tensor, output_tensor):
     """
     Softmax implementation with dynamic batch size support.
 
@@ -96,9 +96,6 @@ def softmax_npu(inputs, outputs):
     outputs : list
         List containing output tensor [batch, n1, n2, dim]
     """
-    input_tensor = inputs[0]
-    output_tensor = outputs[0]
-
     # After the dynamic axis of tensor is marked, get the tensor shape accordingly
     tensor_shape = input_tensor.shape
     b = tensor_shape[0]  # Dynamic batch size
@@ -124,7 +121,7 @@ def softmax_npu(inputs, outputs):
 
 
 @pypto.jit(runtime_options={"run_mode": 1})
-def softmax_sim(inputs, outputs):
+def softmax_sim(input_tensor, output_tensor):
     """
     Softmax implementation with dynamic batch size support.
 
@@ -139,9 +136,6 @@ def softmax_sim(inputs, outputs):
     outputs : list
         List containing output tensor [batch, n1, n2, dim]
     """
-    input_tensor = inputs[0]
-    output_tensor = outputs[0]
-
     # After the dynamic axis of tensor is marked, get the tensor shape accordingly
     tensor_shape = input_tensor.shape
     b = tensor_shape[0]  # Dynamic batch size
@@ -198,9 +192,9 @@ def test_softmax(tensor_type, run_mode):
 
     # Launch the kernel
     if run_mode == "sim":
-        softmax_sim(pto_inputs, pto_outputs)
+        softmax_sim(*pto_inputs, *pto_outputs)
     else:
-        softmax_npu(pto_inputs, pto_outputs)
+        softmax_npu(*pto_inputs, *pto_outputs)
         pypto.runtime._device_synchronize()
 
     # Verify against PyTorch reference

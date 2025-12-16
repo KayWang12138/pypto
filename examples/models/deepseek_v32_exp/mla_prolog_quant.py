@@ -257,11 +257,13 @@ def pre_compute_2d(token_x, w_dq, w_uq_qr, w_dkv_kr, gamma_cq, epsilon_cq, quant
     return qkv_pre_res
 
 
-def mla_prolog_quant_compute(input_tensors, output_tensors, epsilon_cq, epsilon_ckv, cache_mode, tile_config):
-    token_x, w_dq, w_uq_qr, dequant_scale, w_uk, w_dkv_kr, gamma_cq, gamma_ckv, cos, \
-        sin, cache_index, kv_cache, kr_cache, k_scale_cache = input_tensors
-    q_norm_out, q_norm_scale_out, query_nope_out, query_rope_out, kv_cache_out, \
-        kr_cache_out, k_scale_cache_out = output_tensors
+def mla_prolog_quant_compute(token_x, w_dq, w_uq_qr, dequant_scale, w_uk,
+                             w_dkv_kr, gamma_cq, gamma_ckv, cos,
+                             sin, cache_index, kv_cache, kr_cache, k_scale_cache,
+                             q_norm_out, q_norm_scale_out, query_nope_out,
+                             query_rope_out, kv_cache_out,
+                             kr_cache_out, k_scale_cache_out, epsilon_cq,
+                             epsilon_ckv, cache_mode, tile_config):
 
     assert len(token_x.shape) == 2 and len(w_uk.shape) == 3 and len(sin.shape) == 2
     assert len(kv_cache.shape) == 4 and len(kr_cache.shape) == 4
@@ -394,12 +396,13 @@ def mla_prolog_quant_compute(input_tensors, output_tensors, epsilon_cq, epsilon_
 
 @pypto.jit
 def mla_prolog_quant_p(
-    input_tensors, 
-    output_tensors, 
-    epsilon_cq, 
-    epsilon_ckv, 
-    cache_mode, 
-    tile_config):
+                       token_x, w_dq, w_uq_qr, dequant_scale, w_uk,
+                       w_dkv_kr, gamma_cq, gamma_ckv, cos,
+                       sin, cache_index, kv_cache, kr_cache, k_scale_cache,
+                       q_norm_out, q_norm_scale_out, query_nope_out,
+                       query_rope_out, kv_cache_out,
+                       kr_cache_out, k_scale_cache_out, epsilon_cq,
+                       epsilon_ckv, cache_mode, tile_config):
     '''
     prefill
     '''
@@ -410,23 +413,25 @@ def mla_prolog_quant_p(
                            copyin_threshold=2 * 1024 * 1024)
     pypto.set_host_options(only_codegen=True)
     mla_prolog_quant_compute(
-        input_tensors,
-        output_tensors,
-        epsilon_cq,
-        epsilon_ckv,
-        cache_mode,
-        tile_config
+                             token_x, w_dq, w_uq_qr, dequant_scale, w_uk,
+                             w_dkv_kr, gamma_cq, gamma_ckv, cos,
+                             sin, cache_index, kv_cache, kr_cache, k_scale_cache,
+                             q_norm_out, q_norm_scale_out, query_nope_out,
+                             query_rope_out, kv_cache_out,
+                             kr_cache_out, k_scale_cache_out, epsilon_cq,
+                             epsilon_ckv, cache_mode, tile_config
     )
 
 
 @pypto.jit
 def mla_prolog_quant_d(
-    input_tensors, 
-    output_tensors, 
-    epsilon_cq, 
-    epsilon_ckv, 
-    cache_mode, 
-    tile_config):
+                       token_x, w_dq, w_uq_qr, dequant_scale, w_uk,
+                       w_dkv_kr, gamma_cq, gamma_ckv, cos,
+                       sin, cache_index, kv_cache, kr_cache, k_scale_cache,
+                       q_norm_out, q_norm_scale_out, query_nope_out,
+                       query_rope_out, kv_cache_out,
+                       kr_cache_out, k_scale_cache_out, epsilon_cq,
+                       epsilon_ckv, cache_mode, tile_config):
     '''
     decode
     '''
@@ -437,10 +442,11 @@ def mla_prolog_quant_d(
                            copyin_threshold=2 * 1024 * 1024)
     pypto.set_host_options(only_codegen=True)
     mla_prolog_quant_compute(
-        input_tensors,
-        output_tensors,
-        epsilon_cq,
-        epsilon_ckv,
-        cache_mode,
-        tile_config
+                             token_x, w_dq, w_uq_qr, dequant_scale, w_uk,
+                             w_dkv_kr, gamma_cq, gamma_ckv, cos,
+                             sin, cache_index, kv_cache, kr_cache, k_scale_cache,
+                             q_norm_out, q_norm_scale_out, query_nope_out,
+                             query_rope_out, kv_cache_out,
+                             kr_cache_out, k_scale_cache_out, epsilon_cq,
+                             epsilon_ckv, cache_mode, tile_config
     )

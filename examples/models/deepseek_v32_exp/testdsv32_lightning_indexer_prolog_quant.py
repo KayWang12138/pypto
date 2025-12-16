@@ -361,7 +361,7 @@ def lighting_indexer_prolog_quant_dyn(inputs: IndexerPrologQuantInput, outputs: 
     }
     pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in input_tensors.items()]
     pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in output_tensors.items()]
-    lightning_indexer_prolog_quant(pto_inputs, pto_outputs, attrs, configs)
+    lightning_indexer_prolog_quant(*pto_inputs, *pto_outputs, attrs, configs)
     pypto.runtime._device_synchronize()
 
 
@@ -423,7 +423,7 @@ def do_test_lighting_indexer_prolog_quant(case_name, configs):
         layerout_key="PA_BSND",
     )
 
-    lighting_indexer_prolog_quant_dyn(inputs, outputs, attrs, configs)
+    lighting_indexer_prolog_quant_dyn(*inputs, *outputs, attrs, configs)
 
     compare(outputs.q_int8.cpu(), q_int8_golden, "q_int8", 1, 0, 0)
     compare(outputs.q_scale.cpu(), q_scale_golden, "q_scale", 0.000025, 0, 0.005, 1)

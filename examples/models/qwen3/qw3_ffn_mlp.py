@@ -165,14 +165,7 @@ loop_base = 16
     host_options={"only_codegen": True},
     codegen_options={"support_dynamic_unaligned": True}
 )
-def moe_main(inputs, outputs):
-
-    expand_x = inputs[0]
-    expert_tokens = inputs[1]
-    token_acc_table = inputs[2]
-    weight_gate_upper = inputs[3]
-    weight_down_proj = inputs[4]
-    ffn_out = outputs[0]
+def moe_main(expand_x, expert_tokens, token_acc_table, weight_gate_upper, weight_down_proj, ffn_out):
     weight_dtype = weight_down_proj.dtype
 
     # 获取当前device上专家总数
@@ -234,7 +227,7 @@ def test_qwen3_ffn():
 
     pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
     pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
-    moe_main(pto_inputs, pto_outputs)
+    moe_main(*pto_inputs, *pto_outputs)
     pypto.runtime._device_synchronize()
 
     # golden

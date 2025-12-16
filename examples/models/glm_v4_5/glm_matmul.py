@@ -49,7 +49,7 @@ def graph_select_experts_mm(hidden_states, gate_weight, router_logits_out):
     }
     pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
     pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
-    select_experts_mm(pto_inputs, pto_outputs)
+    select_experts_mm(*pto_inputs, *pto_outputs)
     pypto.runtime._device_synchronize()
 
 
@@ -72,14 +72,8 @@ def gate(gate_weight: torch.Tensor,  # gate matmul weights
     host_options={"only_codegen": True},
     codegen_options={"support_dynamic_unaligned": True}
 )
-def select_experts_mm(in_tensors, out_tensors):
+def select_experts_mm(hidden_states, mm_weight, router_logits_out):
     # 泳道图使能  pypto.set_option('profile_enable', True)
-
-    # 2. 从入参拿到输入和输出tensor
-    hidden_states = in_tensors[0]
-    mm_weight = in_tensors[1]
-    router_logits_out = out_tensors[0]
-
     # 3. 得到动态tensor的shape
     bs = hidden_states.shape[0]
     ne = mm_weight.shape[0]
@@ -138,7 +132,7 @@ def test_select_experts_mm():
         pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
         g = torch.npu.NPUGraph()
         with torch.npu.graph(g):
-            select_experts_mm(pto_inputs, pto_outputs)
+            select_experts_mm(*pto_inputs, *pto_outputs)
         g.replay()
         pypto.runtime._device_synchronize()
 

@@ -91,7 +91,7 @@ def torch_chunk_gated_delta_rule(
             last_recurrent_state * g[:, :, i, -1, None, None].exp()
             + (k_i * (g[:, :, i, -1, None] - g[:, :, i]).exp()[..., None]).transpose(-1, -2) @ v_new
         )
-    
+
     if not output_final_state:
         last_recurrent_state = None
     core_attn_out = core_attn_out.reshape(core_attn_out.shape[0], core_attn_out.shape[1], -1, core_attn_out.shape[-1])
@@ -163,7 +163,7 @@ def torch_all(inputs, outputs):
 
     # Entering fix_query_key_value_ordering() in HF
     new_tensor_shape_qkvz = mixed_qkvz.size()[:-1] + (num_k_heads, \
-    2 * head_k_dim + 2 * head_v_dim * num_v_heads // num_k_heads) 
+    2 * head_k_dim + 2 * head_v_dim * num_v_heads // num_k_heads)
     new_tensor_shape_ba = mixed_ba.size()[:-1] + (
         num_k_heads, 2 * num_v_heads // num_k_heads) # b_size s_size k_h 2*v_h/k_h
     mixed_qkvz = mixed_qkvz.view(*new_tensor_shape_qkvz)
@@ -197,14 +197,14 @@ def torch_all(inputs, outputs):
     )
 
     mixed_qkv_after_conv = torch.nn.functional.silu(mixed_qkv_after_conv[:, :, :seq_len])
-    
+
     mixed_qkv_after_trans = mixed_qkv_after_conv.transpose(1, 2)
     query, key, value = torch.split(
         mixed_qkv_after_trans, [
             key_dim,
             key_dim,
             value_dim,
-        ], 
+        ],
         dim=-1,
     )
 
@@ -247,7 +247,7 @@ def pto_core_compute_qkvzba(
     b, a, # b_size s_size H
     k_h, v_h, d
 ):
-    
+
     b_size, s_size, d_size = hidden_states.shape
 
     s_step = 1
@@ -293,10 +293,10 @@ def pto_core_compute_qkvzba(
     for s_idx in pypto.loop(0, s_size, s_step, name="LOOP04", idx_name="LOOP04IDX"):
         def f(s_idx):
             pypto.set_vec_tile_shapes(1, 16, 16, 16)
-            q_view = middle_states_qkvz[:, s_idx:s_idx + s_step, :, :d].reshape([b_size, s_step, k_h * d]) 
-            k_view = middle_states_qkvz[:, s_idx:s_idx + s_step, :, d:2 * d].reshape([b_size, s_step, k_h * d]) 
+            q_view = middle_states_qkvz[:, s_idx:s_idx + s_step, :, :d].reshape([b_size, s_step, k_h * d])
+            k_view = middle_states_qkvz[:, s_idx:s_idx + s_step, :, d:2 * d].reshape([b_size, s_step, k_h * d])
             v_view = middle_states_qkvz[:, s_idx:s_idx + s_step, :, 2 * d: 2 * d + v_h // k_h * d].reshape([b_size, \
-            s_step, v_h * d]) 
+            s_step, v_h * d])
             z_view = middle_states_qkvz[:, s_idx:s_idx + s_step, :, 2 * d + v_h // k_h * d:]
             pypto.set_vec_tile_shapes(16, 16, 16)
             qkv_view = pypto.concat([q_view, k_view, v_view], 2).reshape([b_size, s_step, 2 * d * k_h + v_h * d])
@@ -304,7 +304,7 @@ def pto_core_compute_qkvzba(
             mixed_qkv[:, :, s_idx:s_idx + s_step] = qkv_transposed
             middle_z[:, s_idx:s_idx + s_step, :, :] = z_view
         f(s_idx)
-    
+
     for _ in pypto.loop(0, 1, 1, name="foo_reshape", idx_name="foo_idx"):
         pypto.set_vec_tile_shapes(1, 16, 16, 16)
         z[:, :, :] = middle_z.reshape([b_size, s_size, d * v_h])
@@ -327,7 +327,7 @@ def pto_core_compute_qkvzba(
 
 
 def ab_preproc(a, b, a_log, dt_bias, g, beta):
-    
+
     s_size = a.shape[1]
     s_step = 1
 
@@ -348,7 +348,7 @@ def ab_preproc(a, b, a_log, dt_bias, g, beta):
             g_view = pypto.mul(a_softplus, a_exp_neg)
 
             b_sigmoid = pypto.sigmoid(b_view)
-            
+
             g[:, s_idx:s_idx + s_step, :] = g_view
             beta[:, s_idx:s_idx + s_step, :] = b_sigmoid
         f(s_idx)
@@ -387,7 +387,7 @@ class Conv1d():
             def f(i):
                 padded_x[0:, 0:, self.padding+i : self.padding+i+step] = x[0:, 0:, i:i+step]
             f(i)
-        
+
         output_length = (input_length - kernel_size) // self.stride + 1
         in_group_size = self.in_channel // self.groups # 1
         out_group_size = self.out_channel // self.groups # 1
@@ -409,7 +409,7 @@ class Conv1d():
                         pypto.assemble(conv_out, [0, group_idx * out_group_size, conv_idx], out_tensor)
                     f(conv_idx)
             f_s(group_idx)
-        
+
         if bias is not None:
             for k in pypto.loop(1):
                 out_tensor[:] = out_tensor + pypto.reshape(bias, [1, bias.shape[0], 1])
@@ -450,7 +450,7 @@ def compute_interleave(mixed_qkv, query, key, value, k_h, v_h, d):
 
     s_step = 1
     replication = v_h // k_h
-    
+
     for s_idx in pypto.loop(0, s_size, s_step, name="LOOP06", idx_name="LOOP06IDX"):
         def f_s(s_idx):
             for h_idx in pypto.loop(0, v_h, 1, name="LOOP07", idx_name="LOOP07IDX"):
@@ -510,7 +510,7 @@ def cast_and_reshape(inputs, outputs):
             key_block = key[b_idx:b_idx+view_b, :, n_idx:n_idx+view_n, :]
             key_result_block = pypto.cast(key_block.transpose(1, 2).reshape([view_b*view_n, c, l, d]), pypto.DT_FP32)
             key_result[b_idx:b_idx+view_b, n_idx:n_idx+view_n, :, :] = key_result_block
-            
+
             value_block = value[b_idx:b_idx+view_b, :, n_idx:n_idx+view_n, :]
             value_result_block = pypto.cast(value_block.transpose(1, 2).reshape([view_b * view_n, c, l, d]), \
             pypto.DT_FP32)
@@ -627,7 +627,7 @@ def cal_value_and_kcumdecay(inputs, outputs):
             g_block = g[bn_idx:bn_idx+view_bn, c_idx:c_idx+view_c, :] # view_bn, view_c, l
 
             value[bn_idx:bn_idx + view_bn, c_idx:c_idx + view_c, :, :] = \
-            pypto.matmul(attn_block, v_beta_block, pypto.DT_FP32) 
+            pypto.matmul(attn_block, v_beta_block, pypto.DT_FP32)
             k_cumdecay[bn_idx:bn_idx+view_bn, c_idx:c_idx+view_c, :, :] = pypto.matmul(attn_block, \
                 k_beta_block * g_block.exp().reshape([view_bn, view_c, l, 1]), pypto.DT_FP32) # view_bn, view_c, l, d
 
@@ -663,8 +663,8 @@ def recurrent_loop(inputs, outputs):
             _gate = gate[bn_idx:(bn_idx + view_bn), i:i + 1, :] # [view_bn, 1, l_size]
 
             pypto.set_vec_tile_shapes(1, 16, 16, 16)
-            attn = pypto.matmul(_qi, _ki.transpose(2, 3), pypto.DT_FP32) * _decay_mask * _tril 
-            v_prime = pypto.matmul(_k_cumdecay, _state.reshape([view_bn, 1, d, d]), pypto.DT_FP32) 
+            attn = pypto.matmul(_qi, _ki.transpose(2, 3), pypto.DT_FP32) * _decay_mask * _tril
+            v_prime = pypto.matmul(_k_cumdecay, _state.reshape([view_bn, 1, d, d]), pypto.DT_FP32)
             v_new = _vi - v_prime # [view_bn, 1, l_size, d_size]
             attn_inter = pypto.matmul(_qi * _gate.reshape([view_bn, 1, l, 1]).exp(), \
             _state.reshape([view_bn, 1, d, d]), pypto.DT_FP32)
@@ -679,8 +679,8 @@ def recurrent_loop(inputs, outputs):
             pypto.matmul((_ki * (_last_gate - _gate).reshape([view_bn, 1, l, 1]).exp()).transpose(2, 3), \
             v_new, pypto.DT_FP32) # [view_bn, 1, d_size, d_size]
             _last_gate_2 = pypto.expand_clone(_gate.reshape([view_bn, l])[:, l - 1:l], \
-            [view_bn, d]).reshape([view_bn, d, 1]) 
-            _updated_state = _state * _last_gate_2.exp() + _tmp_matmul_result.reshape([view_bn, d, d]) 
+            [view_bn, d]).reshape([view_bn, d, 1])
+            _updated_state = _state * _last_gate_2.exp() + _tmp_matmul_result.reshape([view_bn, d, d])
 
             # assemble
             tmp_core_attn_out[bn_idx:, i:i+1, :, :] = _core_attn_out
@@ -698,7 +698,7 @@ def recurrent_loop(inputs, outputs):
 def gated_delta_rule_process(inputs, outputs):
     query, key, value, beta, gate, states, mask1, tril_mask, triu_mask, eye = inputs
     core_attn_out, final_state = outputs
-    
+
     b, s, n, d = query.shape
     l = 64
     c = max(1, s // l)
@@ -743,7 +743,7 @@ def gated_delta_rule_process(inputs, outputs):
             key_block = l2norm_key[bn_idx:bn_idx+view_bn, c_idx:c_idx+view_c, :, :]
             beta_block = chunk_beta[bn_idx:bn_idx+view_bn, c_idx:c_idx+view_c, :]
             query_block = l2norm_query[bn_idx:bn_idx+view_bn, c_idx:c_idx+view_c, :, :]
-            
+
             v_beta_block = value_block * beta_block.reshape([view_bn, view_c, l, 1]) # b n s d
             k_beta_block = key_block * beta_block.reshape([view_bn, view_c, l, 1]) # b n s d
             scaled_query_block = query_block * scale
@@ -751,7 +751,7 @@ def gated_delta_rule_process(inputs, outputs):
             v_beta[bn_idx:bn_idx+view_bn, c_idx:c_idx+view_c, :, :] = v_beta_block
             k_beta[bn_idx:bn_idx+view_bn, c_idx:c_idx+view_c, :, :] = k_beta_block
             scaled_query[bn_idx:bn_idx+view_bn, c_idx:c_idx+view_c, :, :] = scaled_query_block
-    
+
     for _ in pypto.loop(0, 1, 1, name="", idx_name="", submit_before_loop=True):
         pass
     cal_cumsum(chunk_gate, triu_mask, g)
@@ -852,7 +852,7 @@ def pto_rms_norm(inputs, outputs):
 
                         square = pypto.mul(x_fp32, x_fp32)
                         mean_res = pypto.mul(square, mean_coff)
-                        reduce_asum = pypto.sum(mean_res, keepdim=True) # [1,1,n,1]
+                        reduce_asum = pypto.sum(mean_res, -1, keepdim=True) # [1,1,n,1]
                         reduce_sum = pypto.add(reduce_asum, eps)
                         reduce_sqrt = pypto.sqrt(reduce_sum)
                         res_div = pypto.div(x_fp32, reduce_sqrt) # [1,1,n,d]
@@ -956,13 +956,13 @@ def pto_gated_linear(inputs, outputs):
                     s1_fun(s1_idx)
 
             b_fun(b_idx)
-        
+
     fun()
 
 
 def compute_all(
     hidden_states, qkvz_weight, ba_weight, a_log, dt_bias, conv_weight, init_state, mask1, tril_mask, triu_mask, eye,
-    hidden_state_out, final_state 
+    hidden_state_out, final_state
 ):
 
     b_size, s_size, d_size = hidden_states.shape
@@ -974,7 +974,7 @@ def compute_all(
     mixed_qkv = pypto.tensor([b_size, d_size * (2 * k_h + v_h), s_size], pypto.DT_FP32, "MIXED_QKV_WORKSPACE")
     b = pypto.tensor([b_size, s_size, v_h], pypto.DT_FP32, "B_WORKSPACE")
     a = pypto.tensor([b_size, s_size, v_h], pypto.DT_FP32, "A_WORKSPACE")
-    
+
     query = pypto.tensor([b_size, s_size, v_h, d_size], pypto.DT_FP32, "query_workspace")
     key = pypto.tensor([b_size, s_size, v_h, d_size], pypto.DT_FP32, "key_workspace")
     value = pypto.tensor([b_size, s_size, v_h, d_size], pypto.DT_FP32, "value_workspace")
@@ -1007,10 +1007,15 @@ def compute_all(
 
 
 @pypto.jit
-def pypto_gated_delta_net(inputs, outputs):
+def pypto_gated_delta_net(hidden_states, qkvz_weight, ba_weight, a_log,
+                          dt_bias, conv_weight, init_state, mask1,
+                          tril_mask, triu_mask, eye, hidden_state_out,
+                          final_state):
     pypto.set_host_options(only_codegen=True)
     pypto.set_codegen_options(support_dynamic_unaligned=True)
-    compute_all(*inputs, *outputs)
+    compute_all(hidden_states, qkvz_weight, ba_weight, a_log, dt_bias,
+                conv_weight, init_state, mask1, tril_mask, triu_mask,
+                eye, hidden_state_out, final_state)
 
 
 def test_all():
@@ -1027,7 +1032,7 @@ def test_all():
 
     l_size = 64
     c_size = (s_size + l_size - 1) // l_size
-    
+
     c_d = (2 * k_h + v_h) * d_size # Conv dim
     k_size = 4 # Kernel size
 
@@ -1060,7 +1065,7 @@ def test_all():
     pto_outputs = [pypto.from_torch(x, "OUT") for x in outputs_npu]
 
     torch_all(inputs_cpu, outputs_cpu)
-    pypto_gated_delta_net(pto_inputs, pto_outputs)
+    pypto_gated_delta_net(*pto_inputs, *pto_outputs)
 
     assert torch.allclose(outputs_cpu[0], outputs_npu[0].cpu(), 0.001, 0.001)
     assert torch.allclose(outputs_cpu[1], outputs_npu[1].cpu(), 0.001, 0.001)
