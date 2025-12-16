@@ -281,7 +281,7 @@ TEST_F(PreGraphTest, TestAssemble) {
         {       "L1CopyInReuseMerge",       "L1CopyInReuseMerge"},
         {           "PadLocalBuffer",           "PadLocalBuffer"},
         {   "RemoveUnalignedReshape",   "RemoveUnalignedReshape"},
-        {           "InplaceProcess",           "InplaceProcess"},
+        {           "ReplaceTensor",           "ReplaceTensor"},
 
     });
     int dim1 = 8;
@@ -352,7 +352,7 @@ config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
         {       "L1CopyInReuseMerge",       "L1CopyInReuseMerge"},
         {           "PadLocalBuffer",           "PadLocalBuffer"},
         {   "RemoveUnalignedReshape",   "RemoveUnalignedReshape"},
-        {           "InplaceProcess",           "InplaceProcess"},
+        {           "ReplaceTensor",           "ReplaceTensor"},
     });
     ConfigManager::Instance();
 

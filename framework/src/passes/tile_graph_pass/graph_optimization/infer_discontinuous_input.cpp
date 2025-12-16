@@ -112,6 +112,59 @@ inline bool PerfectOffsetOverlap(std::vector<int> &rawTensorIds, std::vector<Sha
     return true;
 }
 
+inline bool IsTraceableView(Operation* cur) {
+    auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(cur->GetOpAttribute().get());
+    if (viewOpAttribute == nullptr) {
+        return false;
+    }
+    for (auto &fromOffset : viewOpAttribute->GetFromDynOffset()) {
+        if (fromOffset.IsSymbol()) {
+            return false;
+        }
+        if (fromOffset.IsExpression()) {
+            return false;
+        }
+    }
+    for (auto &dynShape : viewOpAttribute->GetToDynValidShape()) {
+        if (dynShape.IsSymbol()) {
+            return false;
+        }
+        if (dynShape.IsExpression()) {
+            return false;
+        }
+    }
+    return true;
+}
+
+inline bool NoViewConflict(const std::vector<std::pair<LogicalTensorPtr, Operation*>> &inplaceTensors)
+{
+    std::vector<Operation*> viewOps(inplaceTensors.size(), nullptr);
+    for (size_t i = 0; i < inplaceTensors.size(); i++) {
+        auto tensor = inplaceTensors[i].first;
+        for (auto &producer : tensor->GetProducers()) {
+            if (producer->GetOpcode() == Opcode::OP_VIEW) {
+                viewOps[i] = producer;
+            }
+        }
+    }
+    for (size_t i = 0; i < inplaceTensors.size(); i++) {
+        if (viewOps[i] == nullptr) {
+            continue;
+        }
+        // dynamic view check
+        if (!IsTraceableView(viewOps[i])) {
+            return false;
+        }
+        // incast outcast Check
+        for (auto &producerTensor : viewOps[i]->GetIOperands()) {
+            if (producerTensor->nodetype != NodeType::LOCAL) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
 inline std::vector<size_t> GetInputTileConflict(
     const std::vector<std::pair<LogicalTensorPtr, Operation*>> &inplaceTensors) {
     std::vector<int> rawTensorIds;
@@ -138,7 +191,11 @@ inline std::vector<size_t> GetInputTileConflict(
         offsetTos.push_back(attr->GetToOffset());
     }
     std::vector<size_t> copyIdx;
-    if (assembleCheck && (!PerfectOffsetOverlap(rawTensorIds, rawShapes, shapes, offsets, offsetTos))) {
+    if (!assembleCheck) {
+        return {};
+    }
+    if (!(PerfectOffsetOverlap(rawTensorIds, rawShapes, shapes, offsets, offsetTos) && NoViewConflict(inplaceTensors)) &&
+            inplaceTensors.size() > 1) {
         for (size_t i = 0; i < inplaceTensors.size(); i++) {
             copyIdx.push_back(i);
         }
@@ -252,8 +309,43 @@ void InferDiscontinuousInput::InsertCopyOp(Function &function, LogicalTensorPtr 
     InsertViewOp(function, newTensor, oOperand);
 }
 
+inline void DDRTensorAssignUB(Function &function, std::map<LogicalTensorPtr, std::set<Operation *>> insertedNodes) {
+    auto opList = function.Operations().DuplicatedOpList();
+    for (size_t i = 0; i < opList.size(); ++i) {
+        Operation *currOp = opList[i];
+        if (currOp->GetOpcode() != Opcode::OP_ASSEMBLE) {
+            continue;
+        }
+        for (LogicalTensorPtr ioperand : currOp->GetIOperands()) {
+            if (ioperand->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
+                continue;
+            }
+            auto &inOp = *ioperand->GetProducers().begin();
+            if (ioperand->GetProducers().size() != 1 || inOp->GetOpcode() != Opcode::OP_VIEW) {
+                continue;
+            }
+            auto viewOut = inOp->GetOOperands().front();
+            auto outShape = viewOut->GetShape();
+            bool isDynAxis = false;
+            for (size_t dim = 0; dim < outShape.size(); dim++) {
+                if (outShape[dim] < 0) {
+                    insertedNodes[ioperand].insert(currOp);
+                    isDynAxis = true;
+                    break;
+                }
+            }
+            if (isDynAxis) {
+                continue;;
+            }
+            ioperand->SetMemoryTypeOriginal(MemoryType::MEM_UB, true);
+            ioperand->SetMemoryTypeToBe(MemoryType::MEM_UB);
+            insertedNodes[ioperand].insert(currOp);
+        }
+    }
+}
 Status InferDiscontinuousInput::InsertTensorCopy(Function &function) {
     std::map<LogicalTensorPtr, std::set<Operation *>> insertedNodes;
+    DDRTensorAssignUB(function, insertedNodes);
     for (auto &copyInserts : insertCopys_) {
         auto &inplaceNodes = copyInserts.second;
         for (auto &inplaceNode : inplaceNodes) {

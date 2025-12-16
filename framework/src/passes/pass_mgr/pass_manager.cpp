@@ -74,7 +74,7 @@ void RegPass() {
     REG_PASS(MergeViewAssemble);
     REG_PASS(IntraSubgraphAdapter);
     REG_PASS(PadLocalBuffer);
-    REG_PASS(InplaceProcess);
+    REG_PASS(ReplaceTensor);
     REG_PASS(PreGraphProcess);
     REG_PASS(RemoveRedundantOp);
     REG_PASS(SplitRawTensor);
@@ -122,7 +122,7 @@ void PassManager::RegDefaultStrategy() {
             { "CommonOperationEliminate", "CommonOperationEliminate"},
             {           "PadLocalBuffer",           "PadLocalBuffer"},
             {   "RemoveUnalignedReshape",   "RemoveUnalignedReshape"},
-            {           "InplaceProcess",           "InplaceProcess"},
+            {          "ReplaceTensor",              "ReplaceTensor"},
             {          "PreGraphProcess",          "PreGraphProcess"},
             {            "InferDynShape",            "InferDynShape"},
             {       "SubgraphToFunction",       "SubgraphToFunction"},
