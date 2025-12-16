@@ -1911,17 +1911,33 @@ TILEOP void DynTtransposeMoveIn4dim_(__ubuf__ T *dst, __gm__ T *src, unsigned TS
 
 TILEOP void splitNumber(__ubuf__ float *dst, __ubuf__ float *src0) {
     float k = *src0;
-    // a = 2 ^ p * k, p is Z, 0.7 <= |k| <= 1.4
-    constexpr float NUM_0_7 = 0.7;
-    constexpr float NUM_1_4 = 1.4;
     int p = 0;
-    while (k < -NUM_1_4 || k > NUM_1_4) {
-        k /= 2;
-        p++;
-    }
-    while (k > -NUM_0_7 && k < NUM_0_7) {
-        k *= 2;
-        p--;
+    uint32_t intK = *(reinterpret_cast<int32_t *>(&k));
+    constexpr uint32_t INF = 0x7F800000;
+    constexpr uint32_t NEG_INF = 0xFF800000;
+    constexpr uint32_t Q_NAN = 0x7FC00000;
+    constexpr uint32_t S_NAN = 0x7F800001;
+    constexpr uint32_t MAX = 0x7F7FFFFF;
+    constexpr uint32_t MIN_NORMAL = 0x00800000;
+    constexpr uint32_t MIN_DENORMAL = 0x00000001;
+    if (intK != 0 && intK != INF && intK != NEG_INF && intK != Q_NAN && intK != S_NAN && intK != MAX &&
+        intK != MIN_NORMAL && intK != MIN_DENORMAL) {
+        // a = 2 ^ p * k, p is Z, 0.6 <= |k| <= 1.4
+        constexpr float NUM_0_6 = 0.6;
+        constexpr float NUM_1_4 = 1.4;
+        constexpr int MAX_LOOP = 256;
+        int maxLoop = MAX_LOOP;
+        while ((k < -NUM_1_4 || k > NUM_1_4) && maxLoop > 0) {
+            k /= 2;
+            p++;
+            maxLoop--;
+        }
+        maxLoop = MAX_LOOP;
+        while (k > -NUM_0_6 && k < NUM_0_6 && maxLoop > 0) {
+            k *= 2;
+            p--;
+            maxLoop--;
+        }
     }
     *dst = static_cast<float>(p);
     *src0 = k;
