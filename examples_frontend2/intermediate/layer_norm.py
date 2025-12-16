@@ -76,15 +76,16 @@ def rmsnorm_golden(x: torch.Tensor, gamma: torch.Tensor, eps: float) -> torch.Te
     return (x / rms) * gamma
 
 
+batch_size, hidden_size = 32, 128
+
 @pypto.frontend.jit()
 def layer_norm(
-    x: pypto.Tensor((32, 128), pypto.DT_BF16),
-    gamma: pypto.Tensor((128,), pypto.DT_BF16),
-    beta: pypto.Tensor((128,), pypto.DT_BF16),
+    x: pypto.Tensor((batch_size, hidden_size), pypto.DT_BF16),
+    gamma: pypto.Tensor((hidden_size,), pypto.DT_BF16),
+    beta: pypto.Tensor((hidden_size,), pypto.DT_BF16),
     eps: float
-) -> pypto.Tensor((32, 128), pypto.DT_BF16):
+) -> pypto.Tensor((batch_size, hidden_size), pypto.DT_BF16):
     """Layer Normalization."""
-    hidden_size = x.shape[-1]
     pypto.set_vec_tile_shapes(64, 128)
 
     mean = pypto.sum(x, dim=-1, keepdim=True)
@@ -106,12 +107,11 @@ def layer_norm(
 
 @pypto.frontend.jit()
 def rms_norm(
-    x: pypto.Tensor((32, 128), pypto.DT_BF16),
-    gamma: pypto.Tensor((128,), pypto.DT_BF16),
+    x: pypto.Tensor((batch_size, hidden_size), pypto.DT_BF16),
+    gamma: pypto.Tensor((hidden_size,), pypto.DT_BF16),
     eps: float
-) -> pypto.Tensor((32, 128), pypto.DT_BF16):
+) -> pypto.Tensor((batch_size, hidden_size), pypto.DT_BF16):
     """RMS Normalization."""
-    hidden_size = x.shape[-1]
     pypto.set_vec_tile_shapes(64, 128)
 
     # Compute RMS: sqrt(mean(x^2) + eps)
@@ -133,7 +133,6 @@ def test_layer_norm():
 
     device_id = torch.npu.current_device()
 
-    batch_size, hidden_size = 32, 128
     shape = (batch_size, hidden_size)
     x_torch = torch.randn(shape, dtype=torch.bfloat16, device=f'npu:{device_id}')
     gamma_torch = torch.ones(hidden_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
@@ -161,8 +160,6 @@ def test_rms_norm():
     print("=" * 60)
 
     device_id = torch.npu.current_device()
-
-    batch_size, hidden_size = 32, 128
     shape = (batch_size, hidden_size)
 
     x_torch = torch.randn(shape, dtype=torch.bfloat16, device=f'npu:{device_id}')
@@ -288,4 +285,3 @@ Examples:
 
 if __name__ == "__main__":
     main()
-
