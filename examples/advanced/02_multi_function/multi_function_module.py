@@ -259,7 +259,7 @@ def test_residual_connection():
     pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
     pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
     # Apply residual connection
-    residual_add(pto_inputs, pto_outputs)
+    residual_add(*pto_inputs, *pto_outputs)
     pypto.runtime._device_synchronize()
 
     # Verify
@@ -354,7 +354,7 @@ def test_transformer_block():
     outputs = [output]
     pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
     pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
-    residual_add(pto_inputs, pto_outputs)
+    residual_add(*pto_inputs, *pto_outputs)
     pypto.runtime._device_synchronize()
 
     print(f"Input shape: {x.shape}")

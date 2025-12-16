@@ -372,8 +372,10 @@ def sparse_flash_attention_quant_d_compute(query_nope, query_rope, key_nope_2d, 
     codegen_options={"support_dynamic_unaligned": True,
                      "codegen_expression_fusion": True}
 )
-def sparse_flash_attention_quant_p_compute(in_tensors, out_tensors, n_q, n_kv, softmax_scale, topk, block_size,
-                                           max_blocknum_perbatch, tile_config):
+def sparse_flash_attention_quant_p_compute(query_nope, query_rope, key_nope_2d, key_rope_2d,
+                                           k_nope_scales, topk_indcies, block_table, kv_act_seqs,
+                                           attention_out, nq, n_kv, softmax_scale, topk,
+                                           block_size, max_blocknum_perbatch, tile_config):
     # codegen config
     pypto.set_host_options(only_codegen=True)
 
