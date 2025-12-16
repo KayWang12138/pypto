@@ -34,9 +34,12 @@ namespace tile_fwk {
     否则将当前tensor的覆盖范围添加到记录的覆盖范围中进行后续比较。output的所有input都未出现交集则校验通过。
 */
 Status AssembleChecker::CheckAssembleOverlap(Function &function) {
+    auto needSkip = [](const Shape &vec) -> bool {
+        return std::any_of(vec.begin(), vec.end(), [](int64_t val) { return val == -1; });
+    };
     for (const auto &tMap : function.GetTensorMap().tensorMap_) {
         for (const auto &outputTensor : tMap.second) {
-            if (outputTensor->GetProducers().size() == 0 || 
+            if (outputTensor->GetProducers().size() == 0 ||
                 (*outputTensor->GetProducers().begin())->GetOpcode() != Opcode::OP_ASSEMBLE){
                 continue;
             }
@@ -48,6 +51,9 @@ Status AssembleChecker::CheckAssembleOverlap(Function &function) {
                 auto assembleOffset = dynamic_cast<AssembleOpAttribute *>(assembleOp->GetOpAttribute().get())->GetToOffset();
                 auto inputTensor = assembleOp->GetIOperands().front();
                 auto inputShape = inputTensor->GetShape();
+                if (needSkip(inputShape) || needSkip(assembleOffset)){
+                    continue;
+                }
                 std::vector<std::pair<int64_t, int64_t>> curInputArea;
                 if(assembleOffset.size() != inputShape.size()) {
                     APASS_LOG_ERROR_F(Elements::Tensor, "Dimension of assemble op[%d]'s toOffset(%s) "
