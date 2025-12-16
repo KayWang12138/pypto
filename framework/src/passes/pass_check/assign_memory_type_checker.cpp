@@ -71,9 +71,11 @@ Status AssignMemoryTypeChecker::CheckAmulBInputProducers(Operation &operation) {
         if(producerOpcode == Opcode::OP_VIEW) {
             auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(producerOp->GetOpAttribute().get());
             MemoryType attrToType = viewOpAttribute->GetTo();
-            if(attrToType != MemoryType::MEM_BT && attrToType != MemoryType::MEM_FIX_QUANT_PRE) {
-                APASS_LOG_ERROR_F(Elements::Operation, "View attribute error, %s[%d] has invalid input OP_VIEW; "
-                    "Please check input view %s[%d]. %s", operation.GetOpcodeStr().c_str(), operation.GetOpMagic(),
+            if (attrToType != MemoryType::MEM_BT && attrToType != MemoryType::MEM_FIX_QUANT_PRE &&
+                attrToType != MemoryType::MEM_L0A && attrToType != MemoryType::MEM_L0B &&
+                attrToType != MemoryType::MEM_UNKNOWN) {
+                APASS_LOG_ERROR_F(Elements::Operation, "View attribute error, %s[%d] has invalid input OP_VIEW(toType: %d); "
+                    "Please check input view %s[%d]. %s", operation.GetOpcodeStr().c_str(), operation.GetOpMagic(), attrToType,
                     producerOp->GetOpcodeStr().c_str(), producerOp->GetOpMagic(), GetFormatBacktrace(operation).c_str());
                 return FAILED;
             }
