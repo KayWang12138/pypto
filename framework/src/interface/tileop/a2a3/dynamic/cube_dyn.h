@@ -558,7 +558,7 @@ TILEOP void DynL1CopyOut(__gm__ GMT *dst, __cbuf__ L1T *src, unsigned TShape0, u
 
 // Deprecated: L1 spill out scene
 template <typename GMT, typename L1T>
-TILEOP void DynL1CopyInND(__cbuf__ L1T *dst, __gm__ GMT *src, unsigned TShape0, unsigned TShape1, unsigned GmShape0,
+TILEOP void DynL1CopyIn(__cbuf__ L1T *dst, __gm__ GMT *src, unsigned TShape0, unsigned TShape1, unsigned GmShape0,
     unsigned GmShape1, int reserved) {
     uint16_t nBurst = TShape0;
     uint16_t lenBurst = TShape1 * sizeof(GMT) / 32;
