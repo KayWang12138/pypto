@@ -488,7 +488,7 @@ TEST_F(TestCodegenDynCopy, L0CToL1) {
     std::string res = cop.GenOpCode();
     printf("res: %s", res.c_str());
     std::string expect =
-        R"!!!(TileOp::DynL0CToL1<float, float>((__cbuf__ float*)L1_S0_E0, (__cc__ float*)L0C_S0_E0, 64, 64, 64, 64, 0, 0);
+        R"!!!(TileOp::DynL0CToL1<float, float, 0>((__cbuf__ float*)L1_S0_E0, (__cc__ float*)L0C_S0_E0, 64, 64, 64, 64, 0, 0, 0);
 )!!!";
     EXPECT_EQ(res, expect);
 }

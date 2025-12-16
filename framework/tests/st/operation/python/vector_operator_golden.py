@@ -531,25 +531,14 @@ def l0c2l_golden_generate(inputs: list, config: dict):
     l0c2l1_tensor = params["l0c2l1_tensor"]
     l0c2l1_min = l0c2l1_tensor["data_range"]["min"]
     l0c2l1_max = l0c2l1_tensor["data_range"]["max"]
-    if min != max:
-        tensor_l0c2l1 = np.random.uniform(l0c2l1_min, l0c2l1_max, l0c2l1_tensor["shape"]).astype(
-            get_dtype_by_name(l0c2l1_tensor["dtype"])
-        )
-    else:
-        tensor_l0c2l1 = np.full(
-            l0c2l1_tensor["shape"],
-            max,
-            dtype=get_dtype_by_name(l0c2l1_tensor["dtype"]),
-        )
+    tensor_l0c2l1 = np.random.uniform(l0c2l1_min, l0c2l1_max, l0c2l1_tensor["shape"]).astype(
+        get_dtype_by_name(l0c2l1_tensor["dtype"])
+    )
     tensor_l0c2l1_data = tensor_l0c2l1
-    tensor_a = (
-        inputs[0]
-        if not params["transA"]
+    tensor_a = (inputs[0] if not params.get("transA")
         else np.swapaxes(inputs[0], inputs[0].ndim - 2, inputs[0].ndim - 1)
     )
-    tensor_b = (
-        inputs[1]
-        if not params["transB"]
+    tensor_b = (inputs[1] if not params.get("transB")
         else np.swapaxes(inputs[1], inputs[1].ndim - 2, inputs[1].ndim - 1)
     )
     tensor_l0c2l1 = tensor_l0c2l1 if not l0c2l1_tensor["need_trans"] else \
@@ -558,7 +547,19 @@ def l0c2l_golden_generate(inputs: list, config: dict):
     tensor_tmp = torch.matmul(
             torch.from_numpy(tensor_a.astype(np.float32)).to(torch.float32),
             torch.from_numpy(tensor_b.astype(np.float32)).to(torch.float32)
-        ).to(torch.float32).numpy().astype(get_dtype_by_name(l0c2l1_tensor["dtype"]))
+        ).to(torch.float32)
+    if params.get("relu_type") == 1:
+        tensor_tmp = F.relu(tensor_tmp)
+    if params.get("scale_value"):
+        mask = 0xFFFFE000
+        scale_data = np.float32([params.get("scale_value")]).view(np.uint32)
+        uint32_num = scale_data & mask
+        fp32_scale_modified = uint32_num.view(np.float32)[0]
+        tensor_tmp = tensor_tmp * fp32_scale_modified
+    if params.get("quant_type") is not None and params.get("quant_type") == 2:
+        # quant type中no quant为0, pertensor为1, perchannel为2.
+        tensor_tmp = tensor_tmp * inputs[2]
+    tensor_tmp = tensor_tmp.numpy().astype(get_dtype_by_name(l0c2l1_tensor["dtype"]))
     l0c2l1_is_left_matrix = str_to_bool(params["l0c2l1_params"]["is_as_left_matrix"])
     if l0c2l1_is_left_matrix:
         tensor_out = torch.matmul(

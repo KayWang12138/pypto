@@ -391,7 +391,7 @@ TILEOP void DynL0CCopyOut(__gm__ GMT *dst, __cc__ L0CT *src, unsigned oriTShape0
         } else {
             quantPre = QuantMode_t::NoQuant;
         }
-    } else if constexpr (std::is_same<L0CT, int32_t>::value && std::is_same<GMT, half>::value){
+    } else if constexpr (std::is_same<L0CT, int32_t>::value && std::is_same<GMT, half>::value) {
        if (scaleValue == 0) {
            quantPre = QuantMode_t::VDEQF16;
        }else {
@@ -418,9 +418,9 @@ TILEOP void DynL0CCopyOut(__gm__ GMT *dst, __cc__ L0CT *src, unsigned oriTShape0
     }
 }
 
-template <typename L1T, typename L0CT>
+template <typename L1T, typename L0CT, uint8_t reluMode>
 TILEOP void DynL0CToL1(__cbuf__ L1T *dst, __cc__ L0CT *src, unsigned oriTShape0, unsigned oriTShape1,
-    unsigned l1Shape0, unsigned l1Shape1, unsigned l1Offset0, unsigned l1Offset1) {
+    unsigned l1Shape0, unsigned l1Shape1, unsigned l1Offset0, unsigned l1Offset1, uint64_t scaleValue = 0) {
     int64_t c0Size = BLOCK_ALIGN_BYTE / sizeof(L1T);
     uint16_t mSize = oriTShape0;
     uint16_t nSize = CeilAlign<uint16_t>(oriTShape1, c0Size);
@@ -438,13 +438,20 @@ TILEOP void DynL0CToL1(__cbuf__ L1T *dst, __cc__ L0CT *src, unsigned oriTShape0,
         } else {
             quantPre = QuantMode_t::NoQuant;
         }
+    } else if constexpr (std::is_same<L0CT, int32_t>::value && std::is_same<L1T, half>::value) {
+       if (scaleValue == 0) {
+           quantPre = QuantMode_t::VDEQF16;
+       }else {
+           set_quant_pre(scaleValue);
+           quantPre = QuantMode_t::DEQF16;
+       }
     }
 
     bool channelSplit = std::is_same<L1T, float>::value;
     bool nZ2NDEN = false;
     int64_t l1Offset = l1Offset1 * l1Shape0 + l1Offset0 * c0Size;
     copy_matrix_cc_to_cbuf((__cbuf__ L1T *)(dst + l1Offset), (__cc__ L0CT *)src, 0, nSize, mSize, dstStrideDstD,
-        srcStride, unitFlagMode, quantPre, reluPre, channelSplit, nZ2NDEN);
+        srcStride, unitFlagMode, quantPre, reluMode, channelSplit, nZ2NDEN);
 }
 
 // Internal: Reserved for custom scenarios.

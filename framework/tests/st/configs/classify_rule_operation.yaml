@@ -64,6 +64,8 @@ stest:
       - TestMatmul/MatmulOperationTest.TestMatmul/42
       - TestMatmul/MatmulOperationTest.TestMatmul/43
       - TestMatmul/MatmulOperationTest.TestMatmul/44
+      - TestMatmul/MatmulOperationTest.TestMatmul/45
+      - TestMatmul/MatmulOperationTest.TestMatmul/46
       - TestBatchMatmul/BatchMatmulOperationTest.TestBatchMatmul/0
       - TestBatchMatmul/BatchMatmulOperationTest.TestBatchMatmul/1
       - TestBatchMatmul/BatchMatmulOperationTest.TestBatchMatmul/2

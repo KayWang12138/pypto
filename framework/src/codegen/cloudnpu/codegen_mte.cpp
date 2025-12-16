@@ -378,6 +378,9 @@ std::string CodeGenOpCloudNPU::GenMemL0CToL1() const {
     std::vector<std::string> paramList;
     paramList.emplace_back(dstDtypeStr);
     paramList.emplace_back(srcDtypeStr);
+    int64_t reluMode = 0;
+    GetAttr(OP_ATTR_PREFIX + "relu_type", reluMode);
+    paramList.emplace_back(std::to_string(reluMode));
     std::string templateParam = JoinString(paramList, CONN_COMMA);
     paramList.clear();
     std::string dst = "(" + GetAddrTypeByOperandType(BUF_L1) + " " + dstDtypeStr + "*)" + dstVar;
@@ -392,6 +395,9 @@ std::string CodeGenOpCloudNPU::GenMemL0CToL1() const {
     for (auto tmpOffset : dstOffset) {
         paramList.emplace_back(std::to_string(tmpOffset));
     }
+    npu::tile_fwk::Element scaleValue = npu::tile_fwk::Element(DataType::DT_UINT64, 0);
+    GetAttr(OP_ATTR_PREFIX + "scale_value", scaleValue);
+    paramList.emplace_back(std::to_string(scaleValue.GetUnsignedData()));
     std::string tileOpCallParam = JoinString(paramList, CONN_COMMA);
     os << tileOpName << "<" << templateParam << ">" << "(" << tileOpCallParam << ");\n";
     return os.str();

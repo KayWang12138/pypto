@@ -63,7 +63,7 @@ bool PadLocalBuffer::IsInputInt8(const Operation &op, const LogicalTensorPtr &in
         return true;
     }
 
-    if (op.GetOpcode() == Opcode::OP_COPY_OUT) {
+    if (op.GetOpcode() == Opcode::OP_COPY_OUT || op.GetOpcode() == Opcode::OP_L0C_TO_L1) {
         Operation *inProducerPtr = *in->GetProducers().begin();
         if (inProducerPtr != nullptr && inProducerPtr->GetIOperands().size() != 0 &&
             inProducerPtr->GetIOperands()[0] != nullptr && inProducerPtr->GetIOperands()[0]->tensor != nullptr) {
