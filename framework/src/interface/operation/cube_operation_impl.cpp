@@ -362,13 +362,13 @@ void TiledInnerAMulB(Function &function, const TileShape &tileShape, const std::
     AggregationMap aggregations;
     // 增加计算尾块的逻辑
     for (int64_t mL1Idx = 0; mL1Idx < orgM; mL1Idx += cubeTile.m[1]) {
-        for (int64_t nL1Idx = 0; nL1Idx < orgN; nL1Idx += cubeTile.n[1]) {
+        for (int64_t nL0Idx = 0; nL0Idx < orgN; nL0Idx += cubeTile.n[0]) {
             auto mL1Size = std::min(orgM - mL1Idx, cubeTile.m[1]);
-            auto nL1Size = std::min(orgN - nL1Idx, cubeTile.n[1]);
+            auto nL1Size = std::min(orgN - nL0Idx, cubeTile.n[0]);
 
-            auto cTilePtr = cTensorPtr->View(function, {mL1Size, nL1Size}, {mL1Idx, nL1Idx});
+            auto cTilePtr = cTensorPtr->View(function, {mL1Size, nL1Size}, {mL1Idx, nL0Idx});
             L1NormalLoad<isTransA, isTransB>(function, matmulInputs,
-                {cTilePtr, mL1Idx, nL1Idx, stepK, mL1Size, nL1Size, orgKa}, tileShape, aggregations);
+                {cTilePtr, mL1Idx, nL0Idx, stepK, mL1Size, nL1Size, orgKa}, tileShape, aggregations);
         }
     }
 
