@@ -32,3 +32,6 @@ kernel_meta
 python/pypto/include/
 python/pypto/lib/
 python/pypto/pypto_impl*.so
+
+# 三方软件
+third_party_path/

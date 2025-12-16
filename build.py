@@ -249,7 +249,7 @@ class BuildParam(CMakeParam):
     @staticmethod
     def _get_generator(generator: Optional[str]) -> Optional[str]:
         if generator:
-            return generator if " " not in generator else generator.replace(" ", "\ ")
+            return generator if " " not in generator else generator.replace(" ", r"\ ")
         else:
             return None
 
@@ -752,7 +752,7 @@ class ModelParam(CMakeParam):
             ]
 
 
-class BuildCtrl:
+class BuildCtrl(CMakeParam):
     """构建过程控制.
 
     本类包含由命令行指定或解析出的控制标记/参数, 以控制构建过程执行.
@@ -767,14 +767,9 @@ class BuildCtrl:
         self.build: BuildParam = BuildParam(args=args)
         self.tests: TestsParam = TestsParam(args=args)
         self.model: ModelParam = ModelParam(args=args)
-        if args.third_party_path is None:
-            self.third_party_path = self.build_root / "third_party_path"
-        elif args.third_party_path == "":
-            self.third_party_path = None
-        else:
-            self.third_party_path = Path(args.third_party_path).resolve()
+        self.third_party_path: Optional[Path] = Path(args.third_party_path).resolve() if args.third_party_path else None
         self.verbose: bool = args.verbose
-        self.cmake: Optional[Union[Path, str]] = shutil.which("cmake")
+        self.cmake: Optional[Path] = self.which_cmake()
         if not self.cmake:
             raise RuntimeError(f"Can't find cmake")
         # 表示 pip 版本是否支持传递 --config-setting 这种 pep 标准参数传递方式
@@ -801,6 +796,38 @@ class BuildCtrl:
         desc += f"{self.tests}"
         desc += f"\n"
         return desc
+
+    @staticmethod
+    def which_cmake() -> Optional[Path]:
+        """查找系统级 CMake 可执行文件路径
+
+        排除 cmake pip 包的干扰
+        """
+        # 拆分 PATH 环境变量为单个目录列表（排除空目录）
+        path_dir_lst = [d.strip() for d in os.environ.get("PATH", "").split(os.pathsep) if d.strip()]
+
+        # 遍历每个 PATH 目录，逐个调用 shutil.which 检查, 限定 shutil.which 只在当前单个目录下查找 cmake
+        valid_path_lst: List[str] = []
+        for path_dir in path_dir_lst:
+            # 避免 PATH 环境变量中有重复的单元
+            if path_dir in valid_path_lst:
+                continue
+            valid_path_lst.append(path_dir)
+            # 检查当前目录
+            cmake_str: Optional[Union[Path, str]] = shutil.which("cmake", path=path_dir)
+            if not cmake_str:
+                continue
+            cmake_file: Path = Path(cmake_str).resolve()
+            if not cmake_file.exists() or not cmake_file.is_file():
+                continue
+            if cmake_file.stat().st_size <= 4:  # 下文读取前 4 字节判断文件是否是 ELF 文件
+                continue
+            with open(cmake_file, 'rb') as fh:
+                header = fh.read(4)  # 前 4 字节是 ELF 文件标识
+            if header != b'\x7fELF':
+                continue
+            return cmake_file
+        return None
 
     @staticmethod
     def run_build_cmd(cmd: str, update_env: Optional[Dict[str, str]] = None, check: bool = False,
@@ -870,6 +897,14 @@ class BuildCtrl:
             logging.error("Failed to find match %s whl from %s, pattern=%s", name, path, pattern)
         return whl_file
 
+    @staticmethod
+    def reg_args(parser, ext: Optional[Any] = None):
+        parser.add_argument("--cann_3rd_lib_path", "--third_party_path",
+                            nargs="?", type=str, default="", dest="third_party_path",
+                            help="Specify 3rd Libraries Path")
+        parser.add_argument("--verbose", action="store_true", default=False,
+                            help="verbose, enable verbose output.")
+
     @classmethod
     def main(cls):
         """主处理流程
@@ -881,11 +916,8 @@ class BuildCtrl:
         BuildParam.reg_args(parser=parser)
         TestsParam.reg_args(parser=parser, ext=sub_parser)
         ModelParam.reg_args(parser=parser)
-        parser.add_argument("--cann_3rd_lib_path", "--third_party_path",
-                            nargs="?", type=str, default="", dest="third_party_path",
-                            help="Specify 3rd Libraries Path")
-        parser.add_argument("--verbose", action="store_true", default=False,
-                            help="verbose, enable verbose output.")
+        BuildCtrl.reg_args(parser=parser)
+
         # 参数处理
         args = parser.parse_args()
         ctrl = BuildCtrl(args=args)
@@ -960,6 +992,18 @@ class BuildCtrl:
             info_lst.append(f"package {pkg} check fail {e}")
         return info_lst
 
+    def get_cfg_cmd(self, ext: Optional[Any] = None) -> str:
+        cmd: str = ""
+        cmd += self._cfg_require(opt=f"PYPTO_THIRD_PARTY_PATH", ctr=bool(self.third_party_path),
+                                 tv=f"{self.third_party_path}")
+        return cmd
+
+    def get_cfg_update_env(self) -> Dict[str, str]:
+        env: Dict[str, str] = {}
+        if self.third_party_path:
+            env.update({"PYPTO_THIRD_PARTY_PATH": self.third_party_path})
+        return env
+
     def pip_install(self, whl: Path, dest: Optional[Path] = None, opt: str = "",
                     update_env: Optional[Dict[str, str]] = None):
         """安装指定 whl 包
@@ -978,12 +1022,6 @@ class BuildCtrl:
         ret.check_returncode()
         duration: int = int((datetime.now(tz=timezone.utc) - ts).seconds)
         logging.info("Success install %s%s, Duration %s sec", whl, f" to {dest}" if dest else "", duration)
-
-    def get_cfg_update_env(self) -> Dict[str, str]:
-        env: Dict[str, str] = {}
-        if self.third_party_path:
-            env.update({"PYPTO_THIRD_PARTY_PATH": self.third_party_path})
-        return env
 
     def cmake_clean(self):
         """清理中间结果, 清理内容包括构建树, 安装树全部内容.
@@ -1044,10 +1082,10 @@ class BuildCtrl:
         if self.model.prof == 1 or self.model.prof == 2:
             update_env = wf.ini(self.build_root, self.model.prof, self.model.pe)
         cmd_list: List[str] = self.build.get_build_cmd_lst(cmake=self.cmake, binary_path=self.build_root)
-        for i, c in enumerate(cmd_list):
+        for i, c in enumerate(cmd_list, start=1):
             ts = datetime.now(tz=timezone.utc)
             c += " --verbose" if self.verbose else ""
-            logging.info("CMake Build(%s/%s), Cmd: %s", i + 1, len(cmd_list), c)
+            logging.info("CMake Build(%s/%s), Cmd: %s", i, len(cmd_list), c)
             try:
                 ret = self.run_build_cmd(cmd=c, update_env=update_env, check=True, timeout=self.build.timeout)
             except subprocess.CalledProcessError as e:
@@ -1060,7 +1098,7 @@ class BuildCtrl:
             duration: int = int((datetime.now(tz=timezone.utc) - ts).seconds)
             duration_str: str = f"{duration}/{self.build.timeout}" if self.build.timeout else f"{duration}"
             logging.info("CMake Build(%s/%s), Cmd: %s, Duration %s sec",
-                         i + 1, len(cmd_list), c, duration_str)
+                         i, len(cmd_list), c, duration_str)
             # 超时时长更新, 当指定多 target 时, 各 target 共享总超时时长
             self.build.timeout = self.build.timeout - duration if self.build.timeout else self.build.timeout
         # 一键绘图
@@ -1077,12 +1115,16 @@ class BuildCtrl:
                 2. 可编辑安装: 便于开发调试. 它在 site-packages 中创建指向本地的链接, 对 Python 源码的修改会即时生效, 无需重新安装;
         """
         update_env: Dict[str, str] = self.get_cfg_update_env()
-        if self._use_pip_install_mode():
-            config_setting: str = self._get_setuptools_build_ext_config_setting()
-            update_env["PYPTO_BUILD_EXT_ARGS"] = config_setting
-
+        if self._use_pip_install_mode() or self.feature.whl_editable:
             opt: str = f" --no-compile --no-deps"
+
             opt += f" --no-build-isolation" if not self.feature.whl_isolation else ""
+            if self.feature.whl_editable:
+                config_setting: str = self._get_setuptools_build_ext_config_setting(alone_setting=False)
+                update_env["PYPTO_BUILD_EXT_ARGS"] = config_setting
+            else:
+                config_setting: str = self._get_setuptools_build_ext_config_setting(alone_setting=True)
+                opt += f" {config_setting}" if config_setting else ""
 
             # 重装 whl 包
             dist: Optional[Path] = self._get_pip_install_dist()
@@ -1156,25 +1198,26 @@ class BuildCtrl:
         # pip install -e 场景需直接安装到 site-packages 默认路径(与指定 --target 参数逻辑冲突), 其他场景安装到自定义目录
         return None if self._use_pip_install_mode() and self.feature.whl_editable else self.install_root
 
-    def _get_setuptools_build_ext_config_setting(self) -> str:
+    def _get_setuptools_build_ext_config_setting(self, alone_setting: bool = False) -> str:
         cmake_args = f"{self.build.get_cfg_cmd(ext=False)}"
         cmd: str = ""
         cmd += f" --cmake-generator={self.build.generator}" if self.build.generator else ""
         cmd += f" --cmake-build-type={self.build.build_type}" if self.build.build_type else ""
         cmd += f" --cmake-options=\"{cmake_args}\"" if cmake_args else ""
         cmd += f" --cmake-verbose" if self.verbose else ""
+        if cmd and alone_setting:
+            cmd = f" --config-setting=--build-option='build_ext {cmd}'"
         return cmd
 
     def _get_setuptools_bdist_wheel_config_setting(self) -> str:
         cmd: str = ""
-        cmd += f" --config-setting=--build-option='"
         cmd += f" bdist_wheel --plat-name={self.feature.whl_plat_name}" if self.feature.whl_plat_name else ""
-        cmd += f" build"
-        cmd += f" --build-base={self.build_root.name}"
+        cmd += f" build --build-base={self.build_root.name}"
         cmd += f" --parallel={self.build.job_num}" if self.build.job_num else ""
-        cmd += f" build_ext"
-        cmd += f"{self._get_setuptools_build_ext_config_setting()}"
-        cmd += f"'"
+        ext: str = self._get_setuptools_build_ext_config_setting()
+        if ext:
+            cmd += f" build_ext {ext}"
+        cmd = f" --config-setting=--build-option='{cmd}'"
         return cmd
 
 

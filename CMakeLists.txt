@@ -125,10 +125,7 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END AND BUILD_OPEN_PROJECT)
             WHL_NAME    ${PyPTO_WhlName}
             TARGETS     ${InstallTargets}
     )
-    PTO_Fwk_InstallBinaries(
-            TARGETS         pypto_impl
-            INSTALL_LIBDIR  ${PyPTO_WhlName}
-    )
+    install(TARGETS pypto_impl LIBRARY DESTINATION "${PyPTO_WhlName}" COMPONENT pypto_impl_lib)
 
     # 安装 配置文件
     install(FILES

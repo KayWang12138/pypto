@@ -71,19 +71,26 @@ if (TARGET c_sec)
     return()
 endif ()
 
+# 异常拦截
+if (NOT PYPTO_THIRD_PARTY_PATH)
+    # 不再从环境上查找, 因当前部分软件编译过程需要添加 -D_GLIBCXX_USE_CXX11_ABI=0, 可能与环境上已安装软件冲突.
+    set(_Msg
+            "Failed to get c_sec source dir, "
+            "need to specify its path through the PYPTO_THIRD_PARTY_PATH (via env/CMake option)"
+    )
+    string(REPLACE ";" "" _Msg "${_Msg}")
+    message(FATAL_ERROR ${_Msg})
+endif ()
+
 set(_TargetVersion "1.1.16")
 
 # 直接查找制品, 若找到则直接退出
-if (PYPTO_THIRD_PARTY_PATH)
-    get_filename_component(_TargetTarGzFile "${PYPTO_THIRD_PARTY_PATH}/libboundscheck-v${_TargetVersion}.tar.gz" REALPATH)
-    get_filename_component(_TargetInstallPrefix "${PYPTO_THIRD_PARTY_PATH}/${CMAKE_BUILD_TYPE}" REALPATH)
-    TryAdd_c_sec(PREFIX ${_TargetInstallPrefix})
-    if (TARGET c_sec)
-        message(STATUS "Use c_sec from binary, c_sec_Install_Prefix=${_TargetInstallPrefix}")
-        return()
-    endif ()
-else ()
-    message(FATAL_ERROR "Failed to get c_sec source dir, need to specify its path through the PYPTO_THIRD_PARTY_PATH")
+get_filename_component(_TargetTarGzFile "${PYPTO_THIRD_PARTY_PATH}/libboundscheck-v${_TargetVersion}.tar.gz" REALPATH)
+get_filename_component(_TargetInstallPrefix "${PYPTO_THIRD_PARTY_PATH}/${CMAKE_BUILD_TYPE}" REALPATH)
+TryAdd_c_sec(PREFIX ${_TargetInstallPrefix})
+if (TARGET c_sec)
+    message(STATUS "Use c_sec from binary, c_sec_Install_Prefix=${_TargetInstallPrefix}")
+    return()
 endif ()
 
 # 触发编译

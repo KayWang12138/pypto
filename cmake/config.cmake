@@ -73,7 +73,14 @@ if (PYPTO_THIRD_PARTY_PATH)
 elseif (DEFINED ENV{PYPTO_THIRD_PARTY_PATH})
     get_filename_component(PYPTO_THIRD_PARTY_PATH "$ENV{PYPTO_THIRD_PARTY_PATH}" REALPATH)
 else ()
-    set(PYPTO_THIRD_PARTY_PATH)
+    get_filename_component(PYPTO_THIRD_PARTY_PATH "${PTO_FWK_SRC_ROOT}/third_party_path" REALPATH)
+    set(_Msg
+            "PYPTO_THIRD_PARTY_PATH is not specified, ${PYPTO_THIRD_PARTY_PATH} will be used as its default value. "
+            "It is necessary to confirm that the relevant software already exists in this path or that the network "
+            "can be accessed normally so that CMake can automatically download the corresponding software."
+    )
+    string(REPLACE ";" "" _Msg "${_Msg}")
+    message(WARNING "${_Msg}")
 endif ()
 message(STATUS "PYPTO_THIRD_PARTY_PATH=${PYPTO_THIRD_PARTY_PATH}")
 
@@ -144,8 +151,13 @@ endif ()
 
 # 构建阶段(Build)
 #   语言标准
-set(CMAKE_C_STANDARD 11)
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_C_STANDARD 11)  # 指定 C 语言使用 ISO C11 标准
+set(CMAKE_C_STANDARD_REQUIRED ON)  # 要求严格支持 C11 标准
+set(CMAKE_C_EXTENSIONS OFF)  # 禁用 C 编译器扩展, 使用纯 ISO C 标准
+set(CMAKE_CXX_STANDARD 17)  # 指定 C++ 语言使用 ISO C++17 标准
+set(CMAKE_CXX_STANDARD_REQUIRED ON)  # 要求严格支持 C++17 标准
+set(CMAKE_CXX_EXTENSIONS OFF)  # 禁用 C 编译器扩展, 使用纯 ISO C++17 标准
+
 
 # 构建阶段(Build)
 #   CCACHE 配置
@@ -192,6 +204,9 @@ if (NOT "${CMAKE_C_COMPILER_ID}" STREQUAL "GNU")
         set(ENABLE_GCOV OFF)
         message(WARNING "GCov only supported in GNU Compiler, Current Compiler is ${CMAKE_C_COMPILER_ID}, Auto turn off it.")
     endif ()
+    if (ENABLE_FEATURE_PYTHON_FRONT_END)
+        message(FATAL_ERROR "Python frontend only supported GNU Compiler yet.")
+    endif ()
 endif ()
 if (ENABLE_FEATURE_PYTHON_FRONT_END)
     if (ENABLE_GCOV)
@@ -227,7 +242,8 @@ if ((ENABLE_ASAN OR ENABLE_UBSAN) AND ENABLE_TESTS_EXECUTE)
             get_filename_component(ASAN_SHARED_PATH "${ASAN_SHARED_PATH}" DIRECTORY)
             get_filename_component(ASAN_SHARED_PATH "${ASAN_SHARED_PATH}/libasan.so" REALPATH)
             if (NOT EXISTS ${ASAN_SHARED_PATH})
-                message(FATAL_ERROR "ASAN_SHARED_PATH=${ASAN_SHARED_PATH} not exist.")
+                message(FATAL_ERROR
+                        "ASAN_SHARED_PATH=${ASAN_SHARED_PATH} not exist. Please check the completeness of the compiler installation.")
             endif ()
             list(APPEND XSAN_LD_PRELOAD ${ASAN_SHARED_PATH})
         endif ()
@@ -242,7 +258,8 @@ if ((ENABLE_ASAN OR ENABLE_UBSAN) AND ENABLE_TESTS_EXECUTE)
             get_filename_component(UBSAN_SHARED_PATH "${UBSAN_SHARED_PATH}" DIRECTORY)
             get_filename_component(UBSAN_SHARED_PATH "${UBSAN_SHARED_PATH}/libubsan.so" REALPATH)
             if (NOT EXISTS ${UBSAN_SHARED_PATH})
-                message(FATAL_ERROR "UBSAN_SHARED_PATH=${UBSAN_SHARED_PATH} not exist.")
+                message(FATAL_ERROR
+                        "UBSAN_SHARED_PATH=${UBSAN_SHARED_PATH} not exist. Please check the completeness of the compiler installation.")
             endif ()
             list(APPEND XSAN_LD_PRELOAD ${UBSAN_SHARED_PATH})
         endif ()
@@ -256,7 +273,8 @@ if ((ENABLE_ASAN OR ENABLE_UBSAN) AND ENABLE_TESTS_EXECUTE)
         get_filename_component(STDC_SHARED_PATH "${STDC_SHARED_PATH}" DIRECTORY)
         get_filename_component(STDC_SHARED_PATH "${STDC_SHARED_PATH}/libstdc++.so" REALPATH)
         if (NOT EXISTS ${STDC_SHARED_PATH})
-            message(FATAL_ERROR "STDC_SHARED_PATH=${STDC_SHARED_PATH} not exist.")
+            message(FATAL_ERROR
+                    "STDC_SHARED_PATH=${STDC_SHARED_PATH} not exist. Please check the completeness of the compiler installation.")
         endif ()
         list(APPEND XSAN_LD_PRELOAD ${STDC_SHARED_PATH})
         # 结果修正
@@ -273,7 +291,7 @@ if ((ENABLE_ASAN OR ENABLE_UBSAN) AND ENABLE_TESTS_EXECUTE)
         # strict_init_order, 动态初始化器永远不能访问来自其他模块的全局变量, 及时或者已经初始化
         # strict_string_checks, 检查字符串参数是否正确以 null 终止
         # detect_leaks=1, 内存泄漏检测
-        set(ASAN_OPTIONS "ASAN_OPTIONS=halt_on_error=0,detect_stack_use_after_return=1,check_initialization_order=1,strict_init_order=1,strict_string_checks=1,detect_leaks=1")
+        set(ASAN_OPTIONS "ASAN_OPTIONS=halt_on_error=1,detect_stack_use_after_return=1,check_initialization_order=1,strict_init_order=1,strict_string_checks=1,detect_leaks=1")
     endif ()
 
     set(UBSAN_OPTIONS)
@@ -281,7 +299,7 @@ if ((ENABLE_ASAN OR ENABLE_UBSAN) AND ENABLE_TESTS_EXECUTE)
         # 谨慎修改 UBSAN_OPTIONS 取值, 当前出现告警会使 UT 失败.
         # halt_on_error=1, 出现告警时停止运行进而触发构建失败, 避免主进程或 fork 出的子进程出现错误无法发现的情况
         # print_stacktrace=1, 出错时打印调用栈
-        set(UBSAN_OPTIONS "UBSAN_OPTIONS=halt_on_error=0,print_stacktrace=1")
+        set(UBSAN_OPTIONS "UBSAN_OPTIONS=halt_on_error=1,print_stacktrace=1")
     endif ()
 endif ()
 

@@ -20,25 +20,28 @@ if (TARGET ${_TargetNameAlias})
     return()
 endif ()
 
+# 异常拦截
+if (NOT PYPTO_THIRD_PARTY_PATH)
+    # 不再从环境上查找, 因当前部分软件编译过程需要添加 -D_GLIBCXX_USE_CXX11_ABI=0, 可能与环境上已安装软件冲突.
+    set(_Msg
+            "Failed to get nlohmann_json source dir, "
+            "need to specify its path through the PYPTO_THIRD_PARTY_PATH (via env/CMake option)"
+    )
+    string(REPLACE ";" "" _Msg "${_Msg}")
+    message(FATAL_ERROR ${_Msg})
+endif ()
+
 # 直接查找制品, 若找到则直接退出
-if (PYPTO_THIRD_PARTY_PATH)
-    get_filename_component(_TargetTarGzFile "${PYPTO_THIRD_PARTY_PATH}/json-${_TargetVersion}.tar.gz" REALPATH)
-    get_filename_component(_TargetInstallPrefix "${PYPTO_THIRD_PARTY_PATH}/${CMAKE_BUILD_TYPE}" REALPATH)
-    find_package(nlohmann_json ${_TargetVersion} EXACT CONFIG PATHS ${_TargetInstallPrefix} NO_DEFAULT_PATH)
-    if (NOT nlohmann_json_FOUND)
-        # 兼容部分镜像直接存放 json 安装结果的情况
-        get_filename_component(_TargetSourceDir "${PYPTO_THIRD_PARTY_PATH}/json" REALPATH)
-        if (NOT EXISTS ${_TargetSourceDir})
-            get_filename_component(_TargetSourceDir "${PYPTO_THIRD_PARTY_PATH}/json-${_TargetVersion}" REALPATH)
-        endif ()
-        find_package(nlohmann_json ${_TargetVersion} EXACT CONFIG PATHS ${_TargetSourceDir} NO_DEFAULT_PATH)
+get_filename_component(_TargetTarGzFile "${PYPTO_THIRD_PARTY_PATH}/json-${_TargetVersion}.tar.gz" REALPATH)
+get_filename_component(_TargetInstallPrefix "${PYPTO_THIRD_PARTY_PATH}/${CMAKE_BUILD_TYPE}" REALPATH)
+find_package(nlohmann_json ${_TargetVersion} EXACT CONFIG PATHS ${_TargetInstallPrefix} NO_DEFAULT_PATH)
+if (NOT nlohmann_json_FOUND)
+    # 兼容部分镜像直接存放 json 安装结果的情况
+    get_filename_component(_TargetSourceDir "${PYPTO_THIRD_PARTY_PATH}/json" REALPATH)
+    if (NOT EXISTS ${_TargetSourceDir})
+        get_filename_component(_TargetSourceDir "${PYPTO_THIRD_PARTY_PATH}/json-${_TargetVersion}" REALPATH)
     endif ()
-else ()
-    # 从环境上查找
-    find_package(nlohmann_json ${_TargetVersion} EXACT CONFIG)
-    if (NOT ${nlohmann_json_FOUND})
-        message(FATAL_ERROR "Failed to get nlohmann_json source dir, need to specify its path through the PYPTO_THIRD_PARTY_PATH")
-    endif ()
+    find_package(nlohmann_json ${_TargetVersion} EXACT CONFIG PATHS ${_TargetSourceDir} NO_DEFAULT_PATH)
 endif ()
 if (nlohmann_json_FOUND)
     message(STATUS "Use nlohmann_json from binary, nlohmann_json_DIR=${nlohmann_json_DIR}")
