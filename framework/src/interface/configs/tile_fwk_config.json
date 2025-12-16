@@ -10,8 +10,6 @@
             "ONLY_HOST_COMPILE": false,
             "PRINT_TENSOR_GRAPH": false,
             "TEST_IS_TIG": false,
-            "ENABLE_SOFT_MEMORY": false,
-            "ENABLE_PV_DATA": false,
             "DUMP_SOURCE_LOCATION": true,
             "ENABLE_CHECKER": false,
             "DEVICE_PLATFORM":"ASCEND_910B2"

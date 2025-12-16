@@ -743,8 +743,6 @@ class ModelParam(CMakeParam):
     def _gen_simulation_json_pvmodel(self, cfg: Dict[Any, Any]):
         if self.pvmodel:
             cfg["global_configs"]["platform_configs"]["ENABLE_COST_MODEL"] = True
-            cfg["global_configs"]["platform_configs"]["ENABLE_SOFT_MEMORY"] = True
-            cfg["global_configs"]["platform_configs"]["ENABLE_PV_DATA"] = True
             cfg["global_configs"]["simulation_configs"]["PV_LEVEL"] = 2
             cfg["global_configs"]["simulation_configs"]["args"] = [
                 "Model.statisticReportToFile=true",

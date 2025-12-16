@@ -44,12 +44,6 @@ public:
         oriEnableDumpJson = config::GetPassConfig(KEY_PRINT_FUNCTION, oriEnableDumpJson);
         config::GetPassConfig(KEY_PRINT_FUNCTION, true);
 #endif
-        if (config::GetPlatformConfig("ENABLE_PV_DATA", false)) {
-            CostModel::PvData::Instance().Enable();
-        }
-        if (config::GetPlatformConfig("ENABLE_SOFT_MEMORY", false)) {
-            CostModel::SoftMemory::Instance().Enable();
-        }
         // Reset Program
         rtSetDevice(GetDeviceIdByEnvVar());
         Program::GetInstance().Reset();
