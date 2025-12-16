@@ -18,8 +18,8 @@
 #include "utils/layout.h"
 #include "utils/tile_tensor.h"
 
-template <typename T0, typename T1>
-TILEOP void TTrans(T0 dst, T1 src) {
+template <typename T0, typename T1, typename T2>
+TILEOP void TTrans(T0 dst, T1 src, T2 tmp) {
     using ShapeValueType = typename Std::tuple_element<0, typename T0::Shape>::type;
     constexpr auto shapeSize0 = Std::tuple_size<typename T0::Shape>::value;
     constexpr auto shapeSize1 = Std::tuple_size<typename T1::Shape>::value;
@@ -55,6 +55,11 @@ TILEOP void TTrans(T0 dst, T1 src) {
     constexpr auto srcTileH = Std::tuple_element<shapeSize1 - 2, typename T1::TileShape>::type::value;
     constexpr auto srcTileW = Std::tuple_element<shapeSize1 - 1, typename T1::TileShape>::type::value;
 
+    using TmpTileDefine =
+                    pto::Tile<pto::TileType::Vec, typename T1::Type, srcTileH, srcTileW, pto::BLayout::RowMajor, -1, -1>;
+    TmpTileDefine tmpTile(srcShape3, srcShape4);
+    pto::TASSIGN(tmpTile, (uint64_t)(tmp.GetAddr()));
+
     for (size_t n0Index = 0; n0Index < dstShape0; ++n0Index) {
         for (size_t n1Index = 0; n1Index < dstShape1; ++n1Index) {
             for (size_t n2Index = 0; n2Index < dstShape2; ++n2Index) {
@@ -68,7 +73,7 @@ TILEOP void TTrans(T0 dst, T1 src) {
                 auto srcOffset = n0Index * srcStride0 + n1Index * srcStride1 + n2Index * srcStride2;
                 pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * dstTypeSize));
                 pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * srcTypeSize));
-                pto::TTRANS(dstTile, srcTile);
+                pto::TTRANS(dstTile, srcTile, tmpTile);
             }
         }
     }

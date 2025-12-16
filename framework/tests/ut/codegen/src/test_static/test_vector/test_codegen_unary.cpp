@@ -102,7 +102,11 @@ TEST_F(TestCodegenUnary, RowSumSingleDim4) {
 }
 
 void TestTransposeVnchwconvBody(std::vector<int64_t> shape, std::vector<int64_t> outShape, std::vector<int> transposeShape,
-    std::vector<int64_t> tileShape, std::string name) {
+    std::vector<int64_t> tileShape, std::string name, bool isSupportTileTensor = false) {
+    if (isSupportTileTensor) {
+        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
+        config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
+    }
     TileShape::Current().SetVecTile(tileShape);
     Tensor input(DT_FP32, shape, "input");
     Tensor output(DT_FP32, outShape, "output");
@@ -127,6 +131,10 @@ TEST_F(TestCodegenUnary, TransposeVnchwconvDim4) {
 TEST_F(TestCodegenUnary, TransposeVnchwconvDim5) {
     TestTransposeVnchwconvBody(
         {1, 1, 2, 32, 16}, {1, 1, 2, 16, 32}, {3, 4}, {1, 1, 1, 16, 16}, "TRANSPOSE_VNCHWCONV_DIM5");
+}
+
+TEST_F(TestCodegenUnary, TransposeVnchwconvDim2TileTensor) {
+    TestTransposeVnchwconvBody({16, 32}, {32, 16}, {0, 1}, {16, 16}, "TRANSPOSE_VNCHWCONV_DIM2", true);
 }
 
 void TestRowMaxExpandBody(
