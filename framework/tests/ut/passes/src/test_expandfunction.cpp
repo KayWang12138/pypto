@@ -129,7 +129,6 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionUTest2) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestExpandFunction", "TestExpandFunction", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
-    // Prepare the graph
     std::vector<int64_t> shape = {kNumEight, kNumExpFour};
     auto inCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto ubTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
@@ -137,11 +136,20 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionUTest2) {
     auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
 
     auto op_attr = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{kNumZero, kNumZero});
-    auto& pad_op = currFunctionPtr->AddOperation(Opcode::OP_PAD, {inCast}, {ubTensor1});
-    auto& nop_op = currFunctionPtr->AddOperation(Opcode::OP_NOP, {ubTensor1}, {ubTensor2});
-    auto& view_op = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {outCast});
-    view_op.SetOpAttribute(op_attr);
+    currFunctionPtr->AddOperation(Opcode::OP_PAD, {inCast}, {ubTensor1});
+    currFunctionPtr->AddOperation(Opcode::OP_NOP, {ubTensor1}, {ubTensor2});
+    currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {outCast});
+    
+    std::shared_ptr<Operation> pad_op, nop_op, view_op;
+    for (uint32_t uIndex = 0; uIndex < currFunctionPtr->Operations().size(); ++uIndex){
+        auto op = currFunctionPtr->Operations().operations_[uIndex];
+        if (op->GetOpcode() == Opcode::OP_PAD) pad_op = op;
+        else if (op->GetOpcode() == Opcode::OP_NOP) nop_op = op;
+        else if (op->GetOpcode() == Opcode::OP_VIEW) view_op = op;
+    }
 
+    view_op->SetOpAttribute(op_attr);
+    
     currFunctionPtr->inCasts_.push_back(inCast);
     currFunctionPtr->outCasts_.push_back(outCast);
     currFunctionPtr->SetGraphType(GraphType::TENSOR_GRAPH);
@@ -151,21 +159,16 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionUTest2) {
     EXPECT_EQ(status, SUCCESS);
     EXPECT_EQ(currFunctionPtr->GetGraphType(), GraphType::TILE_GRAPH);
 
-    uint32_t view_num = kNumZero;
-    uint32_t pad_num = kNumZero;
-    uint32_t nop_num = kNumZero;
+    uint32_t view_num = kNumZero, pad_num = kNumZero, nop_num = kNumZero;
     for (auto &op : currFunctionPtr->Operations()) {
         if (op.GetOpcode() == Opcode::OP_VIEW) {
-            EXPECT_EQ(op_attr, view_op.GetOpAttribute());
-            EXPECT_NE(view_op.GetOpMagic(), op.GetOpMagic());
-            ++view_num;
+            EXPECT_EQ(op_attr, view_op->GetOpAttribute());
+            EXPECT_NE(view_op->GetOpMagic(), op.GetOpMagic()); ++view_num;
         } else if (op.GetOpcode() == Opcode::OP_PAD) {
-            EXPECT_TRUE(pad_op.GetOpAttribute() == nullptr);
-            EXPECT_NE(pad_op.GetOpMagic(), op.GetOpMagic());
-            ++pad_num;
+            EXPECT_TRUE(pad_op->GetOpAttribute() == nullptr);
+            EXPECT_NE(pad_op->GetOpMagic(), op.GetOpMagic()); ++pad_num;
         } else if (op.GetOpcode() == Opcode::OP_NOP) {
-            EXPECT_NE(nop_op.GetOpMagic(), op.GetOpMagic());
-            ++nop_num;
+            EXPECT_NE(nop_op->GetOpMagic(), op.GetOpMagic()); ++nop_num;
         }
     }
     EXPECT_EQ(view_num, kNumOne);
@@ -190,8 +193,16 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionUTest3) {
     std::vector<int64_t> toOffset = {kNumZero, kNumZero};
     std::vector<SymbolicScalar> symbol = {SymbolicScalar("sym")};
     auto op_attr = std::make_shared<AssembleOpAttribute>(toOffset, symbol);
-    auto& assemble_op = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {inCast}, {outCast});
-    assemble_op.SetOpAttribute(op_attr);
+    currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {inCast}, {outCast});
+    
+    std::shared_ptr<Operation> assemble_op;
+    for (uint32_t uIndex = 0; uIndex < currFunctionPtr->Operations().size(); ++uIndex){
+        if (currFunctionPtr->Operations().operations_[uIndex]->GetOpcode() == Opcode::OP_ASSEMBLE) {
+            assemble_op = currFunctionPtr->Operations().operations_[uIndex];
+        }
+    }
+
+    assemble_op->SetOpAttribute(op_attr);
 
     currFunctionPtr->inCasts_.push_back(inCast);
     currFunctionPtr->outCasts_.push_back(outCast);
@@ -206,7 +217,7 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionUTest3) {
     for (auto &op : currFunctionPtr->Operations()) {
         if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
             EXPECT_EQ(op_attr, op.GetOpAttribute());
-            EXPECT_NE(op.GetOpMagic(), assemble_op.GetOpMagic());
+            EXPECT_NE(op.GetOpMagic(), assemble_op->GetOpMagic());
             ++assemble_num;
         }
     }
@@ -286,11 +297,23 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionUTest5) {
     std::vector<int64_t> toOffset = {kNumZero, kNumZero};
     std::vector<SymbolicScalar> symbol = {SymbolicScalar("sym")};
     auto op_attr = std::make_shared<AssembleOpAttribute>(toOffset, symbol);
-    auto& reshape_op = currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {inCast}, {ubTensor});
-    auto& assemble_op = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {ubTensor}, {outCast});
-    assemble_op.SetOpAttribute(op_attr);
-    reshape_op.tileShape_.SetVecTile({kNumExpFive, kNumExpFive});
-    assemble_op.tileShape_.SetVecTile({kNumExpFive, kNumExpFive});
+    currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {inCast}, {ubTensor});
+    currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {ubTensor}, {outCast});
+
+    std::shared_ptr<Operation> reshape_op;
+    std::shared_ptr<Operation> assemble_op;
+    for (uint32_t uIndex = 0; uIndex < currFunctionPtr->Operations().size(); ++uIndex){
+        if (currFunctionPtr->Operations().operations_[uIndex]->GetOpcode() == Opcode::OP_RESHAPE) {
+            reshape_op = currFunctionPtr->Operations().operations_[uIndex];
+        }
+        if (currFunctionPtr->Operations().operations_[uIndex]->GetOpcode() == Opcode::OP_ASSEMBLE) {
+            assemble_op = currFunctionPtr->Operations().operations_[uIndex];
+        }
+    }
+
+    assemble_op->SetOpAttribute(op_attr);
+    reshape_op->tileShape_.SetVecTile({kNumExpFive, kNumExpFive});
+    assemble_op->tileShape_.SetVecTile({kNumExpFive, kNumExpFive});
 
     currFunctionPtr->inCasts_.push_back(inCast);
     currFunctionPtr->outCasts_.push_back(outCast);
@@ -304,7 +327,7 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionUTest5) {
     uint32_t assemble_num = kNumZero;
     for (auto &op : currFunctionPtr->Operations()) {
         if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
-            EXPECT_NE(op.GetOpMagic(), assemble_op.GetOpMagic());
+            EXPECT_NE(op.GetOpMagic(), assemble_op->GetOpMagic());
             ++assemble_num;
         }
     }
