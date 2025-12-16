@@ -85,12 +85,12 @@ TILEOP void L1CopyIn(__cbuf__ L1T *dst, __gm__ GMT *src, int reserved) { // ND2N
         copy_gm_to_cbuf_multi_nd2nz_b8((__cbuf__ L1T *)dst, (__gm__ GMT *)src, 0 /*sid*/, ndNum, nValue, dValue,
             srcNdMatrixStride, srcDValue, dstNzC0Stride, dstNzNStride, dstNzMatrixStride);
     }
- 
+
     if constexpr (std::is_same<GMT, half>::value || std::is_same<GMT, bfloat16_t>::value) {
         copy_gm_to_cbuf_multi_nd2nz_b16((__cbuf__ L1T *)dst, (__gm__ GMT *)src, 0 /*sid*/, ndNum, nValue, dValue,
             srcNdMatrixStride, srcDValue, dstNzC0Stride, dstNzNStride, dstNzMatrixStride);
     }
- 
+
     if constexpr (std::is_same<GMT, float>::value) {
         copy_gm_to_cbuf_multi_nd2nz_b32s((__cbuf__ L1T *)dst, (__gm__ GMT *)src, 0 /*sid*/, ndNum, nValue, dValue,
             srcNdMatrixStride, srcDValue, dstNzC0Stride, dstNzNStride, dstNzMatrixStride);
@@ -147,18 +147,6 @@ TILEOP void L1CopyInND(__cbuf__ L1T *dst, __gm__ GMT *src, int reserved) {
 // Nz2Zz
 template <typename T, unsigned dstM, unsigned dstK, unsigned Offset0, unsigned Offset1, unsigned srcM, unsigned srcK>
 TILEOP void L1ToL0A(__ca__ T *dst, __cbuf__ T *src) {
-    // current only support 128*128
-    if constexpr (dstM == 128 && dstK == 128 && srcM == 128 && srcK == 128) {
-        constexpr uint64_t fmatrix_config = 0x10000 + srcM;
-        set_fmatrix(fmatrix_config);
-
-        constexpr uint16_t stepK = srcK;
-        constexpr uint16_t stepM = srcM;
-        constexpr uint16_t channelSize = srcM;
-        img2colv2_cbuf_to_ca(dst, src, stepK, stepM, 0, 0, 1, 1, 1, 1, 1, 1, false, false, false, false, channelSize);
-        return;
-    }
-
     int64_t frac_num = 32 / sizeof(T);
     int64_t m_frac = dstM / 16; //
     uint8_t repeat = dstK / frac_num;
