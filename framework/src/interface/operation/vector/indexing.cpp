@@ -1120,9 +1120,7 @@ Tensor RealRange(Element &start, Element &end, Element &step) {
         std::string errorMessage = "Unsupported DataType " + DataType2String(start.GetDataType());
         throw std::invalid_argument(errorMessage.c_str());
     }
-    if (resultSize <= 0) {
-        ASSERT(false && "The positivity or negativity of the step must be aligned with the end-start");
-    }
+    ASSERT(resultSize > 0 && "The positivity or negativity of the step must be aligned with the end-start");
     resTensorShape.push_back(resultSize);
     auto resTensor = Tensor(start.GetDataType(), resTensorShape);
     RETURN_CALL(Range, *Program::GetInstance().GetCurrentFunction(), resTensor.GetStorage(), start, step);

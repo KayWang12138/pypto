@@ -33,6 +33,7 @@
 
 namespace npu::tile_fwk {
 const std::string ENV_ASCEND_HOME_PATH = "ASCEND_HOME_PATH";
+const std::string ENV_PTO_TILE_LIB_CODE_PATH = "PTO_TILE_LIB_CODE_PATH";
 
 void PrintOperand(const std::string &operIO, std::shared_ptr<LogicalTensor> operand) {
     ALOG_INFO_F("insert %s magic: %d, tensor: %s, memory map is: ", operIO.c_str(), operand->GetMagic(),
@@ -459,10 +460,14 @@ std::string CodeGenCloudNPU::GetIncludePathForCompileCCE() const {
 }
 
 std::string CodeGenCloudNPU::GetPtoTileLibPathByEnv() const {
-    const char *homePath = std::getenv(ENV_ASCEND_HOME_PATH.c_str());
+    const char *homePath = std::getenv(ENV_PTO_TILE_LIB_CODE_PATH.c_str());
     if (homePath == nullptr) {
-        return "";
+        homePath = std::getenv(ENV_ASCEND_HOME_PATH.c_str());
+        if (homePath == nullptr) {
+            return "";
+        }
     }
+
     std::string includePath = std::string(homePath) + "/include";
     if (IsPathExist(includePath)) {
         return includePath;
