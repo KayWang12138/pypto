@@ -85,7 +85,7 @@ void FlagPoller::PollCompleted(std::vector<uint64_t> &completed)
     }
     completed.reserve(realCount_);
     for (size_t flagIndex = 0; flagIndex < realCount_; ++flagIndex) {
-        DEV_DEBUG("FlagPoller PollCompleted: flagIndex=%zu, winFlag_ addr=%p, winFlag_=%u\n",
+        DEV_DEBUG("FlagPoller PollCompleted: flagIndex=%zu, winFlag_ addr=%p, winFlag_=%u.\n",
             flagIndex, winFlag_ + flagIndex * FLAG_BYTE_SIZE, winFlag_[flagIndex * FLAG_BYTE_SIZE]);
         if (
             (!doneFlag_[flagIndex])

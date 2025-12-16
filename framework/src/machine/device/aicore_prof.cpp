@@ -49,7 +49,7 @@ void AiCoreProf::ProInitHandShake() {
         HandShakeHead_[i]->taskId = 0;
         HandShakeHead_[i]->streamId = 0;
     }
-    DEV_INFO("ProfInitHandShake finish\n");
+    DEV_INFO("ProfInitHandShake finish.\n");
     sleep(1);
 }
 
@@ -79,7 +79,7 @@ void AiCoreProf::ProInitAiCpuTaskStat() {
         aiCpuStatHead_[i]->taskId = 0;
         aiCpuStatHead_[i]->streamId = 0;
     }
-    DEV_INFO("ProfInitAicpuStat finish\n");
+    DEV_INFO("ProfInitAicpuStat finish.\n");
     sleep(1);
 }
 
@@ -108,7 +108,7 @@ void AiCoreProf::ProfInit(int64_t *regAddrs, int64_t *pmuEventAddrs) {
         return;
     }
     hostAicoreMng_.SetDotStatus(static_cast<int64_t>(profLevel_));
-    DEV_INFO("aicore profiling is opened, level is %d\n", profLevel_);
+    DEV_INFO("aicore profiling is opened, level is %d.\n", profLevel_);
 }
 
 void AiCoreProf::ProfStart() {
@@ -116,7 +116,7 @@ void AiCoreProf::ProfStart() {
         return;
     }
 
-    DEV_INFO("aicore profiling start\n");
+    DEV_INFO("aicore profiling start.\n");
 
     if (profLevel_ == PROF_LEVEL_FUNC_LOG_PMU) {
         ProfStartPmu();
@@ -129,7 +129,7 @@ void AiCoreProf::ProGetHandShake(int &threadIdx, const struct AiCpuHandShakeSta 
     }
     MsprofAicpuHandShakeHead *handShakeHead = HandShakeHead_[threadIdx];
     AstMsprofAdditionalInfo &handShakeMsg = HandShakeMsg_[threadIdx];
-    DEV_DEBUG("aicore profiling gen handShake mesg, coreId: %d thread id: %d, shakeHand used %lu\n",
+    DEV_DEBUG("aicore profiling gen handShake mesg, coreId: %d thread id: %d, shakeHand used %lu.\n",
         handShakeStat->coreId, threadIdx, (handShakeStat->shakeEnd - handShakeStat->shakeStart));
     if (handShakeHead->cnt < handkShakeMaxNum_ - 1) {
         memcpy_s(reinterpret_cast<void *>(
@@ -145,7 +145,7 @@ void AiCoreProf::ProGetHandShake(int &threadIdx, const struct AiCpuHandShakeSta 
         handShakeHead->cnt++;
         int32_t ret = AdprofReportAdditionalInfo(1, &handShakeMsg, sizeof(AstMsprofAdditionalInfo));
         DEV_DEBUG(
-            "aicore profiling send log mesg, core id: %d, task num: %d, ret: %d\n", threadIdx, handShakeHead->cnt, ret);
+            "aicore profiling send log mesg, core id: %d, task num: %d, ret: %d.\n", threadIdx, handShakeHead->cnt, ret);
         // reset
         (void)(ret);
         handShakeHead->cnt = 0;
@@ -190,7 +190,7 @@ void AiCoreProf::ProfStop() {
         ProfStopAiCpuTaskStat();
 #endif
     }
-    DEV_INFO("aicore profiling stop, total run task num: %lu\n", taskCnt_);
+    DEV_INFO("aicore profiling stop, total run task num: %lu.\n", taskCnt_);
 }
 
 inline void AiCoreProf::ProfInitLog() {
@@ -218,7 +218,7 @@ inline void AiCoreProf::ProfInitLog() {
         logHead_[i]->taskId = 0;
         logHead_[i]->streamId = 0;
     }
-    DEV_INFO("ProfInitLog finish\n");
+    DEV_INFO("ProfInitLog finish.\n");
 }
 
 inline void AiCoreProf::ProfStopLog() {
@@ -241,7 +241,7 @@ inline void AiCoreProf::ProfGetLog(int32_t coreIdx, const struct TaskStat *taskS
             logDataSize_, taskStat, logDataSize_);
         logMsg.dataLen += logDataSize_;
         logHead->cnt++;
-        DEV_DEBUG("aicore profiling gen log mesg, taskid: %d core id: %d, task start: %ld, end: %ld\n",
+        DEV_DEBUG("aicore profiling gen log mesg, taskid: %d core id: %d, task start: %ld, end: %ld.\n",
             taskStat->taskId, coreIdx, taskStat->execStart, taskStat->execEnd);
     } else if (logHead->cnt == logDataMaxNum_ - 1) {
         memcpy_s(reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(logData_[coreIdx]) + logDataSize_ * logHead->cnt),
@@ -249,7 +249,7 @@ inline void AiCoreProf::ProfGetLog(int32_t coreIdx, const struct TaskStat *taskS
         logMsg.dataLen += logDataSize_;
         logHead->cnt++;
         int32_t ret = AdprofReportAdditionalInfo(1, &logMsg, sizeof(AstMsprofAdditionalInfo));
-        DEV_DEBUG("aicore profiling send log mesg, core id: %d, task num: %d, ret: %d\n", coreIdx, logHead->cnt, ret);
+        DEV_DEBUG("aicore profiling send log mesg, core id: %d, task num: %d, ret: %d.\n", coreIdx, logHead->cnt, ret);
         // reset
         (void)(ret);
         logHead->cnt = 0;
@@ -403,7 +403,7 @@ void AiCoreProf::ProfStopHandShake() {
         if (HandShakeHead_[i]->cnt != 0) {
             int32_t ret = AdprofReportAdditionalInfo(1, &HandShakeMsg_[i], sizeof(AstMsprofAdditionalInfo));
             DEV_DEBUG(
-                "aicore profiling send pmu mesg, core id: %d, task num: %d, ret: %d\n", i, HandShakeHead_[i]->cnt, ret);
+                "aicore profiling send pmu mesg, core id: %d, task num: %d, ret: %d.\n", i, HandShakeHead_[i]->cnt, ret);
             memset_s(&HandShakeMsg_[i], handkShakeMsgSize_, 0, handkShakeMsgSize_);
             (void)(ret);
         }
@@ -414,7 +414,7 @@ void AiCoreProf::ProfStopAiCpuTaskStat() {
     for (int i = 0; i < AICPUNUM; i++) {
         if (aiCpuStatHead_[i]->cnt != 0) {
             int32_t ret = AdprofReportAdditionalInfo(1, &aiCpuStatMsg_[i], sizeof(AstMsprofAdditionalInfo));
-            DEV_DEBUG("aicore profiling send aicpu stat mesg, aicpu id: %d, task num: %d, ret: %d\n", i,
+            DEV_DEBUG("aicore profiling send aicpu stat mesg, aicpu id: %d, task num: %d, ret: %d.\n", i,
                 aiCpuStatHead_[i]->cnt, ret);
             memset_s(&aiCpuStatMsg_[i], aiCpuStatMsgSize_, 0, aiCpuStatMsgSize_);
             (void)(ret);
@@ -446,7 +446,7 @@ void AiCoreProf::ProfGetAiCpuTaskStat(int &threadIdx, struct AiCpuTaskStat *aiCp
         aiCpuStatMsg.dataLen += aiCpuStatDataSize_;
         aiCpuStatHead->cnt++;
         DEV_DEBUG("aicore profiling gen aiCpuStat mesg, coreId: %d thread id: %d, startExeTask: %lu shakeHand start: "
-                  "%lu, shakeHandend: %lu\n",
+                  "%lu, shakeHandend: %lu.\n",
             aiCpuStat->coreId, threadIdx, aiCpuStat->taskGetStart, aiCpuStat->execStart, aiCpuStat->execEnd);
     } else if (aiCpuStatHead->cnt == aiCpuStatMaxNum_ - 1) {
         memcpy_s(reinterpret_cast<void *>(
@@ -455,7 +455,7 @@ void AiCoreProf::ProfGetAiCpuTaskStat(int &threadIdx, struct AiCpuTaskStat *aiCp
         aiCpuStatMsg.dataLen += logDataSize_;
         aiCpuStatHead->cnt++;
         int32_t ret = AdprofReportAdditionalInfo(1, &aiCpuStatMsg, sizeof(AstMsprofAdditionalInfo));
-        DEV_DEBUG("aicore profiling send aiCpuStat mesg, core id: %d, task num: %d, ret: %d\n", threadIdx,
+        DEV_DEBUG("aicore profiling send aiCpuStat mesg, core id: %d, task num: %d, ret: %d.\n", threadIdx,
             aiCpuStatHead->cnt, ret);
         // reset
         (void)(ret);
@@ -485,7 +485,7 @@ inline void AiCoreProf::ProfGetPmu(
     MsprofAicpuAstPmuData data = {0};
     FillPmuData(data, coreIdx, subGraphId, taskId, taskStat);
     DEV_DEBUG("aicore profiling pmu info, core id: %d: (%u, %u | %lu | %p=%u, %p=%u, %p=%u, %p=%u, "
-              "%p=%u, %p=%u, %p=%u, %p=%u)\n",
+              "%p=%u, %p=%u, %p=%u, %p=%u).\n",
         coreIdx, data.subGraphId, data.taskId, data.totalCyc, pmuCnt0Plain_[coreIdx], data.pmuCnt0,
         pmuCnt1Plain_[coreIdx], data.pmuCnt1, pmuCnt2Plain_[coreIdx], data.pmuCnt2, pmuCnt3Plain_[coreIdx],
         data.pmuCnt3, pmuCnt4Plain_[coreIdx], data.pmuCnt4, pmuCnt5Plain_[coreIdx], data.pmuCnt5,
@@ -513,7 +513,7 @@ inline void AiCoreProf::ProfGetPmu(
         pmuMsg_[coreIdx].dataLen += pmuDataSize_;
         pmuHead_[coreIdx]->cnt++;
         int32_t ret = AdprofReportAdditionalInfo(1, &pmuMsg_[coreIdx], sizeof(AstMsprofAdditionalInfo));
-        DEV_DEBUG("aicore profiling send pmu mesg, core id: %d, task num: %d, ret: %d\n", coreIdx,
+        DEV_DEBUG("aicore profiling send pmu mesg, core id: %d, task num: %d, ret: %d.\n", coreIdx,
             pmuHead_[coreIdx]->cnt, ret);
         (void)(ret);
         memset_s(&pmuMsg_[coreIdx], pmuMsgSize_, 0, pmuMsgSize_);

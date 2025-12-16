@@ -233,7 +233,7 @@ int DeviceRunner::InitDeviceArgs(DeviceArgs &args) {
     rtMemcpy(reinterpret_cast<void *>(args.corePmuRegAddr), size, regsPmu.data(), size, RT_MEMCPY_HOST_TO_DEVICE);
     size = pmuEvtType_.size() * sizeof(int64_t);
     rtMemcpy(reinterpret_cast<void *>(args.pmuEventAddr), size, pmuEvtType_.data(), size, RT_MEMCPY_HOST_TO_DEVICE);
-    ALOG_INFO_F("aic %u aiv %u  blockDim_ %d sharedBuffer %lx coreRegAddr %lx corePmuRegAddr %lx\n", args.nrAic,
+    ALOG_INFO_F("Aic %u aiv %u  blockDim_ %d sharedBuffer %lx coreRegAddr %lx corePmuRegAddr %lx\n", args.nrAic,
         args.nrAiv, blockDim_, args.sharedBuffer, args.coreRegAddr, args.corePmuRegAddr);
     InitDynamicArgs(args);
     return 0;
@@ -272,7 +272,7 @@ int DeviceRunner::Run(rtStream_t aicpuStream, rtStream_t aicoreStream, int64_t t
         }
     }
     uint64_t taskWastTime = GetTasksTime();
-    ALOG_INFO_F("task wast time %lu\n", taskWastTime);
+    ALOG_INFO_F("Task wast time %lu\n", taskWastTime);
     return rc;
 }
 
@@ -339,7 +339,7 @@ void DeviceRunner::AllocDfxMetricMemory() {
             reinterpret_cast<int64_t>(DevAlloc(MAX_DFX_TASK_NUM_PER_CORE * sizeof(TaskStat) + sizeof(Metrics)));
         rtMemcpy((reinterpret_cast<uint8_t *>(args_.sharedBuffer)) + i * SHARED_BUFFER_SIZE, sizeof(kernelArgs),
             reinterpret_cast<uint8_t *>(&kernelArgs), sizeof(kernelArgs), RT_MEMCPY_HOST_TO_DEVICE);
-        ALOG_INFO_F("aicore %u , dfxaddr 0x%ld \n", i, kernelArgs.shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
+        ALOG_INFO_F("Aicore %u , dfxaddr 0x%ld \n", i, kernelArgs.shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
     }
 }
 
@@ -783,7 +783,7 @@ void DeviceRunner::SetBinData(const std::vector<uint8_t> &binBuf) {
 int DeviceRunner::RegisterKernelBin(void **hdl) {
     if (*hdl) {
         binHdl_ = *hdl;
-        ALOG_DEBUG_F("RegisterKernelBin reuse cache.");
+        ALOG_DEBUG_F("RegisterKernelBin reuse cache. ");
         return 0;
     }
     void *bin = nullptr;
@@ -795,7 +795,7 @@ int DeviceRunner::RegisterKernelBin(void **hdl) {
     } else {
         bin = _binary_kernel_o_start;
         binSize = _binary_kernel_o_end - _binary_kernel_o_start;
-        ALOG_DEBUG_F("Reg static bin size %zu.", binSize);
+        ALOG_DEBUG_F("reg static bin size %zu.", binSize);
     }
     rtDevBinary_t binary{.magic = RT_DEV_BINARY_MAGIC_ELF, .version = 0, .data = bin, .length = binSize};
     int rc = rtRegisterAllKernel(&binary, hdl);
@@ -803,7 +803,7 @@ int DeviceRunner::RegisterKernelBin(void **hdl) {
         ALOG_ERROR("RegisterKernelBin failed\n");
     }
     binHdl_ = *hdl;
-    ALOG_DEBUG_F("finish RegisterKernelBin...");
+    ALOG_DEBUG_F("finish RegisterKernelBin..");
     return rc;
 }
 

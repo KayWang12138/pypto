@@ -169,10 +169,16 @@ struct DevRelocVector {
     DevRelocVector(int size, T *data) : size_(size), data_(data) {}
 
     T &operator[](size_t idx) {
+        if (idx >= size_) {
+            DEV_ERROR("Index out of bounds: idx=%zu, size=%zu", idx, size_);
+        }
         DEV_ASSERT(idx < size_);
         return data_[idx];
     }
     const T &operator[](size_t idx) const {
+        if (idx >= size_) {
+            DEV_ERROR("Index out of bounds: idx=%zu, size=%zu", idx, size_);
+        }
         DEV_ASSERT(idx < size_);
         return data_[idx];
     }
@@ -196,7 +202,7 @@ struct DevRelocVector {
         HostAssignDataSize(reinterpret_cast<uintdevptr_t>((base.Data() + offset)), size);
     }
     void HostInitDataSizeOffset(uintdevptr_t &offset, size_t size) {
-        ASSERT(offset % alignof(T) == 0); // Ensure offset is aligned
+        ASSERT(offset % alignof(T) == 0) << "Offset is not properly aligned for type T"; // Ensure offset is aligned
         HostAssign(data_, offset);
         size_ = size;
         offset = reinterpret_cast<uintdevptr_t>(data_ + size);
@@ -586,7 +592,13 @@ struct AddressDescriptor {
     }
 
     bool IsAddress() const { return isAddress; }
-    uint64_t GetAddress() const { DEV_ASSERT(isAddress); return addr; }
+    uint64_t GetAddress() const {
+        if (!isAddress) {
+            DEV_ERROR("Attempt to get address when isAddress is false.");
+        }
+        DEV_ASSERT(isAddress);
+        return addr;
+    }
     uint64_t GetAddressValue() const { return addr; }
     bool IsNullAddress() const { return IsAddress() && addr == 0; }
 
@@ -1353,6 +1365,7 @@ public:
                 rangeBegin[i] = offset[i] / cellMatchShapeDim;
                 rangeEnd[i] = (offset[i] + shape[i] - 1) / cellMatchShapeDim;
             } else {
+                DEV_ERROR("CellMatchGetIndexRange: cellMatchShapeDim is zero for dimension %d", i);
                 DEV_ASSERT(0);
             }
         }
@@ -1601,6 +1614,9 @@ struct DevAscendFunctionDuppedStitch {
     }
 
     void PushBack(uint32_t taskId) {
+        if (size_ >= DUPPED_STITCH_SIZE) {
+            DEV_ERROR("PushBack: Task list is full, size_:%u >= DUPPED_STITCH_SIZE:%u", size_, DUPPED_STITCH_SIZE);
+        }
         DEV_DEBUG_ASSERT(size_ < DUPPED_STITCH_SIZE);
         taskList_[size_++] = taskId;
     }
@@ -1610,6 +1626,9 @@ struct DevAscendFunctionDuppedStitch {
     DevAscendFunctionDuppedStitch *&Next() { return next_; }
 
     uint32_t At(uint32_t idx) const {
+        if (idx >= size_) {
+            DEV_ERROR("At: Index %u out of bounds.", idx);
+        }
         DEV_DEBUG_ASSERT(idx < size_);
         return taskList_[idx];
     }
@@ -1759,6 +1778,9 @@ struct DevAscendFunctionDuppedData {
     const DevAscendFunctionDuppedStitchList &GetOperationStitch(int operationIndex, bool maybeNull = true) const {
         int outcastStitchIndex = GetSource()->GetOperationOutcastStitchIndex(operationIndex);
         DEV_IF_NONDEVICE {
+            if (!maybeNull && outcastStitchIndex == 0) {
+                DEV_ERROR("GetOperationStitch: operation %d has invalid outcast stitch index 0", operationIndex);
+            }
             DEV_ASSERT(maybeNull || outcastStitchIndex != 0);
         }
         return GET_DATA(DevAscendFunctionDuppedStitchList, data_, operationList_.stitchBase, outcastStitchIndex);
@@ -1766,6 +1788,9 @@ struct DevAscendFunctionDuppedData {
     DevAscendFunctionDuppedStitchList &GetOperationStitch(int operationIndex, bool maybeNull = true) {
         int outcastStitchIndex = GetSource()->GetOperationOutcastStitchIndex(operationIndex);
         DEV_IF_NONDEVICE {
+            if (!maybeNull && outcastStitchIndex == 0) {
+                DEV_ERROR("GetOperationStitch: operation %d has invalid outcast stitch index 0", operationIndex);
+            }
             DEV_ASSERT(maybeNull || outcastStitchIndex != 0);
         }
         return GET_DATA(DevAscendFunctionDuppedStitchList, data_, operationList_.stitchBase, outcastStitchIndex);
@@ -1801,6 +1826,9 @@ struct DevAscendFunctionDuppedData {
     }
 
     std::string Dump(int indent = 0) const {
+        if (GetSource()->GetOperationSize() != GetOperationSize()) {
+            DEV_ERROR("GetOperationSize mismatch: source=%zu, self=%u", GetSource()->GetOperationSize(), GetOperationSize());
+        }
         DEV_ASSERT(GetSource()->GetOperationSize() == GetOperationSize());
         std::string INDENT(indent, ' ');
         std::string INDENTINNER(indent + IDENT_SIZE, ' ');
@@ -1908,14 +1936,23 @@ struct DevAscendFunctionDupped {
         const DevAscendRawTensor *rawTensor = GetSource()->GetRawTensor(rawIndex);
         if (rawTensor->ioProperty == DevIOProperty::ROOT_INCAST) {
             AddressDescriptor incast = GetIncastAddress(rawTensor->ioIndex);
+            if (incast.IsNullAddress()) {
+                DEV_ERROR("Null incast address for index:%d", rawTensor->ioIndex);
+            }
             DEV_DEBUG_ASSERT(!incast.IsNullAddress());
             addr = incast.addr;
         } else if (rawTensor->ioProperty == DevIOProperty::ROOT_OUTCAST) {
             AddressDescriptor outcast = GetOutcastAddress(rawTensor->ioIndex);
+            if (outcast.IsNullAddress()) {
+                DEV_ERROR("Null outcast address for index:%d", rawTensor->ioIndex);
+            }
             DEV_DEBUG_ASSERT(!outcast.IsNullAddress());
             addr = outcast.addr;
         } else {
             uintdevptr_t runtimeWorkspace = RuntimeWorkspace();
+            if (runtimeWorkspace == 0) {
+                DEV_ERROR("Runtime workspace is zero.");
+            }
             DEV_DEBUG_ASSERT(runtimeWorkspace != 0);
             addr = runtimeWorkspace + rawTensor->addrOffset;
         }
@@ -2190,13 +2227,26 @@ struct DevAscendFunctionDupped {
 
             int dim = info.GetDim();
             auto rawTensor = func->GetRawTensor(rawIndex);
+            if (rawIndex >= func->GetRawTensorSize()) {
+                DEV_ERROR("Invalid rawIndex=%lu, exceeds raw tensor size=%lu", rawIndex, func->GetRawTensorSize());
+            }
+            if (dim != rawTensor->GetDim()) {
+                DEV_ERROR("Dimension mismatch: info.dim=%d, rawTensor->dim=%d", dim, rawTensor->GetDim());
+            }
             DEV_ASSERT(rawIndex < func->GetRawTensorSize());
             DEV_ASSERT(dim == rawTensor->GetDim());
 
             for (int d = 0; d < rawTensor->GetDim(); d++) {
                 auto shapeIdx = attrOffset + d + rawTensor->GetDim() * 2;
                 auto shape = static_cast<int64_t>(rawTensor->shape.At(d, funcData->exprTbl));
-                DEV_ASSERT(GetValue(attrs, shapeIdx) == shape);
+                auto actualShape = GetValue(attrs, shapeIdx);
+                if (actualShape != shape) {
+                    DEV_ERROR("Shape mismatch at dim %d: expacted=%ld, got=%ld", d, shape, actualShape);
+                }
+                DEV_ASSERT(actualShape == shape);
+            }
+            if (dim != rawTensor->GetDim()) {
+                DEV_ERROR("Final dimension mismatch after shape validation: info.dim=%d, rawTensor->dim=%d", dim, rawTensor->GetDim());
             }
             DEV_ASSERT(dim == rawTensor->GetDim());
             for (int i = 0; i < dim * ARG_ATTR_TYPE; i++) {
@@ -2238,6 +2288,9 @@ struct DevAscendFunctionDupped {
         for (uint64_t i = 0; i < func->GetRawTensorDescSize(); i++) {
             if (i % RAW_TENSOR_DESC_PRE_SIZE == 0)
                 oss << "\n   ";
+            if (GetRawTensorAddrEx(i) != GetRawTensorAddr(i)) {
+                DEV_ERROR("Tensor address mismatch at index %lu: addr=%lu, addrEx=%lu.", i, GetRawTensorAddr(i), GetRawTensorAddrEx(i));
+            }
             DEV_ASSERT(GetRawTensorAddrEx(i) == GetRawTensorAddr(i));
             auto desc = funcData->rawTensorDesc[i];
             oss << GetRawTensorAddrEx(i) << "(location:" << desc.location << " offsetOrIdex: " << desc.offsetOrIndex << ")" << ", ";
@@ -2383,6 +2436,9 @@ struct DeviceExecuteSlot {
 
     template <WsMemCategory category>
     bool RefCntDec(ItemPool<uint32_t, category> &pool) {
+        if (refCntIndex == itemPoolInvalidIndex) {
+            DEV_ERROR("RefCntDec failed: refCntIndex is invalid.");
+        }
         DEV_DEBUG_ASSERT(refCntIndex != itemPoolInvalidIndex);
         --pool.At(refCntIndex);
         if (pool.At(refCntIndex) == 0) {
@@ -3522,11 +3578,34 @@ struct DevAscendProgram {
             controlFlowCache.deviceTaskCacheList,
             controlFlowCache.cacheData,
         };
+        if ((uintptr_t)data != rangeList[0].begin) {
+            DEV_ERROR("Assertion failed: data (0x%p) != rangeList[0].begin (0x%p)", data, (void*)rangeList[0].begin);
+        }
         DEV_ASSERT((uintptr_t)data == rangeList[0].begin);
+        if (rangeList[0].begin > rangeList[0].end) {
+            DEV_ERROR("Assertion failed: rangeList[0].begin (0x%p) > rangeList[0].end (0x%p)",
+                      (void*)rangeList[0].begin, (void*)rangeList[0].end);
+        }
         DEV_ASSERT(rangeList[0].begin <= rangeList[0].end);
         for (size_t k = 1; k < rangeList.size(); k++) {
+            if (rangeList[k - 1].end > rangeList[k].begin) {
+                DEV_ERROR("Ranges overlap: range[%d].end (0x%p) > range[%d].begin (0x%p)",
+                      (int)(k - 1), (void*)rangeList[k - 1].end,
+                      (int)k, (void*)rangeList[k].begin);
+            }
+            if (rangeList[k].begin > rangeList[k].end) {
+                DEV_ERROR("Invalid range: range[%d].begin (0x%p) > range[%d].end (0x%p)",
+                      (int)k, (void*)rangeList[k].begin,
+                      (int)k, (void*)rangeList[k].end);
+            }
             DEV_ASSERT_MSG(rangeList[k - 1].end <= rangeList[k].begin, "range:%d->%d", (int)(k - 1), (int)(k));
             DEV_ASSERT_MSG(rangeList[k].begin <= rangeList[k].end, "range:%d", (int)k);
+        }
+        uintptr_t lastEnd = rangeList.back().end;
+        uintptr_t dataEnd = (uintptr_t)(&data[dataSize]);
+        if (lastEnd != dataEnd) {
+            DEV_ERROR("Last range end does not match data end: rangeList.back().end (0x%p) != dataEnd (0x%p)",
+                      (void*)lastEnd, (void*)dataEnd);
         }
         DEV_ASSERT(rangeList.back().end == (uintptr_t)&data[dataSize]);
     }
@@ -3592,6 +3671,9 @@ struct DevAscendTensorDataCreator {
 
     template<typename T>
     static void Init(DevTensorData *tensorData, uintdevptr_t tensorAddress, const T *dims, int n) {
+        if (n > DEV_SHAPE_DIM_MAX) {
+            DEV_ERROR("Dimension count (%d) exceeds maximum allowed (%d)", n, DEV_SHAPE_DIM_MAX);
+        }
         DEV_ASSERT(n <= DEV_SHAPE_DIM_MAX);
 
         tensorData->address = tensorAddress;
@@ -3653,6 +3735,10 @@ struct DevAscendTensorDataCreator {
             }
             *ptr++ = t.address;
             h = h->next();
+        }
+        if (ptr != data.data() + data.size()) {
+            DEV_ERROR("Pointer mismatch: ptr (0x%p) != data.data() + data.size() (0x%p)",
+                      (void*)ptr, (void*)(data.data() + data.size()));
         }
         DEV_ASSERT(ptr == data.data() + data.size());
 

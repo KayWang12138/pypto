@@ -108,7 +108,7 @@ public:
     static void DeviceInitTilingData(DeviceMemoryTy devMem, AstKernelArgs &kArgs, const std::vector<uint8_t> &devProgData,
         const DeviceLauncherConfig &config, CachedOperator *cachedOperator) {
         DeviceLauncherConfig &launchConfig = const_cast<DeviceLauncherConfig &>(config);
-        ASSERT(launchConfig.blockdim != 0);
+        ASSERT(launchConfig.blockdim != 0) << "Invalid blockdim: " << launchConfig.blockdim << ", must not be zero";
         auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
         if (PlatformManager::Instance().GetAicVersion() == "AIC-C-310") {
             devProg->devArgs.archInfo = ArchInfo::ARCH_35;
@@ -142,8 +142,10 @@ public:
             devProg->memBudget.tensor.devTaskInnerOutcasts, devProg->memBudget.tensor.singleSlotMem,
             devProg->memBudget.tensor.pooledSlotNum);
         devProg->l2CacheOffset = devMem.GetL2Offset();
-        ASSERT(devProg->commGroupNum == config.hcclContext.size());
-        ASSERT(devProg->commGroupNum <= (sizeof(devProg->hcclContext) / sizeof(uint64_t)));
+        ASSERT(devProg->commGroupNum == config.hcclContext.size()) << "commGroupNum mismatch. commGroupNum = " <<
+               devProg->commGroupNum << ", hcclContext size = " << config.hcclContext.size();
+        ASSERT(devProg->commGroupNum <= (sizeof(devProg->hcclContext) / sizeof(uint64_t))) << "commGroupNum exceeds array size. commGroupNum = "
+               << devProg->commGroupNum << ", max allowed = " << sizeof(devProg->hcclContext) / sizeof(uint64_t);
         for (size_t i = 0; i < devProg->commGroupNum; i++) {
             devProg->hcclContext[i] = config.hcclContext[i];
         }

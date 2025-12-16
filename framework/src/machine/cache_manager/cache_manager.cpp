@@ -56,12 +56,12 @@ bool CacheManager::Initialize() {
     }
     std::string homeEnvPath(envPath);
     cacheDirPath_ = homeEnvPath + "/ast_data/" + PlatformManager::Instance().GetShortSocVersion();
-    ALOG_DEBUG_F("Begin to initialize cache manager, cache dir path is [%s].", cacheDirPath_.c_str());
+    ALOG_DEBUG_F("begin to initialize cache manager, cache dir path is [%s].", cacheDirPath_.c_str());
     if (RealPath(cacheDirPath_).empty() && !CreateMultiLevelDir(cacheDirPath_)) {
         ALOG_ERROR_F("Failed to create cache dir[%s].", cacheDirPath_.c_str());
         return false;
     }
-    ALOG_INFO_F("Cache manager has been initialized at cache dir path[%s].", cacheDirPath_.c_str());
+    ALOG_INFO_F("cache manager has been initialized at cache dir path[%s].", cacheDirPath_.c_str());
     isInit_ = true;
     return true;
 }
@@ -74,7 +74,7 @@ bool CacheManager::MatchBinCache(const std::string &cacheKey) const {
         return false;
     }
     std::string cacheBinFile = cacheDirPath_ + "/" + CACHE_FILE_PREFIX + cacheKey + CACHE_BIN_FILE_SUFFIX;
-    ALOG_DEBUG_F("Try to check whether bin file[%s] is existed.", cacheBinFile.c_str());
+    ALOG_DEBUG_F("try to check whether bin file[%s] is existed.", cacheBinFile.c_str());
     std::string customSoPath = cacheDirPath_ + "/lib" + OpInfoManager::GetInstance().GetOpFuncName() +
                                         CACHE_CUSTOM_BIN_FILE_SUFFIX;
     std::string customJsonPath = cacheDirPath_ + "/lib" + OpInfoManager::GetInstance().GetOpFuncName() +
@@ -108,7 +108,7 @@ void CacheManager::SaveTaskFile(const DeviceAgentTask *deviceAgentTask) const {
                                         CACHE_CUSTOM_BIN_FILE_SUFFIX;
     std::string customJsonPath = cacheDirPath_ + "/lib" + OpInfoManager::GetInstance().GetOpFuncName() +
                                         CACHE_CUSTOM_JSON_FILE_SUFFIX;
-    ALOG_DEBUG_F("Try to save bin file[%s], function type is [%s], control bin file[%s].", binFilePath.c_str(),
+    ALOG_DEBUG_F("try to save bin file[%s], function type is [%s], control bin file[%s].", binFilePath.c_str(),
                  function->GetFunctionTypeStr().c_str(), customSoPath.c_str());
     std::lock_guard<std::mutex> lock_guard(cacheMutex_);
     if (!RealPath(binFilePath).empty() && !RealPath(customSoPath).empty() && !RealPath(customJsonPath).empty()) {
@@ -116,7 +116,7 @@ void CacheManager::SaveTaskFile(const DeviceAgentTask *deviceAgentTask) const {
         return;
     }
     if (function->IsFunctionType(FunctionType::DYNAMIC) && function->GetDyndevAttribute() != nullptr) {
-        ALOG_INFO_F("Save devProgBinary at bin file[%s].", binFilePath.c_str());
+        ALOG_INFO_F("save devProgBinary at bin file[%s].", binFilePath.c_str());
         std::string lockFilePath =
             cacheDirPath_ + "/" + CACHE_FILE_PREFIX + deviceAgentTask->compileTask->GetCacheKey() + CACHE_LOCK_FILE_SUFFIX;
         FILE *fp = LockAndOpenFile(lockFilePath);
@@ -155,12 +155,12 @@ bool CacheManager::RecoverTask(const std::string &cacheKey, DeviceAgentTask *dev
     std::string cacheKernelFile = cacheDirPath_ + "/" + CACHE_FILE_PREFIX + cacheKey + CACHE_KERNEL_FILE_SUFFIX;
     std::string customJsonPath = cacheDirPath_ + "/lib" + OpInfoManager::GetInstance().GetOpFuncName() +
                                  CACHE_CUSTOM_JSON_FILE_SUFFIX;
-    ALOG_DEBUG_F("Try to recover device task from bin file[%s], function type is [%s].", cacheBinFile.c_str(),
+    ALOG_DEBUG_F("try to recover device task from bin file[%s], function type is [%s].", cacheBinFile.c_str(),
                  function->GetFunctionTypeStr().c_str());
     auto attr = function->GetDyndevAttribute();
     std::lock_guard<std::mutex> lock_guard(cacheMutex_);
     if (function->IsFunctionType(FunctionType::DYNAMIC)) {
-        ALOG_INFO_F("Recover binary from file[%s][%s].", cacheBinFile.c_str(), cacheKernelFile.c_str());
+        ALOG_INFO_F("recover binary from file[%s][%s].", cacheBinFile.c_str(), cacheKernelFile.c_str());
         attr->devProgBinary = LoadFile(cacheBinFile);
         attr->kernelBinary = LoadFile(cacheKernelFile);
         OpInfoManager::GetInstance().GetCustomOpJsonPath() = customJsonPath;

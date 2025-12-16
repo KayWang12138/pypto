@@ -135,7 +135,7 @@ void *RuntimeAgentMemory::MapAiCoreReg() {
         return nullptr;
     }
 
-    ASLOGI("All AiCore Reg mapped: %p. size: %zu", devAddr, regAddrSize);
+    ASLOGI("All AiCore Reg mapped: %p. size: %zu.", devAddr, regAddrSize);
     allocatedDevAddr.emplace_back((uint8_t *)devAddr);
     return devAddr;
 }
