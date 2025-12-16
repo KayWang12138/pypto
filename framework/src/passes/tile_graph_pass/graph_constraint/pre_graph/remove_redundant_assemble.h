@@ -24,12 +24,14 @@ public:
     ~RemoveRedundantAssemble() = default;
 
     bool IsCandidateAssembleOp(Function &function, Operation &op) const;
-    void DeleteRedundantAssemble(Function &function) const;
-    void HandleForAssembleToOutcast(Function &function, std::unordered_set<Operation *> &concurrentAssembles,
+    Status DeleteRedundantAssemble(Function &function) const;
+    void HandleForAssembleToOutcast(Function &function, Operation &assembleOp,
         std::set<Operation *, LogicalTensor::CompareOp> &producersBackup) const;
-    void HandleForAssembleFromInOut(Function &function, std::unordered_set<Operation *> &concurrentAssembles,
+    void HandleForAssembleFromInOut(Function &function, Operation &AssembleOp,
         std::set<Operation *, LogicalTensor::CompareOp> &producersBackup) const;
     void HandleForReshapeToOutcast(Function &function) const;
+    void HanldeForMultiAssemble(Function &function, std::unordered_set<Operation *>& concurrentAssembles) const;
+    Status HanldeForSingleAssemble(Function &function, LogicalTensorPtr input, LogicalTensorPtr output, Operation &op) const;
 };
 } // namespace npu::tile_fwk
 #endif // PASS_REMOVE_REDUNDANT_ASSEMBLE_H

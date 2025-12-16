@@ -518,8 +518,8 @@ TEST_F(PreGraphTest, TestTransposeDatamoveExp) {
     dump graph after Pass
     function->DumpJsonFile(jsonFilePath);
     */
-    constexpr int opNumAfter = 18;
-    constexpr int assembleNumafter = 0;
+    constexpr int opNumAfter = 30;
+    constexpr int assembleNumafter = 12;
     auto assembleNumCountAfter = CountAssemble(*function);
     EXPECT_EQ(function->Operations().size(), opNumAfter) << opNumAfter << " operations after pass";
     EXPECT_EQ(assembleNumCountAfter, assembleNumafter) << assembleNumafter << " OP_ASSEMBLE before pass";
