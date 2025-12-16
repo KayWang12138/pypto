@@ -2273,7 +2273,6 @@ std::shared_ptr<Function> Function::LoadJson(Program &belongTo, const Json &func
     func->paramConfigs_.sgSkipPartition = funcDump["_sg_skip_partition"].get<bool>();
     auto subGraphCount = funcDump["_total_subgraph_count"].get<size_t>();
     func->SetTotalSubGraphCount(subGraphCount);
-    func->paramConfigs_.OoOPreScheduleMethod = funcDump["_ooo_preschedule_method"].get<std::string>();
 
     std::vector<std::vector<int>> incastSlot;
     for (auto &iDump : funcDump["incasts"]) {

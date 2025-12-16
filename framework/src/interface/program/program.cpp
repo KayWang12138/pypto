@@ -215,7 +215,6 @@ bool Program::BeginFunction(const std::string &funcName,
     currentFunctionPtr_->paramConfigs_.stitchTaskIncrLoopNum_ = currentScope->GetRuntimeConfig<uint16_t>(SUBSEQ_STITCH_TASK_INCR_LOOP_NUM);
     currentFunctionPtr_->paramConfigs_.l1ReuseMap = currentScope->GetPassConfig<std::map<int64_t, int64_t>>(L1_REUSE_MAP);
     currentFunctionPtr_->paramConfigs_.cubeNBufferMap = currentScope->GetPassConfig<std::map<int64_t, int64_t>>(CUBE_NBUFFER_MAP);
-    currentFunctionPtr_->paramConfigs_.OoOPreScheduleMethod = currentScope->GetPassConfig<std::string>(OOO_PRESCHEDULE_METHOD);
     currentFunctionPtr_->paramConfigs_.vecNBufferMap = currentScope->GetPassConfig<std::map<int64_t, int64_t>>(VEC_NBUFFER_MAP);
     currentFunctionPtr_->paramConfigs_.nBufferMergeMode = currentScope->GetPassConfig<int>(NBUFFER_MERGE_MODE);
     currentFunctionPtr_->paramConfigs_.sgCubeParallelNum = currentScope->GetPassConfig<int>(SG_CUBE_PARALLEL_NUM);

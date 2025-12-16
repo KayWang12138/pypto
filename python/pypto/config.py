@@ -82,7 +82,6 @@ def set_pass_options(*,
                      cube_nbuffer_merge_mode: Optional[int] = None,
                      cube_nbuffer_map: Optional[Dict[int, int]] = None,
                      copyin_threshold: Optional[int] = None,
-                     ooo_preschedule_method: Optional[str] = None,
                      sg_set_scope: Optional[int] = None,
                      ) -> None:
     """
@@ -137,9 +136,6 @@ def set_pass_options(*,
 
     copyin_threshold : int
         Merged graph parameter, used to configure the merged graph size.
-
-    ooo_preschedule_method : str
-        Method for controlling the OoO PreSchedule of specific subgraphs.
     """
     _pto_options.set_options("pass", locals())
 

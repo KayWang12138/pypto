@@ -352,7 +352,6 @@ Status LoopUnroll::CreateLoopUnrollFunc(Function *function) {
     paramConfigs.stitchTaskIncrLoopNum_ = currentScope->GetRuntimeConfig<uint16_t>(SUBSEQ_STITCH_TASK_INCR_LOOP_NUM);
     paramConfigs.l1ReuseMap = currentScope->GetPassConfig<std::map<int64_t, int64_t>>(L1_REUSE_MAP);
     paramConfigs.cubeNBufferMap = currentScope->GetPassConfig<std::map<int64_t, int64_t>>(CUBE_NBUFFER_MAP);
-    paramConfigs.OoOPreScheduleMethod = currentScope->GetPassConfig<std::string>(OOO_PRESCHEDULE_METHOD);
     paramConfigs.vecNBufferMap = currentScope->GetPassConfig<std::map<int64_t, int64_t>>(VEC_NBUFFER_MAP);
     paramConfigs.nBufferMergeMode = currentScope->GetPassConfig<int>(NBUFFER_MERGE_MODE);
     paramConfigs.sgCubeParallelNum = currentScope->GetPassConfig<int>(SG_CUBE_PARALLEL_NUM);

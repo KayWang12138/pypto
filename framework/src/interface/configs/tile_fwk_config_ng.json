@@ -6,7 +6,6 @@
         "l1_reuse": 0,
         "cube_nbuffer_merge_mode": 0,
         "copyin_threshold": 1048576,
-        "ooo_preschedule_method": "PriorDFS",
         "nbuffer_merge_mode": 1,
         "sg_vec_parallel_num": 48,
         "sg_cube_parallel_num": 24,

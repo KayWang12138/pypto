@@ -14,7 +14,6 @@
                 "cube_nbuffer_merge_mode": {"type": "integer"},
                 "cube_nbuffer_map": {"type": "object", "typeHints": "intmap"},
                 "copyin_threshold": {"type": "integer"},
-                "ooo_preschedule_method": {"type": "string"},
                 "nbuffer_merge_mode": {"type": "integer"},
                 "vec_nbuffer_map": {"type": "object", "typeHints": "intmap"},
                 "sg_vec_parallel_num": {"type": "integer"},
