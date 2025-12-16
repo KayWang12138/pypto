@@ -68,6 +68,14 @@ Status RemoveRedundantOp::ProcessRedundantOpWithoutDynShape(Operation &op, Funct
         APASS_LOG_DEBUG_F(Elements::Operation, "op[%d]'s input and output has unequal shape, skip removing.", op.opmagic);
         return SUCCESS;
     }
+    if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
+        // 如果输出存在多个producer则意味着是多assemble场景，则assemble不能消除。
+        auto oOperand = op.GetOutputOperand(0);
+        if (oOperand->GetProducers().size() > 1) {
+            APASS_LOG_DEBUG_F(Elements::Operation, "op[%d](%s)'s output has multi producers, skip removing.", op.opmagic, op.GetOpcodeStr().c_str());
+            return SUCCESS;
+        }
+    }
     function.UpdateOperandBeforeRemoveOp(op, false);
     return SUCCESS;
 }
