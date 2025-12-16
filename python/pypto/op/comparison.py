@@ -10,7 +10,7 @@
 # -----------------------------------------------------------------------------------------------------------
 """PyPTO"""
 from typing import Optional, Tuple, Union
-
+from ..element import Element
 from .. import pypto_impl
 from ..enum import OpType, OutType
 from ..op_wrapper import op_wrapper
@@ -18,7 +18,7 @@ from ..tensor import Tensor
 
 
 @op_wrapper
-def greater(input: Tensor, other: Union[Tensor, float]) -> Tensor:
+def greater(input: Tensor, other: Union[Tensor, float, Element]) -> Tensor:
     """Performs element-wise comparison between `input` and `other`.
 
     Parameters
@@ -58,7 +58,7 @@ def greater(input: Tensor, other: Union[Tensor, float]) -> Tensor:
 
 
 @op_wrapper
-def gt(input: Tensor, other: Union[Tensor, float]) -> Tensor:
+def gt(input: Tensor, other: Union[Tensor, float, Element]) -> Tensor:
     """Performs element-wise comparison between `input` and `other`.
 
     Parameters
@@ -98,7 +98,7 @@ def gt(input: Tensor, other: Union[Tensor, float]) -> Tensor:
 
 
 @op_wrapper
-def ge(input: Tensor, other: Union[Tensor, float]) -> Tensor:
+def ge(input: Tensor, other: Union[Tensor, float, Element]) -> Tensor:
     """Performs element-wise comparison between `input` and `other`.
 
     Parameters
@@ -138,7 +138,7 @@ def ge(input: Tensor, other: Union[Tensor, float]) -> Tensor:
 
 
 @op_wrapper
-def eq(input: Tensor, other: Union[Tensor, float]) -> Tensor:
+def eq(input: Tensor, other: Union[Tensor, float, Element]) -> Tensor:
     """Performs element-wise comparison between `input` and `other`.
 
     Parameters
@@ -178,7 +178,7 @@ def eq(input: Tensor, other: Union[Tensor, float]) -> Tensor:
 
 
 @op_wrapper
-def ne(input: Tensor, other: Union[Tensor, float]) -> Tensor:
+def ne(input: Tensor, other: Union[Tensor, float, Element]) -> Tensor:
     """Performs element-wise comparison between `input` and `other`.
 
     Parameters
@@ -218,7 +218,7 @@ def ne(input: Tensor, other: Union[Tensor, float]) -> Tensor:
 
 
 @op_wrapper
-def lt(input: Tensor, other: Union[Tensor, float]) -> Tensor:
+def lt(input: Tensor, other: Union[Tensor, float, Element]) -> Tensor:
     """Performs element-wise comparison between `input` and `other`.
 
     Parameters
@@ -258,7 +258,7 @@ def lt(input: Tensor, other: Union[Tensor, float]) -> Tensor:
 
 
 @op_wrapper
-def le(input: Tensor, other: Union[Tensor, float]) -> Tensor:
+def le(input: Tensor, other: Union[Tensor, float, Element]) -> Tensor:
     """Performs element-wise comparison between `input` and `other`.
 
     Parameters
