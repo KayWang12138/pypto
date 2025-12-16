@@ -100,8 +100,10 @@ class JIT:
         handler = pypto_impl.OperatorBegin([t.base() for t in in_out_tensors], [])
         with pypto.options("jit_scope"):
             self._set_config_option()
-            with pypto.function(self.dyn_func.__name__, *in_out_tensors):
-                self.dyn_func(*args, **kwargs)
+            with pypto.function(self.dyn_func.__name__, *in_out_tensors) as rlf:
+                for _ in rlf:
+                    self.dyn_func(*args, **kwargs)
+                del rlf
         pypto_impl.OperatorEnd(handler)
 
         self._handler = handler

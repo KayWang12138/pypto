@@ -113,7 +113,11 @@ TEST_F(DynAttrToStaticTest, TestGetTensorData) {
     passDynAttrToStatic.RunOnFunction(*func);
 
     // ================== Verify Pass Effect TENSOR_loop ==================
+#if ENABLE_HIDDENLOOP
+    std::string loopPathFuncName = "TENSOR_loop_Unroll1_PATH0_hiddenfunc0";
+#else
     std::string loopPathFuncName = "TENSOR_loop_Unroll1_PATH0";
+#endif
     Function* loopPathFunc = Program::GetInstance().GetFunctionByRawName(loopPathFuncName);
     Function* rootFunc = loopPathFunc->rootFunc_;
     ASSERT_NE(rootFunc, nullptr);
@@ -163,7 +167,11 @@ TEST_F(DynAttrToStaticTest, TestSetTensorData) {
     passDynAttrToStatic.RunOnFunction(*func);
 
     // ================== Verify Pass Effect TENSOR_Step1==================
+#if ENABLE_HIDDENLOOP
+    std::string loopPathFuncName = "TENSOR_Step1_Unroll1_PATH0_hiddenfunc0";
+#else
     std::string loopPathFuncName = "TENSOR_Step1_Unroll1_PATH0";
+#endif
     Function* loopPathFunc = Program::GetInstance().GetFunctionByRawName(loopPathFuncName);
     Function* rootFunc = loopPathFunc->rootFunc_;
     ASSERT_NE(rootFunc, nullptr);
@@ -214,7 +222,11 @@ TEST_F(DynAttrToStaticTest, TestDynExpression) {
     passDynAttrToStatic.RunOnFunction(*func);
 
     // ================== Verify Pass Effect TENSOR_L0 ==================
+#if ENABLE_HIDDENLOOP
+    std::string loopPathFuncName = "TENSOR_L0_Unroll1_PATH0_hiddenfunc0";
+#else
     std::string loopPathFuncName = "TENSOR_L0_Unroll1_PATH0";
+#endif
     Function* loopPathFunc = Program::GetInstance().GetFunctionByRawName(loopPathFuncName);
     Function* rootFunc = loopPathFunc->rootFunc_;
     ASSERT_NE(rootFunc, nullptr);

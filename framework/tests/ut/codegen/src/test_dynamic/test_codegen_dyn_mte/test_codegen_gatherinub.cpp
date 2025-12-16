@@ -85,7 +85,11 @@ void GatherInUBUT(Config &cfg) {
         dst = experimental::GatherInUB(dynSrc, dynOffsets, pageTable, cfg.block_size, -2);
     }
 
+#if ENABLE_HIDDENLOOP
+    auto function = Program::GetInstance().GetFunctionByRawName("TENSOR_TENSOR_" + funName + "_loop_Unroll1_PATH0_hiddenfunc0");
+#else
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funName);
+#endif
     function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
     function->SetUnderDynamicFunction(true);
     npu::tile_fwk::CodeGenCtx ctx;

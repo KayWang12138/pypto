@@ -167,42 +167,7 @@ void Program::UpdateCompileTask() {
     HostMachine::GetInstance().SubAllStashedTask();
 }
 
-// Start a new function and push it to the functions vector
-bool Program::BeginFunction(const std::string &funcName,
-    const FunctionType funcType,
-    const GraphType graphType,
-    const std::vector<std::reference_wrapper<const Tensor>>& explicitOpArgs) {
-    if (currentFunctionPtr_->IsFlattening() && (funcType == FunctionType::STATIC && (graphType == GraphType::TENSOR_GRAPH || graphType == GraphType::TILE_GRAPH))) {
-        // Static function's subfunction should be ignored
-        ASSERT(funcName != currentFunctionPtr_->GetRawName());
-        return false;
-    }
-
-    // Push the current function index to the stack
-    functionMagicNameStack_.push_back(currentFunctionMagicName_);
-
-    auto funcMagicName = funcName + "_" + std::to_string(IdGen<IdType::FUNCTION>::Inst().CurId());
-    if (functionmap_.find(funcMagicName) == functionmap_.end()) { // new function
-        auto newFunc =
-            std::make_unique<Function>(*this, funcMagicName, funcName, currentFunctionPtr_);
-        newFunc->SetFunctionType(funcType);
-        newFunc->SetGraphType(graphType);
-        newFunc->BeginFunction(explicitOpArgs);
-
-        currentFunctionPtr_ = newFunc.get();
-        ASSERT(functionmap_.count(funcMagicName) == 0);
-        functionmap_.emplace(funcMagicName, std::move(newFunc));
-        currentFunctionMagicName_ = funcMagicName;
-    } else {
-        ALOG_DEBUG("funcMagicName[", funcMagicName, "] is already in the function map");
-        currentFunctionMagicName_ = funcMagicName;
-        currentFunctionPtr_ = functionmap_[funcMagicName].get();
-    }
-    if (currentFunctionPtr_->GetGraphType() != GraphType::BLOCK_GRAPH &&
-        currentFunctionPtr_->GetGraphType() != GraphType::EXECUTE_GRAPH) {
-        GetTensorSlotManager()->BeginScope(currentFunctionPtr_);
-    }
-
+void SetParamConfig(Function* currentFunctionPtr_) {
     std::shared_ptr<ConfigScope> currentScope = ConfigManagerNg::GetInstance().CurrentScope();
     currentFunctionPtr_->paramConfigs_.l1ReuseNum = currentScope->GetPassConfig<int>(L1_REUSE);
     currentFunctionPtr_->paramConfigs_.cubeNBufferMergeMode = currentScope->GetPassConfig<int>(CUBE_NBUFFER_MERGE_MODE);
@@ -221,6 +186,78 @@ bool Program::BeginFunction(const std::string &funcName,
     currentFunctionPtr_->paramConfigs_.sgVecParallelNum = currentScope->GetPassConfig<int>(SG_VEC_PARALLEL_NUM);
     currentFunctionPtr_->paramConfigs_.sgSkipPartition = currentScope->GetPassConfig<bool>(SG_SKIP_PARTITION);
     currentFunctionPtr_->paramConfigs_.copyOutResolveCoalescing = currentScope->GetPassConfig<int>(COPYOUT_RESOLVE_COALESCING);
+}
+
+#if ENABLE_HIDDENLOOP
+void Program::BeginHiddenLoop(Function *func, const FunctionType &funcType, const std::string funcName) {
+    if (func->GetGraphType() == GraphType::TENSOR_GRAPH 
+        && func->GetFunctionType() == funcType
+        && !func->IsHiddenFunction()) {
+        BeginFunction(funcName, FunctionType::DYNAMIC_LOOP_PATH, GraphType::TENSOR_GRAPH, {}, true);
+    }
+}
+
+void Program::EndHiddenLoop(Function *func, bool generateCall) {
+    if (func->GetGraphType() == GraphType::TENSOR_GRAPH 
+        && func->GetFunctionType() == FunctionType::DYNAMIC_LOOP_PATH 
+        && func->IsHiddenFunction() 
+        && !func->Parent().IsHiddenFunction()) {
+        func->Parent().SetHiddenFunction(true);
+        EndFunction(func->GetRawName(), generateCall);
+        func->Parent().SetHiddenFunction(false);
+    }
+}
+#endif
+
+// Start a new function and push it to the functions vector
+bool Program::BeginFunction(const std::string &funcName,
+    const FunctionType funcType,
+    const GraphType graphType,
+    const std::vector<std::reference_wrapper<const Tensor>>& explicitOpArgs,
+    bool isHiddenFunction) {
+    if (currentFunctionPtr_->IsFlattening() && (funcType == FunctionType::STATIC && (graphType == GraphType::TENSOR_GRAPH || graphType == GraphType::TILE_GRAPH))) {
+        // Static function's subfunction should be ignored
+        ASSERT(funcName != currentFunctionPtr_->GetRawName());
+        return false;
+    }
+
+#if ENABLE_HIDDENLOOP
+    // End previous hidden loop if exists
+    EndHiddenLoop(currentFunctionPtr_, true);
+#endif
+
+    // Push the current function index to the stack
+    functionMagicNameStack_.push_back(currentFunctionMagicName_);
+
+    auto funcMagicName = funcName + "_" + std::to_string(IdGen<IdType::FUNCTION>::Inst().CurId());
+    if (functionmap_.find(funcMagicName) == functionmap_.end()) { // new function
+        auto newFunc =
+            std::make_unique<Function>(*this, funcMagicName, funcName, currentFunctionPtr_);
+        newFunc->SetFunctionType(funcType);
+        newFunc->SetGraphType(graphType);
+        newFunc->SetHiddenFunction(isHiddenFunction);
+        newFunc->BeginFunction(explicitOpArgs);
+
+        currentFunctionPtr_ = newFunc.get();
+        ASSERT(functionmap_.count(funcMagicName) == 0);
+        functionmap_.emplace(funcMagicName, std::move(newFunc));
+        currentFunctionMagicName_ = funcMagicName;
+    } else {
+        ALOG_DEBUG("funcMagicName[", funcMagicName, "] is already in the function map");
+        currentFunctionMagicName_ = funcMagicName;
+        currentFunctionPtr_ = functionmap_[funcMagicName].get();
+    }
+    if (currentFunctionPtr_->GetGraphType() != GraphType::BLOCK_GRAPH &&
+        currentFunctionPtr_->GetGraphType() != GraphType::EXECUTE_GRAPH) {
+        GetTensorSlotManager()->BeginScope(currentFunctionPtr_);
+    }
+    SetParamConfig(currentFunctionPtr_);
+
+#if ENABLE_HIDDENLOOP
+    // Begin new hidden loop for the new function
+    BeginHiddenLoop(currentFunctionPtr_, FunctionType::DYNAMIC_LOOP_PATH,
+        currentFunctionPtr_->GetRawName() + "_hiddenfunc" + std::to_string(currentFunctionPtr_->GetCallopList().size()));
+#endif
     return true;
 }
 
@@ -255,9 +292,46 @@ Operation *Program::FinishCurrentFunction(const std::shared_ptr<TensorSlotScope>
     return &ConnectCallerGusket(currentFunctionPtr_->Parent(), funcArgs);
 }
 
+// Helper function: Dump tensor graph if needed
+void Program::DumpTensorGraphIfNeeded(Function *result) {
+    if (config::GetPlatformConfig("PRINT_TENSOR_GRAPH", false) &&
+        result->IsGraphType(GraphType::TENSOR_GRAPH)) {
+        result->DumpJsonFile(config::LogTensorGraphFolder() + "/" + result->GetRawName() + ".json");
+        result->DumpFile(config::LogTensorGraphFolder() + "/" + result->GetRawName() + ".tifwkgr");
+    }
+}
+
+// Helper function: Handle task submission
+void Program::HandleTaskSubmission(Function *result) {
+    if (result->IsGraphType(GraphType::TENSOR_GRAPH) || result->IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::TILE_GRAPH)) {
+        if (result->IsUnderDynamicFunction() || currentDynamicFunctionPtr_ != nullptr) {
+            if (!result->IsHiddenFunction() || result->Operations().size() > 0) {
+                HostMachine::GetInstance().StashTask(result);
+            } else {
+                ALOG_INFO("Empty function: ", result->GetRawName(), ", skip stashing and removed");
+                functionmap_.erase(result->GetMagicName());
+                auto &scopes = GetTensorSlotManager()->scopeList;
+                scopes.erase(std::remove_if(scopes.begin(), scopes.end(),
+                                 [result](const std::shared_ptr<TensorSlotScope> &scope) {
+                                     return scope->tensorFunc == result;
+                                 }),
+                    scopes.end());
+            }
+        } else if (!config::GetPlatformConfig(KEY_ONLY_TENSOR_GRAPH, false)) {
+            HostMachine::GetInstance().SubTask(result);
+            HostMachine::GetInstance().WaitTaskFinish();
+        }
+    }
+}
+
 // End the current function and pop the function index from the stack
 std::tuple<Function*, Operation *, bool> Program::EndFunction(const std::string &funcName,
                                                                           bool generateCall) {
+#if ENABLE_HIDDENLOOP
+    // End child hidden loop
+    EndHiddenLoop(currentFunctionPtr_, generateCall);
+#endif
+
     currentFunctionPtr_->paramConfigs_.dynamicUnalignedOps = config::GetCodeGenOption<bool>(SUPPORT_DYNAMIC_UNALIGNED);
     std::shared_ptr<TensorSlotScope> scope = nullptr;
     // root & leaf do not need scope, use tensor/tile graph's
@@ -270,24 +344,24 @@ std::tuple<Function*, Operation *, bool> Program::EndFunction(const std::string 
         ALOG_ERROR("Function name not match current: ", currentFunctionPtr_->GetRawName(), " != ", funcName);
         return std::make_tuple(nullptr, nullptr, false);
     }
+
+    if (currentFunctionPtr_->IsHiddenFunction() && currentFunctionPtr_->Operations(false).size() <= 0) {
+        generateCall = false;
+    }
     Operation *callop = FinishCurrentFunction(scope, generateCall);
     bool hit = QueryAndUpdateCurrentFunction();
     auto result = currentFunctionPtr_;
-    if (config::GetPlatformConfig("PRINT_TENSOR_GRAPH", false) &&
-        result->IsGraphType(GraphType::TENSOR_GRAPH)) {
-        result->DumpJsonFile(config::LogTensorGraphFolder() + "/" + result->GetRawName() + ".json");
-        result->DumpFile(config::LogTensorGraphFolder() + "/" + result->GetRawName() + ".tifwkgr");
-    }
-    PopStackAndUpdateCurrent();
 
-    if (result->IsGraphType(GraphType::TENSOR_GRAPH) || result->IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::TILE_GRAPH)) {
-        if (result->IsUnderDynamicFunction() || currentDynamicFunctionPtr_ != nullptr) {
-            HostMachine::GetInstance().StashTask(result);
-        } else if (!config::GetPlatformConfig(KEY_ONLY_TENSOR_GRAPH, false)) {
-            HostMachine::GetInstance().SubTask(result);
-            HostMachine::GetInstance().WaitTaskFinish();
-        }
-    }
+    DumpTensorGraphIfNeeded(result);
+    PopStackAndUpdateCurrent();
+    HandleTaskSubmission(result);
+
+#if ENABLE_HIDDENLOOP
+    // Begin new hidden loop for parent function
+    BeginHiddenLoop(result, FunctionType::DYNAMIC_LOOP,
+        currentFunctionPtr_->GetRawName() + "_hiddenfunc" + std::to_string(currentFunctionPtr_->GetCallopList().size()));
+#endif
+
     return std::make_tuple(result, callop, hit);
 }
 
@@ -735,6 +809,15 @@ void RecordFunc::RecordDynFuncInner(const std::vector<std::reference_wrapper<con
     const std::vector<std::pair<std::reference_wrapper<const Tensor>, std::reference_wrapper<const Tensor>>> &inplaceArgs) {
         ASSERT(config::GetFunctionType() == FunctionType::DYNAMIC);
 
+#if ENABLE_HIDDENLOOP
+        recordLoopFunc_ = std::make_unique<RecordLoopFunc>(
+            funcName + "_loop",
+            FunctionType::DYNAMIC_LOOP,
+            funcName +"_unused_hidden_record_func_loop_idx",
+            LoopRange(1)
+        );
+#endif
+
         Program::GetInstance().BeginFunction(funcName, config::GetFunctionType());
 
         std::shared_ptr<TensorSlotManager> manager = Program::GetInstance().GetTensorSlotManager();
@@ -802,6 +885,10 @@ inline bool IsVerifyEnable() {
 }
 
 void RecordFunc::EndFunction() {
+    if (recordLoopFunc_) {
+        recordLoopFunc_.reset();
+    }
+
     if (IsVerifyEnable()) {
         config::SetRunDataOption(KEY_FLOW_VERIFY_PATH, config::GetAbsoluteTopFolder() + "/verify");
     }
@@ -835,6 +922,38 @@ void RecordFunc::EndFunction() {
         Program::GetInstance().SetCurrentDynamicFunction(nullptr);
         dynFunc_->SetUnderDynamicFunction(false);
     }
+}
+
+RecordFunc::Iterator RecordFunc::begin() {
+    if (recordLoopFunc_) {
+        return Iterator(*this, recordLoopFunc_->begin());
+    }
+    return Iterator(*this);
+}
+
+RecordFunc::IteratorEnd RecordFunc::end() {
+    if (recordLoopFunc_) {
+        return IteratorEnd(*this, recordLoopFunc_->end());
+    }
+    return IteratorEnd(*this);
+}
+
+RecordFunc::Iterator RecordFunc::Iterator::operator++() {
+    if (!wrappedIter_.has_value()) {
+        cur_ = 1;
+        return *this;
+    }
+    ++(*wrappedIter_);
+    return *this;
+}
+
+bool RecordFunc::Iterator::operator!=(const IteratorEnd &rhs) {
+    if (!wrappedIter_.has_value()) {
+        return cur_ != 1;
+    }
+    ASSERT(rhs.wrappedEnd.has_value());
+    bool result = *wrappedIter_ != *rhs.wrappedEnd;
+    return result;
 }
 
 RecordLoopFunc::RecordLoopFunc(const std::string &name, FunctionType funcType, const std::string &iterName,

@@ -64,7 +64,11 @@ void TestMoeCombine() {
         Distributed::ShmemMoeCombine(in, combineInfo, scale, group, rankSize, totalExpertNum, out);
     }
 
+#if ENABLE_HIDDENLOOP
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "MoeCombine" + SUB_FUNC_SUFFIX + "_hiddenfunc0");
+#else
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "MoeCombine" + SUB_FUNC_SUFFIX);
+#endif
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});

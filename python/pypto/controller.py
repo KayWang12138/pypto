@@ -316,13 +316,14 @@ def function(name: str, *args):
         set_source_location(level=2)
         func = pypto_impl.RecordFunc(name, [t.base() for t in in_out_tensors])
         clear_source_location()
-        yield
+        yield func
     except Exception as e:
         logging.error("Record function %s failed: %s", name, e)
         raise
     finally:
         assert func
         func.EndFunction()
+        del func
 
 
 def cond(scalar: SymInt):

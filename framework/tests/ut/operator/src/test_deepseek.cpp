@@ -1221,12 +1221,33 @@ TEST_F(FunctionTest, dynamic_pa_low_lantency) {
     auto loopFunc3 = loopPathFunc2->GetCalleeFunctionList().front();
     EXPECT_NE(loopFunc3, nullptr);
     EXPECT_EQ(loopFunc3->GetFunctionType(), FunctionType::DYNAMIC_LOOP);
+#if ENABLE_HIDDENLOOP
+    EXPECT_EQ(loopFunc3->GetCalleeFunctionList().size(), 1);
+    auto loopPathFunc3 = loopFunc3->GetCalleeFunctionList().front();
+    EXPECT_NE(loopPathFunc3, nullptr);
+    EXPECT_EQ(loopPathFunc3->GetFunctionType(), FunctionType::DYNAMIC_LOOP_PATH);
+    EXPECT_EQ(loopPathFunc3->GetCalleeFunctionList().size(), 1);
+    auto loopFunc4 = loopPathFunc3->GetCalleeFunctionList().front();
+    EXPECT_NE(loopFunc4, nullptr);
+    EXPECT_EQ(loopFunc4->GetFunctionType(), FunctionType::DYNAMIC_LOOP);
+    EXPECT_EQ(loopFunc4->GetCalleeFunctionList().size(), 4);
+    for (auto loopPathFunc4 : loopFunc4->GetCalleeFunctionList()) {
+        EXPECT_NE(loopPathFunc4, nullptr);
+        EXPECT_EQ(loopPathFunc4->GetFunctionType(), FunctionType::DYNAMIC_LOOP_PATH);
+        EXPECT_EQ(loopPathFunc4->GetGraphType(), GraphType::TENSOR_GRAPH);
+        EXPECT_EQ(loopPathFunc4->GetCalleeFunctionList().size(), 1);
+        auto hiddenLoopPathFunc4 = loopPathFunc4->GetCalleeFunctionList().front();
+        EXPECT_EQ(hiddenLoopPathFunc4->GetFunctionType(), FunctionType::DYNAMIC_LOOP_PATH);
+        EXPECT_EQ(hiddenLoopPathFunc4->GetGraphType(), GraphType::TILE_GRAPH);
+    }
+#else
     EXPECT_EQ(loopFunc3->GetCalleeFunctionList().size(), 4);
     for (auto loopPathFunc3 : loopFunc3->GetCalleeFunctionList()) {
         EXPECT_NE(loopPathFunc3, nullptr);
         EXPECT_EQ(loopPathFunc3->GetFunctionType(), FunctionType::DYNAMIC_LOOP_PATH);
         EXPECT_EQ(loopPathFunc3->GetGraphType(), GraphType::TILE_GRAPH);
     }
+#endif
 }
 
 

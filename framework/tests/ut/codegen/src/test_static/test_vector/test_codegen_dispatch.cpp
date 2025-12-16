@@ -77,7 +77,11 @@ void TestMoeDispatch() {
         Distributed::MoeDispatch(tokenTensor, tokenExpertTable, expandX, validCnt, combineInfo, group, moeConfig);
     }
 
+#if ENABLE_HIDDENLOOP
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "L0" + SUB_FUNC_SUFFIX + "_hiddenfunc0");
+#else
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "L0" + SUB_FUNC_SUFFIX);
+#endif
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});

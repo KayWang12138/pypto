@@ -80,9 +80,6 @@ std::unordered_set<TensorSlot> TensorSlotScope::LookupIncastReadFrom(const std::
     for (auto &[slot, access] : accessRecord) {
         /* Match by raw tensor */
         if (access.GetFirstReadTensor() && access.GetFirstReadTensor()->tensor == tensor->tensor) {
-            if (!Program::GetInstance().GetTensorSlotManager()->liveSlotSet.count(slot)) {
-                continue;
-            }
             tensorSlot.insert(slot);
         }
     }

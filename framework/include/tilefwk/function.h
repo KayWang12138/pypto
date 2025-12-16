@@ -20,6 +20,7 @@
 #include <sstream>
 #include <set>
 #include <unordered_set>
+#include <optional>
 #include "tilefwk/tensor.h"
 #include "tilefwk/symbolic_scalar.h"
 
@@ -43,8 +44,7 @@ struct SourceLocation;
  * @param inplaceArgs: A inpute and a output have same addr. Be effective in dynamic shape scen. optional, default is empty;
  */
 #define FUNCTION(name, ...)                                                                       \
-    if (auto RECORD_FUNC_VAR_NAME(recordFunc) = npu::tile_fwk::RecordFunc(name, ##__VA_ARGS__); false) { \
-    } else
+    for ([[maybe_unused]] auto &RECORD_FUNC_VAR_NAME(recordFunc) : npu::tile_fwk::RecordFunc(name, ##__VA_ARGS__))
 
 /**
  * @brief Start a tile_fwk dynamic loop.
@@ -129,28 +129,6 @@ private:
     SymbolicScalar step_;
 };
 
-class RecordFunc {
-public:
-    explicit RecordFunc(const std::string &name);
-    RecordFunc(const std::string &name, const std::vector<std::reference_wrapper<const Tensor>> &explicitOpArgs);
-    RecordFunc(const std::string &name,
-        const std::vector<std::reference_wrapper<const Tensor>> &startArgsInputTensorList,
-        const std::vector<std::reference_wrapper<const Tensor>> &startArgsOutputTensorList,
-        const std::vector<std::pair<std::reference_wrapper<const Tensor>, std::reference_wrapper<const Tensor>>> &inplaceArgs = {});
-
-    void EndFunction();
-
-    ~RecordFunc() { if (!isEnd_) EndFunction(); }
-
-private:
-    void RecordDynFuncInner(const std::vector<std::reference_wrapper<const Tensor>> &startArgsInputTensorList,
-        const std::vector<std::reference_wrapper<const Tensor>> &startArgsOutputTensorList,
-        const std::vector<std::pair<std::reference_wrapper<const Tensor>, std::reference_wrapper<const Tensor>>> &inplaceArgs);
-    Function *dynFunc_{nullptr};
-    std::string funcName;
-    bool isEnd_{false};
-};
-
 class RecordLoopFunc {
 public:
     struct IteratorEnd {
@@ -228,6 +206,73 @@ private:
     std::shared_ptr<SourceLocation> location_;
 
     void GenDefaultUnrollTimes(const std::set<int> &unrollList);
+};
+
+class RecordFunc {
+public:
+    struct IteratorEnd {
+        RecordFunc &func_;
+        std::optional<RecordLoopFunc::IteratorEnd> wrappedEnd;
+
+        IteratorEnd(RecordFunc &func, RecordLoopFunc::IteratorEnd end)
+            : func_(func), wrappedEnd(end) {}
+
+        IteratorEnd(RecordFunc &func)
+            : func_(func), wrappedEnd(std::nullopt) {}
+    };
+
+    class Iterator {
+    public:
+        Iterator(RecordFunc &func, RecordLoopFunc::Iterator iter)
+            : func_(func), wrappedIter_(iter), cur_(0) {}
+
+        Iterator(RecordFunc &func)
+            : func_(func), wrappedIter_(std::nullopt), cur_(0) {}
+
+        Iterator operator++();
+        bool operator!=(const IteratorEnd &rhs);
+        bool operator==(const IteratorEnd &rhs) { return !this->operator!=(rhs); }
+        const SymbolicScalar &operator*() const { 
+            if (wrappedIter_.has_value()) {
+                return wrappedIter_->operator*();
+            }
+            return cur_;
+        }
+        SymbolicScalar &operator*() { 
+            if (wrappedIter_.has_value()) {
+                return wrappedIter_->operator*();
+            }
+            return cur_;
+        }
+
+    private:
+        RecordFunc &func_;
+        std::optional<RecordLoopFunc::Iterator> wrappedIter_;
+        SymbolicScalar cur_;
+    };
+
+    explicit RecordFunc(const std::string &name);
+    RecordFunc(const std::string &name, const std::vector<std::reference_wrapper<const Tensor>> &explicitOpArgs);
+    RecordFunc(const std::string &name,
+        const std::vector<std::reference_wrapper<const Tensor>> &startArgsInputTensorList,
+        const std::vector<std::reference_wrapper<const Tensor>> &startArgsOutputTensorList,
+        const std::vector<std::pair<std::reference_wrapper<const Tensor>, std::reference_wrapper<const Tensor>>> &inplaceArgs = {});
+
+    void EndFunction();
+
+    ~RecordFunc() { if (!isEnd_) EndFunction(); }
+
+    Iterator begin();
+    IteratorEnd end();
+
+private:
+    void RecordDynFuncInner(const std::vector<std::reference_wrapper<const Tensor>> &startArgsInputTensorList,
+        const std::vector<std::reference_wrapper<const Tensor>> &startArgsOutputTensorList,
+        const std::vector<std::pair<std::reference_wrapper<const Tensor>, std::reference_wrapper<const Tensor>>> &inplaceArgs);
+    Function *dynFunc_{nullptr};
+    std::string funcName;
+    std::unique_ptr<RecordLoopFunc> recordLoopFunc_;
+    bool isEnd_{false};
 };
 
 class RecordIfBranch {

@@ -802,6 +802,9 @@ public:
     std::shared_ptr<SourceLocation> GetSourceLocation() const { return sourceLocation_; }
     void CleanRedundantOutCast();
 
+    void SetHiddenFunction(bool hiddenFunction) { hiddenFunction_ = hiddenFunction; }
+    bool IsHiddenFunction() const { return hiddenFunction_; }
+
 private:
     int functionMagic_{-1};
     std::string funcMagicName_; // Function name
@@ -859,6 +862,7 @@ private:
     static std::map<std::pair<int, int>, std::set<Operation *, LogicalTensor::CompareOp>> tensorAndSubgraphToProducer_;
     std::shared_ptr<Tensor> getTensorDataOutcast_;
     std::shared_ptr<SourceLocation> sourceLocation_;
+    bool hiddenFunction_{false};
 
 private:
     unsigned long ComputeHashOrderless() const;

@@ -18,6 +18,10 @@
 #include "interface/function/function.h"
 #include "interface/cache/function_cache.h"
 
+#ifndef ENABLE_HIDDENLOOP
+#define ENABLE_HIDDENLOOP 1
+#endif
+
 namespace npu::tile_fwk {
 class Program {
 public: // public api for torch
@@ -32,7 +36,8 @@ public: // public api for torch
     bool BeginFunction(const std::string &funcName,
         const FunctionType funcType = FunctionType::STATIC,
         const GraphType graphType = GraphType::TENSOR_GRAPH,
-        const std::vector<std::reference_wrapper<const Tensor>> &explicitOpArgs = {});
+        const std::vector<std::reference_wrapper<const Tensor>> &explicitOpArgs = {},
+        bool isHiddenFunction = false);
     std::tuple<Function *, Operation *, bool> EndFunction(const std::string &funcName, bool generateCall = true);
 
     Operation &ConnectCallerGusket(Function &caller, FunctionCallArgs &args) const;
@@ -121,5 +126,13 @@ private:
 
     void CreateInitFunction();
     Operation *FinishCurrentFunction(const std::shared_ptr<TensorSlotScope> &scope, bool generateCall);
+
+    // Helper functions to reduce cyclomatic complexity of EndFunction
+    void DumpTensorGraphIfNeeded(Function *result);
+    void HandleTaskSubmission(Function *result);
+#if ENABLE_HIDDENLOOP
+    void EndHiddenLoop(Function *func, bool generateCall);
+    void BeginHiddenLoop(Function *func, const FunctionType &funcType, const std::string funcName);
+#endif
 };
 } // namespace npu::tile_fwk

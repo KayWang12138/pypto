@@ -109,8 +109,10 @@ class TestBuilder(abc.ABC):
 
         logging.info("Function compile ...")
         pypto.set_vec_tile_shapes(tiling, tiling)
-        with pypto.function("MAIN", *self.input_pto_list, *self.output_pto_list):
-            kernel(self.params, *self.input_pto_list, *self.output_pto_list)
+        with pypto.function("MAIN", *self.input_pto_list, *self.output_pto_list) as rlf:
+            for _ in rlf:
+                kernel(self.params, *self.input_pto_list, *self.output_pto_list)
+            del rlf
         assert all(isinstance(x, pypto.tensor) for x in self.output_pto_list)
         logging.info("Function compile done.")
 

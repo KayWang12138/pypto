@@ -238,6 +238,27 @@ TEST_F(DynamicPATest, dynamic_pa_low_lantency_manual_unroll) {
     auto loopPathFunc2 = loopFunc2->GetCalleeFunctionList().front();
     EXPECT_NE(loopPathFunc2, nullptr);
     EXPECT_EQ(loopPathFunc2->GetFunctionType(), FunctionType::DYNAMIC_LOOP_PATH);
+#if ENABLE_HIDDENLOOP
+    EXPECT_EQ(loopPathFunc2->GetCalleeFunctionList().size(), 1);
+    auto loopFunc3 = loopPathFunc2->GetCalleeFunctionList().front();
+    EXPECT_NE(loopFunc3, nullptr);
+    EXPECT_EQ(loopFunc3->GetFunctionType(), FunctionType::DYNAMIC_LOOP);
+    EXPECT_EQ(loopFunc3->GetCalleeFunctionList().size(), 1);
+    auto loopPathFunc3 = loopFunc3->GetCalleeFunctionList().front();
+    EXPECT_NE(loopPathFunc3, nullptr);
+    EXPECT_EQ(loopPathFunc3->GetFunctionType(), FunctionType::DYNAMIC_LOOP_PATH);
+    EXPECT_EQ(loopPathFunc3->GetCalleeFunctionList().size(), 5);
+    for (auto &loopFunc4 : loopPathFunc3->GetCalleeFunctionList()) {
+        EXPECT_NE(loopFunc4, nullptr);
+        EXPECT_EQ(loopFunc4->GetFunctionType(), FunctionType::DYNAMIC_LOOP);
+        auto loopAttr = loopFunc4->GetDynloopAttribute();
+        EXPECT_NE(loopAttr, nullptr);
+        EXPECT_EQ(loopAttr->unrollTimes, maxUnrollTimes);
+        maxUnrollTimes /= 2;
+        ALOG_ERROR("unrollTimes: ", loopAttr->unrollTimes, " range: ",loopAttr->loopRange.Dump());
+        EXPECT_EQ(loopAttr->pathList.size(), 4);
+    }
+#else
     EXPECT_EQ(loopPathFunc2->GetCalleeFunctionList().size(), 5);
     for (auto &loopFunc3 : loopPathFunc2->GetCalleeFunctionList()) {
         EXPECT_NE(loopFunc3, nullptr);
@@ -249,6 +270,7 @@ TEST_F(DynamicPATest, dynamic_pa_low_lantency_manual_unroll) {
         ALOG_ERROR("unrollTimes: ", loopAttr->unrollTimes, " range: ",loopAttr->loopRange.Dump());
         EXPECT_EQ(loopAttr->pathList.size(), 4);
     }
+#endif
 }
 
 TEST_F(DynamicPATest, dynamic_pa_high_throughput_only_batch_loop) {

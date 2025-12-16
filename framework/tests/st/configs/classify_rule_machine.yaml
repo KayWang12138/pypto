@@ -112,6 +112,8 @@ stest:
       - DynamicBasicTest.TestGetTensorDataSymbolicValue
       - DynamicBasicTest.TestLoopIfWithRank456
       - DynamicBasicTest.DuplicateName
+      - DynamicBasicTest.HiddenLoopConditionMixed
+      - DynamicBasicTest.HiddenLoopConditionMixedMulLoops
       - DynamicTest.TestPartial
       - DynamicUnalignTest.test_unary_unalign
       - DynamicUnalignTest.test_mm_unalign

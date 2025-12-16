@@ -151,6 +151,122 @@ void TestLoopViewAssemble(const Tensor &t0, const Tensor &t1, const Tensor &bloc
     }
 }
 
+#if ENABLE_HIDDENLOOP
+TEST_F(DynamicBasicTest, HiddenLoopConditionMixed) {
+    int s = 32;
+    int n = 1;
+    int m = 1;
+    Tensor t0(DT_FP32, {n * s, m * s}, "t0");
+    Tensor t1(DT_FP32, {n * s, m * s}, "t1");
+    Tensor t2(DT_FP32, {n * s, m * s}, "t2");
+    Tensor t3(DT_FP32, {n * s, m * s}, "t3");
+    Tensor t4(DT_FP32, {n * s, m * s}, "t4");
+    Tensor out(DT_FP32, {n * s, m * s}, "out");
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateConstantTensor<float>(t0, 11.0),
+        RawTensorData::CreateConstantTensor<float>(t1, 20.0),
+        RawTensorData::CreateConstantTensor<float>(t2, 30.0),
+        RawTensorData::CreateConstantTensor<float>(t3, 40.0),
+        RawTensorData::CreateConstantTensor<float>(t4, 50.0),
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<float>(out, 0),
+    });
+
+    FUNCTION("main", {t0, t1, t2, t3, t4}, {out}) {
+        // LOOP("L0", FunctionType::DYNAMIC_LOOP, _, LoopRange(1)) {
+        //     (void)_;
+        //     LOOP("L01",FunctionType::DYNAMIC_LOOP,idx1,LoopRange(1)){
+        //         (void)idx1;
+                out = Add(t0,t1);
+            // }
+            IF(SymbolicScalar(0) < CONDITION_THRESHOLD){
+                // LOOP("L02",FunctionType::DYNAMIC_LOOP,idx3,LoopRange(1)){
+                //     (void)idx3;
+                    t3 = Add(t1,t2);
+                // }
+                LOOP("L03",FunctionType::DYNAMIC_LOOP,idx4,LoopRange(LOOP_COUNT)){
+                    (void)idx4;
+                    t4 = Sub(t4,t3);
+                }
+            }ELSE{
+                // LOOP("L04",FunctionType::DYNAMIC_LOOP,idx5,LoopRange(1)){
+                //     (void)idx5;
+                    out = Sub(out,t4);
+                // }
+            }
+            // LOOP("L05",FunctionType::DYNAMIC_LOOP,idx6,LoopRange(1)){
+            //     (void)idx6;
+                out = Add(t3,t4);
+            // }
+        // }
+    }
+    std::vector<float> golden(n * s * m * s,-300.0f);
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
+    auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
+    EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
+}
+
+TEST_F(DynamicBasicTest, HiddenLoopConditionMixedMulLoops) {
+    int s = 32;
+    int n = 1;
+    int m = 1;
+    Tensor t0(DT_FP32, {n * s, m * s}, "t0");
+    Tensor t1(DT_FP32, {n * s, m * s}, "t1");
+    Tensor t2(DT_FP32, {n * s, m * s}, "t2");
+    Tensor t3(DT_FP32, {n * s, m * s}, "t3");
+    Tensor t4(DT_FP32, {n * s, m * s}, "t4");
+    Tensor out(DT_FP32, {n * s, m * s}, "out");
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateConstantTensor<float>(t0, 11.0),
+        RawTensorData::CreateConstantTensor<float>(t1, 20.0),
+        RawTensorData::CreateConstantTensor<float>(t2, 30.0),
+        RawTensorData::CreateConstantTensor<float>(t3, 40.0),
+        RawTensorData::CreateConstantTensor<float>(t4, 50.0),
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<float>(out, 0),
+    });
+    Tensor t0_temp;
+    FUNCTION("Main", {t0, t1, t2, t3, t4}, {out}) {
+        // LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+        //    (void)i;
+            // LOOP("L01", FunctionType::DYNAMIC_LOOP, j, LoopRange(1)) {
+            //     (void)j;
+                IF(SymbolicScalar(0) < CONDITION_THRESHOLD) {
+                    t0_temp = Add(t1, t1); 
+                } ELSE {
+                    t0_temp = Add(t2, t2);
+                }
+                t0_temp = Add(t0_temp,Element(DT_FP32,1.0f));
+            // }
+            LOOP("L02", FunctionType::DYNAMIC_LOOP, k, LoopRange(2)) {
+                (void)k;
+                t3 = Mul(t3, t2);
+            }
+            // LOOP("L03", FunctionType::DYNAMIC_LOOP, l, LoopRange(1)) {
+            //      (void)l;
+                out = Sub(t3, t0_temp);
+           // }
+            LOOP("L04", FunctionType::DYNAMIC_LOOP, h, LoopRange(2)) {
+                (void)h;
+                t0_temp = Mul(t0_temp, t2);
+            }
+            // LOOP("L05", FunctionType::DYNAMIC_LOOP, q, LoopRange(1)) {
+            //     (void)q;
+                out = Add(out,t0_temp);
+            //}
+       //}
+    }
+    std::vector<float> golden(n * s * m * s,72859.0f);//显示计算结果
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
+    auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
+    EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
+}
+#endif
+
 TEST_F(DynamicBasicTest, TestDD) {
     SetInterpreterConfig();
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
