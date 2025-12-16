@@ -26,6 +26,7 @@
 #include "interface/program/program.h"
 #include "interface/function/function.h"
 #include "passes/pass_utils/pass_utils.h"
+#include "passes/pass_check/split_raw_tensor_checker.h"
 
 namespace npu {
 namespace tile_fwk {
@@ -43,6 +44,9 @@ private:
     bool ShouldProcessTensor(Function& function, const LogicalTensorPtr& singleTensor) const;
     std::vector<int64_t> UpdateOffset(std::vector<int64_t> &offset, const std::vector<int64_t> &diff) const;
     std::vector<SymbolicScalar> UpdateDynOffset(std::vector<SymbolicScalar> &offset, const std::vector<SymbolicScalar> &diff) const;
+
+    Status PostCheck(Function &function) override;
+    SplitRawTensorChecker checker;
 };
 } // namespace tile_fwk
 } // namespace npu

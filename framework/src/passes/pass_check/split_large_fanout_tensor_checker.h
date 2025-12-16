@@ -16,7 +16,6 @@
 #pragma once
 
 #include "assemble_checker.h"
-#include "interface/operation/opcode.h"
 #include "interface/function/function.h"
 
 namespace npu {

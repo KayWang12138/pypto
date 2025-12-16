@@ -9,20 +9,19 @@
  */
 
 /*!
- * \file split_reshape_checker.h
+ * \file split_raw_tensor_checker.h
  * \brief
  */
 
 #pragma once
 
-#include "assemble_checker.h"
+#include "checker.h"
 #include "interface/function/function.h"
 
 namespace npu {
 namespace tile_fwk {
-class SplitReshapeChecker : AssembleChecker {
+class SplitRawTensorChecker : Checker {
 public:
-    Status DoPreCheck(Function &function) override;
     Status DoPostCheck(Function &function) override;
 };
 } // namespace tile_fwk
