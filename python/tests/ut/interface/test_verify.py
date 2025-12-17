@@ -26,18 +26,24 @@ def add(inputs, outputs):
 
 @pytest.mark.skip(reason="Verify not supported")
 def test_verify_default():
-    a = torch.ones((64, 64))
-    b = torch.ones((64, 64))
-    c = torch.zeros((64, 64))
+    a_torch = torch.ones((64, 64))
+    b_torch = torch.ones((64, 64))
+    c_torch = torch.zeros((64, 64))
+    a = pypto.from_torch(a_torch)
+    b = pypto.from_torch(b_torch)
+    c = pypto.from_torch(c_torch)
 
     pypto.verify(add, [a, b], [c], [a + b])
 
 
 @pytest.mark.skip(reason="Verify not supported")
 def test_verify_full_options():
-    a = torch.ones((64, 64))
-    b = torch.ones((64, 64))
-    c = torch.zeros((64, 64))
+    a_torch = torch.ones((64, 64))
+    b_torch = torch.ones((64, 64))
+    c_torch = torch.zeros((64, 64))
+    a = pypto.from_torch(a_torch)
+    b = pypto.from_torch(b_torch)
+    c = pypto.from_torch(c_torch)
 
     pypto.verify(add, [a, b], [c], [a + b],
                  host_options={"only_codegen": True},

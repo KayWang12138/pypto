@@ -13,7 +13,6 @@
 from typing import List, overload
 
 import pypto
-import torch
 import os
 
 from . import pypto_impl
@@ -34,27 +33,18 @@ _device_fini = pypto_impl.DeviceFini
 
 
 def _set_device(device: int):
+    import torch
     torch.npu.set_device(device)
 
 
 def _current_device() -> int:
+    import torch
     return torch.npu.current_device()
 
 
 def _current_stream():
+    import torch
     return torch.npu.current_stream().npu_stream
-
-
-def _torch_to_tensor_data(tensors: List[torch.Tensor]):
-    datas = []
-    for t in tensors:
-        data = pypto_impl.DeviceTensorData(
-            _dtype_from(t.dtype),
-            t.data_ptr(),
-            list(t.shape),
-        )
-        datas.append(data)
-    return datas
 
 
 def _pto_to_tensor_data(tensors: List[pypto.Tensor]) -> List[pypto_impl.DeviceTensorData]:
@@ -110,6 +100,7 @@ class _JIT:
         self._is_compiled = True
 
     def run(self, in_tensor_data, out_tensor_data, device):
+        import torch
         assert self._handler is not None
         workspace_size = pypto_impl.GetWorkSpaceSize(self._handler)
         workspace_tensor = torch.empty(workspace_size, dtype=torch.uint8, device=device)
@@ -313,9 +304,9 @@ def verify(func, inputs, outputs, goldens, *args,
         verify_options = {"verify_tensor_graph": True}
     pypto.set_verify_options(**verify_options)
 
-    pypto_impl.SetVerifyData(_torch_to_tensor_data(inputs),
-                             _torch_to_tensor_data(outputs),
-                             _torch_to_tensor_data(goldens))
+    pypto_impl.SetVerifyData(_pto_to_tensor_data(inputs),
+                             _pto_to_tensor_data(outputs),
+                             _pto_to_tensor_data(goldens))
 
     inputs = [from_torch(t, f"IN_{idx}") for idx, t in enumerate(inputs)]
     outputs = [from_torch(t, f"OUT_{idx}") for idx, t in enumerate(outputs)]
