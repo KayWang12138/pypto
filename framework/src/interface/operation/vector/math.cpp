@@ -26,26 +26,24 @@ void TiledLogicalNotOperation(
     if (cur == input.tensor.GetShape().size()) {
         auto tile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
         auto resultTile = result->View(function, input.tileInfo.shape, input.tileInfo.offset);
+        
+        constexpr int64_t COUNT_NUM = 2048;
+        constexpr int64_t vcmp_bit_size = COUNT_NUM / 8;
+        constexpr size_t ALIGN_SIZE = 32;
 
-        std::vector<int64_t> castConditionShape({2048});
-        auto castConditionTensor = std::make_shared<LogicalTensor>(function, DT_FP16, castConditionShape);
-
-        DataType selectDtype;
+        DataType select_dtype;
         if (input.tensor.GetDataType() == DT_FP32 || input.tensor.GetDataType() == DT_BF16) {
-            selectDtype = DT_FP32;
+            select_dtype = DT_FP32;
         } else {
-            selectDtype = DT_FP16;
+            select_dtype = DT_FP16;
         }
-        auto compareConditionTensor = std::make_shared<LogicalTensor>(function, selectDtype, castConditionShape);
-        auto oneConditionTensor = std::make_shared<LogicalTensor>(function, selectDtype, castConditionShape);
+        
+        int64_t total_size = COUNT_NUM * 2 + COUNT_NUM * BytesOf(select_dtype) * 2 + vcmp_bit_size + 8;
+        total_size = (total_size + ALIGN_SIZE - 1) / ALIGN_SIZE * ALIGN_SIZE;
+        std::vector<int64_t> tmpShape({total_size});
 
-        std::vector<int64_t> vcmpBitResultShape({2048 / 8});
-        auto vcmpBitResultTensor = std::make_shared<LogicalTensor>(function, DT_INT8, vcmpBitResultShape);
-        std::vector<int64_t> startAddrUBShape({1});
-        auto startAddrUBTensor = std::make_shared<LogicalTensor>(function, DT_UINT64, startAddrUBShape);
-        function.AddOperation(Opcode::OP_LOGICALNOT, {tile},
-            {resultTile, castConditionTensor, compareConditionTensor, vcmpBitResultTensor, startAddrUBTensor,
-                oneConditionTensor});
+        auto tmpTensor = std::make_shared<LogicalTensor>(function, DT_INT8, tmpShape);
+        function.AddOperation(Opcode::OP_LOGICALNOT, {tile}, {resultTile, tmpTensor});
         return;
     }
 

@@ -1900,9 +1900,9 @@ TILEOP void DynTpow_(__ubuf__ float *dst, __ubuf__ float *src0, __ubuf__ float *
     }
 }
 
-template <typename T, typename U>
+template <typename T>
 TILEOP void ProcessLogicalNot(__ubuf__ bool *dst, __ubuf__ T *src, __ubuf__ half *castCondition,
-                __ubuf__ int8_t *vcmpBitResult, __ubuf__ U *compareCondition,__ubuf__ U *oneCondition,
+                __ubuf__ int8_t *vcmpBitResult, __ubuf__ int8_t *compareCondition,__ubuf__ int8_t *oneCondition,
                 __ubuf__ uint64_t * startAddrUB, uint64_t CountNum, int64_t repeatNum) {
     set_vector_mask((uint64_t)-1, (uint64_t)-1);
     set_mask_count();
@@ -1931,7 +1931,7 @@ TILEOP void ProcessLogicalNot(__ubuf__ bool *dst, __ubuf__ T *src, __ubuf__ half
     
     if constexpr (std::is_same<T, half>::value || std::is_same<T, float>::value) {
         vcmpv_eq((__ubuf__ uint8_t *)vcmpBitResult,
-                (__ubuf__ T *)src, (__ubuf__ U *)compareCondition,
+                (__ubuf__ T *)src, (__ubuf__ T *)compareCondition,
                 (int64_t)repeatNum, (uint8_t)1ULL, 1, (uint8_t)1ULL, (uint8_t)1ULL, (int64_t)8, (int64_t)8);
 
     } else if (std::is_same<T, bool>::value || std::is_same<T, uint8_t>::value || 
@@ -1957,7 +1957,8 @@ TILEOP void ProcessLogicalNot(__ubuf__ bool *dst, __ubuf__ T *src, __ubuf__ half
     pipe_barrier(PIPE_V);
 
     if (std::is_same<T, float>::value) {
-        vsel(compareCondition, oneCondition, compareCondition, (uint64_t)571780540465409ULL);
+        vsel((__ubuf__ float *)compareCondition, (__ubuf__ float *)oneCondition, 
+            (__ubuf__ float *)compareCondition, (uint64_t)571780540465409ULL);
         pipe_barrier(PIPE_V);
         vconv_f322f16((__ubuf__ half *)castCondition, (__ubuf__ float *)compareCondition,
                     1, 1, 1, 4, 8);
@@ -1965,7 +1966,8 @@ TILEOP void ProcessLogicalNot(__ubuf__ bool *dst, __ubuf__ T *src, __ubuf__ half
         vconv_f162s8((__ubuf__ int8_t *)dst, (__ubuf__ half *)castCondition,
                     1, 1, 1, 4, 8);
     } else {
-        vsel(compareCondition, oneCondition, compareCondition, (uint64_t)571780540465409ULL);
+        vsel((__ubuf__ half *)compareCondition, (__ubuf__ half *)oneCondition, 
+            (__ubuf__ half *)compareCondition, (uint64_t)571780540465409ULL);
         pipe_barrier(PIPE_V);
         vconv_f162s8((__ubuf__ int8_t *)dst, (__ubuf__ half *)compareCondition,
                     1, 1, 1, 4, 8);
@@ -1973,32 +1975,50 @@ TILEOP void ProcessLogicalNot(__ubuf__ bool *dst, __ubuf__ T *src, __ubuf__ half
 }
 
 // dim2 & dim1 (T0 = 1 for dim1)
-template <typename T, typename U, unsigned DS, unsigned SS>
-TILEOP void DynTlogicalNot(__ubuf__ bool *dst, __ubuf__ T *src,__ubuf__ half *castCondition,
-                    __ubuf__ U *compareCondition, __ubuf__ int8_t *vcmpBitResult,
-                    __ubuf__ uint64_t * startAddrUB, __ubuf__ U *oneCondition,
+template <typename T, unsigned DS, unsigned SS>
+TILEOP void DynTlogicalNot(__ubuf__ bool *dst, __ubuf__ T *src,__ubuf__ int8_t *tmpTensor,
                     unsigned T0, unsigned T1) {
-    constexpr uint64_t COUNT_MAX = 2048;
-    constexpr int64_t TYPE_REPEAT = 256 / sizeof(U);
+    constexpr int64_t COUNT_MAX = 2048;
+    constexpr int64_t TYPE_SIZE = std::is_same_v<T, float> ? 4 : 2;
+    constexpr int64_t TYPE_REPEAT = 256 / TYPE_SIZE;
     constexpr int64_t REPEATNUM = COUNT_MAX / TYPE_REPEAT;
+
+    constexpr uint32_t ALIGN_SIZE = 32;
+    uint32_t vcmpBitSize = (COUNT_MAX + 7) / 8;
+
+    __ubuf__ int8_t* vcmpBitResult = reinterpret_cast<__ubuf__ int8_t*>(tmpTensor);
+
+    uintptr_t zeroCondAddr = reinterpret_cast<uintptr_t>(vcmpBitResult + vcmpBitSize);
+    zeroCondAddr = (zeroCondAddr + ALIGN_SIZE - 1) & ~(ALIGN_SIZE - 1);
+    __ubuf__ int8_t* compareCondition = reinterpret_cast<__ubuf__ int8_t*>(zeroCondAddr);
+
+    uintptr_t oneCondAddr = reinterpret_cast<uintptr_t>(compareCondition + COUNT_MAX * TYPE_SIZE);
+    oneCondAddr = (oneCondAddr + ALIGN_SIZE - 1) & ~(ALIGN_SIZE - 1);
+    __ubuf__ int8_t* oneCondition = reinterpret_cast<__ubuf__ int8_t*>(oneCondAddr);
+
+    uintptr_t castAddr = reinterpret_cast<uintptr_t>(oneCondition + COUNT_MAX * TYPE_SIZE);
+    castAddr = (castAddr + ALIGN_SIZE - 1) & ~(ALIGN_SIZE - 1);
+    __ubuf__ half* castCondition = reinterpret_cast<__ubuf__ half*>(castAddr);
+
+    uintptr_t startAddrAddr = reinterpret_cast<uintptr_t>(castCondition + COUNT_MAX);
+    startAddrAddr = (startAddrAddr + ALIGN_SIZE - 1) & ~(ALIGN_SIZE - 1);
+    __ubuf__ uint64_t* startAddrUB = reinterpret_cast<__ubuf__ uint64_t*>(startAddrAddr);
 
     unsigned numLoop = T1 / COUNT_MAX;
     unsigned remainAfterLoop = T1 % COUNT_MAX;
     int64_t repeatNumRemain = (remainAfterLoop + TYPE_REPEAT - 1) / TYPE_REPEAT;
     for (int i = 0; i < T0; i++) {
         for (int j = 0; j < numLoop; j++) {
-            ProcessLogicalNot<T, U>(dst + i * DS + j * COUNT_MAX,
-                            src + i * SS + j * COUNT_MAX,
-                            castCondition, (__ubuf__ int8_t *)vcmpBitResult, compareCondition,
-                            oneCondition, (__ubuf__ uint64_t *)startAddrUB,
-                            COUNT_MAX, REPEATNUM);
+            ProcessLogicalNot<T>(dst + i * DS + j * COUNT_MAX,	
+                            src + i * SS + j * COUNT_MAX,	
+                            castCondition, vcmpBitResult, compareCondition,	
+                            oneCondition, startAddrUB,COUNT_MAX, REPEATNUM);
         }
         if (remainAfterLoop > 0) {
-            ProcessLogicalNot<T, U>(dst + i * DS + numLoop * COUNT_MAX,
-                            src + i * SS + numLoop * COUNT_MAX,
-                            castCondition, (__ubuf__ int8_t *)vcmpBitResult, compareCondition,
-                            oneCondition, (__ubuf__ uint64_t *)startAddrUB,
-                            remainAfterLoop, repeatNumRemain);
+            ProcessLogicalNot<T>(dst + i * DS + numLoop * COUNT_MAX,	
+                            src + i * SS + numLoop * COUNT_MAX,	
+                            castCondition, vcmpBitResult, compareCondition,	
+                            oneCondition, startAddrUB,remainAfterLoop, repeatNumRemain);
         }
     }
     set_mask_norm();
@@ -2006,25 +2026,21 @@ TILEOP void DynTlogicalNot(__ubuf__ bool *dst, __ubuf__ T *src,__ubuf__ half *ca
 }
 
 // dim3
-template <typename T, typename U, unsigned DS0, unsigned DS1, unsigned SS0, unsigned SS1>
-TILEOP void DynTlogicalNot(__ubuf__ bool *dst, __ubuf__ T *src, __ubuf__ half *castCondition,
-                    __ubuf__ U *compareCondition, __ubuf__ int8_t *vcmpBitResult,
-                    __ubuf__ uint64_t * startAddrUB, __ubuf__ U *oneCondition,
+template <typename T, unsigned DS0, unsigned DS1, unsigned SS0, unsigned SS1>
+TILEOP void DynTlogicalNot(__ubuf__ bool *dst, __ubuf__ T *src, __ubuf__ int8_t *tmpTensor,
                     unsigned T0, unsigned T1, unsigned T2) {
     static_assert((DS1 * sizeof(T)) % BLOCK_SIZE == 0);
     static_assert((SS1 * sizeof(T)) % BLOCK_SIZE == 0);
     for (int i = 0; i < T0; i++) {
-        DynTlogicalNot<T, U, DS1, SS1>(dst, src, castCondition, compareCondition, vcmpBitResult, startAddrUB, oneCondition, T1, T2);
+        DynTlogicalNot<T, DS1, SS1>(dst, src, tmpTensor, T1, T2);
         dst += DS0 * DS1;
         src += SS0 * SS1;
     }
 }
 
 // dim4
-template <typename T, typename U, unsigned DS0, unsigned DS1, unsigned DS2, unsigned SS0, unsigned SS1, unsigned SS2>
-TILEOP void DynTlogicalNot(__ubuf__ bool *dst, __ubuf__ T *src, __ubuf__ half *castCondition,
-                    __ubuf__ U *compareCondition, __ubuf__ int8_t *vcmpBitResult,
-                    __ubuf__ uint64_t * startAddrUB, __ubuf__ U *oneCondition,
+template <typename T, unsigned DS0, unsigned DS1, unsigned DS2, unsigned SS0, unsigned SS1, unsigned SS2>
+TILEOP void DynTlogicalNot(__ubuf__ bool *dst, __ubuf__ T *src, __ubuf__ int8_t *tmpTensor,
                     unsigned T0, unsigned T1, unsigned T2, unsigned T3) {
     static_assert((DS2 * sizeof(T)) % BLOCK_SIZE == 0);
     static_assert((SS2 * sizeof(T)) % BLOCK_SIZE == 0);
@@ -2032,7 +2048,7 @@ TILEOP void DynTlogicalNot(__ubuf__ bool *dst, __ubuf__ T *src, __ubuf__ half *c
         __ubuf__ bool *dst_ = dst;
         __ubuf__ T *src_ = src;
         for (int j = 0; j < T1; j++) {
-            DynTlogicalNot<T, U, DS2, SS2>(dst_, src_, castCondition, compareCondition, vcmpBitResult, startAddrUB, oneCondition, T2, T3);
+            DynTlogicalNot<T, DS2, SS2>(dst_, src_, tmpTensor, T2, T3);
             dst_ += DS1 * DS2;
             src_ += SS1 * SS2;
         }

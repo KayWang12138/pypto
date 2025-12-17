@@ -850,7 +850,7 @@ def gen_logical_not_op_golden(
 ) -> bool:
     # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
     def golden_func(inputs: list, _config: dict):
-        x = torch.safe_tensor_conversion(inputs[0])
+        x = safe_tensor_conversion(inputs[0])
         x = torch.logical_not(x)
         return [np.array(x)]
 
