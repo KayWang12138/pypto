@@ -244,8 +244,20 @@ Status ConvertInserter::RecordConflict(Function &function) {
                 }
                 //step4:构造转换路径
                 std::vector<MemoryType> paths;
-                Status status = ConstructPath(oOperand->GetMemoryTypeOriginal(),requiredMemoryType,paths,oOperand,op);
-                if (status != SUCCESS) {return status;}
+                auto currTensorMemOri = oOperand->GetMemoryTypeOriginal();
+                if(currTensorMemOri == MemoryType::MEM_L0C && requiredMemoryType == MemoryType::MEM_L1) {
+                    //针对L0C2L1切分不等大时特殊处理转换路径(路径加入DDR)
+                    bool needDDRTrans = IsSameTileShape(**(oOperand->GetProducers().begin()), oOperand, consumers);
+                    if(needDDRTrans) {
+                        paths = {currTensorMemOri, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_L1};
+                    } else {
+                        paths = {currTensorMemOri, MemoryType::MEM_L1};
+                    }
+                } else {
+                    Status status = ConstructPath(oOperand->GetMemoryTypeOriginal(),requiredMemoryType,paths,oOperand,op);
+                    if (status != SUCCESS) {return status;}
+                }
+
                 //step5：记录需要插入的Convert Op
                 auto output = RecordInsertConvertOp(oOperand,paths,function,op);
 
@@ -259,9 +271,38 @@ Status ConvertInserter::RecordConflict(Function &function) {
     }
     return SUCCESS;
 }
+bool ConvertInserter::IsSameTileShape(const Operation &firstOp, const std::shared_ptr<LogicalTensor> &firstCVOutput, std::set<Operation *> &consumers) const {
+    for(auto consumer : consumers) {
+        auto consumerOpcode = consumer->GetOpcode();
+        std::shared_ptr<LogicalTensor> secondCubeInput =nullptr;
+        std::vector<int64_t> secondCubeInputShape(firstCVOutput->shape.size(), 0);
+        if(consumerOpcode == Opcode::OP_L1_TO_L0A || consumerOpcode == Opcode::OP_L1_TO_L0B) {
+            //case1:非大包搬运场景，前一级的cube、vec的输出shape需要和后一级cube的L0输入数据shape一致
+            secondCubeInput = consumer->GetOOperands().front();
+            secondCubeInputShape = secondCubeInput->shape;
+        } else if(consumerOpcode == Opcode::OP_L1_TO_L0_AT || consumerOpcode == Opcode::OP_L1_TO_L0_BT) {
+            secondCubeInput = consumer->GetOOperands().front();
+            secondCubeInputShape = std::vector<int64_t>{secondCubeInput->shape[1], secondCubeInput->shape[0]};
+        } else if(consumerOpcode == Opcode::OP_VIEW) {
+            //case2:大包搬运场景，前一级的cube、vec的输出shape需要和后一级的cube的L1的的输入数据shape一致
+            auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(consumer->GetOpAttribute().get());
+            if(viewOpAttribute != nullptr && viewOpAttribute->GetTo() != MemoryType::MEM_L1) {
+                continue;
+            }
+            secondCubeInput = consumer->GetOOperands().front();
+        }
+        if(secondCubeInput != nullptr && firstCVOutput->shape != secondCubeInputShape) {
+            APASS_LOG_WARN_F(Elements::Operation, "Tileshape of operation %s[%d] is not equal with the next cubetile.",
+                firstOp.GetOpcodeStr().c_str(),
+                firstOp.GetOpMagic());
+            return true;
+        }
+    }
+    return false;
+}
 //检查from和to之间是否不存在数据通路
 Status ConvertInserter::ConstructPath(MemoryType from, MemoryType to, std::vector<MemoryType> &paths,
-    const std::shared_ptr<LogicalTensor> &oOperand,const Operation &op) const{
+    const std::shared_ptr<LogicalTensor> &oOperand,const Operation &op) const {
     PassConfigManager::Instance().GetPlatformConfig().FindNearestPath(from,to,paths);
     if (paths.empty()) {
         //path为空的两种场景:1、from和to内存类型一致；2、from和to不一致，且未找到数据通路。这里处理场景2，报错退出
