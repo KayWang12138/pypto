@@ -25,12 +25,12 @@ TileShape &TileShape::Current() {
 
 void TileShape::SetVecTile(const std::vector<int64_t> &tile) {
     vecTile = {tile};
-    ConfigManagerNg::GetInstance().CurrentScope()->AddValue("vec_tile_shapes", tile);
+    ConfigManagerNg::GetInstance().CurrentScope()->UpdateValue("vec_tile_shapes", tile);
 }
 
 void TileShape::SetVecTile(const VecTile &tile) {
     vecTile = tile;
-    ConfigManagerNg::GetInstance().CurrentScope()->AddValue("vec_tile_shapes", tile.tile);
+    ConfigManagerNg::GetInstance().CurrentScope()->UpdateValue("vec_tile_shapes", tile.tile);
 }
 
 void TileShape::SetCubeTile(const std::array<int64_t, MAX_M_DIM_SIZE> &m,
@@ -42,10 +42,10 @@ void TileShape::SetCubeTile(const std::array<int64_t, MAX_M_DIM_SIZE> &m,
         nk[2] = nk[1];
     }
     cubeTile = {m, nk, n, setL1Tile, enableSplitK};
-    ConfigManagerNg::GetInstance().CurrentScope()->AddValue("cube_tile_shapes", cubeTile);
+    ConfigManagerNg::GetInstance().CurrentScope()->UpdateValue("cube_tile_shapes", cubeTile);
 }
 
 void TileShape::SetMatrixSize(const std::vector<int64_t> &size) {
     this->matrixSize = size;
-    ConfigManagerNg::GetInstance().CurrentScope()->AddValue("matrix_size", size);
+    ConfigManagerNg::GetInstance().CurrentScope()->UpdateValue("matrix_size", size);
 }

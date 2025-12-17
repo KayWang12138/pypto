@@ -12,7 +12,7 @@
  * \file test_config_manager.cpp
  * \brief
  */
-
+#include <climits>
 #include "gtest/gtest.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
@@ -111,4 +111,120 @@ TEST_F(TestConfigManager, Dump) {
     std::cout << cm.GetOptionsTree() << std::endl;
     std::cout << "-- scope3 -- " << std::endl;
     std::cout << scope3->ToString() << std::endl;
+}
+
+
+constexpr const char *ERROR_KEY_WORD = "its value doesn't within the value range";
+template <typename T>
+bool RangeTest(
+    const std::unordered_map<std::string, std::vector<T>> &input,
+    void (*SetFunc)(const std::string &, T &&),
+    std::string group) {
+    for (auto &[key, val] : input) {
+        for (auto it : val) {
+            T rlv = it;
+            try {
+                SetFunc(group + "." + key, std::move(rlv));
+            } catch (const std::runtime_error &e) {
+                std::stringstream ss;
+                ss << e.what();
+                std::string errStr(ss.str());
+                if (errStr.find(ERROR_KEY_WORD) == std::string::npos) {
+                    std::cerr << "error exception: " << errStr << std::endl;
+                    return false;
+                } else {
+                    continue;
+                }
+            }
+        }
+    }
+    return true;
+}
+
+TEST_F(TestConfigManager, NormalRuntimeTest) {
+    std::unordered_map<std::string, std::vector<int64_t>> input = {
+        {MACHINE_SCHED_MODE, {0, 1, 2, 3}},
+        {WORKSPACE_RECYCLE_PERIOD, {1, INT_MAX}},
+        {ESTIMATED_STITCH_TASK_MAX_LOOP_NUM, {1, INT_MAX}},
+        {FIRST_STITCH_TASK_LOOP_NUM, {1, 128}},
+        {SUBSEQ_STITCH_TASK_INCR_LOOP_NUM, {1, 128}},
+        {CFGCACHE_DEVICE_TASK_NUM, {1, 100}},
+        {CFGCACHE_ROOT_TASK_NUM, {1, 1000}},
+        {CFGCACHE_LEAF_TASK_NUM, {1, 10000}},
+        {STITCH_CALLOP_MAX_NUM, {1, 65535}},
+        {CFG_RUN_MODE, {0, 2}},
+    };
+    bool ret = RangeTest<int64_t>(input, &(config::SetOption), "runtime");
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(TestConfigManager, AbnormalRuntimeTest) {
+    int64_t outVal = INT_MAX;
+    ++outVal;
+    std::unordered_map<std::string, std::vector<int64_t>> input = {
+        {MACHINE_SCHED_MODE, {-1, 4}},
+        {WORKSPACE_RECYCLE_PERIOD, {0, INT_MAX}},
+        {ESTIMATED_STITCH_TASK_MAX_LOOP_NUM, {0, INT_MAX}},
+        {FIRST_STITCH_TASK_LOOP_NUM, {0, 129}},
+        {SUBSEQ_STITCH_TASK_INCR_LOOP_NUM, {0, 129}},
+        {CFGCACHE_DEVICE_TASK_NUM, {0, 101}},
+        {CFGCACHE_ROOT_TASK_NUM, {0, 1001}},
+        {CFGCACHE_LEAF_TASK_NUM, {0, 10001}},
+        {STITCH_CALLOP_MAX_NUM, {0, 65536}},
+        {CFG_RUN_MODE, {-1, 3}},
+    };
+    bool ret = RangeTest<int64_t>(input, &(config::SetOption), "runtime");
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(TestConfigManager, NormalPassTest) {
+    std::unordered_map<std::string, std::vector<int64_t>> input = {
+        {SG_PARALLEL_NUM, {0, INT_MAX}},
+        {SG_CYCLE_UPPER_BOUND, {0, INT_MAX}},
+        {SG_CYCLE_LOWER_BOUND, {0, INT_MAX}},
+        {L1_REUSE, {0, INT_MAX}},
+        {CUBE_NBUFFER_MERGE_MODE, {0, 2}},
+        {COPYIN_THRESHOLD, {0, INT_MAX}},
+        {NBUFFER_MERGE_MODE, {0, 2}},
+        {SG_VEC_PARALLEL_NUM, {1, 48}},
+        {SG_CUBE_PARALLEL_NUM, {1, 24}},
+        {COPYOUT_RESOLVE_COALESCING, {0, 1000000}}
+    };
+    bool ret = RangeTest<int64_t>(input, &(config::SetOption), "pass");
+    EXPECT_EQ(ret, true);
+
+    std::unordered_map<std::string, std::vector<std::map<int64_t, int64_t>>> input2 = {
+        {L1_REUSE_MAP, {{{0, 0}}, {{INT_MAX, INT_MAX}}}},
+        {CUBE_NBUFFER_MAP, {{{-1, 1}}, {{INT_MAX, INT_MAX}}}},
+        {VEC_NBUFFER_MAP, {{{-1, 1}}, {{INT_MAX, INT_MAX}}}}
+    };
+    ret = RangeTest<std::map<int64_t, int64_t>>(input2, &(config::SetOption), "pass");
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(TestConfigManager, AbnormalPassTest) {
+    int64_t outVal = INT_MAX;
+    ++outVal;
+    std::unordered_map<std::string, std::vector<int64_t>> input = {
+        {SG_PARALLEL_NUM, {-1, outVal}},
+        {SG_CYCLE_UPPER_BOUND, {-1, outVal}},
+        {SG_CYCLE_LOWER_BOUND, {-1, outVal}},
+        {L1_REUSE, {-1, outVal}},
+        {CUBE_NBUFFER_MERGE_MODE, {-1, 3}},
+        {COPYIN_THRESHOLD, {-1, outVal}},
+        {NBUFFER_MERGE_MODE, {-1, 3}},
+        {SG_VEC_PARALLEL_NUM, {0, 49}},
+        {SG_CUBE_PARALLEL_NUM, {0, 25}},
+        {COPYOUT_RESOLVE_COALESCING, {-1, 1000001}}
+    };
+    bool ret = RangeTest<int64_t>(input, &(config::SetOption), "pass");
+    EXPECT_EQ(ret, true);
+
+    std::unordered_map<std::string, std::vector<std::map<int64_t, int64_t>>> input2 = {
+        {L1_REUSE_MAP, {{{-1, 0}}, {{outVal, INT_MAX}}, {{0, -1}}, {{INT_MAX, outVal}}}},
+        {CUBE_NBUFFER_MAP, {{{-2, 1}}, {{INT_MAX, outVal}}, {{-1, 0}}, {{outVal, INT_MAX}}}},
+        {VEC_NBUFFER_MAP, {{{-2, 1}}, {{INT_MAX, outVal}}, {{-1, 0}}, {{outVal, INT_MAX}}}}
+    };
+    ret = RangeTest<std::map<int64_t, int64_t>>(input2, &(config::SetOption), "pass");
+    EXPECT_EQ(ret, true);
 }

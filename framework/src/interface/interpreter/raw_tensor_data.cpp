@@ -249,14 +249,14 @@ std::string LogicalTensorData::ToString(const PrintOptions *options) const {
 std::shared_ptr<LogicalTensorData> LogicalTensorData::Load(const std::string &filepath) {
     FILE *fdata = fopen(filepath.c_str(), "rb");
     LogicalTensorDataHead head;
-    fread(&head, sizeof(head), 1, fdata);
+    (void)fread(&head, sizeof(head), 1, fdata);
 
     std::vector<int64_t> shape(head.dimension, 0);
     for (int i = 0; i < static_cast<int>(head.dimension); i++) {
         shape[i] = head.shape[i];
     }
     auto data = std::make_shared<RawTensorData>(static_cast<DataType>(head.dataType), shape);
-    fread(data->data(), 1, data->size(), fdata);
+    (void)fread(data->data(), 1, data->size(), fdata);
     auto dataView = std::make_shared<LogicalTensorData>(data, shape, shape, std::vector<int64_t>(shape.size(), 0));
     fclose(fdata);
     return dataView;

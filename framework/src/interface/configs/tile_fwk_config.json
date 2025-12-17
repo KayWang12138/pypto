@@ -1,7 +1,6 @@
 {
     "global_configs": {
         "platform_configs": {
-            "USE_SSA": true,
             "ENABLE_COST_MODEL": false,
             "ENABLE_DYN_COST_MODEL": false,
             "ENABLE_DYN_FULL_COST_MODEL": false,

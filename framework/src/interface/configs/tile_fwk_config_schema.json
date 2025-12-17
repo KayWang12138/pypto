@@ -6,34 +6,142 @@
         "pass": {
             "type": "object",
             "properties": {
-                "parallel_threshold": {"type": "integer"},
-                "cycle_upper_bound": {"type": "integer"},
-                "cycle_lower_bound": {"type": "integer"},
-                "l1_reuse": {"type": "integer"},
-                "l1_reuse_map": {"type": "object", "typeHints": "intmap"},
-                "cube_nbuffer_merge_mode": {"type": "integer"},
-                "cube_nbuffer_map": {"type": "object", "typeHints": "intmap"},
-                "copyin_threshold": {"type": "integer"},
-                "nbuffer_merge_mode": {"type": "integer"},
-                "vec_nbuffer_map": {"type": "object", "typeHints": "intmap"},
-                "sg_vec_parallel_num": {"type": "integer"},
-                "sg_cube_parallel_num": {"type": "integer"},
+                "parallel_threshold": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 2147483647
+                },
+                "cycle_upper_bound": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 2147483647
+                },
+                "cycle_lower_bound": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 2147483647
+                },
+                "l1_reuse": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 2147483647
+                },
+                "l1_reuse_map": {
+                    "type": "object",
+                    "typeHints": "intmap",
+                    "key_minimum": 0,
+                    "key_maximum": 2147483647,
+                    "value_minimum": 0,
+                    "value_maximum": 2147483647
+                },
+                "cube_nbuffer_merge_mode": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 2
+                },
+                "cube_nbuffer_map": {
+                    "type": "object",
+                    "typeHints": "intmap",
+                    "key_minimum": -1,
+                    "key_maximum": 2147483647,
+                    "value_minimum": 1,
+                    "value_maximum": 2147483647
+                },
+                "copyin_threshold": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 2147483647
+                },
+                "ooo_preschedule_method": {"type": "string"},
+                "nbuffer_merge_mode": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 2
+                },
+                "vec_nbuffer_map": {
+                    "type": "object",
+                    "typeHints": "intmap",
+                    "key_minimum": -1,
+                    "key_maximum": 2147483647,
+                    "value_minimum": 1,
+                    "value_maximum": 2147483647
+                },
+                "sg_vec_parallel_num": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 48
+                },
+                "sg_cube_parallel_num": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 24
+                },
                 "sg_skip_partition": {"type": "boolean"},
-                "copyout_resolve_coalescing": {"type": "integer"}
+                "copyout_resolve_coalescing": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1000000
+                },
+                "sg_set_scope": {
+                    "type": "integer",
+                    "minimum": -1,
+                    "maximum": 2147483647
+                }
             }
         },
         "runtime": {
             "type": "object",
             "properties": {
-                "machine_sched_mode": {"type": "integer"},
-                "workspace_recycle_period": {"type": "integer"},
-                "estimated_stitch_task_max_loop_num": {"type": "integer"},
-                "first_stitch_task_loop_num": {"type": "integer"},
-                "subseq_stitch_task_incr_loop_num": {"type": "integer"},
-                "cfgcache_device_task_num": {"type": "integer"},
-                "cfgcache_root_task_num": {"type": "integer"},
-                "cfgcache_leaf_task_num": {"type": "integer"},
-                "stitch_callop_max_num": {"type": "integer"}
+                "machine_sched_mode": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 3
+                },
+                "workspace_recycle_period": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 2147483647
+                },
+                "estimated_stitch_task_max_loop_num": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 2147483647
+                },
+                "first_stitch_task_loop_num": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 128
+                },
+                "subseq_stitch_task_incr_loop_num": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 128
+                },
+                "cfgcache_device_task_num": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100
+                },
+                "cfgcache_root_task_num": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1000
+                },
+                "cfgcache_leaf_task_num": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10000
+                },
+                "stitch_callop_max_num": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 65535
+                },
+                "run_mode": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 2
+                }
             }
         },
         "host": {

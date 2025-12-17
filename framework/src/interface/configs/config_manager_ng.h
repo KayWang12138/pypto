@@ -111,7 +111,14 @@ public:
      * \param key The config key.
      * \param value The config value to set.
      */
-    void AddValue(const std::string &key, Any value) { values_[key] = value; }
+    void AddValue(const std::string &key, Any value);
+
+    /**
+     * \brief update a config value for the given key.
+     * \param key The config key.
+     * \param value The config value to set.
+     */
+    void UpdateValue(const std::string &key, Any value);
 
     ConfigScope(ConfigScopePtr parent);
     ~ConfigScope();
@@ -184,6 +191,16 @@ public:
      * if the key is not found.
      */
     const std::type_info &Type(const std::string &key) const;
+
+    /**
+     * @brief Get the range of the config value with the specific key.
+     */
+    const std::map<std::string, std::pair<int64_t, int64_t>> &Range() const;
+
+    /**
+    * \brief Check if the value is within the specified range.
+    */
+    bool IsWithinRange(const std::string &properties, Any &value) const;
 
     static ConfigManagerNg &GetInstance();
 

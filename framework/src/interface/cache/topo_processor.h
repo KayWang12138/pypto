@@ -72,8 +72,9 @@ public:
 private:
     void ParseOldTopo(uint64_t batchDependNum) {
         for (uint64_t i = 0; i < srcTopoNum_; i++) {
+            uint8_t *base = static_cast<uint8_t*>(static_cast<void*>(srcTopoData_.get()));
             CoreFunctionTopo *topoData = reinterpret_cast<CoreFunctionTopo*>(
-                static_cast<uint8_t*>(static_cast<void*>(srcTopoData_.get())) + srcTopoData_->coreFunctionTopoOffsets[i]);
+                base + ((uint64_t*)base)[i + 1]); // [i+1] access srcTopoData_->coreFunctionTopoOffsets
             if (topoData->depNum < batchDependNum) {
                 ALOG_DEBUG_F("[TopoProcessor]ignore proc topo %lu, dep num %lu", i, topoData->depNum);
                 continue;
@@ -92,9 +93,9 @@ private:
                 std::vector<CoreFunctionTopo*> oldTopoVec = it->second;
                 CoreFunctionTopo* oldTopo = oldTopoVec.front();
                 for (uint64_t i = 0; i < oldTopo->depNum; i++) {
+                    uint8_t *base = static_cast<uint8_t*>(static_cast<void*>(srcTopoData_.get()));
                     CoreFunctionTopo *topoData = reinterpret_cast<CoreFunctionTopo*>(
-                        static_cast<uint8_t*>(static_cast<void*>(srcTopoData_.get())) +
-                        srcTopoData_->coreFunctionTopoOffsets[oldTopo->depIds[i]]);
+                        base + ((uint64_t*)base)[oldTopo->depIds[i] + 1]);
                     if (static_cast<uint64_t>(topoData->readyCount * (-1)) != oldTopoVec.size()) {
                         return false;
                     }
@@ -185,8 +186,9 @@ private:
         };
 
         for (uint32_t i = 0; i < srcTopoNum_; i++) {
+            uint8_t *base = static_cast<uint8_t*>(static_cast<void*>(srcTopoData_.get()));
             CoreFunctionTopo *oldTopo = reinterpret_cast<CoreFunctionTopo*>(
-                static_cast<uint8_t*>(static_cast<void*>(srcTopoData_.get())) + srcTopoData_->coreFunctionTopoOffsets[i]);
+                base + ((uint64_t*)base)[i + 1]);
             appendTopo(oldTopo, i);
         }
         ALOG_DEBUG_F("[TopoProcessor] finish add old topo, num = %lu", srcTopoNum_);

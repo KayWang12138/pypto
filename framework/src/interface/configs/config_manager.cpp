@@ -171,8 +171,9 @@ const std::string &ConfigManager::LogFile() {
 
 void ConfigManager::ResetLog() {
     globalConfigs_.logTopFolder = CreateLogTopFolder();
-    globalConfigs_.logFile = LogTopFolder() + "/run.log";
-    LoggerManager::FileLoggerRegister(globalConfigs_.logFile, true);
+    std::string newLogFile = LogTopFolder() + "/run.log";
+    LoggerManager::FileLoggerReplace(globalConfigs_.logFile, newLogFile, true);
+    globalConfigs_.logFile = std::move(newLogFile);
 }
 
 PassConfigs ConfigManager::GetPassConfigs(const std::string &strategy, const std::string &identifier) const {

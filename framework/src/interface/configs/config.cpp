@@ -310,49 +310,49 @@ static void SetOptionPost(const std::string &key) {
 }
 
 void experimental::SetOption(const std::string &key, int64_t value) {
+    ConfigManagerNg::GetInstance().CurrentScope()->UpdateValue(key, value);
     g_rwlock.lock();
     g_config.options[StringUtils::ToLower(key)] = value;
-    ConfigManagerNg::GetInstance().CurrentScope()->AddValue(key, value);
     g_rwlock.unlock();
     SetOptionPost(key);
 }
 
 void experimental::SetOption(const std::string &key, bool value) {
+    ConfigManagerNg::GetInstance().CurrentScope()->UpdateValue(key, value);
     g_rwlock.lock();
     g_config.options[StringUtils::ToLower(key)] = value;
-    ConfigManagerNg::GetInstance().CurrentScope()->AddValue(key, value);
     g_rwlock.unlock();
     SetOptionPost(key);
 }
 
 void experimental::SetOption(const std::string &key, const char *value) {
+    ConfigManagerNg::GetInstance().CurrentScope()->UpdateValue(key, value);
     g_rwlock.lock();
     g_config.options[StringUtils::ToLower(key)] = value;
-    ConfigManagerNg::GetInstance().CurrentScope()->AddValue(key, value);
     g_rwlock.unlock();
     SetOptionPost(key);
 }
 
 void experimental::SetOption(const std::string &key, const std::string &value) {
+    ConfigManagerNg::GetInstance().CurrentScope()->UpdateValue(key, value);
     g_rwlock.lock();
     g_config.options[StringUtils::ToLower(key)] = value;
-    ConfigManagerNg::GetInstance().CurrentScope()->AddValue(key, value);
     g_rwlock.unlock();
     SetOptionPost(key);
 }
 
 void experimental::SetOption(const std::string &key, const std::vector<int64_t> &value) {
+    ConfigManagerNg::GetInstance().CurrentScope()->UpdateValue(key, value);
     g_rwlock.lock();
     g_config.options[StringUtils::ToLower(key)] = value;
-    ConfigManagerNg::GetInstance().CurrentScope()->AddValue(key, value);
     g_rwlock.unlock();
     SetOptionPost(key);
 }
 
 void experimental::SetOption(const std::string &key, const std::map<int64_t, int64_t> &value) {
+    ConfigManagerNg::GetInstance().CurrentScope()->UpdateValue(key, value);
     g_rwlock.lock();
     g_config.options[StringUtils::ToLower(key)] = value;
-    ConfigManagerNg::GetInstance().CurrentScope()->AddValue(key, value);
     g_rwlock.unlock();
     SetOptionPost(key);
 }

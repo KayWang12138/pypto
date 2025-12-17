@@ -10,7 +10,8 @@
         "sg_vec_parallel_num": 48,
         "sg_cube_parallel_num": 24,
         "sg_skip_partition": false,
-        "copyout_resolve_coalescing": 0
+        "copyout_resolve_coalescing": 0,
+        "sg_set_scope": -1
     },
     "runtime": {
         "machine_sched_mode": 0,

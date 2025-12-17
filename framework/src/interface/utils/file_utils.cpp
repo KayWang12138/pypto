@@ -438,7 +438,7 @@ std::string GetCurRunningPath() {
 void RemoveOldestDirs(const std::string &path, const std::string &prefix, int left) {
     DIR *dir = opendir(path.c_str());
     if (dir == nullptr) {
-        ALOG_ERROR_F("failed to opendir: ", path.c_str());
+        ALOG_WARN_F("failed to opendir: ", path.c_str());
         return;
     }
 

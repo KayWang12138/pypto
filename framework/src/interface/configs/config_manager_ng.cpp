@@ -19,6 +19,9 @@
 #include <sstream>
 #include <list>
 #include <stack>
+#include <mutex>
+#include <climits>
+#include <utility>
 
 #include <nlohmann/json.hpp>
 
@@ -33,6 +36,10 @@
 
 
 namespace npu::tile_fwk {
+
+namespace {
+    std::mutex mtx;
+}
 
 struct TypeInfo {
     TypeInfo() = default;
@@ -64,6 +71,11 @@ struct TypeInfo {
                 typeInfos.insert({prefix, typeid(std::string)});
             } else if (type == "integer") {
                 typeInfos.insert({prefix, typeid(int64_t)});
+                int64_t minBound =
+                    jdata.contains("minimum") ? jdata["minimum"].get<int64_t>() : INT_MIN;
+                int64_t maxBound =
+                    jdata.contains("maximum") ? jdata["maximum"].get<int64_t>() : INT_MAX;
+                rangeInfos.insert({prefix, {minBound, maxBound}});
             } else if (type == "boolean") {
                 typeInfos.insert({prefix, typeid(bool)});
             } else if (type == "array") {
@@ -77,6 +89,16 @@ struct TypeInfo {
                 const std::string &typeHints = jdata["typeHints"];
                 if (typeHints == "intmap") {
                     typeInfos.insert({prefix, typeid(std::map<int64_t, int64_t>)});
+                    int64_t minBound =
+                        jdata.contains("key_minimum") ? jdata["key_minimum"].get<int64_t>() : INT_MIN;
+                    int64_t maxBound =
+                        jdata.contains("key_maximum") ? jdata["key_maximum"].get<int64_t>() : INT_MAX;
+                    rangeInfos.insert({prefix + "_key", {minBound, maxBound}});
+                    minBound =
+                        jdata.contains("value_minimum") ? jdata["value_minimum"].get<int64_t>() : INT_MIN;
+                    maxBound =
+                        jdata.contains("value_maximum") ? jdata["value_maximum"].get<int64_t>() : INT_MAX;
+                    rangeInfos.insert({prefix + "_val", {minBound, maxBound}});
                 }
             } else {
                 ALOG_ERROR("invalid type: ", type, " at ", prefix);
@@ -94,6 +116,7 @@ struct TypeInfo {
     }
 
     std::map<std::string, const std::type_info &> typeInfos;
+    std::map<std::string, std::pair<int64_t, int64_t>> rangeInfos;
 };
 
 const Any &ConfigScope::GetConfig(const std::string &key) const {
@@ -171,7 +194,23 @@ void DumpValues(std::stringstream &os, const std::map<std::string, Any> &values,
         } else {
             os << "unknow type: " << val.Type().name();
         }
-        os << "\n";
+    }
+}
+
+void DumpRange(
+    std::stringstream &os,
+    const std::type_info &type,
+    const std::string &key,
+    const std::map<std::string, std::pair<int64_t, int64_t>> &rangeInfos) {
+    os << "Range: ";
+    if (type == typeid(std::map<int64_t, int64_t>)) {
+        os << "{[" << rangeInfos.at(key + "_key").first <<
+            ", " << rangeInfos.at(key + "_key").second <<
+            "], [" << rangeInfos.at(key + "_val").first <<
+            ", " << rangeInfos.at(key + "_val").second << "]}";
+    } else {
+        os << "[" << rangeInfos.at(key).first <<
+            ", " << rangeInfos.at(key).second << "]";
     }
 }
 
@@ -188,7 +227,28 @@ std::string ConfigScope::ToString() const{
     }
     std::stringstream os;
     DumpValues(os, values, "");
+    os << "\n";
     return os.str();
+}
+
+void ConfigScope::AddValue(const std::string &key, Any value) {
+    std::lock_guard<std::mutex> lock(mtx);
+    values_[key] = value;
+}
+
+void ConfigScope::UpdateValue(const std::string &key, Any value) {
+    if (!ConfigManagerNg::GetInstance().IsWithinRange(key, value)) {
+        std::stringstream os("Option:");
+        std::map<std::string, Any> node;
+        node[key] = value;
+        DumpValues(os, node, "");
+        os << ", its value doesn't within the value range.";
+        DumpRange(os, value.Type(), key, ConfigManagerNg::GetInstance().Range());
+        os << "\n";
+        throw std::runtime_error(os.str().c_str());
+    }
+    std::lock_guard<std::mutex> lock(mtx);
+    values_[key] = value;
 }
 
 struct ConfigManagerImpl {
@@ -206,6 +266,25 @@ struct ConfigManagerImpl {
         auto global = std::make_shared<ConfigScope>(root);
         global->name_ = "global";
         scopes.push(global);
+    }
+
+    inline bool IntervalJudge(const int64_t &stand, const int64_t &lf, const int64_t &rf) const {
+        return stand >= lf && stand <=rf;
+    }
+
+    bool IsWithinRange(const std::string &properties, const int64_t &value) const {
+        return IntervalJudge(value, typeInfo.rangeInfos.at(properties).first, typeInfo.rangeInfos.at(properties).second);
+    }
+
+    bool IsWithinRange(const std::string &properties, const std::map<int64_t, int64_t> &value) const {
+        auto ins = typeInfo.rangeInfos;
+        for (auto &[lf, rf] : value) {
+            if (!IntervalJudge(lf, ins.at(properties + "_key").first, ins.at(properties + "_key").second) ||
+            !IntervalJudge(rf, ins.at(properties + "_val").first, ins.at(properties + "_val").second)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     void BeginScope(const std::string &name, std::map<std::string, Any> &&values, const char *file, int lino) {
@@ -251,6 +330,7 @@ struct ConfigManagerImpl {
             os << prefix << "scope: " << node->name_ << "\n";
         }
         DumpValues(os, node->values_, prefix);
+        os << "\n";
         for (auto child : node->children_) {
             os << prefix << "--------\n";
             Dump(os, child, prefix + ' ');
@@ -329,8 +409,26 @@ std::shared_ptr<ConfigScope> ConfigManagerNg::CurrentScope() const {
     return impl_->scopes.top();
 }
 
+bool ConfigManagerNg::IsWithinRange(const std::string &properties, Any &value) const {
+    try {
+        if (value.Type() == typeid(std::map<int64_t, int64_t>)) {
+            return impl_->IsWithinRange(properties, AnyCast<std::map<int64_t, int64_t>>(value));
+        } else if (value.Type() == typeid(int64_t)) {
+            return impl_->IsWithinRange(properties, AnyCast<int64_t>(value));
+        }
+    } catch (const std::out_of_range &e) {
+        ALOG_ERROR_F("key[%s] has been not loaded form tile_fwk_config_schema.json.", properties.c_str());
+        return false;
+    }
+    return true;
+}
+
 const std::type_info &ConfigManagerNg::Type(const std::string &key) const {
     return impl_->typeInfo.Type(key);
+}
+
+const std::map<std::string, std::pair<int64_t, int64_t>> &ConfigManagerNg::Range() const {
+    return impl_->typeInfo.rangeInfos;
 }
 
 std::string ConfigManagerNg::GetOptionsTree() {
