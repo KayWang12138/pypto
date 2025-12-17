@@ -640,15 +640,12 @@ void TraceLogger::GetCounters()
             continue;
         }
 
-        int intervalCount = 0;
         int totalCount = 0;
         TimeStamp lastTime = 0;
         for (auto &count : threadCounter.second) {
             if (count.type == CounterType::QUEUE_PUSH) {
-                intervalCount++;
                 totalCount++;
             } else {
-                intervalCount--;
                 totalCount--;
             }
             if ((count.timestamp / interval) != (lastTime / interval)) {
