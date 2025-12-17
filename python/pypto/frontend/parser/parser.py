@@ -1113,7 +1113,9 @@ class Parser(doc.NodeVisitor):
         test_expr = self._eval_expr(node.test)
 
         if isinstance(test_expr, pypto.SymbolicScalar):
-            cond = pypto.cond(test_expr)
+            cond = pypto.cond(
+                test_expr, file=self.diag.source.source_name, lineno=node.lineno
+            )
         elif isinstance(test_expr, bool):
             cond = test_expr
         else:
