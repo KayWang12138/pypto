@@ -1809,7 +1809,7 @@ LogicalTensors Function::MakeOutcasts(const std::shared_ptr<TensorSlotScope> &sc
             } else {
                 DEFINE_SOURCE_LOCATION();
                 auto &assembleOp = AddOperation(Opcode::OP_ASSEMBLE, {iOperand[i]}, oOperand);
-                assembleOp.SetOpAttribute(std::make_shared<AssembleOpAttribute>(newOutcastOffsets[i]));
+                assembleOp.SetOpAttribute(std::make_shared<AssembleOpAttribute>(newOutcastOffsets[i], SymbolicScalar::FromConcrete(newOutcastOffsets[i])));
             }
         }
         // Substitute alive tensor magics
@@ -3385,7 +3385,7 @@ std::shared_ptr<LogicalTensor> Function::ConnectWithOverlap(std::shared_ptr<Logi
             ASSERT(assembleResult->GetProducers().empty());
             for (size_t i = 0; i < matches.size(); i++) {
                 auto &assembleOp = AddRawOperation(Opcode::OP_ASSEMBLE, {matches[i]}, {assembleResult});
-                assembleOp.SetOpAttribute(std::make_shared<AssembleOpAttribute>(offsetOfOverlaps[i]));
+                assembleOp.SetOpAttribute(std::make_shared<AssembleOpAttribute>(offsetOfOverlaps[i], SymbolicScalar::FromConcrete(offsetOfOverlaps[i])));
             }
             return assembleResult;
         }
@@ -3415,7 +3415,7 @@ std::shared_ptr<LogicalTensor> Function::ConnectWithOverlap(std::shared_ptr<Logi
             ASSERT(assembleResult->GetProducers().empty());
             for (size_t i = 0; i < matches.size(); i++) {
                 auto &assembleOp = AddRawOperation(Opcode::OP_ASSEMBLE, {matches[i]}, {assembleResult});
-                assembleOp.SetOpAttribute(std::make_shared<AssembleOpAttribute>(offsetOfOverlaps[i]));
+                assembleOp.SetOpAttribute(std::make_shared<AssembleOpAttribute>(offsetOfOverlaps[i], SymbolicScalar::FromConcrete(offsetOfOverlaps[i])));
             }
 
             auto viewResult = std::make_shared<LogicalTensor>(*this, assembleResult->Datatype(), iOperand->shape,
