@@ -1,2 +1,1 @@
 NetworkType,TestCaseName,Enable,CycleThreshold,ProfWarnUpCnt,ProfTryCnt,ProfMaxCnt,JitterRateThreshold
-DeepSeek,DynamicFFNTest.TestOnbroadDynamicFFNQuant,True,5400,1,,1,-0.1
