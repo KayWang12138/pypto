@@ -638,9 +638,12 @@ def mla_prolog_quant_v32(params, input_tensors, golden_data, dtype, w_dtype, is_
     if is_quant_b:
         k_scale = input_tensors["kv_quant_scale_cache"].npu()
         k_scale_cache_data = pypto.from_torch(k_scale, dynamic_axis=[0], name="k_scale_cache")
+        k_scale_cache_data_out = pypto.from_torch(k_scale, dynamic_axis=[0], name="k_scale_cache_out")
     else:
         k_scale_cache_data = pypto.from_torch(torch.zeros(k_scale_cache_out_shape, dtype=torch.float32).npu(), \
                         name="k_scale_cache")
+        k_scale_cache_data_out = pypto.from_torch(torch.zeros(k_scale_cache_out_shape, dtype=torch.float32).npu(), \
+                        name="k_scale_cache_out")
 
     if is_quant_b:
         dequant_scale_w_uq_qr_data = pypto.from_torch( \
@@ -653,7 +656,7 @@ def mla_prolog_quant_v32(params, input_tensors, golden_data, dtype, w_dtype, is_
                 rope_cos_data, rope_sin_data, cache_index_data,
                 kv_cache_data, kr_cache_data, k_scale_cache_data]
     output_data = [out_q_norm, out_q_norm_scale, out_q_nope,
-                out_q_rope, out_kv_cache, out_kr_cache, k_scale_cache_data]
+                out_q_rope, out_kv_cache, out_kr_cache, k_scale_cache_data_out]
     if is_p:
         mla_prolog_quant_p(*input_data, *output_data, 1e-5, 1e-5, cache_mode, tile_config)
     else:

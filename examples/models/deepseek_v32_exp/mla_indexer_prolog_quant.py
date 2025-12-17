@@ -48,7 +48,7 @@ def mla_indexer_prolog_quant_debug(token_x, mla_w_dq, mla_w_uq_qr, mla_dequant_s
                          mla_k_scale_cache)
     mla_output_tensors = (mla_q_norm_out, mla_q_norm_scale_out, mla_query_nope_out, mla_query_rope_out,
                           mla_kv_cache_out, mla_kr_cache_out, mla_k_scale_cache_out)
-    mla.mla_prolog_quant_compute(mla_input_tensors, mla_output_tensors, mla_epsilon_cq, mla_epsilon_ckv,
+    mla.mla_prolog_quant_compute(*mla_input_tensors, *mla_output_tensors, mla_epsilon_cq, mla_epsilon_ckv,
                                    mla_cache_mode,
                                    mla_tile_config)
 
@@ -61,7 +61,7 @@ def mla_indexer_prolog_quant_debug(token_x, mla_w_dq, mla_w_uq_qr, mla_dequant_s
                         ip_w_proj_in, ip_ln_gamma_k_in, ip_ln_beta_k_in, cos, sin, ip_hadamard_q_in, ip_hadamard_k_in,
                         ip_k_cache, ip_k_cache_scale, cache_index)
     ip_output_tensors = (ip_q_int8_out, ip_q_scale_out, ip_k_int8_out, ip_k_scale_out, ip_weights_out)
-    ip.lightning_indexer_prolog_quant_compute(ip_input_tensors, ip_output_tensors, ip_attrs, ip_configs)
+    ip.lightning_indexer_prolog_quant_compute(*ip_input_tensors, *ip_output_tensors, ip_attrs, ip_configs)
 
 
 @pypto.jit
