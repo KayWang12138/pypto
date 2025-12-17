@@ -89,36 +89,23 @@ function(PTO_Fwk_UTest_RunExe)
         set(Comment "Run GTest(${ARG_TARGET}), XSAN(ASAN:${ENABLE_ASAN} UBSAN:${ENABLE_UBSAN})")
 
         if (ARG_GTEST_FILTER_LIST)
-            if (ENABLE_TESTS_EXECUTE_PARALLEL)
-                # 仅在使能并行执行全局开关, 且需要做 filter 时才进行执行加速
-                set(_File $<TARGET_FILE:${ARG_TARGET}>)
-                set(_Args "-t=${_File}" "--gtest_filter=${GtestFilterStr}" "--halt_on_error")
-                if (ENABLE_TESTS_EXECUTE_PARALLEL_TIMEOUT)
-                    list(APPEND _Args "--timeout=${ENABLE_TESTS_EXECUTE_PARALLEL_TIMEOUT}")
-                endif ()
-                if (PyEnvLines)
-                    list(APPEND _Args "--env" "${PyEnvLines}")
-                endif ()
-                get_filename_component(ParallelPy    "${PTO_FWK_SRC_ROOT}/framework/tests/cmake/scripts/python/utest_accelerate.py" REALPATH)
-                get_filename_component(ParallelPyCwd "${PTO_FWK_SRC_ROOT}/framework/tests/cmake/scripts/python" REALPATH)
-                add_custom_command(
-                        TARGET ${ARG_TARGET} POST_BUILD
-                        COMMAND ${PyCmdSetup} ${Python3_EXECUTABLE} ${ParallelPy} ARGS ${_Args}
-                        COMMENT "${Comment} With Parallel Execute Accelerate"
-                        WORKING_DIRECTORY ${ParallelPyCwd}
-                )
-            else ()
-                set(GtestFilterListIdx 1)
-                foreach (Filter ${ARG_GTEST_FILTER_LIST})
-                    add_custom_command(
-                            TARGET ${ARG_TARGET} POST_BUILD
-                            COMMAND ${BashCmdSetup} ./${ARG_TARGET} ARGS '--gtest_filter=${Filter}'
-                            COMMENT "${Comment} [${GtestFilterListIdx}/${GtestFilterListLen}] With --gtest_filter=${Filter}"
-                            WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
-                    )
-                    math(EXPR GtestFilterListIdx "${GtestFilterListIdx} + 1")
-                endforeach ()
+            # 使能并行执行
+            set(_File $<TARGET_FILE:${ARG_TARGET}>)
+            set(_Args "-t=${_File}" "--gtest_filter=${GtestFilterStr}" "--halt_on_error")
+            if (ENABLE_TESTS_EXECUTE_PARALLEL_TIMEOUT)
+                list(APPEND _Args "--timeout=${ENABLE_TESTS_EXECUTE_PARALLEL_TIMEOUT}")
             endif ()
+            if (PyEnvLines)
+                list(APPEND _Args "--env" "${PyEnvLines}")
+            endif ()
+            get_filename_component(ParallelPy    "${PTO_FWK_SRC_ROOT}/framework/tests/cmake/scripts/python/utest_accelerate.py" REALPATH)
+            get_filename_component(ParallelPyCwd "${PTO_FWK_SRC_ROOT}/framework/tests/cmake/scripts/python" REALPATH)
+            add_custom_command(
+                    TARGET ${ARG_TARGET} POST_BUILD
+                    COMMAND ${PyCmdSetup} ${Python3_EXECUTABLE} ${ParallelPy} ARGS ${_Args}
+                    COMMENT "${Comment} With Parallel Execute Accelerate"
+                    WORKING_DIRECTORY ${ParallelPyCwd}
+            )
         else ()
             add_custom_command(
                     TARGET ${ARG_TARGET} POST_BUILD
