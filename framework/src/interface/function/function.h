@@ -402,7 +402,7 @@ struct DyndevFunctionAttribute {
 
     std::vector<SymbolHandler> startArgsSymbolHandlerList;
 
-    uint32_t commGroupNum{0};
+    std::vector<std::string> commGroupNames;
 
     std::vector<uint8_t> devProgBinary;
 

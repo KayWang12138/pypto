@@ -709,7 +709,7 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[ma
     FindAllExpression(cache, linker, function);
 
     FillL2PrefetchInfo(attr);
-    attr->commGroupNum = npu::tile_fwk::Distributed::CommGroupRecorder::GetInstance().Output().size();
+    attr->commGroupNames = npu::tile_fwk::Distributed::CommGroupRecorder::GetInstance().Output();
     auto slotManager = Program::GetInstance().GetTensorSlotManager();
     attr->inoutLink = slotManager->BuildIncastOutcastLink(function->GetRawName());
 

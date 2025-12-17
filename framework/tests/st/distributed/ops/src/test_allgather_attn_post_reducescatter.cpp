@@ -93,8 +93,8 @@ void TestAllGatherAttentionPostReducescatter(OpTestParam &testParam)
             Distributed::ShmemReduceScatter(attnOut, testParam.group, DistReduceType::DIST_REDUCE_ADD, out);
         }
     }
-    auto funcOp = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    auto hcclContext = GetHcclContext({std::string(testParam.group)});
+    auto dynAttr = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
+    auto hcclContext = GetHcclContext(dynAttr->commGroupNames);
     DeviceLauncherConfig config;
     config.runModel = false;
     config.hcclContext = hcclContext;

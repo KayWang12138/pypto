@@ -72,7 +72,8 @@ void TestDynAllGatherMatmulReducescatter(OpTestParam &testParam)
             ShmemAllGather(reduceScatterOut, barrierDummy, testParam.group, out);
         }
     }
-    auto hcclContext = GetHcclContext({std::string(testParam.group)});
+    auto dynAttr = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
+    auto hcclContext = GetHcclContext(dynAttr->commGroupNames);
     DeviceLauncherConfig config;
     config.runModel = false;
     config.hcclContext = hcclContext;

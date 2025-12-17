@@ -26,8 +26,7 @@ namespace npu::tile_fwk::Distributed {
 void TestShmemMoeDispatch(OpTestParam &testParam)
 {
     constexpr size_t paramsSize = 5;
-    auto [batchSize, hiddenSize, routedNum, topK, typeNum] = 
-        GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
+    auto [batchSize, hiddenSize, routedNum, topK, typeNum] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
     DataType dType = GetDataTypeNum(typeNum);
     int32_t totalExpertNum = routedNum;
     int32_t expertNumPerRank = totalExpertNum / testParam.rankSize;
@@ -69,7 +68,8 @@ void TestShmemMoeDispatch(OpTestParam &testParam)
         RawTensorData::CreateTensor(combineInfo, std::vector<int32_t>(combineInfoEleNum, -1))
     });
 
-    auto hcclContext = GetHcclContext({std::string(testParam.group)});
+    auto dynAttr = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
+    auto hcclContext = GetHcclContext(dynAttr->commGroupNames);
     DeviceLauncherConfig config;
     config.runModel = false;
     config.hcclContext = hcclContext;
