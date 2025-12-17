@@ -298,7 +298,7 @@ struct ConfigManagerImpl {
 
     void EndScope(const char *file, int lino) {
         /* at least default and global two levels */
-        ASSERT(scopes.size() >= 2) << "No scope to pop";
+        ASSERT(scopes.size() >= 0x2) << "No scope to pop";
         auto &scope = scopes.top();
         scope->end_file_ = file;
         scope->end_lino_ = lino;

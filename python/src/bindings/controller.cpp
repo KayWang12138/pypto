@@ -310,9 +310,9 @@ void bind_controller_scope_classes(py::module &m) {
 
     py::class_<CubeTile>(m, "CubeTile")
     .def(py::init<>())
-    .def(py::init<std::array<int64_t, 2>,
-                  std::array<int64_t, 3>,
-                  std::array<int64_t, 2>,
+    .def(py::init<std::array<int64_t, 0x2>,
+                  std::array<int64_t, 0x3>,
+                  std::array<int64_t, 0x2>,
                   bool>(),
          py::arg("m"),
          py::arg("k"),
