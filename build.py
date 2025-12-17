@@ -1156,9 +1156,11 @@ class BuildCtrl(CMakeParam):
             if not whl:
                 raise RuntimeError(f"Can't find {self.feature.whl_name} whl file from {dist}")
             self.pip_install(whl=whl, dest=dist, opt="--no-compile --no-deps")  # 安装 whl 包
-        # 执行用例, UTest
+        # 执行用例, UTest。在 Python 3.12 中，pytest-xdist 通过 os.fork() 创建子进程时会产生 DeprecationWarning。
+        # 使用 -W ignore::DeprecationWarning 参数来忽略该警告。
         self.py_tests_run_pytest(dist=dist, tests=self.tests.utest,
-                                 def_filter=str(Path(self.src_root, "python/tests/ut")), ext="-n auto --forked")
+                                 def_filter=str(Path(self.src_root, "python/tests/ut")),
+                                 ext="-n auto --forked -W ignore::DeprecationWarning")
         # 执行用例, STest
         self.py_tests_run_pytest(dist=dist, tests=self.tests.stest,
                                  def_filter=str(Path(self.src_root, "python/tests/st")), ext="--forked")
