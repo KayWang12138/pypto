@@ -21,7 +21,6 @@
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "interface/configs/config_manager.h"
-#include "passes/pass_check/assign_memory_type_checker.h"
 #include "passes/pass_log/pass_log.h"
 
 #define MODULE_NAME "AssignMemoryType"
@@ -79,9 +78,13 @@ Status AssignMemoryType::RunOnFunction(Function &function) {
     APASS_LOG_INFO_F(Elements::Function, "===> End AssignMemoryType.");
     return SUCCESS;
 }
+
 Status AssignMemoryType::PreCheck(Function &function){
-    AssignMemoryTypeChecker checker;
     return checker.DoPreCheck(function);
+}
+
+Status AssignMemoryType::PostCheck(Function &function){
+    return checker.DoPostCheck(function);
 }
 
 void AssignMemoryType::RunOnOperation(Operation &operation) {
