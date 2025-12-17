@@ -15,46 +15,57 @@
 
 #ifndef PASS_SET_HEURISTIC_TILE_SHAPES_H_
 #define PASS_SET_HEURISTIC_TILE_SHAPES_H_
+ 
+#define CUBE_TILES // comment to disable
+#define VECTOR_TILES // comment to disable
 
 #include "passes/pass_interface/pass.h"
-
+#include "passes/pass_config/pass_config_manager.h"
+ 
 namespace npu::tile_fwk {
+// Neseccary params
 constexpr int64_t M_DIM = 0;
 constexpr int64_t K_DIM = 1;
 constexpr int64_t N_DIM = 2;
 constexpr int64_t FACTOR = 2;
-constexpr int64_t MIN_MKN = 16;
-
+constexpr int64_t MIN_TILE = 16;
 constexpr int64_t MAX_MDIM = 2;
 constexpr int64_t MAX_KDIM = 3;
 constexpr int64_t MAX_NDIM = 2;
 
-constexpr int64_t L0A_MAX_SIZE = 64 * 1024;
-constexpr int64_t L0B_MAX_SIZE = 64 * 1024;
-constexpr int64_t L0C_MAX_SIZE = 128 * 1024;
-
+constexpr const int64_t MIN_TILE_SIZE = 2048;
+constexpr const int64_t MAX_TILE_SIZE = 192 * 1024 / 4; // 4 - max num of In/Out/Tmp buffers
+constexpr const int64_t DEFAULT_TILE_SIZE = 4096;
 constexpr const int64_t BYTES_PER_REPEAT = 256;
 constexpr const int64_t DEFAULT_MAX_PARALLELISM = 128;
 constexpr const int64_t DEFAULT_LATENCY = 10;
-
-// Additional variable parameters
+constexpr const int64_t UINT8MAX = 255;
+constexpr const int64_t TRANSPOSE_VNCHWCONV_LAST_DIM = 2;
+constexpr const int64_t VNCHWCONV_POINTERS = 32;
+ 
+// Additional cube variable parameters
 constexpr int64_t DOUBLE_BUFFER = 1; // 1 - disable, 2 - enable
-constexpr double CUBE_CORES = 24;
 constexpr int64_t WHOLE_M_SCORE = 2;
 constexpr int64_t WHOLE_K_SCORE = 2;
 constexpr int64_t WHOLE_N_SCORE = 2;
 constexpr int64_t WEIGHT_L0 = 200;
-constexpr int64_t TASKS_WEIGHT = 5;
-constexpr double RESIDUAL_TASKS_WEIGHT = 0.2;
+constexpr double TASKS_CUBE_WEIGHT = 0.5;
+constexpr double RESIDUAL_CUBE_TASKS_WEIGHT = 0.2;
 constexpr int64_t BALANCE_WEIGHT = 1;
 constexpr int64_t CYCLES_WEIGHT = 2;
-
+ 
+// Additional vector variable parameters
+constexpr double LAST_AXIS_WEIGHT = 0.1;
+constexpr double WEIGHT_UB = 10;
+constexpr double TASKS_VECTOR_WEIGHT = 0.7;
+constexpr double RESIDUAL_VECTOR_TASKS_WEIGHT = 2;
+ 
 class SetHeuristicTileShapes : public Pass {
 public:
    SetHeuristicTileShapes() : Pass("SetHeuristicTileShapes") {}
    ~SetHeuristicTileShapes() override = default;
    Status RunOnFunction(Function &function) override;
-
+ 
 private:
    void SetHeuristicTileShapesFunc(Function &function) const;
 };
