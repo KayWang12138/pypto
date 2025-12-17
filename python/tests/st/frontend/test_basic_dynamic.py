@@ -10,13 +10,13 @@ N = pypto.frontend.dynamic("N")
 M = 1024
 VIEW_SHAPE = (32, 32)
 
+FLAG = False
 
 @pypto.frontend.jit()
 def basic_dynamic(
     a: pypto.Tensor((N, M), pypto.DT_FP32),
     b: pypto.Tensor((N, M), pypto.DT_FP32),
     c: pypto.Tensor((N, M), pypto.DT_FP32),
-    flag: bool,
 ) -> (
     pypto.Tensor((N, M), pypto.DT_FP32),
     pypto.Tensor((N, M), pypto.DT_FP32),
@@ -24,12 +24,12 @@ def basic_dynamic(
     pypto.set_vec_tile_shapes(32, 32)
     d = pypto.tensor((N, M), pypto.DT_FP32)
     e = pypto.tensor((N, M), pypto.DT_FP32)
-    
+
     for bs_idx in pypto.loop(32, unroll_List={16}):
         tile_a = pypto.view(a, (32, 1024), [bs_idx * 32, 0])
         tile_b = pypto.view(b, (32, 1024), [bs_idx * 32, 0])
         tile_c = pypto.view(c, (32, 1024), [bs_idx * 32, 0])
-        if flag:
+        if FLAG:
             tile_a[:] = pypto.add(tile_a, tile_c)
         else:
             tile_a[:] = pypto.sub(tile_a, tile_c)
@@ -49,14 +49,13 @@ def test_basic_dynamic_run():
     a = torch.zeros((n, m), dtype=torch.float32, device=f"npu:{device_id}")
     b = torch.zeros((n, m), dtype=torch.float32, device=f"npu:{device_id}")
     c = torch.rand((n, m), dtype=torch.float32, device=f"npu:{device_id}")
-    flag = False
 
-    d, e = basic_dynamic(a, b, c, flag)
+    d, e = basic_dynamic(a, b, c)
 
     pypto.runtime._device_synchronize()
 
     for _ in range(1):
-        if flag:
+        if FLAG:
             a = a + c
         else:
             a = a - c

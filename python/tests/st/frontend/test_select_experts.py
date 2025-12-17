@@ -16,14 +16,14 @@ def ceil_div(a: int, b: int) -> int:
     return (a + b - 1) // b
 
 
+renormalize = True
+
+
 @pypto.frontend.jit(
     host_options={"only_codegen": True},
     codegen_options={"support_dynamic_unaligned": True},
 )
-def select_experts(
-    logits_input: pypto.Tensor((BS, NE), pypto.DT_FP16),
-    renormalize: bool,
-) -> (
+def select_experts(logits_input: pypto.Tensor((BS, NE), pypto.DT_FP16)) -> (
     pypto.Tensor((BS, TOP_K), pypto.DT_INT32),
     pypto.Tensor((BS, TOP_K), pypto.DT_FP16),
 ):
@@ -64,32 +64,29 @@ def select_experts(
 
 
 def test_select_experts():
-    # 1. 设置参数
+    # 1. Set parameters
     bs = 4959
     batch_sizes = [4959, 1, 129]
     ne = 128
     top_k = 8
-    renormalizes = [True, True, False]
     device_id = int(os.environ.get("TILE_FWK_DEVICE_ID", 0))
     torch.npu.set_device(device_id)
 
-    # 2. 构造多种shape，测试动态case
-    for i in range(len(batch_sizes)):
-        bs = batch_sizes[i]
-        renormalize = renormalizes[i]
-        # 3. 准备测试数据
+    # 2. Build multiple shapes to test dynamic cases
+    for bs in batch_sizes:
+        # 3. Prepare test data
         np.random.seed(0)
         router_logits = torch.rand(
             (bs, ne), dtype=torch.float16, device=f"npu:{device_id}"
         )
 
-        # 4. 执行kernel并获取结果
-        topk_ids, topk_weights = select_experts(router_logits, renormalize)
+        # 4. Run kernel and get results
+        topk_ids, topk_weights = select_experts(router_logits)
         pypto.runtime._device_synchronize()
         print(f"topk_ids: {topk_ids}")
         print(f"topk_weights: {topk_weights}")
 
-        # 5. 与PyTorch参考实现对比
+        # 5. Compare with PyTorch reference
         result = torch.softmax(router_logits.to(torch.float32), dim=-1)
         topk_weight_tensor, topk_ids_tensor = torch.topk(
             result, top_k, dim=-1, largest=True, sorted=True

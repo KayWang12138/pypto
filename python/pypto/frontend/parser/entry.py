@@ -117,7 +117,6 @@ class JitCallableWrapper:
         self._original_func = original_func
         self._handler = handler
         self._is_compiled = pto_function is not None
-        self._compiled_non_tensor_args: Optional[dict[str, Any]] = None
         self._parser = None  # Store parser for lazy parsing
         self._codegen_options = (
             None if codegen_options is None else dict(codegen_options)
@@ -164,47 +163,20 @@ class JitCallableWrapper:
         parser = Parser(source, captured_vars)
         return parser
 
-    def _extract_non_tensor_args(
-        self, args: tuple[Any, ...], kwargs: dict[str, Any]
-    ) -> dict[str, Any]:
-        """Extract concrete non-tensor arguments from the call."""
-        signature = inspect.signature(self._original_func)
-        bound = signature.bind_partial(*args, **kwargs)
-        bound.apply_defaults()
-        return {
-            name: value
-            for name, value in bound.arguments.items()
-            if not isinstance(value, torch.Tensor)
-        }
-
-    def _non_tensor_args_match(self, non_tensor_args: dict[str, Any]) -> bool:
-        """Check whether we already compiled for the given non-tensor args."""
-        if self._compiled_non_tensor_args is None:
-            return False
-        try:
-            return self._compiled_non_tensor_args == non_tensor_args
-        except Exception:
-            # If args are not directly comparable, force recompilation.
-            return False
-
     def _compile_if_needed(
         self,
         concrete_input_shapes: list[list[int]],
-        non_tensor_args: dict[str, Any],
     ):
         """Compile the function on first call if not already compiled."""
-        if self._is_compiled and self._non_tensor_args_match(non_tensor_args):
+        if self._is_compiled:
             return
 
-        # Re-create parser so compilation matches current non-tensor args
+        # Re-create parser for compilation
         self._parser = self._create_parser()
         self._parser.parse()
 
-        # Bind concrete non-tensor arguments so parsing can use runtime values
-        self._parser.bind_non_tensor_args(non_tensor_args)
-
         # Get function signature (inputs and outputs) for OperatorBegin
-        input_tensors, _, output_tensors = self._parser.get_signature()
+        input_tensors, output_tensors = self._parser.get_signature()
 
         # Initialize backend for compilation
         pypto_impl.DeviceInit()
@@ -226,7 +198,6 @@ class JitCallableWrapper:
         self._pto_function = self._parser.execute()
         pypto_impl.OperatorEnd(handler)
         self._handler = handler
-        self._compiled_non_tensor_args = dict(non_tensor_args)
         self._is_compiled = True
 
     def __call__(self, *args, **kwargs):
@@ -235,9 +206,9 @@ class JitCallableWrapper:
         Parameters
         ----------
         *args : torch.Tensor
-            Input tensors followed by any additional arguments.
+            Input tensors (all arguments must be torch.Tensor).
         **kwargs : Any
-            Additional keyword arguments.
+            Not supported - all arguments must be positional tensors.
 
         Returns
         -------
@@ -245,8 +216,21 @@ class JitCallableWrapper:
             Output tensor(s).
         """
 
-        in_tensors = [arg for arg in args if isinstance(arg, torch.Tensor)]
-        non_tensor_args = self._extract_non_tensor_args(args, kwargs)
+        # Validate that all arguments are tensors
+        if kwargs:
+            raise RuntimeError(
+                "pypto.frontend.jit requires that all arguments must be tensors. "
+                "Keyword arguments are not supported."
+            )
+
+        for i, arg in enumerate(args):
+            if not isinstance(arg, torch.Tensor):
+                raise RuntimeError(
+                    f"pypto.frontend.jit requires that all arguments must be pypto.tensor. "
+                    f"Argument at position {i} is {type(arg).__name__}, not a tensor."
+                )
+
+        in_tensors = list(args)
 
         # Validate input tensors are contiguous
         for in_tensor in in_tensors:
@@ -275,11 +259,10 @@ class JitCallableWrapper:
         # Resolve symbolic dimensions using current input shapes so outputs
         # allocated below match the runtime dynamic sizes.
         concrete_input_shapes = [list(in_tensor.shape) for in_tensor in in_tensors]
-        self._compile_if_needed(concrete_input_shapes, non_tensor_args)
+        self._compile_if_needed(concrete_input_shapes)
         symbolic_dim_value_map = {}
         tmp_parser = self._create_parser()
-        tmp_parser.bind_non_tensor_args(non_tensor_args)
-        input_tensor_defs, _, output_tensor_defs = tmp_parser.get_signature()
+        input_tensor_defs, output_tensor_defs = tmp_parser.get_signature()
         symbolic_dim_value_map = tmp_parser.match_input_shapes(
             concrete_input_shapes, input_tensor_defs
         )

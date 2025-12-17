@@ -78,7 +78,7 @@ class Parser(doc.NodeVisitor):
     _parsed_extra_vars: dict[str, Any]
     _result: Optional[Any]
     _signature_cache: Optional[
-        tuple[list[pypto.Tensor], list[tuple[str, type]], list[pypto.Tensor]]
+        tuple[list[pypto.Tensor], list[pypto.Tensor]]
     ]
 
     # ==========================================================================================
@@ -145,7 +145,7 @@ class Parser(doc.NodeVisitor):
 
         # Get the signature to know which inputs have symbolic dimensions
         if input_tensor_defs is None:
-            input_tensor_defs, _, _ = self.get_signature()
+            input_tensor_defs, _ = self.get_signature()
 
         def _assign_dim_value(dim: pypto.SymbolicScalar, actual_value: int) -> None:
             if dim_value_map.get(str(dim), actual_value) != actual_value:
@@ -185,15 +185,11 @@ class Parser(doc.NodeVisitor):
 
         self._bound_dim_values = self.match_input_shapes(inputs)
 
-    @_catch_parser_errors
-    def bind_non_tensor_args(self, args: dict[str, Any]) -> None:
-        """Inject concrete non-tensor argument values for parsing/execution."""
-        self._parsed_extra_vars.update(args)
 
     @_catch_parser_errors
     def get_signature(
         self,
-    ) -> tuple[list[pypto.Tensor], list[tuple[str, type]], list[pypto.Tensor]]:
+    ) -> tuple[list[pypto.Tensor], list[pypto.Tensor]]:
         """Extract function signature (inputs and outputs) without full parsing.
 
         Returns
@@ -230,10 +226,8 @@ class Parser(doc.NodeVisitor):
             # If sample inputs were provided, use them to concretize symbolic dims.
             self._apply_bound_dim_values_to_context_frame()
 
-            # Get input arguments
-            tensor_input_args, non_tensor_input_args = self._visit_arguments(
-                function_node.args
-            )
+            # Get input arguments (only tensors allowed)
+            tensor_input_args = self._visit_arguments(function_node.args)
 
             # Get and validate output arguments
             output_expr = self._visit_expr(function_node.returns)
@@ -243,7 +237,6 @@ class Parser(doc.NodeVisitor):
 
             self._signature_cache = (
                 tensor_input_args,
-                non_tensor_input_args,
                 output_tensors,
             )
 
@@ -731,7 +724,7 @@ class Parser(doc.NodeVisitor):
 
         with self.context.with_frame():
             # Step 1: Extract function signature
-            tensor_input_args, _, output_args = self.get_signature()
+            tensor_input_args, output_args = self.get_signature()
 
             # Step 2: Validate output arguments
             self._validate_output_args(output_args, node)
@@ -757,7 +750,7 @@ class Parser(doc.NodeVisitor):
 
         return pypto.functions.get_last_function()
 
-    def _visit_arg(self, node: doc.arg) -> Union[list, tuple]:
+    def _visit_arg(self, node: doc.arg) -> pypto.Tensor:
         """The general arg visiting method.
 
         Parameters
@@ -767,11 +760,8 @@ class Parser(doc.NodeVisitor):
 
         Returns
         -------
-        res : tuple[str, Any, bool]
-            A tuple of (name, value, is_tensor) where:
-            - name: the argument name
-            - value: the argument value (Tensor or type)
-            - is_tensor: True if it's a tensor argument, False otherwise
+        res : pypto.Tensor
+            The tensor argument.
 
         Note
         ----
@@ -789,21 +779,18 @@ class Parser(doc.NodeVisitor):
         anno = self._visit_expr(node.annotation)
         if isinstance(anno, pypto.Tensor):
             anno.name = name
-            return name, anno
-        elif isinstance(anno, type):
-            # Non-tensor type annotation (e.g., bool, int, str, etc.)
-            return name, anno
+            return anno
         else:
             raise ParserError(
                 node,
                 TypeError(
-                    f"Annotation must be a tensor or type, but got {type(anno)}."
+                    f"All function arguments must be pypto.Tensor, but got {type(anno).__name__}."
                 ),
             )
 
     def _visit_arguments(
         self, node: doc.arguments
-    ) -> tuple[list[pypto.Tensor], list[tuple[str, type]]]:
+    ) -> list[pypto.Tensor]:
         """The general arguments visiting method.
 
         Parameters
@@ -813,10 +800,8 @@ class Parser(doc.NodeVisitor):
 
         Returns
         -------
-        res : tuple[list[pypto.Tensor], list[tuple[str, type]]]
-            A tuple of (tensor_args, non_tensor_args) where:
-            - tensor_args: list of Tensor arguments
-            - non_tensor_args: list of (name, type) tuples for non-tensor arguments
+        res : list[pypto.Tensor]
+            List of Tensor arguments.
         """
         if node.vararg is not None:
             raise ParserError(
@@ -867,29 +852,20 @@ class Parser(doc.NodeVisitor):
                 ),
             )
 
-        # Process all arguments and separate tensors from non-tensors
+        # Process all arguments (only tensors allowed)
         tensor_args = []
-        non_tensor_args = []
 
         for arg in node.args:
             result = self._visit_arg(arg)
-            if isinstance(result, tuple):
-                name, value = result
-                if isinstance(value, pypto.Tensor):
-                    tensor_args.append(value)
-                else:
-                    non_tensor_args.append((name, value))
+            if isinstance(result, pypto.Tensor):
+                tensor_args.append(result)
             elif isinstance(result, list):
                 # Handle nested tuples/lists if needed
                 for item in result:
-                    if isinstance(item, tuple):
-                        name, value = item
-                        if isinstance(value, pypto.Tensor):
-                            tensor_args.append(value)
-                        else:
-                            non_tensor_args.append((name, value))
+                    if isinstance(item, pypto.Tensor):
+                        tensor_args.append(item)
 
-        return tensor_args, non_tensor_args
+        return tensor_args
 
     def _visit_for(self, node: doc.For) -> Any:
         """The general for visiting method.

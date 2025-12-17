@@ -7,13 +7,12 @@ from numpy.testing import assert_allclose
 
 N = 1024
 M = 1024
-
+IS_ADD = True
 
 @pypto.frontend.jit()
 def basic_if_else(
     a: pypto.Tensor((N, M), pypto.DT_FP32),
     b: pypto.Tensor((N, M), pypto.DT_FP32),
-    is_add: bool,
 ) -> (
     pypto.Tensor((N, M), pypto.DT_FP32),
 ):
@@ -22,7 +21,7 @@ def basic_if_else(
 
     pypto.set_vec_tile_shapes(32, 32)
 
-    if is_add:
+    if IS_ADD:
         c[:] = pypto.add(a, b)
     else:
         c[:] = pypto.sub(a, b)
@@ -39,13 +38,12 @@ def test_basic_if_else_run():
     np.random.seed(0)
     a = torch.rand((n, m), dtype=torch.float32, device=f"npu:{device_id}")
     b = torch.rand((n, m), dtype=torch.float32, device=f"npu:{device_id}")
-    is_add = True
 
-    c = basic_if_else(a, b, is_add)
+    c = basic_if_else(a, b)
 
     pypto.runtime._device_synchronize()
 
-    if is_add:
+    if IS_ADD:
         c_golden = (a + b).cpu()
     else:
         c_golden = (a - b).cpu()
