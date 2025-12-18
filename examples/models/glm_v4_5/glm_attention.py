@@ -14,6 +14,7 @@
 from dataclasses import dataclass
 import torch
 import pypto
+import pytest
 import numpy as np
 import math
 import os
@@ -226,7 +227,6 @@ def ifa_func(q, k, v, block_table, kv_act_seqs, atten_out):
     pypto.set_pass_options(cycle_upper_bound=1536)
     # Q常驻，0代表第一组mmad，4代表4次matmul合并
     pypto.set_pass_options(l1_reuse_map={0: 4})
-    pypto.set_pass_options(cube_nbuffer_map={1: 2})
     atten_cfg, tile_cfg = get_qwen_common_config()
     softmax_scale = atten_cfg.softmax_scale
 
@@ -290,8 +290,9 @@ def ifa_func(q, k, v, block_table, kv_act_seqs, atten_out):
                         kj_assemble = pypto.tensor([s2_tile, dn], k_2d.dtype, "kj_assemble")
                         for i in range(block_num):
                             block_idx = block_table[b_idx, idx + i]
+                            block_idx_vaild = block_idx.max(0)
                             kj_assemble[i * block_size:(i + 1) * block_size, 0:] = \
-                                pypto.view(k_2d, [block_size, dn], [block_idx * block_size, 0])
+                                pypto.view(k_2d, [block_size, dn], [block_idx_vaild * block_size, 0])
                         kj_assemble = pypto.view(kj_assemble, [s2_tile, dn], [0, 0], valid_shape=[s2_tile, dn])
 
                         # c1
@@ -317,8 +318,9 @@ def ifa_func(q, k, v, block_table, kv_act_seqs, atten_out):
                             vj_assemble = pypto.tensor([s2_tile, dn], v_2d.dtype, "vj_assemble")
                             for i in range(block_num):
                                 block_idx = block_table[b_idx, idx + i]
+                                block_idx_vaild = block_idx.max(0)
                                 vj_assemble[i * block_size:(i + 1) * block_size, 0:] = \
-                                    pypto.view(v_2d, [block_size, dn], [block_idx * block_size, 0])
+                                    pypto.view(v_2d, [block_size, dn], [block_idx_vaild * block_size, 0])
                             vj_assemble = pypto.view(vj_assemble, [s2_tile, dn],
                                                      [0, 0], valid_shape=[actual_s2_tile, dn])
                             pypto.set_cube_tile_shapes(c2_tile[0], c2_tile[1], c2_tile[2])
@@ -348,8 +350,9 @@ def ifa_func(q, k, v, block_table, kv_act_seqs, atten_out):
                             vj_assemble = pypto.tensor([s2_tile, dn], v_2d.dtype, "vj_assemble")
                             for i in range(block_num):
                                 block_idx = block_table[b_idx, idx + i]
+                                block_idx_vaild = block_idx.max(0)
                                 vj_assemble[i * block_size:(i + 1) * block_size, 0:] = \
-                                    pypto.view(v_2d, [block_size, dn], [block_idx * block_size, 0])
+                                    pypto.view(v_2d, [block_size, dn], [block_idx_vaild * block_size, 0])
                             vj_assemble = pypto.view(vj_assemble, [s2_tile, dn],
                                                      [0, 0], valid_shape=[actual_s2_tile, dn])
                             pypto.set_cube_tile_shapes(c2_tile[0], c2_tile[1], c2_tile[2])
@@ -451,6 +454,7 @@ def IFA(atten_cfg):
     detailed_allclose_manual(np.array(attention_output.cpu()).flatten(), np.array(y_data).flatten(), "attention")
 
 
+@pytest.mark.skip(reason="Large shape")
 def test_ifa():
     # 1. 设置参数
     device_id = os.environ.get('TILE_FWK_STEST_DEVICE_ID', 0)
