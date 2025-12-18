@@ -13,6 +13,8 @@
  * \brief
  */
 
+#ifndef GENTASK_UTILS_H_
+#define GENTASK_UTILS_H_
 #include "graph/kernel_launch_info.h"
 
 using namespace ge;
@@ -32,4 +34,5 @@ class GentaskUtils {
                                            std::vector<std::vector<uint8_t>> &tasks);
 };
 } // namespace ops
+#endif
 

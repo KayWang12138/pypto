@@ -306,7 +306,7 @@ public:
         auto currentTime = GetCycles();
         DEV_DEBUG("CostModel AICore polling aicore %d, time %lu.", coreIdx, currentTime);
         if (taskIds[coreIdx].empty()) return AICORE_FUNC_STOP | AICORE_FIN_MASK;
-        uint64_t taskId;
+        uint64_t taskId = 0;
         while (!taskIds[coreIdx].empty() && currentTime >= taskTimes[coreIdx].front()) {
             taskId = taskIds[coreIdx].front();
             taskTimes[coreIdx].pop_front();

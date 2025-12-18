@@ -284,7 +284,7 @@ public:
                 } 
                 return ret;
             }
-            auto devStartArgs = (DevStartArgs *)deviceArgs->startArgsAddr;
+            auto devStartArgs = reinterpret_cast<DevStartArgs *>(deviceArgs->startArgsAddr);
             devStartArgs->syncFlag = 1;
             aicoreProf_.ProfStart();
         }

@@ -39,10 +39,10 @@
 #include "load_aicpu_op.h"
 #include "tilefwk/platform.h"
 #include "machine/platform/platform_manager.h"
+#include "machine/runtime/device_error_tracking.h"
 #include "nlohmann/json.hpp"
 
 using json = nlohmann::json;
-
 extern char _binary_kernel_o_start[];
 extern char _binary_kernel_o_end[];
 
@@ -709,6 +709,7 @@ int DeviceRunner::DynamicSeparateLaunch(rtStream_t aicpuStream, rtStream_t ctrlS
 
 int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, rtStream_t aicoreStream, int64_t taskId,
     AstKernelArgs *kernelArgs, int blockdim, int launchAicpuNum) {
+    InitializeErrorCallback();
     if (!g_IsFirstInit) {
         InitAiCpuSoBin();
     }

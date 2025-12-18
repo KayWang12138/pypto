@@ -24,7 +24,7 @@
 
 namespace npu::tile_fwk::dynamic {
 
-typedef void (*DeviceTaskInspectorEntry)(void *inspector_, DeviceExecuteContext *execCtx, DynDeviceTask *task);
+using DeviceTaskInspectorEntry = void (*)(void *inspector_, DeviceExecuteContext *execCtx, DynDeviceTask *task);
 
 struct DeviceExecuteContext {
     using PushTaskEntry = std::function<void(DynDeviceTask *, DeviceExecuteContext *)>;

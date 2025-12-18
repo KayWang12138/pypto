@@ -13,6 +13,8 @@
  * \brief
  */
 
+#ifndef FATBIN_PARSER_H_
+#define FATBIN_PARSER_H_
 #include <map>
 #include <vector>
 #include <string>
@@ -32,3 +34,4 @@ class FatbinParser {
                                std::vector<uint8_t> &kernel_bin);
 };
 }
+#endif

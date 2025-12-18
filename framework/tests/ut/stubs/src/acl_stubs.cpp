@@ -15,6 +15,7 @@
 
 #include <acl/acl_base.h>
 #include <acl/acl.h>
+#include <acl/acl_rt.h>
 
 extern "C" {
 
@@ -91,6 +92,12 @@ aclError aclmdlRICaptureGetInfo(aclrtStream stream, aclmdlRICaptureStatus *statu
 aclError aclmdlRICaptureThreadExchangeMode(aclmdlRICaptureMode *mode)
 {
     (void)mode;
+    return 0;
+}
+
+aclError aclrtSetExceptionInfoCallback(aclrtExceptionInfoCallback callback)
+{
+    (void)callback;
     return 0;
 }
 }

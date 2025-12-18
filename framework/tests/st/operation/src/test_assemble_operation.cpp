@@ -202,7 +202,7 @@ void TestAssembleOverride() {
     });
 
     FUNCTION("test", {a}, {dst}) {
-        LOOP("loop1", FunctionType::DYNAMIC_LOOP, idx, LoopRange(M)) {
+        LOOP("loop1", FunctionType::DYNAMIC_LOOP, idx, LoopRange(N)) {
             TileShape::Current().SetVecTile(8, 128); // 暂不让ASSEMBLE_SSA进行自动TILING
             auto tmp1 = View(a, {1, 16}, {idx, 0});
             tmp1 = Add(tmp1, Element(DT_FP32, 1.14f));
