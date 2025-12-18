@@ -25,10 +25,6 @@ struct OpTestParam {
     int rankId;
 };
 
-void TestAllGatherEx(OpTestParam &testParam);
-void TestAllGather(OpTestParam &testParam);
-void TestReduceScatterEx(OpTestParam &testParam);
-void TestReduceScatter(OpTestParam &testParam);
 void TestMoeCombine(OpTestParam &testParam);
 void TestShmemMoeCombine(OpTestParam &testParam);
 void TestAllGatherAttentionPostReducescatter(OpTestParam &testParam);

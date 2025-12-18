@@ -67,50 +67,6 @@ protected:
     int physicalDeviceId;
 };
 
-TEST_F(DistributedTest, aicpuWaitFlag_single_test_reduce_scatter_int32_32_32_4)
-{
-    Distributed::TestReduceScatter(testParam);
-}
-
-TEST_F(DistributedTest, aicpuWaitFlag_multi_test_reduce_scatter_float32_128_256_4)
-{
-    Distributed::TestReduceScatterEx(testParam);
-}
-
-TEST_F(DistributedTest, aicpuWaitFlag_single_test_all_gather_bfloat16_256_256_4)
-{
-    Distributed::TestAllGather(testParam);
-}
-
-TEST_F(DistributedTest, aicpuWaitFlag_multi_test_all_gather_float16_32_32_4)
-{
-    Distributed::TestAllGatherEx(testParam);
-}
-
-TEST_F(DistributedTest, aivWaitFlag_single_test_reduce_scatter_int32_128_256_4)
-{
-    config::SetDistConfig(KEY_AICPU_WAIT_FLAG_ENABLE, false);
-    Distributed::TestReduceScatter(testParam);
-}
-
-TEST_F(DistributedTest, aivWaitFlag_multi_test_reduce_scatter_float32_128_256_4)
-{
-    config::SetDistConfig(KEY_AICPU_WAIT_FLAG_ENABLE, false);
-    Distributed::TestReduceScatterEx(testParam);
-}
-
-TEST_F(DistributedTest, aivWaitFlag_single_test_all_gather_bfloat16_256_128_4)
-{
-    config::SetDistConfig(KEY_AICPU_WAIT_FLAG_ENABLE, false);
-    Distributed::TestAllGather(testParam);
-}
-
-TEST_F(DistributedTest, aivWaitFlag_multi_test_all_gather_float16_32_32_4)
-{
-    config::SetDistConfig(KEY_AICPU_WAIT_FLAG_ENABLE, false);
-    Distributed::TestAllGatherEx(testParam);
-}
-
 TEST_F(DistributedTest, shmem_allgather_attn_post_reducescatter_bfloat16_64_1_32_256_128_128_4)
 {
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);

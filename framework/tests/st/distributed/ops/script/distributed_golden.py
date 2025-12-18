@@ -594,15 +594,7 @@ OPERATOR_DISPATCHERS = [
 
 @GoldenRegister.reg_golden_func(
     case_names=[
-        'DistributedTest.aicpuWaitFlag_single_test_all_gather_bfloat16_256_256_4',
-        'DistributedTest.aicpuWaitFlag_multi_test_all_gather_float16_32_32_4',
-        'DistributedTest.aivWaitFlag_single_test_all_gather_bfloat16_256_128_4',
-        'DistributedTest.aivWaitFlag_multi_test_all_gather_float16_32_32_4',
         'DistributedTest.shmem_all_gather_int32_128_256_4',
-        'DistributedTest.aicpuWaitFlag_single_test_reduce_scatter_int32_32_32_4',
-        'DistributedTest.aicpuWaitFlag_multi_test_reduce_scatter_float32_128_256_4',
-        'DistributedTest.aivWaitFlag_single_test_reduce_scatter_int32_128_256_4',
-        'DistributedTest.aivWaitFlag_multi_test_reduce_scatter_float32_128_256_4',
         'DistributedTest.shmem_reduce_scatter_int32_128_256_4',
         'DistributedTest.shmem_allgather_attn_post_reducescatter_bfloat16_64_1_32_256_128_128_4',
         'DistributedTest.shmem_allgather_matmul_reducescatter_int32_128_256_4',

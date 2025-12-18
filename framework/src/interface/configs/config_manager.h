@@ -63,8 +63,6 @@ const std::string KEY_RESUME_PARH = "RESUME_PATH";
 const std::string KEY_EXEC_VERIFIER = "EXEC_VERIFIER";
 const std::string KEY_SET_SCOPE = "SCOPE";
 
-/* Distributed KEYs */
-const std::string KEY_AICPU_WAIT_FLAG_ENABLE = "AICPU_WAIT_FLAG_ENABLE";
 
 /* CodeGen KEYs */
 const std::string KEY_PARALLEL_COMPILE = "parallel_compile";

@@ -1492,22 +1492,6 @@ void ExpandOperationInto(Function &function, const TileShape &tileShape, Opcode 
             TiledMerge(function, iOperand[0], iOperand[1], oOperand[0], oOperand[1], oOperand[2], fullSort, descending);
             break;
         }
-        case Opcode::OP_DIST_SCATTER: {
-            npu::tile_fwk::Distributed::TiledDistScatter(function, tileShape, iOperand, op);
-            break;
-        }
-        case Opcode::OP_DIST_REDUCE: {
-            npu::tile_fwk::Distributed::TiledDistReduce(function, tileShape, iOperand, oOperand, op);
-            break;
-        }
-        case Opcode::OP_DIST_GATHER: {
-            npu::tile_fwk::Distributed::TiledDistGather(function, tileShape, iOperand, oOperand, op);
-            break;
-        }
-        case Opcode::OP_DIST_BROADCAST: {
-            npu::tile_fwk::Distributed::TiledDistBroadCast(function, tileShape, iOperand, oOperand, op);
-            break;
-        }
         case Opcode::OP_REDUCE_ACC: {
             TiledReduceAcc(function, tileShape, iOperand, oOperand[0]);
             break;

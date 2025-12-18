@@ -25,17 +25,6 @@
 
 namespace npu::tile_fwk {
 namespace Distributed {
-void TiledDistReduce(Function &function, const TileShape &tileShape,
-    const std::vector<std::shared_ptr<LogicalTensor>> &iOperand,
-    const std::vector<std::shared_ptr<LogicalTensor>> &oOperand, const Operation &op);
-void TiledDistScatter(Function &function, const TileShape &tileShape,
-    const std::vector<std::shared_ptr<LogicalTensor>> &iOperand, const Operation &op);
-void TiledDistGather(Function &function, const TileShape &tileShape,
-    const std::vector<std::shared_ptr<LogicalTensor>> &iOperand,
-    const std::vector<std::shared_ptr<LogicalTensor>> &oOperand, const Operation &op);
-void TiledDistBroadCast(Function &function, const TileShape &tileShape,
-    const std::vector<std::shared_ptr<LogicalTensor>> &iOperand,
-    const std::vector<std::shared_ptr<LogicalTensor>> &oOperand, const Operation &op);
 void TiledMoeFFN2Attn(Function &function, const TileShape &tileShape,
     const std::vector<std::shared_ptr<LogicalTensor>> &iOperand, const Operation &op);
 void TiledMoeAttnCombine(Function &function, const TileShape &tileShape,

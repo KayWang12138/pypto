@@ -56,9 +56,7 @@
         "operation_configs": {
             "FORCE_COMBINE_AXIS" : false
         },
-        "distributed_configs": {
-            "AICPU_WAIT_FLAG_ENABLE": true
-        }
+        "distributed_configs": {}
     },
     "pass_global_configs": {
         "enable_pass_configs": true,
