@@ -224,18 +224,17 @@ bool DynloopFunctionAttribute::IterationEnd(int unroll, Function *pathFunc, Oper
 bool DynloopFunctionAttribute::AppendCond(const SymbolicScalar &cond, const std::string &file, int line) {
     bool result = false;
     if (currIndex < currPathCond.size()) {
-        ASSERT(cond.Dump() == currPathCond[currIndex].GetCond().Dump())
-            << "Condition mismatch at index " << currIndex << "\n" << "Current condition: " << cond.Dump() << "\n"
-            << "Stored condition: " << currPathCond[currIndex].GetCond().Dump();
-        ASSERT(file == currPathCond[currIndex].GetFile())
-            << "File mismatch at index " << currIndex << "\n" << "Current file: " << file << "\n"
-            << "Stored file: " << currPathCond[currIndex].GetFile();
-        ASSERT(line == currPathCond[currIndex].GetLine())
-            << "Line mismatch at index " << currIndex << "\n" << "Current line: " << line << "\n"
-            << "Stored line: " << currPathCond[currIndex].GetLine();
         result = currPathCond[currIndex].IsSat();
     } else {
-        currPathCond.emplace_back(result, cond, file, line);
+        auto condstr = cond.Dump();
+        bool found = false;
+        for (auto &pcond : currPathCond) {
+            if (condstr == pcond.GetCond().Dump()) {
+                found = true;
+                result = pcond.IsSat();
+            }
+        }
+        currPathCond.emplace_back(result, found, cond, file, line);
     }
     currIndex++;
     return result;
@@ -249,7 +248,7 @@ void DynloopFunctionAttribute::CreateCurrCond() {
     }
     bool found = false;
     for (size_t idx = currPathCond.size() - 1; idx != static_cast<size_t>(-1); idx--) {
-        if (!currPathCond[idx].IsSat()) {
+        if ((!currPathCond[idx].IsSat()) && (!currPathCond[idx].isConst_)) {
             const auto &cond = currPathCond[idx].cond_;
             if (IsLoopBeginOrEndExpr(cond)) {
                 if (!cond.IsLoopBegin() && !cond.IsLoopEnd()) {
@@ -1609,8 +1608,11 @@ void Function::SubstituteOut(std::shared_ptr<LogicalTensor> oldTensor,
         for (size_t i = 0; i < cur.GetOOperands().size(); i++) {
             if (cur.GetOOperands()[i] == oldTensor) {
                 ASSERT(cur.GetOOperands()[i]->shape == newTensor->shape)
-                    << "Shape mismatch:\n" << "Old Tensor Shape: " << cur.GetOOperands()[i]->shape << "\n"
-                    << "New Tensor Shape: " << newTensor->shape << "\n" << "Operation: " << cur.Dump();
+                    << "Shape mismatch:\n" << "Old Tensor Shape: "
+                    << StringUtils::ToString(cur.GetOOperands()[i]->shape) << "\n"
+                    << "New Tensor Shape: "
+                    << StringUtils::ToString(newTensor->shape) << "\n"
+                    << "Operation: " << cur.Dump();
                 ASSERT(cur.GetOOperands()[i]->HasProducer(cur))
                     << "Tensor is not a producer of the operation:\n"
                     << "Tensor: " << cur.GetOOperands()[i]->Dump() << "\n" << "Operation: " << cur.Dump();

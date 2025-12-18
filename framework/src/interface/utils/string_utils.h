@@ -127,5 +127,12 @@ public:
             offset +=copyLen;
         }
     }
+
+    template <typename T>
+    static std::string ToString(const std::vector<T> &args) {
+        std::stringstream ss;
+        ss << args;
+        return ss.str();
+    }
 };
 }

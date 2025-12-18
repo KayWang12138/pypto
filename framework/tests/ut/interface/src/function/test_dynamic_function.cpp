@@ -784,8 +784,8 @@ TEST_F(DynamicFunctionTest, HiddenLoop){
 
     auto outerLoopFunc=mainFunc->GetCalleeFunctionList()[0];
     EXPECT_EQ(outerLoopFunc->GetMagicName(), "TENSOR_TENSOR_Main_loop_Unroll1_3");
-    EXPECT_EQ(outerLoopFunc->GetCalleeFunctionList().size(), 1); 
-    
+    EXPECT_EQ(outerLoopFunc->GetCalleeFunctionList().size(), 1);
+
     auto innerLoopFunc1 = outerLoopFunc->GetCalleeFunctionList()[0];
     std::vector<std::string> LoopPathFuncNames1 = {"TENSOR_L01_Unroll1_6","TENSOR_TENSOR_Main_loop_Unroll1_PATH0_hiddenfunc1_9"};
     int idx = 0;
@@ -855,7 +855,7 @@ TEST_F(DynamicFunctionTest, HiddenLoopWithIf){
 
     auto innerLoopFunc1 = Program::GetInstance().GetFunctionByMagicName("TENSOR_TENSOR_Main_loop_Unroll1_PATH1_10");
     EXPECT_NE(innerLoopFunc1, nullptr);
-    EXPECT_EQ(innerLoopFunc1->GetCalleeFunctionList().size(),2); 
+    EXPECT_EQ(innerLoopFunc1->GetCalleeFunctionList().size(),2);
 
     int idx2 = 0;
     std::vector<std::string> innerLoopPathFuncNames1 = {"TENSOR_TENSOR_Main_loop_Unroll1_PATH1_hiddenfunc0_11", "TENSOR_L02_Unroll1_12"};
@@ -866,7 +866,7 @@ TEST_F(DynamicFunctionTest, HiddenLoopWithIf){
 
     auto innerLoopFunc2 = Program::GetInstance().GetFunctionByMagicName("TENSOR_TENSOR_Main_loop_Unroll1_PATH0_4");
     EXPECT_NE(innerLoopFunc2, nullptr);
-    EXPECT_EQ(innerLoopFunc2->GetCalleeFunctionList().size(),2); 
+    EXPECT_EQ(innerLoopFunc2->GetCalleeFunctionList().size(),2);
 
     int idx3 = 0;
     std::vector<std::string> innerLoopPathFuncNames2 = {"TENSOR_TENSOR_Main_loop_Unroll1_PATH0_hiddenfunc0_5", "TENSOR_L03_Unroll1_6"};
@@ -908,7 +908,7 @@ TEST_F(DynamicFunctionTest, HiddenLoopNestedWithIf){
             LOOP("L02",FunctionType::DYNAMIC_LOOP,idx2,LoopRange(LOOP_COUNT)){
                 (void)idx2;
                 t0 = Add(t0,t4);
-            } 
+            }
             // LOOP("L03",FunctionType::DYNAMIC_LOOP,idx3,LoopRange(1)){
             //     (void)idx3;
                 IF(SymbolicScalar(0) < CONDITION_THRESHOLD){
@@ -927,7 +927,7 @@ TEST_F(DynamicFunctionTest, HiddenLoopNestedWithIf){
 
     auto outerLoopFunc=mainFunc->GetCalleeFunctionList()[0];
     EXPECT_EQ(outerLoopFunc->GetMagicName(), "TENSOR_TENSOR_Main_loop_Unroll1_3");
-    EXPECT_EQ(outerLoopFunc->GetCalleeFunctionList().size(), 4); // one hidden loop has four paths
+    EXPECT_EQ(outerLoopFunc->GetCalleeFunctionList().size(), 2); // one hidden loop has four paths
 
     int idx = 0;
     std::vector<std::string> LoopPathFuncNames = {"TENSOR_TENSOR_Main_loop_Unroll1_PATH0_4", "TENSOR_TENSOR_Main_loop_Unroll1_PATH1_10",
@@ -938,7 +938,7 @@ TEST_F(DynamicFunctionTest, HiddenLoopNestedWithIf){
         EXPECT_EQ(LoopPathFuc->GetCalleeFunctionList().size(), 3);
     }
 
-    auto innerLoopFunc = Program::GetInstance().GetFunctionByMagicName("TENSOR_L02_Unroll1_PATH0_7"); 
+    auto innerLoopFunc = Program::GetInstance().GetFunctionByMagicName("TENSOR_L02_Unroll1_PATH0_7");
     EXPECT_NE(innerLoopFunc, nullptr);
     EXPECT_EQ(innerLoopFunc->GetCalleeFunctionList().size(),1); // Excessive hidden loop
 }

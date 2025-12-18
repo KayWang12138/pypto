@@ -180,6 +180,7 @@ struct LeafFuncAttribute {
 
 struct DynloopFunctionPathCondition {
     bool isSat_;
+    bool isConst_;
     SymbolicScalar cond_;
     std::string file_;
     int line_;
@@ -192,8 +193,8 @@ struct DynloopFunctionPathCondition {
     int GetLine() const { return line_; }
 
     DynloopFunctionPathCondition() {}
-    DynloopFunctionPathCondition(bool isSat, const SymbolicScalar &cond, const std::string &file, int line)
-        : isSat_(isSat), cond_(cond), file_(file), line_(line) {}
+    DynloopFunctionPathCondition(bool isSat, bool isConst, const SymbolicScalar &cond, const std::string &file, int line)
+        : isSat_(isSat), isConst_(isConst), cond_(cond), file_(file), line_(line) {}
 };
 
 struct DynloopFunctionPath {

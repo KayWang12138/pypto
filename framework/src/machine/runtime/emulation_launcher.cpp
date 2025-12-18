@@ -130,7 +130,8 @@ int EmulationLauncher::BuildControlFlowCache(
         const std::vector<DeviceTensorData> &outputList,
         const DeviceLauncherConfig &config) {
     std::vector<uint8_t> &devProgData = DeviceLauncher::GetDevProg(function);
-    if (inputList.size() == 0 || outputList.size() == 0) {
+    /* python front end use inputs/output as unified tensors, outputList is always null */
+    if (inputList.size() == 0 && outputList.size() == 0) {
         return BuildControlFlowCache(devProgData, config);
     } else {
         std::vector<DeviceTensorData> inputDeviceDataList;
