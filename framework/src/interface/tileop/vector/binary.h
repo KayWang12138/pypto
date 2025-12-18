@@ -71,8 +71,9 @@ TILEOP void BinaryCompute(T0 dst, T1 src0, T2 src1) {
     auto stride0 = dstLayout.template GetStrideDim<0, expectSize>();
     auto stride1 = dstLayout.template GetStrideDim<1, expectSize>();
     auto stride2 = dstLayout.template GetStrideDim<2, expectSize>();
-    constexpr auto tileH = Std::tuple_element<shapeSize - 2, typename T0::TileShape>::type::value;
-    constexpr auto tileW = Std::tuple_element<shapeSize - 1, typename T0::TileShape>::type::value;
+
+    constexpr auto tileH = TileOp::GetTileShapeDim<3, 5, shapeSize, typename T0::TileShape>();
+    constexpr auto tileW = TileOp::GetTileShapeDim<4, 5, shapeSize, typename T0::TileShape>();
     constexpr auto dstTypeSize = sizeof(typename T0::Type);
     constexpr auto src0TypeSize = sizeof(typename T1::Type);
     constexpr auto src1TypeSize = sizeof(typename T2::Type);

@@ -43,11 +43,12 @@ TILEOP void TgatherElement(T0 dst, T1 src0, T2 src1) {
     auto n1DstStride = dstLayout.template GetStrideDim<1, expectSize>();
     auto n2DstStride = dstLayout.template GetStrideDim<2, expectSize>();
     auto n3DstStride = dstLayout.template GetStrideDim<3, expectSize>();
-    constexpr auto dstTileH = Std::tuple_element<shapeSize - 2, typename T0::TileShape>::type::value;
-    constexpr auto dstTileW = Std::tuple_element<shapeSize - 1, typename T0::TileShape>::type::value;
-    constexpr auto srcTileW = Std::tuple_element<shapeSize - 1, typename T1::TileShape>::type::value;
-    constexpr auto idxTileH = Std::tuple_element<shapeSize - 2, typename T2::TileShape>::type::value;
-    constexpr auto idxTileW = Std::tuple_element<shapeSize - 1, typename T2::TileShape>::type::value;
+
+    constexpr auto dstTileH = TileOp::GetTileShapeDim<3, 5, shapeSize, typename T0::TileShape>();
+    constexpr auto dstTileW = TileOp::GetTileShapeDim<4, 5, shapeSize, typename T0::TileShape>();
+    constexpr auto srcTileW = TileOp::GetTileShapeDim<4, 5, shapeSize, typename T1::TileShape>();
+    constexpr auto idxTileH = TileOp::GetTileShapeDim<3, 5, shapeSize, typename T2::TileShape>();
+    constexpr auto idxTileW = TileOp::GetTileShapeDim<4, 5, shapeSize, typename T2::TileShape>();
 
     constexpr bool scalarFlag = (sizeof(typename T2::Type) == 8) ? true : false;
     set_flag(PIPE_V, PIPE_S, EVENT_ID7);

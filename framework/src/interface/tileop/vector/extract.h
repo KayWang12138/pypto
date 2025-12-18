@@ -37,10 +37,10 @@ TILEOP void TExtract(T0 dst, T1 src) {
     auto srcStride1 = srcLayout.template GetStrideDim<1, expectSize>();
     auto srcStride2 = srcLayout.template GetStrideDim<2, expectSize>();
     constexpr auto shapeSize = Std::tuple_size<typename T0::Shape>::value;
-    constexpr auto dstTileH = Std::tuple_element<shapeSize - 2, typename T0::TileShape>::type::value;
-    constexpr auto dstTileW = Std::tuple_element<shapeSize - 1, typename T0::TileShape>::type::value;
-    constexpr auto srcTileH = Std::tuple_element<shapeSize - 2, typename T1::TileShape>::type::value;
-    constexpr auto srcTileW = Std::tuple_element<shapeSize - 1, typename T1::TileShape>::type::value;
+    constexpr auto dstTileH = TileOp::GetTileShapeDim<3, 5, shapeSize, typename T0::TileShape>();
+    constexpr auto dstTileW = TileOp::GetTileShapeDim<4, 5, shapeSize, typename T0::TileShape>();
+    constexpr auto srcTileH = TileOp::GetTileShapeDim<3, 5, shapeSize, typename T1::TileShape>();
+    constexpr auto srcTileW = TileOp::GetTileShapeDim<4, 5, shapeSize, typename T1::TileShape>();
     constexpr auto dstTypeSize = sizeof(typename T0::Type);
     constexpr auto srcTypeSize = sizeof(typename T1::Type);
     if (dstShape3 == 0 || dstShape4 == 0) {

@@ -67,8 +67,8 @@ __aicore__ inline void TLoad(T dst, U src, C coordinate) {
             return;
         }
 
-        constexpr auto tileH = Std::tuple_element<shapeSize - 2, typename T::TileShape>::type::value;
-        constexpr auto tileW = Std::tuple_element<shapeSize - 1, typename T::TileShape>::type::value;
+        constexpr auto tileH = TileOp::GetTileShapeDim<3, 5, shapeSize, typename T::TileShape>();
+        constexpr auto tileW = TileOp::GetTileShapeDim<4, 5, shapeSize, typename T::TileShape>();
         for (size_t index0 = 0; index0 < dstShape0; ++index0) {
             for (size_t index1 = 0; index1 < dstShape1; ++index1) {
                 for (size_t index2 = 0; index2 < dstShape2; ++index2) {
@@ -137,8 +137,8 @@ __aicore__ inline void TStore(T dst, U src, C coordinate) {
             return;
         }
 
-        constexpr auto tileH = Std::tuple_element<shapeSize - 2, typename U::TileShape>::type::value;
-        constexpr auto tileW = Std::tuple_element<shapeSize - 1, typename U::TileShape>::type::value;
+        constexpr auto tileH = TileOp::GetTileShapeDim<3, 5, shapeSize, typename U::TileShape>();
+        constexpr auto tileW = TileOp::GetTileShapeDim<4, 5, shapeSize, typename U::TileShape>();
         for (size_t index0 = 0; index0 < srcShape0; ++index0) {
             for (size_t index1 = 0; index1 < srcShape1; ++index1) {
                 for (size_t index2 = 0; index2 < srcShape2; ++index2) {

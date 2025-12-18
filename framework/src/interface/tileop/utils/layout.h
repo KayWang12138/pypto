@@ -322,6 +322,15 @@ __aicore__ inline constexpr size_t GetOutterAxisMergeResult() {
     return 1;
 }
 
+template <size_t index, size_t expect_size, size_t shapeSize, typename Shape>
+__aicore__ inline constexpr size_t GetTileShapeDim() {
+    static_assert(index < expect_size, "Out of range.");
+    if constexpr (shapeSize >= expect_size || index >= (expect_size - shapeSize)) {
+        return Std::tuple_element<index + shapeSize - expect_size, Shape>::type::value;
+    }
+    return 1;
+}
+
 template <typename T0>
 __aicore__ inline constexpr bool JudgeValidShapeEqualTileShape() {
     using ShapeValueType = typename Std::tuple_element<0, typename T0::Shape>::type;

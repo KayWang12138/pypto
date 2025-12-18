@@ -59,8 +59,8 @@ TILEOP void UnaryCompute(T0 dst, T1 src) {
     auto stride0 = dstLayout.template GetStrideDim<0, expectSize>();
     auto stride1 = dstLayout.template GetStrideDim<1, expectSize>();
     auto stride2 = dstLayout.template GetStrideDim<2, expectSize>();
-    constexpr auto tileH = Std::tuple_element<shapeSize - 2, typename T0::TileShape>::type::value;
-    constexpr auto tileW = Std::tuple_element<shapeSize - 1, typename T0::TileShape>::type::value;
+    constexpr auto tileH = TileOp::GetTileShapeDim<3, 5, shapeSize, typename T0::TileShape>();
+    constexpr auto tileW = TileOp::GetTileShapeDim<4, 5, shapeSize, typename T0::TileShape>();
     constexpr auto dstTypeSize = sizeof(typename T0::Type);
     constexpr auto srcTypeSize = sizeof(typename T1::Type);
     for (size_t n0Index = 0; n0Index < shape0; ++n0Index) {

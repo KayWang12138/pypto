@@ -684,6 +684,17 @@ void TransposeInferFunc(Operation* op,
         auto copyOpAttribute = std::dynamic_pointer_cast<CopyOpAttribute>(op->GetOpAttribute());
         if (copyOpAttribute != nullptr) {
             copyOpAttribute->SetFromDynValidShape(OpImmediate::Specified(outValidShapes[0]));
+            std::vector<SymbolicScalar> outDynShape = op->GetOOperands()[0]->GetDynValidShape();
+            if (!outDynShape.empty()) {
+                auto dynOffset = copyOpAttribute->GetToOffset();
+                std::vector<SymbolicScalar> outShape;
+                for (size_t i = 0U; i < dynOffset.size(); i++) {
+                    SymbolicScalar actualDim = std::max(outDynShape[i],
+                        (outValidShapes[0][i] + dynOffset[i].GetSpecifiedValue()) * (outValidShapes[0][i] != 0));
+                    outShape.push_back(actualDim);
+                }
+                outValidShapes[0] = outShape;
+            }
         }
     }
 }

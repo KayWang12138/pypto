@@ -83,9 +83,9 @@ TILEOP void TWhere(TDst dst, TTmp tmpbuf, TCond condition, TSrc0 src0, TSrc1 src
     auto conditionStride2 = conditionLayout.template GetStrideDim<2, expectSize>();
     auto conditionStride3 = conditionLayout.template GetStrideDim<3, expectSize>();
 
-    constexpr auto tileH = Std::tuple_element<shapeSize - 2, typename TDst::TileShape>::type::value;
-    constexpr auto tileW = Std::tuple_element<shapeSize - 1, typename TDst::TileShape>::type::value;
-    constexpr auto conditionTileW = Std::tuple_element<shapeSize - 1, typename TCond::TileShape>::type::value;
+    constexpr auto tileH = TileOp::GetTileShapeDim<3, 5, shapeSize, typename TDst::TileShape>();
+    constexpr auto tileW = TileOp::GetTileShapeDim<4, 5, shapeSize, typename TDst::TileShape>();
+    constexpr auto conditionTileW = TileOp::GetTileShapeDim<4, 5, shapeSize, typename TCond::TileShape>();
     constexpr auto dstTypeSize = sizeof(typename TDst::Type);
     constexpr auto conditionTypeSize = sizeof(typename TCond::Type);
     constexpr auto src0TypeSize = sizeof(typename TSrc0::Type);

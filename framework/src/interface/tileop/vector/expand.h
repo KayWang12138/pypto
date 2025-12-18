@@ -53,11 +53,10 @@ TILEOP void TExpand(T0 dst, T1 src) {
         return;
     }
 
-    constexpr auto dstTileH = Std::tuple_element<shapeSize - 2, typename T0::TileShape>::type::value;
-    constexpr auto dstTileW = Std::tuple_element<shapeSize - 1, typename T0::TileShape>::type::value;
-
-    constexpr auto srcTileH = Std::tuple_element<shapeSize - 2, typename T1::TileShape>::type::value;
-    constexpr auto srcTileW = Std::tuple_element<shapeSize - 1, typename T1::TileShape>::type::value;
+    constexpr auto dstTileH = TileOp::GetTileShapeDim<3, 5, shapeSize, typename T0::TileShape>();
+    constexpr auto dstTileW = TileOp::GetTileShapeDim<4, 5, shapeSize, typename T0::TileShape>();
+    constexpr auto srcTileH = TileOp::GetTileShapeDim<3, 5, shapeSize, typename T1::TileShape>();
+    constexpr auto srcTileW = TileOp::GetTileShapeDim<4, 5, shapeSize, typename T1::TileShape>();
 
     if constexpr (axis == 3) {
         for (size_t n0Index = 0; n0Index < dstShape0; ++n0Index) {
