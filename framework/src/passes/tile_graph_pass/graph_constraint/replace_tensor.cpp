@@ -348,19 +348,47 @@ Status ReplaceTensor::ForwardViewType(Operation *op, LogicalTensorPtr &rootTenso
     return SUCCESS;
 }
 
+bool isInplaceAssemble(Operation *op) {
+    auto assembleIn = op->GetIOperands()[0];
+    for (auto inOp : assembleIn->GetProducers()) {
+        if (inplaceOpSet.find(inOp->GetOpcode()) != inplaceOpSet.end()) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool isMultiAssemble(Operation *op) {
+    auto assembleIn = op->GetIOperands()[0];
+    for (auto outOp : assembleIn->GetConsumers()) {
+        if (outOp->GetOpMagic() != op->GetOpMagic() && outOp->GetOpcode() == Opcode::OP_ASSEMBLE) {
+            return true;
+        }
+    }
+    return false;
+}
+
 Status ReplaceTensor::ForwardAssemble(Operation *op, LogicalTensorPtr &rootTensor) {
     auto assembleIn = op->GetIOperands()[0];
     auto assembleOut = op->GetOOperands()[0];
-    (void) rootTensor;
-    auto &inOp = *(assembleIn)->GetProducers().begin();
-    processedOp.insert(op->GetOpMagic());
-    forRoots.push(assembleOut);
-    if (inOp != nullptr && inOp->GetOpcode() == Opcode::OP_INDEX_OUTCAST) {
-        APASS_LOG_INFO_F(Elements::Operation, "OP_ASSEMBLE %d parentOp is OP_INDEX_OUTCAST %d, skip replace tensor.", op->GetOpMagic(), inOp->GetOpMagic());
+    if (assembleIn != rootTensor) {
+        APASS_LOG_ERROR_F(Elements::Operation, "OP_ASSEMBLE %d rootTensor %d is not same as viewTypeIn %d.", op->GetOpMagic(), rootTensor->GetMagic(), assembleIn->GetMagic());
+        return FAILED;
+    }
+    if (isInplaceAssemble(op) || isMultiAssemble(op)) {
+        auto &inOp = *(assembleIn)->GetProducers().begin();
+        processedOp.insert(op->GetOpMagic());
+        forRoots.push(assembleOut);
+        if (inOp != nullptr && inOp->GetOpcode() == Opcode::OP_INDEX_OUTCAST) {
+            APASS_LOG_INFO_F(Elements::Operation, "OP_ASSEMBLE %d parentOp is OP_INDEX_OUTCAST %d, skip replace tensor.", op->GetOpMagic(), inOp->GetOpMagic());
+            return SUCCESS;
+        }
+        assembleOut->tensor = assembleIn->tensor;
+        return SUCCESS;
+    } else {
+        backRoots.push(assembleOut);
         return SUCCESS;
     }
-    assembleOut->tensor = assembleIn->tensor;
-    return SUCCESS;
 }
 
 Status ReplaceTensor::ForwardCopyOut(Operation *op, LogicalTensorPtr &rootTensor, Function &function) {
