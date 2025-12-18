@@ -190,7 +190,7 @@ void SetParamConfig(Function* currentFunctionPtr_) {
 
 #if ENABLE_HIDDENLOOP
 void Program::BeginHiddenLoop(Function *func, const FunctionType &funcType, const std::string funcName) {
-    if (func->GetGraphType() == GraphType::TENSOR_GRAPH 
+    if (func->GetGraphType() == GraphType::TENSOR_GRAPH
         && func->GetFunctionType() == funcType
         && !func->IsHiddenFunction()) {
         BeginFunction(funcName, FunctionType::DYNAMIC_LOOP_PATH, GraphType::TENSOR_GRAPH, {}, true);
@@ -198,9 +198,9 @@ void Program::BeginHiddenLoop(Function *func, const FunctionType &funcType, cons
 }
 
 void Program::EndHiddenLoop(Function *func, bool generateCall) {
-    if (func->GetGraphType() == GraphType::TENSOR_GRAPH 
-        && func->GetFunctionType() == FunctionType::DYNAMIC_LOOP_PATH 
-        && func->IsHiddenFunction() 
+    if (func->GetGraphType() == GraphType::TENSOR_GRAPH
+        && func->GetFunctionType() == FunctionType::DYNAMIC_LOOP_PATH
+        && func->IsHiddenFunction()
         && !func->Parent().IsHiddenFunction()) {
         func->Parent().SetHiddenFunction(true);
         EndFunction(func->GetRawName(), generateCall);
@@ -1069,18 +1069,6 @@ bool RecordLoopFunc::Iterator::operator!=(const IteratorEnd &rhs) {
     ASSERT(rlf_.StillHaveUnrollTimes());
     cur_ = 0;
     scalar_ = originalScalar_;
-    if (rlf_.LoopBegin().IsImmediate()) {
-        auto beginValue = std::static_pointer_cast<RawSymbolicImmediate>(rlf_.LoopBegin().Raw())->Immediate();
-        if (rlf_.LoopStep().IsImmediate() && rlf_.LoopEnd().IsImmediate()) {
-            auto endValue = std::static_pointer_cast<RawSymbolicImmediate>(rlf_.LoopEnd().Raw())->Immediate();
-            scalar_.Raw()->ResetValueGuesser(
-                ValueGuesser(NotLessThan(beginValue), NotGreaterThan(endValue - 1)));
-        } else {
-            scalar_.Raw()->ResetValueGuesser(ValueGuesser(NotLessThan(beginValue)));
-        }
-    } else {
-        scalar_.Raw()->ResetValueGuesser(ValueGuesser::Any());
-    }
 
     scalar_.AsLoopBegin(true);
     rlf_.IterationBegin();
@@ -1091,22 +1079,10 @@ bool RecordLoopFunc::Iterator::operator!=(const IteratorEnd &rhs) {
 }
 
 RecordLoopFunc::Iterator RecordLoopFunc::begin() {
-    if (loopRange_->Begin().ConcreteValid()) {
-        return {*this, SymbolicScalar(iterName_, NotLessThan(loopRange_->Begin().Concrete()))};
-    }
     return {*this, SymbolicScalar(iterName_)};
 }
 
 RecordLoopFunc::IteratorEnd RecordLoopFunc::end() {
-    if (loopRange_->End().ConcreteValid()) {
-        if (funcType_ == FunctionType::STATIC) {
-            /* Static loop, expand all */
-            return {*this, SymbolicScalar(iterName_, NotGreaterThan(loopRange_->End().Concrete()))};
-        } else {
-            /* Runtime: Run only once */
-            return {*this, SymbolicScalar(iterName_, NotGreaterThan(loopRange_->End().Concrete()))};
-        }
-    }
     return {*this, SymbolicScalar(iterName_)};
 }
 
