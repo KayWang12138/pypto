@@ -21,7 +21,8 @@ import numpy as np
 from numpy.testing import assert_allclose
 from pypto import pypto_impl
 from pypto.operation import op_wrapper
-from sparse_flash_attention_quant import sparse_flash_attention_quant_d_compute, SaTileShapeConfig
+from sparse_flash_attention_quant \
+    import sparse_flash_attention_quant_d, sparse_flash_attention_quant_p, SaTileShapeConfig
 
 
 def gen_uniform_data(data_shape, min_value, max_value, dtype):
@@ -314,7 +315,7 @@ def gen_gather_select_attention_golden(dtype, bn1n2s1, is_kn_quant, actual_seq):
     return input_params, input_data_map, atten_out
 
 
-def do_test_sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant, input_params, input_data, atten_out, case_name):
+def do_test_sparse_attention_func(bn1n2s1, actual_seq, input_params, input_data, atten_out, is_p):
     b, n1, n2, s1 = bn1n2s1
 
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
@@ -361,8 +362,14 @@ def do_test_sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant, input_params
     pto_outputs = [calc_attention_out_pto]
 
     max_blocknum_perbatch = math.ceil(max_kv_seq / block_size)
-    sparse_flash_attention_quant_d_compute(*pto_inputs, *pto_outputs, n_q, n_kv, softmax_scale, topk,
+    
+    if is_p:
+        sparse_flash_attention_quant_p(*pto_inputs, *pto_outputs, n_q, n_kv, softmax_scale, topk, block_size,
+                                           max_blocknum_perbatch, tile_config)
+    else:
+        sparse_flash_attention_quant_d(*pto_inputs, *pto_outputs, n_q, n_kv, softmax_scale, topk,
                                            block_size, max_blocknum_perbatch, tile_config)
+
     pypto.runtime._device_synchronize()
     assert_allclose(np.array(calc_attention_out_npu.cpu().flatten().tolist()),
                     np.array(atten_out.cpu().flatten().tolist()), rtol=0.0005, atol=0.0005)
@@ -371,66 +378,18 @@ def do_test_sparse_attention_func(bn1n2s1, actual_seq, is_kn_quant, input_params
 def get_case_config(case_name: str):
     # case参数配置字典，key为case名称，value为对应的参数元组(bn1n2s1, is_kn_quant, actual_seq)
     test_case_config = {
-        "DynamicGatherSlcFlashAttnDSASTest.SFA_b4_s2_seq64K_int8_perf": (
+        "sfa_bf16_b4_s2_seq64K_int8_d": (
             (4, 128, 1, 2), 1, [65536] * 4
         ),
-        "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b4_s2_seqTest1_int8": (
-            (4, 128, 1, 2), 1, [666, 532, 768, 900]
-        ),
-        "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b32_s1_seq511": (
-            (32, 128, 1, 1), 0, [511] * 32
-        ),
-        "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b32_s1_seq511_int8": (
-            (32, 128, 1, 1), 1, [511] * 32
-        ),
-        "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b1_s1_seq2049": (
-            (1, 128, 1, 1), 0, [2049]
-        ),
-        "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b1_s1_seq2049_int8": (
-            (1, 128, 1, 1), 1, [2049]
-        ),
-        "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b1_s3_seq2047": (
-            (1, 128, 1, 3), 0, [2047]
-        ),
-        "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b1_s3_seq2047_int8": (
-            (1, 128, 1, 3), 1, [2047]
-        ),
-        "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b128_s1_seq8k": (
-            (128, 128, 1, 1), 0, [8096] * 128
-        ),
-        "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b128_s1_seq8k_int8": (
-            (128, 128, 1, 1), 1, [8096] * 128
-        ),
-        "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s1_seq128k": (
-            (8, 128, 1, 1), 0, [131072] * 8
-        ),
-        "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s1_seq128k_int8": (
-            (8, 128, 1, 1), 1, [131072] * 8
-        ),
-        "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b4_s1_seqTest1": (
-            (4, 128, 1, 1), 0, [666, 532, 768, 900]
-        ),
-        "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b4_s1_seqTest1_int8": (
-            (4, 128, 1, 1), 1, [666, 532, 768, 900]
-        ),
-        "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s1_seqTest2": (
-            (8, 128, 1, 1), 0, [666, 532, 768, 900, 5698, 2358, 324, 2048]
-        ),
-        "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s1_seqTest2_int8": (
-            (8, 128, 1, 1), 1, [666, 532, 768, 900, 5698, 2358, 324, 2048]
-        ),
-        "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s4_seqTest2": (
-            (8, 128, 1, 4), 0, [666, 532, 768, 900, 5698, 2358, 324, 2048]
-        ),
-        "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s4_seqTest2_int8": (
-            (8, 128, 1, 4), 1, [666, 532, 768, 900, 5698, 2358, 324, 2048]
+        "sfa_bf16_b1_s256_seq2047_int8_p": (
+            (1, 128, 1, 256), 1, [2047]
         ),
     }
     case_config = test_case_config.get(case_name)
     return case_config
 
 
-def do_test_QSFA_d_entry(case_name: str):
+def do_test_sfa_entry(case_name: str, is_p: bool):
     case_config = get_case_config(case_name)
     if not case_config:
         logging.error("Can't get func to gen golden, Case(%s)", case_name)
@@ -441,40 +400,23 @@ def do_test_QSFA_d_entry(case_name: str):
         torch.bfloat16, bn1n2s1, is_kn_quant, actual_seq
     )
     do_test_sparse_attention_func(
-        bn1n2s1, actual_seq, is_kn_quant,
-        input_params, input_data, atten_out, case_name
+        bn1n2s1, actual_seq, input_params, input_data, atten_out, is_p
     )
     return True
 
 
-"""
-    "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b4_s2_seqTest1_int8",
-        "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b32_s1_seq511",
-        "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b32_s1_seq511_int8",
-        "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b1_s1_seq2049",
-        "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b1_s1_seq2049_int8",
-        "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b1_s3_seq2047",
-        "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b1_s3_seq2047_int8",
-        "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b128_s1_seq8k",
-        "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b128_s1_seq8k_int8",
-        "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s1_seq128k",
-        "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s1_seq128k_int8",
-        "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b4_s1_seqTest1",
-        "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b4_s1_seqTest1_int8",
-        "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s1_seqTest2",
-        "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s1_seqTest2_int8",
-        "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s4_seqTest2",
-        "DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b8_s4_seqTest2_int8",
-"""
+def test_sfa_bf16_b4_s2_seq64K_int8_d():
+    '''
+    sfa decode测试函数
+    '''
+    do_test_sfa_entry("sfa_bf16_b4_s2_seq64K_int8_d", is_p=False)
 
 
-def test_SFA_b4_s2_seq64K_int8_perf():
-    do_test_QSFA_d_entry("DynamicGatherSlcFlashAttnDSASTest.SFA_b4_s2_seq64K_int8_perf")
-
-
-@pytest.mark.skip(reason='large case')
-def test_QSFA_d_bf16_b1_s3_seq2047_int8():
-    do_test_QSFA_d_entry("DynamicGatherSlcFlashAttnDSASTest.dsa_gather_slc_attn_bf16_b1_s3_seq2047_int8")
+def test_sfa_bf16_b1_s256_seq2047_int8_p():
+    '''
+    sfa prefill测试函数
+    '''
+    do_test_sfa_entry("sfa_bf16_b1_s256_seq2047_int8_p", is_p=True)
 
 
 if __name__ == "__main__":
@@ -482,4 +424,5 @@ if __name__ == "__main__":
         format='%(asctime)s - %(filename)s:%(lineno)d - %(levelname)s: %(message)s',
         level=logging.INFO
     )
-    test_SFA_b4_s2_seq64K_int8_perf()
+    test_sfa_bf16_b4_s2_seq64K_int8_d()
+    test_sfa_bf16_b1_s256_seq2047_int8_p()
