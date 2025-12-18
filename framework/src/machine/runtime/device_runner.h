@@ -71,6 +71,9 @@ public:
         captureMode_ = mode;
     }
     void ResetPerfTraceDfxMem();
+    void DumpAiCoreExecutionTimeData();
+    void DumpAiCorePmuData();
+    void SynchronizeDeviceToHostProfData();
 
 private:
     DeviceRunner() = default;
@@ -94,9 +97,6 @@ private:
     void InitAiCpuSoBin();
     void GetHostProfTypeSwtich();
     void ReportHostProfInfo(uint64_t startTime, uint32_t blockDim, uint16_t taskType, bool isCore = false);
-    void DumpAiCoreExecutionTimeData();
-    void DumpAiCorePmuData();
-    void SynchronizeDeviceToHostProfData();
     int DynamicKernelLaunch(rtStream_t aicpuStream, rtStream_t aicoreStream, AstKernelArgs *kernelArgs, int blockdim);
     int DynamicSeparateLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, rtStream_t aicoreStream, AstKernelArgs *kernelArgs, int blockdim);
 private:

@@ -101,7 +101,7 @@ AiCoreProfLevel AiCoreProf::CreateProfLevel(ProfConfig profConfig) {
 void AiCoreProf::ProfInit([[maybe_unused]]int64_t *regAddrs, [[maybe_unused]]int64_t *pmuEventAddrs, ProfConfig profConfig) {
     coreNum_ = hostAicoreMng_.GetAllAiCoreNum();
     profLevel_ = CreateProfLevel(profConfig);
-    if ((ProfCheckLevel(PROF_TASK_TIME_L2) == true) || (profLevel_ = PROF_LEVEL_FUNC_LOG))  {
+    if ((ProfCheckLevel(PROF_TASK_TIME_L2) == true) || (profLevel_ == PROF_LEVEL_FUNC_LOG) || (profLevel_ == PROF_LEVEL_FUNC_LOG_PMU)) {
         profLevel_ = PROF_LEVEL_FUNC_LOG;
         ProfInitLog();
         #if PMU_COLLECT

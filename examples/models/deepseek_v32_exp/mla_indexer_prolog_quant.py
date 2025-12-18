@@ -36,7 +36,7 @@ def mla_indexer_prolog_quant_debug(token_x, mla_w_dq, mla_w_uq_qr, mla_dequant_s
                                    mla_epsilon_ckv, mla_cache_mode, mla_tile_config,
                                    ip_attrs, ip_configs):
 
-    pypto.set_runtime_options(machine_sched_mode=2)
+    pypto.set_runtime_options(device_sched_mode=2)
     pypto.set_codegen_options(support_dynamic_unaligned=True)
     ##################### mla #######################
     pypto.set_pass_options(l1_reuse_map={0: 1, 1: 4, 2: 4, 3: 1, 4: 1, 5: 1},
@@ -80,7 +80,7 @@ def mla_indexer_prolog_quant(token_x, mla_w_dq, mla_w_uq_qr, mla_dequant_scale, 
     mla_q_norm_out = pypto.Tensor([t, q_lora_rank], pypto.DT_INT8)
     mla_q_norm_scale_out = pypto.Tensor([t, 1], pypto.DT_FP32)
 
-    pypto.set_runtime_options(machine_sched_mode=2)
+    pypto.set_runtime_options(device_sched_mode=2)
     pypto.set_codegen_options(support_dynamic_unaligned=True)
     ##################### mla #######################
     pypto.set_pass_options(l1_reuse_map={0: 1, 1: 4, 2: 4, 3: 1, 4: 1, 5: 1},

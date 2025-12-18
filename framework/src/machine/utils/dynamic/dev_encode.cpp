@@ -1922,14 +1922,14 @@ struct TensorWorkspaceResult {
 };
 
 static int EstimatedStitchingCount() {
-    int value = config::GetRuntimeOption<int>(ESTIMATED_STITCH_TASK_MAX_LOOP_NUM);
-    ASSERT(value > 0) << "Invalid value for ESTIMATED_STITCH_TASK_MAX_LOOP_NUM: " << value << ", must be greater than 0";
+    int value = config::GetRuntimeOption<int>(STITCH_FUNCTION_OUTCAST_MEMORY);
+    ASSERT(value > 0) << "Invalid value for STITCH_FUNCTION_OUTCAST_MEMORY: " << value << ", must be greater than 0";
     return value;
 }
 
 static int WorkspaceRecyclePeriod() {
-    int value = config::GetRuntimeOption<int>(WORKSPACE_RECYCLE_PERIOD);
-    ASSERT(value > 0) << "Invalid value for WORKSPACE_RECYCLE_PERIOD: " << value << ", must be greater than 0";
+    int value = config::GetRuntimeOption<int>(STITCH_FUNCTION_INNER_MEMORY );
+    ASSERT(value > 0) << "Invalid value for STITCH_FUNCTION_INNER_MEMORY: " << value << ", must be greater than 0";
     return value;
 }
 
@@ -2130,9 +2130,9 @@ void EncodeDevAscendProgram(Function *func, uint64_t &offset, DevAscendProgram *
         base->memBudget.tensor.dassembleDests = tensorWsRes.globalTensorMem;
         base->memBudget.aicoreSpilled = tensorWsRes.perCoreSpilledMem * DEFAULT_CORE_NUM;
         base->devArgs.machineConfig = func->paramConfigs_.machineConfig_;
-        base->firstStitchTaskLoopNum = func->paramConfigs_.firstStitchTaskLoopNum_;
-        base->stitchTaskIncrLoopNum = func->paramConfigs_.stitchTaskIncrLoopNum_;
-        base->stitchCallopMaxNum = config::GetRuntimeOption<uint32_t>(STITCH_CALLOP_MAX_NUM);
+        base->stitchFunctionNumInitial = func->paramConfigs_.stitchFunctionNumInitial_;
+        base->stitchFunctionNumStep = func->paramConfigs_.stitchFunctionNumStep_;
+        base->stitchFunctionsize = config::GetRuntimeOption<uint32_t>(STITCH_FUNCTION_SIZE);
         base->memBudget.metadata.general = CalcGeneralMetadataWorkspace(base);
         base->memBudget.metadata.stitchPool = CalcStitchWorkspace(*base);
         base->memBudget.debug.dumpTensor = DumpTensorWorkspace();

@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file device_runner.cpp
+ * \file device_launcher.cpp
  * \brief
  */
 
@@ -102,6 +102,28 @@ int DeviceLauncher::SetCaptureStream(rtStream_t aicoreStream, rtStream_t aicpuSt
     return 0;
 }
 
+int DeviceLauncher::RunWithProfile(rtStream_t aicoreStream, rtStream_t aicpuStream) {
+    aclmdlRI rtModel = nullptr;
+    bool isCapture = false;
+    if (GetStreamCaptureInfo(aicoreStream, rtModel, isCapture) < 0) {
+        return -1;
+    }
+    if (config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_ALL) {
+        if (isCapture) {
+            ALOG_WARN("The swimlane function is not currently supported in CaptureMode. The contents of tilefwk_L1_prof_data may be empty.");
+        }
+        aclmdlRICaptureMode mode = ACL_MODEL_RI_CAPTURE_MODE_RELAXED;
+        aclmdlRICaptureThreadExchangeMode(&mode);
+        int rc = DeviceRunner::Get().DynamicLaunchSynchronize(aicpuStream, nullptr, aicoreStream);
+        aclmdlRICaptureThreadExchangeMode(&mode);
+        if (rc < 0) {
+            return rc;
+        }
+        DeviceRunner::Get().SynchronizeDeviceToHostProfData();
+    }
+    return 0;
+}
+
 int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
         Function *function, const std::vector<DeviceTensorData> &inputList, const std::vector<DeviceTensorData> &outputList,
         rtStream_t aicpuStream, rtStream_t aicoreStream, bool streamSynchronize, CachedOperator *cachedOperator,
@@ -137,6 +159,10 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
             return rc;
         }
         rc = DeviceRunner::Get().DynamicLaunch(aicpuStream, nullptr, aicoreStream, 0, &kArgs, config.blockdim, config.aicpuNum);
+        if (rc < 0) {
+            return rc;
+        }
+        rc = RunWithProfile(aicoreStream, aicpuStream);
         if (rc < 0) {
             return rc;
         }

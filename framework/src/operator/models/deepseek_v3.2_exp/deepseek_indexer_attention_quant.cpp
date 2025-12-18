@@ -179,10 +179,10 @@ void DeepSeekIndexerAttentionQuant(
             {-1, 16}
         });
         config::SetRuntimeOption<uint8_t>(
-            MACHINE_SCHED_MODE, static_cast<uint8_t>(MachineScheduleConfig::L2CACHE_AFFINITY_SCH) |
+            DEVICE_SCHED_MODE, static_cast<uint8_t>(MachineScheduleConfig::L2CACHE_AFFINITY_SCH) |
                                 static_cast<uint8_t>(MachineScheduleConfig::MULTI_CORE_FAIR_SCH));
-        config::SetRuntimeOption(WORKSPACE_RECYCLE_PERIOD, NUM_128);
-        config::SetRuntimeOption(ESTIMATED_STITCH_TASK_MAX_LOOP_NUM, NUM_128);
+        config::SetRuntimeOption(STITCH_FUNCTION_INNER_MEMORY, NUM_128);
+        config::SetRuntimeOption(STITCH_FUNCTION_OUTCAST_MEMORY, NUM_128);
 
         Tensor queryOut4D(DT_INT8, {b, s1, params.idx_n_heads, params.idx_head_dim}, "qOut4D");
         Tensor qScaleOut4D(DT_FP16, {b, s1, params.idx_n_heads, 1}, "qScaleOut4D");
@@ -225,9 +225,9 @@ void DeepSeekIndexerAttentionQuant(
         config::SetPassOption(VEC_NBUFFER_MAP, std::map<int64_t, int64_t>{{-1, 2}});
 
         config::SetRuntimeOption<uint8_t>(
-            MACHINE_SCHED_MODE, static_cast<uint8_t>(MachineScheduleConfig::DEFAULT_SCH));
-        config::SetRuntimeOption(WORKSPACE_RECYCLE_PERIOD, NUM_128);
-        config::SetRuntimeOption(ESTIMATED_STITCH_TASK_MAX_LOOP_NUM, NUM_128);
+            DEVICE_SCHED_MODE, static_cast<uint8_t>(MachineScheduleConfig::DEFAULT_SCH));
+        config::SetRuntimeOption(STITCH_FUNCTION_INNER_MEMORY, NUM_128);
+        config::SetRuntimeOption(STITCH_FUNCTION_OUTCAST_MEMORY, NUM_128);
 
         Tensor qNope2D(dType, {b * s1 * n1, dn}, "qNope2D");
         Tensor qRope2D(dType, {b * s1 * n1, dr}, "qRope2D");

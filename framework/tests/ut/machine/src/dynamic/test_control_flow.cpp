@@ -25,8 +25,8 @@ std::string GetDeclName(const std::string &name) {
 }
 
 TEST_F(ControlFlowTest, RunDeviceContext) {
-    config::SetRuntimeOption<int64_t>(FIRST_STITCH_TASK_LOOP_NUM, 0x4);
-    config::SetRuntimeOption<int64_t>(SUBSEQ_STITCH_TASK_INCR_LOOP_NUM, 0);
+    config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_INITIAL, 0x4);
+    config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_STEP, 0);
 
     int tiling = 32;
     TileShape::Current().SetVecTile(tiling, tiling);

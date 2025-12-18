@@ -14,15 +14,15 @@
         "sg_set_scope": -1
     },
     "runtime": {
-        "machine_sched_mode": 0,
-        "workspace_recycle_period": 10,
-        "estimated_stitch_task_max_loop_num": 50,
-        "first_stitch_task_loop_num": 30,
-        "subseq_stitch_task_incr_loop_num": 30,
+        "device_sched_mode": 0,
+        "stitch_function_inner_memory": 10,
+        "stitch_function_outcast_memory": 50,
+        "stitch_function_num_initial": 30,
+        "stitch_function_num_step": 30,
         "cfgcache_device_task_num": 0,
         "cfgcache_root_task_num": 0,
         "cfgcache_leaf_task_num": 0,
-        "stitch_callop_max_num": 20000
+        "stitch_function_size": 20000
     },
     "host": {
         "only_codegen": false
@@ -46,6 +46,8 @@
             "precision": 4,
             "threshold": 1000,
             "linewidth": 80
-        }
+        },
+        "compile_debug_mode": 0,
+        "runtime_debug_mode": 0
     }
 }

@@ -92,47 +92,47 @@
         "runtime": {
             "type": "object",
             "properties": {
-                "machine_sched_mode": {
+                "device_sched_mode": {
                     "type": "integer",
                     "minimum": 0,
                     "maximum": 3
                 },
-                "workspace_recycle_period": {
+                "stitch_function_inner_memory": {
                     "type": "integer",
                     "minimum": 1,
                     "maximum": 2147483647
                 },
-                "estimated_stitch_task_max_loop_num": {
+                "stitch_function_outcast_memory": {
                     "type": "integer",
                     "minimum": 1,
                     "maximum": 2147483647
                 },
-                "first_stitch_task_loop_num": {
+                "stitch_function_num_initial": {
                     "type": "integer",
                     "minimum": 1,
                     "maximum": 128
                 },
-                "subseq_stitch_task_incr_loop_num": {
+                "stitch_function_num_step": {
                     "type": "integer",
                     "minimum": 0,
                     "maximum": 128
                 },
                 "cfgcache_device_task_num": {
                     "type": "integer",
-                    "minimum": 1,
+                    "minimum": 0,
                     "maximum": 100
                 },
                 "cfgcache_root_task_num": {
                     "type": "integer",
-                    "minimum": 1,
+                    "minimum": 0,
                     "maximum": 1000
                 },
                 "cfgcache_leaf_task_num": {
                     "type": "integer",
-                    "minimum": 1,
+                    "minimum": 0,
                     "maximum": 10000
                 },
-                "stitch_callop_max_num": {
+                "stitch_function_size": {
                     "type": "integer",
                     "minimum": 1,
                     "maximum": 65535
@@ -140,7 +140,7 @@
                 "run_mode": {
                     "type": "integer",
                     "minimum": 0,
-                    "maximum": 2
+                    "maximum": 1
                 }
             }
         },
@@ -180,6 +180,16 @@
                         "threshold": {"type": "integer"},
                         "linewidth": {"type": "integer"}
                     }
+                },
+                "compile_debug_mode": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1
+                },
+                "runtime_debug_mode": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1
                 }
             }
         }

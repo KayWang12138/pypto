@@ -278,7 +278,7 @@ void QuantLightningIndexerPrologCompute(const QuantIndexerPrologInput &inputs, Q
 void QuantLightningIndexerProlog(const QuantIndexerPrologInput &inputs, QuantIndexerPrologOutput &outputs,
     QuantIndexerPrologAttr &attrs, const QuantIndexerConfigs &configs) {
     // Machine Global Config
-    config::SetRuntimeOption("machine_sched_mode", static_cast<uint8_t>(MachineScheduleConfig::L2CACHE_AFFINITY_SCH));
+    config::SetRuntimeOption("device_sched_mode", static_cast<uint8_t>(MachineScheduleConfig::L2CACHE_AFFINITY_SCH));
 
     FUNCTION("QuantLightningIndexerProlog",
         {

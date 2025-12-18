@@ -3191,9 +3191,9 @@ struct DevAscendProgram {
     const void *controlFlowBinaryAddr{nullptr};
     uint64_t hcclContext[HCCL_GROUP_NUM];
     uint64_t commGroupNum;
-    uint16_t firstStitchTaskLoopNum;
-    uint16_t stitchTaskIncrLoopNum;
-    uint32_t stitchCallopMaxNum;
+    uint16_t stitchFunctionNumInitial;
+    uint16_t stitchFunctionNumStep;
+    uint32_t stitchFunctionsize;
     DevRelocVector<DevAscendProgramSymbol> symbolTable;
     DevRelocVector<char> symbolTableNameList;
     uint64_t expressionTableSize;
@@ -3274,10 +3274,10 @@ struct DevAscendProgram {
         oss << "DevProgram {\n";
         oss << INDENTINNER << "#tensorMemBudget:" << memBudget.tensor.Total() << "\n";
         oss << INDENTINNER << "#metadataMemBudget:" << memBudget.metadata.Total() << "\n";
-        oss << INDENTINNER << "#machineSchMode:" << devArgs.machineConfig << "\n";
-        oss << INDENTINNER << "#firstStitchTaskLoopNum:" << firstStitchTaskLoopNum << "\n";
-        oss << INDENTINNER << "#stitchTaskIncrLoopNum:" << stitchTaskIncrLoopNum << "\n";
-        oss << INDENTINNER << "#stitchCallopMaxNum:" << stitchCallopMaxNum << "\n";
+        oss << INDENTINNER << "#deviceSchMode:" << devArgs.machineConfig << "\n";
+        oss << INDENTINNER << "#stitchFunctionNumInitial:" << stitchFunctionNumInitial << "\n";
+        oss << INDENTINNER << "#stitchFunctionNumStep:" << stitchFunctionNumStep << "\n";
+        oss << INDENTINNER << "#stitchFunctionsize:" << stitchFunctionsize << "\n";
         oss << INDENTINNER << "#slot:" << slotSize << "\n";
         oss << INDENTINNER << "#symbolCount:" << symbolTable.size() << "\n";
         for (size_t i = 0; i < symbolTable.size(); i++) {

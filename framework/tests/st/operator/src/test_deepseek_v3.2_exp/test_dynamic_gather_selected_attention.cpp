@@ -158,10 +158,10 @@ TEST_F(DynamicGatherSlcFlashAttnDSASTest, SFA_b4_s2_seq64K_int8_perf) {
     // config::SetPassOption(L1_REUSE, 8);
 
     // config::SetRuntimeOption<uint8_t>(
-    //     MACHINE_SCHED_MODE, static_cast<uint8_t>(MachineScheduleConfig::L2CACHE_AFFINITY_SCH) |
+    //     DEVICE_SCHED_MODE, static_cast<uint8_t>(MachineScheduleConfig::L2CACHE_AFFINITY_SCH) |
     //                         static_cast<uint8_t>(MachineScheduleConfig::MULTI_CORE_FAIR_SCH));
-    config::SetRuntimeOption(WORKSPACE_RECYCLE_PERIOD, 128);
-    config::SetRuntimeOption(ESTIMATED_STITCH_TASK_MAX_LOOP_NUM, 128);
+    config::SetRuntimeOption(STITCH_FUNCTION_INNER_MEMORY, 128);
+    config::SetRuntimeOption(STITCH_FUNCTION_OUTCAST_MEMORY, 128);
 
     config::SetPassOption(SG_PARALLEL_NUM, 20);
     config::SetPassOption(NBUFFER_MERGE_MODE, 2);

@@ -47,9 +47,6 @@ const std::string KEY_ENABLE_PROF_AICORE_PMU = "ENABLE_PROF_AICORE_PMU";
 const std::string KEY_STRATEGY = "STRATEGY";
 const std::string KEY_ENABLE_BINARY_CACHE = "ENABLE_BINARY_CACHE";
 const std::string KEY_ONLY_CODEGEN = "only_codegen";
-const std::string KEY_DUMP_BIN_AND_JSON = "DUMP_BIN_AND_JSON";
-const std::string KEY_DUMP_BIN_AND_JSON_PATH = "DUMP_BIN_AND_JSON_PATH";
-const std::string KEY_DUMP_KERNEL_NAME = "DUMP_KERNEL_NAME";
 
 /* Pass KEYs */
 

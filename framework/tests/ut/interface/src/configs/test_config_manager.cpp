@@ -143,15 +143,15 @@ bool RangeTest(
 
 TEST_F(TestConfigManager, NormalRuntimeTest) {
     std::unordered_map<std::string, std::vector<int64_t>> input = {
-        {MACHINE_SCHED_MODE, {0, 1, 2, 3}},
-        {WORKSPACE_RECYCLE_PERIOD, {1, INT_MAX}},
-        {ESTIMATED_STITCH_TASK_MAX_LOOP_NUM, {1, INT_MAX}},
-        {FIRST_STITCH_TASK_LOOP_NUM, {1, 128}},
-        {SUBSEQ_STITCH_TASK_INCR_LOOP_NUM, {1, 128}},
+        {DEVICE_SCHED_MODE, {0, 1, 2, 3}},
+        {STITCH_FUNCTION_INNER_MEMORY, {1, INT_MAX}},
+        {STITCH_FUNCTION_OUTCAST_MEMORY, {1, INT_MAX}},
+        {STITCH_FUNCTION_NUM_INITIAL, {1, 128}},
+        {STITCH_FUNCTION_NUM_STEP, {1, 128}},
         {CFGCACHE_DEVICE_TASK_NUM, {1, 100}},
         {CFGCACHE_ROOT_TASK_NUM, {1, 1000}},
         {CFGCACHE_LEAF_TASK_NUM, {1, 10000}},
-        {STITCH_CALLOP_MAX_NUM, {1, 65535}},
+        {STITCH_FUNCTION_SIZE, {1, 65535}},
         {CFG_RUN_MODE, {0, 2}},
     };
     bool ret = RangeTest<int64_t>(input, &(config::SetOption), "runtime");
@@ -162,15 +162,15 @@ TEST_F(TestConfigManager, AbnormalRuntimeTest) {
     int64_t outVal = INT_MAX;
     ++outVal;
     std::unordered_map<std::string, std::vector<int64_t>> input = {
-        {MACHINE_SCHED_MODE, {-1, 4}},
-        {WORKSPACE_RECYCLE_PERIOD, {0, INT_MAX}},
-        {ESTIMATED_STITCH_TASK_MAX_LOOP_NUM, {0, INT_MAX}},
-        {FIRST_STITCH_TASK_LOOP_NUM, {0, 129}},
-        {SUBSEQ_STITCH_TASK_INCR_LOOP_NUM, {0, 129}},
+        {DEVICE_SCHED_MODE, {-1, 4}},
+        {STITCH_FUNCTION_INNER_MEMORY, {0, INT_MAX}},
+        {STITCH_FUNCTION_OUTCAST_MEMORY, {0, INT_MAX}},
+        {STITCH_FUNCTION_NUM_INITIAL, {0, 129}},
+        {STITCH_FUNCTION_NUM_STEP, {0, 129}},
         {CFGCACHE_DEVICE_TASK_NUM, {0, 101}},
         {CFGCACHE_ROOT_TASK_NUM, {0, 1001}},
         {CFGCACHE_LEAF_TASK_NUM, {0, 10001}},
-        {STITCH_CALLOP_MAX_NUM, {0, 65536}},
+        {STITCH_FUNCTION_SIZE, {0, 65536}},
         {CFG_RUN_MODE, {-1, 3}},
     };
     bool ret = RangeTest<int64_t>(input, &(config::SetOption), "runtime");

@@ -337,8 +337,8 @@ def sparse_flash_attention_quant_compute_flash(query_nope, query_rope, key_nope_
 
 @pypto.jit(
     runtime_options={
-    "workspace_recycle_period": 128,
-    "estimated_stitch_task_max_loop_num": 128
+    "stitch_function_inner_memory": 128,
+    "stitch_function_outcast_memory": 128
     },
     codegen_options={"support_dynamic_unaligned": True,
                      "codegen_expression_fusion": True}
@@ -366,8 +366,8 @@ def sparse_flash_attention_quant_d_compute(query_nope, query_rope, key_nope_2d, 
 
 @pypto.jit(
     runtime_options={
-    "workspace_recycle_period": 128,
-    "estimated_stitch_task_max_loop_num": 128
+    "stitch_function_inner_memory": 128,
+    "stitch_function_outcast_memory": 128
     },
     codegen_options={"support_dynamic_unaligned": True,
                      "codegen_expression_fusion": True}

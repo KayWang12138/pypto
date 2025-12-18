@@ -631,15 +631,15 @@ private:
     }
 
     uint32_t ReadyQueSlabMemObjSize() {
-        return sizeof(ReadyCoreFunctionQueue) + devProg_-> stitchCallopMaxNum * sizeof(uint32_t);
+        return sizeof(ReadyCoreFunctionQueue) + devProg_-> stitchFunctionsize * sizeof(uint32_t);
     }
 #ifdef SUPPORT_MIX_SUBGRAPH_SCHE
     uint32_t WrapQueSlabMemObjSize() {
-        return sizeof(ReadyCoreFunctionQueue) + devProg_-> stitchCallopMaxNum * sizeof(uint32_t);
+        return sizeof(ReadyCoreFunctionQueue) + devProg_-> stitchFunctionsize * sizeof(uint32_t);
     }
 
     uint32_t WrapTasklistSlabMemObjSize() {
-        return devProg_-> stitchCallopMaxNum * sizeof(uint32_t);
+        return devProg_-> stitchFunctionsize * sizeof(uint32_t);
     }
 #endif
 

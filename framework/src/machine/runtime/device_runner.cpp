@@ -455,6 +455,20 @@ void DeviceRunner::DumpAiCoreExecutionTimeData() {
     jsonFile << root_taskStats << std::endl;
     jsonFile.close();
     ALOG_INFO("tilefwk_L1_prof_data have saved in: %s",  jsonFilePath);
+    std::string topo_txt_path = config::LogTopFolder() + "/dyn_topo.txt";
+    std::string program_json_path = config::LogTopFolder() + "/program.json";
+    std::string draw_swim_lane_py_path = GetCurrentSharedLibPath() + "/scripts/draw_swim_lane.py";
+
+    if (FileExist(program_json_path) && FileExist(topo_txt_path)) {
+        ALOG_INFO("The files program.json and dyn_topo.txt exist. Start merging the swimlane.");
+        std::string command = "python3 "+ draw_swim_lane_py_path + " \""
+                                + jsonFilePath + "\" \""
+                                + topo_txt_path + "\" \""
+                                + program_json_path + "\" --label_type=1 --time_convert_denominator=50";
+        system(command.c_str());
+    } else {
+        ALOG_WARN("program.json or dyn_topo.txt missing. Stop merging the swimlane.");
+    }
 }
 
 void DeviceRunner::DumpAiCorePmuData() {
@@ -481,7 +495,6 @@ int DeviceRunner::DynamicLaunchSynchronize(rtStream_t aicpuStream, rtStream_t ct
     if (rcAicore != 0 || rcAicpu != 0 || rcCtrl != 0) {
         ALOG_WARN_F("sync stream failed aicpu:%d aicore:%d ctrl cpu:%d", rcAicpu, rcAicore, rcCtrl);
     }
-    SynchronizeDeviceToHostProfData();
     return rcAicore + rcAicpu + rcCtrl;
 }
 
@@ -567,7 +580,7 @@ int DeviceRunner::RunPrepare() {
             sizeof(kernelArgs),
             RT_MEMCPY_HOST_TO_DEVICE);
     }
-    ALOG_INFO("captureMode_ is: %d", captureMode_);
+
     if (isCapture_) {
         aclmdlRICaptureThreadExchangeMode(&captureMode_);
     }

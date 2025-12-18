@@ -348,7 +348,7 @@ def lightning_indexer_prolog_quant(x_in, q_norm_in, q_norm_scale_in, w_qb_in,
     pypto.set_pass_options(copyin_threshold=configs.copy_in_threshold)
     pypto.set_pass_options(cycle_upper_bound=configs.cycle_upper_bound)
 
-    pypto.set_runtime_options(machine_sched_mode=1)
+    pypto.set_runtime_options(device_sched_mode=1)
 
     lightning_indexer_prolog_quant_compute(x_in, q_norm_in, q_norm_scale_in, w_qb_in,
                                            w_qb_scale_in, wk_in, w_proj_in, ln_gamma_k_in,

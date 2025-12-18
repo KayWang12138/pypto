@@ -55,15 +55,15 @@ static std::map<std::string, ValueType> g_passConfig = {
 };
 
 static std::map<std::string, ValueType> g_runtimeConfig = {
-    {MACHINE_SCHED_MODE, 0L},
-    {WORKSPACE_RECYCLE_PERIOD, 10L},
-    {ESTIMATED_STITCH_TASK_MAX_LOOP_NUM, 50L},
-    {FIRST_STITCH_TASK_LOOP_NUM, 30L},
-    {SUBSEQ_STITCH_TASK_INCR_LOOP_NUM, 30L}, // Increasing loop number
+    {DEVICE_SCHED_MODE, 0L},
+    {STITCH_FUNCTION_INNER_MEMORY, 10L},
+    {STITCH_FUNCTION_OUTCAST_MEMORY, 50L},
+    {STITCH_FUNCTION_NUM_INITIAL, 30L},
+    {STITCH_FUNCTION_NUM_STEP, 30L}, // Increasing loop number
     {CFGCACHE_DEVICE_TASK_NUM, 0L},
     {CFGCACHE_ROOT_TASK_NUM, 0L},
     {CFGCACHE_LEAF_TASK_NUM, 0L},
-    {STITCH_CALLOP_MAX_NUM, 20000L},
+    {STITCH_FUNCTION_SIZE, 20000L},
     {CFG_RUN_MODE, CFG_RUN_MODE_NPU}
 };
 
@@ -84,6 +84,11 @@ static std::map<std::string, ValueType> g_verifyConfig = {
     {KEY_VERIFY_DUMP_TENSOR, false},
     {KEY_VERIFY_DUMP_OPERATION, false},
     {KEY_VERIFY_PROFILE_ENABLE, false},
+};
+
+static std::map<std::string, ValueType> g_debugConfig = {
+    {CFG_COMPILE_DBEUG_MODE, CFG_DEBUG_NONE},
+    {CFG_RUNTIME_DBEUG_MODE, CFG_DEBUG_NONE},
 };
 
 static std::map<std::string, ValueType> g_globalConfig = {
@@ -137,6 +142,9 @@ struct ConfigStorage {
         }
         for (auto &[key, val] : g_verifyConfig) {
             options["verify." + key] = val;
+        }
+        for (auto &[key, val] : g_debugConfig) {
+            options["debug." + key] = val;
         }
     }
 

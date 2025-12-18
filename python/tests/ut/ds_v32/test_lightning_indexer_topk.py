@@ -877,9 +877,9 @@ def setup_lightning_indexer_topk_config():
                          parallel_threshold=NUM_2,
                          nbuffer_merge_mode=NUM_2,
                          vec_nbuffer_map={NUM_NEG1: NUM_16})
-    pypto.set_runtime_options(machine_sched_mode=NUM_3,
-                            workspace_recycle_period=NUM_128,
-                            estimated_stitch_task_max_loop_num=NUM_128)
+    pypto.set_runtime_options(device_sched_mode=NUM_3,
+                            stitch_function_inner_memory=NUM_128,
+                            stitch_function_outcast_memory=NUM_128)
 
 
 def build_lightning_indexer_topk_args(

@@ -273,6 +273,7 @@ private:
             InitKernelInOuts(kArgs, inputs, outputs, false);
             rc = DeviceRunner::Get().DynamicRun(aicpuStream, ctrlStream, aicoreStream, 0, &kArgs, config_.blockdim, config_.aicpuNum);
             EXPECT_EQ(rc, 0);
+            DeviceRunner::Get().SynchronizeDeviceToHostProfData();
             DeviceRunner::Get().ResetPerfTraceDfxMem(); // refresh aicore dfx metric memory cache
         }
         CopyFromDev(MemoryHelper(false), outputs);

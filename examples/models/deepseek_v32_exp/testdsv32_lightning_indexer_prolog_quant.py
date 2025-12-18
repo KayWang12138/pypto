@@ -540,7 +540,7 @@ def test_b128_s1_4_s2_8k():
         t_sub_tile=2,
         chunk_size=1,
     )
-    pypto.set_runtime_options(workspace_recycle_period=512, estimated_stitch_task_max_loop_num=512)
+    pypto.set_runtime_options(stitch_function_inner_memory=512, stitch_function_outcast_memory=512)
     do_test_lighting_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b128_s1_4_s2_8k", configs)
 
 

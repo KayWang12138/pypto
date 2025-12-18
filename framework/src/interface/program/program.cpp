@@ -175,9 +175,9 @@ void SetParamConfig(Function* currentFunctionPtr_) {
     currentFunctionPtr_->paramConfigs_.sgCycleLowerBound = currentScope->GetPassConfig<int>(SG_CYCLE_LOWER_BOUND);
     currentFunctionPtr_->paramConfigs_.sgParallelNum = currentScope->GetPassConfig<int>(SG_PARALLEL_NUM);
     currentFunctionPtr_->paramConfigs_.sgCopyInThreshold = currentScope->GetPassConfig<int>(COPYIN_THRESHOLD);
-    currentFunctionPtr_->paramConfigs_.machineConfig_ = currentScope->GetRuntimeConfig<uint8_t>(MACHINE_SCHED_MODE);
-    currentFunctionPtr_->paramConfigs_.firstStitchTaskLoopNum_ = currentScope->GetRuntimeConfig<uint16_t>(FIRST_STITCH_TASK_LOOP_NUM);
-    currentFunctionPtr_->paramConfigs_.stitchTaskIncrLoopNum_ = currentScope->GetRuntimeConfig<uint16_t>(SUBSEQ_STITCH_TASK_INCR_LOOP_NUM);
+    currentFunctionPtr_->paramConfigs_.machineConfig_ = currentScope->GetRuntimeConfig<uint8_t>(DEVICE_SCHED_MODE);
+    currentFunctionPtr_->paramConfigs_.stitchFunctionNumInitial_ = currentScope->GetRuntimeConfig<uint16_t>(STITCH_FUNCTION_NUM_INITIAL);
+    currentFunctionPtr_->paramConfigs_.stitchFunctionNumStep_ = currentScope->GetRuntimeConfig<uint16_t>(STITCH_FUNCTION_NUM_STEP);
     currentFunctionPtr_->paramConfigs_.l1ReuseMap = currentScope->GetPassConfig<std::map<int64_t, int64_t>>(L1_REUSE_MAP);
     currentFunctionPtr_->paramConfigs_.cubeNBufferMap = currentScope->GetPassConfig<std::map<int64_t, int64_t>>(CUBE_NBUFFER_MAP);
     currentFunctionPtr_->paramConfigs_.vecNBufferMap = currentScope->GetPassConfig<std::map<int64_t, int64_t>>(VEC_NBUFFER_MAP);

@@ -347,9 +347,9 @@ Status LoopUnroll::CreateLoopUnrollFunc(Function *function) {
     paramConfigs.sgCycleLowerBound = currentScope->GetPassConfig<int>(SG_CYCLE_LOWER_BOUND);
     paramConfigs.sgParallelNum = currentScope->GetPassConfig<int>(SG_PARALLEL_NUM);
     paramConfigs.sgCopyInThreshold = currentScope->GetPassConfig<int>(COPYIN_THRESHOLD);
-    paramConfigs.machineConfig_ = currentScope->GetRuntimeConfig<uint8_t>(MACHINE_SCHED_MODE);
-    paramConfigs.firstStitchTaskLoopNum_ = currentScope->GetRuntimeConfig<uint16_t>(FIRST_STITCH_TASK_LOOP_NUM);
-    paramConfigs.stitchTaskIncrLoopNum_ = currentScope->GetRuntimeConfig<uint16_t>(SUBSEQ_STITCH_TASK_INCR_LOOP_NUM);
+    paramConfigs.machineConfig_ = currentScope->GetRuntimeConfig<uint8_t>(DEVICE_SCHED_MODE);
+    paramConfigs.stitchFunctionNumInitial_ = currentScope->GetRuntimeConfig<uint16_t>(STITCH_FUNCTION_NUM_INITIAL);
+    paramConfigs.stitchFunctionNumStep_ = currentScope->GetRuntimeConfig<uint16_t>(STITCH_FUNCTION_NUM_STEP);
     paramConfigs.l1ReuseMap = currentScope->GetPassConfig<std::map<int64_t, int64_t>>(L1_REUSE_MAP);
     paramConfigs.cubeNBufferMap = currentScope->GetPassConfig<std::map<int64_t, int64_t>>(CUBE_NBUFFER_MAP);
     paramConfigs.vecNBufferMap = currentScope->GetPassConfig<std::map<int64_t, int64_t>>(VEC_NBUFFER_MAP);

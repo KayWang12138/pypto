@@ -113,8 +113,8 @@ void DeviceExecuteContext::RunInit(DevStartArgs *startArgs, PushTaskEntry tPushT
     this->devProg = startArgs->devProg;
 
     workspace.Init(startArgs);
-    if (devProg->firstStitchTaskLoopNum > 0) {
-        stitchTaskLoopNumThreshold = std::min<uint16_t>(devProg->firstStitchTaskLoopNum, MAX_CACHED_FUNC_NUM);
+    if (devProg->stitchFunctionNumInitial > 0) {
+        stitchTaskLoopNumThreshold = std::min<uint16_t>(devProg->stitchFunctionNumInitial, MAX_CACHED_FUNC_NUM);
         DEV_INFO("first stitch task loop num threshold is %u.", stitchTaskLoopNumThreshold);
     }
 
@@ -339,13 +339,13 @@ void *DeviceExecuteContext::CallRootFunctionAlloc(uint64_t rootKey) {
     DevAscendFunction *devRoot = devProg->GetFunction(rootKey);
     DEV_DEBUG("alloc one func %lu %p %s.", rootKey, devRoot, devRoot->GetRawName());
     if (stitchContext.Size() == stitchTaskLoopNumThreshold ||
-        stitchContext.stitchedCallOpSize() + devRoot->GetOperationSize() > devProg->stitchCallopMaxNum) {
+        stitchContext.stitchedCallOpSize() + devRoot->GetOperationSize() > devProg->stitchFunctionsize) {
         SubmitToAicoreAndRecycleMemory(false);
         auto nextThreshold =
-            std::min<uint16_t>(stitchTaskLoopNumThreshold + devProg->stitchTaskIncrLoopNum, MAX_CACHED_FUNC_NUM);
+            std::min<uint16_t>(stitchTaskLoopNumThreshold + devProg->stitchFunctionNumStep, MAX_CACHED_FUNC_NUM);
         DEV_INFO("[Stitch Finish] Stitch Limit Exceeded. #task=%zu+1 (limit=%u), #callop=%u+%zu (limit=%u).",
             stitchContext.Size(), stitchTaskLoopNumThreshold,
-            stitchContext.stitchedCallOpSize(), devRoot->GetOperationSize(), devProg->stitchCallopMaxNum);
+            stitchContext.stitchedCallOpSize(), devRoot->GetOperationSize(), devProg->stitchFunctionsize);
         stitchTaskLoopNumThreshold = nextThreshold;
     }
     DEV_TRACE_DEBUG(REvent(GetRuid(rootKey), RActDup(devRoot->GetRawName())));

@@ -169,7 +169,7 @@ def share_expert_moe_main(hidden_states, w13, w13_scale,
     pypto.set_host_options(only_codegen=True)
     pypto.set_codegen_options(support_dynamic_unaligned=True)
     pypto.set_codegen_options(codegen_expression_fusion=True)
-    pypto.set_runtime_options(machine_sched_mode=1)
+    pypto.set_runtime_options(device_sched_mode=1)
     pypto.set_runtime_options(cfgcache_device_task_num=100)
     pypto.set_runtime_options(cfgcache_root_task_num=1000)
     pypto.set_runtime_options(cfgcache_leaf_task_num=10000)

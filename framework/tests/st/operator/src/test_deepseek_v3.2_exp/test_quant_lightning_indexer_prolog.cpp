@@ -295,8 +295,8 @@ TEST_F(QuantLightningIndexerPrologSTest, b128_s1_4_s2_8k) {
         {1, 4}, {3, 4}
     };
 
-    config::SetRuntimeOption(WORKSPACE_RECYCLE_PERIOD, 512);
-    config::SetRuntimeOption(ESTIMATED_STITCH_TASK_MAX_LOOP_NUM, 512);
+    config::SetRuntimeOption(STITCH_FUNCTION_INNER_MEMORY, 512);
+    config::SetRuntimeOption(STITCH_FUNCTION_OUTCAST_MEMORY, 512);
     TestQuantLightningIndexerProlog<npu::tile_fwk::bfloat16, true>(configs);
 }
 } // namespace

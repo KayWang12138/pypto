@@ -165,7 +165,7 @@ public:
         if (config::GetPlatformConfig(KEY_ENABLE_PROF_FUNC, false)) {
             kArgs.toSubMachineConfig.profConfig.Add(ProfConfig::AICPU_FUNC);
         }
-        if (config::GetPlatformConfig(KEY_ENABLE_PROF_AICORE_TIME, false) || config::GetOption<bool>(PROFILE_ENABLE))  {
+        if (config::GetPlatformConfig(KEY_ENABLE_PROF_AICORE_TIME, false) || config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_ALL)  {
             kArgs.toSubMachineConfig.profConfig.Add(ProfConfig::AICORE_TIME);
         }
         if (config::GetPlatformConfig(KEY_ENABLE_PROF_AICORE_PMU, false)) {
@@ -249,6 +249,7 @@ public:
     static void ChangeCaptureMode(aclmdlRICaptureMode &mode);
     static int GetStreamCaptureInfo(rtStream_t aicoreStream, aclmdlRI &rtModel, bool &isCapture);
     static int SetCaptureStream(rtStream_t aicoreStream, rtStream_t aicpuStream);
+    static int RunWithProfile(rtStream_t aicoreStream, rtStream_t aicpuStream);
     static int DeviceLaunchOnceWithDeviceTensorData(
             Function *function, const std::vector<DeviceTensorData> &inputList, const std::vector<DeviceTensorData> &outputList,
             rtStream_t aicpuStream, rtStream_t aicoreStream, bool streamSynchronize, CachedOperator *cachedOperator,
@@ -270,6 +271,11 @@ using aclmdlRI = void *;
         return 0;
     }
     static int SetCaptureStream(rtStream_t aicoreStream, rtStream_t aicpuStream) {
+        (void)aicoreStream;
+        (void)aicpuStream;
+        return 0;
+    }
+    static int RunWithProfile(rtStream_t aicoreStream, rtStream_t aicpuStream) {
         (void)aicoreStream;
         (void)aicpuStream;
         return 0;

@@ -208,15 +208,15 @@ def get_codegen_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]
 
 
 def set_runtime_options(*,
-                        machine_sched_mode: Optional[int] = None,
-                        workspace_recycle_period: Optional[int] = None,
-                        estimated_stitch_task_max_loop_num: Optional[int] = None,
-                        first_stitch_task_loop_num: Optional[int] = None,
-                        subseq_stitch_task_incr_loop_num: Optional[int] = None,
+                        device_sched_mode: Optional[int] = None,
+                        stitch_function_inner_memory: Optional[int] = None,
+                        stitch_function_outcast_memory: Optional[int] = None,
+                        stitch_function_num_initial: Optional[int] = None,
+                        stitch_function_num_step: Optional[int] = None,
                         cfgcache_device_task_num: Optional[int] = None,
                         cfgcache_root_task_num: Optional[int] = None,
                         cfgcache_leaf_task_num: Optional[int] = None,
-                        stitch_callop_max_num: int = None,
+                        stitch_function_size: int = None,
                         run_mode: Optional[int] = None
                         ) -> None:
     """
@@ -224,28 +224,28 @@ def set_runtime_options(*,
 
     Parameters
     ---------
-    machine_sched_mode : int
+    device_sched_mode : int
         Set the scheduling mode of the computation subgraph.
 
-    workspace_recycle_period : int
+    stitch_function_inner_memory : int
         Parameter for controlling the size of the non-outcast memory pool
         allocated to the root function, where the memory pool size is
         max_root_nonoutcast_workspace *.
 
-    estimated_stitch_task_max_loop_num : int
+    stitch_function_outcast_memory : int
         Used to evaluate the size of workspace memory required by
         an operator during runtime when compiling the operator.
 
-    first_stitch_task_loop_num : int
+    stitch_function_num_initial : int
         The amount of computation tasks for the first stitch task submitted to
         the scheduling AICPU for processing, controlled in the ctrlflow AICPU
         during machine runtime.
 
-    subseq_stitch_task_incr_loop_num : int
+    stitch_function_num_step : int
         The computation amount of the processing loop for non-initial
         stitch tasks, controlled in the ctrlflow AICPU during machine runtime.
 
-    stitch_callop_max_num: int
+    stitch_function_size: int
         The maximum Callop computation amount per loop for stitch tasks,
         controlled in the ctrlflow AICPU during machine runtime.
     """
@@ -309,6 +309,36 @@ def get_verify_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]]
     return _pto_options.get_options("verify")
 
 
+def set_debug_options(*,
+                       compile_debug_mode: Optional[int] = None,
+                       runtime_debug_mode: Optional[int] = None,
+                       ) -> None:
+    """
+    Set debug options.
+
+    Parameters
+    ---------
+    compile_debug_mode : int
+        Whether to enable debug mode during compilation stage.
+
+    runtime_debug_mode : int
+        Whether to enable debug mode during execution stage.
+    """
+    _pto_options.set_options("debug", locals())
+
+
+def get_debug_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]]]:
+    """
+    Get debug options.
+
+    Returns
+    -------
+    Dict[str, Union[str, int, List[int], Dict[int, int]]]
+        All verify options
+    """
+    return _pto_options.get_options("debug")
+
+
 def set_semantic_label(label: str) -> None:
     """
     Set the semantic label object.
@@ -369,8 +399,8 @@ class _Options:
     """Configuration options class, supports context manager and decorator modes"""
     INIT_FIELDS = [
         "name", "codegen_options", "host_options", "pass_options",
-        "runtime_options", "verify_options", "vec_tile_shapes",
-        "cube_tile_shapes", "matrix_size"
+        "runtime_options", "verify_options", "debug_options",
+        "vec_tile_shapes", "cube_tile_shapes", "matrix_size"
     ]
 
     PREFIX_MAP = {
@@ -378,7 +408,8 @@ class _Options:
         "host_options": "host.",
         "pass_options": "pass.",
         "runtime_options": "runtime.",
-        "verify_options": "verify."
+        "verify_options": "verify.",
+        "debug_options": "debug.",
     }
 
     def __init__(self, **kwargs):
@@ -446,6 +477,7 @@ def options(
     pass_options=None,
     runtime_options=None,
     verify_options=None,
+    debug_options=None,
     vec_tile_shapes=None,
     cube_tile_shapes=None,
     matrix_size=None,
@@ -461,6 +493,7 @@ def options(
     pass_options: Pass options (dict)
     runtime_options: Runtime options (dict)
     verify_options: Verify options (dict)
+    debug_options: Debug options (dict)
     vec_tile_shapes: Vector tile shapes (list)
     cube_tile_shapes: Cube tile shapes (CubeTile instance or list)
     matrix_size: Matrix size (list)
@@ -495,6 +528,7 @@ def set_options(
     pass_options=None,
     runtime_options=None,
     verify_options=None,
+    debug_options=None,
     vec_tile_shapes=None,
     cube_tile_shapes=None,
     matrix_size=None,
@@ -509,6 +543,7 @@ def set_options(
     pass_options: Pass options (dict)
     runtime_options: Runtime options (dict)
     verify_options: Verify options (dict)
+    debug_options: Debug options (dict)
     vec_tile_shapes: Vector tile shapes (list)
     cube_tile_shapes: Cube tile shapes (CubeTile instance or list)
     matrix_size: Matrix size (list)

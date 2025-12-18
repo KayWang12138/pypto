@@ -40,3 +40,6 @@ include MANIFEST.in
 include pyproject.toml
 include README.md
 include setup.py
+include tools/draw_swim_lane.py
+include tools/function_json_convert.py
+include tools/parse_pipe_time_trace.py

@@ -233,6 +233,17 @@ function(PTO_Fwk_GTest_AddExe)
             COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/framework/src/cost_model/simulation_platform/platform_config/A2A3.ini"   "${InstallConfigsDir}/"
             COMMENT "Soft link of configs(*.json) has been created at ${InstallConfigsDir}"
     )
+    # 模拟脚本文件 Install 流程, 为便于调试, 使用创建软连接方式模拟安装
+    get_filename_component(InstallScriptsDir "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/scripts" REALPATH)
+    add_custom_command(
+            TARGET ${ARG_TARGET} PRE_BUILD
+            COMMAND ${CMAKE_COMMAND} -E remove_directory ${InstallScriptsDir}
+            COMMAND ${CMAKE_COMMAND} -E make_directory ${InstallScriptsDir}
+            COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/tools/draw_swim_lane.py" "${InstallScriptsDir}/"
+            COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/tools/function_json_convert.py" "${InstallScriptsDir}/"
+            COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/tools/parse_pipe_time_trace.py" "${InstallScriptsDir}/"
+            COMMENT "Soft link of scripts has been created at ${InstallScriptsDir}"
+    )
     # 模拟头文件 Install 流程, 为便于调试, 使用创建软连接方式模拟安装
     get_filename_component(InstallIncludeDir "${PTO_FWK_BIN_OUTPUT_ROOT}/include" REALPATH)
     add_custom_command(

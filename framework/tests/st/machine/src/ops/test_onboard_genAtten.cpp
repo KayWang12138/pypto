@@ -60,7 +60,7 @@ template<typename T = npu::tile_fwk::float16>
 void genAtten(TestDataLoader& data, GenAttenTileShapeConfig &tileConfig) {
     SetInterpreterConfig();
     config::SetHostOption(ONLY_CODEGEN, true);
-    config::SetRuntimeOption(MACHINE_SCHED_MODE, static_cast<uint8_t>(MachineScheduleConfig::L2CACHE_AFFINITY_SCH));
+    config::SetRuntimeOption(DEVICE_SCHED_MODE, static_cast<uint8_t>(MachineScheduleConfig::L2CACHE_AFFINITY_SCH));
 
     int b = std::get<int>(data.Param("b"));
     int s1 = std::get<int>(data.Param("s1"));

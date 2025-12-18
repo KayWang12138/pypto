@@ -42,7 +42,7 @@ void ForceLinkLibraryCompiler() {}
 
 static constexpr size_t TABSIZE = 2;
 constexpr int ALIGN_SIZE_8 = 8;
-constexpr uint32_t STITCH_CALLOP_SET_MAX_NUM = 65535;
+constexpr uint32_t STITCH_FUNCTION_MAX_SIZE = 65535;
 extern "C" int32_t Initialize() {
     CacheManager::Instance().Initialize();
     return 0;
@@ -138,12 +138,6 @@ extern "C" int32_t Execute(MachineTask *task, FunctionCache &cache) {
         }
         // save compile result on disk
         CacheManager::Instance().SaveTaskFile(deviceAgentTask.get());
-    }
-    if (config::GetHostConfig(KEY_DUMP_BIN_AND_JSON, false)) {
-        if (!KernelDumpUtils::DumpKernelFile(deviceAgentTask.get(), config::GetHostConfig(KEY_DUMP_KERNEL_NAME, ""),
-                    config::GetHostConfig(KEY_DUMP_BIN_AND_JSON_PATH, ""), kernelPath)) {
-            ALOG_ERROR_F("Dump ast bin failed");
-        }
     }
 
     if (config::GetHostOption<bool>(ONLY_CODEGEN)) {
@@ -682,7 +676,7 @@ bool IsNeedDumpAicpuKernel(const std::string &inputFile) {
 }
 static void OverCallOpMaxNum(Function *devRoot, DevAscendFunction *funcBin){
     uint32_t CallOpSize = funcBin->GetOperationSize();
-    uint32_t CallOpmaxSize = config::GetRuntimeOption<uint32_t>(STITCH_CALLOP_MAX_NUM);
+    uint32_t CallOpmaxSize = config::GetRuntimeOption<uint32_t>(STITCH_FUNCTION_SIZE);
     auto funcMagicName = devRoot->GetRawName() + "_" + std::to_string(devRoot->GetFuncMagic());
     ALOG_ERROR_F("the loop function operation: %s size is %u hitting the maxinum single-loop-operation limit:%u.\n",
     funcMagicName, CallOpSize, CallOpmaxSize);
@@ -861,8 +855,8 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[ma
         funcBin->getTensorDataCount = 0;
         EncodeDevAscendFunction(function, encodeDevAscendFunctionParam, size, funcBin);
         funcBin->Reloc(-reinterpret_cast<int64_t>(funcBin), true);
-        uint32_t CallOpmaxSize = config::GetRuntimeOption<uint32_t>(STITCH_CALLOP_MAX_NUM);
-        ASSERT(CallOpmaxSize <= STITCH_CALLOP_SET_MAX_NUM) << " CallOpmaxSize set: "<< CallOpmaxSize
+        uint32_t CallOpmaxSize = config::GetRuntimeOption<uint32_t>(STITCH_FUNCTION_SIZE);
+        ASSERT(CallOpmaxSize <= STITCH_FUNCTION_MAX_SIZE) << " CallOpmaxSize set: "<< CallOpmaxSize
         << "exceeds the maximum allowed value of 65535.";
         if (funcBin->GetOperationSize() > CallOpmaxSize) {
             OverCallOpMaxNum(devRoot,funcBin);

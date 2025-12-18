@@ -179,7 +179,8 @@ class _JIT:
             pypto_impl.BuildCache(self._handler, in_out_tensors_data, [])
         else:
             self._set_config_option()
-
+        if pypto.get_debug_options().get("runtime_debug_mode", 0):
+            pypto.set_option("profile_enable", True)
         # dispatch run mode based on ASCEND_HOME_PATH or run_mode
         '''
           if run_mode is not config, use ASCEND_HOME_PATH

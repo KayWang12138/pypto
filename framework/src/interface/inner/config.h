@@ -44,20 +44,26 @@ constexpr const char *SUPPORT_DYNAMIC_UNALIGNED = "support_dynamic_unaligned";
 constexpr const char *CODEGEN_EXPRESSION_FUSION = "codegen_expression_fusion";
 
 //runtime
-constexpr const char *MACHINE_SCHED_MODE = "machine_sched_mode";
-constexpr const char *WORKSPACE_RECYCLE_PERIOD = "workspace_recycle_period";
-constexpr const char *ESTIMATED_STITCH_TASK_MAX_LOOP_NUM = "estimated_stitch_task_max_loop_num";
-constexpr const char *FIRST_STITCH_TASK_LOOP_NUM = "first_stitch_task_loop_num";
-constexpr const char *SUBSEQ_STITCH_TASK_INCR_LOOP_NUM = "subseq_stitch_task_incr_loop_num";
+constexpr const char *DEVICE_SCHED_MODE = "device_sched_mode";
+constexpr const char *STITCH_FUNCTION_INNER_MEMORY = "stitch_function_inner_memory";
+constexpr const char *STITCH_FUNCTION_OUTCAST_MEMORY = "stitch_function_outcast_memory";
+constexpr const char *STITCH_FUNCTION_NUM_INITIAL = "stitch_function_num_initial";
+constexpr const char *STITCH_FUNCTION_NUM_STEP = "stitch_function_num_step";
 constexpr const char *PROFILE_ENABLE = "profile_enable";
 constexpr const char *COST_MODEL_ENABLE = "cost_model_enable";
-constexpr const char *STITCH_CALLOP_MAX_NUM = "stitch_callop_max_num";
+constexpr const char *STITCH_FUNCTION_SIZE = "stitch_function_size";
 constexpr const char *CFGCACHE_DEVICE_TASK_NUM = "cfgcache_device_task_num";
 constexpr const char *CFGCACHE_ROOT_TASK_NUM = "cfgcache_root_task_num";
 constexpr const char *CFGCACHE_LEAF_TASK_NUM = "cfgcache_leaf_task_num";
 constexpr const char *CFG_RUN_MODE = "run_mode";
 const int64_t CFG_RUN_MODE_NPU = 0;
 const int64_t CFG_RUN_MODE_SIM = 1;
+
+//debug
+constexpr const char *CFG_COMPILE_DBEUG_MODE = "compile_debug_mode";
+constexpr const char *CFG_RUNTIME_DBEUG_MODE = "runtime_debug_mode";
+const int64_t CFG_DEBUG_NONE = 0;
+const int64_t CFG_DEBUG_ALL = 1;
 
 /* Rundata KEYS */
 constexpr const char *KEY_RUNTYPE = "runtype";
@@ -145,6 +151,7 @@ DEFINE_CONFIG_GROUP(Pass, "pass")
 DEFINE_CONFIG_GROUP(Runtime, "runtime")
 DEFINE_CONFIG_GROUP(Host, "host")
 DEFINE_CONFIG_GROUP(Verify, "verify")
+DEFINE_CONFIG_GROUP(Debug, "debug")
 
 std::shared_ptr<ConfigStorage> Duplicate();
 void Restore(std::shared_ptr<ConfigStorage> config);

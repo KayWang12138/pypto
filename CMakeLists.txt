@@ -138,6 +138,14 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END AND BUILD_OPEN_PROJECT)
             DESTINATION ${PyPTO_WhlName}/lib/configs
     )
 
+    # 安装 脚本文件
+    install(FILES
+                tools/draw_swim_lane.py
+                tools/function_json_convert.py
+                tools/parse_pipe_time_trace.py
+            DESTINATION ${PyPTO_WhlName}/lib/scripts
+    )
+
     # 安装 头文件
     if (ENABLE_FEATURE_INSTALL_EXPERIMENT)
         install(DIRECTORY framework/include/

@@ -149,7 +149,6 @@ TEST_F(HostMachineCompileTest, test_MlaProlog_float16_32_2_1_256_256_512) {  // 
 
     std::vector<int> params = {b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim,
                                kvLoraRank, vHeadDim};
-    config::SetHostConfig(KEY_DUMP_BIN_AND_JSON, true);
     TestMlaProlog<npu::tile_fwk::float16>(params);
 }
 

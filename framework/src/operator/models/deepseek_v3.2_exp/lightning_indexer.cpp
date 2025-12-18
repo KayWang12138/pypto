@@ -392,10 +392,10 @@ void LightningIndexerImpl(const Tensor &idxQuery, const Tensor &idxQueryScale, c
     // cube graph fuse optimization
     config::SetPassOption("l1_reuse_map", configs.l1ReuseMap);
     // stitch optimization
-    config::SetRuntimeOption("workspace_recycle_period", configs.maxRecyclePeriod);
-    config::SetRuntimeOption("estimated_stitch_task_max_loop_num", configs.maxLoopNum);
+    config::SetRuntimeOption("stitch_function_inner_memory", configs.maxRecyclePeriod);
+    config::SetRuntimeOption("stitch_function_outcast_memory", configs.maxLoopNum);
     // schedule policy selection
-    config::SetRuntimeOption("machine_sched_mode", static_cast<uint8_t>(MachineScheduleConfig::L2CACHE_AFFINITY_SCH));
+    config::SetRuntimeOption("device_sched_mode", static_cast<uint8_t>(MachineScheduleConfig::L2CACHE_AFFINITY_SCH));
 
     // get tile params from configs
     auto s1Tile = configs.s1Tile; // s1 need to be divided by s1Tile

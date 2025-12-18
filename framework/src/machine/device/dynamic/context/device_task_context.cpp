@@ -72,7 +72,7 @@ void DeviceTaskContext::BuildReadyQueue(DynDeviceTask *dyntask, DevAscendProgram
     PerfBegin(PERF_EVT_READY_QUEUE_IN);
 
     uint32_t size = sizeof(ReadyCoreFunctionQueue) + dyntask->devTask.coreFunctionCnt * sizeof(taskid_t);
-    DEV_ASSERT(dyntask->devTask.coreFunctionCnt <= devProg->stitchCallopMaxNum);
+    DEV_ASSERT(dyntask->devTask.coreFunctionCnt <= devProg->stitchFunctionsize);
     ReadyCoreFunctionQueue *queue[READY_QUEUE_SIZE];
     for (size_t index = 0; index < READY_QUEUE_SIZE; ++index) {
         WsAllocation qalloc = ControlFlowAllocateSlab(devProg_, size, workspace_->SlabAlloc(size, WsAicpuSlabMemType::READY_QUE));

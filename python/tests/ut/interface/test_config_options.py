@@ -36,22 +36,22 @@ def test_host_option():
 
 
 def test_runtime_option():
-    pypto.set_runtime_options(stitch_callop_max_num=30000)
+    pypto.set_runtime_options(stitch_function_size=30000)
     runtime_option = pypto.get_runtime_options()
-    assert runtime_option["stitch_callop_max_num"] == 30000
+    assert runtime_option["stitch_function_size"] == 30000
 
 
 def test_reset_option():
-    pypto.set_runtime_options(first_stitch_task_loop_num=23)
+    pypto.set_runtime_options(stitch_function_num_initial=23)
     runtime_option = pypto.get_runtime_options()
-    assert runtime_option["first_stitch_task_loop_num"] == 23
+    assert runtime_option["stitch_function_num_initial"] == 23
     pypto.set_host_options(only_codegen=True)
     host_option = pypto.get_host_options()
     assert host_option["only_codegen"] == True
     pypto.reset_options()
     runtime_option = pypto.get_runtime_options()
     host_option = pypto.get_host_options()
-    assert runtime_option["first_stitch_task_loop_num"] == 30
+    assert runtime_option["stitch_function_num_initial"] == 30
     assert host_option["only_codegen"] == False
 
 

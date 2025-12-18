@@ -213,7 +213,7 @@ TEST_F(DynamicControlFlowCacheTest, CheckLackMemory) {
     config::SetRuntimeOption<int64_t>(CFGCACHE_DEVICE_TASK_NUM, 1);
     config::SetRuntimeOption<int64_t>(CFGCACHE_ROOT_TASK_NUM, 1);
     config::SetRuntimeOption<int64_t>(CFGCACHE_LEAF_TASK_NUM, 1);
-    config::SetRuntimeOption<int64_t>(FIRST_STITCH_TASK_LOOP_NUM, 128);
+    config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_INITIAL, 128);
 
     int tiling = 32;
     TileShape::Current().SetVecTile(tiling, tiling);
@@ -311,8 +311,8 @@ TEST_F(DynamicControlFlowCacheTest, PartialCache) {
     config::SetRuntimeOption<int64_t>(CFGCACHE_LEAF_TASK_NUM, 0x20);
 
     // every task 4 root func
-    config::SetRuntimeOption<int64_t>(FIRST_STITCH_TASK_LOOP_NUM, 0x4);
-    config::SetRuntimeOption<int64_t>(SUBSEQ_STITCH_TASK_INCR_LOOP_NUM, 0);
+    config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_INITIAL, 0x4);
+    config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_STEP, 0);
 
     int tiling = 32;
     TileShape::Current().SetVecTile(tiling, tiling);
@@ -404,8 +404,8 @@ TEST_F(DynamicControlFlowCacheTest, PartialCacheChangeWorkspaceAddress) {
     config::SetRuntimeOption<int64_t>(CFGCACHE_LEAF_TASK_NUM, 0x200);
 
     // every task 4 root func
-    config::SetRuntimeOption<int64_t>(FIRST_STITCH_TASK_LOOP_NUM, 0x3);
-    config::SetRuntimeOption<int64_t>(SUBSEQ_STITCH_TASK_INCR_LOOP_NUM, 0);
+    config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_INITIAL, 0x3);
+    config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_STEP, 0);
 
     static constexpr int v64 = 64;
     static constexpr int v128 = 128;
@@ -521,8 +521,8 @@ TEST_F(DynamicControlFlowCacheTest, PartialCacheValueDependData) {
     config::SetRuntimeOption<int64_t>(CFGCACHE_ROOT_TASK_NUM, 0x20);
     config::SetRuntimeOption<int64_t>(CFGCACHE_LEAF_TASK_NUM, 0x20);
 
-    config::SetRuntimeOption<int64_t>(FIRST_STITCH_TASK_LOOP_NUM, 0x4);
-    config::SetRuntimeOption<int64_t>(SUBSEQ_STITCH_TASK_INCR_LOOP_NUM, 0);
+    config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_INITIAL, 0x4);
+    config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_STEP, 0);
 
     int tiling = 32;
     TileShape::Current().SetVecTile(tiling, tiling);
@@ -603,8 +603,8 @@ TEST_F(DynamicControlFlowCacheTest, PartialCacheValueDependControl) {
     config::SetRuntimeOption<int64_t>(CFGCACHE_ROOT_TASK_NUM, 9);
     config::SetRuntimeOption<int64_t>(CFGCACHE_LEAF_TASK_NUM, 18);
 
-    config::SetRuntimeOption<int64_t>(FIRST_STITCH_TASK_LOOP_NUM, 4);
-    config::SetRuntimeOption<int64_t>(SUBSEQ_STITCH_TASK_INCR_LOOP_NUM, 0);
+    config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_INITIAL, 4);
+    config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_STEP, 0);
 
     int tiling = 32;
     TileShape::Current().SetVecTile(tiling, tiling);

@@ -195,7 +195,7 @@ def moe_router_expert_main(hidden_states, hidden_states_scale,
     pypto.set_host_options(only_codegen=True)
     pypto.set_codegen_options(support_dynamic_unaligned=True)
     pypto.set_codegen_options(codegen_expression_fusion=True)
-    pypto.set_runtime_options(machine_sched_mode=1)
+    pypto.set_runtime_options(device_sched_mode=1)
     pypto.set_pass_options(l1_reuse=2)
 
     # 获取当前device上专家总数
