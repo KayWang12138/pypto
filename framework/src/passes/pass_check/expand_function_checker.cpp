@@ -58,6 +58,14 @@ Status ExpandFunctionChecker::DoPostCheck(Function &function) {
         APASS_LOG_ERROR_F(Elements::Function, "Operation Loop detected after expand function; Please review the error messages generated during the processing procedure.");
         return FAILED;
     }
+    if (CheckDynAttrForView(function) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Function, "CheckDynAttrForView failed.");
+        return FAILED;
+    }
+    if (CheckToDynOffsetForAssemble(function) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Function, "CheckToDynOffsetForAssemble failed.");
+        return FAILED;
+    }
     return SUCCESS;
 }
 } // namespace tile_fwk

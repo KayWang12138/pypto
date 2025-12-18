@@ -64,6 +64,36 @@ protected:
      *                 or there exists an op has an input or output with null consumer/producer.
      */
     Status CheckOpIOValid(Function &function);
+    /**
+     * \brief Check whether the incasts and outcasts of the function are valid (not empty).
+     * \param function : This parameter indicates the function to be checked.
+     * \return Status, indicating whether the function has valid incast/outcast.
+     */
+    Status CheckCompleteness(Function &function);
+    /**
+     * \brief Check whether the graph has loop.
+     * \param function : This parameter indicates the function to be checked.
+     * \return Status, indicating whether the graph has a loop.
+     */
+    Status CheckGraphLoop(Function &function);
+    /**
+     * \brief Common verification.
+     * \param function : This parameter indicates the function to be checked.
+     * \return Status, indicating whether the public verification is passed.
+     */
+    Status PublicCheck(Function &function);
+    /**
+     * \brief Check whether the fromDynOffset_ and toDynValidShape_ of the OP_VIEW are valid.
+     * \param function : This parameter indicates the function to be checked.
+     * \return Status, indicating whether the fromDynOffset_ or toDynValidShape_ of OP_VIEW is empty.
+     */
+    Status CheckDynAttrForView(Function &function);
+    /**
+     * \brief Check whether the toDynOffset_ of OP_ASSEMBLE is valid.
+     * \param function : This parameter indicates the function to be checked.
+     * \return Status, indicating whether the toDynOffset_ of OP_ASSEMBLE is empty.
+     */
+    Status CheckToDynOffsetForAssemble(Function &function);
 };
 } // namespace tile_fwk
 } // namespace npu

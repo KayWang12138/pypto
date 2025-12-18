@@ -78,5 +78,119 @@ Status Checker::CheckOpIOValid(Function &function) {
     }
     return SUCCESS;
 }
+
+Status Checker::CheckCompleteness(Function &function) {
+    if (function.GetIncast().empty()) {
+        ALOG_ERROR_F("The incast of function[%d] is empty.", function.GetFuncMagic());
+        return FAILED;
+    }
+    for (const auto &incast : function.GetIncast()) {
+        if (incast == nullptr) {
+            ALOG_ERROR_F("The function[%d] contains incast which is null.", function.GetFuncMagic());
+            return FAILED;
+        }
+        if (incast->GetConsumers().empty()) {
+            ALOG_WARN_F("The incast[%d] has no consumer.", incast->GetMagic());
+            continue;
+        }
+    }
+    if (function.GetOutcast().empty()) {
+        ALOG_ERROR_F("The outcast of function[%d] is empty.", function.GetFuncMagic());
+        return FAILED;
+    }
+    for (const auto &outcast : function.GetOutcast()) {
+        if (outcast == nullptr) {
+            ALOG_ERROR_F("The function[%d] contains outcast which is null.", function.GetFuncMagic());
+            return FAILED;
+        }
+        if (outcast->GetProducers().empty()) {
+            ALOG_WARN_F("The outcast[%d] has no producer.", outcast->GetMagic());
+            continue;
+        }
+    }
+    return SUCCESS;
+}
+
+Status Checker::CheckGraphLoop(Function &function) {
+    if (function.GetTotalSubGraphCount() == 0 && !function.OperationLoopCheck()) {
+        ALOG_ERROR_F("OperationLoopCheck failed, there is a loop in function[%d].", function.GetFuncMagic());
+        return FAILED;
+    }
+    if (!function.LoopCheck().empty()) {
+        ALOG_ERROR_F("Loopcheck failed, there is a loop in function[%d].", function.GetFuncMagic());
+        return FAILED;
+    }
+    return SUCCESS;
+}
+
+Status Checker::PublicCheck(Function &function) {
+    if (CheckValidOp(function) != SUCCESS) {
+        ALOG_ERROR_F("CheckValidOp for function[%d] failed!", function.GetFuncMagic());
+        return FAILED;
+    }
+    if (CheckOpIOValid(function) != SUCCESS) {
+        ALOG_ERROR_F("CheckOpIOValid for function[%d] failed!", function.GetFuncMagic());
+        return FAILED;
+    }
+    if (CheckCompleteness(function) != SUCCESS) {
+        ALOG_ERROR_F("CheckCompleteness for function[%d] failed!", function.GetFuncMagic());
+        return FAILED;
+    }
+    if (CheckGraphLoop(function) != SUCCESS) {
+        ALOG_ERROR_F("CheckGraphLoop for function[%d] failed!", function.GetFuncMagic());
+        return FAILED;
+    }
+    return SUCCESS;
+}
+
+inline std::unordered_set<Operation *> GetNeedCheckOps(Function &function, Opcode opcode) {
+    std::unordered_set<Operation *> needCheckOps;
+    for (const auto &incast : function.GetIncast()) {
+        for (auto &consumer : incast->GetConsumers()) {
+            if (consumer->GetOpcode() == opcode) {
+                needCheckOps.insert(consumer);
+            }
+        }
+    }
+    for (const auto &outcast : function.GetOutcast()) {
+        for (auto &producer : outcast->GetProducers()) {
+            if (producer->GetOpcode() == opcode) {
+                needCheckOps.insert(producer);
+            }
+        }
+    }
+    return needCheckOps;
+}
+
+Status Checker::CheckDynAttrForView(Function &function) {
+    std::unordered_set<Operation *> needCheckViewOps = GetNeedCheckOps(function, Opcode::OP_VIEW);
+    for (const auto &op : needCheckViewOps) {
+        auto viewAttr = std::static_pointer_cast<ViewOpAttribute>(op->GetOpAttribute());
+        std::vector<SymbolicScalar> &viewFromDynOffset = viewAttr->GetFromDynOffset();
+        if (viewFromDynOffset.empty()) {
+            ALOG_ERROR_F("CheckDynAttrForView failed, fromDynOffset_ of op[%d] in function[%d] is empty.", op->GetOpMagic(), function.GetFuncMagic());
+            return FAILED;
+        }
+        std::vector<SymbolicScalar> &viewToDynValidShape = viewAttr->GetToDynValidShape();
+        if (viewToDynValidShape.empty()) {
+            ALOG_ERROR_F("CheckDynAttrForView failed, toDynValidShape_ of op[%d] in function[%d] is empty.", op->GetOpMagic(), function.GetFuncMagic());
+            return FAILED;
+        }
+    }
+    return SUCCESS;
+}
+
+Status Checker::CheckToDynOffsetForAssemble(Function &function) {
+    std::unordered_set<Operation *> needCheckAssembleOps = GetNeedCheckOps(function, Opcode::OP_ASSEMBLE);
+    for (const auto &op : needCheckAssembleOps) {
+        auto assembleAttr = std::static_pointer_cast<AssembleOpAttribute>(op->GetOpAttribute());
+        std::vector<SymbolicScalar> &assembleToDynOffset = assembleAttr->GetToDynOffset();
+        if (assembleToDynOffset.empty()) {
+            ALOG_ERROR_F("CheckToDynOffsetForAssemble failed, toDynOffset_ of op[%d] in function[%d] is empty.", op->GetOpMagic(), function.GetFuncMagic());
+            return FAILED;
+        }
+    }
+    return SUCCESS;
+}
 } // namespace tile_fwk
 } // namespace npu
