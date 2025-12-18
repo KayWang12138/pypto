@@ -19,9 +19,8 @@ using namespace npu::tile_fwk;
 
 namespace pypto {
 void bind_pass_const(py::module &m) {
-    m.attr("KEY_DUMP_FUNCTION_GRAPH_BEFORE_PASS") = KEY_DUMP_FUNCTION_GRAPH_BEFORE_PASS;
-    m.attr("KEY_DUMP_FUNCTION_GRAPH_AFTER_PASS") = KEY_DUMP_FUNCTION_GRAPH_AFTER_PASS;
-    m.attr("KEY_PRINT_FUNCTION") = KEY_PRINT_FUNCTION;
+    m.attr("KEY_DUMP_GRAPH") = KEY_DUMP_GRAPH;
+    m.attr("KEY_PRINT_GRAPH") = KEY_PRINT_GRAPH;
     m.attr("KEY_PRE_CHECK") = KEY_PRE_CHECK;
     m.attr("KEY_POST_CHECK") = KEY_POST_CHECK;
     m.attr("KEY_HEALTH_CHECK") = KEY_HEALTH_CHECK;
@@ -105,11 +104,7 @@ void bind_pass_config(py::module &m) {
 void bind_pass_configs(py::module &m) {
     py::class_<PassConfigs>(m, "PassConfigs")
         .def_readonly("printFunction", &PassConfigs::printFunction)
-        .def_readonly("dumpTensorGraph", &PassConfigs::dumpTensorGraph)
-        .def_readonly("dumpTileGraph", &PassConfigs::dumpTileGraph)
-        .def_readonly("dumpBlockGraph", &PassConfigs::dumpBlockGraph)
-        .def_readonly("dumpFunctionGraphBeforePass", &PassConfigs::dumpFunctionGraphBeforePass)
-        .def_readonly("dumpFunctionGraphAfterPass", &PassConfigs::dumpFunctionGraphAfterPass)
+        .def_readonly("dumpGraph", &PassConfigs::dumpGraph)
         .def_readonly("dumpPassTimeCost", &PassConfigs::dumpPassTimeCost)
         .def_readonly("preCheck", &PassConfigs::preCheck)
         .def_readonly("postCheck", &PassConfigs::postCheck)

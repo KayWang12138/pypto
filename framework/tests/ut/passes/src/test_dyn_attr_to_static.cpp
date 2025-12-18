@@ -38,7 +38,7 @@ public:
         config::SetHostConfig(KEY_STRATEGY, "PVC2_OOO");
         config::SetPlatformConfig("ENABLE_COST_MODEL", false);
         config::SetCodeGenOption(CODEGEN_EXPRESSION_FUSION, true);
-        config::SetPassConfig("PVC2_OOO", "SubgraphToFunction", "PRINT_FUNCTION", true);
+        config::SetPassConfig("PVC2_OOO", "SubgraphToFunction", "print_graph", true);
     }
     void TearDown() override {}
 };

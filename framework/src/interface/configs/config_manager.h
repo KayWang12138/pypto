@@ -50,13 +50,9 @@ const std::string KEY_ONLY_CODEGEN = "only_codegen";
 
 /* Pass KEYs */
 
-const std::string KEY_PRINT_FUNCTION = "PRINT_FUNCTION";
-const std::string KEY_PRINT_PROGRAM = "PRINT_PROGRAM";
-const std::string KEY_DUMP_TENSOR_GRAPH = "DUMP_TENSOR_GRAPH";
-const std::string KEY_DUMP_TILE_GRAPH = "DUMP_TILE_GRAPH";
-const std::string KEY_DUMP_BLOCK_GRAPH = "DUMP_BLOCK_GRAPH";
-const std::string KEY_DUMP_FUNCTION_GRAPH_BEFORE_PASS = "DUMP_FUNCTION_GRAPH_BEFORE_PASS";
-const std::string KEY_DUMP_FUNCTION_GRAPH_AFTER_PASS = "DUMP_FUNCTION_GRAPH_AFTER_PASS";
+const std::string KEY_PRINT_GRAPH = "print_graph";
+const std::string KEY_PRINT_PROGRAM = "print_program";
+const std::string KEY_DUMP_GRAPH = "dump_graph";
 const std::string KEY_DUMP_PASS_TIME_COST = "DUMP_PASS_TIME_COST";
 const std::string KEY_PRE_CHECK = "PRE_CHECK";
 const std::string KEY_POST_CHECK = "POST_CHECK";
@@ -106,11 +102,7 @@ inline DPlatform StringToDpaltform(std::string platform) {
 struct PassConfigs {
     bool printFunction{false};
     bool printProgram{false};
-    bool dumpTensorGraph{false};
-    bool dumpTileGraph{false};
-    bool dumpBlockGraph{false};
-    bool dumpFunctionGraphBeforePass{false};
-    bool dumpFunctionGraphAfterPass{false};
+    bool dumpGraph{false};
     bool dumpPassTimeCost{false};
     bool preCheck{false};
     bool postCheck{false};

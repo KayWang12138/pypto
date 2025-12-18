@@ -48,8 +48,8 @@ public:
         config::SetHostConfig(KEY_ENABLE_BINARY_CACHE, true);
 #endif
 #ifdef ENABLE_STEST_DUMP_JSsON
-        oriEnableDumpJson = config::GetPassConfig(KEY_PRINT_FUNCTION, oriEnableDumpJson);
-        config::GetPassConfig(KEY_PRINT_FUNCTION, true);
+        oriEnableDumpJson = config::GetPassConfig(KEY_PRINT_GRAPH, oriEnableDumpJson);
+        config::GetPassConfig(KEY_PRINT_GRAPH, true);
 #endif
         // Reset Program
 
@@ -65,7 +65,7 @@ public:
         config::SetHostConfig(KEY_ENABLE_BINARY_CACHE, oriEnableBinaryCache);
 #endif
 #ifdef ENABLE_STEST_DUMO_JSON
-        config::SetHostConfig(KEY_PRINT_FUNCTION, oriEnablePrintJson);
+        config::SetHostConfig(KEY_PRINT_GRAPH, oriEnablePrintJson);
 #endif
     }
     static DeviceLauncherContext &Get();

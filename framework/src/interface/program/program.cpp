@@ -294,7 +294,7 @@ Operation *Program::FinishCurrentFunction(const std::shared_ptr<TensorSlotScope>
 
 // Helper function: Dump tensor graph if needed
 void Program::DumpTensorGraphIfNeeded(Function *result) {
-    if (config::GetPlatformConfig("PRINT_TENSOR_GRAPH", false) &&
+    if (config::GetPassDefaultConfig("print_graph", false) &&
         result->IsGraphType(GraphType::TENSOR_GRAPH)) {
         result->DumpJsonFile(config::LogTensorGraphFolder() + "/" + result->GetRawName() + ".json");
         result->DumpFile(config::LogTensorGraphFolder() + "/" + result->GetRawName() + ".tifwkgr");
@@ -793,7 +793,7 @@ void static MergeAllFuncDupIocast(Function* func) {
     func->MergeFunctionDupIocast();
     // 2. remove useless view assemble op
     func->RemoveCallOpViewAssemble();
-    if (config::GetPlatformConfig("PRINT_TENSOR_GRAPH", false) &&
+    if (config::GetPassDefaultConfig(KEY_PRINT_GRAPH, false) &&
         func->IsGraphType(GraphType::TENSOR_GRAPH)) {
         func->DumpJsonFile(config::LogTensorGraphFolder() + "/" + func->GetRawName() + "_remove_dup.json");
         func->DumpFile(config::LogTensorGraphFolder() + "/" + func->GetRawName() + "_remove_dup.tifwkgr");

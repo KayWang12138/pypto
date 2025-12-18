@@ -48,22 +48,22 @@ TEST_F(TestConfigManager, PassGloablConfig) {
 }
 
 TEST_F(TestConfigManager, PassDefaultConfig) {
-        auto ret = config::GetPassDefaultConfig(KEY_PRINT_FUNCTION, true);
+        auto ret = config::GetPassDefaultConfig(KEY_PRINT_GRAPH, true);
         EXPECT_EQ(ret, false);
-        config::SetPassDefaultConfig(KEY_PRINT_FUNCTION, true);
-        ret = config::GetPassDefaultConfig(KEY_PRINT_FUNCTION, false);
+        config::SetPassDefaultConfig(KEY_PRINT_GRAPH, true);
+        ret = config::GetPassDefaultConfig(KEY_PRINT_GRAPH, false);
         EXPECT_EQ(ret, true);
 }
 
 TEST_F(TestConfigManager, PassStrategies2) {
     {
         auto ret = ConfigManager::Instance().GetPassConfigs("PVC2_OOO", "RemoveRedundantReshape");
-        EXPECT_EQ(ret.dumpFunctionGraphBeforePass, false);
+        EXPECT_EQ(ret.dumpGraph, false);
 
         // set default config useful
-        config::SetPassDefaultConfig(npu::tile_fwk::KEY_DUMP_FUNCTION_GRAPH_BEFORE_PASS, true);
+        config::SetPassDefaultConfig(npu::tile_fwk::KEY_DUMP_GRAPH, true);
         ret = ConfigManager::Instance().GetPassConfigs("PVC2_OOO", "RemoveRedundantReshape");
-        EXPECT_EQ(ret.dumpFunctionGraphBeforePass, true);
+        EXPECT_EQ(ret.dumpGraph, true);
     }
 }
 

@@ -109,12 +109,12 @@ TEST_F(PassManagerTest, TestPassBase) {
     auto res = passTestCase.Run(*currFunctionPtr1, "TestPassManager1", "TestPassManager1");
     EXPECT_TRUE(res == FAILED);
     configs.printFunction = false;
-    configs.dumpFunctionGraphBeforePass = true;
+    configs.dumpGraph = true;
     passTestCase.SetPassConfigs(configs);
     res = passTestCase.Run(*currFunctionPtr1, "TestPassManager1", "TestPassManager1");
     EXPECT_TRUE(res == FAILED);
     configs.printFunction = false;
-    configs.dumpFunctionGraphBeforePass = false;
+    configs.dumpGraph = false;
     configs.preCheck = true;
     passTestCase.SetPassConfigs(configs);
     res = passTestCase.Run(*currFunctionPtr1, "TestPassManager1", "TestPassManager1");
@@ -175,9 +175,9 @@ TEST_F(PassManagerTest, TestPassDFX) {
     EXPECT_FALSE(IsPathExist(beforeJsonPath));
     EXPECT_FALSE(IsPathExist(beforeJsonPath));
     EXPECT_FALSE(IsPathExist(afterJsonPath));
-    config::SetPassConfig("TestPassDFX", "RemoveRedundantReshape", "PRINT_FUNTION", true);
-    config::SetPassConfig("TestPassDFX", "RemoveRedundantReshape", "DUMP_FUNCTION_GRAPH_BEFORE_PASS", true);
-    config::SetPassConfig("TestPassDFX", "RemoveRedundantReshape", "DUMP_FUNCTION_GRAPH_AFTER_PASS", true);
+    config::SetPassConfig("TestPassDFX", "RemoveRedundantReshape", "print_graph", true);
+    config::SetPassConfig("TestPassDFX", "RemoveRedundantReshape", "dump_graph", true);
+    config::SetPassConfig("TestPassDFX", "RemoveRedundantReshape", "dump_graph", true);
     PassManager::Instance().RunPass(Program::GetInstance(), *function, "TestPassDFX");
     EXPECT_TRUE(IsPathExist(afterJsonPath));
     EXPECT_TRUE(IsPathExist(beforeJsonPath));

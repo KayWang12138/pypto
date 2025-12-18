@@ -212,20 +212,12 @@ void ConfigManager::PassConfigsDebugInfo(
 
 /* Helper Functions */
 static std::map<std::string, std::function<void(PassConfigs &, const nlohmann::json &)>> g_assignPassConfigFns = {
-    {                 KEY_PRINT_FUNCTION,
+    {                 KEY_PRINT_GRAPH,
      [](PassConfigs &configs, const nlohmann::json &node) { configs.printFunction = node.get<bool>(); }},
     {                 KEY_PRINT_PROGRAM,
      [](PassConfigs &configs, const nlohmann::json &node) { configs.printProgram = node.get<bool>(); }},
-    {                 KEY_DUMP_TENSOR_GRAPH,
-     [](PassConfigs &configs, const nlohmann::json &node) { configs.dumpTensorGraph = node.get<bool>(); }},
-    {                 KEY_DUMP_TILE_GRAPH,
-     [](PassConfigs &configs, const nlohmann::json &node) { configs.dumpTileGraph = node.get<bool>(); }},
-    {                 KEY_DUMP_BLOCK_GRAPH,
-     [](PassConfigs &configs, const nlohmann::json &node) { configs.dumpBlockGraph = node.get<bool>(); }},
-    {                 KEY_DUMP_FUNCTION_GRAPH_BEFORE_PASS,
-     [](PassConfigs &configs, const nlohmann::json &node) { configs.dumpFunctionGraphBeforePass = node.get<bool>(); }},
-    {                 KEY_DUMP_FUNCTION_GRAPH_AFTER_PASS,
-     [](PassConfigs &configs, const nlohmann::json &node) { configs.dumpFunctionGraphAfterPass = node.get<bool>(); }},
+    {                 KEY_DUMP_GRAPH,
+     [](PassConfigs &configs, const nlohmann::json &node) { configs.dumpGraph = node.get<bool>(); }},
     {                 KEY_DUMP_PASS_TIME_COST,
      [](PassConfigs &configs, const nlohmann::json &node) { configs.dumpPassTimeCost = node.get<bool>(); }},
     {                 KEY_PRE_CHECK,

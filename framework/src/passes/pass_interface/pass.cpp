@@ -171,7 +171,7 @@ Status Pass::DumpGraphJson(Function& function, const std::string &fileName) {
 }
 
 Status Pass::CreateGraphFolder(Function &function) {
-    if (passDfxconfigs_.dumpTensorGraph || passDfxconfigs_.dumpTileGraph || passDfxconfigs_.dumpBlockGraph) {
+    if (passDfxconfigs_.dumpGraph) {
         graphFolder_ = config::LogTopFolder() + '/' + function.GetMagicName();
         bool res = CreateDir(graphFolder_);
         if (res == false) {
@@ -192,7 +192,7 @@ Status Pass::PreRun(Function &function) {
     if (CreateGraphFolder(function) != SUCCESS) {
         ALOG_WARN_F("Create graph directory failed.");
     }
-    if (passDfxconfigs_.dumpTensorGraph) {
+    if (passDfxconfigs_.dumpGraph) {
         if (name_ == "ExpandFunction") {
             fileName = graphFolder_ + "/End_TensorGraph";
             if (DumpGraphJson(function, fileName) != SUCCESS) {
@@ -206,7 +206,7 @@ Status Pass::PreRun(Function &function) {
             }
         }
     }
-    if (passDfxconfigs_.dumpTileGraph) {
+    if (passDfxconfigs_.dumpGraph) {
         if (name_ == "SubgraphToFunction") {
             fileName = graphFolder_ + "/End_TileGraph";
             if (DumpGraphJson(function, fileName) != SUCCESS) {
@@ -214,7 +214,7 @@ Status Pass::PreRun(Function &function) {
             }
         }
     }
-    if (passDfxconfigs_.dumpFunctionGraphBeforePass) {
+    if (passDfxconfigs_.dumpGraph) {
         if (DumpFunctionJson(function, passFolder_, true) != SUCCESS) {
             ALOG_WARN_F("Dump function json before pass failed.");
         }
@@ -238,7 +238,7 @@ Status Pass::PostRun(Function &function) {
             ALOG_WARN_F("Print function after pass failed.");
         }
     }
-    if (passDfxconfigs_.dumpTileGraph && name_ == "ExpandFunction") {
+    if (passDfxconfigs_.dumpGraph && name_ == "ExpandFunction") {
         if (name_ == "ExpandFunction") {
             fileName = graphFolder_ + "/Begin_TileGraph";
             if (DumpGraphJson(function, fileName) != SUCCESS) {
@@ -246,7 +246,7 @@ Status Pass::PostRun(Function &function) {
             }
         }
     }
-    if (passDfxconfigs_.dumpBlockGraph) {
+    if (passDfxconfigs_.dumpGraph) {
         if (name_ == "SubgraphToFunction") {
             fileName = graphFolder_ + "/Begin_BlockGraph";
             if (DumpGraphJson(function, fileName) != SUCCESS) {
@@ -260,7 +260,7 @@ Status Pass::PostRun(Function &function) {
             }
         }
     }
-    if (passDfxconfigs_.dumpFunctionGraphAfterPass) {
+    if (passDfxconfigs_.dumpGraph) {
         if (DumpFunctionJson(function, passFolder_, false) != SUCCESS) {
             ALOG_WARN_F("Dump function json after pass failed.");
         }

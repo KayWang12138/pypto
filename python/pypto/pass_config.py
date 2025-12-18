@@ -29,11 +29,7 @@ class PassConfigs:
 
     Attributes:
         printFunction: Whether to print function IR.
-        dumpTensorGraph: Whether to dump tensor graph to files.
-        dumpTileGraph: Whether to dump tile graph to files.
-        dumpBlockGraph: Whether to dump block graph to files.
-        dumpFunctionGraphBeforePass: Whether to dump function graph before pass.
-        dumpFunctionGraphAfterPass: Whether to dump function graph after pass.
+        dumpGraph: Whether to dump graph to files.
         dumpPassTimeCost: Whether to dump time consumption of pass.
         preCheck: Whether to perform validation checks before pass.
         postCheck: Whether to perform verification checks after pass.
@@ -46,11 +42,7 @@ class PassConfigs:
         be modified from Python.
     """
     printFunction: bool
-    dumpTensorGraph: bool
-    dumpTileGraph: bool
-    dumpBlockGraph: bool
-    dumpFunctionGraphBeforePass: bool
-    dumpFunctionGraphAfterPass: bool
+    dumpGraph: bool
     dumpPassTimeCost: bool
     preCheck: bool
     postCheck: bool
@@ -59,8 +51,7 @@ class PassConfigs:
 
 
 class PassConfigKey(Enum):
-    KEY_DUMP_FUNCTION_GRAPH_BEFORE_PASS = pypto_impl.KEY_DUMP_FUNCTION_GRAPH_BEFORE_PASS
-    KEY_DUMP_FUNCTION_GRAPH_AFTER_PASS = pypto_impl.KEY_DUMP_FUNCTION_GRAPH_AFTER_PASS
+    KEY_DUMP_GRAPH = pypto_impl.KEY_DUMP_GRAPH
 
 
 def get_pass_default_config(key: PassConfigKey, default_value: bool) -> bool:
@@ -195,8 +186,8 @@ def get_pass_configs(strategy: str, identifier: str) -> PassConfigs:
 
 def __set_pass_debug_options(option: str, up: bool):
     config_map = {
-        "print_function": pypto_impl.KEY_PRINT_FUNCTION,
-        "dump_graph": [pypto_impl.KEY_DUMP_FUNCTION_GRAPH_BEFORE_PASS, pypto_impl.KEY_DUMP_FUNCTION_GRAPH_AFTER_PASS],
+        "print_graph": pypto_impl.KEY_PRINT_GRAPH,
+        "dump_graph": pypto_impl.KEY_DUMP_GRAPH,
         "pre_check": pypto_impl.KEY_PRE_CHECK,
         "post_check": pypto_impl.KEY_POST_CHECK,
         "health_check": pypto_impl.KEY_HEALTH_CHECK
