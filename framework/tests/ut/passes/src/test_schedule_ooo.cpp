@@ -1251,6 +1251,19 @@ TEST_F(ScheduleOoOTest, TestScheduleMainLoopRearrangeUB) {
     EXPECT_NE(subGraph.GetTensor("t3"), nullptr);
     std::shared_ptr<LogicalTensor> tensor = subGraph.GetTensor("t3");
     tensor->shape = {32, 32};
+    tensor->tensor->rawshape = {32, 1};
+
+    EXPECT_NE(subGraph.GetTensor("t4"), nullptr);
+    std::shared_ptr<LogicalTensor> tensor1 = subGraph.GetTensor("t4");
+    tensor1->tensor->rawshape = {128, 1};
+
+    EXPECT_NE(subGraph.GetTensor("t5"), nullptr);
+    std::shared_ptr<LogicalTensor> tensor2 = subGraph.GetTensor("t5");
+    tensor2->tensor->rawshape = {128, 1};
+
+    EXPECT_NE(subGraph.GetTensor("t6"), nullptr);
+    std::shared_ptr<LogicalTensor> tensor3 = subGraph.GetTensor("t6");
+    tensor3->tensor->rawshape = {128, 1};
 
     OoOScheduler ooOScheduler(*function);
     Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());

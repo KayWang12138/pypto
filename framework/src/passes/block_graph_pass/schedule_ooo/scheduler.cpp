@@ -1000,6 +1000,14 @@ void OoOScheduler::UpdateMoveOpAttr(Operation &moveOp, Operation &occupyOp) {
         moveOp.SetIOpAttrOffset(0, occupyOp.GetIOpAttrOffset(0));
     } else if (moveOp.GetOpcode() == Opcode::OP_ADDS) {
         moveOp.SetAttr(OpAttributeKey::scalar, Element(DataType::DT_UINT64, 0));
+        if (moveOp.GetIOperands()[0]->tensor->rawshape.back() == 1) {
+            std::vector<bool> attrIn{true};
+            moveOp.SetAttr(OpAttributeKey::inputCombineAxis, attrIn);
+        }
+        if (moveOp.GetOOperands()[0]->tensor->rawshape.back() == 1) {
+            std::vector<bool> attrOut{true};
+            moveOp.SetAttr(OpAttributeKey::outputCombineAxis, attrOut);
+        }
     }
 }
 
@@ -1079,6 +1087,7 @@ Status OoOScheduler::GenRearrangeCopyOp(MemoryType memType, int oldMemId, int &n
     auto &moveOp = (moveOpcode == Opcode::OP_COPY_IN && occupyOp.GetOpcode() == Opcode::OP_COPY_IN) ?
         occupyOp.CloneOperation(function_, {inTensor}, {moveToTensor}) :
         function_.AddRawOperation(moveOpcode, {inTensor}, {moveToTensor});
+    moveToTensor->tensor->rawshape = inTensor->tensor->rawshape;
     newOperations_.push_back(&moveOp);
     // UpdateMoveOpAttr & 创建moveop的issueEntry
     auto moveIssuePtr = ProcessMoveOp(moveOp, occupyOp, oldMemId, newMemId);
