@@ -46,12 +46,14 @@ const int SPACE_NUM_THREE = 3;
 const int LAST_TWO = -2;
 
 const std::set<Opcode> SPECIAL_OPCODE_SET = {
-    Opcode::OP_INDEX_OUTCAST, Opcode::OP_VIEW, Opcode::OP_ASSEMBLE, Opcode::OP_CALL, Opcode::OP_CONVERT,
+    Opcode::OP_INDEX_OUTCAST, Opcode::OP_VIEW,
+    Opcode::OP_ASSEMBLE, Opcode::OP_CALL, Opcode::OP_CONVERT,
     Opcode::OP_COPY_IN, Opcode::OP_COPY_OUT
 };
 struct ViewKey {
-    ViewKey(const int magic, const std::vector<int64_t> &newShape, const std::vector<int64_t> &newOffset,
-        const std::vector<SymbolicScalar> &tmpDynOffset)
+    ViewKey(const int magic, const std::vector<int64_t> &newShape,
+            const std::vector<int64_t> &newOffset,
+            const std::vector<SymbolicScalar> &tmpDynOffset)
         : rawMagic(magic), shape(newShape), offset(newOffset), dynOffset(tmpDynOffset) {}
 
     bool operator<(const ViewKey &x) const {
@@ -89,7 +91,8 @@ std::vector<Operation *> OperationsViewer::DuplicatedOpList() const {
 }
 
 struct CompareTensorPtr {
-    bool operator()(const std::shared_ptr<LogicalTensor> &a, const std::shared_ptr<LogicalTensor> &b) const {
+    bool operator()(const std::shared_ptr<LogicalTensor> &a,
+                    const std::shared_ptr<LogicalTensor> &b) const {
         return a->offset < b->offset;
     }
 };
@@ -98,11 +101,15 @@ std::string DynloopFunctionPathNode::Dump() const
 {
     int indent = 2;
     std::ostringstream oss;
-    std::function<void(const DynloopFunctionPathNode *, int)> dump = [&oss, &indent, &dump](const DynloopFunctionPathNode *node, int level) {
+    std::function<void(const DynloopFunctionPathNode *, int)> dump =
+        [&oss, &indent, &dump](const DynloopFunctionPathNode *node, int level) {
         if (!node->cond.IsValid()) {
-            oss << std::setw(level * indent) << ' ' << node->root->GetRawName() << "(" << node->root->GetFunctionHash() << ")\n";
+            oss << std::setw(level * indent) << ' '
+                << node->root->GetRawName()
+                << "(" << node->root->GetFunctionHash() << ")\n";
         } else {
-            oss << std::setw(level * indent) << ' ' << node->cond.Dump() << "\n";
+            oss << std::setw(level * indent) << ' '
+                << node->cond.Dump() << "\n";
             if (node->branchNodeList[0] != nullptr) {
                 dump(node->branchNodeList[0].get(), level + 1);
             }
@@ -119,7 +126,8 @@ std::shared_ptr<DynloopFunctionPathNode> DynloopFunctionAttribute::BuildPathNode
     std::shared_ptr<DynloopFunctionPathNode> root = std::make_shared<DynloopFunctionPathNode>();
     if (pathList.size() == 1) {
         // No branch
-        ASSERT(pathList[0].pathCondList.size() == 0);
+        ASSERT(pathList[0].pathCondList.size() == 0)
+            << "Path condition list size: " << pathList[0].pathCondList.size();
         root->root = pathList[0].root;
     } else {
         for (size_t i = 0; i < pathList.size(); i++) {
@@ -147,17 +155,24 @@ std::string DynloopFunctionAttribute::DumpBranch() const {
         oss << "Branch-" << i << ": " << "\n";
         for (size_t j = 0; j < path.pathCondList.size(); j++) {
             auto &cond = path.pathCondList[j];
-            oss << "  " << cond.GetFile() << ":" << cond.GetLine() << "] " << cond.GetCond().Dump() << ":" << cond.IsSat() << "\n";
+            oss << "  " << cond.GetFile()
+                << ":" << cond.GetLine()
+                << "] " << cond.GetCond().Dump()
+                << ":" << cond.IsSat() << "\n";
         }
     }
     oss << "current:" << currIndex << "\n";
     for (size_t i = 0; i < currPathCond.size(); i++) {
-        oss << "  " << currPathCond[i].GetFile() << ":" << currPathCond[i].GetLine() << "] " << currPathCond[i].GetCond().Dump() << ":" << currPathCond[i].IsSat() << "\n";
+        oss << "  " << currPathCond[i].GetFile()
+            << ":" << currPathCond[i].GetLine()
+            << "] " << currPathCond[i].GetCond().Dump()
+            << ":" << currPathCond[i].IsSat() << "\n";
     }
     return oss.str();
 }
 
-std::vector<DynloopFunctionPathCondition> DynloopFunctionAttribute::GenCondWithBeginEnd(const std::vector<DynloopFunctionPathCondition> &conds) const {
+std::vector<DynloopFunctionPathCondition> DynloopFunctionAttribute::GenCondWithBeginEnd(
+    const std::vector<DynloopFunctionPathCondition> &conds) const {
     std::vector<DynloopFunctionPathCondition> resultPathCond = conds;
     for (auto &cond : resultPathCond) {
         if (!cond.cond_.IsExpression()) {
@@ -165,7 +180,11 @@ std::vector<DynloopFunctionPathCondition> DynloopFunctionAttribute::GenCondWithB
         }
         auto expr = std::static_pointer_cast<RawSymbolicExpression>(cond.cond_.Raw());
         if (expr->IsLoopEndCall()) {
-            std::vector<RawSymbolicScalarPtr> operandList{expr->OperandList()[0], expr->OperandList()[1], RawSymbolicExpression::CreateBopSub(expr->OperandList()[2], loopRange.Step().Raw())};
+            std::vector<RawSymbolicScalarPtr> operandList{
+                expr->OperandList()[0],
+                expr->OperandList()[1],
+                RawSymbolicExpression::CreateBopSub(expr->OperandList()[2], loopRange.Step().Raw())
+            };
             auto newExpr = std::make_shared<RawSymbolicExpression>(SymbolicOpcode::T_MOP_CALL, operandList);
             cond.cond_ = SymbolicScalar(newExpr);
         }
@@ -179,17 +198,19 @@ bool DynloopFunctionAttribute::IterationEnd(int unroll, Function *pathFunc, Oper
     pathList.emplace_back(pathFunc, resultPathCond, operation);
 
     bool finished = true;
-    for (size_t i = 0; i < currPathCond.size(); i++) {
-        if (!currPathCond[i].IsSat()) {
-            const auto &cond = currPathCond[i].cond_;
+    for (size_t idx = 0; idx < currPathCond.size(); idx++) {
+        if (!currPathCond[idx].IsSat()) {
+            const auto &cond = currPathCond[idx].cond_;
             if (IsLoopBeginOrEndExpr(cond)) {
                 if (!cond.IsLoopBegin() && !cond.IsLoopEnd()) {
                     continue;
                 }
-                if (std::static_pointer_cast<RawSymbolicExpression>(cond.Raw())->IsLoopBeginCall() && !cond.IsLoopBegin()) {
+                if (std::static_pointer_cast<RawSymbolicExpression>(
+                    cond.Raw())->IsLoopBeginCall() && !cond.IsLoopBegin()) {
                     continue;
                 }
-                if (std::static_pointer_cast<RawSymbolicExpression>(cond.Raw())->IsLoopEndCall() && !cond.IsLoopEnd()) {
+                if (std::static_pointer_cast<RawSymbolicExpression>(
+                    cond.Raw())->IsLoopEndCall() && !cond.IsLoopEnd()) {
                     continue;
                 }
             }
@@ -203,9 +224,15 @@ bool DynloopFunctionAttribute::IterationEnd(int unroll, Function *pathFunc, Oper
 bool DynloopFunctionAttribute::AppendCond(const SymbolicScalar &cond, const std::string &file, int line) {
     bool result = false;
     if (currIndex < currPathCond.size()) {
-        ASSERT(cond.Dump() == currPathCond[currIndex].GetCond().Dump());
-        ASSERT(file == currPathCond[currIndex].GetFile());
-        ASSERT(line == currPathCond[currIndex].GetLine());
+        ASSERT(cond.Dump() == currPathCond[currIndex].GetCond().Dump())
+            << "Condition mismatch at index " << currIndex << "\n" << "Current condition: " << cond.Dump() << "\n"
+            << "Stored condition: " << currPathCond[currIndex].GetCond().Dump();
+        ASSERT(file == currPathCond[currIndex].GetFile())
+            << "File mismatch at index " << currIndex << "\n" << "Current file: " << file << "\n"
+            << "Stored file: " << currPathCond[currIndex].GetFile();
+        ASSERT(line == currPathCond[currIndex].GetLine())
+            << "Line mismatch at index " << currIndex << "\n" << "Current line: " << line << "\n"
+            << "Stored line: " << currPathCond[currIndex].GetLine();
         result = currPathCond[currIndex].IsSat();
     } else {
         currPathCond.emplace_back(result, cond, file, line);
@@ -221,33 +248,36 @@ void DynloopFunctionAttribute::CreateCurrCond() {
         return;
     }
     bool found = false;
-    for (size_t i = currPathCond.size() - 1; i != static_cast<size_t>(-1); i--) {
-        if (!currPathCond[i].IsSat()) {
-            const auto &cond = currPathCond[i].cond_;
+    for (size_t idx = currPathCond.size() - 1; idx != static_cast<size_t>(-1); idx--) {
+        if (!currPathCond[idx].IsSat()) {
+            const auto &cond = currPathCond[idx].cond_;
             if (IsLoopBeginOrEndExpr(cond)) {
                 if (!cond.IsLoopBegin() && !cond.IsLoopEnd()) {
                     continue;
                 }
-                if (std::static_pointer_cast<RawSymbolicExpression>(cond.Raw())->IsLoopBeginCall() && !cond.IsLoopBegin()) {
+                if (std::static_pointer_cast<RawSymbolicExpression>(
+                    cond.Raw())->IsLoopBeginCall() && !cond.IsLoopBegin()) {
                     continue;
                 }
-                if (std::static_pointer_cast<RawSymbolicExpression>(cond.Raw())->IsLoopEndCall() && !cond.IsLoopEnd()) {
+                if (std::static_pointer_cast<RawSymbolicExpression>(
+                    cond.Raw())->IsLoopEndCall() && !cond.IsLoopEnd()) {
                     continue;
                 }
             }
-            currPathCond[i].IsSat() = true;
-            currPathCond.erase(currPathCond.begin() + i + 1, currPathCond.end());
+            currPathCond[idx].IsSat() = true;
+            currPathCond.erase(currPathCond.begin() + idx + 1, currPathCond.end());
             found = true;
             break;
         }
     }
-    ASSERT(found);
+    ASSERT(found) << "DynloopFunctionAttribute::CreateCurrCond - All currPathConds are SAT";
     currIndex = 0;
 }
 
 Function::Function(const Program &belongTo, const std::string &funcMagicName,
-    const std::string &funcRawName, Function *parentFunc)
-    : funcMagicName_(funcMagicName), funcRawName_(funcRawName), tensorMap_(*this), belongTo_(belongTo) {
+                   const std::string &funcRawName, Function *parentFunc)
+                 : funcMagicName_(funcMagicName), funcRawName_(funcRawName),
+                   tensorMap_(*this), belongTo_(belongTo) {
     parent_ = parentFunc;
     functionMagic_ = IdGen<IdType::FUNCTION>::Inst().NewId();
 
@@ -264,9 +294,10 @@ OperationsViewer Function::Operations(bool sorted) {
 
 bool Function::IsCube() const {
     auto isL1CopyIn = [](const Operation &op) {
-        return (op.GetOpcode() == Opcode::OP_COPY_IN && !(op.oOperand.empty()) &&
-                   op.oOperand[0]->GetMemoryTypeOriginal() == MemoryType::MEM_L1) ||
-               op.GetOpcode() == Opcode::OP_GATHER_IN_L1;
+        return (op.GetOpcode() == Opcode::OP_COPY_IN &&
+                !(op.oOperand.empty()) &&
+                op.oOperand[0]->GetMemoryTypeOriginal() == MemoryType::MEM_L1) ||
+                op.GetOpcode() == Opcode::OP_GATHER_IN_L1;
     };
 
     for (const auto &oper : OperationsViewer(operations_, opPosition_)) {
@@ -289,12 +320,14 @@ void Function::RecordOOOSeq()
 }
 
 std::vector<OperationPtr> &Function::GetProgramOp() {
-    ASSERT(graphType_ == GraphType::BLOCK_GRAPH);
+    ASSERT(graphType_ == GraphType::BLOCK_GRAPH)
+        << "Function::GetProgramOp called. Current graph type: " << static_cast<int>(graphType_);
     return operations_;
 }
 
 void Function::SetProgramOp(const std::vector<OperationPtr> &operations) {
-    ASSERT(graphType_ == GraphType::BLOCK_GRAPH);
+    ASSERT(graphType_ == GraphType::BLOCK_GRAPH)
+        << "Function::SetProgramOp called. Current graph type: " << static_cast<int>(graphType_);
     operations_ = operations;
 
     RefreshOpPosition();
@@ -302,7 +335,8 @@ void Function::SetProgramOp(const std::vector<OperationPtr> &operations) {
 }
 
 void Function::UpdateBelongToThis() {
-    ASSERT(graphType_ == GraphType::BLOCK_GRAPH);
+    ASSERT(graphType_ == GraphType::BLOCK_GRAPH)
+        << "Function::UpdateBelongToThis called. Current graph type: " << static_cast<int>(graphType_);
     for (auto &ele : operations_) {
         ele->function_ = this;
     }
@@ -310,7 +344,8 @@ void Function::UpdateBelongToThis() {
 
 const SubfuncInvokeInfoTy &Function::GetSubFuncInvokeInfo(const size_t i) const {
     auto callAttr = std::dynamic_pointer_cast<CallOpAttribute>(operations_[i]->GetOpAttribute());
-    ASSERT(callAttr != nullptr);
+    ASSERT(callAttr != nullptr)
+        << "Operation at index " << i << " must have a CallOpAttribute";
     return *(callAttr->invokeInfo_);
 }
 
@@ -320,9 +355,9 @@ int Function::GetParamIndex(const std::shared_ptr<RawTensor> &rawTensor) {
     }
     auto slots = slotScope_->LoopupArgSlot(rawTensor);
     for (auto slot : slots) {
-        for (int i = 0; i < (int)explicitArgSlots_.size(); i++) {
-            if (slot == explicitArgSlots_[i]) {
-                return i;
+        for (int idx = 0; idx < (int)explicitArgSlots_.size(); idx++) {
+            if (slot == explicitArgSlots_[idx]) {
+                return idx;
             }
         }
     }
@@ -342,7 +377,8 @@ bool Function::HasCallOperation() {
     return false;
 }
 
-void Function::CreateLeafInAndOutCast(const LogicalTensorPtr &inOrOut, LogicalTensors &inOrOutList) const {
+void Function::CreateLeafInAndOutCast(const LogicalTensorPtr &inOrOut,
+                                      LogicalTensors &inOrOutList) const {
     inOrOutList.emplace_back(inOrOut->Clone(*parent_));
 }
 
@@ -386,10 +422,13 @@ GetTensorDataIODescDict Function::GetTensorDataForTensorGraph() {
             continue;
         }
         int getTensorDataIndex = GetTensorDataGetIndex(&op);
-        ASSERT(getTensorDataIndex != -1);
-        ASSERT(currDynAttr->getTensorDataUsageDict.count(this));
-        std::unordered_map<int, Operation *> &importDict =currDynAttr->getTensorDataUsageDict[this].importDict;
-        ASSERT(importDict.count(getTensorDataIndex));
+        ASSERT(getTensorDataIndex != -1)
+            << "Failed to get tensor data index for operation";
+        ASSERT(currDynAttr->getTensorDataUsageDict.count(this))
+            << "Current function not found in getTensorDataUsageDict";
+        std::unordered_map<int, Operation *> &importDict = currDynAttr->getTensorDataUsageDict[this].importDict;
+        ASSERT(importDict.count(getTensorDataIndex))
+            << "Import index " << getTensorDataIndex << " not found in importDict";
         auto import = importDict[getTensorDataIndex];
         int outcastIndex = GetTensorDataLookupOutcast(this, import);
         if (outcastIndex != INVALID_IOINDEX) {
@@ -400,7 +439,8 @@ GetTensorDataIODescDict Function::GetTensorDataForTensorGraph() {
                 iodescDict[getTensorDataIndex] = GetTensorDataIODesc(GET_TENSOR_DATA_OPERAND_IOTYPE_INCAST, incastIndex, 0);
             } else {
                 // Impossible
-                ASSERT(false);
+                ASSERT(false)
+                    << "Both outcast and incast indices are invalid";
             }
         }
     }
@@ -414,7 +454,8 @@ GetTensorDataIODescDict Function::GetTensorDataForLeafGraph() {
             continue;
         }
         int getTensorDataIndex = GetTensorDataGetIndex(&op);
-        ASSERT(getTensorDataIndex != -1);
+        ASSERT(getTensorDataIndex != -1)
+            << "Failed to get tensor data index for operation";
         auto tensor = op.GetIOperands()[0];
         auto incastIndex = GetIncastIndex(tensor);
         if (incastIndex != INVALID_IOINDEX) {
@@ -477,12 +518,22 @@ void CalleeSlotNoConsumer(Function &calleeFunc, Function &func, const std::map<s
 void Function::EraseCallOpOpnd(const FunctionHash &calleeHash, size_t index) {
     for (auto callop : GetCallopList()) {
         auto callopAttr = std::static_pointer_cast<CallOpAttribute>(callop->GetOpAttribute());
-        ASSERT(callopAttr != nullptr);
+        ASSERT(callopAttr != nullptr) << "Processing CallOp:" << callop->Dump();
         if (callopAttr->GetCalleeHash() != calleeHash) {
             continue;
         }
-        ASSERT(index < callop->oOperand.size() && callop->oOpAttrOffset.empty() &&
-            callopAttr->GetArgList().empty() && callopAttr->GetOutCastIndexToExpr().empty());
+        ASSERT(index < callop->oOperand.size())
+            << "Index " << index
+            << " out of bounds for oOperand size " << callop->oOperand.size();
+        ASSERT(callop->oOpAttrOffset.empty())
+            << "oOpAttrOffset is not empty for CallOp:"
+            << callop->Dump();
+        ASSERT(callopAttr->GetArgList().empty())
+            << "ArgList is not empty for CallOp:"
+            << callop->Dump();
+        ASSERT(callopAttr->GetOutCastIndexToExpr().empty())
+            << "OutCastIndexToExpr is not empty for CallOp:"
+            << callop->Dump();
         for (auto &consumer : callop->oOperand[index]->GetConsumers()) {
             if (consumer->GetOpcode() == Opcode::OP_ASSEMBLE) {
                 consumer->SetAsDeleted();
@@ -537,13 +588,16 @@ void RedundantOutCastCheck(std::map<Function *, std::set<size_t>> &removeRecord,
         auto &calleeOutCasts = calleeFunc->GetOutcast();
         for (auto &[outCastIdx, val] : outcastIdx2parent) {
             (void)val;
-            ASSERT(calleeOutCasts[outCastIdx].get() != nullptr);
+            ASSERT(calleeOutCasts[outCastIdx].get() != nullptr)
+                << "Outcast at index " << outCastIdx << " should not be null";
             if (calleeOutCasts[outCastIdx]->IsGetTensorDataOutcast()) {
                 getTensorDataRecord[calleeFunc].insert(outCastIdx);
-                ASSERT(outcastIdx2parent.count(outCastIdx) > 0);
+                ASSERT(outcastIdx2parent.count(outCastIdx) > 0)
+                    << "Outcast index " << outCastIdx << " should be in outcastIdx2parent";
                 getTensorDataRecord[func].insert(outcastIdx2parent[outCastIdx]);
             } else if (getTensorDataRecord[calleeFunc].count(outCastIdx) > 0) {
-                ASSERT(outcastIdx2parent.count(outCastIdx) > 0);
+                ASSERT(outcastIdx2parent.count(outCastIdx) > 0)
+                    << "Outcast index " << outCastIdx << " should be in outcastIdx2parent";
                 getTensorDataRecord[func].insert(outcastIdx2parent[outCastIdx]);
             } else {
                 removeRecord[calleeFunc].insert(outCastIdx);
@@ -583,7 +637,8 @@ void Function::CleanRedundantOutCast() {
     for (auto &[outCastIdx, val] : outputMap) {
         (void)val;
         if (getTensorDataRecord[this].count(outCastIdx) > 0) {
-            ASSERT(outputMap.count(outCastIdx) > 0);
+            ASSERT(outputMap.count(outCastIdx) > 0)
+                << "outputMap does not contain outCastIdx " << outCastIdx;
             getTensorDataRecord[parent_].insert(outputMap[outCastIdx]);
         } else {
             removeRecord[this].insert(outCastIdx);
@@ -595,20 +650,24 @@ void Function::CleanRedundantOutCast() {
 FunctionCallArgs Function::EndFunction(const std::shared_ptr<TensorSlotScope> &scope) {
     // Deduce Incast and Outcast here, need by TENSOR_GRAPH & STATIC_TILE_GRAPH
     std::vector<Operation *> operationList = Operations(false).DuplicatedOpList();
-    if (IsGraphType(GraphType::TENSOR_GRAPH) || IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::TILE_GRAPH)) {
+    if (IsGraphType(GraphType::TENSOR_GRAPH) ||
+        IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::TILE_GRAPH)) {
         OrderedSet<LogicalTensorPtr> incasts;
         OrderedSet<LogicalTensorPtr> outcasts;
 
         for (auto &op : operationList) {
             for (auto &iOperand : op->iOperand) {
-                if (op->IsCall() || (tensorMap_.tensorMap_.count(iOperand->tensor->rawmagic) == 0 && (&iOperand->BelongFunction() != this))) {
+                if (op->IsCall() || (tensorMap_.tensorMap_.count(iOperand->tensor->rawmagic) == 0 &&
+                   (&iOperand->BelongFunction() != this))) {
                     incasts.Insert(iOperand);
                 }
             }
             for (auto &oOperand : op->oOperand) {
                 if (op->IsCall() || oOperand->tensor->GetRefCount() > 0) {
                     outcasts.Insert(oOperand);
-                    ASSERT(incasts.count(oOperand) == 0);
+                    ASSERT(incasts.count(oOperand) == 0)
+                        << "Error: Output operand " << oOperand->tensor->rawmagic
+                        << " is found in incasts. Operation: " << op->Dump();
                 }
             }
         }
@@ -621,7 +680,8 @@ FunctionCallArgs Function::EndFunction(const std::shared_ptr<TensorSlotScope> &s
     }
 
     LogicalTensors inArgumentList, outArgumentList;
-    if (IsGraphType(GraphType::TENSOR_GRAPH) || IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::TILE_GRAPH)) {
+    if (IsGraphType(GraphType::TENSOR_GRAPH) ||
+        IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::TILE_GRAPH)) {
         SetCallOpSlot();
         inArgumentList = MakeIncasts(scope);
         outArgumentList = MakeOutcasts(scope);
@@ -662,8 +722,9 @@ FunctionCallArgs Function::EndFunction(const std::shared_ptr<TensorSlotScope> &s
         GetOutcastSymbolicExpr(outIndexToExpr);
     }
     ComputeHash();
-    return {std::move(inArgumentList), std::move(outArgumentList), std::move(iOffset), std::move(oOffset),
-        std::move(outIndexToExpr), std::move(argList)};
+    return {std::move(inArgumentList), std::move(outArgumentList),
+            std::move(iOffset), std::move(oOffset),
+            std::move(outIndexToExpr), std::move(argList)};
 }
 
 void Function::AddWhenNotExistOrAssert(const std::shared_ptr<LogicalTensor> &tensor,
@@ -807,7 +868,10 @@ void Function::GetAnIslandIncastsOutcasts(const std::map<int, int> &opToSubgraph
                 if (consumer->GetOpcode() == Opcode::OP_CALL) {
                     continue;
                 }
-                ASSERT(opToSubgraph.find(magic) != opToSubgraph.end());
+                ASSERT(opToSubgraph.find(magic) != opToSubgraph.end())
+                    << "Consumer magic " << magic << " not found in opToSubgraph. " << "\n"
+                    << "Operation: " << op.Dump();
+
                 if (opToSubgraph.at(magic) != subgraphID) {
                     usedbyotherfunction = true;
                     break;
@@ -840,7 +904,9 @@ auto Function::AnnotateOperation() {
     std::map<int, int> opToSubgraph;
     for (auto &&op : Operations()) {
         // same op magic shall only appear once
-        ASSERT(opToSubgraph.find(op.GetOpMagic()) == opToSubgraph.end());
+        ASSERT(opToSubgraph.find(op.GetOpMagic()) == opToSubgraph.end())
+                        << "Same op magic shall only appear once." << "\n"
+                        << "Duplicate OpMagic found: " << op.GetOpMagic() << "\n" << "Operation: " << op.Dump();
         if (op.GetSubgraphID() < 0) {
             ALOG_DEBUG("Op magic: ", op.GetOpMagic(), "less than 0 graph: ", op.GetSubgraphID());
             continue;
@@ -877,7 +943,8 @@ std::unordered_set<int> Function::LoopCheck() {
             continue;
         }
 
-        GetAnIslandIncastsOutcasts(opToSubgraph, subgraphID, operations, iOperands[subgraphID], oOperands[subgraphID]);
+        GetAnIslandIncastsOutcasts(opToSubgraph, subgraphID, operations,
+                                   iOperands[subgraphID], oOperands[subgraphID]);
 
         for (auto &&iop : iOperands[subgraphID]) {
             consumers[iop.get()].push_back(subgraphID);
@@ -902,7 +969,8 @@ std::unordered_set<int> Function::LoopCheck() {
         }
 
         int duplicatedSubgraphID = -2;
-        auto cycleDetection = [&states, &duplicatedSubgraphID, &oOperands, &consumers, &subGraphInCycle](int currSubgraph, auto self) -> bool {
+        auto cycleDetection = [&states, &duplicatedSubgraphID, &oOperands, &consumers,
+                               &subGraphInCycle](int currSubgraph, auto self) -> bool {
             if (states[currSubgraph] == DfsState::DONE) {
                 return false;
             }
@@ -951,10 +1019,11 @@ std::vector<std::shared_ptr<Operation>> Function::GetSortedOperations() const {
     std::unordered_map<const Operation *, int> opToIndex;
     std::unordered_map<const Operation *, std::set<std::pair<int, int>>> usageDict;
 
-    for (size_t i = 0; i < operations_.size(); i++) {
-        auto op = operations_[i].get();
-        ASSERT(opToIndex.count(op) == 0);
-        opToIndex.emplace(op, i);
+    for (size_t idx = 0; idx < operations_.size(); idx++) {
+        auto op = operations_[idx].get();
+        ASSERT(opToIndex.count(op) == 0)
+            << "Duplicate operation found: " << op->Dump();
+        opToIndex.emplace(op, idx);
         if (!op->IsCall()) {
             auto attrList = op->GetDynamicAttributeList();
             usageDict[op] = GetTensorDataUsage(attrList);
@@ -968,14 +1037,15 @@ std::vector<std::shared_ptr<Operation>> Function::GetSortedOperations() const {
             if (prod->BelongTo() != this || prod == operation) {
                 continue;
             }
-            ASSERT(opToIndex.count(prod) != 0);
+            ASSERT(opToIndex.count(prod) != 0)
+                << "Producer not found in opToIndex: " << prod->Dump();
             outDegree[opToIndex[prod]]++;
         }
     };
 
     for (auto &op : operations_) {
         for (auto &iop : op->iOperand) {
-           addProd(op.get(), iop);
+            addProd(op.get(), iop);
         }
         for (auto [type, index] : usageDict[op.get()]) {
             if (type == GET_TENSOR_DATA_OPERAND_IOTYPE_INCAST) {
@@ -986,15 +1056,15 @@ std::vector<std::shared_ptr<Operation>> Function::GetSortedOperations() const {
         }
     }
     for (auto &opGroup : operationGroups_) {
-        for (size_t i = 1; i < opGroup.size(); i++) {
-            prevOperation[opToIndex[opGroup[i]]] = opToIndex[opGroup[i - 1]];
-            outDegree[opToIndex[opGroup[i - 1]]]++;
+        for (size_t idx = 1; idx < opGroup.size(); idx++) {
+            prevOperation[opToIndex[opGroup[idx]]] = opToIndex[opGroup[idx - 1]];
+            outDegree[opToIndex[opGroup[idx - 1]]]++;
         }
     }
     std::queue<int> q;
-    for (size_t i = 0; i < operations_.size(); i++) {
-        if (outDegree[i] == 0) {
-            q.emplace(i);
+    for (size_t idx = 0; idx < operations_.size(); idx++) {
+        if (outDegree[idx] == 0) {
+            q.emplace(idx);
         }
     }
 
@@ -1033,9 +1103,12 @@ std::vector<std::shared_ptr<Operation>> Function::GetSortedOperations() const {
         }
     }
     for (auto &op : operations_) {
-        ASSERT(outDegree[opToIndex[op.get()]] == 0);
+        ASSERT(outDegree[opToIndex[op.get()]] == 0)
+            << "Operation not fully processed: " << op->Dump();
     }
-    ASSERT(operations_.size() == sortedOperations.size());
+    ASSERT(operations_.size() == sortedOperations.size())
+        << "Sorted operations size mismatch: " << sortedOperations.size()
+        << " and original size " << operations_.size();
     std::reverse(sortedOperations.begin(), sortedOperations.end());
     return sortedOperations;
 }
@@ -1051,10 +1124,13 @@ void Function::ScheduleBy(const std::vector<Operation *> &newList, bool needRefr
     if (needRefresh) {
         RefreshOpPosition();
     }
-    ASSERT(newList.size() == operations_.size());
+    ASSERT(newList.size() == operations_.size())
+        << "Size mismatch: newList size = " << newList.size()
+        << ", operations_ size = " << operations_.size();
     std::vector<std::shared_ptr<Operation>> newOperations;
     for (auto op : newList) {
-        ASSERT(opPosition_.count(op) > 0);
+        ASSERT(opPosition_.count(op) > 0)
+            << "Operation not found in opPosition_:" << op->Dump();
         newOperations.emplace_back(operations_[opPosition_.at(op)]);
     }
     operations_ = newOperations;
@@ -1066,7 +1142,8 @@ void Function::ScheduleBy(const std::vector<Operation *> &newList, bool needRefr
 void Function::AddOperationGroup(std::vector<Operation *> operationGroup) {
     size_t groupID = operationGroups_.size();
     for (const auto &operation : operationGroup) {
-        ASSERT(operation->GroupID() == NON_GROUP);
+        ASSERT(operation->GroupID() == NON_GROUP)
+            << "Operation already in a group:" << operation->Dump();
         operation->SetGroupID(groupID);
     }
     operationGroups_.emplace_back(std::move(operationGroup));
@@ -1086,58 +1163,67 @@ void Function::CheckGroupValid() const {
     std::unordered_set<const Operation *> inGroupOp;
     for (size_t i = 0; i < operationGroups_.size(); i++) {
         for (auto &operation : operationGroups_[i]) {
-            ASSERT(operation->GroupID() == i);
-            ASSERT(inGroupOp.count(operation) == 0);
+            ASSERT(operation->GroupID() == i)
+                << "Operation GroupID mismatch:\n" << "Expected: " << i << ", Actual: " << operation->GroupID() << "\n"
+                << "Operation:" << operation->Dump();
+            ASSERT(inGroupOp.count(operation) == 0) << "Duplicate operation in group:" << operation->Dump();
             inGroupOp.emplace(operation);
         }
     }
     for (const auto &operation : operations_) {
-        ASSERT(inGroupOp.count(operation.get()) == (operation->GroupID() != NON_GROUP));
+        ASSERT(inGroupOp.count(operation.get()) == (operation->GroupID() != NON_GROUP))
+            << "Operation group membership mismatch:\n" << "Operation: " << operation->Dump() << "\n"
+            << "GroupID: " << operation->GroupID();
     }
 }
 
 void Function::RefreshOpPosition() {
     opPosition_.clear();
-    for (size_t i = 0; i < operations_.size(); ++i) {
-        ASSERT(opPosition_.count(operations_[i].get()) == 0);
-        opPosition_.emplace(operations_[i].get(), i);
+    for (size_t idx = 0; idx < operations_.size(); ++idx) {
+        ASSERT(opPosition_.count(operations_[idx].get()) == 0)
+            << "Duplicate operation found in opPosition_:\n"
+            << operations_[idx]->Dump();
+        opPosition_.emplace(operations_[idx].get(), idx);
     }
 }
 
 bool Function::enableMagicLookupRecord_{false};
 std::map<std::pair<int, int>, std::set<Operation *, LogicalTensor::CompareOp>> Function::tensorAndSubgraphToProducer_;
 
-void Function::ProducerMagicLookup(const Function *function, const LogicalTensorPtr &tensor, const std::set<Operation *, LogicalTensor::CompareOp> &producers,
-        const int subGraphId, int &index, std::unordered_map<int, int> &magic2index, std::stringstream &ss)
+void Function::ProducerMagicLookup(const Function *function, const LogicalTensorPtr &tensor,
+                                   const std::set<Operation *, LogicalTensor::CompareOp> &producers,
+                                   const int subGraphId, int &index, std::unordered_map<int, int> &magic2index,
+                                   std::stringstream &ss)
 {
     for (auto &op : producers) {
         if (subGraphId != INT32_MIN && op->GetSubgraphID() != subGraphId) {
             continue;
         }
         if (op->GetOOperands().size() > 1) {
-            for (size_t i = 0; i < op->GetOOperands().size(); i++) {
-                if (op->GetOutputOperand(i) == tensor) {
-                    ss << "ooperand " << i << " ";
+            for (size_t idx = 0; idx < op->GetOOperands().size(); idx++) {
+                if (op->GetOutputOperand(idx) == tensor) {
+                    ss << "ooperand " << idx << " ";
                 }
             }
         }
         bool isInBoundary = OpcodeManager::Inst().IsBoundaryIn(op->GetOpcode());
         if (isInBoundary) {
             /* 除了最高轴之外的所有内轴都纳入到hash的计算中 */
-            for (size_t i = 1; i < op->iOperand[0]->tensor->rawshape.size(); i++) {
-                ss << op->iOperand[0]->tensor->rawshape[i] << " ";
+            for (size_t idx = 1; idx < op->iOperand[0]->tensor->rawshape.size(); idx++) {
+                ss << op->iOperand[0]->tensor->rawshape[idx] << " ";
             }
         }
         bool isOutBoundary = OpcodeManager::Inst().IsBoundaryOut(op->GetOpcode());
         if (isOutBoundary) {
             /* 除了最高轴之外的所有内轴都纳入到hash的计算中 */
-            for (size_t i = 1; i < op->oOperand[0]->tensor->rawshape.size(); i++) {
-                ss << op->oOperand[0]->tensor->rawshape[i] << " ";
+            for (size_t idx = 1; idx < op->oOperand[0]->tensor->rawshape.size(); idx++) {
+                ss << op->oOperand[0]->tensor->rawshape[idx] << " ";
             }
         }
         ss << " " << op->GetOpcodeStr(true);
         for (const auto &attr : OpcodeManager::Inst().GetAttrs(op->GetOpcode())) {
-            ss << " attr: [" << attr << " : " << op->DumpAttr(attr) << "]";
+            ss << " attr: [" << attr << " : "
+               << op->DumpAttr(attr) << "]";
         }
         if (function->GetGraphType() != GraphType::BLOCK_GRAPH) {
             ss << op->GetTileShape().toString();
@@ -1156,8 +1242,9 @@ void Function::ProducerMagicLookup(const Function *function, const LogicalTensor
     }
 }
 
-void Function::MagicLookup(const Function *function, const std::vector<LogicalTensorPtr> &operand, const int subGraphId,
-                           int &index, std::unordered_map<int, int> &magic2index, std::stringstream &ss)
+void Function::MagicLookup(const Function *function, const std::vector<LogicalTensorPtr> &operand,
+                           const int subGraphId, int &index, std::unordered_map<int, int> &magic2index,
+                           std::stringstream &ss)
 {
     for (auto &t : operand) {
         if (magic2index.count(t->GetMagic()) && (function->inCastsSet_.count(t) == 0) &&
@@ -1183,8 +1270,8 @@ void Function::MagicLookup(const Function *function, const std::vector<LogicalTe
         if (!enableMagicLookupRecord_) {
             ProducerMagicLookup(function, t, t->GetProducers(), subGraphId, index, magic2index, ss);
         } else if (tensorAndSubgraphToProducer_.count({t->GetMagic(), subGraphId}) > 0) {
-            ProducerMagicLookup(function, t, tensorAndSubgraphToProducer_[{t->GetMagic(), subGraphId}], subGraphId,
-                                index, magic2index, ss);
+            ProducerMagicLookup(function, t, tensorAndSubgraphToProducer_[{t->GetMagic(), subGraphId}],
+                                subGraphId, index, magic2index, ss);
         }
         ss << ")";
     }
@@ -1217,7 +1304,8 @@ unsigned long Function::ComputeHashOrderless() const {
         if (operations_[i]->oOperand.empty()) {
             ss << " " << operations_[i]->GetOpcodeStr(true);
             for (const auto &attr : OpcodeManager::Inst().GetAttrs(operations_[i]->GetOpcode())) {
-                ss << " attr: [" << attr << " : " << operations_[i]->DumpAttr(attr) << "]";
+                ss << " attr: [" << attr << " : "
+                   << operations_[i]->DumpAttr(attr) << "]";
             }
             ss << operations_[i]->GetTileShape().toString();
             MagicLookup(this, operations_[i]->GetIOperands(), operations_[0]->GetSubgraphID(), index, magic2index, ss);
@@ -1250,8 +1338,9 @@ unsigned long Function::ComputeHashOrderless() const {
     }
     std::hash<std::string> hasher;
     auto result = hasher(ss.str());
-    ALOG_DEBUG_F("Hash for function %d %s is %s hash value is %lu\n", functionMagic_, GetMagicName().c_str(),
-        ss.str().c_str(), result);
+    ALOG_DEBUG_F("Hash for function %d %s is %s hash value is %lu\n",
+                 functionMagic_, GetMagicName().c_str(),
+                 ss.str().c_str(), result);
     return result;
 }
 
@@ -1266,7 +1355,8 @@ void Function::EraseOperations(bool eraseRelatedTensor, bool sorted) {
             operations.emplace_back(op);
             continue;
         }
-        ASSERT(op->IsDeleted());
+        ASSERT(op->IsDeleted())
+            << "Operation not marked as deleted:" << op->Dump();
         for (auto &input : op->GetIOperands()) {
             input->RemoveConsumer(op.get());
             removeCandidiateTensor.insert(input);
@@ -1342,8 +1432,8 @@ Operation &Function::AddOperation(const std::string &opName, LogicalTensors iOpe
     return AddOperation(FindOpcode(opName), iOperands, oOperands, updateTensorMap);
 }
 
-Operation &Function::AddOperation(const Opcode opCode, LogicalTensors iOperands, const LogicalTensors &oOperands,
-    const bool updateTensorMap) {
+Operation &Function::AddOperation(const Opcode opCode, LogicalTensors iOperands,
+                                  const LogicalTensors &oOperands, const bool updateTensorMap) {
     for (auto &iOperand : iOperands) {
         ASSERT(iOperand->shape.size() != 0) << "tensor shape size invalid";
         iOperand = ConnectWithOverlap(iOperand);
@@ -1382,8 +1472,8 @@ void Function::UpdateTensorDataUsage(Operation &op) {
     }
 }
 
-Operation &Function::AddRawOperation(
-const Opcode opCode, const LogicalTensors &iOperands, const LogicalTensors &oOperands, bool updateTensorMap) {
+Operation &Function::AddRawOperation(const Opcode opCode, const LogicalTensors &iOperands,
+                                     const LogicalTensors &oOperands, bool updateTensorMap) {
     if (IsFunctionTypeAndGraphType(FunctionType::STATIC, {GraphType::EXECUTE_GRAPH, GraphType::BLOCK_GRAPH})) {
         updateTensorMap = false;
         sorted_ = true;
@@ -1471,7 +1561,8 @@ std::vector<Function *> Function::GetCalleeFunctionList() const {
     return calleeFuncList;
 }
 
-void Function::SubstituteIn(std::shared_ptr<LogicalTensor> oldTensor, std::shared_ptr<LogicalTensor> newTensor) {
+void Function::SubstituteIn(std::shared_ptr<LogicalTensor> oldTensor,
+                            std::shared_ptr<LogicalTensor> newTensor) {
     for (auto &operation : operations_) {
         auto &cur = *operation;
         std::unordered_set<std::shared_ptr<LogicalTensor>> replaced;
@@ -1481,7 +1572,9 @@ void Function::SubstituteIn(std::shared_ptr<LogicalTensor> oldTensor, std::share
                 continue;
             }
             if (replaced.count(inputTensor) == 0) {
-                ASSERT(inputTensor->HasConsumer(cur));
+                ASSERT(inputTensor->HasConsumer(cur))
+                    << "Tensor is not a consumer of the operation:\n"
+                    << "Tensor: " << inputTensor->Dump() << "\n" << "Operation: " << cur.Dump();
                 replaced.emplace(inputTensor);
             }
             cur.ReplaceIOperand(i, newTensor);
@@ -1509,20 +1602,26 @@ void Function::SubstituteIn(std::shared_ptr<LogicalTensor> oldTensor, std::share
     }
 }
 
-void Function::SubstituteOut(std::shared_ptr<LogicalTensor> oldTensor, std::shared_ptr<LogicalTensor> newTensor) {
+void Function::SubstituteOut(std::shared_ptr<LogicalTensor> oldTensor,
+                             std::shared_ptr<LogicalTensor> newTensor) {
     for (auto &operation : operations_) {
         auto &cur = *operation;
         for (size_t i = 0; i < cur.GetOOperands().size(); i++) {
             if (cur.GetOOperands()[i] == oldTensor) {
-                ASSERT(cur.GetOOperands()[i]->shape == newTensor->shape);
-                ASSERT(cur.GetOOperands()[i]->HasProducer(cur));
+                ASSERT(cur.GetOOperands()[i]->shape == newTensor->shape)
+                    << "Shape mismatch:\n" << "Old Tensor Shape: " << cur.GetOOperands()[i]->shape << "\n"
+                    << "New Tensor Shape: " << newTensor->shape << "\n" << "Operation: " << cur.Dump();
+                ASSERT(cur.GetOOperands()[i]->HasProducer(cur))
+                    << "Tensor is not a producer of the operation:\n"
+                    << "Tensor: " << cur.GetOOperands()[i]->Dump() << "\n" << "Operation: " << cur.Dump();
                 cur.ReplaceOOperand(i, newTensor);
             }
         }
     }
 }
 
-void Function::Substitute(std::shared_ptr<LogicalTensor> oldTensor, std::shared_ptr<LogicalTensor> newTensor) {
+void Function::Substitute(std::shared_ptr<LogicalTensor> oldTensor,
+                          std::shared_ptr<LogicalTensor> newTensor) {
     SubstituteIn(oldTensor, newTensor);
     SubstituteOut(oldTensor, newTensor);
 }
@@ -1538,7 +1637,9 @@ void Function::RemoveOriginIncastConsumer(const std::shared_ptr<LogicalTensor> &
             }
             targetFunc = &targetFunc->Parent();
         }
-        ASSERT(targetFunc != nullptr);
+        ASSERT(targetFunc != nullptr)
+            << "Failed to find the target function for producer:\n"
+            << "Producer: " << producer->Dump();
 
         for (auto &oOperandForProducerOp : producer->oOperand) {
             auto &consumers = oOperandForProducerOp->GetConsumers();
@@ -1553,7 +1654,8 @@ void Function::RemoveOriginIncastConsumer(const std::shared_ptr<LogicalTensor> &
     }
 }
 
-void Function::UpdateLinkMap(const std::shared_ptr<LogicalTensor> &oriLogicalTensor, const std::shared_ptr<LogicalTensor> &newLogicalTensor, const bool isOutCast) {
+void Function::UpdateLinkMap(const std::shared_ptr<LogicalTensor> &oriLogicalTensor,
+                             const std::shared_ptr<LogicalTensor> &newLogicalTensor, const bool isOutCast) {
     if (isOutCast) {
         //  update outcast
         auto it = outIncastLinkMap.find(oriLogicalTensor->tensor);
@@ -1610,13 +1712,17 @@ void Function::CreateFromIncast(const std::shared_ptr<LogicalTensor> &symbol,
 void Function::ReplaceMaybeParams(const std::shared_ptr<LogicalTensor> &newIncast,
                                         const std::shared_ptr<LogicalTensor> &originIncast) {
     auto it = std::find(originInCasts_.begin(), originInCasts_.end(), originIncast);
-    ASSERT(it != originInCasts_.end());
+    ASSERT(it != originInCasts_.end())
+        << "OriginIncast not found in originInCasts_:\n"
+        << "OriginIncast: " << originIncast->Dump();
     *it = newIncast;
 }
 
 LogicalTensors Function::MakeIncasts(const std::shared_ptr<TensorSlotScope> &scope) {
-    ASSERT(IsGraphType(GraphType::TENSOR_GRAPH) || IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::TILE_GRAPH));
-    ASSERT(HasParent());
+    ASSERT(IsGraphType(GraphType::TENSOR_GRAPH) || IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::TILE_GRAPH))
+        << "Invalid function type or graph type";
+    ASSERT(HasParent())
+        << "Function does not have a parent";
     LogicalTensors inArgumentList;
     std::unordered_set<int> appearedRawIncasts;
     std::vector<std::shared_ptr<RawTensor>> rawIncasts;
@@ -1663,14 +1769,16 @@ LogicalTensors Function::MakeIncasts(const std::shared_ptr<TensorSlotScope> &sco
 
         std::map<ViewKey, std::shared_ptr<LogicalTensor>> newincastMap;
         for (auto &originIncast : sameRawIncasts) {
-            auto viewKey = ViewKey(originIncast->tensor->rawmagic, originIncast->shape, originIncast->offset, originIncast->GetDynOffset());
+            auto viewKey = ViewKey(originIncast->tensor->rawmagic, originIncast->shape,
+                                   originIncast->offset, originIncast->GetDynOffset());
             std::shared_ptr<LogicalTensor> newIncast;
             if (newincastMap.count(viewKey) != 0) {
                 newIncast = newincastMap[viewKey];
             } else {
                 newIncast = std::make_shared<LogicalTensor>(*this, originIncast->tensor->datatype, originIncast->shape,
                     originIncast->Format(), "INCAST_LOCAL_BUF" + std::to_string(idx++), NodeType::LOCAL);
-                ASSERT(originIncast->conflicterTensors.empty());
+                ASSERT(originIncast->conflicterTensors.empty())
+                    << "OriginIncast has conflicter tensors:" << originIncast->Dump();
                 newIncast->CopyMemoryType(originIncast);
 
                 newincastMap.emplace(viewKey, newIncast);
@@ -1687,7 +1795,9 @@ LogicalTensors Function::MakeIncasts(const std::shared_ptr<TensorSlotScope> &sco
                     << " producer = " << producer->GetOpMagic() << "inArgument = " << inArgument->Dump() << std::endl;
             }
             for (const auto &consumer : inArgument->GetConsumers()) {
-                ASSERT(consumer->BelongTo() != this);
+                ASSERT(consumer->BelongTo() != this)
+                    << inArgument->magic << "-> consumer. funcMagic = " << consumer->BelongTo()->GetFuncMagic()
+                    << " consumer = " << consumer->GetOpMagic() << "inArgument = " << inArgument->Dump() << std::endl;
             }
         }
     }
@@ -1703,8 +1813,10 @@ LogicalTensors Function::MakeIncasts(const std::shared_ptr<TensorSlotScope> &sco
 }
 
 LogicalTensors Function::MakeOutcasts(const std::shared_ptr<TensorSlotScope> &scope) {
-    ASSERT(IsGraphType(GraphType::TENSOR_GRAPH) || IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::TILE_GRAPH));
-    ASSERT(HasParent());
+    ASSERT(IsGraphType(GraphType::TENSOR_GRAPH) || IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::TILE_GRAPH))
+        << "Invalid function type or graph type";
+    ASSERT(HasParent())
+        << "Function does not have a parent";
     LogicalTensors outArgumentList;
     std::unordered_set<int> appearedRawOutcasts;
     std::vector<std::shared_ptr<RawTensor>> rawOutcasts;
@@ -1743,7 +1855,8 @@ LogicalTensors Function::MakeOutcasts(const std::shared_ptr<TensorSlotScope> &sc
         auto rawBuf = std::make_shared<LogicalTensor>(*this, rawOutcast->datatype, rawOutcast->rawshape,
             rawOutcast->GetDynRawShape(), rawToOutcast[rawOutcast]->Format(), "OUTCAST_LOCAL_BUF" + std::to_string(idx),
             NodeType::LOCAL);
-        auto outArgument = std::make_shared<LogicalTensor>(Parent(), rawOutcast, nonOffsets, rawOutcast->rawshape, NodeType::LOCAL);
+        auto outArgument = std::make_shared<LogicalTensor>(Parent(), rawOutcast, nonOffsets,
+                                                           rawOutcast->rawshape, NodeType::LOCAL);
         rawSymbol->tensor->UpdateDynRawShape(rawOutcast->GetDynRawShape());
         rawBuf->tensor->UpdateDynRawShape(rawOutcast->GetDynRawShape());
         Parent().tensorMap_.Insert(outArgument);
@@ -1773,24 +1886,33 @@ LogicalTensors Function::MakeOutcasts(const std::shared_ptr<TensorSlotScope> &sc
             auto oldConsumers = originOutcast->GetConsumers(); // only for check
             tensorMap_.Insert(newOutcast);
             Substitute(originOutcast, newOutcast);
-            ASSERT(newOutcast->GetConsumers() == oldConsumers);
-            ASSERT(originOutcast->GetProducers().empty());
+            ASSERT(newOutcast->GetConsumers() == oldConsumers)
+                << "Consumers mismatch after substitution:\n" << "NewOutcast: " << newOutcast->Dump() << "\n"
+                << "OldConsumers: " << oldConsumers.size();
+            ASSERT(originOutcast->GetProducers().empty())
+                << "OriginOutcast has producers:" << originOutcast->Dump();
             auto it = std::find(originOutCasts_.begin(), originOutCasts_.end(), originOutcast);
-            ASSERT(it != originOutCasts_.end());
+            ASSERT(it != originOutCasts_.end())
+                << "OriginOutcast not found in originOutCasts_:" << originOutcast->Dump();
             *it = newOutcast;
         }
-        ASSERT(rawSymbol->GetProducers().empty());
-        ASSERT(iOperand.size() == newOutcastOffsets.size());
+        ASSERT(rawSymbol->GetProducers().empty())
+            << "RawSymbol has producers:" << rawSymbol->Dump();
+        ASSERT(iOperand.size() == newOutcastOffsets.size())
+            << "iOperand size does not match newOutcastOffsets size:\n" << "iOperand size: " << iOperand.size() << "\n"
+            << "newOutcastOffsets size: " << newOutcastOffsets.size();
         for (size_t i = 0; i < iOperand.size(); i++) {
             auto producerSet = iOperand[i]->GetProducers(); // deep copy
             auto partitalAssemble = std::any_of(producerSet.begin(), producerSet.end(), [](Operation *op) {
-                return (op->GetOpcode() == Opcode::OP_ASSEMBLE && op->HasAttribute("dassemble")) || op->GetOpcode() == Opcode::OP_ASSEMBLE_SSA;
+                return (op->GetOpcode() == Opcode::OP_ASSEMBLE && op->HasAttribute("dassemble")) ||
+                        op->GetOpcode() == Opcode::OP_ASSEMBLE_SSA;
             });
             if (partitalAssemble) {
                 for (auto producer : producerSet) {
                     DEFINE_SOURCE_LOCATION();
                     auto producerAttr = std::static_pointer_cast<AssembleOpAttribute>(producer->GetOpAttribute());
-                    auto [offset, dynOffset] = TensorOffset::Add(iOperand[i]->GetOffset(), iOperand[i]->GetDynOffset(), producerAttr->GetToOffset(), producerAttr->GetToDynOffset());
+                    auto [offset, dynOffset] = TensorOffset::Add(iOperand[i]->GetOffset(), iOperand[i]->GetDynOffset(),
+                                                                 producerAttr->GetToOffset(), producerAttr->GetToDynOffset());
                     producer->ReplaceOOperand(0, rawSymbol);
                     producer->SetOpAttribute(std::make_shared<AssembleOpAttribute>(offset, dynOffset));
                 }
@@ -1838,7 +1960,8 @@ LogicalTensors Function::MakeOutcasts(const std::shared_ptr<TensorSlotScope> &sc
     }
 
     for (const auto &tensor : outArgumentList) {
-        ASSERT(tensor->GetProducers().empty());
+        ASSERT(tensor->GetProducers().empty())
+            << "Tensor has producers:" << tensor->Dump();
     }
 
     return outArgumentList;
@@ -1915,13 +2038,15 @@ void Function::DumpJsonFile(std::string fileName) {
 }
 
 struct RawTensorCompare {
-    bool operator()(const std::shared_ptr<RawTensor>& a, const std::shared_ptr<RawTensor>& b) const {
+    bool operator()(const std::shared_ptr<RawTensor>& a,
+                    const std::shared_ptr<RawTensor>& b) const {
         return a->rawmagic < b->rawmagic;
     }
 };
 
 struct TensorCompare {
-    bool operator()(const std::shared_ptr<LogicalTensor>& a, const std::shared_ptr<LogicalTensor>& b) const {
+    bool operator()(const std::shared_ptr<LogicalTensor>& a,
+                    const std::shared_ptr<LogicalTensor>& b) const {
         return a->magic < b->magic;
     }
 };
@@ -2174,8 +2299,8 @@ Json Function::DumpJson(bool useTable) {
 }
 
 void Function::LoadTensorJson(const std::shared_ptr<Function> &func, const Json &funcDump,
-                                    const std::unordered_map<int, std::shared_ptr<RawTensor>> &rawTensorDict,
-                                    std::unordered_map<int, std::shared_ptr<LogicalTensor>> &tensorDict) {
+                              const std::unordered_map<int, std::shared_ptr<RawTensor>> &rawTensorDict,
+                              std::unordered_map<int, std::shared_ptr<LogicalTensor>> &tensorDict) {
     if (funcDump.count("tensors") != 0) {
         for (auto &tensorDump : funcDump["tensors"]) {
             std::shared_ptr<LogicalTensor> tensor = LogicalTensor::LoadJson(*func, rawTensorDict, tensorDump);
@@ -2223,8 +2348,8 @@ void Function::LoadTensorJson(const std::shared_ptr<Function> &func, const Json 
 }
 
 std::shared_ptr<Function> Function::LoadJson(Program &belongTo, const Json &funcDump) {
-    ASSERT(funcDump[T_FIELD_KIND].get<int>() == static_cast<int>(Kind::T_KIND_FUNCTION));
-
+    ASSERT(funcDump[T_FIELD_KIND].get<int>() == static_cast<int>(Kind::T_KIND_FUNCTION))
+        << "Invalid function kind in JSON";
     int funcmagic = funcDump["funcmagic"].get<int>();
     std::string rawname = funcDump["rawname"].get<std::string>();
     std::shared_ptr<Function> func =
@@ -2408,7 +2533,8 @@ static void MaybeNormalizeValue(
         SymbolicScalar scalar = opImm.GetSpecifiedValue();
         auto getTensorDataDict = GetTensorDataDict(scalar);
         if (getTensorDataDict.size() == 0) {
-            OpImmediate::NormalizeValue(operandCoaList[operandCoaIndex + dimIndex], opImm, coaFunc(opImmList.size(), coaIndex, dimIndex), valueToIndex);
+            OpImmediate::NormalizeValue(operandCoaList[operandCoaIndex + dimIndex], opImm,
+                                        coaFunc(opImmList.size(), coaIndex, dimIndex), valueToIndex);
         }
     }
 };
@@ -2435,7 +2561,8 @@ static std::vector<SymbolicScalar> NormalizeCopyIn(Operation *op, int coaIndexBa
     std::vector<SymbolicScalar> operandCoaList(COA_INDEX_DIM_BASE + dim * COA_INDEX_TYPE_COUNT, 0);
 
     auto opImmList = copyAttr->GetFromOffset();
-    MaybeNormalizeValue(RUNTIME_COA_GetOffset, operandCoaList, operandCoaIndex, opImmList, coaIndexBase, valueToIndex);
+    MaybeNormalizeValue(RUNTIME_COA_GetOffset, operandCoaList, operandCoaIndex,
+                        opImmList, coaIndexBase, valueToIndex);
     copyAttr->SetFromOffset(opImmList);
     operandCoaIndex += dim;
     coaIndex += dim;
@@ -2454,7 +2581,8 @@ static std::vector<SymbolicScalar> NormalizeCopyIn(Operation *op, int coaIndexBa
     coaIndex += dim;
 
     opImmList = copyAttr->GetToDynValidShape();
-    MaybeNormalizeValue(RUNTIME_COA_GetValidShape, operandCoaList, operandCoaIndex, opImmList, coaIndexBase, valueToIndex);
+    MaybeNormalizeValue(RUNTIME_COA_GetValidShape, operandCoaList, operandCoaIndex,
+                        opImmList, coaIndexBase, valueToIndex);
     copyAttr->SetToDynValidShape(opImmList);
 
     return operandCoaList;
@@ -2468,7 +2596,8 @@ static std::vector<SymbolicScalar> NormalizeCopyOut(Operation *op, int coaIndexB
     std::vector<SymbolicScalar> operandCoaList(COA_INDEX_DIM_BASE + dim * COA_INDEX_TYPE_COUNT, 0);
 
     auto opImmList = copyAttr->GetToOffset();
-    MaybeNormalizeValue(RUNTIME_COA_GetOffset, operandCoaList, operandCoaIndex, opImmList, coaIndexBase, valueToIndex);
+    MaybeNormalizeValue(RUNTIME_COA_GetOffset, operandCoaList, operandCoaIndex,
+                        opImmList, coaIndexBase, valueToIndex);
     copyAttr->SetToOffset(opImmList);
     operandCoaIndex += dim;
     coaIndex += dim;
@@ -2487,7 +2616,8 @@ static std::vector<SymbolicScalar> NormalizeCopyOut(Operation *op, int coaIndexB
     coaIndex += dim;
 
     opImmList = copyAttr->GetFromDynValidShape();
-    MaybeNormalizeValue(RUNTIME_COA_GetValidShape, operandCoaList, operandCoaIndex, opImmList, coaIndexBase, valueToIndex);
+    MaybeNormalizeValue(RUNTIME_COA_GetValidShape, operandCoaList, operandCoaIndex,
+                        opImmList, coaIndexBase, valueToIndex);
     copyAttr->SetFromDynValidShape(opImmList);
 
     return operandCoaList;
@@ -2545,11 +2675,11 @@ static std::vector<SymbolicScalar> NormalizeTensor(LogicalTensorPtr operand, int
 }
 
 void Function::GetOutcastSymbolicExpr(std::map<int, SymbolicScalar>& tabel) {
-    for (size_t i = 0; i< outCasts_.size(); i++) {
-        auto op = *outCasts_[i]->GetProducers().begin();
+    for (size_t idx = 0; idx< outCasts_.size(); idx++) {
+        auto op = *outCasts_[idx]->GetProducers().begin();
         if (op->GetOpcode() == Opcode::OP_BIND_TENSOR) {
             if (op->HasAttr(OpAttributeKey::bindTensor) && (op->GetOOperands().size() == 1UL)) {
-                tabel[i] = op->GetSymbolicScalarAttribute(OpAttributeKey::bindTensor);
+                tabel[idx] = op->GetSymbolicScalarAttribute(OpAttributeKey::bindTensor);
             }
         }
     }
@@ -2703,26 +2833,30 @@ std::string Function::DumpSSARawTensor(int indent) const {
     int rawIndex = 0;
     for (size_t i = 0; i < inCasts_.size(); ++i) {
         if (!dumped(inCasts_[i])) {
-            ss << prefix << "RAWTENSOR[" << std::setw(SPACE_NUM_THREE) << std::setfill(' ') << rawIndex++ << "] "
+            ss << prefix << "RAWTENSOR[" << std::setw(SPACE_NUM_THREE)
+               << std::setfill(' ') << rawIndex++ << "] "
                << inCasts_[i]->GetRawTensor()->DumpSSA() << "\n";
         }
     }
     for (size_t i = 0; i < outCasts_.size(); ++i) {
         if (!dumped(outCasts_[i])) {
-            ss << prefix << "RAWTENSOR[" << std::setw(SPACE_NUM_THREE) << std::setfill(' ') << rawIndex++ << "] "
+            ss << prefix << "RAWTENSOR[" << std::setw(SPACE_NUM_THREE)
+               << std::setfill(' ') << rawIndex++ << "] "
                << outCasts_[i]->GetRawTensor()->DumpSSA() << "\n";
         }
     }
     for (size_t i = 0; i < operations_.size(); ++i) {
         for (auto &input : operations_[i]->GetIOperands()) {
             if (!dumped(input)) {
-                ss << prefix << "RAWTENSOR[" << std::setw(SPACE_NUM_THREE) << std::setfill(' ') << rawIndex++ << "] "
+                ss << prefix << "RAWTENSOR[" << std::setw(SPACE_NUM_THREE)
+                   << std::setfill(' ') << rawIndex++ << "] "
                    << input->GetRawTensor()->DumpSSA() << "\n";
             }
         }
         for (auto &output : operations_[i]->GetOOperands()) {
             if (!dumped(output)) {
-                ss << prefix << "RAWTENSOR[" << std::setw(SPACE_NUM_THREE) << std::setfill(' ') << rawIndex++ << "] "
+                ss << prefix << "RAWTENSOR[" << std::setw(SPACE_NUM_THREE)
+                   << std::setfill(' ') << rawIndex++ << "] "
                    << output->GetRawTensor()->DumpSSA() << "\n";
             }
         }
@@ -2733,7 +2867,8 @@ std::string Function::DumpSSAIncast(int indent) const {
     std::string prefix(indent, ' ');
     std::stringstream ss;
     for (size_t i = 0; i < inCasts_.size(); ++i) {
-        ss << prefix << "INCAST[" << std::setw(SPACE_NUM_THREE) << std::setfill(' ') << i << "]  "
+        ss << prefix << "INCAST[" << std::setw(SPACE_NUM_THREE)
+           << std::setfill(' ') << i << "]  "
            << inCasts_[i]->DumpSSA(false, false, true);
         if (slotScope_ && i < slotScope_->ioslot.incastSlot.size()) {
             auto &incastSlotList = slotScope_->ioslot.incastSlot[i];
@@ -2754,7 +2889,8 @@ std::string Function::DumpSSAOutcast(int indent) const {
     std::string prefix(indent, ' ');
     std::stringstream ss;
     for (size_t i = 0; i < outCasts_.size(); ++i) {
-        ss << prefix << "OUTCAST[" << std::setw(SPACE_NUM_THREE) << std::setfill(' ') << i << "]  "
+        ss << prefix << "OUTCAST[" << std::setw(SPACE_NUM_THREE)
+           << std::setfill(' ') << i << "]  "
            << outCasts_[i]->DumpSSA(false, false, true);
         if (slotScope_ && i < slotScope_->ioslot.outcastSlot.size()) {
             auto &outcastSlotList = slotScope_->ioslot.outcastSlot[i];
@@ -2931,18 +3067,18 @@ bool Function::IsFromDummyOutCast(int rawMagic) {
 }
 
 int Function::GetIncastIndex(std::shared_ptr<LogicalTensor> &tensor) const {
-    for (size_t i = 0; i < inCasts_.size(); i++) {
-        if (inCasts_[i] == tensor) {
-            return (int)i;
+    for (size_t idx = 0; idx < inCasts_.size(); idx++) {
+        if (inCasts_[idx] == tensor) {
+            return (int)idx;
         }
     }
     return INVALID_IOINDEX;
 }
 
 int Function::GetOutcastIndex(std::shared_ptr<LogicalTensor> &tensor) const {
-    for (size_t i = 0; i < outCasts_.size(); i++) {
-        if (outCasts_[i] == tensor) {
-            return (int)i;
+    for (size_t idx = 0; idx < outCasts_.size(); idx++) {
+        if (outCasts_[idx] == tensor) {
+            return (int)idx;
         }
     }
     return INVALID_IOINDEX;
@@ -2962,7 +3098,9 @@ TensorGraphInfo Function::GetGraphInfo() {
             assembleOpSet.emplace(op);
             continue;
         }
-        ASSERT(op->GetOpcode() == Opcode::OP_CALL);
+        ASSERT(op->GetOpcode() == Opcode::OP_CALL)
+            << "Invalid operation code: " << static_cast<int>(op->GetOpcode()) << "\n"
+            << "Operation: " << op->Dump();
         operations.emplace_back(op);
         LogicalTensors incasts;
         LogicalTensors outcasts;
@@ -3035,7 +3173,8 @@ void Function::ClearUselessLink(TensorGraphInfo &graphInfo) {
     };
 }
 
-void Function::LinkIoWithCallOp(std::vector<LogicalTensors> &callopInCasts, std::vector<LogicalTensors> &callopOutCasts) {
+void Function::LinkIoWithCallOp(std::vector<LogicalTensors> &callopInCasts,
+                                std::vector<LogicalTensors> &callopOutCasts) {
     for (size_t idx = 0; idx < operations_.size(); ++idx) {
         auto &incasts = callopInCasts[idx];
         for (auto incast : incasts) {
@@ -3060,7 +3199,7 @@ void Function::RemoveCallOpViewAssemble() {
 }
 
 void Function::UpdateOriIocastSlot(const std::shared_ptr<TensorSlotScope> scope) {
-    ASSERT(slotScope_ != nullptr);
+    ASSERT(slotScope_ != nullptr) << "slotScope_ is null";
     auto& incastDst = slotScope_->oriIncastReadSlotSet;
     incastDst.insert(incastDst.end(), scope->incastReadSlotSet.begin(), scope->incastReadSlotSet.end());
 
@@ -3094,11 +3233,11 @@ void Function::SetCallOpSlot() {
 
 std::vector<int> Function::GetInCastSlot(const std::shared_ptr<LogicalTensor> &incast) {
     std::vector<int> ret;
-    for (size_t i = 0; i < inCasts_.size(); ++i) {
-        if (inCasts_[i] == incast) {
+    for (size_t idx = 0; idx < inCasts_.size(); ++idx) {
+        if (inCasts_[idx] == incast) {
             auto &scope = GetSlotScope();
-            ASSERT(scope != nullptr);
-            ret = scope->ioslot.incastSlot[i];
+            ASSERT(scope != nullptr) << "SlotScope is null";
+            ret = scope->ioslot.incastSlot[idx];
         }
     }
     return ret;
@@ -3106,11 +3245,11 @@ std::vector<int> Function::GetInCastSlot(const std::shared_ptr<LogicalTensor> &i
 
 std::vector<int> Function::GetOutCastSlot(const std::shared_ptr<LogicalTensor> &outcast) {
     std::vector<int> ret;
-    for (size_t i = 0; i < outCasts_.size(); ++i) {
-        if (outCasts_[i] == outcast) {
+    for (size_t idx = 0; idx < outCasts_.size(); ++idx) {
+        if (outCasts_[idx] == outcast) {
             auto &scope = GetSlotScope();
-            ASSERT(scope != nullptr);
-            ret = scope->ioslot.outcastSlot[i];
+            ASSERT(scope != nullptr) << "SlotScope is null";
+            ret = scope->ioslot.outcastSlot[idx];
         }
     }
     return ret;
@@ -3189,11 +3328,11 @@ std::vector<OriArgInfo> Function::GetOpOriginArgsInfo() {
     }
 
     std::vector<OriArgInfo> argsInfo(maxSubscript + 1);
-    for (int i = 0; i <= maxSubscript; i++) {
-        if (args.count(i) > 0) {
-            argsInfo[i] = args.at(i);
+    for (int idx = 0; idx <= maxSubscript; idx++) {
+        if (args.count(idx) > 0) {
+            argsInfo[idx] = args.at(idx);
         } else {
-            argsInfo[i] = OriArgInfo{0, 0, false};
+            argsInfo[idx] = OriArgInfo{0, 0, false};
         }
     }
     return argsInfo;
@@ -3204,63 +3343,86 @@ void Function::OpValidCheck(Operation &op) const {
     std::unordered_set<std::shared_ptr<LogicalTensor>> incasts(GetIncast().begin(), GetIncast().end());
     if (SPECIAL_OPCODE_SET.count(op.GetOpcode()) != 0) {
         if (op.GetOpcode() == Opcode::OP_VIEW) {
-            ASSERT(op.GetIOperands().size() == 1);
-            ASSERT(op.GetOOperands().size() <= 1);
+            ASSERT(op.GetIOperands().size() == 1) << "OP_VIEW expects 1 input operand, but got " << op.GetIOperands().size();
+            ASSERT(op.GetOOperands().size() <= 1) << "OP_VIEW expects at most 1 output operand, but got " << op.GetOOperands().size();
             auto opAttr = std::dynamic_pointer_cast<ViewOpAttribute>(op.GetOpAttribute());
-            ASSERT(opAttr != nullptr);
-            ASSERT(op.GetIOperands()[0]->GetOffset().size() == opAttr->GetFromOffset().size());
+            ASSERT(opAttr != nullptr)
+                << "OP_VIEW should have a ViewOpAttribute, but it is null";
+            ASSERT(op.GetIOperands()[0]->GetOffset().size() == opAttr->GetFromOffset().size())
+                << "OP_VIEW input operand offset size does not match attribute from offset size";
             if (!op.GetOOperands().empty()) {
-                ASSERT(op.GetOOperands()[0]->GetOffset().size() == opAttr->GetFromOffset().size());
+                ASSERT(op.GetOOperands()[0]->GetOffset().size() == opAttr->GetFromOffset().size())
+                    << "OP_VIEW output operand offset size does not match attribute from offset size";
             }
         }
         if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
-            ASSERT(op.GetIOperands().size() == 1);
-            ASSERT(op.GetOOperands().size() <= 1);
+            ASSERT(op.GetIOperands().size() == 1)
+                << "OP_ASSEMBLE should have exactly 1 input operand, but has " << op.GetIOperands().size();
+            ASSERT(op.GetOOperands().size() <= 1)
+                << "OP_ASSEMBLE should have at most 1 output operand, but has " << op.GetOOperands().size();
             auto opAttr = std::dynamic_pointer_cast<AssembleOpAttribute>(op.GetOpAttribute());
-            ASSERT(opAttr != nullptr);
+            ASSERT(opAttr != nullptr)
+                << "OP_ASSEMBLE should have an AssembleOpAttribute, but it is null";
             if (!op.GetIOperands().empty()) {
-                ASSERT(op.GetIOperands()[0]->GetOffset().size() == opAttr->GetToOffset().size());
+                ASSERT(op.GetIOperands()[0]->GetOffset().size() == opAttr->GetToOffset().size())
+                    << "OP_ASSEMBLE input operand offset size does not match attribute to offset size";
             }
-            ASSERT(op.GetOOperands()[0]->GetOffset().size() == opAttr->GetToOffset().size());
+            ASSERT(op.GetOOperands()[0]->GetOffset().size() == opAttr->GetToOffset().size())
+                << "OP_ASSEMBLE output operand offset size does not match attribute to offset size";
         }
     } else {
-        ASSERT(op.GetOpAttribute() == nullptr);
+        ASSERT(op.GetOpAttribute() == nullptr)
+            << "Non-special operation should not have an operation attribute";
     }
 
     ASSERT(op.GetOpMagic() >= 0 && op.GetOpMagic() < opSeed_)
-            << "function opSeed_ is: " << opSeed_ << ", opmagic is: " << op.GetOpMagic();
+        << "Operation magic number is out of bounds: " << op.GetOpMagic()
+        << ", function opSeed_ is: " << opSeed_;
     if (!op.IsCall()) { // call 允许多输出，其余操作目前不允许
-        ASSERT(op.GetOOperands().size() <= 1) << "size: " << op.GetOOperands().size();
+        ASSERT(op.GetOOperands().size() <= 1)
+            << "Non-call operation should have at most 1 output operand, but has " << op.GetOOperands().size();
     }
     for (auto &oOperand : op.GetOOperands()) {
-        ASSERT(oOperand->GetShape().size() == oOperand->GetOffset().size());
-        ASSERT(&oOperand->BelongFunction() == this);
+        ASSERT(oOperand->GetShape().size() == oOperand->GetOffset().size())
+            << "Output operand shape size does not match offset size";
+        ASSERT(&oOperand->BelongFunction() == this)
+            << "Output operand does not belong to the current function";
         auto tmp = GetTensorMap().GetTensorByMagic(oOperand->magic);
-        ASSERT(tmp == oOperand);
-        ASSERT(oOperand->HasProducer(op)) << "opmagic: " << op.GetOpMagic() << "GetOOperands():" << oOperand->magic;
+        ASSERT(tmp == oOperand)
+            << "Tensor map does not match output operand";
+        ASSERT(oOperand->HasProducer(op))
+            << "Output operand does not have the current operation as a producer, opmagic: " << op.GetOpMagic()
+            << ", operand magic: " << oOperand->magic;
     }
     for (auto &iOperand : op.GetIOperands()) {
-        ASSERT(iOperand->GetShape().size() == iOperand->GetOffset().size());
-        ASSERT(&iOperand->BelongFunction() == this);
+        ASSERT(iOperand->GetShape().size() == iOperand->GetOffset().size())
+            << "Input operand shape size does not match offset size";
+        ASSERT(&iOperand->BelongFunction() == this)
+            << "Input operand does not belong to the current function";
         if (!iOperand->GetProducers().empty() || incasts.count(iOperand) != 0) {
             auto tmp = GetTensorMap().GetTensorByMagic(iOperand->magic);
-            ASSERT(tmp == iOperand);
+            ASSERT(tmp == iOperand)
+                << "Tensor map does not match input operand";
         }
 
-        ASSERT(iOperand->HasConsumer(op));
+        ASSERT(iOperand->HasConsumer(op))
+            << "Input operand does not have the current operation as a consumer";
         for (const auto &producer : iOperand->GetProducers()) {
-            ASSERT(producer->BelongTo() == this);
+            ASSERT(producer->BelongTo() == this)
+                << "Producer does not belong to the current function";
             ASSERT(producer->GetOpMagic() >= 0 && producer->GetOpMagic() < opSeed_)
-                    << "function opSeed_ is: " << opSeed_ << ", producer in tensor(" << iOperand->magic << ","
-                    << iOperand->tensor->rawmagic << ") is: " << producer;
+                << "Producer magic number is out of bounds: " << producer->GetOpMagic() << ", function opSeed_ is: " << opSeed_
+                << ", producer in tensor(" << iOperand->magic << "," << iOperand->tensor->rawmagic << ")";
             if (producer->IsDeleted()) {
                 continue;
             }
-            ASSERT(opMap.find(producer) != opMap.end());
+            ASSERT(opMap.find(producer) != opMap.end())
+                << "Producer not found in operation map";
         }
     }
 
-    ASSERT(opMap.count(&op) == 0);
+    ASSERT(opMap.count(&op) == 0)
+        << "Operation is already in the operation map";
     opMap.emplace(&op);
 }
 
@@ -3311,7 +3473,8 @@ void Function::ValidCheck() const {
     for (auto &op : const_cast<Function &>(*this).Operations()) {
         opMagic = std::max(opMagic, op.GetOpMagic());
     }
-    ASSERT(opMagic + 1 <= opSeed_);
+    ASSERT(opMagic + 1 <= opSeed_)
+        << "Invalid opMagic range: max opMagic is " << opMagic << ", function opSeed_ is: " << opSeed_;
 
     TensorMagicCheck();
 
@@ -3323,7 +3486,7 @@ void Function::ValidCheck() const {
         for (const auto &operand : op.GetOOperands()) {
             if (used.count(operand) > 0) {
                 for (auto innerOp : used.at(operand)) {
-                    ASSERT(innerOp->ComputeHash() != op.ComputeHash());
+                    ASSERT(innerOp->ComputeHash() != op.ComputeHash()) << "Duplicate operation detected with the same hash: " << op.ComputeHash();
                 }
             }
             used[operand].emplace_back(&op);
@@ -3339,7 +3502,7 @@ void Function::ValidCheck() const {
 }
 
 std::shared_ptr<OpAttribute> Function::CreateCallOpAttribute(const std::vector<std::vector<SymbolicScalar>> &argList,
-    const std::map<int, SymbolicScalar> &outIndexToExpr) {
+                                                             const std::map<int, SymbolicScalar> &outIndexToExpr) {
     FunctionHash hash;
     if (rootFunc_ != nullptr) {
         /* has rootFunc, then current function is cutted */
@@ -3357,7 +3520,8 @@ std::shared_ptr<LogicalTensor> Function::ConnectWithOverlap(std::shared_ptr<Logi
         return iOperand;
     }
     auto overlapStatus = CalcOverlap(iOperand, matches);
-    ASSERT(!matches.empty());
+    ASSERT(!matches.empty())
+        << "Matches should not be empty";
 
     std::vector<std::vector<int64_t>> offsetOfOverlaps;
     std::vector<std::shared_ptr<LogicalTensor>> needAddConsumer;
@@ -3367,13 +3531,13 @@ std::shared_ptr<LogicalTensor> Function::ConnectWithOverlap(std::shared_ptr<Logi
 
     for (auto &m : matches) {
         offsetOfOverlaps.emplace_back(m->offset);
-        for (size_t i = 0; i < minimumOffsets.size(); i++) {
-            minimumOffsets[i] = std::min(minimumOffsets[i], m->offset[i]);
+        for (size_t idx = 0; idx < minimumOffsets.size(); idx++) {
+            minimumOffsets[idx] = std::min(minimumOffsets[idx], m->offset[idx]);
         }
     }
     for (auto &offsetOfOverlap : offsetOfOverlaps) {
-        for (size_t i = 0; i < offsetOfOverlap.size(); i++) {
-            offsetOfOverlap[i] -= minimumOffsets[i];
+        for (size_t idx = 0; idx < offsetOfOverlap.size(); idx++) {
+            offsetOfOverlap[idx] -= minimumOffsets[idx];
         }
     }
 
@@ -3382,10 +3546,10 @@ std::shared_ptr<LogicalTensor> Function::ConnectWithOverlap(std::shared_ptr<Logi
             auto assembleResult = std::make_shared<LogicalTensor>(*this, iOperand->Datatype(), iOperand->shape,
                 iOperand->GetDynValidShape(), iOperand->Format(), "Assemble_" + matches[0]->Symbol(),
                 iOperand->nodetype);
-            ASSERT(assembleResult->GetProducers().empty());
-            for (size_t i = 0; i < matches.size(); i++) {
-                auto &assembleOp = AddRawOperation(Opcode::OP_ASSEMBLE, {matches[i]}, {assembleResult});
-                assembleOp.SetOpAttribute(std::make_shared<AssembleOpAttribute>(offsetOfOverlaps[i], SymbolicScalar::FromConcrete(offsetOfOverlaps[i])));
+            ASSERT(assembleResult->GetProducers().empty()) << "Assemble result should have no producers";
+            for (size_t idx = 0; idx < matches.size(); idx++) {
+                auto &assembleOp = AddRawOperation(Opcode::OP_ASSEMBLE, {matches[idx]}, {assembleResult});
+                assembleOp.SetOpAttribute(std::make_shared<AssembleOpAttribute>(offsetOfOverlaps[idx], SymbolicScalar::FromConcrete(offsetOfOverlaps[idx])));
             }
             return assembleResult;
         }
@@ -3412,10 +3576,10 @@ std::shared_ptr<LogicalTensor> Function::ConnectWithOverlap(std::shared_ptr<Logi
 
             auto assembleResult = std::make_shared<LogicalTensor>(*this, matches[0]->Datatype(), maximumShape,
                 iOperand->Format(), "Assemble_" + matches[0]->Symbol(), iOperand->nodetype);
-            ASSERT(assembleResult->GetProducers().empty());
-            for (size_t i = 0; i < matches.size(); i++) {
-                auto &assembleOp = AddRawOperation(Opcode::OP_ASSEMBLE, {matches[i]}, {assembleResult});
-                assembleOp.SetOpAttribute(std::make_shared<AssembleOpAttribute>(offsetOfOverlaps[i], SymbolicScalar::FromConcrete(offsetOfOverlaps[i])));
+            ASSERT(assembleResult->GetProducers().empty()) "Assemble result should have no producers";
+            for (size_t idx = 0; idx < matches.size(); idx++) {
+                auto &assembleOp = AddRawOperation(Opcode::OP_ASSEMBLE, {matches[idx]}, {assembleResult});
+                assembleOp.SetOpAttribute(std::make_shared<AssembleOpAttribute>(offsetOfOverlaps[idx], SymbolicScalar::FromConcrete(offsetOfOverlaps[idx])));
             }
 
             auto viewResult = std::make_shared<LogicalTensor>(*this, assembleResult->Datatype(), iOperand->shape,
@@ -3448,8 +3612,8 @@ void RemoveDupIndices(std::vector<T>& data, std::vector<int> indexList) {
 
 SameSlotSetIndex ClassifyIocasts(const std::vector<std::vector<int>>& vec) {
     SameSlotSetIndex classification;
-    for (size_t i = 0; i < vec.size(); ++i) {
-        classification[vec[i]].push_back(i);
+    for (size_t idx = 0; idx < vec.size(); ++idx) {
+        classification[vec[idx]].push_back(idx);
     }
 
     // if value vector size < 2，delete this pair
@@ -3465,50 +3629,54 @@ SameSlotSetIndex ClassifyIocasts(const std::vector<std::vector<int>>& vec) {
 
 void Function::DoMergeFunctionDupIncast() {
     auto sameSlotSetIndex = ClassifyIocasts(GetSlotScope()->ioslot.incastSlot);
-    std::vector<int> removeIndex;
+    std::vector<int> removeIdx;
     for (auto& pair : sameSlotSetIndex) {
         auto& slotSetIndex = pair.second;
-        ASSERT(slotSetIndex.size() > 1);
-        removeIndex.insert(removeIndex.end(), slotSetIndex.begin() + 1, slotSetIndex.end());
+        ASSERT(slotSetIndex.size() > 1)
+            << "Slot set index should have more than one element";
+        removeIdx.insert(removeIdx.end(), slotSetIndex.begin() + 1, slotSetIndex.end());
         auto oriIncast = inCasts_[slotSetIndex[0]];
         auto newIncast = std::make_shared<LogicalTensor>(*this, oriIncast->tensor->datatype, oriIncast->shape,
             oriIncast->tensor->GetDynRawShape(), oriIncast->Format(), oriIncast->tensor->GetSymbol(), NodeType::INCAST);
 
         for (auto incastIdx : slotSetIndex) {
-            ASSERT(inCasts_[incastIdx]->GetConsumers().size() > 0);
+            ASSERT(inCasts_[incastIdx]->GetConsumers().size() > 0)
+                << "Incast at index " << incastIdx << " should have at least one consumer";
             auto op = *inCasts_[incastIdx]->GetConsumers().begin();
             op->ReplaceIOperand(0, newIncast);
             tensorMap_.Insert(newIncast);
         }
         inCasts_[slotSetIndex[0]] = newIncast;
     }
-    RemoveDupIndices(inCasts_, removeIndex);
-    RemoveDupIndices(GetSlotScope()->incastReadSlotSet, removeIndex);
-    RemoveDupIndices(GetSlotScope()->ioslot.incastSlot, removeIndex);
+    RemoveDupIndices(inCasts_, removeIdx);
+    RemoveDupIndices(GetSlotScope()->incastReadSlotSet, removeIdx);
+    RemoveDupIndices(GetSlotScope()->ioslot.incastSlot, removeIdx);
 }
 
 void Function::DoMergeFunctionDupOutcast() {
     auto sameSlotSetIndex = ClassifyIocasts(GetSlotScope()->ioslot.outcastSlot);
-    std::vector<int> removeIndex;
+    std::vector<int> removeIdx;
     for (auto& pair : sameSlotSetIndex) {
         auto& slotSetIndex = pair.second;
-        ASSERT(slotSetIndex.size() > 1);
-        removeIndex.insert(removeIndex.end(), slotSetIndex.begin() + 1, slotSetIndex.end());
+        ASSERT(slotSetIndex.size() > 1)
+            << "Slot set index should have more than one element";
+        removeIdx.insert(removeIdx.end(), slotSetIndex.begin() + 1, slotSetIndex.end());
         auto oriOutcast = outCasts_[slotSetIndex[0]];
         auto newOutcast = std::make_shared<LogicalTensor>(*this, oriOutcast->tensor->datatype, oriOutcast->shape,
             oriOutcast->tensor->GetDynRawShape(), oriOutcast->Format(), oriOutcast->tensor->GetSymbol(), NodeType::OUTCAST);
 
         for (auto incastIdx : slotSetIndex) {
-            ASSERT(outCasts_[incastIdx]->GetProducers().size() > 0);
+            ASSERT(outCasts_[incastIdx]->GetProducers().size() > 0)
+                << "Outcast at index " << incastIdx << " should have at least one producer";
             auto& op = *outCasts_[incastIdx]->GetProducers().begin();
             op->ReplaceOOperand(0, newOutcast);
             tensorMap_.Insert(newOutcast);
         }
         outCasts_[slotSetIndex[0]] = newOutcast;
     }
-    RemoveDupIndices(outCasts_, removeIndex);
-    RemoveDupIndices(GetSlotScope()->outcastWriteSlotSet, removeIndex);
-    RemoveDupIndices(GetSlotScope()->ioslot.outcastSlot, removeIndex);
+    RemoveDupIndices(outCasts_, removeIdx);
+    RemoveDupIndices(GetSlotScope()->outcastWriteSlotSet, removeIdx);
+    RemoveDupIndices(GetSlotScope()->ioslot.outcastSlot, removeIdx);
 }
 
 void Function::MergeFunctionDupIocast() {
