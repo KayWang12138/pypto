@@ -418,12 +418,13 @@ void SplitLargeFanoutTensor::SplitLargeTensor(Function &function) {
                     APASS_LOG_INFO_F(Elements::Tensor, "Calculate LCM shape failed, don't cal LcmShape.");
                     continue;
                 }
-                // 当lcmTile的每个维度都大于等于largeTensor时, 仍会聚合到同样大小的Tensor, 因此不做处理
+                // 当lcmTile的某一维度大于largeTensor时，修改为与largeTensor相等
                 for (size_t i = 0; i < lcmShape.size(); i++) {
                     if (lcmShape[i] > largeTensor->GetShape()[i]) {
                         lcmShape[i] = largeTensor->GetShape()[i];
                     }
                 }
+                // 当lcmTile的每个维度都等于largeTensor时, 仍会聚合到同样大小的Tensor, 因此不做处理
                 if (lcmShape == largeTensor->GetShape()) {
                     APASS_LOG_INFO_F(Elements::Tensor, "Skip SplitLargeTensor for magic[%d] since shape to assemble (lcmShape) equals "
                         "the largeTensor's shape.", largeTensor->GetMagic());
