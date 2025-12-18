@@ -34,7 +34,8 @@ PyPTO支持在CPU仿真环境运行，除上述依赖外，不需要额外再安
 
 ### NPU驱动和固件安装 ###
 
-- 驱动版本：Ascend NDK 25.2.0
+- 推荐版本：Ascend NDK 25.3.0
+- 支持版本：Ascend NDK 25.3.0、Ascend NDK 25.2.0
 
 驱动与固件安装，请参考[CANN 软件安装指南](xxxxx) 自行安装
 
