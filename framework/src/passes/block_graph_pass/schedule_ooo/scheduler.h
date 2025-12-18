@@ -159,6 +159,7 @@ private:
     std::map<IssueEntryPtr, MemoryType> recordIssueBuffer;
     std::stack<std::pair<IssueEntryPtr, MemoryType>> needFreeIssueStack;
     std::map<IssueEntryPtr, bool> visitedIssue;
+    std::map<IssueEntryPtr, std::unordered_map<int, int>> recordBufRefCount;
 
     // scheduler
     Status Init(const std::vector<Operation *> &operations);
@@ -224,10 +225,10 @@ private:
     
     Status LayerBasedDFS(int layerDepth);
 
-    Status ReorderIssue(std::vector<size_t> &preIdx, std::vector<IssueEntryPtr> &curIssueEntries, size_t startIndex);
+    void ReorderIssue(std::vector<size_t> &preIdx, std::vector<IssueEntryPtr> &curIssueEntries, size_t startIndex);
     void FindIndex(IssueEntryPtr issue, std::vector<IssueEntryPtr> curIssueEntries, size_t &index);
     void FindConsumerList(size_t consumerIndex, std::vector<size_t> &preIssue, std::vector<IssueEntryPtr> &curIssueEntries);
-    Status UpdateOOperandPreDependence(size_t startIndex, std::vector<IssueEntryPtr> &curIssueEntries,
+    void UpdateOOperandPreDependence(size_t startIndex, std::vector<IssueEntryPtr> &curIssueEntries,
         std::vector<IssueEntryPtr> consumersGroup);
     void RecoverSymbol(size_t startIndex, std::vector<IssueEntryPtr> curIssueEntries);
     void GetConsumerGroup(std::vector<IssueEntryPtr> consumers, std::vector<IssueEntryPtr> &consumersGroup);
