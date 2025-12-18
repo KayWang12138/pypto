@@ -135,21 +135,23 @@ Status AssignMemoryTypeChecker::CheckMoveOpReachable(Function &function) {
         if (OpcodeManager::Inst().GetOpCalcType(operation.GetOpcode()) != OpCalcType::MOVE_LOCAL) {
             continue;
         }
-        auto input = operation.GetIOperands().front();
-        auto output = operation.GetOOperands().front();
-        auto inMemType = input->GetMemoryTypeOriginal();
-        auto outMemType = output->GetMemoryTypeOriginal();
-        if (inMemType == outMemType) {
-            continue;
-        }
-        std::pair<MemoryType, MemoryType> moveOpPath = {inMemType, outMemType};
-        if (ALL_DEFINED_PATHS.find(moveOpPath) == ALL_DEFINED_PATHS.end()) {
-            APASS_LOG_ERROR_F(Elements::Tensor,
-                "OP[%d] has inputTensor[%d] with memoryType %s and "
-                "outputTensor[%d] with memoryType %s; The path is not reachable.",
-                operation.GetOpMagic(), input->GetMagic(), BriefMemoryTypeToString(inMemType).c_str(),
-                output->GetMagic(), BriefMemoryTypeToString(outMemType).c_str());
-            return FAILED;
+        for (const auto &input : operation.GetIOperands()){
+            for (const auto &output : operation.GetOOperands()){
+                auto inMemType = input->GetMemoryTypeOriginal();
+                auto outMemType = output->GetMemoryTypeOriginal();
+                if (inMemType == outMemType) {
+                    continue;
+                }
+                std::pair<MemoryType, MemoryType> moveOpPath = {inMemType, outMemType};
+                if (ALL_DEFINED_PATHS.find(moveOpPath) == ALL_DEFINED_PATHS.end()) {
+                    APASS_LOG_ERROR_F(Elements::Tensor,
+                        "OP[%d] has inputTensor[%d] with memoryType %s and "
+                        "outputTensor[%d] with memoryType %s; The path is not reachable.",
+                        operation.GetOpMagic(), input->GetMagic(), BriefMemoryTypeToString(inMemType).c_str(),
+                        output->GetMagic(), BriefMemoryTypeToString(outMemType).c_str());
+                    return FAILED;
+                }
+            }
         }
     }
     return SUCCESS;

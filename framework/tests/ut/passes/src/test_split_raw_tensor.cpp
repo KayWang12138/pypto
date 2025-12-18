@@ -13,13 +13,13 @@
  * \brief Unit test for SplitRawTensor pass.
  */
 
+#include <vector>
 #include "gtest/gtest.h"
 #include "interface/function/function.h"
 #include "interface/configs/config_manager.h"
 #include "ut_json/ut_json_tool.h"
 #include "passes/tile_graph_pass/graph_optimization/split_raw.h"
 #include "computational_graph_builder.h"
-#include <vector>
 
 using namespace npu::tile_fwk;
 

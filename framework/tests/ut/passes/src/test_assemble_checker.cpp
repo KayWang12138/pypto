@@ -21,6 +21,9 @@
 namespace npu {
 namespace tile_fwk {
 
+using TensorInfos = std::map<std::string, std::vector<int64_t>>;
+using AssembleOpInfos = std::vector<std::tuple<std::string, std::string, std::string, std::vector<int64_t>>>;
+
 class TestAssembleChecker : public ::testing::Test {
 public:
     static void SetUpTestCase() {}
@@ -32,11 +35,12 @@ public:
     }
 
     void TearDown() override {}
+
+    AssembleChecker checker;
 };
 
-void BuildAssembleGraph(ComputationalGraphBuilder &G, const std::map<std::string, std::vector<int64_t>> &inTensors,
-    const std::map<std::string, std::vector<int64_t>> &outTensors,
-    const std::vector<std::tuple<std::string, std::string, std::string, std::vector<int64_t>>> &assembleOps){
+void BuildAssembleGraph(ComputationalGraphBuilder &G, const TensorInfos &inTensors,
+    const TensorInfos &outTensors, const AssembleOpInfos &assembleOps){
     // 添加输入Tensor
     for (const auto& [name, shape] : inTensors) {
         G.AddTensor(DataType::DT_FP32, shape, name);
@@ -63,32 +67,31 @@ void BuildAssembleGraph(ComputationalGraphBuilder &G, const std::map<std::string
 
 TEST_F(TestAssembleChecker, TestAssembleInputNoOverlap) {
     ComputationalGraphBuilder G;
-    std::map<std::string, std::vector<int64_t>> inTensors = {
+    TensorInfos inTensors = {
         {"in1", {2, 2}}, {"in2", {3, 2}}, {"in3", {2, 3}}, {"in4", {3, 3}}
     };
-    std::map<std::string, std::vector<int64_t>> outTensors = {
+    TensorInfos outTensors = {
         {"out1", {8, 8}}
     };
-    std::vector<std::tuple<std::string, std::string, std::string, std::vector<int64_t>>> assembleOps = {
+    AssembleOpInfos assembleOps = {
         {"in1", "out1", "assemble1", {0, 0}}, {"in2", "out1", "assemble2", {0, 4}},
         {"in3", "out1", "assemble3", {4, 0}}, {"in4", "out1", "assemble4", {4, 4}}
     };
     BuildAssembleGraph(G, inTensors, outTensors, assembleOps);
     Function *function = G.GetFunction();
 
-    AssembleChecker checker;
     EXPECT_EQ(checker.CheckAssembleOverlap(*function), SUCCESS);
 }
 
 TEST_F(TestAssembleChecker, TestAssembleInputExactNoOverlap) {
     ComputationalGraphBuilder G;
-    std::map<std::string, std::vector<int64_t>> inTensors = {
+    TensorInfos inTensors = {
         {"in1", {2, 4}}, {"in2", {2, 4}}, {"in3", {4, 2}}, {"in4", {4, 2}}, {"in5", {2, 2}}
     };
-    std::map<std::string, std::vector<int64_t>> outTensors = {
+    TensorInfos outTensors = {
         {"out1", {6, 6}}
     };
-    std::vector<std::tuple<std::string, std::string, std::string, std::vector<int64_t>>> assembleOps = {
+    AssembleOpInfos assembleOps = {
         {"in1", "out1", "assemble1", {0, 0}}, {"in2", "out1", "assemble2", {4, 2}},
         {"in3", "out1", "assemble3", {0, 4}}, {"in4", "out1", "assemble4", {2, 0}},
         {"in5", "out1", "assemble5", {2, 2}}
@@ -96,168 +99,159 @@ TEST_F(TestAssembleChecker, TestAssembleInputExactNoOverlap) {
     BuildAssembleGraph(G, inTensors, outTensors, assembleOps);
     Function *function = G.GetFunction();
 
-    AssembleChecker checker;
     EXPECT_EQ(checker.CheckAssembleOverlap(*function), SUCCESS);
 }
 
 TEST_F(TestAssembleChecker, TestAssembleInputEdgeOverlap) {
     ComputationalGraphBuilder G;
-    std::map<std::string, std::vector<int64_t>> inTensors = {
+    TensorInfos inTensors = {
         {"in1", {2, 4}}, {"in2", {2, 4}}
     };
-    std::map<std::string, std::vector<int64_t>> outTensors = {
+    TensorInfos outTensors = {
         {"out1", {2, 7}}
     };
-    std::vector<std::tuple<std::string, std::string, std::string, std::vector<int64_t>>> assembleOps = {
+    AssembleOpInfos assembleOps = {
         {"in1", "out1", "assemble1", {0, 0}}, {"in2", "out1", "assemble2", {0, 3}}
     };
     BuildAssembleGraph(G, inTensors, outTensors, assembleOps);
     Function *function = G.GetFunction();
 
-    AssembleChecker checker;
     EXPECT_EQ(checker.CheckAssembleOverlap(*function), FAILED);
 }
 
 TEST_F(TestAssembleChecker, TestAssembleInputPartialOverlap) {
     ComputationalGraphBuilder G;
-    std::map<std::string, std::vector<int64_t>> inTensors = {
+    TensorInfos inTensors = {
         {"in1", {2, 4}}, {"in2", {2, 6}}, {"in3", {2, 8}}
     };
-    std::map<std::string, std::vector<int64_t>> outTensors = {
+    TensorInfos outTensors = {
         {"out1", {4, 8}}
     };
-    std::vector<std::tuple<std::string, std::string, std::string, std::vector<int64_t>>> assembleOps = {
+    AssembleOpInfos assembleOps = {
         {"in1", "out1", "assemble1", {0, 0}}, {"in2", "out1", "assemble2", {0, 3}},
         {"in3", "out1", "assemble3", {2, 0}}
     };
     BuildAssembleGraph(G, inTensors, outTensors, assembleOps);
     Function *function = G.GetFunction();
 
-    AssembleChecker checker;
     EXPECT_EQ(checker.CheckAssembleOverlap(*function), FAILED);
 }
 
 TEST_F(TestAssembleChecker, TestAssembleInputFullyOverlap) {
     ComputationalGraphBuilder G;
-    std::map<std::string, std::vector<int64_t>> inTensors = {
+    TensorInfos inTensors = {
         {"in1", {2, 2}}, {"in2", {2, 8}}
     };
-    std::map<std::string, std::vector<int64_t>> outTensors = {
+    TensorInfos outTensors = {
         {"out1", {2, 8}}
     };
-    std::vector<std::tuple<std::string, std::string, std::string, std::vector<int64_t>>> assembleOps = {
+    AssembleOpInfos assembleOps = {
         {"in1", "out1", "assemble1", {0, 2}}, {"in2", "out1", "assemble2", {0, 0}}
     };
     BuildAssembleGraph(G, inTensors, outTensors, assembleOps);
     Function *function = G.GetFunction();
 
-    AssembleChecker checker;
     EXPECT_EQ(checker.CheckAssembleOverlap(*function), FAILED);
 }
 
 TEST_F(TestAssembleChecker, TestAssembleInputIdentical) {
     ComputationalGraphBuilder G;
-    std::map<std::string, std::vector<int64_t>> inTensors = {
+    TensorInfos inTensors = {
         {"in1", {2, 8}}, {"in2", {2, 8}}
     };
-    std::map<std::string, std::vector<int64_t>> outTensors = {
+    TensorInfos outTensors = {
         {"out1", {2, 8}}
     };
-    std::vector<std::tuple<std::string, std::string, std::string, std::vector<int64_t>>> assembleOps = {
+    AssembleOpInfos assembleOps = {
         {"in1", "out1", "assemble1", {0, 0}}, {"in2", "out1", "assemble2", {0, 0}}
     };
     BuildAssembleGraph(G, inTensors, outTensors, assembleOps);
     Function *function = G.GetFunction();
 
-    AssembleChecker checker;
     EXPECT_EQ(checker.CheckAssembleOverlap(*function), FAILED);
 }
 
 TEST_F(TestAssembleChecker, TestAssembleDynOutputNoOverlap) {
     ComputationalGraphBuilder G;
-    std::map<std::string, std::vector<int64_t>> inTensors = {
+    TensorInfos inTensors = {
         {"in1", {2, 4}}, {"in2", {2, 4}}
     };
-    std::map<std::string, std::vector<int64_t>> outTensors = {
+    TensorInfos outTensors = {
         {"out1", {2, -1}}
     };
-    std::vector<std::tuple<std::string, std::string, std::string, std::vector<int64_t>>> assembleOps = {
+    AssembleOpInfos assembleOps = {
         {"in1", "out1", "assemble1", {0, 0}}, {"in2", "out1", "assemble2", {0, 4}}
     };
     BuildAssembleGraph(G, inTensors, outTensors, assembleOps);
     Function *function = G.GetFunction();
 
-    AssembleChecker checker;
     EXPECT_EQ(checker.CheckAssembleOverlap(*function), SUCCESS);
 }
 
 TEST_F(TestAssembleChecker, TestAssembleDynOutputHasOverlap) {
     ComputationalGraphBuilder G;
-    std::map<std::string, std::vector<int64_t>> inTensors = {
+    TensorInfos inTensors = {
         {"in1", {2, 4}}, {"in2", {2, 6}}
     };
-    std::map<std::string, std::vector<int64_t>> outTensors = {
+    TensorInfos outTensors = {
         {"out1", {2, -1}}
     };
-    std::vector<std::tuple<std::string, std::string, std::string, std::vector<int64_t>>> assembleOps = {
+    AssembleOpInfos assembleOps = {
         {"in1", "out1", "assemble1", {0, 0}}, {"in2", "out1", "assemble2", {0, 2}}
     };
     BuildAssembleGraph(G, inTensors, outTensors, assembleOps);
     Function *function = G.GetFunction();
 
-    AssembleChecker checker;
     EXPECT_EQ(checker.CheckAssembleOverlap(*function), FAILED);
 }
 
 TEST_F(TestAssembleChecker, TestAssembleSkipInputNoOverlap) {
     ComputationalGraphBuilder G;
-    std::map<std::string, std::vector<int64_t>> inTensors = {
+    TensorInfos inTensors = {
         {"in1", {2, 2}}, {"in2", {2, 2}}, {"in3", {2, -1}}
     };
-    std::map<std::string, std::vector<int64_t>> outTensors = {
+    TensorInfos outTensors = {
         {"out1", {2, 8}}
     };
-    std::vector<std::tuple<std::string, std::string, std::string, std::vector<int64_t>>> assembleOps = {
+    AssembleOpInfos assembleOps = {
         {"in1", "out1", "assemble1", {0, 0}}, {"in2", "out1", "assemble2", {0, 2}},
         {"in3", "out1", "assemble3", {0, 4}}
     };
     BuildAssembleGraph(G, inTensors, outTensors, assembleOps);
     Function *function = G.GetFunction();
 
-    AssembleChecker checker;
     EXPECT_EQ(checker.CheckAssembleOverlap(*function), SUCCESS);
 }
 
 TEST_F(TestAssembleChecker, TestAssembleSkipInputHasOverlap) {
     ComputationalGraphBuilder G;
-    std::map<std::string, std::vector<int64_t>> inTensors = {
+    TensorInfos inTensors = {
         {"in1", {2, 2}}, {"in2", {2, 3}}, {"in3", {2, -1}}
     };
-    std::map<std::string, std::vector<int64_t>> outTensors = {
+    TensorInfos outTensors = {
         {"out1", {2, 8}}
     };
-    std::vector<std::tuple<std::string, std::string, std::string, std::vector<int64_t>>> assembleOps = {
+    AssembleOpInfos assembleOps = {
         {"in1", "out1", "assemble1", {0, 0}}, {"in2", "out1", "assemble2", {0, 1}},
         {"in3", "out1", "assemble3", {0, 4}}
     };
     BuildAssembleGraph(G, inTensors, outTensors, assembleOps);
     Function *function = G.GetFunction();
 
-    AssembleChecker checker;
     EXPECT_EQ(checker.CheckAssembleOverlap(*function), FAILED);
 }
 
 TEST_F(TestAssembleChecker, TestAssembleHighDimInputNoOverlap) {
     ComputationalGraphBuilder G;
-    std::map<std::string, std::vector<int64_t>> inTensors = {
+    TensorInfos inTensors = {
         {"in1", {8, 2, 1, 16, 3}}, {"in2", {4, 2, 1, 8, 3}},
         {"in3", {4, 2, 1, 8, 3}}, {"in4", {4, 2, 1, 8, 3}},
         {"in5", {4, 2, 1, 8, 1}}, {"in6", {4, 2, 1, 8, 2}}
     };
-    std::map<std::string, std::vector<int64_t>> outTensors = {
+    TensorInfos outTensors = {
         {"out1", {8, 4, 1, 16, 3}}
     };
-    std::vector<std::tuple<std::string, std::string, std::string, std::vector<int64_t>>> assembleOps = {
+    AssembleOpInfos assembleOps = {
         {"in1", "out1", "assemble1", {0, 2, 0, 0, 0}}, {"in2", "out1", "assemble2", {0, 0, 0, 8, 0}},
         {"in3", "out1", "assemble3", {4, 0, 0, 0, 0}}, {"in4", "out1", "assemble4", {4, 0, 0, 8, 0}},
         {"in5", "out1", "assemble5", {0, 0, 0, 0, 0}}, {"in6", "out1", "assemble6", {0, 0, 0, 0, 1}}
@@ -265,21 +259,20 @@ TEST_F(TestAssembleChecker, TestAssembleHighDimInputNoOverlap) {
     BuildAssembleGraph(G, inTensors, outTensors, assembleOps);
     Function *function = G.GetFunction();
 
-    AssembleChecker checker;
     EXPECT_EQ(checker.CheckAssembleOverlap(*function), SUCCESS);
 }
 
 TEST_F(TestAssembleChecker, TestAssembleHighDimInputHasOverlap) {
     ComputationalGraphBuilder G;
-    std::map<std::string, std::vector<int64_t>> inTensors = {
+    TensorInfos inTensors = {
         {"in1", {8, 2, 1, 16, 3}}, {"in2", {4, 2, 1, 8, 3}},
         {"in3", {5, 2, 1, 8, 3}}, {"in4", {4, 2, 1, 8, 3}},
         {"in5", {4, 2, 1, 8, 1}}, {"in6", {4, 2, 1, 8, 2}}
     };
-    std::map<std::string, std::vector<int64_t>> outTensors = {
+    TensorInfos outTensors = {
         {"out1", {8, 4, 1, 16, 3}}
     };
-    std::vector<std::tuple<std::string, std::string, std::string, std::vector<int64_t>>> assembleOps = {
+    AssembleOpInfos assembleOps = {
         {"in1", "out1", "assemble1", {0, 2, 0, 0, 0}}, {"in2", "out1", "assemble2", {0, 0, 0, 8, 0}},
         {"in3", "out1", "assemble3", {3, 0, 0, 0, 0}}, {"in4", "out1", "assemble4", {4, 0, 0, 8, 0}},
         {"in5", "out1", "assemble5", {0, 0, 0, 0, 0}}, {"in6", "out1", "assemble6", {0, 0, 0, 0, 1}}
@@ -287,9 +280,7 @@ TEST_F(TestAssembleChecker, TestAssembleHighDimInputHasOverlap) {
     BuildAssembleGraph(G, inTensors, outTensors, assembleOps);
     Function *function = G.GetFunction();
 
-    AssembleChecker checker;
     EXPECT_EQ(checker.CheckAssembleOverlap(*function), FAILED);
 }
-
 } // namespace tile_fwk
 } // namespace npu

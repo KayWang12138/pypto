@@ -23,15 +23,8 @@
 namespace npu {
 namespace tile_fwk {
 /*
-    检查在input->assemble->output的场景中，input是否存在覆盖output中同一数据块的情况。
-    （这可能由于两块数据到达时间不同，导致不确定的行为）
-
-    大体判断逻辑：
-    遍历每一个tensor(后称output)， 如果tensor的生产者op不是assemble则直接跳过，
-    否则依次遍历assemble得到输入tensor(后称input)的形状和assemble的offset，<inputShape, offset>
-    并计算出这个tensor在output的rawTensor的覆盖范围：其中每个维度i都覆盖了闭区间[offset[i], inputShape[i] + offset[i] - 1]
-    每得到一个覆盖范围都与已记录的覆盖区间进行比较，如果每个维度都存在交集，则意味着这两个形状存在重叠，即assemble存在overlap。
-    否则将当前tensor的覆盖范围添加到记录的覆盖范围中进行后续比较。output的所有input都未出现交集则校验通过。
+    在input->assemble->output的场景中，通过校验input之间是否每个轴都存在重叠来判断，input间是否存在覆盖output中同一数据块的情况。
+    这种重叠可能由于两块数据到达时间不同，导致覆盖顺序不确定进而导致不确定的行为
 */
 Status AssembleChecker::CheckAssembleOverlap(Function &function) {
     auto needSkip = [](const Shape &vec) -> bool {
@@ -43,7 +36,7 @@ Status AssembleChecker::CheckAssembleOverlap(Function &function) {
                 (*outputTensor->GetProducers().begin())->GetOpcode() != Opcode::OP_ASSEMBLE){
                 continue;
             }
-            coveredAreas.clear();
+            coveredAreas_.clear();
             for (const auto &assembleOp : outputTensor->GetProducers()) {
                 if (assembleOp->GetOpcode() != Opcode::OP_ASSEMBLE) {
                     continue;
@@ -74,7 +67,7 @@ Status AssembleChecker::CheckAssembleOverlap(Function &function) {
                 }
 
                 // 将覆盖区域添加到记录
-                coveredAreas.emplace_back(std::move(curInputArea));
+                coveredAreas_.emplace_back(std::move(curInputArea));
             }
         }
     }
@@ -82,7 +75,7 @@ Status AssembleChecker::CheckAssembleOverlap(Function &function) {
 }
 
 bool AssembleChecker::OverlapCurInput(const std::vector<std::pair<int64_t, int64_t>> &curInputArea) {
-    for (const auto& recordedArea : coveredAreas) {
+    for (const auto& recordedArea : coveredAreas_) {
         bool overlap = std::equal(curInputArea.begin(), curInputArea.end(),
             recordedArea.begin(),
             [](const auto& a, const auto& b) {

@@ -746,6 +746,7 @@ void AssignViewTensorWithAttr (std::shared_ptr<Function> &currFunctionPtr) {
     currFunctionPtr->inCasts_.push_back(view_in4);
     currFunctionPtr->outCasts_.push_back(output);
 }
+
 TEST_F(AssignMemoryTypeTest, TestViewWithAttr) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestViewWithAttr", "TestViewWithAttr", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
@@ -783,6 +784,7 @@ TEST_F(AssignMemoryTypeTest, TestViewWithAttr) {
         }
     }
 }
+
 TEST_F(AssignMemoryTypeTest, TestPostcheckFailWhenTensorMemUnknown) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(),
         "TestPostcheckFailWhenTensorMemUnknown", "TestPostcheckFailWhenTensorMemUnknown", nullptr);
@@ -792,6 +794,7 @@ TEST_F(AssignMemoryTypeTest, TestPostcheckFailWhenTensorMemUnknown) {
     AssignMemoryType assignMemoryType;
     EXPECT_EQ(assignMemoryType.PostCheck(*currFunctionPtr), FAILED);
 }
+
 TEST_F(AssignMemoryTypeTest, TestPostcheckFailWhenPathUnreachable) {
     std::vector<int64_t> shape1{NUM_32, NUM_32};
     std::vector<int64_t> shape2{NUM_64, NUM_64};

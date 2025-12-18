@@ -36,7 +36,7 @@ private:
     Status CheckTensorNotMemUnknown(Function &function);
     Status CheckMoveOpReachable(Function &function);
 };
-const std::set<std::pair<MemoryType, MemoryType>> ALL_DEFINED_PATHS = {
+static const std::set<std::pair<MemoryType, MemoryType>> ALL_DEFINED_PATHS = {
     {MEM_L0C, MEM_L1},
     {MEM_L0C, MEM_UB},
     {MEM_L0C, MEM_DEVICE_DDR},
