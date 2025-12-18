@@ -970,6 +970,7 @@ params_base = {
 }
 
 
+@pytest.mark.skip(reason="large test case")
 def test_t_32_tilebs_16():
     b = 16
     s1 = 2

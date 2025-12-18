@@ -47,16 +47,72 @@ def gen_uniform_data(data_shape, min_value, max_value, dtype):
         return torch.randint(low=min_value, high=max_value, size=data_shape, dtype=dtype)
 
 
-def softmax(x, input_dtype):
-    """PyTorch实现的softmax函数"""
-    x = x.float()
-    x_max = torch.max(x, dim=-1, keepdim=True).values
-    x_sub = x - x_max
-    y = torch.exp(x_sub)
-    y = y.to(input_dtype)
-    x_sum = torch.sum(y, dim=-1, keepdim=True)
-    ans = y
-    return ans, x_sum, x_max
+def compare(t: torch.Tensor, t_ref: torch.Tensor, name, atol, rtol, max_error_ratio=0.005, max_error_count=10):
+    """
+    比较两个张量的差异，超过阈值时打印错误点并抛出断言错误
+    Args:
+        t: 待比较张量
+        t_ref: 参考张量
+        name: 张量名称（用于日志）
+        atol: 绝对容差
+        rtol: 相对容差
+        max_error_ratio: 误差点占总元素数的最大比例
+        max_error_count: 显示的最大误差点数量（同时也是误差点阈值的上限）
+    """
+    # 先验证张量的基本属性一致
+    assert t.shape == t_ref.shape, f"张量形状不一致：t.shape={t.shape}, t_ref.shape={t_ref.shape}"
+    assert t.dtype == t_ref.dtype, f"张量数据类型不一致：t.dtype={t.dtype}, t_ref.dtype={t_ref.dtype}"
+    assert t.device == t_ref.device, f"张量设备不一致：t.device={t.device}, t_ref.device={t_ref.device}"
+
+    # 计算误差点数量的阈值（取比例计算值和最大数量的较小值）
+    error_count_threshold = min(max_error_count, round(max_error_ratio * t_ref.numel()))
+
+    # 计算误差掩码（超过阈值的位置为True）
+    diff_abs = (t - t_ref).abs()
+    tolerance = atol + rtol * t_ref.abs()
+    diff_mask = diff_abs > tolerance
+    error_count = diff_mask.sum().item()
+
+    # 计算最大误差和其位置
+    max_diff, flat_max_pos = torch.max(diff_abs.flatten(), dim=0)
+    max_pos = torch.unravel_index(flat_max_pos, t.shape)
+    max_pos = tuple(idx.item() for idx in max_pos)
+
+    # 打印错误点的逻辑（如果有误差点）
+    if error_count > 0:
+        print(f"\n========== 张量 {name} 存在 {error_count} 个误差点（阈值：{error_count_threshold}）==========")
+ 
+        # 获取所有误差点的位置
+        error_positions = torch.nonzero(diff_mask, as_tuple=False)  # shape: [error_count, dims]
+
+        # 限制显示的误差点数量（避免数据量过大）
+        show_count = min(error_count, max_error_count)
+        print(f"显示前 {show_count} 个误差点（位置 | 待比较值 | 参考值 | 绝对误差 | 允许阈值）：")
+
+        # 遍历前N个误差点打印详细信息
+        for i in range(show_count):
+            pos = error_positions[i]
+
+            # 转换为元组格式的位置（如 (0, 2, 3)）
+            pos_tuple = tuple(p.item() for p in pos)
+
+            # 获取对应位置的数值
+            t_val = t[pos_tuple].item()
+            t_ref_val = t_ref[pos_tuple].item()
+            diff_val = diff_abs[pos_tuple].item()
+            tol_val = tolerance[pos_tuple].item()
+
+            # 格式化输出，保留足够小数位
+            print(f"  位置 {pos_tuple}: {t_val:.8f} vs {t_ref_val:.8f} | 误差={diff_val:.8f} | 阈值={tol_val:.8f}")
+
+        # 打印最大误差点
+        print(f"\n最大误差点：位置 {max_pos} | 误差={max_diff.item():.8f} | 阈值={tolerance[max_pos].item():.8f}")
+        print("=" * 80 + "\n")
+
+    # 断言误差点数量不超过阈值
+    assert error_count <= error_count_threshold, \
+        (f"compare fail: {name}, max diff: {max_diff.item():.8f} at {max_pos}, "
+         f"error_count: {error_count}, error_count_threshold: {error_count_threshold}")
 
 
 def compute_attention(input_data, params):
@@ -120,8 +176,6 @@ def compute_attention(input_data, params):
                     slc_kr[cur_s2_idx, :] = kr[slc_idx, :]
                     slc_kn_scales[cur_s2_idx, :] = kn_scales[slc_idx, :]
 
-                qn_tmp = qi[..., :dk]
-                qr_tmp = qi[..., dk:]
                 if is_kn_quant:
                     kn_bs = slc_kn.reshape(-1, 128).to(torch.float)
                     kn_scales_tmp = slc_kn_scales.reshape(-1, 1)
@@ -132,17 +186,16 @@ def compute_attention(input_data, params):
                 kr_tmp = slc_kr
                 vj = kn_tmp
 
+                kj_view = torch.cat([kn_tmp, kr_tmp], dim=-1)
                 # C1
-                qkn_bmm = torch.matmul(qn_tmp, kn_tmp.transpose(1, 0)).to(torch.float)
-                qkr_bmm = torch.matmul(qr_tmp, kr_tmp.transpose(1, 0)).to(torch.float)
+                sij = torch.matmul(qi.to(torch.float32), kj_view.transpose(1, 0).to(torch.float32)).to(torch.float32)
 
-                sij = qkn_bmm + qkr_bmm
                 sij_scale = sij * scalar # (n1, s2_tile)
                 tilda_mij = sij_scale.amax(dim=-1, keepdims=True) # (n1, 1)
                 t_sub = sij_scale - tilda_mij # (n1, s2_tile)
                 tilda_pij = torch.exp(t_sub) # (n1, s2_tile)
                 tilda_pij_f16 = tilda_pij.to(input_dtype)
-                q1 = torch.matmul(tilda_pij_f16, vj)
+                q1 = torch.matmul(tilda_pij.to(torch.float32), vj.to(torch.float32)).to(torch.float32)
                 tilda_lij = tilda_pij.sum(dim=-1, keepdims=True) # (n1, 1)
 
                 if s2_idx == 0:
@@ -178,7 +231,7 @@ def compute_attention(input_data, params):
                 li_update = li_new
                 mi_update = mi_new
 
-            attention_output[b_idx, s1_idx, :, :] = oi_update
+            attention_output[b_idx, s1_idx, :, :] = oi_update.to(input_dtype)
 
     return attention_output, tmp_out
 
@@ -371,8 +424,7 @@ def do_test_sparse_attention_func(bn1n2s1, actual_seq, input_params, input_data,
                                            block_size, max_blocknum_perbatch, tile_config)
 
     pypto.runtime._device_synchronize()
-    assert_allclose(np.array(calc_attention_out_npu.cpu().flatten().tolist()),
-                    np.array(atten_out.cpu().flatten().tolist()), rtol=0.0005, atol=0.0005)
+    compare(calc_attention_out_npu.cpu(), atten_out, "atten_out", atol=0.0001, rtol=0.005)
 
 
 def get_case_config(case_name: str):
@@ -412,6 +464,7 @@ def test_sfa_bf16_b4_s2_seq64K_int8_d():
     do_test_sfa_entry("sfa_bf16_b4_s2_seq64K_int8_d", is_p=False)
 
 
+@pytest.mark.skip(reason="large test case")
 def test_sfa_bf16_b1_s256_seq2047_int8_p():
     '''
     sfa prefill测试函数

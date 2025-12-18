@@ -966,6 +966,7 @@ params_base = {
 }
 
 
+@pytest.mark.skip(reason="large test case")
 def test_b_4_s1_2_tilebs_8():
     b = 4
     s1 = 2

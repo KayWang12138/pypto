@@ -15,14 +15,7 @@ import math
 import os
 import pypto
 import numpy as np
-from pypto import pypto_impl
-from pypto.operation import op_wrapper
 from pypto.experimental import gather_in_l1, gather_in_ub
-
-
-@op_wrapper
-def reshape_inplace(input: pypto_impl.Tensor, output: pypto_impl.Tensor) -> None:
-    return pypto_impl.reshape_inplace(input, output)
 
 
 @dataclass
@@ -54,12 +47,11 @@ def sparse_flash_attention_quant_compute(query_nope, query_rope, key_nope_2d, ke
 
     batch_size_sym = kv_act_seqs.shape[0]
 
-    s1_n1_gsym = query_nope.shape[0] // batch_size_sym
-    s1_sym = s1_n1_gsym // nq
+    s1_n2_gsym = query_nope.shape[0] // batch_size_sym
+    s1_sym = s1_n2_gsym // nq
 
     g_loop_sym = group // group_tile
 
-    attenOut_2dim = pypto.tensor([batch_size_sym * s1_n1_gsym, dn], dtype, "attenOut2Dim")
     for batch_idx in pypto.loop(0, batch_size_sym, 1, name="LOOP_L0_idx", idx_name="bIdx"):
         cur_act_seq = kv_act_seqs[batch_idx]
         for slc_idx in pypto.loop(0, s1_sym, 1, name="LOOP_L1_s1_SA", idx_name="s1Idx"):
@@ -70,7 +62,7 @@ def sparse_flash_attention_quant_compute(query_nope, query_rope, key_nope_2d, ke
             for n_kv_idx in pypto.loop(0, n_kv_sym, 1, name="LOOP_L2_n_kv_SA", idx_name="n_kvIdx"):
                 for group_idx in pypto.loop(0, g_loop_sym, 1, name="LOOP_L3_g_SA", idx_name="gIdx"):
                     cur_group_tile = group_tile
-                    cur_offset = batch_idx * s1_n1_gsym + slc_idx * nq + n_kv_idx * group + group_idx * cur_group_tile
+                    cur_offset = batch_idx * s1_n2_gsym + slc_idx * nq + n_kv_idx * group + group_idx * cur_group_tile
                     for s2_idx, _ in pypto.loop_unroll(0, bn_per_batch, 1,
                         name="LOOP_L4_s2_SA", idx_name="s2_idx", unroll_list={1}):
                         cur_s2_tile = s2_tile
@@ -155,10 +147,10 @@ def sparse_flash_attention_quant_compute(query_nope, query_rope, key_nope_2d, ke
                                 dn, is_b_matrix=True, is_trans=False)
                             q1 = pypto.matmul(tilda_pij_f16, vj, dtype)
 
-                        pypto.assemble(q1, [cur_offset, 0], attenOut_2dim)
-
-    for _ in pypto.loop(0, 1, 1, name="LOOP_RESHAPE_ATTN_OUT", idx_name="unUsedIdx"):
-        reshape_inplace(attenOut_2dim, attention_out)
+                        pypto.set_vec_tile_shapes(128, 128)
+                        q1_tmp = pypto.reshape(q1, [1, 1, cur_group_tile, dn])
+                        oi_offset = [batch_idx, slc_idx, n_kv_idx * group + group_idx * cur_group_tile, 0]
+                        pypto.assemble(q1_tmp, oi_offset, attention_out)
 
 
 def sparse_flash_attention_quant_compute_flash(query_nope, query_rope, key_nope_2d, key_rope_2d,
@@ -302,8 +294,8 @@ def sparse_flash_attention_quant_compute_flash(query_nope, query_rope, key_nope_
                             else:
                                 oi_update[:] = oi_tmp
                             pypto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
-                            li_update[:] = pypto.clone(tilda_lij)
-                            mi_update[:] = pypto.clone(tilda_mij)
+                            li_update[:] = tilda_lij
+                            mi_update[:] = tilda_mij
                         else:
                             pypto.set_semantic_label("Sa_UpdateVec2")
                             oi = oi_update
