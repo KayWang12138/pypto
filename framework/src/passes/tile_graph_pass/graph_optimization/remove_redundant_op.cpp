@@ -366,7 +366,7 @@ Status RemoveRedundantOp::RemoveViewAssemble(Function &function) const {
         }  
         auto &startTensor = op.iOperand.front();
         auto inputMemtype = startTensor->GetMemoryTypeOriginal();
-        auto consumers = function.FindConsumers(op);
+        auto consumers = op.oOperand.front()->GetConsumers();
         //获取view级联的assemble消费者
         for (const auto &consumer : consumers) {
             if (consumer->GetOpcode() != Opcode::OP_ASSEMBLE) {

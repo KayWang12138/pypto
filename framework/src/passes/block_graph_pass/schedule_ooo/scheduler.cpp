@@ -269,7 +269,7 @@ Status OoOScheduler::SpillOnBlock() {
     }
     bool rearrangeUBBF16{false};
     if (RearrangeBuffers(allocIssueQueue[spillMemType].Front(), false, rearrangeUBBF16) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "SpillOnBlock failed at RearrangeBuffers.");
+        APASS_LOG_WARN_F(Elements::Operation, "SpillOnBlock failed at RearrangeBuffers. Try GenBufferSpill.");
         if (GenBufferSpill(allocIssueQueue[spillMemType].Front()) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "SpillOnBlock failed at GenBufferSpill.");
             return FAILED;
