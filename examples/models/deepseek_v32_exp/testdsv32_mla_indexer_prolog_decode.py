@@ -367,15 +367,9 @@ def gen_indexer_prolog_inputs(params, block_num, block_table, mla_inputs, mla_go
     rms_norm_scale_out = mla_goldens['rms_norm_scale_out']
 
     w_idx_qb = torch.randint(low=-128, high=128, size=(q_lora_rank, idx_n_heads * idx_head_dim), dtype=quant_dtype)
-    w_idx_qb_nz = (w_idx_qb.reshape(q_lora_rank // 16, 16, idx_n_heads * idx_head_dim // 32, 32)
-                   .permute(2, 0, 1, 3))  # int8, C0=32
     w_idx_qb_scale = torch.empty((1, idx_n_heads * idx_head_dim), dtype=torch.float32).uniform_(-1, 1)
-
     w_idx_k = torch.empty((h, idx_head_dim), dtype=dtype).uniform_(-1, 1)
-    w_idx_k_nz = w_idx_k.reshape(h // 16, 16, idx_head_dim // 16, 16).permute(2, 0, 1, 3)
-
     w_idx_proj = torch.empty((h, idx_n_heads), dtype=dtype).uniform_(-1, 1)
-    w_idx_proj_nz = w_idx_proj.reshape(h // 16, 16, idx_n_heads // 16, 16).permute(2, 0, 1, 3)
 
     ln_gamma = torch.ones((idx_head_dim,), dtype=dtype)
     ln_beta = torch.zeros((idx_head_dim,), dtype=dtype)
@@ -396,12 +390,9 @@ def gen_indexer_prolog_inputs(params, block_num, block_table, mla_inputs, mla_go
         'q_norm': rms_norm_out,  # input1, int8
         'q_norm_scale': rms_norm_scale_out,  # input2, fp32
         'w_idx_qb': w_idx_qb,  # input3, int8
-        'w_idx_qb_nz': w_idx_qb_nz,
         'w_idx_qb_scale': w_idx_qb_scale,  # input4, fp32
         'w_idx_k': w_idx_k,  # input5, bf16
-        'w_idx_k_nz': w_idx_k_nz,
         'w_idx_proj': w_idx_proj,  # input6, bf16
-        'w_idx_proj_nz': w_idx_proj_nz,
         'layer_norm_gamma': ln_gamma,  # input7, bf16
         'layer_norm_beta': ln_beta,  # input8, bf16
         'cos_idx_rope': cos,  # input9, bf16
@@ -540,14 +531,18 @@ def mla_prolog_quant_v32_compute(inputs):
     k_embed_r = k_embed.reshape(b * 1 * s, qk_rope_head_dim)
 
     """ kv_cache output, [b,1,s2,kv_lora_rank] """
-    kv_cache_out = scatter_update_4d(kv_cache, k_nope, cache_index, -2)
+    kv_cache_tmp = kv_cache.clone()
+    kv_cache_out = scatter_update_4d(kv_cache_tmp, k_nope, cache_index, -2)
 
     """ kr_cache output, [b,1,s2,qk_rope_head_dim] """
-    kr_cache_out = scatter_update_4d(kr_cache, k_embed_r, cache_index, -2)
+    kr_cache_tmp = kr_cache.clone()
+    kr_cache_out = scatter_update_4d(kr_cache_tmp, k_embed_r, cache_index, -2)
 
     if is_quant_b:
         compressed_kv_quant_scale = compressed_kv_quant_scale.reshape(-1, 4)
-        kv_quant_scale_cache_out = scatter_update_4d(kv_quant_scale_cache, compressed_kv_quant_scale, cache_index, -2)
+        kv_quant_scale_cache_tmp = kv_quant_scale_cache.clone()
+        kv_quant_scale_cache_out = \
+            scatter_update_4d(kv_quant_scale_cache_tmp, compressed_kv_quant_scale, cache_index, -2)
     else:
         kv_quant_scale_cache_out = None
 
@@ -689,6 +684,14 @@ def gen_test_data(params):
     mla_goldens['q_nope'] = mla_goldens['q_nope'].reshape(t, n1, kv_lora_rank).contiguous().cpu()
     mla_goldens['q_rope'] = mla_goldens['q_rope'].reshape(t, n1, qk_rope_head_dim).contiguous().cpu()
 
+    w_dq_nz = torch_npu.npu_format_cast(w_dq.npu().contiguous(), torch_npu.Format.FRACTAL_NZ)
+    w_dkvkr_nz = torch_npu.npu_format_cast(w_dkvkr.npu().contiguous(), torch_npu.Format.FRACTAL_NZ)
+    w_uqqr_nz = torch_npu.npu_format_cast(w_uqqr.npu().contiguous(), torch_npu.Format.FRACTAL_NZ)
+
+    mla_inputs_npu['w_uqqr'] = w_uqqr_nz
+    mla_inputs_npu['w_dkvkr'] = w_dkvkr_nz
+    mla_inputs_npu['w_dq'] = w_dq_nz
+
     if PRINT_DEBUG:
         logging.debug("mla_inputs_npu======")
         for k, v in mla_inputs_npu.items():
@@ -718,9 +721,9 @@ def gen_test_data(params):
     ip_inputs_npu['w_idx_qb_scale'] = ip_inputs_npu['w_idx_qb_scale'].reshape(-1, 1).contiguous()
     ip_inputs_npu['q_norm'] = ip_inputs_npu['q_norm'].reshape(t, q_lora_rank).contiguous()
     ip_inputs_npu['q_norm_scale'] = ip_inputs_npu['q_norm_scale'].reshape(t, 1).contiguous()
-    ip_inputs_npu['w_idx_qb_nz'] = torch_npu.npu_format_cast(ip_inputs_npu['w_idx_qb_nz'], torch_npu.Format.FRACTAL_NZ)
-    ip_inputs_npu['w_idx_k_nz'] = torch_npu.npu_format_cast(ip_inputs_npu['w_idx_k_nz'], torch_npu.Format.FRACTAL_NZ)
-    ip_inputs_npu['w_idx_proj_nz'] = torch_npu.npu_format_cast(ip_inputs_npu['w_idx_proj_nz'],
+    ip_inputs_npu['w_idx_qb_nz'] = torch_npu.npu_format_cast(ip_inputs_npu['w_idx_qb'], torch_npu.Format.FRACTAL_NZ)
+    ip_inputs_npu['w_idx_k_nz'] = torch_npu.npu_format_cast(ip_inputs_npu['w_idx_k'], torch_npu.Format.FRACTAL_NZ)
+    ip_inputs_npu['w_idx_proj_nz'] = torch_npu.npu_format_cast(ip_inputs_npu['w_idx_proj'],
                                                                torch_npu.Format.FRACTAL_NZ)
 
     ip_goldens['q_int8'] = ip_goldens['q_int8'].reshape(t, head_num, idx_head_dim).contiguous()
@@ -862,6 +865,26 @@ def convert_torch_tensor(tensor_dict, dynamic_axis_dict, name_prefix):
     return pypto_tensors
 
 
+class MlaTileConfig:
+    def __init__(self):
+        self.tile_b = 8
+        self.tile_s = 1
+        self.tile_bs = 8
+        self.m_tile = 16
+        self.mv_tile = 16
+        self.pre_quant_cube_tile = [16, 16, 256, 256, 128, 128]
+        self.q_vec_tile0 = 16
+        self.q_vec_tile1 = 16
+        self.k_vec_tile0 = 16
+        self.k_vec_tile1 = 16
+        self.l1_reuse = 4
+        self.l1_reuse_map = {}
+        self.copy_in_threshold = 2 * 1024 * 1024
+        self.cycle_upper_bound = 8192
+        self.nbuffer_merge_mode = 1
+        self.cube_nbuffer_map = {3: 4}
+        self.dynamic_unaligned_enable = False
+
 def do_test(case_name, params, mla_epsilon_cq, mla_epsilon_ckv, mla_cache_mode, mla_tile_config, ip_attrs,
             ip_configs):
     prep_env()
@@ -873,6 +896,9 @@ def do_test(case_name, params, mla_epsilon_cq, mla_epsilon_ckv, mla_cache_mode, 
         'x': [0],
         'cos': [0],
         'sin': [0],
+        'kv_cache': [0],
+        'kr_cache': [0],
+        'kv_quant_scale_cache': [0],
         'cache_index': [0],
         'idx_k_cache': [0],
         'idx_k_scale_cache': [0],
@@ -882,6 +908,9 @@ def do_test(case_name, params, mla_epsilon_cq, mla_epsilon_ckv, mla_cache_mode, 
     dynamic_dict = {
         'q_nope': [0],
         'q_rope': [0],
+        'kv_cache_out': [0],
+        'kr_cache_out': [0],
+        'kv_quant_scale_cache_out': [0],
         'q_int8': [0],
         'q_scale': [0],
         'idx_k_cache_out': [0],
@@ -892,22 +921,32 @@ def do_test(case_name, params, mla_epsilon_cq, mla_epsilon_ckv, mla_cache_mode, 
         dynamic_dict.update({'rms_norm_out': [0], 'rms_norm_scale_out': [0]})
     pto_outputs = convert_torch_tensor(outputs, dynamic_dict, 'OUT_')
     import mla_indexer_prolog_quant as mla_lp_quant
+    from mla_prolog_quant import RopeTileShapeConfig
+    rope_tile_shape = RopeTileShapeConfig(two_dim=[128, 128], three_dim=[128, 128, 128], four_dim=[16, 128, 128, 128])
+    
+    c0 = 16
+    m_tile_value = (min(32, mla_tile_config.tile_bs) + c0 - 1) // c0 * c0
+    mv_tile_value = min(8, mla_tile_config.tile_bs)
+    mla_tile_config.m_tile = m_tile_value
+
+    mla_tile_config.pre_quant_cube_tile[0] = m_tile_value
+    mla_tile_config.pre_quant_cube_tile[1] = m_tile_value
+    mla_tile_config.mv_tile = mv_tile_value
+    mla_tile_config.q_vec_tile0 = 1
+    mla_tile_config.q_vec_tile1 = 32
+    mla_tile_config.k_vec_tile0 = 2
+    mla_tile_config.k_vec_tile1 = 512
+    ip_configs.nbuffer_merge_mode = 0
+
     if PRINT_DEBUG:
         fun = mla_lp_quant.mla_indexer_prolog_quant_debug
     else:
         fun = mla_lp_quant.mla_indexer_prolog_quant
     fun(*pto_inputs, *pto_outputs, mla_epsilon_cq, mla_epsilon_ckv, mla_cache_mode,
-        mla_tile_config, ip_attrs, ip_configs)
+        mla_tile_config, ip_attrs, ip_configs, rope_tile_shape)
     pypto.runtime._device_synchronize()
     check(case_name, outputs, goldens)
     pypto.runtime._device_fini()
-
-
-class MlaTileConfig:
-    def __init__(self):
-        self.tile_b = 8
-        self.tile_s = 1
-        self.tile_bs = 8
 
 
 params_base = {
@@ -968,6 +1007,7 @@ def test_b_4_s1_2_tilebs_8():
         block_size=128,
         t_sub_tile=1,
         chunk_size=2,
+        nbuffer_merge_mode=0,
     )
 
     do_test("mla_prolog_indexer_prolog_decode.test_b_4_s1_2_tilebs_8",

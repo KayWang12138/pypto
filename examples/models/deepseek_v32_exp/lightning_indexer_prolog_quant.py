@@ -99,6 +99,7 @@ class IndexerPrologQuantConfigs:
     block_size: int
     t_sub_tile: int
     chunk_size: int
+    nbuffer_merge_mode: int
 
 
 def quant_layer_norm(x: pypto.tensor, gamma: pypto.tensor, beta: pypto.tensor, dim: int, epsilon: float):
@@ -203,35 +204,25 @@ def rope_3d(x: pypto.tensor, cos: pypto.tensor, sin: pypto.tensor, configs: Inde
     res = pypto.cast(x_embed, x_dtype)
     return res
 
-
 def lightning_indexer_prolog_quant_compute(x_in, q_norm_in, q_norm_scale_in, w_qb_in,
                                            w_qb_scale_in, wk_in, w_proj_in, ln_gamma_k_in,
                                            ln_beta_k_in, cos_idx_rope_in, sin_idx_rope_in,
-                                           hadamard_q_in, hadamard_k_in, k_cache, k_cache_scale,
+                                           hadamard_q_in, hadamard_k_in, k_int8_in, k_scale_in,
                                            k_cache_index_in, q_int8_out, q_scale_out, k_int8_out,
                                            k_scale_out, weights_out, attrs, configs):
-
-
     x_dtype = x_in.dtype
-
     # 动态轴
     t = x_in.shape[0]
-
     h = x_in.shape[1]
     q_lora_rank = q_norm_in.shape[1]
-    head_num = w_proj_in.shape[0] * NZ_B16_C0
+    head_num = w_proj_in.shape[1]
     head_dim = hadamard_q_in.shape[0]
     rope_head_dim = cos_idx_rope_in.shape[1]
 
-    for _ in pypto.loop(0, 1, 1, name="LOOP_RESHAPE", idx_name="dummy"):
-        k_cache_index = pypto.reshape(k_cache_index_in, [t, 1], inplace=True)
-        w_qb_scale = pypto.reshape(w_qb_scale_in, [1, head_num * head_dim], inplace=True)
-        gamma_2d = pypto.reshape(ln_gamma_k_in, [1, ln_gamma_k_in.shape[0]], inplace=True)
-        beta_2d = pypto.reshape(ln_beta_k_in, [1, ln_beta_k_in.shape[0]], inplace=True)
-        # NZ pypto.reshape(
-        w_qb = pypto.reshape(w_qb_in, [q_lora_rank, head_num * head_dim], inplace=True)
-        wk = pypto.reshape(wk_in, [h, head_dim], inplace=True)
-        w_proj = pypto.reshape(w_proj_in, [h, head_num], inplace=True)
+    k_cache_index = pypto.reshape(k_cache_index_in, [t, 1], inplace=True)
+    w_qb_scale = pypto.reshape(w_qb_scale_in, [1, head_num * head_dim], inplace=True)
+    gamma_2d = pypto.reshape(ln_gamma_k_in, [1, ln_gamma_k_in.shape[0]], inplace=True)
+    beta_2d = pypto.reshape(ln_beta_k_in, [1, ln_beta_k_in.shape[0]], inplace=True)
 
     unroll_list = configs.unroll_list
     for tIdx, unrollLength in pypto.loop_unroll(0, t, 1, name="IndexerPrologQuantQuantLoop", idx_name="tIdx",
@@ -245,14 +236,14 @@ def lightning_indexer_prolog_quant_compute(x_in, q_norm_in, q_norm_scale_in, w_q
         q_norm_scale = pypto.view(q_norm_scale_in, [t_tile, 1], [tIdx, 0], valid_shape=[t_tile, 1])
         pypto.set_semantic_label("Query-Linear")
         pypto.set_cube_tile_shapes([q_linear[L0M_INDEX], q_linear[L1M_INDEX]],
-                                    [q_linear[L0K_INDEX], q_linear[L1K_INDEX]],
-                                    [q_linear[L0N_INDEX], q_linear[L1N_INDEX]], True)
-        q_s32 = pypto.matmul(q_norm, w_qb, pypto.DT_INT32)  # (t_tile, head_num * head_dim)
+                                   [q_linear[L0K_INDEX], q_linear[L1K_INDEX]],
+                                   [q_linear[L0N_INDEX], q_linear[L1N_INDEX]], True)
+        q_s32 = pypto.matmul(q_norm, w_qb_in, pypto.DT_INT32)  # (t_tile, head_num * head_dim)
 
         pypto.set_semantic_label("Query-Dequant")
 
         pypto.set_vec_tile_shapes(configs.t_sub_tile, head_num * head_dim // configs.chunk_size)
-        q_f32 = pypto.cast(q_s32, pypto.DT_FP32) # (t_tile, head_num * head_dim), fp32
+        q_f32 = pypto.cast(q_s32, pypto.DT_FP32)  # (t_tile, head_num * head_dim), fp32
         q_f32 = q_f32 * q_norm_scale  # (t_tile, head_num * head_dim), fp32
         q_f32 = q_f32 * w_qb_scale  # (t_tile, head_num * head_dim), fp32
         q_cast = pypto.cast(q_f32, x_dtype)
@@ -264,9 +255,9 @@ def lightning_indexer_prolog_quant_compute(x_in, q_norm_in, q_norm_scale_in, w_q
         q_nope = pypto.view(q_bf16, [t_tile, head_num, head_dim - rope_head_dim], [0, 0, rope_head_dim],
                             valid_shape=[t_tile, head_num, head_dim - rope_head_dim])
         rope_cos = pypto.view(cos_idx_rope_in, [t_tile, rope_head_dim], [tIdx, 0],
-                                valid_shape=[t_tile, rope_head_dim])
+                              valid_shape=[t_tile, rope_head_dim])
         rope_sin = pypto.view(sin_idx_rope_in, [t_tile, rope_head_dim], [tIdx, 0],
-                                valid_shape=[t_tile, rope_head_dim])
+                              valid_shape=[t_tile, rope_head_dim])
 
         q_roped = rope_3d(q_rope, rope_cos, rope_sin, configs)  # [t_tile, head_num, rope_head_dim]
         pypto.set_vec_tile_shapes(configs.t_sub_tile, head_num // configs.chunk_size, head_dim)
@@ -278,7 +269,7 @@ def lightning_indexer_prolog_quant_compute(x_in, q_norm_in, q_norm_scale_in, w_q
         cur_max_unroll = 32
         qHdMTile = cur_max_unroll if t_tile < cur_max_unroll else q_hd[L0M_INDEX]
         pypto.set_cube_tile_shapes([qHdMTile, qHdMTile], [q_hd[L0K_INDEX], q_hd[L1K_INDEX]],
-                                    [q_hd[L0N_INDEX], q_hd[L1N_INDEX]])
+                                   [q_hd[L0N_INDEX], q_hd[L1N_INDEX]])
         q_hadamard = pypto.matmul(q_cat, hadamard_q, x_dtype)  # (t_tile, head_num, head_dim)
 
         pypto.set_semantic_label("Query-Quant")
@@ -293,10 +284,10 @@ def lightning_indexer_prolog_quant_compute(x_in, q_norm_in, q_norm_scale_in, w_q
         k_linear = configs.k_linear
         pypto.set_semantic_label("Key-Linear")
         pypto.set_cube_tile_shapes([k_linear[L0M_INDEX], k_linear[L1M_INDEX]],
-                                    [k_linear[L0K_INDEX], k_linear[L1K_INDEX]],
-                                    [k_linear[L0N_INDEX], k_linear[L1N_INDEX]], True)
+                                   [k_linear[L0K_INDEX], k_linear[L1K_INDEX]],
+                                   [k_linear[L0N_INDEX], k_linear[L1N_INDEX]], True)
         x = pypto.view(x_in, [t_tile, h], [tIdx, 0], valid_shape=[t_tile, h])  # 这里将t_tile分档，offset不需要乘t_tile
-        k = pypto.matmul(x, wk, pypto.DT_FP32)  # (t_tile, head_dim)
+        k = pypto.matmul(x, wk_in, pypto.DT_FP32)  # (t_tile, head_dim)
 
         if t_tile <= 32:
             pypto.set_vec_tile_shapes(min(t_tile, VEC_TILE_4), head_dim)
@@ -317,20 +308,20 @@ def lightning_indexer_prolog_quant_compute(x_in, q_norm_in, q_norm_scale_in, w_q
         k_res = prolog_quant(hadamard_k)
         k_cache_4D = pypto.reshape(k_res[0], [t_tile, 1, 1, head_dim], valid_shape=[t_tile, 1, 1, head_dim])
         k_scale_4D = pypto.reshape(pypto.cast(k_res[1], pypto.DT_FP16), [t_tile, 1, 1, 1],
-                                    valid_shape=[t_tile, 1, 1, 1])
+                                   valid_shape=[t_tile, 1, 1, 1])
 
         index = pypto.view(k_cache_index, [t_tile, 1], [tIdx, 0], valid_shape=[t_tile, 1])
         pypto.set_vec_tile_shapes(t_tile, 1, 1, head_dim)
-        k_int8_out.move(pypto.scatter_update(k_cache, SCATTER_DIM, index, k_cache_4D))
-        k_scale_out.move(pypto.scatter_update(k_cache_scale, SCATTER_DIM, index, k_scale_4D))
+        k_int8_out.move(pypto.scatter_update(k_int8_in, SCATTER_DIM, index, k_cache_4D))
+        k_scale_out.move(pypto.scatter_update(k_scale_in, SCATTER_DIM, index, k_scale_4D))
 
         pypto.set_semantic_label("Weight-Linear")
         w_linear = configs.w_linear
         pypto.set_cube_tile_shapes([w_linear[L0M_INDEX], w_linear[L1M_INDEX]],
-                                    [w_linear[L0K_INDEX], w_linear[L1K_INDEX]],
-                                    [w_linear[L0N_INDEX], w_linear[L1N_INDEX]])
+                                   [w_linear[L0K_INDEX], w_linear[L1K_INDEX]],
+                                   [w_linear[L0N_INDEX], w_linear[L1N_INDEX]])
         pypto.set_vec_tile_shapes(t_tile, head_num)
-        weights = pypto.cast(pypto.matmul(x, w_proj, x_dtype), pypto.DT_FP32)
+        weights = pypto.cast(pypto.matmul(x, w_proj_in, x_dtype), pypto.DT_FP32)
         weights = pypto.mul(weights, 1.0 / (math.sqrt(head_num) * math.sqrt(head_dim)))
         weights_f16 = pypto.cast(weights, pypto.DT_FP16)
         pypto.assemble(weights_f16, [tIdx, 0], weights_out)
@@ -340,10 +331,10 @@ def lightning_indexer_prolog_quant_compute(x_in, q_norm_in, q_norm_scale_in, w_q
 def lightning_indexer_prolog_quant(x_in, q_norm_in, q_norm_scale_in, w_qb_in,
                                    w_qb_scale_in, wk_in, w_proj_in, ln_gamma_k_in,
                                    ln_beta_k_in, cos_idx_rope_in, sin_idx_rope_in,
-                                   hadamard_q_in, hadamard_k_in, k_cache, k_cache_scale,
+                                   hadamard_q_in, hadamard_k_in, k_int8_in, k_scale_in,
                                    k_cache_index_in, q_int8_out, q_scale_out, k_int8_out,
                                    k_scale_out, weights_out, attrs, configs):
-    pypto.set_pass_options(nbuffer_merge_mode=0)
+    pypto.set_pass_options(nbuffer_merge_mode=configs.nbuffer_merge_mode)
     pypto.set_pass_options(l1_reuse_map=configs.l1_reuse_param)
     pypto.set_pass_options(copyin_threshold=configs.copy_in_threshold)
     pypto.set_pass_options(cycle_upper_bound=configs.cycle_upper_bound)
@@ -353,6 +344,6 @@ def lightning_indexer_prolog_quant(x_in, q_norm_in, q_norm_scale_in, w_qb_in,
     lightning_indexer_prolog_quant_compute(x_in, q_norm_in, q_norm_scale_in, w_qb_in,
                                            w_qb_scale_in, wk_in, w_proj_in, ln_gamma_k_in,
                                            ln_beta_k_in, cos_idx_rope_in, sin_idx_rope_in,
-                                           hadamard_q_in, hadamard_k_in, k_cache, k_cache_scale,
+                                           hadamard_q_in, hadamard_k_in, k_int8_in, k_scale_in,
                                            k_cache_index_in, q_int8_out, q_scale_out, k_int8_out,
                                            k_scale_out, weights_out, attrs, configs)

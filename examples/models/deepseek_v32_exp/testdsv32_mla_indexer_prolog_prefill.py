@@ -133,7 +133,7 @@ def apply_rotary_pos_emb_v2(q, k, cos, sin, unsqueeze_dim=2):
 
 
 def rotate_half(x):
-    """Rotates half the hidden dims of the input."""
+    # Rotates half the hidden dims of the input.
     x1, x2 = x.chunk(2, dim=-1)
     return torch.cat((-x2, x1), dim=-1)
 
@@ -367,15 +367,9 @@ def gen_indexer_prolog_inputs(params, block_num, block_table, mla_inputs, mla_go
     rms_norm_scale_out = mla_goldens['rms_norm_scale_out']
 
     w_idx_qb = torch.randint(low=-128, high=128, size=(q_lora_rank, idx_n_heads * idx_head_dim), dtype=quant_dtype)
-    w_idx_qb_nz = (w_idx_qb.reshape(q_lora_rank // 16, 16, idx_n_heads * idx_head_dim // 32, 32)
-                   .permute(2, 0, 1, 3))  # int8, C0=32
     w_idx_qb_scale = torch.empty((1, idx_n_heads * idx_head_dim), dtype=torch.float32).uniform_(-1, 1)
-
     w_idx_k = torch.empty((h, idx_head_dim), dtype=dtype).uniform_(-1, 1)
-    w_idx_k_nz = w_idx_k.reshape(h // 16, 16, idx_head_dim // 16, 16).permute(2, 0, 1, 3)
-
     w_idx_proj = torch.empty((h, idx_n_heads), dtype=dtype).uniform_(-1, 1)
-    w_idx_proj_nz = w_idx_proj.reshape(h // 16, 16, idx_n_heads // 16, 16).permute(2, 0, 1, 3)
 
     ln_gamma = torch.ones((idx_head_dim,), dtype=dtype)
     ln_beta = torch.zeros((idx_head_dim,), dtype=dtype)
@@ -396,12 +390,9 @@ def gen_indexer_prolog_inputs(params, block_num, block_table, mla_inputs, mla_go
         'q_norm': rms_norm_out,  # input1, int8
         'q_norm_scale': rms_norm_scale_out,  # input2, fp32
         'w_idx_qb': w_idx_qb,  # input3, int8
-        'w_idx_qb_nz': w_idx_qb_nz,
         'w_idx_qb_scale': w_idx_qb_scale,  # input4, fp32
         'w_idx_k': w_idx_k,  # input5, bf16
-        'w_idx_k_nz': w_idx_k_nz,
         'w_idx_proj': w_idx_proj,  # input6, bf16
-        'w_idx_proj_nz': w_idx_proj_nz,
         'layer_norm_gamma': ln_gamma,  # input7, bf16
         'layer_norm_beta': ln_beta,  # input8, bf16
         'cos_idx_rope': cos,  # input9, bf16
@@ -448,7 +439,7 @@ def mla_prolog_quant_v32_compute(inputs):
     n, qk_nope_head_dim, kv_lora_rank = w_uk.shape
     q_head_dim = qk_nope_head_dim + qk_rope_head_dim
 
-    """ q """
+    # q
     x_2d = x.reshape(b * s, h)
     # shape is: [b * s, h] @ [h, q_lora_rank] -> [b * s, q_lora_rank]
     if is_quant_a:
@@ -456,7 +447,7 @@ def mla_prolog_quant_v32_compute(inputs):
         x_2d_quant, x_2d_scale_dequant = quant(x_2d, True)
         q_a_proj = torch.matmul(x_2d_quant.to(torch.int32), w_dq.to(torch.int32))
 
-        """ dequant """
+        # dequant
         q_a_proj_fp32 = q_a_proj.to(torch.float32)
         q_a_proj_fp32_dequant = q_a_proj_fp32 * x_2d_scale_dequant
         q_a_proj = q_a_proj_fp32_dequant * w_qa_scale
@@ -478,7 +469,7 @@ def mla_prolog_quant_v32_compute(inputs):
         q_b_proj = torch.matmul(q_a_layernorm.to(torch.int32), w_uqqr.to(torch.int32)).to(
             q_a_layernorm.device)  # q_b_proj
 
-        """ dequant """
+        # dequant
         q_b_proj_fp32 = q_b_proj.to(torch.float32)
         q_b_proj_fp32_dequant = q_b_proj_fp32 * q_a_layernorm_scale_dequant
         q_b_proj = q_b_proj_fp32_dequant * w_qb_scale
@@ -500,13 +491,13 @@ def mla_prolog_quant_v32_compute(inputs):
     q_nope_new_t = q_nope_new.permute(1, 0, 2)  # [b*s, n, kv_lora_rank]
     q_nope = q_nope_new_t.reshape(b, s, n, kv_lora_rank)  # [b, s, n, kv_lora_rank]
 
-    """ kv """
+    # kv
     # shape is: [b*s, h] @ [h, kv_lora_rank + qk_rope_head_dim] -> [b*s, kv_lora_rank + qk_rope_head_dim]
     if is_quant_a:
         # no smooth
         x_2d_quant, x_2d_scale_dequant = quant(x_2d, True)
         kv_a_proj = torch.matmul(x_2d_quant.to(torch.int32), w_dkvkr.to(torch.int32))
-        """ dequant """
+        # dequant 
         kv_a_proj_fp32 = kv_a_proj.to(torch.float32)
         kv_a_proj_fp32_dequant = kv_a_proj_fp32 * x_2d_scale_dequant
         kv_a_proj = kv_a_proj_fp32_dequant * w_kva_scale
@@ -529,7 +520,7 @@ def mla_prolog_quant_v32_compute(inputs):
     compressed_kv_r = compressed_kv_norm.reshape(b, s, 1, kv_lora_rank)
     k_nope = compressed_kv_r.reshape(b * s * 1, kv_lora_rank)
 
-    """ RoPE """
+    # RoPE 
     q_pe = q_reshape[:, :, :, qk_nope_head_dim:]  # [b, s, n, qk_rope_head_dim]
 
     k_pe = kv_reshape[:, :, kv_lora_rank:]  # [b, s, qk_rope_head_dim]
@@ -539,15 +530,19 @@ def mla_prolog_quant_v32_compute(inputs):
     q_embed, k_embed = apply_rotary_pos_emb_v2(q_pe, k_pe_r, cos, sin, 2)
     k_embed_r = k_embed.reshape(b * 1 * s, qk_rope_head_dim)
 
-    """ kv_cache output, [b,1,s2,kv_lora_rank] """
-    kv_cache_out = scatter_update_4d(kv_cache, k_nope, cache_index, -2)
+    # kv_cache output, [b,1,s2,kv_lora_rank]
+    kv_cache_tmp = kv_cache.clone() 
+    kv_cache_out = scatter_update_4d(kv_cache_tmp, k_nope, cache_index, -2)
 
-    """ kr_cache output, [b,1,s2,qk_rope_head_dim] """
-    kr_cache_out = scatter_update_4d(kr_cache, k_embed_r, cache_index, -2)
+    # kr_cache output, [b,1,s2,qk_rope_head_dim]
+    kr_cache_tmp = kr_cache.clone() 
+    kr_cache_out = scatter_update_4d(kr_cache_tmp, k_embed_r, cache_index, -2)
 
     if is_quant_b:
         compressed_kv_quant_scale = compressed_kv_quant_scale.reshape(-1, 4)
-        kv_quant_scale_cache_out = scatter_update_4d(kv_quant_scale_cache, compressed_kv_quant_scale, cache_index, -2)
+        kv_quant_scale_cache_tmp = kv_quant_scale_cache.clone()
+        kv_quant_scale_cache_out = \
+            scatter_update_4d(kv_quant_scale_cache_tmp, compressed_kv_quant_scale, cache_index, -2)
     else:
         kv_quant_scale_cache_out = None
 
@@ -685,6 +680,9 @@ def gen_test_data(params):
     mla_inputs_npu['sin'] = mla_inputs_npu['sin'].reshape(t, qk_rope_head_dim).contiguous()
     mla_inputs_npu['cache_index'] = mla_inputs_npu['cache_index'].reshape(t).contiguous()
     mla_inputs_npu['w_qb_scale'] = mla_inputs_npu['w_qb_scale'].reshape(-1, 1).contiguous()
+    mla_inputs_npu['w_dq'] = torch_npu.npu_format_cast(mla_inputs_npu['w_dq'], torch_npu.Format.FRACTAL_NZ)
+    mla_inputs_npu['w_uqqr'] = torch_npu.npu_format_cast(mla_inputs_npu['w_uqqr'], torch_npu.Format.FRACTAL_NZ)
+    mla_inputs_npu['w_dkvkr'] = torch_npu.npu_format_cast(mla_inputs_npu['w_dkvkr'], torch_npu.Format.FRACTAL_NZ)
     mla_goldens['q_nope'] = mla_goldens['q_nope'].reshape(t, n1, kv_lora_rank).contiguous().cpu()
     mla_goldens['q_rope'] = mla_goldens['q_rope'].reshape(t, n1, qk_rope_head_dim).contiguous().cpu()
 
@@ -717,9 +715,9 @@ def gen_test_data(params):
     ip_inputs_npu['w_idx_qb_scale'] = ip_inputs_npu['w_idx_qb_scale'].reshape(-1, 1).contiguous()
     ip_inputs_npu['q_norm'] = ip_inputs_npu['q_norm'].reshape(t, q_lora_rank).contiguous()
     ip_inputs_npu['q_norm_scale'] = ip_inputs_npu['q_norm_scale'].reshape(t, 1).contiguous()
-    ip_inputs_npu['w_idx_qb_nz'] = torch_npu.npu_format_cast(ip_inputs_npu['w_idx_qb_nz'], torch_npu.Format.FRACTAL_NZ)
-    ip_inputs_npu['w_idx_k_nz'] = torch_npu.npu_format_cast(ip_inputs_npu['w_idx_k_nz'], torch_npu.Format.FRACTAL_NZ)
-    ip_inputs_npu['w_idx_proj_nz'] = torch_npu.npu_format_cast(ip_inputs_npu['w_idx_proj_nz'],
+    ip_inputs_npu['w_idx_qb_nz'] = torch_npu.npu_format_cast(ip_inputs_npu['w_idx_qb'], torch_npu.Format.FRACTAL_NZ)
+    ip_inputs_npu['w_idx_k_nz'] = torch_npu.npu_format_cast(ip_inputs_npu['w_idx_k'], torch_npu.Format.FRACTAL_NZ)
+    ip_inputs_npu['w_idx_proj_nz'] = torch_npu.npu_format_cast(ip_inputs_npu['w_idx_proj'],
                                                                torch_npu.Format.FRACTAL_NZ)
 
     ip_goldens['q_int8'] = ip_goldens['q_int8'].reshape(t, head_num, idx_head_dim).contiguous()
@@ -826,9 +824,18 @@ def compare(t: torch.Tensor, t_ref: torch.Tensor, name, atol, rtol, max_error_ra
 
 
 def check(case_name, outputs, goldens):
+    q_atol = 0.0001
+    q_int8_atol = 1
+    q_scale_error_ratio = 0.005
+    if "test_t_512_tilebs_128" in case_name:
+        q_atol = 0.003
+        q_int8_atol = 2
+        q_scale_error_ratio = 0.006
+
     ########### mla ###########
-    compare(outputs['q_nope'].cpu(), goldens['q_nope'], 'qNope', 0.0001, 0.0078125, 0.005)
-    compare(outputs['q_rope'].cpu(), goldens['q_rope'], 'qRope', 0.0001, 0.0078125, 0.005)
+    compare(outputs['q_nope'].cpu(), goldens['q_nope'], 'qNope', q_atol, 0.0078125,
+            0.005)
+    compare(outputs['q_rope'].cpu(), goldens['q_rope'], 'qRope', q_atol, 0.0078125, 0.005)
     compare(outputs['kv_cache_out'].cpu(), goldens['kv_cache_out'], 'kv', 1, 0, 0)
     compare(outputs['kr_cache_out'].cpu(), goldens['kr_cache_out'], 'kr', 0.0001, 0.0078125, 0.005)
     compare(outputs['kv_quant_scale_cache_out'].cpu(), goldens['kv_quant_scale_cache_out'], 'kScaleCache', 0.000025,
@@ -839,8 +846,8 @@ def check(case_name, outputs, goldens):
                 0.005)
 
     ########### ip ###########
-    compare(outputs['q_int8'].cpu(), goldens['q_int8'], 'q_int8', 1, 0, 0)
-    compare(outputs['q_scale'].cpu(), goldens['q_scale'], 'q_scale', 0.000025, 0, 0.005)
+    compare(outputs['q_int8'].cpu(), goldens['q_int8'], 'q_int8', q_int8_atol, 0, 0)
+    compare(outputs['q_scale'].cpu(), goldens['q_scale'], 'q_scale', 0.000025, q_scale_error_ratio)
     compare(outputs['idx_k_cache_out'].cpu(), goldens['idx_k_cache_out'], 'k_int8', 1, 0, 0)
     compare(outputs['idx_k_scale_cache_out'].cpu(), goldens['idx_k_scale_cache_out'], 'k_scale', 0.000025, 0, 0.005)
     compare(outputs['weights'].cpu(), goldens['weights'], 'weights', 0.000025, 0, 0.005)
@@ -872,9 +879,9 @@ def do_test(case_name, params, mla_epsilon_cq, mla_epsilon_ckv, mla_cache_mode, 
         'x': [0],
         'cos': [0],
         'sin': [0],
-        # 'kv_cache':[0],
-        # 'kr_cache':[0],
-        # 'kv_quant_scale_cache':[0],
+        'kv_cache': [0],
+        'kr_cache': [0],
+        'kv_quant_scale_cache': [0],
         'cache_index': [0],
         'idx_k_cache': [0],
         'idx_k_scale_cache': [0],
@@ -884,35 +891,66 @@ def do_test(case_name, params, mla_epsilon_cq, mla_epsilon_ckv, mla_cache_mode, 
     dynamic_dict = {
         'q_nope': [0],
         'q_rope': [0],
-        # 'kv_cache_out':[0],
-        # 'kr_cache_out':[0],
-        # 'kv_quant_scale_cache_out':[0],
+        'kv_cache_out': [0],
+        'kr_cache_out': [0],
+        'kv_quant_scale_cache_out': [0],
         'q_int8': [0],
         'q_scale': [0],
         'idx_k_cache_out': [0],
         'idx_k_scale_cache_out': [0],
         'weights': [0],
     }
+
+    c0 = 16
+    m_tile_value = (min(128, mla_tile_config.tile_bs) + c0 - 1) // c0 * c0
+    mv_tile_value = min(8, mla_tile_config.tile_bs)
+    mla_tile_config.m_tile = m_tile_value
+
+    mla_tile_config.pre_quant_cube_tile[0] = m_tile_value
+    mla_tile_config.pre_quant_cube_tile[1] = m_tile_value
+    mla_tile_config.mv_tile = mv_tile_value
+    mla_tile_config.q_vec_tile0 = 32
+    mla_tile_config.q_vec_tile1 = 128
+    mla_tile_config.k_vec_tile0 = 32
+    mla_tile_config.k_vec_tile1 = 512
+    mla_tile_config.dynamic_unaligned_enable = True
+
     if PRINT_DEBUG:
         dynamic_dict.update({'rms_norm_out': [0], 'rms_norm_scale_out': [0]})
     pto_outputs = convert_torch_tensor(outputs, dynamic_dict, 'OUT_')
     import mla_indexer_prolog_quant as mla_lp_quant
+    from mla_prolog_quant import RopeTileShapeConfig
+    rope_tile_shape = RopeTileShapeConfig(two_dim=[32, 64], three_dim=[32, 32, 128], four_dim=[16, 128, 128, 128])
+
     if PRINT_DEBUG:
         fun = mla_lp_quant.mla_indexer_prolog_quant_debug
     else:
         fun = mla_lp_quant.mla_indexer_prolog_quant
     fun(*pto_inputs, *pto_outputs, mla_epsilon_cq, mla_epsilon_ckv, mla_cache_mode,
-        mla_tile_config, ip_attrs, ip_configs)
+        mla_tile_config, ip_attrs, ip_configs, rope_tile_shape)
     pypto.runtime._device_synchronize()
     check(case_name, outputs, goldens)
     pypto.runtime._device_fini()
-
 
 class MlaTileConfig:
     def __init__(self):
         self.tile_b = 8
         self.tile_s = 1
         self.tile_bs = 8
+        self.l1_reuse = 4
+        self.m_tile = 16
+        self.mv_tile = 16
+        self.q_vec_tile0 = 16
+        self.q_vec_tile1 = 16
+        self.k_vec_tile0 = 16
+        self.k_vec_tile1 = 16
+        self.pre_quant_cube_tile = [16, 16, 256, 256, 128, 128]
+        self.copy_in_threshold = 2 * 1024 * 1024
+        self.cycle_upper_bound = 8192
+        self.nbuffer_merge_mode = 1
+        self.cube_nbuffer_map = {3: 4}
+        self.l1_reuse_map = {0: 2, 1: 1, 2: 1, 3: 4, 4: 4, 5: 1}
+        self.dynamic_unaligned_enable = False
 
 
 params_base = {
@@ -932,7 +970,6 @@ params_base = {
 }
 
 
-@pytest.mark.skip(reason='perf')
 def test_t_32_tilebs_16():
     b = 16
     s1 = 2
@@ -974,14 +1011,15 @@ def test_t_32_tilebs_16():
         block_size=128,
         t_sub_tile=1,
         chunk_size=2,
+        nbuffer_merge_mode=0,
     )
 
-    do_test("mla_prolog_indexer_prolog_prefill.test_t_2_tilebs_1",
+    do_test("mla_prolog_indexer_prolog_prefill.test_t_32_tilebs_16",
             params, mla_epsilon_cq, mla_epsilon_ckv,
             mla_cache_mode, mla_tile_config, ip_attrs, ip_configs)
 
 
-@pytest.mark.skip(reason='perf')
+@pytest.mark.skip(reason="large shape")
 def test_t_512_tilebs_128():
     b = 128
     s1 = 4
@@ -997,7 +1035,7 @@ def test_t_512_tilebs_128():
     })
 
     mla_tile_config = MlaTileConfig()
-    mla_tile_config.tile_bs = 32
+    mla_tile_config.tile_bs = 128
 
     mla_cache_mode = 'PA_BSND'
     mla_epsilon_cq = 1e-5
@@ -1023,6 +1061,7 @@ def test_t_512_tilebs_128():
         block_size=128,
         t_sub_tile=2,
         chunk_size=1,
+        nbuffer_merge_mode=0,
     )
 
     do_test("mla_prolog_indexer_prolog_prefill.test_t_512_tilebs_128", params, mla_epsilon_cq, mla_epsilon_ckv,

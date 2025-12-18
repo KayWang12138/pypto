@@ -48,9 +48,10 @@ def k_nope_quant(x):
     scale_quant = pypto.div(pypto.full(max_value.shape, 127.0, pypto.DataType.DT_FP32), max_value)
     out_fp32 = pypto.mul(x_fp32, scale_quant)
     out_int32 = pypto.cast(out_fp32, pypto.DataType.DT_INT32, pypto.CastMode.CAST_RINT)
-    out_half = pypto.cast(out_int32, pypto.DataType.DT_FP16)
-    out_int8 = pypto.cast(out_half, pypto.DataType.DT_INT8)
-    scale_de_quant = scalar_div(scale_quant, 127.0, True)
+    out_half = pypto.cast(out_int32, pypto.DataType.DT_FP16, pypto.CastMode.CAST_ROUND)
+    out_int8 = pypto.cast(out_half, pypto.DataType.DT_INT8, pypto.CastMode.CAST_TRUNC)
+
+    scale_de_quant = pypto.div(pypto.full(scale_quant.shape, 1.0, pypto.DataType.DT_FP32), scale_quant)
     return out_int8, scale_de_quant
 
 
@@ -133,23 +134,23 @@ def rope_v2(x, cos, sin, tile_config):
     d_r = x.shape[1]
     x_dtype = x.dtype
 
-    pypto.set_vec_tile_shapes(32, 64)
+    pypto.set_vec_tile_shapes(tile_config.two_dim[0], tile_config.two_dim[1])
     cast_x = pypto.cast(x, pypto.DataType.DT_FP32)
     cast_cos = pypto.cast(cos, pypto.DataType.DT_FP32)
     cast_sin = pypto.cast(sin, pypto.DataType.DT_FP32)
 
-    pypto.set_vec_tile_shapes(32, 32, 128)
+    pypto.set_vec_tile_shapes(*tile_config.three_dim)
     x_view = pypto.reshape(cast_x, [seq_size, d_r // 2, 2])
     x_trans = pypto.transpose(x_view, 1, 2)
     x_re_second = pypto.reshape(x_trans, [seq_size, d_r])
 
-    pypto.set_vec_tile_shapes(32, 64)
+    pypto.set_vec_tile_shapes(tile_config.two_dim[0], tile_config.two_dim[1])
     x_embded = x_re_second * cast_cos + rotate_half(x_re_second) * cast_sin
 
     return pypto.cast(x_embded, x.dtype)
 
 
-def rope_3d_v2(x, cos, sin, tile_config):
+def rope_3d_v2(x, cos, sin):
     assert len(x.shape) == 3 and len(cos.shape) == 2 and len(sin.shape) == 2
 
     pypto.set_vec_tile_shapes(1, 64)
@@ -170,7 +171,7 @@ def rope_3d_v2(x, cos, sin, tile_config):
     return pypto.cast(x_embed, x.dtype)
 
 
-def pre_compute_2d(token_x, w_dq, w_uq_qr, w_dkv_kr, gamma_cq, epsilon_cq, quant_inputs):
+def pre_compute_2d(token_x, w_dq, w_uq_qr, w_dkv_kr, gamma_cq, epsilon_cq, quant_inputs, tile_config):
     dequant_scale_w_dq = quant_inputs.dequant_scale_w_dq
     dequant_scale_w_dkv_kr = quant_inputs.dequant_scale_w_dkv_kr
     dequant_scale_w_uq_qr = quant_inputs.dequant_scale_w_uq_qr
@@ -190,13 +191,13 @@ def pre_compute_2d(token_x, w_dq, w_uq_qr, w_dkv_kr, gamma_cq, epsilon_cq, quant
     qkv_pre_res = []
 
     pypto.set_semantic_label("pre_reshape")
-    ############# q ##########
-    m = 128
-    mv = min(8, bs)
+
+    mv = tile_config.mv_tile
 
     if is_quant_a:
         pypto.set_vec_tile_shapes(mv, q_lora_rank)
-        pypto.set_cube_tile_shapes([m, m], [256, 256], [256, 256])
+        pypto.set_cube_tile_shapes([tile_config.pre_quant_cube_tile[0], tile_config.pre_quant_cube_tile[1]],
+                                   [256, 256], [256, 256])
         pypto.set_semantic_label("Quant_x")
         quant_res = quant(token_x)
         input_quant = quant_res[0]
@@ -206,7 +207,9 @@ def pre_compute_2d(token_x, w_dq, w_uq_qr, w_dkv_kr, gamma_cq, epsilon_cq, quant
         pypto.set_semantic_label("Dequant_qa")
         q_a_proj[:] = dequant(dtype, q_a_proj, input_quant_scale, dequant_scale_w_dq)
     else:
-        pypto.set_cube_tile_shapes([m, m], [128, 128], [256, 256])
+        pypto.set_cube_tile_shapes([tile_config.pre_quant_cube_tile[0], tile_config.pre_quant_cube_tile[1]],
+                                   [tile_config.pre_quant_cube_tile[2], tile_config.pre_quant_cube_tile[3]],
+                                   [tile_config.pre_quant_cube_tile[4], tile_config.pre_quant_cube_tile[5]])
         pypto.set_semantic_label("Matmul_qa")
         q_a_proj = pypto.matmul(token_x, w_dq, dtype)
 
@@ -224,12 +227,15 @@ def pre_compute_2d(token_x, w_dq, w_uq_qr, w_dkv_kr, gamma_cq, epsilon_cq, quant
         norm_quant = quant_res[0]
         norm_quant_scale = quant_res[1]
         pypto.set_semantic_label("QuantMatmul_qb")
-        pypto.set_cube_tile_shapes([m, m], [256, 256], [256, 256])
+        pypto.set_cube_tile_shapes([tile_config.pre_quant_cube_tile[0], tile_config.pre_quant_cube_tile[1]],
+                                   [256, 256], [256, 256])
         q_b_proj_tmp = pypto.matmul(norm_quant, w_uq_qr, dtype_quant_b_out)
         pypto.set_semantic_label("Dequant_qb")
         q_b_proj = dequant(dtype, q_b_proj_tmp, norm_quant_scale, dequant_scale_w_uq_qr)
     else:
-        pypto.set_cube_tile_shapes([m, m], [256, 256], [64, 64])
+        pypto.set_cube_tile_shapes([tile_config.pre_quant_cube_tile[0], tile_config.pre_quant_cube_tile[1]],
+                                   [tile_config.pre_quant_cube_tile[2], tile_config.pre_quant_cube_tile[3]],
+                                   [tile_config.pre_quant_cube_tile[4], tile_config.pre_quant_cube_tile[5]])
         pypto.set_semantic_label("Matmul_qb")
         q_b_proj = pypto.matmul(norm_res, w_uq_qr, dtype)
 
@@ -238,13 +244,15 @@ def pre_compute_2d(token_x, w_dq, w_uq_qr, w_dkv_kr, gamma_cq, epsilon_cq, quant
     ####### kv ##########
     if is_quant_a:
         pypto.set_vec_tile_shapes(mv, q_lora_rank)
-        pypto.set_cube_tile_shapes([m, m], [256, 256], [256, 256])
+        pypto.set_cube_tile_shapes(tile_config.m_tile, [256, 256], [256, 256])
         pypto.set_semantic_label("QuantMatmul_kva")
         compressed_kv = pypto.matmul(input_quant, w_dkv_kr, dtype_quant_a_out)
         pypto.set_semantic_label("Dequant_kva")
         compressed_kv[:] = dequant(dtype, compressed_kv, input_quant_scale, dequant_scale_w_dkv_kr)
     else:
-        pypto.set_cube_tile_shapes([m, m], [128, 128], [256, 256])
+        pypto.set_cube_tile_shapes([tile_config.pre_quant_cube_tile[0], tile_config.pre_quant_cube_tile[1]],
+                                   [tile_config.pre_quant_cube_tile[2], tile_config.pre_quant_cube_tile[3]],
+                                   [tile_config.pre_quant_cube_tile[4], tile_config.pre_quant_cube_tile[5]])
         pypto.set_semantic_label("Matmul_kva")
         compressed_kv = pypto.matmul(token_x, w_dkv_kr, dtype)
 
@@ -263,7 +271,7 @@ def mla_prolog_quant_compute(token_x, w_dq, w_uq_qr, dequant_scale, w_uk,
                              q_norm_out, q_norm_scale_out, query_nope_out,
                              query_rope_out, kv_cache_out,
                              kr_cache_out, k_scale_cache_out, epsilon_cq,
-                             epsilon_ckv, cache_mode, tile_config):
+                             epsilon_ckv, cache_mode, tile_config, rope_cfg):
 
     assert len(token_x.shape) == 2 and len(w_uk.shape) == 3 and len(sin.shape) == 2
     assert len(kv_cache.shape) == 4 and len(kr_cache.shape) == 4
@@ -285,8 +293,6 @@ def mla_prolog_quant_compute(token_x, w_dq, w_uq_qr, dequant_scale, w_uk,
 
     tile_bs = tile_config.tile_bs
 
-    rope_cfg = RopeTileShapeConfig(two_dim=[128, 128], three_dim=[32, 128, 128], four_dim=[16, 128, 128, 128])
-
     t = token_x.shape[0]
     bs_loop = (t + tile_bs - 1) // tile_bs
 
@@ -301,14 +307,11 @@ def mla_prolog_quant_compute(token_x, w_dq, w_uq_qr, dequant_scale, w_uk,
     for bs_idx in pypto.loop(0, bs_loop, 1, name="MLA_BS_LOOP", idx_name="bs_idx"):
         bs_offset = bs_idx * tile_bs
         output_offset = [bs_offset, 0, 0]
-        k_rope_2d = pypto.tensor()
-        k_nope_2d = pypto.tensor()
-        k_scale_2d = pypto.tensor()
 
         for _ in pypto.loop(0, 1, 1, name="MLA_PREPARE_RES", idx_name="unused_idx"):
             pypto.set_vec_tile_shapes(tile_bs, 128)
             x_view = pypto.view(token_x, [tile_bs, h], [bs_offset, 0])
-            q_kv = pre_compute_2d(x_view, w_dq, w_uq_qr, w_dkv_kr, gamma_cq, epsilon_cq, quant_inputs)
+            q_kv = pre_compute_2d(x_view, w_dq, w_uq_qr, w_dkv_kr, gamma_cq, epsilon_cq, quant_inputs, tile_config)
             q = q_kv[0]
             kv_tmp = q_kv[1]
 
@@ -329,8 +332,7 @@ def mla_prolog_quant_compute(token_x, w_dq, w_uq_qr, dequant_scale, w_uk,
             pypto.set_vec_tile_shapes(*tile_shape)
             q_nope_trans = pypto.transpose(q_nope, 0, 1)
 
-            c0 = 16
-            m = (min(128, tile_bs) + c0 - 1) // c0 * c0
+            m = tile_config.m_tile
             pypto.set_semantic_label("Matmul_qNope_wUk")
             pypto.set_cube_tile_shapes([m, m], [128, 128], [128, 128])
             q_nope_new = pypto.matmul(q_nope_trans, w_uk, dtype)
@@ -340,29 +342,31 @@ def mla_prolog_quant_compute(token_x, w_dq, w_uq_qr, dequant_scale, w_uk,
             q_nope_new_trans = pypto.transpose(q_nope_new, 0, 1)
 
             pypto.set_semantic_label("Assemble_queryOut")
-            pypto.set_vec_tile_shapes(32, 128, 128)
+            pypto.set_vec_tile_shapes(tile_config.q_vec_tile0, tile_config.q_vec_tile1, 128)
             pypto.assemble(q_nope_new_trans, output_offset, query_nope_out)
-
-            pypto.set_vec_tile_shapes(32, 128, 64)
+            
+            if tile_bs >= 128:
+                pypto.set_vec_tile_shapes(tile_config.q_vec_tile0, tile_config.q_vec_tile1, 64)
             q_pe_view = pypto.view(q_tmp, [tile_bs, n1, qk_rope_head_dim], [0, 0, qk_nope_head_dim])
             cos_2d_view = pypto.view(cos, [tile_bs, qk_rope_head_dim], [bs_offset, 0])
             sin_2d_view = pypto.view(sin, [tile_bs, qk_rope_head_dim], [bs_offset, 0])
             pypto.set_semantic_label("Rope_qRope")
-            q_rope_view = rope_3d_v2(q_pe_view, cos_2d_view, sin_2d_view, rope_cfg)
+            q_rope_view = rope_3d_v2(q_pe_view, cos_2d_view, sin_2d_view)
             pypto.set_semantic_label("Assemble_qRope")
-            pypto.set_vec_tile_shapes(32, 128, 64)
+            pypto.set_vec_tile_shapes(tile_config.q_vec_tile0, tile_config.q_vec_tile1, 64)
             pypto.assemble(q_rope_view, output_offset, query_rope_out)
 
             ########### RoPE #################
-            pypto.set_vec_tile_shapes(32, 512)
+            pypto.set_vec_tile_shapes(tile_config.k_vec_tile0, tile_config.k_vec_tile1)
             pypto.set_semantic_label("RotaryPosEmb")
             k_pe_view = pypto.view(kv_tmp, [tile_bs, qk_rope_head_dim], [0, kv_lora_rank])
-            k_rope_2d[:] = rope_v2(k_pe_view, cos_2d_view, sin_2d_view, rope_cfg)
+            k_rope_2d = rope_v2(k_pe_view, cos_2d_view, sin_2d_view, rope_cfg)
 
             ############### kNope ##############
+
             compressed_kv = pypto.view(kv_tmp, [tile_bs, kv_lora_rank], [0, 0])
             pypto.set_semantic_label("RmsNorm_compressedkv")
-            pypto.set_vec_tile_shapes(32, 512)
+            pypto.set_vec_tile_shapes(tile_config.k_vec_tile0, tile_config.k_vec_tile1)
             k_nope = rms_norm(compressed_kv, gamma_ckv, epsilon_ckv)
 
             ########### kNope Quant ############
@@ -375,10 +379,9 @@ def mla_prolog_quant_compute(token_x, w_dq, w_uq_qr, dequant_scale, w_uk,
             k_nope_scale = k_nope_quant_res[1]
 
             pypto.set_vec_tile_shapes(32, 4, kv_lora_rank // 4)
-            k_nope_2d[:] = pypto.reshape(k_nope_quant_tensor, [tile_bs, kv_lora_rank])
-            k_scale_2d[:] = pypto.reshape(k_nope_scale, [tile_bs, 4])
+            k_nope_2d = pypto.reshape(k_nope_quant_tensor, [tile_bs, kv_lora_rank])
+            k_scale_2d = pypto.reshape(k_nope_scale, [tile_bs, 4])
 
-        for _ in pypto.loop(0, 1, 1, name="MLA_UPDATE_CACHE", idx_name="unused_idx"):
             k_rope_4d = pypto.reshape(k_rope_2d, [tile_bs, 1, 1, qk_rope_head_dim], inplace=True)
             k_nope_4d = pypto.reshape(k_nope_2d, [tile_bs, 1, 1, kv_lora_rank], inplace=True)
             k_scale_4d = pypto.reshape(k_scale_2d, [tile_bs, 1, 1, 4], inplace=True)
@@ -402,7 +405,7 @@ def mla_prolog_quant_p(
                        q_norm_out, q_norm_scale_out, query_nope_out,
                        query_rope_out, kv_cache_out,
                        kr_cache_out, k_scale_cache_out, epsilon_cq,
-                       epsilon_ckv, cache_mode, tile_config):
+                       epsilon_ckv, cache_mode, tile_config, rope_cfg):
     '''
     prefill
     '''
@@ -419,7 +422,7 @@ def mla_prolog_quant_p(
                              q_norm_out, q_norm_scale_out, query_nope_out,
                              query_rope_out, kv_cache_out,
                              kr_cache_out, k_scale_cache_out, epsilon_cq,
-                             epsilon_ckv, cache_mode, tile_config
+                             epsilon_ckv, cache_mode, tile_config, rope_cfg
     )
 
 
@@ -431,7 +434,7 @@ def mla_prolog_quant_d(
                        q_norm_out, q_norm_scale_out, query_nope_out,
                        query_rope_out, kv_cache_out,
                        kr_cache_out, k_scale_cache_out, epsilon_cq,
-                       epsilon_ckv, cache_mode, tile_config):
+                       epsilon_ckv, cache_mode, tile_config, rope_cfg):
     '''
     decode
     '''
@@ -448,5 +451,5 @@ def mla_prolog_quant_d(
                              q_norm_out, q_norm_scale_out, query_nope_out,
                              query_rope_out, kv_cache_out,
                              kr_cache_out, k_scale_cache_out, epsilon_cq,
-                             epsilon_ckv, cache_mode, tile_config
+                             epsilon_ckv, cache_mode, tile_config, rope_cfg
     )

@@ -111,15 +111,9 @@ def gen_inputs(dims, dtype=torch.bfloat16, qunat_dtype=torch.int8):
     q_norm = torch.randint(low=-128, high=128, size=(b, s, q_lora_rank), dtype=qunat_dtype)
     q_norm_scale = torch.empty((b, s, 1), dtype=torch.float32).uniform_(-1, 1)
     w_idx_qb = torch.randint(low=-128, high=128, size=(q_lora_rank, n * d), dtype=qunat_dtype)
-    w_idx_qb_nz = w_idx_qb.reshape(q_lora_rank // 16, 16, n * d // 32, 32).permute(2, 0, 1, 3)  # int8, C0=32
     w_idx_qb_scale = torch.empty((n * d, 1), dtype=torch.float32).uniform_(-1, 1)
-
     w_idx_k = torch.empty((h, d), dtype=dtype).uniform_(-1, 1)
-    w_idx_k_nz = w_idx_k.reshape(h // 16, 16, d // 16, 16).permute(2, 0, 1, 3)
-
     w_idx_proj = torch.empty((h, n), dtype=dtype).uniform_(-1, 1)
-    w_idx_proj_nz = w_idx_proj.reshape(h // 16, 16, n // 16, 16).permute(2, 0, 1, 3)
-
     ln_gamma = torch.ones((d,), dtype=dtype)
     ln_beta = torch.zeros((d,), dtype=dtype)
 
@@ -142,12 +136,9 @@ def gen_inputs(dims, dtype=torch.bfloat16, qunat_dtype=torch.int8):
         "q_norm": q_norm,  # input1, int8
         "q_norm_scale": q_norm_scale,  # input2, fp32
         "w_idx_qb": w_idx_qb,  # input3, int8
-        "w_idx_qb_nz": w_idx_qb_nz,
         "w_idx_qb_scale": w_idx_qb_scale,  # input4, fp32
         "w_idx_k": w_idx_k,  # input5, bf16
-        "w_idx_k_nz": w_idx_k_nz,
         "w_idx_proj": w_idx_proj,  # input6, bf16
-        "w_idx_proj_nz": w_idx_proj_nz,
         "layer_norm_gamma": ln_gamma,  # input7, bf16
         "layer_norm_beta": ln_beta,  # input8, bf16
         "cos_idx_rope": cos,  # input9, bf16
@@ -386,11 +377,11 @@ def do_test_lighting_indexer_prolog_quant(case_name, configs):
         x=inputs_data["token_x"].npu().reshape(t, h),
         q_norm=inputs_data["q_norm"].npu().reshape(t, q_lora_rank),
         q_norm_scale=inputs_data["q_norm_scale"].npu().reshape(t, 1),
-        w_qb=torch_npu.npu_format_cast(inputs_data["w_idx_qb_nz"].npu().contiguous(), torch_npu.Format.FRACTAL_NZ),
+        w_qb=torch_npu.npu_format_cast(inputs_data["w_idx_qb"].npu().contiguous(), torch_npu.Format.FRACTAL_NZ),
         w_qb_scale=inputs_data["w_idx_qb_scale"].npu(),
-        wk=torch_npu.npu_format_cast(inputs_data["w_idx_k_nz"].npu().contiguous(), torch_npu.Format.FRACTAL_NZ),
+        wk=torch_npu.npu_format_cast(inputs_data["w_idx_k"].npu().contiguous(), torch_npu.Format.FRACTAL_NZ),
         w_proj=torch_npu.npu_format_cast(
-            inputs_data["w_idx_proj_nz"].npu().contiguous(), torch_npu.Format.FRACTAL_NZ),
+            inputs_data["w_idx_proj"].npu().contiguous(), torch_npu.Format.FRACTAL_NZ),
         ln_gamma_k=inputs_data["layer_norm_gamma"].npu(),
         ln_beta_k=inputs_data["layer_norm_beta"].npu(),
         cos_idx_rope=inputs_data["cos_idx_rope"].npu().reshape(t, rope_head_dim),
@@ -426,7 +417,7 @@ def do_test_lighting_indexer_prolog_quant(case_name, configs):
     lighting_indexer_prolog_quant_dyn(inputs, outputs, attrs, configs)
 
     compare(outputs.q_int8.cpu(), q_int8_golden, "q_int8", 1, 0, 0)
-    compare(outputs.q_scale.cpu(), q_scale_golden, "q_scale", 0.000025, 0, 0.005, 1)
+    compare(outputs.q_scale.cpu(), q_scale_golden, "q_scale", 0.000025, 0, 0.005)
     compare(outputs.k_int8.cpu(), k_cache_golden, "k_int8", 1, 0, 0)
     compare(outputs.k_scale.cpu(), k_cache_scale_golden, "k_scale", 0.000025, 0, 0)
     compare(outputs.weights.cpu(), weights_golden, "weights", 0.000025, 0., 0)
@@ -467,6 +458,7 @@ def test_b4_s1_2_s2_64k():
         block_size=128,
         t_sub_tile=1,
         chunk_size=2,
+        nbuffer_merge_mode=0,
     )
     do_test_lighting_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b4_s1_2_s2_64k", configs)
 
@@ -485,6 +477,7 @@ def test_b8_s1_2_s2_64k():
         block_size=128,
         t_sub_tile=1,
         chunk_size=2,
+        nbuffer_merge_mode=0,
     )
     do_test_lighting_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b8_s1_2_s2_64k", configs)
 
@@ -503,6 +496,7 @@ def test_b1_s1_4k_s2_64k():
         block_size=128,
         t_sub_tile=1,
         chunk_size=2,
+        nbuffer_merge_mode=0,
     )
     do_test_lighting_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b1_s1_4k_s2_64k", configs)
 
@@ -521,6 +515,7 @@ def test_b2_s1_4k_s2_64k():
         block_size=128,
         t_sub_tile=1,
         chunk_size=2,
+        nbuffer_merge_mode=0,
     )
     do_test_lighting_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b2_s1_4k_s2_64k", configs)
 
@@ -539,6 +534,7 @@ def test_b128_s1_4_s2_8k():
         block_size=128,
         t_sub_tile=2,
         chunk_size=1,
+        nbuffer_merge_mode=0,
     )
     pypto.set_runtime_options(stitch_function_inner_memory=512, stitch_function_outcast_memory=512)
     do_test_lighting_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b128_s1_4_s2_8k", configs)
