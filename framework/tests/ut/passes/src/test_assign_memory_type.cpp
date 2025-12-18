@@ -21,11 +21,8 @@
 #include "interface/configs/config_manager.h"
 #include "passes/tile_graph_pass/data_path/assign_memory_type.h"
 #include "passes/pass_mgr/pass_manager.h"
-<<<<<<< HEAD
-=======
 #include "passes/pass_config/pass_config_manager.h"
 #include "computational_graph_builder.h"
->>>>>>> 70267b66... 增加assignMemoryType后置校验，补充对应ut
 #include <fstream>
 #include <vector>
 
