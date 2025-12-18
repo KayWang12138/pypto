@@ -607,6 +607,7 @@ OPERATOR_DISPATCHERS = [
         'DistributedTest.shmem_moe_combine_bfloat16_8_5120_0_160_8_8',
         'DistributedTest.shmem_moe_combine_bfloat16_256_5120_0_160_8_8',
         'DistributedTest.shmem_moe_dispatch_bfloat16_8_5120_0_160_8_4',
+        'DistributedTest.shmem_moe_dispatch_bfloat16_8_5120_0_160_8_8',
     ]
 )
 def generate_golden_case(case_name: str, output: pathlib.Path) -> bool:

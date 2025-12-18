@@ -24,8 +24,10 @@
 #include "cube.h"
 #include "dynamic/cube_dyn.h"
 #include "fixpipe.h"
-#include "distributed.h"
-#include "distributed_shmem.h"
+#include "distributed/common.h"
+#include "distributed/moe_dispatch.h"
+#include "distributed/moe_combine.h"
+#include "distributed/tileop_shmem.h"
 #include "dynamic/aicpu_call.h"
 
 #ifdef SUPPORT_TILE_TENSOR

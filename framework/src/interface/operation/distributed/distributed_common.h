@@ -49,6 +49,8 @@ constexpr uint16_t SAME_ADDR_BYTE_SIZE = 512;
 constexpr int32_t ROUTED_EXPET_NUM = 160;
 constexpr int32_t AIV_MAX_NUM = 8;
 constexpr int32_t AIV_NUM = 4;
+constexpr int32_t RECEIVE_CNT_OUT_ROW = 1024;
+constexpr int32_t RECEIVE_CNT_OUT_COL = 512;
 enum class TileIndex : size_t {
     HEAD_SHAPE,
     HEAD_NUM,
@@ -386,6 +388,55 @@ void TileColAndRowProcess(const std::function<void(T &)> &dealFunc, T &args)
     }
 
     return;
+}
+
+inline bool checkValidInput(const Tensor &input, uint64_t dim, DataType dType, int32_t row, int32_t col, std::string &assertResult)
+{
+    if (input.Format() != TileOpFormat::TILEOP_ND) {
+        assertResult = "Distributed constraint violated: " + input.GetName() + " format must be TILEOP_ND.";
+        return false;
+    }
+    if (input.GetName() == "") {
+        assertResult = "Distributed constraint violated: input name can't be null.";
+        return false;
+    }
+    if (input.Dim() != dim) {
+        assertResult = "Distributed constraint violated: " + input.GetName() + " dim must be " + std::to_string(dim) + ".";
+        return false;
+    }
+    if (input.GetDataType() != dType) {
+        assertResult = "Distributed constraint violated: " + input.GetName() + " dataType is not valid.";
+        return false;
+    }
+    if (input.GetShape(0) != row) {
+        assertResult = "Distributed constraint violated: " + input.GetName() + " row must be " + std::to_string(row) + ".";
+        return false;
+    }
+    if (input.Dim() != 1 && input.GetShape(1) != col) {
+        assertResult = "Distributed constraint violated: " + input.GetName() + " col must be " + std::to_string(col) + ".";
+        return false;
+    }
+    return true;
+}
+
+inline bool checkValidConfig(const MoeConfig &moeConfig, std::string &assertResult)
+{
+    int32_t rankNum = moeConfig.rankNum;
+    int32_t routedExpertNum = moeConfig.routedExpertNum;
+    int32_t expertNumPerRank = moeConfig.expertNumPerRank;
+    if (rankNum != 4 && rankNum != 8) { // rankNum仅支持4和8
+        assertResult = "Distributed constraint violated: moeConfig rankSize must be 4 or 8.";
+        return false;
+    }
+    if (routedExpertNum != ROUTED_EXPET_NUM) {
+        assertResult = "Distributed constraint violated: moeConfig routedExpertNum must be " + std::to_string(ROUTED_EXPET_NUM) + ".";
+        return false;
+    }
+    if (expertNumPerRank != routedExpertNum / rankNum) {
+        assertResult = "Distributed constraint violated: moeConfig expertNumPerRank must be " + std::to_string(routedExpertNum / rankNum) + ".";
+        return false;
+    }
+    return true;
 }
 
 int GetTilingTensorSize(const TensorTileInfo &tileInfo, const CommGroupInfo &groupInfo);

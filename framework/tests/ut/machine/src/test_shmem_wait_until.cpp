@@ -18,7 +18,7 @@
 #include "machine/device/distributed/common.h"
 #include "machine/device/distributed/shmem_wait_until.h"
 #include "machine/utils/dynamic/dev_workspace.h"
-#include "tileop/hccl_context.h"
+#include "tileop/distributed/hccl_context.h"
 
 namespace {
 void TestShmemWaitUntil(const uint32_t tileOpCount) {

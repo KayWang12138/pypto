@@ -23,7 +23,7 @@
 
 #include "securec.h"
 
-#include "tileop/hccl_context.h"
+#include "tileop/distributed/hccl_context.h"
 #include "machine/utils/device_log.h"
 #include "tilefwk/core_func_data.h"
 #include "neon_stub.h"

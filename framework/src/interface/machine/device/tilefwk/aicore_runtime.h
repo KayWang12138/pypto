@@ -19,7 +19,7 @@
 #include <cstdint>
 
 #include "tilefwk/aicore_data.h"
-#include "tileop/hccl_context.h"
+#include "tileop/distributed/hccl_context.h"
 
 #define CACHELINE_SIZE_FOR_B32 128
 #define CACHELINE_SIZE_FOR_B64 64

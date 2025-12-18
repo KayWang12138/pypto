@@ -280,7 +280,7 @@ Tensor DispatchFFNBatching(const char *group, const Tensor &tokenTensor,
 Tensor DispatchFFNSched(const char *group, const Tensor &flagDummy, Tensor &shmemFlag, const MoeConfig &moeConfig, int32_t ffnTileCnt)
 {
     auto &function = *Program::GetInstance().GetCurrentFunction();
-    Shape shape = {512, 512};
+    Shape shape = {RECEIVE_CNT_OUT_ROW, RECEIVE_CNT_OUT_COL};
     auto recvTokenCntOutPtr = std::make_shared<LogicalTensor>(function, DataType::DT_INT32, shape);
     auto &oper = function.AddOperation(Opcode::OP_FFN_SCHED, {flagDummy.GetStorage(), shmemFlag.GetStorage()},
         {recvTokenCntOutPtr});
@@ -513,30 +513,32 @@ std::tuple<int32_t, int32_t, int32_t> GetFFNTileParam(const MoeConfig &moeConfig
 void MoeDispatch(const Tensor &tokenTensor, const Tensor &tokenExpertTable, Tensor &expandX,
     Tensor &validCnt, Tensor &combineInfo, const char *group, const MoeConfig &moeConfig)
 {
+    std::string assertResult;
+    ASSERT(checkValidConfig(moeConfig, assertResult)) << assertResult;
+    ASSERT(group != nullptr) << "MoeDispatch constraint violated: group name can't be nullptr.";
+    ASSERT(group[0] != '\0') << "MoeDispatch constraint violated: group name is not valid.";
+    ASSERT(strnlen(group, 128) < 128) << "MoeDispatch constraint violated: group name max size must be 128.";
+
+    ASSERT(checkValidInput(tokenTensor, 2, DataType::DT_BF16, 8, 5120, assertResult)) << assertResult; // 当前仅支持shape:8,5120
+    ASSERT(checkValidInput(tokenExpertTable, 2, DataType::DT_INT32, 8, 8, assertResult)) << assertResult; // 当前仅支持shape:8,8
+    ASSERT(checkValidInput(validCnt, 1, DataType::DT_INT32, moeConfig.expertNumPerRank, 1, assertResult)) << assertResult;
+
     int hcclGroupIndex = static_cast<int32_t>(CommGroupRecorder::GetInstance().Input(std::string(group)));
     SymbolicScalar thisRank = GetHcclRankId(hcclGroupIndex);
     int batchSize = tokenTensor.GetShape(0);
     int hiddenSize = tokenTensor.GetShape(1);
     int topK = tokenExpertTable.GetShape(1);
     int shmemDataLength = AlignUp(hiddenSize, 512) + 512;
+    int32_t expandXRow = std::min(static_cast<int32_t>(batchSize) *
+        static_cast<int32_t>(topK) * moeConfig.rankNum, static_cast<int32_t>(batchSize) * moeConfig.routedExpertNum);
+
+    ASSERT(checkValidInput(expandX, 2, DataType::DT_BF16, expandXRow, 5120, assertResult)) << assertResult; // 当前仅支持hiddenSize:5120
+    ASSERT(checkValidInput(combineInfo, 2, DataType::DT_INT32, expandXRow, 3, assertResult)) << assertResult; // comBineInfo固定hiddenSize:3
+
     int flagRow = 1;
     int flagCol = 128;
     Tensor shmemData;
     Tensor shmemFlag;
-
-    ASSERT(batchSize == 8) << "MoeDispatch constraint violated: batchSize must be eight";
-    ASSERT(hiddenSize % 32 == 0) << "MoeDispatch constraint violated: hiddenSize must be divisible by 32";
-    ASSERT(topK == 8) << "MoeDispatch constraint violated: topK must be eight";
-    ASSERT(group != nullptr) << "MoeDispatch constraint violated: group can not be null";
-    ASSERT(tokenTensor.GetDataType() == DataType::DT_BF16)
-        << "MoeDispatch constraint violated: tokenTensor dataType must be float16";
-    ASSERT(tokenExpertTable.GetDataType() == DataType::DT_INT32)
-        << "MoeDispatch constraint violated: tokenExpertTable dataType must be float16";
-    ASSERT(moeConfig.expertNumPerRank * moeConfig.rankNum == moeConfig.routedExpertNum)
-        << "MoeDispatch constraint violated: totalExpertNum invalid";
-    ASSERT(moeConfig.routedExpertNum == ROUTED_EXPET_NUM)
-        << "MoeDispatch constraint violated: routedExpertNum must be 160";
-
     LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
         (void) index;
         int32_t shmemDataCol = shmemDataLength * batchSize;

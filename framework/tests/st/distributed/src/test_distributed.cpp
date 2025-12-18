@@ -80,6 +80,18 @@ TEST_F(DistributedTest, shmem_all_gather_int32_128_256_4)
     Distributed::TestDynAllGather<int32_t>(testParam);
 }
 
+TEST_F(DistributedTest, shmem_moe_dispatch_bfloat16_8_5120_0_160_8_4)
+{
+    config::SetHostOption(ONLY_CODEGEN, true);
+    Distributed::TestShmemMoeDispatch(testParam);
+}
+
+TEST_F(DistributedTest, shmem_moe_dispatch_bfloat16_8_5120_0_160_8_8)
+{
+    config::SetHostOption(ONLY_CODEGEN, true);
+    Distributed::TestShmemMoeDispatch(testParam);
+}
+
 TEST_F(DistributedTest, shmem_reduce_scatter_int32_128_256_4)
 {
     config::SetHostOption(ONLY_CODEGEN, true);

@@ -22,7 +22,7 @@
 #include <array>
 #include "test_common.h"
 #include "distributed_op_test_suite.h"
-#include "tileop/hccl_context.h"
+#include "tileop/distributed/hccl_context.h"
 
 namespace npu::tile_fwk {
 namespace Distributed {

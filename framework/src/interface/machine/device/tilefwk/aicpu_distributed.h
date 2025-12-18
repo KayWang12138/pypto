@@ -15,7 +15,7 @@
 
 #pragma once
 #include "aicpu_runtime.h"
-#include "tileop/hccl_context.h"
+#include "tileop/distributed/hccl_context.h"
 
 #define RUNTIME_GetHcclRankId(groupIndex) \
      ((TileOp::HcclCombinOpParam *)(startArgs->hcclContextAddr[groupIndex]))->rankId

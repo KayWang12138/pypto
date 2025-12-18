@@ -62,7 +62,7 @@ void TestMoeDispatch() {
     Shape tokenTensorShape{batchSize, hiddenSize};
     Shape tokenExpertTableShape{batchSize, topK};
     Shape expandXShape{expandXRowShape, hiddenSize};
-    Shape validCntShape{128};
+    Shape validCntShape{routingExpertNum / rankSize};
     Shape combineInfoShape{expandXRowShape, 3};
 
     Tensor tokenTensor(dType, tokenTensorShape, "tokenTensor");
