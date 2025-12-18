@@ -759,7 +759,8 @@ bool ScatterDateCopy(const std::vector<int64_t> &loopIdx, torch::Tensor &src, to
     if (ret.dim() == 2) { // 2 dim
         int64_t srcIdx = i * s + j;
         if ((dataIdx < 0 || dataIdx >= ret.size(0)) || (srcIdx < 0 || srcIdx >= src.size(0))) {
-            ALOG_ERROR_F("index out of range. i:%d, j:%d, dst_idx:%d, srcIdx:%d\n", i, j, dataIdx, srcIdx);
+            ASSERT(false) << "index out of range. i:" << i << " j:" << j
+                          << " dst_idx:" << dataIdx << " srcIdx:" << srcIdx;
             return flag;
         }
         ret[dataIdx] = src[srcIdx];
@@ -768,7 +769,8 @@ bool ScatterDateCopy(const std::vector<int64_t> &loopIdx, torch::Tensor &src, to
         int64_t bIdx = dataIdx / blockSize;
         int64_t sIdx = dataIdx % blockSize;
         if ((bIdx < 0 || bIdx >= ret.size(0)) || (sIdx < 0 || sIdx >= ret.size(1))) {
-            ALOG_ERROR_F("index out of range. i:%d, j:%d, dst_idx:%d, blockSize:%d\n", i, j, dataIdx, blockSize);
+            ASSERT(false) << "index out of range. i:" << i << " j:" << j
+                          << " dst_idx:" << dataIdx << " blockSize:" << blockSize;
             return flag;
         }
         ret[bIdx][sIdx] = src[i][j];
