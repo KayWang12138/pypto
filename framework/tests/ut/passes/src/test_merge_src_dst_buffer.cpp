@@ -403,7 +403,7 @@ TEST_F(MergeSrcDstBufferTest, AddDiffDataTypeReplaced) {
             auto outputTensor = op.GetOOperands()[0];
             auto inputTensor = op.GetIOperands()[0];
             EXPECT_NE(outputTensor->memoryrange.memId, -1);
-            EXPECT_EQ(outputTensor->memoryrange.memId,
+            EXPECT_NE(outputTensor->memoryrange.memId,
                 inputTensor->memoryrange.memId);
             break;
         }
@@ -433,76 +433,6 @@ TEST_F(MergeSrcDstBufferTest, AddMultiConsumerNotReplaced) {
 
     for (const auto &op : function->Operations()) {
         if (op.GetOpcode() == Opcode::OP_ADD) {
-            auto outputTensor = op.GetOOperands()[0];
-            auto inputTensor = op.GetIOperands()[0];
-            EXPECT_NE(outputTensor->memoryrange.memId, -1);
-            EXPECT_NE(outputTensor->memoryrange.memId,
-                inputTensor->memoryrange.memId);
-            break;
-        }
-    }
-}
-
-TEST_F(MergeSrcDstBufferTest, ReplaceWhenSrcLargerDstSmaller) {
-    ComputationalGraphBuilder G;
-    std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4"};
-    std::vector<std::string> tensorNames1{"t5", "t6", "t7", "t8"};
-    std::vector<Opcode> opCodes{Opcode::OP_COPY_IN, Opcode::OP_COPY_IN, Opcode::OP_CAST, Opcode::OP_CAST, Opcode::OP_ADD, Opcode::OP_COPY_OUT};
-    std::vector<std::vector<std::string>> ioperands{{"t1"}, {"t2"}, {"t3"}, {"t4"}, {"t5", "t6"}, {"t7"}};
-    std::vector<std::vector<std::string>> ooperands{{"t3"}, {"t4"}, {"t5"}, {"t6"}, {"t7"}, {"t8"}};
-    std::vector<std::string> opNames{"COPYIN1", "COPYIN2", "CAST1", "CAST2", "ADD", "COPYOUT"};
-    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, {16, 16}, tensorNames), true);
-    EXPECT_EQ(G.AddTensors(DataType::DT_BF16, {16, 16}, tensorNames1), true);
-    EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
-    EXPECT_EQ(G.SetInCast({"t1", "t2"}), true);
-    EXPECT_EQ(G.SetOutCast({"t8"}), true);
-    Function *function = G.GetFunction();
-
-    EXPECT_NE(function, nullptr);
-
-    /* stub params */
-    StubInputOutput(function);
-
-    SrcDstBufferMerge mergePass;
-    mergePass.RunOnFunction(*function);
-
-    for (const auto &op : function->Operations()) {
-        if (op.GetOpcode() == Opcode::OP_CAST) {
-            auto outputTensor = op.GetOOperands()[0];
-            auto inputTensor = op.GetIOperands()[0];
-            EXPECT_NE(outputTensor->memoryrange.memId, -1);
-            EXPECT_EQ(outputTensor->memoryrange.memId,
-                inputTensor->memoryrange.memId);
-            break;
-        }
-    }
-}
-
-TEST_F(MergeSrcDstBufferTest, NotReplaceWhenSrcSmallerDstLarger) {
-    ComputationalGraphBuilder G;
-    std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4"};
-    std::vector<std::string> tensorNames1{"t5", "t6", "t7", "t8"};
-    std::vector<Opcode> opCodes{Opcode::OP_COPY_IN, Opcode::OP_COPY_IN, Opcode::OP_CAST, Opcode::OP_CAST, Opcode::OP_ADD, Opcode::OP_COPY_OUT};
-    std::vector<std::vector<std::string>> ioperands{{"t1"}, {"t2"}, {"t3"}, {"t4"}, {"t5", "t6"}, {"t7"}};
-    std::vector<std::vector<std::string>> ooperands{{"t3"}, {"t4"}, {"t5"}, {"t6"}, {"t7"}, {"t8"}};
-    std::vector<std::string> opNames{"COPYIN1", "COPYIN2", "CAST1", "CAST2", "ADD", "COPYOUT"};
-    EXPECT_EQ(G.AddTensors(DataType::DT_BF16, {16, 16}, tensorNames), true);
-    EXPECT_EQ(G.AddTensors(DataType::DT_INT32, {16, 16}, tensorNames1), true);
-    EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
-    EXPECT_EQ(G.SetInCast({"t1", "t2"}), true);
-    EXPECT_EQ(G.SetOutCast({"t8"}), true);
-    Function *function = G.GetFunction();
-
-    EXPECT_NE(function, nullptr);
-
-    /* stub params */
-    StubInputOutput(function);
-
-    SrcDstBufferMerge mergePass;
-    mergePass.RunOnFunction(*function);
-
-    for (const auto &op : function->Operations()) {
-        if (op.GetOpcode() == Opcode::OP_CAST) {
             auto outputTensor = op.GetOOperands()[0];
             auto inputTensor = op.GetIOperands()[0];
             EXPECT_NE(outputTensor->memoryrange.memId, -1);
