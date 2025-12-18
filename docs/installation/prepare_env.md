@@ -44,7 +44,8 @@ PyPTO支持在CPU仿真环境运行，除上述依赖外，不需要额外再安
 
 - CANN版本：8.5.0.RC1
 
-1. 安装CANN-ToolKit
+##### 1. 安装CANN-ToolKit #####
+
 根据实际环境，下载对应`Ascend-cann-toolkit_8.5.0_linux-${aarch}.run`， 下载链接[CANN_TOOLKIT-8.5.0_RC1.x86](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/CANN/20251216_newest/Ascend-cann-toolkit_8.5.0_linux-x86_64.run) 、[CANN_TOOLKIT-8.5.0.RC1.aarch64](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/CANN/20251216_newest/Ascend-cann-toolkit_8.5.0_linux-aarch64.run)
 
 ```
@@ -57,10 +58,9 @@ chmod +x Ascend-cann-toolkit_8.5.0_linux-${aarch}.run
 - aarch： CPU架构，如aarch64、x86_64
 - install-path：表示制定安装路径，默认安装在`/usr/local/Ascend`目录
 
-2. 安装CANN-ops
+##### 2. 安装CANN-ops #####
 
 根据实际环境和硬件类型(支持910b/910c)，下载对应`Ascend-cann-${device_type}-ops_8.5.0_linux-${aarch}.run`， 下载链接[CANN_910b-OPS-8.5.0_RC1.x86](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/CANN/20251216_newest/Ascend-cann-910b-ops_8.5.0_linux-x86_64.run) 、[CANN_910b-OPS-8.5.0.RC1.aarch64](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/CANN/20251216_newest/Ascend-cann-910b-ops_8.5.0_linux-aarch64.run)、[CANN_910c-OPS-8.5.0_RC1.x86](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/CANN/20251213_newest/Ascend-cann-910_93-ops_8.5.0_linux-x86_64.run) 、[CANN_910c-OPS-8.5.0.RC1.aarch64](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/CANN/20251213_newest/Ascend-cann-910_93-ops_8.5.0_linux-aarch64.run)
-
 ```
 # 确保安装包有可执行权限
 chmod +x Ascend-cann-${device_type}-ops_8.5.0_linux-${aarch}.run
@@ -68,11 +68,11 @@ chmod +x Ascend-cann-${device_type}-ops_8.5.0_linux-${aarch}.run
 ./Ascend-cann-${device_type}-ops_8.5.0_linux-${aarch}.run --full --force --install-path=${install_path}
 ```
 
-- device_type: 
+- device_type:  NPU 型号，如910b、910c
 - aarch： CPU架构，如aarch64、x86_64
 - install-path：表示制定安装路径，默认安装在`/usr/local/Ascend`目录
 
-3. 安装CANN-PTO-inst
+##### 3. 安装CANN-PTO-inst #####
 
 根据实际环境，下载对应`Ascend-cann-pto-inst_8.5.0_linux-${aarch}.run`， 下载链接[CANN_PTO_INST-8.5.0_RC1.x86](https://container-obsfs-filesystem.obs.cn-north-4.myhuaweicloud.com/package/cann/pto-tile-lib-dev/version_compile/r1.25.0/202512/20251216_115126_901e0fb6/ubuntu_x86/cann-pto-inst_8.5.0_linux-x86_64.run) 、[CANN_PTO_INST-8.5.0.RC1.aarch64](https://container-obsfs-filesystem.obs.cn-north-4.myhuaweicloud.com/package/cann/pto-tile-lib-dev/version_compile/r1.25.0/202512/20251216_115126_901e0fb6/ubuntu_aarch64/cann-pto-inst_8.5.0_linux-aarch64.run)
 

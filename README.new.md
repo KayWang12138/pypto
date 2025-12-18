@@ -180,19 +180,25 @@ python3 basic_operations.py npu_example_id
 
 ```python
 import pypto
+import torch
 
 # 定义计算函数
 @pypto.jit
-def add_example(a, b):
-    return pypto.add(a, b)
+def add_kernel(x0, x1, y):
+    pypto.set_vec_tile_shapes(4, 4)
+    y[:] = x0 + x1
+
+# 设置使用的 device_id
+torch.npu.set_device(0)
 
 # 创建 Tensor
-a = pypto.Tensor([1.0, 2.0, 3.0], dtype=pypto.float32)
-b = pypto.Tensor([4.0, 5.0, 6.0], dtype=pypto.float32)
+x0 = torch.ones(4, 4, dtype=torch.float32)
+x1 = torch.ones(4, 4, dtype=torch.float32)
+y = torch.empty(4, 4, dtype=torch.float32)
 
 # 执行计算
-result = add_example(a, b)
-print(result)
+add_kernel(pypto.from_torch(x0), pypto.from_torch(x1), pypto.from_torch(y))
+print(y)
 ```
 
 更多示例请参考 `examples/` 目录下的示例代码。
