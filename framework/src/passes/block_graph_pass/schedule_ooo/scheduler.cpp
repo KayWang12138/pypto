@@ -920,13 +920,13 @@ void OoOScheduler::InitMemorySize() {
         {MemoryType::MEM_FIX_QUANT_PRE, MAX_FIX_QUANT_PRE_SIZE},
     };
     localMemorySize.insert({MemoryType::MEM_UB,
-        PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_UB)});
+        Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB)});
     localMemorySize.insert({MemoryType::MEM_L1,
-        PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_L1)});
+        Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_L1)});
     localMemorySize.insert({MemoryType::MEM_L0B,
-        PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_L0B)});
+        Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_L0B)});
     localMemorySize.insert({MemoryType::MEM_FIX_QUANT_PRE,
-        PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_FIX_QUANT_PRE)});
+        Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_FIX_QUANT_PRE)});
 }
 
 Status OoOScheduler::Schedule(const std::vector<Operation *> &operations) {

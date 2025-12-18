@@ -1059,7 +1059,7 @@ Status PipeSync::RelaxFakeDataDep(std::vector<IndexOp> &syncedOpLog) {
 bool PipeSync::GenSyncOp(PipeCoreReal set, PipeCoreReal wait, int eventId, bool isSet, Operation &op) {
     if (set.core != wait.core) {
         op.SetOpCode(isSet ? Opcode::OP_CV_SYNC_SRC : Opcode::OP_CV_SYNC_DST);
-        if (config::GetDevicePlatform() == DPlatform::ASCEND_950PR_9579 && !isSet && wait.core == CoreType::AIV) {
+        if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 && !isSet && wait.core == CoreType::AIV) {
             set.pipe = PipeType::PIPE_V;
         }
         op.syncQueue_ = {set.pipe, wait.pipe, set.core, wait.core, eventId};
@@ -1076,7 +1076,7 @@ bool PipeSync::GenSyncOp(PipeCoreReal set, PipeCoreReal wait, int eventId, bool 
     //同步相关的信息放在operation属性里
     op.syncQueue_ = {set.pipe, wait.pipe, set.core, wait.core, eventId};
     if (set.core == CoreType::AIV) {
-        if (config::GetDevicePlatform() == DPlatform::ASCEND_950PR_9579) {
+        if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) {
             return false;
         }
         op.SetOpCode(Opcode::OP_BAR_V);

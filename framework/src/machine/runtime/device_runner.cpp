@@ -37,6 +37,7 @@
 #include "toolchain/prof_api.h"
 #include "prof_common.h"
 #include "load_aicpu_op.h"
+#include "tilefwk/platform.h"
 #include "machine/platform/platform_manager.h"
 #include "nlohmann/json.hpp"
 
@@ -163,7 +164,7 @@ void DeviceRunner::ResetPerfTraceDfxMem() {
 }
 
 int DeviceRunner::InitDeviceArgs(DeviceArgs &args) {
-    addressMappingTable_[ArchInfo::ARCH_32] = [&args](std::vector<int64_t>& regs, std::vector<int64_t>& regsPmu) {
+    addressMappingTable_[ArchInfo::DAV_2201] = [&args](std::vector<int64_t>& regs, std::vector<int64_t>& regsPmu) {
         std::vector<int64_t> aiv;
         std::vector<int64_t> aic;
         std::vector<int64_t> aivPmu;
@@ -180,23 +181,19 @@ int DeviceRunner::InitDeviceArgs(DeviceArgs &args) {
         regsPmu.insert(regsPmu.end(), aivPmu.begin(), aivPmu.end());
     };
 
-    addressMappingTable_[ArchInfo::ARCH_35] = [&args](std::vector<int64_t>& regs, std::vector<int64_t>& regsPmu) {
-        machine::GetRA()->GetAicoreRegInfoForArch35(regs, regsPmu);
+    addressMappingTable_[ArchInfo::DAV_3510] = [&args](std::vector<int64_t>& regs, std::vector<int64_t>& regsPmu) {
+        machine::GetRA()->GetAicoreRegInfoForDAV3510(regs, regsPmu);
     };
     
     hostProf_.RegHostProf();
-
-    aicpuNum_ = aicpuNum_ < PlatformManager::Instance().GetAiCpuCnt() - 1 ? aicpuNum_ : PlatformManager::Instance().GetAiCpuCnt() - 1;
-    if ( PlatformManager::Instance().GetAicVersion() == "AIC-C-310") {
-        args.archInfo = ArchInfo::ARCH_35;
-    }
-
+    aicpuNum_ = aicpuNum_ < static_cast<int>(Platform::Instance().GetSoc().GetAICPUNum() - 1) ? aicpuNum_ : static_cast<int>(Platform::Instance().GetSoc().GetAICPUNum() - 1);
     GetHostProfTypeSwtich();
 
     memset_s(&args, sizeof(args), 0, sizeof(args));
     std::vector<int64_t> regs;
     std::vector<int64_t> regsPmu;
 
+    args.archInfo = static_cast<ArchInfo>(Platform::Instance().GetSoc().GetNPUArch());
     auto it = addressMappingTable_.find(args.archInfo);
     if (it != addressMappingTable_.end()){
         it->second(regs, regsPmu);
@@ -807,23 +804,10 @@ int DeviceRunner::RegisterKernelBin(void **hdl) {
     return rc;
 }
 
-static void InitSocVersion()
-{
-    static constexpr uint32_t kMaxVersionLengh = 50;
-    char version[kMaxVersionLengh] = {0};
-    auto ret = rtGetSocVersion(version, kMaxVersionLengh);
-    std::string socVersion("Ascend910B1");
-    if (ret == 0) {
-        socVersion = std::string(version);
-    }
-    PlatformManager::Instance().Initialize(socVersion);
-}
-
 int DeviceRunner::Init(void) {
     char path[PATH_LENGTH];
     sprintf_s(path, PATH_LENGTH, "/tmp/aicpu%d.lock", devId_);
     lock_.Init(path);
-    InitSocVersion();
     std::string builtInOpPath = config::LogTopFolder() + "/built_in";
     CreateMultiLevelDir(builtInOpPath);
     LoadAicpuOp::GetInstance().GenBuiltInOpInfo(builtInOpPath);

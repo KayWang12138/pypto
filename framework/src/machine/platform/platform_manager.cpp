@@ -86,13 +86,13 @@ bool PlatformManager::Initialize(const std::string &socVersion) {
     }
     ALOG_INFO("Begin to initialize PlatformManager with soc version[" + socVersion + "].");
     if (socVersion.empty()) {
-        ALOG_ERROR("Soc version is empty.");
+        ALOG_WARN("Soc version is empty.");
         return false;
     }
     // get platform file path
     const char *envPath = std::getenv(HOME_PATH_ENV_NAME.c_str());
     if (envPath == nullptr) {
-        ALOG_ERROR("Env[" + HOME_PATH_ENV_NAME + "] is not existed or empty.");
+        ALOG_WARN("Env[" + HOME_PATH_ENV_NAME + "] is not existed or empty.");
         return false;
     }
 
@@ -103,13 +103,13 @@ bool PlatformManager::Initialize(const std::string &socVersion) {
 
     std::string platformFile = platformConfDir + socVersion + ".ini";
     if (RealPath(platformFile).empty()) {
-        ALOG_ERROR("Platform file[" + platformFile + "] is not existed.");
+        ALOG_WARN("Platform file[" + platformFile + "] is not existed.");
         return false;
     }
 
     std::map<std::string, std::map<std::string, std::string>> contentMap;
     if (!ReadFileContent(platformFile, contentMap)) {
-        ALOG_ERROR("Fail to read platform file[" + platformFile + "].");
+        ALOG_WARN("Fail to read platform file[" + platformFile + "].");
         return false;
     }
 
@@ -117,6 +117,7 @@ bool PlatformManager::Initialize(const std::string &socVersion) {
     ParseIntItem(contentMap);
     ParseInstrDtypeMap(contentMap);
     isInit_ = true;
+    platformFile_ = platformFile;
     ALOG_INFO("PlatformManager has been initialized successfully with soc version[" + socVersion + "].");
     return true;
 }

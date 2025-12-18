@@ -68,7 +68,7 @@ Status InplaceProcess::InplaceProcessAssemble(Function &function, Operation &op)
     }
     auto assembleOut = op.GetOOperands().front();
     // 校验Assemble输出的汇聚后tensor大小是否超过UB上限
-    const int UB_SIZE = PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_UB);
+    const int UB_SIZE = Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB);
     if (assembleOut->GetMemoryTypeOriginal() == MemoryType::MEM_UB && (assembleOut->tensor->GetRawDataSize() > UB_SIZE)) {
         APASS_LOG_ERROR_F(Elements::Tensor, "Local Buffer Assemble Result Oversized, %d, tensor: %d, size: %ld B; Please check the result size.", op.opmagic,
             assembleOut->magic, assembleOut->tensor->GetRawDataSize());

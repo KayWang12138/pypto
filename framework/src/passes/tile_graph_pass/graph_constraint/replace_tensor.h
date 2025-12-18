@@ -26,7 +26,6 @@
 #include "interface/function/function.h"
 #include "passes/pass_utils/pass_utils.h"
 #include "interface/configs/config_manager.h"
-#include "passes/pass_config/pass_config_manager.h"
 
 namespace npu {
 namespace tile_fwk {

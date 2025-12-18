@@ -14,7 +14,6 @@
  */
 
 #include "l1_copy_reuse.h"
-#include "passes/pass_config/pass_config_manager.h"
 
 namespace npu::tile_fwk {
 inline std::vector<uint64_t> GetGMInputFeature(const Operation &op) { // 提取GM tensor的特征
@@ -430,7 +429,7 @@ Status L1CopyInReuseRunner::SetNumDB(std::vector<int> &hashMergeNum) {
 inline std::vector<int> AdjustNumDBCore(int color, int numDB, int mx) {
     std::vector<int> pingColorList(color, 1);
     if (numDB == -1) {
-        int coreNum = PassConfigManager::Instance().GetPlatformConfig().GetCoreNum(NpuCoreType::CUBECORE);
+        int coreNum = Platform::Instance().GetSoc().GetAICCoreNum();
         if (coreNum == 0) {
             APASS_LOG_WARN_F(Elements::Config, "Failed to get number of cores. CubeMergeProcess will be ignored.");
             pingColorList.assign(color, 0);

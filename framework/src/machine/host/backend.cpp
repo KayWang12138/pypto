@@ -33,7 +33,6 @@
 #include "passes/pass_mgr/pass_manager.h"
 #include "compile_control_bin.h"
 #include "tilefwk/op_registry.h"
-#include "machine/platform/platform_manager.h"
 #include <dlfcn.h>
 
 using namespace npu::tile_fwk::dynamic;
@@ -53,8 +52,8 @@ extern "C" bool MatchCache(const std::string &cacheKey) {
     return CacheManager::Instance().MatchBinCache(cacheKey);
 }
 
-static void InitSocVersion()
-{
+static void InitSocVersion(std::string &socVersion) {
+    socVersion = "UnknownVersion";
 #ifdef BUILD_WITH_CANN
     if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) == CFG_RUN_MODE_SIM) {
         return;
@@ -63,16 +62,35 @@ static void InitSocVersion()
     char version[kMaxVersionLengh] = {0};
     auto rtGetSocVersionFunc = (int (*)(char* version, const uint32_t maxlen))dlsym(nullptr, "rtGetSocVersion");
     auto ret = rtGetSocVersionFunc(version, kMaxVersionLengh);
-    std::string socVersion("Ascend910B1");
     if (ret == 0) {
         socVersion = std::string(version);
     }
-    (void)PlatformManager::Instance().Initialize(socVersion);
 #endif
+    ALOG_WARN_F("InitSocVersion requires BUILD_WITH_CANN.");
+}
+
+extern "C" std::string GetPlatformInfo() {
+    std::string socVersion;
+    InitSocVersion(socVersion);
+#ifdef BUILD_WITH_CANN
+    if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) == CFG_RUN_MODE_SIM) {
+        ALOG_WARN("GetPlatformInfo: run in SIM mode, platform info not available.");
+        return "";
+    }
+
+    if (!PlatformManager::Instance().Initialize(socVersion)) {
+        ALOG_WARN_F("Failed to get platform info for SoC version %s.", socVersion.c_str());
+        return "";
+    }
+
+    return PlatformManager::Instance().GetFilePath();
+#else
+    ALOG_WARN_F("GetPlatformInfo requires BUILD_WITH_CANN.");
+    return "";
+#endif // BUILD_WITH_CANN
 }
 
 extern "C" int32_t Execute(MachineTask *task, FunctionCache &cache) {
-    InitSocVersion();
     if (config::GetPlatformConfig(KEY_ONLY_HOST_COMPILE, false)) {
         ALOG_INFO("draw graph switch enabled, push finish queue.");
         return 0;

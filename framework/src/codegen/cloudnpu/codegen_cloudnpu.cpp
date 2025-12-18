@@ -85,7 +85,7 @@ std::string CodeGenCloudNPU::GenFuncHeader(uint64_t programId, Function &topFunc
     compileInfo.SetKernelName(kernelName);
     funcHeader << kernelName;
     // kernel func param
-    std::string paramType = GetParamType(topFunc);
+    std::string paramType = GetParamType(topFunc, compileInfo.isUnderDyn());
     funcHeader << "(" << paramType
                << "* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam)";
     auto funcDec = funcHeader.str() + ";";
@@ -245,8 +245,8 @@ std::string CodeGenCloudNPU::GenDynParamForExpr(const Function &func) const {
     return dynParamList;
 }
 
-std::string CodeGenCloudNPU::GetParamType(const Function &func) const {
-    if (isUnderDynamicFunction_) {
+std::string CodeGenCloudNPU::GetParamType(const Function &func, bool isUnderDynFunc) const {
+    if (isUnderDynFunc) {
         return GM_PARAM_TYPE_FOR_DYN;
     }
     return func.GetFunctionType() == FunctionType::DYNAMIC_LOOP_PATH ? GM_PARAM_TYPE_FOR_DYN : GM_PARAM_TYPE_FOR_STATIC;
@@ -279,9 +279,8 @@ void CodeGenCloudNPU::GenCode(
             if (HandleForAICpuSubFunc(*subFunc)) {
                 return;
             }
-            isUnderDynamicFunction_ = subFunc->IsUnderDynamicFunction();
             bool isCube = subFunc->IsCube();
-            CompileInfo compileInfo(topFunc, ctx.cceDir, subFuncPair, isCube, isUnderDynamicFunction_);
+            CompileInfo compileInfo(topFunc, ctx.cceDir, subFuncPair, isCube, subFunc->IsUnderDynamicFunction());
             std::ostringstream leafKernelFunc;
             leafKernelFunc << GenFuncBodyBefore(subFuncPair, topFunc, compileInfo);
             leafKernelFunc << GenFuncBody(*subFunc, topFunc);
@@ -483,9 +482,14 @@ std::string CodeGenCloudNPU::BuildCompileOptions(
     if (ConfigManager::Instance().GetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false)) {
         compileOpts.emplace_back("-DSUPPORT_TILE_TENSOR");
     }
-    // NEXTNEXT: need to adapt different platform for future
-    compileOpts.emplace_back("-D__DAV_V220");
-    compileOpts.emplace_back("-DMEMORY_BASE");
+    if (platform_ == NPUArch::DAV_2201) {
+        compileOpts.emplace_back("-D__DAV_V220");
+        compileOpts.emplace_back("-DMEMORY_BASE");
+    } else {
+        compileOpts.emplace_back("-D__DAV_V310");
+        compileOpts.emplace_back("-DREGISTER_BASE");
+    }
+
     std::string allCompileOpts = JoinString(compileOpts, " ");
     return allCompileOpts;
 }
@@ -512,18 +516,28 @@ void CodeGenCloudNPU::BuildLLVMParams(std::ostringstream &oss) const {
         << "-mllvm -cce-aicore-dcci-insert-for-scalar=false ";
 }
 
+std::string CodeGenCloudNPU::GetCoreArch(const CompileInfo &compileInfo) const {
+    bool isCude = compileInfo.IsCube();
+    if (platform_ == NPUArch::DAV_2201) {
+        return isCude ? "dav-c220-cube" : "dav-c220-vec";
+    }
+    else {
+        return isCude ? "dav-c310-cube" : "dav-c310-vec";
+    }
+}
+
 std::pair<int, std::string> CodeGenCloudNPU::CompileCCE(
     const CompileInfo &compileInfo, const std::string &compileOptions) const {
     const std::string srcFile = compileInfo.GetCCEAbsPath();
     const std::string objFile = compileInfo.GetBinAbsPath();
 
-    std::string coreType = compileInfo.IsCube() ? "dav-c220-cube" : "dav-c220-vec";
+    std::string coreArch = GetCoreArch(compileInfo);
     std::string allCompileOpts = BuildCompileOptions(compileInfo, compileOptions);
 
     std::ostringstream oss;
     oss << "bisheng " << allCompileOpts << " -c -O3 -g -x cce -std=c++17 "
         << "--cce-aicore-only "
-        << "--cce-aicore-arch=" << coreType << " ";
+        << "--cce-aicore-arch=" << coreArch << " ";
 
     BuildIncludes(oss);
     BuildLLVMParams(oss);

@@ -18,6 +18,7 @@
 #include "gtest/gtest.h"
 #include "tilefwk/data_type.h"
 #include "tilefwk/tilefwk_op.h"
+#include "tilefwk/platform.h"
 #include "interface/function/function.h"
 #include "passes/tile_graph_pass/graph_partition/reduce_copy.h"
 #include "tilefwk/tilefwk.h"
@@ -38,6 +39,7 @@ public:
         config::Reset();
         config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
         config::SetHostConfig(KEY_STRATEGY, "ReduceCopyTestStrategy");
+        Platform::Instance().ObtainPlatformInfo();
     }
     void TearDown() override {}
 };

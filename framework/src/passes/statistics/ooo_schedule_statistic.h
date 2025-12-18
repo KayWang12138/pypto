@@ -17,7 +17,7 @@
 #define OOO_SCHEDULE_STATISTIC_H
 
 #include <nlohmann/json.hpp>
-#include "passes/pass_config/pass_config_manager.h"
+#include "tilefwk/platform.h"
 #include "interface/function/function.h"
 
 using Json = nlohmann::json;

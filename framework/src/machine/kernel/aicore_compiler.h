@@ -15,6 +15,7 @@
 #ifndef TILEFRAMEWORK_AICORE_COMPILER_H
 #define TILEFRAMEWORK_AICORE_COMPILER_H
 #include <string>
+#include "tilefwk/platform.h"
 #include "interface/function/function.h"
 #include "machine/utils/dynamic/dev_encode.h"
 

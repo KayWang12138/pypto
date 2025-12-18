@@ -22,6 +22,7 @@
 #include "interface/operation/opcode.h"
 #include "tilefwk/data_type.h"
 #include "tilefwk/tilefwk.h"
+#include "tilefwk/platform.h"
 #include "interface/inner/tilefwk.h"
 #include "passes/pass_utils/parallel_tool.h"
 

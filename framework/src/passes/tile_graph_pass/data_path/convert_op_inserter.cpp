@@ -14,7 +14,6 @@
  */
 #include "convert_op_inserter.h"
 #include "interface/tensor/logical_tensor.h"
-#include "passes/pass_config/pass_config_manager.h"
 #include "passes/pass_utils/graph_utils.h"
 #include "passes/pass_log/pass_log.h"
 
@@ -166,7 +165,7 @@ void ConvertInserter::RefreshTensorTobeMap(Function &function) {
 // 判断path路径中是否包含DDR
 bool ConvertInserter::CrossCore(const MemoryType from, const MemoryType to) const {
     std::vector<MemoryType> paths;
-    PassConfigManager::Instance().GetPlatformConfig().FindNearestPath(from, to, paths);
+    Platform::Instance().GetDie().FindNearestPath(from, to, paths);
 
     return std::find(paths.begin(), paths.end(), MemoryType::MEM_DEVICE_DDR) != paths.end();
 }
@@ -303,7 +302,7 @@ bool ConvertInserter::IsSameTileShape(const Operation &firstOp, const std::share
 //检查from和to之间是否不存在数据通路
 Status ConvertInserter::ConstructPath(MemoryType from, MemoryType to, std::vector<MemoryType> &paths,
     const std::shared_ptr<LogicalTensor> &oOperand,const Operation &op) const {
-    PassConfigManager::Instance().GetPlatformConfig().FindNearestPath(from,to,paths);
+    Platform::Instance().GetDie().FindNearestPath(from, to, paths);
     if (paths.empty()) {
         //path为空的两种场景:1、from和to内存类型一致；2、from和to不一致，且未找到数据通路。这里处理场景2，报错退出
         APASS_LOG_ERROR_F(Elements::Operation, "No memory path found from %s to %s for tensor %d in operation %s[%d]. %s",

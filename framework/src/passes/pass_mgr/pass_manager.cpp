@@ -23,6 +23,7 @@
 #include "pass_registry.h"
 #include "interface/tensor/expected_value.h"
 #include "tilefwk/error.h"
+#include "tilefwk/platform.h"
 #include "pass_dependency.h"
 // tensor graph pass
 #include "passes/tensor_graph_pass/remove_redundant_reshape.h"
@@ -46,7 +47,6 @@
 #include "passes/block_graph_pass/copy_out_resolve.h"
 #include "passes/block_graph_pass/dyn_attr_to_static.h"
 #include "passes/block_graph_pass/mix_subgraph_split.h"
-#include "passes/pass_config/pass_config_manager.h"
 
 namespace npu::tile_fwk {
 PassManager &PassManager::Instance() {
@@ -207,7 +207,7 @@ std::string PassManager::GetResumePath(const std::string &strategy) {
 }
 
 Status PassManager::RunPass(Program &program, Function &function, const std::string &strategy) const {
-    PassConfigManager::Instance().Initialize(config::GetDevicePlatform());
+    Platform::Instance().ObtainPlatformInfo();
     auto strategyPasses = GetStrategyPasses(strategy);
     std::vector<std::string> identifiers;
     std::transform(strategyPasses.begin(), strategyPasses.end(), std::back_inserter(identifiers),

@@ -9,20 +9,33 @@
  */
 
 /*!
- * \file pass_config_manager.cpp
+ * \file platform.h
  * \brief
  */
-#include "passes/pass_config/pass_config_manager.h"
-namespace npu {
-namespace tile_fwk {
-Status PassConfigManager::Initialize(DPlatform id) {
-    passPlatformInfo_.InitPlatformConfig(id);
-    return SUCCESS;
-}
 
-PassConfigManager &PassConfigManager::Instance() {
-    static PassConfigManager instance;
-    return instance;
-}
-} // namespace tile_fwk
-} // namespace npu
+#pragma once
+#ifndef COSTMODEL_PLATFORM_H
+#define COSTMODEL_PLATFORM_H
+
+#include <string>
+#include <cstdint>
+
+namespace CostModel {
+class CostModelPlatform {
+public:
+    CostModelPlatform() = default;
+    ~CostModelPlatform() = default;
+
+    uint32_t GetCostModelPlatformRealPath(std::string &realPath);
+
+private:
+    std::string RealPath(const std::string &path);
+
+    static std::string GetCurrentSharedLibPath();
+};
+} // namespace CostModel
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
+
+#endif

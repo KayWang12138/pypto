@@ -19,8 +19,8 @@
 #define CUBE_TILES // comment to disable
 #define VECTOR_TILES // comment to disable
 
+#include "tilefwk/platform.h"
 #include "passes/pass_interface/pass.h"
-#include "passes/pass_config/pass_config_manager.h"
  
 namespace npu::tile_fwk {
 // Neseccary params

@@ -20,7 +20,7 @@
 #include "passes/pass_interface/pass.h"
 #include "interface/operation/opcode.h"
 #include "passes/tile_graph_pass/data_path/convert_op_inserter.h"
-#include "passes/pass_config/pass_config_manager.h"
+#include "tilefwk/platform.h"
 #include "tilefwk/data_type.h"
 
 namespace npu::tile_fwk {

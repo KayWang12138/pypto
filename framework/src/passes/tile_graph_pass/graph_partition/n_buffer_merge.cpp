@@ -17,7 +17,6 @@
 #include "passes/pass_utils/reschedule_utils.h"
 #include "interface/utils/log.h"
 #include "passes/pass_utils/parallel_tool.h"
-#include "passes/pass_config/pass_config_manager.h"
 #include "passes/pass_log/pass_log.h"
 #include <climits>
 
@@ -457,7 +456,7 @@ Status NBufferMerge::NBufferMergeProcess(Function &func) {
         return SUCCESS;
     }
     // 如果子图个数已经少于核数； 后续按照core的类型来判断
-    int coreNum = PassConfigManager::Instance().GetPlatformConfig().GetCoreNum(NpuCoreType::AICORE);
+    int coreNum = Platform::Instance().GetSoc().GetAICoreNum();
     if (color_ <= coreNum) {
         APASS_LOG_INFO_F(Elements::Operation, "NBufferMerge is skipped. color: %d, aiCoreNum: %d.", color_, coreNum);
         return SUCCESS;

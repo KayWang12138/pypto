@@ -13,6 +13,7 @@
  * \brief Unit test for InsertSync.
  */
 #include <gtest/gtest.h>
+#include "tilefwk/platform.h"
 #include "passes/block_graph_pass/insert_sync.h"
 #include "ut_json/ut_json_tool.h"
 #define private public
@@ -109,6 +110,7 @@ public:
         config::Reset();
         config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
         config::SetPlatformConfig("ENABLE_COST_MODEL", false);
+        Platform::Instance().ObtainPlatformInfo();
     }
     void TearDown() override {}
 

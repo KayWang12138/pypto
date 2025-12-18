@@ -24,7 +24,6 @@
 #include "tilefwk/data_type.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "passes/pass_config/pass_config_manager.h"
 #include "passes/pass_utils/pass_utils.h"
 
 namespace npu::tile_fwk {

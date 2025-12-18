@@ -20,6 +20,7 @@
 #include "interface/utils/common.h"
 #include "interface/function/function.h"
 #include "interface/operation/operation.h"
+#include "tilefwk/platform.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"

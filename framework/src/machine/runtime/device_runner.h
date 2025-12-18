@@ -22,6 +22,7 @@
 #include <mutex>
 #include <unistd.h>
 #include <sys/file.h>
+#include "tilefwk/platform.h"
 #include "machine/runtime/host_prof.h"
 
 #ifdef BUILD_WITH_CANN

@@ -423,8 +423,8 @@ Status StaticSubgraphProcessor::HandleReadyStates(Function* rootFunc) {
 }
 
 bool StaticSubgraphProcessor::IsCVSeparatePlatform() {
-    auto socVersion = config::GetDevicePlatform();
-    if (socVersion == DPlatform::ASCEND_910B1 || socVersion == DPlatform::ASCEND_910B2 || socVersion == DPlatform::ASCEND_910B3 || socVersion == DPlatform::ASCEND_910B4) {
+    auto socVersion = Platform::Instance().GetSoc().GetNPUArch();
+    if (socVersion == NPUArch::DAV_2201) {
         return true;
     }
     return false;

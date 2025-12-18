@@ -33,7 +33,7 @@
 namespace npu::tile_fwk {
 
 Status ReduceCopyMerge::RunOnFunction(Function &function) {
-    if (config::GetDevicePlatform() != DPlatform::ASCEND_950PR_9579) {
+    if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510) {
         APASS_LOG_INFO_F(Elements::Operation, "Platform not support CV mix graph, skip ReduceCopy Pass.");
         return SUCCESS;
     }
@@ -50,7 +50,7 @@ Status ReduceCopyMerge::RunOnFunction(Function &function) {
 
 Status ReduceCopyMerge::PostCheck(Function &function) {
     APASS_LOG_INFO_F(Elements::Function, "PostCheck for ReduceCopy.");
-    if (config::GetDevicePlatform() != DPlatform::ASCEND_950PR_9579) {
+    if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510) {
         APASS_LOG_INFO_F(Elements::Operation, "Platform not support CV mix graph, skip PostCheck for ReduceCopy Pass.");
         return SUCCESS;
     }

@@ -45,12 +45,12 @@ const uint32_t REG_SPR_MAGIC = 0x78;
 constexpr int32_t AICORE_COREID_MASK = 0x0FFF;
 constexpr int32_t AICORE_BLOCKID_MASK = 0x0FFF;
 
-namespace Arch32 {
+namespace DAV_2201 {
     const uint32_t REG_SPR_DATA_MAIN_BASE = 0xA0;
     const uint32_t REG_SPR_COND = 0x4C8;
 }
 
-namespace Arch35 {
+namespace DAV_3510 {
     const uint32_t REG_SPR_DATA_MAIN_BASE = 0xD0;
     const uint32_t REG_SPR_COND = 0x5108;
 }
@@ -65,9 +65,9 @@ public:
         finishRegQueues_.fill(nullptr);
         blockIdToPhyCoreId_.fill(-1);
         args_.fill(nullptr);
-        if (deviceArgs->archInfo == ArchInfo::ARCH_35) {
-            regSprDataMainBase_ = Arch35::REG_SPR_DATA_MAIN_BASE;
-            regSprCond_ = Arch35::REG_SPR_COND;
+        if (deviceArgs->archInfo == ArchInfo::DAV_3510) {
+            regSprDataMainBase_ = DAV_3510::REG_SPR_DATA_MAIN_BASE;
+            regSprCond_ = DAV_3510::REG_SPR_COND;
         } 
     }
 
@@ -624,8 +624,8 @@ private:
     std::array<int, MAX_AICORE_NUM> blockIdToPhyCoreId_;
     std::array<bool, MAX_AICORE_NUM> *validCore_{nullptr};
 
-    uint32_t regSprDataMainBase_{Arch32::REG_SPR_DATA_MAIN_BASE};
-    uint32_t regSprCond_{Arch32::REG_SPR_COND};
+    uint32_t regSprDataMainBase_{DAV_2201::REG_SPR_DATA_MAIN_BASE};
+    uint32_t regSprCond_{DAV_2201::REG_SPR_COND};
 
     AiCoreProf *aicoreProf_{nullptr};
     CostModel::AiCoreModel *costModel_{nullptr};

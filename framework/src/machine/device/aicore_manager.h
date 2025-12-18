@@ -38,17 +38,8 @@ namespace npu::tile_fwk {
 const uint32_t REG_SPR_FAST_PATH_ENABLE = 0x18;
 const uint64_t REG_SPR_FAST_PATH_OPEN = 0xE;
 const uint64_t REG_SPR_FAST_PATH_CLOSE = 0xF;
-
-namespace C220 {
-    const uint32_t REG_SPR_DATA_MAIN_BASE = 0xA0;
-    const uint32_t REG_SPR_COND = 0x4C8;
-}
-
-namespace C310 {
-    const uint32_t REG_SPR_DATA_MAIN_BASE = 0xD0;
-    const uint32_t REG_SPR_COND = 0x5108;
-}
-
+const uint32_t REG_SPR_DATA_MAIN_BASE = 0xA0;
+const uint32_t REG_SPR_COND = 0x4C8;
 const uint32_t REG_SPR_MAGIC = 0x78;
 const int INVALID_CORE_IDX = 0xFF;
 
@@ -475,8 +466,8 @@ private:
     std::vector<TaskInfo> recvAckTask_[MAX_AICORE_NUM];
 
     bool isNeedWriteRegForFastPath_{true};
-    uint32_t regSprDataMainBase_{C220::REG_SPR_DATA_MAIN_BASE};
-    uint32_t regSprCond_{C220::REG_SPR_COND};
+    uint32_t regSprDataMainBase_{REG_SPR_DATA_MAIN_BASE};
+    uint32_t regSprCond_{REG_SPR_COND};
 
     friend class AiCoreProf;
 };

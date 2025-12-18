@@ -16,6 +16,7 @@
 #pragma once
 #include "interface/machine/host/machine_task.h"
 #include "interface/cache/function_cache.h"
+#include "machine/platform/platform_manager.h"
 namespace npu::tile_fwk {
 MachineTask *GenCode(
     MachineTask *task, const std::map<uint64_t, std::list<InvokeParaOffset>> &invokeParaOffset, FunctionCache &cache,

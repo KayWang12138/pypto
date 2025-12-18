@@ -37,6 +37,7 @@ def _load_shared_libs():
 
     # name, load
     desc_lst: List[List[Any]] = [
+        ["libtile_fwk_simulation_platform.so", True, ],
         ["libtile_fwk_interface.so", True, ],
         ["libtile_fwk_codegen.so", True, ],
         ["libtile_fwk_compiler.so", True, ],

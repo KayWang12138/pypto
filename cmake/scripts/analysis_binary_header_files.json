@@ -25,7 +25,8 @@
       ],
       "Area": [
         "framework/src/operator/",
-        "framework/src/passes/"
+        "framework/src/passes/",
+        "framework/src/cost_model/simulation_platform/"
       ],
       "Include": [
         "framework/include/"
@@ -149,6 +150,22 @@
       ],
       "BlackList": [
         "framework/src/interface/tileop/"
+      ]
+    }
+  },
+  "libtile_fwk_simulation_platform.so": {
+    "Source-Header": {
+      "Self": [
+        "framework/src/cost_model/simulation_platform/"
+      ],
+      "Area": [
+      ],
+      "Include": [
+        "framework/include/"
+      ],
+      "WhiteList": [
+      ],
+      "BlackList": [
       ]
     }
   },
@@ -423,7 +440,8 @@
         "framework/src/passes/",
         "framework/src/codegen/",
         "framework/src/cost_model/simulation/",
-        "framework/src/cost_model/simulation_pv/"
+        "framework/src/cost_model/simulation_pv/",
+        "framework/src/cost_model/simulation_platform/"
       ],
       "Include": [
         "framework/include/"

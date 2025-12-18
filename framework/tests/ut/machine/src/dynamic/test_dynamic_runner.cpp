@@ -18,6 +18,7 @@
 #include "machine/runtime/machine_agent.h"
 #include "interface/tensor/logical_tensor.h"
 #include "tilefwk/tilefwk.h"
+#include "tilefwk/platform.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/configs/config_manager.h"
 #include "interface/operation/operation.h"
@@ -36,6 +37,7 @@ public:
         config::Reset();
         config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
         config::SetPlatformConfig("ENABLE_COST_MODEL", false);
+        Platform::Instance().ObtainPlatformInfo();
     }
 
     void TearDown() override {}

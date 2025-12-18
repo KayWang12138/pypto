@@ -23,18 +23,9 @@ namespace {
 }
 int GetCfgBlockdim() {
 #ifdef BUILD_WITH_CANN
-    static constexpr uint32_t kMaxVersionLengh = 50;
-    char version[kMaxVersionLengh] = {0};
-    auto ret = rtGetSocVersion(version, kMaxVersionLengh);
-    std::string socVersion("Ascend910B1");
-    if (ret == 0) {
-        socVersion = std::string(version);
-    } else {
-        return kMinDefaultDim;
-    }
-    ASSERT(PlatformManager::Instance().Initialize(socVersion)) << "Failed to initialize PlatformManager with socVersion: " << socVersion.c_str();
-    auto blk = PlatformManager::Instance().GetAiCoreCnt();
-    ALOG_DEBUG_F("Get blockdim[%d] by soc:%s.", blk, socVersion.c_str());
+    auto blk = Platform::Instance().GetSoc().GetAICoreNum();
+    blk = blk > 0 ? blk : kMinDefaultDim;
+    ALOG_DEBUG_F("Get blockdim[%d].", blk);
     return blk;
 #else
     return kMinDefaultDim;

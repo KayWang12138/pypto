@@ -28,7 +28,7 @@ void OoOSchedulerCheck::HealthCheckSpillInfo() {
         spillDetails["spillEventIdx"] = spillIdx++;
         spillDetails["spillBufferType"] = MemoryTypeToString(spillInfo.spillType);
         spillDetails["bufferCurrentUsage"] = spillInfo.bufferCurrUsage;
-        spillDetails["bufferCurrentUsageRate"] = static_cast<float>(spillInfo.bufferCurrUsage) / PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(spillInfo.spillType);
+        spillDetails["bufferCurrentUsageRate"] = static_cast<float>(spillInfo.bufferCurrUsage) / Platform::Instance().GetDie().GetMemoryLimit(spillInfo.spillType);
         spillDetails["bufferOccupiedByAllocSize"] = spillInfo.allocOccupiedSize;
         spillDetails["spillTensorSize"] = spillInfo.spillTensorSize;
         spillDetails["spillTensorMagic"] = spillInfo.spillTensorMagic;
@@ -44,11 +44,11 @@ double OoOSchedulerCheck::FormatUsageRate(double value) {
 }
 
 Status OoOSchedulerCheck::HealthCheckOoOSchedule() {
-    int64_t maxL0ASize = PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_L0A);
-    int64_t maxL0BSize = PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_L0B);
-    int64_t maxL0CSize = PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_L0C);
-    int64_t maxUBSize = PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_UB);
-    int64_t maxL1Size = PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_L1);
+    int64_t maxL0ASize = Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_L0A);
+    int64_t maxL0BSize = Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_L0B);
+    int64_t maxL0CSize = Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_L0C);
+    int64_t maxUBSize = Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB);
+    int64_t maxL1Size = Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_L1);
     if (maxL0ASize == 0 || maxL0BSize == 0 || maxL0CSize == 0 || maxUBSize == 0 || maxL1Size == 0) {
         ALOG_ERROR_F("Max buffer size is 0, HealthCheckOoOSchedule failed!");
         return FAILED;

@@ -16,11 +16,11 @@
 #include <gtest/gtest.h>
 #include "interface/function/function.h"
 #include "tilefwk/tilefwk.h"
+#include "tilefwk/platform.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/configs/config_manager.h"
 #include "passes/tile_graph_pass/data_path/assign_memory_type.h"
 #include "passes/pass_mgr/pass_manager.h"
-#include "passes/pass_config/pass_config_manager.h"
 #include <fstream>
 #include <vector>
 
@@ -46,7 +46,7 @@ public:
         config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
         config::SetPlatformConfig("ENABLE_COST_MODEL", false);
         config::SetPlatformConfig("TEST_IS_TIG", true);
-        PassConfigManager::Instance().Initialize(DPlatform::ASCEND_910B2);
+        Platform::Instance().ObtainPlatformInfo();
     }
     void TearDown() override {}
 

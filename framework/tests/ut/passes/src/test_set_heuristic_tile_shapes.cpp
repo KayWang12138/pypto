@@ -20,6 +20,7 @@
 #include "tilefwk/tilefwk_op.h"
 #include "interface/function/function.h"
 #include "tilefwk/tilefwk.h"
+#include "tilefwk/platform.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "passes/pass_mgr/pass_manager.h"
@@ -41,6 +42,7 @@ public:
         config::Reset();
         config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
         config::SetPlatformConfig("ENABLE_COST_MODEL", false);
+        Platform::Instance().ObtainPlatformInfo();
     }
     void TearDown() override {}
 };

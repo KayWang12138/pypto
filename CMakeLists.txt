@@ -99,6 +99,7 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END AND BUILD_OPEN_PROJECT)
     # 安装 二进制文件
     set(InstallExport ${PROJECT_NAME}Targets)
     set(InstallTargets
+            tile_fwk_simulation_platform
             tile_fwk_interface
             tile_fwk_codegen
             tile_fwk_compiler
@@ -133,7 +134,7 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END AND BUILD_OPEN_PROJECT)
                 framework/src/interface/configs/tile_fwk_types.json
                 framework/src/interface/configs/tile_fwk_config_ng.json
                 framework/src/interface/configs/tile_fwk_config_schema.json
-                framework/src/passes/pass_config/tile_fwk_platform_info.json
+                framework/src/cost_model/simulation_platform/platform_config/A2A3.ini
             DESTINATION ${PyPTO_WhlName}/lib/configs
     )
 

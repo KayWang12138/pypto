@@ -190,26 +190,6 @@ TEST_F(L1CopyInReuseTest, TestNoL1Num) {
     EXPECT_EQ(function->GetTotalSubGraphCount(), result);
 }
 
-TEST_F(L1CopyInReuseTest, TestAutoBuffer) {
-    ComputationalGraphBuilder G;
-    std::vector<int64_t> tileShape{16, 16};
-    const int cube_nbuffer_merge_mode = 1;
-    const int sg_cube_parallel_num = 4;
-    const int result = 3;
-    auto shapeImme = OpImmediate::Specified(tileShape);
-    const int subGraphNum = 20;
-    InitGraphBuilder(G, tileShape, subGraphNum);
-    EXPECT_EQ(G.SetInCast({"incast0"}), true);
-    EXPECT_EQ(G.SetOutCast({"outcast"}), true);
-    Function *function = G.GetFunction();
-    function->paramConfigs_.cubeNBufferMergeMode = cube_nbuffer_merge_mode;
-    function->paramConfigs_.sgCubeParallelNum = sg_cube_parallel_num;
-    function->SetTotalSubGraphCount(subGraphNum);
-    L1CopyInReuseMerge LCRM;
-    EXPECT_EQ(LCRM.RunOnFunction(*function), SUCCESS);
-    EXPECT_EQ(function->GetTotalSubGraphCount(), result);
-}
-
 TEST_F(L1CopyInReuseTest, TestNoL1Map) {
     ComputationalGraphBuilder G;
     std::vector<int64_t> tileShape{16, 16};

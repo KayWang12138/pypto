@@ -25,11 +25,12 @@
 #include "machine/device/dynamic/device_common.h"
 #include "machine/runtime/device_memory_utils.h"
 #include "tilefwk/tilefwk.h"
+#include "tilefwk/platform.h"
 #include "interface/inner/tilefwk.h"
 #include "tilefwk/data_type.h"
 #include "interface/interpreter/raw_tensor_data.h"
 #include "interface/configs/config_manager.h"
-#include "machine/platform/platform_manager.h"
+#include "tilefwk/platform.h"
 
 namespace npu::tile_fwk::dynamic {
 
@@ -110,14 +111,12 @@ public:
         DeviceLauncherConfig &launchConfig = const_cast<DeviceLauncherConfig &>(config);
         ASSERT(launchConfig.blockdim != 0) << "Invalid blockdim: " << launchConfig.blockdim << ", must not be zero";
         auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
-        if (PlatformManager::Instance().GetAicVersion() == "AIC-C-310") {
-            devProg->devArgs.archInfo = ArchInfo::ARCH_35;
-        }
         devProg->devArgs.nrAic = kDefaultAicNum;
         devProg->devArgs.nrAiv = kDefaultAivNum;
         devProg->devArgs.nrValidAic = config.blockdim;
-        launchConfig.aicpuNum =  launchConfig.aicpuNum < PlatformManager::Instance().GetAiCpuCnt() - 1 ?
-            launchConfig.aicpuNum : PlatformManager::Instance().GetAiCpuCnt() - 1;
+        devProg->devArgs.archInfo = static_cast<ArchInfo>(Platform::Instance().GetSoc().GetNPUArch());
+        launchConfig.aicpuNum =  launchConfig.aicpuNum < static_cast<int>(Platform::Instance().GetSoc().GetAICPUNum()) - 1 ?
+            launchConfig.aicpuNum : static_cast<int>(Platform::Instance().GetSoc().GetAICPUNum()) - 1;
         devProg->devArgs.scheCpuNum = CalcSchAicpuNumByBlockDim(launchConfig.blockdim, launchConfig.aicpuNum);
         devProg->devArgs.taskType = DEVICE_TASK_TYPE_DYN;
         size_t shmSize = DEVICE_SHM_SIZE + DEVICE_TASK_QUEUE_SIZE * devProg->devArgs.scheCpuNum;

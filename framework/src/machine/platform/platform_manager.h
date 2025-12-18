@@ -56,6 +56,10 @@ public:
 
     bool GetVectorCoreIntrinsicDtype(const std::string &intrinsic, std::vector<std::string> &dtypeVec) const;
 
+    std::string GetFilePath() const {
+        return platformFile_;
+    }
+
     GENERATE_GET_INTPARAM_FUNC(AiCoreCnt, AICORE_CNT)
     GENERATE_GET_INTPARAM_FUNC(VecCoreCnt, VECCORE_CNT)
     GENERATE_GET_INTPARAM_FUNC(AiCpuCnt, AICPU_CNT)
@@ -129,6 +133,7 @@ private:
     static int64_t ParseIntValue(const std::string &value);
 private:
     bool isInit_;
+    std::string platformFile_;
     std::map<std::string, std::vector<std::string>> aiCoreIntrinsicDtypeMap_;
     std::map<std::string, std::vector<std::string>> vectorCoreIntrinsicDtypeMap_;
     std::array<int64_t, static_cast<size_t>(PmIntItem::ITEM_BOTTOM)> pmIntItemArray_;

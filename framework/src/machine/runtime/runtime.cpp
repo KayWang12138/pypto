@@ -22,9 +22,15 @@ const int32_t INFO_TYPE_OCCUPY = 8;
 const uint8_t AICORE_MAP_BUFF_LEN = 2;
 } // namespace
 namespace npu::tile_fwk {
-constexpr uint32_t MAX_CORE = 25;
-constexpr uint32_t MAX_CORE_FOR_A5 = 36;
 constexpr uint32_t SUB_CORE_PER_AICORE = 3;
+
+namespace DAV_2201 {
+    constexpr uint32_t MAX_CORE = 25;
+}
+
+namespace DAV_3510 {
+    constexpr uint32_t MAX_CORE = 36;
+}
 
 int RuntimeAgentMemory::GetAicoreRegInfo(std::vector<int64_t> &aic, std::vector<int64_t> &aiv, const int &addrType) const {
     uint64_t coreStride = 8 * 1024 * 1024; // 8M
@@ -45,7 +51,7 @@ int RuntimeAgentMemory::GetAicoreRegInfo(std::vector<int64_t> &aic, std::vector<
         ALOG_ERROR_F("CTRL_TYPE_ADDR_MAP fail. (ret=%d).", ret);
         return ret;
     }
-    for (uint32_t i = 0; i < MAX_CORE; i++) {
+    for (uint32_t i = 0; i < DAV_2201::MAX_CORE; i++) {
         for (uint32_t j = 0; j < SUB_CORE_PER_AICORE; j++) {
             uint64_t vaddr = outMapPara.ptr + (i * coreStride + j * subCoreStride);
             if (j == 0) {
@@ -58,11 +64,8 @@ int RuntimeAgentMemory::GetAicoreRegInfo(std::vector<int64_t> &aic, std::vector<
     return 0;
 }
 
-void RuntimeAgentMemory::GetAicoreRegInfoForArch35(std::vector<int64_t> &regs, std::vector<int64_t> &regsPmu) {
-    static constexpr uint32_t kMaxVersionLengh = 50;
-    char version[kMaxVersionLengh] = {0};
-    auto ret = rtGetSocVersion(version, kMaxVersionLengh);
-    if (ret != 0 || std::string(version) == "Ascend910B1") {
+void RuntimeAgentMemory::GetAicoreRegInfoForDAV3510(std::vector<int64_t> &regs, std::vector<int64_t> &regsPmu) {
+    if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510) {
         return;
     }
     constexpr uint32_t AICORE_PER_DIE = 18;
@@ -72,7 +75,7 @@ void RuntimeAgentMemory::GetAicoreRegInfoForArch35(std::vector<int64_t> &regs, s
     constexpr unsigned long SUB_CORE_STRIDE = 0x100000ULL;
     constexpr unsigned long AIV_STRIDE = SUB_CORE_STRIDE;
     constexpr unsigned long AIV_SECOND_STRIDE = 2 * SUB_CORE_STRIDE;
-    constexpr size_t MAX_INDEX = MAX_CORE_FOR_A5 * SUB_CORE_PER_AICORE;
+    constexpr size_t MAX_INDEX = DAV_3510::MAX_CORE * SUB_CORE_PER_AICORE;
 
     auto halFunc = (int (*)(unsigned int devId, struct res_map_info *res_info, unsigned long *va,
         unsigned int *len))dlsym(nullptr, "halResMap");
@@ -86,7 +89,7 @@ void RuntimeAgentMemory::GetAicoreRegInfoForArch35(std::vector<int64_t> &regs, s
 
     regs.resize(MAX_INDEX);
     regsPmu.resize(MAX_INDEX);
-    for (uint32_t coreIndex = 0; coreIndex < MAX_CORE_FOR_A5; coreIndex++) {
+    for (uint32_t coreIndex = 0; coreIndex < DAV_3510::MAX_CORE; coreIndex++) {
         mapInfo.res_id = coreIndex;
         unsigned long mapAddr;
         unsigned int len = 0x300000;

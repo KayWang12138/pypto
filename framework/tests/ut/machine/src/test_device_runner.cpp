@@ -18,6 +18,7 @@
 #include <iostream>
 #include <cstdlib>
 #include "tilefwk/tilefwk.h"
+#include "tilefwk/platform.h"
 #include "interface/inner/tilefwk.h"
 #include "machine/runtime/device_runner.h"
 #include "machine/utils/machine_ws_intf.h"
@@ -62,14 +63,14 @@ TEST_F(TestDeviceRunner, test_ini_device_runner) {
 
 TEST_F(TestDeviceRunner, test_ini_device_args_arch32) {
     DeviceArgs args_;
-    args_.archInfo = ArchInfo::ARCH_32;
+    args_.archInfo = ArchInfo::DAV_2201;
     npu::tile_fwk::DeviceRunner runner;
     runner.InitDeviceArgs(args_);
 }
 
 TEST_F(TestDeviceRunner, test_ini_device_args_arch35) {
     DeviceArgs args_;
-    args_.archInfo = ArchInfo::ARCH_35;
+    args_.archInfo = ArchInfo::DAV_3510;
     npu::tile_fwk::DeviceRunner runner;
     runner.InitDeviceArgs(args_);
 }

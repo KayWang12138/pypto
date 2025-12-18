@@ -175,9 +175,9 @@ std::map<int, int> FordBellman(const std::vector<std::pair<int, int>> &edges, Fu
 
 void FindCubeTilesCombinations(std::map<std::vector<int64_t>, double>& setOfCubeTiles, int64_t m, int64_t k, int64_t n, int64_t inputTypeSize, int64_t outputTypeSize) {
     // Platform params
-    const int64_t L0A_MAX_SIZE = PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_L0A);
-    const int64_t L0B_MAX_SIZE = PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_L0B);
-    const int64_t L0C_MAX_SIZE = PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_L0C);
+    const int64_t L0A_MAX_SIZE = Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_L0A);
+    const int64_t L0B_MAX_SIZE = Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_L0B);
+    const int64_t L0C_MAX_SIZE = Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_L0C);
     std::vector<int64_t> tmpTile = {0,0,0}; // m,k,n
     if (((m * k * inputTypeSize) <= (L0A_MAX_SIZE / DOUBLE_BUFFER)) && ((k * n * inputTypeSize) <= (L0B_MAX_SIZE / DOUBLE_BUFFER)) && ((m * n * outputTypeSize) <= (L0C_MAX_SIZE / DOUBLE_BUFFER))) {
         tmpTile[M_DIM] = m;
@@ -190,10 +190,10 @@ void FindCubeTilesCombinations(std::map<std::vector<int64_t>, double>& setOfCube
 void FindScoreForCubeTiles(std::pair<std::vector<int64_t>, std::vector<DataType>> shapeAndTypeInfo, std::map<std::vector<int64_t>, double>& setOfCubeTiles,
                            int64_t l1Reuse, int64_t cubeNBuffer, int64_t numOfMatmuls) {
     // Platform params
-    const int64_t L0A_MAX_SIZE = PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_L0A);
-    const int64_t L0B_MAX_SIZE = PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_L0B);
-    const int64_t L0C_MAX_SIZE = PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_L0C);
-    const int64_t CUBE_CORES = PassConfigManager::Instance().GetPlatformConfig().GetCoreNum(NpuCoreType::AICORE);
+    const int64_t L0A_MAX_SIZE = Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_L0A);
+    const int64_t L0B_MAX_SIZE = Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_L0B);
+    const int64_t L0C_MAX_SIZE = Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_L0C);
+    const int64_t CUBE_CORES = Platform::Instance().GetSoc().GetAICoreNum();
 
     // Input shapes
     int64_t M = shapeAndTypeInfo.first[M_DIM];

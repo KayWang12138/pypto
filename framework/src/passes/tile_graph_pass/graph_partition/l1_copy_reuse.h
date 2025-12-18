@@ -22,6 +22,7 @@
 #include "passes/pass_utils/dead_operation_eliminate.h"
 #include "passes/pass_interface/pass.h"
 #include "tilefwk/tilefwk.h"
+#include "tilefwk/platform.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "interface/utils/log.h"

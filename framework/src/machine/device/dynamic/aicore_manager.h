@@ -1124,7 +1124,7 @@ private:
         pendingResolveIndexList_.fill(0);
         taskDfxStatPos_.fill(REG_LOW_TASK_PING);
 
-        if (deviceArgs->archInfo == ArchInfo::ARCH_35) {
+        if (deviceArgs->archInfo == ArchInfo::DAV_3510) {
             isNeedWriteRegForFastPath_ = false;
         }
         if (deviceArgs->machineConfig != static_cast<uint8_t>(MachineScheduleConfig::DEFAULT_SCH)) {

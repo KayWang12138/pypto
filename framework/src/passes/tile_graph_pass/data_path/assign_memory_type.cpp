@@ -64,8 +64,8 @@ Status AssignMemoryType::RunOnFunction(Function &function) {
         AssignSpecialOpMemtype(op, infoBufferSize);
     }
     if (infoBufferSize) {
-        const size_t UB_SIZE_THRESHOLD = PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_UB) / 2;
-        const size_t L1_SIZE_THRESHOLD = PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_L1) / 2;
+        const size_t UB_SIZE_THRESHOLD = Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB) / 2;
+        const size_t L1_SIZE_THRESHOLD = Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_L1) / 2;
         APASS_LOG_INFO_F(Elements::Operation, "UB buffer size threshold %zu, L1 buffer size threshold %zu.",
             UB_SIZE_THRESHOLD, L1_SIZE_THRESHOLD);
     }
@@ -199,7 +199,7 @@ void AssignMemoryType::ProcessViewwithSpecificMem(Operation &operation) {
 }
 
 void AssignMemoryType::AssignMemtypeForSplitReshape(Operation &op, const LogicalTensorPtr &input, const LogicalTensorPtr &output) {
-    const int UB_SIZE_THRESHOLD = static_cast<int>(PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_UB) * 0.5);
+    const int UB_SIZE_THRESHOLD = static_cast<int>(Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB) * 0.5);
     // 如果reshape前序是Assemble后接View，是SplitReshape处理的Reshape
     auto &producers = input->GetProducers();
     auto &consumers = output->GetConsumers();
@@ -314,9 +314,9 @@ void AssignMemoryType::AssignSpecialOpMemtype(Operation &op, bool &infoBufferSiz
 
 void AssignMemoryType::UpdateOverSizedLocalBuffer(Operation &operation) {
     const int UB_SIZE_THRESHOLD =
-        static_cast<int>(PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_UB) * 0.5);
+        static_cast<int>(Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB) * 0.5);
     const int L1_SIZE_THRESHOLD =
-        static_cast<int>(PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_L1) * 0.5);
+        static_cast<int>(Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_L1) * 0.5);
 
     auto assembleOut = operation.GetOOperands().front();
     auto memType = assembleOut->GetMemoryTypeOriginal();

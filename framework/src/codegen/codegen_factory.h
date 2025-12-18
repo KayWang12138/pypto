@@ -21,6 +21,7 @@
 
 #include "codegen_cce.h"
 #include "tilefwk/tilefwk.h"
+#include "tilefwk/platform.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "interface/configs/config_manager.h"
@@ -30,8 +31,8 @@ namespace npu::tile_fwk {
 class CodeGenFactory {
 public:
     static std::shared_ptr<CodeGenCCE> GetCodeGenCCE(const CodeGenCtx &ctx) {
-        auto platform = config::GetDevicePlatform();
-        if (platform >= DPlatform::ASCEND_910B1 && platform <= DPlatform::ASCEND_910B4) {
+        auto platform = Platform::Instance().GetSoc().GetNPUArch();
+        if (platform == NPUArch::DAV_2201) {
             return std::make_shared<CodeGenCloudNPU>(ctx);
         }
         ASSERT(false) << "can not support this platform";

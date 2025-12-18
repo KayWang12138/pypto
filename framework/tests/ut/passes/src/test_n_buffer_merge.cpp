@@ -16,6 +16,7 @@
 #include <gtest/gtest.h>
 #include "interface/function/function.h"
 #include "tilefwk/tilefwk.h"
+#include "tilefwk/platform.h"
 #include "interface/inner/tilefwk.h"
 #include "passes/pass_mgr/pass_manager.h"
 #include "interface/configs/config_manager.h"
@@ -41,6 +42,7 @@ public:
 
         config::SetPassOption(NBUFFER_MERGE_MODE, 2);
         config::SetPassOption(VEC_NBUFFER_MAP, std::map<int64_t, int64_t>{{-1, 2}});
+        Platform::Instance().ObtainPlatformInfo();
     }
 
     void TearDown() override {}

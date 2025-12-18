@@ -17,13 +17,13 @@
 #include <vector>
 #include "interface/function/function.h"
 #include "tilefwk/tilefwk.h"
+#include "tilefwk/platform.h"
 #include "interface/inner/tilefwk.h"
 #include "passes/pass_mgr/pass_manager.h"
 #include "interface/configs/config_manager.h"
 #include "passes/block_graph_pass/schedule_ooo/schedule_ooo.h"
 #include "operator/models/deepseek/deepseek_mla.h"
 #include "computational_graph_builder.h"
-#include "passes/pass_config/pass_config_manager.h"
 
 namespace npu::tile_fwk {
 constexpr int OOO_NUM2 = 2;
@@ -51,7 +51,7 @@ public:
     static void TearDownTestCase() {}
 
     void SetUp() override {
-        PassConfigManager::Instance().Initialize(DPlatform::ASCEND_910B2);
+        Platform::Instance().ObtainPlatformInfo();
     }
     void TearDown() override {}
 };

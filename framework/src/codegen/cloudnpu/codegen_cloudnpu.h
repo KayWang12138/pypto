@@ -20,6 +20,7 @@
 #include <unordered_set>
 #include <utility>
 
+#include "tilefwk/platform.h"
 #include "interface/operation/operation.h"
 #include "codegen/codegen_cce.h"
 #include "codegen/symbol_mgr/codegen_symbol.h"
@@ -52,6 +53,7 @@ public:
     void SetFuncDeclare(const std::string &funcDeclare) { funcDeclare_ = funcDeclare; }
     std::string GetFuncDeclare() const { return funcDeclare_; }
     bool IsCube() const { return isCube_; }
+    bool isUnderDyn() const { return isUnderDyn_; }
 
 private:
     void Init(Function &topFunc, uint64_t subProgramId) {
@@ -99,7 +101,9 @@ private:
 
 class CodeGenCloudNPU : public CodeGenCCE {
 public:
-    explicit CodeGenCloudNPU(const CodeGenCtx &cgCtx) : CodeGenCCE(cgCtx) {};
+    explicit CodeGenCloudNPU(const CodeGenCtx &cgCtx) : CodeGenCCE(cgCtx) {
+        platform_ = Platform::Instance().GetSoc().GetNPUArch();
+    };
     ~CodeGenCloudNPU() override = default;
 
     void GenCode(Function &topFunc, const std::map<uint64_t, std::list<InvokeParaOffset>> &invokeParaOffset) override;
@@ -109,6 +113,7 @@ public:
     std::optional<std::string> GenExtraAlloc(
         const std::shared_ptr<SymbolManager> &sm, const std::shared_ptr<LogicalTensor> &tensor) const;
     std::string GenAllocForLocalBuffer(const Operation &op, const std::shared_ptr<SymbolManager> &sm) const;
+    std::string GetCoreArch(const CompileInfo &compileInfo) const;
 
 private:
     std::string GenFuncBodyBefore(
@@ -132,7 +137,7 @@ private:
     std::string GenAlloc(const std::shared_ptr<SymbolManager> &manager, BufferType bufferType,
         npu::tile_fwk::DataType dataType, const npu::tile_fwk::TileRange &range) const;
 
-    std::string GetParamType(const Function &func) const;
+    std::string GetParamType(const Function &func, bool isUnderDynFunc) const;
 
     std::string GenDynParamForExpr(const npu::tile_fwk::Function &func) const;
 
@@ -140,7 +145,7 @@ private:
 
     void UpdateSubFunc(std::pair<uint64_t, Function *> subFuncPair, const CompileInfo &compileInfo) const;
 
-    bool isUnderDynamicFunction_{false};
+    NPUArch platform_;
 
     std::string GetIncludePathForCompileCCE() const;
     std::string GetPtoTileLibPathByEnv() const;
