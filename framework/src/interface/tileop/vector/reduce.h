@@ -207,8 +207,8 @@ TILEOP void TRowSumLine(T0 dst, T1 src, T2 tmp) {
     constexpr auto srcTileW = TileOp::GetAnyAxisMergeResult<axis + srcShapeSize - 3, srcShapeSize, typename T1::TileShape>();
     using DstTileDefine = pto::Tile<pto::TileType::Vec, typename T0::Type, dstTileH, dstTileW, pto::BLayout::RowMajor, -1, -1>;
     using SrcTileDefine = pto::Tile<pto::TileType::Vec, typename T1::Type, srcTileH, srcTileW, pto::BLayout::RowMajor, -1, -1>;
-    constexpr auto tmpTileH = Std::tuple_element<tmpShapeSize - 2, typename T1::TileShape>::type::value;
-    constexpr auto tmpTileW = Std::tuple_element<tmpShapeSize - 1, typename T1::TileShape>::type::value;
+    constexpr auto tmpTileH = Std::tuple_element<tmpShapeSize - 2, typename T2::TileShape>::type::value;
+    constexpr auto tmpTileW = Std::tuple_element<tmpShapeSize - 1, typename T2::TileShape>::type::value;
     using TmpTileDefine = pto::Tile<pto::TileType::Vec, typename T2::Type, tmpTileH, tmpTileW, pto::BLayout::RowMajor, tmpTileH, tmpTileW>;
     TRowSumLineDynamic<axis, DstTileDefine, SrcTileDefine, TmpTileDefine>(dst, src, tmp);
 }

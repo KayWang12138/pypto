@@ -182,8 +182,8 @@ void TileReduceNew(Function &function, const TileShape &tileShape, const std::st
                     auto &newOp = function.AddOperation("TILE_ROW" + op + "_SINGLE", {sourceReg}, {result, tempTensor});
                     newOp.SetAttribute(OP_ATTR_PREFIX + "AXIS", axis);
                 } else{
-                    tmpShape[0] = (sourceReg->shape[axis] + NUM1) / NUM2;
-                    tmpShape[1] = (sourceReg->shape[in->shape.size() - NUM1] + BLOCK_NUM - NUM1) / BLOCK_NUM * BLOCK_NUM;
+                    tmpShape[0] = (sourceReg->shape[axis] + 1) / NUM2;
+                    tmpShape[1] = (sourceReg->shape[in->shape.size() - 1] + BLOCK_NUM - 1) / BLOCK_NUM * BLOCK_NUM;
                     auto tempTensor = std::make_shared<LogicalTensor>(function, in->Datatype(), tmpShape);
                     tempTensor->dynValidShape_ = SymbolicScalar::FromConcrete(tmpShape);
                     auto &newOp = function.AddOperation("TILE_ROW" + op + "LINE", {sourceReg}, {result, tempTensor});
