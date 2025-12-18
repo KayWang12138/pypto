@@ -32,7 +32,7 @@ void SetVerifyData(const std::vector<DeviceTensorData> &inputs,
     ProgramData::GetInstance().Reset();
     for (size_t i = 0; i < inputs.size(); i++) {
         auto rawData = RawTensorData::CreateTensor(
-            inputs[i].GetDataType(), inputs[i].GetShape(), (uint8_t *)inputs[i].GetDevAddr());
+            inputs[i].GetDataType(), inputs[i].GetShape(), (uint8_t *)inputs[i].GetAddr());
         ProgramData::GetInstance().AppendInput(rawData);
     }
     for (size_t i = 0; i < outputs.size(); i++) {
@@ -42,7 +42,7 @@ void SetVerifyData(const std::vector<DeviceTensorData> &inputs,
     }
     for (size_t i = 0; i < goldens.size(); i++) {
         auto rawData = RawTensorData::CreateTensor(
-            goldens[i].GetDataType(), goldens[i].GetShape(), (uint8_t *)goldens[i].GetDevAddr());
+            goldens[i].GetDataType(), goldens[i].GetShape(), (uint8_t *)goldens[i].GetAddr());
         ProgramData::GetInstance().AppendGolden(rawData);
     }
 }
@@ -66,7 +66,7 @@ std::string DeviceRunOnceDataFromHost(
     }
 
     for (size_t i = 0; i < inputs.size(); i++) {
-        auto rawData = RawTensorData::CreateTensor(inputs[i].GetDataType(), inputs[i].GetShape(), (uint8_t *)inputs[i].GetDevAddr());
+        auto rawData = RawTensorData::CreateTensor(inputs[i].GetDataType(), inputs[i].GetShape(), (uint8_t *)inputs[i].GetAddr());
         ProgramData::GetInstance().AppendInput(rawData);
     }
     for (size_t i = 0; i < outputs.size(); i++) {
@@ -84,13 +84,13 @@ std::string DeviceRunOnceDataFromHost(
 
     for (size_t i = 0; i < outputs.size(); i++) {
         auto output = ProgramData::GetInstance().GetOutputData(i);
-        StringUtils::DataCopy((uint8_t *)outputs[i].GetDevAddr(), output->GetDataSize(), output->data(), output->GetDataSize());
+        StringUtils::DataCopy(outputs[i].GetAddr(), output->GetDataSize(), output->data(), output->GetDataSize());
     }
 
     if (HasInplaceArgs(Program::GetInstance().GetLastFunction()) || outputs.size() == 0) {
         for (size_t i = 0; i < inputs.size(); i++) {
             auto input = ProgramData::GetInstance().GetInputData(i);
-            StringUtils::DataCopy((uint8_t *)inputs[i].GetDevAddr(), input->GetDataSize(), input->data(), input->GetDataSize());
+            StringUtils::DataCopy(inputs[i].GetAddr(), input->GetDataSize(), input->data(), input->GetDataSize());
         }
     }
     return "";
@@ -151,10 +151,11 @@ std::string OperatorDeviceRunOnceDataFromDevice([[maybe_unused]] py::int_ python
     return "";
 }
 
-uint64_t GetWorkSpaceSize(uintptr_t opAddr) {
+uint64_t GetWorkSpaceSize(uintptr_t opAddr, const std::vector<DeviceTensorData> &inputs,
+    const std::vector<DeviceTensorData> &outputs) {
     ExportedOperator *op = reinterpret_cast<ExportedOperator *>(opAddr);
     if (op) {
-        return op->GetWorkSpaceSize();
+        return op->GetWorkSpaceSize(inputs, outputs);
     }
     return 0;
 }
@@ -182,19 +183,8 @@ void DeviceFini() {
     DeviceLauncherFini();
 }
 
-uintptr_t OperatorBegin(const std::vector<std::reference_wrapper<Tensor>> &inputTensorList,
-                        const std::vector<std::reference_wrapper<Tensor>> &outputTensorList) {
+uintptr_t OperatorBegin() {
     ExportedOperator *op = ExportedOperatorBegin();
-
-    std::vector<std::shared_ptr<LogicalTensor>> inputList;
-    std::vector<std::shared_ptr<LogicalTensor>> outputList;
-    for (auto &tensor : inputTensorList) {
-        inputList.push_back(tensor.get().GetStorage());
-    }
-    for (auto &tensor : outputTensorList) {
-        outputList.push_back(tensor.get().GetStorage());
-    }
-
     auto opAddr = reinterpret_cast<uintptr_t>(op);
     return opAddr;
 }
@@ -236,7 +226,7 @@ void BindRuntime(py::module &m) {
     py::class_<DeviceTensorData>(m, "DeviceTensorData")
         .def(py::init<DataType, uintptr_t, const std::vector<int64_t> &>(), py::arg("dtype"), py::arg("addr"),
             py::arg("shape"))
-        .def("GetDevAddr", &DeviceTensorData::GetDevAddr)
+        .def("GetDataPtr", &DeviceTensorData::GetAddr)
         .def("GetShape", &DeviceTensorData::GetShape)
         .def("GetDataType", &DeviceTensorData::GetDataType);
 }

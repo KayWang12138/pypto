@@ -356,6 +356,8 @@ struct DyndevFunctionAttribute {
 
     SymbolicSymbolTable symbolTable;
 
+    std::map<std::string, int64_t> inputSymbolDict;
+
     struct ExpressionTableDictGroup {
         std::unordered_map<Function *, SymbolicExpressionTable> loopBesDict;
         std::unordered_map<Function *, std::unordered_map<RawSymbolicScalarPtr, SymbolicExpressionTable>> loopIfDict;
@@ -403,6 +405,8 @@ struct DyndevFunctionAttribute {
     std::vector<SymbolHandler> startArgsSymbolHandlerList;
 
     std::vector<std::string> commGroupNames;
+
+    SymbolicScalar dynWorkspace;
 
     std::vector<uint8_t> devProgBinary;
 

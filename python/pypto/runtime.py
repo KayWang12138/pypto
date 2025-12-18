@@ -87,7 +87,7 @@ class _JIT:
     def compile(self, *args, **kwargs):
         pypto_impl.DeviceInit()
         in_out_tensors = [item for item in args if isinstance(item, pypto.Tensor)]
-        handler = pypto_impl.OperatorBegin([t.base() for t in in_out_tensors], [])
+        handler = pypto_impl.OperatorBegin()
         with pypto.options("jit_scope"):
             self._set_config_option()
             with pypto.function(self.dyn_func.__name__, *in_out_tensors) as rlf:
@@ -102,7 +102,7 @@ class _JIT:
     def run(self, in_tensor_data, out_tensor_data, device):
         import torch
         assert self._handler is not None
-        workspace_size = pypto_impl.GetWorkSpaceSize(self._handler)
+        workspace_size = pypto_impl.GetWorkSpaceSize(self._handler, in_tensor_data, out_tensor_data)
         workspace_tensor = torch.empty(workspace_size, dtype=torch.uint8, device=device)
         pypto_impl.OperatorDeviceRunOnceDataFromDevice(
             self._handler,
@@ -311,8 +311,7 @@ def verify(func, inputs, outputs, goldens, *args,
 
     inputs = [from_torch(t, f"IN_{idx}") for idx, t in enumerate(inputs)]
     outputs = [from_torch(t, f"OUT_{idx}") for idx, t in enumerate(outputs)]
-    handler = pypto_impl.OperatorBegin([t.base() for t in inputs],
-                                       [t.base() for t in outputs])
+    handler = pypto_impl.OperatorBegin()
     func(inputs, outputs, *args, **kwargs)
     pypto_impl.OperatorEnd(handler)
 

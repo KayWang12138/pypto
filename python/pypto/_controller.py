@@ -549,8 +549,16 @@ def loop_unroll(*args, **kwargs):
     if 1 not in unroll_list:
         unroll_list.append(1)
 
+    ori_name = kwargs.get("name", None)
+    ori_idx_name = kwargs.get("idx_name", None)
+
     nstart = start
     for p in unroll_list:
+        if ori_name:
+            kwargs["name"] = f"{ori_name}_{p}"
+        if ori_idx_name:
+            kwargs["idx_name"] = f"{ori_idx_name}_{p}"
+
         nstep = step * p
         left = (stop - start) % nstep
         for idx in loop(nstart, stop - left, nstep, **kwargs):

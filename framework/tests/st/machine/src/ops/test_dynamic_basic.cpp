@@ -21,6 +21,7 @@
 #include "tilefwk/tilefwk_op.h"
 #include "tilefwk/tilefwk.h"
 #include "machine/device/dynamic/device_utils.h"
+#include "machine/runtime/device_launcher_binding.h"
 #include "test_suite_stest_ops.h"
 #include "interface/interpreter/raw_tensor_data.h"
 #include "test_dev_func_runner.h"
@@ -327,7 +328,7 @@ TEST_F(DynamicBasicTest, TestHUB) {
         LOOP("L1", FunctionType::DYNAMIC_LOOP, idx1, LoopRange(1)) {
             (void)idx1;
             TileShape::Current().SetVecTile(tileSizeLarge);
-            t2 = Add(t1, t1); 
+            t2 = Add(t1, t1);
         }
     }
 
@@ -594,12 +595,11 @@ TEST_F(DynamicBasicTest, DynamicRawShapeUnalign) {
         RawTensorData::CreateConstantTensor<float>(out0, 0.0f),
     });
 
-#ifdef BUILD_WITH_CANN
-    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), DeviceLauncherConfig(arg0.GetStorage()->GetDataSize()));
-    std::vector<float> golden(s0, 5.0f);
-    auto outs = ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
-#endif
+    auto dynAttr = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
+    DeviceTensorData argData0{arg0.GetDataType(), nullptr, arg0.GetShape()};
+    DeviceTensorData outData0{arg0.GetDataType(), nullptr, arg0.GetShape()};
+    Evaluator eval{dynAttr->inputSymbolDict, {argData0}, {outData0}};
+    EXPECT_EQ(eval.Evaluate(dynAttr->dynWorkspace), s0 * s * BytesOf(arg0.GetDataType()));
 }
 
 

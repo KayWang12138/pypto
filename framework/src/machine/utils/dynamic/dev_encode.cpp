@@ -204,7 +204,18 @@ void DevAscendFunction::UpdateRawTensorDesc(const std::shared_ptr<RawTensor> &ra
     desc->offsetOrIndex = offsetOrIndex;
 }
 
-static void EncodeRawShape(const SymbolicExpressionTable *expressionTable, DevAscendRawTensor *encoded, 
+static int64_t GetShapeSizeSafe(const std::vector<int64_t> &shape) {
+    int64_t nelm = shape.empty() ? 0 : 1;
+    for (auto x : shape) {
+        if (x == -1) {
+            return  0;
+        }
+        nelm *= x;
+    }
+    return nelm;
+}
+
+static void EncodeRawShape(const SymbolicExpressionTable *expressionTable, DevAscendRawTensor *encoded,
     std::shared_ptr<RawTensor> rawTensor, bool isIndependentMemory, const std::string rawName = "") {
     std::vector<SymInt> shape;
     bool isDyn = false;
@@ -225,18 +236,8 @@ static void EncodeRawShape(const SymbolicExpressionTable *expressionTable, DevAs
         return;
     }
 
-    uint64_t maxPossibleNumel = 0;
-    if (std::find(rawTensor->oriRawshape.begin(), rawTensor->oriRawshape.end(), -1) == rawTensor->oriRawshape.end()) {
-        maxPossibleNumel = std::max(maxPossibleNumel, std::accumulate(rawTensor->oriRawshape.begin(),
-            rawTensor->oriRawshape.end(), UINT64_C(1), std::multiplies<uint64_t>()));
-    }
-    if (std::find(rawTensor->rawshape.begin(), rawTensor->rawshape.end(), -1) == rawTensor->rawshape.end()) {
-        maxPossibleNumel = std::max(maxPossibleNumel, std::accumulate(rawTensor->rawshape.begin(),
-            rawTensor->rawshape.end(), UINT64_C(1), std::multiplies<uint64_t>()));
-    }
-    encoded->maxStaticMemReq = std::max(
-        static_cast<uint64_t>(AlignUp(maxPossibleNumel * BytesOf(rawTensor->GetDataType()), TENSOR_ADDR_ALIGNMENT)),
-        encoded->memoryRequirement);
+    int64_t nelm = std::max(GetShapeSizeSafe(rawTensor->oriRawshape), GetShapeSizeSafe(rawTensor->rawshape));
+    encoded->maxStaticMemReq = AlignUp(nelm * BytesOf(rawTensor->GetDataType()), TENSOR_ADDR_ALIGNMENT);
     if (encoded->maxStaticMemReq > MAX_STATIC_MEM_WARN_THRESHOLE) {
         ALOG_WARN_F("Root=[%s], symbol=[%s], staticMemReq=[%lu] might be an error.",
             rawName.c_str(), rawTensor->symbol.c_str(), encoded->maxStaticMemReq);
@@ -1919,6 +1920,7 @@ struct TensorWorkspaceResult {
     uint64_t pooledSlotNum{0};
     uint64_t globalTensorMem{0};
     uint64_t perCoreSpilledMem{0};
+    SymbolicScalar dynWorkspace;
 };
 
 static int EstimatedStitchingCount() {
@@ -1938,6 +1940,7 @@ struct SlotInfo {
     bool asWriteSlot{false};
     bool isAssemble{false};
     uint64_t maxAssembleDstMemReq{0};
+    SymbolicScalar dynMemReq;
 };
 
 static std::vector<SlotInfo> MarkOutputAssembleSlots(DevAscendProgram &devProg) {
@@ -1973,13 +1976,6 @@ static bool IsAssembleSlot(std::vector<SlotInfo> &slots, DevAscendFunction *func
             break;
         }
     }
-    if (isAssemble) {
-        for (size_t j = 0; j < toSlotList.size(); j++) {
-            int slotIdx = func->At(toSlotList, j);
-            slots[slotIdx].maxAssembleDstMemReq = std::max(slots[slotIdx].maxAssembleDstMemReq,
-                func->GetOutcastRawTensor(idx)->maxStaticMemReq);
-        }
-    }
     return isAssemble;
 };
 
@@ -2005,7 +2001,29 @@ static uint64_t CalcUnrolledRootBudget(uint64_t budget, int unrollTimes, int con
     return AlignUp((budget + unrollTimes - 1) / unrollTimes, TENSOR_ADDR_ALIGNMENT) * configMultiplier;
 }
 
-static TensorWorkspaceResult CalcTensorWorkspace(DevAscendProgram &devProg) {
+static SymbolicScalar GetDynRawTensorSize(Function *dynFunc, int funcKey, int idx) {
+    auto dynAttr = dynFunc->GetDyndevAttribute();
+    Function *devRoot = nullptr;
+
+    for (auto &func: dynAttr->funcGroup.devRootList) {
+        if (dynAttr->funcGroup.devRootList.GetIndex(func) == funcKey) {
+            devRoot = func;
+            break;
+        }
+    }
+    ASSERT(devRoot) << "func " << funcKey << " missing";
+
+    auto rawTensor = devRoot->GetOutcast()[idx]->GetRawTensor();
+    ASSERT(!rawTensor->GetDynRawShape().empty()) << "Not dynamic shape tensor";
+
+    SymbolicScalar size = BytesOf(rawTensor->GetDataType());
+    for (auto x : rawTensor->GetDynRawShape()) {
+        size = size * x;
+    }
+    return size;
+}
+
+static TensorWorkspaceResult CalcTensorWorkspace(Function *func,DevAscendProgram &devProg) {
     std::vector<SlotInfo> slots = MarkOutputAssembleSlots(devProg);
 
     uint64_t maxInnerWorkspace = 0;
@@ -2015,18 +2033,42 @@ static TensorWorkspaceResult CalcTensorWorkspace(DevAscendProgram &devProg) {
     for (auto &&devEncodeData : devProg.devEncodeList) {
         DevAscendFunction *devFunc = reinterpret_cast<DevAscendFunction *>(devEncodeData.Data());
         for (size_t i = 0; i < devFunc->GetOutcastSize(); i++) {
-            if (IsOutputSlot(slots, devFunc, i) || IsAssembleSlot(slots, devFunc, i)) {
-                // DAssemble budgets were update onto slots and would be added up later
+            if (IsOutputSlot(slots, devFunc, i)) {
                 continue;
             }
 
             auto &toSlotList = devFunc->GetOutcast(i).toSlotList;
-            for (size_t j = 0; j < toSlotList.size(); j++) {
-                int slotIdx = devFunc->At(toSlotList, j);
-                // No output slot
-                slots[slotIdx].asWriteSlot = true;
+            if (IsAssembleSlot(slots, devFunc, i)) {
+                SymbolicScalar dynMemReq;
+                auto staticMemReq = devFunc->GetOutcastRawTensor(i)->maxStaticMemReq;
+                if (staticMemReq == 0) {
+                    dynMemReq = GetDynRawTensorSize(func, devFunc->funcKey, i);
+                }
+                for (size_t j = 0; j < toSlotList.size(); j++) {
+                    int slotIdx = devFunc->At(toSlotList, j);
+                    if (dynMemReq.IsValid() || slots[slotIdx].dynMemReq.IsValid()) {
+                        if (!dynMemReq.IsValid()) {
+                            dynMemReq = staticMemReq;
+                        }
+                        if (!slots[slotIdx].dynMemReq.IsValid()) {
+                            slots[slotIdx].dynMemReq = slots[slotIdx].maxAssembleDstMemReq;
+                            slots[slotIdx].maxAssembleDstMemReq = 0;
+                        }
+                        slots[slotIdx].dynMemReq = std::max(dynMemReq, slots[slotIdx].dynMemReq);
+                    } else {
+                        slots[slotIdx].maxAssembleDstMemReq = std::max(
+                            slots[slotIdx].maxAssembleDstMemReq,
+                            devFunc->GetOutcastRawTensor(i)->maxStaticMemReq);
+                    }
+                }
+            } else {
+                for (size_t j = 0; j < toSlotList.size(); j++) {
+                    int slotIdx = devFunc->At(toSlotList, j);
+                    // No output slot
+                    slots[slotIdx].asWriteSlot = true;
+                }
+                maxSlotMemReq = std::max(maxSlotMemReq, devFunc->GetOutcastRawTensor(i)->maxStaticMemReq);
             }
-            maxSlotMemReq = std::max(maxSlotMemReq, devFunc->GetOutcastRawTensor(i)->maxStaticMemReq);
         }
 
         int unroll = ParseUnrollTimes(devFunc->GetRawName());
@@ -2042,12 +2084,17 @@ static TensorWorkspaceResult CalcTensorWorkspace(DevAscendProgram &devProg) {
         [](uint64_t acc, const SlotInfo &slot) {
             return acc + (slot.isAssemble ? slot.maxAssembleDstMemReq : 0);
         });
+    SymbolicScalar dynTensorMem = std::accumulate(slots.begin(), slots.end(),
+        SymbolicScalar(0), [](SymbolicScalar acc, const SlotInfo &slot) {
+            return slot.dynMemReq.IsValid() ? acc + slot.dynMemReq : acc;
+        });
 
     TensorWorkspaceResult res;
     res.singleSlotMem = maxSlotMemReq;
     res.globalTensorMem = AlignUp(globalTensorMem, TENSOR_ADDR_ALIGNMENT);
     res.rootInnerMem = maxInnerWorkspace;
     res.devTaskInnerOutcastsMem = maxOutcastWorkspace;
+    res.dynWorkspace = dynTensorMem;
 
     size_t slotsNeedAlloc = std::count_if(slots.begin(), slots.end(), [](const SlotInfo &slot) {
         return slot.asWriteSlot;
@@ -2075,9 +2122,9 @@ static uint64_t CalcGeneralMetadataWorkspace(DevAscendProgram *devProg) {
         1,
         #endif
     };
-    workspace.CalculateSlabCapacityPerType(slabSize, slabCapacity, 
+    workspace.CalculateSlabCapacityPerType(slabSize, slabCapacity,
     ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT));
-    
+
     for (int i=0; i < ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT); i++) {
         ALOG_DEBUG_F("slabCapacity[%d] is %u", i, slabCapacity[i]);
         if (slabCapacity[i] == 0) {
@@ -2122,7 +2169,8 @@ void EncodeDevAscendProgram(Function *func, uint64_t &offset, DevAscendProgram *
         offset = base->GetSize();
 
         // Calc workspace size
-        TensorWorkspaceResult tensorWsRes = CalcTensorWorkspace(*base);
+        TensorWorkspaceResult tensorWsRes = CalcTensorWorkspace(func, *base);
+
         base->memBudget.tensor.rootInner = tensorWsRes.rootInnerMem;
         base->memBudget.tensor.devTaskInnerOutcasts = tensorWsRes.devTaskInnerOutcastsMem;
         base->memBudget.tensor.singleSlotMem = tensorWsRes.singleSlotMem;
@@ -2136,6 +2184,8 @@ void EncodeDevAscendProgram(Function *func, uint64_t &offset, DevAscendProgram *
         base->memBudget.metadata.general = CalcGeneralMetadataWorkspace(base);
         base->memBudget.metadata.stitchPool = CalcStitchWorkspace(*base);
         base->memBudget.debug.dumpTensor = DumpTensorWorkspace();
+
+        func->GetDyndevAttribute()->dynWorkspace = tensorWsRes.dynWorkspace;
     }
 }
 } // namespace dynamic

@@ -303,6 +303,10 @@ TEST_F(DynamicControlFlowCacheTest, CheckGetTensorData) {
     EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), {}, {}, config));
 }
 
+static DeviceTensorData toTensorData(const std::shared_ptr<LogicalTensor> &t) {
+    return DeviceTensorData(t->Datatype(), nullptr, t->GetShape());
+}
+
 TEST_F(DynamicControlFlowCacheTest, PartialCache) {
     config::SetCodeGenOption(CODEGEN_EXPRESSION_FUSION, true);
     // cache at most 3 task
@@ -351,8 +355,8 @@ TEST_F(DynamicControlFlowCacheTest, PartialCache) {
         }
     }
 
-    std::vector<DeviceTensorData> inputList = {DeviceTensorData::Create(inputA.GetStorage()), DeviceTensorData::Create(inputB.GetStorage())};
-    std::vector<DeviceTensorData> outputList = {DeviceTensorData::Create(output.GetStorage())};
+    std::vector<DeviceTensorData> inputList = {toTensorData(inputA.GetStorage()), toTensorData(inputB.GetStorage())};
+    std::vector<DeviceTensorData> outputList = {toTensorData(output.GetStorage())};
     DeviceLauncherConfig config;
     config.blockdim = 24; // 24:max aicore num
     EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), inputList, outputList, config));
@@ -455,12 +459,12 @@ TEST_F(DynamicControlFlowCacheTest, PartialCacheChangeWorkspaceAddress) {
     }
 
     std::vector<DeviceTensorData> inputList = {
-        DeviceTensorData::Create(inputA.GetStorage()),
-        DeviceTensorData::Create(inputB.GetStorage()),
-        DeviceTensorData::Create(inputC.GetStorage()),
+        toTensorData(inputA.GetStorage()),
+        toTensorData(inputB.GetStorage()),
+        toTensorData(inputC.GetStorage()),
     };
     std::vector<DeviceTensorData> outputList = {
-        DeviceTensorData::Create(output.GetStorage()),
+        toTensorData(output.GetStorage()),
     };
     DeviceLauncherConfig config;
     config.blockdim = 24; // 24:max aicore num
@@ -647,8 +651,8 @@ TEST_F(DynamicControlFlowCacheTest, PartialCacheValueDependControl) {
         }
     }
 
-    std::vector<DeviceTensorData> inputList = {DeviceTensorData::Create(inputA.GetStorage()), DeviceTensorData::Create(inputB.GetStorage())};
-    std::vector<DeviceTensorData> outputList = {DeviceTensorData::Create(output.GetStorage())};
+    std::vector<DeviceTensorData> inputList = {toTensorData(inputA.GetStorage()), toTensorData(inputB.GetStorage())};
+    std::vector<DeviceTensorData> outputList = {toTensorData(output.GetStorage())};
     DeviceLauncherConfig config;
     config.blockdim = 24; // 24:max aicore num
     EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), inputList, outputList, config));

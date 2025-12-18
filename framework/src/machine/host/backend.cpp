@@ -702,7 +702,7 @@ static void CompileControlFlow(const std::string &aicpuDirPath,
 #ifdef BUILD_WITH_CANN
     if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) != CFG_RUN_MODE_SIM) {
         if (std::getenv("ASCEND_HOME_PATH") != nullptr) {
-            ASSERT(TileFwkAiCpuCompile(funcName, aicpuDirPath)) << ": PyPto Control Flow compile failed"; 
+            ASSERT(TileFwkAiCpuCompile(funcName, aicpuDirPath)) << ": PyPto Control Flow compile failed";
         }
     }
 #endif
@@ -724,6 +724,14 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[ma
     attr->commGroupNames = npu::tile_fwk::Distributed::CommGroupRecorder::GetInstance().Output();
     auto slotManager = Program::GetInstance().GetTensorSlotManager();
     attr->inoutLink = slotManager->BuildIncastOutcastLink(function->GetRawName());
+
+    int idx = 0;
+    for (auto name : slotManager->GetInputNameList()) {
+        attr->inputSymbolDict[AddArgPrefix(name)] = idx++;
+    }
+    for (auto name : slotManager->GetOutputNameList()) {
+        attr->inputSymbolDict[AddArgPrefix(name)] = idx++;
+    }
 
     std::ostringstream controlFlowOss;
     std::ostringstream expressionOss;

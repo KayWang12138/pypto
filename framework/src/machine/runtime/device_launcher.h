@@ -131,7 +131,11 @@ public:
         devProg->devArgs.nrAicpu = config.aicpuNum;
         ALOG_DEBUG_F("Set aicore blockdim:%d aicpu blockdim:%d.", config.blockdim, config.aicpuNum);
         devProg->devArgs.enableCtrl = 1; // need set 0 if use custom cpu launch ctrl cpu
-        devProg->memBudget.tensor.dynDAssembleDests = AlignUp(config.dynWorkspaceSize, TENSOR_ADDR_ALIGNMENT);
+        if (config.dynWorkspaceSize) {
+            ALOG_ERROR("dyn workspace too small, minimum required ", devProg->memBudget.tensor.dynDAssembleDests,
+                " user provided ", config.dynWorkspaceSize);
+            devProg->memBudget.tensor.dynDAssembleDests = AlignUp(config.dynWorkspaceSize, TENSOR_ADDR_ALIGNMENT);
+        }
         devProg->workspaceSize = devProg->memBudget.Total();
         ALOG_INFO_F("workspaceSize=%lu, tensor=%lu, metadata=%lu, aicoreSpillen=%lu, debug.DumpTensor=%lu",
             devProg->workspaceSize, devProg->memBudget.tensor.Total(), devProg->memBudget.metadata.Total(),
@@ -185,8 +189,8 @@ public:
             for (size_t k = 0; k < tensorDataList.size(); k++) {
                 auto &tensorData = tensorDataList[k];
                 uint64_t addr = 0;
-                if (tensorData.GetDevAddr() != 0) {
-                    addr = (uint64_t)tensorData.GetDevAddr();
+                if (tensorData.GetAddr() != 0) {
+                    addr = (uint64_t)tensorData.GetAddr();
                 }
                 geTensors.emplace_back(DevAscendTensorDataCreator::Create(addr, tensorData.GetShape()));
             }
@@ -215,9 +219,9 @@ public:
             if (inputData) {
                 inputData->SetDevPtr(nullptr);
                 shape.insert(shape.end(), inputData->GetShape().begin(), inputData->GetShape().end());
-                inputDeviceDataList.emplace_back(inputData->GetDataType(), (uintdevptr_t)devMem.CopyToDev(*inputData), shape);
+                inputDeviceDataList.emplace_back(inputData->GetDataType(), devMem.CopyToDev(*inputData), shape);
             } else {
-                inputDeviceDataList.emplace_back(DT_UINT8, 0, shape);
+                inputDeviceDataList.emplace_back(DT_UINT8, nullptr, shape);
             }
         }
         for (size_t k = 0; k < outputDataList.size(); k++) {
@@ -226,9 +230,9 @@ public:
             if (outputData) {
                 outputData->SetDevPtr(nullptr);
                 shape.insert(shape.end(), outputData->GetShape().begin(), outputData->GetShape().end());
-                outputDeviceDataList.emplace_back(outputData->GetDataType(), (uintdevptr_t)devMem.CopyToDev(*outputData), shape);
+                outputDeviceDataList.emplace_back(outputData->GetDataType(), devMem.CopyToDev(*outputData), shape);
             } else {
-                outputDeviceDataList.emplace_back(DT_UINT8, 0, shape);
+                outputDeviceDataList.emplace_back(DT_UINT8, nullptr, shape);
             }
         }
         return std::make_pair(inputDeviceDataList, outputDeviceDataList);

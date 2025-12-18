@@ -223,7 +223,7 @@ def test_loop_manual_unroll():
 
     with pypto.function("MAIN", A, B):
         pypto.set_vec_tile_shapes(64, 64)
-        for b, k in pypto.loop_unroll(A.shape[0] // 64, unroll_list=[1, 2, 4]):
+        for b, k in pypto.loop_unroll(A.shape[0] // 64, unroll_list=[1, 2, 4], name="A", idx_name='b'):
             tile_a = A[b * 64:(b + k) * 64, :]
             tile_a = tile_a + 2
             B[b * 64:, :] = tile_a

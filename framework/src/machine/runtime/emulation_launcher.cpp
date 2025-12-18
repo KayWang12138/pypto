@@ -155,17 +155,17 @@ static std::vector<DeviceTensorData> toHostTensorData(const std::vector<DeviceTe
         void *ptr = malloc(size);
         if (isInput) {
 #ifdef BUILD_WITH_CANN
-            rtMemcpy(ptr, size, (void *)devData.GetDevAddr(), size, RT_MEMCPY_DEVICE_TO_HOST);
+            rtMemcpy(ptr, size, devData.GetAddr(), size, RT_MEMCPY_DEVICE_TO_HOST);
 #endif
         }
-        hostDataList.emplace_back(devData.GetDataType(), (uintptr_t)ptr, devData.GetShape());
+        hostDataList.emplace_back(devData.GetDataType(), ptr, devData.GetShape());
     }
     return hostDataList;
 }
 
 static void freeHostTensorData(const std::vector<DeviceTensorData> &hostDataList) {
     for (auto &hostData : hostDataList) {
-        free((void *)hostData.GetDevAddr());
+        free(hostData.GetAddr());
     }
 }
 
