@@ -146,7 +146,6 @@ class CostModelLauncher : public DeviceLauncher {
 public:
     static void CostModelRunOnce(Function *function, const std::vector<RawTensorDataPtr> &inputs,
         const std::vector<RawTensorDataPtr> &outputs, const DeviceLauncherConfig &config = DeviceLauncherConfig()) {
-        config::SetPlatformConfig(KEY_ENABLE_DYN_FULL_COST_MODEL, true);
         auto runner = CostModelLauncher(function, config);
         runner.RunDynamic(inputs, outputs);
         RunStatic();
@@ -154,7 +153,6 @@ public:
 
     // Run with incast/outcast from ProgramData
     static void CostModelRunOnce(Function *function, const DeviceLauncherConfig &config = DeviceLauncherConfig()) {
-        config::SetPlatformConfig(KEY_ENABLE_DYN_FULL_COST_MODEL, true);
         auto &inputs = ProgramData::GetInstance().GetInputDataList();
         auto &outputs = ProgramData::GetInstance().GetOutputDataList();
         auto runner = CostModelLauncher(function, config);
@@ -295,7 +293,7 @@ private:
 
     void RunDynCostModel()
     {
-        if (!config::GetPlatformConfig("ENABLE_DYN_FULL_COST_MODEL", true)) {
+        if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) != CFG_RUN_MODE_SIM) {
             return;
         }
         config::SetSimConfig("SIM_MODE", CostModel::SimMode::NORMAL);

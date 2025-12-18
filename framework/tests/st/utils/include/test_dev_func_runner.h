@@ -311,7 +311,7 @@ private:
 
     void RunDynCostModel()
     {
-        if (!config::GetPlatformConfig("ENABLE_DYN_FULL_COST_MODEL", true)) {
+        if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) != CFG_RUN_MODE_SIM) {
             return;
         }
         config::SetSimConfig("SIM_MODE", CostModel::SimMode::NORMAL);

@@ -3,7 +3,6 @@
         "platform_configs": {
             "ENABLE_COST_MODEL": false,
             "ENABLE_DYN_COST_MODEL": false,
-            "ENABLE_DYN_FULL_COST_MODEL": false,
             "ENABLE_AIHAC_BACKEND": true,
             "ONLY_TENSOR_GRAPH": false,
             "ONLY_HOST_COMPILE": false,
