@@ -178,6 +178,7 @@ class _JIT:
             self._cached_shapes = real_shapes
             pypto_impl.BuildCache(self._handler, in_out_tensors_data, [])
         else:
+            pypto_impl.ResetLog()
             self._set_config_option()
         if pypto.get_debug_options().get("runtime_debug_mode", 0):
             pypto.set_option("profile_enable", True)

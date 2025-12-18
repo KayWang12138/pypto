@@ -273,20 +273,30 @@ std::vector<std::string> GetFiles(const std::string& path, const std::string& ex
 
 void SaveFile(const std::string &filePath, const std::vector<uint8_t> &data) {
     FILE *file = fopen(filePath.c_str(), "wb");
+    if (file == nullptr) {
+        ALOG_WARN_F("Open file [%s] failed.", filePath.c_str());
+        return;
+    }
     fwrite(data.data(), 1, data.size(), file);
     fclose(file);
 }
 
-void SaveFile(const std::string &filePath, const uint8_t *data, size_t size) {
+bool SaveFile(const std::string &filePath, const uint8_t *data, size_t size) {
     FILE *file = fopen(filePath.c_str(), "wb");
+    if (file == nullptr) {
+        ALOG_WARN_F("Open file [%s] failed.", filePath.c_str());
+        return false;
+    }
     fwrite(data, 1, size, file);
     fclose(file);
+    return true;
 }
 
 void SaveFileSafe(const std::string &filePath, const uint8_t *data, size_t size) {
     auto tmpfile = filePath + ".tmp";
-    SaveFile(tmpfile, data, size);
-    Rename(tmpfile, filePath);
+    if (SaveFile(tmpfile, data, size)) {
+        Rename(tmpfile, filePath);
+    }
 }
 
 void Rename(const std::string &oldPath, const std::string &newPath) {

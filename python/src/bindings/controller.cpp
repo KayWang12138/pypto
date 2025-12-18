@@ -79,6 +79,7 @@ void bind_controller_config(py::module &m) {
         }, py::arg("label"), py::arg("filename"), py::arg("lineno"));
 
     m.def("IsVerifyEnabled", &calc::IsVerifyEnabled);
+    m.def("ResetLog",[]() { ConfigManager::Instance().ResetLog(); });
 }
 
 

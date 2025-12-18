@@ -32,7 +32,7 @@ bool ReadBytesFromFile(const std::string &filePath, std::vector<char> &buffer);
 bool IsPathExist(const std::string& path);
 std::vector<std::string> GetFiles(const std::string& path, const std::string& ext);
 void SaveFile(const std::string &filePath, const std::vector<uint8_t> &data);
-void SaveFile(const std::string &filePath, const uint8_t *data, size_t size);
+bool SaveFile(const std::string &filePath, const uint8_t *data, size_t size) __attribute__ ((warn_unused_result));
 void SaveFileSafe(const std::string &filePath, const uint8_t *data, size_t size);
 bool DumpFile(const char *data, const size_t size, const std::string &filePath);
 bool DumpFile(const std::vector<uint8_t> &data, const std::string &filePath);
