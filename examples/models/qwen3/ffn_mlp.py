@@ -154,7 +154,7 @@ def ffn_golden_torch(topk: int, expand_x: torch.Tensor, expert_tokens: torch.Ten
         left, right = torch.split(gate_output, split_dim, dim=-1)
 
         # SwiGLU activation: Swish(gate) * up
-        # Swish(x) = x * sigmoid(x) = x / (1 + exp(-x))
+        # 【Swish(x)】 = x * sigmoid(x) = x / (1 + exp(-x))
         swiglu = left * torch.sigmoid(left)
 
         # Multiply Swish(gate) with up projection
@@ -339,7 +339,7 @@ def expert_infer_base(config: ExpertInferConfig):
     gate_right = pypto.view(gate, [loop_base, intermediate_size], [0, intermediate_size])
 
     # Step 2: SwiGLU activation
-    # Swish(gate) = gate / (1 + exp(-gate))
+    # 【Swish(gate)】 = gate / (1 + exp(-gate))
     swiglu_a = pypto.mul(gate_left, -1.0)
     swiglu_b = pypto.exp(swiglu_a)
     swiglu_c = pypto.add(swiglu_b, 1.0)

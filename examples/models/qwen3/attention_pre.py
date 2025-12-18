@@ -184,20 +184,20 @@ def rms_norm(tensor_value: pypto.tensor, gamma: pypto.tensor, eps: float, tile_s
     pypto.set_vec_tile_shapes(*tile_shape)
     gamma_fp32 = pypto.cast(gamma_3d, pypto.DT_FP32)
 
-    # Compute square: square = x^2
+    # 【Compute square】: square = x^2
     square = pypto.mul(tensor_value_fp32, tensor_value_fp32)
 
-    # Compute mean: mean_res = square * mean_coff
+    # 【Compute mean】: mean_res = square * mean_coff
     mean_coff = 1.0 / tensor_value_fp32.shape[-1]
     mean_res = pypto.mul(square, mean_coff)
 
-    # Reduce sum: reduce_asum = sum(mean_res, dim=-1, keepdim=True)
+    # 【Reduce sum】: reduce_asum = sum(mean_res, dim=-1, keepdim=True)
     reduce_asum = pypto.sum(mean_res, dim=-1, keepdim=True)
 
-    # Add epsilon: reduce_sum = reduce_asum + eps
+    # 【Add epsilon】: reduce_sum = reduce_asum + eps
     reduce_sum = pypto.add(reduce_asum, eps)
 
-    # Square root: reduce_sqrt = sqrt(reduce_sum)
+    # 【Square root】: reduce_sqrt = sqrt(reduce_sum)
     reduce_sqrt = pypto.sqrt(reduce_sum)
 
     res_div = pypto.div(tensor_value_fp32, reduce_sqrt)
@@ -234,7 +234,7 @@ def rope_data(x1: pypto.tensor, x2: pypto.tensor, cos: pypto.tensor,
     """
     pypto.set_vec_tile_shapes(*tile_shape)
 
-    # Apply RoPE: o1 = x1 * cos - x2 * sin, o2 = x2 * cos + x1 * sin
+    # 【Apply RoPE】: o1 = x1 * cos - x2 * sin, o2 = x2 * cos + x1 * sin
     o1 = pypto.sub(pypto.mul(x1, cos), pypto.mul(x2, sin))
     o2 = pypto.add(pypto.mul(x2, cos), pypto.mul(x1, sin))
 

@@ -169,22 +169,22 @@ def add_rms_norm(residual, hidden_states, weight, output_hidden_states, output_r
                 weight_2d = pypto.reshape(weight, weight_shape)
                 tile_weight_fp32 = pypto.cast(weight_2d, calc_dtype)
 
-                # Add residual connection: x = residual + hidden_states
+                # 【Add residual connection】: x = residual + hidden_states
                 x_f32 = pypto.add(tile_residual_fp32, tile_hidden_states_fp32)
 
-                # Compute square: square = x^2
+                # 【Compute square】: square = x^2
                 square = pypto.mul(x_f32, x_f32)
 
-                # Compute mean: mean_res = square * mean_coff
+                # 【Compute mean】: mean_res = square * mean_coff
                 mean_res = pypto.mul(square, mean_coff)
 
-                # Reduce sum: reduce_asum = sum(mean_res, dim=-1, keepdim=True)
+                # 【Reduce sum】: reduce_asum = sum(mean_res, dim=-1, keepdim=True)
                 reduce_asum = pypto.sum(mean_res, dim=-1, keepdim=True)
 
-                # Add epsilon: reduce_sum = reduce_asum + eps
+                # 【Add epsilon】: reduce_sum = reduce_asum + eps
                 reduce_sum = pypto.add(reduce_asum, eps)
 
-                # Square root: reduce_sqrt = sqrt(reduce_sum)
+                # 【Square root】: reduce_sqrt = sqrt(reduce_sum)
                 reduce_sqrt = pypto.sqrt(reduce_sum)
 
                 res_div = pypto.div(x_f32, reduce_sqrt)
