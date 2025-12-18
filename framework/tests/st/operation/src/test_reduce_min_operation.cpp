@@ -97,14 +97,6 @@ void Amin3DOperationExeFunc(
         };
         viewShape[dim] = 0;
         loops[dim] = 1;
-        if (dim == IDX_DIM0) {
-            viewShape[IDX_DIM1] = 0;
-            loops[IDX_DIM1] = 1;
-        }
-        else{
-            viewShape[IDX_DIM0] = 0;
-            loops[IDX_DIM0] = 1;
-        }
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, loops[IDX_DIM0], 1)) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, loops[IDX_DIM1], 1)) {
                 LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, loops[IDX_DIM2], 1)) {

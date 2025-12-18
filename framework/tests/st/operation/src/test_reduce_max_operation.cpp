@@ -97,14 +97,6 @@ void Amax3DOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tenso
         };
         viewShape[dim] = 0;
         loops[dim] = 1;
-        if (dim == IDX_DIM0) {
-            viewShape[IDX_DIM1] = 0;
-            loops[IDX_DIM1] = 1;
-        }
-        else{
-            viewShape[IDX_DIM0] = 0;
-            loops[IDX_DIM0] = 1;
-        }
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(loops[IDX_DIM0])) {
             LOOP("LOOP_L1_bIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(loops[IDX_DIM1])) {
                 LOOP("LOOP_L2_bIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(loops[IDX_DIM2])) {
