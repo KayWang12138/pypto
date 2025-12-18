@@ -58,7 +58,7 @@ struct TileTensor {
     bool isStatic;
 
     bool operator==(const TileTensor &other) const {
-        return dim == other.dim && bufVar == other.bufVar && shape == other.shape;
+        return dim == other.dim && bufVar == other.bufVar && shape == other.shape && dtype == other.dtype;
     }
 
     /*  e.g.
