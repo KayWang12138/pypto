@@ -40,7 +40,7 @@ private:
     void NotFindReplacedProcess(const Operation &ops,
         std::unordered_map<int, std::shared_ptr<LogicalTensor>> &replacedTensors);
     bool CheckAssembleReuse(const LogicalTensorPtr &outOperand);
-    bool CanSrcDstReuse(const Operation &ops, std::shared_ptr<LogicalTensor> ioperand, bool strict = false);
+    bool CanSrcDstReuse(const Operation &ops, std::shared_ptr<LogicalTensor> iOperand, std::shared_ptr<LogicalTensor> oOperand);
 
     std::map<int, std::set<int>> tensorConsumers_;
     std::map<int, int> tensorMaxSize_;

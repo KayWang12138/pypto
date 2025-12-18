@@ -140,12 +140,16 @@ std::pair<bool, Status> SrcDstBufferMergeImpl::CheckHasInplaced(const Operation 
 
 bool SrcDstBufferMergeImpl::FindReplaced(const Operation &oriOps, const Operation &ops,
     std::unordered_map<int, std::shared_ptr<LogicalTensor>> &replacedTensors) {
+    if (ops.GetOOperands().size() == 0) {
+        APASS_LOG_DEBUG_F(Elements::Operation, "Operation %s[%d] has no outOperans", ops.GetOpcodeStr().c_str(), ops.GetOpMagic());
+        return false;
+    }
+    auto out = ops.GetOOperands()[0];
+    auto outTensorMagic = out->memoryrange.memId;
     for (auto in : oriOps.GetIOperands()) {
-        if (in != nullptr && CanSrcDstReuse(oriOps, in, true)) {
+        if (in != nullptr && CanSrcDstReuse(oriOps, in, out)) {
             // 当前输出复用输入
-            auto out = ops.GetOOperands()[0];
             auto inTensorMagic = in->memoryrange.memId;
-            auto outTensorMagic = out->memoryrange.memId;
             if (inTensorMagic == outTensorMagic) {
                 continue;
             }
@@ -231,43 +235,40 @@ bool SrcDstBufferMergeImpl::CheckAssembleReuse(const LogicalTensorPtr &outOperan
     return true;
 }
 
-bool SrcDstBufferMergeImpl::CanSrcDstReuse(const Operation &ops,
-    std::shared_ptr<LogicalTensor> ioperand, bool strict) {
-    if (ops.GetOOperands().size() == 0) {
-        return false;
-    }
+bool SrcDstBufferMergeImpl::CanSrcDstReuse(const Operation &ops, std::shared_ptr<LogicalTensor> iOperand, std::shared_ptr<LogicalTensor> oOperand) {
     if (std::find(SCATTER_ELEMENT_OPS.begin(), SCATTER_ELEMENT_OPS.end(), ops.GetOpcode()) != SCATTER_ELEMENT_OPS.end()) {
-        if (ioperand == ops.GetIOperands()[0]) {
+        if (iOperand == ops.GetIOperands()[0]) {
             return true;
         }
     }
-    auto outOperand = ops.GetOOperands()[0];
     APASS_LOG_DEBUG_F(Elements::Operation, "Try reuse src %d dst %d",
-        ioperand->GetMagic(), outOperand->GetMagic());
-    if (outOperand->GetMemoryTypeOriginal() != ioperand->GetMemoryTypeOriginal()) {
+        iOperand->GetMagic(), oOperand->GetMagic());
+    if (oOperand->GetMemoryTypeOriginal() != iOperand->GetMemoryTypeOriginal()) {
         APASS_LOG_DEBUG_F(Elements::Operation, "Memtype is not same.");
         return false;
     }
-    // tile shape 必须一样
-    if (tensorMaxSize_[outOperand->memoryrange.memId] !=
-        tensorMaxSize_[ioperand->memoryrange.memId]) {
-        APASS_LOG_DEBUG_F(Elements::Operation, "Datasize is not same.");
+    if (tensorMaxSize_[oOperand->memoryrange.memId] > tensorMaxSize_[iOperand->memoryrange.memId]) {
+        APASS_LOG_DEBUG_F(Elements::Tensor, "Output tensor (memId=%d, size=%d) > input tensor (memId=%d, size=%d), op:%s[%d]", oOperand->memoryrange.memId, 
+            tensorMaxSize_[oOperand->memoryrange.memId], iOperand->memoryrange.memId, tensorMaxSize_[iOperand->memoryrange.memId], ops.GetOpcodeStr().c_str(), ops.GetOpMagic());
         return false;
     }
-    if (strict && outOperand->Datatype() != ioperand->Datatype()) {
-        APASS_LOG_DEBUG_F(Elements::Operation, "Datatype is not same.");
+    if (BytesOf(oOperand->Datatype()) > BytesOf(iOperand->Datatype())) {
+        APASS_LOG_DEBUG_F(Elements::Tensor, "Bytes of output datatype[%zu] > Bytes of output datatype[%zu], op:%s[%d]",
+            BytesOf(oOperand->Datatype()), BytesOf(iOperand->Datatype()), ops.GetOpcodeStr().c_str(), ops.GetOpMagic());
         return false;
     }
-    if (!CheckAssembleReuse(outOperand)) {
+    if (!CheckAssembleReuse(oOperand)) {
         APASS_LOG_DEBUG_F(Elements::Operation, "Check Assemble op which cannot be reused.");
         return false;
     }
     // 确保复用UB buffer后不会被覆写
-    auto iter = tensorConsumers_.find(ioperand->memoryrange.memId);
+    auto iter = tensorConsumers_.find(iOperand->memoryrange.memId);
     if (iter != tensorConsumers_.end() && iter->second.size() > 1) {
         APASS_LOG_DEBUG_F(Elements::Operation, "Op:%s[%d] has more than 1 output.", ops.GetOpcodeStr().c_str(), ops.GetOpMagic());
         return false;
     }
+    APASS_LOG_DEBUG_F(Elements::Tensor, "Reusable, iOperand magic: %d, memId: %d, oOperand magic: %d, memId: %d, op:%s[%d]", iOperand->GetMagic(), iOperand->memoryrange.memId, 
+        oOperand->GetMagic(), oOperand->memoryrange.memId, ops.GetOpcodeStr().c_str(), ops.GetOpMagic());
     return true;
 }
 } // namespace npu::tile_fwk

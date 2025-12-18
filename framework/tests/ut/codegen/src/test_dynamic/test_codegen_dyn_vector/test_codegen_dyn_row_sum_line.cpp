@@ -143,10 +143,8 @@ TEST_F(TestCodegenDynRowSumLine, TestOperationRowSumLineTileTensor) {
 extern "C" [aicore] void TENSOR_Reduce3dimMoe_TILERENSOR_2_0_4503599627370496(__gm__ GMTensorInfo* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam) {
 float __ubuf__ *UB_S0_E32768 = (float __ubuf__ *)get_imm(0x0); // size: 0x8000
 float *UB_S0_E32768_T = (float *)get_imm(0x0); // size: 0x8000
-float __ubuf__ *UB_S32768_E36864 = (float __ubuf__ *)get_imm(0x8000); // size: 0x1000
-float *UB_S32768_E36864_T = (float *)get_imm(0x8000); // size: 0x1000
-float __ubuf__ *UB_S36864_E45056 = (float __ubuf__ *)get_imm(0x9000); // size: 0x2000
-float *UB_S36864_E45056_T = (float *)get_imm(0x9000); // size: 0x2000
+float __ubuf__ *UB_S32768_E40960 = (float __ubuf__ *)get_imm(0x8000); // size: 0x2000
+float *UB_S32768_E40960_T = (float *)get_imm(0x8000); // size: 0x2000
 uint64_t sym_17_dim_0 = 2; //GET_PARAM_VALID_SHAPE_BY_IDX(param, 0, 1, 3, 0);
 uint64_t sym_17_dim_1 = 8; //GET_PARAM_VALID_SHAPE_BY_IDX(param, 0, 1, 3, 1);
 uint64_t sym_17_dim_2 = 512; //GET_PARAM_VALID_SHAPE_BY_IDX(param, 0, 1, 3, 2);
@@ -162,8 +160,8 @@ using UBTileTensorFP32Dim3_3 = TileTensor<float, StaticLayout3Dim<2, 1, 512, 2, 
 using GMTileTensorFP32Dim3_2 = TileTensor<__gm__ float, DynLayout3Dim, Hardware::GM>;
 using UBTileTensorFP32Dim3_1 = TileTensor<float, StaticLayout3Dim<2, 8, 512, 2, 8, 512>, Hardware::UB>;
 GMTileTensorFP32Dim3_5 gmTensor_6((__gm__ float*)GET_PARAM_ADDR(param, 0, 0), DynLayout3Dim(Shape3Dim(6, 1, 1024), Stride3Dim(1024, 1024, 1)));
-UBTileTensorFP32Dim3_3 ubTensor_3((uint64_t)UB_S32768_E36864_T);
-UBTileTensorFP32Dim2_4 ubTensor_4((uint64_t)UB_S36864_E45056_T);
+UBTileTensorFP32Dim2_4 ubTensor_4((uint64_t)UB_S32768_E40960_T);
+UBTileTensorFP32Dim3_3 ubTensor_3((uint64_t)UB_S0_E32768_T);
 GMTileTensorFP32Dim3_2 gmTensor_2((__gm__ float*)GET_PARAM_ADDR(param, 0, 0), DynLayout3Dim(Shape3Dim(6, 8, 1024), Stride3Dim(8192, 1024, 1)));
 UBTileTensorFP32Dim3_1 ubTensor_1((uint64_t)UB_S0_E32768_T);
 SUBKERNEL_PHASE1

@@ -190,12 +190,10 @@ float __ubuf__ *UB_S0_E16384 = (float __ubuf__ *)get_imm(0x0); // size: 0x4000
 float *UB_S0_E16384_T = (float *)get_imm(0x0); // size: 0x4000
 float __ubuf__ *UB_S16384_E81920 = (float __ubuf__ *)get_imm(0x4000); // size: 0x10000
 float *UB_S16384_E81920_T = (float *)get_imm(0x4000); // size: 0x10000
-float __ubuf__ *UB_S81920_E114688 = (float __ubuf__ *)get_imm(0x14000); // size: 0x8000
-float *UB_S81920_E114688_T = (float *)get_imm(0x14000); // size: 0x8000
-int32_t __ubuf__ *UB_S114688_E131072 = (int32_t __ubuf__ *)get_imm(0x1c000); // size: 0x4000
-int32_t *UB_S114688_E131072_T = (int32_t *)get_imm(0x1c000); // size: 0x4000
-float __ubuf__ *UB_S131072_E147456 = (float __ubuf__ *)get_imm(0x20000); // size: 0x4000
-float *UB_S131072_E147456_T = (float *)get_imm(0x20000); // size: 0x4000
+int32_t __ubuf__ *UB_S81920_E98304 = (int32_t __ubuf__ *)get_imm(0x14000); // size: 0x4000
+int32_t *UB_S81920_E98304_T = (int32_t *)get_imm(0x14000); // size: 0x4000
+float __ubuf__ *UB_S98304_E114688 = (float __ubuf__ *)get_imm(0x18000); // size: 0x4000
+float *UB_S98304_E114688_T = (float *)get_imm(0x18000); // size: 0x4000
 uint64_t sym_13_dim_0 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 2, 19, 2, 0);
 uint64_t sym_13_dim_1 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 2, 19, 2, 1);
 uint64_t sym_7_dim_0 = 128; //GET_PARAM_VALID_SHAPE_BY_IDX(param, 0, 1, 2, 0);
@@ -208,13 +206,13 @@ using UBTileTensorFP32Dim2_3 = TileTensor<float, StaticLayout2Dim<128, 128, 128,
 using UBTileTensorFP32Dim2_4 = TileTensor<float, StaticLayout2Dim<128, 64, 128, 64>, Hardware::UB>;
 using GMTileTensorFP32Dim2_2 = TileTensor<__gm__ float, DynLayout2Dim, Hardware::GM>;
 using UBTileTensorFP32Dim2_1 = TileTensor<float, StaticLayout2Dim<128, 32, 128, 32>, Hardware::UB>;
-GMTileTensorFP32Dim2_2 gmTensor_13((__gm__ float*)((__gm__ GMTensorInfo*)(param) + 1)->Addr, DynLayout2Dim(Shape2Dim(128, 32), Stride2Dim(32, 1)));
 GMTileTensorINT32Dim2_6 gmTensor_11((__gm__ int32_t*)((__gm__ GMTensorInfo*)(param) + 2)->Addr, DynLayout2Dim(Shape2Dim(128, 32), Stride2Dim(32, 1)));
-UBTileTensorFP32Dim2_1 ubTensor_9((uint64_t)UB_S131072_E147456_T);
-UBTileTensorINT32Dim2_5 ubTensor_7((uint64_t)UB_S114688_E131072_T);
+UBTileTensorFP32Dim2_1 ubTensor_9((uint64_t)UB_S98304_E114688_T);
+UBTileTensorINT32Dim2_5 ubTensor_7((uint64_t)UB_S81920_E98304_T);
+GMTileTensorFP32Dim2_2 gmTensor_13((__gm__ float*)((__gm__ GMTensorInfo*)(param) + 1)->Addr, DynLayout2Dim(Shape2Dim(128, 32), Stride2Dim(32, 1)));
+UBTileTensorFP32Dim2_4 ubTensor_5((uint64_t)UB_S16384_E81920_T);
 UBTileTensorFP32Dim2_3 ubTensor_3((uint64_t)UB_S16384_E81920_T);
 GMTileTensorFP32Dim2_2 gmTensor_2((__gm__ float*)((__gm__ GMTensorInfo*)(param) + 0)->Addr, DynLayout2Dim(Shape2Dim(128, 32), Stride2Dim(32, 1)));
-UBTileTensorFP32Dim2_4 ubTensor_5((uint64_t)UB_S81920_E114688_T);
 UBTileTensorFP32Dim2_1 ubTensor_1((uint64_t)UB_S0_E16384_T);
 SUBKERNEL_PHASE1
 TLoad(ubTensor_1, gmTensor_2, Coord2Dim(0, 0));
