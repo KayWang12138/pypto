@@ -240,15 +240,8 @@ void AssignMemoryType::AssignOpViewTypeMemtype(Operation &op){
         auto outTobeMem = inserter.GetTobeDefault(viewTypeOut);
         auto prod = *(viewTypeIn->GetProducers().begin());
         if (prod->GetOpcode() == Opcode::OP_VIEW) {
-            viewTypeOut->SetMemoryTypeOriginal(outTobeMem.begin()->second, true);
-            if (inputMemType != viewTypeOut->GetMemoryTypeOriginal()) {
-                if (inputMemType == MemoryType::MEM_DEVICE_DDR) {
-                    inserter.UpdateTensorTobeMap(viewTypeIn, op, viewTypeOut->GetMemoryTypeOriginal());
-                    if (OpcodeManager::Inst().GetOutputsMemType(prod->GetOpcode()).empty()) {
-                        viewTypeIn->SetMemoryTypeOriginal(viewTypeOut->GetMemoryTypeOriginal(), true);
-                    }
-                }
-            }
+            viewTypeIn->SetMemoryTypeOriginal(viewTypeOut->GetMemoryTypeOriginal(), true);
+            inserter.UpdateTensorTobeMap(viewTypeIn, op, viewTypeOut->GetMemoryTypeOriginal());
             return;
         }
         if (inputMemType != viewTypeOut->GetMemoryTypeOriginal()) {
