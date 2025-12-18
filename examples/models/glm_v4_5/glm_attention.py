@@ -208,9 +208,9 @@ def softmax(x, is_fp16=False):
 
 
 @pypto.jit(
-    runtime_options={"first_stitch_task_loop_num": 128, 
-    "estimated_stitch_task_max_loop_num": 1024,
-    "workspace_recycle_period": 1024,
+    runtime_options={"stitch_function_num_initial": 128, 
+    "stitch_function_outcast_memory": 1024,
+    "stitch_function_inner_memory": 1024,
     "cfgcache_device_task_num": 100,
     "cfgcache_root_task_num": 1000,
     "cfgcache_leaf_task_num": 10000},
