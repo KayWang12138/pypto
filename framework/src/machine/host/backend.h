@@ -57,14 +57,14 @@ struct Linker {
         exprTable.SetTitleOnce(GetTitle(func));
     }
 
-    void AddPrimaryExpressionForLoopIf(Function *func, const SymbolicScalar &ss) {
+    void AddPrimaryExpressionForLoopPathCond(Function *func, const SymbolicScalar &ss) {
         AddSymbolFromExpression(ss);
 
-        auto funcKey = funcGroup_.loopList.InsertAndGetIndex(func);
-        auto condKey = funcGroup_.loopIfList[func].InsertAndGetIndex(ss.Raw());
-        std::string key = SymbolicExpressionTable::GetExprKeyLoopIf(funcKey, condKey);
+        auto funcKey = funcGroup_.loopPathList.InsertAndGetIndex(func);
+        auto condKey = funcGroup_.loopPathCondList[func].InsertAndGetIndex(ss.Raw());
+        std::string key = SymbolicExpressionTable::GetExprKeyLoopPathCond(funcKey, condKey);
 
-        auto &exprTable = exprTableDictGroup_.loopIfDict[func][ss.Raw()];
+        auto &exprTable = exprTableDictGroup_.loopPathCondDict[func][ss.Raw()];
         exprTable.AddPrimaryExpression(ss);
         exprTable.SetElementKeyOnce(key);
         exprTable.SetTitleOnce(GetTitle(func));

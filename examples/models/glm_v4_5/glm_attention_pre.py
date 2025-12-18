@@ -19,6 +19,7 @@ import numpy as np
 from numpy.testing import assert_allclose
 from torch._subclasses.fake_tensor import FakeTensor
 from torch._dynamo import allow_in_graph
+from typing import Optional
 
 
 # golden
@@ -438,7 +439,7 @@ def test_quant_attention_pre():
 @allow_in_graph
 def attention_pre_quant(
     hidden_states: torch.Tensor,
-    residual: torch.Tensor | None,
+    residual: Optional[torch.Tensor],
     input_layernorm_weight: torch.Tensor,
     input_layernorm_bias: torch.Tensor,
     atten_qkv_input_scale_reciprocal: torch.Tensor,

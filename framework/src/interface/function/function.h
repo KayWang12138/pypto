@@ -206,6 +206,7 @@ struct DynloopFunctionPath {
         : root(pathRoot), pathCondList(pathConds), callop(operation) {}
 
     const std::vector<DynloopFunctionPathCondition> &GetPathCondList() const { return pathCondList; }
+    Function *GetRoot() const { return root; }
 };
 
 struct DynloopFunctionPathNode {
@@ -241,7 +242,7 @@ struct DynloopFunctionAttribute {
     const SymbolicScalar &Begin() { return loopRange.Begin(); }
     const SymbolicScalar &End() { return loopRange.End(); }
     const SymbolicScalar &Step() { return loopRange.Step(); }
-    const std::vector<DynloopFunctionPath> GetPathList() const { return pathList; }
+    const std::vector<DynloopFunctionPath> &GetPathList() const { return pathList; }
 
     std::shared_ptr<DynloopFunctionPathNode> BuildPathNode();
     std::string DumpBranch() const;
@@ -347,7 +348,9 @@ struct DyndevFunctionAttribute {
     struct FunctionGroup {
         /* loop */
         OrderedSet<Function *> loopList;
-        std::unordered_map<Function *, OrderedSet<RawSymbolicScalarPtr>> loopIfList;
+        /* loop path */
+        OrderedSet<Function *> loopPathList;
+        std::unordered_map<Function *, OrderedSet<RawSymbolicScalarPtr>> loopPathCondList;
         /* devRoot */
         OrderedSet<Function *> devRootList;
         /* devLeaf */
@@ -361,7 +364,7 @@ struct DyndevFunctionAttribute {
 
     struct ExpressionTableDictGroup {
         std::unordered_map<Function *, SymbolicExpressionTable> loopBesDict;
-        std::unordered_map<Function *, std::unordered_map<RawSymbolicScalarPtr, SymbolicExpressionTable>> loopIfDict;
+        std::unordered_map<Function *, std::unordered_map<RawSymbolicScalarPtr, SymbolicExpressionTable>> loopPathCondDict;
         std::unordered_map<Function *, SymbolicExpressionTable> devRootCoaDict;
         std::unordered_map<Function *, std::unordered_map<Operation *, SymbolicExpressionTable>> devLeafOpDict;
     } exprTableDictGroup;
@@ -407,7 +410,7 @@ struct DyndevFunctionAttribute {
 
     std::vector<std::string> commGroupNames;
 
-    SymbolicScalar dynWorkspace;
+    SymbolicScalar maxDynamicAssembleOutcastMem;
 
     std::vector<uint8_t> devProgBinary;
 
@@ -691,7 +694,8 @@ public:
             // 扩展支持的算子类型：RESHAPE、VIEW、ASSEMBLE
             return opcode == Opcode::OP_RESHAPE ||
                 opcode == Opcode::OP_VIEW ||
-                opcode == Opcode::OP_ASSEMBLE;
+                opcode == Opcode::OP_ASSEMBLE ||
+                opcode == Opcode::OP_BIND_TENSOR;
         });
     }
 

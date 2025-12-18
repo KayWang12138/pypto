@@ -142,8 +142,8 @@ void PassManager::RegDefaultStrategy() {
             {               "LoopUnroll",               "LoopUnroll"}
     });
     RegisterStrategy(
-        "ScalarOptimize", {
-            {               "DynAttrToStatic",     "DynAttrToStatic"}
+        "ExecuteGraph", {
+            {          "DynAttrToStatic",          "DynAttrToStatic"},
     });
 }
 

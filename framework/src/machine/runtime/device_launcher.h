@@ -94,14 +94,14 @@ public:
     }
 
     static void DeviceLauncherConfigFillDeviceInfo(const DeviceLauncherConfig &config) {
+        DeviceLauncherConfig &devConfig = const_cast<DeviceLauncherConfig &>(config);
 #ifdef BUILD_WITH_CANN
         int maxBlockDim = GetCfgBlockdim();
 #else
         int maxBlockDim = 25;
 #endif
-        DeviceLauncherConfig &launchConfig = const_cast<DeviceLauncherConfig &>(config);
-        if (config.blockdim == 0 || config.blockdim > maxBlockDim) {
-            launchConfig.blockdim = maxBlockDim;
+        if (devConfig.blockdim == 0 || devConfig.blockdim > maxBlockDim) {
+            devConfig.blockdim = maxBlockDim;
         }
     }
 
@@ -132,18 +132,19 @@ public:
         ALOG_DEBUG_F("Set aicore blockdim:%d aicpu blockdim:%d.", config.blockdim, config.aicpuNum);
         devProg->devArgs.enableCtrl = 1; // need set 0 if use custom cpu launch ctrl cpu
         if (config.dynWorkspaceSize) {
-            ALOG_ERROR("dyn workspace too small, minimum required ", devProg->memBudget.tensor.dynDAssembleDests,
-                " user provided ", config.dynWorkspaceSize);
-            devProg->memBudget.tensor.dynDAssembleDests = AlignUp(config.dynWorkspaceSize, TENSOR_ADDR_ALIGNMENT);
+            ALOG_ERROR("[Deprecated] User provided dynamic workspace: ", config.dynWorkspaceSize);
+            devProg->memBudget.tensor.maxDynamicAssembleOutcastMem = std::max(
+                static_cast<int64_t>(devProg->memBudget.tensor.maxDynamicAssembleOutcastMem),
+                AlignUp(config.dynWorkspaceSize, TENSOR_ADDR_ALIGNMENT));
         }
         devProg->workspaceSize = devProg->memBudget.Total();
         ALOG_INFO_F("workspaceSize=%lu, tensor=%lu, metadata=%lu, aicoreSpillen=%lu, debug.DumpTensor=%lu",
             devProg->workspaceSize, devProg->memBudget.tensor.Total(), devProg->memBudget.metadata.Total(),
             devProg->memBudget.aicoreSpilled, devProg->memBudget.debug.dumpTensor);
         ALOG_INFO_F("Tensor:rootInner=%lu, dessembleDests=%lu, devTaskInnerOutCasts=%lu, slotted=%lux%lu(slots).",
-            devProg->memBudget.tensor.rootInner, devProg->memBudget.tensor.dassembleDests,
-            devProg->memBudget.tensor.devTaskInnerOutcasts, devProg->memBudget.tensor.singleSlotMem,
-            devProg->memBudget.tensor.pooledSlotNum);
+            devProg->memBudget.tensor.rootInner, devProg->memBudget.tensor.DAssembleDests(),
+            devProg->memBudget.tensor.devTaskInnerExclusiveOutcasts, devProg->memBudget.tensor.MaxOutcastMem(),
+            devProg->memBudget.tensor.devTaskBoundaryOutcastNum);
         devProg->l2CacheOffset = devMem.GetL2Offset();
         ASSERT(devProg->commGroupNum == config.hcclContext.size()) << "commGroupNum mismatch. commGroupNum = " <<
                devProg->commGroupNum << ", hcclContext size = " << config.hcclContext.size();

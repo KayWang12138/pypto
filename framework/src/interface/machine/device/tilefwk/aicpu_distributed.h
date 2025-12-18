@@ -23,5 +23,5 @@
 #define RUNTIME_BindTensor(groupIndex, memType, size) \
     [&](void *ctx, uint64_t tgroupIndex, uint64_t tmemType, uint64_t tsize) -> uint64_t { \
         uint64_t param[] = {tgroupIndex, tmemType, tsize}; \
-        return (uint64_t)callRootList[CallRootStage::T_CALLROOT_SHMEM_ALLOC](ctx, (uint64_t)(&param)); \
+        return (uint64_t)runtimeCallList[RuntimeCallStage::T_RUNTIME_CALL_SHMEM_ALLOC](ctx, (uint64_t)(&param)); \
     }(ctx, groupIndex, memType, size)

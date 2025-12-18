@@ -35,6 +35,7 @@
 #include "tilefwk/data_type.h"
 #include "tilefwk/aicpu_runtime.h"
 #include "interface/tensor/symbol_handler.h"
+#include "interface/tensor/runtime_slot.h"
 #include "machine/kernel/aicore.h"
 #include "machine/utils/dynamic/allocator/allocators.h"
 #include "machine/utils/dynamic/vector.h"
@@ -544,6 +545,7 @@ struct DevAscendFunctionOutcast {
 
     int dim;
     int stitchByAllFullMatch;
+    RuntimeSlotDesc desc;
 
     DevLocalVector<DevAscendFunctionCallOperandUse> producerList;
 
@@ -639,13 +641,18 @@ struct DevAscendFunctionPredInfo {
 };
 
 struct EncodeDevAscendFunctionParam {
+    /* The following are common parameter */
     std::unordered_map<uint64_t, int> calleeHashIndexDict;
     std::vector<CceCodeInfo> cceCodeInfoList;
     const SymbolicSymbolTable *symbolTable;
-    const SymbolicExpressionTable *expressionTable;
     const IncastOutcastLink *inoutLink;
+
+    /* The following are per function parameter */
+    const SymbolicExpressionTable *expressionTable;
     const IncastOutcastSlot *slot;
     Function *devRoot;
+    std::vector<RuntimeSlotDesc> outcastDescList;
+    std::vector<int> assembleSlotList;
 };
 
 struct InoutOperationAttr {
@@ -701,8 +708,8 @@ private:
 #endif
 public:
     // total memory requirement of non-root-incast/outcast raw tensors
-    uint64_t rawTensorWsMemoryRequirement{0};
-    uint64_t outcastWsMemoryRequirement{0};
+    uint64_t rootInnerTensorWsMemoryRequirement{0};
+    uint64_t exclusiveOutcastWsMemoryRequirement{0};
 
 private:
     DevLocalVector<DevAscendRawTensor> rawTensorList_;
@@ -721,6 +728,7 @@ private:
     DevLocalVector<DevAscendFunctionIncast> incastList;
     DevLocalVector<DevAscendFunctionOutcast> outcastList;
     DevLocalVector<int> slotList;
+    DevLocalVector<int> redaccAssembleSlotList_;
 
     DevLocalVector<DevAscendFunctionCallOperandUse> useList;
     DevLocalVector<DevAscendFunctionCallOperandUse> stitchPolicyFullCoverProducerList_;
@@ -755,6 +763,8 @@ public:
      *      DevAscendFunctionIncast                             incastListData[];
      *      DevAscendFunctionOutcast                            outcastListData[];
      *      int                                                 slotListData[];
+     *      int                                                 outputOutcastSlotList[];
+     *      int                                                 assembleOutcastSlotList[];
      *      int                                                 offsetIdxListData[];
      *      int                                                 shapeIdxListData[];
      *      int                                                 producerConsumerListData[];
@@ -1022,8 +1032,8 @@ public:
 
         oss << INDENT << "DevFunction " << funcKey;
         oss << " " << schema::name(GetRawName()).Dump();
-        oss << " " << schema::mem(rawTensorWsMemoryRequirement).Dump();
-        oss << " " << schema::memOut(outcastWsMemoryRequirement).Dump();
+        oss << " " << schema::mem(rootInnerTensorWsMemoryRequirement).Dump();
+        oss << " " << schema::memOut(exclusiveOutcastWsMemoryRequirement).Dump();
         oss << " {\n";
         for (size_t i = 0; i < GetRawTensorSize(); i++) {
             oss << INDENTINNER << DumpRawTensor(i) << "\n";
@@ -1033,6 +1043,13 @@ public:
         }
         for (size_t i = 0; i < GetOutcastSize(); i++) {
             oss << INDENTINNER << DumpOutcast(i, INDENTINNER) << "\n";
+        }
+
+        {
+            oss << INDENTINNER << "#assembleSlotSize{" << GetRedaccAssembleSlotListSize() << "}\n";
+            for (size_t j = 0; j < GetRedaccAssembleSlotListSize(); j++) {
+                oss << INDENTINNER << "#assembleSlot_" << j << "{" << GetRedaccAssembleSlotList(j) << "}\n";
+            }
         }
 
         oss << INDENTINNER << "#zeropred:" << predInfo_.totalZeroPred << "\n";
@@ -1204,6 +1221,10 @@ public:
     inline size_t GetOutcastSize() const { return outcastList.size(); }
     inline const struct DevAscendFunctionOutcast &GetOutcast(int index) const { return At(outcastList, index); }
     inline struct DevAscendFunctionOutcast &GetOutcast(int index) { return At(outcastList, index); }
+
+    inline size_t GetRedaccAssembleSlotListSize() const { return redaccAssembleSlotList_.size(); }
+    inline const int &GetRedaccAssembleSlotList(int index) const { return At(redaccAssembleSlotList_, index); }
+    inline int &GetRedaccAssembleSlotList(int index) { return At(redaccAssembleSlotList_, index); }
 
     int LookupIncastBySlotIndex(int slotIndex) const {
         for (size_t incastIndex = 0; incastIndex < GetIncastSize(); incastIndex++) {
@@ -1550,7 +1571,7 @@ private:
             const std::vector<std::shared_ptr<LogicalTensor>> &incastTensorList,
             const std::vector<std::shared_ptr<LogicalTensor>> &outcastTensorList,
             const std::unordered_map<Operation *, OrderedSet<Operation *>> &callOpSuccDict,bool fillContent);
-    void FillOutputSlotMark(const IncastOutcastLink *inoutLink, std::vector<bool>& isOutputSlotMarks);
+    void FillExclusiveOutcastSlotMark(const IncastOutcastLink *inoutLink, std::vector<bool>& isExclusiveOutcastSlotMarks);
     void InitRawTensorAndMemoryRequirement(
             uintdevptr_t &initOffset,
             const OrderedSet<std::shared_ptr<RawTensor>> &incastRawList,
@@ -1592,7 +1613,7 @@ private:
         const OrderedSet<std::shared_ptr<LogicalTensor>> &tlist,
         const std::unordered_map<std::shared_ptr<LogicalTensor>, InoutOperationAttr> &incastOpAttrDict,
         const std::unordered_map<std::shared_ptr<LogicalTensor>, InoutOperationAttr> &outcastOpAttrDict,
-        const IncastOutcastSlot *slot, const std::string &initRawName, bool fillContent);
+        const EncodeDevAscendFunctionParam &param, const std::string &initRawName, bool fillContent);
 };
 
 struct DevAscendFunctionDuppedOperation {
@@ -1821,7 +1842,7 @@ struct DevAscendFunctionDuppedData {
 
     schema::RActWorkspace SchemaGetWorkspace() const {
         auto workspaceBegin = GetRuntimeWorkspace();
-        auto workspaceEnd = GetRuntimeWorkspace() + GetSource()->rawTensorWsMemoryRequirement;
+        auto workspaceEnd = GetRuntimeWorkspace() + GetSource()->rootInnerTensorWsMemoryRequirement;
         return schema::RActWorkspace(schema::Range(workspaceBegin, workspaceEnd));
     }
 
@@ -2410,6 +2431,7 @@ struct DeviceExecuteSlot {
     AddressDescriptor desc;
     bool isOutputSlot{false};
     bool isAssembleSlot{false};
+    bool isAssembleSlotNeedAlloc{false};
     bool isPartialUpdateStitch{false};
     bool isPartialUpdateDirty{false};
     int64_t refCntIndex{itemPoolInvalidIndex}; // refCnt to stored tensor
@@ -2417,8 +2439,12 @@ struct DeviceExecuteSlot {
     uint32_t stitchOutcastIdx;
 
     DevAscendProgramPartialUpdate *partialUpdate{nullptr};
-    bool IsFixedAddress() const {
-        return isOutputSlot || isAssembleSlot;
+
+    bool IsOutputAddress() const {
+        return isOutputSlot;
+    }
+    bool IsAssembleAddress() const {
+        return isAssembleSlot;
     }
 
     bool RefCntIsNull() {
@@ -2460,14 +2486,14 @@ struct DevProgramControlFlowCacheRuntime {
         struct {
             SeqWsAllocator dassembleDests;
             SeqWsAllocator rootInner;
-            SeqWsAllocator devTaskInnerOutcasts;
-            WsSlotAllocator slottedOutcasts;
+            SeqWsAllocator devTaskInnerExclusiveOutcasts;
+            WsSlotAllocator devTaskBoundaryOutcasts;
             DevRelocVector<WsSlotAllocator::BlockHeader> slottedOutcastsBlockList;
         } tensorAllocators;
     } workspace;
     struct DeviceSlotContext {
         DevRelocVector<DeviceExecuteSlot> slotList;
-        DevRelocVector<uint32_t> slotRefCntList;
+        DevRelocVector<ItemPool<uint32_t>::ItemBlock> slotRefCntList;
     } slotContext;
 };
 
@@ -2947,7 +2973,7 @@ struct DevProgramControlFlowCache {
 
     void RuntimeAddrBackup(DeviceExecuteSlot *runtimeSlotList, uint32_t *runtimeSlotRefCntList, uint32_t slotSize, TensorAllocator &allocator) {
         uint32_t slotDataSize = sizeof(DeviceExecuteSlot) * slotSize;
-        uint32_t slotRefCntDataSize = sizeof(uint32_t) * slotSize;
+        uint32_t slotRefCntDataSize = sizeof(ItemPool<uint32_t>::ItemBlock) * slotSize;
         memcpy_s(runtimeBackup.slotContext.slotList.Data(), slotDataSize, runtimeSlotList, slotDataSize);
         memcpy_s(runtimeBackup.slotContext.slotRefCntList.Data(), slotRefCntDataSize, runtimeSlotRefCntList, slotRefCntDataSize);
 
@@ -2958,24 +2984,24 @@ struct DevProgramControlFlowCache {
         };
         runtimeBackup.workspace.tensorAllocators.dassembleDests = allocator.dassembleDests;
         runtimeBackup.workspace.tensorAllocators.rootInner = allocator.rootInner;
-        runtimeBackup.workspace.tensorAllocators.devTaskInnerOutcasts = allocator.devTaskInnerOutcasts;
-        runtimeBackup.workspace.tensorAllocators.slottedOutcasts = allocator.slottedOutcasts;
+        runtimeBackup.workspace.tensorAllocators.devTaskInnerExclusiveOutcasts = allocator.devTaskInnerExclusiveOutcasts;
+        runtimeBackup.workspace.tensorAllocators.devTaskBoundaryOutcasts = allocator.devTaskBoundaryOutcasts;
 
-        uint64_t backupSize = sizeof(WsSlotAllocator::BlockHeader) * allocator.slottedOutcasts.slotNum_;
-        memcpy_s(runtimeBackup.workspace.tensorAllocators.slottedOutcastsBlockList.Data(), backupSize, allocator.slottedOutcasts.GetBlockHeaderBase(), backupSize);
+        uint64_t backupSize = sizeof(WsSlotAllocator::BlockHeader) * allocator.devTaskBoundaryOutcasts.slotNum_;
+        memcpy_s(runtimeBackup.workspace.tensorAllocators.slottedOutcastsBlockList.Data(), backupSize, allocator.devTaskBoundaryOutcasts.GetBlockHeaderBase(), backupSize);
 
-        WsSlotAllocator::BlockHeader *base = allocator.slottedOutcasts.GetBlockHeaderBase();
-        Backup::BackupBlockHeader(runtimeBackup.workspace.tensorAllocators.slottedOutcasts.freeListHeader_, base);
-        Backup::BackupBlockHeader(runtimeBackup.workspace.tensorAllocators.slottedOutcasts.notInUseHeaders_, base);
+        WsSlotAllocator::BlockHeader *base = allocator.devTaskBoundaryOutcasts.GetBlockHeaderBase();
+        Backup::BackupBlockHeader(runtimeBackup.workspace.tensorAllocators.devTaskBoundaryOutcasts.freeListHeader_, base);
+        Backup::BackupBlockHeader(runtimeBackup.workspace.tensorAllocators.devTaskBoundaryOutcasts.notInUseHeaders_, base);
         WsSlotAllocator::BlockHeader *checkpointBase = runtimeBackup.workspace.tensorAllocators.slottedOutcastsBlockList.Data();
-        for (uint64_t k = 0; k < allocator.slottedOutcasts.slotNum_; k++) {
+        for (uint64_t k = 0; k < allocator.devTaskBoundaryOutcasts.slotNum_; k++) {
             Backup::BackupBlockHeader(checkpointBase[k].listNext, base);
         }
     }
 
     void RuntimeAddrRestore(DeviceExecuteSlot *runtimeSlotList, uint32_t *runtimeSlotRefCntList, uint32_t slotSize, TensorAllocator &allocator) {
         uint32_t slotDataSize = sizeof(DeviceExecuteSlot) * slotSize;
-        uint32_t slotRefCntDataSize = sizeof(uint32_t) * slotSize;
+        uint32_t slotRefCntDataSize = sizeof(ItemPool<uint32_t>::ItemBlock) * slotSize;
         memcpy_s(runtimeSlotList, slotDataSize, runtimeBackup.slotContext.slotList.Data(), slotDataSize);
         memcpy_s(runtimeSlotRefCntList, slotRefCntDataSize, runtimeBackup.slotContext.slotRefCntList.Data(), slotRefCntDataSize);
 
@@ -2990,14 +3016,14 @@ struct DevProgramControlFlowCache {
         };
         Restore::RestoreSeqAllocator(allocator.dassembleDests, runtimeBackup.workspace.tensorAllocators.dassembleDests);
         Restore::RestoreSeqAllocator(allocator.rootInner, runtimeBackup.workspace.tensorAllocators.rootInner);
-        Restore::RestoreSeqAllocator(allocator.devTaskInnerOutcasts, runtimeBackup.workspace.tensorAllocators.devTaskInnerOutcasts);
-        allocator.slottedOutcasts.availableSlots_ = runtimeBackup.workspace.tensorAllocators.slottedOutcasts.availableSlots_;
+        Restore::RestoreSeqAllocator(allocator.devTaskInnerExclusiveOutcasts, runtimeBackup.workspace.tensorAllocators.devTaskInnerExclusiveOutcasts);
+        allocator.devTaskBoundaryOutcasts.availableSlots_ = runtimeBackup.workspace.tensorAllocators.devTaskBoundaryOutcasts.availableSlots_;
 
-        WsSlotAllocator::BlockHeader *base = allocator.slottedOutcasts.GetBlockHeaderBase();
-        Restore::RestoreBlockHeader(allocator.slottedOutcasts.freeListHeader_, base, runtimeBackup.workspace.tensorAllocators.slottedOutcasts.freeListHeader_);
-        Restore::RestoreBlockHeader(allocator.slottedOutcasts.notInUseHeaders_, base, runtimeBackup.workspace.tensorAllocators.slottedOutcasts.notInUseHeaders_);
+        WsSlotAllocator::BlockHeader *base = allocator.devTaskBoundaryOutcasts.GetBlockHeaderBase();
+        Restore::RestoreBlockHeader(allocator.devTaskBoundaryOutcasts.freeListHeader_, base, runtimeBackup.workspace.tensorAllocators.devTaskBoundaryOutcasts.freeListHeader_);
+        Restore::RestoreBlockHeader(allocator.devTaskBoundaryOutcasts.notInUseHeaders_, base, runtimeBackup.workspace.tensorAllocators.devTaskBoundaryOutcasts.notInUseHeaders_);
         WsSlotAllocator::BlockHeader *checkpointBase = runtimeBackup.workspace.tensorAllocators.slottedOutcastsBlockList.Data();
-        for (uint64_t k = 0; k < allocator.slottedOutcasts.slotNum_; k++) {
+        for (uint64_t k = 0; k < allocator.devTaskBoundaryOutcasts.slotNum_; k++) {
             Restore::RestoreBlockHeader(base[k].listNext, base, checkpointBase[k].listNext);
         }
     }
@@ -3145,28 +3171,31 @@ struct DevAscendProgram {
     uint64_t configKey;
     uint64_t hashKey;
     uint64_t slotSize;
+    uint32_t assembleSlotSize;
     struct {
         struct {
             // root func inner tensors
             uint64_t rootInner;
-            // root func outcasts & dassemble-dst, automatically upgraded to DeviceTask boundary outcasts
-            uint64_t dassembleDests;
-            uint64_t dynDAssembleDests;
             // root func outcasts & non-dassemble-dst & DeviceTask inner tensors
-            uint64_t devTaskInnerOutcasts;
-            // root func outcasts & non-dassemble-dst & DeviceTask boundary outcasts: singleSlotMem * pooledSlotNum
-            uint64_t singleSlotMem;
-            uint64_t pooledSlotNum;
+            uint64_t devTaskInnerExclusiveOutcasts;
+            // root func outcasts & non-dassemble-dst & DeviceTask boundary outcasts: MaxOutcastMem() * devTaskBoundaryOutcastNum
+            uint64_t maxStaticOutcastMem;
+            uint64_t maxDynamicAssembleOutcastMem;
+            uint64_t devTaskBoundaryOutcastNum;
 
-            uint64_t DAssembleDests() const {
-                return dassembleDests + dynDAssembleDests;
+            uint64_t DAssembleDests() const { // deprecated
+                return 0;
+            }
+
+            uint64_t MaxOutcastMem() const {
+                return std::max(maxStaticOutcastMem, maxDynamicAssembleOutcastMem);
             }
 
             uint64_t Total() const {
                 uint64_t total = rootInner +       // root func inner tensors
                     DAssembleDests() +             // root func outcasts & dassemble-dst, automatically upgraded to DeviceTask boundary outcasts
-                    devTaskInnerOutcasts +         // root func outcasts & non-dassemble-dst & DeviceTask inner tensors
-                    singleSlotMem * pooledSlotNum; // root func outcasts & non-dassemble-dst & DeviceTask boundary outcasts
+                    devTaskInnerExclusiveOutcasts +         // root func outcasts & non-dassemble-dst & DeviceTask inner tensors
+                    MaxOutcastMem() * devTaskBoundaryOutcastNum; // root func outcasts & non-dassemble-dst & DeviceTask boundary outcasts
                 static constexpr uint64_t ALIGNMENT_32K = 32 * 1024;
                 return AlignUp(total, ALIGNMENT_32K);
             }
@@ -3278,7 +3307,8 @@ struct DevAscendProgram {
         oss << INDENTINNER << "#stitchFunctionNumInitial:" << stitchFunctionNumInitial << "\n";
         oss << INDENTINNER << "#stitchFunctionNumStep:" << stitchFunctionNumStep << "\n";
         oss << INDENTINNER << "#stitchFunctionsize:" << stitchFunctionsize << "\n";
-        oss << INDENTINNER << "#slot:" << slotSize << "\n";
+        oss << INDENTINNER << "#slot{" << slotSize << "}\n";
+        oss << INDENTINNER << "#assembleSlot{" << assembleSlotSize << "}\n";
         oss << INDENTINNER << "#symbolCount:" << symbolTable.size() << "\n";
         for (size_t i = 0; i < symbolTable.size(); i++) {
             const DevAscendProgramSymbol &symbol = At(symbolTable, i);

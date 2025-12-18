@@ -32,7 +32,6 @@ project_root = os.path.dirname(os.path.abspath(__file__))  # 当前脚本目录
 golden_parent = os.path.join(project_root, "../../../../")  # 假设 golden 在上级目录
 sys.path.insert(0, golden_parent)
 
-
 if __name__ == "__main__":
     """单独调试时配置"""
     # 日志级别
@@ -367,6 +366,8 @@ def lightning_indexer_compute(input_data_map, params):
     ]
 )
 def indexer_topk_quant(case_name: str, output: Path) -> bool:
+    torch.manual_seed(0)
+
     n1, n2, d = 64, 1, 128
     block_size = 128
     dtype = torch.float16

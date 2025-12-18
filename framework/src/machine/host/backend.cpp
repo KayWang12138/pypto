@@ -193,9 +193,10 @@ static void FindAllExpression(FunctionCache &cache, Linker &linker, Function *fu
             linker.AddPrimaryExpressionForLoopBes(func, attr->End());
             linker.AddPrimaryExpressionForLoopBes(func, attr->Step());
 
-            for (auto &path : attr->GetPathList()) {
+            for (const DynloopFunctionPath &path : attr->GetPathList()) {
+                Function *loopPath = path.GetRoot();
                 for (auto &cond : path.GetPathCondList()) {
-                    linker.AddPrimaryExpressionForLoopIf(func, cond.GetCond());
+                    linker.AddPrimaryExpressionForLoopPathCond(loopPath, cond.GetCond());
                 }
             }
         }
@@ -243,11 +244,11 @@ static void AlignUpTo(std::vector<uint8_t> &code, int align, uint8_t padding) {
     }
 }
 
-static void ReplaceSlotIndex(DyndevFunctionAttribute *attr, std::vector<bool>& slotUsed) {
+static void ReplaceSlotIndex(DyndevFunctionAttribute *attr, std::vector<bool>& slotUsed,
+                             std::unordered_map<int, int>& slotIdxMapping) {
     IncastOutcastLink &inoutLink = attr->inoutLink;
-    std::unordered_map<int, int> slotIdxMapping;
     for (int i = 0; i < inoutLink.totalSlot; i++) {
-        if (slotUsed[i]) {
+        if (slotUsed[i] && !slotIdxMapping.count(i)) {
             slotIdxMapping.emplace(i, slotIdxMapping.size());
         }
     }
@@ -278,17 +279,47 @@ static void ReplaceSlotIndex(DyndevFunctionAttribute *attr, std::vector<bool>& s
     replaceSlotIdx(inoutLink.inputSlotIndexList);
     replaceSlotIdx(inoutLink.outputSlotIndexList);
     replaceSlotIdx(inoutLink.assembleSlotIndexList);
+    replaceSlotIdx(inoutLink.shmemTensorSlotIndexList);
     replaceSlotIdx(inoutLink.partialUpdateSlotIdexList);
     for (auto &slot : inoutLink.inplaceSlotIndexList) {
         if (slot != -1)
             slot = slotIdxMapping[slot];
     }
+
+    auto replaceSlotIdxForFunc = [&slotIdxMapping, replaceSlotIdx](Function *func) {
+        std::shared_ptr<TensorSlotScope> scope = func->GetSlotScope();
+        if (scope) {
+            replaceSlotIdx(scope->constructAssembleSlotList);
+        }
+    };
+    for (auto loopPathFunc : attr->funcGroup.loopPathList) {
+        replaceSlotIdxForFunc(loopPathFunc);
+    }
+
+    inoutLink.UpdateRuntimeSlotKindSetList();
 }
 
-static void SimplifySlots(DyndevFunctionAttribute *attr) {
+static void MarkUsedSlotsFromInoutLink(const IncastOutcastLink &inoutLink, std::vector<bool> &slotUsed) {
+    for (int slotIdx : inoutLink.inputSlotIndexList) {
+        slotUsed[slotIdx] = true;
+    }
+    for (int slotIdx : inoutLink.outputSlotIndexList) {
+        slotUsed[slotIdx] = true;
+    }
+    for (int slotIdx : inoutLink.shmemTensorSlotIndexList) {
+        slotUsed[slotIdx] = true;
+    }
+    for (int slotIdx : inoutLink.assembleSlotIndexList) {
+        slotUsed[slotIdx] = true;
+    }
+    // partialUpdateSlotIdexList的数据有问题
+}
+
+static void SimplifySlots(DyndevFunctionAttribute *attr, std::unordered_map<int, int>& slotIdxMapping) {
     IncastOutcastLink &inoutLink = attr->inoutLink;
     std::vector<bool> slotUsed(inoutLink.totalSlot);
 
+    MarkUsedSlotsFromInoutLink(inoutLink, slotUsed);
     for (Function *devRoot : attr->funcGroup.devRootList) {
         Function *devTile = attr->rootTileDict[devRoot];
 
@@ -298,18 +329,21 @@ static void SimplifySlots(DyndevFunctionAttribute *attr) {
         for (auto &incastSlots : ioslot.incastSlot) {
             if (incastSlots.empty()) {
                 ALOG_WARN("devTile: " + devTile->GetMagicName());
+                continue;
+            }
+            int32_t simplifiedIncastSlot = -1;
+            for (auto &incastSlot : incastSlots) {
+                if (slotUsed[incastSlot]) {
+                    simplifiedIncastSlot = incastSlot;
+                    break;
+                }
+            }
+            if (simplifiedIncastSlot != -1) {
+                incastSlots.front() = simplifiedIncastSlot;
             }
             incastSlots.resize(1); // meaningless to maintain multi incast slots
             slotUsed[incastSlots.front()] = true;
         }
-    }
-
-    for (int slotIdx : inoutLink.inputSlotIndexList) {
-        slotUsed[slotIdx] = true;
-    }
-
-    for (int slotIdx : inoutLink.outputSlotIndexList) {
-        slotUsed[slotIdx] = true;
     }
 
     for (Function *devRoot : attr->funcGroup.devRootList) {
@@ -330,7 +364,7 @@ static void SimplifySlots(DyndevFunctionAttribute *attr) {
         }
     }
 
-    ReplaceSlotIndex(attr, slotUsed);
+    ReplaceSlotIndex(attr, slotUsed, slotIdxMapping);
 }
 
 static void BuildSlotRootIncastOutcastDict(DyndevFunctionAttribute *attr) {
@@ -375,6 +409,7 @@ static std::string BuildControlFlowCallee(Function *func, int ident) {
 
 static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::string &sectionName,
     Function *func,
+    std::unordered_map<int, int> &slotIdxMapping,
     DyndevFunctionAttribute::FunctionGroup &group,
     std::unordered_map<Function *, Function *> &rootTileDict,
     std::ostringstream &controlFlowOss,
@@ -410,9 +445,9 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
             << BuildControlFlowCallee(func, 0)
             << "__attribute__((section(\"" << sectionName
             << "\")))\n"
-            << "uint64_t ControlFlowEntry(void *ctx, uint64_t *symbolTable, CallRootEntryType callRootList[3], DevStartArgsBase *startArgs) {\n";
+            << "uint64_t ControlFlowEntry(void *ctx, uint64_t *symbolTable, RuntimeCallEntryType runtimeCallList[], DevStartArgsBase *startArgs) {\n";
         for (auto &callee : GetCalleeList(cache, func)) {
-            BuildControlFlow(cache, linker, sectionName, callee, group, rootTileDict, controlFlowOss, expressionOss, indent + 1, expName);
+            BuildControlFlow(cache, linker, sectionName, callee, slotIdxMapping, group, rootTileDict, controlFlowOss, expressionOss, indent + 1, expName);
         }
         controlFlowOss << std::setw((indent + 1) * TABSIZE) << ' ' << "RUNTIME_RootStitch(RUNTIME_FUNCKEY_FINISH); // Notify finish \n";
         controlFlowOss << std::setw((indent + 1) * TABSIZE) << ' ' << "return 0;\n";
@@ -420,10 +455,10 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
         controlFlowOss << "} // namespace npu::tile_fwk\n";
     } else if (func->IsFunctionTypeAndGraphType(FunctionType::DYNAMIC_LOOP, GraphType::TENSOR_GRAPH)) {
         std::function<void(const std::shared_ptr<DynloopFunctionPathNode> &, int)> condBuilder =
-            [&cache, &linker, &sectionName, &group, &rootTileDict, &controlFlowOss, &expressionOss, &condBuilder,
+            [&cache, &linker, &sectionName, &slotIdxMapping, &group, &rootTileDict, &controlFlowOss, &expressionOss, &condBuilder,
              &expName] (const std::shared_ptr<DynloopFunctionPathNode> &node, int condIndent) {
                 if (!node->cond.IsValid()) {
-                    BuildControlFlow(cache, linker, sectionName, node->root, group, rootTileDict, controlFlowOss, expressionOss, condIndent, expName);
+                    BuildControlFlow(cache, linker, sectionName, node->root, slotIdxMapping, group, rootTileDict, controlFlowOss, expressionOss, condIndent, expName);
                 } else {
                     std::string cond = SymbolicExpressionTable::BuildExpression(node->cond);
                     if (node->branchNodeList[1] != nullptr) {
@@ -483,14 +518,21 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
         controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "}\n";
     } else if (func->IsFunctionTypeAndGraphType(FunctionType::DYNAMIC_LOOP_PATH, GraphType::TENSOR_GRAPH)) {
         controlFlowOss << BuildControlFlowCallee(func, indent * TABSIZE);
+        auto scope = func->GetSlotScope();
+        for (auto slot : scope->constructAssembleSlotList) {
+            if (!slotIdxMapping.count(slot)) {
+                slotIdxMapping.emplace(slot, slotIdxMapping.size());
+            }
+            controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "RUNTIME_SlotMarkNeedAlloc(" << slotIdxMapping.at(slot) << ");\n";
+        }
         for (auto &callee : GetCalleeList(cache, func)) {
-            BuildControlFlow(cache, linker, sectionName, callee, group, rootTileDict, controlFlowOss, expressionOss, indent + 1, expName);
+            BuildControlFlow(cache, linker, sectionName, callee, slotIdxMapping, group, rootTileDict, controlFlowOss, expressionOss, indent + 1, expName);
         }
     } else if (func->GetGraphType() == GraphType::TILE_GRAPH) {
         controlFlowOss << BuildControlFlowCallee(func, indent * TABSIZE);
         Function *root = func->GetRootFunction();
         rootTileDict[root] = func;
-        BuildControlFlow(cache, linker, sectionName, root, group, rootTileDict, controlFlowOss, expressionOss, indent, expName);
+        BuildControlFlow(cache, linker, sectionName, root, slotIdxMapping, group, rootTileDict, controlFlowOss, expressionOss, indent, expName);
     } else if (func->GetGraphType() == GraphType::EXECUTE_GRAPH) {
         if (group.devRootList.count(func) <= 0) {
             return;
@@ -607,7 +649,7 @@ std::vector<SymbolicExpressionTable *> GetAllExpressionTable(DyndevFunctionAttri
         (void)func;
         exprTableList.push_back(&exprTable);
     }
-    for (auto &[func, ifDict] : exprTableGroup.loopIfDict) {
+    for (auto &[func, ifDict] : exprTableGroup.loopPathCondDict) {
         (void)func;
         for (auto &[expr, exprTable] : ifDict) {
             (void)expr;
@@ -618,7 +660,7 @@ std::vector<SymbolicExpressionTable *> GetAllExpressionTable(DyndevFunctionAttri
         (void)func;
         exprTableList.push_back(&exprTable);
     }
-    for (auto &[func, opDict] : exprTableGroup.loopIfDict) {
+    for (auto &[func, opDict] : exprTableGroup.devLeafOpDict) {
         (void)func;
         for (auto &[op, exprTable] : opDict) {
             (void)op;
@@ -659,6 +701,57 @@ static void ConstructCodeInfo(struct EncodeDevAscendFunctionParam &encodeDevAsce
     }
     encodeDevAscendFunctionParam.cceCodeInfoList = attr->cceCodeInfo;
     return;
+}
+
+static void EncodeOutcastProperty(
+        EncodeDevAscendFunctionParam &encodeDevAscendFunctionParam,
+        const IncastOutcastLink *inoutLink,
+        const IncastOutcastSlot *slot) {
+    encodeDevAscendFunctionParam.outcastDescList.clear();
+    encodeDevAscendFunctionParam.assembleSlotList.clear();
+    Function *devRoot = encodeDevAscendFunctionParam.devRoot;
+
+    std::unordered_map<std::shared_ptr<RawTensor>, int> incastDict;
+    for (size_t incastIndex = 0; incastIndex < devRoot->GetIncast().size(); incastIndex++) {
+        incastDict[devRoot->GetIncast()[incastIndex]->GetRawTensor()] = incastIndex;
+    }
+
+    std::vector<RuntimeSlotKindSet> outcastSlotKindSetList(slot->outcastSlot.size());
+    for (size_t outcastIndex = 0; outcastIndex < slot->outcastSlot.size(); outcastIndex++) {
+        for (auto &slotIndex : slot->outcastSlot[outcastIndex]) {
+            outcastSlotKindSetList[outcastIndex] = outcastSlotKindSetList[outcastIndex] | inoutLink->runtimeSlotKindSetList[slotIndex];
+        }
+    }
+    encodeDevAscendFunctionParam.outcastDescList.resize(slot->outcastSlot.size());
+    for (size_t outcastIndex = 0; outcastIndex < slot->outcastSlot.size(); outcastIndex++) {
+        RuntimeSlotDesc &desc = encodeDevAscendFunctionParam.outcastDescList[outcastIndex];
+        if (outcastSlotKindSetList[outcastIndex].Count(RuntimeSlotKind::OUTPUT)) {
+            desc.kind = RuntimeSlotKind::OUTPUT;
+        } else if (outcastSlotKindSetList[outcastIndex].Count(RuntimeSlotKind::ASSEMBLE_OUTCAST)) {
+            desc.kind = RuntimeSlotKind::ASSEMBLE_OUTCAST;
+        } else {
+            int incastIndex = -1;
+            auto outcastRawTensor = devRoot->GetOutcast()[outcastIndex]->GetRawTensor();
+            if (devRoot->outIncastLinkMap.count(outcastRawTensor)) {
+                auto incastRawTensor = devRoot->outIncastLinkMap[outcastRawTensor];
+                incastIndex = incastDict[incastRawTensor];
+            }
+            if (incastIndex != -1) {
+                desc.kind = RuntimeSlotKind::INPLACE_INCAST;
+                desc.inplaceIncastIndex = incastIndex;
+            } else {
+                desc.kind = RuntimeSlotKind::EXCLUSIVE_OUTCAST;
+            }
+        }
+    }
+
+    for (size_t outcastIndex = 0; outcastIndex < slot->outcastSlot.size(); outcastIndex++) {
+        if (encodeDevAscendFunctionParam.outcastDescList[outcastIndex].kind == RuntimeSlotKind::ASSEMBLE_OUTCAST) {
+            for (auto &slotIndex : slot->outcastSlot[outcastIndex]) {
+                encodeDevAscendFunctionParam.assembleSlotList.push_back(slotIndex);
+            }
+        }
+    }
 }
 
 static
@@ -711,7 +804,7 @@ static void CompileControlFlow(const std::string &aicpuDirPath,
 static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[maybe_unused]] const std::string &ccePath,
                                   std::string &kernelPath) {
     if (config::GetCodeGenOption<bool>(CODEGEN_EXPRESSION_FUSION)) {
-        PassManager::Instance().RunPass(Program::GetInstance(), *function, "ScalarOptimize");
+        PassManager::Instance().RunPass(Program::GetInstance(), *function, "ExecuteGraph");
     }
 
     std::shared_ptr<DyndevFunctionAttribute> attr = function->GetDyndevAttribute();
@@ -747,12 +840,13 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[ma
     }
     uint64_t tilingKey = OpInfoManager::GetInstance().GetOpTilingKey();
     const std::string expName = "expression_" + std::to_string(tilingKey) + ".h";
-    BuildControlFlow(cache, linker, "ast2", function, attr->funcGroup, attr->rootTileDict, controlFlowOss,
+    std::unordered_map<int, int> slotIdxMapping;
+    BuildControlFlow(cache, linker, "ast2", function, slotIdxMapping, attr->funcGroup, attr->rootTileDict, controlFlowOss,
                      expressionOss, 0, expName);
     expressionOss << "#endif/*TILE_FWK_EXPRESSION_H*/" << "\n";
     std::string controlFlowSource = controlFlowOss.str();
     std::string expressionSource = expressionOss.str();
-    SimplifySlots(attr.get());
+    SimplifySlots(attr.get(), slotIdxMapping);
     BuildSlotRootIncastOutcastDict(attr.get());
     BuildRootFuncKeyDict(attr.get());
 
@@ -850,6 +944,7 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[ma
         }
         encodeDevAscendFunctionParam.devRoot = devRoot;
         encodeDevAscendFunctionParam.slot = slot;
+        EncodeOutcastProperty(encodeDevAscendFunctionParam, &attr->inoutLink, slot);
 
         uint64_t size = 0;
         EncodeDevAscendFunction(function, encodeDevAscendFunctionParam, size, nullptr);

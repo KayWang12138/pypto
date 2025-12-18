@@ -32,7 +32,7 @@ namespace npu::tile_fwk::dynamic {
     struct TensorAllocator {
         SeqWsAllocator dassembleDests;
         SeqWsAllocator rootInner;
-        SeqWsAllocator devTaskInnerOutcasts;
-        WsSlotAllocator slottedOutcasts;
+        SeqWsAllocator devTaskInnerExclusiveOutcasts;
+        WsSlotAllocator devTaskBoundaryOutcasts;
     };
 }

@@ -237,7 +237,7 @@ TEST_F(DynamicBasicTest, HiddenLoopConditionMixedMulLoops) {
             // LOOP("L01", FunctionType::DYNAMIC_LOOP, j, LoopRange(1)) {
             //     (void)j;
                 IF(SymbolicScalar(0) < CONDITION_THRESHOLD) {
-                    t0_temp = Add(t1, t1); 
+                    t0_temp = Add(t1, t1);
                 } ELSE {
                     t0_temp = Add(t2, t2);
                 }
@@ -599,7 +599,7 @@ TEST_F(DynamicBasicTest, DynamicRawShapeUnalign) {
     DeviceTensorData argData0{arg0.GetDataType(), nullptr, arg0.GetShape()};
     DeviceTensorData outData0{arg0.GetDataType(), nullptr, arg0.GetShape()};
     Evaluator eval{dynAttr->inputSymbolDict, {argData0}, {outData0}};
-    EXPECT_EQ(eval.Evaluate(dynAttr->dynWorkspace), s0 * s * BytesOf(arg0.GetDataType()));
+    EXPECT_EQ(eval.Evaluate(dynAttr->maxDynamicAssembleOutcastMem), s0 * s * BytesOf(arg0.GetDataType()));
 }
 
 

@@ -179,13 +179,14 @@ void DeviceExecuteContext::GELaunchRunCached(DevStartArgs *startArgs, PushTaskEn
 
 void DeviceExecuteContext::RunControlFlow(DevStartArgs *startArgs) {
     PerfBegin(PERF_EVT_CONTROL_FLOW);
-    CallRootEntryType callRootList[static_cast<uint32_t>(CallRootStage::T_CALLROOT_MAX)] = {
-        DeviceExecuteCallAlloc,
-        DeviceExecuteCallStitch,
-        DeviceExecuteRuntimerLog,
-        DeviceExecuteShmemAlloctor,
+    RuntimeCallEntryType runtimeCallList[static_cast<uint32_t>(RuntimeCallStage::T_RUNTIME_CALL_MAX)] = {
+        DeviceExecuteRuntimeCallRootAlloc,
+        DeviceExecuteRuntimeCallRootStitch,
+        DeviceExecuteRuntimeCallLog,
+        DeviceExecuteRuntimeCallShmemAllocator,
+        DeviceExecuteRuntimeCallSlotMarkNeedAlloc,
     };
-    execProg.controlFlowBinary.CallControlFlow(this, symbolTable.data(), callRootList, startArgs);
+    execProg.controlFlowBinary.CallControlFlow(this, symbolTable.data(), runtimeCallList, startArgs);
     PerfEnd(PERF_EVT_CONTROL_FLOW);
 }
 
@@ -397,7 +398,14 @@ void *DeviceExecuteContext::CallRootFunctionStitch(uint64_t rootKey) {
     return nullptr;
 }
 
-void *DeviceExecuteContext::DeviceExecuteCallAlloc(void *ctx_, uint64_t rootKey) {
+void DeviceExecuteContext::MarkSlotNeedAlloc(int slotIndex) {
+    DEV_ASSERT_MSG(slotIndex >= 0 && slotIndex < static_cast<int>(slotContext.GetSlotSize()),
+        "MarkSlotNeedAlloc: Invalid slot index %d.", slotIndex);
+    slotContext.GetSlotList()[slotIndex].isAssembleSlotNeedAlloc = true;
+    return;
+}
+
+void *DeviceExecuteContext::DeviceExecuteRuntimeCallRootAlloc(void *ctx_, uint64_t rootKey) {
     DeviceExecuteContext *ctx = (DeviceExecuteContext *)ctx_;
     if (ctx == nullptr) {
         DEV_ERROR("invalid ctx.");
@@ -416,7 +424,7 @@ void *DeviceExecuteContext::DeviceExecuteCallAlloc(void *ctx_, uint64_t rootKey)
     return result;
 }
 
-void *DeviceExecuteContext::DeviceExecuteCallStitch(void *ctx_, uint64_t rootKey) {
+void *DeviceExecuteContext::DeviceExecuteRuntimeCallRootStitch(void *ctx_, uint64_t rootKey) {
     DeviceExecuteContext *ctx = (DeviceExecuteContext *)ctx_;
     if (ctx == nullptr) {
         DEV_ERROR("invalid ctx.");
@@ -441,16 +449,16 @@ void *DeviceExecuteContext::DeviceExecuteCallStitch(void *ctx_, uint64_t rootKey
     return result;
 }
 
-void *DeviceExecuteContext::DeviceExecuteRuntimerLog(void *ctx_, uint64_t value) {
+void *DeviceExecuteContext::DeviceExecuteRuntimeCallLog(void *ctx_, uint64_t value) {
     (void)ctx_;
-    DEV_DEBUG("DeviceExecuteRuntimerLog -> Value: %lu", value);
+    DEV_DEBUG("DeviceExecuteRuntimeCallLog -> Value: %lu", value);
 #if DEBUG_PLOG
     (void)value;
 #endif
     return nullptr;
 }
 
-void *DeviceExecuteContext::DeviceExecuteShmemAlloctor(void *ctx_, uint64_t value) {
+void *DeviceExecuteContext::DeviceExecuteRuntimeCallShmemAllocator(void *ctx_, uint64_t value) {
     (void)ctx_;
     uint64_t groupIndex = (reinterpret_cast<uint64_t*>(value))[0];
     uint64_t memType = (reinterpret_cast<uint64_t*>(value))[1];
@@ -465,5 +473,11 @@ void *DeviceExecuteContext::DeviceExecuteShmemAlloctor(void *ctx_, uint64_t valu
     uint64_t vaddr = offset | (groupIndex << GROUP_SHIFT) | (memType << MEMTYPE_SHIFT) | (1UL << FILL_SHIFT);
     offset += size;
     return reinterpret_cast<void*>(vaddr);
+}
+
+void *DeviceExecuteContext::DeviceExecuteRuntimeCallSlotMarkNeedAlloc(void *ctx_, uint64_t slotIndex) {
+    DeviceExecuteContext *ctx = (DeviceExecuteContext *)ctx_;
+    ctx->MarkSlotNeedAlloc(slotIndex);
+    return nullptr;
 }
 }

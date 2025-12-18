@@ -60,7 +60,7 @@ void ValidateTilingSize(std::array<int32_t, MAX_DIST_DIM_SIZE> tilingStrategy, i
 }
 
 void ValidateParams(const Tensor &in, const Tensor &out, Shape shmemDataShape, Shape shmemSignalShape, DataType shmemDataType,
-    int rankSize, bool validateType = false, const std::unordered_set<DataType> &allowedTypes = {}) 
+    int rankSize, bool validateType = false, const std::unordered_set<DataType> &allowedTypes = {})
 {
     ASSERT(in.GetShape().size() == 2UL) << "Invalid dimensional: dimensional must be 2, but got dimensional=" << in.GetShape().size();
     ASSERT(out.GetDataType() == in.GetDataType()) << "The data type of \"out\" must be consistent with that of \"in\", "
@@ -207,17 +207,17 @@ Tensor ShmemClearSignal(const Tensor &in, const Tensor &shmemSignalTile, const i
     return dummy;
 }
 
-Tensor CreateShmemTensor(int32_t rankSize, int32_t hcclGroupIndex, DataType dataType, const Shape &shape, 
-    TileOpFormat format = TileOpFormat::TILEOP_ND)
+void CreateShmemTensor(Tensor &shmemTensor, int32_t rankSize, int32_t hcclGroupIndex, DataType dataType, const Shape &shape)
 {
     auto &function = *Program::GetInstance().GetCurrentFunction();
     Shape shmemShape{rankSize};
     shmemShape.insert(shmemShape.end(), shape.begin(), shape.end());
-    auto shmemTensor = std::make_shared<LogicalTensor>(function, dataType, shmemShape, format);
-    auto &op = function.AddOperation(Opcode::OP_BIND_TENSOR, {}, {shmemTensor});
+    auto shmemTensorInner = std::make_shared<LogicalTensor>(function, dataType, shmemShape);
+    shmemTensor = shmemTensorInner;
+    Program::GetInstance().GetTensorSlotManager()->TensorWrite(shmemTensor, SlotProperty::SHMEM_TENSOR);
+    auto &op = function.AddOperation(Opcode::OP_BIND_TENSOR, {}, {shmemTensorInner});
     op.SetAttribute(OpAttributeKey::bindTensor, BindTensor(hcclGroupIndex, 0,
         BytesOf(dataType) * std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<int64_t>())));
-    return shmemTensor;
 }
 
 Tensor Barrier(const Tensor &in, const char *group)
@@ -234,9 +234,8 @@ Tensor Barrier(const Tensor &in, const char *group)
     LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
         (void)index;
 
-        shmemSignal = CreateShmemTensor(rankSize, hcclGroupIndex, DT_INT32, shmemSignalShape);
-
-        shmemBarrierSignal = CreateShmemTensor(rankSize, hcclGroupIndex, DT_INT32, Shape{1, 1, 8});
+        CreateShmemTensor(shmemSignal, rankSize, hcclGroupIndex, DT_INT32, shmemSignalShape);
+        CreateShmemTensor(shmemBarrierSignal, rankSize, hcclGroupIndex, DT_INT32, Shape{1, 1, 8});
     }
     LOOP("Barrier", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
         (void)index;
@@ -283,8 +282,8 @@ void ShmemAllGather(const Tensor &in, const Tensor &barrierDummy, const char *gr
     Tensor shmemSignal;
     LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
         (void)index;
-        shmemData = CreateShmemTensor(rankSize, hcclGroupIndex, in.GetDataType(), shmemDataShape, in.Format());
-        shmemSignal = CreateShmemTensor(rankSize, hcclGroupIndex, DT_INT32, shmemSignalShape);
+        CreateShmemTensor(shmemData, rankSize, hcclGroupIndex, in.GetDataType(), shmemDataShape);
+        CreateShmemTensor(shmemSignal, rankSize, hcclGroupIndex, DT_INT32, shmemSignalShape);
     }
     LOOP("L0", FunctionType::DYNAMIC_LOOP, dynRankId, LoopRange(0, rankSize, 1)) {
         auto shmemDataTile = View(shmemData, {1, 1, row, col}, std::vector<SymbolicScalar>{dynRankId, thisRank, 0, 0});
@@ -332,16 +331,16 @@ void ShmemReduceScatter(const Tensor& in, const char* group, DistReduceType redu
     ValidateParams(in, out, shmemDataShape, shmemSignalShape, shmemDataType, rankSize, true, {DT_INT32, DT_FP32, DT_FP16, DT_BF16});
     LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
         (void)index;
-        shmemData = CreateShmemTensor(rankSize, hcclGroupIndex, shmemDataType, shmemDataShape, in.Format());
-        shmemSignal = CreateShmemTensor(rankSize, hcclGroupIndex, DT_INT32, shmemSignalShape);
+        CreateShmemTensor(shmemData, rankSize, hcclGroupIndex, shmemDataType, shmemDataShape);
+        CreateShmemTensor(shmemSignal, rankSize, hcclGroupIndex, DT_INT32, shmemSignalShape);
     }
-    Tensor barrierDummy(DT_INT32, {1, 1}, "barrierDummy");
     LOOP("RS", FunctionType::DYNAMIC_LOOP, dynRankId, LoopRange(0, rankSize, 1)) {
         auto shmemDataTile = View(shmemData, {1, 1, rowOut, col}, std::vector<SymbolicScalar>{dynRankId, 0, 0, 0});
         auto shmemSignalTile =
             View(shmemSignal, {1, 1, tileCount, 8}, std::vector<SymbolicScalar>{dynRankId, 0, 0, 0});
         auto inTile = View(in, {rowOut, col}, std::vector<SymbolicScalar>{dynRankId * rowOut, 0});
-        auto dummy = ShmemPut(inTile, shmemDataTile, barrierDummy, tileCount, AtomicType::ADD);
+        Tensor fakeBarrierDummy(DT_INT32, {1, 1}, "fakeBarrierDummy");
+        auto dummy = ShmemPut(inTile, shmemDataTile, fakeBarrierDummy, tileCount, AtomicType::ADD);
         auto dummySignal = ShmemSignal(dummy, shmemSignalTile, AtomicType::ADD);
 
         IF (dynRankId == thisRank) {
@@ -375,20 +374,20 @@ void OneShotShmemAllReduce(const Tensor& in, const char* group, Tensor& out) {
     ValidateTilingSize(tileShape.GetDistTileCol(), col, "col");
     LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
         (void)index;
-        shmemData = CreateShmemTensor(rankSize, hcclGroupIndex, shmemDataType, shmemDataShape, in.Format());
-        shmemSignal = CreateShmemTensor(rankSize, hcclGroupIndex, DT_INT32, shmemSignalShape);
+        CreateShmemTensor(shmemData, rankSize, hcclGroupIndex, shmemDataType, shmemDataShape);
+        CreateShmemTensor(shmemSignal, rankSize, hcclGroupIndex, DT_INT32, shmemSignalShape);
     }
-    Tensor barrierDummy(DT_INT32, {1, 1}, "barrierDummy");
     LOOP("L0", FunctionType::DYNAMIC_LOOP, dynRankId, LoopRange(0, rankSize, 1)) {
-    auto shmemDataTile = View(shmemData, {1, 1, rowPerRank, col}, std::vector<SymbolicScalar>{dynRankId, 0, 0, 0});
-    auto shmemSignalTile = View(shmemSignal, {1, 1, tileCount, 8}, std::vector<SymbolicScalar>{dynRankId, 0, 0, 0});
-    auto dummy = ShmemPut(in, shmemDataTile, barrierDummy, tileCount, AtomicType::ADD);
-    auto dummySignal = ShmemSignal(dummy, shmemSignalTile, AtomicType::ADD);
-    IF (thisRank == dynRankId) {
-        auto dummyLocal = WaitUntil(dummySignal, shmemSignalTile, tileCount, hcclGroupIndex, rankSize);
-        out = ShmemGet(dummyLocal, shmemDataTile, in.GetDataType());
+        auto shmemDataTile = View(shmemData, {1, 1, rowPerRank, col}, std::vector<SymbolicScalar>{dynRankId, 0, 0, 0});
+        auto shmemSignalTile = View(shmemSignal, {1, 1, tileCount, 8}, std::vector<SymbolicScalar>{dynRankId, 0, 0, 0});
+        Tensor fakeBarrierDummy(DT_INT32, {1, 1}, "fakeBarrierDummy");
+        auto dummy = ShmemPut(in, shmemDataTile, fakeBarrierDummy, tileCount, AtomicType::ADD);
+        auto dummySignal = ShmemSignal(dummy, shmemSignalTile, AtomicType::ADD);
+        IF (thisRank == dynRankId) {
+            auto dummyLocal = WaitUntil(dummySignal, shmemSignalTile, tileCount, hcclGroupIndex, rankSize);
+            out = ShmemGet(dummyLocal, shmemDataTile, in.GetDataType());
         }
-    }   
+    }
 }
 
 void TwoShotShmemAllReduce(const Tensor& in, const char* group, Tensor& out) {
@@ -413,20 +412,20 @@ void TwoShotShmemAllReduce(const Tensor& in, const char* group, Tensor& out) {
     ValidateTilingSize(tileShape.GetDistTileCol(), col, "col");
     LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
         (void)index;
-        shmemData = CreateShmemTensor(rankSize, hcclGroupIndex, shmemDataType, shmemDataShape, in.Format());
-        shmemSignal = CreateShmemTensor(rankSize, hcclGroupIndex, DT_INT32, shmemSignalShape);
+        CreateShmemTensor(shmemData, rankSize, hcclGroupIndex, shmemDataType, shmemDataShape);
+        CreateShmemTensor(shmemSignal, rankSize, hcclGroupIndex, DT_INT32, shmemSignalShape);
     }
-    Tensor barrierDummy(DT_INT32, {1, 1}, "barrierDummy");
     LOOP("L0", FunctionType::DYNAMIC_LOOP, dynRankId, LoopRange(0, rankSize, 1)) {
         auto shmemDataTile = View(shmemData, {1, 1, rowPerRank, col}, std::vector<SymbolicScalar>{dynRankId, dynRankId, 0, 0});
         auto shmemSignalTile = View(shmemSignal, {1, 1, tileCount, 8}, std::vector<SymbolicScalar>{dynRankId, dynRankId, 0, 0});
         auto inTile = View(in, {rowPerRank, col}, std::vector<SymbolicScalar>{rowPerRank * dynRankId, 0});
-        auto dummy = ShmemPut(inTile, shmemDataTile, barrierDummy, tileCount, AtomicType::ADD);
+        Tensor fakeBarrierDummy(DT_INT32, {1, 1}, "fakeBarrierDummy");
+        auto dummy = ShmemPut(inTile, shmemDataTile, fakeBarrierDummy, tileCount, AtomicType::ADD);
         auto dummySignal = ShmemSignal(dummy, shmemSignalTile, AtomicType::ADD);
         auto dummyLocal = WaitUntil(dummySignal, shmemSignalTile, tileCount, hcclGroupIndex, rankSize);
         auto tmp = ShmemGet(dummyLocal, shmemDataTile, in.GetDataType());
         Assemble(tmp, {rowPerRank * dynRankId, 0}, out);
-    } 
+    }
 }
 
 Tensor MoeCombineSend(const Tensor& in, const Tensor& combineInfo, const Tensor& shmemData, const Tensor& shmemSignal,
@@ -528,8 +527,8 @@ void ShmemMoeCombine(const Tensor& in, const Tensor& combineInfo, const Tensor& 
     Tensor shmemSignal;
     LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
         (void)index;
-        shmemData = CreateShmemTensor(rankSize, hcclGroupIndex, in.GetDataType(), shmemDataShape);
-        shmemSignal = CreateShmemTensor(rankSize, hcclGroupIndex, DT_INT32, shmemSignalShape);
+        CreateShmemTensor(shmemData, rankSize, hcclGroupIndex, in.GetDataType(), shmemDataShape);
+        CreateShmemTensor(shmemSignal, rankSize, hcclGroupIndex, DT_INT32, shmemSignalShape);
     }
     LOOP("MoeCombine", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
         (void)index;

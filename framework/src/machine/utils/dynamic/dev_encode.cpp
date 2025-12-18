@@ -216,7 +216,7 @@ static int64_t GetShapeSizeSafe(const std::vector<int64_t> &shape) {
 }
 
 static void EncodeRawShape(const SymbolicExpressionTable *expressionTable, DevAscendRawTensor *encoded,
-    std::shared_ptr<RawTensor> rawTensor, bool isIndependentMemory, const std::string rawName = "") {
+        std::shared_ptr<RawTensor> rawTensor, bool needIndependentlyAlloc, const std::string rawName = "") {
     std::vector<SymInt> shape;
     bool isDyn = false;
     for (auto x : rawTensor->GetDynRawShape()) {
@@ -231,7 +231,7 @@ static void EncodeRawShape(const SymbolicExpressionTable *expressionTable, DevAs
     encoded->dataType = rawTensor->GetDataType();
     encoded->memoryRequirement = isDyn ? 0 : AlignUp(rawTensor->GetRawDataSize(), TENSOR_ADDR_ALIGNMENT);
 
-    if (!isIndependentMemory) {
+    if (!needIndependentlyAlloc) {
         encoded->maxStaticMemReq = 0;
         return;
     }
@@ -244,13 +244,32 @@ static void EncodeRawShape(const SymbolicExpressionTable *expressionTable, DevAs
     }
 }
 
-void DevAscendFunction::FillOutputSlotMark(const IncastOutcastLink *inoutLink, std::vector<bool>& isOutputSlotMarks) {
-    for (int slotIdx : inoutLink->outputSlotIndexList) {
-        isOutputSlotMarks[slotIdx] = true;
+static bool ShouldDropBudget(const OrderedSet<std::shared_ptr<RawTensor>>& outcastRawList,
+        const IncastOutcastSlot* slotInfo,
+        const std::vector<npu::tile_fwk::RuntimeSlotKindSet>& runtimeSlotKindSetList,
+        const std::shared_ptr<RawTensor> rawTensor, const DevAscendRawTensor& encoded) {
+    if (!outcastRawList.count(rawTensor)) {
+        return false;
     }
-    for (int slotIdx: inoutLink->assembleSlotIndexList) {
-        isOutputSlotMarks[slotIdx] = true;
+
+    for (int slotIdx : slotInfo->outcastSlot[encoded.ioIndex]) {
+        if (runtimeSlotKindSetList[slotIdx].Count(RuntimeSlotKind::ADDRESS_EXPRESSION)) {
+            return true;
+        }
     }
+    return false;
+}
+
+static bool HasOutputOrAssembleDst(const std::vector<int>& outcastSlots,
+                                   const std::vector<npu::tile_fwk::RuntimeSlotKindSet>& runtimeSlotKindSetList) {
+    for (int slotIdx : outcastSlots) {
+        if (runtimeSlotKindSetList[slotIdx].Count(RuntimeSlotKind::OUTPUT)) {
+            return true;
+        } else if (runtimeSlotKindSetList[slotIdx].Count(RuntimeSlotKind::ASSEMBLE_OUTCAST)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 void DevAscendFunction::InitRawTensorAndMemoryRequirement(
@@ -269,19 +288,27 @@ void DevAscendFunction::InitRawTensorAndMemoryRequirement(
     rawTensorDescList_.HostInitDataSizeOffset(initOffset, rawList.size());
 
     ONFILLCONTENT {
-        std::vector<bool> isOutputSlotMarks(inoutLink->totalSlot);
-        FillOutputSlotMark(inoutLink, isOutputSlotMarks);
+        const std::vector<RuntimeSlotKindSet> &runtimeSlotKindSetList = inoutLink->runtimeSlotKindSetList;
         ALOG_DEBUG_F("incast raw size %zu, outcast raw size %zu, rawlist size %zu", incastRawList.size(), outcastRawList.size(),
             rawList.size());
-        rawTensorWsMemoryRequirement = 0;
-        outcastWsMemoryRequirement = 0;
+        rootInnerTensorWsMemoryRequirement = 0;
+        exclusiveOutcastWsMemoryRequirement = 0;
+        for (size_t i = 0; i < rawList.size(); i++) {
+            const auto &rawTensor = rawList[i];
+            auto &encoded = *GetRawTensor(i);
+            // shmem need to drop budget
+            bool dropBudget = ShouldDropBudget(outcastRawList, slot, runtimeSlotKindSetList, rawTensor, encoded);
+            // inplace (basically reshape) need to drop budget
+            bool isInplace = param.devRoot->outIncastLinkMap.count(rawTensor);
+            isInplace |= rawTensor->actualRawmagic != -1 && rawTensor->actualRawmagic != rawTensor->rawmagic;
+            EncodeRawShape(expressionTable, &encoded, rawTensor, !dropBudget && !isInplace);
+        }
         for (size_t i = 0; i < rawList.size(); i++) {
             const auto &rawTensor = rawList[i];
             if (rawTensor->actualRawmagic != -1 && rawTensor->actualRawmagic != rawTensor->rawmagic) {
                 continue;
             }
             auto &encoded = *GetRawTensor(i);
-            EncodeRawShape(expressionTable, &encoded, rawTensor, !param.devRoot->outIncastLinkMap.count(rawTensor), param.devRoot->GetRawName());
             encoded.rawMagic = rawTensor->GetRawMagic();
             if (incastRawList.count(rawTensor)) {
                 // No need to allocate memory for root incasts
@@ -292,17 +319,10 @@ void DevAscendFunction::InitRawTensorAndMemoryRequirement(
                 encoded.ioProperty = DevIOProperty::ROOT_OUTCAST;
                 encoded.ioIndex = outcastRawList.GetIndex(rawTensor);
                 rawTensor->addrOffset = 0;
-                bool isOutput = false;
-                for (int slotIdx : slot->outcastSlot[encoded.ioIndex]) {
-                    if (isOutputSlotMarks[slotIdx]) {
-                        isOutput = true;
-                        break;
-                    }
-                }
-                if (!isOutput) {
-                    encoded.addrOffset = outcastWsMemoryRequirement;
-                    rawTensor->addrOffset = outcastWsMemoryRequirement;
-                    outcastWsMemoryRequirement += encoded.maxStaticMemReq;
+                if (!HasOutputOrAssembleDst(slot->outcastSlot[encoded.ioIndex], runtimeSlotKindSetList)) {
+                    encoded.addrOffset = exclusiveOutcastWsMemoryRequirement;
+                    rawTensor->addrOffset = exclusiveOutcastWsMemoryRequirement;
+                    exclusiveOutcastWsMemoryRequirement += encoded.maxStaticMemReq;
                 }
             } else {
                 // For workspace tensors, the memoryRequirement property is deprecated, please don't use its value
@@ -310,13 +330,13 @@ void DevAscendFunction::InitRawTensorAndMemoryRequirement(
                 encoded.ioIndex = -1;
 #if DEBUG_INFINITE_LIFETIME
                 UNUSED(rawAttrs);
-                encoded.addrOffset = rawTensorWsMemoryRequirement;
+                encoded.addrOffset = rootInnerTensorWsMemoryRequirement;
                 rawTensor->addrOffset = encoded.addrOffset;
-                rawTensorWsMemoryRequirement += encoded.maxStaticMemReq;
+                rootInnerTensorWsMemoryRequirement += encoded.maxStaticMemReq;
 #else
                 encoded.addrOffset = rawAttrs[i].storage->start_ + rawAttrs[i].storageOffset;
                 rawTensor->addrOffset = encoded.addrOffset;
-                rawTensorWsMemoryRequirement = std::max(rawTensorWsMemoryRequirement,
+                rootInnerTensorWsMemoryRequirement = std::max(rootInnerTensorWsMemoryRequirement,
                     rawAttrs[i].storage->start_ + rawAttrs[i].storage->length_);
 #endif
             }
@@ -329,7 +349,6 @@ void DevAscendFunction::InitRawTensorAndMemoryRequirement(
                 continue;
             }
             auto &encoded = *GetRawTensor(index);
-            EncodeRawShape(expressionTable, &encoded, rawTensor, false, param.devRoot->GetRawName());
             HandleActualRaw(incastRawList, outcastRawList, rawMagicToRawTensor, rawTensor, encoded);
             UpdateRawTensorDesc(rawTensor, index, incastRawList.size(), encoded);
         }
@@ -555,8 +574,13 @@ void DevAscendFunction::InitOperation(
             ASSERT(callOpPredDict.count(op)) << "callOpPredDict does not contain op " << op;
             ASSERT(At(operationList_, i).depGraphPredCount == callOpPredDict.find(op)->second) << "depGraphPredCount mismatch: expected " <<
                    callOpPredDict.find(op)->second << ", got " << At(operationList_, i).depGraphPredCount;
+            if(dupData->GetOperationCurrPredCount(i) != callOpPredDict.find(op)->second) {
+                ALOG_ERROR_F("OperationCurrPredCount: %d Callopsize is %u exceeds the maximum allowed value of 65535.",
+                dupData->GetOperationCurrPredCount(i), dupData ->GetOperationSize());
+            }
             ASSERT(dupData->GetOperationCurrPredCount(i) == callOpPredDict.find(op)->second) << "GetOperationCurrPredCount mismatch: expected " <<
-                   dupData->GetOperationCurrPredCount(i) << ", got " << callOpPredDict.find(op)->second;
+                   dupData->GetOperationCurrPredCount(i) << ", got " << callOpPredDict.find(op)->second <<
+                   ", Callopsize is " << dupData->GetOperationSize() << " exceeds the maximum allowed value of 65535.";
         }
         dupData->GetSource() = this;
         for (size_t i = 0; i < callList.size(); i++) {
@@ -600,7 +624,7 @@ void DevAscendFunction::InitIncastOutcast(
         const OrderedSet<std::shared_ptr<LogicalTensor>> &tlist,
         const std::unordered_map<std::shared_ptr<LogicalTensor>, InoutOperationAttr> &incastOpAttrDict,
         const std::unordered_map<std::shared_ptr<LogicalTensor>, InoutOperationAttr> &outcastOpAttrDict,
-        const IncastOutcastSlot *slot, const std::string &initRawName, bool fillContent) {
+        const EncodeDevAscendFunctionParam &param, const std::string &initRawName, bool fillContent) {
     {
         // Fill metadata
         incastList.HostInitDataSizeOffset(initOffset, incastTensorList.size());
@@ -622,10 +646,13 @@ void DevAscendFunction::InitIncastOutcast(
                 outcast.dim = outAttr.dim;
                 outcast.cellMatchTableDesc = outAttr.cellMatchTableDesc;
                 outcast.exprListIndex = outAttr.bindTensorExprIndex;
+                outcast.desc = param.outcastDescList[i];
             }
         }
     }
     {
+        const IncastOutcastSlot *slot = param.slot;
+        [[maybe_unused]] const IncastOutcastLink *inoutLink = param.inoutLink;
         // Fill slot list
         slotList.HostInitDataSizeOffset(initOffset, 0);
         uint64_t slotSize = 0;
@@ -650,6 +677,13 @@ void DevAscendFunction::InitIncastOutcast(
             slotSize += slot->outcastSlot[i].size();
         }
         slotList.HostInitDataSizeOffset(initOffset, slotSize);
+
+        redaccAssembleSlotList_.HostInitDataSizeOffset(initOffset, param.assembleSlotList.size());
+        ONFILLCONTENT {
+            for (size_t k = 0; k < param.assembleSlotList.size(); k++) {
+                At(redaccAssembleSlotList_, k) = param.assembleSlotList[k];
+            }
+        }
     }
     {
         // Fill use list
@@ -1514,7 +1548,6 @@ struct EncodeDevAscendFunctionInfo {
     }
 
     void Init(DevAscendFunction *devFunc, const EncodeDevAscendFunctionParam &param, bool fillContent) {
-        auto slot = param.slot;
         uintdevptr_t initOffset = reinterpret_cast<uintdevptr_t>(&devFunc->data) - reinterpret_cast<uintdevptr_t>(devFunc);
         DevAscendFunctionPredInfo predInfo = {totalZeroPred, totalZeroPredAIV, totalZeroPredAIC, totalZeroPredHub,
             totalZeroPredAicpu};
@@ -1534,7 +1567,7 @@ struct EncodeDevAscendFunctionInfo {
 #ifdef SUPPORT_MIX_SUBGRAPH_SCHE
         devFunc->InitWrapInfo(initOffset, callList, fillContent);
 #endif
-        devFunc->InitIncastOutcast(initOffset, incastList, outcastList, tensorList, incastOpAttrDict, outcastOpAttrDict, slot, rawName, fillContent);
+        devFunc->InitIncastOutcast(initOffset, incastList, outcastList, tensorList, incastOpAttrDict, outcastOpAttrDict, param, rawName, fillContent);
     }
 };
 
@@ -1790,6 +1823,18 @@ struct ControlFlowCacheFactor {
       : name(name_), deviceElementFactor(device), rootElementFactor(root), leafElementFactor(leaf) {}
 };
 
+static int EstimatedStitchingCount() {
+    int value = config::GetRuntimeOption<int>(STITCH_FUNCTION_OUTCAST_MEMORY);
+    ASSERT(value > 0) << "Invalid value for STITCH_FUNCTION_OUTCAST_MEMORY: " << value << ", must be greater than 0";
+    return value;
+}
+
+static int WorkspaceRecyclePeriod() {
+    int value = config::GetRuntimeOption<int>(STITCH_FUNCTION_INNER_MEMORY);
+    ASSERT(value > 0) << "Invalid value for STITCH_FUNCTION_INNER_MEMORY: " << value << ", must be greater than 0";
+    return value;
+}
+
 void DevAscendProgram::InitControlFlowCache(
         uintdevptr_t &initOffset,
         const std::shared_ptr<DyndevFunctionAttribute> &dyndevAttr,
@@ -1838,7 +1883,8 @@ void DevAscendProgram::InitControlFlowCache(
     controlFlowCache.inputTensorDataList.HostInitDataSizeOffset(initOffset, dyndevAttr->startArgsInputTensorList.size());
     controlFlowCache.outputTensorDataList.HostInitDataSizeOffset(initOffset, dyndevAttr->startArgsOutputTensorList.size());
 
-    controlFlowCache.runtimeBackup.workspace.tensorAllocators.slottedOutcastsBlockList.HostInitDataSizeOffset(initOffset, slotSize);
+    uint64_t slottedCount = slotSize * (std::min(EstimatedStitchingCount(), (int)MAX_CACHED_FUNC_NUM) + SLOTS_NEED_ALLOC_SIZE);
+    controlFlowCache.runtimeBackup.workspace.tensorAllocators.slottedOutcastsBlockList.HostInitDataSizeOffset(initOffset, slottedCount);
 
     controlFlowCache.runtimeBackup.slotContext.slotList.HostInitDataSizeOffset(initOffset, slotSize);
     controlFlowCache.runtimeBackup.slotContext.slotRefCntList.HostInitDataSizeOffset(initOffset, slotSize);
@@ -1869,6 +1915,7 @@ struct EncodeDevAscendProgramInfo {
     void Init(DevAscendProgram *devProg, bool fillContent) {
         uintdevptr_t initOffset = reinterpret_cast<uintdevptr_t>(devProg->data);
         devProg->slotSize = dyndevAttr->inoutLink.totalSlot;
+        devProg->assembleSlotSize = dyndevAttr->inoutLink.assembleSlotIndexList.size();
         devProg->InitSymbolTable(initOffset, &dyndevAttr->symbolTable, fillContent);
         devProg->InitExpressionTableBinary(initOffset, dyndevAttr->expressionTableBinaryList, fillContent);
         uint64_t expressionTableSize = 0;
@@ -1915,51 +1962,73 @@ struct EncodeDevAscendProgramInfo {
 
 struct TensorWorkspaceResult {
     uint64_t rootInnerMem{0};
-    uint64_t devTaskInnerOutcastsMem{0};
-    uint64_t singleSlotMem{0};
-    uint64_t pooledSlotNum{0};
-    uint64_t globalTensorMem{0};
+    uint64_t devTaskInnerExclusiveOutcastMem{0};
+    uint64_t maxStaticOutcastMem{0};
+    uint64_t devTaskBoundaryOutcastNum{0};
     uint64_t perCoreSpilledMem{0};
-    SymbolicScalar dynWorkspace;
+    SymbolicScalar maxDynamicAssembleOutcastMem;
 };
 
-static int EstimatedStitchingCount() {
-    int value = config::GetRuntimeOption<int>(STITCH_FUNCTION_OUTCAST_MEMORY);
-    ASSERT(value > 0) << "Invalid value for STITCH_FUNCTION_OUTCAST_MEMORY: " << value << ", must be greater than 0";
-    return value;
-}
-
-static int WorkspaceRecyclePeriod() {
-    int value = config::GetRuntimeOption<int>(STITCH_FUNCTION_INNER_MEMORY );
-    ASSERT(value > 0) << "Invalid value for STITCH_FUNCTION_INNER_MEMORY: " << value << ", must be greater than 0";
-    return value;
-}
-
 struct SlotInfo {
-    bool isOutputSlot{false};
     bool asWriteSlot{false};
-    bool isAssemble{false};
+    RuntimeSlotKindSet kindSet;
     uint64_t maxAssembleDstMemReq{0};
     SymbolicScalar dynMemReq;
 };
 
 static std::vector<SlotInfo> MarkOutputAssembleSlots(DevAscendProgram &devProg) {
-    std::vector<SlotInfo> slots(devProg.slotSize);
+    std::vector<SlotInfo> slotInfoList(devProg.slotSize);
     std::vector<int> outputSlotIdxList = devProg.GetOutputTensorSlotIndexList();
     for (int outputSlotIdx : outputSlotIdxList) {
-        slots[outputSlotIdx].isOutputSlot = true;
+        slotInfoList[outputSlotIdx].kindSet.Add(RuntimeSlotKind::OUTPUT);
     }
     for (auto slotIdx : devProg.GetAssembleTensorSlotIndexList()) {
-        slots[slotIdx].isAssemble = true;
+        slotInfoList[slotIdx].kindSet.Add(RuntimeSlotKind::ASSEMBLE_OUTCAST);
     }
-    return slots;
+    for (auto &&devEncodeData : devProg.devEncodeList) {
+        DevAscendFunction *devFunc = reinterpret_cast<DevAscendFunction *>(devEncodeData.Data());
+        for (size_t outcastIdx = 0; outcastIdx < devFunc->GetOutcastSize(); outcastIdx++) {
+            auto &toSlotList = devFunc->GetOutcast(outcastIdx).toSlotList;
+            bool isOutputSlot = false;
+            bool isAssembleOutcastSlot = false;
+            for (size_t j = 0; j < toSlotList.size(); j++) {
+                SlotInfo &slotInfo = slotInfoList[devFunc->At(toSlotList, j)];
+                if (slotInfo.kindSet.Count(RuntimeSlotKind::OUTPUT)) {
+                    isOutputSlot = true;
+                } else if (slotInfo.kindSet.Count(RuntimeSlotKind::ASSEMBLE_OUTCAST)) {
+                    isAssembleOutcastSlot = true;
+                }
+            }
+            if (isOutputSlot) {
+
+            } else if (isAssembleOutcastSlot) {
+                for (size_t j = 0; j < toSlotList.size(); j++) {
+                    /* If multiple outcast slot reference the same assemble outcast tensor
+                     * then these slots are treated as assemble slot, even if in later
+                     * function they are assigned as exclusive outcast tensor
+                     */
+                    SlotInfo &slotInfo = slotInfoList[devFunc->At(toSlotList, j)];
+                    slotInfo.kindSet.Add(RuntimeSlotKind::ASSEMBLE_OUTCAST);
+                    slotInfo.maxAssembleDstMemReq = std::max(
+                        slotInfo.maxAssembleDstMemReq,
+                        devFunc->GetOutcastRawTensor(outcastIdx)->maxStaticMemReq);
+                }
+            } else {
+                for (size_t j = 0; j < toSlotList.size(); j++) {
+                    SlotInfo &slotInfo = slotInfoList[devFunc->At(toSlotList, j)];
+                    slotInfo.kindSet.Add(RuntimeSlotKind::EXCLUSIVE_OUTCAST);
+                }
+            }
+        }
+    }
+    return slotInfoList;
 }
 
-static bool IsOutputSlot(const std::vector<SlotInfo> &slots, DevAscendFunction *func, size_t idx) {
+static bool IsOutputSlot(const std::vector<SlotInfo> &slotInfoList, DevAscendFunction *func, size_t idx) {
     auto &toSlotList = func->GetOutcast(idx).toSlotList;
     for (size_t j = 0; j < toSlotList.size(); j++) {
         int slotIdx = func->At(toSlotList, j);
-        if (slots[slotIdx].isOutputSlot) {
+        if (slotInfoList[slotIdx].kindSet.Count(RuntimeSlotKind::OUTPUT)) {
             return true;
         }
     }
@@ -1971,7 +2040,7 @@ static bool IsAssembleSlot(std::vector<SlotInfo> &slots, DevAscendFunction *func
     bool isAssemble = false;
     for (size_t j = 0; j < toSlotList.size(); j++) {
         int slotIdx = func->At(toSlotList, j);
-        if (slots[slotIdx].isAssemble) {
+        if (slots[slotIdx].kindSet.Count(RuntimeSlotKind::ASSEMBLE_OUTCAST)) {
             isAssemble = true;
             break;
         }
@@ -2026,9 +2095,9 @@ static SymbolicScalar GetDynRawTensorSize(Function *dynFunc, int funcKey, int id
 static TensorWorkspaceResult CalcTensorWorkspace(Function *func,DevAscendProgram &devProg) {
     std::vector<SlotInfo> slots = MarkOutputAssembleSlots(devProg);
 
-    uint64_t maxInnerWorkspace = 0;
-    uint64_t maxOutcastWorkspace = 0;
-    uint64_t maxSlotMemReq = 0;
+    uint64_t maxRootInnerMem = 0;
+    uint64_t maxDevTaskInnerExclusiveOutcastMem = 0;
+    uint64_t maxExclusiveOutcastMem = 0;
     uint64_t maxPerCoreSpilledMem = 0;
     for (auto &&devEncodeData : devProg.devEncodeList) {
         DevAscendFunction *devFunc = reinterpret_cast<DevAscendFunction *>(devEncodeData.Data());
@@ -2067,39 +2136,46 @@ static TensorWorkspaceResult CalcTensorWorkspace(Function *func,DevAscendProgram
                     // No output slot
                     slots[slotIdx].asWriteSlot = true;
                 }
-                maxSlotMemReq = std::max(maxSlotMemReq, devFunc->GetOutcastRawTensor(i)->maxStaticMemReq);
+                maxExclusiveOutcastMem = std::max(
+                    maxExclusiveOutcastMem,
+                    devFunc->GetOutcastRawTensor(i)->maxStaticMemReq);
             }
         }
 
         int unroll = ParseUnrollTimes(devFunc->GetRawName());
-        uint64_t innerWorkspace = CalcUnrolledRootBudget(devFunc->rawTensorWsMemoryRequirement, unroll, WorkspaceRecyclePeriod());
-        uint64_t outcastWorkspace = CalcUnrolledRootBudget(devFunc->outcastWsMemoryRequirement, unroll, EstimatedStitchingCount());
+        uint64_t funcRootInnerMem = CalcUnrolledRootBudget(
+            devFunc->rootInnerTensorWsMemoryRequirement, unroll, WorkspaceRecyclePeriod());
+        uint64_t funcDevTaskInnerExclusiveOutcastMem = CalcUnrolledRootBudget(
+            devFunc->exclusiveOutcastWsMemoryRequirement, unroll, EstimatedStitchingCount());
 
-        maxInnerWorkspace = std::max(maxInnerWorkspace, innerWorkspace);
-        maxOutcastWorkspace = std::max(maxOutcastWorkspace, outcastWorkspace);
+        maxRootInnerMem = std::max(maxRootInnerMem, funcRootInnerMem);
+        maxDevTaskInnerExclusiveOutcastMem = std::max(maxDevTaskInnerExclusiveOutcastMem, funcDevTaskInnerExclusiveOutcastMem);
         maxPerCoreSpilledMem = std::max(maxPerCoreSpilledMem, static_cast<uint64_t>(devFunc->stackWorkSpaceSize));
     }
 
-    uint64_t globalTensorMem = std::accumulate(slots.begin(), slots.end(), UINT64_C(0),
+    uint64_t maxStaticAssembleOutcastMem = std::accumulate(slots.begin(), slots.end(), UINT64_C(0),
         [](uint64_t acc, const SlotInfo &slot) {
-            return acc + (slot.isAssemble ? slot.maxAssembleDstMemReq : 0);
+            return std::max(acc, (slot.kindSet.Count(RuntimeSlotKind::ASSEMBLE_OUTCAST) ? slot.maxAssembleDstMemReq : 0));
         });
-    SymbolicScalar dynTensorMem = std::accumulate(slots.begin(), slots.end(),
+    SymbolicScalar maxDynamicAssembleOutcastMem = std::accumulate(slots.begin(), slots.end(),
         SymbolicScalar(0), [](SymbolicScalar acc, const SlotInfo &slot) {
-            return slot.dynMemReq.IsValid() ? acc + slot.dynMemReq : acc;
+            return std::max(acc, slot.dynMemReq.IsValid() ? slot.dynMemReq : SymbolicScalar(0));
         });
 
     TensorWorkspaceResult res;
-    res.singleSlotMem = maxSlotMemReq;
-    res.globalTensorMem = AlignUp(globalTensorMem, TENSOR_ADDR_ALIGNMENT);
-    res.rootInnerMem = maxInnerWorkspace;
-    res.devTaskInnerOutcastsMem = maxOutcastWorkspace;
-    res.dynWorkspace = dynTensorMem;
+    res.maxStaticOutcastMem = std::max(maxExclusiveOutcastMem, maxStaticAssembleOutcastMem);
+    res.rootInnerMem = maxRootInnerMem;
+    res.devTaskInnerExclusiveOutcastMem = maxDevTaskInnerExclusiveOutcastMem;
+    res.maxDynamicAssembleOutcastMem = maxDynamicAssembleOutcastMem;
 
-    size_t slotsNeedAlloc = std::count_if(slots.begin(), slots.end(), [](const SlotInfo &slot) {
-        return slot.asWriteSlot;
+    size_t totalExclusiveOutcastSlot = std::count_if(slots.begin(), slots.end(), [](const SlotInfo &slot) {
+        return slot.kindSet.Count(RuntimeSlotKind::EXCLUSIVE_OUTCAST);
     });
-    res.pooledSlotNum = slotsNeedAlloc * SLOTS_NEED_ALLOC_SIZE;
+    size_t totalAssembleOutcastSlot = std::count_if(slots.begin(), slots.end(), [](const SlotInfo &slot) {
+        return slot.kindSet.Count(RuntimeSlotKind::ASSEMBLE_OUTCAST);
+    });
+    res.devTaskBoundaryOutcastNum = totalExclusiveOutcastSlot * SLOTS_NEED_ALLOC_SIZE +
+        totalAssembleOutcastSlot * std::min(EstimatedStitchingCount(), (int)MAX_CACHED_FUNC_NUM);
 
     res.perCoreSpilledMem = AlignUp(maxPerCoreSpilledMem, TENSOR_ADDR_ALIGNMENT);
 
@@ -2172,10 +2248,10 @@ void EncodeDevAscendProgram(Function *func, uint64_t &offset, DevAscendProgram *
         TensorWorkspaceResult tensorWsRes = CalcTensorWorkspace(func, *base);
 
         base->memBudget.tensor.rootInner = tensorWsRes.rootInnerMem;
-        base->memBudget.tensor.devTaskInnerOutcasts = tensorWsRes.devTaskInnerOutcastsMem;
-        base->memBudget.tensor.singleSlotMem = tensorWsRes.singleSlotMem;
-        base->memBudget.tensor.pooledSlotNum = tensorWsRes.pooledSlotNum;
-        base->memBudget.tensor.dassembleDests = tensorWsRes.globalTensorMem;
+        base->memBudget.tensor.devTaskInnerExclusiveOutcasts = tensorWsRes.devTaskInnerExclusiveOutcastMem;
+        base->memBudget.tensor.maxStaticOutcastMem = tensorWsRes.maxStaticOutcastMem;
+        base->memBudget.tensor.devTaskBoundaryOutcastNum = tensorWsRes.devTaskBoundaryOutcastNum;
+
         base->memBudget.aicoreSpilled = tensorWsRes.perCoreSpilledMem * DEFAULT_CORE_NUM;
         base->devArgs.machineConfig = func->paramConfigs_.machineConfig_;
         base->stitchFunctionNumInitial = func->paramConfigs_.stitchFunctionNumInitial_;
@@ -2185,7 +2261,7 @@ void EncodeDevAscendProgram(Function *func, uint64_t &offset, DevAscendProgram *
         base->memBudget.metadata.stitchPool = CalcStitchWorkspace(*base);
         base->memBudget.debug.dumpTensor = DumpTensorWorkspace();
 
-        func->GetDyndevAttribute()->dynWorkspace = tensorWsRes.dynWorkspace;
+        func->GetDyndevAttribute()->maxDynamicAssembleOutcastMem = tensorWsRes.maxDynamicAssembleOutcastMem;
     }
 }
 } // namespace dynamic

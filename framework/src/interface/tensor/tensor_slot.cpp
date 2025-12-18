@@ -213,27 +213,73 @@ void TensorSlotManager::ConnectSlot(std::shared_ptr<TensorSlotScope> scope) {
     scope->tensorFunc->SetSlotScope(scope);
 }
 
-void TensorSlotManager::TensorSlotRead(const TensorSlot &slot, const std::shared_ptr<LogicalTensor> &tensor) {
+void TensorSlotManager::InsertLiveSlot(const TensorSlot &slot) {
     if (slotIndexDict.count(slot) == 0) {
-        slotIndexDict[slot] = slotIndexDict.size();
+        int slotIndex = slotIndexDict.size();
+        slotIndexDict[slot] = slotIndex;
+        slotUsageList.push_back(TensorSlotUsage());
     }
     liveSlotSet.insert(slot);
+}
+
+TensorSlotUsage &TensorSlotManager::GetTensorSlotUsage(const TensorSlot &slot) {
+    ASSERT(slotIndexDict.count(slot) != 0);
+    int index = slotIndexDict[slot];
+    ASSERT(index >= 0 && index < static_cast<int>(slotUsageList.size()));
+    return slotUsageList[index];
+}
+
+static Function *GetCurrentNonHiddenFunction() {
+    Function *currNonHiddenFunction = Program::GetInstance().GetCurrentFunction();
+    while (currNonHiddenFunction && currNonHiddenFunction->IsHiddenFunction()) {
+        ASSERT(currNonHiddenFunction->HasParent());
+        currNonHiddenFunction = &currNonHiddenFunction->Parent();
+    }
+    ASSERT(currNonHiddenFunction != nullptr);
+    return currNonHiddenFunction;
+}
+
+void TensorSlotManager::TensorSlotRead(const TensorSlot &slot, const std::shared_ptr<LogicalTensor> &tensor) {
+    InsertLiveSlot(slot);
     if (currScope) {
         currScope->accessRecord[slot].Read(tensor);
     }
+
+    TensorSlotUsage &slotUsage = GetTensorSlotUsage(slot);
+    if (slotUsage.readFirst == nullptr) {
+        slotUsage.readFirst = GetCurrentNonHiddenFunction();
+    }
+    slotUsage.readLast = GetCurrentNonHiddenFunction();
 }
 
 void TensorSlotManager::TensorSlotWrite(const TensorSlot &slot, const std::shared_ptr<LogicalTensor> &tensor) {
-    if (slotIndexDict.count(slot) == 0) {
-        slotIndexDict[slot] = slotIndexDict.size();
-    }
-    liveSlotSet.insert(slot);
+    InsertLiveSlot(slot);
     if (currScope) {
         currScope->accessRecord[slot].Write(tensor);
     }
+
+    TensorSlotUsage &slotUsage = GetTensorSlotUsage(slot);
+    if (slotUsage.writeFirst == nullptr) {
+        slotUsage.writeFirst = GetCurrentNonHiddenFunction();
+    }
+    slotUsage.writeLast = GetCurrentNonHiddenFunction();
+}
+
+void TensorSlotManager::TensorSlotConstruct(const TensorSlot &slot) {
+    InsertLiveSlot(slot);
+
+    TensorSlotUsage &slotUsage = GetTensorSlotUsage(slot);
+    slotUsage.construct = GetCurrentNonHiddenFunction();
 }
 
 void TensorSlotManager::TensorSlotDestruct(const TensorSlot &slot) {
+    if (slotIndexDict.count(slot) == 0) {
+        return;
+    }
+
+    TensorSlotUsage &slotUsage = GetTensorSlotUsage(slot);
+    slotUsage.destruct = GetCurrentNonHiddenFunction();
+
     if (liveSlotSet.count(slot)) {
         liveSlotSet.erase(slot);
     }
@@ -258,15 +304,25 @@ void TensorSlotManager::TensorRead(const Tensor &tensor) {
     LogOperation(slot, "read");
 }
 
-void TensorSlotManager::TensorWrite(const Tensor &tensor, bool isAssemble) {
+void TensorSlotManager::TensorWrite(const Tensor &tensor, SlotProperty property) {
     TensorSlot slot = TensorSlot::CreateTensor(tensor);
     std::shared_ptr<LogicalTensor> storage = tensor.GetStorage(false);
     TensorSlotWrite(slot, storage);
-
-    if (isAssemble)
+    if (property == SlotProperty::ASSEMBLE_DST) {
         assembleSlotSet.insert(slot);
+    } else if (property == SlotProperty::SHMEM_TENSOR) {
+        shmemTensorSlotSet.insert(slot);
+    }
     ASSERT(tensor.GetStorage(false) != nullptr) << "Assigning uninitialized Tensor variable is forbidden";
     LogOperation(slot, "write");
+}
+
+void TensorSlotManager::TensorConstruct(const Tensor &tensor) {
+    TensorSlot slot = TensorSlot::CreateTensor(tensor);
+
+    TensorSlotConstruct(slot);
+
+    LogOperation(slot, "construct");
 }
 
 void TensorSlotManager::TensorDestruct(const Tensor &tensor) {
@@ -454,6 +510,7 @@ std::string TensorSlotManager::Dump() const {
     for (size_t i = 0; i < slotList.size(); i++) {
         bool live = liveSlotSet.count(slotList[i]);
         bool assemble = assembleSlotSet.count(slotList[i]);
+        bool shmemTensor = shmemTensorSlotSet.count(slotList[i]);
         bool input = inputSlotDict.count(slotList[i]);
         bool output = outputSlotDict.count(slotList[i]);
         bool named = slotNameDict.count(slotList[i]);
@@ -462,6 +519,7 @@ std::string TensorSlotManager::Dump() const {
             oss << "slot[" << std::setw(width2) << i << "]: ";
             oss << std::setw(width2) << (live ? 'L' : ' ');
             oss << std::setw(width2) << (assemble ? 'A' : ' ');
+            oss << std::setw(width2) << (shmemTensor ? 'S' : ' ');
             oss << std::setw(width2) << (parial ? 'P' : ' ');
             oss << std::setw(width6) << (input ? "in:" + std::to_string(inputSlotDict.find(slotList[i])->second) : std::string(" "));
             oss << std::setw(width7) << (output ? "out:" + std::to_string(outputSlotDict.find(slotList[i])->second) : std::string(" "));
@@ -535,11 +593,30 @@ IncastOutcastLink TensorSlotManager::BuildIncastOutcastLink([[maybe_unused]]cons
             link.inplaceSlotIndexList.push_back(-1);
         }
     }
+
+    std::unordered_set<std::shared_ptr<TensorSlotScope>> constructAssembleSlotScopeSet;
     for (auto &[slot, index] : slotIndexDict) {
+        TensorSlotUsage &usage = GetTensorSlotUsage(slot);
         if (assembleSlotSet.count(slot)) {
             link.assembleSlotIndexList.push_back(index);
+
+            if (usage.construct) {
+                std::shared_ptr<TensorSlotScope> scope = usage.construct->GetSlotScope();
+                if (scope) {
+                    /* Some Tensor might be defined out of FUNCTION. */
+                    scope->constructAssembleSlotList.push_back(index);
+                    constructAssembleSlotScopeSet.insert(scope);
+                }
+            }
+        }
+        if (shmemTensorSlotSet.count(slot)) {
+            link.shmemTensorSlotIndexList.push_back(index);
         }
     }
+    for (auto scope : constructAssembleSlotScopeSet) {
+        std::sort(scope->constructAssembleSlotList.begin(), scope->constructAssembleSlotList.end());
+    }
+
     for (auto &slotIndex : partialUpdateSlotIndexSet) {
         link.partialUpdateSlotIdexList.push_back(slotIndex);
     }

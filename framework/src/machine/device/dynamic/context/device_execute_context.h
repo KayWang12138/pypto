@@ -108,13 +108,17 @@ struct DeviceExecuteContext {
 
     void *CallRootFunctionStitch(uint64_t rootKey);
 
+    void MarkSlotNeedAlloc(int slotIndex);
+
 private:
-    static void *DeviceExecuteCallAlloc(void *ctx_, uint64_t rootKey);
+    static void *DeviceExecuteRuntimeCallRootAlloc(void *ctx_, uint64_t rootKey);
 
-    static void *DeviceExecuteCallStitch(void *ctx_, uint64_t rootKey);
+    static void *DeviceExecuteRuntimeCallRootStitch(void *ctx_, uint64_t rootKey);
 
-    static void *DeviceExecuteRuntimerLog(void *ctx_, uint64_t value);
+    static void *DeviceExecuteRuntimeCallLog(void *ctx_, uint64_t value);
 
-    static void *DeviceExecuteShmemAlloctor(void *ctx_, uint64_t value);
+    static void *DeviceExecuteRuntimeCallShmemAllocator(void *ctx_, uint64_t value);
+
+    static void *DeviceExecuteRuntimeCallSlotMarkNeedAlloc(void *ctx_, uint64_t slotIndex);
 };
 }

@@ -58,9 +58,11 @@ public:
         *dumpTensorWsAllocatorCounter_ = dumpTensorWsAllocator_.AllocatedSize();
 #endif
         SetupVector(slotMemToBeFree_);
-        slotMemToBeFree_.reserve(devProg->memBudget.tensor.pooledSlotNum);
+        slotMemToBeFree_.reserve(devProg->memBudget.tensor.devTaskBoundaryOutcastNum);
 
         devProg_ = devProg;
+
+        assembleSlotBuffer_ = metadataAllocators_.general.Allocate<WsAllocation>(devProg_->assembleSlotSize).As<WsAllocation>();
     }
 
     uintdevptr_t StackWorkspaceAddr() const { return stackWorkspaceBase_; }
@@ -131,7 +133,7 @@ public:
                 return slotVerifier_.Verify(ptr, memSize) == WsMemoryState::INSIDE ||
                     dassembleDestsTensorVerifier_.Verify(ptr, memSize) == WsMemoryState::INSIDE ||
                     rootInnerWsVerifier_.Verify(ptr, memSize) == WsMemoryState::INSIDE ||
-                    devTaskInnerOutcastsWsVerifier_.Verify(ptr, memSize) == WsMemoryState::INSIDE;
+                    devTaskInnerExclusiveOutcastsWsVerifier_.Verify(ptr, memSize) == WsMemoryState::INSIDE;
             };
 
             size_t rawTensorCount = dup.GetSource()->GetRawTensorSize();
@@ -174,13 +176,13 @@ public:
     }
 
 private:
-    bool TryAllocateFuncWs(DevAscendFunctionDupped dup, uint64_t size, WsAllocatorCounter *dfxCounter = nullptr) {
-        if (!tensorAllocators_.rootInner.CanAllocate(size)) {
+    bool TryAllocateFuncWs(DevAscendFunctionDupped dup, uint64_t rootInnerSize, WsAllocatorCounter *dfxCounter = nullptr) {
+        if (!tensorAllocators_.rootInner.CanAllocate(rootInnerSize)) {
             tensorAllocators_.rootInner.ResetPool();
-            DEV_DEBUG_ASSERT(tensorAllocators_.rootInner.CanAllocate(size));
+            DEV_DEBUG_ASSERT(tensorAllocators_.rootInner.CanAllocate(rootInnerSize));
         }
         WsAllocation allocation = tensorAllocators_.rootInner.Malloc(
-            size, WsMemCategory::TENSOR_ROOTFUNC_INTERNAL);
+            rootInnerSize, WsMemCategory::TENSOR_ROOTFUNC_INTERNAL);
 #if DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
         if (dfxCounter) {
             dfxCounter->LogMalloc(allocation);
@@ -217,12 +219,12 @@ public:
         DevAscendFunction *devRootSrc = devRootDup.GetSource();
 
         // alloc outcast workspace
-        size_t outcastSize = devRootSrc->outcastWsMemoryRequirement;
+        size_t outcastSize = devRootSrc->exclusiveOutcastWsMemoryRequirement;
         if (outcastSize != 0) {
-            if (!tensorAllocators_.devTaskInnerOutcasts.CanAllocate(outcastSize)) {
+            if (!tensorAllocators_.devTaskInnerExclusiveOutcasts.CanAllocate(outcastSize)) {
                 return false;
             }
-            WsAllocation allocation = tensorAllocators_.devTaskInnerOutcasts.Malloc(
+            WsAllocation allocation = tensorAllocators_.devTaskInnerExclusiveOutcasts.Malloc(
                 outcastSize, WsMemCategory::TENSOR_ROOTFUNC_INTERNAL);
 #if DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
             funcAllocDfx.LogMalloc(allocation);
@@ -236,13 +238,13 @@ public:
         }
 
         // alloc inner workspace
-        size_t wsSize = devRootSrc->rawTensorWsMemoryRequirement;
-        if (wsSize != 0) {
-            if (!TryAllocateFuncWs(devRootDup, wsSize, pDfxCounter)) {
+        size_t rootInnerSize = devRootSrc->rootInnerTensorWsMemoryRequirement;
+        if (rootInnerSize != 0) {
+            if (!TryAllocateFuncWs(devRootDup, rootInnerSize, pDfxCounter)) {
                 return false;
             }
 #if DEBUG_INFINITE_LIFETIME
-            WsAllocation allocation = DebugDumpTensorAllocate(wsSize, WsMemCategory::TENSOR_ROOTFUNC_INTERNAL);
+            WsAllocation allocation = DebugDumpTensorAllocate(rootInnerSize, WsMemCategory::TENSOR_ROOTFUNC_INTERNAL);
             devRootDup.RuntimeWorkspace() = allocation.ptr;
 #endif
         } else {
@@ -258,22 +260,41 @@ public:
             DEV_VERBOSE_DEBUG("get incast %zu, from slot %d address %s.", i, slotIndex, devRootDup.GetIncastAddress(i).Dump().c_str());
         }
 
+        /* Try assemble outcast. Should this be moved to where the need alloc mark is called? */
+        size_t assembleOutcastNeedAlloc = 0;
+        int *assembleSlotList = &devRootSrc->GetRedaccAssembleSlotList(0);
+        for (size_t i = 0, ie = devRootSrc->GetRedaccAssembleSlotListSize(); i < ie; i++) {
+            if (slotList[assembleSlotList[i]].isAssembleSlotNeedAlloc) {
+                assembleOutcastNeedAlloc++;
+            }
+        }
+        if (assembleOutcastNeedAlloc != 0) {
+            if (!AllocateSlot(assembleOutcastNeedAlloc, devRootSrc->GetRawName(), assembleSlotBuffer_)) {
+                return false;
+            }
+        }
+
         // assign outcast address separately first, will be reassigned when corresponding slot was replaced
+        uint32_t assembleOutcastIndex = 0;
         uintdevptr_t outcastBaseAddr = devRootDup.RuntimeOutcastBase();
         for (size_t i = 0; i < devRootSrc->GetOutcastSize(); ++i) {
-            int slotIndex = -1;
+            int outputSlotIndex = -1;
+            int assembleSlotIndex = -1;
             auto &toSlotList = devRootSrc->GetOutcast(i).toSlotList;
             for (size_t k = 0; k < toSlotList.size(); ++k) {
                 auto idx = devRootSrc->At(toSlotList, k);
-                if (slotList[idx].IsFixedAddress()) { // true表示固定地址，用户输出Assemble的结果
-                    slotIndex = idx;
-                    break;
+                if (slotList[idx].IsOutputAddress()) { // true表示固定地址，用户输出Assemble的结果
+                    outputSlotIndex = idx;
+                } else if (slotList[idx].IsAssembleAddress()) {
+                    assembleSlotIndex = idx;
                 }
             }
             AddressDescriptor desc;
-            if (slotIndex != -1) {
-                desc = slotList[slotIndex].desc;
+            if (outputSlotIndex != -1) {
+                /* Output tensor */
+                desc = slotList[outputSlotIndex].desc;
                 if (desc.IsNullAddress()) {
+                    /* Allocate such tensor */
                     auto rawTensor = devRootSrc->GetOutcastRawTensor(i);
                     if (rawTensor->linkedIncastId == -1) {
                         auto memReq = rawTensor->GetMemoryRequirement(devRootDup.GetExpressionAddr());
@@ -282,8 +303,21 @@ public:
                         allocation = DebugDumpTensorAllocate(memReq);
 #endif
                         desc = AddressDescriptor(allocation.ptr);
-                        slotList[slotIndex].desc = desc;
+                        slotList[outputSlotIndex].desc = desc;
                     }
+                }
+            } else if (assembleSlotIndex != -1) {
+                /* assemble outcast tensor */
+                desc = slotList[assembleSlotIndex].desc;
+                if (slotList[assembleSlotIndex].isAssembleSlotNeedAlloc) {
+                    if (desc.IsAddress() && desc.GetAddressValue() != 0) {
+                        /* Mark recycle */
+                        DelayedRecycleSlotMem(desc.GetAddressValue());
+                    }
+                    auto address = assembleSlotBuffer_[assembleOutcastIndex++].ptr;
+                    desc = AddressDescriptor(address);
+                    slotList[assembleSlotIndex].desc = desc;
+                    slotList[assembleSlotIndex].isAssembleSlotNeedAlloc = false;
                 }
             } else if (devRootSrc->GetOutcast(i).exprListIndex != -1) {
                 uint64_t *exprTbl = devRootDup.GetExpressionAddr();
@@ -304,15 +338,15 @@ public:
                     allocation = DebugDumpTensorAllocate(memReq);
 #endif // DEBUG_INFINITE_LIFETIME
                     desc = AddressDescriptor(allocation.ptr);
-                    if (slotIndex != -1) {
-                        slotList[slotIndex].desc = desc;
+                    if (outputSlotIndex != -1) {
+                        slotList[outputSlotIndex].desc = desc;
                     }
                     devRootDup.GetIncastAddress(rawTensor->linkedIncastId) = desc;
                 }
             }
 
             devRootDup.GetOutcastAddress(i) = desc;
-            DEV_VERBOSE_DEBUG("get outcast %zu slot %d address %s.", i, slotIndex, desc.Dump().c_str());
+            DEV_VERBOSE_DEBUG("get outcast %zu slot %d/%d address %s.", i, outputSlotIndex, assembleSlotIndex, desc.Dump().c_str());
         }
 
 #if DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
@@ -322,16 +356,24 @@ public:
     }
 
     bool IsValidSlotMemRequirement(uint64_t memReq) const {
-        return tensorAllocators_.slottedOutcasts.IsValidSlotMemRequirement(memReq);
+        return tensorAllocators_.devTaskBoundaryOutcasts.IsValidSlotMemRequirement(memReq);
     }
 
     uintdevptr_t AllocateSlot(const char *rootFuncName) {
-        WsAllocation allocation = tensorAllocators_.slottedOutcasts.Allocate();
+        WsAllocation allocation = tensorAllocators_.devTaskBoundaryOutcasts.Allocate();
 #if DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
         wsMemDelayedDumper_.LogTensorMalloc(rootFuncName, allocation);
 #endif // DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
         (void)rootFuncName;
         return allocation.ptr;
+    }
+
+    bool AllocateSlot(int count, [[maybe_unused]] const char *rootFuncName, WsAllocation *buffer) {
+        bool ret = tensorAllocators_.devTaskBoundaryOutcasts.Allocate(count, buffer);
+#if DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
+        wsMemDelayedDumper_.LogTensorMalloc(rootFuncName, allocation);
+#endif // DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
+        return ret;
     }
 
     void DelayedRecycleSlotMem(uintdevptr_t ptr) {
@@ -340,13 +382,13 @@ public:
 
     void TriggerDelayedRecycle() {
         for (uintdevptr_t ptr : slotMemToBeFree_) {
-            tensorAllocators_.slottedOutcasts.Deallocate(ptr);
+            tensorAllocators_.devTaskBoundaryOutcasts.Deallocate(ptr);
         }
         slotMemToBeFree_.clear();
     }
 
     void RecycleDevFuncWorkspace() {
-        tensorAllocators_.devTaskInnerOutcasts.ResetPool();
+        tensorAllocators_.devTaskInnerExclusiveOutcasts.ResetPool();
         tensorAllocators_.rootInner.ResetPool();
     }
 
@@ -411,9 +453,9 @@ public:
         metadataAllocators_.generalSlab.DumpMemoryUsage(hint, "Metadata slab allocator");
         metadataAllocators_.stitchSlab.DumpMemoryUsage(hint, "Metadata Stitch slab allocator");
         tensorAllocators_.rootInner.DumpMemoryUsage(hint, "Tensor (root inner) workspace");
-        tensorAllocators_.devTaskInnerOutcasts.DumpMemoryUsage(hint, "Tensor (DeviceTask inner outcasts) workspace");
+        tensorAllocators_.devTaskInnerExclusiveOutcasts.DumpMemoryUsage(hint, "Tensor (DeviceTask inner outcasts) workspace");
         tensorAllocators_.dassembleDests.DumpMemoryUsage(hint, "Tensor (dassembleDests) workspace");
-        tensorAllocators_.slottedOutcasts.DumpMemoryUsage(hint);
+        tensorAllocators_.devTaskBoundaryOutcasts.DumpMemoryUsage(hint);
 
         // Dump stack memory
         DEV_MEM_DUMP("Stack workspace memory usage (%s)\n", hint);
@@ -543,15 +585,15 @@ private:
             tensorWorkspaceSize);
 
         // Initialize root function slotted outcast tensor memory
-        auto slottedOutcastsBudget = devProg->memBudget.tensor.pooledSlotNum * devProg->memBudget.tensor.singleSlotMem;
-        slotVerifier_.Init(baseAddr, slottedOutcastsBudget);
-        tensorAllocators_.slottedOutcasts.InitTensorAllocator(
+        auto devTaskBoundaryOutcastsBudget = devProg->memBudget.tensor.devTaskBoundaryOutcastNum * devProg->memBudget.tensor.MaxOutcastMem();
+        slotVerifier_.Init(baseAddr, devTaskBoundaryOutcastsBudget);
+        tensorAllocators_.devTaskBoundaryOutcasts.InitTensorAllocator(
             baseAddr,
-            devProg->memBudget.tensor.pooledSlotNum,
-            devProg->memBudget.tensor.singleSlotMem,
+            devProg->memBudget.tensor.devTaskBoundaryOutcastNum,
+            devProg->memBudget.tensor.MaxOutcastMem(),
             metadataAllocators_.general);
-        DEV_TRACE_DEBUG(CtrlEvent(none(), WorkspaceCrossDeviceTaskOutcast(Range(baseAddr, baseAddr + slottedOutcastsBudget))));
-        baseAddr += slottedOutcastsBudget;
+        DEV_TRACE_DEBUG(CtrlEvent(none(), WorkspaceCrossDeviceTaskOutcast(Range(baseAddr, baseAddr + devTaskBoundaryOutcastsBudget))));
+        baseAddr += devTaskBoundaryOutcastsBudget;
 
         // Initialize root function non-outcast tensor memory
         auto rootInnerBudget = devProg->memBudget.tensor.rootInner;
@@ -561,9 +603,9 @@ private:
         baseAddr += rootInnerBudget;
 
         // Initialize root function sequential outcast tensor memory
-        auto devTaskInnerOutcastBudget = devProg->memBudget.tensor.devTaskInnerOutcasts;
-        devTaskInnerOutcastsWsVerifier_.Init(baseAddr, devTaskInnerOutcastBudget);
-        tensorAllocators_.devTaskInnerOutcasts.InitTensorAllocator(baseAddr, devTaskInnerOutcastBudget);
+        auto devTaskInnerOutcastBudget = devProg->memBudget.tensor.devTaskInnerExclusiveOutcasts;
+        devTaskInnerExclusiveOutcastsWsVerifier_.Init(baseAddr, devTaskInnerOutcastBudget);
+        tensorAllocators_.devTaskInnerExclusiveOutcasts.InitTensorAllocator(baseAddr, devTaskInnerOutcastBudget);
         DEV_TRACE_DEBUG(CtrlEvent(none(), WorkspaceInDeviceTaskOutcast(Range(baseAddr, baseAddr + devTaskInnerOutcastBudget))));
         baseAddr += devTaskInnerOutcastBudget;
 
@@ -748,12 +790,13 @@ private:
 
     uint32_t maxDevFuncDuppedSize_{0};
     DevAscendProgram *devProg_{nullptr};
+    WsAllocation *assembleSlotBuffer_{nullptr};
 
     WsMemoryVerifier tensorWsVerifier_;
     WsMemoryVerifier slotVerifier_;
     WsMemoryVerifier dassembleDestsTensorVerifier_;
     WsMemoryVerifier rootInnerWsVerifier_;
-    WsMemoryVerifier devTaskInnerOutcastsWsVerifier_;
+    WsMemoryVerifier devTaskInnerExclusiveOutcastsWsVerifier_;
 
     Vector<uintdevptr_t, WsMemCategory::VECTOR_SLOT_RECYCLE_LIST> slotMemToBeFree_;
     SPSCQueue<WsSlabStageAllocMem *, SUBMMIT_TASK_QUE_SIZE> submmitTaskSlabMemQueue_;

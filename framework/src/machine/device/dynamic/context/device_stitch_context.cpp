@@ -133,11 +133,11 @@ void DeviceStitchContext::DecideSlotAddress(DeviceExecuteSlot *slotList, size_t 
         desc = outcastDesc;
 #else
         auto *outcastRawTensor = dup.GetSource()->GetOutcastRawTensor(desc.outcastIdx);
-        if (slot.IsFixedAddress() || (outcastRawTensor->linkedIncastId != -1) ||
-            (dup.GetSource()->GetOutcast(desc.outcastIdx).exprListIndex != -1)) {
-                desc = outcastDesc;
-                continue;
-            }
+        if (slot.IsOutputAddress() || slot.IsAssembleAddress() || (outcastRawTensor->linkedIncastId != -1) ||
+                (dup.GetSource()->GetOutcast(desc.outcastIdx).exprListIndex != -1)) {
+            desc = outcastDesc;
+            continue;
+        }
 
         uintdevptr_t outcastWsStandardAddr = dup.RuntimeOutcastBase() + outcastRawTensor->addrOffset;
         bool isStandardOutcastSlot = outcastDesc.addr == outcastWsStandardAddr ||
@@ -401,13 +401,13 @@ uint64_t DeviceStitchContext::FullCoverUpdateStitch(DevAscendFunctionDupped &nex
 }
 
 void DeviceStitchContext::ReuseStitch(DevAscendFunctionDupped &nextDup, size_t devNextIdx) {
-    if (nextDup.GetSource()->rawTensorWsMemoryRequirement == 0) {
+    if (nextDup.GetSource()->rootInnerTensorWsMemoryRequirement == 0) {
         // 0 length workspace, no dependency in need
         return;
     }
 
     uintdevptr_t nextAddrL = nextDup.RuntimeWorkspace();
-    uintdevptr_t nextAddrR = nextAddrL + nextDup.GetSource()->rawTensorWsMemoryRequirement;
+    uintdevptr_t nextAddrR = nextAddrL + nextDup.GetSource()->rootInnerTensorWsMemoryRequirement;
     auto nextReuseInfo = nextDup.GetRuntimeReuseInfo();
     if (auto &firstDup = stitchedList_[stitchReuseContext_.firstDupIdx];
         firstDup.GetRuntimeReuseInfo().poolResetTimes >= nextReuseInfo.poolResetTimes) {
@@ -421,7 +421,7 @@ void DeviceStitchContext::ReuseStitch(DevAscendFunctionDupped &nextDup, size_t d
         }
 
         auto &prevDup = stitchedList_[prevIdx];
-        if (prevDup.GetSource()->rawTensorWsMemoryRequirement == 0) {
+        if (prevDup.GetSource()->rootInnerTensorWsMemoryRequirement == 0) {
             // empty workspace
             return SKIP_EMPTY;
         }
@@ -435,7 +435,7 @@ void DeviceStitchContext::ReuseStitch(DevAscendFunctionDupped &nextDup, size_t d
         stitchReuseContext_.lastNonEmptyDupIdx = prevIdx;
 
         uintdevptr_t prevAddrL = prevDup.RuntimeWorkspace();
-        uintdevptr_t prevAddrR = prevAddrL + prevDup.GetSource()->rawTensorWsMemoryRequirement;
+        uintdevptr_t prevAddrR = prevAddrL + prevDup.GetSource()->rootInnerTensorWsMemoryRequirement;
         return !(prevAddrR <= nextAddrL || prevAddrL >= nextAddrR) ? NEEDS_DEP : NO_DEP;
     };
 

@@ -39,10 +39,8 @@ LogicalTensorPtr BinaryOperationBroadCast(const LogicalTensorPtr &operand, const
     return operand;
 }
 
-void CheckOperandsValid(const Tensor &operand1, const Tensor &operand2) {
-    ASSERT(operand1.GetShape().size() == operand2.GetShape().size());
-    ASSERT(operand1.GetShape().size() == operand1.GetStorage()->offset.size());
-    ASSERT(operand2.GetShape().size() == operand2.GetStorage()->offset.size());
+void CheckOperandsValid(const LogicalTensorPtr &operand1, const LogicalTensorPtr &operand2) {
+    ASSERT(operand1->shape.size() == operand2->shape.size());
 }
 
 void CheckBinOpOperandsValid(const LogicalTensorPtr &operand1, const LogicalTensorPtr &operand2) {
@@ -87,24 +85,29 @@ bool CallBrcBinOp(LogicalTensorPtr operand1, LogicalTensorPtr operand2) {
     return (operand1->shape[shapeSize - 1] != 1) && (operand2->shape[shapeSize - 1] == 1);
 }
 
+struct LogicalInput {
+    const LogicalTensorPtr tensor;
+    TileInfo tileInfo;
+};
+
 template <BinaryOpType T>
-void TiledBinaryOperation(Function &function, const TileShape &tileShape, size_t cur, Input &input1, Input &input2,
+void TiledBinaryOperation(Function &function, const TileShape &tileShape, size_t cur, LogicalInput &input1, LogicalInput &input2,
     const LogicalTensorPtr &result, TileInfo &resultTileInfo, bool withBrc) {
     constexpr size_t shapeSize = 2;
-    if (cur == input1.tensor.GetShape().size()) {
-        auto inputTile1 = input1.tensor.GetStorage()->View(function, input1.tileInfo.shape, input1.tileInfo.offset);
-        auto inputTile2 = input2.tensor.GetStorage()->View(function, input2.tileInfo.shape, input2.tileInfo.offset);
+    if (cur == input1.tensor->GetShape().size()) {
+        auto inputTile1 = input1.tensor->View(function, input1.tileInfo.shape, input1.tileInfo.offset);
+        auto inputTile2 = input2.tensor->View(function, input2.tileInfo.shape, input2.tileInfo.offset);
         auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
         if (withBrc) {
             std::vector<int64_t> tmpShape(input1.tileInfo.shape);
-            auto alignSize = BLOCK_SIZE / BytesOf(input2.tensor.GetDataType());
+            auto alignSize = BLOCK_SIZE / BytesOf(input2.tensor->Datatype());
             tmpShape[input1.tileInfo.shape.size() - 1] = alignSize;
             if (input1.tileInfo.shape.size() == shapeSize) {
                 tmpShape[input1.tileInfo.shape.size() - shapeSize] =
                     (tmpShape[input1.tileInfo.shape.size() - shapeSize] + alignSize - 1) / alignSize * alignSize;
             }
             auto tempTensor =
-                std::make_shared<LogicalTensor>(function, input2.tensor.GetStorage()->Datatype(), tmpShape);
+                std::make_shared<LogicalTensor>(function, input2.tensor->Datatype(), tmpShape);
             function.AddOperation(
                 GetBinaryOpNameCode<T, false, true>(), {inputTile1, inputTile2}, {resultTile, tempTensor});
         } else {
@@ -116,12 +119,12 @@ void TiledBinaryOperation(Function &function, const TileShape &tileShape, size_t
     for (int i = 0; i < result->shape[cur]; i += vecTile[cur]) {
         resultTileInfo.offset[cur] = i;
         resultTileInfo.shape[cur] = std::min(result->shape[cur] - resultTileInfo.offset[cur], vecTile[cur]);
-        input1.tileInfo.offset[cur] = i % input1.tensor.GetShape()[cur];
+        input1.tileInfo.offset[cur] = i % input1.tensor->GetShape()[cur];
         input1.tileInfo.shape[cur] =
-            std::min(input1.tensor.GetShape()[cur] - input1.tileInfo.offset[cur], vecTile[cur]);
-        input2.tileInfo.offset[cur] = i % input2.tensor.GetShape()[cur];
+            std::min(input1.tensor->GetShape()[cur] - input1.tileInfo.offset[cur], vecTile[cur]);
+        input2.tileInfo.offset[cur] = i % input2.tensor->GetShape()[cur];
         input2.tileInfo.shape[cur] =
-            std::min(input2.tensor.GetShape()[cur] - input2.tileInfo.offset[cur], vecTile[cur]);
+            std::min(input2.tensor->GetShape()[cur] - input2.tileInfo.offset[cur], vecTile[cur]);
         TiledBinaryOperation<T>(function, tileShape, cur + 1, input1, input2, result, resultTileInfo, withBrc);
     }
 }
@@ -152,8 +155,8 @@ void TiledBinaryOperation(Function &function, const TileShape &tileShape, Logica
     TileInfo tileInfo1(result->shape.size(), result->offset.size());
     TileInfo tileInfo2(result->shape.size(), result->offset.size());
     TileInfo resultTileInfo(result->shape.size(), result->offset.size());
-    auto input1 = Input{operand1, tileInfo1};
-    auto input2 = Input{operand2, tileInfo2};
+    auto input1 = LogicalInput{operand1, tileInfo1};
+    auto input2 = LogicalInput{operand2, tileInfo2};
     TiledBinaryOperation<T>(function, tileShape, 0, input1, input2, result, resultTileInfo, withBrc);
 }
 
@@ -195,10 +198,10 @@ Tensor Minimum(const Tensor &operand1, const Tensor &operand2) {
 }
 
 template <BinaryOpType T>
-void TiledBinaryOperationScalar(Function &function, const TileShape &tileShape, size_t cur, Input &input1,
+void TiledBinaryOperationScalar(Function &function, const TileShape &tileShape, size_t cur, LogicalInput &input1,
     Element &value, const LogicalTensorPtr &result, TileInfo &resultTileInfo, bool reverseOperand) {
-    if (cur == input1.tensor.GetShape().size()) {
-        auto inputTile1 = input1.tensor.GetStorage()->View(function, input1.tileInfo.shape, input1.tileInfo.offset);
+    if (cur == input1.tensor->GetShape().size()) {
+        auto inputTile1 = input1.tensor->View(function, input1.tileInfo.shape, input1.tileInfo.offset);
         auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
         // 确认接口
         auto &op = function.AddOperation(GetBinaryOpNameCode<T, true>(), {inputTile1}, {resultTile});
@@ -210,9 +213,9 @@ void TiledBinaryOperationScalar(Function &function, const TileShape &tileShape, 
     for (int i = 0; i < result->shape[cur]; i += vecTile[cur]) {
         resultTileInfo.offset[cur] = i;
         resultTileInfo.shape[cur] = std::min(result->shape[cur] - resultTileInfo.offset[cur], vecTile[cur]);
-        input1.tileInfo.offset[cur] = i % input1.tensor.GetShape()[cur];
+        input1.tileInfo.offset[cur] = i % input1.tensor->GetShape()[cur];
         input1.tileInfo.shape[cur] =
-            std::min(input1.tensor.GetShape()[cur] - input1.tileInfo.offset[cur], vecTile[cur]);
+            std::min(input1.tensor->GetShape()[cur] - input1.tileInfo.offset[cur], vecTile[cur]);
 
         TiledBinaryOperationScalar<T>(
             function, tileShape, cur + 1, input1, value, result, resultTileInfo, reverseOperand);
@@ -224,7 +227,7 @@ void TiledBinaryOperationScalar(Function &function, const TileShape &tileShape, 
     Element value, const LogicalTensorPtr &result, bool reverseOperand = false) {
     TileInfo tileInfo1(result->shape.size(), result->offset.size());
     TileInfo resultTileInfo(result->shape.size(), result->offset.size());
-    auto input1 = Input{operand1, tileInfo1};
+    auto input1 = LogicalInput{operand1, tileInfo1};
     TiledBinaryOperationScalar<T>(function, tileShape, 0, input1, value, result, resultTileInfo, reverseOperand);
 }
 
@@ -275,10 +278,10 @@ Tensor Minimum(const Tensor &operand1, const Element &operand2) {
 }
 
 template <BinaryOpType T>
-void TiledBinaryOperationAllScalar(Function &function, const TileShape &tileShape, size_t cur, Input &input1,
+void TiledBinaryOperationAllScalar(Function &function, const TileShape &tileShape, size_t cur, LogicalInput &input1,
     Element &value, const LogicalTensorPtr &result, TileInfo &resultTileInfo, bool reverseOperand) {
-    if (cur == input1.tensor.GetShape().size()) {
-        auto inputTile1 = input1.tensor.GetStorage()->View(function, input1.tileInfo.shape, input1.tileInfo.offset);
+    if (cur == input1.tensor->GetShape().size()) {
+        auto inputTile1 = input1.tensor->View(function, input1.tileInfo.shape, input1.tileInfo.offset);
         auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
         // 确认接口
         auto &op = function.AddOperation(GetBinaryOpNameCode<T, true>(), {inputTile1}, {resultTile});
@@ -290,9 +293,9 @@ void TiledBinaryOperationAllScalar(Function &function, const TileShape &tileShap
     for (int i = 0; i < result->shape[cur]; i += vecTile[cur]) {
         resultTileInfo.offset[cur] = i;
         resultTileInfo.shape[cur] = std::min(result->shape[cur] - resultTileInfo.offset[cur], vecTile[cur]);
-        input1.tileInfo.offset[cur] = i % input1.tensor.GetShape()[cur];
+        input1.tileInfo.offset[cur] = i % input1.tensor->GetShape()[cur];
         input1.tileInfo.shape[cur] =
-            std::min(input1.tensor.GetShape()[cur] - input1.tileInfo.offset[cur], vecTile[cur]);
+            std::min(input1.tensor->GetShape()[cur] - input1.tileInfo.offset[cur], vecTile[cur]);
 
         TiledBinaryOperationScalar<T>(
             function, tileShape, cur + 1, input1, value, result, resultTileInfo, reverseOperand);
@@ -304,7 +307,7 @@ void TiledBinaryOperationAllScalar(Function &function, const TileShape &tileShap
     Element value, const LogicalTensorPtr &result, bool reverseOperand) {
     TileInfo tileInfo1(result->shape.size(), result->offset.size());
     TileInfo resultTileInfo(result->shape.size(), result->offset.size());
-    auto input1 = Input{operand1, tileInfo1};
+    auto input1 = LogicalInput{operand1, tileInfo1};
     TiledBinaryOperationAllScalar<T>(function, tileShape, 0, input1, value, result, resultTileInfo, reverseOperand);
 }
 
@@ -344,11 +347,11 @@ Tensor ScalarMaxS(const Tensor &operand, const Element &value, bool reverseOpera
 }
 
 template <BinaryOpType T>
-void TiledBinaryOperationAllScalar(Function &function, const TileShape &tileShape, size_t cur, Input &input1,
-    Input &input2, const LogicalTensorPtr &result, TileInfo &resultTileInfo) {
-    if (cur == input1.tensor.GetShape().size()) {
-        auto inputTile1 = input1.tensor.GetStorage()->View(function, input1.tileInfo.shape, input1.tileInfo.offset);
-        auto inputTile2 = input2.tensor.GetStorage()->View(function, input2.tileInfo.shape, input2.tileInfo.offset);
+void TiledBinaryOperationAllScalar(Function &function, const TileShape &tileShape, size_t cur, LogicalInput &input1,
+    LogicalInput &input2, const LogicalTensorPtr &result, TileInfo &resultTileInfo) {
+    if (cur == input1.tensor->GetShape().size()) {
+        auto inputTile1 = input1.tensor->View(function, input1.tileInfo.shape, input1.tileInfo.offset);
+        auto inputTile2 = input2.tensor->View(function, input2.tileInfo.shape, input2.tileInfo.offset);
         auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
         function.AddOperation(GetBinaryOpNameCode<T, false>(), {inputTile1, inputTile2}, {resultTile});
         return;
@@ -357,12 +360,12 @@ void TiledBinaryOperationAllScalar(Function &function, const TileShape &tileShap
     for (int i = 0; i < result->shape[cur]; i += vecTile[cur]) {
         resultTileInfo.offset[cur] = i;
         resultTileInfo.shape[cur] = std::min(result->shape[cur] - resultTileInfo.offset[cur], vecTile[cur]);
-        input1.tileInfo.offset[cur] = i % input1.tensor.GetShape()[cur];
+        input1.tileInfo.offset[cur] = i % input1.tensor->GetShape()[cur];
         input1.tileInfo.shape[cur] =
-            std::min(input1.tensor.GetShape()[cur] - input1.tileInfo.offset[cur], vecTile[cur]);
-        input2.tileInfo.offset[cur] = i % input2.tensor.GetShape()[cur];
+            std::min(input1.tensor->GetShape()[cur] - input1.tileInfo.offset[cur], vecTile[cur]);
+        input2.tileInfo.offset[cur] = i % input2.tensor->GetShape()[cur];
         input2.tileInfo.shape[cur] =
-            std::min(input2.tensor.GetShape()[cur] - input2.tileInfo.offset[cur], vecTile[cur]);
+            std::min(input2.tensor->GetShape()[cur] - input2.tileInfo.offset[cur], vecTile[cur]);
         TiledBinaryOperationAllScalar<T>(function, tileShape, cur + 1, input1, input2, result, resultTileInfo);
     }
 }
@@ -389,8 +392,8 @@ void TiledBinaryOperationAllScalar(Function &function, const TileShape &tileShap
     TileInfo tileInfo1(result->shape.size(), result->offset.size());
     TileInfo tileInfo2(result->shape.size(), result->offset.size());
     TileInfo resultTileInfo(result->shape.size(), result->offset.size());
-    auto input1 = Input{operand1, tileInfo1};
-    auto input2 = Input{operand2, tileInfo2};
+    auto input1 = LogicalInput{operand1, tileInfo1};
+    auto input2 = LogicalInput{operand2, tileInfo2};
     TiledBinaryOperationAllScalar<T>(function, tileShape, 0, input1, input2, result, resultTileInfo);
 }
 

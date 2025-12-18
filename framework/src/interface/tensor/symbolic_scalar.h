@@ -818,7 +818,7 @@ struct SymbolicExpressionTable {
     std::string BuildExpressionTempVarInit(int indent);
 
     static std::string GetExprKeyLoopBes(int funcKey) { return "EXPR_LOOP_BES_" + std::to_string(funcKey); }
-    static std::string GetExprKeyLoopIf(int funcKey, int condKey) { return "EXPR_LOOP_IF_" + std::to_string(funcKey) + "_" + std::to_string(condKey); }
+    static std::string GetExprKeyLoopPathCond(int funcKey, int condKey) { return "EXPR_LOOP_PATHCOND_" + std::to_string(funcKey) + "_" + std::to_string(condKey); }
     static std::string GetExprKeyDevRootCoa(int funcKey) { return "EXPR_DEV_ROOT_COA_" + std::to_string(funcKey); }
     static std::string GetExprKeyDevLeafOp(int funcKey, int opKey) { return "EXPR_DEV_LEAF_OP_" + std::to_string(funcKey) + "_" + std::to_string(opKey); }
 

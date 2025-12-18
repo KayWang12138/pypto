@@ -141,6 +141,7 @@ stest:
       - DynamicControlFlowCacheTest.PartialCache
       - DynamicControlFlowCacheTest.PartialCacheValueDependData
       - DynamicControlFlowCacheTest.PartialCacheValueDependControl
+      - DynamicOutcastTensorTest.TensorAllocateIntermediate
       #===========================================================================
       # parallel sort
       #===========================================================================

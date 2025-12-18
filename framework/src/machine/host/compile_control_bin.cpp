@@ -69,13 +69,13 @@ void GenCustomOpInfo(const std::string &funcName, const std::string &controlAicp
 
 bool GenTilingFunc(const std::string &funcName, const std::string &controlAicpuPath) {
     std::ostringstream oss;
-    oss << "#include <vector>\n";    
+    oss << "#include <vector>\n";
     oss << "#include <string>\n";
     oss << "#include \"controlFlow_dev" << funcName << ".h\"\n";
     oss << "#include <map>\n";
     oss << "#include \"" << "tilefwk/aicpu_runtime.h" <<"\"\n";
     oss << "namespace npu::tile_fwk { \n";
-    oss << "using controlFlowFuncPtr = uint64_t (*)(void*, uint64_t*, CallRootEntryType*, DevStartArgsBase*);\n";
+    oss << "using controlFlowFuncPtr = uint64_t (*)(void*, uint64_t*, RuntimeCallEntryType*, DevStartArgsBase*);\n";
     oss << "namespace " << funcName << "{\n";
     oss << "controlFlowFuncPtr controlFlowptr = ControlFlowEntry;\n";
     oss << "} // end namespace " << funcName << "\n";

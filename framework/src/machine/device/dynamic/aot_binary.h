@@ -85,8 +85,9 @@ struct AOTBinary {
 struct DeviceExecuteContext;
 
 struct AOTBinaryControlFlow : AOTBinary {
-    using controlFlowEntry = void (*)(
-            struct DeviceExecuteContext *ctx, uint64_t *symbolTable, CallRootEntryType callRootList[T_CALLROOT_MAX], DevStartArgsBase *startArgsBase);
+    typedef void (*controlFlowEntry)(
+            struct DeviceExecuteContext *ctx, uint64_t *symbolTable,
+            RuntimeCallEntryType runtimeCallList[T_RUNTIME_CALL_MAX], DevStartArgsBase *startArgsBase);
 
     AOTBinaryControlFlow() = default;
 
@@ -105,8 +106,9 @@ struct AOTBinaryControlFlow : AOTBinary {
     }
 
     void CallControlFlow(
-            struct DeviceExecuteContext *ctx, uint64_t *symbolTable, CallRootEntryType callRootList[T_CALLROOT_MAX], DevStartArgsBase *startArgsBase) {
-        (reinterpret_cast<controlFlowEntry>(const_cast<unsigned char *>(code_)))(ctx, symbolTable, callRootList, startArgsBase);
+            struct DeviceExecuteContext *ctx, uint64_t *symbolTable,
+            RuntimeCallEntryType runtimeCallList[T_RUNTIME_CALL_MAX], DevStartArgsBase *startArgsBase) {
+        (reinterpret_cast<controlFlowEntry>(const_cast<unsigned char *>(code_)))(ctx, symbolTable, runtimeCallList, startArgsBase);
     }
 };
 

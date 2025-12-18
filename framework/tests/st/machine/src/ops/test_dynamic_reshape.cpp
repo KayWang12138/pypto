@@ -247,8 +247,8 @@ TEST_F(DynamicReshapeTest, test_dyn_reshape2) {
     DeviceTensorData outData0{out_real.GetDataType(), nullptr, out_real.GetShape()};
     Evaluator eval{dynAttr->inputSymbolDict, {argData0}, {outData0}};
     std::cout << q_real.GetShape() << std::endl;
-    std::cout << dynAttr->dynWorkspace.Dump() << std::endl;
-    EXPECT_EQ(eval.Evaluate(dynAttr->dynWorkspace), q_real.GetStorage()->GetDataSize());
+    std::cout << dynAttr->maxDynamicAssembleOutcastMem.Dump() << std::endl;
+    EXPECT_EQ(eval.Evaluate(dynAttr->maxDynamicAssembleOutcastMem), q_real.GetStorage()->GetDataSize());
     // excute
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), DeviceLauncherConfig(q_real.GetStorage()->GetDataSize()));
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);

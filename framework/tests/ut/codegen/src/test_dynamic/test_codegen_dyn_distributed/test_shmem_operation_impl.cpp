@@ -51,10 +51,10 @@ TEST_F(TestDistributedShmemImpl, TestShmemAllGather)
 
     Tensor in(DT_FP16, {16, 32}, "in");
     Tensor out(DT_FP16, {64, 32}, "out");
-    Tensor barrierDummy(DT_INT32, {1, 1}, "barrierDummy");
     FUNCTION("ALLGATHER", {in}, {out}) {
         TileShape::Current().SetDistTile(
             {16, 1, 0}, {32, 1, 0}, {1, 4, 0});
+        Tensor barrierDummy(DT_INT32, {1, 1}, "barrierDummy");
         ShmemAllGather(in, barrierDummy, group, out);
     }
 

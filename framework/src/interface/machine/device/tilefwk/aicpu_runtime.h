@@ -21,14 +21,15 @@
 
 namespace npu::tile_fwk {
 
-using CallRootEntryType = void *(*)(void *, uint64_t);
+using RuntimeCallEntryType = void *(*)(void *, uint64_t);
 
-enum CallRootStage {
-    T_CALLROOT_ALLOC = 0,
-    T_CALLROOT_STITCH = 1,
-    T_CALLROOT_LOG = 2,
-    T_CALLROOT_SHMEM_ALLOC = 3,
-    T_CALLROOT_MAX = 4,
+enum RuntimeCallStage {
+    T_RUNTIME_CALL_ROOT_ALLOC = 0,
+    T_RUNTIME_CALL_ROOT_STITCH = 1,
+    T_RUNTIME_CALL_LOG = 2,
+    T_RUNTIME_CALL_SHMEM_ALLOC = 3,
+    T_RUNTIME_CALL_SLOT_MARK_NEED_ALLOC = 4,
+    T_RUNTIME_CALL_MAX = 5,
 };
 
 using Call1EntryType = uint64_t (*)(uint64_t);
@@ -128,13 +129,17 @@ int64_t RuntimeNe(int64_t input1, int64_t input2) {
         } \
     } while (0)
 
-#define RUNTIME_RootAlloc(funcKey) callRootList[CallRootStage::T_CALLROOT_ALLOC](ctx, funcKey)
+#define RUNTIME_RootAlloc(funcKey) runtimeCallList[RuntimeCallStage::T_RUNTIME_CALL_ROOT_ALLOC](ctx, funcKey)
 #define RUNTIME_RootStitch(funcKey) \
     do { \
-        if (callRootList[CallRootStage::T_CALLROOT_STITCH](ctx, funcKey) == RUNTIME_FUNCRET_CACHESTOP_RETURN) { \
+        if (runtimeCallList[RuntimeCallStage::T_RUNTIME_CALL_ROOT_STITCH](ctx, funcKey) == RUNTIME_FUNCRET_CACHESTOP_RETURN) { \
             return 0; \
         } \
     } while (0)
 
+#define RUNTIME_SlotMarkNeedAlloc(slotIndex) \
+    do { \
+        runtimeCallList[RuntimeCallStage::T_RUNTIME_CALL_SLOT_MARK_NEED_ALLOC](ctx, slotIndex); \
+    } while (0)
 
 }  // namespace npu::tile_fwk

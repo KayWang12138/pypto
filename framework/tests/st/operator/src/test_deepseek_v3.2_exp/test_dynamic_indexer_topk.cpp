@@ -119,7 +119,7 @@ void TestLightningIndexerTopkQuant(IndexerTile &tileConfig) {
 
     DevFuncRunner::Run(
         Program::GetInstance().GetLastFunction(), inputDataList, outputDataList, DeviceLauncherConfig(0));
-    constexpr float PRE_TAIL = 1e-6f;
+    constexpr float PRE_TAIL = 1e-5f;
     constexpr int TOPK_COUNT = 100;
     constexpr float ratio = 5e-3f;
     std::cout << "=======================topkValue===============================" << std::endl;

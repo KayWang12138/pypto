@@ -37,9 +37,6 @@ void TestDynAllGatherMatmulReducescatter(OpTestParam &testParam)
         std::to_string(testParam.rankId) + ".bin", shape);
 
     Shape agShape{row * testParam.rankSize, col};
-    Tensor allGatherOut(dType, agShape, "allGatherOut");
-    Tensor allGatherMatmul(dType, agShape, "allGatherMatmul");
-    Tensor reduceScatterOut(dType, shape, "reduceScatterOut");
 
     Shape outShape{row * testParam.rankSize, col};
     Tensor out(dType, outShape, "out");
@@ -48,6 +45,10 @@ void TestDynAllGatherMatmulReducescatter(OpTestParam &testParam)
     ProgramData::GetInstance().AppendOutputs({RawTensorData::CreateTensorZero(out)});
 
     FUNCTION("ALLGATHER_and_ALLGATHER", {in}, {out}) {
+        Tensor allGatherOut(dType, agShape, "allGatherOut");
+        Tensor allGatherMatmul(dType, agShape, "allGatherMatmul");
+        Tensor reduceScatterOut(dType, shape, "reduceScatterOut");
+
         LOOP("ALLGATHER1", FunctionType::DYNAMIC_LOOP, dynRankId, LoopRange(0, 1, 1)) {
             (void)dynRankId;
             TileShape::Current().SetDistTile({row, 1, 0}, {col, 1, 0}, {1, testParam.rankSize, 0});

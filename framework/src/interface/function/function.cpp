@@ -128,7 +128,7 @@ std::shared_ptr<DynloopFunctionPathNode> DynloopFunctionAttribute::BuildPathNode
         // No branch
         ASSERT(pathList[0].pathCondList.size() == 0)
             << "Path condition list size: " << pathList[0].pathCondList.size();
-        root->root = pathList[0].root;
+        root->root = pathList[0].GetRoot();
     } else {
         for (size_t i = 0; i < pathList.size(); i++) {
             auto node = root;
@@ -142,7 +142,7 @@ std::shared_ptr<DynloopFunctionPathNode> DynloopFunctionAttribute::BuildPathNode
                 }
                 node = node->branchNodeList[pathCond.IsSat()];
             }
-            node->root = pathList[i].root;
+            node->root = pathList[i].GetRoot();
         }
     }
     return root;

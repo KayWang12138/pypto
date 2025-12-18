@@ -395,7 +395,7 @@ OpcodeManager::OpcodeManager() {
         {MemoryType::MEM_DEVICE_DDR /* out */, MemoryType::MEM_UB /* ubTensor */},
         {"TileOp::Distributed::ShmemReduce", PIPE_S, PIPE_S, CoreType::AIV},
         OpCalcType::DISTRIBUTED);
-    registerInfo(Opcode::OP_BIND_TENSOR, OpCoreType::AIV, "BIND_TENSOR",
+    registerInfo(Opcode::OP_BIND_TENSOR, OpCoreType::ANY, "BIND_TENSOR",
         {}, {MemoryType::MEM_DEVICE_DDR}, {"TileOp::Distributed::ShmemGet", PIPE_S, PIPE_S, CoreType::AIV},
         OpCalcType::DISTRIBUTED, {OP_ATTR_PREFIX + "BindTensor"});
     registerInfo(Opcode::OP_SHMEM_MOE_COMBINE_SEND, OpCoreType::ANY, "SHMEM_MOE_COMBINE_SEND",

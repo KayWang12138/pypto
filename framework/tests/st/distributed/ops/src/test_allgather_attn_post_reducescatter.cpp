@@ -38,11 +38,11 @@ void TestAllGatherAttentionPostReducescatter(OpTestParam &testParam)
     Tensor wLora(dtype, wLoraShape, "wLora");
     Tensor wOut(dtype, wOutShape, "wOut");
 
-    std::vector<bfloat16> agInPtr = 
+    std::vector<bfloat16> agInPtr =
         ReadToVector<bfloat16>(GetGoldenDir() + "/ag_in_rank_" + std::to_string(testParam.rankId) + ".bin", agInShape);
-    std::vector<bfloat16> wLoraPtr = 
+    std::vector<bfloat16> wLoraPtr =
         ReadToVector<bfloat16>(GetGoldenDir() + "/w_lora_rank_" + std::to_string(testParam.rankId) + ".bin", wLoraShape);
-    std::vector<bfloat16> wOutPtr = 
+    std::vector<bfloat16> wOutPtr =
         ReadToVector<bfloat16>(GetGoldenDir() + "/w_out_rank_" + std::to_string(testParam.rankId) + ".bin", wOutShape);
 
     Shape outShape = {b * s / testParam.rankSize, h};
@@ -53,15 +53,14 @@ void TestAllGatherAttentionPostReducescatter(OpTestParam &testParam)
     ProgramData::GetInstance().AppendInputs({RawTensorData::CreateTensor<bfloat16>(wOut, wOutPtr)});
     ProgramData::GetInstance().AppendOutputs({RawTensorData::CreateTensorZero(out)});
 
-    Tensor barrierDummy(DT_INT32, {1, 1}, "barrierDummy");
-
     FUNCTION("ALLGATHER_ATTNPOST_REDUCESCATTER", {agIn, wLora, wOut}, {out}) {
         Tensor agOut(dtype, {b * n * s, kvLoraRank}, "agOut");
         LOOP("ALLGATHER", FunctionType::DYNAMIC_LOOP, dynRankId, LoopRange(1)) {
             (void) dynRankId;
-            TileShape::Current().SetDistTile({64, b * n * s / testParam.rankSize / 64, 0}, {kvLoraRank, 1, 0}, 
+            TileShape::Current().SetDistTile({64, b * n * s / testParam.rankSize / 64, 0}, {kvLoraRank, 1, 0},
                 {1, testParam.rankSize, 0});
-            ShmemAllGather(agIn, barrierDummy, testParam.group, agOut);
+            Tensor fakeBarrierDummy(DT_INT32, {1, 1}, "fakeBarrierDummy");
+            ShmemAllGather(agIn, fakeBarrierDummy, testParam.group, agOut);
         }
         Tensor attnOut(dtype, {b * s, h}, "attnOut");
         LOOP("ATTNPOST", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(1)) {
@@ -88,7 +87,7 @@ void TestAllGatherAttentionPostReducescatter(OpTestParam &testParam)
         }
         LOOP("REDUCESCATTER", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
             (void) index;
-            TileShape::Current().SetDistTile({16, b * s / testParam.rankSize / 16, 0}, {h, 1, 0}, 
+            TileShape::Current().SetDistTile({16, b * s / testParam.rankSize / 16, 0}, {h, 1, 0},
                 {1, testParam.rankSize, 0});
             Distributed::ShmemReduceScatter(attnOut, testParam.group, DistReduceType::DIST_REDUCE_ADD, out);
         }

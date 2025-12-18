@@ -20,10 +20,18 @@
 #include <unordered_set>
 
 #include "tilefwk/tensor.h"
-
+#include "interface/utils/common.h"
 #include "interface/tensor/logical_tensor.h"
+#include "interface/tensor/runtime_slot.h"
 
 namespace npu::tile_fwk {
+
+enum class SlotProperty : uint32_t {
+    NONE,
+    OUTPUT,
+    ASSEMBLE_DST,
+    SHMEM_TENSOR,
+};
 
 struct TensorSlot {
 public:
@@ -31,6 +39,7 @@ public:
     TensorSlot(int64_t id, const void *slot) : id_(id), slot_(slot) {}
 
     const void *GetSlot() const { return slot_; }
+    int64_t GetId() const { return id_; }
 
     std::string GetSymbolName() const;
 
@@ -40,7 +49,7 @@ public:
     std::string Dump() const;
     std::string DumpHead(const std::string &name) const;
 
-    bool operator==(const TensorSlot &th) const { return id_ == th.id_; }
+    bool operator==(const TensorSlot &oth) const { return id_ == oth.id_; }
 
     static TensorSlot CreateTensor(const Tensor &tensor) { return TensorSlot(tensor.Id(), &tensor); }
 
@@ -53,7 +62,7 @@ private:
 template <>
 struct std::hash<npu::tile_fwk::TensorSlot> {
     std::size_t operator()(const npu::tile_fwk::TensorSlot &t) const {
-        return static_cast<std::size_t>(reinterpret_cast<uintptr_t>(t.GetSlot()));
+        return std::hash<int64_t>()(t.GetId());
     }
 };
 
@@ -136,6 +145,8 @@ struct TensorSlotScope {
 
     std::unordered_map<LogicalTensorPtr, int> partialUpdateOutcastDict;
 
+    std::vector<int> constructAssembleSlotList;
+
     IncastOutcastSlot ioslot;
     IncastOutcastSlot originalIocastsSlot;
 
@@ -161,8 +172,27 @@ struct IncastOutcastLink {
     std::vector<int> inputSlotIndexList;
     std::vector<int> outputSlotIndexList;
     std::vector<int> assembleSlotIndexList;
+    std::vector<int> shmemTensorSlotIndexList;
     std::vector<int> inplaceSlotIndexList;
     std::vector<int> partialUpdateSlotIdexList;
+
+    std::vector<RuntimeSlotKindSet> runtimeSlotKindSetList;
+
+    void UpdateRuntimeSlotKindSetList() {
+        runtimeSlotKindSetList.resize(totalSlot);
+        for (int inputSlotIndex : inputSlotIndexList) {
+            runtimeSlotKindSetList[inputSlotIndex].Add(RuntimeSlotKind::INPUT);
+        }
+        for (int outputSlotIndex : outputSlotIndexList) {
+            runtimeSlotKindSetList[outputSlotIndex].Add(RuntimeSlotKind::OUTPUT);
+        }
+        for (int assembleSlotIndex : assembleSlotIndexList) {
+            runtimeSlotKindSetList[assembleSlotIndex].Add(RuntimeSlotKind::ASSEMBLE_OUTCAST);
+        }
+        for (int shmemSlotIndex : shmemTensorSlotIndexList) {
+            runtimeSlotKindSetList[shmemSlotIndex].Add(RuntimeSlotKind::ADDRESS_EXPRESSION);
+        }
+    }
 };
 
 struct SlotInfo {
@@ -176,6 +206,15 @@ struct TensorSlotCheckpoint {
     std::unordered_map<std::shared_ptr<LogicalTensor>, std::set<Operation *, LogicalTensor::CompareOp>> consumerDict;
 };
 
+struct TensorSlotUsage {
+    Function *construct{nullptr};
+    Function *destruct{nullptr};
+    Function *readFirst{nullptr};
+    Function *readLast{nullptr};
+    Function *writeFirst{nullptr};
+    Function *writeLast{nullptr};
+};
+
 struct TensorSlotManager {
     std::vector<std::shared_ptr<TensorSlotScope>> scopeList;
 
@@ -183,8 +222,11 @@ struct TensorSlotManager {
 
     /* Mapping from slot to its index */
     std::unordered_map<TensorSlot, int> slotIndexDict;
+    std::vector<TensorSlotUsage> slotUsageList;
+
     std::unordered_set<TensorSlot> liveSlotSet;
     std::unordered_set<TensorSlot> assembleSlotSet;
+    std::unordered_set<TensorSlot> shmemTensorSlotSet;
 
     std::unordered_map<std::string, TensorSlot> symbolNameDict;
     std::unordered_map<TensorSlot, std::string> slotNameDict;
@@ -210,13 +252,17 @@ struct TensorSlotManager {
 
     void TensorSlotRead(const TensorSlot &slot, const std::shared_ptr<LogicalTensor> &tensor);
     void TensorSlotWrite(const TensorSlot &slot, const std::shared_ptr<LogicalTensor> &tensor);
+    void TensorSlotConstruct(const TensorSlot &slot);
     void TensorSlotDestruct(const TensorSlot &slot);
 
     void TensorRead(const Tensor &tensor);
-    void TensorWrite(const Tensor &tensor, bool isAssemble = false);
+    void TensorWrite(const Tensor &tensor, SlotProperty property = SlotProperty::NONE);
+    void TensorConstruct(const Tensor &tensor);
     void TensorDestruct(const Tensor &tensor);
 
     void TensorSymbol(const Tensor &tensor, const std::string &symbolName);
+
+    TensorSlotUsage &GetTensorSlotUsage(const TensorSlot &slot);
 
     std::vector<int> LookupSlotIndex(const std::vector<std::reference_wrapper<Tensor>> &tensorList);
     std::vector<int> LookupSlotIndexConst(const std::vector<std::reference_wrapper<const Tensor>> &tensorList);
@@ -245,5 +291,6 @@ struct TensorSlotManager {
     std::string Dump() const;
 private:
     void LogOperation(const TensorSlot &slot, const std::string &op);
+    void InsertLiveSlot(const TensorSlot &slot);
 };
 } // namespace npu::tile_fwk

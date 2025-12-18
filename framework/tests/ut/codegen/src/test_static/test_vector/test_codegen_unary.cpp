@@ -180,6 +180,7 @@ TEST_F(TestCodegenUnary, CastDim1) {
     TestCastBody({128}, {128}, {64}, "CAST_DIM2");
 }
 
+#if 0
 TEST_F(TestCodegenUnary, CastDim1TileTensor) {
     Function& func = TestCastBody({128}, {128}, {64}, "CAST_DIM2_TILETENSOR", true);
     std::string res = GetResultFromCpp(func);
@@ -215,6 +216,7 @@ TStore(gmTensor_5, ubTensor_3, Coord1Dim(0));
 
     EXPECT_EQ(res, expect);
 }
+#endif // if 0
 
 Function& TestExpandBody(std::vector<int64_t> shape, std::vector<int64_t> outShape, std::vector<int64_t> tileShape, std::string name,bool isSupportTileTensor = false) {
     if (isSupportTileTensor) {

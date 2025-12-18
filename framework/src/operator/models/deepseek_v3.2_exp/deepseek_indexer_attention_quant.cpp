@@ -34,7 +34,7 @@ void DeepSeekIndexerAttentionQuant(
     // debug
     Tensor &debugQNopeOut, Tensor &debugQRopeOut, Tensor &debugRmsNormOut, Tensor &debugRmsNormScaleOut,
     Tensor &debugQInt8Out, Tensor &debugQScaleOut, Tensor &debugWeightsOut,
-    Tensor &indexerTopkResTmp, Tensor &topkValueTmp, Tensor &topkTmpOut
+    [[maybe_unused]] Tensor &indexerTopkResTmp, Tensor &topkValueTmp, Tensor &topkTmpOut
 ) {
 #if QUANT_DSIA_DEBUG == 0
     (void)debugQNopeOut;
@@ -196,12 +196,14 @@ void DeepSeekIndexerAttentionQuant(
 
         std::set<int> indexerUnrollList = {64, 32, 16, 8, 4, 1};
 #if QUANT_DSIA_DEBUG == 1
+        Tensor &indexerTopkRes = indexerTopkResTmp;
         LightningIndexerTopkImpl(queryOut4D, idxKCacheOut, true, &qScaleOut4D, &idxKScaleCacheOut,
-            weightOut4D, actualSeqLengthsKey, blockTable, indexerTopkResTmp,
+            weightOut4D, actualSeqLengthsKey, blockTable, indexerTopkRes,
             selectedCount, params.indexTileCfg, indexerUnrollList, &topkTmpOut, &topkValueTmp);
 #else
+        Tensor indexerTopkRes(DT_INT32, {b, s1, n2, selectedCount}, "indexerTopkResTmp");
         LightningIndexerTopkQuant(queryOut4D, idxKCacheOut, qScaleOut4D, idxKScaleCacheOut,
-            weightOut4D, actualSeqLengthsKey, blockTable, indexerTopkResTmp,
+            weightOut4D, actualSeqLengthsKey, blockTable, indexerTopkRes,
             selectedCount, params.indexTileCfg, indexerUnrollList);
 #endif
 
@@ -209,7 +211,7 @@ void DeepSeekIndexerAttentionQuant(
         Tensor topkRes2D(DT_INT32, {b * s1, n2 * selectedCount}, "topkRes2D");
         LOOP("GATHER_4D_2_2D", FunctionType::DYNAMIC_LOOP, unUsedIdx, LoopRange(1)) {
             (void)unUsedIdx;
-            Reshape(indexerTopkResTmp, topkRes2D);
+            Reshape(indexerTopkRes, topkRes2D);
         }
 
         // reset the previous config
@@ -244,7 +246,7 @@ void DeepSeekIndexerAttentionQuant(
         }
 
         SelectedAttentionComputeV2(
-            qNope2D, qRope2D, kvCache2D, krCache2D, kScaleCache2D, topkRes2D, blockTable, actualSeqLengthsKey, n1, n2, 
+            qNope2D, qRope2D, kvCache2D, krCache2D, kScaleCache2D, topkRes2D, blockTable, actualSeqLengthsKey, n1, n2,
             softmaxScale, selectedCount, blockSize, maxBlockNumPerBatch, attentionOut, params.salTileCfg
         );
     }

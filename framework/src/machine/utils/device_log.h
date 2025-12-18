@@ -251,28 +251,28 @@ inline bool IsDebugMode() {
 #define DEV_WARN(fmt, args...) D_DEV_LOGF(DLOG_WARN, TILE_FWK_DEVICE_MACHINE, fmt, ##args)
 #define DEV_ERROR(fmt, args...) D_DEV_LOGF(DLOG_ERROR, TILE_FWK_DEVICE_MACHINE, fmt, ##args)
 
-#define DEV_ASSERT_MSG(expr, fmt, args...)                                                   \
-    do {                                                                                     \
-        if (!(expr)) {                                                                       \
-            DEV_ERROR("assert failed for " #expr ": " fmt, ##args);                          \
-            assert(0);                                                                       \
-        }                                                                                    \
+#define DEV_ASSERT_MSG(expr, fmt, args...)                              \
+    do {                                                                \
+        if (!(expr)) {                                                  \
+            DEV_ERROR("Assertion failed (%s): " fmt, #expr, ##args);    \
+            assert(0);                                                  \
+        }                                                               \
     } while (0)
 
-#define DEV_ASSERT(expr)                                                       \
-    do {                                                                       \
-        if (!(expr)) {                                                         \
-            DEV_ERROR("assert failed: " #expr);                                \
-            assert(0);                                                         \
-        }                                                                      \
+#define DEV_ASSERT(expr)                                                \
+    do {                                                                \
+        if (!(expr)) {                                                  \
+            DEV_ERROR("Assertion failed (%s)", #expr);                  \
+            assert(0);                                                  \
+        }                                                               \
     } while (0)
 
-#define DEV_DEBUG_ASSERT(expr)                                                 \
-    do {                                                                       \
-        if (!(expr)) {                                                         \
-            DEV_ERROR("assert failed: %s, %d", #expr, __FILE__, __LINE__);     \
-            assert(0);                                                         \
-        }                                                                      \
+#define DEV_DEBUG_ASSERT(expr)                                                      \
+    do {                                                                            \
+        if (!(expr)) {                                                              \
+            DEV_ERROR("Assertion failed at %s:%d (%s)", __FILE__, __LINE__, #expr); \
+            assert(0);                                                              \
+        }                                                                           \
     } while (0)
 
 #define DEV_DEBUG_ASSERT_MSG(expr, fmt, args...) DEV_ASSERT_MSG(expr, fmt, ##args)

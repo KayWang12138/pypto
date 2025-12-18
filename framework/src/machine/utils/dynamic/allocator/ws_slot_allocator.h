@@ -79,6 +79,22 @@ public:
         return allocation;
     }
 
+    /* allocate at most n elements, and store the result into allocateList.
+     * Return false if out of memory.
+     */
+    bool Allocate(int n, WsAllocation *allocateList) {
+        for (int i = 0; i < n; i++) {
+            allocateList[i] = Allocate();
+            if (allocateList[i].ptr == 0) {
+                for (int j = 0; j < i; j++) {
+                    Deallocate(allocateList[j]);
+                }
+                return false;
+            }
+        }
+        return true;
+    }
+
     void Deallocate(uintdevptr_t ptr) {
         DEV_DEBUG_ASSERT(workspaceAddr_ <= ptr && ptr < workspaceAddr_ + slotNum_ * slotStandardMemReq_);
         DEV_DEBUG_ASSERT(notInUseHeaders_ != nullptr);
