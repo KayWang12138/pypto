@@ -122,6 +122,9 @@ void SetBoundary::SetTensorBoundary(Function &function) const {
             bool isBoundary = (reshapeOut->isSubGraphBoundary || reshapeIn->isSubGraphBoundary);
             reshapeIn->isSubGraphBoundary = isBoundary;
             reshapeOut->isSubGraphBoundary = isBoundary;
+            if (reshapeIn->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR && reshapeOut->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
+                reshapeOut->isSubGraphBoundary = true;
+            }
         }
     }
 }
