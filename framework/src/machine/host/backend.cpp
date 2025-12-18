@@ -679,7 +679,7 @@ static void OverCallOpMaxNum(Function *devRoot, DevAscendFunction *funcBin){
     uint32_t CallOpmaxSize = config::GetRuntimeOption<uint32_t>(STITCH_FUNCTION_SIZE);
     auto funcMagicName = devRoot->GetRawName() + "_" + std::to_string(devRoot->GetFuncMagic());
     ALOG_ERROR_F("the loop function operation: %s size is %u hitting the maxinum single-loop-operation limit:%u.\n",
-    funcMagicName, CallOpSize, CallOpmaxSize);
+    funcMagicName.c_str(), CallOpSize, CallOpmaxSize);
     ASSERT(CallOpSize <= CallOpmaxSize) << " loopFunction: " << funcMagicName << " CallOpSize: " << CallOpSize
     << " CallOpmaxSize: " << CallOpmaxSize;
 }

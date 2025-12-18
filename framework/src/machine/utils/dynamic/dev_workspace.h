@@ -476,11 +476,10 @@ public:
                 metadataAllocators_.stitchSlab.DumpMemoryStatusWhenAbnormal("SlabAlloc null");
                 DEV_ASSERT_MSG(false, "Slab alloc null,type=%u,objsize=%u.", ToUnderlying(type), objSize);
             }
-            uint32_t ttl = 0;
-            uint32_t ttlTimout = 100000;
+            uint64_t ttlstart = GetCycles();
             while (!SlabStageAllocMemTryRecycle()) {  // wait sch aicpu finish task
-                ttl++;
-                if (ttl > ttlTimout) {
+                if (GetCycles() - ttlstart > TIMEOUT_CYCLES) {
+                    ttlstart = GetCycles();
                     DEV_WARN("Waiting for device task memory reclamation for too long.");
                 }
             };
