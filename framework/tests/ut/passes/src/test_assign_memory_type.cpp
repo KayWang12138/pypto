@@ -13,6 +13,8 @@
  * \brief Unit test for assign_memory_type pass.
  */
 
+#include <fstream>
+#include <vector>
 #include <gtest/gtest.h>
 #include "interface/function/function.h"
 #include "tilefwk/tilefwk.h"
@@ -21,10 +23,7 @@
 #include "interface/configs/config_manager.h"
 #include "passes/tile_graph_pass/data_path/assign_memory_type.h"
 #include "passes/pass_mgr/pass_manager.h"
-#include "passes/pass_config/pass_config_manager.h"
 #include "computational_graph_builder.h"
-#include <fstream>
-#include <vector>
 
 using namespace npu::tile_fwk;
 
