@@ -419,11 +419,14 @@ void SplitLargeFanoutTensor::SplitLargeTensor(Function &function) {
                     continue;
                 }
                 // 当lcmTile的每个维度都大于等于largeTensor时, 仍会聚合到同样大小的Tensor, 因此不做处理
-                bool unsplit = std::equal(lcmShape.begin(), lcmShape.end(), largeTensor->shape.begin(),
-                    [](int lcmDim, int largeTensorDim) { return lcmDim >= largeTensorDim; });
-                if (unsplit) {
+                for (size_t i = 0; i < lcmShape.size(); i++) {
+                    if (lcmShape[i] > largeTensor->GetShape()[i]) {
+                        lcmShape[i] = largeTensor->GetShape()[i];
+                    }
+                }
+                if (lcmShape == largeTensor->GetShape()) {
                     APASS_LOG_INFO_F(Elements::Tensor, "Skip SplitLargeTensor for magic[%d] since shape to assemble (lcmShape) equals "
-                        "or is larger than the largeTensor's shape.", largeTensor->GetMagic());
+                        "the largeTensor's shape.", largeTensor->GetMagic());
                     continue;
                 }
                 // 当lcmTile的shape小于largeTensor时, 开始尝试拆分
