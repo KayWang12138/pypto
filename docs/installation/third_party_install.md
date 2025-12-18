@@ -26,5 +26,5 @@ mkdir -p <path-to-your-thirdparty>
 cd pypto-source-code
 bash toos/prepare_env.sh --type=third_party [--download-path=path-to-your-thirdparty] # 归档依赖到内部obs仓，可以互联网访问
 ```
-如果未指定 `--download` 参数，脚本会将所需三方依赖下载到 pypto 同级目录的 `pypto_download/third_party_packages` 路径下
-如果指定了 `--download` 参数，脚本会将所需三方依赖下载到 `path-to-your-thirdparty/third_party_packages` 路径下
+如果未指定 `--download-path` 参数，脚本会将所需三方依赖下载到 pypto 同级目录的 `pypto_download/third_party_packages` 路径下
+如果指定了 `--download-path` 参数，脚本会将所需三方依赖下载到 `path-to-your-thirdparty/third_party_packages` 路径下

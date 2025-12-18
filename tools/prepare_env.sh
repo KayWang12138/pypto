@@ -16,7 +16,7 @@ set -euo pipefail
 
 TYPE=""
 DOWNLOAD_HDK=false
-DEVICE_TYPE="910b"
+DEVICE_TYPE=""
 INSTALL_PATH="/usr/local/Ascend"
 DOWNLOAD_DIR=$(dirname "$(dirname "$(dirname "$(readlink -f "$0")")")")/pypto_download
 
@@ -162,6 +162,11 @@ parse_arguments() {
         return 1
     fi
     
+    if [[ ( "$TYPE" == "all" || "$TYPE" == "cann" ) && -z "$DEVICE_TYPE" ]]; then
+        log_print "error" "The --device-type parameter must be specified when --type is $TYPE!"
+        exit 1
+    fi
+
     if [ ${#missing_params[@]} -gt 0 ]; then
         log_print "error" "Missing required parameters: ${missing_params[*]}"
         show_usage
@@ -625,7 +630,7 @@ install_downloaded_packages() {
         fi
     done
     cd - >/dev/null
-    llog_print "success" "Successfully installed CANN packages.."
+    log_print "success" "Successfully installed CANN packages."
     return 0
 }
 
@@ -646,10 +651,13 @@ install_single_package() {
     fi
     
     local install_cmd=""
-    if [ -n "$INSTALL_PATH" ]; then
-        install_cmd="sudo $filename --full --force --install-path=$INSTALL_PATH "
+
+    if [[ "$filename" =~ "ops" ]]; then
+        install_cmd="$filename --install --force --install-path=$INSTALL_PATH "
+    elif [[ "$filename" =~ "toolkit" ]]; then
+        install_cmd="$filename --full --force --install-path=$INSTALL_PATH "
     else
-        install_cmd="sudo $filename --full --force"
+        install_cmd="$filename --full --install-path=$INSTALL_PATH "
     fi
 
     log_print "info" "Running: $install_cmd"

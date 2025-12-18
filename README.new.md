@@ -157,16 +157,18 @@ Docker 运行命令：
 ### 仿真环境（无 NPU 真实硬件）
 
 ```bash
-cd examples/01_beginner/01_basic_operations
-python3 basic_operations.py simulator
+cd examples/beginner/01_basic_operations
+python3 basic_operations.py simulation_example_id
 ```
 
 ### 真实可运行环境（有 NPU 真实硬件）
 
 ```bash
-cd examples/01_beginner/01_basic_operations
-python3 basic_operations.py npu
+cd examples/beginner/01_basic_operations
+python3 basic_operations.py npu_example_id
 ```
+
+可以通过 `python3 basic_operations.py --list` 查看目前支持的所有样例列表以及其是否需要 NPU 硬件
 
 ### 结果查看
 
