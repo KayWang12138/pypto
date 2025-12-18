@@ -11,7 +11,7 @@
 """
 """
 cmake_template = '''
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.16.3)
 project(Ascend_c)
 if(${RUN_MODE})
     set(RUN_MODE "npu" CACHE STRING "cpu/sim/npu")

@@ -56,11 +56,12 @@ PyPTO 项目的目录结构如下：
 
 ```
 pypto-dev/
-├── build.py                    # 构建、UTest、STest 执行辅助脚本
-├── CMakeLists.txt              # 顶层 CMakeLists.txt，定义所有对外公开编译开关
-├── pyproject.toml              # Python 编译工具配置文件
-├── setup.py                    # Python 包安装配置
-├── LICENSE                     # 许可证文件
+│
+├── examples/                   # 示例代码
+│   ├── 01_beginner/            # 初级示例
+│   ├── 02_intermediate/        # 中级示例
+│   ├── 03_advanced/            # 高级示例
+│   └── models/                 # 模型实现示例
 │
 ├── python/                     # Python 源码
 │   ├── pypto/                  # Python 包源码根目录
@@ -70,21 +71,19 @@ pypto-dev/
 ├── framework/                  # C++ 源码根目录
 │   ├── include/                # C++ 对外头文件
 │   ├── src/                    # C++ 源码
-│   │   ├── codegen/           # 代码生成模块
-│   │   ├── passes/            # 编译 Pass 模块
-│   │   ├── operator/          # 算子实现模块
+│   │   ├── codegen/            # 代码生成模块
+│   │   ├── passes/             # 编译 Pass 模块
 │   │   └── ...
 │   └── tests/                  # C++ 测试用例源码
 │
-├── examples/                    # 示例代码
-│   ├── 01_beginner/           # 初级示例
-│   ├── 02_intermediate/        # 中级示例
-│   ├── 03_advanced/            # 高级示例
-│   └── models/                 # 模型实现示例
-│
-├── ops/                        # 算子相关代码
 ├── tools/                      # 工具脚本
-└── cmake/                      # 构建所需的 CMake 公共配置及脚本
+│
+├── cmake/                      # 构建所需的 CMake 公共配置及脚本
+├── build.py                    # CI执行构建、执行 UTest、执行 STest 辅助脚本
+├── CMakeLists.txt              # 顶层 CMakeLists.txt，定义所有对外公开编译开关
+├── pyproject.toml              # Python 编译工具配置文件
+├── LICENSE                     # 许可证文件
+└── setup.py                    # Python 编译工具脚本文件(setuptools)
 ```
 
 ## 运行环境搭建
@@ -100,8 +99,8 @@ pypto-dev/
 
 - **操作系统**：支持 OpenEuler、Ubuntu 等 Linux 发行版
 - **Python**：Python 3.9 及以上版本（推荐使用 `venv` 虚拟环境）
-- **编译器**：gcc >= 7.3.0
-- **构建工具**：CMake >= 3.16.0，make，ninja（可选，可提升编译性能）
+- **编译器**：gcc >= 7.3.1
+- **构建工具**：CMake >= 3.16.3，make
 - **硬件平台**：Ascend 910B、910C 等 AI 加速器（或仿真环境）
 
 ## 安装说明
@@ -171,7 +170,7 @@ python3 basic_operations.py npu
 
 ### 结果查看
 
-该基础样例，运行成功后，在`${work_path}/out/`目录下生成编译和运行产物，相关产物包括[计算图](../docs/key-concepts/compute_graph.md)和[泳道图](../docs/key-concepts/swim_graph.md)，计算图和泳道图可通过Pypto配套的[ToolKit插件](pypto-toolkit vscode主页)，在VS-CODE中查看并与代码关联，相关ToolKit使用应参考[ToolKit-QuickStart](xxxxxxx)
+该基础样例，运行成功后，在`${work_path}/out/`目录下生成编译和运行产物，相关产物包括[计算图](../docs/key-concepts/compute_graph.md)和[泳道图](../docs/key-concepts/swim_graph.md)，计算图和泳道图可通过PyPTO配套的[ToolKit插件](pypto-toolkit vscode主页)，在VS-CODE中查看并与代码关联，相关ToolKit使用应参考[ToolKit-QuickStart](xxxxxxx)
 
 ## 快速开始
 

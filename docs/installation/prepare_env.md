@@ -1,24 +1,32 @@
 # 环境搭建指导 #
 
-本文描述如何快速搭建Pypto的运行环境
+本文描述如何快速搭建PyPTO的运行环境
 
 ## 安装依赖
 
 在运行本项目前，请确保如下基础依赖已经安装完成
 
-- CMake版本 >= 3.16
+```txt
+- CMake >= 3.16.3
 - make
-- ninja（可选，可提升编译性能）
-- gcc >= 7.3.0
-- python 3.9+
+- gcc >= 7.3.1
+- python >=3.9
+```
 
-上述依赖包可通过项目tools目录下prepare_env.sh安装，命令如下，若遇到不支持系统，请参考该文件自行适配
+上述依赖包可通过项目 `tools` 目录下 `prepare_env.sh` 安装，命令如下，若遇到不支持系统，请参考该文件自行适配
 
-`bash tools/prepare_env.sh --type=deps`
+```sheel
+bash tools/prepare_env.sh --type=deps
+```
+
+**另需注意:**
+1. 无论是仿真环境, 还是真实环境均需要安装 `torch`;
+2. 真实环境需额外安装 `torch_npu` ;
+3. 上述 `torch` 及 `torch_npu` 的安装需根据实际环境的 Python版本自行安装, 参考 [Ascend Extension for PyTorch 安装说明](https://www.hiascend.com/document/detail/zh/Pytorch/720/configandinstg/instg/insg_0001.html).
 
 ## 仿真环境（无真实NPU环境） ##
 
-Pypto支持在CPU仿真环境运行，除上述依赖外，不需要额外再安装其他内容
+PyPTO支持在CPU仿真环境运行，除上述依赖外，不需要额外再安装其他内容
 
 ## 真实环境（有NPU硬件） ##
 
@@ -37,7 +45,7 @@ Pypto支持在CPU仿真环境运行，除上述依赖外，不需要额外再安
 - CANN版本：8.5.0.RC1
 
 1. 安装CANN-ToolKit
-根据实际环境，下载对应`Ascend-cann-toolkit_8.5.0_linux-${aarch}.run`， 下载链接[CANN_TOOLKIT-8.5.0_RC1.x86](xxxxx) 、[CANN_TOOLKIT-8.5.0.RC1.aarch64](xxxxx)
+根据实际环境，下载对应`Ascend-cann-toolkit_8.5.0_linux-${aarch}.run`，下载链接[CANN_TOOLKIT-8.5.0_RC1.x86](xxxxx) 、[CANN_TOOLKIT-8.5.0.RC1.aarch64](xxxxx)
 
 ```
 # 确保安装包有可执行权限
@@ -82,6 +90,3 @@ chmod +x Ascend-cann-pto-inst_8.5.0_linux-${aarch}.run
 
 上述依赖包可通过项目tools目录下prepare_env.sh安装，命令如下，若遇到不支持系统，请参考该文件自行适配
 ` bash tools/prepare_env.sh --type=cann --device_type=910b`
-
-#### 安装TorchNPU ####
-在NPU环境运行，本项目依赖TorchNPU的基础能力，TorchNPU的安装，请参考[TorchNPU 安装指南](xxxxx)，根据实际环境的python版本，自行安装

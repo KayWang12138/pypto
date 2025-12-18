@@ -356,6 +356,7 @@ class CMakeBuild(build_ext, CMakeUserOption, EditModeHelper):
             logging.warning("Run in editable mode, use %s as cmake install prefix.", cmake_install_prefix)
         return cmake_install_prefix.resolve()
 
+
 class SetupCtrl:
     """SetupTools 流程控制
     """

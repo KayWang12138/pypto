@@ -48,10 +48,9 @@ PyPTO 支持由源码编译 whl 包, 并基于 pytest 对 whl 包含的 python �
 ### 3.1 安装依赖
 
 以下所列仅为 PyPTO 源码编译用到的依赖。
-- python >= 3.9.5
-- gcc >= 7.3.0
-- cmake >= 3.16.0
-- ninja（可选, 编译 whl 包时需要）
+- python >= 3.9
+- gcc >= 7.3.1
+- cmake >= 3.16.3
 - JSON for Modern C++（建议版本 [v3.11.3](https://github.com/nlohmann/json/releases/tag/v3.11.3)）
 
   如下以[JSON for Modern C++源码](https://github.com/nlohmann/json/releases/tag/v3.11.3)编译安装为例，安装命令如下：

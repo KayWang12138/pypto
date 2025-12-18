@@ -13,6 +13,7 @@ recursive-include cmake *.json
 recursive-include cmake *.py
 recursive-include cmake *.cmake
 recursive-include cmake *.cmake.in
+recursive-include cmake *.txt
 
 # framework
 include framework/CMakeLists.txt

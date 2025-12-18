@@ -42,8 +42,8 @@ readonly MAGENTA='\033[0;35m'
 readonly NC='\033[0m'
 
 BASIC_DEPENDENCIES=(
-    "cmake:3.16.0"
-    "gcc:7.3.0"
+    "cmake:3.16.3"
+    "gcc:7.3.1"
     "python3:3.9.5"
     "pip3:"
     "make:"

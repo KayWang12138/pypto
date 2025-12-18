@@ -8,7 +8,7 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.16.3)
 
 if (BUILD_WITH_CANN)
     set(CMAKE_C_COMPILER "${ASCEND_CANN_PACKAGE_PATH}/toolkit/toolchain/hcc/bin/aarch64-target-linux-gnu-gcc")
