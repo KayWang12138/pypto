@@ -439,6 +439,7 @@ Tensor GatherElements(const Tensor &params, const Tensor &indices, int axis) {
         DataType::DT_FP32, DataType::DT_FP16, DataType::DT_INT32, DataType::DT_INT16, DataType::DT_BF16};
     ASSERT(
         std::find(SUPPORT_DATATYPES.begin(), SUPPORT_DATATYPES.end(), params.GetDataType()) != SUPPORT_DATATYPES.end());
+    ASSERT(indices.GetDataType() == DT_INT32 || indices.GetDataType() == DT_INT64);
 
     RETURN_CALL(GatherElementOperation, *Program::GetInstance().GetCurrentFunction(), params.GetStorage(),
         indices.GetStorage(), axis);

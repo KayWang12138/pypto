@@ -12,7 +12,7 @@
                         10
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -1,
@@ -26,7 +26,7 @@
                         10
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -10,
@@ -39,7 +39,7 @@
                         5
                     ],
                     "dtype": "int32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": 0,
@@ -55,7 +55,7 @@
                         10
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false
                 }
             ],
@@ -70,6 +70,7 @@
             "params": {
                 "axis": 0,
                 "alpha": 1.2,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 0
@@ -86,7 +87,7 @@
                         10
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -1,
@@ -100,7 +101,7 @@
                         5
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -10,
@@ -113,7 +114,7 @@
                         5
                     ],
                     "dtype": "int32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": 0,
@@ -129,7 +130,7 @@
                         10
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false
                 }
             ],
@@ -144,6 +145,7 @@
             "params": {
                 "axis": 1,
                 "alpha": 1.0,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 1
@@ -160,7 +162,7 @@
                         10
                     ],
                     "dtype": "fp16",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -1,
@@ -174,7 +176,7 @@
                         10
                     ],
                     "dtype": "fp16",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -10,
@@ -187,7 +189,7 @@
                         8
                     ],
                     "dtype": "int32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": 0,
@@ -203,7 +205,7 @@
                         10
                     ],
                     "dtype": "fp16",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false
                 }
             ],
@@ -218,6 +220,7 @@
             "params": {
                 "axis": 0,
                 "alpha": 1.2,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 2
@@ -234,7 +237,7 @@
                         10
                     ],
                     "dtype": "int32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -1,
@@ -248,7 +251,7 @@
                         9
                     ],
                     "dtype": "int32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -10,
@@ -261,7 +264,7 @@
                         9
                     ],
                     "dtype": "int64",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": 0,
@@ -277,7 +280,7 @@
                         10
                     ],
                     "dtype": "int32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false
                 }
             ],
@@ -292,6 +295,7 @@
             "params": {
                 "axis": 1,
                 "alpha": 1.2,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 3
@@ -308,7 +312,7 @@
                         10
                     ],
                     "dtype": "int16",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -1,
@@ -322,7 +326,7 @@
                         10
                     ],
                     "dtype": "int16",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -10,
@@ -335,7 +339,7 @@
                         10
                     ],
                     "dtype": "int32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": 0,
@@ -351,7 +355,7 @@
                         10
                     ],
                     "dtype": "int16",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false
                 }
             ],
@@ -366,6 +370,7 @@
             "params": {
                 "axis": 1,
                 "alpha": 1.0,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 4
@@ -382,7 +387,7 @@
                         10
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -1,
@@ -396,7 +401,7 @@
                         10
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -10,
@@ -409,7 +414,7 @@
                         15
                     ],
                     "dtype": "int32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": 0,
@@ -425,7 +430,7 @@
                         10
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false
                 }
             ],
@@ -440,6 +445,7 @@
             "params": {
                 "axis": 0,
                 "alpha": 1.0,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 5
@@ -456,7 +462,7 @@
                         10
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -1,
@@ -470,7 +476,7 @@
                         10
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -10,
@@ -483,7 +489,7 @@
                         13
                     ],
                     "dtype": "int32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": 0,
@@ -499,7 +505,7 @@
                         10
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false
                 }
             ],
@@ -514,6 +520,7 @@
             "params": {
                 "axis": 0,
                 "alpha": 1.2,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 6
@@ -530,7 +537,7 @@
                         10
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -1,
@@ -544,7 +551,7 @@
                         10
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -10,
@@ -557,7 +564,7 @@
                         13
                     ],
                     "dtype": "int32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": 0,
@@ -573,7 +580,7 @@
                         10
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false
                 }
             ],
@@ -588,6 +595,7 @@
             "params": {
                 "axis": 0,
                 "alpha": 1.2,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 7
@@ -604,7 +612,7 @@
                         10
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -1,
@@ -618,7 +626,7 @@
                         10
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -10,
@@ -631,7 +639,7 @@
                         5
                     ],
                     "dtype": "int32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": 0,
@@ -647,7 +655,7 @@
                         10
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false
                 }
             ],
@@ -662,6 +670,7 @@
             "params": {
                 "axis": 0,
                 "alpha": 1.2,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 8
@@ -678,7 +687,7 @@
                         10
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -1,
@@ -692,7 +701,7 @@
                         10
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -10,
@@ -705,7 +714,7 @@
                         5
                     ],
                     "dtype": "int32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": 0,
@@ -721,7 +730,7 @@
                         10
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false
                 }
             ],
@@ -736,6 +745,7 @@
             "params": {
                 "axis": 0,
                 "alpha": 1.2,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 9
@@ -752,7 +762,7 @@
                         10
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -1,
@@ -766,7 +776,7 @@
                         10
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -10,
@@ -779,7 +789,7 @@
                         5
                     ],
                     "dtype": "int32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": 0,
@@ -795,7 +805,7 @@
                         10
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false
                 }
             ],
@@ -810,6 +820,7 @@
             "params": {
                 "axis": 0,
                 "alpha": 1.2,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 10
@@ -826,7 +837,7 @@
                         10
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -1,
@@ -840,7 +851,7 @@
                         10
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -10,
@@ -853,7 +864,7 @@
                         5
                     ],
                     "dtype": "int32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": 0,
@@ -869,7 +880,7 @@
                         10
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false
                 }
             ],
@@ -884,6 +895,7 @@
             "params": {
                 "axis": 0,
                 "alpha": 1.2,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 11
@@ -900,7 +912,7 @@
                         15
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -1,
@@ -914,7 +926,7 @@
                         15
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -10,
@@ -927,7 +939,7 @@
                         5
                     ],
                     "dtype": "int32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": 0,
@@ -943,7 +955,7 @@
                         15
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false
                 }
             ],
@@ -958,6 +970,7 @@
             "params": {
                 "axis": 0,
                 "alpha": 1.2,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 12
@@ -974,7 +987,7 @@
                         15
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -1,
@@ -988,7 +1001,7 @@
                         15
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -10,
@@ -1001,7 +1014,7 @@
                         5
                     ],
                     "dtype": "int32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": 0,
@@ -1017,7 +1030,7 @@
                         15
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false
                 }
             ],
@@ -1032,6 +1045,7 @@
             "params": {
                 "axis": 0,
                 "alpha": 1.2,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 13
@@ -1048,7 +1062,7 @@
                         15
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -1,
@@ -1062,7 +1076,7 @@
                         15
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -10,
@@ -1075,7 +1089,7 @@
                         15
                     ],
                     "dtype": "int32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": 0,
@@ -1091,7 +1105,7 @@
                         15
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false
                 }
             ],
@@ -1106,6 +1120,7 @@
             "params": {
                 "axis": 0,
                 "alpha": 1.2,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 14
@@ -1122,7 +1137,7 @@
                         15
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -1,
@@ -1136,7 +1151,7 @@
                         15
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -10,
@@ -1149,7 +1164,7 @@
                         15
                     ],
                     "dtype": "int32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": 0,
@@ -1165,7 +1180,7 @@
                         15
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false
                 }
             ],
@@ -1180,6 +1195,7 @@
             "params": {
                 "axis": -2,
                 "alpha": 1.2,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 15
@@ -1196,7 +1212,7 @@
                         15
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -1,
@@ -1210,7 +1226,7 @@
                         17
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -10,
@@ -1223,7 +1239,7 @@
                         17
                     ],
                     "dtype": "int32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": 0,
@@ -1239,7 +1255,7 @@
                         15
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false
                 }
             ],
@@ -1254,6 +1270,7 @@
             "params": {
                 "axis": -1,
                 "alpha": 1.2,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 16
@@ -1270,7 +1287,7 @@
                         15
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -1,
@@ -1284,7 +1301,7 @@
                         15
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -10,
@@ -1297,7 +1314,7 @@
                         15
                     ],
                     "dtype": "int32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": 0,
@@ -1313,7 +1330,7 @@
                         15
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false
                 }
             ],
@@ -1328,6 +1345,7 @@
             "params": {
                 "axis": 0,
                 "alpha": 3.1e+38,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 17
@@ -1345,7 +1363,7 @@
                         17
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -1,
@@ -1360,7 +1378,7 @@
                         17
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -10,
@@ -1373,7 +1391,7 @@
                         5
                     ],
                     "dtype": "int32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": 0,
@@ -1390,7 +1408,7 @@
                         17
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false
                 }
             ],
@@ -1407,6 +1425,7 @@
             "params": {
                 "axis": 1,
                 "alpha": 1.2,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 18
@@ -1425,7 +1444,7 @@
                         49
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -1,
@@ -1441,7 +1460,7 @@
                         49
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -10,
@@ -1454,7 +1473,7 @@
                         17
                     ],
                     "dtype": "int32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": 0,
@@ -1472,7 +1491,7 @@
                         49
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false
                 }
             ],
@@ -1491,9 +1510,385 @@
             "params": {
                 "axis": 1,
                 "alpha": 1.2,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 19
+        },
+        {
+            "case_index": 20,
+            "case_name": "IndexAddInplace_test_20",
+            "operation": "IndexAdd_",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        10,
+                        10
+                    ],
+                    "dtype": "bf16",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -1,
+                        "max": 1
+                    }
+                },
+                {
+                    "name": "input1",
+                    "shape": [
+                        10,
+                        5
+                    ],
+                    "dtype": "bf16",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -10,
+                        "max": 10
+                    }
+                },
+                {
+                    "name": "input2",
+                    "shape": [
+                        5
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 0,
+                        "max": 10
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        10,
+                        10
+                    ],
+                    "dtype": "bf16",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                10,
+                10
+            ],
+            "tile_shape": [
+                10,
+                16
+            ],
+            "params": {
+                "axis": 1,
+                "alpha": 1.0,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 20
+        },
+        {
+            "case_index": 21,
+            "case_name": "IndexAddInplace_test_21",
+            "operation": "IndexAdd_",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        10,
+                        10
+                    ],
+                    "dtype": "bf16",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -1,
+                        "max": 1
+                    }
+                },
+                {
+                    "name": "input1",
+                    "shape": [
+                        8,
+                        10
+                    ],
+                    "dtype": "bf16",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -10,
+                        "max": 10
+                    }
+                },
+                {
+                    "name": "input2",
+                    "shape": [
+                        8
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 0,
+                        "max": 10
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        10,
+                        10
+                    ],
+                    "dtype": "bf16",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                10,
+                10
+            ],
+            "tile_shape": [
+                10,
+                16
+            ],
+            "params": {
+                "axis": 0,
+                "alpha": 1.2,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 21
+        },
+        {
+            "case_index": 22,
+            "case_name": "IndexAddInplace_test_22",
+            "operation": "IndexAdd_",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        10,
+                        10
+                    ],
+                    "dtype": "int8",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -1,
+                        "max": 1
+                    }
+                },
+                {
+                    "name": "input1",
+                    "shape": [
+                        10,
+                        5
+                    ],
+                    "dtype": "int8",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -10,
+                        "max": 10
+                    }
+                },
+                {
+                    "name": "input2",
+                    "shape": [
+                        5
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 0,
+                        "max": 10
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        10,
+                        10
+                    ],
+                    "dtype": "int8",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                10,
+                10
+            ],
+            "tile_shape": [
+                10,
+                16
+            ],
+            "params": {
+                "axis": 1,
+                "alpha": 1.0,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 22
+        },
+        {
+            "case_index": 23,
+            "case_name": "IndexAddInplace_test_23",
+            "operation": "IndexAdd_",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        10,
+                        10
+                    ],
+                    "dtype": "int8",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -1,
+                        "max": 1
+                    }
+                },
+                {
+                    "name": "input1",
+                    "shape": [
+                        8,
+                        10
+                    ],
+                    "dtype": "int8",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -10,
+                        "max": 10
+                    }
+                },
+                {
+                    "name": "input2",
+                    "shape": [
+                        8
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 0,
+                        "max": 10
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        10,
+                        10
+                    ],
+                    "dtype": "int8",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                10,
+                10
+            ],
+            "tile_shape": [
+                10,
+                16
+            ],
+            "params": {
+                "axis": 0,
+                "alpha": 1.2,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 23
+        },
+        {
+            "case_index": 24,
+            "case_name": "IndexAddInplace_test_24",
+            "operation": "IndexAdd_",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        10,
+                        10
+                    ],
+                    "dtype": "fp16",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -1,
+                        "max": 1
+                    }
+                },
+                {
+                    "name": "input1",
+                    "shape": [
+                        10,
+                        5
+                    ],
+                    "dtype": "fp16",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -10,
+                        "max": 10
+                    }
+                },
+                {
+                    "name": "input2",
+                    "shape": [
+                        5
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 0,
+                        "max": 10
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        10,
+                        10
+                    ],
+                    "dtype": "fp16",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                10,
+                10
+            ],
+            "tile_shape": [
+                10,
+                16
+            ],
+            "params": {
+                "axis": 1,
+                "alpha": 1.0,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 24
         }
     ]
 }

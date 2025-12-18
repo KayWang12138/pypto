@@ -37,10 +37,14 @@ TILEOP void TgatherElement(T0 dst, T1 src0, T2 src1) {
     auto n1IdxStride = idxLayout.template GetStrideDim<1, expectSize>();
     auto n2IdxStride = idxLayout.template GetStrideDim<2, expectSize>();
     auto n3IdxStride = idxLayout.template GetStrideDim<3, expectSize>();
-    auto n0DstStride = idxLayout.template GetStrideDim<0, expectSize>();
-    auto n1DstStride = idxLayout.template GetStrideDim<1, expectSize>();
-    auto n2DstStride = idxLayout.template GetStrideDim<2, expectSize>();
-    auto n3DstStride = idxLayout.template GetStrideDim<3, expectSize>();
+
+    const auto dstLayout = dst.GetLayout();
+    auto n0DstStride = dstLayout.template GetStrideDim<0, expectSize>();
+    auto n1DstStride = dstLayout.template GetStrideDim<1, expectSize>();
+    auto n2DstStride = dstLayout.template GetStrideDim<2, expectSize>();
+    auto n3DstStride = dstLayout.template GetStrideDim<3, expectSize>();
+    constexpr auto dstTileH = Std::tuple_element<shapeSize - 2, typename T0::TileShape>::type::value;
+    constexpr auto dstTileW = Std::tuple_element<shapeSize - 1, typename T0::TileShape>::type::value;
     constexpr auto srcTileW = Std::tuple_element<shapeSize - 1, typename T1::TileShape>::type::value;
     constexpr auto idxTileH = Std::tuple_element<shapeSize - 2, typename T2::TileShape>::type::value;
     constexpr auto idxTileW = Std::tuple_element<shapeSize - 1, typename T2::TileShape>::type::value;
@@ -96,17 +100,18 @@ TILEOP void TgatherElement(T0 dst, T1 src0, T2 src1) {
         constexpr auto srcTileShape1 = TileOp::GetOutterAxisMergeResult<shapeSize, typename T1::TileShape>();
         using srcTileDefine = pto::Tile<pto::TileType::Vec, typename T1::Type, srcTileShape1, srcTileW, pto::BLayout::RowMajor>;
         using idxTileDefine = pto::Tile<pto::TileType::Vec, typename T2::Type, idxTileH, idxTileW, pto::BLayout::RowMajor, -1, -1>;
-        using dstTileDefine = pto::Tile<pto::TileType::Vec, typename T0::Type, idxTileH, idxTileW, pto::BLayout::RowMajor, -1, -1>;
+        using dstTileDefine = pto::Tile<pto::TileType::Vec, typename T0::Type, dstTileH, dstTileW, pto::BLayout::RowMajor, -1, -1>;
         srcTileDefine srcTile;
         idxTileDefine idxTile(n3IdxShape, n4IdxShape);
         dstTileDefine dstTile(n3IdxShape, n4IdxShape);
         for (int i = 0; i < n0IdxShape; ++i) {
             for (int j = 0; j < n1IdxShape; ++j) {
                 for (int k = 0; k < n2IdxShape; ++k) {
-                    auto offset = i * n0IdxStride + j * n1IdxStride + k * n2IdxStride;
-                    pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + offset * dstTypeSize));
+                    auto idxOffset = i * n0IdxStride + j * n1IdxStride + k * n2IdxStride;
+                    auto dstOffset = i * n0DstStride + j * n1DstStride + k * n2DstStride;
+                    pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * dstTypeSize));
                     pto::TASSIGN(srcTile, (uint64_t)(src0.GetAddr()));
-                    pto::TASSIGN(idxTile, (uint64_t)(src1.GetAddr() + offset * idxTypeSize));
+                    pto::TASSIGN(idxTile, (uint64_t)(src1.GetAddr() + idxOffset * idxTypeSize));
                     pto::TGATHER(dstTile, srcTile, idxTile);
                 }
             }

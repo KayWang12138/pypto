@@ -39,6 +39,33 @@ struct GatherElementOpMetaData {
     nlohmann::json test_data_;
 };
 
+static void GatherElementOperationExeFunc1Dim(
+    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
+    FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
+        SymbolicScalar src_firstDim = inputs[0].GetShape()[0];
+        SymbolicScalar idx_firstDim = inputs[1].GetShape()[0];
+        auto args = static_cast<const GatherElementOpFuncArgs *>(opArgs);
+        int axis = args->axis_;
+        axis = axis >= 0 ? axis : axis + inputs[0].GetShape().size();
+        std::vector<int64_t> viewShape = args->viewShape_;
+        ASSERT(viewShape[axis] >= std::max(inputs[0].GetShape()[axis], inputs[1].GetShape()[axis]));
+        const int firstViewShape = viewShape[0];
+
+        // gather操作src axis轴不能切分 ，其他轴可正常切分，index和最终输出都可正常切分, 切分以index为准
+        const int loop = CeilDiv(idx_firstDim, firstViewShape);
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(loop)) {
+            auto tileTensor0 = View(inputs[0], {firstViewShape},
+                {std::min(src_firstDim - bIdx * firstViewShape, firstViewShape)}, {bIdx * firstViewShape});
+            auto tileTensor1 = View(inputs[1], {firstViewShape},
+                {std::min(idx_firstDim - bIdx * firstViewShape, firstViewShape)}, {bIdx * firstViewShape});
+            TileShape::Current().SetVecTile(args->tileShape_);
+            auto res = GatherElements(tileTensor0, tileTensor1, args->axis_);
+            Assemble(res, {bIdx * firstViewShape}, outputs[0]);
+        }
+    }
+}
+
 static void GatherElementOperationExeFunc2Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
@@ -55,8 +82,7 @@ static void GatherElementOperationExeFunc2Dims(
         const int firstViewShape = viewShape[0];
         const int secondViewShape = viewShape[1];
 
-        /* gather操作src axis轴不能切分 ，其他轴可正常切分，index和最终输出都可正常切分。切分以index为准
-         * src axis不能切分，需要保证axis轴的viewshape=srcshape */
+        // gather操作src axis轴不能切分 ，其他轴可正常切分，index和最终输出都可正常切分, 切分以index为准
         const int loop[] = {CeilDiv(idx_firstDim, firstViewShape), CeilDiv(idx_secondDim, secondViewShape)};
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(loop[IDX_DIM0])) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(loop[IDX_DIM1])) {
@@ -97,8 +123,7 @@ static void GatherElementOperationExeFunc3Dims(
         const int secondViewShape = viewShape[1];
         const int thirdViewShape = viewShape[2];
 
-        /* gather操作src axis轴不能切分 ，其他轴可正常切分，index和最终输出都可正常切分。切分以index为准
-         * src axis不能切分，需要保证axis轴的viewshape=srcshape */
+        // gather操作src axis轴不能切分 ，其他轴可正常切分，index和最终输出都可正常切分, 切分以index为准
         const int loop[] = {CeilDiv(idx_firstDim, firstViewShape), CeilDiv(idx_secondDim, secondViewShape),
             CeilDiv(idx_thirdDim, thirdViewShape)};
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(loop[IDX_DIM0])) {
@@ -204,8 +229,7 @@ static void GatherElementOperationExeFunc5Dims(
         const int forthViewShape = viewShape[3];
         const int fifthViewShape = viewShape[4];
 
-        /* gather操作src axis轴不能切分 ，其他轴可正常切分，index和最终输出都可正常切分。切分以index为准
-         * src axis不能切分，需要保证axis轴的viewshape=srcshape */
+        // gather操作src axis轴不能切分 ，其他轴可正常切分，index和最终输出都可正常切分, 切分以index为准
         const int loop[] = {CeilDiv(idx_firstDim, firstViewShape), CeilDiv(idx_secondDim, secondViewShape),
             CeilDiv(idx_thirdDim, thirdViewShape), CeilDiv(idx_forthDim, forthViewShape), CeilDiv(idx_fifthDim, fifthViewShape)};
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(loop[IDX_DIM0])) {
@@ -250,8 +274,8 @@ class GatherElementOperationTest
 
 INSTANTIATE_TEST_SUITE_P(TestGatherElement, GatherElementOperationTest,
     ::testing::ValuesIn(GetOpMetaData<GatherElementOpMetaData>(
-        {GatherElementOperationExeFunc2Dims, GatherElementOperationExeFunc3Dims, GatherElementOperationExeFunc4Dims,
-        GatherElementOperationExeFunc5Dims},
+        {GatherElementOperationExeFunc1Dim, GatherElementOperationExeFunc2Dims, GatherElementOperationExeFunc3Dims,
+            GatherElementOperationExeFunc4Dims, GatherElementOperationExeFunc5Dims},
         "GatherElement")));
 
 TEST_P(GatherElementOperationTest, TestGatherElement) {
@@ -259,6 +283,9 @@ TEST_P(GatherElementOperationTest, TestGatherElement) {
     auto axis = static_cast<CastMode>(GetValueByName<int>(test_data, "axis"));
     auto args = GatherElementOpFuncArgs(GetViewShape(test_data), GetTileShape(test_data), axis);
     auto testCase = CreateTestCaseDesc<GatherElementOpMetaData>(GetParam(), &args);
+    std::vector<OpFunc> opFuncs = {GatherElementOperationExeFunc1Dim, GatherElementOperationExeFunc2Dims,
+        GatherElementOperationExeFunc3Dims, GatherElementOperationExeFunc4Dims, GatherElementOperationExeFunc5Dims};
+    testCase.opFunc = opFuncs[GetViewShape(test_data).size() - 1];
     TestExecutor::runTest(testCase);
 }
 } // namespace
