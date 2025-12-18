@@ -152,10 +152,10 @@ extern "C" int32_t Execute(MachineTask *task, FunctionCache &cache) {
 
 static std::string GetEmitPath(const std::string &name) {
     std::string dirPath;
-    if (npu::tile_fwk::ConfigManager::Instance().GetCodeGenConfig(KEY_CODEGEN_DUMP_TO_OUTPUT, true)) {
-        dirPath = config::LogTopFolder() + "/" + name;
-    } else {
+    if (npu::tile_fwk::ConfigManager::Instance().GetCodeGenConfig(KEY_FIXED_OUTPUT_PATH, false)) {
         dirPath = name;
+    } else {
+        dirPath = config::LogTopFolder() + "/" + name;
     }
     return dirPath;
 }
@@ -664,7 +664,7 @@ static void ConstructCodeInfo(struct EncodeDevAscendFunctionParam &encodeDevAsce
 static
 bool IsNeedDumpAicpuKernel(const std::string &inputFile) {
     if (npu::tile_fwk::ConfigManager::Instance().GetCodeGenConfig(
-            npu::tile_fwk::KEY_CODEGEN_FORCE_DUMP_CCE_ON_EXIST, true)) {
+            npu::tile_fwk::KEY_FORCE_OVERWRITE, true)) {
         // force dump, default is true
         return true;
     }
@@ -893,14 +893,7 @@ MachineTask *GenCode(
     /* each leafFunction inside is compiled to a standalone object file.
      * the filepath of the object file is updated to the binPath_ member.
      */
-    if (config::GetCodeGenConfig(npu::tile_fwk::KEY_CODEGEN_BY_JSON, false)) {
-        std::string jsonPath = config::GetAbsoluteTopFolder() + "/program.json";
-        Program::GetInstance().DumpJsonFile(jsonPath);
-        config::SetRunDataOption(KEY_PROGRAM_PATH, jsonPath);
-
-        codeGen.GenCode(jsonPath, invokeParaOffset);
-        task->SetFunction(Program::GetInstance().GetCurrentFunction());
-    } else if (function->GetGraphType() == GraphType::TILE_GRAPH) {
+    if (function->GetGraphType() == GraphType::TILE_GRAPH) {
         if (!config::GetCodeGenOption<bool>(CODEGEN_EXPRESSION_FUSION)) {
             codeGen.GenCode(*function, invokeParaOffset);
         }

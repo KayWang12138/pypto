@@ -790,24 +790,6 @@ TEST_F(MlaPrologV2OnBoardTest, test_MlaPrologV2_bfloat16_4_32_1_256_7168_1536) {
     TestMlaPrologV2<npu::tile_fwk::bfloat16>(params, GetGoldenDir());
 }
 
-TEST_F(MlaPrologV2OnBoardTest, test_MlaPrologV2_bfloat16_4_32_1_256_7168_1536_codegen_by_json) {  // b_n_s_s2_h_q_lora_rank, bfloat16
-    config::SetCodeGenConfig(npu::tile_fwk::KEY_CODEGEN_BY_JSON, true);
-    int b = 4;
-    int s = 1;
-    int s2 = 256;
-    int h = 7168;
-    int n = 32;
-    int qLoraRank = 1536;
-    int qkNopeHeadDim = 128;
-    int qkRopeHeadDim = 64;
-    int kvLoraRank = 512;
-    int vHeadDim = 128;
-
-    std::vector<int> params = {b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim,
-        kvLoraRank, vHeadDim};
-    TestMlaPrologV2<npu::tile_fwk::bfloat16>(params, GetGoldenDir());
-}
-
 TEST_F(MlaPrologV2OnBoardTest, test_MlaPrologV2_bfloat16_4_32_1_4096_7168_1536) {  // b_n_s_s2_h_q_lora_rank, bfloat16
     int b = 4;
     int s = 1;

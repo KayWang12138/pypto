@@ -151,26 +151,3 @@ TEST_F(HostMachineCompileTest, test_MlaProlog_float16_32_2_1_256_256_512) {  // 
                                kvLoraRank, vHeadDim};
     TestMlaProlog<npu::tile_fwk::float16>(params);
 }
-
-TEST_F(HostMachineCompileTest, test_codegen_by_json) {
-    std::vector<int64_t> shape = {64, 64};
-    std::vector<int64_t> tile_shape = {64, 64};
-    TileShape::Current().SetVecTile(tile_shape);
-    Tensor input_a(DT_FP32, shape, "A");
-    Tensor input_b(DT_FP32, shape, "B");
-    Tensor output(DT_FP32, shape, "C");
-
-    std::string name = "ADD_DIM2_BY_JSON";
-    config::SetBuildStatic(true);
-    FUNCTION(name, {input_a, input_b, output}) {
-        output = Add(input_a, input_b);
-    }
-
-    config::SetCodeGenConfig(npu::tile_fwk::KEY_CODEGEN_BY_JSON, true);
-    auto task = std::make_shared<MachineTask>(0, Program::GetInstance().GetCurrentFunction());
-    auto deviceAgentTask = new DeviceAgentTask(task);
-    std::string kernelName;
-    auto &cache = Program::GetInstance().GetFunctionCache();
-    (void)GenCode(deviceAgentTask->compileTask.get(), deviceAgentTask->compileInfo.invokeParaOffset, cache, kernelName);
-    delete deviceAgentTask;
-}

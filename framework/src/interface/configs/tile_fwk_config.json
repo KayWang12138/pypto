@@ -45,11 +45,10 @@
             ]
         },
         "codegen_configs": {
-            "PARALLEL_THREAD_NUM" : 8,
+            "parallel_compile" : 8,
             "support_dynamic_unaligned" : false,
-            "CODEGEN_BY_JSON": false,
-            "CODEGEN_DUMP_TO_OUTPUT": true,
-            "CODEGEN_FORCE_DUMP_CCE_ON_EXIST": true,
+            "fixed_output_path": false,
+            "force_overwrite": true,
             "codegen_expression_fusion": false,
             "CODEGEN_SUPPORT_TILE_TENSOR": false,
             "CODEGEN_NEED_COMPILE": true

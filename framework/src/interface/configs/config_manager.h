@@ -67,10 +67,9 @@ const std::string KEY_SET_SCOPE = "SCOPE";
 const std::string KEY_AICPU_WAIT_FLAG_ENABLE = "AICPU_WAIT_FLAG_ENABLE";
 
 /* CodeGen KEYs */
-const std::string KEY_PARALLEL_THREAD_NUM = "PARALLEL_THREAD_NUM";
-const std::string KEY_CODEGEN_BY_JSON = "CODEGEN_BY_JSON";
-const std::string KEY_CODEGEN_DUMP_TO_OUTPUT = "CODEGEN_DUMP_TO_OUTPUT"; // if true, dump cce to output directory
-const std::string KEY_CODEGEN_FORCE_DUMP_CCE_ON_EXIST = "CODEGEN_FORCE_DUMP_CCE_ON_EXIST"; // if true, don't dump cce when file exists
+const std::string KEY_PARALLEL_COMPILE = "parallel_compile";
+const std::string KEY_FIXED_OUTPUT_PATH = "fixed_output_path"; // if true, dump cce to output directory
+const std::string KEY_FORCE_OVERWRITE = "force_overwrite"; // if true, don't dump cce when file exists
 const std::string KEY_CODEGEN_SUPPORT_TILE_TENSOR = "CODEGEN_SUPPORT_TILE_TENSOR";       // if true, gen code with layout mode
 const std::string KEY_CODEGEN_NEED_COMPILE = "CODEGEN_NEED_COMPILE";       // if true, gen code & compile code
 

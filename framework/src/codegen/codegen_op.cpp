@@ -28,16 +28,17 @@
 namespace npu::tile_fwk {
 namespace {
 bool IsCopyOpWithShapeOffsetAttr(Opcode opcode) {
-    bool result =
-        opcode == Opcode::OP_COPY_IN || opcode == Opcode::OP_COPY_OUT || opcode == Opcode::OP_TRANSPOSE_MOVEOUT ||
-        opcode == Opcode::OP_TRANSPOSE_MOVEIN || opcode == Opcode::OP_INDEX_OUTCAST ||
-        opcode == Opcode::OP_LOCAL_COPY_OUT || opcode == Opcode::OP_REMOTE_REDUCE ||
-        opcode == Opcode::OP_REMOTE_GATHER || opcode == Opcode::OP_FFN_SCHED || opcode == Opcode::OP_FFN_BATCHING ||
-        opcode == Opcode::OP_FFN_COMBINEINFO || opcode == Opcode::OP_FFN_VALIDCNT || opcode == Opcode::OP_COPY_TO_LOCAL_EXPERT ||
-        opcode == Opcode::OP_SHMEM_PUT || opcode == Opcode::OP_SHMEM_PUT_UB2GM || opcode == Opcode::OP_SHMEM_SIGNAL ||
-        opcode == Opcode::OP_SHMEM_GET || opcode == Opcode::OP_SHMEM_GET_GM2UB || opcode == Opcode::OP_SHMEM_REDUCE ||
-        opcode == Opcode::OP_SHMEM_CLEAR_SIGNAL || opcode == Opcode::OP_SHMEM_MOE_COMBINE_SEND ||
-        opcode == Opcode::OP_SHMEM_MOE_COMBINE_RECEIVE;
+    bool result = opcode == Opcode::OP_COPY_IN || opcode == Opcode::OP_COPY_OUT ||
+                  opcode == Opcode::OP_TRANSPOSE_MOVEOUT || opcode == Opcode::OP_TRANSPOSE_MOVEIN ||
+                  opcode == Opcode::OP_INDEX_OUTCAST || opcode == Opcode::OP_LOCAL_COPY_OUT ||
+                  opcode == Opcode::OP_REMOTE_REDUCE || opcode == Opcode::OP_REMOTE_GATHER ||
+                  opcode == Opcode::OP_FFN_SCHED || opcode == Opcode::OP_FFN_BATCHING ||
+                  opcode == Opcode::OP_FFN_COMBINEINFO || opcode == Opcode::OP_FFN_VALIDCNT ||
+                  opcode == Opcode::OP_COPY_TO_LOCAL_EXPERT || opcode == Opcode::OP_SHMEM_PUT ||
+                  opcode == Opcode::OP_SHMEM_PUT_UB2GM || opcode == Opcode::OP_SHMEM_SIGNAL ||
+                  opcode == Opcode::OP_SHMEM_GET || opcode == Opcode::OP_SHMEM_GET_GM2UB ||
+                  opcode == Opcode::OP_SHMEM_REDUCE || opcode == Opcode::OP_SHMEM_CLEAR_SIGNAL ||
+                  opcode == Opcode::OP_SHMEM_MOE_COMBINE_SEND || opcode == Opcode::OP_SHMEM_MOE_COMBINE_RECEIVE;
     return result;
 }
 } // namespace
@@ -123,8 +124,8 @@ void CodeGenOp::UpdateScalarValue(const npu::tile_fwk::Operation &ops) {
     if (ops.HasAttr(OpAttributeKey::scalar)) {
         extOperandVal = ops.GetElementAttribute(OpAttributeKey::scalar);
     }
-    if(ops.HasAttr(OpAttributeKey::dynScalar)){
-         extSymbolicScalar = ops.GetSymbolicScalarAttribute(OpAttributeKey::dynScalar);
+    if (ops.HasAttr(OpAttributeKey::dynScalar)) {
+        extSymbolicScalar = ops.GetSymbolicScalarAttribute(OpAttributeKey::dynScalar);
     }
     if (ops.HasAttr(OpAttributeKey::vectorScalar)) {
         extScalarVec = ops.GetVectorElementAttribute(OpAttributeKey::vectorScalar);
@@ -397,14 +398,7 @@ void CodeGenOp::GetGmParamIdx(const npu::tile_fwk::Operation &oper) {
         return;
     }
 
-    if (oper.GetOpcode() == Opcode::OP_GATHER_IN_L1) {
-        paramLocation[0] = oper.GetIOpAttrOffset(0);
-        paramLocation[1] = oper.GetIOpAttrOffset(1);
-        paramLocation[2] = oper.GetIOpAttrOffset(2);
-        GmTensorParamIdxInCallFunc = oper.GetIntAttribute("GmTensorParamIdxInCallFunc");
-        return;
-    }
-    if (oper.GetOpcode() == Opcode::OP_GATHER_IN_UB) {
+    if (oper.GetOpcode() == Opcode::OP_GATHER_IN_L1 || oper.GetOpcode() == Opcode::OP_GATHER_IN_UB) {
         paramLocation[0] = oper.GetIOpAttrOffset(0);
         paramLocation[1] = oper.GetIOpAttrOffset(1);
         paramLocation[2] = oper.GetIOpAttrOffset(2);

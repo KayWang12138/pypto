@@ -1269,7 +1269,6 @@ nsa_case_names = [
         "MlaPrologV2OnBoardTest.test_mla_bf16_high_quant_smooth_nz_pa_bsnd",
         "MlaPrologV2OnBoardTest.test_mla_bf16_high48_quant_smooth_nz_pa_bsnd",
         # CodeGen by Json
-        "MlaPrologV2OnBoardTest.test_MlaPrologV2_bfloat16_4_32_1_256_7168_1536_codegen_by_json",
         "DyMla.AB_low",
     ]
 )
@@ -1296,8 +1295,7 @@ def gen_mla_prolog_date_v2(case_name: str, output: Path) -> bool:
         gen_mla_prolog_test_net((bfloat16, bfloat16), (32, 128, 256), 1e-5, output)
     elif case_name == "MlaPrologV2OnBoardTest.test_MlaPrologV2_bfloat16_4_32_1_4096_7168_1536":
         gen_mla_prolog_test_net((bfloat16, bfloat16), (4, 32, 4096), 1e-5, output)
-    elif (case_name == "MlaPrologV2OnBoardTest.test_MlaPrologV2_bfloat16_4_32_1_256_7168_1536"
-          or case_name == "MlaPrologV2OnBoardTest.test_MlaPrologV2_bfloat16_4_32_1_256_7168_1536_codegen_by_json"):
+    elif case_name == "MlaPrologV2OnBoardTest.test_MlaPrologV2_bfloat16_4_32_1_256_7168_1536":
         gen_mla_prolog_test_net((bfloat16, bfloat16), (4, 32, 256), 1e-5, output)
     elif case_name == "MlaPrologV2OnBoardTest.test_MlaPrologV2_bfloat16_4_128_1_4096_7168_1536":
         gen_mla_prolog_test_net((bfloat16, bfloat16), (4, 128, 4096), 1e-5, output)

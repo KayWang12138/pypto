@@ -131,7 +131,6 @@ std::string CodeGenOpCloudNPU::PrintReduceLastAxis(const PrintUnaryTmpBuffParam 
     std::vector<int64_t> dstRawShape = NormalizeShape(rawShape[ID0], SHAPE_DIM4);
     std::vector<int64_t> tmpRawShape = NormalizeShape(rawShape[ID1], SHAPE_DIM4);
     ALOG_INFO_F("rawShape[2] is %s", IntVecToStr(rawShape[ID2]).c_str());
-    ASSERT(dstOriginShape[ID3] == 1) << "Dst last axis length must be 1";
 
     if (isSupportLayout) {
         return PrintReduceLastAxisTileTensor();

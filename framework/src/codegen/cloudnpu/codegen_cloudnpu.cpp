@@ -295,7 +295,7 @@ void CodeGenCloudNPU::GenCode(
         };
         tasks.push_back(task);
     }
-    unsigned threadNum = ConfigManager::Instance().GetCodeGenConfig(KEY_PARALLEL_THREAD_NUM, 1u);
+    unsigned threadNum = ConfigManager::Instance().GetCodeGenConfig(KEY_PARALLEL_COMPILE, 1u);
     ParallelExecuteAndWait(threadNum, tasks);
 }
 
@@ -314,7 +314,7 @@ void CodeGenCloudNPU::UpdateSubFunc(std::pair<uint64_t, Function *> subFuncPair,
 }
 
 bool CodeGenCloudNPU::IsNeedDumpCCE(const std::string &inputFile) const {
-    if (ConfigManager::Instance().GetCodeGenConfig(KEY_CODEGEN_FORCE_DUMP_CCE_ON_EXIST, true)) {
+    if (ConfigManager::Instance().GetCodeGenConfig(KEY_FORCE_OVERWRITE, true)) {
         // force dump, default is true
         return true;
     }
