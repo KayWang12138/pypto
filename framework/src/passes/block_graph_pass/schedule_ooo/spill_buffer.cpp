@@ -107,8 +107,13 @@ Status OoOScheduler::UpdateTensorAttr(
     } else {
         int rawMagic = tensor->GetRawTensor()->GetRawMagic();
         tensor->memoryrange.memId = rawMagic;
+        if (static_cast<uint64_t>(tensor->tensor->GetRawDataSize()) != ShapeCeilAlign(tensor->tensor->rawshape, tensor->tensor->datatype)) {
+            APASS_LOG_ERROR_F(Elements::Tensor, "Init Tensor[%d] localBuffer failed. "
+                "Please ensure that the rawTensor shapes are aligned.", rawMagic);
+            return FAILED;
+        }
         localBufferMap[rawMagic] = std::make_shared<LocalBuffer>(
-            rawMagic, ShapeCeilAlign(tensor->GetShape(), tensor->Datatype()), tensor->GetMemoryTypeOriginal());
+            rawMagic, tensor->tensor->GetRawDataSize(), tensor->GetMemoryTypeOriginal());
         if (localBufferMap[rawMagic] == nullptr) {
             APASS_LOG_ERROR_F(Elements::Tensor, "Init Tensor[%d] localBuffer failed.", rawMagic);
             return FAILED;

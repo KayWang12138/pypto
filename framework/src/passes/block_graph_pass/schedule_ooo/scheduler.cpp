@@ -617,7 +617,9 @@ Status OoOScheduler::GenSpillSchedule() {
         }
     }
     APASS_LOG_DEBUG_F(Elements::Operation, "=========> End GenSpillSchedule.");
-    InitBufRefCount();
+    if (InitBufRefCount() != SUCCESS) {
+        return FAILED;
+    }
     // 更新依赖关系
     if (InitDependencies() != SUCCESS) { 
         APASS_LOG_ERROR_F(Elements::Operation, "InitDependencies failed!"); 
@@ -684,30 +686,26 @@ Status OoOScheduler::CheckAllocIssue() {
     return SUCCESS;
 }
 
-void OoOScheduler::InitLocalBuffer(LogicalTensorPtr oOperand, int memId) {
+Status OoOScheduler::InitLocalBuffer(LogicalTensorPtr oOperand, int memId) {
     if (oOperand->GetMemoryTypeOriginal() >= MemoryType::MEM_DEVICE_DDR) {
-        return;
+        return SUCCESS;
+    }
+    if (static_cast<uint64_t>(oOperand->tensor->GetRawDataSize()) != ShapeCeilAlign(oOperand->tensor->rawshape, oOperand->tensor->datatype)) {
+        APASS_LOG_ERROR_F(Elements::Tensor, "InitLocalBuffer Failed at ShapeCeilAlign! "
+            "Please ensure that the rawTensor[%d] shapes are aligned.", oOperand->GetRawMagic());
+        return FAILED;
     }
     if (localBufferMap.find(memId) == localBufferMap.end()) {
         localBufferMap[memId] = std::make_shared<LocalBuffer>(
-            memId, ShapeCeilAlign(oOperand->GetShape(), oOperand->Datatype()), oOperand->GetMemoryTypeOriginal());
+            memId, oOperand->tensor->GetRawDataSize(), oOperand->GetMemoryTypeOriginal());
     } else {
-        localBufferMap[memId]->size =
-            std::max(localBufferMap[memId]->size, ShapeCeilAlign(oOperand->GetShape(), oOperand->Datatype()));
+        if (localBufferMap[memId]->size != static_cast<uint64_t>(oOperand->tensor->GetRawDataSize())) {
+            APASS_LOG_ERROR_F(Elements::Tensor, "InitLocalBuffer Failed! DataSizes are inconsistent for the same memId: %d, "
+                "tensor magic: %d, rawTensor maigc: %d", memId, oOperand->GetMagic(), oOperand->GetRawMagic());
+            return FAILED;
+        }
     }
-}
-
-void OoOScheduler::InitLocalBufferForAxisCombine(LogicalTensorPtr oOperand, int memId) {
-    if (oOperand->GetMemoryTypeOriginal() >= MemoryType::MEM_DEVICE_DDR) {
-        return;
-    }
-    if (localBufferMap.find(memId) == localBufferMap.end()) {
-        localBufferMap[memId] = std::make_shared<LocalBuffer>(
-            memId, ShapeCeilAlign(oOperand->tensor->rawshape, oOperand->Datatype()), oOperand->GetMemoryTypeOriginal());
-    } else {
-        localBufferMap[memId]->size =
-            std::max(localBufferMap[memId]->size, ShapeCeilAlign(oOperand->tensor->rawshape, oOperand->Datatype()));
-    }
+    return SUCCESS;
 }
 
 void OoOScheduler::UpdateBufRefCount(IssueEntryPtr issue, LogicalTensorPtr tensor) {
@@ -718,7 +716,7 @@ void OoOScheduler::UpdateBufRefCount(IssueEntryPtr issue, LogicalTensorPtr tenso
     }
 }
 
-void OoOScheduler::InitBufRefCount() {
+Status OoOScheduler::InitBufRefCount() {
     bufRefCount.clear();
     for (const auto &issue : issueEntries) {
         issue->Clear();
@@ -728,13 +726,12 @@ void OoOScheduler::InitBufRefCount() {
         for (auto &tensor : issue->tileOp.GetOOperands()) {
             UpdateBufRefCount(issue, tensor);
             int memId = tensor->memoryrange.memId;
-            if (isCombineAxis_) {
-               InitLocalBufferForAxisCombine(tensor, memId);
-            } else {
-                InitLocalBuffer(tensor, memId);
+            if (InitLocalBuffer(tensor, memId) != SUCCESS) {
+                return FAILED;
             }
         }
     }
+    return SUCCESS;
 }
 
 Status OoOScheduler::InitAllocDependencies(IssueEntryPtr issue, std::map<int, IssueEntryPtr> tensor2AllocMap) {
@@ -912,7 +909,9 @@ Status OoOScheduler::Init(const std::vector<Operation *> &operations) {
     }
     numTotalIssues = issueEntries.size();
 
-    InitBufRefCount();
+    if (InitBufRefCount() != SUCCESS) {
+        return FAILED;
+    }
     // 初始化issueEntry，构建依赖关系
     if (InitDependencies() != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "InitDependencies failed!");
