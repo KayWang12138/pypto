@@ -37,10 +37,10 @@ assemble(input: Tensor, offsets: List[Union[int, SymbolicScalar]], out: Tensor) 
 ## 调用示例
 
 ```python
-x = pypto.tensor([2, 2], pypto.data_type.DT_FP32) 
-out = pypto.tensor([4, 4], pypto.data_type.DT_FP32)
+x = pypto.tensor([2, 2], pypto.DT_FP32)
+out = pypto.tensor([4, 4], pypto.DT_FP32)
 offsets = [0, 0]
-pypto.assemble(x, offsets, out) 
+pypto.assemble(x, offsets, out)
 ```
 
 结果示例如下：

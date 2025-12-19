@@ -15,6 +15,7 @@ from .. import pypto_impl
 from .._op_wrapper import op_wrapper
 from ..tensor import Tensor
 from .._element import Element
+from ..enum import DataType
 
 
 @op_wrapper
@@ -89,12 +90,12 @@ def where(
     if isinstance(input, pypto_impl.Tensor) or isinstance(input, pypto_impl.Element):
         input_base = input
     else:
-        input_base = pypto_impl.Element(pypto_impl.DT_FP32, input)
+        input_base = pypto_impl.Element(DataType.DT_FP32, input)
 
     if isinstance(other, pypto_impl.Tensor) or isinstance(other, pypto_impl.Element):
         other_base = other
     else:
-        other_base = pypto_impl.Element(pypto_impl.DT_FP32, other)
+        other_base = pypto_impl.Element(DataType.DT_FP32, other)
     return pypto_impl.Where(condition, input_base, other_base)
 
 
