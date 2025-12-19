@@ -130,14 +130,27 @@ pip install -r python/requirements.txt  # 编译时的依赖
 **如果部署环境可以访问 [CANN 三方开源仓](https://gitcode.com/cann-src-third-party)**，可以使用默认编译安装方法：
 
 ```bash
-pip3 install -e .
+# 常规安装
+python3 -m pip install .
+
+# 可编辑安装
+python3 -m pip install -e .
 ```
+
+> 注意:
+> 当使用 “可编辑安装” 模式时, 会在所使用的 python3 对应的包安装路径(site-packages)目录的创建 .pth 文件。
+> 当使用非 root 用户时, 需确保当前用户有 python3 对应的包安装路径(site-packages)目录的读写权限。
 
 **如果部署环境无法访问 [CANN 三方开源仓](https://gitcode.com/cann-src-third-party)**，参考[编译依赖下载安装指导](docs/installation/third_party_install.md)，编译安装使用如下方法：
 
 ```bash
 export PYPTO_THIRD_PARTY_PATH=<path-to-thirdparty>
-pip3 install -e .
+
+# 常规安装
+python3 -m pip install .
+
+# 可编辑安装
+python3 -m pip install -e .
 ```
 
 **编译依赖下载安装指导文档内容**：详细说明需要下载哪些依赖包及其安装方法。
