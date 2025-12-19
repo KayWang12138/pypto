@@ -19,8 +19,10 @@ def _load_shared_libs():
     from importlib import metadata
     from typing import List, Any
 
-    cur_dir: Path = Path(str(metadata.distribution("pypto").locate_file("pypto"))).resolve()
-    lib_dir: Path = Path(cur_dir, "lib")
+    cur_dir: Path = Path(__file__).parent
+    pkg_dir: Path = Path(str(metadata.distribution("pypto").locate_file("pypto"))).resolve()
+    pkg_dir = pkg_dir if pkg_dir == cur_dir else cur_dir  # 适配 edit 模式
+    lib_dir: Path = Path(pkg_dir, "lib")
     use_cann: bool = bool(os.environ.get("ASCEND_HOME_PATH"))
 
     def _load_shared_lib(_desc: List[Any]):

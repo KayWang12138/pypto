@@ -319,23 +319,13 @@ class CMakeBuild(build_ext, CMakeUserOption, EditModeHelper):
         ret.check_returncode()
 
         # CMake Install
-        impl_lib: str = "pypto_impl_lib"
-        cmd_lst: List[str] = [
-            f"{self.cmake} --install {build_dir} --prefix {cmake_install_prefix}"
-        ]
+        cmake_install_prefix: Path = self._get_cmake_install_prefix()  # 重复获取触发提示
+        cmd: str = f"{self.cmake} --install {build_dir} --prefix {cmake_install_prefix}"
+        logging.info("CMake Install, Cmd: %s", cmd)
+        ret = subprocess.run(shlex.split(cmd), capture_output=False, check=True, text=True, encoding='utf-8')
+        ret.check_returncode()
         if self._edit_mode():
-            impl_lib_prefix: Path = Path(src, "python")
-            # edit 模式下需要补充 install pypto_impl 到源码路径下
-            cmd_lst.append(f"{self.cmake} --install {build_dir} --prefix {impl_lib_prefix} --component {impl_lib}")
-        for idx, cmd in enumerate(cmd_lst, start=1):
-            logging.info("CMake Install, Cmd[%s/%s]: %s", idx, len(cmd_lst), cmd)
-            ret = subprocess.run(shlex.split(cmd), capture_output=False, check=True, text=True, encoding='utf-8')
-            ret.check_returncode()
-        if self._edit_mode():
-            installed_files: List[str] = []
-            installed_files.extend(self._get_cmake_install_manifest(build_dir=build_dir))
-            installed_files.extend(self._get_cmake_install_manifest(build_dir=build_dir,
-                                                                    file_name=f"install_manifest_{impl_lib}.txt"))
+            installed_files: List[str] = self._get_cmake_install_manifest(build_dir=build_dir)
             if installed_files:
                 # 向 editable_wheel 命令传递
                 editable_wheel_cmd = self.distribution.get_command_obj("editable_wheel")
@@ -350,9 +340,10 @@ class CMakeBuild(build_ext, CMakeUserOption, EditModeHelper):
 
     def _get_cmake_install_prefix(self) -> Path:
         cmake_install_prefix: Path = Path(self.build_lib)
-        # 判断是否为可编辑安装
         if self._edit_mode():
-            cmake_install_prefix = self.get_pip_edit_mode_install_path()
+            # 可编辑安装模式下, 设置 CMake Install Prefix 为源码相关路径
+            src_root: Path = Path(__file__).parent.resolve()  # -e 模式下不会 copy 源码到 tmp 目录
+            cmake_install_prefix = Path(src_root, "python")
             logging.warning("Run in editable mode, use %s as cmake install prefix.", cmake_install_prefix)
         return cmake_install_prefix.resolve()
 
