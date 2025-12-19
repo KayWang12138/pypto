@@ -39,12 +39,12 @@ struct DataIDType {
  */
 struct TaskMeta {
     std::shared_ptr<Task> taskPtr = nullptr;
-    int functionMagic;
-    uint64_t functionHash;
-    int taskId;
+    int functionMagic = -1;
+    uint64_t functionHash = -1;
+    int taskId = -1;
     // FunctionHash functionHash;
     std::string functionName = "";
-    MachineType coreMachineType;
+    MachineType coreMachineType = MachineType::UNKNOWN;
 };
 
 struct TileOpMeta : TaskMeta {
