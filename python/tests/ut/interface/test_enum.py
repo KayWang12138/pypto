@@ -15,25 +15,32 @@ import pypto
 
 def test_dtype():
     # Make sure all data types are defined
-    assert pypto.bytes_of(pypto.DT_INT4) == 1
-    assert pypto.bytes_of(pypto.DT_INT8) == 1
-    assert pypto.bytes_of(pypto.DT_INT16) == 2
-    assert pypto.bytes_of(pypto.DT_INT32) == 4
-    assert pypto.bytes_of(pypto.DT_INT64) == 8
-    assert pypto.bytes_of(pypto.DT_FP8) == 1
-    assert pypto.bytes_of(pypto.DT_FP16) == 2
-    assert pypto.bytes_of(pypto.DT_FP32) == 4
-    assert pypto.bytes_of(pypto.DT_BF16) == 2
-    assert pypto.bytes_of(pypto.DT_HF4) == 1
-    assert pypto.bytes_of(pypto.DT_HF8) == 1
-    assert pypto.bytes_of(pypto.DT_UINT8) == 1
-    assert pypto.bytes_of(pypto.DT_UINT16) == 2
-    assert pypto.bytes_of(pypto.DT_UINT32) == 4
-    assert pypto.bytes_of(pypto.DT_UINT64) == 8
-    assert pypto.bytes_of(pypto.DT_BOOL) == 1
-    assert pypto.bytes_of(pypto.DT_DOUBLE) == 8
-
-    assert str(pypto.DT_INT4) == "DataType.DT_INT4"
+    cases = [
+        (pypto.DT_INT4, 1, 4, False),
+        (pypto.DT_INT8, 1, 8, False),
+        (pypto.DT_INT16, 2, 16, False),
+        (pypto.DT_INT32, 4, 32, False),
+        (pypto.DT_INT64, 8, 64, False),
+        (pypto.DT_FP8, 1, 8, True),
+        (pypto.DT_FP16, 2, 16, True),
+        (pypto.DT_FP32, 4, 32, True),
+        (pypto.DT_BF16, 2, 16, True),
+        (pypto.DT_HF4, 1, 4, True),
+        (pypto.DT_HF8, 1, 8, True),
+        (pypto.DT_UINT8, 1, 8, False),
+        (pypto.DT_UINT16, 2, 16, False),
+        (pypto.DT_UINT32, 4, 32, False),
+        (pypto.DT_UINT64, 8, 64, False),
+        (pypto.DT_BOOL, 1, 8, False),
+        (pypto.DT_DOUBLE, 8, 64, True),
+        (pypto.DT_FP8E4M3FN, 1, 8, True),
+        (pypto.DT_FP8E5M2, 1, 8, True),
+    ]
+    for dtype, bytes, bits, is_float in cases:
+        assert dtype.bytes() == bytes
+        assert dtype.bits() == bits
+        assert dtype.is_float() == is_float
+        assert str(dtype) == f"DataType.{dtype.name}"
 
 
 def test_tile_op_format():

@@ -44,24 +44,3 @@ def set_source_location(level: int = 1):
 
 def clear_source_location():
     pypto_impl.ClearLocation()
-
-
-def bytes_of(dtype: DataType) -> int:
-    """ return the number of bytes of the current datatype
-
-    Parameters
-    ----------
-    dtype: pypto.DataType
-        datatype to be determined the number of bytes
-
-    Returns
-    -------
-    int: the size of bytes the datatype contains
-
-    Examples
-    --------
-    >>> print(pypto.bytes_of(pypto.DT_FP32))
-        4
-    """
-    # implementation
-    return pypto_impl.BytesOf(dtype)

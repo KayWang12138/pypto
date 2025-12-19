@@ -15,6 +15,7 @@ from .. import pypto_impl
 from .._element import Element
 from .._op_wrapper import op_wrapper
 from ..tensor import Tensor
+from ..enum import DataType
 
 
 @op_wrapper
@@ -322,7 +323,7 @@ def abs(a: Tensor) -> Tensor:
 def reciprocal(a: Tensor) -> Tensor:
     """
     Returns a new tensor with the reciprocal of the elements of input
-    
+
     Parameters
     ----------
     input : Tensor
@@ -485,7 +486,7 @@ def sqrt(input: Tensor) -> Tensor:
 def neg(a: Tensor) -> Tensor:
     """
     Returns a new tensor with the negative of the elements of input.
-    
+
     Parameters
     ----------
     input : Tensor
@@ -580,7 +581,7 @@ def clip(
     default = (
         pypto_impl.Tensor()
         if not is_element_mode
-        else pypto_impl.Element(pypto_impl.DataType.DT_BOTTOM, 0)
+        else pypto_impl.Element(DataType.DT_BOTTOM, 0)
     )
     min = min or default
     max = max or default
@@ -611,8 +612,8 @@ def cumsum(
         The tensor after calculating the cumulative sum.
     Examples
     ---------
-    x = pypto.tensor([2, 3], pypto.data_type.DT_INT32) 
-    y = pypto.tensor([2, 3], pypto.data_type.DT_INT32) 
+    x = pypto.tensor([2, 3], pypto.DT_INT32)
+    y = pypto.tensor([2, 3], pypto.DT_INT32)
     dim = 0
     out = pypto.cumsum(x, dim)
     Input  x : [[0 1 2],
