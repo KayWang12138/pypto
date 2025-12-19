@@ -19,12 +19,14 @@ class Table:
     """
 
     @staticmethod
-    def table(datas: List[List[Any]], headers: Optional[List[Any]] = None, col_width_max: int = 128) -> str:
+    def table(datas: List[List[Any]], headers: Optional[List[Any]] = None, col_width_max: int = 128,
+              auto_sort: bool = True) -> str:
         """获取格式化的表格字符串
 
         :param datas: 二维表格数据，每个子列表代表一行
         :param headers: 可选表头列表
         :param col_width_max: 单列最大列宽
+        :param auto_sort: 自动升序排序
         :return: 格式化后的网格表格字符串
         """
         # 归一化为列数相等的表格, 并计算各列所需的最大字符串长度
@@ -42,7 +44,8 @@ class Table:
                 col_widths[j] = max(col_widths[j], len(str(col)))
         if _heads is not None:
             _datas = _datas[:-1]
-            _datas.sort(reverse=False)
+            if auto_sort:
+                _datas.sort(reverse=False)
 
         # 构造表头(如果有)
         separator = Table._make_separator(widths=col_widths, width_max=col_width_max, div='-')

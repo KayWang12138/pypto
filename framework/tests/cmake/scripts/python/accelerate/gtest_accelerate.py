@@ -63,12 +63,12 @@ class GTestAccelerate(ABC):
             """获取 Container 执行信息统计.
 
             :returns:
-                Tuple[str, timedelta]:
-                    - Container 并行执行收益描述(str)
+                Tuple[str, str]:
                     - Container 执行信息统计表(str)
+                    - Container 并行执行收益描述(str)
             """
             heads: List[str] = ["CntrId", "Total", "Success", "Failed", "Duration"]
-            datas: List[Any] = []
+            datas: List[List[Any]] = []
             duration_sum: timedelta = timedelta()
             while not self.cntr_execution_details.empty():
                 _brief = self.cntr_execution_details.get()
@@ -142,7 +142,7 @@ class GTestAccelerate(ABC):
             :return: Case 执行耗时统计信息.
             """
             heads: List[str] = ["Job", "CaseName", "Duration", "Ratio(Job)", "Ratio(Process)"]
-            datas: List[Any] = []
+            datas: List[List[Any]] = []
             while not self.case_execution_details.empty():
                 _brief = self.case_execution_details.get()
                 job_idx: int = _brief[0]
@@ -152,14 +152,19 @@ class GTestAccelerate(ABC):
                 ratio_job: float = float(case_duration / job_duration) * 100
                 ratio_process: float = float(case_duration / self.duration) * 100
                 datas.append(
-                    [job_idx, case_name, f"{case_duration.total_seconds():.2f}",
+                    [job_idx, case_name, case_duration.total_seconds(),
                      f"{case_duration.total_seconds():.2f}/{job_duration.total_seconds():.2f} {ratio_job:.2f}%",
                      f"{case_duration.total_seconds():.2f}/{self.duration.total_seconds():.2f} "
                      f"{ratio_process:.2f}%"])
                 self.case_execution_details.task_done()
             brief: str = "\nNone"
             if len(datas) != 0:
-                brief = Table.table(datas=datas, headers=heads)
+                # 把 data 按耗时降序重排, 重排后转换格式
+                duration_idx: int = 2  # 2 is idx of duration
+                datas = sorted(datas, key=lambda x: x[duration_idx], reverse=True)
+                for item in datas:
+                    item[duration_idx] = f"{item[duration_idx]:.2f}"
+                brief = Table.table(datas=datas, headers=heads, auto_sort=False)
             return f"\n\nCase Duration Brief:{brief}"
 
     @dataclasses.dataclass
@@ -569,7 +574,6 @@ class GTestAccelerate(ABC):
 
         :return: 待执行用例名, None 表示无待执行用例
         """
-        gtest_filter: Optional[str] = None  # 终止信号, 正常退出
         try:
             gtest_filter = self.case_queue.get()
             self.case_queue.task_done()
