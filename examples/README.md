@@ -1,280 +1,84 @@
-# PyPTO Examples
+# PyPTO 样例代码 (Examples)
 
-A comprehensive collection of examples demonstrating PyPTO capabilities, organized by difficulty level.
+本目录包含了一系列 PyPTO 的开发样例代码，旨在指导开发者如何使用该 AI 编程框架。样例代码根据开发者的学习路径，由浅入深地展示了框架的各项特性。
 
-## Overview
+## 目录结构
 
-This directory contains examples that show how to use PyPTO for various tasks:
-- **Beginner**: Fundamental operations and concepts
-- **Intermediate**: Neural network components and patterns
-- **Advanced**: Complex architectures and optimization
-- **Models**: Real-world model implementations
+样例代码分为以下几个等级：
 
-## Quick Start
+- **01_beginner (初级)**: 基础操作与核心概念，适合刚接触 PyPTO 的开发者。
+- **02_intermediate (中级)**: 神经网络组件、算子组合以及运行时（Runtime）特性。
+- **03_advanced (高级)**: 复杂架构（如 Attention）、高级模式和系统级优化。
+- **models (模型)**: 真实世界的大模型（LLM）算子实现样例。
+- **hello_world (初始化)**: 框架初始化的 Hello World 示例。
 
-1. **New to PyPTO?** Start with [Beginner Examples](beginner/README.md)
-2. **Building neural networks?** Check out [Intermediate Examples](intermediate/README.md)
-3. **Need advanced patterns?** See [Advanced Examples](advanced/README.md)
-4. **Looking for real-world usage?** Explore [Model Examples](models/README.md)
+## 快速开始
 
-## Directory Structure
+1. **初次使用？** 请从 [初级样例 (01_beginner)](01_beginner/README.md) 开始。
+2. **构建神经网络？** 参考 [中级样例 (02_intermediate)](02_intermediate/README.md)。
+3. **探索高级模式？** 查阅 [高级样例 (03_advanced)](03_advanced/README.md)。
+4. **大模型算子实现？** 探索 [模型样例 (models)](models/README.md)。
 
-```
-examples/
-├── beginner/              # For users new to PyPTO
-│   └── 01_basic_operations/
-├── intermediate/          # For users familiar with basics
-│   ├── 01_layer_normalization/
-│   ├── 02_custom_activation/
-│   ├── 03_ffn_module/
-│   └── 04_softmax/
-├── advanced/              # For experienced users
-│   ├── 01_attention/
-│   └── 02_multi_function/
-└── models/                # Real-world model implementations
-    └── qwen3/
-```
+## 环境准备
 
-## Learning Paths
+### 系统要求
 
-### Path 1: Quick Start (1-2 hours)
-1. [Basic Operations](beginner/01_basic_operations/) - Learn fundamentals
-2. [Layer Normalization](intermediate/01_layer_normalization/) - Understand normalization
-3. [Custom Activation](intermediate/02_custom_activation/) - Build custom functions
-
-### Path 2: Neural Networks (3-4 hours)
-1. Complete Path 1
-2. [FFN Module](intermediate/03_ffn_module/) - Complete feed-forward network
-3. [Attention](advanced/01_attention/) - Attention mechanism
-4. [Multi-Function Module](advanced/02_multi_function/) - Function composition
-
-### Path 3: Advanced Usage (5-6 hours)
-1. Complete Path 2
-2. [Model Examples](models/qwen3/) - Real-world implementations
-3. Experiment with your own architectures
-
-## Example Categories
-
-### 🟢 [Beginner Examples](beginner/README.md)
-
-Perfect for getting started:
-- [Basic Operations](beginner/01_basic_operations/) - Core PyPTO operations
-
-### 🟡 [Intermediate Examples](intermediate/README.md)
-
-Build on the basics:
-- [Layer Normalization](intermediate/01_layer_normalization/) - Normalization techniques
-- [Custom Activation](intermediate/02_custom_activation/) - Building custom activations
-- [FFN Module](intermediate/03_ffn_module/) - Complete feed-forward network
-- [Softmax](intermediate/04_softmax/) - Softmax implementation
-
-### 🔴 [Advanced Examples](advanced/README.md)
-
-Complex patterns and architectures:
-- [Attention Mechanism](advanced/01_attention/) - Scaled dot-product attention
-- [Multi-Function Module](advanced/02_multi_function/) - Function composition
-
-### 🏭 [Model Examples](models/README.md)
-
-Real-world implementations:
-- [Qwen3](models/qwen3/) - Qwen3 model components
-
-## Prerequisites
-
-### System Requirements
-
-- **NPU Device**: Ascend NPU (e.g., Atlas series)
-- **CANN**: Ascend CANN toolkit (latest version)
+- **硬件**: 昇腾 NPU (如 Atlas 系列)
+- **软件**: Ascend CANN Toolkit
 - **Python**: 3.7+
-- **PyTorch**: Compatible version with torch_npu
+- **PyTorch**: 与 torch_npu 兼容的版本
 
-### Software Setup
+### 软件安装
 
-1. **Install CANN**:
+1. **配置 CANN 环境**:
    ```bash
    source /usr/local/Ascend/ascend-toolkit/latest/bin/setenv.bash
    ```
 
-2. **Install PyPTO**:
-   ```bash
-   cd pypto-dev
-   python3 build.py --build-whl
-   pip install dist/pypto-*.whl
-   ```
+2. **安装 PyPTO**:
+   请参考项目根目录的构建文档。
 
-3. **Verify Setup**:
-   ```bash
-   npu-smi info  # Check NPU availability
-   python3 -c "import pto; print('PyPTO installed')"
-   ```
-
-## Running Examples
-
-### Prerequisites
+### 运行前配置
 
 ```bash
-# Source CANN environment
+# 配置 CANN 环境变量
 source /usr/local/Ascend/ascend-toolkit/latest/bin/setenv.bash
 
-# Set device ID (required for NPU examples)
+# 设置 NPU 设备 ID（运行 NPU 样例时必需）
 export TILE_FWK_DEVICE_ID=0
 ```
 
-### Basic Usage
+## 如何运行样例
 
-All example scripts support running all examples or selecting specific ones:
-
-```bash
-# Run all examples
-python3 examples/beginner/01_basic_operations/basic_operations.py
-
-# Run specific example by ID
-python3 examples/beginner/01_basic_operations/basic_operations.py 2  # Element-wise Operations
-
-# List all available examples
-python3 examples/beginner/01_basic_operations/basic_operations.py --list
-```
-
-### Running by Category
+大多数样例脚本支持运行全部测试或指定特定测试：
 
 ```bash
-# Beginner examples
-python3 examples/beginner/01_basic_operations/basic_operations.py
+# 运行所有初级基础操作样例
+python3 01_beginner/basic/basic_ops.py
 
-# Intermediate examples
-python3 examples/intermediate/01_layer_normalization/layer_norm.py
-python3 examples/intermediate/02_custom_activation/custom_activation.py
-python3 examples/intermediate/03_ffn_module/ffn_module_example.py
-python3 examples/intermediate/04_softmax/softmax.py
+# 运行特定 ID 的样例
+python3 01_beginner/basic/basic_ops.py 2
 
-# Advanced examples
-python3 examples/advanced/01_attention/attention.py
-python3 examples/advanced/02_multi_function/multi_function_module.py
-
-# Model examples
-python3 examples/models/qwen3/add_rms_norm.py
+# 列出脚本中所有可用的样例
+python3 01_beginner/basic/basic_ops.py --list
 ```
 
-## Example Comparison
+## 学习路径建议
 
-| Example | Difficulty | Time | Category |
-|---------|-----------|------|----------|
-| [Basic Operations](beginner/01_basic_operations/) | ⭐ | 15-20 min | Beginner |
-| [Layer Normalization](intermediate/01_layer_normalization/) | ⭐⭐ | 20-30 min | Intermediate |
-| [Custom Activation](intermediate/02_custom_activation/) | ⭐⭐ | 20-30 min | Intermediate |
-| [FFN Module](intermediate/03_ffn_module/) | ⭐⭐ | 30-45 min | Intermediate |
-| [Attention](advanced/01_attention/) | ⭐⭐⭐ | 30-45 min | Advanced |
-| [Multi-Function Module](advanced/02_multi_function/) | ⭐⭐⭐ | 30-45 min | Advanced |
+1. **第一阶段：夯实基础**
+   - [Hello World](hello_world/hello_world.py)
+    - [01_beginner/basic](01_beginner/basic/README.md)
+   - [01_beginner/compute](01_beginner/compute/README.md)
 
-## Common Patterns
+2. **第二阶段：进阶组件**
+   - [02_intermediate/nn/layer_normalization](02_intermediate/nn/layer_normalization/README.md)
+   - [02_intermediate/operators/softmax](02_intermediate/operators/softmax/README.md)
+   - [02_intermediate/nn/ffn](02_intermediate/nn/ffn/README.md)
 
-### Pattern 1: Basic JIT Function
-
-```python
-x_torch = ...
-y_torch = ...
-# convert to pypto tensors
-x = pypto.from_torch(x_torch)
-y = pypto.from_torch(y_torch)
-inputs = [x]
-outputs = [y]
-@pypto.jit
-def my_function(inputs, outputs):
-    x = inputs[0]
-    y = outputs[0]
-    pypto.set_vec_tile_shapes(32, 32)
-    y[:] = pypto.operation(x)
-```
-
-### Pattern 2: Dynamic Shapes
-
-```python
-# create torch tensors
-x_torch = ...
-y_torch = ...
-# convert to pypto tensors
-# Mark batch dimension as dynamic
-x = pypto.from_torch(x_torch, dynamic_axis=[0])
-y = pypto.from_torch(y_torch)
-inputs = [x]
-outputs = [y]
-@pypto.jit
-def my_function(inputs, outputs):
-    x = inputs[0]
-    y = outputs[0]
-    pypto.set_codegen_options(support_dynamic_unaligned=True)
-    # ... rest of function
-```
-
-### Pattern 3: Function Composition
-
-```python
-# Function 1
-@pypto.jit
-def function1(inputs, outputs):
-    # ...
-
-# Function 2
-@pypto.jit
-def function2(inputs, outputs):
-    # ...
-
-# Compose
-function1([x], [intermediate])
-function2([intermediate], [out])
-```
-
-## Troubleshooting
-
-### Common Issues
-
-1. **"Device not found"**
-   - Check NPU availability: `npu-smi info`
-   - Verify device ID: `export TILE_FWK_DEVICE_ID=0`
-
-2. **"Compilation failed"**
-   - Check tensor shapes are compatible
-   - Verify tiling configuration
-   - Ensure CANN environment is sourced
-
-3. **"Result mismatch"**
-   - Check data types match
-   - Verify operations are correct
-   - Consider numerical precision (FP16/BF16)
-
-4. **"Memory allocation failed"**
-   - Reduce batch size or sequence length
-   - Check available NPU memory
-
-### Getting Help
-
-- **Documentation**: See [User Guide](../docs/user/README.md)
-- **Examples**: Each example has a detailed README
-- **Troubleshooting**: See [Troubleshooting Guide](../docs/user/reference/troubleshooting.md)
-
-## Additional Resources
-
-### Documentation
-
-- [Installation Guide](../docs/user/getting_started/installation.md)
-- [Quick Start Guide](../docs/user/getting_started/quick_start.md)
-- [Core Concepts](../docs/user/core_concepts/tensors.md)
-- [Operations Guide](../docs/user/core_concepts/operations.md)
-- [Functions & JIT](../docs/user/core_concepts/functions_jit.md)
-- [Advanced Topics](../docs/user/advanced/advanced_topics.md)
-
-## Contributing
-
-Want to add an example? Here's what to include:
-
-1. **Example Code**: Clear, well-commented code with tests
-2. **Documentation**: README with overview, usage, and examples
-3. **Update This README**: Add to appropriate category
-
-## License
-
-All examples are part of the CANN Open Software and are licensed under the CANN Open Software License Agreement Version 2.0.
+3. **第三阶段：深度实践**
+   - [03_advanced/nn/attention](03_advanced/nn/attention/README.md)
+   - [models/qwen3](models/qwen3/README.md)
 
 ---
 
-**Happy Coding with PyPTO! 🚀**
+**祝您在 PyPTO 的编程之旅中收获满满！ 🚀**
