@@ -178,21 +178,6 @@ def set_build_static(static: bool):
     pypto_impl.SetBuildStatic(static)
 
 
-def begin_function(
-    name: str,
-    graph_type: pypto_impl.GraphType,
-    func_type: pypto_impl.FunctionType,
-    *args
-):
-    args = [arg.base() for arg in args]
-    Controller.reset()
-    return pypto_impl.BeginFunction(name, graph_type, func_type, *args)
-
-
-def end_function(name: str, generate_call: bool = True):
-    pypto_impl.EndFunction(name, generate_call)
-
-
 class LoopRange:
     def __init__(self, start, stop=None, step: Union[int, SymbolicScalar] = 1):
         if stop is None:

@@ -25,7 +25,6 @@ void bind_enum(py::module &m){
         .value("DT_INT16", DataType::DT_INT16)
         .value("DT_INT32", DataType::DT_INT32)
         .value("DT_INT64", DataType::DT_INT64)
-        .value("DT_FP8", DataType::DT_FP8)
         .value("DT_FP16", DataType::DT_FP16)
         .value("DT_FP32", DataType::DT_FP32)
         .value("DT_BF16", DataType::DT_BF16)
@@ -37,35 +36,33 @@ void bind_enum(py::module &m){
         .value("DT_UINT64", DataType::DT_UINT64)
         .value("DT_BOOL", DataType::DT_BOOL)
         .value("DT_DOUBLE", DataType::DT_DOUBLE)
+        .value("DT_FP8E4M3FN", DataType::DT_FP8E4M3FN)
+        .value("DT_FP8E5M2", DataType::DT_FP8E5M2)
         .value("DT_BOTTOM", DataType::DT_BOTTOM)
-        .export_values();
+        .def("__str__", [](DataType dt) { return std::string("DataType.") + DataType2String(dt); })
+        .def("bytes", [](DataType dt) { return BytesOf(dt); })
+        .def("bits", [](DataType dt) { return BitsOf(dt); })
+        .def("is_float", [](DataType dt) { return IsFloat(dt); });
 
     py::enum_<NodeType>(m, "NodeType")
         .value("LOCAL", NodeType::LOCAL)
         .value("INCAST", NodeType::INCAST)
-        .value("OUTCAST", NodeType::OUTCAST)
-        .export_values();
+        .value("OUTCAST", NodeType::OUTCAST);
 
     py::enum_<TileOpFormat>(m, "TileOpFormat")
         .value("TILEOP_ND", TileOpFormat::TILEOP_ND)
-        .value("TILEOP_NZ", TileOpFormat::TILEOP_NZ)
-        .value("TILEOP_FORMAT_NUM", TileOpFormat::TILEOP_FORMAT_NUM)
-        .export_values();
+        .value("TILEOP_NZ", TileOpFormat::TILEOP_NZ);
 
     py::enum_<CachePolicy>(m, "CachePolicy")
-        .value("NONE_CACHEABLE", CachePolicy::NONE_CACHEABLE)
-        .value("MAX_NUM", CachePolicy::MAX_NUM)
-        .export_values();
+        .value("NONE_CACHEABLE", CachePolicy::NONE_CACHEABLE);
 
     py::enum_<ReduceMode>(m, "ReduceMode")
-        .value("ATOMIC_ADD", ReduceMode::ATOMIC_ADD)
-        .export_values();
+        .value("ATOMIC_ADD", ReduceMode::ATOMIC_ADD);
 
     py::enum_<ScatterMode>(m, "ScatterMode")
         .value("NONE", ScatterMode::NONE)
         .value("ADD", ScatterMode::ADD)
-        .value("MULTIPLY", ScatterMode::MULTIPLY)
-        .export_values();
+        .value("MULTIPLY", ScatterMode::MULTIPLY);
 
     py::enum_<MemoryType>(m, "MemoryType")
         .value("MEM_UB", MemoryType::MEM_UB)
@@ -78,28 +75,12 @@ void bind_enum(py::module &m){
         .value("MEM_DEVICE_DDR", MemoryType::MEM_DEVICE_DDR)
         .value("MEM_HOST1", MemoryType::MEM_HOST1)
         .value("MEM_FAR1", MemoryType::MEM_FAR1)
-        .value("MEM_FAR2", MemoryType::MEM_FAR2)
-        .value("MEM_UNKNOWN", MemoryType::MEM_UNKNOWN)
-        .export_values();
+        .value("MEM_FAR2", MemoryType::MEM_FAR2);
 
     py::enum_<FunctionType>(m, "FunctionType")
-        .value("EAGER", FunctionType::EAGER)
         .value("STATIC", FunctionType::STATIC)
         .value("DYNAMIC", FunctionType::DYNAMIC)
-        .value("DYNAMIC_LOOP", FunctionType::DYNAMIC_LOOP)
-        .value("DYNAMIC_LOOP_PATH", FunctionType::DYNAMIC_LOOP_PATH)
-        .value("INVALID", FunctionType::INVALID)
-        .value("MAX", FunctionType::MAX)
-        .export_values();
-
-    py::enum_<GraphType>(m, "GraphType")
-        .value("TENSOR_GRAPH", GraphType::TENSOR_GRAPH)
-        .value("TILE_GRAPH", GraphType::TILE_GRAPH)
-        .value("EXECUTE_GRAPH", GraphType::EXECUTE_GRAPH)
-        .value("BLOCK_GRAPH", GraphType::BLOCK_GRAPH)
-        .value("LEAF_VF_GRAPH", GraphType::LEAF_VF_GRAPH)
-        .value("INVALID", GraphType::INVALID)
-        .export_values();
+        .value("DYNAMIC_LOOP", FunctionType::DYNAMIC_LOOP);
 
     py::enum_<CastMode>(m, "CastMode")
         .value("CAST_NONE", CastMode::CAST_NONE)
@@ -108,15 +89,12 @@ void bind_enum(py::module &m){
         .value("CAST_FLOOR", CastMode::CAST_FLOOR)
         .value("CAST_CEIL", CastMode::CAST_CEIL)
         .value("CAST_TRUNC", CastMode::CAST_TRUNC)
-        .value("CAST_ODD", CastMode::CAST_ODD)
-        .export_values();
+        .value("CAST_ODD", CastMode::CAST_ODD);
 
     py::enum_<TileType>(m, "TileType")
         .value("VEC", TileType::VEC)
         .value("CUBE", TileType::CUBE)
-        .value("DIST", TileType::DIST)
-        .value("MAX", TileType::MAX)
-        .export_values();
+        .value("DIST", TileType::DIST);
 
     py::enum_<OpType>(m, "OpType")
         .value("EQ", OpType::EQ)
@@ -124,23 +102,19 @@ void bind_enum(py::module &m){
         .value("LT", OpType::LT)
         .value("LE", OpType::LE)
         .value("GT", OpType::GT)
-        .value("GE", OpType::GE)
-        .export_values();
+        .value("GE", OpType::GE);
 
     py::enum_<OutType>(m, "OutType")
         .value("BOOL", OutType::BOOL)
-        .value("BIT", OutType::BIT)
-        .export_values();
+        .value("BIT", OutType::BIT);
 
     py::enum_<Matrix::ReLuType>(m, "ReLuType")
         .value("NO_RELU", Matrix::ReLuType::NoReLu)
-        .value("RELU", Matrix::ReLuType::ReLu)
-        .export_values();
+        .value("RELU", Matrix::ReLuType::ReLu);
 
     py::enum_<LogBaseType>(m, "LogBaseType")
         .value("LOG_E", LogBaseType::LOG_E)
         .value("LOG_2", LogBaseType::LOG_2)
-        .value("LOG_10", LogBaseType::LOG_10)
-        .export_values();
+        .value("LOG_10", LogBaseType::LOG_10);
 }
 }

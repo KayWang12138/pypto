@@ -206,8 +206,10 @@ class TestBuilder(abc.ABC):
             return pypto.DT_INT32
         elif str_dtype in ['int64', 'torch.int64', 'np.int64']:
             return pypto.DT_INT64
-        elif str_dtype in ['float8', 'torch.float8', 'np.float8']:
-            return pypto.DT_FP8
+        elif str_dtype in ['float8_e4m3fn', 'torch.float8_e4m3fn']:
+            return pypto.DT_FP8E4M3FN
+        elif str_dtype in ['float8_e5m2', 'torch.float8_e5m2']:
+            return pypto.DT_FP8E5M2
         elif str_dtype in ['float16', 'half', 'torch.float16', 'np.float16']:
             return pypto.DT_FP16
         elif str_dtype in ['float32', 'torch.float32', 'np.float32']:

@@ -23,11 +23,11 @@ from ..tensor import Tensor
 def convert_to_element(value) -> pypto_impl.Element:
     if isinstance(value, (int)):
         if value >= -(2 ** 31) and value <= 2 ** 31 - 1:
-            return pypto_impl.Element(pypto_impl.DT_INT32, value)
+            return pypto_impl.Element(DataType.DT_INT32, value)
         else:
-            return pypto_impl.Element(pypto_impl.DT_INT64, value)
+            return pypto_impl.Element(DataType.DT_INT64, value)
     else:
-        return pypto_impl.Element(pypto_impl.DT_FP32, value)
+        return pypto_impl.Element(DataType.DT_FP32, value)
 
 
 @overload
@@ -174,9 +174,9 @@ def arange(*args: Union[int, float]) -> Tensor:
     if len(args) == 1:
         end = args[0]
         return pypto_impl.Range(
-            pypto_impl.Element(pypto_impl.DataType.DT_INT32, 0),
+            pypto_impl.Element(DataType.DT_INT32, 0),
             convert_to_element(end),
-            pypto_impl.Element(pypto_impl.DataType.DT_INT32, 1),
+            pypto_impl.Element(DataType.DT_INT32, 1),
         )
 
     if len(args) == 2:
@@ -184,7 +184,7 @@ def arange(*args: Union[int, float]) -> Tensor:
         return pypto_impl.Range(
             convert_to_element(start),
             convert_to_element(end),
-            pypto_impl.Element(pypto_impl.DataType.DT_INT32, 1),
+            pypto_impl.Element(DataType.DT_INT32, 1),
         )
 
     if len(args) != 3:
@@ -286,7 +286,7 @@ def zeros(
         shape = list(size)
 
     if dtype is None:
-        dtype = pypto_impl.DataType.DT_FP32
+        dtype = DataType.DT_FP32
     zero_element = pypto_impl.Element(dtype, 0)
     return pypto_impl.Full(zero_element, dtype, shape, to_syms([]))
 
@@ -323,6 +323,6 @@ def ones(
         shape = list(size)
 
     if dtype is None:
-        dtype = pypto_impl.DataType.DT_FP32
+        dtype = DataType.DT_FP32
     one_element = pypto_impl.Element(dtype, 1)
     return pypto_impl.Full(one_element, dtype, shape, to_syms([]))

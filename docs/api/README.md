@@ -126,7 +126,6 @@
     -   [ReLuType](datatype/ReLuType.md)
     -   [ScatterMode](datatype/ScatterMode.md)
     -   [TileOpFormat](datatype/TileOpFormat.md)
-    -   [pypto.bytes\_of](datatype/pypto-bytes_of.md)
 
 -   控制流
     -   [pypto.cond](controlflow/pypto-cond.md)
