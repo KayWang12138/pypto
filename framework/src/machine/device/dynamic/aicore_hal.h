@@ -45,6 +45,10 @@ const uint32_t REG_SPR_MAGIC = 0x78;
 constexpr int32_t AICORE_COREID_MASK = 0x0FFF;
 constexpr int32_t AICORE_BLOCKID_MASK = 0x0FFF;
 
+const uint32_t REG_SPR_FAST_PATH_ENABLE = 0x18;
+const uint64_t REG_SPR_FAST_PATH_OPEN = 0xE;
+const uint64_t REG_SPR_FAST_PATH_CLOSE = 0xF;
+
 namespace DAV_2201 {
     const uint32_t REG_SPR_DATA_MAIN_BASE = 0xA0;
     const uint32_t REG_SPR_COND = 0x4C8;
@@ -68,6 +72,7 @@ public:
         if (deviceArgs->archInfo == ArchInfo::DAV_3510) {
             regSprDataMainBase_ = DAV_3510::REG_SPR_DATA_MAIN_BASE;
             regSprCond_ = DAV_3510::REG_SPR_COND;
+            isNeedWriteRegForFastPath_ = false;
         } 
     }
 
@@ -96,12 +101,12 @@ public:
         return 0;
     }
 
-    inline uint32_t ReadReg32Optional(int coreIdx, int offset, bool isNeedRead = true) {
-        if (!isNeedRead) {
+    inline uint32_t ReadPathReg(int coreIdx) {
+        if (!isNeedWriteRegForFastPath_) {
             return 0;
         }
 
-        return ReadReg32(coreIdx, offset);
+        return ReadReg32(coreIdx, REG_SPR_FAST_PATH_ENABLE);
     }
 
     inline void WriteReg32(int coreIdx, int offset, uint32_t val) {
@@ -110,14 +115,6 @@ public:
           *(reinterpret_cast<volatile uint32_t*>(regAddrs_[idx] + offset)) = val;
         }
         return;
-    }
-
-    inline void WriteReg32Optional(int coreIdx, int offset, uint32_t val, bool isNeedWrite = true) {
-        if (!isNeedWrite) {
-            return;
-        }
-
-        WriteReg32(coreIdx, offset, val);
     }
 
     inline void WriteReg32All(int aicNum, int aivNum, int offset, uint32_t val) {
@@ -133,7 +130,7 @@ public:
     }
 
     inline bool IsSpecialTask(uint32_t taskId) {
-        return taskId == AICORE_TASK_INIT || taskId == AICORE_TASK_STOP || taskId == AICORE_FUNC_STOP;
+        return taskId == AICORE_TASK_INIT || taskId == AICORE_TASK_STOP || (taskId & 0xFFFFFFFF) == AICORE_FUNC_STOP;
     }
 
     inline void SetReadyQueue(int coreIdx, uint64_t value) {
@@ -142,7 +139,7 @@ public:
         } else {
             DEV_VERBOSE_DEBUG("set coreidx %d value %lx.", coreIdx, value);
             auto taskId = value - 1;
-            if (value == 0 || taskId == AICORE_TASK_STOP || taskId == AICORE_FUNC_STOP) return;
+            if (value == 0 || taskId == AICORE_TASK_STOP || (taskId & 0xFFFFFFFF) == AICORE_FUNC_STOP) return;
             CostModelSendTask(coreIdx, taskId);
         }
     }
@@ -421,9 +418,10 @@ public:
                 oss << "\",\"end\":" << curCycle << "}"
                     << (((type == PERF_TRACE_CORE_MAX - 1) && (cnt ==  metric->perfTraceCnt[type] - 1)) ? "" : ",");
             }
+            metric->perfTraceCnt[type] = 0;
         }
         oss << "]}";
-        memset_s(metric, sizeof(metric), 0, sizeof(metric));
+        memset_s(metric, sizeof(Metrics), 0, sizeof(Metrics));
 #endif
         return DEVICE_MACHINE_OK;
     }
@@ -443,15 +441,19 @@ public:
     }
 
     uint64_t GetAicoreStatus(int coreIdx) const {
+        int aicoreStatusIndex = 2;
         volatile KernelArgs *arg = reinterpret_cast<KernelArgs *>(sharedBuffer_ + coreIdx * SHARED_BUFFER_SIZE);
-        return arg->shakeBuffer[0x2];
+        return arg->shakeBuffer[aicoreStatusIndex];
     }
 
     inline void InitTaskData(int coreIdx, int64_t funcdata, int64_t buffer) {
         (void)buffer;
         if constexpr (IsDeviceMode()) {
+            if (args_[coreIdx] == nullptr) {
+                args_[coreIdx] = reinterpret_cast<KernelArgs*>((static_cast<uint64_t>(sharedBuffer_)) + SHARED_BUFFER_SIZE * coreIdx);
+            }
             volatile KernelArgs *arg = args_[coreIdx];
-            arg->shakeBuffer[SHAK_BUF_COREFUNC_DATA_INDEX] = funcdata;
+            arg->shakeBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_COREFUNC_DATA_INDEX] = funcdata;
 #if ENABLE_AICORE_PRINT
             arg->shakeBuffer[SHAK_BUF_PRINT_BUFFER_INDEX] = buffer;
 #endif
@@ -477,6 +479,25 @@ public:
         args_[coreIdx] = args;
         GetPhyIdByBlockId(coreIdx) = (*shakeBuffer >> NUM_THIRTY_TWO) & AICORE_COREID_MASK;
         return DEVICE_MACHINE_OK;
+    }
+
+    bool TryHandShakeByGm(int coreIdx, int64_t dotStatus) {
+        auto args =
+            reinterpret_cast<KernelArgs*>((static_cast<uint64_t>(sharedBuffer_)) + SHARED_BUFFER_SIZE * coreIdx);
+        volatile int64_t *shakeBuffer = args->shakeBuffer;
+        if ((*shakeBuffer & 0xFFFFFFFF) != AICORE_SAY_HELLO) {
+            return false;
+        }
+
+        args_[coreIdx] = args;
+        args->taskEntry.reserved[0] = static_cast<uint32_t>(dotStatus);
+        GetPhyIdByBlockId(coreIdx) = (*shakeBuffer >> NUM_THIRTY_TWO) & AICORE_COREID_MASK;
+        if (isNeedWriteRegForFastPath_) {
+            WriteReg32(coreIdx, REG_SPR_FAST_PATH_ENABLE, REG_SPR_FAST_PATH_OPEN);
+        }
+        SetReadyQueue(coreIdx, 0);
+        DEV_VERBOSE_DEBUG("hand shake success coreidex:%d", coreIdx);
+        return true;
     }
 
     inline int ParseHandValue(int regIdx, bool *handFlag,  bool *ignoreFlag, int64_t dotStatus) {
@@ -566,10 +587,10 @@ public:
         int mngAicoreNum = aicEnd_ - aicStart_ + aivEnd_ - aivStart_;
         bool handFlag[MAX_AICORE_NUM] = {false};
         bool ignoreFlag[MAX_AICORE_NUM] = {false};
-        int64_t start_cycles = GetCycles();
+        uint64_t start_cycles = GetCycles();
         while (handShakeNum < mngAicoreNum) {
             handShakeNum += CheckHandShakeFlag(handFlag, ignoreFlag, dotStatus);
-            if (GetCycles() - start_cycles > TIMEOUT_CYCLES) {
+            if (GetCycles() - start_cycles > HAND_SHAKE_TIMEOUT) {
                 DEV_ERROR("Hand shake by reg timeout.\n");
                 DEV_IF_DEBUG {
                     for (int i = aicStart_; i < aicEnd_; i++) {
@@ -594,8 +615,11 @@ public:
     }
 
     void ResetShakeBuf(int coreIdx) {
+        if (isNeedWriteRegForFastPath_) {
+            WriteReg32(coreIdx, REG_SPR_FAST_PATH_ENABLE, REG_SPR_FAST_PATH_CLOSE);
+        }
         args_[coreIdx]->shakeBuffer[0] = 0;
-        args_[coreIdx]->shakeBuffer[SHAK_BUF_COREFUNC_DATA_INDEX] = 0;
+        args_[coreIdx]->shakeBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_COREFUNC_DATA_INDEX] = 0;
         return;
     }
 
@@ -603,6 +627,7 @@ public:
         volatile TaskStat *stat = &args_[coreIdx]->taskStat[pos];
         return stat;
     }
+
 private:
     int64_t sharedBuffer_;
     int64_t* regAddrs_{nullptr};
@@ -627,6 +652,7 @@ private:
     uint32_t regSprDataMainBase_{DAV_2201::REG_SPR_DATA_MAIN_BASE};
     uint32_t regSprCond_{DAV_2201::REG_SPR_COND};
 
+    bool isNeedWriteRegForFastPath_{true};
     AiCoreProf *aicoreProf_{nullptr};
     CostModel::AiCoreModel *costModel_{nullptr};
 };

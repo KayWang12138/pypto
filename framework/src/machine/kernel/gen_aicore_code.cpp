@@ -41,7 +41,6 @@ const std::string kAicoreSrcCode = R"!!!(
 #define KERNEL_ENTRY(x, y) x
 #endif
 
-const uint64_t AICORE_REG_SAY_HELLO = 0xF000000080000000;
 constexpr uint32_t REG_HIGH_DTASKID_SHIFT = 32;
 enum class TASK_POS : size_t { LOW_REG = 0, HIGH_REG = 1, ALL_REG = 2, REG_POS_BUTT = 3 };
 
@@ -91,6 +90,7 @@ struct TaskEntry {
 
 struct KernelArgs {
     int64_t shakeBuffer[8];
+    int64_t shakeBufferCpuToCore[8];
     TaskEntry taskEntry;
     TaskStat taskStat[2];
 };
@@ -107,6 +107,9 @@ namespace npu::tile_fwk {
 #define ENABLE_AICORE_PRINT 0
 
 #define ENABLE_AICORE_PERF_TRACE  0
+
+// whether to support hand shake by reg
+#define ENABLE_HAND_SHAKE_BY_REG 0
 
 /* The DFX swimlane performance statistics use host pre-allocated memory mode, which avoids data collection during
    AICPU scheduling to minimize scheduling interference. However, each AICore only supports tracking up to
@@ -144,12 +147,14 @@ using npu::tile_fwk::CoreFunctionData;
 enum DFX_STAGE_STATUS {
     STAGE_HANDSHAKE_START = 1,
     STAGE_HANDSHAKE_END = 2,
-    STAGE_GET_COREFUNC_DATA_STOP = 3,
+    STAGE_CORE_EXIT = 3,
     STAGE_GET_NEXT_TASK_STOP = 4,
     STAGE_PRE_EXEC_COREFUNC_KERNEL = 5,
     STAGE_FINISH_EXEC_COREFUNC_KERNEL = 6,
     STAGE_FINISH_PIPE_SYNC = 7,
-    STAGE_FINISH_CUR_TASK = 8
+    STAGE_FINISH_CUR_TASK = 8,
+    STAGE_GET_COREFUNC_DATA_TIMEOUT = 9,
+    STAGE_GET_NEXT_TASK_TIMEOUT = 10
 };
 
 struct ExecuteContext {
@@ -162,18 +167,21 @@ struct ExecuteContext {
 #endif
 };
 
-typedef void (*StaticKernelFunc)(__gm__ int64_t *param, int64_t gmStackAddr,
-    __gm__ int64_t *hcclContext, __gm__ int64_t *oriAddr);
-
-INLINE uint32_t GetNextTask(uint32_t lastTaskIdx) {
-    uint32_t nextLowIdx;
-    uint64_t coreStatus;
+INLINE uint32_t GetNextTask(uint32_t lastTaskIdx, uint32_t curDevTaskId) {
+    uint32_t nextLowIdx = 0;
+    uint64_t coreStatus = 0;
     uint64_t t0 = get_sys_cnt();
     uint64_t loop_count = 0;
     do {
         __asm__ volatile("MOV %0, DATA_MAIN_BASE\n" : "+l"(coreStatus));
         nextLowIdx = coreStatus & 0xFFFFFFFF;
         nextLowIdx -= 1;
+
+        if ((nextLowIdx == AICORE_FUNC_STOP) &&
+            (curDevTaskId == (uint32_t)(coreStatus >> REG_HIGH_DTASKID_SHIFT))) {
+            return AICORE_FUNC_STOP;
+        }
+
         ++loop_count;
         if ((loop_count % 1000 == 0) && (get_sys_cnt() - t0 > 500000000)) {
             return AICORE_TASK_STOP;
@@ -203,7 +211,11 @@ INLINE void Barrier()
 }
 
 INLINE void HandshakeClient(volatile __gm__ int64_t *shakeBuf) {
+    set_cond(AICORE_TASK_INIT);
+#if ENABLE_HAND_SHAKE_BY_REG
+    uint64_t AICORE_REG_SAY_HELLO = 0xF000000080000000;
     set_cond(((int64_t)blockIdx << 48) | ((int64_t)get_coreid() << 32) | AICORE_REG_SAY_HELLO);
+#endif
     volatile __gm__ int64_t *hello = shakeBuf;
     *hello = (int64_t)get_coreid() << 32 | AICORE_SAY_HELLO;
     Barrier();
@@ -291,7 +303,6 @@ INLINE void DfxProcWhenCoreExit(ExecuteContext *ctx, __gm__ KernelArgs *args, __
             PERF_TRACE_CORE_WAIT_ALL_DEV_TASK_CALLOP_EXEC_FINISH, ctx->lastTaskFinishCycle);
     }
     FlushMetricStatistic(args);
-    SetStatus(args, STAGE_GET_COREFUNC_DATA_STOP);
 }
 
 INLINE void DfxProcWhenDevTaskStop(ExecuteContext *ctx, __gm__ KernelArgs *args, __gm__ Metrics* metric) {
@@ -303,30 +314,20 @@ INLINE void DfxProcWhenDevTaskStop(ExecuteContext *ctx, __gm__ KernelArgs *args,
 }
 
 INLINE uint64_t getCoreFuncionData(__gm__ KernelArgs *args, int64_t lastFunc) {
-    uint32_t nextLowIdx;
-    uint64_t coreStatus;
     uint64_t t0 = get_sys_cnt();
     uint64_t loop_count = 0;
     while (true) {
-        // check if stop
         ++loop_count;
         if ((loop_count % 1000 == 0) && (get_sys_cnt() - t0 > 500000000)) {
+            SetStatus(args, STAGE_GET_COREFUNC_DATA_TIMEOUT);
             break;
         }
-        volatile __gm__ int64_t *shakebuffer = args->shakeBuffer;
-        dcci(shakebuffer, SINGLE_CACHE_LINE, CACHELINE_OUT);
-        auto newFunc = args->shakeBuffer[SHAK_BUF_COREFUNC_DATA_INDEX];
+        volatile __gm__ int64_t *shakebufferCpuToCore = args->shakeBufferCpuToCore;
+        dcci(shakebufferCpuToCore, SINGLE_CACHE_LINE, CACHELINE_OUT);
+        auto newFunc = shakebufferCpuToCore[CPU_TO_CORE_SHAK_BUF_COREFUNC_DATA_INDEX];
         if (newFunc != lastFunc && newFunc != 0) {
             dcci((__gm__ void *)newFunc, SINGLE_CACHE_LINE, CACHELINE_OUT);
             return newFunc;
-        }
-
-        __asm__ volatile("MOV %0, DATA_MAIN_BASE\n" : "+l"(coreStatus));
-        nextLowIdx = coreStatus & 0xFFFFFFFF;
-        nextLowIdx -= 1;
-
-        if (nextLowIdx == AICORE_TASK_STOP) {
-            return 0;
         }
     }
     return 0;
@@ -375,7 +376,6 @@ INLINE void ExecDynCoreFunctionKernel(ExecuteContext *ctx, uint32_t taskId) {
 #endif
 
 INLINE void InitCtx(ExecuteContext *ctx, __gm__ Metrics* metric, uint64_t coreFuncData) {
-    set_cond(AICORE_TASK_INIT);
     __gm__ DynFuncHeader *header = (__gm__ DynFuncHeader *)coreFuncData;
     ctx->seqNo = header->seqNo;
     PerfTraceRecord(ctx->seqNo, metric, PERF_TRACE_CORE_DEV_TASK_RCV_MODEL);
@@ -447,9 +447,10 @@ extern "C" __global__ __aicore__ void KERNEL_ENTRY(__OPTYPE__, __TILINGKEY__)(in
             if ((inner_loop_count % 1000 == 0) && (get_sys_cnt() - t1 > 3000000000)) {
                 break;
             }
-            curTaskIdx = GetNextTask(lastTaskIdx);
+            curTaskIdx = GetNextTask(lastTaskIdx, ctx.seqNo);
             if (curTaskIdx == AICORE_TASK_STOP) {
                 DfxProcWhenDevTaskStop(&ctx, args, metric);
+                SetStatus(args, STAGE_CORE_EXIT);
                 bIsExit = true;
                 break;
             } else if (curTaskIdx == AICORE_FUNC_STOP) {

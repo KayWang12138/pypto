@@ -60,6 +60,7 @@ struct DeviceTaskCtrl {
     void *ctx{nullptr};
     int retCode{0};
     std::atomic<bool> isAicpuIdle[AICORE_TYPE_NUM][MAX_SCHEDULE_AICPU_NUM];
+    bool isFirstDevTask{false};
 
     inline bool IsNotFree() { return runFlag.load(std::memory_order_acquire); }
 

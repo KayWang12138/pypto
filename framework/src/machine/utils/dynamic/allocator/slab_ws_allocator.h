@@ -320,7 +320,7 @@ public:
     void DumpMemoryStatusWhenAbnormal(const char *title) const {
         DEV_WARN("[SlabWsAllocator]%s\n", title);
         int percent = 100;
-        
+
         // Dump allocator-level statistics
         AllocatorStats allocStats = GetAllocatorStats();
         DEV_WARN("Slab allocator Stats: BaseMemAddr=%p, TotalSize=%u, TotalSlabs=%u,"
@@ -331,7 +331,7 @@ public:
         // Dump cache-level statistics
         for (int i = 0; i < SLAB_ALLOCATOR_MAX_CACHES; i++) {
             if (caches_[i].objSize == 0) continue;
-            
+
             CacheStats cacheStats = GetCacheStats(i);
             DEV_WARN("Slab cache[%d]: ObjSize=%u, AlloCatedSlabs=%u, TotalObjs=%u,"
                      "AllocatedObjs=%u, FreeObjs=%u, Usage=%.2f%%\n",

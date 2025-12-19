@@ -152,17 +152,6 @@ void DeviceRunner::InitDynamicArgs(DeviceArgs &args) {
     }
 }
 
-void DeviceRunner::ResetPerfTraceDfxMem() {
-    if (perfData_.size() < args_.nrAic + args_.nrAiv) {
-        return;
-    }
-    for (uint64_t i = 0; i < args_.nrAic + args_.nrAiv; i++) {
-        if (perfData_[i]) {
-            rtMemset((void*)perfData_[i], sizeof(Metrics), 0, sizeof(Metrics));
-        }
-    }
-}
-
 int DeviceRunner::InitDeviceArgs(DeviceArgs &args) {
     addressMappingTable_[ArchInfo::DAV_2201] = [&args](std::vector<int64_t>& regs, std::vector<int64_t>& regsPmu) {
         std::vector<int64_t> aiv;

@@ -70,7 +70,7 @@ public:
         isCapture_ = isCapture;
         captureMode_ = mode;
     }
-    void ResetPerfTraceDfxMem();
+
     void DumpAiCoreExecutionTimeData();
     void DumpAiCorePmuData();
     void SynchronizeDeviceToHostProfData();

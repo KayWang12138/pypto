@@ -37,6 +37,8 @@ constexpr int SHAK_BUF_PRINT_BUFFER_INDEX = 5;
 constexpr int SHAK_BUF_COREFUNC_DATA_INDEX = 6;
 constexpr int SHAK_BUF_DFX_DATA_INDEX = 7;
 
+constexpr int CPU_TO_CORE_SHAK_BUF_COREFUNC_DATA_INDEX = 0;
+
 constexpr int FUNC_ID_BATCH = 0x7FF;
 
 const uint64_t SHARED_BUFFER_SIZE = 512;

@@ -522,7 +522,7 @@ public:
             while (!SlabStageAllocMemTryRecycle()) {  // wait sch aicpu finish task
                 if (GetCycles() - ttlstart > TIMEOUT_CYCLES) {
                     ttlstart = GetCycles();
-                    DEV_WARN("Waiting for device task memory reclamation for too long.");
+                    DEV_WARN("Waiting for device task finished for too long.");
                 }
             };
         } while (true);
