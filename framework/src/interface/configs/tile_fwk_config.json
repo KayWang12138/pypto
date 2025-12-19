@@ -46,6 +46,7 @@
         "codegen_configs": {
             "parallel_compile" : 8,
             "support_dynamic_unaligned" : false,
+            "support_dynamic_aligned": false,
             "fixed_output_path": false,
             "force_overwrite": true,
             "codegen_expression_fusion": false,

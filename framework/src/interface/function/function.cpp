@@ -1331,9 +1331,9 @@ unsigned long Function::ComputeHashOrderless() const {
         ss << "symbol name:[" << dynloopAttr_->iterSymbolName << "]";
         ss << "loop range:[" << dynloopAttr_->loopRange.Dump() << "]";
     }
-    // temporary avoidance, switch SUPPORT_DYNAMIC_UNALIGNED has an unexpected effect on dynamic binary reuse
+    // temporary avoidance, switch SUPPORT_DYNAMIC_ALIGNED has an unexpected effect on dynamic binary reuse
     if (functionType_ == FunctionType::DYNAMIC) {
-        ss << "dynamic unaligned:" << config::GetCodeGenOption<bool>(SUPPORT_DYNAMIC_UNALIGNED);
+        ss << "dynamic unaligned:" << config::GetCodeGenOption<bool>(SUPPORT_DYNAMIC_ALIGNED);
     }
     std::hash<std::string> hasher;
     auto result = hasher(ss.str());

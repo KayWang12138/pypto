@@ -66,6 +66,7 @@ std::string CodeGenCloudNPU::GenInclude() const {
 std::string CodeGenCloudNPU::GenCommentBeforeFuncHeader(Function &subFunc) {
     std::ostringstream comment;
     comment << "// funcHash: " << subFunc.GetFunctionHash() << "\n\n";
+    ALOG_INFO_F("function hash is: %s", subFunc.GetFunctionHash().c_str());
     return comment.str();
 }
 
@@ -148,7 +149,7 @@ std::string CodeGenCloudNPU::GenFuncBody(Function &subFunc, Function &topFunc) c
         std::string allocSourceCode = GenAllocForLocalBuffer(op, symbolMgr);
 
         CodeGenOpCloudNPU cop({symbolMgr, topFunc, subFunc, op, locToOffsetMap});
-        
+
         // update fs
         cop.UpdateSaturateStatus(fs);
         std::string tileOpSourceCode = cop.GenOpCode();
@@ -169,8 +170,8 @@ std::string CodeGenCloudNPU::GenFuncBody(Function &subFunc, Function &topFunc) c
     }
 
     std::ostringstream oss;
-    oss << GenLimitValue(fs) << allocSourceRegion << GenDynParamForExpr(subFunc)
-        << symbolMgr->GenUsingList() << symbolMgr->GenTileTensorDefList() << tileOpSourceRegion;
+    oss << GenLimitValue(fs) << allocSourceRegion << GenDynParamForExpr(subFunc) << symbolMgr->GenUsingList()
+        << symbolMgr->GenTileTensorDefList() << tileOpSourceRegion;
     std::string programCode = oss.str();
     return programCode;
 }
@@ -212,8 +213,7 @@ std::string BuildDynParamInfo(const DynParamInfo &info) {
 // GET_PARAM_OFFSET_BY_IDX(param, n, base, dim, idx)
 // GET_PARAM_VALID_SHAPE_BY_IDX(param, n, base, dim, idx)
 std::string CodeGenCloudNPU::GenDynParamForExpr(const Function &func) const {
-    unsigned isSupportUnaligned = config::GetCodeGenOption<bool>(SUPPORT_DYNAMIC_UNALIGNED);
-    if (!isSupportUnaligned) {
+    if (!func.IsUnderDynamicFunction()) {
         return {};
     }
     std::string dynParamList;
@@ -520,8 +520,7 @@ std::string CodeGenCloudNPU::GetCoreArch(const CompileInfo &compileInfo) const {
     bool isCude = compileInfo.IsCube();
     if (platform_ == NPUArch::DAV_2201) {
         return isCude ? "dav-c220-cube" : "dav-c220-vec";
-    }
-    else {
+    } else {
         return isCude ? "dav-c310-cube" : "dav-c310-vec";
     }
 }

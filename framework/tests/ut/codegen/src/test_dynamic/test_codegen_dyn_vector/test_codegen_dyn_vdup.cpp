@@ -24,6 +24,7 @@
 #include "codegen/codegen.h"
 #include "codegen/symbol_mgr/codegen_symbol.h"
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
+#include "test_codegen_common.h"
 
 namespace npu::tile_fwk {
 
@@ -50,12 +51,16 @@ TEST_F(TestCodegenDynVdup, TestDynVdupUnaligned) {
     TileShape::Current().SetVecTile({1, 256, 16});
 
     Tensor output(DataType::DT_FP32, shape, "C");
-    std::string funcName = "VECDUP_T";
-    config::SetBuildStatic(true);
+    std::string funcName = "TestDynVdupUnaligned";
+
     FUNCTION(funcName, {output}) {
-        output = npu::tile_fwk::Full(src, DataType::DT_FP32, shape);
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            output = npu::tile_fwk::Full(src, DataType::DT_FP32, shape);
+        }
     }
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
     function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
     function->SetUnderDynamicFunction(true);
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);

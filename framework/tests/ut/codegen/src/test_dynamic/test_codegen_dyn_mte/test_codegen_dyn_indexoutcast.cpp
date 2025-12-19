@@ -51,14 +51,17 @@ public:
 };
 
 TEST_F(TestCodegenDynIndexOutCast, IndexOutCast) {
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_ALIGNED, true);
     int S = 1;
     int S2 = 16;
     int kvLoraRank = 8;
     int qkRopeHeadDim = 8;
 
-    std::vector<int64_t> shape0 = {S2, kvLoraRank + qkRopeHeadDim}; // [16, 16]
-    std::vector<int64_t> shape1 = {1, S};
-    std::vector<int64_t> shape2 = {S, kvLoraRank + qkRopeHeadDim}; // [1, 16]
+    const std::vector<int64_t> shape0 = {S2, kvLoraRank + qkRopeHeadDim}; // [16, 16]
+    const std::vector<int64_t> shape1 = {1, S};
+    const std::vector<SymbolicScalar> dynValidShape1 = {1, S};
+    const std::vector<int64_t> shape2 = {S, kvLoraRank + qkRopeHeadDim}; // [1, 16]
+    const std::vector<SymbolicScalar> dynValidShape2 = {S, kvLoraRank + qkRopeHeadDim};
 
     TileShape::Current().SetVecTile(16, 16);
     auto shapeImme = OpImmediate::Specified({16, 16});
@@ -68,7 +71,6 @@ TEST_F(TestCodegenDynIndexOutCast, IndexOutCast) {
     Tensor key_states(DataType::DT_FP32, shape2, "key_states"); // [16,16]
 
     std::string funcName = "ScatterUpdate";
-    config::SetBuildStatic(true);
     FUNCTION(funcName, {kv_len, key_states, past_key_states}) {
         past_key_states = ScatterUpdate(past_key_states, kv_len, key_states, -2);
     }
@@ -77,8 +79,10 @@ TEST_F(TestCodegenDynIndexOutCast, IndexOutCast) {
 
     auto ddrTensor =
         CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_DEVICE_DDR, shape0, "IndexOutCast"});
-    auto localTensorSrc0 = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape2});
-    auto localTensorSrc1 = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape1});
+    auto localTensorSrc0 =
+        CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape2, dynValidShape2});
+    auto localTensorSrc1 =
+        CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape1, dynValidShape1});
 
     auto &op =
         function->AddOperation(Opcode::OP_INDEX_OUTCAST, {localTensorSrc0, localTensorSrc1, ddrTensor}, {ddrTensor});
@@ -113,17 +117,17 @@ TEST_F(TestCodegenDynIndexOutCast, DynIndexOutUnaligned) {
     TileShape::Current().SetVecTile({32, 32});
 
     PassManager &passManager = PassManager::Instance();
-    passManager.RegisterStrategy("GenerateMoveOpPassTestStrategy",
-        {
-            {"RemoveRedundantReshape", "RemoveRedundantReshape"},
-            {        "ExpandFunction",         "ExpandFunction"},
-            {           "DuplicateOp",            "DuplicateOp"},
-            {     "MergeViewAssemble",      "MergeViewAssemble"},
-            {      "AssignMemoryType",       "AssignMemoryType"},
-            {"SplitLargeFanoutTensor", "SplitLargeFanoutTensor"},
-            {          "SplitReshape",           "SplitReshape"},
-            {     "RemoveRedundantOp",      "RemoveRedundantOp"},
-            {        "GenerateMoveOp",         "GenerateMoveOp"},
+    passManager.RegisterStrategy(
+        "GenerateMoveOpPassTestStrategy", {
+                                              {"RemoveRedundantReshape", "RemoveRedundantReshape"},
+                                              {        "ExpandFunction",         "ExpandFunction"},
+                                              {           "DuplicateOp",            "DuplicateOp"},
+                                              {     "MergeViewAssemble",      "MergeViewAssemble"},
+                                              {      "AssignMemoryType",       "AssignMemoryType"},
+                                              {"SplitLargeFanoutTensor", "SplitLargeFanoutTensor"},
+                                              {          "SplitReshape",           "SplitReshape"},
+                                              {     "RemoveRedundantOp",      "RemoveRedundantOp"},
+                                              {        "GenerateMoveOp",         "GenerateMoveOp"},
     });
 
     int h = 32;
@@ -140,7 +144,7 @@ TEST_F(TestCodegenDynIndexOutCast, DynIndexOutUnaligned) {
         }
     }
 #if ENABLE_HIDDENLOOP
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + "_hiddenfunc0");
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
 #else
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX);
 #endif

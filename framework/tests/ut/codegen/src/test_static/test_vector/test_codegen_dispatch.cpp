@@ -78,7 +78,7 @@ void TestMoeDispatch() {
     }
 
 #if ENABLE_HIDDENLOOP
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "L0" + SUB_FUNC_SUFFIX + "_hiddenfunc0");
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "L0" + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
 #else
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "L0" + SUB_FUNC_SUFFIX);
 #endif

@@ -18,17 +18,20 @@
 namespace npu::tile_fwk {
 std::shared_ptr<LogicalTensor> CreateLogicalTensor(const LogicalTensorInfo &info) {
     if (info.memType == MemoryType::MEM_DEVICE_DDR) {
-        std::shared_ptr<RawTensor> ddrRawTensor = std::make_shared<RawTensor>(info.dType, info.shape,
-            TileOpFormat::TILEOP_ND, info.tensorName);
-        const std::vector<int64_t> offset = {0, 0};
+        std::shared_ptr<RawTensor> ddrRawTensor =
+            std::make_shared<RawTensor>(info.dType, info.shape, TileOpFormat::TILEOP_ND, info.tensorName);
+        std::vector<int64_t> offset = std::vector<int64_t>(info.shape.size(), 0);
         auto ddrTensor = std::make_shared<LogicalTensor>(info.function, ddrRawTensor, offset, info.shape);
         ddrTensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
         ddrTensor->SetMemoryTypeToBe(MemoryType::MEM_DEVICE_DDR);
+        if (!info.dynValidShape.empty()) {
+            ddrTensor->UpdateDynValidShape(info.dynValidShape);
+        }
         return ddrTensor;
     }
 
-    auto localTensor = std::make_shared<LogicalTensor>(info.function, info.dType, info.shape,
-        TileOpFormat::TILEOP_ND, info.tensorName);
+    auto localTensor = std::make_shared<LogicalTensor>(
+        info.function, info.dType, info.shape, TileOpFormat::TILEOP_ND, info.tensorName);
     localTensor->UpdateSubgraphID(0);
     localTensor->SetMemoryTypeOriginal(info.memType);
     localTensor->SetMemoryTypeToBe(info.memType);

@@ -108,7 +108,7 @@ std::string CodeGenOpCloudNPU::PrintVnchwconv(const PrintUnaryTmpBuffParam &para
     if (isSupportLayout) {
         return PrintVnchwconvTileTensor();
     }
-    if (isSupportDynamicUnaligned) {
+    if (isDynamicFunction) {
         return PrintVnchwconvDynUnaligned(param);
     }
     return PrintVnchwconvStatic(param);
@@ -136,7 +136,7 @@ std::string CodeGenOpCloudNPU::PrintReduceLastAxis(const PrintUnaryTmpBuffParam 
         return PrintReduceLastAxisTileTensor();
     }
     
-    if (isSupportDynamicUnaligned) {
+    if (isDynamicFunction) {
         return PrintReduceLastAxisDynamicUnalign({s0Var, tmpVar, dVar, srcDtypeStr, tmpDtypeStr, dstDtypeStr});
     }
 
@@ -405,7 +405,7 @@ std::string CodeGenOpCloudNPU::PrintRowSumline(const PrintUnaryTmpBuffParam &par
     if (isSupportLayout) {
         return PrintRowSumlineTileTensor();
     }
-    if (isSupportDynamicUnaligned) {
+    if (isDynamicFunction) {
         return PrintRowSumlineDynamicUnaligned(param);
     }
     return PrintRowSumlineStatic(param);

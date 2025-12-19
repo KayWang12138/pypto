@@ -25,6 +25,8 @@
 #include "codegen/symbol_mgr/codegen_symbol.h"
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
 #include "codegen/cloudnpu/codegen_op_cloudnpu.h"
+#include "test_codegen_utils.h"
+#include "test_codegen_common.h"
 
 namespace npu::tile_fwk {
 
@@ -46,8 +48,10 @@ public:
 
 void TestTransposeDataMoveBody(int dim = 3) {
     std::vector<int64_t> shape = {64, 64, 64};
+    std::vector<SymbolicScalar> dynValidShape = {64, 64, 64};
     if (dim == SHAPE_DIM4) {
         shape = {64, 64, 64, 64};
+        dynValidShape = {64, 64, 64, 64};
     }
     auto shapeImme = OpImmediate::Specified(shape);
     TileShape::Current().SetVecTile(shape);
@@ -57,31 +61,19 @@ void TestTransposeDataMoveBody(int dim = 3) {
     Tensor output(DT_FP32, shape, "C");
 
     std::string funcName = "ADD";
-    config::SetBuildStatic(true);
     FUNCTION(funcName, {inputA, inputB, output}) {
-        output = Add(inputA, inputB);
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            output = Add(inputA, inputB);
+        }
     }
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
     function->SetUnderDynamicFunction(true);
-    std::shared_ptr<RawTensor> ddrRawTensor =
-        std::make_shared<RawTensor>(DataType::DT_FP32, shape, TileOpFormat::TILEOP_ND, "TransposeDataMove", 123);
-    std::vector<int64_t> offset = {0, 0, 0};
-    if (dim == SHAPE_DIM4) {
-        offset = {0, 0, 0, 0};
-    }
-    auto ddrTensor = std::make_shared<LogicalTensor>(*function, ddrRawTensor, offset, shape);
-    ddrTensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
-    ddrTensor->SetMemoryTypeToBe(MemoryType::MEM_DEVICE_DDR);
 
-    auto localTensor = std::make_shared<LogicalTensor>(*function, DT_FP32, shape);
-    localTensor->UpdateSubgraphID(0);
-    localTensor->SetMemoryTypeOriginal(MemoryType::MEM_UB);
-    localTensor->SetMemoryTypeToBe(MemoryType::MEM_UB);
-    localTensor->SetMagic(3);
-    localTensor->SetAttr(OpAttributeKey::needAlloc, true);
-    localTensor->memoryrange.memId = 0;
-    localTensor->memoryrange.start = 0;
-    localTensor->memoryrange.end = 0;
+    auto ddrTensor =
+        CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_DEVICE_DDR, shape, "TransposeDataMove"});
+    auto localTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
 
     auto &op = function->AddOperation(Opcode::OP_TRANSPOSE_MOVEOUT, {localTensor}, {ddrTensor});
     op.SetAttribute(OP_ATTR_PREFIX + "shape", shape);

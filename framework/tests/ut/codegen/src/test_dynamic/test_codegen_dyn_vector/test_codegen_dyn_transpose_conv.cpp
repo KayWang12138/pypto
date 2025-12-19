@@ -24,6 +24,7 @@
 #include "codegen/codegen.h"
 #include "codegen/symbol_mgr/codegen_symbol.h"
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
+#include "test_codegen_common.h"
 
 namespace npu::tile_fwk {
 
@@ -44,16 +45,20 @@ public:
 };
 
 void TestDynVnchwconvBody(std::vector<int64_t> shape, std::vector<int64_t> outShape, std::vector<int> transposeShape,
-    std::vector<int64_t> tileShape, std::string name) {
+    std::vector<int64_t> tileShape, std::string funcName) {
     TileShape::Current().SetVecTile(tileShape);
     Tensor input(DT_FP32, shape, "input");
     Tensor output(DT_FP32, outShape, "output");
-    config::SetBuildStatic(true);
-    FUNCTION(name, {input, output}) {
-        output = Transpose(input, transposeShape);
+
+    FUNCTION(funcName, {input, output}) {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            output = Transpose(input, transposeShape);
+        }
     }
 
-    auto function = Program::GetInstance().GetFunctionByRawName("TENSOR_" + name);
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
     function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
     function->SetUnderDynamicFunction(true);
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);

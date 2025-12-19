@@ -117,7 +117,8 @@ protected:
     const FunctionType functionType;
     std::string tileOpName;
     bool isInputForceCombineAxis{false};
-    bool isSupportDynamicUnaligned{false};
+    bool isSupportDynamicAligned{false}; // NEXTNEXT delete after all TileOp is changed to TileTensor Mode
+    bool isDynamicFunction{false};
     bool isSupportLayout{false};
     const std::map<int, int> &paramLocToParamListOffset{};
     bool isUnderDynamicFunction{false};

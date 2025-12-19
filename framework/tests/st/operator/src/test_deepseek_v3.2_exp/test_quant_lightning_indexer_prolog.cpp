@@ -128,7 +128,8 @@ QuantIndexerPrologOutputGolden PrepareQuantIndexerPrologOutputsGolden(const Quan
 template <typename T = npu::tile_fwk::bfloat16, bool nz = true>
 void TestQuantLightningIndexerProlog(QuantIndexerConfigs &configs) {
     config::SetHostOption(ONLY_CODEGEN, true);
-
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_ALIGNED, true);
+    
     constexpr int64_t nzFirstDim = 16;
     constexpr int64_t b16C0Dim = 16;
     constexpr int64_t b8C0Dim = 32;

@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file test_codegen_dyn_row_sum_line.cpp
+ * \file test_codegen_row_sum_line.cpp
  * \brief Unit test for codegen.
  */
 
@@ -27,11 +27,10 @@
 #include "codegen/symbol_mgr/codegen_symbol.h"
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
 #include "test_codegen_utils.h"
-#include "test_codegen_common.h"
 
 namespace npu::tile_fwk {
 
-class TestCodegenDynRowSumLine : public ::testing::Test {
+class TestCodegenRowSumLine : public ::testing::Test {
 public:
     static void SetUpTestCase() {}
 
@@ -50,7 +49,10 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(TestCodegenDynRowSumLine, TestOperationRowSumLine) {
+TEST_F(TestCodegenRowSumLine, TestOperationRowSumLineTileTensor) {
+    config::SetHostOption(ONLY_CODEGEN, true);
+    config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
+    config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
     int shape0 = 6;
     int shape1 = 1;
     int shape2 = 8;
@@ -62,18 +64,13 @@ TEST_F(TestCodegenDynRowSumLine, TestOperationRowSumLine) {
     Tensor input_a(DataType::DT_FP32, shape, "A");
     Tensor output(DataType::DT_FP32, outshape, "C");
 
-    std::string funcName = "Reduce3dimMoe";
+    std::string funcName = "Reduce3dimMoe_TILERENSOR";
+    config::SetBuildStatic(true);
     FUNCTION(funcName, {input_a, output}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
-            (void)i;
-            output = Sum(input_a, 1, true);
-        }
+        output = Sum(input_a, 1, true);
     }
-    auto function =
-        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
-    function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
     function->SetUnderDynamicFunction(true);
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     for (auto &subFunc : function->rootFunc_->programs_) {
         for (auto &op : subFunc.second->Operations()) {
             if (OpcodeManager::Inst().IsCopyIn(op.GetOpcode()) || OpcodeManager::Inst().IsCopyOut(op.GetOpcode())) {
@@ -93,43 +90,40 @@ TEST_F(TestCodegenDynRowSumLine, TestOperationRowSumLine) {
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
+    std::string res = GetResultFromCpp(*function);
+    std::string expect = R"!!!(#include "TileOpImpl.h"
+
+// funcHash: 12633186027675011673
+
+extern "C" [aicore] void TENSOR_Reduce3dimMoe_TILERENSOR_2_0_4503599627370496(__gm__ GMTensorInfo* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam) {
+float __ubuf__ *UB_S0_E32768 = (float __ubuf__ *)get_imm(0x0); // size: 0x8000
+float *UB_S0_E32768_T = (float *)get_imm(0x0); // size: 0x8000
+float __ubuf__ *UB_S32768_E36864 = (float __ubuf__ *)get_imm(0x8000); // size: 0x1000
+float *UB_S32768_E36864_T = (float *)get_imm(0x8000); // size: 0x1000
+float __ubuf__ *UB_S36864_E45056 = (float __ubuf__ *)get_imm(0x9000); // size: 0x2000
+float *UB_S36864_E45056_T = (float *)get_imm(0x9000); // size: 0x2000
+using GMTileTensorFP32Dim3_5 = TileTensor<__gm__ float, DynLayout3Dim, Hardware::GM>;
+using UBTileTensorFP32Dim2_4 = TileTensor<float, StaticLayout2Dim<4, 512, 4, 512>, Hardware::UB>;
+using UBTileTensorFP32Dim3_3 = TileTensor<float, StaticLayout3Dim<2, 1, 512, 2, 1, 512>, Hardware::UB>;
+using GMTileTensorFP32Dim3_2 = TileTensor<__gm__ float, DynLayout3Dim, Hardware::GM>;
+using UBTileTensorFP32Dim3_1 = TileTensor<float, StaticLayout3Dim<2, 8, 512, 2, 8, 512>, Hardware::UB>;
+GMTileTensorFP32Dim3_5 gmTensor_6((__gm__ float*)GET_PARAM_ADDR(param, 0, 0), DynLayout3Dim(Shape3Dim(6, 1, 1024), Stride3Dim(1024, 1024, 1)));
+UBTileTensorFP32Dim3_3 ubTensor_3((uint64_t)UB_S32768_E36864_T);
+UBTileTensorFP32Dim2_4 ubTensor_4((uint64_t)UB_S36864_E45056_T);
+GMTileTensorFP32Dim3_2 gmTensor_2((__gm__ float*)GET_PARAM_ADDR(param, 0, 0), DynLayout3Dim(Shape3Dim(6, 8, 1024), Stride3Dim(8192, 1024, 1)));
+UBTileTensorFP32Dim3_1 ubTensor_1((uint64_t)UB_S0_E32768_T);
+SUBKERNEL_PHASE1
+TLoad(ubTensor_1, gmTensor_2, Coord3Dim(0, 0, 0));
+set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+SUBKERNEL_PHASE2
+TRowSumLine<3>(ubTensor_3, ubTensor_1, ubTensor_4);
+set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
+wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
+TStore(gmTensor_6, ubTensor_3, Coord3Dim(0, 0, 0));
 }
-
-TEST_F(TestCodegenDynRowSumLine, TestOperationRowSumSingleTileTensor) {
-    config::SetHostOption(ONLY_CODEGEN, true);
-    config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-    config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
-
-    int shape0 = 257;
-    int shape1 = 128;
-    std::vector<int64_t> shape = {shape0, shape1};
-    std::vector<int64_t> outshape = {shape0, 1};
-
-    TileShape::Current().SetVecTile({128, 64});
-
-    Tensor input_a(DataType::DT_FP32, shape, "A");
-    Tensor output(DataType::DT_FP32, outshape, "C");
-
-    std::string funcName = "RowSumSingle_TILETENSOR";
-    FUNCTION(funcName, {input_a, output}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
-            (void)i;
-            output = Sum(input_a, -1, true);
-        }
-    }
-    ProgramData::GetInstance().AppendInputs({
-        RawTensorData::CreateConstantTensor<float>(input_a, 1.0),
-    });
-
-    ProgramData::GetInstance().AppendOutputs({
-        RawTensorData::CreateConstantTensor<float>(output, 0.001f),
-    });
-    auto function =
-        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
-
-    npu::tile_fwk::CodeGenCtx ctx;
-    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
-    codeGen.GenCode(*function, {});
+)!!!";
+    EXPECT_EQ(res, expect);
 }
 
 } // namespace npu::tile_fwk

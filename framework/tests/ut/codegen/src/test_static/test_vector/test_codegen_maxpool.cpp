@@ -77,7 +77,7 @@ TEST_F(TestCodegenMaxPool, TestOpMaxPool) {
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPU cop(symbolManager, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
+    CodeGenOpCloudNPU cop(symbolManager, FunctionType::STATIC, {}, true);
     function->GetTensorMap().inverseMap_[localTensorSrc->GetMagic()] = localTensorSrc;
     function->GetTensorMap().inverseMap_[localTensorDst->GetMagic()] = localTensorDst;
 

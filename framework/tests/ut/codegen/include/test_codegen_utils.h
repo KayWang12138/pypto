@@ -31,7 +31,7 @@ struct LogicalTensorInfo {
         const std::vector<SymbolicScalar> &dynShape)
         : function(func), dType(dataType), memType(memoryType), shape(tShape), dynValidShape(dynShape) {};
     LogicalTensorInfo(Function &func, DataType dataType, MemoryType memoryType, const std::vector<int64_t> &tShape,
-        int magicVal, std::vector<SymbolicScalar> dynShape)
+        int magicVal, const std::vector<SymbolicScalar> &dynShape)
         : function(func),
           dType(dataType),
           memType(memoryType),

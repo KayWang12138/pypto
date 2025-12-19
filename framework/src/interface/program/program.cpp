@@ -332,7 +332,7 @@ std::tuple<Function*, Operation *, bool> Program::EndFunction(const std::string 
     EndHiddenLoop(currentFunctionPtr_, generateCall);
 #endif
 
-    currentFunctionPtr_->paramConfigs_.dynamicUnalignedOps = config::GetCodeGenOption<bool>(SUPPORT_DYNAMIC_UNALIGNED);
+    currentFunctionPtr_->paramConfigs_.dynamicAlignedOps = config::GetCodeGenOption<bool>(SUPPORT_DYNAMIC_ALIGNED);
     std::shared_ptr<TensorSlotScope> scope = nullptr;
     // root & leaf do not need scope, use tensor/tile graph's
     if (currentFunctionPtr_->GetGraphType() != GraphType::BLOCK_GRAPH &&

@@ -314,6 +314,12 @@ void ReplaceCommonSymbol(Function *leafFunc, std::vector<std::vector<SymbolicSca
     } 
     std::map<std::string, int> symbol2CoaIdx;
     for (const auto &dynParam : leafFunc->GetDynParamTable()) {
+        if (dynParam.second.dim.IsValid()) {
+            std::string dynParamExpr = SymbolicExpressionTable::BuildExpression(dynParam.second.dim);
+            if (dynParamExpr.find(COA_PREFIX) != 1) {
+                continue;
+            }
+        }
         int coaIndex = GetCoaIndex(dynParam.second);
         symbol2CoaIdx.emplace(dynParam.first, coaIndex);
         APASS_LOG_DEBUG_F(Elements::Operation, "Need Replace symbols %s idx %d", dynParam.first.c_str(), coaIndex);
@@ -344,6 +350,12 @@ inline SymbolicScalar BuildMaybeConstCoa(int attrValue, const DynParamInfo &para
 void ReBuildConcreteParam(Function *leafFunc, std::vector<std::vector<SymbolicScalar>> &callopArglistOneDim) {
     std::map<std::string, int> concreteParamCoaIdx;
     for (auto &dynParam : leafFunc->GetDynParamTable()) {
+        if (dynParam.second.dim.IsValid()) {
+            std::string dynParamExpr = SymbolicExpressionTable::BuildExpression(dynParam.second.dim);
+            if (dynParamExpr.find(COA_PREFIX) != 1) {
+                continue;
+            }
+        }
         if (!(dynParam.second.isBaseParam) && !(dynParam.second.replacedSymbol.empty())) {
             continue;
         }

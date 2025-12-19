@@ -890,7 +890,7 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[ma
     for (auto &devRoot : attr->funcGroup.devRootList) {
         if (config::GetCodeGenOption<bool>(CODEGEN_EXPRESSION_FUSION)) {
             Function *devTile = attr->rootTileDict[devRoot];
-            config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, devTile->paramConfigs_.dynamicUnalignedOps);
+            config::SetCodeGenOption(SUPPORT_DYNAMIC_ALIGNED, devTile->paramConfigs_.dynamicAlignedOps);
             npu::tile_fwk::CodeGenCtx codeGenCtx("", GetEmitPath("kernel_aicore"));
             npu::tile_fwk::CodeGen codeGen(codeGenCtx);
             codeGen.GenCode(*devTile, {});

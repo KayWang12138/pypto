@@ -25,6 +25,7 @@
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
 #include "codegen/cloudnpu/codegen_op_cloudnpu.h"
 #include "test_codegen_utils.h"
+#include "test_codegen_common.h"
 
 namespace npu::tile_fwk {
 constexpr const unsigned OP_MAGIC3 = 3;
@@ -58,11 +59,15 @@ TEST_F(TestCodegenDynUna, TestAbsDynamic) {
     Tensor input_a(DataType::DT_FP16, srcShape, "A");
     Tensor output(DataType::DT_FP16, dstShape, "C");
 
-    config::SetBuildStatic(true);
-    FUNCTION("ABS_T", {input_a, output}) {
-        output = Abs(input_a);
+    std::string funcName = "TestAbsDynamic";
+    FUNCTION(funcName, {input_a, output}) {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            output = Abs(input_a);
+        }
     }
-    auto function = Program::GetInstance().GetFunctionByRawName("TENSOR_ABS_T");
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
     function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
     function->SetUnderDynamicFunction(true);
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
@@ -96,12 +101,15 @@ TEST_F(TestCodegenDynUna, TestDynExpand) {
     Tensor inputB(DT_FP32, shape, "B");
     Tensor output(DT_FP32, shape, "C");
 
-    std::string funcName = "ADD";
-    config::SetBuildStatic(true);
+    std::string funcName = "TestDynExpand";
     FUNCTION(funcName, {inputA, inputB, output}) {
-        output = Add(inputA, inputB);
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            output = Add(inputA, inputB);
+        }
     }
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
     function->SetUnderDynamicFunction(true);
     std::vector<SymbolicScalar> dynValidShape = {64, 64};
     std::vector<SymbolicScalar> dynValidShape1 = {1, 64};

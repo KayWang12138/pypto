@@ -101,7 +101,7 @@ void TestWhereBody(const Opcode opCode, const std::string &caseName, const std::
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPU cop(symbolManager, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
+    CodeGenOpCloudNPU cop(symbolManager, FunctionType::STATIC, {}, true);
     function->GetTensorMap().inverseMap_[localTensorCond->GetMagic()] = localTensorCond;
     function->GetTensorMap().inverseMap_[localTensorInput->GetMagic()] = localTensorInput;
     function->GetTensorMap().inverseMap_[localTensorOther->GetMagic()] = localTensorOther;

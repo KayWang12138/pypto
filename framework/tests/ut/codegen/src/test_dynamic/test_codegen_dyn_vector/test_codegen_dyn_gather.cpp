@@ -23,6 +23,7 @@
 #include "codegen/codegen.h"
 #include "codegen/symbol_mgr/codegen_symbol.h"
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
+#include "test_codegen_common.h"
 
 namespace npu::tile_fwk {
 
@@ -63,11 +64,14 @@ TEST_F(TestCodegenDynGather, TestGather) {
 
     ConfigManager::Instance();
     std::string funcName = "GATHER_T";
-    config::SetBuildStatic(true);
     FUNCTION(funcName, {inputSrc0, inputSrc1, output}) {
-        output = Gather(inputSrc0, inputSrc1, axis);
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            output = Gather(inputSrc0, inputSrc1, axis);
+        }
     }
-    auto function = Program::GetInstance().GetFunctionByRawName("TENSOR_" + funcName);
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
 
     function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
     function->SetUnderDynamicFunction(true);

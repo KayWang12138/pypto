@@ -168,7 +168,7 @@ std::string CodeGenOpCloudNPU::GenBitSortOp() const {
     if (isSupportLayout) {
         return PrintSortTileTensor();
     }
-    if (isSupportDynamicUnaligned) {
+    if (isDynamicFunction) {
         return PrintBitSortDynamicUnaligned(sortParm);
     }
     return PrintBitSortStatic(sortParm);
@@ -214,7 +214,7 @@ std::string CodeGenOpCloudNPU::GenMrgSortOp() const {
     if (isSupportLayout) {
         return PrintSortTileTensor();
     }
-    if (isSupportDynamicUnaligned) {
+    if (isDynamicFunction) {
         return PrintMrgSortDynamicUnaligned(sortParm);
     }
     return PrintMrgSortStatic(sortParm);

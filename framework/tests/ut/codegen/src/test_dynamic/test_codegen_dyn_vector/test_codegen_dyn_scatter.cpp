@@ -25,6 +25,7 @@
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
 #include "codegen/cloudnpu/codegen_op_cloudnpu.h"
 #include "test_codegen_utils.h"
+#include "test_codegen_common.h"
 
 namespace npu::tile_fwk {
 class TestCodegenDynScatter : public ::testing::Test {
@@ -56,9 +57,13 @@ TEST_F(TestCodegenDynScatter, TestDynOpScatterElement) {
 
     std::string funcName = "TestDynOpScatterElement";
     FUNCTION(funcName, {inputA, inputB, output}) {
-        output = Add(inputA, inputB);
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            output = Add(inputA, inputB);
+        }
     }
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
     auto localTensorSrc = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
     auto localTensorIdx = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, {32}});
     auto localTensorDst = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
@@ -106,9 +111,13 @@ TEST_F(TestCodegenDynScatter, TestOpDynScatter) {
 
     std::string funcName = "TestOpDynScatter";
     FUNCTION(funcName, {inputA, inputB, output}) {
-        output = Add(inputA, inputB);
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            output = Add(inputA, inputB);
+        }
     }
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
     auto localTensorSelf = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
     auto localTensorSrc = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
     auto localTensorIdx = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, {32}});

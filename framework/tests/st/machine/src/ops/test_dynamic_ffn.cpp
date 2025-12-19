@@ -88,6 +88,7 @@ TEST_F(DynamicFFNTest, TestOnbroadDynamicFFNQuant) {
     config::SetPassOption(NBUFFER_MERGE_MODE, 1);      // 是否开启db切分 1开启
     config::SetPassOption(L1_REUSE, 2);
     config::SetPassOption(COPYIN_THRESHOLD, 10*1024*1024);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_ALIGNED, true);
 
     constexpr int BATCH_SIZE = 32;
     constexpr int SEQUENCE = 1;

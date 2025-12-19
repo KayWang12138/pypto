@@ -44,7 +44,7 @@ std::string CodeGenOpCloudNPU::GenCastOp() const {
     if (isSupportLayout) {
         return PrintCastTileTensor();
     }
-    if (isSupportDynamicUnaligned) {
+    if (isDynamicFunction) {
         return PrintCastDynamicUnaligned({s0Var, dVar, srcDtypeStr, dstDtypeStr});
     }
 
@@ -117,7 +117,7 @@ std::string CodeGenOpCloudNPU::PrintDupOpStatic(const PrintDupOpParam &param) co
 }
 
 std::string CodeGenOpCloudNPU::PrintDupOp(const PrintDupOpParam &param) const {
-    if (isSupportDynamicUnaligned) {
+    if (isDynamicFunction) {
         return PrintDupOpDynUnaligned(param);
     }
     return PrintDupOpStatic(param);
@@ -176,10 +176,10 @@ std::string CodeGenOpCloudNPU::GenTransposeDataMove() const {
 }
 
 std::string CodeGenOpCloudNPU::PrintTransposeDataMove(const PrintTransposeDataMoveParam &param) const {
-    if (isSupportDynamicUnaligned) {
-        return PrintTransposeDataMoveDynamicUnaligned(param);
-    } else if (functionType == FunctionType::DYNAMIC_LOOP_PATH) {
+    if (isSupportDynamicAligned) {
         return PrintTransposeDataMoveDynamic(param);
+    } else if (isDynamicFunction) {
+        return PrintTransposeDataMoveDynamicUnaligned(param);
     }
     return PrintTransposeDataMoveStatic(param);
 }
@@ -434,7 +434,7 @@ std::string CodeGenOpCloudNPU::PrintGatherDynamicUnaligned(const PrintGatherPara
 }
 
 std::string CodeGenOpCloudNPU::PrintGather(const PrintGatherParam &param) const {
-    if (isSupportDynamicUnaligned) {
+    if (isDynamicFunction) {
         return PrintGatherDynamicUnaligned(param);
     }
     return PrintGatherStatic(param);
@@ -579,7 +579,7 @@ std::string CodeGenOpCloudNPU::GenGatherElementOp() const {
     if (isSupportLayout) {
         return PrintGatherElementTileTensor({gatherEleAxis, dVar, s0Var, s1Var, dos, ds, s0s, s1s, dataTypeExpr});
     }
-    if (isSupportDynamicUnaligned) {
+    if (isDynamicFunction) {
         return PrintGatherElementDynamicUnaligned({gatherEleAxis, dVar, s0Var, s1Var, dos, ds, s0s, s1s, dataTypeExpr});
     }
     return PrintGatherElementStatic({gatherEleAxis, dVar, s0Var, s1Var, dos, ds, s0s, s1s, dataTypeExpr});
@@ -892,7 +892,7 @@ std::string CodeGenOpCloudNPU::GenScatterElementSOp() const {
     AppendLocalBufVarOffsetInOrder(dstVar, src0Var, src1Var);
 
     const std::vector<std::string> dataTypeExpr = {dstDtypeStr, src0DtypeStr, src1DtypeStr};
-    if (isSupportDynamicUnaligned) {
+    if (isDynamicFunction) {
         return PrintScatterElementSOpDynamicUnaligned(
             {axis, scatterMode, dstVar, src0Var, src1Var, dstRawShape, src1RawShape, dataTypeExpr});
     }
@@ -1061,7 +1061,7 @@ std::string CodeGenOpCloudNPU::GenExtractOp() const {
     if (isSupportLayout) {
         return PrintExtractTileTensor();
     }
-    if (isSupportDynamicUnaligned) {
+    if (isDynamicFunction) {
         return PrintExtractDynamicUnaligned();
     }
     return PrintExtractStatic();
@@ -1583,7 +1583,7 @@ std::string CodeGenOpCloudNPU::GenTopKSortOp() const {
     paramList.emplace_back(std::to_string(xShape[0]));
     paramList.emplace_back(std::to_string(xShape[1]));
     std::string templateParam = JoinString(paramList, CONN_COMMA);
-    if (!isSupportDynamicUnaligned) {
+    if (!isDynamicFunction) {
         templateParam += GenOpAttr();
     }
 
@@ -1591,7 +1591,7 @@ std::string CodeGenOpCloudNPU::GenTopKSortOp() const {
     std::string y = "(" + GetAddrTypeByOperandType(operandType[ID0]) + " " + xDtypeStr + "*)" + yVar;
     std::string tmp = "(" + GetAddrTypeByOperandType(operandType[ID1]) + " " + xDtypeStr + "*)" + tmpVar;
     std::string x = "(" + GetAddrTypeByOperandType(operandType[ID2]) + " " + xDtypeStr + "*)" + xVar;
-    if (isSupportDynamicUnaligned) {
+    if (isDynamicFunction) {
         if (startIdx.empty()) {
             startIdx = GenOpAttr().substr(NUM2);
         }

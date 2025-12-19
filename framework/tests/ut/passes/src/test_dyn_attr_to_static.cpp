@@ -233,7 +233,7 @@ TEST_F(DynAttrToStaticTest, TestDynExpression) {
     for (auto it = rootFunc->programs_.begin(); it != rootFunc->programs_.end(); it++) {
         Function* leafFunc = it->second;
         for (const auto &dynParam : leafFunc->GetDynParamTable()) {
-            if (dynParam.second.replacedSymbol.empty()) {
+            if (dynParam.second.replacedSymbol.empty() && dynParam.second.dim.IsValid()) {
                 std::reference_wrapper<SymbolicScalar> dynExpr = const_cast<SymbolicScalar&>(dynParam.second.dim);
                 EXPECT_EQ(VerifyNewMacroExpr(dynExpr), true);
             }

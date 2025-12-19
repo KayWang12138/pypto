@@ -77,12 +77,13 @@ def test_reshape_equal2():
     q = pypto.tensor(shape, dtype)
     t = pypto.tensor(shape, dtype)
     out = pypto.tensor(dst_shape, dtype)
+    pypto.set_codegen_options(support_dynamic_aligned=True)
 
     with pypto.function("Reshape3", q, t, out):
         for _ in pypto.loop(1, name="Reshape3Loop", idx_name="batchId"):
             pypto.set_vec_tile_shapes(16, 16)
-            q0 = pypto.reshape(q, dst_shape, valid_shape=[16, 16])
-            t0 = pypto.reshape(t, dst_shape, valid_shape=[16, 16])
+            q0 = pypto.reshape(q, dst_shape, valid_shape=[32, 16])
+            t0 = pypto.reshape(t, dst_shape, valid_shape=[32, 16])
             out.move(pypto.add(q0, t0))
 
     q_tensor = torch.arange(s * 32, dtype=torch.float32).reshape(s, 32)

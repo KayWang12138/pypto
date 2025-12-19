@@ -177,7 +177,7 @@ std::string CodeGenOpCloudNPU::PrintRowMaxline(const PrintUnaryParam &param) con
     if (isSupportLayout) {
         return PrintRowMaxlineTileTensor();
     }
-    if (isSupportDynamicUnaligned) {
+    if (isDynamicFunction) {
         return PrintRowMaxlineDynamicUnaligned(param);
     }
     return PrintRowMaxlineStatic(param);
@@ -345,7 +345,7 @@ std::string CodeGenOpCloudNPU::PrintExpand(const std::string &s0Var, const std::
     if (isSupportLayout) {
         return PrintExpandLayout(expandAxis);
     }
-    if (isSupportDynamicUnaligned) {
+    if (isDynamicFunction) {
         return PrintExpandDynamicUnaligned({s0Var, dVar, srcDtypeStr, dstDtypeStr}, expandAxis);
     }
 
@@ -491,7 +491,7 @@ std::string CodeGenOpCloudNPU::PrintUnary(const PrintUnaryParam &param) const {
     if (isSupportLayout) {
         return PrintUnaryTileTensor();
     }
-    if (isSupportDynamicUnaligned) {
+    if (isDynamicFunction) {
         return PrintUnaryDynamicUnaligned(param);
     }
     return PrintUnaryStatic(param);

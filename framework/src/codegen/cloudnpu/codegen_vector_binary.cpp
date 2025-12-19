@@ -137,7 +137,7 @@ std::string CodeGenOpCloudNPU::PrintBinary(const PrintBinaryParam &param) const 
     if (isSupportLayout) {
         return PrintBinaryTileTensor();
     }
-    if (isSupportDynamicUnaligned) {
+    if (isDynamicFunction) {
         return PrintBinaryDynamicUnaligned(param);
     }
     return PrintBinaryStatic(param);
@@ -263,7 +263,7 @@ std::string CodeGenOpCloudNPU::PrintBinaryBrcDynamicUnaligned(const PrintBinaryB
 }
 
 std::string CodeGenOpCloudNPU::PrintBinaryBrc(const PrintBinaryBrcParam &param) const {
-    if (isSupportDynamicUnaligned) {
+    if (isDynamicFunction) {
         return PrintBinaryBrcDynamicUnaligned(param);
     }
     return PrintBinaryBrcStatic(param);
@@ -406,7 +406,7 @@ std::string CodeGenOpCloudNPU::PrintVectorScalarTileTensor(const PrintUnaryParam
 }
 
 std::string CodeGenOpCloudNPU::PrintBinaryScalar(const PrintBinaryScalarParam &param) const {
-    if (isSupportDynamicUnaligned) {
+    if (isDynamicFunction) {
         return PrintBinaryScalarDynamicUnaligned(param);
     }
     return PrintBinaryScalarStatic(param);
@@ -492,7 +492,7 @@ std::string CodeGenOpCloudNPU::GenVectorScalarOpByMode(VecScalMode mode) const {
         return PrintVectorScalarTileTensor({s0Var, dVar, dstDtypeStr, dstDtypeStr});
     }
 
-    if (isSupportDynamicUnaligned) {
+    if (isDynamicFunction) {
         return PrintVectorScalarOpDynamicUnalign({s0Var, dVar, dstDtypeStr, dstDtypeStr});
     }
 

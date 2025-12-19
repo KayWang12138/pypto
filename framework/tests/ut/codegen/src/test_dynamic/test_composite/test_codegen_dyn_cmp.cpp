@@ -25,6 +25,7 @@
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
 #include "codegen/cloudnpu/codegen_op_cloudnpu.h"
 #include "test_codegen_utils.h"
+#include "test_codegen_common.h"
 
 namespace npu::tile_fwk {
 class TestCodegenDynCmp : public ::testing::Test {
@@ -56,9 +57,13 @@ TEST_F(TestCodegenDynCmp, TestDynOpCmp) {
 
     std::string funcName = "TestDynOpCmp";
     FUNCTION(funcName, {inputA, inputB, output}) {
-        output = Add(inputA, inputB);
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            output = Add(inputA, inputB);
+        }
     }
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
     auto localTensorInput1 = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
     auto localTensorInput2 = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
     auto localTensorRes = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
@@ -107,9 +112,13 @@ TEST_F(TestCodegenDynCmp, TestDynOpCmpS) {
 
     std::string funcName = "TestDynOpCmpS";
     FUNCTION(funcName, {inputA, inputB, output}) {
-        output = Add(inputA, inputB);
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            output = Add(inputA, inputB);
+        }
     }
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
     auto localTensorInput1 = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
     auto localTensorRes = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
     auto localTensorTmp = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});

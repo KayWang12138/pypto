@@ -20,6 +20,7 @@
 
 namespace npu::tile_fwk {
 const std::string SUB_FUNC_SUFFIX = "_Unroll1_PATH0";
+const std::string HIDDEN_FUNC_SUFFIX = "_hiddenfunc0";
 
 } // namespace npu::tile_fwk
 

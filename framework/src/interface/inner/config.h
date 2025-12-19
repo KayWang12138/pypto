@@ -41,6 +41,7 @@ constexpr const char *DB_TYPE = "db_type";
 constexpr const char *COPYOUT_RESOLVE_COALESCING = "copyout_resolve_coalescing";
 constexpr const char *ONLY_CODEGEN = "only_codegen";
 constexpr const char *SUPPORT_DYNAMIC_UNALIGNED = "support_dynamic_unaligned";
+constexpr const char *SUPPORT_DYNAMIC_ALIGNED = "support_dynamic_aligned";
 constexpr const char *CODEGEN_EXPRESSION_FUSION = "codegen_expression_fusion";
 
 //runtime

@@ -24,6 +24,7 @@
 #include "codegen/codegen.h"
 #include "codegen/symbol_mgr/codegen_symbol.h"
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
+#include "test_codegen_common.h"
 
 namespace npu::tile_fwk {
 
@@ -54,13 +55,17 @@ TEST_F(TestCodegenDynBinaryBrc, TestMulDynamic) {
     Tensor output(DataType::DT_FP32, shape1, "C");
     ConfigManager::Instance();
 
-    config::SetBuildStatic(true);
-    FUNCTION("MUL_T", {input_a, input_b, output}) {
-        // add RowSumSingle to test brc case
-        auto input_c = Sum(input_b, -1, true);
-        output = Mul(input_a, input_c);
+    std::string funcName = "MUL_T";
+    FUNCTION(funcName, {input_a, input_b, output}) {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            // add RowSumSingle to test brc case
+            auto input_c = Sum(input_b, -1, true);
+            output = Mul(input_a, input_c);
+        }
     }
-    auto function = Program::GetInstance().GetFunctionByRawName("TENSOR_MUL_T");
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
     function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
     function->SetUnderDynamicFunction(true);
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);

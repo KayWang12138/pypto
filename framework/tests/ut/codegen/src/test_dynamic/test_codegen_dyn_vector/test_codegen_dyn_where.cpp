@@ -25,6 +25,7 @@
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
 #include "codegen/cloudnpu/codegen_op_cloudnpu.h"
 #include "test_codegen_utils.h"
+#include "test_codegen_common.h"
 
 namespace npu::tile_fwk {
 class TestCodegenDynWhere : public ::testing::Test {
@@ -56,9 +57,13 @@ TEST_F(TestCodegenDynWhere, TestDynOpWhere) {
 
     std::string funcName = "TestDynOpWhere";
     FUNCTION(funcName, {inputA, inputB, output}) {
-        output = Add(inputA, inputB);
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            output = Add(inputA, inputB);
+        }
     }
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
     auto localTensorRes = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
     auto localTensorTmp = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
     auto localTensorCond = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});

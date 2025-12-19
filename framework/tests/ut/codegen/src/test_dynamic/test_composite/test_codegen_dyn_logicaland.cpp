@@ -25,6 +25,7 @@
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
 #include "codegen/cloudnpu/codegen_op_cloudnpu.h"
 #include "test_codegen_utils.h"
+#include "test_codegen_common.h"
 
 namespace npu::tile_fwk {
 class TestCodegenDynLogicalAnd : public ::testing::Test {
@@ -54,11 +55,15 @@ TEST_F(TestCodegenDynLogicalAnd, TestDynOpLogicalAnd) {
 
     Element scalaVal(DataType::DT_FP32, 1.0);
 
-    std::string funcName = "TestDynOpLogicalNot";
+    std::string funcName = "TestDynOpLogicalAnd";
     FUNCTION(funcName, {inputA, inputB, output}) {
-        output = Add(inputA, inputB);
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            output = Add(inputA, inputB);
+        }
     }
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
     auto localTensorInput1 = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
     auto localTensorInput2 = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
     auto localTensorRes = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});

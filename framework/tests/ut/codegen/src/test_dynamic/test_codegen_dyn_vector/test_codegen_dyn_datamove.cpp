@@ -24,6 +24,7 @@
 #include "codegen/codegen.h"
 #include "codegen/symbol_mgr/codegen_symbol.h"
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
+#include "test_codegen_common.h"
 
 namespace npu::tile_fwk {
 
@@ -55,11 +56,14 @@ TEST_F(TestCodegenDynDataMove, TestDatamoveUnalignDim3) {
     Tensor input(DataType::DT_FP32, shape, "input");
     Tensor output(DataType::DT_FP32, resShape, "res");
     std::string funcName = "DATAMOVE";
-    config::SetBuildStatic(true);
     FUNCTION(funcName, {input, output}) {
-        output = Transpose(input, {0, 1});
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            output = Transpose(input, {0, 1});
+        }
     }
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
     function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
     function->SetUnderDynamicFunction(true);
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
@@ -99,11 +103,14 @@ TEST_F(TestCodegenDynDataMove, TestDatamoveUnalignDim4) {
     Tensor input(DataType::DT_FP32, shape, "input");
     Tensor output(DataType::DT_FP32, resShape, "res");
     std::string funcName = "DATAMOVE";
-    config::SetBuildStatic(true);
     FUNCTION(funcName, {input, output}) {
-        output = Transpose(input, {1, 2});
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            output = Transpose(input, {1, 2});
+        }
     }
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
     function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
     function->SetUnderDynamicFunction(true);
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
@@ -141,12 +148,15 @@ TEST_F(TestCodegenDynDataMove, TestDatamoveAlignDim4) {
 
     Tensor input(DataType::DT_FP32, shape, "input");
     Tensor output(DataType::DT_FP32, resShape, "res");
-    std::string funcName = "DATAMOVE";
-    config::SetBuildStatic(true);
+    std::string funcName = "TestDatamoveAlignDim4";
     FUNCTION(funcName, {input, output}) {
-        output = Transpose(input, {1, 2});
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            output = Transpose(input, {1, 2});
+        }
     }
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
     function->SetUnderDynamicFunction(true);
     function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
     for (auto &subFunc : function->rootFunc_->programs_) {

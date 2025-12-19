@@ -51,7 +51,7 @@ void CodeGenOp::UpdateShape(const Operation &oper, const LogicalTensor &logicalT
     rawShape[operandIdx] = logicalTensor.tensor->rawshape;
     // need adapt unaligned scene after
     originShape[operandIdx] = logicalTensor.oriShape;
-    if (isSupportDynamicUnaligned) {
+    if (isDynamicFunction) {
         dynamicValidShape[operandIdx] = logicalTensor.GetDynValidShape();
     }
 
@@ -62,7 +62,7 @@ void CodeGenOp::UpdateShape(const Operation &oper, const LogicalTensor &logicalT
     // Local Tensor shape just use shape from LogicalTensor
     if (!useAttrForGM || logicalTensor.GetMemoryTypeOriginal() != MEM_DEVICE_DDR) {
         shape[operandIdx] = logicalTensor.shape;
-        if (isSupportDynamicUnaligned) { // NEXTNEXT: stack gm should also has dynShape_ later
+        if (isDynamicFunction) { // NEXTNEXT: stack gm should also has dynShape_ later
             ASSERT(!logicalTensor.GetDynValidShape().empty())
                 << "LogicalTensor::dynShape_ can not empty in Dynamic Unaligned Scene";
         }
@@ -137,10 +137,11 @@ void CodeGenOp::Init(const npu::tile_fwk::Operation &ops) {
         << "can not support ops.iOperand.size: " << ops.iOperand.size()
         << ", ops.oOperand.size: " << ops.oOperand.size();
 
-    isSupportDynamicUnaligned =
-        functionType == FunctionType::DYNAMIC_LOOP_PATH && config::GetCodeGenOption<bool>(SUPPORT_DYNAMIC_UNALIGNED);
-    ALOG_INFO_F("%s: init CodeGenOp from npu::tile_fwk::Operation, isSupportDynamicUnaligned is %d", __FUNCTION__,
-        isSupportDynamicUnaligned);
+    isDynamicFunction = functionType == FunctionType::DYNAMIC_LOOP_PATH;
+    isSupportDynamicAligned = config::GetCodeGenOption<bool>(SUPPORT_DYNAMIC_ALIGNED);
+    ALOG_INFO_F(
+        "%s: init CodeGenOp from npu::tile_fwk::Operation, isDynamicFunction is %d, isSupportDynamicAligned is %d",
+        __FUNCTION__, isDynamicFunction, isSupportDynamicAligned);
 
     UpdateTileOpInfo(ops);
     ASSERT(!tileOpName.empty()) << "empty tileOpName for ops: " << ops.Dump();
@@ -313,6 +314,9 @@ void CodeGenOp::UpdateTileOpInfo(const Operation &ops) {
     opCode = ops.GetOpcode();
     tileOpName = GetTileOpName(opCode);
 
+    ALOG_INFO_F(
+        "enter tileOpName is %s, opcode = %s", tileOpName.c_str(), OpcodeManager::Inst().GetOpcodeStr(opCode).c_str());
+
     if (opCode == Opcode::OP_COPY_IN && !ops.oOperand.empty()) {
         npu::tile_fwk::MemoryType memtype = ops.oOperand[0]->GetMemoryTypeOriginal();
         if (memtype == npu::tile_fwk::MemoryType::MEM_UB) {
@@ -336,26 +340,22 @@ void CodeGenOp::UpdateTileOpInfo(const Operation &ops) {
         }
     }
 
-    if ((functionType != FunctionType::DYNAMIC_LOOP_PATH) || DISTRIBUTED_OPS.count(opCode)) {
+    if (!isDynamicFunction || DISTRIBUTED_OPS.count(opCode)) {
         return;
     }
 
     std::string dynPrefix = "Dyn";
-
     size_t nameSpaceLen = std::strlen("TileOp::");
-    // NEXTNEXT: delete if after all TileOp have adapted dynamic unalinged scene
-    if (isSupportDynamicUnaligned &&
-        SUPPORT_DYNAMIC_UNALIGNED_OPS.find(opCode) != SUPPORT_DYNAMIC_UNALIGNED_OPS.end()) {
-        tileOpName.insert(nameSpaceLen, dynPrefix);
-        return;
-    }
-
-    // NEXTNEXT: delete after isSupportDynamicUnaligned can be always true
-    if (OpcodeManager::Inst().IsCopyInOrOut(opCode)) {
+    bool isNeedInsertDynPrefix =
+        isDynamicFunction && SUPPORT_DYNAMIC_UNALIGNED_OPS.find(opCode) != SUPPORT_DYNAMIC_UNALIGNED_OPS.end();
+    ALOG_INFO_F("isNeedInsertDynPrefix is %d, opcode = %s", isNeedInsertDynPrefix,
+        OpcodeManager::Inst().GetOpcodeStr(opCode).c_str());
+    if (isNeedInsertDynPrefix) {
         tileOpName.insert(nameSpaceLen, dynPrefix);
     }
 
-    ALOG_INFO_F("after UpdateTileOpInfo: tileOpName = %s", tileOpName.c_str());
+    ALOG_INFO_F("after UpdateTileOpInfo: tileOpName = %s, opCode = %s", tileOpName.c_str(),
+        OpcodeManager::Inst().GetOpcodeStr(opCode).c_str());
 }
 
 void CodeGenOp::GetGmParamIdx(const npu::tile_fwk::Operation &oper) {
@@ -399,9 +399,9 @@ void CodeGenOp::GetGmParamIdx(const npu::tile_fwk::Operation &oper) {
     }
 
     if (oper.GetOpcode() == Opcode::OP_GATHER_IN_L1 || oper.GetOpcode() == Opcode::OP_GATHER_IN_UB) {
-        paramLocation[0] = oper.GetIOpAttrOffset(0);
-        paramLocation[1] = oper.GetIOpAttrOffset(1);
-        paramLocation[2] = oper.GetIOpAttrOffset(2);
+        paramLocation[ID0] = oper.GetIOpAttrOffset(ID0);
+        paramLocation[ID1] = oper.GetIOpAttrOffset(ID1);
+        paramLocation[ID2] = oper.GetIOpAttrOffset(ID2);
         GmTensorParamIdxInCallFunc = oper.GetIntAttribute("GmTensorParamIdxInCallFunc");
         return;
     }

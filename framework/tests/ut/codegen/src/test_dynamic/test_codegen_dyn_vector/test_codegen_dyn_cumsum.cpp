@@ -33,9 +33,7 @@ class TestCodegenDynCumSum : public ::testing::Test {
 public:
     static void SetUpTestCase() {}
 
-    static void TearDownTestCase() {
-        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
-    }
+    static void TearDownTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false); }
 
     void SetUp() override {
         Program::GetInstance().Reset();
@@ -50,20 +48,22 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(TestCodegenDynCumSum, test_CumSum_dim2_0) {
+void TestCodegenDynCumSumBody(int axis) {
     std::vector<int64_t> vecTileShape = {5, 9};
     std::vector<int64_t> shape{12, 14};
-    int axis = 0;
 
     TileShape::Current().SetVecTile(vecTileShape[0], vecTileShape[1]);
     Tensor input(DataType::DT_FP32, shape, "input");
     Tensor output(DataType::DT_FP32, shape, "res");
     std::string funcName = "CumSum";
-    config::SetBuildStatic(true);
     FUNCTION(funcName, {input, output}) {
-        output = CumSum(input, axis);
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            output = CumSum(input, axis);
+        }
     }
-    auto function = Program::GetInstance().GetFunctionByRawName("TENSOR_" + funcName);
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
 
     function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
     function->SetUnderDynamicFunction(true);
@@ -87,40 +87,11 @@ TEST_F(TestCodegenDynCumSum, test_CumSum_dim2_0) {
     codeGen.GenCode(*function, {});
 }
 
+TEST_F(TestCodegenDynCumSum, test_CumSum_dim2_0) {
+    TestCodegenDynCumSumBody(0);
+}
+
 TEST_F(TestCodegenDynCumSum, test_CumSum_dim2_1) {
-    std::vector<int64_t> vecTileShape = {5, 9};
-    std::vector<int64_t> shape{12, 14};
-    int axis = 1;
-
-    TileShape::Current().SetVecTile(vecTileShape[0], vecTileShape[1]);
-    Tensor input(DataType::DT_FP32, shape, "input");
-    Tensor output(DataType::DT_FP32, shape, "res");
-    std::string funcName = "CumSum";
-    config::SetBuildStatic(true);
-    FUNCTION(funcName, {input, output}) {
-        output = CumSum(input, axis);
-    }
-    auto function = Program::GetInstance().GetFunctionByRawName("TENSOR_" + funcName);
-
-    function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
-    function->SetUnderDynamicFunction(true);
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
-    for (auto &subFunc : function->rootFunc_->programs_) {
-        for (auto &op : subFunc.second->Operations()) {
-            if (OpcodeManager::Inst().IsCopyIn(op.GetOpcode()) || OpcodeManager::Inst().IsCopyOut(op.GetOpcode())) {
-                if (IsCopyIn(op.GetOpcode()))
-                    op.SetIOpAttrOffset(0, 0);
-                else
-                    op.SetOOpAttrOffset(0, 0);
-                op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
-            }
-        }
-        DynParamInfo fakeParam = {3, 0, 0, DynParamInfoType::VALID_SHAPE, 0, SymbolicScalar(), false, ""};
-        subFunc.second->dynParamTable_.emplace("sym_2_dim_0", fakeParam);
-        subFunc.second->dynParamTable_.emplace("sym_2_dim_1", fakeParam);
-    }
-    npu::tile_fwk::CodeGenCtx ctx;
-    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
-    codeGen.GenCode(*function, {});
+    TestCodegenDynCumSumBody(1);
 }
 } // namespace npu::tile_fwk

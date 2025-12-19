@@ -435,7 +435,8 @@ struct DynParamInfo{
 };
 struct ParamConfigs {
     int l1ReuseNum{0};
-    bool dynamicUnalignedOps;
+    int cubeNBufferNum{1};
+    bool dynamicAlignedOps;
     int sgCycleUpperBound{1};
     int sgCycleLowerBound{1};
     int sgParallelNum{1};

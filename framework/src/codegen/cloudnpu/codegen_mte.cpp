@@ -123,7 +123,7 @@ std::string CodeGenOpCloudNPU::GenMemL1SpillIntoGM(bool isLocalToGM, unsigned in
 
     int ret{0};
     char buffer[BUFFER_SIZE_1024] = "CG_ERROR";
-    if (isSupportDynamicUnaligned) {
+    if (isDynamicFunction) {
         // The layout of gm stack data is continuous, so just use dynValidShape[ID1] as gm stride to match the
         // implementation of "Copy TileOp" in order to make gm gap value be zero in copy intrinsic.
         auto dynValidShape = dynamicValidShape[l1Idx];
@@ -216,7 +216,7 @@ std::string CodeGenOpCloudNPU::GenMemL1ToL0() const {
     auto l0ShapeDyn = dynamicValidShape[ID0];
 
     std::ostringstream oss;
-    if (isSupportDynamicUnaligned) {
+    if (isDynamicFunction) {
         oss << tileOpName << "<" << dtypeStr << ", " << srcOffset0 << ", " << srcOffset1 << ">"
             << "(" << paramStr << ", " << SymbolicExpressionTable::BuildExpression(l0ShapeDyn[ID0]) << ", "
             << SymbolicExpressionTable::BuildExpression(l0ShapeDyn[ID1]) << ", "
@@ -404,10 +404,10 @@ std::string CodeGenOpCloudNPU::GenMemL0CToL1() const {
 }
 
 std::string CodeGenOpCloudNPU::PrintIndexOutCast(const PrintIndexOutCastParam &param) const {
-    if (isSupportDynamicUnaligned) {
-        return PrintIndexOutCastDynamicUnaligned(param);
-    } else if (functionType == FunctionType::DYNAMIC_LOOP_PATH) {
+    if (isSupportDynamicAligned) {
         return PrintIndexOutCastDynamic(param);
+    } else if (isDynamicFunction) {
+        return PrintIndexOutCastDynamicUnaligned(param);
     }
     return PrintIndexOutCastStatic(param);
 }
@@ -655,7 +655,7 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL0C(const PrintMemCopyWithL0CPara
     if (isSupportLayout) {
         return PrintMemCopyWithL0CTileTensor(param);
     }
-    if (functionType == FunctionType::DYNAMIC_LOOP_PATH) {
+    if (isDynamicFunction) {
         return PrintMemCopyWithL0CDynamic(param);
     }
     return PrintMemCopyWithL0CStatic(param);
@@ -764,17 +764,18 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL0CDynamic(const PrintMemCopyWith
 
     int printRet{0};
 
-    if (isSupportDynamicUnaligned) {
-        return PrintL0CCopyOutDynamicUnalign(param, gmShapeExpr, gmOffsetExpr);
+    if (isSupportDynamicAligned) {
+        printRet =
+            sprintf_s(buffer, BUFFER_SIZE_1024, "%s<%s, %s, %d, %d, %d, %d>((%s %s*)%s, (%s %s*)%s, %s, %s, %u);\n",
+                tileOpName.c_str(), dataTypeExpr[gmIdx].c_str(), dataTypeExpr[localIdx].c_str(), tileShapeForMT[ID0],
+                tileShapeForMT[ID1], oriTileShape0, oriTileShape1, addrTypeHead[ID0].c_str(), dataTypeExpr[ID0].c_str(),
+                addrExpr[ID0].c_str(), addrTypeHead[ID1].c_str(), dataTypeExpr[ID1].c_str(), addrExpr[ID1].c_str(),
+                gmShapeExpr[ID0].c_str(), gmOffsetExpr[ID0].c_str(), uf);
+        ASSERT(printRet >= 0) << "sprintf_s failed in genMemCopyVar(BUF_L0C), return value:" << printRet;
+        return buffer;
     }
 
-    printRet = sprintf_s(buffer, BUFFER_SIZE_1024, "%s<%s, %s, %d, %d, %d, %d>((%s %s*)%s, (%s %s*)%s, %s, %s, %u);\n",
-        tileOpName.c_str(), dataTypeExpr[gmIdx].c_str(), dataTypeExpr[localIdx].c_str(), tileShapeForMT[ID0],
-        tileShapeForMT[ID1], oriTileShape0, oriTileShape1, addrTypeHead[ID0].c_str(), dataTypeExpr[ID0].c_str(),
-        addrExpr[ID0].c_str(), addrTypeHead[ID1].c_str(), dataTypeExpr[ID1].c_str(), addrExpr[ID1].c_str(),
-        gmShapeExpr[ID0].c_str(), gmOffsetExpr[ID0].c_str(), uf);
-    ASSERT(printRet >= 0) << "sprintf_s failed in genMemCopyVar(BUF_L0C), return value:" << printRet;
-    return buffer;
+    return PrintL0CCopyOutDynamicUnalign(param, gmShapeExpr, gmOffsetExpr);
 }
 
 std::string CodeGenOpCloudNPU::PrintL1CopyInTileTensor(const PrintMemCopyWithL1Param &param) const {
@@ -818,7 +819,7 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL1(const PrintMemCopyWithL1Param 
     if (isSupportLayout) {
         return PrintL1CopyInTileTensor(param);
     }
-    if (functionType == FunctionType::DYNAMIC_LOOP_PATH) {
+    if (isDynamicFunction) {
         return PrintMemCopyWithL1Dynamic(param);
     }
     return PrintMemCopyWithL1Static(param);
@@ -911,7 +912,14 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL1Dynamic(const PrintMemCopyWithL
         std::string outerValueStr = outerValue == 0 ? gmShapeExprByIndex[ID0] : std::to_string(outerValue);
         std::string innerValueStr = innerValue == 0 ? gmShapeExprByIndex[ID1] : std::to_string(innerValue);
 
-        if (isSupportDynamicUnaligned) {
+        if (isSupportDynamicAligned) {
+            oss << opName << "<" << dataTypeExpr[gmIdx] << ", " << dataTypeExpr[localIdx] << ", " << tileShapeForMT[ID0]
+                << ", " << tileShapeForMT[ID1] << ">"
+                << "((" << addrTypeHead[ID0] << " " << dataTypeExpr[ID0] << "*)" << addrExpr[ID0] << ", "
+                << "(" << addrTypeHead[ID1] << " " << dataTypeExpr[ID1] << "*)" << addrBuffer << ", "
+                << gmShapeExpr[ID0] << ", " << gmOffsetExpr[ID0] << ", " << outerValueStr << ", " << innerValueStr
+                << ", " << uf << ");\n";
+        } else {
             auto dynValidShape = dynamicValidShape[localIdx];
             oss << opName << "<" << dataTypeExpr[gmIdx] << ", " << dataTypeExpr[localIdx] << ">"
                 << "((" << addrTypeHead[ID0] << " " << dataTypeExpr[ID0] << "*)" << addrExpr[ID0] << ", "
@@ -919,16 +927,15 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL1Dynamic(const PrintMemCopyWithL
                 << SymbolicExpressionTable::BuildExpression(dynValidShape[ID0]) << ", "
                 << SymbolicExpressionTable::BuildExpression(dynValidShape[ID1]) << ", " << gmShapeExpr[ID0] << ", "
                 << gmOffsetExpr[ID0] << ", " << outerValueStr << ", " << innerValueStr << ", " << uf << ");\n";
-        } else {
+        }
+    } else {
+        if (isSupportDynamicAligned) {
             oss << opName << "<" << dataTypeExpr[gmIdx] << ", " << dataTypeExpr[localIdx] << ", " << tileShapeForMT[ID0]
                 << ", " << tileShapeForMT[ID1] << ">"
                 << "((" << addrTypeHead[ID0] << " " << dataTypeExpr[ID0] << "*)" << addrExpr[ID0] << ", "
                 << "(" << addrTypeHead[ID1] << " " << dataTypeExpr[ID1] << "*)" << addrBuffer << ", "
-                << gmShapeExpr[ID0] << ", " << gmOffsetExpr[ID0] << ", " << outerValueStr << ", " << innerValueStr
-                << ", " << uf << ");\n";
-        }
-    } else {
-        if (isSupportDynamicUnaligned) {
+                << gmShapeExpr[ID0] << ", " << gmOffsetExpr[ID0] << ", " << uf << ");\n";
+        } else {
             int64_t copyInMode = 1;
             std::string cpModeStr = "";
             const int64_t ND2ND = 0;
@@ -945,12 +952,6 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL1Dynamic(const PrintMemCopyWithL
                 << SymbolicExpressionTable::BuildExpression(dynValidShape[ID0]) << ", "
                 << SymbolicExpressionTable::BuildExpression(dynValidShape[ID1]) << ", " << gmShapeExpr[ID0] << ", "
                 << gmOffsetExpr[ID0] << ", " << uf << ");\n";
-        } else {
-            oss << opName << "<" << dataTypeExpr[gmIdx] << ", " << dataTypeExpr[localIdx] << ", " << tileShapeForMT[ID0]
-                << ", " << tileShapeForMT[ID1] << ">"
-                << "((" << addrTypeHead[ID0] << " " << dataTypeExpr[ID0] << "*)" << addrExpr[ID0] << ", "
-                << "(" << addrTypeHead[ID1] << " " << dataTypeExpr[ID1] << "*)" << addrBuffer << ", "
-                << gmShapeExpr[ID0] << ", " << gmOffsetExpr[ID0] << ", " << uf << ");\n";
         }
     }
 
@@ -968,11 +969,11 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithUB(PrintMemCopyWithUBParam &param
     if (isSupportLayout) {
         return PrintMemCopyWithUBTileTensor(param);
     }
-    if (isSupportDynamicUnaligned) {
-        return PrintMemCopyWithUBDynamicSupportUnaligned(param);
-    }
-    if (functionType == FunctionType::DYNAMIC_LOOP_PATH) {
+    if (isSupportDynamicAligned) {
         return PrintMemCopyWithUBDynamic(param);
+    }
+    if (isDynamicFunction) {
+        return PrintMemCopyWithUBDynamicSupportUnaligned(param);
     }
     return PrintMemCopyWithUBStatic(param);
 }
@@ -1159,7 +1160,8 @@ std::vector<std::string> CodeGenOpCloudNPU::GetGmOffsetForTileTensor(const Print
 std::string CodeGenOpCloudNPU::PrintMemCopyWithUBTileTensor(const PrintMemCopyWithUBParam &param) const {
     std::vector<std::string> gmOffsetExpr = GetGmOffsetForTileTensor(param);
 
-    // constructor call parameter ((RUNTIME_COA_GET_PARAM_OFFSET(2, 136, 0)),(RUNTIME_COA_GET_PARAM_OFFSET(2, 136, 1)))
+    // constructor call parameter ((RUNTIME_COA_GET_PARAM_OFFSET(2, 136, 0)),(RUNTIME_COA_GET_PARAM_OFFSET(2, 136,
+    // 1)))
     std::string coordCp = WrapParamByParentheses(gmOffsetExpr);
     // e.g. Coord4Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 136, 0)),(RUNTIME_COA_GET_PARAM_OFFSET(2, 136, 1)))
     int dim = static_cast<int>(rawShape[param.gmIdx].size());

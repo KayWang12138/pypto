@@ -25,6 +25,7 @@
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
 #include "codegen/cloudnpu/codegen_op_cloudnpu.h"
 #include "test_codegen_utils.h"
+#include "test_codegen_common.h"
 
 namespace npu::tile_fwk {
 class TestCodegenDynMM : public ::testing::Test {
@@ -62,11 +63,14 @@ TEST_F(TestCodegenDynMM, TestDynMatmulTileTensor) {
     Tensor output(DT_FP16, shape, "C");
 
     std::string funcName = "TestDynMatmulTileTensor";
-    config::SetBuildStatic(true);
     FUNCTION(funcName, {inputA, inputB, output}) {
-        output = Add(inputA, inputB);
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            output = Add(inputA, inputB);
+        }
     }
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
     function->SetUnderDynamicFunction(true);
     std::vector<SymbolicScalar> dynValidShape = {64, 64};
     auto localTensorA = CreateLogicalTensor({*function, DataType::DT_FP16, MemoryType::MEM_L0A, shape});

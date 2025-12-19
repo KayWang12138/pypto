@@ -1205,6 +1205,7 @@ TEST_F(DynamicBasicTest, TestGetTensorDataExpr) {
     SetInterpreterConfig();
     int tiling = 32;
     config::SetCodeGenOption(CODEGEN_EXPRESSION_FUSION, true);
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_ALIGNED, true);
     TileShape::Current().SetVecTile(tiling, tiling);
     TileShape::Current().SetCubeTile({tiling, tiling}, {tiling, tiling}, {tiling, tiling});
 
@@ -1594,6 +1595,7 @@ TEST_F(DynamicBasicTest, TestSelectAttention) {
 }
 
 TEST_F(DynamicBasicTest, TestGetTensorDataSymbolicValue) {
+    config::SetCodeGenOption(SUPPORT_DYNAMIC_ALIGNED, true);
     int n = 4;
     int loopCount = 4;
     int NUM_2 = 2;

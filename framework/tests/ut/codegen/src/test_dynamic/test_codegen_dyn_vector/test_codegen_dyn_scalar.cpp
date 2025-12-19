@@ -33,9 +33,7 @@ class TestCodegenDynScalar : public ::testing::Test {
 public:
     static void SetUpTestCase() {}
 
-    static void TearDownTestCase() {
-        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
-    }
+    static void TearDownTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false); }
 
     void SetUp() override {
         Program::GetInstance().Reset();
@@ -60,11 +58,14 @@ TEST_F(TestCodegenDynScalar, TestScalarAdds) {
     Tensor input(DataType::DT_FP32, shape, "input");
     Tensor output(DataType::DT_FP32, shape, "res");
     std::string funcName = "ScalarAddS";
-    config::SetBuildStatic(true);
     FUNCTION(funcName, {input, output}) {
-        output = ScalarAddS(input, Element(DataType::DT_FP32, 127.0), true);
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            output = ScalarAddS(input, Element(DataType::DT_FP32, 127.0), true);
+        }
     }
-    auto function = Program::GetInstance().GetFunctionByRawName("TENSOR_" + funcName);
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
 
     function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
     function->SetUnderDynamicFunction(true);
@@ -98,12 +99,14 @@ TEST_F(TestCodegenDynScalar, TestScalarDivs) {
     Tensor input(DataType::DT_FP32, shape, "input");
     Tensor output(DataType::DT_FP32, shape, "res");
     std::string funcName = "ScalarDivS";
-    config::SetBuildStatic(true);
     FUNCTION(funcName, {input, output}) {
-        output = ScalarDivS(input, Element(DataType::DT_FP32, 127.0), true);
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            output = ScalarDivS(input, Element(DataType::DT_FP32, 127.0), true);
+        }
     }
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
-
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
     function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
     function->SetUnderDynamicFunction(true);
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
@@ -149,7 +152,8 @@ TEST_F(TestCodegenDynScalar, TestAddsTileTensor) {
     }
 
 #if ENABLE_HIDDENLOOP
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + "_hiddenfunc0");
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
 #else
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX);
 #endif

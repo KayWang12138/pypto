@@ -72,7 +72,8 @@ static std::map<std::string, ValueType> g_hostConfig = {
 };
 
 static std::map<std::string, ValueType> g_codegenConfig = {
-    {SUPPORT_DYNAMIC_UNALIGNED, false},
+    {SUPPORT_DYNAMIC_UNALIGNED,  true},
+    {  SUPPORT_DYNAMIC_ALIGNED, false},
     {CODEGEN_EXPRESSION_FUSION, false},
 };
 

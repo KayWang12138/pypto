@@ -66,7 +66,7 @@ std::string CodeGenOpCloudNPU::GenCubeOp(bool zeroC) const {
 
     std::ostringstream oss;
 
-    if (isSupportDynamicUnaligned) {
+    if (isDynamicFunction) {
         auto l0cShapeDyn = dynamicValidShape[ID0];
         auto l0aShapeDyn = dynamicValidShape[ID1];
         auto l0bShapeDyn = dynamicValidShape[ID2];
@@ -89,7 +89,7 @@ std::string CodeGenOpCloudNPU::GenCubeOp(bool zeroC) const {
             << SymbolicExpressionTable::BuildExpression(nSymbol) << ", " << (zeroC ? "true" : "false") << ", " << uf
             << ", " << SymbolicExpressionTable::BuildExpression(l0cShapeDyn[ID0]) << ", "
             << SymbolicExpressionTable::BuildExpression(l0cShapeDyn[ID1]) << ");\n";
-    } else {
+    } else { // static function
         oss << tileOpName << "<" << cDtypeStr << ", " << aDtypeStr << ", " << bDtypeStr << ", " << offset[ID0][ID0]
             << ", " << offset[ID0][ID1] << ", " << shape[ID0][ID0] << ", " << shape[ID0][ID1] << ">"
             << "((" << GetAddrTypeByOperandType(operandType[ID0]) << " " << cDtypeStr << "*)" << cVar << ", "

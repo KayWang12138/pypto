@@ -34,9 +34,7 @@ class TestCodegenDynBinary : public ::testing::Test {
 public:
     static void SetUpTestCase() {}
 
-    static void TearDownTestCase() {
-        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
-    }
+    static void TearDownTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false); }
 
     void SetUp() override {
         Program::GetInstance().Reset();
@@ -59,13 +57,15 @@ void TestAddDynBody(const std::vector<int64_t> &shape, const std::vector<int64_t
     Tensor input_b(DT_FP32, shape, "B");
     Tensor output(DT_FP32, shape, "C");
 
-    config::SetBuildStatic(true);
     FUNCTION(name, {input_a, input_b, output}) {
-        output = Add(input_a, input_b);
+        LOOP(name, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            output = Add(input_a, input_b);
+        }
     }
 
-    auto function = Program::GetInstance().GetFunctionByRawName("TENSOR_" + name);
-
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + name + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
     function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
     function->SetUnderDynamicFunction(true);
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
@@ -108,12 +108,17 @@ TEST_F(TestCodegenDynBinary, TestAddsDynamic) {
     Element value(DataType::DT_FP32, 1.5);
     Tensor output(DataType::DT_FP32, shape, "C");
     ConfigManager::Instance();
-    config::SetBuildStatic(true);
-    FUNCTION("ADD_S", {input_a, output}) {
-        output = Add(input_a, value);
+
+    std::string funcName = "ADD_S";
+    FUNCTION(funcName, {input_a, output}) {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            output = Add(input_a, value);
+        }
     }
 
-    auto function = Program::GetInstance().GetFunctionByRawName("TENSOR_ADD_S");
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
     function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
     function->SetUnderDynamicFunction(true);
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
@@ -153,11 +158,14 @@ TEST_F(TestCodegenDynBinary, TestGatherEle) {
     Tensor outputTensor(DT_FP32, outputShape, "output_tensor");
 
     std::string funcName = "GATHER_ELEMET_T";
-    config::SetBuildStatic(true);
     FUNCTION(funcName, {inputScores, inputTmpScores, outputTensor}) {
-        outputTensor = GatherElements(inputTmpScores, inputScores, 1); // [b*s,8]
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            outputTensor = GatherElements(inputTmpScores, inputScores, 1); // [b*s,8]
+        }
     }
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
     function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
     function->SetUnderDynamicFunction(true);
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
@@ -184,7 +192,7 @@ TEST_F(TestCodegenDynBinary, TestGatherEle) {
 TEST_F(TestCodegenDynBinary, TestGatherEleTileTensor) {
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-    config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE,false);
+    config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
 
     constexpr const int32_t nRoutedExperts = 256;
     constexpr const int32_t numExpertsPerTopk = 8;
@@ -199,11 +207,14 @@ TEST_F(TestCodegenDynBinary, TestGatherEleTileTensor) {
     Tensor outputTensor(DT_FP32, outputShape, "output_tensor");
 
     std::string funcName = "GATHER_ELEMET_TILETENSOR";
-    config::SetBuildStatic(true);
     FUNCTION(funcName, {inputScores, inputTmpScores, outputTensor}) {
-        outputTensor = GatherElements(inputTmpScores, inputScores, 1); // [b*s,8]
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            outputTensor = GatherElements(inputTmpScores, inputScores, 1); // [b*s,8]
+        }
     }
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
     function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
     function->SetUnderDynamicFunction(true);
     for (auto &subFunc : function->rootFunc_->programs_) {
@@ -226,7 +237,7 @@ TEST_F(TestCodegenDynBinary, TestGatherEleTileTensor) {
 
 // funcHash: 4406265521673542194
 
-extern "C" [aicore] void TENSOR_GATHER_ELEMET_TILETENSOR_1_0_4503599627370496(CoreFuncParam* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam) {
+extern "C" [aicore] void TENSOR_GATHER_ELEMET_TILETENSOR_Unroll1_PATH0_hiddenfunc0_7_0_4503599627370496(CoreFuncParam* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam) {
 float __ubuf__ *UB_S0_E2048 = (float __ubuf__ *)get_imm(0x0); // size: 0x800
 float *UB_S0_E2048_T = (float *)get_imm(0x0); // size: 0x800
 int32_t __ubuf__ *UB_S2048_E2112 = (int32_t __ubuf__ *)get_imm(0x800); // size: 0x40
@@ -235,10 +246,10 @@ float __ubuf__ *UB_S2112_E2176 = (float __ubuf__ *)get_imm(0x840); // size: 0x40
 float *UB_S2112_E2176_T = (float *)get_imm(0x840); // size: 0x40
 uint64_t sym_10_dim_0 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 2, 19, 2, 0);
 uint64_t sym_10_dim_1 = GET_PARAM_VALID_SHAPE_BY_IDX(param, 2, 19, 2, 1);
-uint64_t sym_6_dim_0 = 2; //GET_PARAM_VALID_SHAPE_BY_IDX(param, 1, 10, 2, 0);
-uint64_t sym_6_dim_1 = 256; //GET_PARAM_VALID_SHAPE_BY_IDX(param, 1, 10, 2, 1);
-uint64_t sym_9_dim_0 = 2; //GET_PARAM_VALID_SHAPE_BY_IDX(param, 0, 1, 2, 0);
-uint64_t sym_9_dim_1 = 8; //GET_PARAM_VALID_SHAPE_BY_IDX(param, 0, 1, 2, 1);
+uint64_t sym_6_dim_0 = (RUNTIME_COA_GET_PARAM_VALID_SHAPE(2, 10, 0)); //GET_PARAM_VALID_SHAPE_BY_IDX(param, 1, 10, 2, 0);
+uint64_t sym_6_dim_1 = (RUNTIME_COA_GET_PARAM_VALID_SHAPE(2, 10, 1)); //GET_PARAM_VALID_SHAPE_BY_IDX(param, 1, 10, 2, 1);
+uint64_t sym_9_dim_0 = (RUNTIME_COA_GET_PARAM_VALID_SHAPE(2, 1, 0)); //GET_PARAM_VALID_SHAPE_BY_IDX(param, 0, 1, 2, 0);
+uint64_t sym_9_dim_1 = (RUNTIME_COA_GET_PARAM_VALID_SHAPE(2, 1, 1)); //GET_PARAM_VALID_SHAPE_BY_IDX(param, 0, 1, 2, 1);
 using UBTileTensorFP32Dim2_5 = TileTensor<float, LocalLayout2Dim<2, 8>, Hardware::UB>;
 using GMTileTensorINT32Dim2_4 = TileTensor<__gm__ int32_t, DynLayout2Dim, Hardware::GM>;
 using GMTileTensorFP32Dim2_6 = TileTensor<__gm__ float, DynLayout2Dim, Hardware::GM>;
@@ -251,15 +262,15 @@ GMTileTensorINT32Dim2_4 gmTensor_4((__gm__ int32_t*)GET_PARAM_ADDR(param, 0, 0),
 GMTileTensorFP32Dim2_2 gmTensor_2((__gm__ float*)GET_PARAM_ADDR(param, 0, 0), DynLayout2Dim(Shape2Dim(GET_PARAM_RAWSHAPE_2(param, 0, 0)), Stride2Dim(GET_PARAM_STRIDE_2(param, 0, 0))));
 UBTileTensorFP32Dim2_1 ubTensor_1((uint64_t)UB_S0_E2048_T, (Shape2Dim(sym_6_dim_0, sym_6_dim_1)));
 SUBKERNEL_PHASE1
-TLoad(ubTensor_1, gmTensor_2, Coord2Dim(0, 0));
-TLoad(ubTensor_3, gmTensor_4, Coord2Dim(0, 0));
+TLoad(ubTensor_1, gmTensor_2, Coord2Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 10, 0)), (RUNTIME_COA_GET_PARAM_OFFSET(2, 10, 1))));
+TLoad(ubTensor_3, gmTensor_4, Coord2Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 1, 0)), (RUNTIME_COA_GET_PARAM_OFFSET(2, 1, 1))));
 SUBKERNEL_PHASE2
 set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
 wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
 TgatherElement<4>(ubTensor_5, ubTensor_1, ubTensor_3);
 set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
 wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-TStore(gmTensor_2, ubTensor_5, Coord2Dim(0, 0));
+TStore(gmTensor_2, ubTensor_5, Coord2Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 19, 0)), (RUNTIME_COA_GET_PARAM_OFFSET(2, 19, 1))));
 }
 )!!!";
 
@@ -286,7 +297,6 @@ TEST_F(TestCodegenDynBinary, AddUnalignTileTensor) {
     Tensor out(DT_FP32, outShape, "out");
 
     std::string loopName = "L0_TILETENSOR";
-
     FUNCTION("main", {input1, input2, curSeq}, {out}) {
         LOOP(loopName, FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b)) {
             auto seq = GetTensorData(curSeq, {batchId, 0});
@@ -310,7 +320,8 @@ TEST_F(TestCodegenDynBinary, AddUnalignTileTensor) {
     });
 
 #if ENABLE_HIDDENLOOP
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + loopName + SUB_FUNC_SUFFIX + "_hiddenfunc0");
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + loopName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
 #else
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + loopName + SUB_FUNC_SUFFIX);
 #endif
@@ -356,7 +367,7 @@ TStore(gmTensor_8, ubTensor_1, Coord2Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 19, 0)
 }
 )!!!";
 #else
-std::string expect = R"!!!(#include "TileOpImpl.h"
+    std::string expect = R"!!!(#include "TileOpImpl.h"
 
 // funcHash: 13526864639772037405
 

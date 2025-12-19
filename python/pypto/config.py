@@ -178,6 +178,7 @@ def get_host_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]]]:
 
 def set_codegen_options(*,
                         support_dynamic_unaligned: Optional[bool] = None,
+                        support_dynamic_aligned: Optional[bool] = None,
                         codegen_expression_fusion: Optional[bool] = None
                         ) -> None:
     """
@@ -185,8 +186,8 @@ def set_codegen_options(*,
 
     Parameters
     ---------
-    support_dynamic_unaligned : bool
-        Whether to support dynamic Shape.
+    support_dynamic_aligned : bool
+        Whether to support dynamic shape which is aligned.
 
     codegen_expression_fusion : bool
         Whether to support executing dynamic
