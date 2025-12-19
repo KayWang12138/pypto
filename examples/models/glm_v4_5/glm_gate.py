@@ -17,6 +17,23 @@ import numpy as np
 from numpy.testing import assert_allclose
 from torch._subclasses.fake_tensor import FakeTensor
 from torch._dynamo import allow_in_graph
+from utils.get_format import get_format
+
+
+def check_args(
+    gate_weight, 
+    hidden_states
+):
+    assert gate_weight.dim() == 2
+    assert gate_weight.shape[0] == 160
+    assert gate_weight.shape[1] == 5120
+    assert get_format(gate_weight) == 'ND'
+    assert gate_weight.dtype == torch.float32
+    
+    assert hidden_states.dim() == 2
+    assert hidden_states.shape[1] == 5120
+    assert get_format(hidden_states) == 'ND'
+    assert hidden_states.dtype == torch.float32
 
 
 def powers_of_2(n: int) -> set[int]:
@@ -32,38 +49,6 @@ def powers_of_2(n: int) -> set[int]:
     return result
 
 
-def main():
-    test_select_experts_mm()
-
-
-@allow_in_graph
-def graph_select_experts_mm(hidden_states, gate_weight, router_logits_out):
-    if isinstance(hidden_states, FakeTensor):
-        return
-    inputs = {
-        hidden_states: [0],
-        gate_weight: []
-    }
-    outputs = {
-        router_logits_out: [0]
-    }
-    pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
-    pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
-    select_experts_mm(*pto_inputs, *pto_outputs)
-    pypto.runtime._device_synchronize()
-
-
-def gate(gate_weight: torch.Tensor,  # gate matmul weights
-             hidden_states: torch.Tensor  # Hidden states of shape (num_tokens, hidden_size).
-             ) -> torch.Tensor:
-    bs = hidden_states.shape[0]
-    ne = gate_weight.shape[0]
-    router_logits_out = torch.empty((bs, ne), dtype=gate_weight.dtype, device=hidden_states.device)
-
-    graph_select_experts_mm(hidden_states, gate_weight, router_logits_out)
-    return router_logits_out
-
-
 @pypto.jit(
     runtime_options={
     "cfgcache_device_task_num": 100,
@@ -72,7 +57,7 @@ def gate(gate_weight: torch.Tensor,  # gate matmul weights
     host_options={"only_codegen": True},
     codegen_options={"support_dynamic_unaligned": True}
 )
-def select_experts_mm(hidden_states, mm_weight, router_logits_out):
+def select_experts_mm_kernel(hidden_states, mm_weight, router_logits_out):
     # 泳道图使能  pypto.set_option('profile_enable', True)
     # 3. 得到动态tensor的shape
     bs = hidden_states.shape[0]
@@ -132,7 +117,7 @@ def test_select_experts_mm():
         pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
         g = torch.npu.NPUGraph()
         with torch.npu.graph(g):
-            select_experts_mm(*pto_inputs, *pto_outputs)
+            select_experts_mm_kernel(*pto_inputs, *pto_outputs)
         g.replay()
         pypto.runtime._device_synchronize()
 
@@ -144,6 +129,32 @@ def test_select_experts_mm():
         assert_allclose(np.array(router_logits_out.cpu().flatten().tolist()),
                         np.array(result_list),
                         rtol=5e-3, atol=5e-3)
+
+
+@allow_in_graph
+def gate(
+    gate_weight: torch.Tensor,  # gate matmul weights
+    hidden_states: torch.Tensor,  # Hidden states of shape (num_tokens, hidden_size).
+    router_logits_out: torch.Tensor, 
+    ) -> torch.Tensor:
+    if isinstance(hidden_states, FakeTensor):
+        return router_logits_out
+    check_args(gate_weight, hidden_states)
+    inputs = {
+        hidden_states: [0],
+        gate_weight: []
+    }
+    outputs = {
+        router_logits_out: [0]
+    }
+    pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
+    pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
+    select_experts_mm_kernel(*pto_inputs, *pto_outputs)
+    pypto.runtime._device_synchronize()
+
+
+def main():
+    test_select_experts_mm()
 
 
 if __name__ == "__main__":

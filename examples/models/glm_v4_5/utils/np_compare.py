@@ -141,7 +141,7 @@ def _log_nan_error(multi_idx, cpu_val, npu_val, YELLOW, RESET):
 def _log_tolerance_error(multi_idx, cpu_val, npu_val, rtol, atol, YELLOW, RESET):
     abs_diff = np.abs(cpu_val - npu_val)
     allowed_diff = atol + rtol * np.abs(npu_val)
-    print(f"索引 {multi_idx}: cpu={cpu_str:.6e}, npu={npu_str:.6e}, 差值={abs_diff:.6e}(超过容差{allowed_diff:.6e})")
+    print(f"索引 {multi_idx}: cpu={cpu_val:.6e}, npu={npu_val:.6e}, 差值={abs_diff:.6e}(超过容差{allowed_diff:.6e})")
 
 
 def _print_summary(abnormal_count, nan_count, exceed_tolerance_count, total_elements, name):

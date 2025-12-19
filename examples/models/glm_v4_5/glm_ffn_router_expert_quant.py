@@ -19,6 +19,52 @@ from numpy.testing import assert_allclose
 from glm_ffn_common_interface import symmetric_quantization_per_token, dequant_dynamic, swiglu
 from torch._subclasses.fake_tensor import FakeTensor
 from torch._dynamo import allow_in_graph
+from utils.get_format import get_format
+
+
+def check_args(
+        hidden_states,
+        pertoken_scale,
+        group_list,
+        w13,
+        w13_scale,
+        w2,
+        w2_scale
+):
+    assert hidden_states.dim() == 2
+    assert hidden_states.shape[1] == 5120
+    assert get_format(hidden_states) == 'ND'
+    assert hidden_states.dtype == torch.int8
+
+    assert pertoken_scale.dim() == 1
+    assert get_format(pertoken_scale) == 'ND'
+    assert pertoken_scale.dtype == torch.float32
+
+    assert group_list.dim() == 1
+    assert get_format(group_list) == 'ND'
+    assert group_list.dtype == torch.int32
+
+    assert w13.dim() == 3
+    assert w13.shape[1] == 5120
+    assert w13.shape[2] == 3072
+    assert get_format(w13) == 'NZ'
+    assert w13.dtype == torch.int8
+
+    assert w13_scale.dim() == 2
+    assert w13_scale.shape[1] == 3072
+    assert get_format(w13_scale) == 'ND'
+    assert w13_scale.dtype == torch.float32
+
+    assert w2.dim() == 3
+    assert w2.shape[1] == 1536
+    assert w2.shape[2] == 5120
+    assert get_format(w2) == 'NZ'
+    assert w2.dtype == torch.int8
+
+    assert w2_scale.dim() == 2
+    assert w2_scale.shape[1] == 5120
+    assert get_format(w2_scale) == 'ND'
+    assert w2_scale.dtype == torch.bfloat16
 
 
 def main():
@@ -105,22 +151,22 @@ def gen_input(b, s, topk, per_expert_num, hidden_size, intermediate_size, dtypes
     return hidden_states, hidden_states_scale, group_list, group_list_cumsum, w13, w13_scale, w2, w2_scale, ffn_res
 
 
-def expert_infer_base(**kwargs):
+def expert_infer_base(
+        hidden_states_params,
+        group_list_params,
+        w13_params,
+        w2_params,
+        offset_params,
+        tiling_params,
+        ffn_res):
+
     # 入参信息获取
-    exp_idx = kwargs.get("exp_idx")
-    token_loop_idx = kwargs.get("token_loop_idx")
-    loop_base = kwargs.get("loop_base")
-    hidden_states = kwargs.get("hidden_states")
-    hidden_states_scale = kwargs.get("hidden_states_scale")
-    group_list = kwargs.get("group_list")
-    group_list_cumsum = kwargs.get("group_list_cumsum")
-    w13 = kwargs.get("w13")
-    w13_scale = kwargs.get("w13_scale")
-    w2 = kwargs.get("w2")
-    w2_scale = kwargs.get("w2_scale")
-    ffn_res = kwargs.get("ffn_res")
-    mm1_cube_tile_shape = kwargs.get("mm1_cube_tile_shape")
-    mm2_cube_tile_shape = kwargs.get("mm2_cube_tile_shape")
+    hidden_states, hidden_states_scale = hidden_states_params
+    group_list, group_list_cumsum = group_list_params
+    w13, w13_scale = w13_params
+    w2, w2_scale = w2_params
+    exp_idx, token_loop_idx, loop_base = offset_params
+    mm1_cube_tile_shape, mm2_cube_tile_shape = tiling_params
 
     hidden_size = hidden_states.shape[1]
     intermediate_size = w13.shape[1] // 2
@@ -164,7 +210,7 @@ def expert_infer_base(**kwargs):
     # dequant
     pypto.set_vec_tile_shapes(1, intermediate_size * 2)
     up_proj_out = dequant_dynamic(up_proj, w13_scale_valid, x_scale)
-    swiglu_out = swiglu(up_proj_out, loop_base)
+    swiglu_out = swiglu(up_proj_out)
 
     # down_proj
     # quant
@@ -182,61 +228,49 @@ def expert_infer_base(**kwargs):
     pypto.assemble(out, hidden_states_offset, ffn_res)
 
 
-# tiling config
-mm1_cube_tile_shape = (8, 256, 256)
-mm2_cube_tile_shape = (8, 256, 256)
-loop_base = 8
-
-
-@pypto.jit
+@pypto.jit(
+    host_options={"only_codegen": True},
+    codegen_options={"support_dynamic_unaligned": True,
+                     "codegen_expression_fusion": True},
+    runtime_options={"device_sched_mode": 1}
+)
 def moe_router_expert_main(hidden_states, hidden_states_scale,
                            group_list, group_list_cumsum, w13,
                            w13_scale, w2, w2_scale, ffn_res):
-    pypto.set_host_options(only_codegen=True)
-    pypto.set_codegen_options(support_dynamic_unaligned=True)
-    pypto.set_codegen_options(codegen_expression_fusion=True)
-    pypto.set_runtime_options(device_sched_mode=1)
     pypto.set_pass_options(l1_reuse=2)
+
+    # tiling config
+    mm1_cube_tile_shape = (8, 256, 256)
+    mm2_cube_tile_shape = (8, 256, 256)
+    loop_base = 8
 
     # 获取当前device上专家总数
     expert_num = group_list.shape[0]
 
+    # 输入Tensor shape转换为2维
     w13_2d_shape = (w13.shape[0] * w13.shape[1], w13.shape[2])
     w2_2d_shape = (w2.shape[0] * w2.shape[1], w2.shape[2])
     hidden_states_scale_shape = (hidden_states_scale.shape[0], 1)
 
-    for _ in pypto.loop(0, 1, 1, name="LOOP_FFN_ROUTER_MLP_RESHAPE", idx_name="reshape_idx"):
-        w13_2d = pypto.reshape(w13, w13_2d_shape, inplace=True)
-        w2_weight_2d = pypto.reshape(w2, w2_2d_shape, inplace=True)
-        hidden_states_scale_2d = pypto.reshape(hidden_states_scale, hidden_states_scale_shape, inplace=True)
+    w13_2d = pypto.reshape(w13, w13_2d_shape, inplace=True)
+    w2_2d = pypto.reshape(w2, w2_2d_shape, inplace=True)
+    hidden_states_scale_2d = pypto.reshape(hidden_states_scale, hidden_states_scale_shape, inplace=True)
 
-    for exp_idx in pypto.loop(0, expert_num, 1, name="LOOP_FFN_ROUTER_MLP_L0", idx_name="exp_idx"):
-        def loop_expert(exp_idx):
-            # 获取激活专家的token数
-            token_num = group_list[exp_idx, ]
-            # 每个专家单次计算16token，不足部分会进行pad
-            exp_loop_times = (token_num + loop_base - 1) // loop_base
-
-            for token_loop_idx in pypto.loop(0, exp_loop_times, 1, name="LOOP_FFN_ROUTER_MLP_L1", idx_name="token_loop_idx"):
-                def loop_token(exp_idx, token_loop_idx):
-                    expert_infer_base(
-                        exp_idx=exp_idx,
-                        token_loop_idx=token_loop_idx,
-                        loop_base=loop_base,
-                        hidden_states=hidden_states,
-                        hidden_states_scale=hidden_states_scale_2d,
-                        group_list=group_list,
-                        group_list_cumsum=group_list_cumsum,
-                        w13=w13_2d,
-                        w13_scale=w13_scale,
-                        w2=w2_weight_2d,
-                        w2_scale=w2_scale,
-                        ffn_res=ffn_res,
-                        mm1_cube_tile_shape=mm1_cube_tile_shape,
-                        mm2_cube_tile_shape=mm2_cube_tile_shape,
-                        )
-                loop_token(exp_idx, token_loop_idx)
-        loop_expert(exp_idx)
+    for exp_idx in pypto.loop(expert_num, name="LOOP_FFN_ROUTER_MLP_L0", idx_name="exp_idx"):
+        # 获取激活专家的token数
+        token_num = group_list[exp_idx, ]
+        # 每个专家单次计算16token，不足部分会进行pad
+        exp_loop_times = (token_num + loop_base - 1) // loop_base
+        for token_loop_idx in pypto.loop(exp_loop_times, name="LOOP_FFN_ROUTER_MLP_L1", idx_name="token_loop_idx"):
+            expert_infer_base(
+                hidden_states_params=[hidden_states, hidden_states_scale_2d],
+                group_list_params=[group_list, group_list_cumsum],
+                w13_params=[w13_2d, w13_scale],
+                w2_params=[w2_2d, w2_scale],
+                offset_params=[exp_idx, token_loop_idx, loop_base],
+                tiling_params=[mm1_cube_tile_shape, mm2_cube_tile_shape],
+                ffn_res=ffn_res
+            )
 
 
 @allow_in_graph
@@ -246,16 +280,13 @@ def ffn_router_expert_quant(hidden_states: torch.Tensor,
                             w13: torch.Tensor,
                             w13_scale: torch.Tensor,
                             w2: torch.Tensor,
-                            w2_scale: torch.Tensor
-)-> torch.Tensor:
-    x_dtype = w2_scale.dtype
-    b_s_topk, hidden_size = hidden_states.shape[0:2]
+                            w2_scale: torch.Tensor,
+                            ffn_res: torch.Tensor
+) -> None:
     group_list_int32 = group_list.to(torch.int32)
 
-    from glm_ffn_group_list_cumsum import glm_router_expert_cumsum
-    group_list_cumsum = glm_router_expert_cumsum(group_list)
+    group_list_cumsum = (torch.cumsum(group_list_int32, dim=0) - group_list_int32).to(torch.int32)
 
-    ffn_res = torch.empty((b_s_topk, hidden_size), dtype=x_dtype, device=hidden_states.device)
     inputs = {
         hidden_states: [0],
         pertoken_scale: [0],
@@ -270,11 +301,11 @@ def ffn_router_expert_quant(hidden_states: torch.Tensor,
         ffn_res: [0]
     }
     if not isinstance(hidden_states, FakeTensor):
+        check_args(hidden_states, pertoken_scale, group_list_int32, w13, w13_scale, w2, w2_scale)
         pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
         pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
         moe_router_expert_main(*pto_inputs, *pto_outputs)
         pypto.runtime._device_synchronize()
-    return ffn_res
 
 
 def test_ffn_router():

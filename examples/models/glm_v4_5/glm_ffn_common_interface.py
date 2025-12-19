@@ -37,12 +37,11 @@ def dequant_dynamic(in_tensor, scale_1, scale_2):
     return out
 
 
-def swiglu(up_proj, loop_base):
+def swiglu(up_proj):
     # SwiGlu & mul : [x / (1 + e^(-x)) * right]
     intermediate_size = up_proj.shape[1] // 2
-    up_proj_left = pypto.view(up_proj, [loop_base, intermediate_size], [0, 0])
-    up_proj_right = pypto.view(up_proj, [loop_base, intermediate_size], [0, intermediate_size])
-
+    up_proj_left = pypto.view(up_proj, [up_proj.shape[0], intermediate_size], [0, 0])
+    up_proj_right = pypto.view(up_proj, [up_proj.shape[0], intermediate_size], [0, intermediate_size])
     swiglu_mul = pypto.mul(up_proj_left, -1.0)
     swiglu_exp = pypto.exp(swiglu_mul)
     swiglu_add = pypto.add(swiglu_exp, 1.0)

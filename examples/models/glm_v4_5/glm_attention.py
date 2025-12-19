@@ -14,19 +14,45 @@
 from dataclasses import dataclass
 import torch
 import pypto
-import pytest
 import numpy as np
 import math
 import os
+from numpy.testing import assert_allclose
 from torch._subclasses.fake_tensor import FakeTensor
 from torch._dynamo import allow_in_graph
-
-from utils.np_compare import detailed_allclose_manual
+from utils.get_format import get_format
 
 np.random.seed(0)
 torch.manual_seed(0)
 np.set_printoptions(formatter={'float': '{:.6f}'.format})
 
+
+def check_args(
+    query,
+    key_cache,
+    value_cache,
+    block_tables,
+    actual_seqs,
+    attn_res
+):
+    assert query.dim() == 3
+    assert get_format(query) == 'ND'
+    assert query.dtype == torch.bfloat16
+    assert key_cache.dim() == 4
+    assert get_format(key_cache) == 'ND'
+    assert key_cache.dtype == torch.bfloat16
+    assert value_cache.dim() == 4
+    assert get_format(value_cache) == 'ND'
+    assert value_cache.dtype == torch.bfloat16
+    assert block_tables.dim() == 2
+    assert get_format(block_tables) == 'ND'
+    assert block_tables.dtype == torch.int32
+    assert actual_seqs.dim() == 1
+    assert get_format(actual_seqs) == 'ND'
+    assert actual_seqs.dtype == torch.int32
+    assert attn_res.dim() == 3
+    assert get_format(attn_res) == 'ND'
+    assert attn_res.dtype == torch.bfloat16
 
 @dataclass
 class AttentionTileConfig:
@@ -65,7 +91,7 @@ def get_qwen_common_config(device="cpu"):
     nkv = 1
     kv_layout = "PA_BSND"
     softmax_scale = q_d ** -0.5
-    block_table_batch = 256
+    block_table_batch = b
     block_size = 128
     kv_num_blocks = b * ((s2 + block_size - 1) // block_size)
 
@@ -205,6 +231,7 @@ def softmax(x, is_fp16=False):
         x_max = x_max.to(original_dtype)
         x_sum = x_sum.to(original_dtype)
 
+
     return ans, x_max, x_sum
 
 
@@ -233,14 +260,13 @@ def ifa_func(q, k, v, block_table, kv_act_seqs, atten_out):
      # 2. 从入参拿到输入和输出tensor
     shape_q = q.shape
     shape_k = k.shape
-    shape_act_seqs = kv_act_seqs.shape
     bs_scalar = shape_q[0]
     nq = shape_q[1]
     block_num_scalar = shape_k[0]
     block_size = shape_k[1]
     nkv = shape_k[2]
     dn = shape_k[3]
-    b_scalar = shape_act_seqs[0]
+    b_scalar = block_table.shape[0]
 
     dtype = q.dtype
     group = nq // nkv
@@ -290,9 +316,9 @@ def ifa_func(q, k, v, block_table, kv_act_seqs, atten_out):
                         kj_assemble = pypto.tensor([s2_tile, dn], k_2d.dtype, "kj_assemble")
                         for i in range(block_num):
                             block_idx = block_table[b_idx, idx + i]
-                            block_idx_vaild = block_idx.max(0)
+                            block_idx_valid = block_idx.max(0)
                             kj_assemble[i * block_size:(i + 1) * block_size, 0:] = \
-                                pypto.view(k_2d, [block_size, dn], [block_idx_vaild * block_size, 0])
+                                pypto.view(k_2d, [block_size, dn], [block_idx_valid * block_size, 0])
                         kj_assemble = pypto.view(kj_assemble, [s2_tile, dn], [0, 0], valid_shape=[s2_tile, dn])
 
                         # c1
@@ -318,9 +344,9 @@ def ifa_func(q, k, v, block_table, kv_act_seqs, atten_out):
                             vj_assemble = pypto.tensor([s2_tile, dn], v_2d.dtype, "vj_assemble")
                             for i in range(block_num):
                                 block_idx = block_table[b_idx, idx + i]
-                                block_idx_vaild = block_idx.max(0)
+                                block_idx_valid = block_idx.max(0)
                                 vj_assemble[i * block_size:(i + 1) * block_size, 0:] = \
-                                    pypto.view(v_2d, [block_size, dn], [block_idx_vaild * block_size, 0])
+                                    pypto.view(v_2d, [block_size, dn], [block_idx_valid * block_size, 0])
                             vj_assemble = pypto.view(vj_assemble, [s2_tile, dn],
                                                      [0, 0], valid_shape=[actual_s2_tile, dn])
                             pypto.set_cube_tile_shapes(c2_tile[0], c2_tile[1], c2_tile[2])
@@ -350,9 +376,9 @@ def ifa_func(q, k, v, block_table, kv_act_seqs, atten_out):
                             vj_assemble = pypto.tensor([s2_tile, dn], v_2d.dtype, "vj_assemble")
                             for i in range(block_num):
                                 block_idx = block_table[b_idx, idx + i]
-                                block_idx_vaild = block_idx.max(0)
+                                block_idx_valid = block_idx.max(0)
                                 vj_assemble[i * block_size:(i + 1) * block_size, 0:] = \
-                                    pypto.view(v_2d, [block_size, dn], [block_idx_vaild * block_size, 0])
+                                    pypto.view(v_2d, [block_size, dn], [block_idx_valid * block_size, 0])
                             vj_assemble = pypto.view(vj_assemble, [s2_tile, dn],
                                                      [0, 0], valid_shape=[actual_s2_tile, dn])
                             pypto.set_cube_tile_shapes(c2_tile[0], c2_tile[1], c2_tile[2])
@@ -374,7 +400,6 @@ def ifa_func(q, k, v, block_table, kv_act_seqs, atten_out):
 
 def IFA(atten_cfg):
     device_id = os.environ.get('TILE_FWK_STEST_DEVICE_ID', 0)
-    print(f'xxxxxx device id {int(device_id)}')
     torch_dtype = torch.float16
     torch.npu.set_device(int(device_id))
     b = atten_cfg.b
@@ -449,12 +474,12 @@ def IFA(atten_cfg):
     ifa_func(*pto_inputs, *pto_outputs)
     pypto.runtime._device_synchronize()
 
-    y_data = out_torch.cpu().tolist()
     # 6. 与PyTorch参考实现对比
-    detailed_allclose_manual(np.array(attention_output.cpu()).flatten(), np.array(y_data).flatten(), "attention")
+    assert_allclose(np.array(attention_output.cpu().flatten().tolist()), 
+                    np.array(out_torch.cpu().flatten().tolist()),
+                    rtol=0.0078125, atol=0.0001)
 
 
-@pytest.mark.skip(reason="Large shape")
 def test_ifa():
     # 1. 设置参数
     device_id = os.environ.get('TILE_FWK_STEST_DEVICE_ID', 0)
@@ -482,10 +507,20 @@ def attention(
     value_cache: torch.Tensor,
     block_tables: torch.Tensor,
     actual_seqs: torch.Tensor,
-    output: torch.Tensor
+    attn_res: torch.Tensor
 ) -> None:
+
+    check_args(
+        query,
+        key_cache,
+        value_cache,
+        block_tables,
+        actual_seqs,
+        attn_res
+    )
+
     inputs = [query, key_cache, value_cache, block_tables, actual_seqs]
-    outputs = [output]
+    outputs = [attn_res]
     if isinstance(inputs[0], FakeTensor):
         return
     pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]

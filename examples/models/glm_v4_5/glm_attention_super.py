@@ -18,8 +18,9 @@ import torch_npu
 import pytest
 import pypto
 from dataclasses import dataclass
+from numpy.testing import assert_allclose
 
-from glm_attention_pre import add_rms_norm_npu_golden, rms_norm_npu_golden, \
+from glm_attention_pre_quant import add_rms_norm_npu_golden, rms_norm_npu_golden, \
     apply_rotary_pos_emb_v2, rms_norm_bias, rope_data
 from glm_scatter import scatter_update_golden
 from glm_attention import gen_block_table, kv_cache_concat_bsnd, softmax, \
@@ -231,14 +232,13 @@ def ifa_func(key_cache, value_cache, block_table, kv_act_seqs,
     d = dn
     b_loop = (b_scalar + b_tile - 1) // b_tile
 
-    for _ in pypto.loop(1, name="LOOP_RESHAPE_INPLACE", idx_name="tmp_idx"):
-        pypto.set_vec_tile_shapes(5120)
-        x_gamma_2d = pypto.reshape(x_gamma, [1, 5120], inplace=True)
-        x_bias_2d = pypto.reshape(x_bias, [1, 5120], inplace=True)
-        x_scale_2d = pypto.reshape(x_scale, [1, 5120], inplace=True)
-        x_offset_2d = pypto.reshape(x_offset, [1, 5120], inplace=True)
-        quant_bias_2d = pypto.reshape(quant_bias, [1, 1792], inplace=True)
-        deq_scale_2d = pypto.reshape(deq_scale, [1, 1792], inplace=True)
+    pypto.set_vec_tile_shapes(5120)
+    x_gamma_2d = pypto.reshape(x_gamma, [1, 5120], inplace=True)
+    x_bias_2d = pypto.reshape(x_bias, [1, 5120], inplace=True)
+    x_scale_2d = pypto.reshape(x_scale, [1, 5120], inplace=True)
+    x_offset_2d = pypto.reshape(x_offset, [1, 5120], inplace=True)
+    quant_bias_2d = pypto.reshape(quant_bias, [1, 1792], inplace=True)
+    deq_scale_2d = pypto.reshape(deq_scale, [1, 1792], inplace=True)
 
     # 6. 实现kernel逻辑，循环展开BS动态轴
     for bs_idx in pypto.loop(bs_loop, name="LOOP_ATT_PRE_L0", idx_name="bs_idx"):
@@ -628,21 +628,23 @@ def ifa(atten_cfg, device_id):
 
     output, q_tmp, k_tmp, v_tmp, residual_tmp = _attention(tensor_inputs)
 
-    from utils.np_compare import detailed_allclose_manual
-    # compare result
-    detailed_allclose_manual(np.array(residual_g.cpu().flatten().tolist()), np.array(residual_tmp.flatten().tolist()),
-                             "residual_g", rtol=0.001, atol=0.001)
-    detailed_allclose_manual(np.array(q_r.cpu().flatten().tolist()), np.array(q_tmp.flatten().tolist()), "q_r",
-                             rtol=0.001, atol=0.001)
-    detailed_allclose_manual(np.array(k_r.cpu().flatten().tolist()), np.array(k_tmp.flatten().tolist()), "k_r",
-                             rtol=0.01, atol=0.01)
-    detailed_allclose_manual(np.array(v_g.cpu().flatten().tolist()), np.array(v_tmp.flatten().tolist()), "v_g",
-                             rtol=0.001, atol=0.001)
+    assert_allclose(np.array(residual_g.cpu().flatten().tolist()), 
+                    np.array(residual_tmp.flatten().tolist()),
+                    rtol=0.001, atol=0.001)
+    assert_allclose(np.array(q_r.cpu().flatten().tolist()), 
+                    np.array(q_tmp.flatten().tolist()),
+                    rtol=0.001, atol=0.001)
+    assert_allclose(np.array(k_r.cpu().flatten().tolist()), 
+                    np.array(k_tmp.flatten().tolist()),
+                    rtol=0.01, atol=0.01)
+    assert_allclose(np.array(v_g.cpu().flatten().tolist()), 
+                    np.array(v_tmp.flatten().tolist()),
+                    rtol=0.01, atol=0.01)
 
-    y_data = output.cpu()
-    # 6. 与PyTorch参考实现对比
-    detailed_allclose_manual(np.array(attention_output.flatten().tolist()), np.array(y_data.flatten().tolist()),
-                             "attention", rtol=0.003, atol=0.003)
+    assert_allclose(np.array(attention_output.flatten().tolist()), 
+                    np.array(output.cpu().flatten().tolist()),
+                    rtol=0.003, atol=0.003)
+
 
 def test_super_attention():
     # 1. 设置参数

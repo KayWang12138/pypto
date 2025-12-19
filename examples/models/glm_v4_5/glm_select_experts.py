@@ -11,12 +11,38 @@
 """
 """
 import os
+
 import torch
 import pypto
 import numpy as np
 from numpy.testing import assert_allclose
 from torch._subclasses.fake_tensor import FakeTensor
 from torch._dynamo import allow_in_graph
+from utils.get_format import get_format
+
+
+def check_args(
+    router_logits,
+    top_k,
+    renormalize,
+    topk_group,
+    num_expert_group,
+    e_score_correction_bias
+):
+    assert router_logits.dim() == 2
+    assert router_logits.shape[1] == 160
+    assert get_format(router_logits) == 'ND'
+    assert router_logits.dtype == torch.float32
+    
+    assert e_score_correction_bias.dim() == 1
+    assert e_score_correction_bias.shape[0] == 160
+    assert get_format(e_score_correction_bias) == 'ND'
+    assert e_score_correction_bias.dtype == torch.bfloat16
+    
+    assert isinstance(top_k, int)
+    assert isinstance(renormalize, bool)
+    assert isinstance(topk_group, int)
+    assert isinstance(num_expert_group, int)
 
 
 def powers_of_2(n: int) -> set[int]:
@@ -204,7 +230,7 @@ def test_select_experts():
         torch.manual_seed(0)
         np.random.seed(0)
         router_logits = torch.rand(
-            (bs, ne), dtype=torch.bfloat16, device=f'npu:{device_id}')
+            (bs, ne), dtype=torch.float32, device=f'npu:{device_id}')
         e_score_bias = torch.rand(
             (ne), dtype=torch.bfloat16, device=f'npu:{device_id}')
         topk_weights = torch.empty(
@@ -282,25 +308,28 @@ def test_select_experts():
 
 @allow_in_graph
 def select_experts(router_logits: torch.Tensor,
-                       top_k: int,  # number of top k experts.
-                       # Whether to renormalize the routing weights.
-                       renormalize: bool,
-                       # Number of expert groups to select from.
-                       topk_group: int,
-                       # Number of experts in each group.
-                       num_expert_group: int,
-                       # Correction bias to apply to expert scores.
-                       e_score_correction_bias: torch.Tensor,
-                       ) -> tuple[torch.Tensor, torch.Tensor]:  # topk_weights, topk_ids
-    bs = router_logits.shape[0]
-    device_info = router_logits.device
-    topk_weights = torch.empty(
-        (bs, top_k), dtype=router_logits.dtype, device=device_info)
-    topk_ids = torch.empty((bs, top_k), dtype=torch.int32, device=device_info)
-
-    # 4. 执行kernel并获取结果
+                top_k: int,  # number of top k experts.
+                # Whether to renormalize the routing weights.
+                renormalize: bool,
+                # Number of expert groups to select from.
+                topk_group: int,
+                # Number of experts in each group.
+                num_expert_group: int,
+                # Correction bias to apply to expert scores.
+                e_score_correction_bias: torch.Tensor,
+                topk_weights: torch.Tensor,
+                topk_ids: torch.Tensor
+):
     if isinstance(router_logits, FakeTensor):
-        return topk_weights, topk_ids
+        return
+    check_args(
+        router_logits,
+        top_k,
+        renormalize,
+        topk_group,
+        num_expert_group,
+        e_score_correction_bias
+    )
     inputs = {
         router_logits: [0],
         e_score_correction_bias: []
@@ -313,7 +342,6 @@ def select_experts(router_logits: torch.Tensor,
     pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
     select_experts_kernel(*pto_inputs, *pto_outputs, renormalize, topk_group, num_expert_group)
     pypto.runtime._device_synchronize()
-    return topk_weights, topk_ids
 
 
 def main():

@@ -17,6 +17,37 @@ import numpy as np
 from numpy.testing import assert_allclose
 from torch._subclasses.fake_tensor import FakeTensor
 from torch._dynamo import allow_in_graph
+from utils.get_format import get_format
+
+
+def check_args(
+    hidden_states,
+    residual,
+    weight,
+    bias,
+    eps,
+):
+    assert hidden_states.dim() == 2
+    assert hidden_states.shape[1] == 5120
+    assert get_format(hidden_states) == 'ND'
+    assert hidden_states.dtype == torch.bfloat16
+    
+    assert residual.dim() == 2
+    assert residual.shape[1] == 5120
+    assert get_format(residual) == 'ND'
+    assert residual.dtype == torch.bfloat16
+    
+    assert weight.dim() == 1
+    assert weight.shape[0] == 5120
+    assert get_format(weight) == 'ND'
+    assert weight.dtype == torch.bfloat16
+    
+    assert bias.dim() == 1
+    assert bias.shape[0] == 5120
+    assert get_format(bias) == 'ND'
+    assert bias.dtype == torch.bfloat16
+    
+    assert isinstance(eps, float)
 
 
 def powers_of_2(n: int) -> set[int]:
@@ -73,10 +104,9 @@ def add_rms_norm_kernel(x, residual_input, x_gamma, x_bias,
     bs_loop = (bs + view_shape[0] - 1) // view_shape[0]
 
     # 实现kernel逻辑， 包在函数中实现变量自动回收
-    for _ in pypto.loop(1, name="LOOP_RESHAPE_INPLACE", idx_name="_"):
-        pypto.set_vec_tile_shapes(hidden_size)
-        x_gamma_2d = pypto.reshape(x_gamma, [1, hidden_size], inplace=True)
-        x_bias_2d = pypto.reshape(x_bias, [1, hidden_size], inplace=True)
+    pypto.set_vec_tile_shapes(hidden_size)
+    x_gamma_2d = pypto.reshape(x_gamma, [1, hidden_size], inplace=True)
+    x_bias_2d = pypto.reshape(x_bias, [1, hidden_size], inplace=True)
 
     # 循环展开BS动态轴
     for bs_idx in pypto.loop(bs_loop, name="LOOP_RMS_NORM_L0", idx_name="bs_idx"):
@@ -181,6 +211,7 @@ def add_rms_norm(
     residual_res: torch.Tensor) -> None:
     if isinstance(hidden_states, FakeTensor):
         return
+    check_args(hidden_states, residual, weight, bias, eps)
     inputs = {
         hidden_states: [0],
         residual: [0],

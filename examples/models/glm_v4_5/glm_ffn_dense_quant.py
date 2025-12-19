@@ -27,7 +27,6 @@ def main():
 
 def ffn_golden_quan_per_token(x):
     # y_int8 : int8  scale_dequant : x.dtype
-    x_dtype = x.dtype
     x_fp32 = x.to(torch.float32)
     max_value = x_fp32.abs().max(dim=1, keepdim=True)[0]
     scale_quant = 127.0 / max_value
@@ -41,7 +40,6 @@ def ffn_golden_quan_per_token(x):
 
 def ffn_golden_quan_per_channel(x):
     # y_int8 : int8  scale_dequant : x.dtype
-    x_dtype = x.dtype
     x_fp32 = x.to(torch.float32)
     max_value = x_fp32.abs().max(dim=0, keepdim=True)[0]
     scale_quant = 127.0 / max_value
@@ -95,18 +93,11 @@ def gen_input(b, s, hidden_size, intermediate_size, dtypes, device_id):
     return hidden_states, w13, w13_scale, w2, ffn_res
 
 
-def expert_infer_base(**kwargs):
+def expert_infer_base(hidden_states, w13_params, w2, ffn_res, tiling_params, offset_params):
     # 入参信息获取
-    dense_loop_idx = kwargs.get("dense_loop_idx")
-    hidden_states = kwargs.get("hidden_states")
-    w13 = kwargs.get("w13")
-    w13_scale = kwargs.get("w13_scale")
-    w2 = kwargs.get("w2")
-    vec_tile_shape = kwargs.get("vec_tile_shape")
-    mm1_cube_tile_shape = kwargs.get("mm1_cube_tile_shape")
-    mm2_cube_tile_shape = kwargs.get("mm2_cube_tile_shape")
-    ffn_res = kwargs.get("ffn_res")
-    loop_base = kwargs.get("loop_base")
+    w13, w13_scale = w13_params
+    vec_tile_shape, mm1_cube_tile_shape, mm2_cube_tile_shape = tiling_params
+    dense_loop_idx, loop_base = offset_params
 
     token_size, hidden_size = hidden_states.shape[:2]
     intermediate_size = w2.shape[1]
@@ -131,7 +122,7 @@ def expert_infer_base(**kwargs):
     w13_scale_2d = pypto.unsqueeze(w13_scale, 0)
     pypto.set_vec_tile_shapes(1, intermediate_size * 2)
     up_proj_dequant = dequant_dynamic(up_proj, w13_scale_2d, hidden_states_scale)
-    swiglu_out = swiglu(up_proj_dequant, loop_base)
+    swiglu_out = swiglu(up_proj_dequant)
 
     swiglu_half = pypto.cast(swiglu_out, x_dtype)
 
@@ -142,37 +133,34 @@ def expert_infer_base(**kwargs):
     pypto.assemble(out, hidden_states_offset, ffn_res)
 
 
-# tiling config
-vec_tile_shape = (1, 5120)
-mm1_cube_tile_shape = (16, 256, 128)
-mm2_cube_tile_shape = (64, 64, 256)
-loop_base = 16
-
-
-@pypto.jit
+@pypto.jit(
+    host_options={"only_codegen": True},
+    codegen_options={"support_dynamic_unaligned": True,
+                     "codegen_expression_fusion": True},
+    runtime_options={"device_sched_mode": 1,
+                     "cfgcache_device_task_num": 100,
+                     "cfgcache_root_task_num": 1000,
+                     "cfgcache_leaf_task_num": 10000}
+)
 def dense_moe_main(hidden_states, w13, w13_scale, w2, ffn_res):
-    pypto.set_host_options(only_codegen=True)
-    pypto.set_codegen_options(support_dynamic_unaligned=True)
-    pypto.set_codegen_options(codegen_expression_fusion=True)
-    pypto.set_runtime_options(cfgcache_device_task_num=100)
-    pypto.set_runtime_options(cfgcache_root_task_num=1000)
-    pypto.set_runtime_options(cfgcache_leaf_task_num=10000)
+    # tiling config
+    vec_tile_shape = (1, 5120)
+    mm1_cube_tile_shape = (16, 256, 128)
+    mm2_cube_tile_shape = (64, 64, 256)
+    loop_base = 16
 
     token_nums = hidden_states.shape[0]
     token_loop_times = (token_nums + loop_base - 1) // loop_base
-    for dense_loop_idx in pypto.loop(0, token_loop_times, 1, name="dense_loop_idx"):
+
+    for dense_loop_idx in pypto.loop(token_loop_times, name="dense_loop_idx"):
         def loop_token(dense_loop_idx):
             expert_infer_base(
-                dense_loop_idx=dense_loop_idx,
                 hidden_states=hidden_states,
-                w13=w13,
-                w13_scale=w13_scale,
+                w13_params=[w13, w13_scale],
                 w2=w2,
                 ffn_res=ffn_res,
-                vec_tile_shape=vec_tile_shape,
-                mm1_cube_tile_shape=mm1_cube_tile_shape,
-                mm2_cube_tile_shape=mm2_cube_tile_shape,
-                loop_base=loop_base,
+                tiling_params=[vec_tile_shape, mm1_cube_tile_shape, mm2_cube_tile_shape],
+                offset_params=[dense_loop_idx, loop_base]
                 )
         loop_token(dense_loop_idx)
 

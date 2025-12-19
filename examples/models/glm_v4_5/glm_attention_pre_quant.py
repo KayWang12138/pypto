@@ -19,7 +19,91 @@ import numpy as np
 from numpy.testing import assert_allclose
 from torch._subclasses.fake_tensor import FakeTensor
 from torch._dynamo import allow_in_graph
+from utils.get_format import get_format
 from typing import Optional
+
+
+def check_args(
+    hidden_states,
+    residual,
+    input_layernorm_weight,
+    input_layernorm_bias,
+    atten_qkv_input_scale_reciprocal,
+    atten_qkv_input_offset,
+    atten_qkv_weight,
+    atten_qkv_quant_bias,
+    atten_qkv_deq_scale,
+    atten_q_norm_weight,
+    atten_q_norm_bias,
+    atten_k_norm_weight,
+    atten_k_norm_bias,
+    cos,
+    sin,
+    query,
+    key,
+    value,
+    residual_res
+):
+
+    assert hidden_states.dim() == 2
+    assert get_format(hidden_states) == 'ND'
+    assert hidden_states.dtype == torch.bfloat16
+    assert residual.dim() == 2
+    assert get_format(residual) == 'ND'
+    assert residual.dtype == torch.bfloat16
+    assert input_layernorm_weight.dim() == 1
+    assert get_format(input_layernorm_weight) == 'ND'
+    assert input_layernorm_weight.dtype == torch.bfloat16
+    assert input_layernorm_bias.dim() == 1
+    assert get_format(input_layernorm_bias) == 'ND'
+    assert input_layernorm_bias.dtype == torch.bfloat16
+    assert atten_qkv_input_scale_reciprocal.dim() == 1
+    assert get_format(atten_qkv_input_scale_reciprocal) == 'ND'
+    assert atten_qkv_input_scale_reciprocal.dtype == torch.bfloat16
+    assert atten_qkv_input_offset.dim() == 1
+    assert get_format(atten_qkv_input_offset) == 'ND'
+    assert atten_qkv_input_offset.dtype == torch.bfloat16
+    assert atten_qkv_weight.dim() == 2
+    assert get_format(atten_qkv_weight) == 'NZ'
+    assert atten_qkv_weight.dtype == torch.int8
+    assert atten_qkv_quant_bias.dim() == 1
+    assert get_format(atten_qkv_quant_bias) == 'ND'
+    assert atten_qkv_quant_bias.dtype == torch.int32
+    assert atten_qkv_deq_scale.dim() == 1
+    assert get_format(atten_qkv_deq_scale) == 'ND'
+    assert atten_qkv_deq_scale.dtype == torch.float32
+    assert atten_q_norm_weight.dim() == 1
+    assert get_format(atten_q_norm_weight) == 'ND'
+    assert atten_q_norm_weight.dtype == torch.bfloat16
+    assert atten_q_norm_bias.dim() == 1
+    assert get_format(atten_q_norm_bias) == 'ND'
+    assert atten_q_norm_bias.dtype == torch.bfloat16
+    assert atten_k_norm_weight.dim() == 1
+    assert get_format(atten_k_norm_weight) == 'ND'
+    assert atten_k_norm_weight.dtype == torch.bfloat16
+    assert atten_k_norm_bias.dim() == 1
+    assert get_format(atten_k_norm_bias) == 'ND'
+    assert atten_k_norm_bias.dtype == torch.bfloat16
+    assert cos.dim() == 3
+    assert cos.shape[1] == 1
+    assert get_format(cos) == 'ND'
+    assert cos.dtype == torch.bfloat16
+    assert sin.dim() == 3
+    assert sin.shape[1] == 1
+    assert get_format(sin) == 'ND'
+    assert sin.dtype == torch.bfloat16
+    assert query.dim() == 2
+    assert get_format(query) == 'ND'
+    assert query.dtype == torch.bfloat16
+    assert key.dim() == 2
+    assert get_format(key) == 'ND'
+    assert key.dtype == torch.bfloat16
+    assert value.dim() == 2
+    assert get_format(value) == 'ND'
+    assert value.dtype == torch.bfloat16
+    assert residual_res.dim() == 2
+    assert get_format(residual_res) == 'ND'
+    assert residual_res.dtype == torch.bfloat16
 
 
 # golden
@@ -184,14 +268,13 @@ def quant_attention_pre_kernel(x, residual_input, x_gamma, x_bias,
     vec_tile_value = 5120
     q_batch_tile = 4
     # 4. 定义动态函数
-    for _ in pypto.loop(1, name="LOOP_RESHAPE_INPLACE", idx_name="tmp_idx"):
-        pypto.set_vec_tile_shapes(vec_tile_value)
-        x_gamma_2d = pypto.reshape(x_gamma, [1, hidden_size], inplace=True)
-        x_bias_2d = pypto.reshape(x_bias, [1, hidden_size], inplace=True)
-        x_scale_2d = pypto.reshape(x_scale, [1, hidden_size], inplace=True)
-        x_offset_2d = pypto.reshape(x_offset, [1, hidden_size], inplace=True)
-        quant_bias_2d = pypto.reshape(quant_bias, [1, total_head_size], inplace=True)
-        deq_scale_2d = pypto.reshape(deq_scale, [1, total_head_size], inplace=True)
+    pypto.set_vec_tile_shapes(vec_tile_value)
+    x_gamma_2d = pypto.reshape(x_gamma, [1, hidden_size], inplace=True)
+    x_bias_2d = pypto.reshape(x_bias, [1, hidden_size], inplace=True)
+    x_scale_2d = pypto.reshape(x_scale, [1, hidden_size], inplace=True)
+    x_offset_2d = pypto.reshape(x_offset, [1, hidden_size], inplace=True)
+    quant_bias_2d = pypto.reshape(quant_bias, [1, total_head_size], inplace=True)
+    deq_scale_2d = pypto.reshape(deq_scale, [1, total_head_size], inplace=True)
 
     # 5. 实现kernel逻辑，循环展开BS动态轴
     for bs_idx in pypto.loop(bs_loop, name="LOOP_ATT_PRE_L0", idx_name="bs_idx"):
@@ -321,7 +404,7 @@ def quant_attention_pre_kernel(x, residual_input, x_gamma, x_bias,
 
 def test_quant_attention_pre():
     # 1. 设置参数
-    bs = 5
+    bs = 8
     hidden_size = 5120
     total_head_size = 1792
     head_size = 128
@@ -337,7 +420,7 @@ def test_quant_attention_pre():
     # 2. 构造多种shape，测试动态case
     for i in range(0, 4):
         if (i == 1):
-            bs = 8
+            bs = 5
         elif (i == 2):
             bs = 11
         elif (i == 3):
@@ -431,15 +514,14 @@ def test_quant_attention_pre():
         # post process
         q_r = q_cat.view(bs, q_size)
         k_r = k_cat.view(bs, kv_size)
-        from utils.np_compare import detailed_allclose_manual
-        detailed_allclose_manual(np.array(residual_g.cpu().float().numpy()).flatten(),\
-                                 np.array(residual.cpu().float().numpy()).flatten(), "residual", rtol=0.0078125, atol=0.0001)
-        detailed_allclose_manual(np.array(q_r.cpu().float().numpy()).flatten(),\
-                                 np.array(q.cpu().float().numpy()).flatten(), "q", rtol=0.0078125, atol=0.0001)
-        detailed_allclose_manual(np.array(k_r.cpu().float().numpy()).flatten(),\
-                                 np.array(k.cpu().float().numpy()).flatten(), "k", rtol=0.0078125, atol=0.0001)
-        detailed_allclose_manual(np.array(v_g.cpu().float().numpy()).flatten(),\
-                                 np.array(v.cpu().float().numpy()).flatten(), "v", rtol=0.0078125, atol=0.0001)
+        assert_allclose(np.array(residual_g.cpu().flatten().tolist()), np.array(residual.cpu().flatten().tolist()),
+                        rtol=0.0078125, atol=0.0001)
+        assert_allclose(np.array(q_r.cpu().flatten().tolist()), np.array(q.cpu().flatten().tolist()),
+                        rtol=0.0078125, atol=0.0001)
+        assert_allclose(np.array(k_r.cpu().flatten().tolist()), np.array(k.cpu().flatten().tolist()),
+                        rtol=0.0078125, atol=0.0001)
+        assert_allclose(np.array(v_g.cpu().flatten().tolist()), np.array(v.cpu().flatten().tolist()),
+                        rtol=0.0078125, atol=0.0001)
 
 
 @allow_in_graph
@@ -459,19 +541,35 @@ def attention_pre_quant(
     atten_k_norm_bias: torch.Tensor,
     cos: torch.Tensor,
     sin: torch.Tensor,
-    atten_q_size: int,
-    atten_kv_size: int,
-    positions: int
-) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-    bs = hidden_states.shape[0]
-    q = torch.empty((bs, atten_q_size), dtype=hidden_states.dtype, device=f'{hidden_states.device}')
-    k = torch.empty((bs, atten_kv_size), dtype=hidden_states.dtype, device=f'{hidden_states.device}')
-    v = torch.empty((bs, atten_kv_size), dtype=hidden_states.dtype, device=f'{hidden_states.device}')
-    residual_res = torch.empty((bs, hidden_states.shape[1]),\
-                               dtype=hidden_states.dtype, device=f'{hidden_states.device}')
-    if residual is None:
-        residual = torch.zeros((bs, hidden_states.shape[1]),\
-                               dtype=hidden_states.dtype, device=f'{hidden_states.device}')
+    query: torch.Tensor,
+    key: torch.Tensor,
+    value: torch.Tensor,
+    residual_res: torch.Tensor
+):
+    if isinstance(hidden_states, FakeTensor):
+        return
+
+    check_args(
+        hidden_states,
+        residual,
+        input_layernorm_weight,
+        input_layernorm_bias,
+        atten_qkv_input_scale_reciprocal,
+        atten_qkv_input_offset,
+        atten_qkv_weight,
+        atten_qkv_quant_bias,
+        atten_qkv_deq_scale,
+        atten_q_norm_weight,
+        atten_q_norm_bias,
+        atten_k_norm_weight,
+        atten_k_norm_bias,
+        cos,
+        sin,
+        query,
+        key,
+        value,
+        residual_res
+    )
 
     inputs = {
         hidden_states: [0],
@@ -491,18 +589,15 @@ def attention_pre_quant(
         sin: [0]
     }
     outputs = {
-        q: [0],
-        k: [0],
-        v: [0],
+        query: [0],
+        key: [0],
+        value: [0],
         residual_res: [0]
     }
-
-    if not isinstance(hidden_states, FakeTensor):
-        pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
-        pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
-        quant_attention_pre_kernel(*pto_inputs, *pto_outputs)
-        pypto.runtime._device_synchronize()
-    return q, k, v, residual_res
+    pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
+    pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
+    quant_attention_pre_kernel(*pto_inputs, *pto_outputs)
+    pypto.runtime._device_synchronize()
 
 
 def main():
