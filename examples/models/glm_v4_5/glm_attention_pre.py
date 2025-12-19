@@ -139,16 +139,22 @@ def rope_data(x1, x2, cos, sin, tile_shape):
     return y_bf16
 
 
-@pypto.jit
+# 1. 添加支持动态的config
+@pypto.jit(
+    runtime_options={"stitch_function_num_initial": 128, 
+    "stitch_function_outcast_memory": 1024,
+    "stitch_function_inner_memory": 1024,
+    "cfgcache_device_task_num": 100,
+    "cfgcache_root_task_num": 1000,
+    "cfgcache_leaf_task_num": 10000},
+    host_options={"only_codegen": True},
+    codegen_options={"support_dynamic_unaligned": True, 
+    "codegen_expression_fusion": True}
+)
 def quant_attention_pre_kernel(x, residual_input, x_gamma, x_bias,
                                x_scale, x_offset, weight, quant_bias,
                                deq_scale, q_gamma, q_bias, k_gamma,
                                k_bias, cos, sin, q, k, v, residual):
-    # 1. 添加支持动态的config
-    pypto.set_codegen_options(support_dynamic_unaligned=True)
-    pypto.set_host_options(only_codegen=True)
-    pypto.set_runtime_options(stitch_function_outcast_memory=256)
-    pypto.set_runtime_options(stitch_function_inner_memory=256)
     # 2. 从入参拿到输入和输出tensor
     bs_tile = 8
 
@@ -325,7 +331,7 @@ def test_quant_attention_pre():
     half_rotary_dim = rotary_dim // 2
     eps = 1e-05
 
-    device_id = int(os.environ.get('TILE_FWK_STEST_DEVICE_ID', 7))
+    device_id = int(os.environ.get('TILE_FWK_STEST_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
 
     # 2. 构造多种shape，测试动态case

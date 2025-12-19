@@ -373,7 +373,7 @@ def ifa_func(q, k, v, block_table, kv_act_seqs, atten_out):
 
 
 def IFA(atten_cfg):
-    device_id = os.environ.get('TILE_FWK_STEST_DEVICE_ID', 1)
+    device_id = os.environ.get('TILE_FWK_STEST_DEVICE_ID', 0)
     print(f'xxxxxx device id {int(device_id)}')
     torch_dtype = torch.float16
     torch.npu.set_device(int(device_id))
