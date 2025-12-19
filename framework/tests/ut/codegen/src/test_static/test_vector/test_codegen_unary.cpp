@@ -200,7 +200,6 @@ using UBTileTensorINT32Dim1_1 = TileTensor<int32_t, StaticLayout1Dim<64, 64>, Ha
 GMTileTensorFP32Dim1_4 gmTensor_5((__gm__ float*)((__gm__ GMTensorInfo*)(param) + 1)->Addr, DynLayout1Dim(Shape1Dim(128), Stride1Dim(1)));
 UBTileTensorFP32Dim1_3 ubTensor_3((uint64_t)UB_S256_E512_T);
 GMTileTensorINT32Dim1_2 gmTensor_2((__gm__ int32_t*)((__gm__ GMTensorInfo*)(param) + 0)->Addr, DynLayout1Dim(Shape1Dim(128), Stride1Dim(1)));
-UBTileTensorFP32Dim1_3 ubTensor_3((uint64_t)UB_S0_E256_T);
 UBTileTensorINT32Dim1_1 ubTensor_1((uint64_t)UB_S0_E256_T);
 SUBKERNEL_PHASE1
 TLoad(ubTensor_1, gmTensor_2, Coord1Dim(0));
