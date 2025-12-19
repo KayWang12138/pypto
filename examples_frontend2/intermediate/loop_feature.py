@@ -256,7 +256,7 @@ def test_loop_op():
     print(f"Max difference from PyTorch: {max_diff_t1:.6f}")
     assert max_diff_t0 < 1e-2, "t0 Result mismatch!"
 
-    if max_diff_t1 < 1e-2
+    if max_diff_t1 < 1e-2:
         print("✓ Test loop op position completed successfully")
     else:
         print("t1 Result mismatch!")

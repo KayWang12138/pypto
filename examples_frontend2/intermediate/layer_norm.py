@@ -76,60 +76,44 @@ def rmsnorm_golden(x: torch.Tensor, gamma: torch.Tensor, eps: float) -> torch.Te
     return (x / rms) * gamma
 
 
-batch_size, hidden_size = 32, 128
-
-@pypto.frontend.jit()
-def layer_norm(
-    x: pypto.Tensor((batch_size, hidden_size), pypto.DT_BF16),
-    gamma: pypto.Tensor((hidden_size,), pypto.DT_BF16),
-    beta: pypto.Tensor((hidden_size,), pypto.DT_BF16),
-    eps: float
-) -> pypto.Tensor((batch_size, hidden_size), pypto.DT_BF16):
-    """Layer Normalization."""
-    pypto.set_vec_tile_shapes(64, 128)
-
-    mean = pypto.sum(x, dim=-1, keepdim=True)
-    mean = mean / float(hidden_size)
-    centered = x - mean
-
-    squared = centered * centered
-    var = pypto.sum(squared, dim=-1, keepdim=True)
-    var = var / float(hidden_size)
-
-    var_eps = var + eps
-    std = pypto.sqrt(var_eps)
-    normalized = centered / std
-
-    scaled = normalized * gamma
-    out = scaled + beta
-    return out
-
-
-@pypto.frontend.jit()
-def rms_norm(
-    x: pypto.Tensor((batch_size, hidden_size), pypto.DT_BF16),
-    gamma: pypto.Tensor((hidden_size,), pypto.DT_BF16),
-    eps: float
-) -> pypto.Tensor((batch_size, hidden_size), pypto.DT_BF16):
-    """RMS Normalization."""
-    pypto.set_vec_tile_shapes(64, 128)
-
-    # Compute RMS: sqrt(mean(x^2) + eps)
-    squared = x * x
-    mean_sq = pypto.sum(squared, dim=-1, keepdim=True)
-    mean_sq = mean_sq / float(hidden_size)
-    rms = pypto.sqrt(mean_sq + eps)
-
-    normalized = x / rms
-    out = normalized * gamma
-    return out
-
-
 def test_layer_norm():
     """Test LayerNorm."""
     print("=" * 60)
     print("Test: LayerNorm")
     print("=" * 60)
+
+    config = NormConfig(norm_type="layernorm", dtype=pypto.DT_BF16)
+    eps = config.eps
+    batch_size, hidden_size = 32, 128
+
+    # pass Python literals `eps`, `batch_size`, `hidden_size` as closure
+    @pypto.frontend.jit()
+    def layer_norm(
+        x: pypto.Tensor((batch_size, hidden_size), pypto.DT_BF16),
+        gamma: pypto.Tensor((hidden_size,), pypto.DT_BF16),
+        beta: pypto.Tensor((hidden_size,), pypto.DT_BF16)
+    ) -> pypto.Tensor((batch_size, hidden_size), pypto.DT_BF16):
+        """Layer Normalization."""
+        print("batch_size, hidden_size by closure: ", batch_size, hidden_size)
+        # NOTE: not fixed by https://gitcode.com/cann/pypto-dev/pull/2046?ref=&did=f14f4fc3873c24b4656802fce3bdb7c89fe7d0ab#tid-152655209
+
+        pypto.set_vec_tile_shapes(64, 128)
+
+        mean = pypto.sum(x, dim=-1, keepdim=True)
+        mean = mean / float(hidden_size)
+        centered = x - mean
+
+        squared = centered * centered
+        var = pypto.sum(squared, dim=-1, keepdim=True)
+        var = var / float(hidden_size)
+
+        var_eps = var + eps
+        std = pypto.sqrt(var_eps)
+        normalized = centered / std
+
+        scaled = normalized * gamma
+        out = scaled + beta
+        return out
 
     device_id = torch.npu.current_device()
 
@@ -138,8 +122,7 @@ def test_layer_norm():
     gamma_torch = torch.ones(hidden_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
     beta_torch = torch.zeros(hidden_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
 
-    config = NormConfig(norm_type="layernorm", dtype=pypto.DT_BF16)
-    out_torch = layer_norm(x_torch, gamma_torch, beta_torch, config.eps)
+    out_torch = layer_norm(x_torch, gamma_torch, beta_torch)
     pypto.runtime._device_synchronize()
 
     expected = layernorm_golden(x_torch, gamma_torch, beta_torch, config.eps)
@@ -159,14 +142,39 @@ def test_rms_norm():
     print("Test: RMSNorm")
     print("=" * 60)
 
+    config = NormConfig(norm_type="rmsnorm", dtype=pypto.DT_BF16)
+    eps = config.eps
+    batch_size, hidden_size = 32, 128
+
+    # pass Python literals `eps`, `batch_size`, `hidden_size` as closure
+    @pypto.frontend.jit()
+    def rms_norm(
+        x: pypto.Tensor((batch_size, hidden_size), pypto.DT_BF16),
+        gamma: pypto.Tensor((hidden_size,), pypto.DT_BF16)
+    ) -> pypto.Tensor((batch_size, hidden_size), pypto.DT_BF16):
+        """RMS Normalization."""
+        print("batch_size, hidden_size by closure: ", batch_size, hidden_size)
+        # NOTE: not fixed by https://gitcode.com/cann/pypto-dev/pull/2046?ref=&did=f14f4fc3873c24b4656802fce3bdb7c89fe7d0ab#tid-152655209
+
+        pypto.set_vec_tile_shapes(64, 128)
+
+        # Compute RMS: sqrt(mean(x^2) + eps)
+        squared = x * x
+        mean_sq = pypto.sum(squared, dim=-1, keepdim=True)
+        mean_sq = mean_sq / float(hidden_size)
+        rms = pypto.sqrt(mean_sq + eps)
+
+        normalized = x / rms
+        out = normalized * gamma
+        return out
+
     device_id = torch.npu.current_device()
     shape = (batch_size, hidden_size)
 
     x_torch = torch.randn(shape, dtype=torch.bfloat16, device=f'npu:{device_id}')
     gamma_torch = torch.ones(hidden_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
 
-    config = NormConfig(norm_type="rmsnorm", dtype=pypto.DT_BF16)
-    out_torch = rms_norm(x_torch, gamma_torch, config.eps)
+    out_torch = rms_norm(x_torch, gamma_torch)
     pypto.runtime._device_synchronize()
 
     expected = rmsnorm_golden(x_torch, gamma_torch, config.eps)

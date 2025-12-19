@@ -18,7 +18,7 @@ import torch_npu
 import os
 import math
 from pathlib import Path
-from sparse_flash_attention_quant_prefill import sparse_flash_attention_quant_p_compute
+from sparse_flash_attention_quant_prefill import get_sfa_quant_func
 import pytest
 import numpy as np
 import logging
@@ -384,33 +384,23 @@ def do_test_QSFA_p(case_name: str):
         v2_tile_shape=[16, 128]
     )
 
-    # t = b * s1
     b, s1, n1, nkv, kv_lora_rank, qk_rope_dim, block_num, block_size, topk, is_kn_quant, softmax_scale = input_params
     q_nope, q_rope, kn, kr, kn_scales, offsets, kv_actual_seqs = input_data
-
     t = b * s1
-    #calc_attention_out = torch.zeros([t, n1, kv_lora_rank], dtype=torch.bfloat16)
 
     kv_act_seqs = torch.tensor(actual_seq, dtype=torch.int32)
-    input_data_npu = [tmp.npu() for tmp in [q_nope, q_rope, kn, kr, kn_scales, offsets, kv_act_seqs]]
-    #output_data_npu = [t.npu() for t in [calc_attention_out]]
 
-   # pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(input_data_npu)]
-    #pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(output_data_npu)]
-
+    sparse_flash_attention_quant_p_compute = get_sfa_quant_func(
+        n1, nkv, softmax_scale, topk, tile_config
+    )
     my_new_output = sparse_flash_attention_quant_p_compute(
-        input_data_npu[0],
-        input_data_npu[1],
-        input_data_npu[2],
-        input_data_npu[3],
-        input_data_npu[4],
-        input_data_npu[5],
-        input_data_npu[6],
-        nq=n1,
-        n_kv=nkv,
-        softmax_scale=softmax_scale,
-        topk=topk,
-        tile_config=tile_config
+        q_nope.npu(),
+        q_rope.npu(),
+        kn.npu(),
+        kr.npu(),
+        kn_scales.npu(),
+        offsets.npu(),
+        kv_act_seqs.npu()
     )
 
     pypto.runtime._device_synchronize()
