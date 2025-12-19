@@ -84,6 +84,10 @@ inline constexpr uint64_t KIBI = 1024;
 inline constexpr uint64_t MEBI = UINT64_C(1024) * 1024;
 inline constexpr uint64_t GIBI = UINT64_C(1024) * 1024 * 1024;
 
+constexpr int BlockPaddingDim(size_t bytes) {
+    return BLOCK_SIZE / bytes;
+}
+
 inline int64_t AlignUp(int64_t value, int64_t alignment) {
     if (alignment == 0) {
         return value;

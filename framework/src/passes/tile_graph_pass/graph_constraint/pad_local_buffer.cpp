@@ -49,7 +49,7 @@ bool PadLocalBuffer::IsInputInt8(const Operation &op, const LogicalTensorPtr &in
     }
 
     APASS_LOG_DEBUG_F(Elements::Tensor, "Tensor", "Matmul Op %d is %s\n", op.opmagic, op.GetOpcodeStr().c_str());
-    APASS_LOG_DEBUG_F(Elements::Tensor, "Tensor", "####### %d data type is %s\n", in->magic, DataType2VectorRegStr(in->tensor->GetDataType()).c_str());
+    APASS_LOG_DEBUG_F(Elements::Tensor, "Tensor", "####### %d data type is %s\n", in->magic, DataType2String(in->tensor->GetDataType()));
 
     bool matmulOp = std::find(cubeOps.begin(), cubeOps.end(), op.GetOpcode()) != cubeOps.end();
     bool opsInputInt8 = false;
@@ -109,7 +109,7 @@ void PadLocalBuffer::PadMatmul(Operation &op, LogicalTensorPtr &in) {
         另外，bias或fixpipe场景只做低维16元素对齐，高维保持不变
         Before:
         L1_TO_L0A --> L0A (shape:[24, 400]) ------------------------->    \
-        L1_TO_BT --> bias_BT (shape:[1, 8]) -----> (address misalign)  A_MUL_B 
+        L1_TO_BT --> bias_BT (shape:[1, 8]) -----> (address misalign)  A_MUL_B
         L1_TO_L0B --> L0B (shape:[400, 16]) ------------------------->    /
 
         After:
@@ -148,12 +148,7 @@ void PadLocalBuffer::PadMatmul(Operation &op, LogicalTensorPtr &in) {
 }
 
 size_t PadLocalBuffer::GetPaddingValue(LogicalTensorPtr &in) {
-    auto bytes = BytesOf(in->Datatype());
-    auto paddingIter = BLOCK_PADDING_DIM.find(bytes);
-    if (paddingIter == BLOCK_PADDING_DIM.end()) {
-        return 1;
-    }
-    return paddingIter->second;
+    return BlockPaddingDim(BytesOf(in->Datatype()));
 }
 
 /* 1. 对于非BroadcastOp，默认做到Block对齐；
@@ -320,11 +315,7 @@ void PadLocalBuffer::ProcessReduce(Function &function, Operation &op) {
     // 轴的数量必须大于等于2， 并且倒数第二根轴为32B对齐， 否则无法命中优化pattern
     if ((op.GetOOperands()[0]->shape.size() >= AXIS_COMBINE_MIN_SHAPE_SIZE)) {
         auto out_bytes = BytesOf(op.oOperand[0]->Datatype());
-        int paddingDim = 1;
-        auto paddingIter = BLOCK_PADDING_DIM.find(out_bytes);
-        if (paddingIter != BLOCK_PADDING_DIM.end()) {
-            paddingDim = paddingIter->second;
-        }
+        int paddingDim = BlockPaddingDim(out_bytes);
         if (!ConfigManager::Instance().GetOperationConfig("FORCE_COMBINE_AXIS", false) && paddingDim > 0 && op.oOperand[0]->shape[op.GetOOperands()[0]->shape.size() - AXIS_COMBINE_MIN_SHAPE_SIZE] % paddingDim != 0) {
             return;
         }
@@ -573,12 +564,7 @@ Status PadLocalBuffer::RunOnFunction(Function &function) {
         // Broadcast op设置最后一根轴的padding值
         if (calcType == OpCalcType::BROADCAST) {
             auto bytes = BytesOf(op.iOperand[0]->Datatype());
-            auto paddingIter = BLOCK_PADDING_DIM.find(bytes);
-            if (paddingIter == BLOCK_PADDING_DIM.end()) {
-                APASS_LOG_DEBUG_F(Elements::Operation, "broadcast op %d %s's datatype is not supported.", op.opmagic, op.GetOpcodeStr().c_str());
-                continue;
-            }
-            ProcessBroadcast(op, paddingIter->second);
+            ProcessBroadcast(op, BlockPaddingDim(bytes));
         }
     }
     DoPadding(function);
