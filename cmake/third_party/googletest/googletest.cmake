@@ -82,6 +82,7 @@ ExternalProject_Add(ExternalProject_GTest   ${_ExtArgs}
         EXCLUDE_FROM_ALL TRUE
         BUILD_BYPRODUCTS
             ${_TargetInstallPrefix}/lib/cmake/GTest/
+            ${_TargetInstallPrefix}/${CMAKE_INSTALL_LIBDIR}/libgtest.a
 )
 file(MAKE_DIRECTORY ${_TargetInstallPrefix}/include)
 add_library(gtest_static STATIC IMPORTED)

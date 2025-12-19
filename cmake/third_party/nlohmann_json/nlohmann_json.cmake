@@ -91,7 +91,7 @@ ExternalProject_Add(ExternalProject_nlohmann_json   ${_ExtArgs}
         TLS_VERIFY OFF
         EXCLUDE_FROM_ALL TRUE
         BUILD_BYPRODUCTS
-            ${_TargetInstallPrefix}/include/nlohmann/
+            ${_TargetInstallPrefix}/include/nlohmann/json.hpp
 )
 if (NOT TARGET json)
     add_library(json INTERFACE)

@@ -34,8 +34,4 @@ private:
     static std::string GetCurrentSharedLibPath();
 };
 } // namespace CostModel
-#ifdef __clang__
-#pragma clang diagnostic pop
-#endif
-
 #endif

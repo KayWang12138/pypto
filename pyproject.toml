@@ -21,7 +21,6 @@ description = "PyPTO"
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
-    "sympy"
 ]
 
 [project.optional-dependencies]
