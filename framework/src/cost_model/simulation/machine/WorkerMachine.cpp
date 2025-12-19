@@ -86,7 +86,7 @@ void WorkerMachine::CreateAttnTask(uint64_t taskId, uint64_t session, uint64_t l
     }
     if (layer > 0) {
         attnTask->latency = taskMap[taskId - nextLayer]->latency;
-        for (uint64_t j = 0; j < config.moeNum; ++j) {
+        for (uint64_t j = 0; j < config.moeNum; j++) {
             attnTask->predecessors.push_back(nextLayer * (layer - 1) + session * config.moeNum + j);
         }
         attnTask->remainingPredecessors = config.moeNum;
@@ -126,17 +126,17 @@ void WorkerMachine::BuildTasks()
 {
     int taskId = 0;
     // layers
-    for (uint64_t runLayer = 0; runLayer < config.layerNum; ++runLayer) {
+    for (uint64_t runLayer = 0; runLayer < config.layerNum; runLayer++) {
         uint64_t attnMachineId = 0;
         // attention tasks
-        for (uint64_t i = 0; i < config.sessionNum; ++i) {
+        for (uint64_t i = 0; i < config.sessionNum; i++) {
             CreateAttnTask(taskId, i, runLayer, attnMachineId);
             attnMachineId = (attnMachineId + 1) % (GetSim()->config.workerMachineNumber);
             taskId++;
         }
         // ffn tasks
-        for (uint64_t i = 0; i < config.sessionNum; ++i) {
-            for (uint64_t j = 0; j < config.moeNum; ++j) {
+        for (uint64_t i = 0; i < config.sessionNum; i++) {
+            for (uint64_t j = 0; j < config.moeNum; j++) {
                 CreateFfnTask(taskId, i, runLayer);
                 taskId++;
             }
@@ -155,7 +155,7 @@ void WorkerMachine::BuildTasks()
                 return taskMap[s]->layer >= config.layerNum;
             });
             task->successors.erase(newEnd, task->successors.end());
-            ++it;
+            it++;
         }
     }
     // add attn polling
@@ -211,9 +211,9 @@ void CountLayers(const std::deque<TaskPack> &readyPool)
     for (auto it : readyPool) {
         auto t = WorkerMachine::taskMap[it.taskId];
         if (t->type == MachineType::ATTN) {
-            g_attnLayerCount[t->layer]++;
+            ++g_attnLayerCount[t->layer];
         } else {
-            g_ffnLayerCount[t->layer]++;
+            ++g_ffnLayerCount[t->layer];
         }
     }
 }
@@ -293,8 +293,8 @@ bool WorkerMachine::IsBspReady()
 bool WorkerMachine::IsBatchReady()
 {
     uint64_t size = 0;
-    uint64_t layer;
-    MachineType type;
+    uint64_t layer = 0;
+    MachineType type = MachineType::UNKNOWN;
     for (auto it : readyPool) {
         auto task = taskMap[it.taskId];
         if (size == 0) {
@@ -303,7 +303,9 @@ bool WorkerMachine::IsBatchReady()
             size++;
             continue;
         }
-        if (type != task->type || layer != task->layer) {
+        if (type != task->type) {
+            break;
+        } else if (layer != task->layer) {
             break;
         }
         size++;
@@ -344,7 +346,7 @@ void WorkerMachine::Dispatch()
     for (auto taskId : currentTasks) {
         MLOG_INFO("[Cycle ", GetSim()->GetCycles(), "][WorkerMachine ", machineId, "] complete task ", taskId);
         if (config.isBsp) {
-            ++bspCount;
+            bspCount++;
         }
         for (auto id : taskMap[taskId]->successors) {
             auto task = taskMap[id];
@@ -419,7 +421,7 @@ void WorkerMachine::Execute()
             tasksName += " Task" + std::to_string(t);
         }
         tasksName = MachineName(currentType) + " BS" + std::to_string(batchSize) + "-L" +
-                     std::to_string(currentLayer) + tasksName;
+                        std::to_string(currentLayer) + tasksName;
         MLOG_INFO("[Cycle ", GetSim()->GetCycles(), "][WorkerMachine ", machineId, "] begin new tasks", tasksName);
         LoggerRecordTaskStart(tasksName);
     }

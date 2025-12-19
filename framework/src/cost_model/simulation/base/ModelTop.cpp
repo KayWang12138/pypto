@@ -609,7 +609,10 @@ void SimSys::OutputLogForPipeSwimLane(std::string prefix)
     MLOG_WARN("Pipe SwimLane Graph Generated (PNG & HTML):", pipeDetailPath);
     std::string drawScriptPath("./tools/draw_pipe_swim_lane.py");
     std::string cmd = "python3 " + drawScriptPath + " " + pipeDetailPath;
-    system(cmd.c_str());
+    int ret = system(cmd.c_str());
+    if (ret != 0) {
+        MLOG_ERROR("cmd error: ", cmd.c_str());
+    }
 }
 
 
@@ -637,7 +640,10 @@ void SimSys::OutputLogForSwimLane(std::string prefix)
     MLOG_WARN("SwimLane Graph Generated (PNG):", outSwimPath);
     std::string drawScriptPath("./tools/print_swim_lane.py");
     std::string cmd = "python3 " + drawScriptPath + " " + outSwimPath + " -t";
-    system(cmd.c_str());
+    int result1 = system(cmd.c_str());
+    if (result1 != 0) {
+        MLOG_ERROR("cmd error: ", cmd.c_str());
+    }
 
     std::string mergeScriptPath("./tools/draw_swim_lane.py");
     auto devicePtr = std::dynamic_pointer_cast<DeviceMachine>(machineGroup[int(MachineType::DEVICE)][0]);
@@ -655,7 +661,10 @@ void SimSys::OutputLogForSwimLane(std::string prefix)
         cmd = "python3 " + mergeScriptPath + " " + outSwimPath + " " + topoOutFile;
     }
     MLOG_INFO("cmd: ", cmd);
-    system(cmd.c_str());
+    int result2 = system(cmd.c_str());
+    if (result2 != 0) {
+        MLOG_ERROR("cmd error: ", cmd.c_str());
+    }
 }
 
 void SimSys::OutputLogForCommSwimLane(std::string prefix)
@@ -670,7 +679,10 @@ void SimSys::OutputLogForCommSwimLane(std::string prefix)
     std::string drawScriptPath("./tools/draw_comm_swim_lane_png.py");
     MLOG_WARN("SwimLane Graph Generated (PNG):", outPath);
     std::string cmd = "python3 " + drawScriptPath + " " + outPath;
-    system(cmd.c_str());
+    int result = system(cmd.c_str());
+    if (result != 0) {
+        MLOG_ERROR("cmd error: ", cmd.c_str());
+    }
 }
 
 void SimSys::OutputCalendarScheduleCpp(std::string prefix)

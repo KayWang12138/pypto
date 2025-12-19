@@ -289,7 +289,11 @@ void PvModelImpl<SystemConfig, CaseConfig>::BinGen(npu::tile_fwk::Function *func
             char cmd[2048];
             (void)snprintf_s(cmd, sizeof(cmd), sizeof(cmd) - 1, "llvm-objcopy -O binary -j .text %s %s",
                 task_.objPath[subFuncPair.first].c_str(), task_.binPath[subFuncPair.first].c_str());
-            (void)std::system(cmd);
+
+            int ret = std::system(cmd);
+            if (ret != 0) {
+                MLOG_ERROR("cmd error: ", cmd);
+            }
 
             auto size = PvModelBinHelper::GetBinSize(task_.binPath[subFuncPair.first]);
             task_.binAddr[subFuncPair.first] = allocator_->AllocCode(size);
@@ -429,7 +433,11 @@ void PvModelImpl<SystemConfig, CaseConfig>::RunModel(std::string esgDir)
     (void)snprintf_s(cmd, sizeof(cmd), sizeof(cmd) - 1,
     "cd %s/ && ../../../../../../../../PvModel%s --gtest_filter=test_st_case.test_st_pv --spec=spec.toml", esgDir.c_str(), arch_.c_str());
     std::cout << "[PVMODEL]" << std::string(cmd) << std::endl;
-    (void)std::system(cmd);
+
+    int result = std::system(cmd);
+    if (result != 0) {
+        MLOG_ERROR("cmd error: ", cmd);
+    }
 }
 
 template <typename SystemConfig, typename CaseConfig>
@@ -640,7 +648,11 @@ void DynPvModelImpl<SystemConfig, CaseConfig>::RunModel(std::string dir)
     (void)snprintf_s(cmd, sizeof(cmd), sizeof(cmd) - 1,
     "cd %s/ && ../../../../../../../PvModel%s --gtest_filter=test_st_case.test_st_pv --spec=spec.toml", dir.c_str(), arch_.c_str());
     std::cout << "[PVMODEL]" << std::string(cmd) << std::endl;
-    (void)std::system(cmd);
+
+    int result = std::system(cmd);
+    if (result != 0) {
+        MLOG_ERROR("cmd error: ", cmd);
+    }
 }
 
 template <typename SystemConfig, typename CaseConfig>

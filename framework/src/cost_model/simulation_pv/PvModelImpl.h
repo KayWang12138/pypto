@@ -24,6 +24,7 @@
 #include "interface/utils/file_utils.h"
 #include "cost_model/simulation/pv/PvModel.h"
 #include "cost_model/simulation_pv/PvMemAllocator.h"
+#include "cost_model/simulation/base/ModelLogger.h"
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
 #include "tilefwk/core_func_data.h"
 #include "interface/configs/config_manager.h"
@@ -332,7 +333,11 @@ public:
                 constexpr int cmdLen = 2048;
                 char cmd[cmdLen];
                 (void)snprintf_s(cmd, sizeof(cmd), sizeof(cmd)-1, "llvm-objcopy -O binary -j .text %s %s", objPath.c_str(), binPath.c_str());
-                (void)std::system(cmd);
+
+                int ret = std::system(cmd);
+                if (ret != 0) {
+                    MLOG_ERROR("cmd error: ", cmd);
+                }
 
                 cceBin.emplace_back(
                     PvModelCceBin(leaf->GetProgramId(), leaf->GetFunctionHash().GetHash(), coreType, srcPath, binPath));
