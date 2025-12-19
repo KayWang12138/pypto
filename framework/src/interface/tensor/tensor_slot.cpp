@@ -387,7 +387,7 @@ void TensorSlotManager::MarkInput(const Tensor &tensor) {
     ASSERT(inputSlotDict.count(slot) == 0);
     inputSlotDict[slot] = inputSlotList.size();
     inputSlotList.push_back(slot);
-    auto logicalTensor = tensor.GetStorage(false);
+    auto logicalTensor = tensor.GetStorage();
 
     std::string inputName =
         logicalTensor ? logicalTensor->tensor->symbol : "untitled";
