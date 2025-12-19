@@ -74,6 +74,7 @@ enum class InstrName {
     FIX_L0C_OUT,
     // vector
     VADD,
+    VSEL,
     VSUB,
     VMUL,
     VDIV,
@@ -122,6 +123,11 @@ const std::map<uint32_t, std::vector<uint32_t>> VEC_VALU_TAB = {
     { static_cast<uint32_t>(DataType::DT_INT32) << 24 | static_cast<uint32_t>(InstrName::VADD), { 256, 1, 4 } },
     { static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VADD), { 256, 1, 6 } },
     { static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VADD), { 256, 1, 6 } },
+
+    { static_cast<uint32_t>(DataType::DT_INT16) << 24 | static_cast<uint32_t>(InstrName::VSEL), { 256, 1, 4 } },
+    { static_cast<uint32_t>(DataType::DT_INT32) << 24 | static_cast<uint32_t>(InstrName::VSEL), { 256, 1, 4 } },
+    { static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VSEL), { 256, 1, 6 } },
+    { static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VSEL), { 256, 1, 6 } },
 
     { static_cast<uint32_t>(DataType::DT_INT16) << 24 | static_cast<uint32_t>(InstrName::VSUB), { 256, 1, 4 } },
     { static_cast<uint32_t>(DataType::DT_INT32) << 24 | static_cast<uint32_t>(InstrName::VSUB), { 256, 1, 4 } },
@@ -709,6 +715,8 @@ inline deque<PInstrParam> GetProgram(vector<string> program)
             ret.push_back(SetSpr(InstrName::ALU, PipeId::F, SprId::FPC, params));
         } else if (funcName == "vadd") {
             ret.push_back(VecTemplate0(InstrName::VADD, templates, params));
+        }  else if (funcName == "vsel") {
+            ret.push_back(VecTemplate0(InstrName::VSEL, templates, params));
         } else if (funcName == "vsub") {
             ret.push_back(VecTemplate0(InstrName::VSUB, templates, params));
         } else if (funcName == "vmul") {

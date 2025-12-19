@@ -86,7 +86,7 @@ void WorkerMachine::CreateAttnTask(uint64_t taskId, uint64_t session, uint64_t l
     }
     if (layer > 0) {
         attnTask->latency = taskMap[taskId - nextLayer]->latency;
-        for (uint64_t j = 0; j < config.moeNum; j++) {
+        for (uint64_t j = 0; j < config.moeNum; ++j) {
             attnTask->predecessors.push_back(nextLayer * (layer - 1) + session * config.moeNum + j);
         }
         attnTask->remainingPredecessors = config.moeNum;
@@ -126,19 +126,19 @@ void WorkerMachine::BuildTasks()
 {
     int taskId = 0;
     // layers
-    for (uint64_t runLayer = 0; runLayer < config.layerNum; runLayer++) {
+    for (uint64_t runLayer = 0; runLayer < config.layerNum; ++runLayer) {
         uint64_t attnMachineId = 0;
         // attention tasks
-        for (uint64_t i = 0; i < config.sessionNum; i++) {
+        for (uint64_t i = 0; i < config.sessionNum; ++i) {
             CreateAttnTask(taskId, i, runLayer, attnMachineId);
             attnMachineId = (attnMachineId + 1) % (GetSim()->config.workerMachineNumber);
-            taskId++;
+            ++taskId;
         }
         // ffn tasks
-        for (uint64_t i = 0; i < config.sessionNum; i++) {
-            for (uint64_t j = 0; j < config.moeNum; j++) {
+        for (uint64_t i = 0; i < config.sessionNum; ++i) {
+            for (uint64_t j = 0; j < config.moeNum; ++j) {
                 CreateFfnTask(taskId, i, runLayer);
-                taskId++;
+                ++taskId;
             }
         }
     }
@@ -155,7 +155,7 @@ void WorkerMachine::BuildTasks()
                 return taskMap[s]->layer >= config.layerNum;
             });
             task->successors.erase(newEnd, task->successors.end());
-            it++;
+            ++it;
         }
     }
     // add attn polling
@@ -211,9 +211,9 @@ void CountLayers(const std::deque<TaskPack> &readyPool)
     for (auto it : readyPool) {
         auto t = WorkerMachine::taskMap[it.taskId];
         if (t->type == MachineType::ATTN) {
-            ++g_attnLayerCount[t->layer];
+            g_attnLayerCount[t->layer]++;
         } else {
-            ++g_ffnLayerCount[t->layer];
+            g_ffnLayerCount[t->layer]++;
         }
     }
 }
