@@ -50,17 +50,6 @@ void AlignedIfNeed(const int64_t &padValue, int64_t &currentDim) {
     }
 }
 
-Status GetPaddingValue(const LogicalTensorPtr &tensor, int64_t &padValue) {
-    auto bytes = BytesOf(tensor->Datatype());
-    auto paddingIter = BLOCK_PADDING_DIM.find(bytes);
-    if (paddingIter == BLOCK_PADDING_DIM.end()) {
-        APASS_LOG_ERROR_F(Elements::Tensor, "tensor %d's datatype is not supported.", tensor->GetMagic());
-        return FAILED;
-    }
-    padValue = paddingIter->second;
-    return SUCCESS;
-}
-
 Status AlignBroadCastOpInputs(Function &function, Operation &op) {
     auto inputTensor = op.GetIOperands();
     auto inTensor0 = inputTensor[0];
@@ -72,10 +61,7 @@ Status AlignBroadCastOpInputs(Function &function, Operation &op) {
         auto srcTensor = inputTensor[idx];
         auto alignedShape = srcTensor->GetShape();
         if (alignedShape.back() == 1) {
-            int64_t padValue = 0;
-            if (GetPaddingValue(srcTensor, padValue) != SUCCESS) {
-                return FAILED;
-            }
+            int64_t padValue = BlockPaddingDim(BytesOf(srcTensor->Datatype()));
             AlignedIfNeed(padValue, alignedShape.back());
             auto alignedTensor = std::make_shared<LogicalTensor>(function, srcTensor->Datatype(), alignedShape, srcTensor->Format());
             alignedTensor->SetMemoryTypeBoth(MemoryType::MEM_UB, true);

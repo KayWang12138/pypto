@@ -456,11 +456,7 @@ void TiledFull(Function &function, const TileShape &tileShape, size_t cur, const
         auto resultTile = results->View(function, resultTileInfo.shape, resultTileInfo.offset);
         auto lastIndex = resultTile->shape.size() - 1;
         auto bytes = BytesOf(resultTile->Datatype());
-        auto paddingIter = BLOCK_PADDING_DIM.find(bytes);
-        int paddingValue = 1;
-        if (paddingIter != BLOCK_PADDING_DIM.end()) {
-            paddingValue = paddingIter->second;
-        }
+        int paddingValue = BlockPaddingDim(bytes);
         auto tempTileShape = resultTile->shape;
         tempTileShape[lastIndex] = (tempTileShape[lastIndex] + paddingValue - 1) / paddingValue * paddingValue;
         TileShape::Current().SetVecTile(tempTileShape);
