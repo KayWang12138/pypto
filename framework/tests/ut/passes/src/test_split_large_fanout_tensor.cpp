@@ -1374,9 +1374,11 @@ TEST_F(SplitLargeFanoutTensorTest, TestPartialInputUnused) {
     splitLargeFanoutTensor.PostCheck(*function);
     std::cout << "Run Pass Done." << std::endl;
 
+    const int viewNum = 4;
+    const int assembleNum = 0;
     auto countResultAfter = CountViewAssemble(*function);
-    EXPECT_EQ(4, countResultAfter[0]) << countResultAfter[0] << "OP_VIEW after pass, should be 4";
-    EXPECT_EQ(0, countResultAfter[1]) << countResultAfter[1] << "OP_ASSEMBLE after pass, should be 0";
+    EXPECT_EQ(viewNum, countResultAfter[0]) << countResultAfter[0] << "OP_VIEW after pass, should be 4";
+    EXPECT_EQ(assembleNum, countResultAfter[1]) << countResultAfter[1] << "OP_ASSEMBLE after pass, should be 0";
 }
 
 void BuildOneDim(ComputationalGraphBuilder &G, bool shouldSplit){
