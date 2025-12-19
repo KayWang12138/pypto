@@ -44,6 +44,7 @@ private:
         std::vector<int64_t> offset;
         std::vector<SymbolicScalar> dynOffset;
     };
+    Status PreCheck(Function &function) override;
     Status RunOnFunction(Function &function) override;
     // View chain processing methods
     Status MergeViewChain(Function &function, Operation &operation, std::vector<Operation *> &chain);
