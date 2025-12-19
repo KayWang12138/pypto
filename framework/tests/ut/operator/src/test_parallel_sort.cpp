@@ -14,7 +14,6 @@
  */
 #include "gtest/gtest.h"
 #include "tilefwk/tilefwk_op.h"
-#include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 
 using namespace npu::tile_fwk;
@@ -44,8 +43,8 @@ void SortTest(const SortParams &params){
     int tileSize = params.tileSize;
     int descending = params.descending;
 
-    DataType dType = (std::is_same<T, float>::value) ? DT_FP32 : DT_FP32;
-    DataType idxDType = (std::is_same<idxT, int>::value) ? DT_INT32 : DT_INT32;
+    DataType dType = DT_FP32;
+    DataType idxDType = DT_INT32;
     std::vector<int64_t> shape = {1, length};
 
     Tensor x(dType, shape, "x");
@@ -65,12 +64,12 @@ void SortWithIndexTest(const SortParams &params){
     int tileSize = params.tileSize;
     int descending = params.descending;
 
-    DataType dType = (std::is_same<T, float>::value) ? DT_FP32 : DT_FP32;
-    DataType idxDType = (std::is_same<idxT, int>::value) ? DT_INT32 : DT_INT32;
+    DataType dType = DT_FP32;
+    DataType idxDType = DT_INT32;
     std::vector<int64_t> shape = {1, length};
 
     Tensor x(dType, shape, "x");
-    Tensor idx(dType, shape, "idx");
+    Tensor idx(idxDType, shape, "idx");
     Tensor y(dType, shape, "y");
     Tensor yIdx(idxDType, shape, "yIdx");
 
