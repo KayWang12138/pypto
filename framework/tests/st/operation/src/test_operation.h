@@ -222,12 +222,8 @@ public:
 
 private:
     static void init() {
-        config::SetVerifyOption(KEY_VERIFY_TENSOR_GRAPH, true);
-        config::SetVerifyOption(KEY_VERIFY_PASS, true);
-        config::SetVerifyOption(KEY_VERIFY_EXECUTE_GRAPH, true);
-        config::SetVerifyOption(KEY_VERIFY_CHECK_PRECISION, true);
-        config::SetVerifyOption(KEY_VERIFY_DUMP_OPERATION, true);
-        config::SetVerifyOption(KEY_VERIFY_DUMP_TENSOR, true);
+        config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
+        config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
 
         config::SetHostOption(ONLY_CODEGEN, true);
         config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);

@@ -32,12 +32,10 @@
         "codegen_expression_fusion": false
     },
     "verify": {
-        "verify_tensor_graph": false,
-        "verify_pass": false,
-        "verify_execute_graph": false,
-        "verify_check_precision": false,
-        "verify_dump_tensor": false,
-        "verify_dump_operation": false
+        "enable_pass_verify": false,
+        "pass_verify_save_tensor": false,
+        "pass_verify_save_tensor_dir": "",
+        "pass_verify_pass_filter": []
     },
     "debug": {
         "profile_enable": false,

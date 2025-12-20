@@ -26,6 +26,10 @@ using namespace npu::tile_fwk::dynamic;
 
 namespace pypto {
 
+DeviceTensorData CopyToHost(const DeviceTensorData &tensorData) {
+    return CopyDevToHost(tensorData);
+}
+
 void SetVerifyData(const std::vector<DeviceTensorData> &inputs,
                    const std::vector<DeviceTensorData> &outputs,
                    const std::vector<DeviceTensorData> &goldens) {
@@ -41,9 +45,13 @@ void SetVerifyData(const std::vector<DeviceTensorData> &inputs,
         ProgramData::GetInstance().AppendOutput(rawData);
     }
     for (size_t i = 0; i < goldens.size(); i++) {
-        auto rawData = RawTensorData::CreateTensor(
+        if (goldens[i].GetAddr() == 0) {
+            ProgramData::GetInstance().AppendGolden(nullptr);
+        } else {
+            auto rawData = RawTensorData::CreateTensor(
             goldens[i].GetDataType(), goldens[i].GetShape(), (uint8_t *)goldens[i].GetAddr());
-        ProgramData::GetInstance().AppendGolden(rawData);
+            ProgramData::GetInstance().AppendGolden(rawData);
+        }
     }
 }
 
@@ -222,6 +230,7 @@ void BindRuntime(py::module &m) {
     m.def("OperatorEnd", OperatorEnd);
     m.def("SetVerifyData", &SetVerifyData);
     m.def("BuildCache", BuildCache);
+    m.def("CopyToHost", &CopyToHost);
 
     py::class_<DeviceTensorData>(m, "DeviceTensorData")
         .def(py::init<DataType, uintptr_t, const std::vector<int64_t> &>(), py::arg("dtype"), py::arg("addr"),

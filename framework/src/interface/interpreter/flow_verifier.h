@@ -34,7 +34,6 @@ public:
         const std::vector<std::shared_ptr<LogicalTensorData>> &goldenDataViewList,
         const std::shared_ptr<TensorSlotManager> &slotManager);
     void VerifyPass(Function *func, int passIndex, const std::string &passIdentifier);
-    void VerifyExecuteGraph();
 
     struct CompareElement {
         bool isError;
@@ -82,7 +81,7 @@ public:
             return errorCount_ <= errorCountThreshold_ && zeroCount_ <= zeroCountThreshold_;
         }
 
-        std::string Dump(int indent = 2, size_t maxPrint = 100) const {
+        std::vector<std::string> Dump(int indent = 2, size_t maxPrint = 50) const {
             float maxAbsDiff = 0;
             float maxRelDiff = 0;
             CompareElement maxAbsElement;
@@ -91,6 +90,7 @@ public:
             std::string space(indent, ' ');
             std::string infoError = "\n  " + space + "Error eps=" + std::to_string(eps_);
             std::string infoZero = "\n  " + space + "Zero";
+            size_t count_ = 0;
             for (auto &element : *this) {
                 auto [isError, index, goldenValue, outputValue, absDiff, relDiff] = element;
                 (void)index;
@@ -113,9 +113,10 @@ public:
                 } else {
                     info = infoZero.c_str();
                 }
-                if (errorCount_ + zeroCount_ <= maxPrint) {
+                if (count_ <= maxPrint) {
                     oss << space << info << " " << element.Dump() << "";
                 }
+                count_++;
             }
             oss << "\n" << space << "All size:" << size_
                 << " maxAbsDiff:" << maxAbsDiff
@@ -128,7 +129,9 @@ public:
                 oss << space << "maxAbs-> " << maxAbsElement.Dump() << "\n"
                     << space << "maxRel-> " << maxRelElement.Dump() << "\n";
             }
-            return oss.str();
+            if (!Check()) {ALOG_EVENT(oss.str());}
+            return {std::to_string(maxAbsDiff), std::to_string(maxRelDiff),std::to_string(errorCount_),
+                    std::to_string(errorCount_ * 1.0 / size_)};
         }
 
         float GetEps() const { return eps_; }
@@ -142,7 +145,8 @@ public:
     };
 
     template <typename DataType>
-    static void CompareData(CompareResult &compareResult, size_t count, const DataType *goldenValueList, const DataType *outputValueList) {
+    static void CompareData(CompareResult &compareResult, size_t count, int64_t offset, const DataType *goldenValueList,
+                            const DataType *outputValueList) {
         for (size_t index = 0; index < count; index++) {
             auto goldenValue = static_cast<float>(goldenValueList[index]);
             auto outputValue = static_cast<float>(outputValueList[index]);
@@ -154,10 +158,10 @@ public:
                 relDiff = std::abs(absDiff / goldenValue);
             }
             if (std::abs(outputValue) <= 1e-6 && std::abs(goldenValue) > 1e-6) {
-                compareResult.AppendZero(false, index, goldenValue, outputValue, absDiff, relDiff);
+                compareResult.AppendZero(false, offset + index, goldenValue, outputValue, absDiff, relDiff);
             }
             if (absDiff > compareResult.GetEps() && relDiff > compareResult.GetEps()) {
-                compareResult.AppendError(true, index, goldenValue, outputValue, absDiff, relDiff);
+                compareResult.AppendError(true, offset + index, goldenValue, outputValue, absDiff, relDiff);
             }
         }
     }
@@ -168,7 +172,7 @@ public:
         const std::shared_ptr<LogicalTensorData> &outputDataView) {
         auto &validShape = goldenDataView->GetValidShape();
         if (axis == validShape.size() - 1) {
-            CompareData<DataType>(compareResult, validShape[axis], &goldenDataView->Get<DataType>(goldenOffset),
+            CompareData<DataType>(compareResult, validShape[axis], outputOffset, &goldenDataView->Get<DataType>(goldenOffset),
                 &outputDataView->Get<DataType>(outputOffset));
         } else {
             for (int i = 0; i < validShape[axis]; i++) {
@@ -197,6 +201,10 @@ public:
     static bool VerifyResult(const std::string &key,
         const std::vector<std::shared_ptr<LogicalTensorData>> &goldenDataViewList,
         const std::vector<std::shared_ptr<LogicalTensorData>> &outputDataViewList, float eps);
+    bool VerifyResult(const std::string &key,
+        const std::vector<std::string> tensorNameList,
+        const std::vector<std::shared_ptr<LogicalTensorData>> &goldenDataViewList,
+        const std::vector<std::shared_ptr<LogicalTensorData>> &tensorDataViewList, float eps);
 
 private:
     void UpdateInterpreterCache();
@@ -218,6 +226,7 @@ private:
 
 private:
     Function *entry_;
+    bool checkResult{true};
     std::vector<std::shared_ptr<LogicalTensorData>> inputDataViewList_;
     std::vector<std::shared_ptr<LogicalTensorData>> outputDataViewList_;
     std::vector<std::shared_ptr<LogicalTensorData>> goldenDataViewList_;

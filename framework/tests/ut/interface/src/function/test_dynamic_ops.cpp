@@ -38,19 +38,14 @@ public:
     }
 
     void TearDown() override {
-        config::SetVerifyOption(KEY_VERIFY_TENSOR_GRAPH, false);
-        config::SetVerifyOption(KEY_VERIFY_DUMP_OPERATION, false);
-        config::SetVerifyOption(KEY_VERIFY_DUMP_TENSOR, false);
-        config::SetVerifyOption(KEY_VERIFY_CHECK_PRECISION, false);
-        config::SetVerifyOption(KEY_VERIFY_PASS, false);
-        config::SetVerifyOption(KEY_VERIFY_EXECUTE_GRAPH, false);
+        config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
+        config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
     }
 };
 
 TEST_F(DynamicOpsTest, Assemble) {
-    config::SetVerifyOption(KEY_VERIFY_TENSOR_GRAPH, true);
-    config::SetVerifyOption(KEY_VERIFY_PASS, true);
-    config::SetVerifyOption(KEY_VERIFY_EXECUTE_GRAPH, true);
+    config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
+    config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
 
     int s = 32;
     int n = 2;
@@ -89,9 +84,8 @@ TEST_F(DynamicOpsTest, Assemble) {
 }
 
 TEST_F(DynamicOpsTest, AssembleFp16) {
-    config::SetVerifyOption(KEY_VERIFY_TENSOR_GRAPH, true);
-    config::SetVerifyOption(KEY_VERIFY_PASS, true);
-    config::SetVerifyOption(KEY_VERIFY_EXECUTE_GRAPH, true);
+    config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
+    config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
 
     int s = 32;
     int n = 2;
@@ -131,12 +125,8 @@ TEST_F(DynamicOpsTest, AssembleFp16) {
 }
 
 TEST_F(DynamicOpsTest, OpsElementWise) {
-    config::SetVerifyOption(KEY_VERIFY_TENSOR_GRAPH, true);
-    config::SetVerifyOption(KEY_VERIFY_DUMP_OPERATION, true);
-    config::SetVerifyOption(KEY_VERIFY_DUMP_TENSOR, true);
-    config::SetVerifyOption(KEY_VERIFY_CHECK_PRECISION, true);
-    config::SetVerifyOption(KEY_VERIFY_PASS, true);
-    config::SetVerifyOption(KEY_VERIFY_EXECUTE_GRAPH, true);
+    config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
+    config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
 
     std::vector<uint8_t> devProgBinary;
 
@@ -231,10 +221,8 @@ TEST_F(DynamicOpsTest, OpsElementWise) {
 }
 
 TEST_F(DynamicOpsTest, Cube) {
-    config::SetVerifyOption(KEY_VERIFY_TENSOR_GRAPH, true);
-    config::SetVerifyOption(KEY_VERIFY_CHECK_PRECISION, true);
-    config::SetVerifyOption(KEY_VERIFY_PASS, true);
-    config::SetVerifyOption(KEY_VERIFY_EXECUTE_GRAPH, true);
+    config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
+    config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
 
     int n = 4;
     int k = 1024;
@@ -363,9 +351,8 @@ TEST_F(DynamicOpsTest, ElementScalar) {
 }
 
 TEST_F(DynamicOpsTest, MatmulAcc) {
-    config::SetVerifyOption(KEY_VERIFY_TENSOR_GRAPH, true);
-    config::SetVerifyOption(KEY_VERIFY_PASS, true);
-    config::SetVerifyOption(KEY_VERIFY_CHECK_PRECISION, true);
+    config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
+    config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
 
     Tensor t0(DT_FP32, {128, 128}, "t0");
     Tensor t1(DT_FP32, {128, 128}, "t1");
@@ -391,9 +378,8 @@ TEST_F(DynamicOpsTest, MatmulAcc) {
 }
 
 TEST_F(DynamicOpsTest, GetTensorData) {
-    config::SetVerifyOption(KEY_VERIFY_TENSOR_GRAPH, true);
-    config::SetVerifyOption(KEY_VERIFY_PASS, true);
-    config::SetVerifyOption(KEY_VERIFY_CHECK_PRECISION, true);
+    config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
+    config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
     Tensor t0(DT_FP32, {32, 32}, "t0");
@@ -424,9 +410,7 @@ static auto Random(DataType t, const std::vector<int64_t> &shape) {
 }
 
 static void TestMatmul(DataType inType, DataType outType) {
-    config::SetVerifyOption(KEY_VERIFY_TENSOR_GRAPH, true);
-    config::SetVerifyOption(KEY_VERIFY_PASS, true);
-    config::SetVerifyOption(KEY_VERIFY_CHECK_PRECISION, true);
+    config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
 
     Tensor t0(inType, {64, 256}, "t0");
     Tensor t1(inType, {256, 64}, "t1");

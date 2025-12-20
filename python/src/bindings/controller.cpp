@@ -39,6 +39,9 @@ void bind_controller_config(py::module &m) {
         "SetOption", [](const std::string &key, const std::vector<int64_t> &value) { config::SetOption(key, value); },
         py::arg("key"), py::arg("value"));
     m.def(
+        "SetOption", [](const std::string &key, const std::vector<std::string> &value) { config::SetOption(key, value); },
+        py::arg("key"), py::arg("value"));
+    m.def(
         "SetOption",
         [](const std::string &key, const std::map<int64_t, int64_t> &value) { config::SetOption(key, value); },
         py::arg("key"), py::arg("value"));
@@ -54,6 +57,8 @@ void bind_controller_config(py::module &m) {
                 return py::cast(config::GetOption<bool>(key));
             } else if (config::IsType<std::vector<int64_t>>(key)) {
                 return py::cast(config::GetOption<std::vector<int64_t>>(key));
+            } else if (config::IsType<std::vector<std::string>>(key)) {
+                return py::cast(config::GetOption<std::vector<std::string>>(key));
             } else if (config::IsType<std::map<int64_t, int64_t>>(key)) {
                 return py::cast(config::GetOption<std::map<int64_t, int64_t>>(key));
             } else {

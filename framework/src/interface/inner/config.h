@@ -76,13 +76,10 @@ constexpr const char *KEY_PROGRAM_PATH = "program_file";
 
 
 /* flow virifer tools KEYs */
-const std::string KEY_VERIFY_TENSOR_GRAPH = "verify_tensor_graph";
-const std::string KEY_VERIFY_PASS = "verify_pass";
-const std::string KEY_VERIFY_EXECUTE_GRAPH = "verify_execute_graph";
-const std::string KEY_VERIFY_DUMP_OPERATION = "dump_operation";
-const std::string KEY_VERIFY_DUMP_TENSOR = "dump_tensor";
-const std::string KEY_VERIFY_CHECK_PRECISION = "check_precision";
-const std::string KEY_VERIFY_PROFILE_ENABLE = "profile_enable";
+const std::string KEY_ENABLE_PASS_VERIFY = "enable_pass_verify";
+const std::string KEY_PASS_VERIFY_SAVE_TENSOR = "pass_verify_save_tensor";
+const std::string KEY_PASS_VERIFY_SAVE_TENSOR_DIR = "pass_verify_save_tensor_dir";
+const std::string KEY_PASS_VERIFY_FILTER = "pass_verify_pass_filter";
 
 struct ConfigStorage;
 
@@ -115,6 +112,7 @@ bool GetOption(const std::string &key, bool &value);
 bool GetOption(const std::string &key, int64_t &value);
 bool GetOption(const std::string &key, std::string &value);
 bool GetOption(const std::string &key, std::vector<int64_t> &value);
+bool GetOption(const std::string &key, std::vector<std::string> &value);
 bool GetOption(const std::string &key, std::map<int64_t, int64_t> &value);
 } // namespace experimental
 
@@ -164,7 +162,8 @@ void SetRunDataOption(const std::string &key, T &&value) {
     experimental::SetOption("rundata." + key, value);
 }
 
-using ValueType = std::variant<bool, int64_t, std::string, std::vector<int64_t>, std::map<int64_t, int64_t>>;
+using ValueType = std::variant<bool, int64_t, std::string, std::vector<int64_t>,
+                               std::vector<std::string>, std::map<int64_t, int64_t>>;
 std::unordered_map<std::string, ValueType> GetOptions();
 } // namespace config
 } // namespace npu::tile_fwk

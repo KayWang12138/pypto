@@ -81,7 +81,10 @@ struct FunctionFrame {
     std::unordered_map<std::shared_ptr<RawTensor>, std::shared_ptr<RawTensorData>> rawTensorDataDict;
     std::unordered_map<std::shared_ptr<LogicalTensor>, std::shared_ptr<RawTensor>> spillRawTensorDict;
     std::unordered_map<std::shared_ptr<LogicalTensor>, std::shared_ptr<LogicalTensorData>> tensorDataViewDict;
+    std::unordered_map<std::shared_ptr<LogicalTensor>, std::string> tensorDataBinDict;
     int frameIndex;
+    int funcIndex;
+    int rootFuncIndex{-1};
 
     Operation *currentOperation;
 
@@ -205,6 +208,7 @@ struct FunctionCaptureExecution {
     Function *func;
     std::shared_ptr<FunctionIODataPair> baseline;
     std::unordered_map<std::string, ScalarImmediateType> symbolDict;
+    std::unordered_map<std::string, ScalarImmediateType> loopSymbolDict;
 
     std::vector<std::shared_ptr<FunctionFrame>> frameList;
 
@@ -249,9 +253,66 @@ constexpr int EXEC_DUMP_LEVEL_OPERATION = 1;
 constexpr int EXEC_DUMP_LEVEL_TENSOR = 2;
 
 enum class VerifyType { INVALID, TENSOR_GRAPH, PASS, EXECUTE_GRAPH };
+enum class CsvCol {
+    Num = 0,
+    rootFuncID,
+    funcID,
+    verifyType,
+    loopInfo,
+    opMagic,
+    opCode,
+    rawTensorMagic,
+    tensorMagic,
+    offset,
+    inputShape,
+    inputValidShape,
+    inputDtype,
+    inputTensors,
+    outputShape,
+    outputValidShape,
+    outputDynValidShape,
+    outputDtype,
+    outputTensor,
+    verifyResult,
+    maxAbsDiff,
+    maxRelDiff,
+    errorCount,
+    errorRatio,
+    COL_COUNT
+};
+
+constexpr int32_t toIndex(CsvCol e) noexcept {
+    return static_cast<int32_t>(e);
+}
 
 struct FunctionInterpreter {
-    FunctionInterpreter() : operationInterpreter(std::make_shared<OperationInterpreter>()) {}
+    FunctionInterpreter() : operationInterpreter(std::make_shared<OperationInterpreter>()) {
+        auto now = std::chrono::high_resolution_clock::now();
+        auto time = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+        auto us = std::chrono::duration_cast<std::chrono::microseconds>(now.time_since_epoch()).count() % 1000000;
+        std::stringstream timestamp;
+        timestamp << std::put_time(std::localtime(&time), "%Y%m%d_%H%M%S");
+        constexpr int NUM_SIX = 6;
+        timestamp << "_" << std::setw(NUM_SIX) << std::setfill('0') << us;
+        dumpPath = config::GetVerifyOption<std::string>(KEY_PASS_VERIFY_SAVE_TENSOR_DIR);
+        if (dumpPath.empty()) {
+            dumpPath = config::LogTopFolder();
+        }
+        dumpPath = dumpPath + "/" + "verify_" + timestamp.str() + "/";
+        CreateMultiLevelDir(dumpPath);
+
+        std::string dumpFilePath = dumpPath + "verify_result.csv";
+        execResultFile = fopen(dumpFilePath.c_str(), "w");
+        std::vector<std::string> csvHeader = {"No.", "rootFuncID", "funcID", "verifyType", "LoopInfo", "opMagic", "op", 
+            "rawTensorMagic", "tensorMagic", "offset", "inputShape", "inputValidShape", "inputDtype", "inputTensors", 
+            "outputShape", "outputValidShape", "outputDynValidShape", "outputDtype",
+            "outputTensor", "verifyResult", "maxAbsDiff", "maxRelDiff", "errorCount", "errorRatio"};
+        WriteCsvRow(csvHeader);
+    }
+
+    ~FunctionInterpreter() {
+        fclose(execResultFile);
+    }
 
     Function *entry_;
     std::unordered_map<FunctionHash, Function *> calleeHashDict;
@@ -259,16 +320,20 @@ struct FunctionInterpreter {
     std::shared_ptr<OperationInterpreter> operationInterpreter;
     std::unordered_map<int, std::shared_ptr<LogicalTensorData>> slotDataViewDict_;
     std::vector<std::shared_ptr<FunctionFrame>> *captureFrameList{nullptr};
+    std::unordered_map<std::string, ScalarImmediateType> loopSymbolDict;
 
     int execDumpLevel{0};
 
     std::string execDumpDir;
+    std::string dumpPath;
     FILE *execDumpFile{nullptr};
+    FILE *execResultFile{nullptr};
     FILE *execDumpStyleFile{nullptr};
     std::string execDumpFuncKey;
     std::vector<ElementDump> execDumpElementList;
     std::vector<std::shared_ptr<FunctionFrame>> execDumpStack;
     int frameCount{0};
+    int rowNum{0};
 
     std::map<std::string, uint64_t> opUsage;
     uint64_t dumpTensorUsage{0};
@@ -276,6 +341,7 @@ struct FunctionInterpreter {
     uint64_t totalTimeUsage{0};
 
     VerifyType verifyType{VerifyType::INVALID};
+    int captureIndex{0};
 
     std::vector<std::shared_ptr<LogicalTensorData>> &GetInputDataViewList() {
         return operationInterpreter->evaluateSymbol->GetInputDataViewList();
@@ -432,6 +498,7 @@ struct FunctionInterpreter {
             auto rawShape = EvaluateValidShape(oop->GetRawTensor()->GetDynRawShape());
             auto ret = frame.AllocateDataView(
                 oop, actualOffsets, validShape, rawShape, oop->GetRawTensor()->GetDataType(), iop);
+            oOpDataList.emplace_back(ret);
         } else {
             oOpDataList.emplace_back(AllocateDataView(frame, oop, iop));
         }
@@ -482,12 +549,12 @@ struct FunctionInterpreter {
             TimeStamp ts;
             operationInterpreter->ExecuteOperation(&ctx);
             opUsage[op->GetOpcodeStr()] += ts.Duration();
-        }
-        auto *ooperandDumpList =
+
+            auto *ooperandDumpList =
             ctx.ooperandInplaceDataViewList ? ctx.ooperandInplaceDataViewList : ctx.ooperandDataViewList;
-        TimeStamp ts;
-        DumpOperationTensor(ctx.op, ooperandDumpList, ctx.ioperandDataViewList);
-        dumpOperationUsage += ts.Duration();
+            DumpOperationTensor(ctx.op, ctx.frame, ooperandDumpList, ctx.ioperandDataViewList);
+            dumpOperationUsage += ts.Duration();
+        }
     }
 
     void ExecuteHandleFunctionBegin(Function *func, std::shared_ptr<FunctionFrame> frame) {
@@ -495,9 +562,10 @@ struct FunctionInterpreter {
         execDumpStack.push_back(frame);
         DumpFunctionHead(func);
         if (frame->inoutDataPair != nullptr) {
-            DumpTensorList("Incast", &func->GetIncast(), &frame->inoutDataPair->incastDataViewList);
             for (size_t k = 0; k < func->GetIncast().size(); k++) {
-                DumpTensorBinary(func->GetIncast()[k], frame->inoutDataPair->incastDataViewList[k]);
+                std::string fileName = "tensor_Incast_" + std::to_string(k) + ".data";
+                DumpTensorBinary(frame->inoutDataPair->incastDataViewList[k], fileName);
+                frame->tensorDataBinDict[func->GetIncast()[k]] = fileName;
             }
         }
         dumpTensorUsage += ts.Duration();
@@ -522,6 +590,10 @@ struct FunctionInterpreter {
         std::shared_ptr<FunctionFrame> frame =
             std::make_shared<FunctionFrame>(func, callop, callopAttr, inoutDataPair, frameCount++);
         captureFrameList->push_back(frame);
+        frame->funcIndex = func->GetFuncMagic();
+        if (func->HasParent()) {
+            frame->rootFuncIndex = func->Parent().GetFuncMagic();
+        }
 
         UpdateIODataPair(inoutDataPair);
         auto dynParamTable = func->GetDynParamTable();
@@ -536,7 +608,24 @@ struct FunctionInterpreter {
             ExecuteHandleOperationEnd();
         }
         ExecuteHandleFunctionEnd();
+        EraseTensorDataView(func, *frame);
         return frame;
+    }
+
+    void EraseTensorDataView(Function *func, FunctionFrame &frame) {
+        for (auto it = frame.tensorDataViewDict.begin(); it != frame.tensorDataViewDict.end();) {
+            auto incast = std::find(func->GetIncast().begin(), func->GetIncast().end(), it->first);
+            if (incast != func->GetIncast().end()) {
+                it++;
+                continue;
+            }
+            auto outcast = std::find(func->GetOutcast().begin(), func->GetOutcast().end(), it->first);
+            if (outcast != func->GetOutcast().end()) {
+                it++;
+                continue;
+            }
+            it = frame.tensorDataViewDict.erase(it);
+        }
     }
 
     std::vector<std::shared_ptr<FunctionFrame>> ExecuteFunctionCapture(Function *func, Operation *callop, std::shared_ptr<FunctionIODataPair> &inoutDataPair) {
@@ -589,6 +678,7 @@ struct FunctionInterpreter {
         ScalarImmediateType step = EvaluateSymbolicScalar(loop->Step());
         for (ScalarImmediateType idx = begin; idx < end; idx += step) {
             UpdateSymbolDict(loop->IterSymbolName(), idx);
+            loopSymbolDict[loop->IterSymbolName()] = idx;
             Operation *callop = ExecuteFunctionLoopLookupSat(loop);
             Function *callee = GetCallee(callop);
 
@@ -662,6 +752,7 @@ struct FunctionInterpreter {
                 auto capture = std::make_shared<FunctionCaptureExecution>(func);
 
                 capture->CaptureFrom(inoutDataPair, GetSymbolDict());
+                capture->loopSymbolDict = loopSymbolDict;
                 capture->frameList = ExecuteFunctionCapture(func, nullptr, inoutDataPair);
                 capture->CaptureGoldenFrom(inoutDataPair);
                 controlFlowExecution.executionListDict[func].emplace_back(capture);
@@ -682,15 +773,22 @@ struct FunctionInterpreter {
     void DumpOperation(Operation *op);
     void DumpOperationTensor(
             Operation *op,
+            FunctionFrame *frame,
             const std::vector<std::shared_ptr<LogicalTensorData>> *ooperandDataViewList,
         const std::vector<std::shared_ptr<LogicalTensorData>> *ioperandDataViewList);
     void DumpTensorBinary(
             const std::shared_ptr<LogicalTensor> &tensor,
             const std::shared_ptr<LogicalTensorData> &dataView);
+    void DumpTensorBinary(
+            const std::shared_ptr<LogicalTensorData> &dataView,
+            std::string dumpTensorFileName);
     void DumpTensorList(
             const std::string &name,
             const std::vector<std::shared_ptr<LogicalTensor>> *tensorList,
         const std::vector<std::shared_ptr<LogicalTensorData>> *dataViewList);
+    std::shared_ptr<LogicalTensorData> LoadTensorBinary(
+            const std::shared_ptr<LogicalTensor> &tensor,
+            const std::string dumpTensorFileName);
     void DumpFunctionHead(Function *func);
     void DumpBegin();
     void DumpEnd();
@@ -714,6 +812,29 @@ struct FunctionInterpreter {
     std::string GetDumpTensorFileName(const std::shared_ptr<LogicalTensor> &tensor) const {
         std::string fileName = "frame_" + GetFrameCurrIndex() + "_tensor_" + std::to_string(tensor->GetMagic()) + ".data";
         return fileName;
+    }
+     std::string GetDumpTensorFileName(const std::shared_ptr<LogicalTensor> &tensor, Operation *op, FunctionFrame *frame) const {
+        auto callopMagic = (frame->callop != nullptr) ? std::to_string(frame->callop->GetOpMagic()) + "~" : "~";
+        struct timeval tv;
+        gettimeofday(&tv, nullptr);
+        auto ts =  tv.tv_sec * 1000000 + tv.tv_usec; // 1000000 is us per sec
+ 
+        std::string fileName = std::to_string(frame->rootFuncIndex) + "~" + callopMagic  + GetLoopSymbolString() + "~" + std::to_string(frame->funcIndex) + "~" 
+                        + std::to_string(op->GetOpMagic()) + "~" + op->GetOpcodeStr() + "~" + std::to_string(tensor->GetRawTensor()->GetRawMagic()) + "~" + 
+                        std::to_string(tensor->GetMagic()) + "~" + std::to_string(ts) + ".data";
+        return fileName;
+    }
+    std::string GetLoopSymbolString() const {
+        std::ostringstream loop;
+        size_t loopCount = loopSymbolDict.size();
+        size_t count = 0;
+        for (auto &[name, value] : loopSymbolDict) {
+            loop << name << "=" << value;
+            if(++count < loopCount) {
+                loop << "@";
+            } 
+        }
+        return loop.str();
     }
     std::string GetDumpTensorId(const std::shared_ptr<FunctionFrame> &frame, const std::shared_ptr<LogicalTensor> &tensor) const {
         std::string index = GetFrameIndex(frame);
@@ -743,6 +864,35 @@ struct FunctionInterpreter {
         dumpOperationUsage = 0;
     }
 
+    std::string ShapeToString(const std::vector<int64_t> &shape) {
+        std::ostringstream oss;
+        oss << "[";
+        for (size_t i = 0; i < shape.size(); ++i) {
+            if (i > 0) {
+                oss << ", ";
+            }
+            oss << std::to_string(shape[i]);
+        }
+        oss << "]";
+        return oss.str();
+    }
+ 
+    void WriteCsvRow(std::vector<std::string>& row) {
+        if (rowNum > 0) {
+            row[toIndex(CsvCol::Num)] = std::to_string(rowNum);
+        }
+        rowNum += 1;
+        std::string textLine = row[0];
+        for (size_t i = 1; i < row.size(); ++i) {
+            if (row[i].find(',') != std::string::npos) {
+                textLine += ",\"" + row[i] + "\"";
+            } else {
+                textLine += "," + row[i];
+            }
+        }
+        fprintf(execResultFile, "%s\n", textLine.c_str());
+    }
+
     std::string DumpStatistics() const {
         std::stringstream ss;
         const int labelWidth = 24;
@@ -770,6 +920,7 @@ struct FunctionInterpreter {
         auto unitCapture = std::make_shared<FunctionCaptureExecution>(func);
         auto symbolDict = capture->CaptureTo(unitCapture->baseline);
         SetSymbolDict(symbolDict);
+        loopSymbolDict = capture->loopSymbolDict;
 
         Function *target = func;
         if (func->GetRootFunction()) {
@@ -785,7 +936,6 @@ struct FunctionInterpreter {
 
     std::shared_ptr<FunctionControlFlowExecution> RunForControlFlow(
             const std::string &funcKey,
-        std::vector<std::shared_ptr<LogicalTensorData>> goldenDataViewList,
         const std::unordered_map<int, TileOpFormat> &slotTileOpFormatDict,
         const std::unordered_map<int, std::shared_ptr<LogicalTensorData>> &slotDataViewDict,
         const std::unordered_set<int> &outputSlotSet,
@@ -825,12 +975,7 @@ struct FunctionInterpreter {
             }
         }
 
-        std::vector<std::shared_ptr<LogicalTensor>> empty(goldenDataViewList.size(), nullptr);
-        TimeStamp ts1;
-        DumpTensorList("Golden", &empty, &goldenDataViewList);
-        dumpTensorUsage += ts1.Duration();
         totalTimeUsage += ts.Duration();
-
         DumpEnd();
         return execution;
     }

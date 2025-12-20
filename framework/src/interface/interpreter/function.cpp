@@ -155,6 +155,41 @@ void FunctionInterpreter::DumpTensorBinary(
     dataView->Save(dumpTensorFilePath);
 }
 
+void FunctionInterpreter::DumpTensorBinary(
+        const std::shared_ptr<LogicalTensorData> &dataView,
+        std::string dumpTensorFileName) {
+    std::string dumpTensorFilePath = execDumpDir + "/" + dumpTensorFileName;
+    int totalSize = dataView->GetSize();
+    if (totalSize <= 0) {
+        ALOG_WARN("The tensor size is not greater than 0.");
+        return;
+    }
+    FILE *fdata = fopen(dumpTensorFilePath.c_str(), "wb");
+    size_t res = fwrite(dataView->GetData()->data(), BytesOf(dataView->GetDataType()), totalSize, fdata);
+    fclose(fdata);
+    if (res != static_cast<size_t>(totalSize)) {
+        ASSERT(false);
+    }
+}
+
+std::shared_ptr<LogicalTensorData> FunctionInterpreter::LoadTensorBinary(
+        const std::shared_ptr<LogicalTensor> &tensor,
+        const std::string filepath) {
+    if (!FileExist(filepath)) {
+        return nullptr;
+    }
+    std::vector<int64_t> shape = tensor->GetShape();
+    if (std::any_of(shape.begin(), shape.end(), [](int64_t num) {return num <= 0;})) {
+        return nullptr;
+    }
+    FILE *fdata = fopen(filepath.c_str(), "rb");
+    auto data = std::make_shared<RawTensorData>(static_cast<DataType>(tensor->Datatype()), shape);
+    fread(data->data(), 1, data->size(), fdata);
+    auto dataView = std::make_shared<LogicalTensorData>(data, shape, shape, std::vector<int64_t>(shape.size(), 0));
+    fclose(fdata);
+    return dataView;
+}
+
 void FunctionInterpreter::DumpTensorList(const std::string &name, const std::vector<std::shared_ptr<LogicalTensor>> *tensorList,
     const std::vector<std::shared_ptr<LogicalTensorData>> *dataViewList) {
     if (execDumpLevel < EXEC_DUMP_LEVEL_TENSOR || !execDumpFile)
@@ -209,88 +244,77 @@ void FunctionInterpreter::DumpTensorList(const std::string &name, const std::vec
     fclose(dumpTensorFile);
 }
 
-void FunctionInterpreter::DumpOperationTensor(Operation *op,
+void FunctionInterpreter::DumpOperationTensor(Operation *op, FunctionFrame *frame,
     const std::vector<std::shared_ptr<LogicalTensorData>> *ooperandDataViewList,
     const std::vector<std::shared_ptr<LogicalTensorData>> *ioperandDataViewList) {
     if (execDumpLevel < EXEC_DUMP_LEVEL_TENSOR || !execDumpFile)
         return;
-
+ 
     int indent = GetFrameSize();
-    std::string dumpOperationDirName = GetDumpFrameDirName();
-    std::string dumpOperationFileName = GetDumpOperationTensorFileName(op);
-    fprintf(execDumpFile, "<div class=\"detail indent_%d\"><a href=\"%s\">%s</a></div>\n", indent,
-        (dumpOperationDirName + "/" + dumpOperationFileName).c_str(), dumpOperationFileName.c_str());
-
-    std::string dumpOperationFilePath = GetDumpFilePath(execDumpDir, dumpOperationDirName, dumpOperationFileName);
-    FILE *dumpOperationFile = fopen(dumpOperationFilePath.c_str(), "w");
-    fprintf(dumpOperationFile, R"HTML(
-<html>
-    <head>
-    <link rel="stylesheet" type="text/css" href="../../verifier.css">
-    </head>
-    <body>
-)HTML");
-    auto dump = op->Dump();
-    fprintf(dumpOperationFile, "<div class=\"operation\">%s</div>\n", dump.c_str());
-
+ 
     auto oopSize = op->GetOOperands().size();
     auto iopSize = op->GetIOperands().size();
-    std::vector<std::string> textList(iopSize + oopSize);
-    constexpr int ONE_THOUSAND = 1000;
-    fprintf(dumpOperationFile, "<table width=\"%dpx\">", static_cast<int>((oopSize + iopSize) * ONE_THOUSAND));
-    for (size_t k = 0; k < oopSize; k++) {
-        textList[k] = "oop:" + std::to_string(static_cast<int>(k));
-    }
-    for (size_t k = 0; k < iopSize; k++) {
-        textList[oopSize + k] = "iop:" + std::to_string(static_cast<int>(k));
-    }
-    DumpLine(dumpOperationFile, textList, "table_head");
+    std::vector<std::string> opInfo(toIndex(CsvCol::COL_COUNT));
+    opInfo[toIndex(CsvCol::rootFuncID)] = std::to_string(frame->rootFuncIndex); 
+    opInfo[toIndex(CsvCol::funcID)] = std::to_string(frame->funcIndex);   // func id
+    opInfo[toIndex(CsvCol::verifyType)] = execDumpFuncKey;
+    opInfo[toIndex(CsvCol::loopInfo)] = GetLoopSymbolString();
+    opInfo[toIndex(CsvCol::opCode)] = op->GetOpcodeStr();   // opName
+    opInfo[toIndex(CsvCol::opMagic)] = std::to_string(op->GetOpMagic());
 
-    for (size_t k = 0; k < oopSize; k++) {
-        auto oop = op->GetOOperands()[k];
-        std::string tensorId = GetDumpTensorId(GetFrameCurr(), oop);
-        textList[k] = "<a href=\"../entry.html#" + tensorId + "\">" + HtmlEscape(oop->Dump()) + "</a>";
+    auto opAttr = std::static_pointer_cast<ViewOpAttribute>(op->GetOpAttribute());
+    if (opAttr) {
+        if (op->GetOpcodeStr() == "COPY_IN" ||op->GetOpcodeStr() == "COPY_OUT") {
+            auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(op->GetOpAttribute());
+            auto offset = copyAttr->IsCopyOut() ? copyAttr->GetToOffset() : copyAttr->GetFromOffset();
+            auto offsetView = operationInterpreter->EvaluateOpImmediate(frame, offset);
+            opInfo[toIndex(CsvCol::offset)] = ShapeToString(offsetView);
+        } else {
+            Offset offsetView = EvaluateOffset(opAttr->GetFromOffset(), opAttr->GetFromDynOffset());
+            opInfo[toIndex(CsvCol::offset)] = ShapeToString(offsetView);
+        }
     }
-    for (size_t k = 0; k < iopSize; k++) {
-        auto iop = op->GetIOperands()[k];
-        std::string tensorId = GetDumpTensorId(GetFrameCurr(), iop);
-        textList[oopSize + k] = "<a href=\"../entry.html#" + tensorId + "\">" + HtmlEscape(iop->Dump()) + "</a>";
-    }
-    DumpLine(dumpOperationFile, textList);
 
+    for (size_t k = 0; k < iopSize; k++) {
+        if (k < ioperandDataViewList->size()) {
+            auto dataView = ioperandDataViewList->at(k);
+            if (k > 0) {
+                opInfo[toIndex(CsvCol::inputShape)] += ", ";
+                opInfo[toIndex(CsvCol::inputValidShape)] += ", ";
+                opInfo[toIndex(CsvCol::inputDtype)] += ", ";
+                opInfo[toIndex(CsvCol::inputTensors)] += ", ";
+            }
+            opInfo[toIndex(CsvCol::inputShape)] += ShapeToString(dataView->GetShape());         // inputShapeStr
+            opInfo[toIndex(CsvCol::inputValidShape)] += ShapeToString(dataView->GetValidShape());    // inputValidShapeStr
+            opInfo[toIndex(CsvCol::inputDtype)] += DataType2String(dataView->GetDataType());    // inputDtype
+            auto it = frame->tensorDataBinDict.find(op->GetIOperands()[k]);
+            if (it != frame->tensorDataBinDict.end()) {
+                opInfo[toIndex(CsvCol::inputTensors)] += it->second;
+            }
+        }
+    }
+ 
     size_t totalOOperandSize = 0;
     for (size_t k = 0; k < oopSize; k++) {
         if (k < ooperandDataViewList->size()) {
             auto dataView = ooperandDataViewList->at(k);
             totalOOperandSize += dataView->GetSize();
-            textList[k] = HtmlEscape(DumpDataView(dataView));
-            DumpTensorBinary(op->GetOOperands()[k], dataView);
-        } else {
-            textList[k] = "";
+            std::string dumpTensorFileName = GetDumpTensorFileName(op->GetOOperands()[k], op, frame);
+            DumpTensorBinary(dataView, dumpTensorFileName);
+            fprintf(execDumpFile, "<div class=\"detail indent_%d\">%s</a></div>\n", indent, dumpTensorFileName.c_str());
+ 
+            frame->tensorDataBinDict[op->GetOOperands()[k]] = dumpTensorFileName;
+            opInfo[toIndex(CsvCol::tensorMagic)] = std::to_string(op->GetOOperands()[k]->GetMagic());
+            opInfo[toIndex(CsvCol::rawTensorMagic)] = std::to_string(op->GetOOperands()[k]->GetRawTensor()->GetRawMagic());
+            opInfo[toIndex(CsvCol::outputShape)] = ShapeToString(dataView->GetShape());      
+            opInfo[toIndex(CsvCol::outputValidShape)] = ShapeToString(dataView->GetValidShape());
+            opInfo[toIndex(CsvCol::outputDynValidShape)] = ShapeToString(EvaluateValidShape((op->GetOOperands()[k]->GetDynValidShape())));    
+            opInfo[toIndex(CsvCol::outputDtype)] = DataType2String(dataView->GetDataType());     
+            opInfo[toIndex(CsvCol::outputTensor)] = dumpTensorFileName;
+            opInfo[toIndex(CsvCol::verifyResult)] = "-";
         }
-    }
-    size_t totalIOperandSize = 0;
-    for (size_t k = 0; k < iopSize; k++) {
-        if (k < ioperandDataViewList->size()) {
-            auto dataView = ioperandDataViewList->at(k);
-            if (totalIOperandSize + dataView->GetSize() < totalOOperandSize * 0x3) {
-                totalIOperandSize += dataView->GetSize();
-                textList[oopSize + k] = HtmlEscape(DumpDataView(dataView));
-            } else {
-                textList[oopSize + k] = "";
-            }
-        } else {
-            textList[oopSize + k] = "";
-        }
-    }
-    DumpLine(dumpOperationFile, textList, "tensor_data");
-    fprintf(dumpOperationFile, "</table>\n");
-
-    fprintf(dumpOperationFile, R"HTML(
-    </body>
-</html>
-)HTML");
-    fclose(dumpOperationFile);
+        WriteCsvRow(opInfo);
+    } 
 }
 
 void FunctionInterpreter::DumpPassTensorDiff(
@@ -301,13 +325,13 @@ void FunctionInterpreter::DumpPassTensorDiff(
     if (captureExecution->GetFrameList().size() != captureGolden->GetFrameList().size())
         return;
 
-    std::string dumpStyleFilePath = execDumpDir + "/" + "entry.css";
+    std::string dumpStyleFilePath = execDumpDir + "/entry_" + std::to_string(captureIndex) + ".css";
     execDumpStyleFile = fopen(dumpStyleFilePath.c_str(), "w");
     for (size_t idx = 0; idx < captureGolden->GetFrameList().size(); idx++) {
         auto frameExecution = captureExecution->GetFrameList()[idx];
         auto frameGolden = captureGolden->GetFrameList()[idx];
-        const auto &tensorDictExecution = frameExecution->GetTensorDataViewDict();
-        const auto &tensorDictGolden = frameGolden->GetTensorDataViewDict();
+        const auto &tensorDictExecution = frameExecution->tensorDataBinDict;
+        const auto &tensorDictGolden = frameGolden->tensorDataBinDict;
         std::vector<std::shared_ptr<LogicalTensor>> tensorList;
         for (auto &[tensor, dataViewExecution] : tensorDictExecution) {
             (void)dataViewExecution;
@@ -319,8 +343,13 @@ void FunctionInterpreter::DumpPassTensorDiff(
             auto tensor = tensorList[k];
             ALOG_INFO("Dump tensor diff: ", k, "/", tensorList.size(), " ", tensor->Dump(), " ",
                 tensor->GetRawTensor()->Dump());
-            auto dataViewExecution = tensorDictExecution.find(tensor)->second;
-            auto dataViewGolden = tensorDictGolden.find(tensor)->second;
+            auto executionFileName = tensorDictExecution.find(tensor)->second;
+            auto dataViewExecution = LoadTensorBinary(tensor, execDumpDir + "/" + executionFileName);
+            auto filename = tensorDictGolden.find(tensor)->second;
+            auto dataViewGolden = LoadTensorBinary(tensor, dumpPath + "/tensor_graph/" + filename);
+            if (!dataViewExecution || !dataViewGolden) {
+                continue;
+            }
             auto compare = FlowVerifier::VerifyResult(dataViewGolden, dataViewExecution, static_cast<float>(1e-5));
             std::string tensorId = GetDumpTensorId(frameExecution, tensor);
             if (compare.Check()) {
@@ -335,13 +364,13 @@ void FunctionInterpreter::DumpPassTensorDiff(
 
 void FunctionInterpreter::DumpBegin() {
     frameCount = 0;
-    execDumpDir = config::LogTopFolder() + "/verify/" + execDumpFuncKey;
+    execDumpDir = dumpPath + execDumpFuncKey;
     CreateMultiLevelDir(execDumpDir);
 
     if (execDumpLevel < EXEC_DUMP_LEVEL_OPERATION)
         return;
 
-    std::string styleFilePath = config::LogTopFolder() + "/verify/verifier.css";
+    std::string styleFilePath = dumpPath + "/verifier.css";
     if (GetFileSize(styleFilePath) == 0) {
         FILE *fcss = fopen(styleFilePath.c_str(), "w");
         for (int i = 0; i < MAX_IDENT_LEVEL; i++) {
@@ -352,16 +381,16 @@ void FunctionInterpreter::DumpBegin() {
         fclose(fcss);
     }
 
-    std::string dumpFilePath = execDumpDir + "/" + "entry.html";
+    std::string dumpFilePath = execDumpDir + "/entry_" + std::to_string(captureIndex) + ".html";
     execDumpFile = fopen(dumpFilePath.c_str(), "w");
     fprintf(execDumpFile, R"HTML(
 <html>
     <head>
     <link rel="stylesheet" type="text/css" href="../verifier.css">
-    <link rel="stylesheet" type="text/css" href="entry.css">
+    <link rel="stylesheet" type="text/css" href="entry_%s.css">
     </head>
     <body>
-)HTML");
+)HTML", std::to_string(captureIndex).c_str());
 }
 
 void FunctionInterpreter::DumpEnd() {

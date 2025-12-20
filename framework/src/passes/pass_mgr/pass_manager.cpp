@@ -246,7 +246,7 @@ Status PassManager::RunPass(Program &program, Function &function, const std::str
             ALOG_INFO_F("Runtime of pass %s for program %s function %s is %ld us.", identifier.c_str(), program.Name().c_str(),
                 function.GetMagicName().c_str(), duration.count());
         }
-        if (config::GetVerifyOption<bool>(KEY_VERIFY_PASS)) {
+        if (config::GetVerifyOption<bool>(KEY_ENABLE_PASS_VERIFY)) {
             Program::GetInstance().VerifyPass(&function, i, identifier);
         }
     }

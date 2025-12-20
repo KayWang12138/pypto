@@ -32,6 +32,23 @@ _device_init = pypto_impl.DeviceInit
 _device_fini = pypto_impl.DeviceFini
 
 
+class CachedVerifyData:
+
+    def __init__(self):
+        self._data = []
+
+    def reset(self):
+        self._data = []
+
+    def set_data(self, goldens):
+        self._data = goldens
+
+    def get_data(self):
+        return self._data
+
+_pto_verify_datas = CachedVerifyData()
+
+
 def _set_device(device: int):
     import torch
     torch.npu.set_device(device)
@@ -74,7 +91,8 @@ def _device_run_once_data_from_host(*args):
 
 
 class _JIT:
-    def __init__(self, dyn_func, codegen_options=None, host_options=None, pass_options=None, runtime_options=None):
+    def __init__(self, dyn_func, codegen_options=None, host_options=None,
+                 pass_options=None, runtime_options=None, verify_options=None):
         self.dyn_func = dyn_func
         self._is_compiled: bool = False
         self._handler = None
@@ -83,10 +101,18 @@ class _JIT:
         self.host_options = host_options
         self.pass_options = pass_options
         self.runtime_options = runtime_options
+        self.verify_options = verify_options
 
     def compile(self, *args, **kwargs):
         pypto_impl.DeviceInit()
         in_out_tensors = [item for item in args if isinstance(item, pypto.Tensor)]
+
+        if isinstance(self.verify_options, dict) and self.verify_options.get("enable_pass_verify"):
+            verify_inputs = _pto_to_tensor_data(in_out_tensors)
+            if in_out_tensors and in_out_tensors[0].device != "cpu":
+                verify_inputs = [pypto_impl.CopyToHost(t) for t in verify_inputs]
+            pypto_impl.SetVerifyData(verify_inputs, [], _pto_verify_datas.get_data())
+
         handler = pypto_impl.OperatorBegin()
         with pypto.options("jit_scope"):
             self._set_config_option()
@@ -95,6 +121,8 @@ class _JIT:
                     self.dyn_func(*args, **kwargs)
                 del rlf
         pypto_impl.OperatorEnd(handler)
+
+        _pto_verify_datas.reset()
 
         self._handler = handler
         self._is_compiled = True
@@ -212,6 +240,9 @@ class _JIT:
         if isinstance(self.runtime_options, dict):
             pypto.set_runtime_options(**self.runtime_options)
 
+        if isinstance(self.verify_options, dict):
+            pypto.set_verify_options(**self.verify_options)
+
     def _hit_cache(self, shapes):
         if None in [self._handler, self._cached_shapes]:
             return False
@@ -234,7 +265,8 @@ def jit(
         codegen_options=None,
         host_options=None,
         pass_options=None,
-        runtime_options=None
+        runtime_options=None,
+        verify_options=None
 ):
     ...
 
@@ -244,13 +276,16 @@ def jit(dyn_func=None,
         codegen_options=None,
         host_options=None,
         pass_options=None,
-        runtime_options=None):
+        runtime_options=None,
+        verify_options=None):
+
     def decorator(func):
         return _JIT(func,
                    codegen_options=codegen_options,
                    host_options=host_options,
                    pass_options=pass_options,
-                   runtime_options=runtime_options)
+                   runtime_options=runtime_options,
+                   verify_options=verify_options)
 
     if dyn_func is not None:
         return _JIT(dyn_func)
@@ -303,7 +338,7 @@ def verify(func, inputs, outputs, goldens, *args,
     pypto.set_pass_options(**pass_options)
 
     if verify_options is None:
-        verify_options = {"verify_tensor_graph": True}
+        verify_options = {"enable_pass_verify": True}
     pypto.set_verify_options(**verify_options)
 
     pypto_impl.SetVerifyData(_pto_to_tensor_data(inputs),
@@ -317,7 +352,32 @@ def verify(func, inputs, outputs, goldens, *args,
     pypto_impl.OperatorEnd(handler)
 
 
-def set_verify_data(inputs, outputs, goldens):
-    pypto_impl.SetVerifyData(_torch_to_tensor_data(inputs),
-                             _torch_to_tensor_data(outputs),
-                             _torch_to_tensor_data(goldens))
+def set_verify_golden_data(in_out_tensors=None, goldens=None):
+    from .enum import DT_FP16
+    pto_goldens = []
+    if goldens:
+        for golden in goldens:
+            if golden is None:
+                data = pypto_impl.DeviceTensorData(DT_FP16, 0, [0, 0])
+                pto_goldens.append(data)
+                continue
+            if not isinstance(golden, pypto.Tensor): 
+                t = pypto.from_torch(golden)
+            else:
+                t = golden
+            
+            data = pypto_impl.DeviceTensorData(
+                    t.dtype,
+                    t.data_ptr,
+                    list(t.ori_shape),
+                )
+            pto_goldens.append(data)
+        _pto_verify_datas.set_data(pto_goldens)
+ 
+    if in_out_tensors:
+        pto_in_out = []
+        for t in in_out_tensors:
+            pto_in_out.append(t if isinstance(t, pypto.Tensor) else pypto.from_torch(t))
+ 
+        pypto_impl.SetVerifyData(_pto_to_tensor_data(pto_in_out),
+                                 [], pto_goldens)

@@ -48,11 +48,7 @@ def test_verify_full_options():
     pypto.verify(add, [a, b], [c], [a + b],
                  host_options={"only_codegen": True},
                  codegen_options={"support_dynamic_unaligned": True},
-                 verify_options={"verify_tensor_graph": True,
-                                 "verify_pass": True,
-                                 "check_precision": True,
-                                 "dump_tensor": True,
-                                 "dump_operation": True,
-                                 "profile_enable": True
+                 verify_options={"enable_pass_verify": True,
+                                 "pass_verify_save_tensor": True,
                                  }
                  )

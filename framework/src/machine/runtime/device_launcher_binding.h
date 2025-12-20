@@ -220,6 +220,8 @@ ExportedOperator *ExportedOperatorBegin();
 
 void ExportedOperatorEnd(ExportedOperator *op);
 
+DeviceTensorData CopyDevToHost(const DeviceTensorData &tensorData);
+
 } // namespace npu::tile_fwk::dynamic
 
 #endif // SRC_MACHINE_DEVICE_LAUNCHER_H

@@ -733,11 +733,6 @@ void Program::VerifyTensorGraph() {
 }
 
 void Program::VerifyPass(Function *func, int passIndex, const std::string &passIdentifier) {
-    if (!config::GetVerifyOption<bool>(KEY_VERIFY_TENSOR_GRAPH)) {
-        std::string key = "Please enable VERIFY_TENSOR_GRAPH first ";
-        ALOG_ERROR(key, "Verify ERROR: ");
-        return;
-    }
 
     // SubgraphToFunction阶段还未进行validShape推导，会导致非尾块的计算会按照尾块大小进行计算，导致部分数据的拷贝或者计算丢失，
     // 该Pass需要与InferParamIndexPass进行“合并”后才会完成VaildShape推导，才可以完成完整功能；
@@ -747,16 +742,6 @@ void Program::VerifyPass(Function *func, int passIndex, const std::string &passI
     }
     auto &flowVerifier = FlowVerifier::GetInstance();
     flowVerifier.VerifyPass(func, passIndex, passIdentifier);
-}
-
-void Program::VerifyExecuteGraph() {
-    if (!config::GetVerifyOption<bool>(KEY_VERIFY_TENSOR_GRAPH)) {
-        std::string key = "Please enable VERIFY_TENSOR_GRAPH first ";
-        ALOG_ERROR(key, "Verify ERROR: ");
-        return;
-    }
-    auto &flowVerifier = FlowVerifier::GetInstance();
-    flowVerifier.VerifyExecuteGraph();
 }
 
 std::shared_ptr<Function> Program::GetFunctionSharedPtr(Function* rawPtr) {
@@ -879,9 +864,7 @@ RecordFunc::RecordFunc(const std::string &name,
 }
 
 inline bool IsVerifyEnable() {
-    return config::GetVerifyOption<bool>(KEY_VERIFY_TENSOR_GRAPH) ||
-        config::GetVerifyOption<bool>(KEY_VERIFY_EXECUTE_GRAPH) ||
-        config::GetVerifyOption<bool>(KEY_VERIFY_PASS);
+    return config::GetVerifyOption<bool>(KEY_ENABLE_PASS_VERIFY);
 }
 
 void RecordFunc::EndFunction() {
@@ -905,7 +888,7 @@ void RecordFunc::EndFunction() {
             attr->getTensorDataDescDict.clear();
 
             dynFunc_->ApplyLoopCallOrderGroup();
-            if (config::GetVerifyOption<bool>(KEY_VERIFY_TENSOR_GRAPH)) {
+            if (config::GetVerifyOption<bool>(KEY_ENABLE_PASS_VERIFY)) {
                 Program::GetInstance().VerifyTensorGraph();
             }
             MergeAllFuncDupIocast(nullptr);
@@ -913,10 +896,6 @@ void RecordFunc::EndFunction() {
                 *Program::GetInstance().GetFunctionByMagicName(PROGRAM_ENTRY_FUNCTION_NAME), "FunctionUnroll");
             if (!config::GetPlatformConfig(npu::tile_fwk::KEY_ONLY_TENSOR_GRAPH, false)) {
                 Program::GetInstance().UpdateCompileTask();
-            }
-
-            if (config::GetVerifyOption<bool>(KEY_VERIFY_EXECUTE_GRAPH)) {
-                Program::GetInstance().VerifyExecuteGraph();
             }
         }
         Program::GetInstance().SetCurrentDynamicFunction(nullptr);

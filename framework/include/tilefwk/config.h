@@ -47,6 +47,7 @@ namespace experimental {
     void SetOption(const std::string &key, const char *value);
     void SetOption(const std::string &key, const std::string &value);
     void SetOption(const std::string &key, const std::vector<int64_t> &value);
+    void SetOption(const std::string &key, const std::vector<std::string> &value);
     void SetOption(const std::string &key, const std::map<int64_t, int64_t> &value);
 }
 

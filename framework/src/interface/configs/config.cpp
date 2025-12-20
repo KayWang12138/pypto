@@ -31,7 +31,8 @@ using json = nlohmann::json;
 
 namespace npu::tile_fwk {
 
-using ValueType = std::variant<bool, int64_t, std::string, std::vector<int64_t>, std::map<int64_t, int64_t>>;
+using ValueType = std::variant<bool, int64_t, std::string, std::vector<int64_t>,
+                               std::vector<std::string>, std::map<int64_t, int64_t>>;
 
 using MapType = std::map<int64_t, int64_t>;
 
@@ -78,13 +79,10 @@ static std::map<std::string, ValueType> g_codegenConfig = {
 };
 
 static std::map<std::string, ValueType> g_verifyConfig = {
-    {KEY_VERIFY_TENSOR_GRAPH, false},
-    {KEY_VERIFY_PASS, false},
-    {KEY_VERIFY_EXECUTE_GRAPH, false},
-    {KEY_VERIFY_CHECK_PRECISION, false},
-    {KEY_VERIFY_DUMP_TENSOR, false},
-    {KEY_VERIFY_DUMP_OPERATION, false},
-    {KEY_VERIFY_PROFILE_ENABLE, false},
+    {KEY_ENABLE_PASS_VERIFY, false},
+    {KEY_PASS_VERIFY_SAVE_TENSOR, false},
+    {KEY_PASS_VERIFY_SAVE_TENSOR_DIR, std::string("")},
+    {KEY_PASS_VERIFY_FILTER, std::vector<std::string>()},
 };
 
 static std::map<std::string, ValueType> g_debugConfig = {
@@ -194,6 +192,8 @@ inline void OptionToOss(std::ostringstream &oss, const std::string &key, const V
         oss << key << ": " << std::get<std::string>(value);
     } else if (std::holds_alternative<std::vector<int64_t>>(value)) {
         oss << key << ": " << std::get<std::vector<int64_t>>(value);
+    } else if (std::holds_alternative<std::vector<std::string>>(value)) {
+        oss << key << ": " << std::get<std::vector<std::string>>(value);
     } else if (std::holds_alternative<MapType>(value)) {
         oss << key << ": ";
         for (auto &[k, v] : std::get<MapType>(value)) {
@@ -240,6 +240,8 @@ bool experimental::IsType(const std::string &key, const std::type_info &type) {
         return type == typeid(std::string);
     } else if (std::holds_alternative<std::vector<int64_t>>(iter->second)) {
         return type == typeid(std::vector<int64_t>);
+    } else if (std::holds_alternative<std::vector<std::string>>(iter->second)) {
+        return type == typeid(std::vector<std::string>);
     } else if (std::holds_alternative<MapType>(iter->second)) {
         return type == typeid(MapType);
     } else {
@@ -262,6 +264,7 @@ DEFINE_GET_OPTION(bool)
 DEFINE_GET_OPTION(int64_t)
 DEFINE_GET_OPTION(std::string)
 DEFINE_GET_OPTION(std::vector<int64_t>)
+DEFINE_GET_OPTION(std::vector<std::string>)
 DEFINE_GET_OPTION(MapType)
 #undef DEFINE_GET_OPTION
 
@@ -352,6 +355,13 @@ void experimental::SetOption(const std::string &key, const std::string &value) {
 
 void experimental::SetOption(const std::string &key, const std::vector<int64_t> &value) {
     ConfigManagerNg::GetInstance().CurrentScope()->UpdateValue(key, value);
+    g_rwlock.lock();
+    g_config.options[StringUtils::ToLower(key)] = value;
+    g_rwlock.unlock();
+    SetOptionPost(key);
+}
+
+void experimental::SetOption(const std::string &key, const std::vector<std::string> &value) {
     g_rwlock.lock();
     g_config.options[StringUtils::ToLower(key)] = value;
     g_rwlock.unlock();

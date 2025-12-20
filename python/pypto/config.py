@@ -266,34 +266,27 @@ def get_runtime_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]
 
 
 def set_verify_options(*,
-                       verify_tensor_graph: Optional[bool] = None,
-                       verify_pass: Optional[bool] = None,
-                       check_precision: Optional[bool] = None,
-                       dump_tensor: Optional[bool] = None,
-                       dump_operation: Optional[bool] = None,
-                       profile_enable: Optional[bool] = None,
-                       cost_model_enable: Optional[bool] = None,
-                       verify_execute_graph: Optional[bool] = None,
+                       enable_pass_verify: Optional[bool] = None,
+                       pass_verify_save_tensor: Optional[bool] = None,
+                       pass_verify_save_tensor_dir: Optional[str] = None,
+                       pass_verify_pass_filter: Optional[List[str]] = None,
                        ) -> None:
     """
     Set verify options.
 
     Parameters
     ---------
-    verify_tensor_graph : bool
-        Whether to verify the tensor graph.
+    enable_pass_verify : bool
+        Whether to verify pass.
 
-    verify_pass : bool
-        Whether to verify the pass.
-
-    check_precision : bool
-        Whether to check the precision.
-
-    dump_tensor : bool
+    pass_verify_save_tensor : bool
         Whether to dump the tensor.
 
-    dump_operation : bool
-        Whether to dump the operation.
+    pass_verify_save_tensor_dir : str
+        Pass verify tensor save path.
+
+    pass_verify_pass_filter : List
+        Filting pass to verify.
     """
     _pto_options.set_options("verify", locals())
 

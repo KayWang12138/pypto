@@ -160,12 +160,10 @@
         "verify": {
             "type": "object",
             "properties": {
-                "verify_tensor_graph": {"type": "boolean"},
-                "verify_pass": {"type": "boolean"},
-                "verify_execute_graph": {"type": "boolean"},
-                "verify_check_precision": {"type": "boolean"},
-                "verify_dump_tensor": {"type": "boolean"},
-                "verify_dump_operation": {"type": "boolean"}
+                "enable_pass_verify": {"type": "boolean"},
+                "pass_verify_save_tensor": {"type": "boolean"},
+                "pass_verify_save_tensor_dir": {"type": "string"},
+                "pass_verify_pass_filter": {"type": "array", "items": {"type": "string"}}
             }
         },
         "debug": {

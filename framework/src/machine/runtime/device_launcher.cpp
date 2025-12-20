@@ -311,4 +311,18 @@ void ExportedOperatorEnd(ExportedOperator *op) {
     op->ResetFunction(Program::GetInstance().GetLastFunction());
 }
 
+DeviceTensorData CopyDevToHost(const DeviceTensorData &tensorData) {
+#ifdef BUILD_WITH_CANN
+    uint8_t *data = (uint8_t *)malloc(tensorData.GetDataSize());
+    auto rawData = RawTensorData::CreateTensor(tensorData.GetDataType(), tensorData.GetShape(), data);
+    rawData->SetDevPtr((uint8_t *)tensorData.GetAddr());
+    DeviceMemoryUtils().CopyFromDev(*rawData);
+    auto hostTensor =std::make_shared<DeviceTensorData>(tensorData.GetDataType(), (uintdevptr_t)rawData->data(), tensorData.GetShape());
+    return *hostTensor;
+#else
+    auto hostTensor =std::make_shared<DeviceTensorData>(tensorData.GetDataType(), 0, tensorData.GetShape());
+    return *hostTensor;
+#endif
+}
+
 }
