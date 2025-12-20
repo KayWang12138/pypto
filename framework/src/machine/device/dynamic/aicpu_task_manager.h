@@ -78,6 +78,9 @@ public:
 
     // 仅AICPU_0会调用
     inline uint64_t  TaskProcess() {
+        if (__atomic_load_n(&readyQueue_->tail, __ATOMIC_RELAXED) == __atomic_load_n(&readyQueue_->head, __ATOMIC_RELAXED)) {
+            return 0;
+        }
         ReadyQueueLock();
         uint64_t taskIdx = readyQueue_->head;
         uint64_t taskCount = readyQueue_->tail - readyQueue_->head;

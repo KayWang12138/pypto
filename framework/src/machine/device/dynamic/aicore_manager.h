@@ -96,6 +96,7 @@ public:
 
         readyAicCoreFunctionQue_ = reinterpret_cast<ReadyCoreFunctionQueue *>(curDevTask_->readyAicCoreFunctionQue);
         readyAivCoreFunctionQue_ = reinterpret_cast<ReadyCoreFunctionQueue *>(curDevTask_->readyAivCoreFunctionQue);
+        readyAicpuFunctionQue_ = reinterpret_cast<ReadyCoreFunctionQueue *>(curDevTask_->readyAicpuFunctionQue);
         wrapManager_.Init(curDevTask_, coreRunReadyCnt_, runReadyCoreIdx_[CORE_IDX_AIV],
             runReadyCoreIdx_[CORE_IDX_AIC], corePendReadyCnt_, aicValidNum_,
             [&](CoreType coreType, int arg1, uint64_t arg2) {SendTaskToAiCore(coreType, arg1, arg2);});
@@ -981,7 +982,7 @@ private:
     }
 
     inline void PushAicpuTaskQueue(uint64_t taskId) {
-        aicpuTaskManager_.TaskEnqueue(taskId);
+        PushReadyQue(readyAicpuFunctionQue_, &taskId, 1);
     }
 
     inline bool TrySendTaskDirectly(int coreType, uint32_t taskId) {
@@ -1617,6 +1618,7 @@ private:
     /* prepare aicore ready task list */
     ReadyCoreFunctionQueue* readyAicCoreFunctionQue_{nullptr};
     ReadyCoreFunctionQueue* readyAivCoreFunctionQue_{nullptr};
+    ReadyCoreFunctionQueue* readyAicpuFunctionQue_{nullptr};
     WrapManager wrapManager_;
     uint64_t waitTaskCnt_[AICORE_TYPE_NUM]{0,0};
     uint32_t corePendReadyCnt_[AICORE_TYPE_NUM]{0,0};
