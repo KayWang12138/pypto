@@ -19,13 +19,12 @@ import os
 import pytest
 import logging
 import math
+from mla_prolog_quant import MlaTileConfig
 
 PRINT_DEBUG = False
 
 
 def prep_env():
-    seed = 5
-    torch.manual_seed(seed)
 
     device_id = int(os.environ.get("TILE_FWK_DEVICE_ID", 0))
     torch.npu.set_device(device_id)
@@ -133,7 +132,7 @@ def apply_rotary_pos_emb_v2(q, k, cos, sin, unsqueeze_dim=2):
 
 
 def rotate_half(x):
-    # Rotates half the hidden dims of the input.
+    """Rotates half the hidden dims of the input."""
     x1, x2 = x.chunk(2, dim=-1)
     return torch.cat((-x2, x1), dim=-1)
 
@@ -439,7 +438,7 @@ def mla_prolog_quant_v32_compute(inputs):
     n, qk_nope_head_dim, kv_lora_rank = w_uk.shape
     q_head_dim = qk_nope_head_dim + qk_rope_head_dim
 
-    # q
+    """ q """
     x_2d = x.reshape(b * s, h)
     # shape is: [b * s, h] @ [h, q_lora_rank] -> [b * s, q_lora_rank]
     if is_quant_a:
@@ -447,7 +446,7 @@ def mla_prolog_quant_v32_compute(inputs):
         x_2d_quant, x_2d_scale_dequant = quant(x_2d, True)
         q_a_proj = torch.matmul(x_2d_quant.to(torch.int32), w_dq.to(torch.int32))
 
-        # dequant
+        """ dequant """
         q_a_proj_fp32 = q_a_proj.to(torch.float32)
         q_a_proj_fp32_dequant = q_a_proj_fp32 * x_2d_scale_dequant
         q_a_proj = q_a_proj_fp32_dequant * w_qa_scale
@@ -469,7 +468,7 @@ def mla_prolog_quant_v32_compute(inputs):
         q_b_proj = torch.matmul(q_a_layernorm.to(torch.int32), w_uqqr.to(torch.int32)).to(
             q_a_layernorm.device)  # q_b_proj
 
-        # dequant
+        """ dequant """
         q_b_proj_fp32 = q_b_proj.to(torch.float32)
         q_b_proj_fp32_dequant = q_b_proj_fp32 * q_a_layernorm_scale_dequant
         q_b_proj = q_b_proj_fp32_dequant * w_qb_scale
@@ -491,13 +490,13 @@ def mla_prolog_quant_v32_compute(inputs):
     q_nope_new_t = q_nope_new.permute(1, 0, 2)  # [b*s, n, kv_lora_rank]
     q_nope = q_nope_new_t.reshape(b, s, n, kv_lora_rank)  # [b, s, n, kv_lora_rank]
 
-    # kv
+    """ kv """
     # shape is: [b*s, h] @ [h, kv_lora_rank + qk_rope_head_dim] -> [b*s, kv_lora_rank + qk_rope_head_dim]
     if is_quant_a:
         # no smooth
         x_2d_quant, x_2d_scale_dequant = quant(x_2d, True)
         kv_a_proj = torch.matmul(x_2d_quant.to(torch.int32), w_dkvkr.to(torch.int32))
-        # dequant 
+        """ dequant """
         kv_a_proj_fp32 = kv_a_proj.to(torch.float32)
         kv_a_proj_fp32_dequant = kv_a_proj_fp32 * x_2d_scale_dequant
         kv_a_proj = kv_a_proj_fp32_dequant * w_kva_scale
@@ -520,7 +519,7 @@ def mla_prolog_quant_v32_compute(inputs):
     compressed_kv_r = compressed_kv_norm.reshape(b, s, 1, kv_lora_rank)
     k_nope = compressed_kv_r.reshape(b * s * 1, kv_lora_rank)
 
-    # RoPE 
+    """ RoPE """
     q_pe = q_reshape[:, :, :, qk_nope_head_dim:]  # [b, s, n, qk_rope_head_dim]
 
     k_pe = kv_reshape[:, :, kv_lora_rank:]  # [b, s, qk_rope_head_dim]
@@ -530,12 +529,12 @@ def mla_prolog_quant_v32_compute(inputs):
     q_embed, k_embed = apply_rotary_pos_emb_v2(q_pe, k_pe_r, cos, sin, 2)
     k_embed_r = k_embed.reshape(b * 1 * s, qk_rope_head_dim)
 
-    # kv_cache output, [b,1,s2,kv_lora_rank]
-    kv_cache_tmp = kv_cache.clone() 
+    """ kv_cache output, [b,1,s2,kv_lora_rank] """
+    kv_cache_tmp = kv_cache.clone()
     kv_cache_out = scatter_update_4d(kv_cache_tmp, k_nope, cache_index, -2)
 
-    # kr_cache output, [b,1,s2,qk_rope_head_dim]
-    kr_cache_tmp = kr_cache.clone() 
+    """ kr_cache output, [b,1,s2,qk_rope_head_dim] """
+    kr_cache_tmp = kr_cache.clone()
     kr_cache_out = scatter_update_4d(kr_cache_tmp, k_embed_r, cache_index, -2)
 
     if is_quant_b:
@@ -545,8 +544,10 @@ def mla_prolog_quant_v32_compute(inputs):
             scatter_update_4d(kv_quant_scale_cache_tmp, compressed_kv_quant_scale, cache_index, -2)
     else:
         kv_quant_scale_cache_out = None
-
-    return q_nope, q_embed, q_a_layernorm, q_a_layernorm_scale_dequant, kv_cache_out, kr_cache_out, kv_quant_scale_cache_out
+    
+    res = [q_nope, q_embed, q_a_layernorm, q_a_layernorm_scale_dequant, kv_cache_out, \
+            kr_cache_out, kv_quant_scale_cache_out]
+    return res
 
 
 def indexer_prolog(inputs: dict, dims: dict):
@@ -583,7 +584,7 @@ def indexer_prolog(inputs: dict, dims: dict):
     q_rope = single_rope(q_rope, cos, sin)
     q = torch.cat([q_rope, q_nope], dim=-1)
     # hadamard
-    q = torch.matmul(q, hadamard_q)  # (b, s, n, d)
+    q = torch.matmul(q.to(torch.float32), hadamard_q.to(torch.float32)).to(x_dtype)  # (b, s, n, d)
     q_int8, q_scale = quant(q)  # (b, s, n, d) int8, (b, s, n, 1) fp32
     q_scale = q_scale.to(torch.float16)
 
@@ -602,7 +603,8 @@ def indexer_prolog(inputs: dict, dims: dict):
     scatter_update_2d(k_cache, k_int8.reshape(b, s, 1, d), cache_index, -2)
     scatter_update_2d(k_scale_cache, k_scale.reshape(b, s, 1, 1), cache_index, -2)
 
-    weights = torch.matmul(x, w_idx_proj).to(torch.float32)  # (b, s, n)
+    weights = torch.matmul(x.to(torch.float32), \
+        w_idx_proj.to(torch.float32)).to(x_dtype).to(torch.float32)  # (b, s, n)
     weights = weights * (n ** -0.5) * (d ** -0.5)
     weights = weights.to(torch.float16)
 
@@ -656,8 +658,10 @@ def gen_test_data(params):
     mla_inputs['cache_index'] = kv_len
     mla_inputs['w_qb_scale'] = scale_data['w_uqqr']
 
-    q_nope, q_rope, rms_norm_out, rms_norm_scale_out, kv_cache_out, kr_cache_out, kv_quant_scale_cache_out = mla_prolog_quant_v32_compute(
-        mla_inputs)
+    res = mla_prolog_quant_v32_compute(mla_inputs)
+    
+    q_nope, q_rope, rms_norm_out, rms_norm_scale_out, kv_cache_out, kr_cache_out, \
+            kv_quant_scale_cache_out = res
 
     mla_goldens = {}
     mla_goldens['q_nope'] = q_nope
@@ -700,7 +704,6 @@ def gen_test_data(params):
     ##########################################################################
     ip_inputs = gen_indexer_prolog_inputs(params, block_num, block_table, mla_inputs, mla_goldens)
     ip_goldens = indexer_prolog(ip_inputs, params)
-
     ip_inputs_npu = {}
     for k, v in ip_inputs.items():
         if isinstance(v, torch.Tensor):
@@ -791,9 +794,6 @@ def gen_test_data(params):
         'idx_k_scale_cache_out': ip_inputs_npu['idx_k_scale_cache'],
         'weights': gen_zero_tensor(goldens['weights'])
     }
-    if PRINT_DEBUG:
-        outputs.update({'rms_norm_out': gen_zero_tensor(goldens['rms_norm_out']),
-                        'rms_norm_scale_out': gen_zero_tensor(goldens['rms_norm_scale_out'])})
     return inputs, outputs, goldens
 
 
@@ -840,10 +840,6 @@ def check(case_name, outputs, goldens):
     compare(outputs['kr_cache_out'].cpu(), goldens['kr_cache_out'], 'kr', 0.0001, 0.0078125, 0.005)
     compare(outputs['kv_quant_scale_cache_out'].cpu(), goldens['kv_quant_scale_cache_out'], 'kScaleCache', 0.000025,
             0.005, 0.005)
-    if PRINT_DEBUG:
-        compare(outputs['rms_norm_out'].cpu(), goldens['rms_norm_out'], 'qNorm', 1, 0, 0)
-        compare(outputs['rms_norm_scale_out'].cpu(), goldens['rms_norm_scale_out'], 'qNormScale', 0.000025, 0.005,
-                0.005)
 
     ########### ip ###########
     compare(outputs['q_int8'].cpu(), goldens['q_int8'], 'q_int8', q_int8_atol, 0, 0)
@@ -869,7 +865,7 @@ def convert_torch_tensor(tensor_dict, dynamic_axis_dict, name_prefix):
 
 
 def do_test(case_name, params, mla_epsilon_cq, mla_epsilon_ckv, mla_cache_mode, mla_tile_config, ip_attrs,
-            ip_configs):
+            ip_configs, rope_tile_shape):
     prep_env()
 
     logging.debug(f'=== run test case: {case_name} ===')
@@ -901,56 +897,15 @@ def do_test(case_name, params, mla_epsilon_cq, mla_epsilon_ckv, mla_cache_mode, 
         'weights': [0],
     }
 
-    c0 = 16
-    m_tile_value = (min(128, mla_tile_config.tile_bs) + c0 - 1) // c0 * c0
-    mv_tile_value = min(8, mla_tile_config.tile_bs)
-    mla_tile_config.m_tile = m_tile_value
-
-    mla_tile_config.pre_quant_cube_tile[0] = m_tile_value
-    mla_tile_config.pre_quant_cube_tile[1] = m_tile_value
-    mla_tile_config.mv_tile = mv_tile_value
-    mla_tile_config.q_vec_tile0 = 32
-    mla_tile_config.q_vec_tile1 = 128
-    mla_tile_config.k_vec_tile0 = 32
-    mla_tile_config.k_vec_tile1 = 512
-    mla_tile_config.dynamic_unaligned_enable = True
-
-    if PRINT_DEBUG:
-        dynamic_dict.update({'rms_norm_out': [0], 'rms_norm_scale_out': [0]})
     pto_outputs = convert_torch_tensor(outputs, dynamic_dict, 'OUT_')
     import mla_indexer_prolog_quant as mla_lp_quant
-    from mla_prolog_quant import RopeTileShapeConfig
-    rope_tile_shape = RopeTileShapeConfig(two_dim=[32, 64], three_dim=[32, 32, 128], four_dim=[16, 128, 128, 128])
 
-    if PRINT_DEBUG:
-        fun = mla_lp_quant.mla_indexer_prolog_quant_debug
-    else:
-        fun = mla_lp_quant.mla_indexer_prolog_quant
+    fun = mla_lp_quant.mla_indexer_prolog_quant
     fun(*pto_inputs, *pto_outputs, mla_epsilon_cq, mla_epsilon_ckv, mla_cache_mode,
         mla_tile_config, ip_attrs, ip_configs, rope_tile_shape)
     pypto.runtime._device_synchronize()
     check(case_name, outputs, goldens)
     pypto.runtime._device_fini()
-
-class MlaTileConfig:
-    def __init__(self):
-        self.tile_b = 8
-        self.tile_s = 1
-        self.tile_bs = 8
-        self.cube_l1_reuse_mode = 4
-        self.m_tile = 16
-        self.mv_tile = 16
-        self.q_vec_tile0 = 16
-        self.q_vec_tile1 = 16
-        self.k_vec_tile0 = 16
-        self.k_vec_tile1 = 16
-        self.pre_quant_cube_tile = [16, 16, 256, 256, 128, 128]
-        self.mg_copy_in_upper_bound = 2 * 1024 * 1024
-        self.pg_upper_bound = 8192
-        self.vec_nbuffer_mode = 1
-        self.cube_nbuffer_setting = {3: 4}
-        self.cube_l1_reuse_setting = {0: 2, 1: 1, 2: 1, 3: 4, 4: 4, 5: 1}
-        self.dynamic_unaligned_enable = False
 
 
 params_base = {
@@ -970,8 +925,83 @@ params_base = {
 }
 
 
-@pytest.mark.skip(reason="large test case")
-def test_t_32_tilebs_16():
+def test_b_4_s1_2_tilebs_8_d():
+    '''
+    mlaLp decode测试函数
+    '''
+    seed = 6
+    torch.manual_seed(seed)
+    b = 4
+    s1 = 2
+    s2 = 64 * 1024
+    params = params_base
+    params_base.update({
+        'b': b,
+        's': s1,
+        't': b * s1,
+        's1': s1,
+        's2': s2,
+        'actual_seq': torch.tensor([s2] * b, dtype=torch.int32).unsqueeze(-1),
+    })
+
+    mla_tile_config = MlaTileConfig()
+    mla_tile_config.tile_bs = 8
+
+    c0 = 16
+    m_tile_value = (min(32, mla_tile_config.tile_bs) + c0 - 1) // c0 * c0
+    mv_tile_value = min(8, mla_tile_config.tile_bs)
+    mla_tile_config.m_tile = m_tile_value
+
+    from mla_prolog_quant import RopeTileShapeConfig
+    rope_tile_shape = RopeTileShapeConfig(two_dim=[128, 128], three_dim=[128, 128, 128], four_dim=[16, 128, 128, 128])
+
+    mla_tile_config.pre_quant_cube_tile = [m_tile_value, m_tile_value, 256, 256, 128, 128]
+    mla_tile_config.mv_tile = mv_tile_value
+    mla_tile_config.q_vec_tile0 = 1
+    mla_tile_config.q_vec_tile1 = 32
+    mla_tile_config.k_vec_tile0 = 2
+    mla_tile_config.k_vec_tile1 = 512
+    mla_tile_config.unroll_list = [8, 4, 2, 1]
+
+    mla_cache_mode = 'PA_BSND'
+    mla_epsilon_cq = 1e-5
+    mla_epsilon_ckv = 1e-5
+
+    import lightning_indexer_prolog_quant as ip
+    # ---- Attrs ----
+    ip_attrs = ip.IndexerPrologQuantAttr(
+        eps=1e-6,
+        layerout_query='TND',
+        layerout_key='PA_BSND',
+    )
+
+    ip_configs = ip.IndexerPrologQuantConfigs(
+        q_linear=[16, 16, 256, 256, 128, 128],
+        q_hd=[64, 64, 128, 128, 128, 128],
+        k_linear=[16, 16, 256, 256, 128, 128],
+        w_linear=[16, 16, 256, 256, 128, 128],
+        unroll_list=[128, 64, 32, 16, 8, 4, 2, 1],
+        cube_l1_reuse_setting={1: 4},
+        mg_copyin_upper_bound=2 * 1024 * 1024,
+        pg_upper_bound=8192,
+        block_size=128,
+        t_sub_tile=1,
+        chunk_size=2,
+        vec_nbuffer_mode=0,
+    )
+
+    do_test("mla_prolog_indexer_prolog_quant.test_b_4_s1_2_tilebs_8",
+            params, mla_epsilon_cq, mla_epsilon_ckv,
+            mla_cache_mode, mla_tile_config, ip_attrs, ip_configs, rope_tile_shape)
+
+
+@pytest.mark.skip(reason="prefill test cast")
+def test_t_32_tilebs_16_p():
+    '''
+    mlaLp prefill测试函数
+    '''
+    seed = 5
+    torch.manual_seed(5)
     b = 16
     s1 = 2
     s2 = 4 * 1024
@@ -988,6 +1018,24 @@ def test_t_32_tilebs_16():
     mla_tile_config = MlaTileConfig()
     mla_tile_config.tile_bs = 16
 
+    c0 = 16
+    m_tile_value = (min(128, mla_tile_config.tile_bs) + c0 - 1) // c0 * c0
+    mv_tile_value = min(8, mla_tile_config.tile_bs)
+    mla_tile_config.m_tile = m_tile_value
+
+    mla_tile_config.pre_quant_cube_tile = [m_tile_value, m_tile_value, 256, 256, 128, 128]
+    mla_tile_config.mv_tile = mv_tile_value
+    mla_tile_config.q_vec_tile0 = 32
+    mla_tile_config.q_vec_tile1 = 128
+    mla_tile_config.k_vec_tile0 = 32
+    mla_tile_config.k_vec_tile1 = 512
+    mla_tile_config.cube_l1_reuse_setting = {0: 2, 1: 1, 2: 1, 3: 4, 4: 4, 5: 1}
+    mla_tile_config.unroll_list = [32, 16, 8, 4, 2, 1]
+    mla_tile_config.dynamic_unaligned_enable = True
+    from mla_prolog_quant import RopeTileShapeConfig
+    rope_tile_shape = RopeTileShapeConfig(two_dim=[32, 64], three_dim=[32, 32, 128], four_dim=[16, 128, 128, 128])
+
+
     mla_cache_mode = 'PA_BSND'
     mla_epsilon_cq = 1e-5
     mla_epsilon_ckv = 1e-5
@@ -1000,14 +1048,15 @@ def test_t_32_tilebs_16():
         layerout_key='PA_BSND',
     )
 
+
     ip_configs = ip.IndexerPrologQuantConfigs(
         q_linear=[16, 16, 512, 512, 128, 128],
         q_hd=[32, 32, 128, 128, 128, 128],
         k_linear=[16, 16, 512, 512, 64, 64],
         w_linear=[16, 16, 1024, 1024, 32, 32],
         unroll_list=[32, 16, 8, 4, 2, 1],
-        l1_reuse_param={1: 4},
-        mg_copy_in_upper_bound=2 * 1024 * 1024,
+        cube_l1_reuse_setting={1: 4},
+        mg_copyin_upper_bound=2 * 1024 * 1024,
         pg_upper_bound=8192,
         block_size=128,
         t_sub_tile=1,
@@ -1017,11 +1066,16 @@ def test_t_32_tilebs_16():
 
     do_test("mla_prolog_indexer_prolog_prefill.test_t_32_tilebs_16",
             params, mla_epsilon_cq, mla_epsilon_ckv,
-            mla_cache_mode, mla_tile_config, ip_attrs, ip_configs)
+            mla_cache_mode, mla_tile_config, ip_attrs, ip_configs, rope_tile_shape)
 
 
 @pytest.mark.skip(reason="large shape")
-def test_t_512_tilebs_128():
+def test_t_512_tilebs_128_p():
+    '''
+    mlaLp prefill测试函数
+    '''
+    seed = 5
+    torch.manual_seed(5)
     b = 128
     s1 = 4
     s2 = 4 * 1024
@@ -1037,6 +1091,24 @@ def test_t_512_tilebs_128():
 
     mla_tile_config = MlaTileConfig()
     mla_tile_config.tile_bs = 128
+    
+    #mla算子的tile切分设置
+    c0 = 16
+    m_tile_value = (min(128, mla_tile_config.tile_bs) + c0 - 1) // c0 * c0
+    mv_tile_value = min(8, mla_tile_config.tile_bs)
+    mla_tile_config.m_tile = m_tile_value
+
+    mla_tile_config.pre_quant_cube_tile = [m_tile_value, m_tile_value, 256, 256, 128, 128]
+    mla_tile_config.mv_tile = mv_tile_value
+    mla_tile_config.q_vec_tile0 = 32
+    mla_tile_config.q_vec_tile1 = 128
+    mla_tile_config.k_vec_tile0 = 32
+    mla_tile_config.k_vec_tile1 = 512
+    mla_tile_config.cube_l1_reuse_setting = {0: 2, 1: 1, 2: 1, 3: 4, 4: 4, 5: 1}
+    mla_tile_config.unroll_list = [128, 64, 32, 16, 8, 4, 2, 1]
+    mla_tile_config.dynamic_unaligned_enable = True
+    from mla_prolog_quant import RopeTileShapeConfig
+    rope_tile_shape = RopeTileShapeConfig(two_dim=[32, 64], three_dim=[32, 32, 128], four_dim=[16, 128, 128, 128])
 
     mla_cache_mode = 'PA_BSND'
     mla_epsilon_cq = 1e-5
@@ -1056,8 +1128,8 @@ def test_t_512_tilebs_128():
         k_linear=[64, 64, 256, 256, 128, 128],
         w_linear=[32, 32, 512, 512, 64, 64],
         unroll_list=[128, 64, 32, 16, 8, 4, 2, 1],
-        l1_reuse_param={1: 4, 3: 4},
-        mg_copy_in_upper_bound=2 * 1024 * 1024,
+        cube_l1_reuse_setting={1: 4, 3: 4},
+        mg_copyin_upper_bound=2 * 1024 * 1024,
         pg_upper_bound=8192,
         block_size=128,
         t_sub_tile=2,
@@ -1066,7 +1138,8 @@ def test_t_512_tilebs_128():
     )
 
     do_test("mla_prolog_indexer_prolog_prefill.test_t_512_tilebs_128", params, mla_epsilon_cq, mla_epsilon_ckv,
-            mla_cache_mode, mla_tile_config, ip_attrs, ip_configs)
+            mla_cache_mode, mla_tile_config, ip_attrs, ip_configs, rope_tile_shape)
+
 
 
 if __name__ == '__main__':
@@ -1074,4 +1147,4 @@ if __name__ == '__main__':
     if PRINT_DEBUG:
         logging.basicConfig(format='%(asctime)s - %(filename)s:%(lineno)d - %(levelname)s: %(message)s',
                             level=logging.DEBUG)
-    test_t_512_tilebs_128()
+    test_b_4_s1_2_tilebs_8_d()

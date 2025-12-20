@@ -246,7 +246,7 @@ def indexer_prolog(inputs: dict, dims: dict):
     q_rope = single_rope(q_rope, cos, sin)
     q = torch.cat([q_rope, q_nope], dim=-1)
     # hadamard
-    q = torch.matmul(q, hadamard_q)  # (b, s, n, d)
+    q = torch.matmul(q.to(torch.float32), hadamard_q.to(torch.float32)).to(x_dtype)  # (b, s, n, d)
     q_int8, q_scale = quant_int8(q)  # (b, s, n, d) int8, (b, s, n, 1) fp32
     q_scale = q_scale.to(torch.float16)
 
@@ -265,7 +265,8 @@ def indexer_prolog(inputs: dict, dims: dict):
     scatter_update_pa_bsnd(k_cache, k_int8.reshape(b, s, 1, d), cache_index, -2)
     scatter_update_pa_bsnd(k_scale_cache, k_scale.reshape(b, s, 1, 1), cache_index, -2)
 
-    weights = torch.matmul(x, w_idx_proj).to(torch.float32)  # (b, s, n)
+    weights = torch.matmul(x.to(torch.float32), \
+        w_idx_proj.to(torch.float32)).to(x_dtype).to(torch.float32)  # (b, s, n)
     weights = weights * (n ** -0.5) * (d ** -0.5)
     weights = weights.to(torch.float16)
 
@@ -444,7 +445,6 @@ def compare(t: torch.Tensor, t_ref: torch.Tensor, name, atol, rtol, max_error_ra
          f"error_count: {error_count}, error_count_threshold: {max_error_count}")
 
 
-@pytest.mark.skip(reason="similar to test_b8_s1_2_s2_64k")
 def test_b4_s1_2_s2_64k():
     configs = IndexerPrologQuantConfigs(
         q_linear=[16, 16, 512, 512, 128, 128],
@@ -452,8 +452,8 @@ def test_b4_s1_2_s2_64k():
         k_linear=[16, 16, 512, 512, 64, 64],
         w_linear=[16, 16, 1024, 1024, 32, 32],
         unroll_list=[32, 16, 8, 4, 2, 1],
-        l1_reuse_param={1: 4},
-        mg_copy_in_upper_bound=2 * 1024 * 1024,
+        cube_l1_reuse_setting={1: 4},
+        mg_copyin_upper_bound=2 * 1024 * 1024,
         pg_upper_bound=8192,
         block_size=128,
         t_sub_tile=1,
@@ -471,8 +471,8 @@ def test_b8_s1_2_s2_64k():
         k_linear=[16, 16, 512, 512, 64, 64],
         w_linear=[16, 16, 1024, 1024, 32, 32],
         unroll_list=[32, 16, 8, 4, 2, 1],
-        l1_reuse_param={1: 4},
-        mg_copy_in_upper_bound=2 * 1024 * 1024,
+        cube_l1_reuse_setting={1: 4},
+        mg_copyin_upper_bound=2 * 1024 * 1024,
         pg_upper_bound=8192,
         block_size=128,
         t_sub_tile=1,
@@ -490,8 +490,8 @@ def test_b1_s1_4k_s2_64k():
         k_linear=[16, 16, 512, 512, 64, 64],
         w_linear=[16, 16, 1024, 1024, 32, 32],
         unroll_list=[32, 16, 8, 4, 2, 1],
-        l1_reuse_param={1: 4},
-        mg_copy_in_upper_bound=2 * 1024 * 1024,
+        cube_l1_reuse_setting={1: 4},
+        mg_copyin_upper_bound=2 * 1024 * 1024,
         pg_upper_bound=8192,
         block_size=128,
         t_sub_tile=1,
@@ -509,8 +509,8 @@ def test_b2_s1_4k_s2_64k():
         k_linear=[16, 16, 512, 512, 64, 64],
         w_linear=[16, 16, 1024, 1024, 32, 32],
         unroll_list=[32, 16, 8, 4, 2, 1],
-        l1_reuse_param={1: 4},
-        mg_copy_in_upper_bound=2 * 1024 * 1024,
+        cube_l1_reuse_setting={1: 4},
+        mg_copyin_upper_bound=2 * 1024 * 1024,
         pg_upper_bound=8192,
         block_size=128,
         t_sub_tile=1,
@@ -528,8 +528,8 @@ def test_b128_s1_4_s2_8k():
         k_linear=[64, 64, 256, 256, 128, 128],
         w_linear=[32, 32, 512, 512, 64, 64],
         unroll_list=[128, 64, 32, 16, 8, 4, 2, 1],
-        l1_reuse_param={1: 4, 3: 4},
-        mg_copy_in_upper_bound=2 * 1024 * 1024,
+        cube_l1_reuse_setting={1: 4, 3: 4},
+        mg_copyin_upper_bound=2 * 1024 * 1024,
         pg_upper_bound=8192,
         block_size=128,
         t_sub_tile=2,
@@ -545,4 +545,4 @@ if __name__ == "__main__":
         format='%(asctime)s - %(filename)s:%(lineno)d - %(levelname)s: %(message)s',
         level=logging.INFO
     )
-    test_b8_s1_2_s2_64k()
+    test_b4_s1_2_s2_64k()
