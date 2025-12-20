@@ -57,7 +57,7 @@ main() {
     cmake --version
 
     cd ${BASEPATH}/../
-    python3 build.py --disable_auto_execute
+    python3 build_ci.py --disable_auto_execute
     mkdir -p ${BASEPATH}/../output/lib64
     find ${BASEPATH}/../build -name "libtile_fwk_*.so" | xargs -I so_file cp so_file ${BASEPATH}/../output/lib64
     find ${BASEPATH}/../build -name "kernel.o" | xargs -I kl_file cp kl_file ${BASEPATH}/../output/lib64

@@ -462,7 +462,7 @@ function(PTO_Fwk_STest_Distributed_RunExe)
         # 2. 当指定执行的某个用例属于 Distributed 范围, 此处 GTestFilterList 非空, 会触发执行;
         #    此时 tile_fwk_stest 由于无法判断指定用例是否在执行范围, 默认会触发执行, 但由于对应用例不在 tile_fwk_stest 承载,
         #    执行会报错; 所以此种场景需要 Distributed 指定具体 target, 如:
-        #    python3 build.py -t=tile_fwk_stest_distributed -stest_distributed=xxx
+        #    python3 build_ci.py -t=tile_fwk_stest_distributed -stest_distributed=xxx
         set(MaxRankSize 0)
         foreach (Filter ${GTestFilterList})
             PTO_Fwk_STest_Distributed_GetRankSize(RankSize

@@ -258,7 +258,7 @@ def run_test(json_config, result_folder):
 
     device_number = json_config["device_number"]  
     
-    run_command = f"python build.py -j=32 -s={test} -d={device_number} tools profiling" \
+    run_command = f"python build_ci.py -j=32 -s={test} -d={device_number} tools profiling" \
                 f" --prof_try_cnt={json_config['prof_try_cnt']} --prof_max_cnt={json_config['max_cnt']}" \
                 f" --prof_warn_up_cnt={json_config['warn_up_cnt']}"
 
@@ -379,7 +379,7 @@ def generate_coverage(json_config, pattern="TileShape::Current().SetCubeTile("):
     device_number = json_config["device_number"]
     build_folder = json_config["build_folder"]
 
-    run_command = f"python build.py -j=32 -s={test} -d={device_number} --clean --gcov"
+    run_command = f"python build_ci.py -j=32 -s={test} -d={device_number} --clean --gcov"
     env = dict(os.environ)
 
     print("Run build for coverage...")

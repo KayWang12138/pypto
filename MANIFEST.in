@@ -34,7 +34,7 @@ recursive-include python/pypto *
 recursive-include python/src *
 
 # others
-include build.py
+include build_ci.py
 include CMakeLists.txt
 include LICENSE
 include MANIFEST.in

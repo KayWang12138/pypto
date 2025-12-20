@@ -79,7 +79,7 @@ pypto-dev/
 ├── tools/                      # 工具脚本
 │
 ├── cmake/                      # 构建所需的 CMake 公共配置及脚本
-├── build.py                    # CI执行构建、执行 UTest、执行 STest 辅助脚本
+├── build_ci.py                 # CI执行构建、执行 UTest、执行 STest 辅助脚本
 ├── CMakeLists.txt              # 顶层 CMakeLists.txt，定义所有对外公开编译开关
 ├── pyproject.toml              # Python 编译工具配置文件
 ├── LICENSE                     # 许可证文件

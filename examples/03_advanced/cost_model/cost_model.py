@@ -146,9 +146,9 @@ def test_softmax(cost_model_enable=True):
     
 
 if __name__ == "__main__":
-    # Always execute through build.py
+    # Always execute through build_ci.py
     script_path = os.path.abspath(__file__)
-    cmd = f"python3 build.py -s={script_path}"
+    cmd = f"python3 build_ci.py -s={script_path}"
     
     # Execute and Exit
     os.system(cmd)

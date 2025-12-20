@@ -837,7 +837,7 @@ class BuildCtrl(CMakeParam):
         因以下原因, 设置本函数, 而非调用原生 subprocess.run
             1. 支持多 target 构建, 各 target 构建时长共享公共 timeout 配置;
             2. UTest/STest 并行执行场景下, 执行时进程调用关系为:
-                   build.py(主进程) -> 进程1(CMake) -> 进程2(CMake Generator, make/ninja) -> 进程3(Python)-> 进程4(exe)
+                   build_ci.py(主进程) -> 进程1(CMake) -> 进程2(CMake Generator, make/ninja) -> 进程3(Python)-> 进程4(exe)
                此时若 进程1 超时, 需要触发其子/孙进程感知, 进而结束
 
         :param cmd: Build 命令行
@@ -1137,7 +1137,7 @@ class BuildCtrl(CMakeParam):
             # 检查 build 包版本是否符合要求, 之所以将其放在此处检查, 是因为 pyproject.toml 中 build-system.requires 的检查功能
             # 就是 build 包实现的, 所以将其写在 pyproject.toml 中并无法提前检查
             self.check_pip_dependencies(deps={"build": ">=1.0.3"}, raise_err=True, log_err=True)
-            cmd: str = f"{sys.executable} -I -m build --outdir={self.install_root}"
+            cmd: str = f"{sys.executable} -m build --outdir={self.install_root}"
             cmd += f" --no-isolation" if not self.feature.whl_editable else ""
             cmd += f" {self._get_setuptools_bdist_wheel_config_setting()}"
             ts = datetime.now(tz=timezone.utc)

@@ -70,7 +70,7 @@ class TestCaseLauncher:
 
     def compile_if_need(self):
         clean_str = "-c" if self.clean else ""
-        cmd = f"{sys.executable} build.py {clean_str}"
+        cmd = f"{sys.executable} build_ci.py {clean_str}"
         if self.python:
             cmd += " -f=python3"
         else:

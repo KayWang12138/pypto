@@ -526,7 +526,7 @@ class GTestAccelerate(ABC):
         """
         self.cntr_terminate_event.set()  # 停止所有子进程对新任务的处理
         for process in cntr_process_grp:
-            # 当通过 build.py 经 CMake 调用本脚本时, build.py 会向整个进程组(包括 Cntr/Case 子进程)发送 SIGINT 信号.
+            # 当通过 build_ci.py 经 CMake 调用本脚本时, build_ci.py 会向整个进程组(包括 Cntr/Case 子进程)发送 SIGINT 信号.
             # 此时优先等待子进程自主退出.
             if process.is_alive():
                 process.join(timeout=timeout)

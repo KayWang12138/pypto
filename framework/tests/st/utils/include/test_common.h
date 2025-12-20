@@ -689,7 +689,7 @@ inline int GetDeviceIdByEnvVar() {
 }
 
 inline void SetInterpreterConfig(){
-// 通过build.py --enable_interpreter_config使能
+// 通过build_ci.py --enable_interpreter_config使能
 #ifdef ENABLE_STEST_INTERPRETER_CONFIG
     // config::SetVerifyOption(KEY_VERIFY_TENSOR_GRAPH, true);
     // config::SetVerifyOption(KEY_VERIFY_PASS, true);

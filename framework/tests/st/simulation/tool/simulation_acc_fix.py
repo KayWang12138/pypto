@@ -59,7 +59,7 @@ def execute():
 
 def compile():
     # 要执行的目标指令
-    target_command = "python3 build.py -c -u --disable_auto_execute"
+    target_command = "python3 build_ci.py -c -u --disable_auto_execute"
 
     # 执行并获取结果
     execution_result = run_command_and_get_output(target_command)
