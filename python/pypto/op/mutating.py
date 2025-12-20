@@ -98,6 +98,31 @@ def expand_clone(
     *,
     valid_shape: Optional[List[Union[int, SymbolicScalar]]] = None
 ) -> Tensor:
+    """
+    Broadcast the input tensor along the axis where it is uniquely to 1 to match shape.A deep copy will be performed,
+    and a new tensor that actually occupies memory will be returned.
+
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor will be broadcasted.
+    shape : List[int]
+        Target shape.
+    valid_shape : List[int] | List[SymbolicScalar]]
+        Keyword argument, used for dynamic graph, represent the actual shapes at runtime.
+        They can be ommitted in static graph.
+    
+    Examples
+    --------
+    x = pypto.tensor([1,3], pypto.DT_INT32)
+    y = pypto.expand_clone(x, [3,4])
+
+    Input  x: [[1], [2], [3]]
+    Output y: [[ 1,  1,  1,  1],
+               [ 2,  2,  2,  2],
+               [ 3,  3,  3,  3]]
+    
+    """
     if valid_shape is None:
         valid_shape = []
     return pypto_impl.Expand(input, shape, valid_shape)

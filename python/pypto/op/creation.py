@@ -32,17 +32,104 @@ def convert_to_element(value) -> pypto_impl.Element:
 
 @overload
 def arange(end: Union[int, float]) -> Tensor:
+    """
+    Creates a 1-dimensional tensor containing a sequence of values from 0 (inclusive) 
+    to 'end'(exclusive), with a step size of 1
+
+    Parameters
+    ----------
+    end : Number
+        The ending value of the sequence (exclusive).
+
+    Returns
+    -------
+    Tensor
+        A 1-dimensional tensor containing the sequence of values.
+
+    Raises
+    ------
+    ValueError
+        If 'end' less than 0.
+
+    Examples
+    --------
+    a = pto.arange(4)
+    b = pto.arange(5.5)
+
+    Output a: [0 1 2 3]
+    Output b: [0.0 1.0 2.0 3.0 4.0 5.0]
+    """
     ...
 
 
 @overload
 def arange(start: Union[int, float], end: Union[int, float]) -> Tensor:
+    """
+    Creates a 1-dimensional tensor containing a sequence of values from start (inclusive) 
+    to 'end'(exclusive), with a step size of 1
+
+    Parameters
+    ----------
+    start : Number
+        The starting value of the sequence (inclusive).
+    end : Number
+        The ending value of the sequence (exclusive).
+
+    Returns
+    -------
+    Tensor
+        A 1-dimensional tensor containing the sequence of values.
+
+    Raises
+    ------
+    ValueError
+        If 'end' less than 'start'.
+
+    Examples
+    --------
+    a = pto.arange(-2, 2)
+    b = pto.arange(1.0, 4.0)
+
+    Output a: [-2 -1 0 1]
+    Output b: [1.0 2.0 3.0]
+    """
     ...
 
 
 @overload
 def arange(start: Union[int, float],
            end: Union[int, float], step: Union[int, float]) -> Tensor:
+    """
+    Creates a 1-dimensional tensor containing a sequence of values in the range [start, end) with a given step.
+
+    Parameters
+    ----------
+    start : Number
+        The starting value of the sequence (inclusive).
+    end : Number
+        The ending value of the sequence (exclusive).
+    step : Number
+        The step size between consecutive values.
+
+    Returns
+    -------
+    Tensor
+        A 1-dimensional tensor containing the sequence of values.
+
+    Raises
+    ------
+    ValueError
+        If 'step' is zero or directionally incorrect (e.g., step > 0 when start > end).
+
+    Examples
+    --------
+    a = pto.arange(1.0, 4.0, 0.5)
+    b = pto.arange(10, 0, -2)
+
+    Output a: [1.0 1.5 2.0 2.5 3.0 3.5]
+    Output b: [10 8 6 4 2]
+    """
+
     ...
 
 

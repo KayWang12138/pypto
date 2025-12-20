@@ -293,12 +293,54 @@ def exp(input: Tensor) -> Tensor:
 
 
 @op_wrapper
-def abs(a) -> Tensor:
+def abs(a: Tensor) -> Tensor:
+    """
+    Computes the absolute value of each element in input.
+
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise absolute.
+
+    Examples
+    --------
+    x = pypto.tensor([3], pypto.DT_INT32)
+    y = pypto.abs(x)
+
+    Input x:  [-1, -2, 3]
+    Output y: [ 1,  2, 3]
+    """
     return pypto_impl.Abs(a)
 
 
 @op_wrapper
-def reciprocal(a) -> Tensor:
+def reciprocal(a: Tensor) -> Tensor:
+    """
+    Returns a new tensor with the reciprocal of the elements of input
+    
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise reciprocal.
+
+    Examples
+    --------
+    x = pypto.tensor([4], pypto.DT_FP32)
+    y = pypto.reciprocal(x)
+
+    Input x:  [-0.4595, -2.1219, -1.4314,  0.7298]
+    Output y: [-2.1763, -0.4713, -0.6986,  1.3702]
+    """
     return pypto_impl.Reciprocal(a)
 
 
@@ -440,7 +482,28 @@ def sqrt(input: Tensor) -> Tensor:
 
 
 @op_wrapper
-def neg(a) -> Tensor:
+def neg(a: Tensor) -> Tensor:
+    """
+    Returns a new tensor with the negative of the elements of input.
+    
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise neg.
+
+    Examples
+    --------
+    x = pypto.tensor([5], pypto.DT_FP32)
+    y = pypto.neg(x)
+
+    Input x: [ 0.0090, -0.2262, -0.0682, -0.2866,  0.3940]
+    Output y:[-0.0090,  0.2262,  0.0682,  0.2866, -0.3940]
+    """
     return pypto_impl.Neg(a)
 
 
