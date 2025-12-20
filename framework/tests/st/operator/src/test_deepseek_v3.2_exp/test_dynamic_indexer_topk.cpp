@@ -131,13 +131,13 @@ void TestLightningIndexerTopkQuant(IndexerTile &tileConfig) {
 // DynamicIndexerTopk.indexer_topk_quant_4_b_1_s1_64k_s2
 TEST_F(DynamicIndexerTopk, indexer_topk_quant_4_b_1_s1_64k_s2) {
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);                    // 参数化
-    config::SetPassOption(COPYIN_THRESHOLD, 100 * 1024 * 1024); // mistake
-    config::SetPassOption(SG_CYCLE_LOWER_BOUND, 1024);
-    config::SetPassOption(SG_CYCLE_UPPER_BOUND, 1024 * 1024);
-    config::SetPassOption(L1_REUSE, 32);
+    config::SetPassOption(MG_COPYIN_UPPER_BOUND, 100 * 1024 * 1024); // mistake
+    config::SetPassOption(SG_PG_LOWER_BOUND, 1024);
+    config::SetPassOption(SG_PG_UPPER_BOUND, 1024 * 1024);
+    config::SetPassOption(CUBE_L1_REUSE_MODE, 32);
     config::SetPassOption(SG_PARALLEL_NUM, 2);
-    config::SetPassOption(NBUFFER_MERGE_MODE, 2);
-    config::SetPassOption(VEC_NBUFFER_MAP, std::map<int64_t, int64_t>{
+    config::SetPassOption(VEC_NBUFFER_MODE, 2);
+    config::SetPassOption(VEC_NBUFFER_SETTING, std::map<int64_t, int64_t>{
                                                                                     {-1, 16}
     });
     config::SetCodeGenOption(CODEGEN_EXPRESSION_FUSION, true);

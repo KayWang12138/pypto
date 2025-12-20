@@ -70,18 +70,18 @@ def set_print_options(edge_items: int, precision: int, threshold: int, linewidth
 
 
 def set_pass_options(*,
-                     sg_skip_partition: Optional[bool] = None,
-                     cycle_upper_bound: Optional[int] = None,
-                     cycle_lower_bound: Optional[int] = None,
-                     parallel_threshold: Optional[int] = None,
-                     sg_vec_parallel_num: Optional[int] = None,
-                     nbuffer_merge_mode: Optional[int] = None,
-                     vec_nbuffer_map: Optional[Dict[int, int]] = None,
-                     l1_reuse: Optional[int] = None,
-                     l1_reuse_map: Optional[Dict[int, int]] = None,
-                     cube_nbuffer_merge_mode: Optional[int] = None,
-                     cube_nbuffer_map: Optional[Dict[int, int]] = None,
-                     copyin_threshold: Optional[int] = None,
+                     pg_skip_partition: Optional[bool] = None,
+                     pg_upper_bound: Optional[int] = None,
+                     pg_lower_bound: Optional[int] = None,
+                     pg_parallel_lower_bound: Optional[int] = None,
+                     mg_vec_parallel_lb: Optional[int] = None,
+                     vec_nbuffer_mode: Optional[int] = None,
+                     vec_nbuffer_setting: Optional[Dict[int, int]] = None,
+                     cube_l1_reuse_mode: Optional[int] = None,
+                     cube_l1_reuse_setting: Optional[Dict[int, int]] = None,
+                     cube_nbuffer_mode: Optional[int] = None,
+                     cube_nbuffer_setting: Optional[Dict[int, int]] = None,
+                     mg_copyin_upper_bound: Optional[int] = None,
                      sg_set_scope: Optional[int] = None,
                      ) -> None:
     """
@@ -89,52 +89,52 @@ def set_pass_options(*,
 
     Parameters
     ---------
-    sg_skip_partition : bool
+    pg_skip_partition : bool
         Whether to skip the subgraph partitioning process.
 
-    cycle_upper_bound : int
+    pg_upper_bound : int
         Merged graph parameter, used to configure
         the upper bound of subgraph size.
 
-    cycle_lower_bound : int
+    pg_lower_bound : int
         Merged graph parameter, used to configure
         the lower bound of subgraph size.
 
-    parallel_threshold : int
+    pg_parallel_lower_bound : int
         Merged graph parameter, used to configure
         the minimum parallelism of subgraphs with the same structure.
 
-    sg_vec_parallel_num : int
+    mg_vec_parallel_lb : int
         Merged graph parameter, used to configure
         the minimum parallelism of AIV subgraphs with the same structure.
 
-    nbuffer_merge_mode : int
+    vec_nbuffer_mode : int
         Merged graph parameter, used to configure
         the merging strategy for AIV subgraphs with the same structure.
 
-    vec_nbuffer_map : Dict[int, int]
+    vec_nbuffer_setting : Dict[int, int]
         Merged graph parameter, used to configure
         the merging quantity of AIV subgraphs with the same structure.
 
-    l1_reuse : int
+    cube_l1_reuse_mode : int
         Merged graph parameter, used to configure
         the merging strategy for subgraphs with the same structure
         and repeated transfer of the same GM data.
 
-    l1_reuse_map : Dict[int, int]
+    cube_l1_reuse_setting : Dict[int, int]
         Merged graph parameter, used to configure
         the merging quantity of subgraphs with the same structure
         and repeated transfer of the same GM data.
 
-    cube_nbuffer_merge_mode : int
+    cube_nbuffer_mode : int
         Merged graph parameter, used to configure
         the merging strategy for AIC subgraphs with the same structure.
 
-    cube_nbuffer_map : Dict[int, int]
+    cube_nbuffer_setting : Dict[int, int]
         Merged graph parameter, used to configure
         the merging quantity of AIC subgraphs with the same structure.
 
-    copyin_threshold : int
+    mg_copyin_upper_bound : int
         Merged graph parameter, used to configure the merged graph size.
     """
     _pto_options.set_options("pass", locals())
@@ -506,7 +506,7 @@ def options(
     Examples:
     -------
     # As decorator
-    @pypto.options(pass_options={"l1_reuse": 4})
+    @pypto.options(pass_options={"cube_l1_reuse_mode": 4})
     def func():
         pass
 
@@ -551,7 +551,7 @@ def set_options(
 
     Examples:
     ---------
-    set_options(pass_options={"l1_reuse": 4})
+    set_options(pass_options={"cube_l1_reuse_mode": 4})
     set_options(cube_tile_shapes=[[16, 16], [256, 512, 128], [128, 128], True])
     """
     temp_opts = options(**locals())

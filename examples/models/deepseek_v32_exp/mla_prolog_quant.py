@@ -410,10 +410,10 @@ def mla_prolog_quant_p(
     prefill
     '''
     pypto.set_codegen_options(support_dynamic_unaligned=True)
-    pypto.set_pass_options(nbuffer_merge_mode=1,
-                           l1_reuse=4,
-                           cube_nbuffer_map={3: 4},
-                           copyin_threshold=2 * 1024 * 1024)
+    pypto.set_pass_options(vec_nbuffer_mode=1,
+                           cube_l1_reuse_mode=4,
+                           cube_nbuffer_setting={3: 4},
+                           mg_copyin_upper_bound=2 * 1024 * 1024)
     pypto.set_host_options(only_codegen=True)
     mla_prolog_quant_compute(
                              token_x, w_dq, w_uq_qr, dequant_scale, w_uk,
@@ -439,10 +439,10 @@ def mla_prolog_quant_d(
     decode
     '''
     pypto.set_codegen_options(support_dynamic_unaligned=True)
-    pypto.set_pass_options(nbuffer_merge_mode=1,
-                           l1_reuse=4,
-                           cube_nbuffer_map={3: 4},
-                           copyin_threshold=2 * 1024 * 1024)
+    pypto.set_pass_options(vec_nbuffer_mode=1,
+                           cube_l1_reuse_mode=4,
+                           cube_nbuffer_setting={3: 4},
+                           mg_copyin_upper_bound=2 * 1024 * 1024)
     pypto.set_host_options(only_codegen=True)
     mla_prolog_quant_compute(
                              token_x, w_dq, w_uq_qr, dequant_scale, w_uk,

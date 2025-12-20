@@ -877,12 +877,12 @@ class MlaTileConfig:
         self.q_vec_tile1 = 16
         self.k_vec_tile0 = 16
         self.k_vec_tile1 = 16
-        self.l1_reuse = 4
-        self.l1_reuse_map = {}
-        self.copy_in_threshold = 2 * 1024 * 1024
-        self.cycle_upper_bound = 8192
-        self.nbuffer_merge_mode = 1
-        self.cube_nbuffer_map = {3: 4}
+        self.cube_l1_reuse_mode = 4
+        self.cube_l1_reuse_setting = {}
+        self.mg_copy_in_upper_bound = 2 * 1024 * 1024
+        self.pg_upper_bound = 8192
+        self.vec_nbuffer_mode = 1
+        self.cube_nbuffer_setting = {3: 4}
         self.dynamic_unaligned_enable = False
 
 def do_test(case_name, params, mla_epsilon_cq, mla_epsilon_ckv, mla_cache_mode, mla_tile_config, ip_attrs,
@@ -936,7 +936,7 @@ def do_test(case_name, params, mla_epsilon_cq, mla_epsilon_ckv, mla_cache_mode, 
     mla_tile_config.q_vec_tile1 = 32
     mla_tile_config.k_vec_tile0 = 2
     mla_tile_config.k_vec_tile1 = 512
-    ip_configs.nbuffer_merge_mode = 0
+    ip_configs.vec_nbuffer_mode = 0
 
     if PRINT_DEBUG:
         fun = mla_lp_quant.mla_indexer_prolog_quant_debug
@@ -1003,12 +1003,12 @@ def test_b_4_s1_2_tilebs_8():
         w_linear=[16, 16, 256, 256, 128, 128],
         unroll_list=[128, 64, 32, 16, 8, 4, 2, 1],
         l1_reuse_param={1: 4},
-        copy_in_threshold=2 * 1024 * 1024,
-        cycle_upper_bound=8192,
+        mg_copy_in_upper_bound=2 * 1024 * 1024,
+        pg_upper_bound=8192,
         block_size=128,
         t_sub_tile=1,
         chunk_size=2,
-        nbuffer_merge_mode=0,
+        vec_nbuffer_mode=0,
     )
 
     do_test("mla_prolog_indexer_prolog_decode.test_b_4_s1_2_tilebs_8",

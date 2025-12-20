@@ -40,14 +40,14 @@ public:
         config::Reset();
         config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
-        config::SetPassOption(NBUFFER_MERGE_MODE, 2);
-        config::SetPassOption(VEC_NBUFFER_MAP, std::map<int64_t, int64_t>{{-1, 2}});
+        config::SetPassOption(VEC_NBUFFER_MODE, 2);
+        config::SetPassOption(VEC_NBUFFER_SETTING, std::map<int64_t, int64_t>{{-1, 2}});
         Platform::Instance().ObtainPlatformInfo();
     }
 
     void TearDown() override {}
 
-    Status TestNBufferMergeWithDifferentVecBufferMap(std::map<int64_t, int64_t> vecNBufferMap);
+    Status TestNBufferMergeWithDifferentVecBufferMap(std::map<int64_t, int64_t> vecNBufferSetting);
 };
 
 TEST_F(NBufferMergeTest, TestNBufferMerge) {

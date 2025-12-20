@@ -213,7 +213,7 @@ void ConfigManager::PassConfigsDebugInfo(
 /* Helper Functions */
 static std::map<std::string, std::function<void(PassConfigs &, const nlohmann::json &)>> g_assignPassConfigFns = {
     {                 KEY_PRINT_GRAPH,
-     [](PassConfigs &configs, const nlohmann::json &node) { configs.printFunction = node.get<bool>(); }},
+     [](PassConfigs &configs, const nlohmann::json &node) { configs.printGraph = node.get<bool>(); }},
     {                 KEY_PRINT_PROGRAM,
      [](PassConfigs &configs, const nlohmann::json &node) { configs.printProgram = node.get<bool>(); }},
     {                 KEY_DUMP_GRAPH,

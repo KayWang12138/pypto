@@ -6,27 +6,27 @@
         "pass": {
             "type": "object",
             "properties": {
-                "parallel_threshold": {
+                "pg_parallel_lower_bound": {
                     "type": "integer",
                     "minimum": 0,
                     "maximum": 2147483647
                 },
-                "cycle_upper_bound": {
+                "pg_upper_bound": {
                     "type": "integer",
                     "minimum": 0,
                     "maximum": 2147483647
                 },
-                "cycle_lower_bound": {
+                "pg_lower_bound": {
                     "type": "integer",
                     "minimum": 0,
                     "maximum": 2147483647
                 },
-                "l1_reuse": {
+                "cube_l1_reuse_mode": {
                     "type": "integer",
                     "minimum": 0,
                     "maximum": 2147483647
                 },
-                "l1_reuse_map": {
+                "cube_l1_reuse_setting": {
                     "type": "object",
                     "typeHints": "intmap",
                     "key_minimum": 0,
@@ -34,12 +34,12 @@
                     "value_minimum": 0,
                     "value_maximum": 2147483647
                 },
-                "cube_nbuffer_merge_mode": {
+                "cube_nbuffer_mode": {
                     "type": "integer",
                     "minimum": 0,
                     "maximum": 2
                 },
-                "cube_nbuffer_map": {
+                "cube_nbuffer_setting": {
                     "type": "object",
                     "typeHints": "intmap",
                     "key_minimum": -1,
@@ -47,18 +47,18 @@
                     "value_minimum": 1,
                     "value_maximum": 2147483647
                 },
-                "copyin_threshold": {
+                "mg_copyin_upper_bound": {
                     "type": "integer",
                     "minimum": 0,
                     "maximum": 2147483647
                 },
                 "ooo_preschedule_method": {"type": "string"},
-                "nbuffer_merge_mode": {
+                "vec_nbuffer_mode": {
                     "type": "integer",
                     "minimum": 0,
                     "maximum": 2
                 },
-                "vec_nbuffer_map": {
+                "vec_nbuffer_setting": {
                     "type": "object",
                     "typeHints": "intmap",
                     "key_minimum": -1,
@@ -66,7 +66,7 @@
                     "value_minimum": 1,
                     "value_maximum": 2147483647
                 },
-                "sg_vec_parallel_num": {
+                "mg_vec_parallel_lb": {
                     "type": "integer",
                     "minimum": 1,
                     "maximum": 48
@@ -76,7 +76,7 @@
                     "minimum": 1,
                     "maximum": 24
                 },
-                "sg_skip_partition": {"type": "boolean"},
+                "pg_skip_partition": {"type": "boolean"},
                 "copyout_resolve_coalescing": {
                     "type": "integer",
                     "minimum": 0,

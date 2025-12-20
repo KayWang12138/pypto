@@ -31,11 +31,11 @@ Status GraphPartition::RunOnFunction(Function &function)
 {
     APASS_LOG_INFO_F(Elements::Function, "===> Start GraphPartition.");
     IsoPartitioner partitioner;
-    if (partitioner.SetParameter(function.paramConfigs_.sgCycleUpperBound,
+    if (partitioner.SetParameter(function.paramConfigs_.sgPgUpperBound,
                                  function.paramConfigs_.sgParallelNum,
-                                 function.paramConfigs_.sgCycleLowerBound,
+                                 function.paramConfigs_.sgPgLowerBound,
                                  true,
-                                 function.paramConfigs_.sgSkipPartition) != SUCCESS) {
+                                 function.paramConfigs_.pgSkipPartition) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Config, "Set parameters of GraphPartition failed.");
         return FAILED;
     }
@@ -224,7 +224,7 @@ void SubGraph::AddNode(int32_t nodeIdx)
 
 Status IsomorphismGraphGroup::ExpandIsoGraphs(std::unordered_set<int32_t> &currentNodeSet,
                                               std::vector<int32_t> &idxInLinkNum, std::deque<int32_t> &zeroInQueue,
-                                              int32_t cycleUpperBound)
+                                              int32_t pgUpperBound)
 {
     size_t expandNodeIdx = 0;
     size_t expandLinkIdx = 0;
@@ -243,7 +243,7 @@ Status IsomorphismGraphGroup::ExpandIsoGraphs(std::unordered_set<int32_t> &curre
         if (extendStatus == GraphExtendResult::EXTEND_NODE_EXHAUST) {
             break;
         }
-        if (!IsLegalIsoGraphExtender(expandCandidate, currentNodeSet, idxInLinkNum, cycleUpperBound)) {
+        if (!IsLegalIsoGraphExtender(expandCandidate, currentNodeSet, idxInLinkNum, pgUpperBound)) {
             expandLinkIdx += 1;
             continue;
         }
@@ -271,7 +271,7 @@ bool SubGraph::HasNode(int32_t nodeIdx) const
 
 bool IsomorphismGraphGroup::IsLegalIsoGraphExtender(std::vector<int32_t> &expandCandidate,
                                                     std::unordered_set<int32_t> &currentNodeSet,
-                                                    std::vector<int32_t> &idxInLinkNum, int32_t cycleUpperBound)
+                                                    std::vector<int32_t> &idxInLinkNum, int32_t pgUpperBound)
 {
     if (!superNodeInfo_->nodeMergeable_[expandCandidate[0]]) {
         return false;
@@ -297,7 +297,7 @@ bool IsomorphismGraphGroup::IsLegalIsoGraphExtender(std::vector<int32_t> &expand
         }
     }
     int32_t newLatency = isoGraphs_[0]->GetLatency() + superNodeInfo_->GetNodeCycle(expandCandidate[0]);
-    if (newLatency > cycleUpperBound) {
+    if (newLatency > pgUpperBound) {
         return false;
     }
     for (size_t i = 0; i < expandCandidate.size(); i++) {
@@ -718,28 +718,28 @@ Status IsoPartitioner::UpdatePartitionResult(Function &function)
     return SUCCESS;
 }
 
-Status IsoPartitioner::SetParameter(int32_t cycleUpperBound, int32_t parallelNum, int32_t cycleLowerBound, 
+Status IsoPartitioner::SetParameter(int32_t pgUpperBound, int32_t parallelNum, int32_t pgLowerBound, 
                                     bool useReduceBalanceHash, bool skipPartition)
 {
     skipPartition_ = skipPartition;
     if (skipPartition) {
         return SUCCESS;
     }
-    if (cycleUpperBound < 0) {
-        APASS_LOG_ERROR_F(Elements::Config, "Illegal cycleUpperBound: %d; Parameter cycleUpperBound must be non-negative.", cycleUpperBound);
+    if (pgUpperBound < 0) {
+        APASS_LOG_ERROR_F(Elements::Config, "Illegal pgUpperBound: %d; Parameter pgUpperBound must be non-negative.", pgUpperBound);
         return FAILED;
     }
     if (parallelNum < 0) {
         APASS_LOG_ERROR_F(Elements::Config, "Illegal parallelNum: %d; Parameter parallelNum must be non-negative.", parallelNum);
         return FAILED;
     }
-    if (cycleLowerBound < 0) {
-        APASS_LOG_ERROR_F(Elements::Config, "Illegal cycleLowerBound: %d; Parameter cycleLowerBound must be non-negative.", cycleLowerBound);
+    if (pgLowerBound < 0) {
+        APASS_LOG_ERROR_F(Elements::Config, "Illegal pgLowerBound: %d; Parameter pgLowerBound must be non-negative.", pgLowerBound);
         return FAILED;
     }
-    cycleUB_ = cycleUpperBound;
+    cycleUB_ = pgUpperBound;
     parallelNum_ = parallelNum;
-    cycleLB_ = cycleLowerBound;
+    cycleLB_ = pgLowerBound;
     useReduceBalanceHash_ = useReduceBalanceHash;
     return SUCCESS;
 }

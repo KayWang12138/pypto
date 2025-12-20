@@ -55,11 +55,11 @@ void SelectedAttentionCompute(Tensor &topKIndcies, Tensor &kvNopeCache, Tensor &
     auto v2Tile = saTileConfig.v2TileShape;
 
     /******** tune params ********/
-    // config::SetPassOption(CUBE_NBUFFER_MAP,  std::map<int64_t, int64_t>{{-1, 2}});
-    // config::SetPassOption(L1_REUSE, 0);
-    // config::SetPassOption(COPYIN_THRESHOLD, 1 * 1024 * 1024);
-    // config::SetPassOption(CYCLE_UPPER_BOUND, 100000);
-    // config::SetPassOption(PARALLEL_THRESHOLD, 2);
+    // config::SetPassOption(CUBE_NBUFFER_SETTING,  std::map<int64_t, int64_t>{{-1, 2}});
+    // config::SetPassOption(CUBE_L1_REUSE_MODE, 0);
+    // config::SetPassOption(MG_COPYIN_UPPER_BOUND, 1 * 1024 * 1024);
+    // config::SetPassOption(SG_PG_UPPER_BOUND, 100000);
+    // config::SetPassOption(PG_PARALLEL_LOWER_BOUND, 2);
     // config::SetOperationConfig("FORCE_COMBINE_AXIS", true);
 
     SymbolicScalar batchSizeSym = topKIndcies.GetShape()[0]; // b

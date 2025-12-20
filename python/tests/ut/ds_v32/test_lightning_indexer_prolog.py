@@ -524,10 +524,10 @@ def lightning_indexer_prolog_inner(args: LightningIndexerPrologArgs):
 
 def setup_lightning_indexer_prolog_config():
     pypto.set_codegen_options(support_dynamic_unaligned=True)
-    pypto.set_pass_options(nbuffer_merge_mode=NUM_1,
-                         l1_reuse=NUM_4,
-                         cube_nbuffer_map={NUM_3: NUM_4},
-                         copyin_threshold=NUM_2 * NUM_1024 * NUM_1024)
+    pypto.set_pass_options(vec_nbuffer_mode=NUM_1,
+                         cube_l1_reuse_mode=NUM_4,
+                         cube_nbuffer_setting={NUM_3: NUM_4},
+                         mg_copyin_upper_bound=NUM_2 * NUM_1024 * NUM_1024)
 
 
 def build_lightning_indexer_prolog_args(

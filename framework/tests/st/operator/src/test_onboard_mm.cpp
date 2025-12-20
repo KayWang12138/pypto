@@ -354,7 +354,7 @@ TEST_F(MatmulOnBoardTest, test_mm_unalign_float32_8_64_64_bt) {
 
 TEST_F(MatmulOnBoardTest, test_mm_int8_32_16384_7168) {
     TileShape::Current().SetCubeTile({16, 16}, {128, 128}, {128, 128});
-    config::SetPassOption(L1_REUSE, 4);
-    config::SetPassOption(COPYIN_THRESHOLD, 32*1024*1024);
+    config::SetPassOption(CUBE_L1_REUSE_MODE, 4);
+    config::SetPassOption(MG_COPYIN_UPPER_BOUND, 32*1024*1024);
     TestMatmul<int8_t, int32_t>(32, 16384, 7168, GetGoldenDir());
 }

@@ -113,10 +113,10 @@ inline void SetOption(const std::string &key, const char *value) {
  * \brief Set pass options
  *
  * \param key config option key
- *  - cycle_upper_bound:
+ *  - pg_upper_bound:
  *      upper bound of schedule cycles for each subgraph
  *      default: 512
- *  - cycle_lower_bound:
+ *  - pg_lower_bound:
  *      lower bound of schedule cycles for each subgraph
  *      default: 10000
  * \param value config option value

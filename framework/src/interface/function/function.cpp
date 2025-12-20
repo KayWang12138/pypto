@@ -2069,15 +2069,15 @@ Json Function::DumpJson(bool useTable) {
     funcDump["_rawid"] = IdGen<IdType::RAW_TENSOR>::Inst().CurId();
     funcDump["_funcid"] = IdGen<IdType::FUNCTION>::Inst().CurId();
     funcDump["_l1_reuse_num"] = paramConfigs_.l1ReuseNum;
-    funcDump["_cube_nbuffer_merge_mode"] = paramConfigs_.cubeNBufferMergeMode;
-    funcDump["_sg_cycle_upperbound"] = paramConfigs_.sgCycleUpperBound;
-    funcDump["_sg_cycle_lowerbound"] = paramConfigs_.sgCycleLowerBound;
+    funcDump["_cube_nbuffer_mode"] = paramConfigs_.cubeNBufferMode;
+    funcDump["_sg_pg_upperbound"] = paramConfigs_.sgPgUpperBound;
+    funcDump["_sg_pg_lowerbound"] = paramConfigs_.sgPgLowerBound;
     funcDump["_sg_parallel_num"] = paramConfigs_.sgParallelNum;
-    funcDump["_sg_copyin_threshold"] = paramConfigs_.sgCopyInThreshold;
-    funcDump["_nbuffer_merge_mode"] = paramConfigs_.nBufferMergeMode;
-    funcDump["_sg_vec_parallel_num"] = paramConfigs_.sgVecParallelNum;
+    funcDump["_sg_mg_copyin_upper_bound"] = paramConfigs_.sgMgCopyInUpperBound;
+    funcDump["_vec_nbuffer_mode"] = paramConfigs_.vecNBuffermode;
+    funcDump["_mg_vec_parallel_lb"] = paramConfigs_.mgVecParallelLb;
     funcDump["_sg_cube_parallel_num"] = paramConfigs_.sgCubeParallelNum;
-    funcDump["_sg_skip_partition"] = paramConfigs_.sgSkipPartition;
+    funcDump["_pg_skip_partition"] = paramConfigs_.pgSkipPartition;
     funcDump["_total_subgraph_count"] = totalSubGraphCount_;
     funcDump["_ooo_preschedule_method"] = paramConfigs_.OoOPreScheduleMethod;
     if (sourceLocation_ != nullptr) {
@@ -2390,15 +2390,15 @@ std::shared_ptr<Function> Function::LoadJson(Program &belongTo, const Json &func
     int funcid = funcDump["_funcid"].get<int>();
     IdGen<IdType::FUNCTION>::Inst().SetId(funcid);
     func->paramConfigs_.l1ReuseNum = funcDump["_l1_reuse_num"].get<int>();
-    func->paramConfigs_.cubeNBufferMergeMode = funcDump["_cube_nbuffer_merge_mode"].get<int>();
-    func->paramConfigs_.sgCycleUpperBound = funcDump["_sg_cycle_upperbound"].get<int>();
-    func->paramConfigs_.sgCycleLowerBound = funcDump["_sg_cycle_lowerbound"].get<int>();
+    func->paramConfigs_.cubeNBufferMode = funcDump["_cube_nbuffer_mode"].get<int>();
+    func->paramConfigs_.sgPgUpperBound = funcDump["_sg_pg_upperbound"].get<int>();
+    func->paramConfigs_.sgPgLowerBound = funcDump["_sg_pg_lowerbound"].get<int>();
     func->paramConfigs_.sgParallelNum = funcDump["_sg_parallel_num"].get<int>();
-    func->paramConfigs_.sgCopyInThreshold = funcDump["_sg_copyin_threshold"].get<int>();
-    func->paramConfigs_.nBufferMergeMode = funcDump["_nbuffer_merge_mode"].get<int>();
-    func->paramConfigs_.sgVecParallelNum = funcDump["_sg_vec_parallel_num"].get<int>();
+    func->paramConfigs_.sgMgCopyInUpperBound = funcDump["_sg_mg_copyin_upper_bound"].get<int>();
+    func->paramConfigs_.vecNBuffermode = funcDump["_vec_nbuffer_mode"].get<int>();
+    func->paramConfigs_.mgVecParallelLb = funcDump["_mg_vec_parallel_lb"].get<int>();
     func->paramConfigs_.sgCubeParallelNum = funcDump["_sg_cube_parallel_num"].get<int>();
-    func->paramConfigs_.sgSkipPartition = funcDump["_sg_skip_partition"].get<bool>();
+    func->paramConfigs_.pgSkipPartition = funcDump["_pg_skip_partition"].get<bool>();
     auto subGraphCount = funcDump["_total_subgraph_count"].get<size_t>();
     func->SetTotalSubGraphCount(subGraphCount);
 

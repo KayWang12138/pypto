@@ -57,7 +57,7 @@ public:
                          std::unordered_set<int32_t> &currentNodeSet, std::vector<int32_t> &idxInLinkNum,
                          std::deque<int32_t> &zeroInQueue);
     Status ExpandIsoGraphs(std::unordered_set<int32_t> &currentNodeSet, std::vector<int32_t> &idxInLinkNum,
-                         std::deque<int32_t> &zeroInQueue, int32_t cycleUpperBound);
+                         std::deque<int32_t> &zeroInQueue, int32_t pgUpperBound);
     static bool IsoGraphMerge(std::shared_ptr<IsomorphismGraphGroup> &currGraph,
                               std::shared_ptr<IsomorphismGraphGroup> &mergeGraph,
                               std::vector<std::pair<int32_t, int32_t>> &isoSubIdxs);
@@ -67,7 +67,7 @@ public:
     int32_t GetLatency() const;
     Status InLinkCountDelete(int32_t nodeIdx, std::vector<int32_t> &idxInLinkNum, std::deque<int32_t> &zeroInQueue);
     bool IsLegalIsoGraphExtender(std::vector<int32_t> &expandCandidate, std::unordered_set<int32_t> &currentNodeSet,
-                                 std::vector<int32_t> &idxInLinkNum, int32_t cycleUpperBound);
+                                 std::vector<int32_t> &idxInLinkNum, int32_t pgUpperBound);
     bool IsLegalSubGraphMerge(SubGraph *sg1, SubGraph *sg2);
     std::shared_ptr<SubGraph> GetSubGraph(int32_t idx);
     std::vector<std::shared_ptr<SubGraph>> isoGraphs_;
@@ -80,7 +80,7 @@ public:
 class IsoPartitioner : public SuperNodeGraphBuilder {
 public:
     Status PartitionGraph(Function &function);
-    Status SetParameter(int32_t cycleUpperBound, int32_t parallelNum, int32_t cycleLowerBound, 
+    Status SetParameter(int32_t pgUpperBound, int32_t parallelNum, int32_t pgLowerBound, 
                         bool useReduceBalanceHash=true, bool skipPartition=false);
 
 private:

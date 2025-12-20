@@ -842,7 +842,7 @@ TEST_F(MlaPrologV2OnBoardTest, test_MlaPrologV2_bfloat16_4_128_1_4096_7168_1536)
 }
 
 TEST_F(MlaPrologV2OnBoardTest, test_mla_bf16_low_quant_smooth) {  // b_n_s_s2_h_q_lora_rank
-    config::SetPassOption(L1_REUSE, 4);
+    config::SetPassOption(CUBE_L1_REUSE_MODE, 4);
     int b = 4;
     int s = 1;
     int s2 = 256;
@@ -860,11 +860,11 @@ TEST_F(MlaPrologV2OnBoardTest, test_mla_bf16_low_quant_smooth) {  // b_n_s_s2_h_
 }
 
 TEST_F(MlaPrologV2OnBoardTest, test_mla_bf16_high_quant_smooth) {  // b_n_s_s2_h_q_lora_rank
-    const int cycle_upper_bound = 20000;
-    const int nbuffer_merge_mode = 2;
-    config::SetPassOption(NBUFFER_MERGE_MODE, nbuffer_merge_mode);
-    config::SetPassOption(VEC_NBUFFER_MAP,  std::map<int64_t, int64_t>{{-1, 2}});
-    config::SetPassOption(SG_CYCLE_UPPER_BOUND, cycle_upper_bound);
+    const int pg_upper_bound = 20000;
+    const int vec_nbuffer_mode = 2;
+    config::SetPassOption(VEC_NBUFFER_MODE, vec_nbuffer_mode);
+    config::SetPassOption(VEC_NBUFFER_SETTING,  std::map<int64_t, int64_t>{{-1, 2}});
+    config::SetPassOption(SG_PG_UPPER_BOUND, pg_upper_bound);
     int b = 32;
     int s = 1;
     int s2 = 4096;
@@ -882,7 +882,7 @@ TEST_F(MlaPrologV2OnBoardTest, test_mla_bf16_high_quant_smooth) {  // b_n_s_s2_h
 }
 
 TEST_F(MlaPrologV2OnBoardTest, test_MlaPrologV2_float16_4_32_1_256_7168_1536_quant) {  // b_n_s_s2_h_q_lora_rank
-    config::SetPassOption(L1_REUSE, 4);
+    config::SetPassOption(CUBE_L1_REUSE_MODE, 4);
     int b = 4;
     int s = 1;
     int s2 = 256;
@@ -917,10 +917,10 @@ TEST_F(MlaPrologV2OnBoardTest, test_MlaPrologV2_float16_32_32_1_256_7168_1536_qu
 }
 
 TEST_F(MlaPrologV2OnBoardTest, test_mla_fp16_high_quant_smooth) {  // b_n_s_s2_h_q_lora_rank
-    config::SetPassOption(NBUFFER_MERGE_MODE, 1);
-    config::SetPassOption(L1_REUSE, 4);
-    config::SetPassOption(CUBE_NBUFFER_MAP, std::map<int64_t, int64_t>{{3,4}});
-    config::SetPassOption(COPYIN_THRESHOLD, 2*1024*1024);
+    config::SetPassOption(VEC_NBUFFER_MODE, 1);
+    config::SetPassOption(CUBE_L1_REUSE_MODE, 4);
+    config::SetPassOption(CUBE_NBUFFER_SETTING, std::map<int64_t, int64_t>{{3,4}});
+    config::SetPassOption(MG_COPYIN_UPPER_BOUND, 2*1024*1024);
     int b = 32;
     int s = 1;
     int s2 = 4096;
@@ -941,7 +941,7 @@ TEST_F(MlaPrologV2OnBoardTest, test_mla_fp16_high_quant_smooth) {  // b_n_s_s2_h
 }
 
 TEST_F(MlaPrologV2OnBoardTest, test_mla_fp16_low_quant_smooth_pa_bsnd) {  // b_n_s_s2_h_q_lora_rank
-    config::SetPassOption(L1_REUSE, 4);
+    config::SetPassOption(CUBE_L1_REUSE_MODE, 4);
     int b = 4;
     int s = 1;
     int s2 = 256;
@@ -968,9 +968,9 @@ TEST_F(MlaPrologV2OnBoardTest, test_mla_fp16_low_quant_smooth_pa_bsnd) {  // b_n
 }
 
 TEST_F(MlaPrologV2OnBoardTest, test_mla_fp16_high_quant_smooth_pa_bsnd) {  // b_n_s_s2_h_q_lora_rank
-    const int nbuffer_merge_mode = 2;
-    config::SetPassOption(NBUFFER_MERGE_MODE, nbuffer_merge_mode);
-    config::SetPassOption(VEC_NBUFFER_MAP,  std::map<int64_t, int64_t>{{-1, 2}});
+    const int vec_nbuffer_mode = 2;
+    config::SetPassOption(VEC_NBUFFER_MODE, vec_nbuffer_mode);
+    config::SetPassOption(VEC_NBUFFER_SETTING,  std::map<int64_t, int64_t>{{-1, 2}});
     int b = 32;
     int s = 1;
     int s2 = 4096;
@@ -997,7 +997,7 @@ TEST_F(MlaPrologV2OnBoardTest, test_mla_fp16_high_quant_smooth_pa_bsnd) {  // b_
 }
 
 TEST_F(MlaPrologV2OnBoardTest, test_mla_fp16_low_quant_smooth_nz_pa_bsnd) {  // b_n_s_s2_h_q_lora_rank
-    config::SetPassOption(L1_REUSE, 4);
+    config::SetPassOption(CUBE_L1_REUSE_MODE, 4);
     int b = 4;
     int s = 1;
     int s2 = 256;
@@ -1024,8 +1024,8 @@ TEST_F(MlaPrologV2OnBoardTest, test_mla_fp16_low_quant_smooth_nz_pa_bsnd) {  // 
 }
 
 TEST_F(MlaPrologV2OnBoardTest, test_mla_bf16_high_quant_smooth_nz_pa_bsnd) {  // b_n_s_s2_h_q_lora_rank
-    config::SetPassOption(NBUFFER_MERGE_MODE, 2);
-    config::SetPassOption(VEC_NBUFFER_MAP,  std::map<int64_t, int64_t>{{-1, 2}});
+    config::SetPassOption(VEC_NBUFFER_MODE, 2);
+    config::SetPassOption(VEC_NBUFFER_SETTING,  std::map<int64_t, int64_t>{{-1, 2}});
     int b = 32;
     int s = 1;
     int s2 = 4096;
@@ -1052,8 +1052,8 @@ TEST_F(MlaPrologV2OnBoardTest, test_mla_bf16_high_quant_smooth_nz_pa_bsnd) {  //
 }
 
 TEST_F(MlaPrologV2OnBoardTest, test_mla_bf16_high48_quant_smooth_nz_pa_bsnd) {  // b_n_s_s2_h_q_lora_rank
-    config::SetPassOption(NBUFFER_MERGE_MODE, 2);
-    config::SetPassOption(VEC_NBUFFER_MAP,  std::map<int64_t, int64_t>{{-1, 2}});
+    config::SetPassOption(VEC_NBUFFER_MODE, 2);
+    config::SetPassOption(VEC_NBUFFER_SETTING,  std::map<int64_t, int64_t>{{-1, 2}});
     int b = 48;
     int s = 1;
     int s2 = 4096;

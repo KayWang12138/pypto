@@ -120,9 +120,9 @@ void TestAttentionPost(const TestPostParams &params, const PostTileConfig &tileC
 }
 
 void PerformanceConfig() {
-    const int cycle_upper_bound = 500000;
-    config::SetPassOption(SG_CYCLE_UPPER_BOUND, cycle_upper_bound);
-    config::SetPassOption(CUBE_NBUFFER_MAP, std::map<int64_t, int64_t>{{0, 4}});
+    const int pg_upper_bound = 500000;
+    config::SetPassOption(SG_PG_UPPER_BOUND, pg_upper_bound);
+    config::SetPassOption(CUBE_NBUFFER_SETTING, std::map<int64_t, int64_t>{{0, 4}});
 }
 
 ////// fp16, nz, quant

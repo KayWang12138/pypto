@@ -180,13 +180,13 @@ TEST_F(TestConfigManager, AbnormalRuntimeTest) {
 TEST_F(TestConfigManager, NormalPassTest) {
     std::unordered_map<std::string, std::vector<int64_t>> input = {
         {SG_PARALLEL_NUM, {0, INT_MAX}},
-        {SG_CYCLE_UPPER_BOUND, {0, INT_MAX}},
-        {SG_CYCLE_LOWER_BOUND, {0, INT_MAX}},
-        {L1_REUSE, {0, INT_MAX}},
-        {CUBE_NBUFFER_MERGE_MODE, {0, 2}},
-        {COPYIN_THRESHOLD, {0, INT_MAX}},
-        {NBUFFER_MERGE_MODE, {0, 2}},
-        {SG_VEC_PARALLEL_NUM, {1, 48}},
+        {SG_PG_UPPER_BOUND, {0, INT_MAX}},
+        {SG_PG_LOWER_BOUND, {0, INT_MAX}},
+        {CUBE_L1_REUSE_MODE, {0, INT_MAX}},
+        {CUBE_NBUFFER_MODE, {0, 2}},
+        {MG_COPYIN_UPPER_BOUND, {0, INT_MAX}},
+        {VEC_NBUFFER_MODE, {0, 2}},
+        {MG_VEC_PARALLEL_LB, {1, 48}},
         {SG_CUBE_PARALLEL_NUM, {1, 24}},
         {COPYOUT_RESOLVE_COALESCING, {0, 1000000}}
     };
@@ -194,9 +194,9 @@ TEST_F(TestConfigManager, NormalPassTest) {
     EXPECT_EQ(ret, true);
 
     std::unordered_map<std::string, std::vector<std::map<int64_t, int64_t>>> input2 = {
-        {L1_REUSE_MAP, {{{0, 0}}, {{INT_MAX, INT_MAX}}}},
-        {CUBE_NBUFFER_MAP, {{{-1, 1}}, {{INT_MAX, INT_MAX}}}},
-        {VEC_NBUFFER_MAP, {{{-1, 1}}, {{INT_MAX, INT_MAX}}}}
+        {CUBE_L1_REUSE_SETTING, {{{0, 0}}, {{INT_MAX, INT_MAX}}}},
+        {CUBE_NBUFFER_SETTING, {{{-1, 1}}, {{INT_MAX, INT_MAX}}}},
+        {VEC_NBUFFER_SETTING, {{{-1, 1}}, {{INT_MAX, INT_MAX}}}}
     };
     ret = RangeTest<std::map<int64_t, int64_t>>(input2, &(config::SetOption), "pass");
     EXPECT_EQ(ret, true);
@@ -207,13 +207,13 @@ TEST_F(TestConfigManager, AbnormalPassTest) {
     ++outVal;
     std::unordered_map<std::string, std::vector<int64_t>> input = {
         {SG_PARALLEL_NUM, {-1, outVal}},
-        {SG_CYCLE_UPPER_BOUND, {-1, outVal}},
-        {SG_CYCLE_LOWER_BOUND, {-1, outVal}},
-        {L1_REUSE, {-1, outVal}},
-        {CUBE_NBUFFER_MERGE_MODE, {-1, 3}},
-        {COPYIN_THRESHOLD, {-1, outVal}},
-        {NBUFFER_MERGE_MODE, {-1, 3}},
-        {SG_VEC_PARALLEL_NUM, {0, 49}},
+        {SG_PG_UPPER_BOUND, {-1, outVal}},
+        {SG_PG_LOWER_BOUND, {-1, outVal}},
+        {CUBE_L1_REUSE_MODE, {-1, outVal}},
+        {CUBE_NBUFFER_MODE, {-1, 3}},
+        {MG_COPYIN_UPPER_BOUND, {-1, outVal}},
+        {VEC_NBUFFER_MODE, {-1, 3}},
+        {MG_VEC_PARALLEL_LB, {0, 49}},
         {SG_CUBE_PARALLEL_NUM, {0, 25}},
         {COPYOUT_RESOLVE_COALESCING, {-1, 1000001}}
     };
@@ -221,9 +221,9 @@ TEST_F(TestConfigManager, AbnormalPassTest) {
     EXPECT_EQ(ret, true);
 
     std::unordered_map<std::string, std::vector<std::map<int64_t, int64_t>>> input2 = {
-        {L1_REUSE_MAP, {{{-1, 0}}, {{outVal, INT_MAX}}, {{0, -1}}, {{INT_MAX, outVal}}}},
-        {CUBE_NBUFFER_MAP, {{{-2, 1}}, {{INT_MAX, outVal}}, {{-1, 0}}, {{outVal, INT_MAX}}}},
-        {VEC_NBUFFER_MAP, {{{-2, 1}}, {{INT_MAX, outVal}}, {{-1, 0}}, {{outVal, INT_MAX}}}}
+        {CUBE_L1_REUSE_SETTING, {{{-1, 0}}, {{outVal, INT_MAX}}, {{0, -1}}, {{INT_MAX, outVal}}}},
+        {CUBE_NBUFFER_SETTING, {{{-2, 1}}, {{INT_MAX, outVal}}, {{-1, 0}}, {{outVal, INT_MAX}}}},
+        {VEC_NBUFFER_SETTING, {{{-2, 1}}, {{INT_MAX, outVal}}, {{-1, 0}}, {{outVal, INT_MAX}}}}
     };
     ret = RangeTest<std::map<int64_t, int64_t>>(input2, &(config::SetOption), "pass");
     EXPECT_EQ(ret, true);

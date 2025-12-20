@@ -230,7 +230,7 @@ Status PassManager::RunPass(Program &program, Function &function, const std::str
         });
         auto passDfxCfg = ConfigManager::Instance().GetPassConfigs(strategy, identifier);
         if (config::GetDebugOption<int64_t>(CFG_COMPILE_DBEUG_MODE) == CFG_DEBUG_ALL) {
-            passDfxCfg.printFunction = true;
+            passDfxCfg.printGraph = true;
             passDfxCfg.dumpGraph = true;
         }
         pass->SetPassConfigs(passDfxCfg);

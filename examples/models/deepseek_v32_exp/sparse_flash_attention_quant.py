@@ -343,12 +343,12 @@ def sparse_flash_attention_quant_d(query_nope, query_rope, key_nope_2d, key_rope
     pypto.set_host_options(only_codegen=True)
 
     # pass config
-    pypto.set_pass_options(copyin_threshold=1 * 1024 * 1024,
-                           cycle_upper_bound=20000,
-                           cycle_lower_bound=512,
-                           parallel_threshold=20,
-                           nbuffer_merge_mode=2,
-                           vec_nbuffer_map={-1: 2})
+    pypto.set_pass_options(mg_copyin_upper_bound=1 * 1024 * 1024,
+                           pg_upper_bound=20000,
+                           pg_lower_bound=512,
+                           pg_parallel_lower_bound=20,
+                           vec_nbuffer_mode=2,
+                           vec_nbuffer_setting={-1: 2})
 
     sparse_flash_attention_quant_compute_flash(query_nope, query_rope, key_nope_2d, key_rope_2d,
                                                k_nope_scales, topk_indcies, block_table, kv_act_seqs,
@@ -372,12 +372,12 @@ def sparse_flash_attention_quant_p(query_nope, query_rope, key_nope_2d, key_rope
     pypto.set_host_options(only_codegen=True)
 
     # pass config
-    pypto.set_pass_options(copyin_threshold=1 * 1024 * 1024,
-                           cycle_upper_bound=20000,
-                           cycle_lower_bound=512,
-                           parallel_threshold=20,
-                           nbuffer_merge_mode=2,
-                           vec_nbuffer_map={-1: 2})
+    pypto.set_pass_options(mg_copyin_upper_bound=1 * 1024 * 1024,
+                           pg_upper_bound=20000,
+                           pg_lower_bound=512,
+                           pg_parallel_lower_bound=20,
+                           vec_nbuffer_mode=2,
+                           vec_nbuffer_setting={-1: 2})
 
     sparse_flash_attention_quant_compute_flash(query_nope, query_rope, key_nope_2d, key_rope_2d,
                                                k_nope_scales, topk_indcies, block_table, kv_act_seqs,

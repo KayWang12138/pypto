@@ -41,9 +41,9 @@ def mla_indexer_prolog_quant_debug(token_x, mla_w_dq, mla_w_uq_qr, mla_dequant_s
 
     pypto.set_codegen_options(support_dynamic_unaligned=True)
     ##################### mla #######################
-    pypto.set_pass_options(l1_reuse_map={0: 2, 1: 1, 2: 1, 3: 4, 4: 4, 5: 1},
-                           cube_nbuffer_map={3: 4},
-                           copyin_threshold=16 * 1024 * 1024)
+    pypto.set_pass_options(cube_l1_reuse_setting={0: 2, 1: 1, 2: 1, 3: 4, 4: 4, 5: 1},
+                           cube_nbuffer_setting={3: 4},
+                           mg_copyin_upper_bound=16 * 1024 * 1024)
 
     mla_input_tensors = (token_x, mla_w_dq, mla_w_uq_qr, mla_dequant_scale, mla_w_uk, mla_w_dkv_kr, mla_gamma_cq,
                          mla_gamma_ckv, cos, sin, cache_index, mla_kv_cache, mla_kr_cache,
@@ -55,9 +55,9 @@ def mla_indexer_prolog_quant_debug(token_x, mla_w_dq, mla_w_uq_qr, mla_dequant_s
                                  mla_tile_config, rope_cfg)
 
     ##################### ip #######################
-    pypto.set_pass_options(l1_reuse_map=ip_configs.l1_reuse_param)
-    pypto.set_pass_options(copyin_threshold=ip_configs.copy_in_threshold)
-    pypto.set_pass_options(cycle_upper_bound=ip_configs.cycle_upper_bound)
+    pypto.set_pass_options(cube_l1_reuse_setting=ip_configs.l1_reuse_param)
+    pypto.set_pass_options(mg_copyin_upper_bound=ip_configs.mg_copy_in_upper_bound)
+    pypto.set_pass_options(pg_upper_bound=ip_configs.pg_upper_bound)
 
     ip_input_tensors = (token_x, mla_q_norm_out, mla_q_norm_scale_out, ip_w_qb_in, ip_w_qb_scale_in, ip_wk_in,
                         ip_w_proj_in, ip_ln_gamma_k_in, ip_ln_beta_k_in, cos, sin, ip_hadamard_q_in, ip_hadamard_k_in,
@@ -87,11 +87,11 @@ def mla_indexer_prolog_quant(token_x, mla_w_dq, mla_w_uq_qr, mla_dequant_scale, 
 
     pypto.set_codegen_options(support_dynamic_unaligned=mla_tile_config.dynamic_unaligned_enable)
     ##################### mla #######################
-    pypto.set_pass_options(nbuffer_merge_mode=mla_tile_config.nbuffer_merge_mode,
-                           l1_reuse=mla_tile_config.l1_reuse,
-                           l1_reuse_map=mla_tile_config.l1_reuse_map,
-                           cube_nbuffer_map=mla_tile_config.cube_nbuffer_map,
-                           copyin_threshold=mla_tile_config.copy_in_threshold)
+    pypto.set_pass_options(vec_nbuffer_mode=mla_tile_config.vec_nbuffer_mode,
+                           cube_l1_reuse_mode=mla_tile_config.cube_l1_reuse_mode,
+                           cube_l1_reuse_setting=mla_tile_config.cube_l1_reuse_setting,
+                           cube_nbuffer_setting=mla_tile_config.cube_nbuffer_setting,
+                           mg_copyin_upper_bound=mla_tile_config.mg_copyin_upper_bound)
 
     mla_input_tensors = (token_x, mla_w_dq, mla_w_uq_qr, mla_dequant_scale, mla_w_uk, mla_w_dkv_kr, mla_gamma_cq,
                          mla_gamma_ckv, cos, sin, cache_index, mla_kv_cache, mla_kr_cache,
@@ -102,10 +102,10 @@ def mla_indexer_prolog_quant(token_x, mla_w_dq, mla_w_uq_qr, mla_dequant_scale, 
                                    mla_cache_mode, mla_tile_config, rope_cfg)
 
     ##################### ip #######################
-    pypto.set_pass_options(nbuffer_merge_mode=ip_configs.nbuffer_merge_mode)
-    pypto.set_pass_options(l1_reuse_map=ip_configs.l1_reuse_param)
-    pypto.set_pass_options(copyin_threshold=ip_configs.copy_in_threshold)
-    pypto.set_pass_options(cycle_upper_bound=ip_configs.cycle_upper_bound)
+    pypto.set_pass_options(vec_nbuffer_mode=ip_configs.vec_nbuffer_mode)
+    pypto.set_pass_options(cube_l1_reuse_setting=ip_configs.l1_reuse_param)
+    pypto.set_pass_options(mg_copyin_upper_bound=ip_configs.mg_copyin_upper_bound)
+    pypto.set_pass_options(pg_upper_bound=ip_configs.pg_upper_bound)
 
     ip_input_tensors = (token_x, mla_q_norm_out, mla_q_norm_scale_out, ip_w_qb_in, ip_w_qb_scale_in, ip_wk_in,
                         ip_w_proj_in, ip_ln_gamma_k_in, ip_ln_beta_k_in, cos, sin, ip_hadamard_q_in, ip_hadamard_k_in,

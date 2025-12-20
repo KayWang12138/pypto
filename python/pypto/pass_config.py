@@ -28,7 +28,7 @@ class PassConfigs:
     PassConfigs data structure returned from C++ (read-only)
 
     Attributes:
-        printFunction: Whether to print function IR.
+        printGraph: Whether to print function IR.
         dumpGraph: Whether to dump graph to files.
         dumpPassTimeCost: Whether to dump time consumption of pass.
         preCheck: Whether to perform validation checks before pass.
@@ -41,7 +41,7 @@ class PassConfigs:
         Python side is only for data access. All attributes are read-only and cannot
         be modified from Python.
     """
-    printFunction: bool
+    printGraph: bool
     dumpGraph: bool
     dumpPassTimeCost: bool
     preCheck: bool

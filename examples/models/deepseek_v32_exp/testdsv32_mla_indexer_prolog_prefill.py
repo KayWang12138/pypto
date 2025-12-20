@@ -937,7 +937,7 @@ class MlaTileConfig:
         self.tile_b = 8
         self.tile_s = 1
         self.tile_bs = 8
-        self.l1_reuse = 4
+        self.cube_l1_reuse_mode = 4
         self.m_tile = 16
         self.mv_tile = 16
         self.q_vec_tile0 = 16
@@ -945,11 +945,11 @@ class MlaTileConfig:
         self.k_vec_tile0 = 16
         self.k_vec_tile1 = 16
         self.pre_quant_cube_tile = [16, 16, 256, 256, 128, 128]
-        self.copy_in_threshold = 2 * 1024 * 1024
-        self.cycle_upper_bound = 8192
-        self.nbuffer_merge_mode = 1
-        self.cube_nbuffer_map = {3: 4}
-        self.l1_reuse_map = {0: 2, 1: 1, 2: 1, 3: 4, 4: 4, 5: 1}
+        self.mg_copy_in_upper_bound = 2 * 1024 * 1024
+        self.pg_upper_bound = 8192
+        self.vec_nbuffer_mode = 1
+        self.cube_nbuffer_setting = {3: 4}
+        self.cube_l1_reuse_setting = {0: 2, 1: 1, 2: 1, 3: 4, 4: 4, 5: 1}
         self.dynamic_unaligned_enable = False
 
 
@@ -1007,12 +1007,12 @@ def test_t_32_tilebs_16():
         w_linear=[16, 16, 1024, 1024, 32, 32],
         unroll_list=[32, 16, 8, 4, 2, 1],
         l1_reuse_param={1: 4},
-        copy_in_threshold=2 * 1024 * 1024,
-        cycle_upper_bound=8192,
+        mg_copy_in_upper_bound=2 * 1024 * 1024,
+        pg_upper_bound=8192,
         block_size=128,
         t_sub_tile=1,
         chunk_size=2,
-        nbuffer_merge_mode=0,
+        vec_nbuffer_mode=0,
     )
 
     do_test("mla_prolog_indexer_prolog_prefill.test_t_32_tilebs_16",
@@ -1057,12 +1057,12 @@ def test_t_512_tilebs_128():
         w_linear=[32, 32, 512, 512, 64, 64],
         unroll_list=[128, 64, 32, 16, 8, 4, 2, 1],
         l1_reuse_param={1: 4, 3: 4},
-        copy_in_threshold=2 * 1024 * 1024,
-        cycle_upper_bound=8192,
+        mg_copy_in_upper_bound=2 * 1024 * 1024,
+        pg_upper_bound=8192,
         block_size=128,
         t_sub_tile=2,
         chunk_size=1,
-        nbuffer_merge_mode=0,
+        vec_nbuffer_mode=0,
     )
 
     do_test("mla_prolog_indexer_prolog_prefill.test_t_512_tilebs_128", params, mla_epsilon_cq, mla_epsilon_ckv,

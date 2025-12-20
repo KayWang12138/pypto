@@ -237,7 +237,7 @@ def expert_infer_base(
 def moe_router_expert_main(hidden_states, hidden_states_scale,
                            group_list, group_list_cumsum, w13,
                            w13_scale, w2, w2_scale, ffn_res):
-    pypto.set_pass_options(l1_reuse=2)
+    pypto.set_pass_options(cube_l1_reuse_mode=2)
 
     # tiling config
     mm1_cube_tile_shape = (8, 256, 256)

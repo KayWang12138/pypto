@@ -37,19 +37,19 @@ using MapType = std::map<int64_t, int64_t>;
 
 static std::map<std::string, ValueType> g_passConfig = {
     {SG_PARALLEL_NUM, 20L},
-    {SG_CYCLE_UPPER_BOUND, 10000L},
-    {SG_CYCLE_LOWER_BOUND, 512L},
-    {L1_REUSE, 0L},
-    {L1_REUSE_MAP, std::map<int64_t, int64_t>{}},
-    {CUBE_NBUFFER_MERGE_MODE, 0L},
-    {CUBE_NBUFFER_MAP, std::map<int64_t, int64_t>{}},
-    {COPYIN_THRESHOLD, 1024 * 1024L},
+    {SG_PG_UPPER_BOUND, 10000L},
+    {SG_PG_LOWER_BOUND, 512L},
+    {CUBE_L1_REUSE_MODE, 0L},
+    {CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{}},
+    {CUBE_NBUFFER_MODE, 0L},
+    {CUBE_NBUFFER_SETTING, std::map<int64_t, int64_t>{}},
+    {MG_COPYIN_UPPER_BOUND, 1024 * 1024L},
     {OOO_PRESCHEDULE_METHOD, std::string("PriorDFS")}, // bugs in gcc 9.4
-    {NBUFFER_MERGE_MODE, 1L},
-    {VEC_NBUFFER_MAP, std::map<int64_t, int64_t>{}},
-    {SG_VEC_PARALLEL_NUM, 48L},
+    {VEC_NBUFFER_MODE, 1L},
+    {VEC_NBUFFER_SETTING, std::map<int64_t, int64_t>{}},
+    {MG_VEC_PARALLEL_LB, 48L},
     {SG_CUBE_PARALLEL_NUM, 24L},
-    {SG_SKIP_PARTITION, false},
+    {PG_SKIP_PARTITION, false},
     {COPYOUT_RESOLVE_COALESCING, 0L},
     {SG_SET_SCOPE, -1L}
 };

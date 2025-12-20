@@ -132,10 +132,10 @@ Tensor QuantRope2D(const Tensor &x, const Tensor &cos, const Tensor &sin) {
 
 void QuantLightningIndexerPrologCompute(const QuantIndexerPrologInput &inputs, QuantIndexerPrologOutput &outputs,
     QuantIndexerPrologAttr &attrs, const QuantIndexerConfigs &configs) {
-    config::SetPassOption("nbuffer_merge_mode", 0);
-    config::SetPassOption("l1_reuse_map", configs.l1ReuseParam);
-    config::SetPassOption("copyin_threshold", configs.copyInThreshold);
-    config::SetPassOption("cycle_upper_bound", configs.cycleUpperBound);
+    config::SetPassOption("vec_nbuffer_mode", 0);
+    config::SetPassOption("cube_l1_reuse_setting", configs.l1ReuseParam);
+    config::SetPassOption("mg_copyin_upper_bound", configs.mgCopyInUpperBound);
+    config::SetPassOption("pg_upper_bound", configs.pgUpperBound);
 
     ASSERT(inputs.x.GetShape().size() == Q_PARAM_DIM && inputs.qNorm.GetShape().size() == Q_PARAM_DIM &&
            inputs.wk.GetShape().size() == NZ_DIM && inputs.wProj.GetShape().size() == NZ_DIM &&

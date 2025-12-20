@@ -22,10 +22,10 @@ using namespace npu::tile_fwk;
 class DyNsa : public testing::Test {
     void SetUp() override {
         config::SetHostOption(ONLY_CODEGEN, true);
-        config::SetPassOption(NBUFFER_MERGE_MODE, 1);
-        config::SetPassOption(L1_REUSE, 4);
-        config::SetPassOption(CUBE_NBUFFER_MAP, std::map<int64_t, int64_t>{{3, 4}});
-        config::SetPassOption(COPYIN_THRESHOLD, 2 * 1024 * 1024);
+        config::SetPassOption(VEC_NBUFFER_MODE, 1);
+        config::SetPassOption(CUBE_L1_REUSE_MODE, 4);
+        config::SetPassOption(CUBE_NBUFFER_SETTING, std::map<int64_t, int64_t>{{3, 4}});
+        config::SetPassOption(MG_COPYIN_UPPER_BOUND, 2 * 1024 * 1024);
 
     }
 };

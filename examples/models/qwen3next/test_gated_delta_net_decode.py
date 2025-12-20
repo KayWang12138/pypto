@@ -604,7 +604,7 @@ def compute_all_preproc(hidden_states, qkvz_weight, ba_weight, a_log,
 @pypto.jit(
     host_options={"only_codegen": True},
     codegen_options={"support_dynamic_unaligned": True},
-    pass_options={"cycle_upper_bound": 256, "cycle_lower_bound":128}
+    pass_options={"pg_upper_bound": 256, "pg_lower_bound": 128}
 )
 def pto_all_preproc(hidden_states, qkvz_weight, ba_weight, a_log,
                     dt_bias, conv_weight, conv_state_in, init_state,

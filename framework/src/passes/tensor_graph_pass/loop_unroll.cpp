@@ -341,21 +341,21 @@ Status LoopUnroll::CreateLoopUnrollFunc(Function *function) {
 
     auto &paramConfigs = Program::GetInstance().GetCurrentFunction()->paramConfigs_;
     std::shared_ptr<ConfigScope> currentScope = ConfigManagerNg::GetInstance().CurrentScope();
-    paramConfigs.l1ReuseNum = currentScope->GetPassConfig<int>(L1_REUSE);
-    paramConfigs.cubeNBufferMergeMode = currentScope->GetPassConfig<int>(CUBE_NBUFFER_MERGE_MODE);
-    paramConfigs.sgCycleUpperBound = currentScope->GetPassConfig<int>(SG_CYCLE_UPPER_BOUND);
-    paramConfigs.sgCycleLowerBound = currentScope->GetPassConfig<int>(SG_CYCLE_LOWER_BOUND);
+    paramConfigs.l1ReuseNum = currentScope->GetPassConfig<int>(CUBE_L1_REUSE_MODE);
+    paramConfigs.cubeNBufferMode = currentScope->GetPassConfig<int>(CUBE_NBUFFER_MODE);
+    paramConfigs.sgPgUpperBound = currentScope->GetPassConfig<int>(SG_PG_UPPER_BOUND);
+    paramConfigs.sgPgLowerBound = currentScope->GetPassConfig<int>(SG_PG_LOWER_BOUND);
     paramConfigs.sgParallelNum = currentScope->GetPassConfig<int>(SG_PARALLEL_NUM);
-    paramConfigs.sgCopyInThreshold = currentScope->GetPassConfig<int>(COPYIN_THRESHOLD);
+    paramConfigs.sgMgCopyInUpperBound = currentScope->GetPassConfig<int>(MG_COPYIN_UPPER_BOUND);
     paramConfigs.machineConfig_ = currentScope->GetRuntimeConfig<uint8_t>(DEVICE_SCHED_MODE);
     paramConfigs.stitchFunctionNumInitial_ = currentScope->GetRuntimeConfig<uint16_t>(STITCH_FUNCTION_NUM_INITIAL);
     paramConfigs.stitchFunctionNumStep_ = currentScope->GetRuntimeConfig<uint16_t>(STITCH_FUNCTION_NUM_STEP);
-    paramConfigs.l1ReuseMap = currentScope->GetPassConfig<std::map<int64_t, int64_t>>(L1_REUSE_MAP);
-    paramConfigs.cubeNBufferMap = currentScope->GetPassConfig<std::map<int64_t, int64_t>>(CUBE_NBUFFER_MAP);
-    paramConfigs.vecNBufferMap = currentScope->GetPassConfig<std::map<int64_t, int64_t>>(VEC_NBUFFER_MAP);
-    paramConfigs.nBufferMergeMode = currentScope->GetPassConfig<int>(NBUFFER_MERGE_MODE);
+    paramConfigs.cubeL1ReuseSetting = currentScope->GetPassConfig<std::map<int64_t, int64_t>>(CUBE_L1_REUSE_SETTING);
+    paramConfigs.cubeNBufferSetting = currentScope->GetPassConfig<std::map<int64_t, int64_t>>(CUBE_NBUFFER_SETTING);
+    paramConfigs.vecNBufferSetting = currentScope->GetPassConfig<std::map<int64_t, int64_t>>(VEC_NBUFFER_SETTING);
+    paramConfigs.vecNBuffermode = currentScope->GetPassConfig<int>(VEC_NBUFFER_MODE);
     paramConfigs.sgCubeParallelNum = currentScope->GetPassConfig<int>(SG_CUBE_PARALLEL_NUM);
-    paramConfigs.sgVecParallelNum = currentScope->GetPassConfig<int>(SG_VEC_PARALLEL_NUM);
+    paramConfigs.mgVecParallelLb = currentScope->GetPassConfig<int>(MG_VEC_PARALLEL_LB);
     topFunction_ = Program::GetInstance().GetCurrentFunction();
     return SUCCESS;
 }

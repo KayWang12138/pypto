@@ -191,7 +191,7 @@ def expert_infer_base(hidden_states, w13_params, w2_params, ffn_res, tiling_para
                      "cfgcache_leaf_task_num": 10000}
 )
 def share_expert_moe_main(hidden_states, w13, w13_scale, w2, w2_scale, ffn_res):
-    pypto.set_pass_options(l1_reuse=2)
+    pypto.set_pass_options(cube_l1_reuse_mode=2)
 
     # tiling config
     vec_tile_shape = (2, 5120)

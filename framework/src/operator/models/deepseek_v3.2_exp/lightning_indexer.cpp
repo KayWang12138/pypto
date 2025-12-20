@@ -223,7 +223,7 @@ void LightningIndexerTopkImpl(const Tensor &query, const Tensor &key, bool isQua
                 LOOP("2K_LOOP", FunctionType::DYNAMIC_LOOP, unused, LoopRange(lengthIsLE2K)) {
                     (void)unused;
                     Tensor padX2K(xdtype, {1, length2K}, "padX2K");
-                    config::SetPassOption(SG_SKIP_PARTITION, true);
+                    config::SetPassOption(PG_SKIP_PARTITION, true);
                     LOOP("2K_PAD", FunctionType::DYNAMIC_LOOP, unused1, LoopRange(1)) {
                         (void)unused1;
                         TileShape::Current().SetVecTile({1, length2K});
@@ -232,7 +232,7 @@ void LightningIndexerTopkImpl(const Tensor &query, const Tensor &key, bool isQua
                         Assemble(Assign(ax), {0, 0}, padX2K);
                         Assemble(bx, {0, effSeq}, padX2K);
                     }
-                    config::SetPassOption(SG_SKIP_PARTITION, false);
+                    config::SetPassOption(PG_SKIP_PARTITION, false);
                     LOOP("2K_TOPK", FunctionType::DYNAMIC_LOOP, unused2, LoopRange(1)) {
                         (void)unused2;
                         auto [resValue, resIdx] = TopK(View(padX2K, {1, length2K}, {0, 0}), selectedCount, 1);
@@ -261,7 +261,7 @@ void LightningIndexerTopkImpl(const Tensor &query, const Tensor &key, bool isQua
                 LOOP("8K_LOOP", FunctionType::DYNAMIC_LOOP, unused, LoopRange(lengthIsGT2K * lengthIsLE8K)) {
                     UNUSED(unused);
                     Tensor padX8K(xdtype, {1, length8K}, "padX8K");
-                    config::SetPassOption(SG_SKIP_PARTITION, true);
+                    config::SetPassOption(PG_SKIP_PARTITION, true);
                     LOOP("8K_PAD", FunctionType::DYNAMIC_LOOP, unused0, LoopRange(1)) {
                         UNUSED(unused0);
                         TileShape::Current().SetVecTile({1, tileSize});
@@ -270,7 +270,7 @@ void LightningIndexerTopkImpl(const Tensor &query, const Tensor &key, bool isQua
                         Assemble(Assign(ax), {0, 0}, padX8K);
                         Assemble(bx, {0, effSeq}, padX8K);
                     }
-                    config::SetPassOption(SG_SKIP_PARTITION, false);
+                    config::SetPassOption(PG_SKIP_PARTITION, false);
 
                     TileShape::Current().SetVecTile({1, tileSize});
                     LOOP("8K_TOPK", FunctionType::DYNAMIC_LOOP, unused1, LoopRange(1)) {
@@ -293,7 +293,7 @@ void LightningIndexerTopkImpl(const Tensor &query, const Tensor &key, bool isQua
                 LOOP("64K_LOOP", FunctionType::DYNAMIC_LOOP, unused, LoopRange(lengthIsGT8K * lengthIsLE64K)) {
                     UNUSED(unused);
                     Tensor padX64K(xdtype, {1, length64K}, "padX64K");
-                    config::SetPassOption(SG_SKIP_PARTITION, true);
+                    config::SetPassOption(PG_SKIP_PARTITION, true);
                     LOOP("64K_PAD", FunctionType::DYNAMIC_LOOP, unused0, LoopRange(1)) {
                         UNUSED(unused0);
                         TileShape::Current().SetVecTile({1, tileSize});
@@ -302,7 +302,7 @@ void LightningIndexerTopkImpl(const Tensor &query, const Tensor &key, bool isQua
                         Assemble(Assign(ax), {0, 0}, padX64K);
                         Assemble(bx, {0, effSeq}, padX64K);
                     }
-                    config::SetPassOption(SG_SKIP_PARTITION, false);
+                    config::SetPassOption(PG_SKIP_PARTITION, false);
 
                     TileShape::Current().SetVecTile({1, tileSize});
                     LOOP("64K_TOPK", FunctionType::DYNAMIC_LOOP, unused1, LoopRange(1)) {
@@ -323,7 +323,7 @@ void LightningIndexerTopkImpl(const Tensor &query, const Tensor &key, bool isQua
                 LOOP("128K_LOOP", FunctionType::DYNAMIC_LOOP, unused, LoopRange(lengthIsGT64K)) {
                     UNUSED(unused);
                     Tensor padX128K(xdtype, {1, length128K}, "padX128K");
-                    config::SetPassOption(SG_SKIP_PARTITION, true);
+                    config::SetPassOption(PG_SKIP_PARTITION, true);
                     LOOP("128K_PAD", FunctionType::DYNAMIC_LOOP, unused0, LoopRange(1)) {
                         UNUSED(unused0);
                         TileShape::Current().SetVecTile({1, tileSize});
@@ -332,7 +332,7 @@ void LightningIndexerTopkImpl(const Tensor &query, const Tensor &key, bool isQua
                         Assemble(Assign(ax), {0, 0}, padX128K);
                         Assemble(bx, {0, effSeq}, padX128K);
                     }
-                    config::SetPassOption(SG_SKIP_PARTITION, false);
+                    config::SetPassOption(PG_SKIP_PARTITION, false);
 
                     TileShape::Current().SetVecTile({1, tileSize});
                     LOOP("128K_TOPK", FunctionType::DYNAMIC_LOOP, unused1, LoopRange(1)) {
@@ -378,13 +378,13 @@ void LightningIndexerImpl(const Tensor &idxQuery, const Tensor &idxQueryScale, c
     config::SetCodeGenOption("support_dynamic_unaligned", true); // unalign compute
     config::SetCodeGenOption("codegen_expression_fusion", true); // dynamic symbolic compute
     // graph fuse thresold
-    config::SetPassOption("copyin_threshold", configs.copyInThreshold);
-    config::SetPassOption("cycle_upper_bound", configs.cycleUpperBound);
+    config::SetPassOption("mg_copyin_upper_bound", configs.mgCopyInUpperBound);
+    config::SetPassOption("pg_upper_bound", configs.pgUpperBound);
     // vector graph fuse optimization
-    config::SetPassOption("nbuffer_merge_mode", configs.vecMergeMode);
-    config::SetPassOption("vec_nbuffer_map", configs.vecNBufferMap);
+    config::SetPassOption("vec_nbuffer_mode", configs.vecMergeMode);
+    config::SetPassOption("vec_nbuffer_setting", configs.vecNBufferSetting);
     // cube graph fuse optimization
-    config::SetPassOption("l1_reuse_map", configs.l1ReuseMap);
+    config::SetPassOption("cube_l1_reuse_setting", configs.cubeL1ReuseSetting);
     // stitch optimization
     config::SetRuntimeOption("stitch_function_inner_memory", configs.maxRecyclePeriod);
     config::SetRuntimeOption("stitch_function_outcast_memory", configs.maxLoopNum);
@@ -535,7 +535,7 @@ void LightningIndexerImpl(const Tensor &idxQuery, const Tensor &idxQueryScale, c
             auto srcIdx = bIdx * MAX_LI_S1 + s1Idx;
             auto dstIdx = bIdx * s1 + s1Idx;
             TileShape::Current().SetVecTile(1, selectedCount);
-            config::SetPassOption("sg_skip_partition", true); // no tile unroll
+            config::SetPassOption("pg_skip_partition", true); // no tile unroll
             LOOP("TOPK_PAD_2K", FunctionType::DYNAMIC_LOOP, pad2KIdx, LoopRange(effSeq < selectedCount)) {
                 (void)pad2KIdx;
                 config::SetSemanticLabel("LI-2K-PAD");
@@ -545,7 +545,7 @@ void LightningIndexerImpl(const Tensor &idxQuery, const Tensor &idxQueryScale, c
                 Assemble(Assign(topkIn), {srcIdx, 0}, pad2K);
                 Assemble(padTensor, {srcIdx, effSeq}, pad2K);
             }
-            config::SetPassOption("sg_skip_partition", false); // tile unroll
+            config::SetPassOption("pg_skip_partition", false); // tile unroll
             LOOP("TOPK_2K_CALC", FunctionType::DYNAMIC_LOOP, calc2KIdx, LoopRange(effSeq < selectedCount)) {
                 (void)calc2KIdx;
                 config::SetSemanticLabel("LI-2K-TOPK");
@@ -590,7 +590,7 @@ void LightningIndexerImpl(const Tensor &idxQuery, const Tensor &idxQueryScale, c
             } else {
                 // Pad to 128k for avoid topk bug
                 TileShape::Current().SetVecTile(1, topkTile);
-                config::SetPassOption("sg_skip_partition", true); // no tile unroll
+                config::SetPassOption("pg_skip_partition", true); // no tile unroll
                 LOOP("TOPK_PAD_128K", FunctionType::DYNAMIC_LOOP, pad128KIdx, LoopRange(effSeq > selectedCount)) {
                     (void)pad128KIdx;
                     config::SetSemanticLabel("LI-128K-PAD");
@@ -599,7 +599,7 @@ void LightningIndexerImpl(const Tensor &idxQuery, const Tensor &idxQueryScale, c
                     Assemble(Assign(topkIn), {srcIdx, 0}, pad128K);
                     Assemble(padTensor, {srcIdx, effSeq}, pad128K);
                 }
-                config::SetPassOption("sg_skip_partition", false); // tile unroll
+                config::SetPassOption("pg_skip_partition", false); // tile unroll
                 LOOP("TOPK_128K_CALC", FunctionType::DYNAMIC_LOOP, calc128KIdx, LoopRange(effSeq >= selectedCount)) {
                     (void)calc128KIdx;
                     config::SetSemanticLabel("LI-128K-TOPK");

@@ -41,7 +41,7 @@ Status ReduceCopyMerge::RunOnFunction(Function &function) {
     const double lowerBound = 0.1;
     const double upperBound = 10.0;
     runner.mergeThresholds = {{lowerBound, upperBound}};
-    runner.upperBound = function.paramConfigs_.sgCycleUpperBound;
+    runner.upperBound = function.paramConfigs_.sgPgUpperBound;
     if (runner.ReduceCopy(function) != SUCCESS) {
         return FAILED;
     }

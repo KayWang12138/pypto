@@ -103,7 +103,7 @@ void bind_pass_config(py::module &m) {
 
 void bind_pass_configs(py::module &m) {
     py::class_<PassConfigs>(m, "PassConfigs")
-        .def_readonly("printFunction", &PassConfigs::printFunction)
+        .def_readonly("printGraph", &PassConfigs::printGraph)
         .def_readonly("dumpGraph", &PassConfigs::dumpGraph)
         .def_readonly("dumpPassTimeCost", &PassConfigs::dumpPassTimeCost)
         .def_readonly("preCheck", &PassConfigs::preCheck)

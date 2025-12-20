@@ -32,9 +32,9 @@ public:
         config::Reset();
         config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, false);
         config::SetHostConfig(KEY_STRATEGY, "PVC2_OOO");
-        config::SetPassOption(NBUFFER_MERGE_MODE, 1);
-        config::SetPassOption(L1_REUSE, LLMA_L1REUSE_THRESHOLD);
-        config::SetPassOption(SG_CYCLE_LOWER_BOUND, LLMA_CYCLE_THRESHOLD);
+        config::SetPassOption(VEC_NBUFFER_MODE, 1);
+        config::SetPassOption(CUBE_L1_REUSE_MODE, LLMA_L1REUSE_THRESHOLD);
+        config::SetPassOption(SG_PG_LOWER_BOUND, LLMA_CYCLE_THRESHOLD);
         rtSetDevice(GetDeviceIdByEnvVar());
     }
 };

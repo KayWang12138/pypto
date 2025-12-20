@@ -20,21 +20,21 @@
 
 namespace npu::tile_fwk {
 
-constexpr const char *SG_PARALLEL_NUM = "parallel_threshold";
-constexpr const char *SG_CYCLE_UPPER_BOUND = "cycle_upper_bound";
-constexpr const char *SG_CYCLE_LOWER_BOUND = "cycle_lower_bound";
+constexpr const char *SG_PARALLEL_NUM = "pg_parallel_lower_bound";
+constexpr const char *SG_PG_UPPER_BOUND = "pg_upper_bound";
+constexpr const char *SG_PG_LOWER_BOUND = "pg_lower_bound";
 constexpr const char *SG_SET_SCOPE = "sg_set_scope";
-constexpr const char *L1_REUSE = "l1_reuse";
-constexpr const char *L1_REUSE_MAP = "l1_reuse_map";
-constexpr const char *CUBE_NBUFFER_MERGE_MODE = "cube_nbuffer_merge_mode";
-constexpr const char *CUBE_NBUFFER_MAP = "cube_nbuffer_map";
-constexpr const char *COPYIN_THRESHOLD = "copyin_threshold";
+constexpr const char *CUBE_L1_REUSE_MODE = "cube_l1_reuse_mode";
+constexpr const char *CUBE_L1_REUSE_SETTING = "cube_l1_reuse_setting";
+constexpr const char *CUBE_NBUFFER_MODE = "cube_nbuffer_mode";
+constexpr const char *CUBE_NBUFFER_SETTING = "cube_nbuffer_setting";
+constexpr const char *MG_COPYIN_UPPER_BOUND = "mg_copyin_upper_bound";
 constexpr const char *OOO_PRESCHEDULE_METHOD = "ooo_preschedule_method";
-constexpr const char *NBUFFER_MERGE_MODE = "nbuffer_merge_mode";
-constexpr const char *VEC_NBUFFER_MAP = "vec_nbuffer_map";
+constexpr const char *VEC_NBUFFER_MODE = "vec_nbuffer_mode";
+constexpr const char *VEC_NBUFFER_SETTING = "vec_nbuffer_setting";
 constexpr const char *SG_CUBE_PARALLEL_NUM = "sg_cube_parallel_num";
-constexpr const char *SG_VEC_PARALLEL_NUM = "sg_vec_parallel_num";
-constexpr const char *SG_SKIP_PARTITION = "sg_skip_partition";
+constexpr const char *MG_VEC_PARALLEL_LB = "mg_vec_parallel_lb";
+constexpr const char *PG_SKIP_PARTITION = "pg_skip_partition";
 constexpr const char *NBUFFER_NUM = "nbuffer_num";
 constexpr const char *L1_REUSE_NUM = "l1_reuse_num";
 constexpr const char *DB_TYPE = "db_type";

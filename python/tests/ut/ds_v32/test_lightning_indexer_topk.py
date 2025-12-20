@@ -415,7 +415,7 @@ def lightning_indexer_topk_impl(args: LightningIndexerInputs):
             ):
 
                 def _inside_2k(unused):
-                    pypto.set_pass_options(sg_skip_partition=True)
+                    pypto.set_pass_options(pg_skip_partition=True)
 
                     for unused1 in pypto.loop(0, 1, 1, name="2K_PAD", idx_name="unused1"):
 
@@ -457,7 +457,7 @@ def lightning_indexer_topk_impl(args: LightningIndexerInputs):
 
                         _inside_2k_pad(unused1)
 
-                    pypto.set_pass_options(sg_skip_partition=False)
+                    pypto.set_pass_options(pg_skip_partition=False)
 
                     for unused2 in pypto.loop(
                         0, 1, 1, name="2K_TOPK", idx_name="unused2"
@@ -870,13 +870,13 @@ def setup_lightning_indexer_topk_config():
     pypto.set_codegen_options(support_dynamic_unaligned=True,
                             codegen_expression_fusion=True)
 
-    pypto.set_pass_options(copyin_threshold=NUM_100 * NUM_1024 * NUM_1024,
-                         cycle_lower_bound=NUM_1024,
-                         cycle_upper_bound=NUM_1024 * NUM_1024,
-                         l1_reuse=NUM_32,
-                         parallel_threshold=NUM_2,
-                         nbuffer_merge_mode=NUM_2,
-                         vec_nbuffer_map={NUM_NEG1: NUM_16})
+    pypto.set_pass_options(mg_copyin_upper_bound=NUM_100 * NUM_1024 * NUM_1024,
+                         pg_lower_bound=NUM_1024,
+                         pg_upper_bound=NUM_1024 * NUM_1024,
+                         cube_l1_reuse_mode=NUM_32,
+                         pg_parallel_lower_bound=NUM_2,
+                         vec_nbuffer_mode=NUM_2,
+                         vec_nbuffer_setting={NUM_NEG1: NUM_16})
     pypto.set_runtime_options(device_sched_mode=NUM_3,
                             stitch_function_inner_memory=NUM_128,
                             stitch_function_outcast_memory=NUM_128)

@@ -243,7 +243,7 @@ std::map<int, size_t> NBufferMerge::GetIsoColorMergeNum(const OperationsViewer &
             }
         }
         if (hashCoreNum.find(entry.first) == hashCoreNum.end()) {
-            hashCoreNum[entry.first] = sgVecParallelNum;
+            hashCoreNum[entry.first] = mgVecParallelLb;
         }
         APASS_LOG_DEBUG_F(Elements::Operation, "Subgraph hash: %lu, size %zu, core num: %zu.", 
                     entry.first, entry.second.size(), hashCoreNum[entry.first]);
@@ -418,7 +418,7 @@ Status NBufferMerge::MergeProcess(const OperationsViewer &opOriList,
             auto sortedColors = SortColorWithInput(colorValues);
             if (sortedColors.empty()) continue;
             int numDBMerge =
-                (nBufferMergeMode == 1) ? hashMergeNum[colorHashValue] : hashMergeNum[hashOrder[colorHashValue]];
+                (vecNBuffermode == 1) ? hashMergeNum[colorHashValue] : hashMergeNum[hashOrder[colorHashValue]];
             MergePingPong(sortedColors, opOriList, hashColor, numDBMerge);
         }
     });
@@ -427,19 +427,19 @@ Status NBufferMerge::MergeProcess(const OperationsViewer &opOriList,
 
 std::map<int, size_t> NBufferMerge::SetNumDB(std::map<uint64_t, std::vector<int>> &hashMap) {
     std::map<int, size_t> numDBList;
-    auto it = vecNBufferMap.find(VEC_NBUFFER_MAP_DEFAULT_MERGE_NUM_KEY);
-    if (it != vecNBufferMap.end()) {
+    auto it = vecNBufferSetting.find(VEC_NBUFFER_SETTING_DEFAULT_MERGE_NUM_KEY);
+    if (it != vecNBufferSetting.end()) {
         int defaultVal = it->second;
         for (int i = 0; i < static_cast<int>(hashMap.size()); i++) {
             numDBList[i] = defaultVal;
         }
-        vecNBufferMap.erase(it);
+        vecNBufferSetting.erase(it);
     } else {
         for (int i = 0; i < static_cast<int>(hashMap.size()); i++) {
             numDBList[i] = 1;
         }
     }
-    for (const auto &entry : vecNBufferMap) {
+    for (const auto &entry : vecNBufferSetting) {
         if (entry.first >= 0 && entry.first < static_cast<int>(hashMap.size())) {
             numDBList[entry.first] = entry.second;
         }
@@ -461,26 +461,26 @@ Status NBufferMerge::NBufferMergeProcess(Function &func) {
         APASS_LOG_INFO_F(Elements::Operation, "NBufferMerge is skipped. color: %d, aiCoreNum: %d.", color_, coreNum);
         return SUCCESS;
     }
-    APASS_LOG_INFO_F(Elements::Operation, "User set nbuffer mode: %d", nBufferMergeMode);
+    APASS_LOG_INFO_F(Elements::Operation, "User set nbuffer mode: %d", vecNBuffermode);
     // 获取节点和子图的hash
     auto opOriList = func.Operations();
     std::vector<uint64_t> hashColor(color_, 0);
     std::map<uint64_t, std::vector<int>> hashMap;
     GetColorHash(opOriList, hashColor, hashMap);
     std::map<int, size_t> hashMergeNum;
-    if (nBufferMergeMode == 1) {
-        if (vecNBufferMap.size() != 0) {
-            APASS_LOG_ERROR_F(Elements::Config, "NBUFFER_MERGE_MODE is manually set to 1; Please set VEC_NBUFFER_MAP to empty.");
+    if (vecNBuffermode == 1) {
+        if (vecNBufferSetting.size() != 0) {
+            APASS_LOG_ERROR_F(Elements::Config, "VEC_NBUFFER_MODE is manually set to 1; Please set VEC_NBUFFER_SETTING to empty.");
             return FAILED;
         }
-        APASS_LOG_INFO_F(Elements::Config, "Manually set NBUFFER_MERGE_MODE to 1, automatically calculate mergeNum.");
+        APASS_LOG_INFO_F(Elements::Config, "Manually set VEC_NBUFFER_MODE to 1, automatically calculate mergeNum.");
         hashMergeNum = GetIsoColorMergeNum(opOriList, hashMap);
     } else {
-        if (CheckVecNBufferMapForManualMerge() == FAILED) {
-            APASS_LOG_ERROR_F(Elements::Config, "Check VEC_NBUFFER_MAP for manualMerge failed; Please check the VEC_NBUFFER_MAP config.");
+        if (CheckVecNBufferSettingForManualMerge() == FAILED) {
+            APASS_LOG_ERROR_F(Elements::Config, "Check VEC_NBUFFER_SETTING for manualMerge failed; Please check the VEC_NBUFFER_SETTING config.");
             return FAILED;
         }
-        APASS_LOG_INFO_F(Elements::Config, "Manually set NBUFFER_MERGE_MODE to %d.", nBufferMergeMode);
+        APASS_LOG_INFO_F(Elements::Config, "Manually set VEC_NBUFFER_MODE to %d.", vecNBuffermode);
         hashMergeNum = SetNumDB(hashMap);
     }
     if (MergeProcess(opOriList, hashMap, hashMergeNum, hashColor) == FAILED) {
@@ -497,18 +497,18 @@ Status NBufferMerge::NBufferMergeProcess(Function &func) {
     return SUCCESS;
 }
 
-Status NBufferMerge::CheckVecNBufferMapForManualMerge() {
-    if (vecNBufferMap.size() == 0) {
-        APASS_LOG_ERROR_F(Elements::Config, "NBUFFER_MERGE_MODE is manually set to 2; Please set vecNBufferMap to non-empty.");
+Status NBufferMerge::CheckVecNBufferSettingForManualMerge() {
+    if (vecNBufferSetting.size() == 0) {
+        APASS_LOG_ERROR_F(Elements::Config, "VEC_NBUFFER_MODE is manually set to 2; Please set vecNBufferSetting to non-empty.");
         return FAILED;
     }
-    for (const auto& pair : vecNBufferMap) {
-        if (pair.first < VEC_NBUFFER_MAP_DEFAULT_MERGE_NUM_KEY || pair.first > static_cast<int64_t>(hashOrder.size()) - 1) {
-            APASS_LOG_ERROR_F(Elements::Config, "The VEC_NBUFFER_MAP key %ld is incorrect; Please set keys of VEC_NBUFFER_MAP between -1 and max hashOrder %ld.", pair.first, static_cast<int64_t>(hashOrder.size()) - 1);
+    for (const auto& pair : vecNBufferSetting) {
+        if (pair.first < VEC_NBUFFER_SETTING_DEFAULT_MERGE_NUM_KEY || pair.first > static_cast<int64_t>(hashOrder.size()) - 1) {
+            APASS_LOG_ERROR_F(Elements::Config, "The VEC_NBUFFER_SETTING key %ld is incorrect; Please set keys of VEC_NBUFFER_SETTING between -1 and max hashOrder %ld.", pair.first, static_cast<int64_t>(hashOrder.size()) - 1);
             return FAILED;
         }
         if (pair.second <= 0 || pair.second > static_cast<int64_t>(INT_MAX)) {
-            APASS_LOG_ERROR_F(Elements::Config, "The value %ld of the key %ld in VEC_NBUFFER_MAP is incorrect; Please set values of VEC_NBUFFER_MAP more than 0 and not exceeding the INT_MAX %d.", pair.second, pair.first, INT_MAX);
+            APASS_LOG_ERROR_F(Elements::Config, "The value %ld of the key %ld in VEC_NBUFFER_SETTING is incorrect; Please set values of VEC_NBUFFER_SETTING more than 0 and not exceeding the INT_MAX %d.", pair.second, pair.first, INT_MAX);
             return FAILED;
         }
     }
@@ -517,19 +517,19 @@ Status NBufferMerge::CheckVecNBufferMapForManualMerge() {
 
 Status NBufferMerge::RunOnFunction(Function &function) {
     APASS_LOG_INFO_F(Elements::Operation, "===> Start NBufferMerge.");
-    nBufferMergeMode = function.paramConfigs_.nBufferMergeMode;
-    if (nBufferMergeMode != noMerge && nBufferMergeMode != autoMerge && nBufferMergeMode != manualMerge) {
-        APASS_LOG_ERROR_F(Elements::Config, "NBUFFER_MERGE_MODE is set to %d; Please set NBUFFER_MERGE_MODE to 0, 1 or 2.", nBufferMergeMode);
+    vecNBuffermode = function.paramConfigs_.vecNBuffermode;
+    if (vecNBuffermode != noMerge && vecNBuffermode != autoMerge && vecNBuffermode != manualMerge) {
+        APASS_LOG_ERROR_F(Elements::Config, "VEC_NBUFFER_MODE is set to %d; Please set VEC_NBUFFER_MODE to 0, 1 or 2.", vecNBuffermode);
         return FAILED;
     }
-    APASS_LOG_INFO_F(Elements::Config, "NBUFFER_MERGE_MODE is set to %d.", nBufferMergeMode);
-    if (nBufferMergeMode == noMerge) {
-        APASS_LOG_INFO_F(Elements::Config, "Manually set NBUFFER_MERGE_MODE to 0, skip NBufferMerge.");
+    APASS_LOG_INFO_F(Elements::Config, "VEC_NBUFFER_MODE is set to %d.", vecNBuffermode);
+    if (vecNBuffermode == noMerge) {
+        APASS_LOG_INFO_F(Elements::Config, "Manually set VEC_NBUFFER_MODE to 0, skip NBufferMerge.");
         return SUCCESS;
     }
     sgCubeParallelNum = function.paramConfigs_.sgCubeParallelNum;
-    sgVecParallelNum = function.paramConfigs_.sgVecParallelNum;
-    vecNBufferMap = function.paramConfigs_.vecNBufferMap;
+    mgVecParallelLb = function.paramConfigs_.mgVecParallelLb;
+    vecNBufferSetting = function.paramConfigs_.vecNBufferSetting;
     if (NBufferMergeProcess(function) == FAILED) {
         APASS_LOG_ERROR_F(Elements::Operation, "NBufferMergeProcess failed; Please check the NBufferMergeProcess method.");
         return FAILED;

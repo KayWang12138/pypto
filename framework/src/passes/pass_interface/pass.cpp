@@ -184,7 +184,7 @@ Status Pass::CreateGraphFolder(Function &function) {
 
 Status Pass::PreRun(Function &function) {
     std::string fileName;
-    if (passDfxconfigs_.printFunction) {
+    if (passDfxconfigs_.printGraph) {
         if (PrintFunction(function, passFolder_, true) != SUCCESS) {
             ALOG_WARN_F("Print function before pass failed.");
         }
@@ -233,7 +233,7 @@ Status Pass::PreRun(Function &function) {
 
 Status Pass::PostRun(Function &function) {
     std::string fileName;
-    if (passDfxconfigs_.printFunction) {
+    if (passDfxconfigs_.printGraph) {
         if (PrintFunction(function, passFolder_, false) != SUCCESS) {
             ALOG_WARN_F("Print function after pass failed.");
         }

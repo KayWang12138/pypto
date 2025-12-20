@@ -57,8 +57,8 @@ struct QuantIndexerConfigs {
     std::map<int64_t, int64_t> l1ReuseParam = {
         {1, 4}
     };
-    int copyInThreshold = 2 * 1024 * 1024;
-    int cycleUpperBound = 8192;
+    int mgCopyInUpperBound = 2 * 1024 * 1024;
+    int pgUpperBound = 8192;
     int blockSize = 128;
 
     int64_t chunkSize = 2;

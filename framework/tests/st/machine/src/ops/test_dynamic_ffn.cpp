@@ -85,9 +85,9 @@ TEST_F(DynamicFFNTest, TestOnbroadDynamicFFNQuant) {
     config::SetHostOption(ONLY_CODEGEN, true);
     TileShape::Current().SetVecTile(32, 256);
     TileShape::Current().SetCubeTile({32, 32}, {256, 256}, {128, 128}, true);
-    config::SetPassOption(NBUFFER_MERGE_MODE, 1);      // 是否开启db切分 1开启
-    config::SetPassOption(L1_REUSE, 2);
-    config::SetPassOption(COPYIN_THRESHOLD, 10*1024*1024);
+    config::SetPassOption(VEC_NBUFFER_MODE, 1);      // 是否开启db切分 1开启
+    config::SetPassOption(CUBE_L1_REUSE_MODE, 2);
+    config::SetPassOption(MG_COPYIN_UPPER_BOUND, 10*1024*1024);
     config::SetCodeGenOption(SUPPORT_DYNAMIC_ALIGNED, true);
 
     constexpr int BATCH_SIZE = 32;

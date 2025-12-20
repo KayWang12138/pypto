@@ -16,7 +16,7 @@
         },
         "host_configs": {
             "STRATEGY": "PVC2_OOO",
-            "ENABLE_BINARY_CACHE": false,
+            "enable_binary_cache": false,
             "stitch_function_inner_memory": 10,
             "stitch_function_outcast_memory": 50,
             "only_codegen":false

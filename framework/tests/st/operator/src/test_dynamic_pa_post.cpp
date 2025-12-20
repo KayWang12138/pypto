@@ -364,7 +364,7 @@ void PageAttentionPost(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Te
             TileShape::Current().SetVecTile({std::min(32L, bTile * S), 1, kvLoraRank}); // raw (bTile*1, 128, 512)
             auto t1Res = Transpose(r1Res, {0, 1}); // (N, bTile * S, kvLoraRank)    // 128个
 
-            // config::SetPassOption(CUBE_NBUFFER_MAP, std::map<int64_t, int64_t>{{0, 4}});
+            // config::SetPassOption(CUBE_NBUFFER_SETTING, std::map<int64_t, int64_t>{{0, 4}});
             TileShape::Current().SetCubeTile({std::min(32L, bTile * S), std::min(32L, bTile * S)},
                 {std::min(256L, kvLoraRank), std::min(256L, kvLoraRank)},
                 {vHeadDim, vHeadDim});                                 // raw bTile*1  512   128   // 128/4个

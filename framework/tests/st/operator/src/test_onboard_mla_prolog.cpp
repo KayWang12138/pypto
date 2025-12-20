@@ -1456,8 +1456,8 @@ TEST_F(MlaPrologOnBoardTest, test_MlaProlog_bfloat16_4_32_1_256_7168_1536_quant)
 
 TEST_F(MlaPrologOnBoardTest, test_MlaProlog_float16_32_128_1_4096_7168_1536_quant) {  // b_n_s_s2_h_q_lora_rank
     // config::SetPassOption(NBUFFER_NUM, 2);
-    config::SetPassOption(NBUFFER_MERGE_MODE, 1);
-    config::SetPassOption(L1_REUSE, 4);
+    config::SetPassOption(VEC_NBUFFER_MODE, 1);
+    config::SetPassOption(CUBE_L1_REUSE_MODE, 4);
     int& h = std::get<int>(g_deepseekConfig["hiddenSize"]);
     int& n = std::get<int>(g_deepseekConfig["numAttentionHeads"]);
     int& qLoraRank = std::get<int>(g_deepseekConfig["qLoraRank"]);
@@ -1483,8 +1483,8 @@ TEST_F(MlaPrologOnBoardTest, test_MlaProlog_float16_32_128_1_4096_7168_1536_quan
 }
 
 TEST_F(MlaPrologOnBoardTest, test_MlaProlog_float16_2_32_1_4096_7168_1536) {  // b_n_s_s2_h_q_lora_rank
-    config::SetPassOption(NBUFFER_MERGE_MODE, 2);
-    config::SetPassOption(VEC_NBUFFER_MAP,  std::map<int64_t, int64_t>{{-1, 2}});
+    config::SetPassOption(VEC_NBUFFER_MODE, 2);
+    config::SetPassOption(VEC_NBUFFER_SETTING,  std::map<int64_t, int64_t>{{-1, 2}});
     int& h = std::get<int>(g_deepseekConfig["hiddenSize"]);
     int& n = std::get<int>(g_deepseekConfig["numAttentionHeads"]);
     int& qLoraRank = std::get<int>(g_deepseekConfig["qLoraRank"]);
@@ -1510,8 +1510,8 @@ TEST_F(MlaPrologOnBoardTest, test_MlaProlog_float16_2_32_1_4096_7168_1536) {  //
 }
 
 TEST_F(MlaPrologOnBoardTest, attention_bf16_test) {  // b_n_s_s2_h_q_lora_rank
-    config::SetPassOption(NBUFFER_MERGE_MODE, 2);
-    config::SetPassOption(VEC_NBUFFER_MAP,  std::map<int64_t, int64_t>{{-1, 2}});
+    config::SetPassOption(VEC_NBUFFER_MODE, 2);
+    config::SetPassOption(VEC_NBUFFER_SETTING,  std::map<int64_t, int64_t>{{-1, 2}});
     int& h = std::get<int>(g_deepseekConfig["hiddenSize"]);
     int& n = std::get<int>(g_deepseekConfig["numAttentionHeads"]);
     int& qLoraRank = std::get<int>(g_deepseekConfig["qLoraRank"]);
@@ -1537,8 +1537,8 @@ TEST_F(MlaPrologOnBoardTest, attention_bf16_test) {  // b_n_s_s2_h_q_lora_rank
 }
 
 TEST_F(MlaPrologOnBoardTest, attention_bf16_high) {  // b_n_s_s2_h_q_lora_rank
-    config::SetPassOption(NBUFFER_MERGE_MODE, 2);
-    config::SetPassOption(VEC_NBUFFER_MAP,  std::map<int64_t, int64_t>{{-1, 2}});
+    config::SetPassOption(VEC_NBUFFER_MODE, 2);
+    config::SetPassOption(VEC_NBUFFER_SETTING,  std::map<int64_t, int64_t>{{-1, 2}});
     int& h = std::get<int>(g_deepseekConfig["hiddenSize"]);
     int& n = std::get<int>(g_deepseekConfig["numAttentionHeads"]);
     int& qLoraRank = std::get<int>(g_deepseekConfig["qLoraRank"]);
@@ -1564,8 +1564,8 @@ TEST_F(MlaPrologOnBoardTest, attention_bf16_high) {  // b_n_s_s2_h_q_lora_rank
 }
 
 TEST_F(MlaPrologOnBoardTest, attention_bf16_low) {  // b_n_s_s2_h_q_lora_rank
-    config::SetPassOption(NBUFFER_MERGE_MODE, 2);
-    config::SetPassOption(VEC_NBUFFER_MAP,  std::map<int64_t, int64_t>{{-1, 2}});
+    config::SetPassOption(VEC_NBUFFER_MODE, 2);
+    config::SetPassOption(VEC_NBUFFER_SETTING,  std::map<int64_t, int64_t>{{-1, 2}});
     int& h = std::get<int>(g_deepseekConfig["hiddenSize"]);
     int& n = std::get<int>(g_deepseekConfig["numAttentionHeads"]);
     int& qLoraRank = std::get<int>(g_deepseekConfig["qLoraRank"]);
@@ -1592,8 +1592,8 @@ TEST_F(MlaPrologOnBoardTest, attention_bf16_low) {  // b_n_s_s2_h_q_lora_rank
 
 //test_MlaProlog_float16_2_32_1_256_256_256
 TEST_F(MlaPrologOnBoardTest, attention_bf16_4_1024_1024_32_256) {  // b_n_s_s2_h_q_lora_rank
-    config::SetPassOption(NBUFFER_MERGE_MODE, 2);
-    config::SetPassOption(VEC_NBUFFER_MAP,  std::map<int64_t, int64_t>{{-1, 2}});
+    config::SetPassOption(VEC_NBUFFER_MODE, 2);
+    config::SetPassOption(VEC_NBUFFER_SETTING,  std::map<int64_t, int64_t>{{-1, 2}});
     int& h = std::get<int>(g_deepseekConfig["hiddenSize"]);
     int& n = std::get<int>(g_deepseekConfig["numAttentionHeads"]);
     int& qLoraRank = std::get<int>(g_deepseekConfig["qLoraRank"]);

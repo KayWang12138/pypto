@@ -94,12 +94,12 @@ class IndexerPrologQuantConfigs:
     unroll_list: List[int]
 
     l1_reuse_param: dict[int, int]
-    copy_in_threshold: int
-    cycle_upper_bound: int
+    mg_copy_in_upper_bound: int
+    pg_upper_bound: int
     block_size: int
     t_sub_tile: int
     chunk_size: int
-    nbuffer_merge_mode: int
+    vec_nbuffer_mode: int
 
 
 def quant_layer_norm(x: pypto.tensor, gamma: pypto.tensor, beta: pypto.tensor, dim: int, epsilon: float):
@@ -334,10 +334,10 @@ def lightning_indexer_prolog_quant(x_in, q_norm_in, q_norm_scale_in, w_qb_in,
                                    hadamard_q_in, hadamard_k_in, k_int8_in, k_scale_in,
                                    k_cache_index_in, q_int8_out, q_scale_out, k_int8_out,
                                    k_scale_out, weights_out, attrs, configs):
-    pypto.set_pass_options(nbuffer_merge_mode=configs.nbuffer_merge_mode)
-    pypto.set_pass_options(l1_reuse_map=configs.l1_reuse_param)
-    pypto.set_pass_options(copyin_threshold=configs.copy_in_threshold)
-    pypto.set_pass_options(cycle_upper_bound=configs.cycle_upper_bound)
+    pypto.set_pass_options(vec_nbuffer_mode=configs.vec_nbuffer_mode)
+    pypto.set_pass_options(cube_l1_reuse_setting=configs.l1_reuse_param)
+    pypto.set_pass_options(mg_copyin_upper_bound=configs.mg_copyin_upper_bound)
+    pypto.set_pass_options(pg_upper_bound=configs.pg_upper_bound)
 
     pypto.set_runtime_options(device_sched_mode=1)
 

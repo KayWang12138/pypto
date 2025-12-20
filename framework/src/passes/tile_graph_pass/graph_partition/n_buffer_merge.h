@@ -25,7 +25,7 @@
 #include "interface/program/program.h"
 namespace npu::tile_fwk {
 
-constexpr int64_t VEC_NBUFFER_MAP_DEFAULT_MERGE_NUM_KEY = -1; // manualMerge模式配置默认合并粒度的key值，n个子图合并为一个
+constexpr int64_t VEC_NBUFFER_SETTING_DEFAULT_MERGE_NUM_KEY = -1; // manualMerge模式配置默认合并粒度的key值，n个子图合并为一个
 
 class NBufferMerge : public Pass {
 public:
@@ -60,7 +60,7 @@ private:
                        std::vector<uint64_t> &hashColor,
                        int &numDBmerge);
     std::map<int, size_t> SetNumDB(std::map<uint64_t, std::vector<int>> &hashMap);
-    Status CheckVecNBufferMapForManualMerge();
+    Status CheckVecNBufferSettingForManualMerge();
 private:
     int color_{0};
     std::vector<std::vector<int>> inGraph_;
@@ -69,10 +69,10 @@ private:
     std::vector<std::vector<int>> outColor_;
     std::vector<std::vector<int>> colorNode_;
     std::vector<int> colorCycles_;
-    int nBufferMergeMode;
-    int sgVecParallelNum;
+    int vecNBuffermode;
+    int mgVecParallelLb;
     int sgCubeParallelNum;
-    std::map<int64_t, int64_t> vecNBufferMap;
+    std::map<int64_t, int64_t> vecNBufferSetting;
     std::unordered_map<uint64_t, int> hashOrder;
     enum ModeType {
         noMerge = 0,

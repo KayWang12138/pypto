@@ -188,7 +188,7 @@ void FindCubeTilesCombinations(std::map<std::vector<int64_t>, double>& setOfCube
 }
 
 void FindScoreForCubeTiles(std::pair<std::vector<int64_t>, std::vector<DataType>> shapeAndTypeInfo, std::map<std::vector<int64_t>, double>& setOfCubeTiles,
-                           int64_t l1Reuse, int64_t cubeNBuffer, int64_t numOfMatmuls) {
+                           int64_t cubeL1ReuseMode, int64_t cubeNBuffer, int64_t numOfMatmuls) {
     // Platform params
     const int64_t L0A_MAX_SIZE = Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_L0A);
     const int64_t L0B_MAX_SIZE = Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_L0B);
@@ -225,7 +225,7 @@ void FindScoreForCubeTiles(std::pair<std::vector<int64_t>, std::vector<DataType>
         score += WEIGHT_L0 * geomeanUtilizationL0;
  
         // The closer the tasksRatio is to 1, the better
-        double tasks = numOfMatmuls * (std::max(M, MIN_TILE) / static_cast<double>(tile[M_DIM])) * (std::max(N, MIN_TILE) / static_cast<double>(tile[N_DIM])) / (l1Reuse * cubeNBuffer);
+        double tasks = numOfMatmuls * (std::max(M, MIN_TILE) / static_cast<double>(tile[M_DIM])) * (std::max(N, MIN_TILE) / static_cast<double>(tile[N_DIM])) / (cubeL1ReuseMode * cubeNBuffer);
         double tasksRatioLess = (tasks < CUBE_CORES) ? (CUBE_CORES / tasks  - 1) : 0;
         double tasksRatioMore = (tasks > 2 * CUBE_CORES) ? (tasks / (2 * CUBE_CORES) - 1) : 0;
  
@@ -247,7 +247,7 @@ void FindScoreForCubeTiles(std::pair<std::vector<int64_t>, std::vector<DataType>
         score -= BALANCE_WEIGHT * ratioMKN;
  
         // Consider num of L1CopyIn cycles
-        uint64_t numL1CopyInL1A = inputMKN / (mkn * l1Reuse * cubeNBuffer); // Num of L1CopyIn instructions for A
+        uint64_t numL1CopyInL1A = inputMKN / (mkn * cubeL1ReuseMode * cubeNBuffer); // Num of L1CopyIn instructions for A
         uint64_t numL1CopyInL1B = inputMKN / mkn; // Num of L1CopyIn instructions for B
  
         uint64_t elePerRepeat = BYTES_PER_REPEAT / BytesOf(inputType);
@@ -297,13 +297,13 @@ void SetPossibleCubeTiles(std::pair<std::vector<int64_t>, std::vector<DataType>>
     }
 }
  
-std::vector<int64_t> FindAndSetCubeTileShapes(std::pair<std::vector<int64_t>, std::vector<DataType>> shapeAndTypeInfo, int64_t numOfMatmuls, int64_t l1Reuse, int64_t cubeNBuffer) {
+std::vector<int64_t> FindAndSetCubeTileShapes(std::pair<std::vector<int64_t>, std::vector<DataType>> shapeAndTypeInfo, int64_t numOfMatmuls, int64_t cubeL1ReuseMode, int64_t cubeNBuffer) {
     // Define set of possible cube tiles
     std::map<std::vector<int64_t>, double> setOfCubeTiles;
     SetPossibleCubeTiles(shapeAndTypeInfo, setOfCubeTiles);
  
     // Find score for each set of cube tiles
-    FindScoreForCubeTiles(shapeAndTypeInfo, setOfCubeTiles, l1Reuse, cubeNBuffer, numOfMatmuls);
+    FindScoreForCubeTiles(shapeAndTypeInfo, setOfCubeTiles, cubeL1ReuseMode, cubeNBuffer, numOfMatmuls);
  
     // Find set of tiles with max Score
     double maxScore = -std::numeric_limits<double>::max();
@@ -647,15 +647,15 @@ void SetHeuristicCubeTiles(Function &function, std::unordered_set<Operation *> c
     std::map<std::pair<std::vector<int64_t>, std::vector<DataType>>, int64_t> uniqueTiles;
     std::pair<std::vector<int64_t>, std::vector<DataType>> curShapeAndType = {{0, 0, 0}, {DataType::DT_FP16, DataType::DT_FP16}}; // shapeM, shapeK, shapeN, InputType, OutputType
     
-    int64_t l1Reuse = (function.paramConfigs_.l1ReuseNum == 0) ? 1 : function.paramConfigs_.l1ReuseNum;
-    int64_t cubeNBuffer = (function.paramConfigs_.cubeNBufferMap.size() == 1 && function.paramConfigs_.cubeNBufferMap.begin()->first == -1) ? 1 : function.paramConfigs_.cubeNBufferMap.begin()->second;
+    int64_t cubeL1ReuseMode = (function.paramConfigs_.l1ReuseNum == 0) ? 1 : function.paramConfigs_.l1ReuseNum;
+    int64_t cubeNBuffer = (function.paramConfigs_.cubeNBufferSetting.size() == 1 && function.paramConfigs_.cubeNBufferSetting.begin()->first == -1) ? 1 : function.paramConfigs_.cubeNBufferSetting.begin()->second;
     int64_t shapeM = 0, shapeK = 0, shapeN = 0;
     UniqueTilesFilling(function, uniqueTiles, curShapeAndType, shapeM, shapeK, shapeN);
  
     // Find and set heuristic cube tile shapes
     std::map<std::pair<std::vector<int64_t>, std::vector<DataType>>, std::vector<int64_t>> resultCubeTilesAndInfo;
     for (auto & [shapeAndTypeInfo, numOfMatmuls] : uniqueTiles) {
-        std::vector<int64_t> resultCubeTiles = FindAndSetCubeTileShapes(shapeAndTypeInfo, numOfMatmuls, l1Reuse, cubeNBuffer);
+        std::vector<int64_t> resultCubeTiles = FindAndSetCubeTileShapes(shapeAndTypeInfo, numOfMatmuls, cubeL1ReuseMode, cubeNBuffer);
         resultCubeTilesAndInfo[shapeAndTypeInfo] = resultCubeTiles;
     }
  

@@ -437,22 +437,22 @@ struct ParamConfigs {
     int l1ReuseNum{0};
     int cubeNBufferNum{1};
     bool dynamicAlignedOps;
-    int sgCycleUpperBound{1};
-    int sgCycleLowerBound{1};
+    int sgPgUpperBound{1};
+    int sgPgLowerBound{1};
     int sgParallelNum{1};
-    int sgCopyInThreshold{2*1024*1024};
+    int sgMgCopyInUpperBound{2*1024*1024};
     uint8_t machineConfig_{0}; // machine config
     uint16_t stitchFunctionNumInitial_{0};
     uint16_t stitchFunctionNumStep_{0};
-    std::map<int64_t, int64_t> l1ReuseMap;
-    std::map<int64_t, int64_t> cubeNBufferMap;
+    std::map<int64_t, int64_t> cubeL1ReuseSetting;
+    std::map<int64_t, int64_t> cubeNBufferSetting;
     std::string OoOPreScheduleMethod{"PriorDFS"};
-    int nBufferMergeMode{1};
-    int cubeNBufferMergeMode{0};
-    int sgVecParallelNum{48};
+    int vecNBuffermode{1};
+    int cubeNBufferMode{0};
+    int mgVecParallelLb{48};
     int sgCubeParallelNum{24};
-    bool sgSkipPartition{false};
-    std::map<int64_t, int64_t> vecNBufferMap;
+    bool pgSkipPartition{false};
+    std::map<int64_t, int64_t> vecNBufferSetting;
     int copyOutResolveCoalescing{0};
 };
 

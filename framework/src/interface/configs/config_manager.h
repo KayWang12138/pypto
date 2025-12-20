@@ -45,7 +45,7 @@ const std::string KEY_ENABLE_PROF_AICORE_PMU = "ENABLE_PROF_AICORE_PMU";
 
 /* Host KEYs */
 const std::string KEY_STRATEGY = "STRATEGY";
-const std::string KEY_ENABLE_BINARY_CACHE = "ENABLE_BINARY_CACHE";
+const std::string KEY_ENABLE_BINARY_CACHE = "enable_binary_cache";
 const std::string KEY_ONLY_CODEGEN = "only_codegen";
 
 /* Pass KEYs */
@@ -97,7 +97,7 @@ inline DPlatform StringToDpaltform(std::string platform) {
 }
 
 struct PassConfigs {
-    bool printFunction{false};
+    bool printGraph{false};
     bool printProgram{false};
     bool dumpGraph{false};
     bool dumpPassTimeCost{false};

@@ -394,13 +394,13 @@ TEST_F(DynamicControlFlowCacheTest, PartialCache) {
 TEST_F(DynamicControlFlowCacheTest, PartialCacheChangeWorkspaceAddress) {
     config::SetCodeGenOption(CODEGEN_EXPRESSION_FUSION, true);
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
-    config::SetPassOption(COPYIN_THRESHOLD, 100 * 1024 * 1024);
-    config::SetPassOption(SG_CYCLE_LOWER_BOUND, 1024);
-    config::SetPassOption(SG_CYCLE_UPPER_BOUND, 1024);
-    config::SetPassOption(L1_REUSE, 32);
+    config::SetPassOption(MG_COPYIN_UPPER_BOUND, 100 * 1024 * 1024);
+    config::SetPassOption(SG_PG_LOWER_BOUND, 1024);
+    config::SetPassOption(SG_PG_UPPER_BOUND, 1024);
+    config::SetPassOption(CUBE_L1_REUSE_MODE, 32);
     config::SetPassOption(SG_PARALLEL_NUM, 2);
-    config::SetPassOption(NBUFFER_MERGE_MODE, 2);
-    config::SetPassOption<std::map<int64_t, int64_t>>(VEC_NBUFFER_MAP, {{-1, 16}});
+    config::SetPassOption(VEC_NBUFFER_MODE, 2);
+    config::SetPassOption<std::map<int64_t, int64_t>>(VEC_NBUFFER_SETTING, {{-1, 16}});
 
     // cache at most 3 task
     config::SetRuntimeOption<int64_t>(CFGCACHE_DEVICE_TASK_NUM, 0x1);

@@ -149,13 +149,13 @@ SaTileShapeConfig GetPerfSaTileShapeConfig(const int gTile, const int sTile) {
 TEST_F(DynamicGatherSlcFlashAttnDSASTest, SFA_b4_s2_seq64K_int8_perf) {
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
-    config::SetPassOption(CUBE_NBUFFER_MAP, std::map<int64_t, int64_t>{});
-    config::SetPassOption(L1_REUSE_MAP, std::map<int64_t, int64_t>{});
-    config::SetPassOption(COPYIN_THRESHOLD, 1 * 1024 * 1024);
-    config::SetPassOption(SG_CYCLE_UPPER_BOUND, 20000);
-    config::SetPassOption(SG_CYCLE_LOWER_BOUND, 512);
+    config::SetPassOption(CUBE_NBUFFER_SETTING, std::map<int64_t, int64_t>{});
+    config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{});
+    config::SetPassOption(MG_COPYIN_UPPER_BOUND, 1 * 1024 * 1024);
+    config::SetPassOption(SG_PG_UPPER_BOUND, 20000);
+    config::SetPassOption(SG_PG_LOWER_BOUND, 512);
 
-    // config::SetPassOption(L1_REUSE, 8);
+    // config::SetPassOption(CUBE_L1_REUSE_MODE, 8);
 
     // config::SetRuntimeOption<uint8_t>(
     //     DEVICE_SCHED_MODE, static_cast<uint8_t>(MachineScheduleConfig::L2CACHE_AFFINITY_SCH) |
@@ -164,8 +164,8 @@ TEST_F(DynamicGatherSlcFlashAttnDSASTest, SFA_b4_s2_seq64K_int8_perf) {
     config::SetRuntimeOption(STITCH_FUNCTION_OUTCAST_MEMORY, 128);
 
     config::SetPassOption(SG_PARALLEL_NUM, 20);
-    config::SetPassOption(NBUFFER_MERGE_MODE, 2);
-    config::SetPassOption(VEC_NBUFFER_MAP, std::map<int64_t, int64_t>{{-1, 2}});
+    config::SetPassOption(VEC_NBUFFER_MODE, 2);
+    config::SetPassOption(VEC_NBUFFER_SETTING, std::map<int64_t, int64_t>{{-1, 2}});
 
     SaTileShapeConfig tileConfig = GetPerfSaTileShapeConfig(128, 2048);
     TestSa<npu::tile_fwk::bfloat16>(tileConfig);

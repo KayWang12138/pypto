@@ -71,8 +71,8 @@ class L1CopyInReuseRunner {
     int numLR;
     std::map<int64_t, int64_t> numLRMap;
     std::map<int64_t, int64_t> numDBMap;
-    int copyInThreshold;
-    int cubeNBufferMergeMode;
+    int mgCopyInUpperBound;
+    int cubeNBufferMode;
 };
 
 class L1CopyInReuseMerge : public Pass {

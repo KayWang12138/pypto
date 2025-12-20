@@ -251,9 +251,9 @@ def ifa_func(q, k, v, block_table, kv_act_seqs, atten_out):
     pypto.experimental.set_operation_config(force_combine_axis=True)
 
     # 当子图大小达到上界不允许与其他子图合并
-    pypto.set_pass_options(cycle_upper_bound=1536)
+    pypto.set_pass_options(pg_upper_bound=1536)
     # Q常驻，0代表第一组mmad，4代表4次matmul合并
-    pypto.set_pass_options(l1_reuse_map={0: 4})
+    pypto.set_pass_options(cube_l1_reuse_setting={0: 4})
     atten_cfg, tile_cfg = get_qwen_common_config()
     softmax_scale = atten_cfg.softmax_scale
 

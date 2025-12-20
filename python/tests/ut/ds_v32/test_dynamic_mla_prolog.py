@@ -38,10 +38,10 @@ NUM_1536 = 1536
 NUM_7168 = 7168
 
 KEY_ONLY_CODEGEN = "ONLY_CODEGEN"
-KEY_NBUFFER_MERGE_MODE = "NBUFFER_MERGE_MODE"
-KEY_L1_REUSE = "L1_REUSE"
-KEY_CUBE_NBUFFER_MAP = "CUBE_NBUFFER_MAP"
-KEY_COPYIN_THRESHOLD = "COPYIN_THRESHOLD"
+KEY_VEC_NBUFFER_MODE = "VEC_NBUFFER_MODE"
+KEY_CUBE_L1_REUSE_MODE = "CUBE_L1_REUSE_MODE"
+KEY_CUBE_NBUFFER_SETTING = "CUBE_NBUFFER_SETTING"
+KEY_MG_COPYIN_UPPER_BOUND = "MG_COPYIN_UPPER_BOUND"
 
 
 @dataclass
@@ -563,10 +563,10 @@ class MlaBuildConfig:
 def setup_codegen_passes():
     pypto.set_host_options(only_codegen=True)
     pypto.set_pass_options(
-        nbuffer_merge_mode=NUM_1,
-        l1_reuse=NUM_4,
-        cube_nbuffer_map={NUM_3: NUM_4},
-        copyin_threshold=NUM_2 * NUM_1024 * NUM_1024,
+        vec_nbuffer_mode=NUM_1,
+        cube_l1_reuse_mode=NUM_4,
+        cube_nbuffer_setting={NUM_3: NUM_4},
+        mg_copyin_upper_bound=NUM_2 * NUM_1024 * NUM_1024,
     )
 
 
