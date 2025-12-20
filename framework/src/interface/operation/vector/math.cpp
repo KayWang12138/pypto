@@ -57,7 +57,7 @@ void TiledLogicalNotOperation(
 
 void TiledLogicalNotOperation(
     Function &function, const TileShape &tileShape, const LogicalTensorPtr &self, const LogicalTensorPtr &result) {
-    ASSERT(self->shape.size() == self->offset.size());
+    ASSERT(self->shape.size() == self->offset.size()) << "Shape size and offset size should be equal";
 
     TileInfo tileInfo(result->shape.size(), result->offset.size());
     auto input = Input{self, tileInfo};
@@ -96,10 +96,12 @@ Tensor Neg(const Tensor &self) {
 
 Tensor Log(const Tensor &self, LogBaseType base) {
     DECLARE_TRACER();
-    ASSERT(base == LogBaseType::LOG_E || base == LogBaseType::LOG_2 || base == LogBaseType::LOG_10);
+    ASSERT(base == LogBaseType::LOG_E || base == LogBaseType::LOG_2 || base == LogBaseType::LOG_10)
+        << "base is incorrect";
     ASSERT(self.GetStorage()->tensor->datatype == DataType::DT_BF16 ||
            self.GetStorage()->tensor->datatype == DataType::DT_FP16 ||
-           self.GetStorage()->tensor->datatype == DataType::DT_FP32);
+           self.GetStorage()->tensor->datatype == DataType::DT_FP32)
+        << "The datatype is not supported";
 
     auto operandCast = Tensor(DataType::DT_FP32, self.GetShape());
     if (self.GetStorage()->tensor->datatype == DataType::DT_FP16 || self.GetStorage()->tensor->datatype == DataType::DT_BF16) {
@@ -244,8 +246,9 @@ void TiledOneHot(
 
 void TiledOneHot(Function &function, const TileShape &tileShape, const LogicalTensorPtr &self,
     const LogicalTensorPtr &result, int numClasses) {
-    ASSERT(self->shape.size() == self->offset.size());
-    ASSERT(numClasses == tileShape.GetVecTile()[result->shape.size() - 1]);
+    ASSERT(self->shape.size() == self->offset.size()) << "Shape size and offset size should be equal";
+    ASSERT(numClasses == tileShape.GetVecTile()[result->shape.size() - 1])
+        << "The numClasses and last axis of tileshape should be equal";
 
     TileInfo inputTileInfo(self->shape.size(), self->offset.size());
     TileInfo outputTileInfo(result->shape.size(), result->offset.size());
@@ -449,15 +452,16 @@ Tensor CumSum(const Tensor &input, const int &axis) {
     auto shapeSize = input.GetShape().size();
     auto dataType = input.GetDataType();
 
-    ASSERT(SHAPE_DIM1 <= shapeSize && shapeSize <= SHAPE_DIM4);
+    ASSERT(SHAPE_DIM1 <= shapeSize && shapeSize <= SHAPE_DIM4) << "The shape.size() only support 1~4";
     std::vector<DataType> CUMSUM_SUPPORT_DATATYPES = {DataType::DT_FP32, DataType::DT_INT32, DataType::DT_INT16};
-    ASSERT(std::find(CUMSUM_SUPPORT_DATATYPES.begin(), CUMSUM_SUPPORT_DATATYPES.end(), dataType) != CUMSUM_SUPPORT_DATATYPES.end());
+    ASSERT(std::find(CUMSUM_SUPPORT_DATATYPES.begin(), CUMSUM_SUPPORT_DATATYPES.end(), dataType) !=
+           CUMSUM_SUPPORT_DATATYPES.end()) << "The datatype is not supported";
     int tmpAxis = axis < 0 ? shapeSize + axis : axis;
     bool flag = input.GetShape().size() == 1 ? true : false;
     if (flag) {
         ASSERT(tmpAxis == 0) << "when input.GetShape().size() is 1, axis must be 0";
     }
-    ASSERT(tmpAxis == 0 || static_cast<size_t>(tmpAxis) < shapeSize);
+    ASSERT(tmpAxis == 0 || static_cast<size_t>(tmpAxis) < shapeSize) << "The tmpAxis should be 0 and less than shape size";
 
     Tensor result(input.GetDataType(), input.GetShape());
     CALL(CumSum, *Program::GetInstance().GetCurrentFunction(), {input.GetStorage(), result.GetStorage(), tmpAxis, flag});
@@ -475,21 +479,21 @@ void CumSumOperationTileFunc(Function &function, const TileShape &tileShape,
 // beginregin: Clip
 
 Tensor Clip(const Tensor &self, const Element &min, const Element &max) {
-    ASSERT(self.GetShape().size() >= SHAPE_DIM2 && self.GetShape().size() <= SHAPE_DIM4);
+    ASSERT(self.GetShape().size() >= SHAPE_DIM2 && self.GetShape().size() <= SHAPE_DIM4) << "The shape.size() only support 2~4";
     std::vector<DataType> CLIP_SUPPORT_DATATYPES = {
         DataType::DT_FP32, DataType::DT_FP16, DataType::DT_INT32, DataType::DT_INT16, DataType::DT_BF16};
     ASSERT(std::find(CLIP_SUPPORT_DATATYPES.begin(), CLIP_SUPPORT_DATATYPES.end(), self.GetDataType()) != 
-        CLIP_SUPPORT_DATATYPES.end());
+        CLIP_SUPPORT_DATATYPES.end()) << "The datatype is not supported";
 
     Element min_ = min, max_ = max;
 
     Tensor result = self;
     if (min_.GetDataType() != DT_BOTTOM) {
-        ASSERT(min_.GetDataType() == self.GetDataType());
+        ASSERT(min_.GetDataType() == self.GetDataType()) << "The datatype of inputs should be same";
         result = Maximum(result, min_);
     }
     if (max_.GetDataType() != DT_BOTTOM) {
-        ASSERT(max_.GetDataType() == self.GetDataType());
+        ASSERT(max_.GetDataType() == self.GetDataType()) << "The datatype of inputs should be same";
         result = Minimum(result, max_);
     }
     result.GetStorage()->UpdateDynValidShape(self.GetStorage()->GetDynValidShape());
@@ -497,15 +501,15 @@ Tensor Clip(const Tensor &self, const Element &min, const Element &max) {
 }
 
 Tensor Clip(const Tensor &self, const Tensor &min, const Tensor &max) {
-    ASSERT(self.GetShape().size() >= SHAPE_DIM2 && self.GetShape().size() <= SHAPE_DIM4);
+    ASSERT(self.GetShape().size() >= SHAPE_DIM2 && self.GetShape().size() <= SHAPE_DIM4) << "The shape.size() only support 2~4";
     std::vector<DataType> CLIP_SUPPORT_DATATYPES = {
         DataType::DT_FP32, DataType::DT_FP16, DataType::DT_INT32, DataType::DT_INT16};
     ASSERT(std::find(CLIP_SUPPORT_DATATYPES.begin(), CLIP_SUPPORT_DATATYPES.end(), self.GetDataType()) !=
-        CLIP_SUPPORT_DATATYPES.end());
+        CLIP_SUPPORT_DATATYPES.end()) << "The datatype is not supported";
 
     Tensor result = self;
     if (min.GetStorage() != nullptr) {
-        ASSERT(min.GetDataType() == self.GetDataType());
+        ASSERT(min.GetDataType() == self.GetDataType()) << "The datatype of inputs should be same";
         std::vector minBroadcastAxes = GetBroadcastAxes(min.GetShape(), self.GetShape());
         ASSERT(minBroadcastAxes.size() <= 1);
         result = Maximum(result, min);

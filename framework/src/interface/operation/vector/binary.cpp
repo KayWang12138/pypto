@@ -40,7 +40,7 @@ LogicalTensorPtr BinaryOperationBroadCast(const LogicalTensorPtr &operand, const
 }
 
 void CheckOperandsValid(const LogicalTensorPtr &operand1, const LogicalTensorPtr &operand2) {
-    ASSERT(operand1->shape.size() == operand2->shape.size());
+    ASSERT(operand1->shape.size() == operand2->shape.size()) << "The shape size of the two input tensors must be equal";
 }
 
 void CheckBinOpOperandsValid(const LogicalTensorPtr &operand1, const LogicalTensorPtr &operand2) {
@@ -257,22 +257,24 @@ Tensor Div(const Tensor &self, const Element &other) {
 
 Tensor Maximum(const Tensor &operand1, const Element &operand2) {
     DECLARE_TRACER();
-    ASSERT(operand1.GetDataType() == operand2.GetDataType());
+    ASSERT(operand1.GetDataType() == operand2.GetDataType()) << "The datatype of the two input must be equal";
     std::vector<DataType> MAXS_SUPPORT_DATATYPES = {
         DataType::DT_FP32, DataType::DT_FP16, DataType::DT_INT32, DataType::DT_INT16, DataType::DT_BF16};
-    ASSERT(std::find(MAXS_SUPPORT_DATATYPES.begin(), MAXS_SUPPORT_DATATYPES.end(), operand1.GetDataType())
-        != MAXS_SUPPORT_DATATYPES.end());
+    ASSERT(std::find(MAXS_SUPPORT_DATATYPES.begin(), MAXS_SUPPORT_DATATYPES.end(), operand1.GetDataType()) !=
+           MAXS_SUPPORT_DATATYPES.end())
+        << "The datatype is not supported";
     RETURN_CALL(BinaryOperationScalar<BinaryOpType::MAX>, *Program::GetInstance().GetCurrentFunction(),
         operand1.GetStorage(), operand2);
 }
 
 Tensor Minimum(const Tensor &operand1, const Element &operand2) {
     DECLARE_TRACER();
-    ASSERT(operand1.GetDataType() == operand2.GetDataType());
+    ASSERT(operand1.GetDataType() == operand2.GetDataType()) << "The datatype of the two input must be equal";
     std::vector<DataType> MINS_SUPPORT_DATATYPES = {
         DataType::DT_FP32, DataType::DT_FP16, DataType::DT_INT32, DataType::DT_INT16, DataType::DT_BF16};
-    ASSERT(std::find(MINS_SUPPORT_DATATYPES.begin(), MINS_SUPPORT_DATATYPES.end(), operand1.GetDataType())
-        != MINS_SUPPORT_DATATYPES.end());
+    ASSERT(std::find(MINS_SUPPORT_DATATYPES.begin(), MINS_SUPPORT_DATATYPES.end(), operand1.GetDataType()) !=
+           MINS_SUPPORT_DATATYPES.end())
+        << "The datatype is not supported";
     RETURN_CALL(BinaryOperationScalar<BinaryOpType::MIN>, *Program::GetInstance().GetCurrentFunction(),
         operand1.GetStorage(), operand2);
 }

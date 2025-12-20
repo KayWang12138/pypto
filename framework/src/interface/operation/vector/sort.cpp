@@ -112,7 +112,7 @@ void TiledTopK(Function &function, const TileShape &tileShape, size_t cur, Input
     const LogicalTensorPtr &valueResult, const LogicalTensorPtr &indexResult, TileInfo &resultTileInfo, int axis, int k,
     int isLargest) {
     auto &vecTile = tileShape.GetVecTile();
-    ASSERT(k <= vecTile[axis]);
+    ASSERT(k <= vecTile[axis]) << "The k should less than or equal to" << vecTile[axis];
     if (static_cast<int>(cur) == axis) {
         auto source = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
         constexpr int32_t blockSize = 32;
@@ -442,7 +442,7 @@ std::tuple<Tensor, Tensor> TopK(const Tensor &self, int k, int axis, bool isLarg
 Tensor ArgSort(const Tensor &operand, int axis = -1, bool isLargest) {
     DECLARE_TRACER();
     const auto len = static_cast<int>(operand.GetShape().size());
-    ASSERT(axis == 1 || axis == -1);
+    ASSERT(axis == 1 || axis == -1) << "ArgSort only support last axis";
     axis = axis >= 0 ? axis : (axis + len);
     // 首先进行全排序,全排序的输出是输入shape的2倍,另外需要在输出中增加临时空间,size变为原有的4倍
     // 需要注意,这里由于芯片限制需要对k做32元素对齐

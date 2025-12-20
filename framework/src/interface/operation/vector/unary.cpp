@@ -22,8 +22,8 @@ namespace npu::tile_fwk {
 
 void UnaryOperationOperandCheck(
     const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand) {
-    ASSERT(iOperand.size() == 1);
-    ASSERT(oOperand.size() == 1);
+    ASSERT(iOperand.size() == 1) << "The input operand size should be 1";
+    ASSERT(oOperand.size() == 1) << "The output operand size should be 1";
 }
 
 template <UnaryOpType T>
@@ -46,7 +46,7 @@ void TiledUnaryOperation(
 template <UnaryOpType T>
 void TiledUnaryOperation(
     Function &function, const TileShape &tileShape, const LogicalTensorPtr &operand, const LogicalTensorPtr &result) {
-    ASSERT(operand->shape.size() == operand->offset.size());
+    ASSERT(operand->shape.size() == operand->offset.size()) << "The shape size of operand and offset must be equal";
 
     TileInfo tileInfo(result->shape.size(), result->offset.size());
     auto input = Input{operand, tileInfo};

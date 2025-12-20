@@ -219,8 +219,9 @@ void ReduceSingle(size_t cur, const std::string &op, Input &input, const Logical
 
 void TiledReduceSingle(Function &function, const TileShape &tileShape, const std::string &op,
     const LogicalTensorPtr &operand, const LogicalTensorPtr &result, int axis) {
-    ASSERT(op == "MAX" || op == "MIN" || op == "SUM" || op == "MAX_COMBINE_AXIS" || op == "SUM_COMBINE_AXIS");
-    ASSERT(operand->shape.size() == operand->offset.size());
+    ASSERT(op == "MAX" || op == "MIN" || op == "SUM" || op == "MAX_COMBINE_AXIS" || op == "SUM_COMBINE_AXIS")
+        << "Not support op:" << op;
+    ASSERT(operand->shape.size() == operand->offset.size()) << "The shape size of operand and offset should be equal";
 
     if (axis < 0) {
         axis = operand->shape.size() + axis;
@@ -239,8 +240,10 @@ void TiledReduceSingle(Function &function, const TileShape &tileShape, const std
 
 [[maybe_unused]] void TensorReduceSingle(
     Function &function, const std::string &op, const Tensor &operand, Tensor &result, int axis) {
-    ASSERT(op == "MAX" || op == "MIN" || op == "SUM" || op == "MAX_COMBINE_AXIS" || op == "SUM_COMBINE_AXIS");
-    ASSERT(operand.GetShape().size() == operand.GetStorage()->offset.size());
+    ASSERT(op == "MAX" || op == "MIN" || op == "SUM" || op == "MAX_COMBINE_AXIS" || op == "SUM_COMBINE_AXIS")
+        << "Not support op:" << op;
+    ASSERT(operand.GetShape().size() == operand.GetStorage()->offset.size())
+        << "The shape size of operand and offset should be equal";
     auto opCode = Opcode::OP_ROWMAX_SINGLE;
     if (op == "MAX") {
         opCode = Opcode::OP_ROWMAX_SINGLE;
@@ -270,7 +273,6 @@ void TiledReduceSingle(Function &function, const TileShape &tileShape, const std
 
 [[maybe_unused]] Tensor ReduceSingle(const std::string &op, const Tensor &operand) {
     Tensor result(operand.GetStorage()->tensor->datatype, {operand.GetShape()[0], 1});
-    ASSERT(operand.GetShape().size() == operand.GetStorage()->offset.size());
     Program::GetInstance().AddOperation("REDUCE_" + op + "_SINGLE", {operand.GetStorage()}, {result.GetStorage()});
     return result;
 }
@@ -395,7 +397,7 @@ Tensor Sum(const Tensor &self, int axis, bool keepDim) {
 
 void TiledReduceExpand(Function &function, const TileShape &tileShape, const std::string &op,
     const LogicalTensorPtr &operand, const LogicalTensorPtr &result) {
-    ASSERT(op == "MAX" || op == "SUM");
+    ASSERT(op == "MAX" || op == "SUM") << "Not support op:" << op;
     ASSERT(operand->shape.size() == operand->offset.size());
 
     // 目前只支持2维操作
@@ -416,14 +418,13 @@ void TiledReduceExpand(Function &function, const TileShape &tileShape, const std
 
 [[maybe_unused]] void TensorReduceExpand(
     Function &function, const std::string &op, const LogicalTensorPtr &operand, const LogicalTensorPtr &result) {
-    ASSERT(op == "MAX" || op == "SUM");
-    ASSERT(operand->shape.size() == operand->offset.size());
     function.AddOperation(op == "MAX" ? Opcode::OP_ROWEXPMAX : Opcode::OP_ROWEXPSUM, {operand}, {result});
 }
 
 void TensorReduceExpand(Function &function, const std::string &op, const Tensor &operand, const Tensor &result) {
-    ASSERT(op == "MAX" || op == "SUM");
-    ASSERT(operand.GetShape().size() == operand.GetStorage()->offset.size());
+    ASSERT(op == "MAX" || op == "SUM") << "Not support op:" << op;
+    ASSERT(operand.GetShape().size() == operand.GetStorage()->offset.size())
+        << "The shape size of operand and offset must be equal";
     function.AddOperation(
         op == "MAX" ? Opcode::OP_ROWEXPMAX : Opcode::OP_ROWEXPSUM, {operand.GetStorage()}, {result.GetStorage()});
     return;
@@ -431,21 +432,16 @@ void TensorReduceExpand(Function &function, const std::string &op, const Tensor 
 
 [[maybe_unused]] Tensor ReduceExpand(const std::string &op, const Tensor &operand) {
     Tensor result(operand.GetStorage()->tensor->datatype, operand.GetShape());
-    ASSERT(operand.GetShape().size() == operand.GetStorage()->offset.size());
     Program::GetInstance().AddOperation("ROW_" + op + "_EXPAND", {operand.GetStorage()}, {result.GetStorage()});
     return result;
 }
 
 void TiledReduceExpandNew(Function &function, const TileShape &tileShape, const std::string &op,
     const LogicalTensorPtr &operand, const LogicalTensorPtr &result) {
-    ASSERT(op == "MAX" || op == "SUM");
-    ASSERT(operand->shape.size() == operand->offset.size());
-
     // 目前只支持2维操作
     if (operand->shape.size() != 2) {
         ASSERT(false && "unsupported dimension");
     }
-
     auto &vecTile = tileShape.GetVecTile();
     TileInfo tileInfo({vecTile[0], operand->shape[1]}, std::vector<int64_t>(operand->offset.size()));
 

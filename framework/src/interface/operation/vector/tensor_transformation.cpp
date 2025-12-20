@@ -80,7 +80,7 @@ void ExpandTile(Function &function, const TileShape &tileShape, int dimIdx, cons
 void Expand(Function &function, const TileShape &tileShape, const LogicalTensorPtr &operand,
     const std::vector<LogicalTensorPtr> &other, const LogicalTensorPtr &result) {
     CheckExpandTensorVaild(operand, result);
-    ASSERT(function.GetGraphType() == GraphType::TILE_GRAPH);
+    ASSERT(function.GetGraphType() == GraphType::TILE_GRAPH) << "The GetGraphType of function is incorrect";
     std::vector<int64_t> offset(result->shape.size(), 0);
     std::vector<int64_t> viewShape(result->shape.size(), 1);
     std::vector<SymbolicScalar> outValidShape;
@@ -115,7 +115,7 @@ void Expand(Function &function, const TileShape &tileShape, const LogicalTensorP
 void ExpandWithResultValidShape(Function &function, const TileShape &tileShape, const LogicalTensorPtr &operand,
     const LogicalTensorPtr &result, const std::vector<SymbolicScalar> resultValidShape) {
     CheckExpandTensorVaild(operand, result);
-    ASSERT(function.GetGraphType() == GraphType::TILE_GRAPH);
+    ASSERT(function.GetGraphType() == GraphType::TILE_GRAPH) << "The GetGraphType of function is incorrect";
     std::vector<int64_t> offset(result->shape.size(), 0);
     std::vector<int64_t> viewShape(result->shape.size(), 1);
     int expandDim = -1;
@@ -132,7 +132,7 @@ void ExpandWithResultValidShape(Function &function, const TileShape &tileShape, 
 void TiledExpand(Function &function, const TileShape &tileShape, const LogicalTensorPtr &operand,
     const LogicalTensorPtr &result, const std::vector<SymbolicScalar> &validShape) {
     CheckExpandTensorVaild(operand, result);
-    ASSERT(function.GetGraphType() == GraphType::TILE_GRAPH);
+    ASSERT(function.GetGraphType() == GraphType::TILE_GRAPH) << "The GetGraphType of function is incorrect";
 
     std::vector<int64_t> offset(result->shape.size(), 0);
     std::vector<int64_t> viewShape(result->shape.size(), 1);
@@ -168,7 +168,7 @@ Tensor TensorJustNeedCopyOperation(Function &function, const LogicalTensorPtr &o
 Tensor Expand(const Tensor &self, const std::vector<int64_t> &dstShape, std::vector<SymbolicScalar> validShape) {
     DECLARE_TRACER();
 
-    ASSERT(self.GetShape().size() == dstShape.size());
+    ASSERT(self.GetShape().size() == dstShape.size()) << "The shape size of self and dst should be equal";
 
     if (validShape.empty()) {
         for (size_t i = 0; i < dstShape.size(); ++i) {
@@ -532,7 +532,7 @@ void TiledCastOperation(Function &function, const TileShape &tileShape, const in
 template <CastOpType T>
 void TiledCastOperation(Function &function, const TileShape &tileShape, const LogicalTensorPtr &operand,
     const LogicalTensorPtr &result, const CastMode &mode) {
-    ASSERT(operand->shape.size() == operand->offset.size());
+    ASSERT(operand->shape.size() == operand->offset.size()) << "The shape size of operand and offset should be equal";
 
     TileInfo tileInfo(result->shape.size(), result->offset.size());
     auto input = Input{operand, tileInfo};
@@ -541,7 +541,7 @@ void TiledCastOperation(Function &function, const TileShape &tileShape, const Lo
 
 Tensor Cast(const Tensor &self, DataType dstDataType, CastMode mode) {
     DECLARE_TRACER();
-    ASSERT(self.GetShape().size() == self.GetStorage()->offset.size());
+    ASSERT(self.GetShape().size() == self.GetStorage()->offset.size()) << "The shape size of self and offset should be equal";
     // Cast to same dType with no mode will do nothing
     if (self.GetStorage()->tensor->datatype == dstDataType && (mode == CAST_NONE || mode == CAST_RINT)) {
         return self;
@@ -567,10 +567,10 @@ Tensor Cat(const std::vector<Tensor> &tensors, int axis) {
     if (axis < 0) {
         axis = shapeSize + axis;
     }
-    ASSERT(static_cast<size_t>(axis) < shapeSize);
+    ASSERT(static_cast<size_t>(axis) < shapeSize) << "The axis should less than shape size";
     for (auto tensor : tensors) {
-        ASSERT(tensor.GetShape().size() == shapeSize);
-        ASSERT(tensor.Format() == format);
+        ASSERT(tensor.GetShape().size() == shapeSize) << "The shape size of all tensors should be equal";
+        ASSERT(tensor.Format() == format) << "The format of all tensors should be equal";
     }
 
     for (auto tensor : tensors) {
@@ -578,7 +578,7 @@ Tensor Cat(const std::vector<Tensor> &tensors, int axis) {
             if (i == axis) {
                 continue;
             }
-            ASSERT(shape[i] == tensor.GetShape()[i]);
+            ASSERT(shape[i] == tensor.GetShape()[i]) << "The shape of all tensors should be equal except at axis";
         }
     }
 
@@ -632,8 +632,8 @@ void ExpandOperationTileFunc(Function &function, const TileShape &tileShape,
 
 inline void CastOperationOperandCheck(
     const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand) {
-    ASSERT(iOperand.size() == 1);
-    ASSERT(oOperand.size() == 1);
+    ASSERT(iOperand.size() == 1) << "The input operand size should be 1";
+    ASSERT(oOperand.size() == 1) << "The output operand size should be 1";
 }
 
 void CastOperationTileFunc(Function &function, const TileShape &tileShape,
