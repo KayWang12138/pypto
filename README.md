@@ -1,6 +1,6 @@
 # PyPTO
 
-## PyPTO 简介
+## 简介
 
 PyPTO（发音：pai p-t-o）是一款面向 AI 加速器的高性能编程框架，旨在简化复杂融合算子乃至整个模型网络的开发流程，同时保持高性能计算能力。该框架采用创新的 **PTO（Parallel Tensor/Tile Operation）编程范式**，以 **基于 Tile 的编程模型** 为核心设计理念，通过多层次的中间表示（IR）系统，将用户通过 API 构建的 AI 模型应用从高层次的 Tensor 图逐步编译成硬件指令，最终生成可在目标平台上高效执行的可执行代码。
 
@@ -187,7 +187,8 @@ python3 basic_operations.py npu_example_id
 
 该基础样例，运行成功后，在`${work_path}/out/`目录下生成编译和运行产物，相关产物包括[计算图](../docs/key-concepts/compute_graph.md)和[泳道图](../docs/key-concepts/swim_graph.md)，计算图和泳道图可通过PyPTO配套的[ToolKit插件](pypto-toolkit vscode主页)，在VS-CODE中查看并与代码关联，相关ToolKit使用应参考[ToolKit-QuickStart](xxxxxxx)
 
-## 快速开始
+快速开始
+---------------
 
 以下是一个简单的 PyPTO 使用示例：
 

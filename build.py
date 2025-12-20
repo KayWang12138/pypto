@@ -1117,14 +1117,17 @@ class BuildCtrl(CMakeParam):
         update_env: Dict[str, str] = self.get_cfg_update_env()
         if self._use_pip_install_mode() or self.feature.whl_editable:
             opt: str = f" --no-compile --no-deps"
-
             opt += f" --no-build-isolation" if not self.feature.whl_isolation else ""
+
+            cmd_config_setting, env_config_setting = self._get_setuptools_build_ext_config_setting()
             if self.feature.whl_editable:
-                config_setting: str = self._get_setuptools_build_ext_config_setting(alone_setting=False)
-                update_env["PYPTO_BUILD_EXT_ARGS"] = config_setting
+                update_env["PYPTO_BUILD_EXT_ARGS"] = env_config_setting
             else:
-                config_setting: str = self._get_setuptools_build_ext_config_setting(alone_setting=True)
-                opt += f" {config_setting}" if config_setting else ""
+                if self.pip_support_config_setting:
+                    opt += f" {cmd_config_setting}" if cmd_config_setting else ""
+                else:
+                    # pip 低版本无 --config-setting 参数, 此时以环境变量方式传入
+                    update_env["PYPTO_BUILD_EXT_ARGS"] = env_config_setting
 
             # 重装 whl 包
             dist: Optional[Path] = self._get_pip_install_dist()
@@ -1200,23 +1203,24 @@ class BuildCtrl(CMakeParam):
         # pip install -e 场景需直接安装到 site-packages 默认路径(与指定 --target 参数逻辑冲突), 其他场景安装到自定义目录
         return None if self._use_pip_install_mode() and self.feature.whl_editable else self.install_root
 
-    def _get_setuptools_build_ext_config_setting(self, alone_setting: bool = False) -> str:
+    def _get_setuptools_build_ext_config_setting(self) -> Tuple[str, str]:
         cmake_args = f"{self.build.get_cfg_cmd(ext=False)}"
-        cmd: str = ""
-        cmd += f" --cmake-generator={self.build.generator}" if self.build.generator else ""
-        cmd += f" --cmake-build-type={self.build.build_type}" if self.build.build_type else ""
-        cmd += f" --cmake-options=\"{cmake_args}\"" if cmake_args else ""
-        cmd += f" --cmake-verbose" if self.verbose else ""
-        if cmd and alone_setting:
-            cmd = f" --config-setting=--build-option='build_ext {cmd}'"
-        return cmd
+        env_setting: str = ""
+        env_setting += f" --cmake-generator={self.build.generator}" if self.build.generator else ""
+        env_setting += f" --cmake-build-type={self.build.build_type}" if self.build.build_type else ""
+        env_setting += f" --cmake-options=\"{cmake_args}\"" if cmake_args else ""
+        env_setting += f" --cmake-verbose" if self.verbose else ""
+        cmd_setting: str = ""
+        if env_setting:
+            cmd_setting = f" --config-setting=--build-option='build_ext {env_setting}'"
+        return cmd_setting, env_setting
 
     def _get_setuptools_bdist_wheel_config_setting(self) -> str:
         cmd: str = ""
         cmd += f" bdist_wheel --plat-name={self.feature.whl_plat_name}" if self.feature.whl_plat_name else ""
         cmd += f" build --build-base={self.build_root.name}"
         cmd += f" --parallel={self.build.job_num}" if self.build.job_num else ""
-        ext: str = self._get_setuptools_build_ext_config_setting()
+        _, ext = self._get_setuptools_build_ext_config_setting()
         if ext:
             cmd += f" build_ext {ext}"
         cmd = f" --config-setting=--build-option='{cmd}'"
