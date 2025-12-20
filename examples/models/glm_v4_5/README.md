@@ -12,6 +12,42 @@
 
 该算子通过融合多个小算子，显著提升在 NPU 上的执行效率和内存带宽利用率。
 
+## 数学公式
+
+$
+\text{qkv} = \text{x} @ \text{weight}
+$
+
+$
+\begin{aligned}
+\text{q}, \text{k}, \text{v} &= \text{Split}(\text{qkv}, [\text{q\_head\_size}, \text{k\_head\_size}, \text{v\_head\_size}] ) 
+\end{aligned}
+$
+
+$
+\text{RMSNorm}(\text{q}) = \frac{\text{q}}{\sqrt{\frac{1}{d} \sum_{i=1}^{d} q_i^2} + \epsilon} \odot \text{q\_gamma}
+$
+
+$
+\text{RMSNorm}(\text{k}) = \frac{\text{k}}{\sqrt{\frac{1}{d} \sum_{i=1}^{d} k_i^2} + \epsilon} \odot \text{k\_gamma}
+$
+
+$
+\text{RoPE}(\text{q}, m) = \bigoplus_{i=1}^{d/2} \begin{bmatrix}
+\cos m\theta_i & -\sin m\theta_i \\
+\sin m\theta_i & \cos m\theta_i
+\end{bmatrix} \begin{bmatrix} q_{2i-1} \\ q_{2i} \end{bmatrix}
+$
+
+$
+\text{RoPE}(\text{k}, m) = \bigoplus_{i=1}^{d/2} \begin{bmatrix}
+\cos m\theta_i & -\sin m\theta_i \\
+\sin m\theta_i & \cos m\theta_i
+\end{bmatrix} \begin{bmatrix} k_{2i-1} \\ k_{2i} \end{bmatrix}
+$
+
+
+
 ## 函数原型
 
 ```
@@ -42,45 +78,45 @@ def attention_pre_quant(
 
 >**说明：**<br> 
 >
->-  B（Batch Size）表示输入样本批量大小、S（Sequence Length）表示输入样本序列长度、BS表示Batch Size和Sequence Length合轴的大小、hidden_size表示模型隐藏层维度、total_head_size表示QKV投影后的总输出维度、head_size表示每个注意力头的维度大小、half_rotary_dim表示旋转位置编码维度、q_size表示query投影后的输出维度、kv_size表示key/value投影后的输出维度
+>- batch_size表示输入样本批量大小（当前支持范围1至32）、seq_len表示输入样本序列长度（当前支持为1）、num_tokens表示batch_size和seq_len合轴的大小、hidden_size表示模型隐藏层维度（当前支持5120）、total_head_size表示QKV投影后的总输出维度（当前支持1792）、head_size表示每个注意力头的维度大小（当前支持128）、half_rotary_dim表示旋转位置编码维度（当前支持32）、q_size表示query投影后的输出维度（当前支持1536）、kv_size表示key/value投影后的输出维度（当前支持128）。
 
--   **hidden_states**（`Tensor`）：输入tensor。不支持非连续，数据格式支持ND，数据类型支持`bfloat16`，shape为[BS, hidden_size]
+-   **hidden_states**（`Tensor`）：输入tensor。不支持非连续，数据格式支持ND，数据类型支持`bfloat16`，shape为[num_tokens, hidden_size]。
 
--   **residual**（`Tensor`）：残差连接输入张量。不支持非连续，数据格式支持ND，数据类型支持`bfloat16`，shape为[BS, hidden_size]
+-   **residual**（`Tensor`）：残差连接输入张量。不支持非连续，数据格式支持ND，数据类型支持`bfloat16`，shape为[num_tokens, hidden_size]。
 
--   **input_layernorm_weight**（`Tensor`）：输入层归一化的权重参数，不支持非连续，数据格式支持ND，数据类型支持`bfloat16`，shape为[hidden_size]
+-   **input_layernorm_weight**（`Tensor`）：输入层归一化的权重参数，不支持非连续，数据格式支持ND，数据类型支持`bfloat16`，shape为[hidden_size]。
 
--   **input_layernorm_bias**（`Tensor`）：输入层归一化的偏置参数，不支持非连续，数据格式支持ND，数据类型支持`bfloat16`，shape为[hidden_size]
+-   **input_layernorm_bias**（`Tensor`）：输入层归一化的偏置参数，不支持非连续，数据格式支持ND，数据类型支持`bfloat16`，shape为[hidden_size]。
 
--   **atten_qkv_input_scale_reciprocal**（`Tensor`）：注意力QKV输入量化的缩放系数倒数，不支持非连续，数据格式支持ND，数据类型支持`bfloat16`，shape为[hidden_size]
+-   **atten_qkv_input_scale_reciprocal**（`Tensor`）：注意力QKV输入量化的缩放系数倒数，不支持非连续，数据格式支持ND，数据类型支持`bfloat16`，shape为[hidden_size]。
 
--   **atten_qkv_input_offset**（`Tensor`）：注意力QKV输入量化的偏移量，不支持非连续，数据格式支持ND，数据类型支持`bfloat16`，shape为[hidden_size]
+-   **atten_qkv_input_offset**（`Tensor`）：注意力QKV输入量化的偏移量，不支持非连续，数据格式支持ND，数据类型支持`bfloat16`，shape为[hidden_size]。
 
--   **atten_qkv_weight**（`Tensor`）：注意力QKV的权重矩阵，不支持非连续，数据格式支持NZ，数据类型支持int8，shape为[hidden_size, total_head_size]
+-   **atten_qkv_weight**（`Tensor`）：注意力QKV的权重矩阵，不支持非连续，数据格式支持NZ，数据类型支持int8，shape为[hidden_size, total_head_size]。
 
--   **atten_qkv_quant_bias**（`Tensor`）：注意力QKV权重量化的偏置，不支持非连续，数据格式支持ND，数据类型支持int32，shape为[total_head_size]
+-   **atten_qkv_quant_bias**（`Tensor`）：注意力QKV权重量化的偏置，不支持非连续，数据格式支持ND，数据类型支持int32，shape为[total_head_size]。
 
--   **atten_qkv_deq_scale**（`Tensor`）：注意力QKV权重量化的反量化缩放系数，不支持非连续，数据格式支持ND，数据类型支持`float32`，shape为[total_head_size]
+-   **atten_qkv_deq_scale**（`Tensor`）：注意力QKV权重量化的反量化缩放系数，不支持非连续，数据格式支持ND，数据类型支持`float32`，shape为[total_head_size]。
 
--   **atten_q_norm_weight**（`Tensor`）：query层归一化的权重参数，不支持非连续，数据格式支持ND，数据类型支持`bfloat16`，shape为[head_size]
+-   **atten_q_norm_weight**（`Tensor`）：query层归一化的权重参数，不支持非连续，数据格式支持ND，数据类型支持`bfloat16`，shape为[head_size]。
 
--   **atten_q_norm_bias**（`Tensor`）：query层归一化的偏置参数，不支持非连续，数据格式支持ND，数据类型支持`bfloat16`，shape为[head_size]
+-   **atten_q_norm_bias**（`Tensor`）：query层归一化的偏置参数，不支持非连续，数据格式支持ND，数据类型支持`bfloat16`，shape为[head_size]。
 
--   **atten_k_norm_weight**（`Tensor`）：key层归一化的权重参数，不支持非连续，数据格式支持ND，数据类型支持`bfloat16`，shape为[head_size]
+-   **atten_k_norm_weight**（`Tensor`）：key层归一化的权重参数，不支持非连续，数据格式支持ND，数据类型支持`bfloat16`，shape为[head_size]。
 
--   **atten_k_norm_bias**（`Tensor`）：key层归一化的偏置参数，不支持非连续，数据格式支持ND，数据类型支持`bfloat16`，shape为[head_size]
+-   **atten_k_norm_bias**（`Tensor`）：key层归一化的偏置参数，不支持非连续，数据格式支持ND，数据类型支持`bfloat16`，shape为[head_size]。
 
--   **cos**（`Tensor`）：旋转位置编码的余弦值，不支持非连续，数据格式支持ND，数据类型支持`bfloat16`，shape为[BS, 1, half_rotary_dim]
+-   **cos**（`Tensor`）：旋转位置编码的余弦值，不支持非连续，数据格式支持ND，数据类型支持`bfloat16`，shape为[num_tokens, 1, half_rotary_dim]。
 
--   **sin**（`Tensor`）：旋转位置编码的正弦值，不支持非连续，数据格式支持ND，数据类型支持`bfloat16`，shape为[BS, 1, half_rotary_dim]
+-   **sin**（`Tensor`）：旋转位置编码的正弦值，不支持非连续，数据格式支持ND，数据类型支持`bfloat16`，shape为[num_tokens, 1, half_rotary_dim]。
 
--   **query**（`Tensor`）：计算得到的query向量，不支持非连续，数据格式支持ND，数据类型为`bfloat16`，shape为[BS, q_size]
+-   **query**（`Tensor`）：计算得到的query向量，不支持非连续，数据格式支持ND，数据类型为`bfloat16`，shape为[num_tokens, q_size]。
 
--   **key**（`Tensor`）：计算得到的key向量，不支持非连续，数据格式支持ND，数据类型为`bfloat16`，shape为[BS, kv_size]
+-   **key**（`Tensor`）：计算得到的key向量，不支持非连续，数据格式支持ND，数据类型为`bfloat16`，shape为[num_tokens, kv_size]。
 
--   **value**（`Tensor`）：计算得到的value向量，不支持非连续，数据格式支持ND，数据类型为`bfloat16`，shape为[BS, kv_size]
+-   **value**（`Tensor`）：计算得到的value向量，不支持非连续，数据格式支持ND，数据类型为`bfloat16`，shape为[num_tokens, kv_size]。
 
--   **residual_res**（`Tensor`）：更新后的残差输出，不支持非连续，数据格式支持ND，数据类型为`bfloat16`，shape为[BS, hidden_size]
+-   **residual_res**（`Tensor`）：更新后的残差输出，不支持非连续，数据格式支持ND，数据类型为`bfloat16`，shape为[num_tokens, hidden_size]。
 
 ## 调用示例
 
@@ -112,11 +148,6 @@ $
 - Softmax ：对每个 Q 对应的 K 权重进行归一化，输出注意力权重。
 - atten ：注意力权重与 V 的加权求和，融合了上下文信息。
 
-## 计算流程
-
-基于pypto的基础算子库和数学公式计算，梳理出`attention`结构共包含`matmul`、`zoom`、`softmax`、`matmul`这4个计算单元，对应计算流程图为：
-
-![alt text](images/attention.png)
 
 ## 函数原型
 
@@ -135,14 +166,14 @@ def attention(
 
 >**说明：**<br> 
 >
->- num_tokens表示当前查询序列中需要处理的词元数量、num_head表示查询端的多头数量、head_size表示每个注意力头的维度、num_blocks表示总共可用的缓存块数量、block_size表示每个缓存块能容纳的词元数量、kv_head_num表示键/值端的多头数量、batch_size表示当前并行处理的请求数量、max_num_blocks_per_query表示单个请求最多可以占用的缓存块数。
+>- batch_size表示输入样本批量大小（当前支持范围1至32）、seq_len表示输入样本序列长度（当前支持为1）、num_tokens表示batch_Size和seq_len合轴的大小、num_head表示查询端的多头数量（当前支持为12）、head_size表示每个注意力头的维度（当前支持为128）、num_blocks表示总共可用的缓存块数量、block_size表示每个缓存块能容纳的词元数量（当前支持为128）、kv_head_num表示键/值端的多头数量（当前支持为1）、max_num_blocks_per_query表示单个请求最多可以占用的缓存块数。
 
 
--   **query**（`Tensor`）：数据格式支持ND，数据类型支持bfloat16 ，shape为 [num_tokens, num_head, head_size]，num_tokens是batch_size和seq_len的合轴，其中seq_len的值为1。
+-   **query**（`Tensor`）：数据格式支持ND，数据类型支持bfloat16 ，shape为 [num_tokens, num_head, head_size]。
 
--   **key_cache**（`Tensor`）：数据格式支持PA_BSND，数据类型支持bfloat16 ，shape为 [num_blocks, block_size, kv_head_num, head_size]。
+-   **key_cache**（`Tensor`）：数据格式支持ND，数据类型支持bfloat16 ，shape为 [num_blocks, block_size, kv_head_num, head_size]。
 
--   **value_cache**（`Tensor`）：数据格式支持PA_BSND，数据类型支持bfloat16 ，shape为 [num_blocks, block_size, kv_head_num, head_size]。
+-   **value_cache**（`Tensor`）：数据格式支持ND，数据类型支持bfloat16 ，shape为 [num_blocks, block_size, kv_head_num, head_size]。
 
 -   **block_tables**（`Tensor`）：数据格式支持ND，数据类型支持int32 ，shape为 [batch_size, max_num_blocks_per_query]。
 
@@ -160,7 +191,7 @@ def attention(
 
 ## 功能说明
 
-add_rms_norm算子对应GLM4.5网络中进入专家选择前，确保输入经过归一化和残差优化，提升路由器的决策质量
+`add_rms_norm` 算子对应GLM4.5网络中进入专家选择前，确保输入经过归一化和残差优化，提升路由器的决策质量
 
 
 ## 数学公式
@@ -179,12 +210,6 @@ $
 $
 
 
-## 计算流程
-
-在GLM4.5网络中，add_rms_norm算子对应计算流程图为：
-
-![alt text](images/rms_norm_bias.png)
-
 ## 函数原型
 
 ```
@@ -200,39 +225,42 @@ def add_rms_norm(
 
 ## 参数说明
 
--   **hidden_states**（`Tensor`）：当前层输入特征矩阵， 不支持非连续的Tensor，数据格式支持ND，数据类型支持 `bfloat16`, shape为[BS, 5120]
+>
+>- batch_size表示输入样本批量大小（当前支持范围1至32）、seq_len表示输入样本序列长度（当前支持为1）、num_tokens表示batch_Size和seq_len合轴的大小、hidden_size表示模型隐藏层维度（当前支持5120）。
 
--   **residual**（`Tensor`）：表示网络的残差值, 不支持非连续的Tensor，数据格式支持ND，数据类型支持 `bfloat16`, shape为[BS, 5120]
+-   **hidden_states**（`Tensor`）：当前层输入特征矩阵， 不支持非连续的Tensor，数据格式支持ND，数据类型支持 `bfloat16`, shape为[num_tokens, hidden_size]。
+
+-   **residual**（`Tensor`）：表示网络的残差值, 不支持非连续的Tensor，数据格式支持ND，数据类型支持 `bfloat16`, shape为[num_tokens, hidden_size]。
   
--   **weight**（`Tensor`）：缩放参数, 不支持非连续的Tensor，数据格式支持ND，数据类型支持 `bfloat16`, shape为[5120]
+-   **weight**（`Tensor`）：缩放参数, 不支持非连续的Tensor，数据格式支持ND，数据类型支持 `bfloat16`, shape为[hidden_size]。
 
--   **bias**（`Tensor`）：偏置参数, 不支持非连续的Tensor，数据格式支持ND，数据类型支持 `bfloat16`, shape为[5120]
+-   **bias**（`Tensor`）：偏置参数, 不支持非连续的Tensor，数据格式支持ND，数据类型支持 `bfloat16`, shape为[hidden_size]。
   
--   **eps**（`float`）：表示数值稳定参数（典型值是1e-6）
+-   **eps**（`float`）：表示数值稳定参数（典型值是1e-6）。
 
--   **hidden_states_res**（`Tensor`）：归一化后的网络输入, 数据类型、shape与hidden_states一致
+-   **hidden_states_res**（`Tensor`）：归一化后的网络输入, 不支持非连续的Tensor，数据格式支持ND，数据类型支持 `bfloat16`, shape为[num_tokens, hidden_size]。
 
--   **residual_res**（`Tensor`）：归一化后输出的残差值, 数据类型、shape与residual一致
+-   **residual_res**（`Tensor`）：归一化后输出的残差值, 不支持非连续的Tensor，数据格式支持ND，数据类型支持 `bfloat16`, shape为[num_tokens, hidden_size]。
 
 
 ## 调用示例
 
-- 详见 [glm_add_rmsnorm_add](./glm_add_rmsnorm_add.py)
+- 详见 [glm_add_rms_norm](./glm_add_rms_norm.py)
 
 
 
-# matmul
+# gate
 
 ## 功能说明
 
-matmul算子对应GLM4.5网络中进入专家选择前的matmul操作，将模型主维度由d_model投影到路由器专用维度d_router
+`gate` 算子对应GLM4.5网络中进入专家选择前的matmul操作，将模型主维度由d_model投影到路由器专用维度d_router
 
 
-## 计算流程
+## 数学公式
+$
+\text{gateOut} = \text{hiddenStates} @ \text{weight}
+$
 
-在GLM4.5网络中，matmul算子对应计算流程图为：
-
-![alt text](images/matmul.png)
 
 ## 函数原型
 
@@ -246,25 +274,27 @@ def gate(
 
 ## 参数说明
 
+>
+>- batch_size表示输入样本批量大小（当前支持范围1至32）、seq_len表示输入样本序列长度（当前支持为1）、num_tokens表示batch_Size和seq_len合轴的大小、num_router_experts表示路由专家数（当前支持为160）。
 
--   **gate_weight**（`Tensor`）：表示投影权重矩阵，将通用特征转化为路由专用特征, 不支持非连续的Tensor, 数据格式支持ND，数据类型支持 `FP32`, shape为[160, 5120]
+-   **gate_weight**（`Tensor`）：表示投影权重矩阵，将通用特征转化为路由专用特征, 不支持非连续的Tensor, 数据格式支持ND，数据类型支持 `FP32`, shape为[num_router_experts, hidden_size]。
 
--   **hidden_states**（`Tensor`）：当前层输入特征矩阵, 不支持非连续的Tensor, 数据格式支持ND，数据类型支持 `FP32`, shape为[BS, 5120]
+-   **hidden_states**（`Tensor`）：当前层输入特征矩阵, 不支持非连续的Tensor, 数据格式支持ND，数据类型支持 `FP32`, shape为[num_tokens, hidden_size]。
 
--   **router_logits_res**（`Tensor`）：表示经过投影权重优化后的路由特征矩阵, shape为[BS ,160]
+-   **router_logits_res**（`Tensor`）：表示经过投影权重优化后的路由特征矩阵, shape为[num_tokens ,num_router_experts]。
 
 ## 调用示例
 
-- 详见 [glm_matmul](./glm_matmul.py)
+- 详见 [glm_gate](./glm_gate.py)
 
 
 
 
-# experts_selector
+# select_experts
 
 ## 功能说明
 
-experts_selector算子对应GLM4.5网络中的experts_selector（专家选择器）是MoE架构的核心组件。他负责智能地将输入的token分配给不同的专家网络进行处理
+`select_experts` 算子对应GLM4.5网络中的select_experts（专家选择器）是MoE架构的核心组件。他负责智能地将输入的token分配给不同的专家网络进行处理。
 
 ## 数学公式
 
@@ -286,13 +316,6 @@ topk\_weights = renormalize(topk\_weights)
 $
 
 
-## 计算流程
-
-在GLM4.5网络中，select_experts算子对应计算流程图为：
-
-![alt text](images/select_experts.png)
-
-
 ## 函数原型
 
 ```
@@ -310,34 +333,37 @@ def select_experts(
 
 ## 参数说明
 
--   **router_logits**（`Tensor`）：表示路由的分数，表示专家的数量, 数据格式支持ND，数据类型支持 `float32`, shape为[BS, 160]
+>
+>-  batch_size表示输入样本批量大小（当前支持范围1至32）、seq_len表示输入样本序列长度（当前支持为1）、num_tokens表示batch_Size和seq_len合轴的大小、num_router_experts表示路由专家数（当前支持为160）、num_experts_per_topk表示每个词元分配的专家数量（当前支持为8）。
 
--   **top_k**（`int`）：表示专家的数量, 数据类型支持`int8`
+-   **router_logits**（`Tensor`）：表示路由的分数，表示专家的数量, 数据格式支持ND，数据类型支持 `float32`, shape为[num_tokens, num_router_experts]。
 
--   **renormalize**（`bool`）：表示是否归一化路由权重, 数据类型支持`bool`
+-   **top_k**（`int`）：表示专家的数量, 数据类型支持`int8`。
 
--   **topk_group**（`int`）：表示可选择专家的数量,数据类型支持`int32`
+-   **renormalize**（`bool`）：表示是否归一化路由权重, 数据类型支持`bool`。
 
--   **num_expert_group**（`int`）：表示每组专家的数量, 数据类型支持`int32`
+-   **topk_group**（`int`）：表示可选择专家的数量,数据类型支持`int32`。
 
--   **e_score_correction_bias**（`Tensor`）：表示校正专家的偏差值, 数据格式支持ND，数据类型支持 `bfloat16`, shape为[160]
+-   **num_expert_group**（`int`）：表示每组专家的数量, 数据类型支持`int32`。
 
--   **topk_weights**（`Tensor`）：每个专家的责任权重, shape为[BS, 8]
+-   **e_score_correction_bias**（`Tensor`）：表示校正专家的偏差值, 数据格式支持ND，数据类型支持 `bfloat16`, shape为[num_router_experts]。
 
--   **topk_ids**（`Tensor`）：表示为每个token选择的专家编号, shape为[BS, 8]
+-   **topk_weights**（`Tensor`）：每个专家的责任权重, shape为[num_tokens, num_experts_per_topk]。
+
+-   **topk_ids**（`Tensor`）：表示为每个token选择的专家编号, shape为[num_tokens, num_experts_per_topk]。
 
 ## 调用示例
 
-- 详见 [glm_experts_selector](./glm_select_experts.py)
+- 详见 [glm_select_experts](./glm_select_experts.py)
 
 
 
 
-# ffn_share_expert_quant
+# ffn_shared_expert_quant
 
 ## 功能说明
 
-`ffn_shared_expert_quant`算子对应GLM4.5网络中MoE共享专家的计算逻辑，包含`symmetric_quantization_per_token`、`matmul`、`dequant_dynamic`和`swiglu`，用于进行单个共享专家的量化前向传播计算，通过在不同任务或数据流之间复用同一组权重参数，以学习通用的特征表示，同时减少模型的参数总量。
+`ffn_shared_expert_quant` 算子对应GLM4.5网络中MoE共享专家的计算逻辑，包含`symmetric_quantization_per_token`、`matmul`、`dequant_dynamic`和`swiglu`，用于进行单个共享专家的量化前向传播计算，通过在不同任务或数据流之间复用同一组权重参数，以学习通用的特征表示，同时减少模型的参数总量。
 
 ## 数学公式
 
@@ -359,29 +385,25 @@ $
 $
 
 
-## 计算流图
-
-![alt text](images/ffn_share_expert_quant.png)
-
-
 ## 函数原型
 
 ```
-def ffn_shared_expert_quant(hidden_states: torch.Tensor,
-                           w13: torch.Tensor,
-                           w13_scale: torch.Tensor,
-                           w2: torch.Tensor,
-                           w2_scale: torch.Tensor,
-                           ffn_res: torch.Tensor
+def ffn_shared_expert_quant(
+    hidden_states: torch.Tensor,
+    w13: torch.Tensor,
+    w13_scale: torch.Tensor,
+    w2: torch.Tensor,
+    w2_scale: torch.Tensor,
+    ffn_res: torch.Tensor
 ) -> None:
 ```
 
 ## 参数说明
 >**说明：**<br> 
 >
->- b（Batch Size）表示输入样本批量大小、s（Sequence Length）表示输入样本序列长度、hidden_size（Hidden Size）表示隐藏层大小、intermediate_size（Intermediate Size）表示中间层的维度。
+>- batch_size表示输入样本批量大小（当前支持范围1至32）、seq_len表示输入样本序列长度（当前支持为1）、num_tokens表示batch_Size和seq_len合轴的大小、hidden_size表示隐藏层大小（当前支持5120）、intermediate_size表示中间层的维度（当前支持1536）。
 
--   **hidden_states**（`Tensor`）：当前共享专家的输入特征向量。当前仅支持连续，数据格式ND，数据类型支持`bfloat16`，shape为[b * s, hidden_size]。
+-   **hidden_states**（`Tensor`）：当前共享专家的输入特征向量。当前仅支持连续，数据格式ND，数据类型支持`bfloat16`，shape为[num_tokens, hidden_size]。
 
 -   **w13**（`Tensor`）：gate_proj & up_proj量化权重。当前仅支持连续，数据格式NZ，数据类型支持`int8`，shape为[hidden_size, intermediate_size * 2]。
 
@@ -391,12 +413,12 @@ def ffn_shared_expert_quant(hidden_states: torch.Tensor,
 
 -   **w2_scale**（`Tensor`）：w2权重的缩放因子。当前仅支持连续，数据格式ND，数据类型支持`bfloat16`，shape为[hidden_size]。
 
--   **ffn_res**（`Tensor`）：输出tensor。当前仅支持连续，数据格式ND，数据类型支持`bfloat16`，shape为[b * s, hidden_size]。
+-   **ffn_res**（`Tensor`）：输出tensor。当前仅支持连续，数据格式ND，数据类型支持`bfloat16`，shape为[num_tokens, hidden_size]。
 
 
 ## 调用示例
 
-- 详见 [ffn_shared_expert_quant](./glm_ffn_share_expert_quant.py)
+- 详见 [glm_ffn_shared_expert_quant](./glm_ffn_shared_expert_quant.py)
 
 
 
@@ -405,7 +427,7 @@ def ffn_shared_expert_quant(hidden_states: torch.Tensor,
 
 ## 功能说明
 
-ffn_router_expert_quant用于根据输入token的特征动态地选择激活K个专家网络，从而在保持模型参数量巨大的同时，只使用少量的计算资源
+`ffn_router_expert_quant` 算子对应GLM4.5网络中MoE路由专家的计算逻辑，包含`symmetric_quantization_per_token`、`matmul`、`dequant_dynamic`和`swiglu`，用于根据输入token的特征动态地选择激活K个专家网络，从而在保持模型参数量巨大的同时，只使用少量的计算资源。
 
 ## 数学公式
 $
@@ -421,21 +443,18 @@ $
 $
 
 
-## 计算流图
-
-![alt text](images/ffn_router_expert_quant.png)
-
 ## 函数原型
 
 ```
-def ffn_router_expert_quant(hidden_states: torch.Tensor,
-                            pertoken_scale: torch.Tensor,
-                            group_list: torch.Tensor,
-                            w13: torch.Tensor,
-                            w13_scale: torch.Tensor,
-                            w2: torch.Tensor,
-                            w2_scale: torch.Tensor,
-                            ffn_res: torch.Tensor
+def ffn_router_expert_quant(
+    hidden_states: torch.Tensor,
+    pertoken_scale: torch.Tensor,
+    group_list: torch.Tensor,
+    w13: torch.Tensor,
+    w13_scale: torch.Tensor,
+    w2: torch.Tensor,
+    w2_scale: torch.Tensor,
+    ffn_res: torch.Tensor
 )-> None:
 ```
 
@@ -443,11 +462,11 @@ def ffn_router_expert_quant(hidden_states: torch.Tensor,
 
 >**说明：**<br> 
 >
->- b（Batch Size）表示输入样本批量大小、s（Sequence Length）表示输入样本序列长度、topk表示激活专家个数、hidden_size（Hidden Size）表示隐藏层大小、intermediate_size（Intermediate Size）表示中间层的维度、per_device_expert_num表示每个device分配的专家个数。
+>- batch_size表示输入样本批量大小（当前支持范围1至32）、seq_len表示输入样本序列长度（当前支持为1）、num_tokens表示batch_Size和seq_len合轴的大小、hidden_size表示隐藏层大小（当前支持5120）、intermediate_size表示中间层的维度（当前支持1536）、topk表示激活专家个数（当前支持8）、per_device_expert_num表示每个device分配的专家个数。
 
--   **hidden_states**（`Tensor`）：当前输入特征向量。当前仅支持连续，数据格式ND，数据类型支持`int8`，shape为[b * s * topk, hidden_size]。
+-   **hidden_states**（`Tensor`）：当前输入特征向量。当前仅支持连续，数据格式ND，数据类型支持`int8`，shape为[num_tokens * topk, hidden_size]。
 
--   **pertoken_scale**（`Tensor`）：输入特征向量的缩放因子。当前仅支持连续，数据格式ND，数据类型支持`float32`，shape为[b * s * topk]。
+-   **pertoken_scale**（`Tensor`）：输入特征向量的缩放因子。当前仅支持连续，数据格式ND，数据类型支持`float32`，shape为[num_tokens * topk]。
 
 -   **w13**（`Tensor`）：gate_proj & up_proj量化权重。当前仅支持连续，数据格式NZ，数据类型支持`int8`，shape为[per_device_expert_num, hidden_size, intermediate_size * 2]。
 
@@ -459,9 +478,9 @@ def ffn_router_expert_quant(hidden_states: torch.Tensor,
 
 -   **group_list**（`Tensor`）：用于指定分组的索引。当前仅支持连续，数据格式ND，数据类型支持`int32`，shape为[per_device_expert_num]。
 
--   **ffn_res**（`Tensor`）：输出tensor。当前仅支持连续，数据格式ND，数据类型支持`bfloat16`，shape为[intermediate_size, hidden_size]
+-   **ffn_res**（`Tensor`）：输出tensor。当前仅支持连续，数据格式ND，数据类型支持`bfloat16`，shape为[intermediate_size, hidden_size]。
 
 
 ## 调用示例
 
-- 详见 [ffn_router_expert_quant](./glm_ffn_router_expert_quant.py)
+- 详见 [glm_ffn_router_expert_quant](./glm_ffn_router_expert_quant.py)
