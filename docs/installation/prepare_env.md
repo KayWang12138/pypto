@@ -22,7 +22,7 @@ bash tools/prepare_env.sh --type=deps
 **另需注意:**
 1. 无论是仿真环境, 还是真实环境均需要安装 `torch`;
 2. 真实环境需额外安装 `torch_npu` ;
-3. 上述 `torch` 及 `torch_npu` 的安装需根据实际环境的 Python版本自行安装, 参考 [Ascend Extension for PyTorch 安装说明](https://www.hiascend.com/document/detail/zh/Pytorch/720/configandinstg/instg/insg_0001.html).
+3. 上述 `torch` 及 `torch_npu` 的安装需根据实际环境的 Python版本自行安装, 参考 [Ascend Extension for PyTorch 安装说明](https://www.hiascend.com/document/detail/zh/Pytorch/720/configandinstg/instg/insg_0001.html)，并确保torch, torch_npu与Python三者版本匹配.
 
 ## 仿真环境（无真实NPU环境） ##
 

@@ -1,7 +1,2 @@
-setuptools
-wheel
-pybind11>=2.0.1
-build
-numpy>=1.26.4
-tomli>=2.0.0
-PyYAML
+setuptools>=70.3.0
+pybind11>=2.13.6
