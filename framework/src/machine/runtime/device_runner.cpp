@@ -454,7 +454,9 @@ void DeviceRunner::DumpAiCoreExecutionTimeData() {
                                 + jsonFilePath + "\" \""
                                 + topo_txt_path + "\" \""
                                 + program_json_path + "\" --label_type=1 --time_convert_denominator=50";
-        system(command.c_str());
+        if (system(command.c_str()) != 0) {
+           ALOG_WARN("Failed to execute draw_swim_lane.py. Stop merging the swimlane.");
+        }
     } else {
         ALOG_WARN("program.json or dyn_topo.txt missing. Stop merging the swimlane.");
     }

@@ -63,7 +63,7 @@ struct DynDeviceTask : DynDeviceTaskBase {
 #else
         std::string path = config::LogTopFolder() + "/dyn_topo.txt";
 #endif
-        std::ofstream of(path);
+        static std::ofstream of(path);
         if (of.tellp() == 0) {
             of << "seqNo,taskId,rootIndex,rootHash,opmagic,leafIndex,leafHash,coreType,psgId,successors\n";
         }
