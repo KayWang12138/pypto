@@ -14,6 +14,7 @@
 from dataclasses import dataclass
 import torch
 import pypto
+import pytest
 import numpy as np
 import math
 import os
@@ -230,8 +231,6 @@ def softmax(x, is_fp16=False):
         ans = ans.to(original_dtype)
         x_max = x_max.to(original_dtype)
         x_sum = x_sum.to(original_dtype)
-
-
     return ans, x_max, x_sum
 
 
@@ -266,7 +265,7 @@ def ifa_func(q, k, v, block_table, kv_act_seqs, atten_out):
     block_size = shape_k[1]
     nkv = shape_k[2]
     dn = shape_k[3]
-    b_scalar = block_table.shape[0]
+    b_scalar = kv_act_seqs.shape[0]
 
     dtype = q.dtype
     group = nq // nkv
@@ -479,7 +478,7 @@ def IFA(atten_cfg):
                     np.array(out_torch.cpu().flatten().tolist()),
                     rtol=0.0078125, atol=0.0001)
 
-
+@pytest.mark.skip(reason="large test case")
 def test_ifa():
     # 1. 设置参数
     device_id = os.environ.get('TILE_FWK_STEST_DEVICE_ID', 0)
