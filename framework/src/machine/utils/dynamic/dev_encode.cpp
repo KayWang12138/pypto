@@ -43,10 +43,6 @@ constexpr int32_t SLOTS_NEED_ALLOC_SIZE = 2;
 constexpr int64_t MAX_STATIC_MEM_WARN_THRESHOLE = 512 * 512;
 constexpr int32_t ALLOC_NUM_ONE_SLAB = 4;
 static constexpr uint64_t GENERAL_METADATA_SIZE_MIN = 4 * MEBI;
-struct EncodeRawTensorAttr {
-    std::shared_ptr<Storage> storage;
-    uint64_t storageOffset = 0;
-};
 
 void DevAscendFunction::InitIncastOutcastAttr(
         uintdevptr_t &initOffset,

@@ -17,6 +17,7 @@
 #define DEV_WORKSPACE_H
 
 #include "dev_encode.h"
+#include "dev_start_args.h"
 #include "device_task.h"
 #include "item_pool.h"
 #include "spsc_queue.h"
