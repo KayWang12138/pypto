@@ -11,9 +11,10 @@
 
 """PTO Script Parser."""
 from collections.abc import Iterator
+import inspect
 import functools
 import re
-from typing import Any, Optional, Union
+from typing import Any, Optional, Union, Callable
 
 import pypto
 from pypto.symbolic_scalar import SymbolicScalar
@@ -24,13 +25,21 @@ from .error import ParserError, RenderedParserError
 from .evaluator import ExprEvaluator
 from .liveness import LivenessAnalyzer
 
+ParamSpec = tuple[str, bool, Any]
+
+class NestedFunctionMarker:
+    """Marker used to identify functions intended for nested inline execution."""
+
+    def __init__(self) -> None:
+        self._original_func: Optional[Callable] = None
+        self._func_name: str = ""
+
 DEFAULT_VISIT = {
     "Interactive",
     "Module",
     "Expression",
     "Pass",
 }
-
 
 def _catch_parser_errors(func):
     """Decorator to normalize parser error handling for public APIs."""
@@ -40,6 +49,9 @@ def _catch_parser_errors(func):
         try:
             return func(self, *args, **kwargs)
         except RenderedParserError:
+            # Flush any pending messages (like context info) in the current diagnostics
+            if hasattr(self, "diag"):
+                self.diag._render()
             # Already rendered; just re-raise.
             raise
         except ParserError as err:
@@ -279,6 +291,110 @@ class Parser(doc.NodeVisitor):
     # ==========================================================================================
     # Private APIs (implementation details)
     # ==========================================================================================
+    def _get_function_def_from_func(self, func: Any) -> Optional[doc.FunctionDef]:
+        """Get FunctionDef AST node from a function object.
+
+        Parameters
+        ----------
+        func : Any
+            The function object (can be a callable or NestedFunctionMarker).
+
+        Returns
+        -------
+        Optional[doc.FunctionDef]
+            The FunctionDef AST node if found, None otherwise.
+        """
+        # If it's a NestedFunctionMarker, get the original function
+        # Check for _original_func attribute to identify NestedFunctionMarker instances
+        if hasattr(func, '_original_func'):
+            func = func._original_func
+
+        # Get the function source code
+        try:
+            source = Source(func)
+            ast_node = source.as_ast()
+
+            # Find the FunctionDef node in the AST
+            if isinstance(ast_node, doc.Module):
+                for stmt in ast_node.body:
+                    if isinstance(stmt, doc.FunctionDef):
+                        # Check if this is the function we're looking for
+                        if stmt.name == func.__name__:
+                            return stmt
+            elif isinstance(ast_node, doc.FunctionDef):
+                if ast_node.name == func.__name__:
+                    return ast_node
+        except Exception:
+            # If we can't get the AST, return None
+            return None
+
+        return None
+
+    def _collect_function_environment(self, func: Any) -> dict[str, Any]:
+        """Extract globals and nonlocals referenced by the function."""
+        env: dict[str, Any] = {}
+        if func is None:
+            return env
+        try:
+            closure_vars = inspect.getclosurevars(func)
+        except Exception:
+            return env
+        env.update(closure_vars.globals)
+        env.update(closure_vars.nonlocals)
+        return env
+
+    def _is_nested_function(self, decorator_list: list[doc.expr]) -> bool:
+        """Check if a function is marked for nested calling by examining its decorators.
+
+        Parameters
+        ----------
+        decorator_list : list[doc.expr]
+            List of decorator expressions from the function definition.
+
+        Returns
+        -------
+        bool
+            True if the function is marked for nested calling, False otherwise.
+        """
+        for decorator in decorator_list:
+            # Check if decorator is pto.frontend.function or evaluates to NestedFunctionMarker
+            try:
+                # Try to evaluate the decorator expression
+                decorator_value = self.visit_expr(decorator)
+                # Check for _original_func attribute to identify NestedFunctionMarker instances
+                if hasattr(decorator_value, '_original_func'):
+                    return True
+            except Exception:
+                # If evaluation fails, try to check if it's a direct reference to pto.frontend.function
+                # Check if it's an Attribute node like pto.frontend.function
+                if isinstance(decorator, doc.Attribute):
+                    # Check if it's pto.frontend.function
+                    attr_chain = []
+                    current = decorator
+                    while isinstance(current, doc.Attribute):
+                        attr_chain.insert(0, current.attr)
+                        if isinstance(current.value, doc.Name):
+                            attr_chain.insert(0, current.value.id)
+                            break
+                        elif isinstance(current.value, doc.Attribute):
+                            current = current.value
+                        else:
+                            break
+                    # Check if the chain matches pto.frontend.function
+                    if len(attr_chain) >= 3 and attr_chain[0] == "pto" and \
+                       attr_chain[1] == "frontend" and attr_chain[2] == "function":
+                        return True
+                # Also check if it's a simple Name node that refers to function
+                elif isinstance(decorator, doc.Name):
+                    # Check if the name refers to pto.frontend.function in the context
+                    var_values = self.context.get()
+                    if decorator.id in var_values:
+                        value = var_values[decorator.id]
+                        # Check for _original_func attribute to identify NestedFunctionMarker instances
+                        if hasattr(value, '_original_func'):
+                            return True
+        return False
+
 
     def _eval_expr(
         self,
@@ -286,6 +402,11 @@ class Parser(doc.NodeVisitor):
         extra_vars: Optional[dict[str, Any]] = None,
     ) -> Any:
         """Expression evaluation when parsing."""
+        if isinstance(node, doc.Call):
+            nested_result = self._try_nested_call(node, extra_vars)
+            if nested_result is not None:
+                return nested_result
+
         var_values = self.context.get()
         if extra_vars is not None:
             for k, v in extra_vars.items():
@@ -722,6 +843,9 @@ class Parser(doc.NodeVisitor):
         # Validate return statements in function body
         self._validate_return_statements(node)
 
+        # Check if function is marked for nested calling (before with block so it can be reused later)
+        is_nested = self._is_nested_function(node.decorator_list)
+
         with self.context.with_frame():
             # Step 1: Extract function signature
             tensor_input_args, output_args = self.get_signature()
@@ -744,9 +868,13 @@ class Parser(doc.NodeVisitor):
             self._add_metadata_to_context(node.name, output_var_mapping)
 
             # Step 7: Create PTO function and parse body
-            with pypto.function(node.name, tensor_input_args, output_args):
-                for _ in pypto.loop(1):
-                    self._visit_body(node.body)
+            if is_nested:
+                # For nested functions, we don't create a pypto.Function; body will be inlined on call.
+                return None
+            else:
+                with pypto.function(node.name, tensor_input_args, output_args):
+                    for _ in pypto.loop(1):
+                        self._visit_body(node.body)
 
         return pypto.functions.get_last_function()
 
@@ -788,9 +916,9 @@ class Parser(doc.NodeVisitor):
                 ),
             )
 
-    def _visit_arguments(
+    def _parse_arguments_with_specs(
         self, node: doc.arguments
-    ) -> list[pypto.Tensor]:
+    ) -> tuple[list[pypto.Tensor], list[ParamSpec]]:
         """The general arguments visiting method.
 
         Parameters
@@ -800,8 +928,8 @@ class Parser(doc.NodeVisitor):
 
         Returns
         -------
-        res : list[pypto.Tensor]
-            List of Tensor arguments.
+        res : list[pypto.Tensor], list[ParamSpec]]
+            List of Tensor arguments, list of ParamSpec arguments
         """
         if node.vararg is not None:
             raise ParserError(
@@ -854,18 +982,204 @@ class Parser(doc.NodeVisitor):
 
         # Process all arguments (only tensors allowed)
         tensor_args = []
+        param_specs: list[ParamSpec] = []
 
         for arg in node.args:
             result = self._visit_arg(arg)
             if isinstance(result, pypto.Tensor):
                 tensor_args.append(result)
+                param_specs.append((arg.arg, True, result))
             elif isinstance(result, list):
                 # Handle nested tuples/lists if needed
                 for item in result:
                     if isinstance(item, pypto.Tensor):
                         tensor_args.append(item)
+                        param_specs.append((arg.arg, True, item))
 
+        return tensor_args, param_specs
+
+    def _visit_arguments(
+        self, node: doc.arguments
+    ) -> list[pypto.Tensor]:
+        """The general arguments visiting method.
+
+        Parameters
+        ----------
+        node : doc.arguments
+            The doc AST arguments node.
+
+        Returns
+        -------
+        res : tuple[list[pypto.Tensor], list[tuple[str, type]]]
+            A tuple of (tensor_args, non_tensor_args) where:
+            - tensor_args: list of Tensor arguments
+            - non_tensor_args: list of (name, type) tuples for non-tensor arguments
+        """
+        tensor_args, _ = self._parse_arguments_with_specs(node)
         return tensor_args
+
+    def _try_nested_call(
+        self, node: doc.Call, extra_vars: Optional[dict[str, Any]] = None
+    ) -> Optional[Any]:
+        """Attempt to inline a nested function call."""
+        # Only simple name calls (no attributes/methods) are considered for inlining.
+        if not isinstance(node.func, doc.Name):
+            return None
+
+        # Collect current context variables and any extra_vars provided by eval_expr.
+        func_name = node.func.id
+        var_values = self.context.get()
+        if extra_vars:
+            var_values = {**var_values, **extra_vars}
+
+        if func_name not in var_values:
+            return None
+
+        # Resolve the callee function object; if it's a NestedFunctionMarker, unwrap to the original function.
+        func_value = var_values[func_name]
+        if isinstance(func_value, NestedFunctionMarker):
+            func_obj = func_value._original_func
+        else:
+            func_obj = func_value
+
+        # Merge closure/global variables of the target function to allow resolving
+        # free variables used inside the nested function body.
+        env_vars = self._collect_function_environment(func_obj)
+        if env_vars:
+            var_values = {**env_vars, **var_values}
+
+        # Dynamically obtain the FunctionDef AST of the callee; fail fast if unavailable.
+        func_def_node = self._get_function_def_from_func(func_obj)
+        if func_def_node is None:
+            raise ParserError(
+                node,
+                ValueError(f"Failed to obtain AST for function '{func_name}'."),
+            )
+
+        # If callee is a normal function, ensure it is decorated as nested; otherwise, bail out.
+        if not isinstance(func_value, NestedFunctionMarker):
+            if not self._is_nested_function(func_def_node.decorator_list):
+                return None
+
+        # Parse parameters/return annotations to get tensor/non-tensor lists and ordered specs.
+        # Seed the temp frame with the callee's env so that annotations depending on globals
+        # (e.g., pto, helper constants) resolve correctly.
+        with self.context.with_frame():
+            for name, value in env_vars.items():
+                self.context.add(name, value)
+
+            tensor_input_args, param_specs = (
+                self._parse_arguments_with_specs(func_def_node.args)
+            )
+
+            output_args = self._eval_expr(func_def_node.returns, extra_vars=var_values)
+            if not isinstance(output_args, (list, tuple)):
+                output_args = [output_args]
+
+        # Evaluate call-site arguments; keyword arguments are not supported yet.
+        # Use merged env (locals + globals of callee + caller extras) so symbols referenced
+        # in the callsite expressions are visible.
+        call_args = [self._eval_expr(arg, var_values) for arg in node.args]
+        if node.keywords:
+            raise ParserError(
+                node,
+                NotImplementedError(
+                    "Keyword arguments in nested function calls are not supported yet."
+                ),
+            )
+
+        # Validate argument count matches the signature.
+        expected_arg_count = len(tensor_input_args)
+        if len(call_args) != expected_arg_count:
+            raise ParserError(
+                node,
+                ValueError(
+                    f"Function {func_name} expects {expected_arg_count} arguments, "
+                    f"but got {len(call_args)}"
+                ),
+            )
+
+        body_nodes = func_def_node.body
+        with self.context.with_frame():
+            # Make callee globals/nonlocals available to the inlined body.
+            for name, value in env_vars.items():
+                self.context.add(name, value)
+
+            # Bind parameters in declared order and validate types.
+            for (param_name, is_tensor, annotation), arg_value in zip(
+                param_specs, call_args
+            ):
+                if is_tensor:
+                    if not isinstance(arg_value, pypto.Tensor):
+                        raise ParserError(
+                            node,
+                            TypeError(
+                                f"Expected tensor argument for {param_name}, "
+                                f"got {type(arg_value)}"
+                            ),
+                        )
+                    self.context.add(param_name, arg_value)
+                else:
+                    if annotation == bool and not isinstance(arg_value, bool):
+                        raise ParserError(
+                            node,
+                            TypeError(
+                                f"Expected bool argument for {param_name}, "
+                                f"got {type(arg_value)}"
+                            ),
+                        )
+                    if annotation == int and not isinstance(
+                        arg_value, (int, pypto.SymbolicScalar)
+                    ):
+                        raise ParserError(
+                            node,
+                            TypeError(
+                                f"Expected int argument for {param_name}, "
+                                f"got {type(arg_value)}"
+                            ),
+                        )
+                    self.context.add(param_name, arg_value)
+
+            # Recreate outputs per return annotation to avoid cross-call interference.
+            nested_output_args: list[Any] = []
+            for out_arg in output_args:
+                if isinstance(out_arg, pypto.Tensor):
+                    nested_output_args.append(
+                        pypto.Tensor(out_arg.shape, out_arg.dtype, name=out_arg.name)
+                    )
+                else:
+                    nested_output_args.append(out_arg)
+
+            # Preserve outputs in context so visit_return can fill them in-place.
+            self.context.add("__func_output_args__", nested_output_args)
+            self.context.add("__func_name__", func_name)
+
+            # Inline-execute the callee body.
+            old_diag = self.diag
+            try:
+                try:
+                    self.diag = Diagnostics(Source(func_obj))
+                except Exception:
+                    # Fallback to existing diagnostics if source extraction fails
+                    pass
+
+                try:
+                    self._visit_body(body_nodes)
+                except ParserError as e:
+                    if not isinstance(e, RenderedParserError):
+                        self.diag.error(e.node, str(e))
+                    raise
+            except RenderedParserError:
+                self.diag = old_diag
+                self.diag.info(node, f"In call to '{func_name}'")
+                raise
+            finally:
+                self.diag = old_diag
+
+            # Return aggregation: single tensor returns directly; multiple returns as a list.
+            if len(nested_output_args) == 1:
+                return nested_output_args[0]
+            return nested_output_args
 
     def _visit_for(self, node: doc.For) -> Any:
         """The general for visiting method.
@@ -1166,6 +1480,28 @@ class Parser(doc.NodeVisitor):
                     f"but got {type(expr).__name__}."
                 ),
             )
+
+        # If this return belongs to an inlined nested function, write back
+        nested_outputs = self.context.get().get("__func_output_args__")
+        if nested_outputs is not None:
+            # Write results into the preallocated output tensors so callers reuse them.
+            result_list = result if isinstance(result, list) else [result]
+            if len(result_list) != len(nested_outputs):
+                raise ParserError(
+                    node,
+                    ValueError(
+                        f"Return value count {len(result_list)} does not match expected "
+                        f"{len(nested_outputs)}."
+                    ),
+                )
+            for i, tensor in enumerate(result_list):
+                if isinstance(nested_outputs[i], pypto.Tensor) and isinstance(
+                    tensor, pypto.Tensor
+                ):
+                    nested_outputs[i][:] = tensor
+                else:
+                    nested_outputs[i] = tensor
+            return nested_outputs if len(nested_outputs) > 1 else nested_outputs[0]
 
         return result
 

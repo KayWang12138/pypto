@@ -30,4 +30,4 @@ Example:
 """
 
 from . import doc_core, doc, error
-from .entry import jit
+from .entry import jit, function

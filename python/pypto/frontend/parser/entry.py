@@ -21,7 +21,7 @@ import torch
 import pypto
 from pypto import pypto_impl
 from pypto.frontend.parser.diagnostics import Source
-from pypto.frontend.parser.parser import Parser
+from pypto.frontend.parser.parser import Parser, NestedFunctionMarker
 from pypto.converter import _dtype_from, _torch_dtype_from
 
 
@@ -312,6 +312,26 @@ class JitCallableWrapper:
     def handler(self):
         """Get the runtime handler."""
         return self._handler
+
+def function(
+    func: Optional[Callable] = None,
+) -> Union[Callable, NestedFunctionMarker]:
+    """Decorator to mark a function as eligible for nested inline execution."""
+
+    if func is None:
+
+        def decorator(f: Callable) -> NestedFunctionMarker:
+            marker = NestedFunctionMarker()
+            marker._original_func = f
+            marker._func_name = f.__name__
+            return marker
+
+        return decorator
+
+    marker = NestedFunctionMarker()
+    marker._original_func = func
+    marker._func_name = func.__name__
+    return marker
 
 
 def jit(

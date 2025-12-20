@@ -12,7 +12,7 @@
 
 """The PTO Python Front-end Parser."""
 from . import parser
-from .parser import jit
+from .parser import jit, function
 from ..symbolic_scalar import SymbolicScalar
 
 
