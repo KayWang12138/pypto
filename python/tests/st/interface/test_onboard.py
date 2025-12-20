@@ -168,14 +168,15 @@ def test_device_run_data_from_device():
 
 
 # def dynamic function
-@pypto.jit
+@pypto.jit(
+    codegen_options={"support_dynamic_unaligned": True},
+    host_options={"only_codegen": True}
+)
 def matmul_add(in_tensor0, in_tensor1, in_tensor2, out_tensor, m, k, n, tiling=None):
     a = in_tensor0
     b = in_tensor1
     c = in_tensor2
     d = out_tensor
-    pypto.set_codegen_options(support_dynamic_unaligned=True)
-    pypto.set_host_options(only_codegen=True)
     pypto.set_vec_tile_shapes(tiling, tiling)
     pypto.set_cube_tile_shapes([tiling, tiling], [tiling, tiling], [tiling, tiling])
     for _ in pypto.loop(1, name="s0", idx_name="i"):

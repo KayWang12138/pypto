@@ -9,7 +9,7 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 """
-This test case verifies that the swimlane diagram generation for the costmodel works correctly 
+This test case verifies that the swimlane diagram generation for the costmodel works correctly
 regardless of whether the CANN is installed in the environment or not.
 """
 
@@ -41,8 +41,8 @@ def safe_json_load(file_path):
 def get_out_put_path():
     out_path = "./output"
     if os.path.exists(out_path):
-        subdirs = [os.path.join(out_path, d) for d in os.listdir(out_path) 
-                if os.path.isdir(os.path.join(out_path, d))]   
+        subdirs = [os.path.join(out_path, d) for d in os.listdir(out_path)
+                if os.path.isdir(os.path.join(out_path, d))]
         if subdirs:
             latest_dir = max(subdirs, key=os.path.getctime)
             return latest_dir
@@ -52,12 +52,12 @@ def get_out_put_path():
 def softmax_core(input_tensor: pypto.tensor) -> pypto.tensor:
     """
     Core softmax computation: exp(x - max(x)) / sum(exp(x - max(x))).
-    
+
     Parameters
     ----------
     input_tensor : pypto.tensor
         Input tensor to apply softmax to
-        
+
     Returns
     -------
     pypto.tensor
@@ -65,28 +65,35 @@ def softmax_core(input_tensor: pypto.tensor) -> pypto.tensor:
     """
     # Find maximum for numerical stability
     row_max = pypto.amax(input_tensor, dim=-1, keepdim=True)
-    
+
     # Subtract maximum
     sub = pypto.sub(input_tensor, row_max)
-    
+
     # Compute exponentials
     exp = pypto.exp(sub)
-    
+
     # Sum exponentials
     esum = pypto.sum(exp, dim=-1, keepdim=True)
-    
+
     return pypto.div(exp, esum)
 
 
-@pypto.jit
+@pypto.jit(
+    runtime_options={
+        "cfgcache_device_task_num": 100,
+        "cfgcache_root_task_num": 100,
+        "cfgcache_leaf_task_num": 10000,
+        "run_mode": 1
+    }
+)
 def softmax(input_tensor, output_tensor):
     """
     Softmax implementation with dynamic batch size support.
-    
+
     This function processes input tensors in batches, applying softmax
     to each batch independently. The batch dimension is marked as dynamic,
     allowing variable batch sizes at runtime.
-    
+
     Parameters
     ----------
     inputs : list
@@ -94,10 +101,7 @@ def softmax(input_tensor, output_tensor):
     outputs : list
         List containing output tensor [batch, n1, n2, dim]
     """
-    pypto.set_runtime_options(cfgcache_device_task_num=100)
-    pypto.set_runtime_options(cfgcache_root_task_num=100)
-    pypto.set_runtime_options(cfgcache_leaf_task_num=10000)
-    pypto.set_runtime_options(run_mode=1)
+
 
     # After the dynamic axis of tensor is marked, get the tensor shape accordingly
     tensor_shape = input_tensor.shape
@@ -112,13 +116,13 @@ def softmax(input_tensor, output_tensor):
     for idx in pypto.loop(0, b_loop, 1, name="LOOP_L0_bIdx", idx_name="idx"):
         b_offset = idx * tile_b
         b_offset_end = (idx + 1) * tile_b
-        
+
         # Extract batch slice
         input_view = input_tensor[b_offset:b_offset_end, :n1, :n2, :dim]
-        
+
         # Apply softmax to batch slice
         softmax_out = softmax_core(input_view)
-        
+
         # Assemble result back to output tensor
         pypto.assemble(softmax_out, [b_offset, 0, 0, 0], output_tensor)
 
@@ -126,11 +130,11 @@ def softmax(input_tensor, output_tensor):
 def test_softmax():
     """
     Test softmax implementation against PyTorch reference.
-    
+
     Tests with shape [batch, n1, n2, dim] where batch is dynamic.
     """
     cann_is_configed: bool = bool(os.environ.get("ASCEND_HOME_PATH"))
-    
+
     # Shape for verification: NCHW format, N can be any integer number as it is defined as dynamic axis
     shape = (32, 32, 1, 256)
 
@@ -158,7 +162,7 @@ def test_softmax():
     torch_data = torch_softmax.cpu()
 
     max_diff = np.abs(npu_data.numpy() - torch_data.numpy()).max()
-    
+
     output_path = get_out_put_path()
     assert output_path
 

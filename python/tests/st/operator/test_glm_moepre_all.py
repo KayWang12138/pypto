@@ -23,16 +23,16 @@ def main():
     test_select_experts()
 
 
-@pypto.jit
+@pypto.jit(
+    codegen_options={"support_dynamic_unaligned": True},
+    host_options={"only_codegen": True},
+    runtime_options={"cfgcache_device_task_num": 100,
+                     "cfgcache_root_task_num": 1000,
+                     "cfgcache_leaf_task_num": 10000}
+)
 def select_experts_glm(hidden_states, residual, weight, bias_input, mm_weight, e_score_bias_input,
                        weight_k, ids_k, row_idx, residual_out,
                        renormalize_flag, topk_group, num_expert_group, row_ids_flag, eps):
-    # 添加支持动态的config
-    pypto.set_codegen_options(support_dynamic_unaligned=True)
-    pypto.set_host_options(only_codegen=True)
-    pypto.set_runtime_options(cfgcache_device_task_num=100)
-    pypto.set_runtime_options(cfgcache_root_task_num=1000)
-    pypto.set_runtime_options(cfgcache_leaf_task_num=10000)
     pypto.set_option('profile_enable', True)
 
     # 3. 得到动态tensor的shape

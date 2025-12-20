@@ -146,9 +146,10 @@ def generate_golden(
 def gather_after_prolog_compute(block_size, b, s1, n2, topk, dn, dr, seq_lens):
     device_id = int(os.environ.get("TILE_FWK_STEST_DEVICE_ID", 0))
     torch.npu.set_device(device_id)
-    pypto.set_codegen_options(support_dynamic_unaligned=True)
 
-    @pypto.jit
+    @pypto.jit(
+        codegen_options={"support_dynamic_unaligned": True}
+    )
     def gather_fwd(topk_indices, k_nope_cache, k_rope_cache, block_table, act_seqs, gather_res):
         gather_after_prolog_graph(
             topk_indices,
