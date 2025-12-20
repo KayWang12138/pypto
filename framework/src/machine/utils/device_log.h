@@ -186,70 +186,44 @@ inline bool IsDebugMode() {
     return g_isLogEnableDebug;
 }
 
-#define D_DEV_LOG(level, MODE_NAME, fmt, ...)                                               \
-    do {                                                                                    \
-        if (level == DLOG_DEBUG) {                                                          \
-            dlog_debug(AICPU, "%lu %s\n" #fmt , GET_TID(), __FUNCTION__, ##__VA_ARGS__);    \
-        }                                                                                   \
-        if (level == DLOG_INFO) {                                                           \
-            dlog_info(AICPU, "%lu %s\n" #fmt , GET_TID(), __FUNCTION__, ##__VA_ARGS__);     \
-        }                                                                                   \
-        if (level == DLOG_WARN) {                                                           \
-            dlog_warn(AICPU, "%lu %s\n" #fmt , GET_TID(), __FUNCTION__, ##__VA_ARGS__);     \
-        }                                                                                   \
-        if (level == DLOG_ERROR) {                                                          \
-            dlog_error(AICPU, "%lu %s\n" #fmt , GET_TID(), __FUNCTION__, ##__VA_ARGS__);    \
-        }                                                                                   \
-    }while (0);
+#define D_DEV_LOGD(MODE_NAME, fmt, ...)                                               \
+  do {                                                                                \
+      if (IsLogEnableDebug()) {                                                  \
+        dlog_debug(AICPU, "%lu %s\n" #fmt , GET_TID(), __FUNCTION__, ##__VA_ARGS__);  \
+      }                                                                               \
+  } while (false)
 
-    constexpr const int MAX_LOG_SIZE = 8192;
+#define D_DEV_LOGI(MODE_NAME, fmt, ...)                                               \
+  do {                                                                                \
+      if (IsLogEnableInfo()) {                                                   \
+        dlog_info(AICPU, "%lu %s\n" #fmt , GET_TID(), __FUNCTION__, ##__VA_ARGS__);   \
+      }                                                                               \
+  } while(false)
 
-#define D_DEV_LOGF(level, MODE_NAME, fmt, ...)                                              \
-    do{                                                                                     \
-        char msgbufxyz[MAX_LOG_SIZE];                                                       \
-        size_t msgmaxlen = (MSG_LENGTH - 200);                                              \
-        int rettmp = snprintf_s(msgbufxyz, sizeof(msgbufxyz),                               \
-                                    sizeof(msgbufxyz) - 1, fmt, ##__VA_ARGS__);             \
-        if (rettmp == -1) {                                                                 \
-            msgbufxyz[sizeof(msgbufxyz) - 1] = '\0';                                        \
-        }                                                                                   \
-        size_t msglength = std::strlen(msgbufxyz);                                          \
-        if (msglength < msgmaxlen) {                                                        \
-            D_DEV_LOG(level, MODE_NAME, "%s", msgbufxyz);                                   \
-            break;                                                                          \
-        }                                                                                   \
-        char *msgchunkbegin = msgbufxyz;                                                    \
-        char *msgchunkend = nullptr;                                                        \
-        while (msgchunkbegin < msgbufxyz + msglength) {                                     \
-            if (msgchunkbegin[0] == '\n') {                                                 \
-                D_DEV_LOG(level, MODE_NAME, "");                                            \
-                msgchunkbegin += 1;                                                         \
-                continue;                                                                   \
-            }                                                                               \
-            msgchunkend = std::strchr(msgchunkbegin, '\n');                                 \
-            if (msgchunkend == nullptr) {                                                   \
-                msgchunkend = msgchunkbegin + std::strlen(msgchunkbegin);                   \
-            }                                                                               \
-            while (msgchunkend > msgchunkbegin) {                                           \
-                std::string msgchunk(msgchunkbegin,                                         \
-                                        std::min(msgmaxlen, static_cast<size_t>(msgchunkend - msgchunkbegin)));     \
-                D_DEV_LOG(level, MODE_NAME, "%s", msgchunk.c_str());                        \
-                msgchunkbegin += msgchunk.size();                                           \
-            }                                                                               \
-            msgchunkbegin += 1;                                                             \
-        }                                                                                   \
-    }while (0)
+#define D_DEV_LOGW(MODE_NAME, fmt, ...)                                               \
+  do {                                                                                \
+      if (IsLogEnableWarn()) {                                                   \
+        dlog_warn(AICPU, "%lu %s\n" #fmt , GET_TID(), __FUNCTION__, ##__VA_ARGS__);   \
+      }                                                                               \
+  } while(false)
+
+#define D_DEV_LOGE(MODE_NAME, fmt, ...)                                               \
+  do {                                                                                \
+    if (IsLogEnableError()) {                                                  \
+        dlog_error(AICPU, "%lu %s\n" #fmt , GET_TID(), __FUNCTION__, ##__VA_ARGS__);  \
+      }                                                                               \
+  } while(false)
 
 #define DEV_VERBOSE_DEBUG(fmt, args...)                                  \
   do {                                                                  \
     if constexpr (IsCompileVerboseLog())  {                          \
-        D_DEV_LOGF(DLOG_DEBUG, TILE_FWK_DEVICE_MACHINE, fmt, ##args);               \
+        D_DEV_LOGD(TILE_FWK_DEVICE_MACHINE, fmt, ##args);               \
     }                                                                   \
   } while(0)
-#define DEV_DEBUG(fmt, args...) D_DEV_LOGF(DLOG_DEBUG, TILE_FWK_DEVICE_MACHINE, fmt, ##args)
-#define DEV_INFO(fmt, args...) D_DEV_LOGF(DLOG_INFO, TILE_FWK_DEVICE_MACHINE, fmt, ##args)
-#define DEV_WARN(fmt, args...) D_DEV_LOGF(DLOG_WARN, TILE_FWK_DEVICE_MACHINE, fmt, ##args)
-#define DEV_ERROR(fmt, args...) D_DEV_LOGF(DLOG_ERROR, TILE_FWK_DEVICE_MACHINE, fmt, ##args)
+#define DEV_DEBUG(fmt, args...) D_DEV_LOGD(TILE_FWK_DEVICE_MACHINE, fmt, ##args)
+#define DEV_INFO(fmt, args...) D_DEV_LOGI(TILE_FWK_DEVICE_MACHINE, fmt, ##args)
+#define DEV_WARN(fmt, args...) D_DEV_LOGW(TILE_FWK_DEVICE_MACHINE, fmt, ##args)
+#define DEV_ERROR(fmt, args...) D_DEV_LOGE(TILE_FWK_DEVICE_MACHINE, fmt, ##args)
 
 #define DEV_ASSERT_MSG(expr, fmt, args...)                              \
     do {                                                                \
