@@ -156,6 +156,40 @@ TEST_F(FunctionCoverageTest, ConverageCase3) {
     EXPECT_EQ(func->GetParamIndex(func->GetOutcast()[0]->GetRawTensor()), -1);
 }
 
+TEST_F(FunctionCoverageTest, ConverageCase4) {
+    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+    TileShape::Current().SetVecTile(16, 16);
+
+    std::vector<int64_t> shape{16, 64};
+    std::vector<int64_t> childShape{16, 16};
+    Tensor a(DataType::DT_FP32, shape, "a");
+    Tensor b(DataType::DT_FP32, shape, "b");
+    Tensor c(DataType::DT_FP32, shape, "c");
+
+    constexpr int LOOP_END = 4;
+    constexpr int CHILD_SHAPE_OFFSET = 16;
+
+    FUNCTION("main", {a, b}, {c}) {
+        LOOP("D3", FunctionType::DYNAMIC_LOOP, k, LoopRange(0, LOOP_END)) {
+            auto a0 = View(a, childShape, {0, k * CHILD_SHAPE_OFFSET});
+            auto b0 = View(b, childShape, {0, k * CHILD_SHAPE_OFFSET});
+            auto c0 = Add(a0, b0);
+            Assemble(c0, {0, k * CHILD_SHAPE_OFFSET}, c);
+            LOOP("D4", FunctionType::DYNAMIC_LOOP, n, LoopRange(0, LOOP_END)) {
+                auto d0 = View(a, childShape, {0, n * CHILD_SHAPE_OFFSET});
+                auto e0 = View(b, childShape, {0, n * CHILD_SHAPE_OFFSET});
+                auto f0 = Add(a0, b0);
+                Assemble(c0, {0, k * CHILD_SHAPE_OFFSET}, c);
+            }
+            auto func = Program::GetInstance().GetCurrentFunction();
+            EXPECT_EQ(func->InsertLoopIdxNameList("i"), true);
+            EXPECT_EQ(func->InsertLoopIdxNameList("i"), true);
+            EXPECT_EQ(func->InsertLoopIdxNameList("k"), false);
+            EXPECT_EQ(func->InsertLoopIdxNameList("n"), true);
+        }
+    }
+}
+
 TEST_F(FunctionCoverageTest, TestReuseTensorCase1) {
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
     TileShape::Current().SetVecTile(16, 16);

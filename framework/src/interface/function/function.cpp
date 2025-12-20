@@ -3686,6 +3686,25 @@ void Function::MergeFunctionDupIocast() {
     DoMergeFunctionDupOutcast();
 }
 
+bool Function::InsertLoopIdxNameList(const std::string &idxName) {
+    if (parent_ == nullptr) {
+        loopIdxNameList_.insert(idxName);
+        return true;
+    }
+
+    auto realParent = parent_->parent_;
+    if (realParent->GetFunctionType() == FunctionType::DYNAMIC_LOOP &&
+        realParent->LoopIdxNameList().find(idxName) != realParent->LoopIdxNameList().end()) {
+        return false;
+    }
+
+    loopIdxNameList_.insert(idxName);
+    for (const auto &it : realParent->LoopIdxNameList()) {
+        loopIdxNameList_.insert(it);
+    }
+    return true;
+}
+
 DefineProg::DefineProg(const std::string &name) : isRecording_(true) {
     Program::GetInstance().SetName(name);
 }

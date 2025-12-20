@@ -815,6 +815,8 @@ public:
     void SetHiddenFunction(bool hiddenFunction) { hiddenFunction_ = hiddenFunction; }
     bool IsHiddenFunction() const { return hiddenFunction_; }
 
+    const std::unordered_set<std::string> &LoopIdxNameList() { return loopIdxNameList_; }
+    bool InsertLoopIdxNameList(const std::string &idxName);
 private:
     int functionMagic_{-1};
     std::string funcMagicName_; // Function name
@@ -826,6 +828,7 @@ private:
     int stackWorkespaceSize_ = 0;
     FunctionHash functionHash_{0};
     std::vector<std::string> calleeMagicNameList_;
+    std::unordered_set<std::string> loopIdxNameList_;
     bool isUnderDynamicFunction_{false};
 
     std::vector<std::shared_ptr<LogicalTensor>> originInCasts_;
