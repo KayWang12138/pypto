@@ -1703,10 +1703,11 @@ void Function::CreateFromIncast(const std::shared_ptr<LogicalTensor> &symbol,
     auto validShape = originIncast->GetDynValidShape();
     if (validShape.empty()) {
         validShape = GetViewValidShape(symbol->GetDynValidShape(), originIncast->GetOffset(),
-            originIncast->GetDynOffset(), newIncast->GetShape());
+            originIncast->GetDynOffset().empty() ? SymbolicScalar::FromConcrete(originIncast->GetOffset()) : originIncast->GetDynOffset(),
+                newIncast->GetShape());
     }
     incastOp.SetOpAttribute(std::make_shared<ViewOpAttribute>(originIncast->GetOffset(),
-        originIncast->GetDynOffset(), validShape));
+        originIncast->GetDynOffset().empty() ? SymbolicScalar::FromConcrete(originIncast->GetOffset()) : originIncast->GetDynOffset(), validShape));
     newIncast->UpdateDynValidShape(validShape);
     newIncast->GetRawTensor()->UpdateDynRawShape(symbol->GetDynValidShape());
 }
