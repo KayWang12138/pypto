@@ -11,6 +11,13 @@
 """PyPTO
 """
 
+# torch/torch_npu may use cxxabi=0 or cxxabi=1, while pypto only support cxxabi=0
+# if pypto load first, torch/torch_cpu may crash, force load torch first
+try:
+    import torch
+except ImportError:
+    pass
+
 
 def _load_shared_libs():
     import os
