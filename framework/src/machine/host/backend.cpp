@@ -725,7 +725,9 @@ static void EncodeOutcastProperty(
     encodeDevAscendFunctionParam.outcastDescList.resize(slot->outcastSlot.size());
     for (size_t outcastIndex = 0; outcastIndex < slot->outcastSlot.size(); outcastIndex++) {
         RuntimeSlotDesc &desc = encodeDevAscendFunctionParam.outcastDescList[outcastIndex];
-        if (outcastSlotKindSetList[outcastIndex].Count(RuntimeSlotKind::OUTPUT)) {
+        if (outcastSlotKindSetList[outcastIndex].Count(RuntimeSlotKind::INPUT)) {
+            desc.kind = RuntimeSlotKind::INPUT;
+        } else if (outcastSlotKindSetList[outcastIndex].Count(RuntimeSlotKind::OUTPUT)) {
             desc.kind = RuntimeSlotKind::OUTPUT;
         } else if (outcastSlotKindSetList[outcastIndex].Count(RuntimeSlotKind::ASSEMBLE_OUTCAST)) {
             desc.kind = RuntimeSlotKind::ASSEMBLE_OUTCAST;

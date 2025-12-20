@@ -55,10 +55,10 @@ Status INIParser::ReadINIFile(const std::string& filepath) {
     std::string section;
     while (std::getline(file, line)) {
         trim(line);
+        if (line.empty()) {
+            continue;
+        }
         if (line.front() == '[' && line.back() == ']') {
-            if (line.empty()) {
-                continue;
-            }
             constexpr size_t kLeftBracketLen  = std::char_traits<char>::length("[");
             constexpr size_t kRightBracketLen = std::char_traits<char>::length("]");
             if (line.size() <= kLeftBracketLen + kRightBracketLen) {

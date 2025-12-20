@@ -541,7 +541,7 @@ void SetTensorGraphNodes(const std::vector<LogicalTensorPtr> &operandVec, const 
 {
     size_t operandVecSize = SHAPE_DIM2 + static_cast<size_t>(param.hasScale + param.hasBias + param.gmAccumulationFlag);
     OP_CHECK(true, {
-            ASSERT(operandVec.size() == operandVecSize)    
+            ASSERT(operandVec.size() == operandVecSize)
         << "Operand vector size mismatch: "
         << "Expected size: " << operandVecSize << ", actual size: " << operandVec.size()
         << ", SHAPE_DIM2: " << SHAPE_DIM2 << ", hasScale: " << param.hasScale << ", hasBias: " << param.hasBias
@@ -550,7 +550,7 @@ void SetTensorGraphNodes(const std::vector<LogicalTensorPtr> &operandVec, const 
 
     tensorGraphNodes.aTensorPtr = operandVec[0];
     tensorGraphNodes.bTensorPtr = operandVec[1];
-    OP_CHECK(true, 
+    OP_CHECK(true,
     {     ASSERT(tensorGraphNodes.aTensorPtr != nullptr && tensorGraphNodes.bTensorPtr != nullptr)
         << "Expected aTensorPtr and bTensorPtr to be non-nullptr." << std::endl; });
 
@@ -1235,11 +1235,10 @@ Tensor ConstructTensorGraph(DataType dataType, const Tensor &aMatrix, const Tens
 }
 
 template<bool isCMatrixNZ>
-static Tensor AssembleGmAccumulationTensor(DataType outType, const Tensor gmAccumulationTensor, SymbolicScalar mSize, SymbolicScalar nSize, 
+static Tensor AssembleGmAccumulationTensor(DataType outType, const Tensor gmAccumulationTensor, SymbolicScalar mSize, SymbolicScalar nSize,
                 SymbolicScalar mValidShape, SymbolicScalar nValidShape){
     OP_CHECK(true, {
-        ASSERT(mSize != 0 && nSize != 0 && mValidShape != 0 && nValidShape != 0)
-            << "Matrix size and validShape cannot be 0 " << std::endl;
+        ASSERT(mSize != 0 && nSize != 0) << "Matrix size cannot be 0 " << std::endl;
     });
     Tensor assembleTensor(outType, {mSize, nSize}, "", isCMatrixNZ ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND);
     OP_CHECK(true, { ASSERT(assembleTensor.GetStorage() != nullptr) << "Can not get assembleTensor's storage" << std::endl; });
@@ -1503,4 +1502,3 @@ template Tensor BatchMatmul<true, true, true>(DataType, const Tensor &, const Te
 }  // namespace Matrix
 }  // namespace tile_fwk
 }  // namespace npu
- 

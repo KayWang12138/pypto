@@ -256,12 +256,13 @@ static bool ShouldDropBudget(const OrderedSet<std::shared_ptr<RawTensor>>& outca
     return false;
 }
 
-static bool HasOutputOrAssembleDst(const std::vector<int>& outcastSlots,
-                                   const std::vector<npu::tile_fwk::RuntimeSlotKindSet>& runtimeSlotKindSetList) {
+static bool HasInputOutputOrAssembleDst(
+        const std::vector<int>& outcastSlots,
+        const std::vector<npu::tile_fwk::RuntimeSlotKindSet>& runtimeSlotKindSetList) {
     for (int slotIdx : outcastSlots) {
-        if (runtimeSlotKindSetList[slotIdx].Count(RuntimeSlotKind::OUTPUT)) {
-            return true;
-        } else if (runtimeSlotKindSetList[slotIdx].Count(RuntimeSlotKind::ASSEMBLE_OUTCAST)) {
+        if (runtimeSlotKindSetList[slotIdx].Count(RuntimeSlotKind::INPUT) ||
+            runtimeSlotKindSetList[slotIdx].Count(RuntimeSlotKind::OUTPUT) ||
+            runtimeSlotKindSetList[slotIdx].Count(RuntimeSlotKind::ASSEMBLE_OUTCAST)) {
             return true;
         }
     }
@@ -315,7 +316,7 @@ void DevAscendFunction::InitRawTensorAndMemoryRequirement(
                 encoded.ioProperty = DevIOProperty::ROOT_OUTCAST;
                 encoded.ioIndex = outcastRawList.GetIndex(rawTensor);
                 rawTensor->addrOffset = 0;
-                if (!HasOutputOrAssembleDst(slot->outcastSlot[encoded.ioIndex], runtimeSlotKindSetList)) {
+                if (!HasInputOutputOrAssembleDst(slot->outcastSlot[encoded.ioIndex], runtimeSlotKindSetList)) {
                     encoded.addrOffset = exclusiveOutcastWsMemoryRequirement;
                     rawTensor->addrOffset = exclusiveOutcastWsMemoryRequirement;
                     exclusiveOutcastWsMemoryRequirement += encoded.maxStaticMemReq;
@@ -1972,8 +1973,12 @@ struct SlotInfo {
     SymbolicScalar dynMemReq;
 };
 
-static std::vector<SlotInfo> MarkOutputAssembleSlots(DevAscendProgram &devProg) {
+static std::vector<SlotInfo> MarkInputOutputAssembleSlots(DevAscendProgram &devProg) {
     std::vector<SlotInfo> slotInfoList(devProg.slotSize);
+    std::vector<int> inputSlotIdxList = devProg.GetInputTensorSlotIndexList();
+    for (int inputSlotIdx : inputSlotIdxList) {
+        slotInfoList[inputSlotIdx].kindSet.Add(RuntimeSlotKind::INPUT);
+    }
     std::vector<int> outputSlotIdxList = devProg.GetOutputTensorSlotIndexList();
     for (int outputSlotIdx : outputSlotIdxList) {
         slotInfoList[outputSlotIdx].kindSet.Add(RuntimeSlotKind::OUTPUT);
@@ -1985,17 +1990,18 @@ static std::vector<SlotInfo> MarkOutputAssembleSlots(DevAscendProgram &devProg) 
         DevAscendFunction *devFunc = reinterpret_cast<DevAscendFunction *>(devEncodeData.Data());
         for (size_t outcastIdx = 0; outcastIdx < devFunc->GetOutcastSize(); outcastIdx++) {
             auto &toSlotList = devFunc->GetOutcast(outcastIdx).toSlotList;
-            bool isOutputSlot = false;
+            bool isInputOutputSlot = false;
             bool isAssembleOutcastSlot = false;
             for (size_t j = 0; j < toSlotList.size(); j++) {
                 SlotInfo &slotInfo = slotInfoList[devFunc->At(toSlotList, j)];
-                if (slotInfo.kindSet.Count(RuntimeSlotKind::OUTPUT)) {
-                    isOutputSlot = true;
+                if (slotInfo.kindSet.Count(RuntimeSlotKind::INPUT) ||
+                    slotInfo.kindSet.Count(RuntimeSlotKind::OUTPUT)) {
+                    isInputOutputSlot = true;
                 } else if (slotInfo.kindSet.Count(RuntimeSlotKind::ASSEMBLE_OUTCAST)) {
                     isAssembleOutcastSlot = true;
                 }
             }
-            if (isOutputSlot) {
+            if (isInputOutputSlot) {
 
             } else if (isAssembleOutcastSlot) {
                 for (size_t j = 0; j < toSlotList.size(); j++) {
@@ -2020,11 +2026,12 @@ static std::vector<SlotInfo> MarkOutputAssembleSlots(DevAscendProgram &devProg) 
     return slotInfoList;
 }
 
-static bool IsOutputSlot(const std::vector<SlotInfo> &slotInfoList, DevAscendFunction *func, size_t idx) {
+static bool IsInputOutputSlot(const std::vector<SlotInfo> &slotInfoList, DevAscendFunction *func, size_t idx) {
     auto &toSlotList = func->GetOutcast(idx).toSlotList;
     for (size_t j = 0; j < toSlotList.size(); j++) {
         int slotIdx = func->At(toSlotList, j);
-        if (slotInfoList[slotIdx].kindSet.Count(RuntimeSlotKind::OUTPUT)) {
+        if (slotInfoList[slotIdx].kindSet.Count(RuntimeSlotKind::INPUT) ||
+            slotInfoList[slotIdx].kindSet.Count(RuntimeSlotKind::OUTPUT)) {
             return true;
         }
     }
@@ -2089,7 +2096,7 @@ static SymbolicScalar GetDynRawTensorSize(Function *dynFunc, int funcKey, int id
 }
 
 static TensorWorkspaceResult CalcTensorWorkspace(Function *func,DevAscendProgram &devProg) {
-    std::vector<SlotInfo> slots = MarkOutputAssembleSlots(devProg);
+    std::vector<SlotInfo> slots = MarkInputOutputAssembleSlots(devProg);
 
     uint64_t maxRootInnerMem = 0;
     uint64_t maxDevTaskInnerExclusiveOutcastMem = 0;
@@ -2098,7 +2105,7 @@ static TensorWorkspaceResult CalcTensorWorkspace(Function *func,DevAscendProgram
     for (auto &&devEncodeData : devProg.devEncodeList) {
         DevAscendFunction *devFunc = reinterpret_cast<DevAscendFunction *>(devEncodeData.Data());
         for (size_t i = 0; i < devFunc->GetOutcastSize(); i++) {
-            if (IsOutputSlot(slots, devFunc, i)) {
+            if (IsInputOutputSlot(slots, devFunc, i)) {
                 continue;
             }
 

@@ -59,9 +59,9 @@ using Call5EntryType = uint64_t (*)(uint64_t, uint64_t, uint64_t, uint64_t, uint
     (((int32_t *)(input)->address)[(off0) * (input)->shape.dim[1] * (input)->shape.dim[2] + (off1) * (input)->shape.dim[2] + (off2)])
 #define RuntimeGetInputDataInt32Dim4(input, off0, off1, off2, off3) \
     (((int32_t *)(input)->address)[((off0 * (input)->shape.dim[1] + off1) * (input)->shape.dim[2] + off2) * (input)->shape.dim[3] + (off3)])
-#define RuntimeIsLoopBegin(idx, begin) (idx) == (begin)
-#define RuntimeIsLoopEnd(idx, end) (idx) >= (end)
-#define RuntimeTernaryOP(cond, lhs, rhs) (cond) ? (lhs) : (rhs)
+#define RuntimeIsLoopBegin(idx, begin) ((idx) == (begin))
+#define RuntimeIsLoopEnd(idx, end) ((int64_t)(idx) >= (int64_t)(end))
+#define RuntimeTernaryOP(cond, lhs, rhs) ((cond) ? (lhs) : (rhs))
 
 __always_inline
 int64_t RuntimeGetViewValidShapeDim(int64_t validshape, int64_t viewOffset, int64_t viewshape) {
