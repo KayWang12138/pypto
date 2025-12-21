@@ -1038,16 +1038,15 @@ class BuildCtrl(CMakeParam):
         self.cmake_clean()
         if not self.build.clean:
             return
+        pkg_src: Path = Path(self.src_root, "python/pypto")
         path_lst: List[Path] = [
             Path(Path.cwd(), "output"),
             Path(Path.cwd(), "kernel_meta"),
             Path(self.src_root, "python/pypto.egg-info"),
-            Path(self.src_root, "python/pypto/__pycache__"),
-            Path(self.src_root, "python/pypto/op/__pycache__"),
-            Path(self.src_root, "python/pypto/op/__pycache__"),
-            Path(self.src_root, "python/lib"),  # edit 模式
+            Path(pkg_src, "__pycache__"),
+            Path(pkg_src, "op/__pycache__"),
+            Path(pkg_src, "lib"),  # edit 模式
         ]
-        pkg_src: Path = Path(self.src_root, "python/pypto")
         so_glob = pkg_src.glob(pattern=f"*.so")
         so_path: List[Path] = [Path(p) for p in so_glob]
         path_lst.extend(so_path)
