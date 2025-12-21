@@ -26,6 +26,7 @@ constexpr int64_t MAX_L0C_SIZE = 128 * 1024;
 constexpr int64_t MAX_BT_SIZE = 1 * 1024;
 constexpr int64_t MAX_FIX_SIZE = 1 * 1024;
 constexpr int64_t MAX_FIX_QUANT_PRE_SIZE = 1 * 2048;
+constexpr int32_t DIM_ONE = 1;
 constexpr int32_t DIM_FIVE = 5;
 constexpr int32_t LAST_TWO_DIM = 2;
 constexpr int32_t UB_BLOCK_SIZE = 32;
@@ -220,6 +221,8 @@ uint64_t OoOScheduler::ShapeCeilAlign(std::vector<int64_t> shape, DataType dtype
     if (shape.size() == DIM_FIVE) {
         bytes = BytesPerElement(dtype) * std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<int>());
         bytes = CeilAlign(bytes, UB_BLOCK_SIZE);
+    } else if (shape.size() == DIM_ONE) {
+        bytes = BytesPerElement(dtype) * std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<int>());
     } else {
         uint64_t preDimSize = 1;
         uint64_t last2DimSize = 1;
