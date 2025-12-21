@@ -1037,25 +1037,22 @@ class BuildCtrl(CMakeParam):
     def py_clean(self):
         self.cmake_clean()
         if self.build.clean:
-            output: Path = Path(Path.cwd(), "output")
-            if output.exists():
-                logging.info("Clean Binary Cache Path(%s)", output)
-                shutil.rmtree(output)
-            kernel_meta: Path = Path(Path.cwd(), "kernel_meta")
-            if kernel_meta.exists():
-                logging.info("Clean Binary Cache Path(%s)", kernel_meta)
-                shutil.rmtree(kernel_meta)
-            egg_dir: Path = Path(self.src_root, "python/pypto.egg-info")
-            if egg_dir.exists():
-                logging.info("Clean egg Cache Path(%s)", egg_dir)
-                shutil.rmtree(egg_dir)
-            py_cache_lst: List[Path] = [
+            path_lst: List[Path] = [
+                Path(Path.cwd(), "output"),
+                Path(Path.cwd(), "kernel_meta"),
+                Path(self.src_root, "python/pypto.egg-info"),
                 Path(self.src_root, "python/pypto/__pycache__"),
                 Path(self.src_root, "python/pypto/op/__pycache__"),
+                Path(self.src_root, "python/pypto/op/__pycache__"),
+                Path(self.src_root, "python/lib"),  # edit 模式
             ]
-            for cache_dir in py_cache_lst:
+            pkg_src: Path = Path(self.src_root, "python/pypto")
+            so_glob = pkg_src.glob(pattern=f"*.so")
+            so_path: List[Path] = [Path(p) for p in so_glob]
+            path_lst.extend(so_path)
+            for cache_dir in path_lst:
                 if cache_dir.exists():
-                    logging.info("Clean Cache Path(%s)", cache_dir)
+                    logging.info("Clean Cache/Output Path(%s)", cache_dir)
                     shutil.rmtree(cache_dir)
 
     def cmake_configure(self):

@@ -62,6 +62,10 @@ class CustomEditableWheel(editable_wheel, EditModeHelper):
 
     1. 感知 -e 模式, 传递给 build_ext 以便其处理 CMake install 路径;
     2. 接收 build_ext 传递的 CMake install files 并回写入 whl 包的 RECORD 文件, 以便 -e 模式下对应文件可以随 uninstall 流程删除;
+
+    回写 RECORD 文件功能暂未使能, 因插入 RECORD 记录内对应的文件本质未受 whl 包管理.
+    在多次执行 pip install -e 的场景下, 会执行先编译(Install 或 Rewrite对应 CMake Install 文件), 再卸载, 再安装的流程.
+    卸载阶段因 RECORD 文件内有相关文件记录, 会导致对应文件被删除, 进而导致重复 pip install -e 结束后, 对应文件被删除的问题.
     """
 
     def run(self):
@@ -70,10 +74,10 @@ class CustomEditableWheel(editable_wheel, EditModeHelper):
         build_ext_cmd.pypto_editable_mode = True  # 设置标记
         # 继续执行标准的命令流程(这会触发 build_ext, egg_info)
         super().run()
-        # 接收 build_ext 传递的 CMake install files 并回写入 whl 包的 RECORD 文件
-        self._insert_cmake_install_files_to_whl_record_file()
 
     def _insert_cmake_install_files_to_whl_record_file(self):
+        """接收 build_ext 传递的 CMake install files 并回写入 whl 包的 RECORD 文件
+        """
         # 获取 RECORD 新增条目字符串
         record_str, record_num = self._get_cmake_install_files_record_info()
         if not record_str:
