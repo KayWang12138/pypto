@@ -2,7 +2,7 @@
 
 ## 前提条件
 
-- **环境准备**：编译安装 PyPTO 项目前，请先参考[环境准备](docs/context/prepare_environment.md)完成基础环境搭建。
+- **环境准备**：编译安装 PyPTO 项目前，请先参考[环境准备](prepare_environment.md)完成基础环境搭建。
 
 ## 通过 PyPI 安装
 
@@ -21,7 +21,7 @@ python3 -m pip install pypto --user
 ### 环境自检
 
 如果您的开发环境可以正常访问 [cann-src-third-party](https://gitcode.com/cann-src-third-party)，PyPTO 编译所需的第三方开源软件将在编译过程中自动下载及编译。
-如果无法访问，请参考[环境准备](docs/context/prepare_environment.md)中 “第三方开源软件” 的相关章节完成源码包准备，并在编译前设置如下环境变量：
+如果无法访问，请参考[环境准备](prepare_environment.md)中 “准备第三方开源软件源码包” 的相关章节完成源码包准备，并在编译前设置如下环境变量：
 
 ```bash
 export PYPTO_THIRD_PARTY_PATH=<path-to-thirdparty>
