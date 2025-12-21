@@ -10,8 +10,8 @@
 # -----------------------------------------------------------------------------------------------------------
 
 import os
-import pypto
 import json
+import pypto
 import torch
 
 
@@ -22,6 +22,15 @@ def add(a, b, c, tiling=None):
     pypto.set_vec_tile_shapes(tiling, tiling)
     for _ in pypto.loop(1, name="s0", idx_name="k"):
         c.move(pypto.add(a, b))
+
+
+@pypto.jit(
+    debug_options={"compile_debug_mode": 1, "runtime_debug_mode": 1}
+)
+def sub(a, b, c, tiling=None):
+    pypto.set_vec_tile_shapes(tiling, tiling)
+    for _ in pypto.loop(1, name="s0", idx_name="k"):
+        c.move(pypto.sub(a, b))
 
 
 def safe_json_load(file_path):
@@ -50,7 +59,7 @@ def get_out_put_path():
     return None
 
 
-def device_run():
+def device_run(is_run_add):
     device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
     torch.npu.set_device(int(device_id))
     tiling = 32
@@ -70,18 +79,27 @@ def device_run():
     outputs = [c_data]
     pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
     pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
+    if is_run_add:
+        add(pto_inputs[0], pto_inputs[1], pto_outputs[0], tiling)
+        pypto.runtime._device_synchronize()
+
+        golden = torch.ones((n, m)) * 3
+        assert torch.allclose(golden.int(), c_data.cpu(), atol=1e-5)
     
-    add(pto_inputs[0], pto_inputs[1], pto_outputs[0], tiling)
-    
-    pypto.runtime._device_synchronize()
-    golden = torch.ones((n, m)) * 3
-    assert torch.allclose(golden.int(), c_data.cpu(), atol=1e-5)
+    else:
+        sub(pto_inputs[0], pto_inputs[1], pto_outputs[0], tiling)
+        pypto.runtime._device_synchronize()
+
+        golden = torch.ones((n, m))
+        assert torch.allclose(golden.int(), c_data.cpu(), atol=1e-5)
 
     output_path = get_out_put_path()
     assert output_path
     merged_swimlane, error = safe_json_load(os.path.join(output_path, 'merged_swimlane.json'))
     assert not error
+    assert "traceEvents" in merged_swimlane
 
 
 def test_debug_mode():
-    device_run()
+    device_run(True)
+    device_run(False)
