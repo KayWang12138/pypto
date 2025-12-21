@@ -1,0 +1,72 @@
+# 编译安装
+
+## 前提条件
+
+- 环境准备：编译安装 PyPTO 项目前，请先参考[环境准备](docs/context/prepare_environment.md)完成基础环境搭建。
+
+## 通过 PyPI 安装
+
+PyPTO 已发布至 [PyPI](https://pypi.org/)，若不涉及对 PyPTO 的源码修改，可以通过 `pip` 命令直接安装：
+
+```bash
+# root 用户
+python3 -m pip install pypto
+
+# 非root 用户
+python3 -m pip install pypto --user
+```
+
+## 通过源码编译安装
+
+### 环境自检
+
+如您的开发环境可以正常访问 [cann-src-third-party](https://gitcode.com/cann-src-third-party)，则 PyPTO 编译所需的第三方开源软件会在编译过程中自动下载及编译。否则请参考[环境准备](docs/context/prepare_environment.md)中对 '第三方开源软件' 源码包准备的相关章节完成源码包准备，并设置如下环境变量：
+
+```bash
+export PYPTO_THIRD_PARTY_PATH=<path-to-thirdparty>
+```
+
+### 常规安装
+
+适用于生产环境或代码稳定后使用, 其安装后对 Python 源码的修改不会反映到已安装的 'pypto' 包中，对应命令如下:
+
+```bash
+# (可选) 设置 PYPTO_THIRD_PARTY_PATH, 若开发环境无法访问 cann-src-third-party
+export PYPTO_THIRD_PARTY_PATH=<path-to-thirdparty>
+
+# 执行编译及安装(root 用户)
+python3 -m pip install . --verbose
+
+# 执行编译及安装(非 root 用户)
+python3 -m pip install . --verbose --user
+```
+
+- `--verbose`: 会输出安装流程的基础详细信息（如下载的包版本, 安装路径，依赖解析结果等）；
+
+### 可编辑安装
+
+适用于开发调试时. 该模式会在 site-packages 中创建指向本地源码的软链接, 对 Python 源码的修改会即时生效, 无需重新安装，对应命令如下:
+
+```bash
+# (可选) 设置 PYPTO_THIRD_PARTY_PATH, 若开发环境无法访问 cann-src-third-party
+export PYPTO_THIRD_PARTY_PATH=<path-to-thirdparty>
+
+# 执行编译及安装(root 用户)
+python3 -m pip install -e . --verbose
+
+# 执行编译及安装(非 root 用户)
+python3 -m pip install -e . --verbose --user
+```
+
+- `-e`：即 `--editable` 的简写形式，标识采用可编辑安装模式；
+- `--verbose`: 会输出安装流程的基础详细信息（如下载的包版本, 安装路径，依赖解析结果等）；
+
+## 通过 Docker 镜像安装
+
+为了方便快速搭建环境，同样提供已完成 PyPTO 运行环境搭建的 Docker 镜像，详细使用请参考 [Docker README](docker/README.md)。
+
+Docker 运行命令：
+
+```bash
+<pypto-sourcecode-path>/docker/setup_docker_env.sh <docker-container-id>
+```
