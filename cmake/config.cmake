@@ -14,14 +14,26 @@
 ########################################################################################################################
 
 # Python3 分析
-if (NOT DEFINED Python3_EXECUTABLE)
-    # 当外部未指定 Python3 时, 一般是从 CMake 为入口触发的编译, 此时直接 find
+# 1. Python3_EXECUTABLE 用以标识 Python3 可执行文件路径, -D 指定的优先级高于环境变量;
+# 2. 刷新 CMake 内部变量 Python3_ROOT_DIR 值, 以便后续 find python 相关 package 使用(主要是 Development 组件);
+if (DEFINED Python3_EXECUTABLE)
+    get_filename_component(Python3_EXECUTABLE "${Python3_EXECUTABLE}" REALPATH)
+elseif (DEFINED ENV{Python3_EXECUTABLE})
+    get_filename_component(Python3_EXECUTABLE "$ENV{Python3_EXECUTABLE}" REALPATH)
+else ()
+    # 当外部未指定 Python3 时, 一般是从 CMake 为入口触发的编译, 此时直接 find.
     find_package(Python3 COMPONENTS Interpreter Development)
     if ("${Python3_EXECUTABLE}x" STREQUAL "x")
         message(FATAL_ERROR "Can't find python3 Interpreter.")
     endif ()
 endif ()
 message(STATUS "Python3_EXECUTABLE=${Python3_EXECUTABLE}")
+if (NOT (DEFINED Python3_ROOT_DIR OR DEFINED ENV{Python3_ROOT_DIR}))
+    get_filename_component(_Python3_ROOT_DIR "${Python3_EXECUTABLE}" DIRECTORY)
+    get_filename_component(_Python3_ROOT_DIR "${_Python3_ROOT_DIR}/../" REALPATH)
+    set(Python3_ROOT_DIR "${_Python3_ROOT_DIR}" CACHE INTERNAL "Python3 root path" FORCE)
+    message(STATUS "Python3_ROOT_DIR=${Python3_ROOT_DIR}")
+endif ()
 
 get_filename_component(_Py3CMakeFile "${PTO_FWK_BIN_ROOT}/_pypto_py3_env.cmake" REALPATH)
 PTO_Fwk_AnalysisPython3Environ(OUTPUT_FILE ${_Py3CMakeFile})
