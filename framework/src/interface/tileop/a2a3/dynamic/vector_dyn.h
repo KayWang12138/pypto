@@ -524,6 +524,9 @@ TILEOP void DynTrowminsingle_(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp,
     }
 
     constexpr uint16_t tmpRepeatStride = TBS * sizeof(T) / BLOCK_SIZE;
+    if ((srcRepeatStride < BLOCK_MAX_PER_REPEAT) || (tmpRepeatStride < BLOCK_MAX_PER_REPEAT)) {
+        return;
+    }
     if (srcRepeatStride >= BLOCK_MAX_PER_REPEAT && srcRepeatPerRow == 1 && remain > 0) {
         copy_ubuf_to_ubuf(tmp, src, 0, OS0, BLOCK_MAX_PER_REPEAT, srcRepeatStride - BLOCK_MAX_PER_REPEAT,
             tmpRepeatStride - BLOCK_MAX_PER_REPEAT);
