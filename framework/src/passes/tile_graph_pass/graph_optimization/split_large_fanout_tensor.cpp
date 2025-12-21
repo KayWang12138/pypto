@@ -20,6 +20,7 @@
 #define MODULE_NAME "SplitLargeFanoutTensor"
 
 namespace npu::tile_fwk {
+constexpr int64_t MULTIPLICATIVE_IDENTITYY = 1;
 Status SplitLargeFanoutTensor::RunOnFunction(Function &function) {
     APASS_LOG_INFO_F(Elements::Function, "===> Start SplitLargeFanoutTensor.");
     CollectLargeTensor(function);
@@ -52,7 +53,7 @@ Status SplitLargeFanoutTensor::LCM(int64_t x, int64_t y, int64_t &lcm) {
         APASS_LOG_ERROR_F(Elements::Tensor, "gcd is 0; gcd can't be 0.");
         return FAILED;
     } else {
-        lcm = x * y / gcd;
+        lcm = (x / gcd) * y;
         return SUCCESS;
     }
 }
@@ -360,8 +361,11 @@ void SplitLargeFanoutTensor::CollectLargeTensor(Function &function) {
     for (const auto &tMap : tensorMap) {
         for (const auto &logicalTensor : tMap.second) {
             // 对于每个tensor, 寻找满足前序为Assemble且后序为View的LargeTensor
-            auto producer = *logicalTensor->GetProducers().begin();
-            auto consumer = *logicalTensor->GetConsumers().begin();
+            auto producers = logicalTensor->GetProducers();
+            auto consumers = logicalTensor->GetConsumers();
+            if (producers.empty() || consumers.empty()) { break; }
+            auto producer = *producers.begin();
+            auto consumer = *consumers.begin();
             if (producer == nullptr || consumer == nullptr) { break; }
             if (producer->GetOpcode() == Opcode::OP_ASSEMBLE && consumer->GetOpcode() == Opcode::OP_VIEW) {
                 // 收集大Tensor, 形成Set{TensorPtr1, TensorPtr2, ...}
@@ -461,7 +465,7 @@ void SplitLargeFanoutTensor::TryToSplitLargeTensor(Function &function, const Sha
         
         auto multiply = [](const std::vector<int64_t>& vec) -> int64_t {
             return std::accumulate(
-                vec.begin(), vec.end(), static_cast<int64_t>(1), [](int64_t a, int64_t b) { return a * b; });
+                vec.begin(), vec.end(), MULTIPLICATIVE_IDENTITYY, [](int64_t a, int64_t b) { return a * b; });
         };
         int64_t overlapTotalArea = 0;
         for (const auto &overlap : overlaps) {

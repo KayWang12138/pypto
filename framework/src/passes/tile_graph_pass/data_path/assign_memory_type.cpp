@@ -27,7 +27,10 @@
 #define MODULE_NAME "AssignMemoryType"
 
 namespace npu::tile_fwk {
-
+constexpr int BUFFER_SIZE_THRESHOLD_RATIO = 2;
+constexpr int MEMORY_ALIGNMENT_BYTES = 32;
+const size_t UB_SIZE_THRESHOLD = Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB) / BUFFER_SIZE_THRESHOLD_RATIO;
+const size_t L1_SIZE_THRESHOLD = Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_L1) / BUFFER_SIZE_THRESHOLD_RATIO;
 Status AssignMemoryType::RunOnFunction(Function &function) {
     APASS_LOG_INFO_F(Elements::Function, "===> Start AssignMemoryType.");
     for (auto &op : function.Operations()) {
@@ -64,8 +67,6 @@ Status AssignMemoryType::RunOnFunction(Function &function) {
         AssignSpecialOpMemtype(op, infoBufferSize);
     }
     if (infoBufferSize) {
-        const size_t UB_SIZE_THRESHOLD = Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB) / 2;
-        const size_t L1_SIZE_THRESHOLD = Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_L1) / 2;
         APASS_LOG_INFO_F(Elements::Operation, "UB buffer size threshold %zu, L1 buffer size threshold %zu.",
             UB_SIZE_THRESHOLD, L1_SIZE_THRESHOLD);
     }
@@ -145,9 +146,11 @@ void AssignMemoryType::ProcessAmulBInput(Operation &operation, LogicalTensorPtr 
             continue;
         } else if (producerOpcode == Opcode::OP_VIEW) {
             auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(producerOp->GetOpAttribute().get());
-            MemoryType attrToType = viewOpAttribute->GetTo();
-            tensor->SetMemoryTypeOriginal(attrToType, true);
-            inserter.UpdateTensorTobeMap(tensor,operation, attrToType);
+            if (viewOpAttribute != nullptr) {
+                MemoryType attrToType = viewOpAttribute->GetTo();
+                tensor->SetMemoryTypeOriginal(attrToType, true);
+                inserter.UpdateTensorTobeMap(tensor,operation, attrToType);
+            }
             continue;
         }else if (producerOpcode == Opcode::OP_L1_TO_L0A || producerOpcode == Opcode::OP_L1_TO_L0_AT) {
             tensor->SetMemoryTypeOriginal(MemoryType::MEM_L0A, true);
@@ -164,6 +167,9 @@ void AssignMemoryType::ProcessAmulBInput(Operation &operation, LogicalTensorPtr 
 }
 void AssignMemoryType::ProcessViewwithSpecificMem(Operation &operation) {
     auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(operation.GetOpAttribute().get());
+    if (viewOpAttribute == nullptr) {
+        return;
+    }
     MemoryType attrToType = viewOpAttribute->GetTo();
     if(attrToType == MemoryType::MEM_UNKNOWN) {
         //跳过前端没有指定mem类型的view
@@ -188,14 +194,15 @@ void AssignMemoryType::ProcessViewwithSpecificMem(Operation &operation) {
 }
 
 void AssignMemoryType::AssignMemtypeForSplitReshape(Operation &op, const LogicalTensorPtr &input, const LogicalTensorPtr &output) {
-    const int UB_SIZE_THRESHOLD = static_cast<int>(Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB) * 0.5);
+    // const int UB_SIZE_THRESHOLD = static_cast<int>(Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB) / BUFFER_SIZE_THRESHOLD_RATIO);
     // 如果reshape前序是Assemble后接View，是SplitReshape处理的Reshape
     auto &producers = input->GetProducers();
     auto &consumers = output->GetConsumers();
+    if (producers.empty() || consumers.empty()) { return; }
     Operation* producer = *producers.begin();
     Operation* consumer = *consumers.begin();
     if (producer != nullptr && consumer != nullptr && producer->GetOpcode() == Opcode::OP_ASSEMBLE && consumer->GetOpcode() == Opcode::OP_VIEW) {
-        if (input->GetMemoryTypeOriginal() == MemoryType::MEM_UB && output->GetMemoryTypeOriginal() == MemoryType::MEM_UB && input->GetDataSize() <= UB_SIZE_THRESHOLD) {
+        if (input->GetMemoryTypeOriginal() == MemoryType::MEM_UB && output->GetMemoryTypeOriginal() == MemoryType::MEM_UB && (size_t) input->GetDataSize() <= UB_SIZE_THRESHOLD) {
             inserter.UpdateTensorTobeMap(input, op, MemoryType::MEM_UB);
             for (const auto &consumerOp : output->GetConsumers()) {
                 if (consumerOp->oOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
@@ -227,6 +234,9 @@ void AssignMemoryType::AssignOpViewTypeMemtype(Operation &op){
         auto &viewTypeOut = op.oOperand.front();
         auto inputMemType = inserter.GetMemoryTypeFromTensorTobeMap(viewTypeIn, op);
         auto outTobeMem = inserter.GetTobeDefault(viewTypeOut);
+        if (viewTypeIn->GetProducers().empty()) {
+            return;
+        }
         auto prod = *(viewTypeIn->GetProducers().begin());
         if (prod->GetOpcode() == Opcode::OP_VIEW) {
             viewTypeIn->SetMemoryTypeOriginal(viewTypeOut->GetMemoryTypeOriginal(), true);
@@ -234,7 +244,7 @@ void AssignMemoryType::AssignOpViewTypeMemtype(Operation &op){
             return;
         }
         if (inputMemType != viewTypeOut->GetMemoryTypeOriginal()) {
-            APASS_LOG_DEBUG_F(Elements::Operation, "OP_RESHAPE[%d] input: %s, output: %s.",
+            APASS_LOG_DEBUG_F(Elements::Operation, "OP_VIEW_TYPE[%d] input: %s, output: %s.",
                 op.opmagic, PrintTensorMem(viewTypeIn).c_str(), PrintTensorMem(viewTypeOut).c_str());
             inserter.UpdateTensorTobeMap(viewTypeIn, op, MemoryType::MEM_DEVICE_DDR);
             viewTypeOut->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, true);
@@ -295,15 +305,10 @@ void AssignMemoryType::AssignSpecialOpMemtype(Operation &op, bool &infoBufferSiz
 }
 
 void AssignMemoryType::UpdateOverSizedLocalBuffer(Operation &operation) {
-    const int UB_SIZE_THRESHOLD =
-        static_cast<int>(Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB) * 0.5);
-    const int L1_SIZE_THRESHOLD =
-        static_cast<int>(Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_L1) * 0.5);
-
     auto assembleOut = operation.GetOOperands().front();
     auto memType = assembleOut->GetMemoryTypeOriginal();
-    if (((memType == MemoryType::MEM_UB) && (assembleOut->GetDataSize() > UB_SIZE_THRESHOLD)) ||
-        ((memType == MemoryType::MEM_L1) && (assembleOut->GetDataSize() > L1_SIZE_THRESHOLD))) {
+    if (((memType == MemoryType::MEM_UB) && ((size_t) assembleOut->GetDataSize() > UB_SIZE_THRESHOLD)) ||
+        ((memType == MemoryType::MEM_L1) && ((size_t) assembleOut->GetDataSize() > L1_SIZE_THRESHOLD))) {
         assembleOut->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
         APASS_LOG_INFO_F(Elements::Operation, "%s[%d] output %d is oversized, set as MEM_DEVICE_DDR.",
             operation.GetOpcodeStr().c_str(), operation.GetOpMagic(), assembleOut->magic);
@@ -348,15 +353,19 @@ void AssignMemoryType::AssignMoveOpForAssemble(Operation &operation) {
             BriefMemoryTypeToString(fromType).c_str());
         tensor->SetMemoryTypeOriginal(fromType, true);
         auto assembleOpAttribute = dynamic_cast<AssembleOpAttribute *>(operation.GetOpAttribute().get());
-        assembleOpAttribute->SetFromType(fromType);
+        if (assembleOpAttribute != nullptr) {
+            assembleOpAttribute->SetFromType(fromType);
+        }
     }
     auto inputTensor = operation.GetIOperands().front();
     auto assembleOpAttribute = dynamic_cast<AssembleOpAttribute *>(operation.GetOpAttribute().get());
-    auto assembleOffset = assembleOpAttribute->GetToOffset();
-    bool unaligned = ((BytesOf(inputTensor->Datatype()) * assembleOffset.back()) % 32 != 0);
-    if(unaligned) {
-        auto outputTensor = operation.GetOOperands().front();
-        outputTensor -> SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR,true);
+    if (assembleOpAttribute != nullptr) {
+        auto assembleOffset = assembleOpAttribute->GetToOffset();
+        bool unaligned = ((BytesOf(inputTensor->Datatype()) * assembleOffset.back()) % MEMORY_ALIGNMENT_BYTES != 0);
+        if(unaligned) {
+            auto outputTensor = operation.GetOOperands().front();
+            outputTensor -> SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR,true);
+        }
     }
 }
 void AssignMemoryType::AssignMoveOpForView(Operation &operation) {
@@ -374,7 +383,7 @@ void AssignMemoryType::AssignMoveOpForView(Operation &operation) {
     }
     auto outputTensor = operation.GetOOperands().front();
     auto viewOffset = viewOpAttribute->GetFromOffset();
-    bool unaligned = ((BytesOf(outputTensor->Datatype()) * viewOffset.back()) % 32 != 0);
+    bool unaligned = ((BytesOf(outputTensor->Datatype()) * viewOffset.back()) % MEMORY_ALIGNMENT_BYTES != 0);
     for (size_t i = 0; i < operation.iOperand.size(); ++i) {
         auto &tensor = operation.iOperand[i];
         MemoryType toType = operation.oOperand.front()->GetMemoryTypeOriginal();
