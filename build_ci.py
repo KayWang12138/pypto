@@ -1036,29 +1036,24 @@ class BuildCtrl(CMakeParam):
 
     def py_clean(self):
         self.cmake_clean()
-        if not self.build.clean:
-            return
-        path_lst: List[Path] = [
-            Path(Path.cwd(), "output"),
-            Path(Path.cwd(), "kernel_meta"),
-            Path(self.src_root, "python/pypto.egg-info"),
-            Path(self.src_root, "python/pypto/__pycache__"),
-            Path(self.src_root, "python/pypto/op/__pycache__"),
-            Path(self.src_root, "python/pypto/op/__pycache__"),
-            Path(self.src_root, "python/lib"),  # edit 模式
-        ]
-        pkg_src: Path = Path(self.src_root, "python/pypto")
-        so_glob = pkg_src.glob(pattern=f"*.so")
-        so_path: List[Path] = [Path(p) for p in so_glob]
-        path_lst.extend(so_path)
-        for cache_dir in path_lst:
-            if not cache_dir.exists():
-                continue
-            logging.info("Clean Cache/Output Path(%s)", cache_dir)
-            if cache_dir.is_dir():
-                shutil.rmtree(cache_dir)
-            else:
-                os.remove(cache_dir)
+        if self.build.clean:
+            path_lst: List[Path] = [
+                Path(Path.cwd(), "output"),
+                Path(Path.cwd(), "kernel_meta"),
+                Path(self.src_root, "python/pypto.egg-info"),
+                Path(self.src_root, "python/pypto/__pycache__"),
+                Path(self.src_root, "python/pypto/op/__pycache__"),
+                Path(self.src_root, "python/pypto/op/__pycache__"),
+                Path(self.src_root, "python/lib"),  # edit 模式
+            ]
+            pkg_src: Path = Path(self.src_root, "python/pypto")
+            so_glob = pkg_src.glob(pattern=f"*.so")
+            so_path: List[Path] = [Path(p) for p in so_glob]
+            path_lst.extend(so_path)
+            for cache_dir in path_lst:
+                if cache_dir.exists():
+                    logging.info("Clean Cache/Output Path(%s)", cache_dir)
+                    shutil.rmtree(cache_dir)
 
     def cmake_configure(self):
         """CMake Configure 阶段流程.
