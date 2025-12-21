@@ -52,23 +52,25 @@ __aicore__ inline void TLoad(T dst, U src, C coordinate) {
         if constexpr (TileOp::IsConstContinous<T>() == true) {
             // 对于静态整块场景，将UB合成二维，GM保持五维
             constexpr auto tileH = TileOp::GetOutterAxisMergeResult<shapeSize, typename T::TileShape>();
-            constexpr auto tileW = Std::tuple_element<shapeSize - 1, typename T::TileShape>::type::value;
+            constexpr auto tileW = TileOp::GetTensorTileShapeDim<T, shapeSize - 1>();
             using ShapeDim5 = pto::Shape<-1, -1, -1, -1, -1>;
             using StrideDim5 = pto::Stride<-1, -1, -1, -1, -1>;
             using GlobalData = pto::GlobalTensor<SrcDtype, ShapeDim5, StrideDim5>;
+            constexpr auto constDstShape3 = TileOp::GetTensorShapeDim<T, 3, 5>();
+            constexpr auto constDstShape4 = TileOp::GetTensorShapeDim<T, 4, 5>();
             GlobalData src0Global((__gm__ SrcDtype *)(src.GetAddr() + gmOffset),
-                pto::Shape(dstShape0, dstShape1, dstShape2, dstShape3, dstShape4),
+                pto::Shape(dstShape0, dstShape1, dstShape2, constDstShape3, constDstShape4),
                 pto::Stride(srcStride0, srcStride1, srcStride2, srcStride3, srcStride4));
-            using TileData =
-                pto::Tile<pto::TileType::Vec, DstDtype, tileH, tileW, pto::BLayout::RowMajor, dstShape3, dstShape4>;
+            using TileData = pto::Tile<pto::TileType::Vec, DstDtype, tileH, tileW, pto::BLayout::RowMajor,
+                constDstShape3, constDstShape4>;
             TileData dstUB;
             pto::TASSIGN(dstUB, (uint64_t)dst.GetAddr());
             pto::TLOAD(dstUB, src0Global);
             return;
         }
 
-        constexpr auto tileH = TileOp::GetTileShapeDim<3, 5, shapeSize, typename T::TileShape>();
-        constexpr auto tileW = TileOp::GetTileShapeDim<4, 5, shapeSize, typename T::TileShape>();
+        constexpr auto tileH = TileOp::GetTensorTileShapeDim<T, 3, 5>();
+        constexpr auto tileW = TileOp::GetTensorTileShapeDim<T, 4, 5>();
         for (size_t index0 = 0; index0 < dstShape0; ++index0) {
             for (size_t index1 = 0; index1 < dstShape1; ++index1) {
                 for (size_t index2 = 0; index2 < dstShape2; ++index2) {
@@ -122,23 +124,25 @@ __aicore__ inline void TStore(T dst, U src, C coordinate) {
         if constexpr (TileOp::IsConstContinous<U>() == true) {
             // 对于静态整块场景，将UB合成二维，GM保持五维
             constexpr auto tileH = TileOp::GetOutterAxisMergeResult<shapeSize, typename U::TileShape>();
-            constexpr auto tileW = Std::tuple_element<shapeSize - 1, typename U::TileShape>::type::value;
+            constexpr auto tileW = TileOp::GetTensorTileShapeDim<U, shapeSize - 1>();
             using ShapeDim5 = pto::Shape<-1, -1, -1, -1, -1>;
             using StrideDim5 = pto::Stride<-1, -1, -1, -1, -1>;
             using GlobalData = pto::GlobalTensor<DstDtype, ShapeDim5, StrideDim5>;
+            constexpr auto constSrcShape3 = TileOp::GetTensorShapeDim<U, 3, 5>();
+            constexpr auto constSrcShape4 = TileOp::GetTensorShapeDim<U, 4, 5>();
             GlobalData dstGlobal((__gm__ DstDtype *)(dst.GetAddr() + gmOffset),
-                pto::Shape(srcShape0, srcShape1, srcShape2, srcShape3, srcShape4),
+                pto::Shape(srcShape0, srcShape1, srcShape2, constSrcShape3, constSrcShape4),
                 pto::Stride(dstStride0, dstStride1, dstStride2, dstStride3, dstStride4));
-            using TileData =
-                pto::Tile<pto::TileType::Vec, SrcDtype, tileH, tileW, pto::BLayout::RowMajor, srcShape3, srcShape4>;
+            using TileData = pto::Tile<pto::TileType::Vec, SrcDtype, tileH, tileW, pto::BLayout::RowMajor,
+                constSrcShape3, constSrcShape4>;
             TileData srcUB;
             pto::TASSIGN(srcUB, (uint64_t)src.GetAddr());
             pto::TSTORE(dstGlobal, srcUB);
             return;
         }
 
-        constexpr auto tileH = TileOp::GetTileShapeDim<3, 5, shapeSize, typename U::TileShape>();
-        constexpr auto tileW = TileOp::GetTileShapeDim<4, 5, shapeSize, typename U::TileShape>();
+        constexpr auto tileH = TileOp::GetTensorTileShapeDim<U, 3, 5>();
+        constexpr auto tileW = TileOp::GetTensorTileShapeDim<U, 4, 5>();
         for (size_t index0 = 0; index0 < srcShape0; ++index0) {
             for (size_t index1 = 0; index1 < srcShape1; ++index1) {
                 for (size_t index2 = 0; index2 < srcShape2; ++index2) {

@@ -56,6 +56,28 @@ __aicore__ inline constexpr TileShape<Ts...> MakeTileShape(const Ts &...t) {
     return {t...};
 }
 
+template <typename Tuple, size_t index, size_t expect_size = Std::tuple_size<Tuple>::value, size_t default_value = 1>
+__aicore__ inline constexpr size_t GetTupleElement() {
+    static_assert(index < expect_size, "The index of tuple is out of range.");
+    constexpr auto size = Std::tuple_size<Tuple>::value;
+    if constexpr (size < expect_size && index < (expect_size - size)) {
+        return default_value;
+    } else {
+        return Std::tuple_element<index + size - expect_size, Tuple>::type::value;
+    }
+}
+
+template <typename Tuple, size_t index, size_t expect_size = Std::tuple_size<Tuple>::value, size_t default_value = 1>
+__aicore__ inline constexpr size_t GetTupleElement(const Tuple &t) {
+    static_assert(index < expect_size, "The index of tuple is out of range.");
+    constexpr auto size = Std::tuple_size<Tuple>::value;
+    if constexpr (size < expect_size && index < (expect_size - size)) {
+        return default_value;
+    } else {
+        return Std::get<index + size - expect_size>(t);
+    }
+}
+
 template <typename ShapeType, typename StrideType, typename TileShapeType>
 struct Layout : private Std::tuple<ShapeType, StrideType, TileShapeType> {
     using Shape = ShapeType;
@@ -84,12 +106,10 @@ struct Layout : private Std::tuple<ShapeType, StrideType, TileShapeType> {
 
     template <size_t index, size_t expect_size = Std::tuple_size<ShapeType>::value>
     __aicore__ inline constexpr decltype(auto) GetShapeDim() const {
-        static_assert(index < expect_size, "The index of Shape is out of range.");
-        constexpr auto size = Std::tuple_size<ShapeType>::value;
         if constexpr (Std::IsIntegralConstantV<ShapeType> == true) {
-            return GetStaticDim<ShapeType, index, expect_size>();
+            return GetTupleElement<ShapeType, index, expect_size, 1>();
         } else {
-            return GetDynDim<ShapeType, index, expect_size>(GetShape());
+            return GetTupleElement<ShapeType, index, expect_size, 1>(GetShape());
         }
     }
 
@@ -105,12 +125,10 @@ struct Layout : private Std::tuple<ShapeType, StrideType, TileShapeType> {
 
     template <size_t index, size_t expect_size = Std::tuple_size<StrideType>::value>
     __aicore__ inline constexpr decltype(auto) GetStrideDim() const {
-        static_assert(index < expect_size, "The index of Stride is out of range.");
-        constexpr auto size = Std::tuple_size<StrideType>::value;
         if constexpr (Std::IsIntegralConstantV<StrideType> == true) {
-            return GetStaticDim<StrideType, index, expect_size>();
+            return GetTupleElement<StrideType, index, expect_size, 0>();
         } else {
-            return GetDynDim<StrideType, index, expect_size, Kind::STRIDE>(GetStride());
+            return GetTupleElement<StrideType, index, expect_size, 0>(GetStride());
         }
     }
 
@@ -126,12 +144,10 @@ struct Layout : private Std::tuple<ShapeType, StrideType, TileShapeType> {
 
     template <size_t index, size_t expect_size = Std::tuple_size<TileShapeType>::value>
     __aicore__ inline constexpr decltype(auto) GetTileShapeDim() const {
-        static_assert(index < expect_size, "The index of TileShape is out of range.");
-        constexpr auto size = Std::tuple_size<TileShapeType>::value;
         if constexpr (Std::IsIntegralConstantV<TileShapeType> == true) {
-            return GetStaticDim<TileShapeType, index, expect_size>();
+            return GetTupleElement<TileShapeType, index, expect_size, 0>();
         } else {
-            return GetDynDim<TileShapeType, index, expect_size, Kind::TILE>(GetTileShape());
+            return GetTupleElement<TileShapeType, index, expect_size, 0>(GetTileShape());
         }
     }
 
@@ -149,17 +165,15 @@ struct Layout : private Std::tuple<ShapeType, StrideType, TileShapeType> {
         auto s2 = GetStrideDim<DIM_3RD, expect_size>();
         auto s3 = GetStrideDim<DIM_4TH, expect_size>();
         auto s4 = GetStrideDim<DIM_5TH, expect_size>();
-        auto c0 = GetDynDim<Tuple, DIM_1ST, expect_size, Kind::OTHER>(coordinate);
-        auto c1 = GetDynDim<Tuple, DIM_2ND, expect_size, Kind::OTHER>(coordinate);
-        auto c2 = GetDynDim<Tuple, DIM_3RD, expect_size, Kind::OTHER>(coordinate);
-        auto c3 = GetDynDim<Tuple, DIM_4TH, expect_size, Kind::OTHER>(coordinate);
-        auto c4 = GetDynDim<Tuple, DIM_5TH, expect_size, Kind::OTHER>(coordinate);
+        auto c0 = GetTupleElement<Tuple, DIM_1ST, expect_size, 0>(coordinate);
+        auto c1 = GetTupleElement<Tuple, DIM_2ND, expect_size, 0>(coordinate);
+        auto c2 = GetTupleElement<Tuple, DIM_3RD, expect_size, 0>(coordinate);
+        auto c3 = GetTupleElement<Tuple, DIM_4TH, expect_size, 0>(coordinate);
+        auto c4 = GetTupleElement<Tuple, DIM_5TH, expect_size, 0>(coordinate);
         return s4 * c4 + s3 * c3 + s2 * c2 + s1 * c1 + s0 * c0;
     }
 
 private:
-    enum class Kind : uint8_t { SHAPE = 0, STRIDE, TILE, OTHER };
-
     template <size_t index, size_t I, size_t... Is, typename Tuple>
     __aicore__ inline constexpr decltype(auto) GetValue(const Tuple &t) {
         auto tupleEle = Std::get<index>(t);
@@ -180,36 +194,6 @@ private:
     template <size_t index, typename Tuple>
     __aicore__ inline constexpr decltype(auto) GetValue(const Tuple &t) const {
         return Std::get<index>(t);
-    }
-
-    template <typename Tuple, size_t index, size_t expect_size = Std::tuple_size<Tuple>::value, Kind k = Kind::SHAPE>
-    __aicore__ inline constexpr decltype(auto) GetStaticDim() const {
-        static_assert(index < expect_size, "Out of range.");
-        constexpr auto size = Std::tuple_size<Tuple>::value;
-        if constexpr (size >= expect_size || index >= (expect_size - size)) {
-            return Std::tuple_element<index + size - expect_size, Tuple>::type::value;
-        } else {
-            if constexpr (k == Kind::SHAPE) {
-                return 1;
-            } else {
-                return 0;
-            }
-        }
-    }
-
-    template <typename Tuple, size_t index, size_t expect_size = Std::tuple_size<Tuple>::value, Kind k = Kind::SHAPE>
-    __aicore__ inline constexpr decltype(auto) GetDynDim(const Tuple &t) const {
-        static_assert(index < expect_size, "Out of range.");
-        constexpr auto size = Std::tuple_size<Tuple>::value;
-        if constexpr (size >= expect_size || index >= (expect_size - size)) {
-            return Std::get<index + size - expect_size>(t);
-        } else {
-            if constexpr (k == Kind::SHAPE) {
-                return 1;
-            } else {
-                return 0;
-            }
-        }
     }
 };
 
@@ -231,6 +215,21 @@ constexpr bool is_layout_v = is_layout<T>::value;
 template <typename StrideType>
 __aicore__ inline constexpr auto GetOuterStride() {
     return Std::tuple_element<0, StrideType>::type::value;
+}
+
+template <typename T, size_t index, size_t expect_size = Std::tuple_size<typename T::Shape>::value>
+__aicore__ inline constexpr size_t GetTensorShapeDim() {
+    return GetTupleElement<typename T::Shape, index, expect_size, 1>();
+}
+
+template <typename T, size_t index, size_t expect_size = Std::tuple_size<typename T::Stride>::value>
+__aicore__ inline constexpr size_t GetTensorStrideDim() {
+    return GetTupleElement<typename T::Stride, index, expect_size, 0>();
+}
+
+template <typename T, size_t index, size_t expect_size = Std::tuple_size<typename T::TileShape>::value>
+__aicore__ inline constexpr size_t GetTensorTileShapeDim() {
+    return GetTupleElement<typename T::TileShape, index, expect_size, 1>();
 }
 
 template <int leftAxis, int rightAxis, typename Shape>
@@ -275,60 +274,22 @@ __aicore__ inline constexpr size_t GetAnyAxisMergeResult() {
 
 template <size_t shapeSize, typename Shape>
 __aicore__ inline constexpr size_t GetNonFirstAxisMergeResult() {
-    if constexpr (shapeSize == 5) {
-        constexpr auto n1 = Std::tuple_element<DIM_2ND, Shape>::type::value;
-        constexpr auto n2 = Std::tuple_element<DIM_3RD, Shape>::type::value;
-        constexpr auto n3 = Std::tuple_element<DIM_4TH, Shape>::type::value;
-        constexpr auto n4 = Std::tuple_element<DIM_5TH, Shape>::type::value;
-        return n1 * n2 * n3 * n4;
-    }
-    if constexpr (shapeSize == 4) {
-        constexpr auto n1 = Std::tuple_element<DIM_2ND, Shape>::type::value;
-        constexpr auto n2 = Std::tuple_element<DIM_3RD, Shape>::type::value;
-        constexpr auto n3 = Std::tuple_element<DIM_4TH, Shape>::type::value;
-        return n1 * n2 * n3;
-    }
-    if constexpr (shapeSize == 3) {
-        constexpr auto n1 = Std::tuple_element<DIM_2ND, Shape>::type::value;
-        constexpr auto n2 = Std::tuple_element<DIM_3RD, Shape>::type::value;
-        return n1 * n2;
-    }
-    return 1;
+    constexpr size_t expectSize = 5;
+    constexpr auto n1 = GetTupleElement<Shape, DIM_2ND, expectSize, 1>();
+    constexpr auto n2 = GetTupleElement<Shape, DIM_3RD, expectSize, 1>();
+    constexpr auto n3 = GetTupleElement<Shape, DIM_4TH, expectSize, 1>();
+    constexpr auto n4 = GetTupleElement<Shape, DIM_5TH, expectSize, 1>();
+    return n1 * n2 * n3 * n4;
 }
 
 template <size_t shapeSize, typename Shape>
 __aicore__ inline constexpr size_t GetOutterAxisMergeResult() {
-    if constexpr (shapeSize == 5) {
-        constexpr auto n0 = Std::tuple_element<DIM_1ST, Shape>::type::value;
-        constexpr auto n1 = Std::tuple_element<DIM_2ND, Shape>::type::value;
-        constexpr auto n2 = Std::tuple_element<DIM_3RD, Shape>::type::value;
-        constexpr auto n3 = Std::tuple_element<DIM_4TH, Shape>::type::value;
-        return n0 * n1 * n2 * n3;
-    }
-    if constexpr (shapeSize == 4) {
-        constexpr auto n0 = Std::tuple_element<DIM_1ST, Shape>::type::value;
-        constexpr auto n1 = Std::tuple_element<DIM_2ND, Shape>::type::value;
-        constexpr auto n2 = Std::tuple_element<DIM_3RD, Shape>::type::value;
-        return n0 * n1 * n2;
-    }
-    if constexpr (shapeSize == 3) {
-        constexpr auto n0 = Std::tuple_element<DIM_1ST, Shape>::type::value;
-        constexpr auto n1 = Std::tuple_element<DIM_2ND, Shape>::type::value;
-        return n0 * n1;
-    }
-    if constexpr (shapeSize == 2) {
-        return Std::tuple_element<DIM_1ST, Shape>::type::value;
-    }
-    return 1;
-}
-
-template <size_t index, size_t expect_size, size_t shapeSize, typename Shape>
-__aicore__ inline constexpr size_t GetTileShapeDim() {
-    static_assert(index < expect_size, "Out of range.");
-    if constexpr (shapeSize >= expect_size || index >= (expect_size - shapeSize)) {
-        return Std::tuple_element<index + shapeSize - expect_size, Shape>::type::value;
-    }
-    return 1;
+    constexpr size_t expectSize = 5;
+    constexpr auto n0 = GetTupleElement<Shape, DIM_1ST, expectSize, 1>();
+    constexpr auto n1 = GetTupleElement<Shape, DIM_2ND, expectSize, 1>();
+    constexpr auto n2 = GetTupleElement<Shape, DIM_3RD, expectSize, 1>();
+    constexpr auto n3 = GetTupleElement<Shape, DIM_4TH, expectSize, 1>();
+    return n0 * n1 * n2 * n3;
 }
 
 template <typename T0>
@@ -393,8 +354,7 @@ using DynLayout5Dim = TileOp::Layout<Shape5Dim, Stride5Dim, TileOp::TileShape<si
 
 // common Local layouts
 template <size_t TileW>
-using LocalLayout1Dim = TileOp::Layout<Shape1Dim, TileOp::Stride<Std::Int<1>>,
-    TileOp::TileShape<Std::Int<TileW>>>;
+using LocalLayout1Dim = TileOp::Layout<Shape1Dim, TileOp::Stride<Std::Int<1>>, TileOp::TileShape<Std::Int<TileW>>>;
 
 template <size_t TileH, size_t TileW>
 using LocalLayout2Dim = TileOp::Layout<Shape2Dim, TileOp::Stride<Std::Int<TileW>, Std::Int<1>>,
@@ -416,6 +376,10 @@ using LocalLayout5Dim = TileOp::Layout<Shape5Dim,
     TileOp::TileShape<Std::Int<TileS>, Std::Int<TileN>, Std::Int<TileD>, Std::Int<TileH>, Std::Int<TileW>>>;
 
 // common static layouts
+template <size_t W, size_t TileW>
+using StaticLayout1Dim =
+    TileOp::Layout<TileOp::Shape<Std::Int<W>>, TileOp::Stride<Std::Int<1>>, TileOp::TileShape<Std::Int<TileW>>>;
+
 template <size_t H, size_t W, size_t TileH, size_t TileW>
 using StaticLayout2Dim = TileOp::Layout<TileOp::Shape<Std::Int<H>, Std::Int<W>>,
     TileOp::Stride<Std::Int<TileW>, Std::Int<1>>, TileOp::TileShape<Std::Int<TileH>, Std::Int<TileW>>>;

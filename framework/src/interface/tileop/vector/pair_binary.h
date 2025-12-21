@@ -57,9 +57,9 @@ TILEOP constexpr int GetOneDimensionTileSize() {
         }
     } else {
         if constexpr (isHeight) {
-            return TileOp::GetTileShapeDim<3, 5, shapeSize, typename T0::TileShape>();
+            return TileOp::GetTensorTileShapeDim<T0, 3, 5>();
         } else {
-            return TileOp::GetTileShapeDim<4, 5, shapeSize, typename T0::TileShape>();
+            return TileOp::GetTensorTileShapeDim<T0, 4, 5>();
         }
     }
 }

@@ -44,11 +44,11 @@ TILEOP void TgatherElement(T0 dst, T1 src0, T2 src1) {
     auto n2DstStride = dstLayout.template GetStrideDim<2, expectSize>();
     auto n3DstStride = dstLayout.template GetStrideDim<3, expectSize>();
 
-    constexpr auto dstTileH = TileOp::GetTileShapeDim<3, 5, shapeSize, typename T0::TileShape>();
-    constexpr auto dstTileW = TileOp::GetTileShapeDim<4, 5, shapeSize, typename T0::TileShape>();
-    constexpr auto srcTileW = TileOp::GetTileShapeDim<4, 5, shapeSize, typename T1::TileShape>();
-    constexpr auto idxTileH = TileOp::GetTileShapeDim<3, 5, shapeSize, typename T2::TileShape>();
-    constexpr auto idxTileW = TileOp::GetTileShapeDim<4, 5, shapeSize, typename T2::TileShape>();
+    constexpr auto dstTileH = TileOp::GetTensorTileShapeDim<T0, 3, 5>();
+    constexpr auto dstTileW = TileOp::GetTensorTileShapeDim<T0, 4, 5>();
+    constexpr auto srcTileW = TileOp::GetTensorTileShapeDim<T1, 4, 5>();
+    constexpr auto idxTileH = TileOp::GetTensorTileShapeDim<T2, 3, 5>();
+    constexpr auto idxTileW = TileOp::GetTensorTileShapeDim<T2, 4, 5>();
 
     constexpr bool scalarFlag = (sizeof(typename T2::Type) == 8) ? true : false;
     set_flag(PIPE_V, PIPE_S, EVENT_ID7);

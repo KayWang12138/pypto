@@ -20,12 +20,9 @@
 
 template <int axis, int offset, int isLargest, typename T0, typename T1>
 TILEOP void TBitSort(T0 dst, T1 src) {
-    using ShapeValueType = typename Std::tuple_element<0, typename T1::Shape>::type;
-    constexpr auto srcShapeSize = Std::tuple_size<typename T1::Shape>::value;
-    constexpr auto dstShapeSize = Std::tuple_size<typename T0::Shape>::value;
-    constexpr auto dstTileW = Std::tuple_element<dstShapeSize - 1, typename T0::TileShape>::type::value / 2;
-    constexpr auto tmpTileW = dstTileW / 2;
     constexpr size_t expectSize = 5;
+    constexpr auto dstTileW = TileOp::GetTensorTileShapeDim<T0, 4, expectSize>() / 2;
+    constexpr auto tmpTileW = dstTileW / 2;
     const auto dstLayout = dst.GetLayout();
     auto dstShape0 = dstLayout.template GetShapeDim<0, expectSize>();
     auto dstShape1 = dstLayout.template GetShapeDim<1, expectSize>();
@@ -39,7 +36,7 @@ TILEOP void TBitSort(T0 dst, T1 src) {
     auto dstStride1 = dstLayout.template GetStrideDim<1, expectSize>();
     auto dstStride2 = dstLayout.template GetStrideDim<2, expectSize>();
     auto dstStride3 = dstLayout.template GetStrideDim<3, expectSize>();
-    constexpr auto dstTileH = Std::tuple_element<dstShapeSize - 2, typename T0::TileShape>::type::value;
+    constexpr auto dstTileH = TileOp::GetTensorTileShapeDim<T0, 3, expectSize>();
 
     const auto srcLayout = src.GetLayout();
     auto srcShape3 = srcLayout.template GetShapeDim<3, expectSize>();
@@ -48,8 +45,8 @@ TILEOP void TBitSort(T0 dst, T1 src) {
     auto srcStride1 = srcLayout.template GetStrideDim<1, expectSize>();
     auto srcStride2 = srcLayout.template GetStrideDim<2, expectSize>();
     auto srcStride3 = srcLayout.template GetStrideDim<3, expectSize>();
-    constexpr auto srcTileH = Std::tuple_element<srcShapeSize - 2, typename T1::TileShape>::type::value;
-    constexpr auto srcTileW = Std::tuple_element<srcShapeSize - 1, typename T1::TileShape>::type::value;
+    constexpr auto srcTileH = TileOp::GetTensorTileShapeDim<T1, 3, expectSize>();
+    constexpr auto srcTileW = TileOp::GetTensorTileShapeDim<T1, 4, expectSize>();
     constexpr auto srcTypeSize = sizeof(typename T1::Type);
     for (size_t n0Index = 0; n0Index < dstShape0; ++n0Index) {
         for (size_t n1Index = 0; n1Index < dstShape1; ++n1Index) {
@@ -101,8 +98,6 @@ TILEOP void TBitSort(T0 dst, T1 src) {
 
 template <int axis, int k, int isLargest, typename T0, typename T1>
 TILEOP void TMrgSort(T0 dst, T1 src) {
-    constexpr auto srcShapeSize = Std::tuple_size<typename T1::Shape>::value;
-    constexpr auto dstShapeSize = Std::tuple_size<typename T0::Shape>::value;
     constexpr size_t expectSize = 5;
     const auto dstLayout = dst.GetLayout();
     auto dstShape0 = dstLayout.template GetShapeDim<0, expectSize>();
@@ -117,8 +112,8 @@ TILEOP void TMrgSort(T0 dst, T1 src) {
     auto dstStride1 = dstLayout.template GetStrideDim<1, expectSize>();
     auto dstStride2 = dstLayout.template GetStrideDim<2, expectSize>();
     auto dstStride3 = dstLayout.template GetStrideDim<3, expectSize>();
-    constexpr auto dstTileH = Std::tuple_element<dstShapeSize - 2, typename T0::TileShape>::type::value;
-    constexpr auto dstTileW = Std::tuple_element<dstShapeSize - 1, typename T0::TileShape>::type::value;
+    constexpr auto dstTileH = TileOp::GetTensorTileShapeDim<T0, 3, expectSize>();
+    constexpr auto dstTileW = TileOp::GetTensorTileShapeDim<T0, 4, expectSize>();
 
     const auto srcLayout = src.GetLayout();
     auto srcShape3 = srcLayout.template GetShapeDim<3, expectSize>();
@@ -127,8 +122,8 @@ TILEOP void TMrgSort(T0 dst, T1 src) {
     auto srcStride1 = srcLayout.template GetStrideDim<1, expectSize>();
     auto srcStride2 = srcLayout.template GetStrideDim<2, expectSize>();
     auto srcStride3 = srcLayout.template GetStrideDim<3, expectSize>();
-    constexpr auto srcTileH = Std::tuple_element<srcShapeSize - 2, typename T1::TileShape>::type::value;
-    constexpr auto srcTileW = Std::tuple_element<srcShapeSize - 1, typename T1::TileShape>::type::value / 2;
+    constexpr auto srcTileH = TileOp::GetTensorTileShapeDim<T1, 3, expectSize>();
+    constexpr auto srcTileW = TileOp::GetTensorTileShapeDim<T1, 4, expectSize>() / 2;
     constexpr auto srcTypeSize = sizeof(typename T1::Type);
     uint32_t totalNum = srcTileW / 2;
     srcShape4 = srcShape4 - (srcShape4 + 31) / 32 * 32 / 3 * 2;
@@ -236,13 +231,9 @@ TILEOP void TMrgSort(T0 dst, T1 src) {
 
 template <int k, int validBit, typename T0, typename T1, typename T2, typename T3, typename T4, typename T5>
 TILEOP void TTiledMrgSort(T0 dst, T1 src1, T2 src2, T3 src3, T4 src4, T5 tmp) {
-    constexpr auto tmpShapeSize = Std::tuple_size<typename T5::Shape>::value;
-    constexpr auto dstShapeSize = Std::tuple_size<typename T0::Shape>::value;
-    constexpr auto src1ShapeSize = Std::tuple_size<typename T1::Shape>::value;
-    constexpr auto src4ShapeSize = Std::tuple_size<typename T4::Shape>::value;
-    constexpr auto tmpTileH = Std::tuple_element<tmpShapeSize - 2, typename T5::TileShape>::type::value;
-    constexpr auto tmpTileW = Std::tuple_element<tmpShapeSize - 1, typename T5::TileShape>::type::value;
     constexpr size_t expectSize = 5;
+    constexpr auto tmpTileH = TileOp::GetTensorTileShapeDim<T5, 3, expectSize>();
+    constexpr auto tmpTileW = TileOp::GetTensorTileShapeDim<T5, 4, expectSize>();;
     const auto dstTiledSortLayout = dst.GetLayout();
     auto dstShape0 = dstTiledSortLayout.template GetShapeDim<0, expectSize>();
     auto dstShape1 = dstTiledSortLayout.template GetShapeDim<1, expectSize>();
@@ -254,7 +245,7 @@ TILEOP void TTiledMrgSort(T0 dst, T1 src1, T2 src2, T3 src3, T4 src4, T5 tmp) {
     auto dstStride2 = dstTiledSortLayout.template GetStrideDim<2, expectSize>();
     auto dstStride3 = dstTiledSortLayout.template GetStrideDim<3, expectSize>();
 
-    constexpr auto dstTileW = Std::tuple_element<dstShapeSize - 1, typename T0::TileShape>::type::value;
+    constexpr auto dstTileW = TileOp::GetTensorTileShapeDim<T0, 4, expectSize>();
 
     const auto src1Layout = src1.GetLayout();
 
@@ -263,7 +254,7 @@ TILEOP void TTiledMrgSort(T0 dst, T1 src1, T2 src2, T3 src3, T4 src4, T5 tmp) {
     auto src1Stride1 = src1Layout.template GetStrideDim<1, expectSize>();
     auto src1Stride2 = src1Layout.template GetStrideDim<2, expectSize>();
     auto src1Stride3 = src1Layout.template GetStrideDim<3, expectSize>();
-    constexpr auto src1TileW = Std::tuple_element<src1ShapeSize - 1, typename T1::TileShape>::type::value;
+    constexpr auto src1TileW = TileOp::GetTensorTileShapeDim<T1, 4, expectSize>();
 
     const auto src2Layout = src2.GetLayout();
     auto src2Shape4 = src2Layout.template GetShapeDim<4, expectSize>();
@@ -271,7 +262,7 @@ TILEOP void TTiledMrgSort(T0 dst, T1 src1, T2 src2, T3 src3, T4 src4, T5 tmp) {
     auto src2Stride1 = src2Layout.template GetStrideDim<1, expectSize>();
     auto src2Stride2 = src2Layout.template GetStrideDim<2, expectSize>();
     auto src2Stride3 = src2Layout.template GetStrideDim<3, expectSize>();
-    constexpr auto src2TileW = Std::tuple_element<src1ShapeSize - 1, typename T2::TileShape>::type::value;
+    constexpr auto src2TileW = TileOp::GetTensorTileShapeDim<T2, 4, expectSize>();
 
     const auto src3Layout = src3.GetLayout();
     auto src3Shape4 = src3Layout.template GetShapeDim<4, expectSize>();
@@ -279,7 +270,7 @@ TILEOP void TTiledMrgSort(T0 dst, T1 src1, T2 src2, T3 src3, T4 src4, T5 tmp) {
     auto src3Stride1 = src3Layout.template GetStrideDim<1, expectSize>();
     auto src3Stride2 = src3Layout.template GetStrideDim<2, expectSize>();
     auto src3Stride3 = src3Layout.template GetStrideDim<3, expectSize>();
-    constexpr auto src3TileW = Std::tuple_element<src1ShapeSize - 1, typename T3::TileShape>::type::value;
+    constexpr auto src3TileW = TileOp::GetTensorTileShapeDim<T3, 4, expectSize>();
 
     const auto src4Layout = src4.GetLayout();
 
@@ -288,7 +279,7 @@ TILEOP void TTiledMrgSort(T0 dst, T1 src1, T2 src2, T3 src3, T4 src4, T5 tmp) {
     auto src4Stride1 = src4Layout.template GetStrideDim<1, expectSize>();
     auto src4Stride2 = src4Layout.template GetStrideDim<2, expectSize>();
     auto src4Stride3 = src4Layout.template GetStrideDim<3, expectSize>();
-    constexpr auto src4TileW = Std::tuple_element<src4ShapeSize - 1, typename T4::TileShape>::type::value;
+    constexpr auto src4TileW = TileOp::GetTensorTileShapeDim<T4, 4, expectSize>();
 
     constexpr auto srcTypeSize = sizeof(typename T1::Type);
 

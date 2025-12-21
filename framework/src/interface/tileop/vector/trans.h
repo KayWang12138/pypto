@@ -20,9 +20,6 @@
 
 template <typename T0, typename T1, typename T2>
 TILEOP void TTrans(T0 dst, T1 src, T2 tmp) {
-    using ShapeValueType = typename Std::tuple_element<0, typename T0::Shape>::type;
-    constexpr auto shapeSize0 = Std::tuple_size<typename T0::Shape>::value;
-    constexpr auto shapeSize1 = Std::tuple_size<typename T1::Shape>::value;
     constexpr size_t expectSize = 5;
     const auto dstLayout = dst.GetLayout();
     const auto srcLayout = src.GetLayout();
@@ -52,14 +49,13 @@ TILEOP void TTrans(T0 dst, T1 src, T2 tmp) {
     auto srcStride1 = srcLayout.template GetStrideDim<1, expectSize>();
     auto srcStride2 = srcLayout.template GetStrideDim<2, expectSize>();
 
-    constexpr auto dstTileH = Std::tuple_element<shapeSize0 - 2, typename T0::TileShape>::type::value;
-    constexpr auto dstTileW = Std::tuple_element<shapeSize0 - 1, typename T0::TileShape>::type::value;
+    constexpr auto dstTileH = TileOp::GetTensorTileShapeDim<T0, 3, expectSize>();
+    constexpr auto dstTileW = TileOp::GetTensorTileShapeDim<T0, 4, expectSize>();
 
-    constexpr auto srcTileH = Std::tuple_element<shapeSize1 - 2, typename T1::TileShape>::type::value;
-    constexpr auto srcTileW = Std::tuple_element<shapeSize1 - 1, typename T1::TileShape>::type::value;
+    constexpr auto srcTileH = TileOp::GetTensorTileShapeDim<T1, 3, expectSize>();;
+    constexpr auto srcTileW = TileOp::GetTensorTileShapeDim<T1, 4, expectSize>();
 
-    constexpr unsigned yTileSizeElem = (sizeof(typename T0::Type) == 1) ? 32 : 16;
-    constexpr auto tmpTileW = (dstTileW + yTileSizeElem - 1) / yTileSizeElem * yTileSizeElem;
+    constexpr unsigned tmpTileW = (sizeof(typename T0::Type) == 1) ? 32 : 16;
 
     using DstTileDefine =
         pto::Tile<pto::TileType::Vec, typename T0::Type, dstTileH, dstTileW, pto::BLayout::RowMajor, -1, -1>;

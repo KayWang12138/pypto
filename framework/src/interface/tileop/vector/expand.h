@@ -20,9 +20,6 @@
 
 template <unsigned axis, typename T0, typename T1>
 TILEOP void TExpand(T0 dst, T1 src) {
-    using ShapeValueType = typename Std::tuple_element<0, typename T0::Shape>::type;
-    constexpr auto shapeSize = Std::tuple_size<typename T0::Shape>::value;
-
     constexpr size_t expectSize = 5;
     const auto dstLayout = dst.GetLayout();
     auto dstShape0 = dstLayout.template GetShapeDim<0, expectSize>();
@@ -53,10 +50,10 @@ TILEOP void TExpand(T0 dst, T1 src) {
         return;
     }
 
-    constexpr auto dstTileH = TileOp::GetTileShapeDim<3, 5, shapeSize, typename T0::TileShape>();
-    constexpr auto dstTileW = TileOp::GetTileShapeDim<4, 5, shapeSize, typename T0::TileShape>();
-    constexpr auto srcTileH = TileOp::GetTileShapeDim<3, 5, shapeSize, typename T1::TileShape>();
-    constexpr auto srcTileW = TileOp::GetTileShapeDim<4, 5, shapeSize, typename T1::TileShape>();
+    constexpr auto dstTileH = TileOp::GetTensorTileShapeDim<T0, 3, 5>();
+    constexpr auto dstTileW = TileOp::GetTensorTileShapeDim<T0, 4, 5>();
+    constexpr auto srcTileH = TileOp::GetTensorTileShapeDim<T1, 3, 5>();
+    constexpr auto srcTileW = TileOp::GetTensorTileShapeDim<T1, 4, 5>();
 
     if constexpr (axis == 3) {
         for (size_t n0Index = 0; n0Index < dstShape0; ++n0Index) {
@@ -76,7 +73,6 @@ TILEOP void TExpand(T0 dst, T1 src) {
                 }
             }
         }
-        return;
     } else if constexpr (axis == 2) {
         for (size_t n0Index = 0; n0Index < dstShape0; ++n0Index) {
             for (size_t n1Index = 0; n1Index < dstShape1; ++n1Index) {
@@ -97,7 +93,6 @@ TILEOP void TExpand(T0 dst, T1 src) {
                 }
             }
         }
-        return;
     } else if constexpr (axis == 1) {
         for (size_t n0Index = 0; n0Index < dstShape0; ++n0Index) {
             for (size_t n1Index = 0; n1Index < dstShape1; ++n1Index) {
@@ -116,7 +111,6 @@ TILEOP void TExpand(T0 dst, T1 src) {
                 }
             }
         }
-        return;
     } else if constexpr (axis == 0) {
         for (size_t n0Index = 0; n0Index < dstShape0; ++n0Index) {
             auto dstOffset = n0Index * dstStride0;
@@ -128,28 +122,17 @@ TILEOP void TExpand(T0 dst, T1 src) {
             dstTileDefine dstTile(dstShape3, dstShape4);
             srcTileDefine srcTile(srcShape3, srcShape4);
 
-            if constexpr (shapeSize > 2) {
-                constexpr auto dstRawShape2 = Std::tuple_element<shapeSize - 3, typename T0::TileShape>::type::value;
-                for (unsigned i = 0; i < dstShape1; ++i) {
-                    for (unsigned j = 0; j < dstShape2; j++) {
-                        pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + (srcOffset + j * srcTileH * srcTileW) * typeSize));
-                        pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + (dstOffset + i * dstRawShape2 * dstTileH * dstTileW
-                                                                            + j * dstTileH * dstTileW) * typeSize));
-                        pto::TMOV(dstTile, srcTile);
-                    }
-                }
-            } else {
-                for (unsigned i = 0; i < dstShape1; ++i) {
-                    for (unsigned j = 0; j < dstShape2; j++) {
-                        pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + (srcOffset + j * srcTileH * srcTileW) * typeSize));
-                        pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + (dstOffset + i * dstShape2 * dstTileH * dstTileW
-                                                                            + j * dstTileH * dstTileW) * typeSize));
-                        pto::TMOV(dstTile, srcTile);
-                    }
+            constexpr auto shapeSize = Std::tuple_size<typename T0::Shape>::value;
+            dstShape2 = shapeSize > 2 ? TileOp::GetTensorTileShapeDim<T0, shapeSize - 3>() : dstShape2;
+            for (unsigned i = 0; i < dstShape1; ++i) {
+                for (unsigned j = 0; j < dstShape2; j++) {
+                    pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + (srcOffset + j * srcTileH * srcTileW) * typeSize));
+                    pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + (dstOffset + i * dstShape2 * dstTileH * dstTileW
+                                                                        + j * dstTileH * dstTileW) * typeSize));
+                    pto::TMOV(dstTile, srcTile);
                 }
             }
         }
-        return;
     }
 }
 #endif // TILEOP_TILE_OPERATOR_VEC_EXPAND__H

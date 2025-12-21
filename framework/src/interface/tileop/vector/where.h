@@ -54,9 +54,6 @@ TILEOP void ProcessBool(uint64_t vcmpBitResult, uint64_t condition,
 
 template <typename TDst, typename TTmp, typename TCond, typename TSrc0, typename TSrc1>
 TILEOP void TWhere(TDst dst, TTmp tmpbuf, TCond condition, TSrc0 src0, TSrc1 src1) {
-    using ShapeValueType = typename Std::tuple_element<0, typename TDst::Shape>::type;
-    constexpr auto shapeSize = Std::tuple_size<typename TDst::Shape>::value;
-
     unsigned elementsPerCount = 1024;
     unsigned bitsOfByte = 8;
     uint64_t tmpbufAddr = tmpbuf.GetAddr();
@@ -83,9 +80,9 @@ TILEOP void TWhere(TDst dst, TTmp tmpbuf, TCond condition, TSrc0 src0, TSrc1 src
     auto conditionStride2 = conditionLayout.template GetStrideDim<2, expectSize>();
     auto conditionStride3 = conditionLayout.template GetStrideDim<3, expectSize>();
 
-    constexpr auto tileH = TileOp::GetTileShapeDim<3, 5, shapeSize, typename TDst::TileShape>();
-    constexpr auto tileW = TileOp::GetTileShapeDim<4, 5, shapeSize, typename TDst::TileShape>();
-    constexpr auto conditionTileW = TileOp::GetTileShapeDim<4, 5, shapeSize, typename TCond::TileShape>();
+    constexpr auto tileH = TileOp::GetTensorTileShapeDim<TDst, 3, 5>();
+    constexpr auto tileW = TileOp::GetTensorTileShapeDim<TDst, 4, 5>();
+    constexpr auto conditionTileW = TileOp::GetTensorTileShapeDim<TCond, 4, 5>();
     constexpr auto dstTypeSize = sizeof(typename TDst::Type);
     constexpr auto conditionTypeSize = sizeof(typename TCond::Type);
     constexpr auto src0TypeSize = sizeof(typename TSrc0::Type);

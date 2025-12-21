@@ -48,8 +48,8 @@ TILEOP void BinaryScalarCompute(T0 dst, T1 src0, Scalar src1) {
     auto stride1 = dstLayout.template GetStrideDim<1, expectSize>();
     auto stride2 = dstLayout.template GetStrideDim<2, expectSize>();
 
-    constexpr auto tileH = TileOp::GetTileShapeDim<3, 5, shapeSize, typename T0::TileShape>();
-    constexpr auto tileW = TileOp::GetTileShapeDim<4, 5, shapeSize, typename T0::TileShape>();
+    constexpr auto tileH = TileOp::GetTensorTileShapeDim<T0, 3, 5>();
+    constexpr auto tileW = TileOp::GetTensorTileShapeDim<T0, 4, 5>();
     constexpr auto dstTypeSize = sizeof(typename T0::Type);
     constexpr auto src0TypeSize = sizeof(typename T1::Type);
     for (size_t n0Index = 0; n0Index < shape0; ++n0Index) {

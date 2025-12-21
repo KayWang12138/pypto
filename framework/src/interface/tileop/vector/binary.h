@@ -47,11 +47,10 @@ TILEOP void BinaryComputeImpl(T0 dst, T1 src0, T2 src1) {
 
 template <BinaryOp op, typename T0, typename T1, typename T2>
 TILEOP void BinaryCompute(T0 dst, T1 src0, T2 src1) {
-    using ShapeValueType = typename Std::tuple_element<0, typename T0::Shape>::type;
     constexpr auto shapeSize = Std::tuple_size<typename T0::Shape>::value;
     if constexpr (TileOp::IsConstContinous<T0, T1, T2>() == true) {
         constexpr auto tileH = TileOp::GetOutterAxisMergeResult<shapeSize, typename T0::TileShape>();
-        constexpr auto tileW = Std::tuple_element<shapeSize - 1, typename T0::TileShape>::type::value;
+        constexpr auto tileW = TileOp::GetTensorTileShapeDim<T0, shapeSize - 1>();
         using TileDefine =
             pto::Tile<pto::TileType::Vec, typename T0::Type, tileH, tileW, pto::BLayout::RowMajor, tileH, tileW>;
         TileDefine dstTile, src0Tile, src1Tile;
@@ -72,8 +71,8 @@ TILEOP void BinaryCompute(T0 dst, T1 src0, T2 src1) {
     auto stride1 = dstLayout.template GetStrideDim<1, expectSize>();
     auto stride2 = dstLayout.template GetStrideDim<2, expectSize>();
 
-    constexpr auto tileH = TileOp::GetTileShapeDim<3, 5, shapeSize, typename T0::TileShape>();
-    constexpr auto tileW = TileOp::GetTileShapeDim<4, 5, shapeSize, typename T0::TileShape>();
+    constexpr auto tileH = TileOp::GetTensorTileShapeDim<T0, 3, 5>();
+    constexpr auto tileW = TileOp::GetTensorTileShapeDim<T0, 4, 5>();
     constexpr auto dstTypeSize = sizeof(typename T0::Type);
     constexpr auto src0TypeSize = sizeof(typename T1::Type);
     constexpr auto src1TypeSize = sizeof(typename T2::Type);

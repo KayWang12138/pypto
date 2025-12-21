@@ -31,12 +31,11 @@ TILEOP void ReduceComputeImpl(T0 dst, T1 src, T2 tmp) {
 
 template <BinaryOp op, typename T0, typename T1, typename T2>
 TILEOP void ReduceCompute(T0 dst, T1 src, T2 tmp) {
-    using ShapeValueType = typename Std::tuple_element<0, typename T1::Shape>::type;
     constexpr auto srcShapeSize = Std::tuple_size<typename T1::Shape>::value;
     constexpr auto dstShapeSize = Std::tuple_size<typename T0::Shape>::value;
     constexpr auto tmpShapeSize = Std::tuple_size<typename T2::Shape>::value;
-    constexpr auto tmpTileH = Std::tuple_element<tmpShapeSize - 2, typename T2::TileShape>::type::value;
-    constexpr auto tmpTileW = Std::tuple_element<tmpShapeSize - 1, typename T2::TileShape>::type::value;
+    constexpr auto tmpTileH = TileOp::GetTensorTileShapeDim<T2, 3, 5>();
+    constexpr auto tmpTileW = TileOp::GetTensorTileShapeDim<T2, 4, 5>();
     using TmpTileDefine =
             pto::Tile<pto::TileType::Vec, typename T2::Type, tmpTileH, tmpTileW, pto::BLayout::RowMajor, tmpTileH, tmpTileW>;
     TmpTileDefine tmpTile;
@@ -51,8 +50,8 @@ TILEOP void ReduceCompute(T0 dst, T1 src, T2 tmp) {
     auto dstStride0 = dstLayout.template GetStrideDim<0, expectSize>();
     auto dstStride1 = dstLayout.template GetStrideDim<1, expectSize>();
     auto dstStride2 = dstLayout.template GetStrideDim<2, expectSize>();
-    constexpr auto dstTileH = Std::tuple_element<dstShapeSize - 2, typename T0::TileShape>::type::value;
-    constexpr auto dstTileW = Std::tuple_element<dstShapeSize - 1, typename T0::TileShape>::type::value;
+    constexpr auto dstTileH = TileOp::GetTensorTileShapeDim<T0, 3, 5>();
+    constexpr auto dstTileW = TileOp::GetTensorTileShapeDim<T0, 4, 5>();
 
     const auto srcLayout = src.GetLayout();
     auto srcShape3 = srcLayout.template GetShapeDim<3, expectSize>();
@@ -60,8 +59,8 @@ TILEOP void ReduceCompute(T0 dst, T1 src, T2 tmp) {
     auto srcStride0 = srcLayout.template GetStrideDim<0, expectSize>();
     auto srcStride1 = srcLayout.template GetStrideDim<1, expectSize>();
     auto srcStride2 = srcLayout.template GetStrideDim<2, expectSize>();
-    constexpr auto srcTileH = Std::tuple_element<srcShapeSize - 2, typename T1::TileShape>::type::value;
-    constexpr auto srcTileW = Std::tuple_element<srcShapeSize - 1, typename T1::TileShape>::type::value;
+    constexpr auto srcTileH = TileOp::GetTensorTileShapeDim<T1, 3, 5>();
+    constexpr auto srcTileW = TileOp::GetTensorTileShapeDim<T1, 4, 5>();
     constexpr auto srcTypeSize = sizeof(typename T1::Type);
     for (size_t n0Index = 0; n0Index < dstShape0; ++n0Index) {
         for (size_t n1Index = 0; n1Index < dstShape1; ++n1Index) {
@@ -103,11 +102,11 @@ TILEOP void TRowSumLineStatic(T0 dst, T1 src, T2 tmp) {
     constexpr auto srcStride = TileOp::GetAnyAxisMergeResult<axis + 1, srcShapeSize, typename T1::TileShape>();
     constexpr auto dstStride = TileOp::GetAnyAxisMergeResult<axis + 1, dstShapeSize, typename T0::TileShape>();
     constexpr auto tmpStride = TileOp::GetAnyAxisMergeResult<axis + 1, tmpShapeSize, typename T2::TileShape>();
-    constexpr auto srcTileH = Std::tuple_element<axis, typename T1::TileShape>::type::value;
+    constexpr auto srcTileH = TileOp::GetTensorTileShapeDim<T1, axis>();
     constexpr auto srcTileW = TileOp::GetAnyAxisMergeResult<axis + 2, srcShapeSize, typename T1::TileShape>();
-    constexpr auto dstTileH = Std::tuple_element<axis, typename T0::TileShape>::type::value;
+    constexpr auto dstTileH = TileOp::GetTensorTileShapeDim<T0, axis>();
     constexpr auto dstTileW = TileOp::GetAnyAxisMergeResult<axis + 2, dstShapeSize, typename T0::TileShape>();
-    constexpr auto tmpTileH = Std::tuple_element<axis, typename T2::TileShape>::type::value;
+    constexpr auto tmpTileH = TileOp::GetTensorTileShapeDim<T2, axis>();
     constexpr auto tmpTileW = TileOp::GetAnyAxisMergeResult<axis + 2, tmpShapeSize, typename T0::TileShape>();
     using SrcTileDefine = pto::Tile<pto::TileType::Vec, typename T1::Type,
         srcTileH, srcTileW, pto::BLayout::RowMajor, srcTileH, srcTileW>;
@@ -201,14 +200,14 @@ TILEOP void TRowSumLine(T0 dst, T1 src, T2 tmp) {
     constexpr auto srcShapeSize = Std::tuple_size<typename T1::Shape>::value;
     constexpr auto dstShapeSize = Std::tuple_size<typename T0::Shape>::value;
     constexpr auto tmpShapeSize = Std::tuple_size<typename T2::Shape>::value;
-    constexpr auto dstTileH = Std::tuple_element<axis + dstShapeSize - 5, typename T0::TileShape>::type::value;
+    constexpr auto dstTileH = TileOp::GetTensorTileShapeDim<T0, axis + dstShapeSize - 5>();
     constexpr auto dstTileW = TileOp::GetAnyAxisMergeResult<axis + dstShapeSize - 3, dstShapeSize, typename T0::TileShape>();
-    constexpr auto srcTileH = Std::tuple_element<axis + srcShapeSize - 5, typename T1::TileShape>::type::value;
+    constexpr auto srcTileH = TileOp::GetTensorTileShapeDim<T1, axis + srcShapeSize - 5>();
     constexpr auto srcTileW = TileOp::GetAnyAxisMergeResult<axis + srcShapeSize - 3, srcShapeSize, typename T1::TileShape>();
     using DstTileDefine = pto::Tile<pto::TileType::Vec, typename T0::Type, dstTileH, dstTileW, pto::BLayout::RowMajor, -1, -1>;
     using SrcTileDefine = pto::Tile<pto::TileType::Vec, typename T1::Type, srcTileH, srcTileW, pto::BLayout::RowMajor, -1, -1>;
-    constexpr auto tmpTileH = Std::tuple_element<tmpShapeSize - 2, typename T2::TileShape>::type::value;
-    constexpr auto tmpTileW = Std::tuple_element<tmpShapeSize - 1, typename T2::TileShape>::type::value;
+    constexpr auto tmpTileH = TileOp::GetTensorTileShapeDim<T2, tmpShapeSize - 2>();
+    constexpr auto tmpTileW = TileOp::GetTensorTileShapeDim<T2, tmpShapeSize - 1>();
     using TmpTileDefine = pto::Tile<pto::TileType::Vec, typename T2::Type, tmpTileH, tmpTileW, pto::BLayout::RowMajor, tmpTileH, tmpTileW>;
     TRowSumLineDynamic<axis, DstTileDefine, SrcTileDefine, TmpTileDefine>(dst, src, tmp);
 }
