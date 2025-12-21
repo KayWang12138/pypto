@@ -15,10 +15,10 @@ import json
 import torch
 
 
-@pypto.jit
+@pypto.jit(
+    debug_options={"compile_debug_mode": 1, "runtime_debug_mode": 1}
+)
 def add(a, b, c, tiling=None):
-    pypto.set_debug_options(compile_debug_mode=1)
-    pypto.set_debug_options(runtime_debug_mode=1)
     pypto.set_vec_tile_shapes(tiling, tiling)
     for _ in pypto.loop(1, name="s0", idx_name="k"):
         c.move(pypto.add(a, b))

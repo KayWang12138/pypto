@@ -40,6 +40,7 @@ const std::string kAicoreSrcCode = R"!!!(
 #else
 #define KERNEL_ENTRY(x, y) x
 #endif
+#define unlikely(expr) __builtin_expect(!!(expr), 0)
 
 constexpr uint32_t REG_HIGH_DTASKID_SHIFT = 32;
 enum class TASK_POS : size_t { LOW_REG = 0, HIGH_REG = 1, ALL_REG = 2, REG_POS_BUTT = 3 };
@@ -302,7 +303,9 @@ INLINE void DfxProcWhenCoreExit(ExecuteContext *ctx, __gm__ KernelArgs *args, __
         PerfTraceRecord(INVALID_DEV_TASK_ID, metric,
             PERF_TRACE_CORE_WAIT_ALL_DEV_TASK_CALLOP_EXEC_FINISH, ctx->lastTaskFinishCycle);
     }
-    FlushMetricStatistic(args);
+    if (unlikely(args->taskEntry.reserved[0] == PRO_LEVEL2 || args->taskEntry.reserved[0] == PRO_LEVEL1)) {
+        FlushMetricStatistic(args);
+    }
 }
 
 INLINE void DfxProcWhenDevTaskStop(ExecuteContext *ctx, __gm__ KernelArgs *args, __gm__ Metrics* metric) {
@@ -367,7 +370,9 @@ INLINE void ExecDynCoreFunctionKernel(ExecuteContext *ctx, uint32_t taskId) {
     SetStatus(ctx->args, STAGE_FINISH_EXEC_COREFUNC_KERNEL);
     PipeSync();
     SetStatus(ctx->args, STAGE_FINISH_PIPE_SYNC);
-    AddMetricStatistic(ctx, ctx->seqNo, taskId, opAttrs[0], t1);
+    if (unlikely(ctx->args->taskEntry.reserved[0] == PRO_LEVEL2 || ctx->args->taskEntry.reserved[0] == PRO_LEVEL1)) {
+        AddMetricStatistic(ctx, ctx->seqNo, taskId, opAttrs[0], t1);
+    }
 #if PROF_DFX_HOST_PREPARE_MEMORY_MODE != 1
     static int32_t taskDfxPos = REG_LOW_TASK_PING;
     SetTaskStatistic(ctx->args, taskDfxPos, taskId, opAttrs[0], t1, ctx->seqNo);

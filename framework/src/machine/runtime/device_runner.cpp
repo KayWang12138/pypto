@@ -87,7 +87,7 @@ void DeviceRunner::GetHostProfTypeSwtich() {
     if ((profSwitch & PROF_TASK_TIME_L1_MASK) != 0) {
         isHostProfL1_ = true;
     }
-    ALOG_DEBUG_F("isOpenHostProf %d, l1 = %d", isOpenHostProf_, isHostProfL1_);
+    ALOG_DEBUG_F("isOpenHostProf %d, l1 = %d.", isOpenHostProf_, isHostProfL1_);
 }
 
 void *DeviceRunner::DevAlloc(int size) {
@@ -159,19 +159,20 @@ int DeviceRunner::InitDeviceArgs(DeviceArgs &args) {
         std::vector<int64_t> aivPmu;
         std::vector<int64_t> aicPmu;
         if (machine::GetRA()->GetAicoreRegInfo(aic, aiv, ADDR_MAP_TYPE_REG_AIC_CTRL) != 0) {
-            return;
+            return -1;
         }
         if (machine::GetRA()->GetAicoreRegInfo(aicPmu, aivPmu, ADDR_MAP_TYPE_REG_AIC_PMU_CTRL) != 0) {
-            return;
+            return 0;
         }
         regs.insert(regs.end(), aic.begin(), aic.end());
         regs.insert(regs.end(), aiv.begin(), aiv.end());
         regsPmu.insert(regsPmu.end(), aicPmu.begin(), aicPmu.end());
         regsPmu.insert(regsPmu.end(), aivPmu.begin(), aivPmu.end());
+        return 0;
     };
 
     addressMappingTable_[ArchInfo::DAV_3510] = [&args](std::vector<int64_t>& regs, std::vector<int64_t>& regsPmu) {
-        machine::GetRA()->GetAicoreRegInfoForDAV3510(regs, regsPmu);
+        return machine::GetRA()->GetAicoreRegInfoForDAV3510(regs, regsPmu);
     };
     
     hostProf_.RegHostProf();
@@ -185,7 +186,9 @@ int DeviceRunner::InitDeviceArgs(DeviceArgs &args) {
     args.archInfo = static_cast<ArchInfo>(Platform::Instance().GetSoc().GetNPUArch());
     auto it = addressMappingTable_.find(args.archInfo);
     if (it != addressMappingTable_.end()){
-        it->second(regs, regsPmu);
+        if (it->second(regs, regsPmu) != 0) {
+            return -1;
+        }
     }
 
     uint32_t totalCoreCount = regs.size();
@@ -219,7 +222,7 @@ int DeviceRunner::InitDeviceArgs(DeviceArgs &args) {
     rtMemcpy(reinterpret_cast<void *>(args.corePmuRegAddr), size, regsPmu.data(), size, RT_MEMCPY_HOST_TO_DEVICE);
     size = pmuEvtType_.size() * sizeof(int64_t);
     rtMemcpy(reinterpret_cast<void *>(args.pmuEventAddr), size, pmuEvtType_.data(), size, RT_MEMCPY_HOST_TO_DEVICE);
-    ALOG_INFO_F("Aic %u aiv %u  blockDim_ %d sharedBuffer %lx coreRegAddr %lx corePmuRegAddr %lx\n", args.nrAic,
+    ALOG_INFO_F("aic %u aiv %u  blockDim_ %d sharedBuffer %lx coreRegAddr %lx corePmuRegAddr %lx\n", args.nrAic,
         args.nrAiv, blockDim_, args.sharedBuffer, args.coreRegAddr, args.corePmuRegAddr);
     InitDynamicArgs(args);
     return 0;
@@ -258,7 +261,7 @@ int DeviceRunner::Run(rtStream_t aicpuStream, rtStream_t aicoreStream, int64_t t
         }
     }
     uint64_t taskWastTime = GetTasksTime();
-    ALOG_INFO_F("Task wast time %lu\n", taskWastTime);
+    ALOG_INFO_F("task wast time %lu\n", taskWastTime);
     return rc;
 }
 
@@ -277,7 +280,7 @@ int DeviceRunner::LaunchAiCore(rtStream_t aicoreStream, int taskType) {
     auto size = sizeof(args_);
     localArgs.taskType = taskType;
     if (devArgs_ == nullptr) {
-        ALOG_ERROR_F("devArgs_ is null .");
+        ALOG_ERROR_F("devArgs_ is null..");
         return -1;
     }
     int rc = rtMemcpy(devArgs_, size, &localArgs, size, RT_MEMCPY_HOST_TO_DEVICE);
@@ -325,7 +328,7 @@ void DeviceRunner::AllocDfxMetricMemory() {
             reinterpret_cast<int64_t>(DevAlloc(MAX_DFX_TASK_NUM_PER_CORE * sizeof(TaskStat) + sizeof(Metrics)));
         rtMemcpy((reinterpret_cast<uint8_t *>(args_.sharedBuffer)) + i * SHARED_BUFFER_SIZE, sizeof(kernelArgs),
             reinterpret_cast<uint8_t *>(&kernelArgs), sizeof(kernelArgs), RT_MEMCPY_HOST_TO_DEVICE);
-        ALOG_INFO_F("Aicore %u , dfxaddr 0x%ld \n", i, kernelArgs.shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
+        ALOG_INFO_F("aicore %u , dfxaddr 0x%ld \n", i, kernelArgs.shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
     }
 }
 
@@ -571,9 +574,10 @@ int DeviceRunner::RunPrepare() {
             sizeof(kernelArgs),
             RT_MEMCPY_HOST_TO_DEVICE);
     }
-
     if (isCapture_) {
-        aclmdlRICaptureThreadExchangeMode(&captureMode_);
+        aclmdlRICaptureMode mode = ACL_MODEL_RI_CAPTURE_MODE_GLOBAL;
+        aclmdlRICaptureThreadExchangeMode(&mode);
+        ALOG_INFO_F("captureMode is: %d", mode);
     }
     return 0;
 }
@@ -716,8 +720,6 @@ int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, r
     g_IsNullLaunched = true;
     #endif
     auto localArgs = args_;
-    auto size = sizeof(localArgs);
-
     localArgs.taskId = taskId;
     localArgs.taskType = DEVICE_TASK_TYPE_DYN;
     if (kernelArgs == nullptr) {
@@ -732,14 +734,17 @@ int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, r
     aicpuNum_ = launchAicpuNum;
     localArgs.scheCpuNum = dynamic::CalcSchAicpuNumByBlockDim(blockdim, aicpuNum_);
     localArgs.enableCtrl = ctrlStream == nullptr ? 1 : 0; // need set 0 if use custom cpu launch ctrl cpu
-    int rc = rtMemcpy(kernelArgs->cfgdata, size, &localArgs, size, RT_MEMCPY_HOST_TO_DEVICE);
+    localArgs.validGetPgMask = machine::GetRA()->GetValidGetPgMask();
+    localArgs.disableSync = config::GetDebugOption<bool>(NO_DEVICE_TENSOR_DEPEND) ? 1 : 0;
+    localArgs.generalAddr = kernelArgs->opMetaAddrs.generalAddr;
+    localArgs.stitchPoolAddr = kernelArgs->opMetaAddrs.stitchPoolAddr;
+    int rc = rtMemcpy(kernelArgs->cfgdata, sizeof(localArgs), &localArgs, sizeof(localArgs), RT_MEMCPY_HOST_TO_DEVICE);
     if (rc != 0) {
-        ALOG_ERROR_F("rtmemcpy failed %p rc %d\n", kernelArgs->cfgdata, rc);
+        ALOG_ERROR_F("Copy args failed %p rc %d\n", kernelArgs->cfgdata, rc);
         return rc;
     }
-    rc = RunPrepare();
-    if (rc < 0) {
-        ALOG_ERROR_F("prepare failed %d\n", rc);
+    if (RunPrepare() < 0) {
+        ALOG_ERROR_F("Prepare failed %d\n", rc);
         return rc;
     }
     if (ctrlStream == nullptr) {
@@ -770,6 +775,9 @@ int DeviceRunner::DynamicRun(rtStream_t aicpuStream, rtStream_t ctrlStream, rtSt
     if (rc < 0) {
         return rc;
     }
+    if (isCapture_) {
+        return 0;
+    }
     return DynamicLaunchSynchronize(aicpuStream, ctrlStream, aicoreStream);
 }
 
@@ -778,14 +786,14 @@ std::vector<uint8_t> g_binBuf;
 
 void DeviceRunner::SetBinData(const std::vector<uint8_t> &binBuf) {
   g_binBuf = binBuf;
-  ALOG_DEBUG_F("Set kernel size:%zu.", g_binBuf.size());
+  ALOG_DEBUG_F("Set kernel size:%zu", g_binBuf.size());
   return;
 }
 
 int DeviceRunner::RegisterKernelBin(void **hdl) {
     if (*hdl) {
         binHdl_ = *hdl;
-        ALOG_DEBUG_F("RegisterKernelBin reuse cache. ");
+        ALOG_DEBUG_F("RegisterKernelBin reuse cache.");
         return 0;
     }
     void *bin = nullptr;
@@ -797,7 +805,7 @@ int DeviceRunner::RegisterKernelBin(void **hdl) {
     } else {
         bin = _binary_kernel_o_start;
         binSize = _binary_kernel_o_end - _binary_kernel_o_start;
-        ALOG_DEBUG_F("reg static bin size %zu.", binSize);
+        ALOG_DEBUG_F("Reg static bin size %zu.", binSize);
     }
     rtDevBinary_t binary{.magic = RT_DEV_BINARY_MAGIC_ELF, .version = 0, .data = bin, .length = binSize};
     int rc = rtRegisterAllKernel(&binary, hdl);
@@ -805,7 +813,7 @@ int DeviceRunner::RegisterKernelBin(void **hdl) {
         ALOG_ERROR("RegisterKernelBin failed\n");
     }
     binHdl_ = *hdl;
-    ALOG_DEBUG_F("finish RegisterKernelBin..");
+    ALOG_DEBUG_F("finish RegisterKernelBin.");
     return rc;
 }
 

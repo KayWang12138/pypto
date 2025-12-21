@@ -92,7 +92,7 @@ def _device_run_once_data_from_host(*args):
 
 class _JIT:
     def __init__(self, dyn_func, codegen_options=None, host_options=None,
-                 pass_options=None, runtime_options=None, verify_options=None):
+                 pass_options=None, runtime_options=None, verify_options=None, debug_options=None):
         self.dyn_func = dyn_func
         self._is_compiled: bool = False
         self._handler = None
@@ -102,6 +102,7 @@ class _JIT:
         self.pass_options = pass_options
         self.runtime_options = runtime_options
         self.verify_options = verify_options
+        self.debug_options = debug_options
 
     def compile(self, *args, **kwargs):
         pypto_impl.DeviceInit()
@@ -160,7 +161,14 @@ class _JIT:
         _cost_model_run_once_data_from_host(in_tensor_data, out_tensor_data)
         return
 
+    def set_runtime_debug_mode(self):
+        if self.debug_options is None:
+            self.debug_options = {}
+        if self.debug_options.get("runtime_debug_mode", 0):
+            pypto.set_option("profile_enable", True)
+
     def dispatch_with_run_mode(self, in_tensor_data, out_tensor_data, device):
+        self.set_runtime_debug_mode()
         cann_is_configed: bool = bool(os.environ.get("ASCEND_HOME_PATH"))
         run_mode = pypto.get_runtime_options().get('run_mode', 0)
         if run_mode == 0:
@@ -208,8 +216,6 @@ class _JIT:
         else:
             pypto_impl.ResetLog()
             self._set_config_option()
-        if pypto.get_debug_options().get("runtime_debug_mode", 0):
-            pypto.set_option("profile_enable", True)
         # dispatch run mode based on ASCEND_HOME_PATH or run_mode
         '''
           if run_mode is not config, use ASCEND_HOME_PATH
@@ -242,6 +248,9 @@ class _JIT:
 
         if isinstance(self.verify_options, dict):
             pypto.set_verify_options(**self.verify_options)
+        
+        if isinstance(self.debug_options, dict):
+            pypto.set_debug_options(**self.debug_options)
 
     def _hit_cache(self, shapes):
         if None in [self._handler, self._cached_shapes]:
@@ -266,7 +275,8 @@ def jit(
         host_options=None,
         pass_options=None,
         runtime_options=None,
-        verify_options=None
+        verify_options=None,
+        debug_options=None
 ):
     ...
 
@@ -277,7 +287,8 @@ def jit(dyn_func=None,
         host_options=None,
         pass_options=None,
         runtime_options=None,
-        verify_options=None):
+        verify_options=None,
+        debug_options=None):
 
     def decorator(func):
         return _JIT(func,
@@ -285,7 +296,8 @@ def jit(dyn_func=None,
                    host_options=host_options,
                    pass_options=pass_options,
                    runtime_options=runtime_options,
-                   verify_options=verify_options)
+                   verify_options=verify_options,
+                   debug_options=debug_options)
 
     if dyn_func is not None:
         return _JIT(dyn_func)

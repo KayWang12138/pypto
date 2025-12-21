@@ -85,9 +85,6 @@ void AiCoreProf::ProInitAiCpuTaskStat() {
 }
 
 AiCoreProfLevel AiCoreProf::CreateProfLevel(ProfConfig profConfig) {
-    if (AdprofReportAdditionalInfo == nullptr) {
-        return PROF_LEVEL_OFF;
-    }
     if (profConfig.Contains(ProfConfig::AICORE_PMU)) {
         return PROF_LEVEL_FUNC_LOG_PMU;
     } else if (profConfig.Contains(ProfConfig::AICORE_TIME) ) {

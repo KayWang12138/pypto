@@ -113,7 +113,7 @@ extern "C" int32_t Execute(MachineTask *task, FunctionCache &cache) {
             return 0;
         }
     } else {
-        if(function->IsFunctionType(FunctionType::STATIC) && function->GetRootFunction()) {
+        if (function->IsFunctionType(FunctionType::STATIC) && function->GetRootFunction()) {
             /* calc workspace size and every sub function invoke entry para offset */
             CalcFunctionInvokeWorkespace(nullptr, function, deviceAgentTask->compileInfo);
         }
@@ -264,7 +264,7 @@ static void ReplaceSlotIndex(DyndevFunctionAttribute *attr, std::vector<bool>& s
     for (Function *devRoot : attr->funcGroup.devRootList) {
         Function *devTile = attr->rootTileDict[devRoot];
 
-        ASSERT(inoutLink.ioslotDict.count(devTile));
+        ASSERT(inoutLink.ioslotDict.count(devTile))<<"Function pointer "<<devTile->GetMagicName()<<" not found in ioslotDict";
         IncastOutcastSlot &ioslot = inoutLink.ioslotDict[devTile];
 
         for (auto &incastSlots : ioslot.incastSlot) {
@@ -323,7 +323,7 @@ static void SimplifySlots(DyndevFunctionAttribute *attr, std::unordered_map<int,
     for (Function *devRoot : attr->funcGroup.devRootList) {
         Function *devTile = attr->rootTileDict[devRoot];
 
-        ASSERT(inoutLink.ioslotDict.count(devTile));
+        ASSERT(inoutLink.ioslotDict.count(devTile))<<"Function pointer "<<devTile->GetMagicName()<<" not found in ioslotDict";
         IncastOutcastSlot &ioslot = inoutLink.ioslotDict[devTile];
 
         for (auto &incastSlots : ioslot.incastSlot) {
@@ -349,7 +349,7 @@ static void SimplifySlots(DyndevFunctionAttribute *attr, std::unordered_map<int,
     for (Function *devRoot : attr->funcGroup.devRootList) {
         Function *devTile = attr->rootTileDict[devRoot];
 
-        ASSERT(inoutLink.ioslotDict.count(devTile));
+        ASSERT(inoutLink.ioslotDict.count(devTile))<<"Function pointer "<<devTile->GetMagicName()<<" not found in ioslotDict";
         IncastOutcastSlot &ioslot = inoutLink.ioslotDict[devTile];
 
         for (auto &outcastSlots : ioslot.outcastSlot) {
@@ -369,11 +369,11 @@ static void SimplifySlots(DyndevFunctionAttribute *attr, std::unordered_map<int,
 
 static void BuildSlotRootIncastOutcastDict(DyndevFunctionAttribute *attr) {
     IncastOutcastLink &inoutLink = attr->inoutLink;
-    for (size_t i = 0; i < attr->funcGroup.devRootList.size(); i++) {
-        Function *devRoot = attr->funcGroup.devRootList[i];
+    for (size_t idx = 0; idx < attr->funcGroup.devRootList.size(); idx++) {
+        Function *devRoot = attr->funcGroup.devRootList[idx];
         Function *devTile = attr->rootTileDict[devRoot];
 
-        ASSERT(inoutLink.ioslotDict.count(devTile));
+        ASSERT(inoutLink.ioslotDict.count(devTile))<<"Function pointer "<<devTile->GetMagicName()<<" not found in ioslotDict";
         IncastOutcastSlot &ioslot = inoutLink.ioslotDict[devTile];
         for (size_t incastIndex = 0; incastIndex < ioslot.incastSlot.size(); incastIndex++) {
             for (auto &slotIndex : ioslot.incastSlot[incastIndex]) {
@@ -389,9 +389,9 @@ static void BuildSlotRootIncastOutcastDict(DyndevFunctionAttribute *attr) {
 }
 
 static void BuildRootFuncKeyDict(DyndevFunctionAttribute *attr) {
-    for (size_t i = 0; i < attr->funcGroup.devRootList.size(); i++) {
-        int funcKey = (int)i;
-        Function *devRoot = attr->funcGroup.devRootList[i];
+    for (size_t idx = 0; idx < attr->funcGroup.devRootList.size(); idx++) {
+        int funcKey = (int)idx;
+        Function *devRoot = attr->funcGroup.devRootList[idx];
         attr->rootFuncKeyDict[devRoot] = funcKey;
     }
 }
@@ -402,8 +402,8 @@ static std::string BuildControlFlowCallee(Function *func, int ident) {
     if (loc) {
         oss << std::string(ident, ' ') << "// " << loc->ToString() << "\n";
     }
-    oss << std::string(ident, ' ') << "// " << "#name:" << func->GetRawName() << " #hash:" << func->GetFunctionHash()
-        << " #magic:" << func->GetFuncMagic() << "\n";
+    oss << std::string(ident, ' ') << "// " << "#name: " << func->GetRawName() << " #hash: " << func->GetFunctionHash()
+        << " #magic: " << func->GetFuncMagic() << "\n";
     return oss.str();
 }
 
@@ -431,13 +431,13 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
         const std::vector<std::string> &outputNameList = Program::GetInstance().GetTensorSlotManager()->GetOutputNameList();
 
         expressionOss << "\n/* Input tensor list */\n";
-        for (size_t i = 0; i < inputNameList.size(); i++) {
-            expressionOss << "#define " << AddArgPrefix(inputNameList[i]) << " " << i << "\n";
+        for (size_t idx = 0; idx < inputNameList.size(); idx++) {
+            expressionOss << "#define " << AddArgPrefix(inputNameList[idx]) << " " << idx << "\n";
         }
 
         expressionOss << "\n/* Output tensor list */\n";
-        for (size_t i = 0; i < outputNameList.size(); i++) {
-            expressionOss << "#define " << AddArgPrefix(outputNameList[i]) << " " << i + inputNameList.size() << "\n";
+        for (size_t idx = 0; idx < outputNameList.size(); idx++) {
+            expressionOss << "#define " << AddArgPrefix(outputNameList[idx]) << " " << idx + inputNameList.size() << "\n";
         }
 
         controlFlowOss << "#define LOOP(idx, b, e, s) for (uint64_t idx = (b), idxEnd = (e), idxStep = (s); idx < idxEnd; idx += idxStep)\n"
@@ -482,7 +482,7 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
             };
         controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "// hash=" << func->GetFunctionHash() << "\n";
         auto attr = func->GetDynloopAttribute();
-        ASSERT(attr != nullptr);
+        ASSERT(attr != nullptr)<<"attr is nullptr!";
         if (attr->submitBeforeLoop) {
             controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "RUNTIME_RootStitch(RUNTIME_FUNCKEY_LOOP_BARRIER); // force submit before LOOP \n";
         }
@@ -512,8 +512,7 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
             pathRootList.push_back(attr->pathList[i].root);
         }
         std::sort(pathRootList.begin(), pathRootList.end());
-
-        ASSERT(calleeList == pathRootList);
+        ASSERT(calleeList == pathRootList)<<"calleeList size:"<<calleeList.size()<<" pathRootList size:"<<pathRootList.size();
         condBuilder(pathNode, indent + 1);
         controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "}\n";
     } else if (func->IsFunctionTypeAndGraphType(FunctionType::DYNAMIC_LOOP_PATH, GraphType::TENSOR_GRAPH)) {
@@ -539,7 +538,7 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
         }
 
         auto currDynFuncAttr = Program::GetInstance().GetCurrentDynamicFunction()->GetDyndevAttribute();
-        ASSERT(rootTileDict.count(func));
+        ASSERT(rootTileDict.count(func))<<"Function not found in rootTileDict";
         Function *tile = rootTileDict[func];
         if (currDynFuncAttr->valueDependDescDict.count(tile)) {
             auto valueDependDesc = currDynFuncAttr->valueDependDescDict[tile];
@@ -611,7 +610,7 @@ static void FillL2PrefetchInfo(std::shared_ptr<DyndevFunctionAttribute> attr) {
         }
         idx++;
     }
-    ALOG_INFO_F("Need prefetch tensor size is:%zu.\n", attr->l2InfoList.size());
+    ALOG_INFO_F("Need prefetch tensor size is:%zu\n", attr->l2InfoList.size());
     return;
 }
 
@@ -640,7 +639,7 @@ static void SetDyndevProgBinary(Function *function) {
     if (config::GetPassDefaultConfig(npu::tile_fwk::KEY_PRINT_PROGRAM, false)) {
         SaveFile(config::LogTopFolder() + "/program.tifwkbin", dynAttrPtr->devProgBinary);
     }
-    ALOG_INFO_F("Dev prog binary size is:%zu.\n", dynAttrPtr->devProgBinary.size());
+    ALOG_INFO_F("Dev prog binary size is:%zu\n", dynAttrPtr->devProgBinary.size());
 }
 
 std::vector<SymbolicExpressionTable *> GetAllExpressionTable(DyndevFunctionAttribute::ExpressionTableDictGroup &exprTableGroup) {
@@ -682,7 +681,7 @@ static void ConstructCodeInfo(struct EncodeDevAscendFunctionParam &encodeDevAsce
     int leafIndex = 1;
     for (auto &[hash, leaf] : leafDict) {
       auto leafFuncAttr = leaf->GetLeafFuncAttribute();
-      ASSERT(leafFuncAttr != nullptr);
+      ASSERT(leafFuncAttr != nullptr)<<"leafFuncAttr is null\n";
 
       encodeDevAscendFunctionParam.calleeHashIndexDict[hash] = leafIndex;
       attr->devLeafIndex2Hash[leafIndex] = hash;
@@ -810,7 +809,7 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[ma
     }
 
     std::shared_ptr<DyndevFunctionAttribute> attr = function->GetDyndevAttribute();
-    ASSERT(attr != nullptr);
+    ASSERT(attr != nullptr)<<"DyndevFunctionAttribute is nullptr\n";
 
     Linker linker(attr->symbolTable, attr->funcGroup, attr->exprTableDictGroup);
     FindAllExpression(cache, linker, function);
@@ -933,11 +932,9 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[ma
     for (auto &devRoot : attr->funcGroup.devRootList) {
         int devRootKey = attr->funcGroup.devRootList.GetIndex(devRoot);
         ALOG_INFO("Dyndev.encode: ", devRoot->GetRawName());
-
-        ASSERT(attr->rootTileDict.count(devRoot));
+        ASSERT(attr->rootTileDict.count(devRoot))<<"devRoot not found in rootTileDict";
         Function *devTile = attr->rootTileDict[devRoot];
-
-        ASSERT(attr->inoutLink.ioslotDict.count(devTile));
+        ASSERT(attr->inoutLink.ioslotDict.count(devTile))<<"devTile not found in rootTileDict";
         IncastOutcastSlot *slot = &attr->inoutLink.ioslotDict[devTile];
 
         encodeDevAscendFunctionParam.symbolTable = linker.GetSymbolTable();

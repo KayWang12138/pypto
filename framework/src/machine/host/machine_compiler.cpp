@@ -32,6 +32,9 @@ namespace npu::tile_fwk {
 void CalcFunctionInvokeWorkespace(Function* cacheFunction, Function* function,
                                   MachineCompileInfo& compileInfo)
 {
+    if (!function) {
+        ALOG_WARN("Function  pointer is null!");
+    }
     MACHINE_ASSERT(function);
     ALOG_INFO("Begin calc invoke entry workespace!");
     uint64_t totalSize = 0;
@@ -45,11 +48,17 @@ void CalcFunctionInvokeWorkespace(Function* cacheFunction, Function* function,
     {
         auto rawTensor = compiledFunction->GetTensorMap().GetRawTensorByRawMagic(tensorMagic);
         ALOG_DEBUG_F("magic is %d", tensorMagic);
+        if (!rawTensor) {
+            ALOG_WARN("Raw tensor is null for magic: ");
+        }
         MACHINE_ASSERT(rawTensor);
         return rawTensor;
     };
 
     auto calcOffsetFunc = [](const std::vector<int64_t> &offset, const std::vector<int64_t> &shape) -> uint64_t {
+        if (offset.size() != shape.size()) {
+            ALOG_ERROR_F("Offset size (%zu) does not match shape size (%zu)", offset.size(), shape.size());
+        }
         MACHINE_ASSERT(offset.size() == shape.size());
         uint64_t offSetSize = 0;
         auto strideShapeFunc = [&shape](size_t i) -> auto

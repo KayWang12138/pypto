@@ -107,6 +107,29 @@ public:
     }
 
     template<typename DeviceMemoryTy>
+    static void AssignMetaAddr(AstKernelArgs &kArgs, DeviceMemoryTy devMem, DevAscendProgram *devProg, CachedOperator *cachedOperator) {
+        uint64_t generalSize = devProg->memBudget.metadata.general;
+        uint64_t stitchPoolSize = devProg->memBudget.metadata.stitchPool;
+        size_t shmSize = DEVICE_SHM_SIZE + DEVICE_TASK_QUEUE_SIZE * devProg->devArgs.scheCpuNum +
+            generalSize + stitchPoolSize;
+        uint64_t shmAddr = (uint64_t)devMem.AllocZero(shmSize, CachedOperator::GetMetaDataDevAddrHolder(cachedOperator));
+        devProg->devArgs.startArgsAddr = shmAddr;
+        shmAddr += DEV_ARGS_SIZE;
+        devProg->devArgs.taskCtrl = shmAddr;
+        shmAddr += DEVICE_TASK_CTRL_SIZE;
+        devProg->devArgs.taskQueue = shmAddr;
+        shmAddr += DEVICE_TASK_QUEUE_SIZE * devProg->devArgs.scheCpuNum;
+        devProg->devArgs.generalAddr = shmAddr;
+        kArgs.opMetaAddrs.generalAddr = shmAddr;
+        shmAddr += generalSize;
+        devProg->devArgs.stitchPoolAddr = shmAddr;
+        kArgs.opMetaAddrs.stitchPoolAddr = shmAddr;
+        ALOG_DEBUG_F("generalSize:%lu stitchPoolSize:%lu generalAddr:%lx stitchPoolAddr:%lx.", generalSize, stitchPoolSize,
+            devProg->devArgs.generalAddr, devProg->devArgs.stitchPoolAddr);
+        return;
+    }
+
+    template<typename DeviceMemoryTy>
     static void DeviceInitTilingData(DeviceMemoryTy devMem, AstKernelArgs &kArgs, const std::vector<uint8_t> &devProgData,
         const DeviceLauncherConfig &config, CachedOperator *cachedOperator) {
         DeviceLauncherConfig &launchConfig = const_cast<DeviceLauncherConfig &>(config);
@@ -120,11 +143,7 @@ public:
             launchConfig.aicpuNum : static_cast<int>(Platform::Instance().GetSoc().GetAICPUNum()) - 1;
         devProg->devArgs.scheCpuNum = CalcSchAicpuNumByBlockDim(launchConfig.blockdim, launchConfig.aicpuNum);
         devProg->devArgs.taskType = DEVICE_TASK_TYPE_DYN;
-        size_t shmSize = DEVICE_SHM_SIZE + DEVICE_TASK_QUEUE_SIZE * devProg->devArgs.scheCpuNum;
-        uint64_t shmAddr = (uint64_t)devMem.AllocZero(shmSize, CachedOperator::GetMetaDataDevAddrHolder(cachedOperator));
-        devProg->devArgs.startArgsAddr = shmAddr;
-        devProg->devArgs.taskCtrl = shmAddr + DEV_ARGS_SIZE;
-        devProg->devArgs.taskQueue = shmAddr + DEV_ARGS_SIZE + DEVICE_TASK_CTRL_SIZE;
+
         int minCpuNum = devProg->devArgs.scheCpuNum + 1;
         if (config.aicpuNum < minCpuNum || config.aicpuNum > DEVICE_MAX_AICPU_NUM) {
             launchConfig.aicpuNum = minCpuNum + 1;
@@ -146,6 +165,7 @@ public:
             devProg->memBudget.tensor.rootInner, devProg->memBudget.tensor.DAssembleDests(),
             devProg->memBudget.tensor.devTaskInnerExclusiveOutcasts, devProg->memBudget.tensor.MaxOutcastMem(),
             devProg->memBudget.tensor.devTaskBoundaryOutcastNum);
+        AssignMetaAddr(kArgs, devMem, devProg, cachedOperator);
         devProg->l2CacheOffset = devMem.GetL2Offset();
         ASSERT(devProg->commGroupNum == config.hcclContext.size()) << "commGroupNum mismatch. commGroupNum = " <<
                devProg->commGroupNum << ", hcclContext size = " << config.hcclContext.size();
@@ -156,7 +176,7 @@ public:
         }
         if (config.workspaceAddr) {
             kArgs.workspace = (int64_t *)config.workspaceAddr;
-        } else if (kArgs.workspace == nullptr) {
+        } else if (kArgs.workspace == nullptr && (devProg->workspaceSize != 0)) {
             kArgs.workspace = (int64_t *)devMem.AllocDev(devProg->workspaceSize, CachedOperator::GetWorkspaceDevAddrHolder(cachedOperator));
         }
         if (devProg->controlFlowCache.isRecording && !devMem.IsDevice()) {
@@ -252,9 +272,9 @@ public:
     }
 
 #ifdef BUILD_WITH_CANN
-    static void ChangeCaptureMode(aclmdlRICaptureMode &mode);
+    static void ChangeCaptureMode();
     static int GetStreamCaptureInfo(rtStream_t aicoreStream, aclmdlRI &rtModel, bool &isCapture);
-    static int SetCaptureStream(rtStream_t aicoreStream, rtStream_t aicpuStream);
+    static int SetCaptureStream(rtStream_t aicoreStream, rtStream_t aicpuStream, bool &isCapture);
     static int RunWithProfile(rtStream_t aicoreStream, rtStream_t aicpuStream);
     static int DeviceLaunchOnceWithDeviceTensorData(
             Function *function, const std::vector<DeviceTensorData> &inputList, const std::vector<DeviceTensorData> &outputList,
@@ -266,8 +286,7 @@ public:
 using aclmdlRICaptureMode = uint32_t;
 using rtStream_t = uint64_t;
 using aclmdlRI = void *;
-    static void ChangeCaptureMode(aclmdlRICaptureMode &mode) {
-        (void)mode;
+    static void ChangeCaptureMode() {
         return;
     }
     static int GetStreamCaptureInfo(rtStream_t aicoreStream, aclmdlRI &rtModel, bool &isCapture) {
@@ -276,9 +295,10 @@ using aclmdlRI = void *;
         (void)isCapture;
         return 0;
     }
-    static int SetCaptureStream(rtStream_t aicoreStream, rtStream_t aicpuStream) {
+    static int SetCaptureStream(rtStream_t aicoreStream, rtStream_t aicpuStream, bool &isCapture) {
         (void)aicoreStream;
         (void)aicpuStream;
+        (void)isCapture;
         return 0;
     }
     static int RunWithProfile(rtStream_t aicoreStream, rtStream_t aicpuStream) {

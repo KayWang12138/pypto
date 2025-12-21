@@ -112,6 +112,7 @@ struct AstKernelArgs {
     uint64_t taskWastTime{0};
     uint8_t machineConfig;
     ToSubMachineConfig toSubMachineConfig;
+    OpMetaAddrs opMetaAddrs;
 };
 
 struct LogHead {

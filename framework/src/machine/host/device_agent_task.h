@@ -71,7 +71,7 @@ public:
     }
 
     uint8_t* GetOpOriginArgsRawTensorAddr(size_t seq) {
-        ASSERT(seq < this->opOriginArgs_.size());
+        ASSERT(seq < this->opOriginArgs_.size())<<"Sequence index="<<seq<<" out of bounds. Size: "<<this->opOriginArgs_.size();
         return reinterpret_cast<uint8_t*>(this->opOriginArgs_[seq].addr);
     }
 

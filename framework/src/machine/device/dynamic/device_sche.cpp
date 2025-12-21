@@ -51,10 +51,10 @@ struct DynMachineManager {
         auto maskval = cpumask_.load(std::memory_order_relaxed);
         int cpuoff = 0;
         int clus_id = -1;
-        for (int i = 0; i < static_cast<int>(sizeof(uint64_t)); ++i) {
+        for (int index = 0; index < static_cast<int>(sizeof(uint64_t)); ++index) {
             int mask = (maskval >> cpuoff) & 0xF;
             if (__builtin_popcount(static_cast<uint32_t>(mask)) >= schAicpuNum_) {
-                clus_id = i;
+                clus_id = index;
                 break;
             }
             cpuoff += CPUS_PER_CLUSTER;
@@ -95,10 +95,10 @@ struct DynMachineManager {
         uint64_t allocThreadCycle = GetCycles();
         if ((threadIdx != -1) && threadIdx < schAicpuNum_) {
             CreateLogFile(LogType::LOG_TYPE_SCHEDULER, threadIdx);
-            DEV_INFO("devArgs->taskType %d.", static_cast<int>(devArgs->taskType));
-            DEV_INFO("threadIdx %d aicNum %u aivNum %u aicpuNum %u validAicNum %u.", threadIdx, devArgs->nrAic,
+            DEV_INFO("TaskType %d threadIdx %d aicNum %u aivNum %u aicpuNum %u validAicNum %u .",
+                static_cast<int>(devArgs->taskType), threadIdx, devArgs->nrAic,
                 devArgs->nrAiv, devArgs->nrAicpu, devArgs->nrValidAic);
-            DEV_INFO("devQueueAddr %lx, sharedBuffer %lx coreRegAddr %lx corePmuAdr %lx.", devArgs->devQueueAddr,
+            DEV_INFO("devQueueAddr %lx, sharedBuffer %lx coreRegAddr %lx corePmuAdr %lx .", devArgs->devQueueAddr,
                 devArgs->sharedBuffer, devArgs->coreRegAddr, devArgs->corePmuAddr);
             DEV_TRACE_DEBUG(schema::ScheEvent(threadIdx, schema::ThreadStart()));
             ret = machine_.Run(threadIdx, devArgs, handshakeByGm_);
@@ -107,7 +107,7 @@ struct DynMachineManager {
             }
         } else {
             threadIdx = ctrlcpuIdx_.fetch_add(1);
-            DEV_INFO("devArgs->taskType %d.",  static_cast<int>(devArgs->taskType));
+            DEV_INFO("TaskType %d.",  static_cast<int>(devArgs->taskType));
             if (devArgs->enableCtrl == 1 && threadIdx == schAicpuNum_) {
                 CreateLogFile(LogType::LOG_TYPE_CONTROLLER, 0);
                 DEV_TRACE_DEBUG(schema::CtrlEvent(threadIdx, schema::ThreadStart()));
@@ -118,7 +118,7 @@ struct DynMachineManager {
         }
         PerfMtTrace(PERF_TRACE_BEGIN, threadIdx, args->taskWastTime);
         PerfMtTrace(PERF_TRACE_ALLOC_THREAD_ID, threadIdx, allocThreadCycle);
-        DEV_INFO("ThreadIdx %d finished, ret %d.", threadIdx, ret);
+        DEV_INFO("ThreadIdx %d finished, ret %d .", threadIdx, ret);
         GetLogger().Flush();
         PerfMtTrace(PERF_TRACE_EXIT, threadIdx);
         if (++finished_ == static_cast<std::atomic<int>>(devArgs->nrAicpu)) {
@@ -128,7 +128,10 @@ struct DynMachineManager {
                 machine_.CacheValidCore();
                 handshakeByGm_ = false; // hand shake by reg next time
             }
-#endif
+#endif      
+            if (unlikely(!machine_.CheckAndResetReg())) {
+                DEV_WARN("Some registers force closed!");
+            }
             return npu::tile_fwk::dynamic::DEVICE_MACHINE_FINISHED;
         }
         return ret;
@@ -242,7 +245,7 @@ extern "C" __attribute__((visibility("default"))) int DynTileFwkBackendKernelSer
     g_machine_mgr.Init(devArgs);
     int rc = g_machine_mgr.Run(kargs);
     if (rc == npu::tile_fwk::dynamic::DEVICE_MACHINE_FINISHED) {
-        DEV_INFO("All schedule exited, destroy the machine.\n");
+        DEV_INFO("All schedule exited, destroy the machine.");
         g_machine_mgr.DeInit();
 #if ENABLE_PERF_TRACE
         PerfMtTrace(PERF_TRACE_EXIT, g_machine_mgr.LastFinishThreadIdx_);

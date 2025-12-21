@@ -71,17 +71,16 @@ int DeviceLauncher::GetStreamCaptureInfo(rtStream_t aicoreStream, aclmdlRI &rtMo
     return 0;
 }
 
-void DeviceLauncher::ChangeCaptureMode(aclmdlRICaptureMode &mode)
+void DeviceLauncher::ChangeCaptureMode()
 {
-    mode = ACL_MODEL_RI_CAPTURE_MODE_RELAXED;   // aclgraph does not support rtmemcpy / rtmemset, set to relaxed mode
+    aclmdlRICaptureMode mode = ACL_MODEL_RI_CAPTURE_MODE_RELAXED;   // aclgraph does not support rtmemcpy / rtmemset, set to relaxed mode
     aclmdlRICaptureThreadExchangeMode(&mode);
 }
 
-int DeviceLauncher::SetCaptureStream(rtStream_t aicoreStream, rtStream_t aicpuStream)
+int DeviceLauncher::SetCaptureStream(rtStream_t aicoreStream, rtStream_t aicpuStream, bool &isCapture)
 {
     aclmdlRI rtModel = nullptr;
-    bool isCapture = false;
-    aclmdlRICaptureMode mode = ACL_MODEL_RI_CAPTURE_MODE_GLOBAL;
+
     if (GetStreamCaptureInfo(aicoreStream, rtModel, isCapture) < 0) {
         return -1;
     }
@@ -96,9 +95,7 @@ int DeviceLauncher::SetCaptureStream(rtStream_t aicoreStream, rtStream_t aicpuSt
             ALOG_ERROR_F("rtStreamAddToModel failed, return[%d]", ret);
             return -1;
         }
-        ChangeCaptureMode(mode);
     }
-    DeviceRunner::Get().SetCaptureFlag(isCapture, mode);
     return 0;
 }
 
@@ -128,47 +125,56 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
         Function *function, const std::vector<DeviceTensorData> &inputList, const std::vector<DeviceTensorData> &outputList,
         rtStream_t aicpuStream, rtStream_t aicoreStream, bool streamSynchronize, CachedOperator *cachedOperator,
         const DeviceLauncherConfig &config) {
+    bool isCapture = false;
     std::cout << "!!! Kernel Launch " << "\n";
     if (function != nullptr && function->GetDyndevAttribute() != nullptr) {
         DeviceRunner::SetBinData(function->GetDyndevAttribute()->kernelBinary);
     }
-    int rc = SetCaptureStream(aicoreStream, aicpuStream);
+    /* 1.Add stream to capture model*/
+    int rc = SetCaptureStream(aicoreStream, aicpuStream, isCapture);
     if (rc < 0) {
         return rc;
     }
+    /* 2. Change capture mode to relaxed*/
+    if (isCapture) {
+        ChangeCaptureMode();
+    }
+    DeviceRunner::Get().SetCaptureFlag(isCapture);
     DeviceRunner::Get().GetHostProfInstance().SetProfFunction(function);
     rc = aclInit(nullptr);
-    if (rc == 0 || rc == ACL_ERROR_REPEAT_INITIALIZE) {
-        CachedOperator cachedOperatorData;
-        if (cachedOperator == nullptr) {
-            // Not python cached operator mode, consider kernel reuse mode
-            if (DeviceRunCacheKernelEnable(function)) {
-                *CachedOperator::GetCfgDataDevAddrHolder(&cachedOperatorData) = DeviceRunCacheKernelGet(function);
-                cachedOperator = &cachedOperatorData;
-            }
+    if (rc != 0 && rc != ACL_ERROR_REPEAT_INITIALIZE) {
+        return rc;
+    }
+
+    CachedOperator cachedOperatorData;
+    if (cachedOperator == nullptr) {
+        // Not python cached operator mode, consider kernel reuse mode
+        if (DeviceRunCacheKernelEnable(function)) {
+            *CachedOperator::GetCfgDataDevAddrHolder(&cachedOperatorData) = DeviceRunCacheKernelGet(function);
+            cachedOperator = &cachedOperatorData;
         }
-        CheckDeviceId();
-        AstKernelArgs kArgs;
-        DeviceLauncherConfigFillDeviceInfo(config);
-        DeviceInitTilingData(DeviceMemoryUtils(), kArgs, function->GetDyndevAttribute()->devProgBinary, config, cachedOperator);
-        DeviceRunCacheKernelSet(function, (uint8_t *)kArgs.cfgdata);
-        DeviceInitKernelInOuts(DeviceMemoryUtils(), kArgs, inputList, outputList);
-        rc = DeviceRunner::Get().RegisterKernelBin(&(*reinterpret_cast<rtBinHandle *>(CachedOperator::GetBinHandleHolder(cachedOperator))));
-        if (rc < 0) {
-            ALOG_ERROR_F("Register kernel bin failed.");
-            return rc;
-        }
-        rc = DeviceRunner::Get().DynamicLaunch(aicpuStream, nullptr, aicoreStream, 0, &kArgs, config.blockdim, config.aicpuNum);
-        if (rc < 0) {
-            return rc;
-        }
-        rc = RunWithProfile(aicoreStream, aicpuStream);
-        if (rc < 0) {
-            return rc;
-        }
-        if (streamSynchronize) {
-            rc = DeviceRunner::Get().DynamicLaunchSynchronize(aicpuStream, nullptr, aicoreStream);
-        }
+    }
+    CheckDeviceId();
+    AstKernelArgs kArgs;
+    DeviceLauncherConfigFillDeviceInfo(config);
+    DeviceInitTilingData(DeviceMemoryUtils(), kArgs, function->GetDyndevAttribute()->devProgBinary, config, cachedOperator);
+    DeviceRunCacheKernelSet(function, (uint8_t *)kArgs.cfgdata);
+    DeviceInitKernelInOuts(DeviceMemoryUtils(), kArgs, inputList, outputList);
+    rc = DeviceRunner::Get().RegisterKernelBin(&(*reinterpret_cast<rtBinHandle *>(CachedOperator::GetBinHandleHolder(cachedOperator))));
+    if (rc < 0) {
+        ALOG_ERROR_F("Register kernel bin failed.");
+        return rc;
+    }
+    rc = DeviceRunner::Get().DynamicLaunch(aicpuStream, nullptr, aicoreStream, 0, &kArgs, config.blockdim, config.aicpuNum);
+    if (rc < 0) {
+        return rc;
+    }
+    rc = RunWithProfile(aicoreStream, aicpuStream);
+    if (rc < 0) {
+        return rc;
+    }
+    if (streamSynchronize) {
+        rc = DeviceRunner::Get().DynamicLaunchSynchronize(aicpuStream, nullptr, aicoreStream);
     }
     return rc;
 }

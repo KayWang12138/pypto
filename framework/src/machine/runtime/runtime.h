@@ -140,12 +140,15 @@ public:
         rtMemcpy(hostDstAddr, size, devSrcAddr, size, RT_MEMCPY_DEVICE_TO_HOST);
     }
 
-    int GetAicoreRegInfo(std::vector<int64_t> &aic, std::vector<int64_t> &aiv, const int &addrType) const;
-    void GetAicoreRegInfoForDAV3510(std::vector<int64_t> &regs, std::vector<int64_t> &regsPmu);
+    int GetAicoreRegInfo(std::vector<int64_t> &aic, std::vector<int64_t> &aiv, const int &addrType);
+    int GetAicoreRegInfoForDAV3510(std::vector<int64_t> &regs, std::vector<int64_t> &regsPmu);
 
     // Only used in test case.
     void *MapAiCoreReg();
-
+    
+    bool GetValidGetPgMask() const {
+        return validGetPgMask;
+    }
 protected:
     void DestroyMemory() {
         for (uint8_t *addr : allocatedDevAddr) {
@@ -165,6 +168,7 @@ private:
         return false;
     }
 private:
+    bool validGetPgMask = true;
     std::vector<HugePageDesc> hugePageVec;
     std::vector<uint8_t *> allocatedDevAddr;
 };

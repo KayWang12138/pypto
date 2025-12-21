@@ -139,10 +139,10 @@ void HostMachine::Destroy() {
 
 void HostMachine::InitThread() {
     stopFlag_.store(false);
-    for (int i = 0; i < compileThreadCount_; ++i) {
+    for (int idx = 0; idx < compileThreadCount_; ++idx) {
         compileThreads_.emplace_back(&HostMachine::CompileThreadFunc, this);
     }
-    for (int i = 0; i < agentThreadCount_; ++i) {
+    for (int idx = 0; idx < agentThreadCount_; ++idx) {
         agentThreads_.emplace_back(&HostMachine::AgentThreadFunc, this);
     }
 }
@@ -189,6 +189,9 @@ void HostMachine::CompileFunction(Function* func) const {
 
 void HostMachine::SubTask(Function *function) {
     if (mode_ == HostMachineMode::API) {
+        if (curTask != nullptr) {
+            ALOG_WARN("CurTask is already running.");
+        }
         MACHINE_ASSERT(curTask == nullptr);
         curTask = new MachineTask(curTaskId_++, function);
         return;
@@ -204,7 +207,7 @@ void HostMachine::WaitTaskFinish() {
     while (curTaskId_ != finishQueue_.Size()) {
         usleep(1000); // sleep 1000 us
     } // wait all task finish
-    ALOG_DEBUG("Finish all host machine task count: %lu", curTaskId_);
+    ALOG_DEBUG("Finish all host machine task count: %lu.", curTaskId_);
 
     /* reset counter */
     curTaskId_ = 0;
@@ -265,6 +268,9 @@ std::string HostMachine::GetCacheKeyFromFunction(Function *function) {
 MachineTask *HostMachine::Compile(MachineTask *task) const {
     MachineTask *compileTask = task;
     if (compileTask == nullptr) {
+        if (curTask == nullptr) {   
+            ALOG_WARN("Compile task is null.");
+        }
         MACHINE_ASSERT(curTask != nullptr);
         compileTask = curTask;
     }

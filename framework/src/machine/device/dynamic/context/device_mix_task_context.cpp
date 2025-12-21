@@ -76,11 +76,22 @@ WrapInfoQueue* DeviceTaskContext::AllocWrapQueue(DynDeviceTask *dyntask) {
     return q;
 }
 
-void DeviceTaskContext::BuildReadyQueueWithMixTask(DynDeviceTask *dyntask, DevAscendProgram *devProg) {
+int DeviceTaskContext::BuildReadyQueueWithMixTask(DynDeviceTask *dyntask, DevAscendProgram *devProg) {
+    int ret = DEVICE_MACHINE_OK;
     PerfBegin(PERF_EVT_READY_QUEUE_IN);
     uint32_t size = sizeof(ReadyCoreFunctionQueue) + dyntask->devTask.coreFunctionCnt * sizeof(taskid_t);
+    if (dyntask->devTask.coreFunctionCnt > devProg->stitchFunctionsize) {
+        DEV_ERROR("coreFunctionCnt (%lu) exceeds stitchFunctionsize (%u).", dyntask->devTask.coreFunctionCnt, devProg->stitchCallopMaxNum);
+        return DEVICE_MACHINE_ERROR;
+    }
     DEV_ASSERT(dyntask->devTask.coreFunctionCnt <= devProg->stitchFunctionsize);
+    if (dyntask->devTask.coreFunctionCnt > devProg->stitchCallopMaxNum) {
+        DEV_ERROR("coreFunctionCnt (%lu) exceeds stitchCallopMaxNum (%u), cannot build ready queue.",
+        dyntask->devTask.coreFunctionCnt, devProg->stitchCallopMaxNum);
+        return DEVICE_MACHINE_ERROR;
+    }
     ReadyCoreFunctionQueue *queue[READY_QUEUE_SIZE];
+    DEV_ASSERT(dyntask->devTask.coreFunctionCnt <= devProg->stitchCallopMaxNum);
     for (size_t index = 0; index < READY_QUEUE_SIZE; ++index) {
         WsAllocation qalloc = ControlFlowAllocateSlab(devProg_, size, workspace_->SlabAlloc(size, WsAicpuSlabMemType::READY_QUE));
         ReadyCoreFunctionQueue *q = qalloc.As<ReadyCoreFunctionQueue>();
@@ -183,6 +194,7 @@ void DeviceTaskContext::BuildReadyQueueWithMixTask(DynDeviceTask *dyntask, DevAs
     dyntask->devTask.wrapTasklist = PtrToValue(wrapTasklistAddr);
     readyTaskNum += static_cast<uint64_t>(aivQueueTail + aicQueueTail + aicpuQueueTail + wrapTaskNum);
     PerfEnd(PERF_EVT_READY_QUEUE_IN);
+    return DEVICE_MACHINE_OK;
 }
 
 #endif

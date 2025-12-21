@@ -2627,7 +2627,7 @@ struct DevAscendProgram {
         } debug;
 
         uint64_t Total() const {
-            return metadata.Total() + tensor.Total() + aicoreSpilled + debug.dumpTensor;
+            return tensor.Total() + aicoreSpilled + debug.dumpTensor;
         }
     } memBudget;
     const void *controlFlowBinaryAddr{nullptr};

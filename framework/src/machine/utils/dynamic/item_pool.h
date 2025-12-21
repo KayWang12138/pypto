@@ -48,12 +48,18 @@ public:
                 }
             }
 
+            if (!allocation_) {
+                DEV_ERROR("allocation_ is nullptr\n");
+            }
             DEV_ASSERT(allocator_);
             allocator_->Deallocate(allocation_);
         }
     }
 
     void Init(WsAllocator_T &allocator, size_t count) {
+        if (allocation_) {
+            DEV_ERROR("allocation_ is not nullptr\n");
+        }
         DEV_ASSERT(!allocator_);
         allocator_ = &allocator;
         count_ = count;
@@ -66,6 +72,9 @@ public:
 
     template <typename ...Args>
     T *Create(Args &&...args) {
+        if (freeListHeadIndex_ == itemPoolInvalidIndex) {
+            DEV_ERROR("freeListHeadIndex_=%ld, itemPoolInvalidIndex_=%ld\n", freeListHeadIndex_, itemPoolInvalidIndex);
+        }
         DEV_ASSERT(freeListHeadIndex_ != itemPoolInvalidIndex);
         ItemBlock *item = &ItemAt(freeListHeadIndex_);
         freeListHeadIndex_ = item->freeListNextIndex;

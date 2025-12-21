@@ -188,7 +188,7 @@ class DeviceCtrlMachine {
         ctx.aicoreModel = args->aicoreModel;
         PerfBegin(PERF_EVT_EXEC_DYN);
         PerfBegin(PERF_EVT_CONTROL_FLOW_CALL);
-        ctx.GELaunch(devStartArgs, [this](DynDeviceTask *dynTask, DeviceExecuteContext *exeCtx) {
+        ret = ctx.GELaunch(devStartArgs, [this](DynDeviceTask *dynTask, DeviceExecuteContext *exeCtx) {
             if (unlikely(inspectorEntry_ != nullptr)) {
                 inspectorEntry_(inspector_, exeCtx, dynTask);
             }
@@ -198,6 +198,9 @@ class DeviceCtrlMachine {
             PushTask(DEVICE_TASK_TYPE_DYN, dynTask, exeCtx);
         });
         PerfEnd(PERF_EVT_CONTROL_FLOW_CALL);
+        if (ret != DEVICE_MACHINE_OK) {
+            return ret;
+        }
         DEV_INFO("end control flow.");
         PerfBegin(PERF_EVT_STAGE_STOP_AICORE);
         StopAicoreManager();

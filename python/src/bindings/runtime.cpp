@@ -112,10 +112,6 @@ std::string OperatorDeviceRunOnceDataFromDevice([[maybe_unused]] py::int_ python
     if (opAddr == 0) {
         return "invalid operator";
     }
-    auto workspaceDataAddr = static_cast<uintptr_t>(workspaceData);
-    if (workspaceDataAddr == 0) {
-        return "invalid workspaceData";
-    }
 
     ExportedOperator *op = reinterpret_cast<ExportedOperator *>(opAddr);
     Function *func = op->GetFunction();
@@ -149,6 +145,7 @@ std::string OperatorDeviceRunOnceDataFromDevice([[maybe_unused]] py::int_ python
 
     auto aicoreStream = incomingStream;
     auto aicpuStream = DeviceGetAicpuStream();
+    auto workspaceDataAddr = static_cast<uintptr_t>(workspaceData);
     int rc =
         ExportedOperatorDeviceLaunchOnceWithDeviceTensorData(op, inputs, outputs, aicpuStream, aicoreStream, false,
             DeviceLauncherConfig::CreateConfigWithWorkspaceAddr(workspaceDataAddr));

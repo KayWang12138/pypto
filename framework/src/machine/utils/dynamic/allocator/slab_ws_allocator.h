@@ -218,9 +218,15 @@ public:
                 info.objCnt[i] = 0;
             } else {
                 void* temp = caches_[i].stageAllocHead;
+                if (temp == nullptr) {
+                    DEV_ERROR("stageAllocHead is null for cache index %u\n", i);
+                }
                 DEV_ASSERT(temp != nullptr);
                 while (*static_cast<void**>(temp) != caches_[i].stageAllocTail) {
                     temp = *static_cast<void**>(temp);
+                }
+                if (temp == nullptr) {
+                    DEV_ERROR("stageAllocHead is null after loop for cache index %u, stageAllocTail: %p, \n", i, caches_[i].stageAllocTail);
                 }
                 DEV_ASSERT(temp != nullptr);
                 *static_cast<void**>(temp) = nullptr;

@@ -66,9 +66,8 @@ public:
     int RegisterKernelBin(void **hdl);
     static void SetBinData(const std::vector<uint8_t> &binBuf);
     HostProf& GetHostProfInstance();
-    inline void SetCaptureFlag(bool isCapture, aclmdlRICaptureMode mode) {
+    inline void SetCaptureFlag(bool isCapture) {
         isCapture_ = isCapture;
-        captureMode_ = mode;
     }
 
     void DumpAiCoreExecutionTimeData();
@@ -114,9 +113,8 @@ private:
     rtBinHandle binHdl_;
     FileLock lock_;
     HostProf hostProf_;
-    std::unordered_map<ArchInfo, std::function<void(std::vector<int64_t>&, std::vector<int64_t>&)>> addressMappingTable_;
+    std::unordered_map<ArchInfo, std::function<int(std::vector<int64_t>&, std::vector<int64_t>&)>> addressMappingTable_;
     bool isCapture_ = false;
-    aclmdlRICaptureMode captureMode_ = ACL_MODEL_RI_CAPTURE_MODE_GLOBAL;
 };
 }
 #else

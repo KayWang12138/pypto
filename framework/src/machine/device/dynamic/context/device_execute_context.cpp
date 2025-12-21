@@ -79,10 +79,59 @@ void *DeviceExecuteContext::SymbolHandlerIdToHandler(SymbolHandlerId id) {
         case SymbolHandlerId::GetInputDataInt32Dim4:
             return reinterpret_cast<void *>(GetInputDataInt32Dim4);
         default:
+            DEV_ERROR("Invalid SymbolHandlerId: %lu", static_cast<uint64_t>(id));
             DEV_ASSERT(0);
             return nullptr;
     }
     return nullptr;
+}
+
+int DeviceExecuteContext::RunInit(DevStartArgs *startArgs, PushTaskEntry tPushTask) {
+    int ret = DEVICE_MACHINE_OK;
+    PerfBegin(PERF_EVT_CONTROL_FLOW_INIT);
+    this->pushTask = tPushTask;
+    this->args = startArgs;
+    this->devProg = startArgs->devProg;
+
+    workspace.Init(startArgs);
+    if (devProg->stitchFunctionNumInitial > 0) {
+        stitchTaskLoopNumThreshold = std::min<uint16_t>(devProg->stitchFunctionNumInitial, MAX_CACHED_FUNC_NUM);
+        DEV_INFO("First stitch task loop num threshold is %u.", stitchTaskLoopNumThreshold);
+    }
+
+    slotContext.InitAllocator(workspace, devProg->slotSize);
+    slotContext.FillInputOutputSlot(devProg, startArgs);
+
+    stitchContext.Init(devProg, workspace);
+
+    taskContext.InitAllocator(devProg, workspace, startArgs);
+
+    workspace.SetupVector(symbolTable);
+    symbolTable.resize(devProg->symbolTable.size());
+    for (int index = 0; index < startArgs->GetInputSymbolSize(); ++index) {
+        DevInputSymbol &param = startArgs->GetInputSymbol(index);
+        int inputSymbolIndex = this->devProg->startArgsInputSymbolIndexList[index];
+        symbolTable[inputSymbolIndex] = param.value;
+        DEV_INFO("Param %d Symbol Table %d = %lu.", index, inputSymbolIndex, param.value);
+    }
+
+    for (size_t index = 0; index < this->devProg->startArgsSymbolHandlerList.size(); ++index) {
+        SymbolHandler &symbolHandler = this->devProg->startArgsSymbolHandlerList[index];
+        void *handler = SymbolHandlerIdToHandler(symbolHandler.handlerId);
+        if (handler == nullptr) {
+            return DEVICE_MACHINE_ERROR;
+        }
+        DEV_ASSERT_MSG(handler, "handler not found.");
+        symbolTable[symbolHandler.symIndex] = PtrToValue(handler);
+    }
+
+    /* This initialization must only occur after all other AICPU workspace meta memory allocations have completed.
+        The remaining portion of AICPU workspace meta memory must support reclamation. */
+    workspace.InitMetadataSlabAllocator();
+
+    PerfEnd(PERF_EVT_CONTROL_FLOW_INIT);
+    DEV_INFO("image size = %lu.", devProg->GetSize());
+    return ret;
 }
 
 DeviceExecuteContext::DeviceExecuteContext(DevStartArgs *startArgs) {
@@ -101,57 +150,14 @@ DeviceExecuteContext::DeviceExecuteContext(DevStartArgs *startArgs) {
     PerfEnd(PERF_EVT_INIT);
 }
 
-void DeviceExecuteContext::ShowStats() {
-    taskContext.ShowStats();
-    workspace.DumpMemoryUsage("End ExecDyn");
-}
-
-void DeviceExecuteContext::RunInit(DevStartArgs *startArgs, PushTaskEntry tPushTask) {
-    PerfBegin(PERF_EVT_CONTROL_FLOW_INIT);
-    this->pushTask = tPushTask;
-    this->args = startArgs;
-    this->devProg = startArgs->devProg;
-
-    workspace.Init(startArgs);
-    if (devProg->stitchFunctionNumInitial > 0) {
-        stitchTaskLoopNumThreshold = std::min<uint16_t>(devProg->stitchFunctionNumInitial, MAX_CACHED_FUNC_NUM);
-        DEV_INFO("first stitch task loop num threshold is %u.", stitchTaskLoopNumThreshold);
-    }
-
-    slotContext.InitAllocator(workspace, devProg->slotSize);
-    slotContext.FillInputOutputSlot(devProg, startArgs);
-
-    stitchContext.Init(devProg, workspace);
-
-    taskContext.InitAllocator(devProg, workspace, startArgs);
-
-    workspace.SetupVector(symbolTable);
-    symbolTable.resize(devProg->symbolTable.size());
-    for (int i = 0; i < startArgs->GetInputSymbolSize(); ++i) {
-        DevInputSymbol &param = startArgs->GetInputSymbol(i);
-        int inputSymbolIndex = this->devProg->startArgsInputSymbolIndexList[i];
-        symbolTable[inputSymbolIndex] = param.value;
-        DEV_INFO("Param %d Symbol Table %d = %lu.", i, inputSymbolIndex, param.value);
-    }
-
-    for (size_t i = 0; i < this->devProg->startArgsSymbolHandlerList.size(); ++i) {
-        SymbolHandler &symbolHandler = this->devProg->startArgsSymbolHandlerList[i];
-        void *handler = SymbolHandlerIdToHandler(symbolHandler.handlerId);
-        DEV_ASSERT_MSG(handler, "handler not found.");
-        symbolTable[symbolHandler.symIndex] = PtrToValue(handler);
-    }
-
-    /* This initialization must only occur after all other AICPU workspace meta memory allocations have completed.
-        The remaining portion of AICPU workspace meta memory must support reclamation. */
-    workspace.InitMetadataSlabAllocator();
-
-    PerfEnd(PERF_EVT_CONTROL_FLOW_INIT);
-    DEV_INFO("Image size = %lu.", devProg->GetSize());
-}
-
 void DeviceExecuteContext::PushTask(DynDeviceTask *dynTask) {
     pushTask(dynTask, this);
     taskId++;
+}
+
+void DeviceExecuteContext::ShowStats() {
+    taskContext.ShowStats();
+    workspace.DumpMemoryUsage("End ExecDyn");
 }
 
 void DeviceExecuteContext::GELaunchRunCached(DevStartArgs *startArgs, PushTaskEntry tPushTask) {
@@ -162,8 +168,8 @@ void DeviceExecuteContext::GELaunchRunCached(DevStartArgs *startArgs, PushTaskEn
     PerfEnd(PERF_EVT_CONTROL_FLOW_INIT);
     PerfMtTrace(PERF_TRACE_INIT, CTRL_CPU_THREAD_IDX);
     PerfBegin(PERF_EVT_CONTROL_FLOW);
-    for (size_t i = 0; i < devProg->controlFlowCache.deviceTaskCount; i++) {
-        DynDeviceTask *dynTask = reinterpret_cast<DynDeviceTask *>(devProg->controlFlowCache.deviceTaskCacheList[i].dynTaskBase);
+    for (size_t index = 0; index < devProg->controlFlowCache.deviceTaskCount; index++) {
+        DynDeviceTask *dynTask = reinterpret_cast<DynDeviceTask *>(devProg->controlFlowCache.deviceTaskCacheList[index].dynTaskBase);
         devProg->controlFlowCache.PredCountDataRestore(dynTask);
         devProg->controlFlowCache.ReadyQueueDataRestore(dynTask);
         taskContext.UpdateReadyTaskNum(dynTask->readyQueueBackup->readyTaskNum);
@@ -177,7 +183,7 @@ void DeviceExecuteContext::GELaunchRunCached(DevStartArgs *startArgs, PushTaskEn
     PerfEnd(PERF_EVT_CONTROL_FLOW);
 }
 
-void DeviceExecuteContext::RunControlFlow(DevStartArgs *startArgs) {
+int DeviceExecuteContext::RunControlFlow(DevStartArgs *startArgs) {
     PerfBegin(PERF_EVT_CONTROL_FLOW);
     RuntimeCallEntryType runtimeCallList[static_cast<uint32_t>(RuntimeCallStage::T_RUNTIME_CALL_MAX)] = {
         DeviceExecuteRuntimeCallRootAlloc,
@@ -186,13 +192,28 @@ void DeviceExecuteContext::RunControlFlow(DevStartArgs *startArgs) {
         DeviceExecuteRuntimeCallShmemAllocator,
         DeviceExecuteRuntimeCallSlotMarkNeedAlloc,
     };
+    int originalErrorState = this->GetErrorState();
     execProg.controlFlowBinary.CallControlFlow(this, symbolTable.data(), runtimeCallList, startArgs);
+    int finalErrorState = this->GetErrorState();
+    if (finalErrorState != originalErrorState && finalErrorState != DEVICE_MACHINE_OK) {
+        DEV_ERROR("Control flow execution failed with error code: %d", finalErrorState);
+        return finalErrorState;
+    }
     PerfEnd(PERF_EVT_CONTROL_FLOW);
+    return DEVICE_MACHINE_OK;
 }
 
-void DeviceExecuteContext::GELaunchFullCacheRunControlFlow(DevStartArgs *startArgs, PushTaskEntry tPushTask) {
-    RunInit(startArgs, tPushTask);
-    RunControlFlow(startArgs);
+int DeviceExecuteContext::GELaunchFullCacheRunControlFlow(DevStartArgs *startArgs, PushTaskEntry tPushTask) {
+    int ret = DEVICE_MACHINE_OK;
+    ret = RunInit(startArgs, tPushTask);
+    if (unlikely(ret != DEVICE_MACHINE_OK)) {
+        return DEVICE_MACHINE_ERROR;
+    }
+    ret = RunControlFlow(startArgs);
+    if (unlikely(ret != DEVICE_MACHINE_OK)) {
+        return DEVICE_MACHINE_ERROR;
+    }
+    return ret;
 }
 
 void DeviceExecuteContext::GELaunchFullCache(DevStartArgs *startArgs, PushTaskEntry tPushTask) {
@@ -205,7 +226,20 @@ void DeviceExecuteContext::GELaunchFullCache(DevStartArgs *startArgs, PushTaskEn
     }
 }
 
-void DeviceExecuteContext::GELaunchPartialCache(DevStartArgs *startArgs, PushTaskEntry tPushTask) {
+int DeviceExecuteContext::GELaunch(DevStartArgs *startArgs, PushTaskEntry tPushTask) {
+    int ret = DEVICE_MACHINE_OK;
+    if (devProg->controlFlowCache.IsRecording()) {
+        devProg->controlFlowCache.InitInputOutput(startArgs);
+    }
+    ret = GELaunchPartialCache(startArgs, tPushTask);
+    if (unlikely(ret != DEVICE_MACHINE_OK)) {
+        return DEVICE_MACHINE_ERROR;
+    }
+    return DEVICE_MACHINE_OK;
+}
+
+int DeviceExecuteContext::GELaunchPartialCache(DevStartArgs *startArgs, PushTaskEntry tPushTask) {
+    int ret = DEVICE_MACHINE_OK;
     DEV_TRACE_DEBUG(CtrlEvent(none(), Workspace(Range(startArgs->contextWorkspaceAddr, startArgs->contextWorkspaceAddr + startArgs->contextWorkspaceSize))));
 
     if (devProg->controlFlowCache.IsActivatedPartialCache(startArgs)) {
@@ -215,7 +249,7 @@ void DeviceExecuteContext::GELaunchPartialCache(DevStartArgs *startArgs, PushTas
     }
 DEV_IF_DEVICE {
     uint64_t start = GetCycles();
-    while (startArgs->syncFlag != 1) {
+    while ((startArgs->devProg->devArgs.disableSync == 0) && startArgs->syncFlag != 1) {
         if (GetCycles() - start > HAND_SHAKE_TIMEOUT) {
             DEV_ERROR("Wait sync flag timeout.");
             break;
@@ -223,15 +257,15 @@ DEV_IF_DEVICE {
     }
 }
     DEV_TRACE_DEBUG(CtrlEvent(none(), ControlFlowCacheFullRunControl()));
-    RunInit(startArgs, tPushTask);
-    RunControlFlow(startArgs);
-}
-
-void DeviceExecuteContext::GELaunch(DevStartArgs *startArgs, PushTaskEntry tPushTask) {
-    if (devProg->controlFlowCache.IsRecording()) {
-        devProg->controlFlowCache.InitInputOutput(startArgs);
+    ret = RunInit(startArgs, tPushTask);
+    if (unlikely(ret != DEVICE_MACHINE_OK)) {
+        return DEVICE_MACHINE_ERROR;
     }
-    GELaunchPartialCache(startArgs, tPushTask);
+    ret = RunControlFlow(startArgs);
+    if (unlikely(ret != DEVICE_MACHINE_OK)) {
+        return DEVICE_MACHINE_ERROR;
+    }
+    return ret;
 }
 
 bool DeviceExecuteContext::AiCoreFree() {
@@ -260,23 +294,30 @@ void DeviceExecuteContext::DumpDeviceTask(uint64_t taskId, DynDeviceTask *device
     }
 }
 
-void DeviceExecuteContext::SubmitToAicoreAndRecycleMemory(bool withoutTail, bool isLastTask) {
-    DEV_VERBOSE_DEBUG("submit stitch task.");
+int DeviceExecuteContext::SubmitToAicoreAndRecycleMemory(bool withoutTail, bool isLastTask) {
+    int ret = DEVICE_MACHINE_OK;
+    DEV_VERBOSE_DEBUG("Submit stitch task.");
     DEV_TRACE_DEBUG(DEvent(taskId, DActSubmit(stitchContext.Size())));
     AutoScopedPerf asp(PERF_EVT_SUBMIT_AICORE);
     if (stitchContext.Empty()) {
-        DEV_INFO("stitch context is empty.");
-        return;
+        DEV_INFO("Stitch context is empty.");
+        return ret;
     }
 
     PROF_STAGE_BEGIN(PERF_EVT_DECIDE_SLOT_ADDRESS, "slotaddr.before\n");
-    stitchContext.DecideSlotAddress(
+    ret = stitchContext.DecideSlotAddress(
         slotContext.GetSlotList(), slotContext.GetSlotSize(), slotContext.GetSlotRefCntPool());
     PROF_STAGE_END(PERF_EVT_DECIDE_SLOT_ADDRESS, "slotaddr.after\n");
+    if (unlikely(ret != DEVICE_MACHINE_OK)) {
+        return DEVICE_MACHINE_ERROR;
+    }
 
     PROF_STAGE_BEGIN(PERF_EVT_DECIDE_INCAST_ADDRESS, "incastaddr.before\n");
-    stitchContext.DecideIncastOutcast(taskId);
+    ret = stitchContext.DecideIncastOutcast(taskId);
     PROF_STAGE_END(PERF_EVT_DECIDE_INCAST_ADDRESS, "incastaddr.after\n");
+    if (unlikely(ret != DEVICE_MACHINE_OK)) {
+        return DEVICE_MACHINE_ERROR;
+    }
 
     DEV_IF_VERBOSE_DEBUG {
             stitchContext.DumpStitchInfo();
@@ -291,6 +332,10 @@ void DeviceExecuteContext::SubmitToAicoreAndRecycleMemory(bool withoutTail, bool
 
     PROF_STAGE_BEGIN(PERF_EVT_STAGE_BUILD_TASK, "BuildDeviceTaskData.before\n");
     DynDeviceTask *dynTask = taskContext.BuildDeviceTaskData(stitchContext, taskId, devProg, withoutTail);
+    if (dynTask == nullptr) {
+        DEV_ERROR("Build device task data failed.");
+        return DEVICE_MACHINE_ERROR;
+    }
     dynTask->SetLastTask(isLastTask);
     PROF_STAGE_END(PERF_EVT_STAGE_BUILD_TASK, "BuildDeviceTaskData.after\n");
 
@@ -319,6 +364,7 @@ void DeviceExecuteContext::SubmitToAicoreAndRecycleMemory(bool withoutTail, bool
     PushTask(dynTask);
     PROF_STAGE_END(PERF_EVT_STAGE_PUSH_TASK, "push.after\n");
     PerfMtTrace(PERF_TRACE_DEV_TASK_BUILD, CTRL_CPU_THREAD_IDX);
+    return ret;
 }
 
 schema::RUid DeviceExecuteContext::GetRuid(uint64_t rootKey, bool afterAppend) {
@@ -330,23 +376,33 @@ schema::RUid DeviceExecuteContext::GetRuid(uint64_t rootKey, bool afterAppend) {
     return ruid;
 }
 
-void DeviceExecuteContext::ControlFlowCacheStopCache(uint64_t rootKey) {
-    SubmitToAicoreAndRecycleMemory(false);
+int DeviceExecuteContext::ControlFlowCacheStopCache(uint64_t rootKey) {
+    int ret = DEVICE_MACHINE_OK;
+    ret = SubmitToAicoreAndRecycleMemory(false);
+    if (unlikely(ret != DEVICE_MACHINE_OK)) {
+        return DEVICE_MACHINE_ERROR;
+    }
     devProg->controlFlowCache.StopRecording();
-    DEV_INFO("[Stitch Finish] Stop recording ctrl flow cache. rootKey=%" PRIu64 ".", rootKey);
+    DEV_INFO("[Stitch Finish]Stop recording ctrl flow cache. rootKey=%" PRIu64 ".", rootKey);
+    return ret;
 }
 
 void *DeviceExecuteContext::CallRootFunctionAlloc(uint64_t rootKey) {
+    int ret = DEVICE_MACHINE_OK;
     DevAscendFunction *devRoot = devProg->GetFunction(rootKey);
     DEV_DEBUG("alloc one func %lu %p %s.", rootKey, devRoot, devRoot->GetRawName());
     if (stitchContext.Size() == stitchTaskLoopNumThreshold ||
         stitchContext.stitchedCallOpSize() + devRoot->GetOperationSize() > devProg->stitchFunctionsize) {
-        DEV_INFO("[Stitch Finish] Stitch Limit Exceeded. #task=%zu+1 (limit=%u), #callop=%u+%zu (limit=%u).",
+        ret = SubmitToAicoreAndRecycleMemory(false);
+        if (unlikely(ret != DEVICE_MACHINE_OK)) {
+            return RUNTIME_FUNCKEY_ERROR;
+        }
+        auto nextThreshold =
+            std::min<uint16_t>(stitchTaskLoopNumThreshold + devProg->stitchFunctionNumStep, MAX_CACHED_FUNC_NUM);
+        DEV_INFO("[Stitch Finish]Stitch Limit Exceeded. #task=%zu+1 (limit=%u), #callop=%u+%zu (limit=%u).",
             stitchContext.Size(), stitchTaskLoopNumThreshold,
             stitchContext.stitchedCallOpSize(), devRoot->GetOperationSize(), devProg->stitchFunctionsize);
         SubmitToAicoreAndRecycleMemory(false);
-        auto nextThreshold =
-            std::min<uint16_t>(stitchTaskLoopNumThreshold + devProg->stitchFunctionNumStep, MAX_CACHED_FUNC_NUM);
         stitchTaskLoopNumThreshold = nextThreshold;
     }
     DEV_TRACE_DEBUG(REvent(GetRuid(rootKey), RActDup(devRoot->GetRawName())));
@@ -358,18 +414,25 @@ void *DeviceExecuteContext::CallRootFunctionAlloc(uint64_t rootKey) {
 }
 
 void *DeviceExecuteContext::CallRootFunctionStitch(uint64_t rootKey) {
-    DEV_DEBUG("root stitch %lu.", rootKey);
+    int ret = DEVICE_MACHINE_OK;
+    DEV_DEBUG("Root stitch %lu.", rootKey);
     if (rootKey == RUNTIME_FUNCKEY_CACHESTOP) {
         if (devProg->controlFlowCache.IsRecording()) {
-            ControlFlowCacheStopCache(rootKey);
+            ret = ControlFlowCacheStopCache(rootKey);
+            if (unlikely(ret != DEVICE_MACHINE_OK)) {
+                return RUNTIME_FUNCKEY_ERROR;
+            }
             return RUNTIME_FUNCRET_CACHESTOP_RETURN;
         } else {
             return RUNTIME_FUNCRET_CACHESTOP_CONTINUE;
         }
     }
     if (rootKey == RUNTIME_FUNCKEY_FINISH || rootKey == RUNTIME_FUNCKEY_LOOP_BARRIER) {
-        SubmitToAicoreAndRecycleMemory(false, rootKey == RUNTIME_FUNCKEY_FINISH ? true : false);
-        DEV_INFO("[Stitch Finish] Finish Signal or Barrier. rootKey=%" PRIu64 ".", rootKey);
+        ret = SubmitToAicoreAndRecycleMemory(false, rootKey == RUNTIME_FUNCKEY_FINISH ? true : false);
+        if (unlikely(ret != DEVICE_MACHINE_OK)) {
+            return RUNTIME_FUNCKEY_ERROR;
+        }
+        DEV_INFO("[Stitch Finish] Finish Signal or Barrier. rootKey=%" PRIu64 " .", rootKey);
         return nullptr;
     }
 
@@ -378,13 +441,19 @@ void *DeviceExecuteContext::CallRootFunctionStitch(uint64_t rootKey) {
     while (!workspace.TryAllocateFunctionMemory(currDevRootDup, slotContext.GetSlotList())) {
         // Failed to allocate, failed to stitch, submit existing stitched window to aicore and recycle memory
         // If nothing stitched, wait for aicore to finish tasks and release enough memory
-        SubmitToAicoreAndRecycleMemory(true);
-        DEV_INFO("[Stitch Finish] Memory Limit Exceeded.");
+        ret = SubmitToAicoreAndRecycleMemory(true);
+        if (unlikely(ret != DEVICE_MACHINE_OK)) {
+            return RUNTIME_FUNCKEY_ERROR;
+        }
+        DEV_INFO("[Stitch Finish] Memory Limit Exceeded .");
     }
 
     if (AiCoreFree()) {
-        SubmitToAicoreAndRecycleMemory(false);
-        DEV_INFO("[Stitch Finish] AICore Free.");
+        ret = SubmitToAicoreAndRecycleMemory(false);
+        if (unlikely(ret != DEVICE_MACHINE_OK)) {
+            return RUNTIME_FUNCKEY_ERROR;
+        }
+        DEV_INFO("[Stitch Finish] AICore Free .");
     }
 
     DEV_TRACE_DEBUG(DEvent(taskId, DActStitchStart(GetRuid(rootKey))));
@@ -392,7 +461,10 @@ void *DeviceExecuteContext::CallRootFunctionStitch(uint64_t rootKey) {
     size_t devNextIdx = stitchContext.Size();
     stitchContext.Stitch(slotContext, currDevRootDup, taskId, devNextIdx);
 
-    slotContext.UpdateSlots(currDevRootDup, stitchContext.GetStitchedList(), taskId, devNextIdx);
+    ret = slotContext.UpdateSlots(currDevRootDup, stitchContext.GetStitchedList(), taskId, devNextIdx);
+    if (unlikely(ret != DEVICE_MACHINE_OK)) {
+        return RUNTIME_FUNCKEY_ERROR;
+    }
     PROF_STAGE_END(PERF_EVT_STAGE_STITCH, "stitch.after\n");
     DEV_TRACE_DEBUG(DEvent(taskId, DActStitchFinish(GetRuid(rootKey, true))));
     return nullptr;
@@ -419,7 +491,11 @@ void *DeviceExecuteContext::DeviceExecuteRuntimeCallRootAlloc(void *ctx_, uint64
         result = nullptr;
     } else {
         result = ctx->CallRootFunctionAlloc(rootKey);
+        if (result == RUNTIME_FUNCKEY_ERROR) {
+            ctx->SetErrorState(DEVICE_MACHINE_ERROR);
+        }
     }
+
     PerfEnd(PERF_EVT_ROOT_FUNC);
     return result;
 }
@@ -438,6 +514,9 @@ void *DeviceExecuteContext::DeviceExecuteRuntimeCallRootStitch(void *ctx_, uint6
         result = nullptr;
     } else {
         result = ctx->CallRootFunctionStitch(rootKey);
+        if (result == RUNTIME_FUNCKEY_ERROR) {
+            ctx->SetErrorState(DEVICE_MACHINE_ERROR);
+        }
     }
     PerfEnd(PERF_EVT_ROOT_FUNC);
     if (ctx->DuppedRootUpdateAndCachedAllSubmitted()) {

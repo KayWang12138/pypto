@@ -40,23 +40,23 @@ void DeviceAgentTask::UpdateCoreFunction(const CacheValue &cacheValue) {
         this->compileInfo.coreFunctionIdToProgramId.insert({i, oneTopo->psgId}); // 缓存下来后面functionbin偏移会用
         this->compileInfo.coreFunctionReadyState.emplace_back(
             CoreFunctionReadyState(oneTopo->readyCount, oneTopo->coreType));
-        ALOG_DEBUG_F("core function : topoAddr %lx readyCount %ld coreType %lu", i,
+        ALOG_DEBUG_F("core function : topoAddr %lx readyCount %ld coreType %lu.", i,
             oneTopo->readyCount, oneTopo->coreType);
         ASSERT((oneTopo->coreType == static_cast<uint64_t>(MachineType::AIC)) ||
                 (oneTopo->coreType == static_cast<uint64_t>(MachineType::AIV)) ||
                 (oneTopo->coreType == static_cast<uint64_t>(MachineType::HUB)) ||
-                (oneTopo->coreType == static_cast<uint64_t>(MachineType::AICPU)));
+                (oneTopo->coreType == static_cast<uint64_t>(MachineType::AICPU)))<<"Invalid core type: "<<oneTopo->coreType;
         uint64_t offset = binOffset[oneTopo->psgId] + sizeof(uint64_t);
         this->compileInfo.coreFuncBinOffset.emplace_back(offset);
     }
-    for (uint64_t i = coreFuncNum; i < cacheValue.header.virtualFunctionNum + coreFuncNum; i++) {
+    for (uint64_t idx = coreFuncNum; idx < cacheValue.header.virtualFunctionNum + coreFuncNum; idx++) {
         CoreFunctionTopo *oneTopo = reinterpret_cast<CoreFunctionTopo *>(
-                reinterpret_cast<uint8_t *>(cacheTopo) + topoOffset[i]);
+                reinterpret_cast<uint8_t *>(cacheTopo) + topoOffset[idx]);
         ASSERT((oneTopo->coreType == static_cast<uint64_t>(MachineType::VIRTUAL_PURE)) ||
-            (oneTopo->coreType == static_cast<uint64_t>(MachineType::VIRTUAL_MIX)));
+            (oneTopo->coreType == static_cast<uint64_t>(MachineType::VIRTUAL_MIX)))<<"Invalid core type: "<<oneTopo->coreType;
         this->compileInfo.coreFunctionReadyState.emplace_back(
             CoreFunctionReadyState(oneTopo->readyCount, oneTopo->coreType));
-        ALOG_DEBUG_F("virtual core function : topoAddr %lx readyCount %ld coreType %lu", i,
+        ALOG_DEBUG_F("virtual core function : topoAddr %lx readyCount %ld coreType %lu", idx,
             oneTopo->readyCount, oneTopo->coreType);
     }
 }
@@ -79,7 +79,7 @@ void DeviceAgentTask::UpdateCompileInfo() {
             invokeOffsetSize++;
             TensorInfo tensorInfo;
             SetDumpTensorInfo(elm, tensorInfo, this);
-            ALOG_DEBUG_F("Current tensor info paramType is %d, dims is %u, tensorInforpid is %d\n",
+            ALOG_DEBUG_F("Current tensor info paramType is %d, dims is %u, tensorInforpid is %d.\n",
                 tensorInfo.paramType, tensorInfo.dims, tensorInfo.hostpid);
             argsOffset.emplace_back(elm.offset);
             if (elm.opOriginArgsSeq == INVALID_IN_OUT_INDEX) {
@@ -98,10 +98,10 @@ void DeviceAgentTask::UpdateCompileInfo() {
 }
 
 void DeviceAgentTask::Validate() {
-    ASSERT(this->GetFuncCacheValue() != std::nullopt);
-    ASSERT(this->compileInfo.coreFunctionCnt != 0);
-    ASSERT(this->GetFuncCacheValue().value().header.coreFunctionNum == this->compileInfo.coreFunctionCnt);
-    ASSERT(this->compileInfo.coreFunctionCnt == this->compileInfo.invokeParaOffset.size());
+    ASSERT(this->GetFuncCacheValue() != std::nullopt)<<"Function cache value is empty!";
+    ASSERT(this->compileInfo.coreFunctionCnt != 0)<<"Core function count is 0!";
+    ASSERT(this->GetFuncCacheValue().value().header.coreFunctionNum == this->compileInfo.coreFunctionCnt)<<"Core function number is mismatch: cache="<<this->GetFuncCacheValue().value().header.coreFunctionNum<<", compileInfo="<<this->compileInfo.coreFunctionCnt;
+    ASSERT(this->compileInfo.coreFunctionCnt == this->compileInfo.invokeParaOffset.size())<<"Core function count mismatch with invoke para offset size: count="<<this->compileInfo.coreFunctionCnt<<", offset="<<this->compileInfo.invokeParaOffset.size();
 }
 
 void DeviceAgentTask::SetDumpTensorInfo(const InvokeParaOffset &elm, TensorInfo &tensorInfo, const DeviceAgentTask *task) const {
@@ -118,11 +118,11 @@ void DeviceAgentTask::SetDumpTensorInfo(const InvokeParaOffset &elm, TensorInfo 
     tensorInfo.rawMagic = elm.rawMagic;
     tensorInfo.opMagic = elm.opMagic;
     tensorInfo.dataByte = BytesOf(elm.datatype);
-    ALOG_DEBUG_F("Current tile tensor rawMagic %u, opMagic %u", tensorInfo.rawMagic, tensorInfo.opMagic);
-    for (size_t i = 0; i < elm.tensorShape.size(); i++) {
-        tensorInfo.shape[i] = elm.tensorShape[i];
-        tensorInfo.stride[i] = elm.rawTensorShape[i];
-        ALOG_DEBUG_F("tensor shape[%zu] = %d, stride[%zu] = %d", i, tensorInfo.shape[i], i, tensorInfo.stride[i]);
+    ALOG_DEBUG_F("Current tile tensor rawMagic %u, opMagic %u.", tensorInfo.rawMagic, tensorInfo.opMagic);
+    for (size_t idx = 0; idx < elm.tensorShape.size(); idx++) {
+        tensorInfo.shape[idx] = elm.tensorShape[idx];
+        tensorInfo.stride[idx] = elm.rawTensorShape[idx];
+        ALOG_DEBUG_F("tensor shape[%zu] = %d, stride[%zu] = %d.", idx, tensorInfo.shape[idx], idx, tensorInfo.stride[idx]);
     }
 }
 }

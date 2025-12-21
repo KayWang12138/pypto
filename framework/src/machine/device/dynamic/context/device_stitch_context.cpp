@@ -60,6 +60,9 @@ void DeviceStitchContext::CheckStitch(DevAscendFunctionDupped *stitchedList, int
                 }
             }
         }
+        if (dynPredCount != dynSuccCount) {
+            DEV_ERROR("dynPredCount %u does not match dynSuccCount %u", dynPredCount, dynSuccCount);
+        }
         DEV_ASSERT(dynPredCount == dynSuccCount);
     }
 }
@@ -111,7 +114,7 @@ void DeviceStitchContext::DumpSlotInfo(const char *label, DeviceExecuteSlot *slo
     }
 }
 
-void DeviceStitchContext::DecideSlotAddress(DeviceExecuteSlot *slotList, size_t slotSize,
+int DeviceStitchContext::DecideSlotAddress(DeviceExecuteSlot *slotList, size_t slotSize,
     ItemPool<uint32_t, WsMemCategory::ITEMPOOL_SLOT_REF_CNT> &slotRefCntPool) {
     static constexpr uint64_t NON_ADDR_MASK = UINT64_C(1) << 62;
 
@@ -119,8 +122,8 @@ void DeviceStitchContext::DecideSlotAddress(DeviceExecuteSlot *slotList, size_t 
     UNUSED(NON_ADDR_MASK);
 
     DumpSlotInfo("Update before", slotList, slotSize);
-    for (size_t slotIdx = 0; slotIdx < slotSize; ++slotIdx) {
-        auto &slot = slotList[slotIdx];
+    for (size_t slotIndex = 0; slotIndex < slotSize; ++slotIndex) {
+        auto &slot = slotList[slotIndex];
         auto &desc = slot.desc;
         if (desc.IsAddress()) {
             continue;
@@ -128,6 +131,10 @@ void DeviceStitchContext::DecideSlotAddress(DeviceExecuteSlot *slotList, size_t 
 
         auto &dup = stitchedList_[desc.dupIdx];
         auto &outcastDesc = dup.GetOutcastAddress(desc.outcastIdx);
+        if (!outcastDesc.IsAddress()) {
+            DEV_ERROR("outcastDesc is not an address.");
+            return DEVICE_MACHINE_ERROR;
+        }
         DEV_DEBUG_ASSERT(outcastDesc.IsAddress());
 #if DEBUG_INFINITE_LIFETIME
         desc = outcastDesc;
@@ -148,84 +155,106 @@ void DeviceStitchContext::DecideSlotAddress(DeviceExecuteSlot *slotList, size_t 
         }
         if (outcastDesc.addr == outcastWsStandardAddr) {
             // First time meet this unsolved slot
-            slotInfosInDecidingSlotMem_[slotIdx].slotPtr = workspace_->AllocateSlot(dup.GetSource()->GetRawName());
-            slotInfosInDecidingSlotMem_[slotIdx].RefCntInit(slotRefCntPool);
-            outcastDesc = AddressDescriptor(slotIdx ^ NON_ADDR_MASK); // mark as first slot
+            slotInfosInDecidingSlotMem_[slotIndex].slotPtr = workspace_->AllocateSlot(dup.GetSource()->GetRawName());
+            slotInfosInDecidingSlotMem_[slotIndex].RefCntInit(slotRefCntPool);
+            outcastDesc = AddressDescriptor(slotIndex ^ NON_ADDR_MASK); // mark as first slot
         } else {
+            if ((outcastDesc.addr & NON_ADDR_MASK) != NON_ADDR_MASK) {
+                DEV_ERROR("OutcastDesc address %lx is invalid.", outcastDesc.addr);
+                return DEVICE_MACHINE_ERROR;
+            }
             DEV_DEBUG_ASSERT((outcastDesc.addr & NON_ADDR_MASK) == NON_ADDR_MASK);
             size_t firstSlotIdx = outcastDesc.addr ^ NON_ADDR_MASK;
             slotInfosInDecidingSlotMem_[firstSlotIdx].RefCntInc(slotRefCntPool);
-            slotInfosInDecidingSlotMem_[slotIdx] = slotInfosInDecidingSlotMem_[firstSlotIdx];
+            slotInfosInDecidingSlotMem_[slotIndex] = slotInfosInDecidingSlotMem_[firstSlotIdx];
         }
 #endif
     }
-    for (size_t slotIdx = 0; slotIdx < slotSize; ++slotIdx) {
-        auto &slot = slotList[slotIdx];
+    for (size_t slotIndex = 0; slotIndex < slotSize; ++slotIndex) {
+        auto &slot = slotList[slotIndex];
         auto &desc = slot.desc;
         if (desc.IsAddress()) {
             continue;
         }
 #if DEBUG_INFINITE_LIFETIME
+        if (true) {
+            return DEVICE_MACHINE_ERROR;
+        }
         DEV_ASSERT(false);
 #endif
         auto &dup = stitchedList_[desc.dupIdx];
         auto &outcastDesc = dup.GetOutcastAddress(desc.outcastIdx);
-        if (size_t firstSlotIdx = outcastDesc.addr ^ NON_ADDR_MASK; firstSlotIdx == slotIdx) {
+        if (size_t firstSlotIdx = outcastDesc.addr ^ NON_ADDR_MASK; firstSlotIdx == slotIndex) {
             // First time meet this unsolved slot
             outcastDesc = AddressDescriptor(slotInfosInDecidingSlotMem_[firstSlotIdx].slotPtr);
         }
 
         slot.desc = outcastDesc;
-        slot.RefCntCopyFrom(slotInfosInDecidingSlotMem_[slotIdx]);
+        slot.RefCntCopyFrom(slotInfosInDecidingSlotMem_[slotIndex]);
     }
 
     DumpSlotInfo("Update after", slotList, slotSize);
+    return DEVICE_MACHINE_OK;
 }
 
-void DeviceStitchContext::DecideIncastOutcast(uint64_t taskId) {
+int DeviceStitchContext::DecideIncastOutcast(uint64_t taskId) {
     (void)taskId;
-    for (size_t funcIdx = 0; funcIdx < stitchedList_.size(); ++funcIdx) {
-        auto &dup = stitchedList_[funcIdx];
+    for (size_t funcIndex = 0; funcIndex < stitchedList_.size(); ++funcIndex) {
+        auto &dup = stitchedList_[funcIndex];
         // decide incast address
         size_t incastSize = dup.GetSource()->GetIncastSize();
-        for (size_t i = 0; i < incastSize; ++i) {
-            auto &desc = dup.GetIncastAddress(i);
+        for (size_t index = 0; index < incastSize; ++index) {
+            auto &desc = dup.GetIncastAddress(index);
             if (!desc.IsAddress()) {
                 desc = stitchedList_[desc.dupIdx].GetOutcastAddress(desc.outcastIdx);;
+            }
+            if (!desc.IsAddress()) {
+                DEV_ERROR("Failed to resolve valid address for incast at index %zu.", index);
+                return DEVICE_MACHINE_ERROR;
             }
             DEV_DEBUG_ASSERT(desc.IsAddress());
         }
 
         // decide outcast address
         size_t outcastSize = dup.GetSource()->GetOutcastSize();
-        for (size_t i = 0; i < outcastSize; ++i) {
-            auto &desc = dup.GetOutcastAddress(i);
+        for (size_t index = 0; index < outcastSize; ++index) {
+            auto &desc = dup.GetOutcastAddress(index);
             if (!desc.IsAddress()) {
                 desc = stitchedList_[desc.dupIdx].GetOutcastAddress(desc.outcastIdx);
+            }
+            if (!desc.IsAddress()) {
+                DEV_ERROR("Failed to resolve valid address for outcast at index %zu.", index);
+                return DEVICE_MACHINE_ERROR;
             }
             DEV_DEBUG_ASSERT(desc.IsAddress());
         }
     }
+    return DEVICE_MACHINE_OK;
 }
 
-void DeviceStitchContext::MoveTo(DynDeviceTask *dynTask) {
+int DeviceStitchContext::MoveTo(DynDeviceTask *dynTask) {
     dynTask->stitchedList = std::move(stitchedList_);
     stitchedList_.clear();
     dynTask->devTask.coreFunctionCnt = stitchedCallOpSize_;
     stitchedCallOpSize_ = 0;
 
+    if (dynTask->stitchedList.size() > MAX_CACHED_FUNC_NUM) {
+        DEV_ERROR("Stitch list size:%u exceeds maximum allowed cached function number:%zu.", dynTask->stitchedList.size(), MAX_CACHED_FUNC_NUM);
+        return DEVICE_MACHINE_ERROR;
+    }
     DEV_ASSERT(dynTask->stitchedList.size() <= MAX_CACHED_FUNC_NUM);
     int size = static_cast<int>(dynTask->stitchedList.size());
-    for (int i = 0; i < size; ++i) {
-        auto &funcDup = dynTask->stitchedList[i];
-        dynTask->dynFuncDataCacheList[i] = {
+    for (int index = 0; index < size; ++index) {
+        auto &funcDup = dynTask->stitchedList[index];
+        dynTask->dynFuncDataCacheList[index] = {
             funcDup.GetSource(), &funcDup.GetOperationCurrPredCount(0), funcDup.GetSource()->GetCalleeIndexAddr(), funcDup.DupDataForDynFuncData()};
 #ifdef SUPPORT_MIX_SUBGRAPH_SCHE
-        dynTask->devTask.opWrapList[i] = PtrToValue(funcDup.GetSource()->GetOpWrapListAddr());
-        dynTask->devTask.opWrapTaskNumList[i] = PtrToValue(funcDup.GetSource()->GetOpWrapTaskNumListAddr());
+        dynTask->devTask.opWrapList[index] = PtrToValue(funcDup.GetSource()->GetOpWrapListAddr());
+        dynTask->devTask.opWrapTaskNumList[index] = PtrToValue(funcDup.GetSource()->GetOpWrapTaskNumListAddr());
 #endif
     }
     dynTask->dynFuncDataCacheListSize = size;
+    return DEVICE_MACHINE_OK;
 }
 
 void DeviceStitchContext::HandleOneStitch(
@@ -241,6 +270,12 @@ void DeviceStitchContext::HandleOneStitch(
     consumerDup.GetOperationCurrPredCount(consumerOperationIdx)++;
 
     DEV_IF_NONDEVICE {
+        if (producerOperationIdx >= producerDup.GetSource()->GetOperationSize()) {
+            DEV_ERROR("producerOperationIdx %zu exceeds the size of GetOperation %zu", producerOperationIdx, producerDup.GetSource()->GetOperationSize());
+        }
+        if (consumerOperationIdx >= consumerDup.GetSource()->GetOperationSize()) {
+            DEV_ERROR("consumerOperationIdx %zu exceeds the size of GetOperation %zu", consumerOperationIdx, consumerDup.GetSource()->GetOperationSize());
+        }
         DEV_ASSERT(producerOperationIdx < producerDup.GetSource()->GetOperationSize());
         DEV_ASSERT(consumerOperationIdx < consumerDup.GetSource()->GetOperationSize());
         DEV_VERBOSE_DEBUG("[Stitch] slot:%d kind:%s dupIdx:%d funcKey:%d,op:%d -> funcKey:%d,op:%d\n",

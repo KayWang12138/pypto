@@ -58,7 +58,7 @@ void FunctionCache::UpdateTopoCache(const Function &func, CacheValue &value) {
         ASSERT((tempPtr->coreType == static_cast<uint64_t>(CoreType::AIV)) ||
                (tempPtr->coreType == static_cast<uint64_t>(CoreType::AIC)) ||
                (tempPtr->coreType == static_cast<uint64_t>(CoreType::HUB)) ||
-               (tempPtr->coreType == static_cast<uint64_t>(CoreType::AICPU)));
+               (tempPtr->coreType == static_cast<uint64_t>(CoreType::AICPU)))<<"Invalid core type: "<<tempPtr->coreType;
         tempPtr->psgId = func.GetSubFuncInvokeInfo(i).GetProgramId();
         tempPtr->readyCount = func.topoInfo_.topology_[i].readyState;
         tempPtr->depNum = func.topoInfo_.topology_[i].outGraph.size();
@@ -80,7 +80,7 @@ void FunctionCache::UpdateTopoCache(const Function &func, CacheValue &value) {
         topoPtr += tempLength;
     }
     value.header.coreFunctionNum = topoNum;
-    ASSERT(topoNum != 0);
+    ASSERT(topoNum != 0)<<"Invalid topoNum: "<<topoNum;
 
     TopoProcessor processor(value.topoCache, topoNum);
     std::tuple<std::shared_ptr<CoreFunctionTopoCache>, uint64_t> newTopo = processor.MergeBatchDepend(10, 1);
@@ -123,7 +123,7 @@ void FunctionCache::UpdateBinCache(const Function &func, CacheValue &value) {
     uint64_t totalSize = 0;
     for (auto &ele : func.programs_) {
         auto leafFuncAttr = ele.second->GetLeafFuncAttribute();
-        ASSERT(leafFuncAttr != nullptr);
+        ASSERT(leafFuncAttr != nullptr)<<"Leaf function attr not found";
         auto binPath = leafFuncAttr->binPath;
         if (!RealPath(binPath).empty()) {
             auto binData = LoadBinData(binPath);
@@ -189,7 +189,7 @@ void FunctionCache::UpdateReadyFunction(const Function &func, CacheValue &value)
         index++;
     }
     value.header.readyCoreFunctionNum = readyNum;
-    ASSERT(value.header.readyCoreFunctionNum != 0);
+    ASSERT(value.header.readyCoreFunctionNum != 0)<<"readyCoreFunctionNum is 0, value.header.readyCoreFunctionNum="<<value.header.readyCoreFunctionNum;
 }
 
 

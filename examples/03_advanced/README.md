@@ -23,6 +23,10 @@
 - **Cost Model ([cost_model.py](cost_model/cost_model.py))**:
     - 演示如何使用成本模型来评估和优化算子的执行效率。
 
+### 4. 图捕获模式 ([aclgraph](aclgraph/))
+- **ACLGraph ([aclgraph.py](aclgraph/aclgraph.py))**:
+   - 演示如何使用图捕获模式优化 Host 侧开销。
+
 ## 核心特性
 
 在高级样例中，您将接触到：

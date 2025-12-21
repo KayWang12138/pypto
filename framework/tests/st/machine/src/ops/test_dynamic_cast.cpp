@@ -28,7 +28,6 @@ TEST_F(DynamicCastTest, testDynCastUnalign) {
     TileShape::Current().SetVecTile(1, 16);
 
     config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
-
     std::vector<uint8_t> devProgBinary;
 
     int b = 1;

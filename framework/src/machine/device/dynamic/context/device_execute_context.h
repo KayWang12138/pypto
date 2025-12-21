@@ -78,37 +78,44 @@ struct DeviceExecuteContext {
 
     void ShowStats();
 
-    void RunInit(DevStartArgs *startArgs, PushTaskEntry tPushTask);
+    int RunInit(DevStartArgs *startArgs, PushTaskEntry tPushTask);
 
     void PushTask(DynDeviceTask *dynTask);
 
     void GELaunchRunCached(DevStartArgs *startArgs, PushTaskEntry tPushTask);
 
-    void RunControlFlow(DevStartArgs *startArgs);
+    int RunControlFlow(DevStartArgs *startArgs);
 
-    void GELaunchFullCacheRunControlFlow(DevStartArgs *startArgs, PushTaskEntry tPushTask);
+    int GELaunchFullCacheRunControlFlow(DevStartArgs *startArgs, PushTaskEntry tPushTask);
 
     void GELaunchFullCache(DevStartArgs *startArgs, PushTaskEntry tPushTask);
 
-    void GELaunchPartialCache(DevStartArgs *startArgs, PushTaskEntry tPushTask);
+    int GELaunchPartialCache(DevStartArgs *startArgs, PushTaskEntry tPushTask);
 
-    void GELaunch(DevStartArgs *startArgs, PushTaskEntry tPushTask);
+    int GELaunch(DevStartArgs *startArgs, PushTaskEntry tPushTask);
 
     bool AiCoreFree();
 
     static void DumpDeviceTask(uint64_t taskId, DynDeviceTask *deviceTask);
 
-    void SubmitToAicoreAndRecycleMemory(bool withoutTail, bool isLastTask = false);
+    int SubmitToAicoreAndRecycleMemory(bool withoutTail, bool isLastTask = false);
 
     schema::RUid GetRuid(uint64_t rootKey, bool afterAppend = false);
 
-    void ControlFlowCacheStopCache(uint64_t rootKey);
+    int ControlFlowCacheStopCache(uint64_t rootKey);
 
     void *CallRootFunctionAlloc(uint64_t rootKey);
 
     void *CallRootFunctionStitch(uint64_t rootKey);
 
     void MarkSlotNeedAlloc(int slotIndex);
+
+    int GetErrorState() const {
+        return errorState_;
+    }
+    void SetErrorState(int errorState) {
+        errorState_ = errorState;
+    }
 
 private:
     static void *DeviceExecuteRuntimeCallRootAlloc(void *ctx_, uint64_t rootKey);
@@ -120,5 +127,7 @@ private:
     static void *DeviceExecuteRuntimeCallShmemAllocator(void *ctx_, uint64_t value);
 
     static void *DeviceExecuteRuntimeCallSlotMarkNeedAlloc(void *ctx_, uint64_t slotIndex);
+
+    int errorState_{DEVICE_MACHINE_OK};
 };
 }

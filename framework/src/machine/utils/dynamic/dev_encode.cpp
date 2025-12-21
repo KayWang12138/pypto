@@ -105,7 +105,7 @@ void DevAscendFunction::InitOperationDynamicField(
         dupData->operationList_.stitchBase = offset;
         dupData->operationList_.stitchCount = outcastStitchCount;
         offset += stitchDataSize;
-        ASSERT(offset == totalDataSize) << "Offset mismatch: offset " << offset << " != totalDataSize " << totalDataSize;
+        ASSERT(offset == totalDataSize) << "Offset mismatch:offset " << offset << " != totalDataSize " << totalDataSize;
 
         memset_s(dupData->data_, totalDataSize, 0, totalDataSize);
 
@@ -116,25 +116,25 @@ void DevAscendFunction::InitOperationDynamicField(
         uint8_t *stitchBegin = &dupData->data_[dupData->operationList_.stitchBase];
         uint8_t *dataEnd = &dupData->data_[totalDataSize];
         uint8_t *dataEndAlloc = &dupData->data_[duppedDataAllocSize_ - sizeof(DevAscendFunctionDuppedData)];
-        ASSERT(dataEnd == dataEndAlloc) << "Pointer mismatch: dataEnd " << dataEnd << " != dataEndAlloc " << dataEndAlloc;
-        for (uint64_t index = 0; index < operationSize; index++) {
-            uint8_t *ptr = reinterpret_cast<uint8_t *>(&dupData->GetOperationCurrPredCount(index));
-            ASSERT(dataBegin <= ptr && ptr < incastBegin) << "OperationCurrPredCount out of range: ptr "
+        ASSERT(dataEnd == dataEndAlloc) << "Pointer mismatch:dataEnd " << dataEnd << " != dataEndAlloc " << dataEndAlloc;
+        for (uint64_t i = 0; i < operationSize; i++) {
+            uint8_t *ptr = reinterpret_cast<uint8_t *>(&dupData->GetOperationCurrPredCount(i));
+            ASSERT(dataBegin <= ptr && ptr < incastBegin) << "OperationCurrPredCount out of range:  ptr "
                    << ptr << " not in [" << dataBegin << ", " << incastBegin << ")";
         }
-        for (uint64_t index = 0; index < incastSize; index++) {
-            uint8_t *ptr = reinterpret_cast<uint8_t *>(&dupData->GetIncastAddress(index));
-            ASSERT(incastBegin <= ptr && ptr < outcastBegin) "Incast address out of range: ptr "
+        for (uint64_t i = 0; i < incastSize; i++) {
+            uint8_t *ptr = reinterpret_cast<uint8_t *>(&dupData->GetIncastAddress(i));
+            ASSERT(incastBegin <= ptr && ptr < outcastBegin) "Incast address out of range:  ptr "
                    << ptr << " not in [" << incastBegin << ", " << outcastBegin << ")";
         }
-        for (uint64_t index = 0; index < outcastSize; index++) {
-            uint8_t *ptr = reinterpret_cast<uint8_t *>(&dupData->GetOutcastAddress(index));
-            ASSERT(outcastBegin <= ptr && ptr < expressionBegin) << "Outcast address out of range: ptr "
+        for (uint64_t i = 0; i < outcastSize; i++) {
+            uint8_t *ptr = reinterpret_cast<uint8_t *>(&dupData->GetOutcastAddress(i));
+            ASSERT(outcastBegin <= ptr && ptr < expressionBegin) << "Outcast address out of range:  ptr "
                    << ptr << " not in [" << outcastBegin << ", " << expressionBegin << ")";
         }
-        for (uint64_t index = 0; index < expressionSize; index++) {
-            uint8_t *ptr = reinterpret_cast<uint8_t *>(&dupData->GetExpression(index));
-            ASSERT(expressionBegin <= ptr && ptr < stitchBegin) << "Expression address out of range: ptr "
+        for (uint64_t i = 0; i < expressionSize; i++) {
+            uint8_t *ptr = reinterpret_cast<uint8_t *>(&dupData->GetExpression(i));
+            ASSERT(expressionBegin <= ptr && ptr < stitchBegin) << "Expression address out of range:  ptr "
                    << ptr << " not in [" << expressionBegin << ", " << stitchBegin << ")";
         }
     };
@@ -163,7 +163,7 @@ void HandleActualRaw(const OrderedSet<std::shared_ptr<RawTensor>> &incastRawList
                 encoded.ioIndex = -1;
                 encoded.ioProperty = DevIOProperty::NONE;
             }
-            ALOG_DEBUG_F("tensor %d use tensor %d's addr io index %d", rawTensor->rawmagic, rawTensor->actualRawmagic,
+            ALOG_DEBUG_F("Tensor %d use tensor %d's addr io index %d", rawTensor->rawmagic, rawTensor->actualRawmagic,
                 encoded.ioIndex);
         }
     }
@@ -172,7 +172,7 @@ void HandleActualRaw(const OrderedSet<std::shared_ptr<RawTensor>> &incastRawList
 void DevAscendFunction::UpdateRawTensorDesc(const std::shared_ptr<RawTensor> &rawTensor, size_t i, size_t incastRawListSize,
     DevAscendRawTensor &encoded) {
     if (rawTensor->actualRawmagic != -1) {
-        ALOG_DEBUG_F("[%3zu] raw %d, actualRaw %d, IOType <%s>, addrOffset 0x%lx, ioIndex %d",
+        ALOG_DEBUG_F("[%3zu] raw %d, actualRaw %d, IOType <%s>, addrOffset 0x%lx, ioIndex %d.",
                 i, rawTensor->rawmagic, rawTensor->actualRawmagic, DevIOProperty2String(encoded.ioProperty).c_str(),
                 encoded.addrOffset, encoded.ioIndex);
     }
@@ -290,9 +290,9 @@ void DevAscendFunction::InitRawTensorAndMemoryRequirement(
             rawList.size());
         rootInnerTensorWsMemoryRequirement = 0;
         exclusiveOutcastWsMemoryRequirement = 0;
-        for (size_t i = 0; i < rawList.size(); i++) {
-            const auto &rawTensor = rawList[i];
-            auto &encoded = *GetRawTensor(i);
+        for (size_t idx = 0; idx < rawList.size(); idx++) {
+            const auto &rawTensor = rawList[idx];
+            auto &encoded = *GetRawTensor(idx);
             // shmem need to drop budget
             bool dropBudget = ShouldDropBudget(outcastRawList, slot, runtimeSlotKindSetList, rawTensor, encoded);
             // inplace (basically reshape) need to drop budget
@@ -300,12 +300,12 @@ void DevAscendFunction::InitRawTensorAndMemoryRequirement(
             isInplace |= rawTensor->actualRawmagic != -1 && rawTensor->actualRawmagic != rawTensor->rawmagic;
             EncodeRawShape(expressionTable, &encoded, rawTensor, !dropBudget && !isInplace);
         }
-        for (size_t i = 0; i < rawList.size(); i++) {
-            const auto &rawTensor = rawList[i];
+        for (size_t idx = 0; idx < rawList.size(); idx++) {
+            const auto &rawTensor = rawList[idx];
             if (rawTensor->actualRawmagic != -1 && rawTensor->actualRawmagic != rawTensor->rawmagic) {
                 continue;
             }
-            auto &encoded = *GetRawTensor(i);
+            auto &encoded = *GetRawTensor(idx);
             encoded.rawMagic = rawTensor->GetRawMagic();
             if (incastRawList.count(rawTensor)) {
                 // No need to allocate memory for root incasts
@@ -331,31 +331,42 @@ void DevAscendFunction::InitRawTensorAndMemoryRequirement(
                 rawTensor->addrOffset = encoded.addrOffset;
                 rootInnerTensorWsMemoryRequirement += encoded.maxStaticMemReq;
 #else
-                encoded.addrOffset = rawAttrs[i].storage->start_ + rawAttrs[i].storageOffset;
+                encoded.addrOffset = rawAttrs[idx].storage->start_ + rawAttrs[idx].storageOffset;
                 rawTensor->addrOffset = encoded.addrOffset;
                 rootInnerTensorWsMemoryRequirement = std::max(rootInnerTensorWsMemoryRequirement,
-                    rawAttrs[i].storage->start_ + rawAttrs[i].storage->length_);
+                    rawAttrs[idx].storage->start_ + rawAttrs[idx].storage->length_);
 #endif
             }
-            UpdateRawTensorDesc(rawTensor, i, incastRawList.size(), encoded);
+            UpdateRawTensorDesc(rawTensor, idx, incastRawList.size(), encoded);
         }
 
-        for (size_t index = 0; index < rawList.size(); index++) {
-            const auto &rawTensor = rawList[index];
+        for (size_t i = 0; i < rawList.size(); i++) {
+            const auto &rawTensor = rawList[i];
             if (rawTensor->actualRawmagic == -1 || rawTensor->actualRawmagic == rawTensor->rawmagic) {
                 continue;
             }
-            auto &encoded = *GetRawTensor(index);
+            auto &encoded = *GetRawTensor(i);
             HandleActualRaw(incastRawList, outcastRawList, rawMagicToRawTensor, rawTensor, encoded);
-            UpdateRawTensorDesc(rawTensor, index, incastRawList.size(), encoded);
+            UpdateRawTensorDesc(rawTensor, i, incastRawList.size(), encoded);
         }
 
-        for (size_t index = 0; index < rawList.size(); index++) {
-            const auto &rawTensor = rawList[index];
+        for (size_t i = 0; i < rawList.size(); i++) {
+            const auto &rawTensor = rawList[i];
+            if (rawTensor->actualRawmagic == -1 || rawTensor->actualRawmagic == rawTensor->rawmagic) {
+                continue;
+            }
+            auto &encoded = *GetRawTensor(i);
+            EncodeRawShape(expressionTable, &encoded, rawTensor, false, param.devRoot->GetRawName());
+            HandleActualRaw(incastRawList, outcastRawList, rawMagicToRawTensor, rawTensor, encoded);
+            UpdateRawTensorDesc(rawTensor, i, incastRawList.size(), encoded);
+        }
+
+        for (size_t i = 0; i < rawList.size(); i++) {
+            const auto &rawTensor = rawList[i];
             std::unordered_map<DataType, int> viewTypeTable = {{DT_INT8, 1}, {DT_BF16, 2}, {DT_FP16, 2}, {DT_FP32, 4}};
             if (rawTensor->actualRawmagic != -1 && rawTensor->actualRawmagic != rawTensor->rawmagic) {
                 auto it = rawMagicToRawTensor.find(rawTensor->actualRawmagic);
-                ASSERT(it != rawMagicToRawTensor.end()) << "rawMagic not found in rawMagicToRawTensor: " <<
+                ASSERT(it != rawMagicToRawTensor.end()) << "rawMagic is not found in rawMagicToRawTensor: " <<
                        rawTensor->actualRawmagic;
                 auto &actualRaw = it->second;
                 auto rawTensorRawShape = rawTensor->GetRawShape();
@@ -376,31 +387,31 @@ void DevAscendFunction::InitRawTensorAndMemoryRequirement(
                     if (inSize > outSize) {
                         ASSERT((rawTensor->GetRawShapeSize() * (inSize / outSize)) == actualRaw->GetRawShapeSize())
                                << "Shape size mismatch: expected " << rawTensor->GetRawShapeSize() * (inSize / outSize)
-                               << ", got " << actualRaw->GetRawShapeSize();
+                               << ", got: " << actualRaw->GetRawShapeSize();
                     } else {
                         ASSERT(rawTensor->GetRawShapeSize() == (actualRaw->GetRawShapeSize() * (outSize / inSize)))
                                << "Shape size mismatch: expected " << actualRaw->GetRawShapeSize() * (outSize / inSize)
                                << ", got " << rawTensor->GetRawShapeSize();
                     }
-                    ASSERT(rawTensor->GetRawDataSize() == actualRaw->GetRawDataSize()) << "Data size mismatch: "
-                           << rawTensor->GetRawDataSize() << " != " << actualRaw->GetRawDataSize();
+                    ASSERT(rawTensor->GetRawDataSize() == actualRaw->GetRawDataSize()) << "Data size mismatch:"
+                           << rawTensor->GetRawDataSize() << "!=" << actualRaw->GetRawDataSize();
                     continue;
                 }
-                ASSERT(rawTensor->GetRawShapeSize() == actualRaw->GetRawShapeSize()) << "Shape size mismatch: "
-                       << rawTensor->GetRawShapeSize() << " != " << actualRaw->GetRawShapeSize();
-                ASSERT(rawTensor->GetRawDataSize() == actualRaw->GetRawDataSize()) << "Data size mismatch: "
-                       << rawTensor->GetRawDataSize() << " != " << actualRaw->GetRawDataSize();
+                ASSERT(rawTensor->GetRawShapeSize() == actualRaw->GetRawShapeSize()) << "Shape size mismatch:"
+                       << rawTensor->GetRawShapeSize() << "!=" << actualRaw->GetRawShapeSize();
+                ASSERT(rawTensor->GetRawDataSize() == actualRaw->GetRawDataSize()) << "Data size mismatch:"
+                       << rawTensor->GetRawDataSize() << "!=" << actualRaw->GetRawDataSize();
             }
         }
 
         // file linkedIncastId
         auto outIncastLinkMap = param.devRoot->outIncastLinkMap;
-        ALOG_DEBUG_F("DevRoot is %s", param.devRoot->GetRawName().c_str());
+        ALOG_DEBUG_F("devRoot is %s", param.devRoot->GetRawName().c_str());
         for (size_t i = 0; i < rawList.size(); i++) {
             auto &encoded = *GetRawTensor(i);
             if (outIncastLinkMap.find(rawList[i]) != outIncastLinkMap.end()) {
-                ASSERT(outIncastLinkMap[rawList[i]]->actualRawmagic != rawList[i]->rawmagic) <<
-                       "Unexpected rawmagic match: actualRawmagic " << outIncastLinkMap[rawList[i]]->actualRawmagic <<
+                ASSERT(outIncastLinkMap[rawList[i]]->actualRawmagic != rawList[i]->rawmagic) << "Unexpected rawmagic match: actualRawmagic "
+                       << outIncastLinkMap[rawList[i]]->actualRawmagic <<
                        " == rawmagic " << rawList[i]->rawmagic;
                 encoded.linkedIncastId = incastRawList.GetIndex(outIncastLinkMap[rawList[i]]); //换成incast的下标 ioidx
                 ALOG_DEBUG_F("linkedIncastId is %d", encoded.linkedIncastId);
@@ -447,141 +458,141 @@ void DevAscendFunction::InitOperation(
         memcpy_s(&At(noSuccOpList_, 0), noSuccOpList_.ByteSize(),
             noSuccOpList.data(), noSuccOpList.size() * sizeof(int));
 
-        ASSERT(noPredOpList_.size() == noPredOpList.size()) << "Size mismatch: noPredOpList_.size() " <<
-               noPredOpList_.size() << " != noPredOpList.size() " << noPredOpList.size();
-        for (size_t index = 0; index < noPredOpList.size(); index++) {
-            int opIdx = At(noPredOpList_, index);
+        ASSERT(noPredOpList_.size() == noPredOpList.size()) << "Size mismatch: noPredOpList size: " <<
+               noPredOpList_.size() << " != noPredOpList size: " << noPredOpList.size();
+        for (size_t i = 0; i < noPredOpList.size(); i++) {
+            int opIdx = At(noPredOpList_, i);
             auto *op = callList[opIdx];
-            ASSERT(!callOpPredDict.count(op) || callOpPredDict.at(op) == 0) << "callOpPredDict for op " <<
+            ASSERT(!callOpPredDict.count(op) || callOpPredDict.at(op) == 0) << "callOpPredDict for op: " <<
                    op << " is not zero: " << callOpPredDict.at(op);
         }
-        ASSERT(noSuccOpList_.size() == noSuccOpList.size()) << "Size mismatch: noSuccOpList_.size() " <<
-               noSuccOpList_.size() << " != noSuccOpList.size() " << noSuccOpList.size();
-        for (size_t index = 0; index < noSuccOpList.size(); index++) {
-            int opIdx = At(noSuccOpList_, index);
+        ASSERT(noSuccOpList_.size() == noSuccOpList.size()) << "Size mismatch: noSuccOpList size: " <<
+               noSuccOpList_.size() << " != noSuccOpList size: " << noSuccOpList.size();
+        for (size_t i = 0; i < noSuccOpList.size(); i++) {
+            int opIdx = At(noSuccOpList_, i);
             auto *op = callList[opIdx];
-            ASSERT(!callOpSuccDict.count(op) || callOpSuccDict.at(op).empty()) << "callOpSuccDict for op " <<
+            ASSERT(!callOpSuccDict.count(op) || callOpSuccDict.at(op).empty()) << "callOpSuccDict for op: " <<
                    op << " is not empty";
         }
     }
 
     operationList_.HostInitDataSizeOffset(initOffset, callList.size());
 
-    int operandSize = 0;
-    int staticAttrSize = 0;
-    int succSize = 0;
-    int copyOutResolveSuccIndexSize = 0;
+    int operanSize = 0;
+    int staticAttributeSize = 0;
+    int sucSize = 0;
+    int copyOutResolveSuccIdxSize = 0;
     for (size_t i = 0; i < callList.size(); i++) {
         Operation *op = callList[i];
         auto callop = std::static_pointer_cast<CallOpAttribute>(callList[i]->GetOpAttribute());
 
-        operandSize += op->GetIOperands().size() + op->GetOOperands().size();
-        staticAttrSize += callop->GetLinearArgList().size();
-        succSize += callOpSuccDict.find(op)->second.size();
-        copyOutResolveSuccIndexSize += copyOutResolveSuccIndexListDict.find(op)->second.size();
+        operanSize += op->GetIOperands().size() + op->GetOOperands().size();
+        staticAttributeSize += callop->GetLinearArgList().size();
+        sucSize += callOpSuccDict.find(op)->second.size();
+        copyOutResolveSuccIdxSize += copyOutResolveSuccIndexListDict.find(op)->second.size();
     }
-    operationOperandInfoList_.HostInitDataSizeOffset(initOffset, operandSize);
-    operationAttrList_.HostInitDataSizeOffset(initOffset, staticAttrSize);
+    operationOperandInfoList_.HostInitDataSizeOffset(initOffset, operanSize);
+    operationAttrList_.HostInitDataSizeOffset(initOffset, staticAttributeSize);
     opAttrOffsetList_.HostInitDataSizeOffset(initOffset, callList.size());
     opCalleeList_.HostInitDataSizeOffset(initOffset, callList.size());
-    operationSuccList_.HostInitDataSizeOffset(initOffset, succSize);
-    operationCopyOutResolveSuccIndexList_.HostInitDataSizeOffset(initOffset, copyOutResolveSuccIndexSize);
+    operationSuccList_.HostInitDataSizeOffset(initOffset, sucSize);
+    operationCopyOutResolveSuccIndexList_.HostInitDataSizeOffset(initOffset, copyOutResolveSuccIdxSize);
 
     ONFILLCONTENT {
         DevAscendFunctionDuppedData *dupData = reinterpret_cast<DevAscendFunctionDuppedData *>(&At(duppedData_, 0));
-        operandSize = 0;
-        staticAttrSize = 0;
-        succSize = 0;
-        copyOutResolveSuccIndexSize = 0;
-        for (size_t i = 0; i < callList.size(); i++) {
-            Operation *op = callList[i];
-            auto callop = std::static_pointer_cast<CallOpAttribute>(callList[i]->GetOpAttribute());
-            DevAscendOperation &staticField = At(operationList_, i);
+        operanSize = 0;
+        staticAttributeSize = 0;
+        sucSize = 0;
+        copyOutResolveSuccIdxSize = 0;
+        for (size_t index = 0; index < callList.size(); index++) {
+            Operation *op = callList[index];
+            auto callop = std::static_pointer_cast<CallOpAttribute>(callList[index]->GetOpAttribute());
+            DevAscendOperation &staticField = At(operationList_, index);
 
-            staticField.outcastStitchIndex = outcastStitchIndexList[i];
+            staticField.outcastStitchIndex = outcastStitchIndexList[index];
             staticField.debugOpmagic = op->GetOpMagic();
             staticField.ioperandList.AssignRangeOffsetSize(
-                operationOperandInfoList_, operandSize, op->GetIOperands().size());
+                operationOperandInfoList_, operanSize, op->GetIOperands().size());
             std::map<int, int> rawTensorIndex;
-            for (size_t j = 0; j < op->GetIOperands().size(); j++) {
-                auto coaIndex = op->GetIOpAttrOffset(j);
-                const std::shared_ptr<LogicalTensor> &tensor = op->GetIOperands()[j];
+            for (size_t k = 0; k < op->GetIOperands().size(); k++) {
+                auto coaIndex = op->GetIOpAttrOffset(k);
+                const std::shared_ptr<LogicalTensor> &tensor = op->GetIOperands()[k];
                 rawTensorIndex[coaIndex] = rawList.find(tensor->tensor)->second;
-                At(staticField.ioperandList, j) =
+                At(staticField.ioperandList, k) =
                     DevAscendOperationOperandInfo(tlist.GetIndex(tensor), coaIndex + COA_INDEX_DIM_BASE, tensor->GetShape().size());
             }
-            operandSize += op->GetIOperands().size();
+            operanSize += op->GetIOperands().size();
 
             staticField.ooperandList.AssignRangeOffsetSize(
-                operationOperandInfoList_, operandSize, op->GetOOperands().size());
-            for (size_t j = 0; j < op->GetOOperands().size(); j++) {
-                auto coaIndex = op->GetOOpAttrOffset(j);
-                const std::shared_ptr<LogicalTensor> &tensor = op->GetOOperands()[j];
+                operationOperandInfoList_, operanSize, op->GetOOperands().size());
+            for (size_t k = 0; k < op->GetOOperands().size(); k++) {
+                auto coaIndex = op->GetOOpAttrOffset(k);
+                const std::shared_ptr<LogicalTensor> &tensor = op->GetOOperands()[k];
                 rawTensorIndex[coaIndex] = rawList.find(tensor->tensor)->second;
-                At(staticField.ooperandList, j) =
+                At(staticField.ooperandList, k) =
                     DevAscendOperationOperandInfo(tlist.GetIndex(tensor), coaIndex + COA_INDEX_DIM_BASE, tensor->GetShape().size());
             }
-            operandSize += op->GetOOperands().size();
-            ALOG_DEBUG_F("Producer %zu oOperand list size is %zu.", i, op->GetOOperands().size());
+            operanSize += op->GetOOperands().size();
+            ALOG_DEBUG_F("Producer %zu oOperand list size is %zu", index, op->GetOOperands().size());
             // Fill attr
             auto callArgs = callop->GetLinearArgList();
             int opStaticAttrSize = callArgs.size();
-            staticField.attrList.AssignRangeOffsetSize(operationAttrList_, staticAttrSize, opStaticAttrSize);
+            staticField.attrList.AssignRangeOffsetSize(operationAttrList_, staticAttributeSize, opStaticAttrSize);
             At(staticField.attrList, 0) = calleeHashIndexDict.at(callop->GetCalleeHash().GetHash());
-            for (size_t j = CALLOP_ARG_ATTR_BASE_INDEX; j < (size_t)opStaticAttrSize; j++) {
+            for (size_t k = CALLOP_ARG_ATTR_BASE_INDEX; k < (size_t)opStaticAttrSize; k++) {
                 int fillValue = 0;
-                if (callArgs[j].IsImmediate()) {
-                    if (rawTensorIndex.count(j)) {
-                        fillValue = rawTensorIndex[j];
+                if (callArgs[k].IsImmediate()) {
+                    if (rawTensorIndex.count(k)) {
+                        fillValue = rawTensorIndex[k];
                     } else {
-                        fillValue = callArgs[j].Concrete();
+                        fillValue = callArgs[k].Concrete();
                     }
                 } else {
-                    fillValue = expressionTable->LookupPrimaryExpressionIndex(callArgs[j]);
+                    fillValue = expressionTable->LookupPrimaryExpressionIndex(callArgs[k]);
                 }
-                At(staticField.attrList, j) = SymInt(!callArgs[j].IsImmediate(), fillValue);
+                At(staticField.attrList, k) = SymInt(!callArgs[k].IsImmediate(), fillValue);
             }
 
-            At(opAttrOffsetList_, i) = staticAttrSize;
-            At(opCalleeList_, i) = calleeHashIndexDict.at(callop->GetCalleeHash().GetHash());
-            staticAttrSize += opStaticAttrSize;
+            At(opAttrOffsetList_, index) = staticAttributeSize;
+            At(opCalleeList_, index) = calleeHashIndexDict.at(callop->GetCalleeHash().GetHash());
+            staticAttributeSize += opStaticAttrSize;
 
             // Fill succ
             int opSuccSize = callOpSuccDict.find(op)->second.size();
-            staticField.depGraphSuccList.AssignRangeOffsetSize(operationSuccList_, succSize, opSuccSize);
-            for (int j = 0; j < opSuccSize; j++) {
-                int succ = callList.GetIndex(callOpSuccDict.find(op)->second[j]);
-                At(staticField.depGraphSuccList, j) = succ;
+            staticField.depGraphSuccList.AssignRangeOffsetSize(operationSuccList_, sucSize, opSuccSize);
+            for (int k = 0; k < opSuccSize; k++) {
+                int succ = callList.GetIndex(callOpSuccDict.find(op)->second[k]);
+                At(staticField.depGraphSuccList, k) = succ;
                 At(operationList_, succ).depGraphPredCount++;
                 dupData->GetOperationCurrPredCount(succ)++;
             }
-            succSize += opSuccSize;
+            sucSize += opSuccSize;
 
             // Fill copyout resolve
             const std::vector<int> &copyOutResolveSuccIndexList = copyOutResolveSuccIndexListDict.find(op)->second;
             int opCopyOutResolveSuccIndexSize = copyOutResolveSuccIndexList.size();
-            staticField.depGraphCopyOutResolveSuccIndexList.AssignRangeOffsetSize(operationCopyOutResolveSuccIndexList_, copyOutResolveSuccIndexSize, opCopyOutResolveSuccIndexSize);
-            for (int j = 0; j < opCopyOutResolveSuccIndexSize; j++) {
-                At(staticField.depGraphCopyOutResolveSuccIndexList, j) = copyOutResolveSuccIndexList[j];
+            staticField.depGraphCopyOutResolveSuccIndexList.AssignRangeOffsetSize(operationCopyOutResolveSuccIndexList_, copyOutResolveSuccIdxSize, opCopyOutResolveSuccIndexSize);
+            for (int k = 0; k < opCopyOutResolveSuccIndexSize; k++) {
+                At(staticField.depGraphCopyOutResolveSuccIndexList, k) = copyOutResolveSuccIndexList[k];
             }
-            copyOutResolveSuccIndexSize += copyOutResolveSuccIndexList.size();
+            copyOutResolveSuccIdxSize += copyOutResolveSuccIndexList.size();
         }
-        for (size_t i = 0; i < callList.size(); i++) {
-            Operation *op = callList[i];
+        for (size_t idx = 0; idx < callList.size(); idx++) {
+            Operation *op = callList[idx];
             ASSERT(callOpPredDict.count(op)) << "callOpPredDict does not contain op " << op;
-            ASSERT(At(operationList_, i).depGraphPredCount == callOpPredDict.find(op)->second) << "depGraphPredCount mismatch: expected " <<
-                   callOpPredDict.find(op)->second << ", got " << At(operationList_, i).depGraphPredCount;
-            if(dupData->GetOperationCurrPredCount(i) != callOpPredDict.find(op)->second) {
+            ASSERT(At(operationList_, idx).depGraphPredCount == callOpPredDict.find(op)->second) << "depGraphPredCount mismatch: expected " <<
+                   callOpPredDict.find(op)->second << ", got " << At(operationList_, idx).depGraphPredCount;
+            if(dupData->GetOperationCurrPredCount(idx) != callOpPredDict.find(op)->second) {
                 ALOG_ERROR_F("OperationCurrPredCount: %d Callopsize is %u exceeds the maximum allowed value of 65535.",
-                dupData->GetOperationCurrPredCount(i), dupData ->GetOperationSize());
+                dupData->GetOperationCurrPredCount(idx), dupData ->GetOperationSize());
             }
-            ASSERT(dupData->GetOperationCurrPredCount(i) == callOpPredDict.find(op)->second) << "GetOperationCurrPredCount mismatch: expected " <<
-                   dupData->GetOperationCurrPredCount(i) << ", got " << callOpPredDict.find(op)->second <<
+            ASSERT(dupData->GetOperationCurrPredCount(idx) == callOpPredDict.find(op)->second) << "GetOperationCurrPredCount mismatch: expected " <<
+                   dupData->GetOperationCurrPredCount(idx) << ", got " << callOpPredDict.find(op)->second <<
                    ", Callopsize is " << dupData->GetOperationSize() << " exceeds the maximum allowed value of 65535.";
         }
         dupData->GetSource() = this;
-        for (size_t i = 0; i < callList.size(); i++) {
-            uint8_t *ptr = reinterpret_cast<uint8_t *>(&dupData->GetOperationStitch(i));
+        for (size_t index = 0; index < callList.size(); index++) {
+            uint8_t *ptr = reinterpret_cast<uint8_t *>(&dupData->GetOperationStitch(index));
             uint8_t *stitchBegin = &dupData->data_[dupData->operationList_.stitchBase];
             uint8_t *dataEndAlloc = &dupData->data_[duppedDataAllocSize_ - sizeof(DevAscendFunctionDuppedData)];
             ASSERT(stitchBegin <= ptr && ptr < dataEndAlloc) << "Address out of range: ptr " << ptr << " not in [" <<
@@ -626,24 +637,24 @@ void DevAscendFunction::InitIncastOutcast(
         // Fill metadata
         incastList.HostInitDataSizeOffset(initOffset, incastTensorList.size());
         outcastList.HostInitDataSizeOffset(initOffset, outcastTensorList.size());
-        for (size_t i = 0; i < incastTensorList.size(); i++) {
-            auto &inAttr = incastOpAttrDict.at(incastTensorList[i]);
-            auto &incast = At(incastList, i);
+        for (size_t index = 0; index < incastTensorList.size(); index++) {
+            auto &inAttr = incastOpAttrDict.at(incastTensorList[index]);
+            auto &incast = At(incastList, index);
             ONFILLCONTENT {
-                incast.tensorIndex = tlist.GetIndex(incastTensorList[i]);
+                incast.tensorIndex = tlist.GetIndex(incastTensorList[index]);
                 incast.dim = inAttr.dim;
                 incast.cellMatchTableDesc = inAttr.cellMatchTableDesc;
             }
         }
-        for (size_t i = 0; i < outcastTensorList.size(); i++) {
-            auto &outAttr = outcastOpAttrDict.at(outcastTensorList[i]);
-            auto &outcast = At(outcastList, i);
+        for (size_t index = 0; index < outcastTensorList.size(); index++) {
+            auto &outAttr = outcastOpAttrDict.at(outcastTensorList[index]);
+            auto &outcast = At(outcastList, index);
             ONFILLCONTENT {
-                outcast.tensorIndex = tlist.GetIndex(outcastTensorList[i]);
+                outcast.tensorIndex = tlist.GetIndex(outcastTensorList[index]);
                 outcast.dim = outAttr.dim;
                 outcast.cellMatchTableDesc = outAttr.cellMatchTableDesc;
                 outcast.exprListIndex = outAttr.bindTensorExprIndex;
-                outcast.desc = param.outcastDescList[i];
+                outcast.desc = param.outcastDescList[index];
             }
         }
     }
@@ -653,25 +664,25 @@ void DevAscendFunction::InitIncastOutcast(
         // Fill slot list
         slotList.HostInitDataSizeOffset(initOffset, 0);
         uint64_t slotSize = 0;
-        for (size_t i = 0; i < incastTensorList.size(); i++) {
-            auto &incast = At(incastList, i);
+        for (size_t index = 0; index < incastTensorList.size(); index++) {
+            auto &incast = At(incastList, index);
             ONFILLCONTENT {
-                incast.fromSlotList.AssignRangeOffsetSize(slotList, slotSize, slot->incastSlot[i].size());
-                for (size_t j = 0; j < slot->incastSlot[i].size(); j++) {
-                    At(incast.fromSlotList, j) = slot->incastSlot[i][j];
+                incast.fromSlotList.AssignRangeOffsetSize(slotList, slotSize, slot->incastSlot[index].size());
+                for (size_t j = 0; j < slot->incastSlot[index].size(); j++) {
+                    At(incast.fromSlotList, j) = slot->incastSlot[index][j];
                 }
             }
-            slotSize += slot->incastSlot[i].size();
+            slotSize += slot->incastSlot[index].size();
         }
-        for (size_t i = 0; i < outcastTensorList.size(); i++) {
-            auto &outcast = At(outcastList, i);
+        for (size_t index = 0; index < outcastTensorList.size(); index++) {
+            auto &outcast = At(outcastList, index);
             ONFILLCONTENT {
-                outcast.toSlotList.AssignRangeOffsetSize(slotList, slotSize, slot->outcastSlot[i].size());
-                for (size_t j = 0; j < slot->outcastSlot[i].size(); j++) {
-                    At(outcast.toSlotList, j) = slot->outcastSlot[i][j];
+                outcast.toSlotList.AssignRangeOffsetSize(slotList, slotSize, slot->outcastSlot[index].size());
+                for (size_t j = 0; j < slot->outcastSlot[index].size(); j++) {
+                    At(outcast.toSlotList, j) = slot->outcastSlot[index][j];
                 }
             }
-            slotSize += slot->outcastSlot[i].size();
+            slotSize += slot->outcastSlot[index].size();
         }
         slotList.HostInitDataSizeOffset(initOffset, slotSize);
 
@@ -686,24 +697,24 @@ void DevAscendFunction::InitIncastOutcast(
         // Fill use list
         useList.HostInitDataSizeOffset(initOffset, 0);
         uint64_t useSize = 0;
-        for (size_t i = 0; i < incastTensorList.size(); i++) {
-            auto &inAttr = incastOpAttrDict.at(incastTensorList[i]);
-            auto &incast = At(incastList, i);
+        for (size_t index = 0; index < incastTensorList.size(); index++) {
+            auto &inAttr = incastOpAttrDict.at(incastTensorList[index]);
+            auto &incast = At(incastList, index);
             ONFILLCONTENT {
                 incast.consumerList.AssignRangeOffsetSize(useList, useSize, inAttr.useList.size());
-                for (size_t j = 0; j < inAttr.useList.size(); j++) {
-                    At(incast.consumerList, j) = inAttr.useList[j];
+                for (size_t k = 0; k < inAttr.useList.size(); k++) {
+                    At(incast.consumerList, k) = inAttr.useList[k];
                 }
             }
             useSize += inAttr.useList.size();
         }
-        for (size_t i = 0; i < outcastTensorList.size(); i++) {
-            auto &outAttr = outcastOpAttrDict.at(outcastTensorList[i]);
-            auto &outcast = At(outcastList, i);
+        for (size_t index = 0; index < outcastTensorList.size(); index++) {
+            auto &outAttr = outcastOpAttrDict.at(outcastTensorList[index]);
+            auto &outcast = At(outcastList, index);
             ONFILLCONTENT {
                 outcast.producerList.AssignRangeOffsetSize(useList, useSize, outAttr.useList.size());
-                for (size_t j = 0; j < outAttr.useList.size(); j++) {
-                    At(outcast.producerList, j) = outAttr.useList[j];
+                for (size_t k = 0; k < outAttr.useList.size(); k++) {
+                    At(outcast.producerList, k) = outAttr.useList[k];
                 }
             }
             useSize += outAttr.useList.size();
@@ -714,13 +725,13 @@ void DevAscendFunction::InitIncastOutcast(
         // Fill runtime full update table
         uint64_t cellMatchSizeOutcastTotal = 0;
         cellMatchRuntimeFullUpdateTableList.HostInitDataSizeOffset(initOffset, 0);
-        for (size_t i = 0; i < outcastTensorList.size(); i++) {
-            auto &outAttr = outcastOpAttrDict.at(outcastTensorList[i]);
-            auto &outcast = At(outcastList, i);
+        for (size_t index = 0; index < outcastTensorList.size(); index++) {
+            auto &outAttr = outcastOpAttrDict.at(outcastTensorList[index]);
+            auto &outcast = At(outcastList, index);
             ONFILLCONTENT {
                 outcast.cellMatchRuntimeFullUpdateTable.AssignRangeOffsetSize(cellMatchRuntimeFullUpdateTableList, cellMatchSizeOutcastTotal, outAttr.cellMatchSize);
-                for (int j = 0; j < outAttr.cellMatchSize; j++) {
-                    At(outcast.cellMatchRuntimeFullUpdateTable, j) = (uint32_t)-1;
+                for (int k = 0; k < outAttr.cellMatchSize; k++) {
+                    At(outcast.cellMatchRuntimeFullUpdateTable, k) = (uint32_t)-1;
                 };
             }
             cellMatchSizeOutcastTotal += outAttr.cellMatchSize;
@@ -731,14 +742,14 @@ void DevAscendFunction::InitIncastOutcast(
         // Fill stitchPolicyFullCoverProducerList
         uint64_t fullCoverTotal = 0;
         stitchPolicyFullCoverProducerList_.HostInitDataSizeOffset(initOffset, 0);
-        for (size_t i = 0; i < outcastTensorList.size(); i++) {
-            auto &outAttr = outcastOpAttrDict.at(outcastTensorList[i]);
-            auto &outcast = At(outcastList, i);
+        for (size_t index = 0; index < outcastTensorList.size(); index++) {
+            auto &outAttr = outcastOpAttrDict.at(outcastTensorList[index]);
+            auto &outcast = At(outcastList, index);
             ONFILLCONTENT {
                 outcast.stitchPolicyFullCoverProducerHubOpIdx = outAttr.stitchPolicyFullCoverProducerHubOpIdx;
                 outcast.stitchPolicyFullCoverProducerList.AssignRangeOffsetSize(stitchPolicyFullCoverProducerList_, fullCoverTotal, outAttr.stitchPolicyFullCoverProducerList.size());
-                for (size_t j = 0; j < outAttr.stitchPolicyFullCoverProducerList.size(); j++) {
-                    At(outcast.stitchPolicyFullCoverProducerList, j) = outAttr.stitchPolicyFullCoverProducerList[j];
+                for (size_t k = 0; k < outAttr.stitchPolicyFullCoverProducerList.size(); k++) {
+                    At(outcast.stitchPolicyFullCoverProducerList, k) = outAttr.stitchPolicyFullCoverProducerList[k];
                 };
             }
             fullCoverTotal += outAttr.stitchPolicyFullCoverProducerList.size();
@@ -749,24 +760,24 @@ void DevAscendFunction::InitIncastOutcast(
         // Fill stitchPolicyFullCoverOpList_
         uint32_t fullCoverOpTotal = 0;
         stitchPolicyFullCoverOpList_.HostInitDataSizeOffset(initOffset, 0);
-        for (size_t i = 0; i < incastTensorList.size(); i++) {
-            auto &inAttr = incastOpAttrDict.at(incastTensorList[i]);
-            auto &incast = At(incastList, i);
+        for (size_t index = 0; index < incastTensorList.size(); index++) {
+            auto &inAttr = incastOpAttrDict.at(incastTensorList[index]);
+            auto &incast = At(incastList, index);
             ONFILLCONTENT {
                 incast.stitchPolicyFullCoverConsumerAllOpIdxList.AssignRangeOffsetSize(stitchPolicyFullCoverOpList_, fullCoverOpTotal, inAttr.useOpList.size());
-                for (size_t j = 0; j < inAttr.useOpList.size(); j++) {
-                    At(incast.stitchPolicyFullCoverConsumerAllOpIdxList, j) = inAttr.useOpList[j];
+                for (size_t k = 0; k < inAttr.useOpList.size(); k++) {
+                    At(incast.stitchPolicyFullCoverConsumerAllOpIdxList, k) = inAttr.useOpList[k];
                 }
             }
             fullCoverOpTotal += inAttr.useOpList.size();
         }
-        for (size_t i = 0; i < outcastTensorList.size(); i++) {
-            auto &outAttr = outcastOpAttrDict.at(outcastTensorList[i]);
-            auto &outcast = At(outcastList, i);
+        for (size_t index = 0; index < outcastTensorList.size(); index++) {
+            auto &outAttr = outcastOpAttrDict.at(outcastTensorList[index]);
+            auto &outcast = At(outcastList, index);
             ONFILLCONTENT {
                 outcast.stitchPolicyFullCoverProducerAllOpIdxList.AssignRangeOffsetSize(stitchPolicyFullCoverOpList_, fullCoverOpTotal, outAttr.useOpList.size());
-                for (size_t j = 0; j < outAttr.useOpList.size(); j++) {
-                    At(outcast.stitchPolicyFullCoverProducerAllOpIdxList, j) = outAttr.useOpList[j];
+                for (size_t k = 0; k < outAttr.useOpList.size(); k++) {
+                    At(outcast.stitchPolicyFullCoverProducerAllOpIdxList, k) = outAttr.useOpList[k];
                 }
             }
             fullCoverOpTotal += outAttr.useOpList.size();
@@ -777,9 +788,9 @@ void DevAscendFunction::InitIncastOutcast(
         // Fill incast & outcast all full update table
         uint64_t cellMatchSizeIncastTotal = 0;
         cellMatchStaticIncastTableList.HostInitDataSizeOffset(initOffset, 0);
-        for (size_t i = 0; i < incastTensorList.size(); i++) {
-            auto &inAttr = incastOpAttrDict.at(incastTensorList[i]);
-            auto &incast = At(incastList, i);
+        for (size_t index = 0; index < incastTensorList.size(); index++) {
+            auto &inAttr = incastOpAttrDict.at(incastTensorList[index]);
+            auto &incast = At(incastList, index);
             ONFILLCONTENT {
                 incast.cellMatchStaticIncastTable.AssignRangeOffsetSize(cellMatchStaticIncastTableList, cellMatchSizeIncastTotal, inAttr.cellMatchSize);
 
@@ -795,9 +806,9 @@ void DevAscendFunction::InitIncastOutcast(
 
         uint64_t cellMatchSizeOutcastTotal = 0;
         cellMatchStaticOutcastTableList.HostInitDataSizeOffset(initOffset, 0);
-        for (size_t i = 0; i < outcastTensorList.size(); i++) {
-            auto &outAttr = outcastOpAttrDict.at(outcastTensorList[i]);
-            auto &outcast = At(outcastList, i);
+        for (size_t index = 0; index < outcastTensorList.size(); index++) {
+            auto &outAttr = outcastOpAttrDict.at(outcastTensorList[index]);
+            auto &outcast = At(outcastList, index);
             ONFILLCONTENT {
                 outcast.cellMatchStaticOutcastTable.AssignRangeOffsetSize(cellMatchStaticOutcastTableList, cellMatchSizeOutcastTotal, outAttr.cellMatchSize);
 
@@ -873,11 +884,11 @@ struct EncodeDevAscendFunctionInfo {
     static DevShape InitShape(const std::vector<int64_t> &shape) {
         DevShape initShape;
         initShape.dimSize = shape.size();
-        for (size_t i = 0; i < DEV_SHAPE_DIM_MAX; i++) {
-            if (i < shape.size()) {
-                initShape.dim[i] = shape[i];
+        for (size_t index = 0; index < DEV_SHAPE_DIM_MAX; index++) {
+            if (index < shape.size()) {
+                initShape.dim[index] = shape[index];
             } else {
-                initShape.dim[i] = 0;
+                initShape.dim[index] = 0;
             }
         }
         return initShape;
@@ -885,11 +896,11 @@ struct EncodeDevAscendFunctionInfo {
     static DevAscendStride InitStride(const std::vector<int64_t> &stride) {
         DevAscendStride initStride;
         initStride.dimSize = stride.size();
-        for (size_t i = 0; i < DEV_SHAPE_DIM_MAX; i++) {
-            if (i < stride.size()) {
-                initStride.dimStride[i] = stride[i];
+        for (size_t index = 0; index < DEV_SHAPE_DIM_MAX; index++) {
+            if (index < stride.size()) {
+                initStride.dimStride[index] = stride[index];
             } else {
-                initStride.dimStride[i] = 0;
+                initStride.dimStride[index] = 0;
             }
         }
         return initStride;
@@ -913,14 +924,14 @@ struct EncodeDevAscendFunctionInfo {
 
     void UpdateCellMatchShape(DevCellMatchTableDesc &cellMatchTableDesc, const std::vector<int64_t> &shape) {
         auto &cellMatchShape = cellMatchTableDesc.cellShape;
-        for (size_t i = 0; i < shape.size(); ++i) {
-            auto dimValue = shape[i];
-            if (cellMatchShape.dim[i] > dimValue) {
-                cellMatchShape.dim[i] = dimValue;
-                if (cellMatchShape.dim[i] == 0) {
-                    ALOG_ERROR_F("cellMatchShape.dim[%zu] is zero after assignment", i);
+        for (size_t index = 0; index < shape.size(); ++index) {
+            auto dimValue = shape[index];
+            if (cellMatchShape.dim[index] > dimValue) {
+                cellMatchShape.dim[index] = dimValue;
+                if (cellMatchShape.dim[index] == 0) {
+                    ALOG_ERROR_F("cellMatchShape.dim[%zu] is zero after assignment", index);
                 }
-                DEV_ASSERT(cellMatchShape.dim[i]);
+                DEV_ASSERT(cellMatchShape.dim[index]);
             }
         }
     }
@@ -931,19 +942,19 @@ struct EncodeDevAscendFunctionInfo {
 
         cellMatchSize = 1;
         cellMatchStride.dimSize = dim;
-        for (int l = (dim - 1); l >= 0; --l) {
-            int tiles = 0;
-            if (cellMatchShape.dim[l] != 0) {
-                tiles = tensor->shape[l] / cellMatchShape.dim[l];
-                if (tensor->shape[l] % cellMatchShape.dim[l] != 0) {
+        for (int r = (dim - 1); r >= 0; --r) {
+            int tile = 0;
+            if (cellMatchShape.dim[r] != 0) {
+                tile = tensor->shape[r] / cellMatchShape.dim[r];
+                if (tensor->shape[r] % cellMatchShape.dim[r] != 0) {
                     // should not happen
-                    tiles += 1;
+                    tile += 1;
                 }
             }
-            cellMatchSize *= tiles;
-            cellMatchStride[l] = cellMatchSize;
+            cellMatchSize *= tile;
+            cellMatchStride[r] = cellMatchSize;
         }
-        ALOG_DEBUG_F("incast %d raw %d shape %s | cellMatchSize %d cellMatchShape %s cellMatchStride %s\n", tensor->magic, tensor->GetRawMagic(),
+        ALOG_DEBUG_F("Incast %d raw %d shape %s | cellMatchSize %d cellMatchShape %s cellMatchStride %s\n", tensor->magic, tensor->GetRawMagic(),
             IntVecToStr(tensor->shape).c_str(),
             cellMatchSize,
             IntVecToStr(ShapeToVector(cellMatchShape)).c_str(),
@@ -961,29 +972,29 @@ struct EncodeDevAscendFunctionInfo {
 
     void EncodeAnalysisOpUseOutCasts(const std::shared_ptr<LogicalTensor>& o, std::set<uint32_t>& allOutcastUseOpSet, InoutOperationAttr& outcastOpAttr) {
         std::set<uint32_t> outcastUseOpSet;
-        int dim = outcastOpAttr.dim;
-        for (size_t j = 0; j < callList.size(); j++) {
-            auto &op = *callList[j];
+        int dimSize = outcastOpAttr.dim;
+        for (size_t i = 0; i < callList.size(); i++) {
+            auto &op = *callList[i];
             auto callAttr = dynamic_cast<CallOpAttribute *>(op.GetOpAttribute().get());
             std::vector<DevAscendFunctionCallOperandUse> useList;
             DevAscendFunctionCallOperandUse stitchPolicyFullCoverProducer;
-            for (size_t k = 0; k < op.GetOOperands().size(); ++k) {
-                auto &oOperand = op.GetOOperands()[k];
+            for (size_t j = 0; j < op.GetOOperands().size(); ++j) {
+                auto &oOperand = op.GetOOperands()[j];
                 if (o->tensor->rawmagic != oOperand->tensor->rawmagic) {
                     continue;
                 }
 
-                auto coaIndex = op.GetOOpAttrOffset(k) + COA_INDEX_DIM_BASE;
-                std::vector<int64_t> offset = callAttr->GetLinearImmediateArgList(coaIndex, coaIndex + dim, true);
-                std::vector<int64_t> shape = callAttr->GetLinearImmediateArgList(coaIndex + dim, coaIndex + dim * 0x2, false);
-                if (offset == std::vector<int64_t>(dim, 0) && shape == oOperand->GetShape()) {
-                    stitchPolicyFullCoverProducer = DevAscendFunctionCallOperandUse(j, k, coaIndex, coaIndex + dim);
+                auto coaIndex = op.GetOOpAttrOffset(j) + COA_INDEX_DIM_BASE;
+                std::vector<int64_t> offset = callAttr->GetLinearImmediateArgList(coaIndex, coaIndex + dimSize, true);
+                std::vector<int64_t> shape = callAttr->GetLinearImmediateArgList(coaIndex + dimSize, coaIndex + dimSize * 0x2, false);
+                if (offset == std::vector<int64_t>(dimSize, 0) && shape == oOperand->GetShape()) {
+                    stitchPolicyFullCoverProducer = DevAscendFunctionCallOperandUse(i, j, coaIndex, coaIndex + dimSize);
                 } else {
-                    useList.emplace_back(j, k, coaIndex, coaIndex + dim);
+                    useList.emplace_back(i, j, coaIndex, coaIndex + dimSize);
                 }
-                ALOG_DEBUG_F("outcast oOperandIdx for outcast %d %d is %d", o->magic, o->GetRawMagic(), k);
-                outcastUseOpSet.insert(j);
-                auto expr = callAttr->GetOutcastSymbolicExpr(k);
+                ALOG_DEBUG_F("Outcast oOperandIdx for outcast %d %d is %d", o->magic, o->GetRawMagic(), j);
+                outcastUseOpSet.insert(i);
+                auto expr = callAttr->GetOutcastSymbolicExpr(j);
                 outcastOpAttr.bindTensorExprIndex = -1;
                 if ((expr.has_value()) && (expressionTable != nullptr)) {
                     outcastOpAttr.bindTensorExprIndex = expressionTable->LookupPrimaryExpressionIndex(expr.value());
@@ -998,14 +1009,14 @@ struct EncodeDevAscendFunctionInfo {
                     UNUSED(operationIdx);
                     UNUSED(operandIdx);
                     UNUSED(offsetAttrIdx);
-                    auto shape = callAttr->GetLinearImmediateArgList(shapeAttrIdx, shapeAttrIdx + dim, false);
+                    auto shape = callAttr->GetLinearImmediateArgList(shapeAttrIdx, shapeAttrIdx + dimSize, false);
                     UpdateCellMatchShape(outcastOpAttr.cellMatchTableDesc, shape);
-                    ALOG_DEBUG_F("minimal shape for outcast %d raw %d op %d %d is %s\n", o->magic, o->GetRawMagic(), j,
+                    ALOG_DEBUG_F("minimal shape for outcast %d raw %d op %d %d is %s\n", o->magic, o->GetRawMagic(), i,
                         op.GetOpMagic(), IntVecToStr(ShapeToVector(outcastOpAttr.cellMatchTableDesc.cellShape)).c_str());
                 }
             }
         }
-        UpdateCellMatchStrideAndSize(outcastOpAttr.cellMatchSize, outcastOpAttr.cellMatchTableDesc, o, dim);
+        UpdateCellMatchStrideAndSize(outcastOpAttr.cellMatchSize, outcastOpAttr.cellMatchTableDesc, o, dimSize);
         outcastOpAttr.useOpList.insert(outcastOpAttr.useOpList.end(), outcastUseOpSet.begin(), outcastUseOpSet.end());
         allOutcastUseOpSet.insert(outcastUseOpSet.begin(), outcastUseOpSet.end());
         outcastOpAttrDict.insert({o, outcastOpAttr});
@@ -1013,21 +1024,21 @@ struct EncodeDevAscendFunctionInfo {
 
     void EncodeOutCasts() {
         std::set<uint32_t> allOutcastUseOpSet;
-        for (auto &o : outcastList) {
-            tensorList.Insert(o);
-            outcastRawTensorList.Insert(o->GetRawTensor());
-            RecordRawTensor(o);
+        for (auto &i : outcastList) {
+            tensorList.Insert(i);
+            outcastRawTensorList.Insert(i->GetRawTensor());
+            RecordRawTensor(i);
             InoutOperationAttr outcastOpAttr;
-            auto dim = o->shape.size();
-            outcastOpAttr.dim = dim;
-            outcastOpAttr.cellMatchTableDesc = InitCellMatchTableDesc(o->GetShape(), std::vector<int64_t>(dim, 1));
-            EncodeAnalysisOpUseOutCasts(o, allOutcastUseOpSet, outcastOpAttr);
+            auto dimSize = i->shape.size();
+            outcastOpAttr.dim = dimSize;
+            outcastOpAttr.cellMatchTableDesc = InitCellMatchTableDesc(i->GetShape(), std::vector<int64_t>(dimSize, 1));
+            EncodeAnalysisOpUseOutCasts(i, allOutcastUseOpSet, outcastOpAttr);
         }
 
         // Add edge from all stitchPolicyFullCoverProducerList's node to the single node
         size_t hubEntryLeast = 2;
-        for (auto &o : outcastList) {
-            auto &outcastOpAttr = outcastOpAttrDict[o];
+        for (auto &i : outcastList) {
+            auto &outcastOpAttr = outcastOpAttrDict[i];
             if (outcastOpAttr.stitchPolicyFullCoverProducerList.size() > hubEntryLeast) {
                 outcastOpAttr.stitchPolicyFullCoverProducerHubOpIdx = callList.size();
 
@@ -1046,11 +1057,11 @@ struct EncodeDevAscendFunctionInfo {
         }
 
         std::set<int> noSuccOpSet;
-        for (size_t i = 0; i < callList.size(); i++) {
-            Operation *op = callList[i];
+        for (size_t index = 0; index < callList.size(); index++) {
+            Operation *op = callList[index];
             if (!callOpSuccDict.count(op) || callOpSuccDict.at(op).empty()) {
-                noSuccOpList.push_back(i);
-                noSuccOpSet.insert(i);
+                noSuccOpList.push_back(index);
+                noSuccOpSet.insert(index);
             }
         }
 
@@ -1059,8 +1070,8 @@ struct EncodeDevAscendFunctionInfo {
          * So outcastStitchCount starts from 1, as the 0-th is for the reference of null.
          */
         outcastStitchCount = 1;
-        for (size_t i = 0; i < callList.size(); i++) {
-            if (allOutcastUseOpSet.count(i) || noSuccOpSet.count(i)) {
+        for (size_t index = 0; index < callList.size(); index++) {
+            if (allOutcastUseOpSet.count(index) || noSuccOpSet.count(index)) {
                 outcastStitchIndexList.push_back(outcastStitchCount);
                 outcastStitchCount++;
             } else {
@@ -1070,14 +1081,14 @@ struct EncodeDevAscendFunctionInfo {
     }
 
     void EncodeIncasts() {
-        for (auto &i : incastList) {
-            tensorList.Insert(i);
-            incastRawTensorList.Insert(i->GetRawTensor());
-            RecordRawTensor(i);
+        for (auto &index : incastList) {
+            tensorList.Insert(index);
+            incastRawTensorList.Insert(index->GetRawTensor());
+            RecordRawTensor(index);
             InoutOperationAttr incastOpAttr;
-            auto dim = i->shape.size();
-            incastOpAttr.dim = dim;
-            incastOpAttr.cellMatchTableDesc = InitCellMatchTableDesc(i->GetShape(), std::vector<int64_t>(dim, 1));
+            auto dimSize = index->shape.size();
+            incastOpAttr.dim = dimSize;
+            incastOpAttr.cellMatchTableDesc = InitCellMatchTableDesc(index->GetShape(), std::vector<int64_t>(dimSize, 1));
 
             std::set<uint32_t> incastUseOpSet;
             for (size_t j = 0; j < callList.size(); j++) {
@@ -1087,32 +1098,32 @@ struct EncodeDevAscendFunctionInfo {
                 for (size_t k = 0; k < op.GetIOperands().size(); ++k) {
                     auto &iOperand = op.GetIOperands()[k];
                     auto coaIndex = op.GetIOpAttrOffset(k) + COA_INDEX_DIM_BASE;
-                    if (i->tensor->rawmagic == iOperand->tensor->rawmagic) {
-                        ASSERT(iOperand->GetShape().size() == dim) << "Shape size mismatch: expected " << dim << ", got " <<
-                               iOperand->GetShape().size() << " for operand " << k;
-                        std::vector<int64_t> shape = callAttr->GetLinearImmediateArgList(coaIndex + dim, coaIndex + dim * 0x2, false);
+                    if (index->tensor->rawmagic == iOperand->tensor->rawmagic) {
+                        ASSERT(iOperand->GetShape().size() == dimSize) << "Shape size mismatch: expected: " << dimSize << ", got " <<
+                               iOperand->GetShape().size() << " for operand: " << k;
+                        std::vector<int64_t> shape = callAttr->GetLinearImmediateArgList(coaIndex + dimSize, coaIndex + dimSize * 0x2, false);
                         if (shape == Shape(shape.size())) { // 跳过全0
                             continue;
                         }
-                        incastOpAttr.useList.emplace_back(j, k, coaIndex, coaIndex + dim);
+                        incastOpAttr.useList.emplace_back(j, k, coaIndex, coaIndex + dimSize);
                         UpdateCellMatchShape(incastOpAttr.cellMatchTableDesc, shape);
-                        ALOG_DEBUG_F("minimal shape for incast %d raw %d op %d %d is %s\n", i->magic, i->GetRawMagic(), j,
+                        ALOG_DEBUG_F("minimal shape for incast %d raw %d op %d %d is %s\n", index->magic, index->GetRawMagic(), j,
                             op.GetOpMagic(), IntVecToStr(ShapeToVector(incastOpAttr.cellMatchTableDesc.cellShape)).c_str());
                         incastUseOpSet.insert(j);
                     }
                 }
             }
 
-            UpdateCellMatchStrideAndSize(incastOpAttr.cellMatchSize, incastOpAttr.cellMatchTableDesc, i, dim);
+            UpdateCellMatchStrideAndSize(incastOpAttr.cellMatchSize, incastOpAttr.cellMatchTableDesc, index, dimSize);
             incastOpAttr.useOpList.insert(incastOpAttr.useOpList.end(), incastUseOpSet.begin(), incastUseOpSet.end());
 
-            incastOpAttrDict.insert({i, incastOpAttr});
+            incastOpAttrDict.insert({index, incastOpAttr});
         }
 
-        for (size_t i = 0; i < callList.size(); i++) {
-            Operation *op = callList[i];
+        for (size_t index = 0; index < callList.size(); index++) {
+            Operation *op = callList[index];
             if (!callOpPredDict.count(op) || callOpPredDict.at(op) == 0) {
-                noPredOpList.push_back(i);
+                noPredOpList.push_back(index);
             }
         }
     }
@@ -1134,8 +1145,8 @@ struct EncodeDevAscendFunctionInfo {
         auto dummyOp = std::make_shared<Operation>(*devRoot, Opcode::OP_CALL);
         dummyOp->SetOpAttribute(opAttr);
         dummyOpList.push_back(dummyOp);
-        ASSERT(GetCoreType(dummyOp.get()) == static_cast<int>(CoreType::HUB)) << "GetCoreType returned unexpected value: " <<
-               GetCoreType(dummyOp.get()) << ", expected: " << static_cast<int>(CoreType::HUB);
+        ASSERT(GetCoreType(dummyOp.get()) == static_cast<int>(CoreType::HUB)) << "GetCoreType return unexpected value: " <<
+               GetCoreType(dummyOp.get()) << ", expected:  " << static_cast<int>(CoreType::HUB);
         return dummyOp.get();
     }
 
@@ -1194,16 +1205,16 @@ struct EncodeDevAscendFunctionInfo {
     }
 
     void PrintColorGraph(int colorNum) {
-        ALOG_INFO_F("********** Call OP Graph **********\n");
-        for (int i = 0; i < colorNum; i++) {
-            ALOG_INFO_F("%zu: %zu", i, colorOutGraph[i].size());
-            ALOG_INFO_F("%s", IntVecToStr(colorOutGraph[i]).c_str());
+        ALOG_INFO_F("*********** Call OP Graph ***********\n");
+        for (int index = 0; index < colorNum; index++) {
+            ALOG_INFO_F("%zu: %zu", index, colorOutGraph[index].size());
+            ALOG_INFO_F("%s", IntVecToStr(colorOutGraph[index]).c_str());
         }
         int outCount = 0;
-        for (int i = 0; i < colorNum; i++) {
-            outCount += colorOutGraph[i].size();
+        for (int index = 0; index < colorNum; index++) {
+            outCount += colorOutGraph[index].size();
         }
-        ALOG_INFO_F("total out: %d\n", outCount);
+        ALOG_INFO_F("Total out: %d\n", outCount);
     }
 
     inline void FindAllReachableNodes(int start_node, std::unordered_map<int, std::vector<int>>& outGraph,
@@ -1221,25 +1232,25 @@ struct EncodeDevAscendFunctionInfo {
     void FindRedundantEdges(int colorNum, std::vector<std::vector<int>>& redundantColorOutGraph) {
         std::vector<std::unordered_set<int>> reachable(colorNum);
         std::vector<int> visited(colorNum, 0);
-        for (int i = 0; i < colorNum; ++i) {
-            if (visited[i] == 0) {
-                FindAllReachableNodes(i, colorOutGraph, reachable, visited); // DFS记忆化计算
+        for (int index = 0; index < colorNum; ++index) {
+            if (visited[index] == 0) {
+                FindAllReachableNodes(index, colorOutGraph, reachable, visited); // DFS记忆化计算
             }
         }
-        for (int u = 0; u < colorNum; ++u) {
-            for (int v : colorOutGraph[u]) {
+        for (int j = 0; j < colorNum; ++j) {
+            for (int k : colorOutGraph[j]) {
                 bool is_redundant = false;
-                for (int w : colorOutGraph[u]) {
-                    if (w == v) {
+                for (int w : colorOutGraph[j]) {
+                    if (w == k) {
                         continue;
                     }
-                    if (reachable[w].count(v)) {
+                    if (reachable[w].count(k)) {
                         is_redundant = true;
                         break;
                     }
                 }
                 if (is_redundant) {
-                    redundantColorOutGraph[u].push_back(v);
+                    redundantColorOutGraph[j].push_back(k);
                 }
             }
         }
@@ -1251,33 +1262,33 @@ struct EncodeDevAscendFunctionInfo {
         // Find redundant edges
         FindRedundantEdges(colorNum, redundantColorOutGraph);
         // Erase redundant edges
-        for (int i = 0; i < colorNum; i++) {
-            // make redundantColorOutGraph[i]'s order grow
-            std::sort(redundantColorOutGraph[i].begin(), redundantColorOutGraph[i].end());
-            ALOG_INFO_F("Redundant outgraph of %d is %s", i, IntVecToStr(redundantColorOutGraph[i]).c_str());
+        for (int index = 0; index < colorNum; index++) {
+            // make redundantColorOutGraph[index]'s order grow
+            std::sort(redundantColorOutGraph[index].begin(), redundantColorOutGraph[index].end());
+            ALOG_INFO_F("Redundant outgraph of %d is %s.", index, IntVecToStr(redundantColorOutGraph[index]).c_str());
             // update color_out_graph
             std::vector<int> newGraph;
-            size_t j = 0U;
-            // for each i -> * -> k && i -> k
-            for (int k : redundantColorOutGraph[i]) {
-                // for each i -> x before x is k (so that x != k), add i -> x
-                while (colorOutGraph[i][j] != k) {
-                    newGraph.push_back(colorOutGraph[i][j]);
-                    callOpSuccDict[callopList[i]].Insert(callopList[colorOutGraph[i][j]]);
-                    callOpPredDict[callopList[colorOutGraph[i][j]]]++;
-                    j++;
+            size_t n = 0U;
+            // for each index -> * -> k && index -> k
+            for (int k : redundantColorOutGraph[index]) {
+                // for each index -> x before x is k (so that x != k), add index -> x
+                while (colorOutGraph[index][n] != k) {
+                    newGraph.push_back(colorOutGraph[index][n]);
+                    callOpSuccDict[callopList[index]].Insert(callopList[colorOutGraph[index][n]]);
+                    callOpPredDict[callopList[colorOutGraph[index][n]]]++;
+                    n++;
                 }
                 // until x == k, skip x
-                j++;
+                n++;
             }
-            // add i -> x, where x is the rest (larger than the largest k)
-            while (j < colorOutGraph[i].size()) {
-                newGraph.push_back(colorOutGraph[i][j]);
-                callOpSuccDict[callopList[i]].Insert(callopList[colorOutGraph[i][j]]);
-                callOpPredDict[callopList[colorOutGraph[i][j]]]++;
-                j++;
+            // add index -> x, where x is the rest (larger than the largest k)
+            while (n < colorOutGraph[index].size()) {
+                newGraph.push_back(colorOutGraph[index][n]);
+                callOpSuccDict[callopList[index]].Insert(callopList[colorOutGraph[index][n]]);
+                callOpPredDict[callopList[colorOutGraph[index][n]]]++;
+                n++;
             }
-            colorOutGraph[i] = newGraph;
+            colorOutGraph[index] = newGraph;
         }
     }
 
@@ -1301,12 +1312,12 @@ struct EncodeDevAscendFunctionInfo {
             callopList.push_back(dummyOp);
             callOpPredDict[dummyOp] = 0;
             for (auto *op : zeroPreds) {
-                ASSERT(callOpPredDict[op] == 0) << "callOpPredDict[op] is not zero: " << callOpPredDict[op] << ", expected 0";
+                ASSERT(callOpPredDict[op] == 0) << "callOpPredDict[op] is not zero:" << callOpPredDict[op] << ", expected 0";
                 callOpSuccDict[dummyOp].Insert(op);
                 callOpPredDict[op] = 1;
             }
-            ASSERT(callOpSuccDict[dummyOp].size() == zeroPreds.size()) << "callOpSuccDict[dummyOp] size mismatch: expected " <<
-                   zeroPreds.size() << ", got " << callOpSuccDict[dummyOp].size();
+            ASSERT(callOpSuccDict[dummyOp].size() == zeroPreds.size()) << "callOpSuccDict[dummyOp] size mismatch: expected: " <<
+                   zeroPreds.size() << ", got: " << callOpSuccDict[dummyOp].size();
         }
 
         // Zero successors
@@ -1316,7 +1327,7 @@ struct EncodeDevAscendFunctionInfo {
             callOpSuccDict[dummyOp] = {};
             callOpPredDict[dummyOp] = zeroSuccs.size();
             for (auto *op : zeroSuccs) {
-                ASSERT(callOpSuccDict[op].empty()) << "callOpSuccDict[op] is not empty, expected empty";
+                ASSERT(callOpSuccDict[op].empty()) << "callOpSuccDict[op] is not empty, expect empty";
                 callOpSuccDict[op].Insert(dummyOp);
             }
         }
@@ -1333,7 +1344,7 @@ struct EncodeDevAscendFunctionInfo {
               cceCodeInfoList(tCceCodeInfoList),
               expressionTable(tExpressionTable) {
         (void)dyndev;
-        ASSERT(dyndev->GetDyndevAttribute()->rootTileDict.count(devRoot)) << "devRoot " << devRoot << " not found in rootTileDict of dyndev";
+        ASSERT(dyndev->GetDyndevAttribute()->rootTileDict.count(devRoot)) << "devRoot: " << devRoot << " not found in rootTileDict of dyndev";
         devTile = dyndev->GetDyndevAttribute()->rootTileDict[devRoot];
         if (dyndev->GetDyndevAttribute()->valueDependDescDict.count(devTile)) {
             valueDependDesc = dyndev->GetDyndevAttribute()->valueDependDescDict[devTile];
@@ -1361,9 +1372,9 @@ struct EncodeDevAscendFunctionInfo {
                     RecordRawTensor(i);
                     consumerDict[i].Insert(&op);
                 }
-                for (auto &o : op.GetOOperands()) {
-                    tensorList.Insert(o);
-                    RecordRawTensor(o);
+                for (auto &j : op.GetOOperands()) {
+                    tensorList.Insert(j);
+                    RecordRawTensor(j);
                 }
             }
         }
@@ -1412,11 +1423,11 @@ struct EncodeDevAscendFunctionInfo {
                 }
             }
         }
-        for (size_t i = 0; i < callopList.size(); i++) {
-            std::sort(colorOutGraph[i].begin(), colorOutGraph[i].end());
+        for (size_t index = 0; index < callopList.size(); index++) {
+            std::sort(colorOutGraph[index].begin(), colorOutGraph[index].end());
             // remove repeated index in ooperand's consumer callop index list
-            colorOutGraph[i].resize(std::unique(colorOutGraph[i].begin(), colorOutGraph[i].end()) -
-                                colorOutGraph[i].begin());
+            colorOutGraph[index].resize(std::unique(colorOutGraph[index].begin(), colorOutGraph[index].end()) -
+                                colorOutGraph[index].begin());
         }
         PrintColorGraph(callopList.size());
         EraseRedundantColorEdges(callopList);
@@ -1430,8 +1441,8 @@ struct EncodeDevAscendFunctionInfo {
         for (auto &[callop, succSet] : callOpSuccDict) {
             Function *devLeafFunc = cache.GetCacheFunction(callop->GetCalleeHash());
             if (devLeafFunc == nullptr) {
-                ASSERT(GetCoreType(callop) == static_cast<int>(CoreType::HUB)) << "GetCoreType returned unexpected value: " <<
-                       GetCoreType(callop) << ", expected: " << static_cast<int>(CoreType::HUB) << " for callop " << callop;
+                ASSERT(GetCoreType(callop) == static_cast<int>(CoreType::HUB)) << "GetCoreType return unexpected value: " <<
+                       GetCoreType(callop) << ", expected: " << static_cast<int>(CoreType::HUB) << " for callop: " << callop;
                 copyOutResolveSuccIndexListDict[callop] = std::vector<int>({0});
                 continue;
             }
@@ -1483,9 +1494,9 @@ struct EncodeDevAscendFunctionInfo {
         for (auto &op : callopList) {
             auto callOpAttr = std::static_pointer_cast<CallOpAttribute>(op->GetOpAttribute());
             auto calleeHash = callOpAttr->GetCalleeHash().GetHash();
-            ASSERT(calleeHashIndexDict.count(calleeHash)) << "calleeHash 0x" << std::hex << calleeHash << " not found in calleeHashIndexDict";
+            ASSERT(calleeHashIndexDict.count(calleeHash)) << "calleeHash 0x" << std::hex << calleeHash << " is not found in calleeHashIndexDict";
             int cceIndex = calleeHashIndexDict.find(calleeHash)->second;
-            ASSERT(cceIndex < static_cast<int>(cceCodeInfoList.size())) << "cceIndex " << cceIndex << " exceeds cceCodeInfoList size " << cceCodeInfoList.size();
+            ASSERT(cceIndex < static_cast<int>(cceCodeInfoList.size())) << "cceIndex " << cceIndex << " exceeds cceCodeInfoList size: " << cceCodeInfoList.size();
 
             uint32_t coreType = cceCodeInfoList[cceIndex].coreType;
             ASSERT(coreType == static_cast<uint32_t>(CoreType::AIV) || coreType == static_cast<uint32_t>(CoreType::AIC) ||
@@ -1498,34 +1509,34 @@ struct EncodeDevAscendFunctionInfo {
             if (callOpPredDict[lhs] != callOpPredDict[rhs]) {
                 return callOpPredDict[lhs] < callOpPredDict[rhs];
             }
-            ASSERT(callopCoreTypeDict.count(lhs)) << "lhs operation " << lhs << " not found in callopCoreTypeDict";
-            ASSERT(callopCoreTypeDict.count(rhs)) << "rhs operation " << rhs << " not found in callopCoreTypeDict";
+            ASSERT(callopCoreTypeDict.count(lhs)) << "lhs operation " << lhs << " is not found in callopCoreTypeDict";
+            ASSERT(callopCoreTypeDict.count(rhs)) << "rhs operation " << rhs << " is not found in callopCoreTypeDict";
             return callopCoreTypeDict[lhs] < callopCoreTypeDict[rhs];
         });
 
         totalZeroPred = callopList.size();
-        for (size_t i = 0; i < callopList.size(); i++) {
-            if (callOpPredDict[callopList[i]] != 0) {
-                totalZeroPred = i;
+        for (size_t index = 0; index < callopList.size(); index++) {
+            if (callOpPredDict[callopList[index]] != 0) {
+                totalZeroPred = index;
                 break;
             }
         }
-        for (size_t i = totalZeroPred; i < callopList.size(); i++) {
-            ASSERT(callOpPredDict[callopList[i]] != 0) << "callOpPredDict[callopList[" << i << "]] is zero, callopList[" << i <<
-                   "] = " << callopList[i];
+        for (size_t index = totalZeroPred; index < callopList.size(); index++) {
+            ASSERT(callOpPredDict[callopList[index]] != 0) << "callOpPredDict[callopList[" << index << "]] is zero, callopList[" << index <<
+                   "] = " << callopList[index];
         }
 
-        for (uint32_t i = 0; i < totalZeroPred; i++) {
-            if (callopCoreTypeDict[callopList[i]] == static_cast<uint32_t>(CoreType::AIV)) {
+        for (uint32_t index = 0; index < totalZeroPred; index++) {
+            if (callopCoreTypeDict[callopList[index]] == static_cast<uint32_t>(CoreType::AIV)) {
                 totalZeroPredAIV++;
-            } else if (callopCoreTypeDict[callopList[i]] == static_cast<uint32_t>(CoreType::AIC)) {
+            } else if (callopCoreTypeDict[callopList[index]] == static_cast<uint32_t>(CoreType::AIC)) {
                 totalZeroPredAIC++;
-            } else if (callopCoreTypeDict[callopList[i]] == static_cast<uint32_t>(CoreType::HUB)) {
+            } else if (callopCoreTypeDict[callopList[index]] == static_cast<uint32_t>(CoreType::HUB)) {
                 totalZeroPredHub++;
-            } else if (callopCoreTypeDict[callopList[i]] == static_cast<uint32_t>(CoreType::AICPU)) {
+            } else if (callopCoreTypeDict[callopList[index]] == static_cast<uint32_t>(CoreType::AICPU)) {
                 totalZeroPredAicpu++;
             } else {
-                ASSERT(false) << "Invalid coreType for callopList[" << i << "], op : " << callopList[i];
+                ASSERT(false) << "Invalid coreType for callopList[" << index << "], op : " << callopList[index];
             }
         }
 
@@ -1634,14 +1645,14 @@ void DevAscendProgram::InitDevEncodeList(
     devEncodeList.HostInitDataSizeOffset(initOffset, devEncodeListInput.size());
     devEncodeDataList.HostInitDataSizeOffset(initOffset, 0);
     uint64_t offset = 0;
-    for (size_t i = 0; i < devEncodeListInput.size(); i++) {
-        uint64_t alignedDevEncodeListInputSize = ALIGN_UP(devEncodeListInput[i].size(), sizeof(uint64_t));
+    for (size_t index = 0; index < devEncodeListInput.size(); index++) {
+        uint64_t alignedDevEncodeListInputSize = ALIGN_UP(devEncodeListInput[index].size(), sizeof(uint64_t));
         ONFILLCONTENT {
-            devEncodeList[i].HostAssignRangeOffsetSize(devEncodeDataList, offset, alignedDevEncodeListInputSize);
+            devEncodeList[index].HostAssignRangeOffsetSize(devEncodeDataList, offset, alignedDevEncodeListInputSize);
         };
         ONFILLCONTENT {
-            memcpy_s(devEncodeList[i].Data(), devEncodeList[i].size(), devEncodeListInput[i].data(),
-                devEncodeListInput[i].size());
+            memcpy_s(devEncodeList[index].Data(), devEncodeList[index].size(), devEncodeListInput[index].data(),
+                devEncodeListInput[index].size());
         };
         offset += alignedDevEncodeListInputSize;
     }
@@ -1652,31 +1663,31 @@ void DevAscendProgram::InitCceCodeList(uintdevptr_t &initOffset, const std::vect
     cceCodeList.HostInitDataSizeOffset(initOffset, cceInfo.size());
     aicpuLeafCodeList.HostInitDataSizeOffset(initOffset, cceInfo.size());
     aicpuLeafCodeDataList.HostInitDataSizeOffset(initOffset, 0);
-    size_t dataOffset = 0;
-    for (size_t i = 0; i < cceInfo.size(); i++) {
+    size_t offset = 0;
+    for (size_t index = 0; index < cceInfo.size(); index++) {
         ONFILLCONTENT {
-            cceCodeList[i].coreType = cceInfo[i].coreType;
-            cceCodeList[i].psgId = cceInfo[i].psgId;
-            cceCodeList[i].funcHash = cceInfo[i].funcHash;
+            cceCodeList[index].coreType = cceInfo[index].coreType;
+            cceCodeList[index].psgId = cceInfo[index].psgId;
+            cceCodeList[index].funcHash = cceInfo[index].funcHash;
 #ifdef SUPPORT_MIX_SUBGRAPH_SCHE
-            cceCodeList[i].wrapVecId = cceInfo[i].wrapVecId;
-            cceCodeList[i].mixResourceType = cceInfo[i].mixResourceType;
+            cceCodeList[index].wrapVecId = cceInfo[index].wrapVecId;
+            cceCodeList[index].mixResourceType = cceInfo[index].mixResourceType;
 #endif
-            auto dataLen = cceInfo[i].aicpuLeafCode.size();
-            aicpuLeafCodeList[i].aicpuLeafCode.HostAssignRangeOffsetSize(aicpuLeafCodeDataList, dataOffset, dataLen);
-            (void)memcpy_s(aicpuLeafCodeList[i].aicpuLeafCode.Data(), sizeof(int32_t) * dataLen,
-                cceInfo[i].aicpuLeafCode.data(), sizeof(int32_t) * dataLen);
+            auto dataLen = cceInfo[index].aicpuLeafCode.size();
+            aicpuLeafCodeList[index].aicpuLeafCode.HostAssignRangeOffsetSize(aicpuLeafCodeDataList, offset, dataLen);
+            (void)memcpy_s(aicpuLeafCodeList[index].aicpuLeafCode.Data(), sizeof(int32_t) * dataLen,
+                cceInfo[index].aicpuLeafCode.data(), sizeof(int32_t) * dataLen);
         };
-        dataOffset += cceInfo[i].aicpuLeafCode.size();
+        offset += cceInfo[index].aicpuLeafCode.size();
     }
-    aicpuLeafCodeDataList.HostInitDataSizeOffset(initOffset, dataOffset);
+    aicpuLeafCodeDataList.HostInitDataSizeOffset(initOffset, offset);
 }
 
 void DevAscendProgram::InitPrefetchInfoList(uintdevptr_t &initOffset, const std::vector<L2Info> &l2InfoList,
     bool fillContent) {
     prefetchInfoList.HostInitDataSizeOffset(initOffset, l2InfoList.size());
-    for (size_t i = 0; i < l2InfoList.size(); i++) {
-        ONFILLCONTENT { memcpy_s(&prefetchInfoList[i], sizeof(PrefetchInfo), &l2InfoList[i], sizeof(L2Info)); };
+    for (size_t index = 0; index < l2InfoList.size(); index++) {
+        ONFILLCONTENT { memcpy_s(&prefetchInfoList[index], sizeof(PrefetchInfo), &l2InfoList[index], sizeof(L2Info)); };
     }
     return;
 }
@@ -1705,23 +1716,23 @@ void DevAscendProgram::InitStartArgsABIParamList(
     this->outputInplaceSlotList.HostInitDataSizeOffset(initOffset, tInplaceSlotIndexList.size());
 
     ONFILLCONTENT {
-        for (size_t i = 0; i < tStartArgsInputTensorSlotIndexList.size(); i++) {
-            this->startArgsInputTensorSlotIndexList[i] = tStartArgsInputTensorSlotIndexList[i];
+        for (size_t index = 0; index < tStartArgsInputTensorSlotIndexList.size(); index++) {
+            this->startArgsInputTensorSlotIndexList[index] = tStartArgsInputTensorSlotIndexList[index];
         }
-        for (size_t i = 0; i < tStartArgsOutputTensorSlotIndexList.size(); i++) {
-            this->startArgsOutputTensorSlotIndexList[i] = tStartArgsOutputTensorSlotIndexList[i];
+        for (size_t index = 0; index < tStartArgsOutputTensorSlotIndexList.size(); index++) {
+            this->startArgsOutputTensorSlotIndexList[index] = tStartArgsOutputTensorSlotIndexList[index];
         }
-        for (size_t i = 0; i < tStartArgsInputSymbolIndexList.size(); i++) {
-            this->startArgsInputSymbolIndexList[i] = tStartArgsInputSymbolIndexList[i];
+        for (size_t index = 0; index < tStartArgsInputSymbolIndexList.size(); index++) {
+            this->startArgsInputSymbolIndexList[index] = tStartArgsInputSymbolIndexList[index];
         }
-        for (size_t i = 0; i < tStartArgsSymbolHandlerList.size(); i++) {
-            this->startArgsSymbolHandlerList[i] = tStartArgsSymbolHandlerList[i];
+        for (size_t index = 0; index < tStartArgsSymbolHandlerList.size(); index++) {
+            this->startArgsSymbolHandlerList[index] = tStartArgsSymbolHandlerList[index];
         }
-        for (size_t i = 0; i < tAsembleSlotIndexList.size(); i++) {
-            this->assembleSlotIndexList[i] = tAsembleSlotIndexList[i];
+        for (size_t index = 0; index < tAsembleSlotIndexList.size(); index++) {
+            this->assembleSlotIndexList[index] = tAsembleSlotIndexList[index];
         }
-        for (size_t i = 0; i < tInplaceSlotIndexList.size(); i++) {
-            this->outputInplaceSlotList[i] = tInplaceSlotIndexList[i];
+        for (size_t index = 0; index < tInplaceSlotIndexList.size(); index++) {
+            this->outputInplaceSlotList[index] = tInplaceSlotIndexList[index];
         }
     }
 }
@@ -1730,15 +1741,15 @@ static void InitPartialUpdateCellMatch(
         const std::vector<const DevAscendFunctionOutcast *> &outcastList,
         DevCellMatchTableDesc *partialUpdateCellMatchTableDesc) {
     std::vector<int> tensorShape;
-    for (size_t i = 0; i < outcastList.size(); i++) {
+    for (size_t index = 0; index < outcastList.size(); index++) {
         std::vector<int> outcastShape;
-        for (int d = 0; d < outcastList[i]->dim; d++) {
-            outcastShape.push_back(outcastList[i]->cellMatchTableDesc.GetCellShape(d) * outcastList[i]->cellMatchTableDesc.GetStrideShape(d));
-            if (i > 0) {
+        for (int d = 0; d < outcastList[index]->dim; d++) {
+            outcastShape.push_back(outcastList[index]->cellMatchTableDesc.GetCellShape(d) * outcastList[index]->cellMatchTableDesc.GetStrideShape(d));
+            if (index > 0) {
                tensorShape[d] = std::max(tensorShape[d], outcastShape[d]);
             }
         }
-        if (i == 0) {
+        if (index == 0) {
             tensorShape = outcastShape;
         }
     }
@@ -1746,14 +1757,14 @@ static void InitPartialUpdateCellMatch(
     std::vector<int> cellShape;
     for (size_t d = 0; d < tensorShape.size(); d++) {
         int dim = 0;
-        for (size_t i = 0; i < outcastList.size(); i++) {
-            if (i == 0) {
-                dim = outcastList[i]->cellMatchTableDesc.GetCellShape(d);
+        for (size_t index = 0; index < outcastList.size(); index++) {
+            if (index == 0) {
+                dim = outcastList[index]->cellMatchTableDesc.GetCellShape(d);
             } else if (dim != -1) {
-                dim = std::gcd(dim, outcastList[i]->cellMatchTableDesc.GetCellShape(d));
+                dim = std::gcd(dim, outcastList[index]->cellMatchTableDesc.GetCellShape(d));
             } else {
-                ASSERT(outcastList[i]->cellMatchTableDesc.GetCellShape(d) == -1) << "Invalid cell shape for outcastList[" << i << "], dimension " <<
-                       d << ", expected -1, got " << outcastList[i]->cellMatchTableDesc.GetCellShape(d);
+                ASSERT(outcastList[index]->cellMatchTableDesc.GetCellShape(d) == -1) << "Invalid cell shape for outcastList[" << index << "], dimension: " <<
+                       d << ", expected -1, got " << outcastList[index]->cellMatchTableDesc.GetCellShape(d);
             }
         }
         cellShape.push_back(dim);
@@ -1761,8 +1772,8 @@ static void InitPartialUpdateCellMatch(
     partialUpdateCellMatchTableDesc->SetCellShape(cellShape);
 
     std::vector<int> strideShape;
-    for (size_t d = 0; d < tensorShape.size(); d++) {
-        strideShape.push_back(cellShape[d] != 0 ? tensorShape[d] / cellShape[d] : 0);
+    for (size_t i = 0; i < tensorShape.size(); i++) {
+        strideShape.push_back(cellShape[i] != 0 ? tensorShape[i] / cellShape[i] : 0);
     }
     partialUpdateCellMatchTableDesc->SetStrideShape(strideShape);
 }
@@ -1781,12 +1792,12 @@ void DevAscendProgram::InitPartialUpdateSlot(
 
     this->cellMatchRuntimePartialUpdateTableList.HostInitDataSizeOffset(initOffset, 0);
     int totalCellMatchSize = 0;
-    for (size_t i = 0; i < tPartialUpdateSlotIndexList.size(); i++) {
+    for (size_t index = 0; index < tPartialUpdateSlotIndexList.size(); index++) {
         std::vector<const DevAscendFunctionOutcast *> outcastList;
-        auto slotIndex = tPartialUpdateSlotIndexList[i];
-        ASSERT(slotRootOutcastDict.count(slotIndex)) << "slotIndex " << slotIndex << " not found in slotRootOutcastDict";
+        auto slotIndex = tPartialUpdateSlotIndexList[index];
+        ASSERT(slotRootOutcastDict.count(slotIndex)) << "slotIndex: " << slotIndex << " not found in slotRootOutcastDict";
         for (auto &[root, outcastIndex] : slotRootOutcastDict.find(slotIndex)->second) {
-            ASSERT(rootFuncKeyDict.count(root)) << "root " << root << " not found in rootFuncKeyDict";
+            ASSERT(rootFuncKeyDict.count(root)) << "root: " << root << " not found in rootFuncKeyDict";
             int funcKey = rootFuncKeyDict.find(root)->second;
             DevAscendFunction *devFunc = reinterpret_cast<DevAscendFunction *>(const_cast<uint8_t *>(devEncodeListInput[funcKey].data()));
             outcastList.push_back(&devFunc->GetOutcast(outcastIndex));
@@ -1844,8 +1855,8 @@ void DevAscendProgram::InitControlFlowCache(
 
     uint64_t maxDuppedDataAllocSize = 0;
     uint64_t maxIncastOutcastCount = 0;
-    for (size_t i = 0; i < dyndevAttr->devEncodeList.size(); i++) {
-        std::vector<uint8_t> &devEncode = dyndevAttr->devEncodeList[i];
+    for (size_t index = 0; index < dyndevAttr->devEncodeList.size(); index++) {
+        std::vector<uint8_t> &devEncode = dyndevAttr->devEncodeList[index];
         const DevAscendFunction *devFunc = reinterpret_cast<const DevAscendFunction *>(devEncode.data());
         uint64_t duppedDataAllocSize = devFunc->GetDuppedDataAllocSize();
         if (maxDuppedDataAllocSize < duppedDataAllocSize) {
@@ -1905,7 +1916,7 @@ struct EncodeDevAscendProgramInfo {
     uint64_t getInputDataCount = 0;
 
     explicit EncodeDevAscendProgramInfo(Function *tfunc) : func(tfunc) {
-        ASSERT(func->GetDyndevAttribute() != nullptr) << "DyndevAttribute is null for function " << func;
+        ASSERT(func->GetDyndevAttribute() != nullptr) << "DyndevAttribute is null for function: " << func;
         dyndevAttr = func->GetDyndevAttribute();
     }
 
@@ -1949,11 +1960,11 @@ struct EncodeDevAscendProgramInfo {
         // control flow cache is always at the back of the program. So it should be the last.
         devProg->InitControlFlowCache(initOffset, dyndevAttr, fillContent);
         devProg->dataSize = initOffset - reinterpret_cast<uintdevptr_t>(devProg->data);
-        ASSERT(reinterpret_cast<uint8_t *>(devProg->controlFlowCache.cacheData.end()) == reinterpret_cast<uint8_t *>(initOffset)) <<
-               "controlFlowCache.cacheData.end() does not match initOffset, expected " << reinterpret_cast<uint8_t *>(initOffset) <<
+        ASSERT(reinterpret_cast<uint8_t *>(devProg->controlFlowCache.cacheData.end()) == reinterpret_cast<uint8_t *>(initOffset)) << "controlFlowCache.cacheData.end()"
+               " does not match initOffset, expected " << reinterpret_cast<uint8_t *>(initOffset) <<
                ", got " << reinterpret_cast<uint8_t *>(devProg->controlFlowCache.cacheData.end());
-        ASSERT(devProg->GetSize() == sizeof(*devProg) + devProg->dataSize) << "devProg->GetSize() does not match expected size, expected " <<
-               sizeof(*devProg) + devProg->dataSize << ", got " << devProg->GetSize();
+        ASSERT(devProg->GetSize() == sizeof(*devProg) + devProg->dataSize) << "devProg->GetSize() does not match expected size, expected: " <<
+               sizeof(*devProg) + devProg->dataSize << ", got: " << devProg->GetSize();
     }
 };
 
@@ -2066,7 +2077,7 @@ static int ParseUnrollTimes(const std::string &rawName) {
 }
 
 static uint64_t CalcUnrolledRootBudget(uint64_t budget, int unrollTimes, int configMultiplier) {
-    ASSERT(unrollTimes > 0) << "Invalid unrollTimes: " << unrollTimes << ", must be greater than 0";
+    ASSERT(unrollTimes > 0) << "Invalid unrollTimes:  " << unrollTimes << ", must be greater than 0";
     if (unrollTimes >= configMultiplier) {
         return budget;
     }

@@ -65,6 +65,7 @@ public:
         aicoreProf_ = aicoreProf;
         sharedBuffer_ = deviceArgs->sharedBuffer;
         regAddrs_ = reinterpret_cast<int64_t *>(deviceArgs->coreRegAddr);
+        regNum_ = deviceArgs->nrAic + deviceArgs->nrAiv;
         readyRegQueues_.fill(nullptr);
         finishRegQueues_.fill(nullptr);
         blockIdToPhyCoreId_.fill(-1);
@@ -92,6 +93,7 @@ public:
     }
 
     int64_t *GetRegAddrs() const { return regAddrs_; }
+    uint32_t GetregNum() const { return regNum_; }
 
     inline uint32_t ReadReg32(int coreIdx, int offset) {
         auto idx = GetPhyIdByBlockId(coreIdx);
@@ -635,7 +637,8 @@ private:
     int aicEnd_{0};
     int aivStart_{0};
     int aivEnd_{0};
-
+    uint32_t regNum_{0};
+    
     std::array<volatile KernelArgs*, MAX_AICORE_NUM> args_;
 
     std::array<volatile uint64_t*, MAX_AICORE_NUM> readyRegQueues_;

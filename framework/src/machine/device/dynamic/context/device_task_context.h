@@ -45,17 +45,17 @@ private:
     DeviceWorkspaceAllocator *workspace_{nullptr};
     npu::tile_fwk::DevStartArgsBase *startArgs_{nullptr};
 private:
-    void BuildReadyQueue(DynDeviceTask *dyntask, DevAscendProgram *devProg);
+    int BuildReadyQueue(DynDeviceTask *dyntask, DevAscendProgram *devProg);
 
 #ifdef SUPPORT_MIX_SUBGRAPH_SCHE
-    void BuildReadyQueueWithMixTask(DynDeviceTask *dyntask, DevAscendProgram *devProg);
+    int BuildReadyQueueWithMixTask(DynDeviceTask *dyntask, DevAscendProgram *devProg);
     uint32_t* AllocWrapTasklist(DynDeviceTask *dyntask);
     WrapInfoQueue* AllocWrapQueue(DynDeviceTask *dyntask);
     void ProcessWrapQueue(DynDeviceTask *dyntask, uint32_t wrapId, int funcIndex, size_t opIndex,
         WrapInfoQueue *wrapQueue, uint32_t *wrapTasklistAddr);
 #endif
 
-    void BuildDynFuncData(DynDeviceTask *dyntask, uint32_t taskId, DevAscendProgram *devProg,
+    int BuildDynFuncData(DynDeviceTask *dyntask, uint32_t taskId, DevAscendProgram *devProg,
         DevAscendFunctionDupped *stitchedList, uint64_t stitchedSize);
 
     inline void doResolve(DynDeviceTask *dyntask, int coreType, size_t funcIdx, size_t succIdx, predcount_t *predList) {
@@ -93,6 +93,6 @@ public:
 
     static void DumpDepend(DynDeviceTask *dyntask, DevAscendProgram *devProg, DevStartArgs *startArgs, const char *prefix);
 
-    void BuildDeviceTaskDataAndReadyQueue(DynDeviceTask *dyntask, uint32_t taskId, DevAscendProgram *devProg);
+    int BuildDeviceTaskDataAndReadyQueue(DynDeviceTask *dyntask, uint32_t taskId, DevAscendProgram *devProg);
 };
 }

@@ -56,12 +56,12 @@ struct DeviceStitchContext {
 
     void DumpSlotInfo(const char *label, DeviceExecuteSlot *slotList, size_t slotSize);
 
-    void DecideSlotAddress(DeviceExecuteSlot *slotList, size_t slotSize,
+    int DecideSlotAddress(DeviceExecuteSlot *slotList, size_t slotSize,
                            ItemPool<uint32_t, WsMemCategory::ITEMPOOL_SLOT_REF_CNT> &slotRefCntPool);
 
-    void DecideIncastOutcast(uint64_t taskId);
+    int DecideIncastOutcast(uint64_t taskId);
 
-    void MoveTo(DynDeviceTask *dynTask);
+    int MoveTo(DynDeviceTask *dynTask);
 
     void VerifyStitchedListMemory(DevStartArgs &args) const {
         workspace_->VerifyStitchedListMemory(args, stitchedList_.data(), stitchedList_.size());
@@ -110,8 +110,7 @@ public:
             {StitchKind::StitchFullCover, "fullCover"},
             {StitchKind::StitchReuse, "reuse"},
         };
-        DEV_ASSERT(stitchNameDict.count(kind));
-        return stitchNameDict.find(kind)->second;
+        return stitchNameDict.count(kind) == 0 ? "invalid stitch kind" : stitchNameDict.find(kind)->second;
     }
 
     static void HandleOneStitch(

@@ -38,8 +38,7 @@ extern "C" __attribute__((visibility("default"))) int PyptoKernelCtrlServerInit(
     if (kargs == nullptr) {
         return -1;
     }
-    if (kargs->inputs == nullptr || kargs->outputs == nullptr || kargs->workspace == nullptr
-        || kargs->cfgdata == nullptr) {
+    if (kargs->inputs == nullptr || kargs->outputs == nullptr || kargs->cfgdata == nullptr) {
         DEV_ERROR("Args has null in inputs[%p] outputs[%p] work[%p] or cfg[%p].\n", kargs->inputs,
                  kargs->outputs, kargs->workspace, kargs->cfgdata);
         return -1;

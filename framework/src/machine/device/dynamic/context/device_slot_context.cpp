@@ -64,7 +64,7 @@ static void UpdateSlotsForStitch(int slotIdx, DeviceExecuteSlot &slot, DevAscend
 }
 
 template <WsMemCategory category>
-static void UpdateSlotsImpl(DeviceWorkspaceAllocator *workspace, DeviceExecuteSlot *slotList,
+static int UpdateSlotsImpl(DeviceWorkspaceAllocator *workspace, DeviceExecuteSlot *slotList,
     const StitchedList &stitchedList, ItemPool<uint32_t, category> &slotRefCntPool,
     DevAscendFunctionDupped &devRootDup, uint32_t devTaskId, uint32_t devNextIdx) {
     AutoScopedPerf asp(PERF_EVT_UPDATE_SLOT);
@@ -75,11 +75,15 @@ static void UpdateSlotsImpl(DeviceWorkspaceAllocator *workspace, DeviceExecuteSl
     newRefCntIndex.resize(outcastSize, itemPoolInvalidIndex);
 
     // Increase refCnt for linked incasts
-    for (size_t i = 0; i < outcastSize; ++i) {
-        auto &outcast = devRootSrc->GetOutcast(i);
-        auto *rawTensor = devRootSrc->GetOutcastRawTensor(i);
+    for (size_t index = 0; index < outcastSize; ++index) {
+        auto &outcast = devRootSrc->GetOutcast(index);
+        auto *rawTensor = devRootSrc->GetOutcastRawTensor(index);
         if (rawTensor->linkedIncastId != -1) {
             auto &incast = devRootSrc->GetIncast(rawTensor->linkedIncastId);
+            if (incast.fromSlotList.size() == 0) {
+                DEV_ERROR("Incast fromSlotList is empty");
+                return DEVICE_MACHINE_ERROR;
+            }
             DEV_DEBUG_ASSERT(incast.fromSlotList.size() > 0);
             int slotIndex = devRootSrc->At(incast.fromSlotList, 0);
             auto &slot = slotList[slotIndex];
@@ -87,21 +91,25 @@ static void UpdateSlotsImpl(DeviceWorkspaceAllocator *workspace, DeviceExecuteSl
             if (refCntIndex != itemPoolInvalidIndex) {
                 slot.RefCntInc(slotRefCntPool, outcast.toSlotList.size());
             }
-            newRefCntIndex[i] = refCntIndex;
+            newRefCntIndex[index] = refCntIndex;
         }
     }
 
     // Update slot address
     uint64_t *expressionList = &devRootDup.GetExpression(0);
-    for (size_t i = 0; i < outcastSize; ++i) {
-        auto &srcDesc = devRootDup.GetOutcastAddress(i);
-        auto &outcast = devRootSrc->GetOutcast(i);
-        for (size_t j = 0; j < outcast.toSlotList.size(); ++j) {
-            int slotIdx = devRootSrc->At(outcast.toSlotList, j);
+    for (size_t index = 0; index < outcastSize; ++index) {
+        auto &srcDesc = devRootDup.GetOutcastAddress(index);
+        auto &outcast = devRootSrc->GetOutcast(index);
+        for (size_t i = 0; i < outcast.toSlotList.size(); ++i) {
+            int slotIdx = devRootSrc->At(outcast.toSlotList, i);
             auto &slot = slotList[slotIdx];
-            UpdateSlotsForStitch(slotIdx, slot, devRootSrc, outcast, devTaskId, devNextIdx, i, expressionList);
+            UpdateSlotsForStitch(slotIdx, slot, devRootSrc, outcast, devTaskId, devNextIdx, index, expressionList);
             if (!slot.RefCntIsNull() && slot.RefCntDec(slotRefCntPool)) {
                 // At this moment only old addresses have available refCnt
+                if (slot.desc.IsNullAddress()) {
+                    DEV_ERROR("Slot descriptor is null");
+                    return DEVICE_MACHINE_ERROR;
+                }
                 DEV_DEBUG_ASSERT(!slot.desc.IsNullAddress());
                 uintdevptr_t freeAddr = slot.desc.IsAddress() ? slot.desc.addr :
                     stitchedList[slot.desc.dupIdx].GetOutcastAddress(slot.desc.outcastIdx).GetAddress();
@@ -111,62 +119,68 @@ static void UpdateSlotsImpl(DeviceWorkspaceAllocator *workspace, DeviceExecuteSl
             if (!srcDesc.IsAddress() /* Unroll secondary placeholder */) {
                 slot.desc = srcDesc;
             } else {
-                slot.desc = AddressDescriptor(devNextIdx, i);
+                slot.desc = AddressDescriptor(devNextIdx, index);
             }
-            slot.refCntIndex = newRefCntIndex[i];
-            DEV_VERBOSE_DEBUG("[UpdateSlots]   Outcast [%3zu] to slot [%3d], address %s.", i, slotIdx, slot.desc.Dump().c_str());
+            slot.refCntIndex = newRefCntIndex[index];
+            DEV_VERBOSE_DEBUG("[UpdateSlots]  Outcast [%3zu] to slot [%3d], address %s.", index, slotIdx, slot.desc.Dump().c_str());
         }
     }
+    return DEVICE_MACHINE_OK;
 }
 
-void DeviceSlotContext::UpdateSlots(DevAscendFunctionDupped &devRootDup, const StitchedList &stitchedList,
+int DeviceSlotContext::UpdateSlots(DevAscendFunctionDupped &devRootDup, const StitchedList &stitchedList,
                                     uint32_t devTaskId, uint32_t devNextIdx) {
-    UpdateSlotsImpl(workspace_, slotList_.data(), stitchedList, slotRefCntPool_,
+    int ret = DEVICE_MACHINE_OK;
+    ret = UpdateSlotsImpl(workspace_, slotList_.data(), stitchedList, slotRefCntPool_,
         devRootDup, devTaskId, devNextIdx);
+    if (unlikely(ret != DEVICE_MACHINE_OK)) {
+        return DEVICE_MACHINE_ERROR;
+    }
+    return ret;
 }
 
 void DeviceSlotContext::FillInputOutputSlot(DeviceExecuteSlot *slotList, size_t slotSize, DevAscendProgram *devProg,
     DevStartArgs *args) {
     DEV_TRACE_DEBUG(CtrlEvent(none(), InputTensorCount(args->GetInputTensorSize())));
-    for (int i = 0; i < args->GetInputTensorSize(); ++i) {
-        DevTensorData &param = args->GetInputTensor(i);
-        int slotIndex = devProg->startArgsInputTensorSlotIndexList[i];
+    for (int index = 0; index < args->GetInputTensorSize(); ++index) {
+        DevTensorData &param = args->GetInputTensor(index);
+        int slotIndex = devProg->startArgsInputTensorSlotIndexList[index];
         slotList[slotIndex].desc = AddressDescriptor(param.address);
         // input/output flatten
         slotList[slotIndex].isOutputSlot = true;
-        DEV_INFO("Param %d Input Slot %d = %lx.", i, slotIndex, param.address);
-        DEV_TRACE_DEBUG(CtrlEvent(none(), InputTensorElement(i, param.address, param.shape.GetSize())));
+        DEV_INFO("Param %d Input Slot %d = %lx.", index, slotIndex, param.address);
+        DEV_TRACE_DEBUG(CtrlEvent(none(), InputTensorElement(index, param.address, param.shape.GetSize())));
     }
     DEV_TRACE_DEBUG(CtrlEvent(none(), OutputTensorCount(args->GetOutputTensorSize())));
-    for (int i = 0; i < args->GetOutputTensorSize(); ++i) {
-        DevTensorData &param = args->GetOutputTensor(i);
-        int slotIndex = devProg->startArgsOutputTensorSlotIndexList[i];
+    for (int index = 0; index < args->GetOutputTensorSize(); ++index) {
+        DevTensorData &param = args->GetOutputTensor(index);
+        int slotIndex = devProg->startArgsOutputTensorSlotIndexList[index];
         slotList[slotIndex].desc = AddressDescriptor(param.address);
         slotList[slotIndex].isOutputSlot = true;
-        DEV_INFO("Param %d Output Slot %d = %lx.", i, slotIndex, param.address);
-        DEV_TRACE_DEBUG(CtrlEvent(none(), OutputTensorElement(i, param.address, param.shape.GetSize())));
+        DEV_INFO("Param %d Output Slot %d = %lx.", index, slotIndex, param.address);
+        DEV_TRACE_DEBUG(CtrlEvent(none(), OutputTensorElement(index, param.address, param.shape.GetSize())));
     }
-    for (size_t i = static_cast<size_t>(args->GetOutputTensorSize()); i < devProg->startArgsOutputTensorSlotIndexList.size(); ++i) {
-        int outSlot = devProg->startArgsOutputTensorSlotIndexList[i];
-        int inSlot = devProg->outputInplaceSlotList[i];
+    for (size_t index = static_cast<size_t>(args->GetOutputTensorSize()); index < devProg->startArgsOutputTensorSlotIndexList.size(); ++index) {
+        int outSlot = devProg->startArgsOutputTensorSlotIndexList[index];
+        int inSlot = devProg->outputInplaceSlotList[index];
         if (inSlot != -1) {
             slotList[outSlot].desc = slotList[inSlot].desc;
             slotList[outSlot].isOutputSlot = true;
-            DEV_VERBOSE_DEBUG("Param %zu Output Slot %d = inSlot %d.", i, outSlot, inSlot);
+            DEV_VERBOSE_DEBUG("Param %zu Output Slot %d = inSlot %d.", index, outSlot, inSlot);
         }
     }
-    for (size_t i = 0; i < devProg->assembleSlotIndexList.size(); ++i) {
-        int slotIndex = devProg->assembleSlotIndexList[i];
+    for (size_t index = 0; index < devProg->assembleSlotIndexList.size(); ++index) {
+        int slotIndex = devProg->assembleSlotIndexList[index];
         slotList[slotIndex].isAssembleSlot = true;
-        DEV_VERBOSE_DEBUG("Assemble Slot %d.", slotIndex);
+        DEV_VERBOSE_DEBUG("Assemble Slot %d .", slotIndex);
     }
-    for (size_t i = 0, ie = devProg->partialUpdateList.size(); i < ie; i++) {
-        auto &partialUpdate = devProg->At(devProg->partialUpdateList, i);
-        int slotIndex = i;
+    for (size_t index = 0, ie = devProg->partialUpdateList.size(); index < ie; index++) {
+        auto &partialUpdate = devProg->At(devProg->partialUpdateList, index);
+        int slotIndex = index;
         if (!partialUpdate.Empty()) {
             slotList[slotIndex].isPartialUpdateStitch = true;
             slotList[slotIndex].partialUpdate = &partialUpdate;
-            DEV_VERBOSE_DEBUG("Partial Update Slot %d\n", slotIndex);
+            DEV_VERBOSE_DEBUG("Partial Update Slot %d.\n", slotIndex);
         }
     }
     (void)slotSize;

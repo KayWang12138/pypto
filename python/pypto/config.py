@@ -306,6 +306,7 @@ def get_verify_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]]
 def set_debug_options(*,
                        compile_debug_mode: Optional[int] = None,
                        runtime_debug_mode: Optional[int] = None,
+                       no_device_tensor_depend: Optional[bool] = None
                        ) -> None:
     """
     Set debug options.
@@ -317,6 +318,10 @@ def set_debug_options(*,
 
     runtime_debug_mode : int
         Whether to enable debug mode during execution stage.
+    
+    no_device_tensor_depend : bool
+        If an operator has no dependency on the data of the device tensor,
+                it can be set to True to improve performance.
     """
     _pto_options.set_options("debug", locals())
 

@@ -154,6 +154,24 @@ private:
         return devProg->outputInplaceSlotList.size() != 0;
     }
 
+    void AssignMetaAddr(DevAscendProgram *devProg, MemoryH &h) {
+        uint64_t generalSize = devProg->memBudget.metadata.general;
+        uint64_t stitchPoolSize = devProg->memBudget.metadata.stitchPool;
+        size_t shmSize = DEVICE_SHM_SIZE + DEVICE_TASK_QUEUE_SIZE * devProg->devArgs.scheCpuNum +
+            generalSize + stitchPoolSize;
+        uint64_t shmAddr = (uint64_t)h.AllocDev(shmSize);
+        devProg->devArgs.startArgsAddr = shmAddr;
+        shmAddr += DEV_ARGS_SIZE;
+        devProg->devArgs.taskCtrl = shmAddr;
+        shmAddr += DEVICE_TASK_CTRL_SIZE;
+        devProg->devArgs.taskQueue = shmAddr;
+        shmAddr += DEVICE_TASK_QUEUE_SIZE * devProg->devArgs.scheCpuNum;
+        devProg->devArgs.generalAddr = shmAddr;
+        shmAddr += generalSize;
+        devProg->devArgs.stitchPoolAddr = shmAddr;
+        return;
+    }
+
     void InitTilingData(AstKernelArgs *kArgs, bool isTest) {
         MemoryH h{isTest};
         auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t *>(devProg_.data()));
@@ -170,6 +188,7 @@ private:
         kArgs->cfgdata = (int64_t *)h.CopyToDev(devProg_);
         kArgs->machineConfig = devProg->devArgs.machineConfig;
         kArgs->toSubMachineConfig = devProg->devArgs.toSubMachineConfig;
+        AssignMetaAddr(devProg, h);
         return;
     }
 

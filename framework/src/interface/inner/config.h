@@ -65,6 +65,7 @@ constexpr const char *CFG_COMPILE_DBEUG_MODE = "compile_debug_mode";
 constexpr const char *CFG_RUNTIME_DBEUG_MODE = "runtime_debug_mode";
 const int64_t CFG_DEBUG_NONE = 0;
 const int64_t CFG_DEBUG_ALL = 1;
+constexpr const char *NO_DEVICE_TENSOR_DEPEND = "no_device_tensor_depend";
 
 /* Rundata KEYS */
 constexpr const char *KEY_RUNTYPE = "runtype";

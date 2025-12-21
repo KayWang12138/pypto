@@ -57,6 +57,9 @@ public:
     }
 
     WsAllocation Allocate() {
+        if (freeListHeader_ == nullptr) {
+            DEV_ERROR("freeListHeader_ is null, expected valid pointer\n");
+        }
         DEV_DEBUG_ASSERT(freeListHeader_ != nullptr);
 
         BlockHeader *node = freeListHeader_;
@@ -96,7 +99,14 @@ public:
     }
 
     void Deallocate(uintdevptr_t ptr) {
+        if (!(workspaceAddr_ <= ptr && ptr < workspaceAddr_ + slotNum_ * slotStandardMemReq_)) {
+            DEV_ERROR("ptr %lu is out of workspace bounds. workspaceAddr_: %lu, workspaceEnd: %lu, slotNum_: %lu, slotStandardMemReq_: %lu",
+            ptr, workspaceAddr_, workspaceAddr_ + slotNum_ * slotStandardMemReq_, slotNum_, slotStandardMemReq_);
+        }
         DEV_DEBUG_ASSERT(workspaceAddr_ <= ptr && ptr < workspaceAddr_ + slotNum_ * slotStandardMemReq_);
+        if (notInUseHeaders_ == nullptr) {
+            DEV_ERROR("notInUseHeaders_ is null, expected valid pointer\n");
+        }
         DEV_DEBUG_ASSERT(notInUseHeaders_ != nullptr);
 
         BlockHeader *node = notInUseHeaders_;

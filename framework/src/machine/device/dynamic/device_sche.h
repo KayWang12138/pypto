@@ -47,6 +47,10 @@ public:
         validCore_.fill(false);
     }
 
+    bool CheckAndResetReg(){
+        return aicoreManager_[0]->CheckAndResetReg();
+    }
+    
     void init(uint32_t schNum) {
         schAicpuNum_ = schNum;
     }
@@ -86,6 +90,7 @@ public:
         aicoreManager_[i]->ResetRegAll();
       }
       sleep(1);
+      aicoreManager_[0]->CheckAndResetReg();
       DEV_ERROR("Exception reset reg finish.");
     }
 
