@@ -45,6 +45,26 @@ python3 -m pip install . --verbose --user
 **参数说明**：
 - `--verbose`: 输出安装流程的基础详细信息（如下载的包版本、安装路径、依赖解析结果等）。
 
+**高级配置**：
+
+以下功能依赖 `pip` 支持 `--config-setting` 参数，如需使用，请确保 `pip` 版本不低于 **22.1**。
+
+1. 调整编译类型
+
+   默认情况下，常规安装编译出的 C++ 层二进制文件为 `Release` 类型。若需进行调试，可通过 `pip` 的 `--config-setting` 参数指定不同的编译类型：
+
+   ```bash
+   # 通过 --config-setting 参数指定 C++ 层二进制编译为 Debug 类型
+   python3 -m pip install . --verbose --user --config-setting=--build-option='build_ext --cmake-build-type=Debug'
+   ```
+
+2. 开启 C++ 编译其详细输出模式
+
+   ```bash
+   # 额外开启 C++ 编译器详细输出模式（便于定位 C++ 编译问题）
+   python3 -m pip install . --verbose --user --config-setting=--build-option='build_ext --cmake-build-type=Debug --cmake-verbose'
+   ```
+
 ### 可编辑安装
 
 此方式适用于开发调试阶段。该模式会在 `site-packages` 目录中创建指向本地源码的软链接, 对 Python 源码的修改会即时生效，无需重新安装。对应命令如下:
@@ -63,6 +83,24 @@ python3 -m pip install -e . --verbose --user
 **参数说明**：
 - `-e`：即 `--editable` 的简写形式，标识采用可编辑安装模式；
 - `--verbose`: 会输出安装流程的基础详细信息（如下载的包版本, 安装路径，依赖解析结果等）；
+
+**高级配置**：
+
+PyPTO 使用 setuptools作为其编译打包工具。需要注意的是，当前版本的 setuptools尚不支持直接接收 pip命令通过 --config-setting参数传递的配置。
+如需指定特定的 C++ 编译选项，您需要将相关配置预先设置在 `PYPTO_BUILD_EXT_ARGS` 环境变量中。该环境变量的值将在编译过程(`setup.py`)中被自动识别并使用。
+
+示例：以下示例演示了如何配置环境变量以编译 Debug 版本的 C++ 二进制文件并开启编译器的详细输出模式，然后进行安装。
+
+```bash
+# 设置编译参数：指定编译类型为 Debug，并开启编译器详细输出（便于诊断问题）
+export PYPTO_BUILD_EXT_ARGS='--cmake-build-type=Debug --cmake-verbose'
+
+# 执行编译及安装（root 用户）
+python3 -m pip install -e . --verbose
+
+# 执行编译及安装（非 root 用户）
+python3 -m pip install -e . --verbose --user
+```
 
 ## 通过 Docker 镜像安装
 
