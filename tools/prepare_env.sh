@@ -525,7 +525,7 @@ get_package_url() {
                     [ "$DEVICE_TYPE" = "910b" ] && echo "$CANN_OPS_URL_X86_910b" || echo "$CANN_OPS_URL_X86_910c"
                     ;;
                 arm)
-                    [ "$DEVICE_TYPE" = "910b" ] && echo "$CANN_OP_URL_ARM_910b" || echo "$CANN_OPS_URL_ARM_910c"
+                    [ "$DEVICE_TYPE" = "910b" ] && echo "$CANN_OPS_URL_ARM_910b" || echo "$CANN_OPS_URL_ARM_910c"
                     ;;
                 *) echo "" ;;
             esac
@@ -564,7 +564,6 @@ download_single_cann_package() {
         return 1
     }
     local package_file=$(get_package_name_from_url "$resource_url" "$resource_type")
-    echo "$resource_type"
     local target_file="$CANN_DOWNLOAD_PATH/$package_file"
     local resource_name=$(echo "$resource_type" | awk '{print toupper(substr($0,1,1)) substr($0,2)}')  
     local download_log_msg="Downloading Huawei Ascend CANN $resource_name $CANN_VERSION_LATEST"
