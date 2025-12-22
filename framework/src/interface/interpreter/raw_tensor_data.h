@@ -171,6 +171,7 @@ struct RawTensorData : public std::vector<uint8_t> {
     static std::shared_ptr<RawTensorData> CreateTensor(const Tensor &t, const std::vector<T> &values) {
         auto tensorData = std::make_shared<RawTensorData>(t.GetDataType(), t.GetShape());
         T *data = reinterpret_cast<T *>(tensorData->data());
+        ASSERT(sizeof(T) == tensorData->GetElementSize()) << "CreateTensor's dtype and value's type don't match!";
         StringUtils::DataCopy(data, tensorData->GetDataSize(), values.data(), values.size() * sizeof(T));
         return tensorData;
     }
@@ -191,6 +192,7 @@ struct RawTensorData : public std::vector<uint8_t> {
     static std::shared_ptr<RawTensorData> CreateTensorData(const Shape &shape, DataType dType, const std::vector<T> &values) {
         auto tensorData = std::make_shared<RawTensorData>(dType, shape);
         T *data = reinterpret_cast<T *>(tensorData->data());
+        ASSERT(sizeof(T) == tensorData->GetElementSize()) << "CreateTensor's dtype and value's type don't match!";
         StringUtils::DataCopy(data, tensorData->GetDataSize(), values.data(), values.size() * sizeof(T));
         return tensorData;
     }
