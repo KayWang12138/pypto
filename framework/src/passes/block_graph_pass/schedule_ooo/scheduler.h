@@ -178,8 +178,8 @@ private:
     Status InitDependencies();
     void AddDependency(IssueEntryPtr preIssue, IssueEntryPtr postIssue, bool isAlloc);
     Status InitAllocDependencies(IssueEntryPtr issue, std::map<int, IssueEntryPtr> tensor2AllocMap);
-    void InitLocalBuffer(LogicalTensorPtr oOperand, int memId);
-    void InitBufRefCount();
+    Status InitLocalBuffer(LogicalTensorPtr oOperand, int memId);
+    Status InitBufRefCount();
     void UpdateBufRefCount(IssueEntryPtr issue, LogicalTensorPtr tensor);
     Status CheckAllocIssue();
     void UpdateAllocMap(IssueEntryPtr issue, std::map<int, IssueEntryPtr> &tensorAllocMap);
