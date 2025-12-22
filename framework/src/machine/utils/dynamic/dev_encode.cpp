@@ -413,8 +413,13 @@ void DevAscendFunction::InitRawTensorAndMemoryRequirement(
                 ASSERT(outIncastLinkMap[rawList[i]]->actualRawmagic != rawList[i]->rawmagic) << "Unexpected rawmagic match: actualRawmagic "
                        << outIncastLinkMap[rawList[i]]->actualRawmagic <<
                        " == rawmagic " << rawList[i]->rawmagic;
-                encoded.linkedIncastId = incastRawList.GetIndex(outIncastLinkMap[rawList[i]]); //换成incast的下标 ioidx
-                ALOG_DEBUG_F("linkedIncastId is %d", encoded.linkedIncastId);
+                auto replacedIncast = outIncastLinkMap[rawList[i]];
+                if (std::find(rawList.begin(), rawList.end(), replacedIncast) != rawList.end()) {
+                    encoded.linkedIncastId = incastRawList.GetIndex(replacedIncast); //换成incast的下标 ioidx
+                    ALOG_DEBUG_F("linkedIncastId is %d", encoded.linkedIncastId);
+                } else {
+                    encoded.linkedIncastId = -1;
+                }
             } else {
                 encoded.linkedIncastId = -1;
                 ALOG_DEBUG_F("linkedIncastId is %d", encoded.linkedIncastId);

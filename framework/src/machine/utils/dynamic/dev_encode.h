@@ -345,7 +345,7 @@ public:
         std::ostringstream oss;
         auto rawTensor = GetRawTensor(rawIndex);
         auto rawTensorDesc = GetRawTensorDesc(rawIndex);
-        oss << rawTensor->DumpType() << " @" << rawIndex << " = ";
+        oss << rawTensor->DumpType() << " @" << rawIndex <<"&"<<rawTensor->linkedIncastId << " = ";
         oss << rawTensor->DumpAttr() << " ";
         oss << DevAscendRawTensor::DumpAttrDesc(rawTensorDesc);
         if (addr != 0) {
