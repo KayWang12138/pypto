@@ -2494,7 +2494,7 @@ std::shared_ptr<Function> Function::LoadJson(Program &belongTo, const Json &func
                 Function *root = func.get();
                 std::vector<DynloopFunctionPathCondition> pathCondList;
                 auto callOpMagic = pathJson[0];
-                Operation *callop;
+                Operation *callop = nullptr;
                 for (auto &op : func->Operations().DuplicatedOpList()) {
                     if (op->GetOpMagic() == callOpMagic) {
                         callop = op;

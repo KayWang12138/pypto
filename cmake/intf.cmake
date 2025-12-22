@@ -76,7 +76,7 @@ target_compile_options(tile_fwk_intf_pub
             $<$<CXX_COMPILER_ID:GNU>:$<$<CONFIG:Release>:-Wno-unused-but-set-variable>>
             $<$<CONFIG:Release>:-Wno-unused-variable>
             $<$<CONFIG:Release>:-Wno-unused-parameter>
-            $<$<CONFIG:Release>:-Wno-unused-result>
+            -Wno-unused-result
             # Clang
             $<$<CXX_COMPILER_ID:Clang>:-Wno-mismatched-tags>
             $<$<CXX_COMPILER_ID:Clang>:-Wno-non-pod-varargs>
