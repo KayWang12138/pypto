@@ -68,7 +68,30 @@ TEST_F(TestDistributedShmemImpl, TestShmemAllGather)
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(TestDistributedShmemImpl, TestShmemAllReduce)
+TEST_F(TestDistributedShmemImpl, TestShmemReduceScatter)
+{
+    const char *group = "hcom123";
+
+    int32_t ranksize = 4;
+    Tensor in(DT_FP16, {64, 256}, "in");
+    Tensor out(DT_FP16, {16, 256}, "out");
+    FUNCTION("REDUCESCATTER", {in}, {out}) {
+        TileShape::Current().SetDistTile(
+            {64 / ranksize, 1, 0}, {256, 1, 0}, {1, ranksize, 0});
+        ShmemReduceScatter(in, group, DistReduceType::DIST_REDUCE_ADD, out);
+    }
+
+#if ENABLE_HIDDENLOOP
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "RS" + SUB_FUNC_SUFFIX + "_hiddenfunc0");
+#else
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "RS" + SUB_FUNC_SUFFIX);
+#endif
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(TestDistributedShmemImpl, TestTwoShotShmemAllReduce)
 {
     const char *group = "hcom123";
 
@@ -90,4 +113,28 @@ TEST_F(TestDistributedShmemImpl, TestShmemAllReduce)
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
+
+TEST_F(TestDistributedShmemImpl, TestOneShotShmemAllReduce)
+{
+    const char *group = "hcom123";
+
+    int32_t ranksize = 4;
+    Tensor in(DT_FP16, {64, 256}, "in");
+    Tensor out(DT_FP16, {64, 256}, "out");
+    FUNCTION("ALLREDUCE", {in}, {out}) {
+        TileShape::Current().SetDistTile(
+            {64, 1, 0}, {256, 1, 0}, {1, ranksize, 0});
+        OneShotShmemAllReduce(in, group, out);
+    }
+
+#if ENABLE_HIDDENLOOP
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "L0" + SUB_FUNC_SUFFIX + "_hiddenfunc0");
+#else
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "L0" + SUB_FUNC_SUFFIX);
+#endif
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
 }

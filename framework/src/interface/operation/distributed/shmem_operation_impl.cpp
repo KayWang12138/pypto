@@ -60,18 +60,26 @@ void ValidateTilingSize(std::array<int32_t, MAX_DIST_DIM_SIZE> tilingStrategy, i
 }
 
 void ValidateParams(const Tensor &in, const Tensor &out, Shape shmemDataShape, Shape shmemSignalShape, DataType shmemDataType,
-    int rankSize, bool validateType = false, const std::unordered_set<DataType> &allowedTypes = {})
+    bool checkShapeMatch = false, bool validateType = false, const std::unordered_set<DataType> &allowedTypes = {}) 
 {
-    ASSERT(in.GetShape().size() == 2UL) << "Invalid dimensional: dimensional must be 2, but got dimensional=" << in.GetShape().size();
+    ASSERT(in.GetShape().size() == 2UL) << "Invalid dimensional: Input dimensional must be 2, but got dimensional=" << in.GetShape().size();
+    ASSERT(out.GetShape().size() == 2UL) << "Invalid dimensional: Output dimensional must be 2, but got dimensional=" << out.GetShape().size();
     ASSERT(out.GetDataType() == in.GetDataType()) << "The data type of \"out\" must be consistent with that of \"in\", "
         << "but the data type of \"out\" is "<< DataType2String(out.GetDataType()) << " and the data type of \"in\" is "
         << DataType2String(in.GetDataType()) << ".";
     ASSERT(in.Format() == out.Format()) << "Output tensor format dose not match input tensor fromat. "
         << "in format: " << std::to_string(in.Format())
         << "out format: " << std::to_string(out.Format()) << ".";
-    int32_t row = in.GetShape(0);
-    int32_t col = in.GetShape(1);
-    ASSERT(row > 0 && col > 0) << "Invalid shape: row and col must be > 0, but got row=" << row << ", col=" << col;
+    int32_t inRow = in.GetShape(0);
+    int32_t inCol = in.GetShape(1);
+    int32_t outRow = out.GetShape(0);
+    int32_t outCol = out.GetShape(1);
+    ASSERT(inRow > 0 && inCol > 0) << "Input parameter error - the 'row' and 'col' dimensional of the input tensor must be greater than 0, "
+        << "but got row=" << inRow << ", col=" << inCol;
+    if (checkShapeMatch) {
+        ASSERT((inRow == outRow) && (inCol == outCol)) << "Shape mismatch: Input and output dimensions must be the same, but got "
+        << "Input shape: (" << inRow << "," << inCol << "), Output shape: (" << outRow << "," << outCol << ").";
+    }
     if (validateType) {
         std::ostringstream oss;
         oss << "[";
@@ -85,10 +93,14 @@ void ValidateParams(const Tensor &in, const Tensor &out, Shape shmemDataShape, S
         }
         oss << "]";
         ASSERT(allowedTypes.count(in.GetDataType())) << "Invalid data type for input tensor. Expected: " << oss.str() <<
-        ", got: " << DataType2CCEStr(in.GetDataType());
+        ", but got: " << DataType2CCEStr(in.GetDataType());
     }
+    const int64_t maxTileCount = 32 * 32 + 1;
+    const int64_t tileCount = shmemSignalShape[1];
+    ASSERT(tileCount < maxTileCount) << "The tiling setting is invalid. The maximum number of tileCount allowed is 1024, "
+        << "but got: " << tileCount;
     const uint64_t winSize = 1024 * 1024 * 200;
-    const uint64_t shmemSize = rankSize * (shmemDataShape[1] * shmemDataShape[2] * BytesOf(shmemDataType) +
+    const uint64_t shmemSize = shmemDataShape[0] * (shmemDataShape[1] * shmemDataShape[2] * BytesOf(shmemDataType) +
             shmemSignalShape[1] * shmemSignalShape[2] * BytesOf(DT_INT32));
     ASSERT(shmemSize < winSize) << "Exceeds winSize limit. Maximum allowed: " << winSize << ", got: " << shmemSize;
 }
@@ -270,16 +282,14 @@ void ShmemAllGather(const Tensor &in, const Tensor &barrierDummy, const char *gr
     if ((shmemDataType == DT_BF16) || (shmemDataType == DT_FP16)) {
         shmemDataType = DT_FP32;
     }
-    ValidateParams(in, out, shmemDataShape, shmemSignalShape, shmemDataType, rankSize, true, {DT_INT32, DT_FP32, DT_FP16, DT_BF16});
-
     const TileShape& tileShape = TileShape::Current();
     ValidateTilingSize(tileShape.GetDistTileRow(), row, "row");
     ValidateTilingSize(tileShape.GetDistTileCol(), col, "col");
-
     SymbolicScalar thisRank = GetHcclRankId(hcclGroupIndex);
-
     Tensor shmemData;
     Tensor shmemSignal;
+    ValidateGroup(group);
+    ValidateParams(in, out, shmemDataShape, shmemSignalShape, in.GetDataType());
     LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
         (void)index;
         CreateShmemTensor(shmemData, rankSize, hcclGroupIndex, in.GetDataType(), shmemDataShape);
@@ -328,7 +338,8 @@ void ShmemReduceScatter(const Tensor& in, const char* group, DistReduceType redu
     if ((shmemDataType == DT_BF16) || (shmemDataType == DT_FP16)) {
         shmemDataType = DT_FP32;
     }
-    ValidateParams(in, out, shmemDataShape, shmemSignalShape, shmemDataType, rankSize, true, {DT_INT32, DT_FP32, DT_FP16, DT_BF16});
+    ValidateGroup(group);
+    ValidateParams(in, out, shmemDataShape, shmemSignalShape, shmemDataType, false, true, {DT_INT32, DT_FP32, DT_FP16, DT_BF16});
     LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
         (void)index;
         CreateShmemTensor(shmemData, rankSize, hcclGroupIndex, shmemDataType, shmemDataShape);
@@ -360,15 +371,16 @@ void OneShotShmemAllReduce(const Tensor& in, const char* group, Tensor& out) {
     auto [rankSize, tileCount] = GetRankSizeAndTileCount();
     const int32_t rowPerRank = row;
     SymbolicScalar thisRank = GetHcclRankId(hcclGroupIndex);
-    Shape shmemDataShape = {rankSize, rowPerRank, col};
-    Shape shmemSignalShape = {rankSize, tileCount, 8};
+    Shape shmemDataShape = {1, rowPerRank, col};
+    Shape shmemSignalShape = {1, tileCount, 8};
     Tensor shmemData;
     Tensor shmemSignal;
     DataType shmemDataType = in.GetDataType();
     if ((shmemDataType == DT_BF16) || (shmemDataType == DT_FP16)) {
         shmemDataType = DT_FP32;
     }
-    ValidateParams(in, out, shmemDataShape, shmemSignalShape, shmemDataType, rankSize, true, {DT_INT32, DT_FP32, DT_FP16, DT_BF16});
+    ValidateGroup(group);
+    ValidateParams(in, out, shmemDataShape, shmemSignalShape, shmemDataType, true, true, {DT_INT32, DT_FP32, DT_FP16, DT_BF16});
     const TileShape& tileShape = TileShape::Current();
     ValidateTilingSize(tileShape.GetDistTileRow(), rowPerRank, "row");
     ValidateTilingSize(tileShape.GetDistTileCol(), col, "col");
@@ -405,8 +417,9 @@ void TwoShotShmemAllReduce(const Tensor& in, const char* group, Tensor& out) {
     if ((shmemDataType == DT_BF16) || (shmemDataType == DT_FP16)) {
         shmemDataType = DT_FP32;
     }
+    ValidateGroup(group);
     ASSERT(row % rankSize == 0) << "Two_Shot_AllReduce mode constraint violated: row must be divisible by rankSize";
-    ValidateParams(in, out, shmemDataShape, shmemSignalShape, shmemDataType, rankSize, true, {DT_INT32, DT_FP32, DT_FP16, DT_BF16});
+    ValidateParams(in, out, shmemDataShape, shmemSignalShape, shmemDataType, true, true, {DT_INT32, DT_FP32, DT_FP16, DT_BF16});
     const TileShape& tileShape = TileShape::Current();
     ValidateTilingSize(tileShape.GetDistTileRow(), rowPerRank, "row");
     ValidateTilingSize(tileShape.GetDistTileCol(), col, "col");

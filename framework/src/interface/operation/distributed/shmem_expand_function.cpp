@@ -18,7 +18,7 @@
 
 namespace npu::tile_fwk::Distributed {
 namespace {
-constexpr uint16_t UB_BUFFER_BYTE_SIZE = 256;
+constexpr uint16_t UB_BUFFER_BYTE_SIZE = 16 * 1024;
 constexpr uint16_t DTYPE_CAST_BYTE_SIZE = 256;
 constexpr uint16_t UB_ALIGIN_SIZE = 32;
 void CreateTileOp(const TileShape& tileShape,
@@ -51,12 +51,13 @@ bool shouldConvertDtype(DataType ubType, DataType castType)
 
 Shape GetCopyBufferShape(DataType nonShmemDtype, DataType shmemDtype, Shape tileShape)
 {
-    const uint32_t copyNum = UB_BUFFER_BYTE_SIZE / BytesOf(shmemDtype);
+    const uint32_t copyNum = UB_BUFFER_BYTE_SIZE / BytesOf(nonShmemDtype);
     Shape copyShape;
     auto tileRowSize = tileShape[0];
     auto tileColSize = tileShape[1];
     if ((nonShmemDtype != shmemDtype) && (tileColSize % UB_ALIGIN_SIZE != 0)) {
-        copyShape = {1, tileColSize};
+        uint32_t copyColSize = copyNum > tileColSize ? tileColSize : copyNum;
+        copyShape = {1, copyColSize};
     } else if (copyNum >= tileRowSize * tileColSize) {
         copyShape = {tileRowSize, tileColSize};
     } else if (copyNum >= tileColSize) {
