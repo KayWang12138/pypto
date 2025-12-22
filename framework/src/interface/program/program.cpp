@@ -28,6 +28,8 @@
 #include "interface/tensor/logical_tensor.h"
 #include "interface/tensor/raw_tensor.h"
 #include "interface/function/function.h"
+#include "interface/function/kernel_function.h"
+#include "interface/function/execute_function.h"
 #include "interface/interpreter/flow_verifier.h"
 #include "interface/machine/host/host_machine.h"
 #include "tilefwk/tilefwk.h"
@@ -231,8 +233,18 @@ bool Program::BeginFunction(const std::string &funcName,
 
     auto funcMagicName = funcName + "_" + std::to_string(IdGen<IdType::FUNCTION>::Inst().CurId());
     if (functionmap_.find(funcMagicName) == functionmap_.end()) { // new function
-        auto newFunc =
-            std::make_unique<Function>(*this, funcMagicName, funcName, currentFunctionPtr_);
+        std::unique_ptr<Function> newFunc;
+        if (graphType == GraphType::BLOCK_GRAPH) {
+            // Create KernelFunction for BLOCK_GRAPH
+            newFunc = std::make_unique<KernelFunction>(*this, funcMagicName, funcName, currentFunctionPtr_);
+        } else if(graphType == GraphType::EXECUTE_GRAPH) {
+            // Create ExecuteFunction for EXECUTE_GRAPH
+            newFunc = std::make_unique<ExecuteFunction>(*this, funcMagicName, funcName, currentFunctionPtr_);
+        }
+        else {
+            // Create regular Function for other graph types
+            newFunc = std::make_unique<Function>(*this, funcMagicName, funcName, currentFunctionPtr_);
+        }
         newFunc->SetFunctionType(funcType);
         newFunc->SetGraphType(graphType);
         newFunc->SetHiddenFunction(isHiddenFunction);
