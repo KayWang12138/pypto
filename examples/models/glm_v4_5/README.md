@@ -92,9 +92,9 @@ def attention_pre_quant(
 
 -   **atten_qkv_input_offset**（`Tensor`）：注意力QKV输入量化的偏移量，不支持非连续，数据格式支持ND，数据类型支持`bfloat16`，shape为[hidden_size]。
 
--   **atten_qkv_weight**（`Tensor`）：注意力QKV的权重矩阵，不支持非连续，数据格式支持NZ，数据类型支持int8，shape为[hidden_size, total_head_size]。
+-   **atten_qkv_weight**（`Tensor`）：注意力QKV的权重矩阵，不支持非连续，数据格式支持NZ，数据类型支持`int8`，shape为[hidden_size, total_head_size]。
 
--   **atten_qkv_quant_bias**（`Tensor`）：注意力QKV权重量化的偏置，不支持非连续，数据格式支持ND，数据类型支持int32，shape为[total_head_size]。
+-   **atten_qkv_quant_bias**（`Tensor`）：注意力QKV权重量化的偏置，不支持非连续，数据格式支持ND，数据类型支持`int32`，shape为[total_head_size]。
 
 -   **atten_qkv_deq_scale**（`Tensor`）：注意力QKV权重量化的反量化缩放系数，不支持非连续，数据格式支持ND，数据类型支持`float32`，shape为[total_head_size]。
 
@@ -166,20 +166,20 @@ def attention(
 
 >**说明：**<br> 
 >
->- batch_size表示输入样本批量大小（当前支持范围1至32）、seq_len表示输入样本序列长度（当前支持为1）、num_tokens表示batch_Size和seq_len合轴的大小、num_head表示查询端的多头数量（当前支持为12）、head_size表示每个注意力头的维度（当前支持为128）、num_blocks表示总共可用的缓存块数量、block_size表示每个缓存块能容纳的词元数量（当前支持为128）、kv_head_num表示键/值端的多头数量（当前支持为1）、max_num_blocks_per_query表示单个请求最多可以占用的缓存块数。
+>- batch_size表示输入样本批量大小（当前支持范围1至32）、seq_len表示输入样本序列长度（当前支持为1）、num_tokens表示batch_size和seq_len合轴的大小、num_head表示查询端的多头数量（当前支持为12）、head_size表示每个注意力头的维度（当前支持为128）、num_blocks表示总共可用的缓存块数量、block_size表示每个缓存块能容纳的词元数量（当前支持为128）、kv_head_num表示键/值端的多头数量（当前支持为1）、max_num_blocks_per_query表示单个请求最多可以占用的缓存块数。
 
 
--   **query**（`Tensor`）：数据格式支持ND，数据类型支持bfloat16 ，shape为 [num_tokens, num_head, head_size]。
+-   **query**（`Tensor`）：数据格式支持ND，数据类型支持`bfloat16` ，shape为 [num_tokens, num_head, head_size]。
 
--   **key_cache**（`Tensor`）：数据格式支持ND，数据类型支持bfloat16 ，shape为 [num_blocks, block_size, kv_head_num, head_size]。
+-   **key_cache**（`Tensor`）：数据格式支持ND，数据类型支持`bfloat16` ，shape为 [num_blocks, block_size, kv_head_num, head_size]。
 
--   **value_cache**（`Tensor`）：数据格式支持ND，数据类型支持bfloat16 ，shape为 [num_blocks, block_size, kv_head_num, head_size]。
+-   **value_cache**（`Tensor`）：数据格式支持ND，数据类型支持`bfloat16` ，shape为 [num_blocks, block_size, kv_head_num, head_size]。
 
--   **block_tables**（`Tensor`）：数据格式支持ND，数据类型支持int32 ，shape为 [batch_size, max_num_blocks_per_query]。
+-   **block_tables**（`Tensor`）：数据格式支持ND，数据类型支持`int32` ，shape为 [batch_size, max_num_blocks_per_query]。
 
--   **actual_seqs**（`Tensor`）：数据格式支持ND，数据类型支持int32 ，shape为 [batch_size]。
+-   **actual_seqs**（`Tensor`）：数据格式支持ND，数据类型支持`int32` ，shape为 [batch_size]。
 
--   **attn_res**（`Tensor`）：数据格式支持ND，数据类型支持bfloat16 ，shape为 [num_tokens, num_head, head_size]。
+-   **attn_res**（`Tensor`）：数据格式支持ND，数据类型支持`bfloat16` ，shape为 [num_tokens, num_head, head_size]。
 
 ## 调用示例
 
@@ -226,7 +226,7 @@ def add_rms_norm(
 ## 参数说明
 
 >
->- batch_size表示输入样本批量大小（当前支持范围1至32）、seq_len表示输入样本序列长度（当前支持为1）、num_tokens表示batch_Size和seq_len合轴的大小、hidden_size表示模型隐藏层维度（当前支持5120）。
+>- batch_size表示输入样本批量大小（当前支持范围1至32）、seq_len表示输入样本序列长度（当前支持为1）、num_tokens表示batch_size和seq_len合轴的大小、hidden_size表示模型隐藏层维度（当前支持5120）。
 
 -   **hidden_states**（`Tensor`）：当前层输入特征矩阵， 不支持非连续的Tensor，数据格式支持ND，数据类型支持 `bfloat16`, shape为[num_tokens, hidden_size]。
 
@@ -275,13 +275,13 @@ def gate(
 ## 参数说明
 
 >
->- batch_size表示输入样本批量大小（当前支持范围1至32）、seq_len表示输入样本序列长度（当前支持为1）、num_tokens表示batch_Size和seq_len合轴的大小、num_router_experts表示路由专家数（当前支持为160）。
+>- batch_size表示输入样本批量大小（当前支持范围1至32）、seq_len表示输入样本序列长度（当前支持为1）、num_tokens表示batch_size和seq_len合轴的大小、num_router_experts表示路由专家数（当前支持为160）。
 
 -   **gate_weight**（`Tensor`）：表示投影权重矩阵，将通用特征转化为路由专用特征, 不支持非连续的Tensor, 数据格式支持ND，数据类型支持 `FP32`, shape为[num_router_experts, hidden_size]。
 
 -   **hidden_states**（`Tensor`）：当前层输入特征矩阵, 不支持非连续的Tensor, 数据格式支持ND，数据类型支持 `FP32`, shape为[num_tokens, hidden_size]。
 
--   **router_logits_res**（`Tensor`）：表示经过投影权重优化后的路由特征矩阵, shape为[num_tokens ,num_router_experts]。
+-   **router_logits_res**（`Tensor`）：表示经过投影权重优化后的路由特征矩阵, 数据格式支持ND，数据类型支持 `FP32`, shape为[num_tokens ,num_router_experts]。
 
 ## 调用示例
 
@@ -334,7 +334,7 @@ def select_experts(
 ## 参数说明
 
 >
->-  batch_size表示输入样本批量大小（当前支持范围1至32）、seq_len表示输入样本序列长度（当前支持为1）、num_tokens表示batch_Size和seq_len合轴的大小、num_router_experts表示路由专家数（当前支持为160）、num_experts_per_topk表示每个词元分配的专家数量（当前支持为8）。
+>-  batch_size表示输入样本批量大小（当前支持范围1至32）、seq_len表示输入样本序列长度（当前支持为1）、num_tokens表示batch_size和seq_len合轴的大小、num_router_experts表示路由专家数（当前支持为160）、num_experts_per_topk表示每个词元分配的专家数量（当前支持为8）。
 
 -   **router_logits**（`Tensor`）：表示路由的分数，表示专家的数量, 数据格式支持ND，数据类型支持 `float32`, shape为[num_tokens, num_router_experts]。
 
@@ -348,9 +348,9 @@ def select_experts(
 
 -   **e_score_correction_bias**（`Tensor`）：表示校正专家的偏差值, 数据格式支持ND，数据类型支持 `bfloat16`, shape为[num_router_experts]。
 
--   **topk_weights**（`Tensor`）：每个专家的责任权重, shape为[num_tokens, num_experts_per_topk]。
+-   **topk_weights**（`Tensor`）：每个专家的责任权重, 数据格式支持ND，数据类型支持 `FP32`, shape为[num_tokens, num_experts_per_topk]。
 
--   **topk_ids**（`Tensor`）：表示为每个token选择的专家编号, shape为[num_tokens, num_experts_per_topk]。
+-   **topk_ids**（`Tensor`）：表示为每个token选择的专家编号, 数据格式支持ND，数据类型支持 `int32`, shape为[num_tokens, num_experts_per_topk]。
 
 ## 调用示例
 
@@ -401,7 +401,7 @@ def ffn_shared_expert_quant(
 ## 参数说明
 >**说明：**<br> 
 >
->- batch_size表示输入样本批量大小（当前支持范围1至32）、seq_len表示输入样本序列长度（当前支持为1）、num_tokens表示batch_Size和seq_len合轴的大小、hidden_size表示隐藏层大小（当前支持5120）、intermediate_size表示中间层的维度（当前支持1536）。
+>- batch_size表示输入样本批量大小（当前支持范围1至32）、seq_len表示输入样本序列长度（当前支持为1）、num_tokens表示batch_size和seq_len合轴的大小、hidden_size表示隐藏层大小（当前支持5120）、intermediate_size表示中间层的维度（当前支持1536）。
 
 -   **hidden_states**（`Tensor`）：当前共享专家的输入特征向量。当前仅支持连续，数据格式ND，数据类型支持`bfloat16`，shape为[num_tokens, hidden_size]。
 
@@ -462,7 +462,7 @@ def ffn_router_expert_quant(
 
 >**说明：**<br> 
 >
->- batch_size表示输入样本批量大小（当前支持范围1至32）、seq_len表示输入样本序列长度（当前支持为1）、num_tokens表示batch_Size和seq_len合轴的大小、hidden_size表示隐藏层大小（当前支持5120）、intermediate_size表示中间层的维度（当前支持1536）、topk表示激活专家个数（当前支持8）、per_device_expert_num表示每个device分配的专家个数。
+>- batch_size表示输入样本批量大小（当前支持范围1至32）、seq_len表示输入样本序列长度（当前支持为1）、num_tokens表示batch_size和seq_len合轴的大小、hidden_size表示隐藏层大小（当前支持5120）、intermediate_size表示中间层的维度（当前支持1536）、topk表示激活专家个数（当前支持8）、per_device_expert_num表示每个device分配的专家个数。
 
 -   **hidden_states**（`Tensor`）：当前输入特征向量。当前仅支持连续，数据格式ND，数据类型支持`int8`，shape为[num_tokens * topk, hidden_size]。
 
