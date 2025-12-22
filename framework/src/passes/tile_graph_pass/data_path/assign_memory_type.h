@@ -33,6 +33,7 @@ public:
 private:
     Status PreCheck(Function &function) override;    
     Status RunOnFunction(Function &function) override;
+    void Init();
     void AssignMoveOp(Operation &operation);
     void AssignMoveOpForAssemble(Operation &operation);
     void AssignMoveOpForView(Operation &operation);
@@ -50,7 +51,11 @@ private:
     void ProcessLargeTileToSamllTile(Function &function);
     std::string PrintTensorMem(std::shared_ptr<LogicalTensor>& tensor) const;
     ConvertInserter inserter;
+    size_t UB_SIZE_THRESHOLD;
+    size_t L1_SIZE_THRESHOLD;
 };
+constexpr int BUFFER_SIZE_THRESHOLD_RATIO = 2;
+constexpr int MEMORY_ALIGNMENT_BYTES = 32;
 } // namespace npu::tile_fwk
 
 #endif // TILE_FWK_ASSIGN_MEMORY_TYPE_H

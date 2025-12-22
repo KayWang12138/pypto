@@ -27,12 +27,9 @@
 #define MODULE_NAME "AssignMemoryType"
 
 namespace npu::tile_fwk {
-constexpr int BUFFER_SIZE_THRESHOLD_RATIO = 2;
-constexpr int MEMORY_ALIGNMENT_BYTES = 32;
-const size_t UB_SIZE_THRESHOLD = Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB) / BUFFER_SIZE_THRESHOLD_RATIO;
-const size_t L1_SIZE_THRESHOLD = Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_L1) / BUFFER_SIZE_THRESHOLD_RATIO;
 Status AssignMemoryType::RunOnFunction(Function &function) {
     APASS_LOG_INFO_F(Elements::Function, "===> Start AssignMemoryType.");
+    Init();
     for (auto &op : function.Operations()) {
         RunOnOperation(op);
     }
@@ -132,6 +129,12 @@ void AssignMemoryType::RunOnOperation(Operation &operation) {
         ProcessViewwithSpecificMem(operation);
     }
 }
+
+void AssignMemoryType::Init(){
+    UB_SIZE_THRESHOLD = Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB) / BUFFER_SIZE_THRESHOLD_RATIO;
+    L1_SIZE_THRESHOLD = Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_L1) / BUFFER_SIZE_THRESHOLD_RATIO;
+}
+
 void AssignMemoryType::ProcessAmulBInput(Operation &operation, LogicalTensorPtr &tensor) {
     /*
     operation: OP_A_MUL_B or OP_A_MULACC_B
@@ -202,7 +205,7 @@ void AssignMemoryType::AssignMemtypeForSplitReshape(Operation &op, const Logical
     Operation* producer = *producers.begin();
     Operation* consumer = *consumers.begin();
     if (producer != nullptr && consumer != nullptr && producer->GetOpcode() == Opcode::OP_ASSEMBLE && consumer->GetOpcode() == Opcode::OP_VIEW) {
-        if (input->GetMemoryTypeOriginal() == MemoryType::MEM_UB && output->GetMemoryTypeOriginal() == MemoryType::MEM_UB && (size_t) input->GetDataSize() <= UB_SIZE_THRESHOLD) {
+        if (input->GetMemoryTypeOriginal() == MemoryType::MEM_UB && output->GetMemoryTypeOriginal() == MemoryType::MEM_UB && static_cast<size_t>(input->GetDataSize()) <= UB_SIZE_THRESHOLD) {
             inserter.UpdateTensorTobeMap(input, op, MemoryType::MEM_UB);
             for (const auto &consumerOp : output->GetConsumers()) {
                 if (consumerOp->oOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
@@ -307,8 +310,8 @@ void AssignMemoryType::AssignSpecialOpMemtype(Operation &op, bool &infoBufferSiz
 void AssignMemoryType::UpdateOverSizedLocalBuffer(Operation &operation) {
     auto assembleOut = operation.GetOOperands().front();
     auto memType = assembleOut->GetMemoryTypeOriginal();
-    if (((memType == MemoryType::MEM_UB) && ((size_t) assembleOut->GetDataSize() > UB_SIZE_THRESHOLD)) ||
-        ((memType == MemoryType::MEM_L1) && ((size_t) assembleOut->GetDataSize() > L1_SIZE_THRESHOLD))) {
+    if (((memType == MemoryType::MEM_UB) && (static_cast<size_t>(assembleOut->GetDataSize()) > UB_SIZE_THRESHOLD)) ||
+        ((memType == MemoryType::MEM_L1) && (static_cast<size_t>(assembleOut->GetDataSize()) > L1_SIZE_THRESHOLD))) {
         assembleOut->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
         APASS_LOG_INFO_F(Elements::Operation, "%s[%d] output %d is oversized, set as MEM_DEVICE_DDR.",
             operation.GetOpcodeStr().c_str(), operation.GetOpMagic(), assembleOut->magic);
