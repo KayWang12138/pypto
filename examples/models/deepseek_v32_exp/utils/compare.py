@@ -32,6 +32,48 @@ def compare(t: torch.Tensor, t_ref: torch.Tensor, name, atol, rtol, max_error_ra
         max_error_ratio: 误差点占总元素数的最大比例
         max_error_count: 显示的最大误差点数量（同时也是误差点阈值的上限）
     """
+    def check_is_nan_inf():
+        # ========== 核心新增：检测t中的NaN和Inf并直接报错 ==========
+        # 1. 检测NaN
+        nan_mask = torch.isnan(t)
+        nan_count = nan_mask.sum().item()
+
+        # 2. 检测Inf（包含+Inf和-Inf）
+        inf_mask = torch.isinf(t)
+        inf_count = inf_mask.sum().item()
+ 
+        # 若存在NaN或Inf，拼接错误信息并报错
+        if nan_count > 0 or inf_count > 0:
+            error_msg = f"\n========== 张量 {name} 检测到非法值（禁止存在NaN/Inf）=========="
+
+            # 打印NaN信息
+            if nan_count > 0:
+                nan_positions = torch.nonzero(nan_mask, as_tuple=False)
+                show_nan_count = min(nan_count, max_error_count)
+                error_msg += f"\n- NaN数量：{nan_count}，前 {show_nan_count} 个位置："
+                for i in range(show_nan_count):
+                    pos_tuple = tuple(p.item() for p in nan_positions[i])
+                    error_msg += f"\n  位置 {pos_tuple}"
+
+            # 打印Inf信息（区分+Inf/-Inf）
+            if inf_count > 0:
+                inf_positions = torch.nonzero(inf_mask, as_tuple=False)
+                show_inf_count = min(inf_count, max_error_count)
+                error_msg += f"\n- Inf数量：{inf_count}，前 {show_inf_count} 个位置（值类型）："
+                for i in range(show_inf_count):
+                    pos = inf_positions[i]
+                    pos_tuple = tuple(p.item() for p in pos)
+                    inf_val = t[pos_tuple].item()
+                    inf_type = "+Inf" if inf_val == float('inf') else "-Inf"
+                    error_msg += f"\n  位置 {pos_tuple}：{inf_type}"
+            error_msg += "\n" + "="*80 + "\n"
+
+            # 抛出断言错误，终止函数执行
+            assert False, error_msg
+ 
+    # check 是否是nan 或 inf
+    check_is_nan_inf()
+ 
     # 先验证张量的基本属性一致
     assert t.shape == t_ref.shape, f"张量形状不一致：t.shape={t.shape}, t_ref.shape={t_ref.shape}"
     assert t.dtype == t_ref.dtype, f"张量数据类型不一致：t.dtype={t.dtype}, t_ref.dtype={t_ref.dtype}"

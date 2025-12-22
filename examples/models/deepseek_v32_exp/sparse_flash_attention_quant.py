@@ -328,28 +328,26 @@ def sparse_flash_attention_quant_compute_flash(query_nope, query_rope, key_nope_
 
 
 @pypto.jit(
+    pass_options={
+        "mg_copyin_upper_bound": 1 * 1024 * 1024,
+        "pg_upper_bound": 20000,
+        "pg_lower_bound": 512,
+        "pg_parallel_lower_bound": 20,
+        "vec_nbuffer_mode": 2,
+        "vec_nbuffer_setting": {-1: 2},
+    },
     runtime_options={
     "stitch_function_inner_memory": 128,
     "stitch_function_outcast_memory": 128
     },
     codegen_options={"support_dynamic_unaligned": True,
-                     "codegen_expression_fusion": True}
+                     "codegen_expression_fusion": True},
+    host_options={"only_codegen": True}
 )
 def sparse_flash_attention_quant_d(query_nope, query_rope, key_nope_2d, key_rope_2d,
                                            k_nope_scales, topk_indcies, block_table, kv_act_seqs,
                                            attention_out, nq, n_kv, softmax_scale, topk,
                                            block_size, max_blocknum_perbatch, tile_config):
-    # codegen config
-    pypto.set_host_options(only_codegen=True)
-
-    # pass config
-    pypto.set_pass_options(mg_copyin_upper_bound=1 * 1024 * 1024,
-                           pg_upper_bound=20000,
-                           pg_lower_bound=512,
-                           pg_parallel_lower_bound=20,
-                           vec_nbuffer_mode=2,
-                           vec_nbuffer_setting={-1: 2})
-
     sparse_flash_attention_quant_compute_flash(query_nope, query_rope, key_nope_2d, key_rope_2d,
                                                k_nope_scales, topk_indcies, block_table, kv_act_seqs,
                                                attention_out, nq, n_kv, softmax_scale, topk,
@@ -357,28 +355,26 @@ def sparse_flash_attention_quant_d(query_nope, query_rope, key_nope_2d, key_rope
 
 
 @pypto.jit(
+    pass_options={
+        "mg_copyin_upper_bound": 1 * 1024 * 1024,
+        "pg_upper_bound": 20000,
+        "pg_lower_bound": 512,
+        "pg_parallel_lower_bound": 20,
+        "vec_nbuffer_mode": 2,
+        "vec_nbuffer_setting": {-1: 2},
+    },
     runtime_options={
     "stitch_function_inner_memory": 128,
     "stitch_function_outcast_memory": 128
     },
     codegen_options={"support_dynamic_unaligned": True,
-                     "codegen_expression_fusion": True}
+                     "codegen_expression_fusion": True},
+    host_options={"only_codegen": True}
 )
 def sparse_flash_attention_quant_p(query_nope, query_rope, key_nope_2d, key_rope_2d,
                                            k_nope_scales, topk_indcies, block_table, kv_act_seqs,
                                            attention_out, nq, n_kv, softmax_scale, topk,
                                            block_size, max_blocknum_perbatch, tile_config):
-    # codegen config
-    pypto.set_host_options(only_codegen=True)
-
-    # pass config
-    pypto.set_pass_options(mg_copyin_upper_bound=1 * 1024 * 1024,
-                           pg_upper_bound=20000,
-                           pg_lower_bound=512,
-                           pg_parallel_lower_bound=20,
-                           vec_nbuffer_mode=2,
-                           vec_nbuffer_setting={-1: 2})
-
     sparse_flash_attention_quant_compute_flash(query_nope, query_rope, key_nope_2d, key_rope_2d,
                                                k_nope_scales, topk_indcies, block_table, kv_act_seqs,
                                                attention_out, nq, n_kv, softmax_scale, topk,

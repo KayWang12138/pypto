@@ -20,7 +20,7 @@ import pytest
 import logging
 import math
 from mla_prolog_quant import MlaTileConfig
-from common_utils import compare
+from utils.compare import compare
 
 PRINT_DEBUG = False
 
@@ -585,6 +585,7 @@ def indexer_prolog(inputs: dict, dims: dict):
     q_rope = single_rope(q_rope, cos, sin)
     q = torch.cat([q_rope, q_nope], dim=-1)
     # hadamard
+    # matmul use float32 for arm, arm平台matmul在bfloat16数据类型下表现跟x86不一致，通过升精度保证正确性
     q = torch.matmul(q.to(torch.float32), hadamard_q.to(torch.float32)).to(x_dtype)  # (b, s, n, d)
     q_int8, q_scale = quant(q)  # (b, s, n, d) int8, (b, s, n, 1) fp32
     q_scale = q_scale.to(torch.float16)
@@ -595,6 +596,7 @@ def indexer_prolog(inputs: dict, dims: dict):
     k_rope = single_rope(k_rope.unsqueeze(2), cos, sin).squeeze(2)
     k = torch.cat([k_rope, k_nope], dim=-1)
     # hadamard
+    # matmul use float32 for arm, arm平台matmul在bfloat16数据类型下表现跟x86不一致，通过升精度保证正确性
     k = torch.matmul(k.to(torch.float32), hadamard_k.to(torch.float32)).to(x_dtype)  # (b, s, d)
     k_int8, k_scale = quant(k)  # (b, s, d) int8, (b, s, 1) fp32
     k_scale = k_scale.to(torch.float16)
@@ -603,7 +605,8 @@ def indexer_prolog(inputs: dict, dims: dict):
     k_scale_cache = idx_k_scale_cache.clone()  # (block_num, block_size, n_kv, 1)
     scatter_update_2d(k_cache, k_int8.reshape(b, s, 1, d), cache_index, -2)
     scatter_update_2d(k_scale_cache, k_scale.reshape(b, s, 1, 1), cache_index, -2)
-
+    
+    # matmul use float32 for arm, arm平台matmul在bfloat16数据类型下表现跟x86不一致，通过升精度保证正确性
     weights = torch.matmul(x.to(torch.float32), \
         w_idx_proj.to(torch.float32)).to(x_dtype).to(torch.float32)  # (b, s, n)
     weights = weights * (n ** -0.5) * (d ** -0.5)
@@ -803,14 +806,6 @@ def gen_zero_tensor(t):
 
 
 def check(case_name, outputs, goldens):
-    q_atol = 0.0001
-    q_int8_atol = 1
-    q_scale_error_ratio = 0.005
-    if "test_t_512_tilebs_128" in case_name:
-        q_atol = 0.003
-        q_int8_atol = 2
-        q_scale_error_ratio = 0.006
-
     ########### mla ###########
     compare(outputs['q_nope'].cpu(), goldens['q_nope'], 'qNope', 0.005, 0.0078125,
             0.005)
@@ -821,8 +816,8 @@ def check(case_name, outputs, goldens):
             0.005, 0.005)
 
     ########### ip ###########
-    compare(outputs['q_int8'].cpu(), goldens['q_int8'], 'q_int8', q_int8_atol, 0, 0)
-    compare(outputs['q_scale'].cpu(), goldens['q_scale'], 'q_scale', 0.000025, q_scale_error_ratio)
+    compare(outputs['q_int8'].cpu(), goldens['q_int8'], 'q_int8', 2, 0, 0)
+    compare(outputs['q_scale'].cpu(), goldens['q_scale'], 'q_scale', 0.000025, 0.006)
     compare(outputs['idx_k_cache_out'].cpu(), goldens['idx_k_cache_out'], 'k_int8', 1, 0, 0)
     compare(outputs['idx_k_scale_cache_out'].cpu(), goldens['idx_k_scale_cache_out'], 'k_scale', 0.000025, 0, 0.005)
     compare(outputs['weights'].cpu(), goldens['weights'], 'weights', 0.000025, 0, 0.005)

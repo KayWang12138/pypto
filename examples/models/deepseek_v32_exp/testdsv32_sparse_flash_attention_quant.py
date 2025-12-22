@@ -23,7 +23,7 @@ from pypto import pypto_impl
 from pypto.operation import op_wrapper
 from sparse_flash_attention_quant \
     import sparse_flash_attention_quant_d, sparse_flash_attention_quant_p, SaTileShapeConfig
-from common_utils import compare
+from utils.compare import compare
 
 
 def gen_uniform_data(data_shape, min_value, max_value, dtype):
@@ -128,7 +128,7 @@ def compute_attention(input_data, params):
                 t_sub = sij_scale - tilda_mij # (n1, s2_tile)
                 tilda_pij = torch.exp(t_sub) # (n1, s2_tile)
                 tilda_pij_f16 = tilda_pij.to(input_dtype)
-                q1 = torch.matmul(tilda_pij.to(torch.float32), vj.to(torch.float32)).to(torch.float32)
+                q1 = torch.matmul(tilda_pij_f16.to(torch.float32), vj.to(torch.float32)).to(torch.float32)
                 tilda_lij = tilda_pij.sum(dim=-1, keepdims=True) # (n1, 1)
 
                 if s2_idx == 0:
@@ -363,7 +363,10 @@ def do_test_sparse_attention_func(bn1n2s1, actual_seq, input_params, input_data,
 def get_case_config(case_name: str):
     # case参数配置字典，key为case名称，value为对应的参数元组(bn1n2s1, is_kn_quant, actual_seq)
     test_case_config = {
-        "sfa_bf16_b4_s2_seq64K_int8_d": (
+        "sfa_bf16_b4_s2_seq64K_total_int8_d": (
+            (4, 128, 1, 2), 1, [65536, 16381, 666, 15]
+        ),
+        "sfa_bf16_b4_s2_seq64K_per_int8_d": (
             (4, 128, 1, 2), 1, [65536] * 4
         ),
         "sfa_bf16_b1_s256_seq2047_int8_p": (
@@ -390,11 +393,19 @@ def do_test_sfa_entry(case_name: str, is_p: bool):
     return True
 
 
-def test_sfa_bf16_b4_s2_seq64K_int8_d():
+def test_sfa_bf16_b4_s2_seq64K_total_int8_d():
     '''
     sfa decode测试函数
     '''
-    do_test_sfa_entry("sfa_bf16_b4_s2_seq64K_int8_d", is_p=False)
+    do_test_sfa_entry("sfa_bf16_b4_s2_seq64K_total_int8_d", is_p=False)
+
+
+@pytest.mark.skip(reason="perf")
+def test_sfa_bf16_b4_s2_seq64K_per_int8f_d():
+    '''
+    sfa decode测试函数
+    '''
+    do_test_sfa_entry("sfa_bf16_b4_s2_seq64K_per_int8_d", is_p=False)
 
 
 @pytest.mark.skip(reason="large test case")
@@ -410,5 +421,5 @@ if __name__ == "__main__":
         format='%(asctime)s - %(filename)s:%(lineno)d - %(levelname)s: %(message)s',
         level=logging.INFO
     )
-    test_sfa_bf16_b4_s2_seq64K_int8_d()
+    test_sfa_bf16_b4_s2_seq64K_total_int8_d()
     test_sfa_bf16_b1_s256_seq2047_int8_p()

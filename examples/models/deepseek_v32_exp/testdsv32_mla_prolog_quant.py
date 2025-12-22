@@ -21,7 +21,7 @@ import torch_npu
 import pypto
 
 from mla_prolog_quant import mla_prolog_quant_p, mla_prolog_quant_d, MlaTileConfig
-from common_utils import compare
+from utils.compare import compare
 
 torch.manual_seed(5)
 
@@ -175,6 +175,7 @@ def mla_prolog_quant_v32_compute(inputs):
         q_a_proj_fp32_dequant = q_a_proj_fp32 * x_2d_scale_dequant
         q_a_proj = q_a_proj_fp32_dequant * w_qa_scale
     else:
+        # matmul use float32 for arm, arm平台matmul在bfloat16数据类型下表现与x86平台不一致，通过升精度保证正确性
         q_a_proj = torch.matmul(x_2d.to(torch.float32), w_dq.to(torch.float32))  # [b * s, q_lora_rank]
 
     q_a_proj = q_a_proj.to(dtype)
@@ -209,6 +210,7 @@ def mla_prolog_quant_v32_compute(inputs):
     q_nope_r = q_nope.reshape(b * s, n, qk_nope_head_dim)
     q_nope_t = q_nope_r.permute(1, 0, 2)  # [n, b*s, qk_nope_head_dim]
     # shape is: [n, b*s, qk_nope_head_dim] @ [n, qk_nope_head_dim, kv_lora_rank] -> [n, b*s, kv_lora_rank]
+    # matmul use float32 for arm, arm平台matmul在bfloat16数据类型下表现与x86平台不一致，通过升精度保证正确性
     q_nope_new = torch.matmul(q_nope_t.to(torch.float32), w_uk.to(torch.float32))
     q_nope_new = q_nope_new.to(dtype)
     q_nope_new_t = q_nope_new.permute(1, 0, 2)  # [b*s, n, kv_lora_rank]
@@ -225,6 +227,7 @@ def mla_prolog_quant_v32_compute(inputs):
         kv_a_proj_fp32_dequant = kv_a_proj_fp32 * x_2d_scale_dequant
         kv_a_proj = kv_a_proj_fp32_dequant * w_kva_scale
     else:
+        # matmul use float32 for arm, arm平台matmul在bfloat16数据类型下表现与x86平台不一致，通过升精度保证正确性
         kv_a_proj = torch.matmul(x_2d.to(torch.float32),
                                  w_dkvkr.to(torch.float32))  # [b*s, kv_lora_rank + qk_rope_head_dim]
 
@@ -669,7 +672,7 @@ def mla_prolog_quant_v32(params, input_tensors, golden_data, dtype, w_dtype, is_
         print("qNorm =======")
         compare(output_q_norm_data.cpu(), golden6.cpu(), "qNorm", 1.0, 0.0, 0.005)
         print("qNormScale =======")
-        compare(output_q_norm_scale_data.cpu(), golden7.cpu(), "qNormScale", 0.0001, 0.0078125, 0.005)
+        compare(output_q_norm_scale_data.cpu(), golden7.cpu(), "qNormScale", 0.000025, 0.005, 0.005)
     else:
         print("qNorm =======")
         compare(output_q_norm_data.cpu(), golden6.cpu(), "qNorm", 0.0001, 0.0078125, 0.005)
@@ -682,11 +685,11 @@ def mla_prolog_quant_v32(params, input_tensors, golden_data, dtype, w_dtype, is_
     compare(output_kr_cache_data.cpu(), golden4.cpu(), "kr", 0.0001, 0.0078125, 0)
     if is_quant_b:
         print("kScaleCache =======")
-        compare(k_scale.cpu(), golden5.cpu(), "kScaleCache", 0.0001, 0.0078125, 0)
+        compare(k_scale.cpu(), golden5.cpu(), "kScaleCache", 0.000025, 0.005, 0)
 
 
 @pytest.mark.skip(reason="large shape")
-def test_b128_s4k4_pa_nd_fp16_quantb_p():
+def test_b128_s4k4_pa_nd_bf16_quantb_p():
     '''
     mla_prolog prefill测试函数
     '''
@@ -732,7 +735,7 @@ def test_b128_s4k4_pa_nd_fp16_quantb_p():
 
 
 @pytest.mark.skip(reason="large shape")
-def test_b1_s4k512_pa_nd_fp16_quantb_p():
+def test_b1_s4k512_pa_nd_bf16_quantb_p():
     '''
     mla_prolog prefill测试函数
     '''
@@ -778,7 +781,7 @@ def test_b1_s4k512_pa_nd_fp16_quantb_p():
                         is_quant_a, is_quant_b, is_nz, tile_config, cache_mode, is_p=True)
 
 
-def test_b4_s64k2_pa_nd_fp16_quantb_d():
+def test_b4_s64k2_pa_nd_bf16_quantb_d():
     '''
     mla_prolog decode测试函数
     '''
@@ -828,4 +831,4 @@ if __name__ == "__main__":
         format='%(asctime)s - %(filename)s:%(lineno)d - %(levelname)s: %(message)s',
         level=logging.INFO
     )
-    test_b4_s64k2_pa_nd_fp16_quantb_d()
+    test_b4_s64k2_pa_nd_bf16_quantb_d()
