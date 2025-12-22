@@ -655,9 +655,16 @@ public:
     std::vector<int> GetInCastSlot(const std::shared_ptr<LogicalTensor> &incast);
     std::vector<int> GetOutCastSlot(const std::shared_ptr<LogicalTensor> &outcast);
 
+    bool InsertLoopIdxNameList(const std::string &idxName);
+    const std::unordered_set<std::string> &LoopIdxNameList() const { return loopIdxNameList_; }
+
     bool HasCallOperation();
     bool IsDynloop() const { return dynloopAttr_ != nullptr; }
     bool IsDyndev() const { return dyndevAttr_ != nullptr; }
+
+    bool IsHiddenFunction() {return hiddenFunction_;}
+    void SetHiddenFunction(bool hiddenFunction) {hiddenFunction_ = hiddenFunction;} 
+
     std::shared_ptr<Distributed::TilingManager> &GetDistTilingManager() { return distTilingManager_; }
 
     std::unordered_map<std::shared_ptr<LogicalTensor>, std::shared_ptr<LogicalTensor>> incastToInArgumentDict;

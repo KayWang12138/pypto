@@ -876,7 +876,7 @@ void Function::GetAnIslandIncastsOutcasts(const std::map<int, int> &opToSubgraph
     std::sort(oOperands.begin(), oOperands.end(), TensorPtrComparator());
 }
 
-auto Function::AnnotateOperation() {
+auto Function::AnnotateOperation(bool includeInternalSubgraphID) {
     std::map<int, std::vector<Operation *>> subgraphs;
     std::map<int, int> opToSubgraph;
     for (auto &&op : Operations()) {
@@ -1105,6 +1105,24 @@ void Function::AddOperationGroup(std::vector<Operation *> operationGroup) {
         operation->SetGroupID(groupID);
     }
     operationGroups_.emplace_back(std::move(operationGroup));
+}
+
+void Function::ClearOperationGroups() {
+    for (auto &opGroup : operationGroups_) {
+        for (auto &op : opGroup) {
+            op->SetGroupID(NON_GROUP);
+        }
+    }
+    operationGroups_.clear();
+}
+
+void Function::RefreshOpPosition() {
+    opPosition_.clear();
+    for (size_t i = 0; i < operations_.size(); ++i) {
+        ASSERT(opPosition_.count(operations_[i].get()) == 0);
+        opPosition_.emplace(operations_[i].get(), i);
+    }
+}
 
 bool Function::enableMagicLookupRecord_{false};
 std::map<std::pair<int, int>, std::set<Operation *, LogicalTensor::CompareOp>> Function::tensorAndSubgraphToProducer_;
@@ -3242,7 +3260,7 @@ std::shared_ptr<LogicalTensor> Function::ConnectWithOverlap(std::shared_ptr<Logi
 
             auto assembleResult = std::make_shared<LogicalTensor>(*this, matches[0]->Datatype(), maximumShape,
                 iOperand->Format(), "Assemble_" + matches[0]->Symbol(), iOperand->nodetype);
-            ASSERT(assembleResult->GetProducers().empty()) "Assemble result should have no producers";
+            ASSERT(assembleResult->GetProducers().empty()) << "Assemble result should have no producers";
             for (size_t idx = 0; idx < matches.size(); idx++) {
                 auto &assembleOp = AddRawOperation(Opcode::OP_ASSEMBLE, {matches[idx]}, {assembleResult});
                 assembleOp.SetOpAttribute(std::make_shared<AssembleOpAttribute>(offsetOfOverlaps[idx], SymbolicScalar::FromConcrete(offsetOfOverlaps[idx])));

@@ -329,6 +329,3 @@ std::vector<std::vector<SymbolicScalar>> KernelFunction::NormalizeCoa(
     return coaLists;
 }
 } // namespace npu::tile_fwk
-
-
-

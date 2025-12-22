@@ -71,6 +71,3 @@ private:
     std::shared_ptr<LeafFuncAttribute> leafFuncAttr_; // Leaf function attributes
 };
 } // namespace npu::tile_fwk
-
-
-
