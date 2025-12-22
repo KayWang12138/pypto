@@ -322,7 +322,7 @@ void MergeViewAssemble::RecordMergedViewOperation(Operation* lastViewOp, const s
         return;
     }
     // 获取特定的 op_attr_copy_in_mode 属性
-    int64_t copyInModeValue;
+    int64_t copyInModeValue = 0;
     bool hasCopyInMode = lastViewOp->GetAttr<int64_t>("op_attr_copy_in_mode", copyInModeValue);
     // 清理消费者关系
     endTensor->GetProducers().clear();
