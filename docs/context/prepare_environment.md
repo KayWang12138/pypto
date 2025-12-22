@@ -106,10 +106,10 @@ PyPTO 支持在具备 Ascend-NPU 硬件的**真实环境**和仅有 CPU 硬件�
 
     ```bash
     # 确保安装包有可执行权限
-    chmod +x Ascend-cann-toolkit_${cann_version}_linux-${arch}.run
+    chmod +x Ascend-cann-toolkit_8.5.0_linux-${arch}.run
 
     # 安装命令
-    ./Ascend-cann-toolkit_${cann_version}_linux-${arch}.run --install --force --install-path=${install_path}
+    ./Ascend-cann-toolkit_8.5.0_linux-${arch}.run --install --force --install-path=${install_path}
     ```
 
     **参数说明**:
@@ -126,9 +126,9 @@ PyPTO 支持在具备 Ascend-NPU 硬件的**真实环境**和仅有 CPU 硬件�
     - 910c、aarch64: [CANN_910c-OPS-8.5.0.RC1.aarch64](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/CANN/20251213_newest/Ascend-cann-910_93-ops_8.5.0_linux-aarch64.run)
     ```
     # 确保安装包有可执行权限
-    chmod +x Ascend-cann-${device_type}-ops_8.5.0_linux-${aarch}.run
+    chmod +x Ascend-cann-${device_type}-ops_8.5.0_linux-${arch}.run
     # 安装命令
-    ./Ascend-cann-${device_type}-ops_8.5.0_linux-${aarch}.run --install --force --install-path=${install_path}
+    ./Ascend-cann-${device_type}-ops_8.5.0_linux-${arch}.run --install --force --install-path=${install_path}
     ```
 
     - device_type: NPU 型号, 当前支持 910b、910c
@@ -141,11 +141,11 @@ PyPTO 支持在具备 Ascend-NPU 硬件的**真实环境**和仅有 CPU 硬件�
     - x86: [cann-pto-inst_8.5.0_linux-x86_64.run](https://container-obsfs-filesystem.obs.cn-north-4.myhuaweicloud.com/package/cann/pto-tile-lib-dev/ubuntu_x86/cann-pto-inst_8.5.0_linux-x86_64.run)
     - aarch64: [cann-pto-inst_8.5.0_linux-aarch64.run](https://container-obsfs-filesystem.obs.cn-north-4.myhuaweicloud.com/package/cann/pto-tile-lib-dev/ubuntu_aarch64/cann-pto-inst_8.5.0_linux-aarch64.run)
 
-    ```
+    ```bash
     # 确保安装包有可执行权限
-    chmod +x cann-pto-inst_8.5.0_linux-${aarch}.run
+    chmod +x cann-pto-inst_8.5.0_linux-${arch}.run
     # 安装命令
-    .cann-pto-inst_8.5.0_linux-${aarch}.run --full --install-path=${install_path}
+    .cann-pto-inst_8.5.0_linux-${arch}.run --full --install-path=${install_path}
     ```
     - aarch: CPU架构, 如aarch64、x86_64
     - install-path: 表示制定安装路径, 默认安装在`/usr/local/Ascend`目录
