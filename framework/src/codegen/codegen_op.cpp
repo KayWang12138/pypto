@@ -43,7 +43,37 @@ bool IsCopyOpWithShapeOffsetAttr(Opcode opcode) {
 }
 } // namespace
 
-void CodeGenOp::UpdateShape(const Operation &oper, const LogicalTensor &logicalTensor, int operandIdx) {
+template <typename T>
+void CombineLastTwoAxis(std::vector<T> &shape, size_t shapeSize) {
+    if (shape.size() < NUM2) {
+        return;
+    }
+    shape[shapeSize - 1] = shape[shapeSize - 1] * shape[shapeSize - NUM2];
+    shape[shapeSize - NUM2] = 1;
+}
+
+void CodeGenOp::CombineAxis(const Operation &oper, int operandIdx, bool isInput, size_t ioIdx) {
+    size_t dim = rawShape[operandIdx].size();
+    if (dim <= 1) {
+        ALOG_WARN_F("raw shape dim is %d, return", dim);
+        return;
+    }
+
+    ALOG_INFO_F("operandIdx %d, isInput: %d, ioIdx is %d ", operandIdx, isInput, ioIdx);
+
+    std::vector<bool> needCombineIOIdx;
+    if ((isInput && oper.GetAttr(OpAttributeKey::inputCombineAxis, needCombineIOIdx) && needCombineIOIdx[ioIdx]) ||
+        (!isInput && oper.GetAttr(OpAttributeKey::outputCombineAxis, needCombineIOIdx) && needCombineIOIdx[ioIdx])) {
+        ALOG_INFO_F("needCombineIOIdx is %s", IntVecToStr(needCombineIOIdx).c_str());
+        CombineLastTwoAxis(shape[operandIdx], dim);
+        CombineLastTwoAxis(rawShape[operandIdx], dim);
+        CombineLastTwoAxis(originShape[operandIdx], dim);
+        CombineLastTwoAxis(dynamicValidShape[operandIdx], dim);
+    }
+}
+
+void CodeGenOp::UpdateShape(
+    const Operation &oper, const LogicalTensor &logicalTensor, int operandIdx, bool isInput, size_t ioIdx) {
     ALOG_INFO_F("op code %s, operandIdx: %d, raw shape is %s, originShape is %s, dynamicValidShape is %s",
         oper.GetOpcodeStr().c_str(), operandIdx, IntVecToStr(logicalTensor.tensor->rawshape).c_str(),
         IntVecToStr(logicalTensor.oriShape).c_str(), IntVecToStr(logicalTensor.GetDynValidShape()).c_str());
@@ -66,13 +96,15 @@ void CodeGenOp::UpdateShape(const Operation &oper, const LogicalTensor &logicalT
             ASSERT(!logicalTensor.GetDynValidShape().empty())
                 << "LogicalTensor::dynShape_ can not empty in Dynamic Unaligned Scene";
         }
-        return;
+    } else {
+        // used for spilling GM scene
+        std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(oper.GetOpAttribute());
+        ASSERT(attr != nullptr) << ": missing OpAttr in copy op: \n" << oper.Dump();
+        shape[operandIdx] = attr->GetSpecifiedShape(1);
+        ALOG_INFO_F("attrShape(from op CopyOpAttribute) = %s", IntVecToStr(shape[operandIdx]).c_str());
     }
 
-    std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(oper.GetOpAttribute());
-    ASSERT(attr != nullptr) << ": missing OpAttr in copy op: \n" << oper.Dump();
-    shape[operandIdx] = attr->GetSpecifiedShape(1); // used for spilling GM scene
-    ALOG_INFO_F("attrShape(from op CopyOpAttribute) = %s", IntVecToStr(shape[operandIdx]).c_str());
+    CombineAxis(oper, operandIdx, isInput, ioIdx);
 }
 
 void CodeGenOp::UpdateOffsetValueForGM(const std::vector<OpImmediate> &offsets, int operandIdx) {
@@ -153,9 +185,9 @@ void CodeGenOp::Init(const npu::tile_fwk::Operation &ops) {
     opCodeStr = OpcodeManager::Inst().GetOpcodeStr(opCode);
 
     int operandIdx = 0;
-    for (const auto &output : ops.oOperand) {
-        ALOG_INFO_F("output is %s\n", output->Dump().c_str());
-        UpdateCodegenOpInfoByTensor(ops, false, output, operandIdx);
+    for (size_t i = 0; i < ops.oOperand.size(); ++i) {
+        const auto &output = ops.oOperand[i];
+        UpdateCodegenOpInfoByTensor(ops, false, output, operandIdx, i);
     }
 
     // if no output like WriteRemote OP, set operandIdx=1 for input
@@ -163,9 +195,9 @@ void CodeGenOp::Init(const npu::tile_fwk::Operation &ops) {
         operandIdx = 1;
     }
 
-    for (const auto &input : ops.iOperand) {
-        ALOG_INFO_F("input is %s\n", input->Dump().c_str());
-        UpdateCodegenOpInfoByTensor(ops, true, input, operandIdx);
+    for (size_t i = 0; i < ops.iOperand.size(); ++i) {
+        const auto &input = ops.iOperand[i];
+        UpdateCodegenOpInfoByTensor(ops, true, input, operandIdx, i);
     }
 
     operandCnt = ops.oOperand.size() + ops.iOperand.size();
@@ -177,11 +209,11 @@ void CodeGenOp::Init(const npu::tile_fwk::Operation &ops) {
 }
 
 void CodeGenOp::UpdateCodegenOpInfoByTensor(
-    const Operation &ops, bool isInput, const std::shared_ptr<LogicalTensor> &tensor, int &operandIdx) {
+    const Operation &ops, bool isInput, const std::shared_ptr<LogicalTensor> &tensor, int &operandIdx, size_t ioIdx) {
     operand[operandIdx] = tensor->GetMemoryTypeOriginal() == MEM_DEVICE_DDR ? tensor->tensor->GetRawMagic() :
                                                                               -tensor->tensor->GetRawMagic();
     operandWithMagic[operandIdx] = tensor->GetMagic();
-    UpdateShape(ops, *tensor, operandIdx);
+    UpdateShape(ops, *tensor, operandIdx, isInput, ioIdx);
     if (isInput) {
         UpdateOffsetForInput(ops, *tensor, operandIdx);
     } else {

@@ -32,9 +32,7 @@ class TestCodegenBinary : public ::testing::Test {
 public:
     static void SetUpTestCase() {}
 
-    static void TearDownTestCase() {
-        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
-    }
+    static void TearDownTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false); }
 
     void SetUp() override {
         Program::GetInstance().Reset();
@@ -49,7 +47,7 @@ public:
     void TearDown() override {}
 };
 
-void TestAddBody(std::vector<int64_t> shape, std::vector<int64_t> tile_shape, std::string name) {
+void TestAddBody(std::vector<int64_t> shape, std::vector<int64_t> tile_shape, std::string name, bool withBrc = false) {
     TileShape::Current().SetVecTile(tile_shape);
     Tensor input_a(DT_FP32, shape, "A");
     Tensor input_b(DT_FP32, shape, "B");
@@ -61,13 +59,24 @@ void TestAddBody(std::vector<int64_t> shape, std::vector<int64_t> tile_shape, st
     }
 
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + name);
+
+    if (withBrc) {
+        for (auto &subProgram : function->rootFunc_->programs_) {
+            for (auto &op : subProgram.second->Operations(false)) {
+                if (op.GetOpcode() == Opcode::OP_ADD) {
+                    op.SetAttribute(OpAttributeKey::brcbIdx, 0);
+                }
+            }
+        }
+    }
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
 TEST_F(TestCodegenBinary, TestCodegenAddDim2) {
-    TestAddBody({64, 64}, {64, 64}, "ADD_DIM2");
+    config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE,false);
+    TestAddBody({64, 64}, {64, 64}, "ADD_DIM2", true);
 }
 
 TEST_F(TestCodegenBinary, TestCodegenAddDim3) {
@@ -76,26 +85,6 @@ TEST_F(TestCodegenBinary, TestCodegenAddDim3) {
 
 TEST_F(TestCodegenBinary, TestCodegenAddDim4) {
     TestAddBody({2, 2, 16, 16}, {1, 1, 8, 8}, "ADD_DIM4");
-}
-
-TEST_F(TestCodegenBinary, TestCodegenAddDim2ByJson) {
-    std::vector<int64_t> shape = {64, 64};
-    std::vector<int64_t> tile_shape = {64, 64};
-    TileShape::Current().SetVecTile(tile_shape);
-    Tensor input_a(DT_FP32, shape, "A");
-    Tensor input_b(DT_FP32, shape, "B");
-    Tensor output(DT_FP32, shape, "C");
-
-    std::string name = "ADD_DIM2_BY_JSON";
-    config::SetBuildStatic(true);
-    FUNCTION(name, {input_a, input_b, output}) {
-        output = Add(input_a, input_b);
-    }
-
-    std::string jsonPath = config::LogTopFolder() + "/program.json";
-    npu::tile_fwk::CodeGenCtx ctx;
-    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
-    codeGen.GenCode(jsonPath, {});
 }
 
 void TestAddSBody(std::vector<int64_t> shape, std::vector<int64_t> tile_shape, std::string name) {

@@ -66,6 +66,7 @@ const std::string OpAttributeKey::bindTensor = "BIND_TENSOR";
 const std::string OpAttributeKey::startOffset = "start_offset";
 const std::string OpAttributeKey::distOpAttr = "DIST_OP_ATTR";
 const std::string OpAttributeKey::subBlockIdx = "SUB_BLOCK_IDX";
+const std::string OpAttributeKey::brcbIdx = "brcb_idx";
 
 const std::string ConvOpAttributeKey::cin = "CIN";
 const std::string ConvOpAttributeKey::cout = "COUT";

@@ -43,7 +43,7 @@ public:
     CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbolManager, FunctionType funcType,
         const std::map<int, int> &locToOffset = {}, bool isUnderDynamicFunc = false);
 
-    explicit CodeGenOpCloudNPU(const CodeGenOpCloudNPUCtx& ctx);
+    explicit CodeGenOpCloudNPU(const CodeGenOpCloudNPUCtx &ctx);
     ~CodeGenOpCloudNPU() override = default;
 
     std::string GenCVSyncSetOp() const;
@@ -144,9 +144,9 @@ public:
 
     void UpdateSaturateStatus(FloatSaturateStatus &fs);
 
+private:
     void UpdateTileTensorInfo();
 
-private:
     int GetCacheModeFlag(const std::string &cacheMode) const;
     template <typename T>
     bool GetAttr(const std::string &key, T &value) const;

@@ -36,8 +36,6 @@ public:
 
     virtual void GenCode(
         Function &topFunc, const std::map<uint64_t, std::list<InvokeParaOffset>> &invokeParaOffset) = 0;
-    virtual void GenCode(
-        const std::string &jsonPath, const std::map<uint64_t, std::list<InvokeParaOffset>> &invokeParaOffset) = 0;
 
 protected:
     CodeGenCtx ctx;

@@ -21,6 +21,18 @@
 #include "codegen/symbol_mgr/codegen_symbol.h"
 
 namespace npu::tile_fwk {
+std::string GetBrcOprandIdxStr(int64_t brcbOperandIdx) {
+    ALOG_INFO_F("input brcbOperandIdx is %d", brcbOperandIdx);
+    std::string ret = "TileOp::";
+    switch (brcbOperandIdx) {
+        case ToUnderlying(BroadcastOperand::NONE): ret.append("BroadcastOperand::NONE"); break;
+        case ToUnderlying(BroadcastOperand::LEFT_OPERAND): ret.append("BroadcastOperand::LEFT_OPERAND"); break;
+        case ToUnderlying(BroadcastOperand::RIGHT_OPERAND): ret.append("BroadcastOperand::RIGHT_OPERAND"); break;
+        default: ret.append("BroadcastOperand::NONE");
+    }
+    return ret;
+}
+
 std::string CodeGenOpCloudNPU::PrintBinaryStatic(const PrintBinaryParam &param) const {
     const std::string &dstDtypeStr = param.dstDtypeStr;
     const std::string &src0DtypeStr = param.src0DtypeStr;
@@ -57,6 +69,10 @@ std::string CodeGenOpCloudNPU::PrintBinaryStatic(const PrintBinaryParam &param) 
     paramList.emplace_back("/*S1*/");
     for (int i = 0; i < SHAPE_DIM4; ++i) {
         paramList.emplace_back(std::to_string(s1[i]));
+    }
+    int64_t brcOperandIdx = 0;
+    if (GetAttr(OpAttributeKey::brcbIdx, brcOperandIdx)) {
+        paramList.emplace_back(GetBrcOprandIdxStr(brcOperandIdx));
     }
     std::string templateParam = JoinString(paramList, CONN_COMMA);
 
@@ -104,6 +120,10 @@ std::string CodeGenOpCloudNPU::PrintBinaryDynamicUnaligned(const PrintBinaryPara
     paramList.emplace_back("/*S1*/");
     for (int i = 0; i < SHAPE_DIM4; ++i) {
         paramList.emplace_back(std::to_string(s1[i]));
+    }
+    int64_t brcOperandIdx = 0;
+    if (GetAttr(OpAttributeKey::brcbIdx, brcOperandIdx)) {
+        paramList.emplace_back(GetBrcOprandIdxStr(brcOperandIdx));
     }
     std::string templateParam = JoinString(paramList, CONN_COMMA);
 
@@ -487,8 +507,8 @@ std::string CodeGenOpCloudNPU::GenVectorScalarOpByMode(VecScalMode mode) const {
             return buffer;
         }
     }
-        
-    if (isSupportLayout){
+
+    if (isSupportLayout) {
         return PrintVectorScalarTileTensor({s0Var, dVar, dstDtypeStr, dstDtypeStr});
     }
 

@@ -24,10 +24,4 @@ void CodeGen::GenCode(Function &topFunc, const std::map<uint64_t, std::list<Invo
     cg->GenCode(topFunc, invokeParaOffset);
 }
 
-void CodeGen::GenCode(
-    const std::string &jsonPath, const std::map<uint64_t, std::list<InvokeParaOffset>> &invokeParaOffset) {
-    auto cg = CodeGenFactory::GetCodeGenCCE(ctx_);
-    cg->GenCode(jsonPath, invokeParaOffset);
-}
-
 } // namespace npu::tile_fwk

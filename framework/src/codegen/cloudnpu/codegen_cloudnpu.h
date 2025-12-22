@@ -107,8 +107,6 @@ public:
     ~CodeGenCloudNPU() override = default;
 
     void GenCode(Function &topFunc, const std::map<uint64_t, std::list<InvokeParaOffset>> &invokeParaOffset) override;
-    void GenCode(
-        const std::string &jsonPath, const std::map<uint64_t, std::list<InvokeParaOffset>> &invokeParaOffset) override;
     std::pair<int, std::string> CompileCCE(const CompileInfo &compileInfo, const std::string &compileOptions) const;
     std::optional<std::string> GenExtraAlloc(
         const std::shared_ptr<SymbolManager> &sm, const std::shared_ptr<LogicalTensor> &tensor) const;

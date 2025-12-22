@@ -253,23 +253,6 @@ std::string CodeGenCloudNPU::GetParamType(const Function &func, bool isUnderDynF
 }
 
 void CodeGenCloudNPU::GenCode(
-    const std::string &jsonPath, const std::map<uint64_t, std::list<InvokeParaOffset>> &invokeParaOffset) {
-    std::ifstream file(jsonPath);
-    ASSERT(file.good()) << "Json file: " << jsonPath << " open failed!!!";
-    Json jsonData;
-    try {
-        file >> jsonData;
-    } catch (const std::exception &e) {
-        ASSERT(false) << "Json file: " << jsonPath << " parsing error: " << e.what();
-    }
-    ALOG_INFO_F("Start GenOpCode by Json");
-    Program::GetInstance().LoadJson(jsonData);
-    Function *func = Program::GetInstance().GetCurrentFunction();
-    ASSERT(func->rootFunc_ != nullptr) << "func can not be nullptr";
-    GenCode(*func, invokeParaOffset);
-}
-
-void CodeGenCloudNPU::GenCode(
     Function &topFunc, [[maybe_unused]] const std::map<uint64_t, std::list<InvokeParaOffset>> &invokeParaOffset) {
     std::deque<std::function<void(void)>> tasks;
     for (auto &subFuncPair : topFunc.rootFunc_->programs_) {

@@ -125,8 +125,8 @@ protected:
     int operandCnt{0};
 
 private:
-    void UpdateCodegenOpInfoByTensor(
-        const Operation &ops, bool isInput, const std::shared_ptr<LogicalTensor> &tensor, int &operandIdx);
+    void UpdateCodegenOpInfoByTensor(const Operation &ops, bool isInput, const std::shared_ptr<LogicalTensor> &tensor,
+        int &operandIdx, size_t ioIdx);
 
     void UpdateTileOpInfo(const Operation &ops);
 
@@ -134,12 +134,14 @@ private:
 
     void ConvertPoolAttribute(const Operation &operation);
     void ConvertAttribute(const Operation &operation);
-    void UpdateShape(const Operation &oper, const LogicalTensor &logicalTensor, int operandIdx);
+    void UpdateShape(
+        const Operation &oper, const LogicalTensor &logicalTensor, int operandIdx, bool isInput, size_t ioIdx);
     void UpdateOffsetForInput(const Operation &oper, const LogicalTensor &logicalTensor, int operandIdx);
     void UpdateOffsetForOutput(const Operation &oper, const LogicalTensor &logicalTensor, int operandIdx);
     void UpdateOffsetValueForGM(const std::vector<OpImmediate> &offsets, int operandIdx);
     void UpdateScalarValue(const npu::tile_fwk::Operation &ops);
     void UpdateOpAttribute(const npu::tile_fwk::Operation &ops);
+    void CombineAxis(const Operation &oper, int operandIdx, bool isInput, size_t ioIdx);
 };
 } // namespace npu::tile_fwk
 
