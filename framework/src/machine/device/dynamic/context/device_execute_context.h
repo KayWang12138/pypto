@@ -46,7 +46,7 @@ struct DeviceExecuteContext {
 
     DeviceTaskContext taskContext;
 
-    Vector<uint64_t, WsMemCategory::VECTOR_SYMBOL_TABLE> symbolTable;
+    Vector<int64_t, WsMemCategory::VECTOR_SYMBOL_TABLE> symbolTable;
 
     DevAscendFunctionDupped currDevRootDup;
 

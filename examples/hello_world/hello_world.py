@@ -79,7 +79,7 @@ def softmax_core(input_tensor: pypto.tensor) -> pypto.tensor:
     return pypto.div(exp, esum)
 
 
-@pypto.jit(runtime_options={"run_mode": 0})
+@pypto.jit(runtime_options={"run_mode": pypto.RunMode.NPU})
 def softmax_npu(input_tensor, output_tensor):
     """
     Softmax implementation with dynamic batch size support.
@@ -119,7 +119,7 @@ def softmax_npu(input_tensor, output_tensor):
         pypto.assemble(softmax_out, [b_offset, 0, 0, 0], output_tensor)
 
 
-@pypto.jit(runtime_options={"run_mode": 1})
+@pypto.jit(runtime_options={"run_mode": pypto.RunMode.SIM})
 def softmax_sim(input_tensor, output_tensor):
     """
     Softmax implementation with dynamic batch size support.

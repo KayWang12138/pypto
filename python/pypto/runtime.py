@@ -15,6 +15,7 @@ from typing import List, overload
 import pypto
 import os
 
+from enum import Enum
 from . import pypto_impl
 from .converter import _dtype_from, from_torch
 
@@ -30,6 +31,11 @@ __all__ = [
 
 _device_init = pypto_impl.DeviceInit
 _device_fini = pypto_impl.DeviceFini
+
+
+class RunMode(Enum):
+    NPU = 0
+    SIM = 1
 
 
 class CachedVerifyData:
@@ -164,7 +170,7 @@ class _JIT:
     def set_runtime_debug_mode(self):
         if self.debug_options is None:
             self.debug_options = {}
-        if self.debug_options.get("runtime_debug_mode", 0):
+        if self.debug_options.get("runtime_debug_mode", 0) or pypto.get_debug_options().get("runtime_debug_mode", 0):
             pypto.set_option("profile_enable", True)
 
     def dispatch_with_run_mode(self, in_tensor_data, out_tensor_data, device):
@@ -173,7 +179,7 @@ class _JIT:
         run_mode = pypto.get_runtime_options().get('run_mode', 0)
         if run_mode == 0:
             if cann_is_configed == False:
-                raise RuntimeError("please source cann env, when run with {run_mode}")
+                raise RuntimeError("Please source cann environment while run mode is NPU.")
             self.run_with_npu(in_tensor_data, out_tensor_data, device)
         else:
             self.run_with_cpu(in_tensor_data, out_tensor_data)
@@ -184,13 +190,18 @@ class _JIT:
 
         run_mode = self.runtime_options.get("run_mode", None)
         if run_mode is not None:
-            return
+            if run_mode not in [RunMode.NPU, RunMode.SIM, 0, 1]:
+                raise RuntimeError("Invalid run mode, run mode must be RunMode.NPU or RunMode.SIM.")
+            else:
+                if isinstance(run_mode, RunMode):
+                    self.runtime_options.update({"run_mode": run_mode.value})
+                return
 
         cann_is_configed: bool = bool(os.environ.get("ASCEND_HOME_PATH"))
         if cann_is_configed:
-            self.runtime_options.update({"run_mode": 0})
+            self.runtime_options.update({"run_mode": RunMode.NPU.value})
         else:
-            self.runtime_options.update({"run_mode": 1})
+            self.runtime_options.update({"run_mode": RunMode.SIM.value})
 
     def __call__(self, *args, **kwargs):
         if len(args) < 1:

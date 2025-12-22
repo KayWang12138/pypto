@@ -393,9 +393,9 @@ struct DyndevFunctionAttribute {
     std::vector<uint8_t> disableL2List;
     /*
      *  AOT code for control flow graph binary code:
-     *      signature: uint64_t(*)(uint64_t *symbolTable, void (*call)(void *ctx, uint64_t rootKey), void *ctx)
+     *      signature: uint64_t(*)(int64_t *symbolTable, void (*call)(void *ctx, uint64_t rootKey), void *ctx)
      *      input:
-     *          uint64_t *symbolTable
+     *          int64_t *symbolTable
      *          void (*call)(void *ctx, uint64_t rootKey)
      *          void *ctx
      *      output:

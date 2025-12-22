@@ -187,10 +187,7 @@
                 "runtime_debug_mode": {
                     "type": "integer",
                     "minimum": 0,
-                    "maximum": 1
-                },
-                "no_device_tensor_depend": {
-                    "type": "boolean"
+                    "maximum": 2
                 }
             }
         }

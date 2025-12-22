@@ -22,7 +22,7 @@ const uint32_t DUMP_INDEX_SIZE_2 = 2;
 const uint32_t DUMP_INDEX_SIZE_4 = 4;
 
 struct DevInputSymbol {
-    uint64_t value;
+    int64_t value;
 };
 
 struct DevStartArgs : DevStartArgsBase {

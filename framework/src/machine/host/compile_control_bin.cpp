@@ -75,7 +75,7 @@ bool GenTilingFunc(const std::string &funcName, const std::string &controlAicpuP
     oss << "#include <map>\n";
     oss << "#include \"" << "tilefwk/aicpu_runtime.h" <<"\"\n";
     oss << "namespace npu::tile_fwk { \n";
-    oss << "using controlFlowFuncPtr = uint64_t (*)(void*, uint64_t*, RuntimeCallEntryType*, DevStartArgsBase*);\n";
+    oss << "using controlFlowFuncPtr = uint64_t (*)(void*, int64_t*, RuntimeCallEntryType*, DevStartArgsBase*);\n";
     oss << "namespace " << funcName << "{\n";
     oss << "controlFlowFuncPtr controlFlowptr = ControlFlowEntry;\n";
     oss << "} // end namespace " << funcName << "\n";

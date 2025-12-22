@@ -46,7 +46,6 @@
             "linewidth": 80
         },
         "compile_debug_mode": 0,
-        "runtime_debug_mode": 0,
-        "no_device_tensor_depend": false
+        "runtime_debug_mode": 0
     }
 }

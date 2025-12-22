@@ -86,7 +86,7 @@ struct DeviceExecuteContext;
 
 struct AOTBinaryControlFlow : AOTBinary {
     typedef void (*controlFlowEntry)(
-            struct DeviceExecuteContext *ctx, uint64_t *symbolTable,
+            struct DeviceExecuteContext *ctx, int64_t *symbolTable,
             RuntimeCallEntryType runtimeCallList[T_RUNTIME_CALL_MAX], DevStartArgsBase *startArgsBase);
 
     AOTBinaryControlFlow() = default;
@@ -106,21 +106,21 @@ struct AOTBinaryControlFlow : AOTBinary {
     }
 
     void CallControlFlow(
-            struct DeviceExecuteContext *ctx, uint64_t *symbolTable,
+            struct DeviceExecuteContext *ctx, int64_t *symbolTable,
             RuntimeCallEntryType runtimeCallList[T_RUNTIME_CALL_MAX], DevStartArgsBase *startArgsBase) {
         (reinterpret_cast<controlFlowEntry>(const_cast<unsigned char *>(code_)))(ctx, symbolTable, runtimeCallList, startArgsBase);
     }
 };
 
 struct AOTBinaryExpressionTable : AOTBinary {
-    using exprEntry = uint64_t (*)(struct DeviceExecuteContext *ctx, uint64_t *symbolTable);
+    using exprEntry = uint64_t (*)(struct DeviceExecuteContext *ctx, int64_t *symbolTable);
     AOTBinaryExpressionTable() {}
     AOTBinaryExpressionTable(const std::tuple<const void *, uint64_t, const uint64_t *, uint64_t> &table)
         : offsetList(std::get<TUBLE_INDEX_2>(table)), offsetSize(std::get<TUBLE_INDEX_3>(table)) {
         InitCodeSize(std::get<0>(table), std::get<1>(table));
     }
 
-    uint64_t CallExpr(struct DeviceExecuteContext *ctx, uint64_t *symbolTable, uint64_t index) {
+    uint64_t CallExpr(struct DeviceExecuteContext *ctx, int64_t *symbolTable, uint64_t index) {
         return (reinterpret_cast<exprEntry>(const_cast<unsigned char *>(code_ + offsetList[index])))(ctx, symbolTable);
     }
 

@@ -88,7 +88,6 @@ static std::map<std::string, ValueType> g_verifyConfig = {
 static std::map<std::string, ValueType> g_debugConfig = {
     {CFG_COMPILE_DBEUG_MODE, CFG_DEBUG_NONE},
     {CFG_RUNTIME_DBEUG_MODE, CFG_DEBUG_NONE},
-    {NO_DEVICE_TENSOR_DEPEND, false},
 };
 
 static std::map<std::string, ValueType> g_globalConfig = {

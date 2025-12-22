@@ -87,7 +87,6 @@ void *DeviceExecuteContext::SymbolHandlerIdToHandler(SymbolHandlerId id) {
 }
 
 int DeviceExecuteContext::RunInit(DevStartArgs *startArgs, PushTaskEntry tPushTask) {
-    int ret = DEVICE_MACHINE_OK;
     PerfBegin(PERF_EVT_CONTROL_FLOW_INIT);
     this->pushTask = tPushTask;
     this->args = startArgs;
@@ -112,7 +111,7 @@ int DeviceExecuteContext::RunInit(DevStartArgs *startArgs, PushTaskEntry tPushTa
         DevInputSymbol &param = startArgs->GetInputSymbol(index);
         int inputSymbolIndex = this->devProg->startArgsInputSymbolIndexList[index];
         symbolTable[inputSymbolIndex] = param.value;
-        DEV_INFO("Param %d Symbol Table %d = %lu.", index, inputSymbolIndex, param.value);
+        DEV_INFO("Param %d Symbol Table %d = %ld.", index, inputSymbolIndex, param.value);
     }
 
     for (size_t index = 0; index < this->devProg->startArgsSymbolHandlerList.size(); ++index) {
@@ -130,8 +129,8 @@ int DeviceExecuteContext::RunInit(DevStartArgs *startArgs, PushTaskEntry tPushTa
     workspace.InitMetadataSlabAllocator();
 
     PerfEnd(PERF_EVT_CONTROL_FLOW_INIT);
-    DEV_INFO("image size = %lu.", devProg->GetSize());
-    return ret;
+    DEV_INFO("Image size is %lu.", devProg->GetSize());
+    return DEVICE_MACHINE_OK;
 }
 
 DeviceExecuteContext::DeviceExecuteContext(DevStartArgs *startArgs) {
@@ -390,7 +389,7 @@ int DeviceExecuteContext::ControlFlowCacheStopCache(uint64_t rootKey) {
 void *DeviceExecuteContext::CallRootFunctionAlloc(uint64_t rootKey) {
     int ret = DEVICE_MACHINE_OK;
     DevAscendFunction *devRoot = devProg->GetFunction(rootKey);
-    DEV_DEBUG("alloc one func %lu %p %s.", rootKey, devRoot, devRoot->GetRawName());
+    DEV_DEBUG("Slloc one func %lu %p %s.", rootKey, devRoot, devRoot->GetRawName());
     if (stitchContext.Size() == stitchTaskLoopNumThreshold ||
         stitchContext.stitchedCallOpSize() + devRoot->GetOperationSize() > devProg->stitchFunctionsize) {
         ret = SubmitToAicoreAndRecycleMemory(false);
