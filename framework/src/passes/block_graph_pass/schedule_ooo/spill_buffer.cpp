@@ -190,7 +190,7 @@ Status OoOScheduler::UpdateReloadIssueInfo(IssueEntryPtr reloadAlloc, IssueEntry
     int allocOOperandsSize = reloadAlloc->tileOp.GetOOperands().size();
     int copyInOOperandsSize = reloadCopyin->tileOp.GetOOperands().size();
     if (allocOOperandsSize != 1 || copyInOOperandsSize != 1 || reloadAlloc->tileOp.GetOutputOperand(0) != reloadCopyin->tileOp.GetOutputOperand(0)) {
-        APASS_LOG_ERROR_F(Elements::Operation, "oOperands expected 1. %s and %s should share the same oOperand[0]. %s", reloadAlloc->GetOpInfo(), reloadCopyin->GetOpInfo(), GetFormatBacktrace(reloadAlloc->tileOp).c_str());
+        APASS_LOG_ERROR_F(Elements::Operation, "oOperands expected 1. %s and %s should share the same oOperand[0]. %s", reloadAlloc->GetOpInfo().c_str(), reloadCopyin->GetOpInfo().c_str(), GetFormatBacktrace(reloadAlloc->tileOp).c_str());
         return FAILED;
     }
     auto outTensor = reloadAlloc->tileOp.GetOutputOperand(0);

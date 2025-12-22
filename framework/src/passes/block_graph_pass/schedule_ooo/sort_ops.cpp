@@ -351,6 +351,130 @@ Status OoOScheduler::PriorDFS(std::unordered_map<Opcode, int> preNodePriority) {
     return SUCCESS;
 }
 
+void OoOScheduler::GetIssueIdx(IssueEntryPtr issue, size_t &index) {
+    for (auto [idx, node] : issueEntryMap) {
+        if (node == issue) {
+            index = idx;
+        }
+    }
+}
+
+// rollBackIssue 和 backTraceIssue 是否存在前后序依赖
+bool OoOScheduler::HasDependency(IssueEntryPtr rollBackIssue,  IssueEntryPtr backIssue) {
+    size_t n = issueEntries.size();
+    std::vector<bool> visited(n, false);
+    size_t start;
+    size_t target;
+    GetIssueIdx(rollBackIssue, start);
+    GetIssueIdx(backIssue, target);
+    std::function<bool(size_t)> dfs = [&](size_t node) ->bool{
+        if (node == target) return true;
+        if (visited[node]) return false;
+
+        visited[node] = true;
+        for (auto succId : issueEntryMap[node]->successors) {
+            if (dfs(succId)) {
+                return true;
+            }
+        }
+        return false;
+    };
+    return dfs(start);
+}
+
+// 在 curIssueEntries 中将 advanceIndexList 中的序列提前到 rollBackIndex 之前,更新 curIssueEntries
+void OoOScheduler::ReplaceIndex(std::vector<IssueEntryPtr> &curIssueEntries,
+    std::set<size_t> advanceIndexList, size_t rollBackIndex) {
+    std::vector<IssueEntryPtr> moveIssueEntries;
+    for (auto i : advanceIndexList) {
+        APASS_LOG_DEBUG_F(Elements::Operation, "advance index: %d, issue: %s",
+                i, curIssueEntries[i]->GetOpInfo().c_str());
+        moveIssueEntries.push_back(curIssueEntries[i]);
+    }
+    for (auto it = advanceIndexList.rbegin(); it != advanceIndexList.rend(); ++it) {
+        curIssueEntries.erase(curIssueEntries.begin() + (*it));
+    }
+    curIssueEntries.insert(curIssueEntries.begin() + rollBackIndex, moveIssueEntries.begin(), moveIssueEntries.end());
+}
+
+void OoOScheduler::GetPreNode(size_t i, std::vector<IssueEntryPtr> curIssueEntries, size_t rollBackIndex,
+    size_t backTraceIndex, std::set<size_t> &dependencyIndexList) {
+    dependencyIndexList.insert(i);
+    APASS_LOG_DEBUG_F(Elements::Operation, "dependencyIndexList push index: %d, issue: %s",
+        i, curIssueEntries[i]->GetOpInfo().c_str());
+    for (auto preId : curIssueEntries[i]->predecessors) {
+        auto issue = issueEntryMap[preId];
+        auto it = std::find(curIssueEntries.begin() + rollBackIndex + 1, curIssueEntries.begin() + backTraceIndex, issue);
+        if (it != curIssueEntries.begin() + backTraceIndex) {
+            auto index = std::distance(curIssueEntries.begin(), it);
+            GetPreNode(index, curIssueEntries, rollBackIndex, backTraceIndex, dependencyIndexList);
+        }
+    }
+}
+
+// 记录 curIssueEntries 中从 rollBackIndex 到 backTraceIndex 中所有和 rollBack 没有后继依赖的点
+void OoOScheduler::GetListToAdvance(size_t rollBackIndex, size_t backTraceIndex,
+    std::vector<IssueEntryPtr> curIssueEntries, std::set<size_t> &advanceIndexList) {
+    std::set<size_t> dependencyIndexList;
+    for (size_t i = rollBackIndex + 1; i <= backTraceIndex; i++) {
+        if (HasDependency(curIssueEntries[rollBackIndex], curIssueEntries[i])) {
+            GetPreNode(i, curIssueEntries, rollBackIndex, backTraceIndex, dependencyIndexList);
+        }
+    }
+    for (size_t i = rollBackIndex + 1; i <= backTraceIndex; i++) {
+        if (dependencyIndexList.count(i) == 0) {
+            advanceIndexList.insert(i);
+            APASS_LOG_DEBUG_F(Elements::Operation, "advanceIndexList push index: %d, issue: %s",
+                i, curIssueEntries[i]->GetOpInfo().c_str());
+        }
+    }
+}
+
+// curBackTrace 位置回退
+Status OoOScheduler::RollBack(size_t &startIndex,
+    std::vector<IssueEntryPtr> &curIssueEntries, std::map<MemoryType, int64_t> &curMemoryMap) {
+    APASS_LOG_DEBUG_F(Elements::Operation, "=====> Start RollBack.");
+    curIssueEntries = backTraceIssueEntries[backTraceIssue].second;
+    MemoryType memType = recordIssueBuffer[backTraceIssue];
+    size_t backTraceIndex = backTraceIssueEntries[backTraceIssue].first + 1;
+    backTraceIssue = curIssueEntries[backTraceIndex];
+    size_t rollBackIndex = backTraceIndex;
+    APASS_LOG_DEBUG_F(Elements::Operation, "backTraceIssue: %s, backTraceIndex: %d, memType: %d",
+        backTraceIssue->GetOpInfo().c_str(), backTraceIndex, memType);
+    while (rollBackIndex < curIssueEntries.size() && rollBackIndex > 0) {
+        rollBackIndex--;
+        IssueEntryPtr rollBackIssue = curIssueEntries[rollBackIndex];
+        if (recordIssueBuffer[rollBackIssue] != memType || !(rollBackIssue->isAlloc) || HasDependency(rollBackIssue, backTraceIssue)) {
+            continue;
+        }
+        rollBackNodeIssue = rollBackIssue;
+        APASS_LOG_DEBUG_F(Elements::Operation, "Select rollBackIssue: %s, rollBackIndex: %d",
+            rollBackIssue->GetOpInfo().c_str(), rollBackIndex);
+        recordBufferAllocate = backTraceBufferAllocate;
+        recordIssueEntries = backTraceIssueEntries;
+        recordBufRefCount = backTraceBufRefCount;
+        std::set<size_t> advanceIndexList;
+        GetListToAdvance(rollBackIndex, backTraceIndex, curIssueEntries, advanceIndexList);
+        ReplaceIndex(curIssueEntries, advanceIndexList, rollBackIndex);
+        startIndex = rollBackIndex;
+        APASS_LOG_DEBUG_F(Elements::Operation, "RollBack==>change startIndex: %d", startIndex);
+        if (rollBackIndex != 0) {
+            curMemoryMap = recordBufferAllocate[curIssueEntries[rollBackIndex-1]];
+            RecoverSymbol(startIndex - 1, curIssueEntries);
+            return SUCCESS;
+        }
+        curMemoryMap = {{MemoryType::MEM_L0A, 0}, {MemoryType::MEM_L0B, 0}, {MemoryType::MEM_L0C, 0}};
+        issueEntries = curIssueEntries;
+        for (auto issue : curIssueEntries) {
+            visitedIssue[issue] = false;
+        }
+        InitBufRefCount();
+        return SUCCESS;
+    }
+    APASS_LOG_ERROR_F(Elements::Operation, "RollBack Failed");
+    return FAILED;
+}
+
 // 在 curIssueEntries 中将 preIssue 中的序列提前到 startIndex 之后，更新 curIssueEntries
 void OoOScheduler::ReorderIssue(std::vector<size_t> &preIdx, std::vector<IssueEntryPtr> &curIssueEntries,
     size_t startIndex) {
@@ -378,7 +502,15 @@ void OoOScheduler::FindIndex(IssueEntryPtr issue, std::vector<IssueEntryPtr> cur
 }
 
 // 在curIssueEntries中，向前遍历找到consumerIndex的前序未被访问的节点，并放入preIssue中
-void OoOScheduler::FindConsumerList(size_t consumerIndex, std::vector<size_t> &preIssue, std::vector<IssueEntryPtr> &curIssueEntries) {
+Status OoOScheduler::FindConsumerList(size_t consumerIndex, std::vector<size_t> &preIssue, std::vector<IssueEntryPtr> &curIssueEntries) {
+    if (curIssueEntries[consumerIndex] == backTraceIssue) {
+        APASS_LOG_WARN_F(Elements::Operation, "backTraceIssue is one of the predecessor node.");
+        return FAILED;
+    }
+    if (curIssueEntries[consumerIndex] == rollBackNodeIssue) {
+        APASS_LOG_WARN_F(Elements::Operation, "rollBackNodeIssue is one of the predecessor node.");
+        return FAILED;
+    }
     visitedIssue[curIssueEntries[consumerIndex]] = true;
     preIssue.push_back(consumerIndex);
     APASS_LOG_DEBUG_F(Elements::Operation, "unvisited consumer idx: %d, issue: %s", consumerIndex, curIssueEntries[consumerIndex]->GetOpInfo().c_str());
@@ -388,35 +520,45 @@ void OoOScheduler::FindConsumerList(size_t consumerIndex, std::vector<size_t> &p
             size_t index;
             FindIndex(issue, curIssueEntries, index);
             APASS_LOG_DEBUG_F(Elements::Operation, "consumer preIdx: %d, issue: %s", index, issue->GetOpInfo().c_str());
-            FindConsumerList(index, preIssue, curIssueEntries);
+            if (FindConsumerList(index, preIssue, curIssueEntries) != SUCCESS) {
+                APASS_LOG_WARN_F(Elements::Operation, "FindConsumerList failed");
+                return FAILED;
+            }
         }
     }
+    return SUCCESS;
 }
 
 // 将 consumersGroup 和其前序依赖按原有顺序放入 preIssue
-void OoOScheduler::UpdateOOperandPreDependence(size_t startIndex, std::vector<IssueEntryPtr> &curIssueEntries,
+Status OoOScheduler::UpdateOOperandPreDependence(size_t startIndex, std::vector<IssueEntryPtr> &curIssueEntries,
     std::vector<IssueEntryPtr> consumersGroup) {
     // curIssueEntries 中向后找
     std::vector<size_t> preIssue;
     size_t index = startIndex;
     while (index < curIssueEntries.size()) {
         if (std::find(consumersGroup.begin(), consumersGroup.end(), curIssueEntries[index]) != consumersGroup.end()) {
-            FindConsumerList(index, preIssue, curIssueEntries);
+            APASS_LOG_DEBUG_F(Elements::Operation, "consumer Idx: %d", index);
+            if (FindConsumerList(index, preIssue, curIssueEntries) != SUCCESS) {
+                APASS_LOG_WARN_F(Elements::Operation, "FindConsumerList failed");
+                return FAILED;
+            }
         }
         index++;
     }
     ReorderIssue(preIssue, curIssueEntries, startIndex);
+    return SUCCESS;
 }
 
-// 回溯后，将队列后面 issue 的 visitedIssue 状态还原回 false，并对应修改 refcount
+// 回溯后，将队列 startIndex 位置之后的 issue 的 visitedIssue 状态还原回 false
 void OoOScheduler::RecoverSymbol(size_t startIndex, std::vector<IssueEntryPtr> curIssueEntries) {
     APASS_LOG_DEBUG_F(Elements::Operation, "RecoverSymbol  startIdx: %d, curIssue: %s", startIndex, curIssueEntries[startIndex]->GetOpInfo().c_str());
-    size_t index = startIndex + 1;
     bufRefCount = recordBufRefCount[curIssueEntries[startIndex]];
-    while (index < curIssueEntries.size()) {
-        auto issue = curIssueEntries[index];
-        visitedIssue[issue] = false;
-        index++;
+    for (size_t i = 0; i < curIssueEntries.size(); i++) {
+        if (i > startIndex) {
+            visitedIssue[curIssueEntries[i]] = false;
+            continue;
+        }
+        visitedIssue[curIssueEntries[i]] = true;
     }
 }
 
@@ -430,14 +572,21 @@ void OoOScheduler::GetConsumerGroup(std::vector<IssueEntryPtr> consumers, std::v
     }
 }
 
+void OoOScheduler::GetStackTop(size_t &startIndex, std::vector<IssueEntryPtr> &curIssueEntries,
+    std::map<MemoryType, int64_t> &curMemoryMap) {
+    auto topNode = needFreeIssueStack.top();
+    needFreeIssueStack.pop();
+    curIssueEntries = recordIssueEntries[topNode.first].second;
+    startIndex = recordIssueEntries[topNode.first].first;
+    curMemoryMap = recordBufferAllocate[topNode.first];
+}
+
 Status OoOScheduler::BacktraceOnMemoryExceeded(size_t &startIndex,
     std::vector<IssueEntryPtr> &curIssueEntries, std::map<MemoryType, int64_t> &curMemoryMap) {
-    APASS_LOG_DEBUG_F(Elements::Operation, "=====> Start Backtrace.");
     MemoryType memType = curIssueEntries[startIndex]->tileOp.GetOutputOperand(0)->GetMemoryTypeOriginal();
     while (startIndex < curIssueEntries.size() && startIndex > 0) {
         startIndex--;
         IssueEntryPtr issue = curIssueEntries[startIndex];
-        RecoverSymbol(startIndex, curIssueEntries);
         if (!needFreeIssueStack.empty() && needFreeIssueStack.top().first == curIssueEntries[startIndex]) {
             APASS_LOG_DEBUG_F(Elements::Operation, "Having traversed %s, the stack needs to be popped", curIssueEntries[startIndex]->GetOpInfo().c_str());
             break;
@@ -446,9 +595,7 @@ Status OoOScheduler::BacktraceOnMemoryExceeded(size_t &startIndex,
             continue;
         }
         std::vector<IssueEntryPtr> consumers;
-        consumers.reserve(issue->successors.size());
-        APASS_LOG_DEBUG_F(Elements::Operation, "=====>start to find unvisited consumer");
-        APASS_LOG_DEBUG_F(Elements::Operation, "current index： %d", startIndex);
+        APASS_LOG_DEBUG_F(Elements::Operation, "=====>start to find unvisited consumer, current index： %d", startIndex);
         for (auto succIdx : issue->successors) {
             consumers.push_back(issueEntryMap[succIdx]);
             APASS_LOG_DEBUG_F(Elements::Operation, "consumer: %s", issueEntryMap[succIdx]->GetOpInfo().c_str());
@@ -458,25 +605,29 @@ Status OoOScheduler::BacktraceOnMemoryExceeded(size_t &startIndex,
         if (consumersGroup.empty()) {
             continue;
         }
+        RecoverSymbol(startIndex, curIssueEntries);
+        GetConsumerGroup(consumers, consumersGroup);
         APASS_LOG_DEBUG_F(Elements::Operation, "push %s to stack", issue->GetOpInfo().c_str());
         curMemoryMap = recordBufferAllocate[issue];
         needFreeIssueStack.push(make_pair(issue, recordIssueBuffer[issue]));
-        UpdateOOperandPreDependence(startIndex, curIssueEntries, consumersGroup);
+        if (UpdateOOperandPreDependence(startIndex, curIssueEntries, consumersGroup) != SUCCESS) {
+            needFreeIssueStack.pop();
+            APASS_LOG_DEBUG_F(Elements::Operation, "UpdateOOperandPreDependence failed.");
+            continue;
+        }
         startIndex++;
+        APASS_LOG_DEBUG_F(Elements::Operation, "Backtrace==>change startIndex: %d", startIndex);
         return SUCCESS;
     }
     if (needFreeIssueStack.empty()) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Stack is empty. Failed to find node");
+        APASS_LOG_WARN_F(Elements::Operation, "Stack is empty. Start to rollBack");
         return FAILED;
     }
-    auto topNode = needFreeIssueStack.top();
-    needFreeIssueStack.pop();
-    curIssueEntries = recordIssueEntries[topNode.first].second;
-    size_t index = recordIssueEntries[topNode.first].first;
-    APASS_LOG_DEBUG_F(Elements::Operation, "pop %s from stack", curIssueEntries[index]->GetOpInfo().c_str());
-    curMemoryMap = recordBufferAllocate[topNode.first];
-    if (BacktraceOnMemoryExceeded(index, curIssueEntries, curMemoryMap) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "BacktraceOnMemoryExceeded Failed");
+    GetStackTop(startIndex, curIssueEntries, curMemoryMap);
+    RecoverSymbol(startIndex, curIssueEntries);
+    APASS_LOG_DEBUG_F(Elements::Operation, "pop %s from stack", curIssueEntries[startIndex]->GetOpInfo().c_str());
+    if (BacktraceOnMemoryExceeded(startIndex, curIssueEntries, curMemoryMap) != SUCCESS) {
+        APASS_LOG_WARN_F(Elements::Operation, "BacktraceOnMemoryExceeded Failed");
         return FAILED;
     }
     return SUCCESS;
@@ -552,9 +703,20 @@ Status OoOScheduler::AllocExecute(IssueEntryPtr issue, std::vector<IssueEntryPtr
     auto allocBuffer = localBufferMap[issue->reqMemIds[0]];
     if (IsBufferFull(curMemoryMap, allocBuffer->memType, allocBuffer->size)) {
         APASS_LOG_DEBUG_F(Elements::Operation, "The memory of %s needs to be released", std::to_string(allocBuffer->memType).c_str());
+        backTraceIssue = curIssueEntries[startIndex];
+        backTraceBufferAllocate = recordBufferAllocate;
+        backTraceIssueEntries = recordIssueEntries;
+        backTraceBufRefCount = recordBufRefCount;
+        APASS_LOG_DEBUG_F(Elements::Operation, "backTraceIssue: %s, backTraceIndex: %d, memType: %d",
+            backTraceIssue->GetOpInfo().c_str(), backTraceIssueEntries[backTraceIssue].first, recordIssueBuffer[backTraceIssue]);
+        APASS_LOG_DEBUG_F(Elements::Operation, "=====> Need backtrace.");
         if (BacktraceOnMemoryExceeded(startIndex, curIssueEntries, curMemoryMap) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "AllocExecute failed.");
-            return FAILED;
+            if (RollBack(startIndex, curIssueEntries, curMemoryMap) != SUCCESS) {
+                APASS_LOG_ERROR_F(Elements::Operation, "AllocExecute failed.");
+                return FAILED;
+            }
+            isContinue = true;
+            return SUCCESS;
         }
         isContinue = true;
         return SUCCESS;
@@ -564,12 +726,14 @@ Status OoOScheduler::AllocExecute(IssueEntryPtr issue, std::vector<IssueEntryPtr
 
 Status OoOScheduler::IssueEntriesExecute(std::vector<IssueEntryPtr> &curIssueEntries,
     std::map<MemoryType, int64_t> &curMemoryMap, size_t &startIndex) {
+    APASS_LOG_DEBUG_F(Elements::Operation, "===>Start issueEntriesExecute, startIndex: %d", startIndex);
     if (curIssueEntries.empty()) {
         curIssueEntries = issueEntries;
     }
     while (startIndex < curIssueEntries.size()) {
         auto issue = curIssueEntries[startIndex];
-        APASS_LOG_DEBUG_F(Elements::Operation, "execute issue: %s", issue->GetOpInfo().c_str());
+        issueMemoryUpdate(issue, startIndex, curIssueEntries, curMemoryMap);
+        APASS_LOG_DEBUG_F(Elements::Operation, "execute issue: %s, index: %d", issue->GetOpInfo().c_str(), startIndex);
         if (issue->isAlloc) {
             bool isContinue = false;
             if (AllocExecute(issue, curIssueEntries, curMemoryMap,  startIndex, isContinue) != SUCCESS) {

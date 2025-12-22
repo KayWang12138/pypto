@@ -1034,7 +1034,7 @@ Status OoOScheduler::FindMoveFromTensor(Operation &occupyOp, int oldMemId, Memor
     }
     // 如果moveFrom Tensor是UB且数据类型为bf16, rearrange失败
     if (memType == MemoryType::MEM_UB && moveFromTensor->Datatype() == DataType::DT_BF16) {
-        APASS_LOG_WARN_F(Elements::Tensor, "Cannot rearrange UB tensor with datatype bf16, do schedulemainloop spill.");
+        APASS_LOG_ERROR_F(Elements::Tensor, "Cannot rearrange UB tensor with datatype bf16, do schedulemainloop spill.");
         rearrangeUBBF16 = true;
     }
     return SUCCESS;
@@ -1043,12 +1043,12 @@ Status OoOScheduler::FindMoveFromTensor(Operation &occupyOp, int oldMemId, Memor
 Status OoOScheduler::GetMoveOpInTensor(Opcode moveOpcode, Operation &occupyOp, LogicalTensorPtr &inTensor, LogicalTensorPtr &moveFromTensor) {
     if (moveOpcode == Opcode::OP_COPY_IN) {
         if (occupyOp.GetOpcode() != Opcode::OP_COPY_IN) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Occupy op is not COPY_IN, GetMoveOpInTensor failed.");
+            APASS_LOG_WARN_F(Elements::Operation, "Occupy op is not COPY_IN, GetMoveOpInTensor failed.");
             return FAILED;
         }
         inTensor = occupyOp.GetIOperands()[0];
         if (inTensor == nullptr || inTensor->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
-            APASS_LOG_ERROR_F(Elements::Tensor, "inTensor is illegal, GetMoveOpInTensor failed.");
+            APASS_LOG_WARN_F(Elements::Tensor, "inTensor is illegal, GetMoveOpInTensor failed.");
             return FAILED;
         }
     } else {
@@ -1059,14 +1059,14 @@ Status OoOScheduler::GetMoveOpInTensor(Opcode moveOpcode, Operation &occupyOp, L
 
 Status OoOScheduler::GenRearrangeCopyOp(MemoryType memType, int oldMemId, int &newMemId, bool &rearrangeUBBF16) {
     if (memType != MemoryType::MEM_L1 && memType != MemoryType::MEM_UB) {
-        APASS_LOG_ERROR_F(Elements::Tensor, "Unexpected rearrange tensor memory type found, GenRearrangeCopyOp failed.");
+        APASS_LOG_WARN_F(Elements::Tensor, "Unexpected rearrange tensor memory type found, GenRearrangeCopyOp failed.");
         return FAILED;
     }
     Opcode moveOpcode = memType == MemoryType::MEM_L1 ? Opcode::OP_COPY_IN : Opcode::OP_ADDS;
     auto &occupyOp = tensorOccupyMap[memType][oldMemId]->tileOp;
     LogicalTensorPtr moveFromTensor{nullptr};
     if (FindMoveFromTensor(occupyOp, oldMemId, memType, rearrangeUBBF16, moveFromTensor) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Tensor, "GenRearrangeCopyOp failed at FindMoveFromTensor.");
+        APASS_LOG_WARN_F(Elements::Tensor, "GenRearrangeCopyOp failed at FindMoveFromTensor.");
         return FAILED;
     }
     if (rearrangeUBBF16) {
@@ -1075,13 +1075,13 @@ Status OoOScheduler::GenRearrangeCopyOp(MemoryType memType, int oldMemId, int &n
     LogicalTensorPtr moveToTensor = std::make_shared<LogicalTensor>(function_, moveFromTensor->Datatype(), moveFromTensor->shape);
     // 给moveToTensor分配memId和创建新的localbuffer
     if (UpdateTensorAttr(moveToTensor, memType, moveFromTensor, oldMemId) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Tensor, "GenRearrangeCopyOp failed at UpdateTensorAttr.");
+        APASS_LOG_WARN_F(Elements::Tensor, "GenRearrangeCopyOp failed at UpdateTensorAttr.");
         return FAILED;
     }
     newMemId = moveToTensor->memoryrange.memId;
     LogicalTensorPtr inTensor{nullptr};
     if (GetMoveOpInTensor(moveOpcode, occupyOp, inTensor, moveFromTensor) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Tensor, "GenRearrangeCopyOp failed at GetMoveOpInTensor.");
+        APASS_LOG_WARN_F(Elements::Tensor, "GenRearrangeCopyOp failed at GetMoveOpInTensor.");
         return FAILED;
     }
     auto &moveOp = (moveOpcode == Opcode::OP_COPY_IN && occupyOp.GetOpcode() == Opcode::OP_COPY_IN) ?
@@ -1100,7 +1100,7 @@ Status OoOScheduler::GenRearrangeCopyOp(MemoryType memType, int oldMemId, int &n
     UpdateReloadIssueDepend(moveIssuePtr, occupyIssuePtr, oldMemId);
     // 更新memId
     if (UpdateMemId(oldMemId, newMemId) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "GenRearrangeCopyOp failed at UpdateMemId.", GetFormatBacktrace(moveOp).c_str());
+        APASS_LOG_WARN_F(Elements::Operation, "GenRearrangeCopyOp failed at UpdateMemId.", GetFormatBacktrace(moveOp).c_str());
         return FAILED;
     }
     // Free oldMemId
@@ -1110,7 +1110,7 @@ Status OoOScheduler::GenRearrangeCopyOp(MemoryType memType, int oldMemId, int &n
     }
     localBufferMap[oldMemId]->retireCycle = clock;
     if (tensorOccupyMap[memType].erase(oldMemId) == 0) {
-        APASS_LOG_ERROR_F(Elements::Tensor, "Erase tensor[%d] failed", oldMemId);
+        APASS_LOG_WARN_F(Elements::Tensor, "Erase tensor[%d] failed", oldMemId);
         return FAILED;
     }
     return SUCCESS;
@@ -1136,7 +1136,7 @@ Status OoOScheduler::RearrangeBuffers(IssueEntryPtr issue, bool isGenSpillStage,
     BufferPool &bufferManager = bufferManagerMap[allocBuffer->memType];
     auto rearrangeScheme = GetRearrangeScheme(bufferManager, allocBuffer->size);
     if (rearrangeScheme.cost == INT_MAX) {
-        APASS_LOG_ERROR_F(Elements::Operation, "RearrangeBuffers failed at GetRearrangeScheme.");
+        APASS_LOG_WARN_F(Elements::Operation, "RearrangeBuffers failed at GetRearrangeScheme.");
         return FAILED;
     }
     // 修改tensor对应的localbuffer
@@ -1144,7 +1144,7 @@ Status OoOScheduler::RearrangeBuffers(IssueEntryPtr issue, bool isGenSpillStage,
         auto targetBufferPtr = localBufferMap[memId];
         if (rearrangeScheme.moveFrom[memId] != targetBufferPtr->start ||
             rearrangeScheme.memSizeMap[memId] != targetBufferPtr->size) {
-            APASS_LOG_ERROR_F(Elements::Tensor, "MemId %d localBuffer and rearrangeScheme range donot match, RearrangeBuffers failed.", memId);
+            APASS_LOG_WARN_F(Elements::Tensor, "MemId %d localBuffer and rearrangeScheme range donot match, RearrangeBuffers failed.", memId);
             return FAILED;
         }
         IssueEntryPtr occupyIssuePtr = GetSpillIssue(issue, memId, isGenSpillStage);
@@ -1153,7 +1153,7 @@ Status OoOScheduler::RearrangeBuffers(IssueEntryPtr issue, bool isGenSpillStage,
             return FAILED;
         }
         if (occupyIssuePtr->tileOp.GetOpcode() == Opcode::OP_VIEW || occupyIssuePtr->tileOp.GetOpcode() == Opcode::OP_ASSEMBLE) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Target rearrange tensor(memId: %d)'s occupy op is %d %s, RearrangeBuffers failed. %s",
+            APASS_LOG_WARN_F(Elements::Operation, "Target rearrange tensor(memId: %d)'s occupy op is %d %s, RearrangeBuffers failed. %s",
                 memId, issue->tileOp.GetOpMagic(), issue->tileOp.GetOpcodeStr().c_str(), GetFormatBacktrace(issue->tileOp).c_str());
             return FAILED;
         }
@@ -1161,13 +1161,13 @@ Status OoOScheduler::RearrangeBuffers(IssueEntryPtr issue, bool isGenSpillStage,
         // ScheduleMainLoop阶段如果是alloc占有的tensor不需要插入搬运节点
         if (isGenSpillStage || occupyIssuePtr->tileOp.GetOpcodeStr().find("ALLOC") != std::string::npos) {
             if (bufferManager.ModifyBufferRange(targetBufferPtr, offset) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Tensor, "RearrangeBuffers failed at ModifyBufferRange.");
+                APASS_LOG_WARN_F(Elements::Tensor, "RearrangeBuffers failed at ModifyBufferRange.");
                 return FAILED;
             }
         } else {
             int newMemId = INT_MAX;
             if (GenRearrangeCopyOp(allocBuffer->memType, memId, newMemId, rearrangeUBBF16) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Operation, "RearrangeBuffers failed at GenRearrangeCopyOp.");
+                APASS_LOG_WARN_F(Elements::Operation, "RearrangeBuffers failed at GenRearrangeCopyOp.");
                 return FAILED;
             }
             if (rearrangeUBBF16) {
@@ -1175,7 +1175,7 @@ Status OoOScheduler::RearrangeBuffers(IssueEntryPtr issue, bool isGenSpillStage,
             }
             // 更新moveToTensor的localbuffer和bufferslice range
             if (UpdateRange(newMemId, offset, allocBuffer->memType, bufferManager) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Operation, "RearrangeBuffers failed at UpdateRange.");
+                APASS_LOG_WARN_F(Elements::Operation, "RearrangeBuffers failed at UpdateRange.");
                 return FAILED;
             }
         }

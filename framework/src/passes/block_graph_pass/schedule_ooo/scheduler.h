@@ -160,6 +160,13 @@ private:
     std::stack<std::pair<IssueEntryPtr, MemoryType>> needFreeIssueStack;
     std::map<IssueEntryPtr, bool> visitedIssue;
     std::map<IssueEntryPtr, std::unordered_map<int, int>> recordBufRefCount;
+    // 回溯点位置,当前执行issue的全部信息,用于后期回退
+    IssueEntryPtr backTraceIssue{nullptr};
+    std::map<IssueEntryPtr, std::map<MemoryType, int64_t>> backTraceBufferAllocate;
+    std::map<IssueEntryPtr, std::pair<size_t, std::vector<IssueEntryPtr>>> backTraceIssueEntries;
+    std::map<IssueEntryPtr, std::unordered_map<int, int>> backTraceBufRefCount;
+    // 回退点,防止死循环
+    IssueEntryPtr rollBackNodeIssue{nullptr};
 
     // scheduler
     Status Init(const std::vector<Operation *> &operations);
@@ -222,16 +229,28 @@ private:
     int GetNumUnvisitPreNode(IssueEntryPtr issue, std::map<IssueEntryPtr, bool>& visited);
     void UpdatePreNodeQueue(std::unordered_set<IssueEntryPtr> &curr, 
         std::unordered_set<IssueEntryPtr> &preNodeTotal, std::map<IssueEntryPtr, bool>& visited);
+
+    Status RollBack(size_t &startIndex, std::vector<IssueEntryPtr> &curIssueEntries,
+        std::map<MemoryType, int64_t> &curMemoryMap);
+    void GetListToAdvance(size_t rollBackIndex, size_t backTraceIndex,
+        std::vector<IssueEntryPtr> curIssueEntries, std::set<size_t> &AdvanceIndexList);
+    void ReplaceIndex(std::vector<IssueEntryPtr> &curIssueEntries,
+        std::set<size_t> AdvanceIndexList, size_t rollBackIndex);
+    bool HasDependency(IssueEntryPtr rollBackIssue, IssueEntryPtr backIssue);
+    void GetIssueIdx(IssueEntryPtr issue, size_t &index);
+    void GetPreNode(size_t i, std::vector<IssueEntryPtr> curIssueEntries, size_t rollBackIndex,
+    size_t backTraceIndex, std::set<size_t> &dependencyIndexList);
     
     Status LayerBasedDFS(int layerDepth);
 
     void ReorderIssue(std::vector<size_t> &preIdx, std::vector<IssueEntryPtr> &curIssueEntries, size_t startIndex);
     void FindIndex(IssueEntryPtr issue, std::vector<IssueEntryPtr> curIssueEntries, size_t &index);
-    void FindConsumerList(size_t consumerIndex, std::vector<size_t> &preIssue, std::vector<IssueEntryPtr> &curIssueEntries);
-    void UpdateOOperandPreDependence(size_t startIndex, std::vector<IssueEntryPtr> &curIssueEntries,
+    Status FindConsumerList(size_t consumerIndex, std::vector<size_t> &preIssue, std::vector<IssueEntryPtr> &curIssueEntries);
+    Status UpdateOOperandPreDependence(size_t startIndex, std::vector<IssueEntryPtr> &curIssueEntries,
         std::vector<IssueEntryPtr> consumersGroup);
     void RecoverSymbol(size_t startIndex, std::vector<IssueEntryPtr> curIssueEntries);
     void GetConsumerGroup(std::vector<IssueEntryPtr> consumers, std::vector<IssueEntryPtr> &consumersGroup);
+    void GetStackTop(size_t &startIndex, std::vector<IssueEntryPtr> &curIssueEntries, std::map<MemoryType, int64_t> &curMemoryMap);
     Status BacktraceOnMemoryExceeded(size_t &startIndex,
         std::vector<IssueEntryPtr> &curIssueEntries, std::map<MemoryType, int64_t> &curMemoryMap);
     bool IsBufferFull(std::map<MemoryType, int64_t> curMemoryMap, MemoryType memType, int64_t size);
@@ -245,7 +264,7 @@ private:
         std::map<MemoryType, int64_t> &curMemoryMap, size_t &startIndex);
     Status ExecuteIssue();
 
-    // gen spill  
+    // gen spill
     Status GenSpillOp(LocalBufferPtr allocBuffer, size_t &pcIdx);
     Status GenBufferSpill(IssueEntryPtr allocIssue);
     Status SelectSpillBuffers(LocalBufferPtr allocBuffer, IssueEntryPtr issue, 
@@ -303,7 +322,7 @@ private:
     Status FindMoveFromTensor(Operation &occupyOp, int oldMemId, MemoryType memType, bool &rearrangeUBBF16, LogicalTensorPtr &moveFromTensor);
     Status GetMoveOpInTensor(Opcode moveOpcode, Operation &occupyOp, LogicalTensorPtr &inTensor, LogicalTensorPtr &moveFromTensor);
 
-    public:
+public:
     Status Schedule(const std::vector<Operation *> &operations);
     OoOScheduler(Function &function) : function_(function) {}
 

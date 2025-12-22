@@ -262,7 +262,7 @@ Status BufferPool::ModifyBufferRange(LocalBufferPtr localBuffer, size_t offset) 
         bufferSlices[localBuffer->id] = newSlice;
     }
     if (CheckBufferSlicesOverlap()) {
-        APASS_LOG_ERROR_F(Elements::Tensor, "BufferSlices have overlap, ModifyBufferRange failed.");
+        APASS_LOG_WARN_F(Elements::Tensor, "BufferSlices have overlap, ModifyBufferRange failed.");
         return FAILED;
     }
     return SUCCESS;
