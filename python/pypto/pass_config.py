@@ -76,6 +76,8 @@ def get_pass_default_config(key: PassConfigKey, default_value: bool) -> bool:
     ValueError
         If the key is not a valid PassConfigKey enum value.
     """
+    if not isinstance(default_value, bool):
+        raise TypeError(f"Expected boolean type, but received {type(default_value).__name__}")
     if not isinstance(key, PassConfigKey):
         raise ValueError(f"key must be a member of PassConfigKey, got {key}. ")
     return pypto_impl.GetPassDefaultConfig(key.value, default_value)
@@ -98,6 +100,8 @@ def set_pass_default_config(key: PassConfigKey, value: bool):
     ValueError
         If the key is not a valid PassConfigKey enum value.
     """
+    if not isinstance(value, bool):
+        raise TypeError(f"Expected boolean type, but received {type(value).__name__}")
     if not isinstance(key, PassConfigKey):
         raise ValueError(f"key must be a member of PassConfigKey, got {key}. ")
     pypto_impl.SetPassDefaultConfig(key.value, value)
@@ -131,6 +135,8 @@ def get_pass_config(strategy: str, identifier: str, key: PassConfigKey, default_
     ValueError
         If the key is not a valid PassConfigKey enum value.
     """
+    if not isinstance(default_value, bool):
+        raise TypeError(f"Expected boolean type, but received {type(default_value).__name__}")
     if not isinstance(key, PassConfigKey):
         raise ValueError(f"key must be a member of PassConfigKey, got {key}. ")
     return pypto_impl.GetPassConfig(strategy, identifier, key.value, default_value)
@@ -159,6 +165,8 @@ def set_pass_config(strategy: str, identifier: str, key: PassConfigKey, value: b
     ValueError
         If the key is not a valid PassConfigKey enum value.
     """
+    if not isinstance(value, bool):
+        raise TypeError(f"Expected boolean type, but received {type(value).__name__}")
     if not isinstance(key, PassConfigKey):
         raise ValueError(f"key must be a member of PassConfigKey, got {key}. ")
     pypto_impl.SetPassConfig(strategy, identifier, key.value, value)
@@ -182,25 +190,3 @@ def get_pass_configs(strategy: str, identifier: str) -> PassConfigs:
         A complete configuration object containing all parameters for the specified pass under the given strategy.
     """
     return pypto_impl.GetPassConfigs(strategy, identifier)
-
-
-def __set_pass_debug_options(option: str, up: bool):
-    config_map = {
-        "print_graph": pypto_impl.KEY_PRINT_GRAPH,
-        "dump_graph": pypto_impl.KEY_DUMP_GRAPH,
-        "pre_check": pypto_impl.KEY_PRE_CHECK,
-        "post_check": pypto_impl.KEY_POST_CHECK,
-        "health_check": pypto_impl.KEY_HEALTH_CHECK
-    }
-
-    def ensure_list(x):
-        return x if isinstance(x, list) else [x]
-
-    if option == "all":
-        targets = [e for v in config_map.values() for e in ensure_list(v)]
-    else:
-        if option not in config_map:
-            raise KeyError(f"not support debug option {option}")
-        targets = ensure_list(config_map[option])
-    for opt in targets:
-        pypto_impl.SetPassDefaultConfig(opt, up)
