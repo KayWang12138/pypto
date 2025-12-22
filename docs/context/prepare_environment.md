@@ -8,7 +8,7 @@ PyPTO 支持在具备 Ascend-NPU 硬件的**真实环境**和仅有 CPU 硬件�
 | 仿真环境 | 仅有 CPU 硬件              | 仅支持通过 CPU 仿真获取预估性能                       |
 
 **说明：**
-- Ascend-NPU：指 Ascend 910B 等 AI 加速器
+- Ascend-NPU：指 Ascend 910B 等 AI 加速器（目前支持 Ascend 910B、Ascend 910C）
 - 支持的系统：PyPTO 支持在 OpenEuler、Ubuntu 等主流 Linux 发行版上编译和运行
 
 ## 前提条件
@@ -21,7 +21,7 @@ PyPTO 支持在具备 Ascend-NPU 硬件的**真实环境**和仅有 CPU 硬件�
     - PyTorch 及 Ascend Extension for PyTorch
         - 请根据实际环境的 Python 版本单独安装, 参考 [Ascend Extension for PyTorch 安装说明](https://www.hiascend.com/document/detail/zh/Pytorch/720/configandinstg/instg/insg_0001.html)
         - **重要**：需确保 `PyTorch`、`Ascend Extension for PyTorch` 与 `PyPTO` 三者的 Python 版本一致
-        - **仿真环境说明**：在方针环境中可跳过 `Ascend Extension for PyTorch` 的安装，但仍需安装 `PyTorch`
+        - **仿真环境说明**：在仿真环境中可跳过 `Ascend Extension for PyTorch` 的安装，但仍需安装 `PyTorch`
 
 2. **安装编译依赖**
 
@@ -81,9 +81,9 @@ PyPTO 支持在具备 Ascend-NPU 硬件的**真实环境**和仅有 CPU 硬件�
     > *TODO：1）三方库归档到obs上，2）脚本中直接从obs上下载*
     >
     > # 执行辅助脚本
-    > # - 如果未指定 `--download-path` 参数，脚本会将所需三方依赖下载到 pypto 同级目录的 `pypto_download/third_party_packages` 路径下
-    > # - 如果指定了 `--download-path` 参数，脚本会将所需三方依赖下载到 `path-to-your-thirdparty/third_party_packages` 路径下
-    > bash prepare_env.sh --type=third_party [--download-path=path-to-your-thirdparty]
+    > # 如果未指定 `--download-path` 参数，脚本会将所需三方依赖下载到 pypto 同级目录的 `pypto_download/third_party_packages` 路径下
+    > # 如果指定了 `--download-path` 参数，脚本会将所需三方依赖下载到 `path-to-your-thirdparty/third_party_packages` 路径下
+    > bash tools/prepare_env.sh --type=third_party [--download-path=path-to-your-thirdparty]
     > ```
 
 ## 软件包安装
@@ -95,14 +95,14 @@ PyPTO 支持在具备 Ascend-NPU 硬件的**真实环境**和仅有 CPU 硬件�
 
    详细安装指导详见《[CANN 软件安装指南](https://www.hiascend.com/document/redirect/CannCommunityInstSoftware)》。
 
-    - 推荐版本：Ascend NDK 25.3.0
-    - 支持版本：Ascend NDK 25.3.0、Ascend NDK 25.2.0
+    - 推荐版本：Ascend HDK 25.3.0
+    - 支持版本：Ascend HDK 25.3.0、Ascend HDK 25.2.0
 
 2. **安装CANN toolkit包**
 
     根据实际环境下载对应的安装包，下载链接如下：
-    - [Ascend-cann-toolkit_8.5.0_linux-x86_64.run](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/CANN/20251216_newest/Ascend-cann-toolkit_8.5.0_linux-x86_64.run)
-    - [Ascend-cann-toolkit_8.5.0_linux-aarch64.run](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/CANN/20251216_newest/Ascend-cann-toolkit_8.5.0_linux-aarch64.run)
+    - x86: [Ascend-cann-toolkit_8.5.0_linux-x86_64.run](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/CANN/20251216_newest/Ascend-cann-toolkit_8.5.0_linux-x86_64.run)
+    - aarch64: [Ascend-cann-toolkit_8.5.0_linux-aarch64.run](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/CANN/20251216_newest/Ascend-cann-toolkit_8.5.0_linux-aarch64.run)
 
     ```bash
     # 确保安装包有可执行权限
@@ -117,7 +117,40 @@ PyPTO 支持在具备 Ascend-NPU 硬件的**真实环境**和仅有 CPU 硬件�
     - \$\{arch\}：表示CPU架构，如aarch64、x86_64。
     - \$\{install\_path\}：表示指定安装路径，默认安装在`/usr/local/Ascend`目录。
 
-3. **环境变量配置**
+3. **安装CANN ops包**
+
+    根据实际环境和硬件类型(支持910b/910c)，下载对应的安装包， 下载链接如下：
+    - 910b、x86: [CANN_910b-OPS-8.5.0_RC1.x86](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/CANN/20251216_newest/Ascend-cann-910b-ops_8.5.0_linux-x86_64.run) 
+    - 910b、aarch64: [CANN_910b-OPS-8.5.0.RC1.aarch64](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/CANN/20251216_newest/Ascend-cann-910b-ops_8.5.0_linux-aarch64.run)
+    - 910c、x86: [CANN_910c-OPS-8.5.0_RC1.x86](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/CANN/20251213_newest/Ascend-cann-910_93-ops_8.5.0_linux-x86_64.run) 
+    - 910c、aarch64: [CANN_910c-OPS-8.5.0.RC1.aarch64](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/CANN/20251213_newest/Ascend-cann-910_93-ops_8.5.0_linux-aarch64.run)
+    ```
+    # 确保安装包有可执行权限
+    chmod +x Ascend-cann-${device_type}-ops_8.5.0_linux-${aarch}.run
+    # 安装命令
+    ./Ascend-cann-${device_type}-ops_8.5.0_linux-${aarch}.run --install --force --install-path=${install_path}
+    ```
+
+    - device_type:  NPU 型号，当前支持 910b、910c
+    - aarch： CPU架构，如aarch64、x86_64
+    - install-path：表示制定安装路径，默认安装在`/usr/local/Ascend`目录
+
+4. **安装CANN PTO-inst包**
+
+    根据实际环境，下载对应的安装包， 下载链接如下：
+    - x86: [cann-pto-inst_8.5.0_linux-x86_64.run](https://container-obsfs-filesystem.obs.cn-north-4.myhuaweicloud.com/package/cann/pto-tile-lib-dev/ubuntu_x86/cann-pto-inst_8.5.0_linux-x86_64.run) 
+    - aarch64: [cann-pto-inst_8.5.0_linux-aarch64.run](https://container-obsfs-filesystem.obs.cn-north-4.myhuaweicloud.com/package/cann/pto-tile-lib-dev/ubuntu_aarch64/cann-pto-inst_8.5.0_linux-aarch64.run)
+
+    ```
+    # 确保安装包有可执行权限
+    chmod +x cann-pto-inst_8.5.0_linux-${aarch}.run
+    # 安装命令
+    .cann-pto-inst_8.5.0_linux-${aarch}.run --full --install-path=${install_path}
+    ```
+    - aarch： CPU架构，如aarch64、x86_64
+    - install-path：表示制定安装路径，默认安装在`/usr/local/Ascend`目录
+
+5. **环境变量配置**
 
     ```bash
     # 默认路径安装，以root用户为例（非root用户，将/usr/local替换为${HOME}）
@@ -126,3 +159,18 @@ PyPTO 支持在具备 Ascend-NPU 硬件的**真实环境**和仅有 CPU 硬件�
     # 指定路径安装
     source ${install_path}/cann/set_env.sh
     ```
+
+### 安装脚本
+
+上述流程2 ~ 4中，toolkit包、ops包、PTO-inst包的下载与安装可通过项目tools目录下prepare_env.sh一键执行，命令如下，若遇到不支持系统，请参考该文件自行适配
+```
+bash tools/prepare_env.sh --type=cann --device-type=910b
+```
+| 全写                   | 类型  | 是否必须          | 说明                                         |
+|:-----------------------|:----|:------------|:-------------------------------------------|
+| --type                 | str   | 是          | 脚本安装类型，可选[deps, cann, third_party, all] |
+| --device-type          | str | 是          | 指定 NPU 型号，可选 [910b, 910c] |
+| --install-path         | str   | 否          | 指定 CANN 包安装路径 |
+| --download-path        | str | 否       | 指定 CANN 包以及三方依赖包下载路径 |
+| --with-install-driver  | bool | 否       | 指定是否下载 NPU 驱动和固件包，默认为 false |
+| --help                 | -    | 否       | 查看命令参数帮助信息 |
