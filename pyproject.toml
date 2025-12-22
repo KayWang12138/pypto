@@ -16,8 +16,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pypto"
-version = "0.0.1"
-description = "PyPTO"
+version = "0.1.0"
+description = "A high-performance programming framework for tile-centric computing"
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
@@ -27,6 +27,12 @@ dependencies = [
 dev = [
     "setuptools>=70.3.0",
     "pybind11>=2.13.6",
+    "pip",
+    "build",
+    "packaging",
+    "pytest",
+    "pytest-forked",
+    "pytest-xdist",
 ]
 tests = [
     "pytest",
