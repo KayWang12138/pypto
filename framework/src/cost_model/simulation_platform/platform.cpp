@@ -36,7 +36,7 @@ std::string CostModelPlatform::RealPath(const std::string &path) {
     if (path.size() >= PATH_MAX) {	
         return res;	
     }	
-    char* resoved_path = new char[PATH_MAX];	
+    char resoved_path[PATH_MAX] = {0x00};	
     if (realpath(path.c_str(), resoved_path) != nullptr) {
         res = resoved_path;
     }

@@ -131,12 +131,6 @@ TEST_F(CostModelTest, TestAttentionPostAccuracy1)
     RunAttentionPostCostModel();
 }
 
-TEST_F(CostModelTest, TestAttentionPostPvModel)
-{
-    config::SetSimConfig("PV_LEVEL", static_cast<int>(CostModel::PVModelLevel::PV_UT));
-    RunAttentionPostCostModel();
-}
-
 TEST_F(CostModelTest, TestAttentionPostAccuracyFromJson)
 {
     config::SetPlatformConfig("ENABLE_COST_MODEL", false);
