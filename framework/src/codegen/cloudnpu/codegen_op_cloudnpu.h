@@ -129,8 +129,6 @@ public:
     std::string GenOffsetsAndRawShapes() const;
     std::string GenOffsetsAndRawShapes(int32_t operandIndex, int32_t dim) const;
 
-    std::string GenPoolOp() const;
-
     std::string GenAicpuCallOp() const;
 
     std::string GenWhereOp() const;

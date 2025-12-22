@@ -152,9 +152,6 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {Opcode::OP_WHERE_ST, [this]() { return GenWhereOp(); }},
           {Opcode::OP_WHERE_TT, [this]() { return GenWhereOp(); }},
 
-          // max pool
-          {Opcode::OP_MAX_POOL, [this]() { return GenPoolOp(); }},
-
           // cmp op
           {Opcode::OP_CMP, [this]() { return GenCmpOp(); }},
           {Opcode::OP_CMPS, [this]() { return GenCmpOp(); }},
