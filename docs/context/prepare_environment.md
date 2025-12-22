@@ -145,7 +145,7 @@ PyPTO 支持在具备 Ascend-NPU 硬件的**真实环境**和仅有 CPU 硬件�
     # 确保安装包有可执行权限
     chmod +x cann-pto-inst_8.5.0_linux-${arch}.run
     # 安装命令
-    .cann-pto-inst_8.5.0_linux-${arch}.run --full --install-path=${install_path}
+    ./cann-pto-inst_8.5.0_linux-${arch}.run --full --install-path=${install_path}
     ```
     - aarch: CPU架构, 如aarch64、x86_64
     - install-path: 表示制定安装路径, 默认安装在`/usr/local/Ascend`目录
