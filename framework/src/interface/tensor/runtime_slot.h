@@ -52,7 +52,7 @@ enum class RuntimeSlotKind : int {
     ADDRESS_EXPRESSION, // For shared memory tensor address expression
 };
 
-typedef DescData<uint32_t, RuntimeSlotKind> RuntimeSlotKindSet;
+using RuntimeSlotKindSet = DescData<uint32_t, RuntimeSlotKind>;
 
 struct RuntimeSlotDesc {
     RuntimeSlotKind kind;

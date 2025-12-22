@@ -733,7 +733,6 @@ void Program::VerifyTensorGraph() {
 }
 
 void Program::VerifyPass(Function *func, int passIndex, const std::string &passIdentifier) {
-
     // SubgraphToFunction阶段还未进行validShape推导，会导致非尾块的计算会按照尾块大小进行计算，导致部分数据的拷贝或者计算丢失，
     // 该Pass需要与InferParamIndexPass进行“合并”后才会完成VaildShape推导，才可以完成完整功能；
     if (passIdentifier == "SubgraphToFunction") {
