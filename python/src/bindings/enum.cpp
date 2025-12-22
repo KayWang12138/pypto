@@ -134,8 +134,8 @@ void bind_enum(py::module &m){
         .export_values();
 
     py::enum_<Matrix::ReLuType>(m, "ReLuType")
-        .value("NoReLu", Matrix::ReLuType::NoReLu)
-        .value("ReLu", Matrix::ReLuType::ReLu)
+        .value("NO_RELU", Matrix::ReLuType::NoReLu)
+        .value("RELU", Matrix::ReLuType::ReLu)
         .export_values();
 
     py::enum_<LogBaseType>(m, "LogBaseType")

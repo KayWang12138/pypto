@@ -135,6 +135,6 @@ def matmul(
 def convert_matmul_extend_params(extend_params) -> dict:
     extend_params.setdefault('bias_tensor', pypto_impl.Tensor())
     extend_params.setdefault('scale_tensor', pypto_impl.Tensor())
-    extend_params.setdefault('relu_type', pypto_impl.ReLuType.NoReLu)
+    extend_params.setdefault('relu_type', pypto_impl.ReLuType.NO_RELU)
     extend_params.setdefault('scale', 0.0)
     return extend_params
