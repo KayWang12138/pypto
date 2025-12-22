@@ -331,54 +331,14 @@ inline int GetCopyIn(const OperationsViewer &opOriList, std::vector<int> &colorN
     return colorCopyIn;
 }
 
-std::vector<std::vector<int>> NBufferMerge::SortColorWithInput(std::vector<int> &colorValues) const {
-    std::map<int, std::vector<int>> inColorToOutColor;
-    int inCount = -1;
-    for (auto color : colorValues) {
-        if (inColor_[color].empty()) {
-            inColorToOutColor[inCount--].push_back(color);
-            continue;
-        }
-        for (auto inColor : inColor_[color]) {
-            inColorToOutColor[inColor].push_back(color);
-        }
-    }
-    std::map<int, std::vector<int>> outColorToInColor;
-    int outCount = -1;
-    for (auto color : colorValues) {
-        if (outColor_[color].empty()) {
-            outColorToInColor[outCount--].push_back(color);
-            continue;
-        }
-        for (auto outColor : outColor_[color]) {
-            outColorToInColor[outColor].push_back(color);
-        }
-    }
-    std::vector<std::vector<int>> res;
-    std::map<int, std::vector<int>> colorWithSameInOut = 
-        (inColorToOutColor.size() <= outColorToInColor.size()) ? inColorToOutColor : outColorToInColor;
-    std::set<int> visitedColorSet;
-    for (auto &entry : colorWithSameInOut) {
-        std::vector<int> sortedColor;
-        for (auto subgraphColor : entry.second) {
-            if (visitedColorSet.count(subgraphColor) == 0) {
-                visitedColorSet.insert(subgraphColor);
-                sortedColor.push_back(subgraphColor);
-            }
-        }
-        if (!sortedColor.empty()) {
-            res.push_back(sortedColor);
-        }
-    }
-    return res;
-}
-
 void NBufferMerge::MergePingPong(std::vector<std::vector<int>> &sortedColors, 
                                      const OperationsViewer &opOriList, 
                                      std::vector<uint64_t> &hashColor, 
                                      int &numDBmerge) {
     int pingColor = -1;
-    for (const auto &input2Color : sortedColors) {
+    for (auto &input2Color : sortedColors) {
+        APASS_LOG_DEBUG_F(Elements::Operation, "NBuffer %d Number of subgraphs %d SubGraphIDs %s", numDBmerge, input2Color.size(), IntVecToStr(input2Color).c_str());
+        std::sort(input2Color.begin(), input2Color.end(), [&](int x, int y) { return dfsColorOrder[x] < dfsColorOrder[y]; });
         for (size_t i = 0; i < input2Color.size(); i++) {
             if (numDBmerge == 0) {
                 continue;
@@ -397,6 +357,7 @@ void NBufferMerge::MergePingPong(std::vector<std::vector<int>> &sortedColors,
             colorCycles_[pongColor] = 0;
             colorNode_[pongColor].clear();
             hashColor[pongColor] = 0;
+            APASS_LOG_DEBUG_F(Elements::Operation, "SubGraph Merge: %lu, %lu.", pingColor, pongColor);
         }
     }
 }
@@ -409,14 +370,16 @@ Status NBufferMerge::MergeProcess(const OperationsViewer &opOriList,
     for (const auto &entry : hashMap) {
         hashMapKeys.push_back(entry.first);
     }
+    DFSSortUtils::DFSSortColor(color_, inColor_, outColor_, dfsColorOrder);
     ParallelTool::Instance().Parallel_for(0, hashMapKeys.size(),1,[&](int st,int et,int tid) {
         (void) tid;
         for(int hashMapKeyIdx = st; hashMapKeyIdx < et; hashMapKeyIdx++) {
             uint64_t colorHashValue = hashMapKeys[hashMapKeyIdx];
             if (colorHashValue == 0) continue;
-            std::vector<int> &colorValues = hashMap[colorHashValue];
-            auto sortedColors = SortColorWithInput(colorValues);
-            if (sortedColors.empty()) continue;
+            std::vector<int> colorValues = hashMap[colorHashValue];
+            if(colorValues.empty()) continue;
+            std::vector<std::vector<int>> sortedColors;
+            sortedColors.push_back(colorValues);
             int numDBMerge =
                 (vecNBuffermode == 1) ? hashMergeNum[colorHashValue] : hashMergeNum[hashOrder[colorHashValue]];
             MergePingPong(sortedColors, opOriList, hashColor, numDBMerge);
@@ -453,12 +416,6 @@ Status NBufferMerge::NBufferMergeProcess(Function &func) {
         return FAILED;
     }
     if (color_ == 0) {
-        return SUCCESS;
-    }
-    // 如果子图个数已经少于核数； 后续按照core的类型来判断
-    int coreNum = Platform::Instance().GetSoc().GetAICoreNum();
-    if (color_ <= coreNum) {
-        APASS_LOG_INFO_F(Elements::Operation, "NBufferMerge is skipped. color: %d, aiCoreNum: %d.", color_, coreNum);
         return SUCCESS;
     }
     APASS_LOG_INFO_F(Elements::Operation, "User set nbuffer mode: %d", vecNBuffermode);

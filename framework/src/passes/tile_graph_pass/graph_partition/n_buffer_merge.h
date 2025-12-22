@@ -23,6 +23,7 @@
 #include "tilefwk/platform.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
+#include "passes/pass_utils/dfs_sort_utils.h"
 namespace npu::tile_fwk {
 
 constexpr int64_t VEC_NBUFFER_SETTING_DEFAULT_MERGE_NUM_KEY = -1; // manualMerge模式配置默认合并粒度的key值，n个子图合并为一个
@@ -46,7 +47,6 @@ private:
                                std::vector<std::vector<int>> &colorNode1);
     std::map<int, size_t> GetIsoColorMergeNum(const OperationsViewer &opOriList,
                                                    const std::map<uint64_t, std::vector<int>> &hashMap) const;
-    std::vector<std::vector<int>> SortColorWithInput(std::vector<int> &colorValues) const;
     Status MergeProcess(const OperationsViewer &opOriList,
                         std::map<uint64_t, std::vector<int>> &hashMap,
                         std::map<int, size_t> &hashMergeNum,
@@ -68,6 +68,7 @@ private:
     std::vector<std::vector<int>> inColor_;
     std::vector<std::vector<int>> outColor_;
     std::vector<std::vector<int>> colorNode_;
+    std::unordered_map<int, int> dfsColorOrder;
     std::vector<int> colorCycles_;
     int vecNBuffermode;
     int mgVecParallelLb;
