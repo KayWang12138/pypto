@@ -390,18 +390,28 @@ void PadLocalBuffer::DoPadding(Function &function) {
         op.GetAttr(OpAttributeKey::inputCombineAxis, inputAxis);
         for (size_t i = 0; i < op.iOperand.size(); i++) {
             auto &in = op.iOperand[i];
-            if (visited.count(in) != 0) {
-                continue;
-            }
+            if (visited.count(in) != 0) continue;
             visited.emplace(in);
             if (IsMatmul(in)) {
                 PadMatmul(op, in);
                 continue;
             }
-            if (!IsVector(in)) {
-                continue;
-            }
-            if (in->tensor->GetRawDataSize() == 0) {
+            if (!IsVector(in)) continue;
+            if (in->tensor->GetRawDataSize() == 0) continue;
+            bool noPadding = false;
+            if ((inputAxis.size() > i) && inputAxis[i]) noPadding = true;
+            PadVector(op, in, visitedRaw, noPadding);
+        }
+    }
+    for (auto &op : function.Operations()) {
+        std::vector<bool> outputAxis;
+        op.GetAttr(OpAttributeKey::outputCombineAxis, outputAxis);
+        for (size_t i = 0; i < op.oOperand.size(); i++) {
+            auto &out = op.oOperand[i];
+            if (visited.count(out) != 0) continue;
+            visited.emplace(out);
+            if (IsMatmul(out)) {
+                PadMatmul(op, out);
                 continue;
             }
             if (ConfigManager::Instance().GetOperationConfig("COMBINE_AXIS", false)) {
