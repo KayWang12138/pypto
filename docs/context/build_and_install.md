@@ -104,7 +104,7 @@ python3 -m pip install -e . --verbose --user
 
 ## 通过 Docker 镜像安装
 
-为了方便快速搭建环境，同样提供已完成 PyPTO 运行环境搭建的 Docker 镜像，详细使用请参考 [Docker README](docker/README.md)。
+为了方便快速搭建环境，同样提供已完成 PyPTO 运行环境搭建的 Docker 镜像，详细使用请参考 [Docker README](../../docker/README.md)。
 
 Docker 运行命令：
 
