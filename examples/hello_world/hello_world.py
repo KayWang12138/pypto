@@ -25,7 +25,6 @@ import sys
 import argparse
 import pypto
 import torch
-import torch_npu
 import numpy as np
 from numpy.testing import assert_allclose
 
@@ -106,14 +105,18 @@ def softmax_npu(input_tensor, output_tensor):
     # Tiling shape setting for efficient execution
     pypto.set_vec_tile_shapes(1, 4, 1, 64)
 
-    # Extract batch slice
-    input_view = input_tensor[0:tile_b, :n1, :n2, :dim]
+    for idx in pypto.loop(0, b_loop, 1, name="LOOP_L0_bIdx", idx_name="idx"):
+        b_offset = idx * tile_b
+        b_offset_end = (idx + 1) * tile_b
 
-    # Apply softmax to batch slice
-    softmax_out = softmax_core(input_view)
+        # Extract batch slice
+        input_view = input_tensor[b_offset:b_offset_end, :n1, :n2, :dim]
 
-    # Assemble result back to output tensor
-    pypto.assemble(softmax_out, [0, 0, 0, 0], output_tensor)
+        # Apply softmax to batch slice
+        softmax_out = softmax_core(input_view)
+
+        # Assemble result back to output tensor
+        pypto.assemble(softmax_out, [b_offset, 0, 0, 0], output_tensor)
 
 
 @pypto.jit(runtime_options={"run_mode": 1})
@@ -142,14 +145,18 @@ def softmax_sim(input_tensor, output_tensor):
     # Tiling shape setting for efficient execution
     pypto.set_vec_tile_shapes(1, 4, 1, 64)
 
-    # Extract batch slice
-    input_view = input_tensor[0:tile_b, :n1, :n2, :dim]
+    for idx in pypto.loop(0, b_loop, 1, name="LOOP_L0_bIdx", idx_name="idx"):
+        b_offset = idx * tile_b
+        b_offset_end = (idx + 1) * tile_b
 
-    # Apply softmax to batch slice
-    softmax_out = softmax_core(input_view)
+        # Extract batch slice
+        input_view = input_tensor[b_offset:b_offset_end, :n1, :n2, :dim]
 
-    # Assemble result back to output tensor
-    pypto.assemble(softmax_out, [0, 0, 0, 0], output_tensor)
+        # Apply softmax to batch slice
+        softmax_out = softmax_core(input_view)
+
+        # Assemble result back to output tensor
+        pypto.assemble(softmax_out, [b_offset, 0, 0, 0], output_tensor)
 
 
 def test_softmax(tensor_type, run_mode):

@@ -40,7 +40,7 @@ constexpr int32_t CALLOP_ARG_ATTR_BASE_INDEX = 1;
 constexpr int32_t MINI_TILE_LIST_SIZE_THRESHOLD = 16;
 constexpr int32_t DEFAULT_CORE_NUM = 75;
 constexpr int32_t SLOTS_NEED_ALLOC_SIZE = 2;
-constexpr int64_t MAX_STATIC_MEM_WARN_THRESHOLE = 512 * 512;
+constexpr int64_t MAX_SHAPE_WARN_THRESHOLE = 512 * 512;
 constexpr int32_t ALLOC_NUM_ONE_SLAB = 4;
 static constexpr uint64_t GENERAL_METADATA_SIZE_MIN = 4 * MEBI;
 
@@ -234,8 +234,8 @@ static void EncodeRawShape(const SymbolicExpressionTable *expressionTable, DevAs
 
     int64_t nelm = std::max(GetShapeSizeSafe(rawTensor->oriRawshape), GetShapeSizeSafe(rawTensor->rawshape));
     encoded->maxStaticMemReq = AlignUp(nelm * BytesOf(rawTensor->GetDataType()), TENSOR_ADDR_ALIGNMENT);
-    if (encoded->maxStaticMemReq > MAX_STATIC_MEM_WARN_THRESHOLE) {
-        ALOG_WARN_F("Root=[%s], symbol=[%s], staticMemReq=[%lu] might be an error.",
+    if (nelm > MAX_SHAPE_WARN_THRESHOLE) {
+        ALOG_WARN_F("Root=[%s], symbol=[%s]: staticMemReq=[%lu] is too larger, which might indicate an error",
             rawName.c_str(), rawTensor->symbol.c_str(), encoded->maxStaticMemReq);
     }
 }

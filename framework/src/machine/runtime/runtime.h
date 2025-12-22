@@ -41,11 +41,49 @@
 #include "tilefwk/platform.h"
 
 #ifdef BUILD_WITH_CANN
-#include "driver/ascend_hal_define.h"
 #include "acl/acl.h"
 #include "runtime/rt.h"
 #include "runtime/rt_preload_task.h"
 #endif
+
+constexpr int ADDR_MAP_TYPE_REG_AIC_CTRL = 2;
+constexpr int ADDR_MAP_TYPE_REG_AIC_PMU_CTRL = 3;
+
+struct AddrMapInPara {
+    unsigned int addr_type;
+    unsigned int devid;
+};
+
+struct AddrMapOutPara {
+    unsigned long long ptr;
+    unsigned long long len;
+};
+
+typedef enum tagProcType {
+    PROCESS_CP1 = 0,
+    PROCESS_CP2,
+    PROCESS_DEV_ONLY,
+    PROCESS_QS,
+    PROCESS_HCCP,
+    PROCESS_USER,
+    PROCESS_CPTYPE_MAX
+} processType_t;
+
+enum res_map_type {
+    RES_AICORE = 0,
+    RES_HSCB_AICORE,
+    RES_L2BUFF,
+    RES_C2C,
+    RES_MAP_TYPE_MAX
+};
+
+struct res_map_info {
+    processType_t target_proc_type;
+    enum res_map_type res_type;
+    unsigned int res_id;
+    unsigned int flag;
+    unsigned int rsv[1];
+};
 
 namespace npu::tile_fwk {
 
