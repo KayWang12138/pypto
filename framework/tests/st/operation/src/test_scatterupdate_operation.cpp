@@ -76,8 +76,8 @@ static void ScatterUpdateOperationExeFunc2Dims(
         const int64_t s = inputs[1].GetShape()[1];
         const int64_t bs = inputs[0].GetShape()[0];
         const int64_t d = inputs[0].GetShape()[1];
-        const int64_t bViewShape = args->viewShape_[0];
-        const int64_t bsViewShape = bViewShape * s;
+        const int64_t bsViewShape = args->viewShape_[0];
+        const int64_t bViewShape = bsViewShape / s;
         const int64_t bloop = CeilDiv(b, bViewShape);
         LOOP("LOOP_L0_bsIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
             TileShape::Current().SetVecTile(args->tileShape_);
