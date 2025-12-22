@@ -730,6 +730,7 @@ Status OoOScheduler::InitBufRefCount() {
             UpdateBufRefCount(issue, tensor);
             int memId = tensor->memoryrange.memId;
             if (InitLocalBuffer(tensor, memId) != SUCCESS) {
+                APASS_LOG_ERROR_F(Elements::Operation, "InitLocalBuffer failed!");
                 return FAILED;
             }
         }
@@ -913,6 +914,7 @@ Status OoOScheduler::Init(const std::vector<Operation *> &operations) {
     numTotalIssues = issueEntries.size();
 
     if (InitBufRefCount() != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "InitBufRefCount failed!");
         return FAILED;
     }
     // 初始化issueEntry，构建依赖关系

@@ -1434,6 +1434,26 @@ TEST_F(ScheduleOoOTest, TestCheckAllocBufferSize) {
     EXPECT_EQ(res, FAILED);
 }
 
+TEST_F(ScheduleOoOTest, TestInitLocalBufferFailed) {
+    ComputationalGraphBuilder subGraph;
+    std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8"};
+    std::vector<MemoryType> tensorMemTypes{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB,
+        MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB};
+    std::vector<Opcode> opCodes{Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC,
+        Opcode::OP_UB_ALLOC, Opcode::OP_COPY_IN, Opcode::OP_COPY_IN, Opcode::OP_ROWMAX_SINGLE, Opcode::OP_ADD, Opcode::OP_COPY_OUT};
+    std::vector<std::vector<std::string>> ioperands{{}, {}, {}, {}, {}, {"t1"}, {"t3"}, {"t2"}, {"t4", "t5"}, {"t5"}};
+    std::vector<std::vector<std::string>> ooperands{{"t2"}, {"t4"}, {"t5"}, {"t6"}, {"t8"}, {"t2"}, {"t4"}, {"t5", "t6"}, {"t8"}, {"t7"}};
+    std::vector<std::string> opNames{"Alloc1", "Alloc2", "Alloc3", "Alloc4", "Alloc5", "Copyin1", "Copyin2", "RowMax1", "Add1", "Copyout1"};
+    EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {62, 69}, tensorMemTypes, tensorNames, 0), true);
+    EXPECT_EQ(subGraph.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
+    Function *function = subGraph.GetFunction();
+    EXPECT_NE(function, nullptr);
+
+    OoOScheduler ooOScheduler(*function);
+    Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
+    EXPECT_EQ(res, FAILED);
+}
+
 TEST_F(ScheduleOoOTest, TestOoOMemoryRefactoring) {
     ComputationalGraphBuilder subGraph;
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t6", "t7", "t8", "t9", "t10", "t11", "t12", "t13", "t14"};
