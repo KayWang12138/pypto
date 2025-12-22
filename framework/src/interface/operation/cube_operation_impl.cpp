@@ -84,11 +84,10 @@ void SetBiasAndScaleAttr(
     if (matmulInputs.biasTensorPtr != nullptr && isFirstTile) {
         op.SetAttribute(A_MUL_B_BIAS_ATTR, true);
     }
-    if (matmulInputs.scaleTensorPtr != nullptr && isFirstTile) {
+    if (isFirstTile) {
         op.SetAttribute(A_MUL_B_RELU_ATTR, static_cast<int64_t>(matmulAttrParam.reluType));
     }
     if (matmulAttrParam.scaleValue != 0 && isFirstTile) {
-        op.SetAttribute(A_MUL_B_RELU_ATTR, static_cast<int64_t>(matmulAttrParam.reluType));
         op.SetAttribute(A_MUL_B_SCALE_ATTR, Element(DataType::DT_UINT64, matmulAttrParam.scaleValue));
     }
 };
@@ -495,15 +494,13 @@ void SetTensorGraphAttr(Operation &op, const MatmulExtendParam &param, bool gmAc
     op.SetAttribute(A_MUL_B_TRANS_A, isATrans);
     op.SetAttribute(A_MUL_B_TRANS_B, isBTrans);
     op.SetAttribute(A_MUL_B_BIAS_ATTR, (param.biasTensor.GetStorage() != nullptr));
-
+    op.SetAttribute(A_MUL_B_RELU_ATTR, static_cast<int64_t>(param.reluType));
     // means perchannel
     if (param.scaleTensor.GetStorage() != nullptr) {
-        op.SetAttribute(A_MUL_B_RELU_ATTR, static_cast<int64_t>(param.reluType));
         op.SetAttribute(A_MUL_B_VECTOR_QUANT_FLAG, true);
     }
     // means pertensor
     if (fabs(param.scaleValue - 0) > EPSILON) {
-        op.SetAttribute(A_MUL_B_RELU_ATTR, static_cast<int64_t>(param.reluType));
         uint32_t scaleValueTmp = 0;
         memcpy_s(&scaleValueTmp, sizeof(scaleValueTmp), &param.scaleValue, sizeof(param.scaleValue));
         op.SetAttribute(A_MUL_B_SCALE_ATTR, Element(DataType::DT_UINT64, static_cast<uint64_t>(scaleValueTmp)));
