@@ -31,9 +31,31 @@ void DeadOperationEliminator::EliminateDeadOperationBackward(Function &function)
     for (auto &op : function.Operations()) {
         op.SetAsNotDeleted();
     }
+    EliminateOperation(function); 
+}
+
+std::set<Operation *, LogicalTensor::CompareOp> FindProducers(
+    Operation &op, std::unordered_set<std::shared_ptr<LogicalTensor>> &visitedOperands, Function &function) {
+    std::set<Operation *, LogicalTensor::CompareOp> producerOps;
+    for (const auto &input : op.iOperand) {
+        if (visitedOperands.count(input) != 0) {
+            continue;
+        }
+        for (const auto &producer : input->GetProducers()) {
+            if (producer->BelongTo() == &function) {
+                producerOps.emplace(producer);
+            }
+        }
+        visitedOperands.emplace(input);
+    }
+    return producerOps;
+}
+
+void DeadOperationEliminator::EliminateOperation(Function &function, bool sorted) {
     std::queue<Operation *> q;
     std::unordered_set<Operation*> visited;
-    for (auto &op : function.Operations()) {
+    std::unordered_set<std::shared_ptr<LogicalTensor>> visitedOperands;
+    for (auto &op : function.Operations(sorted)) {
         bool dontTouch = op.GetBoolAttribute(OpAttributeKey::dontTouch);
         if(dontTouch){
             visited.emplace(&op);
@@ -53,7 +75,7 @@ void DeadOperationEliminator::EliminateDeadOperationBackward(Function &function)
     while (!q.empty()) {
         auto op = q.front();
         q.pop();
-        auto producerOps = function.FindProducers(*op);
+        std::set<Operation *, LogicalTensor::CompareOp> producerOps = FindProducers(*op, visitedOperands, function);
         for (const auto &producerOp : producerOps) {
             if (visited.count(producerOp) != 0) {
                 continue;
@@ -62,7 +84,7 @@ void DeadOperationEliminator::EliminateDeadOperationBackward(Function &function)
             q.emplace(producerOp);
         }
     }
-    for (auto &op : function.Operations()) {
+    for (auto &op : function.Operations(sorted)) {
         if (visited.count(&op) == 0) {
             op.SetAsDeleted();
         }

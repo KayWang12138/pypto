@@ -72,7 +72,7 @@ private:
     Status ProcessAssembleConsumers(Function &function,
                                   const std::set<Operation*, LogicalTensor::CompareOp>& consumers,
                                   std::vector<Operation *> &chain,
-                                  bool &chainEnd);
+                                  bool &chainEnd, bool& hasAssembleConsumer);
 
     Status ProcessAssembleChainEnd(Function &function,
                                  std::vector<Operation *> &chain,
@@ -100,6 +100,7 @@ private:
     Status CleanUp(Function &function);
     Status EraseRedundantAssemble(Function &function) const;
     std::set<int32_t> visitedOp_;
+    std::unordered_set<int32_t> assembleWithoutAssembleConsumer_;
     std::vector<ViewOp> viewOpToAppend_;
     std::vector<AssembleOp> assembleOpToAppend_;
 };

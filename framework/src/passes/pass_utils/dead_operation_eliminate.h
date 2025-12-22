@@ -25,6 +25,7 @@ public:
     ~DeadOperationEliminator() = default;
 
     void EliminateDeadOperationBackward(Function &function);
+    void EliminateOperation(Function &function, bool sorted = true);
     static Status EliminateDeadOperation(Function &function);
 };
 }

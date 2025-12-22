@@ -132,7 +132,7 @@ Status MergeViewAssemble::CleanUp(Function &function) {
         return status;
     }
     DeadOperationEliminator eliminator;
-    eliminator.EliminateDeadOperationBackward(function);
+    eliminator.EliminateOperation(function, false);
     APASS_LOG_INFO_F(Elements::Function, "===> End MergeViewAssemble.");
     return SUCCESS;
 }
@@ -337,16 +337,22 @@ Status MergeViewAssemble::MergeAssembleChain(Function &function, Operation &oper
     InitAssembleChain(operation, chain);
 
     // 2. 处理消费者
-    auto consumers = function.FindConsumers(operation);
-    bool chainEnd = consumers.empty();
-    Status status = ProcessAssembleConsumers(function, consumers, chain, chainEnd);
-    if (status != SUCCESS) {
-        return status;
+    bool chainEnd = false;
+    bool hasAssembleConsumer = false;
+    if (assembleWithoutAssembleConsumer_.count(operation.opmagic) == 0) {
+        auto consumers = function.FindConsumers(operation);
+        chainEnd = consumers.empty();
+        Status status = ProcessAssembleConsumers(function, consumers, chain, chainEnd, hasAssembleConsumer);
+        if (status != SUCCESS) {
+            return status;
+        }
+    } else {
+        chainEnd = true;
     }
 
     // 3. 处理链尾情况
     if (chainEnd && chain.size() > 1) {
-        status = ProcessAssembleChainEnd(function, chain, operation);
+        Status status = ProcessAssembleChainEnd(function, chain, operation);
         if (status != SUCCESS) {
             return status;
         }
@@ -368,7 +374,7 @@ Status MergeViewAssemble::ProcessAssembleConsumers(
     Function &function,
     const std::set<Operation*, LogicalTensor::CompareOp>& consumers,
     std::vector<Operation *> &chain,
-    bool &chainEnd)
+    bool &chainEnd, bool &hasAssembleConsumer)
 {
     if (consumers.empty()) {
         return SUCCESS;
@@ -379,6 +385,7 @@ Status MergeViewAssemble::ProcessAssembleConsumers(
             return FAILED;
         }
         if (op->GetOpcode() == Opcode::OP_ASSEMBLE) {
+            hasAssembleConsumer = true;
             Status status = MergeAssembleChain(function, *op, chain);
             if (status != SUCCESS) { 
                 APASS_LOG_ERROR_F(Elements::Operation, "Run MergeAssembleChain failed for operation %d.%s", op->opmagic, GetFormatBacktrace(*op).c_str());
@@ -454,7 +461,7 @@ void MergeViewAssemble::RecordAssembleOperation(const std::shared_ptr<LogicalTen
 
 Status MergeViewAssemble::EraseRedundantAssemble(Function &function) const {
     std::unordered_set<Operation *> redundantAssembles;
-    for (auto &op : function.Operations()) {
+    for (auto &op : function.Operations(false)) {
         if (op.GetOpcode() !=  Opcode::OP_ASSEMBLE) {
             continue;
         }
@@ -473,7 +480,7 @@ Status MergeViewAssemble::EraseRedundantAssemble(Function &function) const {
         }
         ele->SetAsDeleted();
     }
-    function.EraseOperations(true);
+    function.EraseOperations(true, false);
     return SUCCESS;
 }
 } // namespace npu::tile_fwk
