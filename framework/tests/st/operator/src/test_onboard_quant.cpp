@@ -323,7 +323,6 @@ void TestQuantMM3D(std::vector<int64_t>& shapeA, std::vector<int64_t>& shapeW) {
 
     PROGRAM("QUANTMM") {
         config::Reset();
-        config::SetPassOption(NBUFFER_MERGE_MODE, 0);
         TileShape::Current().SetCubeTile({VALUE32, VALUE32}, {VALUE128, VALUE128}, {VALUE128, VALUE128});
         TileShape::Current().SetVecTile(VALUE8, VALUE8, VALUE32);
         Tensor matA(DataType::DT_BF16, shapeA, (uint8_t *)matA_ptr, "MatA");

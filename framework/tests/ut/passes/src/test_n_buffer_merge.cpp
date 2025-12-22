@@ -139,8 +139,8 @@ TEST_F(NBufferMergeTest, TestMulityInputOutput) {
 
     // Call the pass
     NBufferMerge NBM;
-    currFunctionPtr->paramConfigs_.sgVecParallelNum = vecParallelNum;
-    currFunctionPtr->paramConfigs_.nBufferMergeMode = manualMode;
+    currFunctionPtr->paramConfigs_.mgVecParallelLb = vecParallelNum;
+    currFunctionPtr->paramConfigs_.vecNBuffermode = manualMode;
     currFunctionPtr->DumpJsonFile("./config/pass/json/nBufferMerge_mulity_input_before.json");
     size_t subGraphCount = 4;
     currFunctionPtr->SetTotalSubGraphCount(subGraphCount);
