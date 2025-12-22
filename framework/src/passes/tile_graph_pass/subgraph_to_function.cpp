@@ -60,7 +60,7 @@ Status SubgraphToFunction::RunOnFunction(Function &function) {
         // reconnect in-graph and out-graph by Incast and Outcast
         RecordIncastOutcast(function);
     }
-    // Construct funtion.subFunctionInvokeMap
+    // Construct function.subFunctionInvokeMap
     ConstructParamMap(function);
     // Determine the isomorphism of subgraphs and record ProgramInfoMap
     Function::EnableMagicLookupRecord(true, &function);

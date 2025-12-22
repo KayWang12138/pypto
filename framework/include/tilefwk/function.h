@@ -49,7 +49,7 @@ struct SourceLocation;
 /**
  * @brief Start a tile_fwk dynamic loop.
  * @param name: Name of the loops;
- * @param type: Type of funtion;
+ * @param type: Type of function;
  * @param index: The index of loops.
  * @param range: The range of loops, including start\end and step length.
  * @param unrollList: The list for unroll; Optional, default is empty.

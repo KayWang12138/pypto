@@ -781,7 +781,7 @@ static void OverCallOpMaxNum(Function *devRoot, DevAscendFunction *funcBin){
 static void CompileControlFlow(const std::string &aicpuDirPath,
                                const std::string &funcName, const std::string &constrolFlow, std::string express) {
     std::string controlFlowCompilepath = aicpuDirPath + "/" + funcName + "/aicpu";
-    ALOG_DEBUG_F("Dumpath is %s, funtionName %s, path is %s",
+    ALOG_DEBUG_F("Dumpath is %s, functionName %s, path is %s",
                  aicpuDirPath.c_str(), funcName.c_str(), controlFlowCompilepath.c_str());
     if (!CreateMultiLevelDir(controlFlowCompilepath)) {
         ALOG_ERROR_F("Creat AicpuCompile dir not success\n");

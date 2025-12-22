@@ -124,7 +124,7 @@ void HostProf::HostProfReportTensorInfo(const uint64_t &endTime) const {
     return;
   }
   uint32_t iONums = profFunction_->inCasts_.size() + profFunction_->outCasts_.size();
-  ALOG_DEBUG_F("Op [%s] with inputs[%zu], ouputs[%zu]", opName_.c_str(),
+  ALOG_DEBUG_F("Op [%s] with inputs[%zu], outputs[%zu]", opName_.c_str(),
               profFunction_->inCasts_.size(), profFunction_->outCasts_.size());
   uint32_t groupNums = iONums / MSPROF_GE_TENSOR_DATA_NUM;
   uint32_t modulus = iONums % MSPROF_GE_TENSOR_DATA_NUM;

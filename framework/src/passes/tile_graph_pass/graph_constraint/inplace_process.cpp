@@ -261,7 +261,7 @@ void InplaceProcess::ProcessView(Function &function, Operation &op) const {
         }
         auto attrDynOffset = viewAttr->GetFromDynOffset();
         std::vector<SymbolicScalar> outTensorOffset;
-        // 增加校验: input --> View --> ouput 三者的offset size 相同
+        // 增加校验: input --> View --> output 三者的offset size 相同
         for (size_t i = 0; i < inputOffset.size(); i++) {
             viewOpOffset[i] = inputOffset[i] + viewOpOffset[i];
             if (attrDynOffset.size() == inputOffset.size()) {

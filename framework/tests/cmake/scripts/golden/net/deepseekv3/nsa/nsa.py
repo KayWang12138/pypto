@@ -387,7 +387,7 @@ def nsa(x, q, k, v, avg_wk, avg_wv, mlp_wk1, mlp_wk2, mlp_wv1, mlp_wv2, cos, sin
     pos_ids_path = Path(output, 'pos_ids.bin')
     pos_ids.tofile(pos_ids_path)
 
-    # temp ouput
+    # temp output
     k_cmp_path = Path(output, 'k_cmp.bin')
     k_cmp.tofile(k_cmp_path)
     v_cmp_path = Path(output, 'v_cmp.bin')
