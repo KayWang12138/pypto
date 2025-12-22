@@ -1,6 +1,5 @@
-# Pypto Docker ENV
 
-说明：本文描述如何快速创建运行PyPTO的docker容器，在使用docker容器前请**完成主机NPU硬件部署、NPU驱动及固件安装**。参考文档*docs/installation/prepare_env.md*
+说明：本文描述如何快速创建运行PyPTO的docker容器，在使用docker容器前请**完成主机NPU硬件部署、NPU驱动及固件安装**。参考文档*docs\context\prepare_environment.md*
 
 ## 版本说明
 
@@ -36,8 +35,8 @@ openEuler+910b :ARG CANN_VERSION=8.5.0.alpha001-910b-openeuler24.03-py3.11
    ARG CANN_VERSION=8.5.0.alpha001-a3-ubuntu22.04-py3.11
    FROM quay.io/ascend/cann:$CANN_VERSION
 
-   # To set proxy,
-   ARG PROXY=http://p_atlas:proxy%40123@172.18.100.92:8080
+   # [Optional] set proxy
+   ARG PROXY=""
    ENV https_proxy=$PROXY
    ENV http_proxy=$PROXY
    ENV GIT_SSL_NO_VERIFY=1
@@ -46,7 +45,7 @@ openEuler+910b :ARG CANN_VERSION=8.5.0.alpha001-910b-openeuler24.03-py3.11
    # extra utils, for PyPTO project
    RUN pip install --no-cache-dir \
        wheel tomli pybind11 pybind11-stubgen pytest pytest-forked pytest-xdist \
-       tabulate pandas matplotlib build ml_dtypes
+       tabulate pandas matplotlib build ml_dtypes jinja2 cloudpickle tornado
    RUN pip install --no-cache-dir --upgrade \
        setuptools
    # pypto wants `setuptools>=70.3.0`
@@ -54,24 +53,11 @@ openEuler+910b :ARG CANN_VERSION=8.5.0.alpha001-910b-openeuler24.03-py3.11
    RUN pip install --no-cache-dir torch==2.6.0 --index-url https://download.pytorch.org/whl/cpu
    RUN pip install --no-cache-dir torch-npu==2.6.0
 
-   WORKDIR /installers/3rd_party/
-   RUN wget --no-check-certificate https://gitcode.com/cann-src-third-party/json/releases/download/v3.11.3/json-3.11.3.tar.gz
-   ENV PYPTO_THIRD_PARTY_PATH=/installers/3rd_party
 
-
-   RUN tar -zxvf json-3.11.3.tar.gz \
-       && rm -f json-3.11.3.tar.gz \
-       && cd json-3.11.3 \
-       && mkdir temp && cd temp \
-       && cmake .. -D_GLIBCXX_USE_CXX11_ABI=0 -DJSON_MultipleHeaders=ON -DJSON_BuildTests=OFF -DCMAKE_INSTALL_PREFIX=$CONDA_HOME -DCMAKE_PREFIX_PATH=$CONDA_HOME \
-       && make \
-       && make install \
-       && cd ../../ && rm -rf json-3.11.3
-
-   # set default proxy
-   ENV PROXY=http://p_atlas:proxy%40123@172.18.100.92:8080
-   ENV https_proxy=$PROXY
-   ENV http_proxy=$PROXY
+   # [Optional] set default proxy
+    ENV PROXY=""
+    ENV https_proxy=$PROXY
+    ENV http_proxy=$PROXY
 
 ```
 
@@ -99,11 +85,11 @@ dockerfile内容如下：
 ARG PY_VERSION=3.11-ubuntu22.04
 FROM quay.io/ascend/python:$PY_VERSION
 
-# To overwrite proxy, pass `--build-arg PROXY=` to `docker build`,
-ARG PROXY=http://p_atlas:proxy%40123@172.18.100.92:8080
-ENV https_proxy=$PROXY
-ENV http_proxy=$PROXY
-ENV GIT_SSL_NO_VERIFY=1
+# [Optional] set proxy
+ ARG PROXY=""
+ ENV https_proxy=$PROXY
+ ENV http_proxy=$PROXY
+ ENV GIT_SSL_NO_VERIFY=1
 # install system dependencies and clean index cache
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git vim wget curl unzip tar lcov openssl ca-certificates\
@@ -111,8 +97,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libssl-dev libffi-dev libbz2-dev libxslt1-dev unzip pciutils \
     net-tools openssh-client libblas-dev gfortran libblas3 llvm ccache python-is-python3 python3-pip python3-venv ninja-build python3-dev \
     && rm -rf /var/lib/apt/list/*     # clean apt index cache
-#Setup pip proxy
-RUN pip config set global.index http://cmc-cd-mirror.rnd.huawei.com/pypi && pip config set global.index-url http://cmc-cd-mirror.rnd.huawei.com/pypi/simple/ && pip config set global.trusted-host cmc-cd-mirror.rnd.huawei.com
 
 # # Python dependencies for CANN
 RUN pip install --no-cache-dir \
@@ -120,35 +104,20 @@ RUN pip install --no-cache-dir \
 
 RUN pip install --no-cache-dir \
     wheel tomli pybind11 pybind11-stubgen pytest pytest-forked pytest-xdist \
-    tabulate pandas matplotlib build ml_dtypes
+    tabulate pandas matplotlib build ml_dtypes jinja2 cloudpickle tornado
 RUN pip install --no-cache-dir --upgrade \
     setuptools
 # pypto wants `setuptools>=70.3.0`
 RUN pip install --no-cache-dir torch==2.6.0 --index-url https://download.pytorch.org/whl/cpu
 RUN pip install --no-cache-dir torch-npu==2.6.0
-# extra utils, for PyPTO project
 
-WORKDIR /installers/3rd_party/
-RUN wget --no-check-certificate https://gitcode.com/cann-src-third-party/json/releases/download/v3.11.3/json-3.11.3.tar.gz
-ENV PYPTO_THIRD_PARTY_PATH=/installers/3rd_party
-
-
-RUN tar -zxvf json-3.11.3.tar.gz \
-    && rm -f json-3.11.3.tar.gz \
-    && cd json-3.11.3 \
-    && mkdir temp && cd temp \
-    && cmake .. -D_GLIBCXX_USE_CXX11_ABI=0 -DJSON_MultipleHeaders=ON -DJSON_BuildTests=OFF -DCMAKE_INSTALL_PREFIX=$CONDA_HOME -DCMAKE_PREFIX_PATH=$CONDA_HOME \
-    && make \
-    && make install \
-    && cd ../../ && rm -rf json-3.11.3
-
-# set default proxy
-ENV PROXY=http://p_atlas:proxy%40123@172.18.100.92:8080
-ENV https_proxy=$PROXY
-ENV http_proxy=$PROXY
+# [Optional] set default proxy
+ ENV PROXY=""
+ ENV https_proxy=$PROXY
+ ENV http_proxy=$PROXY
 ```
 
-若希望构建其他环境版本的镜像，可参考[https://quay.io/repository/ascend/](https://)，Ascend社区提供了丰富的基础镜像。
+若希望构建其他环境版本的镜像，可参考[https://quay.io/repository/ascend/cann](https://)，Ascend社区提供了丰富的基础镜像。
 
 ## 使用指导
 
