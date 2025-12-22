@@ -20,6 +20,7 @@ import logging
 from lightning_indexer_prolog_quant import (
     IndexerPrologQuantInput, IndexerPrologQuantOutput, IndexerPrologQuantAttr, IndexerPrologQuantConfigs,
     lightning_indexer_prolog_quant)
+from common_utils import compare
 
 
 def gen_dims(params):
@@ -426,23 +427,6 @@ def do_test_lighting_indexer_prolog_quant(case_name, configs):
     print(f"=== {case_name}: PASS ===")
 
     pypto.runtime._device_fini()
-
-
-def compare(t: torch.Tensor, t_ref: torch.Tensor, name, atol, rtol, max_error_ratio=0.005, max_error_count=10):
-    assert t.shape == t_ref.shape
-    assert t.dtype == t_ref.dtype
-    assert t.device == t_ref.device
-    max_error_count = min(max_error_count, round(max_error_ratio * t_ref.numel()))
-
-    diff_mask = (t - t_ref).abs() > atol + rtol * t_ref.abs()
-    error_count = diff_mask.sum().item()
-    max_diff, max_pos = torch.max((t - t_ref).abs().flatten(), dim=0)
-    max_pos = torch.unravel_index(max_pos, t.shape)
-    max_pos = tuple(idx.item() for idx in max_pos)
-
-    assert error_count <= max_error_count, \
-        (f"compare fail: {name}, max diff: {max_diff} at {max_pos}, "
-         f"error_count: {error_count}, error_count_threshold: {max_error_count}")
 
 
 def test_b4_s1_2_s2_64k():

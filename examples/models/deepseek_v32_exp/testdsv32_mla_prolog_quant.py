@@ -20,7 +20,8 @@ import torch
 import torch_npu
 import pypto
 
-from mla_prolog_quant import mla_prolog_quant_p, mla_prolog_quant_d
+from mla_prolog_quant import mla_prolog_quant_p, mla_prolog_quant_d, MlaTileConfig
+from common_utils import compare
 
 torch.manual_seed(5)
 
@@ -491,27 +492,6 @@ def gen_mla_prolog_quant_v32_data(params, dtypes, actual_seq, is_quant=(False, F
     return inputs, outputs
 
 
-class MlaTileConfig:
-    def __init__(self):
-        self.tile_b = 8
-        self.tile_s = 1
-        self.tile_bs = 8
-        self.cube_l1_reuse_mode = 4
-        self.m_tile = 16
-        self.mv_tile = 16
-        self.q_vec_tile0 = 16
-        self.q_vec_tile1 = 16
-        self.k_vec_tile0 = 16
-        self.k_vec_tile1 = 16
-        self.pre_quant_cube_tile = [16, 16, 256, 256, 128, 128]
-        self.mg_copyin_upper_bound = 2 * 1024 * 1024
-        self.pg_upper_bound = 8192
-        self.vec_nbuffer_mode = 1
-        self.cube_nbuffer_setting = {3: 4}
-        self.cube_l1_reuse_setting = {0: 2, 1: 1, 2: 1, 3: 4, 4: 4, 5: 1}
-        self.dynamic_unaligned_enable = False
-
-
 def convert_pypto_to_torch_type(pypto_type):
     if pypto_type == pypto.DataType.DT_INT8:
         return torch.int8
@@ -525,23 +505,6 @@ def convert_pypto_to_torch_type(pypto_type):
         return torch.bfloat16
     else:
         raise ValueError(f"Unsupported pypto.DataType: {pypto_type}")
-
-
-def compare(t: torch.Tensor, t_ref: torch.Tensor, name, atol, rtol, pct_thd, error_count_threshold=0):
-    assert t.shape == t_ref.shape
-    assert t.dtype == t_ref.dtype
-    assert t.device == t_ref.device
-
-    if error_count_threshold == 0:
-        error_count_threshold = t.numel() * pct_thd
-
-    diff_mask = (t - t_ref).abs() > atol + rtol * t_ref.abs()
-    error_count = diff_mask.sum().item()
-    max_diff, max_pos = torch.max((t - t_ref).abs().flatten(), dim=0)
-    max_pos = torch.unravel_index(max_pos, t.shape)
-    max_pos = tuple(idx.item() for idx in max_pos)
-    assert error_count <= error_count_threshold, (f"compare fail: {name}, max_diff: {max_diff} at {max_pos}, "\
-                                    f"error_count: {error_count}, error_count_threshold:{error_count_threshold}")
 
 
 def mla_prolog_quant_v32(params, input_tensors, golden_data, dtype, w_dtype, is_quant_a, \

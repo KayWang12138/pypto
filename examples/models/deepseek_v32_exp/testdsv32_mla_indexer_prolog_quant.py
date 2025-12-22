@@ -20,6 +20,7 @@ import pytest
 import logging
 import math
 from mla_prolog_quant import MlaTileConfig
+from common_utils import compare
 
 PRINT_DEBUG = False
 
@@ -801,28 +802,6 @@ def gen_zero_tensor(t):
     return torch.zeros_like(t).npu()
 
 
-def compare(t: torch.Tensor, t_ref: torch.Tensor, name, atol, rtol, max_error_ratio=0.005, max_error_count=-1):
-    assert t.shape == t_ref.shape
-    assert t.dtype == t_ref.dtype
-    assert t.device == t_ref.device
-    if max_error_count < 0:
-        max_error_count = round(max_error_ratio * t_ref.numel())
-    else:
-        max_error_count = min(max_error_count, round(max_error_ratio * t_ref.numel()))
-
-    diff_mask = (t - t_ref).abs() > atol + rtol * t_ref.abs()
-    error_count = diff_mask.sum().item()
-    max_diff, max_pos = torch.max((t - t_ref).abs().flatten(), dim=0)
-    max_pos = torch.unravel_index(max_pos, t.shape)
-    max_pos = tuple(idx.item() for idx in max_pos)
-
-    assert error_count <= max_error_count, \
-        (f"compare fail: {name}, max diff: {max_diff} at {max_pos}, atol: {atol},  rtol: {rtol}, "
-         f"error_count: {error_count}, error_count_threshold: {max_error_count}")
-    logging.debug(f"compare pass: {name}, max diff: {max_diff}, atol: {atol},  rtol: {rtol}, "
-                  f"error_count: {error_count}, error_count_threshold: {max_error_count}")
-
-
 def check(case_name, outputs, goldens):
     q_atol = 0.0001
     q_int8_atol = 1
@@ -833,9 +812,9 @@ def check(case_name, outputs, goldens):
         q_scale_error_ratio = 0.006
 
     ########### mla ###########
-    compare(outputs['q_nope'].cpu(), goldens['q_nope'], 'qNope', q_atol, 0.0078125,
+    compare(outputs['q_nope'].cpu(), goldens['q_nope'], 'qNope', 0.005, 0.0078125,
             0.005)
-    compare(outputs['q_rope'].cpu(), goldens['q_rope'], 'qRope', q_atol, 0.0078125, 0.005)
+    compare(outputs['q_rope'].cpu(), goldens['q_rope'], 'qRope', 0.005, 0.0078125, 0.005)
     compare(outputs['kv_cache_out'].cpu(), goldens['kv_cache_out'], 'kv', 1, 0, 0)
     compare(outputs['kr_cache_out'].cpu(), goldens['kr_cache_out'], 'kr', 0.0001, 0.0078125, 0.005)
     compare(outputs['kv_quant_scale_cache_out'].cpu(), goldens['kv_quant_scale_cache_out'], 'kScaleCache', 0.000025,
@@ -865,7 +844,7 @@ def convert_torch_tensor(tensor_dict, dynamic_axis_dict, name_prefix):
 
 
 def do_test(case_name, params, mla_epsilon_cq, mla_epsilon_ckv, mla_cache_mode, mla_tile_config, ip_attrs,
-            ip_configs, rope_tile_shape):
+            ip_configs, rope_tile_shape, is_prefill=False):
     prep_env()
 
     logging.debug(f'=== run test case: {case_name} ===')
@@ -899,8 +878,11 @@ def do_test(case_name, params, mla_epsilon_cq, mla_epsilon_ckv, mla_cache_mode, 
 
     pto_outputs = convert_torch_tensor(outputs, dynamic_dict, 'OUT_')
     import mla_indexer_prolog_quant as mla_lp_quant
+    if is_prefill:
+        fun = mla_lp_quant.mla_indexer_prolog_quant_p
+    else:
+        fun = mla_lp_quant.mla_indexer_prolog_quant_d
 
-    fun = mla_lp_quant.mla_indexer_prolog_quant
     fun(*pto_inputs, *pto_outputs, mla_epsilon_cq, mla_epsilon_ckv, mla_cache_mode,
         mla_tile_config, ip_attrs, ip_configs, rope_tile_shape)
     pypto.runtime._device_synchronize()
@@ -992,7 +974,7 @@ def test_b_4_s1_2_tilebs_8_d():
 
     do_test("mla_prolog_indexer_prolog_quant.test_b_4_s1_2_tilebs_8",
             params, mla_epsilon_cq, mla_epsilon_ckv,
-            mla_cache_mode, mla_tile_config, ip_attrs, ip_configs, rope_tile_shape)
+            mla_cache_mode, mla_tile_config, ip_attrs, ip_configs, rope_tile_shape, False)
 
 
 @pytest.mark.skip(reason="prefill test cast")
@@ -1066,7 +1048,7 @@ def test_t_32_tilebs_16_p():
 
     do_test("mla_prolog_indexer_prolog_prefill.test_t_32_tilebs_16",
             params, mla_epsilon_cq, mla_epsilon_ckv,
-            mla_cache_mode, mla_tile_config, ip_attrs, ip_configs, rope_tile_shape)
+            mla_cache_mode, mla_tile_config, ip_attrs, ip_configs, rope_tile_shape, True)
 
 
 @pytest.mark.skip(reason="large shape")
@@ -1138,7 +1120,7 @@ def test_t_512_tilebs_128_p():
     )
 
     do_test("mla_prolog_indexer_prolog_prefill.test_t_512_tilebs_128", params, mla_epsilon_cq, mla_epsilon_ckv,
-            mla_cache_mode, mla_tile_config, ip_attrs, ip_configs, rope_tile_shape)
+            mla_cache_mode, mla_tile_config, ip_attrs, ip_configs, rope_tile_shape, True)
 
 
 
