@@ -15,6 +15,7 @@
 
 #ifndef TILEOP_TILE_OPERATOR_VEC_UNARY__H
 #define TILEOP_TILE_OPERATOR_VEC_UNARY__H
+#include "pto_tile.h"
 #include "utils/layout.h"
 #include "utils/tile_tensor.h"
 
@@ -38,11 +39,8 @@ template <UnaryOp op, typename T0, typename T1>
 TILEOP void UnaryCompute(T0 dst, T1 src) {
     constexpr auto shapeSize = Std::tuple_size<typename T0::Shape>::value;
     if constexpr (TileOp::IsConstContinous<T0, T1>() == true) {
-        constexpr auto tileH = TileOp::GetOutterAxisMergeResult<shapeSize, typename T0::TileShape>();
-        constexpr auto tileW = TileOp::GetTensorTileShapeDim<T0, shapeSize - 1>();
-        using TileDefine =
-            pto::Tile<pto::TileType::Vec, typename T0::Type, tileH, tileW, pto::BLayout::RowMajor, tileH, tileW>;
-        TileDefine dstTile, srcTile;
+        auto dstTile = PtoTile<T0>().Tile();
+        auto srcTile = PtoTile<T1>().Tile();
         pto::TASSIGN(dstTile, (uint64_t)dst.GetAddr());
         pto::TASSIGN(srcTile, (uint64_t)src.GetAddr());
         UnaryComputeImpl<op>(dstTile, srcTile);
@@ -50,24 +48,19 @@ TILEOP void UnaryCompute(T0 dst, T1 src) {
     }
     constexpr size_t expectSize = 5;
     const auto dstLayout = dst.GetLayout();
-    auto shape0 = dstLayout.template GetShapeDim<0, expectSize>();
-    auto shape1 = dstLayout.template GetShapeDim<1, expectSize>();
-    auto shape2 = dstLayout.template GetShapeDim<2, expectSize>();
-    auto shape3 = dstLayout.template GetShapeDim<3, expectSize>();
-    auto shape4 = dstLayout.template GetShapeDim<4, expectSize>();
-    auto stride0 = dstLayout.template GetStrideDim<0, expectSize>();
-    auto stride1 = dstLayout.template GetStrideDim<1, expectSize>();
-    auto stride2 = dstLayout.template GetStrideDim<2, expectSize>();
-    constexpr auto tileH = TileOp::GetTensorTileShapeDim<T0, 3, 5>();
-    constexpr auto tileW = TileOp::GetTensorTileShapeDim<T0, 4, 5>();
+    auto shape0 = dstLayout.template GetShapeDim<DIM_1ST, expectSize>();
+    auto shape1 = dstLayout.template GetShapeDim<DIM_2ND, expectSize>();
+    auto shape2 = dstLayout.template GetShapeDim<DIM_3RD, expectSize>();
+    auto stride0 = dstLayout.template GetStrideDim<DIM_1ST, expectSize>();
+    auto stride1 = dstLayout.template GetStrideDim<DIM_2ND, expectSize>();
+    auto stride2 = dstLayout.template GetStrideDim<DIM_3RD, expectSize>();
+    auto dstTile = DynPtoTile<T0>(dst).Tile();
+    auto srcTile = DynPtoTile<T1>(src).Tile();
     constexpr auto dstTypeSize = sizeof(typename T0::Type);
     constexpr auto srcTypeSize = sizeof(typename T1::Type);
     for (size_t n0Index = 0; n0Index < shape0; ++n0Index) {
         for (size_t n1Index = 0; n1Index < shape1; ++n1Index) {
             for (size_t n2Index = 0; n2Index < shape2; ++n2Index) {
-                using TileDefine =
-                    pto::Tile<pto::TileType::Vec, typename T0::Type, tileH, tileW, pto::BLayout::RowMajor, -1, -1>;
-                TileDefine dstTile(shape3, shape4), srcTile(shape3, shape4);
                 auto offset = n0Index * stride0 + n1Index * stride1 + n2Index * stride2;
                 pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + offset * dstTypeSize));
                 pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + offset * srcTypeSize));

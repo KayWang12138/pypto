@@ -52,7 +52,7 @@ TILEOP void TTrans(T0 dst, T1 src, T2 tmp) {
     constexpr auto dstTileH = TileOp::GetTensorTileShapeDim<T0, 3, expectSize>();
     constexpr auto dstTileW = TileOp::GetTensorTileShapeDim<T0, 4, expectSize>();
 
-    constexpr auto srcTileH = TileOp::GetTensorTileShapeDim<T1, 3, expectSize>();;
+    constexpr auto srcTileH = TileOp::GetTensorTileShapeDim<T1, 3, expectSize>();
     constexpr auto srcTileW = TileOp::GetTensorTileShapeDim<T1, 4, expectSize>();
 
     constexpr unsigned tmpTileW = (sizeof(typename T0::Type) == 1) ? 32 : 16;

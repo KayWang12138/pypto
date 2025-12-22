@@ -233,7 +233,7 @@ template <int k, int validBit, typename T0, typename T1, typename T2, typename T
 TILEOP void TTiledMrgSort(T0 dst, T1 src1, T2 src2, T3 src3, T4 src4, T5 tmp) {
     constexpr size_t expectSize = 5;
     constexpr auto tmpTileH = TileOp::GetTensorTileShapeDim<T5, 3, expectSize>();
-    constexpr auto tmpTileW = TileOp::GetTensorTileShapeDim<T5, 4, expectSize>();;
+    constexpr auto tmpTileW = TileOp::GetTensorTileShapeDim<T5, 4, expectSize>();
     const auto dstTiledSortLayout = dst.GetLayout();
     auto dstShape0 = dstTiledSortLayout.template GetShapeDim<0, expectSize>();
     auto dstShape1 = dstTiledSortLayout.template GetShapeDim<1, expectSize>();
