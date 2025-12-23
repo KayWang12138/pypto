@@ -14,13 +14,40 @@
  */
 
 #include "distributed_op_test_common.h"
+#ifdef BUILD_WITH_CANN_SUB
+#include<hccl/hcom.h>
+#else
 #include "hcom.h"
-#include "kernel_tiling/kernel_tiling.h"
+#endif
 
 extern "C" HcclResult HcclAllocComResourceByTiling(HcclComm comm, void *stream, void *mc2Tiling, void **commContext);
 
 namespace npu::tile_fwk {
 namespace Distributed {
+#pragma pack(push, 8)
+struct Mc2ServerCfg {
+    uint32_t version = 0;
+    uint8_t debugMode = 0;
+    uint8_t sendArgIndex = 0;
+    uint8_t recvArgIndex = 0;
+    uint8_t commOutArgIndex = 0;
+    uint8_t reserved[8] = {};
+};
+#pragma pack(pop)
+
+#pragma pack(push, 8)
+struct Mc2HcommCfg {
+    uint8_t skipLocalRankCopy = 0;
+    uint8_t skipBufferWindowCopy = 0;
+    uint8_t stepSize = 0;
+    char reserved[13] = {};
+    char groupName[128] = {};
+    char algConfig[128] = {};
+    uint32_t opType = 0;
+    uint32_t reduceType = 0;
+};
+#pragma pack(pop)
+
 struct Mc2CommConfig {
     uint32_t version;
     uint32_t hcommCnt;
