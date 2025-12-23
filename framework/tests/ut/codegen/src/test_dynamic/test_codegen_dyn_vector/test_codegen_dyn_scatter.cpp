@@ -91,7 +91,59 @@ TEST_F(TestCodegenDynScatter, TestDynOpScatterElement) {
     cop.Init(op);
     std::string res = cop.GenOpCode();
     std::string expect =
-        R"!!!(TileOp::DynTscatterElementS<float, float, 1, 1, 32, 1, 64, 64, 3, 0>((__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, (float)1, 1, 1, 1, 32);
+        R"!!!(TileOp::DynTscatterElementS<float, float, float, 1, 1, 32, 1, 64, 64, 3, 0>((__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, (float)1, 1, 1, 1, 32);
+)!!!";
+    EXPECT_EQ(res, expect);
+}
+
+TEST_F(TestCodegenDynScatter, TestDynOpScatterElementFp16) {
+    std::vector<int64_t> shape = {64, 64};
+    auto shapeImme = OpImmediate::Specified(shape);
+    TileShape::Current().SetVecTile(shape);
+    Tensor inputA(DT_FP16, shape, "A");
+    Tensor inputB(DT_INT64, shape, "B");
+    Tensor output(DT_FP16, shape, "C");
+
+    Element scalaVal(DataType::DT_FP16, 1.0);
+
+    std::string funcName = "TestDynOpScatterElementFp16";
+    FUNCTION(funcName, {inputA, inputB, output}) {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            output = Scatter(inputA, inputB, scalaVal, 1);
+        }
+    }
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
+    auto localTensorSrc = CreateLogicalTensor({*function, DataType::DT_FP16, MemoryType::MEM_UB, shape});
+    auto localTensorIdx = CreateLogicalTensor({*function, DataType::DT_INT64, MemoryType::MEM_UB, {32}});
+    auto localTensorDst = CreateLogicalTensor({*function, DataType::DT_FP16, MemoryType::MEM_UB, shape});
+
+    std::vector<SymbolicScalar> dynValidShape = {64, 64};
+    std::vector<SymbolicScalar> dynValidShapeIdx = {32};
+    localTensorSrc->UpdateDynValidShape(dynValidShape);
+    localTensorIdx->UpdateDynValidShape(dynValidShapeIdx);
+    localTensorDst->UpdateDynValidShape(dynValidShape);
+
+    auto &op = function->AddOperation(Opcode::OP_SCATTER_ELEMENT, {localTensorSrc, localTensorIdx}, {localTensorDst});
+    op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
+    op.SetAttribute(OP_ATTR_PREFIX + "axis", 1);
+    op.SetAttribute(OpAttributeKey::scalar, scalaVal);
+    op.SetAttribute(OP_ATTR_PREFIX + "scatter_mode", 1);
+
+    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
+    CodeGenCtx ctx;
+    CodeGenCloudNPU cga(ctx);
+    cga.GenAllocForLocalBuffer(op, symbolManager);
+    CodeGenOpCloudNPU cop(symbolManager, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
+    function->GetTensorMap().inverseMap_[localTensorDst->GetMagic()] = localTensorDst;
+    function->GetTensorMap().inverseMap_[localTensorSrc->GetMagic()] = localTensorSrc;
+    function->GetTensorMap().inverseMap_[localTensorIdx->GetMagic()] = localTensorIdx;
+
+    cop.Init(op);
+    std::string res = cop.GenOpCode();
+    std::string expect =
+        R"!!!(TileOp::DynTscatterElementS<half, int64_t, half, 1, 1, 32, 1, 64, 64, 4, 1>((__ubuf__ half*)UB_S0_E0, (__ubuf__ half*)UB_S0_E0, (__ubuf__ int64_t*)UB_S0_E0, (half)1, 1, 1, 1, 32);
 )!!!";
     EXPECT_EQ(res, expect);
 }
