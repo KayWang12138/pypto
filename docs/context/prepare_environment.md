@@ -27,13 +27,13 @@ PyPTO 支持在具备 Ascend-NPU 硬件的**真实环境**和仅有 CPU 硬件�
 
     若不需要编译 PyPTO, 可跳过本步骤.
 
-    **安装编译工具: **
+    **安装编译工具:**
 
     - cmake >= 3.16.3
     - make
     - gcc >= 7.3.1
 
-    **安装 Python 依赖包: **
+    **安装 Python 依赖包:**
 
     依赖的 pip 包及对应版本在 `python/requirements.txt` 中描述, 可以使用如下命令完成安装:
 
@@ -52,13 +52,8 @@ PyPTO 支持在具备 Ascend-NPU 硬件的**真实环境**和仅有 CPU 硬件�
 
     | 软件包                 | 版本      | 下载地址                                                                                                                    |
     |:--------------------|:--------|:------------------------------------------------------------------------------------------------------------------------|
-    | JSON for Modern C++ | v3.11.3 | [下载链接](https://gitcode.com/cann-src-third-party/json/releases/download/v3.11.3/json-3.11.3.tar.gz)                      |
-    | libboundscheck      | v1.1.16 | [下载链接](https://gitcode.com/cann-src-third-party/libboundscheck/releases/download/v1.1.16/libboundscheck-v1.1.16.tar.gz) |
-    | googletest(可选)      | 1.14.0  | [下载链接](https://gitcode.com/cann-src-third-party/googletest/releases/download/v1.14.0/googletest-1.14.0.tar.gz)          |
-
-    > 说明:
-    >
-    > googletest 仅在编译和执行 C++ 对应 UTest 和 STest 时需要；
+    | JSON for Modern C++ | v3.11.3 | [下载链接](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/third_party_deps/json-3.11.3.tar.gz)                      |
+    | libboundscheck      | v1.1.16 | [下载链接](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/third_party_deps/libboundscheck-v1.1.16.tar.gz) |
 
     手工准备第三方开源源码包的方法:
 
@@ -76,9 +71,6 @@ PyPTO 支持在具备 Ascend-NPU 硬件的**真实环境**和仅有 CPU 硬件�
     > ```bash
     > # 创建用于存放第三方开源软件源码包的目录 path-to-your-thirdparty
     > mkdir -p <path-to-your-thirdparty>
-    >
-    > # 下载辅助脚本
-    > *TODO: 1）三方库归档到obs上, 2）脚本中直接从obs上下载*
     >
     > # 执行辅助脚本
     > # 如果未指定 `--download-path` 参数, 脚本会将所需三方依赖下载到 pypto 同级目录的 `pypto_download/third_party_packages` 路径下

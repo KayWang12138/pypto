@@ -58,8 +58,8 @@ THIRD_PARTY_DEPENDENCIES=(
 
 readonly CANN_VERSION="8.5.0"
 
-JSON_URL="https://github.com/nlohmann/json/archive/refs/tags/v3.11.3.tar.gz"
-SECUREC_URL="https://gitcode.com/cann-src-third-party/libboundscheck/releases/download/v1.1.16/libboundscheck-v1.1.16.tar.gz"
+JSON_URL="https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/third_party_deps/json-3.11.3.tar.gz"
+SECUREC_URL="https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/third_party_deps/libboundscheck-v1.1.16.tar.gz"
 
 CANN_TOOLKIT_URL_X86="https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/CANN/20251216_newest/Ascend-cann-toolkit_8.5.0_linux-x86_64.run"
 CANN_TOOLKIT_URL_ARM="https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/CANN/20251216_newest/Ascend-cann-toolkit_8.5.0_linux-aarch64.run"
@@ -69,13 +69,13 @@ CANN_DRIVER_URL_ARM_910b="https://ascend-repo.obs.cn-east-2.myhuaweicloud.com/As
 CANN_DRIVER_URL_X86_910c="https://ascend-repo.obs.cn-east-2.myhuaweicloud.com/Ascend%20HDK/Ascend%20HDK%2025.3.RC1/Atlas-A3-hdk-npu-driver_25.3.rc1_linux-x86-64.run?response-content-type=application/octet-stream"
 CANN_DRIVER_URL_ARM_910c="https://ascend-repo.obs.cn-east-2.myhuaweicloud.com/Ascend%20HDK/Ascend%20HDK%2025.3.RC1/Atlas-A3-hdk-npu-driver_25.3.rc1_linux-aarch64.run?response-content-type=application/octet-stream"
 
-CANN_PTO_INST_URL_X86="https://container-obsfs-filesystem.obs.cn-north-4.myhuaweicloud.com/package/cann/pto-tile-lib-dev/version_compile/r1.25.0/202512/20251216_115126_901e0fb6/ubuntu_x86/cann-pto-inst_8.5.0_linux-x86_64.run"
-CANN_PTO_INST_URL_ARM="https://container-obsfs-filesystem.obs.cn-north-4.myhuaweicloud.com/package/cann/pto-tile-lib-dev/version_compile/r1.25.0/202512/20251216_115126_901e0fb6/ubuntu_aarch64/cann-pto-inst_8.5.0_linux-aarch64.run"
+CANN_PTO_INST_URL_X86="https://container-obsfs-filesystem.obs.cn-north-4.myhuaweicloud.com/package/cann/pto-tile-lib-dev/ubuntu_x86/cann-pto-inst_8.5.0_linux-x86_64.run"
+CANN_PTO_INST_URL_ARM="https://container-obsfs-filesystem.obs.cn-north-4.myhuaweicloud.com/package/cann/pto-tile-lib-dev/ubuntu_aarch64/cann-pto-inst_8.5.0_linux-aarch64.run"
 
 CANN_OPS_URL_X86_910b="https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/CANN/20251216_newest/Ascend-cann-910b-ops_8.5.0_linux-x86_64.run"
 CANN_OPS_URL_ARM_910b="https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/CANN/20251216_newest/Ascend-cann-910b-ops_8.5.0_linux-aarch64.run"
-CANN_OPS_URL_X86_910c="https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/CANN/20251213_newest/Ascend-cann-910b-ops_8.5.0_linux-x86_64.run"
-CANN_OPS_URL_ARM_910c="https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/CANN/20251213_newest/Ascend-cann-910b-ops_8.5.0_linux-aarch64.run"
+CANN_OPS_URL_X86_910c="https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/CANN/20251213_newest/Ascend-cann-910_93-ops_8.5.0_linux-x86_64.run"
+CANN_OPS_URL_ARM_910c="https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/CANN/20251213_newest/Ascend-cann-910_93-ops_8.5.0_linux-aarch64.run"
 
 CANN_FIRMWARE_URL_910b="https://ascend-repo.obs.cn-east-2.myhuaweicloud.com/Ascend%20HDK/Ascend%20HDK%2025.3.RC1/Ascend-hdk-910b-npu-firmware_7.8.0.2.212.run?response-content-type=application/octet-stream"
 CANN_FIRMWARE_URL_910c="https://ascend-repo.obs.cn-east-2.myhuaweicloud.com/Ascend%20HDK/Ascend%20HDK%2025.3.RC1/Atlas-A3-hdk-npu-firmware_7.8.0.2.212.run?response-content-type=application/octet-stream"
