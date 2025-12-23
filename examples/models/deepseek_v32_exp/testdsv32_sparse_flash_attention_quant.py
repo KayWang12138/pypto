@@ -15,6 +15,7 @@ import math
 import os
 import pytest
 import torch
+import torch_npu
 import pypto
 import logging
 import numpy as np
@@ -356,7 +357,7 @@ def do_test_sparse_attention_func(bn1n2s1, actual_seq, input_params, input_data,
         sparse_flash_attention_quant_d(*pto_inputs, *pto_outputs, n_q, n_kv, softmax_scale, topk,
                                            block_size, max_blocknum_perbatch, tile_config)
 
-    pypto.runtime._device_synchronize()
+    torch_npu.npu.synchronize()
     compare(calc_attention_out_npu.cpu(), atten_out, "atten_out", atol=0.0001, rtol=0.005)
 
 

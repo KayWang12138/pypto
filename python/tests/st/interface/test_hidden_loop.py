@@ -70,7 +70,7 @@ def test_hidden_loop_with_if_jit_function():
         pypto.from_torch(out_data, "OUT"), tiling=tiling)
 
     # 同步设备
-    pypto.runtime._device_synchronize()
+    torch_npu.npu.synchronize()
 
     # 获取结果并验证
     out_cpu = out_data.cpu()
@@ -116,7 +116,7 @@ def test_hidden_loop_with_if_multiple_shapes():
 
         cust_hidden_loop_func(pto_input0, pto_input1, pto_outputs, tiling=tiling)
 
-        pypto.runtime._device_synchronize()
+        torch_npu.npu.synchronize()
 
         out_cpu = out_data.cpu()
         golden = torch.full(shape, 113.0, dtype=torch.float32)
@@ -186,7 +186,7 @@ def test_hidden_loop_mix_loops_jit_function():
         pypto.from_torch(out_data, "OUT"), tiling=tiling)
 
     # 同步设备
-    pypto.runtime._device_synchronize()
+    torch_npu.npu.synchronize()
 
     # 获取结果并验证
     out_cpu = out_data.cpu()

@@ -16,6 +16,7 @@ import logging
 from collections.abc import Iterable
 import inspect
 import torch
+import torch_npu
 import numpy as np
 from numpy.testing import assert_allclose
 import pypto
@@ -140,7 +141,7 @@ class TestBuilder(abc.ABC):
         pto_inputs = self._convert_torch_to_pto(self.input_pto_list, self.input_dyn_axes)
         pto_outputs = self._convert_torch_to_pto(self.output_pto_list, self.output_dyn_axes)
         self.kernel(*pto_inputs, *pto_outputs, self.params)
-        pypto.runtime._device_synchronize()
+        torch_npu.npu.synchronize()
         result_len = len(goldens)
         for idx in range(result_len):
             assert_allclose(np.array(self.output_pto_list[idx].cpu().flatten().tolist()),

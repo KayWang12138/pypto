@@ -147,7 +147,7 @@ def test_device_run_data_from_device():
     pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
     cust_dyn_func(pto_inputs[0], pto_outputs[0], tiling)
 
-    pypto.runtime._device_synchronize()
+    torch_npu.npu.synchronize()
     # get data and compare result
     a_data_cpu = a_data.cpu()
     b_data_cpu = b_data.cpu()
@@ -217,7 +217,7 @@ def test_device_run_data_from_device_mix_nodep():
         pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
         matmul_add(pto_inputs[0], pto_inputs[1], pto_inputs[2], pto_outputs[0], m, k, n, tiling=tiling)
 
-    pypto.runtime._device_synchronize()
+    torch_npu.npu.synchronize()
 
     for idx in range(count):
         # get data and compare result

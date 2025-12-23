@@ -13,6 +13,7 @@ import os
 import json
 import pypto
 import torch
+import torch_npu
 
 
 @pypto.jit(
@@ -81,14 +82,14 @@ def device_run(is_run_add):
     pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
     if is_run_add:
         add(pto_inputs[0], pto_inputs[1], pto_outputs[0], tiling)
-        pypto.runtime._device_synchronize()
+        torch_npu.npu.synchronize()
 
         golden = torch.ones((n, m)) * 3
         assert torch.allclose(golden.int(), c_data.cpu(), atol=1e-5)
     
     else:
         sub(pto_inputs[0], pto_inputs[1], pto_outputs[0], tiling)
-        pypto.runtime._device_synchronize()
+        torch_npu.npu.synchronize()
 
         golden = torch.ones((n, m))
         assert torch.allclose(golden.int(), c_data.cpu(), atol=1e-5)

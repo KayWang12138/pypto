@@ -57,7 +57,7 @@ def test_is_loop_begin():
 
     # compute on npu
     dyn_loop_with_loop_begin(pto_inputs[0], pto_outputs[0])
-    pypto.runtime._device_synchronize()
+    torch_npu.npu.synchronize()
 
 
     output_cpu = output_npu.cpu()
@@ -104,7 +104,7 @@ def test_is_loop_end():
 
     # compute on npu
     dyn_loop_with_loop_end(pto_inputs[0], pto_outputs[0])
-    pypto.runtime._device_synchronize()
+    torch_npu.npu.synchronize()
 
     output_cpu = output_npu.cpu()
 

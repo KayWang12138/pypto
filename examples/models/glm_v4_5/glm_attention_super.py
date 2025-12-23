@@ -115,7 +115,7 @@ def _attention(
 
     # 调用 kernel（使用 config 中的配置参数）
     ifa_func(*pto_inputs, *pto_outputs, tensor_inputs.enable_residual, tensor_inputs.eps, tensor_inputs.num_decode_tokens)
-    pypto.runtime._device_synchronize()
+    torch_npu.npu.synchronize()
     return out_torch, q_tmp, k_tmp, v_tmp, residual_tmp
 
 

@@ -304,7 +304,7 @@ def ffn_router_expert_quant(hidden_states: torch.Tensor,
         pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
         pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
         moe_router_expert_main(*pto_inputs, *pto_outputs)
-        pypto.runtime._device_synchronize()
+        torch_npu.npu.synchronize()
 
 
 def test_ffn_router():
@@ -344,7 +344,7 @@ def test_ffn_router():
         pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
         pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
         moe_router_expert_main(*pto_inputs, *pto_outputs)
-        pypto.runtime._device_synchronize()
+        torch_npu.npu.synchronize()
 
         # golden
         golden = ffn_router_torch_npu(hidden_states, hidden_states_scale, group_list, w13, w13_scale, w2, w2_scale)

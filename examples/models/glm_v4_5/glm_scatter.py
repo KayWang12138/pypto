@@ -12,6 +12,7 @@
 """
 import os
 import torch
+import torch_npu
 import pypto
 from utils.np_compare import detailed_allclose_manual
 import numpy as np
@@ -106,7 +107,7 @@ def test_scatter_update():
     pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
     pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
     scatter_update(*pto_inputs, *pto_outputs)
-    pypto.runtime._device_synchronize()
+    torch_npu.npu.synchronize()
 
     # 5. 与PyTorch参考实现对比
     scatter_update_golden(key, key_cache_clone, index)

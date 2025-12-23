@@ -54,7 +54,7 @@ def test_clone():
     pto_outputs = [pypto.from_torch(output_npu, "OUT")]
     # compute on npu
     kernel_func(pto_inputs[0], pto_outputs[0])
-    pypto.runtime._device_synchronize()
+    torch_npu.npu.synchronize()
 
     output_cpu = output_npu.cpu()
 

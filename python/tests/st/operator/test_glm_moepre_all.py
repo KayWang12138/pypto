@@ -294,7 +294,7 @@ def select_experts(residual: torch.Tensor,
         select_experts_glm(*pto_inputs, *pto_outputs, renormalize, topk_group, num_expert_group,
                            row_ids_flag, input_norm_eps)
     g.replay()
-    pypto.runtime._device_synchronize()
+    torch_npu.npu.synchronize()
     return topk_weights, topk_ids, row_idx, output_residual
 
 

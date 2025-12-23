@@ -70,7 +70,7 @@ def glm_router_expert_cumsum(group_list_input):
         pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
         pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
         moe_group_list_cumsum(*pto_inputs, *pto_outputs)
-        pypto.runtime._device_synchronize()
+        torch_npu.npu.synchronize()
     return group_list_cumsum
 
 
@@ -97,7 +97,7 @@ def test_group_list_cumsum():
         pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
         pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
         moe_group_list_cumsum(*pto_inputs, *pto_outputs)
-        pypto.runtime._device_synchronize()
+        torch_npu.npu.synchronize()
 
         # golden
         token_acc_table_tensor = get_token_acc_table(group_list)

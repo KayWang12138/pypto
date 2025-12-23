@@ -661,7 +661,7 @@ def mla_prolog_quant_v32(params, input_tensors, golden_data, dtype, w_dtype, is_
         rope_tile_shape = RopeTileShapeConfig(two_dim=[128, 128],
             three_dim=[128, 128, 128], four_dim=[16, 128, 128, 128])
         mla_prolog_quant_d(*input_data, *output_data, 1e-5, 1e-5, cache_mode, tile_config, rope_tile_shape)
-    pypto.runtime._device_synchronize()
+    torch_npu.npu.synchronize()
 
     ########### compare #######
     print("qNope =======")

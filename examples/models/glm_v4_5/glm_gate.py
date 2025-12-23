@@ -12,6 +12,7 @@
 """
 import os
 import torch
+import torch_npu
 import pypto
 import numpy as np
 from numpy.testing import assert_allclose
@@ -118,7 +119,7 @@ def test_select_experts_mm():
         with torch.npu.graph(g):
             select_experts_mm_kernel(*pto_inputs, *pto_outputs)
         g.replay()
-        pypto.runtime._device_synchronize()
+        torch_npu.npu.synchronize()
 
         # 5. 与PyTorch参考实现对比
         result = torch.matmul(hidden_states, mm_weight.t())
@@ -149,7 +150,7 @@ def gate(
     pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
     pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
     select_experts_mm_kernel(*pto_inputs, *pto_outputs)
-    pypto.runtime._device_synchronize()
+    torch_npu.npu.synchronize()
 
 
 def main():

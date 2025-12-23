@@ -481,7 +481,7 @@ def test_quant_attention_pre():
         pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
 
         quant_attention_pre_kernel(*pto_inputs, *pto_outputs)
-        pypto.runtime._device_synchronize()
+        torch_npu.npu.synchronize()
 
         # 5. 与PyTorch参考实现对比
         # add rms norm
@@ -596,7 +596,7 @@ def attention_pre_quant(
     pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
     pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
     quant_attention_pre_kernel(*pto_inputs, *pto_outputs)
-    pypto.runtime._device_synchronize()
+    torch_npu.npu.synchronize()
 
 
 def main():

@@ -184,7 +184,7 @@ def ffn_dense_quant(hidden_states: torch.Tensor,
         pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
         pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
         dense_moe_main(*pto_inputs, *pto_outputs)
-        pypto.runtime._device_synchronize()
+        torch_npu.npu.synchronize()
     return ffn_res
 
 
@@ -217,7 +217,7 @@ def test_glm_mlp():
         pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
         pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
         dense_moe_main(*pto_inputs, *pto_outputs)
-        pypto.runtime._device_synchronize()
+        torch_npu.npu.synchronize()
 
         # golden
         golden = moe_torch_npu(hidden_states, w13, w13_scale, w2)

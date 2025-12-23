@@ -13,6 +13,7 @@
 
 import os
 import torch
+import torch_npu
 import pypto
 
 shape = [4, 4]
@@ -108,7 +109,7 @@ def test_scope():
     pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
     pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
     cust_dyn_func_add(*pto_inputs, *pto_outputs, tiling)
-    pypto.runtime._device_synchronize()
+    torch_npu.npu.synchronize()
     golden = torch.ones((n, m)) * 2
     assert torch.allclose(golden.int(), c_data.cpu(), atol=1e-5)
 
