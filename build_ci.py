@@ -248,10 +248,7 @@ class BuildParam(CMakeParam):
 
     @staticmethod
     def _get_generator(generator: Optional[str]) -> Optional[str]:
-        if generator:
-            return generator if " " not in generator else generator.replace(" ", r"\ ")
-        else:
-            return None
+        return f"\"{generator}\"" if generator else generator
 
     def get_cfg_cmd(self, ext: Optional[Any] = None) -> str:
         inc_build_type: bool = bool(ext) if ext is not None else True
@@ -1139,7 +1136,7 @@ class BuildCtrl(CMakeParam):
             # 就是 build 包实现的, 所以将其写在 pyproject.toml 中并无法提前检查
             self.check_pip_dependencies(deps={"build": ">=1.0.3"}, raise_err=True, log_err=True)
             cmd: str = f"{sys.executable} -m build --outdir={self.install_root}"
-            cmd += f" --no-isolation" if not self.feature.whl_editable else ""
+            cmd += f" --no-isolation" if not self.feature.whl_isolation else ""
             cmd += f" {self._get_setuptools_bdist_wheel_config_setting()}"
             ts = datetime.now(tz=timezone.utc)
             logging.info("Begin Build whl, Cmd: %s", cmd)

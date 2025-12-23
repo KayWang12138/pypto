@@ -239,7 +239,10 @@ class CMakeUserOption:
 
     def finalize_options_cmake(self):
         # 赋传参值
-        self.cmake_generator = None if not self.cmake_generator else self.cmake_generator.replace(" ", r"\ ")
+        self.cmake_generator = None if not self.cmake_generator else self.cmake_generator
+        if self.cmake_generator:
+            self.cmake_generator = self.cmake_generator.replace(r'"', "")
+            self.cmake_generator = f"\"{self.cmake_generator}\""
         self.cmake_build_type = None if not self.cmake_build_type else self.cmake_build_type
         self.cmake_options = self.cmake_options.replace("'", "").replace('"', "") if self.cmake_options else None
         self.cmake_verbose = True if self.cmake_verbose else False

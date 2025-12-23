@@ -43,7 +43,7 @@ python3 -m pip install . --verbose --user
 ```
 
 **参数说明**:
-- `--verbose`: 输出安装流程的基础详细信息（如下载的包版本、安装路径、依赖解析结果等）.
+- `--verbose`: 输出安装流程的基础详细信息(如下载的包版本、安装路径、依赖解析结果等).
 
 **高级配置**: 
 
@@ -61,8 +61,18 @@ python3 -m pip install . --verbose --user
 2. 开启 C++ 编译其详细输出模式
 
    ```bash
-   # 额外开启 C++ 编译器详细输出模式（便于定位 C++ 编译问题）
+   # 额外开启 C++ 编译器详细输出模式(便于定位 C++ 编译问题)
    python3 -m pip install . --verbose --user --config-setting=--build-option='build_ext --cmake-build-type=Debug --cmake-verbose'
+   ```
+
+3. 指定 CMake Generator 类型
+
+   ```bash
+   # 指定 CMake Generator 类型(Ninja)
+   python3 -m pip install . --verbose --user --config-setting=--build-option='build_ext --cmake-generator=Ninja'
+   
+   # 指定 CMake Generator 类型(Unix Makefiles)
+   python3 -m pip install . --verbose --user --config-setting=--build-option='build_ext --cmake-generator="Unix Makefiles"'
    ```
 
 ### 可编辑安装
@@ -82,7 +92,7 @@ python3 -m pip install -e . --verbose --user
 
 **参数说明**:
 - `-e`: 即 `--editable` 的简写形式, 标识采用可编辑安装模式；
-- `--verbose`: 会输出安装流程的基础详细信息（如下载的包版本, 安装路径, 依赖解析结果等）；
+- `--verbose`: 会输出安装流程的基础详细信息(如下载的包版本, 安装路径, 依赖解析结果等)；
 
 **高级配置**: 
 
@@ -92,13 +102,16 @@ PyPTO 使用 `setuptools` 作为其编译打包工具. 需要注意的是, 当�
 示例: 以下示例演示了如何配置环境变量以编译 Debug 版本的 C++ 二进制文件并开启编译器的详细输出模式, 然后进行安装. 
 
 ```bash
-# 设置编译参数: 指定编译类型为 Debug, 并开启编译器详细输出（便于诊断问题）
+# 设置编译参数: 指定编译类型为 Debug, 并开启编译器详细输出(便于诊断问题)
 export PYPTO_BUILD_EXT_ARGS='--cmake-build-type=Debug --cmake-verbose'
 
-# 执行编译及安装（root 用户）
+# 其他配置方式参考: 指定编译类型为 Debug, 并开启编译器详细输出(便于诊断问题), 指定 CMake Generator 为 Unix Makefiles
+# export PYPTO_BUILD_EXT_ARGS='--cmake-build-type=Debug --cmake-verbose --cmake-generator="Unix Makefiles"'
+
+# 执行编译及安装(root 用户)
 python3 -m pip install -e . --verbose
 
-# 执行编译及安装（非 root 用户）
+# 执行编译及安装(非 root 用户)
 python3 -m pip install -e . --verbose --user
 ```
 
