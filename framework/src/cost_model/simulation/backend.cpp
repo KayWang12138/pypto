@@ -138,7 +138,7 @@ Json CostModelAgent::ParseDynTopo(std::string &path)
                 uint64_t num = std::stoull(item);
                 fields.push_back(num);
             } catch (const std::invalid_argument& e) {
-                std::cerr << "Invalid argument: " << e.what() << std::endl;
+                // ignore
             } catch (const std::out_of_range& e) {
                 std::cerr << "Out of range: " << e.what() << std::endl;
             }

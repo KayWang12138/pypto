@@ -240,6 +240,9 @@ function(PTO_Fwk_GTest_AddExe)
             COMMAND ${CMAKE_COMMAND} -E remove_directory ${InstallScriptsDir}
             COMMAND ${CMAKE_COMMAND} -E make_directory ${InstallScriptsDir}
             COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/tools/draw_swim_lane.py" "${InstallScriptsDir}/"
+            COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/framework/src/cost_model/simulation/scripts/draw_pipe_swim_lane.py" "${InstallScriptsDir}/"
+            COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/framework/src/cost_model/simulation/scripts/draw_comm_swim_lane_png.py" "${InstallScriptsDir}/"
+            COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/framework/src/cost_model/simulation/scripts/print_swim_lane.py" "${InstallScriptsDir}/"
             COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/tools/function_json_convert.py" "${InstallScriptsDir}/"
             COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/tools/parse_pipe_time_trace.py" "${InstallScriptsDir}/"
             COMMENT "Soft link of scripts has been created at ${InstallScriptsDir}"

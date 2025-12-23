@@ -22,6 +22,7 @@
 #include "cost_model/simulation/tools/visualizer.h"
 #include "cost_model/simulation/arch/PipeFactory.h"
 #include "cost_model/simulation/pv/PvModelFactory.h"
+#include "interface/utils/file_utils.h"
 
 namespace CostModel {
 
@@ -607,7 +608,7 @@ void SimSys::OutputLogForPipeSwimLane(std::string prefix)
     osPipeSwim.close();
 
     MLOG_WARN("Pipe SwimLane Graph Generated (PNG & HTML):", pipeDetailPath);
-    std::string drawScriptPath("./tools/draw_pipe_swim_lane.py");
+    std::string drawScriptPath =  GetCurrentSharedLibPath() + "/scripts/draw_pipe_swim_lane.py";
     std::string cmd = "python3 " + drawScriptPath + " " + pipeDetailPath;
     int ret = system(cmd.c_str());
     if (ret != 0) {
@@ -638,14 +639,14 @@ void SimSys::OutputLogForSwimLane(std::string prefix)
         return;
     }
     MLOG_WARN("SwimLane Graph Generated (PNG):", outSwimPath);
-    std::string drawScriptPath("./tools/print_swim_lane.py");
+    std::string drawScriptPath =  GetCurrentSharedLibPath() + "/scripts/print_swim_lane.py";
     std::string cmd = "python3 " + drawScriptPath + " " + outSwimPath + " -t";
     int result1 = system(cmd.c_str());
     if (result1 != 0) {
         MLOG_ERROR("cmd error: ", cmd.c_str());
     }
 
-    std::string mergeScriptPath("./tools/draw_swim_lane.py");
+    std::string mergeScriptPath =  GetCurrentSharedLibPath() + "/scripts/draw_swim_lane.py";
     auto devicePtr = std::dynamic_pointer_cast<DeviceMachine>(machineGroup[int(MachineType::DEVICE)][0]);
     MLOG_WARN("devicePtr->config.submitTopo: ", devicePtr->config.submitTopo);
     std::string topo_txt_path = outdir + "/../" + "dyn_topo.txt";
@@ -676,7 +677,7 @@ void SimSys::OutputLogForCommSwimLane(std::string prefix)
     MLOG_WARN("Log For Draw SwimLane Graph Path (PNG):", outPath);
 
     // Get Draw PND Python Scripts Path
-    std::string drawScriptPath("./tools/draw_comm_swim_lane_png.py");
+    std::string drawScriptPath =  GetCurrentSharedLibPath() + "/scripts/draw_comm_swim_lane_png.py";
     MLOG_WARN("SwimLane Graph Generated (PNG):", outPath);
     std::string cmd = "python3 " + drawScriptPath + " " + outPath;
     int result = system(cmd.c_str());

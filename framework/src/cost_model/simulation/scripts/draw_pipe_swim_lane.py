@@ -10,22 +10,23 @@
 # -----------------------------------------------------------------------------------------------------------
 """
 """
+import argparse
+import json
+import os
+import sys
+
 import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
+import numpy as np
+import pandas as pd
 import plotly.graph_objs as go
 import plotly.offline as pyo
 import plotly.express as px
-import numpy as np
-import pandas as pd
-import json
-import argparse
-import sys
-import os
 
 
 class PipeEntryInfo:
-    def __init__(self, id):
-        self.task_id = id
+    def __init__(self, task_id):
+        self.task_id = task_id
         self.core_idx = 0
         self.core_type = ""
         self.subgraph_id = -1
@@ -45,8 +46,8 @@ class PipeEntryInfo:
 
 
 class CoreInfo:
-    def __init__(self, id, c_type):
-        self.core_idx = id
+    def __init__(self, core_id, c_type):
+        self.core_idx = core_id
         self.core_type = c_type
         self.tasks = []
         self.has_overlap = False
@@ -63,8 +64,20 @@ total_cores = {} # key: core_idx, value: [CoreInfo]
 pipe_event_alloc = 0
 max_end_time = 0
 work_data = []
-pipe_name_map = {4 : 'MTE_IN', 3 : 'MTE1', 2 : 'VECTOR_ALU', 1 : 'CUBE', 0 : 'MTE_OUT'}
-pipe_name_revers_map = {'MTE_IN' : 4, 'MTE1' : 3, 'VECTOR_ALU' : 2, 'CUBE' : 1, 'MTE_OUT' : 0}
+pipe_name_map = {
+    4: 'MTE_IN',
+    3: 'MTE1',
+    2: 'VECTOR_ALU',
+    1: 'CUBE',
+    0: 'MTE_OUT'
+}
+pipe_name_revers_map = {
+    'MTE_IN': 4,
+    'MTE1': 3,
+    'VECTOR_ALU': 2,
+    'CUBE': 1,
+    'MTE_OUT': 0
+}
 colors = ['#83639F', '#FAC03D', '#449945', '#1F70A9', '#C22F2F']
 
 
@@ -98,10 +111,10 @@ def build_swim_info(swim_data):
             if pipe_name not in total_pipe_events.keys():
                 total_pipe_events[pipe_name] = []
             for event in logs:
-                id = pipe_event_alloc
+                event_id = pipe_event_alloc
                 pipe_event_alloc += 1
 
-                entry = PipeEntryInfo(id)
+                entry = PipeEntryInfo(event_id)
                 entry.core_idx = core_idx
                 entry.exec_start = event.get('execStart', 0)
                 entry.exec_end = event.get('execEnd', 0)
@@ -186,14 +199,14 @@ def draw_pipe_swim_lane_png(path):
                     
     # 设置坐标系    
     ax.set_xlim(0, total_time)
-    ax.set_ylim(0, num_cores*stages_per_core)
+    ax.set_ylim(0, num_cores * stages_per_core)
 
     # 添加横向分割线（每5个泳道）
     for split_line in range(stages_per_core, num_cores * stages_per_core + 1, stages_per_core):
         ax.axhline(y=split_line, color='black', linestyle='-', linewidth=0.8)
 
     # 设置Y轴标签
-    core_centers = [(core_id * stages_per_core) + stages_per_core/2 
+    core_centers = [(core_id * stages_per_core) + stages_per_core / 2 
                     for core_id in range(num_cores)]
     ax.set_yticks(core_centers)
     ax.set_yticklabels([f'{total_cores[i].core_type}_{i}' for i in sorted(total_cores.keys())])
@@ -253,8 +266,8 @@ def draw_pipe_swim_lane_html(path):
                 if work_data[core_idx, stage, t]:  # 如果该时刻工作
                     l = base_stage + stage
                     fig.add_trace(go.Scatter(
-                        x=[t, t+1, t+1, t, t],
-                        y=[l, l, l+0.9, l+0.9, l],
+                        x=[t, t + 1, t + 1, t, t],
+                        y=[l, l, l + 0.9, l + 0.9, l],
                         fill='toself',
                         fillcolor=current_color,
                         mode='lines',
@@ -282,7 +295,7 @@ def draw_pipe_swim_lane_html(path):
 
     # 添加图例
     legend_items = []
-    for index in range(len(colors)-1, -1, -1):
+    for index in range(len(colors) - 1, -1, -1):
         legend_items.append(go.Scatter(
             x=[0], y=[0],
             mode='markers',

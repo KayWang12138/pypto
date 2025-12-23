@@ -12,10 +12,11 @@
 """
 import argparse
 import json
-import numpy as np
-import matplotlib.pyplot as plt
-import sys
 import os
+import sys
+
+import matplotlib.pyplot as plt
+import numpy as np
 
 args = None
 
@@ -57,8 +58,7 @@ def plot_workflow(ndata, task_ids, labels, core_type):
                 height=0.8, label=labels[i], color=color)
         if 'compute' in labels[i]:
             for j, left in enumerate(start_time):
-                ax.text(left + ndata[j, i]/2, j, task_ids[j]
-                [i], va='center', ha='center')
+                ax.text(left + ndata[j, i] / 2, j, task_ids[j][i], va='center', ha='center')
         start_time += ndata[:, i]
 
     ax.set_xlabel('Cycles' if args.cycles else 'Time (us)')
@@ -103,12 +103,12 @@ def prepare_workflow_data(infile):
             if j == 0:
                 ndata[i][j * 2 + 2] = task["execStart"]
             else:
-                ndata[i][j * 2 + 2] = task["execStart"] - data["tasks"][j-1]["execEnd"]
-            ndata[i][j*2+3] = task["execEnd"] - task["execStart"]
+                ndata[i][j * 2 + 2] = task["execStart"] - data["tasks"][j - 1]["execEnd"]
+            ndata[i][j * 2 + 3] = task["execEnd"] - task["execStart"]
             if args.task_id:
-                task_ids[i][j*2+3] = task["taskId"]
+                task_ids[i][j * 2 + 3] = task["taskId"]
             else:
-                task_ids[i][j*2+3] = task["subGraphId"]
+                task_ids[i][j * 2 + 3] = task["subGraphId"]
 
     if not args.cycles:
         ndata /= args.frequency * 1000

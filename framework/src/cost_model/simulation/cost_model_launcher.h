@@ -187,11 +187,11 @@ private:
         DeviceLauncherConfigFillDeviceInfo(config_);
         DeviceInitTilingData(MemoryHelper(true), kArgs, function_->GetDyndevAttribute()->devProgBinary, config_, nullptr);
         InitKernelInOuts(kArgs, inputs, outputs, true);
-        std::cout << "!!! Run CostModel " << "\n";
+        std::cout << "Run CostModel " << "\n";
         RunCostModel(&kArgs);
-        std::cout << "!!! Run TestModel " << "\n";
+        std::cout << "Run TestModel " << "\n";
         RunTestMode(&kArgs);
-        std::cout << "!!! Run DynCostModel " << "\n";
+        std::cout << "Run DynCostModel " << "\n";
         RunDynCostModel();
     }
 
