@@ -77,6 +77,7 @@ python3 -m pip install . --verbose
 # (可选) 设置 PYPTO_THIRD_PARTY_PATH, 若开发环境无法访问 cann-src-third-party
 export PYPTO_THIRD_PARTY_PATH=<path-to-thirdparty>
 
+# 执行编译及安装(可编辑模式)
 python3 -m pip install -e . --verbose
 ```
 
@@ -98,7 +99,7 @@ export PYPTO_BUILD_EXT_ARGS='--cmake-build-type=Debug --cmake-verbose'
 # 其他配置方式参考: 指定编译类型为 Debug, 并开启编译器详细输出(便于诊断问题), 指定 CMake Generator 为 Unix Makefiles
 # export PYPTO_BUILD_EXT_ARGS='--cmake-build-type=Debug --cmake-verbose --cmake-generator="Unix Makefiles"'
 
-# 执行编译及安装
+# 执行编译及安装(可编辑模式)
 python3 -m pip install -e . --verbose
 ```
 

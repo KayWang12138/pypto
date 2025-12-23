@@ -18,7 +18,7 @@ build-backend = "setuptools.build_meta"
 name = "pypto"
 version = "0.1.0"
 authors = [
-    { name = "PyPTO Team", email = "pypto@cann.osinfra.cn" }
+    { name = "PyPTO Team", email = "pto@cann.osinfra.cn" }
 ]
 description = "A high-performance programming framework for tile-centric computing"
 readme = { file = "README.md", content-type = "text/markdown" }
