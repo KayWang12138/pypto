@@ -38,5 +38,17 @@ def _pto_to_tensor_data(tensors: List[pypto.Tensor]) -> List[pypto_impl.DeviceTe
 
 
 def _cost_model_run_once_data_from_host(inputs: List[torch.Tensor], outputs: List[torch.Tensor]):
-    pypto_impl.CostModelRunOnceDataFromHost(
-        _pto_to_tensor_data(inputs), _pto_to_tensor_data(outputs))
+    isDevice = False
+    for t in inputs:
+        if t.device != torch.device("cpu"):
+            isDevice = True
+            break
+
+    input_datas = _pto_to_tensor_data(inputs)
+    output_datas = _pto_to_tensor_data(outputs)
+
+    if isDevice:
+        input_datas = [pypto_impl.CopyToHost(t) for t in input_datas]
+        output_datas = [pypto_impl.CopyToHost(t) for t in output_datas]
+
+    pypto_impl.CostModelRunOnceDataFromHost(input_datas, output_datas)
