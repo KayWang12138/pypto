@@ -95,7 +95,7 @@ def matmul(
     pypto.matmul(a, b, pypto.DT_DT_FP32)
 
     # matrix multiplication with bias
-    a = pypto.tensor((16, 32), ptoDT_FP16, "tensor_a")
+    a = pypto.tensor((16, 32), pypto.DT_FP16, "tensor_a")
     b = pypto.tensor((32, 64), pypto.DT_FP16, "tensor_b")
     bias = pypto.tensor((1, 64), pypto.DT_FP16, "tensor_bias")
     extend_params = {'bias_tensor': bias}
