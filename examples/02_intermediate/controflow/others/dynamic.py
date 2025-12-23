@@ -89,7 +89,7 @@ def scaled_dot_product_attention_core(q: pypto.Tensor, k: pypto.Tensor, v: pypto
 @pypto.jit(
     host_options={"only_codegen": True},
 )
-def scaled_dot_product_attention_kernel(q: torch.Tensor, k: torch.Tensor, 
+def scaled_dot_product_attention_kernel_npu(q: torch.Tensor, k: torch.Tensor, 
                                  v: torch.Tensor, y: torch.Tensor, params: torch.Size, 
                                  config: AttentionConfig):
     """Scaled dot-product attention with dynamic batch and sequence lengths."""       
@@ -108,11 +108,39 @@ def scaled_dot_product_attention_kernel(q: torch.Tensor, k: torch.Tensor,
         pypto.set_vec_tile_shapes(1, 8, 16, 64) 
         res = scaled_dot_product_attention_core(q_view, k_view, v_view, scale, config.dtype)
         y[bs_idx * view_shape[0]:, ...] = res
+
+
+@pypto.jit(
+    host_options={"only_codegen": True},
+    codegen_options={"support_dynamic_unaligned": True},
+    runtime_options={"run_mode": 1}
+)
+def scaled_dot_product_attention_kernel_sim(q: torch.Tensor, k: torch.Tensor, 
+                                 v: torch.Tensor, y: torch.Tensor, params: torch.Size, 
+                                 config: AttentionConfig):
+    """Scaled dot-product attention with dynamic batch and sequence lengths."""    
+    batch_size, num_heads, seq_len, head_dim = params
+
+    # Calculate scale
+    scale = config.scale if config.scale is not None else (1.0 / (config.head_dim ** 0.5))
+    cube_tiling = 64
+    pypto.set_cube_tile_shapes([cube_tiling, cube_tiling], [cube_tiling, cube_tiling], [cube_tiling, cube_tiling])
+    view_shape = (batch_size, num_heads, seq_len, head_dim)
+    bs_loop = (batch_size + view_shape[0] - 1) // view_shape[0]
+    for bs_idx in pypto.loop(bs_loop):
+        q_view = q[bs_idx * view_shape[0]:(bs_idx+1) * view_shape[0], ...]
+        k_view = k[bs_idx * view_shape[0]:(bs_idx+1) * view_shape[0], ...]
+        v_view = v[bs_idx * view_shape[0]:(bs_idx+1) * view_shape[0], ...]
+        pypto.set_vec_tile_shapes(1, 8, 16, 64) 
+        res = scaled_dot_product_attention_core(q_view, k_view, v_view, scale, config.dtype)
+        y[bs_idx * view_shape[0]:, ...] = res
+    print("finish kernel")
             
             
 def scaled_dot_product_attention(q: torch.Tensor, k: torch.Tensor, 
                                  v: torch.Tensor, params: torch.Size, 
-                                 config: AttentionConfig, dynamic: bool = True) -> torch.Tensor:
+                                 config: AttentionConfig, run_mode: str = "npu",
+                                 dynamic: bool = True) -> torch.Tensor:
     y = torch.empty_like(q)
 
     if dynamic:
@@ -127,18 +155,28 @@ def scaled_dot_product_attention(q: torch.Tensor, k: torch.Tensor,
         y_pto = pypto.from_torch(y)
 
     # launch the kernel
-    scaled_dot_product_attention_kernel(q_pto, k_pto, v_pto, y_pto, params, config)
-
+    if run_mode == "npu":
+        scaled_dot_product_attention_kernel_npu(q_pto, k_pto, v_pto, y_pto, params, config)
+    else:
+        scaled_dot_product_attention_kernel_sim(q_pto, k_pto, v_pto, y_pto, params, config)
     return y
 
 
-def test_dynamic_shape(device_id = None, dynamic: bool = True) -> None:
+def test_dynamic_shape(device_id = None, run_mode: str = "npu", dynamic: bool = True) -> None:
     """Test attention function with dynamic shapes."""
     print("=" * 60)
     print("Test: Dynamic Scaled Dot-Product Attention")
     print("=" * 60)
     
-    device_id = torch.npu.current_device()
+    if not device_id:
+        device_id = torch.npu.current_device()
+    else:
+        torch.npu.set_device(device_id)
+    if run_mode == "npu":
+        import torch_npu
+        device = f'npu:{device_id}'
+    else:
+        device = 'cpu'
     
     num_heads, head_dim = 8, 64
     
@@ -160,17 +198,19 @@ def test_dynamic_shape(device_id = None, dynamic: bool = True) -> None:
                                 dtype=pypto.DT_FP32, use_dynamic_shape=True)
         params = q_torch.shape
         # Execute
-        out_torch = scaled_dot_product_attention(q_torch, k_torch, v_torch, params, config, dynamic).cpu()
+        out_torch = scaled_dot_product_attention(q_torch, k_torch, v_torch, params, config, run_mode, dynamic).cpu()
+        torch.npu.synchronize()
         
         # Verify
         scale = 1.0 / (head_dim ** 0.5)
         golden = scaled_dot_product_attention_golden(q_torch, k_torch, v_torch, scale).cpu()
         
         max_diff = (out_torch - golden).abs().max().item()
-        print(f"Batch={batch_size}, SeqQ={seq_len_q}, SeqKV={seq_len_kv}, Max diff: {max_diff:.6f}")
+        if run_mode == "npu":
+            print(f"Batch={batch_size}, SeqQ={seq_len_q}, SeqKV={seq_len_kv}, Max diff: {max_diff:.6f}")
+            assert_allclose(np.array(out_torch), np.array(golden), rtol=3e-3, atol=3e-3)
         print(f"Input shape: {q_torch.shape}")
         print(f"Output shape: {out_torch.shape}")
-        assert_allclose(np.array(out_torch), np.array(golden), rtol=3e-3, atol=3e-3)
         
     print("✓ Attention (dynamic) passed for the test case")
     print()
@@ -206,6 +246,14 @@ Examples:
         action='store_true',
         help='List all available examples and exit'
     )
+    parser.add_argument(
+        '--run_mode',
+        type=str,
+        nargs='?',
+        default="npu",
+        choices=["npu", "sim"],
+        help='Run mode, such as npu/sim etc.'
+    )
     
     args = parser.parse_args()
     
@@ -215,7 +263,6 @@ Examples:
             'name': 'Test dynamic function',
             'description': 'Usage of dynamic function example',
             'function': test_dynamic_shape,
-            'requires_npu': True
         }
     }
     
@@ -225,9 +272,9 @@ Examples:
         print("Available Examples")
         print("=" * 60 + "\n")
         for ex_id, ex_info in sorted(examples.items()):
-            npu_req = " (Requires NPU)" if ex_info['requires_npu'] else " (No NPU required)"
-            print(f"  {ex_id}. {ex_info['name']}{npu_req}")
-            print(f"     {ex_info['description']}\n")
+            print(f"  ID: {ex_id}")
+            print(f"     name: {ex_info['name']}")
+            print(f"     description: {ex_info['description']}\n")
         return
     
     # Validate example ID if provided
@@ -253,24 +300,18 @@ Examples:
         # Run all examples
         examples_to_run = list(examples.items())
     
-    # Check if any example requires NPU
-    requires_npu = any(ex_info['requires_npu'] for _, ex_info in examples_to_run)
-    
-    if requires_npu:
+    if args.run_mode == "npu":
         device_id = get_device_id()
         if device_id is None:
             return
-        # Set the device once for all examples
         torch.npu.set_device(device_id)
+        print("Running examples that require NPU hardware...")
+        print("(Make sure CANN environment is configured and NPU is available)\n")
     
     try:
         for ex_id, ex_info in examples_to_run:
-            if ex_info['requires_npu'] and device_id is None:
-                print(f"Skipping example {ex_id} ({ex_info['name']}): NPU device not configured")
-                continue
-            
             print(f"Running Example {ex_id}: {ex_info['name']}")
-            ex_info['function']()
+            ex_info['function'](device_id, args.run_mode)
         
         if len(examples_to_run) > 1:
             print("=" * 60)

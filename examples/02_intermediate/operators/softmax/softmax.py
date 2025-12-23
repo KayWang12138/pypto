@@ -71,7 +71,7 @@ def softmax_core(x: pypto.Tensor) -> pypto.Tensor:
 
 
 @pypto.jit
-def softmax_kernel(x: pypto.Tensor, y: pypto.Tensor) -> None:
+def softmax_kernel_npu(x: pypto.Tensor, y: pypto.Tensor) -> None:
     # after the dynamic axis of tensor is marked, get the tensor shape accordingly
     tensor_shape = x.shape
     b = tensor_shape[0] # dynamic: symbolic_scalar; static: immediate number
@@ -90,7 +90,27 @@ def softmax_kernel(x: pypto.Tensor, y: pypto.Tensor) -> None:
         y[b_offset:, ...] = softmax_out
 
 
-def softmax(x: torch.Tensor, dynamic: bool = True) -> torch.Tensor:
+@pypto.jit(runtime_options={"run_mode": 1})
+def softmax_kernel_sim(x: pypto.Tensor, y: pypto.Tensor) -> None:
+    # after the dynamic axis of tensor is marked, get the tensor shape accordingly
+    tensor_shape = x.shape
+    b = tensor_shape[0] # dynamic: symbolic_scalar; static: immediate number
+    n1, n2, dim = tensor_shape[1:]
+    tile_b = 1
+    b_loop = b / tile_b
+
+    # tiling shape setting
+    pypto.set_vec_tile_shapes(1, 4, 1, 64)
+
+    for idx in pypto.loop(b_loop):
+        b_offset = idx * tile_b
+        b_offset_end = (idx + 1) * tile_b
+        x_view = x[b_offset:b_offset_end, :n1, :n2, :dim]
+        softmax_out = softmax_core(x_view)
+        y[b_offset:, ...] = softmax_out
+
+
+def softmax(x: torch.Tensor, run_mode: str = "npu", dynamic: bool = True) -> torch.Tensor:
     y = torch.empty_like(x)
 
     if dynamic:
@@ -101,26 +121,37 @@ def softmax(x: torch.Tensor, dynamic: bool = True) -> torch.Tensor:
         y_pto = pypto.from_torch(y)
 
     # launch the kernel
-    softmax_kernel(x_pto, y_pto)
-
+    if run_mode == "npu":
+        softmax_kernel_npu(x_pto, y_pto)
+    else:
+        softmax_kernel_sim(x_pto, y_pto)
     return y
 
 
-def test_softmax(device_id = None, dynamic: bool = True) -> None:
+def test_softmax(device_id = None, run_mode: str = "npu", dynamic: bool = True) -> None:
     if not device_id:
         device_id = torch.npu.current_device()
     else:
         torch.npu.set_device(device_id)
+    if run_mode == "npu":
+        import torch_npu
+        device = f'npu:{device_id}'
+    else:
+        device = 'cpu'
 
     shape = (32, 32, 1, 256)
-    x = torch.rand(shape, dtype=torch.float, device=f'npu:{device_id}')
+    x = torch.rand(shape, dtype=torch.float, device=device)
 
-    y = softmax(x, dynamic).cpu() # default dim: -1
+    y = softmax(x, run_mode, dynamic).cpu() # default dim: -1
     golden = torch.softmax(x, dim=-1).cpu()
 
+    max_diff = np.abs(y.numpy() - golden.numpy()).max()
     print(f"Input shape: {x.shape}")
     print(f"Output shape: {y.shape}")
-    assert_allclose(np.array(y), np.array(golden), rtol=3e-3, atol=3e-3)
+    print(f"Max difference: {max_diff:.6f}")
+
+    if run_mode == "npu":
+        assert_allclose(np.array(y), np.array(golden), rtol=3e-3, atol=3e-3)
     print("✓ Softmax test passed")
     print()
 
@@ -153,6 +184,14 @@ Examples:
         action='store_true',
         help='List all available examples and exit'
     )
+    parser.add_argument(
+        '--run_mode',
+        type=str,
+        nargs='?',
+        default="npu",
+        choices=["npu", "sim"],
+        help='Run mode, such as npu/sim etc.'
+    )
     
     args = parser.parse_args()
     
@@ -161,8 +200,7 @@ Examples:
         "softmax::test_softmax": {
             'name': 'Softmax',
             'description': 'Softmax implementation with dynamic batch size',
-            'function': test_softmax,
-            'requires_npu': True
+            'function': test_softmax
         }
     }
     
@@ -172,9 +210,9 @@ Examples:
         print("Available Examples")
         print("=" * 60 + "\n")
         for ex_id, ex_info in sorted(examples.items()):
-            npu_req = " (Requires NPU)" if ex_info['requires_npu'] else " (No NPU required)"
-            print(f"  {ex_id}. {ex_info['name']}{npu_req}")
-            print(f"     {ex_info['description']}\n")
+            print(f"  ID: {ex_id}")
+            print(f"     name: {ex_info['name']}")
+            print(f"     description: {ex_info['description']}\n")
         return
     
     # Validate example ID if provided
@@ -200,24 +238,18 @@ Examples:
         # Run all examples
         examples_to_run = list(examples.items())
     
-    # Check if any example requires NPU
-    requires_npu = any(ex_info['requires_npu'] for _, ex_info in examples_to_run)
-    
-    if requires_npu:
+    if args.run_mode == "npu":
         device_id = get_device_id()
         if device_id is None:
             return
-        # Set the device once for all examples
         torch.npu.set_device(device_id)
+        print("Running examples that require NPU hardware...")
+        print("(Make sure CANN environment is configured and NPU is available)\n")
     
     try:
         for ex_id, ex_info in examples_to_run:
-            if ex_info['requires_npu'] and device_id is None:
-                print(f"Skipping example {ex_id} ({ex_info['name']}): NPU device not configured")
-                continue
-            
             print(f"Running Example {ex_id}: {ex_info['name']}")
-            ex_info['function']()
+            ex_info['function'](device_id, args.run_mode)
         
         if len(examples_to_run) > 1:
             print("=" * 60)

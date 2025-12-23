@@ -47,7 +47,7 @@ def get_device_id():
 
 
 @pypto.jit
-def nested_loops_with_conditions_kernel(a: pypto.Tensor, b: pypto.Tensor, y: pypto.Tensor) -> None:
+def nested_loops_with_conditions_kernel_npu(a: pypto.Tensor, b: pypto.Tensor, y: pypto.Tensor) -> None:
     pypto.set_vec_tile_shapes(2, 8)
     for i in pypto.loop(2):
         for j in pypto.loop(2):
@@ -59,7 +59,20 @@ def nested_loops_with_conditions_kernel(a: pypto.Tensor, b: pypto.Tensor, y: pyp
                 y[i:i+1, j:j+1] = a_view - b_view
 
 
-def nested_loops_with_conditions(a: torch.Tensor, b: torch.Tensor, dynamic: bool = True) -> torch.Tensor:
+@pypto.jit(runtime_options={"run_mode": 1})
+def nested_loops_with_conditions_kernel_sim(a: pypto.Tensor, b: pypto.Tensor, y: pypto.Tensor) -> None:
+    pypto.set_vec_tile_shapes(2, 8)
+    for i in pypto.loop(2):
+        for j in pypto.loop(2):
+            a_view = a[i:i+1, j:j+1]
+            b_view = b[i:i+1, j:j+1]
+            if pypto.cond(i == 0):
+                y[i:i+1, j:j+1] = a_view + b_view
+            else:
+                y[i:i+1, j:j+1] = a_view - b_view
+
+
+def nested_loops_with_conditions(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu", dynamic: bool = True) -> torch.Tensor:
     y = torch.empty_like(a)
 
     if dynamic:
@@ -72,12 +85,15 @@ def nested_loops_with_conditions(a: torch.Tensor, b: torch.Tensor, dynamic: bool
         y_pto = pypto.from_torch(y)
 
     # launch the kernel
-    nested_loops_with_conditions_kernel(a_pto, b_pto, y_pto)
+    if run_mode == "npu":
+        nested_loops_with_conditions_kernel_npu(a_pto, b_pto, y_pto)
+    else:
+        nested_loops_with_conditions_kernel_sim(a_pto, b_pto, y_pto)
 
     return y
 
 
-def test_nested_loops_with_conditions(device_id = None, dynamic: bool = True) -> None:
+def test_nested_loops_with_conditions(device_id = None, run_mode: str = "npu", dynamic: bool = True) -> None:
     """Test nested loops with conditional statements"""
     print("=" * 60)
     print("Test: Nested Loops with Conditional Statements")
@@ -87,21 +103,26 @@ def test_nested_loops_with_conditions(device_id = None, dynamic: bool = True) ->
         device_id = torch.npu.current_device()
     else:
         torch.npu.set_device(device_id)
+    if run_mode == "npu":
+        import torch_npu
+        device = f'npu:{device_id}'
+    else:
+        device = 'cpu'
     
     shape = (2, 2)
     dtype = torch.float
-    a = torch.rand(shape, dtype=dtype, device=f'npu:{device_id}')
-    b = torch.rand(shape, dtype=dtype, device=f'npu:{device_id}')
-
-    y = nested_loops_with_conditions(a, b, dynamic).cpu()
-    golden = torch.zeros(shape, dtype=dtype, device=f'npu:{device_id}')
+    a = torch.rand(shape, dtype=dtype, device=device)
+    b = torch.rand(shape, dtype=dtype, device=device)
+    y = nested_loops_with_conditions(a, b, run_mode, dynamic).cpu()
+    golden = torch.zeros(shape, dtype=dtype, device=device)
     golden[0] = a[0] + b[0]
     golden[1] = a[1] - b[1]
     golden = golden.cpu()
 
-    assert_allclose(np.array(y), np.array(golden), rtol=1e-3, atol=1e-3)
-    print(f"Output: {y}")
-    print(f"Expected: {golden}")
+    if run_mode == "npu":
+        assert_allclose(np.array(y), np.array(golden), rtol=1e-3, atol=1e-3)
+        print(f"Output: {y}")
+        print(f"Expected: {golden}")
     print("✓ Nested loops with conditional statements completed successfully")
 
 
@@ -135,6 +156,14 @@ Examples:
         action='store_true',
         help='List all available examples and exit'
     )
+    parser.add_argument(
+        '--run_mode',
+        type=str,
+        nargs='?',
+        default="npu",
+        choices=["npu", "sim"],
+        help='Run mode, such as npu/sim etc.'
+    )
     
     args = parser.parse_args()
     
@@ -154,9 +183,9 @@ Examples:
         print("Available Examples")
         print("=" * 60 + "\n")
         for ex_id, ex_info in sorted(examples.items()):
-            npu_req = " (Requires NPU)" if ex_info['requires_npu'] else " (No NPU required)"
-            print(f"  {ex_id}. {ex_info['name']}{npu_req}")
-            print(f"     {ex_info['description']}\n")
+            print(f"  ID: {ex_id}")
+            print(f"     name: {ex_info['name']}")
+            print(f"     description: {ex_info['description']}\n")
         return
     
     # Validate example ID if provided
@@ -182,24 +211,18 @@ Examples:
         # Run all examples
         examples_to_run = list(examples.items())
     
-    # Check if any example requires NPU
-    requires_npu = any(ex_info['requires_npu'] for _, ex_info in examples_to_run)
-    
-    if requires_npu:
+    if args.run_mode == "npu":
         device_id = get_device_id()
         if device_id is None:
             return
-        # Set the device once for all examples
         torch.npu.set_device(device_id)
+        print("Running examples that require NPU hardware...")
+        print("(Make sure CANN environment is configured and NPU is available)\n")
     
     try:
         for ex_id, ex_info in examples_to_run:
-            if ex_info['requires_npu'] and device_id is None:
-                print(f"Skipping example {ex_id} ({ex_info['name']}): NPU device not configured")
-                continue
-            
             print(f"Running Example {ex_id}: {ex_info['name']}")
-            ex_info['function']()
+            ex_info['function'](device_id, args.run_mode)
         
         if len(examples_to_run) > 1:
             print("=" * 60)

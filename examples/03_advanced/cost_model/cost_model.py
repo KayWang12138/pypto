@@ -68,7 +68,7 @@ def softmax_core(input_tensor: pypto.tensor) -> pypto.tensor:
     host_options={"only_codegen": True},
     runtime_options={"cfgcache_device_task_num": 100, "cfgcache_root_task_num": 100, "cfgcache_leaf_task_num": 10000, "run_mode": 1}
 )
-def softmax(input_tensor, output_tensor,cost_model_enable):
+def softmax(input_tensor, output_tensor, cost_model_enable):
 
     # After the dynamic axis of tensor is marked, get the tensor shape accordingly
     tensor_shape = input_tensor.shape

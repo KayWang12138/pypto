@@ -64,39 +64,82 @@ class ModuleConfig:
     use_dynamic_shape: bool = False
 
 
-# Function 1: Layer Normalization
-@pypto.jit
-def layer_norm(x, gamma, beta, out, eps: float = 1e-6):
-    """Layer normalization function."""
-    hidden_size = x.shape[-1]
+# Reference implementations for verification
+def layer_norm_golden(x: torch.Tensor, gamma: torch.Tensor, beta: torch.Tensor, eps: float) -> torch.Tensor:
+    """PyTorch reference for layer norm."""
+    mean = x.mean(dim=-1, keepdim=True)
+    var = x.var(dim=-1, keepdim=True, unbiased=False)
+    normalized = (x - mean) / torch.sqrt(var + eps)
+    return normalized * gamma + beta
 
+
+def gelu_golden(x: torch.Tensor) -> torch.Tensor:
+    """PyTorch reference for GELU."""
+    return torch.nn.functional.gelu(x)
+
+
+# Function 1: Layer Normalization
+def layernorm_core(x: pypto.Tensor, gamma: pypto.Tensor, beta: pypto.Tensor, eps: float = 1e-6) -> pypto.Tensor:
+    # Compute mean
+    hidden_size = x.shape[-1]
+    mean = pypto.sum(x, dim=-1, keepdim=True)
+    mean = mean / hidden_size
+
+    centered = x - mean
+
+    squared = centered * centered
+    var = pypto.sum(squared, dim=-1, keepdim=True)
+    var = var / hidden_size
+
+    var_eps = var + eps
+    std = pypto.sqrt(var_eps)
+    normalized = centered / std
+
+    scaled = normalized * gamma
+    return scaled + beta
+
+
+@pypto.jit
+def layer_norm_kernel_npu(x: pypto.Tensor, gamma: pypto.Tensor, beta: pypto.Tensor, out: pypto.Tensor) -> None:
+    """Layer Normalization."""
     pypto.set_vec_tile_shapes(64, 128)
 
-    # Compute mean
-    mean = pypto.sum(x, dim=-1, keepdim=True)
-    mean = pypto.div(mean, float(hidden_size))
+    out[:] = layernorm_core(x, gamma, beta)
 
-    # Center
-    centered = pypto.sub(x, mean)
+@pypto.jit(runtime_options={"run_mode": 1})
+def layer_norm_kernel_sim(x: pypto.Tensor, gamma: pypto.Tensor, beta: pypto.Tensor, out: pypto.Tensor) -> None:
+    """Layer Normalization."""
+    pypto.set_vec_tile_shapes(64, 128)
 
-    # Compute variance
-    squared = pypto.mul(centered, centered)
-    var = pypto.sum(squared, dim=-1, keepdim=True)
-    var = pypto.div(var, float(hidden_size))
+    out[:] = layernorm_core(x, gamma, beta)
+        
 
-    # Normalize
-    var_eps = pypto.add(var, eps)
-    std = pypto.sqrt(var_eps)
-    normalized = pypto.div(centered, std)
+def layer_norm(x: torch.Tensor, gamma: torch.Tensor, beta: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
+    y = torch.empty_like(x)
 
-    # Scale and shift
-    scaled = pypto.mul(normalized, gamma)
-    out[:] = pypto.add(scaled, beta)
+    if dynamic:
+        x_pto = pypto.from_torch(x, dynamic_axis=[0])
+        gamma_pto = pypto.from_torch(gamma, dynamic_axis=[0])
+        beta_pto = pypto.from_torch(beta, dynamic_axis=[0])
+        y_pto = pypto.from_torch(y, dynamic_axis=[0])
+    else:
+        x_pto = pypto.from_torch(x)
+        gamma_pto = pypto.from_torch(gamma)
+        beta_pto = pypto.from_torch(beta)
+        y_pto = pypto.from_torch(y)
+
+    # launch the kernel
+    if run_mode == "npu":
+        layer_norm_kernel_npu(x_pto, gamma_pto, beta_pto, y_pto)
+    else:
+        layer_norm_kernel_sim(x_pto, gamma_pto, beta_pto, y_pto)
+
+    return y
 
 
 # Function 2: Linear Projection
 @pypto.jit
-def linear_projection(x, weight, out):
+def linear_projection_kernel_npu(x: pypto.Tensor, weight: pypto.Tensor, out: pypto.Tensor) -> None:
     """Linear projection: y = x @ W + b"""
     bias = None
 
@@ -108,47 +151,168 @@ def linear_projection(x, weight, out):
         out[:] = pypto.matmul(x, weight, out_dtype=x.dtype)
 
 
+@pypto.jit(runtime_options={"run_mode": 1})
+def linear_projection_kernel_sim(x: pypto.Tensor, weight: pypto.Tensor, out: pypto.Tensor) -> None:
+    """Linear projection: y = x @ W + b"""
+    bias = None
+
+    pypto.set_cube_tile_shapes([64, 64], [64, 64], [64, 64])
+    # Matrix multiplication
+    if bias is not None:
+        out[:] = pypto.add(pypto.matmul(x, weight, out_dtype=x.dtype), bias)
+    else:
+        out[:] = pypto.matmul(x, weight, out_dtype=x.dtype)
+
+
+def linear_projection(x: pypto.Tensor, weight: pypto.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
+    y = torch.empty_like(x)
+    if dynamic:
+        x_pto = pypto.from_torch(x, dynamic_axis=[0])
+        weight_pto = pypto.from_torch(weight, dynamic_axis=[0])
+        y_pto = pypto.from_torch(y, dynamic_axis=[0])
+    else:
+        x_pto = pypto.from_torch(x)
+        weight_pto = pypto.from_torch(weight)
+        y_pto = pypto.from_torch(y)
+
+    # launch the kernel
+    if run_mode == "npu":
+        linear_projection_kernel_npu(x_pto, weight_pto, y_pto)
+    else:
+        linear_projection_kernel_sim(x_pto, weight_pto, y_pto)
+
+    return y
+
+
 # Function 3: GELU Activation
 @pypto.jit
-def gelu_activation(x, out, simplify_express=False):
-    """GELU activation function."""
-    pypto.set_vec_tile_shapes(64, 128)
+def gelu_activation_kernel_npu(x: pypto.tensor, y: pypto.tensor) -> None:
+    """
+    GELU (Gaussian Error Linear Unit) activation function.
 
-    if simplify_express:
-        # GELU approximation: x * sigmoid(1.702 * x)
-        coeff = float(1.702)
-        x_scaled = pypto.mul(x, coeff)
-        out[:] = pypto.mul(x, pypto.sigmoid(x_scaled))
+    Uses approximation: x * sigmoid(1.702 * x)
+    This is a fast approximation of the full GELU formula.
+
+    Parameters
+    ----------
+    x : pypto.tensor
+        Input tensor
+
+    Returns
+    -------
+    pypto.tensor
+        GELU activated tensor
+    """
+    # Configure tiling
+    if len(x.shape) >= 2:
+        n_tile = 32
+        tile_shapes = [n_tile for _ in range(len(x.shape))]
+        pypto.set_vec_tile_shapes(*tile_shapes)
     else:
-        # GELU approximation: x * sigmoid(1.702 * x)
-        coeff = float(1.702)
-        x_scaled = pypto.mul(x, coeff)
+        pypto.set_vec_tile_shapes(32, 128)
 
-        dtype = x_scaled.dtype
-        x_scaled = pypto.cast(x_scaled, pypto.DT_FP32)
-        x_scaled_neg = pypto.mul(x_scaled, -1.0)
-        exp_neg = pypto.exp(x_scaled_neg)
-        one = 1.0
-        exp_neg_plus_one = pypto.add(exp_neg, one)
-        ones = pypto.full(exp_neg_plus_one.shape, 1.0, pypto.DT_FP32, valid_shape=exp_neg_plus_one.shape)
-        sigmoid = pypto.div(ones, exp_neg_plus_one)
-        if dtype != pypto.DT_FP32:
-            sigmoid = pypto.cast(sigmoid, dtype)
-        out[:] = pypto.mul(x, sigmoid)
+    # GELU approximation: x * sigmoid(1.702 * x)
+    coeff = float(1.702)
+    x_scaled = x * coeff
+
+    # GELU(x) = x * sigmoid(1.702 * x)
+    y[:] =  x * pypto.sigmoid(x_scaled)
+
+
+@pypto.jit(runtime_options={"run_mode": 1})
+def gelu_activation_kernel_sim(x: pypto.tensor, y: pypto.tensor) -> None:
+    """
+    GELU (Gaussian Error Linear Unit) activation function.
+
+    Uses approximation: x * sigmoid(1.702 * x)
+    This is a fast approximation of the full GELU formula.
+
+    Parameters
+    ----------
+    x : pypto.tensor
+        Input tensor
+
+    Returns
+    -------
+    pypto.tensor
+        GELU activated tensor
+    """
+    # Configure tiling
+    if len(x.shape) >= 2:
+        n_tile = 32
+        tile_shapes = [n_tile for _ in range(len(x.shape))]
+        pypto.set_vec_tile_shapes(*tile_shapes)
+    else:
+        pypto.set_vec_tile_shapes(32, 128)
+
+    # GELU approximation: x * sigmoid(1.702 * x)
+    coeff = float(1.702)
+    x_scaled = x * coeff
+
+    # GELU(x) = x * sigmoid(1.702 * x)
+    y[:] =  x * pypto.sigmoid(x_scaled)
+
+
+def gelu_activation(x: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
+    y = torch.empty_like(x)
+
+    if dynamic:
+        x_pto = pypto.from_torch(x, dynamic_axis=[0])
+        y_pto = pypto.from_torch(y, dynamic_axis=[0])
+    else:
+        x_pto = pypto.from_torch(x)
+        y_pto = pypto.from_torch(y)
+
+    # launch the kernel
+    if run_mode == "npu":
+        gelu_activation_kernel_npu(x_pto, y_pto)
+    else:
+        gelu_activation_kernel_sim(x_pto, y_pto)
+
+    return y
 
 
 # Function 4: Residual Connection
 @pypto.jit
-def residual_add(x, residual, out):
+def residual_add_kernel_npu(x: pypto.tensor, residual: pypto.tensor, out: pypto.tensor) -> None:
     """Add residual connection: out = x + residual"""
     pypto.set_vec_tile_shapes(64, 128)
 
     out[:] = pypto.add(x, residual)
 
 
+@pypto.jit(runtime_options={"run_mode": 1})
+def residual_add_kernel_sim(x: pypto.tensor, residual: pypto.tensor, out: pypto.tensor) -> None:
+    """Add residual connection: out = x + residual"""
+    pypto.set_vec_tile_shapes(64, 128)
+
+    out[:] = pypto.add(x, residual)
+
+
+def residual_add(x: pypto.Tensor, residual: pypto.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
+    y = torch.empty_like(x)
+
+    if dynamic:
+        x_pto = pypto.from_torch(x, dynamic_axis=[0])
+        residual_pto = pypto.from_torch(residual, dynamic_axis=[0])
+        y_pto = pypto.from_torch(y, dynamic_axis=[0])
+    else:
+        x_pto = pypto.from_torch(x)
+        residual_pto = pypto.from_torch(residual)
+        y_pto = pypto.from_torch(y)
+
+    # launch the kernel
+    if run_mode == "npu":
+        residual_add_kernel_npu(x_pto, residual_pto, y_pto)
+    else:
+        residual_add_kernel_sim(x_pto, residual_pto, y_pto)
+
+    return y
+
+
 # Function 5: Attention (simplified)
 @pypto.jit
-def attention(q, k, v, out, scale: float):
+def attention_kernel_npu(q: pypto.tensor, k: pypto.tensor, v: pypto.tensor, out: pypto.tensor, scale: float) -> None:
     """Simplified attention mechanism."""
     pypto.set_cube_tile_shapes([64, 64], [64, 64], [64, 64])
 
@@ -166,54 +330,80 @@ def attention(q, k, v, out, scale: float):
     out[:] = pypto.matmul(attn_weights, v, out_dtype=q.dtype)
 
 
-# Reference implementations for verification
-def layer_norm_golden(x: torch.Tensor, gamma: torch.Tensor, beta: torch.Tensor, eps: float) -> torch.Tensor:
-    """PyTorch reference for layer norm."""
-    mean = x.mean(dim=-1, keepdim=True)
-    var = x.var(dim=-1, keepdim=True, unbiased=False)
-    normalized = (x - mean) / torch.sqrt(var + eps)
-    return normalized * gamma + beta
+@pypto.jit(runtime_options={"run_mode": 1})
+def attention_kernel_sim(q: pypto.tensor, k: pypto.tensor, v: pypto.tensor, out: pypto.tensor, scale: float) -> None:
+    """Simplified attention mechanism."""
+    pypto.set_cube_tile_shapes([64, 64], [64, 64], [64, 64])
+
+    # Q @ K^T
+    k_t = pypto.transpose(k, [0, 1, 3, 2])
+    scores = pypto.matmul(q, k_t, out_dtype=q.dtype)
+
+    # Scale
+    scores_scaled = pypto.mul(scores, scale)
+
+    # Softmax
+    attn_weights = pypto.softmax(scores_scaled, dim=-1)
+
+    # Apply to values
+    out[:] = pypto.matmul(attn_weights, v, out_dtype=q.dtype)
 
 
-def gelu_golden(x: torch.Tensor) -> torch.Tensor:
-    """PyTorch reference for GELU."""
-    return torch.nn.functional.gelu(x)
+def attention(q: torch.Tensor, k: torch.Tensor, 
+                                 v: torch.Tensor, scale: float,
+                                 run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
+    y = torch.empty_like(q)
+
+    if dynamic:
+        q_pto = pypto.from_torch(q, dynamic_axis=[0])
+        k_pto = pypto.from_torch(k, dynamic_axis=[0])
+        v_pto = pypto.from_torch(v, dynamic_axis=[0])
+        y_pto = pypto.from_torch(y, dynamic_axis=[0])
+    else:
+        q_pto = pypto.from_torch(q)
+        k_pto = pypto.from_torch(k)
+        v_pto = pypto.from_torch(v)
+        y_pto = pypto.from_torch(y)
+
+    # launch the kernel
+    if run_mode == "npu":
+        attention_kernel_npu(q_pto, k_pto, v_pto, y_pto, y_pto, scale)
+    else:
+        attention_kernel_sim(q_pto, k_pto, v_pto, y_pto, y_pto, scale)
+
+    return y
 
 
-def test_sequential_functions():
+def test_sequential_functions(device_id = None, run_mode: str = "npu", dynamic: bool = False) -> None:
     """Test multiple functions in sequence."""
     print("=" * 60)
     print("Test: Sequential Functions")
     print("=" * 60)
 
     # Get current device ID (set in main)
-    device_id = torch.npu.current_device()
+    if not device_id:
+        device_id = torch.npu.current_device()
+    else:
+        torch.npu.set_device(device_id)
+    if run_mode == "npu":
+        import torch_npu
+        device = f'npu:{device_id}'
+    else:
+        device = 'cpu'
     atol_val = 1e-1
 
     batch_size, hidden_size = 32, 128
 
     # Create tensors
-    x = torch.randn(batch_size, hidden_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
-    gamma = torch.ones(hidden_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
-    beta = torch.zeros(hidden_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
+    x = torch.randn(batch_size, hidden_size, dtype=torch.bfloat16, device=device)
+    gamma = torch.ones(hidden_size, dtype=torch.bfloat16, device=device)
+    beta = torch.zeros(hidden_size, dtype=torch.bfloat16, device=device)
 
-    # Intermediate tensors
-    normed = torch.zeros(batch_size, hidden_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
-    activated = torch.zeros(batch_size, hidden_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
-
-    inputs = [x, gamma, beta]
-    outputs = [normed]
-    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
-    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
     # Step 1: Layer normalization
-    layer_norm(*pto_inputs, *pto_outputs, eps=1e-6)
+    normed = layer_norm(x, gamma, beta, run_mode, dynamic)
 
     # Step 2: GELU activation
-    inputs = [normed]
-    outputs = [activated]
-    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
-    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
-    gelu_activation(*pto_inputs, *pto_outputs)
+    activated = gelu_activation(normed, run_mode, dynamic)
 
     # Verify
     expected_normed = layer_norm_golden(x, gamma, beta, 1e-6)
@@ -223,36 +413,40 @@ def test_sequential_functions():
     max_diff_act = (activated - expected_activated).abs().max().item()
 
     print(f"Input shape: {x.shape}")
-    print(f"Normalized max diff: {max_diff_norm:.6f}")
-    print(f"Activated max diff: {max_diff_act:.6f}")
-    assert max_diff_norm < atol_val, "Layer norm mismatch!"
-    assert max_diff_act < atol_val, "GELU mismatch!"
+    if run_mode == "npu":
+        print(f"Normalized max diff: {max_diff_norm:.6f}")
+        print(f"Activated max diff: {max_diff_act:.6f}")
+        assert max_diff_norm < atol_val, "Layer norm mismatch!"
+        assert max_diff_act < atol_val, "GELU mismatch!"
     print("✓ Sequential functions passed")
     print()
 
 
-def test_residual_connection():
+def test_residual_connection(device_id = None, run_mode: str = "npu", dynamic: bool = False) -> None:
     """Test residual connection pattern."""
     print("=" * 60)
     print("Test: Residual Connection")
     print("=" * 60)
 
     # Get current device ID (set in main)
-    device_id = torch.npu.current_device()
+    if not device_id:
+        device_id = torch.npu.current_device()
+    else:
+        torch.npu.set_device(device_id)
+    if run_mode == "npu":
+        import torch_npu
+        device = f'npu:{device_id}'
+    else:
+        device = 'cpu'
 
     batch_size, hidden_size = 32, 128
 
     # Create tensors
-    x = torch.randn(batch_size, hidden_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
-    residual = torch.randn(batch_size, hidden_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
-    out = torch.zeros(batch_size, hidden_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
+    x = torch.randn(batch_size, hidden_size, dtype=torch.bfloat16, device=device)
+    residual = torch.randn(batch_size, hidden_size, dtype=torch.bfloat16, device=device)
 
-    inputs = [x, residual]
-    outputs = [out]
-    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
-    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
     # Apply residual connection
-    residual_add(*pto_inputs, *pto_outputs)
+    out = residual_add(x, residual, run_mode, dynamic)
 
     # Verify
     expected = x + residual
@@ -261,87 +455,74 @@ def test_residual_connection():
     print(f"Input shape: {x.shape}")
     print(f"Residual shape: {residual.shape}")
     print(f"Output shape: {out.shape}")
-    print(f"Max difference: {max_diff:.6f}")
-    assert max_diff < 1e-2, "Residual connection mismatch!"
+    if run_mode == "npu":
+        print(f"Max difference: {max_diff:.6f}")
+        assert max_diff < 1e-2, "Residual connection mismatch!"
     print("✓ Residual connection passed")
     print()
 
 
-def test_transformer_block():
+def test_transformer_block(device_id = None, run_mode: str = "npu", dynamic: bool = False) -> None:
     """Test a complete transformer block using multiple functions."""
     print("=" * 60)
     print("Test: Transformer Block (Multi-Function)")
     print("=" * 60)
 
     # Get current device ID (set in main)
-    device_id = torch.npu.current_device()
+    if not device_id:
+        device_id = torch.npu.current_device()
+    else:
+        torch.npu.set_device(device_id)
+    if run_mode == "npu":
+        import torch_npu
+        device = f'npu:{device_id}'
+    else:
+        device = 'cpu'
 
     batch_size, hidden_size, intermediate_size = 32, 128, 256
 
     # Create input
-    x = torch.randn(batch_size, hidden_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
+    x = torch.randn(batch_size, hidden_size, dtype=torch.bfloat16, device=device)
 
     # Layer norm parameters
-    gamma = torch.ones(hidden_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
-    beta = torch.zeros(hidden_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
+    gamma = torch.ones(hidden_size, dtype=torch.bfloat16, device=device)
+    beta = torch.zeros(hidden_size, dtype=torch.bfloat16, device=device)
 
     # FFN weights
-    gate_weight = torch.randn(hidden_size, intermediate_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
-    up_weight = torch.randn(hidden_size, intermediate_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
-    down_weight = torch.randn(intermediate_size, hidden_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
+    gate_weight = torch.randn(hidden_size, intermediate_size, dtype=torch.bfloat16, device=device)
+    up_weight = torch.randn(hidden_size, intermediate_size, dtype=torch.bfloat16, device=device)
+    down_weight = torch.randn(hidden_size, intermediate_size, dtype=torch.bfloat16, device=device)
 
     # Intermediate tensors
-    normed = torch.zeros(batch_size, hidden_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
-    gate = torch.zeros(batch_size, intermediate_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
-    up = torch.zeros(batch_size, intermediate_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
-    activated = torch.zeros(batch_size, intermediate_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
-    ffn_out = torch.zeros(batch_size, hidden_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
-    output = torch.zeros(batch_size, hidden_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
-
-    inputs = [x, gamma, beta]
-    outputs = [normed]
-    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
-    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
+    normed = torch.zeros(batch_size, hidden_size, dtype=torch.bfloat16, device=device)
+    gate = torch.zeros(batch_size, intermediate_size, dtype=torch.bfloat16, device=device)
+    up = torch.zeros(batch_size, intermediate_size, dtype=torch.bfloat16, device=device)
+    activated = torch.zeros(batch_size, intermediate_size, dtype=torch.bfloat16, device=device)
+    ffn_out = torch.zeros(batch_size, hidden_size, dtype=torch.bfloat16, device=device)
+    output = torch.zeros(batch_size, hidden_size, dtype=torch.bfloat16, device=device)
     # Transformer block computation:
     # 1. Layer normalization
-    layer_norm(*pto_inputs, *pto_outputs, eps=1e-6)
+    normed = layer_norm(x, gamma, beta, run_mode, dynamic)
+    torch.npu.synchronize()
 
     # 2. FFN: Gate and Up projections
-    inputs = [normed, gate_weight]
-    outputs = [gate]
-    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
-    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
-    linear_projection(*pto_inputs, *pto_outputs)
-
-    inputs = [normed, up_weight]
-    outputs = [up]
-    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
-    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
-    linear_projection(*pto_inputs, *pto_outputs)
+    gate = linear_projection(normed, gate_weight, run_mode, dynamic)
+    torch.npu.synchronize()
+    up = linear_projection(normed, up_weight, run_mode, dynamic)
+    torch.npu.synchronize()
 
     # 3. GELU activation on gate
-    inputs = [gate]
-    outputs = [activated]
-    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
-    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
-    gelu_activation(*pto_inputs, *pto_outputs)
+    activated = gelu_activation(gate, run_mode, dynamic)
+    torch.npu.synchronize()
 
     # 4. Multiply with up (SwiGLU-like)
     activated = activated * up  # PyTorch operation for simplicity
 
     # 5. Down projection
-    inputs = [activated, down_weight]
-    outputs = [ffn_out]
-    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
-    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
-    linear_projection(*pto_inputs, *pto_outputs)
+    ffn_out = linear_projection(activated, down_weight, run_mode, dynamic)
 
     # 6. Residual connection
-    inputs = [x, ffn_out]
-    outputs = [output]
-    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
-    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
-    residual_add(*pto_inputs, *pto_outputs)
+    output = residual_add(x, ffn_out, run_mode, dynamic)
 
     print(f"Input shape: {x.shape}")
     print(f"Output shape: {output.shape}")
@@ -350,52 +531,45 @@ def test_transformer_block():
     print()
 
 
-def test_function_reuse():
+def test_function_reuse(device_id = None, run_mode: str = "npu", dynamic: bool = True) -> None:
     """Test reusing the same function multiple times."""
     print("=" * 60)
     print("Test: Function Reuse")
     print("=" * 60)
 
     # Get current device ID (set in main)
-    device_id = torch.npu.current_device()
+    if not device_id:
+        device_id = torch.npu.current_device()
+    else:
+        torch.npu.set_device(device_id)
+    if run_mode == "npu":
+        import torch_npu
+        device = f'npu:{device_id}'
+    else:
+        device = 'cpu'
 
     batch_size, hidden_size = 32, 128
 
     # Create multiple inputs
-    x1 = torch.randn(batch_size, hidden_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
-    x2 = torch.randn(batch_size, hidden_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
-    x3 = torch.randn(batch_size, hidden_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
+    x1 = torch.randn(batch_size, hidden_size, dtype=torch.bfloat16, device=device)
+    x2 = torch.randn(batch_size, hidden_size, dtype=torch.bfloat16, device=device)
+    x3 = torch.randn(batch_size, hidden_size, dtype=torch.bfloat16, device=device)
 
-    gamma = torch.ones(hidden_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
-    beta = torch.zeros(hidden_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
+    gamma = torch.ones(hidden_size, dtype=torch.bfloat16, device=device)
+    beta = torch.zeros(hidden_size, dtype=torch.bfloat16, device=device)
 
     # Outputs
-    out1 = torch.zeros(batch_size, hidden_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
-    out2 = torch.zeros(batch_size, hidden_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
-    out3 = torch.zeros(batch_size, hidden_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
+    out1 = torch.zeros(batch_size, hidden_size, dtype=torch.bfloat16, device=device)
+    out2 = torch.zeros(batch_size, hidden_size, dtype=torch.bfloat16, device=device)
+    out3 = torch.zeros(batch_size, hidden_size, dtype=torch.bfloat16, device=device)
 
     # Reuse the same function with different inputs
-    inputs1 = [x1, gamma, beta]
-    inputs2 = [x2, gamma, beta]
-    inputs3 = [x3, gamma, beta]
-
-    outputs1 = [out1]
-    outputs2 = [out2]
-    outputs3 = [out3]
-
-    pto_inputs1 = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs1)]
-    pto_inputs2 = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs2)]
-    pto_inputs3 = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs3)]
-
-    pto_outputs1 = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs1)]
-    pto_outputs2 = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs2)]
-    pto_outputs3 = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs3)]
-
-    layer_norm(*pto_inputs1, *pto_outputs1, eps=1e-6)
-    
-    layer_norm(*pto_inputs2, *pto_outputs2, eps=1e-6)
-    
-    layer_norm(*pto_inputs3, *pto_outputs3, eps=1e-6)
+    out1 = layer_norm(x1, gamma, beta, run_mode, dynamic)
+    torch.npu.synchronize()
+    out2 = layer_norm(x2, gamma, beta, run_mode, dynamic)
+    torch.npu.synchronize()
+    out3 = layer_norm(x3, gamma, beta, run_mode, dynamic)
+    torch.npu.synchronize()
     
 
     # Verify
@@ -408,10 +582,11 @@ def test_function_reuse():
     max_diff3 = (out3 - expected3).abs().max().item()
 
     print(f"Function reused 3 times with different inputs")
-    print(f"Max diff 1: {max_diff1:.6f}")
-    print(f"Max diff 2: {max_diff2:.6f}")
-    print(f"Max diff 3: {max_diff3:.6f}")
-    assert max_diff1 < 1e-1 and max_diff2 < 1e-1 and max_diff3 < 1e-1, "Function reuse mismatch!"
+    if run_mode == "npu":
+        print(f"Max diff 1: {max_diff1:.6f}")
+        print(f"Max diff 2: {max_diff2:.6f}")
+        print(f"Max diff 3: {max_diff3:.6f}")
+        assert max_diff1 < 1e-1 and max_diff2 < 1e-1 and max_diff3 < 1e-1, "Function reuse mismatch!"
     print("✓ Function reuse passed")
     print()
 
@@ -445,6 +620,14 @@ Examples:
         '--list',
         action='store_true',
         help='List all available examples and exit'
+    )
+    parser.add_argument(
+        '--run_mode',
+        type=str,
+        nargs='?',
+        default="npu",
+        choices=["npu", "sim"],
+        help='Run mode, such as npu/sim etc.'
     )
 
     args = parser.parse_args()
@@ -483,9 +666,9 @@ Examples:
         print("Available Examples")
         print("=" * 60 + "\n")
         for ex_id, ex_info in sorted(examples.items()):
-            npu_req = " (Requires NPU)" if ex_info['requires_npu'] else " (No NPU required)"
-            print(f"  {ex_id}. {ex_info['name']}{npu_req}")
-            print(f"     {ex_info['description']}\n")
+            print(f"  ID: {ex_id}")
+            print(f"     name: {ex_info['name']}")
+            print(f"     description: {ex_info['description']}\n")
         return
 
     # Validate example ID if provided
@@ -511,24 +694,18 @@ Examples:
         # Run all examples
         examples_to_run = list(examples.items())
 
-    # Check if any example requires NPU
-    requires_npu = any(ex_info['requires_npu'] for _, ex_info in examples_to_run)
-
-    if requires_npu:
+    if args.run_mode == "npu":
         device_id = get_device_id()
         if device_id is None:
             return
-        # Set the device once for all examples
         torch.npu.set_device(device_id)
+        print("Running examples that require NPU hardware...")
+        print("(Make sure CANN environment is configured and NPU is available)\n")
 
     try:
         for ex_id, ex_info in examples_to_run:
-            if ex_info['requires_npu'] and device_id is None:
-                print(f"Skipping example {ex_id} ({ex_info['name']}): NPU device not configured")
-                continue
-
             print(f"Running Example {ex_id}: {ex_info['name']}")
-            ex_info['function']()
+            ex_info['function'](device_id, args.run_mode)
 
         if len(examples_to_run) > 1:
             print("=" * 60)
