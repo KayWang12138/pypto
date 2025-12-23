@@ -9,11 +9,8 @@
 PyPTO 已发布至 [PyPI](https://pypi.org/), 若不涉及对 PyPTO 源码的修改, 可以直接使用 `pip` 命令安装:
 
 ```bash
-# root 用户
+# 由 PyPI 源下载并安装
 python3 -m pip install pypto
-
-# 非root 用户
-python3 -m pip install pypto --user
 ```
 
 ## 通过源码编译安装
@@ -35,11 +32,8 @@ export PYPTO_THIRD_PARTY_PATH=<path-to-thirdparty>
 # (可选) 若开发环境无法访问 cann-src-third-party, 需设置
 export PYPTO_THIRD_PARTY_PATH=<path-to-thirdparty>
 
-# 执行编译及安装(root 用户)
+# 执行编译及安装
 python3 -m pip install . --verbose
-
-# 执行编译及安装(非 root 用户)
-python3 -m pip install . --verbose --user
 ```
 
 **参数说明**:
@@ -55,24 +49,24 @@ python3 -m pip install . --verbose --user
 
    ```bash
    # 通过 --config-setting 参数指定 C++ 层二进制编译为 Debug 类型
-   python3 -m pip install . --verbose --user --config-setting=--build-option='build_ext --cmake-build-type=Debug'
+   python3 -m pip install . --verbose --config-setting=--build-option='build_ext --cmake-build-type=Debug'
    ```
 
 2. 开启 C++ 编译其详细输出模式
 
    ```bash
    # 额外开启 C++ 编译器详细输出模式(便于定位 C++ 编译问题)
-   python3 -m pip install . --verbose --user --config-setting=--build-option='build_ext --cmake-build-type=Debug --cmake-verbose'
+   python3 -m pip install . --verbose --config-setting=--build-option='build_ext --cmake-build-type=Debug --cmake-verbose'
    ```
 
 3. 指定 CMake Generator 类型
 
    ```bash
-   # 指定 CMake Generator 类型(Ninja)
-   python3 -m pip install . --verbose --user --config-setting=--build-option='build_ext --cmake-generator=Ninja'
+   # 指定 CMake Generator 类型(Ninja, Ninja 需提前安装)
+   python3 -m pip install . --verbose --config-setting=--build-option='build_ext --cmake-generator=Ninja'
    
    # 指定 CMake Generator 类型(Unix Makefiles)
-   python3 -m pip install . --verbose --user --config-setting=--build-option='build_ext --cmake-generator="Unix Makefiles"'
+   python3 -m pip install . --verbose --config-setting=--build-option='build_ext --cmake-generator="Unix Makefiles"'
    ```
 
 ### 可编辑安装
@@ -83,11 +77,7 @@ python3 -m pip install . --verbose --user
 # (可选) 设置 PYPTO_THIRD_PARTY_PATH, 若开发环境无法访问 cann-src-third-party
 export PYPTO_THIRD_PARTY_PATH=<path-to-thirdparty>
 
-# 执行编译及安装(root 用户)
 python3 -m pip install -e . --verbose
-
-# 执行编译及安装(非 root 用户)
-python3 -m pip install -e . --verbose --user
 ```
 
 **参数说明**:
@@ -108,11 +98,8 @@ export PYPTO_BUILD_EXT_ARGS='--cmake-build-type=Debug --cmake-verbose'
 # 其他配置方式参考: 指定编译类型为 Debug, 并开启编译器详细输出(便于诊断问题), 指定 CMake Generator 为 Unix Makefiles
 # export PYPTO_BUILD_EXT_ARGS='--cmake-build-type=Debug --cmake-verbose --cmake-generator="Unix Makefiles"'
 
-# 执行编译及安装(root 用户)
+# 执行编译及安装
 python3 -m pip install -e . --verbose
-
-# 执行编译及安装(非 root 用户)
-python3 -m pip install -e . --verbose --user
 ```
 
 ## 通过 Docker 镜像安装

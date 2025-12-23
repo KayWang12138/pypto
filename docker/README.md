@@ -52,7 +52,7 @@ openEuler+910b :ARG CANN_VERSION=8.5.0.alpha001-910b-openeuler24.03-py3.11
        tabulate pandas matplotlib build ml_dtypes jinja2 cloudpickle tornado
    RUN pip install --no-cache-dir --upgrade \
        setuptools
-   # pypto wants `setuptools>=70.3.0`
+   # pypto wants `setuptools>=77.0.3`
    #set  torch-npu&npu version
    RUN pip install --no-cache-dir torch==2.6.0 --index-url https://download.pytorch.org/whl/cpu
    RUN pip install --no-cache-dir torch-npu==2.6.0
@@ -115,7 +115,7 @@ RUN pip install --no-cache-dir \
     tabulate pandas matplotlib build ml_dtypes jinja2 cloudpickle tornado
 RUN pip install --no-cache-dir --upgrade \
     setuptools
-# pypto wants `setuptools>=70.3.0`
+# pypto wants `setuptools>=77.0.3`
 RUN pip install --no-cache-dir torch==2.6.0 --index-url https://download.pytorch.org/whl/cpu
 RUN pip install --no-cache-dir torch-npu==2.6.0
 

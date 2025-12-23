@@ -27,6 +27,7 @@ import sysconfig
 import warnings
 from pathlib import Path
 from typing import Optional, Any, List, Tuple, Union
+from importlib import metadata
 
 from setuptools import setup, Extension
 from setuptools.command.editable_wheel import editable_wheel
@@ -166,9 +167,15 @@ class CMakeUserOption:
 
     def __str__(self):
         ver = sys.version_info
+        ver1 = metadata.version("setuptools")
+        ver2 = metadata.version("pybind11")
+
         desc: str = ""
         desc += f"\nEnviron"
         desc += f"\n    Python3               : {sys.executable} ({ver.major}.{ver.minor}.{ver.micro})"
+        desc += f"\n        pip"
+        desc += f"\n               setuptools : {ver1}"
+        desc += f"\n                 pybind11 : {ver2}"
         desc += f"\n    CMake                 : {self.cmake}"
         desc += f"\n{self.__class__.__name__}"
         desc += f"\n    cmake_generator       : {self.cmake_generator}"
@@ -366,10 +373,6 @@ class SetupCtrl:
         warnings.filterwarnings("ignore", category=UserWarning, module="setuptools.command.build_py")
         # Setuptools 配置
         setup(
-            # 兼容性配置
-            license_files=[
-                "LICENSE",
-            ],
             # 扩展模块配置
             ext_modules=[
                 CMakeExtension(),
