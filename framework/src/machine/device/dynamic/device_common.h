@@ -83,7 +83,7 @@ struct DeviceTaskCtrl {
 
 #define ALIGN_UP(val, align)            (((val) + (align) - 1) & ~((align) - 1))
 
-const uint64_t DEV_ARGS_SIZE = 4096;
+const uint64_t DEV_ARGS_SIZE = 1024;  // sizeof(DevStartArgs) is enough, tmp for test GE graph
 constexpr uint32_t DEFAULT_QUEUE_SIZE = 64;
 const uint64_t DEVICE_TASK_CTRL_SIZE = ALIGN_UP((MAX_DEVICE_TASK_NUM * sizeof(DeviceTaskCtrl)), 512);
 const uint64_t DEVICE_TASK_QUEUE_SIZE = sizeof(SPSCQueue<DeviceTaskCtrl *, DEFAULT_QUEUE_SIZE>);

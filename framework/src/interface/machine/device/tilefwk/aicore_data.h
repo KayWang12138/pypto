@@ -33,6 +33,7 @@ const uint32_t RAW_TENSOR_LOCATION_LOCAL = 0;
 const uint32_t RAW_TENSOR_LOCATION_INCAST = 1;
 const uint32_t RAW_TENSOR_LOCATION_OUTCAST = 2;
 constexpr int32_t DEV_SHAPE_DIM_MAX = 5;
+constexpr uint32_t TENSOR_INFO_OFFSET = 2;
 
 struct DevShape {
     int dimSize{0};

@@ -172,7 +172,7 @@ private:
         DeviceLauncherConfigFillDeviceInfo(config_);
         DeviceInitTilingData(MemoryHelper(true), kArgs, function_->GetDyndevAttribute()->devProgBinary, config_, nullptr);
         for (int i = 0; i < (config_.controlFlowCache ? 1 : config_.repeatNum); i++) {
-            InitKernelInOuts(kArgs, inputs, outputs, true);
+            InitKernelInOuts(kArgs, inputs, outputs, true, config_.isGETensorList);
             std::cout << "!!! Run CostModel " << i << "\n";
             RunCostModel(&kArgs);
             std::cout << "!!! Run TestModel " << i << "\n";
@@ -270,7 +270,7 @@ private:
         auto aicoreStream = machine::GetRA()->GetStream();
         auto ctrlStream = config_.cpuSeparate ? machine::GetRA()->GetCtrlStream() : nullptr;
         for (int i = 0; i < config_.repeatNum; i++) {
-            InitKernelInOuts(kArgs, inputs, outputs, false);
+            InitKernelInOuts(kArgs, inputs, outputs, false, config_.isGETensorList);
             rc = DeviceRunner::Get().DynamicRun(aicpuStream, ctrlStream, aicoreStream, 0, &kArgs, config_.blockdim, config_.aicpuNum);
             EXPECT_EQ(rc, 0);
             DeviceRunner::Get().SynchronizeDeviceToHostProfData();
@@ -361,11 +361,11 @@ private:
     }
 
     void InitKernelInOuts(AstKernelArgs &kArgs, const std::vector<RawTensorDataPtr> &inputTensors,
-        const std::vector<RawTensorDataPtr> &outputTensors, bool isTest) {
+        const std::vector<RawTensorDataPtr> &outputTensors, bool isTest, bool isGETensorList) {
         std::vector<DeviceTensorData> inputList;
         std::vector<DeviceTensorData> outputList;
         std::tie(inputList, outputList) = BuildInputOutputFromHost(MemoryHelper(isTest), inputTensors, outputTensors);
-        DeviceInitKernelInOuts(MemoryHelper(isTest), kArgs, inputList, outputList);
+        DeviceInitKernelInOuts(MemoryHelper(isTest), kArgs, inputList, outputList, isGETensorList);
         ALOG_INFO_F("Inputs %p outputs %p workspace %p cfgdata %p", kArgs.inputs, kArgs.outputs, kArgs.workspace,
             kArgs.cfgdata);
         return;

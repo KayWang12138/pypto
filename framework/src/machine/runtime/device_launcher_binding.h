@@ -63,6 +63,7 @@ struct DeviceLauncherConfig {
     std::vector<uint64_t> hcclContext;
     bool controlFlowCache{false};
     bool cpuSeparate{false};
+    bool isGETensorList{false};
     uint64_t workspaceAddr{0};
 
     DeviceLauncherConfig() = default;

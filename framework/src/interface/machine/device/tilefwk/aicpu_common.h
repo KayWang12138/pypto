@@ -114,6 +114,7 @@ struct ProfConfig : public BitmaskBase<ProfConfig, uint32_t> {
 
 struct ToSubMachineConfig {
     ProfConfig profConfig{ProfConfig::OFF};
+    uint64_t isGETensorList{0};
 };
 
 struct OpMetaAddrs {
@@ -147,7 +148,8 @@ struct DeviceArgs {
     uint32_t scheCpuNum{0};    // sche cpu num calc by host
     uint32_t enableCtrl : 2;    // if enable builtin ctrl
     uint32_t validGetPgMask : 2; // mark pgmask is invalid
-    uint32_t disableSync : 28;    // close ctrl and sche soft sync
+    uint32_t disableSync : 2;    // close ctrl and sche soft sync
+    uint32_t isGETensorList : 26;    // GE graph is tensor list
     uint64_t generalAddr{0};     // aicpu meta addr
     uint64_t stitchPoolAddr{0};  // aicpu meta addr
     uint64_t GetBlockNum() { return nrValidAic * (nrAiv / nrAic + 1); }

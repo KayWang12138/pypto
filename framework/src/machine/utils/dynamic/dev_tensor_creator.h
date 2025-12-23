@@ -53,7 +53,6 @@ struct DevAscendTensorDataCreator {
                       DevTensorData *tensorData) {
         int64_t addrOffset = *inputs;
         int64_t *ptrBase = reinterpret_cast<int64_t *>(reinterpret_cast<uint64_t>(inputs) + addrOffset);
-
         int n = 0;
         InputsHeader *h = reinterpret_cast<InputsHeader *>(inputs + 1);
         int64_t *ptr = ptrBase;

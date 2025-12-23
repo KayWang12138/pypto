@@ -143,7 +143,7 @@ public:
             launchConfig.aicpuNum : static_cast<int>(Platform::Instance().GetSoc().GetAICPUNum()) - 1;
         devProg->devArgs.scheCpuNum = CalcSchAicpuNumByBlockDim(launchConfig.blockdim, launchConfig.aicpuNum);
         devProg->devArgs.taskType = DEVICE_TASK_TYPE_DYN;
-
+        devProg->devArgs.isGETensorList = config.isGETensorList ? 1 : 0;
         int minCpuNum = devProg->devArgs.scheCpuNum + 1;
         if (config.aicpuNum < minCpuNum || config.aicpuNum > DEVICE_MAX_AICPU_NUM) {
             launchConfig.aicpuNum = minCpuNum + 1;
@@ -197,11 +197,12 @@ public:
         if (config::GetPlatformConfig(KEY_ENABLE_PROF_AICORE_PMU, false)) {
             kArgs.toSubMachineConfig.profConfig.Add(ProfConfig::AICORE_PMU);
         }
+        kArgs.toSubMachineConfig.isGETensorList = config.isGETensorList ? 1 : 0;
         return;
     }
 
     template<typename DeviceMemoryTy>
-    static void DeviceInitKernelInOuts(
+    static void DeviceInitTensorLists(
             DeviceMemoryTy devMem,
             AstKernelArgs &kArgs,
             const std::vector<DeviceTensorData> &inputList,
@@ -223,6 +224,56 @@ public:
         std::vector<int64_t> encodedOutputList = buildInouts(outputList);
         kArgs.inputs = devMem.CopyToDev(encodedInputList, nullptr);
         kArgs.outputs = devMem.CopyToDev(encodedOutputList, nullptr);
+        ALOG_INFO_F("Inputs %p outputs %p workspace %p cfgdata %p", kArgs.inputs, kArgs.outputs, kArgs.workspace,
+            kArgs.cfgdata);
+        return;
+    }
+
+    /*
+     *  inputs          |  inputSize  |
+     *  outputs         |  outputSize |
+     *                  |     ...     |
+     * DevTensorData*   |    input0   |
+     *                  |    input1   |
+     *                  |     ...     |
+     *                  |    output0  |
+     *                  |     ...     |
+     */
+    template<typename DeviceMemoryTy>
+    static void DeviceInitKernelInOuts(DeviceMemoryTy devMem, AstKernelArgs &kArgs,
+            const std::vector<DeviceTensorData> &inputList, const std::vector<DeviceTensorData> &outputList, bool isGETensorList) {
+        if (isGETensorList) {
+            return DeviceInitTensorLists(devMem, kArgs, inputList, outputList);
+        }
+        auto buildInouts = [&](const std::vector<DeviceTensorData> &tensorDataList, uint8_t* data, size_t size) {
+            std::vector<DevTensorData> tensors;
+            for (size_t k = 0; k < tensorDataList.size(); k++) {
+                auto &tensorData = tensorDataList[k];
+                uint64_t addr = 0;
+                if (tensorData.GetAddr() != 0) {
+                    addr = (uint64_t)tensorData.GetAddr();
+                }
+                tensors.emplace_back(DevAscendTensorDataCreator::Create(addr, tensorData.GetShape()));
+            }
+            (void)memcpy_s(data, size, tensors.data(), size);
+            return;
+        };
+        size_t inputSize = inputList.size() * sizeof(DevTensorData);
+        size_t outputSize = outputList.size() * sizeof(DevTensorData);
+        size_t allSize = inputSize + outputSize + 2 * sizeof(uint64_t);
+        std::vector<int64_t> tensorInfo(allSize);
+        auto* data = tensorInfo.data();
+        *data = inputList.size();
+        data++;
+        *data = outputList.size();
+        data++;
+        uint8_t* dataPtr = reinterpret_cast<uint8_t*>(data);
+        buildInouts(inputList, dataPtr, inputSize);
+        dataPtr += inputSize;
+        buildInouts(outputList, dataPtr, outputSize);
+        dataPtr += outputSize;
+        kArgs.inputs = devMem.CopyToDev(tensorInfo, nullptr);
+        kArgs.outputs = kArgs.inputs + 1;
         ALOG_INFO_F("Inputs %p outputs %p workspace %p cfgdata %p", kArgs.inputs, kArgs.outputs, kArgs.workspace,
             kArgs.cfgdata);
         return;

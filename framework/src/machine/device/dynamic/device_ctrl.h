@@ -137,12 +137,20 @@ class DeviceCtrlMachine {
         devArgs->controlFlowEntry = devProg->controlFlowBinaryAddr;
 
         PerfEnd(PERF_EVT_INIT);
-
-        auto inputPtr = PtrToPtr<DevStartArgs, DevTensorData>(devArgs + 1);
-        auto inputSize = DevAscendTensorDataCreator::Decode(kargs->inputs, devProg, 0, inputPtr);
-
-        auto outputPtr = inputPtr + inputSize;
-        auto outputSize = DevAscendTensorDataCreator::Decode(kargs->outputs, devProg, inputSize, outputPtr);
+        DevTensorData *inputPtr = nullptr;
+        uint64_t inputSize = 0;
+        uint64_t outputSize = 0;
+        if (devProg->devArgs.isGETensorList == 1) {
+            inputPtr = PtrToPtr<DevStartArgs, DevTensorData>(devArgs + 1);
+            inputSize = DevAscendTensorDataCreator::Decode(kargs->inputs, devProg, 0, inputPtr);
+            auto outputPtr = inputPtr + inputSize;
+            outputSize = DevAscendTensorDataCreator::Decode(kargs->outputs, devProg, inputSize, outputPtr);
+        } else {
+            inputSize = *kargs->inputs;
+            outputSize = *(kargs->inputs + 1);
+            inputPtr = PtrToPtr<int64_t, DevTensorData>(kargs->inputs + TENSOR_INFO_OFFSET);
+            DEV_INFO("Input/output size [%lu][%lu] tensor list ptr[%p].", inputSize, outputSize, inputPtr);
+        }
         devArgs->devTensorList = inputPtr;
         devArgs->inputTensorSize = static_cast<uint64_t>(inputSize);
         devArgs->outputTensorSize = static_cast<uint64_t>(outputSize);
