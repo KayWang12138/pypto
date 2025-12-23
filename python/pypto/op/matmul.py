@@ -92,7 +92,7 @@ def matmul(
     # batched matrix multiplication with broadcast
     a = pypto.tensor((1, 32, 64), pypto.DT_FP32, "tensor_a")
     b = pypto.tensor((3, 64, 16), pypto.DT_FP32, "tensor_b")
-    pypto.matmul(a, b, pypto.DT_DT_FP32)
+    pypto.matmul(a, b, pypto.DT_FP32)
 
     # matrix multiplication with bias
     a = pypto.tensor((16, 32), pypto.DT_FP16, "tensor_a")
