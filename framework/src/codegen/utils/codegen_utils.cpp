@@ -63,4 +63,20 @@ std::string GetAddrTypeByOperandType(OperandType type) {
     return "";
 }
 
+int64_t CalcLinearOffset(const std::vector<int64_t> &shape, const std::vector<int64_t> &offset) {
+    if (shape.empty() || offset.empty()) {
+        ALOG_INFO_F("shape: %s, offset: %s", IntVecToStr(shape).c_str(), IntVecToStr(offset).c_str());
+        return 0;
+    }
+
+    int64_t resOffset{0};
+    int64_t base = 1;
+    for (int i = static_cast<int>(offset.size()) - 1; i >= 0; i--) {
+        resOffset += offset[i] * base;
+        base *= shape[i];
+    }
+
+    return resOffset;
+}
+
 } // namespace npu::tile_fwk

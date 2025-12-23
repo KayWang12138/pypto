@@ -631,8 +631,12 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL0CTileTensor(const PrintMemCopyW
     // e.g. Coord4Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 136, 0)),(RUNTIME_COA_GET_PARAM_OFFSET(2, 136, 1)))
     int dim = static_cast<int>(rawShape[param.gmIdx].size());
     std::string coord = "Coord" + std::to_string(dim) + DIM + coordCp;
-    std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::DST_IDX)]);
-    std::string srcTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::SRC0_IDX)]);
+    std::string dstTensor = ToUnderlying(MISOIdx::DST_IDX) == static_cast<int>(param.gmIdx) ?
+                                sm->QueryTileTensorByBufVarName(GenGmParamVar(param.gmIdx)) :
+                                sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::DST_IDX)]);
+    std::string srcTensor = ToUnderlying(MISOIdx::SRC0_IDX) == static_cast<int>(param.gmIdx) ?
+                                sm->QueryTileTensorByBufVarName(GenGmParamVar(param.gmIdx)) :
+                                sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::SRC0_IDX)]);
     int64_t nzValue = 0;
     int64_t isAcc = 0;
     int64_t reluMode = 0;
@@ -786,8 +790,12 @@ std::string CodeGenOpCloudNPU::PrintL1CopyInTileTensor(const PrintMemCopyWithL1P
     int dim = static_cast<int>(rawShape[param.gmIdx].size());
     std::string coord = "Coord" + std::to_string(dim) + DIM + coordCp;
 
-    std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::DST_IDX)]);
-    std::string srcTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::SRC0_IDX)]);
+    std::string dstTensor = ToUnderlying(MISOIdx::DST_IDX) == static_cast<int>(param.gmIdx) ?
+                                sm->QueryTileTensorByBufVarName(GenGmParamVar(param.gmIdx)) :
+                                sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::DST_IDX)]);
+    std::string srcTensor = ToUnderlying(MISOIdx::SRC0_IDX) == static_cast<int>(param.gmIdx) ?
+                                sm->QueryTileTensorByBufVarName(GenGmParamVar(param.gmIdx)) :
+                                sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::SRC0_IDX)]);
 
     std::vector<std::string> tileOpParamList = {dstTensor, srcTensor, coord};
     int64_t copyInMode = -1;
@@ -1167,8 +1175,14 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithUBTileTensor(const PrintMemCopyWi
     int dim = static_cast<int>(rawShape[param.gmIdx].size());
     std::string coord = "Coord" + std::to_string(dim) + DIM + coordCp;
 
-    std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::DST_IDX)]);
-    std::string srcTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::SRC0_IDX)]);
+    std::string gmVarName =
+        param.isSpillIntoGM ? GenGMAddrExprWithOffset(GM_STACK_BASE, param.gmIdx) : GenGmParamVar(param.gmIdx);
+    std::string dstTensor = ToUnderlying(MISOIdx::DST_IDX) == static_cast<int>(param.gmIdx) ?
+                                sm->QueryTileTensorByBufVarName(gmVarName) :
+                                sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::DST_IDX)]);
+    std::string srcTensor = ToUnderlying(MISOIdx::SRC0_IDX) == static_cast<int>(param.gmIdx) ?
+                                sm->QueryTileTensorByBufVarName(gmVarName) :
+                                sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::SRC0_IDX)]);
 
     std::vector<std::string> tileOpParamList = {dstTensor, srcTensor, coord};
 

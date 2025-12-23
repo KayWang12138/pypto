@@ -52,13 +52,16 @@ struct TileTensor {
     BufferType bufType;
     std::string bufVar;
     std::string usingType;
-    std::string tensorName; // e.g. "ubTile_0"
-    std::vector<std::string> shape;
+    std::string tensorName;         // e.g. "ubTile_0"
+    std::vector<std::string> shape; // valid shape
     std::vector<std::string> stride;
+    std::vector<int64_t> rawShape;
+    std::vector<int64_t> localBufOffset;
     bool isStatic;
 
     bool operator==(const TileTensor &other) const {
-        return dim == other.dim && bufVar == other.bufVar && shape == other.shape && dtype == other.dtype;
+        return dim == other.dim && bufVar == other.bufVar && shape == other.shape && dtype == other.dtype &&
+               localBufOffset == other.localBufOffset;
     }
 
     /*  e.g.
@@ -72,12 +75,18 @@ struct TileTensor {
         // local: e.g. (uint64_t)UB_S0_E16384
         oss << "(";
         if (bufType == BUF_DDR) {
-            oss << OPERAND_TYPE_TO_ADDR_TYPE.at(bufType) << " " << DataType2CCEStr(dtype) << "*)";
+            oss << OPERAND_TYPE_TO_ADDR_TYPE.at(bufType) << " " << DataType2CCEStr(dtype) << "*)" << bufVar;
         } else {
             // cast local buffer pointer to uint64_t to adapt TileTensor mode
             oss << "uint64_t)";
+            int64_t linearOffset = CalcLinearOffset(rawShape, localBufOffset);
+            if (linearOffset != 0) { // append linear offset, e.g. UBTileTensorFP32Dim2_1 ubTensor_1((uint64_t)((float *)UB_S0_E4096 + 32))
+                oss << "((" << DataType2CCEStr(dtype) << " *)" << bufVar << " + " << linearOffset << ")";
+            } else {
+                oss << bufVar;
+            }
         }
-        oss << bufVar;
+
         if (isStatic && bufType != BUF_DDR) {
             return "(" + oss.str() + ")";
         }
@@ -119,7 +128,11 @@ struct TileTensorHash {
         std::size_t seed = 0;
         HashCombine(seed, t.dim);
         HashCombine(seed, t.bufVar);
+        HashCombine(seed, ToUnderlying(t.dtype));
         for (const auto &s : t.shape) {
+            HashCombine(seed, s);
+        }
+        for (const auto &s : t.localBufOffset) {
             HashCombine(seed, s);
         }
         return seed;
@@ -211,6 +224,9 @@ public:
     std::string AddTileTensorUsing(const TileTensorUsing &tileTensorUsing);
     void AddTileTensor(const TileTensor &tileTensor);
     std::string QueryTileTensorByMagic(int magic);
+    // To be compatible with GM Tensor in Static Function Type like same ddr magic number with different parmaIdx & 'GMStackBase'
+    // e.g. ((__gm__ GMTensorInfo*)param + 1), ((__gm__ GMTensorInfo*)param + 2)
+    std::string QueryTileTensorByBufVarName(const std::string &bufVarName);
 
     std::string GenUsingList();
     std::string GenTileTensorDefList();

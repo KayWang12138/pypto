@@ -441,4 +441,38 @@ OpcodeManager::OpcodeManager() {
     // clang-format on
     ASSERT(strToEnum_.size() == static_cast<size_t>(Opcode::OP_UNKNOWN));
     }
+
+    // NEXTNEXT: delete after tile op register has supported tile tensor
+    std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
+        {         Opcode::OP_UB_COPY_IN,          "TLoad"},
+        {        Opcode::OP_UB_COPY_OUT,         "TStore"},
+        {Opcode::OP_TRANSPOSE_VNCHWCONV,         "TTrans"},
+        {                Opcode::OP_ADD,           "TAdd"},
+        {                Opcode::OP_SUB,           "TSub"},
+        {                Opcode::OP_DIV,           "TDiv"},
+        {                Opcode::OP_MUL,           "TMul"},
+        {     Opcode::OP_GATHER_ELEMENT, "TgatherElement"},
+        {             Opcode::OP_EXPAND,        "TExpand"},
+        {            Opcode::OP_BITSORT,       "TBitSort"},
+        {            Opcode::OP_MRGSORT,       "TMrgSort"},
+        {       Opcode::OP_TILEDMRGSORT,  "TTiledMrgSort"},
+        {            Opcode::OP_EXTRACT,       "TExtract"},
+        {               Opcode::OP_CAST,          "TCast"},
+        {      Opcode::OP_ROWSUM_SINGLE,  "TRowSumSingle"},
+        {      Opcode::OP_ROWMAX_SINGLE,  "TRowMaxSingle"},
+        {         Opcode::OP_ROWSUMLINE,    "TRowSumLine"},
+        {           Opcode::OP_WHERE_TT,         "TWhere"},
+        {               Opcode::OP_ADDS,          "TAddS"},
+        {               Opcode::OP_MULS,          "TMulS"},
+        {               Opcode::OP_DIVS,          "TDivS"},
+        {              Opcode::OP_RSQRT,         "TRsqrt"},
+        {               Opcode::OP_SQRT,          "TSqrt"},
+        {                Opcode::OP_EXP,           "TExp"},
+        {            Opcode::OP_MAXIMUM,           "TMax"},
+        {            Opcode::OP_MINIMUM,           "TMin"},
+        {            Opcode::OP_PAIRSUM,       "TPairSum"},
+        {            Opcode::OP_PAIRMAX,       "TPairMax"},
+        {            Opcode::OP_PAIRMIN,       "TPairMin"},
+        {        Opcode::OP_L0C_COPY_UB,       "TExtract"},
+    };
 } // namespace npu::tile_fwk

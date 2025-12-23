@@ -124,8 +124,8 @@ void SymbolManager::AddTileTensor(const TileTensor &tileTensor) {
     auto result = tileTensor_.insert({tileTensor, tileTensor.tensorName});
     std::string tensorName = result.second ? tileTensor.tensorName : result.first->second;
     tileTensorByMagic_.insert({tileTensor.magic, tensorName});
-    ALOG_INFO_F("Add TileTensor --> tensor magic: %d, tensor name: %s, tile tensor: %s", tileTensor.magic,
-        tensorName.c_str(), tileTensor.ToString().c_str());
+    ALOG_INFO_F("tileTensor_.insert result is %d Add TileTensor --> tensor magic: %d, tensor name: %s, tile tensor: %s",
+        result.second, tileTensor.magic, tensorName.c_str(), tileTensor.ToString().c_str());
 }
 
 std::string SymbolManager::QueryTileTensorByMagic(int magic) {
@@ -135,6 +135,18 @@ std::string SymbolManager::QueryTileTensorByMagic(int magic) {
     }
 
     ASSERT(false) << "tensor magic " << magic << " is not found !!! ";
+    return "";
+}
+
+std::string SymbolManager::QueryTileTensorByBufVarName(const std::string &bufVarName) {
+    for (const auto &tileTensorPair : tileTensor_) {
+        const TileTensor &tileTensor = tileTensorPair.first;
+        if (tileTensor.bufVar == bufVarName) {
+            return tileTensor.tensorName;
+        }
+    }
+
+    ASSERT(false) << "bufVarName " << bufVarName << " is not found !!! ";
     return "";
 }
 

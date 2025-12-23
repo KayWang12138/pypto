@@ -18,6 +18,7 @@
 #include <algorithm>
 
 #include "codegen/codegen_common.h"
+#include "codegen/utils/codegen_utils.h"
 #include "securec.h"
 
 namespace npu::tile_fwk {
@@ -143,8 +144,8 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           // indexadd
           {Opcode::OP_INDEX_ADD, [this]() { return GenIndexAddOp(); }},
 
-          //cumsum
-          {Opcode::OP_CUM_SUM,   [this]() { return GenCumSumOp(); }},
+          // cumsum
+          {Opcode::OP_CUM_SUM, [this]() { return GenCumSumOp(); }},
 
           // vector where
           {Opcode::OP_WHERE_SS, [this]() { return GenWhereOp(); }},
@@ -304,12 +305,7 @@ void CodeGenOpCloudNPU::AppendLocalBufferVarOffset(
             << IntVecToStr(varRawShape) << ", size " << varRawShape.size()
             << " is not equal!! operandIdx: " << operandIdx;
 
-        int64_t base = 1;
-        for (int i = static_cast<int>(varOffset.size()) - 1; i >= 0; i--) {
-            resOffset += varOffset[i] * base;
-            base *= varRawShape[i];
-        }
-
+        resOffset = CalcLinearOffset(varRawShape, varOffset);
         if (resOffset == 0) {
             continue;
         }
@@ -317,7 +313,7 @@ void CodeGenOpCloudNPU::AppendLocalBufferVarOffset(
         std::string &var = kv.second.get();
 
         ASSERT(!var.empty()) << "operandIdx: " << operandIdx << ", var is empty !!";
-        ALOG_DEBUG_F("var: %s, varRawShape: %s, varOffset: %s, resOffset: %lld", var.c_str(),
+        ALOG_INFO_F("var: %s, varRawShape: %s, varOffset: %s, resOffset: %lld", var.c_str(),
             IntVecToStr(varRawShape).c_str(), IntVecToStr(varOffset).c_str(), resOffset);
 
         var.append(" + ").append(std::to_string(resOffset));
@@ -450,6 +446,8 @@ std::vector<std::string> CodeGenOpCloudNPU::BuildStride(const std::vector<int64_
 }
 
 void CodeGenOpCloudNPU::UpdateTileTensorShapeAndStride(int paramIdx, TileTensor &tileTensor, bool isSpillToGm) {
+    tileTensor.rawShape = rawShape[paramIdx];
+
     // ---- static ----
     if (functionType == FunctionType::STATIC) {
         for (auto s : originShape[paramIdx]) {
@@ -502,6 +500,7 @@ TileTensor CodeGenOpCloudNPU::BuildTileTensor(int paramIdx, const std::string &u
                             std::to_string(IdGen<IdType::CG_VAR_NAME>::Inst().NewId());
 
     UpdateTileTensorShapeAndStride(paramIdx, tileTensor, isSpillToGm);
+    tileTensor.localBufOffset = offset[paramIdx];
     tileTensor.isStatic = functionType == FunctionType::STATIC;
     return tileTensor;
 }
@@ -535,7 +534,8 @@ void CodeGenOpCloudNPU::UpdateTileTensorInfo() {
         return;
     }
 
-    tileOpName = iter->second;
+    tileOpName = iter->second; // update tileOpName from SUPPORT_TILETENSOR_OPS
+
     for (int i = 0; i < operandCnt; ++i) {
         TileTensorUsing tileTensorUsing{operandDtype[i], operandType[i], static_cast<int>(rawShape[i].size()),
             originShape[i], rawShape[i], functionType == FunctionType::STATIC};

@@ -105,5 +105,7 @@ inline std::string GetTileOpName(Opcode opCode) {
 
 std::string GetAddrTypeByOperandType(OperandType type);
 
+int64_t CalcLinearOffset(const std::vector<int64_t> &shape, const std::vector<int64_t> &offset);
+
 } // namespace npu::tile_fwk
 #endif
