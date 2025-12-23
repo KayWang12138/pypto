@@ -202,7 +202,7 @@ def test_reshape():
 
     # compute on npu
     reshape_kernel(pto_input, pto_output)
-    pypto.runtime._device_synchronize()
+    torch_npu.npu.synchronize()
 
     output_cpu = output_npu.cpu()
 
