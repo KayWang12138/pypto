@@ -7,7 +7,7 @@ PyPTO 支持在具备 Ascend-NPU 硬件的**真实环境**和仅有 CPU 硬件�
 | 真实环境 | 配备 CPU 及 Ascend-NPU 硬件 | 支持在 Ascend-NPU 上执行计算, 也可以通过 CPU 仿真获取预估性能 |
 | 仿真环境 | 仅有 CPU 硬件              | 仅支持通过 CPU 仿真获取预估性能                       |
 
-**说明: **
+**说明:**
 - Ascend-NPU: 指 Ascend 910B 等 AI 加速器（目前支持 Ascend 910B、Ascend 910C）
 - 支持的系统: PyPTO 支持在 OpenEuler、Ubuntu 等主流 Linux 发行版上编译和运行
 
@@ -105,7 +105,6 @@ PyPTO 支持在具备 Ascend-NPU 硬件的**真实环境**和仅有 CPU 硬件�
     ```
 
     **参数说明**:
-    - \$\{cann\_version\}: 表示CANN包版本号.
     - \$\{arch\}: 表示CPU架构, 如aarch64、x86_64.
     - \$\{install\_path\}: 表示指定安装路径, 默认安装在`/usr/local/Ascend`目录.
 
@@ -123,9 +122,9 @@ PyPTO 支持在具备 Ascend-NPU 硬件的**真实环境**和仅有 CPU 硬件�
     ./Ascend-cann-${device_type}-ops_8.5.0_linux-${arch}.run --install --force --install-path=${install_path}
     ```
 
-    - device_type: NPU 型号, 当前支持 910b、910c
-    - aarch: CPU架构, 如aarch64、x86_64
-    - install-path: 表示制定安装路径, 默认安装在`/usr/local/Ascend`目录
+    - \$\{device_type\}: NPU 型号, 当前支持 910b、910c
+    - \$\{arch\}: CPU架构, 如aarch64、x86_64
+    - \$\{install-path\}: 表示制定安装路径, 默认安装在`/usr/local/Ascend`目录
 
 4. **安装CANN PTO-inst包**
 
@@ -139,8 +138,8 @@ PyPTO 支持在具备 Ascend-NPU 硬件的**真实环境**和仅有 CPU 硬件�
     # 安装命令
     ./cann-pto-inst_8.5.0_linux-${arch}.run --full --install-path=${install_path}
     ```
-    - aarch: CPU架构, 如aarch64、x86_64
-    - install-path: 表示制定安装路径, 默认安装在`/usr/local/Ascend`目录
+    - \$\{arch\}: CPU架构, 如aarch64、x86_64
+    - \$\{install-path\}: 表示制定安装路径, 默认安装在`/usr/local/Ascend`目录
 
 5. **环境变量配置**
 
