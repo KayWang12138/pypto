@@ -149,7 +149,7 @@ TEST_F(CostModelTest, TestGenCalendarSchedule)
 {
     int accuracylevel = 1;
     config::SetSimConfig("ACCURACY_LEVEL", accuracylevel);
-    std::vector<std::string> arg = config::GetSimConfig("args", arg);
+    std::vector<std::string> arg = config::GetSimConfig("args", std::vector<std::string>{});
     arg.emplace_back("Model.genCalendarScheduleCpp=true");
     config::SetSimConfig("args", arg);
     RunAttentionPostCostModel();
@@ -159,7 +159,7 @@ TEST_F(CostModelTest, TestAttentionPostCVMIXMode)
 {
     int accuracylevel = 1;
     config::SetSimConfig("ACCURACY_LEVEL", accuracylevel);
-    std::vector<std::string> arg = config::GetSimConfig("args", arg);
+    std::vector<std::string> arg = config::GetSimConfig("args", std::vector<std::string>{});
     arg.emplace_back("Model.cubeVecMixMode=true");
     config::SetSimConfig("args", arg);
     RunAttentionPostCostModel();
@@ -200,7 +200,7 @@ TEST_F(CostModelTest, TestErrorInput)
 TEST_F(CostModelTest, TestFixedLatencyTasks)
 {
     std::string jsonPath("./config/fixed_task_topo.json");
-    std::vector<std::string> arg = config::GetSimConfig("args", arg);
+    std::vector<std::string> arg = config::GetSimConfig("args", std::vector<std::string>{});
     arg.emplace_back("Model.simulationFixedLatencyTask=true");
     arg.emplace_back("Model.fixedLatencyTaskInfoPath=" + jsonPath);
     config::SetSimConfig("args", arg);
@@ -255,7 +255,7 @@ TEST_F(CostModelTest, TestCoreMachineDeadlock)
 {
     int accuracylevel = 1;
     config::SetSimConfig("ACCURACY_LEVEL", accuracylevel);
-    std::vector<std::string> arg = config::GetSimConfig("args", arg);
+    std::vector<std::string> arg = config::GetSimConfig("args", std::vector<std::string>{});
     arg.emplace_back("Model.testDeadLock=true");
     arg.emplace_back("Core.bufferBackPressure=true");
     arg.emplace_back("Pipe.ubSizeThreshold=256");
