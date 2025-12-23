@@ -123,7 +123,6 @@ python3 examples/models/qwen3/add_rms_norm.py --list
 Many Qwen3 components use dynamic unaligned dimensions:
 
 ```python
-pypto.set_codegen_option("support_dynamic_unaligned", True)
 pypto.set_host_option("only_codegen", True)
 ```
 

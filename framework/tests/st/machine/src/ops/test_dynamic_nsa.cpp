@@ -359,7 +359,6 @@ TEST_F(DyNsa, GateScore_b48_s2_fp) {
 
 // IMPORTANT
 TEST_F(DyNsa, GateScore_b32_s2_bf) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     SimpleParams params = SimpleParams::getHighParams();
     params.s = NUM2;
     TestNsa<bfloat16, float, true>(params);
@@ -444,7 +443,6 @@ TEST_F(DyNsa, GenTopk_b1_s1_fp_8k_dyn) {
     params.b = 1;
     params.s2 = NUM_8192;
     params.n2 = 1;
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     TestGenslc<float16>(params, params.s2);
 }
 
@@ -453,7 +451,6 @@ TEST_F(DyNsa, GenTopk_b1_s1_fp_4k_dyn) {
     params.b = 1;
     params.s2 = NUM_4096;
     params.n2 = 1;
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     TestGenslc<float16>(params, params.s2);
 }
 
@@ -462,7 +459,6 @@ TEST_F(DyNsa, GenTopk_b1_s1_fp_4k1_dyn) {
     params.b = 1;
     params.s2 = NUM_4096;
     params.n2 = 1;
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     TestGenslc<float16>(params, params.s2 + 1);
 }
 
@@ -471,7 +467,6 @@ TEST_F(DyNsa, GenTopk_b1_s1_fp_6k1_dyn) {
     params.b = 1;
     params.s2 = NUM_6144;
     params.n2 = 1;
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     TestGenslc<float16>(params, params.s2 + 1);
 }
 

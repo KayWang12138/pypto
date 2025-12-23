@@ -60,7 +60,6 @@ struct TopKParams {
 };
 void TopKOnBoardFunc(TopKParams &params) {
     config::SetHostOption(ONLY_CODEGEN, true);
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
     config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
     config::SetBuildStatic(true);

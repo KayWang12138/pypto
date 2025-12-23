@@ -26,7 +26,6 @@ d = 64
 
 @pypto.jit(
     host_options={"only_codegen": True},
-    codegen_options={"support_dynamic_unaligned": True}
 )
 def kernel_func(in_tensor, out_tensor):
     pypto.set_vec_tile_shapes(1, 1, 64, 64)

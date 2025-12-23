@@ -45,7 +45,6 @@ public:
 };
 
 TEST_F(TestCodegenDynCmp, TestDynOpCmp) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     std::vector<int64_t> shape = {64, 64};
     auto shapeImme = OpImmediate::Specified(shape);
     TileShape::Current().SetVecTile(shape);
@@ -100,7 +99,6 @@ TEST_F(TestCodegenDynCmp, TestDynOpCmp) {
 }
 
 TEST_F(TestCodegenDynCmp, TestDynOpCmpS) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     std::vector<int64_t> shape = {64, 64};
     auto shapeImme = OpImmediate::Specified(shape);
     TileShape::Current().SetVecTile(shape);

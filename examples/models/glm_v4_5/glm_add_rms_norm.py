@@ -88,7 +88,6 @@ def add_rms_norm_golden(hidden_states, residual, gamma, bias_input, eps):
     "cfgcache_root_task_num": 1000,
     "cfgcache_leaf_task_num": 10000},
     host_options={"only_codegen": True},
-    codegen_options={"support_dynamic_unaligned": True}
 )
 def add_rms_norm_kernel(x, residual_input, x_gamma, x_bias,
                         hidden_states_out, residual_out, eps):

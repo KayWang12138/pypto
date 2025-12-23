@@ -43,7 +43,6 @@ def indexadd_2dim_comm_test_body(indexadd_para, test_func):
 
     b_loop_num = math.ceil(src_shape[0] / view_shape[0])
     s_loop_num = math.ceil(src_shape[1] / view_shape[1])
-    pypto.set_codegen_options(support_dynamic_unaligned=True)
     with pypto.function("INDEXADD", self_tensor, src_tensor, index_tensor, dst_tensor):
         for b_idx in pypto.loop(b_loop_num, name="LOOP_B0", idx_name="b_idx"):
             for s_idx in pypto.loop(s_loop_num, name="LOOP_S0", idx_name="s_idx"):

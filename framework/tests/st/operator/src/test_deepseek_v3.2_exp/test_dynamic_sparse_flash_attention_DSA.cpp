@@ -99,7 +99,6 @@ void TestSa(SaTileShapeConfig& tileConfig) {
 }
  
 TEST_F(DynamicSparseFlashAttnDSASTest, dsa_slc_attn_bf16_b48_s1) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     SaTileShapeConfig tileConfig;
     const int gTile = 128; // for gLoop split
     const int sTile = 2048; // for s2Loop split
@@ -114,7 +113,6 @@ TEST_F(DynamicSparseFlashAttnDSASTest, dsa_slc_attn_bf16_b48_s1) {
 }
  
 TEST_F(DynamicSparseFlashAttnDSASTest, dsa_slc_attn_bf16_b32_s2) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     SaTileShapeConfig tileConfig;
     const int gTile = 128; // for gLoop split
     const int sTile = 1024; // for s2Loop split

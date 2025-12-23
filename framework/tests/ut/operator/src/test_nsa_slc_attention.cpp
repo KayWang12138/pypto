@@ -91,7 +91,6 @@ void TestSaUT(std::vector<int> &input_param, SaTileShapeConfig& tileConfig, SaCo
 }
 
 TEST_F(SlcAttnUtest, slc_attn_fp16) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true); // 参数化
     SaTileShapeConfig tileConfig;
     const int gTile = 128; // for gLoop split
     const int sTile = 1024; // for s2Loop split

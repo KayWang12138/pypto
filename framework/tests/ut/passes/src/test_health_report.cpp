@@ -60,7 +60,6 @@ void TestLoopViewAssembleCopy(const Tensor &t0, const Tensor &t1, const Tensor &
 }
 
 TEST_F(HealthReportTest, TestDD) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     config::SetHostOption(ONLY_CODEGEN, true);
     TileShape::Current().SetVecTile(32, 32);
     TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});

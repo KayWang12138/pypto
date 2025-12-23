@@ -47,7 +47,6 @@ static void CmpsOperationExeFunc2Dims(
     const std::vector<Tensor> &inputs, 
     std::vector<Tensor> &outputs, 
     const OpFuncArgs *opArgs) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     auto args = static_cast<const CmpsOpFuncArgs *>(opArgs);
     SymbolicScalar firstDim = inputs[0].GetShape()[0];
     SymbolicScalar secondDim = inputs[0].GetShape()[1];
@@ -79,7 +78,6 @@ static void CmpsOperationExeFunc3Dims(
     const std::vector<Tensor> &inputs, 
     std::vector<Tensor> &outputs, 
     const OpFuncArgs *opArgs) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     auto args = static_cast<const CmpsOpFuncArgs *>(opArgs);
     SymbolicScalar firstDim = inputs[0].GetShape()[0];
     SymbolicScalar secondDim = inputs[0].GetShape()[1];
@@ -116,7 +114,6 @@ static void CmpsOperationExeFunc4Dims(
     const std::vector<Tensor> &inputs, 
     std::vector<Tensor> &outputs, 
     const OpFuncArgs *opArgs) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     auto args = static_cast<const CmpsOpFuncArgs *>(opArgs);
     SymbolicScalar firstDim = inputs[0].GetShape()[0];
     SymbolicScalar secondDim = inputs[0].GetShape()[1];

@@ -230,8 +230,7 @@ def expert_infer_base(
 
 @pypto.jit(
     host_options={"only_codegen": True},
-    codegen_options={"support_dynamic_unaligned": True,
-                     "codegen_expression_fusion": True},
+    codegen_options={"codegen_expression_fusion": True},
     runtime_options={"device_sched_mode": 1}
 )
 def moe_router_expert_main(hidden_states, hidden_states_scale,

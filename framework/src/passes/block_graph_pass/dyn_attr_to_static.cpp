@@ -405,10 +405,6 @@ Status DynAttrToStatic::TryRemoveDynAttr(Function* leafFunc, std::vector<Operati
     }
 
     // 3. 为dynParam的赋值刷新coa宏
-    unsigned isSupportUnaligned = config::GetCodeGenOption<bool>(SUPPORT_DYNAMIC_UNALIGNED);
-    if (!isSupportUnaligned) {
-        return SUCCESS;
-    }
     ReplaceCommonSymbol(leafFunc, callopArglistOneDim);
     ReBuildConcreteParam(leafFunc, callopArglistOneDim);
     return SUCCESS;

@@ -69,7 +69,6 @@ TEST_F(TestCodegenDynScalar, TestScalarAdds) {
 
     function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
     function->SetUnderDynamicFunction(true);
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     for (auto &subFunc : function->rootFunc_->programs_) {
         for (auto &op : subFunc.second->Operations()) {
             if (OpcodeManager::Inst().IsCopyIn(op.GetOpcode()) || OpcodeManager::Inst().IsCopyOut(op.GetOpcode())) {
@@ -109,7 +108,6 @@ TEST_F(TestCodegenDynScalar, TestScalarDivs) {
         Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
     function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
     function->SetUnderDynamicFunction(true);
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     for (auto &subFunc : function->rootFunc_->programs_) {
         for (auto &op : subFunc.second->Operations()) {
             if (OpcodeManager::Inst().IsCopyIn(op.GetOpcode()) || OpcodeManager::Inst().IsCopyOut(op.GetOpcode())) {
@@ -132,7 +130,6 @@ TEST_F(TestCodegenDynScalar, TestScalarDivs) {
 
 TEST_F(TestCodegenDynScalar, TestAddsTileTensor) {
     config::SetHostOption(ONLY_CODEGEN, true);
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
     config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
     int s = 32;

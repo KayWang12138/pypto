@@ -32,7 +32,6 @@ def test_cumsum_onboard():
 
     b_loop_num = math.ceil(shape[1] / view_shape[1])
 
-    pypto.set_codegen_options(support_dynamic_unaligned=True)
     with pypto.function("MAIN", input1, output):
         for b_idx in pypto.loop(b_loop_num, name="b0", idx_name="bidx"):
             view_tensor_a = pypto.view(input1, view_shape,

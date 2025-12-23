@@ -198,7 +198,6 @@ Tensor ProcessTensorModeClip(const Tensor &tileTensor0, const std::vector<Tensor
 
 static void ClipOperationExeFuncDoubleCut(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const  OpFuncArgs *opArgs) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     auto inputRefs = AsRef(inputs);
     FUNCTION("main", inputRefs, {outputs[ID0]}) {
         SymbolicScalar firstDim = inputs[ID0].GetShape()[ID0];
@@ -231,7 +230,6 @@ static void ClipOperationExeFuncDoubleCut(
 
 static void ClipOperationExeFuncTripleCut(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     auto inputRefs = AsRef(inputs);
     FUNCTION("main", inputRefs, {outputs[ID0]}) {
         SymbolicScalar firstDim = inputs[ID0].GetShape()[ID0];
@@ -270,7 +268,6 @@ static void ClipOperationExeFuncTripleCut(
 
 static void ClipOperationExeFuncQuadrupleCut(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     auto inputRefs = AsRef(inputs);
     FUNCTION("main", inputRefs, {outputs[ID0]}) {
         SymbolicScalar firstDim = inputs[ID0].GetShape()[ID0];

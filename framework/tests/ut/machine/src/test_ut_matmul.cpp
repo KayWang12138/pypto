@@ -66,7 +66,6 @@ template <typename MatmulImplType>
 void TestDynMatmul(int m, int k, int n, Matrix::MatmulExtendParam param = {}) {
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
     config::SetHostOption(ONLY_CODEGEN, true);
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     int nb = n;
     int kb = k;
     int ka = k;

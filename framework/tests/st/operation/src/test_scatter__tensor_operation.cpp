@@ -41,7 +41,6 @@ struct Scatter_TensorOpMetaData {
 
 static void Scatter_TensorOperationExeFunc2Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     FUNCTION("main", {inputs[0], inputs[1], inputs[2]}, {outputs[0]}) {
         SymbolicScalar self_firstDim = inputs[0].GetShape()[0];
@@ -81,7 +80,6 @@ static void Scatter_TensorOperationExeFunc2Dims(
 
 static void Scatter_TensorOperationExeFunc3Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     FUNCTION("main", {inputs[0], inputs[1], inputs[2]}, {outputs[0]}) {
         SymbolicScalar self_firstDim = inputs[0].GetShape()[0];
@@ -130,7 +128,6 @@ static void Scatter_TensorOperationExeFunc3Dims(
 }
 
 static void Scatter_TensorOperationExeFunc4Dims(const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     FUNCTION("main", {inputs[0], inputs[1], inputs[2]}, {outputs[0]}) {
         SymbolicScalar self_firstDim = inputs[0].GetShape()[0];
         SymbolicScalar self_secondDim = inputs[0].GetShape()[1];

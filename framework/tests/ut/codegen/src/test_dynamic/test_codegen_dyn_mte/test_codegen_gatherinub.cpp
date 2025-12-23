@@ -74,7 +74,6 @@ void GatherInUBUT(Config &cfg) {
     Tensor dst(DT_FP16, dstShapes, "dst");
     const std::string funName = "GatherInUB";
     FUNCTION(funName, {src, offsets, pageTable}, {dst}) {
-        config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
         TileShape::Current().SetVecTile({32, 64});
         std::vector<SymbolicScalar> srcValidShape = {src.GetShape()[0], src.GetShape()[1]};
         Tensor dynSrc = View(src, src.GetShape(), srcValidShape, {0, 0});

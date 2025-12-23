@@ -29,7 +29,6 @@ class DynamicGatherSlcFlashAttnDSASTest : public npu::tile_fwk::stest::TestSuite
 template <typename T = npu::tile_fwk::float16>
 void TestSa(SaTileShapeConfig& tileConfig) {
     config::SetHostOption(ONLY_CODEGEN, true);
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     DataType dType = DT_FP32;
     if (std::is_same<T, npu::tile_fwk::float16>::value) {
         dType = DT_FP16;
@@ -147,7 +146,6 @@ SaTileShapeConfig GetPerfSaTileShapeConfig(const int gTile, const int sTile) {
 }
 
 TEST_F(DynamicGatherSlcFlashAttnDSASTest, SFA_b4_s2_seq64K_int8_perf) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     config::SetPassOption(CUBE_NBUFFER_SETTING, std::map<int64_t, int64_t>{});
     config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{});
@@ -172,103 +170,86 @@ TEST_F(DynamicGatherSlcFlashAttnDSASTest, SFA_b4_s2_seq64K_int8_perf) {
 }
 
 TEST_F(DynamicGatherSlcFlashAttnDSASTest, dsa_gather_slc_attn_bf16_b4_s2_seqTest1_int8) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     SaTileShapeConfig tileConfig = GetDefaultSaTileShapeConfig(128, 2048);
     TestSa<npu::tile_fwk::bfloat16>(tileConfig);
 }
 
 TEST_F(DynamicGatherSlcFlashAttnDSASTest, dsa_gather_slc_attn_bf16_b32_s1_seq511) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     SaTileShapeConfig tileConfig = GetDefaultSaTileShapeConfig(128, 2048);
     TestSa<npu::tile_fwk::bfloat16>(tileConfig);
 }
 
 TEST_F(DynamicGatherSlcFlashAttnDSASTest, dsa_gather_slc_attn_bf16_b32_s1_seq511_int8) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     SaTileShapeConfig tileConfig = GetDefaultSaTileShapeConfig(128, 2048);
     TestSa<npu::tile_fwk::bfloat16>(tileConfig);
 }
 
 TEST_F(DynamicGatherSlcFlashAttnDSASTest, dsa_gather_slc_attn_bf16_b1_s1_seq2049) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     SaTileShapeConfig tileConfig = GetDefaultSaTileShapeConfig(128, 2048);
     TestSa<npu::tile_fwk::bfloat16>(tileConfig);
 }
 
 TEST_F(DynamicGatherSlcFlashAttnDSASTest, dsa_gather_slc_attn_bf16_b1_s1_seq2049_int8) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     SaTileShapeConfig tileConfig = GetDefaultSaTileShapeConfig(128, 2048);
     TestSa<npu::tile_fwk::bfloat16>(tileConfig);
 }
 
 TEST_F(DynamicGatherSlcFlashAttnDSASTest, dsa_gather_slc_attn_bf16_b1_s3_seq2047) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     SaTileShapeConfig tileConfig = GetDefaultSaTileShapeConfig(128, 2048);
     TestSa<npu::tile_fwk::bfloat16>(tileConfig);
 }
 
 TEST_F(DynamicGatherSlcFlashAttnDSASTest, dsa_gather_slc_attn_bf16_b1_s3_seq2047_int8) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     SaTileShapeConfig tileConfig = GetDefaultSaTileShapeConfig(128, 2048);
     TestSa<npu::tile_fwk::bfloat16>(tileConfig);
 }
 
 TEST_F(DynamicGatherSlcFlashAttnDSASTest, dsa_gather_slc_attn_bf16_b128_s1_seq8k) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     SaTileShapeConfig tileConfig = GetDefaultSaTileShapeConfig(128, 2048);
     TestSa<npu::tile_fwk::bfloat16>(tileConfig);
 }
 
 TEST_F(DynamicGatherSlcFlashAttnDSASTest, dsa_gather_slc_attn_bf16_b128_s1_seq8k_int8) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     SaTileShapeConfig tileConfig = GetDefaultSaTileShapeConfig(128, 2048);
     TestSa<npu::tile_fwk::bfloat16>(tileConfig);
 }
 
 TEST_F(DynamicGatherSlcFlashAttnDSASTest, dsa_gather_slc_attn_bf16_b8_s1_seq128k) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     SaTileShapeConfig tileConfig = GetDefaultSaTileShapeConfig(128, 2048);
     TestSa<npu::tile_fwk::bfloat16>(tileConfig);
 }
 
 TEST_F(DynamicGatherSlcFlashAttnDSASTest, dsa_gather_slc_attn_bf16_b8_s1_seq128k_int8) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     SaTileShapeConfig tileConfig = GetDefaultSaTileShapeConfig(128, 2048);
     TestSa<npu::tile_fwk::bfloat16>(tileConfig);
 }
 
 TEST_F(DynamicGatherSlcFlashAttnDSASTest, dsa_gather_slc_attn_bf16_b4_s1_seqTest1) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     SaTileShapeConfig tileConfig = GetDefaultSaTileShapeConfig(128, 2048);
     TestSa<npu::tile_fwk::bfloat16>(tileConfig);
 }
 
 TEST_F(DynamicGatherSlcFlashAttnDSASTest, dsa_gather_slc_attn_bf16_b4_s1_seqTest1_int8) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     SaTileShapeConfig tileConfig = GetDefaultSaTileShapeConfig(128, 2048);
     TestSa<npu::tile_fwk::bfloat16>(tileConfig);
 }
 
 TEST_F(DynamicGatherSlcFlashAttnDSASTest, dsa_gather_slc_attn_bf16_b8_s1_seqTest2) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     SaTileShapeConfig tileConfig = GetDefaultSaTileShapeConfig(128, 2048);
     TestSa<npu::tile_fwk::bfloat16>(tileConfig);
 }
 
 TEST_F(DynamicGatherSlcFlashAttnDSASTest, dsa_gather_slc_attn_bf16_b8_s1_seqTest2_int8) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     SaTileShapeConfig tileConfig = GetDefaultSaTileShapeConfig(128, 2048);
     TestSa<npu::tile_fwk::bfloat16>(tileConfig);
 }
 
 TEST_F(DynamicGatherSlcFlashAttnDSASTest, dsa_gather_slc_attn_bf16_b8_s4_seqTest2) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     SaTileShapeConfig tileConfig = GetDefaultSaTileShapeConfig(128, 2048);
     TestSa<npu::tile_fwk::bfloat16>(tileConfig);
 }
 
 TEST_F(DynamicGatherSlcFlashAttnDSASTest, dsa_gather_slc_attn_bf16_b8_s4_seqTest2_int8) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     SaTileShapeConfig tileConfig = GetDefaultSaTileShapeConfig(128, 2048);
     TestSa<npu::tile_fwk::bfloat16>(tileConfig);
 }

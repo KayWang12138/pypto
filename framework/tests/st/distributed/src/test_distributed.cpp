@@ -68,7 +68,6 @@ protected:
 
 TEST_F(DistributedTest, shmem_allgather_attn_post_reducescatter_bfloat16_64_1_32_256_128_128_4)
 {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     config::SetHostOption(ONLY_CODEGEN, true);
     Distributed::TestAllGatherAttentionPostReducescatter(testParam);
 }

@@ -29,7 +29,6 @@ def test_maximum():
     first_dim, second_dim = 90, 90
     view_shape, tile_shape = (64, 64), (32, 32)
     pypto.runtime._device_init()
-    set_codegen_options(support_dynamic_unaligned=True)
     x = tensor((first_dim, second_dim), pypto.DT_INT32, "Operand1")
     y = tensor((first_dim, second_dim), pypto.DT_INT32, "Operand2")
     out = tensor((first_dim, second_dim), pypto.DT_INT32, "Operand2")

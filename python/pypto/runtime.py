@@ -348,10 +348,6 @@ def verify(func, inputs, outputs, goldens, *args,
     """
     pypto_impl.DeviceInit()
 
-    if codegen_options is None:
-        codegen_options = {"support_dynamic_unaligned": True}
-    pypto.set_codegen_options(**codegen_options)
-
     if host_options is None:
         host_options = {"only_codegen": True}
     pypto.set_host_options(**host_options)

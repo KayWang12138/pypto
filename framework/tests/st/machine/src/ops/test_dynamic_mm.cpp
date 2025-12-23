@@ -268,7 +268,6 @@ static void MNSplitFunc(SplitFuncParam &splitFuncParam) {
 template <typename MatmulImplType>
 void TestDynMatmul(MatrixOpParams &opParams) {
     SetInterpreterConfig();
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     config::SetHostOption(ONLY_CODEGEN, true);
 
     if (opParams.mmShape.size() != MM_SHAPE_SIZE || opParams.viewShape.size() != MM_VIEW_SHAPE_SIZE) {

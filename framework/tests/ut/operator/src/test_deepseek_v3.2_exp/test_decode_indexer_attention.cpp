@@ -78,7 +78,6 @@ Tensor CreateDynamicTensor(DataType dType, const std::vector<int64_t> &shape, st
 template <typename T = npu::tile_fwk::float16, typename wDtype = int8_t, bool isSmooth = false, bool nz = false>
 void TestDecodeIndexerAttentionSTest(DSIASimpleParams &params) {
     SetPreConfig();
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     int b = params.b;
     int s1 = params.s1;

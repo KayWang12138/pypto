@@ -89,7 +89,6 @@ std::tuple<Tensor, Tensor> MyPrologQuant(const Tensor &input) {
 }
 
 void ViewTypeQuantTestFunc(const Tensor &x, Tensor &result) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     FUNCTION("ViewTypeQuantTestFunc", {x}, {result}) {
         int m = x.GetShape()[0];
         int k = x.GetShape()[1];
@@ -123,7 +122,6 @@ void ViewTypeQuantTestFunc(const Tensor &x, Tensor &result) {
 }
 
 void ViewTypeDequantTestFunc(const Tensor &x, Tensor &result) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     FUNCTION("ViewTypeDequantTestFunc", {x}, {result}) {
         int m = x.GetShape()[0];
         int k = x.GetShape()[1];

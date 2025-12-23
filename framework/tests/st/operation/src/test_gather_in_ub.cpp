@@ -228,12 +228,10 @@ class GatherInUBTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {
     void SetUp() override {
         TestSuite_STest_Ops_Aihac::SetUp();
         config::SetHostOption(ONLY_CODEGEN, true);
-        config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
         rtSetDevice(GetDeviceIdByEnvVar());
     }
     void TearDown() override {
         config::SetHostOption(ONLY_CODEGEN, false);
-        config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, false);
         TestSuite_STest_Ops_Aihac::TearDown();
     }
 };

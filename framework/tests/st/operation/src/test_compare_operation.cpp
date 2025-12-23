@@ -45,7 +45,6 @@ static void CompareOperationExeFunc2Dims(
     const std::vector<Tensor> &inputs, 
     std::vector<Tensor> &outputs, 
     const OpFuncArgs *opArgs) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     auto args = static_cast<const CompareOpFuncArgs *>(opArgs);
     SymbolicScalar firstDim = std::max(inputs[0].GetShape()[0], inputs[1].GetShape()[0]);
     SymbolicScalar secondDim = std::max(inputs[0].GetShape()[1], inputs[1].GetShape()[1]);
@@ -134,7 +133,6 @@ static void CompareOperationExeFunc3Dims(
     const std::vector<Tensor> &inputs, 
     std::vector<Tensor> &outputs, 
     const OpFuncArgs *opArgs) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     // 解析参数
     auto args = static_cast<const CompareOpFuncArgs *>(opArgs);
     SymbolicScalar firstDim = inputs[0].GetShape()[0];
@@ -176,7 +174,6 @@ static void CompareOperationExeFunc4Dims(
     const std::vector<Tensor> &inputs, 
     std::vector<Tensor> &outputs, 
     const OpFuncArgs *opArgs) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     // 解析参数
     auto args = static_cast<const CompareOpFuncArgs *>(opArgs);
     SymbolicScalar firstDim = inputs[0].GetShape()[0];

@@ -40,7 +40,6 @@ public:
 
 TEST_F(DynamicGenGatedScoreUtest, utest_gen_gated_score_plus_dyn) {
     std::vector<int64_t> bnsh = {4, 128, 4, 7168};
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     config::SetHostOption(ONLY_CODEGEN, true);
 
     int64_t b = bnsh[0];
@@ -67,7 +66,6 @@ TEST_F(DynamicGenGatedScoreUtest, utest_gen_gated_score_plus_dyn) {
 
 TEST_F(DynamicGenGatedScoreUtest, utest_gen_gated_score_dyn) {
     std::vector<int64_t> bnsh = {4, 128, 4, 7168};
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     config::SetHostOption(ONLY_CODEGEN, true);
 
     int64_t b = bnsh[0];

@@ -39,7 +39,6 @@ struct IndexAddOpMetaData {
 // Tensor IndexAdd(const Tensor &self, const Tensor &src, const Tensor &indices, int axis, const Element &alpha)
 static void IndexAddOperationExeFunc2Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     FUNCTION("main", {inputs[0], inputs[1], inputs[2]}, {outputs[0]}) {
         SymbolicScalar self_firstDim = inputs[0].GetShape()[0];
@@ -86,7 +85,6 @@ static void IndexAddOperationExeFunc2Dims(
 
 static void IndexAddOperationExeFunc3Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     FUNCTION("main", {inputs[0], inputs[1], inputs[2]}, {outputs[0]}) {
         SymbolicScalar self_firstDim = inputs[0].GetShape()[0];
@@ -142,7 +140,6 @@ static void IndexAddOperationExeFunc3Dims(
 
 static void IndexAddOperationExeFunc4Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     FUNCTION("main", {inputs[0], inputs[1], inputs[2]}, {outputs[0]}) {
         SymbolicScalar self_firstDim = inputs[0].GetShape()[0];

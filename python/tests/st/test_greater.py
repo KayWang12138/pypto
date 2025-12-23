@@ -33,7 +33,6 @@ def test_vector_operation_greater():
     b = pypto.tensor(shape, dtype, "Greater_TENSOR_b")
     c = pypto.tensor(shape, pypto.DT_BOOL, "Greater_TENSOR_c")
     with pypto.function("Greater", a, b, c):
-        pypto.set_codegen_options(support_dynamic_unaligned=True)
 
         for b_idx in pypto.loop(int(np.ceil(n / view_shape[0])), name="LOOP_GREATER_L0", idx_name="b_idx"):
             for s_idx in pypto.loop(int(np.ceil(m / view_shape[1])), name="LOOP_GREATER_L1", idx_name="s_idx"):
@@ -90,7 +89,6 @@ def test_greater_scalar():
     input_tensor = pypto.tensor(shape, dtype, "GREATER_SCALAR_INPUT")
     output_tensor = pypto.tensor(shape, pypto.DT_BOOL, "GREATER_SCALAR_OUTPUT")
     with pypto.function("GreaterScalar", input_tensor, output_tensor):
-        pypto.set_codegen_options(support_dynamic_unaligned=True)
         b_loop_num = int(np.ceil(n / view_shape[0]))
         s_loop_num = int(np.ceil(m / view_shape[1]))
         for b_idx in pypto.loop(b_loop_num, name="BLOCK_LOOP", idx_name="b_idx"):
@@ -142,7 +140,6 @@ def test_vector_operation_equal():
     b = pypto.tensor(shape, dtype, "Equal_TENSOR_b")
     c = pypto.tensor(shape, pypto.DT_BOOL, "Equal_TENSOR_c")
     with pypto.function("Equal", a, b, c):
-        pypto.set_codegen_options(support_dynamic_unaligned=True)
 
         for b_idx in pypto.loop(int(np.ceil(n / view_shape[0])), name="LOOP_EQUAL_L0", idx_name="b_idx"):
             for s_idx in pypto.loop(int(np.ceil(m / view_shape[1])), name="LOOP_EQUAL_L1", idx_name="s_idx"):
@@ -198,7 +195,6 @@ def test_equal_scalar():
     input_tensor = pypto.tensor(shape, dtype, "EQUAL_SCALAR_INPUT")
     output_tensor = pypto.tensor(shape, pypto.DT_BOOL, "EQUAL_SCALAR_OUTPUT")
     with pypto.function("EqualScalar", input_tensor, output_tensor):
-        pypto.set_codegen_options(support_dynamic_unaligned=True)
         b_loop_num = int(np.ceil(n / view_shape[0]))
         s_loop_num = int(np.ceil(m / view_shape[1]))
         for b_idx in pypto.loop(b_loop_num, name="BLOCK_LOOP", idx_name="b_idx"):
@@ -250,7 +246,6 @@ def test_vector_operation_less():
     b = pypto.tensor(shape, dtype, "Less_TENSOR_b")
     c = pypto.tensor(shape, pypto.DT_BOOL, "Less_TENSOR_c")
     with pypto.function("Less", a, b, c):
-        pypto.set_codegen_options(support_dynamic_unaligned=True)
 
         for b_idx in pypto.loop(int(np.ceil(n / view_shape[0])), name="LOOP_LESS_L0", idx_name="b_idx"):
             for s_idx in pypto.loop(int(np.ceil(m / view_shape[1])), name="LOOP_LESS_L1", idx_name="s_idx"):
@@ -306,7 +301,6 @@ def test_less_scalar():
     input_tensor = pypto.tensor(shape, dtype, "LESS_SCALAR_INPUT")
     output_tensor = pypto.tensor(shape, pypto.DT_BOOL, "LESS_SCALAR_OUTPUT")
     with pypto.function("LessScalar", input_tensor, output_tensor):
-        pypto.set_codegen_options(support_dynamic_unaligned=True)
         b_loop_num = int(np.ceil(n / view_shape[0]))
         s_loop_num = int(np.ceil(m / view_shape[1]))
         for b_idx in pypto.loop(b_loop_num, name="BLOCK_LOOP", idx_name="b_idx"):

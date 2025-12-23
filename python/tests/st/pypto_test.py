@@ -163,7 +163,6 @@ class TestBuilder(abc.ABC):
             return
         if on_board:
             pypto.runtime._device_init()
-            pypto.set_codegen_options(support_dynamic_unaligned=True)
         self.inputs = self.get_input_from_param()
         output_count = len(inspect.signature(self.kernel_golden).parameters) - 1 - len(self.inputs)
         self.golden_output = self.torch_convert(self.kernel_golden(self.params, *self.inputs, *[None] * output_count))

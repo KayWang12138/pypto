@@ -265,7 +265,6 @@ def attention_pre(x, weight, q_gamma, k_gamma, cos, sin, q, k, v):
         List containing [q, k, v]
     """
     # Enable dynamic unaligned support for code generation
-    pypto.set_codegen_options(support_dynamic_unaligned=True)
     pypto.set_host_options(only_codegen=True)
 
     # Get tensor shapes

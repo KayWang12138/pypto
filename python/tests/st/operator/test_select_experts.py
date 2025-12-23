@@ -19,7 +19,6 @@ from st.pypto_test import TestBuilder
 
 @pypto.jit(
     host_options={"only_codegen": True},
-    codegen_options={"support_dynamic_unaligned": True}
 )
 def op_select_experts(router_logits, ids_k, weight_k, params):
 

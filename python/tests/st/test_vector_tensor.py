@@ -30,7 +30,6 @@ def test_exp_tensor_onboard():
     shape = (n, m)
     view_shape = (16, 16)
     tile_shape = (8, 8)
-    pypto.set_codegen_options(support_dynamic_unaligned=True)
     pypto.runtime._device_init()
     a = pypto.tensor(shape, dtype, "SQRT_TENSOR_a")
     b = pypto.tensor(shape, dtype, "SQRT_TENSOR_b")
@@ -85,7 +84,6 @@ def test_scatterupdate_tensor_onboard():
 
     b_loop_num = math.ceil(src_shape[0] / view_shape[0])
     s_loop_num = math.ceil(src_shape[1] / view_shape[1])
-    pypto.set_codegen_options(support_dynamic_unaligned=True)
     with pypto.function("MAIN", src_tensor, index_tensor, update_tensor, dst_tensor):
         for b_idx in pypto.loop(b_loop_num, name="b0", idx_name="bidx"):
             for s_idx in pypto.loop(s_loop_num, name="s0", idx_name="sidx"):
@@ -178,7 +176,6 @@ def scatter_2dim_proc(scatter_para, is_inplace):
 
     b_loop_num = math.ceil(indices_shape[0] / view_shape[0])
     s_loop_num = math.ceil(indices_shape[1] / view_shape[1])
-    pypto.set_codegen_options(support_dynamic_unaligned=True)
     with pypto.function("MAIN", self_tensor, indices_tensor, dst_tensor):
         for b_idx in pypto.loop(b_loop_num, name="b0", idx_name="bidx"):
             for s_idx in pypto.loop(s_loop_num, name="s0", idx_name="sidx"):
@@ -271,7 +268,6 @@ def test_scatter_add_onboard():
 
     b_loop_num = math.ceil(indices_shape[0] / view_shape[0])
     s_loop_num = math.ceil(indices_shape[1] / view_shape[1])
-    pypto.set_codegen_options(support_dynamic_unaligned=True)
     with pypto.function("MAIN", self_tensor, indices_tensor, dst_tensor):
         for b_idx in pypto.loop(b_loop_num, name="b0", idx_name="bidx"):
             for s_idx in pypto.loop(s_loop_num, name="s0", idx_name="sidx"):

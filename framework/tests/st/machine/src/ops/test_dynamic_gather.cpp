@@ -28,7 +28,6 @@ TEST_F(DynamicGatherTest, TestDynamicGatherDim2) {
     SetInterpreterConfig();
     config::SetHostOption(ONLY_CODEGEN, true);
     TileShape::Current().SetVecTile(64, 64);
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     int s1 = 128;
     int b = 2;
@@ -87,7 +86,6 @@ TEST_F(DynamicGatherTest, TestDynamicGatherDim3) {
     SetInterpreterConfig();
     config::SetHostOption(ONLY_CODEGEN, true);
     TileShape::Current().SetVecTile(1, 1, 64);
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     int s1 = 32;
     int b = 2;

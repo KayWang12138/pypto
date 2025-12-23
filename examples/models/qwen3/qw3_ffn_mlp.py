@@ -163,7 +163,6 @@ loop_base = 16
 
 @pypto.jit(
     host_options={"only_codegen": True},
-    codegen_options={"support_dynamic_unaligned": True}
 )
 def moe_main(expand_x, expert_tokens, token_acc_table, weight_gate_upper, weight_down_proj, ffn_out):
     weight_dtype = weight_down_proj.dtype

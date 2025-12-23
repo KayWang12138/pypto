@@ -66,7 +66,6 @@ def softmax_core(input_tensor: pypto.tensor) -> pypto.tensor:
 
 @pypto.jit(
     host_options={"only_codegen": True},
-    codegen_options={"support_dynamic_unaligned": True},
     runtime_options={"cfgcache_device_task_num": 100, "cfgcache_root_task_num": 100, "cfgcache_leaf_task_num": 10000, "run_mode": 1}
 )
 def softmax(input_tensor, output_tensor,cost_model_enable):

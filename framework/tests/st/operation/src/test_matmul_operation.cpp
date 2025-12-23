@@ -326,7 +326,6 @@ static void MatmulOperationExeFuncSplitMN(
 
 static void MatmulOperationExeFunc(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     config::SetHostOption(ONLY_CODEGEN, true);
 
     auto args = static_cast<const MatmulOpFuncArgs *>(opArgs);

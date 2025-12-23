@@ -40,7 +40,6 @@ def add_rms_norm_golden(residual, hidden_states, gamma, eps):
 
 @pypto.jit(
     host_options={"only_codegen": True},
-    codegen_options={"support_dynamic_unaligned": True}
 )
 def cust_add_rms_norm(residual, hidden_states, weight, y, x):
     eps = 1e-6

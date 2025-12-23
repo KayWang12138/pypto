@@ -391,7 +391,6 @@ void FusedCompressKvSelectCompute(const Tensor &qNope, const Tensor &qRope, cons
 
             LOOP("CMP_LOOP_topk1", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, 1, 1), {}, true) {
                 (void)sIdx;
-                config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
                 std::vector<Tensor> res = GenTopkIndices(tmpOut, s_slc, actualTopk, actualVaildLen, true);
 

@@ -201,7 +201,6 @@ void TestCmpKvSel(CmpAttnTile &tileConfig) {
 }
 
 TEST_F(DynamicCmpKvSel, dynamic_NSA_case_no_flash) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true); // 参数化
     // // 精度工具
     // config::SetVerifyOption(KEY_VERIFY_TENSOR_GRAPH, true);
     // config::SetVerifyOption(KEY_VERIFY_PASS, true);
@@ -231,7 +230,6 @@ TEST_F(DynamicCmpKvSel, dynamic_NSA_case_no_flash) {
 }
 
 TEST_F(DynamicCmpKvSel, debug_dynamic_NSA_case_no_flash) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true); // 参数化
 
     CmpAttnTile config;
     // Block concat tile

@@ -56,7 +56,6 @@ def get_device_id():
 
 @pypto.jit(
     host_options={"only_codegen": True},
-    codegen_options={"support_dynamic_unaligned": True}
 )
 def matmul_kernel(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> None:
     pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
@@ -102,7 +101,6 @@ def test_matmul_basic():
 
 @pypto.jit(
     host_options={"only_codegen": True},
-    codegen_options={"support_dynamic_unaligned": True}
 )
 def matmul_batch_kernel(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> None:
     pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
@@ -148,7 +146,6 @@ def test_matmul_batch():
 
 @pypto.jit(
     host_options={"only_codegen": True},
-    codegen_options={"support_dynamic_unaligned": True}
 )
 def matmul_broadcast_kernel(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> None:
     pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
@@ -194,7 +191,6 @@ def test_matmul_broadcast():
 
 @pypto.jit(
         host_options={"only_codegen": True},
-        codegen_options={"support_dynamic_unaligned": True}
     )
 def matmul_trans_right_kernel(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> None:
     pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
@@ -219,7 +215,6 @@ def matmul_trans_right_op(a: torch.Tensor, b: torch.Tensor, dynamic: bool = Fals
 
 @pypto.jit(
     host_options={"only_codegen": True},
-    codegen_options={"support_dynamic_unaligned": True}
 )
 def matmul_trans_left_kernel(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> None:
     pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
@@ -300,7 +295,6 @@ def test_matmul_trans():
 
 @pypto.jit(
     host_options={"only_codegen": True},
-    codegen_options={"support_dynamic_unaligned": True}
 )
 def matmul_bias_kernel(a: pypto.Tensor, b: pypto.Tensor, bias: pypto.Tensor, out: pypto.Tensor) -> None:
     extend_params = {'bias_tensor': bias}

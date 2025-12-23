@@ -484,7 +484,6 @@ TEST_F(MlaPrologSTest, b32_s2_pa_nd_fp16_quant) {
     MlaTileConfig tileConfig = {32, 1};
 
     PerformanceConfig();
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     TestDynamicMlaProlog<npu::tile_fwk::float16, int8_t, false, true, true, false, true>(params, tileConfig, cacheMode);
 }
 

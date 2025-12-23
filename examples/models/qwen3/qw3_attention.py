@@ -206,7 +206,6 @@ def softmax(x, is_fp16=False):
 @pypto.jit
 def ifa_func(q, k, v, block_table, kv_act_seqs, atten_out):
     # 1. 添加支持动态的config
-    pypto.set_codegen_options(support_dynamic_unaligned=True)
     pypto.set_host_options(only_codegen=True)
     pypto.set_option('profile_enable', True)
 

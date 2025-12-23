@@ -27,7 +27,6 @@ TEST_F(DynamicCastTest, testDynCastUnalign) {
     config::SetHostOption(ONLY_CODEGEN, true);
     TileShape::Current().SetVecTile(1, 16);
 
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     std::vector<uint8_t> devProgBinary;
 
     int b = 1;
@@ -91,7 +90,6 @@ TEST_F(DynamicCastTest, testDynCastDevSeparate) {
     config::SetHostOption(ONLY_CODEGEN, true);
     TileShape::Current().SetVecTile(1, 16);
 
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     std::vector<uint8_t> devProgBinary;
 

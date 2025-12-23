@@ -91,7 +91,6 @@ TEST_F(DynamicLightningIndexerPrologUtest, utest_lightning_indexer_prolog) {
 
     auto params = ReadParams(ropeTileConfigs, indexerConfigs, -1);
     PerformanceConfig();
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     config::SetHostOption(ONLY_CODEGEN, true);
 
     // inputs

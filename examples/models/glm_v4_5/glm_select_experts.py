@@ -164,7 +164,6 @@ def process_main_loop_interation(
     "cfgcache_root_task_num": 1000,
     "cfgcache_leaf_task_num": 10000},
     host_options={"only_codegen": True},
-    codegen_options={"support_dynamic_unaligned": True}
 )
 def select_experts_kernel(logits_input, e_score_bias_input, weight_k, ids_k,
                           renormalize_flag, topk_group, num_expert_group):

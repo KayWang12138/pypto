@@ -28,7 +28,6 @@
         "only_codegen": false
     },
     "codegen": {
-        "support_dynamic_unaligned": false,
         "codegen_expression_fusion": false
     },
     "verify": {

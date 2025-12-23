@@ -242,8 +242,7 @@ def softmax(x, is_fp16=False):
     "cfgcache_root_task_num": 1000,
     "cfgcache_leaf_task_num": 10000},
     host_options={"only_codegen": True},
-    codegen_options={"support_dynamic_unaligned": True, 
-    "codegen_expression_fusion": True}
+    codegen_options={"codegen_expression_fusion": True}
 )
 def ifa_func(q, k, v, block_table, kv_act_seqs, atten_out):
     # 1. 添加支持动态的config

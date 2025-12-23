@@ -74,7 +74,6 @@ TestContext prepareSortParamForUT(Opcode opcode) {
 
     auto shapeImme = OpImmediate::Specified(shape);
     TileShape::Current().SetVecTile(shape);
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     Tensor inputA(DT_FP32, shape, "A");
     Tensor inputB(DT_FP32, shape, "B");
     Tensor output(DT_FP32, shape, "C");

@@ -41,7 +41,6 @@ struct GatherElementOpMetaData {
 
 static void GatherElementOperationExeFunc1Dim(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
         SymbolicScalar src_firstDim = inputs[0].GetShape()[0];
         SymbolicScalar idx_firstDim = inputs[1].GetShape()[0];
@@ -68,7 +67,6 @@ static void GatherElementOperationExeFunc1Dim(
 
 static void GatherElementOperationExeFunc2Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
         SymbolicScalar src_firstDim = inputs[0].GetShape()[0];
         SymbolicScalar src_secondDim = inputs[0].GetShape()[1];
@@ -105,7 +103,6 @@ static void GatherElementOperationExeFunc2Dims(
 
 static void GatherElementOperationExeFunc3Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
         SymbolicScalar src_firstDim = inputs[0].GetShape()[0];
         SymbolicScalar src_secondDim = inputs[0].GetShape()[1];
@@ -151,7 +148,6 @@ static void GatherElementOperationExeFunc3Dims(
 
 static void GatherElementOperationExeFunc4Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
         SymbolicScalar src_firstDim = inputs[0].GetShape()[0];
         SymbolicScalar src_secondDim = inputs[0].GetShape()[1];
@@ -205,7 +201,6 @@ static void GatherElementOperationExeFunc4Dims(
 
 static void GatherElementOperationExeFunc5Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
         SymbolicScalar src_firstDim = inputs[0].GetShape()[0];
         SymbolicScalar src_secondDim = inputs[0].GetShape()[1];

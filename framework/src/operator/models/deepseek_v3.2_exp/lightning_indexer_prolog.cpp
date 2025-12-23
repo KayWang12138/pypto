@@ -228,7 +228,6 @@ void LightningIndexerPrologCompute(
 
 void LightningIndexerProlog(
     const IndexerPrologInput &inputs, IndexerPrologOutput &outputs, const IndexerShapeParams &params) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     FUNCTION("LightningIndexerProlog",
         {
             inputs.x, inputs.qr, inputs.qW, inputs.kW, inputs.projW, inputs.lnW, inputs.lnBias, inputs.cos, inputs.sin,

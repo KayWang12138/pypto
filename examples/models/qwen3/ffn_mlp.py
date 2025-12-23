@@ -364,7 +364,6 @@ def expert_infer_base(config: ExpertInferConfig):
 
 @pypto.jit(
     host_options={"only_codegen": True},
-    codegen_options={"support_dynamic_unaligned": True}
 )
 def moe_ffn(expand_x, expert_tokens, token_acc_table, weight_gate_upper, weight_down_proj, ffn_out):
     """

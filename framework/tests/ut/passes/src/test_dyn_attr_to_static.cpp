@@ -189,7 +189,6 @@ TEST_F(DynAttrToStaticTest, TestSetTensorData) {
 }
 
 TEST_F(DynAttrToStaticTest, TestDynExpression) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     TileShape::Current().SetVecTile(64, 64);
 
     int b = 1;

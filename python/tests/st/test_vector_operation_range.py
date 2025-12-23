@@ -31,7 +31,6 @@ def test_vector_operation_range():
     step_data = 1.0
 
     pypto.runtime._device_init()
-    pypto.set_codegen_options(support_dynamic_unaligned=True)
 
     a = pypto.tensor((1, 1, 1), pypto.DT_FP32, "Range_TENSOR_a")
     b = pypto.tensor((size,), pypto.DT_FP32, "Range_TENSOR_b")

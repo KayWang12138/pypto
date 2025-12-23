@@ -143,7 +143,6 @@ def test_assemble_different_offsets_shapes():
     
 @pypto.jit(
     host_options={"only_codegen": True},
-    codegen_options={"support_dynamic_unaligned": True}
 )
 def gather_kernel(input_tensor: pypto.Tensor, index_tensor: pypto.Tensor, out: pypto.Tensor, dim: int) -> None:
     tile_shapes = [8 for _ in range(len(input_tensor.shape))]

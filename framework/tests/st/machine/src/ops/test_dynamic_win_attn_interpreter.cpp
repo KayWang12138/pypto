@@ -139,7 +139,6 @@ void TestWinAttenInterpreter(WinAttenTileShapeConfig& tileConfig) {
 }
 
 TEST_F(DynamicWinAttenInterpreterTest, test_DynAttn_nas_win_attn_s1_2_actseqlen_1024_mla_fp16_inter) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true); // 参数化
     WinAttenTileShapeConfig tileConfig;
     const int gTileSize = NUM_128; // for gLoop split
     tileConfig.gTile = gTileSize;

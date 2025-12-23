@@ -87,7 +87,6 @@ void testPa(PaTileShapeConfig &tileConfig, int maxUnrollTimes = 1) {
 }
 
 TEST_F(TestCodegenDynPa, PaHighThroughputDviewLargeDynamicValidShape) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     PaTileShapeConfig tileConfig;
     const int nTile = 128;
     tileConfig.headNumQTile = nTile;

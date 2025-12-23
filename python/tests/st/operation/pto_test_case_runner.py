@@ -209,7 +209,6 @@ class PTOTestCaseRunner(TestCaseRunner):
         function += prefix + "    del tmp\n"
         logging.info(function)
         pypto.set_host_options(only_codegen=True)
-        pypto.set_codegen_options(support_dynamic_unaligned=True)
         pypto.set_vec_tile_shapes(*self.tile_shape)
         exec(
             function,

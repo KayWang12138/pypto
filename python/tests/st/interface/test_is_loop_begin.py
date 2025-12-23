@@ -26,7 +26,6 @@ d = 64
 
 @pypto.jit(
     host_options={"only_codegen": True},
-    codegen_options={"support_dynamic_unaligned": True}
 )
 def dyn_loop_with_loop_begin(in_tensor, out_tensor):
     pypto.set_vec_tile_shapes(1, 1, 64, 64)
@@ -74,7 +73,6 @@ def test_is_loop_begin():
 
 @pypto.jit(
     host_options={"only_codegen": True},
-    codegen_options={"support_dynamic_unaligned": True}
 )
 def dyn_loop_with_loop_end(in_tensor, out_tensor):
     pypto.set_vec_tile_shapes(1, 1, 64, 64)

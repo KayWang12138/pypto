@@ -166,7 +166,6 @@ KVCompress params:
 
 TEST_F(DynKVCmp, KVCmpBatch48float16) {
     SetInterpreterConfig();
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true); // 参数化
 
     CmpAttnTile config;
     // Block concat tile
@@ -187,7 +186,6 @@ TEST_F(DynKVCmp, KVCmpBatch48float16) {
 
 TEST_F(DynKVCmp, KVCmpBatch32bf16) {
     SetInterpreterConfig();
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true); // 参数化
 
     CmpAttnTile config;
     // Block concat tile
@@ -249,7 +247,6 @@ void TestAuxTensor() {
 }
 
 TEST_F(DynKVCmp, AuxVectorBuildFloat32) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true); // 参数化
     // // 精度工具
     // config::SetVerifyOption(KEY_VERIFY_TENSOR_GRAPH, true);
     // config::SetVerifyOption(KEY_VERIFY_PASS, true);

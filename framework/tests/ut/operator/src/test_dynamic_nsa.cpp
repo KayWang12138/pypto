@@ -133,7 +133,6 @@ TEST_F(DyNsa, GenSlc_b1_s1_fp_6k1) {
     params.b = 1;
     params.s2 = NUM_4096 * 2;
     params.n2 = 1;
-    //    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     TestGenslc<npu::tile_fwk::float16>(params,(4096+1024*2)+1,true);
 }
 
@@ -142,6 +141,5 @@ TEST_F(DyNsa, GenTopk_b1_s1_fp_6k1_dyn) {
     params.b = 1;
     params.s2 = NUM_4096 + NUM_1024 * 2;
     params.n2 = 1;
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     TestGenslc<npu::tile_fwk::float16>(params,params.s2+1);
 }

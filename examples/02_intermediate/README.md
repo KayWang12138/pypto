@@ -36,7 +36,6 @@
 
 在中级样例中，您将学习到：
 - **复杂算子组合**: 如何将多个基础算子封装成具有特定功能的模块。
-- **动态形状支持**: 通过 `codegen_options={"support_dynamic_unaligned": True}` 等配置处理不规则形状。
 - **控制流**: 在 `@pypto.jit` 内核中使用 `pypto.loop` 和条件判断。
 - **内存优化**: 理解如何通过 `view` 和 `inplace` 操作减少显存占用。
 

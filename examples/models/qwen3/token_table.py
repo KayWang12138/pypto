@@ -53,7 +53,6 @@ def get_device_id():
 
 @pypto.jit(
     host_options={"only_codegen": True},
-    codegen_options={"support_dynamic_unaligned": True}
 )
 def get_token_acc_table(expert_tokens, expert_offset):
     """

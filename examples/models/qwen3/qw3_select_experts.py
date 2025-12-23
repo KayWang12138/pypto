@@ -26,7 +26,6 @@ def main():
 # 1. 添加支持动态的config
 @pypto.jit(
     host_options={"only_codegen": True},
-    codegen_options={"support_dynamic_unaligned": True}
 )
 def select_experts(logits_input, ids_k, weight_k, renormalize_flag):
     # 3. 得到动态tensor的shape

@@ -93,10 +93,7 @@ def kv_cache_concat_bsnd(k_cache, v_cache, kv_cache_actual_seq, block_table, b):
 def gated_attention_decode_func(q, k, v, block_table, q_act_seqs,
                                 kv_act_seqs, gate, weight, atten_out):
     # 1. 添加支持动态的config
-    pypto.set_codegen_options(
-        support_dynamic_unaligned=True,
-        codegen_expression_fusion=True
-    )
+    pypto.set_codegen_options(codegen_expression_fusion=True)
     # 3. 获取参数信息
     tile_cfg = get_qwen_common_config()
     nq = q.shape[1]

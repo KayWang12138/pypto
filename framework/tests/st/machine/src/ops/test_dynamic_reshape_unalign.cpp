@@ -35,7 +35,6 @@ public:
 TEST_F(DynamicReshapeUnalignTest, test_add_dim) {
     SetInterpreterConfig();
     TileShape::Current().SetVecTile(64, 64);
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     int b = 2;
     int sq = 64;
@@ -91,7 +90,6 @@ TEST_F(DynamicReshapeUnalignTest, test_add_dim) {
 TEST_F(DynamicReshapeUnalignTest, test_merge_dim) {
     SetInterpreterConfig();
     TileShape::Current().SetVecTile(1, 16, 16);
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     int b = 2;
     int sq = 10;
@@ -149,7 +147,6 @@ TEST_F(DynamicReshapeUnalignTest, test_merge_dim) {
 TEST_F(DynamicReshapeUnalignTest, test_split_dim) {
     SetInterpreterConfig();
     TileShape::Current().SetVecTile(1, 16, 16);
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     int b = 2;
     int sq = 6;

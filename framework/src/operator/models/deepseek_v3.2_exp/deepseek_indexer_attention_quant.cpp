@@ -168,7 +168,6 @@ void DeepSeekIndexerAttentionQuant(
 #endif
 
         //===================== indexer topk ============================
-        config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true); // 参数化
         config::SetPassOption(MG_COPYIN_UPPER_BOUND, NUM_100 * NUM_1024 * NUM_1024);
         config::SetPassOption(SG_PG_LOWER_BOUND, NUM_1024);
         config::SetPassOption(SG_PG_UPPER_BOUND, NUM_1024 * NUM_1024);

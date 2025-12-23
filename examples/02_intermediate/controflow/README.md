@@ -48,6 +48,5 @@ python3 others/kernel_input.py
 
 ## 注意事项
 
-- 在使用动态形状时，请确保配置了 `codegen_options={"support_dynamic_unaligned": True}` 以获得最佳兼容性。
 - 内核中的循环和条件判断直接影响代码生成，建议参考 `loop/README.md` 了解更多底层细节。
 

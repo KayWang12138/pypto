@@ -434,7 +434,6 @@ def mla_prolog_quant_compute(token_x, w_dq, w_uq_qr, dequant_scale, w_uk,
 
 
 @pypto.jit(
-    codegen_options={"support_dynamic_unaligned": True},
     pass_options={"vec_nbuffer_mode": 1,
                 "cube_l1_reuse_mode": 4,
                 "cube_l1_reuse_setting": {3: 4},
@@ -464,7 +463,6 @@ def mla_prolog_quant_p(
 
 
 @pypto.jit(
-    codegen_options={"support_dynamic_unaligned": True},
     pass_options={"vec_nbuffer_mode": 1,
                 "cube_l1_reuse_mode": 4,
                 "cube_l1_reuse_setting": {3: 4},

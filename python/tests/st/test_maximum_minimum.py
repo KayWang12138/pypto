@@ -51,7 +51,6 @@ def test_with_tensor_scalar_minimum(
     tile_shape = tile_shape or ([8] * len(shape))
 
     pypto.runtime._device_init()
-    pypto.set_codegen_options(support_dynamic_unaligned=True)
 
     x = pypto.tensor(shape, data_type)
     y = pypto.tensor(shape, data_type)
@@ -112,7 +111,6 @@ def test_with_tensor_scalar_maximum(
     tile_shape = tile_shape or ([8] * len(shape))
 
     pypto.runtime._device_init()
-    pypto.set_codegen_options(support_dynamic_unaligned=True)
 
     x = pypto.tensor(shape, data_type)
     y = pypto.tensor(shape, data_type)
@@ -172,7 +170,6 @@ def test_with_tensor_tensor_minimum(
     tile_shape = tile_shape or ([8] * len(shape))
 
     pypto.runtime._device_init()
-    pypto.set_codegen_options(support_dynamic_unaligned=True)
 
     x = pypto.tensor(shape, data_type)
     y = pypto.tensor(shape, data_type)
@@ -250,7 +247,6 @@ def test_with_tensor_tensor_maximum(
     tile_shape = tile_shape or ([8] * len(shape))
 
     pypto.runtime._device_init()
-    pypto.set_codegen_options(support_dynamic_unaligned=True)
 
     x = pypto.tensor(shape, data_type)
     y = pypto.tensor(shape, data_type)

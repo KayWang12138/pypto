@@ -116,7 +116,6 @@ def rope_data(x1, x2, cos, sin, tile_shape):
 # 1. 添加支持动态的config
 @pypto.jit(
     host_options={"only_codegen": True},
-    codegen_options={"support_dynamic_unaligned": True}
 )
 def attention_pre_pto_inner(x, weight_qkvz, q_gamma, k_gamma,
                             cos, sin, q, k, v, z):

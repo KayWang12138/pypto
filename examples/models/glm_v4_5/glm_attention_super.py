@@ -160,7 +160,6 @@ def ifa_func(key_cache, value_cache, block_table, kv_act_seqs,
              k_tmp, v_tmp, residual, enable_residual=True,
              eps=1e-05, num_decode_tokens=0):
     # 1. 添加支持动态的config
-    pypto.set_codegen_options(support_dynamic_unaligned=True)
     pypto.set_host_options(only_codegen=True)
     pypto.set_option('profile_enable', True)
 

@@ -57,7 +57,6 @@ def get_b_offset(act_seqs, b_idx):
 def gated_attention_prefill_func(q, k, v, act_seqs, gate, weight, final_out):
     # 1. 添加支持动态的config
     pypto.set_codegen_options(
-        support_dynamic_unaligned=True,
         codegen_expression_fusion=True
     )
     # 3. 获取参数信息

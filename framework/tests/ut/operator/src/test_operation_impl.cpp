@@ -29,7 +29,6 @@ public:
     static void TearDownTestCase() {}
 
     static void SetUpTestCase() {
-        config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
         config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
     }
 

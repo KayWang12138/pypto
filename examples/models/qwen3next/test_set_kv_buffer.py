@@ -23,7 +23,6 @@ from numpy.testing import assert_allclose
 # 1. 添加支持动态的config
 @pypto.jit(
     host_options={"only_codegen": True},
-    codegen_options={"support_dynamic_unaligned": True}
 )
 def set_kv_buffer_func(k, v, loc, k_buffer, v_buffer):
     # 3. 得到动态tensor的shape

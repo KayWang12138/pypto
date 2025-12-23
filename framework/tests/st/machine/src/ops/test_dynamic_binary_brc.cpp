@@ -28,7 +28,6 @@ TEST_F(DynamicBrcTest, TestDynamicMulBrcUnalign) {
     config::SetOperationConfig("FORCE_COMBINE_AXIS", true);
     config::SetHostOption(ONLY_CODEGEN, true);
     TileShape::Current().SetVecTile(32, 128);
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     int b = 2;
     int sq = 32;

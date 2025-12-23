@@ -28,7 +28,6 @@ TEST_F(DynamicTransposeTest, TestDynamicVnchwconv) {
     SetInterpreterConfig();
     config::SetHostOption(ONLY_CODEGEN, true);
     TileShape::Current().SetVecTile(64, 64);
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     int b = 1;
     int sq = 128;

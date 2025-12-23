@@ -232,8 +232,7 @@ def rope_data(x1, x2, cos, sin, tile_shape):
     "cfgcache_root_task_num": 1000,
     "cfgcache_leaf_task_num": 10000},
     host_options={"only_codegen": True},
-    codegen_options={"support_dynamic_unaligned": True, 
-    "codegen_expression_fusion": True}
+    codegen_options={"codegen_expression_fusion": True}
 )
 def quant_attention_pre_kernel(x, residual_input, x_gamma, x_bias,
                                x_scale, x_offset, weight, quant_bias,

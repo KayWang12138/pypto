@@ -384,7 +384,6 @@ def flash_attention_pa(query, k_cache, v_cache, block_table, actual_seq_len,
         List containing [atten_out]
     """
     # Enable dynamic unaligned support
-    pypto.set_codegen_options(support_dynamic_unaligned=True)
     pypto.set_host_options(only_codegen=True)
 
     block_size = atten_cfg.block_size

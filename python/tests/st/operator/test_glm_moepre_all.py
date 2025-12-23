@@ -24,7 +24,6 @@ def main():
 
 
 @pypto.jit(
-    codegen_options={"support_dynamic_unaligned": True},
     host_options={"only_codegen": True},
     runtime_options={"cfgcache_device_task_num": 100,
                      "cfgcache_root_task_num": 1000,

@@ -44,7 +44,6 @@ def add_rms_norm_golden(residual, hidden_states, gamma, eps):
 @pypto.jit
 def cust_add_rms_norm(residual, hidden_states, weight, y, x, eps):
     # 添加支持动态的config
-    pypto.set_codegen_options(support_dynamic_unaligned=True)
     pypto.set_host_options(only_codegen=True)
 
     calc_dtype = pypto.DT_FP32

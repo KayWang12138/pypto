@@ -34,7 +34,6 @@ def main():
 @pypto.jit
 def scatter_update(key, value, index, key_cache, value_cache):
     # 1. 添加支持动态的config
-    pypto.set_codegen_options(support_dynamic_unaligned=True)
     pypto.set_host_options(only_codegen=True)
 
     # 3. 得到动态tensor的shape

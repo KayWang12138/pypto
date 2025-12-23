@@ -118,7 +118,6 @@ def test_set_cube_tile_shapes_basic():
 
 @pypto.jit(
     host_options={"only_codegen": True},
-    codegen_options={"support_dynamic_unaligned": True}
 )
 def compute_with_different_tile_shapes_kernel(a: pypto.Tensor, b: pypto.Tensor, out1: pypto.Tensor, out2: pypto.Tensor, out3: pypto.Tensor) -> None:
     pypto.set_cube_tile_shapes([32, 32], [16, 16], [32, 32])

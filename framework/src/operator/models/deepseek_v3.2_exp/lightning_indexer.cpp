@@ -375,7 +375,6 @@ void LightningIndexerImpl(const Tensor &idxQuery, const Tensor &idxQueryScale, c
     */
 
     // tile config set
-    config::SetCodeGenOption("support_dynamic_unaligned", true); // unalign compute
     config::SetCodeGenOption("codegen_expression_fusion", true); // dynamic symbolic compute
     // graph fuse thresold
     config::SetPassOption("mg_copyin_upper_bound", configs.mgCopyInUpperBound);

@@ -270,7 +270,6 @@ TEST_F(DynamicBasicTest, HiddenLoopConditionMixedMulLoops) {
 
 TEST_F(DynamicBasicTest, TestDD) {
     SetInterpreterConfig();
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     config::SetCodeGenOption(CODEGEN_EXPRESSION_FUSION, true);
     int s = 32;
     int n = 8;
@@ -523,7 +522,6 @@ TEST_F(DynamicBasicTest, TestSlotId) {
 
 TEST_F(DynamicBasicTest, DynamicRawShape) {
     SetInterpreterConfig();
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     int s = 32;
     Tensor t0(DT_FP32, {-1, s}, "t0"); // [32*8, 32]
     Tensor t1(DT_FP32, {s, s}, "t1");              // [32, 32]
@@ -773,7 +771,6 @@ TEST_F(DynamicBasicTest, TestInnerLoopOrder) {
 }
 
 TEST_F(DynamicBasicTest, TestDeviceMachineOnModel) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     int s = 32;
     int n = 8;
     Tensor t0(DT_FP32, {n * s, s}, "t0");  // [32*8, 32]
@@ -815,7 +812,6 @@ TEST_F(DynamicBasicTest, TestDeviceMachineOnModel) {
 
 TEST_F(DynamicBasicTest, TestDeviceMachineBlockdimOnBoard) {
     SetInterpreterConfig();
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     int s = 32;
     int n = 8;
     Tensor t0(DT_FP32, {n * s, s}, "t0");  // [32*8, 32]
@@ -1123,7 +1119,6 @@ TEST_F(DynamicBasicTest, TestGetTensorDataCrossFunction) {
 TEST_F(DynamicBasicTest, TestGetTensorDataUnalign) {
     SetInterpreterConfig();
     config::SetCodeGenOption(CODEGEN_EXPRESSION_FUSION, true);
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     int tiling = 32;
     TileShape::Current().SetVecTile(tiling, tiling);
     TileShape::Current().SetCubeTile({tiling, tiling}, {tiling, tiling}, {tiling, tiling});

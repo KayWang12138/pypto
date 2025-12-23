@@ -119,7 +119,6 @@ def add_rms_norm(residual, hidden_states, weight, output_hidden_states, output_r
         Epsilon value for numerical stability
     """
     # Enable dynamic unaligned support for code generation
-    pypto.set_codegen_options(support_dynamic_unaligned=True)
     pypto.set_host_options(only_codegen=True)
 
     # Get tensor shapes

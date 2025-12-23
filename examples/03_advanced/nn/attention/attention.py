@@ -104,7 +104,6 @@ def scaled_dot_product_attention_core(q: pypto.Tensor, k: pypto.Tensor, v: pypto
 
 @pypto.jit(
     host_options={"only_codegen": True},
-    codegen_options={"support_dynamic_unaligned": True}
 )
 def scaled_dot_product_attention_kernel(q: torch.Tensor, k: torch.Tensor, 
                                  v: torch.Tensor, y: torch.Tensor, params: torch.Size, 

@@ -68,7 +68,6 @@ void SelectedAttentionCompute(Tensor &topKIndcies, Tensor &kvNopeCache, Tensor &
     SymbolicScalar gLoopSym = group / gTile;
     SymbolicScalar n2Sym = nKv;
 
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     LOOP("LOOP_L0_b_SA", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, batchSizeSym, 1), {}, true) {
         SymbolicScalar curActSeq = GetTensorData(kvActSeqs, {bIdx});

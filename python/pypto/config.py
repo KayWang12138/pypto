@@ -177,7 +177,6 @@ def get_host_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]]]:
 
 
 def set_codegen_options(*,
-                        support_dynamic_unaligned: Optional[bool] = None,
                         support_dynamic_aligned: Optional[bool] = None,
                         codegen_expression_fusion: Optional[bool] = None
                         ) -> None:

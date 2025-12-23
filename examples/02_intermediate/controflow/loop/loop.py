@@ -48,7 +48,6 @@ def get_device_id():
 
 @pypto.jit(
     host_options={"only_codegen": True},
-    codegen_options={"support_dynamic_unaligned": True}
 )
 def loop_basic_kernel(t0: pypto.Tensor, t1: pypto.Tensor, out0: pypto.Tensor, out1: pypto.Tensor) -> None:
     s, n = t0.shape

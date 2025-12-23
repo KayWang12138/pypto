@@ -71,7 +71,6 @@ static std::vector<int64_t> GetNoAxisViewShapes(const std::vector<int64_t> &view
 
 static void CumSumOperationExeFuncDoubleCut(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     auto args = static_cast<const CumSumOpFuncArgs *>(opArgs);
 
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
@@ -113,7 +112,6 @@ static void CumSumOperationExeFuncDoubleCut(
 
 static void CumSumOperationExeFuncTripleCut(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     auto args = static_cast<const CumSumOpFuncArgs *>(opArgs);
 
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
@@ -157,7 +155,6 @@ static void CumSumOperationExeFuncTripleCut(
 
 static void CumSumOperationExeFuncQuadraticCut(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     auto args = static_cast<const CumSumOpFuncArgs *>(opArgs);
 
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {

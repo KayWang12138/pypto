@@ -25,7 +25,6 @@ def main():
 
 @pypto.jit(
     host_options={"only_codegen": True},
-    codegen_options={"support_dynamic_unaligned": True}
 )
 def get_table_main(expert_tokens, expert_offset):
     expert_num = expert_tokens.shape[0]

@@ -221,7 +221,6 @@ void MlaPrologQuantV32(const Tensor &tokenX, const Tensor &wDq, const Tensor &wU
     Tensor &kvCacheOut, Tensor &krCacheOut, Tensor &kScaleCacheOut, float rmsnormEpsilonCq, float rmsnormEpsilonCkv,
     const std::string &layoutKey,const MlaTileConfig &tileConfig) {
     config::SetHostOption(ONLY_CODEGEN, true);
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     config::SetPassOption(VEC_NBUFFER_MODE, 1);
     config::SetPassOption(CUBE_L1_REUSE_MODE, NUM_4);
     config::SetPassOption(CUBE_NBUFFER_SETTING, std::map<int64_t, int64_t>{{3, 4}});

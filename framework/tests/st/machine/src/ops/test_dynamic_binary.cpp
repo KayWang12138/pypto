@@ -27,7 +27,6 @@ TEST_F(DynamicBinTest, TestDynamicAddUnalign) {
     SetInterpreterConfig();
     config::SetHostOption(ONLY_CODEGEN, true);
     TileShape::Current().SetVecTile(64, 64);
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     int b = 1;
     int sq = 128;
@@ -82,7 +81,6 @@ TEST_F(DynamicBinTest, testDynMulsUnalign) {
     SetInterpreterConfig();
     config::SetHostOption(ONLY_CODEGEN, true);
     TileShape::Current().SetVecTile(64, 64);
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     std::vector<uint8_t> devProgBinary;
 
@@ -140,7 +138,6 @@ TEST_F(DynamicBinTest, testScalarDivsUnalign) {
     SetInterpreterConfig();
     config::SetHostOption(ONLY_CODEGEN, true);
     TileShape::Current().SetVecTile(64, 64);
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     std::vector<uint8_t> devProgBinary;
 

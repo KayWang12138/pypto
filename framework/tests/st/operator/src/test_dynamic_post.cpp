@@ -268,7 +268,6 @@ TEST_F(AttentionPostSTest, b32_s2_nz_bf16_quant) {
     PostTileConfig tileConfig = {32, 2};
 
     PerformanceConfig();
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     TestAttentionPost<npu::tile_fwk::bfloat16, true, npu::tile_fwk::bfloat16, false, int8_t, true>(params, tileConfig, 0.006f);
 }
 

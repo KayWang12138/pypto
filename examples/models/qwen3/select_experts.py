@@ -55,7 +55,6 @@ def get_device_id():
 
 @pypto.jit(
     host_options={"only_codegen": True},
-    codegen_options={"support_dynamic_unaligned": True}
 )
 def select_experts(logits_input, ids_k, weight_k, renormalize_flag: bool):
     """

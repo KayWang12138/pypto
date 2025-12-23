@@ -37,7 +37,6 @@ struct ScatterUpdateOpMetaData {
 
 static void ScatterUpdateOperationExeFunc4Dims(
     const std::vector<Tensor> &input, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     std::vector<Tensor> &inputs = const_cast<std::vector<Tensor>&>(input);
     FUNCTION("main", {inputs[0], inputs[1], inputs[2]}, {outputs[0]}) {
         auto args = static_cast<const ScatterUpdateOpFuncArgs *>(opArgs);
@@ -68,7 +67,6 @@ static void ScatterUpdateOperationExeFunc4Dims(
 
 static void ScatterUpdateOperationExeFunc2Dims(
     const std::vector<Tensor> &input, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     std::vector<Tensor> &inputs = const_cast<std::vector<Tensor>&>(input);
     FUNCTION("main", {inputs[0], inputs[1], inputs[2]}, {outputs[0]}) {
         auto args = static_cast<const ScatterUpdateOpFuncArgs *>(opArgs);

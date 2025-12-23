@@ -215,12 +215,10 @@ void DynamicNsa(const Tensor &x, const Tensor &wDq, const Tensor &wUqQr, const T
         // Loop_barrier
         // subgraph-1
         Tensor winAtten(DT_FP32, {b, s, n1, vDim}, "winAtten");
-        config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
         WinAttentionCompute(qNope, kvCacheOut, qRope, krCacheOut, n1, n2, blockTable, kvActSeqs, winSize, blockSize,
             softmaxScale, winAtten, winAttntileConfig);
         // subgraph-2-3
 
-        config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
         Tensor cmpAttnOut16Tmp(dtype, {b, s, n1, vDim}, "cmpAttnOut16Tmp");
         Tensor topkResTmp(DT_INT32, {b, s, 16}, "topkRes");
         if (debug) {
@@ -247,7 +245,6 @@ void DynamicNsa(const Tensor &x, const Tensor &wDq, const Tensor &wUqQr, const T
         }
 
         // subgraph-5
-        config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, false); // 非参数化
         /********gen gated_score ********/
         Tensor gatingScore(dtype, {b, s, n1, 3}, "gatingScore");
         GenGatedScore(x, gateW1, gateW2, gateSimW1, gatingScore, gateMode); // GenGatedScore 输出四维[b,s1,n1,3] fp16

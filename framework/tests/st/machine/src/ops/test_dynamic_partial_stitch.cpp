@@ -29,7 +29,6 @@ TEST_F(DynamicTest, TestPartial) {
     config::SetHostOption(ONLY_CODEGEN, true);
 
     TileShape::Current().SetVecTile(16, 16);
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     int b = 8;
     int blockSize = 32;

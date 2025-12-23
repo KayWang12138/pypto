@@ -102,7 +102,6 @@ void TestCmpAttnTopk(CmpAttnTopkTile &tileConfig, std::vector<int> input_param, 
 }
 
 void CommonTestConfig() {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true); // 参数化
 
     CmpAttnTopkTile config;
     config.topkTile = {1, 1, 128};

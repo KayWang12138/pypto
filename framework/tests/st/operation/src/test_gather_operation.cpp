@@ -39,7 +39,6 @@ constexpr int AXIS2 = 2;
 constexpr int AXIS3 = 3;
 static void GatherOperationExeFunc2_1Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
         SymbolicScalar src_firstDim = inputs[0].GetShape()[0];
         SymbolicScalar src_secondDim = inputs[0].GetShape()[1];
@@ -87,7 +86,6 @@ static void GatherOperationExeFunc2_1Dims(
 
 static void GatherOperationExeFunc2_2Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
         SymbolicScalar src_firstDim = inputs[0].GetShape()[0];
         SymbolicScalar src_secondDim = inputs[0].GetShape()[1];
@@ -149,7 +147,6 @@ static void GatherOperationExeFunc2_2Dims(
 
 static void GatherOperationExeFunc3_1Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
         SymbolicScalar src_firstDim = inputs[0].GetShape()[0];
         SymbolicScalar src_secondDim = inputs[0].GetShape()[1];
@@ -233,7 +230,6 @@ static void GatherOperationExeFunc3_1Dims(
 
 static void GatherOperationExeFunc3_2Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
         SymbolicScalar src_firstDim = inputs[0].GetShape()[0];
         SymbolicScalar src_secondDim = inputs[0].GetShape()[1];
@@ -340,7 +336,6 @@ static void GatherOperationExeFunc3_2Dims(
 
 static void GatherOperationExeFunc4_1Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
         SymbolicScalar src_firstDim = inputs[0].GetShape()[0];
         SymbolicScalar src_secondDim = inputs[0].GetShape()[1];
@@ -478,7 +473,6 @@ static void GatherOperationExeFunc4_1Dims(
 
 static void GatherOperationExeFunc4_2Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
         SymbolicScalar src_firstDim = inputs[0].GetShape()[0];
         SymbolicScalar src_secondDim = inputs[0].GetShape()[1];

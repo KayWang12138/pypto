@@ -110,7 +110,6 @@ void DecodeIndexerAttention(const Tensor &x, const Tensor &wDq, const Tensor &wU
             weightOut4D = Reshape(weightOut, {b, s1, params.idx_n_heads}, true);
         } // 后续需要优化掉
  
-        config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
         config::SetCodeGenOption(CODEGEN_EXPRESSION_FUSION, true);
  
         std::set<int> indexerUnrollList = {64, 32, 16, 8, 4, 1};

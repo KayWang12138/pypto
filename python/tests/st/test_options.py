@@ -30,7 +30,6 @@ def layer_norm_func():
 
 # jit scope 1
 @pypto.jit(host_options={"only_codegen": True},
-        codegen_options={"support_dynamic_unaligned": True},
         pass_options={"mg_copyin_upper_bound": 1048},
         )
 def cust_dyn_func_add(a, c, tiling=None):
@@ -60,7 +59,6 @@ def cust_dyn_func_add(a, c, tiling=None):
                             pass_options={"cube_l1_reuse_mode": 1, 
                                           "pg_upper_bound": 100, 
                                           "cube_nbuffer_setting": {3: 4}},
-                            codegen_options={"support_dynamic_unaligned": False},
                             vec_tile_shapes=[64, 64],
                             matrix_size=[64, 32],
                             cube_tile_shapes=[[16, 16], [256, 512, 128], [128, 128], True]

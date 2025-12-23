@@ -236,7 +236,6 @@ def test_vector_operator_gatherinub():
     dst = pypto.tensor(dstShapes, pypto.DataType.DT_FP16, "dst")
     with pypto.function("MAIN", src, offsets, pageTable, dst):
         for _ in pypto.loop(1, name="b0", idx_name="bidx"):
-            pypto.set_codegen_options(support_dynamic_unaligned=True)
             pypto.set_vec_tile_shapes(32, 64)
             dynSrc = pypto.view(src, srcShapes, [0, 0], valid_shape=srcShapes)
             dynOffsets = pypto.view(offsets, offsetsShapes, [

@@ -15,13 +15,12 @@ import torch
 import torch_npu
 import pypto
 
-codegen_options = {"support_dynamic_unaligned": True}
 verify_options = {"enable_pass_verify": True,
                   "pass_verify_save_tensor": True,
                  }
 
 
-@pypto.jit(codegen_options=codegen_options, verify_options=verify_options)
+@pypto.jit(verify_options=verify_options)
 def add(a, b, c):
     for _ in pypto.loop(1):
         pypto.set_vec_tile_shapes(16, 16)

@@ -32,7 +32,6 @@ public:
 
 TEST_F(DynamicReshapeTest, test_only_reshape) {
     SetInterpreterConfig();
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     int b = 1;
     int sq = 128;
@@ -89,7 +88,6 @@ TEST_F(DynamicReshapeTest, test_only_reshape) {
 
 TEST_F(DynamicReshapeTest, test_only_reshape2) {
     SetInterpreterConfig();
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     std::vector<std::string> funcName = {"TENSOR_MAIN_FUNC"};
     config::SetPassConfig("FunctionUnroll", "LoopUnroll", "CONVERT_TO_STATIC", funcName);
 
@@ -143,7 +141,6 @@ TEST_F(DynamicReshapeTest, test_only_reshape2) {
 }
 
 TEST_F(DynamicReshapeTest, test_dyn_reshape) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     int b = -1;
     int sq = 128;
@@ -192,7 +189,6 @@ TEST_F(DynamicReshapeTest, test_dyn_reshape) {
 
 TEST_F(DynamicReshapeTest, test_dyn_reshape2) {
     SetInterpreterConfig();
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     int b = -1;
     int sq = 128;
@@ -256,7 +252,6 @@ TEST_F(DynamicReshapeTest, test_dyn_reshape2) {
 }
 
 TEST_F(DynamicReshapeTest, test_dyn_reshape1111) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     TileShape::Current().SetVecTile(32, 64);
 
     Tensor A(DT_FP32, {128, 64}, "A");
@@ -299,7 +294,6 @@ TEST_F(DynamicReshapeTest, test_dyn_reshape1111) {
 
 
 TEST_F(DynamicReshapeTest, test_dyn_reshape22222) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     TileShape::Current().SetVecTile(32, 64);
 
     Tensor A(DT_FP32, {128, 64}, "A");
@@ -337,7 +331,6 @@ TEST_F(DynamicReshapeTest, test_dyn_reshape22222) {
 // test reshape unaligned infershape
 TEST_F(DynamicReshapeTest, test_reshape_unalign) {
     TileShape::Current().SetVecTile(64, 64);
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     int b = 2;
     int sq = 64;
@@ -392,7 +385,6 @@ TEST_F(DynamicReshapeTest, test_assemble_diff_tile) {
     SetInterpreterConfig();
     TileShape::Current().SetCubeTile({16, 16}, {128, 128}, {128, 128});
 
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     int batch = 2;
     int s1 = 16;
@@ -455,7 +447,6 @@ TEST_F(DynamicReshapeTest, test_assemble_diff_tile) {
 // test View + Reshape + Assemble 4->2 + op  2batch will wrong
 TEST_F(DynamicReshapeTest, test_reshape_dassemble_4_2) {
     TileShape::Current().SetVecTile(1, 1, 64, 64);
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     int b = 2;
     int s = 1;
@@ -521,7 +512,6 @@ TEST_F(DynamicReshapeTest, test_reshape_dassemble_4_2) {
 // test View + Reshape + Assemble 2->3
 TEST_F(DynamicReshapeTest, test_reshape_dassemble) {
     TileShape::Current().SetVecTile(64, 64);
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     int b = 1;
     int sq = 64;
@@ -578,7 +568,6 @@ TEST_F(DynamicReshapeTest, test_reshape_dassemble) {
 // ===================  reshape + op + reshape  ??????
 TEST_F(DynamicReshapeTest, test_reshape_op_reshape) {
     TileShape::Current().SetVecTile(1, 1, 64, 64);
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     int b = 2;
     int s = 1;
@@ -627,7 +616,6 @@ TEST_F(DynamicReshapeTest, test_reshape_op_reshape) {
 }
 
 TEST_F(DynamicReshapeTest, test_merge) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     TileShape::Current().SetVecTile(16, 16);
 
@@ -684,7 +672,6 @@ TEST_F(DynamicReshapeTest, test_merge) {
 }
 
 TEST_F(DynamicReshapeTest, test_split) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     int s = 16, d = 32;
     int actSd = -1;
@@ -742,7 +729,6 @@ TEST_F(DynamicReshapeTest, test_split) {
 }
 
 TEST_F(DynamicReshapeTest, test_merge_and_split) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     TileShape::Current().SetVecTile(16, 16);
 
@@ -802,7 +788,6 @@ TEST_F(DynamicReshapeTest, test_merge_and_split) {
 }
 
 TEST_F(DynamicReshapeTest, test_split_and_merge) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     TileShape::Current().SetVecTile(16, 16);
 
@@ -863,7 +848,6 @@ TEST_F(DynamicReshapeTest, test_split_and_merge) {
 }
 
 TEST_F(DynamicReshapeTest, test_exchange_dim) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     TileShape::Current().SetVecTile(16, 16);
 
@@ -920,7 +904,6 @@ TEST_F(DynamicReshapeTest, test_exchange_dim) {
 }
 
 TEST_F(DynamicReshapeTest, test_special_reshape) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     TileShape::Current().SetVecTile(16, 16);
 

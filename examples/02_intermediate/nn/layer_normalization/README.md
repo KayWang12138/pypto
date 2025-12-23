@@ -65,7 +65,6 @@ output = gamma * (x / rms)
 x_pto = pypto.from_torch(x_torch, dynamic_axis=[0])
 
 # 在 JIT 内核中配置
-@pypto.jit(codegen_options={"support_dynamic_unaligned": True})
 def layer_norm_dynamic(...):
     ...
 ```

@@ -45,7 +45,6 @@ public:
 };
 
 TEST_F(TestCodegenDynScatter, TestDynOpScatterElement) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     std::vector<int64_t> shape = {64, 64};
     auto shapeImme = OpImmediate::Specified(shape);
     TileShape::Current().SetVecTile(shape);
@@ -98,7 +97,6 @@ TEST_F(TestCodegenDynScatter, TestDynOpScatterElement) {
 }
 
 TEST_F(TestCodegenDynScatter, TestOpDynScatter) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     std::vector<int64_t> shape = {64, 64};
     auto shapeImme = OpImmediate::Specified(shape);

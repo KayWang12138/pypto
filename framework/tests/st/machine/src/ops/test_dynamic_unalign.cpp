@@ -78,7 +78,6 @@ TEST_F(DynamicUnalignTest, TestTailBlock) {
 
 TEST_F(DynamicUnalignTest, test_mm_unalign) {
     SetInterpreterConfig();
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     int b = 1;
     int nq = 32;
@@ -177,7 +176,6 @@ TEST_F(DynamicUnalignTest, test_mm_unalign) {
 TEST_F(DynamicUnalignTest, test_mm2_unalign) {
     SetInterpreterConfig();
     TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {64, 64}, true);
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     int b = 1;
     int nq = 32;
@@ -243,7 +241,6 @@ TEST_F(DynamicUnalignTest, test_mm2_unalign) {
 TEST_F(DynamicUnalignTest, test_rowmaxsingle_unalign) {
     SetInterpreterConfig();
     TileShape::Current().SetVecTile(128, 128);
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     int b = 1;
     int nTile = 32;
@@ -296,7 +293,6 @@ TEST_F(DynamicUnalignTest, test_rowmaxsingle_unalign) {
 TEST_F(DynamicUnalignTest, test_rowsumsingle_unalign) {
     SetInterpreterConfig();
     TileShape::Current().SetVecTile(128, 128);
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     int b = 1;
     int nTile = 32;
@@ -350,7 +346,6 @@ TEST_F(DynamicUnalignTest, test_rowsumsingle_unalign) {
 TEST_F(DynamicUnalignTest, test_unary_unalign) {
     SetInterpreterConfig();
     TileShape::Current().SetVecTile(64, 64);
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     int b = 4;
     int sq = 128;

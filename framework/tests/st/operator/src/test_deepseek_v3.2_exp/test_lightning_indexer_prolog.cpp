@@ -211,7 +211,6 @@ TEST_F(LightningIndexerPrologSTest, b48_s1_1_s2_8k) {
     };
     auto params = ReadParams(ropeTileConfigs, indexerConfigs, -1);
     PerformanceConfig();
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     TesLightningIndexerProlog<npu::tile_fwk::bfloat16, true>(params);
 }
 
@@ -284,7 +283,6 @@ TEST_F(LightningIndexerPrologSTest, b4_s1_1_s2_64k) {
     };
     auto params = ReadParams(ropeTileConfigs, indexerConfigs, -1);
     PerformanceConfig();
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     TesLightningIndexerProlog<npu::tile_fwk::bfloat16, true>(params);
 }
 } // namespace

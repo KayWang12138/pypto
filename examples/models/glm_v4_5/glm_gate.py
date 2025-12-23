@@ -55,7 +55,6 @@ def powers_of_2(n: int) -> set[int]:
     "cfgcache_root_task_num": 1000,
     "cfgcache_leaf_task_num": 10000},
     host_options={"only_codegen": True},
-    codegen_options={"support_dynamic_unaligned": True}
 )
 def select_experts_mm_kernel(hidden_states, mm_weight, router_logits_out):
     # 泳道图使能  pypto.set_option('profile_enable', True)

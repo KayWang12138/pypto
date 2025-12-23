@@ -169,7 +169,6 @@ def test_sum_different_dimensions():
 
 @pypto.jit(
     host_options={"only_codegen": True},
-    codegen_options={"support_dynamic_unaligned": True}
 )
 def amax_kernel(a: pypto.Tensor, out: pypto.Tensor, dim: int, keepdim: bool) -> None:
     tile_shapes = [8 for _ in range(len(a.shape))]
@@ -287,7 +286,6 @@ def test_amax_different_dimensions():
 
 @pypto.jit(
     host_options={"only_codegen": True},
-    codegen_options={"support_dynamic_unaligned": True}
 )
 def amin_kernel(a: pypto.Tensor, out: pypto.Tensor, dim: int, keepdim: bool) -> None:
     tile_shapes = [8 for _ in range(len(a.shape))]

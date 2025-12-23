@@ -1402,7 +1402,6 @@ TEST_F(FunctionTest, dynamic_prolog_post_low_lantency) {
 }
 
 TEST_F(FunctionTest, dynamic_page_attention_adds) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     config::SetHostOption(ONLY_CODEGEN, true);
 
     config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true);
@@ -1451,7 +1450,6 @@ TEST_F(FunctionTest, dynamic_page_attention_adds) {
 }
 
 TEST_F(FunctionTest, dynamic_page_attention_adds_single_single_out) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     config::SetHostOption(ONLY_CODEGEN, true);
 
     config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true);

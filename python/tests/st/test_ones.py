@@ -27,7 +27,6 @@ def test_vector_operation_ones():
     n, m = tiling * 1, tiling * 1
     view_shape = (16, 16)
     tile_shape = (8, 8)
-    pypto.set_codegen_options(support_dynamic_unaligned=True)
     pypto.runtime._device_init()
     a = pypto.tensor((n, m), dtype, "VEC_DUP_TENSOR_a")
     with pypto.function("VEC_DUP", a):
@@ -55,7 +54,6 @@ def test_vector_operation_zeros():
     n, m = tiling * 1, tiling * 1
     view_shape = (32, 32)
     tile_shape = (8, 8)
-    pypto.set_codegen_options(support_dynamic_unaligned=True)
     pypto.runtime._device_init()
 
     a = pypto.tensor((n, m), dtype, "VEC_DUP_TENSOR_a")

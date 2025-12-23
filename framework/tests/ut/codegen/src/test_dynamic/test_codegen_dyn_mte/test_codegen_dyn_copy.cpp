@@ -124,7 +124,6 @@ TEST_F(TestCodegenDynCopy, L1ToFB) {
     auto shapeImme = OpImmediate::Specified(shape);
     TileShape::Current().SetVecTile(shape);
     TileShape::Current().SetCubeTile({32, 32}, {64, 64}, {64, 64});
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     Tensor input0(DT_FP32, shape, "A");
     Tensor input1(DT_FP32, shape, "B");
     Tensor output(DT_FP32, shape, "C");
@@ -258,7 +257,6 @@ TEST_F(TestCodegenDynCopy, L1ToBt) {
     auto shapeImme = OpImmediate::Specified(shape);
     TileShape::Current().SetVecTile(shape);
     TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {128, 128});
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     Tensor inputA(DT_FP32, shape, "A");
     Tensor inputB(DT_FP32, shape, "B");
     Tensor output(DT_FP32, shape, "C");
@@ -305,7 +303,6 @@ void TestMatmulMteBody(Opcode opcode, MemoryType inType, MemoryType outType) {
     auto shapeImme = OpImmediate::Specified(shape);
     TileShape::Current().SetVecTile(shape);
     TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {128, 128});
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
     config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
     Tensor inputA(DT_FP32, shape, "A");
@@ -437,7 +434,6 @@ TEST_F(TestCodegenDynCopy, L0CToL1) {
     auto shapeImme = OpImmediate::Specified(shape);
     TileShape::Current().SetVecTile(shape);
     TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {128, 128});
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     Tensor inputA(DT_FP32, shape, "A");
     Tensor inputB(DT_FP32, shape, "B");
     Tensor output(DT_FP32, shape, "C");
@@ -478,7 +474,6 @@ void TestCVSyncBody(Opcode syncOpcode) {
     auto shapeImme = OpImmediate::Specified(shape);
     TileShape::Current().SetVecTile(shape);
     TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {128, 128});
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
     Tensor inputA(DT_FP32, shape, "A");
     Tensor inputB(DT_FP32, shape, "B");
     Tensor output(DT_FP32, shape, "C");

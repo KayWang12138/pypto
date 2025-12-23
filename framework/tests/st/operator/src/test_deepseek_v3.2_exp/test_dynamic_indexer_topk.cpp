@@ -130,7 +130,6 @@ void TestLightningIndexerTopkQuant(IndexerTile &tileConfig) {
 
 // DynamicIndexerTopk.indexer_topk_quant_4_b_1_s1_64k_s2
 TEST_F(DynamicIndexerTopk, indexer_topk_quant_4_b_1_s1_64k_s2) {
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);                    // 参数化
     config::SetPassOption(MG_COPYIN_UPPER_BOUND, 100 * 1024 * 1024); // mistake
     config::SetPassOption(SG_PG_LOWER_BOUND, 1024);
     config::SetPassOption(SG_PG_UPPER_BOUND, 1024 * 1024);

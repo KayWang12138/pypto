@@ -28,7 +28,6 @@ TEST_F(DynamicDatamoveTest, TestDynamicDatamove) {
     SetInterpreterConfig();
     config::SetHostOption(ONLY_CODEGEN, true);
     TileShape::Current().SetVecTile(1, 32, 64);
-    config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
 
     int n = 1;
     int b = 1;

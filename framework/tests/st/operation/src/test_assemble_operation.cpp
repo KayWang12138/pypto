@@ -29,7 +29,6 @@ class AssembleTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {
     void SetUp() override {
         npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac::SetUp();
         config::SetHostOption(ONLY_CODEGEN, true);
-        config::SetCodeGenOption(SUPPORT_DYNAMIC_UNALIGNED, true);
         // 测试精度工具功能支持时，打开下面的注释
         // config::SetVerifyOption(KEY_VERIFY_TENSOR_GRAPH, true);
         // config::SetVerifyOption(KEY_VERIFY_PASS, true);
