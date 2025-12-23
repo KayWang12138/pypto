@@ -838,7 +838,6 @@ Status OoOScheduler::GenBufferSpill(IssueEntryPtr allocIssue) {
                 continue;
             }
             if (spillIssue->tileOp.GetOpcodeStr().find("ALLOC") != std::string::npos) {
-                bufferManagerMap[memType].Free(memId);
                 continue;
             }
             SpillInfo spillInfo;
@@ -893,7 +892,6 @@ Status OoOScheduler::GenSpillOp(LocalBufferPtr allocBuffer, size_t &pcIdx) {
                 continue;
             }
             if (spillIssue->tileOp.GetOpcodeStr().find("ALLOC") != std::string::npos) {
-                bufferManagerMap[memType].Free(memId);
                 continue;
             }
             SpillInfo spillInfo;
