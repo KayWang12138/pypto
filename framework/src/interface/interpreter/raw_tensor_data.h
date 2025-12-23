@@ -352,14 +352,7 @@ struct LogicalTensorData {
     }
 
     std::shared_ptr<LogicalTensorData> View(const std::vector<int64_t> &viewShape, const std::vector<int64_t> &viewOffset) {
-        std::vector<int64_t> resultOffset = TensorOffset::Add(GetOffset(), viewOffset);
-        auto rawShape = GetData()->GetShape();
-        for (size_t i = 0; i < resultOffset.size(); i++) {
-            ASSERT(resultOffset[i] + viewShape[i] <= rawShape[i] || viewShape[i] == 0)
-                << "view shape out of range, offset " << resultOffset[i] << " view shape " << viewShape[i]
-                << " raw shape " << rawShape[i];
-        }
-        return std::make_shared<LogicalTensorData>(GetData(), viewShape, viewShape, resultOffset);
+        return std::make_shared<LogicalTensorData>(GetData(), viewShape, viewShape, viewOffset);
     }
 
     std::shared_ptr<LogicalTensorData> DeepCopy() const {

@@ -127,3 +127,19 @@ TEST_F(TestTensor, GetShapeTest) {
     ashape = a.GetShape(-4);
     EXPECT_EQ(ashape, 16);
 }
+
+TEST_F(TestTensor, GetCachePolicyTest) {
+    std::vector<int64_t> tshape = {4, 4};
+    npu::tile_fwk::Tensor t1(npu::tile_fwk::DT_FP32, tshape, "T1");
+
+    EXPECT_FALSE(t1.GetCachePolicy(npu::tile_fwk::CachePolicy::PREFETCH));
+    EXPECT_FALSE(t1.GetCachePolicy(npu::tile_fwk::CachePolicy::NONE_CACHEABLE));
+
+    t1.SetCachePolicy(npu::tile_fwk::CachePolicy::PREFETCH, true);
+    EXPECT_TRUE(t1.GetCachePolicy(npu::tile_fwk::CachePolicy::PREFETCH));
+    EXPECT_FALSE(t1.GetCachePolicy(npu::tile_fwk::CachePolicy::NONE_CACHEABLE));
+
+    t1.SetCachePolicy(npu::tile_fwk::CachePolicy::NONE_CACHEABLE, true);
+    EXPECT_TRUE(t1.GetCachePolicy(npu::tile_fwk::CachePolicy::PREFETCH));
+    EXPECT_FALSE(t1.GetCachePolicy(npu::tile_fwk::CachePolicy::NONE_CACHEABLE));
+}

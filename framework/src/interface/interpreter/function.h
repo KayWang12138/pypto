@@ -490,14 +490,11 @@ struct FunctionInterpreter {
         if (op.GetOpcode() == Opcode::OP_VIEW) {
             auto opAttr = std::static_pointer_cast<ViewOpAttribute>(op.GetOpAttribute());
             ASSERT(opAttr != nullptr);
-            Offset iopOffsets = iOpDataList[index]->GetOffset();
             Offset viewOffsets = EvaluateOffset(opAttr->GetFromOffset(), opAttr->GetFromDynOffset());
-            ASSERT(iopOffsets.size() == viewOffsets.size());
-            Offset actualOffsets = TensorOffset::Add(iopOffsets, viewOffsets);
             auto validShape = EvaluateValidShape(oop->GetDynValidShape());
             auto rawShape = EvaluateValidShape(oop->GetRawTensor()->GetDynRawShape());
             auto ret = frame.AllocateDataView(
-                oop, actualOffsets, validShape, rawShape, oop->GetRawTensor()->GetDataType(), iop);
+                oop, viewOffsets, validShape, rawShape, oop->GetRawTensor()->GetDataType(), iop);
             oOpDataList.emplace_back(ret);
         } else {
             oOpDataList.emplace_back(AllocateDataView(frame, oop, iop));

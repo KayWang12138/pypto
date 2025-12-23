@@ -251,7 +251,7 @@ void Tensor::SetCachePolicy(CachePolicy policy, bool value) {
 
 bool Tensor::GetCachePolicy(CachePolicy policy) const {
   if (storage_ != nullptr) {
-    storage_->GetCachePolicy(policy);
+    return storage_->GetCachePolicy(policy);
   }
   return false;
 }
