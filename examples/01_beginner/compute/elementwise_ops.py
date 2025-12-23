@@ -50,6 +50,15 @@ def get_device_id():
         return None
 
 
+def get_device_desc(run_mode: str = "npu"):
+    if run_mode == "npu":
+        import torch_npu
+        device_id = torch.npu.current_device()
+        return f'npu:{device_id}'
+    else:
+        return 'cpu'
+
+
 # ============================================================================
 # ABS Examples
 # ============================================================================
@@ -60,7 +69,13 @@ def abs_kernel(x: pypto.Tensor, out: pypto.Tensor) -> None:
     out[:] = pypto.abs(x)
 
 
-def abs_op(x: torch.Tensor, dynamic: bool = False) -> torch.Tensor:
+@pypto.jit(runtime_options={"run_mode": pypto.RunMode.SIM})
+def abs_kernel_sim(x: pypto.Tensor, out: pypto.Tensor) -> None:
+    pypto.set_vec_tile_shapes(2, 8)
+    out[:] = pypto.abs(x)
+
+
+def abs_op(x: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
     out = torch.zeros_like(x)
 
     if dynamic:
@@ -70,25 +85,29 @@ def abs_op(x: torch.Tensor, dynamic: bool = False) -> torch.Tensor:
         x_pto = pypto.from_torch(x)
         out_pto = pypto.from_torch(out)
 
-    abs_kernel(x_pto, out_pto)
+    if run_mode == "npu":
+        abs_kernel(x_pto, out_pto)
+    else:
+        abs_kernel_sim(x_pto, out_pto)
 
     return out
 
 
-def test_abs_basic():
+def test_abs_basic(run_mode: str = "npu"):
     """Test basic usage of abs function"""
     print("=" * 60)
     print("Test: Basic Usage of abs Function")
     print("=" * 60)
     
-    device_id = torch.npu.current_device()
-    
-    dtype = torch.float32
-    x = torch.tensor([-1, -8, 2], dtype=dtype, device=f'npu:{device_id}')
-    expected = torch.tensor([1, 8, 2], dtype=dtype, device=f'npu:{device_id}')
+    device_desc = get_device_desc(run_mode)
 
-    out = abs_op(x)
-    assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
+    dtype = torch.float32
+    x = torch.tensor([-1, -8, 2], dtype=dtype, device=device_desc)
+    expected = torch.tensor([1, 8, 2], dtype=dtype, device=device_desc)
+
+    out = abs_op(x, run_mode)
+    if run_mode == "npu":
+        assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
     print(f"Output: {out}")
     print(f"Expected: {expected}")
     print("✓ Basic usage of abs function completed successfully")
@@ -104,7 +123,13 @@ def add_kernel(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> None:
     out[:] = pypto.add(a, b)
 
 
-def add_op(a: torch.Tensor, b: torch.Tensor, dynamic: bool = False) -> torch.Tensor:
+@pypto.jit(runtime_options={"run_mode": pypto.RunMode.SIM})
+def add_kernel_sim(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> None:
+    pypto.set_vec_tile_shapes(2, 8)
+    out[:] = pypto.add(a, b)
+
+
+def add_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
     out = torch.zeros_like(a)
 
     if dynamic:
@@ -116,26 +141,30 @@ def add_op(a: torch.Tensor, b: torch.Tensor, dynamic: bool = False) -> torch.Ten
         b_pto = pypto.from_torch(b)
         out_pto = pypto.from_torch(out)
 
-    add_kernel(a_pto, b_pto, out_pto)
+    if run_mode == "npu":
+        add_kernel(a_pto, b_pto, out_pto)
+    else:
+        add_kernel_sim(a_pto, b_pto, out_pto)
 
     return out
 
 
-def test_add_basic():
+def test_add_basic(run_mode: str = "npu"):
     """Test basic usage of add function"""
     print("=" * 60)
     print("Test: Basic Usage of add Function")
     print("=" * 60)
     
-    device_id = torch.npu.current_device()
+    device_desc = get_device_desc(run_mode)
     
     dtype = torch.float32
-    a = torch.tensor([1, 2, 3], dtype=dtype, device=f'npu:{device_id}')
-    b = torch.tensor([4, 5, 6], dtype=dtype, device=f'npu:{device_id}')
-    expected = torch.tensor([5, 7, 9], dtype=dtype, device=f'npu:{device_id}')
+    a = torch.tensor([1, 2, 3], dtype=dtype, device=device_desc)
+    b = torch.tensor([4, 5, 6], dtype=dtype, device=device_desc)
+    expected = torch.tensor([5, 7, 9], dtype=dtype, device=device_desc)
 
-    out = add_op(a, b)
-    assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
+    out = add_op(a, b, run_mode)
+    if run_mode == "npu":
+        assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
     print(f"Output: {out}")
     print(f"Expected: {expected}")
     print("✓ Basic usage of add function completed successfully")
@@ -147,7 +176,13 @@ def add_broadcast_kernel(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) ->
     out[:] = pypto.add(a, b)
 
 
-def add_broadcast_op(a: torch.Tensor, b: torch.Tensor, dynamic: bool = False) -> torch.Tensor:
+@pypto.jit(runtime_options={"run_mode": pypto.RunMode.SIM})
+def add_broadcast_kernel_sim(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> None:
+    pypto.set_vec_tile_shapes(2, 8)
+    out[:] = pypto.add(a, b)
+
+
+def add_broadcast_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
     out = torch.zeros_like(a)
 
     if dynamic:
@@ -159,26 +194,30 @@ def add_broadcast_op(a: torch.Tensor, b: torch.Tensor, dynamic: bool = False) ->
         b_pto = pypto.from_torch(b)
         out_pto = pypto.from_torch(out)
 
-    add_broadcast_kernel(a_pto, b_pto, out_pto)
+    if run_mode == "npu":
+        add_broadcast_kernel(a_pto, b_pto, out_pto)
+    else:
+        add_broadcast_kernel_sim(a_pto, b_pto, out_pto)
 
     return out
 
 
-def test_add_broadcast():
+def test_add_broadcast(run_mode: str = "npu"):
     """Test broadcasting between tensors of different shapes"""
     print("=" * 60)
     print("Test: Broadcasting Between Tensors")
     print("=" * 60)
     
-    device_id = torch.npu.current_device()
+    device_desc = get_device_desc(run_mode)
     
     dtype = torch.float32
-    a = torch.tensor([[1, 2], [3, 4]], dtype=dtype, device=f'npu:{device_id}')
-    b = torch.tensor([1, 2], dtype=dtype, device=f'npu:{device_id}')
-    expected = torch.tensor([[2, 4], [4, 6]], dtype=dtype, device=f'npu:{device_id}')
+    a = torch.tensor([[1, 2], [3, 4]], dtype=dtype, device=device_desc)
+    b = torch.tensor([1, 2], dtype=dtype, device=device_desc)
+    expected = torch.tensor([[2, 4], [4, 6]], dtype=dtype, device=device_desc)
 
-    out = add_broadcast_op(a, b)
-    assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
+    out = add_broadcast_op(a, b, run_mode)
+    if run_mode == "npu":
+        assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
     print(f"Output: {out}")
     print(f"Expected: {expected}")
     print("✓ Test Broadcasting Between Tensors completed successfully")
@@ -190,7 +229,13 @@ def add_scalar_kernel(a: pypto.Tensor, out: pypto.Tensor, scalar: float) -> None
     out[:] = pypto.add(a, scalar)
 
 
-def add_scalar_op(a: torch.Tensor, scalar: float, dynamic: bool = False) -> torch.Tensor:
+@pypto.jit(runtime_options={"run_mode": pypto.RunMode.SIM})
+def add_scalar_kernel_sim(a: pypto.Tensor, out: pypto.Tensor, scalar: float) -> None:
+    pypto.set_vec_tile_shapes(2, 8)
+    out[:] = pypto.add(a, scalar)
+
+
+def add_scalar_op(a: torch.Tensor, scalar: float, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
     out = torch.zeros_like(a)
 
     if dynamic:
@@ -200,26 +245,30 @@ def add_scalar_op(a: torch.Tensor, scalar: float, dynamic: bool = False) -> torc
         a_pto = pypto.from_torch(a)
         out_pto = pypto.from_torch(out)
 
-    add_scalar_kernel(a_pto, out_pto, scalar)
+    if run_mode == "npu":
+        add_scalar_kernel(a_pto, out_pto, scalar)
+    else:
+        add_scalar_kernel_sim(a_pto, out_pto, scalar)
 
     return out
 
 
-def test_add_scalar():
+def test_add_scalar(run_mode: str = "npu"):
     """Test adding a scalar to a tensor"""
     print("=" * 60)
     print("Test: Adding a scalar to a tensor")
     print("=" * 60)
     
-    device_id = torch.npu.current_device()
+    device_desc = get_device_desc(run_mode)
     
     dtype = torch.float32
-    a = torch.tensor([1, 2, 3], dtype=dtype, device=f'npu:{device_id}')
+    a = torch.tensor([1, 2, 3], dtype=dtype, device=device_desc)
     scalar = 2.0
-    expected = torch.tensor([3, 4, 5], dtype=dtype, device=f'npu:{device_id}')
+    expected = torch.tensor([3, 4, 5], dtype=dtype, device=device_desc)
 
-    out = add_scalar_op(a, scalar)
-    assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
+    out = add_scalar_op(a, scalar, run_mode)
+    if run_mode == "npu":
+        assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
     print(f"Output: {out}")
     print(f"Expected: {expected}")
     print("✓ Test Adding a scalar to a tensor completed successfully")
@@ -231,7 +280,13 @@ def add_with_alpha_kernel(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor, a
     out[:] = pypto.add(a, b, alpha=alpha)
 
 
-def add_with_alpha_op(a: torch.Tensor, b: torch.Tensor, alpha: float, dynamic: bool = False) -> torch.Tensor:
+@pypto.jit(runtime_options={"run_mode": pypto.RunMode.SIM})
+def add_with_alpha_kernel_sim(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor, alpha: float) -> None:
+    pypto.set_vec_tile_shapes(2, 8)
+    out[:] = pypto.add(a, b, alpha=alpha)
+
+
+def add_with_alpha_op(a: torch.Tensor, b: torch.Tensor, alpha: float, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
     out = torch.zeros_like(a)
 
     if dynamic:
@@ -243,27 +298,31 @@ def add_with_alpha_op(a: torch.Tensor, b: torch.Tensor, alpha: float, dynamic: b
         b_pto = pypto.from_torch(b)
         out_pto = pypto.from_torch(out)
 
-    add_with_alpha_kernel(a_pto, b_pto, out_pto, alpha)
+    if run_mode == "npu":
+        add_with_alpha_kernel(a_pto, b_pto, out_pto, alpha)
+    else:
+        add_with_alpha_kernel_sim(a_pto, b_pto, out_pto, alpha)
 
     return out
 
 
-def test_add_with_alpha():
+def test_add_with_alpha(run_mode: str = "npu"):
     """Using the alpha parameter to scale the second input"""
     print("=" * 60)
     print("Test: Using the Alpha Parameter")
     print("=" * 60)
     
-    device_id = torch.npu.current_device()
+    device_desc = get_device_desc(run_mode)
     
     dtype = torch.float32
-    a = torch.tensor([1, 2, 3], dtype=dtype, device=f'npu:{device_id}')
-    b = torch.tensor([4, 5, 6], dtype=dtype, device=f'npu:{device_id}')
+    a = torch.tensor([1, 2, 3], dtype=dtype, device=device_desc)
+    b = torch.tensor([4, 5, 6], dtype=dtype, device=device_desc)
     alpha = 2.0
-    expected = torch.tensor([9, 12, 15], dtype=dtype, device=f'npu:{device_id}')
+    expected = torch.tensor([9, 12, 15], dtype=dtype, device=device_desc)
 
-    out = add_with_alpha_op(a, b, alpha)
-    assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
+    out = add_with_alpha_op(a, b, alpha, run_mode)
+    if run_mode == "npu":
+        assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
     print(f"Output: {out}")
     print(f"Expected: {expected}")
     print("✓ Using the alpha parameter to scale the second input completed successfully")
@@ -279,7 +338,13 @@ def clip_kernel(a: pypto.Tensor, min_: pypto.Tensor, max_: pypto.Tensor, out: py
     out[:] = pypto.clip(a, min_, max_)
 
 
-def clip_op(a: torch.Tensor, min_: torch.Tensor, max_: torch.Tensor, dynamic: bool = False) -> torch.Tensor:
+@pypto.jit(runtime_options={"run_mode": pypto.RunMode.SIM})
+def clip_kernel_sim(a: pypto.Tensor, min_: pypto.Tensor, max_: pypto.Tensor, out: pypto.Tensor) -> None:
+    pypto.set_vec_tile_shapes(2, 8)
+    out[:] = pypto.clip(a, min_, max_)
+
+
+def clip_op(a: torch.Tensor, min_: torch.Tensor, max_: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
     out = torch.zeros_like(a)
 
     if dynamic:
@@ -293,27 +358,31 @@ def clip_op(a: torch.Tensor, min_: torch.Tensor, max_: torch.Tensor, dynamic: bo
         max_pto = pypto.from_torch(max_)
         out_pto = pypto.from_torch(out)
 
-    clip_kernel(a_pto, min_pto, max_pto, out_pto)
+    if run_mode == "npu":
+        clip_kernel(a_pto, min_pto, max_pto, out_pto)
+    else:
+        clip_kernel_sim(a_pto, min_pto, max_pto, out_pto)
 
     return out
 
 
-def test_clip_basic():
+def test_clip_basic(run_mode: str = "npu"):
     """Test basic usage of clip function"""
     print("=" * 60)
     print("Test: Basic Usage of clip Function")
     print("=" * 60)
     
-    device_id = torch.npu.current_device()
+    device_desc = get_device_desc(run_mode)
     
     dtype = torch.float32
-    a = torch.tensor([[0, 2, 4], [3, 4, 6]], dtype=dtype, device=f'npu:{device_id}')
-    min_ = torch.tensor([[1, 1, 1], [1, 1, 1]], dtype=dtype, device=f'npu:{device_id}')
-    max_ = torch.tensor([[3, 3, 3], [3, 3, 3]], dtype=dtype, device=f'npu:{device_id}')
-    expected = torch.tensor([[1, 2, 3], [3, 3, 3]], dtype=dtype, device=f'npu:{device_id}')
+    a = torch.tensor([[0, 2, 4], [3, 4, 6]], dtype=dtype, device=device_desc)
+    min_ = torch.tensor([[1, 1, 1], [1, 1, 1]], dtype=dtype, device=device_desc)
+    max_ = torch.tensor([[3, 3, 3], [3, 3, 3]], dtype=dtype, device=device_desc)
+    expected = torch.tensor([[1, 2, 3], [3, 3, 3]], dtype=dtype, device=device_desc)
 
-    out = clip_op(a, min_, max_)
-    assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
+    out = clip_op(a, min_, max_, run_mode)
+    if run_mode == "npu":
+        assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
     print(f"Output: {out}")
     print(f"Expected: {expected}")
     print("✓ Basic usage of clip function completed successfully")
@@ -325,7 +394,13 @@ def clip_broadcast_kernel(a: pypto.Tensor, min_: pypto.Tensor, max_: pypto.Tenso
     out[:] = pypto.clip(a, min_, max_)
 
 
-def clip_broadcast_op(a: torch.Tensor, min_: torch.Tensor, max_: torch.Tensor, dynamic: bool = False) -> torch.Tensor:
+@pypto.jit(runtime_options={"run_mode": pypto.RunMode.SIM})
+def clip_broadcast_kernel_sim(a: pypto.Tensor, min_: pypto.Tensor, max_: pypto.Tensor, out: pypto.Tensor) -> None:
+    pypto.set_vec_tile_shapes(2, 8)
+    out[:] = pypto.clip(a, min_, max_)
+
+
+def clip_broadcast_op(a: torch.Tensor, min_: torch.Tensor, max_: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
     out = torch.zeros_like(a)
 
     if dynamic:
@@ -339,27 +414,31 @@ def clip_broadcast_op(a: torch.Tensor, min_: torch.Tensor, max_: torch.Tensor, d
         max_pto = pypto.from_torch(max_)
         out_pto = pypto.from_torch(out)
 
-    clip_broadcast_kernel(a_pto, min_pto, max_pto, out_pto)
+    if run_mode == "npu":
+        clip_broadcast_kernel(a_pto, min_pto, max_pto, out_pto)
+    else:
+        clip_broadcast_kernel_sim(a_pto, min_pto, max_pto, out_pto)
 
     return out
 
 
-def test_clip_broadcast():
+def test_clip_broadcast(run_mode: str = "npu"):
     """Test broadcasting between tensors of different shapes"""
     print("=" * 60)
     print("Test: Broadcasting Between Tensors")
     print("=" * 60)
     
-    device_id = torch.npu.current_device()
+    device_desc = get_device_desc(run_mode)
     
     dtype = torch.float32
-    a = torch.tensor([[0, 2, 4], [3, 4, 6]], dtype=dtype, device=f'npu:{device_id}')
-    min_ = torch.tensor([1, 1, 1], dtype=dtype, device=f'npu:{device_id}')
-    max_ = torch.tensor([3, 3, 3], dtype=dtype, device=f'npu:{device_id}')
-    expected = torch.tensor([[1, 2, 3], [3, 3, 3]], dtype=dtype, device=f'npu:{device_id}')
+    a = torch.tensor([[0, 2, 4], [3, 4, 6]], dtype=dtype, device=device_desc)
+    min_ = torch.tensor([1, 1, 1], dtype=dtype, device=device_desc)
+    max_ = torch.tensor([3, 3, 3], dtype=dtype, device=device_desc)
+    expected = torch.tensor([[1, 2, 3], [3, 3, 3]], dtype=dtype, device=device_desc)
 
-    out = clip_broadcast_op(a, min_, max_)
-    assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
+    out = clip_broadcast_op(a, min_, max_, run_mode)
+    if run_mode == "npu":
+        assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
     print(f"Output: {out}")
     print(f"Expected: {expected}")
     print("✓ Test Broadcasting Between Tensors completed successfully")
@@ -375,7 +454,13 @@ def div_kernel(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> None:
     out[:] = pypto.div(a, b)
 
 
-def div_op(a: torch.Tensor, b: torch.Tensor, dynamic: bool = False) -> torch.Tensor:
+@pypto.jit(runtime_options={"run_mode": pypto.RunMode.SIM})
+def div_kernel_sim(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> None:
+    pypto.set_vec_tile_shapes(2, 8)
+    out[:] = pypto.div(a, b)
+
+
+def div_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
     out = torch.zeros_like(a)
 
     if dynamic:
@@ -387,26 +472,30 @@ def div_op(a: torch.Tensor, b: torch.Tensor, dynamic: bool = False) -> torch.Ten
         b_pto = pypto.from_torch(b)
         out_pto = pypto.from_torch(out)
 
-    div_kernel(a_pto, b_pto, out_pto)
+    if run_mode == "npu":
+        div_kernel(a_pto, b_pto, out_pto)
+    else:
+        div_kernel_sim(a_pto, b_pto, out_pto)
 
     return out
 
 
-def test_div_basic():
+def test_div_basic(run_mode: str = "npu"):
     """Test basic usage of div function"""
     print("=" * 60)
     print("Test: Basic Usage of div Function")
     print("=" * 60)
     
-    device_id = torch.npu.current_device()
+    device_desc = get_device_desc(run_mode)
     
     dtype = torch.float32
-    a = torch.tensor([6, 10, 15], dtype=dtype, device=f'npu:{device_id}')
-    b = torch.tensor([2, 5, 3], dtype=dtype, device=f'npu:{device_id}')
-    expected = torch.tensor([3, 2, 5], dtype=dtype, device=f'npu:{device_id}')
+    a = torch.tensor([6, 10, 15], dtype=dtype, device=device_desc)
+    b = torch.tensor([2, 5, 3], dtype=dtype, device=device_desc)
+    expected = torch.tensor([3, 2, 5], dtype=dtype, device=device_desc)
 
-    out = div_op(a, b)
-    assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
+    out = div_op(a, b, run_mode)
+    if run_mode == "npu":
+        assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
     print(f"Output: {out}")
     print(f"Expected: {expected}")
     print("✓ Basic usage of div function completed successfully")
@@ -418,7 +507,13 @@ def div_broadcast_kernel(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) ->
     out[:] = pypto.div(a, b)
 
 
-def div_broadcast_op(a: torch.Tensor, b: torch.Tensor, dynamic: bool = False) -> torch.Tensor:
+@pypto.jit(runtime_options={"run_mode": pypto.RunMode.SIM})
+def div_broadcast_kernel_sim(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> None:
+    pypto.set_vec_tile_shapes(2, 8)
+    out[:] = pypto.div(a, b)
+
+
+def div_broadcast_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
     out = torch.zeros_like(a)
 
     if dynamic:
@@ -430,26 +525,30 @@ def div_broadcast_op(a: torch.Tensor, b: torch.Tensor, dynamic: bool = False) ->
         b_pto = pypto.from_torch(b)
         out_pto = pypto.from_torch(out)
 
-    div_broadcast_kernel(a_pto, b_pto, out_pto)
+    if run_mode == "npu":
+        div_broadcast_kernel(a_pto, b_pto, out_pto)
+    else:
+        div_broadcast_kernel_sim(a_pto, b_pto, out_pto)
 
     return out
 
 
-def test_div_broadcast():
+def test_div_broadcast(run_mode: str = "npu"):
     """Test broadcasting between tensors of different shapes"""
     print("=" * 60)
     print("Test: Broadcasting Between Tensors")
     print("=" * 60)
     
-    device_id = torch.npu.current_device()
+    device_desc = get_device_desc(run_mode)
     
     dtype = torch.float32
-    a = torch.tensor([[1, 2], [3, 4]], dtype=dtype, device=f'npu:{device_id}')
-    b = torch.tensor([1, 2], dtype=dtype, device=f'npu:{device_id}')
-    expected = torch.tensor([[1, 1], [3, 2]], dtype=dtype, device=f'npu:{device_id}')
+    a = torch.tensor([[1, 2], [3, 4]], dtype=dtype, device=device_desc)
+    b = torch.tensor([1, 2], dtype=dtype, device=device_desc)
+    expected = torch.tensor([[1, 1], [3, 2]], dtype=dtype, device=device_desc)
 
-    out = div_broadcast_op(a, b)
-    assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
+    out = div_broadcast_op(a, b, run_mode)
+    if run_mode == "npu":
+        assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
     print(f"Output: {out}")
     print(f"Expected: {expected}")
     print("✓ Test Broadcasting Between Tensors completed successfully")
@@ -461,7 +560,13 @@ def div_scalar_kernel(a: pypto.Tensor, out: pypto.Tensor, scalar: float) -> None
     out[:] = pypto.div(a, scalar)
 
 
-def div_scalar_op(a: torch.Tensor, scalar: float, dynamic: bool = False) -> torch.Tensor:
+@pypto.jit(runtime_options={"run_mode": pypto.RunMode.SIM})
+def div_scalar_kernel_sim(a: pypto.Tensor, out: pypto.Tensor, scalar: float) -> None:
+    pypto.set_vec_tile_shapes(2, 8)
+    out[:] = pypto.div(a, scalar)
+
+
+def div_scalar_op(a: torch.Tensor, scalar: float, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
     out = torch.zeros_like(a)
 
     if dynamic:
@@ -471,26 +576,30 @@ def div_scalar_op(a: torch.Tensor, scalar: float, dynamic: bool = False) -> torc
         a_pto = pypto.from_torch(a)
         out_pto = pypto.from_torch(out)
 
-    div_scalar_kernel(a_pto, out_pto, scalar)
+    if run_mode == "npu":
+        div_scalar_kernel(a_pto, out_pto, scalar)
+    else:
+        div_scalar_kernel_sim(a_pto, out_pto, scalar)
 
     return out
 
 
-def test_div_scalar():
+def test_div_scalar(run_mode: str = "npu"):
     """Test diving a scalar to a tensor"""
     print("=" * 60)
     print("Test: Diving a scalar to a tensor")
     print("=" * 60)
     
-    device_id = torch.npu.current_device()
+    device_desc = get_device_desc(run_mode)
     
     dtype = torch.float32
-    a = torch.tensor([1, 2, 3], dtype=dtype, device=f'npu:{device_id}')
+    a = torch.tensor([1, 2, 3], dtype=dtype, device=device_desc)
     scalar = 2.0
-    expected = torch.tensor([0.5, 1, 1.5], dtype=dtype, device=f'npu:{device_id}')
+    expected = torch.tensor([0.5, 1, 1.5], dtype=dtype, device=device_desc)
 
-    out = div_scalar_op(a, scalar)
-    assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
+    out = div_scalar_op(a, scalar, run_mode)
+    if run_mode == "npu":
+        assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
     print(f"Output: {out}")
     print(f"Expected: {expected}")
     print("✓ Test Diving a scalar to a tensor completed successfully")
@@ -506,7 +615,13 @@ def exp_kernel(x: pypto.Tensor, out: pypto.Tensor) -> None:
     out[:] = pypto.exp(x)
 
 
-def exp_op(x: torch.Tensor, dynamic: bool = False) -> torch.Tensor:
+@pypto.jit(runtime_options={"run_mode": pypto.RunMode.SIM})
+def exp_kernel_sim(x: pypto.Tensor, out: pypto.Tensor) -> None:
+    pypto.set_vec_tile_shapes(2, 8)
+    out[:] = pypto.exp(x)
+
+
+def exp_op(x: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
     out = torch.zeros_like(x)
 
     if dynamic:
@@ -516,25 +631,29 @@ def exp_op(x: torch.Tensor, dynamic: bool = False) -> torch.Tensor:
         x_pto = pypto.from_torch(x)
         out_pto = pypto.from_torch(out)
 
-    exp_kernel(x_pto, out_pto)
+    if run_mode == "npu":
+        exp_kernel(x_pto, out_pto)
+    else:
+        exp_kernel_sim(x_pto, out_pto)
 
     return out
 
 
-def test_exp_basic():
+def test_exp_basic(run_mode: str = "npu"):
     """Test basic usage of exp function"""
     print("=" * 60)
     print("Test: Basic Usage of exp Function")
     print("=" * 60)
     
-    device_id = torch.npu.current_device()
+    device_desc = get_device_desc(run_mode)
     
     dtype = torch.float32
-    x = torch.tensor([0, 1, 2], dtype=dtype, device=f'npu:{device_id}')
-    expected = torch.tensor([1.0000, 2.7183, 7.3891], dtype=dtype, device=f'npu:{device_id}')
+    x = torch.tensor([0, 1, 2], dtype=dtype, device=device_desc)
+    expected = torch.tensor([1.0000, 2.7183, 7.3891], dtype=dtype, device=device_desc)
 
-    out = exp_op(x)
-    assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
+    out = exp_op(x, run_mode)
+    if run_mode == "npu":
+        assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
     print(f"Output: {out}")
     print(f"Expected: {expected}")
     print("✓ Basic usage of exp function completed successfully")
@@ -550,7 +669,13 @@ def log_kernel(a: pypto.Tensor, out: pypto.Tensor) -> None:
     out[:] = pypto.log(a)
 
 
-def log_op(a: torch.Tensor, dynamic: bool = False) -> torch.Tensor:
+@pypto.jit(runtime_options={"run_mode": pypto.RunMode.SIM})
+def log_kernel_sim(a: pypto.Tensor, out: pypto.Tensor) -> None:
+    pypto.set_vec_tile_shapes(2, 8)
+    out[:] = pypto.log(a)
+
+
+def log_op(a: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
     out = torch.zeros_like(a)
 
     if dynamic:
@@ -560,25 +685,29 @@ def log_op(a: torch.Tensor, dynamic: bool = False) -> torch.Tensor:
         a_pto = pypto.from_torch(a)
         out_pto = pypto.from_torch(out)
 
-    log_kernel(a_pto, out_pto)
+    if run_mode == "npu":
+        log_kernel(a_pto, out_pto)
+    else:
+        log_kernel_sim(a_pto, out_pto)
 
     return out
 
 
-def test_log_basic():
+def test_log_basic(run_mode: str = "npu"):
     """Test basic usage of log function"""
     print("=" * 60)
     print("Test: Basic Usage of log Function")
     print("=" * 60)
     
-    device_id = torch.npu.current_device()
+    device_desc = get_device_desc(run_mode)
     
     dtype = torch.float32
-    a = torch.tensor([1, 2, 3], dtype=dtype, device=f'npu:{device_id}')
-    expected = torch.tensor([0, 0.6931, 1.0986], dtype=dtype, device=f'npu:{device_id}')
+    a = torch.tensor([1, 2, 3], dtype=dtype, device=device_desc)
+    expected = torch.tensor([0, 0.6931, 1.0986], dtype=dtype, device=device_desc)
 
-    out = log_op(a)
-    assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
+    out = log_op(a, run_mode)
+    if run_mode == "npu":
+        assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
     print(f"Output: {out}")
     print(f"Expected: {expected}")
     print("✓ Basic usage of log function completed successfully")
@@ -594,7 +723,13 @@ def mul_kernel(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> None:
     out[:] = pypto.mul(a, b)
 
 
-def mul_op(a: torch.Tensor, b: torch.Tensor, dynamic: bool = False) -> torch.Tensor:
+@pypto.jit(runtime_options={"run_mode": pypto.RunMode.SIM})
+def mul_kernel_sim(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> None:
+    pypto.set_vec_tile_shapes(2, 8)
+    out[:] = pypto.mul(a, b)
+
+
+def mul_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
     out = torch.zeros_like(a)
 
     if dynamic:
@@ -606,26 +741,30 @@ def mul_op(a: torch.Tensor, b: torch.Tensor, dynamic: bool = False) -> torch.Ten
         b_pto = pypto.from_torch(b)
         out_pto = pypto.from_torch(out)
 
-    mul_kernel(a_pto, b_pto, out_pto)
+    if run_mode == "npu":
+        mul_kernel(a_pto, b_pto, out_pto)
+    else:
+        mul_kernel_sim(a_pto, b_pto, out_pto)
 
     return out
 
 
-def test_mul_basic():
+def test_mul_basic(run_mode: str = "npu"):
     """Test basic usage of mul function"""
     print("=" * 60)
     print("Test: Basic Usage of mul Function")
     print("=" * 60)
     
-    device_id = torch.npu.current_device()
+    device_desc = get_device_desc(run_mode)
     
     dtype = torch.float32
-    a = torch.tensor([1, 2, 3], dtype=dtype, device=f'npu:{device_id}')
-    b = torch.tensor([4, 5, 6], dtype=dtype, device=f'npu:{device_id}')
-    expected = torch.tensor([4, 10, 18], dtype=dtype, device=f'npu:{device_id}')
+    a = torch.tensor([1, 2, 3], dtype=dtype, device=device_desc)
+    b = torch.tensor([4, 5, 6], dtype=dtype, device=device_desc)
+    expected = torch.tensor([4, 10, 18], dtype=dtype, device=device_desc)
 
-    out = mul_op(a, b)
-    assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
+    out = mul_op(a, b, run_mode)
+    if run_mode == "npu":
+        assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
     print(f"Output: {out}")
     print(f"Expected: {expected}")
     print("✓ Basic usage of mul function completed successfully")
@@ -637,7 +776,13 @@ def mul_broadcast_kernel(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) ->
     out[:] = pypto.mul(a, b)
 
 
-def mul_broadcast_op(a: torch.Tensor, b: torch.Tensor, dynamic: bool = False) -> torch.Tensor:
+@pypto.jit(runtime_options={"run_mode": pypto.RunMode.SIM})
+def mul_broadcast_kernel_sim(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> None:
+    pypto.set_vec_tile_shapes(2, 8)
+    out[:] = pypto.mul(a, b)
+
+
+def mul_broadcast_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
     out = torch.zeros_like(a)
 
     if dynamic:
@@ -649,26 +794,30 @@ def mul_broadcast_op(a: torch.Tensor, b: torch.Tensor, dynamic: bool = False) ->
         b_pto = pypto.from_torch(b)
         out_pto = pypto.from_torch(out)
 
-    mul_broadcast_kernel(a_pto, b_pto, out_pto)
+    if run_mode == "npu":
+        mul_broadcast_kernel(a_pto, b_pto, out_pto)
+    else:
+        mul_broadcast_kernel_sim(a_pto, b_pto, out_pto)
 
     return out
 
 
-def test_mul_broadcast():
+def test_mul_broadcast(run_mode: str = "npu"):
     """Test broadcasting between tensors of different shapes"""
     print("=" * 60)
     print("Test: Broadcasting Between Tensors")
     print("=" * 60)
     
-    device_id = torch.npu.current_device()
+    device_desc = get_device_desc(run_mode)
     
     dtype = torch.float32
-    a = torch.tensor([[1, 2], [3, 4]], dtype=dtype, device=f'npu:{device_id}')
-    b = torch.tensor([1, 2], dtype=dtype, device=f'npu:{device_id}')
-    expected = torch.tensor([[1, 4], [3, 8]], dtype=dtype, device=f'npu:{device_id}')
+    a = torch.tensor([[1, 2], [3, 4]], dtype=dtype, device=device_desc)
+    b = torch.tensor([1, 2], dtype=dtype, device=device_desc)
+    expected = torch.tensor([[1, 4], [3, 8]], dtype=dtype, device=device_desc)
 
-    out = mul_broadcast_op(a, b)
-    assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
+    out = mul_broadcast_op(a, b, run_mode)
+    if run_mode == "npu":
+        assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
     print(f"Output: {out}")
     print(f"Expected: {expected}")
     print("✓ Test Broadcasting Between Tensors completed successfully")
@@ -680,7 +829,13 @@ def mul_scalar_kernel(a: pypto.Tensor, out: pypto.Tensor, scalar: float) -> None
     out[:] = pypto.mul(a, scalar)
 
 
-def mul_scalar_op(a: torch.Tensor, scalar: float, dynamic: bool = False) -> torch.Tensor:
+@pypto.jit(runtime_options={"run_mode": pypto.RunMode.SIM})
+def mul_scalar_kernel_sim(a: pypto.Tensor, out: pypto.Tensor, scalar: float) -> None:
+    pypto.set_vec_tile_shapes(2, 8)
+    out[:] = pypto.mul(a, scalar)
+
+
+def mul_scalar_op(a: torch.Tensor, scalar: float, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
     out = torch.zeros_like(a)
 
     if dynamic:
@@ -690,26 +845,30 @@ def mul_scalar_op(a: torch.Tensor, scalar: float, dynamic: bool = False) -> torc
         a_pto = pypto.from_torch(a)
         out_pto = pypto.from_torch(out)
 
-    mul_scalar_kernel(a_pto, out_pto, scalar)
+    if run_mode == "npu":
+        mul_scalar_kernel(a_pto, out_pto, scalar)
+    else:
+        mul_scalar_kernel_sim(a_pto, out_pto, scalar)
 
     return out
 
 
-def test_mul_scalar():
+def test_mul_scalar(run_mode: str = "npu"):
     """Test muling a scalar to a tensor"""
     print("=" * 60)
     print("Test: Muling a scalar to a tensor")
     print("=" * 60)
     
-    device_id = torch.npu.current_device()
+    device_desc = get_device_desc(run_mode)
     
     dtype = torch.float32
-    a = torch.tensor([1, 2, 3], dtype=dtype, device=f'npu:{device_id}')
+    a = torch.tensor([1, 2, 3], dtype=dtype, device=device_desc)
     scalar = 2.0
-    expected = torch.tensor([2, 4, 6], dtype=dtype, device=f'npu:{device_id}')
+    expected = torch.tensor([2, 4, 6], dtype=dtype, device=device_desc)
 
-    out = mul_scalar_op(a, scalar)
-    assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
+    out = mul_scalar_op(a, scalar, run_mode)
+    if run_mode == "npu":
+        assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
     print(f"Output: {out}")
     print(f"Expected: {expected}")
     print("✓ Test Muling a scalar to a tensor completed successfully")
@@ -725,7 +884,13 @@ def neg_kernel(a: pypto.Tensor, out: pypto.Tensor) -> None:
     out[:] = pypto.neg(a)
 
 
-def neg_op(a: torch.Tensor, dynamic: bool = False) -> torch.Tensor:
+@pypto.jit(runtime_options={"run_mode": pypto.RunMode.SIM})
+def neg_kernel_sim(a: pypto.Tensor, out: pypto.Tensor) -> None:
+    pypto.set_vec_tile_shapes(2, 8)
+    out[:] = pypto.neg(a)
+
+
+def neg_op(a: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
     out = torch.zeros_like(a)
 
     if dynamic:
@@ -735,27 +900,31 @@ def neg_op(a: torch.Tensor, dynamic: bool = False) -> torch.Tensor:
         a_pto = pypto.from_torch(a)
         out_pto = pypto.from_torch(out)
 
-    neg_kernel(a_pto, out_pto)
+    if run_mode == "npu":
+        neg_kernel(a_pto, out_pto)
+    else:
+        neg_kernel_sim(a_pto, out_pto)
 
     return out
 
 
-def test_neg_basic():
+def test_neg_basic(run_mode: str = "npu"):
     """Test basic usage of neg function"""
     print("=" * 60)
     print("Test: Basic Usage of neg Function")
     print("=" * 60)
     
-    device_id = torch.npu.current_device()
+    device_desc = get_device_desc(run_mode)
     
     dtype = torch.float32
     a = torch.tensor([[1, 4],
-                     [16, 9]], dtype=dtype, device=f'npu:{device_id}')
+                     [16, 9]], dtype=dtype, device=device_desc)
     expected = torch.tensor([[-1, -4],
-                             [-16, -9]], dtype=dtype, device=f'npu:{device_id}')
+                             [-16, -9]], dtype=dtype, device=device_desc)
 
-    out = neg_op(a)
-    assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
+    out = neg_op(a, run_mode)
+    if run_mode == "npu":
+        assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
     print(f"Output: {out}")
     print(f"Expected: {expected}")
     print("✓ Basic usage of neg function completed successfully")
@@ -771,7 +940,13 @@ def pow_kernel(a: pypto.Tensor, out: pypto.Tensor, b: float) -> None:
     out[:] = pypto.pow(a, b)
 
 
-def pow_op(a: torch.Tensor, b: float, dynamic: bool = False) -> torch.Tensor:
+@pypto.jit(runtime_options={"run_mode": pypto.RunMode.SIM})
+def pow_kernel_sim(a: pypto.Tensor, out: pypto.Tensor, b: float) -> None:
+    pypto.set_vec_tile_shapes(2, 8)
+    out[:] = pypto.pow(a, b)
+
+
+def pow_op(a: torch.Tensor, b: float, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
     out = torch.zeros_like(a)
 
     if dynamic:
@@ -781,26 +956,30 @@ def pow_op(a: torch.Tensor, b: float, dynamic: bool = False) -> torch.Tensor:
         a_pto = pypto.from_torch(a)
         out_pto = pypto.from_torch(out)
 
-    pow_kernel(a_pto, out_pto, b)
+    if run_mode == "npu":
+        pow_kernel(a_pto, out_pto, b)
+    else:
+        pow_kernel_sim(a_pto, out_pto, b)
 
     return out
 
 
-def test_pow_basic():
+def test_pow_basic(run_mode: str = "npu"):
     """Test basic usage of pow function"""
     print("=" * 60)
     print("Test: Basic Usage of pow Function")
     print("=" * 60)
     
-    device_id = torch.npu.current_device()
+    device_desc = get_device_desc(run_mode)
     
     dtype = torch.float32
-    a = torch.tensor([3, 3], dtype=dtype, device=f'npu:{device_id}')
+    a = torch.tensor([3, 3], dtype=dtype, device=device_desc)
     b = 2.0
-    expected = torch.tensor([9, 9], dtype=dtype, device=f'npu:{device_id}')
+    expected = torch.tensor([9, 9], dtype=dtype, device=device_desc)
 
-    out = pow_op(a, b)
-    assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
+    out = pow_op(a, b, run_mode)
+    if run_mode == "npu":
+        assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
     print(f"Output: {out}")
     print(f"Expected: {expected}")
     print("✓ Basic usage of pow function completed successfully")
@@ -816,7 +995,13 @@ def rsqrt_kernel(a: pypto.Tensor, out: pypto.Tensor) -> None:
     out[:] = pypto.rsqrt(a)
 
 
-def rsqrt_op(a: torch.Tensor, dynamic: bool = False) -> torch.Tensor:
+@pypto.jit(runtime_options={"run_mode": pypto.RunMode.SIM})
+def rsqrt_kernel_sim(a: pypto.Tensor, out: pypto.Tensor) -> None:
+    pypto.set_vec_tile_shapes(2, 8)
+    out[:] = pypto.rsqrt(a)
+
+
+def rsqrt_op(a: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
     out = torch.zeros_like(a)
 
     if dynamic:
@@ -826,27 +1011,31 @@ def rsqrt_op(a: torch.Tensor, dynamic: bool = False) -> torch.Tensor:
         a_pto = pypto.from_torch(a)
         out_pto = pypto.from_torch(out)
 
-    rsqrt_kernel(a_pto, out_pto)
+    if run_mode == "npu":
+        rsqrt_kernel(a_pto, out_pto)
+    else:
+        rsqrt_kernel_sim(a_pto, out_pto)
 
     return out
 
 
-def test_rsqrt_basic():
+def test_rsqrt_basic(run_mode: str = "npu"):
     """Test basic usage of rsqrt function"""
     print("=" * 60)
     print("Test: Basic Usage of rsqrt Function")
     print("=" * 60)
     
-    device_id = torch.npu.current_device()
+    device_desc = get_device_desc(run_mode)
     
     dtype = torch.float32
     a = torch.tensor([[1, 4],
-                     [16, 9]], dtype=dtype, device=f'npu:{device_id}')
+                     [16, 9]], dtype=dtype, device=device_desc)
     expected = torch.tensor([[1, 0.5],
-                             [0.25, 0.333333]], dtype=dtype, device=f'npu:{device_id}')
+                             [0.25, 0.333333]], dtype=dtype, device=device_desc)
 
-    out = rsqrt_op(a)
-    assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
+    out = rsqrt_op(a, run_mode)
+    if run_mode == "npu":
+        assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
     print(f"Output: {out}")
     print(f"Expected: {expected}")
     print("✓ Basic usage of rsqrt function completed successfully")
@@ -862,7 +1051,13 @@ def sqrt_kernel(a: pypto.Tensor, out: pypto.Tensor) -> None:
     out[:] = pypto.sqrt(a)
 
 
-def sqrt_op(a: torch.Tensor, dynamic: bool = False) -> torch.Tensor:
+@pypto.jit(runtime_options={"run_mode": pypto.RunMode.SIM})
+def sqrt_kernel_sim(a: pypto.Tensor, out: pypto.Tensor) -> None:
+    pypto.set_vec_tile_shapes(2, 8)
+    out[:] = pypto.sqrt(a)
+
+
+def sqrt_op(a: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
     out = torch.zeros_like(a)
 
     if dynamic:
@@ -872,27 +1067,31 @@ def sqrt_op(a: torch.Tensor, dynamic: bool = False) -> torch.Tensor:
         a_pto = pypto.from_torch(a)
         out_pto = pypto.from_torch(out)
 
-    sqrt_kernel(a_pto, out_pto)
+    if run_mode == "npu":
+        sqrt_kernel(a_pto, out_pto)
+    else:
+        sqrt_kernel_sim(a_pto, out_pto)
 
     return out
 
 
-def test_sqrt_basic():
+def test_sqrt_basic(run_mode: str = "npu"):
     """Test basic usage of sqrt function"""
     print("=" * 60)
     print("Test: Basic Usage of sqrt Function")
     print("=" * 60)
     
-    device_id = torch.npu.current_device()
+    device_desc = get_device_desc(run_mode)
     
     dtype = torch.float32
     a = torch.tensor([[1, 4],
-                     [16, 9]], dtype=dtype, device=f'npu:{device_id}')
+                     [16, 9]], dtype=dtype, device=device_desc)
     expected = torch.tensor([[1, 2],
-                             [4, 3]], dtype=dtype, device=f'npu:{device_id}')
+                             [4, 3]], dtype=dtype, device=device_desc)
 
-    out = sqrt_op(a)
-    assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
+    out = sqrt_op(a, run_mode)
+    if run_mode == "npu":
+        assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
     print(f"Output: {out}")
     print(f"Expected: {expected}")
     print("✓ Basic usage of sqrt function completed successfully")
@@ -908,7 +1107,13 @@ def sub_kernel(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> None:
     out[:] = pypto.sub(a, b)
 
 
-def sub_op(a: torch.Tensor, b: torch.Tensor, dynamic: bool = False) -> torch.Tensor:
+@pypto.jit(runtime_options={"run_mode": pypto.RunMode.SIM})
+def sub_kernel_sim(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> None:
+    pypto.set_vec_tile_shapes(2, 8)
+    out[:] = pypto.sub(a, b)
+
+
+def sub_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
     out = torch.zeros_like(a)
 
     if dynamic:
@@ -920,26 +1125,30 @@ def sub_op(a: torch.Tensor, b: torch.Tensor, dynamic: bool = False) -> torch.Ten
         b_pto = pypto.from_torch(b)
         out_pto = pypto.from_torch(out)
 
-    sub_kernel(a_pto, b_pto, out_pto)
+    if run_mode == "npu":
+        sub_kernel(a_pto, b_pto, out_pto)
+    else:
+        sub_kernel_sim(a_pto, b_pto, out_pto)
 
     return out
 
 
-def test_sub_basic():
+def test_sub_basic(run_mode: str = "npu"):
     """Test basic usage of sub function"""
     print("=" * 60)
     print("Test: Basic Usage of sub Function")
     print("=" * 60)
     
-    device_id = torch.npu.current_device()
+    device_desc = get_device_desc(run_mode)
     
     dtype = torch.float32
-    a = torch.tensor([4, 5, 6], dtype=dtype, device=f'npu:{device_id}')
-    b = torch.tensor([1, 2, 3], dtype=dtype, device=f'npu:{device_id}')
-    expected = torch.tensor([3, 3, 3], dtype=dtype, device=f'npu:{device_id}')
+    a = torch.tensor([4, 5, 6], dtype=dtype, device=device_desc)
+    b = torch.tensor([1, 2, 3], dtype=dtype, device=device_desc)
+    expected = torch.tensor([3, 3, 3], dtype=dtype, device=device_desc)
 
-    out = sub_op(a, b)
-    assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
+    out = sub_op(a, b, run_mode)
+    if run_mode == "npu":
+        assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
     print(f"Output: {out}")
     print(f"Expected: {expected}")
     print("✓ Basic usage of sub function completed successfully")
@@ -951,7 +1160,13 @@ def sub_broadcast_kernel(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) ->
     out[:] = pypto.sub(a, b)
 
 
-def sub_broadcast_op(a: torch.Tensor, b: torch.Tensor, dynamic: bool = False) -> torch.Tensor:
+@pypto.jit(runtime_options={"run_mode": pypto.RunMode.SIM})
+def sub_broadcast_kernel_sim(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> None:
+    pypto.set_vec_tile_shapes(2, 8)
+    out[:] = pypto.sub(a, b)
+
+
+def sub_broadcast_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
     out = torch.zeros_like(a)
 
     if dynamic:
@@ -963,26 +1178,30 @@ def sub_broadcast_op(a: torch.Tensor, b: torch.Tensor, dynamic: bool = False) ->
         b_pto = pypto.from_torch(b)
         out_pto = pypto.from_torch(out)
 
-    sub_broadcast_kernel(a_pto, b_pto, out_pto)
+    if run_mode == "npu":
+        sub_broadcast_kernel(a_pto, b_pto, out_pto)
+    else:
+        sub_broadcast_kernel_sim(a_pto, b_pto, out_pto)
 
     return out
 
 
-def test_sub_broadcast():
+def test_sub_broadcast(run_mode: str = "npu"):
     """Test broadcasting between tensors of different shapes"""
     print("=" * 60)
     print("Test: Broadcasting Between Tensors")
     print("=" * 60)
     
-    device_id = torch.npu.current_device()
+    device_desc = get_device_desc(run_mode)
     
     dtype = torch.float32
-    a = torch.tensor([[1, 2], [3, 4]], dtype=dtype, device=f'npu:{device_id}')
-    b = torch.tensor([1, 2], dtype=dtype, device=f'npu:{device_id}')
-    expected = torch.tensor([[0, 0], [2, 2]], dtype=dtype, device=f'npu:{device_id}')
+    a = torch.tensor([[1, 2], [3, 4]], dtype=dtype, device=device_desc)
+    b = torch.tensor([1, 2], dtype=dtype, device=device_desc)
+    expected = torch.tensor([[0, 0], [2, 2]], dtype=dtype, device=device_desc)
 
-    out = sub_broadcast_op(a, b)
-    assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
+    out = sub_broadcast_op(a, b, run_mode)
+    if run_mode == "npu":
+        assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
     print(f"Output: {out}")
     print(f"Expected: {expected}")
     print("✓ Test Broadcasting Between Tensors completed successfully")
@@ -994,7 +1213,13 @@ def sub_scalar_kernel(a: pypto.Tensor, out: pypto.Tensor, scalar: float) -> None
     out[:] = pypto.sub(a, scalar)
 
 
-def sub_scalar_op(a: torch.Tensor, scalar: float, dynamic: bool = False) -> torch.Tensor:
+@pypto.jit(runtime_options={"run_mode": pypto.RunMode.SIM})
+def sub_scalar_kernel_sim(a: pypto.Tensor, out: pypto.Tensor, scalar: float) -> None:
+    pypto.set_vec_tile_shapes(2, 8)
+    out[:] = pypto.sub(a, scalar)
+
+
+def sub_scalar_op(a: torch.Tensor, scalar: float, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
     out = torch.zeros_like(a)
 
     if dynamic:
@@ -1004,26 +1229,30 @@ def sub_scalar_op(a: torch.Tensor, scalar: float, dynamic: bool = False) -> torc
         a_pto = pypto.from_torch(a)
         out_pto = pypto.from_torch(out)
 
-    sub_scalar_kernel(a_pto, out_pto, scalar)
+    if run_mode == "npu":
+        sub_scalar_kernel(a_pto, out_pto, scalar)
+    else:
+        sub_scalar_kernel_sim(a_pto, out_pto, scalar)
 
     return out
 
 
-def test_sub_scalar():
+def test_sub_scalar(run_mode: str = "npu"):
     """Test subing a scalar to a tensor"""
     print("=" * 60)
     print("Test: Subing a scalar to a tensor")
     print("=" * 60)
     
-    device_id = torch.npu.current_device()
+    device_desc = get_device_desc(run_mode)
     
     dtype = torch.float32
-    a = torch.tensor([1, 2, 3], dtype=dtype, device=f'npu:{device_id}')
+    a = torch.tensor([1, 2, 3], dtype=dtype, device=device_desc)
     scalar = 2.0
-    expected = torch.tensor([-1, 0, 1], dtype=dtype, device=f'npu:{device_id}')
+    expected = torch.tensor([-1, 0, 1], dtype=dtype, device=device_desc)
 
-    out = sub_scalar_op(a, scalar)
-    assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
+    out = sub_scalar_op(a, scalar, run_mode)
+    if run_mode == "npu":
+        assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
     print(f"Output: {out}")
     print(f"Expected: {expected}")
     print("✓ Test Subing a scalar to a tensor completed successfully")
@@ -1035,7 +1264,13 @@ def sub_with_alpha_kernel(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor, a
     out[:] = pypto.sub(a, b, alpha=alpha)
 
 
-def sub_with_alpha_op(a: torch.Tensor, b: torch.Tensor, alpha: float, dynamic: bool = False) -> torch.Tensor:
+@pypto.jit(runtime_options={"run_mode": pypto.RunMode.SIM})
+def sub_with_alpha_kernel_sim(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor, alpha: float) -> None:
+    pypto.set_vec_tile_shapes(2, 8)
+    out[:] = pypto.sub(a, b, alpha=alpha)
+
+
+def sub_with_alpha_op(a: torch.Tensor, b: torch.Tensor, alpha: float, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
     out = torch.zeros_like(a)
 
     if dynamic:
@@ -1047,27 +1282,31 @@ def sub_with_alpha_op(a: torch.Tensor, b: torch.Tensor, alpha: float, dynamic: b
         b_pto = pypto.from_torch(b)
         out_pto = pypto.from_torch(out)
 
-    sub_with_alpha_kernel(a_pto, b_pto, out_pto, alpha)
+    if run_mode == "npu":
+        sub_with_alpha_kernel(a_pto, b_pto, out_pto, alpha)
+    else:
+        sub_with_alpha_kernel_sim(a_pto, b_pto, out_pto, alpha)
 
     return out
 
 
-def test_sub_with_alpha():
+def test_sub_with_alpha(run_mode: str = "npu"):
     """Using the alpha parameter to scale the second input"""
     print("=" * 60)
     print("Test: Using the Alpha Parameter")
     print("=" * 60)
     
-    device_id = torch.npu.current_device()
+    device_desc = get_device_desc(run_mode)
     
     dtype = torch.float32
-    a = torch.tensor([9, 8, 7], dtype=dtype, device=f'npu:{device_id}')
-    b = torch.tensor([1, 2, 3], dtype=dtype, device=f'npu:{device_id}')
+    a = torch.tensor([9, 8, 7], dtype=dtype, device=device_desc)
+    b = torch.tensor([1, 2, 3], dtype=dtype, device=device_desc)
     alpha = 2.0
-    expected = torch.tensor([7, 4, 1], dtype=dtype, device=f'npu:{device_id}')
+    expected = torch.tensor([7, 4, 1], dtype=dtype, device=device_desc)
 
-    out = sub_with_alpha_op(a, b, alpha)
-    assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
+    out = sub_with_alpha_op(a, b, alpha, run_mode, run_mode)
+    if run_mode == "npu":
+        assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
     print(f"Output: {out}")
     print(f"Expected: {expected}")
     print("✓ Using the alpha parameter to scale the second input completed successfully")
@@ -1106,6 +1345,11 @@ Examples:
         action='store_true',
         help='List all available examples and exit'
     )
+    parser.add_argument(
+        "--run_mode", "--run-mode",
+        nargs="?", type=str, default="npu", choices=["npu", "sim"],
+        help="run mode, such as npu/sim etc."
+    )
     
     args = parser.parse_args()
     
@@ -1114,140 +1358,117 @@ Examples:
         'abs::test_abs_basic': {
             'name': 'Test basic usage of abs function',
             'description': 'Basic usage of abs function example',
-            'function': test_abs_basic,
-            'requires_npu': True
+            'function': test_abs_basic
         },
         'add::test_add_basic': {
             'name': 'Test basic usage of add function',
             'description': 'Basic usage of add function example',
-            'function': test_add_basic,
-            'requires_npu': True
+            'function': test_add_basic
         },
         'add::test_add_broadcast': {
             'name': 'Test broadcasting between tensors of different shapes',
             'description': 'Broadcasting between tensors example',
-            'function': test_add_broadcast,
-            'requires_npu': True
+            'function': test_add_broadcast
         },
         'add::test_add_scalar': {
             'name': 'Test adding a scalar to a tensor',
             'description': 'Adding a scalar to a tensor example',
-            'function': test_add_scalar,
-            'requires_npu': True
+            'function': test_add_scalar
         },
         'add::test_add_with_alpha': {
             'name': 'Using the alpha parameter to scale the second input',
             'description': 'Using the alpha parameter example',
-            'function': test_add_with_alpha,
-            'requires_npu': True
+            'function': test_add_with_alpha
         },
         'clip::test_clip_basic': {
             'name': 'Test basic usage of clip function',
             'description': 'Basic usage of clip function example',
-            'function': test_clip_basic,
-            'requires_npu': True
+            'function': test_clip_basic
         },
         'clip::test_clip_broadcast': {
             'name': 'Test broadcasting between tensors of different shapes',
             'description': 'Broadcasting between tensors example',
-            'function': test_clip_broadcast,
-            'requires_npu': True
+            'function': test_clip_broadcast
         },
         'div::test_div_basic': {
             'name': 'Test basic usage of div function',
             'description': 'Basic usage of div function example',
-            'function': test_div_basic,
-            'requires_npu': True
+            'function': test_div_basic
         },
         'div::test_div_broadcast': {
             'name': 'Test broadcasting between tensors of different shapes',
             'description': 'Broadcasting between tensors example',
-            'function': test_div_broadcast,
-            'requires_npu': True
+            'function': test_div_broadcast
         },
         'div::test_div_scalar': {
             'name': 'Test diving a scalar to a tensor',
             'description': 'Diving a scalar to a tensor example',
-            'function': test_div_scalar,
-            'requires_npu': True
+            'function': test_div_scalar
         },
         'exp::test_exp_basic': {
             'name': 'Test basic usage of exp function',
             'description': 'Basic usage of exp function example',
-            'function': test_exp_basic,
-            'requires_npu': True
+            'function': test_exp_basic
         },
         'log::test_log_basic': {
             'name': 'Test basic usage of log function',
             'description': 'Basic usage of log function example',
-            'function': test_log_basic,
-            'requires_npu': True
+            'function': test_log_basic
         },
         'mul::test_mul_basic': {
             'name': 'Test basic usage of mul function',
             'description': 'Basic usage of mul function example',
-            'function': test_mul_basic,
-            'requires_npu': True
+            'function': test_mul_basic
         },
         'mul::test_mul_broadcast': {
             'name': 'Test broadcasting between tensors of different shapes',
             'description': 'Broadcasting between tensors example',
-            'function': test_mul_broadcast,
-            'requires_npu': True
+            'function': test_mul_broadcast
         },
         'mul::test_mul_scalar': {
             'name': 'Test muling a scalar to a tensor',
             'description': 'Muling a scalar to a tensor example',
-            'function': test_mul_scalar,
-            'requires_npu': True
+            'function': test_mul_scalar
         },
         'neg::test_neg_basic': {
             'name': 'Test basic usage of neg function',
             'description': 'Basic usage of neg function example',
-            'function': test_neg_basic,
-            'requires_npu': True
+            'function': test_neg_basic
         },
         'pow::test_pow_basic': {
             'name': 'Test basic usage of pow function',
             'description': 'Basic usage of pow function example',
-            'function': test_pow_basic,
-            'requires_npu': True
+            'function': test_pow_basic
         },
         'rsqrt::test_rsqrt_basic': {
             'name': 'Test basic usage of rsqrt function',
             'description': 'Basic usage of rsqrt function example',
-            'function': test_rsqrt_basic,
-            'requires_npu': True
+            'function': test_rsqrt_basic
         },
         'sqrt::test_sqrt_basic': {
             'name': 'Test basic usage of sqrt function',
             'description': 'Basic usage of sqrt function example',
-            'function': test_sqrt_basic,
-            'requires_npu': True
+            'function': test_sqrt_basic
         },
         'sub::test_sub_basic': {
             'name': 'Test basic usage of sub function',
             'description': 'Basic usage of sub function example',
-            'function': test_sub_basic,
-            'requires_npu': True
+            'function': test_sub_basic
         },
         'sub::test_sub_broadcast': {
             'name': 'Test broadcasting between tensors of different shapes',
             'description': 'Broadcasting between tensors example',
-            'function': test_sub_broadcast,
-            'requires_npu': True
+            'function': test_sub_broadcast
         },
         'sub::test_sub_scalar': {
             'name': 'Test subing a scalar to a tensor',
             'description': 'Subing a scalar to a tensor example',
-            'function': test_sub_scalar,
-            'requires_npu': True
+            'function': test_sub_scalar
         },
         'sub::test_sub_with_alpha': {
             'name': 'Using the alpha parameter to scale the second input',
             'description': 'Using the alpha parameter example',
-            'function': test_sub_with_alpha,
-            'requires_npu': True
+            'function': test_sub_with_alpha
         }
     }
     
@@ -1257,8 +1478,7 @@ Examples:
         print("Available Examples")
         print("=" * 60 + "\n")
         for case_key, ex_info in sorted(examples.items()):
-            npu_req = " (Requires NPU)" if ex_info['requires_npu'] else " (No NPU required)"
-            print(f"  {case_key}{npu_req}")
+            print(f"  {case_key}")
             print(f"     {ex_info['name']}")
             print(f"     {ex_info['description']}\n")
         return
@@ -1278,12 +1498,9 @@ Examples:
     print("\n" + "=" * 60)
     print("PyPTO Element-wise Operation Examples")
     print("=" * 60 + "\n")
-    
-    # Check if any example requires NPU
-    requires_npu = any(ex_info['requires_npu'] for _, ex_info in examples_to_run)
-    
+
     device_id = None
-    if requires_npu:
+    if args.run_mode == "npu":
         device_id = get_device_id()
         if device_id is None:
             return
@@ -1291,11 +1508,11 @@ Examples:
     
     try:
         for case_key, ex_info in examples_to_run:
-            if ex_info['requires_npu'] and device_id is None:
+            if args.run_mode == "npu" and device_id is None:
                 print(f"Skipping {case_key} ({ex_info['name']}): NPU device not configured")
                 continue
             
-            ex_info['function']()
+            ex_info['function'](args.run_mode)
         
         if len(examples_to_run) > 1:
             print("=" * 60)

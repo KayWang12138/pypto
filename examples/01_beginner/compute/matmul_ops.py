@@ -50,6 +50,15 @@ def get_device_id():
         return None
 
 
+def get_device_desc(run_mode: str = "npu"):
+    if run_mode == "npu":
+        import torch_npu
+        device_id = torch.npu.current_device()
+        return f'npu:{device_id}'
+    else:
+        return 'cpu'
+
+
 # ============================================================================
 # MATMUL Examples
 # ============================================================================
@@ -62,7 +71,17 @@ def matmul_kernel(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> None:
     out[:] = pypto.matmul(a, b, a.dtype)
 
 
-def matmul_op(a: torch.Tensor, b: torch.Tensor, dynamic: bool = False) -> torch.Tensor:
+@pypto.jit(
+    host_options={"only_codegen": True},
+    codegen_options={"support_dynamic_unaligned": True},
+    runtime_options={"run_mode": pypto.RunMode.SIM}
+)
+def matmul_kernel_sim(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> None:
+    pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
+    out[:] = pypto.matmul(a, b, a.dtype)
+
+
+def matmul_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
     out = torch.zeros(a.shape[0], b.shape[1], dtype=a.dtype, device=a.device)
 
     if dynamic:
@@ -74,26 +93,30 @@ def matmul_op(a: torch.Tensor, b: torch.Tensor, dynamic: bool = False) -> torch.
         b_pto = pypto.from_torch(b)
         out_pto = pypto.from_torch(out)
 
-    matmul_kernel(a_pto, b_pto, out_pto)
+    if run_mode == "npu":
+        matmul_kernel(a_pto, b_pto, out_pto)
+    else:
+        matmul_kernel_sim(a_pto, b_pto, out_pto)
 
     return out
 
 
-def test_matmul_basic():
+def test_matmul_basic(run_mode: str = "npu"):
     """Test basic matrix multiplication"""
     print("=" * 60)
     print("Test: Basic Matrix Multiplication")
     print("=" * 60)
     
-    device_id = torch.npu.current_device()
+    device_desc = get_device_desc(run_mode)
     
     dtype = torch.float32
-    a = torch.tensor([[1, 2], [3, 4]], dtype=dtype, device=f'npu:{device_id}')
-    b = torch.tensor([[5, 6], [7, 8]], dtype=dtype, device=f'npu:{device_id}')
-    expected = torch.tensor([[19, 22], [43, 50]], dtype=dtype, device=f'npu:{device_id}')
+    a = torch.tensor([[1, 2], [3, 4]], dtype=dtype, device=device_desc)
+    b = torch.tensor([[5, 6], [7, 8]], dtype=dtype, device=device_desc)
+    expected = torch.tensor([[19, 22], [43, 50]], dtype=dtype, device=device_desc)
 
-    out = matmul_op(a, b)
-    assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
+    out = matmul_op(a, b, run_mode)
+    if run_mode == "npu":
+        assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
     print(f"Output: {out}")
     print(f"Expected: {expected}")
     print("✓ Basic matrix multiplication completed successfully")
@@ -107,7 +130,17 @@ def matmul_batch_kernel(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> 
     out[:] = pypto.matmul(a, b, a.dtype)
 
 
-def matmul_batch_op(a: torch.Tensor, b: torch.Tensor, dynamic: bool = False) -> torch.Tensor:
+@pypto.jit(
+    host_options={"only_codegen": True},
+    codegen_options={"support_dynamic_unaligned": True},
+    runtime_options={"run_mode": pypto.RunMode.SIM}
+)
+def matmul_batch_kernel_sim(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> None:
+    pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
+    out[:] = pypto.matmul(a, b, a.dtype)
+
+
+def matmul_batch_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
     out = torch.zeros_like(a)
 
     if dynamic:
@@ -119,26 +152,30 @@ def matmul_batch_op(a: torch.Tensor, b: torch.Tensor, dynamic: bool = False) -> 
         b_pto = pypto.from_torch(b)
         out_pto = pypto.from_torch(out)
 
-    matmul_batch_kernel(a_pto, b_pto, out_pto)
+    if run_mode == "npu":
+        matmul_batch_kernel(a_pto, b_pto, out_pto)
+    else:
+        matmul_batch_kernel_sim(a_pto, b_pto, out_pto)
 
     return out
 
 
-def test_matmul_batch():
+def test_matmul_batch(run_mode: str = "npu"):
     """Test batch matrix multiplication"""
     print("=" * 60)
     print("Test: Batch Matrix Multiplication")
     print("=" * 60)
     
-    device_id = torch.npu.current_device()
+    device_desc = get_device_desc(run_mode)
     
     dtype = torch.float32
-    a = torch.tensor([[[1, 2], [3, 4]], [[5, 6], [7, 8]]], dtype=dtype, device=f'npu:{device_id}')
-    b = torch.tensor([[[5, 6], [7, 8]], [[1, 2], [3, 4]]], dtype=dtype, device=f'npu:{device_id}')
-    expected = torch.tensor([[[19, 22], [43, 50]], [[23, 34], [31, 46]]], dtype=dtype, device=f'npu:{device_id}')
+    a = torch.tensor([[[1, 2], [3, 4]], [[5, 6], [7, 8]]], dtype=dtype, device=device_desc)
+    b = torch.tensor([[[5, 6], [7, 8]], [[1, 2], [3, 4]]], dtype=dtype, device=device_desc)
+    expected = torch.tensor([[[19, 22], [43, 50]], [[23, 34], [31, 46]]], dtype=dtype, device=device_desc)
 
-    out = matmul_batch_op(a, b)
-    assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
+    out = matmul_batch_op(a, b, run_mode)
+    if run_mode == "npu":
+        assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
     print(f"Output: {out}")
     print(f"Expected: {expected}")
     print("✓ Batch matrix multiplication completed successfully")
@@ -152,7 +189,17 @@ def matmul_broadcast_kernel(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor)
     out[:] = pypto.matmul(a, b, a.dtype)
 
 
-def matmul_broadcast_op(a: torch.Tensor, b: torch.Tensor, dynamic: bool = False) -> torch.Tensor:
+@pypto.jit(
+    host_options={"only_codegen": True},
+    codegen_options={"support_dynamic_unaligned": True},
+    runtime_options={"run_mode": pypto.RunMode.SIM}
+)
+def matmul_broadcast_kernel_sim(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> None:
+    pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
+    out[:] = pypto.matmul(a, b, a.dtype)
+
+
+def matmul_broadcast_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
     out = torch.zeros_like(b)
 
     if dynamic:
@@ -164,26 +211,30 @@ def matmul_broadcast_op(a: torch.Tensor, b: torch.Tensor, dynamic: bool = False)
         b_pto = pypto.from_torch(b)
         out_pto = pypto.from_torch(out)
 
-    matmul_broadcast_kernel(a_pto, b_pto, out_pto)
+    if run_mode == "npu":
+        matmul_broadcast_kernel(a_pto, b_pto, out_pto)
+    else:
+        matmul_broadcast_kernel_sim(a_pto, b_pto, out_pto)
 
     return out
 
 
-def test_matmul_broadcast():
+def test_matmul_broadcast(run_mode: str = "npu"):
     """Test batch matrix multiplication with broadcasting"""
     print("=" * 60)
     print("Test: Batch Matrix Multiplication with Broadcasting")
     print("=" * 60)
     
-    device_id = torch.npu.current_device()
+    device_desc = get_device_desc(run_mode)
     
     dtype = torch.float32
-    a = torch.tensor([[[1, 2], [3, 4]]], dtype=dtype, device=f'npu:{device_id}')
-    b = torch.tensor([[[5, 6], [7, 8]], [[1, 2], [3, 4]]], dtype=dtype, device=f'npu:{device_id}')
-    expected = torch.tensor([[[19, 22], [43, 50]], [[7, 10], [15, 22]]], dtype=dtype, device=f'npu:{device_id}')
+    a = torch.tensor([[[1, 2], [3, 4]]], dtype=dtype, device=device_desc)
+    b = torch.tensor([[[5, 6], [7, 8]], [[1, 2], [3, 4]]], dtype=dtype, device=device_desc)
+    expected = torch.tensor([[[19, 22], [43, 50]], [[7, 10], [15, 22]]], dtype=dtype, device=device_desc)
 
-    out = matmul_broadcast_op(a, b)
-    assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
+    out = matmul_broadcast_op(a, b, run_mode)
+    if run_mode == "npu":
+        assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
     print(f"Output: {out}")
     print(f"Expected: {expected}")
     print("✓ Batch matrix multiplication with broadcasting completed successfully")
@@ -196,7 +247,18 @@ def matmul_trans_right_kernel(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tenso
     pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
     out[:] = pypto.matmul(a, b, a.dtype, b_trans=True)
 
-def matmul_trans_right_op(a: torch.Tensor, b: torch.Tensor, dynamic: bool = False) -> torch.Tensor:
+
+@pypto.jit(
+        host_options={"only_codegen": True},
+        codegen_options={"support_dynamic_unaligned": True},
+    runtime_options={"run_mode": pypto.RunMode.SIM}
+    )
+def matmul_trans_right_kernel_sim(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> None:
+    pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
+    out[:] = pypto.matmul(a, b, a.dtype, b_trans=True)
+
+
+def matmul_trans_right_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
     out = torch.zeros(a.shape[0], b.shape[0], dtype=a.dtype, device=a.device)
 
     if dynamic:
@@ -208,7 +270,10 @@ def matmul_trans_right_op(a: torch.Tensor, b: torch.Tensor, dynamic: bool = Fals
         b_pto = pypto.from_torch(b)
         out_pto = pypto.from_torch(out)
 
-    matmul_trans_right_kernel(a_pto, b_pto, out_pto)
+    if run_mode == "npu":
+        matmul_trans_right_kernel(a_pto, b_pto, out_pto)
+    else:
+        matmul_trans_right_kernel_sim(a_pto, b_pto, out_pto)
 
     return out
 
@@ -220,7 +285,18 @@ def matmul_trans_left_kernel(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor
     pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
     out[:] = pypto.matmul(a, b, a.dtype, a_trans=True)
 
-def matmul_trans_left_op(a: torch.Tensor, b: torch.Tensor, dynamic: bool = False) -> torch.Tensor:
+
+@pypto.jit(
+    host_options={"only_codegen": True},
+    codegen_options={"support_dynamic_unaligned": True},
+    runtime_options={"run_mode": pypto.RunMode.SIM}
+)
+def matmul_trans_left_kernel_sim(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> None:
+    pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
+    out[:] = pypto.matmul(a, b, a.dtype, a_trans=True)
+
+
+def matmul_trans_left_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
     out = torch.zeros(a.shape[1], b.shape[1], dtype=a.dtype, device=a.device)
 
     if dynamic:
@@ -232,45 +308,50 @@ def matmul_trans_left_op(a: torch.Tensor, b: torch.Tensor, dynamic: bool = False
         b_pto = pypto.from_torch(b)
         out_pto = pypto.from_torch(out)
 
-    matmul_trans_left_kernel(a_pto, b_pto, out_pto)
+    if run_mode == "npu":
+        matmul_trans_left_kernel(a_pto, b_pto, out_pto)
+    else:
+        matmul_trans_left_kernel_sim(a_pto, b_pto, out_pto)
 
     return out
 
 
-def test_matmul_trans():
+def test_matmul_trans(run_mode: str = "npu"):
     """Test matrix multiplication with transposition"""
     print("=" * 60)
     print("Test: Matrix Multiplication with Transposition")
     print("=" * 60)
     
-    device_id = torch.npu.current_device()
+    device_desc = get_device_desc(run_mode)
     
     # Test 1: Basic matrix multiplication
     dtype = torch.float32
     a = torch.tensor([[1, 2, 3], 
-                      [4, 5, 6]], dtype=dtype, device=f'npu:{device_id}')
+                      [4, 5, 6]], dtype=dtype, device=device_desc)
     b = torch.tensor([[7, 8],
                       [9, 10],
-                      [11, 12]], dtype=dtype, device=f'npu:{device_id}')
+                      [11, 12]], dtype=dtype, device=device_desc)
     expected = torch.tensor([[58, 64],
-                            [139, 154]], dtype=dtype, device=f'npu:{device_id}')
+                            [139, 154]], dtype=dtype, device=device_desc)
 
-    out = matmul_op(a, b)
-    assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
+    out = matmul_op(a, b, run_mode)
+    if run_mode == "npu":
+        assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
     print(f"Output basic: {out}")
     print(f"Expected basic: {expected}")
     
     # Test 2: Matrix multiplication with the right matrix transposed
     dtype = torch.float32
     a = torch.tensor([[1, 2, 3], 
-                      [4, 5, 6]], dtype=dtype, device=f'npu:{device_id}')
+                      [4, 5, 6]], dtype=dtype, device=device_desc)
     b = torch.tensor([[7, 9, 11], 
-                      [8, 10, 12]], dtype=dtype, device=f'npu:{device_id}')
+                      [8, 10, 12]], dtype=dtype, device=device_desc)
     expected = torch.tensor([[58, 64],
-                            [139, 154]], dtype=dtype, device=f'npu:{device_id}')
+                            [139, 154]], dtype=dtype, device=device_desc)
 
-    out = matmul_trans_right_op(a, b)
-    assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
+    out = matmul_trans_right_op(a, b, run_mode)
+    if run_mode == "npu":
+        assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
     print(f"Output trans right: {out}")
     print(f"Expected trans right: {expected}")
     
@@ -278,15 +359,16 @@ def test_matmul_trans():
     dtype = torch.float32
     a = torch.tensor([[1, 4],
                       [2, 5],
-                      [3, 6]], dtype=dtype, device=f'npu:{device_id}')
+                      [3, 6]], dtype=dtype, device=device_desc)
     b = torch.tensor([[7, 8],
                       [9, 10],
-                      [11, 12]], dtype=dtype, device=f'npu:{device_id}')
+                      [11, 12]], dtype=dtype, device=device_desc)
     expected = torch.tensor([[58, 64],
-                            [139, 154]], dtype=dtype, device=f'npu:{device_id}')
+                            [139, 154]], dtype=dtype, device=device_desc)
 
-    out = matmul_trans_left_op(a, b)
-    assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
+    out = matmul_trans_left_op(a, b, run_mode)
+    if run_mode == "npu":
+        assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
     print(f"Output trans left: {out}")
     print(f"Expected trans left: {expected}")
     
@@ -302,7 +384,18 @@ def matmul_bias_kernel(a: pypto.Tensor, b: pypto.Tensor, bias: pypto.Tensor, out
     out[:] = pypto.matmul(a, b, a.dtype, extend_params=extend_params)
 
 
-def matmul_bias_op(a: torch.Tensor, b: torch.Tensor, bias: torch.Tensor, dynamic: bool = False) -> torch.Tensor:
+@pypto.jit(
+    host_options={"only_codegen": True},
+    codegen_options={"support_dynamic_unaligned": True},
+    runtime_options={"run_mode": pypto.RunMode.SIM}
+)
+def matmul_bias_kernel_sim(a: pypto.Tensor, b: pypto.Tensor, bias: pypto.Tensor, out: pypto.Tensor) -> None:
+    extend_params = {'bias_tensor': bias}
+    pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
+    out[:] = pypto.matmul(a, b, a.dtype, extend_params=extend_params)
+
+
+def matmul_bias_op(a: torch.Tensor, b: torch.Tensor, bias: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
     out = torch.zeros(a.shape[0], b.shape[1], dtype=a.dtype, device=a.device)
 
     if dynamic:
@@ -316,27 +409,31 @@ def matmul_bias_op(a: torch.Tensor, b: torch.Tensor, bias: torch.Tensor, dynamic
         bias_pto = pypto.from_torch(bias)
         out_pto = pypto.from_torch(out)
 
-    matmul_bias_kernel(a_pto, b_pto, bias_pto, out_pto)
+    if run_mode == "npu":
+        matmul_bias_kernel(a_pto, b_pto, bias_pto, out_pto)
+    else:
+        matmul_bias_kernel_sim(a_pto, b_pto, bias_pto, out_pto)
 
     return out
 
 
-def test_matmul_bias():
+def test_matmul_bias(run_mode: str = "npu"):
     """Test matrix multiplication with bias"""
     print("=" * 60)
     print("Test: Matrix Multiplication with Bias")
     print("=" * 60)
     
-    device_id = torch.npu.current_device()
+    device_desc = get_device_desc(run_mode)
     
     dtype = torch.float32
-    a = torch.tensor([[1, 2], [3, 4]], dtype=dtype, device=f'npu:{device_id}')
-    b = torch.tensor([[5, 6], [7, 8]], dtype=dtype, device=f'npu:{device_id}')
-    bias = torch.tensor([[1, 2]], dtype=dtype, device=f'npu:{device_id}')
-    expected = torch.tensor([[20, 24], [44, 52]], dtype=dtype, device=f'npu:{device_id}')
+    a = torch.tensor([[1, 2], [3, 4]], dtype=dtype, device=device_desc)
+    b = torch.tensor([[5, 6], [7, 8]], dtype=dtype, device=device_desc)
+    bias = torch.tensor([[1, 2]], dtype=dtype, device=device_desc)
+    expected = torch.tensor([[20, 24], [44, 52]], dtype=dtype, device=device_desc)
 
-    out = matmul_bias_op(a, b, bias)
-    assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
+    out = matmul_bias_op(a, b, bias, run_mode)
+    if run_mode == "npu":
+        assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
     print(f"Output: {out}")
     print(f"Expected: {expected}")
     print("✓ Matrix multiplication with bias completed successfully")
@@ -375,6 +472,11 @@ Examples:
         action='store_true',
         help='List all available examples and exit'
     )
+    parser.add_argument(
+        "--run_mode", "--run-mode",
+        nargs="?", type=str, default="npu", choices=["npu", "sim"],
+        help="run mode, such as npu/sim etc."
+    )
     
     args = parser.parse_args()
     
@@ -383,32 +485,27 @@ Examples:
         'matmul::test_matmul_basic': {
             'name': 'Test basic matrix multiplication',
             'description': 'Basic matrix multiplication example',
-            'function': test_matmul_basic,
-            'requires_npu': True
+            'function': test_matmul_basic
         },
         'matmul::test_matmul_batch': {
             'name': 'Test batch matrix multiplication',
             'description': 'Batch matrix multiplication example',
-            'function': test_matmul_batch,
-            'requires_npu': True
+            'function': test_matmul_batch
         },
         'matmul::test_matmul_broadcast': {
             'name': 'Test batch matrix multiplication with broadcasting',
             'description': 'Batch matrix multiplication with broadcasting example',
-            'function': test_matmul_broadcast,
-            'requires_npu': True
+            'function': test_matmul_broadcast
         },
         'matmul::test_matmul_trans': {
             'name': 'Test matrix multiplication with transposition',
             'description': 'Matrix multiplication with transposition example',
-            'function': test_matmul_trans,
-            'requires_npu': True
+            'function': test_matmul_trans
         },
         'matmul::test_matmul_bias': {
             'name': 'Test matrix multiplication with bias',
             'description': 'Matrix multiplication with bias example',
-            'function': test_matmul_bias,
-            'requires_npu': True
+            'function': test_matmul_bias
         }
     }
     
@@ -418,8 +515,7 @@ Examples:
         print("Available Examples")
         print("=" * 60 + "\n")
         for case_key, ex_info in sorted(examples.items()):
-            npu_req = " (Requires NPU)" if ex_info['requires_npu'] else " (No NPU required)"
-            print(f"  {case_key}{npu_req}")
+            print(f"  {case_key}")
             print(f"     {ex_info['name']}")
             print(f"     {ex_info['description']}\n")
         return
@@ -439,12 +535,9 @@ Examples:
     print("\n" + "=" * 60)
     print("PyPTO Matrix Multiplication (matmul) Operation Examples")
     print("=" * 60 + "\n")
-    
-    # Check if any example requires NPU
-    requires_npu = any(ex_info['requires_npu'] for _, ex_info in examples_to_run)
-    
+
     device_id = None
-    if requires_npu:
+    if args.run_mode == "npu":
         device_id = get_device_id()
         if device_id is None:
             return
@@ -452,11 +545,11 @@ Examples:
     
     try:
         for case_key, ex_info in examples_to_run:
-            if ex_info['requires_npu'] and device_id is None:
+            if args.run_mode == "npu" and device_id is None:
                 print(f"Skipping {case_key} ({ex_info['name']}): NPU device not configured")
                 continue
             
-            ex_info['function']()
+            ex_info['function'](args.run_mode)
         
         if len(examples_to_run) > 1:
             print("=" * 60)
