@@ -27,7 +27,8 @@ public:
     using Type =
         pto::Tile<pto::TileType::Vec, typename T::Type, TileOp::GetOutterAxisMergeResult<size, typename T::TileShape>(),
             TileOp::GetTensorTileShapeDim<T, DIM_5TH, expect_size>(), pto::BLayout::RowMajor,
-            TileOp::GetTensorShapeDim<T, DIM_4TH, expect_size>(), TileOp::GetTensorShapeDim<T, DIM_5TH, expect_size>()>;
+            TileOp::GetOutterAxisMergeResult<size, typename T::Shape>(),
+            TileOp::GetTensorShapeDim<T, DIM_5TH, expect_size>()>;
 
     __aicore__ inline PtoTile() {}
 

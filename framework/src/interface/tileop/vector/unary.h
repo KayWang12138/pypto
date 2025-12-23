@@ -54,6 +54,11 @@ TILEOP void UnaryCompute(T0 dst, T1 src) {
     auto stride0 = dstLayout.template GetStrideDim<DIM_1ST, expectSize>();
     auto stride1 = dstLayout.template GetStrideDim<DIM_2ND, expectSize>();
     auto stride2 = dstLayout.template GetStrideDim<DIM_3RD, expectSize>();
+    const auto srcLayout = src.GetLayout();
+    auto srcStride0 = srcLayout.template GetStrideDim<DIM_1ST, expectSize>();
+    auto srcStride1 = srcLayout.template GetStrideDim<DIM_2ND, expectSize>();
+    auto srcStride2 = srcLayout.template GetStrideDim<DIM_3RD, expectSize>();
+
     auto dstTile = DynPtoTile<T0>(dst).Tile();
     auto srcTile = DynPtoTile<T1>(src).Tile();
     constexpr auto dstTypeSize = sizeof(typename T0::Type);
@@ -62,8 +67,9 @@ TILEOP void UnaryCompute(T0 dst, T1 src) {
         for (size_t n1Index = 0; n1Index < shape1; ++n1Index) {
             for (size_t n2Index = 0; n2Index < shape2; ++n2Index) {
                 auto offset = n0Index * stride0 + n1Index * stride1 + n2Index * stride2;
+                auto srcOffset = n0Index * srcStride0 + n1Index * srcStride1 + n2Index * srcStride2;
                 pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + offset * dstTypeSize));
-                pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + offset * srcTypeSize));
+                pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * srcTypeSize));
                 UnaryComputeImpl<op>(dstTile, srcTile);
             }
         }

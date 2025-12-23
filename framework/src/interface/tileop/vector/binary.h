@@ -67,6 +67,14 @@ TILEOP void BinaryCompute(T0 dst, T1 src0, T2 src1) {
     auto stride0 = dstLayout.template GetStrideDim<DIM_1ST, expectSize>();
     auto stride1 = dstLayout.template GetStrideDim<DIM_2ND, expectSize>();
     auto stride2 = dstLayout.template GetStrideDim<DIM_3RD, expectSize>();
+    const auto src0Layout = src0.GetLayout();
+    auto src0Stride0 = src0Layout.template GetStrideDim<DIM_1ST, expectSize>();
+    auto src0Stride1 = src0Layout.template GetStrideDim<DIM_2ND, expectSize>();
+    auto src0Stride2 = src0Layout.template GetStrideDim<DIM_3RD, expectSize>();
+    const auto src1Layout = src1.GetLayout();
+    auto src1Stride0 = src1Layout.template GetStrideDim<DIM_1ST, expectSize>();
+    auto src1Stride1 = src1Layout.template GetStrideDim<DIM_2ND, expectSize>();
+    auto src1Stride2 = src1Layout.template GetStrideDim<DIM_3RD, expectSize>();
 
     auto dstTile = DynPtoTile<T0>(dst).Tile();
     auto src0Tile = DynPtoTile<T1>(src0).Tile();
@@ -78,9 +86,11 @@ TILEOP void BinaryCompute(T0 dst, T1 src0, T2 src1) {
         for (size_t n1Index = 0; n1Index < shape1; ++n1Index) {
             for (size_t n2Index = 0; n2Index < shape2; ++n2Index) {
                 auto offset = n0Index * stride0 + n1Index * stride1 + n2Index * stride2;
+                auto src0Offset = n0Index * src0Stride0 + n1Index * src0Stride1 + n2Index * src0Stride2;
+                auto src1Offset = n0Index * src1Stride0 + n1Index * src1Stride1 + n2Index * src1Stride2;
                 pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + offset * dstTypeSize));
-                pto::TASSIGN(src0Tile, (uint64_t)(src0.GetAddr() + offset * src0TypeSize));
-                pto::TASSIGN(src1Tile, (uint64_t)(src1.GetAddr() + offset * src1TypeSize));
+                pto::TASSIGN(src0Tile, (uint64_t)(src0.GetAddr() + src0Offset * src0TypeSize));
+                pto::TASSIGN(src1Tile, (uint64_t)(src1.GetAddr() + src1Offset * src1TypeSize));
                 BinaryComputeImpl<op>(dstTile, src0Tile, src1Tile);
             }
         }

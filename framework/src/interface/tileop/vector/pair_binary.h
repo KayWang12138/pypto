@@ -152,10 +152,18 @@ TILEOP void InnerPairBinaryCompute(T0 dst, T1 src0, T2 src1) {
         constexpr auto src0TileW = GetOneDimensionTileSize<reduceAxisIndex, shapeSize, false, T1>();
         constexpr auto src1TileH = GetOneDimensionTileSize<reduceAxisIndex, shapeSize, true, T2>();
         constexpr auto src1TileW = GetOneDimensionTileSize<reduceAxisIndex, shapeSize, false, T2>();
-
-        auto dstShape3 = GetHeightValidSize<reduceAxisIndex, shapeSize, T0>(dst);
-        auto src0Shape3 = GetHeightValidSize<reduceAxisIndex, shapeSize, T1>(src0);
-        auto src1Shape3 = GetHeightValidSize<reduceAxisIndex, shapeSize, T2>(src1);
+        int dstShape3;
+        int src0Shape3;
+        int src1Shape3;
+        if constexpr (shapeSize !=1 ) {
+            dstShape3 = GetHeightValidSize<reduceAxisIndex, shapeSize, T0>(dst);
+            src0Shape3 = GetHeightValidSize<reduceAxisIndex, shapeSize, T1>(src0);
+            src1Shape3 = GetHeightValidSize<reduceAxisIndex, shapeSize, T2>(src1);
+        }else {
+            dstShape3 = 1;
+            src0Shape3 = 1;
+            src1Shape3 = 1;
+        }
 
         auto dstShape4 = GetWidthValidSize<reduceAxisIndex, shapeSize, T0>(dst);
         auto src0Shape4 = GetWidthValidSize<reduceAxisIndex, shapeSize, T1>(src0);

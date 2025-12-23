@@ -563,6 +563,15 @@ TEST_F(OperationImplTest, Test_Amax) {
     }
 }
 
+TEST_F(OperationImplTest, Test_Amin) {
+    TileShape::Current().SetVecTile(8, 8);
+    Tensor operand(DT_FP32, {16, 16}, "operand");
+    Tensor result;
+    FUNCTION("TestAmin") {
+        result = Amin(operand, -1, true);
+    }
+}
+
 TEST_F(OperationImplTest, test_Gather) {
     TileShape::Current().SetVecTile(8, 8, 8);
     Tensor operand1(DT_FP16, {8, 16}, "operand1");

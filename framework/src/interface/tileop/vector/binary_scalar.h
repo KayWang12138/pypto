@@ -46,6 +46,10 @@ TILEOP void BinaryScalarCompute(T0 dst, T1 src0, Scalar src1) {
     auto stride0 = dstLayout.template GetStrideDim<DIM_1ST, expectSize>();
     auto stride1 = dstLayout.template GetStrideDim<DIM_2ND, expectSize>();
     auto stride2 = dstLayout.template GetStrideDim<DIM_3RD, expectSize>();
+    const auto srcLayout = src0.GetLayout();
+    auto srcStride0 = srcLayout.template GetStrideDim<DIM_1ST, expectSize>();
+    auto srcStride1 = srcLayout.template GetStrideDim<DIM_2ND, expectSize>();
+    auto srcStride2 = srcLayout.template GetStrideDim<DIM_3RD, expectSize>();
 
     auto dstTile = DynPtoTile<T0>(dst).Tile();
     auto src0Tile = DynPtoTile<T1>(src0).Tile();
@@ -55,8 +59,9 @@ TILEOP void BinaryScalarCompute(T0 dst, T1 src0, Scalar src1) {
         for (size_t n1Index = 0; n1Index < shape1; ++n1Index) {
             for (size_t n2Index = 0; n2Index < shape2; ++n2Index) {
                 auto offset = n0Index * stride0 + n1Index * stride1 + n2Index * stride2;
+                auto srcOffset = n0Index * srcStride0 + n1Index * srcStride1 + n2Index * srcStride2;
                 pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + offset * dstTypeSize));
-                pto::TASSIGN(src0Tile, (uint64_t)(src0.GetAddr() + offset * src0TypeSize));
+                pto::TASSIGN(src0Tile, (uint64_t)(src0.GetAddr() + srcOffset * src0TypeSize));
                 BinaryScalarComputeImpl<op>(dstTile, src0Tile, src1);
             }
         }

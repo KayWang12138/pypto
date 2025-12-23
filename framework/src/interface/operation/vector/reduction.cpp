@@ -172,6 +172,9 @@ void TileReduceNew(Function &function, const TileShape &tileShape, const std::st
                         tmpShape[1] = (((sourceReg->shape[axis] * BytesOf(in->Datatype())) / REPEAT_BYTE) / NUM2) *
                                     REPEAT_BYTE / BytesOf(in->Datatype());
                     }
+                    if (in->shape.size() == 1) {
+                        tmpShape = {tmpShape[1]};
+                    }
                     auto tempTensor = std::make_shared<LogicalTensor>(function, in->Datatype(), tmpShape);
                     tempTensor->dynValidShape_ = SymbolicScalar::FromConcrete(tmpShape);
                     auto &newOp = function.AddOperation("TILE_ROW" + op + "_SINGLE", {sourceReg}, {result, tempTensor});
@@ -301,9 +304,9 @@ Tensor Amax(const Tensor &self, int axis, bool keepDim) {
         CALL(ReduceSingle, *Program::GetInstance().GetCurrentFunction(), "MAX", self, result, axis);
     }
 
-    if (keepDim){
+    if (keepDim || lastDim == 0) {
         return result;
-    }else{
+    } else {
         std::vector<SymbolicScalar> outValidShape;
         for (auto shape : self.GetStorage()->GetDynValidShape()){
             outValidShape.push_back(shape);
@@ -340,10 +343,10 @@ Tensor Amin(const Tensor &self, int axis, bool keepDim) {
     } else {
         CALL(ReduceSingle, *Program::GetInstance().GetCurrentFunction(), "MIN", self, result, axis);
     }
-    
-    if (keepDim){
+
+    if (keepDim || lastDim == 0) {
         return result;
-    }else{
+    } else {
         std::vector<SymbolicScalar> outValidShape;
         for (auto shape : self.GetStorage()->GetDynValidShape()){
             outValidShape.push_back(shape);
@@ -380,9 +383,9 @@ Tensor Sum(const Tensor &self, int axis, bool keepDim) {
         CALL(ReduceSingle, *Program::GetInstance().GetCurrentFunction(), "SUM", self, result, axis);
     }
 
-    if (keepDim){
+    if (keepDim || lastDim == 0) {
         return result;
-    }else{
+    } else {
         std::vector<SymbolicScalar> outValidShape;
         for (auto shape : self.GetStorage()->GetDynValidShape()){
             outValidShape.push_back(shape);
