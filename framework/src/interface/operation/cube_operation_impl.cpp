@@ -873,6 +873,46 @@ void CheckFixpipeParam(DataType inDtype, DataType outDtype, const MatmulExtendPa
 }
 
 template <bool isTransA, bool isTransB, bool isCMatrixNZ>
+void CheckGmAccumulationParam(
+    DataType outType, const Tensor &aMatrix, const Tensor &bMatrix, const MatmulExtendParam &param = {}) {
+    auto &cubeTile = TileShape::Current().GetCubeTile();
+    if (!cubeTile.enableSplitK) {
+        return;
+    }
+    OP_CHECK(isCMatrixNZ, ASSERT(false) << "Gm accumulation with output NZ format is not supported." << std::endl;);
+    OP_CHECK(true, {
+        ASSERT(param.scaleTensor.GetStorage() == nullptr && param.biasTensor.GetStorage() == nullptr &&
+               fabs(param.scaleValue - 0) < EPSILON)
+            << "Fixpipe and bias cannot be used simultaneously with GM ACC" << std::endl;
+    });
+    OP_CHECK(true, {
+        ASSERT(outType != DT_FP16 && outType != DT_BF16) << "Output data type only support FP32 and INT32 when using GM accumulated" << std::endl;
+    });
+    OP_CHECK(true, {
+        ASSERT(aMatrix.GetStorage() != nullptr && bMatrix.GetStorage() != nullptr)
+            << "Both aMatrix and bMatrix cannot get storage" << std::endl;
+    });
+    auto aMatrixValidShape = aMatrix.GetStorage()->GetDynValidShape();
+    auto bMatrixValidShape = bMatrix.GetStorage()->GetDynValidShape();
+    OP_CHECK(true, {
+        ASSERT(aMatrixValidShape.size() == SHAPE_DIM2 && bMatrixValidShape.size() == SHAPE_DIM2 &&
+               cubeTile.k.size() == MAX_K_DIM_SIZE)
+            << "The validShapes of aMatrix and bMatrix must be 2 Dim. Additionally, the K TileShape must be 3 Dim"
+            << std::endl;
+    });
+    OP_CHECK(true, {
+        ASSERT(aMatrix.GetShape().size() == SHAPE_DIM2 && bMatrix.GetShape().size() == SHAPE_DIM2)
+            << "The shapes of aMatrix and bMatrix must be 2 Dim" << std::endl;
+    });
+    int64_t kSizeA = isTransA ? aMatrix.GetShape()[0] : aMatrix.GetShape()[1];
+    int64_t kSizeB = isTransB ? bMatrix.GetShape()[1] : bMatrix.GetShape()[0];
+    OP_CHECK(true, {
+        ASSERT(kSizeA == kSizeB) << "Matrix K dimemsion mismatch, kSizeA: " << kSizeA << ", kSizeB: " << kSizeB
+                                 << std::endl;
+    });
+}
+
+template <bool isTransA, bool isTransB, bool isCMatrixNZ>
 void CheckMatmulOperands(
     DataType outType, const Tensor &operand1, const Tensor &operand2, const MatmulExtendParam &param = {}) {
     OP_CHECK(true, {
@@ -880,6 +920,8 @@ void CheckMatmulOperands(
                outType == DataType::DT_INT32)
             << "Unsupported output data type. Only DT_FP32, DT_FP16, DT_BF16, DT_INT32 are supported.";
     });
+    // GM Acc valid check
+    CheckGmAccumulationParam<isTransA, isTransB, isCMatrixNZ>(outType, operand1, operand2, param);
     // shape valid check
     CheckOperandShape(operand1, operand2);
     // tile valid check
@@ -1234,21 +1276,25 @@ Tensor ConstructTensorGraph(DataType dataType, const Tensor &aMatrix, const Tens
     return cMatrix;
 }
 
-template<bool isCMatrixNZ>
-static Tensor AssembleGmAccumulationTensor(DataType outType, const Tensor gmAccumulationTensor, SymbolicScalar mSize, SymbolicScalar nSize,
-                SymbolicScalar mValidShape, SymbolicScalar nValidShape){
+template <bool isCMatrixNZ>
+static Tensor AssembleGmAccumulationTensor(DataType outType, const Tensor gmAccumulationTensor, SymbolicScalar mSize,
+                                           SymbolicScalar nSize, SymbolicScalar mValidShape, SymbolicScalar nValidShape)
+{
     OP_CHECK(true, {
         ASSERT(mSize != 0 && nSize != 0) << "Matrix size cannot be 0 " << std::endl;
     });
     Tensor assembleTensor(outType, {mSize, nSize}, "", isCMatrixNZ ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND);
-    OP_CHECK(true, { ASSERT(assembleTensor.GetStorage() != nullptr) << "Can not get assembleTensor's storage" << std::endl; });
+    OP_CHECK(true, {
+        ASSERT(assembleTensor.GetStorage() != nullptr) << "Can not get assembleTensor's storage" << std::endl;
+    });
     assembleTensor.GetStorage()->UpdateDynValidShape({mValidShape, nValidShape});
     Assemble(gmAccumulationTensor, {0, 0}, assembleTensor);
     return assembleTensor;
 }
 
 template <bool isTransA, bool isTransB, bool isCMatrixNZ>
-static Tensor ConstructGmAccumulationTensorGraph(DataType outType, const Tensor &aMatrix, const Tensor &bMatrix) {
+static Tensor ConstructGmAccumulationTensorGraph(DataType outType, const Tensor &aMatrix, const Tensor &bMatrix)
+{
     auto &cubeTile = TileShape::Current().GetCubeTile();
     OP_CHECK(true, {
         ASSERT(aMatrix.GetStorage() != nullptr && bMatrix.GetStorage() != nullptr)
@@ -1256,45 +1302,40 @@ static Tensor ConstructGmAccumulationTensorGraph(DataType outType, const Tensor 
     });
     auto aMatrixValidShape = aMatrix.GetStorage()->GetDynValidShape();
     auto bMatrixValidShape = bMatrix.GetStorage()->GetDynValidShape();
-    OP_CHECK(true, {
-        ASSERT(aMatrixValidShape.size() == MATRIX_SHAPE_DIM && bMatrixValidShape.size() == MATRIX_SHAPE_DIM && cubeTile.k.size() == MAX_K_DIM_SIZE)
-            << "The validShapes of aMatrix and bMatrix must be 2 Dim. Additionally, the K TileShape must be 3 Dim" << std::endl;
-    });
     SymbolicScalar mValidShape = isTransA ? aMatrixValidShape[1] : aMatrixValidShape[0];
     SymbolicScalar nValidShape = isTransB ? bMatrixValidShape[0] : bMatrixValidShape[1];
     SymbolicScalar kL1TileShape = std::min(cubeTile.k[1], cubeTile.k[2]);
-    OP_CHECK(true, {
-        ASSERT(aMatrix.GetShape().size() == MATRIX_SHAPE_DIM && bMatrix.GetShape().size() == MATRIX_SHAPE_DIM)
-            << "The shapes of aMatrix and bMatrix must be 2 Dim" << std::endl;
-    });
-    SymbolicScalar mSize = isTransA ? aMatrix.GetShape()[1] : aMatrix.GetShape()[0];
-    SymbolicScalar kSize = isTransA ? aMatrix.GetShape()[0] : aMatrix.GetShape()[1];
-    SymbolicScalar nSize = isTransB ? bMatrix.GetShape()[0] : bMatrix.GetShape()[1];
+    int64_t mSize = isTransA ? aMatrix.GetShape()[1] : aMatrix.GetShape()[0];
+    int64_t kSize = isTransA ? aMatrix.GetShape()[0] : aMatrix.GetShape()[1];
+    int64_t nSize = isTransB ? bMatrix.GetShape()[0] : bMatrix.GetShape()[1];
     TileShape::Current().SetVecTile({cubeTile.m[0], cubeTile.n[0]});
-    Tensor gmAccumulationTensor = Full(Element(outType, static_cast<int64_t>(0)), outType, {mSize, nSize}, {mValidShape, nValidShape});
+    Tensor gmAccumulationTensor =
+        Full(Element(outType, static_cast<int64_t>(0)), outType, {mSize, nSize}, {mValidShape, nValidShape});
     std::vector<Tensor> gmPartialSums;
     OP_CHECK(true, { ASSERT(kL1TileShape != 0) << "kL1TileShape can not be 0" << std::endl; });
     const int64_t kLoop = (kSize + kL1TileShape - 1) / kL1TileShape;
     const int64_t kL1Size = std::min(kSize, kL1TileShape);
     for (int64_t kIdx = 0; kIdx < kLoop; ++kIdx) {
-            int64_t kValidshape = std::min(kSize - kL1Size * kIdx, kL1Size);
-            Tensor tensorA;
-            if (isTransA) {
-                tensorA = View(aMatrix, {kL1Size, mSize}, {kValidshape, mValidShape}, {kL1Size * kIdx, 0});
-            } else {
-                tensorA = View(aMatrix, {mSize, kL1Size}, {mValidShape, kValidshape}, {0, kL1Size * kIdx});
-            }
-            Tensor tensorB;
-            if (isTransB) {
-                tensorB = View(bMatrix, {nSize, kL1Size}, {nValidShape, kValidshape}, {0, kL1Size * kIdx});
-            } else {
-                tensorB = View(bMatrix, {kL1Size, nSize}, {kValidshape, nValidShape}, {kL1Size * kIdx, 0});
-            }
-            Tensor gmPartialSum = ConstructTensorGraph<isTransA, isTransB, isCMatrixNZ>(outType, tensorA, tensorB, gmAccumulationTensor);
-            gmPartialSums.emplace_back(gmPartialSum);
+        int64_t kValidshape = std::min(kSize - kL1Size * kIdx, kL1Size);
+        Tensor tensorA;
+        if (isTransA) {
+            tensorA = View(aMatrix, {kL1Size, mSize}, {kValidshape, mValidShape}, {kL1Size * kIdx, 0});
+        } else {
+            tensorA = View(aMatrix, {mSize, kL1Size}, {mValidShape, kValidshape}, {0, kL1Size * kIdx});
+        }
+        Tensor tensorB;
+        if (isTransB) {
+            tensorB = View(bMatrix, {nSize, kL1Size}, {nValidShape, kValidshape}, {0, kL1Size * kIdx});
+        } else {
+            tensorB = View(bMatrix, {kL1Size, nSize}, {kValidshape, nValidShape}, {kL1Size * kIdx, 0});
+        }
+        Tensor gmPartialSum =
+            ConstructTensorGraph<isTransA, isTransB, isCMatrixNZ>(outType, tensorA, tensorB, gmAccumulationTensor);
+        gmPartialSums.emplace_back(gmPartialSum);
     }
     gmAccumulationTensor = npu::tile_fwk::Reduce(gmPartialSums, ReduceMode::ATOMIC_ADD);
-    return AssembleGmAccumulationTensor<isCMatrixNZ>(outType, gmAccumulationTensor, mSize, nSize, mValidShape, nValidShape);
+    return AssembleGmAccumulationTensor<isCMatrixNZ>(outType, gmAccumulationTensor, mSize, nSize, mValidShape,
+                                                     nValidShape);
 }
 
 template <bool isATrans, bool isBTrans, bool isCMatrixNZ>
@@ -1314,14 +1355,6 @@ Tensor Matmul(DataType outType, const Tensor &aMatrix, const Tensor &bMatrix, co
     CheckMatmulOperands<isATrans, isBTrans, isCMatrixNZ>(outType, aMatrix, bMatrix, param);
     auto& cubeTile = TileShape::Current().GetCubeTile();
     if (cubeTile.enableSplitK){
-        OP_CHECK(true, {
-            ASSERT(param.scaleTensor.IsEmpty() && param.biasTensor.IsEmpty())
-                << "Fixpipe and bias cannot be used simultaneously with GM ACC" << std::endl;
-        });
-        OP_CHECK(true, {
-            ASSERT(outType != DT_FP16 && outType != DT_BF16)
-                << "Output data type can not be FP16 and BF16" << std::endl;
-        });
         return ConstructGmAccumulationTensorGraph<isATrans, isBTrans, isCMatrixNZ>(outType, aMatrix, bMatrix);
     }
     return ConstructTensorGraph<isATrans, isBTrans, isCMatrixNZ>(outType, aMatrix, bMatrix, Tensor(), param);

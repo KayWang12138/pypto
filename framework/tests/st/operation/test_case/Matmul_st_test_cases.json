@@ -2145,7 +2145,7 @@
                         128
                     ],
                     "dtype": "fp32",
-                    "format": "NZ"
+                    "format": "ND"
                 }
             ],
             "view_shape": [
@@ -2174,7 +2174,7 @@
                 "transB": true,
                 "isAMatrixNz": true,
                 "isBMatrixNz": true,
-                "isCMatrixNz": true,
+                "isCMatrixNz": false,
                 "outDtype": "fp32"
             }
         },
@@ -2220,7 +2220,7 @@
                         64
                     ],
                     "dtype": "fp32",
-                    "format": "NZ"
+                    "format": "ND"
                 }
             ],
             "view_shape": [
@@ -2249,7 +2249,7 @@
                 "transB": false,
                 "isAMatrixNz": true,
                 "isBMatrixNz": false,
-                "isCMatrixNz": true,
+                "isCMatrixNz": false,
                 "outDtype": "fp32"
             }
         },
@@ -2370,7 +2370,7 @@
                         640
                     ],
                     "dtype": "int32",
-                    "format": "NZ"
+                    "format": "ND"
                 }
             ],
             "view_shape": [
@@ -2399,7 +2399,7 @@
                 "transB": false,
                 "isAMatrixNz": true,
                 "isBMatrixNz": false,
-                "isCMatrixNz": true,
+                "isCMatrixNz": false,
                 "outDtype": "int32"
             }
         },

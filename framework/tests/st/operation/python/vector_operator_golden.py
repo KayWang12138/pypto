@@ -668,7 +668,9 @@ def gen_expand_op_golden(case_name: str, output: Path, case_index: int = None) -
 @GoldenRegister.reg_golden_func(
     case_names=[
         "TestMatmul/MatmulOperationTest.TestMatmul",
-    ]
+    ], 
+    version=0,
+    timeout=0
 )
 def gen_matmul_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
     # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
