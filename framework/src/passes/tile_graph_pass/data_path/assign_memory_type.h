@@ -46,6 +46,8 @@ private:
     void AssignOpNopMemtype(Operation &op);
     void AssignMemtypeForSplitReshape(Operation &op, const LogicalTensorPtr &input, const LogicalTensorPtr &output);
     void UpdateOverSizedLocalBuffer(Operation &operation);
+    void ProcesSmallTileToLargeTile(Function &function);
+    void ProcessLargeTileToSamllTile(Function &function);
     std::string PrintTensorMem(std::shared_ptr<LogicalTensor>& tensor) const;
     ConvertInserter inserter;
 };

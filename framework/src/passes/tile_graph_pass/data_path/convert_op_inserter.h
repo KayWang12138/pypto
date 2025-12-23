@@ -120,8 +120,6 @@ public:
     //graph重连
     void GraphReconnect(const std::shared_ptr<LogicalTensor> &oOperand, std::shared_ptr<LogicalTensor> output, 
         const std::set<Operation *> &consumers,Function &function) const;
-    
-    bool IsSameTileShape(const Operation &firstOp, const std::shared_ptr<LogicalTensor> &firstCVOutput, std::set<Operation *> &consumers) const;
 };
 } 
 }// namespace npu::tile_fwk

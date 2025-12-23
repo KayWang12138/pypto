@@ -69,6 +69,9 @@ Status AssignMemoryType::RunOnFunction(Function &function) {
         APASS_LOG_INFO_F(Elements::Operation, "UB buffer size threshold %zu, L1 buffer size threshold %zu.",
             UB_SIZE_THRESHOLD, L1_SIZE_THRESHOLD);
     }
+    //处理cube级联场景tile等大约束
+    ProcesSmallTileToLargeTile(function);
+    ProcessLargeTileToSamllTile(function);
 
     // 插入convert op
     Status insertionStatus = inserter.DoInsertion(function);
@@ -173,26 +176,12 @@ void AssignMemoryType::ProcessViewwithSpecificMem(Operation &operation) {
         inserter.UpdateTensorTobeMap(out,*consumerOp,attrToType);
     }
     if(attrToType == MemoryType::MEM_L1) {
-        /*处理大包搬运场景，推导前端插入的MEM_L1 view和框架插入的view的输入tensor的mem类型
-        case1:前端不存在框架插入的view场景
-        op ---> in ---> view(to=L1/UB)
-        after
-        op ---> in(tobe=DDR) ---> view(to=L1/UB，后转为copyIn)
-
-        case2:前端存在框架插入的view（unknown）场景
-        op ---> in2 ---> view ---> in ---> view(to=L1/UB)
-        after
-        op ---> in2(tobe=DDR) ---> view（后续转为copyIn) ---> in(ori=L1/UB, to=L1/UB) ---> view(to=L1/UB)
-        */
         auto in =operation.iOperand.front();
-        inserter.UpdateTensorTobeMap(in,operation,MemoryType::MEM_DEVICE_DDR);
         auto producerOps = operation.ProducerOps();
         for(const auto &producerOp : producerOps) {
             if(producerOp->GetOpcode() == Opcode::OP_VIEW) {
                 in->SetMemoryTypeOriginal(attrToType,true);
                 inserter.UpdateTensorTobeMap(in,operation,attrToType);
-                auto in2 =producerOp->iOperand.front();
-                inserter.UpdateTensorTobeMap(in2,*producerOp,MemoryType::MEM_DEVICE_DDR);
             }
         }
     }
@@ -454,6 +443,47 @@ void AssignMemoryType::AssignMemUnknown(Function &function) {
                 }
             }
             inserter.UpdateTensorTobeMapUnknown(o, o->GetMemoryTypeOriginal());
+        }
+    }
+}
+
+void AssignMemoryType::ProcesSmallTileToLargeTile(Function &function) {
+    //CASE1:处理cube级联场景小搬大
+    for (auto &op : function.Operations()) {
+        auto opcode = op.GetOpcode();
+        if(opcode != Opcode::OP_ASSEMBLE) {
+            continue;
+        }
+        auto oOperand = op.GetOOperands().front();
+        auto iOperand = op.GetIOperands().front();
+        auto &consumerOps = oOperand->GetConsumers();
+        for(const auto &consumerOp : consumerOps) {
+            auto consumerOpcode = consumerOp->GetOpcode();
+            if(consumerOpcode == Opcode::OP_L1_TO_L0_AT || consumerOpcode == Opcode::OP_L1_TO_L0_BT ||
+                consumerOpcode == Opcode::OP_L1_TO_L0A || consumerOpcode == Opcode::OP_L1_TO_L0B) {
+                oOperand->SetMemoryTypeOriginal(MEM_DEVICE_DDR, true);
+            }
+        }
+    }
+}
+void AssignMemoryType::ProcessLargeTileToSamllTile(Function &function) {
+    //CASE2:处理cube级联产经大搬小
+    for (auto &op : function.Operations()) {
+        auto opcode = op.GetOpcode();
+        if(opcode != Opcode::OP_VIEW) {
+            continue;
+        }
+        auto viewOpAttribute =dynamic_cast<ViewOpAttribute *>(op.GetOpAttribute().get());
+        MemoryType attrToType = viewOpAttribute->GetTo();
+        if(attrToType == MEM_L1) {
+            auto iOperand = op.GetIOperands().front();
+            if(iOperand->GetMemoryTypeOriginal() != MEM_L0C) {
+                continue;
+            }
+            auto oOperand = op.GetOOperands().front();
+            if(oOperand->shape != iOperand->shape) {
+                inserter.UpdateTensorTobeMap(iOperand, op, MEM_DEVICE_DDR);
+            }
         }
     }
 }
