@@ -126,9 +126,13 @@ TILEOP void TMrgSort(T0 dst, T1 src) {
     constexpr auto srcTileW = TileOp::GetTensorTileShapeDim<T1, 4, expectSize>() / 2;
     constexpr auto srcTypeSize = sizeof(typename T1::Type);
     uint32_t totalNum = srcTileW / 2;
-    srcShape4 = srcShape4 - (srcShape4 + 31) / 32 * 32 / 3 * 2;
     if (srcShape4 == 0) {
         return;
+    }
+    if constexpr (T1::IsStaticLayout()) {
+        srcShape4 = srcShape4 / 4;
+    } else {
+        srcShape4 = srcShape4 - (srcShape4 + 31) / 32 * 32 / 3 * 2;
     }
     for (size_t n0Index = 0; n0Index < dstShape0; ++n0Index) {
         for (size_t n1Index = 0; n1Index < dstShape1; ++n1Index) {

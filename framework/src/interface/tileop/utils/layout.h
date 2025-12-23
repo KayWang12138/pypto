@@ -41,6 +41,9 @@ using TileShape = Std::tuple<TileShapes...>;
 template <typename... Coords>
 using Coord = Std::tuple<Coords...>;
 
+template <typename Tuple>
+constexpr bool IsConstantTuple = Std::IsIntegralConstantV<typename Std::tuple_element<0, Tuple>::type>;
+
 template <typename... Ts>
 __aicore__ inline constexpr Shape<Ts...> MakeShape(const Ts &...t) {
     return {t...};
@@ -106,7 +109,7 @@ struct Layout : private Std::tuple<ShapeType, StrideType, TileShapeType> {
 
     template <size_t index, size_t expect_size = Std::tuple_size<ShapeType>::value>
     __aicore__ inline constexpr decltype(auto) GetShapeDim() const {
-        if constexpr (Std::IsIntegralConstantV<ShapeType> == true) {
+        if constexpr (IsConstantTuple<ShapeType> == true) {
             return GetTupleElement<ShapeType, index, expect_size, 1>();
         } else {
             return GetTupleElement<ShapeType, index, expect_size, 1>(GetShape());
@@ -125,7 +128,7 @@ struct Layout : private Std::tuple<ShapeType, StrideType, TileShapeType> {
 
     template <size_t index, size_t expect_size = Std::tuple_size<StrideType>::value>
     __aicore__ inline constexpr decltype(auto) GetStrideDim() const {
-        if constexpr (Std::IsIntegralConstantV<StrideType> == true) {
+        if constexpr (IsConstantTuple<StrideType> == true) {
             return GetTupleElement<StrideType, index, expect_size, 0>();
         } else {
             return GetTupleElement<StrideType, index, expect_size, 0>(GetStride());
@@ -144,14 +147,14 @@ struct Layout : private Std::tuple<ShapeType, StrideType, TileShapeType> {
 
     template <size_t index, size_t expect_size = Std::tuple_size<TileShapeType>::value>
     __aicore__ inline constexpr decltype(auto) GetTileShapeDim() const {
-        if constexpr (Std::IsIntegralConstantV<TileShapeType> == true) {
+        if constexpr (IsConstantTuple<TileShapeType> == true) {
             return GetTupleElement<TileShapeType, index, expect_size, 0>();
         } else {
             return GetTupleElement<TileShapeType, index, expect_size, 0>(GetTileShape());
         }
     }
 
-    __aicore__ inline constexpr auto IsStaticLayout() const { return Std::IsIntegralConstantV<ShapeType> == true; }
+    __aicore__ inline static constexpr auto IsStaticLayout() { return IsConstantTuple<ShapeType> == true; }
 
     template <typename CoordType>
     __aicore__ inline constexpr auto operator()(const CoordType &coord) const {
@@ -294,8 +297,7 @@ __aicore__ inline constexpr size_t GetOutterAxisMergeResult() {
 
 template <typename T0>
 __aicore__ inline constexpr bool JudgeValidShapeEqualTileShape() {
-    using ShapeValueType = typename Std::tuple_element<0, typename T0::Shape>::type;
-    if constexpr (Std::IsIntegralConstantV<ShapeValueType> == true) {
+    if constexpr (T0::IsStaticLayout()) {
         constexpr auto shapeSize = Std::tuple_size<typename T0::Shape>::value;
         if constexpr (shapeSize == 1 || shapeSize == 2) {
             return true;

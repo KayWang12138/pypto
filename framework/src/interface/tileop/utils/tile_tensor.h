@@ -19,8 +19,7 @@
 #include "common_type.h"
 
 template <typename T, typename LA, Hardware FMT = Hardware::UB>
-struct TileTensor
-{
+struct TileTensor {
     using Type = T;
     using LayoutType = LA;
     using Shape = typename LA::Shape;
@@ -35,19 +34,18 @@ struct TileTensor
     __aicore__ inline uint64_t GetAddr() { return addr_; }
     __aicore__ inline LA GetLayout() { return layout_; }
     __aicore__ inline const LA GetLayout() const { return layout_; }
-    __aicore__ inline constexpr bool IsStaticLayout() const { return layout_.IsStaticLayout(); }
+    __aicore__ inline static constexpr bool IsStaticLayout() { return LayoutType::IsStaticLayout(); }
     __aicore__ inline constexpr Hardware GetPhyType() { return FORMAT; }
     __aicore__ inline Shape GetShape() { return layout_.GetShape(); }
     __aicore__ inline Stride GetStride() { return layout_.GetStride(); }
 
- private:
+private:
     uint64_t addr_;
     LA layout_;
 };
 
 template <typename T, typename LA>
-struct TileTensor<T, LA, Hardware::GM>
-{
+struct TileTensor<T, LA, Hardware::GM> {
     using Type = T;
     using LayoutType = LA;
     using Shape = typename LA::Shape;
@@ -62,12 +60,12 @@ struct TileTensor<T, LA, Hardware::GM>
     __aicore__ inline T *GetAddr() { return addr_; }
     __aicore__ inline LA GetLayout() { return layout_; }
     __aicore__ inline const LA GetLayout() const { return layout_; }
-    __aicore__ inline constexpr bool IsStaticLayout() const { return layout_.IsStaticLayout(); }
+    __aicore__ inline static constexpr bool IsStaticLayout() { return LayoutType::IsStaticLayout(); }
     __aicore__ inline constexpr Hardware GetPhyType() { return FORMAT; }
     __aicore__ inline Shape GetShape() { return layout_.GetShape(); }
     __aicore__ inline Stride GetStride() { return layout_.GetStride(); }
 
- private:
+private:
     T *addr_;
     LA layout_;
 };
