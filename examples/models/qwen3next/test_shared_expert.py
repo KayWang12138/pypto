@@ -139,7 +139,7 @@ base_loop_global = 16
 
 
 @pypto.jit(
-    host_options={"only_codegen": True},
+    host_options={"only_codegen": True}
 )
 def moe_with_shared_main(expand_x, shared_gate_upper_weight, shared_down_weight,
                          shared_router_weight, ffn_out):

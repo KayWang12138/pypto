@@ -89,12 +89,12 @@ def kv_cache_concat_bsnd(k_cache, v_cache, kv_cache_actual_seq, block_table, b):
     return k_cache_bsnd, v_cache_bsnd
 
 
-@pypto.jit
+@pypto.jit(
+        codegen_options={"codegen_expression_fusion": True}
+)
 def gated_attention_decode_func(q, k, v, block_table, q_act_seqs,
                                 kv_act_seqs, gate, weight, atten_out):
-    # 1. 添加支持动态的config
-    pypto.set_codegen_options(codegen_expression_fusion=True)
-    # 3. 获取参数信息
+    # 1. 获取参数信息
     tile_cfg = get_qwen_common_config()
     nq = q.shape[1]
     dn = q.shape[2]
@@ -116,12 +116,12 @@ def gated_attention_decode_func(q, k, v, block_table, q_act_seqs,
     g_scalar = nq // nkv
     g_loop = g_scalar // g_tile
 
-    # 4. 实现kernel逻辑，循环展开B动态轴
+    # 2. 实现kernel逻辑，循环展开B动态轴
     for b_idx in pypto.loop(b_scalar, name="LOOP_b", idx_name="b_idx", submit_before_loop=True):
         cur_seq = kv_act_seqs[b_idx]
         s1_scalar = 0
         b_ofs = 0
-        # 5. 动态获取TND格式下每个batch的s1大小与起始索引位置
+        # 3. 动态获取TND格式下每个batch的s1大小与起始索引位置
         if pypto.cond(pypto.is_loop_begin(b_idx)):
             s1_scalar = q_act_seqs[b_idx]
             b_ofs = 0
@@ -141,9 +141,9 @@ def gated_attention_decode_func(q, k, v, block_table, q_act_seqs,
                         block_idx = block_table[b_idx, s2_idx]
                         n1g_ofs = n2_idx * g_scalar + g_idx * g_tile
                         actual_s2_tile = (cur_seq - s2_idx * s2_tile).min(s2_tile)
-                        # 6. 按照计算图实现运算逻辑，设置set_vec_tile_shapes时应尽可能用满UB，但不要超过UB的大小。
+                        # 4. 按照计算图实现运算逻辑，设置set_vec_tile_shapes时应尽可能用满UB，但不要超过UB的大小。
                         pypto.set_vec_tile_shapes(16, v1_tile[0], v1_tile[1])
-                        # 7. 通过view得到tile_q
+                        # 5. 通过view得到tile_q
                         qi = pypto.view(q, [1, g_tile, dn], [bs_ofs, n1g_ofs, 0],
                                         valid_shape=[1, g_tile, dn])
                         qi = pypto.reshape(qi, [g_tile, dn])
@@ -156,7 +156,7 @@ def gated_attention_decode_func(q, k, v, block_table, q_act_seqs,
                         vj = pypto.reshape(vj, [block_size, dn], valid_shape=[actual_s2_tile, dn])
 
                         # c1
-                        # 8. 下面是flash attention的计算逻辑
+                        # 6. 下面是flash attention的计算逻辑
                         pypto.set_cube_tile_shapes(c1_tile[0], c1_tile[1], c1_tile[2])
                         sij = pypto.matmul(qi, kj, pypto.DT_FP32, a_trans=False, b_trans=True)
                         sij = pypto.reshape(sij, [g_tile, s2_tile], valid_shape=[g_tile, actual_s2_tile])
@@ -176,7 +176,7 @@ def gated_attention_decode_func(q, k, v, block_table, q_act_seqs,
                             pypto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
                             if pypto.cond(pypto.is_loop_end(s2_idx)):
                                 oi_upd[:] = pypto.div(oi_tmp, tilda_lij)
-                                # 9. 将attention结果搬运到临时tensor上
+                                # 7. 将attention结果搬运到临时tensor上
                                 pypto.assemble(oi_upd, [n1g_ofs, 0], bs_out)
                             else:
                                 oi_upd[:] = oi_tmp
@@ -206,7 +206,7 @@ def gated_attention_decode_func(q, k, v, block_table, q_act_seqs,
                             oi_tmp = pypto.add(q3, q2)
                             if pypto.cond(pypto.is_loop_end(s2_idx)):
                                 oi_upd[:] = pypto.div(oi_tmp, li_new)
-                                # 9. 将attention结果搬运到临时tensor上
+                                # 8. 将attention结果搬运到临时tensor上
                                 pypto.assemble(oi_upd, [n1g_ofs, 0], bs_out)
                             else:
                                 oi_upd[:] = oi_tmp
@@ -221,11 +221,11 @@ def gated_attention_decode_func(q, k, v, block_table, q_act_seqs,
                 pypto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
                 weight_bs = pypto.view(weight, [hidden_size, nq * dn], [0, 0])
                 weight_fp32 = pypto.cast(weight_bs, pypto.DT_FP32)
-                # 10、gate相乘
+                # 9、gate相乘
                 out_gate = pypto.mul(bs_out, gate_bs_fp32)
                 out_gate = pypto.reshape(out_gate, [1, nq * dn])
                 pypto.set_cube_tile_shapes(c2_tile[0], c2_tile[1], c2_tile[2])
-                # 11、出口linear
+                # 10、出口linear
                 out_linear = pypto.matmul(out_gate, weight_fp32, pypto.DT_FP32, a_trans=False, b_trans=True)
                 out_linear = pypto.cast(out_linear, dtype)
                 pypto.assemble(out_linear, [bs_ofs, 0], atten_out)

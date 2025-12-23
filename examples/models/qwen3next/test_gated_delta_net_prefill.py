@@ -799,11 +799,6 @@ def gated_delta_rule_process(inputs, outputs):
 
 
 def pto_rms_norm(inputs, outputs):
-
-    pypto.set_host_options(
-        only_codegen=True
-    )
-
     x = inputs[0]
 
     eps = 1e-6
@@ -884,9 +879,6 @@ def get_qwen_common_config():
 
 
 def pto_gated_linear(inputs, outputs):
-
-    pypto.set_codegen_options(codegen_expression_fusion=True)
-
     delta_rule = inputs[0]
     gate_input = inputs[1]
     hidden_size = inputs[2]
@@ -1000,12 +992,14 @@ def compute_all(
     pto_gated_linear([core_attn_out_2nd, z, hidden_states.shape[-1]], [hidden_state_out])
 
 
-@pypto.jit
+@pypto.jit(
+        host_options={"only_codegen": True},
+        codegen_options={"codegen_expression_fusion": True}
+)
 def pypto_gated_delta_net(hidden_states, qkvz_weight, ba_weight, a_log,
                           dt_bias, conv_weight, init_state, mask1,
                           tril_mask, triu_mask, eye, hidden_state_out,
                           final_state):
-    pypto.set_host_options(only_codegen=True)
     compute_all(hidden_states, qkvz_weight, ba_weight, a_log, dt_bias,
                 conv_weight, init_state, mask1, tril_mask, triu_mask,
                 eye, hidden_state_out, final_state)
