@@ -119,8 +119,3 @@ python3 -m pip install -e . --verbose --user
 
 为了方便快速搭建环境, 同样提供已完成 PyPTO 运行环境搭建的 Docker 镜像, 详细使用请参考 [Docker README](../../docker/README.md).
 
-Docker 运行命令:
-
-```bash
-<pypto-sourcecode-path>/docker/setup_docker_env.sh <docker-container-id>
-```

@@ -1,5 +1,5 @@
 
-说明：本文描述如何快速创建运行PyPTO的docker容器，在使用docker容器前请**完成主机NPU硬件部署、NPU驱动及固件安装**。参考文档*docs\context\prepare_environment.md*
+说明：本文描述如何快速创建运行PyPTO的docker容器，在使用docker容器前请**完成主机NPU硬件部署、NPU驱动及固件安装**，参考文档[Environment README](/docs/context/prepare_environment.md)。docker推荐v27.2.1及以上。
 
 ## 版本说明
 
@@ -40,7 +40,11 @@ openEuler+910b :ARG CANN_VERSION=8.5.0.alpha001-910b-openeuler24.03-py3.11
    ENV https_proxy=$PROXY
    ENV http_proxy=$PROXY
    ENV GIT_SSL_NO_VERIFY=1
-
+   # # [Optional] set pip proxy
+   # pip config set global.index-url http://cmc-cd-mirror.rnd.huawei.com/pypi/simple/
+   # pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
+   # pip config set global.index-url https://pypi.mirrors.ustc.edu.cn/simple/
+   
    WORKDIR /tmp
    # extra utils, for PyPTO project
    RUN pip install --no-cache-dir \
@@ -97,8 +101,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libssl-dev libffi-dev libbz2-dev libxslt1-dev unzip pciutils \
     net-tools openssh-client libblas-dev gfortran libblas3 llvm ccache python-is-python3 python3-pip python3-venv ninja-build python3-dev \
     && rm -rf /var/lib/apt/list/*     # clean apt index cache
+# # [Optional] set pip proxy
+# pip config set global.index-url http://cmc-cd-mirror.rnd.huawei.com/pypi/simple/
+# pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
+# pip config set global.index-url https://pypi.mirrors.ustc.edu.cn/simple/
 
-# # Python dependencies for CANN
+# Python dependencies for CANN
 RUN pip install --no-cache-dir \
     attrs cython numpy decorator sympy cffi pyyaml pathlib2 psutil protobuf scipy requests absl-py
 
@@ -117,7 +125,7 @@ RUN pip install --no-cache-dir torch-npu==2.6.0
  ENV http_proxy=$PROXY
 ```
 
-若希望构建其他环境版本的镜像，可参考[https://quay.io/repository/ascend/cann](https://)，Ascend社区提供了丰富的基础镜像。
+若希望构建其他环境版本的镜像，可参考[https://quay.io/repository/ascend/cann](https://quay.io/repository/ascend/cann)，Ascend社区提供了丰富的基础镜像。
 
 ## 使用指导
 
