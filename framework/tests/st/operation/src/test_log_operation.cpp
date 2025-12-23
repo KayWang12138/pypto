@@ -162,7 +162,7 @@ INSTANTIATE_TEST_SUITE_P(TestLog, LogOperationTest,
 TEST_P(LogOperationTest, TestLog) {
     auto test_data = GetParam().test_data_;
     std::string baseStr = GetValueByName<std::string>(test_data, "base");
-    LogBaseType base;
+    LogBaseType base = LogBaseType::LOG_E;
     if (baseStr == "e") {
         base = LogBaseType::LOG_E;
     } else if (baseStr == "2") {
