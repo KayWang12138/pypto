@@ -162,8 +162,8 @@ private:
 
     struct DepOp {
         DepOp(size_t i, PipeCore pipeCore) : idx(i), selfPipeCore(pipeCore) {}
-        size_t idx;       // idx in oplog
-        size_t idxInPipe; // idx in the pipe belonging to
+        size_t idx = SIZE_MAX;       // idx in oplog
+        size_t idxInPipe = SIZE_MAX; // idx in the pipe belonging to
         PipeCore selfPipeCore;
         bool issued{false};
 
