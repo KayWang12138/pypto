@@ -73,7 +73,6 @@ def matmul_kernel(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> None:
 
 @pypto.jit(
     host_options={"only_codegen": True},
-    codegen_options={"support_dynamic_unaligned": True},
     runtime_options={"run_mode": pypto.RunMode.SIM}
 )
 def matmul_kernel_sim(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> None:
@@ -132,7 +131,6 @@ def matmul_batch_kernel(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> 
 
 @pypto.jit(
     host_options={"only_codegen": True},
-    codegen_options={"support_dynamic_unaligned": True},
     runtime_options={"run_mode": pypto.RunMode.SIM}
 )
 def matmul_batch_kernel_sim(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> None:
@@ -191,7 +189,6 @@ def matmul_broadcast_kernel(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor)
 
 @pypto.jit(
     host_options={"only_codegen": True},
-    codegen_options={"support_dynamic_unaligned": True},
     runtime_options={"run_mode": pypto.RunMode.SIM}
 )
 def matmul_broadcast_kernel_sim(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> None:
@@ -250,7 +247,6 @@ def matmul_trans_right_kernel(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tenso
 
 @pypto.jit(
         host_options={"only_codegen": True},
-        codegen_options={"support_dynamic_unaligned": True},
     runtime_options={"run_mode": pypto.RunMode.SIM}
     )
 def matmul_trans_right_kernel_sim(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> None:
@@ -288,7 +284,6 @@ def matmul_trans_left_kernel(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor
 
 @pypto.jit(
     host_options={"only_codegen": True},
-    codegen_options={"support_dynamic_unaligned": True},
     runtime_options={"run_mode": pypto.RunMode.SIM}
 )
 def matmul_trans_left_kernel_sim(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> None:
@@ -386,7 +381,6 @@ def matmul_bias_kernel(a: pypto.Tensor, b: pypto.Tensor, bias: pypto.Tensor, out
 
 @pypto.jit(
     host_options={"only_codegen": True},
-    codegen_options={"support_dynamic_unaligned": True},
     runtime_options={"run_mode": pypto.RunMode.SIM}
 )
 def matmul_bias_kernel_sim(a: pypto.Tensor, b: pypto.Tensor, bias: pypto.Tensor, out: pypto.Tensor) -> None:

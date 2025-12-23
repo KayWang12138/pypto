@@ -126,7 +126,6 @@ def scaled_dot_product_attention_kernel_npu(q: torch.Tensor, k: torch.Tensor,
             
 @pypto.jit(
     host_options={"only_codegen": True},
-    codegen_options={"support_dynamic_unaligned": True},
     runtime_options={"run_mode" : 1}
 )
 def scaled_dot_product_attention_kernel_sim(q: torch.Tensor, k: torch.Tensor, 

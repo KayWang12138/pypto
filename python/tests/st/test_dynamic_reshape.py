@@ -160,8 +160,7 @@ def test_reshape_validshape2():
 
 
 @pypto.jit(
-    host_options={"only_codegen": True},
-    codegen_options={"support_dynamic_unaligned": True}
+    host_options={"only_codegen": True}
 )
 def reshape_kernel(in_tensor, out_tensor):
     b = 3
