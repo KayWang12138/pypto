@@ -68,7 +68,7 @@ def _pto_to_tensor_data(tensors: List[pypto.Tensor]) -> List[pypto_impl.DeviceTe
     datas = []
     for t in tensors:
         if t.ori_shape is None:
-            raise RuntimeError("The ori_shape of the tensor is not specified.")
+            raise RuntimeError("The ori_shape of the tensor is not specified")
         data = pypto_impl.DeviceTensorData(
             t.dtype,
             t.data_ptr,
