@@ -70,6 +70,9 @@ const std::map<std::string, CorePipeType> SCHED_CORE_PIPE_TYPE { // Unary Vector
     {"MRGSORT", CorePipeType::PIPE_VECTOR_ALU},
     {"EXTRACT", CorePipeType::PIPE_VECTOR_ALU},
     {"ROWSUMLINE", CorePipeType::PIPE_VECTOR_ALU},
+    {"ROWMAXLINE", CorePipeType::PIPE_VECTOR_ALU},
+    {"ROWMINLINE", CorePipeType::PIPE_VECTOR_ALU},
+    {"MINIMUM", CorePipeType::PIPE_VECTOR_ALU},
     {"TILEDMRGSORT", CorePipeType::PIPE_VECTOR_ALU},
     // Binary Vector
     {"ADD", CorePipeType::PIPE_VECTOR_ALU},

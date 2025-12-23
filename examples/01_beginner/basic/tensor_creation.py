@@ -55,30 +55,54 @@ def get_device_id():
 # ============================================================================
 
 @pypto.jit(
-    host_options={"only_codegen": True},
+    host_options={"only_codegen": True}
 )
-def arange_end_kernel(out: pypto.Tensor, end: float) -> None:
+def arange_end_kernel_npu(out: pypto.Tensor, end: float) -> None:
+    pypto.set_vec_tile_shapes(8)
+    out[:] = pypto.arange(end)
+
+@pypto.jit(
+    host_options={"only_codegen": True},
+    runtime_options={"run_mode": pypto.RunMode.SIM}
+)
+def arange_end_kernel_sim(out: pypto.Tensor, end: float) -> None:
     pypto.set_vec_tile_shapes(8)
     out[:] = pypto.arange(end)
 
 
 @pypto.jit(
-    host_options={"only_codegen": True},
+    host_options={"only_codegen": True}
 )
-def arange_start_end_kernel(out: pypto.Tensor, start: float, end: float) -> None:
+def arange_start_end_kernel_npu(out: pypto.Tensor, start: float, end: float) -> None:
+    pypto.set_vec_tile_shapes(8)
+    out[:] = pypto.arange(start, end)
+
+@pypto.jit(
+    host_options={"only_codegen": True},
+    runtime_options={"run_mode": pypto.RunMode.SIM}
+)
+def arange_start_end_kernel_sim(out: pypto.Tensor, start: float, end: float) -> None:
     pypto.set_vec_tile_shapes(8)
     out[:] = pypto.arange(start, end)
 
 
 @pypto.jit(
-    host_options={"only_codegen": True},
+    host_options={"only_codegen": True}
 )
-def arange_start_end_step_kernel(out: pypto.Tensor, start: float, end: float, step: float) -> None:
+def arange_start_end_step_kernel_npu(out: pypto.Tensor, start: float, end: float, step: float) -> None:
+    pypto.set_vec_tile_shapes(8)
+    out[:] = pypto.arange(start, end, step)
+
+@pypto.jit(
+    host_options={"only_codegen": True},
+    runtime_options={"run_mode": pypto.RunMode.SIM}
+)
+def arange_start_end_step_kernel_sim(out: pypto.Tensor, start: float, end: float, step: float) -> None:
     pypto.set_vec_tile_shapes(8)
     out[:] = pypto.arange(start, end, step)
 
 
-def arange_op(shape: tuple, dtype: torch.dtype, device: str, end: float = None, start: float = None, step: float = None, dynamic: bool = False) -> torch.Tensor:
+def arange_op(shape: tuple, dtype: torch.dtype, device: str, end: float = None, run_mode: str= "npu", start: float = None, step: float = None, dynamic: bool = False) -> torch.Tensor:
     out = torch.zeros(shape, dtype=dtype, device=device)
 
     if dynamic:
@@ -87,52 +111,68 @@ def arange_op(shape: tuple, dtype: torch.dtype, device: str, end: float = None, 
         out_pto = pypto.from_torch(out)
 
     if step is not None:
-        arange_start_end_step_kernel(out_pto, start, end, step)
+        if run_mode == "npu":
+            arange_start_end_step_kernel_npu(out_pto, start, end, step)
+        else:
+            arange_start_end_step_kernel_sim(out_pto, start, end, step)
     elif start is not None:
-        arange_start_end_kernel(out_pto, start, end)
+        if run_mode == "npu":
+            arange_start_end_kernel_npu(out_pto, start, end)
+        else:
+            arange_start_end_kernel_sim(out_pto, start, end)
     else:
-        arange_end_kernel(out_pto, end)
-
+        if run_mode == "npu":
+            arange_end_kernel_npu(out_pto, end)
+        else:
+            arange_end_kernel_sim(out_pto, end)
     return out
 
 
-def test_arange_basic():
+def test_arange_basic(device_id = None, run_mode: str = "npu"):
     """Test basic usage of arange function"""
     print("=" * 60)
     print("Test: Basic Usage of arange Function")
     print("=" * 60)
     
     device_id = torch.npu.current_device()
+    if run_mode == "npu":
+        import torch_npu
+        device = f'npu:{device_id}'
+    else:
+        device = 'cpu'
     
     # Test 1: arange(end)
     shape = (4,)
     dtype = torch.int32
-    expected_a = torch.tensor([0, 1, 2, 3], dtype=dtype, device=f'npu:{device_id}')
+    expected_a = torch.tensor([0, 1, 2, 3], dtype=dtype, device=device)
 
-    out_torch = arange_op(shape, dtype, f'npu:{device_id}', end=4)
-    assert_allclose(out_torch.cpu().numpy(), expected_a.cpu().numpy(), rtol=1e-3, atol=1e-3)
+    out_torch = arange_op(shape, dtype, device_id, end=4, run_mode=run_mode)
     print(f"Output a: {out_torch}")
     print(f"Expected a: {expected_a}")
-    
+    if run_mode == "npu":
+        assert_allclose(out_torch.cpu().numpy(), expected_a.cpu().numpy(), rtol=1e-3, atol=1e-3)
+
     # Test 2: arange(start, end)
     shape = (3,)
     dtype = torch.float32
-    expected_b = torch.tensor([1.0, 2.0, 3.0], dtype=torch.float32, device=f'npu:{device_id}')
+    expected_b = torch.tensor([1.0, 2.0, 3.0], dtype=torch.float32, device=device)
 
-    out_torch = arange_op(shape, dtype, f'npu:{device_id}', start=1.0, end=4.0)
-    assert_allclose(out_torch.cpu().numpy(), expected_b.cpu().numpy(), rtol=1e-3, atol=1e-3)
+    out_torch = arange_op(shape, dtype, device, start=1.0, end=4.0, run_mode=run_mode)
     print(f"Output b: {out_torch}")
     print(f"Expected b: {expected_b}")
+    if run_mode == "npu":
+        assert_allclose(out_torch.cpu().numpy(), expected_b.cpu().numpy(), rtol=1e-3, atol=1e-3)
     
     # Test 3: arange(start, end, step)
     shape = (6,)
     dtype = torch.float32
-    expected_c = torch.tensor([1.0, 1.5, 2.0, 2.5, 3.0, 3.5], dtype=torch.float32, device=f'npu:{device_id}')
+    expected_c = torch.tensor([1.0, 1.5, 2.0, 2.5, 3.0, 3.5], dtype=torch.float32, device=device)
 
-    out_torch = arange_op(shape, dtype, f'npu:{device_id}', start=1.0, end=4.0, step=0.5)
-    assert_allclose(out_torch.cpu().numpy(), expected_c.cpu().numpy(), rtol=1e-3, atol=1e-3)
+    out_torch = arange_op(shape, dtype, device, start=1.0, end=4.0, step=0.5, run_mode=run_mode)
     print(f"Output c: {out_torch}")
     print(f"Expected c: {expected_c}")
+    if run_mode == "npu":
+        assert_allclose(out_torch.cpu().numpy(), expected_c.cpu().numpy(), rtol=1e-3, atol=1e-3)
     
     print("✓ Basic usage of arange function completed successfully")
 
@@ -141,7 +181,7 @@ def test_arange_basic():
 # DATATYPE Examples
 # ============================================================================
 
-def test_tensor_creation_with_datatypes():
+def test_tensor_creation_with_datatypes(device_id = None, run_mode: str = "npu"):
     """Test tensor creation with various data types"""
     print("=" * 60)
     print("Test: Tensor Creation with Various Data Types")
@@ -183,27 +223,42 @@ def test_tensor_creation_with_datatypes():
 # FULL Examples
 # ============================================================================
 
-def test_full_basic():
+def test_full_basic(device_id = None, run_mode: str = "npu"):
     """Test basic usage of full function"""
     print("=" * 60)
     print("Test: Basic Usage of full Function")
     print("=" * 60)
     
     device_id = torch.npu.current_device()
+    if run_mode == "npu":
+        import torch_npu
+        device = f'npu:{device_id}'
+    else:
+        device = 'cpu'
     
 @pypto.jit
-def full_kernel(out: pypto.Tensor, fill_value: float) -> None:
+def full_kernel_npu(out: pypto.Tensor, fill_value: float) -> None:
+    pypto.set_vec_tile_shapes(2, 8)
+    out[:] = pypto.full(out.shape, fill_value, out.dtype)
+
+@pypto.jit(runtime_options={"run_mode": pypto.RunMode.SIM})
+def full_kernel_sim(out: pypto.Tensor, fill_value: float) -> None:
     pypto.set_vec_tile_shapes(2, 8)
     out[:] = pypto.full(out.shape, fill_value, out.dtype)
 
 
 @pypto.jit
-def full_symbolic_scalar_kernel(out: pypto.Tensor, fill_value: pypto.SymbolicScalar) -> None:
+def full_symbolic_scalar_kernel_npu(out: pypto.Tensor, fill_value: pypto.SymbolicScalar) -> None:
+    pypto.set_vec_tile_shapes(2, 8)
+    out[:] = pypto.full(out.shape, fill_value, out.dtype)
+
+@pypto.jit(runtime_options={"run_mode": pypto.RunMode.SIM})
+def full_symbolic_scalar_kernel_sim(out: pypto.Tensor, fill_value: pypto.SymbolicScalar) -> None:
     pypto.set_vec_tile_shapes(2, 8)
     out[:] = pypto.full(out.shape, fill_value, out.dtype)
 
 
-def full_op(shape: list, dtype: torch.dtype, device: str, fill_value, dynamic: bool = False) -> torch.Tensor:
+def full_op(shape: list, dtype: torch.dtype, device: str, fill_value, run_mode: str= "npu", dynamic: bool = False) -> torch.Tensor:
     out = torch.zeros(shape, dtype=dtype, device=device)
 
     if dynamic:
@@ -212,42 +267,54 @@ def full_op(shape: list, dtype: torch.dtype, device: str, fill_value, dynamic: b
         out_pto = pypto.from_torch(out)
 
     if isinstance(fill_value, pypto.SymbolicScalar):
-        full_symbolic_scalar_kernel(out_pto, fill_value)
+        if run_mode == "npu":
+            full_symbolic_scalar_kernel_npu(out_pto, fill_value)
+        else:
+            full_symbolic_scalar_kernel_sim(out_pto, fill_value)
     else:
-        full_kernel(out_pto, fill_value)
-
+        if run_mode == "npu":
+            full_kernel_npu(out_pto, fill_value)
+        else:
+            full_kernel_sim(out_pto, fill_value)
     return out
 
 
-def test_full_basic():
+def test_full_basic(device_id = None, run_mode: str = "npu"):
     """Test basic usage of full function"""
     print("=" * 60)
     print("Test: Basic Usage of full Function")
     print("=" * 60)
     
     device_id = torch.npu.current_device()
+    if run_mode == "npu":
+        import torch_npu
+        device = f'npu:{device_id}'
+    else:
+        device = 'cpu'
     
     # Test 1: Create a 2x2 tensor filled with 1.0 (float32)
     shape = [2, 2]
     fill_value = 1.0
     dtype = torch.float32
-    expected_a = torch.tensor([[1.0, 1.0], [1.0, 1.0]], dtype=dtype, device=f'npu:{device_id}')
+    expected_a = torch.tensor([[1.0, 1.0], [1.0, 1.0]], dtype=dtype, device=device)
 
-    out_torch = full_op(shape, dtype, f'npu:{device_id}', fill_value)
-    assert_allclose(out_torch.cpu().numpy(), expected_a.cpu().numpy(), rtol=1e-3, atol=1e-3)
+    out_torch = full_op(shape, dtype, f'npu:{device_id}', fill_value, run_mode)
     print(f"Output a: {out_torch}")
     print(f"Expected a: {expected_a}")
+    if run_mode == "npu":
+        assert_allclose(out_torch.cpu().numpy(), expected_a.cpu().numpy(), rtol=1e-3, atol=1e-3)
     
     # Test 2: Create a 2x2 tensor filled with a symbolic scalar (int32)
     shape = [2, 2]
     fill_value = pypto.symbolic_scalar(1)
     dtype = torch.int32
-    expected_b = torch.tensor([[1, 1], [1, 1]], dtype=dtype, device=f'npu:{device_id}')
+    expected_b = torch.tensor([[1, 1], [1, 1]], dtype=dtype, device=device_id)
 
-    out_torch = full_op(shape, dtype, f'npu:{device_id}', fill_value)
-    assert_allclose(out_torch.cpu().numpy(), expected_b.cpu().numpy(), rtol=1e-3, atol=1e-3)
+    out_torch = full_op(shape, dtype, f'npu:{device_id}', fill_value, run_mode)
     print(f"Output b: {out_torch}")
     print(f"Expected b: {expected_b}")
+    if run_mode == "npu":
+        assert_allclose(out_torch.cpu().numpy(), expected_b.cpu().numpy(), rtol=1e-3, atol=1e-3)
     
     print("✓ Basic usage of full function completed successfully")
 
@@ -256,7 +323,7 @@ def test_full_basic():
 # TENSOR Examples
 # ============================================================================
 
-def test_basic_tensor_creation():
+def test_basic_tensor_creation(device_id = None, run_mode: str = "npu"):
     """Test basic tensor creation"""
     print("=" * 60)
     print("Test: Basic Tensor Creation")
@@ -279,7 +346,7 @@ def test_basic_tensor_creation():
     print("✓ Basic tensor creation completed successfully")
 
 
-def test_tensor_creation_with_format():
+def test_tensor_creation_with_format(device_id = None, run_mode: str = "npu"):
     """Test tensor creation with specific format"""
     print("=" * 60)
     print("Test: Tensor Creation with Specific Format")
@@ -331,6 +398,14 @@ Examples:
         action='store_true',
         help='List all available examples and exit'
     )
+    parser.add_argument(
+        '--run_mode',
+        type=str,
+        nargs='?',
+        default='npu',
+        choices=["npu", "sim"],
+        help='Run mode, such as npu/sim etc.'
+    )
     
     args = parser.parse_args()
     
@@ -340,31 +415,26 @@ Examples:
             'name': 'Test basic usage of arange function',
             'description': 'Basic usage of arange function example',
             'function': test_arange_basic,
-            'requires_npu': True
         },
         'datatype::test_tensor_creation_with_datatypes': {
             'name': 'Test tensor creation with various data types',
             'description': 'Tensor creation with various data types example',
             'function': test_tensor_creation_with_datatypes,
-            'requires_npu': False
         },
         'full::test_full_basic': {
             'name': 'Test basic usage of full function',
             'description': 'Basic usage of full function example',
             'function': test_full_basic,
-            'requires_npu': True
         },
         'tensor::test_basic_tensor_creation': {
             'name': 'Test basic tensor creation',
             'description': 'Basic tensor creation example',
             'function': test_basic_tensor_creation,
-            'requires_npu': False
         },
         'tensor::test_tensor_creation_with_format': {
             'name': 'Test tensor creation with specific format',
             'description': 'Tensor creation with specific format example',
             'function': test_tensor_creation_with_format,
-            'requires_npu': False
         }
     }
     
@@ -373,14 +443,14 @@ Examples:
         print("\n" + "=" * 60)
         print("Available Examples")
         print("=" * 60 + "\n")
-        for case_key, ex_info in sorted(examples.items()):
-            npu_req = " (Requires NPU)" if ex_info['requires_npu'] else " (No NPU required)"
-            print(f"  {case_key}{npu_req}")
-            print(f"     {ex_info['name']}")
-            print(f"     {ex_info['description']}\n")
+        for ex_id, ex_info in sorted(examples.items()):
+            print(f"  ID: {ex_id}")
+            print(f"     name: {ex_info['name']}")
+            print(f"     description: {ex_info['description']}\n")
         return
     
     # Validate case if provided
+    device_id = None
     examples_to_run = []
     if args.example_id:
         if args.example_id not in examples:
@@ -396,23 +466,18 @@ Examples:
     print("PyPTO Tensor Creation Operation Examples")
     print("=" * 60 + "\n")
     
-    # Check if any example requires NPU
-    requires_npu = any(ex_info['requires_npu'] for _, ex_info in examples_to_run)
-    
-    device_id = None
-    if requires_npu:
+    if args.run_mode == "npu":
         device_id = get_device_id()
         if device_id is None:
             return
         torch.npu.set_device(device_id)
+        print("Running examples that require NPU hardware...")
+        print("(Make sure CANN environment is configured and NPU is available)\n")
     
     try:
-        for case_key, ex_info in examples_to_run:
-            if ex_info['requires_npu'] and device_id is None:
-                print(f"Skipping {case_key} ({ex_info['name']}): NPU device not configured")
-                continue
-            
-            ex_info['function']()
+        for ex_id, ex_info in examples_to_run:
+                print(f"Running Example {ex_id}: {ex_info['name']}")
+                ex_info['function'](device_id, args.run_mode)
         
         if len(examples_to_run) > 1:
             print("=" * 60)
