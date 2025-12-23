@@ -14,7 +14,7 @@ import os
 import torch
 import torch_npu
 import pypto
-from utils.np_compare import detailed_allclose_manual
+from numpy.testing import assert_allclose
 import numpy as np
 
 
@@ -32,12 +32,12 @@ def main():
     test_scatter_update()
 
 
-@pypto.jit
-def scatter_update(key, value, index, key_cache, value_cache):
+@pypto.jit(
     # 1. 添加支持动态的config
-    pypto.set_host_options(only_codegen=True)
-
-    # 3. 得到动态tensor的shape
+    host_options={"only_codegen": True}
+)
+def scatter_update(key, value, index, key_cache, value_cache):
+    # 2. 得到动态tensor的shape
     dtype = key.dtype
     b_scalar = index.shape[0]
     b_tile = 2
@@ -73,7 +73,7 @@ def scatter_update(key, value, index, key_cache, value_cache):
 
 
 
-def test_scatter_update():
+def test_scatter_update() -> None:
     np.random.seed(0)
     torch.manual_seed(0)
     # 1. 设置参数
@@ -126,11 +126,19 @@ def test_scatter_update():
         npu_key_cache_out_2d_select = npu_key_cache_out_2d[index.cpu().numpy()]
         value_cache_clone_2d_select = value_cache_clone_2d[index.cpu().numpy()]
         npu_value_cache_out_2d_select = npu_value_cache_out_2d[index.cpu().numpy()]
-        detailed_allclose_manual(key_cache_clone_2d_select.flatten(), npu_key_cache_out_2d_select.flatten(), "key cache")
-        detailed_allclose_manual(value_cache_clone_2d_select.flatten(), npu_value_cache_out_2d_select.flatten(), "key cache")
+        assert_allclose(np.array(key_cache_clone_2d_select.tolist()),
+                        np.array(npu_key_cache_out_2d_select),
+                        rtol=5e-3, atol=5e-3)
+        assert_allclose(np.array(value_cache_clone_2d_select.tolist()),
+                        np.array(npu_value_cache_out_2d_select),
+                        rtol=5e-3, atol=5e-3)
     else:
-        detailed_allclose_manual(np.array(key_cache_clone.cpu()).flatten(), np.array(npu_key_cache_out).flatten(), "key cache")
-        detailed_allclose_manual(np.array(value_cache_clone.cpu()).flatten(), np.array(npu_value_cache_out).flatten(), "value cache")
+        assert_allclose(np.array(key_cache_clone.cpu().flatten().tolist()),
+                        np.array(npu_key_cache_out),
+                        rtol=5e-3, atol=5e-3)
+        assert_allclose(np.array(value_cache_clone.cpu().flatten().tolist()),
+                        np.array(npu_value_cache_out),
+                        rtol=5e-3, atol=5e-3)
 
 
 if __name__ == "__main__":

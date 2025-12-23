@@ -23,14 +23,14 @@ from utils.get_format import get_format
 
 
 def check_args(
-        hidden_states,
-        pertoken_scale,
-        group_list,
-        w13,
-        w13_scale,
-        w2,
-        w2_scale
-):
+        hidden_states: torch.Tensor,
+        pertoken_scale: torch.Tensor,
+        group_list: torch.Tensor,
+        w13: torch.Tensor,
+        w13_scale: torch.Tensor,
+        w2: torch.Tensor,
+        w2_scale: torch.Tensor
+) -> None:
     assert hidden_states.dim() == 2
     assert hidden_states.shape[1] == 5120
     assert get_format(hidden_states) == 'ND'
@@ -71,7 +71,15 @@ def main():
     test_ffn_router()
 
 
-def ffn_router_torch_npu(hidden_states, hidden_states_scale, group_list, w13, w13_scale, w2, w2_scale):
+def ffn_router_torch_npu(
+    hidden_states: torch.Tensor,
+    hidden_states_scale: torch.Tensor,
+    group_list: torch.Tensor,
+    w13: torch.Tensor,
+    w13_scale: torch.Tensor,
+    w2: torch.Tensor,
+    w2_scale: torch.Tensor
+) -> torch.Tensor:
     group_list = group_list.to(torch.int64)
     group_list_cumsum = group_list.cumsum(dim=0)
     output_dtype = w2_scale.dtype
@@ -99,14 +107,19 @@ def ffn_router_torch_npu(hidden_states, hidden_states_scale, group_list, w13, w1
 
 def get_token_acc_table(group_list):
     assert len(group_list.shape) == 1
-    group_list_cumsum = torch.zeros_like(group_list)
-    for i in range(1, group_list.shape[0]):
-        group_list_cumsum[i] = torch.sum(group_list[0:i])
-    return group_list_cumsum
+    return (torch.cumsum(group_list, dim=0) - group_list).to(group_list.dtype)
 
 
-def ffn_golden_quan_per_token(x):
-    # y_int8 : int8  scale_dequant : x.dtype
+def ffn_golden_quan_per_token(x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    """
+    Quantize input tensor per token (per row).
+
+    Args:
+        x: Input tensor to quantize
+
+    Returns:
+        Tuple of (quantized_int8_tensor, dequantization_scale)
+    """
     x_fp32 = x.to(torch.float32)
     max_value = x_fp32.abs().max(dim=1, keepdim=True)[0]
     scale_quant = 127.0 / max_value
@@ -118,8 +131,19 @@ def ffn_golden_quan_per_token(x):
     return y_int8, scale_dequant
 
 
-def ffn_golden_quan_per_channel_3d(x):
-    # y_int8 : int8  scale_dequant : x.dtype
+def ffn_golden_quan_per_channel_3d(x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    """
+    Quantize input tensor per channel (per column) for 3D tensors.
+
+    Note: This function currently uses per-token quantization (dim=1)
+    but is kept for backward compatibility.
+
+    Args:
+        x: Input tensor to quantize
+
+    Returns:
+        Tuple of (quantized_int8_tensor, dequantization_scale)
+    """
     x_fp32 = x.to(torch.float32)
     max_value = x_fp32.abs().max(dim=1, keepdim=True)[0]
     scale_quant = 127.0 / max_value
@@ -131,7 +155,16 @@ def ffn_golden_quan_per_channel_3d(x):
     return y_int8, scale_dequant
 
 
-def gen_input(b, s, topk, per_expert_num, hidden_size, intermediate_size, dtypes, device_id):
+def gen_input(
+    b: int,
+    s: int,
+    topk: int,
+    per_expert_num: int,
+    hidden_size: int,
+    intermediate_size: int,
+    dtypes: torch.dtype,
+    device_id: int
+) -> tuple[torch.Tensor, ...]:
     torch.manual_seed(42)
     hidden_states = torch.randn((b * s * topk, hidden_size), dtype = dtypes, device = f'npu:{device_id}') * 0.01 * 2 - 0.01
     hidden_states, hidden_states_scale = ffn_golden_quan_per_token(hidden_states)
@@ -204,7 +237,7 @@ def expert_infer_base(
     # up_proj的matmul计算
     pypto.set_cube_tile_shapes([mm1_cube_tile_shape[0], mm1_cube_tile_shape[0]], [mm1_cube_tile_shape[1], mm1_cube_tile_shape[1] * 2], \
                                [mm1_cube_tile_shape[2], mm1_cube_tile_shape[2]], True, True)
-    pypto.set_matrix_size({loop_base, w13_weight_2d.shape[0], w13_weight_2d.shape[1]})
+    pypto.set_matrix_size([loop_base, w13_weight_2d.shape[0], w13_weight_2d.shape[1]])
     up_proj = pypto.matmul(x, w13_weight_2d, pypto.DT_INT32)
 
     # dequant
@@ -218,7 +251,7 @@ def expert_infer_base(
 
     pypto.set_cube_tile_shapes([mm2_cube_tile_shape[0], mm2_cube_tile_shape[0]], [mm2_cube_tile_shape[1], mm2_cube_tile_shape[1] * 2], \
                                [mm2_cube_tile_shape[2], mm2_cube_tile_shape[2]], True, True)
-    pypto.set_matrix_size({loop_base, w2_weight_2d.shape[0], w2_weight_2d.shape[1]})
+    pypto.set_matrix_size([loop_base, w2_weight_2d.shape[0], w2_weight_2d.shape[1]])
     down_proj = pypto.matmul(down_proj_quant, w2_weight_2d, pypto.DT_INT32)
 
     # dequant
@@ -231,13 +264,12 @@ def expert_infer_base(
 @pypto.jit(
     host_options={"only_codegen": True},
     codegen_options={"codegen_expression_fusion": True},
-    runtime_options={"device_sched_mode": 1}
+    runtime_options={"device_sched_mode": 1},
+    pass_options={"cube_l1_reuse_mode": 2}
 )
 def moe_router_expert_main(hidden_states, hidden_states_scale,
                            group_list, group_list_cumsum, w13,
                            w13_scale, w2, w2_scale, ffn_res):
-    pypto.set_pass_options(cube_l1_reuse_mode=2)
-
     # tiling config
     mm1_cube_tile_shape = (8, 256, 256)
     mm2_cube_tile_shape = (8, 256, 256)
@@ -307,10 +339,9 @@ def ffn_router_expert_quant(hidden_states: torch.Tensor,
         torch_npu.npu.synchronize()
 
 
-def test_ffn_router():
+def test_ffn_router() -> None:
     dtype = torch.bfloat16
     # parameter config
-    b = 1
     s = 1
     intermediate_size = 1536
     hidden_size = 5120
@@ -319,11 +350,8 @@ def test_ffn_router():
     torch_npu.npu.config.allow_internal_format = True
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
-    for i in range(0, 2):
-        if (i == 0):
-            b = 1
-        if (i == 1):
-            b = 2
+    # Test with different batch sizes
+    for b in [1, 2]:
         # hidden_states, hidden_states_scale, group_list, group_list_cumsum, w13, w13_scale, w2, w2_scale, ffn_res
         hidden_states, hidden_states_scale, group_list, group_list_cumsum, w13, w13_scale, w2, w2_scale, ffn_res = \
             gen_input(b, s, topk, per_expert_num, hidden_size, intermediate_size, dtype, device_id)

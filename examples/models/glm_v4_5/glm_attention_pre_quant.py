@@ -495,7 +495,7 @@ def test_quant_attention_pre():
         # split
         q_g, k_g, v_g = mm_golden.split([q_size, kv_size, kv_size], dim=-1)
 
-        # nms norm
+        # rms norm
         q_by_head = q_g.view(*q_g.shape[:-1], q_g.shape[-1] // head_size, head_size)
         q_by_head = rms_norm_npu_golden(q_by_head, q_gamma, q_bias, eps)
 

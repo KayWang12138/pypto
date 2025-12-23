@@ -20,6 +20,7 @@ from numpy.testing import assert_allclose
 from torch._subclasses.fake_tensor import FakeTensor
 from torch._dynamo import allow_in_graph
 
+
 def main():
     test_group_list_cumsum()
 
@@ -39,21 +40,15 @@ def moe_group_list_cumsum(group_list, group_list_cumsum):
     expert_num = group_list.shape[0]
     pypto.set_vec_tile_shapes(32)
     # 计算每个专家的token的偏移地址
-    for _ in pypto.loop(0, 1, 1, name="LOOP_init", idx_name="idx"):
-        def loop_for_init_offset():
-            group_list_cumsum[0, ] = 0
-        loop_for_init_offset()
+    group_list_cumsum[0, ] = 0
     for exp_idx in pypto.loop(1, expert_num, 1, name="LOOP_expert", idx_name="exp_idx", submit_before_loop=True):
-        def loop_for_offset(exp_idx):
-            pypto.set_vec_tile_shapes(32)
-            view_shape = [pypto.min(exp_idx, expert_num),]
-            tmp_view = pypto.view(group_list, [16,], [0,], valid_shape=view_shape)
-            tmp_cast = pypto.cast(tmp_view, pypto.DT_FP32)
-            tmp_acc = pypto.sum(tmp_cast, -1, True)
-            tmp_int = pypto.cast(tmp_acc, pypto.DT_INT32)
-            pypto.assemble(tmp_int, [(exp_idx),], group_list_cumsum)
-        loop_for_offset(exp_idx)
-
+        pypto.set_vec_tile_shapes(32)
+        view_shape = [pypto.min(exp_idx, expert_num), ]
+        tmp_view = pypto.view(group_list, [16, ], [0, ], valid_shape=view_shape)
+        tmp_cast = pypto.cast(tmp_view, pypto.DT_FP32)
+        tmp_acc = pypto.sum(tmp_cast, -1, True)
+        tmp_int = pypto.cast(tmp_acc, pypto.DT_INT32)
+        pypto.assemble(tmp_int, [(exp_idx), ], group_list_cumsum)
 
 
 @allow_in_graph
@@ -85,8 +80,8 @@ def test_group_list_cumsum():
         if (i == 1):
             bs = 1
         np.random.seed(0)
-        group_list = torch.randint(0, bs, (per_expert_num,), dtype = torch.int32, device = f'npu:{device_id}')
-        group_list_cumsum = torch.empty_like(group_list, device = f'npu:{device_id}')
+        group_list = torch.randint(0, bs, (per_expert_num,), dtype=torch.int32, device=f'npu:{device_id}')
+        group_list_cumsum = torch.empty_like(group_list, device=f'npu:{device_id}')
 
         inputs = {
             group_list: [0]

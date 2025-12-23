@@ -22,9 +22,16 @@ from utils.get_format import get_format
 
 
 def check_args(
-    gate_weight, 
-    hidden_states
-):
+    gate_weight: torch.Tensor,
+    hidden_states: torch.Tensor
+) -> None:
+    """
+    Validate input arguments for gate operation.
+    
+    Args:
+        gate_weight: Gate weight matrix
+        hidden_states: Input hidden states
+    """
     assert gate_weight.dim() == 2
     assert gate_weight.shape[0] == 160
     assert gate_weight.shape[1] == 5120
@@ -37,19 +44,6 @@ def check_args(
     assert hidden_states.dtype == torch.float32
 
 
-def powers_of_2(n: int) -> set[int]:
-    assert n > 0, "n must be positive"
-    result = set()
-    power = 0
-    while True:
-        current = 1 << power  # 计算2的power次方
-        if current > n:
-            break
-        result.add(current)
-        power += 1
-    return result
-
-
 @pypto.jit(
     runtime_options={
     "cfgcache_device_task_num": 100,
@@ -58,7 +52,6 @@ def powers_of_2(n: int) -> set[int]:
     host_options={"only_codegen": True},
 )
 def select_experts_mm_kernel(hidden_states, mm_weight, router_logits_out):
-    # 泳道图使能  pypto.set_option('profile_enable', True)
     # 3. 得到动态tensor的shape
     bs = hidden_states.shape[0]
     ne = mm_weight.shape[0]

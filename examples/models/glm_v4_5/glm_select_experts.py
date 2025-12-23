@@ -23,13 +23,13 @@ from utils.get_format import get_format
 
 
 def check_args(
-    router_logits,
-    top_k,
-    renormalize,
-    topk_group,
-    num_expert_group,
-    e_score_correction_bias
-):
+    router_logits: torch.Tensor,
+    top_k: int,
+    renormalize: bool,
+    topk_group: int,
+    num_expert_group: int,
+    e_score_correction_bias: torch.Tensor
+) -> None:
     assert router_logits.dim() == 2
     assert router_logits.shape[1] == 160
     assert get_format(router_logits) == 'ND'
@@ -44,19 +44,6 @@ def check_args(
     assert isinstance(renormalize, bool)
     assert isinstance(topk_group, int)
     assert isinstance(num_expert_group, int)
-
-
-def powers_of_2(n: int) -> set[int]:
-    assert n > 0, "n must be positive"
-    result = set()
-    power = 0
-    while True:
-        current = 1 << power  # 计算2的power次方
-        if current > n:
-            break
-        result.add(current)
-        power += 1
-    return result
 
 
 def process_main_loop_interation(
@@ -168,7 +155,6 @@ def process_main_loop_interation(
 )
 def select_experts_kernel(logits_input, e_score_bias_input, weight_k, ids_k,
                           renormalize_flag, topk_group, num_expert_group):
-    # 泳道图使能  pypto.set_option('profile_enable', True)
     # 3. 得到动态tensor的shape
     bs = logits_input.shape[0]
     ne = logits_input.shape[1]

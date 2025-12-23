@@ -309,7 +309,7 @@ def attention_pre(**kwargs):
     # reshape
     q_by_head = q_g.view(*q_g.shape[:-1], q_g.shape[-1] // head_dim, head_dim)
     k_by_head = k_g.view(*k_g.shape[:-1], k_g.shape[-1] // head_dim, head_dim)
-    # nms norm
+    # rms norm
     q_by_head = rms_norm_golden(q_by_head, q_gamma, eps)
     k_by_head = rms_norm_golden(k_by_head, k_gamma, eps)
 

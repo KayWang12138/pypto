@@ -11,10 +11,20 @@
 """
 """
 import os
+from typing import Tuple
 import pypto
 
 
-def symmetric_quantization_per_token(input_tensor):
+def symmetric_quantization_per_token(input_tensor) -> Tuple:
+    """
+    Perform symmetric quantization per token (per row).
+    
+    Args:
+        input_tensor: Input tensor to quantize
+        
+    Returns:
+        Tuple of (quantized_int8_tensor, dequantization_scale)
+    """
     x_fp32 = pypto.cast(input_tensor, pypto.DT_FP32)
     x_abs = pypto.abs(x_fp32)
     x_max = pypto.amax(x_abs, -1, True)
@@ -29,6 +39,17 @@ def symmetric_quantization_per_token(input_tensor):
 
 
 def dequant_dynamic(in_tensor, scale_1, scale_2):
+    """
+    Perform dynamic dequantization using two scale factors.
+    
+    Args:
+        in_tensor: Quantized input tensor
+        scale_1: First scale factor
+        scale_2: Second scale factor
+        
+    Returns:
+        Dequantized tensor
+    """
     in_tensor_fp32 = pypto.cast(in_tensor, pypto.DT_FP32, pypto.CastMode.CAST_NONE)
     scale_1_fp32 = pypto.cast(scale_1, pypto.DT_FP32, pypto.CastMode.CAST_NONE)
     scale_2_fp32 = pypto.cast(scale_2, pypto.DT_FP32, pypto.CastMode.CAST_NONE)
@@ -38,7 +59,15 @@ def dequant_dynamic(in_tensor, scale_1, scale_2):
 
 
 def swiglu(up_proj):
-    # SwiGlu & mul : [x / (1 + e^(-x)) * right]
+    """
+    Apply SwiGLU activation function: x * sigmoid(x) * right_half.
+    
+    Args:
+        up_proj: Input tensor with shape [batch, intermediate_size * 2]
+        
+    Returns:
+        SwiGLU activated tensor with shape [batch, intermediate_size]
+    """
     intermediate_size = up_proj.shape[1] // 2
     up_proj_left = pypto.view(up_proj, [up_proj.shape[0], intermediate_size], [0, 0])
     up_proj_right = pypto.view(up_proj, [up_proj.shape[0], intermediate_size], [0, intermediate_size])

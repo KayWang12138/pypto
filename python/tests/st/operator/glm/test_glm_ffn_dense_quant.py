@@ -16,7 +16,6 @@ import torch_npu
 import pypto
 import numpy as np
 from numpy.testing import assert_allclose
-from glm_ffn_common_interface import symmetric_quantization_per_token, dequant_dynamic, swiglu
 from torch._subclasses.fake_tensor import FakeTensor
 from torch._dynamo import allow_in_graph
 
@@ -64,9 +63,9 @@ def moe_torch_npu(hidden_states, w13, w13_scale, w2):
             output_dtype=x_dtype,
         )
     output_w13 = output_w13.to(torch.float32)
-    swiglu = torch_npu.npu_swiglu(output_w13)
-    swiglu = swiglu.to(x_dtype)
-    output = torch.matmul(swiglu.to(torch.float32), w2.to(torch.float32)).to(x_dtype)
+    swiglu_out = torch_npu.npu_swiglu(output_w13)
+    swiglu_out = swiglu_out.to(x_dtype)
+    output = torch.matmul(swiglu_out.to(torch.float32), w2.to(torch.float32)).to(x_dtype)
     return output
 
 
@@ -80,17 +79,53 @@ def get_token_acc_table(expert_tokens):
 
 def gen_input(b, s, hidden_size, intermediate_size, dtypes, device_id):
     torch.manual_seed(42)
-    hidden_states = torch.randn((b * s, hidden_size), dtype = dtypes, device = f'npu:{device_id}') * 0.01 * 2 - 0.01
+    hidden_states = torch.randn((b * s, hidden_size), dtype=dtypes, device=f'npu:{device_id}') * 0.01 * 2 - 0.01
 
-    weight_gate_upper_tensor = torch.randn((hidden_size, intermediate_size * 2), \
-                                           dtype = dtypes, device = f'npu:{device_id}')  * 0.01 * 2 - 0.01
+    weight_gate_upper_tensor = torch.randn((hidden_size, intermediate_size * 2),
+                                           dtype=dtypes, device=f'npu:{device_id}') * 0.01 * 2 - 0.01
     w13, w13_scale = ffn_golden_quan_per_channel(weight_gate_upper_tensor)
     w13_scale = w13_scale.reshape(-1).to(dtypes)
 
-    w2 =  torch.randn((hidden_size, intermediate_size), dtype = dtypes, device = f'npu:{device_id}')  * 0.01 * 2 - 0.01
+    w2 = torch.randn((hidden_size, intermediate_size), dtype=dtypes, device=f'npu:{device_id}') * 0.01 * 2 - 0.01
 
-    ffn_res = torch.empty((b * s, hidden_size), dtype = dtypes, device = f'npu:{device_id}')
+    ffn_res = torch.empty((b * s, hidden_size), dtype=dtypes, device=f'npu:{device_id}')
     return hidden_states, w13, w13_scale, w2, ffn_res
+
+
+def symmetric_quantization_per_token(input_tensor):
+    x_fp32 = pypto.cast(input_tensor, pypto.DT_FP32)
+    x_abs = pypto.abs(x_fp32)
+    x_max = pypto.amax(x_abs, -1, True)
+    shape_0, shape_1 = x_max.shape[:2]
+    x_scale = pypto.div(pypto.full([shape_0, shape_1], 127.0, pypto.DT_FP32), x_max)
+    x_mul = pypto.mul(x_fp32, x_scale)
+    x_int32 = pypto.cast(x_mul, pypto.DT_INT32, pypto.CastMode.CAST_RINT)
+    x_fp16 = pypto.cast(x_int32, pypto.DT_FP16, pypto.CastMode.CAST_ROUND)
+    x_int8 = pypto.cast(x_fp16, pypto.DT_INT8, pypto.CastMode.CAST_TRUNC)
+    x_scale_quant = pypto.div(pypto.full([shape_0, shape_1], 1.0, pypto.DT_FP32), x_scale)
+    return x_int8, x_scale_quant
+
+
+def dequant_dynamic(in_tensor, scale_1, scale_2):
+    in_tensor_fp32 = pypto.cast(in_tensor, pypto.DT_FP32, pypto.CastMode.CAST_NONE)
+    scale_1_fp32 = pypto.cast(scale_1, pypto.DT_FP32, pypto.CastMode.CAST_NONE)
+    scale_2_fp32 = pypto.cast(scale_2, pypto.DT_FP32, pypto.CastMode.CAST_NONE)
+    out_scale_2 = pypto.mul(in_tensor_fp32, scale_2_fp32)
+    out = pypto.mul(out_scale_2, scale_1_fp32)
+    return out
+
+
+def swiglu(up_proj):
+    # SwiGlu & mul : [x / (1 + e^(-x)) * right]
+    intermediate_size = up_proj.shape[1] // 2
+    up_proj_left = pypto.view(up_proj, [up_proj.shape[0], intermediate_size], [0, 0])
+    up_proj_right = pypto.view(up_proj, [up_proj.shape[0], intermediate_size], [0, intermediate_size])
+    swiglu_mul = pypto.mul(up_proj_left, -1.0)
+    swiglu_exp = pypto.exp(swiglu_mul)
+    swiglu_add = pypto.add(swiglu_exp, 1.0)
+    swiglu_div = pypto.div(up_proj_left, swiglu_add)
+    swiglu_out = pypto.mul(swiglu_div, up_proj_right)
+    return swiglu_out
 
 
 def expert_infer_base(hidden_states, w13_params, w2, ffn_res, tiling_params, offset_params):
@@ -106,7 +141,7 @@ def expert_infer_base(hidden_states, w13_params, w2, ffn_res, tiling_params, off
     # offset
     hidden_states_offset = [dense_loop_idx * loop_base, 0]
     cur_valid_shape = pypto.min(token_size - dense_loop_idx * loop_base, loop_base)
-    hidden_states_actual = pypto.view(hidden_states, [loop_base, hidden_size], \
+    hidden_states_actual = pypto.view(hidden_states, [loop_base, hidden_size],
                                       hidden_states_offset, valid_shape=[cur_valid_shape, hidden_size])
 
     pypto.set_vec_tile_shapes(vec_tile_shape[0], vec_tile_shape[1])
@@ -114,8 +149,9 @@ def expert_infer_base(hidden_states, w13_params, w2, ffn_res, tiling_params, off
     hidden_states_quant, hidden_states_scale = symmetric_quantization_per_token(hidden_states_actual)
 
     # up_proj的matmul计算
-    pypto.set_cube_tile_shapes([mm1_cube_tile_shape[0], mm1_cube_tile_shape[0]], \
-                               [mm1_cube_tile_shape[1], mm1_cube_tile_shape[1]], [mm1_cube_tile_shape[2], mm1_cube_tile_shape[2]])
+    pypto.set_cube_tile_shapes([mm1_cube_tile_shape[0], mm1_cube_tile_shape[0]],
+                               [mm1_cube_tile_shape[1], mm1_cube_tile_shape[1]],
+                               [mm1_cube_tile_shape[2], mm1_cube_tile_shape[2]])
     up_proj = pypto.matmul(hidden_states_quant, w13, pypto.DT_INT32)
 
     # dequant
@@ -127,8 +163,9 @@ def expert_infer_base(hidden_states, w13_params, w2, ffn_res, tiling_params, off
     swiglu_half = pypto.cast(swiglu_out, x_dtype)
 
     # down_proj
-    pypto.set_cube_tile_shapes([mm2_cube_tile_shape[0], mm2_cube_tile_shape[0]], \
-                               [mm2_cube_tile_shape[1], mm2_cube_tile_shape[1]], [mm2_cube_tile_shape[2], mm2_cube_tile_shape[2]])
+    pypto.set_cube_tile_shapes([mm2_cube_tile_shape[0], mm2_cube_tile_shape[0]],
+                               [mm2_cube_tile_shape[1], mm2_cube_tile_shape[1]],
+                               [mm2_cube_tile_shape[2], mm2_cube_tile_shape[2]])
     out = pypto.matmul(swiglu_half, w2, x_dtype, b_trans=True)
     pypto.assemble(out, hidden_states_offset, ffn_res)
 
@@ -152,16 +189,14 @@ def dense_moe_main(hidden_states, w13, w13_scale, w2, ffn_res):
     token_loop_times = (token_nums + loop_base - 1) // loop_base
 
     for dense_loop_idx in pypto.loop(token_loop_times, name="dense_loop_idx"):
-        def loop_token(dense_loop_idx):
-            expert_infer_base(
-                hidden_states=hidden_states,
-                w13_params=[w13, w13_scale],
-                w2=w2,
-                ffn_res=ffn_res,
-                tiling_params=[vec_tile_shape, mm1_cube_tile_shape, mm2_cube_tile_shape],
-                offset_params=[dense_loop_idx, loop_base]
-                )
-        loop_token(dense_loop_idx)
+        expert_infer_base(
+            hidden_states=hidden_states,
+            w13_params=[w13, w13_scale],
+            w2=w2,
+            ffn_res=ffn_res,
+            tiling_params=[vec_tile_shape, mm1_cube_tile_shape, mm2_cube_tile_shape],
+            offset_params=[dense_loop_idx, loop_base]
+            )
 
 
 @allow_in_graph
@@ -188,7 +223,7 @@ def ffn_dense_quant(hidden_states: torch.Tensor,
     return ffn_res
 
 
-def test_glm_mlp():
+def test_glm_mlp() -> None:
     x_dtype = torch.bfloat16
     # parameter config
     b = 1
@@ -198,11 +233,8 @@ def test_glm_mlp():
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
 
-    for i in range(0, 2):
-        if (i == 0):
-            b = 1
-        if (i == 1):
-            b = 2
+    # Test with different batch sizes
+    for b in [1, 2]:
         # hidden_states, w13, w13_scale, w2, ffn_res
         hidden_states, w13, w13_scale, w2, ffn_res = gen_input(b, s, hidden_size, intermediate_size, x_dtype, device_id)
         inputs = {

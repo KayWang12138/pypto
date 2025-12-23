@@ -113,7 +113,14 @@ def moe_torch_npu(hidden_states, w13, w13_scale, w2, w2_scale):
     return output
 
 
-def gen_input(b, s, hidden_size, intermediate_size, dtypes, device_id):
+def gen_input(
+    b: int,
+    s: int,
+    hidden_size: int,
+    intermediate_size: int,
+    dtypes: torch.dtype,
+    device_id: int
+) -> tuple[torch.Tensor, ...]:
     torch.manual_seed(42)
     hidden_states = torch.randn((b * s, hidden_size), dtype=dtypes, device=f'npu:{device_id}') * 0.01 * 2 - 0.01
 
@@ -187,11 +194,10 @@ def expert_infer_base(hidden_states, w13_params, w2_params, ffn_res, tiling_para
     runtime_options={"device_sched_mode": 1,
                      "cfgcache_device_task_num": 100,
                      "cfgcache_root_task_num": 1000,
-                     "cfgcache_leaf_task_num": 10000}
+                     "cfgcache_leaf_task_num": 10000},
+    pass_options={"cube_l1_reuse_mode": 2}
 )
 def share_expert_moe_main(hidden_states, w13, w13_scale, w2, w2_scale, ffn_res):
-    pypto.set_pass_options(cube_l1_reuse_mode=2)
-
     # tiling config
     vec_tile_shape = (2, 5120)
     mm1_cube_tile_shape = (8, 128, 384)
@@ -239,21 +245,17 @@ def ffn_shared_expert_quant(hidden_states: torch.Tensor,
         torch_npu.npu.synchronize()
 
 
-def test_ffn_share():
+def test_ffn_share() -> None:
     x_dtype = torch.bfloat16
     # parameter config
-    b = 1
     s = 1
     intermediate_size = 192
     hidden_size = 5120
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
 
-    for i in range(0, 2):
-        if (i == 0):
-            b = 1
-        if (i == 1):
-            b = 2
+    # Test with different batch sizes
+    for b in [1, 2]:
         # hidden_states, w13, w13_scale, w2, w2_scale, ffn_res
         hidden_states, w13, w13_scale, w2, w2_scale, ffn_res = \
             gen_input(b, s, hidden_size, intermediate_size, x_dtype, device_id)

@@ -243,16 +243,16 @@ def softmax(x, is_fp16=False):
     "cfgcache_root_task_num": 1000,
     "cfgcache_leaf_task_num": 10000},
     host_options={"only_codegen": True},
-    codegen_options={"codegen_expression_fusion": True}
+    codegen_options={"codegen_expression_fusion": True},
+    # 当子图大小达到上界不允许与其他子图合并
+    pass_options={"pg_upper_bound": 1536,
+    # Q常驻，0代表第一组mmad，4代表4次matmul合并
+    "cube_l1_reuse_setting": {0: 4}}
 )
 def ifa_func(q, k, v, block_table, kv_act_seqs, atten_out):
     # 1. 添加支持动态的config
     pypto.experimental.set_operation_config(force_combine_axis=True)
 
-    # 当子图大小达到上界不允许与其他子图合并
-    pypto.set_pass_options(pg_upper_bound=1536)
-    # Q常驻，0代表第一组mmad，4代表4次matmul合并
-    pypto.set_pass_options(cube_l1_reuse_setting={0: 4})
     atten_cfg, tile_cfg = get_qwen_common_config()
     softmax_scale = atten_cfg.softmax_scale
 

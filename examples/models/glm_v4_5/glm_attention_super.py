@@ -152,17 +152,16 @@ def get_qwen_common_config(device="cpu"):
     return atten_cfg, tile_cfg
 
 
-@pypto.jit
+@pypto.jit(
+    # 1. 添加支持动态的config
+    host_options={"only_codegen": True}
+)
 def ifa_func(key_cache, value_cache, block_table, kv_act_seqs,
              index, x, residual_input, x_gamma, x_bias, x_scale,
              x_offset, weight, quant_bias, deq_scale, q_gamma,
              q_bias, k_gamma, k_bias, cos, sin, atten_out, q_tmp,
              k_tmp, v_tmp, residual, enable_residual=True,
              eps=1e-05, num_decode_tokens=0):
-    # 1. 添加支持动态的config
-    pypto.set_host_options(only_codegen=True)
-    pypto.set_option('profile_enable', True)
-
     # 2. 从入参拿到输入和输出tensor
     bs_tile = 8
 
@@ -537,7 +536,7 @@ def ifa(atten_cfg, device_id):
 
     # split
     q_g, k_g, v_g = mm_golden.split([q_size, kv_size, kv_size], dim=-1)
-    # nms norm
+    # rms norm
     q_by_head = q_g.view(*q_g.shape[:-1], q_g.shape[-1] // head_size, head_size)
     q_by_head = rms_norm_npu_golden(q_by_head, q_norm_weight, q_norm_bias, eps)
 
