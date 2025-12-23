@@ -28,7 +28,13 @@ import sys
 
 # 定义计算函数
 @pypto.jit
-def add_kernel(x0, x1, y):
+def add_kernel_npu(x0, x1, y):
+    pypto.set_vec_tile_shapes(4, 4)
+    y[:] = x0 + x1
+
+
+@pypto.jit(runtime_options={"run_mode": 1})
+def add_kernel_sim(x0, x1, y):
     pypto.set_vec_tile_shapes(4, 4)
     y[:] = x0 + x1
 
@@ -37,23 +43,24 @@ if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Please specify the running mode as npu or sim via the args parameter.")
         sys.exit(1)
-    if run_mode == "npu":
-        torch.npu.set_device(0)
-    
+    run_mode = sys.argv[1].lower()
+
     # 创建 Tensor
     x0 = torch.ones(4, 4, dtype=torch.float32)
     x1 = torch.ones(4, 4, dtype=torch.float32)
     y = torch.empty(4, 4, dtype=torch.float32)
 
     # 执行计算
-    add_kernel(pypto.from_torch(x0), pypto.from_torch(x1), pypto.from_torch(y))
-
     if run_mode == "npu":
+        torch.npu.set_device(0)
+        add_kernel_npu(pypto.from_torch(x0), pypto.from_torch(x1), pypto.from_torch(y))
         print(y)
     elif run_mode == "sim":
+        add_kernel_sim(pypto.from_torch(x0), pypto.from_torch(x1), pypto.from_torch(y))
         print("Simulation completed, please view the results through the swimlane diagram.")
     else:
         print("Invalid parameters")
+        
 ```
 - 对于真实环境，可以直接通过查看输出 `y` 的值查看运行结果
 - 对于仿真环境，通过示例同级目录中 `out/` 下的泳道图查看仿真结果  
