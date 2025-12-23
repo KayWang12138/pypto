@@ -46,10 +46,8 @@ def get_device_id():
         return None
 
 
-@pypto.jit(
-    host_options={"only_codegen": True},
-)
-def loop_basic_kernel(t0: pypto.Tensor, t1: pypto.Tensor, out0: pypto.Tensor, out1: pypto.Tensor) -> None:
+@pypto.jit
+def loop_basic_kernel_npu(t0: pypto.Tensor, t1: pypto.Tensor, out0: pypto.Tensor, out1: pypto.Tensor) -> None:
     s, n = t0.shape
     pypto.set_vec_tile_shapes(64, 64)
     for bs_idx in pypto.loop(0, n, 1): # start, stop, step
@@ -63,7 +61,22 @@ def loop_basic_kernel(t0: pypto.Tensor, t1: pypto.Tensor, out0: pypto.Tensor, ou
         out1[bs_idx * s: (bs_idx+new_step) * s, :] = pypto.add(t0s, t1s)
 
 
-def loop_basic(t0: pypto.Tensor, t1: pypto.Tensor, dynamic: bool = True) -> torch.Tensor:
+@pypto.jit(runtime_options={"run_mode": 1})
+def loop_basic_kernel_sim(t0: pypto.Tensor, t1: pypto.Tensor, out0: pypto.Tensor, out1: pypto.Tensor) -> None:
+    s, n = t0.shape
+    pypto.set_vec_tile_shapes(64, 64)
+    for bs_idx in pypto.loop(0, n, 1): # start, stop, step
+        t0s = t0[bs_idx * s: (bs_idx+1) * s, :]
+        t1s = t1[bs_idx * s: (bs_idx+1) * s, :]
+        out0[bs_idx * s: (bs_idx+1) * s, :] = pypto.add(t0s, t1s)
+    new_step = 2
+    for bs_idx in pypto.loop(0, n, new_step): # start, stop, step
+        t0s = t0[bs_idx * s: (bs_idx+new_step) * s, :]
+        t1s = t1[bs_idx * s: (bs_idx+new_step) * s, :]
+        out1[bs_idx * s: (bs_idx+new_step) * s, :] = pypto.add(t0s, t1s)
+
+
+def loop_basic(t0: pypto.Tensor, t1: pypto.Tensor, run_mode: str = "npu", dynamic: bool = True) -> torch.Tensor:
     y1 = torch.empty_like(t0)
     y2 = torch.empty_like(t0)
 
@@ -79,39 +92,51 @@ def loop_basic(t0: pypto.Tensor, t1: pypto.Tensor, dynamic: bool = True) -> torc
         y2_pto = pypto.from_torch(y2)
 
     # launch the kernel
-    loop_basic_kernel(t0_pto, t1_pto, y1_pto, y2_pto)
+    if run_mode == "npu":
+        loop_basic_kernel_npu(t0_pto, t1_pto, y1_pto, y2_pto)
+    else:
+        loop_basic_kernel_sim(t0_pto, t1_pto, y1_pto, y2_pto)
 
     return y1, y2
 
 
-def test_loop_basic(device_id = None, dynamic: bool = False) -> None:
+def test_loop_basic(device_id = None, run_mode: str = "npu", dynamic: bool = False) -> None:
     """Test basic loop usage."""
     print("=" * 60)
     print("Test: Basic Loop Usage")
     print("=" * 60)
     
-    device_id = torch.npu.current_device()
+    if not device_id:
+        device_id = torch.npu.current_device()
+    else:
+        torch.npu.set_device(device_id)
+    if run_mode == "npu":
+        import torch_npu
+        device = f'npu:{device_id}'
+    else:
+        device = 'cpu'
     
     s, n = 64, 8
     shape = (n * s, s)
-    input_t1 = torch.randn(shape, dtype=torch.float16, device=f'npu:{device_id}')
-    input_t2 = torch.randn(shape, dtype=torch.float16, device=f'npu:{device_id}')
-    output1, output2 = loop_basic(input_t1, input_t2, dynamic)
+    input_t1 = torch.randn(shape, dtype=torch.float16, device=device)
+    input_t2 = torch.randn(shape, dtype=torch.float16, device=device)
+    output1, output2 = loop_basic(input_t1, input_t2, run_mode, dynamic)
 
     # Verify
     expected = input_t1 + input_t2
-    max_diff1 = (output1 - expected).abs().max().item()
-    max_diff2 = (output2 - expected).abs().max().item()
-    equal_output_1_2 = (output1 - output2).abs().max().item() < 1e-6
-    print(f"Whether output1 equals output2: {equal_output_1_2}")
-    assert max_diff1 < 1e-2, "Result mismatch!"
-    assert max_diff2 < 1e-2, "Result mismatch!"
+    if run_mode == "npu":
+        max_diff1 = (output1 - expected).abs().max().item()
+        max_diff2 = (output2 - expected).abs().max().item()
+        equal_output_1_2 = (output1 - output2).abs().max().item() < 1e-6
+        print(f"Whether output1 equals output2: {equal_output_1_2}")
+        assert max_diff1 < 1e-2, "Result mismatch!"
+        assert max_diff2 < 1e-2, "Result mismatch!"
     print("✓ Basic loop usage completed successfully")
     print()
 
 
 @pypto.jit
-def loop_compile_phase_print(in_t0: pypto.Tensor, in_t1: pypto.Tensor, out_t0: pypto.Tensor, out_t1: pypto.Tensor):
+def loop_compile_phase_print_kernel_npu(in_t0: pypto.Tensor, in_t1: pypto.Tensor, out_t0: pypto.Tensor, out_t1: pypto.Tensor) -> None:
     pypto.set_vec_tile_shapes(64, 64)
     NOTE = '''
     Below are demonstrations of print usage within loops. 
@@ -146,39 +171,98 @@ def loop_compile_phase_print(in_t0: pypto.Tensor, in_t1: pypto.Tensor, out_t0: p
     print(SEPARATOR)
 
 
-def test_loop_compile_phase_print():
+@pypto.jit(runtime_options={"run_mode": 1})
+def loop_compile_phase_print_kernel_sim(in_t0: pypto.Tensor, in_t1: pypto.Tensor, out_t0: pypto.Tensor, out_t1: pypto.Tensor) -> None:
+    pypto.set_vec_tile_shapes(64, 64)
+    NOTE = '''
+    Below are demonstrations of print usage within loops. 
+    It executes only during compilation, cannot truly print variable values, 
+    and the number of prints is related to the number of subgraphs generated.
+    '''
+    SEPARATOR = "*" * 60
+    print(NOTE)
+    print(SEPARATOR)
+    cnt_inside_cond = 0
+    cnt_outside_cond = 0
+    for outside_idx in pypto.loop(5):
+        print(f"outside_idx: {outside_idx}")
+        for inside_idx in pypto.loop(3):
+            print(f"inside_idx: {outside_idx}")
+            res = pypto.add(in_t0, in_t0)
+            print(f"res: {res}")
+            if pypto.cond(outside_idx < 3):
+                print(f"pypto.cond(outside_idx < 3)_count: {cnt_outside_cond}")
+                cnt_outside_cond += 1
+                res = pypto.add(in_t0, in_t0)
+            else:
+                res = pypto.sub(in_t0, in_t0)
+            if pypto.cond(inside_idx < 2):
+                print(f"pypto.cond(inside_idx < 2)_count: {cnt_inside_cond}")
+                cnt_inside_cond += 1
+                res = pypto.div(in_t0, in_t0)
+            else:
+                res = pypto.add(in_t1, in_t1)
+            out_t0[:] = pypto.add(in_t0, in_t0)
+            out_t1[:] = pypto.add(in_t1, in_t1)
+    print(SEPARATOR)
+
+
+def loop_compile_phase_print(in_t0: pypto.Tensor, in_t1: pypto.Tensor, run_mode: str = "npu", dynamic: bool = True) -> torch.Tensor:
+    y1 = torch.empty_like(in_t0)
+    y2 = torch.empty_like(in_t1)
+
+    if dynamic:
+        in_t0_pto = pypto.from_torch(in_t0, dynamic_axis=[0])
+        in_t1_pto = pypto.from_torch(in_t1, dynamic_axis=[0])
+        y1_pto = pypto.from_torch(y1, dynamic_axis=[0])
+        y2_pto = pypto.from_torch(y2, dynamic_axis=[0])
+    else:
+        in_t0_pto = pypto.from_torch(in_t0)
+        in_t1_pto = pypto.from_torch(in_t1)
+        y1_pto = pypto.from_torch(y1)
+        y2_pto = pypto.from_torch(y2)
+
+    # launch the kernel
+    if run_mode == "npu":
+        loop_compile_phase_print_kernel_npu(in_t0_pto, in_t1_pto, y1_pto, y2_pto)
+    else:
+        loop_compile_phase_print_kernel_sim(in_t0_pto, in_t1_pto, y1_pto, y2_pto)
+    return y1, y2
+
+
+def test_loop_compile_phase_print(device_id = None, run_mode: str = "npu", dynamic: bool = False) -> None:
     """Test loop compile phase print"""
     print("=" * 60)
     print("Test: Loop Compile Phase Print Feature")
     print("=" * 60)
     
-    device_id = torch.npu.current_device()
+    if not device_id:
+        device_id = torch.npu.current_device()
+    else:
+        torch.npu.set_device(device_id)
+    if run_mode == "npu":
+        import torch_npu
+        device = f'npu:{device_id}'
+    else:
+        device = 'cpu'
     
     m, n = 6, 8
     shape = (m, n)
-    input_t1 = torch.randn(shape, dtype=torch.float16, device=f'npu:{device_id}')
-    input_t2 = torch.randn(shape, dtype=torch.float16, device=f'npu:{device_id}')
-    output_t1 = torch.randn(shape, dtype=torch.float16, device=f'npu:{device_id}')
-    output_t2 = torch.zeros(shape, dtype=torch.float16, device=f'npu:{device_id}')
-    
-    inputs = [input_t1, input_t2]
-    outputs = [output_t1, output_t2]
-    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
-    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
-    print("Note: Multi-layer loops: ops must be included in the innermost loop")
-    loop_compile_phase_print(pypto.from_torch(input_t1, f"IN_0"), pypto.from_torch(input_t2, f"IN_1"), pypto.from_torch(output_t1, f"OUT_0"), pypto.from_torch(output_t2, f"OUT_1"))
-
+    input_t1 = torch.randn(shape, dtype=torch.float16, device=device)
+    input_t2 = torch.randn(shape, dtype=torch.float16, device=device)
+    output_t1, output_t2 = loop_compile_phase_print(input_t1, input_t2, run_mode, dynamic)
     # Verify
     expected_t1 = input_t1 + input_t1
     expected_t2 = input_t2 + input_t2
-    max_diff_t1 = (output_t1 - expected_t1).abs().max().item()
-    max_diff_t2 = (output_t2 - expected_t2).abs().max().item()
-    print(f"Max difference from PyTorch: {max_diff_t1:.6f}")
-    print(f"Max difference from PyTorch: {max_diff_t2:.6f}")
-    assert max_diff_t1 < 1e-2, "Result mismatch!"
-    assert max_diff_t2 < 1e-2, "Result mismatch!"
-    print("✓ Test loop compile phase print completed successfully")
-    print()
+    if run_mode == "npu":
+        max_diff_t1 = (output_t1 - expected_t1).abs().max().item()
+        max_diff_t2 = (output_t2 - expected_t2).abs().max().item()
+        print(f"Max difference from PyTorch: {max_diff_t1:.6f}")
+        print(f"Max difference from PyTorch: {max_diff_t2:.6f}")
+        assert max_diff_t1 < 1e-2, "Result mismatch!"
+        assert max_diff_t2 < 1e-2, "Result mismatch!"
+        print("✓ Test loop compile phase print completed successfully")
+        print()
 
 
 def main():
@@ -211,6 +295,14 @@ Examples:
         action='store_true',
         help='List all available examples and exit'
     )
+    parser.add_argument(
+        '--run_mode',
+        type=str,
+        nargs='?',
+        default="npu",
+        choices=["npu", "sim"],
+        help='Run mode, such as npu/sim etc.'
+    )
     
     args = parser.parse_args()
     
@@ -220,13 +312,11 @@ Examples:
             'name': 'Test basic loop usage',
             'description': 'Basic loop usages example',
             'function': test_loop_basic,
-            'requires_npu': True
         },
         'loop_compile_phase_print::test_loop_compile_phase_print': {
             'name': 'Test loop compile phase print',
             'description': 'Loop compile phase print example',
             'function': test_loop_compile_phase_print,
-            'requires_npu': True
         }
     }
     
@@ -236,9 +326,9 @@ Examples:
         print("Available Examples")
         print("=" * 60 + "\n")
         for ex_id, ex_info in sorted(examples.items()):
-            npu_req = " (Requires NPU)" if ex_info['requires_npu'] else " (No NPU required)"
-            print(f"  {ex_id}. {ex_info['name']}{npu_req}")
-            print(f"     {ex_info['description']}\n")
+            print(f"  ID: {ex_id}")
+            print(f"     name: {ex_info['name']}")
+            print(f"     description: {ex_info['description']}\n")
         return
     
     # Validate example ID if provided
@@ -250,7 +340,7 @@ Examples:
             sys.exit(1)
     
     print("\n" + "=" * 60)
-    print("PyPTO Loop Feature Examples")
+    print("PyPTO Loop Examples")
     print("=" * 60 + "\n")
     
     # Get and validate device ID (needed for NPU examples)
@@ -264,24 +354,18 @@ Examples:
         # Run all examples
         examples_to_run = list(examples.items())
     
-    # Check if any example requires NPU
-    requires_npu = any(ex_info['requires_npu'] for _, ex_info in examples_to_run)
-    
-    if requires_npu:
+    if args.run_mode == "npu":
         device_id = get_device_id()
         if device_id is None:
             return
-        # Set the device once for all examples
         torch.npu.set_device(device_id)
+        print("Running examples that require NPU hardware...")
+        print("(Make sure CANN environment is configured and NPU is available)\n")
     
     try:
         for ex_id, ex_info in examples_to_run:
-            if ex_info['requires_npu'] and device_id is None:
-                print(f"Skipping example {ex_id} ({ex_info['name']}): NPU device not configured")
-                continue
-            
             print(f"Running Example {ex_id}: {ex_info['name']}")
-            ex_info['function']()
+            ex_info['function'](device_id, args.run_mode)
         
         if len(examples_to_run) > 1:
             print("=" * 60)

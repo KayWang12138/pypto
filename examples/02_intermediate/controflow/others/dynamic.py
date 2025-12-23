@@ -188,11 +188,11 @@ def test_dynamic_shape(device_id = None, run_mode: str = "npu", dynamic: bool = 
     for batch_size, seq_len_q, seq_len_kv in test_cases:
         dtype = torch.float32
         q_torch = torch.randn(batch_size, num_heads, seq_len_q, head_dim, 
-                                dtype=dtype, device=f'npu:{device_id}')
+                                dtype=dtype, device=device)
         k_torch = torch.randn(batch_size, num_heads, seq_len_kv, head_dim, 
-                                dtype=dtype, device=f'npu:{device_id}')
+                                dtype=dtype, device=device)
         v_torch = torch.randn(batch_size, num_heads, seq_len_kv, head_dim, 
-                                dtype=dtype, device=f'npu:{device_id}')
+                                dtype=dtype, device=device)
         config = AttentionConfig(num_heads=num_heads, head_dim=head_dim, 
                                 dtype=pypto.DT_FP32, use_dynamic_shape=True)
         params = q_torch.shape

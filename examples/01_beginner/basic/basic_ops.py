@@ -386,7 +386,6 @@ def linear_layer_with_activation_kernel_sim(x: pypto.Tensor, W: pypto.Tensor, b:
 
 
 def linear_layer_with_activation(x: torch.Tensor, W: torch.Tensor, b: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
-    # print("in function")
     y = torch.zeros(x.shape[0], W.shape[1], dtype=x.dtype, device=x.device)
 
     if dynamic:
@@ -426,7 +425,6 @@ def test_combined_operations(run_mode="npu", dynamic: bool = False) -> None:
     x_torch = torch.randn(batch, in_features, dtype=torch.bfloat16, device=device)
     W_torch = torch.randn(in_features, out_features, dtype=torch.bfloat16, device=device)
     b_torch = torch.randn(out_features, dtype=torch.bfloat16, device=device)
-    # print("before y_torch = ")
     y_torch = linear_layer_with_activation(x_torch, W_torch, b_torch, run_mode)
     
     expected = torch.sigmoid(torch.matmul(x_torch, W_torch) + b_torch)

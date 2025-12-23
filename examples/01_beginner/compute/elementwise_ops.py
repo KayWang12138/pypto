@@ -1304,7 +1304,7 @@ def test_sub_with_alpha(run_mode: str = "npu"):
     alpha = 2.0
     expected = torch.tensor([7, 4, 1], dtype=dtype, device=device_desc)
 
-    out = sub_with_alpha_op(a, b, alpha, run_mode, run_mode)
+    out = sub_with_alpha_op(a, b, alpha, run_mode)
     if run_mode == "npu":
         assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
     print(f"Output: {out}")
