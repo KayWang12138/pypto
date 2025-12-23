@@ -39,7 +39,7 @@ Status OoOSchedule::RunOnFunction(Function &function) {
         if (IsAicpuProgram(opList)) {
             continue;
         }
-        OoOScheduler oooSchedule(*program.second);
+        OoOScheduler oooSchedule(*program.second, function.paramConfigs_.combineAxis);
         oooSchedule.oooCheck.doHealthCheck = passDfxconfigs_.healthCheck;
         APASS_LOG_INFO_F(Elements::Operation, "Subgraph[%d] OOOSchedule start.", program.first);
         if (oooSchedule.Schedule(opList) != SUCCESS) { 

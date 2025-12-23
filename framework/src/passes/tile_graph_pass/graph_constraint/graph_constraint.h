@@ -20,5 +20,5 @@
 #include "passes/tile_graph_pass/graph_constraint/pre_graph/pre_graph.h"
 #include "passes/tile_graph_pass/graph_constraint/remove_unaligned_reshape_op.h"
 #include "passes/tile_graph_pass/graph_constraint/infer_dyn_shape.h"
-
+#include "passes/tile_graph_pass/graph_constraint/axis_combine.h"
 #endif

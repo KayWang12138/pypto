@@ -157,6 +157,9 @@ public:
             }
             oss << "]";
             result = oss.str();
+        } else if (it->second.Type() == typeid(std::vector<bool>)) {
+            auto scalarList = npu::tile_fwk::AnyCast<std::vector<bool>>(it->second);
+            result = IntVecToStr<bool>(scalarList);
         } else {
             result += "unsupported type ";
             result += it->second.Type().name();

@@ -94,6 +94,7 @@ void RegPass() {
     REG_PASS(InferDiscontinuousInput);
     REG_PASS(MixSubgraphSplit);
     REG_PASS(DuplicateOp);
+    REG_PASS(AxisCombine);
 }
 
 void PassManager::RegDefaultStrategy() {
@@ -120,6 +121,7 @@ void PassManager::RegDefaultStrategy() {
             {     "IntraSubgraphAdapter",     "IntraSubgraphAdapter"},
             {           "GenerateMoveOp",           "GenerateMoveOp"},
             { "CommonOperationEliminate", "CommonOperationEliminate"},
+            {              "AxisCombine",              "AxisCombine"},
             {           "PadLocalBuffer",           "PadLocalBuffer"},
             {   "RemoveUnalignedReshape",   "RemoveUnalignedReshape"},
             {          "ReplaceTensor",              "ReplaceTensor"},

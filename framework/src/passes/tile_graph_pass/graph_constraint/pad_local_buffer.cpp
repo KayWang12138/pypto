@@ -35,7 +35,9 @@ constexpr int64_t CUBE_PAD_VALUE = 16;
 constexpr int64_t CUBE_PAD_INT8_VALUE = 32;
 const std::vector<bool> AXIS_COMBINED = {true};
 const std::vector<bool> BROADCAST_AXIS_COMBINED = {true, true};
-
+const Opcode BRCB = Opcode::OP_BRCB;
+const int64_t BRCB_SECOND_LAST_BASE = 8;
+const size_t LAST_SECOND_AXIS = 2;
 int64_t Pad(int64_t dim, int64_t padValue) {
     return (dim + padValue - 1) / padValue * padValue;
 }
@@ -351,6 +353,7 @@ void PadLocalBuffer::ProcessBroadcast(Operation &op, size_t blockPadding) {
     }
 }
 
+
 void PadLocalBuffer::ProcessCopyIn(Function &function, Operation &op) {
     // 轴的数量必须大于等于2，并且倒数第二根轴为32B对齐，否则无法命中pattern
     std::vector<bool> axisCombined(op.GetOOperands().size(), false);
@@ -402,11 +405,15 @@ void PadLocalBuffer::DoPadding(Function &function) {
             if (in->tensor->GetRawDataSize() == 0) {
                 continue;
             }
-            bool noPadding = false;
-            if ((inputAxis.size() > i) && inputAxis[i]) {
-                noPadding = true;
+            if (function.paramConfigs_.combineAxis) {
+                PadVectorForAxisCombine(op, in, visitedRaw);
+            } else {
+                bool noPadding = false;
+                if ((inputAxis.size() > i) && inputAxis[i]) {
+                    noPadding = true;
+                }
+                PadVector(op, in, visitedRaw, noPadding);
             }
-            PadVector(op, in, visitedRaw, noPadding);
         }
     }
 }
@@ -469,7 +476,92 @@ inline bool IsCopyIn(Operation& op) {
     return true;
 }
 
+int64_t PadLocalBuffer::ProcessBroadcastForAxisCombine(Operation &op, size_t blockPadding) {
+    int64_t maxLastAxis = 0;
+    size_t dimSize = 0;
+    bool existLargeBlock = true;
+    for (const auto &in : op.iOperand) {
+        dimSize = std::max(dimSize, in->shape.size());
+        if (in->shape.back() < static_cast<int>(blockPadding)) {
+            existLargeBlock = false;
+        }
+        maxLastAxis = std::max(maxLastAxis, in->shape.back());
+    }
+    if (maxLastAxis == 1 && dimSize > 1) {
+        return (dimSize - LAST_SECOND_AXIS);
+    }
+    if (existLargeBlock) {
+        return -1;
+    }
+    return (dimSize - 1);
+}
+
+void PadLocalBuffer::PadVectorForAxisCombine(Operation &op, LogicalTensorPtr &in, std::unordered_set<std::shared_ptr<RawTensor>> &visitedRaw) {
+    if (in->shape.empty()) {
+        APASS_LOG_ERROR_F(Elements::Operation, "Vector Op %d %s input %d shape size is less than 2; Please check the input size. %s", op.opmagic, op.GetOpcodeStr().c_str(), in->magic, GetFormatBacktrace(op).c_str());
+        return;
+    }
+    if (visitedRaw.count(in->tensor)) {
+        return;
+    }
+    visitedRaw.emplace(in->tensor);
+    OpCalcType calcType = OpcodeManager::Inst().GetOpCalcType(op.GetOpcode());
+    size_t paddingValue = GetPaddingValue(in);
+    size_t lastIdx = in->shape.size() - 1;
+    in->oriShape = in->shape;
+    in->tensor->oriRawshape = in->tensor->rawshape;
+    auto producerOp = *(in->GetProducers().begin());
+    if (producerOp->GetOpcode() == BRCB) {
+        if (lastIdx == 0 && in->tensor->rawshape[lastIdx] != 1) {
+            return;
+        }
+        int64_t secondLastDim = Pad(in->tensor->rawshape[lastIdx - 1], BRCB_SECOND_LAST_BASE);
+        in->tensor->rawshape[lastIdx - 1] = secondLastDim;
+    }
+    if (calcType == OpCalcType::REDUCE) {
+        int64_t shapeAfterPad = Pad(in->tensor->rawshape[lastIdx], paddingValue);
+        in->tensor->rawshape[lastIdx] = shapeAfterPad;
+        return;
+    }
+    if (op.GetOpcode() == BRCB) {
+        if (lastIdx == 0 && in->tensor->rawshape[lastIdx] != 1) {
+            return;
+        }
+        int64_t secondLastDim = Pad(in->tensor->rawshape[lastIdx - 1], BRCB_SECOND_LAST_BASE);
+        in->tensor->rawshape[lastIdx - 1] = secondLastDim;
+        for (auto &out : op.GetOOperands()) {
+            int64_t outSecondLastDim = Pad(out->tensor->rawshape[lastIdx - 1], BRCB_SECOND_LAST_BASE);
+            int64_t outLastDim = Pad(out->tensor->rawshape[lastIdx], paddingValue);
+            out->tensor->rawshape[lastIdx - 1] = outSecondLastDim;
+            out->tensor->rawshape[lastIdx] = outLastDim;
+            visitedRaw.emplace(out->tensor);
+        }
+    }
+    if (calcType == OpCalcType::BROADCAST) {
+        auto dimIdx = ProcessBroadcastForAxisCombine(op, paddingValue);
+        if (dimIdx < 0) {
+            return;
+        }
+        in->tensor->rawshape[dimIdx] = Pad(in->tensor->rawshape[dimIdx], paddingValue);
+        return;
+    }
+    if (calcType == OpCalcType::ELMWISE || calcType == OpCalcType::MOVE_IN || calcType == OpCalcType::MOVE_OUT) {
+        if (lastIdx > 0 && in->tensor->rawshape[lastIdx] == 1) {
+            int64_t lastDim = Pad(in->tensor->rawshape[lastIdx - 1], paddingValue);
+            in->tensor->rawshape[lastIdx - 1] = lastDim;
+            return;
+        }
+    }
+    int64_t lastDim = static_cast<int64_t>(in->tensor->rawshape[lastIdx]);
+    int64_t shapeAfterPad = Pad(lastDim, paddingValue);
+    in->tensor->rawshape[lastIdx] = shapeAfterPad;
+}
+
 Status PadLocalBuffer::RunOnFunction(Function &function) {
+    if (function.paramConfigs_.combineAxis) {
+        DoPadding(function);
+        return SUCCESS;
+    }
     for (auto &op : function.Operations()) {
         auto calcType = OpcodeManager::Inst().GetOpCalcType(op.GetOpcode());
         // 尾轴Reduce且倒数第二根轴32B对齐的op起始的链路上的op不做padding，以节省UB空间

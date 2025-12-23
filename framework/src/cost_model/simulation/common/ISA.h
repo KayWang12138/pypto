@@ -102,6 +102,7 @@ const std::map<std::string, CorePipeType> SCHED_CORE_PIPE_TYPE { // Unary Vector
     {"ROW_SUM_EXPAND", CorePipeType::PIPE_VECTOR_ALU},
     {"ROW_MAX_EXPAND", CorePipeType::PIPE_VECTOR_ALU},
     {"SCATTERUPDATE", CorePipeType::PIPE_VECTOR_ALU},
+    {"BRCB", CorePipeType::PIPE_VECTOR_ALU},
     // Range
     {"RANGE", CorePipeType::PIPE_VECTOR_ALU},
     // Cube

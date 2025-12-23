@@ -18,6 +18,8 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "passes/tile_graph_pass/graph_constraint/pad_local_buffer.h"
+#include "passes/tile_graph_pass/graph_constraint/axis_combine.h"
+#include "computational_graph_builder.h"
 #include "passes/pass_mgr/pass_manager.h"
 #include "interface/configs/config_manager.h"
 #include <nlohmann/json.hpp>
@@ -26,7 +28,13 @@
 #include <string>
 
 using namespace npu::tile_fwk;
-
+const Opcode BRCB = Opcode::OP_BRCB;
+std::string brcb_prefix = "brcb_idx";
+constexpr size_t K_1 = 1;
+constexpr size_t K_4 = 4;
+constexpr size_t K_8 = 8;
+constexpr size_t K_64 = 64;
+constexpr size_t K_128 = 128;
 class TestPadLocalBuffer : public ::testing::Test {
 public:
     static void SetUpTestCase() {}
@@ -913,7 +921,7 @@ TEST_F(TestPadLocalBuffer, reduce_last_dim_with_transpose) {
     std::vector<int64_t> trans_shape = {6, 16};
     std::vector<int64_t> expect_trans_shape = {8, 16};
     ConstructGraph9(currFunctionPtr);
-    PadLocalBuffer padLocalBufferTest("PadLocalBuffer",true);
+    PadLocalBuffer padLocalBufferTest("PadLocalBuffer", true);
     padLocalBufferTest.RunOnFunction(*currFunctionPtr);
     for (auto &op : currFunctionPtr->Operations()) {
         if (op.GetOpcode() == Opcode::OP_TRANSPOSE_VNCHWCONV) {
@@ -941,4 +949,36 @@ TEST_F(TestPadLocalBuffer, reduce_last_dim_with_transpose) {
             }
         }
     }
+}
+
+TEST_F(TestPadLocalBuffer, axiscombine) {
+    ComputationalGraphBuilder graph;
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {4,127}, "t1"), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {4,1}, "t2"), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {4,127}, "t3"), true);
+    EXPECT_EQ(graph.AddOp(Opcode::OP_ADD, {"t1","t2"}, {"t3"}, "add", true), true);
+    auto *rootFuncPtr = graph.GetFunction();
+    rootFuncPtr->paramConfigs_.combineAxis = true;
+    AxisCombine pass;
+    EXPECT_EQ(pass.RunOnFunction(*rootFuncPtr), SUCCESS);
+    PadLocalBuffer padLocalBufferTest;
+    padLocalBufferTest.RunOnFunction(*rootFuncPtr);
+    // ================== Verify Pass Effect ==================
+    auto updatedOperations = rootFuncPtr->Operations();
+    int64_t cnt = 0;
+    for (const auto &op : updatedOperations) {
+        if (op.GetOpcode() == BRCB) {
+            ++cnt;
+            if (op.HasAttr(brcb_prefix)) {
+                auto idx = op.GetIntAttribute(brcb_prefix) - 1;
+                auto tensor = op.GetIOperands()[idx];
+                EXPECT_TRUE(tensor != nullptr);
+                EXPECT_EQ(tensor->shape[0], K_4);
+                EXPECT_EQ(tensor->shape[1], K_8);
+                EXPECT_EQ(tensor->GetRawTensor()->GetRawShape()[0], K_8);
+                EXPECT_EQ(tensor->GetRawTensor()->GetRawShape()[1], K_8);
+            }
+        }
+    }
+    EXPECT_EQ(cnt, K_1);
 }

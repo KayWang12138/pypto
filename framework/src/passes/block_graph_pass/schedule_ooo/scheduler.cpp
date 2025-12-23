@@ -697,6 +697,19 @@ void OoOScheduler::InitLocalBuffer(LogicalTensorPtr oOperand, int memId) {
     }
 }
 
+void OoOScheduler::InitLocalBufferForAxisCombine(LogicalTensorPtr oOperand, int memId) {
+    if (oOperand->GetMemoryTypeOriginal() >= MemoryType::MEM_DEVICE_DDR) {
+        return;
+    }
+    if (localBufferMap.find(memId) == localBufferMap.end()) {
+        localBufferMap[memId] = std::make_shared<LocalBuffer>(
+            memId, ShapeCeilAlign(oOperand->tensor->rawshape, oOperand->Datatype()), oOperand->GetMemoryTypeOriginal());
+    } else {
+        localBufferMap[memId]->size =
+            std::max(localBufferMap[memId]->size, ShapeCeilAlign(oOperand->tensor->rawshape, oOperand->Datatype()));
+    }
+}
+
 void OoOScheduler::UpdateBufRefCount(IssueEntryPtr issue, LogicalTensorPtr tensor) {
     int memId = tensor->memoryrange.memId;
     if (tensor->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
@@ -715,7 +728,11 @@ void OoOScheduler::InitBufRefCount() {
         for (auto &tensor : issue->tileOp.GetOOperands()) {
             UpdateBufRefCount(issue, tensor);
             int memId = tensor->memoryrange.memId;
-            InitLocalBuffer(tensor, memId);
+            if (isCombineAxis_) {
+               InitLocalBufferForAxisCombine(tensor, memId);
+            } else {
+                InitLocalBuffer(tensor, memId);
+            }
         }
     }
 }

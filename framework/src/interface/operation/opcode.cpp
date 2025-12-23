@@ -94,6 +94,7 @@ OpcodeManager::OpcodeManager() {
     registerInfo(Opcode::OP_ABS, OpCoreType::AIV, "ABS", {MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::Tabs", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE, {OpAttributeKey::inputCombineAxis, OpAttributeKey::outputCombineAxis}, TileShapeVerifier::Verify);
     registerInfo(Opcode::OP_LN, OpCoreType::AIV, "LN", {MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::Tln", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE, {OpAttributeKey::inputCombineAxis, OpAttributeKey::outputCombineAxis}, TileShapeVerifier::Verify);
     registerInfo(Opcode::OP_HUB, OpCoreType::HUB, "HUB", {MemoryType::MEM_DEVICE_DDR}, {MemoryType::MEM_DEVICE_DDR}, {"TileOp::Thub", PIPE_V, PIPE_V, CoreType::HUB}, OpCalcType::ELMWISE, {OpAttributeKey::inplaceInfo});
+    registerInfo(Opcode::OP_BRCB, OpCoreType::AIV, "BRCB", {MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::Tbrcb", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE, {OpAttributeKey::inputCombineAxis, OpAttributeKey::outputCombineAxis}, TileShapeVerifier::Verify);
 
     registerInfo(Opcode::OP_TRANSPOSE_MOVEIN, OpCoreType::ANY, "TRANSPOSE_MOVEIN",
         {MemoryType::MEM_DEVICE_DDR}, {MemoryType::MEM_UB}, {"TileOp::TtransposeMoveIn", PIPE_MTE2, PIPE_MTE2, CoreType::AIV}, OpCalcType::MOVE_IN, {OP_ATTR_PREFIX + "shape"}, TileShapeVerifier::Verify);

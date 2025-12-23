@@ -11,7 +11,8 @@
         "sg_cube_parallel_num": 24,
         "pg_skip_partition": false,
         "copyout_resolve_coalescing": 0,
-        "sg_set_scope": -1
+        "sg_set_scope": -1,
+        "combine_axis": false
     },
     "runtime": {
         "device_sched_mode": 0,

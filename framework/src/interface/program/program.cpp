@@ -186,6 +186,7 @@ void SetParamConfig(Function* currentFunctionPtr_) {
     currentFunctionPtr_->paramConfigs_.mgVecParallelLb = currentScope->GetPassConfig<int>(MG_VEC_PARALLEL_LB);
     currentFunctionPtr_->paramConfigs_.pgSkipPartition = currentScope->GetPassConfig<bool>(PG_SKIP_PARTITION);
     currentFunctionPtr_->paramConfigs_.copyOutResolveCoalescing = currentScope->GetPassConfig<int>(COPYOUT_RESOLVE_COALESCING);
+    currentFunctionPtr_->paramConfigs_.combineAxis = currentScope->GetPassConfig<bool>(COMBINE_AXIS);
 }
 
 #if ENABLE_HIDDENLOOP

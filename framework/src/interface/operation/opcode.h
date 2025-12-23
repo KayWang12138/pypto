@@ -64,6 +64,7 @@ enum class Opcode {
     OP_ABS,
     OP_LN,
     OP_HUB,
+    OP_BRCB,
     // Binary Vector
     OP_ADD,
     OP_SUB,

@@ -52,7 +52,6 @@
                     "minimum": 0,
                     "maximum": 2147483647
                 },
-                "ooo_preschedule_method": {"type": "string"},
                 "vec_nbuffer_mode": {
                     "type": "integer",
                     "minimum": 0,
@@ -86,7 +85,8 @@
                     "type": "integer",
                     "minimum": -1,
                     "maximum": 2147483647
-                }
+                },
+                "combine_axis": {"type": "boolean"}
             }
         },
         "runtime": {

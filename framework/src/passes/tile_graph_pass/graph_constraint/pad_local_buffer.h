@@ -51,10 +51,12 @@ private:
     void ProcessReduce(Function &function, Operation &op);
     void ProcessBroadcast(Operation &op, size_t blockPadding);
     void ProcessCopyIn(Function &function, Operation &op);
+    Status ProcessTranspose(Function &function);
+    void PadVectorForAxisCombine(Operation &op, LogicalTensorPtr &in, std::unordered_set<std::shared_ptr<RawTensor>> &visitedRaw);
+    int64_t ProcessBroadcastForAxisCombine(Operation &op, size_t blockPadding);
     bool IsMatmul(const LogicalTensorPtr &tensor) const;
     bool IsVector(const LogicalTensorPtr &tensor);
     void DoPadding(Function &function);
-    Status ProcessTranspose(Function &function);
     bool IsInputInt8(const Operation &op, const LogicalTensorPtr &in) const;
     bool processTranspose_;
     std::unordered_map<int64_t, int64_t> broadcastLastAxis_;

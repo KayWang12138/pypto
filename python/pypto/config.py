@@ -83,6 +83,7 @@ def set_pass_options(*,
                      cube_nbuffer_setting: Optional[Dict[int, int]] = None,
                      mg_copyin_upper_bound: Optional[int] = None,
                      sg_set_scope: Optional[int] = None,
+                     combine_axis: Optional[bool] = None,
                      ) -> None:
     """
     Set pass options.
@@ -136,6 +137,8 @@ def set_pass_options(*,
 
     mg_copyin_upper_bound : int
         Merged graph parameter, used to configure the merged graph size.
+    combine_axis : bool
+        Whether to skip the combine axis process.
     """
     _pto_options.set_options("pass", locals())
 

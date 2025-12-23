@@ -178,6 +178,7 @@ private:
     void AddDependency(IssueEntryPtr preIssue, IssueEntryPtr postIssue, bool isAlloc);
     Status InitAllocDependencies(IssueEntryPtr issue, std::map<int, IssueEntryPtr> tensor2AllocMap);
     void InitLocalBuffer(LogicalTensorPtr oOperand, int memId);
+    void InitLocalBufferForAxisCombine(LogicalTensorPtr oOperand, int memId);
     void InitBufRefCount();
     void UpdateBufRefCount(IssueEntryPtr issue, LogicalTensorPtr tensor);
     Status CheckAllocIssue();
@@ -324,12 +325,13 @@ private:
 
 public:
     Status Schedule(const std::vector<Operation *> &operations);
-    OoOScheduler(Function &function) : function_(function) {}
+    OoOScheduler(Function &function, bool combineAxis=false) : function_(function), isCombineAxis_(combineAxis) {}
 
     std::vector<Operation *> GetNewOperations() { return newOperations_; }
     int workspaceOffset{0};
     int clock{0};
     OoOSchedulerCheck oooCheck;
+    bool isCombineAxis_{false};
 };
 } // namespace npu::tile_fwk
 #endif // PASS_SCHEDULER_H

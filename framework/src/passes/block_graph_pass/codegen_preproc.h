@@ -39,6 +39,7 @@ private:
     Status SaveGmTensorParamIdxToOp(Function &func) const;
     // force combine axis
     Status ForceCombineAxis(Function &func) const;
+    Status ForceCombineAxisForAxisCombine(Function &func) const;
     bool IsNeedSave(const Operation &op) const;
     void CombineTailAxis(std::vector<int64_t> &shape, size_t shapeSize) const;
     void CombineLastAxis(std::vector<SymbolicScalar> &shape, size_t shapeSize) const;
