@@ -146,7 +146,7 @@ def set_cube_tile_shapes(m: List[int], k: List[int], n: List[int], set_l1_tile: 
     pypto_impl.SetCubeTile(m, k, n, set_l1_tile, enable_split_k)
 
 
-def get_cube_tile_shapes() -> Tuple[List[int], List[int], List[int], bool]:
+def get_cube_tile_shapes() -> Tuple[List[int], List[int], List[int], bool, bool]:
     """ get the tile shapes in cube computation
 
     This operation gets the value of the tile shapes
@@ -155,7 +155,7 @@ def get_cube_tile_shapes() -> Tuple[List[int], List[int], List[int], bool]:
 
     Returns
     -------
-    return List[Union[List, bool]]
+    return List[Union[List, bool, bool]]
     The list includes the tile shape information of both left and
     right matrix, together with the cache level (L1/L0).
 
@@ -163,7 +163,7 @@ def get_cube_tile_shapes() -> Tuple[List[int], List[int], List[int], bool]:
     --------
     >>> pypto.set_cube_tile_shapes([16, 16], [256, 512], [128, 128], True)
     >>> print(pypto.get_cube_tile_shapes())
-    [[16, 16], [256, 512], [128, 128], True]
+    [[16, 16], [256, 512], [128, 128], True, False]
 
     """
     # implementation

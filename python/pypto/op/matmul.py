@@ -101,12 +101,24 @@ def matmul(
     extend_params = {'bias_tensor': bias}
     pto.matmul(a, b, pto.DT_BF16, a_trans=False, b_trans=False, c_matrix_nz=False, extend_params=extend_params)
 
-    # matrix multiplication with dequantization
+    # matrix multiplication with dequantization(scale)
     a = pto.tensor((16, 32), pto.DT_INT8, "tensor_a")
     b = pto.tensor((32, 64), pto.DT_INT8, "tensor_b")
     extend_params = {'scale': 0.2}
     pto.matmul(a, b, pto.DT_BF16, a_trans=False, b_trans=False, c_matrix_nz=False, extend_params=extend_params)
 
+    # matrix multiplication with dequantization(scale && relu)
+    a = pto.tensor((16, 32), pto.DT_INT8, "tensor_a")
+    b = pto.tensor((32, 64), pto.DT_INT8, "tensor_b")
+    extend_params = {'scale': 0.2, 'relu_type': pypto.ReLuType.RELU}
+    pto.matmul(a, b, pto.DT_BF16, a_trans=False, b_trans=False, c_matrix_nz=False, extend_params=extend_params)
+
+    # matrix multiplication with dequantization(scale_tensor && relu)
+    a = pto.tensor((16, 32), pto.DT_INT8, "tensor_a")
+    b = pto.tensor((32, 64), pto.DT_INT8, "tensor_b")
+    scale_tensor = pto.tensor((1, 64), pto.DT_UINT64, "tensor_scale")
+    extend_params = {'scale_tensor': scale_tensor, 'relu_type': pypto.ReLuType.RELU}
+    pto.matmul(a, b, pto.DT_BF16, a_trans=False, b_trans=False, c_matrix_nz=False, extend_params=extend_params)
     """
     input_dim = input.Dim()
     mat2_dim = mat2.Dim()
