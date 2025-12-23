@@ -149,4 +149,16 @@ TEST_F(DynamicMatmulUTest, mm_A_B_ND_pertensor) {
     TestDynMatmul<TestMatmulType> (m, k, n, param);
 }
 
+TEST_F(DynamicMatmulUTest, mm_A_B_ND_perchannel_with_bias) {
+    int m = 128;
+    int n = 512;
+    int k = 256;
+    TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
+    Matrix::MatmulExtendParam param;
+    param.biasTensor = Tensor(DT_INT32, {1, n}, "bias_tensor", TileOpFormat::TILEOP_ND);
+    param.scaleTensor = Tensor(DT_UINT64, {1, n}, "scale_tensor", TileOpFormat::TILEOP_ND);
+    using TestMatmulType = MatmulImpl<int8_t, npu::tile_fwk::float16, MatrixInputs<false, false, false, false, false>>;
+    TestDynMatmul<TestMatmulType> (m, k, n, param);
+}
+
 } // namespace

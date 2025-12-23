@@ -263,6 +263,9 @@ void ExtendTileOprandInputs(
     matmulInputs.bTensorPtr = operandVec[1];
     if (params.hasBias) {
         matmulInputs.biasTensorPtr = operandVec[SHAPE_DIM2];
+        if (params.hasScale) {
+            matmulInputs.scaleTensorPtr = operandVec[SHAPE_DIM3];
+        }
     } else if (params.hasScale) {
         matmulInputs.scaleTensorPtr = operandVec[SHAPE_DIM2];
     } else if (operandVec.size() == GMACC) {
