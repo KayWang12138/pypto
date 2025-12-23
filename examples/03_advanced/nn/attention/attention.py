@@ -27,7 +27,6 @@ import sys
 import argparse
 import pypto
 import torch
-import torch_npu
 import numpy as np
 from numpy.testing import assert_allclose
 from dataclasses import dataclass
@@ -105,7 +104,7 @@ def scaled_dot_product_attention_core(q: pypto.Tensor, k: pypto.Tensor, v: pypto
 @pypto.jit(
     host_options={"only_codegen": True},
 )
-def scaled_dot_product_attention_kernel(q: torch.Tensor, k: torch.Tensor, 
+def scaled_dot_product_attention_kernel_npu(q: torch.Tensor, k: torch.Tensor, 
                                  v: torch.Tensor, y: torch.Tensor, params: torch.Size, 
                                  config: AttentionConfig):
     """Scaled dot-product attention with dynamic batch and sequence lengths."""       
@@ -125,10 +124,34 @@ def scaled_dot_product_attention_kernel(q: torch.Tensor, k: torch.Tensor,
         res = scaled_dot_product_attention_core(q_view, k_view, v_view, scale, config.dtype)
         y[bs_idx * view_shape[0]:, ...] = res
             
-            
+@pypto.jit(
+    host_options={"only_codegen": True},
+    codegen_options={"support_dynamic_unaligned": True},
+    runtime_options={"run_mode" : 1}
+)
+def scaled_dot_product_attention_kernel_sim(q: torch.Tensor, k: torch.Tensor, 
+                                 v: torch.Tensor, y: torch.Tensor, params: torch.Size, 
+                                 config: AttentionConfig):
+    """Scaled dot-product attention with dynamic batch and sequence lengths."""       
+    batch_size, num_heads, seq_len, head_dim = params
+
+    # Calculate scale
+    scale = config.scale if config.scale is not None else (1.0 / (config.head_dim ** 0.5))
+    cube_tiling = 64
+    pypto.set_cube_tile_shapes([cube_tiling, cube_tiling], [cube_tiling, cube_tiling], [cube_tiling, cube_tiling])
+    view_shape = (batch_size, num_heads, seq_len, head_dim)
+    bs_loop = (batch_size + view_shape[0] - 1) // view_shape[0]
+    for bs_idx in pypto.loop(bs_loop):
+        q_view = q[bs_idx * view_shape[0]:(bs_idx+1) * view_shape[0], ...]
+        k_view = k[bs_idx * view_shape[0]:(bs_idx+1) * view_shape[0], ...]
+        v_view = v[bs_idx * view_shape[0]:(bs_idx+1) * view_shape[0], ...]
+        pypto.set_vec_tile_shapes(1, 8, 16, 64) 
+        res = scaled_dot_product_attention_core(q_view, k_view, v_view, scale, config.dtype)
+        y[bs_idx * view_shape[0]:, ...] = res
+
 def scaled_dot_product_attention(q: torch.Tensor, k: torch.Tensor, 
                                  v: torch.Tensor, params: torch.Size, 
-                                 config: AttentionConfig, dynamic: bool = True) -> torch.Tensor:
+                                 config: AttentionConfig, run_mode: str = "npu", dynamic: bool = True) -> torch.Tensor:
     y = torch.empty_like(q)
 
     if dynamic:
@@ -143,18 +166,27 @@ def scaled_dot_product_attention(q: torch.Tensor, k: torch.Tensor,
         y_pto = pypto.from_torch(y)
 
     # launch the kernel
-    scaled_dot_product_attention_kernel(q_pto, k_pto, v_pto, y_pto, params, config)
-
+    if run_mode == "npu":
+        scaled_dot_product_attention_kernel_npu(q_pto, k_pto, v_pto, y_pto, params, config)
+    else:
+        scaled_dot_product_attention_kernel_sim(q_pto, k_pto, v_pto, y_pto, params, config)
     return y
 
-
-def test_attention_dynamic(device_id = None, dynamic: bool = True) -> None:
+def test_attention_dynamic(device_id = None, run_mode: str = "npu", dynamic: bool = True) -> None:
     """Test attention function with dynamic shapes."""
     print("=" * 60)
     print("Test: Dynamic Scaled Dot-Product Attention")
     print("=" * 60)
     
-    device_id = torch.npu.current_device()
+    if not device_id:
+        device_id = torch.npu.current_device()
+    else:
+        torch.npu.set_device(device_id)
+    if run_mode == "npu":
+        import torch_npu
+        device = f'npu:{device_id}'
+    else:
+        device = 'cpu'
     
     num_heads, head_dim = 8, 64
     
@@ -167,16 +199,16 @@ def test_attention_dynamic(device_id = None, dynamic: bool = True) -> None:
     for batch_size, seq_len_q, seq_len_kv in test_cases:
         dtype = torch.float32
         q_torch = torch.randn(batch_size, num_heads, seq_len_q, head_dim, 
-                                dtype=dtype, device=f'npu:{device_id}')
+                                dtype=dtype, device=device)
         k_torch = torch.randn(batch_size, num_heads, seq_len_kv, head_dim, 
-                                dtype=dtype, device=f'npu:{device_id}')
+                                dtype=dtype, device=device)
         v_torch = torch.randn(batch_size, num_heads, seq_len_kv, head_dim, 
-                                dtype=dtype, device=f'npu:{device_id}')
+                                dtype=dtype, device=device)
         config = AttentionConfig(num_heads=num_heads, head_dim=head_dim, 
                                 dtype=pypto.DT_FP32, use_dynamic_shape=True)
         params = q_torch.shape
         # Execute
-        out_torch = scaled_dot_product_attention(q_torch, k_torch, v_torch, params, config, dynamic).cpu()
+        out_torch = scaled_dot_product_attention(q_torch, k_torch, v_torch, params, config, run_mode, dynamic).cpu()
         
         # Verify
         scale = 1.0 / (head_dim ** 0.5)
@@ -215,7 +247,7 @@ def attention_with_projection_core(q_view: pypto.Tensor, k_view: pypto.Tensor,
 
 
 @pypto.jit
-def attention_with_projection_kernel(hidden_states, q_weight, k_weight, v_weight, 
+def attention_with_projection_kernel_npu(hidden_states, q_weight, k_weight, v_weight, 
                                      out_weight, out, config: AttentionConfig):
     """Complete attention with input projection (Q, K, V from hidden states)."""
     batch_size = hidden_states.shape[0]
@@ -253,11 +285,49 @@ def attention_with_projection_kernel(hidden_states, q_weight, k_weight, v_weight
                                                v_view, out_weight,
                                                scale, config.dtype)
 
+@pypto.jit(runtime_options={"run_mode" : 1})
+def attention_with_projection_kernel_sim(hidden_states, q_weight, k_weight, v_weight, 
+                                     out_weight, out, config: AttentionConfig):
+    """Complete attention with input projection (Q, K, V from hidden states)."""
+    batch_size = hidden_states.shape[0]
+    seq_len = hidden_states.shape[1]
+    hidden_size = hidden_states.shape[2]
+    view_shape = (batch_size, config.num_heads, seq_len, config.head_dim)
+    bs_loop = (batch_size + view_shape[0] - 1) // view_shape[0]
+    # Configure tiling
+    cube_tiling = 64
+    scale = config.scale if config.scale is not None else (1.0 / (config.head_dim ** 0.5))
+    pypto.set_cube_tile_shapes([cube_tiling, cube_tiling], [cube_tiling, cube_tiling], [cube_tiling, cube_tiling])
+    pypto.set_vec_tile_shapes(1, 16, 8, config.head_dim)
+    for bs_idx in pypto.loop(bs_loop, name="LOOP_L0", idx_name="bs_idx", unroll_List={1}):
+        q_flat = pypto.matmul(hidden_states, q_weight, out_dtype=config.dtype)
+        k_flat = pypto.matmul(hidden_states, k_weight, out_dtype=config.dtype)
+        v_flat = pypto.matmul(hidden_states, v_weight, out_dtype=config.dtype)
+
+        # Reshape to multi-head format
+        q = pypto.reshape(q_flat, [batch_size, seq_len, config.num_heads, config.head_dim])
+        k = pypto.reshape(k_flat, [batch_size, seq_len, config.num_heads, config.head_dim])
+        v = pypto.reshape(v_flat, [batch_size, seq_len, config.num_heads, config.head_dim])
+        
+        # Transpose for attention: [batch, num_heads, seq_len, head_dim]
+        q = pypto.transpose(q, 1, 2)
+        k = pypto.transpose(k, 1, 2)
+        v = pypto.transpose(v, 1, 2)
+
+        offsets = [bs_idx * view_shape[0], 0, 0, 0]
+        q_view = pypto.view(q, view_shape, offsets)
+        k_view = pypto.view(k, view_shape, offsets)
+        v_view = pypto.view(v, view_shape, offsets)
+        out[bs_idx * view_shape[0]: (bs_idx+1) * view_shape[0],
+            :seq_len, :(config.num_heads*config.head_dim)] = \
+                attention_with_projection_core(q_view, k_view,
+                                               v_view, out_weight,
+                                               scale, config.dtype)
 
 def attention_with_projection(hidden_states: torch.Tensor, q_weight: torch.Tensor, 
                             k_weight: torch.Tensor, v_weight: torch.Tensor, 
                             out_weight: torch.Tensor, config: AttentionConfig, 
-                            dynamic: bool = True) -> torch.Tensor:
+                            run_mode: str = "npu", dynamic: bool = True) -> torch.Tensor:
     y = torch.empty_like(hidden_states)
 
     if dynamic:
@@ -276,43 +346,54 @@ def attention_with_projection(hidden_states: torch.Tensor, q_weight: torch.Tenso
         y_pto = pypto.from_torch(y)
 
     # launch the kernel
-    attention_with_projection_kernel(hidden_states_pto, q_weight_pto,
+    if run_mode == "npu":
+        attention_with_projection_kernel_npu(hidden_states_pto, q_weight_pto,
                                      k_weight_pto, v_weight_pto,
                                      out_weight_pto, y_pto, config)
-
+    else:
+        attention_with_projection_kernel_sim(hidden_states_pto, q_weight_pto,
+                                     k_weight_pto, v_weight_pto,
+                                     out_weight_pto, y_pto, config)
     return y
 
-
-def test_attention_with_projection(device_id = None, dynamic: bool = False) -> None:
+def test_attention_with_projection(device_id = None, run_mode: str = "npu", dynamic: bool = False) -> None:
     """Test complete attention with input/output projections."""
     print("=" * 60)
     print("Test: Attention with Projections")
     print("=" * 60)
 
-    device_id = torch.npu.current_device()
+    if not device_id:
+        device_id = torch.npu.current_device()
+    else:
+        torch.npu.set_device(device_id)
+    if run_mode == "npu":
+        import torch_npu
+        device = f'npu:{device_id}'
+    else:
+        device = 'cpu'
 
     batch_size, seq_len, hidden_size = 2, 32, 512
     num_heads, head_dim = 8, 64
 
     # Create tensors
     hidden_states = torch.randn(batch_size, seq_len, hidden_size,
-                               dtype=torch.float32, device=f'npu:{device_id}')
+                               dtype=torch.float32, device=device)
     q_weight = torch.randn(1, hidden_size, num_heads * head_dim,
-                          dtype=torch.float32, device=f'npu:{device_id}')
+                          dtype=torch.float32, device=device)
     k_weight = torch.randn(1, hidden_size, num_heads * head_dim,
-                          dtype=torch.float32, device=f'npu:{device_id}')
+                          dtype=torch.float32, device=device)
     v_weight = torch.randn(1, hidden_size, num_heads * head_dim,
-                          dtype=torch.float32, device=f'npu:{device_id}')
+                          dtype=torch.float32, device=device)
     out_weight = torch.randn(1, num_heads * head_dim, hidden_size,
-                            dtype=torch.float32, device=f'npu:{device_id}')
+                            dtype=torch.float32, device=device)
     out_torch = torch.zeros(batch_size, seq_len, hidden_size,
-                           dtype=torch.float32, device=f'npu:{device_id}')
+                           dtype=torch.float32, device=device)
 
     config = AttentionConfig(num_heads=num_heads, head_dim=head_dim, dtype=pypto.DT_FP32)
     # Execute
     attention_with_projection(hidden_states, q_weight,
                                      k_weight, v_weight,
-                                     out_weight, config, dynamic)
+                                     out_weight, config, run_mode, dynamic)
 
     # Verify (simplified - just check output shape and range)
     print(f"Hidden states shape: {hidden_states.shape}")
@@ -352,7 +433,14 @@ Examples:
         action='store_true',
         help='List all available examples and exit'
     )
-
+    parser.add_argument(
+        '--run_mode',
+        type=str,
+        nargs='?',
+        default="npu",
+        choices=["npu", "sim"],
+        help='Run mode, such as npu/sim etc.'
+    )
     args = parser.parse_args()
 
     # Define available examples
@@ -360,14 +448,12 @@ Examples:
         'attention_dynamic::test_attention_dynamic': {
             'name': 'Attention Dynamic',
             'description': 'Scaled dot-product attention with dynamic shapes',
-            'function': test_attention_dynamic,
-            'requires_npu': True
+            'function': test_attention_dynamic
         },
         'attention_with_projection::test_attention_with_projection': {
             'name': 'Attention with Projections',
             'description': 'Complete attention with input/output projections',
-            'function': test_attention_with_projection,
-            'requires_npu': True
+            'function': test_attention_with_projection
         }
     }
 
@@ -377,9 +463,9 @@ Examples:
         print("Available Examples")
         print("=" * 60 + "\n")
         for ex_id, ex_info in sorted(examples.items()):
-            npu_req = " (Requires NPU)" if ex_info['requires_npu'] else " (No NPU required)"
-            print(f"  {ex_id}. {ex_info['name']}{npu_req}")
-            print(f"     {ex_info['description']}\n")
+            print(f"  ID: {ex_id}")
+            print(f"    name: {ex_info['name']}")
+            print(f"    description: {ex_info['description']}\n")
         return
 
     # Validate example ID if provided
@@ -405,24 +491,18 @@ Examples:
         # Run all examples
         examples_to_run = list(examples.items())
 
-    # Check if any example requires NPU
-    requires_npu = any(ex_info['requires_npu'] for _, ex_info in examples_to_run)
-
-    if requires_npu:
+    if args.run_mode == "npu":
         device_id = get_device_id()
         if device_id is None:
             return
-        # Set the device once for all examples
         torch.npu.set_device(device_id)
+        print("Running examples that require NPU hardware...")
+        print("Make sure CANN environment is configured and NPU is available\n")
 
     try:
         for ex_id, ex_info in examples_to_run:
-            if ex_info['requires_npu'] and device_id is None:
-                print(f"Skipping example {ex_id} ({ex_info['name']}): NPU device not configured")
-                continue
-
             print(f"Running Example {ex_id}: {ex_info['name']}")
-            ex_info['function']()
+            ex_info['function'](device_id, args.run_mode)
 
         if len(examples_to_run) > 1:
             print("=" * 60)
