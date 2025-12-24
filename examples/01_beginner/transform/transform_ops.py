@@ -84,18 +84,13 @@ def assemble_op(x: torch.Tensor, out_shape: tuple, offsets: list, dtype: torch.d
     return out
 
 
-def test_assemble_basic(device_id = None, run_mode: str = "npu"):
+def test_assemble_basic(device_id: int = None, run_mode: str = "npu"):
     """Test basic usage of assemble function"""
     print("=" * 60)
     print("Test: Basic Usage of assemble Function")
     print("=" * 60)
     
-    device_id = torch.npu.current_device()
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = 'cpu'
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     
     # Test 1: Basic assembly of a small tensor into a larger tensor
     dtype = torch.float32
@@ -115,18 +110,13 @@ def test_assemble_basic(device_id = None, run_mode: str = "npu"):
         assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
 
 
-def test_assemble_different_offsets_shapes(device_id = None, run_mode: str = "npu"):
+def test_assemble_different_offsets_shapes(device_id: int = None, run_mode: str = "npu"):
     """Test basic usage of assemble function"""
     print("=" * 60)
     print("Test: Basic Usage of assemble Function")
     print("=" * 60)
     
-    device_id = torch.npu.current_device()
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = 'cpu'
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     # Test 2: Using different offsets
     dtype = torch.float32
     x = torch.tensor([[2, 2], [2, 2]], dtype=dtype, device=device)
@@ -204,18 +194,13 @@ def gather_op(input_tensor: torch.Tensor, index_tensor: torch.Tensor, dim: int, 
     return out
 
 
-def test_gather_basic(device_id = None, run_mode: str = "npu"):
+def test_gather_basic(device_id: int = None, run_mode: str = "npu"):
     """Test basic usage of gather function"""
     print("=" * 60)
     print("Test: Basic Usage of gather Function")
     print("=" * 60)
     
-    device_id = torch.npu.current_device()
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = 'cpu'
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     
     # Test 1: Basic gathering along dimension 0
     dtype = torch.int32
@@ -240,18 +225,13 @@ def test_gather_basic(device_id = None, run_mode: str = "npu"):
     print("✓ Basic usage of gather function completed successfully")
 
 
-def test_gather_different_dimensions(device_id = None, run_mode: str = "npu"):
+def test_gather_different_dimensions(device_id: int = None, run_mode: str = "npu"):
     """Test gathering tensors along different dimensions"""
     print("=" * 60)
     print("Test: Gathering Tensors Along Different Dimensions")
     print("=" * 60)
     
-    device_id = torch.npu.current_device()
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = 'cpu'
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     
     # Test: Gatherenating along dimension 2
     dtype = torch.int32
@@ -299,18 +279,13 @@ def test_gather_different_dimensions(device_id = None, run_mode: str = "npu"):
     print("✓ Test gatherenating tensors along different dimensions completed successfully")
 
 
-def test_gather_negative_indexing(device_id = None, run_mode: str = "npu"):
+def test_gather_negative_indexing(device_id: int = None, run_mode: str = "npu"):
     """Test handling negative indexing"""
     print("=" * 60)
     print("Test: Handling Negative Indexing")
     print("=" * 60)
     
-    device_id = torch.npu.current_device()
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = 'cpu'
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     
     # Test 1: Gatherenating along dimension -1
     dtype = torch.int32
@@ -369,20 +344,13 @@ def scatter(x: torch.Tensor, dim: int, y: torch.Tensor, src: torch.float32, run_
     return out
 
 
-def test_scatter(device_id = None, run_mode: str = "npu"):
+def test_scatter(device_id: int = None, run_mode: str = "npu"):
     """Test basic usage of scatter function"""
     print("=" * 60)
     print("Test: Basic Usage of scatter Function")
     print("=" * 60)
-    if not device_id:
-        device_id = torch.npu.current_device()
-    else:
-        torch.npu.set_device(device_id)
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = 'cpu'
+
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
 
     x = torch.rand(3, 5, dtype=torch.float32, device=device)
     dim = 0
@@ -436,20 +404,13 @@ def scatter_update(x: torch.Tensor, dim: int, y: torch.Tensor, src: torch.float3
     return out
 
 
-def test_scatter_update(device_id = None, run_mode: str = "npu") -> None:
+def test_scatter_update(device_id: int = None, run_mode: str = "npu") -> None:
     """Test basic usage of scatter_update function"""
     print("=" * 60)
     print("Test: Basic Usage of scatter_update Function")
     print("=" * 60)
-    if not device_id:
-        device_id = torch.npu.current_device()
-    else:
-        torch.npu.set_device(device_id)
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = 'cpu'
+
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
 
     x = torch.rand(3, 5, dtype=torch.float32)
     dim = -2
@@ -542,18 +503,13 @@ def concat_multiple_op(a: torch.Tensor, b: torch.Tensor, c: torch.Tensor, dim: i
     return out
 
 
-def test_concat_basic(device_id = None, run_mode: str = "npu"):
+def test_concat_basic(device_id: int = None, run_mode: str = "npu"):
     """Test basic usage of concat function"""
     print("=" * 60)
     print("Test: Basic Usage of concat Function")
     print("=" * 60)
     
-    device_id = torch.npu.current_device()
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = 'cpu'
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     
     # Test 1: Basic concatenating of two tensors
     dtype = torch.float32
@@ -573,18 +529,13 @@ def test_concat_basic(device_id = None, run_mode: str = "npu"):
     print("✓ Basic usage of concat function completed successfully")
 
 
-def test_concat_different_dimensions(device_id = None, run_mode: str = "npu"):
+def test_concat_different_dimensions(device_id: int = None, run_mode: str = "npu"):
     """Test concatenating tensors along different dimensions"""
     print("=" * 60)
     print("Test: Concatenating Tensors Along Different Dimensions")
     print("=" * 60)
     
-    device_id = torch.npu.current_device()
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = 'cpu'
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     
     # Test 1: Concatenating along dimension 1
     dtype = torch.float32
@@ -604,18 +555,13 @@ def test_concat_different_dimensions(device_id = None, run_mode: str = "npu"):
     print("✓ Test concatenating tensors along different dimensions completed successfully")
 
 
-def test_concat_multiple_tensors(device_id = None, run_mode: str = "npu"):
+def test_concat_multiple_tensors(device_id: int = None, run_mode: str = "npu"):
     """Test concatenating multiple tensors"""
     print("=" * 60)
     print("Test: Concatenating Multiple Tensors")
     print("=" * 60)
     
-    device_id = torch.npu.current_device()
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = 'cpu'
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     
     # Test 1: Concatenating of three tensors along dimension 0
     dtype = torch.float32
@@ -637,18 +583,13 @@ def test_concat_multiple_tensors(device_id = None, run_mode: str = "npu"):
     print("✓ Test concatenating multiple tensors completed successfully")
 
 
-def test_concat_different_shapes(device_id = None, run_mode: str = "npu"):
+def test_concat_different_shapes(device_id: int = None, run_mode: str = "npu"):
     """Test concatenating tensors of different shapes"""
     print("=" * 60)
     print("Test: Concatenating Tensors of Different Shapes")
     print("=" * 60)
     
-    device_id = torch.npu.current_device()
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = 'cpu'
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     
     # Test 1: Concatenating Tensors of Different Shapes
     dtype = torch.float32
@@ -707,12 +648,7 @@ def test_view_basic(device_id = None, run_mode: str = "npu"):
     print("Test: Basic Usage of view Function")
     print("=" * 60)
     
-    device_id = torch.npu.current_device()
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = 'cpu'
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     
     # Test 1: Basic usage of view function
     dtype = torch.float32
@@ -766,18 +702,13 @@ def view_with_valid_shape_op(x: torch.Tensor, shape: list, offsets: list, valid_
     return out
 
 
-def test_view_with_valid_shape(device_id = None, run_mode: str = "npu"):
+def test_view_with_valid_shape(device_id: int = None, run_mode: str = "npu"):
     """Test using the valid_shape parameter"""
     print("=" * 60)
     print("Test: Using the valid_shape Parameter")
     print("=" * 60)
     
-    device_id = torch.npu.current_device()
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = 'cpu'
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     
     # Test 1: Using the valid_shape parameter
     dtype = torch.float32
@@ -840,21 +771,13 @@ def transpose(x: torch.Tensor, dim0: int, dim1: int, run_mode: str = "npu") -> t
     return y
 
 
-def test_transpose(device_id = None, run_mode: str = "npu"):
+def test_transpose(device_id: int = None, run_mode: str = "npu"):
     """Test basic usage of transpose function"""
     print("=" * 60)
     print("Test: Basic Usage of transpose Function")
     print("=" * 60)
     
-    if not device_id:
-        device_id = torch.npu.current_device()
-    else:
-        torch.npu.set_device(device_id)
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = 'cpu'
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     
     dtype = torch.float32
     x = torch.tensor([[1.0028, -0.9893, 0.5809],
@@ -924,21 +847,13 @@ def cast(x: torch.Tensor, dtype: torch.dtype, run_mode: str = "npu") -> torch.Te
     return y   
 
 
-def test_cast(device_id = None, run_mode: str = "npu"):
+def test_cast(device_id: int = None, run_mode: str = "npu"):
     """Test basic usage of cast function"""
     print("=" * 60)
     print("Test: Basic Usage of cast Function")
     print("=" * 60)
     
-    if not device_id:
-        device_id = torch.npu.current_device()
-    else:
-        torch.npu.set_device(device_id)
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = 'cpu'
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     
     dtype = torch.float32
     cast_dtype = torch.float16
@@ -1104,6 +1019,7 @@ Examples:
         device_id = get_device_id()
         if device_id is None:
             return
+        import torch_npu
         torch.npu.set_device(device_id)
         print("Running examples that require NPU hardware...")
         print("(Make sure CANN environment is configured and NPU is available)\n")

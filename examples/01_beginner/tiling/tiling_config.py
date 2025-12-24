@@ -84,18 +84,13 @@ def compute_with_cube_tile_shapes_op(a: torch.Tensor, b: torch.Tensor, set_shape
     return out
 
 
-def test_set_cube_tile_shapes_basic(device_id = None, run_mode: str = "npu"):
+def test_set_cube_tile_shapes_basic(device_id: int = None, run_mode: str = "npu"):
     """Test basic usage of set_cube_tile_shapes function"""
     print("=" * 60)
     print("Test: Basic Usage of set_cube_tile_shapes Function")
     print("=" * 60)
     
-    device_id = torch.npu.current_device()
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = 'cpu'
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     
     # Test 1: Set and verify tile shapes for cube computation
     dtype = torch.float32
@@ -116,8 +111,8 @@ def test_set_cube_tile_shapes_basic(device_id = None, run_mode: str = "npu"):
     # Test 2: Set cube_tile_shapes for cube calculations with different shapes
     dtype = torch.float32
     # shape: (4, 6)
-    a = torch.randn((4, 6), dtype=dtype, device=f'npu:{device_id}')
-    b = torch.randn((6, 4), dtype=dtype, device=f'npu:{device_id}')
+    a = torch.randn((4, 6), dtype=dtype, device=device)
+    b = torch.randn((6, 4), dtype=dtype, device=device)
     expected = torch.matmul(a, b)
 
     out = compute_with_cube_tile_shapes_op(a, b, [[32, 32], [64, 64], [64, 64]], run_mode)
@@ -182,18 +177,13 @@ def compute_with_different_tile_shapes_op(a: torch.Tensor, b: torch.Tensor, run_
     return out1, out2, out3
 
 
-def test_set_different_tile_shapes_result(device_id = None, run_mode: str = "npu"):
+def test_set_different_tile_shapes_result(device_id: int = None, run_mode: str = "npu"):
     """Test the impact of different tile shape settings on calculation results"""
     print("=" * 60)
     print("Test: Impact of Different Tile Shape Settings on Calculation Results")
     print("=" * 60)
     
-    device_id = torch.npu.current_device()
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = 'cpu'
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     
     # Test 1: Different Tile Shape Settings on Calculation Results
     dtype = torch.float32
@@ -270,18 +260,13 @@ def compute_with_another_tile_shapes_op(a: torch.Tensor, b: torch.Tensor, run_mo
     return out
 
 
-def test_set_different_tile_shapes_runtime(device_id = None, run_mode: str = "npu"):
+def test_set_different_tile_shapes_runtime(device_id: int = None, run_mode: str = "npu"):
     """Test the impact of different tile shape settings on runtime"""
     print("=" * 60)
     print("Test: Impact of Different Tile Shape Settings on Runtime")
     print("=" * 60)
     
-    device_id = torch.npu.current_device()
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = 'cpu'
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     
     # Test 1: Different Tile Shape Settings on Runtime
     dtype = torch.float32
@@ -335,18 +320,13 @@ def compute_with_vec_tile_shapes_op(a: torch.Tensor, b: torch.Tensor, set_shapes
     return out
 
 
-def test_set_vec_tile_shapes_basic(device_id = None, run_mode: str = "npu"):
+def test_set_vec_tile_shapes_basic(device_id: int = None, run_mode: str = "npu"):
     """Test basic usage of set_vec_tile_shapes function"""
     print("=" * 60)
     print("Test: Basic Usage of set_vec_tile_shapes Function")
     print("=" * 60)
     
-    device_id = torch.npu.current_device()
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = 'cpu'
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     
     # Test 1: Set and verify tile shapes for vector computation
     dtype = torch.float32
@@ -438,18 +418,13 @@ def compute_with_vec_different_tile_shapes_op(a: torch.Tensor, b: torch.Tensor, 
     return out1, out2, out3
 
 
-def test_set_vec_different_tile_shapes_result(device_id = None, run_mode: str = "npu"):
+def test_set_vec_different_tile_shapes_result(device_id: int = None, run_mode: str = "npu"):
     """Test the impact of different tile shape settings on calculation results"""
     print("=" * 60)
     print("Test: Impact of Different Tile Shape Settings on Calculation Results")
     print("=" * 60)
     
-    device_id = torch.npu.current_device()
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = 'cpu'
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     
     # Test 1: Different Tile Shape Settings on Calculation Results
     dtype = torch.float32
@@ -528,18 +503,13 @@ def compute_with_vec_another_tile_shapes_op(a: torch.Tensor, b: torch.Tensor, ru
     return out
 
 
-def test_set_vec_different_tile_shapes_runtime(device_id = None, run_mode: str = "npu"):
+def test_set_vec_different_tile_shapes_runtime(device_id: int = None, run_mode: str = "npu"):
     """Test the impact of different tile shape settings on runtime"""
     print("=" * 60)
     print("Test: Impact of Different Tile Shape Settings on Runtime")
     print("=" * 60)
     
-    device_id = torch.npu.current_device()
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = 'cpu'
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     
     # Test 1: Different Tile Shape Settings on Runtime
     dtype = torch.float32
@@ -666,6 +636,7 @@ Examples:
         device_id = get_device_id()
         if device_id is None:
             return
+        import torch_npu
         torch.npu.set_device(device_id)
         print("Running examples that require NPU hardware...")
         print("(Make sure CANN environment is configured and NPU is available)\n")
