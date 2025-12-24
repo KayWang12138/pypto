@@ -89,8 +89,8 @@ def gather_in_ub(param: Tensor, indices: Tensor, block_table: Tensor,
     return pypto_impl.gather_in_ub(param, indices, block_table, block_size, axis)
 
 
-def set_operation_config(*, force_combine_axis: Optional[int] = None,
-                         combine_axis: Optional[int] = None):
+def set_operation_config(*, force_combine_axis: Optional[bool] = None,
+                         combine_axis: Optional[bool] = None):
 
     """
     Set operation config.
