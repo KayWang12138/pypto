@@ -259,7 +259,7 @@ class _JIT:
 
         if isinstance(self.verify_options, dict):
             pypto.set_verify_options(**self.verify_options)
-        
+
         if isinstance(self.debug_options, dict):
             pypto.set_debug_options(**self.debug_options)
 
@@ -380,11 +380,11 @@ def set_verify_golden_data(in_out_tensors=None, goldens=None):
                 data = pypto_impl.DeviceTensorData(DT_FP16, 0, [0, 0])
                 pto_goldens.append(data)
                 continue
-            if not isinstance(golden, pypto.Tensor): 
+            if not isinstance(golden, pypto.Tensor):
                 t = pypto.from_torch(golden)
             else:
                 t = golden
-            
+
             data = pypto_impl.DeviceTensorData(
                     t.dtype,
                     t.data_ptr,
@@ -392,11 +392,11 @@ def set_verify_golden_data(in_out_tensors=None, goldens=None):
                 )
             pto_goldens.append(data)
         _pto_verify_datas.set_data(pto_goldens)
- 
+
     if in_out_tensors:
         pto_in_out = []
         for t in in_out_tensors:
             pto_in_out.append(t if isinstance(t, pypto.Tensor) else pypto.from_torch(t))
- 
+
         pypto_impl.SetVerifyData(_pto_to_tensor_data(pto_in_out),
                                  [], pto_goldens)

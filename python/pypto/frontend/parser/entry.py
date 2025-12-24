@@ -15,14 +15,16 @@ including the parse function and JIT decorator.
 """
 
 import inspect
+import os
 from typing import Any, Callable, Optional, Union
 
-import torch
 import pypto
+import torch
 from pypto import pypto_impl
+from pypto.converter import _torch_dtype_from
+from pypto.cost_model import _cost_model_run_once_data_from_host
 from pypto.frontend.parser.diagnostics import Source
-from pypto.frontend.parser.parser import Parser, NestedFunctionMarker
-from pypto.converter import _dtype_from, _torch_dtype_from
+from pypto.frontend.parser.parser import NestedFunctionMarker, Parser
 
 
 def _default_globals() -> dict[str, Any]:
@@ -73,14 +75,17 @@ def parse(program: Source, extra_vars: Optional[dict[str, Any]] = None) -> Any:
     return parser.execute()
 
 
-def _to_tensor_data(tensors: list[torch.Tensor]) -> list[pypto_impl.DeviceTensorData]:
-    """Convert torch tensors to PTO tensor data."""
+def _pto_to_tensor_data(
+    tensors: list[pypto.Tensor],
+) -> list[pypto_impl.DeviceTensorData]:
     datas = []
     for t in tensors:
+        if t.ori_shape is None:
+            raise RuntimeError("The ori_shape of the tensor is not specified.")
         data = pypto_impl.DeviceTensorData(
-            _dtype_from(t.dtype),
-            t.data_ptr(),
-            list(t.shape),
+            t.dtype,
+            t.data_ptr,
+            list(t.ori_shape),
         )
         datas.append(data)
     return datas
@@ -101,6 +106,10 @@ class JitCallableWrapper:
         handler: int,
         codegen_options: Optional[dict[str, Any]] = None,
         host_options: Optional[dict[str, Any]] = None,
+        pass_options: Optional[dict[str, Any]] = None,
+        runtime_options: Optional[dict[str, Any]] = None,
+        verify_options: Optional[dict[str, Any]] = None,
+        debug_options: Optional[dict[str, Any]] = None,
     ):
         """Initialize the wrapper.
 
@@ -118,10 +127,18 @@ class JitCallableWrapper:
         self._handler = handler
         self._is_compiled = pto_function is not None
         self._parser = None  # Store parser for lazy parsing
+
+        # Handling options
         self._codegen_options = (
             None if codegen_options is None else dict(codegen_options)
         )
         self._host_options = None if host_options is None else dict(host_options)
+        self._runtime_options = (
+            None if runtime_options is None else dict(runtime_options)
+        )
+        self._pass_options = None if pass_options is None else dict(pass_options)
+        self._verify_options = None if verify_options is None else dict(verify_options)
+        self._debug_options = None if debug_options is None else dict(debug_options)
 
         # Copy metadata from the original function
         if hasattr(original_func, "__name__"):
@@ -153,6 +170,27 @@ class JitCallableWrapper:
                         raise
         return nonlocal_vars
 
+    def _set_run_mode(self):
+        if self._runtime_options is None:
+            self._runtime_options = {}
+
+        run_mode = self._runtime_options.get("run_mode", None)
+        if run_mode is not None:
+            if run_mode not in [pypto.RunMode.NPU, pypto.RunMode.SIM, 0, 1]:
+                raise RuntimeError(
+                    "Invalid run mode, run mode must be RunMode.NPU or RunMode.SIM."
+                )
+            else:
+                if isinstance(run_mode, pypto.RunMode):
+                    self._runtime_options.update({"run_mode": run_mode.value})
+                return
+
+        cann_is_configed: bool = bool(os.environ.get("ASCEND_HOME_PATH"))
+        if cann_is_configed:
+            self._runtime_options.update({"run_mode": pypto.RunMode.NPU.value})
+        else:
+            self._runtime_options.update({"run_mode": pypto.RunMode.SIM.value})
+
     def _create_parser(self) -> Parser:
         """Create and prepare a parser for the wrapped function."""
         source = Source(self._original_func)
@@ -162,6 +200,21 @@ class JitCallableWrapper:
         }
         parser = Parser(source, captured_vars)
         return parser
+
+    def _set_config_option(self):
+        self._set_run_mode()
+        if self._codegen_options:
+            pypto.set_codegen_options(**self._codegen_options)
+        if self._host_options:
+            pypto.set_host_options(**self._host_options)
+        if self._pass_options:
+            pypto.set_pass_options(**self._pass_options)
+        if self._runtime_options:
+            pypto.set_runtime_options(**self._runtime_options)
+        if self._verify_options:
+            pypto.set_verify_options(**self._verify_options)
+        if self._debug_options:
+            pypto.set_debug_options(**self._debug_options)
 
     def _compile_if_needed(
         self,
@@ -175,18 +228,12 @@ class JitCallableWrapper:
         self._parser = self._create_parser()
         self._parser.parse()
 
-        # Get function signature (inputs and outputs) for OperatorBegin
-        # input_tensors, output_tensors = self._parser.get_signature()
-
         # Initialize backend for compilation
         pypto_impl.DeviceInit()
         handler = pypto_impl.OperatorBegin()
 
         # Set options AFTER OperatorBegin() to match @pypto.jit behavior
-        if self._codegen_options:
-            pypto.set_codegen_options(**self._codegen_options)
-        if self._host_options:
-            pypto.set_host_options(**self._host_options)
+        self._set_config_option()
 
         # Bind dynamic dimensions from concrete inputs
         if concrete_input_shapes:
@@ -285,24 +332,13 @@ class JitCallableWrapper:
             out_tensor = torch.empty(shape, dtype=dtype, device=device)
             out_tensors.append(out_tensor)
 
-        # Execute the function
-        in_tensor_data = _to_tensor_data(in_tensors)
-        out_tensor_data = _to_tensor_data(out_tensors)
-        workspace_size = pypto_impl.GetWorkSpaceSize(
-            self._handler, in_tensor_data, out_tensor_data
-        )
-        print([x.GetShape() for x in in_tensor_data])
-        print([x.GetShape() for x in out_tensor_data])
-        workspace_tensor = torch.empty(workspace_size, dtype=torch.uint8, device=device)
-        runtime_error_msg = pypto_impl.OperatorDeviceRunOnceDataFromDevice(
-            self._handler,
-            in_tensor_data + out_tensor_data,
-            list(),
-            torch.npu.current_stream().npu_stream,
-            workspace_tensor.data_ptr(),
-        )
-        if runtime_error_msg != "":
-            raise RuntimeError(runtime_error_msg)
+        # Execute the function using dispatch based on run mode
+        in_out_tensors = [pypto.from_torch(in_tensor) for in_tensor in in_tensors] + [
+            pypto.from_torch(out_tensor) for out_tensor in out_tensors
+        ]
+        # self._dispatch_with_run_mode(input_tensor_defs + output_tensor_defs, [], device)
+        self._dispatch_with_run_mode(in_out_tensors, [], device)
+
         # Return single tensor or tuple based on number of outputs
         if len(out_tensors) == 1:
             return out_tensors[0]
@@ -318,6 +354,79 @@ class JitCallableWrapper:
         """Get the runtime handler."""
         return self._handler
 
+    def _run(self, in_tensor_data, out_tensor_data, device):
+        """Basic run method that allocates workspace and executes on device."""
+        assert self._handler is not None
+        workspace_size = pypto_impl.GetWorkSpaceSize(
+            self._handler, in_tensor_data, out_tensor_data
+        )
+        workspace_tensor = torch.empty(workspace_size, dtype=torch.uint8, device=device)
+        runtime_error_msg = pypto_impl.OperatorDeviceRunOnceDataFromDevice(
+            self._handler,
+            in_tensor_data + out_tensor_data,
+            [],  # Mark all output tensors as inplace inputs
+            torch.npu.current_stream().npu_stream,
+            workspace_tensor.data_ptr(),
+        )
+        if runtime_error_msg != "":
+            raise RuntimeError(runtime_error_msg)
+
+    def _run_with_npu(
+        self,
+        in_tensors: list[pypto.Tensor],
+        out_tensors: list[pypto.Tensor],
+        device: torch.device,
+    ):
+        """Run with NPU, handling device switching if needed."""
+        if device.type == "npu":
+            import torch_npu  # pylint: disable=import-outside-toplevel, unused-import
+
+            in_tensor_data = _pto_to_tensor_data(in_tensors)
+            out_tensor_data = _pto_to_tensor_data(out_tensors)
+            ori_device = torch.npu.current_device()
+            if device.index != ori_device:
+                torch.npu.set_device(device.index)
+                self._run(in_tensor_data, out_tensor_data, device)
+                torch.npu.set_device(ori_device)
+            else:
+                self._run(in_tensor_data, out_tensor_data, device)
+        else:
+            raise RuntimeError(f"Unsupported device type: {device.type}")
+
+    def _run_with_cpu(
+        self, in_tensors: list[pypto.Tensor], out_tensors: list[pypto.Tensor]
+    ):
+        """Run with CPU using cost model interface."""
+        _cost_model_run_once_data_from_host(in_tensors, out_tensors)
+
+    def _set_runtime_debug_mode(self):
+        """Set runtime debug mode if configured."""
+        if self._debug_options is None:
+            self._debug_options = {}
+        if self._debug_options.get(
+            "runtime_debug_mode", 0
+        ) or pypto.get_debug_options().get("runtime_debug_mode", 0):
+            pypto.set_option("profile_enable", True)
+
+    def _dispatch_with_run_mode(
+        self,
+        in_tensors: list[pypto.Tensor],
+        out_tensors: list[pypto.Tensor],
+        device: torch.device,
+    ):
+        """Dispatch execution based on run mode (NPU or SIM)."""
+        self._set_runtime_debug_mode()
+        cann_is_configed = bool(os.environ.get("ASCEND_HOME_PATH"))
+        run_mode = pypto.get_runtime_options().get("run_mode", 0)
+        if run_mode == 0:  # NPU mode
+            if not cann_is_configed:
+                raise RuntimeError(
+                    "Please source cann environment while run mode is NPU."
+                )
+            self._run_with_npu(in_tensors, out_tensors, device)
+        else:  # SIM mode
+            self._run_with_cpu(in_tensors, out_tensors)
+
 
 def function(
     func: Optional[Callable] = None,
@@ -328,15 +437,15 @@ def function(
 
         def decorator(f: Callable) -> NestedFunctionMarker:
             marker = NestedFunctionMarker()
-            marker._original_func = f
-            marker._func_name = f.__name__
+            marker.original_func = f
+            marker.func_name = f.__name__
             return marker
 
         return decorator
 
     marker = NestedFunctionMarker()
-    marker._original_func = func
-    marker._func_name = func.__name__
+    marker.original_func = func
+    marker.func_name = func.__name__
     return marker
 
 
@@ -345,6 +454,10 @@ def jit(
     *,
     host_options: Optional[dict[str, Any]] = None,
     codegen_options: Optional[dict[str, Any]] = None,
+    pass_options: Optional[dict[str, Any]] = None,
+    runtime_options: Optional[dict[str, Any]] = None,
+    verify_options: Optional[dict[str, Any]] = None,
+    debug_options: Optional[dict[str, Any]] = None,
 ) -> Union[Callable, Callable[[Callable], JitCallableWrapper]]:
     """JIT decorator for compiling Python functions to PTO IR.
 
@@ -359,11 +472,17 @@ def jit(
         This allows both @jit and @jit() syntax.
 
     host_options : Optional[dict[str, Any]], optional
-        Options passed to ``pypto.set_host_options``. Defaults to
-        ``{"only_codegen": True}`` if not provided.
+        Options to configure the host.
     codegen_options : Optional[dict[str, Any]], optional
-        Options passed to ``pypto.set_codegen_options``. Defaults to
-        ``{"support_dynamic_unaligned": True}`` if not provided.
+        Options to configure the codegen.
+    pass_options : Optional[dict[str, Any]], optional
+        Options to configure the pass.
+    runtime_options : Optional[dict[str, Any]], optional
+        Options to configure the runtime.
+    verify_options : Optional[dict[str, Any]], optional
+        Options to configure the verify.
+    debug_options : Optional[dict[str, Any]], optional
+        Options to configure the debug.
 
     Returns
     -------
@@ -409,6 +528,10 @@ def jit(
             None,
             codegen_options=codegen_options,
             host_options=host_options,
+            pass_options=pass_options,
+            runtime_options=runtime_options,
+            verify_options=verify_options,
+            debug_options=debug_options,
         )
         return wrapper
 

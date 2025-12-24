@@ -31,8 +31,8 @@ class NestedFunctionMarker:
     """Marker used to identify functions intended for nested inline execution."""
 
     def __init__(self) -> None:
-        self._original_func: Optional[Callable] = None
-        self._func_name: str = ""
+        self.original_func: Optional[Callable] = None
+        self.func_name: str = ""
 
 DEFAULT_VISIT = {
     "Interactive",

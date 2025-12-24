@@ -71,7 +71,7 @@ def nested_loops_with_conditions_kernel_sim(
         for j in pypto.loop(2):
             a_view = a[i:i+1, j:j+1]
             b_view = b[i:i+1, j:j+1]
-            if pypto.cond(i == 0):
+            if i == 0:
                 y[i:i+1, j:j+1] = a_view + b_view
             else:
                 y[i:i+1, j:j+1] = a_view - b_view
