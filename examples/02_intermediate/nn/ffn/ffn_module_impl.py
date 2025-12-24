@@ -191,7 +191,7 @@ def ffn_static_swiglu_kernel_npu(
         [config.cube_tile_shape[2], config.cube_tile_shape[2]]
     )
     pypto.set_matrix_size({batch_size, intermediate_size, hidden_size})
-    output[:] = pypto.matmul(activated, down_proj_weight, activated.dtype, b_trans=False)
+    output[:] = pypto.matmul(activated, down_proj_weight, output.dtype, b_trans=False)
 
 @pypto.jit(runtime_options={"run_mode" : 1})
 def ffn_static_swiglu_kernel_sim(
@@ -255,7 +255,7 @@ def ffn_static_swiglu_kernel_sim(
         [config.cube_tile_shape[2], config.cube_tile_shape[2]]
     )
     pypto.set_matrix_size({batch_size, intermediate_size, hidden_size})
-    output[:] = pypto.matmul(activated, down_proj_weight, activated.dtype, b_trans=False)            
+    output[:] = pypto.matmul(activated, down_proj_weight, output.dtype, b_trans=False)            
 
 @pypto.jit
 def ffn_static_gule_kernel_npu(
@@ -318,7 +318,7 @@ def ffn_static_gule_kernel_npu(
         [config.cube_tile_shape[2], config.cube_tile_shape[2]]
     )
     pypto.set_matrix_size({batch_size, intermediate_size, hidden_size})
-    output[:] = pypto.matmul(activated, down_proj_weight, activated.dtype, b_trans=False)
+    output[:] = pypto.matmul(activated, down_proj_weight, output.dtype, b_trans=False)
 
 @pypto.jit(runtime_options={"run_mode" : 1})
 def ffn_static_gule_kernel_sim(
@@ -381,7 +381,7 @@ def ffn_static_gule_kernel_sim(
         [config.cube_tile_shape[2], config.cube_tile_shape[2]]
     )
     pypto.set_matrix_size({batch_size, intermediate_size, hidden_size})
-    output[:] = pypto.matmul(activated, down_proj_weight, activated.dtype, b_trans=False)
+    output[:] = pypto.matmul(activated, down_proj_weight, output.dtype, b_trans=False)
 
 @pypto.jit
 def ffn_static_relu_kernel_npu(
@@ -443,7 +443,7 @@ def ffn_static_relu_kernel_npu(
         [config.cube_tile_shape[2], config.cube_tile_shape[2]]
     )
     pypto.set_matrix_size({batch_size, intermediate_size, hidden_size})
-    output[:] = pypto.matmul(activated, down_proj_weight, activated.dtype, b_trans=False)
+    output[:] = pypto.matmul(activated, down_proj_weight, output.dtype, b_trans=False)
             
 @pypto.jit(runtime_options={"run_mode" : 1})
 def ffn_static_relu_kernel_sim(
@@ -505,7 +505,7 @@ def ffn_static_relu_kernel_sim(
         [config.cube_tile_shape[2], config.cube_tile_shape[2]]
     )
     pypto.set_matrix_size({batch_size, intermediate_size, hidden_size})
-    output[:] = pypto.matmul(activated, down_proj_weight, activated.dtype, b_trans=False)
+    output[:] = pypto.matmul(activated, down_proj_weight, output.dtype, b_trans=False)
 
 @pypto.jit
 def ffn_dynamic_gelu_kernel_npu(

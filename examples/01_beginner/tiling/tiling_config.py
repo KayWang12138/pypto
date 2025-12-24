@@ -58,12 +58,12 @@ def get_device_id():
 @pypto.jit
 def compute_with_cube_tile_shapes_kernel_npu(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor, set_shapes: list) -> None:
     pypto.set_cube_tile_shapes(*set_shapes)
-    out[:] = pypto.matmul(a, b, a.dtype)
+    out[:] = pypto.matmul(a, b, out.dtype)
 
 @pypto.jit(runtime_options={"run_mode": pypto.RunMode.SIM})
 def compute_with_cube_tile_shapes_kernel_sim(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor, set_shapes: list) -> None:
     pypto.set_cube_tile_shapes(*set_shapes)
-    out[:] = pypto.matmul(a, b, a.dtype)
+    out[:] = pypto.matmul(a, b, out.dtype)
 
 
 def compute_with_cube_tile_shapes_op(a: torch.Tensor, b: torch.Tensor, set_shapes: list, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
@@ -129,13 +129,13 @@ def test_set_cube_tile_shapes_basic(device_id: int = None, run_mode: str = "npu"
 def compute_with_different_tile_shapes_kernel_npu(a: pypto.Tensor, b: pypto.Tensor, out1: pypto.Tensor, out2: pypto.Tensor, out3: pypto.Tensor) -> None:
     pypto.set_cube_tile_shapes([32, 32], [16, 16], [32, 32])
     print(f"pypto.get_cube_tile_shapes(): {pypto.get_cube_tile_shapes()}")
-    out1[:] = pypto.matmul(a, b, a.dtype)
+    out1[:] = pypto.matmul(a, b, out1.dtype)
     pypto.set_cube_tile_shapes([32, 32], [8, 64], [32, 128])
     print(f"pypto.get_cube_tile_shapes(): {pypto.get_cube_tile_shapes()}")
-    out2[:] = pypto.matmul(a, b, a.dtype)
+    out2[:] = pypto.matmul(a, b, out2.dtype)
     pypto.set_cube_tile_shapes([64, 64], [128, 128], [128, 128])
     print(f"pypto.get_cube_tile_shapes(): {pypto.get_cube_tile_shapes()}")
-    out3[:] = pypto.matmul(a, b, a.dtype)
+    out3[:] = pypto.matmul(a, b, out3.dtype)
 
 @pypto.jit(
     host_options={"only_codegen": True},
@@ -144,13 +144,13 @@ def compute_with_different_tile_shapes_kernel_npu(a: pypto.Tensor, b: pypto.Tens
 def compute_with_different_tile_shapes_kernel_sim(a: pypto.Tensor, b: pypto.Tensor, out1: pypto.Tensor, out2: pypto.Tensor, out3: pypto.Tensor) -> None:
     pypto.set_cube_tile_shapes([32, 32], [16, 16], [32, 32])
     print(f"pypto.get_cube_tile_shapes(): {pypto.get_cube_tile_shapes()}")
-    out1[:] = pypto.matmul(a, b, a.dtype)
+    out1[:] = pypto.matmul(a, b, out1.dtype)
     pypto.set_cube_tile_shapes([32, 32], [8, 64], [32, 128])
     print(f"pypto.get_cube_tile_shapes(): {pypto.get_cube_tile_shapes()}")
-    out2[:] = pypto.matmul(a, b, a.dtype)
+    out2[:] = pypto.matmul(a, b, out2.dtype)
     pypto.set_cube_tile_shapes([64, 64], [128, 128], [128, 128])
     print(f"pypto.get_cube_tile_shapes(): {pypto.get_cube_tile_shapes()}")
-    out3[:] = pypto.matmul(a, b, a.dtype)
+    out3[:] = pypto.matmul(a, b, out3.dtype)
 
 
 def compute_with_different_tile_shapes_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> tuple:
@@ -205,23 +205,23 @@ def test_set_different_tile_shapes_result(device_id: int = None, run_mode: str =
 @pypto.jit
 def compute_with_specific_tile_shapes_kernel_npu(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> None:
     pypto.set_cube_tile_shapes([32, 32], [32, 32], [32, 32])
-    out[:] = pypto.matmul(a, b, a.dtype, b_trans=True)
+    out[:] = pypto.matmul(a, b, out.dtype, b_trans=True)
 
 @pypto.jit(runtime_options={"run_mode": pypto.RunMode.SIM})
 def compute_with_specific_tile_shapes_kernel_sim(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> None:
     pypto.set_cube_tile_shapes([32, 32], [32, 32], [32, 32])
-    out[:] = pypto.matmul(a, b, a.dtype, b_trans=True)
+    out[:] = pypto.matmul(a, b, out.dtype, b_trans=True)
 
 
 @pypto.jit
 def compute_with_another_tile_shapes_kernel_npu(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> None:
     pypto.set_cube_tile_shapes([64, 64], [128, 128], [128, 128])
-    out[:] = pypto.matmul(a, b, a.dtype, b_trans=True)
+    out[:] = pypto.matmul(a, b, out.dtype, b_trans=True)
 
 @pypto.jit(runtime_options={"run_mode": pypto.RunMode.SIM})
 def compute_with_another_tile_shapes_kernel_sim(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> None:
     pypto.set_cube_tile_shapes([64, 64], [128, 128], [128, 128])
-    out[:] = pypto.matmul(a, b, a.dtype, b_trans=True)
+    out[:] = pypto.matmul(a, b, out.dtype, b_trans=True)
 
 
 def compute_with_specific_tile_shapes_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:

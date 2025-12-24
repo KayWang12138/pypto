@@ -131,13 +131,13 @@ def test_element_wise_operations(device_id: int = None, run_mode: str = "npu", d
 @pypto.jit
 def matrix_multiply_kernel_npu(A: pypto.Tensor, B: pypto.Tensor, C: pypto.Tensor) -> None:
     pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
-    C[:] = pypto.matmul(A, B, out_dtype=pypto.DT_BF16)
+    C[:] = pypto.matmul(A, B, C.dtype)
 
 
 @pypto.jit(runtime_options={"run_mode": 1})
 def matrix_multiply_kernel_sim(A: pypto.Tensor, B: pypto.Tensor, C: pypto.Tensor) -> None:
     pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
-    C[:] = pypto.matmul(A, B, out_dtype=pypto.DT_BF16)
+    C[:] = pypto.matmul(A, B, C.dtype)
 
 
 def matrix_multiply(A: torch.Tensor, B: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
@@ -351,7 +351,7 @@ def test_view_operations(device_id: int = None, run_mode: str = "npu", dynamic: 
 def linear_layer_with_activation_kernel_npu(x: pypto.Tensor, W: pypto.Tensor, b: pypto.Tensor, y: pypto.Tensor) -> None:
     pypto.set_vec_tile_shapes(32, 64)
     pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
-    linear = pypto.matmul(x, W, out_dtype=pypto.DT_BF16)
+    linear = pypto.matmul(x, W, b.dtype)
     biased = pypto.add(linear, b)
     y[:] = pypto.sigmoid(biased)
 
@@ -360,7 +360,7 @@ def linear_layer_with_activation_kernel_npu(x: pypto.Tensor, W: pypto.Tensor, b:
 def linear_layer_with_activation_kernel_sim(x: pypto.Tensor, W: pypto.Tensor, b: pypto.Tensor, y: pypto.Tensor) -> None:
     pypto.set_vec_tile_shapes(32, 64)
     pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
-    linear = pypto.matmul(x, W, out_dtype=pypto.DT_BF16)
+    linear = pypto.matmul(x, W, b.dtype)
     biased = pypto.add(linear, b)
     y[:] = pypto.sigmoid(biased)
 

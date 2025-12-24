@@ -59,7 +59,7 @@ def get_device_id():
 )
 def matmul_kernel(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> None:
     pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
-    out[:] = pypto.matmul(a, b, a.dtype)
+    out[:] = pypto.matmul(a, b, out.dtype)
 
 
 @pypto.jit(
@@ -68,7 +68,7 @@ def matmul_kernel(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> None:
 )
 def matmul_kernel_sim(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> None:
     pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
-    out[:] = pypto.matmul(a, b, a.dtype)
+    out[:] = pypto.matmul(a, b, out.dtype)
 
 
 def matmul_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
@@ -117,7 +117,7 @@ def test_matmul_basic(device_id: int = None, run_mode: str = "npu"):
 )
 def matmul_batch_kernel(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> None:
     pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
-    out[:] = pypto.matmul(a, b, a.dtype)
+    out[:] = pypto.matmul(a, b, out.dtype)
 
 
 @pypto.jit(
@@ -126,7 +126,7 @@ def matmul_batch_kernel(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> 
 )
 def matmul_batch_kernel_sim(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> None:
     pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
-    out[:] = pypto.matmul(a, b, a.dtype)
+    out[:] = pypto.matmul(a, b, out.dtype)
 
 
 def matmul_batch_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
@@ -175,7 +175,7 @@ def test_matmul_batch(device_id: int = None, run_mode: str = "npu"):
 )
 def matmul_broadcast_kernel(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> None:
     pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
-    out[:] = pypto.matmul(a, b, a.dtype)
+    out[:] = pypto.matmul(a, b, out.dtype)
 
 
 @pypto.jit(
@@ -184,7 +184,7 @@ def matmul_broadcast_kernel(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor)
 )
 def matmul_broadcast_kernel_sim(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> None:
     pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
-    out[:] = pypto.matmul(a, b, a.dtype)
+    out[:] = pypto.matmul(a, b, out.dtype)
 
 
 def matmul_broadcast_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
@@ -233,7 +233,7 @@ def test_matmul_broadcast(device_id: int = None, run_mode: str = "npu"):
     )
 def matmul_trans_right_kernel(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> None:
     pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
-    out[:] = pypto.matmul(a, b, a.dtype, b_trans=True)
+    out[:] = pypto.matmul(a, b, out.dtype, b_trans=True)
 
 
 @pypto.jit(
@@ -242,7 +242,7 @@ def matmul_trans_right_kernel(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tenso
     )
 def matmul_trans_right_kernel_sim(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> None:
     pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
-    out[:] = pypto.matmul(a, b, a.dtype, b_trans=True)
+    out[:] = pypto.matmul(a, b, out.dtype, b_trans=True)
 
 
 def matmul_trans_right_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
@@ -270,7 +270,7 @@ def matmul_trans_right_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu
 )
 def matmul_trans_left_kernel(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> None:
     pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
-    out[:] = pypto.matmul(a, b, a.dtype, a_trans=True)
+    out[:] = pypto.matmul(a, b, out.dtype, a_trans=True)
 
 
 @pypto.jit(
@@ -279,7 +279,7 @@ def matmul_trans_left_kernel(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor
 )
 def matmul_trans_left_kernel_sim(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> None:
     pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
-    out[:] = pypto.matmul(a, b, a.dtype, a_trans=True)
+    out[:] = pypto.matmul(a, b, out.dtype, a_trans=True)
 
 
 def matmul_trans_left_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
@@ -367,7 +367,7 @@ def test_matmul_trans(device_id: int = None, run_mode: str = "npu"):
 def matmul_bias_kernel(a: pypto.Tensor, b: pypto.Tensor, bias: pypto.Tensor, out: pypto.Tensor) -> None:
     extend_params = {'bias_tensor': bias}
     pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
-    out[:] = pypto.matmul(a, b, a.dtype, extend_params=extend_params)
+    out[:] = pypto.matmul(a, b, out.dtype, extend_params=extend_params)
 
 
 @pypto.jit(
@@ -377,7 +377,7 @@ def matmul_bias_kernel(a: pypto.Tensor, b: pypto.Tensor, bias: pypto.Tensor, out
 def matmul_bias_kernel_sim(a: pypto.Tensor, b: pypto.Tensor, bias: pypto.Tensor, out: pypto.Tensor) -> None:
     extend_params = {'bias_tensor': bias}
     pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
-    out[:] = pypto.matmul(a, b, a.dtype, extend_params=extend_params)
+    out[:] = pypto.matmul(a, b, out.dtype, extend_params=extend_params)
 
 
 def matmul_bias_op(a: torch.Tensor, b: torch.Tensor, bias: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:

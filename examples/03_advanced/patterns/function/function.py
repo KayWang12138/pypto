@@ -145,9 +145,9 @@ def linear_projection_kernel_npu(x: pypto.Tensor, weight: pypto.Tensor, out: pyp
     pypto.set_cube_tile_shapes([64, 64], [64, 64], [64, 64])
     # Matrix multiplication
     if bias is not None:
-        out[:] = pypto.add(pypto.matmul(x, weight, out_dtype=x.dtype), bias)
+        out[:] = pypto.add(pypto.matmul(x, weight, out_dtype=out.dtype), bias)
     else:
-        out[:] = pypto.matmul(x, weight, out_dtype=x.dtype)
+        out[:] = pypto.matmul(x, weight, out_dtype=out.dtype)
 
 
 @pypto.jit(runtime_options={"run_mode": 1})
@@ -158,9 +158,9 @@ def linear_projection_kernel_sim(x: pypto.Tensor, weight: pypto.Tensor, out: pyp
     pypto.set_cube_tile_shapes([64, 64], [64, 64], [64, 64])
     # Matrix multiplication
     if bias is not None:
-        out[:] = pypto.add(pypto.matmul(x, weight, out_dtype=x.dtype), bias)
+        out[:] = pypto.add(pypto.matmul(x, weight, out_dtype=out.dtype), bias)
     else:
-        out[:] = pypto.matmul(x, weight, out_dtype=x.dtype)
+        out[:] = pypto.matmul(x, weight, out_dtype=out.dtype)
 
 
 def linear_projection(x: pypto.Tensor, weight: pypto.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
@@ -317,7 +317,7 @@ def attention_kernel_npu(q: pypto.tensor, k: pypto.tensor, v: pypto.tensor, out:
 
     # Q @ K^T
     k_t = pypto.transpose(k, [0, 1, 3, 2])
-    scores = pypto.matmul(q, k_t, out_dtype=q.dtype)
+    scores = pypto.matmul(q, k_t, out_dtype=out.dtype)
 
     # Scale
     scores_scaled = pypto.mul(scores, scale)
@@ -326,7 +326,7 @@ def attention_kernel_npu(q: pypto.tensor, k: pypto.tensor, v: pypto.tensor, out:
     attn_weights = pypto.softmax(scores_scaled, dim=-1)
 
     # Apply to values
-    out[:] = pypto.matmul(attn_weights, v, out_dtype=q.dtype)
+    out[:] = pypto.matmul(attn_weights, v, out_dtype=out.dtype)
 
 
 @pypto.jit(runtime_options={"run_mode": 1})
@@ -336,7 +336,7 @@ def attention_kernel_sim(q: pypto.tensor, k: pypto.tensor, v: pypto.tensor, out:
 
     # Q @ K^T
     k_t = pypto.transpose(k, [0, 1, 3, 2])
-    scores = pypto.matmul(q, k_t, out_dtype=q.dtype)
+    scores = pypto.matmul(q, k_t, out_dtype=out.dtype)
 
     # Scale
     scores_scaled = pypto.mul(scores, scale)
@@ -345,7 +345,7 @@ def attention_kernel_sim(q: pypto.tensor, k: pypto.tensor, v: pypto.tensor, out:
     attn_weights = pypto.softmax(scores_scaled, dim=-1)
 
     # Apply to values
-    out[:] = pypto.matmul(attn_weights, v, out_dtype=q.dtype)
+    out[:] = pypto.matmul(attn_weights, v, out_dtype=out.dtype)
 
 
 def attention(q: torch.Tensor, k: torch.Tensor, 
