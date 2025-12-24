@@ -851,8 +851,6 @@ private:
     }
 };
 
-bool ToolchainExist(const std::string &gcc);
-
 std::vector<uint8_t> CompileAndLoadSection(const std::string &code, const std::string &sourceFilePath,
     const std::string &gcc, const std::string &objcopy, const std::string &sectionName, bool needDump, const std::string &extraCflag="");
 

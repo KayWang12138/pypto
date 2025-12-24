@@ -25,14 +25,6 @@ constexpr uint64_t EXPRESSION = 2;
 constexpr int OPERAND_NUM = 2;
 namespace npu::tile_fwk {
 
-bool ToolchainExist(const std::string &gcc) {
-    std::string cmdGcc = gcc + " --version";
-    if (system(cmdGcc.c_str()) != 0) {
-        return false;
-    }
-    return true;
-}
-
 std::vector<uint8_t> CompileAndLoadSection(const std::string &code, const std::string &sourceFilePath,
     const std::string &gcc, const std::string &objcopy, const std::string &sectionName, bool needDump, const std::string &extraCflag) {
     if (needDump) {

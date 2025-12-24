@@ -566,13 +566,12 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
 }
 
 static std::string Arm64TargetTool(const std::string &bin) {
-    // ARM arch compiler
     const char *homePath = std::getenv("ASCEND_HOME_PATH");
     if (homePath == nullptr) {
         return "";
-    } else {
-        return std::string(homePath) + "/toolkit/toolchain/hcc/bin/aarch64-target-linux-gnu-" + bin;
     }
+    // use toolchain from CANN for better compatibility as the controlflow will run on aicpu
+    return std::string(homePath) + "/toolkit/toolchain/hcc/bin/aarch64-target-linux-gnu-" + bin;
 }
 
 static void FillL2PrefetchInfo(std::shared_ptr<DyndevFunctionAttribute> attr) {
@@ -755,10 +754,8 @@ static void EncodeOutcastProperty(
     }
 }
 
-static
-bool IsNeedDumpAicpuKernel(const std::string &inputFile) {
-    if (npu::tile_fwk::ConfigManager::Instance().GetCodeGenConfig(
-            npu::tile_fwk::KEY_FORCE_OVERWRITE, true)) {
+static bool IsNeedDumpAicpuKernel(const std::string &inputFile) {
+    if (ConfigManager::Instance().GetCodeGenConfig(KEY_FORCE_OVERWRITE, true)) {
         // force dump, default is true
         return true;
     }
@@ -873,7 +870,7 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[ma
     std::string funcName = function->GetMagicName() + function->GetFunctionHash().Data();
     CompileControlFlow(aicpuDirPath, funcName, controlFlowSource, expressionSource);
     std::string arm64TargetToolPath = Arm64TargetTool("g++");
-    if (ToolchainExist(arm64TargetToolPath)) {
+    if (FileExist(arm64TargetToolPath)) {
         std::string controlFlowDevFilePath = aicpuDirPath + "/controlFlow_dev_" + funcHash + ".cpp";
         ALOG_INFO_F("Compile control flow src file[%s] with arm64 target tool[%s].",
                     controlFlowDevFilePath.c_str(), arm64TargetToolPath.c_str());
