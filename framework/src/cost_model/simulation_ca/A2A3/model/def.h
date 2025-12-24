@@ -383,9 +383,9 @@ struct InstrParam {
 };
 using PInstrParam  = std::shared_ptr<InstrParam>;
 
-inline uint32_t Ceiling(const uint32_t a, const uint32_t b)
+inline uint32_t Ceiling(uint32_t a, uint32_t b)
 {
-    return ((a - 1) / b + 1);
+    return static_cast<uint32_t>((static_cast<uint64_t>(a) + b - 1) / b);
 }
 
 using namespace std;
