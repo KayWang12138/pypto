@@ -504,7 +504,7 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpSTest1) {
     EXPECT_EQ(func->Operations().size(), kSizeEleven);
 
     passManager.RegisterStrategy("RemoveRedundantOpTestStrategy", {
-        {   "RemoveRedundantOp",   "RemoveRedundantOp"},
+        {"RemoveRedundantOp", PassName::REMOVE_REDUNDANT_OP},
     });
     auto ret = passManager.RunPass(Program::GetInstance(), *func, "RemoveRedundantOpTestStrategy");
     EXPECT_EQ(ret, SUCCESS);
@@ -560,7 +560,7 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpSTest2) {
     EXPECT_EQ(func->Operations().size(), kSizeEleven);
 
     passManager.RegisterStrategy("RemoveRedundantOpTestStrategy", {
-        {   "RemoveRedundantOp",   "RemoveRedundantOp"},
+        {"RemoveRedundantOp", PassName::REMOVE_REDUNDANT_OP},
     });
     auto ret = passManager.RunPass(Program::GetInstance(), *func, "RemoveRedundantOpTestStrategy");
     EXPECT_EQ(ret, SUCCESS);
@@ -596,8 +596,8 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpSTest3) {
 
     PassManager &passManager = PassManager::Instance();
     passManager.RegisterStrategy("ExpandFunctionTestStrategy", {
-        {   "ExpandFunction",   "ExpandFunction"},
-        {   "AssignMemoryType", "AssignMemoryType"},
+        {  "ExpandFunction",    PassName::EXPAND_FUNCTION},
+        {"AssignMemoryType", PassName::ASSIGN_MEMORY_TYPE},
     });
 
     Tensor input(DT_FP32, shape, "input");
@@ -619,7 +619,7 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpSTest3) {
     EXPECT_EQ(assemble_before, kNumThree);
 
     passManager.RegisterStrategy("RemoveRedundantOpTestStrategy", {
-        {   "RemoveRedundantOp",   "RemoveRedundantOp"},
+        {"RemoveRedundantOp", PassName::REMOVE_REDUNDANT_OP},
     });
     EXPECT_EQ(passManager.RunPass(Program::GetInstance(), *func, "RemoveRedundantOpTestStrategy"), SUCCESS);
     EXPECT_EQ(func->Operations().size(), kSizeSeven);
@@ -655,7 +655,7 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpSTest4) {
 
     PassManager &passManager = PassManager::Instance();
     passManager.RegisterStrategy("ExpandFunctionTestStrategy", {
-        {   "ExpandFunction",   "ExpandFunction"},
+        {"ExpandFunction", PassName::EXPAND_FUNCTION},
     });
 
     Tensor input(DT_FP32, shape, "input");
@@ -677,7 +677,7 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpSTest4) {
     EXPECT_EQ(assemble_before, kNumFive);
 
     passManager.RegisterStrategy("RemoveRedundantOpTestStrategy", {
-        {   "RemoveRedundantOp",   "RemoveRedundantOp"},
+       {"RemoveRedundantOp", PassName::REMOVE_REDUNDANT_OP},
     });
     EXPECT_EQ(passManager.RunPass(Program::GetInstance(), *func, "RemoveRedundantOpTestStrategy"), SUCCESS);
     EXPECT_EQ(func->Operations().size(), kSizeThirteen);
