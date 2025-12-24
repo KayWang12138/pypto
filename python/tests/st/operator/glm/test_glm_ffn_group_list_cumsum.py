@@ -9,6 +9,15 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 """
+GLM-4.5 Group List Cumulative Sum Module
+
+This module implements cumulative sum calculation for expert group lists,
+which is used to compute token offset addresses for grouped expert computation
+in MoE architectures.
+
+Main Functions:
+    - moe_group_list_cumsum: JIT compiled kernel for cumulative sum
+    - glm_router_expert_cumsum: Main function wrapper
 """
 import os
 import torch
@@ -26,6 +35,17 @@ def main():
 
 
 def get_token_acc_table(group_list):
+    """
+    Compute token accumulation table (cumulative sum) for group list.
+
+    This is a PyTorch reference implementation for validation.
+
+    Args:
+        group_list: Input group list containing token counts per expert
+
+    Returns:
+        torch.Tensor: Cumulative sum tensor
+    """
     assert len(group_list.shape) == 1
     token_acc_table = torch.zeros_like(group_list)
     for i in range(1, group_list.shape[0]):
@@ -37,6 +57,22 @@ def get_token_acc_table(group_list):
     host_options={"only_codegen": True},
 )
 def moe_group_list_cumsum(group_list, group_list_cumsum):
+    """
+    JIT compiled kernel for computing cumulative sum of group list.
+
+    This function computes the cumulative sum of token counts per expert,
+    which is used to determine token offset addresses for grouped expert computation.
+    The first element is initialized to 0, and each subsequent element is the sum
+    of all previous elements.
+
+    Args:
+        group_list: Input group list containing token counts per expert [expert_num]
+        group_list_cumsum: Output cumulative sum [expert_num]
+
+    Note:
+        The cumulative sum is used to compute token offsets for expert computation.
+        For expert i, group_list_cumsum[i] gives the starting token index.
+    """
     expert_num = group_list.shape[0]
     pypto.set_vec_tile_shapes(32)
     # 计算每个专家的token的偏移地址
@@ -53,6 +89,22 @@ def moe_group_list_cumsum(group_list, group_list_cumsum):
 
 @allow_in_graph
 def glm_router_expert_cumsum(group_list_input):
+    """
+    Compute cumulative sum for router expert group list.
+
+    This function computes the cumulative sum of token counts per expert,
+    which is used to determine token offset addresses for grouped expert computation.
+
+    Args:
+        group_list_input: Input group list containing token counts per expert
+
+    Returns:
+        torch.Tensor: Cumulative sum tensor with same shape as input
+
+    Note:
+        This function is decorated with @allow_in_graph to enable integration
+        with PyTorch's compilation graph.
+    """
     group_list = group_list_input.to(torch.int32)
     group_list_cumsum = torch.empty_like(group_list, device=group_list_input.device)
     inputs = {

@@ -9,6 +9,15 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 """
+GLM-4.5 FFN Common Interface Module
+
+This module provides common utility functions for FFN quantization operations,
+including symmetric quantization, dequantization, and SwiGLU activation.
+
+Main Functions:
+    - symmetric_quantization_per_token: Per-token symmetric quantization
+    - dequant_dynamic: Dynamic dequantization with two scale factors
+    - swiglu: SwiGLU activation function implementation
 """
 import os
 from typing import Tuple

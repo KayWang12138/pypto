@@ -9,6 +9,15 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 """
+GLM-4.5 Gate Module for MoE Expert Routing
+
+This module implements the gate operation that projects hidden states from
+the model's main dimension (d_model) to the router-specific dimension (d_router).
+This projection is used to compute router logits for expert selection in MoE architectures.
+
+Main Functions:
+    - gate: Main gate function for expert routing
+    - select_experts_mm_kernel: JIT compiled kernel for matrix multiplication
 """
 import os
 import torch
@@ -52,6 +61,21 @@ def check_args(
     host_options={"only_codegen": True},
 )
 def select_experts_mm_kernel(hidden_states, mm_weight, router_logits_out):
+    """
+    JIT compiled kernel for gate matrix multiplication.
+
+    This kernel performs the matrix multiplication: router_logits = hidden_states @ weight^T
+    to project hidden states from d_model to d_router dimension for expert routing.
+
+    Args:
+        hidden_states: Input hidden states [num_tokens, hidden_size]
+        mm_weight: Gate weight matrix [num_router_experts, hidden_size]
+        router_logits_out: Output router logits [num_tokens, num_router_experts]
+
+    Note:
+        This function processes inputs in tiles of size 32 to support dynamic batch sizes.
+        The computation uses cube tiling for efficient matrix multiplication on NPU.
+    """
     # 3. 得到动态tensor的shape
     bs = hidden_states.shape[0]
     ne = mm_weight.shape[0]
@@ -130,6 +154,26 @@ def gate(
     hidden_states: torch.Tensor,  # Hidden states of shape (num_tokens, hidden_size).
     router_logits_out: torch.Tensor, 
     ) -> torch.Tensor:
+    """
+    Gate operation for expert routing in MoE architecture.
+
+    This function projects hidden states from the model's main dimension (d_model)
+    to the router-specific dimension (d_router) using a learned weight matrix.
+    The output router logits are used by the expert selection mechanism to determine
+    which experts should process each token.
+
+    Args:
+        gate_weight: Gate weight matrix [num_router_experts, hidden_size]
+        hidden_states: Input hidden states [num_tokens, hidden_size]
+        router_logits_out: Output router logits [num_tokens, num_router_experts]
+
+    Returns:
+        router_logits_out: Router logits tensor [num_tokens, num_router_experts]
+
+    Note:
+        This function is decorated with @allow_in_graph to enable integration
+        with PyTorch's compilation graph.
+    """
     if isinstance(hidden_states, FakeTensor):
         return router_logits_out
     check_args(gate_weight, hidden_states)

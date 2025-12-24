@@ -9,6 +9,14 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 """
+GLM-4.5 Scatter Update Module for KV Cache Management
+
+This module implements scatter update operations for managing key-value cache
+in PagedAttention mechanism. It updates specific cache slots based on slot indices.
+
+Main Functions:
+    - scatter_update: JIT compiled kernel for scatter update operation
+    - scatter_update_golden: PyTorch reference implementation
 """
 import os
 import torch
@@ -37,6 +45,24 @@ def main():
     host_options={"only_codegen": True}
 )
 def scatter_update(key, value, index, key_cache, value_cache):
+    """
+    JIT compiled kernel for scatter update operation on KV cache.
+
+    This function updates key and value cache tensors by scattering key and value
+    tensors into specific cache slots based on index mapping. This is used in
+    PagedAttention to update KV cache blocks.
+
+    Args:
+        key: Key tensor to scatter [batch_size, n2, head_size]
+        value: Value tensor to scatter [batch_size, n2, head_size]
+        index: Slot indices for scatter operation [batch_size]
+        key_cache: Key cache tensor [num_blocks, block_size, n2, head_size]
+        value_cache: Value cache tensor [num_blocks, block_size, n2, head_size]
+
+    Note:
+        The index tensor contains linear indices that are converted to block_idx
+        and position within block. The function processes inputs in tiles of size 2.
+    """
     # 2. 得到动态tensor的shape
     dtype = key.dtype
     b_scalar = index.shape[0]

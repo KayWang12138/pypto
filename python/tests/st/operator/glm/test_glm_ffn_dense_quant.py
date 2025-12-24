@@ -9,6 +9,16 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 """
+GLM-4.5 Dense FFN Quantization Module
+
+This module implements the quantized dense FFN computation for GLM-4.5 model.
+Unlike MoE architectures, dense FFN processes all tokens using a single set of weights,
+providing a simpler and more predictable computation pattern.
+
+Main Functions:
+    - ffn_dense_quant: Main function for dense FFN quantization
+    - dense_moe_main: JIT compiled kernel for dense FFN computation
+    - expert_infer_base: Base inference function for dense FFN computation
 """
 import os
 import torch
@@ -25,7 +35,17 @@ def main():
 
 
 def ffn_golden_quan_per_token(x):
-    # y_int8 : int8  scale_dequant : x.dtype
+    """
+    PyTorch golden reference implementation for per-token quantization.
+
+    Args:
+        x: Input tensor to quantize
+
+    Returns:
+        tuple: A tuple containing:
+            - y_int8: Quantized tensor (int8)
+            - scale_dequant: Dequantization scale (same dtype as input)
+    """
     x_fp32 = x.to(torch.float32)
     max_value = x_fp32.abs().max(dim=1, keepdim=True)[0]
     scale_quant = 127.0 / max_value
@@ -38,7 +58,17 @@ def ffn_golden_quan_per_token(x):
 
 
 def ffn_golden_quan_per_channel(x):
-    # y_int8 : int8  scale_dequant : x.dtype
+    """
+    PyTorch golden reference implementation for per-channel quantization.
+
+    Args:
+        x: Input tensor to quantize
+
+    Returns:
+        tuple: A tuple containing:
+            - y_int8: Quantized tensor (int8)
+            - scale_dequant: Dequantization scale (same dtype as input)
+    """
     x_fp32 = x.to(torch.float32)
     max_value = x_fp32.abs().max(dim=0, keepdim=True)[0]
     scale_quant = 127.0 / max_value
@@ -129,6 +159,28 @@ def swiglu(up_proj):
 
 
 def expert_infer_base(hidden_states, w13_params, w2, ffn_res, tiling_params, offset_params):
+    """
+    Base inference function for dense FFN computation.
+
+    This function performs FFN computation:
+    1. Per-token quantization: hidden_states_quant = Quantize(hidden_states)
+    2. Quantized matrix multiplication: up_proj = MatMul(hidden_states_quant, w13)
+    3. Dequantization: up_proj_dequant = Dequantize(up_proj, w13_scale, hidden_states_scale)
+    4. SwiGLU activation: swiglu_out = SwiGLU(up_proj_dequant)
+    5. Matrix multiplication: output = MatMul(swiglu_out, w2^T)
+
+    Args:
+        hidden_states: Input hidden states [num_tokens, hidden_size]
+        w13_params: Tuple of (w13, w13_scale)
+        w2: Down projection weights [hidden_size, intermediate_size]
+        ffn_res: Output tensor [num_tokens, hidden_size]
+        tiling_params: Tuple of (vec_tile_shape, mm1_cube_tile_shape, mm2_cube_tile_shape)
+        offset_params: Tuple of (dense_loop_idx, loop_base)
+
+    Note:
+        This function processes tokens in tiles of size loop_base (typically 16)
+        to support efficient computation on NPU.
+    """
     # 入参信息获取
     w13, w13_scale = w13_params
     vec_tile_shape, mm1_cube_tile_shape, mm2_cube_tile_shape = tiling_params
@@ -179,6 +231,23 @@ def expert_infer_base(hidden_states, w13_params, w2, ffn_res, tiling_params, off
                      "cfgcache_leaf_task_num": 10000}
 )
 def dense_moe_main(hidden_states, w13, w13_scale, w2, ffn_res):
+    """
+    JIT compiled kernel for dense FFN quantization.
+
+    This kernel processes all tokens using a single dense FFN. The computation
+    is done in tiles to support efficient execution on NPU.
+
+    Args:
+        hidden_states: Input hidden states [num_tokens, hidden_size]
+        w13: Gate and up projection weights (int8) [hidden_size, intermediate_size * 2]
+        w13_scale: w13 weight scales [intermediate_size * 2]
+        w2: Down projection weights [hidden_size, intermediate_size]
+        ffn_res: Output tensor [num_tokens, hidden_size]
+
+    Note:
+        This function processes tokens in tiles of size 16 for efficient computation.
+        The computation uses expression fusion for better performance.
+    """
     # tiling config
     vec_tile_shape = (1, 5120)
     mm1_cube_tile_shape = (16, 256, 128)
@@ -205,6 +274,27 @@ def ffn_dense_quant(hidden_states: torch.Tensor,
                     w13_scale: torch.Tensor,
                     w2: torch.Tensor
 ) -> torch.Tensor:
+    """
+    Quantized dense FFN computation for GLM-4.5 model.
+
+    This function computes FFN output using quantized operations for dense FFN.
+    Unlike MoE architectures, dense FFN processes all tokens using a single set
+    of weights, providing a simpler and more predictable computation pattern.
+
+    Args:
+        hidden_states: Input hidden states [num_tokens, hidden_size]
+        w13: Gate and up projection weights (int8) [hidden_size, intermediate_size * 2]
+        w13_scale: w13 weight scales [intermediate_size * 2]
+        w2: Down projection weights [hidden_size, intermediate_size]
+
+    Returns:
+        torch.Tensor: FFN output tensor [num_tokens, hidden_size]
+
+    Note:
+        This function is decorated with @allow_in_graph to enable integration
+        with PyTorch's compilation graph. The computation uses per-token quantization
+        for input and per-channel quantization for weights.
+    """
     ffn_res = torch.empty_like(hidden_states, device=hidden_states.device)
     inputs = {
         hidden_states: [0],

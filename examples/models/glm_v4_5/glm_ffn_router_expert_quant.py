@@ -9,6 +9,16 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 """
+GLM-4.5 FFN Router Expert Quantization Module
+
+This module implements the quantized FFN computation for router experts in MoE architecture.
+Router experts are dynamically selected based on input token features, allowing the model
+to use only a subset of experts while maintaining a large parameter count.
+
+Main Functions:
+    - ffn_router_expert_quant: Main function for router expert FFN quantization
+    - moe_router_expert_main: JIT compiled kernel for router expert computation
+    - expert_infer_base: Base inference function for a single expert
 """
 import os
 import torch
@@ -31,6 +41,21 @@ def check_args(
         w2: torch.Tensor,
         w2_scale: torch.Tensor
 ) -> None:
+    """
+    Validate input arguments for router expert FFN quantization operation.
+
+    Args:
+        hidden_states: Quantized input hidden states (int8) [num_tokens * topk, hidden_size]
+        pertoken_scale: Per-token quantization scale [num_tokens * topk]
+        group_list: Group list containing token counts per expert [per_device_expert_num]
+        w13: Gate and up projection weights (int8) [per_device_expert_num, hidden_size, intermediate_size * 2]
+        w13_scale: w13 weight scales [per_device_expert_num, intermediate_size * 2]
+        w2: Down projection weights (int8) [per_device_expert_num, intermediate_size, hidden_size]
+        w2_scale: w2 weight scales [per_device_expert_num, hidden_size]
+
+    Raises:
+        AssertionError: If any input argument doesn't meet the required format or dtype.
+    """
     assert hidden_states.dim() == 2
     assert hidden_states.shape[1] == 5120
     assert get_format(hidden_states) == 'ND'
@@ -192,7 +217,30 @@ def expert_infer_base(
         offset_params,
         tiling_params,
         ffn_res):
+    """
+    Base inference function for a single expert computation.
 
+    This function performs FFN computation for a specific expert:
+    1. Quantized matrix multiplication: up_proj = MatMul(hidden_states, w13)
+    2. Dequantization: up_proj_dequant = Dequantize(up_proj, w13_scale, hidden_states_scale)
+    3. SwiGLU activation: swiglu_out = SwiGLU(up_proj_dequant)
+    4. Quantization: down_proj_quant = Quantize(swiglu_out)
+    5. Quantized matrix multiplication: down_proj = MatMul(down_proj_quant, w2)
+    6. Dequantization: output = Dequantize(down_proj, w2_scale, down_proj_scale)
+
+    Args:
+        hidden_states_params: Tuple of (hidden_states, hidden_states_scale)
+        group_list_params: Tuple of (group_list, group_list_cumsum)
+        w13_params: Tuple of (w13, w13_scale)
+        w2_params: Tuple of (w2, w2_scale)
+        offset_params: Tuple of (exp_idx, token_loop_idx, loop_base)
+        tiling_params: Tuple of (mm1_cube_tile_shape, mm2_cube_tile_shape)
+        ffn_res: Output tensor [num_tokens * topk, hidden_size]
+
+    Note:
+        This function processes tokens in tiles of size loop_base (typically 8)
+        to support efficient computation on NPU.
+    """
     # 入参信息获取
     hidden_states, hidden_states_scale = hidden_states_params
     group_list, group_list_cumsum = group_list_params
@@ -270,6 +318,28 @@ def expert_infer_base(
 def moe_router_expert_main(hidden_states, hidden_states_scale,
                            group_list, group_list_cumsum, w13,
                            w13_scale, w2, w2_scale, ffn_res):
+    """
+    JIT compiled kernel for router expert FFN quantization.
+
+    This kernel processes multiple experts in a loop, where each expert processes
+    a subset of tokens based on the group_list. The computation is done in tiles
+    to support efficient execution on NPU.
+
+    Args:
+        hidden_states: Quantized input hidden states (int8) [num_tokens * topk, hidden_size]
+        hidden_states_scale: Per-token quantization scale [num_tokens * topk]
+        group_list: Group list containing token counts per expert [per_device_expert_num]
+        group_list_cumsum: Cumulative sum of group list [per_device_expert_num]
+        w13: Gate and up projection weights (int8) [per_device_expert_num, hidden_size, intermediate_size * 2]
+        w13_scale: w13 weight scales [per_device_expert_num, intermediate_size * 2]
+        w2: Down projection weights (int8) [per_device_expert_num, intermediate_size, hidden_size]
+        w2_scale: w2 weight scales [per_device_expert_num, hidden_size]
+        ffn_res: Output tensor [num_tokens * topk, hidden_size]
+
+    Note:
+        This function uses cube L1 reuse mode 2 for better memory efficiency.
+        Each expert processes tokens in tiles of size 8.
+    """
     # tiling config
     mm1_cube_tile_shape = (8, 256, 256)
     mm2_cube_tile_shape = (8, 256, 256)
@@ -314,6 +384,28 @@ def ffn_router_expert_quant(hidden_states: torch.Tensor,
                             w2_scale: torch.Tensor,
                             ffn_res: torch.Tensor
 ) -> None:
+    """
+    Quantized FFN computation for router experts in MoE architecture.
+
+    This function computes FFN output for router experts using quantized operations.
+    Router experts are dynamically selected based on input token features, allowing
+    the model to use only a subset of experts while maintaining a large parameter count.
+
+    Args:
+        hidden_states: Quantized input hidden states (int8) [num_tokens * topk, hidden_size]
+        pertoken_scale: Per-token quantization scale [num_tokens * topk]
+        group_list: Group list containing token counts per expert [per_device_expert_num]
+        w13: Gate and up projection weights (int8) [per_device_expert_num, hidden_size, intermediate_size * 2]
+        w13_scale: w13 weight scales [per_device_expert_num, intermediate_size * 2]
+        w2: Down projection weights (int8) [per_device_expert_num, intermediate_size, hidden_size]
+        w2_scale: w2 weight scales [per_device_expert_num, hidden_size]
+        ffn_res: Output tensor [num_tokens * topk, hidden_size]
+
+    Note:
+        This function is decorated with @allow_in_graph to enable integration
+        with PyTorch's compilation graph. The computation uses grouped matrix
+        multiplication to efficiently process multiple experts.
+    """
     group_list_int32 = group_list.to(torch.int32)
 
     group_list_cumsum = (torch.cumsum(group_list_int32, dim=0) - group_list_int32).to(torch.int32)

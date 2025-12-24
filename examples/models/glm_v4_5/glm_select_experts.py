@@ -9,6 +9,16 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 """
+GLM-4.5 Expert Selection Module for MoE Architecture
+
+This module implements the expert selection logic for Mixture of Experts (MoE) architecture.
+It intelligently assigns input tokens to different expert networks based on router logits,
+supporting group-based top-k selection and weight renormalization.
+
+Main Functions:
+    - select_experts: Main function for expert selection
+    - select_experts_kernel: JIT compiled kernel implementation
+    - process_main_loop_interation: Process a single batch iteration
 """
 import os
 
@@ -61,6 +71,32 @@ def process_main_loop_interation(
     num_expert_group,
     renormalize_flag
 ):
+    """
+    Process a single batch iteration for expert selection.
+
+    This function performs the following operations:
+    1. Apply sigmoid to router logits
+    2. Add expert score correction bias
+    3. Group experts and select top-k groups
+    4. Mask non-selected experts
+    5. Select top-k experts from masked logits
+    6. Optionally renormalize expert weights
+
+    Args:
+        bs_idx: Current batch index
+        logits_input: Router logits [num_tokens, num_router_experts]
+        e_score_bias_2d: Expert score correction bias [1, num_router_experts]
+        weight_k: Output tensor for top-k weights [num_tokens, topk]
+        ids_k: Output tensor for top-k expert IDs [num_tokens, topk]
+        bs: Batch size (number of tokens)
+        ne: Number of experts
+        view_shape: Shape for view operation
+        view_first: First dimension of view shape
+        topk: Number of top experts to select
+        topk_group: Number of expert groups for top-k selection
+        num_expert_group: Number of experts per group
+        renormalize_flag: Whether to renormalize expert weights
+    """
     # 6. 通过view得到tile_logits
     tile_logits = pypto.view(logits_input, view_shape,
                                 [bs_idx * view_shape[0], 0],
@@ -155,6 +191,30 @@ def process_main_loop_interation(
 )
 def select_experts_kernel(logits_input, e_score_bias_input, weight_k, ids_k,
                           renormalize_flag, topk_group, num_expert_group):
+    """
+    JIT compiled kernel for expert selection in MoE architecture.
+
+    This kernel implements the expert selection algorithm:
+    1. Applies sigmoid to router logits to get expert scores
+    2. Adds expert score correction bias
+    3. Groups experts and selects top-k groups
+    4. Masks non-selected experts
+    5. Selects top-k experts from masked logits
+    6. Optionally renormalizes expert weights
+
+    Args:
+        logits_input: Router logits [num_tokens, num_router_experts]
+        e_score_bias_input: Expert score correction bias [num_router_experts]
+        weight_k: Output tensor for top-k weights [num_tokens, topk]
+        ids_k: Output tensor for top-k expert IDs [num_tokens, topk]
+        renormalize_flag: Whether to renormalize expert weights (0 or 1)
+        topk_group: Number of expert groups for top-k selection
+        num_expert_group: Number of experts per group
+
+    Note:
+        This function processes inputs in tiles of size 1 to support dynamic batch sizes.
+        The expert selection uses a two-stage approach: first select groups, then select experts.
+    """
     # 3. 得到动态tensor的shape
     bs = logits_input.shape[0]
     ne = logits_input.shape[1]
@@ -306,6 +366,28 @@ def select_experts(router_logits: torch.Tensor,
                 topk_weights: torch.Tensor,
                 topk_ids: torch.Tensor
 ):
+    """
+    Select top-k experts for each token based on router logits.
+
+    This function implements the expert selection mechanism for MoE architecture.
+    It uses a two-stage selection process:
+    1. First selects top-k expert groups
+    2. Then selects top-k experts from the selected groups
+
+    Args:
+        router_logits: Router logits [num_tokens, num_router_experts]
+        top_k: Number of top experts to select per token
+        renormalize: Whether to renormalize the routing weights
+        topk_group: Number of expert groups to select from
+        num_expert_group: Number of experts in each group
+        e_score_correction_bias: Correction bias to apply to expert scores [num_router_experts]
+        topk_weights: Output tensor for top-k expert weights [num_tokens, topk]
+        topk_ids: Output tensor for top-k expert IDs [num_tokens, topk]
+
+    Note:
+        This function is decorated with @allow_in_graph to enable integration
+        with PyTorch's compilation graph.
+    """
     if isinstance(router_logits, FakeTensor):
         return
     check_args(

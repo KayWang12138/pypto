@@ -9,6 +9,16 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 """
+GLM-4.5 FFN Shared Expert Quantization Module
+
+This module implements the quantized FFN computation for shared experts in MoE architecture.
+Shared experts are used across all tokens and tasks, learning general feature representations
+while reducing the total parameter count through weight sharing.
+
+Main Functions:
+    - ffn_shared_expert_quant: Main function for shared expert FFN quantization
+    - share_expert_moe_main: JIT compiled kernel for shared expert computation
+    - expert_infer_base: Base inference function for shared expert computation
 """
 import os
 import numpy as np
@@ -139,6 +149,30 @@ def gen_input(
 
 
 def expert_infer_base(hidden_states, w13_params, w2_params, ffn_res, tiling_params, offset_params):
+    """
+    Base inference function for shared expert computation.
+
+    This function performs FFN computation for shared expert:
+    1. Per-token quantization: hidden_states_quant = Quantize(hidden_states)
+    2. Quantized matrix multiplication: up_proj = MatMul(hidden_states_quant, w13)
+    3. Dequantization: up_proj_dequant = Dequantize(up_proj, w13_scale, hidden_states_scale)
+    4. SwiGLU activation: swiglu_out = SwiGLU(up_proj_dequant)
+    5. Per-token quantization: down_proj_quant = Quantize(swiglu_out)
+    6. Quantized matrix multiplication: down_proj = MatMul(down_proj_quant, w2)
+    7. Dequantization: output = Dequantize(down_proj, w2_scale, down_proj_scale)
+
+    Args:
+        hidden_states: Input hidden states [num_tokens, hidden_size]
+        w13_params: Tuple of (w13, w13_scale)
+        w2_params: Tuple of (w2, w2_scale)
+        ffn_res: Output tensor [num_tokens, hidden_size]
+        tiling_params: Tuple of (vec_tile_shape, mm1_cube_tile_shape, mm2_cube_tile_shape)
+        offset_params: Tuple of (share_loop_idx, loop_base)
+
+    Note:
+        This function processes tokens in tiles of size loop_base (typically 8)
+        to support efficient computation on NPU.
+    """
     # 入参信息获取
     w13, w13_scale = w13_params
     w2, w2_scale = w2_params
@@ -198,6 +232,24 @@ def expert_infer_base(hidden_states, w13_params, w2_params, ffn_res, tiling_para
     pass_options={"cube_l1_reuse_mode": 2}
 )
 def share_expert_moe_main(hidden_states, w13, w13_scale, w2, w2_scale, ffn_res):
+    """
+    JIT compiled kernel for shared expert FFN quantization.
+
+    This kernel processes all tokens using a single shared expert. The computation
+    is done in tiles to support efficient execution on NPU.
+
+    Args:
+        hidden_states: Input hidden states [num_tokens, hidden_size]
+        w13: Gate and up projection weights (int8) [hidden_size, intermediate_size * 2]
+        w13_scale: w13 weight scales [intermediate_size * 2]
+        w2: Down projection weights (int8) [intermediate_size, hidden_size]
+        w2_scale: w2 weight scales [hidden_size]
+        ffn_res: Output tensor [num_tokens, hidden_size]
+
+    Note:
+        This function uses cube L1 reuse mode 2 for better memory efficiency.
+        Tokens are processed in tiles of size 8.
+    """
     # tiling config
     vec_tile_shape = (2, 5120)
     mm1_cube_tile_shape = (8, 128, 384)
@@ -226,6 +278,26 @@ def ffn_shared_expert_quant(hidden_states: torch.Tensor,
                            w2_scale: torch.Tensor,
                            ffn_res: torch.Tensor
 ) -> None:
+    """
+    Quantized FFN computation for shared experts in MoE architecture.
+
+    This function computes FFN output using quantized operations for shared experts.
+    Shared experts are used across all tokens and tasks, learning general feature
+    representations while reducing the total parameter count through weight sharing.
+
+    Args:
+        hidden_states: Input hidden states [num_tokens, hidden_size]
+        w13: Gate and up projection weights (int8) [hidden_size, intermediate_size * 2]
+        w13_scale: w13 weight scales [intermediate_size * 2]
+        w2: Down projection weights (int8) [intermediate_size, hidden_size]
+        w2_scale: w2 weight scales [hidden_size]
+        ffn_res: Output tensor [num_tokens, hidden_size]
+
+    Note:
+        This function is decorated with @allow_in_graph to enable integration
+        with PyTorch's compilation graph. The computation uses per-token quantization
+        for better accuracy compared to per-channel quantization.
+    """
     inputs = {
         hidden_states: [0],
         w13: [],
