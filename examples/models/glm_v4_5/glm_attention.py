@@ -238,10 +238,7 @@ def softmax(x, is_fp16=False):
 @pypto.jit(
     runtime_options={"stitch_function_num_initial": 128, 
     "stitch_function_outcast_memory": 1024,
-    "stitch_function_inner_memory": 1024,
-    "cfgcache_device_task_num": 100,
-    "cfgcache_root_task_num": 1000,
-    "cfgcache_leaf_task_num": 10000},
+    "stitch_function_inner_memory": 1024},
     host_options={"only_codegen": True},
     codegen_options={"codegen_expression_fusion": True},
     # 当子图大小达到上界不允许与其他子图合并
@@ -251,7 +248,7 @@ def softmax(x, is_fp16=False):
 )
 def ifa_func(q, k, v, block_table, kv_act_seqs, atten_out):
     # 1. 添加支持动态的config
-    pypto.experimental.set_operation_config(force_combine_axis=True)
+    pypto.experimental.set_operation_config(combine_axis=True)
 
     atten_cfg, tile_cfg = get_qwen_common_config()
     softmax_scale = atten_cfg.softmax_scale
@@ -300,8 +297,6 @@ def ifa_func(q, k, v, block_table, kv_act_seqs, atten_out):
                     sum_update = pypto.tensor([g_tile, 1], pypto.DT_FP32, "sum_update")
                     max_update = pypto.tensor([g_tile, 1], pypto.DT_FP32, "max_update")
                     for s2_idx in pypto.loop(s2_loop, name="LOOP_s2", idx_name="s2_idx", unroll_list=[8, 4, 2, 1]):
-                        if pypto.cond(pypto.is_loop_end(s2_idx)):
-                            pypto.experimental.set_operation_config(force_combine_axis=False)
                         block_num = s2_tile // block_size
                         idx = s2_idx * block_num
                         bs_ofs = b_idx * s1_scalar + s1_idx
@@ -394,8 +389,6 @@ def ifa_func(q, k, v, block_table, kv_act_seqs, atten_out):
                                 dtype)
                             # 7. 将结果搬运到输出tensor上
                             pypto.assemble(oi_final_3d, oi_ofs, atten_out)
-                            pypto.experimental.set_operation_config(force_combine_axis=True)
-
 
 def IFA(atten_cfg):
     device_id = os.environ.get('TILE_FWK_STEST_DEVICE_ID', 0)
