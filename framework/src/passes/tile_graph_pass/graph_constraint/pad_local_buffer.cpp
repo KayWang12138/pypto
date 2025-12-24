@@ -405,7 +405,7 @@ void PadLocalBuffer::DoPadding(Function &function) {
             if (in->tensor->GetRawDataSize() == 0) {
                 continue;
             }
-            if (function.paramConfigs_.combineAxis) {
+            if (ConfigManager::Instance().GetOperationConfig("COMBINE_AXIS", false)) {
                 PadVectorForAxisCombine(op, in, visitedRaw);
             } else {
                 bool noPadding = false;
@@ -558,7 +558,7 @@ void PadLocalBuffer::PadVectorForAxisCombine(Operation &op, LogicalTensorPtr &in
 }
 
 Status PadLocalBuffer::RunOnFunction(Function &function) {
-    if (function.paramConfigs_.combineAxis) {
+    if (ConfigManager::Instance().GetOperationConfig("COMBINE_AXIS", false)) {
         DoPadding(function);
         return SUCCESS;
     }

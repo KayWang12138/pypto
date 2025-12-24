@@ -958,7 +958,7 @@ TEST_F(TestPadLocalBuffer, axiscombine) {
     EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {4,127}, "t3"), true);
     EXPECT_EQ(graph.AddOp(Opcode::OP_ADD, {"t1","t2"}, {"t3"}, "add", true), true);
     auto *rootFuncPtr = graph.GetFunction();
-    rootFuncPtr->paramConfigs_.combineAxis = true;
+    config::SetOperationConfig("COMBINE_AXIS", true);
     AxisCombine pass;
     EXPECT_EQ(pass.RunOnFunction(*rootFuncPtr), SUCCESS);
     PadLocalBuffer padLocalBufferTest;

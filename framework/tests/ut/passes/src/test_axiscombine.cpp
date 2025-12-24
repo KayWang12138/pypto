@@ -57,7 +57,7 @@ TEST_F(TestAxisCombine, Test1) {
     EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {4,127}, "t3"), true);
     EXPECT_EQ(graph.AddOp(Opcode::OP_ADD, {"t1","t2"}, {"t3"}, "add", true), true);
     auto *rootFuncPtr = graph.GetFunction();
-    rootFuncPtr->paramConfigs_.combineAxis = true;
+    config::SetOperationConfig("COMBINE_AXIS", true);
     AxisCombine pass;
     EXPECT_EQ(pass.RunOnFunction(*rootFuncPtr), SUCCESS);
     auto updatedOperations = rootFuncPtr->Operations();
@@ -86,7 +86,7 @@ TEST_F(TestAxisCombine, Test2) {
     EXPECT_EQ(graph.AddOp(Opcode::OP_SUB, {"t1","t2"}, {"t3"}, "add", true), true);
     auto *rootFuncPtr = graph.GetFunction();
     AxisCombine pass;
-    rootFuncPtr->paramConfigs_.combineAxis = true;
+    config::SetOperationConfig("COMBINE_AXIS", true);
     EXPECT_EQ(pass.RunOnFunction(*rootFuncPtr), SUCCESS);
     auto updatedOperations = rootFuncPtr->Operations();
     int64_t cnt = 0;
@@ -121,7 +121,7 @@ TEST_F(TestAxisCombine, Test3) {
     EXPECT_EQ(graph.AddOp(Opcode::OP_ADD, {"t2","t5"}, {"t6"}, "add2", true), true);
     
     auto *rootFuncPtr = graph.GetFunction();
-    rootFuncPtr->paramConfigs_.combineAxis = true;
+    config::SetOperationConfig("COMBINE_AXIS", true);
     AxisCombine pass;
     EXPECT_EQ(pass.RunOnFunction(*rootFuncPtr), SUCCESS);
     // ================== Verify Pass Effect ==================
@@ -142,7 +142,7 @@ TEST_F(TestAxisCombine, Test3) {
 }
 
 TEST_F(TestAxisCombine, TestDD) {
-    config::SetPassOption(COMBINE_AXIS, true);
+    config::SetOperationConfig("COMBINE_AXIS", true);
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
     TileShape::Current().SetVecTile(K_1, K_1, K_32, K_32);

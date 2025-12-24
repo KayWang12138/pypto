@@ -65,3 +65,6 @@ def test_operation_option():
     set_operation_config(force_combine_axis=True)
     option = get_operation_config()
     assert option["force_combine_axis"] == True
+    set_operation_config(combine_axis=True)
+    option = get_operation_config()
+    assert option["combine_axis"] == True

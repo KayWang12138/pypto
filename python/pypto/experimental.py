@@ -9,7 +9,7 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 """ """
-from typing import List, Union, Dict
+from typing import List, Union, Dict, Optional
 from . import pypto_impl
 from ._op_wrapper import op_wrapper
 from .tensor import Tensor
@@ -89,16 +89,23 @@ def gather_in_ub(param: Tensor, indices: Tensor, block_table: Tensor,
     return pypto_impl.gather_in_ub(param, indices, block_table, block_size, axis)
 
 
-def set_operation_config(*, force_combine_axis: bool):
+def set_operation_config(*, force_combine_axis: Optional[int] = None,
+                         combine_axis: Optional[int] = None):
+
     """
     Set operation config.
 
     Parameters
     ---------
     force_combine_axis : bool
+        Codegen forced axis fusion optimization, Not recommended.
+    combine_axis : bool
         Codegen forced axis fusion optimization.
     """
-    pypto_impl.SetOperationConfig("FORCE_COMBINE_AXIS", force_combine_axis)
+    if force_combine_axis is not None:
+        pypto_impl.SetOperationConfig("FORCE_COMBINE_AXIS", force_combine_axis)
+    if combine_axis is not None:
+        pypto_impl.SetOperationConfig("COMBINE_AXIS", combine_axis)
 
 
 def get_operation_config() -> Dict[str, Union[str, int, List[int], Dict[int, int]]]:
@@ -112,4 +119,5 @@ def get_operation_config() -> Dict[str, Union[str, int, List[int], Dict[int, int
     """
     return {
         "force_combine_axis": pypto_impl.GetOperationConfig("FORCE_COMBINE_AXIS", False),
+        "combine_axis": pypto_impl.GetOperationConfig("COMBINE_AXIS", False),
     }

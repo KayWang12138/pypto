@@ -454,7 +454,6 @@ struct ParamConfigs {
     bool pgSkipPartition{false};
     std::map<int64_t, int64_t> vecNBufferSetting;
     int copyOutResolveCoalescing{0};
-    bool combineAxis{false};
 };
 
 struct FunctionParamInfo {

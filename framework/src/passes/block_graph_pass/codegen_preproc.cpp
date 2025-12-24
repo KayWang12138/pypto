@@ -244,7 +244,7 @@ Status CodegenPreproc::RunOnFunction(Function &function) {
         return FAILED;
     }
     
-    if (function.paramConfigs_.combineAxis) {
+    if (ConfigManager::Instance().GetOperationConfig("COMBINE_AXIS", false)) {
         if (ForceCombineAxisForAxisCombine(function) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "CodegenPreproc RunOnFunction failed at function ForceCombineAxisForAxisCombine.");
             return FAILED;

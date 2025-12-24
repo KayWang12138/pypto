@@ -104,7 +104,7 @@ Status AxisCombine::Process(Function &function) {
 
 Status AxisCombine::RunOnFunction(Function &function) {
     APASS_LOG_INFO_F(Elements::Function, "===> Start AxisCombine.");
-    if (!function.paramConfigs_.combineAxis) {
+    if (!ConfigManager::Instance().GetOperationConfig("COMBINE_AXIS", false)) {
         APASS_LOG_INFO_F(Elements::Operation, "AxisCombine is skipped.");
         return SUCCESS;
     }
