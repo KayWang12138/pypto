@@ -27,16 +27,17 @@
 ## 功能说明
 
 MLA Prolog 模块将hidden状态 $\bold{X}$ 转换为查询投影 $\bold{q}$、键投影 $\bold{k}$ 和值投影 $\bold{v}$，其结构与 DeepSeek V3 的架构一致。在解码阶段，采用了权重吸收技术。
-### 计算公式
+## 计算公式
 
-#### RmsNorm公式
+**RmsNorm公式**
 $$
 \text{RmsNorm}(x) = \gamma \cdot \frac{x_i}{\text{RMS}(x)}
 $$
 $$
 \text{RMS}(x) = \sqrt{\frac{1}{N} \sum_{i=1}^{N} x_i^2 + \epsilon}
 $$
-#### 路径1：标准Query计算
+
+ **路径1：标准Query计算**
 
 包括下采样、RmsNorm和两次上采样：
 $$
@@ -48,12 +49,16 @@ $$
 $$
 q^N = q^C \cdot W^{UK}
 $$
-#### 路径2：位置编码Query计算
+
+**路径2：位置编码Query计算**
+
 对Query进行ROPE旋转位置编码：
 $$
 q^R = ROPE(c^Q \cdot W^{QR})
 $$
-#### 路径3：标准Key计算
+
+**路径3：标准Key计算**
+
 包括下采样、RmsNorm，将计算结果存入Cache：
 $$
 c^{KV} = RmsNorm(x \cdot W^{DKV})
@@ -61,7 +66,9 @@ $$
 $$
 k^C = Cache(c^{KV})
 $$
-#### 路径4：位置编码Key计算
+
+**路径4：位置编码Key计算**
+
 对Key进行ROPE旋转位置编码，并将结果存入Cache：
 $$
 k^R = Cache(ROPE(x \cdot W^{KR}))
@@ -79,7 +86,7 @@ def mla_prolog_quant_compute(token_x, w_dq, w_uq_qr, dequant_scale, w_uk, w_dkv_
 
 -   **token_x**（`Tensor`）：公式中用于计算Query和Key的输入tensor。，不支持非连续的 Tensor，数据格式支持ND，数据类型支持`bfloat16`，shape为[t, h]。
 -   **w_dq**（`Tensor`）：公式中用于计算Query的下采样权重矩阵$W^{DQ}$，不支持非连续的 Tensor。数据格式支持NZ，数据类型支持`bfloat16`，shape为[h, q_lora_rank]。
--   **w_uq_qr**（`Tensor`）：公式中用于计算Query的上采样权重矩阵$W^{UQ}$和位置编码权重矩阵$W^{QR}$。，不支持非连续的 Tensor，数据格式支持NZ，数据类型支持`int8`，shape为[q_lora_rank, n_q*q_head_dim]。
+-   **w_uq_qr**（`Tensor`）：公式中用于计算Query的上采样权重矩阵$W^{UQ}$和位置编码权重矩阵$W^{QR}$。，不支持非连续的 Tensor，数据格式支持NZ，数据类型支持`int8`，shape为[q_lora_rank, n_q * q_head_dim]。
 -   **dequant_scale**（`Tensor`）：用于MatmulQcQr矩阵乘后w_uq_qr反量化操作的per-channel参数，不支持非连续的 Tensor。数据格式支持ND，数据类型支持`float`，shape为[n_q*q_head_dim, 1]。
 -   **w_uk**（`Tensor`）：公式中用于计算Key的上采样权重$W^{UK}$。，不支持非连续的 Tensor，数据格式支持ND，数据类型支持`bfloat16`，shape为[n_q, qk_nope_head_dim, kv_lora_rank]。
 -   **w_dkv_kr**（`Tensor`）：公式中用于计算Key的下采样权重矩阵$W^{DKV}$和位置编码权重矩阵$W^{KR}$。，不支持非连续的 Tensor，数据格式支持NZ，数据类型支持`bfloat16`，shape为[h, kv_lora_rank+rope_dim]。
@@ -90,7 +97,7 @@ def mla_prolog_quant_compute(token_x, w_dq, w_uq_qr, dequant_scale, w_uk, w_dkv_
 -   **cache_index**（`Tensor`）：用于存储kv_cache和kr_cache的索引。，不支持非连续的 Tensor，数据格式支持ND，数据类型支持`int64`，shape为[t]。
 -   **kv_cache**（`Tensor`）：用于cache索引的aclTensor，计算结果原地更新（对应公式中的$k^C$），不支持非连续的 Tensor。数据格式支持ND，数据类型支持`int8`，cache_mode为"PA_BSND"、shape为[block_num, block_size, n_kv, kv_lora_rank]。
 -   **kr_cache**（`Tensor`）：用于key位置编码的cache，计算结果原地更新（对应公式中的$k^R$），不支持非连续的 Tensor。数据格式支持ND，cache_mode为"PA_BSND"，数据类型支持`bfloat16`，cache_mode为"PA_BSND"、shape为[block_num, block_size, n_kv, rope_dim]。
--   **k_scale_cache**（`Tensor`）：表示 key 反量化因子的缓存，必选参数，不支持非连续的 Tensor，数据格式支持 ND，cache_mode为"PA_BSND"，数据类型支持`float`，shape为[block_num, block_size, n_kv,4]。
+-   **k_scale_cache**（`Tensor`）：表示 key 反量化因子的缓存，必选参数，不支持非连续的 Tensor，数据格式支持 ND，cache_mode为"PA_BSND"，数据类型支持`float`，shape为[block_num, block_size, n_kv, 4]。
 -   **epsilon_cq**（`float`）：计算$c^Q$的RmsNorm公式中的$\epsilon$参数。用户未特意指定时，建议传入1e-05，仅支持double类型，默认值为1e-05。
 -   **epsilon_ckv**（`float`）：计算$c^{KV}$的RmsNorm公式中的$\epsilon$参数。用户未特意指定时，建议传入1e-05，仅支持double类型，默认值为1e-05。
 -   **cache_mode**（`str`）：表示kv_cache的模式，支持"PA_BSND"。
@@ -110,46 +117,46 @@ def mla_prolog_quant_compute(token_x, w_dq, w_uq_qr, dequant_scale, w_uk, w_dkv_
 
 - 详见 [deepseekv32_mla_prolog_quant.py](deepseekv32_mla_prolog_quant.py)
 
-# lightning_indexer_prolog<a name="ZH-CN_TOPIC_0000001979260729"></a>
-## 功能说明<a name="zh-cn_topic_0000001832267082_section14441124184110"></a>
+# lightning_indexer_prolog
+## 功能说明
 
--   算子功能：用于 Deepseek IndexerAttention 中，计算 Lightning Indexer 所需要的 query，key 和 weights。
+用于 Deepseek IndexerAttention 中，计算 Lightning Indexer 所需要的 query，key 和 weights。
 Indexer Prolog 的量化策略如下：Q_b_proj 使用 W8A8 量化，其他 Linear 均不量化；query 使用 A8 量化，key(cache) 使用 C8 量化；反量化因子以 FP16 存储；weights 以 FP16 存储；
 
-Query 的计算公式如下：
+## 计算公式
+ **Query 的计算公式如下：**
+ 
+ Q 的计算采用了动态的 Per-Token-Head 量化，其中 Hadamard 变换通过矩阵右乘 hadamard_q 实现。而 $\bold{q}, \bold{w}_{qb}$ 均是 Int8 类型。
 
 $$
 \bold{q}, \bold{q}_{scale} = \text{DynamicQuant}(\text{Hadamard}(\text{RoPE}(\text{DeQuant}(\bold{q} \cdot \bold{w}_{qb}))))
 $$
 
-Q 的计算采用了动态的 Per-Token-Head 量化，其中 Hadamard 变换通过矩阵右乘 hadamard_q 实现。而 $\bold{q}, \bold{w}_{qb}$ 均是 Int8 类型。
+**Key(cache) 的计算公式如下：**
 
-Key(cache) 的计算公式如下：
+Cache 的计算同样采用了动态的 Per-Token-Head 量化，其中 Hadamard 变换通过矩阵右乘 hadamard_k 实现。
 
 $$
 \bold{k}, \bold{k}_{scale} = \text{DynamicQuant}(\text{Hadamard}(\text{RoPE}(\text{LayerNorm}(\bold{x} \cdot \bold{w}_k))))
 $$
 
-Cache 的计算同样采用了动态的 Per-Token-Head 量化，其中 Hadamard 变换通过矩阵右乘 hadamard_k 实现。
+**Weights 的计算公式如下：**
 
-
-Weights 的计算公式如下：
+Weights 的计算没有采用量化，同时需要最后转化为 FP16 数据类型，供后续的 Lightning Indexer 计算使用。
 
 $$
 \bold{weight} = (\bold{x} \cdot \bold{w}_{proj}) * \text{scale}
 $$
 
-Weights 的计算没有采用量化，同时需要最后转化为 FP16 数据类型，供后续的 Lightning Indexer 计算使用。
-
-## 函数原型<a name="zh-cn_topic_0000001832267082_section45077510411"></a>
+## 函数原型
 
 ```
 def lightning_indexer_prolog_quant_compute(x_in, q_norm_in, q_norm_scale_in, w_qb_in, w_qb_scale_in, wk_in, w_proj_in,
-				ln_gamma_k_in, ln_beta_k_in, cos_idx_rope_in, sin_idx_rope_in,hadamard_q_in, hadamard_k_in, k_int8_in, k_scale_in,
+				ln_gamma_k_in, ln_beta_k_in, cos_idx_rope_in, sin_idx_rope_in, hadamard_q_in, hadamard_k_in, k_int8_in, k_scale_in,
                 k_cache_index_in, q_int8_out, q_scale_out, k_int8_out,k_scale_out, weights_out, attrs, configs):
 ```
 
-## 参数说明<a name="zh-cn_topic_0000001832267082_section112637109429"></a>
+## 参数说明
 
 
 -   **x_in**（`Tensor`）：表示 hidden 状态token\_x，必选参数，不支持非连续的Tensor，数据格式支持ND，数据类型支持`bfloat16`,shape为[t, h]。
@@ -175,9 +182,9 @@ def lightning_indexer_prolog_quant_compute(x_in, q_norm_in, q_norm_scale_in, w_q
 
 ## 返回值说明
 
+-   **q_int8_out**（`Tensor`）：公式中 query 的输出 tensor，不支持非连续的 Tensor，数据格式支持 ND，数据类型支持`int8`，shape为[t, idx_n_heads, idx_head_dim]。
 -   **q_scale_out**（`Tensor`）：公式中 query 反量化因子的输出 tensor，不支持非连续的 Tensor，数据格式支持 ND，数据类型支持`float16`，shape为[t, idx_n_heads, 1]。
 -   **k_int8_out**（`Tensor`）：表示 key 的缓存（k_cache）的输出 tensor，不支持非连续的 Tensor，数据格式支持 ND，cache_mode为"PA_BSND"，数据类型支持`int8`，shape为[block_num, block_size, n_kv, idx_head_dim]。
--   **q_int8_out**（`Tensor`）：公式中 query 的输出 tensor，不支持非连续的 Tensor，数据格式支持 ND，数据类型支持`int8`，shape为[t, idx_n_heads, idx_head_dim]。
 -   **k_scale_out**（`Tensor`）：表示 key 反量化因子的缓存的输出 tensor，不支持非连续的 Tensor，cache_mode为"PA_BSND"，数据格式支持 ND，数据类型支持`float16`，shape为[block_num, block_size, n_kv, 1]。
 -   **weights_out**（`Tensor`）：公式中 weights 的输出 tensor，不支持非连续的 Tensor，数据格式支持 ND，数据类型支持`float16`，shape为[t, idx_n_heads]。
 
@@ -185,17 +192,19 @@ def lightning_indexer_prolog_quant_compute(x_in, q_norm_in, q_norm_scale_in, w_q
 -   算子源码执行参考[deepseekv32_lightning_indexer_prolog_quant.py](deepseekv32_lightning_indexer_prolog_quant.py)
 
 
-# sparse_flash_attention_quant<a name="ZH-CN_TOPIC_0000001979260729"></a>
+# sparse_flash_attention_quant
 
-## 功能说明<a name="zh-cn_topic_0000001832267082_section14441124184110"></a>
+## 功能说明
 
 对于每个查询 token $\bold{x}_i$，索引模块会为每个键值缓存项（表示键值对或 MLA 潜在表示）计算一个相关性得分 $I_{i,j}$。然后，通过将注意力机制应用于查询 token $\bold{x}_i$ 以及得分最高的前 $k$ 个缓存项，来计算输出 $\bold{o}_i$：
+
+## 计算公式
 
 $$
 \bold{o}_i = \text{Attn}(\bold{x}_i, \{\bold{c}_j | j \in \text{Top-k}(\bold{I}_{i, :})\})
 $$
 
-## 函数原型<a name="zh-cn_topic_0000001832267082_section45077510411"></a>
+## 函数原型
 
 ```
 def sparse_flash_attention_quant_compute(query_nope, query_rope, key_nope_2d, key_rope_2d, k_nope_scales, 
@@ -203,7 +212,7 @@ def sparse_flash_attention_quant_compute(query_nope, query_rope, key_nope_2d, ke
         max_blocknum_perbatch, tile_config):
 ```
 
-## 参数说明<a name="zh-cn_topic_0000001832267082_section112637109429"></a>
+## 参数说明
 
 -   **query_nope**（`Tensor`）：必选参数，表示MLA结构中的query的rope信息，，不支持非连续的 Tensor，数据格式支持ND，数据类型支持`bfloat16`，shape为[t * n_q, kv_lora_rank]。 
 -   **query_rope**（`Tensor`）：必选参数，表示MLA结构中的query的nope信息，，不支持非连续的 Tensor，数据格式支持ND，数据类型支持`bfloat16`，shape为[t * n_q, rope_dim]。 
@@ -222,11 +231,11 @@ def sparse_flash_attention_quant_compute(query_nope, query_rope, key_nope_2d, ke
 -   **tile_config**（`class SaTileShapeConfig`）：TileShapeConfig配置结构体，表示tile切分配置，配置项数据类型支持int。
 
 
-## 返回值说明<a name="zh-cn_topic_0000001832267082_section22231435517"></a>
+## 返回值说明
 
--   **attention_out**（`Tensor`）：公式中的输出。数据格式支持ND，数据类型支持`bfloat16`，输出shape[b, s, n_q, kv_lora_rank]。
+-   **attention_out**（`Tensor`）：公式中的输出。数据格式支持ND，数据类型支持`bfloat16`，输出shape[b, s1, n_q, kv_lora_rank]。
 
-## 调用示例<a name="zh-cn_topic_0000001832267082_section14459801435"></a>
+## 调用示例
 
 -   详见[deepseekv32_sparse_flash_attention_quant.py](deepseekv32_sparse_flash_attention_quant.py)
 # mla_indexer_polog_quant 
@@ -237,7 +246,7 @@ MLA Indexer Prolog 模块将MLA Prolog和Lightning Indexer Prolog两个算子进
 
 ## 函数原型
 ```
-def mla_indexer_prolog_quant(token_x, mla_w_dq, mla_w_uq_qr, mla_dequant_scale, mla_w_uk, mla_w_dkv_kr, mla_gamma_cq,
+def mla_indexer_prolog_quant_d(token_x, mla_w_dq, mla_w_uq_qr, mla_dequant_scale, mla_w_uk, mla_w_dkv_kr, mla_gamma_cq,
 					mla_gamma_ckv, cos, sin, cache_index, mla_kv_cache, mla_kr_cache, mla_k_scale_cache, ip_w_qb_in, 
                     ip_w_qb_scale_in, ip_wk_in, ip_w_proj_in, ip_ln_gamma_k_in, ip_ln_beta_k_in, ip_hadamard_q_in, 
                     ip_hadamard_k_in, ip_k_cache, ip_k_cache_scale, mla_query_nope_out, mla_query_rope_out, 
@@ -247,7 +256,6 @@ def mla_indexer_prolog_quant(token_x, mla_w_dq, mla_w_uq_qr, mla_dequant_scale, 
 ```
 
 ## 参数说明
-
 
 -   **token_x**（`Tensor`）：公式中用于计算Query和Key的输入tensor。，不支持非连续的 Tensor，数据格式支持ND，数据类型支持`bfloat16`，shape为[t, h]。
 -   **mla_w_dq**（`Tensor`）：公式中用于计算Query的下采样权重矩阵$W^{DQ}$，不支持非连续的 Tensor。数据格式支持NZ，数据类型支持`bfloat16`，shape为[h, q_lora_rank]。
