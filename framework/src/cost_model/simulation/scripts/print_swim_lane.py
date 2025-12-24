@@ -82,6 +82,9 @@ def prepare_workflow_data(infile):
         jdata = json.load(file)
     
     fdata = list(filter(lambda x: x["tasks"], jdata))
+    # 如果全部为空，直接返回空场景
+    if not fdata:
+        return [], [], [], []          # 与下游变量个数保持一致
     max_task_nr = max([len(data["tasks"]) for data in fdata])
 
     labels = ["start", "handshake"]
@@ -129,7 +132,11 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     ndata, task_ids, labels, core_type = prepare_workflow_data(args.infile)
+    length = len(ndata) if isinstance(ndata, list) else ndata.size
 
+    # 2. 空场景直接退出
+    if length == 0:
+        sys.exit(0)
     if args.output == '':
         np.savetxt(f"{os.path.splitext(args.infile)[0]}.csv", ndata,
                    fmt='%.2f', delimiter=',', header=','.join(labels))

@@ -440,6 +440,7 @@
         "framework/src/passes/",
         "framework/src/codegen/",
         "framework/src/cost_model/simulation/",
+        "framework/src/cost_model/simulation_ca/",
         "framework/src/cost_model/simulation_pv/",
         "framework/src/cost_model/simulation_platform/"
       ],

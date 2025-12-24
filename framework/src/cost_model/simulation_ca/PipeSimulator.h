@@ -31,5 +31,24 @@ namespace CostModel
         std::unordered_map<std::string, uint64_t> tileopLatencyCacheMp;
     };
 
+    namespace PipeSimulatorUtils {
+        std::string ReplaceGMStr(const std::string &str) { 
+            std::regex pattern(R"(\(\(__gm__ GMTensorInfo\*\)\(param\) \+ \d+\)->Addr)");  // 正则表达式匹配目标格式
+            std::string result = std::regex_replace(str, pattern, "charArray1");
+            result = std::regex_replace(result, std::regex("GMStackBase"), "charArray1");
+            std::regex getParamPattern(R"(GET_PARAM_ADDR\(param, \d+, \d+\))");
+            result = std::regex_replace(result, getParamPattern, "charArray2");
+            std::regex oriAddrPattern(R"(\(\(__gm__ GMTensorInfo\*\)\(oriAddrParam\) \+ \d+\)->Addr)");
+            result = std::regex_replace(result, oriAddrPattern, "charArray3");
+            std::regex runtimeCoaPattern(R"(RUNTIME_COA_GET_PARAM_OFFSET\(\d+,\d+,\d+\))");
+            result = std::regex_replace(result, runtimeCoaPattern, "0");
+            std::regex runtimeCoaSpacePattern(R"(RUNTIME_COA_GET_PARAM_OFFSET\(\d+, \d+, \d+\))");
+            result = std::regex_replace(result, runtimeCoaSpacePattern, "0");
+            std::regex runtimeCoaParamPattern(R"(RUNTIME_COA_GET_PARAM\(\d+\))");
+            result = std::regex_replace(result, runtimeCoaParamPattern, "0");
+            return result;
+        }
+    }
+
     extern "C" UnifiedPipeMachinePtr CreatePipeSimulatorSimulatorA2A3();
 } // namespace CostModel

@@ -45,6 +45,7 @@ namespace CostModel
         CodeGenCtx ctx;
         CodeGenCloudNPU cga(ctx);
         cga.GenAllocForLocalBuffer(*(tileOp->operation), memoryAllocator);
+        tileOp->funcPtr->parentFunction->SetFunctionType(npu::tile_fwk::FunctionType::DYNAMIC_LOOP_PATH);
         CodeGenOpCloudNPU cop(memoryAllocator, tileOp->funcPtr->parentFunction->GetFunctionType(), locToOffsetMap,
             tileOp->funcPtr->parentFunction->IsUnderDynamicFunction());
         cop.Init(*tileOp->operation);
@@ -110,10 +111,9 @@ namespace CostModel
         std::string executable = source.substr(0, source.size() - 4);
         std::string cmd = config.cPlusPlus + " -w -std=c++17 " + source + " -o " + executable + " -I " + includePath + 
                           "/tileop/a2a3 -I " + includePath +
-                          "/mock -I " + includePath + "/tileop"; //  + ">/dev/null 2>&1"
+                          "/mock -I " + includePath + "/tileop" + ">/dev/null 2>&1";
         int result = std::system(cmd.c_str());
         if (result != 0) {
-            MLOG_ERROR("compile error: ", cmd);
             return {};
         }
 #ifdef _WIN32
@@ -124,19 +124,6 @@ namespace CostModel
         std::vector<std::string> outputLines = RunExeAndCaptureOutput(executable);
 #endif
         return outputLines;
-    }
-
-    std::string ReplaceGMStr(const std::string &str) {
-        std::regex pattern(R"(\(\(__gm__ GMTensorInfo\*\)\(param\) \+ \d+\)->Addr)");  // 正则表达式匹配目标格式
-        std::string result = std::regex_replace(str, pattern, "charArray1");
-        result = std::regex_replace(result, std::regex("GMStackBase"), "charArray1");
-        std::regex getParamPattern(R"(GET_PARAM_ADDR\(param, \d+, \d+\))");
-        result = std::regex_replace(result, getParamPattern, "charArray2");
-        std::regex oriAddrPattern(R"(\(\(__gm__ GMTensorInfo\*\)\(oriAddrParam\) \+ \d+\)->Addr)");
-        result = std::regex_replace(result, oriAddrPattern, "charArray3");
-        std::regex runtimeCoaPattern(R"(RUNTIME_COA_GET_PARAM_OFFSET\(\d+,\d+,\d+\))");
-        result = std::regex_replace(result, runtimeCoaPattern, "0");
-        return result;
     }
 
     template <typename Simulator>
@@ -156,7 +143,7 @@ namespace CostModel
             return 0;
         }
 
-        buf = ReplaceGMStr(buf);
+        buf = PipeSimulatorUtils::ReplaceGMStr(buf);
 
         auto it = tileopLatencyCacheMp.find(buf);
         if (it != tileopLatencyCacheMp.end()) {
@@ -181,7 +168,6 @@ namespace CostModel
         EnvConfig config;
         std::vector<std::string> program = CompileAndRunCode(fileName, config);
         if (program.empty()) {
-            MLOG_ERROR("can't run code, buf:", buf.c_str());
             return tileopLatencyCacheMp[buf] = 1;
         }
 

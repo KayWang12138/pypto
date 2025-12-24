@@ -65,6 +65,7 @@ pipe_event_alloc = 0
 max_end_time = 0
 work_data = []
 pipe_name_map = {
+    5: 'PIPE_S',
     4: 'MTE_IN',
     3: 'MTE1',
     2: 'VECTOR_ALU',
@@ -72,6 +73,7 @@ pipe_name_map = {
     0: 'MTE_OUT'
 }
 pipe_name_revers_map = {
+    'PIPE_S': 5,
     'MTE_IN': 4,
     'MTE1': 3,
     'VECTOR_ALU': 2,
@@ -175,7 +177,9 @@ def draw_pipe_swim_lane_png(path):
     total_time = ((max_end_time // time_convert) // sample_interval) + 1 # 时间轴长度
 
     # 创建图表
-    fig, ax = plt.subplots(figsize=(total_time * 0.5 + 1, num_cores * 2))
+    width = max(total_time * 0.5 + 1, 18)
+    height = max(num_cores * 2, 9)
+    fig, ax = plt.subplots(figsize=(width, height))
 
     # 绘制泳道栅格
     for core_idx in range(num_cores):

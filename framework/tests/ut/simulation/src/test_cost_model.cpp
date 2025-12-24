@@ -24,6 +24,7 @@
 #include "interface/inner/tilefwk.h"
 #include "cost_model/simulation/pv/PvModelFactory.h"
 #include "interface/configs/config_manager.h"
+#include "cost_model/simulation_ca/PipeSimulator.h"
 
 using namespace npu::tile_fwk;
 
@@ -265,6 +266,12 @@ TEST_F(CostModelTest, TestCoreMachineDeadlock)
     arg.emplace_back("Pipe.l0cSizeThreshold=256");
     config::SetSimConfig("args", arg);
     RunAttentionPostCostModel();
+}
+
+TEST_F(CostModelTest, TestReplaceGMStr)
+{
+    std::string str = "abc";
+    CostModel::PipeSimulatorUtils::ReplaceGMStr(str);
 }
 
 void RunCat()
