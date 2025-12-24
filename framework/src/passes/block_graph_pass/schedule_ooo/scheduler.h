@@ -167,7 +167,7 @@ private:
     std::map<IssueEntryPtr, std::unordered_map<int, int>> backTraceBufRefCount;
     // 回退点,防止死循环
     IssueEntryPtr rollBackNodeIssue{nullptr};
-
+    int GetMaxDepthSimple(IssueEntryPtr issue);
     // scheduler
     Status Init(const std::vector<Operation *> &operations);
     void InitMemorySize();

@@ -389,9 +389,9 @@ TEST_F(ScheduleOoOTest, TestSpill) {
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.GenSpillSchedule();
     EXPECT_EQ(res, SUCCESS);
-    EXPECT_EQ(ooOScheduler.issueEntries[6]->tileOp.GetOpcodeStr(), "COPY_OUT");
-    EXPECT_EQ(ooOScheduler.issueEntries[12]->tileOp.GetOpcodeStr(), "UB_ALLOC");
-    EXPECT_EQ(ooOScheduler.issueEntries[13]->tileOp.GetOpcodeStr(), "COPY_IN");
+    EXPECT_EQ(ooOScheduler.issueEntries[8]->tileOp.GetOpcodeStr(), "COPY_OUT");
+    EXPECT_EQ(ooOScheduler.issueEntries[14]->tileOp.GetOpcodeStr(), "UB_ALLOC");
+    EXPECT_EQ(ooOScheduler.issueEntries[15]->tileOp.GetOpcodeStr(), "COPY_IN");
 }
 
 TEST_F(ScheduleOoOTest, TestSpillInplace) {
@@ -654,8 +654,8 @@ TEST_F(ScheduleOoOTest, TestSchedule) {
     EXPECT_EQ(res, SUCCESS);
     IssueEntryPtr add = GetIssueEntry("Add2", subGraph, ooOScheduler);
     EXPECT_NE(add, nullptr);
-    EXPECT_EQ(add->tileOp.oOperand[0]->memoryrange.start, 49152);
-    EXPECT_EQ(add->tileOp.oOperand[0]->memoryrange.end, 65536);
+    EXPECT_EQ(add->tileOp.oOperand[0]->memoryrange.start, 32768);
+    EXPECT_EQ(add->tileOp.oOperand[0]->memoryrange.end, 49152);
 }
 
 TEST_F(ScheduleOoOTest, TestScheduleInplace) {
@@ -837,15 +837,15 @@ TEST_F(ScheduleOoOTest, TestScheduleSpill) {
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.ScheduleMainLoop();
     EXPECT_EQ(res, SUCCESS);
-    EXPECT_EQ(ooOScheduler.newOperations_[6]->GetOpcodeStr(), "COPY_OUT");
-    EXPECT_EQ(ooOScheduler.newOperations_[6]->oOperand[0]->memoryrange.start, 0);
-    EXPECT_EQ(ooOScheduler.newOperations_[6]->oOperand[0]->memoryrange.end, 65536);
-    EXPECT_EQ(ooOScheduler.newOperations_[12]->GetOpcodeStr(), "UB_ALLOC");
-    EXPECT_EQ(ooOScheduler.newOperations_[12]->oOperand[0]->memoryrange.start, 131072);
-    EXPECT_EQ(ooOScheduler.newOperations_[12]->oOperand[0]->memoryrange.end, 196608);
-    EXPECT_EQ(ooOScheduler.newOperations_[13]->GetOpcodeStr(), "COPY_IN");
-    EXPECT_EQ(ooOScheduler.newOperations_[13]->oOperand[0]->memoryrange.start, 131072);
-    EXPECT_EQ(ooOScheduler.newOperations_[13]->oOperand[0]->memoryrange.end, 196608);
+    EXPECT_EQ(ooOScheduler.newOperations_[9]->GetOpcodeStr(), "COPY_OUT");
+    EXPECT_EQ(ooOScheduler.newOperations_[9]->oOperand[0]->memoryrange.start, 0);
+    EXPECT_EQ(ooOScheduler.newOperations_[9]->oOperand[0]->memoryrange.end, 65536);
+    EXPECT_EQ(ooOScheduler.newOperations_[14]->GetOpcodeStr(), "UB_ALLOC");
+    EXPECT_EQ(ooOScheduler.newOperations_[14]->oOperand[0]->memoryrange.start, 65536);
+    EXPECT_EQ(ooOScheduler.newOperations_[14]->oOperand[0]->memoryrange.end, 131072);
+    EXPECT_EQ(ooOScheduler.newOperations_[15]->GetOpcodeStr(), "COPY_IN");
+    EXPECT_EQ(ooOScheduler.newOperations_[15]->oOperand[0]->memoryrange.start, 65536);
+    EXPECT_EQ(ooOScheduler.newOperations_[15]->oOperand[0]->memoryrange.end, 131072);
 }
 
 TEST_F(ScheduleOoOTest, TestScheduleSpillInplace) {

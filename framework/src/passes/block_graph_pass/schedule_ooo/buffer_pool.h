@@ -81,6 +81,8 @@ class BufferPool {
     Status ModifyBufferRange(LocalBufferPtr localBuffer, size_t offset);
     bool CheckBufferSlicesOverlap();
     void PrintStatus();
+    Status MakeBufferSlice(LocalBufferPtr tensor, BufferSlice& newSlice);
+    void SelectHeadAndTail(bool &head, bool &tail, std::map<uint64_t, std::map<uint64_t, uint64_t>> freeIntervals);
 
   private:
     MemoryType memType_{MemoryType::MEM_UNKNOWN};

@@ -247,6 +247,22 @@ int OoOScheduler::GetNodePriority(std::unordered_map<Opcode, int> preNodePriorit
     return prior;
 }
 
+int OoOScheduler::GetMaxDepthSimple(IssueEntryPtr issue) {
+    if (issue->predecessors.empty()) {
+        return 1;
+    }
+
+    int maxDepth = 0;
+    for (const auto& pre : issue->predecessors) {
+        auto preIssue = issueEntryMap[pre];
+        int depth = GetMaxDepthSimple(preIssue);
+        if (depth > maxDepth) {
+            maxDepth = depth;
+        }
+    }
+    return maxDepth + 1;
+}
+
 void OoOScheduler::QueueNotReadyPreNode(IssueEntryPtr curIssue, std::map<IssueEntryPtr, bool>& visited,
     std::unordered_map<Opcode, int> preNodePriority, std::deque<IssueEntryPtr> &queue) {
     std::vector<IssueEntryPtr> notReadyPreNode;
@@ -262,7 +278,12 @@ void OoOScheduler::QueueNotReadyPreNode(IssueEntryPtr curIssue, std::map<IssueEn
         if (priorA != priorB) {
             return priorA < priorB;
         } else {
-            return a->execOrder < b->execOrder;
+            int depA = GetMaxDepthSimple(a);
+            int depB = GetMaxDepthSimple(b);
+            if (depA == depB) {
+                return a->execOrder < b->execOrder;
+            }
+            return depA < depB;
         }
     });
     for (auto& preIssue : notReadyPreNode) {

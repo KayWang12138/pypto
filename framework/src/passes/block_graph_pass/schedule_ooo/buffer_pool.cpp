@@ -122,27 +122,71 @@ std::vector<uint32_t> BufferPool::GetBufferSlices() {
     return res;
 }
 
+Status BufferPool::MakeBufferSlice(LocalBufferPtr tensor, BufferSlice& newSlice) {
+    newSlice.size = tensor->size;
+    if (bufferSlices.find(tensor->id) != bufferSlices.end()) {
+        APASS_LOG_ERROR_F(Elements::Tensor, "Tensor[%u] already alloc in bufferSlices.", tensor->id);
+        return FAILED;
+    }
+    bufferSlices[tensor->id] = newSlice;
+    tensor->start = newSlice.offset;
+    tensor->end = newSlice.offset + newSlice.size;
+    APASS_LOG_DEBUG_F(Elements::Tensor, " Allocate Tensor[%u], range [%lu, %lu].",
+        tensor->id, newSlice.offset, newSlice.size + newSlice.offset);
+    return SUCCESS;
+}
+
+void BufferPool::SelectHeadAndTail(bool &head, bool &tail, std::map<uint64_t, std::map<uint64_t, uint64_t>> freeIntervals) {
+    for (auto &interval : freeIntervals) {
+        for (auto &freeSpace : interval.second) {
+            if (freeSpace.first == 0) {
+                head = true;
+            }
+            if (freeSpace.second == memSize_) {
+                tail = true;
+            }
+        }
+    }
+}
+
+
 Status BufferPool::Allocate(LocalBufferPtr tensor) {
     std::map<uint64_t, std::map<uint64_t, uint64_t>> freeIntervals = FindFreeIntervals();
+    // size, {begin, end}
     // 创建新的bufferSlice
+    if (tensor->memType == MemoryType::MEM_L0A || tensor->memType == MemoryType::MEM_L0B || tensor->memType == MemoryType::MEM_L0C) {
+        bool headFree = false;
+        bool tailFree = false;
+        SelectHeadAndTail(headFree, tailFree, freeIntervals);
+        BufferSlice newSlice;
+        if (headFree) {
+            newSlice.offset = 0;
+            if (MakeBufferSlice(tensor, newSlice) != SUCCESS) {
+                return FAILED;
+            } else {
+                return SUCCESS;
+            }
+        } else if (tailFree) {
+            newSlice.offset = memSize_ - tensor->size;
+            if (MakeBufferSlice(tensor, newSlice) != SUCCESS) {
+                return FAILED;
+            } else {
+                return SUCCESS;
+            }
+        } 
+    }
     for (auto &interval : freeIntervals) {
         if (interval.first < tensor->size) {
             continue;
         }
         for (auto &freeSpace : interval.second) {
             BufferSlice newSlice;
-            newSlice.size = tensor->size;
             newSlice.offset = freeSpace.first;
-            if (bufferSlices.find(tensor->id) != bufferSlices.end()) { 
-                APASS_LOG_ERROR_F(Elements::Tensor, "Tensor[%u] already alloc in bufferSlices.", tensor->id); 
+            if (MakeBufferSlice(tensor, newSlice) != SUCCESS) {
                 return FAILED;
+            } else {
+                return SUCCESS;
             }
-            bufferSlices[tensor->id] = newSlice;
-            tensor->start = newSlice.offset;
-            tensor->end = newSlice.offset + newSlice.size;
-            APASS_LOG_DEBUG_F(Elements::Tensor, "    Allocate Tensor[%u], range [%lu, %lu].",
-                tensor->id, newSlice.offset, newSlice.size + newSlice.offset);
-            return SUCCESS;
         }
     }
     APASS_LOG_ERROR_F(Elements::Tensor, "Buffer doesnot have enough memory to allocate Tensor[%u].", tensor->id);
