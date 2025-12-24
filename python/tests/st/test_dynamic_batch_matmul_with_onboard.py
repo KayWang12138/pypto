@@ -44,13 +44,13 @@ INT8 = np.int8
 
 def test_batch_matmul_fp16_with_no_split():
     input_config = BatchMatmulShapeConfig(FP16, FP32, [3, 64, 128, 512], [128, 128], [128, 128], [128, 128],
-                                             [-1, -1, -1], True, False, False, False, True)
+                                             [-1, -1, -1], True, False, False, False, False)
     dynamic_batch_matmul_onboard_util(input_config)
 
 
 def test_batch_matmul_bf16_with_m_split():
     input_config = BatchMatmulShapeConfig(FP16, FP32, [2, 16, 512, 128], [128, 128], [128, 128], [128, 128],
-                                            [-1, -1, -1], True, True, False, True, True)
+                                            [-1, -1, -1], True, True, False, True, False)
     dynamic_batch_matmul_onboard_util(input_config)
 
 

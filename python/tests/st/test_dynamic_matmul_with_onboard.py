@@ -54,21 +54,10 @@ class ExtendParams:
     relu_type: int = None
 
 
-def test_matmul_fp16_with_m_split():
-    input_config = ShapeConfig([128, 256, 512], [64, 64], [128, 128], [128, 128], [96, -1], FP16, FP32,
-                               True, False, False, False, True)
-    dynamic_matmul_onboard_util(input_config)
-
 
 def test_matmul_bf16_with_n_split():
     input_config = ShapeConfig([16, 32, 512], [128, 128], [128, 128], [128, 128], [-1, 100], FP16, FP32,
                                True, True, False, False, False)
-    dynamic_matmul_onboard_util(input_config)
-
-
-def test_matmul_bf16_nz_with_m_n_split():
-    input_config = ShapeConfig([32, 64, 64], [64, 128], [64, 128], [64, 128], [96, 96], FP16, FP32, True, True,
-                               True, False, True)
     dynamic_matmul_onboard_util(input_config)
 
 

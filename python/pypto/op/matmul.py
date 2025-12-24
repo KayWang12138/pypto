@@ -122,6 +122,7 @@ def matmul(
     """
     input_dim = input.Dim()
     mat2_dim = mat2.Dim()
+    check_data_valid(input, mat2, c_matrix_nz)
     if input_dim == mat2_dim == 2:
         if (extend_params is None) or (not extend_params):
             return pypto_impl.Matmul(
@@ -142,6 +143,19 @@ def matmul(
         raise RuntimeError(
             "input dim and mat dim must equals, which only support 2-D/3-D/4-D currently"
         )
+
+
+def check_data_valid(input_tensor1, input_tensor2, is_out_nz):
+    if is_out_nz:
+        raise ValueError("Output tensor do not support NZ currently.")
+    input1_valid = input_tensor1.GetDataType() == pypto_impl.DataType.DT_FP32 \
+        and input_tensor1.Format() == pypto_impl.TileOpFormat.TILEOP_NZ
+    input2_valid = input_tensor2.GetDataType() == pypto_impl.DataType.DT_FP32 \
+        and input_tensor2.Format() == pypto_impl.TileOpFormat.TILEOP_NZ
+    if input1_valid or input2_valid:
+        raise ValueError("Input tensor with DT_FP32 must use ND format, NZ format is not support currently.")
+    if input_tensor1.GetDataType() != input_tensor2.GetDataType():
+        raise ValueError("All input tensors must have the same data type")
 
 
 def convert_matmul_extend_params(extend_params) -> dict:
