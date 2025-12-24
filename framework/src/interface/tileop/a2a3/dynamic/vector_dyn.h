@@ -1835,35 +1835,13 @@ TILEOP void DynTpow_(__ubuf__ float *dst, __ubuf__ float *src0, __ubuf__ float *
     unsigned src1T0, unsigned src1T1) {
     unsigned T0 = src0T0 < src1T0 ? src1T0 : src0T0;
     unsigned T1 = src0T1 < src1T1 ? src1T1 : src0T1;
-    auto dst_ = dst;
-    auto src0_ = src0;
-    for (int i = 0; i < T0; i++) {
-        auto dst__ = dst_;
-        auto src0__ = src0_;
-        for (int j = 0; j < T1; j++) {
-            // dst: p, src0: k
-            splitNumber(dst__, src0__);
-            dst__++;
-            src0__++;
-        }
-        dst_ += DS1;
-        src0_ += S0S1;
-    }
     set_flag(PIPE_S, PIPE_V, EVENT_ID0);
     wait_flag(PIPE_S, PIPE_V, EVENT_ID0);
-    constexpr float LN2 = 0.6931471805599453094172321;
-    // ln a = p * ln 2 + ln k
-    // dst: p * ln 2
-    DynTmuls_<float, DS1, DS1>(dst, dst, LN2, T0, T1);
-    // src0: ln k
+    // src0: ln a
     DynTln_<float, S0S1, S0S1>(src0, src0, T0, T1);
     pipe_barrier(PIPE_V);
-    // dst: p * ln 2 + ln k
-    DynTadd_<float, DS1, DS0, DS1, S0S0, S0S1>(dst, dst, src0, T0, T1, T0, T1);
-    pipe_barrier(PIPE_V);
-    // a ^ b = e ^ (b * ln a)
     // src0: b * ln a
-    DynTmul_<float, S0S1, DS0, DS1, S1S0, S1S1>(src0, dst, src1, T0, T1, T0, T1);
+    DynTmul_<float, S0S1, S0S0, S0S1, S1S0, S1S1>(src0, src0, src1, T0, T1, T0, T1);
     pipe_barrier(PIPE_V);
     // dst: e ^ (b * ln a)
     DynTexp_<float, DS1, S0S1>(dst, src0, T0, T1);
