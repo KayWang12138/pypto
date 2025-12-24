@@ -294,11 +294,9 @@ void FunctionInterpreter::DumpOperationTensor(Operation *op, FunctionFrame *fram
         }
     }
  
-    size_t totalOOperandSize = 0;
     for (size_t k = 0; k < oopSize; k++) {
         if (k < ooperandDataViewList->size()) {
             auto dataView = ooperandDataViewList->at(k);
-            totalOOperandSize += dataView->GetSize();
             std::string dumpTensorFileName = GetDumpTensorFileName(op->GetOOperands()[k], op, frame);
             DumpTensorBinary(dataView, dumpTensorFileName);
             fprintf(execDumpFile, "<div class=\"detail indent_%d\">%s</a></div>\n", indent, dumpTensorFileName.c_str());

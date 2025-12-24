@@ -147,12 +147,12 @@ TEST_F(TestConfigManager, NormalRuntimeTest) {
         {STITCH_FUNCTION_INNER_MEMORY, {1, INT_MAX}},
         {STITCH_FUNCTION_OUTCAST_MEMORY, {1, INT_MAX}},
         {STITCH_FUNCTION_NUM_INITIAL, {1, 128}},
-        {STITCH_FUNCTION_NUM_STEP, {1, 128}},
-        {CFGCACHE_DEVICE_TASK_NUM, {1, 100}},
-        {CFGCACHE_ROOT_TASK_NUM, {1, 1000}},
-        {CFGCACHE_LEAF_TASK_NUM, {1, 10000}},
+        {STITCH_FUNCTION_NUM_STEP, {0, 128}},
+        {CFGCACHE_DEVICE_TASK_NUM, {0, 100}},
+        {CFGCACHE_ROOT_TASK_NUM, {0, 1000}},
+        {CFGCACHE_LEAF_TASK_NUM, {0, 10000}},
         {STITCH_FUNCTION_SIZE, {1, 65535}},
-        {CFG_RUN_MODE, {0, 2}},
+        {CFG_RUN_MODE, {0, 1}},
     };
     bool ret = RangeTest<int64_t>(input, &(config::SetOption), "runtime");
     EXPECT_EQ(ret, true);
@@ -163,15 +163,15 @@ TEST_F(TestConfigManager, AbnormalRuntimeTest) {
     ++outVal;
     std::unordered_map<std::string, std::vector<int64_t>> input = {
         {DEVICE_SCHED_MODE, {-1, 4}},
-        {STITCH_FUNCTION_INNER_MEMORY, {0, INT_MAX}},
-        {STITCH_FUNCTION_OUTCAST_MEMORY, {0, INT_MAX}},
+        {STITCH_FUNCTION_INNER_MEMORY, {0, outVal}},
+        {STITCH_FUNCTION_OUTCAST_MEMORY, {0, outVal}},
         {STITCH_FUNCTION_NUM_INITIAL, {0, 129}},
-        {STITCH_FUNCTION_NUM_STEP, {0, 129}},
-        {CFGCACHE_DEVICE_TASK_NUM, {0, 101}},
-        {CFGCACHE_ROOT_TASK_NUM, {0, 1001}},
-        {CFGCACHE_LEAF_TASK_NUM, {0, 10001}},
+        {STITCH_FUNCTION_NUM_STEP, {-1, 129}},
+        {CFGCACHE_DEVICE_TASK_NUM, {-1, 101}},
+        {CFGCACHE_ROOT_TASK_NUM, {-1, 1001}},
+        {CFGCACHE_LEAF_TASK_NUM, {-1, 10001}},
         {STITCH_FUNCTION_SIZE, {0, 65536}},
-        {CFG_RUN_MODE, {-1, 3}},
+        {CFG_RUN_MODE, {-1, 2}},
     };
     bool ret = RangeTest<int64_t>(input, &(config::SetOption), "runtime");
     EXPECT_EQ(ret, true);

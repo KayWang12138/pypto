@@ -72,8 +72,8 @@ target_compile_options(tile_fwk_intf_pub
             # 放在最后
             $<$<CONFIG:Release>:-Wno-return-type>
             $<$<CONFIG:Release>:-Wno-array-bounds>
-            $<$<CXX_COMPILER_ID:GNU>:$<$<CONFIG:Release>:-Wno-maybe-uninitialized>>
-            $<$<CXX_COMPILER_ID:GNU>:$<$<CONFIG:Release>:-Wno-unused-but-set-variable>>
+            $<$<CXX_COMPILER_ID:GNU>:-Wno-maybe-uninitialized>
+            $<$<CXX_COMPILER_ID:GNU>:-Wno-unused-but-set-variable>
             $<$<CONFIG:Release>:-Wno-unused-variable>
             $<$<CONFIG:Release>:-Wno-unused-parameter>
             -Wno-unused-result
