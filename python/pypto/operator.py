@@ -453,14 +453,14 @@ def softmax(input: Tensor, dim: int) -> Tensor:
     return output
 
 
-def rms_norm(input_x: Tensor, gamma: Tensor = None, epsilon: float = 1e-6) -> Tensor:
+def rms_norm(input: Tensor, gamma: Tensor = None, epsilon: float = 1e-6) -> Tensor:
     """
     Root Mean Square LayerNorm (RMSNorm) along the last dimension.
     If `gamma` is provided, applies an element-wise scale on the last dim.
 
     Parameters
     ----------
-    input_x : Tensor
+    input : Tensor
         Input tensor. Any shape (..., C).
     gamma : Tensor | None
         Optional scale of shape (C,).
@@ -484,8 +484,8 @@ def rms_norm(input_x: Tensor, gamma: Tensor = None, epsilon: float = 1e-6) -> Te
     Output y: [[0.3651, 0.7302, 1.0954, 1.4605], 
                [0.7580, 0.9097, 1.0613, 1.2129]]
     """
-    in_dtype = input_x.dtype
-    x = pypto.cast(input_x, pypto.DT_FP32)
+    in_dtype = input.dtype
+    x = pypto.cast(input, pypto.DT_FP32)
 
     n = x.shape[-1]
 
@@ -495,7 +495,7 @@ def rms_norm(input_x: Tensor, gamma: Tensor = None, epsilon: float = 1e-6) -> Te
     y = x * ones / y
 
     if gamma is not None:
-        rank = input_x.dim
+        rank = input.dim
         shape = [1] * rank
         shape[-1] = gamma.shape[0]
         g = pypto.cast(pypto.reshape(gamma, shape), pypto.DT_FP32)
