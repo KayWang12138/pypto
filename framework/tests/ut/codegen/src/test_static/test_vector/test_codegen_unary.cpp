@@ -134,7 +134,7 @@ TEST_F(TestCodegenUnary, TransposeVnchwconvDim5) {
 }
 
 TEST_F(TestCodegenUnary, TransposeVnchwconvDim2TileTensor) {
-    TestTransposeVnchwconvBody({16, 32}, {32, 16}, {0, 1}, {16, 16}, "TRANSPOSE_VNCHWCONV_DIM2", true);
+    TestTransposeVnchwconvBody({16, 32}, {32, 16}, {0, 1}, {16, 16}, "TransposeVnchwconvDim2TileTensor", true);
 }
 
 void TestRowMaxExpandBody(
