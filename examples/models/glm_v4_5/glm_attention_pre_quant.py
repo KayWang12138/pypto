@@ -9,6 +9,24 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 """
+GLM-4.5 Attention Pre Quant Module
+
+This module implements the fused attention_pre_quant operation for GLM-4.5,
+which combines multiple operations:
+- Input LayerNorm with residual connection
+- Input quantization
+- Quantized QKV matrix multiplication
+- Q/K LayerNorm
+- Rotary Position Embedding (RoPE)
+
+This fused operation significantly improves execution efficiency and memory bandwidth
+utilization on NPU by reducing kernel launch overhead.
+
+Main Functions:
+    - attention_pre_quant: Main function for attention_pre_quant
+    - quant_attention_pre_kernel: JIT compiled kernel implementation
+    - rms_norm_bias: RMS normalization with bias
+    - rope_data: Rotary position embedding computation
 """
 import os
 import torch
@@ -238,6 +256,43 @@ def quant_attention_pre_kernel(x, residual_input, x_gamma, x_bias,
                                x_scale, x_offset, weight, quant_bias,
                                deq_scale, q_gamma, q_bias, k_gamma,
                                k_bias, cos, sin, q, k, v, residual):
+    """
+    JIT compiled kernel for fused attention_pre_quant operation.
+
+    This kernel performs the following operations in sequence:
+    1. Add residual connection: x = residual + hidden_states
+    2. RMS normalization: x_norm = RMSNorm(x)
+    3. Input quantization: x_int8 = Quantize(x_norm)
+    4. Quantized QKV projection: qkv = Dequantize(MatMul(x_int8, weight))
+    5. Split QKV: q, k, v = Split(qkv)
+    6. Q/K normalization: q_norm = RMSNorm(q), k_norm = RMSNorm(k)
+    7. Apply RoPE: q_rope = RoPE(q_norm), k_rope = RoPE(k_norm)
+
+    Args:
+        x: Input hidden states [num_tokens, hidden_size]
+        residual_input: Residual tensor [num_tokens, hidden_size]
+        x_gamma: Input LayerNorm weight [hidden_size]
+        x_bias: Input LayerNorm bias [hidden_size]
+        x_scale: Input quantization scale [hidden_size]
+        x_offset: Input quantization offset [hidden_size]
+        weight: QKV weight matrix (int8) [hidden_size, total_head_size]
+        quant_bias: QKV quantization bias [total_head_size]
+        deq_scale: QKV dequantization scale [total_head_size]
+        q_gamma: Query LayerNorm weight [head_size]
+        q_bias: Query LayerNorm bias [head_size]
+        k_gamma: Key LayerNorm weight [head_size]
+        k_bias: Key LayerNorm bias [head_size]
+        cos: Cosine values for RoPE [num_tokens, 1, half_rotary_dim]
+        sin: Sine values for RoPE [num_tokens, 1, half_rotary_dim]
+        q: Output query tensor [num_tokens, q_size]
+        k: Output key tensor [num_tokens, kv_size]
+        v: Output value tensor [num_tokens, kv_size]
+        residual: Output residual tensor [num_tokens, hidden_size]
+
+    Note:
+        This function processes inputs in tiles of size 8 to support dynamic batch sizes.
+        The computation uses FP32 for intermediate calculations to maintain numerical precision.
+    """
     # 2. 从入参拿到输入和输出tensor
     bs_tile = 8
 
@@ -545,6 +600,41 @@ def attention_pre_quant(
     value: torch.Tensor,
     residual_res: torch.Tensor
 ):
+    """
+    Main function for attention_pre_quant operation.
+
+    This function fuses multiple operations to compute Q, K, V tensors for attention:
+    - Input LayerNorm with residual connection
+    - Input quantization
+    - Quantized QKV matrix multiplication
+    - Q/K LayerNorm
+    - Rotary Position Embedding (RoPE)
+
+    Args:
+        hidden_states: Input hidden states [num_tokens, hidden_size]
+        residual: Optional residual tensor [num_tokens, hidden_size]
+        input_layernorm_weight: Input LayerNorm weight [hidden_size]
+        input_layernorm_bias: Input LayerNorm bias [hidden_size]
+        atten_qkv_input_scale_reciprocal: QKV input quantization scale reciprocal [hidden_size]
+        atten_qkv_input_offset: QKV input quantization offset [hidden_size]
+        atten_qkv_weight: QKV weight matrix (int8) [hidden_size, total_head_size]
+        atten_qkv_quant_bias: QKV quantization bias [total_head_size]
+        atten_qkv_deq_scale: QKV dequantization scale [total_head_size]
+        atten_q_norm_weight: Query LayerNorm weight [head_size]
+        atten_q_norm_bias: Query LayerNorm bias [head_size]
+        atten_k_norm_weight: Key LayerNorm weight [head_size]
+        atten_k_norm_bias: Key LayerNorm bias [head_size]
+        cos: Cosine values for RoPE [num_tokens, 1, half_rotary_dim]
+        sin: Sine values for RoPE [num_tokens, 1, half_rotary_dim]
+        query: Output query tensor [num_tokens, q_size]
+        key: Output key tensor [num_tokens, kv_size]
+        value: Output value tensor [num_tokens, kv_size]
+        residual_res: Output residual tensor [num_tokens, hidden_size]
+
+    Note:
+        This function is decorated with @allow_in_graph to enable integration
+        with PyTorch's compilation graph.
+    """
     if isinstance(hidden_states, FakeTensor):
         return
 

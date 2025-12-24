@@ -9,6 +9,17 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 """
+GLM-4.5 Attention Module
+
+This module implements the Attention mechanism for GLM-4.5 model, which uses
+a paged memory management approach similar to operating systems to efficiently
+handle variable-length sequences and dynamic batch sizes in attention computation.
+
+Main Functions:
+    - attention: Main attention function with Attention support
+    - ifa_func: JIT compiled kernel implementing Flash Attention with paged KV cache
+    - gen_block_table: Generate block mapping table for Attention
+    - kv_cache_concat_bsnd: Convert paged KV cache to BSND format
 """
 
 from dataclasses import dataclass
@@ -247,6 +258,32 @@ def softmax(x, is_fp16=False):
     "cube_l1_reuse_setting": {0: 4}}
 )
 def ifa_func(q, k, v, block_table, kv_act_seqs, atten_out):
+    """
+    JIT compiled kernel implementing Incremental Flash Attention (IFA) with Attention.
+
+    This function implements the Flash Attention algorithm optimized for Attention,
+    which processes attention computation in tiles to reduce memory usage. It supports
+    dynamic batch sizes and variable sequence lengths through block-based KV cache management.
+
+    The algorithm:
+    1. Reshapes Q, K, V tensors to 2D for efficient computation
+    2. Iterates over batch, sequence, and head dimensions
+    3. Assembles KV cache blocks according to block_table
+    4. Computes attention scores using Flash Attention algorithm with online softmax
+    5. Accumulates attention output incrementally
+
+    Args:
+        q: Query tensor [num_tokens, num_head, head_size]
+        k: Key cache tensor [num_blocks, block_size, kv_head_num, head_size]
+        v: Value cache tensor [num_blocks, block_size, kv_head_num, head_size]
+        block_table: Block mapping table [batch_size, max_num_blocks_per_query]
+        kv_act_seqs: Actual sequence lengths [batch_size]
+        atten_out: Output attention tensor [num_tokens, num_head, head_size]
+
+    Note:
+        This function uses Flash Attention's online softmax algorithm to avoid storing
+        the full attention matrix, significantly reducing memory requirements.
+    """
     # 1. 添加支持动态的config
     pypto.experimental.set_operation_config(combine_axis=True)
 
@@ -501,7 +538,27 @@ def attention(
     actual_seqs: torch.Tensor,
     attn_res: torch.Tensor
 ) -> None:
+    """
+    Main attention function with Attention support.
 
+    This function implements scaled dot-product attention using Attention
+    mechanism, which efficiently handles variable-length sequences and dynamic
+    batch sizes by managing KV cache in non-contiguous blocks.
+
+    Args:
+        query: Query tensor with shape [num_tokens, num_head, head_size]
+        key_cache: Key cache tensor with shape [num_blocks, block_size, kv_head_num, head_size]
+        value_cache: Value cache tensor with shape [num_blocks, block_size, kv_head_num, head_size]
+        block_tables: Block mapping table with shape [batch_size, max_num_blocks_per_query]
+        actual_seqs: Actual sequence lengths with shape [batch_size]
+        attn_res: Output attention tensor with shape [num_tokens, num_head, head_size]
+
+    Note:
+        This function is decorated with @allow_in_graph to enable integration
+        with PyTorch's compilation graph.
+    """
+    if isinstance(inputs[0], FakeTensor):
+        return
     check_args(
         query,
         key_cache,
@@ -513,8 +570,6 @@ def attention(
 
     inputs = [query, key_cache, value_cache, block_tables, actual_seqs]
     outputs = [attn_res]
-    if isinstance(inputs[0], FakeTensor):
-        return
     pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
     pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
     ifa_func(*pto_inputs, *pto_outputs)
