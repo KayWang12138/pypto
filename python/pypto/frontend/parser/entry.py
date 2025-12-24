@@ -15,7 +15,7 @@ including the parse function and JIT decorator.
 """
 
 import inspect
-from typing import Any, Callable, List, Optional, Union
+from typing import Any, Callable, Optional, Union
 
 import torch
 import pypto
@@ -73,7 +73,7 @@ def parse(program: Source, extra_vars: Optional[dict[str, Any]] = None) -> Any:
     return parser.execute()
 
 
-def _to_tensor_data(tensors: List[torch.Tensor]):
+def _to_tensor_data(tensors: list[torch.Tensor]) -> list[pypto_impl.DeviceTensorData]:
     """Convert torch tensors to PTO tensor data."""
     datas = []
     for t in tensors:
@@ -176,13 +176,11 @@ class JitCallableWrapper:
         self._parser.parse()
 
         # Get function signature (inputs and outputs) for OperatorBegin
-        input_tensors, output_tensors = self._parser.get_signature()
+        # input_tensors, output_tensors = self._parser.get_signature()
 
         # Initialize backend for compilation
         pypto_impl.DeviceInit()
-        handler = pypto_impl.OperatorBegin(
-            [t.base() for t in input_tensors], [t.base() for t in output_tensors]
-        )
+        handler = pypto_impl.OperatorBegin()
 
         # Set options AFTER OperatorBegin() to match @pypto.jit behavior
         if self._codegen_options:
@@ -288,16 +286,23 @@ class JitCallableWrapper:
             out_tensors.append(out_tensor)
 
         # Execute the function
-        workspace_size = pypto_impl.GetWorkSpaceSize(self._handler)
-        workspace_tensor = torch.zeros(workspace_size, device=device)
-
-        pypto_impl.OperatorDeviceRunOnceDataFromDevice(
+        in_tensor_data = _to_tensor_data(in_tensors)
+        out_tensor_data = _to_tensor_data(out_tensors)
+        workspace_size = pypto_impl.GetWorkSpaceSize(
+            self._handler, in_tensor_data, out_tensor_data
+        )
+        print([x.GetShape() for x in in_tensor_data])
+        print([x.GetShape() for x in out_tensor_data])
+        workspace_tensor = torch.empty(workspace_size, dtype=torch.uint8, device=device)
+        runtime_error_msg = pypto_impl.OperatorDeviceRunOnceDataFromDevice(
             self._handler,
-            _to_tensor_data(in_tensors),
-            _to_tensor_data(out_tensors),
+            in_tensor_data + out_tensor_data,
+            list(),
             torch.npu.current_stream().npu_stream,
             workspace_tensor.data_ptr(),
         )
+        if runtime_error_msg != "":
+            raise RuntimeError(runtime_error_msg)
         # Return single tensor or tuple based on number of outputs
         if len(out_tensors) == 1:
             return out_tensors[0]
@@ -312,6 +317,7 @@ class JitCallableWrapper:
     def handler(self):
         """Get the runtime handler."""
         return self._handler
+
 
 def function(
     func: Optional[Callable] = None,

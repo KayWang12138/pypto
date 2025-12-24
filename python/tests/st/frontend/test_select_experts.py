@@ -8,8 +8,7 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
-"""
-"""
+""" """
 import os
 
 import numpy as np
@@ -30,10 +29,7 @@ def ceil_div(a: int, b: int) -> int:
 renormalize = True
 
 
-@pypto.frontend.jit(
-    host_options={"only_codegen": True},
-    codegen_options={"support_dynamic_unaligned": True},
-)
+@pypto.frontend.jit(host_options={"only_codegen": True})
 def select_experts(logits_input: pypto.Tensor((BS, NE), pypto.DT_FP16)) -> (
     pypto.Tensor((BS, TOP_K), pypto.DT_INT32),
     pypto.Tensor((BS, TOP_K), pypto.DT_FP16),
@@ -80,7 +76,6 @@ def test_select_experts():
     batch_sizes = [4959, 1, 129]
     ne = 128
     top_k = 8
-    renormalizes = [True, True, False]
     device_id = int(os.environ.get("TILE_FWK_DEVICE_ID", 1))
     torch.npu.set_device(device_id)
 

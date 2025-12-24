@@ -872,7 +872,7 @@ class Parser(doc.NodeVisitor):
                 # For nested functions, we don't create a pypto.Function; body will be inlined on call.
                 return None
             else:
-                with pypto.function(node.name, tensor_input_args, output_args):
+                with pypto.function(node.name, *tensor_input_args, *output_args):
                     for _ in pypto.loop(1):
                         self._visit_body(node.body)
 
