@@ -464,6 +464,7 @@ def sparse_flash_attention_quant_d(query_nope, query_rope, key_nope_2d, key_rope
         Configured for decode phase with optimized memory and parallelism settings.
         Uses flash attention algorithm for better numerical stability.
     """
+    pypto.experimental.set_operation_config(combine_axis=True)
     sparse_flash_attention_quant_compute_flash(query_nope, query_rope, key_nope_2d, key_rope_2d,
                                                k_nope_scales, topk_indcies, block_table, kv_act_seqs,
                                                attention_out, nq, n_kv, softmax_scale, topk,
@@ -520,6 +521,7 @@ def sparse_flash_attention_quant_p(query_nope, query_rope, key_nope_2d, key_rope
         Configured for prefill phase with optimized memory and parallelism settings.
         Uses flash attention algorithm for better numerical stability.
     """
+    pypto.experimental.set_operation_config(combine_axis=True)
     sparse_flash_attention_quant_compute_flash(query_nope, query_rope, key_nope_2d, key_rope_2d,
                                                k_nope_scales, topk_indcies, block_table, kv_act_seqs,
                                                attention_out, nq, n_kv, softmax_scale, topk,
