@@ -117,4 +117,3 @@ def dynamic(name: str) -> SymbolicScalar:
     - Symbolic dimensions can be used in shape calculations within kernels
     """
     return SymbolicScalar(name)
-

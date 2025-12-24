@@ -27,12 +27,14 @@ from .liveness import LivenessAnalyzer
 
 ParamSpec = tuple[str, bool, Any]
 
+
 class NestedFunctionMarker:
     """Marker used to identify functions intended for nested inline execution."""
 
     def __init__(self) -> None:
-        self.original_func: Optional[Callable] = None
-        self.func_name: str = ""
+        self._original_func: Optional[Callable] = None
+        self._func_name: str = ""
+
 
 DEFAULT_VISIT = {
     "Interactive",
@@ -40,6 +42,7 @@ DEFAULT_VISIT = {
     "Expression",
     "Pass",
 }
+
 
 def _catch_parser_errors(func):
     """Decorator to normalize parser error handling for public APIs."""
@@ -110,6 +113,8 @@ class Parser(doc.NodeVisitor):
         The result of parsing, typically a pypto.Function object.
     _signature_cache : Optional[tuple[list[pypto.Tensor], list[pypto.Tensor]]]
         Cached function signature (inputs, outputs) to avoid re-parsing.
+    _lowered_signature_cache: Optional[tuple[list[pypto.Tensor], list[pypto.Tensor]]]
+        Cached function signature (inputs, outputs) with symbolic dimensions lowered to concrete values.
     _bound_dim_values : Optional[dict[str, int]]
         Mapping from symbolic dimension names to their concrete values.
 
@@ -128,9 +133,8 @@ class Parser(doc.NodeVisitor):
     _parsed_node: Optional[doc.AST]
     _parsed_extra_vars: dict[str, Any]
     _result: Optional[Any]
-    _signature_cache: Optional[
-        tuple[list[pypto.Tensor], list[pypto.Tensor]]
-    ]
+    _signature_cache: Optional[tuple[list[pypto.Tensor], list[pypto.Tensor]]]
+    _lowered_signature_cache: Optional[tuple[list[pypto.Tensor], list[pypto.Tensor]]]
 
     # ==========================================================================================
     # Public API
@@ -146,6 +150,7 @@ class Parser(doc.NodeVisitor):
         self._parsed_extra_vars = extra_vars or {}
         self._result = None
         self._signature_cache = None
+        self._lowered_signature_cache = None
         self._bound_dim_values: Optional[dict[str, int]] = None
 
     @_catch_parser_errors
@@ -236,10 +241,10 @@ class Parser(doc.NodeVisitor):
 
         self._bound_dim_values = self.match_input_shapes(inputs)
 
-
     @_catch_parser_errors
     def get_signature(
         self,
+        lower_symbolic_dims: bool = False,
     ) -> tuple[list[pypto.Tensor], list[pypto.Tensor]]:
         """Extract function signature (inputs and outputs) without full parsing.
 
@@ -254,8 +259,11 @@ class Parser(doc.NodeVisitor):
             If parse() was not called before get_signature().
         """
 
-        if self._signature_cache is not None:
+        if self._signature_cache is not None and not lower_symbolic_dims:
             return self._signature_cache
+
+        elif self._lowered_signature_cache is not None and lower_symbolic_dims:
+            return self._lowered_signature_cache
 
         node = self.diag.source.as_ast()
 
@@ -291,7 +299,49 @@ class Parser(doc.NodeVisitor):
                 output_tensors,
             )
 
-            return self._signature_cache
+            lowered_input_tensors, lowered_output_tensors = [], []
+            for input_tensor in tensor_input_args:
+                shapes = [
+                    -1 if isinstance(dim, pypto.SymbolicScalar) else dim
+                    for dim in input_tensor.shape
+                ]
+                lowered_input_tensors.append(
+                    pypto.Tensor(
+                        shapes,
+                        input_tensor.dtype,
+                        input_tensor.name,
+                        input_tensor.format,
+                        input_tensor.data_ptr,
+                        input_tensor.device,
+                        input_tensor.ori_shape,
+                    )
+                )
+            for output_tensor in output_tensors:
+                shapes = [
+                    -1 if isinstance(dim, pypto.SymbolicScalar) else dim
+                    for dim in output_tensor.shape
+                ]
+                lowered_output_tensors.append(
+                    pypto.Tensor(
+                        shapes,
+                        output_tensor.dtype,
+                        output_tensor.name,
+                        output_tensor.format,
+                        output_tensor.data_ptr,
+                        output_tensor.device,
+                        output_tensor.ori_shape,
+                    )
+                )
+
+            self._lowered_signature_cache = (
+                lowered_input_tensors,
+                lowered_output_tensors,
+            )
+            return (
+                self._signature_cache
+                if not lower_symbolic_dims
+                else self._lowered_signature_cache
+            )
 
     @_catch_parser_errors
     def execute(self) -> Any:
@@ -345,7 +395,7 @@ class Parser(doc.NodeVisitor):
         """
         # If it's a NestedFunctionMarker, get the original function
         # Check for _original_func attribute to identify NestedFunctionMarker instances
-        if hasattr(func, '_original_func'):
+        if hasattr(func, "_original_func"):
             func = func._original_func
 
         # Get the function source code
@@ -363,7 +413,7 @@ class Parser(doc.NodeVisitor):
             elif isinstance(ast_node, doc.FunctionDef):
                 if ast_node.name == func.__name__:
                     return ast_node
-        except Exception:
+        except Exception:  # pylint: disable=broad-except
             # If we can't get the AST, return None
             return None
 
@@ -376,7 +426,7 @@ class Parser(doc.NodeVisitor):
             return env
         try:
             closure_vars = inspect.getclosurevars(func)
-        except Exception:
+        except Exception:  # pylint: disable=broad-except
             return env
         env.update(closure_vars.globals)
         env.update(closure_vars.nonlocals)
@@ -399,11 +449,11 @@ class Parser(doc.NodeVisitor):
             # Check if decorator is pto.frontend.function or evaluates to NestedFunctionMarker
             try:
                 # Try to evaluate the decorator expression
-                decorator_value = self.visit_expr(decorator)
+                decorator_value = self._visit_expr(decorator)
                 # Check for _original_func attribute to identify NestedFunctionMarker instances
-                if hasattr(decorator_value, '_original_func'):
+                if hasattr(decorator_value, "_original_func"):
                     return True
-            except Exception:
+            except Exception:  # pylint: disable=broad-except
                 # If evaluation fails, try to check if it's a direct reference to pto.frontend.function
                 # Check if it's an Attribute node like pto.frontend.function
                 if isinstance(decorator, doc.Attribute):
@@ -420,8 +470,12 @@ class Parser(doc.NodeVisitor):
                         else:
                             break
                     # Check if the chain matches pto.frontend.function
-                    if len(attr_chain) >= 3 and attr_chain[0] == "pto" and \
-                       attr_chain[1] == "frontend" and attr_chain[2] == "function":
+                    if (
+                        len(attr_chain) >= 3
+                        and attr_chain[0] == "pto"
+                        and attr_chain[1] == "frontend"
+                        and attr_chain[2] == "function"
+                    ):
                         return True
                 # Also check if it's a simple Name node that refers to function
                 elif isinstance(decorator, doc.Name):
@@ -430,10 +484,9 @@ class Parser(doc.NodeVisitor):
                     if decorator.id in var_values:
                         value = var_values[decorator.id]
                         # Check for _original_func attribute to identify NestedFunctionMarker instances
-                        if hasattr(value, '_original_func'):
+                        if hasattr(value, "_original_func"):
                             return True
         return False
-
 
     def _eval_expr(
         self,
@@ -935,7 +988,9 @@ class Parser(doc.NodeVisitor):
 
         with self.context.with_frame():
             # Step 1: Extract function signature
-            tensor_input_args, output_args = self.get_signature()
+            tensor_input_args, output_args = self.get_signature(
+                lower_symbolic_dims=True
+            )
 
             # Step 2: Validate output arguments
             self._validate_output_args(output_args, node)
@@ -1085,9 +1140,7 @@ class Parser(doc.NodeVisitor):
 
         return tensor_args, param_specs
 
-    def _visit_arguments(
-        self, node: doc.arguments
-    ) -> list[pypto.Tensor]:
+    def _visit_arguments(self, node: doc.arguments) -> list[pypto.Tensor]:
         """The general arguments visiting method.
 
         Parameters
@@ -1185,8 +1238,8 @@ class Parser(doc.NodeVisitor):
             for name, value in env_vars.items():
                 self.context.add(name, value)
 
-            tensor_input_args, param_specs = (
-                self._parse_arguments_with_specs(func_def_node.args)
+            tensor_input_args, param_specs = self._parse_arguments_with_specs(
+                func_def_node.args
             )
 
             output_args = self._eval_expr(func_def_node.returns, extra_vars=var_values)

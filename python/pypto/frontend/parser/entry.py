@@ -469,11 +469,30 @@ class JitCallableWrapper:
             out_tensors.append(out_tensor)
 
         # Execute the function using dispatch based on run mode
-        in_out_tensors = [pypto.from_torch(in_tensor) for in_tensor in in_tensors] + [
-            pypto.from_torch(out_tensor) for out_tensor in out_tensors
-        ]
-        # self._dispatch_with_run_mode(input_tensor_defs + output_tensor_defs, [], device)
-        self._dispatch_with_run_mode(in_out_tensors, [], device)
+        def convert_tensors_with_metadata(torch_tensors, tensor_defs):
+            """Convert torch tensors to pypto tensors with name and dynamic_axis metadata."""
+            pto_tensors = []
+            for torch_tensor, tensor_def in zip(torch_tensors, tensor_defs):
+                name = tensor_def.name
+                # Determine which axes are dynamic by checking for SymbolicScalar in shape
+                dynamic_axis = [
+                    i
+                    for i, dim in enumerate(tensor_def.shape)
+                    if isinstance(dim, pypto.SymbolicScalar)
+                ]
+                pto_tensors.append(
+                    pypto.from_torch(
+                        torch_tensor,
+                        name=name,
+                        dynamic_axis=dynamic_axis if dynamic_axis else None,
+                    )
+                )
+            return pto_tensors
+
+        pto_in_tensors = convert_tensors_with_metadata(in_tensors, input_tensor_defs)
+        pto_out_tensors = convert_tensors_with_metadata(out_tensors, output_tensor_defs)
+
+        self._dispatch_with_run_mode(pto_in_tensors + pto_out_tensors, [], device)
 
         # Return single tensor or tuple based on number of outputs
         if len(out_tensors) == 1:
@@ -700,15 +719,15 @@ def function(
 
         def decorator(f: Callable) -> NestedFunctionMarker:
             marker = NestedFunctionMarker()
-            marker.original_func = f
-            marker.func_name = f.__name__
+            marker._original_func = f
+            marker._func_name = f.__name__
             return marker
 
         return decorator
 
     marker = NestedFunctionMarker()
-    marker.original_func = func
-    marker.func_name = func.__name__
+    marker._original_func = func
+    marker._func_name = func.__name__
     return marker
 
 

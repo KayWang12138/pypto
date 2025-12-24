@@ -63,7 +63,9 @@ class LivenessAnalyzer(doc.NodeVisitor):
         # Set of variables defined inside the current loop (cleared when entering/exiting loops)
         self.vars_defined_in_loop: set[str] = set()
 
-    def analyze(self, node: doc.AST, exempt_vars: Optional[set[str]] = None) -> dict[int, set[str]]:
+    def analyze(
+        self, node: doc.AST, exempt_vars: Optional[set[str]] = None
+    ) -> dict[int, set[str]]:
         """Analyze the AST and return deletion points.
 
         Parameters
