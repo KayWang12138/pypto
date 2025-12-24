@@ -43,7 +43,7 @@ public:
 };
 
 TEST_F(TestSplitReshapeOpPVC2, Test_Reshape_1to1) {
-    Function *currentFunction;
+    Function *currentFunction = nullptr;
 
     TileShape::Current().SetVecTile(8, 8, 8, 8);
     Tensor input(DT_FP32, {8, 16, 16}, "a");
@@ -55,7 +55,7 @@ TEST_F(TestSplitReshapeOpPVC2, Test_Reshape_1to1) {
         res1 = Exp(test);
         currentFunction = Program::GetInstance().GetCurrentFunction();
     }
-
+    EXPECT_NE(currentFunction, nullptr);
     std::vector<int64_t> expiInShape = {8,  8,  8};
     std::vector<int64_t> expOutShape = {8, 8, 1, 8};
     for (auto &op : currentFunction->Operations()) {
@@ -72,7 +72,7 @@ TEST_F(TestSplitReshapeOpPVC2, Test_Reshape_1to1) {
 }
 
 TEST_F(TestSplitReshapeOpPVC2, Test_Reshape_1toMulti) {
-    Function *currentFunction;
+    Function *currentFunction = nullptr;
 
     TileShape::Current().SetVecTile(8, 8, 8, 8, 8);
     Tensor input(DT_FP32, {16, 4, 4}, "a");
@@ -84,7 +84,7 @@ TEST_F(TestSplitReshapeOpPVC2, Test_Reshape_1toMulti) {
         res1 = Exp(test);
         currentFunction = Program::GetInstance().GetCurrentFunction();
     }
-
+    EXPECT_NE(currentFunction, nullptr);
     std::vector<int64_t> expiInShape = {8, 4, 4};
     std::vector<int64_t> expOutShape = {8, 16};
     for (auto &op : currentFunction->Operations()) {

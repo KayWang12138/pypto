@@ -1441,8 +1441,8 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchSTest) {
     int reshapeOp = 0;
     int assembleOp = 0;
     int viewOp = 0;
-    Operation *newAssemble1;
-    Operation *newAssemble2;
+    Operation *newAssemble1 = nullptr;
+    Operation *newAssemble2 = nullptr;
     for (auto &op : func->Operations().DuplicatedOpList()) {
         if (op->GetOpcode() == Opcode::OP_RESHAPE) {
             reshapeOp++;
@@ -1462,6 +1462,7 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchSTest) {
     EXPECT_EQ(viewOp, kNumTwo);
 
     EXPECT_EQ(assembleOp, 11);
+    EXPECT_NE(newAssemble1, nullptr);
     auto assembleDynValidShape1 = dynamic_cast<AssembleOpAttribute *>(newAssemble1->GetOpAttribute().get())->GetFromDynValidShape();
     auto assembleDynValidShape2 = dynamic_cast<AssembleOpAttribute *>(newAssemble1->GetOpAttribute().get())->GetFromDynValidShape();
     EXPECT_EQ(assembleDynValidShape1.size(), kNumThree);
@@ -1473,6 +1474,7 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchSTest) {
 
     auto assembleOpAttribute1 = dynamic_cast<AssembleOpAttribute *>(newAssemble1->GetOpAttribute().get());
     EXPECT_EQ(assembleOpAttribute1->GetToOffset(), assembleOffset1);
+    EXPECT_NE(newAssemble2, nullptr);
     auto assembleOpAttribute2 = dynamic_cast<AssembleOpAttribute *>(newAssemble2->GetOpAttribute().get());
     EXPECT_EQ(assembleOpAttribute2->GetToOffset(), assembleOffset2);
 
@@ -1623,8 +1625,8 @@ TEST_F(TestSplitReshapePass, TestDynBeCoveredSTest) {
     int reshapeOp = 0;
     int assembleOp = 0;
     int viewOp = 0;
-    Operation *newAssemble1;
-    Operation *newAssemble2;
+    Operation *newAssemble1 = nullptr;
+    Operation *newAssemble2 = nullptr;
     for (auto &op : func->Operations().DuplicatedOpList()) {
         if (op->GetOpcode() == Opcode::OP_RESHAPE) {
             reshapeOp++;
@@ -1644,6 +1646,7 @@ TEST_F(TestSplitReshapePass, TestDynBeCoveredSTest) {
     EXPECT_EQ(viewOp, kNumFour);
 
     EXPECT_EQ(assembleOp, 11);
+    EXPECT_NE(newAssemble1, nullptr);
     auto assembleDynValidShape1 = dynamic_cast<AssembleOpAttribute *>(newAssemble1->GetOpAttribute().get())->GetFromDynValidShape();
     auto assembleDynValidShape2 = dynamic_cast<AssembleOpAttribute *>(newAssemble1->GetOpAttribute().get())->GetFromDynValidShape();
     EXPECT_EQ(assembleDynValidShape1.size(), kNumThree);
@@ -1654,6 +1657,7 @@ TEST_F(TestSplitReshapePass, TestDynBeCoveredSTest) {
     }
 
     auto reshapeSource1 = newAssemble1->GetOutputOperand(kSizeZero);
+    EXPECT_NE(newAssemble2, nullptr);
     auto reshapeSource2 = newAssemble2->GetOutputOperand(kSizeZero);
     EXPECT_NE(reshapeSource1, reshapeSource2);
     std::vector<SymbolicScalar> assembleDynOutput1 = reshapeSource1->GetDynValidShape();
@@ -1809,10 +1813,10 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchWithAllSTest) {
     int reshapeOp = 0;
     int assembleOp = 0;
     int viewOp = 0;
-    Operation *newAssemble1;
-    Operation *newAssemble2;
-    Operation *newAssemble3;
-    Operation *newAssemble4;
+    Operation *newAssemble1 = nullptr;
+    Operation *newAssemble2 = nullptr;
+    Operation *newAssemble3 = nullptr;
+    Operation *newAssemble4 = nullptr;
     for (auto &op : func->Operations().DuplicatedOpList()) {
         if (op->GetOpcode() == Opcode::OP_RESHAPE) {
             reshapeOp++;
@@ -1838,8 +1842,11 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchWithAllSTest) {
     EXPECT_EQ(viewOp, kNumTwo);
 
     EXPECT_EQ(assembleOp, 1111);
-
+    EXPECT_NE(newAssemble1, nullptr);
+    EXPECT_NE(newAssemble2, nullptr);
     EXPECT_EQ(newAssemble1->GetOutputOperand(kSizeZero), newAssemble2->GetOutputOperand(kSizeZero));
+    EXPECT_NE(newAssemble3, nullptr);
+    EXPECT_NE(newAssemble4, nullptr);
     EXPECT_EQ(newAssemble3->GetOutputOperand(kSizeZero), newAssemble4->GetOutputOperand(kSizeZero));
     auto reshapeSource1 = newAssemble1->GetOutputOperand(kSizeZero);
     auto reshapeSource2 = newAssemble4->GetOutputOperand(kSizeZero);

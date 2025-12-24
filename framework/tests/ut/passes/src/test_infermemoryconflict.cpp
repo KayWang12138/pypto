@@ -760,8 +760,8 @@ TEST_F(InferMemoryConflictTest, TestInsertCopys) {
     EXPECT_EQ(status, SUCCESS);
 
     int cnt = 0;
-    Operation* copy1;
-    Operation* copy2;
+    Operation* copy1 = nullptr;
+    Operation* copy2 = nullptr;
     for (auto &op : currFunctionPtr->Operations().DuplicatedOpList()) {
         if (op->GetOpcode() == Opcode::OP_REGISTER_COPY) {
             if (*(op->GetOOperands().begin()) == T2) {
@@ -774,10 +774,12 @@ TEST_F(InferMemoryConflictTest, TestInsertCopys) {
         }
     }
     EXPECT_EQ(cnt, NUM_11);
+    EXPECT_NE(copy1, nullptr);
     EXPECT_EQ(*(copy1->GetIOperands().begin()), T1);
     auto newTensorOut1 = *(copy1->GetOOperands().begin());
-    auto newTensorIn2 = *(copy2->GetIOperands().begin());
     EXPECT_EQ(*(newTensorOut1->GetConsumers().begin()), &reshape_op);
+    EXPECT_NE(copy2, nullptr);
+    auto newTensorIn2 = *(copy2->GetIOperands().begin());
     EXPECT_EQ(*(newTensorIn2->GetProducers().begin()), &reshape_op);
 }
 
@@ -824,7 +826,7 @@ TEST_F(InferMemoryConflictTest, STest1) {
     EXPECT_EQ(status, SUCCESS);
 
     int cnt = 0;
-    Operation* copy;
+    Operation* copy = nullptr;
     for (auto &op : currFunctionPtr->Operations().DuplicatedOpList()) {
         if (op->GetOpcode() == Opcode::OP_REGISTER_COPY) {
             copy = op;
@@ -832,6 +834,7 @@ TEST_F(InferMemoryConflictTest, STest1) {
         }
     }
     EXPECT_EQ(cnt, NUM_ONE);
+    EXPECT_NE(copy, nullptr);
     EXPECT_EQ(*(copy->GetIOperands().begin()), T2);
     auto newTensorOut1 = *(copy->GetOOperands().begin());
     EXPECT_EQ(copy->GetTileShape().GetVecTile().size(), NUM_2);
@@ -890,7 +893,7 @@ TEST_F(InferMemoryConflictTest, STest2) {
     EXPECT_EQ(status, SUCCESS);
 
     int cnt = 0;
-    Operation* copy;
+    Operation* copy = nullptr;
     for (auto &op : currFunctionPtr->Operations().DuplicatedOpList()) {
         if (op->GetOpcode() == Opcode::OP_REGISTER_COPY) {
             copy = op;
@@ -898,6 +901,7 @@ TEST_F(InferMemoryConflictTest, STest2) {
         }
     }
     EXPECT_EQ(cnt, NUM_ONE);
+    EXPECT_NE(copy, nullptr);
     EXPECT_EQ(*(copy->GetIOperands().begin()), T2);
     EXPECT_EQ(copy->GetTileShape().GetVecTile().size(), NUM_3);
     std::vector<int64_t> expectShape = {NUM_8, NUM_32, NUM_64};
@@ -961,7 +965,7 @@ TEST_F(InferMemoryConflictTest, STest3) {
     EXPECT_EQ(status, SUCCESS);
 
     int cnt = 0;
-    Operation* copy;
+    Operation* copy = nullptr;
     for (auto &op : currFunctionPtr->Operations().DuplicatedOpList()) {
         if (op->GetOpcode() == Opcode::OP_REGISTER_COPY) {
             copy = op;
@@ -969,6 +973,7 @@ TEST_F(InferMemoryConflictTest, STest3) {
         }
     }
     EXPECT_EQ(cnt, NUM_ONE);
+    EXPECT_NE(copy, nullptr);
     EXPECT_EQ(*(copy->GetIOperands().begin()), T2);
     EXPECT_EQ(copy->GetTileShape().GetVecTile().size(), NUM_2);
     std::vector<int64_t> expectShape = {NUM_2, NUM_32};
