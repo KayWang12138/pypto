@@ -107,7 +107,7 @@ def test_scatter_update() -> None:
     pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
     pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
     scatter_update(*pto_inputs, *pto_outputs)
-    torch_npu.npu.synchronize()
+    pypto.runtime._device_synchronize()#内部接口，不推荐使用
 
     # 5. 与PyTorch参考实现对比
     scatter_update_golden(key, key_cache_clone, index)

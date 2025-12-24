@@ -112,7 +112,7 @@ def test_select_experts_mm():
         with torch.npu.graph(g):
             select_experts_mm_kernel(*pto_inputs, *pto_outputs)
         g.replay()
-        torch_npu.npu.synchronize()
+        pypto.runtime._device_synchronize()#内部接口，不推荐使用
 
         # 5. 与PyTorch参考实现对比
         result = torch.matmul(hidden_states, mm_weight.t())
@@ -143,7 +143,7 @@ def gate(
     pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
     pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
     select_experts_mm_kernel(*pto_inputs, *pto_outputs)
-    torch_npu.npu.synchronize()
+    pypto.runtime._device_synchronize()#内部接口，不推荐使用
 
 
 def main():

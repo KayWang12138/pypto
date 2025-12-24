@@ -464,7 +464,7 @@ def IFA(atten_cfg):
     pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
     # 5. 执行kernel并获取结果
     ifa_func(*pto_inputs, *pto_outputs)
-    torch_npu.npu.synchronize()
+    pypto.runtime._device_synchronize()#内部接口，不推荐使用
 
     # 6. 与PyTorch参考实现对比
     assert_allclose(np.array(attention_output.cpu().flatten().tolist()), 
@@ -518,7 +518,7 @@ def attention(
     pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
     pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
     ifa_func(*pto_inputs, *pto_outputs)
-    torch_npu.npu.synchronize()
+    pypto.runtime._device_synchronize()#内部接口，不推荐使用
 
 if __name__ == "__main__":
     test_ifa()

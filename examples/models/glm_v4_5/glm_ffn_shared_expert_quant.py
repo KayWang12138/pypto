@@ -242,7 +242,7 @@ def ffn_shared_expert_quant(hidden_states: torch.Tensor,
         pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
         pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
         share_expert_moe_main(*pto_inputs, *pto_outputs)
-        torch_npu.npu.synchronize()
+        pypto.runtime._device_synchronize()#内部接口，不推荐使用
 
 
 def test_ffn_share() -> None:
@@ -272,7 +272,7 @@ def test_ffn_share() -> None:
         pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
         pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
         share_expert_moe_main(*pto_inputs, *pto_outputs)
-        torch_npu.npu.synchronize()
+        pypto.runtime._device_synchronize()#内部接口，不推荐使用
 
         # golden
         golden = moe_torch_npu(hidden_states, w13, w13_scale, w2, w2_scale)
