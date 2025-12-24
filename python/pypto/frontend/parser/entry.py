@@ -78,6 +78,26 @@ def parse(program: Source, extra_vars: Optional[dict[str, Any]] = None) -> Any:
 def _pto_to_tensor_data(
     tensors: list[pypto.Tensor],
 ) -> list[pypto_impl.DeviceTensorData]:
+    """Convert PTO tensors to device tensor data for runtime execution.
+
+    This helper function creates DeviceTensorData objects that encapsulate
+    the tensor metadata (dtype, pointer, shape) required by the backend runtime.
+
+    Parameters
+    ----------
+    tensors : list[pypto.Tensor]
+        List of PTO tensors to convert.
+
+    Returns
+    -------
+    list[pypto_impl.DeviceTensorData]
+        List of device tensor data objects ready for runtime execution.
+
+    Raises
+    ------
+    RuntimeError
+        If any tensor's ori_shape is not specified.
+    """
     datas = []
     for t in tensors:
         if t.ori_shape is None:
@@ -96,14 +116,44 @@ class JitCallableWrapper:
 
     This class wraps a pypto.Function and makes it callable with torch tensors,
     integrating the frontend JIT compilation with the runtime execution mechanism.
-    Parsing is deferred until the first __call__ invocation (lazy mode).
+    Parsing is deferred until the first __call__ invocation (lazy mode), allowing
+    dynamic shape binding and cost model evaluation before compilation.
+
+    The wrapper maintains the original function's metadata (__name__, __doc__) and
+    provides transparent execution by handling tensor conversion, workspace allocation,
+    and device management automatically.
+
+    Attributes
+    ----------
+    _pto_function : Optional[pypto.Function]
+        The parsed PTO function (None until first call in lazy mode).
+    _original_func : Callable
+        The original Python function being wrapped.
+    _handler : Optional[int]
+        The backend runtime handler (None until first call in lazy mode).
+    _is_compiled : bool
+        Flag indicating whether the function has been compiled.
+    _parser : Optional[Parser]
+        Parser instance stored for lazy parsing.
+    _codegen_options : Optional[dict[str, Any]]
+        Options for code generation.
+    _host_options : Optional[dict[str, Any]]
+        Options for host configuration.
+    _runtime_options : Optional[dict[str, Any]]
+        Options for runtime execution (including run_mode: NPU or SIM).
+    _pass_options : Optional[dict[str, Any]]
+        Options for compiler passes.
+    _verify_options : Optional[dict[str, Any]]
+        Options for verification.
+    _debug_options : Optional[dict[str, Any]]
+        Options for debugging (including runtime_debug_mode).
     """
 
     def __init__(
         self,
-        pto_function: pypto.Function,
+        pto_function: Optional[pypto.Function],
         original_func: Callable,
-        handler: int,
+        handler: Optional[int],
         codegen_options: Optional[dict[str, Any]] = None,
         host_options: Optional[dict[str, Any]] = None,
         pass_options: Optional[dict[str, Any]] = None,
@@ -111,16 +161,28 @@ class JitCallableWrapper:
         verify_options: Optional[dict[str, Any]] = None,
         debug_options: Optional[dict[str, Any]] = None,
     ):
-        """Initialize the wrapper.
+        """Initialize the JIT callable wrapper.
 
         Parameters
         ----------
-        pto_function : pypto.Function
+        pto_function : Optional[pypto.Function]
             The parsed PTO function (None initially in lazy mode).
         original_func : Callable
-            The original Python function.
-        handler : int
-            The runtime handler (None initially in lazy mode).
+            The original Python function to be wrapped and compiled.
+        handler : Optional[int]
+            The backend runtime handler (None initially in lazy mode).
+        codegen_options : Optional[dict[str, Any]], optional
+            Options for code generation configuration.
+        host_options : Optional[dict[str, Any]], optional
+            Options for host environment configuration.
+        pass_options : Optional[dict[str, Any]], optional
+            Options for compiler pass configuration.
+        runtime_options : Optional[dict[str, Any]], optional
+            Options for runtime execution (e.g., run_mode: NPU or SIM).
+        verify_options : Optional[dict[str, Any]], optional
+            Options for verification during compilation.
+        debug_options : Optional[dict[str, Any]], optional
+            Options for debugging (e.g., runtime_debug_mode).
         """
         self._pto_function = pto_function
         self._original_func = original_func
@@ -148,8 +210,28 @@ class JitCallableWrapper:
 
     @staticmethod
     def _get_func_nonlocals(func: Callable) -> dict[str, Any]:
-        """A modified version of `inspect.getclosurevars`"""
+        """Extract nonlocal (closure) variables from a function.
 
+        This is a modified version of `inspect.getclosurevars` that specifically
+        extracts only the nonlocal variables (captured from enclosing scopes)
+        without global or builtin variables. These variables must be made available
+        during parsing to properly evaluate the function body.
+
+        Parameters
+        ----------
+        func : Callable
+            The function to extract nonlocal variables from.
+
+        Returns
+        -------
+        dict[str, Any]
+            Dictionary mapping variable names to their captured values.
+
+        Raises
+        ------
+        TypeError
+            If func is not a Python function.
+        """
         if inspect.ismethod(func):
             func = func.__func__
 
@@ -170,7 +252,20 @@ class JitCallableWrapper:
                         raise
         return nonlocal_vars
 
-    def _set_run_mode(self):
+    def _set_run_mode(self) -> None:
+        """Configure the runtime execution mode (NPU or SIM).
+
+        Determines whether to run on NPU hardware or in simulation mode based on:
+        1. Explicit run_mode in runtime_options
+        2. Presence of ASCEND_HOME_PATH environment variable (indicates CANN installation)
+
+        If CANN is configured, defaults to NPU mode; otherwise defaults to SIM mode.
+
+        Raises
+        ------
+        RuntimeError
+            If an invalid run_mode is specified (must be RunMode.NPU or RunMode.SIM).
+        """
         if self._runtime_options is None:
             self._runtime_options = {}
 
@@ -192,7 +287,16 @@ class JitCallableWrapper:
             self._runtime_options.update({"run_mode": pypto.RunMode.SIM.value})
 
     def _create_parser(self) -> Parser:
-        """Create and prepare a parser for the wrapped function."""
+        """Create and prepare a parser for the wrapped function.
+
+        Extracts the source code and all captured variables (globals and nonlocals)
+        from the original function, then creates a Parser instance ready for parsing.
+
+        Returns
+        -------
+        Parser
+            A configured parser instance with source code and captured variables.
+        """
         source = Source(self._original_func)
         captured_vars = {
             **self._original_func.__globals__,
@@ -201,7 +305,19 @@ class JitCallableWrapper:
         parser = Parser(source, captured_vars)
         return parser
 
-    def _set_config_option(self):
+    def _set_config_option(self) -> None:
+        """Apply all configuration options to the PTO backend.
+
+        This method applies the various option dictionaries provided at initialization
+        to configure the backend compilation and runtime behavior. Options include:
+        - run_mode (NPU or SIM)
+        - codegen options (code generation settings)
+        - host options (host environment settings)
+        - pass options (compiler pass configurations)
+        - runtime options (execution settings)
+        - verify options (verification settings)
+        - debug options (debugging settings)
+        """
         self._set_run_mode()
         if self._codegen_options:
             pypto.set_codegen_options(**self._codegen_options)
@@ -219,8 +335,28 @@ class JitCallableWrapper:
     def _compile_if_needed(
         self,
         concrete_input_shapes: list[list[int]],
-    ):
-        """Compile the function on first call if not already compiled."""
+    ) -> None:
+        """Compile the function on first call if not already compiled (lazy compilation).
+
+        This method implements the lazy compilation strategy where parsing and compilation
+        are deferred until the first function invocation. This allows:
+        1. Dynamic shape binding based on actual input shapes
+        2. Cost model evaluation before compilation
+        3. Avoiding backend initialization during module load
+
+        The compilation process:
+        1. Create parser and parse the function AST
+        2. Initialize backend (DeviceInit, OperatorBegin)
+        3. Apply configuration options
+        4. Bind dynamic dimensions from concrete input shapes
+        5. Execute parsing to generate PTO IR
+        6. Finalize compilation (OperatorEnd)
+
+        Parameters
+        ----------
+        concrete_input_shapes : list[list[int]]
+            The actual shapes of input tensors, used to bind dynamic dimensions.
+        """
         if self._is_compiled:
             return
 
@@ -345,17 +481,55 @@ class JitCallableWrapper:
         return tuple(out_tensors)
 
     @property
-    def function(self) -> pypto.Function:
-        """Get the underlying pypto.Function."""
+    def function(self) -> Optional[pypto.Function]:
+        """Get the underlying pypto.Function.
+
+        Returns
+        -------
+        Optional[pypto.Function]
+            The compiled PTO function, or None if not yet compiled (lazy mode).
+        """
         return self._pto_function
 
     @property
-    def handler(self):
-        """Get the runtime handler."""
+    def handler(self) -> Optional[int]:
+        """Get the runtime handler.
+
+        Returns
+        -------
+        Optional[int]
+            The backend runtime handler, or None if not yet compiled (lazy mode).
+        """
         return self._handler
 
-    def _run(self, in_tensor_data, out_tensor_data, device):
-        """Basic run method that allocates workspace and executes on device."""
+    def _run(
+        self,
+        in_tensor_data: list[pypto_impl.DeviceTensorData],
+        out_tensor_data: list[pypto_impl.DeviceTensorData],
+        device: torch.device,
+    ) -> None:
+        """Execute the compiled kernel on device with workspace allocation.
+
+        This is the core execution method that:
+        1. Queries required workspace size from the backend
+        2. Allocates workspace memory on the target device
+        3. Invokes the backend runtime with input/output tensors and workspace
+        4. Checks for runtime errors
+
+        Parameters
+        ----------
+        in_tensor_data : list[pypto_impl.DeviceTensorData]
+            Input tensor metadata for the backend.
+        out_tensor_data : list[pypto_impl.DeviceTensorData]
+            Output tensor metadata for the backend.
+        device : torch.device
+            The device to execute on (must be NPU for this method).
+
+        Raises
+        ------
+        RuntimeError
+            If runtime execution fails with an error message from the backend.
+        """
         assert self._handler is not None
         workspace_size = pypto_impl.GetWorkSpaceSize(
             self._handler, in_tensor_data, out_tensor_data
@@ -376,8 +550,27 @@ class JitCallableWrapper:
         in_tensors: list[pypto.Tensor],
         out_tensors: list[pypto.Tensor],
         device: torch.device,
-    ):
-        """Run with NPU, handling device switching if needed."""
+    ) -> None:
+        """Execute on NPU hardware with automatic device switching.
+
+        Converts PTO tensors to device tensor data and executes on the specified NPU.
+        If the target device differs from the current device, temporarily switches
+        to the target device and restores the original device after execution.
+
+        Parameters
+        ----------
+        in_tensors : list[pypto.Tensor]
+            Input PTO tensors.
+        out_tensors : list[pypto.Tensor]
+            Output PTO tensors.
+        device : torch.device
+            Target NPU device for execution.
+
+        Raises
+        ------
+        RuntimeError
+            If device type is not NPU or if execution fails.
+        """
         if device.type == "npu":
             import torch_npu  # pylint: disable=import-outside-toplevel, unused-import
 
@@ -395,12 +588,29 @@ class JitCallableWrapper:
 
     def _run_with_cpu(
         self, in_tensors: list[pypto.Tensor], out_tensors: list[pypto.Tensor]
-    ):
-        """Run with CPU using cost model interface."""
+    ) -> None:
+        """Execute in simulation mode using the cost model interface.
+
+        This method runs the kernel on CPU using the cost model, which simulates
+        the kernel behavior without requiring NPU hardware. Useful for development,
+        testing, and performance modeling.
+
+        Parameters
+        ----------
+        in_tensors : list[pypto.Tensor]
+            Input PTO tensors.
+        out_tensors : list[pypto.Tensor]
+            Output PTO tensors.
+        """
         _cost_model_run_once_data_from_host(in_tensors, out_tensors)
 
-    def _set_runtime_debug_mode(self):
-        """Set runtime debug mode if configured."""
+    def _set_runtime_debug_mode(self) -> None:
+        """Enable runtime debug mode and profiling if configured.
+
+        Checks debug options for runtime_debug_mode flag and enables profiling
+        if debug mode is active. This allows collecting performance metrics and
+        detailed execution traces during kernel execution.
+        """
         if self._debug_options is None:
             self._debug_options = {}
         if self._debug_options.get(
@@ -413,8 +623,27 @@ class JitCallableWrapper:
         in_tensors: list[pypto.Tensor],
         out_tensors: list[pypto.Tensor],
         device: torch.device,
-    ):
-        """Dispatch execution based on run mode (NPU or SIM)."""
+    ) -> None:
+        """Dispatch kernel execution based on configured run mode (NPU or SIM).
+
+        Routes execution to either NPU hardware or CPU simulation based on the
+        run_mode setting. Validates that CANN environment is configured when
+        attempting NPU execution.
+
+        Parameters
+        ----------
+        in_tensors : list[pypto.Tensor]
+            Input PTO tensors.
+        out_tensors : list[pypto.Tensor]
+            Output PTO tensors.
+        device : torch.device
+            Target device for execution (relevant for NPU mode).
+
+        Raises
+        ------
+        RuntimeError
+            If NPU mode is selected but CANN environment is not configured.
+        """
         self._set_runtime_debug_mode()
         cann_is_configed = bool(os.environ.get("ASCEND_HOME_PATH"))
         run_mode = pypto.get_runtime_options().get("run_mode", 0)
@@ -431,8 +660,42 @@ class JitCallableWrapper:
 def function(
     func: Optional[Callable] = None,
 ) -> Union[Callable, NestedFunctionMarker]:
-    """Decorator to mark a function as eligible for nested inline execution."""
+    """Decorator to mark a function for inline expansion in PTO kernels.
 
+    Functions decorated with `@pypto.frontend.function` are not compiled as standalone
+    kernels. Instead, when called from a JIT-compiled kernel, they are inlined directly
+    into the caller's IR. This enables code reuse while maintaining optimal performance
+    by avoiding function call overhead.
+
+    Parameters
+    ----------
+    func : Optional[Callable], optional
+        The function to mark for inlining. If None, returns a decorator function.
+        This allows both @function and @function() syntax.
+
+    Returns
+    -------
+    Union[Callable, NestedFunctionMarker]
+        A NestedFunctionMarker wrapping the original function, which the parser
+        recognizes as eligible for inline expansion.
+
+    Examples
+    --------
+    >>> @pypto.frontend.function
+    ... def helper(x: pypto.Tensor((8,), pypto.DT_FP32)):
+    ...     return pypto.add(x, x)
+    >>>
+    >>> @pypto.frontend.jit
+    ... def kernel(a: pypto.Tensor((8,), pypto.DT_FP32)):
+    ...     return helper(a)  # helper is inlined here
+
+    Notes
+    -----
+    - Nested functions must have compatible type signatures with their call sites
+    - Parameter names need not match between definition and call
+    - Return values from nested functions can be directly used
+    - Multiple levels of nesting are supported
+    """
     if func is None:
 
         def decorator(f: Callable) -> NestedFunctionMarker:

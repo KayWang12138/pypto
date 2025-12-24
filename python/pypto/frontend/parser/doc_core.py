@@ -12,25 +12,28 @@
 # pylint: disable=missing-class-docstring,useless-parent-delegation,too-few-public-methods,invalid-name
 # pylint: disable=redefined-builtin, redefined-outer-name
 
-"""PTO Script Parser core AST nodes.
+"""PTO Script Parser Core AST Nodes - Stable AST Abstraction Layer.
 
 This module defines the core AST (Abstract Syntax Tree) nodes for the PTO Script Parser.
-The design is inspired by TVM's Script Parser doc AST and defines a standalone AST
-to prepare for potential Python AST changes in future versions.
+The design is inspired by TVM's Script Parser doc AST and provides a standalone AST
+structure that remains stable across Python versions, protecting the parser from
+breaking changes in Python's standard ast module.
 
-The AST nodes mirror Python's standard AST structure but provide a stable interface
-that is independent of Python version changes. This allows the PTO parser to work
-consistently across different Python versions (minimum version 3.9).
+Purpose
+-------
+The doc AST serves as an abstraction layer providing version independence, simplified
+structure for PTO scripts, and extensibility for PTO-specific features. It mirrors
+Python's AST closely enough for straightforward bidirectional conversion.
 
 Node Categories
 ---------------
 - mod: Module-level nodes (Module, Interactive, Expression)
 - stmt: Statement nodes (FunctionDef, Assign, For, If, Return, etc.)
 - expr: Expression nodes (BinOp, Call, Name, Constant, etc.)
-- operator: Operator nodes (Add, Sub, Mult, Div, etc.)
-- boolop: Boolean operator nodes (And, Or)
-- unaryop: Unary operator nodes (Not, UAdd, USub, Invert)
-- cmpop: Comparison operator nodes (Eq, Lt, Gt, etc.)
+- operator: Arithmetic operators (Add, Sub, Mult, Div, etc.)
+- boolop: Boolean operators (And, Or)
+- unaryop: Unary operators (Not, UAdd, USub, Invert)
+- cmpop: Comparison operators (Eq, Lt, Gt, etc.)
 - expr_context: Expression context (Load, Store, Del)
 
 Helper Classes
@@ -43,11 +46,18 @@ Helper Classes
 - excepthandler: Exception handler specification
 - withitem: Context manager item
 
+Base Classes
+------------
+- AST: Base class for all nodes with field initialization and comparison
+- NodeVisitor: Base class for AST traversal using visitor pattern
+- NodeTransformer: Base class for AST transformation
+
 Note
 ----
 - Minimal python version is 3.9
-- Many classes have minimal implementations as they primarily serve as data containers
+- Many classes are simple data containers
 - Type annotations use forward references (strings) for self-referential types
+- Position information (lineno, col_offset) is propagated from Python AST
 """
 
 from typing import Any, Optional

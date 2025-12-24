@@ -53,13 +53,48 @@ class ExprEvaluator:
 
     @staticmethod
     def eval(node: doc.expr, var_table: dict[str, Any], diag: Diagnostics) -> Any:
-        """Evaluate the expression."""
+        """Evaluate an expression node using the provided variable table.
+
+        This is the main entry point for expression evaluation during parsing.
+        It creates an ExprEvaluator instance and evaluates the expression using
+        Python's compile() and eval() functions.
+
+        Parameters
+        ----------
+        node : doc.expr
+            The expression AST node to evaluate.
+        var_table : dict[str, Any]
+            Variable table containing available names and their values.
+        diag : Diagnostics
+            Diagnostics instance for error reporting.
+
+        Returns
+        -------
+        Any
+            The evaluated result of the expression.
+
+        Raises
+        ------
+        ParserError
+            If evaluation fails due to undefined names, type errors, etc.
+        """
         self = ExprEvaluator(var_table, diag)
         result = self.visit(node)
         return result
 
     def visit(self, node: doc.expr) -> Any:
-        """Visit the expression."""
+        """Visit and evaluate an expression node.
+
+        Parameters
+        ----------
+        node : doc.expr
+            The expression node to visit.
+
+        Returns
+        -------
+        Any
+            The evaluated result.
+        """
         return self._eval_by_python(node, self.var_table)
 
     def _eval_by_python(self, node: doc.expr, var_table: dict[str, Any]) -> Any:

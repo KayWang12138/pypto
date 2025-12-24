@@ -9,15 +9,75 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
 
-"""PTO Script Parser doc AST.
+"""PTO Script Parser doc AST - Bidirectional AST Conversion System.
 
-This module provides a registry system for converting between Python AST nodes
-and custom doc AST nodes.
+This module provides a registry system for converting between Python's standard
+AST nodes and the custom "doc AST" nodes used by the PTO frontend parser. The
+doc AST provides a stable interface that isolates the parser from Python version
+changes while maintaining full compatibility with Python's AST structure.
 
-The module supports:
-- Bidirectional conversion between Python AST and doc AST
-- Registration-based system for extensible node type support
-- Visitor and transformer patterns for AST traversal and modification
+Key Features
+------------
+- **Bidirectional Conversion**: Convert between Python AST and doc AST in both directions
+- **Registration System**: Extensible decorator-based registration for new node types
+- **Version Independence**: Stable interface across Python versions (3.9+)
+- **Visitor Patterns**: Support for NodeVisitor and NodeTransformer patterns
+- **Automatic Conversion**: Transparent conversion during parsing and code generation
+
+Architecture
+------------
+The conversion system uses a singleton Registry that maps Python AST node type
+names to Entry objects. Each Entry contains two conversion functions:
+- `to_doc`: Converts Python AST node → doc AST node
+- `from_doc`: Converts doc AST node → Python AST node
+
+Main Components
+---------------
+- `Entry`: Stores conversion functions for a single node type
+- `Registry`: Singleton registry mapping node types to conversion functions
+- `register_to_doc`: Decorator to register Python → doc conversion
+- `register_from_doc`: Decorator to register doc → Python conversion
+- `to_doc()`: Convert Python AST to doc AST
+- `from_doc()`: Convert doc AST to Python AST
+- `parse()`: Parse source string directly to doc AST
+
+Usage Example
+-------------
+```python
+from pypto.frontend.parser import doc
+
+# Parse Python source to doc AST
+source = "def foo(x): return x + 1"
+ast_node = doc.parse(source)
+
+# Convert Python AST to doc AST
+import ast
+py_ast = ast.parse(source)
+doc_ast = doc.to_doc(py_ast)
+
+# Convert doc AST back to Python AST
+py_ast_again = doc.from_doc(doc_ast)
+```
+
+Extending the System
+--------------------
+To add support for a new AST node type:
+
+```python
+@doc.register_to_doc("MyNewNode")
+def convert_to_doc(node: ast.MyNewNode) -> doc.MyNewNode:
+    return doc.MyNewNode(
+        field1=doc.to_doc(node.field1),
+        field2=node.field2,
+    )
+
+@doc.register_from_doc("MyNewNode")
+def convert_from_doc(node: doc.MyNewNode) -> ast.MyNewNode:
+    return ast.MyNewNode(
+        field1=doc.from_doc(node.field1),
+        field2=node.field2,
+    )
+```
 """
 
 
