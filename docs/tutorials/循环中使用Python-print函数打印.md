@@ -1,8 +1,8 @@
-# 循环中使用Python print函数打印<a name="ZH-CN_TOPIC_0000002498161030"></a>
+# 循环中使用Python print函数打印
 
-## 问题现象描述<a name="zh-cn_topic_0000001265073070_section32145724"></a>
+## 问题现象描述
 
-```
+```python
 @pypto.jit
 def add_kernel_0(a, b, c):
     for i in pypto.loop(20):
@@ -24,11 +24,11 @@ i = 0
 i = 1
 ```
 
-## 可能原因<a name="zh-cn_topic_0000001265073070_section20876063"></a>
+## 可能原因
 
 用户算子描述的是构图过程，而非实际的执行逻辑。在构图阶段，Loop执行仅用于遍历所有执行路径。示例代码add\_kernel\_0中仅有一条执行路径，因此Loop仅执行一次。add\_kernel\_1中存在if/else两条路径，因此Loop执行两次。
 
-## 处理步骤<a name="zh-cn_topic_0000001265073070_section13239568"></a>
+## 处理步骤
 
 N/A
 

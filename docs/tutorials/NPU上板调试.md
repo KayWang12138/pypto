@@ -1,12 +1,12 @@
-# NPU上板调试<a name="ZH-CN_TOPIC_0000002527348235"></a>
+# NPU上板调试
 
 如果图编译或图执行流程中出现错误或结果不符合预期，可以启用调试模式，生成不同阶段的计算图文件。计算图描述PyPTO程序计算流程的结构，由多个计算节点和数据节点组成。它通过有向无环图（DAG）的形式表示数据流动和计算逻辑，表征了PyPTO程序从抽象计算描述到硬件执行的完整编译流程。本节将介绍如何采集并查看计算图，并展示图中的关键信息。
 
-## 开启调试模式<a name="section19435171912125"></a>
+## 开启调试模式
 
 1.  开启图编译阶段调试模式开关。
 
-    ```
+    ```python
     @pypto.jit(
         debug_options={"compile_debug_mode": 1}
     )
@@ -14,13 +14,13 @@
 
 2.  执行用例
 
-    ```
-    python3 python/softmax.py
+    ```bash
+    python3 examples/02_intermediate/operators/softmax/softmax.py
     ```
 
 3.  执行成功，在$\{work\_path\}/output/output\_\*/目录（\*代表时间戳）下生成不同阶段的计算图文件（.json 格式）。
 
-    ```
+    ```txt
     ├── Pass_xx_xx
     │   ├── After_004_ExpandFunction_TENSOR_s0_Unroll1_PATH0_4.json # pass优化后的计算图文件
     │   ├── After_004_ExpandFunction_TENSOR_s0_Unroll1_PATH0_4.tifwkgr # 用户暂不需要关注
@@ -31,14 +31,14 @@
     ├── ...
     ```
 
-## 查看计算图<a name="section788471319424"></a>
+## 查看计算图
 
 下面将选取计算图各编译阶段的最后一张计算图，并使用PyPTO Toolkit可视化工具，帮助用户了解各类计算图上的关键信息，帮助开发者进行问题定位。
 
--   Tensor Graph：Before\_004\_ExpandFunction\_TENSOR\_loop\_0\_Unroll1\_PATH0\_hiddenfunc0\_8.json
--   Tile Graph：Before\_026\_SubgraphToFunction\_TENSOR\_loop\_0\_Unroll1\_PATH0\_hiddenfunc0\_8.json
--   Block Graph：After\_036\_CodegenPreproc\_TENSOR\_loop\_0\_Unroll1\_PATH0\_hiddenfunc0\_8\_LEAF\_program\_id\_00\_15536366383870408930.json
--   Execute Graph：After\_036\_CodegenPreproc\_TENSOR\_loop\_0\_Unroll1\_PATH0\_hiddenfunc0\_8\_ROOT.json
+-   `Tensor Graph`：Before\_004\_ExpandFunction\_TENSOR\_loop\_0\_Unroll1\_PATH0\_hiddenfunc0\_8.json
+-   `Tile Graph`：Before\_026\_SubgraphToFunction\_TENSOR\_loop\_0\_Unroll1\_PATH0\_hiddenfunc0\_8.json
+-   `Block Graph`：After\_036\_CodegenPreproc\_TENSOR\_loop\_0\_Unroll1\_PATH0\_hiddenfunc0\_8\_LEAF\_program\_id\_00\_15536366383870408930.json
+-   `Execute Graph`：After\_036\_CodegenPreproc\_TENSOR\_loop\_0\_Unroll1\_PATH0\_hiddenfunc0\_8\_ROOT.json
 
 1.  通过PyPTO Toolkit查看Tensor Graph。
 

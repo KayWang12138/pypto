@@ -1,4 +1,4 @@
-# PyTorch集成和接入<a name="ZH-CN_TOPIC_0000002495348492"></a>
+# PyTorch集成和接入
 
 当前PyPTO支持单算子模式（eager）和图捕获模式（aclgraph）两种执行模式：
 
@@ -7,7 +7,7 @@
 
 在Kernel函数前添加@pypto.jit装饰器可默认在PyTorch框架中采用单算子模式执行，如需开启图捕获模式可以参考如下代码：
 
-```
+```python
 # enable jit for softmax_custom[y1] 
 @pypto.jit
 def softmax_kernel(x: pypto.Tensor, y: pypto.Tensor) -> None:
@@ -50,7 +50,7 @@ if __name__ == "__main__":
 
 可以查看info级别Host编译日志，搜索capture mode关键字，默认为0表示关闭图捕获模式，如果为1则表示启用图捕获模式。
 
-```
+```txt
 !!!!Kernel Launch
 2025-12-08 20:56:27.043	capture mode[1]
 ```

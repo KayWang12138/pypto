@@ -1,14 +1,14 @@
-# Tensor的创建<a name="ZH-CN_TOPIC_0000002495348478"></a>
+# Tensor的创建
 
 Tensor是PyPTO中的基本数据结构，用于表示将在计算图中使用并在NPU上执行的多维数组。
 
 在PyPTO中，Tensor表示其数据的结构和属性，这使得PyPTO能够构建计算图，并在执行前对其进行优化。Tensor在执行时才包含实际值，未初始化的Tensor中的值都是随机的，在执行时需要按需初始化。
 
-## 创建Tensor<a name="section356433311315"></a>
+## 创建Tensor
 
--   基础Tensor
+-   创建基础Tensor
 
-    ```
+    ```python
     #创建形状为[2, 3]、数据类型为FP16的Tensor
     tensor = pypto.tensor([2, 3], pypto.DT_FP16, "my_tensor")
     ```
@@ -20,9 +20,9 @@ Tensor是PyPTO中的基本数据结构，用于表示将在计算图中使用并
     -   name：名称，支持字符串类型，可选。但建议为Tensor提供有意义的名称，以便于调试和理解计算图结构。
     -   format：数据排布格式，支持TileOpFormat类型，可选，默认为：TILEOP\_ND。
 
--   带格式的Tensor
+-   创建带格式的Tensor
 
-    ```
+    ```python
     #使用NZ格式创建一个Tensor
     tensor = pypto.tensor([-1, 32], pypto.DT_FP16, "nz_tensor", pypto.TileOpFormat.TILEOP_NZ)
     ```
@@ -34,7 +34,7 @@ Tensor是PyPTO中的基本数据结构，用于表示将在计算图中使用并
 
 -   在子函数内创建Tensor并返回至主函数
 
-    ```
+    ```python
     def sub_function():
         #创建形状为[2, 3]、数据类型为FP16的Tensor
         tensor = pypto.tensor([2, 3], pypto.DT_FP16, "my_tensor")
@@ -44,9 +44,9 @@ Tensor是PyPTO中的基本数据结构，用于表示将在计算图中使用并
          sub_tensor = sub_function()
     ```
 
--   输入输出Tensor，转换及承接PyTorch Tensor
+-   PyTorch的Tensor转换为PyPTO的Tensor
 
-    ```
+    ```python
     # prepare data
     input_data = torch.rand(shape, dtype=torch.float, device='npu')
     output_data = torch.zeros(shape, dtype=torch.float, device='npu')
@@ -56,11 +56,11 @@ Tensor是PyPTO中的基本数据结构，用于表示将在计算图中使用并
     pto_output = pypto.from_torch(output_data, "out_0")
     ```
 
-## 查看Tensor属性<a name="section1050455673315"></a>
+## 查看Tensor属性
 
 Tensor包括形状（shape）、数据类型（dtype）、数据排布格式（format）、维数（dim）、名称（name）等基本属性，通过pypto.tensor相关操作接口可以查询这些属性信息。
 
-```
+```python
 tensor = pypto.tensor([2,3, 4], pypto.DT_FP16, "example")
 
 #形状
@@ -80,11 +80,11 @@ print(tensor.name)    # "example"
 tensor.name = "new_name"  #可以更改
 ```
 
-## 动态维度Tensor的处理<a name="section15352857458"></a>
+## 动态维度Tensor的处理
 
 在实际应用场景，Tensor通常是个可变长的数据。可通过以下方法定义动态Shape的Tensor，并通过-1标记动态维度：
 
-```
+```python
 tensor = pypto.tensor([-1, 32], pypto.DT_FP16, "dynamic")
 
 #打印tensor的维度，SymbolicScalar表示当前Shape为符号化标量
@@ -94,13 +94,13 @@ print(tensor.shape)
 
 通过如下方法可以获取动态维度的符号化标量，在运行时获取具体数值：
 
-```
+```python
 b = pypto.symbolic_scalar(tensor_shape[0])
 ```
 
 如果Tensor继承自PyTorch Tensor，可以通过pypto.from\_torch接口的参数dynamic\_axis = \[int\]来定义动态维度的Tensor。
 
-```
+```python
 # prepare data
 input_data = torch.rand(shape, dtype=torch.float, device='npu')
 output_data = torch.zeros(shape, dtype=torch.float, device='npu')

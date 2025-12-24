@@ -1,30 +1,30 @@
-# CPU仿真调试<a name="ZH-CN_TOPIC_0000002495348486"></a>
+# CPU仿真调试
 
 在不具备昇腾设备时，也支持在CPU仿真环境中进行测试体验，并支持用户查看算子的核内流水数据。
 
 若仅需要运行仿真，而且当前环境没有昇腾设备，请勿安装torch\_npu，否则可能运行失败。
 
-## 运行模式选择逻辑<a name="section197171837486"></a>
+## 运行模式选择逻辑
 
 -   手动指定仿真模式：
 
-    在算子代码中显式调用@pypto.jit\(runtime\_options=\{"run\_mode": 1\}\)，强制启用CPU仿真模式执行算子程序。
+    在算子代码中显式调用`@pypto.jit(runtime_options={"run_mode": 1})`，强制启用CPU仿真模式执行算子程序。
 
 -   自动识别模式：
     -   未检测到CANN软件包：自动启用仿真模式（无需显式配置）。
     -   检测到CANN软件包：优先使用真实硬件执行，仿真模式不生效。
 
-## 操作步骤<a name="section1243159135211"></a>
+## 操作步骤
 
 1.  指定运行参数run\_mode。
 
-    ```
+    ```python
     @pypto.jit(runtime_options={"run_mode": 1})
     ```
 
 2.  执行算子，自动触发仿真运行
 
-    ```
+    ```bash
     python examples/hello_world/hello_world.py --run_mode=sim --tensor_type=cpu
     ```
 

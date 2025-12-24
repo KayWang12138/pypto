@@ -1,125 +1,45 @@
-# pypto.experimental.gather\_in\_ub<a name="ZH-CN_TOPIC_0000002490953652"></a>
+# pypto.experimental.gather\_in\_ub
 
-## 产品支持情况<a name="section1550532418810"></a>
+## 产品支持情况
 
-<a name="table0318142155520"></a>
-<table><thead align="left"><tr id="row11318625556"><th class="cellrowborder" valign="top" width="57.99999999999999%" id="mcps1.1.3.1.1"><p id="p103183216558"><a name="p103183216558"></a><a name="p103183216558"></a><span id="ph131818275517"><a name="ph131818275517"></a><a name="ph131818275517"></a>AI处理器类型</span></p>
-</th>
-<th class="cellrowborder" align="center" valign="top" width="42%" id="mcps1.1.3.1.2"><p id="p731814235515"><a name="p731814235515"></a><a name="p731814235515"></a>是否支持</p>
-</th>
-</tr>
-</thead>
-<tbody><tr id="row83182245518"><td class="cellrowborder" valign="top" width="57.99999999999999%" headers="mcps1.1.3.1.1 "><p id="p73181217557"><a name="p73181217557"></a><a name="p73181217557"></a><span id="ph1531810211556"><a name="ph1531810211556"></a><a name="ph1531810211556"></a><term id="zh-cn_topic_0000001312391781_term1253731311225"><a name="zh-cn_topic_0000001312391781_term1253731311225"></a><a name="zh-cn_topic_0000001312391781_term1253731311225"></a>Ascend 910C</term></span></p>
-</td>
-<td class="cellrowborder" align="center" valign="top" width="42%" headers="mcps1.1.3.1.2 "><p id="p1731816220558"><a name="p1731816220558"></a><a name="p1731816220558"></a>√</p>
-</td>
-</tr>
-<tr id="row431872155513"><td class="cellrowborder" valign="top" width="57.99999999999999%" headers="mcps1.1.3.1.1 "><p id="p19318729554"><a name="p19318729554"></a><a name="p19318729554"></a><span id="ph431892195513"><a name="ph431892195513"></a><a name="ph431892195513"></a><term id="zh-cn_topic_0000001312391781_term11962195213215"><a name="zh-cn_topic_0000001312391781_term11962195213215"></a><a name="zh-cn_topic_0000001312391781_term11962195213215"></a>Ascend 910B</term></span></p>
-</td>
-<td class="cellrowborder" align="center" valign="top" width="42%" headers="mcps1.1.3.1.2 "><p id="p1131820275516"><a name="p1131820275516"></a><a name="p1131820275516"></a>√</p>
-</td>
-</tr>
-<tr id="row1431852185515"><td class="cellrowborder" valign="top" width="57.99999999999999%" headers="mcps1.1.3.1.1 "><p id="p83185265512"><a name="p83185265512"></a><a name="p83185265512"></a><span id="ph183181529556"><a name="ph183181529556"></a><a name="ph183181529556"></a><term id="zh-cn_topic_0000001312391781_term354143892110"><a name="zh-cn_topic_0000001312391781_term354143892110"></a><a name="zh-cn_topic_0000001312391781_term354143892110"></a>Ascend 310B</term></span></p>
-</td>
-<td class="cellrowborder" align="center" valign="top" width="42%" headers="mcps1.1.3.1.2 "><p id="p124951335517"><a name="p124951335517"></a><a name="p124951335517"></a>☓</p>
-</td>
-</tr>
-<tr id="row173191727550"><td class="cellrowborder" valign="top" width="57.99999999999999%" headers="mcps1.1.3.1.1 "><p id="p1031982135514"><a name="p1031982135514"></a><a name="p1031982135514"></a><span id="ph731910215512"><a name="ph731910215512"></a><a name="ph731910215512"></a><term id="zh-cn_topic_0000001312391781_term4363218112215"><a name="zh-cn_topic_0000001312391781_term4363218112215"></a><a name="zh-cn_topic_0000001312391781_term4363218112215"></a>Ascend 310P</term></span></p>
-</td>
-<td class="cellrowborder" align="center" valign="top" width="42%" headers="mcps1.1.3.1.2 "><p id="p182521413105513"><a name="p182521413105513"></a><a name="p182521413105513"></a>☓</p>
-</td>
-</tr>
-<tr id="row4319162125515"><td class="cellrowborder" valign="top" width="57.99999999999999%" headers="mcps1.1.3.1.1 "><p id="p9319172115519"><a name="p9319172115519"></a><a name="p9319172115519"></a><span id="ph23191215518"><a name="ph23191215518"></a><a name="ph23191215518"></a><term id="zh-cn_topic_0000001312391781_term71949488213"><a name="zh-cn_topic_0000001312391781_term71949488213"></a><a name="zh-cn_topic_0000001312391781_term71949488213"></a>Ascend 910</term></span></p>
-</td>
-<td class="cellrowborder" align="center" valign="top" width="42%" headers="mcps1.1.3.1.2 "><p id="p112553131552"><a name="p112553131552"></a><a name="p112553131552"></a>☓</p>
-</td>
-</tr>
-</tbody>
-</table>
+| 产品             | 是否支持 |
+|:-----------------|:--------:|
+| Atlas A3 训练系列产品/Atlas A3 推理系列产品 |    √     |
+| Atlas A2 训练系列产品/Atlas A2 推理系列产品 |    √     |
 
-## 功能说明<a name="section112531620115513"></a>
+## 功能说明
 
 该接口为定制接口，约束较多。不保证稳定性。
 
 该算子支撑稀疏注意力机制，能力为将选中的 token 的 kv cache 从 GM（Global Memory）加载到UB（Unified Buffer）中，支持Page Attention。
 
-## 函数原型<a name="section13445759105712"></a>
+## 函数原型
 
+```python
+gather_in_ub(param: Tensor, indices: Tensor, block_table: Tensor,
+                 block_size: int, axis: int) -> Tensor
 ```
-gather_in_ub(param: Tensor, indices: Tensor, blockTable: Tensor, blockSize: int, axis: int):
-```
 
-## 参数说明<a name="section816514718374"></a>
+## 参数说明
 
-<a name="zh-cn_topic_0146324969_table29998725"></a>
-<table><thead align="left"><tr id="zh-cn_topic_0146324969_row8953505"><th class="cellrowborder" valign="top" width="17.29%" id="mcps1.1.4.1.1"><p id="zh-cn_topic_0146324969_p54145286"><a name="zh-cn_topic_0146324969_p54145286"></a><a name="zh-cn_topic_0146324969_p54145286"></a>参数名</p>
-</th>
-<th class="cellrowborder" valign="top" width="11.01%" id="mcps1.1.4.1.2"><p id="zh-cn_topic_0146324969_p23692060"><a name="zh-cn_topic_0146324969_p23692060"></a><a name="zh-cn_topic_0146324969_p23692060"></a>输入/输出</p>
-</th>
-<th class="cellrowborder" valign="top" width="71.7%" id="mcps1.1.4.1.3"><p id="zh-cn_topic_0146324969_p19480441"><a name="zh-cn_topic_0146324969_p19480441"></a><a name="zh-cn_topic_0146324969_p19480441"></a>说明</p>
-</th>
-</tr>
-</thead>
-<tbody><tr id="zh-cn_topic_0146324969_row41106249"><td class="cellrowborder" valign="top" width="17.29%" headers="mcps1.1.4.1.1 "><p id="p94336309250"><a name="p94336309250"></a><a name="p94336309250"></a>param</p>
-</td>
-<td class="cellrowborder" valign="top" width="11.01%" headers="mcps1.1.4.1.2 "><p id="p11066451345"><a name="p11066451345"></a><a name="p11066451345"></a>输入</p>
-</td>
-<td class="cellrowborder" valign="top" width="71.7%" headers="mcps1.1.4.1.3 "><p id="p652854125310"><a name="p652854125310"></a><a name="p652854125310"></a>源操作数。</p>
-<p id="p1872462420360"><a name="p1872462420360"></a><a name="p1872462420360"></a>支持的数据类型为：DT_FP32、DT_FP16</p>
-<p id="p65652202218"><a name="p65652202218"></a><a name="p65652202218"></a>不支持空Tensor，支持两维。</p>
-<p id="p517314131419"><a name="p517314131419"></a><a name="p517314131419"></a>在实际使用中表示kv cache，形状为[token_size,hidden_dim]</p>
-</td>
-</tr>
-<tr id="row148718148574"><td class="cellrowborder" valign="top" width="17.29%" headers="mcps1.1.4.1.1 "><p id="p138721410572"><a name="p138721410572"></a><a name="p138721410572"></a>indices</p>
-</td>
-<td class="cellrowborder" valign="top" width="11.01%" headers="mcps1.1.4.1.2 "><p id="p1787014105716"><a name="p1787014105716"></a><a name="p1787014105716"></a>输入</p>
-</td>
-<td class="cellrowborder" valign="top" width="71.7%" headers="mcps1.1.4.1.3 "><p id="p687151410574"><a name="p687151410574"></a><a name="p687151410574"></a>源操作数</p>
-<p id="p143281141171719"><a name="p143281141171719"></a><a name="p143281141171719"></a>支持的数据类型为DT_INT32，</p>
-<p id="p1082013228"><a name="p1082013228"></a><a name="p1082013228"></a>不支持空Tensor，支持两维。</p>
-<p id="p1725416441574"><a name="p1725416441574"></a><a name="p1725416441574"></a>在实际使用中表示为topk输出结果，形状为[1,k]。</p>
-</td>
-</tr>
-<tr id="row1860017145572"><td class="cellrowborder" valign="top" width="17.29%" headers="mcps1.1.4.1.1 "><p id="p76001714155716"><a name="p76001714155716"></a><a name="p76001714155716"></a>blockTable</p>
-</td>
-<td class="cellrowborder" valign="top" width="11.01%" headers="mcps1.1.4.1.2 "><p id="p66001214105720"><a name="p66001214105720"></a><a name="p66001214105720"></a>输入</p>
-</td>
-<td class="cellrowborder" valign="top" width="71.7%" headers="mcps1.1.4.1.3 "><p id="p76001214115710"><a name="p76001214115710"></a><a name="p76001214115710"></a>源操作数</p>
-<p id="p174621923171816"><a name="p174621923171816"></a><a name="p174621923171816"></a>支持的数据类型为DT_INT32，</p>
-<p id="p6543203615185"><a name="p6543203615185"></a><a name="p6543203615185"></a>不支持空Tensor，支持两维。</p>
-<p id="p1877019541628"><a name="p1877019541628"></a><a name="p1877019541628"></a>在实际使用中表示为 Page Attention  中的页表，形状为[1,block_table_size]，其中block_table_size表示页表的长度</p>
-</td>
-</tr>
-<tr id="row19289141818412"><td class="cellrowborder" valign="top" width="17.29%" headers="mcps1.1.4.1.1 "><p id="p828941818412"><a name="p828941818412"></a><a name="p828941818412"></a>blockSize</p>
-</td>
-<td class="cellrowborder" valign="top" width="11.01%" headers="mcps1.1.4.1.2 "><p id="p1328941816413"><a name="p1328941816413"></a><a name="p1328941816413"></a>输入</p>
-</td>
-<td class="cellrowborder" valign="top" width="71.7%" headers="mcps1.1.4.1.3 "><p id="p142891818544"><a name="p142891818544"></a><a name="p142891818544"></a>源操作数</p>
-<p id="p1515521881818"><a name="p1515521881818"></a><a name="p1515521881818"></a>int 类型</p>
-<p id="p1924643219415"><a name="p1924643219415"></a><a name="p1924643219415"></a>表示 Page Attention 中一个块可以放多少个token</p>
-</td>
-</tr>
-<tr id="row573213018149"><td class="cellrowborder" valign="top" width="17.29%" headers="mcps1.1.4.1.1 "><p id="p1973212020143"><a name="p1973212020143"></a><a name="p1973212020143"></a>axis</p>
-</td>
-<td class="cellrowborder" valign="top" width="11.01%" headers="mcps1.1.4.1.2 "><p id="p1573213061416"><a name="p1573213061416"></a><a name="p1573213061416"></a>输入</p>
-</td>
-<td class="cellrowborder" valign="top" width="71.7%" headers="mcps1.1.4.1.3 "><p id="p17732120141416"><a name="p17732120141416"></a><a name="p17732120141416"></a>源操作数</p>
-<p id="p1110533241412"><a name="p1110533241412"></a><a name="p1110533241412"></a>int 类型</p>
-<p id="p13781135195"><a name="p13781135195"></a><a name="p13781135195"></a>只支持-2轴</p>
-</td>
-</tr>
-</tbody>
-</table>
 
-## 返回值说明<a name="section1334651291213"></a>
+| 参数名       | 输入/输出 | 说明                                                                 |
+|--------------|-----------|----------------------------------------------------------------------|
+| param        | 输入      | 源操作数。 <br> 支持的数据类型为：DT_FP32, DT_FP16。 <br> 不支持空Tensor，支持两维。 <br> 在实际使用中表示kv cache，形状为[token_size,hidden_dim]。 |
+| indices      | 输入      | 源操作数。 <br> 支持的数据类型为DT_INT32。 <br> 不支持空Tensor，支持两维。 <br> 在实际使用中表示为topk输出结果，形状为[1,k]。 |
+| block_table  | 输入      | 源操作数。 <br> 支持的数据类型为DT_INT32。 <br> 不支持空Tensor，支持两维。 <br> 在实际使用中表示为 Page Attention 中的页表，形状为[1,block_table_size]，其中block_table_size表示页表的长度。 |
+| block_size   | 输入      | 源操作数。 <br> int 类型。 <br> 表示 Page Attention 中一个块可以放多少个token。 |
+| axis         | 输入      | 源操作数。 <br> int 类型。 <br> 只支持-2轴。 |
 
-返回输出 Tensor，Tensor 的数据类型和 param 相同，Shape 为\[k, hidden\_dim\]，即 选中 token kv cache。
+## 返回值说明
 
-## 调用说明<a name="section598651515357"></a>
+返回输出 Tensor，Tensor的数据类型和 param 相同，Shape 为\[k, hidden\_dim\]，即 选中 token kv cache。
+
+## 调用说明
 
 ![](figures/zh-cn_image_0000002524825989.png)
 
-考虑以上场景，indices为topk结果，blockTable为Page Attention的页表，param 为 kv cache，blockSize为2。最终的结果是将token的kv cache 收集起来。
+考虑以上场景，indices为topk结果，block\_table为Page Attention的页表，param 为 kv cache，block\_size为2。最终的结果是将token的kv cache 收集起来。
 
 以 token id 4为例（在图中标红），根据blockSize计算出实际偏移：
 
@@ -133,7 +53,7 @@ offsets = slcBlockIdx \* blockSize + tail;//计算出实际的偏移，为2
 
 对数据进行搬运
 
-```
+```python
 param = pypto.tensor([6, 4], pypto.DT_FP32)
 indices = pypto.tensor([1, 3], pypto.DT_INT32)
 blockTable = pypto.tensor([1, 3], pypto.DT_INT32)
@@ -144,7 +64,7 @@ result = pypto.experimental.gather_in_ub(param , indices , blockTable, blockSize
 
 结果示例如下：
 
-```
+```python
 输入数据param : 
 [
   # token 0

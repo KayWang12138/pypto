@@ -1,6 +1,6 @@
-# QuantIndexerProlog算子性能优化案例<a name="ZH-CN_TOPIC_0000002527348241"></a>
+# QuantIndexerProlog算子性能优化案例
 
-## 任务与目标<a name="section1161412226482"></a>
+## 任务与目标
 
 在DeepSeekV3.2-Exp网络中，引入了Indexer模块。该模块的前半段计算，称之为IndexerProlog计算，其量化版本的计算流如下：
 
@@ -12,7 +12,7 @@
 -   三条独立的计算流中，Indexer Q 的耗时最长，可以掩盖 Indexer Cache 和 Indexer Weight。
 -   在典型场景（Batch=4，MTP1，Kv Cache长度64k）下，计算量较小，并不会打满所有核进行计算，性能瓶颈在搬运上。
 
-## 分析主要瓶颈点<a name="section1126915491276"></a>
+## 分析主要瓶颈点
 
 调通精度后，得到了初版性能，也称之为开箱性能，其开箱性能如下：
 
@@ -20,11 +20,11 @@
 
 从开箱性能泳道图上，可以观察到有如下的性能优化点：
 
--   Vector任务既多又稀疏，执行子图中存在大量气泡。问题表现为反量化和RoPE的计算未能合并到同一子图中，导致任务数量增加，加大了调度负担，并产生了调度空隙。根本原因是Tile Shape设置不合理。
--   Cube计算耗时长，通过调整Tile Shape，以提升Cube性能；
+-   Vector任务既多又稀疏，执行子图中存在大量气泡。问题表现为反量化和RoPE的计算未能合并到同一子图中，导致任务数量增加，加大了调度负担，并产生了调度空隙。根本原因是TileShape设置不合理。
+-   Cube计算耗时长，通过调整TileShape，以提升Cube性能；
 -   L1 Reuse尚未开启，部分可以合并的子图未进行合并，导致任务数增多，同时会导致右矩阵存在大量重复搬运；而在典型场景下，通常是搬运bound；若能减少搬运量，便能提升性能；
 
-## 主要调优流程<a name="section552313286483"></a>
+## 主要调优流程
 
 -   Tile块的调整：经过观察，在反量化和RoPE计算片段，任务数量多，且并没有合并到一个同构子图内；若能达到预期的Vector计算集中到一个同构子图，就能避免冗余的搬运消除；通过调整相关计算中的Tile块，使得相关计算中的Tile块保持一致，这样pass就会把相关计算切到同样一个同构子图内；经此优化后，性能提升至76us，泳道图如下：
 
@@ -38,13 +38,13 @@
 
     ![](figures/优化后泳道图.png)
 
-## 获取完整样例<a name="section1061840184810"></a>
+## 获取完整样例
 
 实现的example代码位于：examples/models/deepseek\_v32\_exp/lightning\_indexer\_prolog\_quant.py。该文件主要展示了QuantIndexerProlog的具体实现。
 
 QuantIndexerProlog算子在典型场景（Batch=4，MTP1，Kv Cache长度64k），可以运行如下实例脚本执行：
 
-```
+```bash
 python3 examples/models/deepseek_v32_exp/testdsv32_lightning_indexer_prolog_quant.py
 ```
 

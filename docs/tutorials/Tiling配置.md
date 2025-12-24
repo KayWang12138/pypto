@@ -1,19 +1,19 @@
-# Tiling配置<a name="ZH-CN_TOPIC_0000002495348482"></a>
+# Tiling配置
 
 合理设置TileShape对于优化算子性能至关重要。TileShape定义了数据在硬件的不同计算单元中的切分方式，影响数据搬运和计算效率。通过合理设置TileShape，可以显著提升计算性能，减少数据搬运开销，实现高效计算。
 
-## 原理介绍<a name="section2015035817020"></a>
+## 原理介绍
 
 TileShape设置的核心在于根据硬件资源和计算需求，合理划分数据块，以最大化利用硬件资源，减少数据搬运开销，从而提升计算性能。
 
 -   向量计算：在向量计算中，set\_vec\_tile\_shapes用于设置向量数据在各维度上的切分大小。合理的切分可以使数据充分利用统一缓冲区（Unified Buffer，UB），在向量计算单元上高效处理。
 -   矩阵计算：在矩阵计算中，将矩阵相乘形状变化记为\(m, k\) x \(k, n\) = \(m, n\)，set\_cube\_tile\_shapes用于依次设置矩阵在m、k、n维度上的切分大小。合理的切分可以充分利用L0和L1缓冲区，减少数据搬运开销。
 
-## Vector计算的Tiling配置<a name="section1756521320114"></a>
+## Vector计算的Tiling配置
 
 set\_vec\_tile\_shapes用于设置向量计算中各维度的TileShape。
 
-```
+```python
 # 设置向量计算的TileShape
 pypto.set_vec_tile_shapes(1, 1, 8, 8)
 # 获取并打印设置的TileShape
@@ -24,7 +24,7 @@ pypto.set\_vec\_tile\_shapes\(1, 1, 8, 8\) 表示该向量有四个维度，每�
 
 实际用例如下：
 
-```
+```python
 @pypto.jit
 def compute_with_vec_tile_shapes_kernel(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor, set_shapes: tuple) -> None:
     pypto.set_vec_tile_shapes(*set_shapes)
@@ -60,7 +60,7 @@ def test_set_vec_tile_shapes_basic():
 
 需要说明的是，通常设置不同的TileShape不影响向量的计算结果，但是会影响向量计算的运行时间，如下述用例所示：
 
-```
+```python
 @pypto.jit
 def compute_with_vec_specific_tile_shapes_kernel(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> None:
     pypto.set_vec_tile_shapes(1, 2, 4, 128)
@@ -102,14 +102,14 @@ def test_set_vec_different_tile_shapes_runtime():
 
 完整样例请参考：examples/01\_beginner/tiling/tiling\_config.py
 
-## Cube计算的Tiling配置<a name="section484011141819"></a>
+## Cube计算的Tiling配置
 
 set\_cube\_tile\_shapes用于设置矩阵计算中各矩阵在m、k、n维度上的TileShape。
 
-```
-# 设置Cube计算的Tile Shapes
+```python
+# 设置Cube计算的TileShape
 pypto.set_cube_tile_shapes([16, 16], [256, 512], [128, 128])
-# 获取并打印设置的Tile Shapes
+# 获取并打印设置的TileShape
 print(pypto.get_cube_tile_shapes())  # 输出: [[16, 16], [256, 512, 512], [128, 128]]
 ```
 
@@ -117,7 +117,7 @@ pypto.set\_cube\_tile\_shapes\(\[16, 16\], \[256, 512\], \[128, 128\]\)：将矩
 
 实际用例如下：
 
-```
+```python
 @pypto.jit
 def compute_with_cube_tile_shapes_kernel(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor, set_shapes: list) -> None:
     pypto.set_cube_tile_shapes(*set_shapes)
@@ -150,7 +150,7 @@ def test_set_cube_tile_shapes_basic():
 
 需要说明的是，通常设置不同的TileShape不影响矩阵的计算结果，但是会影响矩阵计算的运行时间，如下述用例所示：
 
-```
+```python
 import pypto
 import torch
 import time
@@ -196,11 +196,11 @@ def test_set_cube_different_tile_shapes_runtime():
 
 完整样例请参考：examples/01\_beginner/tiling/tiling\_config.py
 
-## 使用约束<a name="section4340153131919"></a>
+## 使用约束
 
--   设置TileShape参数时，需要满足约束条件，应与ViewShape（处理的数据视图形状）的维度数量和大小相匹配，且数值不能过小或过大。
+-   设置TileShape参数时，需要满足约束条件，应与需要处理的Tensor的Shape维度数量和大小相匹配，且数值不能过小或过大。
 
-    TileShape数值设置不能过小，过小的TileShape会导致切分次数ViewShape/TileShape即表达式在线循环展开的次数过大，这可能导致表达式表编译失败，并会增加运行时的头开销，建议控制ViewShape/TileShape的数值小于5000。
+    TileShape数值设置不能过小，过小的TileShape会导致切分次数TensorShape/TileShape（即TensorShape与TileShape每个维度比值的乘积）过大，从而使得表达式在线循环展开的次数过大，这可能导致表达式表编译失败，并会增加运行时的头开销。表达式表的大小与在线循环展开次数以及算子输入个数有关，建议控制 \(TensorShape/TileShape\)\*\(1+算子输入个数\)的值小于18000。
 
     TileShape数值设置不能过大，过大的TileShape会超出相应硬件（缓冲区）存储的大小，应控制切分后的数据大小（数据类型大小与切分后数据各维度大小乘积）不大于对应硬件单元存储容量。
 
@@ -208,7 +208,7 @@ def test_set_cube_different_tile_shapes_runtime():
 
 -   设置TileShape会影响上板时间。一般来说，越能充分利用硬件单元的容量，即一次计算的数据量越大，运行时间就越短。然而TileShape参数设置得越大并不一定意味着上板运行会更快，还需要考虑数据搬运等环节的开销。
 
-## 其他操作<a name="section20748114802113"></a>
+## 其他操作
 
 -   性能观察：可以通过性能分析工具（如泳道图）观察不同TileShape下的性能，从而评估TileShape设置的合理性，获取当前场景下最优TileShape。
 -   精度影响：除非设置极端值，一般不影响精度（框架不希望出现的行为）。
