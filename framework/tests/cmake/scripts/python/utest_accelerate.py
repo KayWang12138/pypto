@@ -13,6 +13,7 @@
 import argparse
 import logging
 import math
+import os
 from multiprocessing import cpu_count
 from typing import List
 
@@ -41,8 +42,19 @@ class UTestAccelerate(GTestAccelerate):
         # 流程处理
         args = parser.parse_args()
         params: List[GTestAccelerate.ExecParam] = []
-        job_num: int = args.job_num if args.job_num else int(math.ceil(float(cpu_count()) * 0.8))  # use 0.8 cpu
-        job_num: int = min(min(min(max(job_num, 1), cpu_count()), 16), len(args.cases))
+
+        # 获取job_num
+        if args.job_num:
+            job_num: int = args.job_num
+        else:
+            if os.environ.get("CMAKE_BUILD_PARALLEL_LEVEL", 0):
+                job_num = int(os.environ.get("CMAKE_BUILD_PARALLEL_LEVEL"), 0)
+            elif os.environ.get("PYPTO_UTEST_PARALLEL_NUM", 0):
+                job_num = int(os.environ.get("PYPTO_UTEST_PARALLEL_NUM", 0))
+            else:
+                job_num = int(math.ceil(float(cpu_count()) * 0.8))    # use 0.8 cpu
+        job_num: int = min(min(min(max(int(job_num), 1), cpu_count()), 16), len(args.cases))
+
         for _ in range(job_num):
             params.append(GTestAccelerate.ExecParam())
         ctrl = UTestAccelerate(args=args, params=params)

@@ -1079,6 +1079,8 @@ class BuildCtrl(CMakeParam):
         update_env = {}
         if self.model.prof == 1 or self.model.prof == 2:
             update_env = wf.ini(self.build_root, self.model.prof, self.model.pe)
+        if self.build.job_num:
+            update_env["PYPTO_UTEST_PARALLEL_NUM"] = str(self.build.job_num)
         cmd_list: List[str] = self.build.get_build_cmd_lst(cmake=self.cmake, binary_path=self.build_root)
         for i, c in enumerate(cmd_list, start=1):
             ts = datetime.now(tz=timezone.utc)
@@ -1159,9 +1161,13 @@ class BuildCtrl(CMakeParam):
             self.pip_install(whl=whl, dest=dist, opt="--no-compile --no-deps")  # 安装 whl 包
         # 执行用例, UTest。在 Python 3.12 中，pytest-xdist 通过 os.fork() 创建子进程时会产生 DeprecationWarning。
         # 使用 -W ignore::DeprecationWarning 参数来忽略该警告。
+        if self.build.job_num is not None and self.build.job_num > 0:
+            n_workers = str(self.build.job_num)
+        else:
+            n_workers = "auto"
         self.py_tests_run_pytest(dist=dist, tests=self.tests.utest,
                                  def_filter=str(Path(self.src_root, "python/tests/ut")),
-                                 ext="-n auto --forked -W ignore::DeprecationWarning")
+                                 ext=f"-n {n_workers} --forked -W ignore::DeprecationWarning")
         # 执行用例, STest
         self.py_tests_run_pytest(dist=dist, tests=self.tests.stest,
                                  def_filter=str(Path(self.src_root, "python/tests/st")), ext="--forked")
