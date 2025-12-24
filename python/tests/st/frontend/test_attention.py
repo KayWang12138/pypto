@@ -1,3 +1,14 @@
+#!/usr/bin/env python3
+# coding: utf-8
+# Copyright (c) 2025 CANN community contributors.
+# This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+# CANN Open Software License Agreement Version 2.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# -----------------------------------------------------------------------------------------------------------
+
 # pylint: disable=missing-docstring
 import os
 import pypto
@@ -35,7 +46,7 @@ def test_attention(
     qk_scale = np.reciprocal(np.sqrt(DQK))
     s = pypto.softmax(qk * qk_scale, -1)
     out = pypto.matmul(s, v, out_dtype=pypto.DT_FP32)
-    
+
     attention = out
     return attention
 
@@ -55,7 +66,7 @@ def test_attention_run():
     v = np.random.uniform(-1, 1, (s2, dv)).astype(np.float16)
 
     attention_golden = (softmax(q @ k.T / np.sqrt(dqk)) @ v)
-    
+
     q = torch.from_numpy(q).to(device=f"npu:{device_id}")
     k = torch.from_numpy(k).to(device=f"npu:{device_id}")
     v = torch.from_numpy(v).to(device=f"npu:{device_id}")
