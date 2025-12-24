@@ -557,7 +557,7 @@ def attention(
         This function is decorated with @allow_in_graph to enable integration
         with PyTorch's compilation graph.
     """
-    if isinstance(inputs[0], FakeTensor):
+    if isinstance(query, FakeTensor):
         return
     check_args(
         query,
