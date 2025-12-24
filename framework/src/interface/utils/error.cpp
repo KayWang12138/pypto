@@ -39,24 +39,32 @@ public:
         callStack_.resize(nrFrames - skipFrames);
     }
 
-    void ParseFrame(std::stringstream &ss, char *line) const {
-        auto funcName = strstr(line, "(");
-        auto funcOffset = strstr(line, "+");
+    void ParseFrame(std::stringstream &ss, char *line, bool &isPyptoFrame) const {
+        auto funcName = strchr(line, '(');
+        auto funcOffset = strchr(line, '+');
         auto libname = strrchr(line, '/');
-        if (funcName == nullptr || funcOffset == nullptr || libname == nullptr) {
-            ss << line << '\n';
+        if (funcName == nullptr || funcOffset == nullptr) {
+            ss << line <<'\n';
             return;
         }
 
         *funcName++ = '\0';
         *funcOffset++ = '\0';
+        libname = (libname == nullptr) ? line : libname + 1;
+        if (!strncmp(libname, "pypto_impl", strlen("pypto_impl"))) {
+            isPyptoFrame = true;
+        } else if (isPyptoFrame) {
+            // python frames after pypto frame, skip it
+            return;
+        }
+
         int status = 0;
         std::unique_ptr<char, std::function<void(char *)>> demangled(
             abi::__cxa_demangle(funcName, nullptr, nullptr, &status),
             /* deleter */ free);
         if (status == 0)
             funcName = demangled.get();
-        ss << (libname + 1) << '(' << funcName << '+' << funcOffset << '\n';
+        ss << libname << '(' << funcName << '+' << funcOffset << '\n';
     }
 
     const std::string &Get() const {
@@ -66,8 +74,9 @@ public:
                 return "Backtrace Failed";
             }
             std::stringstream ss;
+            bool isPyptoFrame = false;
             for (size_t i = 0; i < callStack_.size(); i++) {
-                ParseFrame(ss, strings[i]);
+                ParseFrame(ss, strings[i], isPyptoFrame);
             }
             free(strings);
             return ss.str();
@@ -101,6 +110,17 @@ struct SignalHandler {
         sigemptyset(&sa.sa_mask);
         sa.sa_flags = SA_RESTART;
         sigaction(SIGSEGV, &sa, &ori);
+
+        std::set_terminate([] {
+            try {
+                auto eptr = std::current_exception();
+                if (eptr)
+                    std::rethrow_exception(eptr);
+            } catch (const std::exception &e) {
+                std::cout << "Caught exception: '" << e.what() << "'\n";
+            }
+            _Exit(1);
+        });
     }
 
     static void SigAction(int signo) {
