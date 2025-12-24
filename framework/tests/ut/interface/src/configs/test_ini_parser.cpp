@@ -35,6 +35,7 @@ public:
 };
 
 TEST_F(TestINIParser, TestParser) {
+    const std::string archInfo = "ArchInfo";
     const std::string version = "version";
     const std::string socInfo = "SoCInfo";
     const std::string aiCoreSpec = "AICoreSpec";
@@ -65,6 +66,9 @@ TEST_F(TestINIParser, TestParser) {
     std::string socVersion;
     EXPECT_EQ(parser.GetStringVal(version, shortSocVer, socVersion), SUCCESS);
     EXPECT_EQ(socVersion, "Ascend910_95");
+
+    // std::string archVal;
+    // EXPECT_EQ(parser.GetStringVal(version, archInfo, socVersion), FAILED);
 
     std::unordered_map<std::string, std::string> ccecVersion;
     EXPECT_EQ(parser.GetCCECVersion(ccecVersion), SUCCESS);

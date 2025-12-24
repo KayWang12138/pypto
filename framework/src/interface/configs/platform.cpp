@@ -21,7 +21,7 @@
 
 namespace npu::tile_fwk {
 const std::string version = "version";
-const std::string shortSocVer = "Short_SoC_version";
+const std::string npuArchInfo = "NpuArch";
 const std::string socInfo = "SoCInfo";
 const std::string aiCoreCnt = "ai_core_cnt";
 const std::string cubeCoreCnt = "cube_core_cnt";
@@ -33,6 +33,11 @@ const std::string l0bSize = "l0_b_size";
 const std::string l0cSize = "l0_c_size";
 const std::string l1Size = "l1_size";
 const std::string ubSize = "ub_size";
+const std::unordered_map<std::string, NPUArch> npuArchMap = {
+    {"1001", NPUArch::DAV_1001},
+    {"2201", NPUArch::DAV_2201},
+    {"3510", NPUArch::DAV_3510},
+};
 
 // helper function
 MemoryType StringToMemoryType(const std::string& memType) {
@@ -53,17 +58,12 @@ MemoryType StringToMemoryType(const std::string& memType) {
 }
 
 NPUArch StringToNPUArch(const std::string& npuArch) {
-    const std::unordered_map<std::string, NPUArch> npuArchMap = {
-        {"Ascend910", NPUArch::DAV_1001},
-        {"Ascend910B", NPUArch::DAV_2201},
-        {"Ascend910_93", NPUArch::DAV_2201},
-        {"Ascend910_95", NPUArch::DAV_3510},
-    };
     auto it = npuArchMap.find(npuArch);
     if (it != npuArchMap.end()) {
+        ALOG_DEBUG_F("Set NpuArch as %s.", npuArch.c_str());
         return it->second;
     }
-    return NPUArch::DAV_UNKNOWN;
+    return NPUArch::DAV_2201;
 }
 
 std::string ToJsonString(const std::string& s) {
@@ -247,10 +247,10 @@ Platform &Platform::Instance() {
 void Platform::LoadFromIni(const std::string &filePath) {
     npu::tile_fwk::INIParser parser;
     parser.Initialize(filePath);
-    std::string socVersion;
+    std::string archType;
     std::unordered_map<std::string, std::string> versionInfo;
-    if (parser.GetStringVal(version, shortSocVer, socVersion) == SUCCESS) {
-        GetSoc().SetNPUArch(socVersion);
+    if (parser.GetStringVal(version, npuArchInfo, archType) == SUCCESS) {
+        GetSoc().SetNPUArch(archType);
     }
     if (parser.GetCCECVersion(versionInfo) == SUCCESS) {
         GetSoc().SetCCECVersion(versionInfo);
