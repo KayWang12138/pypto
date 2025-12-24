@@ -126,22 +126,7 @@ PyPTO 支持在具备 Ascend-NPU 硬件的**真实环境**和仅有 CPU 硬件�
     - \$\{arch\}: CPU架构, 如aarch64、x86_64
     - \$\{install-path\}: 表示制定安装路径, 默认安装在`/usr/local/Ascend`目录
 
-4. **安装CANN PTO-inst包**
-
-    根据实际环境, 下载对应的安装包, 下载链接如下:
-    - x86: [cann-pto-inst_8.5.0_linux-x86_64.run](https://container-obsfs-filesystem.obs.cn-north-4.myhuaweicloud.com/package/cann/pto-tile-lib-dev/ubuntu_x86/cann-pto-inst_8.5.0_linux-x86_64.run)
-    - aarch64: [cann-pto-inst_8.5.0_linux-aarch64.run](https://container-obsfs-filesystem.obs.cn-north-4.myhuaweicloud.com/package/cann/pto-tile-lib-dev/ubuntu_aarch64/cann-pto-inst_8.5.0_linux-aarch64.run)
-
-    ```bash
-    # 确保安装包有可执行权限
-    chmod +x cann-pto-inst_8.5.0_linux-${arch}.run
-    # 安装命令
-    ./cann-pto-inst_8.5.0_linux-${arch}.run --full --install-path=${install_path}
-    ```
-    - \$\{arch\}: CPU架构, 如aarch64、x86_64
-    - \$\{install-path\}: 表示制定安装路径, 默认安装在`/usr/local/Ascend`目录
-
-5. **环境变量配置**
+4. **环境变量配置**
 
     ```bash
     # 默认路径安装, 以root用户为例（非root用户, 将/usr/local替换为${HOME}）
@@ -157,11 +142,11 @@ PyPTO 支持在具备 Ascend-NPU 硬件的**真实环境**和仅有 CPU 硬件�
 ```
 bash tools/prepare_env.sh --type=cann --device-type=910b
 ```
-| 全写                   | 类型  | 是否必须          | 说明                                         |
-|:-----------------------|:----|:------------|:-------------------------------------------|
-| --type                 | str   | 是          | 脚本安装类型, 可选[deps, cann, third_party, all] |
-| --device-type          | str | 是          | 指定 NPU 型号, 可选 [910b, 910c] |
-| --install-path         | str   | 否          | 指定 CANN 包安装路径 |
-| --download-path        | str | 否       | 指定 CANN 包以及三方依赖包下载路径 |
-| --with-install-driver  | bool | 否       | 指定是否下载 NPU 驱动和固件包, 默认为 false |
-| --help                 | -    | 否       | 查看命令参数帮助信息 |
+| 全写                    | 类型   | 是否必须 | 说明                                       |
+|:----------------------|:-----|:-----|:-----------------------------------------|
+| --type                | str  | 是    | 脚本安装类型, 可选[deps, cann, third_party, all] |
+| --device-type         | str  | 是    | 指定 NPU 型号, 可选 [910b, 910c]               |
+| --install-path        | str  | 否    | 指定 CANN 包安装路径                            |
+| --download-path       | str  | 否    | 指定 CANN 包以及三方依赖包下载路径                     |
+| --with-install-driver | bool | 否    | 指定是否下载 NPU 驱动和固件包, 默认为 false             |
+| --help                | -    | 否    | 查看命令参数帮助信息                               |
