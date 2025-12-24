@@ -187,67 +187,6 @@ def attention(
 
 
 
-# add_rms_norm
-
-## 功能说明
-
-`add_rms_norm` 算子对应GLM4.5网络中进入专家选择前，确保输入经过归一化和残差优化，提升路由器的决策质量
-
-
-## 数学公式
-$
-x=x1_i+x2_i
-$
-
-
-$
-\text{RmsNorm} = \frac{X}{Rms(x)}\ast \Gamma_i + bias
-$
-
-
-$
-\text{where, Rms(x)}=\sqrt{\frac{1}{n}\sum_{1}^n x^2 + epsilon}
-$
-
-
-## 函数原型
-
-```
-def add_rms_norm(
-    hidden_states: torch.Tensor, 
-    residual: torch.Tensor, 
-    weight: torch.Tensor, 
-    bias: torch.Tensor, 
-    eps: float,
-    hidden_states_res: torch.Tensor,
-    residual_res: torch.Tensor) -> None:
-```
-
-## 参数说明
-
->
->- batch_size表示输入样本批量大小（当前支持范围1至32）、seq_len表示输入样本序列长度（当前支持为1）、num_tokens表示batch_size和seq_len合轴的大小、hidden_size表示模型隐藏层维度（当前支持5120）。
-
--   **hidden_states**（`Tensor`）：当前层输入特征矩阵， 不支持非连续的Tensor，数据格式支持ND，数据类型支持 `bfloat16`, shape为[num_tokens, hidden_size]。
-
--   **residual**（`Tensor`）：表示网络的残差值, 不支持非连续的Tensor，数据格式支持ND，数据类型支持 `bfloat16`, shape为[num_tokens, hidden_size]。
-  
--   **weight**（`Tensor`）：缩放参数, 不支持非连续的Tensor，数据格式支持ND，数据类型支持 `bfloat16`, shape为[hidden_size]。
-
--   **bias**（`Tensor`）：偏置参数, 不支持非连续的Tensor，数据格式支持ND，数据类型支持 `bfloat16`, shape为[hidden_size]。
-  
--   **eps**（`float`）：表示数值稳定参数（典型值是1e-6）。
-
--   **hidden_states_res**（`Tensor`）：归一化后的网络输入, 不支持非连续的Tensor，数据格式支持ND，数据类型支持 `bfloat16`, shape为[num_tokens, hidden_size]。
-
--   **residual_res**（`Tensor`）：归一化后输出的残差值, 不支持非连续的Tensor，数据格式支持ND，数据类型支持 `bfloat16`, shape为[num_tokens, hidden_size]。
-
-
-## 调用示例
-
-- 详见 [glm_add_rms_norm](./glm_add_rms_norm.py)
-
-
 
 # gate
 
