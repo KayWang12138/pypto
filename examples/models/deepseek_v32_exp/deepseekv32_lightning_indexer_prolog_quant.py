@@ -429,8 +429,6 @@ def do_test_lighting_indexer_prolog_quant(case_name, configs):
 
     print(f"=== {case_name}: PASS ===")
 
-    pypto.runtime._device_fini()
-
 
 def test_b4_s1_2_s2_64k():
     configs = IndexerPrologQuantConfigs(

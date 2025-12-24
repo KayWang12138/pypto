@@ -882,7 +882,6 @@ def do_test(case_name, params, mla_epsilon_cq, mla_epsilon_ckv, mla_cache_mode, 
         mla_tile_config, ip_attrs, ip_configs, rope_tile_shape)
     torch_npu.npu.synchronize()
     check(case_name, outputs, goldens)
-    pypto.runtime._device_fini()
 
 
 params_base = {

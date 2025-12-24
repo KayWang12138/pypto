@@ -280,7 +280,7 @@ def rotate_half(input_tensor: pypto.tensor) -> pypto.tensor:
 
 
 def rope_v2(
-    x: pypto.tensor, cos: pypto.tensor, sin: pypto.tensor, tile_config: pypto.tensor
+    x: pypto.tensor, cos: pypto.tensor, sin: pypto.tensor, tile_config: RopeTileShapeConfig
 ) -> pypto.tensor: 
     """Apply 2D Rotary Position Embedding (RoPE) version 2.
     
