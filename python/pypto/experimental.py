@@ -16,21 +16,21 @@ from .tensor import Tensor
 
 
 @op_wrapper
-def load(a: pypto_impl.Tensor, offsets: pypto_impl.Tensor) -> pypto_impl.Tensor:
+def load(a: Tensor, offsets: Tensor) -> Tensor:
     return pypto_impl.Load(a, offsets)
 
 
 @op_wrapper
-def gather_in_l1(src: pypto_impl.Tensor, indices: pypto_impl.Tensor, blockTable: pypto_impl.Tensor, blockSize: int,
-                 size: int, is_b_matrix: bool, is_trans: bool):
+def gather_in_l1(src: Tensor, indices: Tensor, block_table: Tensor, block_size: int,
+                 size: int, is_b_matrix: bool, is_trans: bool) -> Tensor:
     """gather_in_l1."""
 
-    return pypto_impl.gather_in_l1(src, indices, blockTable, blockSize, size, is_b_matrix, is_trans)
+    return pypto_impl.gather_in_l1(src, indices, block_table, block_size, size, is_b_matrix, is_trans)
 
 
 @op_wrapper
-def gather_in_ub(param: pypto_impl.Tensor, indices: pypto_impl.Tensor, blockTable: pypto_impl.Tensor,
-                 blockSize: int, axis: int):
+def gather_in_ub(param: Tensor, indices: Tensor, block_table: Tensor,
+                 block_size: int, axis: int) -> Tensor:
     """gather_in_ub."""
     """
     Custom Operator for Sparse Attention Mechanism:
@@ -86,7 +86,7 @@ def gather_in_ub(param: pypto_impl.Tensor, indices: pypto_impl.Tensor, blockTabl
         [ 50, 51, 52, 53],
     ]
     """
-    return pypto_impl.gather_in_ub(param, indices, blockTable, blockSize, axis)
+    return pypto_impl.gather_in_ub(param, indices, block_table, block_size, axis)
 
 
 def set_operation_config(*, force_combine_axis: bool):

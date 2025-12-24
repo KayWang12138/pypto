@@ -53,8 +53,8 @@ def arange(end: Union[int, float]) -> Tensor:
 
     Examples
     --------
-    a = pto.arange(4)
-    b = pto.arange(5.5)
+    a = pypto.arange(4)
+    b = pypto.arange(5.5)
 
     Output a: [0 1 2 3]
     Output b: [0.0 1.0 2.0 3.0 4.0 5.0]
@@ -87,8 +87,8 @@ def arange(start: Union[int, float], end: Union[int, float]) -> Tensor:
 
     Examples
     --------
-    a = pto.arange(-2, 2)
-    b = pto.arange(1.0, 4.0)
+    a = pypto.arange(-2, 2)
+    b = pypto.arange(1.0, 4.0)
 
     Output a: [-2 -1 0 1]
     Output b: [1.0 2.0 3.0]
@@ -123,8 +123,8 @@ def arange(start: Union[int, float],
 
     Examples
     --------
-    a = pto.arange(1.0, 4.0, 0.5)
-    b = pto.arange(10, 0, -2)
+    a = pypto.arange(1.0, 4.0, 0.5)
+    b = pypto.arange(10, 0, -2)
 
     Output a: [1.0 1.5 2.0 2.5 3.0 3.5]
     Output b: [10 8 6 4 2]
@@ -163,9 +163,9 @@ def arange(*args: Union[int, float]) -> Tensor:
 
     Examples
     --------
-    a = pto.arange(1.0, 4.0, 0.5)
-    b = pto.arange(1.0, 4.0)
-    c = pto.arange(4)
+    a = pypto.arange(1.0, 4.0, 0.5)
+    b = pypto.arange(1.0, 4.0)
+    c = pypto.arange(4)
 
     Output a: [1.0 1.5 2.0 2.5 3.0 3.5]
     Output b: [1.0 2.0 3.0]
@@ -213,9 +213,9 @@ def full(
     ----------
     size : List[int]
         target shape; must be non-negative integers
-    fill_value : int | float | SymbolicScalar | pto.element
+    fill_value : int | float | SymbolicScalar | pypto.element
         scalar value to replicate
-    dtype : pto.DataType
+    dtype : pypto.DataType
         desired data type; only int/float are supported (DT_FP32, DT_INT32).
         If elem is a SymbolicScalar, dtype must be int32.
     valid_shape : List[int] | List[SymbolicScalar]]
@@ -229,14 +229,14 @@ def full(
     --------
     # Valid shapes use keyword argument
     x1 = 1.0
-    y1 = pto.full([2,2], x1, pto.DT_FP32, valid_shape=[2, 2])
+    y1 = pypto.full([2,2], x1, pypto.DT_FP32, valid_shape=[2, 2])
 
-    x2 = pto.symbolic_scalar(1)
-    y2 = pto.full([2,2], x2, pto.DT_INT32, valid_shape=[2, 2])
+    x2 = pypto.Element(pypto.DT_INT32, 1)
+    y2 = pypto.full([2,2], x2, pypto.DT_INT32, valid_shape=[2, 2])
 
     #  In static graphs, validshape can be ignored
     x3 = 1
-    y3 = pto.full([2,2], x3, pto.DT_INT32)
+    y3 = pypto.full([2,2], x3, pypto.DT_INT32)
 
     Output y1: [[1.0 1.0], [1.0 1.0]]
     Output y2: [[1 1], [1 1]]
@@ -276,10 +276,9 @@ def zeros(
 
     Examples
     --------
-    >>> import pto
-    >>> pto.zeros(2, 3)
-    tensor([[0., 0., 0.],
-            [0., 0., 0.]])
+    x1 = pypto.zeros(2, 3)
+    Output x1 [[0., 0., 0.],
+               [0., 0., 0.]])
     """
     if len(size) == 1 and isinstance(size[0], (list, tuple)):
         shape = list(size[0])
@@ -313,10 +312,10 @@ def ones(
 
     Examples
     --------
-    >>> import pto
-    >>> pto.ones(2, 3)
-    tensor([[1., 1., 1.],
-            [1., 1., 1.]])
+    x1 = pypto.ones(2, 3)
+
+    Output x1 [[1., 1., 1.],
+               [1., 1., 1.]]
     """
     if len(size) == 1 and isinstance(size[0], (list, tuple)):
         shape = list(size[0])

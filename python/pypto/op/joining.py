@@ -33,18 +33,19 @@ def concat(tensors: List[Tensor], dim: int = 0) -> Tensor:
         The concatenated tensor
     Examples
     ---------
-    x = pto.tensor([2, 2], pto.data_type.DT_FP32)  # 2x2 tensor with all 1s
-    y = pto.tensor([2, 2], pto.data_type.DT_FP32)  # 2x2 tensor with all 0s
+    x = pypto.tensor([2, 2], pypto.data_type.DT_FP32)  # 2x2 tensor with all 1s
+    y = pypto.tensor([2, 2], pypto.data_type.DT_FP32)  # 2x2 tensor with all 0s
     dim = 0
-    out = pto.concat([x, y], dim)
+    out = pypto.concat([x, y], dim)
 
-    Input  x : [[1 1],
-                [1 1]]
-           y : [[0 0],
-                [0 0]]
-    Output out:[[1 1],
-                [1 1],
-                [0 0],
-                [0 0]]
+    Input  x : [[1.0 1.0],
+                [1.0 1.0]]
+           y : [[0.0 0.0],
+                [0.0 0.0]]
+                
+    Output out:[[1.0 1.0],
+                [1.0 1.0],
+                [0.0 0.0],
+                [0.0 0.0]]
     """
     return pypto_impl.Cat(tensors, dim)

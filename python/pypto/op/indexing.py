@@ -62,8 +62,8 @@ def index_add_(
 
     Examples
     --------
-    x = pypto.tensor([2, 3], pypto.DT_FP32)        # shape (2, 3)
-    source = pypto.tensor([3, 3], pypto.DT_FP32)        # shape (3, 3)
+    x = pypto.tensor([2, 3], pypto.DT_INT32)        # shape (2, 3)
+    source = pypto.tensor([3, 3], pypto.DT_INT32)        # shape (3, 3)
     index = pypto.tensor([3], pypto.DT_INT32)   # shape (3,)
     dim = 0
 
@@ -73,15 +73,15 @@ def index_add_(
     # not use alpha
     y = pypto.index_add_(x, dim, index, source)
 
-    Input x:  [[0 0 0],
-               [0 0 0]]
-        source: [[1 1 1],
-               [1 1 1],
-               [1 1 1]]
-        index: [0 1 0]
+    Input x:   [[0 0 0],
+                [0 0 0]]
+    source:    [[1 1 1],
+                [1 1 1],
+                [1 1 1]]
+    index:      [0 1 0]
 
-    Output y: [[4 4 4],
-               [2 2 2]]               # shape (2, 3)
+    Output y:  [[2 2 2],
+                [1 1 1]]               # shape (2, 3)
     """
     if alpha == 1 or alpha == 1.0:
         return pypto_impl.IndexAdd_(input, source, index, dim)
@@ -138,16 +138,16 @@ def gather(input: Tensor, dim: int, index: Tensor) -> Tensor:
 
     Examples
     --------
-    x = pto.tensor([3, 5], pto.DT_FP32)        # shape (3, 5)
+    x = pypto.tensor([3, 5], pypto.DT_INT32)        # shape (3, 5)
 
-    index = pto.tensor([3, 4], pto.DT_INT32)   # shape (3, 4)
+    index = pypto.tensor([3, 4], pypto.DT_INT32)   # shape (3, 4)
     dim = 0
-    y = pto.gather(x, dim, index)
+    y = pypto.gather(x, dim, index)
 
     Input x:  [[0 1 2 3 4],
                [5 6 7 8 9],
                [10 11 12 13 14]]
-      index:  [[0 1 2 0],
+    index:    [[0 1 2 0],
                [1 2 0 1],
                [2 2 1 0]]
 
@@ -200,10 +200,10 @@ def scatter_update(input: Tensor, dim: int, index: Tensor, src: Tensor) -> Tenso
     Examples
     --------
     # dim2
-    x = pto.tensor([8, 3], pto.DT_FP32)
-    y = pto.tensor([2, 2], pto.DT_INT64)
-    z = pto.tensor([4, 3], pto.DT_FP32)
-    o = pto.scatter_update(x, -2, y, z)
+    x = pypto.tensor([8, 3], pypto.DT_INT32)
+    y = pypto.tensor([2, 2], pypto.DT_INT64)
+    z = pypto.tensor([4, 3], pypto.DT_INT32)
+    o = pypto.scatter_update(x, -2, y, z)
 
     Input x:[[0 0 0],
              [0 0 0],
@@ -229,10 +229,10 @@ def scatter_update(input: Tensor, dim: int, index: Tensor, src: Tensor) -> Tenso
               [0 0 0]])
 
     #dim4
-    x = pto.tensor([2, 6, 1, 3], pto.DT_FP32)
-    y = pto.tensor([2, 2], pto.DT_INT64)
-    z = pto.tensor([2, 2, 1, 3], pto.DT_FP32)
-    o = pto.scatter_update(x, -2, y, z)
+    x = pypto.tensor([2, 6, 1, 3], pypto.DT_INT32)
+    y = pypto.tensor([2, 2], pypto.DT_INT64)
+    z = pypto.tensor([2, 2, 1, 3], pypto.DT_INT32)
+    o = pypto.scatter_update(x, -2, y, z)
 
     Input x:[[
                 [[0 0 0]],
@@ -341,18 +341,18 @@ def scatter_(input: Tensor, dim: int, index: Tensor, src: float, *, reduce: str 
     Examples
     --------
     # dim2 and src is scalar
-    x = pto.tensor([3, 5], pto.DT_FP32)
-    y = pto.tensor([2, 2], pto.DT_INT64)
-    o = pto.scatter_(x, 0, y, 2.0)
+    x = pypto.tensor([3, 5], pypto.DT_FP32)
+    y = pypto.tensor([2, 2], pypto.DT_INT64)
+    o = pypto.scatter_(x, 0, y, 2.0)
 
-    Input x:[[0 0 0 0 0],
-             [0 0 0 0 0],
-             [0 0 0 0 0]]
-    Input y:[[1 2],
-             [0 1]]
-    Output o:[[2.0 0   0 0 0],
-              [2.0 2.0 0 0 0],
-              [0   2.0 0 0 0]]
+    Input x:  [[0 0 0 0 0],
+               [0 0 0 0 0],
+               [0 0 0 0 0]]
+    Input y:  [[1 2],
+               [0 1]]
+    Output o:  [[2.0 0   0 0 0],
+                [2.0 2.0 0 0 0],
+                [0   2.0 0 0 0]]
     """
     scatter_mode = get_scatter_mode(reduce)
     return pypto_impl.Scatter_(input, index, pypto_impl.Element(input.dtype, src), dim, scatter_mode)

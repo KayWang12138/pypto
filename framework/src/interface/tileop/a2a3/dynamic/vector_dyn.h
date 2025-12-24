@@ -4081,8 +4081,8 @@ TILEOP void GatherInUB(__ubuf__ T *dst, __gm__ T *param, __gm__ T2 *indices, __g
     __gm__ T *param0 = param;
     __ubuf__ T *dst0 = dst;
     for (int j = 0; j < GMIndicesShape1; j++) {
-        T2 index_1 = indices0[j];
-        index_1 = CalaOffset2PageAttention<T2, T3, blockSize>(blockTable, index_1);
+        uint64_t index_1 = indices0[j];
+        index_1 = CalaOffset2PageAttention<uint64_t, T3, blockSize>(blockTable, index_1);
         param0 = param + index_1 * GMParamStride1;
         UBCopyInBase<T, UBOutputS2>(dst0, param0, 1, GMParamShape1, GMParamStride1);
         dst0 += UBOutputS2;

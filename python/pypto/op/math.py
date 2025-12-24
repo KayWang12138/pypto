@@ -19,7 +19,7 @@ from ..tensor import Tensor
 
 @op_wrapper
 def add(
-    input: Tensor, other: Union[Tensor, int, float], *, alpha: Union[int, float] = 1
+    input: Tensor, other: Union[Tensor, float], *, alpha: Union[int, float] = 1
 ) -> Tensor:
     """Computes the element-wise addition of `input` and `other`.
 
@@ -52,13 +52,13 @@ def add(
 
     Examples
     --------
-    a = pto.tensor([1, 3], pto.DT_FP32)
-    b = pto.tensor([1, 3], pto.DT_FP32)
-    out = pto.add(a, b)
+    a = pypto.tensor([1, 3], pypto.DT_FP32)
+    b = pypto.tensor([1, 3], pypto.DT_FP32)
+    out = pypto.add(a, b)
 
-    Input a:    [1 2 3]
-    Input b:    [2 3 4]
-    Output out: [3 5 7]
+    Input a:    [[1.0 2.0 3.0]]
+    Input b:    [[2.0 3.0 4.0]]
+    Output out: [[3.0 5.0 7.0]]
     """
     if isinstance(other, pypto_impl.Tensor):
         if alpha == 1 or alpha == 1.0:
@@ -78,7 +78,7 @@ def add(
 
 @op_wrapper
 def sub(
-    input: Tensor, other: Union[Tensor, int, float], *, alpha: Union[int, float] = 1
+    input: Tensor, other: Union[Tensor, float], *, alpha: Union[int, float] = 1
 ) -> Tensor:
     """Computes the element-wise subtraction of `input` and `other`.
 
@@ -106,22 +106,22 @@ def sub(
 
     Examples
     --------
-    x = pto.tensor([2, 3], pto.DT_FP32)
-    y = pto.tensor([2, 3], pto.DT_FP32)
-    out1 = pto.sub(a, b)
+    x = pypto.tensor([2, 3], pypto.DT_FP32)
+    y = pypto.tensor([2, 3], pypto.DT_FP32)
+    out1 = pypto.sub(a, b)
 
-    Input x:      [[9 9 9],
-                   [9 9 9]]
-    Input y:      [[1 2 3],
-                   [1 2 3]]
-    Output out1 : [[8 7 6],
-                   [8 7 6]]
+    Input x:      [[9.0 9.0 9.0],
+                   [9.0 9.0 9.0]]
+    Input y:      [[1.0 2.0 3.0],
+                   [1.0 2.0 3.0]]
+    Output out1 : [[8.0 7.0 6.0],
+                   [8.0 7.0 6.0]]
 
     # Using a scalar and alpha
-    c = pto.sub(x, 2, alpha=3) # Computes x - 2 * 3
+    c = pypto.sub(x, 2.0, alpha=3) # Computes x - 2 * 3
 
-    Output c:[[3 3 3],
-              [3 3 3]]
+    Output c:[[3.0 3.0 3.0],
+              [3.0 3.0 3.0]]
     """
     if isinstance(other, pypto_impl.Tensor):
         if alpha == 1 or alpha == 1.0:
@@ -140,7 +140,7 @@ def sub(
 
 
 @op_wrapper
-def mul(input: Tensor, other: Union[Tensor, int, float]) -> Tensor:
+def mul(input: Tensor, other: Union[Tensor, float]) -> Tensor:
     """Computes the element-wise multiplication of `input` and `other`.
 
     This function calculates the formula: `out = input * other`.
@@ -165,16 +165,16 @@ def mul(input: Tensor, other: Union[Tensor, int, float]) -> Tensor:
 
     Examples
     --------
-    x = pto.tensor([2, 3], pto.DT_FP32)
-    y = pto.tensor([2, 3], pto.DT_FP32)
-    z = pto.mul(a, b)
+    x = pypto.tensor([2, 3], pypto.DT_FP32)
+    y = pypto.tensor([2, 3], pypto.DT_FP32)
+    z = pypto.mul(a, b)
 
-    Input x:[[1 2 3],
-             [1 2 3]]
-    Input y:[[1 2 3],
-             [1 2 3]]
-    Output z:[[1 4 9],
-              [1 4 9]]
+    Input x:[[1.0 2.0 3.0],
+             [1.0 2.0 3.0]]
+    Input y:[[1.0 2.0 3.0],
+             [1.0 2.0 3.0]]
+    Output z:[[1.0 4.0 9.0],
+              [1.0 4.0 9.0]]
     """
     if isinstance(other, pypto_impl.Tensor):
         return pypto_impl.Mul(input, other)
@@ -183,7 +183,7 @@ def mul(input: Tensor, other: Union[Tensor, int, float]) -> Tensor:
 
 
 @op_wrapper
-def div(input: Tensor, other: Union[Tensor, int, float]) -> Tensor:
+def div(input: Tensor, other: Union[Tensor, float]) -> Tensor:
     """Computes the element-wise division of `input` and `other`.
 
     This function calculates the formula: `out = input / other`.
@@ -213,13 +213,13 @@ def div(input: Tensor, other: Union[Tensor, int, float]) -> Tensor:
 
     Examples
     --------
-    a = pto.tensor([3], pto.DT_FP32)
-    b = pto.tensor([3], pto.DT_FP32)
-    out = pto.div(a, b)
+    a = pypto.tensor([1, 3], pypto.DT_FP32)
+    b = pypto.tensor([1, 3], pypto.DT_FP32)
+    out = pypto.div(a, b)
 
-    Input a:    [2 4 6]
-    Input b:    [2 2 2]
-    Output out: [1 2 3]
+    Input a:    [[2.0 4.0 6.0]]
+    Input b:    [[2.0 2.0 2.0]]
+    Output out: [[1.0 2.0 3.0]]
     """
     if isinstance(other, pypto_impl.Tensor):
         return pypto_impl.Div(input, other)
@@ -247,14 +247,14 @@ def pow(input: Tensor, other: Union[int, float]) -> Tensor:
 
     Examples
     --------
-    x = pto.tensor([2, 2], pto.DT_FP32)
+    x = pypto.tensor([2, 2], pypto.DT_FP32)
     a = 2
-    y = pto.pow(x, a)
+    y = pypto.pow(x, a)
 
-    Input x:[[1 2],
-             [3 4]]
-    Output y:[[1  4],
-              [9 16]]
+    Input x:[[1.0 2.0],
+             [3.0 4.0]]
+    Output y:[[1.0  4.0],
+              [9.0 16.0]]
     """
     if not isinstance(other, (int, float)):
         raise TypeError(f"other must be int or float, but got {type(other)}.")
@@ -283,10 +283,10 @@ def exp(input: Tensor) -> Tensor:
 
     Examples
     --------
-    x = pto.tensor([3], pto.DT_FP32)
-    y = pto.exp(x)
+    x = pypto.tensor([3], pypto.DT_FP32)
+    y = pypto.exp(x)
 
-    Input x: [0 1 2]
+    Input x: [0.0    1.0    2.0]
     Output y:[1.0000 2.7183 7.3891]
     """
     return pypto_impl.Exp(input)
@@ -363,11 +363,11 @@ def logical_not(input: Tensor) -> Tensor:
 
     Examples
     --------
-    a = pto.tensor([5], pto.DT_INT32)
-    out = pto.logical_not(a)
+    a = pypto.tensor([5], pypto.DT_INT32)
+    out = pypto.logical_not(a)
 
     Input a:    [0 1 2 3 4]
-    Output out: [True False False False False False]
+    Output out: [True False False False False]
 
     """
     return pypto_impl.LogicalNot(input)
@@ -393,21 +393,21 @@ def logical_and(input: Tensor, other: Tensor) -> Tensor:
 
     Examples
     --------
-    x = pto.tensor([True, False], pto.DT_BOOL)
-    y = pto.tensor([True, True], pto.DT_BOOL)
-    z = pto.logical_and(x, y)
+    x = pypto.tensor([True, False], pypto.DT_BOOL)
+    y = pypto.tensor([True, True], pypto.DT_BOOL)
+    z = pypto.logical_and(x, y)
 
     Input x: [True, False]
     Input y: [True, True]
     Output z: [True, False]
 
     # 支持广播
-    x = pto.tensor([[True, False], [False, True]], pto.DT_BOOL)
-    y = pto.tensor([True, False], pto.DT_BOOL)
-    z = pto.logical_and(x, y)
+    x = pypto.tensor([[True, False], [False, True]], pypto.DT_BOOL)
+    y = pypto.tensor([True, False], pypto.DT_BOOL)
+    z = pypto.logical_and(x, y)
 
-    Input x: [[True, False], [False, True]]
-    Input y: [True, False]
+    Input x:  [[True, False], [False, True]]
+    Input y:  [True, False]
     Output z: [[True, False], [False, False]]
     """
     return pypto_impl.LogicalAnd(input, other)
@@ -439,12 +439,12 @@ def rsqrt(input: Tensor) -> Tensor:
 
     Examples
     --------
-    x = pto.tensor([2, 2], pto.DT_FP32)
-    y = pto.rsqrt(x)
+    x = pypto.tensor([2, 2], pypto.DT_FP32)
+    y = pypto.rsqrt(x)
 
-    Input x: [[1  4],
-             [16 9]]
-    Output y:[[1  0.5],
+    Input x: [[1.0  4.0],
+              [16.0 9.0]]
+    Output y:[[1.0  0.5],
               [0.25 0.33333]]
     """
     return pypto_impl.Rsqrt(input)
@@ -472,11 +472,11 @@ def sqrt(input: Tensor) -> Tensor:
 
     Examples
     --------
-    x = pto.tensor([5], pto.DT_FP32)
-    y = pto.sqrt(x)
+    x = pypto.tensor([5], pypto.DT_FP32)
+    y = pypto.sqrt(x)
 
     Input x:  [1.0 4.0 9.0 16.0 25.0]
-    Output y: [1.0 2.0 3.0 4.0 5.0]
+    Output y: [1.0 2.0 3.0 4.0  5.0]
     """
     return pypto_impl.Sqrt(input)
 
@@ -529,10 +529,10 @@ def log(input: Tensor) -> Tensor:
 
     Examples
     --------
-    x = pto.tensor([3], pto.DT_FP32)
-    y = pto.log(x)
+    x = pypto.tensor([3], pypto.DT_FP32)
+    y = pypto.log(x)
 
-    Input x:[1 2 3]
+    Input x: [1.0     2.0    3.0]
     Output y:[0.0000 0.6931 1.0986]
     """
 
@@ -564,10 +564,10 @@ def clip(
 
     Examples
     --------
-    x = pto.tensor([3, 2], pto.DT_INT32)
+    x = pypto.tensor([2, 3], pypto.DT_INT32)
     min_ = 1
     max_ = 3
-    out = pto.clip(x, min_, max_)
+    out = pypto.clip(x, min_, max_)
 
     Input x:    [[0 2 4], [3, 4, 6]]
     Output out: [[1 2 3], [3, 3, 3]]
@@ -611,10 +611,10 @@ def cumsum(
         The tensor after calculating the cumulative sum.
     Examples
     ---------
-    x = pto.tensor([2, 3], pto.data_type.DT_FP32) 
-    y = pto.tensor([2, 3], pto.data_type.DT_FP32) 
+    x = pypto.tensor([2, 3], pypto.data_type.DT_INT32) 
+    y = pypto.tensor([2, 3], pypto.data_type.DT_INT32) 
     dim = 0
-    out = pto.cumsum(x, dim)
+    out = pypto.cumsum(x, dim)
     Input  x : [[0 1 2],
                 [3 4 5]]
     Output out:[[0 1 2],

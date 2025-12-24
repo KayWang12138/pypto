@@ -33,6 +33,12 @@ class DataType(enum.Enum):
     DT_BOTTOM = ...
 
 
+class ScatterMode(enum.Enum):
+    NONE = ...      # 仅做数据搬运
+    ADD = ...       # 加法模式
+    MULTIPLY = ...  # 乘法模式
+
+
 class NodeType(enum.Enum):
     LOCAL = ...
     INCAST = ...

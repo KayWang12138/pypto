@@ -58,33 +58,33 @@ def where(
 
     Examples
     --------
-    cond = pto.tensor([4], pto.DT_BOOL)
-    x = pto.tensor([4], pto.DT_FP32)
-    y = pto.tensor([4], pto.DT_FP32)
-    out1 = pto.where(cond, x, y)
+    cond = pypto.tensor([4], pypto.DT_BOOL)
+    x = pypto.tensor([4], pypto.DT_FP32)
+    y = pypto.tensor([4], pypto.DT_FP32)
+    out1 = pypto.where(cond, x, y)
 
     Input cond:  [True False True False]
-    Input x:     [1 2 3 4]
-    Input y:     [10 20 30 40]
-    Output out1: [1 20 3 40]
+    Input x:     [1.0  2.0  3.0  4.0]
+    Input y:     [10.0 20.0 30.0 40.0]
+    Output out1: [1.0  20.0 3.0  40.0]
 
     # Using scalar inputs
-    out2 = pto.where(cond, 1, 0)
+    out2 = pypto.where(cond, 1.0, 0.0)
 
-    Output out2: [1 0 1 0]
+    Output out2: [1.0 0.0 1.0 0.0]
 
     # Broadcasting example
-    cond = pto.tensor([2, 2], pto.DT_BOOL)
-    x = pto.tensor([1, 2], pto.DT_FP32)  # Will be broadcasted
-    y = 0
-    out3 = pto.where(cond, x, y)
+    cond = pypto.tensor([2, 2], pypto.DT_BOOL)
+    x = pypto.tensor([1, 2], pypto.DT_FP32)  # Will be broadcasted
+    y = 0.0
+    out3 = pypto.where(cond, x, y)
 
     Input cond:  [[True False], [False True]]
-    Input x:     [1 2]
-    Input y:     0
+    Input x:     [1.0 2.0]
+    Input y:     0.0
 
-    Output out3: [[1 0],
-                  [0 2]])
+    Output out3: [[1.0 0.0],
+                  [0.0 2.0]])
     """
     if isinstance(input, pypto_impl.Tensor) or isinstance(input, pypto_impl.Element):
         input_base = input
@@ -119,8 +119,8 @@ def one_hot(input: Tensor, num_classes: int) -> Tensor:
 
     Examples
     --------
-    a = pto.tensor([3], pto.DT_INT32)
-    out = pto.one_hot(a, 1)
+    a = pypto.tensor([3], pypto.DT_INT32)
+    out = pypto.one_hot(a, 5)
 
     Input a:    [0 2 4]
     Input num_classes:  5

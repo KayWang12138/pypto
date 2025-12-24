@@ -42,12 +42,12 @@ def greater(input: Tensor, other: Union[Tensor, float, Element]) -> Tensor:
 
     Examples
     --------
-    a = pto.tensor([3], pto.DT_FP32)
-    b = pto.tensor([3], pto.DT_FP32)
-    out = pto.greater(a, b)
+    a = pypto.tensor([3], pypto.DT_FP32)
+    b = pypto.tensor([3], pypto.DT_FP32)
+    out = pypto.greater(a, b)
 
-    Input a:    [1 2 3]
-    Input b:    [2 2 2]
+    Input a:    [1.0 2.0 3.0]
+    Input b:    [2.0 2.0 2.0]
     Output out: [False False True]
 
     """
@@ -82,12 +82,12 @@ def gt(input: Tensor, other: Union[Tensor, float, Element]) -> Tensor:
 
     Examples
     --------
-    a = pto.tensor([3], pto.DT_FP32)
-    b = pto.tensor([3], pto.DT_FP32)
-    out = pto.gt(a, b)
+    a = pypto.tensor([3], pypto.DT_FP32)
+    b = pypto.tensor([3], pypto.DT_FP32)
+    out = pypto.gt(a, b)
 
-    Input a:    [1 2 3]
-    Input b:    [2 2 2]
+    Input a:    [1.0 2.0 3.0]
+    Input b:    [2.0 2.0 2.0]
     Output out: [False False True]
 
     """
@@ -122,12 +122,12 @@ def ge(input: Tensor, other: Union[Tensor, float, Element]) -> Tensor:
 
     Examples
     --------
-    a = pto.tensor([3], pto.DT_FP32)
-    b = pto.tensor([3], pto.DT_FP32)
-    out = pto.ge(a, b)
+    a = pypto.tensor([3], pypto.DT_FP32)
+    b = pypto.tensor([3], pypto.DT_FP32)
+    out = pypto.ge(a, b)
 
-    Input a:    [1 2 3]
-    Input b:    [2 2 2]
+    Input a:    [1.0 2.0 3.0]
+    Input b:    [2.0 2.0 2.0]
     Output out: [False True True]
 
     """
@@ -162,12 +162,12 @@ def eq(input: Tensor, other: Union[Tensor, float, Element]) -> Tensor:
 
     Examples
     --------
-    a = pto.tensor([3], pto.DT_FP32)
-    b = pto.tensor([3], pto.DT_FP32)
-    out = pto.eq(a, b)
+    a = pypto.tensor([3], pypto.DT_FP32)
+    b = pypto.tensor([3], pypto.DT_FP32)
+    out = pypto.eq(a, b)
 
-    Input a:    [1 2 3]
-    Input b:    [2 2 2]
+    Input a:    [1.0 2.0 3.0]
+    Input b:    [2.0 2.0 2.0]
     Output out: [False True False]
 
     """
@@ -202,12 +202,12 @@ def ne(input: Tensor, other: Union[Tensor, float, Element]) -> Tensor:
 
     Examples
     --------
-    a = pto.tensor([3], pto.DT_FP32)
-    b = pto.tensor([3], pto.DT_FP32)
-    out = pto.ne(a, b)
+    a = pypto.tensor([3], pypto.DT_FP32)
+    b = pypto.tensor([3], pypto.DT_FP32)
+    out = pypto.ne(a, b)
 
-    Input a:    [1 2 3]
-    Input b:    [2 2 2]
+    Input a:    [1.0 2.0 3.0]
+    Input b:    [2.0 2.0 2.0]
     Output out: [True False True]
 
     """
@@ -242,12 +242,12 @@ def lt(input: Tensor, other: Union[Tensor, float, Element]) -> Tensor:
 
     Examples
     --------
-    a = pto.tensor([3], pto.DT_FP32)
-    b = pto.tensor([3], pto.DT_FP32)
-    out = pto.lt(a, b)
+    a = pypto.tensor([3], pypto.DT_FP32)
+    b = pypto.tensor([3], pypto.DT_FP32)
+    out = pypto.lt(a, b)
 
-    Input a:    [1 2 3]
-    Input b:    [2 2 2]
+    Input a:    [1.0 2.0 3.0]
+    Input b:    [2.0 2.0 2.0]
     Output out: [True False False]
 
     """
@@ -282,12 +282,12 @@ def le(input: Tensor, other: Union[Tensor, float, Element]) -> Tensor:
 
     Examples
     --------
-    a = pto.tensor([3], pto.DT_FP32)
-    b = pto.tensor([3], pto.DT_FP32)
-    out = pto.le(a, b)
+    a = pypto.tensor([3], pypto.DT_FP32)
+    b = pypto.tensor([3], pypto.DT_FP32)
+    out = pypto.le(a, b)
 
-    Input a:    [1 2 3]
-    Input b:    [2 2 2]
+    Input a:    [1.0 2.0 3.0]
+    Input b:    [2.0 2.0 2.0]
     Output out: [True True False]
 
     """
@@ -328,13 +328,13 @@ def topk(
 
     Examples
     --------
-    x = pto.tensor([2, 3], pto.DT_FP32)
-    y = pto.topk(x, 2, -1, True)
+    x = pypto.tensor([2, 3], pypto.DT_FP32)
+    y = pypto.topk(x, 2, -1, True)
 
-    Input x:     [[1 2 3],
-                  [1 2 3]]
-    Output y[0]: [[3 2],
-                  [3 2]]
+    Input x:     [[1.0 2.0 3.0],
+                  [1.0 2.0 3.0]]
+    Output y[0]: [[3.0 2.0],
+                  [3.0 2.0]]
     Output y[1]: [[2 1],
                   [2 1]]
     """

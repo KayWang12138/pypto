@@ -43,14 +43,14 @@ def transpose(input: Tensor, dim0: int, dim1: int) -> Tensor:
 
     Examples
     --------
-    x = pto.tensor([2, 3], pto.DT_FP32)
-    out = pto.transpose(x, 0, 1)
+    x = pypto.tensor([2, 3], pypto.DT_FP32)
+    out = pypto.transpose(x, 0, 1)
 
     Input x:    [[ 1.0028 -0.9893 0.5809],
-                 [-0.1669 0.7299 0.4942]])
+                 [-0.1669 0.7299  0.4942]]
     Output out: [[ 1.0028 -0.1669],
                  [-0.9893 0.7299],
-                 [ 0.5809 0.4942]])
+                 [ 0.5809 0.4942]]
     """
     return pypto_impl.Transpose(input, [dim0, dim1])
 
@@ -79,11 +79,11 @@ def cast(input: Tensor, dtype: DataType, mode: CastMode = CastMode.CAST_NONE) ->
 
     Examples
     --------
-    x = pto.tensor([2], pto.DT_FP32)
-    y = pto.cast(x, pto.DT_FP16)
+    x = pypto.tensor([2], pypto.DT_FP32)
+    y = pypto.cast(x, pypto.DT_FP16)
 
-    Input  x: [2.0, 3.0] x.dtype: pto.DT_FP32
-    Output y: [2.0, 3.0] y.dtype: pto.DT_FP16
+    Input  x: [2.0, 3.0] x.dtype: pypto.DT_FP32
+    Output y: [2.0, 3.0] y.dtype: pypto.DT_FP16
     """
     if dtype == input.dtype and mode == CastMode.CAST_NONE:
         return input

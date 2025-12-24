@@ -39,13 +39,13 @@ def amin(input: Tensor, dim: int, keepdim: bool = False) -> Tensor:
 
     Examples
     --------
-    x = pto.tensor([2, 3], pto.DT_FP32)
-    y = pto.amin(x, -1, True)
+    x = pypto.tensor([2, 3], pypto.DT_FP32)
+    y = pypto.amin(x, -1, True)
 
-    Input x:[[1 2 3],
-             [1 2 3]]
-    Output y:[[1],
-              [1]]
+    Input x:[[1.0 2.0 3.0],
+             [1.0 2.0 3.0]]
+    Output y:[[1.0],
+              [1.0]]
 
     """
     return pypto_impl.Amin(input, dim, keepdim)
@@ -73,13 +73,13 @@ def amax(input: Tensor, dim: int, keepdim: bool = False) -> Tensor:
 
     Examples
     --------
-    x = pto.tensor([2, 3], pto.DT_FP32)
-    y = pto.amax(x, -1, True)
+    x = pypto.tensor([2, 3], pypto.DT_FP32)
+    y = pypto.amax(x, -1, True)
 
-    Input x:[[1 2 3],
-             [1 2 3]]
-    Output y:[[3],
-              [3]]
+    Input x:[[1.0 2.0 3.0],
+             [1.0 2.0 3.0]]
+    Output y:[[3.0],
+              [3.0]]
 
     """
     return pypto_impl.Amax(input, dim, keepdim)
@@ -106,9 +106,9 @@ def maximum(
 
     Examples
     --------
-    a = pto.tensor([3], pto.DT_INT32)
-    b = pto.tensor([3], pto.DT_INT32)
-    out = pto.maximum(a, b)
+    a = pypto.tensor([3], pypto.DT_INT32)
+    b = pypto.tensor([3], pypto.DT_INT32)
+    out = pypto.maximum(a, b)
 
     Input a:    [0 2 4]
     Input b:    [3 1 3]
@@ -147,9 +147,9 @@ def minimum(
 
     Examples
     --------
-    a = pto.tensor([3], pto.DT_INT32)
-    b = pto.tensor([3], pto.DT_INT32)
-    out = pto.minimum(a, b)
+    a = pypto.tensor([3], pypto.DT_INT32)
+    b = pypto.tensor([3], pypto.DT_INT32)
+    out = pypto.minimum(a, b)
 
     Input a:    [0 2 4]
     Input b:    [3 1 3]
@@ -189,13 +189,13 @@ def sum(input: Tensor, dim: int, keepdim: bool = False) -> Tensor:
 
     Examples
     --------
-    x = pto.tensor([2, 3], pto.DT_FP32)
-    y = pto.sum(x, -1, True)
+    x = pypto.tensor([2, 3], pypto.DT_FP32)
+    y = pypto.sum(x, -1, True)
 
-    Input x:[[1 2 3],
-             [1 2 3]]
-    Output y:[[6],
-              [6]]
+    Input x:[[1.0 2.0 3.0],
+             [1.0 2.0 3.0]]
+    Output y:[[6.0],
+              [6.0]]
 
     """
     return pypto_impl.Sum(input, dim, keepdim)
