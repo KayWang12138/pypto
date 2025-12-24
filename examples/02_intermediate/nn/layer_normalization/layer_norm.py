@@ -130,15 +130,7 @@ def test_layer_norm(device_id = None, run_mode: str = "npu", dynamic: bool = Fal
     print("Test: LayerNorm")
     print("=" * 60)
 
-    if not device_id:
-        device_id = torch.npu.current_device()
-    else:
-        torch.npu.set_device(device_id)
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = 'cpu'
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
 
     batch_size, hidden_size = 32, 128
     shape = (batch_size, hidden_size)
@@ -220,15 +212,8 @@ def test_rms_norm(device_id = None, run_mode: str = "npu", dynamic: bool = False
     print("Test: RMSNorm")
     print("=" * 60)
 
-    if not device_id:
-        device_id = torch.npu.current_device()
-    else:
-        torch.npu.set_device(device_id)
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = 'cpu'
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
+
     batch_size, hidden_size = 32, 128
     shape = (batch_size, hidden_size)
 
@@ -336,6 +321,7 @@ Examples:
         device_id = get_device_id()
         if device_id is None:
             return
+        import torch_npu
         torch.npu.set_device(device_id)
         print("Running examples that require NPU hardware...")
         print("Make sure CANN environment is configured and NPU is available\n")

@@ -177,15 +177,7 @@ def test_attention_dynamic(device_id = None, run_mode: str = "npu", dynamic: boo
     print("Test: Dynamic Scaled Dot-Product Attention")
     print("=" * 60)
     
-    if not device_id:
-        device_id = torch.npu.current_device()
-    else:
-        torch.npu.set_device(device_id)
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = 'cpu'
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     
     num_heads, head_dim = 8, 64
     
@@ -361,15 +353,7 @@ def test_attention_with_projection(device_id = None, run_mode: str = "npu", dyna
     print("Test: Attention with Projections")
     print("=" * 60)
 
-    if not device_id:
-        device_id = torch.npu.current_device()
-    else:
-        torch.npu.set_device(device_id)
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = 'cpu'
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
 
     batch_size, seq_len, hidden_size = 2, 32, 512
     num_heads, head_dim = 8, 64
@@ -494,6 +478,7 @@ Examples:
         device_id = get_device_id()
         if device_id is None:
             return
+        import torch_npu
         torch.npu.set_device(device_id)
         print("Running examples that require NPU hardware...")
         print("Make sure CANN environment is configured and NPU is available\n")

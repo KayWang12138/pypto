@@ -50,15 +50,6 @@ def get_device_id():
         return None
 
 
-def get_device_desc(run_mode: str = "npu"):
-    if run_mode == "npu":
-        import torch_npu
-        device_id = torch.npu.current_device()
-        return f'npu:{device_id}'
-    else:
-        return 'cpu'
-
-
 # ============================================================================
 # MATMUL Examples
 # ============================================================================
@@ -100,18 +91,18 @@ def matmul_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu", dynamic: 
     return out
 
 
-def test_matmul_basic(run_mode: str = "npu"):
+def test_matmul_basic(device_id: int = None, run_mode: str = "npu"):
     """Test basic matrix multiplication"""
     print("=" * 60)
     print("Test: Basic Matrix Multiplication")
     print("=" * 60)
     
-    device_desc = get_device_desc(run_mode)
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     
     dtype = torch.float32
-    a = torch.tensor([[1, 2], [3, 4]], dtype=dtype, device=device_desc)
-    b = torch.tensor([[5, 6], [7, 8]], dtype=dtype, device=device_desc)
-    expected = torch.tensor([[19, 22], [43, 50]], dtype=dtype, device=device_desc)
+    a = torch.tensor([[1, 2], [3, 4]], dtype=dtype, device=device)
+    b = torch.tensor([[5, 6], [7, 8]], dtype=dtype, device=device)
+    expected = torch.tensor([[19, 22], [43, 50]], dtype=dtype, device=device)
 
     out = matmul_op(a, b, run_mode)
     if run_mode == "npu":
@@ -158,18 +149,18 @@ def matmul_batch_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu", dyn
     return out
 
 
-def test_matmul_batch(run_mode: str = "npu"):
+def test_matmul_batch(device_id: int = None, run_mode: str = "npu"):
     """Test batch matrix multiplication"""
     print("=" * 60)
     print("Test: Batch Matrix Multiplication")
     print("=" * 60)
     
-    device_desc = get_device_desc(run_mode)
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     
     dtype = torch.float32
-    a = torch.tensor([[[1, 2], [3, 4]], [[5, 6], [7, 8]]], dtype=dtype, device=device_desc)
-    b = torch.tensor([[[5, 6], [7, 8]], [[1, 2], [3, 4]]], dtype=dtype, device=device_desc)
-    expected = torch.tensor([[[19, 22], [43, 50]], [[23, 34], [31, 46]]], dtype=dtype, device=device_desc)
+    a = torch.tensor([[[1, 2], [3, 4]], [[5, 6], [7, 8]]], dtype=dtype, device=device)
+    b = torch.tensor([[[5, 6], [7, 8]], [[1, 2], [3, 4]]], dtype=dtype, device=device)
+    expected = torch.tensor([[[19, 22], [43, 50]], [[23, 34], [31, 46]]], dtype=dtype, device=device)
 
     out = matmul_batch_op(a, b, run_mode)
     if run_mode == "npu":
@@ -216,18 +207,18 @@ def matmul_broadcast_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu",
     return out
 
 
-def test_matmul_broadcast(run_mode: str = "npu"):
+def test_matmul_broadcast(device_id: int = None, run_mode: str = "npu"):
     """Test batch matrix multiplication with broadcasting"""
     print("=" * 60)
     print("Test: Batch Matrix Multiplication with Broadcasting")
     print("=" * 60)
     
-    device_desc = get_device_desc(run_mode)
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     
     dtype = torch.float32
-    a = torch.tensor([[[1, 2], [3, 4]]], dtype=dtype, device=device_desc)
-    b = torch.tensor([[[5, 6], [7, 8]], [[1, 2], [3, 4]]], dtype=dtype, device=device_desc)
-    expected = torch.tensor([[[19, 22], [43, 50]], [[7, 10], [15, 22]]], dtype=dtype, device=device_desc)
+    a = torch.tensor([[[1, 2], [3, 4]]], dtype=dtype, device=device)
+    b = torch.tensor([[[5, 6], [7, 8]], [[1, 2], [3, 4]]], dtype=dtype, device=device)
+    expected = torch.tensor([[[19, 22], [43, 50]], [[7, 10], [15, 22]]], dtype=dtype, device=device)
 
     out = matmul_broadcast_op(a, b, run_mode)
     if run_mode == "npu":
@@ -311,23 +302,23 @@ def matmul_trans_left_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu"
     return out
 
 
-def test_matmul_trans(run_mode: str = "npu"):
+def test_matmul_trans(device_id: int = None, run_mode: str = "npu"):
     """Test matrix multiplication with transposition"""
     print("=" * 60)
     print("Test: Matrix Multiplication with Transposition")
     print("=" * 60)
     
-    device_desc = get_device_desc(run_mode)
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     
     # Test 1: Basic matrix multiplication
     dtype = torch.float32
     a = torch.tensor([[1, 2, 3], 
-                      [4, 5, 6]], dtype=dtype, device=device_desc)
+                      [4, 5, 6]], dtype=dtype, device=device)
     b = torch.tensor([[7, 8],
                       [9, 10],
-                      [11, 12]], dtype=dtype, device=device_desc)
+                      [11, 12]], dtype=dtype, device=device)
     expected = torch.tensor([[58, 64],
-                            [139, 154]], dtype=dtype, device=device_desc)
+                            [139, 154]], dtype=dtype, device=device)
 
     out = matmul_op(a, b, run_mode)
     if run_mode == "npu":
@@ -338,11 +329,11 @@ def test_matmul_trans(run_mode: str = "npu"):
     # Test 2: Matrix multiplication with the right matrix transposed
     dtype = torch.float32
     a = torch.tensor([[1, 2, 3], 
-                      [4, 5, 6]], dtype=dtype, device=device_desc)
+                      [4, 5, 6]], dtype=dtype, device=device)
     b = torch.tensor([[7, 9, 11], 
-                      [8, 10, 12]], dtype=dtype, device=device_desc)
+                      [8, 10, 12]], dtype=dtype, device=device)
     expected = torch.tensor([[58, 64],
-                            [139, 154]], dtype=dtype, device=device_desc)
+                            [139, 154]], dtype=dtype, device=device)
 
     out = matmul_trans_right_op(a, b, run_mode)
     if run_mode == "npu":
@@ -354,12 +345,12 @@ def test_matmul_trans(run_mode: str = "npu"):
     dtype = torch.float32
     a = torch.tensor([[1, 4],
                       [2, 5],
-                      [3, 6]], dtype=dtype, device=device_desc)
+                      [3, 6]], dtype=dtype, device=device)
     b = torch.tensor([[7, 8],
                       [9, 10],
-                      [11, 12]], dtype=dtype, device=device_desc)
+                      [11, 12]], dtype=dtype, device=device)
     expected = torch.tensor([[58, 64],
-                            [139, 154]], dtype=dtype, device=device_desc)
+                            [139, 154]], dtype=dtype, device=device)
 
     out = matmul_trans_left_op(a, b, run_mode)
     if run_mode == "npu":
@@ -411,19 +402,19 @@ def matmul_bias_op(a: torch.Tensor, b: torch.Tensor, bias: torch.Tensor, run_mod
     return out
 
 
-def test_matmul_bias(run_mode: str = "npu"):
+def test_matmul_bias(device_id: int = None, run_mode: str = "npu"):
     """Test matrix multiplication with bias"""
     print("=" * 60)
     print("Test: Matrix Multiplication with Bias")
     print("=" * 60)
-    
-    device_desc = get_device_desc(run_mode)
-    
+
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
+
     dtype = torch.float32
-    a = torch.tensor([[1, 2], [3, 4]], dtype=dtype, device=device_desc)
-    b = torch.tensor([[5, 6], [7, 8]], dtype=dtype, device=device_desc)
-    bias = torch.tensor([[1, 2]], dtype=dtype, device=device_desc)
-    expected = torch.tensor([[20, 24], [44, 52]], dtype=dtype, device=device_desc)
+    a = torch.tensor([[1, 2], [3, 4]], dtype=dtype, device=device)
+    b = torch.tensor([[5, 6], [7, 8]], dtype=dtype, device=device)
+    bias = torch.tensor([[1, 2]], dtype=dtype, device=device)
+    expected = torch.tensor([[20, 24], [44, 52]], dtype=dtype, device=device)
 
     out = matmul_bias_op(a, b, bias, run_mode)
     if run_mode == "npu":
@@ -535,6 +526,7 @@ Examples:
         device_id = get_device_id()
         if device_id is None:
             return
+        import torch_npu
         torch.npu.set_device(device_id)
     
     try:
@@ -543,7 +535,7 @@ Examples:
                 print(f"Skipping {case_key} ({ex_info['name']}): NPU device not configured")
                 continue
             
-            ex_info['function'](args.run_mode)
+            ex_info['function'](device_id, args.run_mode)
         
         if len(examples_to_run) > 1:
             print("=" * 60)

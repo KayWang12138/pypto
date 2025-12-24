@@ -91,14 +91,9 @@ def test_sum_basic(device_id = None, run_mode: str = "npu"):
     """Test basic usage of sum function"""
     print("=" * 60)
     print("Test: Basic Usage of sum Function")
-    print("=" * 60)
-    
-    device_id = torch.npu.current_device()
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = 'cpu'
+    print("=" * 60)    
+
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
 
     # Test 1: Basic reduction along the last dimension(keepdim=False)
     dtype = torch.float32
@@ -130,13 +125,8 @@ def test_sum_different_dimensions(device_id = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Reducing Along Different Dimensions")
     print("=" * 60)
-    
-    device_id = torch.npu.current_device()
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = 'cpu'
+
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     
     # Test 1: Reduction along the dim=0
     dtype = torch.float32
@@ -236,13 +226,8 @@ def test_amax_basic(device_id = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Basic Usage of amax Function")
     print("=" * 60)
-    
-    device_id = torch.npu.current_device()
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = 'cpu'
+
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     
     # Test 1: Basic reduction along the last dimension(keepdim=False)
     dtype = torch.float32
@@ -279,12 +264,7 @@ def test_amax_different_dimensions(device_id = None, run_mode: str = "npu"):
     print("Test: Reducing Along Different Dimensions")
     print("=" * 60)
     
-    device_id = torch.npu.current_device()
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = 'cpu'
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
 
     # Test 1: Reduction along the dim=0
     dtype = torch.float32
@@ -384,13 +364,8 @@ def test_amin_basic(device_id = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Basic Usage of amin Function")
     print("=" * 60)
-    
-    device_id = torch.npu.current_device()
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = 'cpu'
+
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     
     # Test 1: Basic reduction along the last dimension(keepdim=False)
     dtype = torch.float32
@@ -427,13 +402,8 @@ def test_amin_different_dimensions(device_id = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Reducing Along Different Dimensions")
     print("=" * 60)
-    
-    device_id = torch.npu.current_device()
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = 'cpu'
+
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     
     # Test 1: Reduction along the dim=0
     dtype = torch.float32
@@ -528,13 +498,8 @@ def test_maximum_basic(device_id = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Basic Usage of maximum Function")
     print("=" * 60)
-    
-    device_id = torch.npu.current_device()
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = 'cpu'
+
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     
     # Test 1: Basic Usage of maximum Function
     dtype = torch.float32
@@ -606,13 +571,8 @@ def test_minimum_basic(device_id = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Basic Usage of minimum Function")
     print("=" * 60)
-    
-    device_id = torch.npu.current_device()
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = 'cpu'
+
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     
     # Test 1: Basic Usage of minimum Function
     dtype = torch.float32
@@ -760,11 +720,12 @@ Examples:
     print("\n" + "=" * 60)
     print("PyPTO Reduce Operation Examples")
     print("=" * 60 + "\n")
-    
+
     if args.run_mode == "npu":
         device_id = get_device_id()
         if device_id is None:
             return
+        import torch_npu
         torch.npu.set_device(device_id)
         print("Running examples that require NPU hardware...")
         print("(Make sure CANN environment is configured and NPU is available)\n")

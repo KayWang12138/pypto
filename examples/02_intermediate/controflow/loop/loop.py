@@ -106,15 +106,7 @@ def test_loop_basic(device_id = None, run_mode: str = "npu", dynamic: bool = Fal
     print("Test: Basic Loop Usage")
     print("=" * 60)
     
-    if not device_id:
-        device_id = torch.npu.current_device()
-    else:
-        torch.npu.set_device(device_id)
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = 'cpu'
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     
     s, n = 64, 8
     shape = (n * s, s)
@@ -236,15 +228,7 @@ def test_loop_compile_phase_print(device_id = None, run_mode: str = "npu", dynam
     print("Test: Loop Compile Phase Print Feature")
     print("=" * 60)
     
-    if not device_id:
-        device_id = torch.npu.current_device()
-    else:
-        torch.npu.set_device(device_id)
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = 'cpu'
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     
     m, n = 6, 8
     shape = (m, n)
@@ -358,6 +342,7 @@ Examples:
         device_id = get_device_id()
         if device_id is None:
             return
+        import torch_npu
         torch.npu.set_device(device_id)
         print("Running examples that require NPU hardware...")
         print("(Make sure CANN environment is configured and NPU is available)\n")

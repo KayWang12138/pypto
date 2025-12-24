@@ -167,15 +167,7 @@ def test_dynamic_shape(device_id = None, run_mode: str = "npu", dynamic: bool = 
     print("Test: Dynamic Scaled Dot-Product Attention")
     print("=" * 60)
     
-    if not device_id:
-        device_id = torch.npu.current_device()
-    else:
-        torch.npu.set_device(device_id)
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = 'cpu'
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     
     num_heads, head_dim = 8, 64
     
@@ -198,8 +190,9 @@ def test_dynamic_shape(device_id = None, run_mode: str = "npu", dynamic: bool = 
         params = q_torch.shape
         # Execute
         out_torch = scaled_dot_product_attention(q_torch, k_torch, v_torch, params, config, run_mode, dynamic).cpu()
-        torch.npu.synchronize()
-        
+        if run_mode == "npu":
+            torch.npu.synchronize()
+
         # Verify
         scale = 1.0 / (head_dim ** 0.5)
         golden = scaled_dot_product_attention_golden(q_torch, k_torch, v_torch, scale).cpu()
@@ -303,6 +296,7 @@ Examples:
         device_id = get_device_id()
         if device_id is None:
             return
+        import torch_npu
         torch.npu.set_device(device_id)
         print("Running examples that require NPU hardware...")
         print("(Make sure CANN environment is configured and NPU is available)\n")

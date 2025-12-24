@@ -133,20 +133,15 @@ def test_arange_basic(device_id = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Basic Usage of arange Function")
     print("=" * 60)
-    
-    device_id = torch.npu.current_device()
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = 'cpu'
+
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     
     # Test 1: arange(end)
     shape = (4,)
     dtype = torch.int32
     expected_a = torch.tensor([0, 1, 2, 3], dtype=dtype, device=device)
 
-    out_torch = arange_op(shape, dtype, device_id, end=4, run_mode=run_mode)
+    out_torch = arange_op(shape, dtype, device, end=4, run_mode=run_mode)
     print(f"Output a: {out_torch}")
     print(f"Expected a: {expected_a}")
     if run_mode == "npu":
@@ -228,13 +223,7 @@ def test_full_basic(device_id = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Basic Usage of full Function")
     print("=" * 60)
-    
-    device_id = torch.npu.current_device()
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = 'cpu'
+
     
 @pypto.jit
 def full_kernel_npu(out: pypto.Tensor, fill_value: float) -> None:
@@ -284,13 +273,8 @@ def test_full_basic(device_id = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Basic Usage of full Function")
     print("=" * 60)
-    
-    device_id = torch.npu.current_device()
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = 'cpu'
+
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     
     # Test 1: Create a 2x2 tensor filled with 1.0 (float32)
     shape = [2, 2]
@@ -298,7 +282,7 @@ def test_full_basic(device_id = None, run_mode: str = "npu"):
     dtype = torch.float32
     expected_a = torch.tensor([[1.0, 1.0], [1.0, 1.0]], dtype=dtype, device=device)
 
-    out_torch = full_op(shape, dtype, f'npu:{device_id}', fill_value, run_mode)
+    out_torch = full_op(shape, dtype, device, fill_value, run_mode)
     print(f"Output a: {out_torch}")
     print(f"Expected a: {expected_a}")
     if run_mode == "npu":
@@ -308,9 +292,9 @@ def test_full_basic(device_id = None, run_mode: str = "npu"):
     shape = [2, 2]
     fill_value = pypto.symbolic_scalar(1)
     dtype = torch.int32
-    expected_b = torch.tensor([[1, 1], [1, 1]], dtype=dtype, device=device_id)
+    expected_b = torch.tensor([[1, 1], [1, 1]], dtype=dtype, device=device)
 
-    out_torch = full_op(shape, dtype, f'npu:{device_id}', fill_value, run_mode)
+    out_torch = full_op(shape, dtype, device, fill_value, run_mode)
     print(f"Output b: {out_torch}")
     print(f"Expected b: {expected_b}")
     if run_mode == "npu":
@@ -470,6 +454,7 @@ Examples:
         device_id = get_device_id()
         if device_id is None:
             return
+        import torch_npu
         torch.npu.set_device(device_id)
         print("Running examples that require NPU hardware...")
         print("(Make sure CANN environment is configured and NPU is available)\n")

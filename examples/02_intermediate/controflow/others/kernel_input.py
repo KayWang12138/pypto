@@ -113,7 +113,6 @@ def scaled_dot_product_attention_kernel_npu(q: torch.Tensor, y: torch.Tensor, k:
 
 @pypto.jit(
     host_options={"only_codegen": True},
-    codegen_options={"support_dynamic_unaligned": True},
     runtime_options={"run_mode": 1}
 )
 def scaled_dot_product_attention_kernel_sim(q: torch.Tensor, y: torch.Tensor, k: torch.Tensor, 
@@ -171,15 +170,7 @@ def test_unordered_input_attention(device_id = None, run_mode: str = "npu", dyna
     print("Test: kenel_unordered_input Scaled Dot-Product Attention")
     print("=" * 60)
     
-    if not device_id:
-        device_id = torch.npu.current_device()
-    else:
-        torch.npu.set_device(device_id)
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = 'cpu'
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     
     num_heads, head_dim = 8, 64
     
@@ -255,15 +246,7 @@ def test_unordered_input_op(device_id = None, run_mode: str = "npu", dynamic: bo
     print("Test: OP with kenel_unordered_input")
     print("=" * 60)
     
-    if not device_id:
-        device_id = torch.npu.current_device()
-    else:
-        torch.npu.set_device(device_id)
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = 'cpu'
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     
     shape = (3, 2)
     dtype = torch.float
@@ -383,6 +366,7 @@ Examples:
         device_id = get_device_id()
         if device_id is None:
             return
+        import torch_npu
         torch.npu.set_device(device_id)
         print("Running examples that require NPU hardware...")
         print("(Make sure CANN environment is configured and NPU is available)\n")

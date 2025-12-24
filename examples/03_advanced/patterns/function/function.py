@@ -27,7 +27,6 @@ import sys
 import argparse
 import pypto
 import torch
-import torch_npu
 import numpy as np
 from numpy.testing import assert_allclose
 from dataclasses import dataclass
@@ -381,15 +380,8 @@ def test_sequential_functions(device_id = None, run_mode: str = "npu", dynamic: 
     print("=" * 60)
 
     # Get current device ID (set in main)
-    if not device_id:
-        device_id = torch.npu.current_device()
-    else:
-        torch.npu.set_device(device_id)
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = 'cpu'
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
+
     atol_val = 1e-1
 
     batch_size, hidden_size = 32, 128
@@ -429,15 +421,7 @@ def test_residual_connection(device_id = None, run_mode: str = "npu", dynamic: b
     print("=" * 60)
 
     # Get current device ID (set in main)
-    if not device_id:
-        device_id = torch.npu.current_device()
-    else:
-        torch.npu.set_device(device_id)
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = 'cpu'
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
 
     batch_size, hidden_size = 32, 128
 
@@ -469,15 +453,7 @@ def test_transformer_block(device_id = None, run_mode: str = "npu", dynamic: boo
     print("=" * 60)
 
     # Get current device ID (set in main)
-    if not device_id:
-        device_id = torch.npu.current_device()
-    else:
-        torch.npu.set_device(device_id)
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = 'cpu'
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
 
     batch_size, hidden_size, intermediate_size = 32, 128, 256
 
@@ -503,17 +479,21 @@ def test_transformer_block(device_id = None, run_mode: str = "npu", dynamic: boo
     # Transformer block computation:
     # 1. Layer normalization
     normed = layer_norm(x, gamma, beta, run_mode, dynamic)
-    torch.npu.synchronize()
+    if run_mode == "npu":
+        torch.npu.synchronize()
 
     # 2. FFN: Gate and Up projections
     gate = linear_projection(normed, gate_weight, run_mode, dynamic)
-    torch.npu.synchronize()
+    if run_mode == "npu":
+        torch.npu.synchronize()
     up = linear_projection(normed, up_weight, run_mode, dynamic)
-    torch.npu.synchronize()
+    if run_mode == "npu":
+        torch.npu.synchronize()
 
     # 3. GELU activation on gate
     activated = gelu_activation(gate, run_mode, dynamic)
-    torch.npu.synchronize()
+    if run_mode == "npu":
+        torch.npu.synchronize()
 
     # 4. Multiply with up (SwiGLU-like)
     activated = activated * up  # PyTorch operation for simplicity
@@ -538,15 +518,7 @@ def test_function_reuse(device_id = None, run_mode: str = "npu", dynamic: bool =
     print("=" * 60)
 
     # Get current device ID (set in main)
-    if not device_id:
-        device_id = torch.npu.current_device()
-    else:
-        torch.npu.set_device(device_id)
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = 'cpu'
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
 
     batch_size, hidden_size = 32, 128
 
@@ -565,11 +537,14 @@ def test_function_reuse(device_id = None, run_mode: str = "npu", dynamic: bool =
 
     # Reuse the same function with different inputs
     out1 = layer_norm(x1, gamma, beta, run_mode, dynamic)
-    torch.npu.synchronize()
+    if run_mode == "npu":
+        torch.npu.synchronize()
     out2 = layer_norm(x2, gamma, beta, run_mode, dynamic)
-    torch.npu.synchronize()
+    if run_mode == "npu":
+        torch.npu.synchronize()
     out3 = layer_norm(x3, gamma, beta, run_mode, dynamic)
-    torch.npu.synchronize()
+    if run_mode == "npu":
+        torch.npu.synchronize()
     
 
     # Verify
@@ -698,6 +673,7 @@ Examples:
         device_id = get_device_id()
         if device_id is None:
             return
+        import torch_npu
         torch.npu.set_device(device_id)
         print("Running examples that require NPU hardware...")
         print("(Make sure CANN environment is configured and NPU is available)\n")

@@ -54,21 +54,6 @@ def get_device_id():
         return None
 
 
-def get_device_desc(run_mode: str = "npu"):
-    """
-    Get device desc by run mode.
-    
-    Returns:
-        str: if run mode is npu, return npu else return cpu
-    """
-    if run_mode == "npu":
-        import torch_npu
-        device_id = torch.npu.current_device()
-        return f'npu:{device_id}'
-    else:
-        return 'cpu'
-
-
 # ----------------------------------------------------------------------------
 # Kernel Definitions
 # ----------------------------------------------------------------------------
@@ -170,18 +155,13 @@ def symbolicscalar_in_loop(x: torch.Tensor, run_mode: str = "npu")->torch.Tensor
     return y
 
 
-def test_symbolicscalar_immediate(run_mode: str = "npu", device_id=None) -> None:
+def test_symbolicscalar_immediate(device_id: int = None, run_mode: str = "npu") -> None:
     """Immediate (concrete) SymbolicScalar usage"""
-    if run_mode == "npu":
-        if device_id is None:
-            device_id = torch.npu.current_device()
-        else:
-            torch.npu.set_device(device_id)
-
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     x = torch.tensor(
         [1, 2, 3],
         dtype=torch.float32,
-        device=get_device_desc(run_mode)
+        device=device
     )
 
     y = symbolicscalar_immediate(x, run_mode).cpu()
@@ -195,18 +175,13 @@ def test_symbolicscalar_immediate(run_mode: str = "npu", device_id=None) -> None
     print()
 
 
-def test_symbolicscalar_in_loop(run_mode: str = "npu", device_id=None)->None:
+def test_symbolicscalar_in_loop(device_id: int = None, run_mode: str = "npu")->None:
     """SymbolicScalar as loop index inside kernel"""
-    if run_mode == "npu":
-        if device_id is None:
-            device_id = torch.npu.current_device()
-        else:
-            torch.npu.set_device(device_id)
-
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     x = torch.tensor(
         [1, 2, 3],
         dtype=torch.float32,
-        device=get_device_desc(run_mode)
+        device=device
     )
 
     y = symbolicscalar_in_loop(x, run_mode).cpu()
@@ -220,13 +195,8 @@ def test_symbolicscalar_in_loop(run_mode: str = "npu", device_id=None)->None:
     print()
 
 
-def test_init_symbolic_scalar_value_arg(run_mode: str = "npu", device_id=None)->None:
+def test_init_symbolic_scalar_value_arg(device_id: int = None, run_mode: str = "npu")->None:
     """SymbolicScalar Initialization"""
-    if device_id is None:
-        device_id = torch.npu.current_device()
-    else:
-        torch.npu.set_device(device_id)
-        
     expected_value = 123
 
     # Initialize from a concrete value
@@ -248,13 +218,8 @@ def test_init_symbolic_scalar_value_arg(run_mode: str = "npu", device_id=None)->
     print()
 
 
-def test_symbolic_scalar_prop(run_mode: str = "npu", device_id=None)->None:
+def test_symbolic_scalar_prop(device_id: int = None, run_mode: str = "npu")->None:
     """Inspect core SymbolicScalar properties"""
-    if device_id is None:
-        device_id = torch.npu.current_device()
-    else:
-        torch.npu.set_device(device_id)
-        
     scalar = pypto.symbolic_scalar(10)
     assert scalar.is_symbol() == False
     assert scalar.is_expression() == False
@@ -287,13 +252,8 @@ def test_symbolic_scalar_prop(run_mode: str = "npu", device_id=None)->None:
     print()
 
 
-def test_simplify(run_mode: str = "npu", device_id=None)->None:
+def test_simplify(device_id: int = None, run_mode: str = "npu")->None:
     """Demonstrate symbolic expression simplification"""
-    if device_id is None:
-        device_id = torch.npu.current_device()
-    else:
-        torch.npu.set_device(device_id)
-        
     t = pypto.Tensor([-1, 10], pypto.DT_BF16, "t")
     y = t.shape[0] + 10 - t.shape[0]
     assert isinstance(y, pypto.symbolic_scalar)
@@ -309,13 +269,8 @@ def test_simplify(run_mode: str = "npu", device_id=None)->None:
     print()
 
 
-def test_symbolic_scalar_complex_expr(run_mode: str = "npu", device_id=None)->None:
+def test_symbolic_scalar_complex_expr(device_id: int = None, run_mode: str = "npu")->None:
     """SymbolicScalar expression involving multiple comparison operators"""
-    if device_id is None:
-        device_id = torch.npu.current_device()
-    else:
-        torch.npu.set_device(device_id)
-        
     b = pypto.symbolic_scalar('b')
     a = (b >= 2) * (b < 8)
     assert str(a) == '((b>=2)*(b<8))'
@@ -438,6 +393,7 @@ Examples:
         if device_id is None:
             return
         # Set the device once for all examples
+        import torch_npu
         torch.npu.set_device(device_id)
     
     try:
@@ -447,7 +403,7 @@ Examples:
                 continue
             
             print(f"Running Example {ex_id}: {ex_info['name']}")
-            ex_info['function'](args.run_mode)
+            ex_info['function'](device_id, args.run_mode)
         
         if len(examples_to_run) > 1:
             print("=" * 60)

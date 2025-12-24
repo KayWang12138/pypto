@@ -128,16 +128,8 @@ def softmax(x: torch.Tensor, run_mode: str = "npu", dynamic: bool = True) -> tor
     return y
 
 
-def test_softmax(device_id = None, run_mode: str = "npu", dynamic: bool = True) -> None:
-    if not device_id:
-        device_id = torch.npu.current_device()
-    else:
-        torch.npu.set_device(device_id)
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = 'cpu'
+def test_softmax(device_id: int = None, run_mode: str = "npu", dynamic: bool = True) -> None:
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
 
     shape = (32, 32, 1, 256)
     x = torch.rand(shape, dtype=torch.float, device=device)
@@ -242,6 +234,7 @@ Examples:
         device_id = get_device_id()
         if device_id is None:
             return
+        import torch_npu
         torch.npu.set_device(device_id)
         print("Running examples that require NPU hardware...")
         print("(Make sure CANN environment is configured and NPU is available)\n")

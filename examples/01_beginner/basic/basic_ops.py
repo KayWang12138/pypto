@@ -49,7 +49,7 @@ def get_device_id():
         return None
 
 
-def test_tensor_creation(run_mode="npu", dynamic: bool = False) -> None:
+def test_tensor_creation(device_id: int = None, run_mode: str = "npu", dynamic: bool = False) -> None:
     """Example 1: Creating tensors with different properties."""
     print("=" * 60)
     print("Example 1: Tensor Creation")
@@ -101,18 +101,13 @@ def element_wise_ops(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu", dy
     return result
 
 
-def test_element_wise_operations(run_mode="npu", dynamic: bool = False) -> None:
+def test_element_wise_operations(device_id: int = None, run_mode: str = "npu", dynamic: bool = False) -> None:
     """Example 2: Element-wise arithmetic operations."""
     print("=" * 60)
     print("Example 2: Element-wise Operations")
     print("=" * 60)
 
-    device_id = torch.npu.current_device()
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = 'cpu'
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     shape = (8, 8)
     a_torch = torch.randn(shape, dtype=torch.float16, device=device)
     b_torch = torch.randn(shape, dtype=torch.float16, device=device)
@@ -164,18 +159,13 @@ def matrix_multiply(A: torch.Tensor, B: torch.Tensor, run_mode: str = "npu", dyn
     return C
 
 
-def test_matrix_multiplication(run_mode="npu", dynamic: bool = False) -> None:
+def test_matrix_multiplication(device_id: int = None, run_mode: str = "npu", dynamic: bool = False) -> None:
     """Example 3: Matrix multiplication."""
     print("=" * 60)
     print("Example 3: Matrix Multiplication")
     print("=" * 60)
 
-    device_id = torch.npu.current_device()
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = 'cpu'
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     M, K, N = 64, 128, 64
     A_torch = torch.randn(M, K, dtype=torch.bfloat16, device=device)
     B_torch = torch.randn(K, N, dtype=torch.bfloat16, device=device)
@@ -222,18 +212,13 @@ def apply_activations(x: torch.Tensor, run_mode: str = "npu", dynamic: bool = Fa
     return result
 
 
-def test_activation_functions(run_mode="npu", dynamic: bool = False) -> None:
+def test_activation_functions(device_id: int = None, run_mode: str = "npu", dynamic: bool = False) -> None:
     """Example 4: Activation functions."""
     print("=" * 60)
     print("Example 4: Activation Functions")
     print("=" * 60)
 
-    device_id = torch.npu.current_device()
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = 'cpu'
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     shape = (32, 64)
     input_torch = torch.randn(shape, dtype=torch.float16, device=device)
 
@@ -336,18 +321,13 @@ def tiled_operation(input_tensor: torch.Tensor, run_mode: str = "npu", dynamic: 
     return output_tensor
 
 
-def test_view_operations(run_mode="npu", dynamic: bool = False) -> None:
+def test_view_operations(device_id: int = None, run_mode: str = "npu", dynamic: bool = False) -> None:
     """Example 5: View operations for tiling."""
     print("=" * 60)
     print("Example 5: View Operations")
     print("=" * 60)
 
-    device_id = torch.npu.current_device()
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = 'cpu'
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     shape = (256, 512)
     input_torch = torch.randn(shape, dtype=torch.float16, device=device)
 
@@ -406,19 +386,14 @@ def linear_layer_with_activation(x: torch.Tensor, W: torch.Tensor, b: torch.Tens
     return y
 
 
-def test_combined_operations(run_mode="npu", dynamic: bool = False) -> None:
+def test_combined_operations(device_id: int = None, run_mode: str = "npu", dynamic: bool = False) -> None:
     """Example 6: Combining multiple operations."""
     print("=" * 60)
     print("Example 6: Combined Operations")
     print("=" * 60)
 
     # Get current device ID (set in main)
-    device_id = torch.npu.current_device()
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = 'cpu'
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
 
     # Simple neural network layer: y = sigmoid(x @ W + b)
     batch, in_features, out_features = 32, 64, 32
@@ -552,6 +527,7 @@ Examples:
         device_id = get_device_id()
         if device_id is None:
             return
+        import torch_npu
         torch.npu.set_device(device_id)
         print("Running examples that require NPU hardware...")
         print("(Make sure CANN environment is configured and NPU is available)\n")
@@ -559,7 +535,7 @@ Examples:
     try:
         for ex_id, ex_info in examples_to_run:
             print(f"Running Example {ex_id}: {ex_info['name']}")
-            ex_info['function'](args.run_mode)
+            ex_info['function'](device_id, args.run_mode)
 
         if len(examples_to_run) > 1:
             print("=" * 60)

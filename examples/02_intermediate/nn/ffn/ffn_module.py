@@ -106,12 +106,7 @@ def test_ffn_static_gelu(device_id = None, run_mode: str = "npu", dynamic: bool 
     hidden_size = 128
     intermediate_size = 1024
     dtype = torch.bfloat16
-    device_id = torch.npu.current_device()
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = f'cpu'
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
 
     config = FFNConfig(
         hidden_size=hidden_size,
@@ -154,12 +149,7 @@ def test_ffn_static_swiglu(device_id = None, run_mode: str = "npu", dynamic: boo
     hidden_size = 128
     intermediate_size = 1024
     dtype = torch.bfloat16
-    device_id = torch.npu.current_device()
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = f'cpu'
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     config = FFNConfig(
         hidden_size=hidden_size,
         intermediate_size=intermediate_size,
@@ -205,12 +195,7 @@ def test_ffn_dynamic_gelu(device_id = None, run_mode: str = "npu", dynamic: bool
     intermediate_size = 1024
     basic_batch = 16
     dtype = torch.bfloat16
-    device_id = torch.npu.current_device()
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = f'cpu'
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
 
     config = FFNConfig(
         hidden_size=hidden_size,
@@ -257,12 +242,7 @@ def test_ffn_static_relu(device_id = None, run_mode: str = "npu", dynamic: bool 
     hidden_size = 128
     intermediate_size = 1024
     dtype = torch.float16
-    device_id = torch.npu.current_device()
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = f'cpu'
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
 
     config = FFNConfig(
         hidden_size=hidden_size,
@@ -397,6 +377,7 @@ Examples:
         device_id = get_device_id()
         if device_id is None:
             return
+        import torch_npu
         torch.npu.set_device(device_id)
         print("Running examples that require NPU hardware...")
         print("Make sure CANN environment is configured and NPU is available\n")

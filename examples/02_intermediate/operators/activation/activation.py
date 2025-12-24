@@ -27,7 +27,6 @@ import sys
 import argparse
 import pypto
 import torch
-import torch_npu
 import numpy as np
 from numpy.testing import assert_allclose
 from dataclasses import dataclass
@@ -171,15 +170,7 @@ def test_silu(device_id = None, run_mode: str = "npu", dynamic: bool = False) ->
     print("Test: SiLU Activation")
     print("=" * 60)
 
-    if not device_id:
-        device_id = torch.npu.current_device()
-    else:
-        torch.npu.set_device(device_id)
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = 'cpu'
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
 
     shape = (32, 128)
     x_torch = torch.randn(shape, dtype=torch.bfloat16, device=device)
@@ -292,15 +283,7 @@ def test_gelu(device_id = None, run_mode: str = "npu", dynamic: bool = False) ->
     print("Test: GELU Activation")
     print("=" * 60)
 
-    if not device_id:
-        device_id = torch.npu.current_device()
-    else:
-        torch.npu.set_device(device_id)
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = 'cpu'
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
 
     shape = (32, 128)
     x_torch = torch.randn(shape, dtype=torch.bfloat16, device=device)
@@ -424,15 +407,7 @@ def test_swiglu(device_id = None, run_mode: str = "npu", dynamic: bool = False) 
     print("Test: SwiGLU Activation")
     print("=" * 60)
 
-    if not device_id:
-        device_id = torch.npu.current_device()
-    else:
-        torch.npu.set_device(device_id)
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = 'cpu'
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
 
     shape = (32, 128)
     gate_torch = torch.randn(shape, dtype=torch.bfloat16, device=device)
@@ -563,15 +538,7 @@ def test_geglu(device_id = None, run_mode: str = "npu", dynamic: bool = False) -
     print("Test: GeGLU Activation")
     print("=" * 60)
 
-    if not device_id:
-        device_id = torch.npu.current_device()
-    else:
-        torch.npu.set_device(device_id)
-    if run_mode == "npu":
-        import torch_npu
-        device = f'npu:{device_id}'
-    else:
-        device = 'cpu'
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
 
     shape = (32, 128)
     gate_torch = torch.randn(shape, dtype=torch.bfloat16, device=device)
@@ -697,6 +664,7 @@ Examples:
         device_id = get_device_id()
         if device_id is None:
             return
+        import torch_npu
         torch.npu.set_device(device_id)
         print("Running examples that require NPU hardware...")
         print("(Make sure CANN environment is configured and NPU is available)\n")
