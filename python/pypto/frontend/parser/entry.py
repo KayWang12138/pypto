@@ -160,6 +160,7 @@ class JitCallableWrapper:
         runtime_options: Optional[dict[str, Any]] = None,
         verify_options: Optional[dict[str, Any]] = None,
         debug_options: Optional[dict[str, Any]] = None,
+        captured_locals: Optional[dict[str, Any]] = None,
     ):
         """Initialize the JIT callable wrapper.
 
@@ -189,6 +190,9 @@ class JitCallableWrapper:
         self._handler = handler
         self._is_compiled = pto_function is not None
         self._parser = None  # Store parser for lazy parsing
+        self._captured_locals = (
+            None if captured_locals is None else dict(captured_locals)
+        )
 
         # Handling options
         self._codegen_options = (
@@ -298,10 +302,15 @@ class JitCallableWrapper:
             A configured parser instance with source code and captured variables.
         """
         source = Source(self._original_func)
-        captured_vars = {
-            **self._original_func.__globals__,
-            **self._get_func_nonlocals(self._original_func),
-        }
+        closure_vars = inspect.getclosurevars(self._original_func)
+        captured_vars = {}
+        captured_vars.update(closure_vars.builtins)
+        captured_vars.update(self._original_func.__globals__)
+        captured_vars.update(closure_vars.globals)
+        captured_vars.update(closure_vars.nonlocals)
+        captured_vars.update(self._get_func_nonlocals(self._original_func))
+        if self._captured_locals:
+            captured_vars.update(self._captured_locals)
         parser = Parser(source, captured_vars)
         return parser
 
@@ -804,6 +813,13 @@ def jit(
         # Create wrapper without compiling - defer to first call
         # This matches the behavior of @pypto.jit and avoids backend initialization
         # during module load time
+        captured_locals = None
+        frame = inspect.currentframe()
+        if frame and frame.f_back:
+            captured_locals = dict(frame.f_back.f_locals)
+        # Break reference cycle as soon as possible
+        del frame
+
         wrapper = JitCallableWrapper(
             None,
             f,
@@ -814,6 +830,7 @@ def jit(
             runtime_options=runtime_options,
             verify_options=verify_options,
             debug_options=debug_options,
+            captured_locals=captured_locals,
         )
         return wrapper
 
