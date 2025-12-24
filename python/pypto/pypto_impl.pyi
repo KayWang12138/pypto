@@ -51,7 +51,6 @@ class TileOpFormat(enum.Enum):
 
 
 class CachePolicy(enum.Enum):
-    PREFETCH = ...
     NONE_CACHEABLE = ...
 
 

@@ -241,11 +241,14 @@ public:
      */
     template<typename DeviceMemoryTy>
     static void DeviceInitKernelInOuts(DeviceMemoryTy devMem, AstKernelArgs &kArgs,
-            const std::vector<DeviceTensorData> &inputList, const std::vector<DeviceTensorData> &outputList, bool isGETensorList) {
+            const std::vector<DeviceTensorData> &inputList, const std::vector<DeviceTensorData> &outputList,
+            const std::vector<uint8_t>& disableL2List, bool isGETensorList) {
         if (isGETensorList) {
             return DeviceInitTensorLists(devMem, kArgs, inputList, outputList);
         }
-        auto buildInouts = [&](const std::vector<DeviceTensorData> &tensorDataList, uint8_t* data, size_t size) {
+        size_t l2InfoSize = disableL2List.size();
+        auto buildInouts = [&](const std::vector<DeviceTensorData> &tensorDataList, uint8_t* data, size_t size,
+            size_t &tensorIdx) {
             std::vector<DevTensorData> tensors;
             for (size_t k = 0; k < tensorDataList.size(); k++) {
                 auto &tensorData = tensorDataList[k];
@@ -253,7 +256,12 @@ public:
                 if (tensorData.GetAddr() != 0) {
                     addr = (uint64_t)tensorData.GetAddr();
                 }
+                if (addr != 0 && tensorIdx < l2InfoSize && disableL2List[tensorIdx] == 1) {
+                    ALOG_INFO_F("Tneosr[%zu] ori:%lx, l2offset[%lu].", tensorIdx, addr, devMem.GetL2Offset());
+                    addr += devMem.GetL2Offset();
+                }
                 tensors.emplace_back(DevAscendTensorDataCreator::Create(addr, tensorData.GetShape()));
+                tensorIdx++;
             }
             (void)memcpy_s(data, size, tensors.data(), size);
             return;
@@ -268,9 +276,10 @@ public:
         *data = outputList.size();
         data++;
         uint8_t* dataPtr = reinterpret_cast<uint8_t*>(data);
-        buildInouts(inputList, dataPtr, inputSize);
+        size_t tensorIdx = 0;
+        buildInouts(inputList, dataPtr, inputSize, tensorIdx);
         dataPtr += inputSize;
-        buildInouts(outputList, dataPtr, outputSize);
+        buildInouts(outputList, dataPtr, outputSize, tensorIdx);
         dataPtr += outputSize;
         kArgs.inputs = devMem.CopyToDev(tensorInfo, nullptr);
         kArgs.outputs = kArgs.inputs + 1;
@@ -292,7 +301,8 @@ public:
             if (inputData) {
                 inputData->SetDevPtr(nullptr);
                 shape.insert(shape.end(), inputData->GetShape().begin(), inputData->GetShape().end());
-                inputDeviceDataList.emplace_back(inputData->GetDataType(), devMem.CopyToDev(*inputData), shape);
+                auto inAddr = devMem.CopyToDev(*inputData);
+                inputDeviceDataList.emplace_back(inputData->GetDataType(), inAddr, shape);
             } else {
                 inputDeviceDataList.emplace_back(DT_UINT8, nullptr, shape);
             }
@@ -303,7 +313,8 @@ public:
             if (outputData) {
                 outputData->SetDevPtr(nullptr);
                 shape.insert(shape.end(), outputData->GetShape().begin(), outputData->GetShape().end());
-                outputDeviceDataList.emplace_back(outputData->GetDataType(), devMem.CopyToDev(*outputData), shape);
+                auto outAddr = devMem.CopyToDev(*outputData);
+                outputDeviceDataList.emplace_back(outputData->GetDataType(), outAddr, shape);
             } else {
                 outputDeviceDataList.emplace_back(DT_UINT8, nullptr, shape);
             }

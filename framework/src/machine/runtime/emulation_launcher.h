@@ -90,7 +90,7 @@ public:
     static int EmulationRunOnce(Function *function, const DeviceLauncherConfig &config = DeviceLauncherConfig());
 
     static int BuildControlFlowCacheWithEmulationTensorData(
-            std::vector<uint8_t> &devProgData, const std::vector<DeviceTensorData> &inputList,
+            Function *function, const std::vector<DeviceTensorData> &inputList,
             const std::vector<DeviceTensorData> &outputList,
             CachedOperator *cachedOperator,
             const DeviceLauncherConfig &config = DeviceLauncherConfig());
@@ -102,7 +102,7 @@ public:
             const std::vector<DeviceTensorData> &inputList = {},
             const std::vector<DeviceTensorData> &outputList = {},
             const DeviceLauncherConfig &config = DeviceLauncherConfig());
-    static int BuildControlFlowCache(std::vector<uint8_t> &devProgData,
+    static int BuildControlFlowCache(Function *function,
                                      const DeviceLauncherConfig &config = DeviceLauncherConfig());
 };
 

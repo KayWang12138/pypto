@@ -70,7 +70,8 @@ int EmulationLauncher::EmulationLaunchOnceWithHostTensorData(
     AstKernelArgs kArgs;
     DeviceLauncher::DeviceInitTilingData(EmulationMemoryUtils(), kArgs, function->GetDyndevAttribute()->devProgBinary,
                                          config, nullptr);
-    DeviceLauncher::DeviceInitKernelInOuts(EmulationMemoryUtils(), kArgs, inputList, outputList, config.isGETensorList);
+    DeviceLauncher::DeviceInitKernelInOuts(EmulationMemoryUtils(), kArgs, inputList, outputList,
+        function->GetDyndevAttribute()->disableL2List, config.isGETensorList);
     int rc = EmulationLaunchOnce(kArgs);
     return rc;
 }
@@ -86,20 +87,20 @@ int EmulationLauncher::EmulationRunOnce(Function *function, const DeviceLauncher
 }
 
 int EmulationLauncher::BuildControlFlowCacheWithEmulationTensorData(
-        std::vector<uint8_t> &devProgData, const std::vector<DeviceTensorData> &inputList, const std::vector<DeviceTensorData> &outputList,
+        Function *function, const std::vector<DeviceTensorData> &inputList, const std::vector<DeviceTensorData> &outputList,
         CachedOperator *cachedOperator,
         const DeviceLauncherConfig &config) {
     (void)cachedOperator;
     std::cout << "!!! Emulation ControlFlowCache\n";
-
+    std::vector<uint8_t> &devProgData = DeviceLauncher::GetDevProg(function);
     DevAscendProgram *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
     devProg->controlFlowCache.isRecording = true;
     devProg->controlFlowCache.deviceTaskCount = 0;
     devProg->controlFlowCache.cacheDataOffset = 0;
-
     AstKernelArgs kArgs;
     DeviceLauncher::DeviceInitTilingData(EmulationMemoryUtils(), kArgs, devProgData, config, nullptr);
-    DeviceLauncher::DeviceInitKernelInOuts(EmulationMemoryUtils(), kArgs, inputList, outputList, config.isGETensorList);
+    DeviceLauncher::DeviceInitKernelInOuts(EmulationMemoryUtils(), kArgs, inputList, outputList,
+        function->GetDyndevAttribute()->disableL2List, config.isGETensorList);
     int rc = EmulationLaunchOnce(kArgs);
 
     devProg->controlFlowCache.isRecording = false;
@@ -114,14 +115,14 @@ int EmulationLauncher::BuildControlFlowCacheWithEmulationTensorData(
     return rc;
 }
 
-int EmulationLauncher::BuildControlFlowCache(std::vector<uint8_t> &devProgData,
+int EmulationLauncher::BuildControlFlowCache(Function *function,
                                              const DeviceLauncherConfig &config) {
     auto &inputDataList = ProgramData::GetInstance().GetInputDataList();
     auto &outputDataList = ProgramData::GetInstance().GetOutputDataList();
     std::vector<DeviceTensorData> inputDeviceDataList;
     std::vector<DeviceTensorData> outputDeviceDataList;
     std::tie(inputDeviceDataList, outputDeviceDataList) = DeviceLauncher::BuildInputOutputFromHost(EmulationMemoryUtils(), inputDataList, outputDataList);
-    return BuildControlFlowCacheWithEmulationTensorData(devProgData, inputDeviceDataList, outputDeviceDataList, nullptr, config);
+    return BuildControlFlowCacheWithEmulationTensorData(function, inputDeviceDataList, outputDeviceDataList, nullptr, config);
 }
 
 int EmulationLauncher::BuildControlFlowCache(
@@ -129,10 +130,9 @@ int EmulationLauncher::BuildControlFlowCache(
         const std::vector<DeviceTensorData> &inputList,
         const std::vector<DeviceTensorData> &outputList,
         const DeviceLauncherConfig &config) {
-    std::vector<uint8_t> &devProgData = DeviceLauncher::GetDevProg(function);
     /* python front end use inputs/output as unified tensors, outputList is always null */
     if (inputList.size() == 0 && outputList.size() == 0) {
-        return BuildControlFlowCache(devProgData, config);
+        return BuildControlFlowCache(function, config);
     } else {
         std::vector<DeviceTensorData> inputDeviceDataList;
         std::vector<DeviceTensorData> outputDeviceDataList;
@@ -145,7 +145,7 @@ int EmulationLauncher::BuildControlFlowCache(
             outputDeviceDataList.emplace_back(output.GetDataType(), CONTROL_FLOW_CACHE_BASE_ADDR + index * CONTROL_FLOW_CACHE_TENSOR_SIZE, output.GetShape());
             index++;
         }
-        return BuildControlFlowCacheWithEmulationTensorData(devProgData, inputDeviceDataList, outputDeviceDataList, nullptr, config);
+        return BuildControlFlowCacheWithEmulationTensorData(function, inputDeviceDataList, outputDeviceDataList, nullptr, config);
     }
 }
 

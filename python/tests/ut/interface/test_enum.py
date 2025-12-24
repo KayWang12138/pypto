@@ -42,7 +42,6 @@ def test_tile_op_format():
 
 
 def test_cache_policy():
-    assert str(pypto.CachePolicy.PREFETCH) == "CachePolicy.PREFETCH"
     assert str(pypto.CachePolicy.NONE_CACHEABLE) == "CachePolicy.NONE_CACHEABLE"
 
 

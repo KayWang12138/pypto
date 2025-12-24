@@ -53,7 +53,6 @@ void bind_enum(py::module &m){
         .export_values();
 
     py::enum_<CachePolicy>(m, "CachePolicy")
-        .value("PREFETCH", CachePolicy::PREFETCH)
         .value("NONE_CACHEABLE", CachePolicy::NONE_CACHEABLE)
         .value("MAX_NUM", CachePolicy::MAX_NUM)
         .export_values();
