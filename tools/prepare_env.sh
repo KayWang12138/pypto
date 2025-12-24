@@ -187,7 +187,7 @@ show_usage() {
 cat << EOF
 Usage: $0 [REQUIRED_OPTIONS] [OPTIONAL_OPTIONS]
 Required Options:
-    --type=<type>                   Installation mode (cann, deps, third-pall)
+    --type=<type>                   Installation mode (cann, deps, third_party, all)
     --device-type=<type>            Device type (910b or 910c)
 
 Optional Options:

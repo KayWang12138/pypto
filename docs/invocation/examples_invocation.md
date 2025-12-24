@@ -4,22 +4,22 @@
 
 ```bash
 cd examples/hello_world
-python3 hello_world.py --run_mode=sim --tensor_type=cpu
+python3 hello_world.py --run_mode=sim
 ```
 
 ## 真实可运行环境（有 NPU 真实硬件）
 
 ```bash
 cd examples/hello_world
-python3 hello_world.py --run_mode=npu --tensor_type=npu
+python3 hello_world.py --run_mode=npu
 ```
 更多示例请参考 `examples/` 目录下的示例代码。
 ## 结果查看
 
-该基础样例运行成功后, 在`${work_path}/out/`目录下生成编译和运行产物，相关产物包括[计算图](../docs/key-concepts/compute_graph.md)和[泳道图](../docs/key-concepts/swim_graph.md), 计算图和泳道图可通过PyPTO配套的[ToolKit插件](xxx), 在VS-CODE中查看并与代码关联, 相关ToolKit使用应参考[ToolKit-QuickStart](xxxxxxx)
+该基础样例运行成功后, 在`${work_path}/out/`目录下生成编译和运行产物，相关产物包括[计算图](../tutorials/术语表.md)和[泳道图](../tutorials/术语表.md), 计算图和泳道图可通过PyPTO配套的[ToolKit插件](xxx), 在VS-CODE中查看并与代码关联, 相关ToolKit使用应参考[ToolKit-QuickStart](xxxxxxx)
 
 ## 快速开始
-以下是一个简单的 PyPTO 使用示例, 可以通过 `npu` 和 `sim` 参数指定运行仿真示例或者真实环境示例:
+以下是一个简单的 PyPTO 使用示例, 可以通过 `sim` 和 `npu` 参数指定运行仿真示例或者真实环境示例:
 
 ```python
 import pypto

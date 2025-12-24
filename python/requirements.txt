@@ -11,3 +11,12 @@ packaging
 pytest
 pytest-forked
 pytest-xdist
+
+# pypto 依赖
+sympy
+PyYAML
+
+# 绘制泳道图
+matplotlib
+pandas
+plotly
