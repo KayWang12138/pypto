@@ -22,7 +22,7 @@ import numpy as np
 from numpy.testing import assert_allclose
 from pypto import pypto_impl
 from pypto.operation import op_wrapper
-from sparse_flash_attention_quant \
+from sparse_flash_attention_quant_impl \
     import sparse_flash_attention_quant_d, sparse_flash_attention_quant_p, SaTileShapeConfig
 from utils.compare import compare
 

@@ -108,7 +108,7 @@ def mla_prolog_quant_compute(token_x, w_dq, w_uq_qr, dequant_scale, w_uk, w_dkv_
 
 ## 调用示例
 
-- 详见 [testdsv32_mla_prolog_quant.py](testdsv32_mla_prolog_quant.py)
+- 详见 [deepseekv32_mla_prolog_quant.py](deepseekv32_mla_prolog_quant.py)
 
 # lightning_indexer_prolog<a name="ZH-CN_TOPIC_0000001979260729"></a>
 ## 功能说明<a name="zh-cn_topic_0000001832267082_section14441124184110"></a>
@@ -182,7 +182,7 @@ def lightning_indexer_prolog_quant_compute(x_in, q_norm_in, q_norm_scale_in, w_q
 -   **weights_out**（`Tensor`）：公式中 weights 的输出 tensor，不支持非连续的 Tensor，数据格式支持 ND，数据类型支持`float16`，shape为[t, idx_n_heads]。
 
 ## 调用示例
--   算子源码执行参考[testdsv32_lightning_indexer_prolog_quant.py](testdsv32_lightning_indexer_prolog_quant.py)
+-   算子源码执行参考[deepseekv32_lightning_indexer_prolog_quant.py](deepseekv32_lightning_indexer_prolog_quant.py)
 
 
 # sparse_flash_attention_quant<a name="ZH-CN_TOPIC_0000001979260729"></a>
@@ -228,7 +228,7 @@ def sparse_flash_attention_quant_compute(query_nope, query_rope, key_nope_2d, ke
 
 ## 调用示例<a name="zh-cn_topic_0000001832267082_section14459801435"></a>
 
--   详见[testdsv32_sparse_flash_attention_quant.py](testdsv32_sparse_flash_attention_quant.py)
+-   详见[deepseekv32_sparse_flash_attention_quant.py](deepseekv32_sparse_flash_attention_quant.py)
 # mla_indexer_polog_quant 
 
 ## 功能说明
@@ -298,5 +298,5 @@ def mla_indexer_prolog_quant(token_x, mla_w_dq, mla_w_uq_qr, mla_dequant_scale, 
 
 ## 调用示例
 
-- 详见 [testdsv32_mla_indexer_prolog_quant.py](testdsv32_mla_indexer_prolog_quant.py)
+- 详见 [deepseekv32_mla_indexer_prolog_quant.py](deepseekv32_mla_indexer_prolog_quant.py)
 

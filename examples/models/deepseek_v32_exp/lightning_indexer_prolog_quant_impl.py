@@ -9,6 +9,23 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 """
+Lightning Indexer Prolog Quantization Module
+
+This module implements the Lightning Indexer Prolog quantization computation
+for DeepSeek V32 model. It handles:
+- Query computation with dynamic quantization
+- Key computation with LayerNorm and RoPE
+- Weight computation for indexer attention
+
+Main Functions:
+    - lightning_indexer_prolog_quant_compute: Main computation function
+    - quant_layer_norm: Quantized LayerNorm implementation
+    - prolog_quant: Per-token quantization function
+    - quant_rope_2d: 2D RoPE (Rotary Position Embedding) computation
+    - rope_3d: 3D RoPE computation
+
+Example:
+    See testdsv32_lightning_indexer_prolog_quant.py for usage examples.
 """
 from dataclasses import dataclass
 import pypto
@@ -103,9 +120,30 @@ class IndexerPrologQuantConfigs:
 
 
 def quant_layer_norm(x: pypto.tensor, gamma: pypto.tensor, beta: pypto.tensor, dim: int, epsilon: float):
+    """Compute quantized LayerNorm operation.
+
+    Applies Layer Normalization with quantization support. The function normalizes
+    the input tensor along the specified dimension using mean and variance,
+    then applies learnable scale (gamma) and shift (beta) parameters.
+
+    Args:
+        x: Input tensor to normalize, shape depends on input
+        gamma: Scale parameter tensor, shape should match the normalization dimension
+        beta: Shift parameter tensor, shape should match the normalization dimension
+        dim: Dimension along which to normalize. Can be -1 (last dimension) or
+             len(x.shape) - 1 (last dimension explicitly)
+        epsilon: Small constant added to variance to avoid division by zero
+
+    Returns:
+        Normalized tensor with the same shape as input x, with scale and shift applied
+
+    Note:
+        The function performs normalization in FP32 precision to maintain numerical
+        stability, then casts back to the original dtype.
+    """
     pypto.set_semantic_label("Key-LayerNorm")
     assert ((dim == len(x.shape) - 1) or (dim == -1))
-    actual_dim = dim < 0 if dim + len(x.shape) else dim
+    actual_dim = dim + len(x.shape) if dim < 0 else dim
     x_dtype = x.dtype
 
     x_fp32 = pypto.cast(x, pypto.DT_FP32)
@@ -128,6 +166,24 @@ def quant_layer_norm(x: pypto.tensor, gamma: pypto.tensor, beta: pypto.tensor, d
 
 
 def quant_rope_2d(x: pypto.tensor, cos: pypto.tensor, sin: pypto.tensor):
+    """Apply 2D Rotary Position Embedding (RoPE) to input tensor.
+
+    Implements RoPE transformation for 2D tensors. RoPE encodes positional
+    information by rotating the input tensor using cosine and sine values.
+
+    Args:
+        x: Input tensor of shape (t_tile, rope_dim), where t_tile is the
+           sequence length and rope_dim is the RoPE dimension
+        cos: Cosine values for RoPE, shape (t_tile, rope_dim)
+        sin: Sine values for RoPE, shape (t_tile, rope_dim)
+
+    Returns:
+        Tensor with RoPE applied, same shape as input x
+
+    Note:
+        The function performs rotation in FP32 precision for numerical stability,
+        then casts back to the original dtype.
+    """
     pypto.set_semantic_label("Key-Rope2D")
     key_rope_dim = 2
     x_dtype = x.dtype
@@ -147,6 +203,29 @@ def quant_rope_2d(x: pypto.tensor, cos: pypto.tensor, sin: pypto.tensor):
 
 
 def prolog_quant(input: pypto.tensor):
+    """Perform per-token quantization to INT8.
+
+    Quantizes the input tensor to INT8 format using dynamic quantization.
+    The quantization scale is computed per-token based on the maximum absolute
+    value, ensuring the full INT8 range [-127, 127] is utilized.
+
+    Args:
+        input: Input tensor to quantize, can be any shape. Quantization is
+               performed along the last dimension per token.
+
+    Returns:
+        Tuple of (quantized_tensor, dequant_scale):
+            - quantized_tensor: INT8 quantized tensor, same shape as input
+            - dequant_scale: FP32 scale factor for dequantization, shape matches
+                            input with last dimension reduced to 1
+
+    Note:
+        The quantization process:
+        1. Find per-token maximum absolute value
+        2. Compute scale = 127.0 / max_value
+        3. Quantize: int8 = round(input * scale)
+        4. Return dequantization scale = 1.0 / scale
+    """
     pypto.set_semantic_label("Prolog-Quant")
     s8_max_value = 127.0
     s8_one_value = 1.0
@@ -167,6 +246,25 @@ def prolog_quant(input: pypto.tensor):
 
 
 def rotate_half(input_tensor: pypto.tensor) -> pypto.tensor:
+    """Rotate half of the tensor dimensions for RoPE computation.
+
+    Splits the last dimension in half and applies rotation transformation:
+    [-x2, x1] where x1 is the first half and x2 is the second half.
+    This is a key component of RoPE (Rotary Position Embedding).
+
+    Args:
+        input_tensor: Input tensor with last dimension divisible by 2
+
+    Returns:
+        Rotated tensor with same shape as input, where the first half of
+        the last dimension is negated and swapped with the second half
+
+    Raises:
+        AssertionError: If the last dimension is not divisible by 2
+
+    Example:
+        If input is [a, b, c, d] along last dim, output is [-c, -d, a, b]
+    """
     chunk_size = 2
     shape = input_tensor.shape
     shape_size = len(shape)
@@ -182,6 +280,26 @@ def rotate_half(input_tensor: pypto.tensor) -> pypto.tensor:
 
 
 def rope_3d(x: pypto.tensor, cos: pypto.tensor, sin: pypto.tensor, configs: IndexerPrologQuantConfigs) -> pypto.tensor:
+    """Apply 3D Rotary Position Embedding (RoPE) to input tensor.
+
+    Implements RoPE transformation for 3D tensors with shape (t_tile, head_num, rope_dim).
+    The RoPE is applied independently to each head using the provided cosine and sine values.
+
+    Args:
+        x: Input tensor of shape (t_tile, head_num, rope_dim)
+        cos: Cosine values for RoPE, shape (t_tile, rope_dim)
+        sin: Sine values for RoPE, shape (t_tile, rope_dim)
+        configs: Configuration object containing tiling parameters:
+            - t_sub_tile: Sub-tile size for t dimension
+            - chunk_size: Chunk size for head dimension processing
+
+    Returns:
+        Tensor with RoPE applied, same shape as input x
+
+    Note:
+        The function broadcasts cos and sin to match the head dimension,
+        then applies rotation: x_rotated = x * cos + rotate_half(x) * sin
+    """
     head_num_axis = 1
     head_dim_axis = 2
     assert (len(x.shape) == SHAPE_DIM_3 and len(cos.shape) == SHAPE_DIM_2 and len(sin.shape) == SHAPE_DIM_2)
@@ -210,6 +328,65 @@ def lightning_indexer_prolog_quant_compute(x_in, q_norm_in, q_norm_scale_in, w_q
                                            hadamard_q_in, hadamard_k_in, k_int8_in, k_scale_in,
                                            k_cache_index_in, q_int8_out, q_scale_out, k_int8_out,
                                            k_scale_out, weights_out, attrs, configs):
+    """Compute Lightning Indexer Prolog with quantization.
+
+    Main computation function for Lightning Indexer Prolog quantization.
+    This function processes input tokens to generate quantized query, key, and weights
+    for the indexer attention mechanism. The computation includes:
+
+    1. Query Path:
+       - Dequantize q_norm (INT8) to FP32
+       - Apply linear transformation with w_qb
+       - Apply RoPE (Rotary Position Embedding)
+       - Apply Hadamard transformation
+       - Quantize to INT8 with per-token-head scale
+
+    2. Key Path:
+       - Linear transformation with wk
+       - LayerNorm normalization
+       - Apply RoPE
+       - Apply Hadamard transformation
+       - Quantize to INT8 with per-token-head scale
+       - Update key cache using scatter_update
+
+    3. Weights Path:
+       - Linear transformation with w_proj
+       - Normalize by sqrt(head_num * head_dim)
+       - Convert to FP16
+
+    Args:
+        x_in: Input hidden states tensor, shape (t, h), dtype BF16
+        q_norm_in: Quantized query norm tensor, shape (t, q_lora_rank), dtype INT8
+        q_norm_scale_in: Query norm dequantization scale, shape (t, 1), dtype FP32
+        w_qb_in: Query projection weight matrix, INT8 format with NZ layout
+        w_qb_scale_in: Query weight dequantization scale, shape (head_num * head_dim, 1), dtype FP32
+        wk_in: Key projection weight matrix, BF16 format with NZ layout
+        w_proj_in: Weight projection matrix, BF16 format with NZ layout
+        ln_gamma_k_in: LayerNorm scale parameter for key, shape (head_dim,), dtype BF16
+        ln_beta_k_in: LayerNorm shift parameter for key, shape (head_dim,), dtype BF16
+        cos_idx_rope_in: Cosine values for RoPE, shape (t, rope_head_dim), dtype BF16
+        sin_idx_rope_in: Sine values for RoPE, shape (t, rope_head_dim), dtype BF16
+        hadamard_q_in: Hadamard transformation matrix for query, shape (head_dim, head_dim), dtype BF16
+        hadamard_k_in: Hadamard transformation matrix for key, shape (head_dim, head_dim), dtype BF16
+        k_int8_in: Input key cache, shape (block_num, block_size, n_kv, head_dim), dtype INT8
+        k_scale_in: Key cache scale, shape (block_num, block_size, n_kv, 1), dtype FP16
+        k_cache_index_in: Cache index for scatter update, shape (t,), dtype INT64
+        q_int8_out: Output quantized query tensor, shape (t, head_num, head_dim), dtype INT8
+        q_scale_out: Output query quantization scale, shape (t, head_num, 1), dtype FP16
+        k_int8_out: Output key cache (updated in-place), shape (block_num, block_size, n_kv, head_dim), dtype INT8
+        k_scale_out: Output key cache scale (updated in-place), shape (block_num, block_size, n_kv, 1), dtype FP16
+        weights_out: Output weights tensor, shape (t, head_num), dtype FP16
+        attrs: IndexerPrologQuantAttr object containing:
+            - eps: LayerNorm epsilon value
+            - layerout_query: Query layout format (e.g., "TND")
+            - layerout_key: Key layout format (e.g., "PA_BSND")
+        configs: IndexerPrologQuantConfigs object containing tiling and optimization parameters
+
+    Note:
+        - The function processes tokens in tiles using loop_unroll for optimization
+        - All outputs are written in-place using pypto.assemble or scatter_update
+        - The computation uses dynamic tiling based on configs.unroll_list
+    """
     x_dtype = x_in.dtype
     # 动态轴
     t = x_in.shape[0]
@@ -334,6 +511,42 @@ def lightning_indexer_prolog_quant(x_in, q_norm_in, q_norm_scale_in, w_qb_in,
                                    hadamard_q_in, hadamard_k_in, k_int8_in, k_scale_in,
                                    k_cache_index_in, q_int8_out, q_scale_out, k_int8_out,
                                    k_scale_out, weights_out, attrs, configs):
+    """JIT-compiled wrapper for Lightning Indexer Prolog quantization computation.
+
+    This is the main entry point for the Lightning Indexer Prolog quantization operator.
+    It sets up optimization passes and runtime options before calling the core
+    computation function.
+
+    Args:
+        x_in: Input hidden states tensor, shape (t, h), dtype BF16
+        q_norm_in: Quantized query norm tensor, shape (t, q_lora_rank), dtype INT8
+        q_norm_scale_in: Query norm dequantization scale, shape (t, 1), dtype FP32
+        w_qb_in: Query projection weight matrix, INT8 format with NZ layout
+        w_qb_scale_in: Query weight dequantization scale, shape (head_num * head_dim, 1), dtype FP32
+        wk_in: Key projection weight matrix, BF16 format with NZ layout
+        w_proj_in: Weight projection matrix, BF16 format with NZ layout
+        ln_gamma_k_in: LayerNorm scale parameter for key, shape (head_dim,), dtype BF16
+        ln_beta_k_in: LayerNorm shift parameter for key, shape (head_dim,), dtype BF16
+        cos_idx_rope_in: Cosine values for RoPE, shape (t, rope_head_dim), dtype BF16
+        sin_idx_rope_in: Sine values for RoPE, shape (t, rope_head_dim), dtype BF16
+        hadamard_q_in: Hadamard transformation matrix for query, shape (head_dim, head_dim), dtype BF16
+        hadamard_k_in: Hadamard transformation matrix for key, shape (head_dim, head_dim), dtype BF16
+        k_int8_in: Input key cache, shape (block_num, block_size, n_kv, head_dim), dtype INT8
+        k_scale_in: Key cache scale, shape (block_num, block_size, n_kv, 1), dtype FP16
+        k_cache_index_in: Cache index for scatter update, shape (t,), dtype INT64
+        q_int8_out: Output quantized query tensor, shape (t, head_num, head_dim), dtype INT8
+        q_scale_out: Output query quantization scale, shape (t, head_num, 1), dtype FP16
+        k_int8_out: Output key cache (updated in-place), shape (block_num, block_size, n_kv, head_dim), dtype INT8
+        k_scale_out: Output key cache scale (updated in-place), shape (block_num, block_size, n_kv, 1), dtype FP16
+        weights_out: Output weights tensor, shape (t, head_num), dtype FP16
+        attrs: IndexerPrologQuantAttr object containing operator attributes
+        configs: IndexerPrologQuantConfigs object containing optimization configurations
+
+    Note:
+        This function is decorated with @pypto.jit for JIT compilation.
+        It configures pass options for memory optimization and calls the core
+        computation function.
+    """
     pypto.set_pass_options(vec_nbuffer_mode=configs.vec_nbuffer_mode)
     pypto.set_pass_options(cube_l1_reuse_setting=configs.cube_l1_reuse_setting)
     pypto.set_pass_options(mg_copyin_upper_bound=configs.mg_copyin_upper_bound)

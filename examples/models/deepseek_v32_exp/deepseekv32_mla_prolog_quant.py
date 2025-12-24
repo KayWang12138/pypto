@@ -20,10 +20,16 @@ import torch
 import torch_npu
 import pypto
 
-from mla_prolog_quant import mla_prolog_quant_p, mla_prolog_quant_d, MlaTileConfig
+from mla_prolog_quant_impl import mla_prolog_quant_p, mla_prolog_quant_d, MlaTileConfig
 from utils.compare import compare
 
 torch.manual_seed(5)
+
+
+def prep_env():
+    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
+    torch.npu.set_device(device_id)
+    torch_npu.npu.config.allow_internal_format = True
 
 
 def rms_norm(x, gamma):
@@ -512,8 +518,6 @@ def convert_pypto_to_torch_type(pypto_type):
 
 def mla_prolog_quant_v32(params, input_tensors, golden_data, dtype, w_dtype, is_quant_a, \
                         is_quant_b, nz, tile_config, cache_mode, is_p):
-    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
-    torch.npu.set_device(device_id)
 
     d_type = pypto.DataType.DT_FP16 if dtype == pypto.DataType.DT_FP16 else pypto.DataType.DT_BF16
     if is_quant_a and w_dtype == pypto.DataType.DT_INT8:
@@ -653,11 +657,11 @@ def mla_prolog_quant_v32(params, input_tensors, golden_data, dtype, w_dtype, is_
     output_data = [out_q_norm, out_q_norm_scale, out_q_nope,
                 out_q_rope, out_kv_cache, out_kr_cache, k_scale_cache_data_out]
     if is_p:
-        from mla_prolog_quant import RopeTileShapeConfig
+        from mla_prolog_quant_impl import RopeTileShapeConfig
         rope_tile_shape = RopeTileShapeConfig(two_dim=[32, 64], three_dim=[32, 32, 128], four_dim=[16, 128, 128, 128])
         mla_prolog_quant_p(*input_data, *output_data, 1e-5, 1e-5, cache_mode, tile_config, rope_tile_shape)
     else:
-        from mla_prolog_quant import RopeTileShapeConfig
+        from mla_prolog_quant_impl import RopeTileShapeConfig
         rope_tile_shape = RopeTileShapeConfig(two_dim=[128, 128],
             three_dim=[128, 128, 128], four_dim=[16, 128, 128, 128])
         mla_prolog_quant_d(*input_data, *output_data, 1e-5, 1e-5, cache_mode, tile_config, rope_tile_shape)
@@ -693,6 +697,7 @@ def test_b128_s4k4_pa_nd_bf16_quantb_p():
     '''
     mla_prolog prefill测试函数
     '''
+    prep_env()
     params = {
         'b': 128,
         't': 512,
@@ -739,6 +744,7 @@ def test_b1_s4k512_pa_nd_bf16_quantb_p():
     '''
     mla_prolog prefill测试函数
     '''
+    prep_env()
     params = {
         'b': 1,
         't': 512,
@@ -785,6 +791,7 @@ def test_b4_s64k2_pa_nd_bf16_quantb_d():
     '''
     mla_prolog decode测试函数
     '''
+    prep_env()
     params = {
         'b': 4,
         't': 8,

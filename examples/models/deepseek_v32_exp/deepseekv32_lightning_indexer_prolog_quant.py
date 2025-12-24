@@ -17,7 +17,7 @@ import os
 import pytest
 import math
 import logging
-from lightning_indexer_prolog_quant import (
+from lightning_indexer_prolog_quant_impl import (
     IndexerPrologQuantInput, IndexerPrologQuantOutput, IndexerPrologQuantAttr, IndexerPrologQuantConfigs,
     lightning_indexer_prolog_quant)
 from utils.compare import compare

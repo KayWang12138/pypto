@@ -9,6 +9,20 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 """
+Sparse Flash Attention Quantization Module
+
+This module implements sparse flash attention with quantization support for DeepSeek V32.
+It performs attention computation on top-k selected key-value pairs from cache,
+supporting both standard and flash attention algorithms.
+
+Main Functions:
+    - sparse_flash_attention_quant_compute: Standard sparse attention computation
+    - sparse_flash_attention_quant_compute_flash: Flash attention variant with online softmax
+    - sparse_flash_attention_quant_d: JIT-compiled decode version
+    - sparse_flash_attention_quant_p: JIT-compiled prefill version
+
+Example:
+    See testdsv32_sparse_flash_attention_quant.py for usage examples.
 """
 from dataclasses import dataclass
 import math
@@ -32,7 +46,43 @@ def sparse_flash_attention_quant_compute(query_nope, query_rope, key_nope_2d, ke
                                          k_nope_scales, topk_indcies, block_table, kv_act_seqs,
                                          attention_out, nq, n_kv, softmax_scale, topk,
                                          block_size, max_blocknum_perbatch, tile_config):
-
+    """Compute sparse flash attention with quantization support.
+    
+    Performs attention computation on top-k selected key-value pairs from cache.
+    The function processes queries and keys in batches, computing attention scores
+    and aggregating values. Supports both quantized (INT8) and non-quantized keys.
+    
+    Args:
+        query_nope: Query tensor without RoPE, shape (t * n_q, kv_lora_rank), dtype BF16
+        query_rope: Query tensor with RoPE, shape (t * n_q, rope_dim), dtype BF16
+        key_nope_2d: Key tensor without RoPE, shape (block_num * block_size, kv_lora_rank),
+                     dtype BF16 or INT8
+        key_rope_2d: Key tensor with RoPE, shape (block_num * block_size, rope_dim), dtype BF16
+        k_nope_scales: Dequantization scales for quantized keys, shape (block_num * block_size, 4),
+                       dtype FP32. Only used when key_nope_2d is INT8.
+        topk_indcies: Top-k indices for each query token, shape (t, n_kv * topk), dtype INT32
+        block_table: Block mapping table for PagedAttention, shape (b, max_blocknum_perbatch),
+                     dtype INT32
+        kv_act_seqs: Actual sequence lengths for each batch, shape (b,), dtype INT32
+        attention_out: Output attention tensor, shape (b, s, n_q, kv_lora_rank), dtype BF16
+        nq: Number of query heads
+        n_kv: Number of key-value heads
+        softmax_scale: Scaling factor for attention scores, typically 1/sqrt(head_dim)
+        topk: Number of top-k keys to attend to
+        block_size: Size of each block in PagedAttention
+        max_blocknum_perbatch: Maximum number of blocks per batch
+        tile_config: SaTileShapeConfig object containing tiling parameters:
+            - g_tile: Group tile size
+            - s_kv_tile: Key-value sequence tile size
+            - c1_tile_shape: Cube tile shape for first matmul
+            - v1_tile_shape: Vector tile shape for softmax
+            - c2_tile_shape: Cube tile shape for second matmul
+            
+    Note:
+        The function uses nested loops to process batches, sequences, heads, and groups.
+        For quantized keys, it performs dequantization before attention computation.
+        The attention computation uses standard softmax normalization.
+    """
     dtype = query_nope.dtype
     kn_dtype = key_nope_2d.dtype
     dn = query_nope.shape[1]
@@ -157,6 +207,43 @@ def sparse_flash_attention_quant_compute_flash(query_nope, query_rope, key_nope_
                                                k_nope_scales, topk_indcies, block_table, kv_act_seqs,
                                                attention_out, nq, n_kv, softmax_scale, topk,
                                                block_size, max_blocknum_perbatch, tile_config):
+    """Compute sparse flash attention with online softmax (flash attention variant).
+    
+    Implements flash attention algorithm with online softmax computation for better
+    numerical stability and memory efficiency. Uses incremental updates of attention
+    output, normalization factor, and maximum values across key-value blocks.
+    
+    Args:
+        query_nope: Query tensor without RoPE, shape (t * n_q, kv_lora_rank), dtype BF16
+        query_rope: Query tensor with RoPE, shape (t * n_q, rope_dim), dtype BF16
+        key_nope_2d: Key tensor without RoPE, shape (block_num * block_size, kv_lora_rank),
+                     dtype BF16 or INT8
+        key_rope_2d: Key tensor with RoPE, shape (block_num * block_size, rope_dim), dtype BF16
+        k_nope_scales: Dequantization scales for quantized keys, shape (block_num * block_size, 4),
+                       dtype FP32. Only used when key_nope_2d is INT8.
+        topk_indcies: Top-k indices for each query token, shape (t, n_kv * topk), dtype INT32
+        block_table: Block mapping table for PagedAttention, shape (b, max_blocknum_perbatch),
+                     dtype INT32
+        kv_act_seqs: Actual sequence lengths for each batch, shape (b,), dtype INT32
+        attention_out: Output attention tensor, shape (b, s, n_q, kv_lora_rank), dtype BF16
+        nq: Number of query heads
+        n_kv: Number of key-value heads
+        softmax_scale: Scaling factor for attention scores, typically 1/sqrt(head_dim)
+        topk: Number of top-k keys to attend to
+        block_size: Size of each block in PagedAttention
+        max_blocknum_perbatch: Maximum number of blocks per batch
+        tile_config: SaTileShapeConfig object containing tiling parameters, including
+                     v2_tile_shape for flash attention updates
+                     
+    Note:
+        Flash attention algorithm maintains running statistics:
+        - oi_update: Running attention output
+        - li_update: Running normalization factor (sum of exp values)
+        - mi_update: Running maximum value
+        
+        These are incrementally updated across key-value blocks using the online softmax
+        formula to maintain numerical stability.
+    """
     dtype = query_nope.dtype
     kn_dtype = key_nope_2d.dtype
     dn = query_nope.shape[1]
@@ -347,6 +434,36 @@ def sparse_flash_attention_quant_d(query_nope, query_rope, key_nope_2d, key_rope
                                            k_nope_scales, topk_indcies, block_table, kv_act_seqs,
                                            attention_out, nq, n_kv, softmax_scale, topk,
                                            block_size, max_blocknum_perbatch, tile_config):
+    """JIT-compiled sparse flash attention for decode phase.
+    
+    Optimized version for decode phase with specific pass configurations.
+    Uses flash attention algorithm with online softmax for numerical stability.
+    
+    Args:
+        query_nope: Query tensor without RoPE, shape (t * n_q, kv_lora_rank), dtype BF16
+        query_rope: Query tensor with RoPE, shape (t * n_q, rope_dim), dtype BF16
+        key_nope_2d: Key tensor without RoPE, shape (block_num * block_size, kv_lora_rank),
+                     dtype BF16 or INT8
+        key_rope_2d: Key tensor with RoPE, shape (block_num * block_size, rope_dim), dtype BF16
+        k_nope_scales: Dequantization scales for quantized keys, shape (block_num * block_size, 4),
+                       dtype FP32
+        topk_indcies: Top-k indices for each query token, shape (t, n_kv * topk), dtype INT32
+        block_table: Block mapping table for PagedAttention, shape (b, max_blocknum_perbatch),
+                     dtype INT32
+        kv_act_seqs: Actual sequence lengths for each batch, shape (b,), dtype INT32
+        attention_out: Output attention tensor, shape (b, s, n_q, kv_lora_rank), dtype BF16
+        nq: Number of query heads
+        n_kv: Number of key-value heads
+        softmax_scale: Scaling factor for attention scores
+        topk: Number of top-k keys to attend to
+        block_size: Size of each block in PagedAttention
+        max_blocknum_perbatch: Maximum number of blocks per batch
+        tile_config: SaTileShapeConfig object containing tiling parameters
+        
+    Note:
+        Configured for decode phase with optimized memory and parallelism settings.
+        Uses flash attention algorithm for better numerical stability.
+    """
     sparse_flash_attention_quant_compute_flash(query_nope, query_rope, key_nope_2d, key_rope_2d,
                                                k_nope_scales, topk_indcies, block_table, kv_act_seqs,
                                                attention_out, nq, n_kv, softmax_scale, topk,
@@ -373,6 +490,36 @@ def sparse_flash_attention_quant_p(query_nope, query_rope, key_nope_2d, key_rope
                                            k_nope_scales, topk_indcies, block_table, kv_act_seqs,
                                            attention_out, nq, n_kv, softmax_scale, topk,
                                            block_size, max_blocknum_perbatch, tile_config):
+    """JIT-compiled sparse flash attention for prefill phase.
+    
+    Optimized version for prefill phase with specific pass configurations.
+    Uses flash attention algorithm with online softmax for numerical stability.
+    
+    Args:
+        query_nope: Query tensor without RoPE, shape (t * n_q, kv_lora_rank), dtype BF16
+        query_rope: Query tensor with RoPE, shape (t * n_q, rope_dim), dtype BF16
+        key_nope_2d: Key tensor without RoPE, shape (block_num * block_size, kv_lora_rank),
+                     dtype BF16 or INT8
+        key_rope_2d: Key tensor with RoPE, shape (block_num * block_size, rope_dim), dtype BF16
+        k_nope_scales: Dequantization scales for quantized keys, shape (block_num * block_size, 4),
+                       dtype FP32
+        topk_indcies: Top-k indices for each query token, shape (t, n_kv * topk), dtype INT32
+        block_table: Block mapping table for PagedAttention, shape (b, max_blocknum_perbatch),
+                     dtype INT32
+        kv_act_seqs: Actual sequence lengths for each batch, shape (b,), dtype INT32
+        attention_out: Output attention tensor, shape (b, s, n_q, kv_lora_rank), dtype BF16
+        nq: Number of query heads
+        n_kv: Number of key-value heads
+        softmax_scale: Scaling factor for attention scores
+        topk: Number of top-k keys to attend to
+        block_size: Size of each block in PagedAttention
+        max_blocknum_perbatch: Maximum number of blocks per batch
+        tile_config: SaTileShapeConfig object containing tiling parameters
+        
+    Note:
+        Configured for prefill phase with optimized memory and parallelism settings.
+        Uses flash attention algorithm for better numerical stability.
+    """
     sparse_flash_attention_quant_compute_flash(query_nope, query_rope, key_nope_2d, key_rope_2d,
                                                k_nope_scales, topk_indcies, block_table, kv_act_seqs,
                                                attention_out, nq, n_kv, softmax_scale, topk,

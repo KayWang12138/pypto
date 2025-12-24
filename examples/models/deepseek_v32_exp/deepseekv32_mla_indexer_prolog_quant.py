@@ -19,7 +19,7 @@ import os
 import pytest
 import logging
 import math
-from mla_prolog_quant import MlaTileConfig
+from mla_prolog_quant_impl import MlaTileConfig
 from utils.compare import compare
 
 PRINT_DEBUG = False
@@ -872,7 +872,7 @@ def do_test(case_name, params, mla_epsilon_cq, mla_epsilon_ckv, mla_cache_mode, 
     }
 
     pto_outputs = convert_torch_tensor(outputs, dynamic_dict, 'OUT_')
-    import mla_indexer_prolog_quant as mla_lp_quant
+    import mla_indexer_prolog_quant_impl as mla_lp_quant
     if is_prefill:
         fun = mla_lp_quant.mla_indexer_prolog_quant_p
     else:
@@ -929,7 +929,7 @@ def test_b_4_s1_2_tilebs_8_d():
     mv_tile_value = min(8, mla_tile_config.tile_bs)
     mla_tile_config.m_tile = m_tile_value
 
-    from mla_prolog_quant import RopeTileShapeConfig
+    from mla_prolog_quant_impl import RopeTileShapeConfig
     rope_tile_shape = RopeTileShapeConfig(two_dim=[128, 128], three_dim=[128, 128, 128], four_dim=[16, 128, 128, 128])
 
     mla_tile_config.pre_quant_cube_tile = [m_tile_value, m_tile_value, 256, 256, 128, 128]
@@ -944,7 +944,7 @@ def test_b_4_s1_2_tilebs_8_d():
     mla_epsilon_cq = 1e-5
     mla_epsilon_ckv = 1e-5
 
-    import lightning_indexer_prolog_quant as ip
+    import lightning_indexer_prolog_quant_impl as ip
     # ---- Attrs ----
     ip_attrs = ip.IndexerPrologQuantAttr(
         eps=1e-6,
@@ -1009,7 +1009,7 @@ def test_t_32_tilebs_16_p():
     mla_tile_config.cube_l1_reuse_setting = {0: 2, 1: 1, 2: 1, 3: 4, 4: 4, 5: 1}
     mla_tile_config.unroll_list = [32, 16, 8, 4, 2, 1]
     mla_tile_config.dynamic_unaligned_enable = True
-    from mla_prolog_quant import RopeTileShapeConfig
+    from mla_prolog_quant_impl import RopeTileShapeConfig
     rope_tile_shape = RopeTileShapeConfig(two_dim=[32, 64], three_dim=[32, 32, 128], four_dim=[16, 128, 128, 128])
 
 
@@ -1017,7 +1017,7 @@ def test_t_32_tilebs_16_p():
     mla_epsilon_cq = 1e-5
     mla_epsilon_ckv = 1e-5
 
-    import lightning_indexer_prolog_quant as ip
+    import lightning_indexer_prolog_quant_impl as ip
     # ---- Attrs ----
     ip_attrs = ip.IndexerPrologQuantAttr(
         eps=1e-6,
@@ -1084,14 +1084,14 @@ def test_t_512_tilebs_128_p():
     mla_tile_config.cube_l1_reuse_setting = {0: 2, 1: 1, 2: 1, 3: 4, 4: 4, 5: 1}
     mla_tile_config.unroll_list = [128, 64, 32, 16, 8, 4, 2, 1]
     mla_tile_config.dynamic_unaligned_enable = True
-    from mla_prolog_quant import RopeTileShapeConfig
+    from mla_prolog_quant_impl import RopeTileShapeConfig
     rope_tile_shape = RopeTileShapeConfig(two_dim=[32, 64], three_dim=[32, 32, 128], four_dim=[16, 128, 128, 128])
 
     mla_cache_mode = 'PA_BSND'
     mla_epsilon_cq = 1e-5
     mla_epsilon_ckv = 1e-5
 
-    import lightning_indexer_prolog_quant as ip
+    import lightning_indexer_prolog_quant_impl as ip
     # ---- Attrs ----
     ip_attrs = ip.IndexerPrologQuantAttr(
         eps=1e-6,
