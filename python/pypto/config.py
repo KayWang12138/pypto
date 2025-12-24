@@ -48,7 +48,12 @@ class _CachedOptions:
 _pto_options = _CachedOptions()
 
 
-def set_print_options(edge_items: int, precision: int, threshold: int, linewidth: int):
+def set_print_options(*,
+                     edgeitems: Optional[int] = 3,
+                     precision: Optional[int] = 4,
+                     threshold: Optional[int] = 10,
+                     linewidth: Optional[int] = 10,
+                     ) -> None:
     """
     Set tensor print options.
 
@@ -66,7 +71,7 @@ def set_print_options(edge_items: int, precision: int, threshold: int, linewidth
     linewidth : int
         Max line width.
     """
-    pypto_impl.SetPrintOptions(edge_items, precision, threshold, linewidth)
+    pypto_impl.SetPrintOptions(edgeitems, precision, threshold, linewidth)
 
 
 def set_pass_options(*,

@@ -15,7 +15,10 @@ from pypto.experimental import set_operation_config, get_operation_config
 
 
 def test_print_options():
-    pypto.set_print_options(1, 2, 3, 4)
+    pypto.set_print_options(edgeitems=1, 
+                            precision=2, 
+                            threshold=3, 
+                            linewidth=4)
 
 
 def test_pass_option():

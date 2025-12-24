@@ -174,7 +174,14 @@ void ExecutePrint(ExecuteOperationContext *ctx) {
     scalars = ctx->op->GetAttr<std::vector<SymbolicScalar> >(OP_ATTR_PREFIX + "scalars");
     if (ctx->op->HasAttribute(OP_ATTR_PREFIX + "fname")) {
         auto fname = ctx->op->GetStringAttribute(OP_ATTR_PREFIX + "fname");
-        auto fpath = config::LogTopFolder() + "/tensor/" + FormatString(fname, ctx->opInter, nullptr, scalars);
+        uint64_t ts = 0;
+        struct timeval tv;
+        gettimeofday(&tv, nullptr);
+        ts = (uint64_t)tv.tv_sec * 1000000 + tv.tv_usec;
+        auto baseName = FormatString(fname, ctx->opInter, nullptr, scalars);
+        auto basePath = config::LogTopFolder() + "/tensor/" + baseName + "_" + std::to_string(ts);
+        auto binPath = basePath + ".bin";
+        auto csvPath = basePath + ".csv";
         auto &iop = ctx->ioperandDataViewList->at(0);
         auto shape = iop->GetValidShape();
         if (shape.empty()) {
@@ -182,7 +189,24 @@ void ExecutePrint(ExecuteOperationContext *ctx) {
         }
         auto oop = LogicalTensorData::CreateEmpty(iop->GetDataType(), shape, shape, iop->GetData()->GetShape());
         calc::Copy(oop, iop);
-        oop->GetData()->ToFile(fpath);
+        oop->GetData()->ToFile(binPath);
+        std::ofstream csv(csvPath, std::ios::out);
+        if (csv) {
+            csv << "key,value\n";
+            csv << "dtype," << static_cast<int>(oop->GetDataType()) << "\n";
+            csv << "shape,";
+            if (!shape.empty()) {
+                csv << shape[0];
+                for (size_t i = 1; i < shape.size(); i++) {
+                    csv << "x" << shape[i];
+                }
+            }
+            csv << "\n";
+            csv << "element_count," << oop->GetData()->GetDataSize() / oop->GetData()->GetElementSize() << "\n";
+            csv.close();
+        } else {
+            std::cerr << "open csv file " << csvPath << " failed!!!!\n";
+        }
     }
 
     std::string format;
