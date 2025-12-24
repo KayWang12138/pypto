@@ -83,6 +83,12 @@ enum CastMode {
     CAST_ODD = 6,   // round to odd (Von Neumann rounding)
 };
 
+enum BroadcastOperand : int64_t {
+    NONE          = 0,
+    LEFT_OPERAND  = 1,
+    RIGHT_OPERAND = 2,
+};
+
 constexpr uint64_t MASK_LEN = 64;
 constexpr uint64_t BLOCK_NELEM_B16 = 16;
 constexpr uint64_t BLOCK_NELEM_B32 = 8;
@@ -92,6 +98,7 @@ constexpr uint64_t REPEAT_MAX = 255;
 constexpr uint64_t REPEAT_BYTE = 256;
 constexpr uint64_t REPEAT_STRIDE_MAX = 255;
 constexpr uint64_t DUP_REPEAT_STRIDE_MAX = 4095;
+constexpr uint64_t BLOCK_NUM_ONE_REPEAT = 8;
 
 inline TILEOP void SetContinuousMask(unsigned n) {
     set_vector_mask(static_cast<uint64_t>(

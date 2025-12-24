@@ -858,4 +858,18 @@ void ReshapeInferFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &v
     }
 }
 REGISTER_INFER_SHAPE_FUNC(OP_RESHAPE, Opcode::OP_RESHAPE, ReshapeInferFunc);
+
+void BrcbInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
+    auto dimSize = op->GetIOperands()[0]->GetDynValidShape().size();
+    std::vector<SymbolicScalar> outValidShape;
+    for (size_t i = 0; i < dimSize - 1; i++) {
+        outValidShape.push_back(op->GetIOperands()[0]->GetDynValidShape()[i]);
+    }
+    int64_t lastDimShape = blockSize / BytesOf(op->GetIOperands()[0]->Datatype());
+    outValidShape.push_back(lastDimShape);
+    for (auto output : op->GetOOperands()) {
+        outValidShapes.push_back(outValidShape);
+    }
+}
+REGISTER_INFER_SHAPE_FUNC(OP_BRCB, Opcode::OP_BRCB, BrcbInferFunc);
 }  // namespace npu::tile_fwk

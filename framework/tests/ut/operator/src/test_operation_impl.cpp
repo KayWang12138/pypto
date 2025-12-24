@@ -21,20 +21,15 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 
-
 using namespace npu::tile_fwk;
 
 class OperationImplTest : public testing::Test {
 public:
     static void TearDownTestCase() {}
 
-    static void SetUpTestCase() {
-        config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
-    }
+    static void SetUpTestCase() { config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true); }
 
-    void SetUp() override {
-        config::Reset();
-    }
+    void SetUp() override { config::Reset(); }
 
     void TearDown() override {}
 };
@@ -278,7 +273,7 @@ TEST_F(OperationImplTest, Test_LogicalNot_BF16) {
         std::vector<int64_t> shape = {128, 32};
         TileShape::Current().SetVecTile({128, 32});
         Tensor input_a(DT_BF16, shape, "A");
-        auto output = Tensor(DT_BOOL, shape, "res"); 
+        auto output = Tensor(DT_BOOL, shape, "res");
         config::SetBuildStatic(true);
         FUNCTION("LogicalNot_BF16") {
             output = LogicalNot(input_a);
@@ -307,7 +302,7 @@ TEST_F(OperationImplTest, Test_WhereTS_BF16) {
         TileShape::Current().SetVecTile({128, 32});
         Tensor input_a(DT_BF16, shape, "A");
         float scalar = 10.0;
-        Element operand2(DT_BF16, scalar); 
+        Element operand2(DT_BF16, scalar);
         Tensor input_c(DT_BOOL, shape, "C");
         auto output = Tensor(DT_BOOL, shape, "res");
         config::SetBuildStatic(true);
@@ -322,8 +317,8 @@ TEST_F(OperationImplTest, Test_WhereSS_BF16) {
         std::vector<int64_t> shape = {128, 32};
         TileShape::Current().SetVecTile({128, 32});
         float scalar = 10.0;
-        Element operand1(DT_BF16, scalar); 
-        Element operand2(DT_BF16, scalar); 
+        Element operand1(DT_BF16, scalar);
+        Element operand2(DT_BF16, scalar);
         Tensor input_c(DT_BOOL, shape, "C");
         auto output = Tensor(DT_BOOL, shape, "res");
         config::SetBuildStatic(true);
@@ -338,7 +333,7 @@ TEST_F(OperationImplTest, Test_WhereST_BF16) {
         std::vector<int64_t> shape = {128, 32};
         TileShape::Current().SetVecTile({128, 32});
         float scalar = 10.0;
-        Element operand1(DT_BF16, scalar); 
+        Element operand1(DT_BF16, scalar);
         Tensor input_b(DT_BF16, shape, "B");
         Tensor input_c(DT_BOOL, shape, "C");
         auto output = Tensor(DT_BOOL, shape, "res");
@@ -351,11 +346,11 @@ TEST_F(OperationImplTest, Test_WhereST_BF16) {
 
 template <DataType inputType, DataType outputType, bool IsANZ = false, bool IsBNZ = false, bool isTransB = false>
 void TestNZFormatBatch(int bs, int m, int k, int n) {
-    std::vector<int64_t> batch_shape_a = {bs*m, k};
+    std::vector<int64_t> batch_shape_a = {bs * m, k};
     auto nLen = isTransB ? bs * n : bs * k;
     auto kLen = isTransB ? k : n;
     std::vector<int64_t> batch_shape_b = {nLen, kLen};
-    std::vector<int64_t> batch_shape_c = {bs*m, n};
+    std::vector<int64_t> batch_shape_c = {bs * m, n};
     PROGRAM("BATCHMATMUL") {
         config::Reset();
         TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
@@ -369,8 +364,9 @@ void TestNZFormatBatch(int bs, int m, int k, int n) {
         FUNCTION("BATCHMATMUL", {matA, matB, matC}) {
             std::vector<std::pair<Tensor, std::vector<int64_t>>> assembleVec;
             for (size_t index = 0; index < (size_t)bs; ++index) {
-                auto inputA = View(matA, {m, k}, {(int)index*m, 0});
-                auto inputB = isTransB ? View(matB, {n, k}, {(int)index*n, 0}) : View(matB, {k, n}, {(int)index*k, 0});
+                auto inputA = View(matA, {m, k}, {(int)index * m, 0});
+                auto inputB =
+                    isTransB ? View(matB, {n, k}, {(int)index * n, 0}) : View(matB, {k, n}, {(int)index * k, 0});
                 TileShape::Current().SetMatrixSize({m, k, n});
                 auto outTensor = npu::tile_fwk::Matrix::Matmul<false, isTransB>(outputType, inputA, inputB);
                 std::vector<int64_t> pairSecond = {(int)index * m, 0};
@@ -612,6 +608,18 @@ TEST_F(OperationImplTest, test_Where) {
     Tensor result;
     FUNCTION("TestWhere") {
         result = Where(condition, input, other);
+    }
+}
+
+TEST_F(OperationImplTest, test_Add_Brcb) {
+    TileShape::Current().SetVecTile(16, 16);
+    Tensor input0(DT_FP32, {16, 16}, "input0");
+    Tensor input1(DT_FP32, {16, 1}, "input0");
+    Tensor result;
+    config::SetOperationConfig("COMBINE_AXIS", true);
+    config::SetPassOption(COMBINE_AXIS, true);
+    FUNCTION("TestAddBrcb") {
+        result = Add(input0, input1);
     }
 }
 

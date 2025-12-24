@@ -172,7 +172,8 @@ TILEOP void T_BIN_PAIR(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1, unsi
 }
 
 // dim2 & dim1 (T0 = 1 for dim1)
-template <typename T, unsigned DS, unsigned S0S0, unsigned S0S1, unsigned S1S0, unsigned S1S1>
+template <typename T, unsigned DS, unsigned S0S0, unsigned S0S1, unsigned S1S0, unsigned S1S1,
+    BroadcastOperand OPERAND = BroadcastOperand::NONE>
 TILEOP void T_BIN(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1, unsigned src0T0, unsigned src0T1,
     unsigned src1T0, unsigned src1T1) {
     unsigned T0 = src0T0 < src1T0 ? src1T0 : src0T0;
@@ -184,61 +185,109 @@ TILEOP void T_BIN(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1, unsigned 
     constexpr unsigned blockSizeElem = BLOCK_SIZE / sizeof(T);
     constexpr unsigned src0Row = (S0S0 == 1 && S1S0 != 1) ? 0 : S0S1;
     constexpr unsigned src1Row = (S1S0 == 1 && S0S0 != 1) ? 0 : S1S1;
+    constexpr bool strideOverFlag = (DS / blockSizeElem > REPEAT_STRIDE_MAX) ||
+                                    (src0Row / blockSizeElem > REPEAT_STRIDE_MAX) ||
+                                    (src1Row / blockSizeElem > REPEAT_STRIDE_MAX);
+    unsigned src0BlockStride = 1;
+    unsigned src1BlockStride = 1;
+    unsigned src0RepeatStride = 8;
+    unsigned src1RepeatStride = 8;
+    unsigned src0RowOffset = elementsPerRepeat;
+    unsigned src1RowOffset = elementsPerRepeat;
+
+    if constexpr (OPERAND == BroadcastOperand::LEFT_OPERAND) {
+        src0BlockStride = 0;
+        src0RepeatStride = 0;
+        src0RowOffset = 0;
+    }
+
+    if constexpr (OPERAND == BroadcastOperand::RIGHT_OPERAND) {
+        src1BlockStride = 0;
+        src1RepeatStride = 0;
+        src1RowOffset = 0;
+    }
 
     if (numRepeatPerLine > 0) {
-        unsigned numLoop = numRepeatPerLine / REPEAT_MAX;
-        unsigned remainAfterLoop = numRepeatPerLine % REPEAT_MAX;
-        for (int i = 0; i < T0; i++) {
-            if (numLoop) {
-                for (int j = 0; j < numLoop; j++) {
-                    V_BIN_FUNC(dst + i * DS + j * elementsPerRepeat * REPEAT_MAX,
-                        src0 + i * src0Row + j * elementsPerRepeat * REPEAT_MAX,
-                        src1 + i * src1Row + j * elementsPerRepeat * REPEAT_MAX, REPEAT_MAX, 1, 1, 1, 8, 8, 8);
+        if (numRepeatPerLine >= T0 || strideOverFlag) {
+            unsigned numLoop = numRepeatPerLine / REPEAT_MAX;
+            unsigned remainAfterLoop = numRepeatPerLine % REPEAT_MAX;
+            for (int i = 0; i < T0; i++) {
+                if (numLoop) {
+                    for (int j = 0; j < numLoop; j++) {
+                        V_BIN_FUNC(dst + i * DS + j * elementsPerRepeat * REPEAT_MAX,
+                            src0 + i * src0Row + j * src0RowOffset * REPEAT_MAX,
+                            src1 + i * src1Row + j * src1RowOffset * REPEAT_MAX, REPEAT_MAX, 1, src0BlockStride,
+                            src1BlockStride, 8, src0RepeatStride, src1RepeatStride);
+                    }
+                }
+                if (remainAfterLoop) {
+                    V_BIN_FUNC(dst + i * DS + numLoop * elementsPerRepeat * REPEAT_MAX,
+                        src0 + i * src0Row + numLoop * src0RowOffset * REPEAT_MAX,
+                        src1 + i * src1Row + numLoop * src1RowOffset * REPEAT_MAX, remainAfterLoop, 1,
+                        src0BlockStride, src1BlockStride, 8, src0RepeatStride, src1RepeatStride);
                 }
             }
-            if (remainAfterLoop) {
-                V_BIN_FUNC(dst + i * DS + numLoop * elementsPerRepeat * REPEAT_MAX,
-                    src0 + i * src0Row + numLoop * elementsPerRepeat * REPEAT_MAX,
-                    src1 + i * src1Row + numLoop * elementsPerRepeat * REPEAT_MAX, remainAfterLoop, 1, 1, 1, 8, 8, 8);
+        } else {
+            if constexpr (!strideOverFlag) {
+                // 沿着T0方向开Repeat
+                unsigned numLoop = T0 / REPEAT_MAX;
+                unsigned remainAfterLoop = T0 % REPEAT_MAX;
+                for (int i = 0; i < numRepeatPerLine; i++) {
+                    if (numLoop) {
+                        for (int j = 0; j < numLoop; j++) {
+                            V_BIN_FUNC(dst + i * elementsPerRepeat + j * REPEAT_MAX * DS,
+                                src0 + i * src0RowOffset + j * src0Row * REPEAT_MAX,
+                                src1 + i * src1RowOffset + j * src1Row * REPEAT_MAX, REPEAT_MAX, 1, src0BlockStride,
+                                src1BlockStride, DS / blockSizeElem, src0Row / blockSizeElem, src1Row / blockSizeElem);
+                        }
+                    }
+                    if (remainAfterLoop) {
+                        V_BIN_FUNC(dst + i * elementsPerRepeat + numLoop * REPEAT_MAX * DS,
+                            src0 + i * src0RowOffset + numLoop * src0Row * REPEAT_MAX,
+                            src1 + i * src1RowOffset + numLoop * src1Row * REPEAT_MAX, remainAfterLoop, 1, src0BlockStride,
+                            src1BlockStride, DS / blockSizeElem, src0Row / blockSizeElem, src1Row / blockSizeElem);
+                    }
+                }
             }
         }
     }
 
     // shift to deal with tail
     dst += numRepeatPerLine * elementsPerRepeat;
-    src0 += numRepeatPerLine * elementsPerRepeat;
-    src1 += numRepeatPerLine * elementsPerRepeat;
+    src0 += numRepeatPerLine * src0RowOffset;
+    src1 += numRepeatPerLine * src1RowOffset;
 
     if (numRemainPerLine) {
         unsigned numLoop = T0 / REPEAT_MAX;
         unsigned remainAfterLoop = T0 % REPEAT_MAX;
-        constexpr bool strideOverFlag = (DS / blockSizeElem > REPEAT_STRIDE_MAX) ||
-                                        (src0Row / blockSizeElem > REPEAT_STRIDE_MAX) ||
-                                        (src1Row / blockSizeElem > REPEAT_STRIDE_MAX);
         SetContinuousMask(numRemainPerLine);
         if (numLoop) {
             for (int i = 0; i < numLoop; i++) {
                 if constexpr (strideOverFlag) {
                     for (uint64_t j = 0; j < REPEAT_MAX; j++) {
                         V_BIN_FUNC(dst + i * REPEAT_MAX * DS + j * DS, src0 + i * REPEAT_MAX * src0Row + j * src0Row,
-                            src1 + i * REPEAT_MAX * src1Row + j * src1Row, 1, 1, 1, 1, 1, 1, 1);
+                            src1 + i * REPEAT_MAX * src1Row + j * src1Row, 1, 1, src0BlockStride, src1BlockStride, 1, 1,
+                            1);
                     }
                 } else {
-                    V_BIN_FUNC(dst + i * REPEAT_MAX * DS, src0 + i * REPEAT_MAX * src0Row, src1 + i * REPEAT_MAX * src1Row,
-                        REPEAT_MAX, 1, 1, 1, DS / blockSizeElem, src0Row / blockSizeElem, src1Row / blockSizeElem);
+                    V_BIN_FUNC(dst + i * REPEAT_MAX * DS, src0 + i * REPEAT_MAX * src0Row,
+                        src1 + i * REPEAT_MAX * src1Row, REPEAT_MAX, 1, src0BlockStride, src1BlockStride,
+                        DS / blockSizeElem, src0Row / blockSizeElem, src1Row / blockSizeElem);
                 }
             }
         }
         if (remainAfterLoop) {
             if constexpr (strideOverFlag) {
                 for (unsigned j = 0; j < remainAfterLoop; j++) {
-                    V_BIN_FUNC(dst + numLoop * REPEAT_MAX * DS + j * DS, src0 + numLoop * REPEAT_MAX * src0Row + j * src0Row,
-                        src1 + numLoop * REPEAT_MAX * src1Row + j * src1Row, 1, 1, 1, 1, 1, 1, 1);
+                    V_BIN_FUNC(dst + numLoop * REPEAT_MAX * DS + j * DS,
+                        src0 + numLoop * REPEAT_MAX * src0Row + j * src0Row,
+                        src1 + numLoop * REPEAT_MAX * src1Row + j * src1Row, 1, 1, src0BlockStride, src1BlockStride, 1,
+                        1, 1);
                 }
             } else {
                 V_BIN_FUNC(dst + numLoop * REPEAT_MAX * DS, src0 + numLoop * REPEAT_MAX * src0Row,
-                    src1 + numLoop * REPEAT_MAX * src1Row, remainAfterLoop, 1, 1, 1, DS / blockSizeElem,
-                    src0Row / blockSizeElem, src1Row / blockSizeElem);
+                    src1 + numLoop * REPEAT_MAX * src1Row, remainAfterLoop, 1, src0BlockStride, src1BlockStride,
+                    DS / blockSizeElem, src0Row / blockSizeElem, src1Row / blockSizeElem);
             }
         }
         set_vector_mask(-1, -1);
@@ -247,9 +296,10 @@ TILEOP void T_BIN(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1, unsigned 
 
 // dim4
 template <typename T, unsigned DS0, unsigned DS1, unsigned DS2, unsigned DS3, unsigned S0S0, unsigned S0S1,
-    unsigned S0S2, unsigned S0S3, unsigned S1S0, unsigned S1S1, unsigned S1S2, unsigned S1S3>
-TILEOP void T_BIN(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1, unsigned src0T0, unsigned src0T1, unsigned src0T2,
-    unsigned src0T3, unsigned src1T0, unsigned src1T1, unsigned src1T2, unsigned src1T3) {
+    unsigned S0S2, unsigned S0S3, unsigned S1S0, unsigned S1S1, unsigned S1S2, unsigned S1S3,
+    BroadcastOperand OPERAND = BroadcastOperand::NONE>
+TILEOP void T_BIN(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1, unsigned src0T0, unsigned src0T1,
+    unsigned src0T2, unsigned src0T3, unsigned src1T0, unsigned src1T1, unsigned src1T2, unsigned src1T3) {
     static_assert((DS3 * sizeof(T)) % BLOCK_SIZE == 0);
     static_assert((S0S3 * sizeof(T)) % BLOCK_SIZE == 0);
     static_assert((S1S3 * sizeof(T)) % BLOCK_SIZE == 0);
@@ -265,7 +315,7 @@ TILEOP void T_BIN(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *src1, unsigned 
         __ubuf__ T *src0_ = src0;
         __ubuf__ T *src1_ = src1;
         for (int j = 0; j < T1; j++) {
-            T_BIN<T, DS3, S0S2, S0S3, S1S2, S1S3>(dst_, src0_, src1_, src0T2, src0T3, src1T2, src1T3);
+            T_BIN<T, DS3, S0S2, S0S3, S1S2, S1S3, OPERAND>(dst_, src0_, src1_, src0T2, src0T3, src1T2, src1T3);
             dst_ += DS2 * DS3;
             src0_ += (S0S1 == 1 && S1S1 != 1) ? 0 : S0S2 * S0S3;
             src1_ += (S0S1 != 1 && S1S1 == 1) ? 0 : S1S2 * S1S3;

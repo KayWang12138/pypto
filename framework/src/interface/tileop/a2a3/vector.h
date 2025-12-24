@@ -3438,6 +3438,40 @@ TILEOP void TopKExtract(__ubuf__ U *y, __ubuf__ T *x) {
     pipe_barrier(PIPE_V);
 }
 
+template <typename T, unsigned T0, unsigned T1>
+TILEOP void Tbrcb_(__ubuf__ T *dst, __ubuf__ T *src) {
+    constexpr unsigned brcPerRepeat = 8;
+    if constexpr (T0 != 1) {
+        constexpr unsigned repeatNumT0 = (T0 + brcPerRepeat- 1) / brcPerRepeat;
+        vbrcb((__ubuf__ uint32_t *)dst, (__ubuf__ uint32_t *)src, 1, 8, repeatNumT0);
+        return;
+    }
+
+    if constexpr (T1 != 1) {
+        constexpr unsigned repeatNumT1 = (T0 + brcPerRepeat- 1) / brcPerRepeat;
+        vbrcb((__ubuf__ uint32_t *)dst, (__ubuf__ uint32_t *)src, 1, 8, repeatNumT1);
+        return;
+    }
+}
+
+// dim4
+template <typename T, unsigned T0, unsigned T1, unsigned T2, unsigned T3, unsigned DS1, unsigned DS2,
+    unsigned DS3, unsigned SS1, unsigned SS2, unsigned SS3>
+TILEOP void Tbrcb_(__ubuf__ T *dst, __ubuf__ T *src) {
+    static_assert(DS3 * sizeof(T) == BLOCK_SIZE);
+    static_assert(DS2 % BLOCK_NUM_ONE_REPEAT == 0);
+    for (int i = 0; i < T0; i++) {
+        __ubuf__ T *dst_ = dst;
+        __ubuf__ T *src_ = src;
+        for (int j = 0; j < T1; j++) {
+            Tbrcb_<T, T2, T3>(dst_, src_);
+            dst_ += DS2 * DS3;
+            src_ += SS2 * SS3;
+        }
+        dst += DS1 * DS2 * DS3;
+        src += SS1 * SS2 * SS3;
+    }
+}
 } // namespace TileOp
 
 #endif

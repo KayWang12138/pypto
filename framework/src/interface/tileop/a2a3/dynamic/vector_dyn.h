@@ -4089,6 +4089,35 @@ TILEOP void GatherInUB(__ubuf__ T *dst, __gm__ T *param, __gm__ T2 *indices, __g
     }
 }
 
+template <typename T>
+TILEOP void DynTbrcb_(__ubuf__ T *dst, __ubuf__ T *src, unsigned T0, unsigned T1) {
+    constexpr unsigned brcPerRepeat = 8;
+    if (T0 != 1) {
+        unsigned repeatNum = (T0 + brcPerRepeat- 1) / brcPerRepeat;
+        vbrcb((__ubuf__ uint32_t *)dst, (__ubuf__ uint32_t *)src, 1, 8, repeatNum);
+        return;
+    } 
+    unsigned repeatNum = (T1 + brcPerRepeat- 1) / brcPerRepeat;
+    vbrcb((__ubuf__ uint32_t *)dst, (__ubuf__ uint32_t *)src, 1, 8, repeatNum);
+}
+
+// dim4
+template <typename T, unsigned DS1, unsigned DS2, unsigned DS3, unsigned SS1, unsigned SS2, unsigned SS3>
+TILEOP void DynTbrcb_(__ubuf__ T *dst, __ubuf__ T *src, unsigned T0, unsigned T1, unsigned T2, unsigned T3) {
+    static_assert(DS3 * sizeof(T) == BLOCK_SIZE);
+    static_assert(DS2 % BLOCK_NUM_ONE_REPEAT == 0);
+    for (int i = 0; i < T0; i++) {
+        __ubuf__ T *dst_ = dst;
+        __ubuf__ T *src_ = src;
+        for (int j = 0; j < T1; j++) {
+            DynTbrcb_<T>(dst_, src_, T2, T3);
+            dst_ += DS2 * DS3;
+            src_ += SS2 * SS3;
+        }
+        dst += DS1 * DS2 * DS3;
+        src += SS1 * SS2 * SS3;
+    }
+}
 } // namespace TileOp
 
 #endif // TILE_FWK_VECTOR_DYN_H
