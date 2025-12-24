@@ -161,7 +161,11 @@ void FlowVerifier::VerifyTensorGraph(Function *entry,
             slotTileOpFormatDict[outputSlotList[i]] = TileOpFormat::TILEOP_NZ;
         }
     }
-    outputSlotSet.insert(outputSlotList.begin(), outputSlotList.end());
+    if (outputDataViewList.size() == 0) {
+        outputSlotSet.insert(inputSlotList.begin(), inputSlotList.end());
+    } else {
+        outputSlotSet.insert(outputSlotList.begin(), outputSlotList.end());
+    }
 
     std::unordered_map<std::string, ScalarImmediateType> controlFlowSymbolDict;
     const std::vector<std::string> &inputNameList = slotManager->GetInputNameList();
