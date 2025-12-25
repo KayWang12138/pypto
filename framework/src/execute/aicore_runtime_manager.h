@@ -46,10 +46,12 @@ private:
     void SaveAllocatedAddrs(const std::vector<void *> &allocated_addrs);
     void AddHiddenInputCache(const int64_t &cache_id, int64_t *hidden_input);
     int64_t* GetHiddenInputCache(const int64_t &cache_id) const;
-    static bool GetAicoreRegInfo(const int32_t device_id, std::vector<int64_t> &aic, std::vector<int64_t> &aiv);
+    static bool GetAicoreRegInfo(const int32_t device_id, std::vector<int64_t> &aic, std::vector<int64_t> &aiv, uint32_t &validPgMask);
     static bool InitDyBinData(const std::vector<int64_t> &aic, const std::vector<int64_t> &aiv,
-                              DevAscendProgram *host_args, std::vector<void *> &allocated_addrs);
+                              DevAscendProgram *host_args, std::vector<void *> &allocated_addrs, uint32_t validPgMask);
+private:
     std::vector<void *> allocated_addrs_;
     std::unordered_map<int64_t, int64_t *> cache_hidden_input_map_;
+    uint32_t validGetPgMask_{true};
 };
 } // namespace fe

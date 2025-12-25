@@ -24,10 +24,12 @@ const int32_t INFO_TYPE_OCCUPY = 8;
 const uint64_t SHARE_BUFFER_SIZE = 512;
 const uint64_t AICPU_COUNT = 5;
 const uint64_t SCHE_AICPU_COUNT = 3;
-const uint64_t DEV_ARGS_SIZE = 4096;
+const uint64_t DEV_ARGS_SIZE = 4096; // too many tensors may over flow
 const uint64_t DEVICE_TASK_CTRL_SIZE = 7168;
 const uint64_t DEVICE_QUEUE_SIZE = 2048 * 3;
 const uint64_t DEVICE_SHM_SIZE = DEV_ARGS_SIZE + DEVICE_TASK_CTRL_SIZE + DEVICE_QUEUE_SIZE;
+const uint64_t AICPU_STITCH_SIZE = 2 * 1024 * 1024;
+const uint64_t GENERAL_SIZE = 8 * 1024 * 1024;
 
 bool GetPgmsk(const int32_t deviceId, uint64_t &valid) {
   uint64_t aicore_bitmap[AICORE_MAP_BUFF_LEN] = {0};
@@ -35,12 +37,13 @@ bool GetPgmsk(const int32_t deviceId, uint64_t &valid) {
   auto halFuncDevInfo = (int (*)(uint32_t deviceId, int32_t moduleType, int32_t infoType,
                          void* buf, int32_t *size))dlsym(nullptr, "halGetDeviceInfoByBuff");
   if (halFuncDevInfo == nullptr) {
-    TILE_FWK_LOGE("Failed to find halGetDeviceInfoByBuff function.\n");
+    TILE_FWK_LOGW("Failed to find halGetDeviceInfoByBuff function.\n");
     return false;
   }
   auto ret = halFuncDevInfo(static_cast<uint32_t>(deviceId), MODULE_TYPE_AI_CORE, INFO_TYPE_OCCUPY,
                             reinterpret_cast<void *>(&aicore_bitmap[0]), &size_n);
   if (ret != 0) {
+    TILE_FWK_LOGW("Failed to map aicore reg.\n");
     return false;
   }
   valid = aicore_bitmap[0];
@@ -95,13 +98,15 @@ int64_t* AicoreRtManager::GetHiddenInputCache(const int64_t &cache_id) const {
   return iter->second;
 }
 
-bool AicoreRtManager::GetAicoreRegInfo(const int32_t device_id, std::vector<int64_t> &aic, std::vector<int64_t> &aiv) {
+bool AicoreRtManager::GetAicoreRegInfo(const int32_t device_id, std::vector<int64_t> &aic, std::vector<int64_t> &aiv,
+    uint32_t &validPgMask) {
   int nrCore = 25;
   int nrSubCore = 3;
   uint64_t valid = 0;
   if (!GetPgmsk(device_id, valid)) {
-      TILE_FWK_LOGE("Failed to get device info or no valid core exists.");
-      return false;
+      TILE_FWK_LOGW("Failed to get device info or no valid core exists.");
+      valid = 0xFFFFFFFF;
+      validPgMask = 0;
   }
   TILE_FWK_LOGD("The valid cores are %ld", valid);
   uint64_t coreStride = 8 * 1024 * 1024; // 8M
@@ -143,7 +148,7 @@ bool AicoreRtManager::GetAicoreRegInfo(const int32_t device_id, std::vector<int6
 }
 
 bool AicoreRtManager::InitDyBinData(const std::vector<int64_t> &aic, const std::vector<int64_t> &aiv,
-                                    DevAscendProgram *host_args, std::vector<void *> &allocated_addrs) {
+                                    DevAscendProgram *host_args, std::vector<void *> &allocated_addrs, uint32_t validPgMask) {
   host_args->devArgs.nrAic = aic.size();
   host_args->devArgs.nrAiv = aiv.size();
   std::vector<int64_t> regs;
@@ -158,8 +163,9 @@ bool AicoreRtManager::InitDyBinData(const std::vector<int64_t> &aic, const std::
     TILE_FWK_LOGE("Failed to copy shared buffer to device.");
     return false;
   }
+  uint64_t meta_size = DEVICE_SHM_SIZE + AICPU_STITCH_SIZE + GENERAL_SIZE;
   uint64_t meta_addr = 0;
-  if (!AllocDevAddr((void**)&meta_addr, DEVICE_SHM_SIZE, allocated_addrs)) {
+  if (!AllocDevAddr((void**)&meta_addr, meta_size, allocated_addrs)) {
     TILE_FWK_LOGE("Failed to alloc meta addr.");
     return false;
   }
@@ -167,7 +173,12 @@ bool AicoreRtManager::InitDyBinData(const std::vector<int64_t> &aic, const std::
   host_args->devArgs.startArgsAddr = meta_addr;
   host_args->devArgs.taskCtrl = meta_addr + DEV_ARGS_SIZE;
   host_args->devArgs.taskQueue = meta_addr + DEV_ARGS_SIZE + DEVICE_TASK_CTRL_SIZE;
+  host_args->devArgs.generalAddr = host_args->devArgs.taskQueue + DEVICE_QUEUE_SIZE;
+  host_args->devArgs.stitchPoolAddr = host_args->devArgs.generalAddr + GENERAL_SIZE;
+  host_args->devArgs.isGETensorList = 1;
   host_args->devArgs.enableCtrl = 1;
+  host_args->devArgs.disableSync = 1;
+  host_args->devArgs.validGetPgMask = validPgMask;
   host_args->devArgs.scheCpuNum = SCHE_AICPU_COUNT;
   size_t core_reg_size = regs.size() * sizeof(uint64_t);
   if (!AllocDevAddr((void**)&host_args->devArgs.coreRegAddr, core_reg_size, allocated_addrs)) {
@@ -207,14 +218,15 @@ int64_t* AicoreRtManager::TileFwkHiddenInput(const std::vector<uint8_t> &op_bin,
 
   std::vector<int64_t> aic;
   std::vector<int64_t> aiv;
-  if (!GetAicoreRegInfo(device_id, aic, aiv)) {
+  uint32_t validPgMask = 1;
+  if (!GetAicoreRegInfo(device_id, aic, aiv, validPgMask)) {
     TILE_FWK_LOGE("Failed to get aicore reg info.");
     return nullptr;
   }
   TILE_FWK_LOGD("After get aicore reg info, size of aic and aiv is [%zu] and [%zu].", aic.size(), aiv.size());
 
   std::vector<void *> allocated_addrs;
-  if (!InitDyBinData(aic, aiv, host_args, allocated_addrs)) {
+  if (!InitDyBinData(aic, aiv, host_args, allocated_addrs, validPgMask)) {
     TILE_FWK_LOGE("Failed to init bin data.");
     BatchFreeDevAddr(allocated_addrs);
     return nullptr;
