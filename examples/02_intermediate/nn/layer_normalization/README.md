@@ -7,7 +7,6 @@
 规范化（Normalization）是 Transformer 架构中的关键组件。本样例涵盖了以下内容：
 - **LayerNorm**: 带有均值（Mean）和方差（Variance）计算的标准层规范化。
 - **RMSNorm**: 均方根规范化，是 LayerNorm 的一种简化变体，常用于 LLaMA 等大模型。
-- **静态形状 (Static Shapes)**: 固定 Batch Size 的高效实现。
 - **动态形状 (Dynamic Shapes)**: 支持可变 Batch Size 的实现方式。
 
 ## 代码结构
@@ -34,6 +33,10 @@ python3 layer_norm.py
 
 # 列出所有可用的样例
 python3 layer_norm.py --list
+
+# 运行特定样例
+python3 layer_norm.py layer_norm::test_layer_norm
+python3 layer_norm.py rms_norm::test_rms_norm
 ```
 
 ## 算法原理简述
@@ -59,13 +62,18 @@ output = gamma * (x / rms)
 ## 关键技术点
 
 ### 动态形状支持
-在处理可变 Batch 时，需要标记 `dynamic_axis` 并在 JIT 配置中开启支持：
-```python
-# 标记 Batch 维度为动态
-x_pto = pypto.from_torch(x_torch, dynamic_axis=[0])
 
-# 在 JIT 内核中配置
-def layer_norm_dynamic(...):
+使用 `pypto.frontend.dynamic("B")` 在模块级别定义动态批次维度：
+```python
+B = pypto.frontend.dynamic("B")
+HIDDEN_SIZE = 128
+
+@pypto.frontend.jit()
+def layer_norm_kernel_npu(
+    x: pypto.Tensor((B, HIDDEN_SIZE), pypto.DT_BF16),
+    gamma: pypto.Tensor((HIDDEN_SIZE,), pypto.DT_BF16),
+    beta: pypto.Tensor((HIDDEN_SIZE,), pypto.DT_BF16),
+) -> pypto.Tensor((B, HIDDEN_SIZE), pypto.DT_BF16):
     ...
 ```
 
@@ -73,6 +81,8 @@ def layer_norm_dynamic(...):
 规范化层大量使用了 `pypto.sum` 算子来计算均值和平方和。
 
 ## 注意事项
+
 - **精度**: 对于规范化运算，中间结果（如方差）的数值范围可能较大，建议在内部计算时使用 FP32 精度，最后输出再转回 FP16/BF16。
 - **Tiling**: 建议根据 `hidden_size` 的大小来设置分块形状，以确保向量单元被充分利用。
 - **验证**: 本样例所有输出均与 PyTorch 原生实现进行了精度比对。
+

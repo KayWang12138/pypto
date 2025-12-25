@@ -19,7 +19,7 @@
 - **`activation/`**:
   - `activation.py`: 实现了 SiLU, GELU, SwiGLU, GeGLU 等多种复杂激活函数。
 - **`softmax/`**:
-  - `test_softmax_custom.py`: 详细展示了 Softmax 算子的分步实现与优化。
+  - `softmax.py`: 详细展示了 Softmax 算子的分步实现与优化。
 
 ## 运行方法
 
@@ -44,8 +44,18 @@ python3 activation.py
 
 # 运行 Softmax 样例
 cd ../softmax
-python3 test_softmax_custom.py
+python3 softmax.py
 ```
+
+## 新前端特性
+
+本目录下的示例使用了 PyPTO 新前端 API，主要特点包括：
+
+- **装饰器**: 使用 `@pypto.frontend.jit()` 替代 `@pypto.jit`
+- **动态轴**: 使用 `pypto.frontend.dynamic("B")` 在模块级别定义动态维度
+- **类型注解**: 函数签名中明确指定张量形状和数据类型
+- **张量创建**: 函数内部使用 `pypto.tensor()` 创建输出张量
+- **直接传入**: 测试时直接传入 torch 张量，无需使用 `pypto.from_torch()` 转换
 
 ## 注意事项
 

@@ -5,7 +5,7 @@
 # CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
 # THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
-# INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 """
@@ -25,6 +25,7 @@ import sys
 import argparse
 import pypto
 import torch
+import torch_npu
 import numpy as np
 from numpy.testing import assert_allclose
 
@@ -50,7 +51,13 @@ def get_device_id():
         return None
 
 
-def softmax_core(input_tensor: pypto.tensor) -> pypto.tensor:
+B = pypto.frontend.dynamic("B")
+N1 = 32
+N2 = 1
+DIM = 256
+
+
+def softmax_core(x: pypto.Tensor) -> pypto.Tensor:
     """
     Core softmax computation: exp(x - max(x)) / sum(exp(x - max(x))).
 
@@ -64,99 +71,81 @@ def softmax_core(input_tensor: pypto.tensor) -> pypto.tensor:
     pypto.tensor
         Softmax normalized tensor
     """
-    # Find maximum for numerical stability
-    row_max = pypto.amax(input_tensor, dim=-1, keepdim=True)
-
-    # Subtract maximum
-    sub = pypto.sub(input_tensor, row_max)
-
-    # Compute exponentials
+    row_max = pypto.amax(x, dim=-1, keepdim=True)
+    sub = x - row_max
     exp = pypto.exp(sub)
-
-    # Sum exponentials
     esum = pypto.sum(exp, dim=-1, keepdim=True)
+    return exp / esum
 
-    return pypto.div(exp, esum)
 
-
-@pypto.jit(runtime_options={"run_mode": pypto.RunMode.NPU})
-def softmax_npu(input_tensor, output_tensor):
-    """
-    Softmax implementation with dynamic batch size support.
-
-    This function processes input tensors in batches, applying softmax
-    to each batch independently. The batch dimension is marked as dynamic,
-    allowing variable batch sizes at runtime.
-
-    Parameters
-    ----------
-    inputs : list
-        List containing input tensor [batch, n1, n2, dim]
-    outputs : list
-        List containing output tensor [batch, n1, n2, dim]
-    """
-    # After the dynamic axis of tensor is marked, get the tensor shape accordingly
-    tensor_shape = input_tensor.shape
-    b = tensor_shape[0]  # Dynamic batch size
-    n1, n2, dim = tensor_shape[1:]  # Static dimensions
+@pypto.frontend.jit()
+def softmax_npu(
+    input_tensor: pypto.Tensor((B, N1, N2, DIM), pypto.DT_FP32),
+) -> pypto.Tensor((B, N1, N2, DIM), pypto.DT_FP32):
+    output_tensor = pypto.tensor((B, N1, N2, DIM), pypto.DT_FP32)
     tile_b = 1  # Process one batch at a time
-    b_loop = b // tile_b
+    b_loop = B // tile_b
 
     # Tiling shape setting for efficient execution
     pypto.set_vec_tile_shapes(1, 4, 1, 64)
 
     for idx in pypto.loop(0, b_loop, 1, name="LOOP_L0_bIdx", idx_name="idx"):
         b_offset = idx * tile_b
-        b_offset_end = (idx + 1) * tile_b
-
-        # Extract batch slice
-        input_view = input_tensor[b_offset:b_offset_end, :n1, :n2, :dim]
-
-        # Apply softmax to batch slice
+        b_offset_end = pypto.min((idx + 1) * tile_b, B)
+        input_view = pypto.view(input_tensor, [tile_b, N1, N2, DIM], [b_offset, 0, 0, 0], valid_shape=[b_offset_end - b_offset, N1, N2, DIM])
         softmax_out = softmax_core(input_view)
+        output_tensor[b_offset:, ...] = softmax_out
+    return output_tensor
 
-        # Assemble result back to output tensor
-        pypto.assemble(softmax_out, [b_offset, 0, 0, 0], output_tensor)
 
+# @pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})
+# def softmax_sim(
+#     input_tensor: pypto.Tensor((B, N1, N2, DIM), pypto.DT_FP32),
+# ) -> pypto.Tensor((B, N1, N2, DIM), pypto.DT_FP32):
+#     """
+#     Softmax implementation with dynamic batch size support.
 
-@pypto.jit(runtime_options={"run_mode": pypto.RunMode.SIM})
-def softmax_sim(input_tensor, output_tensor):
-    """
-    Softmax implementation with dynamic batch size support.
+#     This function processes input tensors in batches, applying softmax
+#     to each batch independently. The batch dimension is marked as dynamic,
+#     allowing variable batch sizes at runtime.
 
-    This function processes input tensors in batches, applying softmax
-    to each batch independently. The batch dimension is marked as dynamic,
-    allowing variable batch sizes at runtime.
+#     Parameters
+#     ----------
+#     input_tensor : pypto.Tensor((B, N1, N2, DIM), pypto.DT_FP32)
+#         Input tensor [batch, n1, n2, dim]
 
-    Parameters
-    ----------
-    inputs : list
-        List containing input tensor [batch, n1, n2, dim]
-    outputs : list
-        List containing output tensor [batch, n1, n2, dim]
-    """
-    # After the dynamic axis of tensor is marked, get the tensor shape accordingly
-    tensor_shape = input_tensor.shape
-    b = tensor_shape[0]  # Dynamic batch size
-    n1, n2, dim = tensor_shape[1:]  # Static dimensions
-    tile_b = 1  # Process one batch at a time
-    b_loop = b // tile_b
+#     Returns
+#     -------
+#     pypto.Tensor((B, N1, N2, DIM), pypto.DT_FP32)
+#         Softmax normalized tensor [batch, n1, n2, dim]
+#     """
+#     # After the dynamic axis of tensor is marked, get the tensor shape accordingly
+#     tensor_shape = input_tensor.shape
+#     b = tensor_shape[0]  # Dynamic batch size
+#     n1, n2, dim = tensor_shape[1:]  # Static dimensions
+#     tile_b = 1  # Process one batch at a time
+#     b_loop = b // tile_b
 
-    # Tiling shape setting for efficient execution
-    pypto.set_vec_tile_shapes(1, 4, 1, 64)
+#     # Tiling shape setting for efficient execution
+#     pypto.set_vec_tile_shapes(1, 4, 1, 64)
 
-    for idx in pypto.loop(0, b_loop, 1, name="LOOP_L0_bIdx", idx_name="idx"):
-        b_offset = idx * tile_b
-        b_offset_end = (idx + 1) * tile_b
+#     # Create output tensor
+#     output_tensor = pypto.tensor(tensor_shape, input_tensor.dtype)
 
-        # Extract batch slice
-        input_view = input_tensor[b_offset:b_offset_end, :n1, :n2, :dim]
+#     for idx in pypto.loop(0, b_loop, 1, name="LOOP_L0_bIdx", idx_name="idx"):
+#         b_offset = idx * tile_b
+#         b_offset_end = (idx + 1) * tile_b
 
-        # Apply softmax to batch slice
-        softmax_out = softmax_core(input_view)
+#         # Extract batch slice
+#         input_view = input_tensor[b_offset:b_offset_end, :n1, :n2, :dim]
 
-        # Assemble result back to output tensor
-        pypto.assemble(softmax_out, [b_offset, 0, 0, 0], output_tensor)
+#         # Apply softmax to batch slice
+#         softmax_out = softmax_core(input_view)
+
+#         # Assemble result back to output tensor
+#         pypto.assemble(softmax_out, [b_offset, 0, 0, 0], output_tensor)
+
+#     return output_tensor
 
 
 def test_softmax(tensor_type, run_mode):
@@ -175,38 +164,22 @@ def test_softmax(tensor_type, run_mode):
     device_id = torch.npu.current_device() if tensor_type == 'npu' else 0
 
     # Prepare data
-    input_data = torch.rand(shape, dtype=torch.float32, device=f'npu:{device_id}') if tensor_type == 'npu' else torch.rand(shape, dtype=torch.float32)
-    output_data = torch.zeros(shape, dtype=torch.float32, device=f'npu:{device_id}') if tensor_type == 'npu' else torch.zeros(shape, dtype=torch.float32)
-
-    # Initialize PyPTO inputs and outputs
-    # Mark dynamic axis: the actual size of the axis can be any integer number during runtime
-    inputs = {
-        input_data: [0]
-    }
-    outputs = {
-        output_data: [0]
-    }
-    pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
-    pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
-
-    # Launch the kernel
-    if run_mode == "sim":
-        softmax_sim(*pto_inputs, *pto_outputs)
-    else:
-        softmax_npu(*pto_inputs, *pto_outputs)
-        pypto.runtime._device_synchronize()
+    input_tensor = torch.rand(shape, dtype=torch.float32, device=f'npu:{device_id}') if tensor_type == 'npu' else torch.rand(shape, dtype=torch.float32)
+    
+    if run_mode == 'npu':
+        output_tensor = softmax_npu(input_tensor).cpu()
+    # else:
+    #     output_tensor = softmax_sim(input_tensor)
 
     # Verify against PyTorch reference
-    torch_softmax = torch.softmax(input_data, dim=3)
-    npu_data = output_data.cpu()
-    torch_data = torch_softmax.cpu()
+    torch_softmax = torch.softmax(input_tensor, dim=3).cpu()
 
-    max_diff = np.abs(npu_data.numpy() - torch_data.numpy()).max()
-    print(f"Input shape: {input_data.shape}")
-    print(f"Output shape: {output_data.shape}")
+    max_diff = np.abs(output_tensor.numpy() - torch_softmax.numpy()).max()
+    print(f"Input shape: {input_tensor.shape}")
+    print(f"Output shape: {output_tensor.shape}")
     print(f"Max difference: {max_diff:.6f}")
-    if run_mode == "npu":
-        assert_allclose(np.array(npu_data), np.array(torch_data), rtol=3e-3, atol=3e-3)
+    if run_mode == 'npu':
+        assert_allclose(np.array(output_tensor), np.array(torch_softmax), rtol=3e-3, atol=3e-3)
     print("✓ Softmax test passed")
     print()
 
@@ -223,8 +196,9 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  %(prog)s --run_mode=sim          Run the example on simulator
-  %(prog)s --tensor_type=cpu       Init tensor with cpu
+  %(prog)s                      Run the example on NPU
+  %(prog)s --run_mode=sim       Run the example on simulator
+  %(prog)s --tensor_type=cpu    Init tensor with CPU
         """
     )
     parser.add_argument("--run_mode", "--run-mode", nargs="?", type=str, default="npu",
@@ -238,14 +212,14 @@ Examples:
 
     # check run mode and tensor type
     if args.run_mode == "sim" and args.tensor_type == "npu":
-        print(f"Error:Invalid parameters, tensor type(npu) and run mode(sim) can not be used at same time.")
+        print(f"Error: Invalid parameters, tensor type(npu) and run mode(sim) can not be used at same time.")
         print(f"Tensor with npu can not be executed on sim.")
         sys.exit(1)
 
     # Get and validate device ID (needed for NPU examples)
     device_id = None
     # Check if any example requires NPU
-    if args.run_mode == "npu":
+    if args.tensor_type == "npu":
         device_id = get_device_id()
         if device_id is None:
             return

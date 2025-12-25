@@ -8,7 +8,7 @@
 
 ### 1. 基础操作 ([basic](basic/))
 - **内容**: 展示了最基础的张量创建、逐元素运算、矩阵乘法、View 操作以及简单算子组合。包含张量创建操作和符号标量（Symbolic Scalar）的使用。
-- **核心特性**: `pypto.tensor`, `@pypto.jit`, `pypto.from_torch`, `pypto.view`, `pypto.assemble`, `pypto.scalar`。
+- **核心特性**: `pypto.tensor`, `@pypto.frontend.jit`, `pypto.view`, `pypto.assemble`。
 - **推荐人群**: 初次接触 PyPTO 的开发者。
 
 ### 3. 计算算子 ([compute](compute/))
@@ -23,8 +23,8 @@
 - **核心特性**: `pypto.set_vec_tile_shapes`, `pypto.set_cube_tile_shapes`。
 
 ### 5. 变换算子 ([transform](transform/))
-- **内容**: 展示张量形状变换、切片、转置等操作。
-- **核心特性**: `pypto.transpose`, `pypto.reshape`, `pypto.slice`。
+- **内容**: 展示张量形状变换、转置等操作。
+- **核心特性**: `pypto.reshape`, `pypto.transpose`。
 
 ## 运行方法
 

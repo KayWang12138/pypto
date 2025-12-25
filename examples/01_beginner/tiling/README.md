@@ -47,6 +47,7 @@ python3 tiling_config.py cube_tile::test_set_cube_tile_shapes_basic
 
 ### 1. Cube Tiling (矩阵乘法)
 Cube Tiling 配置三个维度的分块大小：M、K 和 N。
+
 ```python
 # 设置 Cube Tile 形状：[M_tile], [K_tile], [N_tile]
 pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
@@ -54,6 +55,7 @@ pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
 
 ### 2. Vector Tiling (向量/逐元素运算)
 Vector Tiling 的分块数量必须与张量的维度（1-4维）匹配。
+
 ```python
 # 设置 3 维张量的 Vector Tile 形状
 pypto.set_vec_tile_shapes(1, 2, 8)
@@ -71,3 +73,4 @@ pypto.set_vec_tile_shapes(1, 2, 8)
 ## 注意事项
 - Tiling 配置必须在 JIT 内核函数内部、实际计算发生之前进行。
 - 验证分块大小时，请确保分块形状不大于张量的实际形状（除非开启了自动 Padding 机制）。
+

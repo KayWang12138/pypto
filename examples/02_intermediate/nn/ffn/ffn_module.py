@@ -25,14 +25,10 @@ from numpy.testing import assert_allclose
 import math
 from ffn_module_impl import (
     FFNConfig,
-    ffn_static_gule_kernel_npu,
-    ffn_static_gule_kernel_sim,
+    ffn_static_gelu_kernel_npu,
     ffn_static_relu_kernel_npu,
-    ffn_static_relu_kernel_sim,
     ffn_static_swiglu_kernel_npu,
-    ffn_static_swiglu_kernel_sim,
     ffn_dynamic_gelu_kernel_npu,
-    ffn_dynamic_gelu_kernel_sim
 )
 
 def get_device_id():
@@ -65,36 +61,29 @@ def swiglu_torch(gate, up):
     return swish * up
 
 def ffn(hidden_states_torch: torch.Tensor, gate_proj_weight_torch: torch.Tensor, up_proj_weight_torch: torch.Tensor, down_proj_weight_torch: torch.Tensor, config: FFNConfig, use_dynamic: bool, run_mode: str = "npu") -> torch.Tensor:
-    hidden_states = pypto.from_torch(hidden_states_torch)
-    gate_proj_weight = pypto.from_torch(gate_proj_weight_torch)
-    up_proj_weight = pypto.from_torch(up_proj_weight_torch)
-    down_proj_weight = pypto.from_torch(down_proj_weight_torch) 
-    output_torch = torch.zeros(hidden_states_torch.shape, dtype=hidden_states_torch.dtype, device=hidden_states_torch.device)
-    output = pypto.from_torch(output_torch) 
-    
     # ffn_module = create_ffn_module(config, use_dynamic=use_dynamic)
     if use_dynamic == False:
         if config.activation == "gelu":
             if run_mode == "npu":
-                ffn_static_gule_kernel_npu(hidden_states, gate_proj_weight,  down_proj_weight, output, config)
+                result = ffn_static_gelu_kernel_npu(hidden_states_torch, gate_proj_weight_torch, down_proj_weight_torch, config)
             else:
-                ffn_static_gule_kernel_sim(hidden_states, gate_proj_weight,  down_proj_weight, output, config)
+                result = ffn_static_gelu_kernel_sim(hidden_states_torch, gate_proj_weight_torch, down_proj_weight_torch, config)
         if config.activation == "swiglu":
             if run_mode == "npu":
-                ffn_static_swiglu_kernel_npu(hidden_states, gate_proj_weight, up_proj_weight, down_proj_weight, output, config)
+                result = ffn_static_swiglu_kernel_npu(hidden_states_torch, gate_proj_weight_torch, up_proj_weight_torch, down_proj_weight_torch, config)
             else:
-                ffn_static_swiglu_kernel_sim(hidden_states, gate_proj_weight, up_proj_weight, down_proj_weight, output, config)
+                result = ffn_static_swiglu_kernel_sim(hidden_states_torch, gate_proj_weight_torch, up_proj_weight_torch, down_proj_weight_torch, config)
         if config.activation == "relu":
             if run_mode == "npu":
-                ffn_static_relu_kernel_npu(hidden_states, gate_proj_weight, down_proj_weight, output, config)
+                result = ffn_static_relu_kernel_npu(hidden_states_torch, gate_proj_weight_torch, down_proj_weight_torch, config)
             else:
-                ffn_static_relu_kernel_sim(hidden_states, gate_proj_weight, down_proj_weight, output, config)
+                result = ffn_static_relu_kernel_sim(hidden_states_torch, gate_proj_weight_torch, down_proj_weight_torch, config)
     elif use_dynamic == True:
         if run_mode == "npu":
-            ffn_dynamic_gelu_kernel_npu(hidden_states, gate_proj_weight, down_proj_weight, output, config)
+            result = ffn_dynamic_gelu_kernel_npu(hidden_states_torch, gate_proj_weight_torch, down_proj_weight_torch, config)
         else:
-            ffn_dynamic_gelu_kernel_sim(hidden_states, gate_proj_weight, down_proj_weight, output, config)
-    return output_torch    
+            result = ffn_dynamic_gelu_kernel_sim(hidden_states_torch, gate_proj_weight_torch, down_proj_weight_torch, config)
+    return result    
 
 def test_ffn_static_gelu(device_id = None, run_mode: str = "npu", dynamic: bool = True):
     """Test static FFN with GELU activation."""

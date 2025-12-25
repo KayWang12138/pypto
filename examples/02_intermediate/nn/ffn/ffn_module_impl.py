@@ -129,15 +129,13 @@ def relu_activation_core(x: pypto.tensor) -> pypto.tensor:
     return pypto.maximum(x, zero)
 
 
-@pypto.jit
 def ffn_static_swiglu_kernel_npu(
-    hidden_states: pypto.tensor,
-    gate_proj_weight: pypto.tensor,
-    up_proj_weight: pypto.tensor,
-    down_proj_weight: pypto.tensor,
-    output: pypto.tensor,
+    hidden_states_npu: pypto.Tensor,
+    gate_proj_weight_npu: pypto.Tensor,
+    up_proj_weight_npu: pypto.Tensor,
+    down_proj_weight_npu: pypto.Tensor,
     config: FFNConfig
-):
+) -> pypto.Tensor:
     """
     Static FFN implementation with fixed batch size.
 
@@ -160,48 +158,54 @@ def ffn_static_swiglu_kernel_npu(
     config : FFNConfig
         FFN configuration
     """
-
-    batch_size = hidden_states.shape[0]
-    hidden_size = hidden_states.shape[1]
+    batch_size = hidden_states_npu.shape[0]
+    hidden_size = hidden_states_npu.shape[1]
     intermediate_size = config.intermediate_size
+    @pypto.frontend.jit()
+    def ffn_static_swiglu_kernel_jit(
+        hidden_states: pypto.Tensor((batch_size, hidden_size), pypto.DT_BF16),
+        gate_proj_weight: pypto.Tensor((hidden_size, intermediate_size), pypto.DT_BF16),
+        up_proj_weight: pypto.Tensor((hidden_size, intermediate_size), pypto.DT_BF16),
+        down_proj_weight: pypto.Tensor((intermediate_size, hidden_size), pypto.DT_BF16),
+    ) -> (pypto.Tensor((batch_size, hidden_size), pypto.DT_BF16)):
 
-    # Configure tiling for matrix operations
-    pypto.set_cube_tile_shapes(
-        [config.cube_tile_shape[0], config.cube_tile_shape[0]],
-        [config.cube_tile_shape[1], config.cube_tile_shape[1]],
-        [config.cube_tile_shape[2], config.cube_tile_shape[2]]
-    )
-    # pypto.set_matrix_size({batch_size, hidden_size, intermediate_size})
+        # Configure tiling for matrix operations
+        pypto.set_cube_tile_shapes(
+            [config.cube_tile_shape[0], config.cube_tile_shape[0]],
+            [config.cube_tile_shape[1], config.cube_tile_shape[1]],
+            [config.cube_tile_shape[2], config.cube_tile_shape[2]]
+        )
+        # pypto.set_matrix_size({batch_size, hidden_size, intermediate_size})
 
-    # Gate projection: [batch_size, hidden_size] @ [hidden_size, intermediate_size]
-    gate = pypto.matmul(hidden_states, gate_proj_weight, config.dtype)
+        # Gate projection: [batch_size, hidden_size] @ [hidden_size, intermediate_size]
+        gate = pypto.matmul(hidden_states, gate_proj_weight, config.dtype)
 
-    if config.activation == "swiglu":
-        # Up projection: [batch_size, hidden_size] @ [hidden_size, intermediate_size]
-        up = pypto.matmul(hidden_states, up_proj_weight, config.dtype)
+        if config.activation == "swiglu":
+            # Up projection: [batch_size, hidden_size] @ [hidden_size, intermediate_size]
+            up = pypto.matmul(hidden_states, up_proj_weight, config.dtype)
 
-        # SwiGLU activation
-        pypto.set_vec_tile_shapes(*config.vec_tile_shape)
-        activated = swiglu_activation_core(gate, up)
+            # SwiGLU activation
+            pypto.set_vec_tile_shapes(*config.vec_tile_shape)
+            activated = swiglu_activation_core(gate, up)
 
-    # Down projection: [batch_size, intermediate_size] @ [intermediate_size, hidden_size]
-    pypto.set_cube_tile_shapes(
-        [config.cube_tile_shape[0], config.cube_tile_shape[0]],
-        [config.cube_tile_shape[1], config.cube_tile_shape[1]],
-        [config.cube_tile_shape[2], config.cube_tile_shape[2]]
-    )
-    pypto.set_matrix_size({batch_size, intermediate_size, hidden_size})
-    output[:] = pypto.matmul(activated, down_proj_weight, activated.dtype, b_trans=False)
+        # Down projection: [batch_size, intermediate_size] @ [intermediate_size, hidden_size]
+        pypto.set_cube_tile_shapes(
+            [config.cube_tile_shape[0], config.cube_tile_shape[0]],
+            [config.cube_tile_shape[1], config.cube_tile_shape[1]],
+            [config.cube_tile_shape[2], config.cube_tile_shape[2]]
+        )
+        pypto.set_matrix_size({batch_size, intermediate_size, hidden_size})
+        result = pypto.matmul(activated, down_proj_weight, activated.dtype, b_trans=False)
+        return result
+    return ffn_static_swiglu_kernel_jit(hidden_states_npu, gate_proj_weight_npu, up_proj_weight_npu, down_proj_weight_npu)
 
-@pypto.jit(runtime_options={"run_mode" : 1})
-def ffn_static_swiglu_kernel_sim(
-    hidden_states: pypto.tensor,
-    gate_proj_weight: pypto.tensor,
-    up_proj_weight: pypto.tensor,
-    down_proj_weight: pypto.tensor,
-    output: pypto.tensor,
+def ffn_static_gelu_kernel_npu(
+    hidden_states_npu: pypto.Tensor,
+    gate_proj_weight_npu: pypto.Tensor,
+    # up_proj_weight_npu: pypto.Tensor,
+    down_proj_weight_npu: pypto.Tensor,
     config: FFNConfig
-):
+) -> pypto.Tensor:
     """
     Static FFN implementation with fixed batch size.
 
@@ -224,173 +228,52 @@ def ffn_static_swiglu_kernel_sim(
     config : FFNConfig
         FFN configuration
     """
-
-    batch_size = hidden_states.shape[0]
-    hidden_size = hidden_states.shape[1]
+    batch_size = hidden_states_npu.shape[0]
+    hidden_size = hidden_states_npu.shape[1]
     intermediate_size = config.intermediate_size
+    @pypto.frontend.jit()
+    def ffn_static_gelu_kernel_jit(
+        hidden_states: pypto.Tensor((batch_size, hidden_size), pypto.DT_BF16),
+        gate_proj_weight: pypto.Tensor((hidden_size, intermediate_size), pypto.DT_BF16),
+        # up_proj_weight: pypto.Tensor((hidden_size, intermediate_size), pypto.DT_BF16),
+        down_proj_weight: pypto.Tensor((intermediate_size, hidden_size), pypto.DT_BF16),
+    ) -> (pypto.Tensor((batch_size, hidden_size), pypto.DT_BF16)):
 
-    # Configure tiling for matrix operations
-    pypto.set_cube_tile_shapes(
-        [config.cube_tile_shape[0], config.cube_tile_shape[0]],
-        [config.cube_tile_shape[1], config.cube_tile_shape[1]],
-        [config.cube_tile_shape[2], config.cube_tile_shape[2]]
-    )
-    # pypto.set_matrix_size({batch_size, hidden_size, intermediate_size})
+        # Configure tiling for matrix operations
+        pypto.set_cube_tile_shapes(
+            [config.cube_tile_shape[0], config.cube_tile_shape[0]],
+            [config.cube_tile_shape[1], config.cube_tile_shape[1]],
+            [config.cube_tile_shape[2], config.cube_tile_shape[2]]
+        )
+        # pypto.set_matrix_size({batch_size, hidden_size, intermediate_size})
 
-    # Gate projection: [batch_size, hidden_size] @ [hidden_size, intermediate_size]
-    gate = pypto.matmul(hidden_states, gate_proj_weight, config.dtype)
+        # Gate projection: [batch_size, hidden_size] @ [hidden_size, intermediate_size]
+        gate = pypto.matmul(hidden_states, gate_proj_weight, config.dtype)
+        
+        if config.activation == "gelu":
+            # GELU activation
+            pypto.set_vec_tile_shapes(*config.vec_tile_shape)
+            activated = gelu_activation_core(gate)
+        else:
+            raise ValueError(f"Unsupported activation: {config.activation}")
 
-    if config.activation == "swiglu":
-        # Up projection: [batch_size, hidden_size] @ [hidden_size, intermediate_size]
-        up = pypto.matmul(hidden_states, up_proj_weight, config.dtype)
+        # Down projection: [batch_size, intermediate_size] @ [intermediate_size, hidden_size]
+        pypto.set_cube_tile_shapes(
+            [config.cube_tile_shape[0], config.cube_tile_shape[0]],
+            [config.cube_tile_shape[1], config.cube_tile_shape[1]],
+            [config.cube_tile_shape[2], config.cube_tile_shape[2]]
+        )
+        pypto.set_matrix_size({batch_size, intermediate_size, hidden_size})
+        result = pypto.matmul(activated, down_proj_weight, activated.dtype, b_trans=False)
+        return result
+    return ffn_static_gelu_kernel_jit(hidden_states_npu, gate_proj_weight_npu, down_proj_weight_npu)
 
-        # SwiGLU activation
-        pypto.set_vec_tile_shapes(*config.vec_tile_shape)
-        activated = swiglu_activation_core(gate, up)
-
-    # Down projection: [batch_size, intermediate_size] @ [intermediate_size, hidden_size]
-    pypto.set_cube_tile_shapes(
-        [config.cube_tile_shape[0], config.cube_tile_shape[0]],
-        [config.cube_tile_shape[1], config.cube_tile_shape[1]],
-        [config.cube_tile_shape[2], config.cube_tile_shape[2]]
-    )
-    pypto.set_matrix_size({batch_size, intermediate_size, hidden_size})
-    output[:] = pypto.matmul(activated, down_proj_weight, activated.dtype, b_trans=False)            
-
-@pypto.jit
-def ffn_static_gule_kernel_npu(
-    hidden_states: pypto.tensor,
-    gate_proj_weight: pypto.tensor,
-    # up_proj_weight: pypto.tensor,
-    down_proj_weight: pypto.tensor,
-    output: pypto.tensor,
-    config: FFNConfig
-):
-    """
-    Static FFN implementation with fixed batch size.
-
-    Architecture:
-        hidden_states -> [gate_proj] -> [activation] -> [down_proj] -> output
-                        -> [up_proj]  (for SwiGLU)
-
-    Parameters
-    ----------
-    hidden_states : pypto.tensor
-        Input tensor of shape [batch_size, hidden_size]
-    gate_proj_weight : pypto.tensor
-        Gate projection weight of shape [hidden_size, intermediate_size]
-    up_proj_weight : pypto.tensor
-        Up projection weight of shape [hidden_size, intermediate_size] (for SwiGLU)
-    down_proj_weight : pypto.tensor
-        Down projection weight of shape [intermediate_size, hidden_size]
-    output : pypto.tensor
-        Output tensor of shape [batch_size, hidden_size]
-    config : FFNConfig
-        FFN configuration
-    """
-
-    batch_size = hidden_states.shape[0]
-    hidden_size = hidden_states.shape[1]
-    intermediate_size = config.intermediate_size
-
-    # Configure tiling for matrix operations
-    pypto.set_cube_tile_shapes(
-        [config.cube_tile_shape[0], config.cube_tile_shape[0]],
-        [config.cube_tile_shape[1], config.cube_tile_shape[1]],
-        [config.cube_tile_shape[2], config.cube_tile_shape[2]]
-    )
-    # pypto.set_matrix_size({batch_size, hidden_size, intermediate_size})
-
-    # Gate projection: [batch_size, hidden_size] @ [hidden_size, intermediate_size]
-    gate = pypto.matmul(hidden_states, gate_proj_weight, config.dtype)
-    
-    if config.activation == "gelu":
-        # GELU activation
-        pypto.set_vec_tile_shapes(*config.vec_tile_shape)
-        activated = gelu_activation_core(gate)
-    else:
-        raise ValueError(f"Unsupported activation: {config.activation}")
-
-    # Down projection: [batch_size, intermediate_size] @ [intermediate_size, hidden_size]
-    pypto.set_cube_tile_shapes(
-        [config.cube_tile_shape[0], config.cube_tile_shape[0]],
-        [config.cube_tile_shape[1], config.cube_tile_shape[1]],
-        [config.cube_tile_shape[2], config.cube_tile_shape[2]]
-    )
-    pypto.set_matrix_size({batch_size, intermediate_size, hidden_size})
-    output[:] = pypto.matmul(activated, down_proj_weight, activated.dtype, b_trans=False)
-
-@pypto.jit(runtime_options={"run_mode" : 1})
-def ffn_static_gule_kernel_sim(
-    hidden_states: pypto.tensor,
-    gate_proj_weight: pypto.tensor,
-    # up_proj_weight: pypto.tensor,
-    down_proj_weight: pypto.tensor,
-    output: pypto.tensor,
-    config: FFNConfig
-):
-    """
-    Static FFN implementation with fixed batch size.
-
-    Architecture:
-        hidden_states -> [gate_proj] -> [activation] -> [down_proj] -> output
-                        -> [up_proj]  (for SwiGLU)
-
-    Parameters
-    ----------
-    hidden_states : pypto.tensor
-        Input tensor of shape [batch_size, hidden_size]
-    gate_proj_weight : pypto.tensor
-        Gate projection weight of shape [hidden_size, intermediate_size]
-    up_proj_weight : pypto.tensor
-        Up projection weight of shape [hidden_size, intermediate_size] (for SwiGLU)
-    down_proj_weight : pypto.tensor
-        Down projection weight of shape [intermediate_size, hidden_size]
-    output : pypto.tensor
-        Output tensor of shape [batch_size, hidden_size]
-    config : FFNConfig
-        FFN configuration
-    """
-
-    batch_size = hidden_states.shape[0]
-    hidden_size = hidden_states.shape[1]
-    intermediate_size = config.intermediate_size
-
-    # Configure tiling for matrix operations
-    pypto.set_cube_tile_shapes(
-        [config.cube_tile_shape[0], config.cube_tile_shape[0]],
-        [config.cube_tile_shape[1], config.cube_tile_shape[1]],
-        [config.cube_tile_shape[2], config.cube_tile_shape[2]]
-    )
-    # pypto.set_matrix_size({batch_size, hidden_size, intermediate_size})
-
-    # Gate projection: [batch_size, hidden_size] @ [hidden_size, intermediate_size]
-    gate = pypto.matmul(hidden_states, gate_proj_weight, config.dtype)
-    
-    if config.activation == "gelu":
-        # GELU activation
-        pypto.set_vec_tile_shapes(*config.vec_tile_shape)
-        activated = gelu_activation_core(gate)
-    else:
-        raise ValueError(f"Unsupported activation: {config.activation}")
-
-    # Down projection: [batch_size, intermediate_size] @ [intermediate_size, hidden_size]
-    pypto.set_cube_tile_shapes(
-        [config.cube_tile_shape[0], config.cube_tile_shape[0]],
-        [config.cube_tile_shape[1], config.cube_tile_shape[1]],
-        [config.cube_tile_shape[2], config.cube_tile_shape[2]]
-    )
-    pypto.set_matrix_size({batch_size, intermediate_size, hidden_size})
-    output[:] = pypto.matmul(activated, down_proj_weight, activated.dtype, b_trans=False)
-
-@pypto.jit
 def ffn_static_relu_kernel_npu(
-    hidden_states: pypto.tensor,
-    gate_proj_weight: pypto.tensor,
-    down_proj_weight: pypto.tensor,
-    output: pypto.tensor,
+    hidden_states_npu: pypto.Tensor,
+    gate_proj_weight_npu: pypto.Tensor,
+    down_proj_weight_npu: pypto.Tensor,
     config: FFNConfig
-):
+) -> pypto.Tensor:
     """
     Static FFN implementation with fixed batch size.
 
@@ -413,108 +296,51 @@ def ffn_static_relu_kernel_npu(
     config : FFNConfig
         FFN configuration
     """
-
-    batch_size = hidden_states.shape[0]
-    hidden_size = hidden_states.shape[1]
+    batch_size = hidden_states_npu.shape[0]
+    hidden_size = hidden_states_npu.shape[1]
     intermediate_size = config.intermediate_size
+    @pypto.frontend.jit()
+    def ffn_static_relu_kernel_jit(
+        hidden_states: pypto.Tensor((batch_size, hidden_size), pypto.DT_FP16),
+        gate_proj_weight: pypto.Tensor((hidden_size, intermediate_size), pypto.DT_FP16),
+        down_proj_weight: pypto.Tensor((intermediate_size, hidden_size), pypto.DT_FP16),
+    ) -> (pypto.Tensor((batch_size, hidden_size), pypto.DT_FP16)):
 
-    # Configure tiling for matrix operations
-    pypto.set_cube_tile_shapes(
-        [config.cube_tile_shape[0], config.cube_tile_shape[0]],
-        [config.cube_tile_shape[1], config.cube_tile_shape[1]],
-        [config.cube_tile_shape[2], config.cube_tile_shape[2]]
-    )
-    # pypto.set_matrix_size({batch_size, hidden_size, intermediate_size})
+        # Configure tiling for matrix operations
+        pypto.set_cube_tile_shapes(
+            [config.cube_tile_shape[0], config.cube_tile_shape[0]],
+            [config.cube_tile_shape[1], config.cube_tile_shape[1]],
+            [config.cube_tile_shape[2], config.cube_tile_shape[2]]
+        )
+        # pypto.set_matrix_size({batch_size, hidden_size, intermediate_size})
 
-    # Gate projection: [batch_size, hidden_size] @ [hidden_size, intermediate_size]
-    gate = pypto.matmul(hidden_states, gate_proj_weight, config.dtype)
+        # Gate projection: [batch_size, hidden_size] @ [hidden_size, intermediate_size]
+        gate = pypto.matmul(hidden_states, gate_proj_weight, config.dtype)
 
-    if config.activation == "relu":
-        # ReLU activation
-        pypto.set_vec_tile_shapes(*config.vec_tile_shape)
-        activated = relu_activation_core(gate)
-    else:
-        raise ValueError(f"Unsupported activation: {config.activation}")
+        if config.activation == "relu":
+            # ReLU activation
+            pypto.set_vec_tile_shapes(*config.vec_tile_shape)
+            activated = relu_activation_core(gate)
+        else:
+            raise ValueError(f"Unsupported activation: {config.activation}")
 
-    # Down projection: [batch_size, intermediate_size] @ [intermediate_size, hidden_size]
-    pypto.set_cube_tile_shapes(
-        [config.cube_tile_shape[0], config.cube_tile_shape[0]],
-        [config.cube_tile_shape[1], config.cube_tile_shape[1]],
-        [config.cube_tile_shape[2], config.cube_tile_shape[2]]
-    )
-    pypto.set_matrix_size({batch_size, intermediate_size, hidden_size})
-    output[:] = pypto.matmul(activated, down_proj_weight, activated.dtype, b_trans=False)
-            
-@pypto.jit(runtime_options={"run_mode" : 1})
-def ffn_static_relu_kernel_sim(
-    hidden_states: pypto.tensor,
-    gate_proj_weight: pypto.tensor,
-    down_proj_weight: pypto.tensor,
-    output: pypto.tensor,
-    config: FFNConfig
-):
-    """
-    Static FFN implementation with fixed batch size.
+        # Down projection: [batch_size, intermediate_size] @ [intermediate_size, hidden_size]
+        pypto.set_cube_tile_shapes(
+            [config.cube_tile_shape[0], config.cube_tile_shape[0]],
+            [config.cube_tile_shape[1], config.cube_tile_shape[1]],
+            [config.cube_tile_shape[2], config.cube_tile_shape[2]]
+        )
+        pypto.set_matrix_size({batch_size, intermediate_size, hidden_size})
+        result = pypto.matmul(activated, down_proj_weight, activated.dtype, b_trans=False)
+        return result
+    return ffn_static_relu_kernel_jit(hidden_states_npu, gate_proj_weight_npu, down_proj_weight_npu)
 
-    Architecture:
-        hidden_states -> [gate_proj] -> [activation] -> [down_proj] -> output
-                        -> [up_proj]  (for SwiGLU)
-
-    Parameters
-    ----------
-    hidden_states : pypto.tensor
-        Input tensor of shape [batch_size, hidden_size]
-    gate_proj_weight : pypto.tensor
-        Gate projection weight of shape [hidden_size, intermediate_size]
-    up_proj_weight : pypto.tensor
-        Up projection weight of shape [hidden_size, intermediate_size] (for SwiGLU)
-    down_proj_weight : pypto.tensor
-        Down projection weight of shape [intermediate_size, hidden_size]
-    output : pypto.tensor
-        Output tensor of shape [batch_size, hidden_size]
-    config : FFNConfig
-        FFN configuration
-    """
-
-    batch_size = hidden_states.shape[0]
-    hidden_size = hidden_states.shape[1]
-    intermediate_size = config.intermediate_size
-
-    # Configure tiling for matrix operations
-    pypto.set_cube_tile_shapes(
-        [config.cube_tile_shape[0], config.cube_tile_shape[0]],
-        [config.cube_tile_shape[1], config.cube_tile_shape[1]],
-        [config.cube_tile_shape[2], config.cube_tile_shape[2]]
-    )
-    # pypto.set_matrix_size({batch_size, hidden_size, intermediate_size})
-
-    # Gate projection: [batch_size, hidden_size] @ [hidden_size, intermediate_size]
-    gate = pypto.matmul(hidden_states, gate_proj_weight, config.dtype)
-
-    if config.activation == "relu":
-        # ReLU activation
-        pypto.set_vec_tile_shapes(*config.vec_tile_shape)
-        activated = relu_activation_core(gate)
-    else:
-        raise ValueError(f"Unsupported activation: {config.activation}")
-
-    # Down projection: [batch_size, intermediate_size] @ [intermediate_size, hidden_size]
-    pypto.set_cube_tile_shapes(
-        [config.cube_tile_shape[0], config.cube_tile_shape[0]],
-        [config.cube_tile_shape[1], config.cube_tile_shape[1]],
-        [config.cube_tile_shape[2], config.cube_tile_shape[2]]
-    )
-    pypto.set_matrix_size({batch_size, intermediate_size, hidden_size})
-    output[:] = pypto.matmul(activated, down_proj_weight, activated.dtype, b_trans=False)
-
-@pypto.jit
 def ffn_dynamic_gelu_kernel_npu(
-    hidden_states: pypto.tensor,
-    gate_proj_weight: pypto.tensor,
-    down_proj_weight: pypto.tensor,
-    output: pypto.tensor,
+    hidden_states_npu: pypto.Tensor,
+    gate_proj_weight_npu: pypto.Tensor,
+    down_proj_weight_npu: pypto.Tensor,
     config: FFNConfig
-):
+) -> pypto.Tensor:
     """
     Dynamic FFN implementation with variable batch size.
 
@@ -536,139 +362,69 @@ def ffn_dynamic_gelu_kernel_npu(
         FFN configuration
     """
 
-    hidden_size = hidden_states.shape[1]
+    batch_size_dyn = hidden_states_npu.shape[0]
+    hidden_size_dyn = hidden_states_npu.shape[1]
     intermediate_size = config.intermediate_size
     basic_batch = config.basic_batch
 
     if basic_batch == 0:
         raise ValueError("basic_batch must be greater than 0")
 
-    # Calculate number of iterations needed
-    batch_size = hidden_states.shape[0]
-    num_iterations = ceil_div(batch_size, basic_batch)
+    @pypto.frontend.jit()
+    def ffn_dynamic_gelu_kernel_jit(
+        hidden_states: pypto.Tensor((batch_size_dyn, hidden_size_dyn), pypto.DT_BF16),
+        gate_proj_weight: pypto.Tensor((hidden_size_dyn, intermediate_size), pypto.DT_BF16),
+        down_proj_weight: pypto.Tensor((intermediate_size, hidden_size_dyn), pypto.DT_BF16),
+    ) -> (pypto.Tensor((batch_size_dyn, hidden_size_dyn), pypto.DT_BF16)):
 
-    # Process in chunks
-    for idx in pypto.loop(0, num_iterations, 1, name="LOOP_FFN_BATCH", idx_name="idx"):
+        # Calculate number of iterations needed
+        num_iterations = ceil_div(batch_size_dyn, basic_batch)
         
-        batch_offset = idx * basic_batch
+        # Create output tensor
+        output = pypto.Tensor((batch_size_dyn, hidden_size_dyn), config.dtype)
 
-        # View current batch chunk
-        hidden_chunk = pypto.view(
-            hidden_states,
-            [basic_batch, hidden_size],
-            [batch_offset, 0],
-            valid_shape=[(batch_size - batch_offset).min(basic_batch), hidden_size]
-        )
+        # Process in chunks
+        for idx in pypto.loop(0, num_iterations, 1, name="LOOP_FFN_BATCH", idx_name="idx"):
+            
+            batch_offset = idx * basic_batch
 
-        # Configure tiling for matrix operations
-        pypto.set_cube_tile_shapes(
-            [config.cube_tile_shape[0], config.cube_tile_shape[0]],
-            [config.cube_tile_shape[1], config.cube_tile_shape[1]],
-            [config.cube_tile_shape[2], config.cube_tile_shape[2]]
-        )
-        pypto.set_matrix_size({basic_batch, hidden_size, intermediate_size})
+            # View current batch chunk
+            hidden_chunk = pypto.view(
+                hidden_states,
+                [basic_batch, hidden_size_dyn],
+                [batch_offset, 0],
+                valid_shape=[(batch_size_dyn - batch_offset).min(basic_batch), hidden_size_dyn]
+            )
 
-        # Gate projection
-        gate = pypto.matmul(hidden_chunk, gate_proj_weight, config.dtype)
+            # Configure tiling for matrix operations
+            pypto.set_cube_tile_shapes(
+                [config.cube_tile_shape[0], config.cube_tile_shape[0]],
+                [config.cube_tile_shape[1], config.cube_tile_shape[1]],
+                [config.cube_tile_shape[2], config.cube_tile_shape[2]]
+            )
+            pypto.set_matrix_size({basic_batch, hidden_size_dyn, intermediate_size})
+
+            # Gate projection
+            gate = pypto.matmul(hidden_chunk, gate_proj_weight, config.dtype)
 
 
-        if config.activation == "gelu":
-            # GELU activation
-            pypto.set_vec_tile_shapes(*config.vec_tile_shape)
-            activated = gelu_activation_core(gate)
+            if config.activation == "gelu":
+                # GELU activation
+                pypto.set_vec_tile_shapes(*config.vec_tile_shape)
+                activated = gelu_activation_core(gate)
 
 
-        # Down projection
-        pypto.set_cube_tile_shapes(
-            [config.cube_tile_shape[0], config.cube_tile_shape[0]],
-            [config.cube_tile_shape[1], config.cube_tile_shape[1]],
-            [config.cube_tile_shape[2], config.cube_tile_shape[2]]
-        )
-        pypto.set_matrix_size({basic_batch, intermediate_size, hidden_size})
-        output_chunk = pypto.matmul(activated, down_proj_weight, config.dtype, b_trans=False)
+            # Down projection
+            pypto.set_cube_tile_shapes(
+                [config.cube_tile_shape[0], config.cube_tile_shape[0]],
+                [config.cube_tile_shape[1], config.cube_tile_shape[1]],
+                [config.cube_tile_shape[2], config.cube_tile_shape[2]]
+            )
+            pypto.set_matrix_size({basic_batch, intermediate_size, hidden_size_dyn})
+            output_chunk = pypto.matmul(activated, down_proj_weight, config.dtype, b_trans=False)
 
-        # Assemble result back to output
-        pypto.assemble(output_chunk, [batch_offset, 0], output)
-    
-@pypto.jit(runtime_options={"run_mode" : 1})
-def ffn_dynamic_gelu_kernel_sim(
-    hidden_states: pypto.tensor,
-    gate_proj_weight: pypto.tensor,
-    down_proj_weight: pypto.tensor,
-    output: pypto.tensor,
-    config: FFNConfig
-):
-    """
-    Dynamic FFN implementation with variable batch size.
-
-    Processes input in chunks of `basic_batch` size to handle dynamic batch dimensions.
-
-    Parameters
-    ----------
-    hidden_states : pypto.tensor
-        Input tensor with dynamic first dimension [batch_size, hidden_size]
-    gate_proj_weight : pypto.tensor
-        Gate projection weight of shape [hidden_size, intermediate_size]
-    up_proj_weight : pypto.tensor
-        Up projection weight of shape [hidden_size, intermediate_size] (for SwiGLU)
-    down_proj_weight : pypto.tensor
-        Down projection weight of shape [intermediate_size, hidden_size]
-    output : pypto.tensor
-        Output tensor with dynamic first dimension [batch_size, hidden_size]
-    config : FFNConfig
-        FFN configuration
-    """
-
-    hidden_size = hidden_states.shape[1]
-    intermediate_size = config.intermediate_size
-    basic_batch = config.basic_batch
-
-    if basic_batch == 0:
-        raise ValueError("basic_batch must be greater than 0")
-
-    # Calculate number of iterations needed
-    batch_size = hidden_states.shape[0]
-    num_iterations = ceil_div(batch_size, basic_batch)
-
-    # Process in chunks
-    for idx in pypto.loop(0, num_iterations, 1, name="LOOP_FFN_BATCH", idx_name="idx"):
+            # Assemble result back to output
+            pypto.assemble(output_chunk, [batch_offset, 0], output)
         
-        batch_offset = idx * basic_batch
-
-        # View current batch chunk
-        hidden_chunk = pypto.view(
-            hidden_states,
-            [basic_batch, hidden_size],
-            [batch_offset, 0],
-            valid_shape=[(batch_size - batch_offset).min(basic_batch), hidden_size]
-        )
-
-        # Configure tiling for matrix operations
-        pypto.set_cube_tile_shapes(
-            [config.cube_tile_shape[0], config.cube_tile_shape[0]],
-            [config.cube_tile_shape[1], config.cube_tile_shape[1]],
-            [config.cube_tile_shape[2], config.cube_tile_shape[2]]
-        )
-        pypto.set_matrix_size({basic_batch, hidden_size, intermediate_size})
-
-        # Gate projection
-        gate = pypto.matmul(hidden_chunk, gate_proj_weight, config.dtype)
-
-
-        if config.activation == "gelu":
-            # GELU activation
-            pypto.set_vec_tile_shapes(*config.vec_tile_shape)
-            activated = gelu_activation_core(gate)
-
-
-        # Down projection
-        pypto.set_cube_tile_shapes(
-            [config.cube_tile_shape[0], config.cube_tile_shape[0]],
-            [config.cube_tile_shape[1], config.cube_tile_shape[1]],
-            [config.cube_tile_shape[2], config.cube_tile_shape[2]]
-        )
-        pypto.set_matrix_size({basic_batch, intermediate_size, hidden_size})
-        output_chunk = pypto.matmul(activated, down_proj_weight, config.dtype, b_trans=False)
-
-        # Assemble result back to output
-        pypto.assemble(output_chunk, [batch_offset, 0], output)
+        return output
+    return ffn_dynamic_gelu_kernel_jit(hidden_states_npu, gate_proj_weight_npu, down_proj_weight_npu)

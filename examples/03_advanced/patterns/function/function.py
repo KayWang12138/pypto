@@ -97,281 +97,119 @@ def layernorm_core(x: pypto.Tensor, gamma: pypto.Tensor, beta: pypto.Tensor, eps
 
     scaled = normalized * gamma
     return scaled + beta
-
-
-@pypto.jit
-def layer_norm_kernel_npu(x: pypto.Tensor, gamma: pypto.Tensor, beta: pypto.Tensor, out: pypto.Tensor) -> None:
-    """Layer Normalization."""
-    pypto.set_vec_tile_shapes(64, 128)
-
-    out[:] = layernorm_core(x, gamma, beta)
-
-@pypto.jit(runtime_options={"run_mode": 1})
-def layer_norm_kernel_sim(x: pypto.Tensor, gamma: pypto.Tensor, beta: pypto.Tensor, out: pypto.Tensor) -> None:
-    """Layer Normalization."""
-    pypto.set_vec_tile_shapes(64, 128)
-
-    out[:] = layernorm_core(x, gamma, beta)
-        
+ 
 
 def layer_norm(x: torch.Tensor, gamma: torch.Tensor, beta: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
-    y = torch.empty_like(x)
-
-    if dynamic:
-        x_pto = pypto.from_torch(x, dynamic_axis=[0])
-        gamma_pto = pypto.from_torch(gamma, dynamic_axis=[0])
-        beta_pto = pypto.from_torch(beta, dynamic_axis=[0])
-        y_pto = pypto.from_torch(y, dynamic_axis=[0])
-    else:
-        x_pto = pypto.from_torch(x)
-        gamma_pto = pypto.from_torch(gamma)
-        beta_pto = pypto.from_torch(beta)
-        y_pto = pypto.from_torch(y)
-
-    # launch the kernel
+    x_shape, gamma_shape, beta_shape = x.shape, gamma.shape, beta.shape
     if run_mode == "npu":
-        layer_norm_kernel_npu(x_pto, gamma_pto, beta_pto, y_pto)
+        mode = pypto.RunMode.NPU
     else:
-        layer_norm_kernel_sim(x_pto, gamma_pto, beta_pto, y_pto)
+        mode = pypto.RunMode.SIM
+    # launch the kernel
 
-    return y
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
+    def layer_norm_kernel_npu(
+        x: pypto.Tensor(x_shape, pypto.DT_BF16), 
+        gamma: pypto.Tensor(gamma_shape, pypto.DT_BF16), 
+        beta: pypto.Tensor(beta_shape, pypto.DT_BF16),
+    ) -> (
+        pypto.Tensor(x_shape, pypto.DT_BF16)
+    ):
+        """Layer Normalization."""
+        print(x_shape, gamma_shape, beta_shape)
+        pypto.set_vec_tile_shapes(64, 128)
 
+        out = layernorm_core(x, gamma, beta)
+        
+        return out
+    
+    out = layer_norm_kernel_npu(x, gamma, beta)
 
-# Function 2: Linear Projection
-@pypto.jit
-def linear_projection_kernel_npu(x: pypto.Tensor, weight: pypto.Tensor, out: pypto.Tensor) -> None:
-    """Linear projection: y = x @ W + b"""
-    bias = None
-
-    pypto.set_cube_tile_shapes([64, 64], [64, 64], [64, 64])
-    # Matrix multiplication
-    if bias is not None:
-        out[:] = pypto.add(pypto.matmul(x, weight, out_dtype=x.dtype), bias)
-    else:
-        out[:] = pypto.matmul(x, weight, out_dtype=x.dtype)
-
-
-@pypto.jit(runtime_options={"run_mode": 1})
-def linear_projection_kernel_sim(x: pypto.Tensor, weight: pypto.Tensor, out: pypto.Tensor) -> None:
-    """Linear projection: y = x @ W + b"""
-    bias = None
-
-    pypto.set_cube_tile_shapes([64, 64], [64, 64], [64, 64])
-    # Matrix multiplication
-    if bias is not None:
-        out[:] = pypto.add(pypto.matmul(x, weight, out_dtype=x.dtype), bias)
-    else:
-        out[:] = pypto.matmul(x, weight, out_dtype=x.dtype)
+    return out
 
 
 def linear_projection(x: pypto.Tensor, weight: pypto.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
-    y = torch.empty_like(x)
-    if dynamic:
-        x_pto = pypto.from_torch(x, dynamic_axis=[0])
-        weight_pto = pypto.from_torch(weight, dynamic_axis=[0])
-        y_pto = pypto.from_torch(y, dynamic_axis=[0])
-    else:
-        x_pto = pypto.from_torch(x)
-        weight_pto = pypto.from_torch(weight)
-        y_pto = pypto.from_torch(y)
-
-    # launch the kernel
     if run_mode == "npu":
-        linear_projection_kernel_npu(x_pto, weight_pto, y_pto)
+        mode = pypto.RunMode.NPU
     else:
-        linear_projection_kernel_sim(x_pto, weight_pto, y_pto)
+        mode = pypto.RunMode.SIM
+    x_shape, w_shape = x.shape, weight.shape
+    out_shape = x_shape
+    # launch the kernel
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
+    def linear_projection_kernel_npu(
+        x: pypto.Tensor(x_shape, pypto.DT_BF16),
+        weight: pypto.Tensor(w_shape, pypto.DT_BF16), 
+        ) -> pypto.Tensor(out_shape, pypto.DT_BF16):
+        """Linear projection: y = x @ W + b"""
+        print(x_shape, w_shape, out_shape,"   linear_projection")
+        bias = None
 
-    return y
+        pypto.set_cube_tile_shapes([64, 64], [64, 64], [64, 64])
+        # Matrix multiplication
+        if bias is not None:
+            out = pypto.add(pypto.matmul(x, weight, out_dtype=x.dtype), bias)
+        else:
+            out = pypto.matmul(x, weight, out_dtype=x.dtype)
+            
+    out = linear_projection_kernel_npu(x, weight)
 
-
-# Function 3: GELU Activation
-@pypto.jit
-def gelu_activation_kernel_npu(x: pypto.tensor, y: pypto.tensor) -> None:
-    """
-    GELU (Gaussian Error Linear Unit) activation function.
-
-    Uses approximation: x * sigmoid(1.702 * x)
-    This is a fast approximation of the full GELU formula.
-
-    Parameters
-    ----------
-    x : pypto.tensor
-        Input tensor
-
-    Returns
-    -------
-    pypto.tensor
-        GELU activated tensor
-    """
-    # Configure tiling
-    if len(x.shape) >= 2:
-        n_tile = 32
-        tile_shapes = [n_tile for _ in range(len(x.shape))]
-        pypto.set_vec_tile_shapes(*tile_shapes)
-    else:
-        pypto.set_vec_tile_shapes(32, 128)
-
-    # GELU approximation: x * sigmoid(1.702 * x)
-    coeff = float(1.702)
-    x_scaled = x * coeff
-
-    # GELU(x) = x * sigmoid(1.702 * x)
-    y[:] =  x * pypto.sigmoid(x_scaled)
-
-
-@pypto.jit(runtime_options={"run_mode": 1})
-def gelu_activation_kernel_sim(x: pypto.tensor, y: pypto.tensor) -> None:
-    """
-    GELU (Gaussian Error Linear Unit) activation function.
-
-    Uses approximation: x * sigmoid(1.702 * x)
-    This is a fast approximation of the full GELU formula.
-
-    Parameters
-    ----------
-    x : pypto.tensor
-        Input tensor
-
-    Returns
-    -------
-    pypto.tensor
-        GELU activated tensor
-    """
-    # Configure tiling
-    if len(x.shape) >= 2:
-        n_tile = 32
-        tile_shapes = [n_tile for _ in range(len(x.shape))]
-        pypto.set_vec_tile_shapes(*tile_shapes)
-    else:
-        pypto.set_vec_tile_shapes(32, 128)
-
-    # GELU approximation: x * sigmoid(1.702 * x)
-    coeff = float(1.702)
-    x_scaled = x * coeff
-
-    # GELU(x) = x * sigmoid(1.702 * x)
-    y[:] =  x * pypto.sigmoid(x_scaled)
-
+    return out
 
 def gelu_activation(x: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
-    y = torch.empty_like(x)
-
-    if dynamic:
-        x_pto = pypto.from_torch(x, dynamic_axis=[0])
-        y_pto = pypto.from_torch(y, dynamic_axis=[0])
-    else:
-        x_pto = pypto.from_torch(x)
-        y_pto = pypto.from_torch(y)
-
-    # launch the kernel
     if run_mode == "npu":
-        gelu_activation_kernel_npu(x_pto, y_pto)
+        mode = pypto.RunMode.NPU
     else:
-        gelu_activation_kernel_sim(x_pto, y_pto)
+        mode = pypto.RunMode.SIM
+    x_shape = x.shape
+    # launch the kernel
+
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
+    def gelu_activation_kernel_npu(x: pypto.tensor(x_shape, pypto.DT_BF16)) -> pypto.tensor(x_shape, pypto.DT_BF16):
+        print(x_shape)
+        # Configure tiling
+
+        tile_shapes = [32 for _ in range(len(x.shape))]
+        pypto.set_vec_tile_shapes(*tile_shapes)
+
+        # GELU approximation: x * sigmoid(1.702 * x)
+        coeff = float(1.702)
+        x_scaled = x * coeff
+
+        # GELU(x) = x * sigmoid(1.702 * x)
+        y =  x * pypto.sigmoid(x_scaled)
+        return y
+    y = gelu_activation_kernel_npu(x)
 
     return y
 
 
 # Function 4: Residual Connection
-@pypto.jit
-def residual_add_kernel_npu(x: pypto.tensor, residual: pypto.tensor, out: pypto.tensor) -> None:
-    """Add residual connection: out = x + residual"""
-    pypto.set_vec_tile_shapes(64, 128)
-
-    out[:] = pypto.add(x, residual)
-
-
-@pypto.jit(runtime_options={"run_mode": 1})
-def residual_add_kernel_sim(x: pypto.tensor, residual: pypto.tensor, out: pypto.tensor) -> None:
-    """Add residual connection: out = x + residual"""
-    pypto.set_vec_tile_shapes(64, 128)
-
-    out[:] = pypto.add(x, residual)
-
 
 def residual_add(x: pypto.Tensor, residual: pypto.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
-    y = torch.empty_like(x)
-
-    if dynamic:
-        x_pto = pypto.from_torch(x, dynamic_axis=[0])
-        residual_pto = pypto.from_torch(residual, dynamic_axis=[0])
-        y_pto = pypto.from_torch(y, dynamic_axis=[0])
+    if run_mode == "npu":
+        mode = pypto.RunMode.NPU
     else:
-        x_pto = pypto.from_torch(x)
-        residual_pto = pypto.from_torch(residual)
-        y_pto = pypto.from_torch(y)
-
+        mode = pypto.RunMode.SIM
+    x_shape, res_shape = x.shape, residual.shape
     # launch the kernel
     if run_mode == "npu":
-        residual_add_kernel_npu(x_pto, residual_pto, y_pto)
-    else:
-        residual_add_kernel_sim(x_pto, residual_pto, y_pto)
+        @pypto.frontend.jit(runtime_options={"run_mode": mode})
+        def residual_add_kernel_npu(
+            x: pypto.tensor(x_shape, pypto.DT_BF16), 
+            residual: pypto.tensor(res_shape, pypto.DT_BF16),
+        ) -> (
+            pypto.tensor(x_shape, pypto.DT_BF16)
+        ):
+            print(x_shape, res_shape)
+            """Add residual connection: out = x + residual"""
+            pypto.set_vec_tile_shapes(64, 128)
 
-    return y
+            out = pypto.add(x, residual)
+            return out
+        out = residual_add_kernel_npu(x, residual)
 
-
-# Function 5: Attention (simplified)
-@pypto.jit
-def attention_kernel_npu(q: pypto.tensor, k: pypto.tensor, v: pypto.tensor, out: pypto.tensor, scale: float) -> None:
-    """Simplified attention mechanism."""
-    pypto.set_cube_tile_shapes([64, 64], [64, 64], [64, 64])
-
-    # Q @ K^T
-    k_t = pypto.transpose(k, [0, 1, 3, 2])
-    scores = pypto.matmul(q, k_t, out_dtype=q.dtype)
-
-    # Scale
-    scores_scaled = pypto.mul(scores, scale)
-
-    # Softmax
-    attn_weights = pypto.softmax(scores_scaled, dim=-1)
-
-    # Apply to values
-    out[:] = pypto.matmul(attn_weights, v, out_dtype=q.dtype)
-
-
-@pypto.jit(runtime_options={"run_mode": 1})
-def attention_kernel_sim(q: pypto.tensor, k: pypto.tensor, v: pypto.tensor, out: pypto.tensor, scale: float) -> None:
-    """Simplified attention mechanism."""
-    pypto.set_cube_tile_shapes([64, 64], [64, 64], [64, 64])
-
-    # Q @ K^T
-    k_t = pypto.transpose(k, [0, 1, 3, 2])
-    scores = pypto.matmul(q, k_t, out_dtype=q.dtype)
-
-    # Scale
-    scores_scaled = pypto.mul(scores, scale)
-
-    # Softmax
-    attn_weights = pypto.softmax(scores_scaled, dim=-1)
-
-    # Apply to values
-    out[:] = pypto.matmul(attn_weights, v, out_dtype=q.dtype)
-
-
-def attention(q: torch.Tensor, k: torch.Tensor, 
-                                 v: torch.Tensor, scale: float,
-                                 run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
-    y = torch.empty_like(q)
-
-    if dynamic:
-        q_pto = pypto.from_torch(q, dynamic_axis=[0])
-        k_pto = pypto.from_torch(k, dynamic_axis=[0])
-        v_pto = pypto.from_torch(v, dynamic_axis=[0])
-        y_pto = pypto.from_torch(y, dynamic_axis=[0])
-    else:
-        q_pto = pypto.from_torch(q)
-        k_pto = pypto.from_torch(k)
-        v_pto = pypto.from_torch(v)
-        y_pto = pypto.from_torch(y)
-
-    # launch the kernel
-    if run_mode == "npu":
-        attention_kernel_npu(q_pto, k_pto, v_pto, y_pto, y_pto, scale)
-    else:
-        attention_kernel_sim(q_pto, k_pto, v_pto, y_pto, y_pto, scale)
-
-    return y
+    return out
 
 
 def test_sequential_functions(device_id = None, run_mode: str = "npu", dynamic: bool = False) -> None:
@@ -510,7 +348,7 @@ def test_transformer_block(device_id = None, run_mode: str = "npu", dynamic: boo
     torch.npu.synchronize()
     up = linear_projection(normed, up_weight, run_mode, dynamic)
     torch.npu.synchronize()
-
+ 
     # 3. GELU activation on gate
     activated = gelu_activation(gate, run_mode, dynamic)
     torch.npu.synchronize()

@@ -5,7 +5,7 @@
 # CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
 # THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
-# INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 """
@@ -19,6 +19,7 @@ This example demonstrates how to implement a softmax operation using PyPTO, incl
 
 Softmax is a fundamental operation in neural networks, especially for attention mechanisms.
 """
+
 import os
 import sys
 import argparse
@@ -31,33 +32,35 @@ from numpy.testing import assert_allclose
 def get_device_id():
     """
     Get and validate TILE_FWK_DEVICE_ID from environment variable.
-    
+
     Returns:
         int: The device ID if valid, None otherwise.
     """
-    if 'TILE_FWK_DEVICE_ID' not in os.environ:
+    if "TILE_FWK_DEVICE_ID" not in os.environ:
         print("ERROR: Environment variable TILE_FWK_DEVICE_ID is not set.")
         print("Please set it before running this example:")
         print("  export TILE_FWK_DEVICE_ID=0")
         return None
-    
+
     try:
-        device_id = int(os.environ['TILE_FWK_DEVICE_ID'])
+        device_id = int(os.environ["TILE_FWK_DEVICE_ID"])
         return device_id
     except ValueError:
-        print(f"ERROR: TILE_FWK_DEVICE_ID must be an integer, got: {os.environ['TILE_FWK_DEVICE_ID']}")
+        print(
+            f"ERROR: TILE_FWK_DEVICE_ID must be an integer, got: {os.environ['TILE_FWK_DEVICE_ID']}"
+        )
         return None
 
 
 def softmax_core(x: pypto.Tensor) -> pypto.Tensor:
     """
     Core softmax computation: exp(x - max(x)) / sum(exp(x - max(x))).
-    
+
     Parameters
     ----------
     input_tensor : pypto.tensor
         Input tensor to apply softmax to
-        
+
     Returns
     -------
     pypto.tensor
@@ -70,65 +73,63 @@ def softmax_core(x: pypto.Tensor) -> pypto.Tensor:
     return exp / esum
 
 
-@pypto.jit
-def softmax_kernel_npu(x: pypto.Tensor, y: pypto.Tensor) -> None:
-    # after the dynamic axis of tensor is marked, get the tensor shape accordingly
-    tensor_shape = x.shape
-    b = tensor_shape[0] # dynamic: symbolic_scalar; static: immediate number
-    n1, n2, dim = tensor_shape[1:]
-    tile_b = 1
-    b_loop = b / tile_b
+B = pypto.frontend.dynamic("B")
+N1, N2, DIM = 32, 1, 256
 
-    # tiling shape setting
+
+@pypto.frontend.jit()
+def softmax_kernel_npu(
+    input_tensor: pypto.Tensor((B, N1, N2, DIM), pypto.DT_FP32),
+) -> pypto.Tensor((B, N1, N2, DIM), pypto.DT_FP32):
+    output_tensor = pypto.tensor((B, N1, N2, DIM), pypto.DT_FP32)
+    tile_b = 1  # Process one batch at a time
+    b_loop = B // tile_b
+
+    # Tiling shape setting for efficient execution
     pypto.set_vec_tile_shapes(1, 4, 1, 64)
 
-    for idx in pypto.loop(b_loop):
+    for idx in pypto.loop(0, b_loop, 1, name="LOOP_L0_bIdx", idx_name="idx"):
         b_offset = idx * tile_b
-        b_offset_end = (idx + 1) * tile_b
-        x_view = x[b_offset:b_offset_end, :n1, :n2, :dim]
-        softmax_out = softmax_core(x_view)
-        y[b_offset:, ...] = softmax_out
+        b_offset_end = pypto.min((idx + 1) * tile_b, B)
+        input_view = pypto.view(input_tensor, [tile_b, N1, N2, DIM], [b_offset, 0, 0, 0], valid_shape=[b_offset_end - b_offset, N1, N2, DIM])
+        softmax_out = softmax_core(input_view)
+        output_tensor[b_offset:, ...] = softmax_out
+    return output_tensor
 
 
-@pypto.jit(runtime_options={"run_mode": 1})
-def softmax_kernel_sim(x: pypto.Tensor, y: pypto.Tensor) -> None:
-    # after the dynamic axis of tensor is marked, get the tensor shape accordingly
-    tensor_shape = x.shape
-    b = tensor_shape[0] # dynamic: symbolic_scalar; static: immediate number
-    n1, n2, dim = tensor_shape[1:]
-    tile_b = 1
-    b_loop = b / tile_b
+@pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})
+def softmax_kernel_sim(
+    input_tensor: pypto.Tensor((B, N1, N2, DIM), pypto.DT_FP32),
+) -> pypto.Tensor((B, N1, N2, DIM), pypto.DT_FP32):
+    output_tensor = pypto.tensor((B, N1, N2, DIM), pypto.DT_FP32)
+    tile_b = 1  # Process one batch at a time
+    b_loop = B // tile_b
 
-    # tiling shape setting
+    # Tiling shape setting for efficient execution
     pypto.set_vec_tile_shapes(1, 4, 1, 64)
 
-    for idx in pypto.loop(b_loop):
+    for idx in pypto.loop(0, b_loop, 1, name="LOOP_L0_bIdx", idx_name="idx"):
         b_offset = idx * tile_b
         b_offset_end = (idx + 1) * tile_b
-        x_view = x[b_offset:b_offset_end, :n1, :n2, :dim]
-        softmax_out = softmax_core(x_view)
-        y[b_offset:, ...] = softmax_out
+        input_view = input_tensor[b_offset:b_offset_end, :N1, :N2, :DIM]
+        softmax_out = softmax_core(input_view)
+        output_tensor[b_offset:, ...] = softmax_out
+    return output_tensor
 
 
-def softmax(x: torch.Tensor, run_mode: str = "npu", dynamic: bool = True) -> torch.Tensor:
-    y = torch.empty_like(x)
-
-    if dynamic:
-        x_pto = pypto.from_torch(x, dynamic_axis=[0])
-        y_pto = pypto.from_torch(y, dynamic_axis=[0])
-    else:
-        x_pto = pypto.from_torch(x)
-        y_pto = pypto.from_torch(y)
-
-    # launch the kernel
+def softmax(input_tensor: torch.Tensor, run_mode: str = "npu") -> torch.Tensor:
     if run_mode == "npu":
-        softmax_kernel_npu(x_pto, y_pto)
+        return softmax_kernel_npu(input_tensor)
     else:
-        softmax_kernel_sim(x_pto, y_pto)
-    return y
+        return softmax_kernel_sim(input_tensor)
 
 
-def test_softmax(device_id = None, run_mode: str = "npu", dynamic: bool = True) -> None:
+def test_softmax(device_id=None, run_mode: str = "npu"):
+    """
+    Test softmax implementation against PyTorch reference.
+
+    Tests with shape [batch, n1, n2, dim] where batch is dynamic.
+    """
     if not device_id:
         device_id = torch.npu.current_device()
     else:
@@ -139,11 +140,13 @@ def test_softmax(device_id = None, run_mode: str = "npu", dynamic: bool = True) 
     else:
         device = 'cpu'
 
-    shape = (32, 32, 1, 256)
-    x = torch.rand(shape, dtype=torch.float, device=device)
 
-    y = softmax(x, run_mode, dynamic).cpu() # default dim: -1
-    golden = torch.softmax(x, dim=-1).cpu()
+    b_concrete = 32
+    shape = (b_concrete, N1, N2, DIM)
+    x = torch.rand(shape, dtype=torch.float32, device=device)
+
+    y = softmax(x, run_mode).cpu()
+    golden = torch.softmax(x, dim=3).cpu()
 
     max_diff = np.abs(y.numpy() - golden.numpy()).max()
     print(f"Input shape: {x.shape}")
@@ -155,10 +158,9 @@ def test_softmax(device_id = None, run_mode: str = "npu", dynamic: bool = True) 
     print("✓ Softmax test passed")
     print()
 
-
 def main():
     """Run softmax example.
-    
+
     Usage:
         python softmax.py          # Run example
         python softmax.py --list   # List available examples
@@ -168,94 +170,96 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  %(prog)s softmax::test_softmax
-            Run the softmax::test_softmax example
+  %(prog)s              Run the example
   %(prog)s --list       List all available examples
-        """
+        """,
     )
     parser.add_argument(
-        'example_id',
-        type=str,
-        nargs='?',
-        help='Example ID to run (1). If not specified, the example will run.'
+        "example_id",
+        type=int,
+        nargs="?",
+        help="Example ID to run (1). If not specified, the example will run.",
     )
     parser.add_argument(
-        '--list',
-        action='store_true',
-        help='List all available examples and exit'
+        "--list", action="store_true", help="List all available examples and exit"
     )
-    parser.add_argument(
-        '--run_mode',
-        type=str,
-        nargs='?',
-        default="npu",
-        choices=["npu", "sim"],
-        help='Run mode, such as npu/sim etc.'
-    )
-    
+
     args = parser.parse_args()
-    
+
     # Define available examples
     examples = {
-        "softmax::test_softmax": {
-            'name': 'Softmax',
-            'description': 'Softmax implementation with dynamic batch size',
-            'function': test_softmax
+        1: {
+            "name": "Softmax",
+            "description": "Softmax implementation with dynamic batch size",
+            "function": test_softmax,
+            "requires_npu": True,
         }
     }
-    
+
     # List examples if requested
     if args.list:
         print("\n" + "=" * 60)
         print("Available Examples")
         print("=" * 60 + "\n")
         for ex_id, ex_info in sorted(examples.items()):
-            print(f"  ID: {ex_id}")
-            print(f"     name: {ex_info['name']}")
-            print(f"     description: {ex_info['description']}\n")
+            npu_req = (
+                " (Requires NPU)" if ex_info["requires_npu"] else " (No NPU required)"
+            )
+            print(f"  {ex_id}. {ex_info['name']}{npu_req}")
+            print(f"     {ex_info['description']}\n")
         return
-    
+
     # Validate example ID if provided
     if args.example_id is not None:
         if args.example_id not in examples:
             print(f"ERROR: Invalid example ID: {args.example_id}")
-            print(f"Valid example IDs are: {', '.join(map(str, sorted(examples.keys())))}")
+            print(
+                f"Valid example IDs are: {', '.join(map(str, sorted(examples.keys())))}"
+            )
             print("\nUse --list to see all available examples.")
             sys.exit(1)
-    
+
     print("\n" + "=" * 60)
     print("PyPTO Softmax Example")
     print("=" * 60 + "\n")
-    
+
     # Get and validate device ID (needed for NPU examples)
     device_id = None
     examples_to_run = []
-    
+
     if args.example_id is not None:
         # Run single example
         examples_to_run = [(args.example_id, examples[args.example_id])]
     else:
         # Run all examples
         examples_to_run = list(examples.items())
-    
-    if args.run_mode == "npu":
+
+    # Check if any example requires NPU
+    requires_npu = any(ex_info["requires_npu"] for _, ex_info in examples_to_run)
+
+    if requires_npu:
         device_id = get_device_id()
         if device_id is None:
             return
+        # Set the device once for all examples
         torch.npu.set_device(device_id)
-        print("Running examples that require NPU hardware...")
-        print("(Make sure CANN environment is configured and NPU is available)\n")
-    
+
     try:
         for ex_id, ex_info in examples_to_run:
+            if ex_info["requires_npu"] and device_id is None:
+                print(
+                    f"Skipping example {ex_id} ({ex_info['name']}): NPU device not configured"
+                )
+                continue
+
             print(f"Running Example {ex_id}: {ex_info['name']}")
-            ex_info['function'](device_id, args.run_mode)
-        
+            ex_info["function"]()
+
         if len(examples_to_run) > 1:
             print("=" * 60)
             print("All softmax tests passed!")
             print("=" * 60)
-        
+
     except Exception as e:
         print(f"\nError: {e}")
         raise

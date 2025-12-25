@@ -13,6 +13,7 @@ Softmax 是深度学习中极其常用的算子，尤其在 Attention 机制中�
 ## 核心算法实现
 
 ### 1. 核心计算逻辑 (`softmax_core`)
+
 ```python
 def softmax_core(x: pypto.Tensor) -> pypto.Tensor:
     # 找到最后维度的最大值
@@ -27,16 +28,21 @@ def softmax_core(x: pypto.Tensor) -> pypto.Tensor:
     return exp / esum
 ```
 
-### 2. JIT 内核封装 (`softmax_kernel`)
+### 2. JIT 内核封装 (`softmax`)
+
 内核函数负责管理 Tiling 和循环：
+
 ```python
-@pypto.jit
-def softmax_kernel(x: pypto.Tensor, y: pypto.Tensor) -> None:
+@pypto.frontend.jit()
+def softmax(
+    input_tensor: pypto.Tensor((b, n1, n2, dim), pypto.DT_FP32),
+) -> pypto.Tensor((b, n1, n2, dim), pypto.DT_FP32):
     # 设置 Tiling 形状
     pypto.set_vec_tile_shapes(1, 4, 1, 64)
     # 使用 pypto.loop 处理数据分块
     for idx in pypto.loop(b_loop):
         # ... 视图划分与计算 ...
+        pypto.assemble(softmax_out, [b_offset, 0, 0, 0], output_tensor)
 ```
 
 ## 代码文件说明
@@ -58,8 +64,23 @@ export TILE_FWK_DEVICE_ID=0
 ### 执行脚本
 
 ```bash
+# 运行所有测试
 python3 softmax.py
+
+# 列出所有可用的测试
+python3 softmax.py --list
 ```
+
+## 新前端特性
+
+本示例使用了 PyPTO 新前端 API，主要特点包括：
+
+- **装饰器**: 使用 `@pypto.frontend.jit()` 替代 `@pypto.jit`
+- **动态轴**: 使用 `pypto.frontend.dynamic("B")` 在模块级别定义动态维度
+- **类型注解**: 函数签名中明确指定张量形状和数据类型
+- **张量创建**: 函数内部使用 `pypto.tensor()` 创建输出张量
+- **直接传入**: 测试时直接传入 torch 张量，无需使用 `pypto.from_torch()` 转换
+- **循环处理**: 使用 `pypto.loop()` 和 `pypto.assemble()` 处理动态 batch size
 
 ## 关键特性
 
@@ -68,5 +89,7 @@ python3 softmax.py
 - **高性能 Tiling**: 展示了如何针对向量处理单元（Vector Core）配置最佳的计算分块。
 
 ## 注意事项
+
 - 算子的性能高度依赖于 `set_vec_tile_shapes` 的设置，建议根据实际的隐层维度（Hidden Size）进行调优。
 - 本样例展示的是在 dim=-1 上的 Softmax，如需在其他维度计算，需相应调整 `amax` 和 `sum` 的维度参数。
+

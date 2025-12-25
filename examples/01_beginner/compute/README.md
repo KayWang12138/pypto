@@ -40,6 +40,9 @@ python3 elementwise_ops.py --list
 
 # 运行特定的用例
 python3 elementwise_ops.py abs::test_abs_basic
+
+# 使用模拟器模式运行
+python3 elementwise_ops.py --run_mode sim
 ```
 
 ## 算子特性说明
@@ -47,31 +50,36 @@ python3 elementwise_ops.py abs::test_abs_basic
 ### 逐元素运算
 支持广播（Broadcasting）机制和标量（Scalar）操作。
 ```python
-@pypto.jit
-def add_example(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> None:
+@pypto.frontend.jit
+def add_kernel(a: pypto.Tensor(shape, dtype), b: pypto.Tensor(shape, dtype)) -> pypto.Tensor(shape, dtype):
     pypto.set_vec_tile_shapes(2, 8)
-    out[:] = pypto.add(a, b)
+    out = pypto.add(a, b)
+    return out
 ```
 
 ### 矩阵乘法
 使用 Cube Tiling 进行高效计算，支持指定输出数据类型。
 ```python
-@pypto.jit
-def matmul_example(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> None:
+@pypto.frontend.jit
+def matmul_kernel(a: pypto.Tensor(shape, dtype), b: pypto.Tensor(shape, dtype)) -> pypto.Tensor(shape, dtype):
     pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
-    out[:] = pypto.matmul(a, b, out_dtype=pypto.DT_BF16)
+    out = pypto.matmul(a, b, out_dtype=pypto.DT_BF16)
+    return out
 ```
 
 ### 规约运算
 支持指定维度（dim）和是否保持维度（keepdim）。
 ```python
-@pypto.jit
-def sum_example(x: pypto.Tensor, out: pypto.Tensor) -> None:
+@pypto.frontend.jit
+def sum_kernel(x: pypto.Tensor(shape, dtype)) -> pypto.Tensor(shape, dtype):
     pypto.set_vec_tile_shapes(2, 8)
-    out[:] = pypto.sum(x, dim=0, keepdim=True)
+    out = pypto.sum(x, dim=0, keepdim=True)
+    return out
 ```
 
 ## 注意事项
 - 在进行矩阵乘法时，建议显式设置 Cube Tile 形状以获得最佳性能。
 - 规约操作通常涉及到跨 Tile 的数据交互，请注意 Tiling 的划分策略。
 - 所有的样例都包含与 PyTorch 原生算子的对比验证，确保计算结果的准确性。
+- 大部分算子支持 NPU 和 SIM（模拟器）两种运行模式，便于调试和验证。
+
