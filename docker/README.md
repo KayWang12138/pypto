@@ -23,9 +23,9 @@
 
 示例dockerfile基于ubuntu操作系统进行编写，不同操作系统略有差异请根据实际使用进行调整。
 使用前请根据自身环境指定ARG CANN_VERSION:<br>
-Ubuntu+910c :ARG CANN_VERSION=8.5.0.alpha001-a3-ubuntu22.04-py3.11;	<br>
-Ubuntu+910b :ARG CANN_VERSION=8.5.0.alpha001-910b-ubuntu22.04-py3.11;<br>
-openEuler+910b :ARG CANN_VERSION=8.5.0.alpha001-910b-openeuler24.03-py3.11;<br>
+Ubuntu+A3 :ARG CANN_VERSION=8.5.0.alpha001-a3-ubuntu22.04-py3.11;	<br>
+Ubuntu+A2 :ARG CANN_VERSION=8.5.0.alpha001-910b-ubuntu22.04-py3.11;<br>
+openEuler+A2 :ARG CANN_VERSION=8.5.0.alpha001-910b-openeuler24.03-py3.11;<br>
 示例dockerfile内容如下：
 
 ```
