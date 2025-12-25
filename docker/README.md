@@ -1,32 +1,32 @@
-
 说明：本文描述如何快速创建运行PyPTO的docker容器，在使用docker容器前请**完成主机NPU硬件部署、NPU驱动及固件安装**，参考文档[Environment README](../docs/context/prepare_environment.md)。docker推荐v27.2.1及以上。
 
 ## 版本说明
 
-当前提供两类dockerfile，第一类是完成cann包环境安装的版本，第二类是不涉及cann包环境安装的版本。两类版本都安装了Pypto运行所依赖的环境。
+当前提供两类dockerfile，第一类是完成cann包环境安装的版本，第二类是不涉及cann包环境安装的版本。两类版本都安装了Pypto运行所依赖的软件包。
 
-### 版本1：安装cann包
+### 版本1：安装cann包的dockerfile
 
-当前dockerfile构建镜像支持的环境信息如下：
+当前示例dockerfile构建镜像支持的环境信息如下：
 
 ```
 #**************docker info*******************#
-# os: ubuntu22.04, openEuler24.03
+# os: ubuntu22.04, openeuler24.03
 # arch: x86, arm
 # python: 3.11
 # cann env
 # cann_verison: 8.5.0alpha001 
 # torch: 2.6.0
 # torch_npu: 2.6.0
-# device_type: 910b，910c
+# device_type: A2, A3
 #**************docker info*******************#
 ```
 
-dockerfile内容如下：
-使用前请根据自身环境指定ARG CANN_VERSION：
-Ubuntu+910c :ARG CANN_VERSION=8.5.0.alpha001-a3-ubuntu22.04-py3.11
-Ubuntu+910b :ARG CANN_VERSION=8.5.0.alpha001-910b-ubuntu22.04-py3.11
-openEuler+910b :ARG CANN_VERSION=8.5.0.alpha001-910b-openeuler24.03-py3.11
+示例dockerfile基于ubuntu操作系统进行编写，不同操作系统略有差异请根据实际使用进行调整。
+使用前请根据自身环境指定ARG CANN_VERSION:<br>
+Ubuntu+910c :ARG CANN_VERSION=8.5.0.alpha001-a3-ubuntu22.04-py3.11;	<br>
+Ubuntu+910b :ARG CANN_VERSION=8.5.0.alpha001-910b-ubuntu22.04-py3.11;<br>
+openEuler+910b :ARG CANN_VERSION=8.5.0.alpha001-910b-openeuler24.03-py3.11;<br>
+示例dockerfile内容如下：
 
 ```
 
@@ -41,10 +41,10 @@ openEuler+910b :ARG CANN_VERSION=8.5.0.alpha001-910b-openeuler24.03-py3.11
    ENV http_proxy=$PROXY
    ENV GIT_SSL_NO_VERIFY=1
    # # [Optional] set pip proxy
-   # pip config set global.index-url http://cmc-cd-mirror.rnd.huawei.com/pypi/simple/
-   # pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
-   # pip config set global.index-url https://pypi.mirrors.ustc.edu.cn/simple/
-   
+   # RUN pip config set global.index-url http://cmc-cd-mirror.rnd.huawei.com/pypi/simple/
+   # RUN pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
+   # RUN pip config set global.index-url https://pypi.mirrors.ustc.edu.cn/simple/
+
    WORKDIR /tmp
    # extra utils, for PyPTO project
    RUN pip install --no-cache-dir \
@@ -65,25 +65,27 @@ openEuler+910b :ARG CANN_VERSION=8.5.0.alpha001-910b-openeuler24.03-py3.11
 
 ```
 
-### 版本2：不安装cann包
+若希望构建其他环境版本的镜像，可参考[https://quay.io/repository/ascend/cann](https://quay.io/repository/ascend/cann)，Ascend社区提供了丰富的基础镜像。
+
+### 版本2：不安装cann包的dockerfile
 
 支持的镜像信息如下：
 
 ```
 #**************docker info*******************#
-# os: ubuntu22.04, openEuler24.03
+# os: ubuntu22.04, openeuler24.03
 # arch: x86, arm
 # python: 3.11
 # cann env: none
 # torch: 2.6.0
 # torch_npu: 2.6.0
-# device_type: 910b，910c
+# device_type: A2, A3
 #**************docker info*******************#
 ```
 
-dockerfile内容如下：
-使用Ubuntu22.04 : ARG CANN_VERSION=3.11-ubuntu22.04
-使用openeuler ：ARG CANN_VERSION=3.11-openeuler22.03
+dockerfile内容如下：<br>
+使用Ubuntu22.04 : ARG PY_VERSION=3.11-ubuntu22.04<br>
+使用openeuler ：ARG PY_VERSION=3.11-openeuler22.03
 
 ```
 ARG PY_VERSION=3.11-ubuntu22.04
@@ -102,11 +104,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     net-tools openssh-client libblas-dev gfortran libblas3 llvm ccache python-is-python3 python3-pip python3-venv ninja-build python3-dev \
     && rm -rf /var/lib/apt/list/*     # clean apt index cache
 # # [Optional] set pip proxy
-# pip config set global.index-url http://cmc-cd-mirror.rnd.huawei.com/pypi/simple/
-# pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
-# pip config set global.index-url https://pypi.mirrors.ustc.edu.cn/simple/
+# RUN pip config set global.index-url http://cmc-cd-mirror.rnd.huawei.com/pypi/simple/
+# RUN pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
+# RUN pip config set global.index-url https://pypi.mirrors.ustc.edu.cn/simple/
 
-# Python dependencies for CANN
 RUN pip install --no-cache-dir \
     attrs cython numpy decorator sympy cffi pyyaml pathlib2 psutil protobuf scipy requests absl-py
 
@@ -125,7 +126,7 @@ RUN pip install --no-cache-dir torch-npu==2.6.0
  ENV http_proxy=$PROXY
 ```
 
-若希望构建其他环境版本的镜像，可参考[https://quay.io/repository/ascend/cann](https://quay.io/repository/ascend/cann)，Ascend社区提供了丰富的基础镜像。
+若希望构建其他环境版本的镜像，可参考[https://quay.io/repository/ascend/python](https://quay.io/repository/ascend/python)，Ascend社区提供了丰富的基础镜像。
 
 ## 使用指导
 
@@ -201,4 +202,4 @@ docker exec -it pypto_x86a3 /bin/bash
 ```
 
 进入容器拉取代码：
-git clone [https://gitcode.com/cann/pypto-dev.git](https://gitcode.com/cann/pypto-dev.git)
+git clone [https://gitcode.com/cann/pypto.git](https://gitcode.com/cann/pypto.git)。考虑兼容性问题，当前docker环境编译构建的whl包仅支持docker容器内使用。
