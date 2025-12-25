@@ -110,7 +110,7 @@ PyPTO 支持在具备 Ascend-NPU 硬件的**真实环境**和仅有 CPU 硬件�
 
 3. **安装CANN ops包**
 
-    根据实际环境和硬件类型(支持910b/910c), 下载对应的安装包, 下载链接如下:
+    根据实际环境和硬件类型(支持A2/A3), 下载对应的安装包, 下载链接如下:
     - A2、x86: [CANN_A2-OPS-8.5.0_RC1.x86](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/CANN/20251216_newest/Ascend-cann-910b-ops_8.5.0_linux-x86_64.run)
     - A2、aarch64: [CANN_A2-OPS-8.5.0.RC1.aarch64](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/CANN/20251216_newest/Ascend-cann-910b-ops_8.5.0_linux-aarch64.run)
     - A3、x86: [CANN_A3-OPS-8.5.0_RC1.x86](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/CANN/20251213_newest/Ascend-cann-910_93-ops_8.5.0_linux-x86_64.run)
@@ -140,12 +140,12 @@ PyPTO 支持在具备 Ascend-NPU 硬件的**真实环境**和仅有 CPU 硬件�
 
 上述流程2 ~ 4中, toolkit包、ops包、PTO-inst包的下载与安装可通过项目tools目录下prepare_env.sh一键执行, 命令如下, 若遇到不支持系统, 请参考该文件自行适配
 ```
-bash tools/prepare_env.sh --type=cann --device-type=910b
+bash tools/prepare_env.sh --type=cann --device-type=a2
 ```
 | 全写                    | 类型   | 是否必须 | 说明                                       |
 |:----------------------|:-----|:-----|:-----------------------------------------|
 | --type                | str  | 是    | 脚本安装类型, 可选[deps, cann, third_party, all] |
-| --device-type         | str  | 是    | 指定 NPU 型号, 可选 [910b, 910c]               |
+| --device-type         | str  | 是    | 指定 NPU 型号, 可选 [a2, a3]               |
 | --install-path        | str  | 否    | 指定 CANN 包安装路径                            |
 | --download-path       | str  | 否    | 指定 CANN 包以及三方依赖包下载路径                     |
 | --with-install-driver | bool | 否    | 指定是否下载 NPU 驱动和固件包, 默认为 false             |

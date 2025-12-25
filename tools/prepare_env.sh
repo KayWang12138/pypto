@@ -112,9 +112,17 @@ parse_arguments() {
                 shift
                 ;;
             --device-type=*)
-                DEVICE_TYPE="${1#*=}"
+                local device_type_value="${1#*=}"
+                device_type_value=$(echo "$device_type_value" | tr '[:upper:]' '[:lower:]')
+                if [[ "$device_type_value" == "a2" || "$device_type_value" == "a3" ]]; then
+                    DEVICE_TYPE="$device_type_value"
+                else
+                    log_print "error" "Invalid value for --device-type: $device_type_value (must be a2 or a3)"
+                    help_flag=true
+                fi
                 shift
                 ;;
+
             --install-path=*)
                 INSTALL_PATH="${1#*=}"
                 INSTALL_PATH=$(echo "$INSTALL_PATH" | sed 's:/*$::')
@@ -130,7 +138,7 @@ parse_arguments() {
                 CANN_DOWNLOAD_PATH="$DOWNLOAD_DIR/cann_packages"
                 THIRD_PARTY_DOWNLOAD_PATH="$DOWNLOAD_DIR/third_party_packages"
                 if [[ "$DOWNLOAD_DIR" != /* ]]; then
-                    log_print "error" "Install path must be an absolute path: $DOWNLOAD_DIR"
+                    log_print "error" "Download path must be an absolute path: $DOWNLOAD_DIR"
                     return 1
                 fi
                 shift
@@ -188,7 +196,7 @@ cat << EOF
 Usage: $0 [REQUIRED_OPTIONS] [OPTIONAL_OPTIONS]
 Required Options:
     --type=<type>                   Installation mode (cann, deps, third_party, all)
-    --device-type=<type>            Device type (910b or 910c)
+    --device-type=<type>            Device type (a2 or a3)
 
 Optional Options:
     --with-install-driver=<bool>    Download driver and firmware packages (true or false, default: false)
@@ -504,28 +512,28 @@ get_package_url() {
         driver)
             case "$ARCH" in
                 x86)
-                    [ "$DEVICE_TYPE" = "910b" ] && echo "$CANN_DRIVER_URL_X86_910b" || echo "$CANN_DRIVER_URL_X86_910c"
+                    [ "$DEVICE_TYPE" = "a2" ] && echo "$CANN_DRIVER_URL_X86_910b" || echo "$CANN_DRIVER_URL_X86_910c"
                     ;;
                 arm)
-                    [ "$DEVICE_TYPE" = "910b" ] && echo "$CANN_DRIVER_URL_ARM_910b" || echo "$CANN_DRIVER_URL_ARM_910c"
+                    [ "$DEVICE_TYPE" = "a2" ] && echo "$CANN_DRIVER_URL_ARM_910b" || echo "$CANN_DRIVER_URL_ARM_910c"
                     ;;
                 *) echo "" ;;
             esac
             ;;
         firmware)
             case "$DEVICE_TYPE" in
-                910b) echo "$CANN_FIRMWARE_URL_910b" ;;
-                910c) echo "$CANN_FIRMWARE_URL_910c" ;;
+                a2) echo "$CANN_FIRMWARE_URL_910b" ;;
+                a3) echo "$CANN_FIRMWARE_URL_910c" ;;
                 *) echo "" ;;
             esac
             ;;
         ops)
             case "$ARCH" in
                 x86)
-                    [ "$DEVICE_TYPE" = "910b" ] && echo "$CANN_OPS_URL_X86_910b" || echo "$CANN_OPS_URL_X86_910c"
+                    [ "$DEVICE_TYPE" = "a2" ] && echo "$CANN_OPS_URL_X86_910b" || echo "$CANN_OPS_URL_X86_910c"
                     ;;
                 arm)
-                    [ "$DEVICE_TYPE" = "910b" ] && echo "$CANN_OPS_URL_ARM_910b" || echo "$CANN_OPS_URL_ARM_910c"
+                    [ "$DEVICE_TYPE" = "a2" ] && echo "$CANN_OPS_URL_ARM_910b" || echo "$CANN_OPS_URL_ARM_910c"
                     ;;
                 *) echo "" ;;
             esac
