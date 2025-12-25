@@ -63,29 +63,6 @@ class LivenessAnalyzer(doc.NodeVisitor):
         # Set of variables defined inside the current loop (cleared when entering/exiting loops)
         self.vars_defined_in_loop: set[str] = set()
 
-    def analyze(
-        self, node: doc.AST, exempt_vars: Optional[set[str]] = None
-    ) -> dict[int, set[str]]:
-        """Analyze the AST and return deletion points.
-
-        Parameters
-        ----------
-        node : doc.AST
-            The AST node to analyze.
-        exempt_vars : Optional[set[str]]
-            Variables that should not be auto-deleted (e.g., function arguments).
-
-        Returns
-        -------
-        delete_after : dict[int, set[str]]
-            Map from statement ID to variables to delete after that statement.
-        """
-        if exempt_vars:
-            self.exempt_vars = exempt_vars
-        self.visit(node)
-        self._compute_deletion_points()
-        return self.delete_after
-
     def _compute_deletion_points(self):
         """Compute where each variable should be deleted based on usage."""
         for var_name, use_ids in self.var_uses.items():
@@ -136,6 +113,42 @@ class LivenessAnalyzer(doc.NodeVisitor):
             # Track if this variable is defined inside a loop
             if self.loop_scope_stack:
                 self.vars_defined_in_loop.add(var_name)
+
+    def _visit_assign_target(self, target: doc.expr, is_def: bool = False):
+        """Visit assignment target."""
+        if isinstance(target, doc.Name):
+            if is_def:
+                self._record_var_def(target.id)
+        elif isinstance(target, (doc.Tuple, doc.List)):
+            for elt in target.elts:
+                self._visit_assign_target(elt, is_def)
+        elif isinstance(target, doc.Subscript):
+            # a[i] = x means 'a' is used, not defined
+            self.visit(target.value)
+            self.visit(target.slice)
+
+    def analyze(
+        self, node: doc.AST, exempt_vars: Optional[set[str]] = None
+    ) -> dict[int, set[str]]:
+        """Analyze the AST and return deletion points.
+
+        Parameters
+        ----------
+        node : doc.AST
+            The AST node to analyze.
+        exempt_vars : Optional[set[str]]
+            Variables that should not be auto-deleted (e.g., function arguments).
+
+        Returns
+        -------
+        delete_after : dict[int, set[str]]
+            Map from statement ID to variables to delete after that statement.
+        """
+        if exempt_vars:
+            self.exempt_vars = exempt_vars
+        self.visit(node)
+        self._compute_deletion_points()
+        return self.delete_after
 
     def visit(self, node: doc.AST):
         """Visit a node."""
@@ -298,19 +311,6 @@ class LivenessAnalyzer(doc.NodeVisitor):
             self.visit(node.upper)
         if node.step:
             self.visit(node.step)
-
-    def _visit_assign_target(self, target: doc.expr, is_def: bool = False):
-        """Visit assignment target."""
-        if isinstance(target, doc.Name):
-            if is_def:
-                self._record_var_def(target.id)
-        elif isinstance(target, (doc.Tuple, doc.List)):
-            for elt in target.elts:
-                self._visit_assign_target(elt, is_def)
-        elif isinstance(target, doc.Subscript):
-            # a[i] = x means 'a' is used, not defined
-            self.visit(target.value)
-            self.visit(target.slice)
 
 
 def _get_node_id(node: doc.AST) -> int:

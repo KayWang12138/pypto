@@ -213,6 +213,93 @@ class JitCallableWrapper:
         if hasattr(original_func, "__doc__"):
             self.__doc__ = original_func.__doc__
 
+    def __call__(self, *args, **kwargs):
+        """Execute the function with torch tensors.
+
+        Parameters
+        ----------
+        *args : torch.Tensor
+            Input tensors (all arguments must be torch.Tensor).
+        **kwargs : Any
+            Not supported - all arguments must be positional tensors.
+
+        Returns
+        -------
+        Union[torch.Tensor, tuple[torch.Tensor, ...]]
+            Output tensor(s).
+        """
+
+        # Validate that all arguments are tensors
+        if kwargs:
+            raise RuntimeError(
+                "pypto.frontend.jit requires that all arguments must be tensors. "
+                "Keyword arguments are not supported."
+            )
+
+        for i, arg in enumerate(args):
+            if not isinstance(arg, torch.Tensor):
+                raise RuntimeError(
+                    f"pypto.frontend.jit requires that all arguments must be pypto.tensor. "
+                    f"Argument at position {i} is {type(arg).__name__}, not a tensor."
+                )
+
+        in_tensors = list(args)
+
+        # Validate input tensors are contiguous
+        for in_tensor in in_tensors:
+            if not in_tensor.is_contiguous():
+                raise RuntimeError(
+                    "pypto.frontend.jit requires that all input tensors "
+                    "must be contiguous."
+                )
+
+        # Use output tensors from parser signature to allocate output tensors
+        out_tensors = []
+
+        # Create output tensors with the same device as input tensors
+        if in_tensors:
+            device = in_tensors[0].device
+            for tensor in in_tensors[1:]:
+                if tensor.device != device:
+                    raise RuntimeError(
+                        f"pypto.frontend.jit requires that all input tensors "
+                        f"must be on the same device. Got tensors on devices: "
+                        f"{device} and {tensor.device}"
+                    )
+        else:
+            raise RuntimeError("pypto.frontend.jit requires at least one input tensor")
+
+        # Resolve symbolic dimensions using current input shapes so outputs
+        # allocated below match the runtime dynamic sizes.
+        concrete_input_shapes = [list(in_tensor.shape) for in_tensor in in_tensors]
+        self._compile_if_needed(concrete_input_shapes)
+        symbolic_dim_value_map = {}
+        tmp_parser = self._create_parser()
+        input_tensor_defs, output_tensor_defs = tmp_parser.get_signature()
+        symbolic_dim_value_map = tmp_parser.match_input_shapes(
+            concrete_input_shapes, input_tensor_defs
+        )
+
+        for out_tensor_def in output_tensor_defs:
+            shape_list = []
+            # Build shape by resolving symbolic dimensions from the output tensor definition
+            for dim in out_tensor_def.shape:
+                if isinstance(dim, pypto.SymbolicScalar):
+                    dim_value = symbolic_dim_value_map.get(str(dim))
+                    if dim_value is None:
+                        raise ValueError(
+                            f"Dynamic dimension {dim} not found in symbolic_dim_value_map"
+                        )
+                    shape_list.append(dim_value)
+                else:
+                    # Static dimension
+                    shape_list.append(dim)
+
+            shape = tuple(shape_list)
+            dtype = _torch_dtype_from(out_tensor_def.dtype)
+            out_tensor = torch.empty(shape, dtype=dtype, device=device)
+            out_tensors.append(out_tensor)
+
     @staticmethod
     def _get_func_nonlocals(func: Callable) -> dict[str, Any]:
         """Extract nonlocal (closure) variables from a function.
@@ -390,93 +477,6 @@ class JitCallableWrapper:
         pypto_impl.OperatorEnd(handler)
         self._handler = handler
         self._is_compiled = True
-
-    def __call__(self, *args, **kwargs):
-        """Execute the function with torch tensors.
-
-        Parameters
-        ----------
-        *args : torch.Tensor
-            Input tensors (all arguments must be torch.Tensor).
-        **kwargs : Any
-            Not supported - all arguments must be positional tensors.
-
-        Returns
-        -------
-        Union[torch.Tensor, tuple[torch.Tensor, ...]]
-            Output tensor(s).
-        """
-
-        # Validate that all arguments are tensors
-        if kwargs:
-            raise RuntimeError(
-                "pypto.frontend.jit requires that all arguments must be tensors. "
-                "Keyword arguments are not supported."
-            )
-
-        for i, arg in enumerate(args):
-            if not isinstance(arg, torch.Tensor):
-                raise RuntimeError(
-                    f"pypto.frontend.jit requires that all arguments must be pypto.tensor. "
-                    f"Argument at position {i} is {type(arg).__name__}, not a tensor."
-                )
-
-        in_tensors = list(args)
-
-        # Validate input tensors are contiguous
-        for in_tensor in in_tensors:
-            if not in_tensor.is_contiguous():
-                raise RuntimeError(
-                    "pypto.frontend.jit requires that all input tensors "
-                    "must be contiguous."
-                )
-
-        # Use output tensors from parser signature to allocate output tensors
-        out_tensors = []
-
-        # Create output tensors with the same device as input tensors
-        if in_tensors:
-            device = in_tensors[0].device
-            for tensor in in_tensors[1:]:
-                if tensor.device != device:
-                    raise RuntimeError(
-                        f"pypto.frontend.jit requires that all input tensors "
-                        f"must be on the same device. Got tensors on devices: "
-                        f"{device} and {tensor.device}"
-                    )
-        else:
-            raise RuntimeError("pypto.frontend.jit requires at least one input tensor")
-
-        # Resolve symbolic dimensions using current input shapes so outputs
-        # allocated below match the runtime dynamic sizes.
-        concrete_input_shapes = [list(in_tensor.shape) for in_tensor in in_tensors]
-        self._compile_if_needed(concrete_input_shapes)
-        symbolic_dim_value_map = {}
-        tmp_parser = self._create_parser()
-        input_tensor_defs, output_tensor_defs = tmp_parser.get_signature()
-        symbolic_dim_value_map = tmp_parser.match_input_shapes(
-            concrete_input_shapes, input_tensor_defs
-        )
-
-        for out_tensor_def in output_tensor_defs:
-            shape_list = []
-            # Build shape by resolving symbolic dimensions from the output tensor definition
-            for dim in out_tensor_def.shape:
-                if isinstance(dim, pypto.SymbolicScalar):
-                    dim_value = symbolic_dim_value_map.get(str(dim))
-                    if dim_value is None:
-                        raise ValueError(
-                            f"Dynamic dimension {dim} not found in symbolic_dim_value_map"
-                        )
-                    shape_list.append(dim_value)
-                else:
-                    # Static dimension
-                    shape_list.append(dim)
-
-            shape = tuple(shape_list)
-            dtype = _torch_dtype_from(out_tensor_def.dtype)
-            out_tensor = torch.empty(shape, dtype=dtype, device=device)
-            out_tensors.append(out_tensor)
 
         # Execute the function using dispatch based on run mode
         def convert_tensors_with_metadata(torch_tensors, tensor_defs):
