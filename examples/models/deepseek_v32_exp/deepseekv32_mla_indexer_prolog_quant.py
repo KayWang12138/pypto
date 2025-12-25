@@ -905,6 +905,7 @@ def test_b_4_s1_2_tilebs_8_d():
     '''
     mlaLp decode测试函数
     '''
+    assert False, "test assert False xxx"
     seed = 6
     torch.manual_seed(seed)
     b = 4
