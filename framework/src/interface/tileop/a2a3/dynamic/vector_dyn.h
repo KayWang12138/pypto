@@ -2991,19 +2991,20 @@ const int32_t DEFAULT_REPEAT_STRIDE = 8;
 const int32_t NUM_EIGHT = 8;
 const int32_t ONE_BLK_SIZE = 32;
 template <typename T, unsigned dstShape0>
-TILEOP void DynRange(__ubuf__ T *dst, unsigned oriShape0, T start, T step) {
+TILEOP void DynRange(__ubuf__ T *dst, unsigned oriShape0, T start, T step, int64_t tileIdx) {
+    T baseVal = start + step * static_cast<T>(tileIdx);
     int32_t eleCntOfOneBlock = ONE_BLK_SIZE / sizeof(T);
     // block One
     if (oriShape0 <= eleCntOfOneBlock) {
         for (int32_t j = 0; j < oriShape0; j++) {
-            *(dst + j) = start + step * (T)j;
+            *(dst + j) = baseVal + step * (T)j;
         }
         set_flag(PIPE_S, PIPE_V, EVENT_ID7);
         wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
         return;
     }
     for (int32_t j = 0; j < eleCntOfOneBlock; j++) {
-        *(dst + j) = start + step * (T)j;
+        *(dst + j) = baseVal + step * (T)j;
     }
     // block 2~8
     int32_t loopN = 0;
