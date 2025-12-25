@@ -42,12 +42,12 @@ from typing import NoReturn, Union
 from . import doc
 from .error import ParserError, RenderedParserError
 
-CONTEXT_LINES_BEFORE = 2
-CONTEXT_LINES_AFTER = 4
+PRIOR_CONTEXT_LINES = 2
+SUBSEQUENT_CONTEXT_LINES = 4
 
 
 class DiagnosticLevel(enum.IntEnum):
-    """The diagnostic level, see diagnostic.h for more details."""
+    """Severity levels for diagnostic messages, corresponding to diagnostic.h definitions."""
 
     BUG = 10
     ERROR = 20
@@ -57,26 +57,26 @@ class DiagnosticLevel(enum.IntEnum):
 
 
 class Source:
-    """Source code class for PTO Script.
+    """Represents source code for PTO Script parsing.
 
-    It is constructed by source code str or doc AST tree.
+    Can be instantiated from either a source code string or a doc AST tree object.
 
     Parameters
     ----------
     source_name : str
-        The filename of the file where the source code locates.
+        The file path where the source code resides.
 
     start_line : int
-        The first line number of the source code.
+        The initial line number of the source code segment.
 
     start_column : int
-        The first column number of the first line of the source code.
+        The initial column position on the first line of the source code.
 
     source : str
-        The source code str of source code.
+        The actual source code content string.
 
     full_source : str
-        The complete source code of the file where the source code locates.
+        The entire source code content of the file containing this source segment.
     """
 
     source_name: str
@@ -95,128 +95,135 @@ class Source:
             return
 
         self.source_name = inspect.getsourcefile(program)  # type: ignore
-        lines, self.start_line = getsourcelines(program)  # type: ignore
-        if lines:
-            self.start_column = len(lines[0]) - len(lines[0].lstrip())
+        source_lines, self.start_line = getsourcelines(program)  # type: ignore
+        if source_lines:
+            self.start_column = len(source_lines[0]) - len(source_lines[0].lstrip())
         else:
             self.start_column = 0
-        if self.start_column and lines:
-            self.source = "\n".join([l[self.start_column :].rstrip() for l in lines])
+        if self.start_column and source_lines:
+            self.source = "\n".join(
+                [line_content[self.start_column :].rstrip() for line_content in source_lines]
+            )
         else:
-            self.source = "".join(lines)
+            self.source = "".join(source_lines)
         try:
-            # It will cause a problem when running in Jupyter Notebook.
-            # `mod` will be <module '__main__'>, which is a built-in module
-            # and `getsource` will throw a TypeError
-            mod = inspect.getmodule(program)
-            if mod:
-                self.full_source = inspect.getsource(mod)
+            # Handling Jupyter Notebook compatibility issue.
+            # When running in Jupyter, `mod` becomes <module '__main__'>, a built-in module
+            # which causes `getsource` to raise a TypeError
+            module_obj = inspect.getmodule(program)
+            if module_obj:
+                self.full_source = inspect.getsource(module_obj)
             else:
                 self.full_source = self.source
         except TypeError:
-            # It's a work around for Jupyter problem.
-            # Since `findsource` is an internal API of inspect, we just use it
-            # as a fallback method.
-            src, _ = inspect.findsource(program)  # type: ignore
-            self.full_source = "".join(src)
+            # Fallback approach for Jupyter compatibility.
+            # Using `findsource` as an alternative since it's an internal inspect API
+            # that can handle this edge case.
+            source_content, _ = inspect.findsource(program)  # type: ignore
+            self.full_source = "".join(source_content)
 
     def as_ast(self) -> doc.AST:
-        """Parse the source code into AST.
+        """Convert the source code string into an AST representation.
 
         Returns
         -------
-        res : doc.AST
-            The AST of source code.
+        result : doc.AST
+            The abstract syntax tree representation of the source code.
         """
         return doc.parse(self.source)
 
 
-_getfile = inspect.getfile  # pylint: disable=invalid-name
-_findsource = inspect.findsource  # pylint: disable=invalid-name
+_original_getfile = inspect.getfile  # pylint: disable=invalid-name
+_original_findsource = inspect.findsource  # pylint: disable=invalid-name
 
 
-def _patched_inspect_getfile(obj):
-    """Work out which source or compiled file an object was defined in."""
-    if not inspect.isclass(obj):
-        return _getfile(obj)
-    mod = getattr(obj, "__module__", None)
-    if mod is not None:
-        file = getattr(sys.modules[mod], "__file__", None)
-        if file is not None:
-            return file
-    for _, member in inspect.getmembers(obj):
-        if inspect.isfunction(member):
-            if obj.__qualname__ + "." + member.__name__ == member.__qualname__:
-                return inspect.getfile(member)
-    raise TypeError(f"Source for {obj:!r} not found")
+def _custom_inspect_getfile(target_obj):
+    """Determine the source file or compiled file location where an object was defined."""
+    if not inspect.isclass(target_obj):
+        return _original_getfile(target_obj)
+    module_name = getattr(target_obj, "__module__", None)
+    if module_name is not None:
+        file_path = getattr(sys.modules[module_name], "__file__", None)
+        if file_path is not None:
+            return file_path
+    for _, method_member in inspect.getmembers(target_obj):
+        if inspect.isfunction(method_member):
+            if (
+                target_obj.__qualname__ + "." + method_member.__name__
+                == method_member.__qualname__
+            ):
+                return inspect.getfile(method_member)
+    raise TypeError("Source for {!r} not found".format(target_obj))
 
 
-def findsource(obj):
-    """Return the entire source file and starting line number for an object."""
+def findsource(target_obj):
+    """Retrieve the complete source file content and the starting line number for an object."""
 
-    if not inspect.isclass(obj):
-        return _findsource(obj)
+    if not inspect.isclass(target_obj):
+        return _original_findsource(target_obj)
 
-    file = inspect.getsourcefile(obj)
-    if file:
-        linecache.checkcache(file)
+    file_path = inspect.getsourcefile(target_obj)
+    if file_path:
+        linecache.checkcache(file_path)
     else:
-        file = inspect.getfile(obj)
-        if not (file.startswith("<") and file.endswith(">")):
+        file_path = inspect.getfile(target_obj)
+        if not (file_path.startswith("<") and file_path.endswith(">")):
             raise OSError("source code not available")
 
-    module = inspect.getmodule(obj, file)
-    if module:
-        lines = linecache.getlines(file, module.__dict__)
+    module_obj = inspect.getmodule(target_obj, file_path)
+    if module_obj:
+        file_lines = linecache.getlines(file_path, module_obj.__dict__)
     else:
-        lines = linecache.getlines(file)
-    if not lines:
+        file_lines = linecache.getlines(file_path)
+    if not file_lines:
         raise OSError("could not get source code")
-    qual_names = obj.__qualname__.replace(".<locals>", "<locals>").split(".")
-    in_comment = 0
-    scope_stack = []
-    indent_info = {}
-    for i, line in enumerate(lines):
-        n_comment = line.count('"""')
-        if n_comment:
-            # update multi-line comments status
-            in_comment = in_comment ^ (n_comment & 1)
+    qualified_name_parts = target_obj.__qualname__.replace(".<locals>", "<locals>").split(".")
+    comment_state = 0
+    nesting_stack = []
+    indentation_map = {}
+    for line_index, current_line in enumerate(file_lines):
+        docstring_count = current_line.count('"""')
+        if docstring_count:
+            # Toggle comment state based on docstring markers
+            comment_state = comment_state ^ (docstring_count & 1)
             continue
-        if in_comment:
-            # skip lines within multi-line comments
+        if comment_state:
+            # Ignore lines that are inside multi-line docstrings
             continue
-        indent = len(line) - len(line.lstrip())
-        tokens = line.split()
-        if len(tokens) > 1:
-            name = None
-            if tokens[0] == "def":
-                name = tokens[1].split(":")[0].split("(")[0] + "<locals>"
-            elif tokens[0] == "class":
-                name = tokens[1].split(":")[0].split("(")[0]
-            # pop scope if we are less indented
-            while scope_stack and indent_info[scope_stack[-1]] >= indent:
-                scope_stack.pop()
-            if name:
-                scope_stack.append(name)
-                indent_info[name] = indent
-                if scope_stack == qual_names:
-                    return lines, i
+        line_indent = len(current_line) - len(current_line.lstrip())
+        line_tokens = current_line.split()
+        if len(line_tokens) > 1:
+            identifier = None
+            if line_tokens[0] == "def":
+                identifier = (
+                    line_tokens[1].split(":")[0].split("(")[0] + "<locals>"
+                )
+            elif line_tokens[0] == "class":
+                identifier = line_tokens[1].split(":")[0].split("(")[0]
+            # Remove scopes that are at equal or greater indentation
+            while nesting_stack and indentation_map[nesting_stack[-1]] >= line_indent:
+                nesting_stack.pop()
+            if identifier:
+                nesting_stack.append(identifier)
+                indentation_map[identifier] = line_indent
+                if nesting_stack == qualified_name_parts:
+                    return file_lines, line_index
 
     raise OSError("could not find class definition")
 
 
-def getsourcelines(obj):
-    """Extract the block of code at the top of the given list of lines."""
-    obj = inspect.unwrap(obj)
-    lines, l_num = findsource(obj)
-    return inspect.getblock(lines[l_num:]), l_num + 1
+def getsourcelines(target_obj):
+    """Extract the code block starting from the top of the provided lines list."""
+    unwrapped_obj = inspect.unwrap(target_obj)
+    source_lines, line_number = findsource(unwrapped_obj)
+    return inspect.getblock(source_lines[line_number:]), line_number + 1
 
 
-inspect.getfile = _patched_inspect_getfile
+inspect.getfile = _custom_inspect_getfile
 
 
 class Span:
-    """Span source name for diagnostics."""
+    """Represents a source code location span for diagnostic messages."""
 
     source_name: str
     line: int
@@ -240,12 +247,12 @@ class Span:
 
 
 class DiagnosticItem:
-    """Diagnostic item class for diagnostics.
+    """Represents a single diagnostic message item.
 
     Parameters
     ----------
     level : DiagnosticLevel
-        The diagnostic level.
+        The severity level of this diagnostic message.
     """
 
     level: DiagnosticLevel
@@ -258,89 +265,115 @@ class DiagnosticItem:
         self.message = message
 
     def render_to_console(self) -> None:
-        """Render the diagnostic item to string."""
-        # ANSI color codes for different diagnostic levels
-        colors = {
+        """Output the diagnostic item to the console with formatting."""
+        # ANSI escape sequences for terminal color coding by severity
+        color_map = {
             DiagnosticLevel.BUG: "\033[95m",  # Magenta
             DiagnosticLevel.ERROR: "\033[91m",  # Red
             DiagnosticLevel.WARNING: "\033[93m",  # Yellow
             DiagnosticLevel.INFO: "\033[94m",  # Blue
             DiagnosticLevel.DEBUG: "\033[92m",  # Green
         }
-        names = {
+        level_labels = {
             DiagnosticLevel.BUG: "INTERNAL BUG",
             DiagnosticLevel.ERROR: "ERROR",
             DiagnosticLevel.WARNING: "WARNING",
             DiagnosticLevel.INFO: "INFO",
             DiagnosticLevel.DEBUG: "DEBUG",
         }
-        reset_color = "\033[0m"
-        bold = "\033[1m"
+        color_reset = "\033[0m"
+        bold_style = "\033[1m"
 
-        color = colors.get(self.level, "")
-        level_name = names.get(self.level, "")
+        selected_color = color_map.get(self.level, "")
+        severity_label = level_labels.get(self.level, "")
 
-        # Print header with color
-        print(
-            f"{bold}{color}{level_name}{reset_color} {bold}{self.span.source_name}"
-            f":{self.span.line}:{self.span.column}:{reset_color} {self.message}"
-        )
+        # Output formatted header with color coding
+        header_parts = [
+            bold_style,
+            selected_color,
+            severity_label,
+            color_reset,
+            " ",
+            bold_style,
+            self.span.source_name,
+            ":",
+            str(self.span.line),
+            ":",
+            str(self.span.column),
+            ":",
+            color_reset,
+            " ",
+            self.message,
+        ]
+        print("".join(header_parts))
 
-        # Read and display source code
-        with open(self.span.source_name, "r", encoding="utf-8") as f:
-            lines = f.readlines()
+        # Load and present source code context
+        with open(self.span.source_name, "r", encoding="utf-8") as source_file:
+            file_lines = source_file.readlines()
 
-        context_before = CONTEXT_LINES_BEFORE
-        context_after = CONTEXT_LINES_AFTER
-        start_line = max(0, self.span.line - 1 - context_before)
-        end_line = min(len(lines), self.span.end_line + context_after)
+        preceding_context = PRIOR_CONTEXT_LINES
+        following_context = SUBSEQUENT_CONTEXT_LINES
+        context_start = max(0, self.span.line - 1 - preceding_context)
+        context_end = min(len(file_lines), self.span.end_line + following_context)
 
-        # Calculate line number width for alignment
-        line_num_width = len(str(end_line))
+        # Determine padding width for line number display
+        max_line_digits = len(str(context_end))
 
-        # Print context lines
-        for i in range(start_line, end_line):
-            line_num = i + 1
-            line_content = lines[i].rstrip("\n")
+        # Display surrounding source lines
+        for line_idx in range(context_start, context_end):
+            current_line_num = line_idx + 1
+            line_text = file_lines[line_idx].rstrip("\n")
 
-            # Check if this is an error line
-            is_error_line = self.span.line <= line_num <= self.span.end_line
+            # Determine if this line is part of the error span
+            is_span_line = (
+                self.span.line <= current_line_num <= self.span.end_line
+            )
 
-            if is_error_line:
-                print(
-                    f"{color}{line_num:>{line_num_width}} |{reset_color} {line_content}"
+            if is_span_line:
+                formatted_line = (
+                    selected_color
+                    + str(current_line_num).rjust(max_line_digits)
+                    + " |"
+                    + color_reset
+                    + " "
+                    + line_text
                 )
+                print(formatted_line)
             else:
-                print(f"{line_num:>{line_num_width}} | {line_content}")
+                line_display = (
+                    str(current_line_num).rjust(max_line_digits) + " | " + line_text
+                )
+                print(line_display)
 
-            # Add caret indicator for error lines
-            if is_error_line:
-                # Calculate spaces before caret
-                if line_num == self.span.line:
-                    start_col = self.span.column - 1
+            # Add visual indicator for error span lines
+            if is_span_line:
+                # Compute indentation for caret positioning
+                if current_line_num == self.span.line:
+                    caret_start = self.span.column - 1
                 else:
-                    start_col = 0
+                    caret_start = 0
 
-                if line_num == self.span.end_line:
-                    end_col = self.span.end_column - 1
+                if current_line_num == self.span.end_line:
+                    caret_end = self.span.end_column - 1
                 else:
-                    end_col = len(line_content)
+                    caret_end = len(line_text)
 
-                # Print caret line
-                spaces = " " * (line_num_width + 3 + start_col)
-                carets = "^" * max(1, end_col - start_col)
-                print(f"{color}{spaces}{carets}{reset_color}")
+                # Output caret indicator line
+                padding_spaces = " " * (max_line_digits + 3 + caret_start)
+                caret_chars = "^" * max(1, caret_end - caret_start)
+                caret_line = selected_color + padding_spaces + caret_chars + color_reset
+                print(caret_line)
 
-        print()  # Empty line for separation
+        print()  # Blank line for visual separation
 
 
 class DiagnosticContext:
-    """Diagnostic context for diagnostics.
+    """Container for managing diagnostic messages within a source context.
 
     Parameters
     ----------
     source : Source
-        The source code.
+        The source code object associated with these diagnostics.
     """
 
     source: Source
@@ -351,32 +384,32 @@ class DiagnosticContext:
         self.diagnostics = []
 
     def emit(self, diagnostic: DiagnosticItem) -> None:
-        """Emit a diagnostic.
+        """Add a diagnostic message to the collection.
 
         Parameters
         ----------
         diagnostic : DiagnosticItem
-            The diagnostic to emit.
+            The diagnostic message to add.
         """
         self.diagnostics.append(diagnostic)
 
     def render(self) -> None:
-        """Render the diagnostics to console."""
-        for diagnostic in self.diagnostics:
-            diagnostic.render_to_console()
+        """Display all collected diagnostics to the console and clear the list."""
+        for diagnostic_item in self.diagnostics:
+            diagnostic_item.render_to_console()
         self.diagnostics.clear()
 
 
 class Diagnostics:
-    """Diagnostics class for error reporting in parser.
+    """Manages diagnostic message generation and reporting for the parser.
 
     Parameters
     ----------
     source : Source
-        The source code.
+        The source code being analyzed.
 
     ctx : DiagnosticContext
-        The diagnostic context for diagnostics.
+        The diagnostic context container for managing messages.
     """
 
     source: Source
@@ -387,123 +420,123 @@ class Diagnostics:
         self.context = DiagnosticContext(source)
 
     def __del__(self) -> None:
-        """Render the diagnostics and destroy the diagnostics."""
+        """Output all diagnostics and perform cleanup."""
         self._render()
 
     def emit(
         self, node: doc.AST, message: str, level: DiagnosticLevel = DiagnosticLevel.INFO
     ) -> None:
-        """Emit a diagnostic.
+        """Generate and record a diagnostic message.
 
         Parameters
         ----------
         node : doc.AST
-            The node with diagnostic information.
+            The AST node containing location information for the diagnostic.
 
         message : str
-            The diagnostic message.
+            The diagnostic message text.
 
         level : DiagnosticLevel
-            The diagnostic level.
+            The severity level of the diagnostic.
         """
-        lineno = getattr(node, "lineno", 1)
-        col_offset = getattr(node, "col_offset", self.source.start_column)
-        end_lineno = getattr(node, "end_lineno", lineno)
-        end_col_offset = getattr(node, "end_col_offset", col_offset)
-        lineno += self.source.start_line - 1
-        end_lineno += self.source.start_line - 1
-        col_offset += self.source.start_column + 1
-        end_col_offset += self.source.start_column + 1
+        line_number = getattr(node, "lineno", 1)
+        column_position = getattr(node, "col_offset", self.source.start_column)
+        ending_line = getattr(node, "end_lineno", line_number)
+        ending_column = getattr(node, "end_col_offset", column_position)
+        line_number = line_number + (self.source.start_line - 1)
+        ending_line = ending_line + (self.source.start_line - 1)
+        column_position = column_position + self.source.start_column + 1
+        ending_column = ending_column + self.source.start_column + 1
         self.context.emit(
             DiagnosticItem(
                 level=level,
                 span=Span(
                     source_name=self.source.source_name,
-                    lineno=lineno,
-                    end_lineno=end_lineno,
-                    col_offset=col_offset,
-                    end_col_offset=end_col_offset,
+                    lineno=line_number,
+                    end_lineno=ending_line,
+                    col_offset=column_position,
+                    end_col_offset=ending_column,
                 ),
                 message=message,
             )
         )
 
     def _render(self) -> None:
-        """Render the diagnostics to console."""
+        """Output all diagnostics to the console."""
         self.context.render()
 
     def bug(self, node: doc.AST, message: str) -> NoReturn:
-        """Emit a diagnostic bug.
+        """Generate a bug-level diagnostic and raise an exception.
 
         Parameters
         ----------
         node : doc.AST
-            The node with diagnostic bug.
+            The AST node associated with the bug.
 
         message : str
-            The diagnostic message.
+            The bug description message.
 
         Raises
         ------
         ParserError
-            raise the ParserError.
+            Always raises RenderedParserError after displaying the diagnostic.
         """
         self.emit(node, message, DiagnosticLevel.BUG)
         self._render()
         raise RenderedParserError(node, message)
 
     def error(self, node: doc.AST, message: str) -> NoReturn:
-        """Emit a diagnostic error.
+        """Generate an error-level diagnostic and raise an exception.
 
         Parameters
         ----------
         node : doc.AST
-            The node with diagnostic error.
+            The AST node associated with the error.
 
         message : str
-            The diagnostic message.
+            The error description message.
 
         Raises
         ------
         ParserError
-            raise the ParserError.
+            Always raises RenderedParserError after displaying the diagnostic.
         """
         self.emit(node, message, DiagnosticLevel.ERROR)
         self._render()
         raise RenderedParserError(node, message)
 
     def warning(self, node: doc.AST, message: str) -> None:
-        """Emit a diagnostic warning.
+        """Generate a warning-level diagnostic message.
 
         Parameters
         ----------
         node : doc.AST
-            The node with diagnostic warning.
+            The AST node associated with the warning.
         """
         self.emit(node, message, DiagnosticLevel.WARNING)
 
     def info(self, node: doc.AST, message: str) -> None:
-        """Emit a diagnostic info.
+        """Generate an info-level diagnostic message.
 
         Parameters
         ----------
         node : doc.AST
-            The node with diagnostic info.
+            The AST node associated with the informational message.
 
         message : str
-            The diagnostic message.
+            The informational message text.
         """
         self.emit(node, message, DiagnosticLevel.INFO)
 
     def debug(self, node: doc.AST, message: str) -> None:
-        """Emit a diagnostic debug.
+        """Generate a debug-level diagnostic message.
 
         Parameters
         ----------
         node : doc.AST
-            The node with diagnostic debug.
+            The AST node associated with the debug message.
 
         message : str
-            The diagnostic message.
+            The debug message text.
         """
         self.emit(node, message, DiagnosticLevel.DEBUG)

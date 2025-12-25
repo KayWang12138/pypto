@@ -71,21 +71,20 @@ def _should_print_backtrace():
 def pto_wrap_excepthook(exception_hook):
     """Wrap given excepthook with PTO additional work."""
 
-    def wrapper(exctype, value, trbk):
+    def wrapper(exc_type, value, trbk):
         """Clean subprocesses when PTO is interrupted."""
 
-        if exctype is RenderedParserError:
+        if exc_type is RenderedParserError:
             if not _should_print_backtrace():
                 print(
                     f"note: run with `{PTO_BACKTRACE_ENV_VAR}=1` environment variable to display a backtrace."
                 )
             else:
-                exception_hook(exctype, value, trbk)
+                exception_hook(exc_type, value, trbk)
         else:
-            exception_hook(exctype, value, trbk)
+            exception_hook(exc_type, value, trbk)
 
         if hasattr(multiprocessing, "active_children"):
-            # pylint: disable=not-callable
             for p in multiprocessing.active_children():
                 p.terminate()
 

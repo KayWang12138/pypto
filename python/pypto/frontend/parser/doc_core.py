@@ -1279,13 +1279,17 @@ class arguments(AST):
         posonlyargs: list["arg"],
     ) -> None:
         super().__init__()
-        self.args = args
-        self.vararg = vararg
-        self.kwonlyargs = kwonlyargs
+          
+        # pylint: disable=too-many-arguments
+
         self.kw_defaults = kw_defaults
+        self.kwonlyargs = kwonlyargs
         self.kwarg = kwarg
-        self.defaults = defaults
+
         self.posonlyargs = posonlyargs
+        self.defaults = defaults
+        self.vararg = vararg
+        self.args = args
 
 
 class arg(AST):

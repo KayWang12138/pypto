@@ -31,33 +31,35 @@ from pypto.frontend.parser.doc_core import AST
 from pypto.frontend.parser.error import ParserError
 
 
-def _deferred(exit_f: Callable[[], None]) -> Iterator[None]:
-    """Created context with certain exit function.
+def _deferred(cleanup_function: Callable[[], None]) -> Iterator[None]:
+    """Generate a context manager that executes a cleanup function on exit.
 
     Parameters
     ----------
-    exit_f : Callable[[], None]
-        The function to call when exiting the context.
+    cleanup_function : Callable[[], None]
+        The cleanup function to invoke when exiting the context manager.
 
     Returns
     -------
-    res : Any
-        The created context.
+    result : Iterator[None]
+        A context manager that yields None and executes the cleanup on exit.
     """
 
     @contextmanager
-    def context():
+    def context_manager():
         try:
             yield
         finally:
-            exit_f()
+            cleanup_function()
 
-    return context()
+    return context_manager()
 
 
 class ContextFrame:
-    """The context frame.
-    A frame of context stores the context created in one block or scope.
+    """Represents a single scope frame for variable storage.
+
+    Each frame maintains a collection of variable names that were introduced
+    within a specific block or scope during parsing.
     """
 
     vars: set[str]
@@ -65,51 +67,52 @@ class ContextFrame:
     def __init__(self):
         self.vars = set()
 
-    def add(self, var_name: str, node: Optional[AST] = None) -> None:
-        """Add a new context into context frame.
+    def add(self, variable_name: str, node: Optional[AST] = None) -> None:
+        """Register a new variable name in this context frame.
 
         Parameters
         ----------
-        var_name : str
-            The name of new context.
+        variable_name : str
+            The identifier of the variable to register.
         node : Optional[AST]
-            The AST node of variable, used for error reporting
+            The AST node associated with this variable, used for error reporting.
         """
-        if var_name in self.vars:
+        if variable_name in self.vars:
             if node is None:
-                raise NameError(
-                    f"Variable '{var_name}' already exists in the current scope"
+                error_message = "Variable '{}' already exists in the current scope".format(
+                    variable_name
                 )
+                raise NameError(error_message)
             else:
-                raise ParserError(
-                    node,
-                    NameError(
-                        f"Variable '{var_name}' already exists in the current scope"
-                    ),
+                error_message = "Variable '{}' already exists in the current scope".format(
+                    variable_name
                 )
-        self.vars.add(var_name)
+                raise ParserError(node, NameError(error_message))
+        self.vars.add(variable_name)
 
-    def pop_all(self, fn_pop: Callable[[str], None]):
-        """Pop out all variable in context frame.
+    def pop_all(self, removal_handler: Callable[[str], None]):
+        """Remove all variables from this frame using the provided handler.
 
         Parameters
         ----------
-        fn_pop : Callable[[str], None]
-            The methods to call when popping each variable.
+        removal_handler : Callable[[str], None]
+            The callback function to invoke for each variable being removed.
         """
-        for var_name in self.vars:
-            fn_pop(var_name)
+        for identifier in self.vars:
+            removal_handler(identifier)
         self.vars.clear()
 
 
 class Context:
-    """The context.
-    A context stores the all contexts when parsing PTO script.
+    """Manages variable scoping and context during PTO script parsing.
+
+    Maintains a stack of context frames, each representing a different scope,
+    and tracks variable values across these scopes.
 
     Parameters
     ----------
     frames : list[ContextFrame]
-        The list or stack of context frame.
+        The stack of context frames representing nested scopes.
     """
 
     frames: list[ContextFrame]
@@ -122,20 +125,23 @@ class Context:
         self.marked_for_deletion = set()
 
     def with_frame(self) -> Iterator[None]:
-        """Create a new variable table frame as with statement.
+        """Establish a new context frame that can be used with a with statement.
 
         Returns
         -------
-        res : Iterator[None]
-            The context manager for the new variable table frame.
+        result : Iterator[None]
+            A context manager that creates a new frame and automatically
+            cleans it up when the context exits.
         """
 
-        def pop_frame() -> None:
-            frame = self.frames.pop()
-            frame.pop_all(lambda name: self.name2value[name].pop())
+        def remove_frame() -> None:
+            current_frame = self.frames.pop()
+            current_frame.pop_all(
+                lambda identifier: self.name2value[identifier].pop()
+            )
 
         self.frames.append(ContextFrame())
-        return _deferred(pop_frame)
+        return _deferred(remove_frame)
 
     def add(
         self,
@@ -144,77 +150,86 @@ class Context:
         node: Optional[AST] = None,
         allow_update: bool = True,
     ) -> None:
-        """Add a new variable to variable table.
+        """Register or update a variable in the current context frame.
 
         Parameters
         ----------
         var : str
-            The name of variable.
+            The variable identifier.
         value : Any
-            The value of variable.
+            The value to associate with the variable.
         node : Optional[AST]
-            The AST node of variable, used for error reporting
+            The AST node for this variable, used for error reporting.
         allow_update : bool
-            The options of whether variable update allowed for this variable.
+            Whether updates to existing variables in the current frame are permitted.
         """
         if allow_update and var in self.frames[-1].vars:
-            # Update
+            # Modify existing variable value
             self.name2value[var][-1] = value
         else:
             self.frames[-1].add(var, node)
             self.name2value[var].append(value)
 
     def get(self) -> dict[str, Any]:
-        """Get a context dictionary of latest contexts.
+        """Retrieve a dictionary containing the most recent value for each variable.
 
         Returns
         -------
-        res : Any
-            The variable dictionary copy of latest variables.
+        result : dict[str, Any]
+            A dictionary mapping variable names to their latest values,
+            including only variables that have values.
         """
-        return {key: values[-1] for key, values in self.name2value.items() if values}
+        result_dict = {}
+        for var_key, value_list in self.name2value.items():
+            if value_list:
+                result_dict[var_key] = value_list[-1]
+        return result_dict
 
     def delete(self, var: str) -> None:
-        """Delete a variable from the current context frame.
+        """Remove a variable from the topmost context frame.
 
         Parameters
         ----------
         var : str
-            The name of variable to delete.
+            The identifier of the variable to remove.
         """
-        if not self.frames:
+        if len(self.frames) == 0:
             raise ValueError("Cannot delete variable outside of a frame")
         if var not in self.frames[-1].vars:
-            raise NameError(f"Variable '{var}' is not defined in the current scope")
+            error_msg = "Variable '{}' is not defined in the current scope".format(var)
+            raise NameError(error_msg)
 
-        # Remove from current frame's var set
+        # Eliminate from the top frame's variable collection
         self.frames[-1].vars.discard(var)
-        # Remove the last value from the stack
-        if var in self.name2value and self.name2value[var]:
-            self.name2value[var].pop()
+        # Eliminate the most recent value from the value stack
+        if var in self.name2value:
+            if self.name2value[var]:
+                self.name2value[var].pop()
 
     def mark_for_deletion(self, var_names: set[str]) -> None:
-        """Mark variables for deletion.
+        """Record variable names that should be deleted later.
 
         Parameters
         ----------
         var_names : set[str]
-            The set of variable names to mark for deletion.
+            A collection of variable identifiers to be marked for removal.
         """
         self.marked_for_deletion.update(var_names)
 
     def cleanup_marked(self) -> None:
-        """Delete all variables marked for deletion."""
-        for var_name in list(self.marked_for_deletion):
-            # Check if variable exists in any frame
-            if var_name in self.name2value and self.name2value[var_name]:
-                # Find which frame contains this variable
-                for frame in reversed(self.frames):
-                    if var_name in frame.vars:
-                        # Remove from frame
-                        frame.vars.discard(var_name)
-                        # Remove from value stack
-                        self.name2value[var_name].pop()
-                        break
-        # Clear the marked set
+        """Remove all variables that have been marked for deletion."""
+        marked_list = list(self.marked_for_deletion)
+        for identifier in marked_list:
+            # Verify the variable exists and has associated values
+            if identifier in self.name2value:
+                if self.name2value[identifier]:
+                    # Locate the frame containing this variable
+                    for frame in reversed(self.frames):
+                        if identifier in frame.vars:
+                            # Eliminate from the frame
+                            frame.vars.discard(identifier)
+                            # Eliminate from the value stack
+                            self.name2value[identifier].pop()
+                            break
+        # Reset the marked set
         self.marked_for_deletion.clear()
