@@ -170,10 +170,10 @@ def register_to_doc(name: str) -> Callable[[FnToDoc], FnToDoc]:
     ...     return doc.FunctionDef(...)
     """
 
-    def f(to_doc: FnToDoc) -> FnToDoc:  # pylint: disable=redefined-outer-name
+    def f(to_doc_fn: FnToDoc) -> FnToDoc:
         reg = Registry._inst  # pylint: disable=protected-access
-        reg.table[name].to_doc = to_doc
-        return to_doc
+        reg.table[name].to_doc = to_doc_fn
+        return to_doc_fn
 
     return f
 
@@ -201,10 +201,10 @@ def register_from_doc(name: str) -> Callable[[FnFromDoc], FnFromDoc]:
     ...     return ast.FunctionDef(...)
     """
 
-    def f(from_doc: FnFromDoc) -> FnFromDoc:  # pylint: disable=redefined-outer-name
+    def f(from_doc_fn: FnFromDoc) -> FnFromDoc:
         reg = Registry._inst  # pylint: disable=protected-access
-        reg.table[name].from_doc = from_doc
-        return from_doc
+        reg.table[name].from_doc = from_doc_fn
+        return from_doc_fn
 
     return f
 

@@ -50,6 +50,26 @@ class Function:
         """
         self._base = base
 
+    def __repr__(self) -> str:
+        """Get a string representation of the Function.
+
+        Returns:
+            A descriptive string.
+        """
+        if self._base is None:
+            return "<Function (uninitialized)>"
+        return f"<Function '{self.raw_name}' (magic: {self.func_magic}, type: {self.function_type_str})>"
+
+    def __str__(self) -> str:
+        """Get a string representation of the Function.
+
+        Returns:
+            The function's raw name.
+        """
+        if self._base is None:
+            return "Function(uninitialized)"
+        return f"Function('{self.raw_name}')"
+
     @property
     def base(self) -> pypto_impl.Function:
         """Get the underlying C++ Function object.
@@ -60,20 +80,6 @@ class Function:
         if self._base is None:
             raise RuntimeError("Function base is None")
         return self._base
-
-    @classmethod
-    def from_base(cls, base: pypto_impl.Function) -> "Function":
-        """Create a Function wrapper from a C++ Function object.
-
-        Args:
-            base: The C++ Function object to wrap.
-
-        Returns:
-            A new Function wrapper instance.
-        """
-        obj = cls.__new__(cls)
-        obj._base = base
-        return obj
 
     @property
     def magic_name(self) -> str:
@@ -198,6 +204,20 @@ class Function:
         """
         return self.base.GetOriginOutcast()
 
+    @classmethod
+    def from_base(cls, base: pypto_impl.Function) -> "Function":
+        """Create a Function wrapper from a C++ Function object.
+
+        Args:
+            base: The C++ Function object to wrap.
+
+        Returns:
+            A new Function wrapper instance.
+        """
+        obj = cls.__new__(cls)
+        obj._base = base
+        return obj
+
     def dump(self) -> str:
         """Dump the function in brief format.
 
@@ -229,26 +249,6 @@ class Function:
             file_name: Path to the JSON file. If empty, a default name is used.
         """
         self.base.DumpJsonFile(file_name)
-
-    def __repr__(self) -> str:
-        """Get a string representation of the Function.
-
-        Returns:
-            A descriptive string.
-        """
-        if self._base is None:
-            return "<Function (uninitialized)>"
-        return f"<Function '{self.raw_name}' (magic: {self.func_magic}, type: {self.function_type_str})>"
-
-    def __str__(self) -> str:
-        """Get a string representation of the Function.
-
-        Returns:
-            The function's raw name.
-        """
-        if self._base is None:
-            return "Function(uninitialized)"
-        return f"Function('{self.raw_name}')"
 
 
 def get_last_function() -> Optional[Function]:

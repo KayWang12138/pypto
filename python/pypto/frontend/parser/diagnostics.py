@@ -102,7 +102,7 @@ class Source:
             self.start_column = 0
         if self.start_column and source_lines:
             self.source = "\n".join(
-                [line_content[self.start_column :].rstrip() for line_content in source_lines]
+                [line_content[self.start_column:].rstrip() for line_content in source_lines]
             )
         else:
             self.source = "".join(source_lines)
@@ -461,10 +461,6 @@ class Diagnostics:
             )
         )
 
-    def _render(self) -> None:
-        """Output all diagnostics to the console."""
-        self.context.render()
-
     def bug(self, node: doc.AST, message: str) -> NoReturn:
         """Generate a bug-level diagnostic and raise an exception.
 
@@ -540,3 +536,7 @@ class Diagnostics:
             The debug message text.
         """
         self.emit(node, message, DiagnosticLevel.DEBUG)
+
+    def _render(self) -> None:
+        """Output all diagnostics to the console."""
+        self.context.render()
