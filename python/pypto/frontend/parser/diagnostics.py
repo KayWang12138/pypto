@@ -461,10 +461,6 @@ class Diagnostics:
             )
         )
 
-    def _render(self) -> None:
-        """Output all diagnostics to the console."""
-        self.context.render()
-
     def bug(self, node: doc.AST, message: str) -> NoReturn:
         """Generate a bug-level diagnostic and raise an exception.
 
@@ -540,3 +536,7 @@ class Diagnostics:
             The debug message text.
         """
         self.emit(node, message, DiagnosticLevel.DEBUG)
+
+    def _render(self) -> None:
+        """Output all diagnostics to the console."""
+        self.context.render()
