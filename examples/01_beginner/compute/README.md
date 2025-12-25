@@ -62,7 +62,7 @@ def matmul_example(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> None:
     out[:] = pypto.matmul(a, b, out_dtype=pypto.DT_BF16)
 ```
 
-### 规约运算
+### 归约运算
 支持指定维度（dim）和是否保持维度（keepdim）。
 ```python
 @pypto.jit
@@ -73,5 +73,5 @@ def sum_example(x: pypto.Tensor, out: pypto.Tensor) -> None:
 
 ## 注意事项
 - 在进行矩阵乘法时，建议显式设置 Cube Tile 形状以获得最佳性能。
-- 规约操作通常涉及到跨 Tile 的数据交互，请注意 Tiling 的划分策略。
+- 归约操作通常涉及到跨 Tile 的数据交互，请注意 Tiling 的划分策略。
 - 所有的样例都包含与 PyTorch 原生算子的对比验证，确保计算结果的准确性。
