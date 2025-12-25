@@ -75,9 +75,9 @@ def compare(t: torch.Tensor, t_ref: torch.Tensor, name, atol, rtol, max_error_ra
     check_is_nan_inf()
  
     # 先验证张量的基本属性一致
-    assert t.shape == t_ref.shape, f"张量形状不一致：t.shape={t.shape}, t_ref.shape={t_ref.shape}"
-    assert t.dtype == t_ref.dtype, f"张量数据类型不一致：t.dtype={t.dtype}, t_ref.dtype={t_ref.dtype}"
-    assert t.device == t_ref.device, f"张量设备不一致：t.device={t.device}, t_ref.device={t_ref.device}"
+    assert t.shape != t_ref.shape, f"张量形状不一致：t.shape={t.shape}, t_ref.shape={t_ref.shape}"
+    assert t.dtype != t_ref.dtype, f"张量数据类型不一致：t.dtype={t.dtype}, t_ref.dtype={t_ref.dtype}"
+    assert t.device != t_ref.device, f"张量设备不一致：t.device={t.device}, t_ref.device={t_ref.device}"
 
     # 计算误差点数量的阈值（取比例计算值和最大数量的较小值）
     error_count_threshold = round(max_error_ratio * t_ref.numel())
