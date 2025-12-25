@@ -86,57 +86,6 @@ class LivenessAnalyzer(doc.NodeVisitor):
         self._compute_deletion_points()
         return self.delete_after
 
-    def _compute_deletion_points(self):
-        """Compute where each variable should be deleted based on usage."""
-        for var_name, use_ids in self.var_uses.items():
-            if var_name in self.exempt_vars:
-                continue
-            if not use_ids:
-                # Variable defined but never used - delete after definition
-                if var_name in self.var_defs:
-                    stmt_id = self.var_defs[var_name]
-                    if stmt_id not in self.delete_after:
-                        self.delete_after[stmt_id] = set()
-                    self.delete_after[stmt_id].add(var_name)
-            else:
-                # Delete after last use
-                last_use_id = use_ids[-1]
-                if last_use_id not in self.delete_after:
-                    self.delete_after[last_use_id] = set()
-                self.delete_after[last_use_id].add(var_name)
-
-    def _next_stmt_id(self) -> int:
-        """Generate next statement ID."""
-        self.stmt_counter += 1
-        return self.stmt_counter
-
-    def _record_var_use(self, var_name: str):
-        """Record a variable use at the current statement.
-
-        If inside a loop scope, records the use at the loop level to ensure
-        variables aren't deleted inside the loop body, UNLESS the variable
-        was defined inside the loop (in which case it can be deleted per-iteration).
-        """
-        if self.current_stmt_id is not None:
-            if var_name not in self.var_uses:
-                self.var_uses[var_name] = []
-            # If we're inside a loop and the variable was defined OUTSIDE the loop,
-            # use the loop's statement ID to delete after loop exits.
-            # If defined INSIDE the loop, use actual statement ID to delete per-iteration.
-            if self.loop_scope_stack and var_name not in self.vars_defined_in_loop:
-                stmt_id = self.loop_scope_stack[-1]  # Use innermost loop scope
-            else:
-                stmt_id = self.current_stmt_id
-            self.var_uses[var_name].append(stmt_id)
-
-    def _record_var_def(self, var_name: str):
-        """Record a variable definition at the current statement."""
-        if self.current_stmt_id is not None:
-            self.var_defs[var_name] = self.current_stmt_id
-            # Track if this variable is defined inside a loop
-            if self.loop_scope_stack:
-                self.vars_defined_in_loop.add(var_name)
-
     def visit(self, node: doc.AST):
         """Visit a node."""
         if isinstance(node, (list, tuple)):
@@ -298,6 +247,57 @@ class LivenessAnalyzer(doc.NodeVisitor):
             self.visit(node.upper)
         if node.step:
             self.visit(node.step)
+
+    def _compute_deletion_points(self):
+        """Compute where each variable should be deleted based on usage."""
+        for var_name, use_ids in self.var_uses.items():
+            if var_name in self.exempt_vars:
+                continue
+            if not use_ids:
+                # Variable defined but never used - delete after definition
+                if var_name in self.var_defs:
+                    stmt_id = self.var_defs[var_name]
+                    if stmt_id not in self.delete_after:
+                        self.delete_after[stmt_id] = set()
+                    self.delete_after[stmt_id].add(var_name)
+            else:
+                # Delete after last use
+                last_use_id = use_ids[-1]
+                if last_use_id not in self.delete_after:
+                    self.delete_after[last_use_id] = set()
+                self.delete_after[last_use_id].add(var_name)
+
+    def _next_stmt_id(self) -> int:
+        """Generate next statement ID."""
+        self.stmt_counter += 1
+        return self.stmt_counter
+
+    def _record_var_use(self, var_name: str):
+        """Record a variable use at the current statement.
+
+        If inside a loop scope, records the use at the loop level to ensure
+        variables aren't deleted inside the loop body, UNLESS the variable
+        was defined inside the loop (in which case it can be deleted per-iteration).
+        """
+        if self.current_stmt_id is not None:
+            if var_name not in self.var_uses:
+                self.var_uses[var_name] = []
+            # If we're inside a loop and the variable was defined OUTSIDE the loop,
+            # use the loop's statement ID to delete after loop exits.
+            # If defined INSIDE the loop, use actual statement ID to delete per-iteration.
+            if self.loop_scope_stack and var_name not in self.vars_defined_in_loop:
+                stmt_id = self.loop_scope_stack[-1]  # Use innermost loop scope
+            else:
+                stmt_id = self.current_stmt_id
+            self.var_uses[var_name].append(stmt_id)
+
+    def _record_var_def(self, var_name: str):
+        """Record a variable definition at the current statement."""
+        if self.current_stmt_id is not None:
+            self.var_defs[var_name] = self.current_stmt_id
+            # Track if this variable is defined inside a loop
+            if self.loop_scope_stack:
+                self.vars_defined_in_loop.add(var_name)
 
     def _visit_assign_target(self, target: doc.expr, is_def: bool = False):
         """Visit assignment target."""

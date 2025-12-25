@@ -31,6 +31,7 @@ Environment Variables:
 The exception hook automatically cleans up multiprocessing child processes
 when the parser is interrupted, preventing orphaned processes.
 """
+import logging
 import multiprocessing
 import os
 import sys
@@ -76,7 +77,7 @@ def pto_wrap_excepthook(exception_hook):
 
         if exc_type is RenderedParserError:
             if not _should_print_backtrace():
-                print(
+                logging.info(
                     f"note: run with `{PTO_BACKTRACE_ENV_VAR}=1` environment variable to display a backtrace."
                 )
             else:

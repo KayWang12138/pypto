@@ -377,6 +377,47 @@ class Parser(doc.NodeVisitor):
         """Report a diagnostic."""
         self.diag.emit(node, msg, level)
 
+    def visit(self, node: doc.AST) -> Any:
+        """The general visiting method.
+
+        Parameters
+        ----------
+        node : doc.AST
+            The doc AST node.
+
+        Returns
+        -------
+        res : Any
+            The visiting result.
+        """
+        if isinstance(node, (list, tuple)):
+            result = None
+            for item in node:
+                res = self.visit(item)
+                if res is not None:
+                    result = res
+            return result
+        if not isinstance(node, doc.AST):
+            raise ParserError(
+                node,
+                TypeError(f"Expected doc.AST, got {type(node)}."),
+            )
+        name = node.__class__.__name__.split(".")[-1]
+
+        if name in DEFAULT_VISIT:
+            func = self._generic_visit
+        else:
+            # Convert CamelCase to snake_case for function names
+            snake_case_name = re.sub(r"(?<!^)(?=[A-Z])", "_", name).lower()
+            func = getattr(self, f"_visit_{snake_case_name}", None)
+        if func is None:
+            raise ParserError(
+                node,
+                f"{name} is not supported by the PTO parser yet. "
+                f"Please check the documentation for supported Python features.",
+            )
+        return func(node)
+
     # ==========================================================================================
     # Private APIs (implementation details)
     # ==========================================================================================
@@ -600,47 +641,6 @@ class Parser(doc.NodeVisitor):
                 f"but got {type(output_expr).__name__}."
             ),
         )
-
-    def visit(self, node: doc.AST) -> Any:
-        """The general visiting method.
-
-        Parameters
-        ----------
-        node : doc.AST
-            The doc AST node.
-
-        Returns
-        -------
-        res : Any
-            The visiting result.
-        """
-        if isinstance(node, (list, tuple)):
-            result = None
-            for item in node:
-                res = self.visit(item)
-                if res is not None:
-                    result = res
-            return result
-        if not isinstance(node, doc.AST):
-            raise ParserError(
-                node,
-                TypeError(f"Expected doc.AST, got {type(node)}."),
-            )
-        name = node.__class__.__name__.split(".")[-1]
-
-        if name in DEFAULT_VISIT:
-            func = self._generic_visit
-        else:
-            # Convert CamelCase to snake_case for function names
-            snake_case_name = re.sub(r"(?<!^)(?=[A-Z])", "_", name).lower()
-            func = getattr(self, f"_visit_{snake_case_name}", None)
-        if func is None:
-            raise ParserError(
-                node,
-                f"{name} is not supported by the PTO parser yet. "
-                f"Please check the documentation for supported Python features.",
-            )
-        return func(node)
 
     def _generic_visit(self, node: doc.AST) -> Any:
         """Generic visit method that visits all child nodes.
@@ -999,17 +999,13 @@ class Parser(doc.NodeVisitor):
             # Note that the naming process should be done before the dynamic dimension marking,
             output_var_mapping = self._setup_output_var_mapping(node, output_args)
 
-            # # Step 4: Mark dynamic dimensions for input tensors
-            # self._mark_dynamic_dimensions(tensor_input_args)
-            # self._mark_dynamic_dimensions(output_args)
-
-            # Step 5: Add arguments to parsing context
+            # Step 4: Add arguments to parsing context
             self._add_tensor_args_to_context(tensor_input_args)
 
-            # Step 6: Add metadata to context
+            # Step 5: Add metadata to context
             self._add_metadata_to_context(node.name, output_var_mapping)
 
-            # Step 7: Create PTO function and parse body
+            # Step 6: Create PTO function and parse body
             if is_nested:
                 # For nested functions, we don't create a pypto.Function; body will be inlined on call.
                 return None
