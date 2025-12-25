@@ -73,7 +73,7 @@ openEuler+A2 :ARG CANN_VERSION=8.5.0.alpha001-910b-openeuler24.03-py3.11;<br>
 
 ```
 #**************docker info*******************#
-# os: ubuntu22.04, openeuler24.03
+# os: ubuntu22.04, openeuler22.03
 # arch: x86, arm
 # python: 3.11
 # cann env: none
