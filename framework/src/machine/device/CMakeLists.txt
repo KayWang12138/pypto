@@ -88,15 +88,40 @@ if (NOT ENABLE_FEATURE_PYTHON_FRONT_END)
     install(TARGETS tile_fwk_server LIBRARY DESTINATION lib OPTIONAL)
 endif ()
 
-if (NOT BUILD_OPEN_PROJECT)
-    set(TILE_FWK_KERNEL_TAR_GZ_NAME "transformer_tile_fwk_aicpu_kernel.tar.gz")
+set(TILE_FWK_KERNEL_TAR_GZ_NAME "transformer_tile_fwk_aicpu_kernel.tar.gz")
+if (BUILD_OPEN_PROJECT)
+    if (ENABLE_SIGN)
+        set(SIGN_CONFIG ${PTO_FWK_SRC_ROOT}/scripts/sign/sign_check_cfg.xml)
+        if (NOT DEFINED SIGN_SCRIPT OR "${SIGN_SCRIPT}" STREQUAL "")
+            # using community sign script as default
+            set(SIGN_SCRIPT ${PTO_FWK_SRC_ROOT}/scripts/sign/community_sign_build.py)
+        endif ()
+        set(SIGN_DIR ${PTO_FWK_SRC_ROOT}/scripts/)
+        add_custom_command(
+            OUTPUT ${TILE_FWK_KERNEL_TAR_GZ_NAME}
+            COMMAND ${CMAKE_COMMAND} -E remove_directory aicpu_kernels_device
+            COMMAND ${CMAKE_COMMAND} -E make_directory aicpu_kernels_device/tile_fwk_machine
+            COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:tile_fwk_server> aicpu_kernels_device/tile_fwk_machine
+            COMMAND tar czf ${TILE_FWK_KERNEL_TAR_GZ_NAME} aicpu_kernels_device
+            COMMAND python3 ${PTO_FWK_SRC_ROOT}/scripts/sign/add_header_sign.py ${SIGN_DIR} true --bios_check_cfg=${SIGN_CONFIG} --sign_script=${SIGN_SCRIPT} --version=${SIGN_VERSION}
+            COMMAND ${CMAKE_COMMAND} -E copy ${SIGN_DIR}/${TILE_FWK_KERNEL_TAR_GZ_NAME} ${PTO_FWK_BIN_OUTPUT_ROOT}
+            COMMENT "Create ${TILE_FWK_KERNEL_TAR_GZ_NAME} from libtilefwk_backend_server.so and sign for it."
+            WORKING_DIRECTORY ${SIGN_DIR}
+            DEPENDS tile_fwk_server
+        )
+        add_custom_target(tile_fwk_aicpu_kernel_tar_gz_pkg ALL DEPENDS ${TILE_FWK_KERNEL_TAR_GZ_NAME})
+        if (NOT ENABLE_FEATURE_PYTHON_FRONT_END)
+            install(FILES ${PTO_FWK_BIN_OUTPUT_ROOT}/${TILE_FWK_KERNEL_TAR_GZ_NAME} DESTINATION lib OPTIONAL)
+        endif ()
+    endif ()
+else ()
     add_custom_command(TARGET tile_fwk_server POST_BUILD
-        COMMAND echo "Begin to compress ${TILE_FWK_KERNEL_TAR_GZ_NAME} from ${CMAKE_CURRENT_BINARY_DIR}/libtilefwk_backend_server.so"
+        COMMENT "Begin to compress ${TILE_FWK_KERNEL_TAR_GZ_NAME} from $<TARGET_FILE:tile_fwk_server>"
         COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/aicpu_kernels_device/tile_fwk_machine
-        COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_BINARY_DIR}/libtilefwk_backend_server.so ${CMAKE_CURRENT_BINARY_DIR}/aicpu_kernels_device/tile_fwk_machine
+        COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:tile_fwk_server> ${CMAKE_CURRENT_BINARY_DIR}/aicpu_kernels_device/tile_fwk_machine
         COMMAND cd ${CMAKE_CURRENT_BINARY_DIR}
         COMMAND tar czf ${TILE_FWK_KERNEL_TAR_GZ_NAME} aicpu_kernels_device
-        COMMAND echo "${CMAKE_CURRENT_BINARY_DIR}/${TILE_FWK_KERNEL_TAR_GZ_NAME} has been generated."
+        COMMENT "${CMAKE_CURRENT_BINARY_DIR}/${TILE_FWK_KERNEL_TAR_GZ_NAME} has been generated."
     )
     install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${TILE_FWK_KERNEL_TAR_GZ_NAME} DESTINATION lib OPTIONAL)
-endif ()
+endif()
