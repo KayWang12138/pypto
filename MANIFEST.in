@@ -15,6 +15,11 @@ recursive-include cmake *.cmake
 recursive-include cmake *.cmake.in
 recursive-include cmake *.txt
 
+# scripts
+recursive-include scripts *.py
+recursive-include scripts *.xml
+recursive-include scripts *.crl
+
 # framework
 include framework/CMakeLists.txt
 include framework/src/CMakeLists.txt
