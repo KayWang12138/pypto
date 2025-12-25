@@ -12,7 +12,7 @@
 ## 代码文件说明
 
 - **`elementwise_ops.py`**: 逐元素算子示例，涵盖 `abs`, `add`, `clip`, `div`, `exp`, `log`, `mul`, `neg`, `pow`, `rsqrt`, `sqrt`, `sub`。
-- **`matmul_ops_problem.py`**: 矩阵乘法示例，涵盖基础矩阵乘法、批量矩阵乘法、广播矩阵乘法、带转置的矩阵乘法以及带 Bias 的矩阵乘法。
+- **`matmul_ops.py`**: 矩阵乘法示例，涵盖基础矩阵乘法、批量矩阵乘法、广播矩阵乘法、带转置的矩阵乘法以及带 Bias 的矩阵乘法。
 - **`reduce_ops.py`**: 规约算子示例，涵盖 `amax`, `amin`, `maximum`, `minimum`, `sum`。
 
 ## 运行方法
@@ -51,7 +51,7 @@ python3 elementwise_ops.py --run_mode sim
 支持广播（Broadcasting）机制和标量（Scalar）操作。
 ```python
 @pypto.frontend.jit
-def add_kernel(a: pypto.Tensor, b: pypto.Tensor) -> pypto.Tensor:
+def add_kernel(a: pypto.Tensor(shape, dtype), b: pypto.Tensor(shape, dtype)) -> pypto.Tensor(shape, dtype):
     pypto.set_vec_tile_shapes(2, 8)
     out = pypto.add(a, b)
     return out
@@ -61,7 +61,7 @@ def add_kernel(a: pypto.Tensor, b: pypto.Tensor) -> pypto.Tensor:
 使用 Cube Tiling 进行高效计算，支持指定输出数据类型。
 ```python
 @pypto.frontend.jit
-def matmul_kernel(a: pypto.Tensor, b: pypto.Tensor) -> pypto.Tensor:
+def matmul_kernel(a: pypto.Tensor(shape, dtype), b: pypto.Tensor(shape, dtype)) -> pypto.Tensor(shape, dtype):
     pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
     out = pypto.matmul(a, b, out_dtype=pypto.DT_BF16)
     return out
@@ -71,7 +71,7 @@ def matmul_kernel(a: pypto.Tensor, b: pypto.Tensor) -> pypto.Tensor:
 支持指定维度（dim）和是否保持维度（keepdim）。
 ```python
 @pypto.frontend.jit
-def sum_kernel(x: pypto.Tensor) -> pypto.Tensor:
+def sum_kernel(x: pypto.Tensor(shape, dtype)) -> pypto.Tensor(shape, dtype):
     pypto.set_vec_tile_shapes(2, 8)
     out = pypto.sum(x, dim=0, keepdim=True)
     return out

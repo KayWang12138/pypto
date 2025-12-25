@@ -104,7 +104,7 @@ def arange_op_wrapper(
     host_options={"only_codegen": True},
     runtime_options={"run_mode": mode},
 )
-def element_wise_ops_kernel(a: pypto.Tensor, b: pypto.Tensor) -> pypto.Tensor:
+def element_wise_ops_kernel(a: pypto.Tensor(shape, dtype), b: pypto.Tensor(shape, dtype)) -> pypto.Tensor(shape, dtype):
     # 设置向量计算的分块形状
     pypto.set_vec_tile_shapes(8, 8)
     # 算子组合
