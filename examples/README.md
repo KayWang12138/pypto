@@ -35,6 +35,7 @@ source /usr/local/Ascend/ascend-toolkit/latest/bin/setenv.bash
 # 设置 NPU 设备 ID（运行 NPU 样例时必需）
 export TILE_FWK_DEVICE_ID=0
 ```
+补充说明：如需运行models相关样例，请在真实设备运行
 
 ## 如何运行样例
 
@@ -63,7 +64,7 @@ python3 01_beginner/basic/basic_ops.py --list
 3. **第三阶段：深度实践**
    - [03_advanced/nn/attention](03_advanced/nn/attention/README.md)
    - [models/deepseek_v32_exp](models/deepseek_v32_exp/README.md)
-   - [models/glm_v4_5](modes/glm_v4_5/README.md)
+   - [models/glm_v4_5](models/glm_v4_5/README.md)
 
 ---
 
