@@ -38,7 +38,8 @@ def get_device_id():
         int: The device ID if valid, None otherwise.
     """
     if 'TILE_FWK_DEVICE_ID' not in os.environ:
-        print("ERROR: Environment variable TILE_FWK_DEVICE_ID is not set.")
+        print("If no NPU environment is available, set --run_mode sim to run in simulation mode;")
+        print("otherwise, set the environment variable TILE_FWK_DEVICE_ID.")
         print("Please set it before running this example:")
         print("  export TILE_FWK_DEVICE_ID=0")
         return None
@@ -68,19 +69,16 @@ def test_set_print_options(device_id=None)->None:
     else:
         torch.npu.set_device(device_id)
         
-    edge_items = 1
     precision = 3
     threshold = 10
     linewidth = 80
 
     print("Configuring PyPTO print options:")
-    print(f"  edge_items : {edge_items}")
     print(f"  precision  : {precision}")
     print(f"  threshold  : {threshold}")
     print(f"  linewidth  : {linewidth}")
 
     pypto.set_print_options(
-        edge_items=edge_items,
         precision=precision,
         threshold=threshold,
         linewidth=linewidth,

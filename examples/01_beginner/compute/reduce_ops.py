@@ -37,7 +37,8 @@ def get_device_id():
         int: The device ID if valid, None otherwise.
     """
     if 'TILE_FWK_DEVICE_ID' not in os.environ:
-        print("ERROR: Environment variable TILE_FWK_DEVICE_ID is not set.")
+        print("If no NPU environment is available, set --run_mode sim to run in simulation mode;")
+        print("otherwise, set the environment variable TILE_FWK_DEVICE_ID.")
         print("Please set it before running this example:")
         print("  export TILE_FWK_DEVICE_ID=0")
         return None
@@ -418,7 +419,7 @@ def test_amin_different_dimensions(device_id = None, run_mode: str = "npu"):
                 [18, 21, 36, 44],
                 [11, 29, 31, 43]
             ]
-        ], dtype=dtype, device=f'npu:{device_id}')
+        ], dtype=dtype, device=device)
     expected = torch.tensor([[5,  20, 30, 40],
                             [15, 21, 35, 44],
                             [11, 22, 31, 42]], dtype=dtype, device=device)
@@ -517,9 +518,9 @@ def test_maximum_basic(device_id = None, run_mode: str = "npu"):
     
     # Test 2: Basic Usage of maximum Function with different shapes
     dtype = torch.float32
-    a = torch.tensor([[1, 2, 3], [4, 5, 6]], dtype=dtype, device=f'npu:{device_id}')
-    b = torch.tensor([[0, 9, 2], [1, 3, 10]], dtype=dtype, device=f'npu:{device_id}')
-    expected = torch.tensor([[1, 9, 3], [4, 5, 10]], dtype=dtype, device=f'npu:{device_id}')
+    a = torch.tensor([[1, 2, 3], [4, 5, 6]], dtype=dtype, device=device)
+    b = torch.tensor([[0, 9, 2], [1, 3, 10]], dtype=dtype, device=device)
+    expected = torch.tensor([[1, 9, 3], [4, 5, 10]], dtype=dtype, device=device)
 
     out = maximum_op(a, b, run_mode)
     max_diff = np.abs(out.cpu().numpy() - expected.cpu().numpy()).max()

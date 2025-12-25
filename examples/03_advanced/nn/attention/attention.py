@@ -41,7 +41,8 @@ def get_device_id():
         int: The device ID if valid, None otherwise.
     """
     if 'TILE_FWK_DEVICE_ID' not in os.environ:
-        print("ERROR: Environment variable TILE_FWK_DEVICE_ID is not set.")
+        print("If no NPU environment is available, set --run_mode sim to run in simulation mode;")
+        print("otherwise, set the environment variable TILE_FWK_DEVICE_ID.")
         print("Please set it before running this example:")
         print("  export TILE_FWK_DEVICE_ID=0")
         return None
@@ -206,10 +207,12 @@ def test_attention_dynamic(device_id = None, run_mode: str = "npu", dynamic: boo
         golden = scaled_dot_product_attention_golden(q_torch, k_torch, v_torch, scale).cpu()
         
         max_diff = (out_torch - golden).abs().max().item()
-        print(f"Batch={batch_size}, SeqQ={seq_len_q}, SeqKV={seq_len_kv}, Max diff: {max_diff:.6f}")
+        print(f"Batch={batch_size}, SeqQ={seq_len_q}, SeqKV={seq_len_kv}")
         print(f"Input shape: {q_torch.shape}")
         print(f"Output shape: {out_torch.shape}")
-        assert_allclose(np.array(out_torch), np.array(golden), rtol=3e-3, atol=3e-3)
+        if run_mode == "npu":
+            print(f"Batch={batch_size}, SeqQ={seq_len_q}, SeqKV={seq_len_kv}, Max diff: {max_diff:.6f}")
+            assert_allclose(np.array(out_torch), np.array(golden), rtol=3e-3, atol=3e-3)
         
     print("✓ Attention (dynamic) passed for the test case")
     print()

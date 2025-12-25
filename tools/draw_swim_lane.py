@@ -1124,6 +1124,8 @@ if __name__ == "__main__":
     is_dyn = "dyn" in os.path.basename(args.topo_json_file)
     if is_dyn:
         assert args.func_table_file is not None, "For dynamic topo, program.json is required"
+        if not os.path.exists(args.func_table_file):
+            sys.exit(0)
         program_data = load_json(args.func_table_file)
         func_data = program_data["functions"]
         input_topo_data = load_dyn_topo(args.topo_json_file, func_data)

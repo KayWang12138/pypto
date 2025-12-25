@@ -14,7 +14,8 @@ import argparse
 import json
 import os
 import sys
-
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 import numpy as np
@@ -241,7 +242,6 @@ def draw_pipe_swim_lane_png(path):
     ax.grid(axis='x', alpha=0.3)       # 只显示横向辅助线
     ax.tick_params(axis='both', which='major', labelsize=8)
     plt.tight_layout()
-    plt.show()
     plt.savefig(path)
 
 
