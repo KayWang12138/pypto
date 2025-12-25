@@ -114,8 +114,8 @@ PyPTO 在多个 AI 工作负载上展现出优异的性能表现. 框架通过�
 
 ## 联系我们
 
-- **问题反馈**: 通过 GitHub Issues 提交问题
-- **功能建议**: 通过 GitHub Discussions 参与讨论
+- **问题反馈**: 通过 GitCode【Issues】提交问题
+- **功能建议**: 通过 GitCode【讨论】参与交流
 - **技术支持**: 参考文档或提交 Issue
 
 ---
