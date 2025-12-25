@@ -90,7 +90,7 @@ def _device_run_once_data_from_host(*args):
         if not isinstance(inp, pypto.Tensor):
             raise TypeError(
                 f"Expected pypto.Tensor at inputs[{i}], "f"but got {type(inp).__name__}. "
-                "Use from_torch() to convert torch.Tensor to pypto.Tensor."
+                "Use from_torch() to convert torch.Tensor to pypto.Tensor. "
             )
     pypto_impl.DeviceRunOnceDataFromHost(
         _pto_to_tensor_data(in_out_tensors), [])
