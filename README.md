@@ -30,8 +30,8 @@ PyPTO 提供了丰富的示例代码, 涵盖从基础操作到复杂模型实现
 
 ### 大模型实现样例
 
-- [DeepSeekV3.2 SFA](examples/models/deepseek_v32_exp/sparse_flash_attention_quant.py) - 稀疏 Flash Attention 量化实现
-- [DeepSeekV3.2 MLA-PROLOG](examples/models/deepseek_v32_exp/mla_indexer_prolog_quant.py) - MLA Indexer Prolog 量化实现
+- [DeepSeekV3.2 SFA](examples/models/deepseek_v32_exp/deepseekv32_sparse_flash_attention_quant.py) - 稀疏 Flash Attention 量化实现
+- [DeepSeekV3.2 MLA-PROLOG](examples/models/deepseek_v32_exp/deepseekv32_mla_indexer_prolog_quant.py) - MLA Indexer Prolog 量化实现
 - [GLM V4.5 Attention](examples/models/glm_v4_5/glm_attention.py) - GLM 注意力机制实现
 - [GLM V4.5 ExpertsSelector](examples/models/glm_v4_5/glm_select_experts.py) - GLM 专家选择器实现
 

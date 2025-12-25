@@ -19,26 +19,14 @@
 3. **探索高级模式？** 查阅 [高级样例 (03_advanced)](03_advanced/README.md)。
 4. **大模型算子实现？** 探索 [模型样例 (models)](models/README.md)。
 
-## 环境准备
+### 环境准备
+请参考[环境准备](../docs/context/prepare_environment.md)，完成基础环境搭建
 
-### 系统要求
+### 软件安装 
+请参考[软件安装](../docs/context/build_and_install.md)，完成PyPTO软件安装
 
-- **硬件**: 昇腾 NPU (如 Atlas 系列)
-- **软件**: Ascend CANN Toolkit
-- **Python**: 3.7+
-- **PyTorch**: 与 torch_npu 兼容的版本
-
-### 软件安装
-
-1. **配置 CANN 环境**:
-   ```bash
-   source /usr/local/Ascend/ascend-toolkit/latest/bin/setenv.bash
-   ```
-
-2. **安装 PyPTO**:
-   请参考项目根目录的构建文档。
-
-### 运行前配置
+### 运行前配置（可选）
+如需运行在真实NPU环境中，请参考如下配置
 
 ```bash
 # 配置 CANN 环境变量
@@ -55,9 +43,6 @@ export TILE_FWK_DEVICE_ID=0
 ```bash
 # 运行所有初级基础操作样例
 python3 01_beginner/basic/basic_ops.py
-
-# 运行特定 ID 的样例
-python3 01_beginner/basic/basic_ops.py 2
 
 # 列出脚本中所有可用的样例
 python3 01_beginner/basic/basic_ops.py --list
@@ -77,7 +62,8 @@ python3 01_beginner/basic/basic_ops.py --list
 
 3. **第三阶段：深度实践**
    - [03_advanced/nn/attention](03_advanced/nn/attention/README.md)
-   - [models/qwen3](models/qwen3/README.md)
+   - [models/deepseek_v32_exp](models/deepseek_v32_exp/README.md)
+   - [models/glm_v4_5](modes/glm_v4_5/README.md)
 
 ---
 
