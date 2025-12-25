@@ -13,7 +13,7 @@
 
 - **`elementwise_ops.py`**: 逐元素算子示例，涵盖 `abs`, `add`, `clip`, `div`, `exp`, `log`, `mul`, `neg`, `pow`, `rsqrt`, `sqrt`, `sub`。
 - **`matmul_ops.py`**: 矩阵乘法示例，涵盖基础矩阵乘法、批量矩阵乘法、广播矩阵乘法、带转置的矩阵乘法以及带 Bias 的矩阵乘法。
-- **`reduce_ops.py`**: 规约算子示例，涵盖 `amax`, `amin`, `maximum`, `minimum`, `sum`。
+- **`reduce_ops.py`**: 归约算子示例，涵盖 `amax`, `amin`, `maximum`, `minimum`, `sum`。
 
 ## 运行方法
 
