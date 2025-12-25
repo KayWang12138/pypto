@@ -17,7 +17,7 @@
 
 namespace npu::tile_fwk {
 struct DevAscendProgram {
-    // shadow definition in `dev_encode.h`, make sure the first 4 members are the same
+    // shadow definition in `dev_encode_program.h`, make sure the first 4 members are the same
     DeviceArgs devArgs;
     uint64_t workspaceSize;
     uint64_t l2CacheOffset;
