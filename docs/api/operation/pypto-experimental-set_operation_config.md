@@ -14,8 +14,8 @@
 ## 函数原型
 
 ```python
-set_operation_config(*, force_combine_axis: Optional[int] = None,
-                      combine_axis: Optional[int] = None)
+set_operation_config(*, force_combine_axis: Optional[bool] = None,
+                      combine_axis: Optional[bool] = None)
 ```
 
 ## 参数说明
