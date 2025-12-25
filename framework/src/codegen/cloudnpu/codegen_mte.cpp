@@ -1145,7 +1145,6 @@ std::string CodeGenOpCloudNPU::GenLoadOp() const {
     }
 
     ASSERT(ret >= 0) << "GenLoadOp sprintf_s failed ";
-    std::cout << buffer << std::endl;
     std::string ostring(buffer);
     return ostring;
 }
@@ -1300,7 +1299,6 @@ std::string CodeGenOpCloudNPU::GenGatherInL1() const {
         blockTableStartOffsets[ID0].c_str(), blockTableStartOffsets[ID1].c_str());
 
     ASSERT(ret >= 0) << "GenGatherInL1 sprintf_s failed ";
-    std::cout << buffer << std::endl;
     std::string ostring(buffer);
     return ostring;
 }
