@@ -39,30 +39,35 @@ def get_device_id():
     Returns:
         int: The device ID if valid, None otherwise.
     """
-    if 'TILE_FWK_DEVICE_ID' not in os.environ:
+    if "TILE_FWK_DEVICE_ID" not in os.environ:
         print("ERROR: Environment variable TILE_FWK_DEVICE_ID is not set.")
         print("Please set it before running this example:")
         print("  export TILE_FWK_DEVICE_ID=0")
         return None
 
     try:
-        device_id = int(os.environ['TILE_FWK_DEVICE_ID'])
+        device_id = int(os.environ["TILE_FWK_DEVICE_ID"])
         return device_id
     except ValueError:
-        print(f"ERROR: TILE_FWK_DEVICE_ID must be an integer, got: {os.environ['TILE_FWK_DEVICE_ID']}")
+        print(
+            f"ERROR: TILE_FWK_DEVICE_ID must be an integer, got: {os.environ['TILE_FWK_DEVICE_ID']}"
+        )
         return None
 
 
 @dataclass
 class NormConfig:
     """Configuration for normalization operations."""
+
     norm_type: Literal["layernorm", "rmsnorm"] = "layernorm"
     eps: float = 1e-6
     dtype: pypto.DataType = pypto.DT_BF16
     use_dynamic_shape: bool = False
 
 
-def layernorm_golden(x: torch.Tensor, gamma: torch.Tensor, beta: torch.Tensor, eps: float) -> torch.Tensor:
+def layernorm_golden(
+    x: torch.Tensor, gamma: torch.Tensor, beta: torch.Tensor, eps: float
+) -> torch.Tensor:
     """PyTorch reference implementation of LayerNorm."""
     mean = x.mean(dim=-1, keepdim=True)
     var = x.var(dim=-1, keepdim=True, unbiased=False)
@@ -70,32 +75,38 @@ def layernorm_golden(x: torch.Tensor, gamma: torch.Tensor, beta: torch.Tensor, e
     return normalized * gamma + beta
 
 
-def rmsnorm_golden(x: torch.Tensor, gamma: torch.Tensor, eps: float) -> torch.Tensor:
-    """PyTorch reference implementation of RMSNorm."""
-    rms = torch.sqrt((x ** 2).mean(dim=-1, keepdim=True) + eps)
-    return (x / rms) * gamma
-
-
-def test_layer_norm():
+def test_layer_norm(device_id=None, run_mode: str = "npu"):
     """Test LayerNorm."""
     print("=" * 60)
     print("Test: LayerNorm")
     print("=" * 60)
+
+    if not device_id:
+        device_id = torch.npu.current_device()
+    else:
+        torch.npu.set_device(device_id)
+    if run_mode == "npu":
+        import torch_npu
+
+        device = f"npu:{device_id}"
+        mode = pypto.RunMode.NPU
+    else:
+        device = "cpu"
+        mode = pypto.RunMode.SIM
 
     config = NormConfig(norm_type="layernorm", dtype=pypto.DT_BF16)
     eps = config.eps
     batch_size, hidden_size = 32, 128
 
     # pass Python literals `eps`, `batch_size`, `hidden_size` as closure
-    @pypto.frontend.jit()
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def layer_norm(
         x: pypto.Tensor((batch_size, hidden_size), pypto.DT_BF16),
         gamma: pypto.Tensor((hidden_size,), pypto.DT_BF16),
-        beta: pypto.Tensor((hidden_size,), pypto.DT_BF16)
+        beta: pypto.Tensor((hidden_size,), pypto.DT_BF16),
     ) -> pypto.Tensor((batch_size, hidden_size), pypto.DT_BF16):
         """Layer Normalization."""
         print("batch_size, hidden_size by closure: ", batch_size, hidden_size)
-        # NOTE: not fixed by https://gitcode.com/cann/pypto-dev/pull/2046?ref=&did=f14f4fc3873c24b4656802fce3bdb7c89fe7d0ab#tid-152655209
 
         pypto.set_vec_tile_shapes(64, 128)
 
@@ -115,15 +126,12 @@ def test_layer_norm():
         out = scaled + beta
         return out
 
-    device_id = torch.npu.current_device()
-
     shape = (batch_size, hidden_size)
-    x_torch = torch.randn(shape, dtype=torch.bfloat16, device=f'npu:{device_id}')
-    gamma_torch = torch.ones(hidden_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
-    beta_torch = torch.zeros(hidden_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
+    x_torch = torch.randn(shape, dtype=torch.bfloat16, device=device)
+    gamma_torch = torch.ones(hidden_size, dtype=torch.bfloat16, device=device)
+    beta_torch = torch.zeros(hidden_size, dtype=torch.bfloat16, device=device)
 
     out_torch = layer_norm(x_torch, gamma_torch, beta_torch)
-    pypto.runtime._device_synchronize()
 
     expected = layernorm_golden(x_torch, gamma_torch, beta_torch, config.eps)
     max_diff = (out_torch - expected).abs().max().item()
@@ -131,30 +139,49 @@ def test_layer_norm():
     print(f"Input shape: {x_torch.shape}")
     print(f"Output shape: {out_torch.shape}")
     print(f"Max difference: {max_diff:.6f}")
-    assert max_diff < 1e-1, "Result mismatch!"
+    if run_mode == "npu":
+        assert max_diff < 1e-1, "Result mismatch!"
     print("✓ LayerNorm passed")
     print()
 
 
-def test_rms_norm():
+def rmsnorm_golden(x: torch.Tensor, gamma: torch.Tensor, eps: float) -> torch.Tensor:
+    """PyTorch reference implementation of RMSNorm."""
+    rms = torch.sqrt((x**2).mean(dim=-1, keepdim=True) + eps)
+    return (x / rms) * gamma
+
+
+def test_rms_norm(device_id=None, run_mode: str = "npu"):
     """Test RMSNorm."""
     print("=" * 60)
     print("Test: RMSNorm")
     print("=" * 60)
+
+    if not device_id:
+        device_id = torch.npu.current_device()
+    else:
+        torch.npu.set_device(device_id)
+    if run_mode == "npu":
+        import torch_npu
+
+        device = f"npu:{device_id}"
+        mode = pypto.RunMode.NPU
+    else:
+        device = "cpu"
+        mode = pypto.RunMode.SIM
 
     config = NormConfig(norm_type="rmsnorm", dtype=pypto.DT_BF16)
     eps = config.eps
     batch_size, hidden_size = 32, 128
 
     # pass Python literals `eps`, `batch_size`, `hidden_size` as closure
-    @pypto.frontend.jit()
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def rms_norm(
         x: pypto.Tensor((batch_size, hidden_size), pypto.DT_BF16),
-        gamma: pypto.Tensor((hidden_size,), pypto.DT_BF16)
+        gamma: pypto.Tensor((hidden_size,), pypto.DT_BF16),
     ) -> pypto.Tensor((batch_size, hidden_size), pypto.DT_BF16):
         """RMS Normalization."""
         print("batch_size, hidden_size by closure: ", batch_size, hidden_size)
-        # NOTE: not fixed by https://gitcode.com/cann/pypto-dev/pull/2046?ref=&did=f14f4fc3873c24b4656802fce3bdb7c89fe7d0ab#tid-152655209
 
         pypto.set_vec_tile_shapes(64, 128)
 
@@ -168,14 +195,12 @@ def test_rms_norm():
         out = normalized * gamma
         return out
 
-    device_id = torch.npu.current_device()
     shape = (batch_size, hidden_size)
 
-    x_torch = torch.randn(shape, dtype=torch.bfloat16, device=f'npu:{device_id}')
-    gamma_torch = torch.ones(hidden_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
+    x_torch = torch.randn(shape, dtype=torch.bfloat16, device=device)
+    gamma_torch = torch.ones(hidden_size, dtype=torch.bfloat16, device=device)
 
     out_torch = rms_norm(x_torch, gamma_torch)
-    pypto.runtime._device_synchronize()
 
     expected = rmsnorm_golden(x_torch, gamma_torch, config.eps)
     max_diff = (out_torch - expected).abs().max().item()
@@ -183,7 +208,8 @@ def test_rms_norm():
     print(f"Input shape: {x_torch.shape}")
     print(f"Output shape: {out_torch.shape}")
     print(f"Max difference: {max_diff:.6f}")
-    assert max_diff < 1e-1, "Result mismatch!"
+    if run_mode == "npu":
+        assert max_diff < 1e-1, "Result mismatch!"
     print("✓ RMSNorm passed")
     print()
 
@@ -202,13 +228,14 @@ def main():
         epilog="""
 Examples:
   %(prog)s              Run all examples
-  %(prog)s 1            Run example 1 (LayerNorm)
+  %(prog)s layer_norm::test_layer_norm
+            Run example layer_norm::test_layer_norm
   %(prog)s --list       List all available examples
         """
     )
     parser.add_argument(
         'example_id',
-        type=int,
+        type=str,
         nargs='?',
         help='Example ID to run (1-2). If not specified, all examples will run.'
     )
@@ -217,21 +244,27 @@ Examples:
         action='store_true',
         help='List all available examples and exit'
     )
+    parser.add_argument(
+        '--run_mode',
+        type=str,
+        nargs='?',
+        default="npu",
+        choices=["npu", "sim"],
+        help='Run mode, such as npu/sim etc.'
+    )
 
     args = parser.parse_args()
 
     examples = {
-        1: {
+        'layer_norm::test_layer_norm': {
             'name': 'LayerNorm',
             'description': 'Standard Layer Normalization',
-            'function': test_layer_norm,
-            'requires_npu': True
+            'function': test_layer_norm
         },
-        2: {
+        'rms_norm::test_rms_norm': {
             'name': 'RMSNorm',
             'description': 'RMS Normalization',
-            'function': test_rms_norm,
-            'requires_npu': True
+            'function': test_rms_norm
         }
     }
 
@@ -240,9 +273,9 @@ Examples:
         print("Available Examples")
         print("=" * 60 + "\n")
         for ex_id, ex_info in sorted(examples.items()):
-            npu_req = " (Requires NPU)" if ex_info['requires_npu'] else " (No NPU required)"
-            print(f"  {ex_id}. {ex_info['name']}{npu_req}")
-            print(f"     {ex_info['description']}\n")
+            print(f"  ID: {ex_id}")
+            print(f"    name: {ex_info['name']}")
+            print(f"    description: {ex_info['description']}\n")
         return
 
     if args.example_id is not None:
@@ -264,22 +297,18 @@ Examples:
     else:
         examples_to_run = list(examples.items())
 
-    requires_npu = any(ex_info['requires_npu'] for _, ex_info in examples_to_run)
-
-    if requires_npu:
+    if args.run_mode == "npu":
         device_id = get_device_id()
         if device_id is None:
             return
         torch.npu.set_device(device_id)
+        print("Running examples that require NPU hardware...")
+        print("Make sure CANN environment is configured and NPU is available\n")
 
     try:
         for ex_id, ex_info in examples_to_run:
-            if ex_info['requires_npu'] and device_id is None:
-                print(f"Skipping example {ex_id} ({ex_info['name']}): NPU device not configured")
-                continue
-
             print(f"Running Example {ex_id}: {ex_info['name']}")
-            ex_info['function']()
+            ex_info['function'](device_id, args.run_mode)
 
         if len(examples_to_run) > 1:
             print("=" * 60)
@@ -289,7 +318,6 @@ Examples:
     except Exception as e:
         print(f"\nError: {e}")
         raise
-
 
 if __name__ == "__main__":
     main()

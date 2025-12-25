@@ -87,7 +87,7 @@ def configure_tiling(x):
 shape = (32, 128)
 
 @pypto.frontend.jit()
-def apply_silu_activation(
+def silu_activation(
     x: pypto.Tensor(shape, pypto.DT_BF16),
 ) -> pypto.Tensor(shape, pypto.DT_BF16):
     """
@@ -185,7 +185,7 @@ def test_silu():
     out_torch = torch.zeros(shape, dtype=torch.bfloat16, device=f'npu:{device_id}')
 
     # Execute
-    out_torch = apply_silu_activation(x_torch)
+    out_torch = silu_activation(x_torch)
     pypto.runtime._device_synchronize()
 
     # Verify
