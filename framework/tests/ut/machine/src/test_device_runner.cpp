@@ -20,7 +20,9 @@
 #include "tilefwk/tilefwk.h"
 #include "tilefwk/platform.h"
 #include "interface/inner/tilefwk.h"
+#define private public
 #include "machine/runtime/device_runner.h"
+#undef private
 #include "machine/utils/machine_ws_intf.h"
 #include "machine/platform/platform_manager.h"
 #include "machine/device/dynamic/aicore_prof.h"
@@ -160,4 +162,14 @@ TEST_F(TestDeviceRunner, test_create_proflevel) {
 
     ToSubMachineConfig config7;
     EXPECT_EQ(config7.profConfig.value, ProfConfig::OFF);
+}
+
+TEST_F(TestDeviceRunner, test_reset_per_data) {
+    npu::tile_fwk::DeviceRunner runner;
+    runner.args_.nrAic = 1;
+    runner.args_.nrAiv = 0;
+    auto devPtr = malloc(2);
+    runner.perfData_.push_back(devPtr);
+    runner.ResetPerData();
+    free(devPtr);
 }
