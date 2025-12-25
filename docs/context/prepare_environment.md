@@ -8,7 +8,7 @@ PyPTO 支持在具备 Ascend-NPU 硬件的**真实环境**和仅有 CPU 硬件�
 | 仿真环境 | 仅有 CPU 硬件              | 仅支持通过 CPU 仿真获取预估性能                       |
 
 **说明:**
-- Ascend-NPU: 指 Ascend 910B 等 AI 加速器（目前支持 Ascend 910B、Ascend 910C）
+- Ascend-NPU: 指 AscendAI 加速器（目前支持 A2/A3）
 - 支持的系统: PyPTO 支持在 OpenEuler、Ubuntu 等主流 Linux 发行版上编译和运行
 
 ## 前提条件
@@ -111,10 +111,10 @@ PyPTO 支持在具备 Ascend-NPU 硬件的**真实环境**和仅有 CPU 硬件�
 3. **安装CANN ops包**
 
     根据实际环境和硬件类型(支持910b/910c), 下载对应的安装包, 下载链接如下:
-    - 910b、x86: [CANN_910b-OPS-8.5.0_RC1.x86](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/CANN/20251216_newest/Ascend-cann-910b-ops_8.5.0_linux-x86_64.run)
-    - 910b、aarch64: [CANN_910b-OPS-8.5.0.RC1.aarch64](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/CANN/20251216_newest/Ascend-cann-910b-ops_8.5.0_linux-aarch64.run)
-    - 910c、x86: [CANN_910c-OPS-8.5.0_RC1.x86](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/CANN/20251213_newest/Ascend-cann-910_93-ops_8.5.0_linux-x86_64.run)
-    - 910c、aarch64: [CANN_910c-OPS-8.5.0.RC1.aarch64](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/CANN/20251213_newest/Ascend-cann-910_93-ops_8.5.0_linux-aarch64.run)
+    - A2、x86: [CANN_A2-OPS-8.5.0_RC1.x86](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/CANN/20251216_newest/Ascend-cann-910b-ops_8.5.0_linux-x86_64.run)
+    - A2、aarch64: [CANN_A2-OPS-8.5.0.RC1.aarch64](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/CANN/20251216_newest/Ascend-cann-910b-ops_8.5.0_linux-aarch64.run)
+    - A3、x86: [CANN_A3-OPS-8.5.0_RC1.x86](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/CANN/20251213_newest/Ascend-cann-910_93-ops_8.5.0_linux-x86_64.run)
+    - A3、aarch64: [CANN_A3-OPS-8.5.0.RC1.aarch64](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/CANN/20251213_newest/Ascend-cann-910_93-ops_8.5.0_linux-aarch64.run)
     ```
     # 确保安装包有可执行权限
     chmod +x Ascend-cann-${device_type}-ops_8.5.0_linux-${arch}.run
@@ -122,7 +122,7 @@ PyPTO 支持在具备 Ascend-NPU 硬件的**真实环境**和仅有 CPU 硬件�
     ./Ascend-cann-${device_type}-ops_8.5.0_linux-${arch}.run --install --force --install-path=${install_path}
     ```
 
-    - \$\{device_type\}: NPU 型号, 当前支持 910b、910c
+    - \$\{device_type\}: NPU 型号, 当前支持 A2、A3
     - \$\{arch\}: CPU架构, 如aarch64、x86_64
     - \$\{install-path\}: 表示制定安装路径, 默认安装在`/usr/local/Ascend`目录
 

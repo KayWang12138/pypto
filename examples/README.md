@@ -42,11 +42,19 @@ export TILE_FWK_DEVICE_ID=0
 大多数样例脚本支持运行全部测试或指定特定测试：
 
 ```bash
-# 运行所有初级基础操作样例
-python3 01_beginner/basic/basic_ops.py
+
+# 运行所有初级基础操作样例（默认为NPU模式运行）
+python3 examples/01_beginner/basic/basic_ops.py
+
+# 运行特定的样例
+python3 examples/01_beginner/basic/basic_ops.py view_operations::test_view_operations
 
 # 列出脚本中所有可用的样例
-python3 01_beginner/basic/basic_ops.py --list
+python3 examples/01_beginner/basic/basic_ops.py --list
+
+# 指定以仿真（CPU）模式运行
+python3 examples/01_beginner/basic/basic_ops.py --run_mode sim
+
 ```
 
 ## 学习路径建议
