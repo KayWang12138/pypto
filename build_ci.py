@@ -160,6 +160,8 @@ class BuildParam(CMakeParam):
     ubsan: bool = False  # 使能 UndefinedBehaviorSanitizer
     gcov: bool = False  # 使能 GNU Coverage
     clang_install_path: Optional[Path] = None  # Clang 安装位置
+    enable_sign: bool = False # 使能社区签名
+    sign_script: Optional[str] = None  # 自定义签名脚本
     # Build
     targets: Optional[List[str]] = None  # 编译目标
     job_num: Optional[int] = None  # 编译阶段使用核数
@@ -171,6 +173,8 @@ class BuildParam(CMakeParam):
         self.timeout = None if args.timeout == 0 else args.timeout
         self.generator = self._get_generator(generator=args.generator)
         self.build_type = args.build_type
+        self.enable_sign = args.enable_sign
+        self.sign_script = args.sign_script
         self.asan = args.asan
         self.ubsan = args.ubsan
         self.gcov = args.gcov
@@ -185,6 +189,8 @@ class BuildParam(CMakeParam):
         desc += f"\n        Configure"
         desc += f"\n                  Generator : {self.generator}"
         desc += f"\n                  BuildType : {self.build_type}"
+        desc += f"\n                 EnableSign : {self.enable_sign}"
+        desc += f"\n                 SignScript : {self.sign_script}"
         desc += f"\n                       ASan : {self.asan}"
         desc += f"\n                      UbSan : {self.ubsan}"
         desc += f"\n                       GCov : {self.gcov}"
@@ -214,6 +220,10 @@ class BuildParam(CMakeParam):
                             help="Enable GNU Coverage Instrumentation Tool.")
         parser.add_argument("--clang", nargs="?", type=str, default="",
                             help="Specify clang install path, such as /usr/bin/clang")
+        parser.add_argument("--enable-sign", "--enable_sign", action="store_true", default=False,
+                            help="Enable sign server.")
+        parser.add_argument("--sign-script", "--sign_script", nargs="?", type=str, default=None,
+                            help="Specify sign script.")
         # Build
         parser.add_argument("-t", "--targets", nargs="?", type=str, action="append",
                             help="targets, specific build targets, "
@@ -257,6 +267,8 @@ class BuildParam(CMakeParam):
         cmd += self._cfg_require(opt="ENABLE_ASAN", ctr=self.asan)
         cmd += self._cfg_require(opt="ENABLE_UBSAN", ctr=self.ubsan)
         cmd += self._cfg_require(opt="ENABLE_GCOV", ctr=self.gcov)
+        cmd += (self._cfg_require(opt="ENABLE_SIGN", ctr=self.enable_sign) if self.enable_sign else "")
+        cmd += self._cfg_optional(opt="SIGN_SCRIPT", ctr=(self.sign_script is not None), v=self.sign_script)
 
         def _check_clang_toolchain(_opt: str, _b: str) -> Tuple[bool, str]:
             _p: Path = Path(self.clang_install_path, _b)
