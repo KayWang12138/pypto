@@ -60,7 +60,7 @@ result ：Tensor，Shape由输入的广播得到，详细广播场景可看上�
 
 ## 约束说明
 
-1. 建议优先使用 Element，传入 float 标量对于 fp16 场景，不保证正确性。
+1. 建议优先使用Element，传入float标量对于fp16场景，不保证正确性。
 
 ## 调用示例
 
