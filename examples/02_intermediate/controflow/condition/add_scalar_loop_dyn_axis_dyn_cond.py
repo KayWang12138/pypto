@@ -9,15 +9,9 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 """
-add_scalar_loop_view_assemble Example for PyPTO
+add_scalar_loop_dyn_axis_dyn_cond Example for PyPTO
 
-This example demonstrates how to implement a add_scalar_loop_view_assemble operation using PyPTO, including:
-- Manual add_scalar_loop_view_assemble computation from basic operations
-- Dynamic axis marking for variable batch sizes
-- Tiling configuration for efficient execution
-- Loop-based processing for large tensors
-
-add_scalar_loop_view_assemble is a fundamental operation in neural networks, especially for attention mechanisms.
+This example demonstrates how to implement a add_scalar_loop_dyn_axis_dyn_cond operation using PyPTO, including:
 """
 import os
 import sys
@@ -31,7 +25,7 @@ from numpy.testing import assert_allclose
 def get_device_id():
     """
     Get and validate TILE_FWK_DEVICE_ID from environment variable.
-    
+
     Returns:
         int: The device ID if valid, None otherwise.
     """
@@ -41,7 +35,7 @@ def get_device_id():
         print("Please set it before running this example:")
         print("  export TILE_FWK_DEVICE_ID=0")
         return None
-    
+
     try:
         device_id = int(os.environ['TILE_FWK_DEVICE_ID'])
         return device_id
@@ -49,98 +43,82 @@ def get_device_id():
         print(f"ERROR: TILE_FWK_DEVICE_ID must be an integer, got: {os.environ['TILE_FWK_DEVICE_ID']}")
         return None
 
-@pypto.jit
-def add_kernel_npu(x: pypto.Tensor, y: pypto.Tensor, z: pypto.Tensor) -> None:
-    tensor_shape = x.shape
-    pypto.set_vec_tile_shapes(1, 4, 1, 64)
 
-    #calculate the loop parameters
-    b = tensor_shape[0]
-    n, s, d = tensor_shape[1:]
-    tile_b = 1
-    b_loop = b // tile_b
-
-    for idx in pypto.loop(b_loop):
-        b_offset = idx * tile_b
-        b_offset_end = (idx + 1) * tile_b
-        t0_sub = pypto.view(x, [1, n, s, d], [b_offset, 0, 0, 0])
-        t1_sub = pypto.view(y, [1, n, s, d], [b_offset, 0, 0, 0])
-        t3_sub = t0_sub + t1_sub
-        pypto.assemble(t3_sub, [b_offset, 0, 0, 0], z)
-
-@pypto.jit(runtime_options={"run_mode": 1})
-def add_kernel_sim(x: pypto.Tensor, y: pypto.Tensor, z: pypto.Tensor) -> None:
-    tensor_shape = x.shape
-    pypto.set_vec_tile_shapes(1, 4, 1, 64)
-
-    #calculate the loop parameters
-    b = tensor_shape[0]
-    n, s, d = tensor_shape[1:]
-    tile_b = 1
-    b_loop = b // tile_b
-
-    for idx in pypto.loop(b_loop):
-        b_offset = idx * tile_b
-        b_offset_end = (idx + 1) * tile_b
-        t0_sub = pypto.view(x, [1, n, s, d], [b_offset, 0, 0, 0])
-        t1_sub = pypto.view(y, [1, n, s, d], [b_offset, 0, 0, 0])
-        t3_sub = t0_sub + t1_sub
-        pypto.assemble(t3_sub, [b_offset, 0, 0, 0], z)
-
-def add_scalar_loop_view_assemble(x: torch.Tensor, y: torch.Tensor, z: torch.Tensor, run_mode: str = "npu", dynamic: bool = True) -> None:
-    if dynamic:
-        x_pto = pypto.from_torch(x, "IN_0", dynamic_axis=[0])
-        y_pto = pypto.from_torch(y, "IN_1", dynamic_axis=[0])
-        z_pto = pypto.from_torch(z, "OUT_0", dynamic_axis=[0])
+def create_add_scalar_loop_dyn_axis_dyn_cond_kernel(shape: tuple, val: int, dynamic_axis: bool = False, run_mode: str = "npu"):
+    if dynamic_axis == True:
+        W = pypto.frontend.dynamic("W")
+        H, C, N = shape[1:]
     else:
-        x_pto = pypto.from_torch(x, "IN_0")
-        y_pto = pypto.from_torch(y, "IN_1")
-        z_pto = pypto.from_torch(z, "OUT_0")
+        W, H, C, N = shape
+    
+    def add_scalar_loop_dyn_axis_dyn_cond_kernel(
+        input0: pypto.Tensor((W, H, C, N), pypto.DT_FP32),
+        input1: pypto.Tensor((W, H, C, N), pypto.DT_FP32),
+    ) -> pypto.Tensor((W, H, C, N), pypto.DT_FP32):
+        pypto.set_vec_tile_shapes(1, 4, 1, 64)
+        output = pypto.tensor((W, H, C, N), pypto.DT_FP32)
+        #calculate the loop parameters
+        b = W
+        tile_b = 1
+        b_loop = b // tile_b
 
-    # launch the kernel
+        for idx in pypto.loop(b_loop):
+            b_offset = idx * tile_b
+            b_offset_end = (idx + 1) * tile_b
+            t0_sub = input0[b_offset:b_offset_end, ...]
+            t1_sub = input1[b_offset:b_offset_end, ...]
+            t3_sub = t0_sub + t1_sub
+            if idx < 2:
+                output[b_offset:b_offset_end, ...] = t3_sub + val
+            else:
+                output[b_offset:b_offset_end, ...] = t3_sub
+        return output
+
     if run_mode == "npu":
-        add_kernel_npu(x_pto, y_pto, z_pto)
+        return pypto.frontend.jit()(add_scalar_loop_dyn_axis_dyn_cond_kernel)
     else:
-        add_kernel_sim(x_pto, y_pto, z_pto)
+        return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(add_scalar_loop_dyn_axis_dyn_cond_kernel)
 
-def test_add_scalar_loop_view_assemble(device_id = None, run_mode: str = "npu", dynamic: bool = True) -> None:
+
+def test_add_scalar_loop_dynamic_axis_dynamic_cond(device_id = None, run_mode: str = "npu") -> None:
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
 
     shape = (32, 32, 1, 256)
     #prepare data
-    x = torch.rand(shape, dtype=torch.float, device=device)
-    y = torch.rand(shape, dtype=torch.float, device=device)
-    z = torch.zeros(shape, dtype=torch.float, device=device)
+    val = 1
+    input_data0 = torch.rand(shape, dtype=torch.float, device=device)
+    input_data1 = torch.rand(shape, dtype=torch.float, device=device)
+    output_data = create_add_scalar_loop_dyn_axis_dyn_cond_kernel(shape, val, True, run_mode)(input_data0, input_data1)
 
-    add_scalar_loop_view_assemble(x, y, z, run_mode, dynamic)
-    golden = torch.add(x, y)
+    golden = torch.add(input_data0, input_data1)
+    golden[0:2, ...] = golden[0:2, ...] + val
 
-    max_diff = np.abs(z.cpu().numpy() - golden.cpu().numpy()).max()
-    print(f"Input0 shape: {x.shape}")
-    print(f"Input1 shape: {y.shape}")
-    print(f"Output shape: {z.shape}")
+    max_diff = np.abs(output_data.cpu().numpy() - golden.cpu().numpy()).max()
+    print(f"Input0 shape: {input_data0.shape}")
+    print(f"Input1 shape: {input_data1.shape}")
+    print(f"Output shape: {output_data.shape}")
     print(f"Max difference: {max_diff:.6f}")
 
     if run_mode == "npu":
-        assert_allclose(np.array(z.cpu()), np.array(golden.cpu()), rtol=3e-3, atol=3e-3)
-    print("✓ add_scalar_loop_view_assemble test passed")
+        assert_allclose(np.array(output_data.cpu()), np.array(golden.cpu()), rtol=3e-3, atol=3e-3)
+    print("✓ add_scalar_loop_dyn_axis_dyn_cond test passed")
     print()
 
 
 def main():
-    """Run add_scalar_loop_view_assemble example.
-    
+    """Run add_scalar_loop_dyn_axis_dyn_cond example.
+
     Usage:
-        python add_scalar_loop_view_assemble.py          # Run example
-        python add_scalar_loop_view_assemble.py --list   # List available examples
+        python add_scalar_loop_dyn_axis_dyn_cond.py          # Run example
+        python add_scalar_loop_dyn_axis_dyn_cond.py --list   # List available examples
     """
     parser = argparse.ArgumentParser(
-        description="PyPTO Softmax Example",
+        description="PyPTO add_scalar_loop_dyn_axis_dyn_cond Example",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  %(prog)s add_scalar_loop_view_assemble::test_add_scalar_loop_view_assemble
-            Run the add_scalar_loop_view_assemble::test_add_scalar_loop_view_assemble example
+  %(prog)s add_scalar_loop_dyn_axis_dyn_cond::test_add_scalar_loop_dynamic_axis_dynamic_cond
+            Run the add_scalar_loop_dyn_axis_dyn_cond::test_add_scalar_loop_dynamic_axis_dynamic_cond example
   %(prog)s --list       List all available examples
         """
     )
@@ -163,18 +141,18 @@ Examples:
         choices=["npu", "sim"],
         help='Run mode, such as npu/sim etc.'
     )
-    
+
     args = parser.parse_args()
-    
+
     # Define available examples
     examples = {
-        "add_scalar_loop_view_assemble::test_add_scalar_loop_view_assemble": {
-            'name': 'add_scalar_loop_view_assemble',
-            'description': 'add_scalar_loop_view_assemble implementation with dynamic batch size',
-            'function': test_add_scalar_loop_view_assemble
+        "add_scalar_loop_dyn_axis_dyn_cond::test_add_scalar_loop_dynamic_axis_dynamic_cond": {
+            'name': 'add_scalar_loop_dyn_axis_dyn_cond',
+            'description': 'add_scalar_loop_dyn_axis_dyn_cond implementation',
+            'function': test_add_scalar_loop_dynamic_axis_dynamic_cond
         }
     }
-    
+
     # List examples if requested
     if args.list:
         print("\n" + "=" * 60)
@@ -185,7 +163,7 @@ Examples:
             print(f"     name: {ex_info['name']}")
             print(f"     description: {ex_info['description']}\n")
         return
-    
+
     # Validate example ID if provided
     if args.example_id is not None:
         if args.example_id not in examples:
@@ -193,22 +171,22 @@ Examples:
             print(f"Valid example IDs are: {', '.join(map(str, sorted(examples.keys())))}")
             print("\nUse --list to see all available examples.")
             sys.exit(1)
-    
+
     print("\n" + "=" * 60)
-    print("PyPTO add_scalar_loop_view_assemble Example")
+    print("PyPTO add_scalar_loop_dyn_axis_dyn_cond Example")
     print("=" * 60 + "\n")
-    
+
     # Get and validate device ID (needed for NPU examples)
     device_id = None
     examples_to_run = []
-    
+
     if args.example_id is not None:
         # Run single example
         examples_to_run = [(args.example_id, examples[args.example_id])]
     else:
         # Run all examples
         examples_to_run = list(examples.items())
-    
+
     if args.run_mode == "npu":
         device_id = get_device_id()
         if device_id is None:
@@ -217,17 +195,17 @@ Examples:
         torch.npu.set_device(device_id)
         print("Running examples that require NPU hardware...")
         print("(Make sure CANN environment is configured and NPU is available)\n")
-    
+
     try:
         for ex_id, ex_info in examples_to_run:
             print(f"Running Example {ex_id}: {ex_info['name']}")
             ex_info['function'](device_id, args.run_mode)
-        
+
         if len(examples_to_run) > 1:
             print("=" * 60)
-            print("All add_scalar_loop_view_assemble tests passed!")
+            print("All add_scalar_loop_dyn_axis_dyn_cond tests passed!")
             print("=" * 60)
-        
+
     except Exception as e:
         print(f"\nError: {e}")
         raise

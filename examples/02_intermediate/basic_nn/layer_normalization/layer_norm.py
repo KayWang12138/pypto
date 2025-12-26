@@ -25,10 +25,9 @@ import sys
 import argparse
 import pypto
 import torch
-import numpy as np
-from numpy.testing import assert_allclose
 from dataclasses import dataclass
 from typing import Literal
+
 
 def get_device_id():
     """
@@ -51,6 +50,7 @@ def get_device_id():
         print(f"ERROR: TILE_FWK_DEVICE_ID must be an integer, got: {os.environ['TILE_FWK_DEVICE_ID']}")
         return None
 
+
 @dataclass
 class NormConfig:
     """Configuration for normalization operations."""
@@ -59,12 +59,14 @@ class NormConfig:
     dtype: pypto.DataType = pypto.DT_BF16
     use_dynamic_shape: bool = False
 
+
 def layernorm_golden(x: torch.Tensor, gamma: torch.Tensor, beta: torch.Tensor, eps: float) -> torch.Tensor:
     """PyTorch reference implementation of LayerNorm."""
     mean = x.mean(dim=-1, keepdim=True)
     var = x.var(dim=-1, keepdim=True, unbiased=False)
     normalized = (x - mean) / torch.sqrt(var + eps)
     return normalized * gamma + beta
+
 
 def layernorm_core(x: pypto.Tensor, gamma: pypto.Tensor, beta: pypto.Tensor, eps: float, hidden_size: float) -> pypto.Tensor:
     # Compute mean
@@ -84,46 +86,30 @@ def layernorm_core(x: pypto.Tensor, gamma: pypto.Tensor, beta: pypto.Tensor, eps
     scaled = normalized * gamma
     return scaled + beta
 
-@pypto.jit
-def layer_norm_kernel_npu(x: pypto.Tensor, gamma: pypto.Tensor, beta: pypto.Tensor, out: pypto.Tensor, config: NormConfig) -> None:
-    """Layer Normalization."""
-    hidden_size = x.shape[-1]
-    eps = config.eps
 
-    pypto.set_vec_tile_shapes(64, 128)
-
-    out[:] = layernorm_core(x, gamma, beta, eps, hidden_size)
-
-@pypto.jit(runtime_options={"run_mode" : 1})
-def layer_norm_kernel_sim(x: pypto.Tensor, gamma: pypto.Tensor, beta: pypto.Tensor, out: pypto.Tensor, config: NormConfig) -> None:
-    """Layer Normalization."""
-    hidden_size = x.shape[-1]
-    eps = config.eps
-
-    pypto.set_vec_tile_shapes(64, 128)
-
-    out[:] = layernorm_core(x, gamma, beta, eps, hidden_size)        
-
-def layer_norm(x: pypto.Tensor, gamma: pypto.Tensor, beta: pypto.Tensor, config: NormConfig, run_mode: str = "npu", dynamic: bool = True) -> torch.Tensor:
-    y = torch.empty_like(x)
-
+def create_layer_norm_kernel(batch_size, hidden_size, config: NormConfig, run_mode: str = "npu", dynamic: bool = False):
     if dynamic:
-        x_pto = pypto.from_torch(x, dynamic_axis=[0])
-        gamma_pto = pypto.from_torch(gamma, dynamic_axis=[0])
-        beta_pto = pypto.from_torch(beta, dynamic_axis=[0])
-        y_pto = pypto.from_torch(y, dynamic_axis=[0])
-    else:
-        x_pto = pypto.from_torch(x)
-        gamma_pto = pypto.from_torch(gamma)
-        beta_pto = pypto.from_torch(beta)
-        y_pto = pypto.from_torch(y)
+        batch_size = pypto.frontend.dynamic("batch_size")
+        hidden_size = pypto.frontend.dynamic("hidden_size")
 
-    # launch the kernel
+    def layer_norm_kernel(
+        x: pypto.Tensor((batch_size, hidden_size), pypto.DT_BF16),
+        gamma: pypto.Tensor((hidden_size,), pypto.DT_BF16),
+        beta: pypto.Tensor((hidden_size,), pypto.DT_BF16),
+    ) -> pypto.Tensor((batch_size, hidden_size), pypto.DT_BF16):
+        hidden_size = x.shape[1]
+        eps = config.eps
+
+        pypto.set_vec_tile_shapes(64, 128)
+
+        out = layernorm_core(x, gamma, beta, eps, hidden_size)
+        return out
+
     if run_mode == "npu":
-        layer_norm_kernel_npu(x_pto, gamma_pto, beta_pto, y_pto, config)
+        return pypto.frontend.jit()(layer_norm_kernel)
     else:
-        layer_norm_kernel_sim(x_pto, gamma_pto, beta_pto, y_pto, config)
-    return y
+        return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(layer_norm_kernel)
+
 
 def test_layer_norm(device_id = None, run_mode: str = "npu", dynamic: bool = False):
     """Test LayerNorm."""
@@ -141,7 +127,7 @@ def test_layer_norm(device_id = None, run_mode: str = "npu", dynamic: bool = Fal
     beta_torch = torch.zeros(hidden_size, dtype=torch.bfloat16, device=device)
     config = NormConfig(norm_type="layernorm", dtype=pypto.DT_BF16)
 
-    out_torch = layer_norm(x_torch, gamma_torch, beta_torch, config, run_mode, dynamic)
+    out_torch = create_layer_norm_kernel(batch_size, hidden_size, config, run_mode, dynamic)(x_torch, gamma_torch, beta_torch)
 
     expected = layernorm_golden(x_torch, gamma_torch, beta_torch, config.eps)
     max_diff = (out_torch - expected).abs().max().item()
@@ -154,10 +140,12 @@ def test_layer_norm(device_id = None, run_mode: str = "npu", dynamic: bool = Fal
     print("✓ LayerNorm passed")
     print()
 
+
 def rmsnorm_golden(x: torch.Tensor, gamma: torch.Tensor, eps: float) -> torch.Tensor:
     """PyTorch reference implementation of RMSNorm."""
     rms = torch.sqrt((x ** 2).mean(dim=-1, keepdim=True) + eps)
     return (x / rms) * gamma
+
 
 def rms_norm_core(x: pypto.Tensor, gamma: pypto.Tensor, eps: float, hidden_size: float) -> pypto.Tensor:
     # Compute RMS: sqrt(mean(x^2) + eps)
@@ -167,46 +155,29 @@ def rms_norm_core(x: pypto.Tensor, gamma: pypto.Tensor, eps: float, hidden_size:
     rms = pypto.sqrt((mean_sq + eps))
     normalized = x / rms
     return normalized * gamma
-    
-@pypto.jit
-def rms_norm_kernel_npu(x: pypto.Tensor, gamma: pypto.Tensor, out: pypto.Tensor, config: NormConfig):
-    """RMS Normalization."""
-    hidden_size = x.shape[-1]
-    eps = config.eps
 
-    pypto.set_vec_tile_shapes(64, 128)
 
-    out[:] = rms_norm_core(x, gamma, eps, hidden_size)
-        
-@pypto.jit(runtime_options={"run_mode" : 1})
-def rms_norm_kernel_sim(x: pypto.Tensor, gamma: pypto.Tensor, out: pypto.Tensor, config: NormConfig):
-    """RMS Normalization."""
-    hidden_size = x.shape[-1]
-    eps = config.eps
-
-    pypto.set_vec_tile_shapes(64, 128)
-
-    out[:] = rms_norm_core(x, gamma, eps, hidden_size)
-
-def rms_norm(x: pypto.Tensor, gamma: pypto.Tensor, config: NormConfig, run_mode: str = "npu", dynamic: bool = True) -> torch.Tensor:
-    y = torch.empty_like(x)
-
+def create_rms_norm_kernel(batch_size, hidden_size, config: NormConfig, run_mode: str = "npu", dynamic: bool = False):
     if dynamic:
-        x_pto = pypto.from_torch(x, dynamic_axis=[0])
-        gamma_pto = pypto.from_torch(gamma, dynamic_axis=[0])
-        y_pto = pypto.from_torch(y, dynamic_axis=[0])
-    else:
-        x_pto = pypto.from_torch(x)
-        gamma_pto = pypto.from_torch(gamma)
-        y_pto = pypto.from_torch(y)
+        batch_size = pypto.frontend.dynamic("batch_size")
+        hidden_size = pypto.frontend.dynamic("hidden_size")
 
-    # launch the kernel
-    if run_mode == "npu":     
-        rms_norm_kernel_npu(x_pto, gamma_pto, y_pto, config)
+    def rms_norm_kernel(
+        x: pypto.Tensor((batch_size, hidden_size), pypto.DT_BF16),
+        gamma: pypto.Tensor((hidden_size,), pypto.DT_BF16),
+    ) -> pypto.Tensor((batch_size, hidden_size), pypto.DT_BF16):
+        hidden_size = x.shape[1]
+        eps = config.eps
+        pypto.set_vec_tile_shapes(64, 128)
+        out = rms_norm_core(x, gamma, eps, hidden_size)
+        return out
+
+    if run_mode == "npu":
+        return pypto.frontend.jit()(rms_norm_kernel)
     else:
-        rms_norm_kernel_sim(x_pto, gamma_pto, y_pto, config)
-    return y
-       
+        return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(rms_norm_kernel)
+
+
 def test_rms_norm(device_id = None, run_mode: str = "npu", dynamic: bool = False) -> None:
     """Test RMSNorm."""
     print("=" * 60)
@@ -222,7 +193,8 @@ def test_rms_norm(device_id = None, run_mode: str = "npu", dynamic: bool = False
     gamma_torch = torch.ones(hidden_size, dtype=torch.bfloat16, device=device)
     config = NormConfig(norm_type="rmsnorm", dtype=pypto.DT_BF16)
 
-    out_torch = rms_norm(x_torch, gamma_torch, config, run_mode, dynamic)
+    # out_torch = rms_norm(x_torch, gamma_torch, config, run_mode, dynamic)
+    out_torch = create_rms_norm_kernel(batch_size, hidden_size, config, run_mode, dynamic)(x_torch, gamma_torch)
 
     expected = rmsnorm_golden(x_torch, gamma_torch, config.eps)
     max_diff = (out_torch - expected).abs().max().item()
@@ -234,6 +206,7 @@ def test_rms_norm(device_id = None, run_mode: str = "npu", dynamic: bool = False
         assert max_diff < 1e-1, "Result mismatch!"
     print("✓ RMSNorm passed")
     print()
+
 
 def main():
     """Run layer normalization examples.
@@ -341,6 +314,6 @@ Examples:
         print(f"\nError: {e}")
         raise
 
+
 if __name__ == "__main__":
     main()
-
