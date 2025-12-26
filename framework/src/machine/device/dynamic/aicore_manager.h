@@ -580,10 +580,20 @@ private:
         int stopNum = 0;
         int mngCoreNum = aicEnd_ - aicStart_ + aivEnd_ - aivStart_;
         AicoreStatus coreStatus[MAX_AICORE_NUM] = {AicoreStatus::CORE_TASK_WAIT_FINISH};
+        bool isLastDevTask = reinterpret_cast<DynDeviceTask *>(curDevTask_)->IsLastTask();
         bool aicAllStop = false;
         bool aivAllStop = false;
+        if (!isLastDevTask) {
+            PreFetchNextDevTask();
+        } else {
+            preFetchNextDevTaskCtrl_ = nullptr;
+            preFetchSuccess_ = false;
+            aicAllStop = (coreRunReadyCnt_[static_cast<int>(CoreType::AIC)] == static_cast<uint32_t>(aicNum));
+            aivAllStop = (coreRunReadyCnt_[static_cast<int>(CoreType::AIV)] == static_cast<uint32_t>(aivNum));
+        }
 
-        PreFetchNextDevTask();
+        PreSendStopToIdleCore(isLastDevTask, coreStatus, finishStopNum);
+
         uint64_t start_cycles = GetCycles();
         while (stopNum < mngCoreNum) {
             bool curIterAicAllStop = true;
