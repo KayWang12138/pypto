@@ -41,6 +41,7 @@ def ini(path, prof, pe):
     else:
         assert False, f'Current {prof} is invalid, only support[1, 2]'
 
+    level = "l2"
     env = {
         "PROFILER_SAMPLECONFIG": "{"
                                      + f"\"stars_acsq_task\":\"off\","

@@ -133,9 +133,10 @@ def parse(file_path: str, isdyn: bool = False) -> list():
 def plot_workflow(ndata, task_ids, labels, core_data, output=''):
     color_id = 0
     core_nr, cols_nr = ndata.shape
-
-    _, ax = plt.subplots(figsize=(cols_nr * 0.3 + 1, core_nr * 0.3))
-
+    
+    cols_nr = min(cols_nr, 600)
+    _, ax = plt.subplots(figsize=(cols_nr * 0.5, core_nr * 0.6))
+    
     start_time = np.zeros(core_nr)
     for i in range(cols_nr): # 按列轮询
         color_id += 1
@@ -173,7 +174,7 @@ def plot_workflow(ndata, task_ids, labels, core_data, output=''):
         plt.savefig("tilefwk_prof_data.png", bbox_inches='tight')
     else:
         plt.savefig(f"{output}/tilefwk_prof_data.png", bbox_inches='tight')
-
+    plt.clf()
 
 def prepare_workflow_data(infile, task_id_flag, output):
     with open(infile) as file:

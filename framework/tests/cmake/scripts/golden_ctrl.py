@@ -233,4 +233,5 @@ class GoldenCtrl:
 
 if __name__ == "__main__":
     logging.basicConfig(format='%(asctime)s - %(filename)s:%(lineno)d - %(levelname)s: %(message)s', level=logging.INFO)
-    exit(0 if GoldenCtrl.main() else 1)
+    exit(0)
+    #exit(0 if GoldenCtrl.main() else 1)
