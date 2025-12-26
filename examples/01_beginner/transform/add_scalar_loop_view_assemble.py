@@ -9,15 +9,15 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 """
-add_scalar Example for PyPTO
+add_scalar_loop_view_assemble Example for PyPTO
 
-This example demonstrates how to implement a add_scalar operation using PyPTO, including:
-- Manual add_scalar computation from basic operations
+This example demonstrates how to implement a add_scalar_loop_view_assemble operation using PyPTO, including:
+- Manual add_scalar_loop_view_assemble computation from basic operations
 - Dynamic axis marking for variable batch sizes
 - Tiling configuration for efficient execution
 - Loop-based processing for large tensors
 
-add_scalar is a fundamental operation in neural networks, especially for attention mechanisms.
+add_scalar_loop_view_assemble is a fundamental operation in neural networks, especially for attention mechanisms.
 """
 import os
 import sys
@@ -49,68 +49,75 @@ def get_device_id():
         print(f"ERROR: TILE_FWK_DEVICE_ID must be an integer, got: {os.environ['TILE_FWK_DEVICE_ID']}")
         return None
 
-@pypto.jit
-def add_kernel_npu(x: pypto.Tensor, y: pypto.Tensor, z: pypto.Tensor, val: int) -> None:
-    pypto.set_vec_tile_shapes(1, 4, 1, 64)
-    t3 = x + y
-    z[:] = t3 + val
-
-@pypto.jit(runtime_options={"run_mode": 1})
-def add_kernel_sim(x: pypto.Tensor, y: pypto.Tensor, z: pypto.Tensor, val: int) -> None:
-    pypto.set_vec_tile_shapes(1, 4, 1, 64)
-    t3 = x + y
-    z[:] = t3 + val
-
-def add_scalar(x: torch.Tensor, y: torch.Tensor, z: torch.Tensor, val: int, run_mode: str = "npu") -> None:
-    x_pto = pypto.from_torch(x, "IN_0")
-    y_pto = pypto.from_torch(y, "IN_1")
-    z_pto = pypto.from_torch(z, "OUT_0")
-
-    # launch the kernel
+        
+SHAPE = (32, 32, 1, 256)
+def add_scalar_loop_view_assemble(run_mode: str = "npu"):
+    
     if run_mode == "npu":
-        add_kernel_npu(x_pto, y_pto, z_pto, val)
+        mode = pypto.RunMode.NPU
     else:
-        add_kernel_sim(x_pto, y_pto, z_pto, val)
+        mode = pypto.RunMode.SIM
+        
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
+    def add_scalar_loop_view_assemble_kernel(
+        input0: pypto.Tensor(SHAPE, pypto.DT_FP32),
+        input1: pypto.Tensor(SHAPE, pypto.DT_FP32),
+    ) -> pypto.Tensor(SHAPE, pypto.DT_FP32):
+        pypto.set_vec_tile_shapes(1, 4, 1, 64)
 
-def test_add_scalar(device_id = None, run_mode: str = "npu") -> None:
+        # Calculate the loop parameters
+        b, n, s, d = SHAPE
+        tile_b = 1
+        b_loop = b // tile_b
+
+        output = pypto.tensor(SHAPE, pypto.DT_FP32)
+        for idx in pypto.loop(b_loop):
+            b_offset = idx * tile_b
+            t0_sub = pypto.view(input0, [tile_b, n, s, d], [b_offset, 0, 0, 0])
+            t1_sub = pypto.view(input1, [tile_b, n, s, d], [b_offset, 0, 0, 0])
+            t3_sub = t0_sub + t1_sub
+            pypto.assemble(t3_sub, [b_offset, 0, 0, 0], output)
+
+        return output
+    
+    return add_scalar_loop_view_assemble_kernel
+
+def test_add_scalar_loop_view_assemble(device_id = None, run_mode: str = "npu", dynamic: bool = True) -> None:
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
 
-    shape = (1, 4, 1, 64)
+    shape = (32, 32, 1, 256)
     #prepare data
-    val = 1
     x = torch.rand(shape, dtype=torch.float, device=device)
     y = torch.rand(shape, dtype=torch.float, device=device)
-    z = torch.zeros(shape, dtype=torch.float, device=device)
 
-    add_scalar(x, y, z, val, run_mode)
-    golden = torch.add(x, y) + val
+    out = add_scalar_loop_view_assemble(run_mode)(x, y)
+    golden = torch.add(x, y)
 
-    max_diff = np.abs(z.cpu().numpy() - golden.cpu().numpy()).max()
+    max_diff = np.abs(out.cpu().numpy() - golden.cpu().numpy()).max()
     print(f"Input0 shape: {x.shape}")
     print(f"Input1 shape: {y.shape}")
-    print(f"Output shape: {z.shape}")
-    print(f"Max difference: {max_diff:.6f}")
 
     if run_mode == "npu":
-        assert_allclose(np.array(z.cpu()), np.array(golden.cpu()), rtol=3e-3, atol=3e-3)
-    print("✓ add_scalar test passed")
+        print(f"Max difference: {max_diff:.6f}")
+        assert_allclose(np.array(out.cpu()), np.array(golden.cpu()), rtol=3e-3, atol=3e-3)
+    print("✓ add_scalar_loop_view_assemble test passed")
     print()
 
 
 def main():
-    """Run add_scalar example.
+    """Run add_scalar_loop_view_assemble example.
     
     Usage:
-        python add_scalar.py          # Run example
-        python add_scalar.py --list   # List available examples
+        python add_scalar_loop_view_assemble.py          # Run example
+        python add_scalar_loop_view_assemble.py --list   # List available examples
     """
     parser = argparse.ArgumentParser(
         description="PyPTO Softmax Example",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  %(prog)s add_scalar::test_add_scalar
-            Run the add_scalar::test_add_scalar example
+  %(prog)s add_scalar_loop_view_assemble::test_add_scalar_loop_view_assemble
+            Run the add_scalar_loop_view_assemble::test_add_scalar_loop_view_assemble example
   %(prog)s --list       List all available examples
         """
     )
@@ -138,10 +145,10 @@ Examples:
     
     # Define available examples
     examples = {
-        "add_scalar::test_add_scalar": {
-            'name': 'add_scalar',
-            'description': 'add_scalar implementation with dynamic batch size',
-            'function': test_add_scalar
+        "add_scalar_loop_view_assemble::test_add_scalar_loop_view_assemble": {
+            'name': 'add_scalar_loop_view_assemble',
+            'description': 'add_scalar_loop_view_assemble implementation with dynamic batch size',
+            'function': test_add_scalar_loop_view_assemble
         }
     }
     
@@ -165,7 +172,7 @@ Examples:
             sys.exit(1)
     
     print("\n" + "=" * 60)
-    print("PyPTO add_scalar Example")
+    print("PyPTO add_scalar_loop_view_assemble Example")
     print("=" * 60 + "\n")
     
     # Get and validate device ID (needed for NPU examples)
@@ -195,7 +202,7 @@ Examples:
         
         if len(examples_to_run) > 1:
             print("=" * 60)
-            print("All add_scalar tests passed!")
+            print("All add_scalar_loop_view_assemble tests passed!")
             print("=" * 60)
         
     except Exception as e:

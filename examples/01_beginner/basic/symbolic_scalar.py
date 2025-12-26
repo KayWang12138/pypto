@@ -33,6 +33,7 @@ from numpy.testing import assert_allclose
 # Device Utilities
 # ----------------------------------------------------------------------------
 
+
 def get_device_id():
     """
     Get and validate TILE_FWK_DEVICE_ID from environment variable.
@@ -59,101 +60,50 @@ def get_device_id():
 # Kernel Definitions
 # ----------------------------------------------------------------------------
 
-@pypto.jit
-def symbolic_immediate_kernel(x: pypto.Tensor, y: pypto.Tensor) -> None:
-    """
-    Kernel demonstrating immediate (concrete) SymbolicScalar usage.
-    """
-    pypto.set_vec_tile_shapes(2, 8)
 
-    s = pypto.symbolic_scalar(128)
-    s = s + 1
+def create_symbolic_immediate_kernel(shape: tuple, run_mode: str = "npu"):
+    def symbolic_immediate_kernel(
+        x: pypto.Tensor(shape, pypto.DT_FP32),
+    ) -> pypto.Tensor(shape, pypto.DT_FP32):
+        pypto.set_vec_tile_shapes(2, 8)
+        s = pypto.symbolic_scalar(128)
+        s = s + 1
+        # TODO: assert is not supported yet.
+        # assert s.is_concrete() == True
+        # assert int(s) == 129
+        y = pypto.add(x, x)
+        return y
 
-    assert s.is_concrete() == True
-    assert int(s) == 129
-
-    y[:] = pypto.add(x, x)
-
-
-@pypto.jit
-def symbolicscalar_symbol_kernel(x: pypto.Tensor, y: pypto.Tensor) -> None:
-    """
-    Kernel demonstrating SymbolicScalar used as loop index.
-    """
-    pypto.set_vec_tile_shapes(2, 8)
-    
-    for i in pypto.loop(2, name="sym_loop", idx_name="i"):
-        assert not i.is_concrete()
-        assert i.is_symbol() or i.is_expression()
-        expr = i + 1
-        assert not expr.is_concrete()
-
-        y[:] = pypto.add(x, y)
+    if run_mode == "npu":
+        return pypto.frontend.jit()(symbolic_immediate_kernel)
+    else:
+        return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(symbolic_immediate_kernel)
 
 
-@pypto.jit(runtime_options={"run_mode": pypto.RunMode.SIM})
-def symbolic_immediate_kernel_sim(x: pypto.Tensor, y: pypto.Tensor) -> None:
-    """
-    Kernel demonstrating immediate (concrete) SymbolicScalar usage.
-    """
-    pypto.set_vec_tile_shapes(2, 8)
+def create_symbolicscalar_in_loop_kernel(shape: tuple, run_mode: str = "npu"):
+    def symbolicscalar_in_loop_kernel(
+        x: pypto.Tensor(shape, pypto.DT_FP32),
+    ) -> pypto.Tensor(shape, pypto.DT_FP32):
+        pypto.set_vec_tile_shapes(2, 8)
+        y = pypto.zeros(x.shape)
+        for i in pypto.loop(2, name="sym_loop", idx_name="i"):
+            # TODO: assert is not supported yet.
+            # assert not i.is_concrete()
+            # assert i.is_symbol() or i.is_expression()
+            # expr = i + 1
+            # assert not expr.is_concrete()
+            y = x + y
+        return y
 
-    s = pypto.symbolic_scalar(128)
-    s = s + 1
-
-    assert s.is_concrete() == True
-    assert int(s) == 129
-
-    y[:] = pypto.add(x, x)
-
-
-@pypto.jit(runtime_options={"run_mode": pypto.RunMode.SIM})
-def symbolicscalar_symbol_kernel_sim(x: pypto.Tensor, y: pypto.Tensor) -> None:
-    """
-    Kernel demonstrating SymbolicScalar used as loop index.
-    """
-    pypto.set_vec_tile_shapes(2, 8)
-    
-    for i in pypto.loop(2, name="sym_loop", idx_name="i"):
-        assert not i.is_concrete()
-        assert i.is_symbol() or i.is_expression()
-        expr = i + 1
-        assert not expr.is_concrete()
-
-        y[:] = pypto.add(x, y)
+    if run_mode == "npu":
+        return pypto.frontend.jit()(symbolicscalar_in_loop_kernel)
+    else:
+        return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(symbolicscalar_in_loop_kernel)
 
 
 # ----------------------------------------------------------------------------
 # Python Wrappers
 # ----------------------------------------------------------------------------
-
-
-def symbolicscalar_immediate(x: torch.Tensor, run_mode: str = "npu") -> torch.Tensor:
-    y = torch.empty_like(x)
-
-    x_pto = pypto.from_torch(x)
-    y_pto = pypto.from_torch(y)
-
-    if run_mode == "npu":
-        symbolic_immediate_kernel(x_pto, y_pto)
-    else:
-        symbolic_immediate_kernel_sim(x_pto, y_pto)
-
-    return y
-
-
-def symbolicscalar_in_loop(x: torch.Tensor, run_mode: str = "npu")->torch.Tensor:
-    y = torch.zeros_like(x)
-
-    x_pto = pypto.from_torch(x)
-    y_pto = pypto.from_torch(y)
-
-    if run_mode == "npu":
-        symbolicscalar_symbol_kernel(x_pto, y_pto)
-    else:
-        symbolicscalar_symbol_kernel_sim(x_pto, y_pto)
-
-    return y
 
 
 def test_symbolicscalar_immediate(device_id: int = None, run_mode: str = "npu") -> None:
@@ -165,7 +115,7 @@ def test_symbolicscalar_immediate(device_id: int = None, run_mode: str = "npu") 
         device=device
     )
 
-    y = symbolicscalar_immediate(x, run_mode).cpu()
+    y = create_symbolic_immediate_kernel(x.shape, run_mode)(x).cpu()
     golden = (x + x).cpu()
 
     print(f"Input shape: {x.shape}")
@@ -185,7 +135,7 @@ def test_symbolicscalar_in_loop(device_id: int = None, run_mode: str = "npu")->N
         device=device
     )
 
-    y = symbolicscalar_in_loop(x, run_mode).cpu()
+    y = create_symbolicscalar_in_loop_kernel(x.shape, run_mode)(x).cpu()
     golden = (x + x).cpu()
 
     print(f"Input shape: {x.shape}")
