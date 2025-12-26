@@ -44,67 +44,40 @@ def get_device_id():
         return None
 
 
-@pypto.jit(runtime_options={"run_mode": 1})
-def add_kernel_sim(input0: pypto.Tensor, input1: pypto.Tensor, output: pypto.Tensor, val: int):
-    tensor_shape = input0.shape
-    pypto.set_vec_tile_shapes(1, 4, 1, 64)
-
-    #calculate the loop parameters
-    b = tensor_shape[0]
-    tile_b = 1
-    b_loop = b // tile_b
-
-    for idx in pypto.loop(b_loop):
-        b_offset = idx * tile_b
-        b_offset_end = (idx + 1) * tile_b
-        t0_sub = input0[b_offset:b_offset_end, ...]
-        t1_sub = input1[b_offset:b_offset_end, ...]
-        t3_sub = t0_sub + t1_sub
-        if pypto.cond(idx < 2):
-            output[b_offset:b_offset_end, ...] = t3_sub + val
-        else:
-            output[b_offset:b_offset_end, ...] = t3_sub
-
-
-@pypto.jit
-def add_kernel_npu(input0: pypto.Tensor, input1: pypto.Tensor, output: pypto.Tensor, val: int):
-    tensor_shape = input0.shape
-    pypto.set_vec_tile_shapes(1, 4, 1, 64)
-
-    #calculate the loop parameters
-    b = tensor_shape[0]
-    tile_b = 1
-    b_loop = b // tile_b
-
-    for idx in pypto.loop(b_loop):
-        b_offset = idx * tile_b
-        b_offset_end = (idx + 1) * tile_b
-        t0_sub = input0[b_offset:b_offset_end, ...]
-        t1_sub = input1[b_offset:b_offset_end, ...]
-        t3_sub = t0_sub + t1_sub
-        if pypto.cond(idx < 2):
-            output[b_offset:b_offset_end, ...] = t3_sub + val
-        else:
-            output[b_offset:b_offset_end, ...] = t3_sub
-
-
-def add_scalar_loop_dyn_axis_dyn_cond(input_data0, input_data1, output_data, val=0, dynamic_axis=False, run_mode: str = "npu"):
+def create_add_scalar_loop_dyn_axis_dyn_cond_kernel(shape: tuple, val: int, dynamic_axis: bool = False, run_mode: str = "npu"):
     if dynamic_axis == True:
-        print("tensor is dyamic shape tensor")
-        pto_input0 = pypto.from_torch(input_data0, "IN_0", dynamic_axis=[0])
-        pto_input1 = pypto.from_torch(input_data1, "IN_1", dynamic_axis=[0])
-        pto_output = pypto.from_torch(output_data, "OUT_0", dynamic_axis=[0])
+        W = pypto.frontend.dynamic("W")
+        H, C, N = shape[1:]
     else:
-        print("tensor is static shape tensor")
-        pto_input0 = pypto.from_torch(input_data0, "IN_0")
-        pto_input1 = pypto.from_torch(input_data1, "IN_1")
-        pto_output = pypto.from_torch(output_data, "OUT_0")
+        W, H, C, N = shape
+    
+    def add_scalar_loop_dyn_axis_dyn_cond_kernel(
+        input0: pypto.Tensor((W, H, C, N), pypto.DT_FP32),
+        input1: pypto.Tensor((W, H, C, N), pypto.DT_FP32),
+    ) -> pypto.Tensor((W, H, C, N), pypto.DT_FP32):
+        pypto.set_vec_tile_shapes(1, 4, 1, 64)
+        output = pypto.tensor((W, H, C, N), pypto.DT_FP32)
+        #calculate the loop parameters
+        b = W
+        tile_b = 1
+        b_loop = b // tile_b
 
-    # launch the kernel
+        for idx in pypto.loop(b_loop):
+            b_offset = idx * tile_b
+            b_offset_end = (idx + 1) * tile_b
+            t0_sub = input0[b_offset:b_offset_end, ...]
+            t1_sub = input1[b_offset:b_offset_end, ...]
+            t3_sub = t0_sub + t1_sub
+            if idx < 2:
+                output[b_offset:b_offset_end, ...] = t3_sub + val
+            else:
+                output[b_offset:b_offset_end, ...] = t3_sub
+        return output
+
     if run_mode == "npu":
-        add_kernel_npu(pto_input0, pto_input1, pto_output, val)
+        return pypto.frontend.jit()(add_scalar_loop_dyn_axis_dyn_cond_kernel)
     else:
-        add_kernel_sim(pto_input0, pto_input1, pto_output, val)
+        return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(add_scalar_loop_dyn_axis_dyn_cond_kernel)
 
 
 def test_add_scalar_loop_dynamic_axis_dynamic_cond(device_id = None, run_mode: str = "npu") -> None:
@@ -115,8 +88,7 @@ def test_add_scalar_loop_dynamic_axis_dynamic_cond(device_id = None, run_mode: s
     val = 1
     input_data0 = torch.rand(shape, dtype=torch.float, device=device)
     input_data1 = torch.rand(shape, dtype=torch.float, device=device)
-    output_data = torch.zeros(shape, dtype=torch.float, device=device)
-    add_scalar_loop_dyn_axis_dyn_cond(input_data0, input_data1, output_data, val, True, run_mode)
+    output_data = create_add_scalar_loop_dyn_axis_dyn_cond_kernel(shape, val, True, run_mode)(input_data0, input_data1)
 
     golden = torch.add(input_data0, input_data1)
     golden[0:2, ...] = golden[0:2, ...] + val
