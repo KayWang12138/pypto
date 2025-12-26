@@ -352,17 +352,6 @@ void DevAscendFunction::InitRawTensorAndMemoryRequirement(
 
         for (size_t i = 0; i < rawList.size(); i++) {
             const auto &rawTensor = rawList[i];
-            if (rawTensor->actualRawmagic == -1 || rawTensor->actualRawmagic == rawTensor->rawmagic) {
-                continue;
-            }
-            auto &encoded = *GetRawTensor(i);
-            EncodeRawShape(expressionTable, &encoded, rawTensor, false, param.devRoot->GetRawName());
-            HandleActualRaw(incastRawList, outcastRawList, rawMagicToRawTensor, rawTensor, encoded);
-            UpdateRawTensorDesc(rawTensor, i, incastRawList.size(), encoded);
-        }
-
-        for (size_t i = 0; i < rawList.size(); i++) {
-            const auto &rawTensor = rawList[i];
             std::unordered_map<DataType, int> viewTypeTable = {{DT_INT8, 1}, {DT_BF16, 2}, {DT_FP16, 2}, {DT_FP32, 4}};
             if (rawTensor->actualRawmagic != -1 && rawTensor->actualRawmagic != rawTensor->rawmagic) {
                 auto it = rawMagicToRawTensor.find(rawTensor->actualRawmagic);
@@ -1900,7 +1889,7 @@ void DevAscendProgram::InitControlFlowCache(
     controlFlowCache.runtimeBackup.workspace.tensorAllocators.slottedOutcastsBlockList.HostInitDataSizeOffset(initOffset, slottedCount);
 
     controlFlowCache.runtimeBackup.slotContext.slotList.HostInitDataSizeOffset(initOffset, slotSize);
-    controlFlowCache.runtimeBackup.slotContext.slotRefCntList.HostInitDataSizeOffset(initOffset, slotSize);
+    controlFlowCache.runtimeBackup.workspace.runtimeOutcastTensorPool.HostInitDataSizeOffset(initOffset, runtimeOutcastPoolSize);
 
     initOffset = ALIGN_UP(initOffset, alignof(DynFuncHeader *));
     controlFlowCache.deviceTaskCacheList.HostInitDataSizeOffset(initOffset, config::GetRuntimeOption<int64_t>(CFGCACHE_DEVICE_TASK_NUM));
@@ -1928,6 +1917,7 @@ struct EncodeDevAscendProgramInfo {
     void Init(DevAscendProgram *devProg, bool fillContent) {
         uintdevptr_t initOffset = reinterpret_cast<uintdevptr_t>(devProg->data);
         devProg->slotSize = dyndevAttr->inoutLink.totalSlot;
+        devProg->runtimeOutcastPoolSize = dyndevAttr->inoutLink.totalSlot * (MAX_CACHED_FUNC_NUM + 1);
         devProg->assembleSlotSize = dyndevAttr->inoutLink.assembleSlotIndexList.size();
         devProg->InitSymbolTable(initOffset, &dyndevAttr->symbolTable, fillContent);
         devProg->InitExpressionTableBinary(initOffset, dyndevAttr->expressionTableBinaryList, fillContent);
@@ -1980,6 +1970,8 @@ struct TensorWorkspaceResult {
     uint64_t devTaskBoundaryOutcastNum{0};
     uint64_t perCoreSpilledMem{0};
     SymbolicScalar maxDynamicAssembleOutcastMem;
+    uint64_t totalExclusiveOutcastSlot{0};
+    uint64_t totalAssembleOutcastSlot{0};
 };
 
 struct SlotInfo {
@@ -2195,6 +2187,8 @@ static TensorWorkspaceResult CalcTensorWorkspace(Function *func,DevAscendProgram
     });
     res.devTaskBoundaryOutcastNum = totalExclusiveOutcastSlot * SLOTS_NEED_ALLOC_SIZE +
         totalAssembleOutcastSlot * std::min(EstimatedStitchingCount(), (int)MAX_CACHED_FUNC_NUM);
+    res.totalExclusiveOutcastSlot = totalExclusiveOutcastSlot;
+    res.totalAssembleOutcastSlot = totalAssembleOutcastSlot;
 
     res.perCoreSpilledMem = AlignUp(maxPerCoreSpilledMem, TENSOR_ADDR_ALIGNMENT);
 
@@ -2265,6 +2259,8 @@ void EncodeDevAscendProgram(Function *func, uint64_t &offset, DevAscendProgram *
 
         // Calc workspace size
         TensorWorkspaceResult tensorWsRes = CalcTensorWorkspace(func, *base);
+
+        base->slottableOutcastSlotSize = tensorWsRes.totalExclusiveOutcastSlot + tensorWsRes.totalAssembleOutcastSlot;
 
         base->memBudget.tensor.rootInner = tensorWsRes.rootInnerMem;
         base->memBudget.tensor.devTaskInnerExclusiveOutcasts = tensorWsRes.devTaskInnerExclusiveOutcastMem;
