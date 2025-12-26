@@ -35,8 +35,10 @@ struct DevAscendProgram {
     uint64_t l2CacheOffset;
     uint64_t configKey;
     uint64_t hashKey;
-    uint64_t slotSize;
+    uint32_t slotSize;
+    uint32_t runtimeOutcastPoolSize;
     uint32_t assembleSlotSize;
+    uint32_t slottableOutcastSlotSize;
     struct {
         struct {
             // root func inner tensors
@@ -414,7 +416,7 @@ struct DevAscendProgram {
         RelocOffset(shift, offset, controlFlowCache.outputTensorDataList);
         RelocOffset(shift, offset, controlFlowCache.runtimeBackup.workspace.tensorAllocators.slottedOutcastsBlockList);
         RelocOffset(shift, offset, controlFlowCache.runtimeBackup.slotContext.slotList);
-        RelocOffset(shift, offset, controlFlowCache.runtimeBackup.slotContext.slotRefCntList);
+        RelocOffset(shift, offset, controlFlowCache.runtimeBackup.workspace.runtimeOutcastTensorPool);
         RelocOffset(shift, offset, controlFlowCache.deviceTaskCacheList);
         RelocOffset(shift, offset, controlFlowCache.cacheData);
     }
@@ -469,7 +471,7 @@ struct DevAscendProgram {
             controlFlowCache.outputTensorDataList,
             controlFlowCache.runtimeBackup.workspace.tensorAllocators.slottedOutcastsBlockList, // 20
             controlFlowCache.runtimeBackup.slotContext.slotList,
-            controlFlowCache.runtimeBackup.slotContext.slotRefCntList,
+            controlFlowCache.runtimeBackup.workspace.runtimeOutcastTensorPool,
             controlFlowCache.deviceTaskCacheList,
             controlFlowCache.cacheData,
         };
