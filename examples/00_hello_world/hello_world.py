@@ -44,39 +44,30 @@ def get_device_id():
         return None
 
 
-@pypto.jit
-def add_kernel_npu(x: pypto.Tensor, y: pypto.Tensor, z: pypto.Tensor) -> None:
-    pypto.set_vec_tile_shapes(1, 4, 1, 64)
-    z[:] = x + y
-
-
-@pypto.jit(runtime_options={"run_mode": 1})
-def add_kernel_sim(x: pypto.Tensor, y: pypto.Tensor, z: pypto.Tensor) -> None:
-    pypto.set_vec_tile_shapes(1, 4, 1, 64)
-    z[:] = x + y
-
-
-def add_direct(x: torch.Tensor, y: torch.Tensor, run_mode: str = "npu") -> torch.Tensor:
-    out = torch.empty_like(x)
-    pto_input0 = pypto.from_torch(x)
-    pto_input1 = pypto.from_torch(y)
-    pto_output = pypto.from_torch(out)
-
-    # launch the kernel
+def create_add_kernel(shape: tuple, run_mode: str = "npu"):
+    def add_kernel(
+        x: pypto.Tensor(shape, pypto.DT_FP32),
+        y: pypto.Tensor(shape, pypto.DT_FP32),
+    ) -> pypto.Tensor(shape, pypto.DT_FP32):
+        pypto.set_vec_tile_shapes(1, 4, 1, 64)
+        out = x + y
+        return out
+    
     if run_mode == "npu":
-        add_kernel_npu(pto_input0, pto_input1, pto_output)
+        return pypto.frontend.jit()(add_kernel)
     else:
-        add_kernel_sim(pto_input0, pto_input1, pto_output)
-    return out
+        return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(add_kernel)
 
 
-def test_add_direct(device_id = None, run_mode: str = "npu") -> None:
+def test_add_direct(device_id=None, run_mode: str = "npu") -> None:
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     shape = (1, 4, 1, 64)
     #prepare data
     input_data0 = torch.rand(shape, dtype=torch.float, device=device)
     input_data1 = torch.rand(shape, dtype=torch.float, device=device)
-    output_data = add_direct(input_data0, input_data1, run_mode)
+
+    output_data = create_add_kernel(shape, run_mode)(input_data0, input_data1)
+
     golden = torch.add(input_data0, input_data1)
 
     max_diff = np.abs(output_data.cpu().numpy() - golden.cpu().numpy()).max()
