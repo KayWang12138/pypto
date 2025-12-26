@@ -233,7 +233,7 @@ def _is_atomic_type(node: Any) -> bool:
 
 
 def _get_registry_entry(
-    cls_name: str, attr: str
+    clsname: str, attr_name: str
 ) -> Optional[Union[FnToDoc, FnFromDoc]]:
     """Retrieve a conversion function from the registry for a given class.
 
@@ -250,11 +250,11 @@ def _get_registry_entry(
     Optional[Union[FnToDoc, FnFromDoc]]
         The requested conversion function if registered, None otherwise.
     """
-    cls_name = cls_name.split(".")[-1]
-    reg = Registry._inst  # pylint: disable=protected-access
-    if cls_name in reg.table:
-        entry = reg.table[cls_name]
-        return getattr(entry, attr, None)
+    clsname = clsname.split(".")[-1]
+    registry = Registry._inst  # pylint: disable=protected-access
+    if clsname in registry.table:
+        entry = registry.table[clsname]
+        return getattr(entry, attr_name, None)
     return None
 
 
@@ -290,15 +290,15 @@ def from_doc(node: Any) -> Any:
     if _is_atomic_type(node):
         return node
     if isinstance(node, tuple):
-        return tuple(from_doc(n) for n in node)
+        return tuple(from_doc(item) for item in node)
     if isinstance(node, list):
-        return [from_doc(n) for n in node]
-    func = _get_registry_entry(node.__class__.__name__, "from_doc")
-    if not func:
+        return [from_doc(item) for item in node]
+    function_from_doc = _get_registry_entry(node.__class__.__name__, "from_doc")
+    if not function_from_doc:
         raise NotImplementedError(
-            f"from_doc is not implemented for: {node.__class__.__name__}"
+            f"from_doc is not implemented for node type: {node.__class__.__name__}"
         )
-    return func(node)
+    return function_from_doc(node)
 
 
 def to_doc(node: Any) -> Any:
@@ -332,16 +332,19 @@ def to_doc(node: Any) -> Any:
     """
     if _is_atomic_type(node):
         return node
+    # Handle tuple
     if isinstance(node, tuple):
-        return tuple(to_doc(n) for n in node)
+        return tuple(to_doc(item) for item in node)
+    # Handle list
     if isinstance(node, list):
-        return [to_doc(n) for n in node]
-    func = _get_registry_entry(node.__class__.__name__, "to_doc")
-    if not func:
+        return [to_doc(item) for item in node]
+    # Get the conversion function for the node type
+    function_to_doc = _get_registry_entry(node.__class__.__name__, "to_doc")
+    if not function_to_doc:
         raise NotImplementedError(
-            f"to_doc is not implemented for: {node.__class__.__name__}"
+            f"to_doc is not implemented for node type: {node.__class__.__name__}"
         )
-    return func(node)
+    return function_to_doc(node)
 
 
 def parse(
@@ -530,19 +533,24 @@ def _register_default() -> None:
             return self.doc_cls(**kv)
 
     Registry._inst = Registry()  # pylint: disable=protected-access
-    for cls_name in dir(doc):
-        doc_cls = getattr(doc, cls_name)
-        if not hasattr(ast, cls_name):
+    
+    # Register default conversion functions for all standard AST node types
+    for cls_name_ in dir(doc):
+        doccls = getattr(doc, cls_name_)
+        # Skip if the class is not in the ast module
+        if not hasattr(ast, cls_name_):
             continue
-        if inspect.isclass(doc_cls) and issubclass(doc_cls, doc.AST):
-            assert "." not in cls_name
+        # Skip if the class is not a subclass of doc.AST
+        if inspect.isclass(doccls) and issubclass(doccls, doc.AST):
+            # Skip if the class name contains a dot
+            assert "." not in cls_name_
             # Collect annotations from parent classes as well
-            cls_fields = get_cls_fields(doc_cls)
-            register_to_doc(cls_name)(
-                DefaultTranslator(getattr(doc, cls_name), to_doc, cls_fields)
+            cls_fields_names = get_cls_fields(doccls)
+            register_to_doc(cls_name_)(
+                DefaultTranslator(getattr(doc, cls_name_), to_doc, cls_fields_names)
             )
-            register_from_doc(cls_name)(
-                DefaultTranslator(getattr(ast, cls_name), from_doc, cls_fields)
+            register_from_doc(cls_name_)(
+                DefaultTranslator(getattr(ast, cls_name_), from_doc, cls_fields_names)
             )
 
 
