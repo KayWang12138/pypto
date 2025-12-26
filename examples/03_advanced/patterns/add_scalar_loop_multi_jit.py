@@ -42,68 +42,49 @@ def get_device_id():
         print(f"ERROR: TILE_FWK_DEVICE_ID must be an integer, got: {os.environ['TILE_FWK_DEVICE_ID']}")
         return None
 
+SHAPE = (32, 32, 1, 256)
+VAL = 1
 
-def add_core(input0: pypto.Tensor, input1: pypto.Tensor, output: pypto.Tensor, val: int, add1_flag: bool):
+def add_core(input0: pypto.Tensor, input1: pypto.Tensor, add1_flag: bool = False):
     pypto.set_vec_tile_shapes(1, 4, 1, 64)
+    out = pypto.tensor(SHAPE, pypto.DT_FP32)
     if add1_flag:
         t3 = input0 + input1
-        output[:] = t3 + val
+        out[:] = t3 + VAL
     else:
-        output[:] = input0 + input1
+        out[:] = input0 + input1
+    return out
 
 
-@pypto.jit
-def add_true_kernel_npu(input0: pypto.Tensor, input1: pypto.Tensor, output: pypto.Tensor, val: int):
-    add_core(input0, input1, output, val, True)
 
-
-@pypto.jit(runtime_options={"run_mode": 1})
-def add_true_kernel_sim(input0: pypto.Tensor, input1: pypto.Tensor, output: pypto.Tensor, val: int):
-    add_core(input0, input1, output, val, True)
-
-
-@pypto.jit
-def add_false_kernel_npu(input0: pypto.Tensor, input1: pypto.Tensor, output: pypto.Tensor, val: int):
-    add_core(input0, input1, output, val, False)
-
-
-@pypto.jit(runtime_options={"run_mode": 1})
-def add_false_kernel_sim(input0: pypto.Tensor, input1: pypto.Tensor, output: pypto.Tensor, val: int):
-    add_core(input0, input1, output, val, False)
-
-
-def add_add1flag(input0: torch.Tensor, input1: torch.Tensor, output: torch.Tensor, val: int, add1_flag: bool, run_mode: str = "npu") -> None:
-    pto_input0 = pypto.from_torch(input0, "IN_0")
-    pto_input1 = pypto.from_torch(input1, "IN_1")
-    pto_output = pypto.from_torch(output, "OUT_0")
-
-    if add1_flag:
-        # launch the kernel
-        if run_mode == "npu":
-            add_true_kernel_npu(pto_input0, pto_input1, pto_output, val)
-        else:
-            add_true_kernel_sim(pto_input0, pto_input1, pto_output, val)
+def create_add_kernel(run_mode: str = "npu", add1_flag: bool = True):
+    def add_kernel(
+        input0: pypto.Tensor(SHAPE, pypto.DT_FP32),
+        input1: pypto.Tensor(SHAPE, pypto.DT_FP32),
+    ) -> pypto.Tensor(SHAPE, pypto.DT_FP32):
+        out = add_core(input0, input1, add1_flag)
+        return out
+    
+    if run_mode == "npu":
+        return pypto.frontend.jit()(add_kernel)
     else:
-        if run_mode == "npu":
-            add_false_kernel_npu(pto_input0, pto_input1, pto_output, val)
-        else:
-            add_false_kernel_sim(pto_input0, pto_input1, pto_output, val)
-
+        return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(add_kernel)
 
 def test_add_scalar_loop_multi_jit(device_id = None, run_mode: str = "npu") -> None:
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
 
-    shape = (32, 32, 1, 256)
+    shape = SHAPE
     #prepare data
-    val = 1
+    val = VAL
+    
     input_data0 = torch.rand(shape, dtype=torch.float, device=device)
     input_data1 = torch.rand(shape, dtype=torch.float, device=device)
     print(f"Input0 shape: {input_data0.shape}")
     print(f"Input1 shape: {input_data1.shape}")
     golden = torch.add(input_data0, input_data1)
-    
-    output_data = torch.zeros(shape, dtype=torch.float, device=device)
-    add_add1flag(input_data0, input_data1, output_data, val, False, run_mode)
+
+    # output_data = add_add1flag(input_data0, input_data1, False, run_mode)
+    output_data = create_add_kernel(run_mode, False)(input_data0, input_data1)
     max_diff = np.abs(output_data.cpu().numpy() - golden.cpu().numpy()).max()
     print(f"Output shape: {output_data.shape}")
     print(f"Max difference: {max_diff:.6f}")
@@ -111,8 +92,8 @@ def test_add_scalar_loop_multi_jit(device_id = None, run_mode: str = "npu") -> N
         assert_allclose(np.array(output_data.cpu()), np.array(golden.cpu()), rtol=3e-3, atol=3e-3)
 
     golden2 = torch.add(input_data0, input_data1) + val
-    output_data2 = torch.zeros(shape, dtype=torch.float, device=device)
-    add_add1flag(input_data0, input_data1, output_data2, val, True, run_mode)
+    # output_data2 = add_add1flag(input_data0, input_data1, True, run_mode)
+    output_data2 = create_add_kernel(run_mode, True)(input_data0, input_data1)
     max_diff = np.abs(output_data2.cpu().numpy() - golden2.cpu().numpy()).max()
     print(f"Output shape: {output_data2.shape}")
     print(f"Max difference: {max_diff:.6f}")

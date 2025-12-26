@@ -30,6 +30,28 @@ The test validates that the cost analysis and swimlane visualization work correc
 simulation environment, independent of actual NPU hardware availability.
 """
 
+
+def get_device_id():
+    """
+    Get and validate TILE_FWK_DEVICE_ID from environment variable.
+
+    Returns:
+        int: The device ID if valid, None otherwise.
+    """
+    if 'TILE_FWK_DEVICE_ID' not in os.environ:
+        print("If no NPU environment is available, set --run_mode sim to run in simulation mode;")
+        print("otherwise, set the environment variable TILE_FWK_DEVICE_ID.")
+        print("Please set it before running this example:")
+        print("  export TILE_FWK_DEVICE_ID=0")
+        return None
+
+    try:
+        device_id = int(os.environ['TILE_FWK_DEVICE_ID'])
+        return device_id
+    except ValueError:
+        print(f"ERROR: TILE_FWK_DEVICE_ID must be an integer, got: {os.environ['TILE_FWK_DEVICE_ID']}")
+        return None
+    
 def safe_json_load(file_path):
     try:
         with open(file_path, 'r', encoding='utf-8') as file:
