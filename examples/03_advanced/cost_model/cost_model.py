@@ -144,11 +144,93 @@ def test_softmax(cost_model_enable=True):
     print()
     
 
+def main():
+    """Run cost_model example.
+
+    Usage:
+        python cost_model.py          # Run example
+        python cost_model.py --list   # List available examples
+    """
+    parser = argparse.ArgumentParser(
+        description="PyPTO cost_model Example",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  %(prog)s cost_model::test_add_direct
+            Run the cost_model::test_add_direct example
+  %(prog)s --list       List all available examples
+        """
+    )
+    parser.add_argument(
+        'example_id',
+        type=str,
+        nargs='?',
+        help='Example ID to run (1). If not specified, the example will run.'
+    )
+    parser.add_argument(
+        '--list',
+        action='store_true',
+        help='List all available examples and exit'
+    )
+
+    args = parser.parse_args()
+
+    # Define available examples
+    examples = {
+        "cost_model::test_softmax": {
+            'name': 'cost_model',
+            'description': 'cost_model example',
+            'function': test_softmax
+        }
+    }
+
+    # List examples if requested
+    if args.list:
+        print("\n" + "=" * 60)
+        print("Available Examples")
+        print("=" * 60 + "\n")
+        for ex_id, ex_info in sorted(examples.items()):
+            print(f"  ID: {ex_id}")
+            print(f"     name: {ex_info['name']}")
+            print(f"     description: {ex_info['description']}\n")
+        return
+
+    # Validate example ID if provided
+    if args.example_id is not None:
+        if args.example_id not in examples:
+            print(f"ERROR: Invalid example ID: {args.example_id}")
+            print(f"Valid example IDs are: {', '.join(map(str, sorted(examples.keys())))}")
+            print("\nUse --list to see all available examples.")
+            sys.exit(1)
+
+    print("\n" + "=" * 60)
+    print("PyPTO cost_model Example")
+    print("=" * 60 + "\n")
+
+    # Get and validate device ID (needed for NPU examples)
+    device_id = None
+    examples_to_run = []
+
+    if args.example_id is not None:
+        # Run single example
+        examples_to_run = [(args.example_id, examples[args.example_id])]
+    else:
+        # Run all examples
+        examples_to_run = list(examples.items())
+
+    try:
+        for ex_id, ex_info in examples_to_run:
+            print(f"Running Example {ex_id}: {ex_info['name']}")
+            ex_info['function']()
+
+        print("=" * 60)
+        print("All cost_model tests passed!")
+        print("=" * 60)
+
+    except Exception as e:
+        print(f"\nError: {e}")
+        raise
+
+
 if __name__ == "__main__":
-    # Always execute through build_ci.py
-    script_path = os.path.abspath(__file__)
-    cmd = f"python3 build_ci.py -s={script_path}"
-    
-    # Execute and Exit
-    os.system(cmd)
-    sys.exit(0)
+    main()
