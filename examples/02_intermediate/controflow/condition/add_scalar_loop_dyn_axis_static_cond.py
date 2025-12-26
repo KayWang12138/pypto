@@ -64,56 +64,25 @@ def add_core(input0: pypto.Tensor, input1: pypto.Tensor, output: pypto.Tensor, v
             output[b_offset:b_offset_end, ...] = t3_sub
 
 
-@pypto.jit
-def add_kernel_npu(input0: pypto.Tensor, input1: pypto.Tensor, output: pypto.Tensor, val: int):
-    add_core(input0, input1, output, val)
-
-
-@pypto.jit(runtime_options={"run_mode": 1})
-def add_kernel_sim(input0: pypto.Tensor, input1: pypto.Tensor, output: pypto.Tensor, val: int):
-    add_core(input0, input1, output, val)
-
-
-@pypto.jit
-def add_kernel_true_npu(input0: pypto.Tensor, input1: pypto.Tensor, output: pypto.Tensor, val: int):
-    add_core(input0, input1, output, val, True)
-
-
-@pypto.jit(runtime_options={"run_mode": 1})
-def add_kernel_true_sim(input0: pypto.Tensor, input1: pypto.Tensor, output: pypto.Tensor, val: int):
-    add_core(input0, input1, output, val, True)
-
-
-def add_add1flag(input0: torch.Tensor, input1: torch.Tensor, output: torch.Tensor, val: int, dynamic_axis: bool, run_mode: str = "npu") -> None:
+def create_add_scalar_loop_dyn_axis_static_cond_kernel(shape: tuple, val: int, flag: bool, dynamic_axis: bool = False, run_mode: str = "npu"):
     if dynamic_axis == True:
-        pto_input0 = pypto.from_torch(input0, "IN_0", dynamic_axis=[0])
-        pto_input1 = pypto.from_torch(input1, "IN_1", dynamic_axis=[0])
-        pto_output = pypto.from_torch(output, "OUT_0", dynamic_axis=[0])
+        W = pypto.frontend.dynamic("W")
+        H, C, N = shape[1:]
     else:
-        pto_input0 = pypto.from_torch(input0, "IN_0")
-        pto_input1 = pypto.from_torch(input1, "IN_1")
-        pto_output = pypto.from_torch(output, "OUT_0")
-    # launch the kernel
-    if run_mode == "npu":
-        add_kernel_npu(pto_input0, pto_input1, pto_output, val)
-    else:
-        add_kernel_sim(pto_input0, pto_input1, pto_output, val)
+        W, H, C, N = shape
+    
+    def add_scalar_loop_dyn_axis_static_cond_kernel(
+        input0: pypto.Tensor((W, H, C, N), pypto.DT_FP32),
+        input1: pypto.Tensor((W, H, C, N), pypto.DT_FP32),
+    ) -> pypto.Tensor((W, H, C, N), pypto.DT_FP32):
+        output = pypto.tensor((W, H, C, N), pypto.DT_FP32)
+        add_core(input0, input1, output, val, flag)
+        return output
 
-
-def add_add1flag_true(input0: torch.Tensor, input1: torch.Tensor, output: torch.Tensor, val: int, dynamic_axis: bool, run_mode: str = "npu") -> None:
-    if dynamic_axis == True:
-        pto_input0 = pypto.from_torch(input0, "IN_0", dynamic_axis=[0])
-        pto_input1 = pypto.from_torch(input1, "IN_1", dynamic_axis=[0])
-        pto_output = pypto.from_torch(output, "OUT_0", dynamic_axis=[0])
-    else:
-        pto_input0 = pypto.from_torch(input0, "IN_0")
-        pto_input1 = pypto.from_torch(input1, "IN_1")
-        pto_output = pypto.from_torch(output, "OUT_0")
-    # launch the kernel
     if run_mode == "npu":
-        add_kernel_true_npu(pto_input0, pto_input1, pto_output, val)
+        return pypto.frontend.jit()(add_scalar_loop_dyn_axis_static_cond_kernel)
     else:
-        add_kernel_true_sim(pto_input0, pto_input1, pto_output, val)
+        return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(add_scalar_loop_dyn_axis_static_cond_kernel)
 
 
 def test_add_scalar_loop_dyn_axis_static_cond(device_id = None, run_mode: str = "npu") -> None:
@@ -126,8 +95,7 @@ def test_add_scalar_loop_dyn_axis_static_cond(device_id = None, run_mode: str = 
     input_data1 = torch.rand(shape, dtype=torch.float, device=device)
     print(f"Input0 shape: {input_data0.shape}")
     print(f"Input1 shape: {input_data1.shape}")
-    output_data = torch.zeros(shape, dtype=torch.float, device=device)
-    add_add1flag(input_data0, input_data1, output_data, val, True, run_mode)
+    output_data = create_add_scalar_loop_dyn_axis_static_cond_kernel(shape, val, False, True, run_mode)(input_data0, input_data1)
     golden = torch.add(input_data0, input_data1)
 
     max_diff = np.abs(output_data.cpu().numpy() - golden.cpu().numpy()).max()
@@ -137,7 +105,7 @@ def test_add_scalar_loop_dyn_axis_static_cond(device_id = None, run_mode: str = 
         assert_allclose(np.array(output_data.cpu()), np.array(golden.cpu()), rtol=3e-3, atol=3e-3)
 
     output_data2 = torch.zeros(shape, dtype=torch.float, device=device)
-    add_add1flag_true(input_data0, input_data1, output_data2, val, True, run_mode)
+    output_data2 = create_add_scalar_loop_dyn_axis_static_cond_kernel(shape, val, True, True, run_mode)(input_data0, input_data1)
     golden2 = torch.add(input_data0, input_data1) + val
 
     max_diff = np.abs(output_data2.cpu().numpy() - golden2.cpu().numpy()).max()
