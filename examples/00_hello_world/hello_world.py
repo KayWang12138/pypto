@@ -9,9 +9,9 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 """
-add_direct Example for PyPTO
+Hello World Example for PyPTO
 
-This example demonstrates how to implement a add_direct operation using PyPTO, including:
+This example demonstrates the simplest tensor addition.
 """
 import os
 import sys
@@ -44,67 +44,58 @@ def get_device_id():
         return None
 
 
-@pypto.jit
-def add_direct_kernel_npu(x: pypto.Tensor, y: pypto.Tensor, z: pypto.Tensor) -> None:
-    pypto.set_vec_tile_shapes(1, 4, 1, 64)
-    z[:] = x + y
-
-
-@pypto.jit(runtime_options={"run_mode": 1})
-def add_direct_kernel_sim(x: pypto.Tensor, y: pypto.Tensor, z: pypto.Tensor) -> None:
-    pypto.set_vec_tile_shapes(1, 4, 1, 64)
-    z[:] = x + y
-
-
-def add_direct(x: torch.Tensor, y: torch.Tensor, z: torch.Tensor, run_mode: str = "npu") -> None:
-    pto_input0 = pypto.from_torch(x, "IN_0")
-    pto_input1 = pypto.from_torch(y, "IN_1")
-    pto_output = pypto.from_torch(z, "OUT_0")
-
-    # launch the kernel
+def create_add_kernel(shape: tuple, run_mode: str = "npu"):
+    def add_kernel(
+        x: pypto.Tensor(shape, pypto.DT_FP32),
+        y: pypto.Tensor(shape, pypto.DT_FP32),
+    ) -> pypto.Tensor(shape, pypto.DT_FP32):
+        pypto.set_vec_tile_shapes(1, 4, 1, 64)
+        out = x + y
+        return out
+    
     if run_mode == "npu":
-        add_direct_kernel_npu(pto_input0, pto_input1, pto_output)
+        return pypto.frontend.jit()(add_kernel)
     else:
-        add_direct_kernel_sim(pto_input0, pto_input1, pto_output)
+        return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(add_kernel)
 
 
 def test_add_direct(device_id = None, run_mode: str = "npu") -> None:
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-
     shape = (1, 4, 1, 64)
     #prepare data
     input_data0 = torch.rand(shape, dtype=torch.float, device=device)
     input_data1 = torch.rand(shape, dtype=torch.float, device=device)
-    output_data = torch.zeros(shape, dtype=torch.float, device=device)
-    add_direct(input_data0, input_data1, output_data, run_mode)
+
+    output_data = create_add_kernel(shape, run_mode)(input_data0, input_data1)
+
     golden = torch.add(input_data0, input_data1)
 
     max_diff = np.abs(output_data.cpu().numpy() - golden.cpu().numpy()).max()
     print(f"Input0 shape: {input_data0.shape}")
     print(f"Input1 shape: {input_data1.shape}")
     print(f"Output shape: {output_data.shape}")
-    print(f"Max difference: {max_diff:.6f}")
-
+    
     if run_mode == "npu":
+        print(f"Max difference: {max_diff:.6f}")
         assert_allclose(np.array(output_data.cpu()), np.array(golden.cpu()), rtol=3e-3, atol=3e-3)
-    print("✓ add_direct test passed")
+    print("✓ Hello world example passed")
     print()
 
 
 def main():
-    """Run add_direct example.
+    """Run hello_world example.
 
     Usage:
-        python add_direct.py          # Run example
-        python add_direct.py --list   # List available examples
+        python hello_world.py          # Run example
+        python hello_world.py --list   # List available examples
     """
     parser = argparse.ArgumentParser(
-        description="PyPTO add_direct Example",
+        description="PyPTO hello_world Example",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  %(prog)s add_direct::test_add_direct
-            Run the add_direct::test_add_direct example
+  %(prog)s hello_world::test_add_direct
+            Run the hello_world::test_add_direct example
   %(prog)s --list       List all available examples
         """
     )
@@ -132,8 +123,8 @@ Examples:
 
     # Define available examples
     examples = {
-        "add_direct::test_add_direct": {
-            'name': 'add_direct',
+        "hello_world::test_add_direct": {
+            'name': 'hello_world',
             'description': 'add_direct implementation',
             'function': test_add_direct
         }
@@ -159,7 +150,7 @@ Examples:
             sys.exit(1)
 
     print("\n" + "=" * 60)
-    print("PyPTO add_direct Example")
+    print("PyPTO hello_world Example")
     print("=" * 60 + "\n")
 
     # Get and validate device ID (needed for NPU examples)
@@ -189,7 +180,7 @@ Examples:
 
         if len(examples_to_run) > 1:
             print("=" * 60)
-            print("All add_direct tests passed!")
+            print("All hello_world tests passed!")
             print("=" * 60)
 
     except Exception as e:

@@ -9,9 +9,15 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 """
-add_scalar_loop_multi_jit Example for PyPTO
+add_scalar Example for PyPTO
 
-This example demonstrates how to implement a add_scalar_loop_multi_jit operation using PyPTO, including:
+This example demonstrates how to implement a add_scalar operation using PyPTO, including:
+- Manual add_scalar computation from basic operations
+- Dynamic axis marking for variable batch sizes
+- Tiling configuration for efficient execution
+- Loop-based processing for large tensors
+
+add_scalar is a fundamental operation in neural networks, especially for attention mechanisms.
 """
 import os
 import sys
@@ -30,7 +36,8 @@ def get_device_id():
         int: The device ID if valid, None otherwise.
     """
     if 'TILE_FWK_DEVICE_ID' not in os.environ:
-        print("ERROR: Environment variable TILE_FWK_DEVICE_ID is not set.")
+        print("If no NPU environment is available, set --run_mode sim to run in simulation mode;")
+        print("otherwise, set the environment variable TILE_FWK_DEVICE_ID.")
         print("Please set it before running this example:")
         print("  export TILE_FWK_DEVICE_ID=0")
         return None
@@ -43,100 +50,58 @@ def get_device_id():
         return None
 
 
-def add_core(input0: pypto.Tensor, input1: pypto.Tensor, output: pypto.Tensor, val: int, add1_flag: bool):
-    pypto.set_vec_tile_shapes(1, 4, 1, 64)
-    if add1_flag:
-        t3 = input0 + input1
-        output[:] = t3 + val
+def create_add_scalar_kernel(shape: tuple, val, run_mode: str = "npu") -> torch.Tensor:
+    def add_scalar_kernel(
+        x: pypto.Tensor(shape, pypto.DT_FP32),
+        y: pypto.Tensor(shape, pypto.DT_FP32),
+    ) -> pypto.Tensor(shape, pypto.DT_FP32):
+        pypto.set_vec_tile_shapes(1, 4, 1, 64)
+        z = pypto.add(x, y) + val
+        return z
+    if run_mode == "npu":
+        return pypto.frontend.jit()(add_scalar_kernel)
     else:
-        output[:] = input0 + input1
+        return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(add_scalar_kernel)
 
 
-@pypto.jit
-def add_true_kernel_npu(input0: pypto.Tensor, input1: pypto.Tensor, output: pypto.Tensor, val: int):
-    add_core(input0, input1, output, val, True)
-
-
-@pypto.jit(runtime_options={"run_mode": 1})
-def add_true_kernel_sim(input0: pypto.Tensor, input1: pypto.Tensor, output: pypto.Tensor, val: int):
-    add_core(input0, input1, output, val, True)
-
-
-@pypto.jit
-def add_false_kernel_npu(input0: pypto.Tensor, input1: pypto.Tensor, output: pypto.Tensor, val: int):
-    add_core(input0, input1, output, val, False)
-
-
-@pypto.jit(runtime_options={"run_mode": 1})
-def add_false_kernel_sim(input0: pypto.Tensor, input1: pypto.Tensor, output: pypto.Tensor, val: int):
-    add_core(input0, input1, output, val, False)
-
-
-def add_add1flag(input0: torch.Tensor, input1: torch.Tensor, output: torch.Tensor, val: int, add1_flag: bool, run_mode: str = "npu") -> None:
-    pto_input0 = pypto.from_torch(input0, "IN_0")
-    pto_input1 = pypto.from_torch(input1, "IN_1")
-    pto_output = pypto.from_torch(output, "OUT_0")
-
-    if add1_flag:
-        # launch the kernel
-        if run_mode == "npu":
-            add_true_kernel_npu(pto_input0, pto_input1, pto_output, val)
-        else:
-            add_true_kernel_sim(pto_input0, pto_input1, pto_output, val)
-    else:
-        if run_mode == "npu":
-            add_false_kernel_npu(pto_input0, pto_input1, pto_output, val)
-        else:
-            add_false_kernel_sim(pto_input0, pto_input1, pto_output, val)
-
-
-def test_add_scalar_loop_multi_jit(device_id = None, run_mode: str = "npu") -> None:
+def test_add_scalar(device_id = None, run_mode: str = "npu") -> None:
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
 
-    shape = (32, 32, 1, 256)
+    shape = (1, 4, 1, 64)
     #prepare data
     val = 1
-    input_data0 = torch.rand(shape, dtype=torch.float, device=device)
-    input_data1 = torch.rand(shape, dtype=torch.float, device=device)
-    print(f"Input0 shape: {input_data0.shape}")
-    print(f"Input1 shape: {input_data1.shape}")
-    golden = torch.add(input_data0, input_data1)
-    
-    output_data = torch.zeros(shape, dtype=torch.float, device=device)
-    add_add1flag(input_data0, input_data1, output_data, val, False, run_mode)
-    max_diff = np.abs(output_data.cpu().numpy() - golden.cpu().numpy()).max()
-    print(f"Output shape: {output_data.shape}")
-    print(f"Max difference: {max_diff:.6f}")
-    if run_mode == "npu":
-        assert_allclose(np.array(output_data.cpu()), np.array(golden.cpu()), rtol=3e-3, atol=3e-3)
+    x = torch.rand(shape, dtype=torch.float, device=device)
+    y = torch.rand(shape, dtype=torch.float, device=device)
+    z = create_add_scalar_kernel(shape, val, run_mode)(x, y)
 
-    golden2 = torch.add(input_data0, input_data1) + val
-    output_data2 = torch.zeros(shape, dtype=torch.float, device=device)
-    add_add1flag(input_data0, input_data1, output_data2, val, True, run_mode)
-    max_diff = np.abs(output_data2.cpu().numpy() - golden2.cpu().numpy()).max()
-    print(f"Output shape: {output_data2.shape}")
-    print(f"Max difference: {max_diff:.6f}")
-    if run_mode == "npu":
-        assert_allclose(np.array(output_data2.cpu()), np.array(golden2.cpu()), rtol=3e-3, atol=3e-3)
+    golden = torch.add(x, y) + val
 
-    print("✓ add_scalar_loop_multi_jit test passed")
+    max_diff = np.abs(z.cpu().numpy() - golden.cpu().numpy()).max()
+    print(f"Input0 shape: {x.shape}")
+    print(f"Input1 shape: {y.shape}")
+    print(f"Output shape: {z.shape}")
+    print(f"Max difference: {max_diff:.6f}")
+
+    if run_mode == "npu":
+        assert_allclose(np.array(z.cpu()), np.array(golden.cpu()), rtol=3e-3, atol=3e-3)
+    print("✓ add_scalar test passed")
     print()
 
 
 def main():
-    """Run add_scalar_loop_multi_jit example.
+    """Run add_scalar example.
     
     Usage:
-        python add_scalar_loop_multi_jit.py          # Run example
-        python add_scalar_loop_multi_jit.py --list   # List available examples
+        python add_scalar.py          # Run example
+        python add_scalar.py --list   # List available examples
     """
     parser = argparse.ArgumentParser(
-        description="PyPTO add_scalar_loop_multi_jit Example",
+        description="PyPTO Softmax Example",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  %(prog)s add_scalar_loop_multi_jit::test_add_scalar_loop_multi_jit
-            Run the add_scalar_loop_multi_jit::test_add_scalar_loop_multi_jit example
+  %(prog)s add_scalar::test_add_scalar
+            Run the add_scalar::test_add_scalar example
   %(prog)s --list       List all available examples
         """
     )
@@ -164,10 +129,10 @@ Examples:
     
     # Define available examples
     examples = {
-        "add_scalar_loop_multi_jit::test_add_scalar_loop_multi_jit": {
-            'name': 'add_scalar_loop_multi_jit',
-            'description': 'add_scalar_loop_multi_jit implementation',
-            'function': test_add_scalar_loop_multi_jit
+        "add_scalar::test_add_scalar": {
+            'name': 'add_scalar',
+            'description': 'add_scalar implementation with dynamic batch size',
+            'function': test_add_scalar
         }
     }
     
@@ -191,7 +156,7 @@ Examples:
             sys.exit(1)
     
     print("\n" + "=" * 60)
-    print("PyPTO add_scalar_loop_multi_jit Example")
+    print("PyPTO add_scalar Example")
     print("=" * 60 + "\n")
     
     # Get and validate device ID (needed for NPU examples)
@@ -221,7 +186,7 @@ Examples:
         
         if len(examples_to_run) > 1:
             print("=" * 60)
-            print("All add_scalar_loop_multi_jit tests passed!")
+            print("All add_scalar tests passed!")
             print("=" * 60)
         
     except Exception as e:
