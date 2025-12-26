@@ -15,6 +15,13 @@
 #include <fstream>
 #include <dlfcn.h>
 #include <string>
+
+// macOS does not have RTLD_DEEPBIND
+#ifdef __APPLE__
+#ifndef RTLD_DEEPBIND
+#define RTLD_DEEPBIND 0
+#endif
+#endif
 #include <unordered_map>
 #include <mutex>
 #include "machine/utils/device_log.h"

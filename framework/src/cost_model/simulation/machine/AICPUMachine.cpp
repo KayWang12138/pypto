@@ -221,7 +221,7 @@ void AICPUMachine::UpdateDispatchStates(std::vector<bool> &threadGroupActive, st
         bool machineBusy = true;
         uint64_t startIdx = threadId * ((subMachines.size() + threadsNum - 1) / threadsNum);
         uint64_t endIdx =
-            std::min((threadId + 1) * ((subMachines.size() + threadsNum - 1) / threadsNum), subMachines.size());
+            std::min<size_t>((threadId + 1) * ((subMachines.size() + threadsNum - 1) / threadsNum), subMachines.size());
         
         for (uint64_t i = startIdx; i < endIdx; i++) {
             auto &submachine = subMachines[i];

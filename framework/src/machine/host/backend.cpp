@@ -444,8 +444,11 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
         controlFlowOss << "#define LOOP(idx, b, e, s) for (int64_t idx = (b), idxEnd = (e), idxStep = (s); idx < idxEnd; idx += idxStep)\n"
             << "namespace npu::tile_fwk {\n"
             << BuildControlFlowCallee(func, 0)
-            << "__attribute__((section(\"" << sectionName
-            << "\")))\n"
+#ifdef __APPLE__
+            << "__attribute__((section(\"__DATA," << sectionName << "\")))\n"
+#else
+            << "__attribute__((section(\"" << sectionName << "\")))\n"
+#endif
             << "uint64_t ControlFlowEntry(void *ctx, int64_t *symbolTable, RuntimeCallEntryType runtimeCallList[], DevStartArgsBase *startArgs) {\n";
         for (auto &callee : GetCalleeList(cache, func)) {
             BuildControlFlow(cache, linker, sectionName, callee, slotIdxMapping, group, rootTileDict, controlFlowOss, expressionOss, indent + 1, expName);
@@ -865,8 +868,14 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[ma
 
     std::string funcHash = function->GetFunctionHash().Data();
     std::string controlFlowHostFilePath = aicpuDirPath + "/controlFlow_host_" + funcHash + ".cpp";
+#ifdef __APPLE__
+    // macOS: use gobjcopy from Homebrew binutils
+    attr->hostControlFlowBinary = CompileAndLoadSection(controlFlowSource, controlFlowHostFilePath,
+        "g++", "gobjcopy", "ast2", IsNeedDumpAicpuKernel(controlFlowHostFilePath), cflags);
+#else
     attr->hostControlFlowBinary = CompileAndLoadSection(controlFlowSource, controlFlowHostFilePath,
         "g++", "objcopy", "ast2", IsNeedDumpAicpuKernel(controlFlowHostFilePath), cflags);
+#endif
     AlignUpTo(attr->hostControlFlowBinary, 0x8, 0);
     std::string funcName = function->GetMagicName() + function->GetFunctionHash().Data();
     CompileControlFlow(aicpuDirPath, funcName, controlFlowSource, expressionSource);

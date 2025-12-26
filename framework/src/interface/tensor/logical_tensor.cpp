@@ -498,9 +498,9 @@ SymbolicScalar npu::tile_fwk::GetViewValidShapeDim(
         auto viewOffsetData = viewOffsetDim.Concrete();
         auto viewShapeData = viewShapeDim.Concrete();
         if (viewShapeData == -1) {
-            result = std::max(validShapeData - viewOffsetData, 0L);
+            result = std::max(validShapeData - viewOffsetData, static_cast<decltype(validShapeData)>(0));
         } else {
-            result = std::max(std::min(validShapeData - viewOffsetData, viewShapeData), 0L);
+            result = std::max(std::min(validShapeData - viewOffsetData, viewShapeData), static_cast<decltype(validShapeData)>(0));
         }
     } else if (viewShapeDim.ConcreteValid() && viewShapeDim.Concrete() == -1) {
         return std::max(validShapeDim - viewOffsetDim, 0L);

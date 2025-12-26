@@ -212,16 +212,27 @@ function(PTO_Fwk_GTest_AddExe)
             PRIVATE
                 ${ARG_PRIVATE_INCLUDE_DIRECTORIES}
     )
-    target_link_libraries(${ARG_TARGET}
-            PRIVATE
-                GTest::gtest
-                -Wl,--no-as-needed
-                -Wl,--whole-archive
-                ${ARG_PRIVATE_LINK_LIBRARIES}
-                -Wl,--as-needed
-                -Wl,--no-whole-archive
-                -rdynamic
-    )
+    if (APPLE)
+        # macOS: use different linker options
+        target_link_libraries(${ARG_TARGET}
+                PRIVATE
+                    GTest::gtest
+                    -Wl,-force_load
+                    ${ARG_PRIVATE_LINK_LIBRARIES}
+        )
+    else ()
+        # Linux: use GNU ld options
+        target_link_libraries(${ARG_TARGET}
+                PRIVATE
+                    GTest::gtest
+                    -Wl,--no-as-needed
+                    -Wl,--whole-archive
+                    ${ARG_PRIVATE_LINK_LIBRARIES}
+                    -Wl,--as-needed
+                    -Wl,--no-whole-archive
+                    -rdynamic
+        )
+    endif ()
     # 模拟配置文件 Install 流程, 为便于调试, 使用创建软连接方式模拟安装
     get_filename_component(InstallConfigsDir "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/configs" REALPATH)
     add_custom_command(

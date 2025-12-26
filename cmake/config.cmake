@@ -212,13 +212,72 @@ if (BUILD_OPEN_PROJECT)
     set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 endif()
 
+# 平台检测
+if (APPLE)
+    set(PYPTO_PLATFORM_MACOS ON)
+    message(STATUS "Platform: macOS")
+elseif (UNIX)
+    set(PYPTO_PLATFORM_LINUX ON)
+    message(STATUS "Platform: Linux")
+endif()
+
+# macOS 平台特殊处理：查找 Homebrew 安装的 GCC
+if (PYPTO_PLATFORM_MACOS AND ENABLE_FEATURE_PYTHON_FRONT_END)
+    if (NOT "${CMAKE_C_COMPILER_ID}" STREQUAL "GNU")
+        # 尝试查找 Homebrew 安装的 GCC
+        set(_HOMEBREW_GCC_FOUND OFF)
+        set(_HOMEBREW_PATHS "/opt/homebrew/bin" "/usr/local/bin")
+        foreach(_BREW_PATH ${_HOMEBREW_PATHS})
+            if (EXISTS "${_BREW_PATH}")
+                # 查找 gcc-XX 版本
+                file(GLOB _GCC_CANDIDATES "${_BREW_PATH}/gcc-*")
+                list(SORT _GCC_CANDIDATES ORDER DESCENDING)
+                foreach(_GCC_CANDIDATE ${_GCC_CANDIDATES})
+                    if (_GCC_CANDIDATE MATCHES "gcc-[0-9]+$")
+                        get_filename_component(_GCC_NAME "${_GCC_CANDIDATE}" NAME)
+                        string(REGEX REPLACE "gcc-" "" _GCC_VER "${_GCC_NAME}")
+                        set(_GXX_CANDIDATE "${_BREW_PATH}/g++-${_GCC_VER}")
+                        if (EXISTS "${_GXX_CANDIDATE}")
+                            set(CMAKE_C_COMPILER "${_GCC_CANDIDATE}" CACHE FILEPATH "C compiler" FORCE)
+                            set(CMAKE_CXX_COMPILER "${_GXX_CANDIDATE}" CACHE FILEPATH "C++ compiler" FORCE)
+                            set(_HOMEBREW_GCC_FOUND ON)
+                            message(STATUS "macOS: Found Homebrew GCC at ${_GCC_CANDIDATE}")
+                            message(STATUS "macOS: Found Homebrew G++ at ${_GXX_CANDIDATE}")
+                            break()
+                        endif()
+                    endif()
+                endforeach()
+                if (_HOMEBREW_GCC_FOUND)
+                    break()
+                endif()
+            endif()
+        endforeach()
+
+        if (NOT _HOMEBREW_GCC_FOUND)
+            message(FATAL_ERROR
+                "Python frontend requires GNU GCC on macOS.\n"
+                "Current compiler: ${CMAKE_C_COMPILER_ID}\n"
+                "Please install GCC via Homebrew:\n"
+                "  1. Install Homebrew: /bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\"\n"
+                "  2. Install GCC: brew install gcc\n"
+                "  3. Rebuild the project\n"
+                "Or specify GCC compiler manually:\n"
+                "  export CC=/opt/homebrew/bin/gcc-14\n"
+                "  export CXX=/opt/homebrew/bin/g++-14\n"
+                "  python3 -m pip install . --verbose --no-build-isolation"
+            )
+        endif()
+    endif()
+endif()
+
+# 编译器检查（适用于所有平台）
 if (NOT "${CMAKE_C_COMPILER_ID}" STREQUAL "GNU")
     if (ENABLE_GCOV)
         set(ENABLE_GCOV OFF)
         message(WARNING "GCov only supported in GNU Compiler, Current Compiler is ${CMAKE_C_COMPILER_ID}, Auto turn off it.")
     endif ()
     if (ENABLE_FEATURE_PYTHON_FRONT_END)
-        message(FATAL_ERROR "Python frontend only supported GNU Compiler yet.")
+        message(FATAL_ERROR "Python frontend only supported GNU Compiler yet. Current: ${CMAKE_C_COMPILER_ID}")
     endif ()
 endif ()
 if (ENABLE_FEATURE_PYTHON_FRONT_END)

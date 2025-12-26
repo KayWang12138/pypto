@@ -30,9 +30,12 @@
 #endif
 
 #define AOT_CODE_POOL_CODE_SIZE     (4096 * 0x200)
-extern uint8_t aotCodePoolCode[];
 
-namespace npu::tile_fwk::dynamic {
+#ifdef __APPLE__
+// macOS: Use static array instead of ELF-specific assembly directives
+alignas(4096) static uint8_t aotCodePoolCode[AOT_CODE_POOL_CODE_SIZE];
+#else
+extern uint8_t aotCodePoolCode[];
 asm(
     "\n\t.pushsection .bss." STR(aotCodePoolCode) ",\"axwG\",@nobits," STR(aotCodePoolCode) ",comdat"
     "\n\t.p2align 12"
@@ -43,6 +46,9 @@ asm(
     "\n\t.zero " STR(AOT_CODE_POOL_CODE_SIZE)
     "\n\t.popsection"
 );
+#endif
+
+namespace npu::tile_fwk::dynamic {
 
 const size_t TUBLE_INDEX_2 = 2;
 const size_t TUBLE_INDEX_3 = 3;

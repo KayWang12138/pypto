@@ -24,7 +24,11 @@
 #include <atomic>
 #include <vector>
 #include <array>
+#ifdef __APPLE__
+#include <cstdlib>
+#else
 #include <malloc.h>
+#endif
 
 namespace npu::tile_fwk {
 constexpr uint32_t AICPU_QUEUE_SIZE = 1024;

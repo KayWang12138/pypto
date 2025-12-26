@@ -94,6 +94,10 @@ target_compile_options(tile_fwk_intf_pub
             $<$<CXX_COMPILER_ID:Clang>:-Wno-unused-function>
             $<$<CXX_COMPILER_ID:Clang>:-Wno-return-type-c-linkage>
             -Werror
+            # macOS: Disable format warnings as errors (int64_t/size_t differences)
+            $<$<PLATFORM_ID:Darwin>:-Wno-error=format>
+            # macOS: Disable optimization warnings as errors
+            $<$<PLATFORM_ID:Darwin>:-Wno-error=disabled-optimization>
             # 依赖分析选项
             $<$<CXX_COMPILER_ID:GNU>:$<$<OR:$<BOOL:${ENABLE_UTEST}>,$<BOOL:${ENABLE_STEST}>,$<BOOL:${ENABLE_STEST_DISTRIBUTED}>>:-MMD>>
 )
@@ -103,11 +107,13 @@ target_link_directories(tile_fwk_intf_pub
 )
 target_link_options(tile_fwk_intf_pub
         INTERFACE
-            # 安全编译选项
-            -Wl,-z,relro
-            -Wl,-z,now
-            -Wl,-z,noexecstack
-            $<$<CONFIG:Release>:-s>
+            # 安全编译选项 (仅 Linux)
+            $<$<NOT:$<PLATFORM_ID:Darwin>>:-Wl,-z,relro>
+            $<$<NOT:$<PLATFORM_ID:Darwin>>:-Wl,-z,now>
+            $<$<NOT:$<PLATFORM_ID:Darwin>>:-Wl,-z,noexecstack>
+            $<$<AND:$<CONFIG:Release>,$<NOT:$<PLATFORM_ID:Darwin>>>:-s>
+            # macOS: 允许运行时动态符号解析 (与 Linux 延迟绑定行为一致)
+            $<$<PLATFORM_ID:Darwin>:-undefined dynamic_lookup>
 )
 
 if (BUILD_OPEN_PROJECT)

@@ -490,7 +490,7 @@ bool RemoveRedundantOp::IsDataReplace (LogicalTensorPtr &endTensor) const{
 
 void RemoveRedundantOp::GenerateNewView(Function &function,Operation &op,LogicalTensorPtr &startTensor,LogicalTensorPtr &endTensor) const {
     //查找最小的offset
-    std::vector<long> newoffset(op.iOperand[0]->offset.size(),INT_MAX);
+    Offset newoffset(op.iOperand[0]->offset.size(), INT_MAX);
 
     for (size_t m = 0; m < op.iOperand[0]->offset.size(); m++) {
         for (auto &comsumerView : startTensor->GetConsumers()) {

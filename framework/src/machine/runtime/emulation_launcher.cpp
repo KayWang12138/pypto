@@ -16,6 +16,11 @@
 #include "machine/runtime/emulation_launcher.h"
 
 #include <thread>
+#ifdef __APPLE__
+#include <pthread.h>
+#else
+#include <sched.h>
+#endif
 #include "machine/host/backend.h"
 
 extern "C" int DynTileFwkBackendKernelServer(void *targ);
@@ -36,14 +41,20 @@ static int EmulationLaunchOnce(AstKernelArgs &kArgs) {
     for (int i = 0; i < static_cast<int>(devProg->devArgs.nrAicpu); i++) {
         aicpuThreadList[i] = std::thread([&](int threadIndex) {
             int tidx = idx++;
-            cpu_set_t cpuset;
-            CPU_ZERO(&cpuset);
-            CPU_SET(tidx, &cpuset);
             char name[64];
             (void)sprintf_s(name, sizeof(name), "aicput%d", tidx);
             std::cout << "start thread: " << name << std::endl;
+#ifdef __APPLE__
+            // macOS: pthread_setname_np takes only name argument
+            pthread_setname_np(name);
+            // macOS does not support CPU affinity setting via pthread
+#else
+            cpu_set_t cpuset;
+            CPU_ZERO(&cpuset);
+            CPU_SET(tidx, &cpuset);
             pthread_setname_np(pthread_self(), name);
             pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
+#endif
             aicpuResultList[threadIndex] = DynTileFwkBackendKernelServer(&kArgs);
         }, i);
     }

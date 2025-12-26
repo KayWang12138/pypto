@@ -14,7 +14,9 @@
  */
 
 #include "function_cache.h"
+#ifndef __APPLE__
 #include <elf.h>
+#endif
 #include <cstdio>
 #include "interface/utils/common.h"
 #include "interface/utils/file_utils.h"
@@ -91,6 +93,12 @@ void FunctionCache::UpdateTopoCache(const Function &func, CacheValue &value) {
 std::vector<uint8_t> LoadBinData(const std::string &binPath) {
     std::vector<uint8_t> text;
 
+#ifdef __APPLE__
+    // macOS uses Mach-O format, not ELF. ELF parsing is not supported on macOS.
+    // Return empty vector as this is for Ascend NPU binary loading which is Linux-only.
+    (void)binPath;
+    return text;
+#else
     uint32_t fileSize = GetFileSize(binPath);
     std::vector<char> buf(fileSize);
     std::ifstream file(binPath);
@@ -116,6 +124,7 @@ std::vector<uint8_t> LoadBinData(const std::string &binPath) {
     }
 
     return text;
+#endif
 }
 
 void FunctionCache::UpdateBinCache(const Function &func, CacheValue &value) {

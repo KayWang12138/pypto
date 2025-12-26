@@ -18,7 +18,15 @@
 #include <cstdint>
 #include <cstdio>
 #include <mutex>
+#ifdef __APPLE__
+#include <pthread.h>
+// macOS does not have sched_getcpu, use a fallback based on thread ID
+static inline int sched_getcpu() {
+    return static_cast<int>(reinterpret_cast<uintptr_t>(pthread_self()) % 8);
+}
+#else
 #include <sched.h>
+#endif
 #include "machine/utils/device_log.h"
 #include "dynamic/device_utils.h"
 #include "machine/utils/barrier.h"

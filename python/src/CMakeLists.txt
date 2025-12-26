@@ -61,3 +61,17 @@ target_link_libraries(pypto_impl
 if (TARGET c_sec_shared)
     add_dependencies(pypto_impl c_sec_shared)
 endif ()
+
+# macOS: Set properties for proper Python extension module
+if (APPLE)
+    set_target_properties(pypto_impl PROPERTIES
+        SUFFIX ".so"
+    )
+    # GCC on macOS: Use clang's linker (ld) with proper options via gcc
+    # The -Wl options will be passed to the linker
+    if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        target_link_options(pypto_impl PRIVATE
+            -Wl,-install_name,@rpath/pypto_impl.so
+        )
+    endif ()
+endif ()

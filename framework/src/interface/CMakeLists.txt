@@ -95,10 +95,18 @@ if (ENABLE_TORCH_VERIFIER)
                 tile_fwk_intf_pub
                 $<$<BOOL:${ENABLE_GCOV}>:$<$<CXX_COMPILER_ID:GNU>:gcov>>
     )
-    target_link_options(tile_fwk_calculator
-            PRIVATE
-                -Wl,-no-as-needed,${PY3_MOD_TORCH_ROOT_PATH}/lib/libtorch_cpu.so -Wl,-as-needed
-                -Wl,-no-as-needed,${PY3_MOD_TORCH_ROOT_PATH}/lib/libc10.so -Wl,-as-needed
-                $<$<BOOL:${ENABLE_GCOV}>:$<$<CXX_COMPILER_ID:GNU>:-fprofile-arcs -ftest-coverage>>
-    )
+    if (NOT APPLE)
+        # -no-as-needed and -as-needed are GNU ld specific options, not supported on macOS
+        target_link_options(tile_fwk_calculator
+                PRIVATE
+                    -Wl,-no-as-needed,${PY3_MOD_TORCH_ROOT_PATH}/lib/libtorch_cpu.so -Wl,-as-needed
+                    -Wl,-no-as-needed,${PY3_MOD_TORCH_ROOT_PATH}/lib/libc10.so -Wl,-as-needed
+                    $<$<BOOL:${ENABLE_GCOV}>:$<$<CXX_COMPILER_ID:GNU>:-fprofile-arcs -ftest-coverage>>
+        )
+    else ()
+        target_link_options(tile_fwk_calculator
+                PRIVATE
+                    $<$<BOOL:${ENABLE_GCOV}>:$<$<CXX_COMPILER_ID:GNU>:-fprofile-arcs -ftest-coverage>>
+        )
+    endif ()
 endif () ## ENABLE_TORCH_VERIFIER

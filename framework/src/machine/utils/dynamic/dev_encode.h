@@ -3053,7 +3053,7 @@ struct DevAscendProgram {
         DEV_ASSERT(rangeList.back().end == (uintptr_t)&data[dataSize]);
     }
 
-    uint64_t GetSize() const { return reinterpret_cast<uintptr_t>(programLastField.End()) - reinterpret_cast<uintptr_t>(this); }
+    uint64_t GetSize() const { return static_cast<uint64_t>(programLastField.End()) - static_cast<uint64_t>(reinterpret_cast<uintptr_t>(this)); }
 
 private:
     friend struct EncodeDevAscendProgramInfo;

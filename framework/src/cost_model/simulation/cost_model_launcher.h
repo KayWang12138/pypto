@@ -17,7 +17,15 @@
 
 #include <thread>
 #include <cstdint>
+#include <cinttypes>
 #include <unistd.h>
+
+#ifdef __APPLE__
+#include <pthread.h>
+#else
+#include <sched.h>
+#endif
+
 #include "interface/interpreter/raw_tensor_data.h"
 #include "interface/configs/config_manager.h"
 #include "interface/function/function.h"
@@ -285,7 +293,7 @@ private:
         modelData->functionTime.resize(attr->devLeafIndex2Hash.size(), 0);
         for (const auto& [index, hash] : attr->devLeafIndex2Hash) {
             auto time = costModelAgent.GetLeafFunctionTimeCost(hash);
-            DEV_INFO("devLeafIndex2Hash, %d -> %lu: %lu\n", index, hash, time);
+            DEV_INFO("devLeafIndex2Hash, %d -> %" PRIu64 ": %" PRIu64 "\n", index, hash, time);
             modelData->functionTime[index] = time;
         }
         kArgs->costmodeldata = modelData;
@@ -318,14 +326,21 @@ private:
         for (int i = 0; i < threadNum; i++) {
             aicpus[i] = std::thread([&]() {
                 int tidx = idx++;
-                cpu_set_t cpuset;
-                CPU_ZERO(&cpuset);
-                CPU_SET(tidx, &cpuset);
                 char name[BUFFER_SIZE_64];
                 (void)sprintf_s(name, sizeof(name), "aicput%d", tidx);
                 std::cout << "start thread: " << name << std::endl;
+#ifdef __APPLE__
+                // macOS: pthread_setname_np only takes one argument (name for current thread)
+                pthread_setname_np(name);
+                // macOS doesn't support thread affinity via pthread_setaffinity_np
+#else
+                // Linux: set thread name and CPU affinity
+                cpu_set_t cpuset;
+                CPU_ZERO(&cpuset);
+                CPU_SET(tidx, &cpuset);
                 pthread_setname_np(pthread_self(), name);
                 pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
+#endif
                 if ((devProg->devArgs.enableCtrl == 0) && (uint32_t)tidx == devProg->devArgs.scheCpuNum) {
                     (void)PyptoKernelCtrlServer(kArgs);
                 } else {

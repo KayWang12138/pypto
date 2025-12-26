@@ -16,6 +16,20 @@
 #include "aicore_prof.h"
 #include "aicore_manager.h"
 #include "machine/device/tilefwk/aicpu_common.h"
+
+#ifdef __APPLE__
+#include <pthread.h>
+static inline long GetThreadIdDynamic() {
+    return static_cast<long>(pthread_mach_thread_np(pthread_self()));
+}
+#else
+#include <sys/syscall.h>
+#include <unistd.h>
+static inline long GetThreadIdDynamic() {
+    return syscall(SYS_gettid);
+}
+#endif
+
 namespace {
 constexpr int AICPUNUM = 6;
 constexpr int64_t NUM_TWO = 2;
@@ -492,7 +506,7 @@ inline void AiCoreProf::ProfGetPmu(
         pmuMsg_[coreIdx].magicNumber = 0x5A5AU;
         pmuMsg_[coreIdx].level = AST_MSPROF_REPORT_AICPU_LEVEL;
         pmuMsg_[coreIdx].type = AST_MSPROF_REPORT_AICPU_NODE_TYPE;
-        pmuMsg_[coreIdx].threadId = syscall(SYS_gettid);
+        pmuMsg_[coreIdx].threadId = GetThreadIdDynamic();
         pmuHead_[coreIdx]->magicNumber = 0x6BD3U;
         pmuHead_[coreIdx]->coreId = coreIdx;
         pmuHead_[coreIdx]->coreType = static_cast<uint16_t>(hostAicoreMng_.AicoreType(coreIdx));

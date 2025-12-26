@@ -202,7 +202,7 @@ std::string LogicalTensorData::ToString(const PrintOptions *options) const {
             if (os.tellp() >= pos + options->linewidth) {
                 os << "\n";
                 repeat(' ', dim);
-                pos = os.tellp() + 1L;
+                pos = static_cast<std::streampos>(os.tellp()) + static_cast<std::streamoff>(1);
             }
         }
     };

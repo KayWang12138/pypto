@@ -100,7 +100,7 @@ public:
 
     void Deallocate(uintdevptr_t ptr) {
         if (!(workspaceAddr_ <= ptr && ptr < workspaceAddr_ + slotNum_ * slotStandardMemReq_)) {
-            DEV_ERROR("ptr %lu is out of workspace bounds. workspaceAddr_: %lu, workspaceEnd: %lu, slotNum_: %lu, slotStandardMemReq_: %lu",
+            DEV_ERROR("ptr %" PRIu64 " is out of workspace bounds. workspaceAddr_: %" PRIu64 ", workspaceEnd: %" PRIu64 ", slotNum_: %zu, slotStandardMemReq_: %" PRIu64,
             ptr, workspaceAddr_, workspaceAddr_ + slotNum_ * slotStandardMemReq_, slotNum_, slotStandardMemReq_);
         }
         DEV_DEBUG_ASSERT(workspaceAddr_ <= ptr && ptr < workspaceAddr_ + slotNum_ * slotStandardMemReq_);
@@ -125,9 +125,9 @@ public:
     void DumpMemoryUsage(const char *hint) const {
 #if DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_LIGHT
         DEV_MEM_DUMP("Slot tensor memory usage (%s)\n", hint);
-        DEV_MEM_DUMP("            Memory pool size: %10lu bytes (%zu x %lu bytes)\n",
+        DEV_MEM_DUMP("            Memory pool size: %10" PRIu64 " bytes (%zu x %" PRIu64 " bytes)\n",
             slotNum_ * slotStandardMemReq_, slotNum_, slotStandardMemReq_);
-        DEV_MEM_DUMP("    Total memory requirement: %10lu bytes (%zu x %lu bytes)\n",
+        DEV_MEM_DUMP("    Total memory requirement: %10" PRIu64 " bytes (%zu x %" PRIu64 " bytes)\n",
             dfx_.historicalAllocated_ * slotStandardMemReq_, dfx_.historicalAllocated_, slotStandardMemReq_);
 #endif // DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_LIGHT
         (void)hint;

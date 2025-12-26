@@ -20,18 +20,6 @@
 #include <string>
 
 namespace npu::tile_fwk {
-template <typename T>
-bool CodeGenOpCloudNPU::GetAttr(const std::string &key, T &value) const {
-    auto it = opAttrs.find(key);
-    if (it == opAttrs.end()) {
-        return false;
-    }
-    if (it->second.Type() == typeid(T)) {
-        value = npu::tile_fwk::AnyCast<T>(it->second);
-        return true;
-    }
-    return false;
-}
 
 DynamicParamPackMTE CodeGenOpCloudNPU::PrepareDynamicShapeInfoForMTE(
     int dynShapeIdx, int shapeDim, bool isGmSpill) const {

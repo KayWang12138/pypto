@@ -21,6 +21,7 @@ except ImportError:
 
 def _load_shared_libs():
     import os
+    import sys
     import ctypes
     from pathlib import Path
     from importlib import metadata
@@ -32,6 +33,9 @@ def _load_shared_libs():
     lib_dir: Path = Path(pkg_dir, "lib")
     use_cann: bool = bool(os.environ.get("ASCEND_HOME_PATH"))
 
+    # 根据平台选择共享库扩展名
+    lib_ext: str = "dylib" if sys.platform == "darwin" else "so"
+
     def _load_shared_lib(_desc: List[Any]):
         _name: str = _desc[0]
         _load: bool = _desc[1]
@@ -42,18 +46,18 @@ def _load_shared_libs():
             return
         ctypes.CDLL(str(_file), mode=ctypes.RTLD_GLOBAL)
 
-    _load_shared_lib(_desc=["libc_sec.so", not use_cann, ])
+    _load_shared_lib(_desc=[f"libc_sec.{lib_ext}", not use_cann, ])
 
     # name, load
     desc_lst: List[List[Any]] = [
-        ["libtile_fwk_simulation_platform.so", True, ],
-        ["libtile_fwk_interface.so", True, ],
-        ["libtile_fwk_codegen.so", True, ],
-        ["libtile_fwk_compiler.so", True, ],
-        ["libtile_fwk_runtime.so", use_cann, ],
-        ["libtile_fwk_runtime_stub.so", not use_cann, ],
-        ["libtile_fwk_simulation.so", True, ],
-        ["libtile_fwk_simulation_ca.so", True, ],
+        [f"libtile_fwk_simulation_platform.{lib_ext}", True, ],
+        [f"libtile_fwk_interface.{lib_ext}", True, ],
+        [f"libtile_fwk_codegen.{lib_ext}", True, ],
+        [f"libtile_fwk_compiler.{lib_ext}", True, ],
+        [f"libtile_fwk_runtime.{lib_ext}", use_cann, ],
+        [f"libtile_fwk_runtime_stub.{lib_ext}", not use_cann, ],
+        [f"libtile_fwk_simulation.{lib_ext}", True, ],
+        [f"libtile_fwk_simulation_ca.{lib_ext}", True, ],
     ]
     for desc in desc_lst:
         _load_shared_lib(_desc=desc)

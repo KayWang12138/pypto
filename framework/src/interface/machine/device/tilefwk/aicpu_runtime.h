@@ -19,6 +19,13 @@
 #include <cstdint>
 #include <vector>
 
+// macOS 兼容性：__always_inline 在 macOS 上未定义
+#ifdef __APPLE__
+#ifndef __always_inline
+#define __always_inline __attribute__((always_inline)) inline
+#endif
+#endif
+
 namespace npu::tile_fwk {
 
 using RuntimeCallEntryType = void *(*)(void *, uint64_t);

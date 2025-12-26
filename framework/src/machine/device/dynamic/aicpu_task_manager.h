@@ -19,7 +19,11 @@
 #include <atomic>
 #include <vector>
 #include <array>
+#ifdef __APPLE__
+#include <cstdlib>
+#else
 #include <malloc.h>
+#endif
 #include <queue>
 
 #include "machine/utils/dynamic/dev_encode.h"

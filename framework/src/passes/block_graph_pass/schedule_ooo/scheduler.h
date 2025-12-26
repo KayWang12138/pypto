@@ -204,7 +204,7 @@ private:
     
     void InsertIssueEntries(IssueEntryPtr insertIssue);
     void UpdateIssueExecOrder();
-    size_t ShapeCeilAlign(std::vector<int64_t> shape, DataType dtype);
+    uint64_t ShapeCeilAlign(std::vector<int64_t> shape, DataType dtype);
     Status DelBufRefCount(const int memId);
     void UpdateBufferUsage(MemoryType bufferType, int memId, bool isFree);
     void PrintOpList(std::vector<Operation *> operations);

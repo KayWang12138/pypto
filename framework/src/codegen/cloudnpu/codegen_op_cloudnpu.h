@@ -149,7 +149,18 @@ private:
 
     int GetCacheModeFlag(const std::string &cacheMode) const;
     template <typename T>
-    bool GetAttr(const std::string &key, T &value) const;
+    bool GetAttr(const std::string &key, T &value) const
+    {
+        auto it = opAttrs.find(key);
+        if (it == opAttrs.end()) {
+            return false;
+        }
+        if (it->second.Type() == typeid(T)) {
+            value = npu::tile_fwk::AnyCast<T>(it->second);
+            return true;
+        }
+        return false;
+    }
 
     TileTensor BuildTileTensor(int paramIdx, const std::string &usingType);
     void UpdateTileTensorShapeAndStride(int paramIdx, TileTensor &tileTensor, bool isSpillToGm);

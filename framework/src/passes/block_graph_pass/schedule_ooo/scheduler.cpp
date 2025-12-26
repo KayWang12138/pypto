@@ -693,7 +693,7 @@ void OoOScheduler::InitLocalBuffer(LogicalTensorPtr oOperand, int memId) {
             memId, ShapeCeilAlign(oOperand->GetShape(), oOperand->Datatype()), oOperand->GetMemoryTypeOriginal());
     } else {
         localBufferMap[memId]->size =
-            std::max(localBufferMap[memId]->size, ShapeCeilAlign(oOperand->GetShape(), oOperand->Datatype()));
+            std::max(static_cast<uint64_t>(localBufferMap[memId]->size), ShapeCeilAlign(oOperand->GetShape(), oOperand->Datatype()));
     }
 }
 
@@ -706,7 +706,7 @@ void OoOScheduler::InitLocalBufferForAxisCombine(LogicalTensorPtr oOperand, int 
             memId, ShapeCeilAlign(oOperand->tensor->rawshape, oOperand->Datatype()), oOperand->GetMemoryTypeOriginal());
     } else {
         localBufferMap[memId]->size =
-            std::max(localBufferMap[memId]->size, ShapeCeilAlign(oOperand->tensor->rawshape, oOperand->Datatype()));
+            std::max(static_cast<uint64_t>(localBufferMap[memId]->size), ShapeCeilAlign(oOperand->tensor->rawshape, oOperand->Datatype()));
     }
 }
 

@@ -18,9 +18,19 @@
 #include <cstdint>
 #include <cstdio>
 #include <mutex>
-#include <sched.h>
 #include <signal.h>
+#ifdef __APPLE__
+#include <pthread.h>
+// macOS does not have sched_getcpu
+static inline int sched_getcpu() {
+    return static_cast<int>(reinterpret_cast<uintptr_t>(pthread_self()) % 8);
+}
+// macOS uses sig_t instead of __sighandler_t
+typedef sig_t __sighandler_t;
+#else
+#include <sched.h>
 #include <sys/ucontext.h>
+#endif
 #include "machine/device/dynamic/device_utils.h"
 #include "machine/kernel/aicore.h"
 #include "machine/utils/device_log.h"

@@ -27,6 +27,13 @@
 
 #include "interface/utils/string_utils.h"
 
+// macOS compatibility: __always_inline may not be defined
+#ifdef __APPLE__
+#ifndef __always_inline
+#define __always_inline __attribute__((always_inline)) inline
+#endif
+#endif
+
 namespace npu::tile_fwk {
 
 class BacktraceImpl : public LazyValue<std::string> {

@@ -55,8 +55,8 @@ target_link_directories(slog_stub
 )
 target_link_libraries(slog_stub
         PRIVATE
-            -Wl,--no-as-needed
+            $<$<NOT:$<BOOL:${APPLE}>>:-Wl,--no-as-needed>
             c_sec
-            -ldl
+            $<$<NOT:$<BOOL:${APPLE}>>:-ldl>
 )
 set_target_properties(slog_stub PROPERTIES OUTPUT_NAME slog)

@@ -38,7 +38,12 @@ std::vector<uint8_t> CompileAndLoadSection(const std::string &code, const std::s
     std::string binaryFilePath = sourceFilePath + ".bin";
     std::string LD_PRELOAD = "LD_PRELOAD= ";
     std::string includePath = GetCurrentSharedLibPath() + "/../include/tile_fwk";
+#ifdef __APPLE__
+    // macOS: use -std=c++17 for nested namespace definition support
+    std::string cmdGcc = LD_PRELOAD + gcc + " -fPIC -O2 -std=c++17 " + extraCflag +
+#else
     std::string cmdGcc = LD_PRELOAD + gcc + " -fPIC -O2 " + extraCflag +
+#endif
         " -I" + includePath + " " +
         " -I" + GetCurrentSharedLibPath() + "/include/" +
         " -I" + includePath + "/tilefwk " +
@@ -50,7 +55,13 @@ std::vector<uint8_t> CompileAndLoadSection(const std::string &code, const std::s
     ALOG_INFO("[RunCmd] ", cmdAs);
     ASSERT(system(cmdAs.c_str()) == 0);
 
+#ifdef __APPLE__
+    // macOS: use gobjcopy from binutils and modified section name format (__DATA,sectionName)
+    std::string macOsSectionName = "__DATA," + sectionName;
+    std::string cmdObjcopy = LD_PRELOAD + objcopy + " --dump-section " + macOsSectionName + "=" + binaryFilePath + " " + objectFilePath;
+#else
     std::string cmdObjcopy = LD_PRELOAD + objcopy + " --dump-section " + sectionName + "=" + binaryFilePath + " " + objectFilePath;
+#endif
     ALOG_INFO("[RunCmd] ", cmdObjcopy);
     ASSERT(system(cmdObjcopy.c_str()) == 0);
 

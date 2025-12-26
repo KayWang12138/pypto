@@ -46,6 +46,11 @@ public:
 
     void Append(char32_t n) { this->push_back(n); }
 
+    // macOS: size_t (unsigned long) differs from uint64_t (unsigned long long)
+#if defined(__APPLE__) && defined(__SIZEOF_SIZE_T__) && __SIZEOF_SIZE_T__ == 8
+    void Append(size_t n) { Append(static_cast<uint64_t>(n)); }
+#endif
+
     template<typename T>
     void Append(const std::vector<T> &v) { for (const auto &i : v) { this->Append(i); } }
 

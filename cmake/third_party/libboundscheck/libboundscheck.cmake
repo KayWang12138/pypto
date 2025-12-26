@@ -12,6 +12,13 @@ if (NOT BUILD_OPEN_PROJECT)
     return()
 endif ()
 
+# 根据平台设置共享库扩展名
+if (APPLE)
+    set(SHARED_LIB_EXT "dylib")
+else ()
+    set(SHARED_LIB_EXT "so")
+endif ()
+
 if (BUILD_WITH_CANN AND DEFINED ENV{LD_LIBRARY_PATH})
     set(LD_LIBRARY_PATH $ENV{LD_LIBRARY_PATH})
     string(REPLACE ":" ";" LIBRARY_PATHS "${LD_LIBRARY_PATH}")
@@ -50,10 +57,10 @@ function(TryAdd_c_sec)
             ""
             ${ARGN}
     )
-    if ((EXISTS "${ARG_PREFIX}/lib/libc_sec.so" AND EXISTS "${ARG_PREFIX}/include/securec.h" AND EXISTS "${ARG_PREFIX}/include/securectype.h") OR ARG_SKIP_CHECK)
+    if ((EXISTS "${ARG_PREFIX}/lib/libc_sec.${SHARED_LIB_EXT}" AND EXISTS "${ARG_PREFIX}/include/securec.h" AND EXISTS "${ARG_PREFIX}/include/securectype.h") OR ARG_SKIP_CHECK)
         add_library(c_sec_shared SHARED IMPORTED)
         set_target_properties(c_sec_shared PROPERTIES
-                IMPORTED_LOCATION ${ARG_PREFIX}/lib/libc_sec.so
+                IMPORTED_LOCATION ${ARG_PREFIX}/lib/libc_sec.${SHARED_LIB_EXT}
         )
         add_library(c_sec INTERFACE)
         set_target_properties(c_sec PROPERTIES
@@ -128,7 +135,7 @@ ExternalProject_Add(ExternalProject_c_sec   ${_ExtArgs}
         BUILD_BYPRODUCTS
             ${_TargetInstallPrefix}/include/securec.h
             ${_TargetInstallPrefix}/include/securectype.h
-            ${_TargetInstallPrefix}/lib/libc_sec.so
+            ${_TargetInstallPrefix}/lib/libc_sec.${SHARED_LIB_EXT}
 )
 TryAdd_c_sec(PREFIX ${_TargetInstallPrefix} DEPENDS ExternalProject_c_sec SKIP_CHECK)
 message(STATUS "Use c_sec from source: ${_TargetSourceDir}")

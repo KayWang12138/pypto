@@ -766,6 +766,8 @@ class BuildCtrl(CMakeParam):
         self.model: ModelParam = ModelParam(args=args)
         self.third_party_path: Optional[Path] = Path(args.third_party_path).resolve() if args.third_party_path else None
         self.verbose: bool = args.verbose
+        # macOS 平台：自动配置 Homebrew GCC
+        self.setup_macos_gcc_env()
         self.cmake: Optional[Path] = self.which_cmake()
         if not self.cmake:
             raise RuntimeError(f"Can't find cmake")
@@ -798,8 +800,10 @@ class BuildCtrl(CMakeParam):
     def which_cmake() -> Optional[Path]:
         """查找系统级 CMake 可执行文件路径
 
-        排除 cmake pip 包的干扰
+        支持 Linux (ELF) 和 macOS (Mach-O 或 Python 脚本) 平台
         """
+        is_macos = platform.system() == "Darwin"
+
         # 拆分 PATH 环境变量为单个目录列表（排除空目录）
         path_dir_lst = [d.strip() for d in os.environ.get("PATH", "").split(os.pathsep) if d.strip()]
 
@@ -817,14 +821,68 @@ class BuildCtrl(CMakeParam):
             cmake_file: Path = Path(cmake_str).resolve()
             if not cmake_file.exists() or not cmake_file.is_file():
                 continue
-            if cmake_file.stat().st_size <= 4:  # 下文读取前 4 字节判断文件是否是 ELF 文件
+            if cmake_file.stat().st_size <= 4:
                 continue
             with open(cmake_file, 'rb') as fh:
-                header = fh.read(4)  # 前 4 字节是 ELF 文件标识
-            if header != b'\x7fELF':
-                continue
-            return cmake_file
+                header = fh.read(4)
+
+            # Linux: 检查 ELF 文件标识
+            if header == b'\x7fELF':
+                return cmake_file
+
+            # macOS: 检查 Mach-O 文件标识或 Python 脚本
+            if is_macos:
+                # Mach-O magic numbers
+                if header in [b'\xca\xfe\xba\xbe', b'\xfe\xed\xfa\xce', b'\xfe\xed\xfa\xcf',
+                              b'\xcf\xfa\xed\xfe', b'\xce\xfa\xed\xfe']:
+                    return cmake_file
+                # Python 脚本 (pip 安装的 cmake)
+                if header.startswith(b'#!/'):
+                    try:
+                        result = subprocess.run([str(cmake_file), '--version'],
+                                              capture_output=True, timeout=5, text=True)
+                        if result.returncode == 0 and 'cmake version' in result.stdout:
+                            return cmake_file
+                    except Exception:
+                        continue
+            continue
         return None
+
+    @staticmethod
+    def find_homebrew_gcc() -> Tuple[Optional[str], Optional[str]]:
+        """在 macOS 上查找 Homebrew 安装的 GCC"""
+        import re
+        homebrew_paths = ["/opt/homebrew/bin", "/usr/local/bin"]
+        for brew_path in homebrew_paths:
+            if not os.path.exists(brew_path):
+                continue
+            gcc_versions = []
+            for f in os.listdir(brew_path):
+                match = re.match(r'gcc-(\d+)$', f)
+                if match:
+                    gcc_versions.append((int(match.group(1)), f))
+            gcc_versions.sort(reverse=True)
+            for ver, gcc_name in gcc_versions:
+                gcc_path = os.path.join(brew_path, gcc_name)
+                gxx_path = os.path.join(brew_path, f"g++-{ver}")
+                if os.path.exists(gcc_path) and os.path.exists(gxx_path):
+                    return gcc_path, gxx_path
+        return None, None
+
+    @classmethod
+    def setup_macos_gcc_env(cls) -> None:
+        """在 macOS 上设置 GCC 环境变量"""
+        if platform.system() != "Darwin":
+            return
+        cc = os.environ.get("CC", "")
+        cxx = os.environ.get("CXX", "")
+        if cc and cxx:
+            return  # 已设置
+        gcc_path, gxx_path = cls.find_homebrew_gcc()
+        if gcc_path and gxx_path:
+            os.environ["CC"] = gcc_path
+            os.environ["CXX"] = gxx_path
+            logging.info("macOS: Auto-configured Homebrew GCC: CC=%s, CXX=%s", gcc_path, gxx_path)
 
     @staticmethod
     def run_build_cmd(cmd: str, update_env: Optional[Dict[str, str]] = None, check: bool = False,

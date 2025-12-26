@@ -72,10 +72,10 @@ target_link_directories(pypto_ctrl_server
 )
 target_link_libraries(pypto_ctrl_server
         PRIVATE
-            -Wl,--no-as-needed
+            $<$<NOT:$<BOOL:${APPLE}>>:-Wl,--no-as-needed>
             c_sec
             $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,slog_stub,slog>
-            -ldl
+            $<$<NOT:$<BOOL:${APPLE}>>:-ldl>
             $<$<TARGET_EXISTS:intf_pub>:$<BUILD_INTERFACE:intf_pub>>
 )
 set_target_properties(pypto_ctrl_server PROPERTIES OUTPUT_NAME pypto_ctrl_server)

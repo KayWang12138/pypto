@@ -16,6 +16,7 @@
 #ifndef DEV_WORKSPACE_H
 #define DEV_WORKSPACE_H
 
+#include <cinttypes>
 #include "dev_encode.h"
 #include "dev_start_args.h"
 #include "device_task.h"
@@ -49,7 +50,7 @@ public:
 
 #if DEBUG_INFINITE_LIFETIME
         dumpTensorWsAllocator_.InitTensorAllocator(baseAddr, devProg->memBudget.debug.dumpTensor);
-        DEV_DEBUG("[DumpTensor] dumpTensorWsAllocator_: ptr=0x%lx, size=%lu",
+        DEV_DEBUG("[DumpTensor] dumpTensorWsAllocator_: ptr=0x%" PRIx64 ", size=%" PRIu64,
                   baseAddr, devProg->memBudget.debug.dumpTensor);
         baseAddr += devProg->memBudget.debug.dumpTensor;
 
@@ -182,7 +183,7 @@ private:
         if (!tensorAllocators_.rootInner.CanAllocate(rootInnerSize)) {
             tensorAllocators_.rootInner.ResetPool();
             if (!tensorAllocators_.rootInner.CanAllocate(rootInnerSize)) {
-                DEV_DEBUG("Can not AllocateFuncWs, size=%lu", rootInnerSize);
+                DEV_DEBUG("Can not AllocateFuncWs, size=%" PRIu64, rootInnerSize);
             }
             DEV_DEBUG_ASSERT(tensorAllocators_.rootInner.CanAllocate(rootInnerSize));
         }
@@ -470,13 +471,13 @@ public:
 
         // Dump stack memory
         DEV_MEM_DUMP("Stack workspace memory usage (%s)\n", hint);
-        DEV_MEM_DUMP("            Memory pool size: %10lu bytes\n", stackWorkspaceSize_);
+        DEV_MEM_DUMP("            Memory pool size: %10" PRIu64 " bytes\n", stackWorkspaceSize_);
 #endif // DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_LIGHT
     }
 
     void InitMetadataSlabAllocator() {
         if (metadataAllocators_.general.FreeMemorySize() <= 0) {
-            DEV_ERROR("FreeMemorySize=%lu <= 0", metadataAllocators_.general.FreeMemorySize());
+            DEV_ERROR("FreeMemorySize=%" PRIu64 " <= 0", metadataAllocators_.general.FreeMemorySize());
         }
         DEV_ASSERT(metadataAllocators_.general.FreeMemorySize() > 0);
         uint64_t memBase = metadataAllocators_.general.MemBaseAddr() + metadataAllocators_.general.AllocatedSize();
@@ -631,7 +632,7 @@ private:
         DEV_TRACE_DEBUG(CtrlEvent(none(), WorkspacePartialOutcast(Range(baseAddr, baseAddr + dassembleDestsTensorBudget))));
         baseAddr += dassembleDestsTensorBudget;
         if (!(workspaceAddr <= baseAddr && baseAddr <= workspaceAddr + tensorWorkspaceSize)) {
-            DEV_ERROR("Address range check failed: workspaceAddr=%lu, baseAddr=%lu, tensorWorkspaceSize=%lu",
+            DEV_ERROR("Address range check failed: workspaceAddr=%" PRIu64 ", baseAddr=%" PRIu64 ", tensorWorkspaceSize=%" PRIu64,
             workspaceAddr, baseAddr, tensorWorkspaceSize);
         }
         DEV_ASSERT(workspaceAddr <= baseAddr && baseAddr <= workspaceAddr + tensorWorkspaceSize);

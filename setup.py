@@ -17,6 +17,7 @@ import hashlib
 import math
 import multiprocessing
 import os
+import platform
 import re
 import shlex
 import shutil
@@ -186,36 +187,149 @@ class CMakeUserOption:
         return desc
 
     @staticmethod
+    def is_macos() -> bool:
+        """检测是否为 macOS 平台"""
+        import platform
+        return platform.system() == "Darwin"
+
+    @staticmethod
     def which_cmake() -> Optional[Path]:
         """查找系统级 CMake 可执行文件路径
 
-        排除 cmake pip 包的干扰
+        支持 Linux (ELF) 和 macOS (Mach-O 或 Python 脚本) 平台
         """
+        import platform
+        is_macos = platform.system() == "Darwin"
+
         # 拆分 PATH 环境变量为单个目录列表（排除空目录）
         path_dir_lst = [d.strip() for d in os.environ.get("PATH", "").split(os.pathsep) if d.strip()]
 
-        # 遍历每个 PATH 目录，逐个调用 shutil.which 检查, 限定 shutil.which 只在当前单个目录下查找 cmake
+        # macOS/Linux: 添加常见的 cmake 安装路径（pip 用户安装、Homebrew 等）
+        extra_paths = []
+        if is_macos:
+            # pip 用户安装路径
+            user_base = subprocess.run([sys.executable, '-m', 'site', '--user-base'],
+                                      capture_output=True, text=True, timeout=5)
+            if user_base.returncode == 0:
+                user_bin = os.path.join(user_base.stdout.strip(), 'bin')
+                if os.path.exists(user_bin):
+                    extra_paths.append(user_bin)
+            # Homebrew 路径
+            extra_paths.extend(['/opt/homebrew/bin', '/usr/local/bin'])
+        else:
+            # Linux: 常见路径
+            extra_paths.extend(['/usr/local/bin', '/usr/bin', os.path.expanduser('~/.local/bin')])
+
+        # 合并路径列表，extra_paths 优先
+        all_paths = extra_paths + path_dir_lst
+
+        # 遍历每个目录查找 cmake
         valid_path_lst: List[str] = []
-        for path_dir in path_dir_lst:
-            # 避免 PATH 环境变量中有重复的单元
-            if path_dir in valid_path_lst:
+        for path_dir in all_paths:
+            if not path_dir or path_dir in valid_path_lst:
                 continue
             valid_path_lst.append(path_dir)
-            # 检查当前目录
+            if not os.path.exists(path_dir):
+                continue
+
             cmake_str: Optional[Union[Path, str]] = shutil.which("cmake", path=path_dir)
             if not cmake_str:
                 continue
             cmake_file: Path = Path(cmake_str).resolve()
             if not cmake_file.exists() or not cmake_file.is_file():
                 continue
-            if cmake_file.stat().st_size <= 4:  # 下文读取前 4 字节判断文件是否是 ELF 文件
+            if cmake_file.stat().st_size <= 4:
                 continue
             with open(cmake_file, 'rb') as fh:
-                header = fh.read(4)  # 前 4 字节是 ELF 文件标识
-            if header != b'\x7fELF':
-                continue
-            return cmake_file
+                header = fh.read(4)
+
+            # Linux: 检查 ELF 文件标识
+            if header == b'\x7fELF':
+                return cmake_file
+
+            # macOS: 检查 Mach-O 文件标识 (fat binary 或 64-bit)
+            if is_macos:
+                # Mach-O magic numbers: cafebabe (fat), feedface (32-bit), feedfacf (64-bit)
+                if header in [b'\xca\xfe\xba\xbe', b'\xfe\xed\xfa\xce', b'\xfe\xed\xfa\xcf',
+                              b'\xcf\xfa\xed\xfe', b'\xce\xfa\xed\xfe']:
+                    return cmake_file
+                # Python 脚本 (pip 安装的 cmake)
+                if header.startswith(b'#!/'):
+                    try:
+                        result = subprocess.run([str(cmake_file), '--version'],
+                                              capture_output=True, timeout=5, text=True)
+                        if result.returncode == 0 and 'cmake version' in result.stdout:
+                            return cmake_file
+                    except Exception:
+                        continue
+            continue
         return None
+
+    @staticmethod
+    def find_homebrew_gcc() -> Tuple[Optional[str], Optional[str]]:
+        """在 macOS 上查找 Homebrew 安装的 GCC
+
+        Returns:
+            Tuple[Optional[str], Optional[str]]: (gcc_path, g++_path) 或 (None, None)
+        """
+        homebrew_paths = ["/opt/homebrew/bin", "/usr/local/bin"]
+        for brew_path in homebrew_paths:
+            if not os.path.exists(brew_path):
+                continue
+            # 查找 gcc-XX 版本，优先使用最新版本
+            gcc_versions = []
+            for f in os.listdir(brew_path):
+                import re
+                match = re.match(r'gcc-(\d+)$', f)
+                if match:
+                    gcc_versions.append((int(match.group(1)), f))
+            gcc_versions.sort(reverse=True)  # 降序排列，最新版本优先
+
+            for ver, gcc_name in gcc_versions:
+                gcc_path = os.path.join(brew_path, gcc_name)
+                gxx_path = os.path.join(brew_path, f"g++-{ver}")
+                if os.path.exists(gcc_path) and os.path.exists(gxx_path):
+                    return gcc_path, gxx_path
+        return None, None
+
+    @classmethod
+    def setup_macos_gcc_env(cls) -> None:
+        """在 macOS 上设置 GCC 环境变量（如果未设置）"""
+        import platform
+        if platform.system() != "Darwin":
+            return
+
+        # 如果已经设置了 CC/CXX 环境变量，检查是否为 GCC
+        cc = os.environ.get("CC", "")
+        cxx = os.environ.get("CXX", "")
+        if cc and cxx:
+            # 检查是否为 GCC
+            try:
+                result = subprocess.run([cc, "--version"], capture_output=True, text=True, timeout=5)
+                if "gcc" in result.stdout.lower() or "Free Software Foundation" in result.stdout:
+                    logging.info("Using pre-configured GCC: CC=%s, CXX=%s", cc, cxx)
+                    return
+            except Exception:
+                pass
+
+        # 查找 Homebrew GCC
+        gcc_path, gxx_path = cls.find_homebrew_gcc()
+        if gcc_path and gxx_path:
+            os.environ["CC"] = gcc_path
+            os.environ["CXX"] = gxx_path
+            logging.info("macOS: Auto-configured Homebrew GCC: CC=%s, CXX=%s", gcc_path, gxx_path)
+        else:
+            # 提供安装指导
+            logging.warning(
+                "macOS: GNU GCC not found. Python frontend requires GCC.\n"
+                "Please install GCC via Homebrew:\n"
+                "  1. Install Homebrew: /bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\"\n"
+                "  2. Install GCC: brew install gcc\n"
+                "  3. Rebuild the project\n"
+                "Or specify GCC compiler manually:\n"
+                "  export CC=/opt/homebrew/bin/gcc-14\n"
+                "  export CXX=/opt/homebrew/bin/g++-14"
+            )
 
     def initialize_options_cmake(self):
         # 赋初值, 此处需赋初值, 否则 setuptools 会丢失对应参数
@@ -223,6 +337,10 @@ class CMakeUserOption:
         self.cmake_build_type = None
         self.cmake_options = None
         self.cmake_verbose = False
+
+        # macOS 平台：自动配置 Homebrew GCC
+        self.setup_macos_gcc_env()
+
         self.cmake: Optional[Path] = self.which_cmake()
         if not self.cmake:
             raise RuntimeError(f"Can't find cmake")
@@ -338,6 +456,14 @@ class CMakeBuild(build_ext, CMakeUserOption, EditModeHelper):
         logging.info("CMake Install, Cmd: %s", cmd)
         ret = subprocess.run(shlex.split(cmd), capture_output=False, check=True, text=True, encoding='utf-8')
         ret.check_returncode()
+
+        # macOS with GCC: Fix missing LC_ID_DYLIB in pypto_impl.so
+        # GCC on macOS doesn't properly set install_name for shared libraries
+        if platform.system() == "Darwin":
+            self._fix_macos_dylib(cmake_install_prefix)
+            # Also fix in build_lib which is used for wheel packaging
+            self._fix_macos_dylib(Path(self.build_lib))
+
         if self._edit_mode():
             installed_files: List[str] = self._get_cmake_install_manifest(build_dir=build_dir)
             if installed_files:
@@ -346,6 +472,73 @@ class CMakeBuild(build_ext, CMakeUserOption, EditModeHelper):
                 editable_wheel_cmd.pypto_install_manifest_lst = installed_files
                 logging.info("Command build_ext passes %s CMake install files to editable_wheel command",
                              len(editable_wheel_cmd.pypto_install_manifest_lst))
+
+    def _fix_macos_dylib(self, install_prefix: Path):
+        """Fix missing LC_ID_DYLIB in shared libraries built with GCC on macOS.
+
+        GCC on macOS doesn't properly set install_name for shared libraries,
+        which causes dlopen to fail with "MH_DYLIB is missing LC_ID_DYLIB".
+        We fix this by relinking the library using clang++ from object files.
+        """
+        pypto_impl_path = install_prefix / "pypto" / "pypto_impl.so"
+        if not pypto_impl_path.exists():
+            logging.warning("pypto_impl.so not found at %s, skipping LC_ID_DYLIB fix", pypto_impl_path)
+            return
+
+        # Find object files directory
+        build_dir = Path(self.build_temp)
+        obj_dir = build_dir / "python" / "src" / "CMakeFiles" / "pypto_impl.dir"
+        if not obj_dir.exists():
+            logging.warning("Object files directory not found at %s, skipping LC_ID_DYLIB fix", obj_dir)
+            return
+
+        # Collect all object files
+        obj_files = list(obj_dir.glob("*.o")) + list(obj_dir.glob("bindings/*.o"))
+        if not obj_files:
+            logging.warning("No object files found, skipping LC_ID_DYLIB fix")
+            return
+
+        logging.info("Fixing LC_ID_DYLIB for %s using clang++", pypto_impl_path)
+
+        # Find libc_sec.dylib
+        src_root = Path(__file__).parent.resolve()
+        libc_sec_path = src_root / "third_party_path" / "Release" / "lib" / "libc_sec.dylib"
+        if not libc_sec_path.exists():
+            logging.warning("libc_sec.dylib not found at %s, skipping LC_ID_DYLIB fix", libc_sec_path)
+            return
+
+        # Create temporary output file
+        fixed_path = str(pypto_impl_path) + ".fixed"
+
+        # Relink using clang++ with proper install_name
+        clang_cmd = [
+            "clang++", "-dynamiclib", "-arch", "arm64",
+            "-install_name", "@rpath/pypto_impl.so",
+            "-undefined", "dynamic_lookup",
+            "-o", fixed_path
+        ]
+        clang_cmd.extend([str(f) for f in obj_files])
+        clang_cmd.extend([
+            "-L/opt/homebrew/opt/gcc/lib/gcc/current", "-lstdc++",
+            str(libc_sec_path)
+        ])
+
+        try:
+            logging.info("Running: %s", " ".join(clang_cmd))
+            ret = subprocess.run(clang_cmd, capture_output=True, text=True)
+            if ret.returncode != 0:
+                logging.warning("Failed to fix LC_ID_DYLIB: %s", ret.stderr)
+                if os.path.exists(fixed_path):
+                    os.remove(fixed_path)
+                return
+
+            # Replace original file with fixed one
+            shutil.move(fixed_path, str(pypto_impl_path))
+            logging.info("Successfully fixed LC_ID_DYLIB for pypto_impl.so")
+        except Exception as e:
+            logging.warning("Failed to fix LC_ID_DYLIB: %s", str(e))
+            if os.path.exists(fixed_path):
+                os.remove(fixed_path)
 
     def _edit_mode(self) -> bool:
         if hasattr(self, 'pypto_editable_mode') and self.pypto_editable_mode:

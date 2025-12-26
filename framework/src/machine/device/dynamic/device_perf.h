@@ -16,6 +16,7 @@
 #pragma once
 
 #include <cstdint>
+#include <cinttypes>
 #include <string>
 
 namespace npu::tile_fwk::dynamic {
@@ -182,7 +183,7 @@ struct PerfEvtMgr {
             if (evt.count != 0) {
                 uint64_t total = evt.total * NSEC_PER_SEC / freq / NSEC_PER_USEC;
                 float avg = static_cast<float>(total / evt.count);
-                DEV_ERROR("%-40s | %10ld | %10lu | %10.1f.", PerfEventName[i], evt.count, total, avg);
+                DEV_ERROR("%-40s | %10" PRId64 " | %10" PRIu64 " | %10.1f.", PerfEventName[i], evt.count, total, avg);
             }
         }
 

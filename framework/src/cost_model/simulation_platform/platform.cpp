@@ -18,6 +18,10 @@
 #include <string>
 #include <dlfcn.h>
 
+#ifdef __APPLE__
+#include <sys/syslimits.h>
+#endif
+
 namespace CostModel {
 namespace {
 const std::string PLATFORM_INFO_RELATIVE_PATH = "/configs/A2A3.ini";
@@ -26,7 +30,9 @@ const uint32_t PLATFORM_FAILED = 0xFFFFFFFF;
 const uint32_t PLATFORM_SUCCESS = 0;
 } // namespace
 
+#ifndef PATH_MAX
 #define PATH_MAX 4096
+#endif
 
 std::string CostModelPlatform::RealPath(const std::string &path) {	
     std::string res;
