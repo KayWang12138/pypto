@@ -56,9 +56,6 @@ public:
                 }
             }
 
-            if (!allocation_) {
-                DEV_ERROR("allocation_ is nullptr\n");
-            }
             DEV_ASSERT(allocator_);
             allocator_->Deallocate(allocation_);
         }
@@ -80,7 +77,8 @@ public:
 
     template <typename ...Args>
     T *Create(Args &&...args) {
-        DEV_ASSERT_MSG(freeListHeadIndex_ != ITEM_POOL_INVALID_INDEX, "ItemPool out of items");
+        DEV_ASSERT_MSG(freeListHeadIndex_ != ITEM_POOL_INVALID_INDEX,
+            "Available items: %zu/%zu", freeCount_, count_);
         ItemBlock *item = &ItemAt(freeListHeadIndex_);
         freeListHeadIndex_ = item->freeListNextIndex;
         item->freeListNextIndex = ITEM_POOL_NON_FREE_INDEX;
