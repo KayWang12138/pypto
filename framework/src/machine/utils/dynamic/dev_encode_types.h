@@ -297,13 +297,12 @@ static inline std::string Delim(bool cond, const std::string &delim) {
 struct AddressDescriptor {
     union {
         struct {
-            uint64_t outcastIdx : 32;
-            uint64_t dupIdx : 31; // in stitch window
-            uint64_t : 1;
+            uint64_t rtOutcastIter : 63;
+            uint64_t isRtOutcast : 1;
         };
         struct {
             uint64_t addr : 63;
-            uint64_t isAddress : 1;
+            uint64_t : 1;
         };
         struct {
             uint64_t cacheValue : 60;
@@ -311,10 +310,17 @@ struct AddressDescriptor {
         };
     };
 
-    static AddressDescriptor MakeAddress(uint64_t addr) {
+    static AddressDescriptor MakeFromAddress(uint64_t addr) {
         AddressDescriptor desc;
         desc.addr = addr;
-        desc.isAddress = 1;
+        desc.isRtOutcast = 0;
+        return desc;
+    }
+
+    static AddressDescriptor MakeFromRtOutcast(ItemPoolIter iter) {
+        AddressDescriptor desc;
+        desc.rtOutcastIter = iter;
+        desc.isRtOutcast = 1;
         return desc;
     }
 
@@ -325,19 +331,21 @@ struct AddressDescriptor {
         return desc;
     }
 
-    bool IsAddress() const { return isAddress; }
+    bool IsAddress() const { return !isRtOutcast; }
     uint64_t GetAddress() const {
-        if (!isAddress) {
-            DEV_ERROR("Attempt to get address when isAddress is false.");
-        }
-        DEV_ASSERT(isAddress);
+        DEV_ASSERT_MSG(IsAddress(),
+            "Attempt to get address from a non-address AddressDescriptor.");
         return addr;
     }
     uint64_t GetAddressValue() const { return addr; }
     bool IsNullAddress() const { return IsAddress() && addr == 0; }
 
-    explicit AddressDescriptor(uint64_t address = 0): addr(address) { isAddress = true; }
-    AddressDescriptor(int tdupIdx, int toutcastIdx): outcastIdx(toutcastIdx) , dupIdx(tdupIdx) { isAddress = false; }
+    bool IsRtOutcast() const { return isRtOutcast; }
+    ItemPoolIter GetRtOutcastIter() const {
+        DEV_ASSERT_MSG(IsRtOutcast(),
+            "Attempt to get runtime outcast iterator from a non-iterator AddressDescriptor.");
+        return rtOutcastIter;
+    }
 
 public:
     static std::string DumpAddress(uintdevptr_t addr, int width = 0) {
@@ -351,10 +359,10 @@ public:
     }
     std::string Dump() const {
         std::stringstream ss;
-        if (isAddress) {
+        if (IsAddress()) {
             ss << DumpAddress(addr);
         } else {
-            ss << "&&" << dupIdx << ":" << outcastIdx;
+            ss << "&&" << rtOutcastIter;
         }
         return ss.str();
     }
