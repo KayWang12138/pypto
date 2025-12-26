@@ -78,7 +78,7 @@ def softmax_core(x: pypto.Tensor) -> pypto.Tensor:
 def softmax_kernel(x: pypto.Tensor, y: pypto.Tensor) -> None:
     # after the dynamic axis of tensor is marked, get the tensor shape accordingly
     tensor_shape = x.shape
-    b = tensor_shape[0] # dynamic: symbolic_scalar; static: immediate number
+    b = tensor_shape[0]  # dynamic: symbolic_scalar; static: immediate number
     n1, n2, dim = tensor_shape[1:]
     tile_b = 1
     b_loop = b / tile_b
@@ -130,12 +130,12 @@ def test_softmax_capture(device_id=None, dynamic: bool = True) -> None:
 
     model = torch.compile(MM(), backend="eager", dynamic=True)
 
-    #graph capture
+    # graph capture
     g = torch.npu.NPUGraph()
     with torch.npu.graph(g):
         y = model(x, dynamic)
 
-    #execute graph
+    # execute graph
     g.replay()
     torch.npu.synchronize()
     golden = torch.softmax(x, dim=-1).cpu()

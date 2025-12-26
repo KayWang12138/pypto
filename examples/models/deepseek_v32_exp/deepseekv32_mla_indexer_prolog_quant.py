@@ -545,9 +545,9 @@ def mla_prolog_quant_v32_compute(inputs):
             scatter_update_4d(kv_quant_scale_cache_tmp, compressed_kv_quant_scale, cache_index, -2)
     else:
         kv_quant_scale_cache_out = None
-    
-    res = [q_nope, q_embed, q_a_layernorm, q_a_layernorm_scale_dequant, kv_cache_out, \
-            kr_cache_out, kv_quant_scale_cache_out]
+
+    res = [q_nope, q_embed, q_a_layernorm, q_a_layernorm_scale_dequant, kv_cache_out,
+           kr_cache_out, kv_quant_scale_cache_out]
     return res
 
 
@@ -605,10 +605,10 @@ def indexer_prolog(inputs: dict, dims: dict):
     k_scale_cache = idx_k_scale_cache.clone()  # (block_num, block_size, n_kv, 1)
     scatter_update_2d(k_cache, k_int8.reshape(b, s, 1, d), cache_index, -2)
     scatter_update_2d(k_scale_cache, k_scale.reshape(b, s, 1, 1), cache_index, -2)
-    
+
     # matmul use float32 for arm, arm平台matmul在bfloat16数据类型下表现跟x86不一致，通过升精度保证正确性
-    weights = torch.matmul(x.to(torch.float32), \
-        w_idx_proj.to(torch.float32)).to(x_dtype).to(torch.float32)  # (b, s, n)
+    weights = torch.matmul(x.to(torch.float32),
+                           w_idx_proj.to(torch.float32)).to(x_dtype).to(torch.float32)  # (b, s, n)
     weights = weights * (n ** -0.5) * (d ** -0.5)
     weights = weights.to(torch.float16)
 
@@ -663,9 +663,9 @@ def gen_test_data(params):
     mla_inputs['w_qb_scale'] = scale_data['w_uqqr']
 
     res = mla_prolog_quant_v32_compute(mla_inputs)
-    
+
     q_nope, q_rope, rms_norm_out, rms_norm_scale_out, kv_cache_out, kr_cache_out, \
-            kv_quant_scale_cache_out = res
+        kv_quant_scale_cache_out = res
 
     mla_goldens = {}
     mla_goldens['q_nope'] = q_nope
@@ -1011,7 +1011,6 @@ def test_t_32_tilebs_16_p():
     from mla_prolog_quant_impl import RopeTileShapeConfig
     rope_tile_shape = RopeTileShapeConfig(two_dim=[32, 64], three_dim=[32, 32, 128], four_dim=[16, 128, 128, 128])
 
-
     mla_cache_mode = 'PA_BSND'
     mla_epsilon_cq = 1e-5
     mla_epsilon_ckv = 1e-5
@@ -1023,7 +1022,6 @@ def test_t_32_tilebs_16_p():
         layerout_query='TND',
         layerout_key='PA_BSND',
     )
-
 
     ip_configs = ip.IndexerPrologQuantConfigs(
         q_linear=[16, 16, 512, 512, 128, 128],
@@ -1067,8 +1065,8 @@ def test_t_512_tilebs_128_p():
 
     mla_tile_config = MlaTileConfig()
     mla_tile_config.tile_bs = 128
-    
-    #mla算子的tile切分设置
+
+    # mla算子的tile切分设置
     c0 = 16
     m_tile_value = (min(128, mla_tile_config.tile_bs) + c0 - 1) // c0 * c0
     mv_tile_value = min(8, mla_tile_config.tile_bs)
@@ -1115,7 +1113,6 @@ def test_t_512_tilebs_128_p():
 
     do_test("mla_prolog_indexer_prolog_prefill.test_t_512_tilebs_128", params, mla_epsilon_cq, mla_epsilon_ckv,
             mla_cache_mode, mla_tile_config, ip_attrs, ip_configs, rope_tile_shape, True)
-
 
 
 if __name__ == '__main__':

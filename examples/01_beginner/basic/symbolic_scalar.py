@@ -36,7 +36,7 @@ from numpy.testing import assert_allclose
 def get_device_id():
     """
     Get and validate TILE_FWK_DEVICE_ID from environment variable.
-    
+
     Returns:
         int: The device ID if valid, None otherwise.
     """
@@ -46,7 +46,7 @@ def get_device_id():
         print("Please set it before running this example:")
         print("  export TILE_FWK_DEVICE_ID=0")
         return None
-    
+
     try:
         device_id = int(os.environ['TILE_FWK_DEVICE_ID'])
         return device_id
@@ -81,7 +81,7 @@ def symbolicscalar_symbol_kernel(x: pypto.Tensor, y: pypto.Tensor) -> None:
     Kernel demonstrating SymbolicScalar used as loop index.
     """
     pypto.set_vec_tile_shapes(2, 8)
-    
+
     for i in pypto.loop(2, name="sym_loop", idx_name="i"):
         assert not i.is_concrete()
         assert i.is_symbol() or i.is_expression()
@@ -113,7 +113,7 @@ def symbolicscalar_symbol_kernel_sim(x: pypto.Tensor, y: pypto.Tensor) -> None:
     Kernel demonstrating SymbolicScalar used as loop index.
     """
     pypto.set_vec_tile_shapes(2, 8)
-    
+
     for i in pypto.loop(2, name="sym_loop", idx_name="i"):
         assert not i.is_concrete()
         assert i.is_symbol() or i.is_expression()
@@ -142,7 +142,7 @@ def symbolicscalar_immediate(x: torch.Tensor, run_mode: str = "npu") -> torch.Te
     return y
 
 
-def symbolicscalar_in_loop(x: torch.Tensor, run_mode: str = "npu")->torch.Tensor:
+def symbolicscalar_in_loop(x: torch.Tensor, run_mode: str = "npu") -> torch.Tensor:
     y = torch.zeros_like(x)
 
     x_pto = pypto.from_torch(x)
@@ -176,7 +176,7 @@ def test_symbolicscalar_immediate(device_id: int = None, run_mode: str = "npu") 
     print()
 
 
-def test_symbolicscalar_in_loop(device_id: int = None, run_mode: str = "npu")->None:
+def test_symbolicscalar_in_loop(device_id: int = None, run_mode: str = "npu") -> None:
     """SymbolicScalar as loop index inside kernel"""
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     x = torch.tensor(
@@ -196,7 +196,7 @@ def test_symbolicscalar_in_loop(device_id: int = None, run_mode: str = "npu")->N
     print()
 
 
-def test_init_symbolic_scalar_value_arg(device_id: int = None, run_mode: str = "npu")->None:
+def test_init_symbolic_scalar_value_arg(device_id: int = None, run_mode: str = "npu") -> None:
     """SymbolicScalar Initialization"""
     expected_value = 123
 
@@ -214,12 +214,12 @@ def test_init_symbolic_scalar_value_arg(device_id: int = None, run_mode: str = "
     named_scalar = pypto.symbolic_scalar("scalar", expected_value)
     assert named_scalar.is_concrete()
     assert named_scalar.concrete() == expected_value
-    
+
     print("✓ SymbolicScalar Initialization test passed")
     print()
 
 
-def test_symbolic_scalar_prop(device_id: int = None, run_mode: str = "npu")->None:
+def test_symbolic_scalar_prop(device_id: int = None, run_mode: str = "npu") -> None:
     """Inspect core SymbolicScalar properties"""
     scalar = pypto.symbolic_scalar(10)
     assert scalar.is_symbol() == False
@@ -248,12 +248,12 @@ def test_symbolic_scalar_prop(device_id: int = None, run_mode: str = "npu")->Non
     assert scalar4.is_expression() == True
     assert scalar4.is_immediate() == False
     assert scalar4.is_concrete() == False
-    
+
     print("✓ SymbolicScalar properties test passed")
     print()
 
 
-def test_simplify(device_id: int = None, run_mode: str = "npu")->None:
+def test_simplify(device_id: int = None, run_mode: str = "npu") -> None:
     """Demonstrate symbolic expression simplification"""
     t = pypto.Tensor([-1, 10], pypto.DT_BF16, "t")
     y = t.shape[0] + 10 - t.shape[0]
@@ -265,17 +265,17 @@ def test_simplify(device_id: int = None, run_mode: str = "npu")->None:
     print(a.min(a + 1) == a)
     assert (a.min(a + 1) == a)
     assert (a.max(a + 1) == a + 1)
-    
+
     print("✓ SymbolicScalar expression test passed")
     print()
 
 
-def test_symbolic_scalar_complex_expr(device_id: int = None, run_mode: str = "npu")->None:
+def test_symbolic_scalar_complex_expr(device_id: int = None, run_mode: str = "npu") -> None:
     """SymbolicScalar expression involving multiple comparison operators"""
     b = pypto.symbolic_scalar('b')
     a = (b >= 2) * (b < 8)
     assert str(a) == '((b>=2)*(b<8))'
-    
+
     print("✓ SymbolicScalar multiple test passed")
     print()
 
@@ -310,7 +310,6 @@ Examples:
 
     args = parser.parse_args()
 
-  
     examples = {
         'symbolicscalar_immediate::test_symbolicscalar_immediate': {
             "name": "SymbolicScalar Immediate in kernel",
@@ -355,7 +354,6 @@ Examples:
         }
     }
 
-
     # List examples if requested
     if args.list:
         print("\n" + "=" * 60)
@@ -365,7 +363,7 @@ Examples:
             print(f"  {ex_id}. {ex_info['name']}")
             print(f"     {ex_info['description']}\n")
         return
-    
+
     # Validate example ID if provided
     if args.example_id is not None:
         if args.example_id not in examples:
@@ -373,15 +371,15 @@ Examples:
             print(f"Valid example IDs are: {', '.join(map(str, sorted(examples.keys())))}")
             print("\nUse --list to see all available examples.")
             sys.exit(1)
-    
+
     print("\n" + "=" * 60)
     print("PyPTO SymbolicScalar Example")
     print("=" * 60 + "\n")
-    
+
     # Get and validate device ID (needed for NPU examples)
     device_id = None
     examples_to_run = []
-    
+
     if args.example_id is not None:
         # Run single example
         examples_to_run = [(args.example_id, examples[args.example_id])]
@@ -396,21 +394,21 @@ Examples:
         # Set the device once for all examples
         import torch_npu
         torch.npu.set_device(device_id)
-    
+
     try:
         for ex_id, ex_info in examples_to_run:
             if args.run_mode == "npu" and device_id is None:
                 print(f"Skipping example {ex_id} ({ex_info['name']}): NPU device not configured")
                 continue
-            
+
             print(f"Running Example {ex_id}: {ex_info['name']}")
             ex_info['function'](device_id, args.run_mode)
-        
+
         if len(examples_to_run) > 1:
             print("=" * 60)
             print("All SymbolicScalar examples passed!")
             print("=" * 60)
-        
+
     except Exception as e:
         print(f"\nError: {e}")
         raise

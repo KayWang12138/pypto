@@ -49,7 +49,7 @@ def add_kernel_sim(input0: pypto.Tensor, input1: pypto.Tensor, output: pypto.Ten
     tensor_shape = input0.shape
     pypto.set_vec_tile_shapes(1, 4, 1, 64)
 
-    #calculate the loop parameters
+    # calculate the loop parameters
     b = tensor_shape[0]
     tile_b = 1
     b_loop = b // tile_b
@@ -73,7 +73,7 @@ def add_kernel_npu(input0: pypto.Tensor, input1: pypto.Tensor, output: pypto.Ten
     tensor_shape = input0.shape
     pypto.set_vec_tile_shapes(1, 4, 1, 64)
 
-    #calculate the loop parameters
+    # calculate the loop parameters
     b = tensor_shape[0]
     tile_b = 1
     b_loop = b // tile_b
@@ -111,11 +111,11 @@ def add_scalar_loop_dyn_axis_dyn_loop_cond(input_data0, input_data1, output_data
         add_kernel_sim(pto_input0, pto_input1, pto_output, val)
 
 
-def test_add_scalar_loop_dynamic_axis_dynamic_loop_cond(device_id = None, run_mode: str = "npu") -> None:
+def test_add_scalar_loop_dynamic_axis_dynamic_loop_cond(device_id=None, run_mode: str = "npu") -> None:
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
 
     shape = (32, 32, 1, 256)
-    #prepare data
+    # prepare data
     val = 1
     input_data0 = torch.rand(shape, dtype=torch.float, device=device)
     input_data1 = torch.rand(shape, dtype=torch.float, device=device)

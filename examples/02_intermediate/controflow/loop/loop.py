@@ -28,7 +28,7 @@ from numpy.testing import assert_allclose
 def get_device_id():
     """
     Get and validate TILE_FWK_DEVICE_ID from environment variable.
-    
+
     Returns:
         int: The device ID if valid, None otherwise.
     """
@@ -38,7 +38,7 @@ def get_device_id():
         print("Please set it before running this example:")
         print("  export TILE_FWK_DEVICE_ID=0")
         return None
-    
+
     try:
         device_id = int(os.environ['TILE_FWK_DEVICE_ID'])
         return device_id
@@ -51,12 +51,12 @@ def get_device_id():
 def loop_basic_kernel_npu(t0: pypto.Tensor, t1: pypto.Tensor, out0: pypto.Tensor, out1: pypto.Tensor) -> None:
     s, n = t0.shape
     pypto.set_vec_tile_shapes(64, 64)
-    for bs_idx in pypto.loop(0, n, 1): # start, stop, step
+    for bs_idx in pypto.loop(0, n, 1):  # start, stop, step
         t0s = t0[bs_idx * s: (bs_idx+1) * s, :]
         t1s = t1[bs_idx * s: (bs_idx+1) * s, :]
         out0[bs_idx * s: (bs_idx+1) * s, :] = pypto.add(t0s, t1s)
     new_step = 2
-    for bs_idx in pypto.loop(0, n, new_step): # start, stop, step
+    for bs_idx in pypto.loop(0, n, new_step):  # start, stop, step
         t0s = t0[bs_idx * s: (bs_idx+new_step) * s, :]
         t1s = t1[bs_idx * s: (bs_idx+new_step) * s, :]
         out1[bs_idx * s: (bs_idx+new_step) * s, :] = pypto.add(t0s, t1s)
@@ -66,12 +66,12 @@ def loop_basic_kernel_npu(t0: pypto.Tensor, t1: pypto.Tensor, out0: pypto.Tensor
 def loop_basic_kernel_sim(t0: pypto.Tensor, t1: pypto.Tensor, out0: pypto.Tensor, out1: pypto.Tensor) -> None:
     s, n = t0.shape
     pypto.set_vec_tile_shapes(64, 64)
-    for bs_idx in pypto.loop(0, n, 1): # start, stop, step
+    for bs_idx in pypto.loop(0, n, 1):  # start, stop, step
         t0s = t0[bs_idx * s: (bs_idx+1) * s, :]
         t1s = t1[bs_idx * s: (bs_idx+1) * s, :]
         out0[bs_idx * s: (bs_idx+1) * s, :] = pypto.add(t0s, t1s)
     new_step = 2
-    for bs_idx in pypto.loop(0, n, new_step): # start, stop, step
+    for bs_idx in pypto.loop(0, n, new_step):  # start, stop, step
         t0s = t0[bs_idx * s: (bs_idx+new_step) * s, :]
         t1s = t1[bs_idx * s: (bs_idx+new_step) * s, :]
         out1[bs_idx * s: (bs_idx+new_step) * s, :] = pypto.add(t0s, t1s)
@@ -101,14 +101,14 @@ def loop_basic(t0: pypto.Tensor, t1: pypto.Tensor, run_mode: str = "npu", dynami
     return y1, y2
 
 
-def test_loop_basic(device_id = None, run_mode: str = "npu", dynamic: bool = False) -> None:
+def test_loop_basic(device_id=None, run_mode: str = "npu", dynamic: bool = False) -> None:
     """Test basic loop usage."""
     print("=" * 60)
     print("Test: Basic Loop Usage")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     s, n = 64, 8
     shape = (n * s, s)
     input_t1 = torch.randn(shape, dtype=torch.float16, device=device)
@@ -132,8 +132,8 @@ def test_loop_basic(device_id = None, run_mode: str = "npu", dynamic: bool = Fal
 def loop_compile_phase_print_kernel_npu(in_t0: pypto.Tensor, in_t1: pypto.Tensor, out_t0: pypto.Tensor, out_t1: pypto.Tensor) -> None:
     pypto.set_vec_tile_shapes(64, 64)
     NOTE = '''
-    Below are demonstrations of print usage within loops. 
-    It executes only during compilation, cannot truly print variable values, 
+    Below are demonstrations of print usage within loops.
+    It executes only during compilation, cannot truly print variable values,
     and the number of prints is related to the number of subgraphs generated.
     '''
     SEPARATOR = "*" * 60
@@ -168,8 +168,8 @@ def loop_compile_phase_print_kernel_npu(in_t0: pypto.Tensor, in_t1: pypto.Tensor
 def loop_compile_phase_print_kernel_sim(in_t0: pypto.Tensor, in_t1: pypto.Tensor, out_t0: pypto.Tensor, out_t1: pypto.Tensor) -> None:
     pypto.set_vec_tile_shapes(64, 64)
     NOTE = '''
-    Below are demonstrations of print usage within loops. 
-    It executes only during compilation, cannot truly print variable values, 
+    Below are demonstrations of print usage within loops.
+    It executes only during compilation, cannot truly print variable values,
     and the number of prints is related to the number of subgraphs generated.
     '''
     SEPARATOR = "*" * 60
@@ -223,14 +223,14 @@ def loop_compile_phase_print(in_t0: pypto.Tensor, in_t1: pypto.Tensor, run_mode:
     return y1, y2
 
 
-def test_loop_compile_phase_print(device_id = None, run_mode: str = "npu", dynamic: bool = False) -> None:
+def test_loop_compile_phase_print(device_id=None, run_mode: str = "npu", dynamic: bool = False) -> None:
     """Test loop compile phase print"""
     print("=" * 60)
     print("Test: Loop Compile Phase Print Feature")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     m, n = 6, 8
     shape = (m, n)
     input_t1 = torch.randn(shape, dtype=torch.float16, device=device)
@@ -252,7 +252,7 @@ def test_loop_compile_phase_print(device_id = None, run_mode: str = "npu", dynam
 
 def main():
     """Run loop_feature examples.
-    
+
     Usage:
         python loop_feature.py          # Run all examples
         python loop_feature.py 1         # Run example 1 only
@@ -288,9 +288,9 @@ Examples:
         choices=["npu", "sim"],
         help='Run mode, such as npu/sim etc.'
     )
-    
+
     args = parser.parse_args()
-    
+
     # Define available examples
     examples = {
         'loop_basic::test_loop_basic': {
@@ -304,7 +304,7 @@ Examples:
             'function': test_loop_compile_phase_print,
         }
     }
-    
+
     # List examples if requested
     if args.list:
         print("\n" + "=" * 60)
@@ -315,7 +315,7 @@ Examples:
             print(f"     name: {ex_info['name']}")
             print(f"     description: {ex_info['description']}\n")
         return
-    
+
     # Validate example ID if provided
     if args.example_id is not None:
         if args.example_id not in examples:
@@ -323,22 +323,22 @@ Examples:
             print(f"Valid example IDs are: {', '.join(map(str, sorted(examples.keys())))}")
             print("\nUse --list to see all available examples.")
             sys.exit(1)
-    
+
     print("\n" + "=" * 60)
     print("PyPTO Loop Examples")
     print("=" * 60 + "\n")
-    
+
     # Get and validate device ID (needed for NPU examples)
     device_id = None
     examples_to_run = []
-    
+
     if args.example_id is not None:
         # Run single example
         examples_to_run = [(args.example_id, examples[args.example_id])]
     else:
         # Run all examples
         examples_to_run = list(examples.items())
-    
+
     if args.run_mode == "npu":
         device_id = get_device_id()
         if device_id is None:
@@ -347,17 +347,17 @@ Examples:
         torch.npu.set_device(device_id)
         print("Running examples that require NPU hardware...")
         print("(Make sure CANN environment is configured and NPU is available)\n")
-    
+
     try:
         for ex_id, ex_info in examples_to_run:
             print(f"Running Example {ex_id}: {ex_info['name']}")
             ex_info['function'](device_id, args.run_mode)
-        
+
         if len(examples_to_run) > 1:
             print("=" * 60)
             print("All loop tests passed!")
             print("=" * 60)
-        
+
     except Exception as e:
         print(f"\nError: {e}")
         raise

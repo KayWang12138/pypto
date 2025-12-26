@@ -267,10 +267,10 @@ def indexer_prolog(inputs: dict, dims: dict):
     k_scale_cache = idx_k_scale_cache.clone()  # (block_num, block_size, n_kv, 1)
     scatter_update_pa_bsnd(k_cache, k_int8.reshape(b, s, 1, d), cache_index, -2)
     scatter_update_pa_bsnd(k_scale_cache, k_scale.reshape(b, s, 1, 1), cache_index, -2)
-    
+
     # matmul use float32 for arm, arm平台matmul在bfloat16数据类型下表现跟x86不一致，通过升精度保证正确性
-    weights = torch.matmul(x.to(torch.float32), \
-        w_idx_proj.to(torch.float32)).to(x_dtype).to(torch.float32)  # (b, s, n)
+    weights = torch.matmul(x.to(torch.float32),
+                           w_idx_proj.to(torch.float32)).to(x_dtype).to(torch.float32)  # (b, s, n)
     weights = weights * (n ** -0.5) * (d ** -0.5)
     weights = weights.to(torch.float16)
 

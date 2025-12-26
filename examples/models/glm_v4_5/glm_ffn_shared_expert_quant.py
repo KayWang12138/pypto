@@ -103,23 +103,23 @@ def moe_torch_npu(hidden_states, w13, w13_scale, w2, w2_scale):
     x_dtype = hidden_states.dtype
     quantized_x, dynamic_scale = torch_npu.npu_dynamic_quant(hidden_states)
     output_w13 = torch_npu.npu_quant_matmul(
-            quantized_x,
-            w13,
-            w13_scale,
-            pertoken_scale=dynamic_scale,
-            bias=None,
-            output_dtype=x_dtype,
-        )
+        quantized_x,
+        w13,
+        w13_scale,
+        pertoken_scale=dynamic_scale,
+        bias=None,
+        output_dtype=x_dtype,
+    )
     swiglu_out = torch_npu.npu_swiglu(output_w13)
     quantized_x, x_scale = torch_npu.npu_dynamic_quant(swiglu_out)
     output = torch_npu.npu_quant_matmul(
-            quantized_x,
-            w2,
-            w2_scale,
-            pertoken_scale=x_scale,
-            bias=None,
-            output_dtype=x_dtype,
-        )
+        quantized_x,
+        w2,
+        w2_scale,
+        pertoken_scale=x_scale,
+        bias=None,
+        output_dtype=x_dtype,
+    )
     return output
 
 
@@ -272,12 +272,12 @@ def share_expert_moe_main(hidden_states, w13, w13_scale, w2, w2_scale, ffn_res):
 
 @allow_in_graph
 def ffn_shared_expert_quant(hidden_states: torch.Tensor,
-                           w13: torch.Tensor,
-                           w13_scale: torch.Tensor,
-                           w2: torch.Tensor,
-                           w2_scale: torch.Tensor,
-                           ffn_res: torch.Tensor
-) -> None:
+                            w13: torch.Tensor,
+                            w13_scale: torch.Tensor,
+                            w2: torch.Tensor,
+                            w2_scale: torch.Tensor,
+                            ffn_res: torch.Tensor
+                            ) -> None:
     """
     Quantized FFN computation for shared experts in MoE architecture.
 
@@ -314,7 +314,7 @@ def ffn_shared_expert_quant(hidden_states: torch.Tensor,
         pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
         pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
         share_expert_moe_main(*pto_inputs, *pto_outputs)
-        pypto.runtime._device_synchronize()#内部接口，不推荐使用
+        pypto.runtime._device_synchronize()  # 内部接口，不推荐使用
 
 
 def test_ffn_share() -> None:
@@ -344,7 +344,7 @@ def test_ffn_share() -> None:
         pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
         pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
         share_expert_moe_main(*pto_inputs, *pto_outputs)
-        pypto.runtime._device_synchronize()#内部接口，不推荐使用
+        pypto.runtime._device_synchronize()  # 内部接口，不推荐使用
 
         # golden
         golden = moe_torch_npu(hidden_states, w13, w13_scale, w2, w2_scale)

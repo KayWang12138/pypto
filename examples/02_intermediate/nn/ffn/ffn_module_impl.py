@@ -193,7 +193,8 @@ def ffn_static_swiglu_kernel_npu(
     pypto.set_matrix_size({batch_size, intermediate_size, hidden_size})
     output[:] = pypto.matmul(activated, down_proj_weight, output.dtype, b_trans=False)
 
-@pypto.jit(runtime_options={"run_mode" : 1})
+
+@pypto.jit(runtime_options={"run_mode": 1})
 def ffn_static_swiglu_kernel_sim(
     hidden_states: pypto.Tensor,
     gate_proj_weight: pypto.Tensor,
@@ -256,6 +257,7 @@ def ffn_static_swiglu_kernel_sim(
     )
     pypto.set_matrix_size({batch_size, intermediate_size, hidden_size})
     output[:] = pypto.matmul(activated, down_proj_weight, output.dtype, b_trans=False)
+
 
 @pypto.jit
 def ffn_static_gule_kernel_npu(
@@ -320,7 +322,8 @@ def ffn_static_gule_kernel_npu(
     pypto.set_matrix_size({batch_size, intermediate_size, hidden_size})
     output[:] = pypto.matmul(activated, down_proj_weight, output.dtype, b_trans=False)
 
-@pypto.jit(runtime_options={"run_mode" : 1})
+
+@pypto.jit(runtime_options={"run_mode": 1})
 def ffn_static_gule_kernel_sim(
     hidden_states: pypto.Tensor,
     gate_proj_weight: pypto.Tensor,
@@ -382,6 +385,7 @@ def ffn_static_gule_kernel_sim(
     )
     pypto.set_matrix_size({batch_size, intermediate_size, hidden_size})
     output[:] = pypto.matmul(activated, down_proj_weight, output.dtype, b_trans=False)
+
 
 @pypto.jit
 def ffn_static_relu_kernel_npu(
@@ -445,7 +449,8 @@ def ffn_static_relu_kernel_npu(
     pypto.set_matrix_size({batch_size, intermediate_size, hidden_size})
     output[:] = pypto.matmul(activated, down_proj_weight, output.dtype, b_trans=False)
 
-@pypto.jit(runtime_options={"run_mode" : 1})
+
+@pypto.jit(runtime_options={"run_mode": 1})
 def ffn_static_relu_kernel_sim(
     hidden_states: pypto.Tensor,
     gate_proj_weight: pypto.Tensor,
@@ -506,6 +511,7 @@ def ffn_static_relu_kernel_sim(
     )
     pypto.set_matrix_size({batch_size, intermediate_size, hidden_size})
     output[:] = pypto.matmul(activated, down_proj_weight, output.dtype, b_trans=False)
+
 
 @pypto.jit
 def ffn_dynamic_gelu_kernel_npu(
@@ -571,12 +577,10 @@ def ffn_dynamic_gelu_kernel_npu(
         # Gate projection
         gate = pypto.matmul(hidden_chunk, gate_proj_weight, config.dtype)
 
-
         if config.activation == "gelu":
             # GELU activation
             pypto.set_vec_tile_shapes(*config.vec_tile_shape)
             activated = gelu_activation_core(gate)
-
 
         # Down projection
         pypto.set_cube_tile_shapes(
@@ -590,7 +594,8 @@ def ffn_dynamic_gelu_kernel_npu(
         # Assemble result back to output
         pypto.assemble(output_chunk, [batch_offset, 0], output)
 
-@pypto.jit(runtime_options={"run_mode" : 1})
+
+@pypto.jit(runtime_options={"run_mode": 1})
 def ffn_dynamic_gelu_kernel_sim(
     hidden_states: pypto.Tensor,
     gate_proj_weight: pypto.Tensor,
@@ -654,12 +659,10 @@ def ffn_dynamic_gelu_kernel_sim(
         # Gate projection
         gate = pypto.matmul(hidden_chunk, gate_proj_weight, config.dtype)
 
-
         if config.activation == "gelu":
             # GELU activation
             pypto.set_vec_tile_shapes(*config.vec_tile_shape)
             activated = gelu_activation_core(gate)
-
 
         # Down projection
         pypto.set_cube_tile_shapes(

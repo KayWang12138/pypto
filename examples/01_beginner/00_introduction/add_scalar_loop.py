@@ -31,7 +31,7 @@ from numpy.testing import assert_allclose
 def get_device_id():
     """
     Get and validate TILE_FWK_DEVICE_ID from environment variable.
-    
+
     Returns:
         int: The device ID if valid, None otherwise.
     """
@@ -41,7 +41,7 @@ def get_device_id():
         print("Please set it before running this example:")
         print("  export TILE_FWK_DEVICE_ID=0")
         return None
-    
+
     try:
         device_id = int(os.environ['TILE_FWK_DEVICE_ID'])
         return device_id
@@ -49,12 +49,13 @@ def get_device_id():
         print(f"ERROR: TILE_FWK_DEVICE_ID must be an integer, got: {os.environ['TILE_FWK_DEVICE_ID']}")
         return None
 
+
 @pypto.jit
 def add_kernel_npu(x: pypto.Tensor, y: pypto.Tensor, z: pypto.Tensor, val: int) -> None:
     tensor_shape = x.shape
     pypto.set_vec_tile_shapes(1, 4, 1, 64)
 
-    #calculate the loop parameters
+    # calculate the loop parameters
     b = tensor_shape[0]
     tile_b = 1
     b_loop = b // tile_b
@@ -66,13 +67,14 @@ def add_kernel_npu(x: pypto.Tensor, y: pypto.Tensor, z: pypto.Tensor, val: int) 
         t1_sub = y[b_offset:b_offset_end, ...]
         t3_sub = t0_sub + t1_sub
         z[b_offset:b_offset_end, ...] = t3_sub + val
+
 
 @pypto.jit(runtime_options={"run_mode": 1})
 def add_kernel_sim(x: pypto.Tensor, y: pypto.Tensor, z: pypto.Tensor, val: int) -> None:
     tensor_shape = x.shape
     pypto.set_vec_tile_shapes(1, 4, 1, 64)
 
-    #calculate the loop parameters
+    # calculate the loop parameters
     b = tensor_shape[0]
     tile_b = 1
     b_loop = b // tile_b
@@ -84,6 +86,7 @@ def add_kernel_sim(x: pypto.Tensor, y: pypto.Tensor, z: pypto.Tensor, val: int) 
         t1_sub = y[b_offset:b_offset_end, ...]
         t3_sub = t0_sub + t1_sub
         z[b_offset:b_offset_end, ...] = t3_sub + val
+
 
 def add_scalar_loop(x: torch.Tensor, y: torch.Tensor, z: torch.Tensor, val: int, run_mode: str = "npu", dynamic: bool = True) -> None:
     if dynamic:
@@ -101,11 +104,12 @@ def add_scalar_loop(x: torch.Tensor, y: torch.Tensor, z: torch.Tensor, val: int,
     else:
         add_kernel_sim(x_pto, y_pto, z_pto, val)
 
-def test_add_scalar_loop(device_id = None, run_mode: str = "npu", dynamic: bool = True) -> None:
+
+def test_add_scalar_loop(device_id=None, run_mode: str = "npu", dynamic: bool = True) -> None:
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
 
     shape = (32, 32, 1, 256)
-    #prepare data
+    # prepare data
     val = 1
     x = torch.rand(shape, dtype=torch.float, device=device)
     y = torch.rand(shape, dtype=torch.float, device=device)
@@ -128,7 +132,7 @@ def test_add_scalar_loop(device_id = None, run_mode: str = "npu", dynamic: bool 
 
 def main():
     """Run add_scalar_loop example.
-    
+
     Usage:
         python add_scalar_loop.py          # Run example
         python add_scalar_loop.py --list   # List available examples
@@ -162,9 +166,9 @@ Examples:
         choices=["npu", "sim"],
         help='Run mode, such as npu/sim etc.'
     )
-    
+
     args = parser.parse_args()
-    
+
     # Define available examples
     examples = {
         "add_scalar_loop::test_add_scalar_loop": {
@@ -173,7 +177,7 @@ Examples:
             'function': test_add_scalar_loop
         }
     }
-    
+
     # List examples if requested
     if args.list:
         print("\n" + "=" * 60)
@@ -184,7 +188,7 @@ Examples:
             print(f"     name: {ex_info['name']}")
             print(f"     description: {ex_info['description']}\n")
         return
-    
+
     # Validate example ID if provided
     if args.example_id is not None:
         if args.example_id not in examples:
@@ -192,22 +196,22 @@ Examples:
             print(f"Valid example IDs are: {', '.join(map(str, sorted(examples.keys())))}")
             print("\nUse --list to see all available examples.")
             sys.exit(1)
-    
+
     print("\n" + "=" * 60)
     print("PyPTO add_scalar_loop Example")
     print("=" * 60 + "\n")
-    
+
     # Get and validate device ID (needed for NPU examples)
     device_id = None
     examples_to_run = []
-    
+
     if args.example_id is not None:
         # Run single example
         examples_to_run = [(args.example_id, examples[args.example_id])]
     else:
         # Run all examples
         examples_to_run = list(examples.items())
-    
+
     if args.run_mode == "npu":
         device_id = get_device_id()
         if device_id is None:
@@ -216,17 +220,17 @@ Examples:
         torch.npu.set_device(device_id)
         print("Running examples that require NPU hardware...")
         print("(Make sure CANN environment is configured and NPU is available)\n")
-    
+
     try:
         for ex_id, ex_info in examples_to_run:
             print(f"Running Example {ex_id}: {ex_info['name']}")
             ex_info['function'](device_id, args.run_mode)
-        
+
         if len(examples_to_run) > 1:
             print("=" * 60)
             print("All add_scalar_loop tests passed!")
             print("=" * 60)
-        
+
     except Exception as e:
         print(f"\nError: {e}")
         raise

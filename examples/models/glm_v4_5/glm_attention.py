@@ -67,6 +67,7 @@ def check_args(
     assert get_format(attn_res) == 'ND'
     assert attn_res.dtype == torch.bfloat16
 
+
 @dataclass
 class AttentionTileConfig:
     g_tile: int
@@ -247,15 +248,15 @@ def softmax(x, is_fp16=False):
 
 
 @pypto.jit(
-    runtime_options={"stitch_function_num_initial": 128, 
-    "stitch_function_outcast_memory": 1024,
-    "stitch_function_inner_memory": 1024},
+    runtime_options={"stitch_function_num_initial": 128,
+                     "stitch_function_outcast_memory": 1024,
+                     "stitch_function_inner_memory": 1024},
     host_options={"only_codegen": True},
     codegen_options={"codegen_expression_fusion": True},
     # 当子图大小达到上界不允许与其他子图合并
     pass_options={"pg_upper_bound": 1536,
-    # Q常驻，0代表第一组mmad，4代表4次matmul合并
-    "cube_l1_reuse_setting": {0: 4}}
+                  # Q常驻，0代表第一组mmad，4代表4次matmul合并
+                  "cube_l1_reuse_setting": {0: 4}}
 )
 def ifa_func(q, k, v, block_table, kv_act_seqs, atten_out):
     """
@@ -290,7 +291,7 @@ def ifa_func(q, k, v, block_table, kv_act_seqs, atten_out):
     atten_cfg, tile_cfg = get_qwen_common_config()
     softmax_scale = atten_cfg.softmax_scale
 
-     # 2. 从入参拿到输入和输出tensor
+    # 2. 从入参拿到输入和输出tensor
     shape_q = q.shape
     shape_k = k.shape
     bs_scalar = shape_q[0]
@@ -356,9 +357,9 @@ def ifa_func(q, k, v, block_table, kv_act_seqs, atten_out):
                         # 6. 下面是flash attention的计算逻辑
                         pypto.set_cube_tile_shapes(c1_tile[0], c1_tile[1], c1_tile[2])
                         sij = pypto.matmul(qi, kj_assemble, pypto.DT_FP32, a_trans=False,
-                                            b_trans=True)
+                                           b_trans=True)
                         sij = pypto.view(sij, [g_tile, s2_tile], [0, 0],
-                                            valid_shape=[g_tile, actual_s2_tile])
+                                         valid_shape=[g_tile, actual_s2_tile])
                         # v1
                         pypto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
                         if pypto.cond(pypto.is_loop_begin(s2_idx)):
@@ -403,7 +404,7 @@ def ifa_func(q, k, v, block_table, kv_act_seqs, atten_out):
                             sum_update[:] = sum_update * update_mul + sum_local
                             pypto.set_pass_options(sg_set_scope=-1)
 
-                            #c2
+                            # c2
                             vj_assemble = pypto.tensor([s2_tile, dn], v_2d.dtype, "vj_assemble")
                             for i in range(block_num):
                                 block_idx = block_table[b_idx, idx + i]
@@ -426,6 +427,7 @@ def ifa_func(q, k, v, block_table, kv_act_seqs, atten_out):
                                 dtype)
                             # 7. 将结果搬运到输出tensor上
                             pypto.assemble(oi_final_3d, oi_ofs, atten_out)
+
 
 def IFA(atten_cfg):
     device_id = os.environ.get('TILE_FWK_STEST_DEVICE_ID', 0)
@@ -501,12 +503,13 @@ def IFA(atten_cfg):
     pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
     # 5. 执行kernel并获取结果
     ifa_func(*pto_inputs, *pto_outputs)
-    pypto.runtime._device_synchronize()#内部接口，不推荐使用
+    pypto.runtime._device_synchronize()  # 内部接口，不推荐使用
 
     # 6. 与PyTorch参考实现对比
-    assert_allclose(np.array(attention_output.cpu().flatten().tolist()), 
+    assert_allclose(np.array(attention_output.cpu().flatten().tolist()),
                     np.array(out_torch.cpu().flatten().tolist()),
                     rtol=0.0078125, atol=0.0001)
+
 
 @pytest.mark.skip(reason="large test case")
 def test_ifa():
@@ -573,7 +576,8 @@ def attention(
     pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
     pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
     ifa_func(*pto_inputs, *pto_outputs)
-    pypto.runtime._device_synchronize()#内部接口，不推荐使用
+    pypto.runtime._device_synchronize()  # 内部接口，不推荐使用
+
 
 if __name__ == "__main__":
     test_ifa()

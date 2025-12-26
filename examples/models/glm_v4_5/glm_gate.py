@@ -36,7 +36,7 @@ def check_args(
 ) -> None:
     """
     Validate input arguments for gate operation.
-    
+
     Args:
         gate_weight: Gate weight matrix
         hidden_states: Input hidden states
@@ -46,7 +46,7 @@ def check_args(
     assert gate_weight.shape[1] == 5120
     assert get_format(gate_weight) == 'ND'
     assert gate_weight.dtype == torch.float32
-    
+
     assert hidden_states.dim() == 2
     assert hidden_states.shape[1] == 5120
     assert get_format(hidden_states) == 'ND'
@@ -55,9 +55,9 @@ def check_args(
 
 @pypto.jit(
     runtime_options={
-    "cfgcache_device_task_num": 100,
-    "cfgcache_root_task_num": 1000,
-    "cfgcache_leaf_task_num": 10000},
+        "cfgcache_device_task_num": 100,
+        "cfgcache_root_task_num": 1000,
+        "cfgcache_leaf_task_num": 10000},
     host_options={"only_codegen": True},
 )
 def select_experts_mm_kernel(hidden_states, mm_weight, router_logits_out):
@@ -92,7 +92,7 @@ def select_experts_mm_kernel(hidden_states, mm_weight, router_logits_out):
         tile_hidden_states = pypto.view(hidden_states, view_shape,
                                         [bs_idx * view_shape[0], 0],
                                         valid_shape=[(bs - bs_idx * view_shape[0]).min(view_shape[0]),
-                                                        h_num])
+                                                     h_num])
 
         pypto.set_cube_tile_shapes([32, 32], [512, 1024], [16, 16])
 
@@ -136,7 +136,7 @@ def test_select_experts_mm():
         with torch.npu.graph(g):
             select_experts_mm_kernel(*pto_inputs, *pto_outputs)
         g.replay()
-        pypto.runtime._device_synchronize()#内部接口，不推荐使用
+        pypto.runtime._device_synchronize()  # 内部接口，不推荐使用
 
         # 5. 与PyTorch参考实现对比
         result = torch.matmul(hidden_states, mm_weight.t())
@@ -152,8 +152,8 @@ def test_select_experts_mm():
 def gate(
     gate_weight: torch.Tensor,  # gate matmul weights
     hidden_states: torch.Tensor,  # Hidden states of shape (num_tokens, hidden_size).
-    router_logits_out: torch.Tensor, 
-    ) -> torch.Tensor:
+    router_logits_out: torch.Tensor,
+) -> torch.Tensor:
     """
     Gate operation for expert routing in MoE architecture.
 
@@ -187,7 +187,7 @@ def gate(
     pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
     pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
     select_experts_mm_kernel(*pto_inputs, *pto_outputs)
-    pypto.runtime._device_synchronize()#内部接口，不推荐使用
+    pypto.runtime._device_synchronize()  # 内部接口，不推荐使用
 
 
 def main():

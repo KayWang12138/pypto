@@ -11,6 +11,7 @@
 import numpy as np
 from numpy.testing import assert_allclose
 
+
 class Colors:
     RESET = '\033[0m'
     BOLD = '\033[1m'
@@ -68,7 +69,7 @@ def detailed_allclose_manual(cpu, npu, name, rtol=1e-3, atol=1e-3, max_prints=50
 
     # 强制打印前n个元素
     _print_first_n(cpu_flat, npu_flat, get_multi_index, force_print_first_n, YELLOW, RESET)
-    
+
     # 遍历所有元素查找异常
     for flat_idx in range(total_elements):
         cpu_val = cpu_flat[flat_idx]
@@ -105,6 +106,7 @@ def detailed_allclose_manual(cpu, npu, name, rtol=1e-3, atol=1e-3, max_prints=50
 
     return is_allclose
 
+
 def _is_nan(cpu_val, npu_val):
     return np.isnan(cpu_val) or np.isnan(npu_val)
 
@@ -132,6 +134,7 @@ def _print_first_n(cpu_flat, npu_flat, get_multi_index, n, YELLOW, RESET):
         print(f"{YELLOW}索引 {multi_idx}: cpu={cpu_str}, npu={npu_str}, 差值={diff_str}{RESET}")
     print("-" * 80)
 
+
 def _log_nan_error(multi_idx, cpu_val, npu_val, YELLOW, RESET):
     cpu_str = "NaN" if np.isnan(cpu_val) else f"{cpu_val:.6e}"
     npu_str = "NaN" if np.isnan(npu_val) else f"{npu_val:.6e}"
@@ -153,5 +156,3 @@ def _print_summary(abnormal_count, nan_count, exceed_tolerance_count, total_elem
     print(f"  - NaN 数量: {nan_count}")
     print(f"  - 超出容差数量: {exceed_tolerance_count}")
     print(f"异常比例: {abnormal_count / total_elements * 100:.4f}%")
-
-

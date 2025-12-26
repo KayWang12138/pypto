@@ -322,6 +322,7 @@ def rope_3d(x: pypto.Tensor, cos: pypto.Tensor, sin: pypto.Tensor, configs: Inde
     res = pypto.cast(x_embed, x_dtype)
     return res
 
+
 def lightning_indexer_prolog_quant_compute(x_in, q_norm_in, q_norm_scale_in, w_qb_in,
                                            w_qb_scale_in, wk_in, w_proj_in, ln_gamma_k_in,
                                            ln_beta_k_in, cos_idx_rope_in, sin_idx_rope_in,

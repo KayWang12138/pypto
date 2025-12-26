@@ -80,7 +80,7 @@ def compute_attention(input_data, params):
             cur_seq = min(max(cur_k_seq - s1 + 1 + s1_idx, 0), topk)
             bn_per_batch = math.ceil(cur_seq / s2_tile)
 
-            qi = q[b_idx, s1_idx, :, :] # (n1, dk)
+            qi = q[b_idx, s1_idx, :, :]  # (n1, dk)
 
             for s2_idx in range(bn_per_batch):
                 s2_tile_cur = min(s2_tile, cur_seq - s2_idx * s2_tile)
@@ -124,13 +124,13 @@ def compute_attention(input_data, params):
                 # C1
                 sij = torch.matmul(qi.to(torch.float32), kj_view.transpose(1, 0).to(torch.float32)).to(torch.float32)
 
-                sij_scale = sij * scalar # (n1, s2_tile)
-                tilda_mij = sij_scale.amax(dim=-1, keepdims=True) # (n1, 1)
-                t_sub = sij_scale - tilda_mij # (n1, s2_tile)
-                tilda_pij = torch.exp(t_sub) # (n1, s2_tile)
+                sij_scale = sij * scalar  # (n1, s2_tile)
+                tilda_mij = sij_scale.amax(dim=-1, keepdims=True)  # (n1, 1)
+                t_sub = sij_scale - tilda_mij  # (n1, s2_tile)
+                tilda_pij = torch.exp(t_sub)  # (n1, s2_tile)
                 tilda_pij_f16 = tilda_pij.to(input_dtype)
                 q1 = torch.matmul(tilda_pij_f16.to(torch.float32), vj.to(torch.float32)).to(torch.float32)
-                tilda_lij = tilda_pij.sum(dim=-1, keepdims=True) # (n1, 1)
+                tilda_lij = tilda_pij.sum(dim=-1, keepdims=True)  # (n1, 1)
 
                 if s2_idx == 0:
                     oi_tmp = q1
@@ -349,13 +349,13 @@ def do_test_sparse_attention_func(bn1n2s1, actual_seq, input_params, input_data,
     pto_outputs = [calc_attention_out_pto]
 
     max_blocknum_perbatch = math.ceil(max_kv_seq / block_size)
-    
+
     if is_p:
         sparse_flash_attention_quant_p(*pto_inputs, *pto_outputs, n_q, n_kv, softmax_scale, topk, block_size,
-                                           max_blocknum_perbatch, tile_config)
+                                       max_blocknum_perbatch, tile_config)
     else:
         sparse_flash_attention_quant_d(*pto_inputs, *pto_outputs, n_q, n_kv, softmax_scale, topk,
-                                           block_size, max_blocknum_perbatch, tile_config)
+                                       block_size, max_blocknum_perbatch, tile_config)
 
     torch_npu.npu.synchronize()
     compare(calc_attention_out_npu.cpu(), atten_out, "atten_out", atol=0.0001, rtol=0.005)

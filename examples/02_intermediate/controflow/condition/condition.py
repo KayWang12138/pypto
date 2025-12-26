@@ -28,7 +28,7 @@ from numpy.testing import assert_allclose
 def get_device_id():
     """
     Get and validate TILE_FWK_DEVICE_ID from environment variable.
-    
+
     Returns:
         int: The device ID if valid, None otherwise.
     """
@@ -38,7 +38,7 @@ def get_device_id():
         print("Please set it before running this example:")
         print("  export TILE_FWK_DEVICE_ID=0")
         return None
-    
+
     try:
         device_id = int(os.environ['TILE_FWK_DEVICE_ID'])
         return device_id
@@ -94,14 +94,14 @@ def nested_loops_with_conditions(a: torch.Tensor, b: torch.Tensor, run_mode: str
     return y
 
 
-def test_nested_loops_with_conditions(device_id = None, run_mode: str = "npu", dynamic: bool = True) -> None:
+def test_nested_loops_with_conditions(device_id=None, run_mode: str = "npu", dynamic: bool = True) -> None:
     """Test nested loops with conditional statements"""
     print("=" * 60)
     print("Test: Nested Loops with Conditional Statements")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     shape = (2, 2)
     dtype = torch.float
     a = torch.rand(shape, dtype=dtype, device=device)
@@ -121,7 +121,7 @@ def test_nested_loops_with_conditions(device_id = None, run_mode: str = "npu", d
 
 def main():
     """Run condition examples.
-    
+
     Usage:
         python condition_example.py          # Run all examples
         python condition_example.py 1         # Run example 1 only
@@ -157,9 +157,9 @@ Examples:
         choices=["npu", "sim"],
         help='Run mode, such as npu/sim etc.'
     )
-    
+
     args = parser.parse_args()
-    
+
     # Define available examples
     examples = {
         'nested_loops_with_conditions::test_nested_loops_with_conditions': {
@@ -169,7 +169,7 @@ Examples:
             'requires_npu': True
         },
     }
-    
+
     # List examples if requested
     if args.list:
         print("\n" + "=" * 60)
@@ -180,7 +180,7 @@ Examples:
             print(f"     name: {ex_info['name']}")
             print(f"     description: {ex_info['description']}\n")
         return
-    
+
     # Validate example ID if provided
     if args.example_id is not None:
         if args.example_id not in examples:
@@ -188,22 +188,22 @@ Examples:
             print(f"Valid example IDs are: {', '.join(map(str, sorted(examples.keys())))}")
             print("\nUse --list to see all available examples.")
             sys.exit(1)
-    
+
     print("\n" + "=" * 60)
     print("PyPTO Condition Function Examples")
     print("=" * 60 + "\n")
-    
+
     # Get and validate device ID (needed for NPU examples)
     device_id = None
     examples_to_run = []
-    
+
     if args.example_id is not None:
         # Run single example
         examples_to_run = [(args.example_id, examples[args.example_id])]
     else:
         # Run all examples
         examples_to_run = list(examples.items())
-    
+
     if args.run_mode == "npu":
         device_id = get_device_id()
         if device_id is None:
@@ -212,17 +212,17 @@ Examples:
         torch.npu.set_device(device_id)
         print("Running examples that require NPU hardware...")
         print("(Make sure CANN environment is configured and NPU is available)\n")
-    
+
     try:
         for ex_id, ex_info in examples_to_run:
             print(f"Running Example {ex_id}: {ex_info['name']}")
             ex_info['function'](device_id, args.run_mode)
-        
+
         if len(examples_to_run) > 1:
             print("=" * 60)
             print("All condition tests passed!")
             print("=" * 60)
-        
+
     except Exception as e:
         print(f"\nError: {e}")
         raise

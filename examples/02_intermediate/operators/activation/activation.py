@@ -60,6 +60,8 @@ F_1 = 1.0
 F_NEGA_1 = -1.0
 
 # Reference implementations for verification
+
+
 def silu_golden(x: torch.Tensor) -> torch.Tensor:
     """PyTorch reference implementation of SiLU."""
     return x * torch.sigmoid(x)
@@ -110,7 +112,7 @@ def silu_activation_kernel_npu(x: pypto.Tensor, y: pypto.Tensor) -> None:
 
     # Compute sigmoid(x) = 1 / (1 + exp(-x))
     # SiLU(x) = x * sigmoid(x)
-    y[:] =  x * pypto.sigmoid(x)
+    y[:] = x * pypto.sigmoid(x)
 
 
 @pypto.jit(runtime_options={"run_mode": 1})
@@ -143,7 +145,7 @@ def silu_activation_kernel_sim(x: pypto.Tensor, y: pypto.Tensor) -> None:
 
     # Compute sigmoid(x) = 1 / (1 + exp(-x))
     # SiLU(x) = x * sigmoid(x)
-    y[:] =  x * pypto.sigmoid(x)
+    y[:] = x * pypto.sigmoid(x)
 
 
 def silu_activation(x: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
@@ -165,7 +167,7 @@ def silu_activation(x: torch.Tensor, run_mode: str = "npu", dynamic: bool = Fals
     return y
 
 
-def test_silu(device_id = None, run_mode: str = "npu", dynamic: bool = False) -> None:
+def test_silu(device_id=None, run_mode: str = "npu", dynamic: bool = False) -> None:
     """Test SiLU activation."""
     print("=" * 60)
     print("Test: SiLU Activation")
@@ -222,7 +224,7 @@ def gelu_activation_kernel_npu(x: pypto.Tensor, y: pypto.Tensor) -> None:
     x_scaled = x * coeff
 
     # GELU(x) = x * sigmoid(1.702 * x)
-    y[:] =  x * pypto.sigmoid(x_scaled)
+    y[:] = x * pypto.sigmoid(x_scaled)
 
 
 @pypto.jit(runtime_options={"run_mode": 1})
@@ -256,7 +258,7 @@ def gelu_activation_kernel_sim(x: pypto.Tensor, y: pypto.Tensor) -> None:
     x_scaled = x * coeff
 
     # GELU(x) = x * sigmoid(1.702 * x)
-    y[:] =  x * pypto.sigmoid(x_scaled)
+    y[:] = x * pypto.sigmoid(x_scaled)
 
 
 def gelu_activation(x: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
@@ -278,7 +280,7 @@ def gelu_activation(x: torch.Tensor, run_mode: str = "npu", dynamic: bool = Fals
     return y
 
 
-def test_gelu(device_id = None, run_mode: str = "npu", dynamic: bool = False) -> None:
+def test_gelu(device_id=None, run_mode: str = "npu", dynamic: bool = False) -> None:
     """Test GELU activation."""
     print("=" * 60)
     print("Test: GELU Activation")
@@ -340,7 +342,7 @@ def swiglu_activation_kernel_npu(gate: pypto.Tensor, up: pypto.Tensor, y: pypto.
     swish = gate * sigmoid
 
     # Multiply with up projection
-    y[:] =  swish * up
+    y[:] = swish * up
 
 
 @pypto.jit(runtime_options={"run_mode": 1})
@@ -378,7 +380,7 @@ def swiglu_activation_kernel_sim(gate: pypto.Tensor, up: pypto.Tensor, y: pypto.
     swish = gate * sigmoid
 
     # Multiply with up projection
-    y[:] =  swish * up
+    y[:] = swish * up
 
 
 def swiglu_activation(gate: torch.Tensor, up: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
@@ -402,7 +404,7 @@ def swiglu_activation(gate: torch.Tensor, up: torch.Tensor, run_mode: str = "npu
     return y
 
 
-def test_swiglu(device_id = None, run_mode: str = "npu", dynamic: bool = False) -> None:
+def test_swiglu(device_id=None, run_mode: str = "npu", dynamic: bool = False) -> None:
     """Test SwiGLU activation."""
     print("=" * 60)
     print("Test: SwiGLU Activation")
@@ -466,10 +468,10 @@ def geglu_activation_kernel_npu(gate: pypto.Tensor, up: pypto.Tensor, y: pypto.T
     x_scaled = gate * coeff
 
     # GELU(x) = x * sigmoid(1.702 * x)
-    gelu_gate =  gate * pypto.sigmoid(x_scaled)
+    gelu_gate = gate * pypto.sigmoid(x_scaled)
 
     # Multiply with up projection
-    y[:] =  gelu_gate * up
+    y[:] = gelu_gate * up
 
 
 @pypto.jit(runtime_options={"run_mode": 1})
@@ -507,10 +509,10 @@ def geglu_activation_kernel_sim(gate: pypto.Tensor, up: pypto.Tensor, y: pypto.T
     x_scaled = gate * coeff
 
     # GELU(x) = x * sigmoid(1.702 * x)
-    gelu_gate =  gate * pypto.sigmoid(x_scaled)
+    gelu_gate = gate * pypto.sigmoid(x_scaled)
 
     # Multiply with up projection
-    y[:] =  gelu_gate * up
+    y[:] = gelu_gate * up
 
 
 def geglu_activation(gate: torch.Tensor, up: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
@@ -533,7 +535,7 @@ def geglu_activation(gate: torch.Tensor, up: torch.Tensor, run_mode: str = "npu"
     return y
 
 
-def test_geglu(device_id = None, run_mode: str = "npu", dynamic: bool = False) -> None:
+def test_geglu(device_id=None, run_mode: str = "npu", dynamic: bool = False) -> None:
     """Test GeGLU activation."""
     print("=" * 60)
     print("Test: GeGLU Activation")

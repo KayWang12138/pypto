@@ -32,7 +32,7 @@ from numpy.testing import assert_allclose
 def get_device_id():
     """
     Get and validate TILE_FWK_DEVICE_ID from environment variable.
-    
+
     Returns:
         int: The device ID if valid, None otherwise.
     """
@@ -42,7 +42,7 @@ def get_device_id():
         print("Please set it before running this example:")
         print("  export TILE_FWK_DEVICE_ID=0")
         return None
-    
+
     try:
         device_id = int(os.environ['TILE_FWK_DEVICE_ID'])
         return device_id
@@ -90,7 +90,7 @@ def test_abs_basic(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Basic Usage of abs Function")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
 
     dtype = torch.float32
@@ -146,9 +146,9 @@ def test_add_basic(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Basic Usage of add Function")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     dtype = torch.float32
     a = torch.tensor([1, 2, 3], dtype=dtype, device=device)
     b = torch.tensor([4, 5, 6], dtype=dtype, device=device)
@@ -199,9 +199,9 @@ def test_add_broadcast(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Broadcasting Between Tensors")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     dtype = torch.float32
     a = torch.tensor([[1, 2], [3, 4]], dtype=dtype, device=device)
     b = torch.tensor([1, 2], dtype=dtype, device=device)
@@ -250,9 +250,9 @@ def test_add_scalar(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Adding a scalar to a tensor")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     dtype = torch.float32
     a = torch.tensor([1, 2, 3], dtype=dtype, device=device)
     scalar = 2.0
@@ -303,9 +303,9 @@ def test_add_with_alpha(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Using the Alpha Parameter")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     dtype = torch.float32
     a = torch.tensor([1, 2, 3], dtype=dtype, device=device)
     b = torch.tensor([4, 5, 6], dtype=dtype, device=device)
@@ -363,9 +363,9 @@ def test_clip_basic(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Basic Usage of clip Function")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     dtype = torch.float32
     a = torch.tensor([[0, 2, 4], [3, 4, 6]], dtype=dtype, device=device)
     min_ = torch.tensor([[1, 1, 1], [1, 1, 1]], dtype=dtype, device=device)
@@ -419,9 +419,9 @@ def test_clip_broadcast(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Broadcasting Between Tensors")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     dtype = torch.float32
     a = torch.tensor([[0, 2, 4], [3, 4, 6]], dtype=dtype, device=device)
     min_ = torch.tensor([1, 1, 1], dtype=dtype, device=device)
@@ -477,9 +477,9 @@ def test_div_basic(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Basic Usage of div Function")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     dtype = torch.float32
     a = torch.tensor([6, 10, 15], dtype=dtype, device=device)
     b = torch.tensor([2, 5, 3], dtype=dtype, device=device)
@@ -530,9 +530,9 @@ def test_div_broadcast(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Broadcasting Between Tensors")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     dtype = torch.float32
     a = torch.tensor([[1, 2], [3, 4]], dtype=dtype, device=device)
     b = torch.tensor([1, 2], dtype=dtype, device=device)
@@ -581,9 +581,9 @@ def test_div_scalar(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Diving a scalar to a tensor")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     dtype = torch.float32
     a = torch.tensor([1, 2, 3], dtype=dtype, device=device)
     scalar = 2.0
@@ -636,9 +636,9 @@ def test_exp_basic(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Basic Usage of exp Function")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     dtype = torch.float32
     x = torch.tensor([0, 1, 2], dtype=dtype, device=device)
     expected = torch.tensor([1.0000, 2.7183, 7.3891], dtype=dtype, device=device)
@@ -690,9 +690,9 @@ def test_log_basic(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Basic Usage of log Function")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     dtype = torch.float32
     a = torch.tensor([1, 2, 3], dtype=dtype, device=device)
     expected = torch.tensor([0, 0.6931, 1.0986], dtype=dtype, device=device)
@@ -746,9 +746,9 @@ def test_mul_basic(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Basic Usage of mul Function")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     dtype = torch.float32
     a = torch.tensor([1, 2, 3], dtype=dtype, device=device)
     b = torch.tensor([4, 5, 6], dtype=dtype, device=device)
@@ -799,9 +799,9 @@ def test_mul_broadcast(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Broadcasting Between Tensors")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     dtype = torch.float32
     a = torch.tensor([[1, 2], [3, 4]], dtype=dtype, device=device)
     b = torch.tensor([1, 2], dtype=dtype, device=device)
@@ -850,9 +850,9 @@ def test_mul_scalar(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Muling a scalar to a tensor")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     dtype = torch.float32
     a = torch.tensor([1, 2, 3], dtype=dtype, device=device)
     scalar = 2.0
@@ -905,9 +905,9 @@ def test_neg_basic(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Basic Usage of neg Function")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     dtype = torch.float32
     a = torch.tensor([[1, 4],
                      [16, 9]], dtype=dtype, device=device)
@@ -961,9 +961,9 @@ def test_pow_basic(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Basic Usage of pow Function")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     dtype = torch.float32
     a = torch.tensor([3, 3], dtype=dtype, device=device)
     b = 2.0
@@ -1016,9 +1016,9 @@ def test_rsqrt_basic(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Basic Usage of rsqrt Function")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     dtype = torch.float32
     a = torch.tensor([[1, 4],
                      [16, 9]], dtype=dtype, device=device)
@@ -1072,9 +1072,9 @@ def test_sqrt_basic(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Basic Usage of sqrt Function")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     dtype = torch.float32
     a = torch.tensor([[1, 4],
                      [16, 9]], dtype=dtype, device=device)
@@ -1130,9 +1130,9 @@ def test_sub_basic(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Basic Usage of sub Function")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     dtype = torch.float32
     a = torch.tensor([4, 5, 6], dtype=dtype, device=device)
     b = torch.tensor([1, 2, 3], dtype=dtype, device=device)
@@ -1183,9 +1183,9 @@ def test_sub_broadcast(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Broadcasting Between Tensors")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     dtype = torch.float32
     a = torch.tensor([[1, 2], [3, 4]], dtype=dtype, device=device)
     b = torch.tensor([1, 2], dtype=dtype, device=device)
@@ -1234,9 +1234,9 @@ def test_sub_scalar(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Subing a scalar to a tensor")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     dtype = torch.float32
     a = torch.tensor([1, 2, 3], dtype=dtype, device=device)
     scalar = 2.0
@@ -1287,9 +1287,9 @@ def test_sub_with_alpha(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Using the Alpha Parameter")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     dtype = torch.float32
     a = torch.tensor([9, 8, 7], dtype=dtype, device=device)
     b = torch.tensor([1, 2, 3], dtype=dtype, device=device)
@@ -1310,7 +1310,7 @@ def test_sub_with_alpha(device_id: int = None, run_mode: str = "npu"):
 
 def main():
     """Run element-wise examples.
-    
+
     Usage:
         python elementwise.py              # Run all examples
         python elementwise.py --list       # List all available examples
@@ -1342,9 +1342,9 @@ Examples:
         nargs="?", type=str, default="npu", choices=["npu", "sim"],
         help="run mode, such as npu/sim etc."
     )
-    
+
     args = parser.parse_args()
-    
+
     # Define available examples
     examples = {
         'abs::test_abs_basic': {
@@ -1463,7 +1463,7 @@ Examples:
             'function': test_sub_with_alpha
         }
     }
-    
+
     # List examples if requested
     if args.list:
         print("\n" + "=" * 60)
@@ -1474,7 +1474,7 @@ Examples:
             print(f"     {ex_info['name']}")
             print(f"     {ex_info['description']}\n")
         return
-    
+
     # Validate case if provided
     examples_to_run = []
     if args.example_id:
@@ -1486,7 +1486,7 @@ Examples:
         examples_to_run = [(args.example_id, examples[args.example_id])]
     else:
         examples_to_run = [(key, info) for key, info in sorted(examples.items())]
-    
+
     print("\n" + "=" * 60)
     print("PyPTO Element-wise Operation Examples")
     print("=" * 60 + "\n")
@@ -1498,20 +1498,20 @@ Examples:
             return
         import torch_npu
         torch.npu.set_device(device_id)
-    
+
     try:
         for case_key, ex_info in examples_to_run:
             if args.run_mode == "npu" and device_id is None:
                 print(f"Skipping {case_key} ({ex_info['name']}): NPU device not configured")
                 continue
-            
+
             ex_info['function'](device_id, args.run_mode)
-        
+
         if len(examples_to_run) > 1:
             print("=" * 60)
             print("All element-wise tests passed!")
             print("=" * 60)
-        
+
     except Exception as e:
         print(f"\nError: {e}")
         raise

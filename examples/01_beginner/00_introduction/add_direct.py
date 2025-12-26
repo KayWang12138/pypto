@@ -68,11 +68,11 @@ def add_direct(x: torch.Tensor, y: torch.Tensor, z: torch.Tensor, run_mode: str 
         add_direct_kernel_sim(pto_input0, pto_input1, pto_output)
 
 
-def test_add_direct(device_id = None, run_mode: str = "npu") -> None:
+def test_add_direct(device_id=None, run_mode: str = "npu") -> None:
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
 
     shape = (1, 4, 1, 64)
-    #prepare data
+    # prepare data
     input_data0 = torch.rand(shape, dtype=torch.float, device=device)
     input_data1 = torch.rand(shape, dtype=torch.float, device=device)
     output_data = torch.zeros(shape, dtype=torch.float, device=device)

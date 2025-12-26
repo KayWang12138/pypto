@@ -70,10 +70,10 @@ def add_direct(x: torch.Tensor, y: torch.Tensor, run_mode: str = "npu") -> torch
     return out
 
 
-def test_add_direct(device_id = None, run_mode: str = "npu") -> None:
+def test_add_direct(device_id=None, run_mode: str = "npu") -> None:
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     shape = (1, 4, 1, 64)
-    #prepare data
+    # prepare data
     input_data0 = torch.rand(shape, dtype=torch.float, device=device)
     input_data1 = torch.rand(shape, dtype=torch.float, device=device)
     output_data = add_direct(input_data0, input_data1, run_mode)
@@ -83,7 +83,7 @@ def test_add_direct(device_id = None, run_mode: str = "npu") -> None:
     print(f"Input0 shape: {input_data0.shape}")
     print(f"Input1 shape: {input_data1.shape}")
     print(f"Output shape: {output_data.shape}")
-    
+
     if run_mode == "npu":
         print(f"Max difference: {max_diff:.6f}")
         assert_allclose(np.array(output_data.cpu()), np.array(golden.cpu()), rtol=3e-3, atol=3e-3)

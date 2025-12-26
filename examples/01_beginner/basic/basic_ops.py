@@ -81,7 +81,7 @@ def element_wise_ops_kernel_sim(a: pypto.Tensor, b: pypto.Tensor, result: pypto.
     add_result = pypto.add(a, b)
     mul_result = pypto.mul(add_result, 2.0)
     result[:] = mul_result
-    
+
 
 def element_wise_ops(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
     result = torch.zeros_like(a)
@@ -172,7 +172,7 @@ def test_matrix_multiplication(device_id: int = None, run_mode: str = "npu", dyn
     B_torch = torch.randn(K, N, dtype=torch.bfloat16, device=device)
 
     C_torch = matrix_multiply(A_torch, B_torch, run_mode, dynamic)
-    
+
     expected = torch.matmul(A_torch, B_torch)
     max_diff = (C_torch - expected).abs().max().item()
     print(f"Matrix A shape: {A_torch.shape}")
@@ -224,7 +224,7 @@ def test_activation_functions(device_id: int = None, run_mode: str = "npu", dyna
     input_torch = torch.randn(shape, dtype=torch.float16, device=device)
 
     output_torch = apply_activations(input_torch, run_mode, dynamic)
-    
+
     expected = torch.sigmoid(input_torch)
     max_diff = (output_torch - expected).abs().max().item()
     print(f"Input shape: {input_torch.shape}")
@@ -333,7 +333,7 @@ def test_view_operations(device_id: int = None, run_mode: str = "npu", dynamic: 
     input_torch = torch.randn(shape, dtype=torch.float16, device=device)
 
     output_torch = tiled_operation(input_torch, run_mode, dynamic)
-    
+
     # Verify
     expected = input_torch * 2.0
     max_diff = (output_torch - expected).abs().max().item()
@@ -402,7 +402,7 @@ def test_combined_operations(device_id: int = None, run_mode: str = "npu", dynam
     W_torch = torch.randn(in_features, out_features, dtype=torch.bfloat16, device=device)
     b_torch = torch.randn(out_features, dtype=torch.bfloat16, device=device)
     y_torch = linear_layer_with_activation(x_torch, W_torch, b_torch, run_mode)
-    
+
     expected = torch.sigmoid(torch.matmul(x_torch, W_torch) + b_torch)
     max_diff = (y_torch - expected).abs().max().item()
     print(f"Input x shape: {x_torch.shape}")
@@ -522,7 +522,6 @@ Examples:
         examples_to_run = [(args.example_id, examples[args.example_id])]
     else:
         examples_to_run = list(examples.items())
-
 
     if args.run_mode == "npu":
         device_id = get_device_id()

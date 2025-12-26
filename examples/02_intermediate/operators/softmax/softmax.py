@@ -75,7 +75,7 @@ def softmax_core(x: pypto.Tensor) -> pypto.Tensor:
 def softmax_kernel_npu(x: pypto.Tensor, y: pypto.Tensor) -> None:
     # after the dynamic axis of tensor is marked, get the tensor shape accordingly
     tensor_shape = x.shape
-    b = tensor_shape[0] # dynamic: symbolic_scalar; static: immediate number
+    b = tensor_shape[0]  # dynamic: symbolic_scalar; static: immediate number
     n1, n2, dim = tensor_shape[1:]
     tile_b = 1
     b_loop = b / tile_b
@@ -95,7 +95,7 @@ def softmax_kernel_npu(x: pypto.Tensor, y: pypto.Tensor) -> None:
 def softmax_kernel_sim(x: pypto.Tensor, y: pypto.Tensor) -> None:
     # after the dynamic axis of tensor is marked, get the tensor shape accordingly
     tensor_shape = x.shape
-    b = tensor_shape[0] # dynamic: symbolic_scalar; static: immediate number
+    b = tensor_shape[0]  # dynamic: symbolic_scalar; static: immediate number
     n1, n2, dim = tensor_shape[1:]
     tile_b = 1
     b_loop = b / tile_b
@@ -129,13 +129,13 @@ def softmax(x: torch.Tensor, run_mode: str = "npu", dynamic: bool = True) -> tor
     return y
 
 
-def test_softmax(device_id = None, run_mode: str = "npu", dynamic: bool = True) -> None:
+def test_softmax(device_id=None, run_mode: str = "npu", dynamic: bool = True) -> None:
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
 
     shape = (32, 32, 1, 256)
     x = torch.rand(shape, dtype=torch.float, device=device)
 
-    y = softmax(x, run_mode, dynamic).cpu() # default dim: -1
+    y = softmax(x, run_mode, dynamic).cpu()  # default dim: -1
     golden = torch.softmax(x, dim=-1).cpu()
 
     max_diff = np.abs(y.numpy() - golden.numpy()).max()

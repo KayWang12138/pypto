@@ -91,8 +91,8 @@ def scaled_dot_product_attention_core(q: pypto.Tensor, k: pypto.Tensor, v: pypto
     host_options={"only_codegen": True},
 )
 def scaled_dot_product_attention_kernel_npu(q: pypto.Tensor, k: pypto.Tensor,
-                                 v: pypto.Tensor, y: pypto.Tensor, params: torch.Size,
-                                 config: AttentionConfig):
+                                            v: pypto.Tensor, y: pypto.Tensor, params: torch.Size,
+                                            config: AttentionConfig):
     """Scaled dot-product attention with dynamic batch and sequence lengths."""
     batch_size, num_heads, seq_len, head_dim = params
 
@@ -116,8 +116,8 @@ def scaled_dot_product_attention_kernel_npu(q: pypto.Tensor, k: pypto.Tensor,
     runtime_options={"run_mode": 1}
 )
 def scaled_dot_product_attention_kernel_sim(q: pypto.Tensor, k: pypto.Tensor,
-                                 v: pypto.Tensor, y: pypto.Tensor, params: torch.Size,
-                                 config: AttentionConfig):
+                                            v: pypto.Tensor, y: pypto.Tensor, params: torch.Size,
+                                            config: AttentionConfig):
     """Scaled dot-product attention with dynamic batch and sequence lengths."""
     batch_size, num_heads, seq_len, head_dim = params
 
@@ -162,7 +162,7 @@ def scaled_dot_product_attention(q: torch.Tensor, k: torch.Tensor,
     return y
 
 
-def test_dynamic_shape(device_id = None, run_mode: str = "npu", dynamic: bool = True) -> None:
+def test_dynamic_shape(device_id=None, run_mode: str = "npu", dynamic: bool = True) -> None:
     """Test attention function with dynamic shapes."""
     print("=" * 60)
     print("Test: Dynamic Scaled Dot-Product Attention")
@@ -181,13 +181,13 @@ def test_dynamic_shape(device_id = None, run_mode: str = "npu", dynamic: bool = 
     for batch_size, seq_len_q, seq_len_kv in test_cases:
         dtype = torch.float32
         q_torch = torch.randn(batch_size, num_heads, seq_len_q, head_dim,
-                                dtype=dtype, device=device)
+                              dtype=dtype, device=device)
         k_torch = torch.randn(batch_size, num_heads, seq_len_kv, head_dim,
-                                dtype=dtype, device=device)
+                              dtype=dtype, device=device)
         v_torch = torch.randn(batch_size, num_heads, seq_len_kv, head_dim,
-                                dtype=dtype, device=device)
+                              dtype=dtype, device=device)
         config = AttentionConfig(num_heads=num_heads, head_dim=head_dim,
-                                dtype=pypto.DT_FP32, use_dynamic_shape=True)
+                                 dtype=pypto.DT_FP32, use_dynamic_shape=True)
         params = q_torch.shape
         # Execute
         out_torch = scaled_dot_product_attention(q_torch, k_torch, v_torch, params, config, run_mode, dynamic).cpu()

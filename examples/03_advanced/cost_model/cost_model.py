@@ -30,6 +30,7 @@ The test validates that the cost analysis and swimlane visualization work correc
 simulation environment, independent of actual NPU hardware availability.
 """
 
+
 def safe_json_load(file_path):
     try:
         with open(file_path, 'r', encoding='utf-8') as file:
@@ -49,7 +50,7 @@ def get_out_put_path():
     out_path = "./output"
     if os.path.exists(out_path):
         subdirs = [os.path.join(out_path, d) for d in os.listdir(out_path)
-                if os.path.isdir(os.path.join(out_path, d))]
+                   if os.path.isdir(os.path.join(out_path, d))]
         if subdirs:
             latest_dir = max(subdirs, key=os.path.getctime)
             return latest_dir
@@ -66,7 +67,8 @@ def softmax_core(input_tensor: pypto.Tensor) -> pypto.Tensor:
 
 @pypto.jit(
     host_options={"only_codegen": True},
-    runtime_options={"cfgcache_device_task_num": 100, "cfgcache_root_task_num": 100, "cfgcache_leaf_task_num": 10000, "run_mode": 1}
+    runtime_options={"cfgcache_device_task_num": 100, "cfgcache_root_task_num": 100,
+                     "cfgcache_leaf_task_num": 10000, "run_mode": 1}
 )
 def softmax(input_tensor, output_tensor, cost_model_enable):
 
@@ -135,7 +137,8 @@ def test_softmax(cost_model_enable=True):
     assert output_path
 
     if cost_model_enable:
-        merged_swimlane, error = safe_json_load(os.path.join(output_path, 'CostModelSimulationOutput/merged_swimlane.json'))
+        merged_swimlane, error = safe_json_load(os.path.join(
+            output_path, 'CostModelSimulationOutput/merged_swimlane.json'))
         assert not error
 
     print(f"Input shape: {input_data.shape}")

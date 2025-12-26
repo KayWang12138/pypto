@@ -90,8 +90,8 @@ def scaled_dot_product_attention_core(q: pypto.Tensor, k: pypto.Tensor, v: pypto
     host_options={"only_codegen": True},
 )
 def scaled_dot_product_attention_kernel_npu(q: pypto.Tensor, y: pypto.Tensor, k: pypto.Tensor,
-                                 v: pypto.Tensor, params: torch.Size,
-                                 config: AttentionConfig) -> None:
+                                            v: pypto.Tensor, params: torch.Size,
+                                            config: AttentionConfig) -> None:
     """Scaled dot-product attention with dynamic batch and sequence lengths."""
     batch_size, num_heads, seq_len, head_dim = params
 
@@ -117,8 +117,8 @@ def scaled_dot_product_attention_kernel_npu(q: pypto.Tensor, y: pypto.Tensor, k:
     runtime_options={"run_mode": 1}
 )
 def scaled_dot_product_attention_kernel_sim(q: pypto.Tensor, y: pypto.Tensor, k: pypto.Tensor,
-                                 v: pypto.Tensor, params: torch.Size,
-                                 config: AttentionConfig) -> None:
+                                            v: pypto.Tensor, params: torch.Size,
+                                            config: AttentionConfig) -> None:
     """Scaled dot-product attention with dynamic batch and sequence lengths."""
     batch_size, num_heads, seq_len, head_dim = params
 
@@ -165,7 +165,7 @@ def scaled_dot_product_attention(q: torch.Tensor, k: torch.Tensor,
     return y
 
 
-def test_unordered_input_attention(device_id = None, run_mode: str = "npu", dynamic: bool = True) -> None:
+def test_unordered_input_attention(device_id=None, run_mode: str = "npu", dynamic: bool = True) -> None:
     """Test attention with kenel_unordered_input."""
     print("=" * 60)
     print("Test: kenel_unordered_input Scaled Dot-Product Attention")
@@ -178,13 +178,13 @@ def test_unordered_input_attention(device_id = None, run_mode: str = "npu", dyna
     batch_size, seq_len_q, seq_len_kv = 8, 64, 64
     dtype = torch.float32
     q_torch = torch.randn(batch_size, num_heads, seq_len_q, head_dim,
-                            dtype=dtype, device=device)
+                          dtype=dtype, device=device)
     k_torch = torch.randn(batch_size, num_heads, seq_len_kv, head_dim,
-                            dtype=dtype, device=device)
+                          dtype=dtype, device=device)
     v_torch = torch.randn(batch_size, num_heads, seq_len_kv, head_dim,
-                            dtype=dtype, device=device)
+                          dtype=dtype, device=device)
     config = AttentionConfig(num_heads=num_heads, head_dim=head_dim,
-                            dtype=pypto.DT_FP32, use_dynamic_shape=True)
+                             dtype=pypto.DT_FP32, use_dynamic_shape=True)
     params = q_torch.shape
     # Execute
     out_torch = scaled_dot_product_attention(q_torch, k_torch, v_torch, params, config, run_mode, dynamic).cpu()
@@ -241,7 +241,7 @@ def op_unordered_input(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu", 
     return y1, y2
 
 
-def test_unordered_input_op(device_id = None, run_mode: str = "npu", dynamic: bool = False) -> None:
+def test_unordered_input_op(device_id=None, run_mode: str = "npu", dynamic: bool = False) -> None:
     """Test op with kenel_unordered_input"""
     print("=" * 60)
     print("Test: OP with kenel_unordered_input")

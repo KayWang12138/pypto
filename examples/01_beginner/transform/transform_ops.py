@@ -32,7 +32,7 @@ from numpy.testing import assert_allclose
 def get_device_id():
     """
     Get and validate TILE_FWK_DEVICE_ID from environment variable.
-    
+
     Returns:
         int: The device ID if valid, None otherwise.
     """
@@ -42,7 +42,7 @@ def get_device_id():
         print("Please set it before running this example:")
         print("  export TILE_FWK_DEVICE_ID=0")
         return None
-    
+
     try:
         device_id = int(os.environ['TILE_FWK_DEVICE_ID'])
         return device_id
@@ -54,12 +54,13 @@ def get_device_id():
 # ============================================================================
 # Assemble Examples
 # ============================================================================
-    
+
 @pypto.jit
 def assemble_kernel_npu(x: pypto.Tensor, out: pypto.Tensor, offsets: list) -> None:
     tile_shapes = [8 for _ in range(len(x.shape))]
     pypto.set_vec_tile_shapes(*tile_shapes)
     pypto.assemble(x, offsets, out)
+
 
 @pypto.jit(runtime_options={"run_mode": pypto.RunMode.SIM})
 def assemble_kernel_sim(x: pypto.Tensor, out: pypto.Tensor, offsets: list) -> None:
@@ -90,9 +91,9 @@ def test_assemble_basic(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Basic Usage of assemble Function")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     # Test 1: Basic assembly of a small tensor into a larger tensor
     dtype = torch.float32
     x = torch.tensor([[1, 1], [1, 1]], dtype=dtype, device=device)
@@ -116,7 +117,7 @@ def test_assemble_different_offsets_shapes(device_id: int = None, run_mode: str 
     print("=" * 60)
     print("Test: Basic Usage of assemble Function")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     # Test 2: Using different offsets
     dtype = torch.float32
@@ -134,7 +135,7 @@ def test_assemble_different_offsets_shapes(device_id: int = None, run_mode: str 
     print(f"Max difference: {max_diff:.6f}")
     if run_mode == "npu":
         assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
-    
+
     # Test 3: Assembly with different shapes
     dtype = torch.float32
     x = torch.tensor([[1, 1, 1], [1, 1, 1]], dtype=dtype, device=device)
@@ -152,13 +153,14 @@ def test_assemble_different_offsets_shapes(device_id: int = None, run_mode: str 
     print(f"Max difference: {max_diff:.6f}")
     if run_mode == "npu":
         assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
-    
+
     print("✓ Basic usage of assemble function completed successfully")
 
 # ============================================================================
 # Gather Examples
 # ============================================================================
-    
+
+
 @pypto.jit(
     host_options={"only_codegen": True},
 )
@@ -166,6 +168,7 @@ def gather_kernel_npu(input_tensor: pypto.Tensor, index_tensor: pypto.Tensor, ou
     tile_shapes = [8 for _ in range(len(input_tensor.shape))]
     pypto.set_vec_tile_shapes(*tile_shapes)
     out[:] = pypto.gather(input_tensor, dim, index_tensor)
+
 
 @pypto.jit(
     host_options={"only_codegen": True},
@@ -177,7 +180,7 @@ def gather_kernel_sim(input_tensor: pypto.Tensor, index_tensor: pypto.Tensor, ou
     out[:] = pypto.gather(input_tensor, dim, index_tensor)
 
 
-def gather_op(input_tensor: torch.Tensor, index_tensor: torch.Tensor, dim: int, run_mode: str= "npu", dynamic: bool = False) -> torch.Tensor:
+def gather_op(input_tensor: torch.Tensor, index_tensor: torch.Tensor, dim: int, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
     out = torch.zeros(index_tensor.shape, dtype=input_tensor.dtype, device=input_tensor.device)
 
     if dynamic:
@@ -200,9 +203,9 @@ def test_gather_basic(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Basic Usage of gather Function")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     # Test 1: Basic gathering along dimension 0
     dtype = torch.int32
     input_tensor = torch.tensor([[0, 1, 2, 3, 4],
@@ -231,44 +234,44 @@ def test_gather_different_dimensions(device_id: int = None, run_mode: str = "npu
     print("=" * 60)
     print("Test: Gathering Tensors Along Different Dimensions")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     # Test: Gatherenating along dimension 2
     dtype = torch.int32
     input_tensor = torch.tensor([[
-                    [10, 20, 30, 40],
-                    [50, 60, 70, 80],
-                    [90, 100, 110, 120]
-                ],
-                [
-                    [1, 2, 3, 4],
-                    [5, 6, 7, 8],
-                    [9, 10, 11, 12]
-                ]], dtype=dtype, device=device)
+        [10, 20, 30, 40],
+        [50, 60, 70, 80],
+        [90, 100, 110, 120]
+    ],
+        [
+        [1, 2, 3, 4],
+        [5, 6, 7, 8],
+        [9, 10, 11, 12]
+    ]], dtype=dtype, device=device)
     index_tensor = torch.tensor([
-                        [
-                            [0, 3],
-                            [2, 1],
-                            [3, 3]
-                        ],
-                        [
-                            [1, 2],
-                            [0, 3],
-                            [2, 0]
-                        ]], dtype=dtype, device=device)
+        [
+            [0, 3],
+            [2, 1],
+            [3, 3]
+        ],
+        [
+            [1, 2],
+            [0, 3],
+            [2, 0]
+        ]], dtype=dtype, device=device)
     dim = 2
     expected = torch.tensor([
-                        [
+        [
                             [10., 40.],
                             [70., 60.],
                             [120., 120.]
-                        ],
-                        [
-                            [2., 3.],
-                            [5., 8.],
-                            [11., 9.]
-                        ]], dtype=dtype, device=device)
+                            ],
+        [
+            [2., 3.],
+            [5., 8.],
+            [11., 9.]
+        ]], dtype=dtype, device=device)
 
     out = gather_op(input_tensor, index_tensor, dim, run_mode)
     max_diff = np.abs(out.cpu().numpy() - expected.cpu().numpy()).max()
@@ -285,9 +288,9 @@ def test_gather_negative_indexing(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Handling Negative Indexing")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     # Test 1: Gatherenating along dimension -1
     dtype = torch.int32
     input_tensor = torch.tensor([[0, 1, 2, 3, 4],
@@ -322,6 +325,7 @@ def scatter_kernel_npu(x: pypto.Tensor, y: pypto.Tensor, out: pypto.Tensor) -> N
 
     out[:] = pypto.scatter(x, dim_, y, src_)
 
+
 @pypto.jit(runtime_options={"run_mode": pypto.RunMode.SIM})
 def scatter_kernel_sim(x: pypto.Tensor, y: pypto.Tensor, out: pypto.Tensor) -> None:
     tensor_shape = x.shape
@@ -329,6 +333,7 @@ def scatter_kernel_sim(x: pypto.Tensor, y: pypto.Tensor, out: pypto.Tensor) -> N
     pypto.set_vec_tile_shapes(*vec_tile_shapes)
 
     out[:] = pypto.scatter(x, dim_, y, src_)
+
 
 def scatter(x: torch.Tensor, dim: int, y: torch.Tensor, src: torch.float32, run_mode: str = "npu") -> torch.Tensor:
     out = torch.zeros(x.shape).to(x.device)
@@ -355,7 +360,7 @@ def test_scatter(device_id: int = None, run_mode: str = "npu"):
 
     x = torch.rand(3, 5, dtype=torch.float32, device=device)
     dim = 0
-    y = torch.randint(0, 3, x.shape, dtype=torch.int64, device=device) # BUG: The shape of y must be the same as x.
+    y = torch.randint(0, 3, x.shape, dtype=torch.int64, device=device)  # BUG: The shape of y must be the same as x.
     src = 0.5
 
     golden = torch.scatter(x, dim, y, src)
@@ -371,7 +376,7 @@ def test_scatter(device_id: int = None, run_mode: str = "npu"):
 # ============================================================================
 # Scatter_update Examples
 # ============================================================================
-    
+
 
 @pypto.jit
 def scatter_update_kernel_npu(x: pypto.Tensor, y: pypto.Tensor, out: pypto.Tensor) -> None:
@@ -380,6 +385,7 @@ def scatter_update_kernel_npu(x: pypto.Tensor, y: pypto.Tensor, out: pypto.Tenso
     pypto.set_vec_tile_shapes(*vec_tile_shapes)
 
     out[:] = pypto.scatter(x, update_dim_, y, update_src_)
+
 
 @pypto.jit(runtime_options={"run_mode": pypto.RunMode.SIM})
 def scatter_update_kernel_sim(x: pypto.Tensor, y: pypto.Tensor, out: pypto.Tensor) -> None:
@@ -431,12 +437,13 @@ def test_scatter_update(device_id: int = None, run_mode: str = "npu") -> None:
 # ============================================================================
 # Concat Examples
 # ============================================================================
-    
+
 @pypto.jit
 def concat_kernel_npu(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor, dim: int) -> None:
     tile_shapes = [8 for _ in range(len(a.shape))]
     pypto.set_vec_tile_shapes(*tile_shapes)
     out[:] = pypto.concat([a, b], dim=dim)
+
 
 @pypto.jit(runtime_options={"run_mode": pypto.RunMode.SIM})
 def concat_kernel_sim(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor, dim: int) -> None:
@@ -450,6 +457,7 @@ def concat_multiple_kernel_npu(a: pypto.Tensor, b: pypto.Tensor, c: pypto.Tensor
     tile_shapes = [8 for _ in range(len(a.shape))]
     pypto.set_vec_tile_shapes(*tile_shapes)
     out[:] = pypto.concat([a, b, c], dim=dim)
+
 
 @pypto.jit(runtime_options={"run_mode": pypto.RunMode.SIM})
 def concat_multiple_kernel_sim(a: pypto.Tensor, b: pypto.Tensor, c: pypto.Tensor, out: pypto.Tensor, dim: int) -> None:
@@ -509,9 +517,9 @@ def test_concat_basic(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Basic Usage of concat Function")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     # Test 1: Basic concatenating of two tensors
     dtype = torch.float32
     a = torch.tensor([[1, 1], [1, 1]], dtype=dtype, device=device)
@@ -535,16 +543,16 @@ def test_concat_different_dimensions(device_id: int = None, run_mode: str = "npu
     print("=" * 60)
     print("Test: Concatenating Tensors Along Different Dimensions")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     # Test 1: Concatenating along dimension 1
     dtype = torch.float32
     a = torch.tensor([[1, 1], [1, 1]], dtype=dtype, device=device)
     b = torch.tensor([[0, 0], [0, 0]], dtype=dtype, device=device)
     dim = 1
-    expected = torch.tensor([[1, 1, 0 ,0],
-                             [1, 1, 0 ,0]], dtype=dtype, device=device)
+    expected = torch.tensor([[1, 1, 0, 0],
+                             [1, 1, 0, 0]], dtype=dtype, device=device)
 
     out = concat_op(a, b, dim, run_mode)
     max_diff = np.abs(out.cpu().numpy() - expected.cpu().numpy()).max()
@@ -561,9 +569,9 @@ def test_concat_multiple_tensors(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Concatenating Multiple Tensors")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     # Test 1: Concatenating of three tensors along dimension 0
     dtype = torch.float32
     a = torch.tensor([[1, 1], [1, 1]], dtype=dtype, device=device)
@@ -589,9 +597,9 @@ def test_concat_different_shapes(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Concatenating Tensors of Different Shapes")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     # Test 1: Concatenating Tensors of Different Shapes
     dtype = torch.float32
     a = torch.tensor([[1, 1], [1, 1]], dtype=dtype, device=device)
@@ -613,12 +621,13 @@ def test_concat_different_shapes(device_id: int = None, run_mode: str = "npu"):
 # ============================================================================
 # View Examples
 # ============================================================================
-    
+
 @pypto.jit
 def view_kernel_npu(x: pypto.Tensor, out: pypto.Tensor, shape: list, offsets: list) -> None:
     tile_shapes = [8 for _ in range(len(x.shape))]
     pypto.set_vec_tile_shapes(*tile_shapes)
     out[:] = pypto.view(x, shape, offsets)
+
 
 @pypto.jit(runtime_options={"run_mode": pypto.RunMode.SIM})
 def view_kernel_sim(x: pypto.Tensor, out: pypto.Tensor, shape: list, offsets: list) -> None:
@@ -643,14 +652,14 @@ def view_op(x: torch.Tensor, shape: list, offsets: list, run_mode: str = "npu", 
     return out
 
 
-def test_view_basic(device_id = None, run_mode: str = "npu"):
+def test_view_basic(device_id=None, run_mode: str = "npu"):
     """Test basic usage of view function"""
     print("=" * 60)
     print("Test: Basic Usage of view Function")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     # Test 1: Basic usage of view function
     dtype = torch.float32
     x = torch.tensor([[1, 1, 2, 2, 3, 3, 4, 4],
@@ -673,12 +682,13 @@ def test_view_basic(device_id = None, run_mode: str = "npu"):
         assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
     print("✓ Basic usage of view function completed successfully")
 
-    
+
 @pypto.jit
 def view_with_valid_shape_kernel_npu(x: pypto.Tensor, out: pypto.Tensor, shape: list, offsets: list, valid_shape: list) -> None:
     tile_shapes = [8 for _ in range(len(x.shape))]
     pypto.set_vec_tile_shapes(*tile_shapes)
     out[:] = pypto.view(x, shape, offsets, valid_shape=valid_shape)
+
 
 @pypto.jit(runtime_options={"run_mode": pypto.RunMode.SIM})
 def view_with_valid_shape_kernel_sim(x: pypto.Tensor, out: pypto.Tensor, shape: list, offsets: list, valid_shape: list) -> None:
@@ -708,9 +718,9 @@ def test_view_with_valid_shape(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Using the valid_shape Parameter")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     # Test 1: Using the valid_shape parameter
     dtype = torch.float32
     x = torch.tensor([[1, 1, 2, 2, 3, 3, 4, 4],
@@ -747,6 +757,7 @@ def transpose_kernel_npu(x: pypto.Tensor, y: pypto.Tensor) -> None:
 
     y[:] = pypto.transpose(x, 0, 1)
 
+
 @pypto.jit(runtime_options={"run_mode": pypto.RunMode.SIM})
 def transpose_kernel_sim(x: pypto.Tensor, y: pypto.Tensor) -> None:
     tensor_shape = x.shape
@@ -754,10 +765,10 @@ def transpose_kernel_sim(x: pypto.Tensor, y: pypto.Tensor) -> None:
     pypto.set_vec_tile_shapes(*vec_tile_shapes)
 
     y[:] = pypto.transpose(x, 0, 1)
-        
+
 
 def transpose(x: torch.Tensor, dim0: int, dim1: int, run_mode: str = "npu") -> torch.Tensor:
-    y = torch.zeros(3,2).to(x.device)#torch.empty_like(x)
+    y = torch.zeros(3, 2).to(x.device)  # torch.empty_like(x)
     global dim_0, dim_1
     dim_0, dim_1 = dim0, dim1
 
@@ -777,18 +788,18 @@ def test_transpose(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Basic Usage of transpose Function")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     dtype = torch.float32
     x = torch.tensor([[1.0028, -0.9893, 0.5809],
-                        [-0.1669, 0.7299, 0.4942]], dtype=dtype, device=device)
+                      [-0.1669, 0.7299, 0.4942]], dtype=dtype, device=device)
 
     dim0, dim1 = 0, 1
     y = transpose(x, dim0, dim1, run_mode).cpu()
-    golden = torch.tensor([[ 1.0028, -0.1669],
-                        [-0.9893, 0.7299],
-                        [ 0.5809, 0.4942]], dtype=dtype, device=f'cpu')
+    golden = torch.tensor([[1.0028, -0.1669],
+                           [-0.9893, 0.7299],
+                           [0.5809, 0.4942]], dtype=dtype, device=f'cpu')
 
     max_diff = np.abs(y.numpy() - golden.numpy()).max()
     print(f"Output: {y}")
@@ -825,27 +836,28 @@ def cast_kernel_npu(x: pypto.Tensor, dtype: pypto.DataType, y: pypto.Tensor) -> 
     pypto.set_vec_tile_shapes(*vec_tile_shapes)
     y[:] = pypto.cast(x, dtype)
 
+
 @pypto.jit(runtime_options={"run_mode": pypto.RunMode.SIM})
 def cast_kernel_sim(x: pypto.Tensor, dtype: pypto.DataType, y: pypto.Tensor) -> None:
     tensor_shape = x.shape
     vec_tile_shapes = [8 for _ in range(len(tensor_shape))]
     pypto.set_vec_tile_shapes(*vec_tile_shapes)
     y[:] = pypto.cast(x, dtype)
-   
-   
-def cast(x: torch.Tensor, dtype: torch.dtype, run_mode: str = "npu") -> torch.Tensor: 
+
+
+def cast(x: torch.Tensor, dtype: torch.dtype, run_mode: str = "npu") -> torch.Tensor:
     y = torch.empty_like(x, dtype=dtype)
 
     x_pto = pypto.from_torch(x)
     y_pto = pypto.from_torch(y)
-    
+
     pto_type = data_type[dtype]
     # launch the kernel
     if run_mode == "npu":
         cast_kernel_npu(x_pto, pto_type, y_pto)
     else:
         cast_kernel_sim(x_pto, pto_type, y_pto)
-    return y   
+    return y
 
 
 def test_cast(device_id: int = None, run_mode: str = "npu"):
@@ -853,9 +865,9 @@ def test_cast(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Basic Usage of cast Function")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     dtype = torch.float32
     cast_dtype = torch.float16
     x = torch.tensor([2.0, 3.0], dtype=dtype, device=device)
@@ -867,11 +879,11 @@ def test_cast(device_id: int = None, run_mode: str = "npu"):
     if run_mode == "npu":
         assert_allclose(np.array(y), np.array(golden), rtol=1e-3, atol=1e-3)
     print("✓ Basic usage of cast function completed successfully")
-  
-        
+
+
 def main():
     """Run transform examples.
-    
+
     Usage:
         python transform_ops.py                          # Run all examples
         python transform_ops.py --list                   # List all available examples
@@ -906,9 +918,9 @@ Examples:
         choices=["npu", "sim"],
         help='Run mode, such as npu/sim etc.'
     )
-    
+
     args = parser.parse_args()
-    
+
     # Define available examples
     examples = {
         'assemble::test_assemble_basic': {
@@ -987,7 +999,7 @@ Examples:
             'function': test_cast,
         },
     }
-    
+
     # List examples if requested
     if args.list:
         print("\n" + "=" * 60)
@@ -998,7 +1010,7 @@ Examples:
             print(f"     name: {ex_info['name']}")
             print(f"     description: {ex_info['description']}\n")
         return
-    
+
     # Validate case if provided
     device_id = None
     examples_to_run = []
@@ -1011,11 +1023,11 @@ Examples:
         examples_to_run = [(args.example_id, examples[args.example_id])]
     else:
         examples_to_run = [(key, info) for key, info in sorted(examples.items())]
-    
+
     print("\n" + "=" * 60)
     print("PyPTO Transform Operation Examples")
     print("=" * 60 + "\n")
-    
+
     if args.run_mode == "npu":
         device_id = get_device_id()
         if device_id is None:
@@ -1024,17 +1036,17 @@ Examples:
         torch.npu.set_device(device_id)
         print("Running examples that require NPU hardware...")
         print("(Make sure CANN environment is configured and NPU is available)\n")
-    
+
     try:
         for ex_id, ex_info in examples_to_run:
             print(f"Running Example {ex_id}: {ex_info['name']}")
             ex_info['function'](device_id, args.run_mode)
-        
+
         if len(examples_to_run) > 1:
             print("=" * 60)
             print("All transform tests passed!")
             print("=" * 60)
-        
+
     except Exception as e:
         print(f"\nError: {e}")
         raise
@@ -1042,4 +1054,3 @@ Examples:
 
 if __name__ == "__main__":
     main()
-

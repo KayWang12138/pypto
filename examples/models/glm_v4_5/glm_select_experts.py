@@ -44,12 +44,12 @@ def check_args(
     assert router_logits.shape[1] == 160
     assert get_format(router_logits) == 'ND'
     assert router_logits.dtype == torch.float32
-    
+
     assert e_score_correction_bias.dim() == 1
     assert e_score_correction_bias.shape[0] == 160
     assert get_format(e_score_correction_bias) == 'ND'
     assert e_score_correction_bias.dtype == torch.bfloat16
-    
+
     assert isinstance(top_k, int)
     assert isinstance(renormalize, bool)
     assert isinstance(topk_group, int)
@@ -99,8 +99,8 @@ def process_main_loop_interation(
     """
     # 6. 通过view得到tile_logits
     tile_logits = pypto.view(logits_input, view_shape,
-                                [bs_idx * view_shape[0], 0],
-                                valid_shape=[(bs - bs_idx * view_shape[0]).min(view_shape[0]), ne])
+                             [bs_idx * view_shape[0], 0],
+                             valid_shape=[(bs - bs_idx * view_shape[0]).min(view_shape[0]), ne])
 
     # 7. 按照计算图实现运算逻辑，设置set_vec_tile_shapes时应尽可能用满UB，但不要超过UB的大小。
     pypto.set_vec_tile_shapes(view_first, ne)
@@ -115,8 +115,8 @@ def process_main_loop_interation(
     # reshape
     group_unit = ne // num_expert_group
     r1 = pypto.reshape(topk_weights_add,
-                        [view_shape[0], num_expert_group, group_unit],
-                        valid_shape=[(bs - bs_idx * view_shape[0]).min(view_shape[0]), num_expert_group,
+                       [view_shape[0], num_expert_group, group_unit],
+                       valid_shape=[(bs - bs_idx * view_shape[0]).min(view_shape[0]), num_expert_group,
                                     group_unit])
 
     # amax
@@ -130,8 +130,8 @@ def process_main_loop_interation(
 
     # zeros -> full(0)
     topk_group_mask = pypto.full([view_shape[0], num_expert_group], 0.0, group_weight.dtype,
-                                    valid_shape=[(bs - bs_idx * view_shape[0]).min(view_shape[0]),
-                                                num_expert_group])  # (16, 1)
+                                 valid_shape=[(bs - bs_idx * view_shape[0]).min(view_shape[0]),
+                                              num_expert_group])  # (16, 1)
 
     # scatter 尾轴不能切
     topk_group_mask_scatter_trans = pypto.scatter_(topk_group_mask, 1, topk_group_indices, 1.0)
@@ -143,7 +143,7 @@ def process_main_loop_interation(
     pypto.set_vec_tile_shapes(view_first, num_expert_group, ne)  # ne时 可以切成一块
     twm_expand = pypto.expand_clone(twm_unsqueeze, [view_shape[0], num_expert_group, group_unit],
                                     valid_shape=[(bs - bs_idx * view_shape[0]).min(view_shape[0]),
-                                                    num_expert_group, group_unit])
+                                                 num_expert_group, group_unit])
 
     # reshape
     pypto.set_vec_tile_shapes(view_first, num_expert_group, group_unit)  # (1,1,160)
@@ -182,11 +182,11 @@ def process_main_loop_interation(
 
 @pypto.jit(
     runtime_options={"stitch_function_num_initial": 128,
-    "stitch_function_outcast_memory": 128,
-    "stitch_function_inner_memory": 128,
-    "cfgcache_device_task_num": 100,
-    "cfgcache_root_task_num": 1000,
-    "cfgcache_leaf_task_num": 10000},
+                     "stitch_function_outcast_memory": 128,
+                     "stitch_function_inner_memory": 128,
+                     "cfgcache_device_task_num": 100,
+                     "cfgcache_root_task_num": 1000,
+                     "cfgcache_leaf_task_num": 10000},
     host_options={"only_codegen": True},
 )
 def select_experts_kernel(logits_input, e_score_bias_input, weight_k, ids_k,
@@ -299,7 +299,7 @@ def test_select_experts():
         with torch.npu.graph(g):
             select_experts_kernel(*pto_inputs, *pto_outputs, renormalize, topk_group, num_expert_group)
         g.replay()
-        pypto.runtime._device_synchronize()#内部接口，不推荐使用
+        pypto.runtime._device_synchronize()  # 内部接口，不推荐使用
 
         # 5. 与PyTorch参考实现对比
         router_logits_fp32 = router_logits.to(torch.float)
@@ -354,18 +354,18 @@ def test_select_experts():
 
 @allow_in_graph
 def select_experts(router_logits: torch.Tensor,
-                top_k: int,  # number of top k experts.
-                # Whether to renormalize the routing weights.
-                renormalize: bool,
-                # Number of expert groups to select from.
-                topk_group: int,
-                # Number of experts in each group.
-                num_expert_group: int,
-                # Correction bias to apply to expert scores.
-                e_score_correction_bias: torch.Tensor,
-                topk_weights: torch.Tensor,
-                topk_ids: torch.Tensor
-):
+                   top_k: int,  # number of top k experts.
+                   # Whether to renormalize the routing weights.
+                   renormalize: bool,
+                   # Number of expert groups to select from.
+                   topk_group: int,
+                   # Number of experts in each group.
+                   num_expert_group: int,
+                   # Correction bias to apply to expert scores.
+                   e_score_correction_bias: torch.Tensor,
+                   topk_weights: torch.Tensor,
+                   topk_ids: torch.Tensor
+                   ):
     """
     Select top-k experts for each token based on router logits.
 
@@ -409,7 +409,7 @@ def select_experts(router_logits: torch.Tensor,
     pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
     pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
     select_experts_kernel(*pto_inputs, *pto_outputs, renormalize, topk_group, num_expert_group)
-    pypto.runtime._device_synchronize()#内部接口，不推荐使用
+    pypto.runtime._device_synchronize()  # 内部接口，不推荐使用
 
 
 def main():

@@ -40,25 +40,25 @@ Example:
                      "device_sched_mode": 2}
 )
 def mla_indexer_prolog_quant_p(token_x, mla_w_dq, mla_w_uq_qr, mla_dequant_scale, mla_w_uk, mla_w_dkv_kr, mla_gamma_cq,
-                             mla_gamma_ckv, cos, sin, cache_index, mla_kv_cache, mla_kr_cache,
-                             mla_k_scale_cache, ip_w_qb_in, ip_w_qb_scale_in, ip_wk_in, ip_w_proj_in,
-                             ip_ln_gamma_k_in, ip_ln_beta_k_in, ip_hadamard_q_in, ip_hadamard_k_in,
-                             ip_k_cache, ip_k_cache_scale, mla_query_nope_out, mla_query_rope_out,
-                             mla_kv_cache_out, mla_kr_cache_out,
-                             mla_k_scale_cache_out, ip_q_int8_out, ip_q_scale_out, ip_k_int8_out,
-                             ip_k_scale_out, ip_weights_out, mla_epsilon_cq, mla_epsilon_ckv,
-                             mla_cache_mode, mla_tile_config,
-                             ip_attrs, ip_configs, rope_cfg):
+                               mla_gamma_ckv, cos, sin, cache_index, mla_kv_cache, mla_kr_cache,
+                               mla_k_scale_cache, ip_w_qb_in, ip_w_qb_scale_in, ip_wk_in, ip_w_proj_in,
+                               ip_ln_gamma_k_in, ip_ln_beta_k_in, ip_hadamard_q_in, ip_hadamard_k_in,
+                               ip_k_cache, ip_k_cache_scale, mla_query_nope_out, mla_query_rope_out,
+                               mla_kv_cache_out, mla_kr_cache_out,
+                               mla_k_scale_cache_out, ip_q_int8_out, ip_q_scale_out, ip_k_int8_out,
+                               ip_k_scale_out, ip_weights_out, mla_epsilon_cq, mla_epsilon_ckv,
+                               mla_cache_mode, mla_tile_config,
+                               ip_attrs, ip_configs, rope_cfg):
     """Fused MLA and Indexer Prolog quantization for prefill phase.
-    
+
     Combines MLA Prolog and Lightning Indexer Prolog computations in a single
     fused operator for prefill phase. This enables pipeline parallelism and
     reduces memory transfers between operators.
-    
+
     The computation flow:
     1. MLA Prolog: Computes MLA query, key, and value projections
     2. Indexer Prolog: Uses MLA's q_norm output to compute indexer query, key, and weights
-    
+
     Args:
         token_x: Input token tensor, shape (t, h), dtype BF16
         mla_w_dq: MLA down-projection weight for query, NZ format
@@ -101,7 +101,7 @@ def mla_indexer_prolog_quant_p(token_x, mla_w_dq, mla_w_uq_qr, mla_dequant_scale
         ip_attrs: IndexerPrologQuantAttr object for indexer computation
         ip_configs: IndexerPrologQuantConfigs object for indexer computation
         rope_cfg: RopeTileShapeConfig object for RoPE computation
-        
+
     Note:
         The function creates intermediate tensors (mla_q_norm_out, mla_q_norm_scale_out)
         to pass data from MLA Prolog to Indexer Prolog. Pipeline parallelism is
@@ -120,17 +120,17 @@ def mla_indexer_prolog_quant_p(token_x, mla_w_dq, mla_w_uq_qr, mla_dequant_scale
                            cube_l1_reuse_setting=mla_tile_config.cube_l1_reuse_setting,
                            cube_nbuffer_setting=mla_tile_config.cube_nbuffer_setting,
                            mg_copyin_upper_bound=mla_tile_config.mg_copyin_upper_bound)
-    
+
     # mla模块的输入输出tensor
     mla_input_tensors = (token_x, mla_w_dq, mla_w_uq_qr, mla_dequant_scale, mla_w_uk, mla_w_dkv_kr, mla_gamma_cq,
                          mla_gamma_ckv, cos, sin, cache_index, mla_kv_cache, mla_kr_cache,
                          mla_k_scale_cache)
     mla_output_tensors = (mla_q_norm_out, mla_q_norm_scale_out, mla_query_nope_out, mla_query_rope_out,
                           mla_kv_cache_out, mla_kr_cache_out, mla_k_scale_cache_out)
-    
+
     # mla模块计算流
     mla.mla_prolog_quant_compute(*mla_input_tensors, *mla_output_tensors, mla_epsilon_cq, mla_epsilon_ckv,
-                                   mla_cache_mode, mla_tile_config, rope_cfg)
+                                 mla_cache_mode, mla_tile_config, rope_cfg)
 
     ##################### ip #######################
     # 设置ip模块的优化参数
@@ -138,7 +138,7 @@ def mla_indexer_prolog_quant_p(token_x, mla_w_dq, mla_w_uq_qr, mla_dequant_scale
     pypto.set_pass_options(cube_l1_reuse_setting=ip_configs.cube_l1_reuse_setting)
     pypto.set_pass_options(mg_copyin_upper_bound=ip_configs.mg_copyin_upper_bound)
     pypto.set_pass_options(pg_upper_bound=ip_configs.pg_upper_bound)
-    
+
     # ip模块的输入输出tensor
     ip_input_tensors = (token_x, mla_q_norm_out, mla_q_norm_scale_out, ip_w_qb_in, ip_w_qb_scale_in, ip_wk_in,
                         ip_w_proj_in, ip_ln_gamma_k_in, ip_ln_beta_k_in, cos, sin, ip_hadamard_q_in, ip_hadamard_k_in,
@@ -150,24 +150,24 @@ def mla_indexer_prolog_quant_p(token_x, mla_w_dq, mla_w_uq_qr, mla_dequant_scale
 
 @pypto.jit
 def mla_indexer_prolog_quant_d(token_x, mla_w_dq, mla_w_uq_qr, mla_dequant_scale, mla_w_uk, mla_w_dkv_kr, mla_gamma_cq,
-                             mla_gamma_ckv, cos, sin, cache_index, mla_kv_cache, mla_kr_cache,
-                             mla_k_scale_cache, ip_w_qb_in, ip_w_qb_scale_in, ip_wk_in, ip_w_proj_in,
-                             ip_ln_gamma_k_in, ip_ln_beta_k_in, ip_hadamard_q_in, ip_hadamard_k_in,
-                             ip_k_cache, ip_k_cache_scale, mla_query_nope_out, mla_query_rope_out,
-                             mla_kv_cache_out, mla_kr_cache_out,
-                             mla_k_scale_cache_out, ip_q_int8_out, ip_q_scale_out, ip_k_int8_out,
-                             ip_k_scale_out, ip_weights_out, mla_epsilon_cq, mla_epsilon_ckv,
-                             mla_cache_mode, mla_tile_config,
-                             ip_attrs, ip_configs, rope_cfg):
+                               mla_gamma_ckv, cos, sin, cache_index, mla_kv_cache, mla_kr_cache,
+                               mla_k_scale_cache, ip_w_qb_in, ip_w_qb_scale_in, ip_wk_in, ip_w_proj_in,
+                               ip_ln_gamma_k_in, ip_ln_beta_k_in, ip_hadamard_q_in, ip_hadamard_k_in,
+                               ip_k_cache, ip_k_cache_scale, mla_query_nope_out, mla_query_rope_out,
+                               mla_kv_cache_out, mla_kr_cache_out,
+                               mla_k_scale_cache_out, ip_q_int8_out, ip_q_scale_out, ip_k_int8_out,
+                               ip_k_scale_out, ip_weights_out, mla_epsilon_cq, mla_epsilon_ckv,
+                               mla_cache_mode, mla_tile_config,
+                               ip_attrs, ip_configs, rope_cfg):
     """Fused MLA and Indexer Prolog quantization for decode phase.
-    
+
     Combines MLA Prolog and Lightning Indexer Prolog computations in a single
     fused operator for decode phase. Optimized for low latency processing.
-    
+
     The computation flow:
     1. MLA Prolog: Computes MLA query, key, and value projections
     2. Indexer Prolog: Uses MLA's q_norm output to compute indexer query, key, and weights
-    
+
     Args:
         token_x: Input token tensor, shape (t, h), dtype BF16
         mla_w_dq: MLA down-projection weight for query, NZ format
@@ -210,7 +210,7 @@ def mla_indexer_prolog_quant_d(token_x, mla_w_dq, mla_w_uq_qr, mla_dequant_scale
         ip_attrs: IndexerPrologQuantAttr object for indexer computation
         ip_configs: IndexerPrologQuantConfigs object for indexer computation
         rope_cfg: RopeTileShapeConfig object for RoPE computation
-        
+
     Note:
         The function creates intermediate tensors (mla_q_norm_out, mla_q_norm_scale_out)
         to pass data from MLA Prolog to Indexer Prolog. Optimized for decode phase
@@ -229,7 +229,7 @@ def mla_indexer_prolog_quant_d(token_x, mla_w_dq, mla_w_uq_qr, mla_dequant_scale
                            cube_l1_reuse_setting=mla_tile_config.cube_l1_reuse_setting,
                            cube_nbuffer_setting=mla_tile_config.cube_nbuffer_setting,
                            mg_copyin_upper_bound=mla_tile_config.mg_copyin_upper_bound)
-    
+
     # mla模块的输入输出tensor
     mla_input_tensors = (token_x, mla_w_dq, mla_w_uq_qr, mla_dequant_scale, mla_w_uk, mla_w_dkv_kr, mla_gamma_cq,
                          mla_gamma_ckv, cos, sin, cache_index, mla_kv_cache, mla_kr_cache,
@@ -238,7 +238,7 @@ def mla_indexer_prolog_quant_d(token_x, mla_w_dq, mla_w_uq_qr, mla_dequant_scale
                           mla_kv_cache_out, mla_kr_cache_out, mla_k_scale_cache_out)
     # mla模块计算流
     mla.mla_prolog_quant_compute(*mla_input_tensors, *mla_output_tensors, mla_epsilon_cq, mla_epsilon_ckv,
-                                   mla_cache_mode, mla_tile_config, rope_cfg)
+                                 mla_cache_mode, mla_tile_config, rope_cfg)
 
     ##################### ip #######################
     # 设置ip模块的优化参数
@@ -246,7 +246,7 @@ def mla_indexer_prolog_quant_d(token_x, mla_w_dq, mla_w_uq_qr, mla_dequant_scale
     pypto.set_pass_options(cube_l1_reuse_setting=ip_configs.cube_l1_reuse_setting)
     pypto.set_pass_options(mg_copyin_upper_bound=ip_configs.mg_copyin_upper_bound)
     pypto.set_pass_options(pg_upper_bound=ip_configs.pg_upper_bound)
-    
+
     # ip模块的输入输出tensor
     ip_input_tensors = (token_x, mla_q_norm_out, mla_q_norm_scale_out, ip_w_qb_in, ip_w_qb_scale_in, ip_wk_in,
                         ip_w_proj_in, ip_ln_gamma_k_in, ip_ln_beta_k_in, cos, sin, ip_hadamard_q_in, ip_hadamard_k_in,

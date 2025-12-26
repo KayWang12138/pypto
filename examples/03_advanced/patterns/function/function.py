@@ -106,6 +106,7 @@ def layer_norm_kernel_npu(x: pypto.Tensor, gamma: pypto.Tensor, beta: pypto.Tens
 
     out[:] = layernorm_core(x, gamma, beta)
 
+
 @pypto.jit(runtime_options={"run_mode": 1})
 def layer_norm_kernel_sim(x: pypto.Tensor, gamma: pypto.Tensor, beta: pypto.Tensor, out: pypto.Tensor) -> None:
     """Layer Normalization."""
@@ -216,7 +217,7 @@ def gelu_activation_kernel_npu(x: pypto.Tensor, y: pypto.Tensor) -> None:
     x_scaled = x * coeff
 
     # GELU(x) = x * sigmoid(1.702 * x)
-    y[:] =  x * pypto.sigmoid(x_scaled)
+    y[:] = x * pypto.sigmoid(x_scaled)
 
 
 @pypto.jit(runtime_options={"run_mode": 1})
@@ -250,7 +251,7 @@ def gelu_activation_kernel_sim(x: pypto.Tensor, y: pypto.Tensor) -> None:
     x_scaled = x * coeff
 
     # GELU(x) = x * sigmoid(1.702 * x)
-    y[:] =  x * pypto.sigmoid(x_scaled)
+    y[:] = x * pypto.sigmoid(x_scaled)
 
 
 def gelu_activation(x: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
@@ -350,8 +351,8 @@ def attention_kernel_sim(q: pypto.Tensor, k: pypto.Tensor, v: pypto.Tensor, out:
 
 
 def attention(q: torch.Tensor, k: torch.Tensor,
-                                 v: torch.Tensor, scale: float,
-                                 run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
+              v: torch.Tensor, scale: float,
+              run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
     y = torch.empty_like(q)
 
     if dynamic:
@@ -374,7 +375,7 @@ def attention(q: torch.Tensor, k: torch.Tensor,
     return y
 
 
-def test_sequential_functions(device_id = None, run_mode: str = "npu", dynamic: bool = False) -> None:
+def test_sequential_functions(device_id=None, run_mode: str = "npu", dynamic: bool = False) -> None:
     """Test multiple functions in sequence."""
     print("=" * 60)
     print("Test: Sequential Functions")
@@ -415,7 +416,7 @@ def test_sequential_functions(device_id = None, run_mode: str = "npu", dynamic: 
     print()
 
 
-def test_residual_connection(device_id = None, run_mode: str = "npu", dynamic: bool = False) -> None:
+def test_residual_connection(device_id=None, run_mode: str = "npu", dynamic: bool = False) -> None:
     """Test residual connection pattern."""
     print("=" * 60)
     print("Test: Residual Connection")
@@ -447,7 +448,7 @@ def test_residual_connection(device_id = None, run_mode: str = "npu", dynamic: b
     print()
 
 
-def test_transformer_block(device_id = None, run_mode: str = "npu", dynamic: bool = False) -> None:
+def test_transformer_block(device_id=None, run_mode: str = "npu", dynamic: bool = False) -> None:
     """Test a complete transformer block using multiple functions."""
     print("=" * 60)
     print("Test: Transformer Block (Multi-Function)")
@@ -512,7 +513,7 @@ def test_transformer_block(device_id = None, run_mode: str = "npu", dynamic: boo
     print()
 
 
-def test_function_reuse(device_id = None, run_mode: str = "npu", dynamic: bool = True) -> None:
+def test_function_reuse(device_id=None, run_mode: str = "npu", dynamic: bool = True) -> None:
     """Test reusing the same function multiple times."""
     print("=" * 60)
     print("Test: Function Reuse")
@@ -546,7 +547,6 @@ def test_function_reuse(device_id = None, run_mode: str = "npu", dynamic: bool =
     out3 = layer_norm(x3, gamma, beta, run_mode, dynamic)
     if run_mode == "npu":
         torch.npu.synchronize()
-
 
     # Verify
     expected1 = layer_norm_golden(x1, gamma, beta, 1e-6)
@@ -696,4 +696,3 @@ Examples:
 
 if __name__ == "__main__":
     main()
-
