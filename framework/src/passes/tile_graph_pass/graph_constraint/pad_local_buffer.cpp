@@ -398,9 +398,13 @@ void PadLocalBuffer::DoPadding(Function &function) {
             }
             if (!IsVector(in)) continue;
             if (in->tensor->GetRawDataSize() == 0) continue;
-            bool noPadding = false;
-            if ((inputAxis.size() > i) && inputAxis[i]) noPadding = true;
-            PadVector(op, in, visitedRaw, noPadding);
+            if (ConfigManager::Instance().GetOperationConfig("COMBINE_AXIS", false)) {
+                PadVectorForAxisCombine(op, in, visitedRaw);
+            } else {
+                bool noPadding = false;
+                if ((inputAxis.size() > i) && inputAxis[i]) noPadding = true;
+                PadVector(op, in, visitedRaw, noPadding);
+            }
         }
     }
     for (auto &op : function.Operations()) {
@@ -414,14 +418,14 @@ void PadLocalBuffer::DoPadding(Function &function) {
                 PadMatmul(op, out);
                 continue;
             }
+            if (!IsVector(out)) continue;
+            if (out->tensor->GetRawDataSize() == 0) continue;
             if (ConfigManager::Instance().GetOperationConfig("COMBINE_AXIS", false)) {
-                PadVectorForAxisCombine(op, in, visitedRaw);
+                PadVectorForAxisCombine(op, out, visitedRaw);
             } else {
                 bool noPadding = false;
-                if ((inputAxis.size() > i) && inputAxis[i]) {
-                    noPadding = true;
-                }
-                PadVector(op, in, visitedRaw, noPadding);
+                if (out->GetMemoryTypeOriginal() == MEM_DEVICE_DDR || ((outputAxis.size() > i) && outputAxis[i])) noPadding = true;
+                PadVector(op, out, visitedRaw, noPadding);
             }
         }
     }
