@@ -47,7 +47,7 @@ def ceil_div(a, b):
     return (a + b - 1) // b
 
 
-def gelu_activation_core(x: pypto.Tensor) -> pypto.Tensor:
+def gelu_activation_core(x: pypto.tensor) -> pypto.tensor:
     """
     GELU activation function: x * 0.5 * (1 + erf(x / sqrt(2)))
 
@@ -55,12 +55,12 @@ def gelu_activation_core(x: pypto.Tensor) -> pypto.Tensor:
 
     Parameters
     ----------
-    x : pypto.Tensor
+    x : pypto.tensor
         Input tensor
 
     Returns
     -------
-    pypto.Tensor
+    pypto.tensor
         GELU activated tensor
     """
     pypto.set_vec_tile_shapes(*x.shape[:2] if len(x.shape) >= 2 else (32, 128))
@@ -79,16 +79,16 @@ def gelu_activation_core(x: pypto.Tensor) -> pypto.Tensor:
     return pypto.mul(x, sigmoid)
 
 
-def swiglu_activation_core(gate: pypto.Tensor, up: pypto.Tensor) -> pypto.Tensor:
+def swiglu_activation_core(gate: pypto.tensor, up: pypto.tensor) -> pypto.tensor:
     """
     SwiGLU activation function: Swish(gate) * up
     where Swish(x) = x * sigmoid(x)
 
     Parameters
     ----------
-    gate : pypto.Tensor
+    gate : pypto.tensor
         Gate tensor
-    up : pypto.Tensor
+    up : pypto.tensor
         Up projection tensor
 
     Returns
@@ -110,13 +110,13 @@ def swiglu_activation_core(gate: pypto.Tensor, up: pypto.Tensor) -> pypto.Tensor
     return pypto.mul(swish, up)
 
 
-def relu_activation_core(x: pypto.Tensor) -> pypto.Tensor:
+def relu_activation_core(x: pypto.tensor) -> pypto.tensor:
     """
     ReLU activation function: max(0, x)
 
     Parameters
     ----------
-    x : pypto.Tensor
+    x : pypto.tensor
         Input tensor
 
     Returns
@@ -131,11 +131,11 @@ def relu_activation_core(x: pypto.Tensor) -> pypto.Tensor:
 
 @pypto.jit
 def ffn_static_swiglu_kernel_npu(
-    hidden_states: pypto.Tensor,
-    gate_proj_weight: pypto.Tensor,
-    up_proj_weight: pypto.Tensor,
-    down_proj_weight: pypto.Tensor,
-    output: pypto.Tensor,
+    hidden_states: pypto.tensor,
+    gate_proj_weight: pypto.tensor,
+    up_proj_weight: pypto.tensor,
+    down_proj_weight: pypto.tensor,
+    output: pypto.tensor,
     config: FFNConfig
 ):
     """
@@ -147,15 +147,15 @@ def ffn_static_swiglu_kernel_npu(
 
     Parameters
     ----------
-    hidden_states : pypto.Tensor
+    hidden_states : pypto.tensor
         Input tensor of shape [batch_size, hidden_size]
-    gate_proj_weight : pypto.Tensor
+    gate_proj_weight : pypto.tensor
         Gate projection weight of shape [hidden_size, intermediate_size]
-    up_proj_weight : pypto.Tensor
+    up_proj_weight : pypto.tensor
         Up projection weight of shape [hidden_size, intermediate_size] (for SwiGLU)
-    down_proj_weight : pypto.Tensor
+    down_proj_weight : pypto.tensor
         Down projection weight of shape [intermediate_size, hidden_size]
-    output : pypto.Tensor
+    output : pypto.tensor
         Output tensor of shape [batch_size, hidden_size]
     config : FFNConfig
         FFN configuration
@@ -195,11 +195,11 @@ def ffn_static_swiglu_kernel_npu(
 
 @pypto.jit(runtime_options={"run_mode" : 1})
 def ffn_static_swiglu_kernel_sim(
-    hidden_states: pypto.Tensor,
-    gate_proj_weight: pypto.Tensor,
-    up_proj_weight: pypto.Tensor,
-    down_proj_weight: pypto.Tensor,
-    output: pypto.Tensor,
+    hidden_states: pypto.tensor,
+    gate_proj_weight: pypto.tensor,
+    up_proj_weight: pypto.tensor,
+    down_proj_weight: pypto.tensor,
+    output: pypto.tensor,
     config: FFNConfig
 ):
     """
@@ -211,15 +211,15 @@ def ffn_static_swiglu_kernel_sim(
 
     Parameters
     ----------
-    hidden_states : pypto.Tensor
+    hidden_states : pypto.tensor
         Input tensor of shape [batch_size, hidden_size]
-    gate_proj_weight : pypto.Tensor
+    gate_proj_weight : pypto.tensor
         Gate projection weight of shape [hidden_size, intermediate_size]
-    up_proj_weight : pypto.Tensor
+    up_proj_weight : pypto.tensor
         Up projection weight of shape [hidden_size, intermediate_size] (for SwiGLU)
-    down_proj_weight : pypto.Tensor
+    down_proj_weight : pypto.tensor
         Down projection weight of shape [intermediate_size, hidden_size]
-    output : pypto.Tensor
+    output : pypto.tensor
         Output tensor of shape [batch_size, hidden_size]
     config : FFNConfig
         FFN configuration
@@ -255,14 +255,15 @@ def ffn_static_swiglu_kernel_sim(
         [config.cube_tile_shape[2], config.cube_tile_shape[2]]
     )
     pypto.set_matrix_size({batch_size, intermediate_size, hidden_size})
-    output[:] = pypto.matmul(activated, down_proj_weight, output.dtype, b_trans=False)
+    output[:] = pypto.matmul(activated, down_proj_weight, output.dtype, b_trans=False)            
 
 @pypto.jit
 def ffn_static_gule_kernel_npu(
-    hidden_states: pypto.Tensor,
-    gate_proj_weight: pypto.Tensor,
-    down_proj_weight: pypto.Tensor,
-    output: pypto.Tensor,
+    hidden_states: pypto.tensor,
+    gate_proj_weight: pypto.tensor,
+    # up_proj_weight: pypto.tensor,
+    down_proj_weight: pypto.tensor,
+    output: pypto.tensor,
     config: FFNConfig
 ):
     """
@@ -274,13 +275,15 @@ def ffn_static_gule_kernel_npu(
 
     Parameters
     ----------
-    hidden_states : pypto.Tensor
+    hidden_states : pypto.tensor
         Input tensor of shape [batch_size, hidden_size]
-    gate_proj_weight : pypto.Tensor
+    gate_proj_weight : pypto.tensor
         Gate projection weight of shape [hidden_size, intermediate_size]
-    down_proj_weight : pypto.Tensor
+    up_proj_weight : pypto.tensor
+        Up projection weight of shape [hidden_size, intermediate_size] (for SwiGLU)
+    down_proj_weight : pypto.tensor
         Down projection weight of shape [intermediate_size, hidden_size]
-    output : pypto.Tensor
+    output : pypto.tensor
         Output tensor of shape [batch_size, hidden_size]
     config : FFNConfig
         FFN configuration
@@ -300,7 +303,7 @@ def ffn_static_gule_kernel_npu(
 
     # Gate projection: [batch_size, hidden_size] @ [hidden_size, intermediate_size]
     gate = pypto.matmul(hidden_states, gate_proj_weight, config.dtype)
-
+    
     if config.activation == "gelu":
         # GELU activation
         pypto.set_vec_tile_shapes(*config.vec_tile_shape)
@@ -319,10 +322,11 @@ def ffn_static_gule_kernel_npu(
 
 @pypto.jit(runtime_options={"run_mode" : 1})
 def ffn_static_gule_kernel_sim(
-    hidden_states: pypto.Tensor,
-    gate_proj_weight: pypto.Tensor,
-    down_proj_weight: pypto.Tensor,
-    output: pypto.Tensor,
+    hidden_states: pypto.tensor,
+    gate_proj_weight: pypto.tensor,
+    # up_proj_weight: pypto.tensor,
+    down_proj_weight: pypto.tensor,
+    output: pypto.tensor,
     config: FFNConfig
 ):
     """
@@ -334,13 +338,15 @@ def ffn_static_gule_kernel_sim(
 
     Parameters
     ----------
-    hidden_states : pypto.Tensor
+    hidden_states : pypto.tensor
         Input tensor of shape [batch_size, hidden_size]
-    gate_proj_weight : pypto.Tensor
+    gate_proj_weight : pypto.tensor
         Gate projection weight of shape [hidden_size, intermediate_size]
-    down_proj_weight : pypto.Tensor
+    up_proj_weight : pypto.tensor
+        Up projection weight of shape [hidden_size, intermediate_size] (for SwiGLU)
+    down_proj_weight : pypto.tensor
         Down projection weight of shape [intermediate_size, hidden_size]
-    output : pypto.Tensor
+    output : pypto.tensor
         Output tensor of shape [batch_size, hidden_size]
     config : FFNConfig
         FFN configuration
@@ -360,7 +366,7 @@ def ffn_static_gule_kernel_sim(
 
     # Gate projection: [batch_size, hidden_size] @ [hidden_size, intermediate_size]
     gate = pypto.matmul(hidden_states, gate_proj_weight, config.dtype)
-
+    
     if config.activation == "gelu":
         # GELU activation
         pypto.set_vec_tile_shapes(*config.vec_tile_shape)
@@ -379,10 +385,10 @@ def ffn_static_gule_kernel_sim(
 
 @pypto.jit
 def ffn_static_relu_kernel_npu(
-    hidden_states: pypto.Tensor,
-    gate_proj_weight: pypto.Tensor,
-    down_proj_weight: pypto.Tensor,
-    output: pypto.Tensor,
+    hidden_states: pypto.tensor,
+    gate_proj_weight: pypto.tensor,
+    down_proj_weight: pypto.tensor,
+    output: pypto.tensor,
     config: FFNConfig
 ):
     """
@@ -394,15 +400,15 @@ def ffn_static_relu_kernel_npu(
 
     Parameters
     ----------
-    hidden_states : pypto.Tensor
+    hidden_states : pypto.tensor
         Input tensor of shape [batch_size, hidden_size]
-    gate_proj_weight : pypto.Tensor
+    gate_proj_weight : pypto.tensor
         Gate projection weight of shape [hidden_size, intermediate_size]
-    up_proj_weight : pypto.Tensor
+    up_proj_weight : pypto.tensor
         Up projection weight of shape [hidden_size, intermediate_size] (for SwiGLU)
-    down_proj_weight : pypto.Tensor
+    down_proj_weight : pypto.tensor
         Down projection weight of shape [intermediate_size, hidden_size]
-    output : pypto.Tensor
+    output : pypto.tensor
         Output tensor of shape [batch_size, hidden_size]
     config : FFNConfig
         FFN configuration
@@ -438,13 +444,13 @@ def ffn_static_relu_kernel_npu(
     )
     pypto.set_matrix_size({batch_size, intermediate_size, hidden_size})
     output[:] = pypto.matmul(activated, down_proj_weight, output.dtype, b_trans=False)
-
+            
 @pypto.jit(runtime_options={"run_mode" : 1})
 def ffn_static_relu_kernel_sim(
-    hidden_states: pypto.Tensor,
-    gate_proj_weight: pypto.Tensor,
-    down_proj_weight: pypto.Tensor,
-    output: pypto.Tensor,
+    hidden_states: pypto.tensor,
+    gate_proj_weight: pypto.tensor,
+    down_proj_weight: pypto.tensor,
+    output: pypto.tensor,
     config: FFNConfig
 ):
     """
@@ -456,15 +462,15 @@ def ffn_static_relu_kernel_sim(
 
     Parameters
     ----------
-    hidden_states : pypto.Tensor
+    hidden_states : pypto.tensor
         Input tensor of shape [batch_size, hidden_size]
-    gate_proj_weight : pypto.Tensor
+    gate_proj_weight : pypto.tensor
         Gate projection weight of shape [hidden_size, intermediate_size]
-    up_proj_weight : pypto.Tensor
+    up_proj_weight : pypto.tensor
         Up projection weight of shape [hidden_size, intermediate_size] (for SwiGLU)
-    down_proj_weight : pypto.Tensor
+    down_proj_weight : pypto.tensor
         Down projection weight of shape [intermediate_size, hidden_size]
-    output : pypto.Tensor
+    output : pypto.tensor
         Output tensor of shape [batch_size, hidden_size]
     config : FFNConfig
         FFN configuration
@@ -503,10 +509,10 @@ def ffn_static_relu_kernel_sim(
 
 @pypto.jit
 def ffn_dynamic_gelu_kernel_npu(
-    hidden_states: pypto.Tensor,
-    gate_proj_weight: pypto.Tensor,
-    down_proj_weight: pypto.Tensor,
-    output: pypto.Tensor,
+    hidden_states: pypto.tensor,
+    gate_proj_weight: pypto.tensor,
+    down_proj_weight: pypto.tensor,
+    output: pypto.tensor,
     config: FFNConfig
 ):
     """
@@ -516,15 +522,15 @@ def ffn_dynamic_gelu_kernel_npu(
 
     Parameters
     ----------
-    hidden_states : pypto.Tensor
+    hidden_states : pypto.tensor
         Input tensor with dynamic first dimension [batch_size, hidden_size]
-    gate_proj_weight : pypto.Tensor
+    gate_proj_weight : pypto.tensor
         Gate projection weight of shape [hidden_size, intermediate_size]
-    up_proj_weight : pypto.Tensor
+    up_proj_weight : pypto.tensor
         Up projection weight of shape [hidden_size, intermediate_size] (for SwiGLU)
-    down_proj_weight : pypto.Tensor
+    down_proj_weight : pypto.tensor
         Down projection weight of shape [intermediate_size, hidden_size]
-    output : pypto.Tensor
+    output : pypto.tensor
         Output tensor with dynamic first dimension [batch_size, hidden_size]
     config : FFNConfig
         FFN configuration
@@ -543,7 +549,7 @@ def ffn_dynamic_gelu_kernel_npu(
 
     # Process in chunks
     for idx in pypto.loop(0, num_iterations, 1, name="LOOP_FFN_BATCH", idx_name="idx"):
-
+        
         batch_offset = idx * basic_batch
 
         # View current batch chunk
@@ -583,13 +589,13 @@ def ffn_dynamic_gelu_kernel_npu(
 
         # Assemble result back to output
         pypto.assemble(output_chunk, [batch_offset, 0], output)
-
+    
 @pypto.jit(runtime_options={"run_mode" : 1})
 def ffn_dynamic_gelu_kernel_sim(
-    hidden_states: pypto.Tensor,
-    gate_proj_weight: pypto.Tensor,
-    down_proj_weight: pypto.Tensor,
-    output: pypto.Tensor,
+    hidden_states: pypto.tensor,
+    gate_proj_weight: pypto.tensor,
+    down_proj_weight: pypto.tensor,
+    output: pypto.tensor,
     config: FFNConfig
 ):
     """
@@ -599,15 +605,15 @@ def ffn_dynamic_gelu_kernel_sim(
 
     Parameters
     ----------
-    hidden_states : pypto.Tensor
+    hidden_states : pypto.tensor
         Input tensor with dynamic first dimension [batch_size, hidden_size]
-    gate_proj_weight : pypto.Tensor
+    gate_proj_weight : pypto.tensor
         Gate projection weight of shape [hidden_size, intermediate_size]
-    up_proj_weight : pypto.Tensor
+    up_proj_weight : pypto.tensor
         Up projection weight of shape [hidden_size, intermediate_size] (for SwiGLU)
-    down_proj_weight : pypto.Tensor
+    down_proj_weight : pypto.tensor
         Down projection weight of shape [intermediate_size, hidden_size]
-    output : pypto.Tensor
+    output : pypto.tensor
         Output tensor with dynamic first dimension [batch_size, hidden_size]
     config : FFNConfig
         FFN configuration
@@ -626,7 +632,7 @@ def ffn_dynamic_gelu_kernel_sim(
 
     # Process in chunks
     for idx in pypto.loop(0, num_iterations, 1, name="LOOP_FFN_BATCH", idx_name="idx"):
-
+        
         batch_offset = idx * basic_batch
 
         # View current batch chunk
