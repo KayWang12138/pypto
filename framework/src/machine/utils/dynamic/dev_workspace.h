@@ -173,9 +173,6 @@ public:
                 }
             }
         }
-        if (!verificationSuccess) {
-            DEV_ERROR("verification failed");
-        }
         DEV_ASSERT(verificationSuccess);
     }
 
@@ -228,10 +225,8 @@ public:
 #if DEBUG_INFINITE_LIFETIME
     WsAllocation DebugDumpTensorAllocate(size_t memReq,
         WsMemCategory category = WsMemCategory::UNCLASSIFIED) {
-        if (!dumpTensorWsAllocator_.CanAllocate(memReq)) {
-            DEV_ERROR("dumpTensorWsAllocator_ CanAllocate failed, memReq=%zu", memReq);
-        }
-        DEV_ASSERT(dumpTensorWsAllocator_.CanAllocate(memReq));
+        DEV_ASSERT_MSG(dumpTensorWsAllocator_.CanAllocate(memReq),
+            "dumpTensorWsAllocator_ cannot allocate requested memory unexpectedly, memReq=%zu", memReq);
         WsAllocation allocation = dumpTensorWsAllocator_.Malloc(memReq, category);
         *dumpTensorWsAllocatorCounter_ = dumpTensorWsAllocator_.AllocatedSize();
         return allocation;
@@ -284,10 +279,8 @@ public:
 
         // assign incast address descriptor
         for (size_t i = 0; i < devRootSrc->GetIncastSize(); ++i) {
-            if (devRootSrc->GetIncast(i).fromSlotList.size() <= 0) {
-                DEV_DEBUG("fromSlotList.size()=%zu <=0, i=%zu", devRootSrc->GetIncast(i).fromSlotList.size(), i);
-            }
-            DEV_DEBUG_ASSERT(devRootSrc->GetIncast(i).fromSlotList.size() > 0);
+            DEV_ASSERT_MSG(devRootSrc->GetIncast(i).fromSlotList.size() > 0,
+                "Root [%s] Incast %zu has no fromSlotList.", devRootSrc->GetRawName(), i);
 
             int slotIndex = devRootSrc->At(devRootSrc->GetIncast(i).fromSlotList, 0);
             auto &incastDesc = devRootDup.GetIncastAddress(i);
@@ -535,9 +528,6 @@ public:
     }
 
     void InitMetadataSlabAllocator() {
-        if (metadataAllocators_.general.FreeMemorySize() <= 0) {
-            DEV_ERROR("FreeMemorySize=%lu <= 0", metadataAllocators_.general.FreeMemorySize());
-        }
         DEV_ASSERT(metadataAllocators_.general.FreeMemorySize() > 0);
         uint64_t memBase = metadataAllocators_.general.MemBaseAddr() + metadataAllocators_.general.AllocatedSize();
         uint64_t realMemBase = AlignUp(memBase, sizeof(uint64_t));
@@ -546,10 +536,9 @@ public:
         metadataAllocators_.generalSlab.Init(reinterpret_cast<void*>(realMemBase), metaSlabMemSize, slabSize);
         for (size_t i = 0; i < ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT); i++) {
             if (slabMemObjSizeFunc[i] != nullptr) {
-                if (!(metadataAllocators_.generalSlab.RegistCache(i, (this->*slabMemObjSizeFunc[i])()))) {
-                    DEV_ERROR("RegisCache faild, i=%zu", i);
-                }
-                DEV_ASSERT(metadataAllocators_.generalSlab.RegistCache(i, (this->*slabMemObjSizeFunc[i])()));
+                [[maybe_unused]] bool registCacheRes =
+                    metadataAllocators_.generalSlab.RegistCache(i, (this->*slabMemObjSizeFunc[i])());
+                DEV_ASSERT(registCacheRes);
             }
         }
     }
@@ -569,10 +558,10 @@ public:
             return;
         }
         for (size_t i = 0; i < slabTypeNum; ++i) {
-          if (slabMemObjSizeFunc[i] != nullptr && (this->*slabMemObjSizeFunc[i])() !=0) {
-             DEV_DEBUG("WsAicpuSlabMemType[%zu] is %u", i, (this->*slabMemObjSizeFunc[i])());
-              slabCapacity[i] = slabSize / (this->*slabMemObjSizeFunc[i])();
-           }
+            if (slabMemObjSizeFunc[i] != nullptr && (this->*slabMemObjSizeFunc[i])() !=0) {
+                DEV_DEBUG("WsAicpuSlabMemType[%zu] is %u", i, (this->*slabMemObjSizeFunc[i])());
+                slabCapacity[i] = slabSize / (this->*slabMemObjSizeFunc[i])();
+            }
         }
     }
     WsAllocation SlabAlloc(uint32_t objSize, WsAicpuSlabMemType type) {
@@ -628,10 +617,8 @@ public:
     /* support vector allocator,so need have this fucntion member */
     template <typename T>
     WsAllocation Allocate(uint64_t count, WsMemCategory category) {
-        if (category != WsMemCategory::VECTOR_STITCHED_LIST) {
-            DEV_ERROR("category=%d != WsMemCategory::VECTOR_STITCHED_LIST=%d", (int)category, (int)WsMemCategory::VECTOR_STITCHED_LIST);
-        }
-        DEV_ASSERT(category == WsMemCategory::VECTOR_STITCHED_LIST);
+        DEV_ASSERT_MSG(category == WsMemCategory::VECTOR_STITCHED_LIST,
+            "Unexpected category=%s", GetCategoryName(category));
         return SlabAlloc(count * sizeof(T), WsAicpuSlabMemType::VEC_STITCHED_LIST);
     }
 
@@ -690,10 +677,7 @@ private:
         tensorAllocators_.dassembleDests.InitTensorAllocator(baseAddr, dassembleDestsTensorBudget);
         DEV_TRACE_DEBUG(CtrlEvent(none(), WorkspacePartialOutcast(Range(baseAddr, baseAddr + dassembleDestsTensorBudget))));
         baseAddr += dassembleDestsTensorBudget;
-        if (!(workspaceAddr <= baseAddr && baseAddr <= workspaceAddr + tensorWorkspaceSize)) {
-            DEV_ERROR("Address range check failed: workspaceAddr=%lu, baseAddr=%lu, tensorWorkspaceSize=%lu",
-            workspaceAddr, baseAddr, tensorWorkspaceSize);
-        }
+
         DEV_ASSERT(workspaceAddr <= baseAddr && baseAddr <= workspaceAddr + tensorWorkspaceSize);
     }
 
@@ -793,10 +777,8 @@ private:
         uint32_t allocNumOneSlab = 4; // default
         uint32_t slabSize = CalcAicpuMetaSlabAlloctorSlabMemObjmaxSize();
         uint32_t leastSlabReqMem = (ToUnderlying(WsAicpuSlabMemType::SLAB_MEM_TYPE_BUTT)) * slabSize;
-        if (leastSlabReqMem >= totalMemSize) {
-            DEV_ERROR("leastSlabReqMem=%u >= totalMemSize=%u", leastSlabReqMem, totalMemSize);
-        }
-        DEV_ASSERT(leastSlabReqMem < totalMemSize);
+        DEV_ASSERT_MSG(leastSlabReqMem < totalMemSize,
+            "leastSlabReqMem=%u >= totalMemSize=%u", leastSlabReqMem, totalMemSize);
         uint32_t realMaxAllocNum = totalMemSize / leastSlabReqMem;
         if (realMaxAllocNum < allocNumOneSlab) {
             allocNumOneSlab = realMaxAllocNum;
@@ -806,24 +788,18 @@ private:
     }
 
     void InitAicpuStitchSlabAllocator(void* memBase, uint32_t totalSize) {
-        if (!(memBase != nullptr && totalSize > 0)) {
-            DEV_ERROR("memBase=%p, totalSize=%u", memBase, totalSize);
-        }
-        DEV_ASSERT(memBase != nullptr && totalSize > 0);
+        DEV_ASSERT_MSG(memBase != nullptr && totalSize > 0,
+            "memBase %s null, totalSize=%u", memBase == nullptr ? "is" : "is not", totalSize);
         constexpr uint32_t slabSize = 4 * 1024; // fix size
         metadataAllocators_.stitchSlab.Init(memBase, totalSize, slabSize);
         for (size_t i = ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT) + 1;
             i < ToUnderlying(WsAicpuSlabMemType::SLAB_MEM_TYPE_BUTT); ++i) {
             if (slabMemObjSizeFunc[i] != nullptr) {
                 uint32_t objSize = (this->*slabMemObjSizeFunc[i])();
-                if (slabSize <= objSize) {
-                    DEV_ERROR("slabSize=%u <= objSize=%u", slabSize, objSize);
-                }
-                DEV_ASSERT(slabSize > objSize);
-                if (!(metadataAllocators_.stitchSlab.RegistCache(i, (this->*slabMemObjSizeFunc[i])()))) {
-                    DEV_ERROR("stitchSlab RegistCache failed, i=%zu", i);
-                }
-                DEV_ASSERT(metadataAllocators_.stitchSlab.RegistCache(i, (this->*slabMemObjSizeFunc[i])()));
+                DEV_ASSERT_MSG(slabSize > objSize, "slabSize=%u <= objSize=%u", slabSize, objSize);
+                [[maybe_unused]] bool registCacheRes =
+                    metadataAllocators_.stitchSlab.RegistCache(i, (this->*slabMemObjSizeFunc[i])());
+                DEV_ASSERT(registCacheRes);
             }
         }
     }
@@ -831,17 +807,15 @@ private:
     void SlabTryDynAddCache(WsAicpuSlabMemType type, uint32_t objSize) {
         if (type < WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT) {
             if (!metadataAllocators_.generalSlab.ExistCache(ToUnderlying(type), objSize)) {
-                if (!(metadataAllocators_.generalSlab.RegistCache(ToUnderlying(type), objSize))) {
-                    DEV_ERROR("generalSlab RegistCache failed, type=%u, objSize=%u", ToUnderlying(type), objSize);
-                }
-                DEV_ASSERT(metadataAllocators_.generalSlab.RegistCache(ToUnderlying(type), objSize));
+                [[maybe_unused]] bool registCacheRes =
+                    metadataAllocators_.generalSlab.RegistCache(ToUnderlying(type), objSize);
+                DEV_ASSERT(registCacheRes);
             }
         } else if (type < WsAicpuSlabMemType::SLAB_MEM_TYPE_BUTT) {
             if (!metadataAllocators_.stitchSlab.ExistCache(ToUnderlying(type), objSize)) {
-                if (!(metadataAllocators_.generalSlab.RegistCache(ToUnderlying(type), objSize))) {
-                    DEV_ERROR("stitchSlab RegistCache failed, type=%u, objSize=%u", ToUnderlying(type), objSize);
-                }
-                DEV_ASSERT(metadataAllocators_.stitchSlab.RegistCache(ToUnderlying(type), objSize));
+                [[maybe_unused]] bool registCacheRes =
+                    metadataAllocators_.stitchSlab.RegistCache(ToUnderlying(type), objSize);
+                DEV_ASSERT(registCacheRes);
             }
         } else {
             DEV_ERROR("Invalid slab memory type: %u", (unsigned int)type);
