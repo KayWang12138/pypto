@@ -56,9 +56,6 @@ public:
                 }
             }
 
-            if (!allocation_) {
-                DEV_ERROR("allocation_ is nullptr\n");
-            }
             DEV_ASSERT(allocator_);
             allocator_->Deallocate(allocation_);
         }
