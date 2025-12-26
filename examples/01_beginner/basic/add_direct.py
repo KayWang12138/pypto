@@ -44,28 +44,19 @@ def get_device_id():
         return None
 
 
-@pypto.jit
-def add_direct_kernel_npu(x: torch.Tensor, y: torch.Tensor, z: torch.Tensor) -> None:
-    pypto.set_vec_tile_shapes(1, 4, 1, 64)
-    z[:] = x + y
+def create_add_direct_kernel(shape: tuple, run_mode: str = "npu"):
+    def add_direct_kernel(
+        x: pypto.Tensor(shape, pypto.DT_FP32),
+        y: pypto.Tensor(shape, pypto.DT_FP32),
+    ) -> pypto.Tensor(shape, pypto.DT_FP32):
+        pypto.set_vec_tile_shapes(1, 4, 1, 64)
+        z = x + y
+        return z
 
-
-@pypto.jit(runtime_options={"run_mode": 1})
-def add_direct_kernel_sim(x: torch.Tensor, y: torch.Tensor, z: torch.Tensor) -> None:
-    pypto.set_vec_tile_shapes(1, 4, 1, 64)
-    z[:] = x + y
-
-
-def add_direct(x: torch.Tensor, y: torch.Tensor, z: torch.Tensor, run_mode: str = "npu") -> None:
-    pto_input0 = pypto.from_torch(x, "IN_0")
-    pto_input1 = pypto.from_torch(y, "IN_1")
-    pto_output = pypto.from_torch(z, "OUT_0")
-
-    # launch the kernel
     if run_mode == "npu":
-        add_direct_kernel_npu(pto_input0, pto_input1, pto_output)
+        return pypto.frontend.jit()(add_direct_kernel)
     else:
-        add_direct_kernel_sim(pto_input0, pto_input1, pto_output)
+        return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(add_direct_kernel)
 
 
 def test_add_direct(device_id = None, run_mode: str = "npu") -> None:
@@ -75,8 +66,7 @@ def test_add_direct(device_id = None, run_mode: str = "npu") -> None:
     #prepare data
     input_data0 = torch.rand(shape, dtype=torch.float, device=device)
     input_data1 = torch.rand(shape, dtype=torch.float, device=device)
-    output_data = torch.zeros(shape, dtype=torch.float, device=device)
-    add_direct(input_data0, input_data1, output_data, run_mode)
+    output_data = create_add_direct_kernel(shape, run_mode)(input_data0, input_data1)
     golden = torch.add(input_data0, input_data1)
 
     max_diff = np.abs(output_data.cpu().numpy() - golden.cpu().numpy()).max()
@@ -199,3 +189,4 @@ Examples:
 
 if __name__ == "__main__":
     main()
+    
