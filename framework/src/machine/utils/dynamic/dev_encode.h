@@ -1049,10 +1049,7 @@ struct DevAscendFunctionDuppedStitch {
     }
 
     void PushBack(uint32_t taskId) {
-        if (size_ >= DUPPED_STITCH_SIZE) {
-            DEV_ERROR("PushBack: Task list is full, size_:%u >= DUPPED_STITCH_SIZE:%u", size_, DUPPED_STITCH_SIZE);
-        }
-        DEV_DEBUG_ASSERT(size_ < DUPPED_STITCH_SIZE);
+        DEV_ASSERT_MSG(size_ < DUPPED_STITCH_SIZE, "Exceed maximum stitch size %u.", DUPPED_STITCH_SIZE);
         taskList_[size_++] = taskId;
     }
 
@@ -1061,10 +1058,7 @@ struct DevAscendFunctionDuppedStitch {
     DevAscendFunctionDuppedStitch *&Next() { return next_; }
 
     uint32_t At(uint32_t idx) const {
-        if (idx >= size_) {
-            DEV_ERROR("At: Index %u out of bounds.", idx);
-        }
-        DEV_DEBUG_ASSERT(idx < size_);
+        DEV_ASSERT_MSG(idx < size_, "Index %u exceeds stitch size %u.", idx, size_);
         return taskList_[idx];
     }
 
@@ -1374,21 +1368,21 @@ struct DevAscendFunctionDupped {
             if (incast.IsNullAddress()) {
                 DEV_ERROR("Null incast address for index:%d", rawTensor->ioIndex);
             }
-            DEV_DEBUG_ASSERT(!incast.IsNullAddress());
+            DEV_ASSERT_MSG(!incast.IsNullAddress(),
+                "Null incast: root [%s], rawIndex [%d], ioIndex [%d]",
+                GetSource()->GetRawName(), rawIndex, rawTensor->ioIndex);
             addr = incast.addr;
         } else if (rawTensor->ioProperty == DevIOProperty::ROOT_OUTCAST) {
             AddressDescriptor outcast = GetOutcastAddress(rawTensor->ioIndex);
-            if (outcast.IsNullAddress()) {
-                DEV_ERROR("Null outcast address for index:%d", rawTensor->ioIndex);
-            }
-            DEV_DEBUG_ASSERT(!outcast.IsNullAddress());
+            DEV_ASSERT_MSG(!outcast.IsNullAddress(),
+                "Null outcast: root [%s], rawIndex [%d], ioIndex [%d]",
+                GetSource()->GetRawName(), rawIndex, rawTensor->ioIndex);
             addr = outcast.addr;
         } else {
             uintdevptr_t runtimeWorkspace = RuntimeWorkspace();
-            if (runtimeWorkspace == 0) {
-                DEV_ERROR("Runtime workspace is zero.");
-            }
-            DEV_DEBUG_ASSERT(runtimeWorkspace != 0);
+            DEV_ASSERT_MSG(runtimeWorkspace != 0,
+                "Trying to access inner tensor addr with zero runtime workspace: root [%s], rawIndex [%d]",
+                GetSource()->GetRawName(), rawIndex);
             addr = runtimeWorkspace + rawTensor->addrOffset;
         }
         return addr;
