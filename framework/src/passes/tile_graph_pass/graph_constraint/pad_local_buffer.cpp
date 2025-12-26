@@ -401,8 +401,7 @@ void PadLocalBuffer::DoPadding(Function &function) {
             if (ConfigManager::Instance().GetOperationConfig("COMBINE_AXIS", false)) {
                 PadVectorForAxisCombine(op, in, visitedRaw);
             } else {
-                bool noPadding = false;
-                if ((inputAxis.size() > i) && inputAxis[i]) noPadding = true;
+                bool noPadding = ((inputAxis.size() > i) && inputAxis[i]);
                 PadVector(op, in, visitedRaw, noPadding);
             }
         }
@@ -423,8 +422,7 @@ void PadLocalBuffer::DoPadding(Function &function) {
             if (ConfigManager::Instance().GetOperationConfig("COMBINE_AXIS", false)) {
                 PadVectorForAxisCombine(op, out, visitedRaw);
             } else {
-                bool noPadding = false;
-                if (out->GetMemoryTypeOriginal() == MEM_DEVICE_DDR || ((outputAxis.size() > i) && outputAxis[i])) noPadding = true;
+                bool noPadding = (out->GetMemoryTypeOriginal() == MEM_DEVICE_DDR || ((outputAxis.size() > i) && outputAxis[i]));
                 PadVector(op, out, visitedRaw, noPadding);
             }
         }
