@@ -47,51 +47,33 @@ def get_device_id():
         return None
 
 
-@pypto.jit
-def nested_loops_with_conditions_kernel_npu(a: pypto.Tensor, b: pypto.Tensor, y: pypto.Tensor) -> None:
-    pypto.set_vec_tile_shapes(2, 8)
-    for i in pypto.loop(2):
-        for j in pypto.loop(2):
-            a_view = a[i:i+1, j:j+1]
-            b_view = b[i:i+1, j:j+1]
-            if pypto.cond(i == 0):
-                y[i:i+1, j:j+1] = a_view + b_view
-            else:
-                y[i:i+1, j:j+1] = a_view - b_view
-
-
-@pypto.jit(runtime_options={"run_mode": 1})
-def nested_loops_with_conditions_kernel_sim(a: pypto.Tensor, b: pypto.Tensor, y: pypto.Tensor) -> None:
-    pypto.set_vec_tile_shapes(2, 8)
-    for i in pypto.loop(2):
-        for j in pypto.loop(2):
-            a_view = a[i:i+1, j:j+1]
-            b_view = b[i:i+1, j:j+1]
-            if pypto.cond(i == 0):
-                y[i:i+1, j:j+1] = a_view + b_view
-            else:
-                y[i:i+1, j:j+1] = a_view - b_view
-
-
-def nested_loops_with_conditions(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu", dynamic: bool = True) -> torch.Tensor:
-    y = torch.empty_like(a)
-
-    if dynamic:
-        a_pto = pypto.from_torch(a, dynamic_axis=[0, 1])
-        b_pto = pypto.from_torch(b, dynamic_axis=[0, 1])
-        y_pto = pypto.from_torch(y, dynamic_axis=[0, 1])
+def create_nested_loops_with_conditions_kernel(shape: tuple, dynamic: bool = False, run_mode: str = "npu"):
+    if dynamic == True:
+        W = pypto.frontend.dynamic("W")
+        H = pypto.frontend.dynamic("H")
     else:
-        a_pto = pypto.from_torch(a)
-        b_pto = pypto.from_torch(b)
-        y_pto = pypto.from_torch(y)
+        W, H = shape
+    
+    def nested_loops_with_conditions_kernel(
+        a: pypto.Tensor((W, H), pypto.DT_FP32),
+        b: pypto.Tensor((W, H), pypto.DT_FP32),
+    ) -> pypto.Tensor((W, H), pypto.DT_FP32):
+        pypto.set_vec_tile_shapes(2, 8)
+        y = pypto.full((W, H), 0.0, pypto.DT_FP32)
+        for i in pypto.loop(2):
+            for j in pypto.loop(2):
+                a_view = a[i:i+1, j:j+1]
+                b_view = b[i:i+1, j:j+1]
+                if i == 0:
+                    y[i:i+1, j:j+1] = a_view + b_view
+                else:
+                    y[i:i+1, j:j+1] = a_view - b_view
+        return y
 
-    # launch the kernel
     if run_mode == "npu":
-        nested_loops_with_conditions_kernel_npu(a_pto, b_pto, y_pto)
+        return pypto.frontend.jit()(nested_loops_with_conditions_kernel)
     else:
-        nested_loops_with_conditions_kernel_sim(a_pto, b_pto, y_pto)
-
-    return y
+        return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(nested_loops_with_conditions_kernel)
 
 
 def test_nested_loops_with_conditions(device_id = None, run_mode: str = "npu", dynamic: bool = True) -> None:
@@ -106,16 +88,16 @@ def test_nested_loops_with_conditions(device_id = None, run_mode: str = "npu", d
     dtype = torch.float
     a = torch.rand(shape, dtype=dtype, device=device)
     b = torch.rand(shape, dtype=dtype, device=device)
-    y = nested_loops_with_conditions(a, b, run_mode, dynamic).cpu()
+    y = create_nested_loops_with_conditions_kernel(shape, dynamic, run_mode)(a, b)
     golden = torch.zeros(shape, dtype=dtype, device=device)
     golden[0] = a[0] + b[0]
     golden[1] = a[1] - b[1]
     golden = golden.cpu()
 
     if run_mode == "npu":
-        assert_allclose(np.array(y), np.array(golden), rtol=1e-3, atol=1e-3)
-        print(f"Output: {y}")
-        print(f"Expected: {golden}")
+        assert_allclose(np.array(y.cpu()), np.array(golden.cpu()), rtol=1e-3, atol=1e-3)
+        print(f"Output: {y.cpu()}")
+        print(f"Expected: {golden.cpu()}")
     print("✓ Nested loops with conditional statements completed successfully")
 
 
