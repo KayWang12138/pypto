@@ -9,6 +9,9 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 """
+Configure unique TILE_FWK_DEVICE_ID for pytest-xdist workers to avoid NPU devicer conflicts:
+- pytest_configure_node: Set device ID env var on worker process startup
+- pytest_runtest_setup: Refresh device ID env var before each test
 """
 import os
 import pytest
