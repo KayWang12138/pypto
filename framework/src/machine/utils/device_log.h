@@ -178,6 +178,62 @@ static inline bool IsLogEnableError() { return true; }
 #endif
 #endif
 
+constexpr const int MAX_LOG_SIZE = 8192;
+[[maybe_unused]] static thread_local char g_logMsgBuf[MAX_LOG_SIZE] = {0};
+
+#define D_DEV_LOG(level, MODE_NAME, fmt, ...)                                               \
+    do {                                                                                    \
+        if (level == DLOG_DEBUG) {                                                          \
+            D_DEV_LOGD(MODE_NAME, fmt, ##__VA_ARGS__);                                      \
+        }                                                                                   \
+        if (level == DLOG_INFO) {                                                           \
+            D_DEV_LOGI(MODE_NAME, fmt, ##__VA_ARGS__);                                      \
+        }                                                                                   \
+        if (level == DLOG_WARN) {                                                           \
+            D_DEV_LOGW(MODE_NAME, fmt, ##__VA_ARGS__);                                      \
+        }                                                                                   \
+        if (level == DLOG_ERROR) {                                                          \
+            D_DEV_LOGE(MODE_NAME, fmt, ##__VA_ARGS__);                                      \
+        }                                                                                   \
+    }while (0)
+
+#define D_DEV_LOGF(level, MODE_NAME, fmt, ...)                                              \
+    do{                                                                                     \
+        char *msgbuf = g_logMsgBuf;                                                       \
+        size_t msgmaxlen = (MSG_LENGTH - 250);                                              \
+        (void)memset_s(msgbuf, sizeof(g_logMsgBuf), 0, sizeof(g_logMsgBuf));                                                   \
+        int rettmp = snprintf_s(msgbuf, sizeof(g_logMsgBuf),                               \
+                                    sizeof(g_logMsgBuf) - 1, fmt, ##__VA_ARGS__);             \
+        if (rettmp == -1) {                                                                 \
+            msgbuf[sizeof(msgbuf) - 1] = '\0';                                        \
+        }                                                                                   \
+        size_t msglength = std::strlen(msgbuf);                                          \
+        if (msglength < msgmaxlen) {                                                        \
+            D_DEV_LOG(level, MODE_NAME, "%s", msgbuf);                                   \
+            break;                                                                          \
+        }                                                                                   \
+        char *msgchunkbegin = msgbuf;                                                    \
+        char *msgchunkend = nullptr;                                                        \
+        while (msgchunkbegin < msgbuf + msglength) {                                     \
+            if (msgchunkbegin[0] == '\n') {                                                 \
+                D_DEV_LOG(level, MODE_NAME, "");                                            \
+                msgchunkbegin += 1;                                                         \
+                continue;                                                                   \
+            }                                                                               \
+            msgchunkend = std::strchr(msgchunkbegin, '\n');                                 \
+            if (msgchunkend == nullptr) {                                                   \
+                msgchunkend = msgchunkbegin + std::strlen(msgchunkbegin);                   \
+            }                                                                               \
+            while (msgchunkend > msgchunkbegin) {                                           \
+                std::string msgchunk(msgchunkbegin,                                         \
+                                        std::min(msgmaxlen, static_cast<size_t>(msgchunkend - msgchunkbegin)));     \
+                D_DEV_LOG(level, MODE_NAME, "%s", msgchunk.c_str());                        \
+                msgchunkbegin += msgchunk.size();                                           \
+            }                                                                               \
+            msgchunkbegin += 1;                                                             \
+        }                                                                                   \
+    }while (0)
+
 #if DEBUG_PLOG && defined(__DEVICE__)
 #define GET_TID() syscall(__NR_gettid)
 const std::string TILE_FWK_DEVICE_MACHINE = "AI_CPU";
@@ -220,6 +276,12 @@ inline bool IsDebugMode() {
         D_DEV_LOGD(TILE_FWK_DEVICE_MACHINE, fmt, ##args);               \
     }                                                                   \
   } while(0)
+
+#define DEV_DEBUG_F(fmt, args...) D_DEV_LOGF(TILE_FWK_DEVICE_MACHINE, fmt, ##args)
+#define DEV_INFO_F(fmt, args...) D_DEV_LOGF(TILE_FWK_DEVICE_MACHINE, fmt, ##args)
+#define DEV_WARN_F(fmt, args...) D_DEV_LOGF(TILE_FWK_DEVICE_MACHINE, fmt, ##args)
+#define DEV_ERROR_F(fmt, args...) D_DEV_LOGF(TILE_FWK_DEVICE_MACHINE, fmt, ##args)
+
 #define DEV_DEBUG(fmt, args...) D_DEV_LOGD(TILE_FWK_DEVICE_MACHINE, fmt, ##args)
 #define DEV_INFO(fmt, args...) D_DEV_LOGI(TILE_FWK_DEVICE_MACHINE, fmt, ##args)
 #define DEV_WARN(fmt, args...) D_DEV_LOGW(TILE_FWK_DEVICE_MACHINE, fmt, ##args)
@@ -254,6 +316,46 @@ inline bool IsDebugMode() {
 #define DEV_MEM_DUMP(fmt, args...)
 
 #else
+
+const std::string TILE_FWK_DEVICE_MACHINE = "AI_CPU";
+#define DLOG_DEBUG LOG_LEVEL_DEBUG
+#define DLOG_INFO LOG_LEVEL_INFO
+#define DLOG_WARN LOG_LEVEL_WARN
+#define DLOG_ERROR LOG_LEVEL_ERROR
+#define MSG_LENGTH 1024
+
+#define D_DEV_LOGD(MODE_NAME, fmt, ...)\
+    do {
+        if (IsLogEnableDebug()) {
+            GetLogger().Log(LOG_LEVEL_DEBUG, __FILE__, __LINE__, "%s: " fmt, __FUNCTION__, ##__VA_ARGS__);\
+        }\
+    } while (false)
+
+#define D_DEV_LOGI(MODE_NAME, fmt, ...)\
+    do {
+        if (IsLogEnableInfo()) {
+            GetLogger().Log(LOG_LEVEL_DEBUG, __FILE__, __LINE__, "%s: " fmt, __FUNCTION__, ##__VA_ARGS__);\
+        }\
+    } while (false)
+
+#define D_DEV_LOGW(MODE_NAME, fmt, ...)\
+    do {
+        if (IsLogEnableWarn()) {
+            GetLogger().Log(LOG_LEVEL_DEBUG, __FILE__, __LINE__, "%s: " fmt, __FUNCTION__, ##__VA_ARGS__);\
+        }\
+    } while (false)
+
+#define D_DEV_LOGE(MODE_NAME, fmt, ...)\
+    do {
+        if (IsLogEnableError()) {
+            GetLogger().Log(LOG_LEVEL_DEBUG, __FILE__, __LINE__, "%s: " fmt, __FUNCTION__, ##__VA_ARGS__);\
+        }\
+    } while (false)
+
+#define DEV_DEBUG_F(fmt, args...) D_DEV_LOGF(TILE_FWK_DEVICE_MACHINE, fmt, ##args)
+#define DEV_INFO_F(fmt, args...) D_DEV_LOGF(TILE_FWK_DEVICE_MACHINE, fmt, ##args)
+#define DEV_WARN_F(fmt, args...) D_DEV_LOGF(TILE_FWK_DEVICE_MACHINE, fmt, ##args)
+#define DEV_ERROR_F(fmt, args...) D_DEV_LOGF(TILE_FWK_DEVICE_MACHINE, fmt, ##args)
 
 inline bool IsDebugMode() {
     return true;
