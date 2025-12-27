@@ -218,9 +218,7 @@ def set_runtime_options(*,
                         stitch_function_outcast_memory: Optional[int] = None,
                         stitch_function_num_initial: Optional[int] = None,
                         stitch_function_num_step: Optional[int] = None,
-                        cfgcache_device_task_num: Optional[int] = None,
-                        cfgcache_root_task_num: Optional[int] = None,
-                        cfgcache_leaf_task_num: Optional[int] = None,
+                        stitch_cfgcache_size: Optional[int] = None,
                         stitch_function_size: int = None,
                         run_mode: Optional[int] = None
                         ) -> None:
@@ -249,6 +247,9 @@ def set_runtime_options(*,
     stitch_function_num_step : int
         The computation amount of the processing loop for non-initial
         stitch tasks, controlled in the ctrlflow AICPU during machine runtime.
+
+    stitch_cfgcache_size: int
+        The size of the control flow cache.
 
     stitch_function_size: int
         The maximum Callop computation amount per loop for stitch tasks,
