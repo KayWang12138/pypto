@@ -1116,68 +1116,66 @@ Examples:
     
     # Define available examples
     examples = {
-        # 'abs::test_abs_basic': {
-        #     'name': 'Test basic usage of abs function',
-        #     'description': 'Basic usage of abs function example',
-        #     'function': test_abs_basic
-        # },
-        # 'add::test_add_basic': {
-        #     'name': 'Test basic usage of add function',
-        #     'description': 'Basic usage of add function example',
-        #     'function': test_add_basic
-        # },
-        # 'add::test_add_broadcast': {
-        #     'name': 'Test broadcasting between tensors of different shapes',
-        #     'description': 'Broadcasting between tensors example',
-        #     'function': test_add_broadcast
-        # },
-        # 'add::test_add_scalar': {
-        #     'name': 'Test adding a scalar to a tensor',
-        #     'description': 'Adding a scalar to a tensor example',
-        #     'function': test_add_scalar
-        # },
-        # 'add::test_add_with_alpha': {
-        #     'name': 'Using the alpha parameter to scale the second input',
-        #     'description': 'Using the alpha parameter example',
-        #     'function': test_add_with_alpha
-        # },
-        # 'clip::test_clip_basic': {
-        #     'name': 'Test basic usage of clip function',
-        #     'description': 'Basic usage of clip function example',
-        #     'function': test_clip_basic
-        # },
-        # 'clip::test_clip_broadcast': {
-        #     'name': 'Test broadcasting between tensors of different shapes',
-        #     'description': 'Broadcasting between tensors example',
-        #     'function': test_clip_broadcast
-        # },
-        # 'div::test_div_basic': {
-        #     'name': 'Test basic usage of div function',
-        #     'description': 'Basic usage of div function example',
-        #     'function': test_div_basic
-        # },
-        # 'div::test_div_broadcast': {
-        #     'name': 'Test broadcasting between tensors of different shapes',
-        #     'description': 'Broadcasting between tensors example',
-        #     'function': test_div_broadcast
-        # },
-        # 'div::test_div_scalar': {
-        #     'name': 'Test diving a scalar to a tensor',
-        #     'description': 'Diving a scalar to a tensor example',
-        #     'function': test_div_scalar
-        # },
-        # 'exp::test_exp_basic': {
-        #     'name': 'Test basic usage of exp function',
-        #     'description': 'Basic usage of exp function example',
-        #     'function': test_exp_basic
-        # },
-        # 'log::test_log_basic': {
-        #     'name': 'Test basic usage of log function',
-        #     'description': 'Basic usage of log function example',
-        #     'function': test_log_basic
-        # },
-        
-        
+        'abs::test_abs_basic': {
+            'name': 'Test basic usage of abs function',
+            'description': 'Basic usage of abs function example',
+            'function': test_abs_basic
+        },
+        'add::test_add_basic': {
+            'name': 'Test basic usage of add function',
+            'description': 'Basic usage of add function example',
+            'function': test_add_basic
+        },
+        'add::test_add_broadcast': {
+            'name': 'Test broadcasting between tensors of different shapes',
+            'description': 'Broadcasting between tensors example',
+            'function': test_add_broadcast
+        },
+        'add::test_add_scalar': {
+            'name': 'Test adding a scalar to a tensor',
+            'description': 'Adding a scalar to a tensor example',
+            'function': test_add_scalar
+        },
+        'add::test_add_with_alpha': {
+            'name': 'Using the alpha parameter to scale the second input',
+            'description': 'Using the alpha parameter example',
+            'function': test_add_with_alpha
+        },
+        'clip::test_clip_basic': {
+            'name': 'Test basic usage of clip function',
+            'description': 'Basic usage of clip function example',
+            'function': test_clip_basic
+        },
+        'clip::test_clip_broadcast': {
+            'name': 'Test broadcasting between tensors of different shapes',
+            'description': 'Broadcasting between tensors example',
+            'function': test_clip_broadcast
+        },
+        'div::test_div_basic': {
+            'name': 'Test basic usage of div function',
+            'description': 'Basic usage of div function example',
+            'function': test_div_basic
+        },
+        'div::test_div_broadcast': {
+            'name': 'Test broadcasting between tensors of different shapes',
+            'description': 'Broadcasting between tensors example',
+            'function': test_div_broadcast
+        },
+        'div::test_div_scalar': {
+            'name': 'Test diving a scalar to a tensor',
+            'description': 'Diving a scalar to a tensor example',
+            'function': test_div_scalar
+        },
+        'exp::test_exp_basic': {
+            'name': 'Test basic usage of exp function',
+            'description': 'Basic usage of exp function example',
+            'function': test_exp_basic
+        },
+        'log::test_log_basic': {
+            'name': 'Test basic usage of log function',
+            'description': 'Basic usage of log function example',
+            'function': test_log_basic
+        },
         'mul::test_mul_basic': {
             'name': 'Test basic usage of mul function',
             'description': 'Basic usage of mul function example',

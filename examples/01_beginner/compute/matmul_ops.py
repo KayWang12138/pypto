@@ -185,23 +185,6 @@ def test_matmul_broadcast(device_id: int = None, run_mode: str = "npu"):
     print("✓ Batch matrix multiplication with broadcasting completed successfully")
 
 
-@pypto.jit(
-        host_options={"only_codegen": True},
-    )
-def matmul_trans_right_kernel(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> None:
-    pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
-    out[:] = pypto.matmul(a, b, out.dtype, b_trans=True)
-
-
-@pypto.jit(
-        host_options={"only_codegen": True},
-    runtime_options={"run_mode": pypto.RunMode.SIM}
-    )
-def matmul_trans_right_kernel_sim(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> None:
-    pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
-    out[:] = pypto.matmul(a, b, out.dtype, b_trans=True)
-
-
 def matmul_trans_right_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
     a_shape, b_shape = a.shape, b.shape
     out_shape = (a_shape[0], b_shape[0])
