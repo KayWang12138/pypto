@@ -237,6 +237,20 @@ def ifa_func(key_cache, value_cache, block_table, kv_act_seqs,
     x_offset_2d = pypto.reshape(x_offset, [1, 5120], inplace=True)
     quant_bias_2d = pypto.reshape(quant_bias, [1, 1792], inplace=True)
     deq_scale_2d = pypto.reshape(deq_scale, [1, 1792], inplace=True)
+    q_gamma_2d = pypto.reshape(q_gamma, [1, 1, head_size], inplace=True)
+    q_bias_2d = pypto.reshape(q_bias, [1, 1, head_size], inplace=True)
+    k_gamma_2d = pypto.reshape(k_gamma, [1, 1, head_size], inplace=True)
+    k_bias_2d = pypto.reshape(k_bias, [1, 1, head_size], inplace=True)
+
+    pypto.set_vec_tile_shapes(1, 1, head_size)
+    q_gamma_2d_fp32 = pypto.cast(q_gamma_2d, calc_dtype)
+    q_bias_2d_fp32 = pypto.cast(q_bias_2d, calc_dtype)
+    k_gamma_2d_fp32 = pypto.cast(k_gamma_2d, calc_dtype)
+    k_bias_2d_fp32 = pypto.cast(k_bias_2d, calc_dtype)
+    q_gamma_expand = pypto.expand_clone(q_gamma_2d_fp32, [1, q_num_head, head_size])
+    q_bias_expand = pypto.expand_clone(q_bias_2d_fp32, [1, q_num_head, head_size])
+    k_gamma_expand = pypto.expand_clone(k_gamma_2d_fp32, [1, kv_num_head, head_size])
+    k_bias_expand = pypto.expand_clone(k_bias_2d_fp32, [1, kv_num_head, head_size])
 
     # 6. 实现kernel逻辑，循环展开BS动态轴
     for bs_idx in pypto.loop(bs_loop, name="LOOP_ATT_PRE_L0", idx_name="bs_idx"):
@@ -306,8 +320,10 @@ def ifa_func(key_cache, value_cache, block_table, kv_act_seqs,
         v_tile = pypto.view(mm_3d, [bs_tile, kv_num_head, head_size], [0, kv_index, 0])
 
         # rms norm
-        q_norm = rms_norm_bias(q_tile, q_gamma, q_bias, qk_mean_coff, eps, [q_batch_tile, q_num_head, head_size])
-        k_norm = rms_norm_bias(k_tile, k_gamma, k_bias, qk_mean_coff, eps, [q_batch_tile, kv_num_head, head_size])
+        q_norm = rms_norm_bias(q_tile, q_gamma_expand, q_bias_expand, qk_mean_coff, eps,
+            [q_batch_tile, q_num_head, head_size])
+        k_norm = rms_norm_bias(k_tile, k_gamma_expand, k_bias_expand, qk_mean_coff, eps,
+            [q_batch_tile, kv_num_head, head_size])
 
         q_rot = pypto.view(q_norm, [bs_tile, q_num_head, rotary_dim], [0, 0, 0])
         q_pass = pypto.view(q_norm, [bs_tile, q_num_head, stay_dim], [0, 0, rotary_dim])
@@ -503,9 +519,10 @@ def ifa(atten_cfg, device_id):
     qkv_proj_scale = torch.rand(hidden_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
     qkv_proj_offset = torch.rand(hidden_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
 
-    qkv_proj_weight = torch.randint(0, 255, size=(hidden_size, total_head_size), dtype=torch.int8,
-                                    device=f'npu:{device_id}')
-    qkv_proj_quant_bias = torch.randint(0, 255, size=(total_head_size,), dtype=torch.int32, device=f'npu:{device_id}')
+    qkv_proj_weight = torch.randint(-128, 128, size=(hidden_size, total_head_size), dtype=torch.int8,
+        device=f'npu:{device_id}')
+    qkv_proj_quant_bias = torch.randint(-128, 128, size=(total_head_size,), dtype=torch.int32,
+        device=f'npu:{device_id}')
     qkv_proj_deq_scale = torch.rand(total_head_size, dtype=torch.float32, device=f'npu:{device_id}')
     q_norm_weight = torch.rand(head_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
     q_norm_bias = torch.rand(head_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
