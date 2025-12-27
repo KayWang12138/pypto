@@ -391,4 +391,4 @@ def test():
         "n_tile": 32
     }
     st = PATest(model_golden_params, op_page_attention, op_page_attention_golden, tiling=32)
-    st()
+    st(True, False, int(os.environ.get('TILE_FWK_DEVICE_ID', 0)))

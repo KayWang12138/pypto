@@ -1148,6 +1148,19 @@ class BuildCtrl(CMakeParam):
             duration_str: str = f"{duration}/{self.build.timeout}" if self.build.timeout else f"{duration}"
             logging.info("Success Build whl, Cmd: %s, Duration %s sec", cmd, duration_str)
 
+
+    def _get_pystest_worker_num(self) -> int:
+        if self.tests.example.enable or self.tests.stest.enable:
+            try:
+                import torch
+                import torch_npu
+                pyst_n_workers = torch.npu.device_count()
+                logging.info("NPU device count %d", pyst_n_workers)
+                return pyst_n_workers
+            except ImportError:
+                return 1
+
+
     def py_tests(self):
         if not self.tests.utest.enable and not self.tests.stest.enable and not self.tests.example.enable:
             return
@@ -1168,23 +1181,18 @@ class BuildCtrl(CMakeParam):
         self.py_tests_run_pytest(dist=dist, tests=self.tests.utest,
                                  def_filter=str(Path(self.src_root, "python/tests/ut")),
                                  ext=f"-n {n_workers} --forked -W ignore::DeprecationWarning")
+
+        # 根据device数量，获取并行进程数
+        pyst_n_workers = self._get_pystest_worker_num()
         # 执行用例, STest
         self.py_tests_run_pytest(dist=dist, tests=self.tests.stest,
-                                 def_filter=str(Path(self.src_root, "python/tests/st")), ext="--forked")
-
-        pyst_n_workers = 1
-        if self.tests.example.enable:
-            try:
-                import torch
-                import torch_npu
-                pyst_n_workers = torch.npu.device_count()
-                logging.info("NPU device count %d", pyst_n_workers)
-            except ImportError:
-                pass
+                                 def_filter=str(Path(self.src_root, "python/tests/st")),
+                                 ext=f"-n {pyst_n_workers} --forked")
 
         # 执行用例, Example
         self.py_tests_run_pytest(dist=dist, tests=self.tests.example,
-                                 def_filter=str(Path(self.src_root, "examples")), ext=f"-n {pyst_n_workers} --forked")
+                                 def_filter=str(Path(self.src_root, "examples")),
+                                 ext=f"-n {pyst_n_workers} --forked")
 
     def py_tests_run_pytest(self, dist: Optional[Path], tests: TestsFilterParam, def_filter: str, ext: str = ""):
         if not tests.enable or not self.tests.exec.auto_execute:

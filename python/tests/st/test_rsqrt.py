@@ -48,4 +48,4 @@ class RsqrtTest(TestBuilder):
 
 def test():
     st = RsqrtTest(((16, 16), (8, 8)), op_rsqrt, op_rsqrt_golden, tiling=32)
-    st()
+    st(True, False, int(os.environ.get('TILE_FWK_DEVICE_ID', 0)))
