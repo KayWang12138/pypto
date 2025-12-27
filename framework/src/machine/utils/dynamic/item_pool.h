@@ -16,13 +16,14 @@
 #pragma once
 
 #include "machine/utils/dynamic/allocator/allocators.h"
+#include <limits>
 
 namespace npu::tile_fwk::dynamic {
 
 using ItemPoolIter = int64_t;
 
-static constexpr ItemPoolIter ITEM_POOL_INVALID_INDEX = -1;
-static constexpr ItemPoolIter ITEM_POOL_NON_FREE_INDEX = -2;
+static constexpr ItemPoolIter ITEM_POOL_INVALID_INDEX = std::numeric_limits<int64_t>::max();
+static constexpr ItemPoolIter ITEM_POOL_NON_FREE_INDEX = std::numeric_limits<int64_t>::max() - 1;
 
 template <typename T, typename WsAllocator_T = WsMetadataAllocator>
 class ItemPool {
@@ -49,7 +50,7 @@ public:
     ~ItemPool() {
         if (allocation_) {
             // Call destructor on alive items
-            ItemBlock *itemBase = &ItemAt();
+            ItemBlock *itemBase = &ItemAt(0);
             for (size_t i = 0; i < count_; i++) {
                 if (itemBase[i].freeListNextIndex == ITEM_POOL_NON_FREE_INDEX) {
                     (reinterpret_cast<T *>(itemBase + i))->~T();
@@ -66,7 +67,7 @@ public:
         allocator_ = &allocator;
         count_ = count;
         allocation_ = allocator_->template Allocate<ItemBlock>(count_, category);
-        ItemBlock *itemBase = &ItemAt();
+        ItemBlock *itemBase = &ItemAt(0);
         for (size_t i = 0; i < count_; i++) {
             AppendFreeList(itemBase + i);
         }
@@ -104,7 +105,9 @@ public:
         freeCount_++;
     }
 
-    T &At(ItemPoolIter index) { return allocation_.As<ItemBlock>()[index].Item(); }
+    T &At(ItemPoolIter index) {
+        return ItemAt(index).Item();
+    }
 
     void DestroyAt(ItemPoolIter index) {
         Destroy(&At(index));
@@ -120,7 +123,11 @@ private:
         freeListHeadIndex_ = block - &ItemAt(0);
     }
 
-    ItemBlock &ItemAt(ItemPoolIter index = 0) { return allocation_.As<ItemBlock>()[index]; }
+    inline ItemBlock &ItemAt(ItemPoolIter index) {
+        DEV_ASSERT_MSG(index >= 0 && static_cast<size_t>(index) < count_,
+            "Index %" PRId64 " out of range [0, %zu)", index, count_);
+        return allocation_.As<ItemBlock>()[index];
+    }
 
 private:
     WsMemCategory category_{WsMemCategory::UNCLASSIFIED_ITEMPOOL};

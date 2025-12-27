@@ -318,6 +318,8 @@ struct AddressDescriptor {
     }
 
     static AddressDescriptor MakeFromRtOutcast(ItemPoolIter iter) {
+        DEV_ASSERT_MSG((iter & (1ULL << 63)) == 0,
+            "RtOutcast iterator %" PRId64 " exceeds maximum allowed value", iter);
         AddressDescriptor desc;
         desc.rtOutcastIter = iter;
         desc.isRtOutcast = 1;
