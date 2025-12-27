@@ -86,35 +86,37 @@ def softmax_core(input_tensor: pypto.tensor) -> pypto.tensor:
     return pypto.div(exp, esum)
 
 
-@pypto.jit(
-    host_options={"only_codegen": True},
-    runtime_options={"cfgcache_device_task_num": 100, "cfgcache_root_task_num": 100, "cfgcache_leaf_task_num": 10000, "run_mode": 1}
-)
-def softmax(input_tensor, output_tensor, cost_model_enable):
+def softmax_wrapper(SHAPE, cost_model_enable):
+    @pypto.frontend.jit(
+        host_options={"only_codegen": True},
+        runtime_options={"cfgcache_device_task_num": 100, "cfgcache_root_task_num": 100, "cfgcache_leaf_task_num": 10000, "run_mode": pypto.RunMode.SIM}
+    )
+    def softmax(input_tensor: pypto.Tensor(SHAPE, pypto.DT_FP32)) -> pypto.Tensor(SHAPE, pypto.DT_FP32):
 
-    # After the dynamic axis of tensor is marked, get the tensor shape accordingly
-    tensor_shape = input_tensor.shape
-    b = tensor_shape[0]  # Dynamic batch size
-    n1, n2, dim = tensor_shape[1:]  # Static dimensions
-    tile_b = 1  # Process one batch at a time
-    b_loop = b // tile_b
+        tensor_shape = SHAPE
+        b = tensor_shape[0]  # Dynamic batch size
+        n1, n2, dim = tensor_shape[1:]  # Static dimensions
+        tile_b = 1  # Process one batch at a time
+        b_loop = b // tile_b
 
-    # Tiling shape setting for efficient execution
-    pypto.set_vec_tile_shapes(1, 4, 1, 64)
+        # Tiling shape setting for efficient execution
+        pypto.set_vec_tile_shapes(1, 4, 1, 64)
 
-    for idx in pypto.loop(0, b_loop, 1, name="LOOP_L0_bIdx", idx_name="idx"):
-        b_offset = idx * tile_b
-        b_offset_end = (idx + 1) * tile_b
-        
-        # Extract batch slice
-        input_view = input_tensor[b_offset:b_offset_end, :n1, :n2, :dim]
-        
-        # Apply softmax to batch slice
-        softmax_out = softmax_core(input_view)
-        
-        # Assemble result back to output tensor
-        pypto.assemble(softmax_out, [b_offset, 0, 0, 0], output_tensor)
-
+        output_tensor = pypto.tensor(SHAPE, input_tensor.dtype)
+        for idx in pypto.loop(b_loop):
+            b_offset = idx * tile_b
+            b_offset_end = (idx + 1) * tile_b
+            
+            # Extract batch slice
+            input_view = input_tensor[b_offset:b_offset_end, :n1, :n2, :dim]
+            
+            # Apply softmax to batch slice
+            softmax_out = softmax_core(input_view)
+            
+            # Assemble result back to output tensor
+            pypto.assemble(softmax_out, [b_offset, 0, 0, 0], output_tensor)
+        return output_tensor
+    return softmax
 
 def test_softmax(cost_model_enable=True):
     """
@@ -130,22 +132,11 @@ def test_softmax(cost_model_enable=True):
 
     # Prepare data
     input_data = torch.rand(shape, dtype=torch.float32)
-    output_data = torch.zeros(shape, dtype=torch.float32)
-
-    # Initialize PyPTO inputs and outputs
-    # Mark dynamic axis: the actual size of the axis can be any integer number during runtime
-    inputs = {
-        input_data: [0]
-    }
-    outputs = {
-        output_data: [0]
-    }
-    pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
-    pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
 
     # Launch the kernel
-    softmax(*pto_inputs, *pto_outputs, cost_model_enable)
 
+    output_data = softmax_wrapper(shape, cost_model_enable)(input_data).cpu()
+    
     # Verify against PyTorch reference
     torch_softmax = torch.softmax(input_data, dim=3)
     npu_data = output_data.cpu()
