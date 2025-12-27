@@ -66,7 +66,7 @@ def softmax_core(input_tensor: pypto.Tensor) -> pypto.Tensor:
 
 @pypto.jit(
     host_options={"only_codegen": True},
-    runtime_options={"cfgcache_device_task_num": 100, "cfgcache_root_task_num": 100, "cfgcache_leaf_task_num": 10000, "run_mode": 1}
+    runtime_options={"stitch_cfgcache_size": 2093600, "run_mode": 1}
 )
 def softmax(input_tensor, output_tensor, cost_model_enable):
 
