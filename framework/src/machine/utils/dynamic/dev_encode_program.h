@@ -50,18 +50,13 @@ struct DevAscendProgram {
             uint64_t maxDynamicAssembleOutcastMem;
             uint64_t devTaskBoundaryOutcastNum;
 
-            uint64_t DAssembleDests() const { // deprecated
-                return 0;
-            }
-
             uint64_t MaxOutcastMem() const {
                 return std::max(maxStaticOutcastMem, maxDynamicAssembleOutcastMem);
             }
 
             uint64_t Total() const {
-                uint64_t total = rootInner +       // root func inner tensors
-                    DAssembleDests() +             // root func outcasts & dassemble-dst, automatically upgraded to DeviceTask boundary outcasts
-                    devTaskInnerExclusiveOutcasts +         // root func outcasts & non-dassemble-dst & DeviceTask inner tensors
+                uint64_t total = rootInner +                     // root func inner tensors
+                    devTaskInnerExclusiveOutcasts +              // root func outcasts & non-dassemble-dst & DeviceTask inner tensors
                     MaxOutcastMem() * devTaskBoundaryOutcastNum; // root func outcasts & non-dassemble-dst & DeviceTask boundary outcasts
                 static constexpr uint64_t ALIGNMENT_32K = 32 * 1024;
                 return AlignUp(total, ALIGNMENT_32K);
