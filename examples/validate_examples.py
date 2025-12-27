@@ -82,10 +82,12 @@ Usage Examples:
     python3 examples/validate_examples.py -t examples --device_ids 0 --show-fail-details
 
     # 10. Full production-grade validation: multi-device, retries, timeout, and failure details
-    python3 examples/validate_examples.py -t examples --device_ids 0,1,2,3,4,5,6,7 --parallel-retries 2 --serial-retries 5 --timeout 300 --show-fail-details
+    python3 examples/validate_examples.py -t examples --device_ids 0,1,2,3,4,5,6,7 
+        --parallel-retries 2 --serial-retries 5 --timeout 300 --show-fail-details
 
 Note: This script is intended for use within CANN-based development workflows and assumes
-hardware context awareness via the `TILE_FWK_DEVICE_ID`/`TILE_FWK_STEST_DEVICE_ID`/`ASCEND_VISIBLE_DEVICES` environment variable.
+hardware context awareness via the `TILE_FWK_DEVICE_ID`/
+    `TILE_FWK_STEST_DEVICE_ID`/`ASCEND_VISIBLE_DEVICES` environment variable.
 """
 import os
 import subprocess
@@ -130,7 +132,8 @@ def _has_pytest_tests(file_path: Path) -> bool:
         return False
 
 
-def run_script(args, full_path: Path, rel_path: str, device_queue: queue.Queue, timeout: int, safe_print, print_cmd_on_serial=False):
+def run_script(args, full_path: Path, rel_path: str, device_queue: queue.Queue,
+               timeout: int, safe_print, print_cmd_on_serial=False):
     """
     Execute a single script by leasing a device from device_queue.
     Returns a dict with result info.
@@ -248,7 +251,8 @@ def run_script(args, full_path: Path, rel_path: str, device_queue: queue.Queue, 
         safe_print("-" * 50)
 
 
-def _execute_scripts(args, rel_paths, target_dir, device_ids, max_workers, timeout, safe_print, print_cmd_on_serial=False):
+def _execute_scripts(args, rel_paths, target_dir, device_ids,
+                     max_workers, timeout, safe_print, print_cmd_on_serial=False):
     """Helper to execute a list of scripts with given device pool."""
     if not rel_paths:
         return []
@@ -261,7 +265,8 @@ def _execute_scripts(args, rel_paths, target_dir, device_ids, max_workers, timeo
         future_to_rel = {}
         for rel_path in rel_paths:
             full_path = target_dir / rel_path
-            future = executor.submit(run_script, args, full_path, rel_path, device_queue, timeout, safe_print, print_cmd_on_serial)
+            future = executor.submit(run_script, args, full_path, rel_path,
+                                     device_queue, timeout, safe_print, print_cmd_on_serial)
             future_to_rel[future] = rel_path
 
         results = []
@@ -446,6 +451,7 @@ def main() -> None:
 
     # Thread-safe print
     print_lock = threading.Lock()
+    
     def safe_print(*a, **kw):
         with print_lock:
             print(*a, **kw)
@@ -487,7 +493,8 @@ def main() -> None:
     if not current_candidates:
         safe_print("ℹ️  No executable scripts found. All were skipped.")
         total_time_sec = time.perf_counter() - start_time
-        _print_final_summary([], [], skipped_sim_results, skipped_no_tests_results, args, target, device_ids, total_time_sec, safe_print)
+        _print_final_summary([], [], skipped_sim_results, skipped_no_tests_results,
+                             args, target, device_ids, total_time_sec, safe_print)
         sys.exit(0)
 
         # ----------------------------
@@ -505,10 +512,12 @@ def main() -> None:
             if retry_round == 0:
                 safe_print(f"▶️  Initial Serial Run — {len(current_candidates)} script(s)\n")
             else:
-                safe_print(f"🔁 Serial Retry Round {retry_round}/{max_serial_retries} — {len(current_candidates)} script(s)\n")
+                safe_print(f"🔁 Serial Retry Round {retry_round}/{max_serial_retries} \
+                           — {len(current_candidates)} script(s)\n")
 
             serial_results = _execute_scripts(
-                args, current_candidates, target_dir, device_ids, max_workers=1, timeout=args.timeout, safe_print=safe_print, print_cmd_on_serial=True
+                args, current_candidates, target_dir, device_ids,
+                max_workers=1, timeout=args.timeout, safe_print=safe_print, print_cmd_on_serial=True
             )
 
             # Update global result map
