@@ -98,4 +98,4 @@ def test():
         params = (bs, ne, top_k, renormalize)
 
         st = SelectExpertsTest(params, op_select_experts, golden_select_experts, 32)
-        st(jit=True)
+        st(True, True, int(os.environ.get('TILE_FWK_DEVICE_ID', 0)))
