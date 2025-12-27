@@ -333,16 +333,7 @@ public:
                 /* reshape inplace or something */
                 auto &incastDesc = devRootDup.GetIncastAddress(rawTensor->linkedIncastId);
                 DEV_ASSERT(incastDesc.IsRtOutcast());
-                if (incastDesc.GetRtOutcastIter() == ITEM_POOL_INVALID_INDEX) {
-                    /* uninitialized mem, intro-ed by assemble-ssa feature, to be removed in the future */
-                    auto memReq = rawTensor->GetMemoryRequirement(devRootDup.GetExpressionAddr());
-                    auto allocation = tensorAllocators_.dassembleDests.Allocate<uint8_t>(memReq);
-#if DEBUG_INFINITE_LIFETIME
-                    allocation = DebugDumpTensorAllocate(memReq);
-#endif // DEBUG_INFINITE_LIFETIME
-                    incastDesc = AddressDescriptor::MakeFromRtOutcast(
-                        MakeRuntimeOutcastTensor(allocation.ptr, RtMemProperty::DEPRECATED_ORIGINAL_DASSEMBLE_DST));
-                }
+                DEV_ASSERT(incastDesc.GetRtOutcastIter() != ITEM_POOL_INVALID_INDEX);
                 outcastDesc = incastDesc;
                 RuntimeOutcastTensorRef(outcastDesc.GetRtOutcastIter());
             } else {
@@ -517,7 +508,6 @@ public:
         metadataAllocators_.stitchSlab.DumpMemoryUsage(hint, "Metadata Stitch slab allocator");
         tensorAllocators_.rootInner.DumpMemoryUsage(hint, "Tensor (root inner) workspace");
         tensorAllocators_.devTaskInnerExclusiveOutcasts.DumpMemoryUsage(hint, "Tensor (DeviceTask inner outcasts) workspace");
-        tensorAllocators_.dassembleDests.DumpMemoryUsage(hint, "Tensor (dassembleDests) workspace");
         tensorAllocators_.devTaskBoundaryOutcasts.DumpMemoryUsage(hint);
 
         // Dump stack memory
@@ -667,15 +657,6 @@ private:
         tensorAllocators_.devTaskInnerExclusiveOutcasts.InitTensorAllocator(baseAddr, devTaskInnerOutcastBudget);
         DEV_TRACE_DEBUG(CtrlEvent(none(), WorkspaceInDeviceTaskOutcast(Range(baseAddr, baseAddr + devTaskInnerOutcastBudget))));
         baseAddr += devTaskInnerOutcastBudget;
-
-        // Initialize dassembleDests tensor memory
-        // dassembleDests contains dynamic workspace, put it to the end
-        auto dassembleDestsTensorBudget = workspaceAddr + tensorWorkspaceSize - baseAddr;
-        DEV_ASSERT(devProg->memBudget.tensor.DAssembleDests() <= dassembleDestsTensorBudget);
-        dassembleDestsTensorVerifier_.Init(baseAddr, dassembleDestsTensorBudget);
-        tensorAllocators_.dassembleDests.InitTensorAllocator(baseAddr, dassembleDestsTensorBudget);
-        DEV_TRACE_DEBUG(CtrlEvent(none(), WorkspacePartialOutcast(Range(baseAddr, baseAddr + dassembleDestsTensorBudget))));
-        baseAddr += dassembleDestsTensorBudget;
 
         DEV_ASSERT(workspaceAddr <= baseAddr && baseAddr <= workspaceAddr + tensorWorkspaceSize);
     }
