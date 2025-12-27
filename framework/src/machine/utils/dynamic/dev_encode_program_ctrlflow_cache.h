@@ -234,8 +234,10 @@ struct DevProgramControlFlowCache {
             result = &cacheData[cacheDataOffset];
             /* make cache 8 byte aligned */
             cacheDataOffset += (size + CFGCACHE_ALIGN - 1) / CFGCACHE_ALIGN * CFGCACHE_ALIGN;
+            DEV_VERBOSE_DEBUG("cacheDataOffset is: %lu", cacheDataOffset);
         } else {
             isRecordingStopped = true;
+            DEV_DEBUG("Recording is stopped");
         }
         return result;
     }
@@ -245,6 +247,7 @@ struct DevProgramControlFlowCache {
             deviceTaskCacheList[deviceTaskCount].dynTaskBase = base;
             deviceTaskCount += 1;
             rootTaskCount += base->dynFuncDataList->Size();
+            DEV_DEBUG("deviceTaskCount is: %lu", deviceTaskCount);
             return true;
         } else {
             deviceTaskSkippedCount += 1;
