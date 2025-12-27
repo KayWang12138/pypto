@@ -9,7 +9,7 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 """ """
-from typing import Optional, Union, List
+from typing import Optional, Union, List, overload, Sequence, Tuple
 
 from . import pypto_impl
 from .enum import DataType
@@ -19,9 +19,9 @@ from .symbolic_scalar import SymbolicScalar
 from .tensor import Tensor
 
 
-@op_wrapper
+@overload
 def assemble(
-        input: Tensor, offsets: List[Union[int, SymbolicScalar]], out: Tensor
+    input: Tensor, offsets: List[Union[int, SymbolicScalar]], out: Tensor
 ) -> None:
     """
     Assembles a small Tensor into a larger Tensor based on specified offsets.
@@ -56,7 +56,63 @@ def assemble(
                 [0 0 0 0]
                 [0 0 0 0]]
     """
-    pypto_impl.Assemble(input, to_syms(offsets), out)
+    ...
+
+
+@overload
+def assemble(
+    inputs: Sequence[Tuple[Tensor, List[Union[int, SymbolicScalar]]]],
+    out: Tensor, parallel: bool = False
+) -> None:
+    """
+    Assembles multiple small Tensors into a larger Tensor based on specified offsets.
+
+    Parameters
+    ---------
+    inputs: Sequence[Tuple[Tensor, List[Union[int, SymbolicScalar]]]]
+        Collect multiple small tensors into a larger output tensor.
+
+    out: Tensor
+        The larger output tensor
+    Examples
+    ---------
+    x = pypto.tensor([2, 2], pypto.DT_FP32)
+    y = pypto.tensor([2, 2], pypto.DT_FP32)
+    out = pypto.tensor([4, 4], pypto.DT_FP32)
+    inputs = [(x, [0, 0]), (y, [2, 2])]
+    pypto.assemble([(x, [0, 0]), (y, [2, 2])], out, parallel=True)
+
+    Input x:[[1 1],
+            [1,1]]
+          y:[[1, 1],
+            [1, 1]]
+          out:[[0 0 0 0],
+               [0 0 0 0],
+               [0 0 0 0],
+               [0 0 0 0]]
+
+    Output out:[[1 1 0 0]
+                [1 1 0 0]
+                [0 0 1 1]
+                [0 0 1 1]]
+    """
+    ...
+
+
+def assemble(*args, parallel: bool = False) -> None:
+    if isinstance(args[0], Sequence):
+        inputs, out = args
+        inputs = [(input.base(), to_syms(offsets)) for input, offsets in inputs]
+        if len(inputs) == 0:
+            return
+        if len(inputs) == 1:
+            input, offsets = inputs[0]
+            pypto_impl.Assemble(input.base(), to_syms(offsets), out.base())
+        else:
+            pypto_impl.Assemble(inputs, out.base(), parallel)
+    else:
+        input, offsets, out = args
+        pypto_impl.Assemble(input.base(), to_syms(offsets), out.base())
 
 
 def min(a: "SymbolicScalar | int", b: "SymbolicScalar | int") -> "SymbolicScalar":
