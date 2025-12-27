@@ -34,6 +34,7 @@ static const std::unordered_map<Opcode, std::unordered_set<int32_t>> skipIndexMa
     {Opcode::OP_SHMEM_GET_GM2UB, {1}},
     {Opcode::OP_SHMEM_SIGNAL, {0, 2}},
     {Opcode::OP_SHMEM_REDUCE, {4}},
+    {Opcode::OP_SHMEM_SET, {0, 2}},
 };
 
 void CheckInRange(int64_t value)
@@ -57,7 +58,7 @@ std::string CodeGenOpCloudNPU::GetTemplateDType() const
             operandIndex = 2; // 从 operand 2 获取 T
             break;
         }
-        case Opcode::OP_SHMEM_CLEAR_SIGNAL: {
+        case Opcode::OP_SHMEM_SET: {
             operandIndex = 3; // 从 operand 3 获取 T
             break;
         }
@@ -135,9 +136,11 @@ std::string CodeGenOpCloudNPU::GenTemplateParams() const
             break;
         }
         case Opcode::OP_SHMEM_SIGNAL: {
+            int32_t shmemSignalIndex = 3;
+            int64_t rankShape = originShape[shmemSignalIndex][0];
             DistOpAttr distOpAttr = npu::tile_fwk::AnyCast<DistOpAttr>(opAttrs.at(OpAttributeKey::distOpAttr));
             oss << "<" << std::to_string(distOpAttr.signalValue) << ", "
-                << npu::tile_fwk::Distributed::AtomicTypeToString(distOpAttr.atomicType) << ">";
+                << npu::tile_fwk::Distributed::AtomicTypeToString(distOpAttr.atomicType) << ", " << rankShape << ">";
             break;
         }
         case Opcode::OP_SHMEM_REDUCE: {
@@ -160,6 +163,15 @@ std::string CodeGenOpCloudNPU::GenTemplateParams() const
         case Opcode::OP_SHMEM_MOE_COMBINE_RECEIVE: {
             int32_t outBufferIndex = 3;
             GenExtraTemplateParamsForMoeCombine(oss, outBufferIndex);
+            break;
+        }
+        case Opcode::OP_SHMEM_SET: {
+            int32_t shmemTensorIndex = 3;
+            DistOpAttr distOpAttr = npu::tile_fwk::AnyCast<DistOpAttr>(opAttrs.at(OpAttributeKey::distOpAttr));
+            int64_t bufferEleNum = distOpAttr.setBufferShape[0];
+            oss << "<" << GetTemplateDType() << ", " << originShape[shmemTensorIndex][1] << ", "
+                << originShape[shmemTensorIndex][2] << ", " << originShape[shmemTensorIndex][3] << ", " << bufferEleNum
+                << ">";
             break;
         }
         default: {
@@ -217,9 +229,8 @@ std::string CodeGenOpCloudNPU::GenOffsetsAndRawShapes() const
                 << ", " << GenOffsetsAndRawShapes(shmemDataIndex, shmemDataDim);
             break;
         }
-        case Opcode::OP_SHMEM_CLEAR_SIGNAL:
         case Opcode::OP_SHMEM_SIGNAL: {
-            int32_t shmemSignalIndex = (opCode == Opcode::OP_SHMEM_SIGNAL) ? 3 : 2;
+            int32_t shmemSignalIndex = 3;
             int32_t shmemSignalDim = 4;
             oss << ", " << GenOffsetsAndRawShapes(shmemSignalIndex, shmemSignalDim);
             break;
@@ -284,6 +295,12 @@ std::string CodeGenOpCloudNPU::GenOffsetsAndRawShapes() const
             int32_t shmemIndex = 2;
             int32_t shmemDim = 4;
             oss << ", " << GenOffsetsAndRawShapes(shmemIndex, shmemDim);
+            break;
+        }
+        case Opcode::OP_SHMEM_SET: {
+            int32_t shmemTensorIndex = 3;
+            int32_t shmemTensorDim = 4;
+            oss << ", " << GenOffsets(shmemTensorIndex, shmemTensorDim);
             break;
         }
         default: {
