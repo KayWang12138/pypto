@@ -330,7 +330,7 @@ def test_scatter(device_id: int = None, run_mode: str = "npu"):
 
     golden = torch.scatter(x, dim, y, src)
     # output = scatter(x, dim, y, src, run_mode)
-    output = scatter_wrapper(dim, src, x.shape, y.shape)(x, y)
+    output = scatter_wrapper(dim, src, x.shape, y.shape, run_mode)(x, y)
     max_diff = np.abs(output.cpu().numpy() - golden.cpu().numpy()).max()
 
     if run_mode == "npu":

@@ -49,59 +49,38 @@ def get_device_id():
         print(f"ERROR: TILE_FWK_DEVICE_ID must be an integer, got: {os.environ['TILE_FWK_DEVICE_ID']}")
         return None
 
-@pypto.jit
-def add_kernel_npu(x: pypto.Tensor, y: pypto.Tensor, z: pypto.Tensor) -> None:
-    tensor_shape = x.shape
-    pypto.set_vec_tile_shapes(1, 4, 1, 64)
-
-    #calculate the loop parameters
-    b = tensor_shape[0]
-    n, s, d = tensor_shape[1:]
-    tile_b = 1
-    b_loop = b // tile_b
-
-    for idx in pypto.loop(b_loop):
-        b_offset = idx * tile_b
-        b_offset_end = (idx + 1) * tile_b
-        t0_sub = pypto.view(x, [1, n, s, d], [b_offset, 0, 0, 0])
-        t1_sub = pypto.view(y, [1, n, s, d], [b_offset, 0, 0, 0])
-        t3_sub = t0_sub + t1_sub
-        pypto.assemble(t3_sub, [b_offset, 0, 0, 0], z)
-
-@pypto.jit(runtime_options={"run_mode": 1})
-def add_kernel_sim(x: pypto.Tensor, y: pypto.Tensor, z: pypto.Tensor) -> None:
-    tensor_shape = x.shape
-    pypto.set_vec_tile_shapes(1, 4, 1, 64)
-
-    #calculate the loop parameters
-    b = tensor_shape[0]
-    n, s, d = tensor_shape[1:]
-    tile_b = 1
-    b_loop = b // tile_b
-
-    for idx in pypto.loop(b_loop):
-        b_offset = idx * tile_b
-        b_offset_end = (idx + 1) * tile_b
-        t0_sub = pypto.view(x, [1, n, s, d], [b_offset, 0, 0, 0])
-        t1_sub = pypto.view(y, [1, n, s, d], [b_offset, 0, 0, 0])
-        t3_sub = t0_sub + t1_sub
-        pypto.assemble(t3_sub, [b_offset, 0, 0, 0], z)
-
-def add_scalar_loop_view_assemble(x: torch.Tensor, y: torch.Tensor, z: torch.Tensor, run_mode: str = "npu", dynamic: bool = True) -> None:
-    if dynamic:
-        x_pto = pypto.from_torch(x, "IN_0", dynamic_axis=[0])
-        y_pto = pypto.from_torch(y, "IN_1", dynamic_axis=[0])
-        z_pto = pypto.from_torch(z, "OUT_0", dynamic_axis=[0])
-    else:
-        x_pto = pypto.from_torch(x, "IN_0")
-        y_pto = pypto.from_torch(y, "IN_1")
-        z_pto = pypto.from_torch(z, "OUT_0")
-
-    # launch the kernel
+        
+SHAPE = (32, 32, 1, 256)
+def add_scalar_loop_view_assemble(run_mode: str = "npu"):
+    
     if run_mode == "npu":
-        add_kernel_npu(x_pto, y_pto, z_pto)
+        mode = pypto.RunMode.NPU
     else:
-        add_kernel_sim(x_pto, y_pto, z_pto)
+        mode = pypto.RunMode.SIM
+        
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
+    def add_scalar_loop_view_assemble_kernel(
+        input0: pypto.Tensor(SHAPE, pypto.DT_FP32),
+        input1: pypto.Tensor(SHAPE, pypto.DT_FP32),
+    ) -> pypto.Tensor(SHAPE, pypto.DT_FP32):
+        pypto.set_vec_tile_shapes(1, 4, 1, 64)
+
+        # Calculate the loop parameters
+        b, n, s, d = SHAPE
+        tile_b = 1
+        b_loop = b // tile_b
+
+        output = pypto.tensor(SHAPE, pypto.DT_FP32)
+        for idx in pypto.loop(b_loop):
+            b_offset = idx * tile_b
+            t0_sub = pypto.view(input0, [tile_b, n, s, d], [b_offset, 0, 0, 0])
+            t1_sub = pypto.view(input1, [tile_b, n, s, d], [b_offset, 0, 0, 0])
+            t3_sub = t0_sub + t1_sub
+            pypto.assemble(t3_sub, [b_offset, 0, 0, 0], output)
+
+        return output
+    
+    return add_scalar_loop_view_assemble_kernel
 
 def test_add_scalar_loop_view_assemble(device_id = None, run_mode: str = "npu", dynamic: bool = True) -> None:
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
@@ -110,19 +89,17 @@ def test_add_scalar_loop_view_assemble(device_id = None, run_mode: str = "npu", 
     #prepare data
     x = torch.rand(shape, dtype=torch.float, device=device)
     y = torch.rand(shape, dtype=torch.float, device=device)
-    z = torch.zeros(shape, dtype=torch.float, device=device)
 
-    add_scalar_loop_view_assemble(x, y, z, run_mode, dynamic)
+    out = add_scalar_loop_view_assemble(run_mode)(x, y)
     golden = torch.add(x, y)
 
-    max_diff = np.abs(z.cpu().numpy() - golden.cpu().numpy()).max()
+    max_diff = np.abs(out.cpu().numpy() - golden.cpu().numpy()).max()
     print(f"Input0 shape: {x.shape}")
     print(f"Input1 shape: {y.shape}")
-    print(f"Output shape: {z.shape}")
-    print(f"Max difference: {max_diff:.6f}")
 
     if run_mode == "npu":
-        assert_allclose(np.array(z.cpu()), np.array(golden.cpu()), rtol=3e-3, atol=3e-3)
+        print(f"Max difference: {max_diff:.6f}")
+        assert_allclose(np.array(out.cpu()), np.array(golden.cpu()), rtol=3e-3, atol=3e-3)
     print("✓ add_scalar_loop_view_assemble test passed")
     print()
 
