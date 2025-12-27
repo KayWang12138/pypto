@@ -1858,7 +1858,6 @@ struct DeviceExecuteSlot {
 struct DevProgramControlFlowCacheRuntime {
     struct DeviceWorkspaceAllocator {
         struct {
-            SeqWsAllocator dassembleDests;
             SeqWsAllocator rootInner;
             SeqWsAllocator devTaskInnerExclusiveOutcasts;
             WsSlotAllocator devTaskBoundaryOutcasts;
@@ -2358,7 +2357,6 @@ struct DevProgramControlFlowCache {
                 ptr = reinterpret_cast<WsSlotAllocator::BlockHeader *>(static_cast<uintptr_t>(ptr - base));
             }
         };
-        runtimeBackup.workspace.tensorAllocators.dassembleDests = allocator.dassembleDests;
         runtimeBackup.workspace.tensorAllocators.rootInner = allocator.rootInner;
         runtimeBackup.workspace.tensorAllocators.devTaskInnerExclusiveOutcasts = allocator.devTaskInnerExclusiveOutcasts;
         runtimeBackup.workspace.tensorAllocators.devTaskBoundaryOutcasts = allocator.devTaskBoundaryOutcasts;
@@ -2392,7 +2390,6 @@ struct DevProgramControlFlowCache {
                 dst.resetTimes_ = src.resetTimes_;
             }
         };
-        Restore::RestoreSeqAllocator(allocator.dassembleDests, runtimeBackup.workspace.tensorAllocators.dassembleDests);
         Restore::RestoreSeqAllocator(allocator.rootInner, runtimeBackup.workspace.tensorAllocators.rootInner);
         Restore::RestoreSeqAllocator(allocator.devTaskInnerExclusiveOutcasts, runtimeBackup.workspace.tensorAllocators.devTaskInnerExclusiveOutcasts);
         allocator.devTaskBoundaryOutcasts.availableSlots_ = runtimeBackup.workspace.tensorAllocators.devTaskBoundaryOutcasts.availableSlots_;
@@ -2577,17 +2574,12 @@ struct DevAscendProgram {
             uint64_t maxDynamicAssembleOutcastMem;
             uint64_t devTaskBoundaryOutcastNum;
 
-            uint64_t DAssembleDests() const { // deprecated
-                return 0;
-            }
-
             uint64_t MaxOutcastMem() const {
                 return std::max(maxStaticOutcastMem, maxDynamicAssembleOutcastMem);
             }
 
             uint64_t Total() const {
                 uint64_t total = rootInner +       // root func inner tensors
-                    DAssembleDests() +             // root func outcasts & dassemble-dst, automatically upgraded to DeviceTask boundary outcasts
                     devTaskInnerExclusiveOutcasts +         // root func outcasts & non-dassemble-dst & DeviceTask inner tensors
                     MaxOutcastMem() * devTaskBoundaryOutcastNum; // root func outcasts & non-dassemble-dst & DeviceTask boundary outcasts
                 static constexpr uint64_t ALIGNMENT_32K = 32 * 1024;
