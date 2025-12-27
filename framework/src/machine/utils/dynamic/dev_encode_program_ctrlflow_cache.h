@@ -121,7 +121,6 @@ struct DeviceExecuteSlot {
 struct DevProgramControlFlowCacheRuntime {
     struct DeviceWorkspaceAllocator {
         struct {
-            SeqWsAllocator dassembleDests;
             SeqWsAllocator rootInner;
             SeqWsAllocator devTaskInnerExclusiveOutcasts;
             WsSlotAllocator devTaskBoundaryOutcasts;
@@ -621,7 +620,6 @@ struct DevProgramControlFlowCache {
                 ptr = reinterpret_cast<WsSlotAllocator::BlockHeader *>(static_cast<uintptr_t>(ptr - base));
             }
         };
-        runtimeBackup.workspace.tensorAllocators.dassembleDests = allocator.dassembleDests;
         runtimeBackup.workspace.tensorAllocators.rootInner = allocator.rootInner;
         runtimeBackup.workspace.tensorAllocators.devTaskInnerExclusiveOutcasts = allocator.devTaskInnerExclusiveOutcasts;
         runtimeBackup.workspace.tensorAllocators.devTaskBoundaryOutcasts = allocator.devTaskBoundaryOutcasts;
@@ -655,7 +653,6 @@ struct DevProgramControlFlowCache {
                 dst.resetTimes_ = src.resetTimes_;
             }
         };
-        Restore::RestoreSeqAllocator(allocator.dassembleDests, runtimeBackup.workspace.tensorAllocators.dassembleDests);
         Restore::RestoreSeqAllocator(allocator.rootInner, runtimeBackup.workspace.tensorAllocators.rootInner);
         Restore::RestoreSeqAllocator(allocator.devTaskInnerExclusiveOutcasts, runtimeBackup.workspace.tensorAllocators.devTaskInnerExclusiveOutcasts);
         allocator.devTaskBoundaryOutcasts.availableSlots_ = runtimeBackup.workspace.tensorAllocators.devTaskBoundaryOutcasts.availableSlots_;
