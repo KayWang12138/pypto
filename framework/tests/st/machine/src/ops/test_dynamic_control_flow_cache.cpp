@@ -46,9 +46,7 @@ namespace {
 
 TEST_F(DynamicControlFlowCacheTest, KernelReuse) {
     config::SetCodeGenOption(CODEGEN_EXPRESSION_FUSION, true);
-    config::SetRuntimeOption<int64_t>(CFGCACHE_DEVICE_TASK_NUM, 100);
-    config::SetRuntimeOption<int64_t>(CFGCACHE_ROOT_TASK_NUM, 100);
-    config::SetRuntimeOption<int64_t>(CFGCACHE_LEAF_TASK_NUM, 10000);
+    config::SetRuntimeOption<int64_t>(STITCH_CFGCACHE_SIZE, 2097600);
 
 
     int tiling = 32;
@@ -104,9 +102,7 @@ TEST_F(DynamicControlFlowCacheTest, KernelReuse) {
 
 TEST_F(DynamicControlFlowCacheTest, CheckShape) {
     config::SetCodeGenOption(CODEGEN_EXPRESSION_FUSION, true);
-    config::SetRuntimeOption<int64_t>(CFGCACHE_DEVICE_TASK_NUM, 100);
-    config::SetRuntimeOption<int64_t>(CFGCACHE_ROOT_TASK_NUM, 100);
-    config::SetRuntimeOption<int64_t>(CFGCACHE_LEAF_TASK_NUM, 10000);
+    config::SetRuntimeOption<int64_t>(STITCH_CFGCACHE_SIZE, 2092800);
 
     int tiling = 32;
     TileShape::Current().SetVecTile(tiling, tiling);
@@ -210,9 +206,7 @@ TEST_F(DynamicControlFlowCacheTest, CheckShape) {
 
 TEST_F(DynamicControlFlowCacheTest, CheckLackMemory) {
     config::SetCodeGenOption(CODEGEN_EXPRESSION_FUSION, true);
-    config::SetRuntimeOption<int64_t>(CFGCACHE_DEVICE_TASK_NUM, 1);
-    config::SetRuntimeOption<int64_t>(CFGCACHE_ROOT_TASK_NUM, 1);
-    config::SetRuntimeOption<int64_t>(CFGCACHE_LEAF_TASK_NUM, 1);
+    config::SetRuntimeOption<int64_t>(STITCH_CFGCACHE_SIZE, 12018);
     config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_INITIAL, 128);
 
     int tiling = 32;
@@ -268,9 +262,7 @@ TEST_F(DynamicControlFlowCacheTest, CheckLackMemory) {
 
 TEST_F(DynamicControlFlowCacheTest, CheckGetTensorData) {
     config::SetCodeGenOption(CODEGEN_EXPRESSION_FUSION, true);
-    config::SetRuntimeOption<int64_t>(CFGCACHE_DEVICE_TASK_NUM, 10000);
-    config::SetRuntimeOption<int64_t>(CFGCACHE_ROOT_TASK_NUM, 100);
-    config::SetRuntimeOption<int64_t>(CFGCACHE_LEAF_TASK_NUM, 100);
+    config::SetRuntimeOption<int64_t>(STITCH_CFGCACHE_SIZE, 2096000);
 
     int tiling = 32;
     TileShape::Current().SetVecTile(tiling, tiling);
@@ -310,9 +302,7 @@ static DeviceTensorData toTensorData(const std::shared_ptr<LogicalTensor> &t) {
 TEST_F(DynamicControlFlowCacheTest, PartialCache) {
     config::SetCodeGenOption(CODEGEN_EXPRESSION_FUSION, true);
     // cache at most 3 task
-    config::SetRuntimeOption<int64_t>(CFGCACHE_DEVICE_TASK_NUM, 0x3);
-    config::SetRuntimeOption<int64_t>(CFGCACHE_ROOT_TASK_NUM, 0x20);
-    config::SetRuntimeOption<int64_t>(CFGCACHE_LEAF_TASK_NUM, 0x20);
+    config::SetRuntimeOption<int64_t>(STITCH_CFGCACHE_SIZE, 40000);
 
     // every task 4 root func
     config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_INITIAL, 0x4);
@@ -365,7 +355,7 @@ TEST_F(DynamicControlFlowCacheTest, PartialCache) {
         const_cast<uint8_t*>(DeviceLauncher::GetDevProg(Program::GetInstance().GetLastFunction()).data()));
 
     EXPECT_EQ(0x3, devProg->controlFlowCache.deviceTaskCount);
-    EXPECT_EQ(0x2, devProg->controlFlowCache.deviceTaskSkippedCount);
+    EXPECT_EQ(0x1, devProg->controlFlowCache.deviceTaskSkippedCount);
 
     devProg->RelocProgram(0, (intptr_t)devProg);
     devProg->controlFlowCache.TaskAddrRelocProgram(0, (intptr_t)devProg);
@@ -402,9 +392,7 @@ TEST_F(DynamicControlFlowCacheTest, PartialCacheChangeWorkspaceAddress) {
     config::SetPassOption<std::map<int64_t, int64_t>>(VEC_NBUFFER_SETTING, {{-1, 16}});
 
     // cache at most 3 task
-    config::SetRuntimeOption<int64_t>(CFGCACHE_DEVICE_TASK_NUM, 0x1);
-    config::SetRuntimeOption<int64_t>(CFGCACHE_ROOT_TASK_NUM, 0x200);
-    config::SetRuntimeOption<int64_t>(CFGCACHE_LEAF_TASK_NUM, 0x200);
+    config::SetRuntimeOption<int64_t>(STITCH_CFGCACHE_SIZE, 40000);
 
     // every task 4 root func
     config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_INITIAL, 0x3);
@@ -473,7 +461,7 @@ TEST_F(DynamicControlFlowCacheTest, PartialCacheChangeWorkspaceAddress) {
         const_cast<uint8_t*>(DeviceLauncher::GetDevProg(Program::GetInstance().GetLastFunction()).data()));
 
     EXPECT_EQ(0x1, devProg->controlFlowCache.deviceTaskCount);
-    EXPECT_EQ(0x2, devProg->controlFlowCache.deviceTaskSkippedCount);
+    EXPECT_EQ(0x1, devProg->controlFlowCache.deviceTaskSkippedCount);
 
     devProg->RelocProgram(0, (intptr_t)devProg);
     devProg->controlFlowCache.TaskAddrRelocProgram(0, (intptr_t)devProg);
@@ -520,9 +508,7 @@ TEST_F(DynamicControlFlowCacheTest, PartialCacheChangeWorkspaceAddress) {
 }
 
 TEST_F(DynamicControlFlowCacheTest, PartialCacheValueDependData) {
-    config::SetRuntimeOption<int64_t>(CFGCACHE_DEVICE_TASK_NUM, 0x3);
-    config::SetRuntimeOption<int64_t>(CFGCACHE_ROOT_TASK_NUM, 0x20);
-    config::SetRuntimeOption<int64_t>(CFGCACHE_LEAF_TASK_NUM, 0x20);
+    config::SetRuntimeOption<int64_t>(STITCH_CFGCACHE_SIZE, 52520);
 
     config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_INITIAL, 0x4);
     config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_STEP, 0);
@@ -602,9 +588,7 @@ TEST_F(DynamicControlFlowCacheTest, PartialCacheValueDependData) {
 }
 
 TEST_F(DynamicControlFlowCacheTest, PartialCacheValueDependControl) {
-    config::SetRuntimeOption<int64_t>(CFGCACHE_DEVICE_TASK_NUM, 3);
-    config::SetRuntimeOption<int64_t>(CFGCACHE_ROOT_TASK_NUM, 9);
-    config::SetRuntimeOption<int64_t>(CFGCACHE_LEAF_TASK_NUM, 18);
+    config::SetRuntimeOption<int64_t>(STITCH_CFGCACHE_SIZE, 40332);
 
     config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_INITIAL, 4);
     config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_STEP, 0);
