@@ -326,7 +326,7 @@ static bool resultCmp(const T* outDataValExp, const T *outDataValAct, size_t eSi
         auto eErr = ((diff > eps && relRatio > eps) || (zeroCount > zeroCountThreshold));
         errCount += eErr ? 1 : 0;
 
-        if (std::isnan(expVal) || std::isnan(actVal)) {
+        if (std::isnan(actVal) && !std::isnan(expVal)) {
             std::cout << "idx: " << eIdx << ", exp->" << expVal << ", act->" << actVal << std::endl;
         }
 
@@ -361,7 +361,7 @@ static bool resultCmp(const T* outDataValExp, const T *outDataValAct, size_t eSi
         auto eErr = ((diff > eps && relRatio > eps) || (zeroCount > zeroCountThreshold));
         errCount += eErr ? 1 : 0;
 
-        if (std::isnan(expVal) || std::isnan(actVal)) {
+        if (std::isnan(actVal) && !std::isnan(expVal)) {
             std::cout << "idx: " << eIdx << ", exp->" << expVal << ", act->" << actVal << std::endl;
         }
 
@@ -404,7 +404,7 @@ static bool resultCmp(const vector<T> &outDataValExp, const T *outDataValAct, fl
         auto eErr = ((diff > eps && relRatio > eps) || (zeroCount > zeroCountThreshold));
         errCount += eErr ? 1 : 0;
 
-        if (std::isnan(expVal) || std::isnan(actVal)) {
+        if (std::isnan(actVal) && !std::isnan(expVal)) {
             std::cout << "idx: " << eIdx << ", exp->" << expVal << ", act->" << actVal << std::endl;
         }
 
@@ -439,7 +439,7 @@ static bool resultCmp(const vector<T> &outDataValExp, const T *outDataValAct, fl
         auto eErr = ((diff > eps && relRatio > eps) || (zeroCount > zeroCountThreshold));
         errCount += eErr ? 1 : 0;
 
-        if (std::isnan(expVal) || std::isnan(actVal)) {
+        if (std::isnan(actVal) && !std::isnan(expVal)) {
             std::cout << "idx: " << eIdx << ", exp->" << expVal << ", act->" << actVal << std::endl;
         }
 
@@ -485,7 +485,7 @@ static bool resultCmpAbsDelta(const vector<T> &outDataValExp, const T *outDataVa
         auto eErr = ((diff > absDelta) || (zeroCount > zeroCountThreshold));
         errCount += eErr ? 1 : 0;
 
-        if (std::isnan(expVal) || std::isnan(actVal)) {
+        if (std::isnan(actVal) && !std::isnan(expVal)) {
             std::cout << "idx: " << eIdx << ", exp->" << expVal << ", act->" << actVal << std::endl;
         }
 
@@ -520,7 +520,7 @@ static bool resultCmpAbsDelta(const vector<T> &outDataValExp, const T *outDataVa
         auto eErr = ((diff > absDelta) || (zeroCount > zeroCountThreshold));
         errCount += eErr ? 1 : 0;
 
-        if (std::isnan(expVal) || std::isnan(actVal)) {
+        if (std::isnan(actVal) && !std::isnan(expVal)) {
             std::cout << "idx: " << eIdx << ", exp->" << expVal << ", act->" << actVal << std::endl;
         }
 
