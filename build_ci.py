@@ -1159,7 +1159,9 @@ class BuildCtrl(CMakeParam):
             if not whl:
                 raise RuntimeError(f"Can't find {self.feature.whl_name} whl file from {dist}")
             self.pip_install(whl=whl, dest=dist, opt="--no-compile --no-deps")  # 安装 whl 包
-        # 执行用例, UTest。在 Python 3.12 中，pytest-xdist 通过 os.fork() 创建子进程时会产生 DeprecationWarning。
+
+        # 执行用例, UTest
+        # 在 Python 3.12 中，pytest-xdist 通过 os.fork() 创建子进程时会产生 DeprecationWarning。
         # 使用 -W ignore::DeprecationWarning 参数来忽略该警告。
         if self.build.job_num is not None and self.build.job_num > 0:
             n_workers = str(self.build.job_num)
@@ -1167,24 +1169,22 @@ class BuildCtrl(CMakeParam):
             n_workers = "auto"
         self.py_tests_run_pytest(dist=dist, tests=self.tests.utest,
                                  def_filter=str(Path(self.src_root, "python/tests/ut")),
-                                 ext=f"-n {n_workers} --forked -W ignore::DeprecationWarning")
+                                 ext=f"-n {n_workers} -W ignore::DeprecationWarning")
+
+        # 处理上板执行参数
+        dev_lst: List[int] = [int(d) for d in self.tests.stest_exec.auto_execute_device_id.split(":")]
+        dev_ext: str = " ".join(f"{d}" for d in dev_lst)
+        ext_str: str = f"-n {len(dev_lst)} --device {dev_ext}"
+
         # 执行用例, STest
         self.py_tests_run_pytest(dist=dist, tests=self.tests.stest,
-                                 def_filter=str(Path(self.src_root, "python/tests/st")), ext="--forked")
-
-        pyst_n_workers = 1
-        if self.tests.example.enable:
-            try:
-                import torch
-                import torch_npu
-                pyst_n_workers = torch.npu.device_count()
-                logging.info("NPU device count %d", pyst_n_workers)
-            except ImportError:
-                pass
+                                 def_filter=str(Path(self.src_root, "python/tests/st")),
+                                 ext=ext_str)
 
         # 执行用例, Example
         self.py_tests_run_pytest(dist=dist, tests=self.tests.example,
-                                 def_filter=str(Path(self.src_root, "examples")), ext=f"-n {pyst_n_workers} --forked")
+                                 def_filter=str(Path(self.src_root, "examples")),
+                                 ext=ext_str)
 
     def py_tests_run_pytest(self, dist: Optional[Path], tests: TestsFilterParam, def_filter: str, ext: str = ""):
         if not tests.enable or not self.tests.exec.auto_execute:
@@ -1193,7 +1193,7 @@ class BuildCtrl(CMakeParam):
         cmd: str = f"{sys.executable} -m pytest"
         def_filter = def_filter if tests.filter_str in ["ON"] else tests.filter_str
         def_filter = def_filter.replace(',', ' ')
-        cmd += f" {def_filter} -v --durations=0 -s --capture=no --rootdir={self.src_root} {ext}"
+        cmd += f" {def_filter} -v --durations=0 -s --capture=no --rootdir={self.src_root} {ext} --forked"
         # cmd 执行
         origin_env = os.environ.copy()
         update_env: Dict[str, str] = {}
