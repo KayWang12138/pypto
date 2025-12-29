@@ -33,16 +33,25 @@ class TestCaseArgsParser:
         logging.info(f"Save data : {args.save_data}")
         logging.info(f"Is json only : {args.json_only}")
         logging.info(f"Report : {args.report}")
+        logging.info(f"json_path : {args.json_path}")
+        logging.info(f"Is distributed op : {args.distributed_op}")
 
     @staticmethod
     def update_default_value(args):
-        op_path = f"{os.getcwd()}/framework/tests/st/operation"
+        if not args.distributed_op:
+            op_path = f"{os.getcwd()}/framework/tests/st/operation"
+            default_golden = f"{op_path }/python/vector_operator_golden.py"
+        else:
+            op_path = f"{os.getcwd()}/framework/tests/st/distributed/ops"
+            default_golden = f"{op_path }/script/distributed_golden.py"
         if args.input_file is None:
             args.input_file = f"{op_path}/test_case/{args.op}_st_test_cases.csv"
         if not os.path.exists(args.input_file):
             raise ValueError(args.input_file + " is not exists.")
         if args.golden_script is None:
-            args.golden_script = f"{op_path}/python/vector_operator_golden.py"
+            args.golden_script = default_golden
+        if args.json_path is None:
+            args.json_path = f"{op_path}/test_case/"
 
     def add_test_case_args(self):
         # 参数注册
@@ -118,6 +127,15 @@ class TestCaseArgsParser:
         )
         self._parser.add_argument(
             "--save_data", action="store_true", help="Save golden and plog etc."
+        )
+        self._parser.add_argument(
+            "--distributed_op", action="store_true", help="corresponding distributed operator."
+        )
+        self._parser.add_argument(
+            "--json_path",
+            type=str,
+            default=None,
+            help="Path to save the converted JSON or path to the input JSON file.",
         )
 
     def run(self):
