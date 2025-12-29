@@ -1,1 +1,0 @@
-pip install protobuf scipy decorator attrs psutils
