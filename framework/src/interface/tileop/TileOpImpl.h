@@ -41,6 +41,7 @@
 #include "vector/sort.h"
 #include "vector/mte.h"
 #include "vector/gather.h"
+#include "vector/indexadd.h"
 #include "vector/expand.h"
 #include "vector/extract.h"
 #include "vector/pair_binary.h"

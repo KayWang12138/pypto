@@ -443,6 +443,7 @@ OpcodeManager::OpcodeManager() {
         {                Opcode::OP_MUL,           "TMul"},
         {     Opcode::OP_GATHER_ELEMENT, "TgatherElement"},
         {             Opcode::OP_EXPAND,        "TExpand"},
+        {          Opcode::OP_INDEX_ADD,      "TIndexAdd"},
         {            Opcode::OP_BITSORT,       "TBitSort"},
         {            Opcode::OP_MRGSORT,       "TMrgSort"},
         {       Opcode::OP_TILEDMRGSORT,  "TTiledMrgSort"},
