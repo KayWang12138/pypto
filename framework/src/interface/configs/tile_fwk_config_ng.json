@@ -48,7 +48,7 @@
         "runtime_debug_mode": 0
     },
     "distributed": {
-        "hccl_handle": 0,
-        "hccl_group_name": ""
+        "hccl_handle": [],
+        "hccl_group_name": []
     }
 }
