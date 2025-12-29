@@ -43,58 +43,36 @@ def get_device_id():
         return None
 
 
-@pypto.jit
-def add_scalar_loop_dynamic_axis_kernel_npu(input0: pypto.Tensor,
-                                            input1: pypto.Tensor,
-                                            output: pypto.Tensor, val: int) -> None:
-    tensor_shape = input0.shape
-    pypto.set_vec_tile_shapes(1, 4, 1, 64)
-
-    #calculate the loop parameters
-    b = tensor_shape[0]
-    tile_b = 1
-    b_loop = b // tile_b
-
-    for idx in pypto.loop(b_loop):
-        b_offset = idx * tile_b
-        b_offset_end = (idx + 1) * tile_b
-        t0_sub = input0[b_offset:b_offset_end, ...]
-        t1_sub = input1[b_offset:b_offset_end, ...]
-        t3_sub = t0_sub + t1_sub
-        output[b_offset:b_offset_end, ...] = t3_sub + val
-
-
-@pypto.jit(runtime_options={"run_mode": 1})
-def add_scalar_loop_dynamic_axis_kernel_sim(input0: pypto.Tensor,
-                                            input1: pypto.Tensor,
-                                            output: pypto.Tensor, val: int) -> None:
-    tensor_shape = input0.shape
-    pypto.set_vec_tile_shapes(1, 4, 1, 64)
-
-    #calculate the loop parameters
-    b = tensor_shape[0]
-    tile_b = 1
-    b_loop = b // tile_b
-
-    for idx in pypto.loop(b_loop):
-        b_offset = idx * tile_b
-        b_offset_end = (idx + 1) * tile_b
-        t0_sub = input0[b_offset:b_offset_end, ...]
-        t1_sub = input1[b_offset:b_offset_end, ...]
-        t3_sub = t0_sub + t1_sub
-        output[b_offset:b_offset_end, ...] = t3_sub + val
-
-
-def add_scalar_loop_dynamic_axis(input0: torch.Tensor, input1: torch.Tensor, output: torch.Tensor, val: int, run_mode: str = "npu") -> None:
-    pto_input0 = pypto.from_torch(input0, "IN_0", dynamic_axis=[0])
-    pto_input1 = pypto.from_torch(input1, "IN_1", dynamic_axis=[0])
-    pto_output = pypto.from_torch(output, "OUT_0", dynamic_axis=[0])
-
+def add_scalar_loop_dynamic_axis(shape: tuple, VAL: int, run_mode: str = "npu") -> None:
+    H, W, N, C = shape
     # launch the kernel
+    def add_scalar_loop_dynamic_axis_kernel(
+        input0: pypto.Tensor((H, W, N, C), pypto.DT_FP32),
+        input1: pypto.Tensor((H, W, N, C), pypto.DT_FP32),
+    ) -> pypto.Tensor((H, W, N, C), pypto.DT_FP32):
+        pypto.set_vec_tile_shapes(1, 4, 1, 64)
+        val = VAL
+
+        #calculate the loop parameters
+        b = H
+        tile_b = 1
+        b_loop = b // tile_b
+
+        output = pypto.tensor((H, W, N, C), pypto.DT_FP32)
+        for idx in pypto.loop(b_loop):
+            b_offset = idx * tile_b
+            b_offset_end = pypto.min((idx + 1) * tile_b, b)
+            t0_sub = pypto.view(input0, [tile_b, W, N, C], [b_offset, 0, 0, 0], valid_shape=[b_offset_end - b_offset, W, N, C])
+            t1_sub = pypto.view(input1, [tile_b, W, N, C], [b_offset, 0, 0, 0], valid_shape=[b_offset_end - b_offset, W, N, C])
+            t3_sub = t0_sub + t1_sub
+            t3_sub = t3_sub + val
+            pypto.assemble(t3_sub, [b_offset, 0, 0, 0], output)
+        return output
+    
     if run_mode == "npu":
-        add_scalar_loop_dynamic_axis_kernel_npu(pto_input0, pto_input1, pto_output, val)
+        return pypto.frontend.jit()(add_scalar_loop_dynamic_axis_kernel)
     else:
-        add_scalar_loop_dynamic_axis_kernel_sim(pto_input0, pto_input1, pto_output, val)
+        return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(add_scalar_loop_dynamic_axis_kernel)
 
 
 def test_add_scalar_loop_dyn_axis(device_id = None, run_mode: str = "npu") -> None:
@@ -105,8 +83,8 @@ def test_add_scalar_loop_dyn_axis(device_id = None, run_mode: str = "npu") -> No
     val = 1
     input_data0 = torch.rand(shape, dtype=torch.float, device=device)
     input_data1 = torch.rand(shape, dtype=torch.float, device=device)
-    output_data = torch.zeros(shape, dtype=torch.float, device=device)
-    add_scalar_loop_dynamic_axis(input_data0, input_data1, output_data, val, run_mode)
+
+    output_data = add_scalar_loop_dynamic_axis(shape, val, run_mode)(input_data0, input_data1)
     golden = torch.add(input_data0, input_data1) + val
 
     max_diff = np.abs(output_data.cpu().numpy() - golden.cpu().numpy()).max()
