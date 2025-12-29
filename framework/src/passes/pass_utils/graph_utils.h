@@ -74,8 +74,8 @@ public:
      * @param function the target function for the assemble operation.
      * @param assemble AssembleOp, indicating the basic information of the added assemble operation.
      *                 The information includes the memoryType of assemble OpAttribute, assemble offset, input and output of assemble.
-     *                 The information also indicates the origin assemble op (if exist which means not nullptr) that the added operation
-     *                 should inherit the attribute and scope id from.
+     *                 The information also indicates the origin assemble op (if exist) that the added operation
+     *                 should inherit attribute and scope id from.
      * @param outDynShape the DynValidShape of each output. The default value is {}.
      *                    If outDynShape is empty, uses SetDynShape to calculate the DynValidShape of each output.
      *                    The AssembleOpAttribute does not require dynamic attributes for output, so the SetDynShape is executed at last. 
