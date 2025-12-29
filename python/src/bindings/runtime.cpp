@@ -220,7 +220,7 @@ std::string OperatorDeviceRunOnceDataFromDevice([[maybe_unused]] py::int_ python
         std::cout << config::Dump() << std::endl;
         std::cout << "[PyPTO] Config Dump End" << std::endl;
 
-        auto hcclHandle = config::GetDistributedOption<uint64_t>("hccl_context");
+        auto hcclHandle = config::GetDistributedOption<uint64_t>("hccl_handle");
         printf("[PyPTO] Debug: hcclHandle=%lu\n", hcclHandle);
         if (hcclHandle != 0) {
             std::lock_guard<std::mutex> lock(g_ctxMutex);
@@ -228,7 +228,7 @@ std::string OperatorDeviceRunOnceDataFromDevice([[maybe_unused]] py::int_ python
                  config.hcclContext.push_back(g_hcclContextCache[hcclHandle]);
                  printf("[PyPTO] Debug: Used cached context\n");
             } else {
-                auto groupName = config::GetDistributedOption<std::string>("hccl_context_name");
+                auto groupName = config::GetDistributedOption<std::string>("hccl_group_name");
                 printf("[PyPTO] Debug: groupName=%s\n", groupName.c_str());
                 if (!groupName.empty()) {
                     struct Mc2CommConfig commConfig = {};

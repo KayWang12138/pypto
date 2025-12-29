@@ -90,8 +90,8 @@ static std::map<std::string, ValueType> g_debugConfig = {
 };
 
 static std::map<std::string, ValueType> g_distributedConfig = {
-    {"hccl_context", 0L},
-    {"hccl_context_name", std::string("")},
+    {"hccl_handle", 0L},
+    {"hccl_group_name", std::string("")},
 };
 
 static std::map<std::string, ValueType> g_globalConfig = {
