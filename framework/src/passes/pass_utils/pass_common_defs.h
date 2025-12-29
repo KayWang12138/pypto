@@ -25,6 +25,7 @@ struct AssembleOp {
     std::vector<int64_t> toOffset;
     LogicalTensorPtr input;
     LogicalTensorPtr output;
+    const Operation *originOp = nullptr;
 };
 
 struct ViewOp {
