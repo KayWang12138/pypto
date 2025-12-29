@@ -216,32 +216,37 @@ std::string OperatorDeviceRunOnceDataFromDevice([[maybe_unused]] py::int_ python
     auto workspaceDataAddr = static_cast<uintptr_t>(workspaceData);
     auto config = DeviceLauncherConfig::CreateConfigWithWorkspaceAddr(workspaceDataAddr);
     try {
-        std::cout << "[PyPTO] Config Dump Start" << std::endl;
-        std::cout << config::Dump() << std::endl;
-        std::cout << "[PyPTO] Config Dump End" << std::endl;
-
-        auto hcclHandle = config::GetDistributedOption<uint64_t>("hccl_handle");
-        printf("[PyPTO] Debug: hcclHandle=%lu\n", hcclHandle);
-        if (hcclHandle != 0) {
+        auto hcclHandles = config::GetDistributedOption<std::vector<int64_t>>("hccl_handle");
+        auto groupNames = config::GetDistributedOption<std::vector<std::string>>("hccl_group_name");
+        
+        if (!hcclHandles.empty()) {
+            // Ensure groupNames size matches hcclHandles size
+            if (groupNames.size() != hcclHandles.size()) {
+                throw std::runtime_error("hccl_handle and hccl_group_name must have the same size");
+            }
+            
             std::lock_guard<std::mutex> lock(g_ctxMutex);
-            if (g_hcclContextCache.find(hcclHandle) != g_hcclContextCache.end()) {
-                 config.hcclContext.push_back(g_hcclContextCache[hcclHandle]);
-                 printf("[PyPTO] Debug: Used cached context\n");
-            } else {
-                auto groupName = config::GetDistributedOption<std::string>("hccl_group_name");
-                printf("[PyPTO] Debug: groupName=%s\n", groupName.c_str());
-                if (!groupName.empty()) {
-                    struct Mc2CommConfig commConfig = {};
-                    if (MakeMc2TilingStruct(commConfig, groupName) == 0) {
-                         void* commContext = nullptr;
-                         // Using aicoreStream for resource allocation might be correct if it's the execution stream
-                         int ret = HcclAllocComResourceByTiling((void*)hcclHandle, (void*)aicoreStream, &commConfig, &commContext);
-                         printf("[PyPTO] Debug: Alloc ret=%d, commContext=%p\n", ret, commContext);
-                         if (ret == 0 && commContext != nullptr) {
-                             uint64_t contextVal = (uint64_t)commContext;
-                             g_hcclContextCache[hcclHandle] = contextVal;
-                             config.hcclContext.push_back(contextVal);
-                         }
+            for (size_t i = 0; i < hcclHandles.size(); ++i) {
+                uint64_t hcclHandle = static_cast<uint64_t>(hcclHandles[i]);
+                if (hcclHandle == 0) {
+                    continue;
+                }
+                
+                if (g_hcclContextCache.find(hcclHandle) != g_hcclContextCache.end()) {
+                    config.hcclContext.push_back(g_hcclContextCache[hcclHandle]);
+                } else {
+                    const std::string& groupName = groupNames[i];
+                    if (!groupName.empty()) {
+                        struct Mc2CommConfig commConfig = {};
+                        if (MakeMc2TilingStruct(commConfig, groupName) == 0) {
+                            void* commContext = nullptr;
+                            int ret = HcclAllocComResourceByTiling((void*)hcclHandle, (void*)aicoreStream, &commConfig, &commContext);
+                            if (ret == 0 && commContext != nullptr) {
+                                uint64_t contextVal = (uint64_t)commContext;
+                                g_hcclContextCache[hcclHandle] = contextVal;
+                                config.hcclContext.push_back(contextVal);
+                            }
+                        }
                     }
                 }
             }

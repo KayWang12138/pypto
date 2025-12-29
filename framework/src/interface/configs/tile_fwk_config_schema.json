@@ -193,10 +193,16 @@
             "type": "object",
             "properties": {
                 "hccl_handle": {
-                    "type": "integer"
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
                 },
                 "hccl_group_name": {
-                    "type": "string"
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         }
