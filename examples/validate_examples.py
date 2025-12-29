@@ -115,7 +115,8 @@ def _supports_run_mode_sim(file_path: Path) -> bool:
     try:
         with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
             content = f.read()
-        pattern = re.compile(r'add_argument\s*\(.*?["\']--run_mode["\']|dest\s*=\s*["\']run_mode["\']', re.DOTALL)
+        pattern = re.compile(r'add_argument\s*\(.*?["\']--run_mode["\']| \
+                             dest\s*=\s*["\']run_mode["\']', re.DOTALL)
         return bool(pattern.search(content))
     except Exception:
         return False
@@ -280,7 +281,8 @@ def _execute_scripts(args, rel_paths, target_dir, device_ids,
 
 def _print_final_summary(success_list, failure_list, skipped_sim_list, skipped_no_tests_list,
                          args, target, device_ids, total_time_sec, safe_print):
-    total_original = len(success_list) + len(failure_list) + len(skipped_sim_list) + len(skipped_no_tests_list)
+    total_original = len(success_list) + len(failure_list) + \
+        len(skipped_sim_list) + len(skipped_no_tests_list)
 
     safe_print("\n" + "=" * 60)
     safe_print("📊 FINAL EXECUTION SUMMARY")
@@ -325,7 +327,8 @@ def _print_final_summary(success_list, failure_list, skipped_sim_list, skipped_n
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Execute and validate Python scripts with configurable parallel retries and final serial fallback."
+        description="Execute and validate Python scripts with configurable \
+            parallel retries and final serial fallback."
     )
     parser.add_argument(
         "-d", "--device_ids",
@@ -337,7 +340,8 @@ def main() -> None:
         "-r", "--run_mode",
         choices=["npu", "sim"],
         default="npu",
-        help="Execution mode: 'npu' (default) or 'sim'. In 'sim' mode, only scripts supporting --run_mode sim are executed."
+        help="Execution mode: 'npu' (default) or 'sim'. \
+            In 'sim' mode, only scripts supporting --run_mode sim are executed."
     )
     parser.add_argument(
         "-t", "--target",
@@ -350,7 +354,8 @@ def main() -> None:
         type=str,
         default=None,
         nargs='?',
-        help="Optional test identifier (e.g., 'test_add' or 'test_file.py::test_add') to pass to script or pytest."
+        help="Optional test identifier (e.g., 'test_add' or \
+            'test_file.py::test_add') to pass to script or pytest."
     )
     parser.add_argument(
         "--timeout",
@@ -442,7 +447,8 @@ def main() -> None:
     if is_single_device:
         print("Execution mode    : Serial (single device)")
     else:
-        print(f"Parallel retries  : {parallel_retries} (total parallel rounds = {parallel_retries + 1})")
+        print(f"Parallel retries  : {parallel_retries} \
+              (total parallel rounds = {parallel_retries + 1})")
     if args.example_id:
         print(f"Test selector     : {args.example_id}")
     print(f"Target            : {target}")
@@ -480,7 +486,8 @@ def main() -> None:
 
     # Record skipped results for final summary
     skipped_sim_results = [{"rel_path": p, "status": "skipped_sim"} for p in skipped_sim_scripts]
-    skipped_no_tests_results = [{"rel_path": p, "status": "skipped_no_tests"} for p in skipped_no_tests_scripts]
+    skipped_no_tests_results = [{"rel_path": p, "status": "skipped_no_tests"} 
+                                for p in skipped_no_tests_scripts]
 
     current_candidates = candidates_to_run[:]
     all_results_map = {}
@@ -517,7 +524,8 @@ def main() -> None:
 
             serial_results = _execute_scripts(
                 args, current_candidates, target_dir, device_ids,
-                max_workers=1, timeout=args.timeout, safe_print=safe_print, print_cmd_on_serial=True
+                max_workers=1, timeout=args.timeout, 
+                safe_print=safe_print, print_cmd_on_serial=True
             )
 
             # Update global result map
@@ -535,7 +543,8 @@ def main() -> None:
 
             # Check if failure count stopped decreasing
             if current_failure_count >= prev_failure_count:
-                safe_print(f"⚠️  Failure count did not decrease (was {prev_failure_count}, now {current_failure_count}). Stopping retries.\n")
+                safe_print(f"⚠️  Failure count did not decrease (was {prev_failure_count}, \
+                           now {current_failure_count}). Stopping retries.\n")
                 break
 
             prev_failure_count = current_failure_count
@@ -549,7 +558,9 @@ def main() -> None:
         failure_list = [r for r in all_results_map.values() if r["status"] == "failure"]
 
         total_time_sec = time.perf_counter() - start_time
-        _print_final_summary(success_list, failure_list, skipped_sim_results, skipped_no_tests_results, args, target, device_ids, total_time_sec, safe_print)
+        _print_final_summary(success_list, failure_list, skipped_sim_results, 
+                             skipped_no_tests_results, args, target, 
+                             device_ids, total_time_sec, safe_print)
         sys.exit(1 if len(failure_list) > 0 else 0)
 
     # ----------------------------
@@ -558,10 +569,12 @@ def main() -> None:
     else:
         for round_idx in range(parallel_retries + 1):
             round_name = "Initial" if round_idx == 0 else f"Retry {round_idx}"
-            safe_print(f"🚀 Starting Parallel Round {round_idx + 1}/{parallel_retries + 1} ({round_name}) — {len(current_candidates)} script(s)\n")
+            safe_print(f"🚀 Starting Parallel Round {round_idx + 1}/{parallel_retries + 1} \
+                       ({round_name}) — {len(current_candidates)} script(s)\n")
 
             round_results = _execute_scripts(
-                args, current_candidates, target_dir, device_ids, max_workers, args.timeout, safe_print, print_cmd_on_serial=False
+                args, current_candidates, target_dir, device_ids, max_workers, 
+                args.timeout, safe_print, print_cmd_on_serial=False
             )
 
             # Update final results map
@@ -571,12 +584,15 @@ def main() -> None:
             # Check for failures
             round_failures = [r for r in round_results if r["status"] == "failure"]
             if not round_failures:
-                safe_print(f"✅ All scripts passed in Parallel Round {round_idx + 1}. No further retries needed.")
+                safe_print(f"✅ All scripts passed in Parallel Round {round_idx + 1}. \
+                           No further retries needed.")
                 success_list = [r for r in all_results_map.values() if r["status"] == "success"]
                 failure_list = []
                 
                 total_time_sec = time.perf_counter() - start_time
-                _print_final_summary(success_list, failure_list, skipped_sim_results, skipped_no_tests_results, args, target, device_ids, total_time_sec, safe_print)
+                _print_final_summary(success_list, failure_list, skipped_sim_results, 
+                                     skipped_no_tests_results, args, target, 
+                                     device_ids, total_time_sec, safe_print)
                 sys.exit(0)
 
             # Prepare next round
@@ -585,7 +601,8 @@ def main() -> None:
 
         # Final serial retry loop for remaining failures (with convergence and max retries)
         if current_candidates:
-            safe_print(f"🔂 Starting Final Serial Retry Loop — {len(current_candidates)} remaining failed script(s)\n")
+            safe_print(f"🔂 Starting Final Serial Retry Loop — {len(current_candidates)} \
+                       remaining failed script(s)\n")
             serial_candidates = current_candidates[:]
             prev_failure_count = len(serial_candidates)
             max_serial_retries = max(0, args.serial_retries)
@@ -595,12 +612,14 @@ def main() -> None:
                 if serial_retry_round == 0:
                     safe_print(f"▶️  Final Serial Run — {len(serial_candidates)} script(s)\n")
                 else:
-                    safe_print(f"🔁 Final Serial Retry {serial_retry_round}/{max_serial_retries} — {len(serial_candidates)} script(s)\n")
+                    safe_print(f"🔁 Final Serial Retry {serial_retry_round}/{max_serial_retries} \
+                               — {len(serial_candidates)} script(s)\n")
 
                 serial_device_ids = [device_ids[0]]  # use first device
                 serial_results = _execute_scripts(
                     args, serial_candidates, target_dir, serial_device_ids,
-                    max_workers=1, timeout=args.timeout, safe_print=safe_print, print_cmd_on_serial=True
+                    max_workers=1, timeout=args.timeout, 
+                    safe_print=safe_print, print_cmd_on_serial=True
                 )
 
                 # Update global results map
@@ -616,21 +635,26 @@ def main() -> None:
                     break
 
                 if current_failure_count >= prev_failure_count:
-                    safe_print(f"⚠️  Final serial retry: failure count did not decrease (was {prev_failure_count}, now {current_failure_count}). Stopping.\n")
+                    safe_print(f"⚠️  Final serial retry: failure count did not \
+                               decrease (was {prev_failure_count}, \
+                               now {current_failure_count}). Stopping.\n")
                     break
 
                 prev_failure_count = current_failure_count
                 serial_retry_round += 1
 
             if serial_candidates and serial_retry_round > max_serial_retries:
-                safe_print(f"🛑 Reached maximum final serial retries ({max_serial_retries}). Stopping.\n")
+                safe_print(f"🛑 Reached maximum final serial retries \
+                           ({max_serial_retries}). Stopping.\n")
 
         success_list = [r for r in all_results_map.values() if r["status"] == "success"]
         failure_list = [r for r in all_results_map.values() if r["status"] == "failure"]
 
         safe_print("\n🏁 All execution rounds completed.")
         total_time_sec = time.perf_counter() - start_time
-        _print_final_summary(success_list, failure_list, skipped_sim_results, skipped_no_tests_results, args, target, device_ids, total_time_sec, safe_print)
+        _print_final_summary(success_list, failure_list, skipped_sim_results, 
+                             skipped_no_tests_results, args, target, 
+                             device_ids, total_time_sec, safe_print)
 
         sys.exit(1 if len(failure_list) > 0 else 0)
 
