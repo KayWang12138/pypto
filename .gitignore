@@ -1,0 +1,13 @@
+prototype/build
+prototype/output
+.DS_Store
+.vscode
+.cache
+.venv
+
+# Python cache files (all levels)
+**/__pycache__/
+__pycache__/
+**/*.so*
+prototype/python/pypto/__pycache__/
+prototype/python/pypto/*.so

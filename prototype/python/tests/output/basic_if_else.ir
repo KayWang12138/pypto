@@ -1,0 +1,14 @@
+func.func @basic_if_else(a: tensor<[1024, 1024], fp32>, b: tensor<[1024, 1024], fp32>) -> (tensor<[1024, 1024], fp32>) {
+  statement.if 1 {
+      statement.block {
+          %35 = tensor.add a, b : (tensor<[1024, 1024], fp32>, tensor<[1024, 1024], fp32>) -> tensor<[1024, 1024], fp32>
+      }
+  } else {
+      statement.block {
+          %36 = tensor.sub a, b : (tensor<[1024, 1024], fp32>, tensor<[1024, 1024], fp32>) -> tensor<[1024, 1024], fp32>
+      }
+      statement.return output_basic_if_else
+  }
+}
+// func.kind = control_flow
+
