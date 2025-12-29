@@ -1,0 +1,1909 @@
+#!/usr/bin/env python3
+# coding: utf-8
+# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# This file is a part of the CANN Open Software.
+# Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# ======================================================================================================================
+
+"""PTO Script Parser."""
+from collections.abc import Iterator
+import inspect
+import functools
+import re
+from typing import Any, Optional, Union, Callable, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pypto.tensor import TensorSignature
+
+import pypto
+from pypto.tensor import Scalar
+from pypto.controller import Controller
+from pypto import pypto_impl
+from . import doc
+from .context import Context
+from .diagnostics import DiagnosticLevel, Diagnostics, Source
+from .error import ParserError, RenderedParserError
+from .evaluator import ExprEvaluator
+from .liveness import LivenessAnalyzer
+
+ParamSpec = tuple[str, bool, Any]
+
+class NestedFunctionMarker:
+    """Marker used to identify functions intended for nested inline execution."""
+
+    def __init__(self) -> None:
+        self._original_func: Optional[Callable] = None
+        self._func_name: str = ""
+
+
+DEFAULT_VISIT = {
+    "Interactive",
+    "Module",
+    "Expression",
+    "Pass",
+}
+
+def _catch_parser_errors(func):
+    """Decorator to normalize parser error handling for public APIs."""
+
+    @functools.wraps(func)
+    def wrapper(self, *args, **kwargs):
+        try:
+            return func(self, *args, **kwargs)
+        except RenderedParserError:
+            # Flush any pending messages (like context info) in the current diagnostics
+            if hasattr(self, "diag"):
+                self.diag._render()
+            # Already rendered; just re-raise.
+            raise
+        except ParserError as err:
+            # User-triggered parser error with location info.
+            self.diag.error(err.node, str(err))
+        except Exception as err:  # pylint: disable=broad-except
+            # Unexpected native error, surface as bug; try to find a node.
+            node = kwargs.get("node")
+            if node is None:
+                for arg in args:
+                    if isinstance(arg, doc.AST):
+                        node = arg
+                        break
+            self.diag.bug(node, str(err))
+
+    return wrapper
+
+
+class Parser(doc.NodeVisitor):
+    """The TVMScript parser
+
+    Parameters
+    ----------
+    diag : Diagnostics
+        The diagnostics for error reporting.
+
+    context : Context
+        The context for parsing.
+
+    """
+
+    diag: Diagnostics
+    context: Context
+    delete_after: dict[int, set[str]]
+    _parsed_node: Optional[doc.AST]
+    _parsed_extra_vars: dict[str, Any]
+    _result: Optional[Any]
+    _signature_cache: Optional[
+        tuple[list[pypto.Tensor], list[pypto.TensorSignature]]
+    ]
+    _bound_dim_values: Optional[dict[str, int]] = None
+
+    # ==========================================================================================
+    # Public API
+    # ==========================================================================================
+
+    def __init__(
+        self, source: Source, extra_vars: Optional[dict[str, Any]] = None
+    ) -> None:
+        self.diag = Diagnostics(source)
+        self.context = Context()
+        self.delete_after = {}
+        self._parsed_node = None
+        self._parsed_extra_vars = extra_vars or {}
+        self._result = None
+        self._signature_cache = None
+        self._bound_dim_values: Optional[dict[str, int]] = None
+
+    @_catch_parser_errors
+    def parse(self) -> "Parser":
+        """The main parse method for parser (lazy mode).
+
+        Prepares the AST but defers actual parsing until execute() is called.
+
+        Returns
+        -------
+        res : Parser
+            Returns self for chaining.
+        """
+        node = self.diag.source.as_ast()
+        analyzer = LivenessAnalyzer()
+        exempt_vars = set(self._parsed_extra_vars.keys())
+        self.delete_after = analyzer.analyze(node, exempt_vars)
+
+        # Store for later execution (lazy mode)
+        self._parsed_node = node
+        return self
+
+    @_catch_parser_errors
+    def match_input_shapes(
+        self,
+        input_shapes: list[list[int]],
+        input_tensor_defs: Optional[list[pypto.Tensor]] = None,
+    ) -> dict[str, int]:
+        """Match input tensors to symbolic dimensions.
+
+        Creates a mapping from Scalar objects (found in tensor shapes or
+        as symbolic parameters) to their concrete values based on actual input data.
+
+        Parameters
+        ----------
+        input_shapes : list[list[int]]
+            List of input shapes.
+
+        input_tensor_defs : Optional[list[pypto.Tensor]]
+            List of input tensor definitions.
+
+        Returns
+        -------
+        dict[str, int]
+            Mapping from Scalar objects to their concrete values.
+        """
+        dim_value_map = {}
+
+        # Get the signature to know which inputs have symbolic dimensions
+        if input_tensor_defs is None:
+            input_tensor_defs, _ = self.get_signature()
+
+        def _assign_dim_value(dim: pypto.Scalar, actual_value: int) -> None:
+            if dim_value_map.get(str(dim), actual_value) != actual_value:
+                raise ValueError(
+                    f"Symbolic scalar {dim} has multiple concrete values: {dim_value_map[dim]} and {actual_value}"
+                )
+            dim_value_map[str(dim)] = actual_value
+
+        # Iterate through both the actual inputs and their definitions
+        for actual_input_shape, tensor_def in zip(input_shapes, input_tensor_defs):
+            if isinstance(actual_input_shape, list):
+                # For Tensor inputs, map each symbolic dimension to its concrete shape value
+                for axis, dim in enumerate(tensor_def.shape):
+                    if isinstance(dim, pypto.Scalar):
+                        # Extract the actual shape value from the input tensor
+                        actual_value = actual_input_shape[axis]
+                        if isinstance(actual_value, int):
+                            _assign_dim_value(dim, actual_value)
+            else:
+                raise TypeError(
+                    f"Invalid input shape type: {type(actual_input_shape)}, expected list"
+                )
+
+        return dim_value_map
+
+    @_catch_parser_errors
+    def bind_dynamic_dims_from_inputs(self, inputs: list[list[int]]) -> None:
+        """Bind symbolic dimensions to concrete values using sample inputs.
+
+        Parameters
+        ----------
+        inputs : list[list[int]]
+            Concrete sample inputs whose shapes/values are used to resolve
+            dynamic (symbolic) dimensions.
+
+        """
+
+        self._bound_dim_values = self.match_input_shapes(inputs)
+
+    @_catch_parser_errors
+    def get_signature(
+        self,
+    ) -> tuple[list[pypto.Tensor], list[pypto.TensorSignature]]:
+        """Extract function signature (inputs and outputs) without full parsing.
+
+        Returns
+        -------
+        res : tuple[list[pypto.Tensor], list[pypto.Tensor]]
+            A tuple of (input_tensors, output_tensors).
+
+        Raises
+        ------
+        RuntimeError
+            If parse() was not called before get_signature().
+        """
+
+        if self._signature_cache is not None:
+            return self._signature_cache
+
+        node = self.diag.source.as_ast()
+
+        # Find the function definition node
+        if isinstance(node, doc.Module):
+            for item in node.body:
+                if isinstance(item, doc.FunctionDef):
+                    function_node = item
+                    break
+            else:
+                raise RuntimeError("No function definition found in parsed AST")
+        else:
+            raise RuntimeError("Expected Module AST node")
+
+        # Temporarily set up context to parse signature
+        with self.context.with_frame():
+            for k, v in self._parsed_extra_vars.items():
+                self.context.add(k, v)
+            # If sample inputs were provided, use them to concretize symbolic dims.
+            self._apply_bound_dim_values_to_context_frame()
+            
+            # Add TensorSignature to context so it can be used in expression evaluation
+            from pypto.tensor import TensorSignature
+            self.context.add("TensorSignature", TensorSignature)
+
+            # Get input arguments
+            tensor_input_args = self._visit_arguments(
+                function_node.args
+            )
+
+            # Get and validate output arguments
+            # First, transform the AST to replace Tensor() calls with TensorSignature() calls
+            modified_returns = self._transform_tensor_to_signature(function_node.returns)
+            
+            # Now evaluate the modified AST to create TensorSignature objects
+            output_expr = self._visit_expr(modified_returns)
+            output_signatures = self._normalize_output_annotation(
+                output_expr, function_node.returns
+            )
+
+            self._signature_cache = (
+                tensor_input_args,
+                output_signatures,
+            )
+
+            return self._signature_cache
+
+    @_catch_parser_errors
+    def execute(self) -> Any:
+        """Execute the deferred parsing.
+
+        Returns
+        -------
+        res : Any
+            The doc AST node visiting result.
+
+        Raises
+        ------
+        RuntimeError
+            If parse() was not called before execute().
+        """
+        if self._parsed_node is None:
+            raise RuntimeError("parse() must be called before execute()")
+
+        # Return cached result if already executed
+        if self._result is not None:
+            return self._result
+
+        # Execute the deferred parsing
+        with self.context.with_frame():
+            for k, v in self._parsed_extra_vars.items():
+                self.context.add(k, v)
+            # Apply any concrete bindings for symbolic dimensions
+            self._apply_bound_dim_values_to_context_frame()
+            self._result = self.visit(self._parsed_node)
+        return self._result
+
+    def report(self, node: doc.AST, msg: str, level: DiagnosticLevel) -> None:
+        """Report a diagnostic."""
+        self.diag.emit(node, msg, level)
+
+    # ==========================================================================================
+    # Private APIs (implementation details)
+    # ==========================================================================================
+
+    def _get_function_def_from_func(self, func: Any) -> Optional[doc.FunctionDef]:
+        """Get FunctionDef AST node from a function object.
+
+        Parameters
+        ----------
+        func : Any
+            The function object (can be a callable or NestedFunctionMarker).
+
+        Returns
+        -------
+        Optional[doc.FunctionDef]
+            The FunctionDef AST node if found, None otherwise.
+        """
+        # If it's a NestedFunctionMarker, get the original function
+        # Check for _original_func attribute to identify NestedFunctionMarker instances
+        if hasattr(func, '_original_func'):
+            func = func._original_func
+
+        # Get the function source code
+        try:
+            source = Source(func)
+            ast_node = source.as_ast()
+
+            # Find the FunctionDef node in the AST
+            if isinstance(ast_node, doc.Module):
+                for stmt in ast_node.body:
+                    if isinstance(stmt, doc.FunctionDef):
+                        # Check if this is the function we're looking for
+                        if stmt.name == func.__name__:
+                            return stmt
+            elif isinstance(ast_node, doc.FunctionDef):
+                if ast_node.name == func.__name__:
+                    return ast_node
+        except Exception:
+            # If we can't get the AST, return None
+            return None
+
+        return None
+
+    def _collect_function_environment(self, func: Any) -> dict[str, Any]:
+        """Extract globals and nonlocals referenced by the function."""
+        env: dict[str, Any] = {}
+        if func is None:
+            return env
+        try:
+            closure_vars = inspect.getclosurevars(func)
+        except Exception:
+            return env
+        env.update(closure_vars.globals)
+        env.update(closure_vars.nonlocals)
+        return env
+
+    def _is_nested_function(self, decorator_list: list[doc.expr]) -> bool:
+        """Check if a function is marked for nested calling by examining its decorators.
+
+        Parameters
+        ----------
+        decorator_list : list[doc.expr]
+            List of decorator expressions from the function definition.
+
+        Returns
+        -------
+        bool
+            True if the function is marked for nested calling, False otherwise.
+        """
+        for decorator in decorator_list:
+            # Check if decorator is pto.frontend.function or evaluates to NestedFunctionMarker
+            try:
+                # Try to evaluate the decorator expression
+                decorator_value = self.visit_expr(decorator)
+                # Check for _original_func attribute to identify NestedFunctionMarker instances
+                if hasattr(decorator_value, '_original_func'):
+                    return True
+            except Exception:
+                # If evaluation fails, try to check if it's a direct reference to pto.frontend.function
+                # Check if it's an Attribute node like pto.frontend.function
+                if isinstance(decorator, doc.Attribute):
+                    # Check if it's pto.frontend.function
+                    attr_chain = []
+                    current = decorator
+                    while isinstance(current, doc.Attribute):
+                        attr_chain.insert(0, current.attr)
+                        if isinstance(current.value, doc.Name):
+                            attr_chain.insert(0, current.value.id)
+                            break
+                        elif isinstance(current.value, doc.Attribute):
+                            current = current.value
+                        else:
+                            break
+                    # Check if the chain matches pto.frontend.function
+                    if len(attr_chain) >= 3 and attr_chain[0] == "pto" and \
+                       attr_chain[1] == "frontend" and attr_chain[2] == "function":
+                        return True
+                # Also check if it's a simple Name node that refers to function
+                elif isinstance(decorator, doc.Name):
+                    # Check if the name refers to pto.frontend.function in the context
+                    var_values = self.context.get()
+                    if decorator.id in var_values:
+                        value = var_values[decorator.id]
+                        # Check for _original_func attribute to identify NestedFunctionMarker instances
+                        if hasattr(value, '_original_func'):
+                            return True
+        return False
+
+    def _eval_expr(
+        self,
+        node: Union[doc.Expression, doc.expr],
+        extra_vars: Optional[dict[str, Any]] = None,
+    ) -> Any:
+        """Expression evaluation when parsing."""
+        if isinstance(node, doc.Call):
+            nested_result = self._try_nested_call(node, extra_vars)
+            if nested_result is not None:
+                return nested_result
+
+        var_values = self.context.get()
+        if extra_vars is not None:
+            for k, v in extra_vars.items():
+                var_values[k] = v
+        return ExprEvaluator.eval(node, var_values, self.diag)
+
+    def _apply_bound_dim_values_to_context_frame(self) -> None:
+        """Replace symbolic scalars in the current frame with bound concrete values."""
+        if not self._bound_dim_values:
+            return
+        if not self.context.frames:
+            return
+
+        current_frame = self.context.frames[-1]
+        for var_name in list(current_frame.vars):
+            values_stack = self.context.name2value.get(var_name, [])
+            if not values_stack:
+                continue
+            current_value = values_stack[-1]
+            if (
+                isinstance(current_value, Scalar)
+                and str(current_value) in self._bound_dim_values
+            ):
+                concrete_value = self._bound_dim_values[str(current_value)]
+                self.context.add(var_name, concrete_value, allow_update=True)
+
+    def _normalize_output_annotation(
+        self, output_expr: Any, node: doc.AST
+    ) -> list:
+        """Validate and normalize return annotations into a signature list.
+        
+        Returns TensorSignature objects instead of Tensor objects.
+        """
+        from pypto.tensor import TensorSignature
+        
+        if isinstance(output_expr, TensorSignature):
+            return [output_expr]
+        if isinstance(output_expr, (list, tuple)):
+            signatures: list = []
+            for idx, item in enumerate(output_expr):
+                if not isinstance(item, TensorSignature):
+                    raise ParserError(
+                        node,
+                        TypeError(
+                            f"Return annotation at index {idx} must be a tensor signature, "
+                            f"but got {type(item).__name__}."
+                        ),
+                    )
+                signatures.append(item)
+            return signatures
+
+        raise ParserError(
+            node,
+            TypeError(
+                "Return annotation must be a tensor signature or a list/tuple of tensor signatures, "
+                f"but got {type(output_expr).__name__}."
+            ),
+        )
+
+    def _transform_tensor_to_signature(self, returns_node: Optional[doc.expr]) -> Optional[doc.expr]:
+        """Transform AST to replace Tensor() calls with TensorSignature() calls.
+        
+        This allows us to create TensorSignature objects through normal expression evaluation,
+        avoiding the need to create full Tensor objects during signature extraction.
+        
+        Parameters
+        ----------
+        returns_node : Optional[doc.expr]
+            The return type annotation AST node.
+        
+        Returns
+        -------
+        Optional[doc.expr]
+            Modified AST node with Tensor replaced by TensorSignature.
+        """
+        if returns_node is None:
+            return None
+        
+        # Recursively transform the AST
+        return self._transform_node(returns_node)
+    
+    def _transform_node(self, node: doc.expr) -> doc.expr:
+        """Recursively transform an AST node, replacing Tensor with TensorSignature.
+        
+        Parameters
+        ----------
+        node : doc.expr
+            The AST node to transform.
+        
+        Returns
+        -------
+        doc.expr
+            The transformed AST node.
+        """
+        if isinstance(node, doc.Call):
+            # Check if this is a Tensor() call
+            func = node.func
+            is_tensor_call = False
+            
+            if isinstance(func, doc.Name) and func.id == "Tensor":
+                # Replace with TensorSignature
+                func.id = "TensorSignature"
+                is_tensor_call = True
+            elif isinstance(func, doc.Attribute) and func.attr == "Tensor":
+                # pypto.Tensor -> pypto.TensorSignature
+                func.attr = "TensorSignature"
+                is_tensor_call = True
+            
+            # Recursively transform arguments
+            node.args = [self._transform_node(arg) if isinstance(arg, doc.expr) else arg 
+                        for arg in node.args]
+            
+            return node
+            
+        elif isinstance(node, doc.Tuple):
+            # Transform each element in the tuple
+            node.elts = [self._transform_node(elt) for elt in node.elts]
+            return node
+            
+        elif isinstance(node, doc.List):
+            # Transform each element in the list
+            node.elts = [self._transform_node(elt) for elt in node.elts]
+            return node
+            
+        else:
+            # For other node types, return as-is
+            return node
+
+    def visit(self, node: doc.AST) -> Any:
+        """The general visiting method.
+
+        Parameters
+        ----------
+        node : doc.AST
+            The doc AST node.
+
+        Returns
+        -------
+        res : Any
+            The visiting result.
+        """
+        if isinstance(node, (list, tuple)):
+            result = None
+            for item in node:
+                res = self.visit(item)
+                if res is not None:
+                    result = res
+            return result
+        if not isinstance(node, doc.AST):
+            raise ParserError(
+                node,
+                TypeError(f"Expected doc.AST, got {type(node)}."),
+            )
+        name = node.__class__.__name__.split(".")[-1]
+
+        if name in DEFAULT_VISIT:
+            func = self._generic_visit
+        else:
+            # Convert CamelCase to snake_case for function names
+            snake_case_name = re.sub(r"(?<!^)(?=[A-Z])", "_", name).lower()
+            func = getattr(self, f"_visit_{snake_case_name}", None)
+        if func is None:
+            raise ParserError(
+                node,
+                f"{name} is not supported by the PTO parser yet. "
+                f"Please check the documentation for supported Python features.",
+            )
+        return func(node)
+
+    def _generic_visit(self, node: doc.AST) -> Any:
+        """Generic visit method that visits all child nodes.
+
+        This is called when no specific visit_* method exists for a node type.
+        It recursively visits all fields of the node and returns the last non-None result.
+
+        Parameters
+        ----------
+        node : doc.AST
+            The node whose children should be visited.
+
+        Returns
+        -------
+        res : Any
+            The last non-None result from visiting child nodes.
+        """
+        result = None
+        for field in doc.get_cls_fields(node.__class__):
+            value = getattr(node, field, None)
+            if value is None:
+                pass
+            elif isinstance(value, (doc.AST, list, tuple)):
+                res = self.visit(value)
+                if res is not None:
+                    result = res
+        return result
+
+    def _visit_body(self, node: list[doc.stmt]) -> Any:
+        """The general body visiting method.
+
+        Parameters
+        ----------
+        node : list[doc.stmt]
+            The list of statements in body.
+
+        Returns
+        -------
+        res : Any
+            The visiting result.
+        """
+        for stmt in node:
+            self.visit(stmt)
+            self._auto_cleanup_after_stmt(stmt)
+
+    def _validate_return_statements(self, node: doc.FunctionDef) -> None:
+        """Validate that return statements only appear once at the end of the function.
+
+        Parameters
+        ----------
+        node : doc.FunctionDef
+            The function definition node to validate.
+
+        Raises
+        ------
+        ParserError
+            If there are multiple return statements or a return statement not at the end.
+        """
+
+        def find_returns(stmts: list[doc.stmt]) -> list[tuple[int, doc.Return]]:
+            """Find all return statements with their positions."""
+            returns = []
+            for idx, stmt in enumerate(stmts):
+                if isinstance(stmt, doc.Return):
+                    returns.append((idx, stmt))
+                # Check for returns in nested if statements
+                elif isinstance(stmt, doc.If):
+                    # Check in if body
+                    nested_returns = find_returns(stmt.body)
+                    if nested_returns:
+                        for _, ret in nested_returns:
+                            returns.append((idx, ret))
+                    # Check in else/elif body
+                    if stmt.orelse:
+                        nested_returns = find_returns(stmt.orelse)
+                        if nested_returns:
+                            for _, ret in nested_returns:
+                                returns.append((idx, ret))
+                # Check for returns in for loops
+                elif isinstance(stmt, doc.For):
+                    nested_returns = find_returns(stmt.body)
+                    if nested_returns:
+                        for _, ret in nested_returns:
+                            returns.append((idx, ret))
+                    if stmt.orelse:
+                        nested_returns = find_returns(stmt.orelse)
+                        if nested_returns:
+                            for _, ret in nested_returns:
+                                returns.append((idx, ret))
+            return returns
+
+        returns = find_returns(node.body)
+
+        if len(returns) > 1:
+            raise ParserError(
+                returns[1][1],
+                ValueError(
+                    "Only one return statement is allowed in a function. "
+                    f"Found {len(returns)} return statements."
+                ),
+            )
+
+        if len(returns) == 1:
+            idx, return_node = returns[0]
+            # Check if return is at the last position of the function body
+            if idx != len(node.body) - 1:
+                raise ParserError(
+                    return_node,
+                    ValueError(
+                        "Return statement must be at the last position of the function body. "
+                        f"Found return at position {idx}, but function body has {len(node.body)} statements."
+                    ),
+                )
+
+    def _extract_return_names(self, node: doc.FunctionDef) -> Optional[list[str]]:
+        """Extract the variable names being returned from the function.
+
+        Parameters
+        ----------
+        node : doc.FunctionDef
+            The function definition node.
+
+        Returns
+        -------
+        res : Optional[list[str]]
+            List of variable names being returned, or None if no return statement.
+        """
+        # Find the return statement (should be at the end)
+        if not node.body:
+            return None
+
+        last_stmt = node.body[-1]
+        if not isinstance(last_stmt, doc.Return):
+            return None
+
+        if last_stmt.value is None:
+            return None
+
+        # Extract variable names from the return value
+        return_value = last_stmt.value
+        if isinstance(return_value, doc.Name):
+            # Single return value: return x
+            return [return_value.id]
+        elif isinstance(return_value, (doc.Tuple, doc.List)):
+            # Multiple return values: return x, y
+            names = []
+            for elt in return_value.elts:
+                if isinstance(elt, doc.Name):
+                    names.append(elt.id)
+                else:
+                    # If return contains expressions (not just names), we can't use this optimization
+                    return None
+            return names
+        else:
+            # Return contains an expression, not just variable names
+            raise ParserError(
+                node,
+                ValueError(
+                    "Return value must be a variable name or a tuple/list of variable names."
+                ),
+            )
+
+    def _validate_output_args(
+        self, output_args: list, node: doc.FunctionDef
+    ) -> None:
+        """Validate that output arguments are valid tensor signatures.
+
+        Parameters
+        ----------
+        output_args : list[TensorSignature]
+            The output arguments to validate (as TensorSignature objects).
+        node : doc.FunctionDef
+            The function definition node for error reporting.
+
+        Raises
+        ------
+        ParserError
+            If any output argument is invalid.
+        """
+        from pypto.tensor import TensorSignature
+        
+        for output_arg in output_args:
+            # Valid output includes:
+            # - TensorSignature: signature with shape and dtype
+
+            if output_arg is None:
+                raise ParserError(
+                    node.returns,
+                    ValueError(
+                        "Return value must be a tensor with shape and dtype specified."
+                    ),
+                )
+
+            if not isinstance(output_arg, TensorSignature):
+                raise ParserError(
+                    node.returns,
+                    TypeError(
+                        f"Return value must be a tensor signature, but got {type(output_arg)}."
+                    ),
+                )
+
+    def _mark_dynamic_dimensions(
+        self, tensors: list[pypto.Tensor]
+    ) -> list[pypto.Tensor]:
+        """Mark dynamic dimensions for tensors.
+
+        Dynamic dimensions are those specified with pypto.dynamic() and represented
+        as Scalar objects. This method marks them in the PTO IR.
+
+        Parameters
+        ----------
+        tensors : list[pypto.Tensor]
+            List of tensors to process.
+
+        Returns
+        -------
+        list[pypto.Tensor]
+            List of tensors with dynamic dimensions marked.
+        """
+        result = []
+        for tensor in tensors:
+            if isinstance(tensor, pypto.Tensor):
+                shape = [
+                    -1 if isinstance(dim, pypto.Scalar) else dim
+                    for dim in tensor.shape
+                ]
+                result.append(pypto.Tensor(shape, tensor.dtype, tensor.name))
+            else:
+                raise ParserError(
+                    tensor,
+                    TypeError(
+                        f"Tensor must be a pypto.Tensor, but got {type(tensor)}."
+                    ),
+                )
+        return result
+
+    def _add_tensor_args_to_context(self, tensor_args: list[pypto.Tensor]) -> None:
+        """Add tensor arguments to the parsing context.
+
+        Parameters
+        ----------
+        tensor_args : list[pypto.Tensor]
+            List of tensor arguments to add to context.
+        """
+        for arg in tensor_args:
+            if isinstance(arg, pypto.Tensor):
+                # Remove SSA prefix (%) if present, as Python variables don't have it
+                var_name = arg.name.lstrip('%') if arg.name else arg.name
+                self.context.add(var_name, arg)
+
+    def _setup_output_var_mapping(
+        self, node: doc.FunctionDef, output_args: list[pypto.Tensor]
+    ) -> dict[str, pypto.Tensor]:
+        """Set up mapping from return variable names to output tensors.
+
+        This method extracts the variable names being returned and maps them to
+        the pre-defined output tensors, then adds them to the context.
+
+        Parameters
+        ----------
+        node : doc.FunctionDef
+            The function definition node.
+        output_args : list[pypto.Tensor]
+            List of output tensors.
+
+        Returns
+        -------
+        dict[str, pypto.Tensor]
+            Mapping from variable names to output tensors.
+
+        Raises
+        ------
+        ParserError
+            If the number of return values doesn't match the number of output tensors.
+        """
+        return_names = self._extract_return_names(node)
+        output_var_mapping = {}
+
+        if return_names is not None:
+            if len(return_names) != len(output_args):
+                raise ParserError(
+                    node.body[-1] if node.body else node,
+                    ValueError(
+                        f"Return statement has {len(return_names)} values but function signature "
+                        f"specifies {len(output_args)} output tensors."
+                    ),
+                )
+            # Map return variable names to pre-defined output tensors
+            # and add them to context so they're used directly
+            for name, output_tensor in zip(return_names, output_args):
+                output_tensor.name = name
+                output_var_mapping[name] = output_tensor
+                # Add to context so the variable refers to the pre-defined tensor
+                self.context.add(name, output_tensor)
+
+        return output_var_mapping
+
+    def _add_metadata_to_context(
+        self, func_name: str
+        # output_var_mapping: dict[str, pypto.Tensor]
+    ) -> None:
+        """Add function metadata to context for use in other visit methods.
+
+        Parameters
+        ----------
+        func_name : str
+            The function name.
+        output_var_mapping : dict[str, pypto.Tensor]
+            Mapping from variable names to output tensors.
+        """
+        # Store function name for use in _visit_return
+        # TODO: Move to ir builder context once it is implemented.
+        self.context.add("__func_name__", func_name)
+        # Add output variable mapping to context
+        # This tells the parser to use pre-defined output tensors for these variables
+        # self.context.add("__output_var_mapping__", output_var_mapping)
+
+    def _visit_function_def(self, node: doc.FunctionDef) -> "pypto.Function":
+        """The general function definition visit method.
+
+        Parameters
+        ----------
+        node : doc.FunctionDef
+            The doc FunctionDef node.
+
+        Note
+        ----
+        FunctionDef node structure:
+            name: str
+            args: arguments
+            body: list[stmt]
+            decorator_list: list[expr]
+            returns: Optional[expr]
+        """
+        # Validate return statements in function body
+        self._validate_return_statements(node)
+
+        # Check if function is marked for nested calling (before with block so it can be reused later)
+        is_nested = self._is_nested_function(node.decorator_list)
+
+        with self.context.with_frame():
+            # Step 1: Extract function signature
+            tensor_input_args, output_args = self.get_signature()
+
+            # Step 2: Validate output arguments
+            self._validate_output_args(output_args, node)
+
+            # Step 3: Set up output variable mapping
+            # Note that the naming process should be done before the dynamic dimension marking,
+            # output_var_mapping = self._setup_output_var_mapping(node, output_args)
+
+            # # Step 4: Mark dynamic dimensions for input tensors
+            # self._mark_dynamic_dimensions(tensor_input_args)
+            # self._mark_dynamic_dimensions(output_args)
+
+            # Step 5: Add arguments to parsing context
+            self._add_tensor_args_to_context(tensor_input_args)
+
+            # Step 6: Add metadata to context
+            self._add_metadata_to_context(node.name)
+
+            # Step 7: Create PTO function using C++ Func constructor
+            # Convert Python Tensor objects to C++ ValuePtr
+            if is_nested:
+                # For nested functions, we don't create a pypto.Function; body will be inlined on call.
+                return None
+            else:
+                input_values = []
+                for tensor in tensor_input_args:
+                    # tensor._base is std::shared_ptr<Tensor>, which pybind11
+                    # automatically upcasts to ValuePtr (std::shared_ptr<Value>)
+                    input_values.append(tensor._base)
+
+                output_values = []
+                for sig in output_args:
+                    # output_args are now TensorSignature objects
+                    # Convert them to real Tensor objects for the C++ function signature
+                    output_tensor = sig.to_tensor()
+                    output_values.append(output_tensor._base)
+
+                # Create FunctionSignature
+                from pypto import pypto_impl
+                signature = pypto_impl.FunctionSignature()
+                signature.arguments = input_values
+                signature.results = output_values
+
+                # Create C++ Function object directly using constructor
+                # Use IRBuilder to create function
+                from pypto.builder import get_default_builder
+                from pypto.controller import Controller
+                
+                builder = get_default_builder()
+                
+                # Ensure builder has a module
+                if builder._module is None:
+                    # Create a default module if none exists
+                    module = pypto_impl.ProgramModule("jit_module")
+                    builder.set_module(module)
+                
+                # Determine if this should be the entry point
+                # Check if module already has an entry point
+                set_as_entry = False
+                if hasattr(builder._module, 'GetProgramEntry'):
+                    try:
+                        entry = builder._module.GetProgramEntry()
+                        set_as_entry = (entry is None)
+                    except Exception:
+                        # If GetProgramEntry fails, assume no entry point yet
+                        set_as_entry = True
+                else:
+                    # If GetProgramEntry is not available, check if module has any functions
+                    # If no functions exist, this should be the entry point
+                    try:
+                        functions = builder._module.GetFunctions()
+                        set_as_entry = (len(functions) == 0)
+                    except Exception:
+                        # If we can't check, default to setting as entry
+                        set_as_entry = True
+                
+                # Create function using IRBuilder
+                cpp_func = builder._impl.CreateFunction(
+                    node.name,
+                    pypto_impl.FunctionKind.ControlFlow,
+                    signature,
+                    set_as_entry
+                )
+                
+                # Enter function body
+                scope_guard = builder._impl.EnterFunctionBody(cpp_func)
+                
+                # Add input tensors to input_scope's environment table
+                # Input tensors should be in the function's input_scope, not the function body scope
+                input_scope = cpp_func.GetInputScope()
+                for tensor in tensor_input_args:
+                    if isinstance(tensor, pypto.Tensor):
+                        # Get variable name from tensor name (remove SSA prefix % if present)
+                        var_name = tensor.name.lstrip('%') if tensor.name else None
+                        if var_name:
+                            input_scope.SetEnvVar(var_name, tensor._base)
+                
+                # Add output tensors to environment table after entering function body
+                # Output tensors are created in get_signature() before function body exists,
+                # so we need to add them to envTable_ now that we're in the function body
+                # for name, output_tensor in output_var_mapping.items():
+                #     if isinstance(output_tensor, pypto.Tensor):
+                #         builder._impl.SetEnvVar(name, output_tensor._base)
+
+                # Wrap in Python Function
+                func = pypto.Function(cpp_func)
+
+                # Add function to manager so operations can be added to it
+                pypto.functions.push_function(func)
+                try:
+                    # Parse body - statements will be added to the function's scope
+                    # Visit body directly without loop wrapper
+                    self._visit_body(node.body)
+                finally:
+                    # Remove function from manager after parsing
+                    pypto.functions.pop_function()
+                    del scope_guard
+
+                return func
+        return None
+
+    def _visit_arg(self, node: doc.arg) -> pypto.Tensor:
+        """The general arg visiting method.
+
+        Parameters
+        ----------
+        node : doc.arg
+            The doc AST arg node.
+
+        Returns
+        -------
+        res : pypto.Tensor
+            The tensor argument.
+
+        Note
+        ----
+        arg node structure:
+            arg: str
+            annotation: expr
+        """
+        if isinstance(node, (doc.Tuple, doc.List)):
+            return [self._visit_arg(arg) for arg in node.elts]
+        name = node.arg
+        if node.annotation is None:
+            raise ParserError(
+                node, ValueError("Annotation is required for function arguments.")
+            )
+        anno = self._visit_expr(node.annotation)
+        if isinstance(anno, pypto.Tensor):
+            anno.name = name
+            return anno
+        else:
+            raise ParserError(
+                node,
+                TypeError(
+                    f"All function arguments must be pypto.Tensor, but got {type(anno).__name__}."
+                ),
+            )
+
+    def _parse_arguments_with_specs(
+        self, node: doc.arguments
+    ) -> tuple[list[pypto.Tensor], list[ParamSpec]]:
+        """The general arguments visiting method.
+
+        Parameters
+        ----------
+        node : doc.arguments
+            The doc AST arguments node.
+
+        Returns
+        -------
+        res : list[pypto.Tensor], list[ParamSpec]]
+            List of Tensor arguments, list of ParamSpec arguments
+        """
+        if node.vararg is not None:
+            raise ParserError(
+                node,
+                NotImplementedError(
+                    "Variable-length arguments (*args) are not supported. "
+                    "Please use a fixed number of arguments."
+                ),
+            )
+        if len(node.kwonlyargs) > 0:
+            raise ParserError(
+                node,
+                NotImplementedError(
+                    "Keyword-only arguments are not supported. "
+                    "Please use regular positional or keyword arguments."
+                ),
+            )
+        if len(node.kw_defaults) > 0:
+            raise ParserError(
+                node,
+                NotImplementedError(
+                    "Keyword argument defaults are not supported. "
+                    "All arguments must be explicitly provided."
+                ),
+            )
+        if node.kwarg is not None:
+            raise ParserError(
+                node,
+                NotImplementedError(
+                    "Keyword argument packing (**kwargs) is not supported. "
+                    "Please use explicit keyword arguments."
+                ),
+            )
+        if len(node.defaults) > 0:
+            raise ParserError(
+                node,
+                NotImplementedError(
+                    "Default argument values are not supported. "
+                    "All arguments must be explicitly provided."
+                ),
+            )
+        if len(node.posonlyargs) > 0:
+            raise ParserError(
+                node,
+                NotImplementedError(
+                    "Position-only arguments are not supported. "
+                    "Please use regular arguments."
+                ),
+            )
+
+        # Process all arguments (only tensors allowed)
+        tensor_args = []
+        param_specs: list[ParamSpec] = []
+
+        for arg in node.args:
+            result = self._visit_arg(arg)
+            if isinstance(result, pypto.Tensor):
+                tensor_args.append(result)
+                param_specs.append((arg.arg, True, result))
+            elif isinstance(result, list):
+                # Handle nested tuples/lists if needed
+                for item in result:
+                    if isinstance(item, pypto.Tensor):
+                        tensor_args.append(item)
+                        param_specs.append((arg.arg, True, item))
+
+        return tensor_args, param_specs
+
+    def _visit_arguments(
+        self, node: doc.arguments
+    ) -> list[pypto.Tensor]:
+        """The general arguments visiting method.
+
+        Parameters
+        ----------
+        node : doc.arguments
+            The doc AST arguments node.
+
+        Returns
+        -------
+        res : tuple[list[pypto.Tensor], list[tuple[str, type]]]
+            A tuple of (tensor_args, non_tensor_args) where:
+            - tensor_args: list of Tensor arguments
+            - non_tensor_args: list of (name, type) tuples for non-tensor arguments
+        """
+        tensor_args, _ = self._parse_arguments_with_specs(node)
+        return tensor_args
+
+    def _try_nested_call(
+        self, node: doc.Call, extra_vars: Optional[dict[str, Any]] = None
+    ) -> Optional[Any]:
+        """Attempt to inline a nested function call."""
+        # Only simple name calls (no attributes/methods) are considered for inlining.
+        if not isinstance(node.func, doc.Name):
+            return None
+
+        # Collect current context variables and any extra_vars provided by eval_expr.
+        func_name = node.func.id
+        var_values = self.context.get()
+        if extra_vars:
+            var_values = {**var_values, **extra_vars}
+
+        if func_name not in var_values:
+            return None
+
+        # Resolve the callee function object; if it's a NestedFunctionMarker, unwrap to the original function.
+        func_value = var_values[func_name]
+        if isinstance(func_value, NestedFunctionMarker):
+            func_obj = func_value._original_func
+        else:
+            func_obj = func_value
+
+        # Merge closure/global variables of the target function to allow resolving
+        # free variables used inside the nested function body.
+        env_vars = self._collect_function_environment(func_obj)
+        if env_vars:
+            var_values = {**env_vars, **var_values}
+
+        # Dynamically obtain the FunctionDef AST of the callee; fail fast if unavailable.
+        func_def_node = self._get_function_def_from_func(func_obj)
+        if func_def_node is None:
+            raise ParserError(
+                node,
+                ValueError(f"Failed to obtain AST for function '{func_name}'."),
+            )
+
+        # If callee is a normal function, ensure it is decorated as nested; otherwise, bail out.
+        if not isinstance(func_value, NestedFunctionMarker):
+            if not self._is_nested_function(func_def_node.decorator_list):
+                return None
+
+        # Parse parameters/return annotations to get tensor/non-tensor lists and ordered specs.
+        # Seed the temp frame with the callee's env so that annotations depending on globals
+        # (e.g., pto, helper constants) resolve correctly.
+        with self.context.with_frame():
+            for name, value in env_vars.items():
+                self.context.add(name, value)
+
+            tensor_input_args, param_specs = (
+                self._parse_arguments_with_specs(func_def_node.args)
+            )
+
+            output_args = self._eval_expr(func_def_node.returns, extra_vars=var_values)
+            if not isinstance(output_args, (list, tuple)):
+                output_args = [output_args]
+
+        # Evaluate call-site arguments; keyword arguments are not supported yet.
+        # Use merged env (locals + globals of callee + caller extras) so symbols referenced
+        # in the callsite expressions are visible.
+        call_args = [self._eval_expr(arg, var_values) for arg in node.args]
+        if node.keywords:
+            raise ParserError(
+                node,
+                NotImplementedError(
+                    "Keyword arguments in nested function calls are not supported yet."
+                ),
+            )
+
+        # Validate argument count matches the signature.
+        expected_arg_count = len(tensor_input_args)
+        if len(call_args) != expected_arg_count:
+            raise ParserError(
+                node,
+                ValueError(
+                    f"Function {func_name} expects {expected_arg_count} arguments, "
+                    f"but got {len(call_args)}"
+                ),
+            )
+
+        body_nodes = func_def_node.body
+        with self.context.with_frame():
+            # Make callee globals/nonlocals available to the inlined body.
+            for name, value in env_vars.items():
+                self.context.add(name, value)
+
+            # Bind parameters in declared order and validate types.
+            for (param_name, is_tensor, annotation), arg_value in zip(
+                param_specs, call_args
+            ):
+                if is_tensor:
+                    if not isinstance(arg_value, pypto.Tensor):
+                        raise ParserError(
+                            node,
+                            TypeError(
+                                f"Expected tensor argument for {param_name}, "
+                                f"got {type(arg_value)}"
+                            ),
+                        )
+                    self.context.add(param_name, arg_value)
+                else:
+                    if annotation == bool and not isinstance(arg_value, bool):
+                        raise ParserError(
+                            node,
+                            TypeError(
+                                f"Expected bool argument for {param_name}, "
+                                f"got {type(arg_value)}"
+                            ),
+                        )
+                    if annotation == int and not isinstance(
+                        arg_value, (int, pypto.SymbolicScalar)
+                    ):
+                        raise ParserError(
+                            node,
+                            TypeError(
+                                f"Expected int argument for {param_name}, "
+                                f"got {type(arg_value)}"
+                            ),
+                        )
+                    self.context.add(param_name, arg_value)
+
+            # Recreate outputs per return annotation to avoid cross-call interference.
+            nested_output_args: list[Any] = []
+            for out_arg in output_args:
+                if isinstance(out_arg, pypto.Tensor):
+                    nested_output_args.append(
+                        pypto.Tensor(out_arg.shape, out_arg.dtype, name=out_arg.name)
+                    )
+                else:
+                    nested_output_args.append(out_arg)
+
+            # Preserve outputs in context so visit_return can fill them in-place.
+            self.context.add("__func_output_args__", nested_output_args)
+            self.context.add("__func_name__", func_name)
+
+            # Inline-execute the callee body.
+            old_diag = self.diag
+            try:
+                try:
+                    self.diag = Diagnostics(Source(func_obj))
+                except Exception:
+                    # Fallback to existing diagnostics if source extraction fails
+                    pass
+
+                try:
+                    self._visit_body(body_nodes)
+                except ParserError as e:
+                    if not isinstance(e, RenderedParserError):
+                        self.diag.error(e.node, str(e))
+                    raise
+            except RenderedParserError:
+                self.diag = old_diag
+                self.diag.info(node, f"In call to '{func_name}'")
+                raise
+            finally:
+                self.diag = old_diag
+
+            # Return aggregation: single tensor returns directly; multiple returns as a list.
+            if len(nested_output_args) == 1:
+                return nested_output_args[0]
+            return nested_output_args
+
+    def _visit_for(self, node: doc.For) -> Any:
+        """The general for visiting method.
+
+        Parameters
+        ----------
+        node : doc.For
+            The doc AST for node.
+
+        Returns
+        -------
+        res : Any
+            The visiting result.
+
+        Note
+        ----
+        For node structure:
+            target: expr (loop variable)
+            iter: expr (iterator expression, e.g., range(10))
+            body: list[stmt] (loop body)
+            orelse: list[stmt] (else clause, not supported)
+        """
+        # Check for unsupported else clause
+        if node.orelse:
+            raise ParserError(
+                node,
+                NotImplementedError(
+                    "For-else clauses are not supported. "
+                    "Consider using a separate if statement after the loop."
+                ),
+            )
+
+        # Extract the loop variable name
+        if not isinstance(node.target, doc.Name):
+            raise ParserError(
+                node.target,
+                TypeError(
+                    f"Loop variable must be a simple name, but got {type(node.target).__name__}."
+                ),
+            )
+        loop_var_name = node.target.id
+
+        # Try to evaluate the iterator expression (e.g., range(10))
+        # This works even with symbolic values in range bounds because
+        # Python's range() is lazily evaluated
+        iter_expr = self._eval_expr(node.iter)
+
+        # Support range() calls - extract start, stop, step parameters
+        # These parameters can be concrete values or symbolic expressions
+        iterator = None
+        if isinstance(iter_expr, range):
+            # Extract start, stop, step from range object
+            start = iter_expr.start
+            stop = iter_expr.stop
+            step = iter_expr.step
+            iterator = pypto.loop(
+                start, stop, step, name="Dynamic", idx_name=loop_var_name
+            )
+        elif isinstance(iter_expr, Iterator):
+            iterator = iter_expr
+        else:
+            raise ParserError(
+                node.iter,
+                TypeError(
+                    f"Loop iterator must be a range object or Iterator, but got {type(iter_expr).__name__}."
+                ),
+            )
+
+        # Create the loop using pypto.loop, which generates the appropriate IR for iteration.
+        # The loop variable is created by the pypto.loop iterator and added to the context
+        # so it can be used within the loop body.
+        # Create a new frame for the loop body scope
+        with self.context.with_frame():
+            # The loop variable is yielded by the iterator
+            for loop_var in iterator:
+                # Add the loop variable to the context
+                self.context.add(loop_var_name, loop_var)
+                # Visit the loop body
+                self._visit_body(node.body)
+
+    def _assign_target(self, target: doc.expr, expr: Any) -> None:
+        """Helper method to assign an expression to a target.
+
+        Parameters
+        ----------
+        target : doc.expr
+            The assignment target (Name, Tuple, List, or Subscript).
+        expr : Any
+            The value to assign.
+        """
+        if isinstance(target, doc.Name):
+            # Simple assignment: a = expr
+            # Handle output tensors first to avoid recreating them
+            # output_var_mapping = self.context.get().get("__output_var_mapping__", {})
+            # output_tensor = output_var_mapping.get(target.id)
+            # if output_tensor is not None:
+            #     output_tensor[:] = expr
+            #     return
+            
+            # Check if expr is a Tensor that was just created (not from an operation)
+            # If so, create a TensorCreate op and use its output
+            if isinstance(expr, pypto.Tensor):
+                # Check if this tensor needs a TensorCreate operation
+                # We create TensorCreate op for tensors that were created via Tensor() constructor
+                # and not already part of the IR (no operations producing them yet)
+                
+                from pypto.builder import get_default_builder
+                builder = get_default_builder()
+                
+                if builder and hasattr(builder, '_impl'):
+                    # Check if this tensor already has an operation by checking its SSA name
+                    # If the SSA name exists in the scope, it means the tensor was produced by an operation
+                    tensor_ssa_name = expr._base.GetSSAName()
+                    tensor_with_op = builder._impl.GetEnvVar(tensor_ssa_name)
+                    
+                    # Also check if the variable name is already in the environment
+                    existing_tensor = builder._impl.GetEnvVar(target.id) if target.id else None
+                    
+                    # Only create TensorCreate if:
+                    # 1. The tensor's SSA name is not in scope (no operation produces it)
+                    # 2. The variable name is not in environment (not assigned before)
+                    if tensor_with_op is None and existing_tensor is None:
+                        # This is a new tensor, create TensorCreate operation
+                        from pypto import pypto_impl
+                        from pypto import utils
+                        
+                        # Get shape and dtype from the tensor
+                        shape_scalars = utils.to_syms(expr._base.GetShape())
+                        dtype = expr._base.GetDataType()
+                        
+                        # Create TensorCreate operation
+                        output_tensor = pypto_impl.TensorCreate(
+                            shape_scalars,
+                            dtype,
+                            builder._impl
+                        )
+                        
+                        # Wrap the output in a Python Tensor object
+                        expr = pypto.Tensor.from_base(output_tensor)
+                
+                # Set the tensor name
+                expr.name = target.id
+                
+                # Add tensor to environment table using variable name
+                if builder and hasattr(builder, '_impl'):
+                    builder._impl.SetEnvVar(target.id, expr._base)
+            
+            self.context.add(target.id, expr)
+        elif isinstance(target, (doc.Tuple, doc.List)):
+            # Unpacking assignment: a, b = expr
+            if not isinstance(expr, (list, tuple)):
+                raise ParserError(
+                    target,
+                    TypeError(f"Cannot unpack non-sequence type {type(expr).__name__}"),
+                )
+            if len(target.elts) != len(expr):
+                raise ParserError(
+                    target,
+                    ValueError(
+                        f"Cannot unpack {len(expr)} values into {len(target.elts)} targets"
+                    ),
+                )
+            for t, e in zip(target.elts, expr):
+                self._assign_target(t, e)
+        elif isinstance(target, doc.Subscript):
+            # Subscript assignment: b[:] = expr or b[0] = expr
+            # This handles in-place tensor updates using Python's subscript syntax.
+            # Evaluate the value (e.g., b) to get the tensor being assigned to
+            tensor = self._eval_expr(target.value)
+            
+            # Set name of tensor created by expr. If the expr is an exist tensor(eg. a),
+            # it's name will not be empty 
+            if expr.name == "":
+                expr.name = tensor.name
+            
+            # Evaluate the slice (e.g., : or 0) to get the slice/index object
+            slice_obj = self._eval_expr(target.slice)
+            # Perform the assignment using __setitem__, which translates to
+            # the appropriate PTO IR operation for tensor element/slice updates
+            # __setitem__ may return a new tensor (SSA semantics for assemble operations)
+            result = tensor.__setitem__(slice_obj, expr)
+            # Set name of assemble return tensor
+            result.name = tensor.name
+            
+            # Update environment table with the new SSA value if __setitem__ returned a tensor
+            if isinstance(result, pypto.Tensor) and isinstance(tensor, pypto.Tensor):
+                from pypto.builder import get_default_builder
+                builder = get_default_builder()
+                if builder and hasattr(builder, '_impl'):
+                    # Update environment table with new tensor using variable name
+                    if isinstance(target.value, doc.Name):
+                        builder._impl.SetEnvVar(target.value.id, result._base)
+                        self.context.add(target.value.id, result, allow_update=True)
+        else:
+            raise ParserError(
+                target,
+                TypeError(
+                    f"Assignment target must be a name, tuple, or subscript, "
+                    f"but got {type(target).__name__}."
+                ),
+            )
+
+    def _visit_assign(self, node: doc.Assign) -> None:
+        """The general assign visiting method.
+
+        Parameters
+        ----------
+        node : doc.Assign
+            The doc AST assign node.
+
+        Returns
+        -------
+        res : None
+            The visiting result. None.
+
+        Note
+        ----
+        Assign node structure:
+            targets: list[expr]
+            value: expr
+        """
+        expr = self._visit_expr(node.value)
+
+        for target in node.targets:
+            self._assign_target(target, expr)
+
+    def _visit_ann_assign(self, node: doc.AnnAssign) -> Any:
+        """The general annotated assign visiting method.
+
+        Parameters
+        ----------
+        node : doc.Assign
+            The doc AST annotated assign node.
+
+        Returns
+        -------
+        res : Any
+            The visiting result.
+
+        Note
+        ----
+        AnnAssign node structure:
+            target: expr
+            annotation: expr
+            value: Optional[expr]
+        """
+        # Reuse the assign visiting method to visit the annotated assign node.
+        return self._visit_assign(node)
+
+    def _visit_expr(self, node: doc.Expr) -> Any:
+        """The general expression visiting method.
+
+        Parameters
+        ----------
+        node : doc.Expr
+            The doc AST expression node.
+
+        Returns
+        -------
+        res : Any
+            The visiting result.
+        """
+        return self._eval_expr(node)
+
+    def _visit_if(self, node: doc.If) -> Any:
+        """The general if visiting method.
+
+        Parameters
+        ----------
+        node : doc.If
+            The doc AST if node.
+
+        Returns
+        -------
+        res : Any
+            The visiting result.
+
+        Note
+        ----
+        If node structure:
+            test: expr (condition expression)
+            body: list[stmt] (if body)
+            orelse: list[stmt] (else/elif body)
+        """
+        # Evaluate the test condition. This may have side effects when using pypto.cond(),
+        # such as creating an IfStatement in the IR and activating its then-branch.
+        test_expr = self._eval_expr(node.test)
+
+        # Detect if the condition is symbolic (i.e., should create IR for both branches)
+        is_symbolic_if = False
+
+        # Case 1: condition is written using pypto.cond(...) or cond(...)
+        if isinstance(node.test, doc.Call):
+            func = node.test.func
+            if isinstance(func, doc.Name) and func.id == "cond":
+                is_symbolic_if = True
+            elif isinstance(func, doc.Attribute) and func.attr == "cond":
+                is_symbolic_if = True
+
+        # Case 2: plain symbolic scalar without explicit cond() call
+        if isinstance(test_expr, Scalar):
+            # Use pypto.cond() to create an IfStatement and activate its then-branch.
+            # The return value is always True and is only used to drive Python control flow.
+            pypto.cond(test_expr)
+            is_symbolic_if = True
+            cond = True
+        elif isinstance(test_expr, bool):
+            cond = test_expr
+        else:
+            raise ParserError(
+                node.test,
+                TypeError(
+                    f"Test condition must be a symbolic scalar or boolean, but got {type(test_expr).__name__}."
+                ),
+            )
+
+        if is_symbolic_if:
+            # For symbolic condition, we always build IR for both branches.
+            # The IfStatement has already been created by pypto.cond(), and the then-branch
+            # block is the current active block in the Controller.
+            if_stmt = Controller.current_if()
+            if if_stmt is None:
+                raise ParserError(
+                    node.test,
+                    RuntimeError(
+                        "Failed to find active IfStatement for symbolic if-condition."
+                    ),
+                )
+
+            from pypto.builder import get_default_builder
+            builder = get_default_builder()
+            
+            # Visit then-branch body (already using the active then-block).
+            # Use a new context frame for then branch to isolate variable updates
+            with self.context.with_frame():
+                self._visit_body(node.body)
+            
+            # Clean up the then-branch scope guard before entering else
+            if hasattr(builder, '_cond_guards') and builder._cond_guards:
+                builder._cond_guards.pop()  # This will trigger the C++ destructor
+
+            # If there is an else-branch, use IRBuilder to enter else scope
+            # so that following ops are recorded in the else-branch.
+            if node.orelse:
+                # Enter else branch using IRBuilder
+                scope_guard = builder._impl.EnterIfElse(if_stmt)
+                
+                try:
+                    # Use a new context frame for else branch to isolate variable updates
+                    with self.context.with_frame():
+                        self._visit_body(node.orelse)
+                finally:
+                    # Explicitly drop the last reference so C++ ScopeGuard destructor runs now.
+                    # This restores IRBuilder's scope back to the parent scope before merging.
+                    scope_guard = None
+
+            # Exit if statement and merge environments
+            builder._impl.ExitIfStatement(if_stmt)
+
+            # Sync updated variables from environment table to Python context
+            # This ensures that subsequent code can access the updated values from if statement results
+            current_env = builder._impl.GetCurrentEnv()
+            for var_name, value_ptr in current_env.items():
+                if value_ptr:
+                    # Create a Tensor wrapper from the ValuePtr
+                    updated_tensor = pypto.Tensor.from_base(value_ptr)
+                    # Update context with the new value
+                    self.context.add(var_name, updated_tensor, allow_update=True)
+
+            # Pop the IfStatement context and restore previous active block.
+            Controller.pop_if()
+        else:
+            # Pure Python boolean condition: execute only one branch.
+            if cond:
+                self._visit_body(node.body)
+            else:
+                if node.orelse:
+                    self._visit_body(node.orelse)
+
+    def _visit_return(self, node: doc.Return) -> Any:
+        """The general return visiting method.
+
+        Parameters
+        ----------
+        node : doc.Return
+            The doc AST return node.
+
+        Returns
+        -------
+        res : Union[None, pypto.Tensor, list[pypto.Tensor]]
+            The visiting result: None, a single tensor, or a list of tensors.
+        """
+        if node.value is None:
+            # Case 1: return without any value
+            return None
+
+        # For variable names, try to get latest SSA value from environment table first
+        from pypto.builder import get_default_builder
+        builder = get_default_builder()
+        original_var_name = None
+        latest_value = None
+        
+        if builder and hasattr(builder, '_impl') and isinstance(node.value, doc.Name):
+            # Try to get the latest SSA value from environment table using variable name
+            original_var_name = node.value.id
+            latest_value = builder._impl.GetEnvVar(node.value.id)
+        
+        if latest_value:
+            # Use the latest SSA value from environment table
+            expr = pypto.Tensor.from_base(latest_value)
+        else:
+            # Fallback to evaluating the expression normally
+            expr = self._visit_expr(node.value)
+
+        # Case 2: return None (explicit)
+        if expr is None:
+            return None
+
+        # Get function name and output variable mapping from context
+        func_name = self.context.get().get("__func_name__", "")
+
+        # Case 3: return a single tensor
+        if isinstance(expr, pypto.Tensor):
+            # Don't modify the name - use the value from environment table as-is
+            # The value already has its correct SSA name in IR (e.g., %29, %33)
+            result = expr
+        # Case 4: return a tuple or list of tensors
+        elif isinstance(expr, (list, tuple)):
+            result = []
+            for idx, elem in enumerate(expr):
+                if not isinstance(elem, pypto.Tensor):
+                    raise ParserError(
+                        node,
+                        TypeError(
+                            f"Return value at index {idx} must be a tensor, "
+                            f"but got {type(elem).__name__}."
+                        ),
+                    )
+                # Name each tensor in the list for better traceability
+                if elem.name is None or elem.name == "":
+                    elem.name = f"output_{func_name}_{idx}"
+                result.append(elem)
+        # Case 5: invalid return type
+        else:
+            raise ParserError(
+                node,
+                TypeError(
+                    f"Return value must be None, a tensor, or a list/tuple of tensors, "
+                    f"but got {type(expr).__name__}."
+                ),
+            )
+        # If this return belongs to an inlined nested function, write back
+        nested_outputs = self.context.get().get("__func_output_args__")
+        if nested_outputs is not None:
+            # Write results into the preallocated output tensors so callers reuse them.
+            result_list = result if isinstance(result, list) else [result]
+            if len(result_list) != len(nested_outputs):
+                raise ParserError(
+                    node,
+                    ValueError(
+                        f"Return value count {len(result_list)} does not match expected "
+                        f"{len(nested_outputs)}."
+                    ),
+                )
+            for i, tensor in enumerate(result_list):
+                if isinstance(nested_outputs[i], pypto.Tensor) and isinstance(
+                    tensor, pypto.Tensor
+                ):
+                    nested_outputs[i][:] = tensor
+                else:
+                    nested_outputs[i] = tensor
+            return nested_outputs if len(nested_outputs) > 1 else nested_outputs[0]
+
+        # Create return statement in IR for non-nested functions
+        # (builder already obtained above if needed)
+        if not (builder and hasattr(builder, '_impl')):
+            builder = get_default_builder()
+        
+        # Convert result tensors to IR ValuePtrs
+        result_list = result if isinstance(result, list) else [result]
+        return_values = []
+        for tensor in result_list:
+            if isinstance(tensor, pypto.Tensor):
+                # pybind11 automatically upcasts Tensor to Value
+                if tensor._base is None:
+                    raise ValueError(f"Tensor {tensor} does not have an underlying IR tensor")
+                return_values.append(tensor._base)
+            else:
+                raise ParserError(
+                    node,
+                    TypeError(
+                        f"Return value must be a tensor, but got {type(tensor).__name__}."
+                    ),
+                )
+        
+        # Create return statement in IR
+        builder._impl.CreateReturn(return_values)
+
+        return result
+
+    def _visit_delete(self, node: doc.Delete) -> None:
+        """The general delete visiting method.
+
+        Parameters
+        ----------
+        node : doc.Delete
+            The doc AST delete node.
+
+        Returns
+        -------
+        res : None
+            The visiting result. None.
+
+        Note
+        ----
+        Delete node structure:
+            targets: list[expr]
+        """
+        for target in node.targets:
+            if isinstance(target, doc.Name):
+                # Delete a simple variable
+                try:
+                    self.context.delete(target.id)
+                except NameError as e:
+                    raise ParserError(target, e) from e
+                except ValueError as e:
+                    raise ParserError(target, e) from e
+            else:
+                raise ParserError(
+                    target,
+                    TypeError(
+                        f"Delete target must be a name, "
+                        f"but got {type(target).__name__}."
+                    ),
+                )
+
+    def _auto_cleanup_after_stmt(self, stmt: doc.stmt) -> None:
+        """Automatically cleanup variables after statement if enabled.
+
+        Parameters
+        ----------
+        stmt : doc.stmt
+            The statement that was just visited.
+        """
+
+        stmt_id = id(stmt)
+        if stmt_id in self.delete_after:
+            vars_to_delete = self.delete_after[stmt_id]
+            self.context.mark_for_deletion(vars_to_delete)
+            self.context.cleanup_marked()
