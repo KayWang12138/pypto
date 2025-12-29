@@ -28,6 +28,8 @@ tmp
 kernel_meta
 *.egg-info
 
+extra-info
+
 # pip install -e 模式
 python/pypto/include/
 python/pypto/lib/
