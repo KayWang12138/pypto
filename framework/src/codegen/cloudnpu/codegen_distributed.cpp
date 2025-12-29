@@ -169,9 +169,11 @@ std::string CodeGenOpCloudNPU::GenTemplateParams() const
             int32_t shmemTensorIndex = 3;
             DistOpAttr distOpAttr = npu::tile_fwk::AnyCast<DistOpAttr>(opAttrs.at(OpAttributeKey::distOpAttr));
             int64_t bufferEleNum = distOpAttr.setBufferShape[0];
+            int32_t rowDimIndex = 2;
+            int32_t colDimIndex = 3;
             oss << "<" << GetTemplateDType() << ", " << originShape[shmemTensorIndex][1] << ", "
-                << originShape[shmemTensorIndex][2] << ", " << originShape[shmemTensorIndex][3] << ", " << bufferEleNum
-                << ">";
+                << originShape[shmemTensorIndex][rowDimIndex] << ", " << originShape[shmemTensorIndex][colDimIndex]
+                << ", " << bufferEleNum << ">";
             break;
         }
         default: {

@@ -24,22 +24,6 @@
 
 namespace npu::tile_fwk::Distributed {
 
-std::pair<int32_t, int32_t> GetRankSizeAndTileCount()
-{
-    const TileShape& tileShape = TileShape::Current();
-
-    auto rankShape = tileShape.GetDistTileRank();
-    int32_t rankSize = rankShape[0] * rankShape[1] + rankShape[2];
-
-    auto tileRow = tileShape.GetDistTileRow();
-    auto tileCol = tileShape.GetDistTileCol();
-    int32_t rowCount = tileRow[1] + (tileRow[2] != 0 ? 1 : 0);
-    int32_t colCount = tileCol[1] + (tileCol[2] != 0 ? 1 : 0);
-    int32_t tileCount = rowCount * colCount;
-
-    return {rankSize, tileCount};
-}
-
 Tensor Nop(const std::vector<Tensor>& inTensors)
 {
     auto& function = *Program::GetInstance().GetCurrentFunction();
@@ -97,7 +81,7 @@ void TestShmemAllReduceAddAllReduce(OpTestParam &testParam)
             CreateShmemTensor(shmemBarrier2ShmemSignal, testParam.rankSize, hcclGroupIndex, DT_INT32, Shape{1, 1, 8},
                 1);
             TileShape::Current().SetDistTile({row, 1, 0}, {col, 1, 0}, {1, testParam.rankSize, 0});
-            auto [rankSize, tileCount] = GetRankSizeAndTileCount();
+            int32_t tileCount = 1;
             Shape allReduce2ShmemDataShape = {1, addOut.GetShape(0), addOut.GetShape(1)};
             Shape allReduce2ShmemSignalShape = {1, tileCount, 8};
             DataType allReduce2ShmemDataType = in.GetDataType();
@@ -113,7 +97,7 @@ void TestShmemAllReduceAddAllReduce(OpTestParam &testParam)
             (void)allReduce2Index;
 
             TileShape::Current().SetDistTile({row, 1, 0}, {col, 1, 0}, {1, testParam.rankSize, 0});
-            auto [rankSize, tileCount] = GetRankSizeAndTileCount();
+            int32_t tileCount = 1;
             SymbolicScalar thisRank = GetHcclRankId(hcclGroupIndex);
 
             ShmemBarrier(addOut, shmemBarrier1ShmemSignal, testParam.group, barrier1Out);
