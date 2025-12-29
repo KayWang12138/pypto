@@ -20,6 +20,7 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/function/function.h"
+#include "interface/function/data_flow_function.h"
 #include "interface/program/program.h"
 #include "interface/utils/op_info_manager.h"
 

@@ -20,6 +20,7 @@
 #include <string>
 #include <memory>
 #include <stack>
+#include <map>
 
 #include "tilefwk/tilefwk.h"
 #include "interface/operation/operation.h"
@@ -495,7 +496,6 @@ public:
     bool IsCompiledFunction() const {
         return IsFunctionTypeAndGraphType(FunctionType::STATIC, {GraphType::EXECUTE_GRAPH, GraphType::BLOCK_GRAPH});
     }
-    std::unordered_set<int> LoopCheck();
     FunctionHash ComputeHash();
     std::vector<std::shared_ptr<Operation>> GetSortedOperations() const;
     OperationsViewer Operations(bool sorted = true);
@@ -587,9 +587,6 @@ public:
     int GetStackWorkespaceSize() const { return stackWorkespaceSize_; }
     void SetStackWorkespaceSize(int size) { stackWorkespaceSize_ = size; }
 
-    size_t GetTotalSubGraphCount() const { return totalSubGraphCount_; }
-
-    void SetTotalSubGraphCount(const size_t totalSubGraphCount) { totalSubGraphCount_ = totalSubGraphCount; }
 
     const std::vector<std::shared_ptr<LogicalTensor>> &GetOriginIncast() const { return originInCasts_; }
     const std::vector<std::shared_ptr<LogicalTensor>> &GetOriginOutcast() const { return originOutCasts_; }
@@ -630,13 +627,10 @@ public:
     FunctionCallArgs EndFunction(const std::shared_ptr<TensorSlotScope> &scope);
     /* -------------------------常用改图接口------------------------------ */
     Operation* GetOpByOpMagic(const int opMagic) const;
-    int GetParamIndex(const std::shared_ptr<RawTensor> &rawTensor);
-    void *GetParamAddress(int index);
 
     static bool TensorReuse(const LogicalTensorPtr &dstTensor, const LogicalTensorPtr &srcTensor);
     std::set<Operation *, LogicalTensor::CompareOp> FindConsumers(const Operation &op) const;
     std::set<Operation *, LogicalTensor::CompareOp> FindProducers(const Operation &op) const;
-    const SubfuncInvokeInfoTy &GetSubFuncInvokeInfo(const size_t i) const;
     void GetAnIslandIncastsOutcasts(const std::map<int, int> &opToSubgraph, const int subgraphID,
         const std::vector<Operation *> &operations,
         std::vector<std::shared_ptr<LogicalTensor>> &iOperands,
@@ -657,13 +651,15 @@ public:
     std::vector<int> GetOutCastSlot(const std::shared_ptr<LogicalTensor> &outcast);
 
     const std::unordered_set<std::string> &LoopIdxNameList() const { return loopIdxNameList_; }
+    bool InsertLoopIdxNameList(const std::string &idxName);
 
     bool HasCallOperation();
     bool IsDynloop() const { return dynloopAttr_ != nullptr; }
     bool IsDyndev() const { return dyndevAttr_ != nullptr; }
 
     bool IsHiddenFunction() {return hiddenFunction_;}
-
+    void SetHiddenFunction(bool hiddenFunction) {hiddenFunction_ = hiddenFunction;} 
+    
     std::shared_ptr<Distributed::TilingManager> &GetDistTilingManager() { return distTilingManager_; }
 
     std::unordered_map<std::shared_ptr<LogicalTensor>, std::shared_ptr<LogicalTensor>> incastToInArgumentDict;
@@ -726,41 +722,6 @@ public:
         outcastSlot.erase(outcastSlot.begin() + idx);
     }
 
-    void SetReadySubGraphIds(CoreType coreType, const std::vector<int> &readySubGraphIds) {
-        readySubGraphIds_[coreType] = readySubGraphIds;
-    }
-    void EmplaceReadySubGraphIds(CoreType coreType, int readySubGraphId) {
-        readySubGraphIds_[coreType].emplace_back(readySubGraphId);
-    }
-    void ReplaceReadySubGraphIds(CoreType coreType, int oldIdx, int newId) {
-        readySubGraphIds_[coreType][oldIdx] = newId;
-    }
-    size_t GetReadySubGraphCount(CoreType coreType) const {
-        auto it = readySubGraphIds_.find(coreType);
-        if (it == readySubGraphIds_.end()) {
-            return 0;  // 返回 0 而不是抛出异常
-        }
-        return it->second.size();
-    }
-    int GetReadySubGraphId(CoreType coreType, int index) const {
-        auto it = readySubGraphIds_.find(coreType);
-        if (it == readySubGraphIds_.end()) {
-            // 如果 coreType 不存在，返回一个默认值或者抛出异常
-            // 这里选择抛出异常，因为调用者应该先检查 count 是否为 0
-            throw std::out_of_range("CoreType not found in readySubGraphIds_");
-        }
-        if (index >= static_cast<int>(it->second.size())) {
-            throw std::out_of_range("Index out of range in readySubGraphIds_");
-        }
-        return it->second[index];
-    }
-    int GetAllReadySubGraphCount() const {
-        int size = 0;
-        for (auto &ele : readySubGraphIds_) {
-            size += ele.second.size();
-        }
-        return size;
-    }
 
     static void EnableMagicLookupRecord(bool enable, Function *function) {
         enableMagicLookupRecord_ = enable;
@@ -788,12 +749,40 @@ public:
     std::shared_ptr<SourceLocation> GetSourceLocation() const { return sourceLocation_; }
     void CleanRedundantOutCast();
 
-    void SetHiddenFunction(bool hiddenFunction) { hiddenFunction_ = hiddenFunction; }
-    bool IsHiddenFunction() const { return hiddenFunction_; }
 
-    const std::unordered_set<std::string> &LoopIdxNameList() { return loopIdxNameList_; }
-    bool InsertLoopIdxNameList(const std::string &idxName);
 
+
+    //------------------------------------------------------------------------------------------------------
+    //------------------------------------------- DataFlowFunction -----------------------------------------
+    //------------------------------------------------------------------------------------------------------
+    // Virtual functions for DataFlowFunction interface compatibility
+    // These functions allow calling DataFlowFunction methods through Function* pointer
+    virtual size_t GetTotalSubGraphCount() const;
+    virtual void SetTotalSubGraphCount(const size_t totalSubGraphCount);
+
+    virtual int GetParamIndex(const std::shared_ptr<RawTensor> &rawTensor);
+    virtual void *GetParamAddress(int index);
+
+    virtual const SubfuncInvokeInfoTy &GetSubFuncInvokeInfo(const size_t i) const;
+
+    virtual const std::map<CoreType, std::vector<int>> &GetReadySubGraphIds() const;
+    virtual void SetReadySubGraphIds(CoreType coreType, const std::vector<int> &readySubGraphIds);
+    virtual void EmplaceReadySubGraphIds(CoreType coreType, int readySubGraphId);
+    virtual void ReplaceReadySubGraphIds(CoreType coreType, int oldIdx, int newId);
+    virtual size_t GetReadySubGraphCount(CoreType coreType) const;
+    virtual int GetReadySubGraphId(CoreType coreType, int index) const;
+    virtual int GetAllReadySubGraphCount() const;
+
+    virtual std::unordered_set<int> LoopCheck();
+
+    //------------------------------------------------------------------------------------------------------
+    //------------------------------------------- ExecuteFunction ------------------------------------------
+    //------------------------------------------------------------------------------------------------------
+    // NONE
+
+    //------------------------------------------------------------------------------------------------------
+    //------------------------------------------- KernelFunction -------------------------------------------
+    //------------------------------------------------------------------------------------------------------
     // Virtual functions for KernelFunction interface compatibility
     // These functions allow calling KernelFunction methods through Function* pointer
     virtual std::vector<OperationPtr> &GetProgramOp();
@@ -826,13 +815,12 @@ protected:
     std::vector<std::pair<int, int>> outcastPosition;
 
     void RefreshOpPosition();
-private:
+
     int functionMagic_{-1};
     std::string funcMagicName_; // Function name
     std::string funcRawName_;   // raw name
     size_t totalAicSubGraphCount_ = 0;
     size_t totalAivSubGraphCount_ = 0;
-    size_t totalSubGraphCount_ = 0;
     int stackWorkespaceSize_ = 0;
     FunctionHash functionHash_{0};
     std::vector<std::string> calleeMagicNameList_;
@@ -847,13 +835,6 @@ private:
 
     TensorMap tensorMap_; // TensorMap to register tensors
     std::unordered_set<std::shared_ptr<LogicalTensor>> globalTensors_; // global tensors
-
-    // -----------------------子图信息------------------------
-    SubfuncParam parameter_; // 每一个异构子图的形参
-    int programId_; // 异构子图的id
-
-    // we use int instead of int64 to reduce memory usage and cache miss on aicpu
-    std::map<CoreType, std::vector<int>> readySubGraphIds_;
 
     std::vector<std::vector<Operation *>> operationGroups_;
     std::vector<std::shared_ptr<Operation>> operationsAfterOOO_;
@@ -880,7 +861,7 @@ private:
     std::shared_ptr<SourceLocation> sourceLocation_;
     bool hiddenFunction_{false};
 
-private:
+
     unsigned long ComputeHashOrderless() const;
     void OpValidCheck(Operation &op) const;
     std::shared_ptr<LogicalTensor> ConnectWithOverlap(std::shared_ptr<LogicalTensor> iOperand);
@@ -909,8 +890,6 @@ private:
     std::string DumpSSAOutcast(int indent = 2) const;
     std::string DumpSSAAttribute(int indent = 2) const;
     friend class FunctionInterpreter;
-
-    auto AnnotateOperation();
 
     void SetCallOpSlot();
     void UpdateOriIocastSlot(const std::shared_ptr<TensorSlotScope> scope);

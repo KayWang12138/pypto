@@ -17,6 +17,7 @@
 #include <map>
 #include "interface/operation/opcode.h"
 #include "interface/function/function.h"
+#include "interface/function/data_flow_function.h"
 #include "interface/tensor/raw_tensor.h"
 #include "interface/tensor/logical_tensor.h"
 #include "interface/utils/source_location.h"
@@ -142,7 +143,7 @@ Status ExpandFunction::Expandfunction(Function &function) const {
     }
     function.expandFunctionAccelerate = true;
     function.SetGraphType(GraphType::TILE_GRAPH);
-
+    
     std::vector<OperationPtr> tensorOperations;
     auto operationViewer = function.Operations();
     for (size_t i = 0; i < operationViewer.size(); i++) {

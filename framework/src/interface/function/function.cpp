@@ -14,6 +14,9 @@
  */
 
 #include "interface/function/function.h"
+#include "interface/function/kernel_function.h"
+#include "interface/function/data_flow_function.h"
+#include "interface/function/execute_function.h"
 #include <queue>
 #include <algorithm>
 #include <unordered_map>
@@ -318,31 +321,6 @@ void Function::RecordOOOSeq()
     opPositionAfterOOO_ = opPosition_;
 }
 
-const SubfuncInvokeInfoTy &Function::GetSubFuncInvokeInfo(const size_t i) const {
-    auto callAttr = std::dynamic_pointer_cast<CallOpAttribute>(operations_[i]->GetOpAttribute());
-    ASSERT(callAttr != nullptr)
-        << "Operation at index " << i << " must have a CallOpAttribute";
-    return *(callAttr->invokeInfo_);
-}
-
-int Function::GetParamIndex(const std::shared_ptr<RawTensor> &rawTensor) {
-    if (slotScope_ == nullptr) {
-        return -1;
-    }
-    auto slots = slotScope_->LoopupArgSlot(rawTensor);
-    for (auto slot : slots) {
-        for (int idx = 0; idx < (int)explicitArgSlots_.size(); idx++) {
-            if (slot == explicitArgSlots_[idx]) {
-                return idx;
-            }
-        }
-    }
-    return -1;
-}
-
-void *Function::GetParamAddress(int index) {
-    return explicitArgAddrs_[index];
-}
 
 bool Function::HasCallOperation() {
     for (const auto &op : Operations()) {
@@ -873,122 +851,6 @@ void Function::GetAnIslandIncastsOutcasts(const std::map<int, int> &opToSubgraph
 
     std::sort(iOperands.begin(), iOperands.end(), TensorPtrComparator());
     std::sort(oOperands.begin(), oOperands.end(), TensorPtrComparator());
-}
-
-auto Function::AnnotateOperation() {
-    std::map<int, std::vector<Operation *>> subgraphs;
-    std::map<int, int> opToSubgraph;
-    for (auto &&op : Operations()) {
-        // same op magic shall only appear once
-        ASSERT(opToSubgraph.find(op.GetOpMagic()) == opToSubgraph.end())
-                        << "Same op magic shall only appear once." << "\n"
-                        << "Duplicate OpMagic found: " << op.GetOpMagic() << "\n" << "Operation: " << op.Dump();
-        if (op.GetSubgraphID() < 0) {
-            ALOG_DEBUG("Op magic: ", op.GetOpMagic(), "less than 0 graph: ", op.GetSubgraphID());
-            continue;
-        }
-        subgraphs[op.GetSubgraphID()].emplace_back(&op);
-        opToSubgraph[op.GetOpMagic()] = op.GetSubgraphID();
-        ALOG_DEBUG("Operation: ", op.GetOpMagic(), "Belong To subgraph: ", op.GetSubgraphID());
-    }
-
-    for (const auto &pair : subgraphs) {
-        ALOG_DEBUG("Subgraph ID: ", pair.first);
-        for (const auto &op : pair.second) {
-            ALOG_DEBUG("Operation: ", op->Dump());
-        }
-    }
-    return std::make_pair(std::move(subgraphs), std::move(opToSubgraph));
-}
-
-std::unordered_set<int> Function::LoopCheck() {
-    if (totalSubGraphCount_ == 0) {
-        return {};
-    }
-    ALOG_INFO("LoopCheck begin.");
-
-    auto [subgraphs, opToSubgraph] = AnnotateOperation();
-    std::map<LogicalTensor *, std::vector<int>> producers;
-    std::map<LogicalTensor *, std::vector<int>> consumers;
-
-    std::map<int, std::vector<std::shared_ptr<LogicalTensor>>> iOperands;
-    std::map<int, std::vector<std::shared_ptr<LogicalTensor>>> oOperands;
-
-    for (auto &&[subgraphID, operations] : subgraphs) {
-        if (subgraphID == NOT_IN_SUBGRAPH) {
-            continue;
-        }
-
-        GetAnIslandIncastsOutcasts(opToSubgraph, subgraphID, operations,
-                                   iOperands[subgraphID], oOperands[subgraphID]);
-
-        for (auto &&iop : iOperands[subgraphID]) {
-            consumers[iop.get()].push_back(subgraphID);
-        }
-        for (auto &&oop : oOperands[subgraphID]) {
-            producers[oop.get()].push_back(subgraphID);
-        }
-    }
-
-    enum class DfsState {
-        TODO = 0,
-        IN_STACK,
-        DONE,
-    };
-
-    std::map<int, DfsState> states;
-    std::unordered_set<int> subGraphInCycle;
-    for (auto &&[subgraphID, operations] : subgraphs) {
-        (void)operations;
-        if (subgraphID == NOT_IN_SUBGRAPH) {
-            continue;
-        }
-
-        int duplicatedSubgraphID = -2;
-        auto cycleDetection = [&states, &duplicatedSubgraphID, &oOperands, &consumers,
-                               &subGraphInCycle](int currSubgraph, auto self) -> bool {
-            if (states[currSubgraph] == DfsState::DONE) {
-                return false;
-            }
-
-            if (states[currSubgraph] == DfsState::IN_STACK) {
-                duplicatedSubgraphID = currSubgraph;
-                ALOG_ERROR("[Cycle Detection] Cycle detected: ");
-                ALOG_ERROR("[Cycle Detection]     subgraph id: ", currSubgraph);
-                subGraphInCycle.emplace(currSubgraph);
-                return true;
-            }
-
-            states[currSubgraph] = DfsState::IN_STACK;
-
-            for (auto &&oop : oOperands[currSubgraph]) {
-                for (int consumer : consumers[oop.get()]) {
-                    if (self(consumer, self)) {
-                        if (duplicatedSubgraphID != -2) {
-                            ALOG_ERROR("[Cycle Detection]     tensor:      ", oop->Dump());
-                            ALOG_ERROR("[producer]=");
-                            for (const auto &producer : oop->GetProducers()) {
-                                ALOG_ERROR(producer->GetOpMagic());
-                            }
-                            ALOG_ERROR("[Cycle Detection]     subgraph id: ", currSubgraph);
-                            subGraphInCycle.emplace(currSubgraph);
-                            if (currSubgraph == duplicatedSubgraphID) {
-                                duplicatedSubgraphID = -2; // stop dumpping
-                            }
-                        }
-                        return true;
-                    }
-                }
-            }
-
-            states[currSubgraph] = DfsState::DONE;
-            return false;
-        };
-        if (cycleDetection(subgraphID, cycleDetection)) {
-            return subGraphInCycle;
-        }
-    }
-    return std::unordered_set<int>{};
 }
 
 std::vector<std::shared_ptr<Operation>> Function::GetSortedOperations() const {
@@ -2036,7 +1898,7 @@ Json Function::DumpJson(bool useTable) {
     funcDump["_mg_vec_parallel_lb"] = paramConfigs_.mgVecParallelLb;
     funcDump["_sg_cube_parallel_num"] = paramConfigs_.sgCubeParallelNum;
     funcDump["_pg_skip_partition"] = paramConfigs_.pgSkipPartition;
-    funcDump["_total_subgraph_count"] = totalSubGraphCount_;
+    
     funcDump["_ooo_preschedule_method"] = paramConfigs_.OoOPreScheduleMethod;
     if (sourceLocation_ != nullptr) {
         funcDump["file"] = sourceLocation_->GetFileName();
@@ -2111,6 +1973,16 @@ Json Function::DumpJson(bool useTable) {
     funcDump["operations"] = operations;
     funcDump["hash"] = functionHash_.Data();
 
+    // Handle KernelFunction specific attributes
+    if (graphType_ == GraphType::BLOCK_GRAPH) {
+        auto leafFuncAttr = GetLeafFuncAttribute();
+        if (leafFuncAttr->coreType != CoreType::INVALID) {
+            funcDump["leaf_func_attr"]["coretype"] = leafFuncAttr->coreType;
+        }
+        funcDump["subfunc_param"] = GetParameter().ToJson();
+        funcDump["static"]["subfunc_param"] = funcDump["subfunc_param"];
+    }
+    
     if (leafFuncAttr_ != nullptr && leafFuncAttr_->coreType != CoreType::INVALID) {
         funcDump["leaf_func_attr"]["coretype"] = leafFuncAttr_->coreType;
     }
@@ -2127,29 +1999,30 @@ Json Function::DumpJson(bool useTable) {
         funcDump["topo"] = topoInfo_.DumpJson();
         funcDump["static"]["topo"] = funcDump["topo"];
     }
-    if (graphType_ == GraphType::BLOCK_GRAPH) {
-        funcDump["subfunc_param"] = parameter_.ToJson();
-        funcDump["static"]["subfunc_param"] = funcDump["subfunc_param"];
-    }
 
-    auto aicIt = readySubGraphIds_.find(CoreType::AIC);
-    if (aicIt != readySubGraphIds_.end() && !aicIt->second.empty()) {
-        funcDump["aic_ready_subgraph_ids"] = aicIt->second;
-        funcDump["static"]["aic_ready_subgraph_ids"] = funcDump["aic_ready_subgraph_ids"];
-    }
+    if (IsFunctionTypeAndGraphType(FunctionType::DYNAMIC_LOOP_PATH, {GraphType::TENSOR_GRAPH, GraphType::TILE_GRAPH})) {
+        funcDump["_total_subgraph_count"] = GetTotalSubGraphCount();
+    
+        const auto &readySubGraphIds = GetReadySubGraphIds();
+        auto aicIt = readySubGraphIds.find(CoreType::AIC);
+        if (aicIt != readySubGraphIds.end() && !aicIt->second.empty()) {
+            funcDump["aic_ready_subgraph_ids"] = aicIt->second;
+            funcDump["static"]["aic_ready_subgraph_ids"] = funcDump["aic_ready_subgraph_ids"];
+        }
 
-    auto aivIt = readySubGraphIds_.find(CoreType::AIV);
-    if (aivIt != readySubGraphIds_.end() && !aivIt->second.empty()) {
-        funcDump["aiv_ready_subgraph_ids"] = aivIt->second;
-        funcDump["static"]["aiv_ready_subgraph_ids"] = funcDump["aiv_ready_subgraph_ids"];
-    }
+        auto aivIt = readySubGraphIds.find(CoreType::AIV);
+        if (aivIt != readySubGraphIds.end() && !aivIt->second.empty()) {
+            funcDump["aiv_ready_subgraph_ids"] = aivIt->second;
+            funcDump["static"]["aiv_ready_subgraph_ids"] = funcDump["aiv_ready_subgraph_ids"];
+        }
 
-    auto aicpuIt = readySubGraphIds_.find(CoreType::AICPU);
-    if (aicpuIt != readySubGraphIds_.end() && !aicpuIt->second.empty()) {
-        funcDump["aicpu_ready_subgraph_ids"] = aicpuIt->second;
-        funcDump["static"]["aicpu_ready_subgraph_ids"] = funcDump["aicpu_ready_subgraph_ids"];
+        auto aicpuIt = readySubGraphIds.find(CoreType::AICPU);
+        if (aicpuIt != readySubGraphIds.end() && !aicpuIt->second.empty()) {
+            funcDump["aicpu_ready_subgraph_ids"] = aicpuIt->second;
+            funcDump["static"]["aicpu_ready_subgraph_ids"] = funcDump["aicpu_ready_subgraph_ids"];
+        }
     }
-
+    
     if (useTable) {
         std::set<std::shared_ptr<RawTensor>, RawTensorCompare> rawTensorSet;
         std::set<std::shared_ptr<LogicalTensor>, TensorCompare> tensorSet;
@@ -2313,12 +2186,28 @@ std::shared_ptr<Function> Function::LoadJson(Program &belongTo, const Json &func
         << "Invalid function kind in JSON";
     int funcmagic = funcDump["funcmagic"].get<int>();
     std::string rawname = funcDump["rawname"].get<std::string>();
-    std::shared_ptr<Function> func =
-        std::make_shared<Function>(belongTo, rawname + "_" + std::to_string(funcmagic), rawname, nullptr);
+    GraphType graphType = static_cast<GraphType>(funcDump["graphtype"].get<int>());
+    FunctionType funcType = static_cast<FunctionType>(funcDump["functype"].get<int>());
+    
+    std::shared_ptr<Function> func;
+    if (graphType == GraphType::BLOCK_GRAPH) {
+        // Create KernelFunction for BLOCK_GRAPH
+        func = std::make_shared<KernelFunction>(belongTo, rawname + "_" + std::to_string(funcmagic), rawname, nullptr);
+    } else if (graphType == GraphType::EXECUTE_GRAPH) {
+        // Create ExecuteFunction for EXECUTE_GRAPH
+        func = std::make_shared<ExecuteFunction>(belongTo, rawname + "_" + std::to_string(funcmagic), rawname, nullptr);
+    } else if (funcType == FunctionType::DYNAMIC_LOOP_PATH) {
+        // Create DataFlowFunction for DYNAMIC_LOOP_PATH
+        func = std::make_shared<DataFlowFunction>(belongTo, rawname + "_" + std::to_string(funcmagic), rawname, nullptr);
+    } else {
+        // Create regular Function for other graph types
+        func = std::make_shared<Function>(belongTo, rawname + "_" + std::to_string(funcmagic), rawname, nullptr);
+    }
+    
     func->funcMagicName_ = funcDump["func_magicname"];
     func->functionMagic_ = funcmagic;
-    func->functionType_ = static_cast<FunctionType>(funcDump["functype"].get<int>());
-    func->graphType_ = static_cast<GraphType>(funcDump["graphtype"].get<int>());
+    func->functionType_ = funcType;
+    func->graphType_ = graphType;
     func->sorted_ = true;
     std::unordered_map<int, std::shared_ptr<RawTensor>> rawTensorDict;
     if (funcDump.count("rawtensors") != 0) {
@@ -2414,7 +2303,7 @@ std::shared_ptr<Function> Function::LoadJson(Program &belongTo, const Json &func
     }
 
     if (funcDump.count("subfunc_param") != 0) {
-        func->parameter_.FromJson(funcDump["subfunc_param"]);
+        func->GetParameter().FromJson(funcDump["subfunc_param"]);
     }
 
     if (funcDump.count("aic_ready_subgraph_ids") != 0) {
@@ -3417,6 +3306,107 @@ namespace {
     static std::shared_ptr<LeafFuncAttribute> emptyLeafFuncAttr;
 }
 
+//------------------------------------------------------------------------------------------------------
+//------------------------------------------- ExecuteFunction ------------------------------------------
+//------------------------------------------------------------------------------------------------------
+
+
+//------------------------------------------------------------------------------------------------------
+//------------------------------------------- DataFlowFunction -----------------------------------------
+//------------------------------------------------------------------------------------------------------
+size_t Function::GetTotalSubGraphCount() const {
+    ASSERT(GetFunctionType() != FunctionType::DYNAMIC_LOOP_PATH &&
+        "GetTotalSubGraphCount() should only be called on DataFlowFunction");
+    return 0;
+}
+
+void Function::SetTotalSubGraphCount(const size_t totalSubGraphCount) {
+    ASSERT(GetFunctionType() != FunctionType::DYNAMIC_LOOP_PATH &&
+        "SetTotalSubGraphCount() should only be called on DataFlowFunction");
+    (void)totalSubGraphCount;
+}
+
+int Function::GetParamIndex(const std::shared_ptr<RawTensor> &rawTensor) {
+    ASSERT(GetFunctionType() != FunctionType::DYNAMIC_LOOP_PATH &&
+        "GetParamIndex() should only be called on DataFlowFunction");
+    (void)rawTensor;
+    return -1;
+}
+
+void *Function::GetParamAddress(int index) {
+    ASSERT(GetFunctionType() != FunctionType::DYNAMIC_LOOP_PATH &&
+        "GetParamAddress() should only be called on DataFlowFunction");
+    (void)index;
+    return nullptr;
+}
+
+const SubfuncInvokeInfoTy &Function::GetSubFuncInvokeInfo(const size_t i) const {
+    ASSERT(GetFunctionType() != FunctionType::DYNAMIC_LOOP_PATH &&
+        "GetSubFuncInvokeInfo() should only be called on DataFlowFunction");
+    static SubfuncInvokeInfoTy emptySubfuncInvokeInfo;
+    (void)i;
+    return emptySubfuncInvokeInfo;
+}
+
+const std::map<CoreType, std::vector<int>> &Function:: GetReadySubGraphIds() const {
+    ASSERT(GetFunctionType() != FunctionType::DYNAMIC_LOOP_PATH &&
+        "GetReadySubGraphIds() should only be called on DataFlowFunction");
+    static const std::map<CoreType, std::vector<int>> emptyReadySubGraphIds;
+    return emptyReadySubGraphIds;
+}
+
+void Function::SetReadySubGraphIds(CoreType coreType, const std::vector<int> &readySubGraphIds) {
+    ASSERT(GetFunctionType() != FunctionType::DYNAMIC_LOOP_PATH &&
+        "SetReadySubGraphIds() should only be called on DataFlowFunction");
+    (void)coreType;
+    (void)readySubGraphIds;
+}
+
+void Function::EmplaceReadySubGraphIds(CoreType coreType, int readySubGraphId) {
+    ASSERT(GetFunctionType() != FunctionType::DYNAMIC_LOOP_PATH &&
+        "EmplaceReadySubGraphIds() should only be called on DataFlowFunction");
+    (void)coreType;
+    (void)readySubGraphId;
+}
+
+void Function::ReplaceReadySubGraphIds(CoreType coreType, int oldIdx, int newId) {
+    ASSERT(GetFunctionType() != FunctionType::DYNAMIC_LOOP_PATH &&
+        "ReplaceReadySubGraphIds() should only be called on DataFlowFunction");
+    (void)coreType;
+    (void)oldIdx;
+    (void)newId;
+}
+
+size_t Function::GetReadySubGraphCount(CoreType coreType) const {
+    ASSERT(GetFunctionType() != FunctionType::DYNAMIC_LOOP_PATH &&
+        "GetReadySubGraphCount() should only be called on DataFlowFunction");
+    (void)coreType;
+    return 0;
+}
+
+int Function::GetReadySubGraphId(CoreType coreType, int index) const {
+    ASSERT(GetFunctionType() != FunctionType::DYNAMIC_LOOP_PATH &&
+        "GetReadySubGraphId() should only be called on DataFlowFunction");
+    (void)coreType;
+    (void)index;
+    return -1;
+}
+
+int Function::GetAllReadySubGraphCount() const {
+    ASSERT(GetFunctionType() != FunctionType::DYNAMIC_LOOP_PATH &&
+        "GetAllReadySubGraphCount() should only be called on DataFlowFunction");
+    return 0;
+}
+
+std::unordered_set<int> Function::LoopCheck() {
+    ASSERT(GetFunctionType() != FunctionType::DYNAMIC_LOOP_PATH &&
+        "LoopCheck() should only be called on DataFlowFunction");
+    return {};
+}
+
+//------------------------------------------------------------------------------------------------------
+//------------------------------------------- KernelFunction -------------------------------------------
+//------------------------------------------------------------------------------------------------------
 std::vector<OperationPtr> &Function::GetProgramOp() {
     ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "GetProgramOp() should only be called on KernelFunction");
     return emptyOperationList;

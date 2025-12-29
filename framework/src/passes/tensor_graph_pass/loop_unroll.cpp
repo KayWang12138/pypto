@@ -14,6 +14,7 @@
  */
 
 #include "passes/tensor_graph_pass/loop_unroll.h"
+#include "function/data_flow_function.h"
 #include "interface/machine/host/host_machine.h"
 #include "passes/pass_log/pass_log.h"
 #include "interface/configs/config_manager_ng.h"
@@ -327,7 +328,7 @@ Function *LoopUnroll::CreateLoopFunc(Function *func, Function *callerParentFunc)
 Status LoopUnroll::CreateLoopUnrollFunc(Function *function) {
     std::string funcName = function->GetRawName() + "_Loop_Unroll";
     auto funcMagicName = funcName + "_" + std::to_string(IdGen<IdType::FUNCTION>::Inst().CurId());
-    auto newFunc = std::make_unique<Function>(Program::GetInstance(), funcMagicName, funcName, nullptr);
+    auto newFunc = std::make_unique<DataFlowFunction>(Program::GetInstance(), funcMagicName, funcName, nullptr);
     newFunc->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
     newFunc->SetGraphType(GraphType::TENSOR_GRAPH);
 
