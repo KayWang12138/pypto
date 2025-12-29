@@ -132,7 +132,7 @@ def scaled_dot_product_attention(run_mode: str = "npu"):
         runtime_options={"run_mode": pypto.RunMode.SIM})(scaled_dot_product_attention_kernel)
 
 
-def test_scaled_dot_product_attention(device_id=None, run_mode: str = "npu", dynamic: bool = True) -> None:
+def test_scaled_dot_product_attention(device_id=None, run_mode: str = "npu", dynamic: bool = False) -> None:
     """Test attention function with dynamic shapes."""
     print("=" * 60)
     print("Test: Dynamic Scaled Dot-Product Attention")
