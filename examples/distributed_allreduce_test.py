@@ -13,7 +13,7 @@ hccl_comm = 0
 hccl_comm_name = ""
 hccl_comm_dict = {}
 
-distributed_options = {"hccl_context": 0, "hccl_context_name": ""}
+distributed_options = {"hccl_handle": 0, "hccl_group_name": ""}
 
 def setup_distributed(rank, world_size):
     global hccl_comm, hccl_comm_name, distributed_options, hccl_comm_dict
@@ -28,11 +28,11 @@ def setup_distributed(rank, world_size):
     hccl_comm = backend.get_hccl_comm(rank)
     hccl_comm_name = backend.get_hccl_comm_name(rank)
 
-    distributed_options["hccl_context"] = hccl_comm
-    distributed_options["hccl_context_name"] = hccl_comm_name
+    distributed_options["hccl_handle"] = hccl_comm
+    distributed_options["hccl_group_name"] = hccl_comm_name
     hccl_comm_dict[hccl_comm_name] = hccl_comm
 
-    print(f"[Rank {rank}] hccl_comm: {hccl_comm}, hccl_comm_name: {hccl_comm_name}")
+    print(f"[Rank {rank}] hccl_handle: {hccl_comm}, hccl_group_name: {hccl_comm_name}")
 
     return hccl_comm, hccl_comm_name
 
@@ -47,7 +47,7 @@ def all_reduce_kernel_v1(input_tensor: pypto.Tensor, output_tensor: pypto.Tensor
 @pypto.jit
 def all_reduce_kernel_v2(input_tensor: pypto.Tensor, output_tensor: pypto.Tensor, group_name: str, world_size: int) -> None:
     h, w = input_tensor.shape
-    pypto.set_distributed_options(hccl_context=hccl_comm_dict[group_name], hccl_context_name=group_name)
+    pypto.set_distributed_options(hccl_handle=hccl_comm_dict[group_name], hccl_group_name=group_name)
     pypto.set_dist_tile_shapes([h // world_size, 1, h % world_size], [w // 1, 1, w % 1], [1, world_size, 0])
     pypto.distributed.two_shot_shmem_all_reduce(input_tensor, group_name, output_tensor)
 

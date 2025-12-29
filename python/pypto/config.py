@@ -259,18 +259,18 @@ def set_runtime_options(*,
 
 
 def set_distributed_options(*,
-        hccl_context: Optional[int] = None,
-        hccl_context_name: Optional[str] = None
+        hccl_handle: Optional[int] = None,
+        hccl_group_name: Optional[str] = None
 ) -> None:
     """
     Set distributed options.
 
     Parameters
     ---------
-    hccl_context: int
-        HCCL context.
-    hccl_context_name: str
-        HCCL context name.
+    hccl_handle: int
+        HCCL handle.
+    hccl_group_name: str
+        HCCL group name.
     """
     _pto_options.set_options("distributed", locals())
 

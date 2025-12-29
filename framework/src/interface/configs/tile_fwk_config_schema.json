@@ -192,10 +192,10 @@
         "distributed": {
             "type": "object",
             "properties": {
-                "hccl_context": {
+                "hccl_handle": {
                     "type": "integer"
                 },
-                "hccl_context_name": {
+                "hccl_group_name": {
                     "type": "string"
                 }
             }
