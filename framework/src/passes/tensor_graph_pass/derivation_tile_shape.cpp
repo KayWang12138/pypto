@@ -611,7 +611,7 @@ Status DerivationTileShape::DerivationReshapeTileShape(Operation *op, const Shap
             GetStr(alignedShape).c_str());
         return WARNING;
     }
-    APASS_LOG_INFO_F(Elements::Operation, "Op: %d, inShape%s, alignShape%s, outShape%s, inTile%s, alignTile%s, outTile%s",
+    APASS_LOG_EVENT_F(Elements::Operation, "Op: %d, inShape%s, alignShape%s, outShape%s, inTile%s, alignTile%s, outTile%s",
         op->GetOpMagic(), GetStr(inShape).c_str(), GetStr(alignedShape).c_str(), GetStr(outShape).c_str(),
         GetStr(inTileShape).c_str(), GetTileStr(alignedStatus).c_str(), GetStr(newTileShape).c_str());
 
