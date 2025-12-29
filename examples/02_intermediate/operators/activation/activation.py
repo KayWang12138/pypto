@@ -88,11 +88,16 @@ def geglu_golden(gate: torch.Tensor, up: torch.Tensor) -> torch.Tensor:
 
 
 def silu_activation(shape: tuple, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
-        
+    if dynamic:
+        _, N = shape
+        M = pypto.frontend.dynamic("M")
+    else:
+        M, N = shape
+            
     # launch the kernel
     def silu_activation_kernel(
-        x: pypto.Tensor(shape, pypto.DT_BF16),
-    ) -> pypto.Tensor(shape, pypto.DT_BF16):
+        x: pypto.Tensor((M, N), pypto.DT_BF16),
+    ) -> pypto.Tensor((M, N), pypto.DT_BF16):
         """
         SiLU (Swish) activation function: x * sigmoid(x)
 
@@ -101,7 +106,7 @@ def silu_activation(shape: tuple, run_mode: str = "npu", dynamic: bool = False) 
 
         Formula: SiLU(x) = x * sigmoid(x) = x / (1 + exp(-x))
         """
-        out = pypto.tensor(shape, pypto.DT_BF16)
+        out = pypto.tensor((M, N), pypto.DT_BF16)
         configure_tiling(x)
 
         out[:] = x * pypto.sigmoid(x)
@@ -140,18 +145,22 @@ def test_silu(device_id = None, run_mode: str = "npu", dynamic: bool = False) ->
 
 
 def gelu_activation(shape: tuple, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
-
+    if dynamic:
+        _, N = shape
+        M = pypto.frontend.dynamic("M")
+    else:
+        M, N = shape
     # launch the kernel
     def gelu_activation_kernel(
-        x: pypto.Tensor(shape, pypto.DT_BF16),
-    ) -> pypto.Tensor(shape, pypto.DT_BF16):
+        x: pypto.Tensor((M, N), pypto.DT_BF16),
+    ) -> pypto.Tensor((M, N), pypto.DT_BF16):
         """
         GELU (Gaussian Error Linear Unit) activation function.
 
         Uses approximation: x * sigmoid(1.702 * x)
         This is a fast approximation of the full GELU formula.
         """
-        out = pypto.tensor(shape, pypto.DT_BF16)
+        out = pypto.tensor((M, N), pypto.DT_BF16)
         configure_tiling(x)
 
         # GELU approximation: x * sigmoid(1.702 * x)
@@ -194,12 +203,16 @@ def test_gelu(device_id = None, run_mode: str = "npu", dynamic: bool = False) ->
 
 
 def swiglu_activation(shape: tuple, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
-
+    if dynamic:
+        _, N = shape
+        M = pypto.frontend.dynamic("M")
+    else:
+        M, N = shape
     # launch the kernel
     def swiglu_activation_kernel(
-        gate: pypto.Tensor(shape, pypto.DT_BF16),
-        up: pypto.Tensor(shape, pypto.DT_BF16),
-    ) -> pypto.Tensor(shape, pypto.DT_BF16):
+        gate: pypto.Tensor((M, N), pypto.DT_BF16),
+        up: pypto.Tensor((M, N), pypto.DT_BF16),
+    ) -> pypto.Tensor((M, N), pypto.DT_BF16):
         """
         SwiGLU activation function: Swish(gate) * up
 
@@ -208,7 +221,7 @@ def swiglu_activation(shape: tuple, run_mode: str = "npu", dynamic: bool = False
 
         Formula: SwiGLU(gate, up) = Swish(gate) * up = (gate * sigmoid(gate)) * up
         """
-        out = pypto.tensor(shape, pypto.DT_BF16)
+        out = pypto.tensor((M, N), pypto.DT_BF16)
         configure_tiling(gate)
 
         # Swish(gate) = gate * sigmoid(gate)
@@ -252,19 +265,24 @@ def test_swiglu(device_id = None, run_mode: str = "npu", dynamic: bool = False) 
 
 
 def geglu_activation(shape: tuple, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
+    if dynamic:
+        _, N = shape
+        M = pypto.frontend.dynamic("M")
+    else:
+        M, N = shape
 
     # launch the kernel
     def geglu_activation_kernel(
-        gate: pypto.Tensor(shape, pypto.DT_BF16),
-        up: pypto.Tensor(shape, pypto.DT_BF16),
-    ) -> pypto.Tensor(shape, pypto.DT_BF16):
+        gate: pypto.Tensor((M, N), pypto.DT_BF16),
+        up: pypto.Tensor((M, N), pypto.DT_BF16),
+    ) -> pypto.Tensor((M, N), pypto.DT_BF16):
         """
         GELU (Gaussian Error Linear Unit) activation function.
 
         Uses approximation: x * sigmoid(1.702 * x)
         This is a fast approximation of the full GELU formula.
         """
-        out = pypto.tensor(shape, pypto.DT_BF16)
+        out = pypto.tensor((M, N), pypto.DT_BF16)
         configure_tiling(gate)
 
         # GELU approximation: x * sigmoid(1.702 * x)

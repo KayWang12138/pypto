@@ -44,7 +44,9 @@ def get_device_id():
 
 
 def add_scalar_loop_dynamic_axis(shape: tuple, VAL: int, run_mode: str = "npu") -> None:
-    H, W, N, C = shape
+    
+    _, W, N, C = shape
+    H = pypto.frontend.dynamic("H")
     # launch the kernel
     def add_scalar_loop_dynamic_axis_kernel(
         input0: pypto.Tensor((H, W, N, C), pypto.DT_FP32),

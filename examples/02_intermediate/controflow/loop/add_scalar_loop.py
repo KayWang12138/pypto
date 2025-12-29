@@ -49,57 +49,43 @@ def get_device_id():
         print(f"ERROR: TILE_FWK_DEVICE_ID must be an integer, got: {os.environ['TILE_FWK_DEVICE_ID']}")
         return None
 
-@pypto.jit
-def add_kernel_npu(x: pypto.Tensor, y: pypto.Tensor, z: pypto.Tensor, val: int) -> None:
-    tensor_shape = x.shape
-    pypto.set_vec_tile_shapes(1, 4, 1, 64)
 
-    #calculate the loop parameters
-    b = tensor_shape[0]
-    tile_b = 1
-    b_loop = b // tile_b
-
-    for idx in pypto.loop(b_loop):
-        b_offset = idx * tile_b
-        b_offset_end = (idx + 1) * tile_b
-        t0_sub = x[b_offset:b_offset_end, ...]
-        t1_sub = y[b_offset:b_offset_end, ...]
-        t3_sub = t0_sub + t1_sub
-        z[b_offset:b_offset_end, ...] = t3_sub + val
-
-@pypto.jit(runtime_options={"run_mode": 1})
-def add_kernel_sim(x: pypto.Tensor, y: pypto.Tensor, z: pypto.Tensor, val: int) -> None:
-    tensor_shape = x.shape
-    pypto.set_vec_tile_shapes(1, 4, 1, 64)
-
-    #calculate the loop parameters
-    b = tensor_shape[0]
-    tile_b = 1
-    b_loop = b // tile_b
-
-    for idx in pypto.loop(b_loop):
-        b_offset = idx * tile_b
-        b_offset_end = (idx + 1) * tile_b
-        t0_sub = x[b_offset:b_offset_end, ...]
-        t1_sub = y[b_offset:b_offset_end, ...]
-        t3_sub = t0_sub + t1_sub
-        z[b_offset:b_offset_end, ...] = t3_sub + val
-
-def add_scalar_loop(x: torch.Tensor, y: torch.Tensor, z: torch.Tensor, val: int, run_mode: str = "npu", dynamic: bool = True) -> None:
+def add_scalar_loop(shape: tuple, VAL: int, run_mode: str = "npu", dynamic: bool = True) -> torch.Tensor:
     if dynamic:
-        x_pto = pypto.from_torch(x, "IN_0", dynamic_axis=[0])
-        y_pto = pypto.from_torch(y, "IN_1", dynamic_axis=[0])
-        z_pto = pypto.from_torch(z, "OUT_0", dynamic_axis=[0])
+        W = pypto.frontend.dynamic("W")
+        _, H, C, N  = shape
     else:
-        x_pto = pypto.from_torch(x, "IN_0")
-        y_pto = pypto.from_torch(y, "IN_1")
-        z_pto = pypto.from_torch(z, "OUT_0")
+        W, H, C, N  = shape
+    
+    SHAPE = (W, H, C, N)
+    def add_kernel(
+        input0: pypto.Tensor(SHAPE, pypto.DT_FP32),
+        input1: pypto.Tensor(SHAPE, pypto.DT_FP32),
+    ) -> pypto.Tensor(SHAPE, pypto.DT_FP32):
+        pypto.set_vec_tile_shapes(1, 4, 1, 64)
+        tensor_shape = SHAPE
+        val = VAL
 
-    # launch the kernel
+        # Calculate the loop parameters
+        b = W
+        tile_b = 1
+        b_loop = b // tile_b
+
+        output = pypto.tensor(SHAPE, pypto.DT_FP32)
+        for idx in pypto.loop(b_loop):
+            b_offset = idx * tile_b
+            b_offset_end = (idx + 1) * tile_b
+            t0_sub = input0[b_offset:b_offset_end, ...]
+            t1_sub = input1[b_offset:b_offset_end, ...]
+            t3_sub = t0_sub + t1_sub
+            t3_sub = t3_sub + val
+            pypto.assemble(t3_sub, [b_offset, 0, 0, 0], output)
+        return output
+
     if run_mode == "npu":
-        add_kernel_npu(x_pto, y_pto, z_pto, val)
+        return pypto.frontend.jit()(add_kernel)
     else:
-        add_kernel_sim(x_pto, y_pto, z_pto, val)
+        return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(add_kernel)
 
 def test_add_scalar_loop(device_id = None, run_mode: str = "npu", dynamic: bool = True) -> None:
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
@@ -107,11 +93,10 @@ def test_add_scalar_loop(device_id = None, run_mode: str = "npu", dynamic: bool 
     shape = (32, 32, 1, 256)
     #prepare data
     val = 1
-    x = torch.rand(shape, dtype=torch.float, device=device)
-    y = torch.rand(shape, dtype=torch.float, device=device)
-    z = torch.zeros(shape, dtype=torch.float, device=device)
+    x = torch.rand(shape, dtype=torch.float32, device=device)
+    y = torch.rand(shape, dtype=torch.float32, device=device)
 
-    add_scalar_loop(x, y, z, val, run_mode, dynamic)
+    z = add_scalar_loop(shape, val, run_mode, dynamic)(x, y)
     golden = torch.add(x, y) + val
 
     max_diff = np.abs(z.cpu().numpy() - golden.cpu().numpy()).max()
