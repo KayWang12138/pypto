@@ -21,8 +21,75 @@
 #include "machine/runtime/device_launcher_binding.h"
 #include "machine/runtime/emulation_launcher.h"
 
+#include <cstring>
+#include <mutex>
+#include <map>
+
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
+
+namespace {
+#pragma pack(push, 8)
+struct Mc2ServerCfg {
+    uint32_t version = 0;
+    uint8_t debugMode = 0;
+    uint8_t sendArgIndex = 0;
+    uint8_t recvArgIndex = 0;
+    uint8_t commOutArgIndex = 0;
+    uint8_t reserved[8] = {};
+};
+#pragma pack(pop)
+
+#pragma pack(push, 8)
+struct Mc2HcommCfg {
+    uint8_t skipLocalRankCopy = 0;
+    uint8_t skipBufferWindowCopy = 0;
+    uint8_t stepSize = 0;
+    char reserved[13] = {};
+    char groupName[128] = {};
+    char algConfig[128] = {};
+    uint32_t opType = 0;
+    uint32_t reduceType = 0;
+};
+#pragma pack(pop)
+
+struct Mc2CommConfig {
+    uint32_t version;
+    uint32_t hcommCnt;
+    struct Mc2ServerCfg serverCfg;
+    struct Mc2HcommCfg hcommCfg;
+};
+
+extern "C" int HcclAllocComResourceByTiling(void* comm, void *stream, void *mc2Tiling, void **commContext);
+
+int32_t MakeMc2TilingStruct(struct Mc2CommConfig &commConfig, const std::string &groupName)
+{
+    constexpr uint32_t version = 2;
+    constexpr uint32_t hcommCnt = 1;
+    constexpr uint32_t opTypeAllToAll = 6; // numeric representation of AlltoAll
+    const char *algConfig = "AllGather=level0:ring";
+    constexpr uint32_t arraySize = 128;
+
+    commConfig.version = version;
+    commConfig.hcommCnt = hcommCnt;
+    commConfig.hcommCfg.skipLocalRankCopy = 0;
+    commConfig.hcommCfg.skipBufferWindowCopy = 0;
+    commConfig.hcommCfg.stepSize = 0;
+    commConfig.hcommCfg.opType = opTypeAllToAll;
+    
+    std::strncpy(commConfig.hcommCfg.groupName, groupName.c_str(), arraySize - 1);
+    commConfig.hcommCfg.groupName[arraySize - 1] = '\0';
+    
+    std::strncpy(commConfig.hcommCfg.algConfig, algConfig, arraySize - 1);
+    commConfig.hcommCfg.algConfig[arraySize - 1] = '\0';
+
+    return 0;
+}
+
+std::mutex g_ctxMutex;
+std::map<uint64_t, uint64_t> g_hcclContextCache;
+
+} // namespace
 
 namespace pypto {
 
@@ -147,9 +214,46 @@ std::string OperatorDeviceRunOnceDataFromDevice([[maybe_unused]] py::int_ python
     auto aicoreStream = incomingStream;
     auto aicpuStream = DeviceGetAicpuStream();
     auto workspaceDataAddr = static_cast<uintptr_t>(workspaceData);
+    auto config = DeviceLauncherConfig::CreateConfigWithWorkspaceAddr(workspaceDataAddr);
+    try {
+        std::cout << "[PyPTO] Config Dump Start" << std::endl;
+        std::cout << config::Dump() << std::endl;
+        std::cout << "[PyPTO] Config Dump End" << std::endl;
+
+        auto hcclHandle = config::GetDistributedOption<uint64_t>("hccl_context");
+        printf("[PyPTO] Debug: hcclHandle=%lu\n", hcclHandle);
+        if (hcclHandle != 0) {
+            std::lock_guard<std::mutex> lock(g_ctxMutex);
+            if (g_hcclContextCache.find(hcclHandle) != g_hcclContextCache.end()) {
+                 config.hcclContext.push_back(g_hcclContextCache[hcclHandle]);
+                 printf("[PyPTO] Debug: Used cached context\n");
+            } else {
+                auto groupName = config::GetDistributedOption<std::string>("hccl_context_name");
+                printf("[PyPTO] Debug: groupName=%s\n", groupName.c_str());
+                if (!groupName.empty()) {
+                    struct Mc2CommConfig commConfig = {};
+                    if (MakeMc2TilingStruct(commConfig, groupName) == 0) {
+                         void* commContext = nullptr;
+                         // Using aicoreStream for resource allocation might be correct if it's the execution stream
+                         int ret = HcclAllocComResourceByTiling((void*)hcclHandle, (void*)aicoreStream, &commConfig, &commContext);
+                         printf("[PyPTO] Debug: Alloc ret=%d, commContext=%p\n", ret, commContext);
+                         if (ret == 0 && commContext != nullptr) {
+                             uint64_t contextVal = (uint64_t)commContext;
+                             g_hcclContextCache[hcclHandle] = contextVal;
+                             config.hcclContext.push_back(contextVal);
+                         }
+                    }
+                }
+            }
+        }
+    } catch (const std::exception& e) {
+        printf("[PyPTO] Error in distributed setup: %s\n", e.what());
+    } catch (...) {
+        printf("[PyPTO] Unknown error in distributed setup\n");
+    }
+
     int rc =
-        ExportedOperatorDeviceLaunchOnceWithDeviceTensorData(op, inputs, outputs, aicpuStream, aicoreStream, false,
-            DeviceLauncherConfig::CreateConfigWithWorkspaceAddr(workspaceDataAddr));
+        ExportedOperatorDeviceLaunchOnceWithDeviceTensorData(op, inputs, outputs, aicpuStream, aicoreStream, false, config);
     if (rc < 0) {
         return "device run failed";
     }

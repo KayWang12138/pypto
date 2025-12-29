@@ -1,0 +1,339 @@
+node {
+    name: "arg0_1"
+    op: "Data"
+    attr {
+        key: "_output_name_value"
+        value {
+            s: 'list {\n  i: 0\n}\n'
+        }
+    }
+    attr {
+        key: "_output_name_key"
+        value {
+            s: 'list {\n  s: "y"\n}\n'
+        }
+    }
+    attr {
+        key: "_input_name_value"
+        value {
+            s: 'list {\n  i: 0\n}\n'
+        }
+    }
+    attr {
+        key: "index"
+        value {
+            s: 'i: 0\n'
+        }
+    }
+    attr {
+        key: "_input_name_key"
+        value {
+            s: 'list {\n  s: "x"\n}\n'
+        }
+    }
+    attr {
+        key: "[i]x"
+        value {
+            s: 'name: "x"\ndtype: DT_FLOAT16\nshape {\n  dim: 1\n  dim: 8\n  dim: 1024\n  dim: 128\n}\nlayout: "ND"\nattr {\n  key: "format_for_int"\n  value {\n    i: 0\n  }\n}\ndevice_type: "NPU"\n'
+        }
+    }
+    attr {
+        key: "[o]y"
+        value {
+            s: 'name: "y"\ndtype: DT_FLOAT16\nshape {\n  dim: 1\n  dim: 8\n  dim: 1024\n  dim: 128\n}\nlayout: "ND"\nattr {\n  key: "format_for_int"\n  value {\n    i: 0\n  }\n}\nattr {\n  key: "_meta"\n  value {\n    s: "Tensor(dtype=torch.float16, shape=torch.Size([1, 8, 1024, 128])"\n  }\n}\ndevice_type: "NPU"\n'
+        }
+    }
+}
+node {
+    name: "arg1_1"
+    op: "Data"
+    attr {
+        key: "_output_name_value"
+        value {
+            s: 'list {\n  i: 0\n}\n'
+        }
+    }
+    attr {
+        key: "_output_name_key"
+        value {
+            s: 'list {\n  s: "y"\n}\n'
+        }
+    }
+    attr {
+        key: "_input_name_value"
+        value {
+            s: 'list {\n  i: 0\n}\n'
+        }
+    }
+    attr {
+        key: "index"
+        value {
+            s: 'i: 1\n'
+        }
+    }
+    attr {
+        key: "_input_name_key"
+        value {
+            s: 'list {\n  s: "x"\n}\n'
+        }
+    }
+    attr {
+        key: "[i]x"
+        value {
+            s: 'name: "x"\ndtype: DT_FLOAT16\nshape {\n  dim: 1\n  dim: 8\n  dim: 1024\n  dim: 128\n}\nlayout: "ND"\nattr {\n  key: "format_for_int"\n  value {\n    i: 0\n  }\n}\ndevice_type: "NPU"\n'
+        }
+    }
+    attr {
+        key: "[o]y"
+        value {
+            s: 'name: "y"\ndtype: DT_FLOAT16\nshape {\n  dim: 1\n  dim: 8\n  dim: 1024\n  dim: 128\n}\nlayout: "ND"\nattr {\n  key: "format_for_int"\n  value {\n    i: 0\n  }\n}\nattr {\n  key: "_meta"\n  value {\n    s: "Tensor(dtype=torch.float16, shape=torch.Size([1, 8, 1024, 128])"\n  }\n}\ndevice_type: "NPU"\n'
+        }
+    }
+}
+node {
+    name: "arg2_1"
+    op: "Data"
+    attr {
+        key: "_output_name_value"
+        value {
+            s: 'list {\n  i: 0\n}\n'
+        }
+    }
+    attr {
+        key: "_output_name_key"
+        value {
+            s: 'list {\n  s: "y"\n}\n'
+        }
+    }
+    attr {
+        key: "_input_name_value"
+        value {
+            s: 'list {\n  i: 0\n}\n'
+        }
+    }
+    attr {
+        key: "index"
+        value {
+            s: 'i: 2\n'
+        }
+    }
+    attr {
+        key: "_input_name_key"
+        value {
+            s: 'list {\n  s: "x"\n}\n'
+        }
+    }
+    attr {
+        key: "[i]x"
+        value {
+            s: 'name: "x"\ndtype: DT_FLOAT16\nshape {\n  dim: 1\n  dim: 8\n  dim: 164\n  dim: 128\n}\nlayout: "ND"\nattr {\n  key: "format_for_int"\n  value {\n    i: 0\n  }\n}\ndevice_type: "NPU"\n'
+        }
+    }
+    attr {
+        key: "[o]y"
+        value {
+            s: 'name: "y"\ndtype: DT_FLOAT16\nshape {\n  dim: 1\n  dim: 8\n  dim: 164\n  dim: 128\n}\nlayout: "ND"\nattr {\n  key: "format_for_int"\n  value {\n    i: 0\n  }\n}\nattr {\n  key: "_meta"\n  value {\n    s: "Tensor(dtype=torch.float16, shape=torch.Size([1, 8, 164, 128])"\n  }\n}\ndevice_type: "NPU"\n'
+        }
+    }
+}
+node {
+    name: "PromptFlashAttention"
+    op: "PromptFlashAttention"
+    input: "arg2_1:0"
+    input: "arg1_1:0"
+    input: "arg0_1:0"
+    input: ""
+    input: ""
+    input: ""
+    input: ""
+    input: ""
+    input: ""
+    input: ""
+    input: ""
+    input: ""
+    attr {
+        key: "scale_value"
+        value {
+            s: 'f: 0.0883883461\n'
+        }
+    }
+    attr {
+        key: "input_layout"
+        value {
+            s: 's: "BNSD"\n'
+        }
+    }
+    attr {
+        key: "sparse_mode"
+        value {
+            s: 'i: 0\n'
+        }
+    }
+    attr {
+        key: "_output_name_key"
+        value {
+            s: 'list {\n  s: "attention_out"\n}\n'
+        }
+    }
+    attr {
+        key: "num_heads"
+        value {
+            s: 'i: 8\n'
+        }
+    }
+    attr {
+        key: "pre_tokens"
+        value {
+            s: 'i: 65535\n'
+        }
+    }
+    attr {
+        key: "inner_precise"
+        value {
+            s: 'i: 1\n'
+        }
+    }
+    attr {
+        key: "_input_name_value"
+        value {
+            s: 'list {\n  i: 0\n  i: 1\n  i: 2\n  i: 3\n  i: 4\n  i: 5\n  i: 6\n  i: 7\n  i: 8\n  i: 9\n  i: 10\n  i: 11\n}\n'
+        }
+    }
+    attr {
+        key: "next_tokens"
+        value {
+            s: 'i: 65535\n'
+        }
+    }
+    attr {
+        key: "_output_name_value"
+        value {
+            s: 'list {\n  i: 0\n}\n'
+        }
+    }
+    attr {
+        key: "num_key_value_heads"
+        value {
+            s: 'i: 0\n'
+        }
+    }
+    attr {
+        key: "_input_name_key"
+        value {
+            s: 'list {\n  s: "query"\n  s: "key"\n  s: "value"\n  s: "pse_shift"\n  s: "atten_mask"\n  s: "actual_seq_lengths"\n  s: "actual_seq_lengths_kv"\n  s: "deq_scale1"\n  s: "quant_scale1"\n  s: "deq_scale2"\n  s: "quant_scale2"\n  s: "quant_offset2"\n}\n'
+        }
+    }
+    attr {
+        key: "[i]query"
+        value {
+            s: 'name: "query"\ndtype: DT_FLOAT16\nshape {\n  dim: 1\n  dim: 8\n  dim: 164\n  dim: 128\n}\nlayout: "ND"\nattr {\n  key: "_meta"\n  value {\n    s: "Tensor(dtype=torch.float16, shape=torch.Size([1, 8, 164, 128])"\n  }\n}\ndevice_type: "NPU"\n'
+        }
+    }
+    attr {
+        key: "[i]key"
+        value {
+            s: 'name: "key"\ndtype: DT_FLOAT16\nshape {\n  dim: 1\n  dim: 8\n  dim: 1024\n  dim: 128\n}\nlayout: "ND"\nattr {\n  key: "_meta"\n  value {\n    s: "Tensor(dtype=torch.float16, shape=torch.Size([1, 8, 1024, 128])"\n  }\n}\ndevice_type: "NPU"\n'
+        }
+    }
+    attr {
+        key: "[i]value"
+        value {
+            s: 'name: "value"\ndtype: DT_FLOAT16\nshape {\n  dim: 1\n  dim: 8\n  dim: 1024\n  dim: 128\n}\nlayout: "ND"\nattr {\n  key: "_meta"\n  value {\n    s: "Tensor(dtype=torch.float16, shape=torch.Size([1, 8, 1024, 128])"\n  }\n}\ndevice_type: "NPU"\n'
+        }
+    }
+    attr {
+        key: "[i]pse_shift"
+        value {
+            s: 'name: "pse_shift"\nattr {\n  key: "_is_unfed_optional"\n  value {\n    i: 1\n  }\n}\n'
+        }
+    }
+    attr {
+        key: "[i]atten_mask"
+        value {
+            s: 'name: "atten_mask"\nattr {\n  key: "_is_unfed_optional"\n  value {\n    i: 1\n  }\n}\n'
+        }
+    }
+    attr {
+        key: "[i]actual_seq_lengths"
+        value {
+            s: 'name: "actual_seq_lengths"\nattr {\n  key: "_is_unfed_optional"\n  value {\n    i: 1\n  }\n}\n'
+        }
+    }
+    attr {
+        key: "[i]actual_seq_lengths_kv"
+        value {
+            s: 'name: "actual_seq_lengths_kv"\nattr {\n  key: "_is_unfed_optional"\n  value {\n    i: 1\n  }\n}\n'
+        }
+    }
+    attr {
+        key: "[i]deq_scale1"
+        value {
+            s: 'name: "deq_scale1"\nattr {\n  key: "_is_unfed_optional"\n  value {\n    i: 1\n  }\n}\n'
+        }
+    }
+    attr {
+        key: "[i]quant_scale1"
+        value {
+            s: 'name: "quant_scale1"\nattr {\n  key: "_is_unfed_optional"\n  value {\n    i: 1\n  }\n}\n'
+        }
+    }
+    attr {
+        key: "[i]deq_scale2"
+        value {
+            s: 'name: "deq_scale2"\nattr {\n  key: "_is_unfed_optional"\n  value {\n    i: 1\n  }\n}\n'
+        }
+    }
+    attr {
+        key: "[i]quant_scale2"
+        value {
+            s: 'name: "quant_scale2"\nattr {\n  key: "_is_unfed_optional"\n  value {\n    i: 1\n  }\n}\n'
+        }
+    }
+    attr {
+        key: "[i]quant_offset2"
+        value {
+            s: 'name: "quant_offset2"\nattr {\n  key: "_is_unfed_optional"\n  value {\n    i: 1\n  }\n}\n'
+        }
+    }
+    attr {
+        key: "[o]attention_out"
+        value {
+            s: 'name: "attention_out"\ndtype: DT_FLOAT16\nlayout: "ND"\nattr {\n  key: "_meta"\n  value {\n    s: "Tensor(dtype=torch.float16, shape=torch.Size([1, 8, 164, 128])"\n  }\n}\nattr {\n  key: "_fx_tensor_name"\n  value {\n    s: "npu_prompt_flash_attention-npu.npu_prompt_flash_attention.default.OUTPUT.0"\n  }\n}\n'
+        }
+    }
+}
+node {
+    name: "NetOutput"
+    op: "NetOutput"
+    input: "PromptFlashAttention:0"
+    attr {
+        key: "_output_name_value"
+        value {
+            s: 'list {\n}\n'
+        }
+    }
+    attr {
+        key: "_input_name_value"
+        value {
+            s: 'list {\n  i: 0\n}\n'
+        }
+    }
+    attr {
+        key: "_input_name_key"
+        value {
+            s: 'list {\n  s: "input0"\n}\n'
+        }
+    }
+    attr {
+        key: "_output_name_key"
+        value {
+            s: 'list {\n}\n'
+        }
+    }
+    attr {
+        key: "[i]input0"
+        value {
+            s: 'name: "input0"\ndtype: DT_FLOAT16\nshape {\n  dim: 1\n  dim: 8\n  dim: 164\n  dim: 128\n}\nlayout: "ND"\nattr {\n  key: "_meta"\n  value {\n    s: "Tensor(dtype=torch.float16, shape=torch.Size([1, 8, 164, 128])"\n  }\n}\nattr {\n  key: "_fx_tensor_name"\n  value {\n    s: "npu_prompt_flash_attention-npu.npu_prompt_flash_attention.default.OUTPUT.0"\n  }\n}\n'
+        }
+    }
+}

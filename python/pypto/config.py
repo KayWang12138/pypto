@@ -257,6 +257,37 @@ def set_runtime_options(*,
     _pto_options.set_options("runtime", locals())
 
 
+
+def set_distributed_options(*,
+        hccl_context: Optional[int] = None,
+        hccl_context_name: Optional[str] = None
+) -> None:
+    """
+    Set distributed options.
+
+    Parameters
+    ---------
+    hccl_context: int
+        HCCL context.
+    hccl_context_name: str
+        HCCL context name.
+    """
+    _pto_options.set_options("distributed", locals())
+
+
+def get_distributed_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]]]:
+    """
+    Get distributed options.
+
+    Returns
+    -------
+    Dict[str, Union[str, int, List[int], Dict[int, int]]]
+        All distributed options
+    """
+    return _pto_options.get_options("distributed")
+
+
+
 def get_runtime_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]]]:
     """
     Get runtime options.
@@ -398,6 +429,7 @@ class _Options:
     INIT_FIELDS = [
         "name", "codegen_options", "host_options", "pass_options",
         "runtime_options", "verify_options", "debug_options",
+        "distributed_options",
         "vec_tile_shapes", "cube_tile_shapes", "matrix_size"
     ]
 
@@ -406,6 +438,7 @@ class _Options:
         "host_options": "host.",
         "pass_options": "pass.",
         "runtime_options": "runtime.",
+        "distributed_options": "distributed.",
         "verify_options": "verify.",
         "debug_options": "debug.",
     }
@@ -474,6 +507,7 @@ def options(
     host_options=None,
     pass_options=None,
     runtime_options=None,
+    distributed_options=None,
     verify_options=None,
     debug_options=None,
     vec_tile_shapes=None,
@@ -490,6 +524,7 @@ def options(
     host_options: Host options (dict)
     pass_options: Pass options (dict)
     runtime_options: Runtime options (dict)
+    distributed_options: Distributed options (dict)
     verify_options: Verify options (dict)
     debug_options: Debug options (dict)
     vec_tile_shapes: Vector tile shapes (list)
@@ -525,6 +560,7 @@ def set_options(
     host_options=None,
     pass_options=None,
     runtime_options=None,
+    distributed_options=None,
     verify_options=None,
     debug_options=None,
     vec_tile_shapes=None,
@@ -540,6 +576,7 @@ def set_options(
     host_options: Host options (dict)
     pass_options: Pass options (dict)
     runtime_options: Runtime options (dict)
+    distributed_options: Distributed options (dict)
     verify_options: Verify options (dict)
     debug_options: Debug options (dict)
     vec_tile_shapes: Vector tile shapes (list)

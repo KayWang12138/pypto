@@ -89,6 +89,11 @@ static std::map<std::string, ValueType> g_debugConfig = {
     {CFG_RUNTIME_DBEUG_MODE, CFG_DEBUG_NONE},
 };
 
+static std::map<std::string, ValueType> g_distributedConfig = {
+    {"hccl_context", 0L},
+    {"hccl_context_name", std::string("")},
+};
+
 static std::map<std::string, ValueType> g_globalConfig = {
     {PROFILE_ENABLE, false},
     {COST_MODEL_ENABLE, false},
@@ -143,6 +148,9 @@ struct ConfigStorage {
         }
         for (auto &[key, val] : g_debugConfig) {
             options["debug." + key] = val;
+        }
+        for (auto &[key, val] : g_distributedConfig) {
+            options["distributed." + key] = val;
         }
     }
 

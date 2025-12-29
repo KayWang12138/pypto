@@ -98,7 +98,8 @@ def _device_run_once_data_from_host(*args):
 
 class _JIT:
     def __init__(self, dyn_func, codegen_options=None, host_options=None,
-                 pass_options=None, runtime_options=None, verify_options=None, debug_options=None):
+                 pass_options=None, runtime_options=None, verify_options=None, 
+                 debug_options=None, distributed_options=None):
         self.dyn_func = dyn_func
         self._is_compiled: bool = False
         self._handler = None
@@ -109,6 +110,7 @@ class _JIT:
         self.runtime_options = runtime_options
         self.verify_options = verify_options
         self.debug_options = debug_options
+        self.distributed_options = distributed_options
 
     def compile(self, *args, **kwargs):
         pypto_impl.DeviceInit()
@@ -263,6 +265,9 @@ class _JIT:
         if isinstance(self.debug_options, dict):
             pypto.set_debug_options(**self.debug_options)
 
+        if isinstance(self.distributed_options, dict):
+            pypto.set_distributed_options(**self.distributed_options)
+
     def _hit_cache(self, shapes):
         if None in [self._handler, self._cached_shapes]:
             return False
@@ -287,7 +292,8 @@ def jit(
         pass_options=None,
         runtime_options=None,
         verify_options=None,
-        debug_options=None
+        debug_options=None,
+        distributed_options=None
 ):
     ...
 
@@ -299,7 +305,8 @@ def jit(dyn_func=None,
         pass_options=None,
         runtime_options=None,
         verify_options=None,
-        debug_options=None):
+        debug_options=None,
+        distributed_options=None):
 
     def decorator(func):
         return _JIT(func,
@@ -308,10 +315,11 @@ def jit(dyn_func=None,
                    pass_options=pass_options,
                    runtime_options=runtime_options,
                    verify_options=verify_options,
-                   debug_options=debug_options)
+                   debug_options=debug_options,
+                   distributed_options=distributed_options)
 
     if dyn_func is not None:
-        return _JIT(dyn_func)
+        return _JIT(dyn_func, distributed_options=distributed_options)
     else:
         return decorator
 
@@ -324,7 +332,9 @@ def verify(func, inputs, outputs, goldens, *args,
            codegen_options=None,
            host_options=None,
            pass_options=None,
-           verify_options=None, **kwargs):
+           verify_options=None,
+           distributed_options=None,
+           **kwargs):
     """
     Verify the tensor graph of the function.
 
@@ -359,6 +369,10 @@ def verify(func, inputs, outputs, goldens, *args,
     if verify_options is None:
         verify_options = {"enable_pass_verify": True}
     pypto.set_verify_options(**verify_options)
+
+    if distributed_options is None:
+        distributed_options = {}
+    pypto.set_distributed_options(**distributed_options)
 
     pypto_impl.SetVerifyData(_pto_to_tensor_data(inputs),
                              _pto_to_tensor_data(outputs),

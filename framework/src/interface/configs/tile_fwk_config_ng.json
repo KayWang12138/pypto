@@ -46,5 +46,9 @@
         },
         "compile_debug_mode": 0,
         "runtime_debug_mode": 0
+    },
+    "distributed": {
+        "hccl_context": 0,
+        "hccl_context_name": ""
     }
 }

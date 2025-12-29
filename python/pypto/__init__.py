@@ -77,5 +77,7 @@ from .runtime import jit, verify, set_verify_golden_data, RunMode
 from .symbolic_scalar import SymbolicScalar
 from .tensor import Tensor
 
+from .distributed import *
+
 tensor = Tensor
 symbolic_scalar = SymbolicScalar
