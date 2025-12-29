@@ -493,16 +493,17 @@ void bind_operation(py::module &m) {
     });
     m.def("ToFile", [](const Tensor &operand, const std::string &fname, const std::vector<SymbolicScalar> &scalars,
                         SymbolicScalar cond) { npu::tile_fwk::ToFile(operand, fname, scalars, cond); });
-    // 1. 基础 CreateShmemTensor
-    // 注意：C++ 中它是通过引用传出 Tensor，Python 中通常习惯返回 Tensor
-    m.def("CreateShmemTensor", 
-        [](int32_t rankSize, int32_t hcclGroupIndex, DataType dataType, const std::vector<int64_t>& shape) {
-            Tensor shmemTensor;
-            npu::tile_fwk::Distributed::CreateShmemTensor(shmemTensor, rankSize, hcclGroupIndex, dataType, shape);
-            return shmemTensor;
-        },
-        py::arg("rankSize"), py::arg("hcclGroupIndex"), py::arg("dataType"), py::arg("shape"),
-        "Create a shared memory tensor.");
+
+    // // 1. 基础 CreateShmemTensor
+    // // 注意：C++ 中它是通过引用传出 Tensor，Python 中通常习惯返回 Tensor
+    // m.def("CreateShmemTensor", 
+    //     [](int32_t rankSize, int32_t hcclGroupIndex, DataType dataType, const std::vector<int64_t>& shape) {
+    //         Tensor shmemTensor;
+    //         npu::tile_fwk::Distributed::CreateShmemTensor(shmemTensor, rankSize, hcclGroupIndex, dataType, shape);
+    //         return shmemTensor;
+    //     },
+    //     py::arg("rankSize"), py::arg("hcclGroupIndex"), py::arg("dataType"), py::arg("shape"),
+    //     "Create a shared memory tensor.");
 
     // 2. Barrier
     m.def("Barrier", 
@@ -514,12 +515,10 @@ void bind_operation(py::module &m) {
 
     // 3. ShmemAllGather
     m.def("ShmemAllGather",
-        [](const Tensor &in, const Tensor &dummy, const std::string &group) {
-            Tensor out;
+        [](const Tensor &in, const Tensor &dummy, const std::string &group, Tensor &out) {
             npu::tile_fwk::Distributed::ShmemAllGather(in, dummy, group.c_str(), out);
-            return out;
         },
-        py::arg("in"), py::arg("dummy"), py::arg("group"),
+        py::arg("in"), py::arg("dummy"), py::arg("group"), py::arg("out"),
         "Distributed shared memory all gather.");
 
     // 4. TwoShotShmemAllReduce
@@ -529,31 +528,54 @@ void bind_operation(py::module &m) {
         },
         py::arg("in"), py::arg("group"), py::arg("out"),
         "Distributed two-shot shared memory all reduce.");
-
-    // 5. CreateShmem
-    m.def("CreateShmem",
-        [](int32_t rankSize, int32_t expertNumPerRank, int32_t shmemCol, int32_t hcclGroupIndex, DataType dataType, uint32_t memType) {
-            return npu::tile_fwk::Distributed::CreateShmem(rankSize, expertNumPerRank, shmemCol, hcclGroupIndex, dataType, memType);
+    
+    // 5. OneShotShmemAllReduce
+    m.def("OneShotShmemAllReduce",
+        [](const Tensor &in, const std::string &group, Tensor &out) {
+            npu::tile_fwk::Distributed::OneShotShmemAllReduce(in, group.c_str(), out);
         },
-        py::arg("rankSize"), py::arg("expertNumPerRank"), py::arg("shmemCol"), py::arg("hcclGroupIndex"), py::arg("dataType"), py::arg("memType"),
-        "Create shared memory for MoE.");
+        py::arg("in"), py::arg("group"), py::arg("out"),
+        "Distributed one-shot shared memory all reduce.");
 
-    // 6. MoeConfig
+    // 6. ShmemReduceScatter
+    m.def("ShmemReduceScatter",
+        [](const Tensor &in, const std::string &group, const npu::tile_fwk::Distributed::DistReduceType &reduceType, Tensor &out) {
+            npu::tile_fwk::Distributed::ShmemReduceScatter(in, group.c_str(), reduceType, out);
+        },
+        py::arg("in"), py::arg("group"), py::arg("reduceType"), py::arg("out"),
+        "Distributed shared memory reduce scatter."); 
+
+    // // 6. CreateShmem
+    // m.def("CreateShmem",
+    //     [](int32_t rankSize, int32_t expertNumPerRank, int32_t shmemCol, int32_t hcclGroupIndex, DataType dataType, uint32_t memType) {
+    //         return npu::tile_fwk::Distributed::CreateShmem(rankSize, expertNumPerRank, shmemCol, hcclGroupIndex, dataType, memType);
+    //     },
+    //     py::arg("rankSize"), py::arg("expertNumPerRank"), py::arg("shmemCol"), py::arg("hcclGroupIndex"), py::arg("dataType"), py::arg("memType"),
+    //     "Create shared memory for MoE.");
+
+
+    // 7. MoeConfig
     py::class_<npu::tile_fwk::Distributed::MoeConfig>(m, "MoeConfig")
         .def(py::init<>())
         .def_readwrite("routedExpertNum", &npu::tile_fwk::Distributed::MoeConfig::routedExpertNum)
         .def_readwrite("expertNumPerRank", &npu::tile_fwk::Distributed::MoeConfig::expertNumPerRank)
         .def_readwrite("rankNum", &npu::tile_fwk::Distributed::MoeConfig::rankNum);
 
-    // 7. MoeDispatch
+    // 8. MoeDispatch
     m.def("MoeDispatch",
-        [](const Tensor &tokenTensor, const Tensor &tokenExpertTable, const std::string &group, const npu::tile_fwk::Distributed::MoeConfig &moeConfig) {
-            Tensor expandX, validCnt, combineInfo;
-            npu::tile_fwk::Distributed::MoeDispatch(tokenTensor, tokenExpertTable, expandX, validCnt, combineInfo, group.c_str(), moeConfig);
-            return std::make_tuple(expandX, validCnt, combineInfo);
+        [](const Tensor &tokenTensor, const Tensor &tokenExpertTable, Tensor &expendX, Tensor &validCnt, Tensor &combineInfo, const std::string &group, const npu::tile_fwk::Distributed::MoeConfig &moeConfig) {
+            npu::tile_fwk::Distributed::MoeDispatch(tokenTensor, tokenExpertTable, expendX, validCnt, combineInfo, group.c_str(), moeConfig);
         },
-        py::arg("tokenTensor"), py::arg("tokenExpertTable"), py::arg("group"), py::arg("moeConfig"),
+        py::arg("tokenTensor"), py::arg("tokenExpertTable"), py::arg("expendX"), py::arg("validCnt"), py::arg("combineInfo"), py::arg("group"), py::arg("moeConfig"),
         "MoE dispatch operation.");
+
+    // 9. ShmemMoeCombine
+    m.def("ShmemMoeCombine",
+        [](const Tensor &in, const Tensor &combineInfo, const Tensor &scale, const std::string &group, int32_t rankSize, int32_t totalExpertNum, Tensor &out) {
+            npu::tile_fwk::Distributed::ShmemMoeCombine(in, combineInfo, scale, group.c_str(), rankSize, totalExpertNum, out);
+        },
+        py::arg("in"), py::arg("combineInfo"), py::arg("scale"), py::arg("group"), py::arg("rankSize"), py::arg("totalExpertNum"), py::arg("out"),
+        "MoE combine operation.");
 
 }
 } // namespace pypto

@@ -5,10 +5,7 @@ import torch
 import pypto
 import torch.distributed as dist
 import torch.multiprocessing as mp
-import torch_npu
 from typing import List, Dict
-
-import torch.distributed._symmetric_memory as symm_mem
 
 hccl_comm = 0
 hccl_comm_name = ""
@@ -42,17 +39,33 @@ def setup_distributed(rank, world_size):
 @pypto.jit(distributed_options=distributed_options)
 def all_reduce_kernel_v1(input_tensor: pypto.Tensor, output_tensor: pypto.Tensor, group_name: str, world_size: int) -> None:
     h, w = input_tensor.shape
-    pypto.set_dist_tile_shapes([h // world_size, 1, h % world_size], [w // 1, 1, w % 1], [1, world_size, 0])
+    tileNum1 = 1
+    tileNum2 = 1
+    scatter_row = h // world_size
+    pypto.set_dist_tile_shapes([scatter_row // tileNum1, tileNum1, scatter_row % tileNum1], [w // tileNum2, tileNum2, w % tileNum2], [1, world_size, 0])
     pypto.distributed.two_shot_shmem_all_reduce(input_tensor, group_name, output_tensor)
 
 @pypto.jit
 def all_reduce_kernel_v2(input_tensor: pypto.Tensor, output_tensor: pypto.Tensor, group_name: str, world_size: int) -> None:
     global distributed_options
     h, w = input_tensor.shape
+    tileNum1 = 1
+    tileNum2 = 1
+    scatter_row = h // world_size
     pypto.set_distributed_options(hccl_handle=distributed_options["hccl_handle"], hccl_group_name=distributed_options["hccl_group_name"])
-    pypto.set_dist_tile_shapes([h // world_size, 1, h % world_size], [w // 1, 1, w % 1], [1, world_size, 0])
+    pypto.set_dist_tile_shapes([scatter_row // tileNum1, tileNum1, scatter_row % tileNum1], [w // tileNum2, tileNum2, w % tileNum2], [1, world_size, 0])
     pypto.distributed.two_shot_shmem_all_reduce(input_tensor, group_name, output_tensor)
 
+@pypto.jit
+def all_reduce_kernel_v3(input_tensor: pypto.Tensor, output_tensor: pypto.Tensor, group_name: str, world_size: int) -> None:
+    global distributed_options
+    h, w = input_tensor.shape
+    tileNum1 = 1
+    tileNum2 = 1
+    scatter_row = h
+    pypto.set_distributed_options(hccl_handle=distributed_options["hccl_handle"], hccl_group_name=distributed_options["hccl_group_name"])
+    pypto.set_dist_tile_shapes([scatter_row // tileNum1, tileNum1, scatter_row % tileNum1], [w // tileNum2, tileNum2, w % tileNum2], [1, world_size, 0])
+    pypto.distributed.one_shot_shmem_all_reduce(input_tensor, group_name, output_tensor)
 
 def run_all_reduce_test(rank, world_size):
     
@@ -66,7 +79,7 @@ def run_all_reduce_test(rank, world_size):
     input_pto = pypto.from_torch(input_data)
     output_pto = pypto.from_torch(output_data)
 
-    all_reduce_kernel_v2(input_pto, output_pto, hccl_comm_name, world_size)
+    all_reduce_kernel_v3(input_pto, output_pto, hccl_comm_name, world_size)
     
     # Verification
     expected_sum = sum(range(1, world_size + 1))

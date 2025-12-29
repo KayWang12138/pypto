@@ -405,14 +405,13 @@ struct MoeConfig {
     int32_t rankNum{0};
 };
 
-
-void CreateShmemTensor(Tensor &shmemTensor, int32_t rankSize, int32_t hcclGroupIndex, DataType dataType, const Shape &shape);
-Tensor CreateShmem(int32_t rankSize, int32_t expertNumPerRank, int32_t shmemCol, int32_t hcclGroupIndex, DataType dataType, uint32_t memType);
+// void CreateShmemTensor(Tensor &shmemTensor, int32_t rankSize, int32_t hcclGroupIndex, DataType dataType, const Shape &shape);
+// Tensor CreateShmem(int32_t rankSize, int32_t expertNumPerRank, int32_t shmemCol, int32_t hcclGroupIndex, DataType dataType, uint32_t memType);
 
 
 
 void MoeDispatch(const Tensor& tokenTensor, const Tensor& tokenExpertTable, Tensor& expandX, Tensor& validCnt, Tensor& combineInfo, const char *group, const MoeConfig& moeConfig);
-Tensor MoeCombine(const Tensor &in, const Tensor &scale, const Tensor &combineInfo, const char *group);
+// Tensor MoeCombine(const Tensor &in, const Tensor &scale, const Tensor &combineInfo, const char *group);
 // SHMEM
 void ShmemAllGather(const Tensor &in, const Tensor &dummy, const char *group, Tensor &out);
 void ShmemBarrier(const Tensor& predToken, Tensor& shmemSignal, const char* group, Tensor& out);

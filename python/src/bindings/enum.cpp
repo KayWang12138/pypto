@@ -142,5 +142,11 @@ void bind_enum(py::module &m){
         .value("LOG_2", LogBaseType::LOG_2)
         .value("LOG_10", LogBaseType::LOG_10)
         .export_values();
+
+    py::enum_<Distributed::DistReduceType>(m, "DistReduceType")
+        .value("DIST_REDUCE_ADD", Distributed::DistReduceType::DIST_REDUCE_ADD)
+        .value("DIST_REDUCE_MAX", Distributed::DistReduceType::DIST_REDUCE_MAX)
+        .value("DIST_REDUCE_MIN", Distributed::DistReduceType::DIST_REDUCE_MIN)
+        .export_values();
 }
 }
