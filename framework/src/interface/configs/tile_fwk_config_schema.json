@@ -188,6 +188,17 @@
                     "maximum": 2
                 }
             }
+        },
+        "distributed": {
+            "type": "object",
+            "properties": {
+                "hccl_context": {
+                    "type": "integer"
+                },
+                "hccl_context_name": {
+                    "type": "string"
+                }
+            }
         }
     }
 }

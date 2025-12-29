@@ -133,6 +133,32 @@ void bind_controller_set_tile(py::module &m) {
         auto cubeTile = TileShape::Current().GetCubeTile();
         return std::tuple(cubeTile.m, cubeTile.k, cubeTile.n, cubeTile.setL1Tile, cubeTile.enableSplitK);
     });
+
+    m.def("SetDistTile", [](const std::vector<int> &row, const std::vector<int> &col, const std::vector<int> &rank) {
+        if (row.size() > MAX_DIST_DIM_SIZE || col.size() > MAX_DIST_DIM_SIZE || rank.size() > MAX_DIST_DIM_SIZE) {
+            throw py::value_error("DistTile dimensions exceed maximum allowed size.");
+        }
+        std::array<int, MAX_DIST_DIM_SIZE> rowArr = {0};
+        std::array<int, MAX_DIST_DIM_SIZE> colArr = {0};
+        std::array<int, MAX_DIST_DIM_SIZE> rankArr = {0};
+        std::copy(row.begin(), row.end(), rowArr.begin());
+        std::copy(col.begin(), col.end(), colArr.begin());
+        std::copy(rank.begin(), rank.end(), rankArr.begin());
+        TileShape::Current().SetDistTile(rowArr, colArr, rankArr);
+    }, py::arg("row"), py::arg("col"), py::arg("rank"), "Set distributed tile shapes");
+
+    m.def("GetDistTile", []() {
+        auto distTile = TileShape::Current().GetDistTile();
+        return std::tuple(distTile.row, distTile.col, distTile.rank);
+    });
+
+    m.def("SetDistRankId", [](int64_t rankId) {
+        TileShape::Current().SetDistRankId(rankId);
+    }, py::arg("rankId"), "Set distributed rank ID");
+
+    m.def("GetDistRankId", []() {
+        return TileShape::Current().GetDistRankId();
+    });
 }
 
 void bind_controller_function(py::module &m) {

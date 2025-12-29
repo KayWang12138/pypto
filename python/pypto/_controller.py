@@ -30,6 +30,10 @@ __all__ = [
     "get_vec_tile_shapes",
     "set_cube_tile_shapes",
     "get_cube_tile_shapes",
+    "set_dist_tile_shapes",
+    "get_dist_tile_shapes",
+    "set_dist_rank_id",
+    "get_dist_rank_id",
     "set_matrix_size",
 
     "function",
@@ -168,6 +172,105 @@ def get_cube_tile_shapes() -> Tuple[List[int], List[int], List[int], bool, bool]
     """
     # implementation
     return pypto_impl.GetCubeTile()
+
+
+def set_dist_tile_shapes(row: List[int], col: List[int], rank: List[int]):
+    """ set the tile shapes in distributed computation
+
+    This operation sets the value of the tile shapes
+    in each dimension in distributed computation.
+
+    Parameters
+    ----------
+    row: List[int]
+        the value of the tile shape in row dimension.
+        The length of the list must be 3.
+
+    col: List[int]
+        the value of the tile shape in col dimension
+        The length of the list must be 3.
+
+    rank: List[int]
+        the value of the tile shape in rank dimension
+        The length of the list must be 3.
+
+    Returns
+    -------
+    None
+
+    Examples
+    --------
+    >>> pypto.set_dist_tile_shapes([1, 1, 1], [1, 1, 1], [1, 1, 1])
+    >>> print(pypto.get_dist_tile_shapes())
+    ([1, 1, 1], [1, 1, 1], [1, 1, 1])
+
+    """
+    pypto_impl.SetDistTile(row, col, rank)
+
+
+def get_dist_tile_shapes() -> Tuple[List[int], List[int], List[int]]:
+    """ get the tile shapes in distributed computation
+
+    This operation returns the value of the tile shapes
+    in each dimension in distributed computation.
+
+    Returns
+    -------
+    Tuple[List[int], List[int], List[int]]
+        The tuple includes the tile shape information of row, col and rank.
+
+    Examples
+    --------
+    >>> pypto.set_dist_tile_shapes([1, 1, 1], [1, 1, 1], [1, 1, 1])
+    >>> print(pypto.get_dist_tile_shapes())
+    ([1, 1, 1], [1, 1, 1], [1, 1, 1])
+
+    """
+    return pypto_impl.GetDistTile()
+
+
+def set_dist_rank_id(rank_id: int):
+    """ set the distributed rank id
+
+    This operation sets the distributed rank id.
+
+    Parameters
+    ----------
+    rank_id: int
+        the distributed rank id
+
+    Returns
+    -------
+    None
+
+    Examples
+    --------
+    >>> pypto.set_dist_rank_id(0)
+    >>> print(pypto.get_dist_rank_id())
+    0
+
+    """
+    pypto_impl.SetDistRankId(rank_id)
+
+
+def get_dist_rank_id() -> int:
+    """ get the distributed rank id
+
+    This operation returns the distributed rank id.
+
+    Returns
+    -------
+    int
+        the distributed rank id
+
+    Examples
+    --------
+    >>> pypto.set_dist_rank_id(0)
+    >>> print(pypto.get_dist_rank_id())
+    0
+
+    """
+    return pypto_impl.GetDistRankId()
 
 
 def set_matrix_size(size: List[int]):

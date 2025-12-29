@@ -151,6 +151,7 @@ DEFINE_CONFIG_GROUP(Runtime, "runtime")
 DEFINE_CONFIG_GROUP(Host, "host")
 DEFINE_CONFIG_GROUP(Verify, "verify")
 DEFINE_CONFIG_GROUP(Debug, "debug")
+DEFINE_CONFIG_GROUP(Distributed, "distributed")
 
 std::shared_ptr<ConfigStorage> Duplicate();
 void Restore(std::shared_ptr<ConfigStorage> config);

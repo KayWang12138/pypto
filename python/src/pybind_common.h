@@ -42,4 +42,6 @@
 #include "interface/interpreter/calc.h"
 #include "interface/configs/config_manager_ng.h"
 
+#include "interface/operation/distributed/distributed_common.h"
+
 namespace py = pybind11;

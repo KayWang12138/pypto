@@ -82,5 +82,7 @@ from .functions import Function, get_last_function, get_current_function
 from . import frontend
 
 
+from .distributed import *
+
 tensor = Tensor
 symbolic_scalar = SymbolicScalar
