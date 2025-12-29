@@ -1095,7 +1095,7 @@ Status SplitReshape::GetAssembleDynShape(const LogicalTensorPtr &input, const Lo
 
 Status SplitReshape::AddAssembleOp(const MemoryType &memoryType, const std::vector<int64_t> &outputOffset,
     const LogicalTensorPtr &input, const LogicalTensorPtr &output, const Operation *originOp) {
-    assembles.emplace_back(AssembleOp{memoryType, outputOffset, input, output});
+    assembles.emplace_back(AssembleOp{memoryType, outputOffset, input, output, originOp});
     auto iter = reshapeOffset.find(output);
     if (iter == reshapeOffset.end()) {
         reshapeOffset[output] = outputOffset;
