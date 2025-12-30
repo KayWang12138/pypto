@@ -31,6 +31,7 @@
 #include "interface/interpreter/raw_tensor_data.h"
 #include "interface/configs/config_manager.h"
 #include "tilefwk/platform.h"
+#include "machine/runtime/distributed_context.h"
 
 namespace npu::tile_fwk::dynamic {
 
@@ -127,6 +128,34 @@ public:
             devProg->devArgs.generalAddr, devProg->devArgs.stitchPoolAddr);
         return;
     }
+    template<typename DeviceMemoryTy>
+    static void InitKernelArgs(const DeviceLauncherConfig &config, AstKernelArgs &kArgs, DevAscendProgram * devProg, DeviceMemoryTy devMem, 
+            CachedOperator *cachedOperator, const std::vector<uint8_t> &devProgData) {
+        if (config.workspaceAddr) {
+            kArgs.workspace = (int64_t *)config.workspaceAddr;
+        } else if (kArgs.workspace == nullptr && (devProg->workspaceSize != 0)) {
+            kArgs.workspace = (int64_t *)devMem.AllocDev(devProg->workspaceSize, CachedOperator::GetWorkspaceDevAddrHolder(cachedOperator));
+        }
+        if (devProg->controlFlowCache.isRecording && !devMem.IsDevice()) {
+            kArgs.cfgdata = (int64_t *)devProg;
+        } else if (CachedOperator::GetCfgDataDevAddrHolder(cachedOperator) && *CachedOperator::GetCfgDataDevAddrHolder(cachedOperator)) {
+            /* Already copied, do not copy again. */
+            kArgs.cfgdata = (int64_t *)*CachedOperator::GetCfgDataDevAddrHolder(cachedOperator);
+        } else {
+            kArgs.cfgdata = (int64_t *)devMem.CopyToDev(devProgData, CachedOperator::GetCfgDataDevAddrHolder(cachedOperator));
+        }
+        kArgs.machineConfig = devProg->devArgs.machineConfig;
+        if (config::GetPlatformConfig(KEY_ENABLE_PROF_FUNC, false)) {
+            kArgs.toSubMachineConfig.profConfig.Add(ProfConfig::AICPU_FUNC);
+        }
+        if (config::GetPlatformConfig(KEY_ENABLE_PROF_AICORE_TIME, false) || config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_ALL)  {
+            kArgs.toSubMachineConfig.profConfig.Add(ProfConfig::AICORE_TIME);
+        }
+        if (config::GetPlatformConfig(KEY_ENABLE_PROF_AICORE_PMU, false)) {
+            kArgs.toSubMachineConfig.profConfig.Add(ProfConfig::AICORE_PMU);
+        }
+        kArgs.toSubMachineConfig.isGETensorList = config.isGETensorList ? 1 : 0;
+    }
 
     template<typename DeviceMemoryTy>
     static void DeviceInitTilingData(DeviceMemoryTy devMem, AstKernelArgs &kArgs, const std::vector<uint8_t> &devProgData,
@@ -166,38 +195,20 @@ public:
             devProg->memBudget.tensor.devTaskBoundaryOutcastNum);
         AssignMetaAddr(kArgs, devMem, devProg, cachedOperator);
         devProg->l2CacheOffset = devMem.GetL2Offset();
-        ASSERT(devProg->commGroupNum == config.hcclContext.size()) << "commGroupNum mismatch. commGroupNum = " <<
-               devProg->commGroupNum << ", hcclContext size = " << config.hcclContext.size();
+        InitKernelArgs<DeviceMemoryTy>(config, kArgs, devProg, devMem, cachedOperator, devProgData);
+        return;
+    }
+
+    static void DeviceInitDistributedContext(const std::vector<std::string> &groupNames, const std::vector<uint8_t> &devProgData) {
+        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
+        auto hcclContext = DistributedContext::GetHcclContext(groupNames);
+        ASSERT(devProg->commGroupNum == hcclContext.size()) << "commGroupNum mismatch. commGroupNum = " <<
+               devProg->commGroupNum << ", hcclContext size = " << hcclContext.size();
         ASSERT(devProg->commGroupNum <= (sizeof(devProg->hcclContext) / sizeof(uint64_t))) << "commGroupNum exceeds array size. commGroupNum = "
                << devProg->commGroupNum << ", max allowed = " << sizeof(devProg->hcclContext) / sizeof(uint64_t);
         for (size_t i = 0; i < devProg->commGroupNum; i++) {
-            devProg->hcclContext[i] = config.hcclContext[i];
+            devProg->hcclContext[i] = hcclContext[i];
         }
-        if (config.workspaceAddr) {
-            kArgs.workspace = (int64_t *)config.workspaceAddr;
-        } else if (kArgs.workspace == nullptr && (devProg->workspaceSize != 0)) {
-            kArgs.workspace = (int64_t *)devMem.AllocDev(devProg->workspaceSize, CachedOperator::GetWorkspaceDevAddrHolder(cachedOperator));
-        }
-        if (devProg->controlFlowCache.isRecording && !devMem.IsDevice()) {
-            kArgs.cfgdata = (int64_t *)devProg;
-        } else if (CachedOperator::GetCfgDataDevAddrHolder(cachedOperator) && *CachedOperator::GetCfgDataDevAddrHolder(cachedOperator)) {
-            /* Already copied, do not copy again. */
-            kArgs.cfgdata = (int64_t *)*CachedOperator::GetCfgDataDevAddrHolder(cachedOperator);
-        } else {
-            kArgs.cfgdata = (int64_t *)devMem.CopyToDev(devProgData, CachedOperator::GetCfgDataDevAddrHolder(cachedOperator));
-        }
-        kArgs.machineConfig = devProg->devArgs.machineConfig;
-        if (config::GetPlatformConfig(KEY_ENABLE_PROF_FUNC, false)) {
-            kArgs.toSubMachineConfig.profConfig.Add(ProfConfig::AICPU_FUNC);
-        }
-        if (config::GetPlatformConfig(KEY_ENABLE_PROF_AICORE_TIME, false) || config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_ALL)  {
-            kArgs.toSubMachineConfig.profConfig.Add(ProfConfig::AICORE_TIME);
-        }
-        if (config::GetPlatformConfig(KEY_ENABLE_PROF_AICORE_PMU, false)) {
-            kArgs.toSubMachineConfig.profConfig.Add(ProfConfig::AICORE_PMU);
-        }
-        kArgs.toSubMachineConfig.isGETensorList = config.isGETensorList ? 1 : 0;
-        return;
     }
 
     template<typename DeviceMemoryTy>
@@ -343,6 +354,8 @@ public:
             const DeviceLauncherConfig &config = DeviceLauncherConfig());
 
     static int DeviceSynchronize(rtStream_t aicpuStream, rtStream_t aicoreStream);
+    static void DeviceInitArgs(AstKernelArgs& kArgs, const DeviceLauncherConfig &config, Function *function, CachedOperator *cachedOperator, 
+            const std::vector<DeviceTensorData> &inputList, const std::vector<DeviceTensorData> &outputList);
 #else
 using aclmdlRICaptureMode = uint32_t;
 using rtStream_t = uint64_t;
