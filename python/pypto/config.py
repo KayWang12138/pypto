@@ -132,7 +132,10 @@ def get_pass_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]]]:
 
 
 
-def set_host_options(*, only_codegen: Optional[bool] = None) -> None:
+def set_host_options(*,
+                     only_codegen: Optional[bool] = None,
+                     compile_stage: Optional[int] = None
+                     ) -> None:
     """
     Set host options.
 
@@ -140,6 +143,15 @@ def set_host_options(*, only_codegen: Optional[bool] = None) -> None:
     ---------
     only_codegen : bool
         Shield the static on-board process.
+
+    compile_stage : int
+        The stopping stage in Only Compile mode.
+        0: Default, no termination
+        1: Terminate after tensor graph generation
+        2: Terminate after tile graph generation
+        3: Terminate after execution graph generation
+        4: Terminate after codegen instruction
+        5: Terminate after codegen binary
     """
     options_dict = {k: v for k, v in locals().items() if v is not None}
     set_options(host_options=options_dict)
