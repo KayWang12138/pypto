@@ -1339,6 +1339,112 @@ struct EncodeDevAscendFunctionInfo {
         }
     }
 
+    void EncodeZeroPredCount(std::vector<Operation *>& callopList) {
+        std::unordered_map<Operation *, int> callopCoreTypeDict;
+        for (auto &op : callopList) {
+            auto callOpAttr = std::static_pointer_cast<CallOpAttribute>(op->GetOpAttribute());
+            auto calleeHash = callOpAttr->GetCalleeHash().GetHash();
+            ASSERT(calleeHashIndexDict.count(calleeHash)) << "calleeHash 0x" << std::hex << calleeHash << " is not found in calleeHashIndexDict";
+            int cceIndex = calleeHashIndexDict.find(calleeHash)->second;
+            ASSERT(cceIndex < static_cast<int>(cceCodeInfoList.size())) << "cceIndex " << cceIndex << " exceeds cceCodeInfoList size: " << cceCodeInfoList.size();
+
+            uint32_t coreType = cceCodeInfoList[cceIndex].coreType;
+            ASSERT(coreType == static_cast<uint32_t>(CoreType::AIV) || coreType == static_cast<uint32_t>(CoreType::AIC) ||
+                   coreType == static_cast<uint32_t>(CoreType::HUB) || coreType == static_cast<uint32_t>(CoreType::AICPU)) <<
+                   "invalid coreType " << coreType << " for op " << op;
+            callopCoreTypeDict[op] = coreType;
+        }
+
+        std::sort(callopList.begin(), callopList.end(), [&](Operation *lhs, Operation *rhs) {
+            if (callOpPredDict[lhs] != callOpPredDict[rhs]) {
+                return callOpPredDict[lhs] < callOpPredDict[rhs];
+            }
+            ASSERT(callopCoreTypeDict.count(lhs)) << "lhs operation " << lhs << " is not found in callopCoreTypeDict";
+            ASSERT(callopCoreTypeDict.count(rhs)) << "rhs operation " << rhs << " is not found in callopCoreTypeDict";
+            return callopCoreTypeDict[lhs] < callopCoreTypeDict[rhs];
+        });
+
+        totalZeroPred = callopList.size();
+        for (size_t index = 0; index < callopList.size(); index++) {
+            if (callOpPredDict[callopList[index]] != 0) {
+                totalZeroPred = index;
+                break;
+            }
+        }
+        for (size_t index = totalZeroPred; index < callopList.size(); index++) {
+            ASSERT(callOpPredDict[callopList[index]] != 0) << "callOpPredDict[callopList[" << index << "]] is zero, callopList[" << index <<
+                   "] = " << callopList[index];
+        }
+
+        for (uint32_t index = 0; index < totalZeroPred; index++) {
+            if (callopCoreTypeDict[callopList[index]] == static_cast<uint32_t>(CoreType::AIV)) {
+                totalZeroPredAIV++;
+            } else if (callopCoreTypeDict[callopList[index]] == static_cast<uint32_t>(CoreType::AIC)) {
+                totalZeroPredAIC++;
+            } else if (callopCoreTypeDict[callopList[index]] == static_cast<uint32_t>(CoreType::HUB)) {
+                totalZeroPredHub++;
+            } else if (callopCoreTypeDict[callopList[index]] == static_cast<uint32_t>(CoreType::AICPU)) {
+                totalZeroPredAicpu++;
+            } else {
+                ASSERT(false) << "Invalid coreType for callopList[" << index << "], op : " << callopList[index];
+            }
+        }
+    }
+
+    void EncodeCopyOutReslove() {
+        for (auto &[callop, succSet] : callOpSuccDict) {
+            Function *devLeafFunc = cache.GetCacheFunction(callop->GetCalleeHash());
+            if (devLeafFunc == nullptr) {
+                ASSERT(GetCoreType(callop) == static_cast<int>(CoreType::HUB)) << "GetCoreType return unexpected value: " <<
+                       GetCoreType(callop) << ", expected: " << static_cast<int>(CoreType::HUB) << " for callop: " << callop;
+                copyOutResolveSuccIndexListDict[callop] = std::vector<int>({0});
+                continue;
+            }
+            std::shared_ptr<LeafFuncAttribute> leafAttr = devLeafFunc->GetLeafFuncAttribute();
+            if (leafAttr->outcastCopyOutResolveCounterList.size() == 0) {
+                copyOutResolveSuccIndexListDict[callop] = std::vector<int>({0});
+                continue;
+            }
+
+            std::vector<OrderedSet<Operation *>> copyOutResolveSetList;
+            copyOutResolveSetList.resize(leafAttr->copyOutResolveSize);
+
+            OrderedSet<Operation *> nonCopyOutResolveSuccSet;
+            for (auto &succ : succSet) {
+                if (producerConsumerOOperandIndexDict.count(callop) && producerConsumerOOperandIndexDict[callop].count(succ)) {
+                    auto ooperandIndex = producerConsumerOOperandIndexDict[callop][succ];
+                    int copyOutResolveCounter = leafAttr->outcastCopyOutResolveCounterList[ooperandIndex];
+                    copyOutResolveSetList[copyOutResolveCounter].Insert(succ);
+                } else {
+                    nonCopyOutResolveSuccSet.Insert(succ);
+                }
+            }
+
+            std::vector<int> copyOutResolveSuccIndexList;
+            std::vector<Operation *> copyOutResolveSuccList;
+            for (int k = 0; k < leafAttr->copyOutResolveSize; k++) {
+                OrderedSet<Operation *> &succ = copyOutResolveSetList[k];
+                copyOutResolveSuccIndexList.push_back(copyOutResolveSuccList.size());
+                copyOutResolveSuccList.insert(copyOutResolveSuccList.end(), succ.begin(), succ.end());
+            }
+            copyOutResolveSuccIndexList.push_back(copyOutResolveSuccList.size());
+            ASSERT(copyOutResolveSuccIndexList[0] == 0) << "copyOutResolveSuccIndexList[0] is " << copyOutResolveSuccIndexList[0] << ", expected 0";
+            copyOutResolveSuccList.insert(copyOutResolveSuccList.end(), nonCopyOutResolveSuccSet.begin(), nonCopyOutResolveSuccSet.end());
+
+            // Assert: succ set are the same
+            ASSERT(std::set<Operation *>(succSet.begin(), succSet.end()) == std::set<Operation *>(copyOutResolveSuccList.begin(), copyOutResolveSuccList.end())) <<
+                   "succSet and copyOutResolveSuccList content mismatch";
+
+            succSet.Clear();
+            for (Operation *copyOutResolveSucc : copyOutResolveSuccList) {
+                // Assert: no duplicated item in copyOutResolveSuccList
+                ASSERT(succSet.Insert(copyOutResolveSucc)) << "Duplicate item " << copyOutResolveSucc << " found in copyOutResolveSuccList";
+            }
+
+            copyOutResolveSuccIndexListDict[callop] = copyOutResolveSuccIndexList;
+        }
+    }
+
     EncodeDevAscendFunctionInfo(
             Function *dyndev,
             const std::unordered_map<uint64_t, int> &tHashIndexDict,
@@ -1444,107 +1550,8 @@ struct EncodeDevAscendFunctionInfo {
 
         AddDummyCallsAtBeginningAndEnding(callopList);
 
-        for (auto &[callop, succSet] : callOpSuccDict) {
-            Function *devLeafFunc = cache.GetCacheFunction(callop->GetCalleeHash());
-            if (devLeafFunc == nullptr) {
-                ASSERT(GetCoreType(callop) == static_cast<int>(CoreType::HUB)) << "GetCoreType return unexpected value: " <<
-                       GetCoreType(callop) << ", expected: " << static_cast<int>(CoreType::HUB) << " for callop: " << callop;
-                copyOutResolveSuccIndexListDict[callop] = std::vector<int>({0});
-                continue;
-            }
-            std::shared_ptr<LeafFuncAttribute> leafAttr = devLeafFunc->GetLeafFuncAttribute();
-            if (leafAttr->outcastCopyOutResolveCounterList.size() == 0) {
-                copyOutResolveSuccIndexListDict[callop] = std::vector<int>({0});
-                continue;
-            }
-
-            std::vector<OrderedSet<Operation *>> copyOutResolveSetList;
-            copyOutResolveSetList.resize(leafAttr->copyOutResolveSize);
-
-            OrderedSet<Operation *> nonCopyOutResolveSuccSet;
-            for (auto &succ : succSet) {
-                if (producerConsumerOOperandIndexDict.count(callop) && producerConsumerOOperandIndexDict[callop].count(succ)) {
-                    auto ooperandIndex = producerConsumerOOperandIndexDict[callop][succ];
-                    int copyOutResolveCounter = leafAttr->outcastCopyOutResolveCounterList[ooperandIndex];
-                    copyOutResolveSetList[copyOutResolveCounter].Insert(succ);
-                } else {
-                    nonCopyOutResolveSuccSet.Insert(succ);
-                }
-            }
-
-            std::vector<int> copyOutResolveSuccIndexList;
-            std::vector<Operation *> copyOutResolveSuccList;
-            for (int k = 0; k < leafAttr->copyOutResolveSize; k++) {
-                OrderedSet<Operation *> &succ = copyOutResolveSetList[k];
-                copyOutResolveSuccIndexList.push_back(copyOutResolveSuccList.size());
-                copyOutResolveSuccList.insert(copyOutResolveSuccList.end(), succ.begin(), succ.end());
-            }
-            copyOutResolveSuccIndexList.push_back(copyOutResolveSuccList.size());
-            ASSERT(copyOutResolveSuccIndexList[0] == 0) << "copyOutResolveSuccIndexList[0] is " << copyOutResolveSuccIndexList[0] << ", expected 0";
-            copyOutResolveSuccList.insert(copyOutResolveSuccList.end(), nonCopyOutResolveSuccSet.begin(), nonCopyOutResolveSuccSet.end());
-
-            // Assert: succ set are the same
-            ASSERT(std::set<Operation *>(succSet.begin(), succSet.end()) == std::set<Operation *>(copyOutResolveSuccList.begin(), copyOutResolveSuccList.end())) <<
-                   "succSet and copyOutResolveSuccList content mismatch";
-
-            succSet.Clear();
-            for (Operation *copyOutResolveSucc : copyOutResolveSuccList) {
-                // Assert: no duplicated item in copyOutResolveSuccList
-                ASSERT(succSet.Insert(copyOutResolveSucc)) << "Duplicate item " << copyOutResolveSucc << " found in copyOutResolveSuccList";
-            }
-
-            copyOutResolveSuccIndexListDict[callop] = copyOutResolveSuccIndexList;
-        }
-
-        std::unordered_map<Operation *, int> callopCoreTypeDict;
-        for (auto &op : callopList) {
-            auto callOpAttr = std::static_pointer_cast<CallOpAttribute>(op->GetOpAttribute());
-            auto calleeHash = callOpAttr->GetCalleeHash().GetHash();
-            ASSERT(calleeHashIndexDict.count(calleeHash)) << "calleeHash 0x" << std::hex << calleeHash << " is not found in calleeHashIndexDict";
-            int cceIndex = calleeHashIndexDict.find(calleeHash)->second;
-            ASSERT(cceIndex < static_cast<int>(cceCodeInfoList.size())) << "cceIndex " << cceIndex << " exceeds cceCodeInfoList size: " << cceCodeInfoList.size();
-
-            uint32_t coreType = cceCodeInfoList[cceIndex].coreType;
-            ASSERT(coreType == static_cast<uint32_t>(CoreType::AIV) || coreType == static_cast<uint32_t>(CoreType::AIC) ||
-                   coreType == static_cast<uint32_t>(CoreType::HUB) || coreType == static_cast<uint32_t>(CoreType::AICPU)) <<
-                   "invalid coreType " << coreType << " for op " << op;
-            callopCoreTypeDict[op] = coreType;
-        }
-
-        std::sort(callopList.begin(), callopList.end(), [&](Operation *lhs, Operation *rhs) {
-            if (callOpPredDict[lhs] != callOpPredDict[rhs]) {
-                return callOpPredDict[lhs] < callOpPredDict[rhs];
-            }
-            ASSERT(callopCoreTypeDict.count(lhs)) << "lhs operation " << lhs << " is not found in callopCoreTypeDict";
-            ASSERT(callopCoreTypeDict.count(rhs)) << "rhs operation " << rhs << " is not found in callopCoreTypeDict";
-            return callopCoreTypeDict[lhs] < callopCoreTypeDict[rhs];
-        });
-
-        totalZeroPred = callopList.size();
-        for (size_t index = 0; index < callopList.size(); index++) {
-            if (callOpPredDict[callopList[index]] != 0) {
-                totalZeroPred = index;
-                break;
-            }
-        }
-        for (size_t index = totalZeroPred; index < callopList.size(); index++) {
-            ASSERT(callOpPredDict[callopList[index]] != 0) << "callOpPredDict[callopList[" << index << "]] is zero, callopList[" << index <<
-                   "] = " << callopList[index];
-        }
-
-        for (uint32_t index = 0; index < totalZeroPred; index++) {
-            if (callopCoreTypeDict[callopList[index]] == static_cast<uint32_t>(CoreType::AIV)) {
-                totalZeroPredAIV++;
-            } else if (callopCoreTypeDict[callopList[index]] == static_cast<uint32_t>(CoreType::AIC)) {
-                totalZeroPredAIC++;
-            } else if (callopCoreTypeDict[callopList[index]] == static_cast<uint32_t>(CoreType::HUB)) {
-                totalZeroPredHub++;
-            } else if (callopCoreTypeDict[callopList[index]] == static_cast<uint32_t>(CoreType::AICPU)) {
-                totalZeroPredAicpu++;
-            } else {
-                ASSERT(false) << "Invalid coreType for callopList[" << index << "], op : " << callopList[index];
-            }
-        }
+        EncodeCopyOutReslove();
+        EncodeZeroPredCount(callopList);
 
         for (auto &op : callopList) {
             callList.Insert(op);
