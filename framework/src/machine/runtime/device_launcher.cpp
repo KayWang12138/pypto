@@ -320,7 +320,11 @@ ExportedOperator *ExportedOperatorBegin() {
 }
 
 void ExportedOperatorEnd(ExportedOperator *op) {
-    op->ResetFunction(Program::GetInstance().GetLastFunction());
+    // 如果 lastFunc_ 为 nullptr（提前退出场景），则不设置函数，避免访问已释放的函数
+    Function *lastFunc = Program::GetInstance().GetLastFunction();
+    if (lastFunc != nullptr) {
+        op->ResetFunction(lastFunc);
+    }
 }
 
 void CopyDevToHost(const DeviceTensorData &devTensor, DeviceTensorData &hostTensor) {
