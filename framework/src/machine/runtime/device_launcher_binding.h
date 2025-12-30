@@ -109,7 +109,12 @@ struct Evaluator {
     const std::vector<DeviceTensorData> &inputs;
     const std::vector<DeviceTensorData> &outputs;
 
-    int Evaluate(SymbolicScalar &ss) { return Evaluate(ss.Raw()); }
+    int Evaluate(SymbolicScalar &ss) {
+        if (ss.Raw() == nullptr) {
+            return 0;
+        }
+        return Evaluate(ss.Raw()); 
+    }
 
 private:
     int64_t GetinputShapeDim(int64_t argIdx, int64_t dim) {
@@ -193,6 +198,9 @@ public:
         auto dynAttr = func_->GetDyndevAttribute();
         std::vector<uint8_t> &devProgData = dynAttr->devProgBinary;
         auto *devProg = reinterpret_cast<DevAscendProgram *>(devProgData.data());
+        if (devProg == nullptr) {
+            return 0;
+        }
         Evaluator eval{dynAttr->inputSymbolDict, inputs, outputs};
         devProg->memBudget.tensor.maxDynamicAssembleOutcastMem = eval.Evaluate(dynAttr->maxDynamicAssembleOutcastMem);
         return devProg->memBudget.Total();
