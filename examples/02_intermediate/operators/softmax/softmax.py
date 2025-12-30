@@ -102,7 +102,7 @@ def softmax(shape: tuple, run_mode: str = "npu", dynamic: bool = True) -> torch.
         return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(softmax_kernel)
 
 
-def test_softmax(device_id = None, run_mode: str = "npu", dynamic: bool = True) -> None:
+def test_softmax(device_id: int = None, run_mode: str = "npu", dynamic: bool = True) -> None:
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
 
     shape = (32, 32, 1, 256)

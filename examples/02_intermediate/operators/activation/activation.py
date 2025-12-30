@@ -120,7 +120,7 @@ def silu_activation(shape: tuple, run_mode: str = "npu", dynamic: bool = False) 
         return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(silu_activation_kernel)
 
 
-def test_silu(device_id = None, run_mode: str = "npu", dynamic: bool = False) -> None:
+def test_silu(device_id: int = None, run_mode: str = "npu", dynamic: bool = False) -> None:
     """Test SiLU activation."""
     print("=" * 60)
     print("Test: SiLU Activation")
@@ -178,7 +178,7 @@ def gelu_activation(shape: tuple, run_mode: str = "npu", dynamic: bool = False) 
         return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(gelu_activation_kernel)
 
 
-def test_gelu(device_id = None, run_mode: str = "npu", dynamic: bool = False) -> None:
+def test_gelu(device_id: int = None, run_mode: str = "npu", dynamic: bool = False) -> None:
     """Test GELU activation."""
     print("=" * 60)
     print("Test: GELU Activation")
@@ -239,7 +239,7 @@ def swiglu_activation(shape: tuple, run_mode: str = "npu", dynamic: bool = False
         return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(swiglu_activation_kernel)
 
 
-def test_swiglu(device_id = None, run_mode: str = "npu", dynamic: bool = False) -> None:
+def test_swiglu(device_id: int = None, run_mode: str = "npu", dynamic: bool = False) -> None:
     """Test SwiGLU activation."""
     print("=" * 60)
     print("Test: SwiGLU Activation")
@@ -302,7 +302,7 @@ def geglu_activation(shape: tuple, run_mode: str = "npu", dynamic: bool = False)
         return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(geglu_activation_kernel)
 
 
-def test_geglu(device_id = None, run_mode: str = "npu", dynamic: bool = False) -> None:
+def test_geglu(device_id: int = None, run_mode: str = "npu", dynamic: bool = False) -> None:
     """Test GeGLU activation."""
     print("=" * 60)
     print("Test: GeGLU Activation")

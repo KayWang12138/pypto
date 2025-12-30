@@ -583,7 +583,7 @@ def view_op(x: torch.Tensor, shape: list, offsets: list, run_mode: str = "npu", 
     return out
 
 
-def test_view_basic(device_id = None, run_mode: str = "npu"):
+def test_view_basic(device_id: int = None, run_mode: str = "npu"):
     """Test basic usage of view function"""
     print("=" * 60)
     print("Test: Basic Usage of view Function")
@@ -625,7 +625,8 @@ def view_with_valid_shape_op(x: torch.Tensor, shape: list,
         mode = pypto.RunMode.SIM
         
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
-    def view_with_valid_shape_kernel(x: pypto.Tensor(shape_x, pypto.DT_FP32)) -> pypto.Tensor(tuple(shape), pypto.DT_FP32):
+    def view_with_valid_shape_kernel(x: pypto.Tensor(shape_x, pypto.DT_FP32)
+                                ) -> pypto.Tensor(tuple(shape), pypto.DT_FP32):
         tile_shapes = [8 for _ in range(len(x.shape))]
         pypto.set_vec_tile_shapes(*tile_shapes)
         out = pypto.view(x, shape, offsets, valid_shape=valid_shape)
@@ -744,10 +745,9 @@ data_type = {
 }
 
 
-cast_shape = 2
-
-
 def cast(x: torch.Tensor, dtype: torch.dtype, run_mode: str = "npu") -> torch.Tensor:
+
+    shape = x.shape
 
     pto_type = data_type[dtype]
 
@@ -758,7 +758,7 @@ def cast(x: torch.Tensor, dtype: torch.dtype, run_mode: str = "npu") -> torch.Te
         
     # launch the kernel
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
-    def cast_kernel(x: pypto.Tensor((cast_shape, ), pypto.DT_FP32)) -> pypto.Tensor((cast_shape, ), pypto.DT_FP16):
+    def cast_kernel(x: pypto.Tensor(shape, pypto.DT_FP32)) -> pypto.Tensor(shape, pypto.DT_FP16):
         tensor_shape = x.shape
         vec_tile_shapes = [8 for _ in range(len(tensor_shape))]
         pypto.set_vec_tile_shapes(*vec_tile_shapes)
