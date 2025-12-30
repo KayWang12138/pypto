@@ -43,7 +43,7 @@ void TestDynAllGather(OpTestParam &testParam)
     std::vector<T> inPtr = ReadToVector<T>(GetGoldenDir() + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", shape);
     
     FUNCTION("ALLGATHER", {in, predToken}, {out}) {
-        TileShape::Current().SetVecTile({M / tileNumRow, N / tileNumCol});
+        TileShape::Current().SetVecTile({row / tileNumRow, col / tileNumCol});
         AllGather(predToken, in, testParam.group, static_cast<uint32_t>(testParam.rankSize), out);
     }
 
@@ -55,11 +55,8 @@ void TestDynAllGather(OpTestParam &testParam)
         RawTensorData::CreateTensorZero(out)
     });
 
-    auto dynAttr = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    auto hcclContext = GetHcclContext(dynAttr->commGroupNames);
     DeviceLauncherConfig config;
     config.runModel = false;
-    config.hcclContext = hcclContext;
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), config);
 
     auto outPtr = ProgramData::GetInstance().GetOutputData(0)->GetDevPtr();

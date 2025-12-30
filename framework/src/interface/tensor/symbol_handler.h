@@ -36,7 +36,8 @@ enum class SymbolHandlerId : uint64_t {
     IsLoopBegin,
     IsLoopEnd,
     TernaryOP,
-    GetHcclRankId,
+    GetHcclRankIdV1,
+    GetHcclRankIdV2,
     BindTensor
 };
 
@@ -55,7 +56,8 @@ const std::unordered_map<std::string, SymbolHandlerId> symbolHandlerIndexDict = 
     {"IsLoopBegin", SymbolHandlerId::IsLoopBegin},
     {"IsLoopEnd", SymbolHandlerId::IsLoopEnd},
     {"TernaryOP", SymbolHandlerId::TernaryOP},
-    {"GetHcclRankId", SymbolHandlerId::GetHcclRankId},
+    {"GetHcclRankIdV1", SymbolHandlerId::GetHcclRankIdV1},
+    {"GetHcclRankIdV2", SymbolHandlerId::GetHcclRankIdV2},
     {"BindTensor", SymbolHandlerId::BindTensor},
 };
 

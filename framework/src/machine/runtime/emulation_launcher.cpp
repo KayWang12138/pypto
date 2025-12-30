@@ -17,6 +17,7 @@
 
 #include <thread>
 #include "machine/host/backend.h"
+#include "machine/runtime/distributed_context.h"
 
 extern "C" int DynTileFwkBackendKernelServer(void *targ);
 extern "C" int DynTileFwkBackendKernelServerInit(void *targ);
@@ -68,6 +69,7 @@ int EmulationLauncher::EmulationLaunchOnceWithHostTensorData(
     std::cout << "!!! Emulation Launch\n";
 
     AstKernelArgs kArgs;
+    DeviceLauncher::DeviceInitDistributedContextToHost(function->GetDyndevAttribute()->commGroupNames, function->GetDyndevAttribute()->devProgBinary);
     DeviceLauncher::DeviceInitTilingData(EmulationMemoryUtils(), kArgs, function->GetDyndevAttribute()->devProgBinary,
                                          config, nullptr);
     DeviceLauncher::DeviceInitKernelInOuts(EmulationMemoryUtils(), kArgs, inputList, outputList,
@@ -98,6 +100,7 @@ int EmulationLauncher::BuildControlFlowCacheWithEmulationTensorData(
     devProg->controlFlowCache.deviceTaskCount = 0;
     devProg->controlFlowCache.cacheDataOffset = 0;
     AstKernelArgs kArgs;
+    DeviceLauncher::DeviceInitDistributedContext(function->GetDyndevAttribute()->commGroupNames, function->GetDyndevAttribute()->devProgBinary);
     DeviceLauncher::DeviceInitTilingData(EmulationMemoryUtils(), kArgs, devProgData, config, nullptr);
     DeviceLauncher::DeviceInitKernelInOuts(EmulationMemoryUtils(), kArgs, inputList, outputList,
         function->GetDyndevAttribute()->disableL2List, config.isGETensorList);
