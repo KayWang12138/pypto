@@ -213,7 +213,7 @@ def attention(q_shape, k_shape, v_shape, out_shape, run_mode: str = "npu"):
         return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(attention_kernel)
 
 
-def test_sequential_functions(device_id = None, run_mode: str = "npu", dynamic: bool = False) -> None:
+def test_sequential_functions(device_id: int = None, run_mode: str = "npu", dynamic: bool = False) -> None:
     """Test multiple functions in sequence."""
     print("=" * 60)
     print("Test: Sequential Functions")
@@ -254,7 +254,7 @@ def test_sequential_functions(device_id = None, run_mode: str = "npu", dynamic: 
     print()
 
 
-def test_residual_connection(device_id = None, run_mode: str = "npu", dynamic: bool = False) -> None:
+def test_residual_connection(device_id: int = None, run_mode: str = "npu", dynamic: bool = False) -> None:
     """Test residual connection pattern."""
     print("=" * 60)
     print("Test: Residual Connection")
@@ -286,7 +286,7 @@ def test_residual_connection(device_id = None, run_mode: str = "npu", dynamic: b
     print()
 
 
-def test_transformer_block(device_id = None, run_mode: str = "npu", dynamic: bool = False) -> None:
+def test_transformer_block(device_id: int = None, run_mode: str = "npu", dynamic: bool = False) -> None:
     """Test a complete transformer block using multiple functions."""
     print("=" * 60)
     print("Test: Transformer Block (Multi-Function)")
@@ -351,7 +351,7 @@ def test_transformer_block(device_id = None, run_mode: str = "npu", dynamic: boo
     print()
 
 
-def test_function_reuse(device_id = None, run_mode: str = "npu", dynamic: bool = True) -> None:
+def test_function_reuse(device_id: int = None, run_mode: str = "npu", dynamic: bool = True) -> None:
     """Test reusing the same function multiple times."""
     print("=" * 60)
     print("Test: Function Reuse")

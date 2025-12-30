@@ -90,9 +90,9 @@ def scaled_dot_product_attention_core(q: pypto.Tensor, k: pypto.Tensor, v: pypto
 def scaled_dot_product_attention(q_shape: tuple, k_shape: tuple, config: AttentionConfig, run_mode: str = "npu",
                                  dynamic: bool = True) -> torch.Tensor:
     if dynamic:
-        B = pypto.frontend.dynamic("B")
+        bs = pypto.frontend.dynamic("bs")
     else:
-        B = q_shape[0]
+        bs = q_shape[0]
     head = 8
     dim = 64
     q_len = q_shape[2]
@@ -102,24 +102,24 @@ def scaled_dot_product_attention(q_shape: tuple, k_shape: tuple, config: Attenti
     scale = config.scale if config.scale is not None else (1.0 / (dim**0.5))
         
     def scaled_dot_product_attention_kernel(
-        q: pypto.Tensor((B, head, q_len, dim), pypto.DT_FP32),
-        k: pypto.Tensor((B, head, kv_len, dim), pypto.DT_FP32),
-        v: pypto.Tensor((B, head, kv_len, dim), pypto.DT_FP32),
-    ) -> pypto.Tensor((B, head, q_len, dim), pypto.DT_FP32):
-        """Scaled dot-product attention with dynamic batch size."""
-        cube_tiling = 64
-        pypto.set_cube_tile_shapes(
-            [cube_tiling, cube_tiling],
-            [cube_tiling, cube_tiling],
-            [cube_tiling, cube_tiling],
+        q: pypto.Tensor((bs, head, q_len, dim), pypto.DT_FP32),
+        k: pypto.Tensor((bs, head, kv_len, dim), pypto.DT_FP32),
+        v: pypto.Tensor((bs, head, kv_len, dim), pypto.DT_FP32),
+    ) -> pypto.Tensor((bs, head, q_len, dim), pypto.DT_FP32):
+        """Scaled dot-product attention with dynamic bsatch size."""
+        cubse_tiling = 64
+        pypto.set_cubse_tile_shapes(
+            [cubse_tiling, cubse_tiling],
+            [cubse_tiling, cubse_tiling],
+            [cubse_tiling, cubse_tiling],
         )
 
-        output_tensor = pypto.tensor((B, head, q_len, dim), pypto.DT_FP32)
-        b_loop = (B + tile - 1) // tile
+        output_tensor = pypto.tensor((bs, head, q_len, dim), pypto.DT_FP32)
+        bs_loop = (bs + tile - 1) // tile
 
-        for bs_idx in pypto.loop(b_loop):
-            b_offset = bs_idx * tile
-            b_offset_end = pypto.min(b_offset + tile, B)
+        for bss_idx in pypto.loop(bs_loop):
+            bs_offset = bss_idx * tile
+            bs_offset_end = pypto.min(bs_offset + tile, bs)
             q_view = pypto.view(q, [tile, head, q_len, dim], [b_offset, 0, 0, 0], 
                                 valid_shape=[b_offset_end - b_offset, head, q_len, dim])
             k_view = pypto.view(k, [tile, head, kv_len, dim], [b_offset, 0, 0, 0], 
@@ -141,7 +141,7 @@ def scaled_dot_product_attention(q_shape: tuple, k_shape: tuple, config: Attenti
                                   runtime_options={"run_mode": pypto.RunMode.SIM})(scaled_dot_product_attention_kernel)
 
 
-def test_dynamic_shape(device_id = None, run_mode: str = "npu", dynamic: bool = True) -> None:
+def test_dynamic_shape(device_id: int = None, run_mode: str = "npu", dynamic: bool = True) -> None:
     """Test attention function with dynamic shapes."""
     print("=" * 60)
     print("Test: Dynamic Scaled Dot-Product Attention")

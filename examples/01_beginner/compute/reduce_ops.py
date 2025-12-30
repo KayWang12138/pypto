@@ -54,11 +54,10 @@ def get_device_id():
 # ============================================================================
 # SUM Examples
 # ============================================================================
-dtype = pypto.DT_FP32
 
 
 def sum_op(a: torch.Tensor, dim: int, run_mode: str = "npu", keepdim: bool = False) -> torch.Tensor:
-
+    dtype = pypto.DT_FP32
     shape = a.shape
 
     if run_mode == "npu":
@@ -85,7 +84,7 @@ def sum_op(a: torch.Tensor, dim: int, run_mode: str = "npu", keepdim: bool = Fal
     return out
     
     
-def test_sum_basic(device_id = None, run_mode: str = "npu"):
+def test_sum_basic(device_id: int = None, run_mode: str = "npu"):
     """Test basic usage of sum function"""
     print("=" * 60)
     print("Test: Basic Usage of sum Function")
@@ -118,7 +117,7 @@ def test_sum_basic(device_id = None, run_mode: str = "npu"):
     print("✓ Basic usage of sum function completed successfully")
 
 
-def test_sum_different_dimensions(device_id = None, run_mode: str = "npu"):
+def test_sum_different_dimensions(device_id: int = None, run_mode: str = "npu"):
     """Test reducing along different dimensions"""
     print("=" * 60)
     print("Test: Reducing Along Different Dimensions")
@@ -179,6 +178,7 @@ def test_sum_different_dimensions(device_id = None, run_mode: str = "npu"):
 # AMAX Examples
 # ============================================================================
 def amax_op(a: torch.Tensor, dim: int, run_mode: str = "npu", keepdim: bool = False) -> torch.Tensor:
+    dtype = pypto.DT_FP32
     shape = a.shape
     if keepdim:
         out_shape = list(a.shape)
@@ -208,7 +208,7 @@ def amax_op(a: torch.Tensor, dim: int, run_mode: str = "npu", keepdim: bool = Fa
     return out
 
 
-def test_amax_basic(device_id = None, run_mode: str = "npu"):
+def test_amax_basic(device_id: int = None, run_mode: str = "npu"):
     """Test basic usage of amax function"""
     print("=" * 60)
     print("Test: Basic Usage of amax Function")
@@ -245,7 +245,7 @@ def test_amax_basic(device_id = None, run_mode: str = "npu"):
     print("✓ Basic usage of amax function completed successfully")
 
 
-def test_amax_different_dimensions(device_id = None, run_mode: str = "npu"):
+def test_amax_different_dimensions(device_id: int = None, run_mode: str = "npu"):
     """Test reducing along different dimensions"""
     print("=" * 60)
     print("Test: Reducing Along Different Dimensions")
@@ -306,6 +306,7 @@ def test_amax_different_dimensions(device_id = None, run_mode: str = "npu"):
 # AMIN Examples
 # ============================================================================
 def amin_op(a: torch.Tensor, dim: int, run_mode: str = "npu", keepdim: bool = False) -> torch.Tensor:
+    dtype = pypto.DT_FP32
     shape = a.shape
     if keepdim:
         out_shape = list(a.shape)
@@ -335,7 +336,7 @@ def amin_op(a: torch.Tensor, dim: int, run_mode: str = "npu", keepdim: bool = Fa
     return out
 
 
-def test_amin_basic(device_id = None, run_mode: str = "npu"):
+def test_amin_basic(device_id: int = None, run_mode: str = "npu"):
     """Test basic usage of amin function"""
     print("=" * 60)
     print("Test: Basic Usage of amin Function")
@@ -373,7 +374,7 @@ def test_amin_basic(device_id = None, run_mode: str = "npu"):
     print("✓ Basic usage of amin function completed successfully")
 
 
-def test_amin_different_dimensions(device_id = None, run_mode: str = "npu"):
+def test_amin_different_dimensions(device_id: int = None, run_mode: str = "npu"):
     """Test reducing along different dimensions"""
     print("=" * 60)
     print("Test: Reducing Along Different Dimensions")
@@ -439,6 +440,7 @@ def test_amin_different_dimensions(device_id = None, run_mode: str = "npu"):
 # ============================================================================
 
 def maximum_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu") -> torch.Tensor:
+    dtype = pypto.DT_FP32
     shape1 = a.shape
     shape2 = b.shape
 
@@ -457,7 +459,7 @@ def maximum_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu") -> torch
     return out
 
 
-def test_maximum_basic(device_id = None, run_mode: str = "npu"):
+def test_maximum_basic(device_id: int = None, run_mode: str = "npu"):
     """Test basic usage of maximum function"""
     print("=" * 60)
     print("Test: Basic Usage of maximum Function")
@@ -502,7 +504,8 @@ def test_maximum_basic(device_id = None, run_mode: str = "npu"):
 
 def minimum_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu") -> torch.Tensor:
     shape = a.shape
-
+    dtype = pypto.DT_FP32
+    
     if run_mode == "npu":
         mode = pypto.RunMode.NPU
     else:
@@ -518,7 +521,7 @@ def minimum_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu") -> torch
     return out
 
 
-def test_minimum_basic(device_id = None, run_mode: str = "npu"):
+def test_minimum_basic(device_id: int = None, run_mode: str = "npu"):
     """Test basic usage of minimum function"""
     print("=" * 60)
     print("Test: Basic Usage of minimum Function")

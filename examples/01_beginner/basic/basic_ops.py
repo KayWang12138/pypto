@@ -139,15 +139,15 @@ def test_matrix_multiplication(device_id: int = None, run_mode: str = "npu", dyn
 
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     m, k, n = 64, 128, 64
-    A_torch = torch.randn(m, k, dtype=torch.bfloat16, device=device)
-    B_torch = torch.randn(k, n, dtype=torch.bfloat16, device=device)
+    a_torch = torch.randn(m, k, dtype=torch.bfloat16, device=device)
+    b_torch = torch.randn(k, n, dtype=torch.bfloat16, device=device)
 
-    c_torch = create_matrix_multiply_kernel((m, k, n), run_mode, dynamic)(A_torch, B_torch)
+    c_torch = create_matrix_multiply_kernel((m, k, n), run_mode, dynamic)(a_torch, b_torch)
     
-    expected = torch.matmul(A_torch, B_torch)
+    expected = torch.matmul(a_torch, b_torch)
     max_diff = (c_torch - expected).abs().max().item()
-    print(f"Matrix A shape: {A_torch.shape}")
-    print(f"Matrix B shape: {B_torch.shape}")
+    print(f"Matrix A shape: {a_torch.shape}")
+    print(f"Matrix B shape: {b_torch.shape}")
     print(f"Output C shape: {c_torch.shape}")
     if run_mode == "npu":
         print(f"Max difference from PyTorch: {max_diff:.6f}")

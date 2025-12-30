@@ -67,8 +67,8 @@ def add_scalar_loop_dynamic_axis(shape: tuple, val: int, run_mode: str = "npu") 
             
             valid_shape = [b_offset_end - b_offset, w, n, c]
             
-            t0_sub = pypto.view(input0, [tile_b, w, n, c], [b_offset, 0, 0, 0], valid_shape = valid_shape)
-            t1_sub = pypto.view(input1, [tile_b, w, n, c], [b_offset, 0, 0, 0], valid_shape = valid_shape)
+            t0_sub = pypto.view(input0, [tile_b, w, n, c], [b_offset, 0, 0, 0], valid_shape=valid_shape)
+            t1_sub = pypto.view(input1, [tile_b, w, n, c], [b_offset, 0, 0, 0], valid_shape=valid_shape)
             t3_sub = t0_sub + t1_sub
             t3_sub = t3_sub + val
             pypto.assemble(t3_sub, [b_offset, 0, 0, 0], output)
@@ -80,7 +80,7 @@ def add_scalar_loop_dynamic_axis(shape: tuple, val: int, run_mode: str = "npu") 
         return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(add_scalar_loop_dynamic_axis_kernel)
 
 
-def test_add_scalar_loop_dyn_axis(device_id = None, run_mode: str = "npu") -> None:
+def test_add_scalar_loop_dyn_axis(device_id: int = None, run_mode: str = "npu") -> None:
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
 
     shape = (32, 32, 1, 256)

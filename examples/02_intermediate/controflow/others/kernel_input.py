@@ -149,7 +149,7 @@ def scaled_dot_product_attention(q_shape: tuple, k_shape: tuple, config: Attenti
 
 
 
-def test_unordered_input_attention(device_id = None, run_mode: str = "npu", dynamic: bool = True) -> None:
+def test_unordered_input_attention(device_id: int = None, run_mode: str = "npu", dynamic: bool = True) -> None:
     """Test attention with kenel_unordered_input."""
     print("=" * 60)
     print("Test: kenel_unordered_input Scaled Dot-Product Attention")
@@ -208,7 +208,7 @@ def op_unordered_input(shape: tuple, run_mode: str = "npu", dynamic: bool = True
         return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(op_unordered_input_kernel)
 
 
-def test_unordered_input_op(device_id = None, run_mode: str = "npu", dynamic: bool = False) -> None:
+def test_unordered_input_op(device_id: int = None, run_mode: str = "npu", dynamic: bool = False) -> None:
     """Test op with kenel_unordered_input"""
     print("=" * 60)
     print("Test: OP with kenel_unordered_input")

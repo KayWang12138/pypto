@@ -84,7 +84,7 @@ def loop_basic(run_mode: str = "npu", dynamic: bool = True) -> torch.Tensor:
         return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(loop_basic_kernel)
 
 
-def test_loop_basic(device_id = None, run_mode: str = "npu", dynamic: bool = False) -> None:
+def test_loop_basic(device_id: int = None, run_mode: str = "npu", dynamic: bool = False) -> None:
     """Test basic loop usage."""
     print("=" * 60)
     print("Test: Basic Loop Usage")
@@ -127,14 +127,14 @@ def loop_compile_phase_print(shape: tuple, run_mode: str = "npu", dynamic: bool 
         pypto.Tensor(shape, pypto.DT_FP16),
     ):
         pypto.set_vec_tile_shapes(64, 64)
-        NOTE = '''
+        note = '''
         Below are demonstrations of print usage within loops. 
         It executes only during compilation, cannot truly print variable values, 
         and the number of prints is related to the number of subgraphs generated.
         '''
-        SEPARATOR = "*" * 60
-        print(NOTE)
-        print(SEPARATOR)
+        separator = "*" * 60
+        print(note)
+        print(separator)
         cnt_inside_cond = 0
         cnt_outside_cond = 0
         for outside_idx in pypto.loop(5):
@@ -157,7 +157,7 @@ def loop_compile_phase_print(shape: tuple, run_mode: str = "npu", dynamic: bool 
                     res = pypto.add(in_t1, in_t1)
                 out_t0 = pypto.add(in_t0, in_t0)
                 out_t1 = pypto.add(in_t1, in_t1)
-        print(SEPARATOR)
+        print(separator)
         return out_t0, out_t1
         
     if run_mode == "npu":
@@ -166,7 +166,7 @@ def loop_compile_phase_print(shape: tuple, run_mode: str = "npu", dynamic: bool 
         return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(loop_compile_phase_print_kernel)
 
 
-def test_loop_compile_phase_print(device_id = None, run_mode: str = "npu", dynamic: bool = False) -> None:
+def test_loop_compile_phase_print(device_id: int = None, run_mode: str = "npu", dynamic: bool = False) -> None:
     """Test loop compile phase print"""
     print("=" * 60)
     print("Test: Loop Compile Phase Print Feature")

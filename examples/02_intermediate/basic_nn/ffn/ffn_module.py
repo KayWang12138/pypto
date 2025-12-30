@@ -345,7 +345,7 @@ def test_ffn_static_swiglu(device_id=None, run_mode: str = "npu"):
     print()
 
 
-def test_ffn_dynamic_gelu(device_id = None, run_mode: str = "npu", dynamic: bool = True):
+def test_ffn_dynamic_gelu(device_id: int = None, run_mode: str = "npu", dynamic: bool = True):
     """Test dynamic FFN with GELU activation."""
     print("=" * 60)
     print("Testing Dynamic FFN with GELU Activation")
@@ -372,10 +372,14 @@ def test_ffn_dynamic_gelu(device_id = None, run_mode: str = "npu", dynamic: bool
     )
 
     # Create PyTorch tensors
-    hidden_states_torch = torch.randn(batch_size, hidden_size, dtype=dtype, device=device) / math.sqrt(batch_size)
-    gate_proj_weight_torch = torch.randn(hidden_size, intermediate_size, dtype=dtype, device=device) / math.sqrt(batch_size)
-    up_proj_weight_torch = torch.randn(hidden_size, intermediate_size, dtype=dtype, device=device) / math.sqrt(batch_size)
-    down_proj_weight_torch = torch.randn(intermediate_size, hidden_size, dtype=dtype, device=device) / math.sqrt(batch_size)
+    hidden_states_torch = torch.randn(
+        batch_size, hidden_size, dtype=dtype, device=device) / math.sqrt(batch_size)
+    gate_proj_weight_torch = torch.randn(
+        hidden_size, intermediate_size, dtype=dtype, device=device) / math.sqrt(batch_size)
+    up_proj_weight_torch = torch.randn(
+        hidden_size, intermediate_size, dtype=dtype, device=device) / math.sqrt(batch_size)
+    down_proj_weight_torch = torch.randn(
+        intermediate_size, hidden_size, dtype=dtype, device=device) / math.sqrt(batch_size)
     
     # PyTorch reference computation
     gate_torch = torch.matmul(hidden_states_torch, gate_proj_weight_torch)
@@ -396,7 +400,7 @@ def test_ffn_dynamic_gelu(device_id = None, run_mode: str = "npu", dynamic: bool
     print()
 
 
-def test_ffn_static_relu(device_id = None, run_mode: str = "npu", dynamic: bool = True):
+def test_ffn_static_relu(device_id: int = None, run_mode: str = "npu", dynamic: bool = True):
     """Test static FFN with ReLU activation."""
     print("=" * 60)
     print("Testing Static FFN with ReLU Activation")
@@ -421,10 +425,14 @@ def test_ffn_static_relu(device_id = None, run_mode: str = "npu", dynamic: bool 
     )
 
     # Create PyTorch tensors
-    hidden_states_torch = torch.randn(batch_size, hidden_size, dtype=dtype, device=device) / math.sqrt(batch_size)
-    gate_proj_weight_torch = torch.randn(hidden_size, intermediate_size, dtype=dtype, device=device) / math.sqrt(batch_size)
-    up_proj_weight_torch = torch.randn(hidden_size, intermediate_size, dtype=dtype, device=device) / math.sqrt(batch_size)
-    down_proj_weight_torch = torch.randn(intermediate_size, hidden_size, dtype=dtype, device=device) / math.sqrt(batch_size)
+    hidden_states_torch = torch.randn(batch_size, hidden_size,
+                                      dtype=dtype, device=device) / math.sqrt(batch_size)
+    gate_proj_weight_torch = torch.randn(hidden_size, intermediate_size, 
+                                        dtype=dtype, device=device) / math.sqrt(batch_size)
+    up_proj_weight_torch = torch.randn(hidden_size, intermediate_size, 
+                                        dtype=dtype, device=device) / math.sqrt(batch_size)
+    down_proj_weight_torch = torch.randn(intermediate_size, hidden_size, 
+                                        dtype=dtype, device=device) / math.sqrt(batch_size)
     
     # PyTorch reference computation
     gate_torch = torch.matmul(hidden_states_torch, gate_proj_weight_torch)
