@@ -22,6 +22,23 @@ void BlockStatement::Print(std::ostream& os, int indent) const {
     os << "}\n";
 }
 
+void ReturnStatement::Print(std::ostream& os, int indent) const {
+    PrintIndent(os, indent);
+    os << "statement.return";
+    if (!values_.empty()) {
+        os << " ";
+        for (size_t i = 0; i < values_.size(); ++i) {
+            if (values_[i]) {
+                os << values_[i]->GetSSAName();
+            }
+            if (i + 1 < values_.size()) {
+                os << ", ";
+            }
+        }
+    }
+    os << "\n";
+}
+
 } // namespace pto
 
 

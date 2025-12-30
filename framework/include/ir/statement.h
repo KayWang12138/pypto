@@ -57,4 +57,18 @@ private:
 
 using BlockStatementPtr = std::shared_ptr<BlockStatement>;
 
+// Function-level terminator returning final values.
+class ReturnStatement : public Statement {
+public:
+    StatementKind GetKind() const override { return StatementKind::Return; }
+
+    std::vector<ValuePtr>& Values() { return values_; }
+    const std::vector<ValuePtr>& Values() const { return values_; }
+
+    void Print(std::ostream& os, int indent) const override;
+
+private:
+    std::vector<ValuePtr> values_;
+};
+
 }

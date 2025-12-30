@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cassert>
+#include <cstdint>
 #include <ostream>
 #include <string>
 #include <vector>
@@ -87,7 +88,7 @@ private:
 };
 
 struct ReshapeSpec {
-    std::vector<size_t> shape;        // target shape, -1 allowed
+    std::vector<int64_t> shape;        // target shape, -1 allowed
     std::vector<Scalar> validShape;    // symbolic dims (optional)
     bool inplace = false;
 };
@@ -259,6 +260,7 @@ public:
             case CastMode::CAST_CEIL: os << "ceil"; break;
             case CastMode::CAST_TRUNC: os << "trunc"; break;
             case CastMode::CAST_ODD: os << "odd"; break;
+            default: os << "unknown";
         }
         os << "}";
     }

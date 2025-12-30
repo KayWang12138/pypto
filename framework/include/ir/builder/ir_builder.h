@@ -72,6 +72,8 @@ public:
     // ===== Statement building (still belongs to IRBuilder) =====
     BlockStatement& CreateBlockStmt();
 
+    ReturnStatement& CreateReturn(ValuePtrs values);
+
     // Enter nested scopes (optional sugar)
     std::shared_ptr<ScopeGuard> EnterFunctionBody(Function& func);
 

@@ -3,7 +3,6 @@
 #include "ir/type.h"
 #include "ir/utils.h"
 
-#include <algorithm>
 #include <ostream>
 #include <variant>
 
@@ -39,6 +38,8 @@ void Scalar::Print(std::ostream& os, int indent) const {
     case ScalarValueKind::Symbolic:
         os << GetSSAName();
         break;
+    default:
+        os << "Unknown Scalar";
     }
 }
 
@@ -61,42 +62,6 @@ void Tensor::Print(std::ostream& os, int indent) const {
     os << DataTypeToString(GetDataType());
 
     os << ">";
-}
-
-bool Tile::isDense() const {
-    if (strides_.empty()) {
-        return true;
-    }
-    std::vector<std::pair<size_t, size_t>> ss;
-    for (size_t i = 0; i < strides_.size(); i++) {
-        // shape == 1 have no effect
-        if (shape_[i] != 1) {
-            ss.push_back({strides_[i], shape_[i]});
-        }
-    }
-    std::sort(ss.begin(), ss.end());
-    size_t expected = 1;
-    for (auto [st, sp] : ss) {
-        if (st != expected) {
-            return false;
-        }
-        expected *= sp;
-    }
-    return true;
-}
-
-bool Tile::isContiguous() const {
-    if (strides_.empty()) {
-        return true;
-    }
-    size_t expected = 1;
-    for (size_t i = strides_.size() - 1; i >= 0; i--) {
-        if (strides_[i] != expected) {
-            return false;
-        }
-        expected *= shape_[i];
-    }
-    return true;
 }
 
 void Tile::Print(std::ostream& os, int indent) const {

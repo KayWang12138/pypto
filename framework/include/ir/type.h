@@ -69,16 +69,6 @@ enum class CastMode {
     CAST_ODD,        // Round to nearest odd integer
 };
 
-// Helper function to convert ValueKind to string
-static std::string ValueKindToString(ValueKind kind) {
-    switch (kind) {
-        case ValueKind::Scalar: return "Scalar";
-        case ValueKind::Tile: return "Tile";
-        case ValueKind::Tensor: return "Tensor";
-        default: return "Unknown";
-    }
-}
-
 // Base class for all data types in PTO-IR.
 class Value : public Object, public AttributeHolder {
 public:
@@ -129,7 +119,7 @@ public:
         : StaticValue(ValueKind::Scalar, StringToValueType(typeName), name), valueKind_(valueKind), constantValue_(int64_t{0}) {}
 
     explicit Scalar(DataType type, std::string name, ScalarValueKind valueKind, std::string expr, ConstantType constantVal)
-        : StaticValue(ValueKind::Scalar, type, name), valueKind_(valueKind), symbolicExpr_(expr), constantValue_(constantVal) {}
+        : StaticValue(ValueKind::Scalar, type, name), symbolicExpr_(expr), valueKind_(valueKind), constantValue_(constantVal) {}
 
     // Constant value constructors - DataType is inferred from value type
     explicit Scalar(bool value, std::string name="")
@@ -189,9 +179,9 @@ public:
     Memory(size_t byteSize) : Object(ObjectType::Memory), byteSize_(byteSize),
          space_(MemSpaceKind::UNKNOWN) {}
     
-    const size_t GetSize() const { return byteSize_; }
-    const MemSpaceKind GetSpace() const { return space_; }
-    const size_t GetAddr() const { return addr_; }
+    size_t GetSize() const { return byteSize_; }
+    MemSpaceKind GetSpace() const { return space_; }
+    size_t GetAddr() const { return addr_; }
     
     void SetSize(const size_t newSize) { byteSize_ = newSize; }
     void SetSpace(const MemSpaceKind kind) { space_ = kind; }
@@ -219,7 +209,7 @@ public:
     Tile(std::vector<size_t> shape, DataType elementType,
          std::vector<Scalar> validShapes, std::string name="")
         : StaticValue(ValueKind::Tile, elementType, name),
-          shape_(shape), validShapes_(validShapes) { }
+          validShapes_(validShapes), shape_(shape) { }
 
     Tile(std::vector<size_t> shape, DataType elementType,
          std::string name="")
@@ -241,9 +231,6 @@ public:
     void SetStrides(const std::vector<size_t>& newStrides) { strides_ = newStrides; }
     void SetStartOffset(const Scalar newStartOffset) { startOffset_ = newStartOffset; }
     void SetMemory(const std::shared_ptr<Memory> newMem) { mem_ = newMem; }
-
-    bool isDense() const;
-    bool isContiguous() const;
 
     void Print(std::ostream& os, int indent = 0) const override;
 

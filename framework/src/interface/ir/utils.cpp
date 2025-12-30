@@ -68,6 +68,8 @@ std::string DataTypeToString(DataType type) {
         return "bottom";
     case DataType::UNKNOWN:
         return "unknown";
+    default:
+        return "unknown";
     }
     return "unknown";
 }

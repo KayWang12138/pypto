@@ -1,6 +1,10 @@
-add_library(ir_proto)
+add_library(ir_proto SHARED)
 
 target_compile_options(ir_proto PRIVATE -fPIC)
+target_compile_definitions(ir_proto 
+    PUBLIC
+        _GLIBCXX_USE_CXX11_ABI=0
+)
 
 file(GLOB_RECURSE IR_FILES
      CONFIGURE_DEPENDS

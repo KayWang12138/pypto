@@ -33,6 +33,8 @@ static const char* toString(FunctionKind kind) {
         return "data_flow";
     case FunctionKind::Kernel:
         return "kernel";
+    default:
+        return "unknown";
     }
     return "unknown";
 }
