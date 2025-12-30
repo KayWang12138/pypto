@@ -12,7 +12,7 @@ ValuePtr IRBuilder::AddToScope(ValuePtr v) {
     if (!scope_) throw std::runtime_error("IRBuilder::AddToScope: scope is null");
     if (!v) throw std::runtime_error("IRBuilder::AddToScope: value is null");
     // Use SSA name as the key in environment table
-    std::string key = v->GetSSAName();
+    std::string key = v->GetName();
     scope_->SetEnvVar(key, v);
     return v;
 }
