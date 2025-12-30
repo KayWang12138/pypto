@@ -568,16 +568,8 @@ public:
     bool OperationLoopCheck();
     void ValidCheck() const;
 
-<<<<<<< HEAD
-||||||| parent of c3f7e507 (Continuous Integration for ExecuteFunction and DataFlowFunction)
-    DyndevFunctionAttribute::ValueDependDesc LookupValueDepend();
-
-=======
-    DyndevFunctionAttribute::ValueDependDesc LookupValueDepend();
-
     int GetParamIndex(const std::shared_ptr<RawTensor> &rawTensor);
 
->>>>>>> c3f7e507 (Continuous Integration for ExecuteFunction and DataFlowFunction)
     std::shared_ptr<OpAttribute> CreateCallOpAttribute(const std::vector<std::vector<SymbolicScalar>> &argList,
         const std::map<int, SymbolicScalar> &outIndexToExpr);
 
@@ -736,7 +728,6 @@ public:
     std::shared_ptr<SourceLocation> GetSourceLocation() const { return sourceLocation_; }
     void CleanRedundantOutCast();
 
-<<<<<<< HEAD
     //------------------------------------------------------------------------------------------------------
     //------------------------------------------- ControlFlowFunction --------------------------------------
     //------------------------------------------------------------------------------------------------------
@@ -749,12 +740,6 @@ public:
     virtual void AddLoopCallToOrderGroup(Operation * callOp);
     virtual void ApplyLoopCallOrderGroup();
     virtual DyndevFunctionAttribute::ValueDependDesc LookupValueDepend();
-||||||| parent of c3f7e507 (Continuous Integration for ExecuteFunction and DataFlowFunction)
-
-
-
-=======
->>>>>>> c3f7e507 (Continuous Integration for ExecuteFunction and DataFlowFunction)
     //------------------------------------------------------------------------------------------------------
     //------------------------------------------- DataFlowFunction -----------------------------------------
     //------------------------------------------------------------------------------------------------------
