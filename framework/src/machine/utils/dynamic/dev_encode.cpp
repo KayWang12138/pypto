@@ -1339,6 +1339,58 @@ struct EncodeDevAscendFunctionInfo {
         }
     }
 
+    void EncodeZeroPredCount() {
+        std::unordered_map<Operation *, int> callopCoreTypeDict;
+        for (auto &op : callopList) {
+            auto callOpAttr = std::static_pointer_cast<CallOpAttribute>(op->GetOpAttribute());
+            auto calleeHash = callOpAttr->GetCalleeHash().GetHash();
+            ASSERT(calleeHashIndexDict.count(calleeHash)) << "calleeHash 0x" << std::hex << calleeHash << " is not found in calleeHashIndexDict";
+            int cceIndex = calleeHashIndexDict.find(calleeHash)->second;
+            ASSERT(cceIndex < static_cast<int>(cceCodeInfoList.size())) << "cceIndex " << cceIndex << " exceeds cceCodeInfoList size: " << cceCodeInfoList.size();
+
+            uint32_t coreType = cceCodeInfoList[cceIndex].coreType;
+            ASSERT(coreType == static_cast<uint32_t>(CoreType::AIV) || coreType == static_cast<uint32_t>(CoreType::AIC) ||
+                   coreType == static_cast<uint32_t>(CoreType::HUB) || coreType == static_cast<uint32_t>(CoreType::AICPU)) <<
+                   "invalid coreType " << coreType << " for op " << op;
+            callopCoreTypeDict[op] = coreType;
+        }
+
+        std::sort(callopList.begin(), callopList.end(), [&](Operation *lhs, Operation *rhs) {
+            if (callOpPredDict[lhs] != callOpPredDict[rhs]) {
+                return callOpPredDict[lhs] < callOpPredDict[rhs];
+            }
+            ASSERT(callopCoreTypeDict.count(lhs)) << "lhs operation " << lhs << " is not found in callopCoreTypeDict";
+            ASSERT(callopCoreTypeDict.count(rhs)) << "rhs operation " << rhs << " is not found in callopCoreTypeDict";
+            return callopCoreTypeDict[lhs] < callopCoreTypeDict[rhs];
+        });
+
+        totalZeroPred = callopList.size();
+        for (size_t index = 0; index < callopList.size(); index++) {
+            if (callOpPredDict[callopList[index]] != 0) {
+                totalZeroPred = index;
+                break;
+            }
+        }
+        for (size_t index = totalZeroPred; index < callopList.size(); index++) {
+            ASSERT(callOpPredDict[callopList[index]] != 0) << "callOpPredDict[callopList[" << index << "]] is zero, callopList[" << index <<
+                   "] = " << callopList[index];
+        }
+
+        for (uint32_t index = 0; index < totalZeroPred; index++) {
+            if (callopCoreTypeDict[callopList[index]] == static_cast<uint32_t>(CoreType::AIV)) {
+                totalZeroPredAIV++;
+            } else if (callopCoreTypeDict[callopList[index]] == static_cast<uint32_t>(CoreType::AIC)) {
+                totalZeroPredAIC++;
+            } else if (callopCoreTypeDict[callopList[index]] == static_cast<uint32_t>(CoreType::HUB)) {
+                totalZeroPredHub++;
+            } else if (callopCoreTypeDict[callopList[index]] == static_cast<uint32_t>(CoreType::AICPU)) {
+                totalZeroPredAicpu++;
+            } else {
+                ASSERT(false) << "Invalid coreType for callopList[" << index << "], op : " << callopList[index];
+            }
+        }
+    }
+
     EncodeDevAscendFunctionInfo(
             Function *dyndev,
             const std::unordered_map<uint64_t, int> &tHashIndexDict,
@@ -1496,55 +1548,7 @@ struct EncodeDevAscendFunctionInfo {
             copyOutResolveSuccIndexListDict[callop] = copyOutResolveSuccIndexList;
         }
 
-        std::unordered_map<Operation *, int> callopCoreTypeDict;
-        for (auto &op : callopList) {
-            auto callOpAttr = std::static_pointer_cast<CallOpAttribute>(op->GetOpAttribute());
-            auto calleeHash = callOpAttr->GetCalleeHash().GetHash();
-            ASSERT(calleeHashIndexDict.count(calleeHash)) << "calleeHash 0x" << std::hex << calleeHash << " is not found in calleeHashIndexDict";
-            int cceIndex = calleeHashIndexDict.find(calleeHash)->second;
-            ASSERT(cceIndex < static_cast<int>(cceCodeInfoList.size())) << "cceIndex " << cceIndex << " exceeds cceCodeInfoList size: " << cceCodeInfoList.size();
-
-            uint32_t coreType = cceCodeInfoList[cceIndex].coreType;
-            ASSERT(coreType == static_cast<uint32_t>(CoreType::AIV) || coreType == static_cast<uint32_t>(CoreType::AIC) ||
-                   coreType == static_cast<uint32_t>(CoreType::HUB) || coreType == static_cast<uint32_t>(CoreType::AICPU)) <<
-                   "invalid coreType " << coreType << " for op " << op;
-            callopCoreTypeDict[op] = coreType;
-        }
-
-        std::sort(callopList.begin(), callopList.end(), [&](Operation *lhs, Operation *rhs) {
-            if (callOpPredDict[lhs] != callOpPredDict[rhs]) {
-                return callOpPredDict[lhs] < callOpPredDict[rhs];
-            }
-            ASSERT(callopCoreTypeDict.count(lhs)) << "lhs operation " << lhs << " is not found in callopCoreTypeDict";
-            ASSERT(callopCoreTypeDict.count(rhs)) << "rhs operation " << rhs << " is not found in callopCoreTypeDict";
-            return callopCoreTypeDict[lhs] < callopCoreTypeDict[rhs];
-        });
-
-        totalZeroPred = callopList.size();
-        for (size_t index = 0; index < callopList.size(); index++) {
-            if (callOpPredDict[callopList[index]] != 0) {
-                totalZeroPred = index;
-                break;
-            }
-        }
-        for (size_t index = totalZeroPred; index < callopList.size(); index++) {
-            ASSERT(callOpPredDict[callopList[index]] != 0) << "callOpPredDict[callopList[" << index << "]] is zero, callopList[" << index <<
-                   "] = " << callopList[index];
-        }
-
-        for (uint32_t index = 0; index < totalZeroPred; index++) {
-            if (callopCoreTypeDict[callopList[index]] == static_cast<uint32_t>(CoreType::AIV)) {
-                totalZeroPredAIV++;
-            } else if (callopCoreTypeDict[callopList[index]] == static_cast<uint32_t>(CoreType::AIC)) {
-                totalZeroPredAIC++;
-            } else if (callopCoreTypeDict[callopList[index]] == static_cast<uint32_t>(CoreType::HUB)) {
-                totalZeroPredHub++;
-            } else if (callopCoreTypeDict[callopList[index]] == static_cast<uint32_t>(CoreType::AICPU)) {
-                totalZeroPredAicpu++;
-            } else {
-                ASSERT(false) << "Invalid coreType for callopList[" << index << "], op : " << callopList[index];
-            }
-        }
+        EncodeZeroPredCount();
 
         for (auto &op : callopList) {
             callList.Insert(op);
