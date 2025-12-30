@@ -128,6 +128,7 @@ TEST_F(AddAllocTest, TestAddAllocView) {
     EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {64, 64}, tensorMemTypes, tensorNames, 0), true);
     EXPECT_EQ(subGraph.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
     Function *function = subGraph.GetFunction();
+    function->SetGraphType(GraphType::BLOCK_GRAPH);
     EXPECT_NE(function, nullptr);
 
     EXPECT_NE(subGraph.GetTensor("t6"), nullptr);
