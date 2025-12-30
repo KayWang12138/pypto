@@ -51,6 +51,7 @@ class DeviceCtrlMachine {
         taskCtrl->runFlag.store(true, std::memory_order_relaxed);
         taskCtrl->runcnt.store(schAicpuNum_, std::memory_order_relaxed);
         taskCtrl->ctx = ctx;
+        taskCtrl->retCode = 0;
         devTask->aicoreModel = reinterpret_cast<uint64_t>(ctx->aicoreModel);
         if (ctx->costModelData != nullptr) {
             devTask->costModelData = reinterpret_cast<uint64_t>(ctx->costModelData);
@@ -113,13 +114,24 @@ class DeviceCtrlMachine {
         inspector_ = inspector;
     }
 
+    void InitTaskPipeWithSched(DevAscendProgram *devProg) {
+        taskctrl_ = reinterpret_cast<DeviceTaskCtrl *>(devProg->devArgs.taskCtrl);
+        taskQueue_ = reinterpret_cast<SPSCQueue<DeviceTaskCtrl *, DEFAULT_QUEUE_SIZE> *>(devProg->devArgs.taskQueue);
+        for (uint32_t i = 0; i < MAX_DEVICE_TASK_NUM; i++) {
+            taskctrl_[i].retCode = 0;
+            taskctrl_[i].runFlag = 0;
+        }
+        for (uint32_t i = 0; i < devProg->devArgs.scheCpuNum; ++i) {
+            taskQueue_[i].ResetEmpty();
+        }
+    }
+
     int InitDyn(AstKernelArgs *kargs) {
         DEV_INFO("AscendCppDyInitTask begin");
         auto devProg = PtrToPtr<int64_t, DevAscendProgram>(kargs->cfgdata);
         auto devArgs = reinterpret_cast<DevStartArgs *>(devProg->devArgs.startArgsAddr);
-        taskctrl_ = reinterpret_cast<DeviceTaskCtrl *>(devProg->devArgs.taskCtrl);
-        taskQueue_ = reinterpret_cast<SPSCQueue<DeviceTaskCtrl *, DEFAULT_QUEUE_SIZE> *>(devProg->devArgs.taskQueue);
         schAicpuNum_ = devProg->devArgs.scheCpuNum;
+        InitTaskPipeWithSched(devProg);
         PerfBegin(PERF_EVT_INIT);
         bool firstInit = false;
         if (devProg->controlFlowBinaryAddr == nullptr) {
