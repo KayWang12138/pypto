@@ -41,7 +41,7 @@ public:
     void SetUp() override {
         Program::GetInstance().Reset();
         config::Reset();
-        config::SetHostOption(COMPILE_STAGE, HOST_COMPILE_END);
+        config::SetRuntimeOption(CFG_RUN_MODE, COMPILE_STAGE3);
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
     }
 
@@ -82,7 +82,7 @@ void TestWhereBody(const Opcode opCode, const std::string &caseName,
     if (isSupportTileTensor) {
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
     }
-    config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
+    config::SetRuntimeOption(CFG_RUN_MODE, COMPILE_STAGE4);
     config::SetBuildStatic(true);
 
     std::vector<int64_t> shape = {64, 64};

@@ -323,7 +323,8 @@ void Program::HandleTaskSubmission(Function *result) {
                                  }),
                     scopes.end());
             }
-        } else if (config::GetHostOption<int64_t>(COMPILE_STAGE) != GEN_TENSOR_GRAPH) {
+        } else if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) < COMPILE_STAGE1 ||
+                   config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) >= COMPILE_STAGE3) {
             HostMachine::GetInstance().SubTask(result);
             HostMachine::GetInstance().WaitTaskFinish();
         }
