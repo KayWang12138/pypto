@@ -231,7 +231,15 @@ public:
 
     static void DeviceInitDistributedContext(const std::vector<std::string> &groupNames,
         const std::vector<uint8_t> &devProgData) {
+        // 如果 devProgData 为空，说明在 compile_stage 提前退出时没有设置 devProgBinary
+        // 这种情况下应该跳过初始化，避免访问空指针
+        if (devProgData.empty() || devProgData.data() == nullptr) {
+            return;
+        }
         auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
+        if (devProg == nullptr) {
+            return;
+        }
         if (devProg->hcclContext[0] != 0) {
             return;
         }
@@ -242,8 +250,16 @@ public:
     template<typename DeviceMemoryTy>
     static void DeviceInitTilingData(DeviceMemoryTy devMem, DeviceKernelArgs &kArgs, const std::vector<uint8_t> &devProgData,
             const DeviceLauncherConfig &config, CachedOperator *cachedOperator) {
+        // 如果 devProgData 为空，说明在 compile_stage 提前退出时没有设置 devProgBinary
+        // 这种情况下应该跳过初始化，避免访问空指针
+        if (devProgData.empty() || devProgData.data() == nullptr) {
+            return;
+        }
         auto &mutableConfig = const_cast<DeviceLauncherConfig &>(config);
         auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
+        if (devProg == nullptr) {
+            return;
+        }
         PrepareDevProgArgs(devProg, mutableConfig);
         // Fill all metadata and kernel args
         FillKernelMeta(devMem, kArgs, devProg, devProgData, config, cachedOperator);
