@@ -139,14 +139,15 @@
                 "run_mode": {
                     "type": "integer",
                     "minimum": 0,
-                    "maximum": 1
+                    "maximum": 2
                 }
             }
         },
         "host": {
             "type": "object",
             "properties": {
-                "only_codegen": {"type": "boolean"}
+                "only_codegen": {"type": "boolean"},
+                "compile_stage": {"type": "string"}
             }
         },
         "codegen": {

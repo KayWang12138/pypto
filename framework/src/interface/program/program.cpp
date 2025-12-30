@@ -891,6 +891,13 @@ void RecordFunc::EndFunction() {
                 Program::GetInstance().VerifyTensorGraph();
             }
             MergeAllFuncDupIocast(nullptr);
+            if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) == CFG_RUN_MODE_COMPILE_ONLY&&
+                config::HasHostOption(COMPILE_STAGE) == COMPILE_STAGE_TENSOR_GRAPH) {
+ 	            ALOG_INFO("Compilation stage terminates after tensor graph generation.");
+ 	            Program::GetInstance().SetCurrentDynamicFunction(nullptr);
+ 	            dynFunc_->SetUnderDynamicFunction(false);
+ 	            return;
+ 	        }
             PassManager::Instance().RunPass(Program::GetInstance(),
                 *Program::GetInstance().GetFunctionByMagicName(PROGRAM_ENTRY_FUNCTION_NAME), "FunctionUnroll");
             if (!config::GetPlatformConfig(npu::tile_fwk::KEY_ONLY_TENSOR_GRAPH, false)) {

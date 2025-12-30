@@ -92,6 +92,44 @@ extern "C" std::string GetPlatformInfo() {
 
 extern "C" int32_t Execute(MachineTask *task, FunctionCache &cache) {
     if (config::GetPlatformConfig(KEY_ONLY_HOST_COMPILE, false)) {
+        // Initialize devProgBinary to prevent segfault when accessed later
+        if (task != nullptr) {
+            auto function = task->GetFunction();
+            if (function != nullptr && function->GetDyndevAttribute() != nullptr) {
+                auto dynAttr = function->GetDyndevAttribute();
+                // Initialize devProgBinary with minimum size to prevent segfault
+                // DevAscendProgram structure needs at least sizeof(DeviceArgs) + some basic fields
+                constexpr size_t kMinDevProgSize = 4096; // Minimum size to hold basic DevAscendProgram structure
+                if (dynAttr->devProgBinary.empty()) {
+                    dynAttr->devProgBinary.resize(kMinDevProgSize, 0);
+                    // Initialize basic fields to prevent crashes
+                    auto *devProg = reinterpret_cast<dynamic::DevAscendProgram *>(dynAttr->devProgBinary.data());
+                    // Initialize DeviceArgs - use value initialization instead of memset for non-trivial types
+                    devProg->devArgs = DeviceArgs{}; // Value initialization
+                    // Initialize basic program fields
+                    devProg->workspaceSize = 0;
+                    devProg->l2CacheOffset = 0;
+                    devProg->configKey = 0;
+                    devProg->hashKey = 0;
+                    devProg->slotSize = 0;
+                    devProg->assembleSlotSize = 0;
+                    // Initialize memBudget fields to prevent segfault when accessed in GetWorkSpaceSize
+                    // Initialize tensor struct completely
+                    devProg->memBudget.tensor.maxStaticOutcastMem = 0;
+                    devProg->memBudget.tensor.maxDynamicAssembleOutcastMem = 0;
+                    devProg->memBudget.tensor.rootInner = 0;
+                    devProg->memBudget.tensor.devTaskInnerExclusiveOutcasts = 0;
+                    devProg->memBudget.tensor.devTaskBoundaryOutcastNum = 0;
+                    // Initialize aicoreSpilled
+                    devProg->memBudget.aicoreSpilled = 0;
+                    // Initialize metadata struct
+                    devProg->memBudget.metadata.general = 0;
+                    devProg->memBudget.metadata.stitchPool = 0;
+                    // Initialize debug struct
+                    devProg->memBudget.debug.dumpTensor = 0;
+                }
+            }
+        }
         ALOG_INFO("draw graph switch enabled, push finish queue.");
         return 0;
     }
