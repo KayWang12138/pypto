@@ -607,6 +607,7 @@ bool CodeGenCloudNPU::HandleForAICpuSubFunc(Function &subFunc) {
             continue;
         }
         code.push_back(static_cast<int32_t>(op.GetOpcode()));
+        code.push_back(static_cast<int32_t>(Platform::Instance().GetSoc().GetShortSoCVersion()));
 
         if (op.GetOpcode() == Opcode::OP_SHMEM_WAIT_UNTIL) {
             EncodeWaitUntilInfo(op, code);
