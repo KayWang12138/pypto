@@ -261,7 +261,7 @@
                         "en": "..."
                     },
                     "minimum": 0,
-                    "maximum": 1,
+                    "maximum": 2,
                     "options": [
                         {
                             "value": 0,
@@ -272,6 +272,13 @@
                         },
                         {
                             "value": 1,
+                            "label": {
+                                "zh": "...",
+                                "en": "..."
+                            }
+                        },
+                        {
+                            "value": 2,
                             "label": {
                                 "zh": "...",
                                 "en": "..."
@@ -293,6 +300,13 @@
                     "label": {
                         "zh": "屏蔽静态function的上板过程",
                         "en": "Shield the static on-board process."
+                    }
+                },
+                "compile_stage": {
+                    "type": "string",
+                    "label": {
+                        "zh": "控制编译阶段停止的位置",
+                        "en": "Control the position where the compilation stage stops."
                     }
                 }
             }

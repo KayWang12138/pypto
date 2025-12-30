@@ -126,6 +126,26 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
         Function *function, const std::vector<DeviceTensorData> &inputList, const std::vector<DeviceTensorData> &outputList,
         rtStream_t aicpuStream, rtStream_t aicoreStream, bool streamSynchronize, CachedOperator *cachedOperator,
         const DeviceLauncherConfig &config) {
+    // Check if devProgBinary is empty or uninitialized (indicates Execute() returned early, skip device launch)
+    if (function != nullptr && function->GetDyndevAttribute() != nullptr) {
+        const auto &devProgBinary = function->GetDyndevAttribute()->devProgBinary;
+        // If devProgBinary is empty, it means Execute() returned early without initialization
+        // In this case, we should skip device launch to avoid running on NPU hardware
+        if (devProgBinary.empty()) {
+            ALOG_INFO("devProgBinary is empty, skipping device launch (draw graph mode)");
+            return 0; // Return success without launching on device
+        }
+        // Check if devProgBinary is initialized but only contains zeros (indicates early return with minimal init)
+        if (devProgBinary.size() >= sizeof(dynamic::DevAscendProgram)) {
+            const auto *devProg = reinterpret_cast<const dynamic::DevAscendProgram *>(devProgBinary.data());
+            // If workspaceSize is 0 and all other critical fields are 0, it's likely an early return
+            // This is a heuristic check - in normal execution, workspaceSize should be non-zero
+            if (devProg->workspaceSize == 0 && devProg->configKey == 0 && devProg->hashKey == 0) {
+                ALOG_INFO("devProgBinary appears uninitialized (workspaceSize=0), skipping device launch (draw graph mode)");
+                return 0; // Return success without launching on device
+            }
+        }
+    }
     bool isCapture = false;
     std::cout << "!!! Kernel Launch " << "\n";
     config::SetRunDataOption(KEY_RUNTYPE, "npu");
