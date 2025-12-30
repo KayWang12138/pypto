@@ -38,7 +38,7 @@ public:
     void SetUp() override {
         Program::GetInstance().Reset();
         config::Reset();
-        config::SetHostOption(COMPILE_STAGE, HOST_COMPILE_END);
+        config::SetRuntimeOption(CFG_RUN_MODE, COMPILE_STAGE3);
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
     }
 
@@ -97,7 +97,7 @@ TEST_F(TestCodegenDynBinaryBrc, TestMulDynamic) {
 
 TEST_F(TestCodegenDynBinaryBrc, TestAddBrcTileTensorDynamic) {
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-    config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
+    config::SetRuntimeOption(CFG_RUN_MODE, COMPILE_STAGE4);
     std::vector<int64_t> shape1 = {32, 256};
     TileShape::Current().SetVecTile({32, 256});
     Tensor input_a(DataType::DT_FP32, shape1, "A");
