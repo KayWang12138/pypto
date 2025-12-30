@@ -37,6 +37,11 @@ _device_fini = pypto_impl.DeviceFini
 class RunMode(IntEnum):
     NPU = 0
     SIM = 1
+    COMPILE_STAGE1 = 2
+    COMPILE_STAGE2 = 3
+    COMPILE_STAGE3 = 4
+    COMPILE_STAGE4 = 5
+    COMPILE_STAGE5 = 6
 
 
 class _CachedVerifyData:
@@ -186,8 +191,10 @@ class _JIT:
             kernel, ctrcache = self.get_cached_kernel(device, tensors, argtype, cfshape, *args, **kwargs)
             if run_mode == RunMode.NPU:
                 self.run_npu(device, kernel, ctrcache, start_args)
-            else:
+            elif run_mode == RunMode.SIM:
                 self.run_cpu(kernel, tensors)
+            else:
+                return
 
     @staticmethod
     def run_npu(device, kernel, ctrl_cache, start_args):
