@@ -53,6 +53,31 @@ class Controller:
         cls._loop_idx_generator = itertools.count(0)
 
 
+def _check_autograd_control_flow(construct_name: str) -> None:
+    """
+    Check if control flow is allowed in current context.
+
+    In autograd mode, control flow (loop, cond) is NOT supported in MVP.
+    The Python-side tracer cannot reliably capture the C++ recorded control
+    flow structure, which would lead to incorrect gradient computation.
+
+    MVP strategy: raise NotImplementedError in autograd mode.
+    """
+    try:
+        from .autograd.context import is_tracing
+        if is_tracing():
+            raise NotImplementedError(
+                f"Autograd does not support control flow ({construct_name}) in MVP. "
+                f"Control flow structures like pypto.loop(), pypto.loop_unroll(), and pypto.cond() "
+                f"cannot be differentiated through in the current implementation. "
+                f"This limitation will be addressed in future phases. "
+                f"For now, please unroll loops manually or restructure your computation."
+            )
+    except ImportError:
+        # autograd module not available, no check needed
+        pass
+
+
 def set_vec_tile_shapes(*shapes: int):
     """ set the tile shapes in vector computation
 
@@ -351,6 +376,9 @@ def cond(scalar: SymInt, file: Optional[str] = None, lineno: Optional[int] = Non
         else:
             pass
     """
+    # Autograd defense: control flow is not supported in MVP
+    _check_autograd_control_flow("cond")
+
     # allow caller to override source location; enforce both or none
     if (file is None) ^ (lineno is None):
         raise ValueError("file and lineno must be provided together or omitted")
@@ -512,6 +540,9 @@ def loop(
     return a generator, which will be used for setting up the
     for loop in building computing graph
     """
+    # Autograd defense: control flow is not supported in MVP
+    _check_autograd_control_flow("loop")
+
     start, stop, step = _get_loop_range(*args)
     # implementation
     loop_idx = Controller.next_loop_idx()
