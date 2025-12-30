@@ -568,6 +568,7 @@ bool CodeGenCloudNPU::HandleForAICpuSubFunc(Function &subFunc) {
             attrs = distOpAttr.aicpuOpParams;
         }
         code.push_back(static_cast<int32_t>(op.GetOpcode()));
+        code.push_back(static_cast<int32_t>(Platform::Instance().GetSoc().GetShortSoCVersion()));
 
         code.push_back(op.GetOOperands().size() * paramSizePerOperand);
         for (size_t i = 0; i < op.GetOOperands().size(); ++i) {
