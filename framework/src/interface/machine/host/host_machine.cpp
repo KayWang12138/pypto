@@ -172,6 +172,11 @@ void HostMachine::CompileFunction(Function* func) const {
         ALOG_INFO_F("RunPass function %s", func->GetMagicName().c_str());
         ASSERT(backend.runPass(Program::GetInstance(), *func, config::GetPassStrategy())) << "Run pass failed.";
     }
+    if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) == CFG_RUN_MODE_COMPILE_ONLY &&
+        config::HasHostOption(COMPILE_STAGE) == COMPILE_STAGE_EXECUTION_GRAPH) {
+        ALOG_INFO("Compilation stage terminates after execution graph generation.");
+        return;
+    }
     if (func->IsFunctionType(FunctionType::DYNAMIC) || func->IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::TILE_GRAPH)) {
         auto path = config::GetAbsoluteTopFolder() + "/program.json";
         Program::GetInstance().DumpJsonFile(path);

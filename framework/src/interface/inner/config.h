@@ -41,7 +41,14 @@ constexpr const char *L1_REUSE_NUM = "l1_reuse_num";
 constexpr const char *DB_TYPE = "db_type";
 constexpr const char *COPYOUT_RESOLVE_COALESCING = "copyout_resolve_coalescing";
 constexpr const char *ONLY_CODEGEN = "only_codegen";
+constexpr const char *COMPILE_STAGE = "compile_stage";
 constexpr const char *SUPPORT_DYNAMIC_ALIGNED = "support_dynamic_aligned";
+
+constexpr const char *COMPILE_STAGE_TENSOR_GRAPH = "compile_stage_tensor_graph";
+constexpr const char *COMPILE_STAGE_TILE_GRAPH = "compile_stage_tile_graph";
+constexpr const char *COMPILE_STAGE_EXECUTION_GRAPH = "compile_stage_execution_graph";
+constexpr const char *COMPILE_STAGE_CODEGEN_INSTRUCTION = "compile_stage_codegen_instruction";
+constexpr const char *COMPILE_STAGE_CODEGEN_BINARY = "compile_stage_codegen_binary";
 
 //runtime
 constexpr const char *DEVICE_SCHED_MODE = "device_sched_mode";
@@ -56,6 +63,7 @@ constexpr const char *STITCH_CFGCACHE_SIZE = "stitch_cfgcache_size";
 constexpr const char *CFG_RUN_MODE = "run_mode";
 const int64_t CFG_RUN_MODE_NPU = 0;
 const int64_t CFG_RUN_MODE_SIM = 1;
+const int64_t CFG_RUN_MODE_COMPILE_ONLY = 2;
 
 //debug
 constexpr const char *CFG_COMPILE_DBEUG_MODE = "compile_debug_mode";

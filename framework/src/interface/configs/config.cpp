@@ -68,6 +68,7 @@ static std::map<std::string, ValueType> g_runtimeConfig = {
 
 static std::map<std::string, ValueType> g_hostConfig = {
     {ONLY_CODEGEN, false},
+    {COMPILE_STAGE, std::string("")},
 };
 
 static std::map<std::string, ValueType> g_codegenConfig = {
