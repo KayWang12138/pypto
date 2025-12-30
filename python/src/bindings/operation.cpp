@@ -493,5 +493,15 @@ void bind_operation(py::module &m) {
     });
     m.def("ToFile", [](const Tensor &operand, const std::string &fname, const std::vector<SymbolicScalar> &scalars,
                         SymbolicScalar cond) { npu::tile_fwk::ToFile(operand, fname, scalars, cond); });
+    m.def(
+        "one_shot_shmem_all_reduce",
+        [](Tensor &in, const char *group, Tensor &out) {
+            return npu::tile_fwk::Distributed::OneShotShmemAllReduce(in, group, out); },
+        py::arg("in"), py::arg("group"), py::arg("out"), "Tensor all reduce");
+    m.def(
+        "two_shot_shmem_all_reduce",
+        [](Tensor &in, const char *group, Tensor &out) {
+            return npu::tile_fwk::Distributed::TwoShotShmemAllReduce(in, group, out); },
+        py::arg("in"), py::arg("group"), py::arg("out"), "Tensor all reduce");
 }
 } // namespace pypto
