@@ -271,7 +271,15 @@ void CodeGenCloudNPU::GenCode(
 #ifdef BUILD_WITH_CANN
             if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) != CFG_RUN_MODE_SIM) {
                 DumpCCE(compileInfo.GetCCEAbsPath(), leafKernelFunc.str());
+                if (config::GetHostOption<int64_t>(COMPILE_STAGE) == COMPILE_STAGE_CODEGEN_INSTRUCTION) {
+                    ALOG_INFO("Compilation stage terminates after codegen instruction.");
+                    return;
+                }
                 DoCompileCCE(compileInfo, "");
+                if (config::GetHostOption<int64_t>(COMPILE_STAGE) == COMPILE_STAGE_CODEGEN_BINARY) {
+                    ALOG_INFO("Compilation stage terminates after codegen binary.");
+                    return;
+                }
             }
 #endif
             UpdateSubFunc(subFuncPair, compileInfo);
