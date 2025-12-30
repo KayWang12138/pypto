@@ -309,7 +309,7 @@ Function *LoopUnroll::CreateLoopFunc(Function *func, Function *callerParentFunc)
     // create function
     std::string funcName = callerParentFunc->GetRawName() + "_" + "LOOP1";
     auto funcMagicName = funcName + "_" + std::to_string(IdGen<IdType::FUNCTION>::Inst().CurId());
-    auto caller = std::make_shared<Function>(Program::GetInstance(), funcMagicName, funcName, callerParentFunc);
+    auto caller = std::make_shared<DynamicLoopFunction>(Program::GetInstance(), funcMagicName, funcName, callerParentFunc);
     caller->SetFunctionType(FunctionType::DYNAMIC_LOOP);
     caller->SetGraphType(GraphType::TENSOR_GRAPH);
     Program::GetInstance().InsertFuncToFunctionMap(funcMagicName, caller);

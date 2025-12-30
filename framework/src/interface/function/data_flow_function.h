@@ -80,6 +80,21 @@ public:
         const std::vector<Operation *> &operations,
         std::vector<std::shared_ptr<LogicalTensor>> &iOperands,
         std::vector<std::shared_ptr<LogicalTensor>> &oOperands) const override;
+    
+    static void EnableMagicLookupRecord(bool enable, Function *function) {
+        enableMagicLookupRecord_ = enable;
+        if (!enable) {
+            tensorAndSubgraphToProducer_.clear();
+            return;
+        }
+        for (Operation &op : function->Operations()) {
+            int subgraphId = op.GetSubgraphID();
+            for (std::shared_ptr<LogicalTensor> tensor : op.GetOOperands()) {
+                std::pair<int,int> tensorAndSubgraph{tensor->GetMagic(), subgraphId};
+                    tensorAndSubgraphToProducer_[tensorAndSubgraph].insert(&op);
+            }
+        }
+    }
 
 protected:
     auto AnnotateOperation();

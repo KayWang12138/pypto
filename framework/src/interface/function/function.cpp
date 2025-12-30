@@ -3204,6 +3204,7 @@ namespace {
     static DyndevFunctionAttribute::ValueDependDesc emptyValueDependDesc;
     static SubfuncInvokeInfoTy emptySubfuncInvokeInfo;
     static const std::map<CoreType, std::vector<int>> emptyReadySubGraphIds;
+    static DynParamInfo emptyDynParamInfo;
 }
 
 
@@ -3377,7 +3378,6 @@ void Function::DumpTopoFile(const std::string &fileName) const
     (void)fileName;
 }
 
-
 //------------------------------------------------------------------------------------------------------
 //------------------------------------------- KernelFunction -------------------------------------------
 //------------------------------------------------------------------------------------------------------
@@ -3462,4 +3462,30 @@ std::pair<bool, Opcode> Function::IsAicpuSubFunction() const {
 GetTensorDataIODescDict Function::GetTensorDataForLeafGraph(){
     ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "GetTensorDataForLeafGraph() should only be called on KernelFunction");
     return {};
+}
+
+void Function::AppendIncast(LogicalTensorPtr tensor, int opmagic, int k){
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "AppendIncast() should only be called on KernelFunction");
+    (void)tensor;
+    (void)opmagic;
+    (void)k;
+}
+
+void Function::AppendOutcast(LogicalTensorPtr tensor, int opmagic, int k){
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "AppendOutcast() should only be called on KernelFunction");
+    (void)tensor;
+    (void)opmagic;
+    (void)k;
+}
+
+DynParamInfo &Function::GetMutableDynParam(std::string dim){
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "GetMutableDynParam() should only be called on KernelFunction");
+    (void)dim;
+    return emptyDynParamInfo;
+}
+
+void Function::InsertDynParam(std::string dim, DynParamInfo &info){
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "InsertDynParam() should only be called on KernelFunction");
+    (void)dim;
+    (void)info;
 }

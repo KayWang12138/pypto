@@ -67,6 +67,24 @@ public:
     
     void CreateLeafInAndOutCast(const LogicalTensorPtr &inOrOut, LogicalTensors &inOrOutList) const override;
     GetTensorDataIODescDict GetTensorDataForLeafGraph() override;
+    
+    void AppendIncast(LogicalTensorPtr tensor, int opmagic, int k) override {
+        incastPosition.emplace_back(opmagic, k);
+        inCasts_.emplace_back(tensor);
+    }
+
+    void AppendOutcast(LogicalTensorPtr tensor, int opmagic, int k) override {
+        outcastPosition.emplace_back(opmagic, k);
+        outCasts_.emplace_back(tensor);
+    }
+
+    DynParamInfo &GetMutableDynParam(std::string dim) override {
+        return dynParamTable_[dim];
+    }
+
+    void InsertDynParam(std::string dim, DynParamInfo &info) override {
+        dynParamTable_.emplace(dim, info);
+    }
 private:
     SubfuncParam parameter_; // Parameter information for heterogeneous subgraph
     int programId_; // Heterogeneous subgraph ID

@@ -672,28 +672,12 @@ public:
     const std::map<std::string, DynParamInfo> &GetDynParamTable() const {
         return dynParamTable_;
     }
-    void InsertDynParam(std::string dim, DynParamInfo &info) {
-        dynParamTable_.emplace(dim, info);
-    }
-
-    DynParamInfo &GetMutableDynParam(std::string dim){
-        return dynParamTable_[dim];
-    }
+   
 
     bool IsUnderDynamicFunction() const { return isUnderDynamicFunction_; }
     void SetUnderDynamicFunction(bool underDynamicFunciton) { isUnderDynamicFunction_ = underDynamicFunciton; }
 
     bool expandFunctionAccelerate{false};
-
-    void AppendIncast(LogicalTensorPtr tensor, int opmagic, int k) {
-        incastPosition.emplace_back(opmagic, k);
-        inCasts_.emplace_back(tensor);
-    }
-
-    void AppendOutcast(LogicalTensorPtr tensor, int opmagic, int k) {
-        outcastPosition.emplace_back(opmagic, k);
-        outCasts_.emplace_back(tensor);
-    }
 
     void RemoveOutcast(int idx) {
         outcastPosition.erase(outcastPosition.begin() + idx);
@@ -702,20 +686,6 @@ public:
         outcastSlot.erase(outcastSlot.begin() + idx);
     }
 
-    static void EnableMagicLookupRecord(bool enable, Function *function) {
-        enableMagicLookupRecord_ = enable;
-        if (!enable) {
-            tensorAndSubgraphToProducer_.clear();
-            return;
-        }
-        for (Operation &op : function->Operations()) {
-            int subgraphId = op.GetSubgraphID();
-            for (std::shared_ptr<LogicalTensor> tensor : op.GetOOperands()) {
-                std::pair<int,int> tensorAndSubgraph{tensor->GetMagic(), subgraphId};
-                 tensorAndSubgraphToProducer_[tensorAndSubgraph].insert(&op);
-            }
-        }
-    }
     GetTensorDataIODescDict GetTensorDataForTensorGraph();
     
     void GetTensorDataRefreshIO(const GetTensorDataIODescDict &descDict);
@@ -740,6 +710,7 @@ public:
     virtual void AddLoopCallToOrderGroup(Operation * callOp);
     virtual void ApplyLoopCallOrderGroup();
     virtual DyndevFunctionAttribute::ValueDependDesc LookupValueDepend();
+
     //------------------------------------------------------------------------------------------------------
     //------------------------------------------- DataFlowFunction -----------------------------------------
     //------------------------------------------------------------------------------------------------------
@@ -770,7 +741,6 @@ public:
     //------------------------------------------- ExecuteFunction ------------------------------------------
     //------------------------------------------------------------------------------------------------------
     virtual void DumpTopoFile(const std::string &fileName) const;
-    
 
     //------------------------------------------------------------------------------------------------------
     //------------------------------------------- KernelFunction -------------------------------------------
@@ -800,6 +770,10 @@ public:
     virtual std::pair<bool, Opcode> IsAicpuSubFunction() const;
     virtual void CreateLeafInAndOutCast(const LogicalTensorPtr &inOrOut, LogicalTensors &inOrOutList) const;
     virtual GetTensorDataIODescDict GetTensorDataForLeafGraph();
+    virtual void AppendIncast(LogicalTensorPtr tensor, int opmagic, int k);
+    virtual void AppendOutcast(LogicalTensorPtr tensor, int opmagic, int k);
+    virtual DynParamInfo &GetMutableDynParam(std::string dim);
+    virtual void InsertDynParam(std::string dim, DynParamInfo &info);
     
 protected:
     std::vector<std::shared_ptr<Operation>> operations_; // operation的获取必须要使用Operations函数，来获取到符合拓扑序的List

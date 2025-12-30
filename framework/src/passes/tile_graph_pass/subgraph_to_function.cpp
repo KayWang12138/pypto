@@ -16,6 +16,7 @@
 #include "passes/tile_graph_pass/subgraph_to_function.h"
 #include "interface/function/function.h"
 #include "interface/tensor/logical_tensor.h"
+#include "interface/function/data_flow_function.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
@@ -63,9 +64,9 @@ Status SubgraphToFunction::RunOnFunction(Function &function) {
     // Construct function.subFunctionInvokeMap
     ConstructParamMap(function);
     // Determine the isomorphism of subgraphs and record ProgramInfoMap
-    Function::EnableMagicLookupRecord(true, &function);
+    DataFlowFunction::EnableMagicLookupRecord(true, &function);
     IslandToFunction(function);
-    Function::EnableMagicLookupRecord(false, &function);
+    DataFlowFunction::EnableMagicLookupRecord(false, &function);
     // GetTensorData: Remove dependency
     if (GetTensorDataDependencyClear(function) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Function, "Failed to clear data dependency.");
