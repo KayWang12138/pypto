@@ -15,13 +15,13 @@
 
 #pragma once
 
-#include "interface/function/control_flow_function.h"
+#include "interface/function/dynamic_loop_function.h"
 
 namespace npu::tile_fwk {
 
 // DataFlowFunction is the dedicated subtype for TENSOR_GRAPH and TILE_GRAPH graphs.
 // It contains members and methods specific to data flow (tensor/tile graph) functions.
-class DataFlowFunction : public ControlFlowFunction {
+class DataFlowFunction : public DynamicLoopFunction {
 public:
     DataFlowFunction(const Program &belongTo, const std::string &funcMagicName,
         const std::string &funcRawName, Function *parentFunc);

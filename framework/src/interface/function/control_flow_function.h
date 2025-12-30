@@ -38,6 +38,8 @@ public:
 
     bool IsDyndev() const override { return dyndevAttr_ != nullptr; }
 
+    bool IsDynloop() const override;
+
     void AddLoopCallToOrderGroup(Operation * callOp) override {
         loopCallOrderGroup_.push_back(callOp);
     }

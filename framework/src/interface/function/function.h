@@ -639,9 +639,9 @@ public:
     std::set<Operation *, LogicalTensor::CompareOp> FindProducers(const Operation &op) const;
 
 
-    void SetDynloopAttribute(const std::shared_ptr<DynloopFunctionAttribute> &attr) { dynloopAttr_ = attr; }
-    const std::shared_ptr<DynloopFunctionAttribute> &GetDynloopAttribute() const { return dynloopAttr_; }
-    std::shared_ptr<DynloopFunctionAttribute> &GetDynloopAttribute() { return dynloopAttr_; }
+    virtual void SetDynloopAttribute(const std::shared_ptr<DynloopFunctionAttribute> &attr);
+    virtual const std::shared_ptr<DynloopFunctionAttribute> &GetDynloopAttribute() const;
+    virtual std::shared_ptr<DynloopFunctionAttribute> &GetDynloopAttribute();
 
     void SetSlotScope(const std::shared_ptr<TensorSlotScope> &slotScope) { slotScope_ = slotScope; }
     const std::shared_ptr<TensorSlotScope> &GetSlotScope() const { return slotScope_; }
@@ -653,7 +653,7 @@ public:
     bool InsertLoopIdxNameList(const std::string &idxName);
 
     bool HasCallOperation();
-    bool IsDynloop() const { return dynloopAttr_ != nullptr; }
+    virtual bool IsDynloop() const;
 
     bool IsHiddenFunction() {return hiddenFunction_;}
     void SetHiddenFunction(bool hiddenFunction) {hiddenFunction_ = hiddenFunction;} 
@@ -856,7 +856,6 @@ protected:
 
     std::map<std::string, DynParamInfo> dynParamTable_;
 
-    std::shared_ptr<DynloopFunctionAttribute> dynloopAttr_;
     std::shared_ptr<LeafFuncAttribute> leafFuncAttr_;
     std::shared_ptr<Distributed::TilingManager> distTilingManager_ = std::make_shared<Distributed::TilingManager>();
     std::shared_ptr<TensorSlotScope> slotScope_;

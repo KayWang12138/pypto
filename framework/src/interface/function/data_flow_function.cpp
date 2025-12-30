@@ -25,7 +25,7 @@ namespace npu::tile_fwk {
 
 DataFlowFunction::DataFlowFunction(const Program &belongTo, const std::string &funcMagicName,
     const std::string &funcRawName, Function *parentFunc)
-    : ControlFlowFunction(belongTo, funcMagicName, funcRawName, parentFunc) {
+    : DynamicLoopFunction(belongTo, funcMagicName, funcRawName, parentFunc) {
 }
 
 void *DataFlowFunction::GetParamAddress(int index) {

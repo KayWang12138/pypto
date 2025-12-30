@@ -26,6 +26,11 @@ ControlFlowFunction::ControlFlowFunction(const Program &belongTo, const std::str
       dyndevAttr_(nullptr) {
 }
 
+bool ControlFlowFunction::IsDynloop() const {
+    if(IsFunctionType(FunctionType::DYNAMIC)) return false;
+    return GetDynloopAttribute() != nullptr;
+}
+
 DyndevFunctionAttribute::ValueDependDesc ControlFlowFunction::LookupValueDepend() {
     struct ValueDependSearcher {
         static void Search(DyndevFunctionAttribute::ValueDependDesc &desc, const SymbolicScalar &attr) {
