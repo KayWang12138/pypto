@@ -44,10 +44,6 @@ public:
 
     std::string GetBinAbsPath() const { return binAbsPath_; }
     void SetBinAbsPath(const std::string &binAbsPath) { binAbsPath_ = binAbsPath; }
-    static bool IsNeedCompileCCE() {
-        bool isNeedCompile = ConfigManager::Instance().GetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, true);
-        return isNeedCompile;
-    }
 
     void SetKernelName(const std::string &kernelName) { kernelName_ = kernelName; }
     std::string GetKernelName() const { return kernelName_; }
