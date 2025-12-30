@@ -543,5 +543,15 @@ void bind_operation(py::module &m) {
         "TopKExtract(x, k:int, is_index:bool=False) -> y\n"
         "Extracts the top-k values (or indices if is_index=True)."
     );
+    m.def(
+        "one_shot_shmem_all_reduce",
+        [](Tensor &in, const char *group, Tensor &out) {
+            return npu::tile_fwk::Distributed::OneShotShmemAllReduce(in, group, out); },
+        py::arg("in"), py::arg("group"), py::arg("out"), "Tensor all reduce");
+    m.def(
+        "two_shot_shmem_all_reduce",
+        [](Tensor &in, const char *group, Tensor &out) {
+            return npu::tile_fwk::Distributed::TwoShotShmemAllReduce(in, group, out); },
+        py::arg("in"), py::arg("group"), py::arg("out"), "Tensor all reduce");
 }
 } // namespace pypto
