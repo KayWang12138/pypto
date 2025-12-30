@@ -25,7 +25,7 @@ namespace npu::tile_fwk {
 
 DataFlowFunction::DataFlowFunction(const Program &belongTo, const std::string &funcMagicName,
     const std::string &funcRawName, Function *parentFunc)
-    : Function(belongTo, funcMagicName, funcRawName, parentFunc) {
+    : ControlFlowFunction(belongTo, funcMagicName, funcRawName, parentFunc) {
 }
 
 int DataFlowFunction::GetParamIndex(const std::shared_ptr<RawTensor> &rawTensor) {

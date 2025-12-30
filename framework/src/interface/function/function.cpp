@@ -3012,48 +3012,6 @@ void Function::OpValidCheck(Operation &op) const {
     opMap.emplace(&op);
 }
 
-DyndevFunctionAttribute::ValueDependDesc Function::LookupValueDepend() {
-    struct ValueDependSearcher {
-        static void Search(DyndevFunctionAttribute::ValueDependDesc &desc, const SymbolicScalar &attr) {
-            std::vector<RawSymbolicScalarPtr> callList = LookupExpressionByOpcode(attr.Raw(), SymbolicOpcode::T_MOP_CALL);
-            for (auto &call : callList) {
-                auto caller = call->GetExpressionOperandList()[0];
-                if (!caller->IsSymbol()) {
-                    continue;
-                }
-                std::string name = caller->GetSymbolName();
-                if (CallIsGetInputData(name)) {
-                    desc.getInputDataCount++;
-                } else if (CallIsGetTensorData(name)) {
-                    desc.getTensorDataCount++;
-                }
-            }
-        }
-    };
-
-    DyndevFunctionAttribute::ValueDependDesc desc;
-    if (GetFunctionType() == FunctionType::DYNAMIC_LOOP) {
-        auto loopAttr = GetDynloopAttribute();
-        ValueDependSearcher::Search(desc, loopAttr->Begin());
-        ValueDependSearcher::Search(desc, loopAttr->End());
-        ValueDependSearcher::Search(desc, loopAttr->Step());
-        for (auto &path : loopAttr->GetPathList()) {
-            for (auto &cond : path.GetPathCondList()) {
-                ValueDependSearcher::Search(desc, cond.GetCond());
-            }
-        }
-
-    } else {
-        for (auto &op : Operations(false)) {
-            std::vector<std::reference_wrapper<SymbolicScalar>> attrList = op.GetDynamicAttributeList();
-            for (auto &attr : attrList) {
-                ValueDependSearcher::Search(desc, attr.get());
-            }
-        }
-    }
-    return desc;
-}
-
 void Function::ValidCheck() const {
     int opMagic = -1000000;
     for (auto &op : const_cast<Function &>(*this).Operations()) {
@@ -3298,18 +3256,58 @@ DefineProg::~DefineProg() {
     }
 }
 
-// Default implementations for KernelFunction virtual functions
-// These should only be called on KernelFunction instances
+// Default implementations for virtual functions
 namespace {
     static std::vector<OperationPtr> emptyOperationList;
     static SubfuncParam emptySubfuncParam;
     static std::shared_ptr<LeafFuncAttribute> emptyLeafFuncAttr;
+    static std::shared_ptr<DyndevFunctionAttribute> emptyDyndevAttr;
+    static DyndevFunctionAttribute::ValueDependDesc emptyValueDependDesc;
+    static SubfuncInvokeInfoTy emptySubfuncInvokeInfo;
+    static const std::map<CoreType, std::vector<int>> emptyReadySubGraphIds;
 }
 
 //------------------------------------------------------------------------------------------------------
 //------------------------------------------- ExecuteFunction ------------------------------------------
 //------------------------------------------------------------------------------------------------------
 
+
+//------------------------------------------------------------------------------------------------------
+//------------------------------------------- ControlFlowFunction --------------------------------------
+//------------------------------------------------------------------------------------------------------
+void Function::SetDyndevAttribute(const std::shared_ptr<DyndevFunctionAttribute> &attr) {
+    ASSERT(false && "SetDyndevAttribute() should only be called on ControlFlowFunction");
+    (void)attr;
+}
+
+const std::shared_ptr<DyndevFunctionAttribute> &Function::GetDyndevAttribute() const {
+    ASSERT(false && "GetDyndevAttribute() should only be called on ControlFlowFunction");
+    return emptyDyndevAttr;
+}
+
+std::shared_ptr<DyndevFunctionAttribute> &Function::GetDyndevAttribute() {
+    ASSERT(false && "GetDyndevAttribute() should only be called on ControlFlowFunction");
+    return emptyDyndevAttr;
+}
+
+bool Function::IsDyndev() const {
+    ASSERT(false && "IsDyndev() should only be called on ControlFlowFunction");
+    return false;
+}
+
+void Function::AddLoopCallToOrderGroup(Operation * callOp) {
+    ASSERT(false && "AddLoopCallToOrderGroup() should only be called on ControlFlowFunction");
+    (void)callOp;
+}
+
+void Function::ApplyLoopCallOrderGroup() {
+    ASSERT(false && "ApplyLoopCallOrderGroup() should only be called on ControlFlowFunction");
+}
+
+DyndevFunctionAttribute::ValueDependDesc Function::LookupValueDepend() {
+    ASSERT(false && "LookupValueDepend() should only be called on ControlFlowFunction");
+    return emptyValueDependDesc;
+}
 
 //------------------------------------------------------------------------------------------------------
 //------------------------------------------- DataFlowFunction -----------------------------------------
@@ -3343,7 +3341,6 @@ void *Function::GetParamAddress(int index) {
 const SubfuncInvokeInfoTy &Function::GetSubFuncInvokeInfo(const size_t i) const {
     ASSERT(GetFunctionType() != FunctionType::DYNAMIC_LOOP_PATH &&
         "GetSubFuncInvokeInfo() should only be called on DataFlowFunction");
-    static SubfuncInvokeInfoTy emptySubfuncInvokeInfo;
     (void)i;
     return emptySubfuncInvokeInfo;
 }
@@ -3351,7 +3348,6 @@ const SubfuncInvokeInfoTy &Function::GetSubFuncInvokeInfo(const size_t i) const 
 const std::map<CoreType, std::vector<int>> &Function:: GetReadySubGraphIds() const {
     ASSERT(GetFunctionType() != FunctionType::DYNAMIC_LOOP_PATH &&
         "GetReadySubGraphIds() should only be called on DataFlowFunction");
-    static const std::map<CoreType, std::vector<int>> emptyReadySubGraphIds;
     return emptyReadySubGraphIds;
 }
 

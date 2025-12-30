@@ -31,6 +31,7 @@
 #include "interface/function/kernel_function.h"
 #include "interface/function/execute_function.h"
 #include "interface/function/data_flow_function.h"
+#include "interface/function/control_flow_function.h"
 #include "interface/interpreter/flow_verifier.h"
 #include "interface/machine/host/host_machine.h"
 #include "tilefwk/tilefwk.h"
@@ -244,6 +245,9 @@ bool Program::BeginFunction(const std::string &funcName,
         } else if(funcType == FunctionType::DYNAMIC_LOOP_PATH) {
             // Create DataFlowFunction for DYNAMIC_LOOP_PATH
             newFunc = std::make_unique<DataFlowFunction>(*this, funcMagicName, funcName, currentFunctionPtr_);
+        } else if (funcType == FunctionType::DYNAMIC || funcType == FunctionType::DYNAMIC_LOOP) {
+            // Create ControlFlowFunction for DYNAMIC
+            newFunc = std::make_unique<ControlFlowFunction>(*this, funcMagicName, funcName, currentFunctionPtr_);
         }
         else {
             // Create regular Function for other graph types

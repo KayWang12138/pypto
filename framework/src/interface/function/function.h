@@ -569,8 +569,6 @@ public:
     bool OperationLoopCheck();
     void ValidCheck() const;
 
-    DyndevFunctionAttribute::ValueDependDesc LookupValueDepend();
-
     std::shared_ptr<OpAttribute> CreateCallOpAttribute(const std::vector<std::vector<SymbolicScalar>> &argList,
         const std::map<int, SymbolicScalar> &outIndexToExpr);
 
@@ -639,10 +637,6 @@ public:
     const std::shared_ptr<DynloopFunctionAttribute> &GetDynloopAttribute() const { return dynloopAttr_; }
     std::shared_ptr<DynloopFunctionAttribute> &GetDynloopAttribute() { return dynloopAttr_; }
 
-    void SetDyndevAttribute(const std::shared_ptr<DyndevFunctionAttribute> &attr) { dyndevAttr_ = attr; }
-    const std::shared_ptr<DyndevFunctionAttribute> &GetDyndevAttribute() const { return dyndevAttr_; }
-    std::shared_ptr<DyndevFunctionAttribute> &GetDyndevAttribute() { return dyndevAttr_; }
-
     void SetSlotScope(const std::shared_ptr<TensorSlotScope> &slotScope) { slotScope_ = slotScope; }
     const std::shared_ptr<TensorSlotScope> &GetSlotScope() const { return slotScope_; }
     std::shared_ptr<TensorSlotScope> &GetSlotScope() { return slotScope_; }
@@ -654,7 +648,6 @@ public:
 
     bool HasCallOperation();
     bool IsDynloop() const { return dynloopAttr_ != nullptr; }
-    bool IsDyndev() const { return dyndevAttr_ != nullptr; }
 
     bool IsHiddenFunction() {return hiddenFunction_;}
     void SetHiddenFunction(bool hiddenFunction) {hiddenFunction_ = hiddenFunction;} 
@@ -693,16 +686,6 @@ public:
     void SetUnderDynamicFunction(bool underDynamicFunciton) { isUnderDynamicFunction_ = underDynamicFunciton; }
 
     bool expandFunctionAccelerate{false};
-
-    void AddLoopCallToOrderGroup(Operation * callOp) {
-        loopCallOrderGroup_.push_back(callOp);
-    }
-
-    void ApplyLoopCallOrderGroup() {
-        if (!loopCallOrderGroup_.empty()) {
-            AddOperationGroup(loopCallOrderGroup_);
-        }
-    }
 
     void AppendIncast(LogicalTensorPtr tensor, int opmagic, int k) {
         incastPosition.emplace_back(opmagic, k);
@@ -747,6 +730,18 @@ public:
     std::shared_ptr<SourceLocation> GetSourceLocation() const { return sourceLocation_; }
     void CleanRedundantOutCast();
 
+    //------------------------------------------------------------------------------------------------------
+    //------------------------------------------- ControlFlowFunction --------------------------------------
+    //------------------------------------------------------------------------------------------------------
+    // Virtual functions for ControlFlowFunction interface compatibility
+    // These functions allow calling ControlFlowFunction methods through Function* pointer
+    virtual void SetDyndevAttribute(const std::shared_ptr<DyndevFunctionAttribute> &attr);
+    virtual const std::shared_ptr<DyndevFunctionAttribute> &GetDyndevAttribute() const;
+    virtual std::shared_ptr<DyndevFunctionAttribute> &GetDyndevAttribute();
+    virtual bool IsDyndev() const;
+    virtual void AddLoopCallToOrderGroup(Operation * callOp);
+    virtual void ApplyLoopCallOrderGroup();
+    virtual DyndevFunctionAttribute::ValueDependDesc LookupValueDepend();
     //------------------------------------------------------------------------------------------------------
     //------------------------------------------- DataFlowFunction -----------------------------------------
     //------------------------------------------------------------------------------------------------------
@@ -843,12 +838,9 @@ protected:
     std::map<std::string, DynParamInfo> dynParamTable_;
 
     std::shared_ptr<DynloopFunctionAttribute> dynloopAttr_;
-    std::shared_ptr<DyndevFunctionAttribute> dyndevAttr_;
     std::shared_ptr<LeafFuncAttribute> leafFuncAttr_;
     std::shared_ptr<Distributed::TilingManager> distTilingManager_ = std::make_shared<Distributed::TilingManager>();
     std::shared_ptr<TensorSlotScope> slotScope_;
-
-    std::vector<Operation *> loopCallOrderGroup_;
 
     static bool enableMagicLookupRecord_;
     static std::map<std::pair<int, int>, std::set<Operation *, LogicalTensor::CompareOp>> tensorAndSubgraphToProducer_;
