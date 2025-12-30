@@ -587,7 +587,6 @@ public:
     int GetStackWorkespaceSize() const { return stackWorkespaceSize_; }
     void SetStackWorkespaceSize(int size) { stackWorkespaceSize_ = size; }
 
-
     const std::vector<std::shared_ptr<LogicalTensor>> &GetOriginIncast() const { return originInCasts_; }
     const std::vector<std::shared_ptr<LogicalTensor>> &GetOriginOutcast() const { return originOutCasts_; }
     const std::vector<std::shared_ptr<LogicalTensor>> &GetIncast() const { return inCasts_; }
@@ -722,7 +721,6 @@ public:
         outcastSlot.erase(outcastSlot.begin() + idx);
     }
 
-
     static void EnableMagicLookupRecord(bool enable, Function *function) {
         enableMagicLookupRecord_ = enable;
         if (!enable) {
@@ -748,9 +746,6 @@ public:
 
     std::shared_ptr<SourceLocation> GetSourceLocation() const { return sourceLocation_; }
     void CleanRedundantOutCast();
-
-
-
 
     //------------------------------------------------------------------------------------------------------
     //------------------------------------------- DataFlowFunction -----------------------------------------
@@ -860,7 +855,6 @@ protected:
     std::shared_ptr<Tensor> getTensorDataOutcast_;
     std::shared_ptr<SourceLocation> sourceLocation_;
     bool hiddenFunction_{false};
-
 
     unsigned long ComputeHashOrderless() const;
     void OpValidCheck(Operation &op) const;
