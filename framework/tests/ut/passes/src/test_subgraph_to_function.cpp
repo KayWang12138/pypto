@@ -44,7 +44,7 @@ public:
     void SetUp() override {
         Program::GetInstance().Reset();
         config::Reset();
-        config::SetHostOption(COMPILE_STAGE, HOST_COMPILE_END);
+        config::SetRuntimeOption(CFG_RUN_MODE, COMPILE_STAGE3);
     }
 
     void TearDown() override {}
@@ -550,7 +550,6 @@ TEST_F(SubgraphToFunctionTest, test_json_dump_and_load_1) {
     #ifndef PRIOR_SCHEDULING
     EXPECT_EQ(programJsonNew.dump(), programJsonNewNew.dump());
     #endif
-    config::SetHostOption(COMPILE_STAGE, ALL_COMPLETE);
 }
 
 TEST_F(SubgraphToFunctionTest, test_json_dump_and_load_1_cov) {
@@ -579,8 +578,6 @@ TEST_F(SubgraphToFunctionTest, test_json_dump_and_load_1_cov) {
 
     Program::GetInstance().LoadJson(programJsonNew);
     Json programJsonNewNew = Program::GetInstance().DumpJson();
-
-    config::SetHostOption(COMPILE_STAGE, ALL_COMPLETE);
 }
 
 TEST_F(SubgraphToFunctionTest, test_json_dump_and_load_2) {
@@ -613,7 +610,7 @@ TEST_F(SubgraphToFunctionTest, test_json_dump_and_load_2) {
     for (auto s : actSeqs) {
         blockNum += CeilDiv(s, blockSize);
     }
-    config::SetHostOption(COMPILE_STAGE, HOST_COMPILE_END);
+    config::SetRuntimeOption(CFG_RUN_MODE, COMPILE_STAGE3);
 
     PROGRAM("PageAttentionStatic") {
         Tensor qNope(DT_BF16, {b * sq * nq, dn}, (uint8_t *)nullptr, "qNope");
@@ -648,7 +645,6 @@ TEST_F(SubgraphToFunctionTest, test_json_dump_and_load_2) {
     #ifndef PRIOR_SCHEDULING
     EXPECT_EQ(programJsonNew.dump(), programJsonNewNew.dump());
     #endif
-    config::SetHostOption(COMPILE_STAGE, ALL_COMPLETE);
 }
 
 /*
