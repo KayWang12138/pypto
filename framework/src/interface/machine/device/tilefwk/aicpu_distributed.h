@@ -17,8 +17,11 @@
 #include "aicpu_runtime.h"
 #include "tileop/distributed/hccl_context.h"
 
-#define RUNTIME_GetHcclRankId(groupIndex) \
-     ((TileOp::HcclCombinOpParam *)(startArgs->hcclContextAddr[groupIndex]))->rankId
+#define RUNTIME_GetHcclRankIdV1(groupIndex) \
+((TileOp::HcclCombinOpParam *)(startArgs->hcclContextAddr[groupIndex]))->rankId
+
+#define RUNTIME_GetHcclRankIdV2(groupIndex) \
+((TileOp::HcclOpResParam *)(startArgs->hcclContextAddr[groupIndex]))->localUsrRankId
 
 #define RUNTIME_BindTensor(groupIndex, memType, size) \
     [&](void *ctx, uint64_t tgroupIndex, uint64_t tmemType, uint64_t tsize) -> uint64_t { \

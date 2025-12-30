@@ -59,7 +59,7 @@ inline uint64_t GetVirtualAddrGroupIndex(uint64_t val)
     return GetVirtualAddrBist(val, groupIndexStart, groupIndexEnd);
 }
 
-inline uint64_t GetVirtaulAddrMemType(uint64_t val)
+inline uint64_t GetVirtualAddrMemType(uint64_t val)
 {
     constexpr uint64_t memTypeStart = 60UL; 
     constexpr uint64_t memTypeEnd = 61UL; 
@@ -89,7 +89,7 @@ inline std::vector<uint32_t> GetCoaVector(const uint32_t baseIndex, const uint32
 inline AicpuParamInfo DecodeAicpuCode(const npu::tile_fwk::dynamic::DevRelocVector<int32_t> &aicpuCode)
 {
     AicpuParamInfo paramInfo;
-    int index = 1;
+    int index = 2;
     paramInfo.outIndex = index + 1;
 
     index = index + aicpuCode[index] + 1;

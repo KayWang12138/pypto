@@ -18,10 +18,19 @@
 #include "interface/tensor/symbolic_scalar.h"
 #include "tilefwk/symbolic_scalar.h"
 #include "tilefwk/symbolic_distributed.h"
+#include "tilefwk/platform.h"
 
 namespace npu::tile_fwk {
 SymbolicScalar GetHcclRankId(int32_t groupIndex) {
-    std::string name = SymbolHandler::GetNameByHandlerId(SymbolHandlerId::GetHcclRankId);
+    Platform::Instance().ObtainPlatformInfo();
+    auto SoCVersion = Platform::Instance().GetSoc().GetShortSoCVersion();
+    std::string name;
+    if(SoCVersion == ShortSoCVersion::SoC_910B) {
+        name = SymbolHandler::GetNameByHandlerId(SymbolHandlerId::GetHcclRankIdV1);
+    }
+    else {
+        name = SymbolHandler::GetNameByHandlerId(SymbolHandlerId::GetHcclRankIdV2);
+    }
     name = AddRuntimePrefix(name);
     SymbolicScalar getHcclRankId(name);
     return getHcclRankId(groupIndex);

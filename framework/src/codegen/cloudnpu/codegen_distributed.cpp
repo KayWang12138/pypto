@@ -20,6 +20,7 @@
 #include "interface/utils/log.h"
 #include "securec.h"
 #include "interface/operation/distributed/distributed_common.h"
+#include "tilefwk/platform.h"
 
 namespace npu::tile_fwk {
 
@@ -73,6 +74,14 @@ std::string CodeGenOpCloudNPU::GetTemplateDType() const
 }
 
 void CodeGenOpCloudNPU::GenExtraTemplateParamsForPutAndGet(std::ostringstream& oss) const {
+    auto SoCVersion = Platform::Instance().GetSoc().GetShortSoCVersion();
+    std::string hcclStr{};
+    if(SoCVersion == ShortSoCVersion::SoC_910B) {
+        hcclStr = "TileOp::HcclCombinOpParam";
+    }
+    else {
+        hcclStr = "TileOp::HcclOpResParam";
+    }
     int32_t nonShmemDataIndex = (opCode == Opcode::OP_SHMEM_PUT) ? 2 : 0;
     // 必须从 shmemData 取 shape，不能从 nonShmemData 取
     // 如果从 nonShmemData 取，ShmemGet 会取到 assemble 后的 shape，不符合预期
@@ -107,7 +116,8 @@ void CodeGenOpCloudNPU::GenExtraTemplateParamsForPutAndGet(std::ostringstream& o
     CheckInRange(bufferColShape);
     CheckInRange(stride);
 
-    oss << "<" << DataType2CCEStr(operandDtype[nonShmemDataIndex]) 
+    oss << "<" << hcclStr
+        << ", " << DataType2CCEStr(operandDtype[nonShmemDataIndex]) 
         << ", " << DataType2CCEStr(operandDtype[shmemDataIndex]) 
         << ", " << tileRowShape << ", " << tileColShape << ", " << bufferRowShape
         << ", " << bufferColShape << ", " << stride << ", " << stride << ", "
@@ -115,16 +125,32 @@ void CodeGenOpCloudNPU::GenExtraTemplateParamsForPutAndGet(std::ostringstream& o
 }
 
 void CodeGenOpCloudNPU::GenExtraTemplateParamsForMoeCombine(std::ostringstream& oss, int32_t operandIndex) const {
+    auto SoCVersion = Platform::Instance().GetSoc().GetShortSoCVersion();
+    std::string hcclStr{};
+    if(SoCVersion == ShortSoCVersion::SoC_910B) {
+        hcclStr = "TileOp::HcclCombinOpParam";
+    }
+    else {
+        hcclStr = "TileOp::HcclOpResParam";
+    }
     DistOpAttr distOpAttr = npu::tile_fwk::AnyCast<DistOpAttr>(opAttrs.at(OpAttributeKey::distOpAttr));
     int64_t colShape = originShape[operandIndex][originShape[operandIndex].size() - 1];
     int64_t dataIndex = (opCode == Opcode::OP_SHMEM_MOE_COMBINE_SEND) ? 4 : 6;
     int64_t rowShape = originShape[dataIndex][originShape[dataIndex].size() - 2];
-    oss << "<" << GetTemplateDType() << ", " << distOpAttr.topK << ", " << rowShape << ", " << colShape << ", "
+    oss << "<" << hcclStr << ", " << GetTemplateDType() << ", " << distOpAttr.topK << ", " << rowShape << ", " << colShape << ", "
         << distOpAttr.paddedColShape << ">";
 }
 
 std::string CodeGenOpCloudNPU::GenTemplateParams() const
 {
+    auto SoCVersion = Platform::Instance().GetSoc().GetShortSoCVersion();
+    std::string hcclStr{};
+    if(SoCVersion == ShortSoCVersion::SoC_910B) {
+        hcclStr = "TileOp::HcclCombinOpParam";
+    }
+    else {
+        hcclStr = "TileOp::HcclOpResParam";
+    }
     std::ostringstream oss;
     switch (opCode) {
         case Opcode::OP_SHMEM_PUT:
@@ -136,7 +162,7 @@ std::string CodeGenOpCloudNPU::GenTemplateParams() const
         }
         case Opcode::OP_SHMEM_SIGNAL: {
             DistOpAttr distOpAttr = npu::tile_fwk::AnyCast<DistOpAttr>(opAttrs.at(OpAttributeKey::distOpAttr));
-            oss << "<" << std::to_string(distOpAttr.signalValue) << ", "
+            oss << "<" << hcclStr << ", " << std::to_string(distOpAttr.signalValue) << ", "
                 << npu::tile_fwk::Distributed::AtomicTypeToString(distOpAttr.atomicType) << ">";
             break;
         }
@@ -148,7 +174,7 @@ std::string CodeGenOpCloudNPU::GenTemplateParams() const
             int64_t row = outShape[0];
             int64_t col = outShape[1];
 
-            oss << "<" << GetTemplateDType() << ", " << distOpAttr.extraTemplateParam << ", " << row << ", " << col
+            oss << "<" << hcclStr << ", " << GetTemplateDType() << ", " << distOpAttr.extraTemplateParam << ", " << row << ", " << col
                 << ">";
             break;
         }
@@ -168,9 +194,9 @@ std::string CodeGenOpCloudNPU::GenTemplateParams() const
                 distOpAttr = npu::tile_fwk::AnyCast<DistOpAttr>(opAttrs.at(OpAttributeKey::distOpAttr));
             }
             if (distOpAttr.extraTemplateParam.empty()) {
-                oss << "<" << GetTemplateDType() << ">";
+                oss << "<" << hcclStr << ", "<< GetTemplateDType() << ">";
             } else {
-                oss << "<" << GetTemplateDType() << ", " << distOpAttr.extraTemplateParam << ">";
+                oss << "<" << hcclStr << ", " << GetTemplateDType() << ", " << distOpAttr.extraTemplateParam << ">";
             }
             break;
         }
