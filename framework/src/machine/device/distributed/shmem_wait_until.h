@@ -23,6 +23,12 @@
 #include "machine/utils/dynamic/device_task.h"
 
 namespace npu::tile_fwk::Distributed {
+enum class ShortSoCVersion {
+    SoC_910B,
+    SoC_910_93,
+    SoC_UNKOWN
+};
+
 struct SignalTileOp {
     void Init(uint64_t taskId, int32_t* addr, int32_t expectedSum, bool resetSignal) {
         taskId_ = taskId;
@@ -201,7 +207,7 @@ private:
     uint64_t *hcclContextAddr_;
     AicpuParamInfo paramInfo_;
 
-    uint64_t GetRawAddr(const uint64_t addr, const uint64_t dstRankId);
+    uint64_t GetRawAddr(const ShortSoCVersion shortSoCVersion_, const uint64_t addr, const uint64_t dstRankId);
     TensorInfo GetTensorInfo(uint64_t taskId, const npu::tile_fwk::dynamic::DevRelocVector<int32_t> &aicpuCode);
 };
 

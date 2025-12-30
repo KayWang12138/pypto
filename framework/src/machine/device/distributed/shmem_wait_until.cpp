@@ -48,16 +48,25 @@ int32_t ShmemWaitUntil::PollCompleted(npu::tile_fwk::dynamic::AiCoreManager &aic
     });
 }
 
-uint64_t ShmemWaitUntil::GetRawAddr(const uint64_t addr, const uint64_t dstRankId) {
+uint64_t ShmemWaitUntil::GetRawAddr(const ShortSoCVersion shortSoCVersion_, const uint64_t addr, const uint64_t dstRankId) {
     uint64_t groupIndex = npu::tile_fwk::Distributed::GetVirtualAddrGroupIndex(addr);
     uint64_t offset = npu::tile_fwk::Distributed::GetVirtualAddrOffset(addr);
     uint64_t memType = npu::tile_fwk::Distributed::GetVirtaulAddrMemType(addr);
-    auto hcclOpParam = reinterpret_cast<TileOp::HcclCombinOpParam*>(hcclContextAddr_[groupIndex]);
-    if (memType == 0) {
-        return hcclOpParam->windowsIn[dstRankId] + offset;
+    if(shortSoCVersion_ == ShortSoCVersion::SoC_910B) {
+        auto hcclOpParam = reinterpret_cast<TileOp::HcclCombinOpParam*>(hcclContextAddr_[groupIndex]);
+        if (memType == 0) {
+            return hcclOpParam->windowsIn[dstRankId] + offset;
+        } else {
+            return hcclOpParam->windowsExp[dstRankId] + offset;
+        }
     } else {
-        return hcclOpParam->windowsExp[dstRankId] + offset;
+        auto hcclOpParam = reinterpret_cast<TileOp::HcclOpResParam*>(hcclContextAddr_[groupIndex]);
+        if((uint32_t)dstRankId == hcclOpParam->localUsrRankId) {
+            return hcclOpParam->localWindowsIn + offset;
+        }
+        return ((TileOp::HcclRankRelationResV2*)(hcclOpParam->remoteRes[dstRankId].nextDevicePtr))->windowsIn + offset;
     }
+    return 0;
 }
 
 TensorInfo ShmemWaitUntil::GetTensorInfo(uint64_t taskId, const npu::tile_fwk::dynamic::DevRelocVector<int32_t> &aicpuCode) {
@@ -78,7 +87,8 @@ TensorInfo ShmemWaitUntil::GetTensorInfo(uint64_t taskId, const npu::tile_fwk::d
     info.expectedSum = aicpuCode[paramInfo_.attrIndex];
     info.resetSignal = aicpuCode[paramInfo_.attrIndex + 1];
     auto desc = &funcData.rawTensorDesc[info.rawIndex];
-    info.rawAddr = ShmemWaitUntil::GetRawAddr(funcData.rawTensorAddr[desc->offsetOrIndex], dstRankId);
+    auto shortSoCVersion_ = static_cast<ShortSoCVersion>(aicpuCode[1]);
+    info.rawAddr = ShmemWaitUntil::GetRawAddr(shortSoCVersion_, funcData.rawTensorAddr[desc->offsetOrIndex], dstRankId);
     return info;
 }
 } // namespace npu::tile_fwk::Distributed
