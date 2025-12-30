@@ -38,7 +38,7 @@ set_runtime_options(*,
 | stitch_function_num_step       | 输入      | 含义：machine运行时ctrlflow aicpu里控制非首次device task的计算任务量 <br> 说明：为了后续stitch task处理计算量平滑增加，可以通过设置此配置项进行控制。如设置为n，则每次stitch task里处理的loop次数分别base+n， base+2n 。。。 <br> 类型：int <br> 取值范围:0 ~ 128 <br> 默认值：0 <br> 影响pass范围：NA |
 | stitch_function_size           | 输入      | 含义：machine运行时ctrlflow aicpu里控制stitch生成的device task处理最大Callop计算量 <br> 说明：为了保障stitch task处理单次loop时的性能，需通过设置该配置项进行控制，该配置项设置的过大会带来额外的性能和内存开销，需根据算子最大Callop数量调整该配置项。若Callop数量超过该配置会报错提示：ASSERT FAILED：CallOpSize&lt;=CallOpmaxSize."loopFunction:&lt;function name&gt; ,CallopSize:&lt;当前Callop数量&gt;，CallOpmaxSize：&lt;配置项大小&gt;" <br> 类型：int <br> 取值范围:1 ~ 65535 <br> 默认值：20000 <br> 影响pass范围：NA |
 | stitch_cfgcache_size           | 输入      | 含义：指定生成控制流缓存的大小，单位是字节 <br>说明：如果该值是0，则表示不使能控制流缓存。由于控制流缓存是按照任务大小来缓存，如果设置比较小，例如小于一个任务，那么无法缓存。<br>类型：int<br>取值范围：0~100000000<br>默认值：0<br>影响pass范围：NA |
-| run_mode                       | 输入      | 含义：设置计算子图的执行设备 <br> 说明：<br> 0：表示在NPU上执行 <br> 1：表示在模拟器上执行 <br> 类型：int <br> 取值范围：0或者1 <br> 默认值：根据是否设置cann的环境变量来决定。如果设置了环境变量，则在NPU上执行；否则在模拟器上执行 <br> 影响pass范围：NA |
+| run_mode                       | 输入      | 含义：设置计算子图的执行设备 <br> 说明：<br> 0：表示在NPU上执行 <br> 1：表示在模拟器上执行 <br> 2：编译模式，生成最终张量图(TensorGraph)后终止 <br> 3：编译模式，生成最终分片图(TileGraph)后终止 <br> 4：编译模式，生成最终执行图(ExecuteGraph)后终止 <br> 5：编译模式，生成指令代码(CodegenInstruction)后终止 <br> 6：编译模式，编译生成二进制代码(CodegenBinary)后终止, 编译阶段结束 <br> 类型：int <br> 取值范围：0-6 <br> 默认值：根据是否设置cann的环境变量来决定。如果设置了环境变量，则在NPU上执行；否则在模拟器上执行。 <br> 影响pass范围：NA |
 
 ## 返回值说明
 
