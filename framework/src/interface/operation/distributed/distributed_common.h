@@ -57,10 +57,6 @@ enum class TileIndex : size_t {
     TAIL_SHAPE
 };
 
-enum class AtomicType {
-    SET,
-    ADD
-};
 
 inline std::string AtomicTypeToString(AtomicType type)
 {

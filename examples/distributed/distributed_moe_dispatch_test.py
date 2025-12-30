@@ -35,7 +35,7 @@ def setup_distributed(rank, world_size):
     return hccl_comm, hccl_comm_name
 
 @pypto.jit
-def moe_dispatch_kernel(token_tensor: pypto.Tensor, token_expert_table: pypto.Tensor, 
+def moe_dispatch_kernel(token_tensor: pypto.Tensor, token_expert_table: pypto.Tensor,
                         group_name: str, moe_config: pypto.distributed.MoeConfig,
                         expand_x: pypto.Tensor, valid_cnt: pypto.Tensor, combine_info: pypto.Tensor) -> None:
     global distributed_options

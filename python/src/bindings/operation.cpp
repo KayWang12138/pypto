@@ -494,16 +494,17 @@ void bind_operation(py::module &m) {
     m.def("ToFile", [](const Tensor &operand, const std::string &fname, const std::vector<SymbolicScalar> &scalars,
                         SymbolicScalar cond) { npu::tile_fwk::ToFile(operand, fname, scalars, cond); });
 
-    // // 1. 基础 CreateShmemTensor
-    // // 注意：C++ 中它是通过引用传出 Tensor，Python 中通常习惯返回 Tensor
-    // m.def("CreateShmemTensor", 
-    //     [](int32_t rankSize, int32_t hcclGroupIndex, DataType dataType, const std::vector<int64_t>& shape) {
-    //         Tensor shmemTensor;
-    //         npu::tile_fwk::Distributed::CreateShmemTensor(shmemTensor, rankSize, hcclGroupIndex, dataType, shape);
-    //         return shmemTensor;
-    //     },
-    //     py::arg("rankSize"), py::arg("hcclGroupIndex"), py::arg("dataType"), py::arg("shape"),
-    //     "Create a shared memory tensor.");
+    // 1. 基础 CreateShmemTensor
+    // 注意：C++ 中它是通过引用传出 Tensor，Python 中通常习惯返回 Tensor
+    m.def("CreateShmemTensor", 
+        [](int32_t rankSize, const std::string &group, DataType dataType, const std::vector<int64_t>& shape) {
+            Tensor shmemTensor;
+            int32_t hcclGroupIndex = static_cast<int>(npu::tile_fwk::Distributed::CommGroupRecorder::GetInstance().Input(group));
+            npu::tile_fwk::Distributed::CreateShmemTensor(shmemTensor, rankSize, hcclGroupIndex, dataType, shape);
+            return shmemTensor;
+        },
+        py::arg("rankSize"), py::arg("group"), py::arg("dataType"), py::arg("shape"),
+        "Create a shared memory tensor.");
 
     // 2. Barrier
     m.def("Barrier", 
@@ -576,6 +577,57 @@ void bind_operation(py::module &m) {
         },
         py::arg("in"), py::arg("combineInfo"), py::arg("scale"), py::arg("group"), py::arg("rankSize"), py::arg("totalExpertNum"), py::arg("out"),
         "MoE combine operation.");
+
+    // 10. ShmemPut
+    m.def("ShmemPut",
+        [](const Tensor &in, const Tensor &shmemDataTile, const Tensor &barrierDummy, int tileCount, npu::tile_fwk::Distributed::AtomicType atomicType) {
+            return npu::tile_fwk::Distributed::ShmemPut(in, shmemDataTile, barrierDummy, tileCount, atomicType);
+        },
+        py::arg("in"), py::arg("shmemDataTile"), py::arg("barrierDummy"), py::arg("tileCount"), py::arg("atomicType") = npu::tile_fwk::Distributed::AtomicType::SET,
+        "ShmemPut operation.");
+
+    // 11. ShmemGet
+    m.def("ShmemGet",
+        [](const Tensor &dummy, const Tensor &shmemDataTile, npu::tile_fwk::DataType nonShmemDataType, npu::tile_fwk::Distributed::AtomicType atomicType) {
+            return npu::tile_fwk::Distributed::ShmemGet(dummy, shmemDataTile, nonShmemDataType, atomicType);
+        },
+        py::arg("dummy"), py::arg("shmemDataTile"), py::arg("nonShmemDataType"), py::arg("atomicType") = npu::tile_fwk::Distributed::AtomicType::SET,
+        "ShmemGet operation.");
+
+    // 12. ShmemReduce
+    m.def("ShmemReduce",
+        [](const Tensor &in, const Tensor &shmData, const Tensor &dummy, const Tensor &out) {
+            npu::tile_fwk::Distributed::ShmemReduce(in, shmData, dummy, out);
+        },
+        py::arg("in"), py::arg("shmData"), py::arg("dummy"), py::arg("out"),
+        "ShmemReduce operation.");
+
+    // 13. ShmemSignal
+    m.def("ShmemSignal",
+        [](const Tensor &dummy, const Tensor &shmemSignalTile, npu::tile_fwk::Distributed::AtomicType atomicType) {
+            return npu::tile_fwk::Distributed::ShmemSignal(dummy, shmemSignalTile, atomicType);
+        },
+        py::arg("dummy"), py::arg("shmemSignalTile"), py::arg("atomicType") = npu::tile_fwk::Distributed::AtomicType::SET,
+        "ShmemSignal operation.");
+
+    // 14. ShmemClearSignal
+    m.def("ShmemClearSignal",
+        [](const Tensor &in, const Tensor &shmemSignalTile, const int32_t tileCount) {
+            return npu::tile_fwk::Distributed::ShmemClearSignal(in, shmemSignalTile, tileCount);
+        },
+        py::arg("in"), py::arg("shmemSignalTile"), py::arg("tileCount"),
+        "ShmemClearSignal operation.");
+
+    // 15. WaitUntil
+    m.def("WaitUntil",
+        [](const Tensor &dummyIn, const Tensor &shmemSignalTile, int32_t tileCount, const std::string &group, int32_t expectedSum) {
+            int32_t hcclGroupIndex = static_cast<int>(npu::tile_fwk::Distributed::CommGroupRecorder::GetInstance().Input(group));
+            return npu::tile_fwk::Distributed::WaitUntil(dummyIn, shmemSignalTile, tileCount, hcclGroupIndex, expectedSum);
+        },
+        py::arg("dummyIn"), py::arg("shmemSignalTile"), py::arg("tileCount"), py::arg("group"), py::arg("expectedSum"),
+        "WaitUntil operation.");
+
+
 
 }
 } // namespace pypto
