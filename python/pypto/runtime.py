@@ -36,7 +36,19 @@ _device_fini = pypto_impl.DeviceFini
 class RunMode(Enum):
     NPU = 0
     SIM = 1
+    COMPILE_ONLY = 2
 
+class CompileStage:
+    """Compile stage constants for controlling compilation exit points."""
+    COMPILE_STAGE_TENSOR_GRAPH = "compile_stage_tensor_graph"
+    COMPILE_STAGE_TILE_GRAPH = "compile_stage_tile_graph"
+    COMPILE_STAGE_EXECUTION_GRAPH = "compile_stage_execution_graph"
+    COMPILE_STAGE_CODEGEN_INSTRUCTION = "compile_stage_codegen_instruction"
+    COMPILE_STAGE_CODEGEN_BINARY = "compile_stage_codegen_binary"
+    
+    VALID_STAGES = {COMPILE_STAGE_TENSOR_GRAPH, COMPILE_STAGE_TILE_GRAPH,
+                    COMPILE_STAGE_EXECUTION_GRAPH, COMPILE_STAGE_CODEGEN_INSTRUCTION,
+                    COMPILE_STAGE_CODEGEN_BINARY}
 
 class _CachedVerifyData:
 
@@ -107,6 +119,15 @@ def _compute_tensor_hash(tensors):
 
 
 class _JIT:
+    # Compile stage constants
+    COMPILE_STAGE_TENSOR_GRAPH = CompileStage.COMPILE_STAGE_TENSOR_GRAPH
+    COMPILE_STAGE_TILE_GRAPH = CompileStage.COMPILE_STAGE_TILE_GRAPH
+    COMPILE_STAGE_EXECUTION_GRAPH = CompileStage.COMPILE_STAGE_EXECUTION_GRAPH
+    COMPILE_STAGE_CODEGEN_INSTRUCTION = CompileStage.COMPILE_STAGE_CODEGEN_INSTRUCTION
+    COMPILE_STAGE_CODEGEN_BINARY = CompileStage.COMPILE_STAGE_CODEGEN_BINARY
+
+    VALID_COMPILE_STAGES = CompileStage.VALID_COMPILE_STAGES
+
     def __init__(self, dyn_func, codegen_options=None, host_options=None,
                  pass_options=None, runtime_options=None, verify_options=None, debug_options=None):
         self.dyn_func = dyn_func
@@ -193,6 +214,10 @@ class _JIT:
             if cann_is_configed == False:
                 raise RuntimeError("Please source cann environment while run mode is NPU.")
             self.run_with_npu(in_tensor_data, out_tensor_data, device)
+        elif run_mode == 2:
+ 	        # COMPILE_ONLY mode: skip device launch, only compile
+ 	        print("COMPILE_ONLY mode: skipping device launch")
+ 	        return
         else:
             self.run_with_cpu(in_tensor_data, out_tensor_data)
 
@@ -202,8 +227,8 @@ class _JIT:
 
         run_mode = self.runtime_options.get("run_mode", None)
         if run_mode is not None:
-            if run_mode not in [RunMode.NPU, RunMode.SIM, 0, 1]:
-                raise RuntimeError("Invalid run mode, run mode must be RunMode.NPU or RunMode.SIM.")
+            if run_mode not in [RunMode.NPU, RunMode.SIM, RunMode.COMPILE_ONLY, 0, 1, 2]:
+                raise RuntimeError("Invalid run mode, run mode must be RunMode.NPU, RunMode.SIM, or RunMode.COMPILE_ONLY.")
             else:
                 if isinstance(run_mode, RunMode):
                     self.runtime_options.update({"run_mode": run_mode.value})
@@ -262,6 +287,22 @@ class _JIT:
             pypto.set_codegen_options(**self.codegen_options)
 
         if isinstance(self.host_options, dict):
+            # Validate compile_stage if provided
+            compile_stage = self.host_options.get("compile_stage")
+            if compile_stage is not None:
+                # Check if run_mode is COMPILE_ONLY
+                run_mode = self.runtime_options.get("run_mode") if self.runtime_options else None
+                if run_mode != RunMode.COMPILE_ONLY.value and run_mode != 2:
+                    raise ValueError(
+                        f"compile_stage is only valid when run_mode=COMPILE_ONLY (2), "
+                        f"but current run_mode={run_mode}"
+                    )
+                # Validate compile_stage value
+                if compile_stage not in self.VALID_COMPILE_STAGES:
+                    raise ValueError(
+                        f"Invalid compile_stage: {compile_stage}. "
+                        f"Valid options: {self.VALID_COMPILE_STAGES}"
+                    )
             pypto.set_host_options(**self.host_options)
 
         if isinstance(self.pass_options, dict):
@@ -358,6 +399,24 @@ def verify(func, inputs, outputs, goldens, *args,
 
     if host_options is None:
         host_options = {"only_codegen": True}
+
+    # Validate compile_stage if provided
+    compile_stage = host_options.get("compile_stage")
+    if compile_stage is not None:
+        # Check if run_mode is COMPILE_ONLY
+        current_run_mode = pypto.get_runtime_options().get("run_mode", 0)
+        if current_run_mode != RunMode.COMPILE_ONLY.value and current_run_mode != 2:
+            raise ValueError(
+                f"compile_stage is only valid when run_mode=COMPILE_ONLY (2), "
+                f"but current run_mode={current_run_mode}"
+            )
+        # Validate compile_stage value
+        if compile_stage not in CompileStage.VALID_STAGES:
+            raise ValueError(
+                f"Invalid compile_stage: {compile_stage}. "
+                f"Valid options: {CompileStage.VALID_STAGES}"
+            )
+
     pypto.set_host_options(**host_options)
 
     if pass_options is None:
