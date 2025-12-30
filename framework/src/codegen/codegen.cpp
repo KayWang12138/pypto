@@ -19,7 +19,10 @@
 namespace npu::tile_fwk {
 void CodeGen::GenCode(Function &topFunc, const std::map<uint64_t, std::list<InvokeParaOffset>> &invokeParaOffset) {
     ASSERT(topFunc.rootFunc_ != nullptr) << "rootFunc can not be nullptr";
-
+    if (config::GetHostOption<int64_t>(COMPILE_STAGE) == COMPILE_STAGE_CODEGEN_INSTRUCTION) {
+        ALOG_INFO("Compilation stage terminates after codegen instruction.");
+        return;
+    }
     auto cg = CodeGenFactory::GetCodeGenCCE(ctx_);
     cg->GenCode(topFunc, invokeParaOffset);
 }

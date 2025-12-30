@@ -232,8 +232,22 @@ Status PassManager::RunPass(Program &program, Function &function, const std::str
     std::transform(strategyPasses.begin(), strategyPasses.end(), std::back_inserter(identifiers),
         [](const PassEntry &elem) { return elem.identifier; });
     ConfigManager::Instance().PassConfigsDebugInfo(strategy, identifiers);
+    
+    static const std::unordered_map<std::string, int64_t> kPassToStageMap = {
+        {"ExpandFunction", COMPILE_STAGE_TENSOR_GRAPH},
+        {"SubgraphToFunction", COMPILE_STAGE_TILE_GRAPH},
+    };
+    
+    int64_t currentStage = config::GetHostOption<int64_t>(COMPILE_STAGE);
+    
     for (size_t i = startIdx; i < strategyPasses.size(); i++) {
         const auto &identifier = strategyPasses[i].identifier;
+        
+        auto it = kPassToStageMap.find(identifier);
+        if (it != kPassToStageMap.end() && it->second == currentStage) {
+            ALOG_INFO_F("Compilation stage terminates after %s.", identifier.c_str());
+            return SUCCESS;
+        }
         const auto &passName = strategyPasses[i].passName;
         auto pass = PassRegistry::GetInstance().CreatePass(PassNameStr(passName));
         if (pass == nullptr) {
