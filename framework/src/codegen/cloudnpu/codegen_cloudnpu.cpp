@@ -409,6 +409,10 @@ void CodeGenCloudNPU::DoCompileCCE(const CompileInfo &compileInfo, const std::st
     if (!compileInfo.IsNeedCompileCCE()) {
         return;
     }
+    if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) == COMPILE_STAGE4) {
+        ALOG_INFO("Compile stage terminates after codegen instruction.");
+        return;
+    }
     auto [ret, ccecCmd] = CompileCCE(compileInfo, compileOptions);
     ASSERT(ret == 0) << "CompileCCE failed. errCode = " << ret << ", cce file: " << compileInfo.GetCCEAbsPath()
                      << "\n******** bisheng compiling cmd start ********\n"

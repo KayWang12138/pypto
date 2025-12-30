@@ -150,7 +150,7 @@ TEST_F(TestConfigManager, NormalRuntimeTest) {
         {STITCH_FUNCTION_NUM_STEP, {0, 128}},
         {STITCH_CFGCACHE_SIZE, {0, 100000000}},
         {STITCH_FUNCTION_SIZE, {1, 65535}},
-        {CFG_RUN_MODE, {0, 1}},
+        {CFG_RUN_MODE, {0, 6}},
     };
     bool ret = RangeTest<int64_t>(input, &(config::SetOptionsNg), "runtime");
     EXPECT_EQ(ret, true);
@@ -167,7 +167,7 @@ TEST_F(TestConfigManager, AbnormalRuntimeTest) {
         {STITCH_FUNCTION_NUM_STEP, {-1, 129}},
         {STITCH_CFGCACHE_SIZE, {-1, 100000001}},
         {STITCH_FUNCTION_SIZE, {0, 65536}},
-        {CFG_RUN_MODE, {-1, 2}},
+        {CFG_RUN_MODE, {-1, 7}},
     };
     bool ret = RangeTest<int64_t>(input, &(config::SetOptionsNg), "runtime");
     EXPECT_EQ(ret, true);
