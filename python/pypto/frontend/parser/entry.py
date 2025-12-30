@@ -333,6 +333,7 @@ class JitCallableWrapper:
         pto_in_tensors = convert_tensors_with_metadata(in_tensors, input_tensor_defs)
         pto_out_tensors = convert_tensors_with_metadata(out_tensors, output_tensor_defs)
 
+
         self._dispatch_with_run_mode(pto_in_tensors + pto_out_tensors, [], device)
 
         # Return single tensor or tuple based on number of outputs
@@ -427,9 +428,12 @@ class JitCallableWrapper:
 
         run_mode = self._runtime_options.get("run_mode", None)
         if run_mode is not None:
-            if run_mode not in [pypto.RunMode.NPU, pypto.RunMode.SIM, 0, 1]:
+            if run_mode not in [pypto.RunMode.NPU, pypto.RunMode.SIM, pypto.RunMode.COMPILE_STAGE1,
+                                pypto.RunMode.COMPILE_STAGE2, pypto.RunMode.COMPILE_STAGE3,
+                                pypto.RunMode.COMPILE_STAGE4, pypto.RunMode.COMPILE_STAGE5,
+                                0, 1, 2, 3, 4, 5, 6]:
                 raise RuntimeError(
-                    "Invalid run mode, run mode must be RunMode.NPU or RunMode.SIM."
+                    "Invalid run mode, run mode must be RunMode.NPU, RunMode.SIM or RunMode.COMPILE_STAGEx"
                 )
             else:
                 if isinstance(run_mode, pypto.RunMode):
@@ -679,8 +683,10 @@ class JitCallableWrapper:
                     "Please source cann environment while run mode is NPU."
                 )
             self._run_with_npu(in_tensors, out_tensors, device)
-        else:  # SIM mode
+        elif run_mode == 1:  # SIM mode
             self._run_with_cpu(in_tensors, out_tensors)
+        else: # COMPILE mode
+            return
 
 
 def function(

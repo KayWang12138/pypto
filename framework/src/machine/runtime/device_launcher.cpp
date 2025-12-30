@@ -158,6 +158,12 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
         }
     }
     CheckDeviceId();
+    // 检查 devProgBinary 是否为空，如果为空说明在 compile_stage 提前退出时没有设置
+    // 这种情况下应该提前返回，避免运行时错误
+    if (function->GetDyndevAttribute() == nullptr || function->GetDyndevAttribute()->devProgBinary.empty()) {
+        ALOG_WARN("devProgBinary is empty, may be due to compile_stage early exit. Skipping device launch.");
+        return 0;
+    }
     DeviceKernelArgs kArgs;
     DeviceLauncherConfigFillDeviceInfo(config);
     DeviceInitDistributedContext(function->GetDyndevAttribute()->commGroupNames, function->GetDyndevAttribute()->devProgBinary);
