@@ -14,5 +14,5 @@ target_sources(ir_proto
 
 target_include_directories(ir_proto 
     PUBLIC
-        ${PTO_FWK_SRC_ROOT}/framework/src/interface
+        ${PTO_FWK_SRC_ROOT}/framework/include
 )
