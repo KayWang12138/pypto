@@ -125,6 +125,9 @@ extern "C" int32_t Execute(MachineTask *task, FunctionCache &cache) {
         ALOG_INFO("draw graph switch enabled, push finish queue.");
         return 0;
     }
+    if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) >= COMPILE_STAGE1 &&
+        config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) <= COMPILE_STAGE3) {
+        return 0;}
     auto deviceMachineTask = std::make_shared<MachineTask>(task->GetTaskId(), task->GetFunction());
     deviceMachineTask->SetCacheReuseType(task->GetCacheReuseType());
     deviceMachineTask->SetCacheKey(task->GetCacheKey());
@@ -167,13 +170,11 @@ extern "C" int32_t Execute(MachineTask *task, FunctionCache &cache) {
         // save compile result on disk
         CacheManager::Instance().SaveTaskFile(deviceAgentTask.get());
     }
-
     if (config::GetHostOption<int64_t>(COMPILE_STAGE) == GEN_KERNEL_CODE) {
         ALOG_INFO("only gen code switch enabled, push finish queue.");
         // only static use gDeviceAgentTaskPtr; when dynamic, delete deviceMachineTask
         return 0;
     }
-
     gDeviceAgentTaskPtr = deviceAgentTask;
     return 0;
 }
@@ -970,6 +971,9 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[ma
 
 #ifdef BUILD_WITH_CANN
     if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) != CFG_RUN_MODE_SIM) {
+        if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) == COMPILE_STAGE4) {
+            return;
+        }
         int ret = CompileAICoreKernel(leafDict, encodeDevAscendFunctionParam,
                                     ccePath, function->GetFunctionHash().Data(), kernelPath);
         if (ret != 0) {
