@@ -37,6 +37,18 @@ class RunMode(Enum):
     NPU = 0
     SIM = 1
 
+class CompileStage(Enum):
+    """Compile stage enumeration for controlling compilation exit points."""
+    DEFAULT = 0                        # Default value, no compilation termination
+    TENSOR_GRAPH = 1                    # Terminate after tensor graph generation
+    TILE_GRAPH = 2                     # Terminate after tile graph generation
+    EXECUTION_GRAPH = 3                # Terminate after execution graph generation
+    CODEGEN_INSTRUCTION = 4             # Terminate after codegen instruction
+    CODEGEN_BINARY = 5                  # Terminate after codegen binary
+
+# Define VALID_STAGES outside the Enum class to avoid it being treated as an enum member
+CompileStage.VALID_STAGES = {CompileStage.DEFAULT, CompileStage.TENSOR_GRAPH, CompileStage.TILE_GRAPH,
+                             CompileStage.EXECUTION_GRAPH, CompileStage.CODEGEN_INSTRUCTION, CompileStage.CODEGEN_BINARY}
 
 class _CachedVerifyData:
 
@@ -110,6 +122,16 @@ def _compute_tensor_hash(tensors, tensor_data):
 
 
 class _JIT:
+    # Compile stage constants
+    COMPILE_STAGE_DEFAULT = CompileStage.DEFAULT
+    COMPILE_STAGE_TENSOR_GRAPH = CompileStage.TENSOR_GRAPH
+    COMPILE_STAGE_TILE_GRAPH = CompileStage.TILE_GRAPH
+    COMPILE_STAGE_EXECUTION_GRAPH = CompileStage.EXECUTION_GRAPH
+    COMPILE_STAGE_CODEGEN_INSTRUCTION = CompileStage.CODEGEN_INSTRUCTION
+    COMPILE_STAGE_CODEGEN_BINARY = CompileStage.CODEGEN_BINARY
+
+    VALID_COMPILE_STAGES = CompileStage.VALID_STAGES
+
     def __init__(self, dyn_func, codegen_options=None, host_options=None,
                  pass_options=None, runtime_options=None, verify_options=None, debug_options=None):
         self.dyn_func = dyn_func
@@ -250,6 +272,9 @@ class _JIT:
               if run_mode is npu , check env, than run with differnet tensor type (support cpu or npu)
               if run_mode is simulator, dont check env, change all tensor to cpu, and run
             '''
+            if pypto.get_host_options()["compile_stage"] <= CompileStage.CODEGEN_BINARY.value:
+                print("Compilation stage terminates after codegen binary.")
+                return
             self.dispatch_with_run_mode(in_out_tensors, [], device)
 
     @property
@@ -262,6 +287,16 @@ class _JIT:
             pypto.set_codegen_options(**self.codegen_options)
 
         if isinstance(self.host_options, dict):
+            # Validate compile_stage if provided
+            compile_stage = self.host_options.get("compile_stage")
+            if compile_stage is not None:
+                # Validate compile_stage value
+                valid_values = [stage.value for stage in self.VALID_COMPILE_STAGES]
+                if compile_stage not in valid_values:
+                    raise ValueError(
+                        f"Invalid compile_stage: {compile_stage}. "
+                        f"Valid options: {valid_values}"
+                    )
             pypto.set_host_options(**self.host_options)
 
         if isinstance(self.pass_options, dict):
@@ -358,6 +393,19 @@ def verify(func, inputs, outputs, goldens, *args,
 
     if host_options is None:
         host_options = {"only_codegen": True}
+
+    # Validate compile_stage if provided
+    compile_stage = host_options.get("compile_stage")
+    if compile_stage is not None:
+        # Validate compile_stage value
+        valid_values = [stage.value for stage in CompileStage.VALID_STAGES]
+        if compile_stage not in valid_values:
+            raise ValueError(
+                f"Invalid compile_stage: {compile_stage}. "
+                f"Valid options: {valid_values}"
+            )
+
+
     pypto.set_host_options(**host_options)
 
     if pass_options is None:

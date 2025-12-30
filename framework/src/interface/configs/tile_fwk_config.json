@@ -27,7 +27,8 @@
         "run_mode": 0
     },
     "host": {
-        "only_codegen": false
+        "only_codegen": false,
+        "compile_stage": 0
     },
     "codegen": {
         "support_dynamic_aligned": false

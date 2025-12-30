@@ -217,6 +217,11 @@ Status DynAttrToStatic::GetCallee(const Operation &callop, Function *&callFunc) 
 }
 
 Status DynAttrToStatic::BuildLeafToCaller(Function *func) {
+    // 检查 func 是否为 null，防止在提前退出场景下访问已释放的函数
+    if (func == nullptr) {
+        APASS_LOG_ERROR_F(Elements::Operation, "BuildLeafToCaller received null function pointer.");
+        return FAILED;
+    }
     if (func->IsFunctionTypeAndGraphType(
         {FunctionType::DYNAMIC, FunctionType::DYNAMIC_LOOP, FunctionType::DYNAMIC_LOOP_PATH}, GraphType::TENSOR_GRAPH)) {
         for (auto callop : func->GetCallopList()) {
@@ -224,6 +229,10 @@ Status DynAttrToStatic::BuildLeafToCaller(Function *func) {
             if (GetCallee(*callop, nextFunc) != SUCCESS) {
                 APASS_LOG_ERROR_F(Elements::Operation, "BuildLeafToCaller at %s, %s[%d] GetCallee failed.%s",
                     func->GetRawName().c_str(), callop->GetOpcodeStr().c_str(), callop->GetOpMagic(), GetFormatBacktrace(callop).c_str());
+                return FAILED;
+            }
+            if (nextFunc == nullptr) {
+                APASS_LOG_ERROR_F(Elements::Operation, "BuildLeafToCaller at %s: GetCallee returned null function pointer.", func->GetRawName().c_str());
                 return FAILED;
             }
             if (BuildLeafToCaller(nextFunc) != SUCCESS) {
@@ -235,6 +244,10 @@ Status DynAttrToStatic::BuildLeafToCaller(Function *func) {
         return SUCCESS;
     } else if (func->GetGraphType() == GraphType::TILE_GRAPH) {
         Function *rootFunc = func->GetRootFunction();
+        if (rootFunc == nullptr) {
+            APASS_LOG_INFO_F(Elements::Operation, "BuildLeafToCaller at %s: rootFunc is null, skipping (may be due to compile_stage=2).", func->GetRawName().c_str());
+            return SUCCESS;
+        }
         return BuildLeafToCaller(rootFunc);
     } else if (func->GetGraphType() == GraphType::EXECUTE_GRAPH) {
         for (auto callop : func->GetCallopList()) {
@@ -242,6 +255,10 @@ Status DynAttrToStatic::BuildLeafToCaller(Function *func) {
             if (GetCallee(*callop, leafFunc) != SUCCESS) {
                 APASS_LOG_ERROR_F(Elements::Operation, "BuildLeafToCaller at %s, %s[%d] GetCallee failed.%s",
                     func->GetRawName().c_str(), callop->GetOpcodeStr().c_str(), callop->GetOpMagic(), GetFormatBacktrace(callop).c_str());
+                return FAILED;
+            }
+            if (leafFunc == nullptr) {
+                APASS_LOG_ERROR_F(Elements::Operation, "BuildLeafToCaller at %s: GetCallee returned null leafFunc.", func->GetRawName().c_str());
                 return FAILED;
             }
             leaf2Caller[leafFunc].push_back(callop);

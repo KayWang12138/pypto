@@ -189,8 +189,19 @@ public:
 
     uint64_t GetWorkSpaceSize(const std::vector<DeviceTensorData> &inputs,
         const std::vector<DeviceTensorData> &outputs) const {
+        // 检查 func_ 是否有效，防止在提前退出时访问已释放的函数
+        // func_ 是 std::shared_ptr，只需检查 shared_ptr 本身是否为 null 即可
+        if (func_ == nullptr) {
+            return 0;
+        }
         auto dynAttr = func_->GetDyndevAttribute();
+        if (dynAttr == nullptr) {
+            return 0;
+        }
         std::vector<uint8_t> &devProgData = dynAttr->devProgBinary;
+        if (devProgData.empty()) {
+            return 0;
+        }
         auto *devProg = reinterpret_cast<DevAscendProgram *>(devProgData.data());
         Evaluator eval{dynAttr->inputSymbolDict, inputs, outputs};
         devProg->memBudget.tensor.maxDynamicAssembleOutcastMem = eval.Evaluate(dynAttr->maxDynamicAssembleOutcastMem);
