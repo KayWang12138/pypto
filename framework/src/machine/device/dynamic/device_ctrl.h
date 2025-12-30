@@ -126,6 +126,30 @@ class DeviceCtrlMachine {
         }
     }
 
+    void InitCtrlFlowCache(DevAscendProgram *devProg, bool firstInit) {
+        auto devArgs = reinterpret_cast<DevStartArgs *>(devProg->devArgs.startArgsAddr);
+        DEV_INFO("ControlFlowCache: deviceTask:%d firstInit:%d\n", (int)devProg->controlFlowCache.deviceTaskCount, (int)firstInit);
+        if (devProg->controlFlowCache.isRecording) {
+            devProg->controlFlowCache.contextWorkspaceAddr = devArgs->contextWorkspaceAddr;
+        }
+        if (devProg->controlFlowCache.deviceTaskCount != 0 &&
+                devProg->controlFlowCache.IsActivatedPartialCache(devArgs)) {
+            // Actual run
+            if (firstInit) {
+                devProg->controlFlowCache.TaskAddrRelocProgram(0, reinterpret_cast<uint64_t>(devProg));
+                devProg->controlFlowCache.RuntimeAddrRelocProgram(0, reinterpret_cast<uint64_t>(devProg));
+            }
+            devProg->controlFlowCache.IncastOutcastAddrRestore();
+            devProg->controlFlowCache.IncastOutcastAddrReloc(0, devArgs->contextWorkspaceAddr, devArgs);
+            if (devProg->controlFlowCache.workspaceAddr != devArgs->contextWorkspaceAddr) {
+                devProg->controlFlowCache.workspaceAddr = devArgs->contextWorkspaceAddr;
+                devProg->controlFlowCache.TaskAddrRestoreWorkspace();
+                devProg->controlFlowCache.TaskAddrRelocWorkspace(0, devArgs->contextWorkspaceAddr, devArgs);
+            }
+            devProg->ResetRerun();
+        }
+    }
+
     int InitDyn(AstKernelArgs *kargs) {
         DEV_INFO("AscendCppDyInitTask begin");
         auto devProg = PtrToPtr<int64_t, DevAscendProgram>(kargs->cfgdata);
@@ -173,26 +197,7 @@ class DeviceCtrlMachine {
         devArgs->inputSymbolSize = 0;
         devArgs->hcclContextAddr = (uint64_t*)&devProg->hcclContext[0];
 
-        if (devProg->controlFlowCache.isRecording) {
-            devProg->controlFlowCache.contextWorkspaceAddr = devArgs->contextWorkspaceAddr;
-        }
-        DEV_INFO("ControlFlowCache: deviceTask:%d firstInit:%d\n", (int)devProg->controlFlowCache.deviceTaskCount, (int)firstInit);
-        if (devProg->controlFlowCache.deviceTaskCount != 0 &&
-                devProg->controlFlowCache.IsActivatedPartialCache(devArgs)) {
-            // Actual run
-            if (firstInit) {
-                devProg->controlFlowCache.TaskAddrRelocProgram(0, reinterpret_cast<uint64_t>(devProg));
-                devProg->controlFlowCache.RuntimeAddrRelocProgram(0, reinterpret_cast<uint64_t>(devProg));
-            }
-            devProg->controlFlowCache.IncastOutcastAddrRestore();
-            devProg->controlFlowCache.IncastOutcastAddrReloc(0, devArgs->contextWorkspaceAddr, devArgs);
-            if (devProg->controlFlowCache.workspaceAddr != devArgs->contextWorkspaceAddr) {
-                devProg->controlFlowCache.workspaceAddr = devArgs->contextWorkspaceAddr;
-                devProg->controlFlowCache.TaskAddrRestoreWorkspace();
-                devProg->controlFlowCache.TaskAddrRelocWorkspace(0, devArgs->contextWorkspaceAddr, devArgs);
-            }
-            devProg->ResetRerun();
-        }
+        InitCtrlFlowCache(devProg, firstInit);
         DEV_INFO("AscendCppDyInitTask done.");
         return 0;
     }
