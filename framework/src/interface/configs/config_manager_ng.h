@@ -57,6 +57,11 @@ constexpr const char *STITCH_CFGCACHE_SIZE = "stitch_cfgcache_size";
 constexpr const char *CFG_RUN_MODE = "run_mode";
 const int64_t CFG_RUN_MODE_NPU = 0;
 const int64_t CFG_RUN_MODE_SIM = 1;
+const int64_t COMPILE_STAGE1 = 2;
+const int64_t COMPILE_STAGE2 = 3;
+const int64_t COMPILE_STAGE3 = 4;
+const int64_t COMPILE_STAGE4 = 5;
+const int64_t COMPILE_STAGE5 = 6;
 
 // host
 constexpr const char *COMPILE_STAGE = "compile_stage";
