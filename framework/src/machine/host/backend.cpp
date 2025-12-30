@@ -178,7 +178,7 @@ static std::vector<Function *> GetCalleeList(FunctionCache &cache, Function *fun
 }
 
 static void FindAllExpression(FunctionCache &cache, Linker &linker, Function *func) {
-    if (func->IsDynloop()) {
+    if (!func->IsFunctionType(FunctionType::STATIC) && func->IsDynloop()) {
         auto dynloopAttr = func->GetDynloopAttribute();
         auto ss = SymbolicScalar(dynloopAttr->iterSymbolName);
         linker.AddSymbol(ss);

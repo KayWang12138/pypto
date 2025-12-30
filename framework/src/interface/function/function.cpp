@@ -17,6 +17,8 @@
 #include "interface/function/kernel_function.h"
 #include "interface/function/data_flow_function.h"
 #include "interface/function/execute_function.h"
+#include "interface/function/control_flow_function.h"
+#include "interface/function/dynamic_loop_function.h"
 #include <queue>
 #include <algorithm>
 #include <unordered_map>
@@ -1097,9 +1099,12 @@ unsigned long Function::ComputeHashOrderless() const {
     }
 
     // fill symbol and loop range attr of dyndev tensor graph for dynamic binary reuse
-    if (functionType_ == FunctionType::DYNAMIC_LOOP && dynloopAttr_ != nullptr) {
-        ss << "symbol name:[" << dynloopAttr_->iterSymbolName << "]";
-        ss << "loop range:[" << dynloopAttr_->loopRange.Dump() << "]";
+    if (functionType_ == FunctionType::DYNAMIC_LOOP) {
+        auto loopAttr = GetDynloopAttribute();
+        if (loopAttr != nullptr) {
+            ss << "symbol name:[" << loopAttr->iterSymbolName << "]";
+            ss << "loop range:[" << loopAttr->loopRange.Dump() << "]";
+        }
     }
     // temporary avoidance, switch SUPPORT_DYNAMIC_ALIGNED has an unexpected effect on dynamic binary reuse
     if (functionType_ == FunctionType::DYNAMIC) {
@@ -2149,6 +2154,12 @@ std::shared_ptr<Function> Function::LoadJson(Program &belongTo, const Json &func
     } else if (funcType == FunctionType::DYNAMIC_LOOP_PATH) {
         // Create DataFlowFunction for DYNAMIC_LOOP_PATH
         func = std::make_shared<DataFlowFunction>(belongTo, rawname + "_" + std::to_string(funcmagic), rawname, nullptr);
+    } else if (funcType == FunctionType::DYNAMIC) {
+        // Create ControlFlowFunction for DYNAMIC
+        func = std::make_shared<ControlFlowFunction>(belongTo, rawname + "_" + std::to_string(funcmagic), rawname, nullptr);
+    } else if (funcType == FunctionType::DYNAMIC_LOOP) {
+        // Create DynamicLoopFunction for DYNAMIC_LOOP
+        func = std::make_shared<DynamicLoopFunction>(belongTo, rawname + "_" + std::to_string(funcmagic), rawname, nullptr);
     } else {
         // Create regular Function for other graph types
         func = std::make_shared<Function>(belongTo, rawname + "_" + std::to_string(funcmagic), rawname, nullptr);
@@ -3189,6 +3200,7 @@ namespace {
     static SubfuncParam emptySubfuncParam;
     static std::shared_ptr<LeafFuncAttribute> emptyLeafFuncAttr;
     static std::shared_ptr<DyndevFunctionAttribute> emptyDyndevAttr;
+    static std::shared_ptr<DynloopFunctionAttribute> emptyDynloopAttr;
     static DyndevFunctionAttribute::ValueDependDesc emptyValueDependDesc;
     static SubfuncInvokeInfoTy emptySubfuncInvokeInfo;
     static const std::map<CoreType, std::vector<int>> emptyReadySubGraphIds;
@@ -3230,6 +3242,33 @@ void Function::ApplyLoopCallOrderGroup() {
 DyndevFunctionAttribute::ValueDependDesc Function::LookupValueDepend() {
     ASSERT(false && "LookupValueDepend() should only be called on ControlFlowFunction");
     return emptyValueDependDesc;
+}
+
+//------------------------------------------------------------------------------------------------------
+//------------------------------------------- DynamicLoopFunction ---------------------------------------
+//------------------------------------------------------------------------------------------------------
+void Function::SetDynloopAttribute(const std::shared_ptr<DynloopFunctionAttribute> &attr) {
+    ASSERT((GetFunctionType() == FunctionType::DYNAMIC_LOOP || GetFunctionType() == FunctionType::DYNAMIC_LOOP_PATH) 
+        && "SetDynloopAttribute() should only be called on DynamicLoopFunction or DataFlowFunction");
+    (void)attr;
+}
+
+const std::shared_ptr<DynloopFunctionAttribute> &Function::GetDynloopAttribute() const {
+    ASSERT((GetFunctionType() == FunctionType::DYNAMIC_LOOP || GetFunctionType() == FunctionType::DYNAMIC_LOOP_PATH) 
+        && "GetDynloopAttribute() should only be called on DynamicLoopFunction or DataFlowFunction");
+    return emptyDynloopAttr;
+}
+
+std::shared_ptr<DynloopFunctionAttribute> &Function::GetDynloopAttribute() {
+    ASSERT((GetFunctionType() == FunctionType::DYNAMIC_LOOP || GetFunctionType() == FunctionType::DYNAMIC_LOOP_PATH) 
+        && "GetDynloopAttribute() should only be called on DynamicLoopFunction or DataFlowFunction");
+    return emptyDynloopAttr;
+}
+
+bool Function::IsDynloop() const {
+    ASSERT((GetFunctionType() == FunctionType::DYNAMIC || GetFunctionType() == FunctionType::DYNAMIC_LOOP || GetFunctionType() == FunctionType::DYNAMIC_LOOP_PATH) 
+        && "IsDynloop() should only be called on ControlFlowFunction or its derived classes");
+    return false;
 }
 
 //------------------------------------------------------------------------------------------------------
