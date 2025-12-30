@@ -25,12 +25,12 @@ Attention is the core mechanism in transformer architectures.
 import os
 import sys
 import argparse
-import pypto
 import torch
 import numpy as np
 from numpy.testing import assert_allclose
 from dataclasses import dataclass
 from typing import Optional
+import pypto
 
 BATCH_SIZE = 2
 SEQ_LEN_Q = 16
@@ -145,7 +145,6 @@ def test_scaled_dot_product_attention(device_id=None, run_mode: str = "npu", dyn
     v_torch = torch.randn(BATCH_SIZE, NUM_HEADS, SEQ_LEN_KV, HEAD_DIM, dtype=torch.bfloat16, device=device)
     
     out = scaled_dot_product_attention(run_mode)(q_torch, k_torch, v_torch)
-    pypto.runtime._device_synchronize()
 
     scale = 1.0 / (HEAD_DIM ** 0.5)
     golden = scaled_dot_product_attention_golden(q_torch, k_torch, v_torch, scale)
@@ -244,9 +243,10 @@ def attention_with_projection_golden(
     k_weight: torch.Tensor,
     v_weight: torch.Tensor,
     out_weight: torch.Tensor,
-    num_heads: int,
-    head_dim: int,
 ) -> torch.Tensor:
+    num_heads = NUM_HEADS
+    head_dim = HEAD_DIM
+    
     """PyTorch reference implementation for attention with projections."""
     q = torch.matmul(hidden_states, q_weight)
     k = torch.matmul(hidden_states, k_weight)
@@ -283,10 +283,9 @@ def test_attention_with_projection(device_id=None, run_mode: str = "npu", dynami
 
     # Execute
     out = attention_with_projection(run_mode)(hidden_states, q_weight, k_weight, v_weight, out_weight)
-    pypto.runtime._device_synchronize()
     
     golden = attention_with_projection_golden(
-        hidden_states, q_weight, k_weight, v_weight, out_weight, NUM_HEADS, HEAD_DIM
+        hidden_states, q_weight, k_weight, v_weight, out_weight
     )
     
     print(f"Hidden states shape: {hidden_states.shape}")

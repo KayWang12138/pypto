@@ -89,25 +89,26 @@ def scaled_dot_product_attention_core(q: pypto.Tensor, k: pypto.Tensor, v: pypto
 def scaled_dot_product_attention(q_shape: tuple, k_shape: tuple, config: AttentionConfig, run_mode: str = "npu",
                                  dynamic: bool = True) -> torch.Tensor:
     if dynamic:
-        B = pypto.frontend.dynamic("B")
+        bs = pypto.frontend.dynamic("bs")
     else:
-        B = q_shape[0]
-    NUM_HEADS = 8
-    HEAD_DIM = 64
-    Q_LEN = q_shape[2]
-    KV_LEN = k_shape[2]
+        bs = q_shape[0]
+        
+    head = 8
+    dim = 64
+    q_len = q_shape[2]
+    kv_len = k_shape[2]
 
-    TILE_B = q_shape[0]
+    tile = q_shape[0]
     
-    scale = config.scale if config.scale is not None else (1.0 / (HEAD_DIM**0.5))
+    scale = config.scale if config.scale is not None else (1.0 / (dim**0.5))
     global scale_g, dtype_g
     scale_g, dtype_g = scale, config.dtype
     
     def scaled_dot_product_attention_kernel(
-        q: pypto.Tensor((B, NUM_HEADS, Q_LEN, HEAD_DIM), pypto.DT_FP32),
-        k: pypto.Tensor((B, NUM_HEADS, KV_LEN, HEAD_DIM), pypto.DT_FP32),
-        v: pypto.Tensor((B, NUM_HEADS, KV_LEN, HEAD_DIM), pypto.DT_FP32),
-    ) -> pypto.Tensor((B, NUM_HEADS, Q_LEN, HEAD_DIM), pypto.DT_FP32):
+        q: pypto.Tensor((bs, head, q_len, dim), pypto.DT_FP32),
+        k: pypto.Tensor((bs, head, kv_len, dim), pypto.DT_FP32),
+        v: pypto.Tensor((bs, head, kv_len, dim), pypto.DT_FP32),
+    ) -> pypto.Tensor((bs, head, q_len, dim), pypto.DT_FP32):
         """Scaled dot-product attention with dynamic batch size."""
         cube_tiling = 64
         pypto.set_cube_tile_shapes(
@@ -116,15 +117,21 @@ def scaled_dot_product_attention(q_shape: tuple, k_shape: tuple, config: Attenti
             [cube_tiling, cube_tiling],
         )
 
-        output_tensor = pypto.tensor((B, NUM_HEADS, Q_LEN, HEAD_DIM), pypto.DT_FP32)
-        b_loop = (B + TILE_B - 1) // TILE_B
+        output_tensor = pypto.tensor((bs, head, q_len, dim), pypto.DT_FP32)
+        b_loop = (bs + tile - 1) // tile
 
         for bs_idx in pypto.loop(b_loop):
-            b_offset = bs_idx * TILE_B
-            b_offset_end = pypto.min(b_offset + TILE_B, B)
-            q_view = pypto.view(q, [TILE_B, NUM_HEADS, Q_LEN, HEAD_DIM], [b_offset, 0, 0, 0], valid_shape=[b_offset_end - b_offset, NUM_HEADS, Q_LEN, HEAD_DIM])
-            k_view = pypto.view(k, [TILE_B, NUM_HEADS, KV_LEN, HEAD_DIM], [b_offset, 0, 0, 0], valid_shape=[b_offset_end - b_offset, NUM_HEADS, KV_LEN, HEAD_DIM])
-            v_view = pypto.view(v, [TILE_B, NUM_HEADS, KV_LEN, HEAD_DIM], [b_offset, 0, 0, 0], valid_shape=[b_offset_end - b_offset, NUM_HEADS, KV_LEN, HEAD_DIM])
+            b_offset = bs_idx * tile
+            b_offset_end = pypto.min(b_offset + tile, bs)
+            q_view = pypto.view(q, [tile, head, q_len, dim], [b_offset, 0, 0, 0], 
+                                valid_shape=[b_offset_end - b_offset, head, q_len, dim]
+            )
+            k_view = pypto.view(k, [tile, head, kv_len, dim], [b_offset, 0, 0, 0], 
+                                valid_shape=[b_offset_end - b_offset, head, kv_len, dim]
+            )
+            v_view = pypto.view(v, [tile, head, kv_len, dim], [b_offset, 0, 0, 0], 
+                                valid_shape=[b_offset_end - b_offset, head, kv_len, dim]
+            )
             pypto.set_vec_tile_shapes(1, 8, 16, 64)
             res = scaled_dot_product_attention_core(q_view, k_view, v_view,)
             pypto.assemble(res, [b_offset, 0, 0, 0], output_tensor)
@@ -132,9 +139,14 @@ def scaled_dot_product_attention(q_shape: tuple, k_shape: tuple, config: Attenti
     
     # launch the kernel
     if run_mode == "npu":
-        return pypto.frontend.jit(host_options={"only_codegen": True},)(scaled_dot_product_attention_kernel)
+        return pypto.frontend.jit(host_options={"only_codegen": True})(scaled_dot_product_attention_kernel)
     else:
-        return pypto.frontend.jit(host_options={"only_codegen": True},runtime_options={"run_mode": pypto.RunMode.SIM})(scaled_dot_product_attention_kernel)
+        return (
+            pypto.frontend.jit(
+                host_options={"only_codegen": True}, 
+                runtime_options={"run_mode": pypto.RunMode.SIM}
+            )(scaled_dot_product_attention_kernel)
+        )
 
 
 
@@ -158,18 +170,20 @@ def test_unordered_input_attention(device_id = None, run_mode: str = "npu", dyna
                             dtype=dtype, device=device)
     config = AttentionConfig(num_heads=num_heads, head_dim=head_dim,
                             dtype=pypto.DT_FP32, use_dynamic_shape=True)
-    params = q_torch.shape
+
+    q_shape = q_torch.shape
+    k_shape = k_torch.shape
     # Execute
-    out_torch = scaled_dot_product_attention(q_torch.shape, k_torch.shape, config, run_mode, dynamic)(q_torch, k_torch, v_torch).cpu()
+    out_torch = scaled_dot_product_attention(q_shape, k_shape, config, run_mode, dynamic)(q_torch, k_torch, v_torch)
     # Verify
     scale = 1.0 / (head_dim ** 0.5)
-    golden = scaled_dot_product_attention_golden(q_torch, k_torch, v_torch, scale).cpu()
+    golden = scaled_dot_product_attention_golden(q_torch, k_torch, v_torch, scale)
 
     print(f"Batch={batch_size}, SeqQ={seq_len_q}, SeqKV={seq_len_kv}")
     print(f"Input shape: {q_torch.shape}")
     print(f"Output shape: {out_torch.shape}")
     if run_mode == "npu":
-        assert_allclose(np.array(out_torch), np.array(golden), rtol=3e-3, atol=3e-3)
+        assert_allclose(np.array(out_torch.cpu()), np.array(golden.cpu()), rtol=3e-3, atol=3e-3)
 
     print("✓ Attention (kenel_unordered_input) passed for the test case")
     print()

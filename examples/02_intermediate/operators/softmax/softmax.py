@@ -70,18 +70,20 @@ def softmax_core(x: pypto.Tensor) -> pypto.Tensor:
     esum = pypto.sum(exp, dim=-1, keepdim=True)
     return exp / esum
 
+
 def softmax(shape: tuple, run_mode: str = "npu", dynamic: bool = True) -> torch.Tensor:
-    B, N1, N2, DIM = shape
+
+    bs, seqlen, head, dim = shape
     if dynamic:
-        B = pypto.frontend.dynamic("B")
+        bs = pypto.frontend.dynamic("bs")
     
     # launch the kernel
     def softmax_kernel(
-        input_tensor: pypto.Tensor((B, N1, N2, DIM), pypto.DT_FP32),
-    ) -> pypto.Tensor((B, N1, N2, DIM), pypto.DT_FP32):
-        output_tensor = pypto.tensor((B, N1, N2, DIM), pypto.DT_FP32)
+        input_tensor: pypto.Tensor((bs, seqlen, head, dim), pypto.DT_FP32),
+    ) -> pypto.Tensor((bs, seqlen, head, dim), pypto.DT_FP32):
+        output_tensor = pypto.tensor((bs, seqlen, head, dim), pypto.DT_FP32)
         tile_b = 1  # Process one batch at a time
-        b_loop = B // tile_b
+        b_loop = bs // tile_b
 
         # Tiling shape setting for efficient execution
         pypto.set_vec_tile_shapes(1, 4, 1, 64)
@@ -89,7 +91,7 @@ def softmax(shape: tuple, run_mode: str = "npu", dynamic: bool = True) -> torch.
         for idx in pypto.loop(0, b_loop, 1, name="LOOP_L0_bIdx", idx_name="idx"):
             b_offset = idx * tile_b
             b_offset_end = (idx + 1) * tile_b
-            input_view = input_tensor[b_offset:b_offset_end, :N1, :N2, :DIM]
+            input_view = input_tensor[b_offset:b_offset_end, :seqlen, :head, :dim]
             softmax_out = softmax_core(input_view)
             output_tensor[b_offset:, ...] = softmax_out
         return output_tensor

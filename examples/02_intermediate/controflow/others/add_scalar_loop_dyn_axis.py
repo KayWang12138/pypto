@@ -43,29 +43,31 @@ def get_device_id():
         return None
 
 
-def add_scalar_loop_dynamic_axis(shape: tuple, VAL: int, run_mode: str = "npu") -> None:
+def add_scalar_loop_dynamic_axis(shape: tuple, val: int, run_mode: str = "npu") -> None:
     
-    _, W, N, C = shape
-    H = pypto.frontend.dynamic("H")
+    _, w, n, c = shape
+    h = pypto.frontend.dynamic("h")
     # launch the kernel
     def add_scalar_loop_dynamic_axis_kernel(
-        input0: pypto.Tensor((H, W, N, C), pypto.DT_FP32),
-        input1: pypto.Tensor((H, W, N, C), pypto.DT_FP32),
-    ) -> pypto.Tensor((H, W, N, C), pypto.DT_FP32):
+        input0: pypto.Tensor((h, w, n, c), pypto.DT_FP32),
+        input1: pypto.Tensor((h, w, n, c), pypto.DT_FP32),
+    ) -> pypto.Tensor((h, w, n, c), pypto.DT_FP32):
         pypto.set_vec_tile_shapes(1, 4, 1, 64)
-        val = VAL
 
         #calculate the loop parameters
         b = H
         tile_b = 1
         b_loop = b // tile_b
 
-        output = pypto.tensor((H, W, N, C), pypto.DT_FP32)
+        output = pypto.tensor((h, w, n, c), pypto.DT_FP32)
         for idx in pypto.loop(b_loop):
             b_offset = idx * tile_b
             b_offset_end = pypto.min((idx + 1) * tile_b, b)
-            t0_sub = pypto.view(input0, [tile_b, W, N, C], [b_offset, 0, 0, 0], valid_shape=[b_offset_end - b_offset, W, N, C])
-            t1_sub = pypto.view(input1, [tile_b, W, N, C], [b_offset, 0, 0, 0], valid_shape=[b_offset_end - b_offset, W, N, C])
+            
+            valid_shape = [b_offset_end - b_offset, w, n, c]
+            
+            t0_sub = pypto.view(input0, [tile_b, w, n, c], [b_offset, 0, 0, 0], valid_shape = valid_shape)
+            t1_sub = pypto.view(input1, [tile_b, w, n, c], [b_offset, 0, 0, 0], valid_shape = valid_shape)
             t3_sub = t0_sub + t1_sub
             t3_sub = t3_sub + val
             pypto.assemble(t3_sub, [b_offset, 0, 0, 0], output)

@@ -86,14 +86,17 @@ def softmax_core(input_tensor: pypto.Tensor) -> pypto.Tensor:
     return pypto.div(exp, esum)
 
 
-def softmax_wrapper(SHAPE, cost_model_enable):
+def softmax_wrapper(shape, cost_model_enable):
     @pypto.frontend.jit(
         host_options={"only_codegen": True},
-        runtime_options={"cfgcache_device_task_num": 100, "cfgcache_root_task_num": 100, "cfgcache_leaf_task_num": 10000, "run_mode": pypto.RunMode.SIM}
+        runtime_options={"cfgcache_device_task_num": 100, 
+                         "cfgcache_root_task_num": 100, 
+                         "cfgcache_leaf_task_num": 10000, 
+                         "run_mode": pypto.RunMode.SIM}
     )
-    def softmax(input_tensor: pypto.Tensor(SHAPE, pypto.DT_FP32)) -> pypto.Tensor(SHAPE, pypto.DT_FP32):
+    def softmax(input_tensor: pypto.Tensor(shape, pypto.DT_FP32)) -> pypto.Tensor(SHAshapePE, pypto.DT_FP32):
 
-        tensor_shape = SHAPE
+        tensor_shape = shape
         b = tensor_shape[0]  # Dynamic batch size
         n1, n2, dim = tensor_shape[1:]  # Static dimensions
         tile_b = 1  # Process one batch at a time
@@ -102,7 +105,7 @@ def softmax_wrapper(SHAPE, cost_model_enable):
         # Tiling shape setting for efficient execution
         pypto.set_vec_tile_shapes(1, 4, 1, 64)
 
-        output_tensor = pypto.tensor(SHAPE, input_tensor.dtype)
+        output_tensor = pypto.tensor(shape, input_tensor.dtype)
         for idx in pypto.loop(b_loop):
             b_offset = idx * tile_b
             b_offset_end = (idx + 1) * tile_b

@@ -98,6 +98,7 @@ def layernorm_core(x: pypto.Tensor, gamma: pypto.Tensor, beta: pypto.Tensor, eps
     scaled = normalized * gamma
     return scaled + beta
 
+
 def layer_norm(x_shape, gamma_shape, beta_shape, run_mode: str = "npu"):
     def layer_norm_kernel(
         x: pypto.Tensor(x_shape, pypto.DT_BF16), 
@@ -125,7 +126,7 @@ def linear_projection(x_shape, w_shape, run_mode: str = "npu"):
         x: pypto.Tensor(x_shape, pypto.DT_BF16),
         weight: pypto.Tensor(w_shape, pypto.DT_BF16), 
         ) -> pypto.Tensor(x_shape, pypto.DT_BF16):
-        """Linear projection: y = x @ W + b"""
+
         bias = None
 
         pypto.set_cube_tile_shapes([64, 64], [64, 64], [64, 64])
@@ -153,8 +154,7 @@ def gelu_activation(x_shape, run_mode: str = "npu"):
         coeff = 1.702
         x_scaled = x * coeff
 
-        # GELU(x) = x * sigmoid(1.702 * x)
-        y =  x * pypto.sigmoid(x_scaled)
+        y = x * pypto.sigmoid(x_scaled)
         return y
     
     if run_mode == "npu":
@@ -171,7 +171,6 @@ def residual_add(x_shape, res_shape, run_mode: str = "npu"):
         ) -> (
             pypto.tensor(x_shape, pypto.DT_BF16)
         ):
-        """Add residual connection: out = x + residual"""
         pypto.set_vec_tile_shapes(64, 128)
 
         out = pypto.add(x, residual)
