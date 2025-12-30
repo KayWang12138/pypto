@@ -41,7 +41,7 @@ public:
     void SetUp() override {
         Program::GetInstance().Reset();
         config::Reset();
-        config::SetHostOption(COMPILE_STAGE, HOST_COMPILE_END);
+        config::SetRuntimeOption(CFG_RUN_MODE, COMPILE_STAGE3);
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
         IdGen<IdType::FUNCTION>::Inst().SetId(DummyFuncMagic);
@@ -173,7 +173,7 @@ std::string TestL1CopyInBody(
     if (isTileTensor) {
         InsertTileTensorOp(Opcode::OP_L1_COPY_IN, "TLoad");
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-        config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
+        config::SetRuntimeOption(CFG_RUN_MODE, COMPILE_STAGE4);
     }
     const std::vector<int64_t> shape = {64, 64};
     auto shapeImme = OpImmediate::Specified(shape);
@@ -328,14 +328,14 @@ void TestMatmulMteBody(Opcode opcode, MemoryType inType, MemoryType outType, boo
         InsertTileTensorOp(Opcode::OP_L1_TO_BT, "TExtract");
         InsertTileTensorOp(Opcode::OP_L1_TO_L0A, "TExtract");
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-        config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
+        config::SetRuntimeOption(CFG_RUN_MODE, COMPILE_STAGE4);
     }
     std::vector<int64_t> shape = {64, 64};
     auto shapeImme = OpImmediate::Specified(shape);
     TileShape::Current().SetVecTile(shape);
     TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {128, 128});
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-    config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
+    config::SetRuntimeOption(CFG_RUN_MODE, COMPILE_STAGE4);
     Tensor inputA(DT_FP32, shape, "A");
     Tensor inputB(DT_FP32, shape, "B");
     Tensor output(DT_FP32, shape, "C");
@@ -419,7 +419,7 @@ std::string TestCopyL1Body(Opcode opcode, MemoryType inputType, MemoryType outpu
     TileShape::Current().SetVecTile(shape);
     TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {128, 128});
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-    config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
+    config::SetRuntimeOption(CFG_RUN_MODE, COMPILE_STAGE4);
     InsertTileTensorOp(Opcode::OP_UB_COPY_L1, "TExtract");
     InsertTileTensorOp(Opcode::OP_UB_COPY_ND2NZ, "TMoveND2NZ");
     InsertTileTensorOp(Opcode::OP_L0C_TO_L1, "TExtract");
@@ -642,7 +642,7 @@ TEST_F(TestCodegenDynCopy, CmpTileTensor) {
     auto shapeImme = OpImmediate::Specified(shape);
     TileShape::Current().SetVecTile(shape);
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-    config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
+    config::SetRuntimeOption(CFG_RUN_MODE, COMPILE_STAGE4);
     InsertTileTensorOp(Opcode::OP_CMP, "TCompare");
     Tensor inputA(DT_FP32, shape, "A");
     Tensor inputB(DT_FP32, shape, "B");
@@ -687,7 +687,7 @@ std::string TestLogicalBody(Opcode opcode){
     std::vector<int64_t> shape = {64, 64};
     auto shapeImmen = OpImmediate::Specified(shape);
     TileShape::Current().SetVecTile(shape);
-    config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
+    config::SetRuntimeOption(CFG_RUN_MODE, COMPILE_STAGE4);
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
     InsertTileTensorOp(Opcode::OP_LOGICALAND, "TLogicalAnd");
     InsertTileTensorOp(Opcode::OP_LOGICALNOT, "TLogicalNot");
@@ -741,7 +741,7 @@ TEST_F(TestCodegenDynCopy, RangeTileTensor) {
     auto shapeImme = OpImmediate::Specified(rangeShape);
     TileShape::Current().SetVecTile(rangeShape);
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-    config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
+    config::SetRuntimeOption(CFG_RUN_MODE, COMPILE_STAGE4);
     InsertTileTensorOp(Opcode::OP_RANGE, "TRange");
     Tensor inputA(DT_FP32, rangeShape, "A");
     Tensor inputB(DT_FP32, rangeShape, "B");

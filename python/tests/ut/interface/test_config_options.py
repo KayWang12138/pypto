@@ -32,12 +32,6 @@ def test_pass_option():
     assert pass_option["cube_nbuffer_setting"] == {3: 4}
 
 
-def test_host_option():
-    pypto.set_host_options(compile_stage=pypto.CompStage.HOST)
-    host_option = pypto.get_host_options()
-    assert host_option["compile_stage"] == pypto.CompStage.HOST.value
-
-
 def test_runtime_option():
     pypto.set_runtime_options(stitch_function_size=30000)
     runtime_option = pypto.get_runtime_options()
@@ -48,15 +42,9 @@ def test_reset_option():
     pypto.set_runtime_options(stitch_function_num_initial=23)
     runtime_option = pypto.get_runtime_options()
     assert runtime_option["stitch_function_num_initial"] == 23
-    pypto.set_host_options(compile_stage=pypto.CompStage.FUNCTION)
-    host_option = pypto.get_host_options()
-    assert host_option["compile_stage"] == pypto.CompStage.FUNCTION.value
     pypto.reset_options()
     runtime_option = pypto.get_runtime_options()
-    host_option = pypto.get_host_options()
     assert runtime_option["stitch_function_num_initial"] == 128
-    assert host_option["compile_stage"] == pypto.CompStage.CODEGEN.value
-
 
 
 def test_operation_option():
