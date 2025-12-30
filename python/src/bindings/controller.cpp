@@ -133,6 +133,32 @@ void bind_controller_set_tile(py::module &m) {
         auto cubeTile = TileShape::Current().GetCubeTile();
         return std::tuple(cubeTile.m, cubeTile.k, cubeTile.n, cubeTile.setL1Tile, cubeTile.enableSplitK);
     });
+    m.def("SetDistTile",
+        [](const std::vector<int32_t> &row, const std::vector<int32_t> &col, const std::vector<int32_t> &rank) {
+                if (row.size() > MAX_DIST_DIM_SIZE) {
+                    throw py::value_error(
+                        "Parameter 'row' must have exactly " + std::to_string(MAX_DIST_DIM_SIZE) + " elements");
+                }
+                if (col.size() > MAX_DIST_DIM_SIZE) {
+                    throw py::value_error(
+                        "Parameter 'col' must have exactly " + std::to_string(MAX_DIST_DIM_SIZE) + " elements");
+                }
+                if (rank.size() > MAX_DIST_DIM_SIZE) {
+                    throw py::value_error(
+                        "Parameter 'rank' must have exactly " + std::to_string(MAX_DIST_DIM_SIZE) + " elements");
+                }
+
+                std::array<int32_t, MAX_DIST_DIM_SIZE> rowarr = {0};
+                std::array<int32_t, MAX_DIST_DIM_SIZE> colarr = {0};
+                std::array<int32_t, MAX_DIST_DIM_SIZE> rankarr = {0};
+
+                std::copy(row.begin(), row.end(), rowarr.begin());
+                std::copy(col.begin(), col.end(), colarr.begin());
+                std::copy(rank.begin(), rank.end(), rankarr.begin());
+                TileShape::Current().SetDistTile(rowarr, colarr, rankarr);
+            },
+            py::arg("row"), py::arg("col"), py::arg("rank"),
+            "Set dist tile shapes with specified dimensions");
 }
 
 void bind_controller_function(py::module &m) {

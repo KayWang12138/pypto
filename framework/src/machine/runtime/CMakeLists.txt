@@ -40,6 +40,7 @@ target_include_directories(tile_fwk_runtime
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN_SUB}>:${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/runtime>>
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN_SUB}>:${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/runtime/runtime>>
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN_SUB}>:${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/profiling>>
+            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN_SUB}>:${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/hccl>>
         PRIVATE
             ${PTO_FWK_SRC_ROOT}/framework/src/cost_model
 )
@@ -47,8 +48,9 @@ target_compile_definitions(tile_fwk_runtime
         PUBLIC
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:BUILD_WITH_CANN>>
             $<BUILD_INTERFACE:$<$<BOOL:${ENABLE_STEST_INTERPRETER_CONFIG}>:ENABLE_STEST_INTERPRETER_CONFIG>>
-        PRIVATE
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN_SUB}>:BUILD_WITH_CANN_SUB>>
+        # PRIVATE
+        #     $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN_SUB}>:BUILD_WITH_CANN_SUB>>
 )
 target_link_directories(tile_fwk_runtime
         PUBLIC
@@ -64,7 +66,9 @@ target_link_libraries(tile_fwk_runtime
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:ascendcl>>
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:runtime>>
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:profapi>>
-            $<BUILD_INTERFACE:$<$<AND:$<NOT:$<BOOL:${BUILD_WITH_CANN_SUB}>>,$<BOOL:${BUILD_WITH_CANN}>>:hccl>>
+            #$<BUILD_INTERFACE:$<$<AND:$<NOT:$<BOOL:${BUILD_WITH_CANN_SUB}>>,$<BOOL:${BUILD_WITH_CANN}>>:hccl>>
+            #$<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:hccl>>
+            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:hccl>>               
         PRIVATE
             intf_pub_cxx17
             tile_fwk_intf_pub
