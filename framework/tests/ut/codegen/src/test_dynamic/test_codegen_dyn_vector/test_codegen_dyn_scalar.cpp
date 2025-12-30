@@ -38,7 +38,7 @@ public:
     void SetUp() override {
         Program::GetInstance().Reset();
         config::Reset();
-        config::SetHostOption(COMPILE_STAGE, HOST_COMPILE_END);
+        config::SetRuntimeOption(CFG_RUN_MODE, COMPILE_STAGE3);
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
         IdGen<IdType::CG_USING_NAME>::Inst().SetId(DummyFuncMagic);
@@ -130,7 +130,7 @@ TEST_F(TestCodegenDynScalar, TestScalarDivs) {
 
 TEST_F(TestCodegenDynScalar, TestAddsTileTensor) {
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-    config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
+    config::SetRuntimeOption(CFG_RUN_MODE, COMPILE_STAGE4);
     int s = 32;
     Tensor t0(DT_FP32, {-1, s}, "t0"); // [32*8, 32]
     Tensor out(DT_FP32, {-1, s}, "out");
