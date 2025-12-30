@@ -44,21 +44,22 @@ def get_device_id():
         return None
 
 
-def create_add_scalar_loop_dyn_axis_dyn_cond_kernel(shape: tuple, val: int, dynamic_axis: bool = False, run_mode: str = "npu"):
+def create_add_scalar_loop_dyn_axis_dyn_cond_kernel(
+    shape: tuple, val: int, dynamic_axis: bool = False, run_mode: str = "npu"):
     if dynamic_axis == True:
-        W = pypto.frontend.dynamic("W")
-        H, C, N = shape[1:]
+        w = pypto.frontend.dynamic("w")
+        h, c, n = shape[1:]
     else:
-        W, H, C, N = shape
+        w, h, c, n = shape
     
     def add_scalar_loop_dyn_axis_dyn_cond_kernel(
-        input0: pypto.Tensor((W, H, C, N), pypto.DT_FP32),
-        input1: pypto.Tensor((W, H, C, N), pypto.DT_FP32),
-    ) -> pypto.Tensor((W, H, C, N), pypto.DT_FP32):
+        input0: pypto.Tensor((w, h, c, n), pypto.DT_FP32),
+        input1: pypto.Tensor((w, h, c, n), pypto.DT_FP32),
+    ) -> pypto.Tensor((w, h, c, n), pypto.DT_FP32):
         pypto.set_vec_tile_shapes(1, 4, 1, 64)
-        output = pypto.tensor((W, H, C, N), pypto.DT_FP32)
+        output = pypto.tensor((w, h, c, n), pypto.DT_FP32)
         #calculate the loop parameters
-        b = W
+        b = w
         tile_b = 1
         b_loop = b // tile_b
 
@@ -77,10 +78,11 @@ def create_add_scalar_loop_dyn_axis_dyn_cond_kernel(shape: tuple, val: int, dyna
     if run_mode == "npu":
         return pypto.frontend.jit()(add_scalar_loop_dyn_axis_dyn_cond_kernel)
     else:
-        return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(add_scalar_loop_dyn_axis_dyn_cond_kernel)
+        return pypto.frontend.jit(
+            runtime_options={"run_mode": pypto.RunMode.SIM})(add_scalar_loop_dyn_axis_dyn_cond_kernel)
 
 
-def test_add_scalar_loop_dynamic_axis_dynamic_cond(device_id = None, run_mode: str = "npu") -> None:
+def test_add_scalar_loop_dynamic_axis_dynamic_cond(device_id=None, run_mode: str = "npu") -> None:
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
 
     shape = (32, 32, 1, 256)
@@ -182,7 +184,10 @@ Examples:
 
     if args.example_id is not None:
         # Run single example
-        examples_to_run = [(args.example_id, examples[args.example_id])]
+        example = examples.get(args.example_id)
+        if example is None:
+            raise ValueError(f"Invalid example ID: {args.example_id}")
+        examples_to_run = [(args.example_id, example)]
     else:
         # Run all examples
         examples_to_run = list(examples.items())

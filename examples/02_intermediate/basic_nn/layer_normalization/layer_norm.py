@@ -23,10 +23,10 @@ Layer normalization is a key component in transformer architectures.
 import os
 import sys
 import argparse
-import pypto
-import torch
 from dataclasses import dataclass
 from typing import Literal
+import pypto
+import torch
 
 
 def get_device_id():
@@ -68,7 +68,8 @@ def layernorm_golden(x: torch.Tensor, gamma: torch.Tensor, beta: torch.Tensor, e
     return normalized * gamma + beta
 
 
-def layernorm_core(x: pypto.Tensor, gamma: pypto.Tensor, beta: pypto.Tensor, eps: float, hidden_size: float) -> pypto.Tensor:
+def layernorm_core(x: pypto.Tensor, gamma: pypto.Tensor, beta: pypto.Tensor, 
+                   eps: float, hidden_size: int) -> pypto.Tensor:
     # Compute mean
     mean = pypto.sum(x, dim=-1, keepdim=True)
     mean = mean / hidden_size
@@ -87,7 +88,8 @@ def layernorm_core(x: pypto.Tensor, gamma: pypto.Tensor, beta: pypto.Tensor, eps
     return scaled + beta
 
 
-def create_layer_norm_kernel(batch_size, hidden_size, config: NormConfig, run_mode: str = "npu", dynamic: bool = False):
+def create_layer_norm_kernel(batch_size: int, hidden_size: int, config: NormConfig, 
+                             run_mode: str = "npu", dynamic: bool = False):
     if dynamic:
         batch_size = pypto.frontend.dynamic("batch_size")
         hidden_size = pypto.frontend.dynamic("hidden_size")
@@ -111,7 +113,7 @@ def create_layer_norm_kernel(batch_size, hidden_size, config: NormConfig, run_mo
         return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(layer_norm_kernel)
 
 
-def test_layer_norm(device_id = None, run_mode: str = "npu", dynamic: bool = False):
+def test_layer_norm(device_id=None, run_mode: str = "npu", dynamic: bool = False):
     """Test LayerNorm."""
     print("=" * 60)
     print("Test: LayerNorm")
@@ -127,7 +129,8 @@ def test_layer_norm(device_id = None, run_mode: str = "npu", dynamic: bool = Fal
     beta_torch = torch.zeros(hidden_size, dtype=torch.bfloat16, device=device)
     config = NormConfig(norm_type="layernorm", dtype=pypto.DT_BF16)
 
-    out_torch = create_layer_norm_kernel(batch_size, hidden_size, config, run_mode, dynamic)(x_torch, gamma_torch, beta_torch)
+    out_torch = create_layer_norm_kernel(batch_size, hidden_size, 
+                                        config, run_mode, dynamic)(x_torch, gamma_torch, beta_torch)
 
     expected = layernorm_golden(x_torch, gamma_torch, beta_torch, config.eps)
     max_diff = (out_torch - expected).abs().max().item()
@@ -178,7 +181,7 @@ def create_rms_norm_kernel(batch_size, hidden_size, config: NormConfig, run_mode
         return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(rms_norm_kernel)
 
 
-def test_rms_norm(device_id = None, run_mode: str = "npu", dynamic: bool = False) -> None:
+def test_rms_norm(device_id=None, run_mode: str = "npu", dynamic: bool = False) -> None:
     """Test RMSNorm."""
     print("=" * 60)
     print("Test: RMSNorm")
@@ -193,7 +196,6 @@ def test_rms_norm(device_id = None, run_mode: str = "npu", dynamic: bool = False
     gamma_torch = torch.ones(hidden_size, dtype=torch.bfloat16, device=device)
     config = NormConfig(norm_type="rmsnorm", dtype=pypto.DT_BF16)
 
-    # out_torch = rms_norm(x_torch, gamma_torch, config, run_mode, dynamic)
     out_torch = create_rms_norm_kernel(batch_size, hidden_size, config, run_mode, dynamic)(x_torch, gamma_torch)
 
     expected = rmsnorm_golden(x_torch, gamma_torch, config.eps)
@@ -287,7 +289,10 @@ Examples:
     examples_to_run = []
 
     if args.example_id is not None:
-        examples_to_run = [(args.example_id, examples[args.example_id])]
+        example = examples.get(args.example_id)
+        if example is None:
+            raise ValueError(f"Invalid example ID: {args.example_id}")
+        examples_to_run = [(args.example_id, example)]
     else:
         examples_to_run = list(examples.items())
 

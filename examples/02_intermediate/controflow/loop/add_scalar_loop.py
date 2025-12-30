@@ -50,28 +50,29 @@ def get_device_id():
         return None
 
 
-def add_scalar_loop(shape: tuple, VAL: int, run_mode: str = "npu", dynamic: bool = True) -> torch.Tensor:
+def add_scalar_loop(shape: tuple, val: int, run_mode: str = "npu", dynamic: bool = True) -> torch.Tensor:
     if dynamic:
-        W = pypto.frontend.dynamic("W")
-        _, H, C, N  = shape
+        w = pypto.frontend.dynamic("w")
+        _, h, c, n = shape
     else:
-        W, H, C, N  = shape
+        w, h, c, n = shape
     
-    SHAPE = (W, H, C, N)
+    shape = (w, h, c, n)
+
     def add_kernel(
-        input0: pypto.Tensor(SHAPE, pypto.DT_FP32),
-        input1: pypto.Tensor(SHAPE, pypto.DT_FP32),
-    ) -> pypto.Tensor(SHAPE, pypto.DT_FP32):
+        input0: pypto.Tensor(shape, pypto.DT_FP32),
+        input1: pypto.Tensor(shape, pypto.DT_FP32),
+    ) -> pypto.Tensor(shape, pypto.DT_FP32):
         pypto.set_vec_tile_shapes(1, 4, 1, 64)
-        tensor_shape = SHAPE
-        val = VAL
+        tensor_shape = shape
+        val = val
 
         # Calculate the loop parameters
-        b = W
+        b = w
         tile_b = 1
         b_loop = b // tile_b
 
-        output = pypto.tensor(SHAPE, pypto.DT_FP32)
+        output = pypto.tensor(shape, pypto.DT_FP32)
         for idx in pypto.loop(b_loop):
             b_offset = idx * tile_b
             b_offset_end = (idx + 1) * tile_b
@@ -87,7 +88,8 @@ def add_scalar_loop(shape: tuple, VAL: int, run_mode: str = "npu", dynamic: bool
     else:
         return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(add_kernel)
 
-def test_add_scalar_loop(device_id = None, run_mode: str = "npu", dynamic: bool = True) -> None:
+
+def test_add_scalar_loop(device_id=None, run_mode: str = "npu", dynamic: bool = True) -> None:
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
 
     shape = (32, 32, 1, 256)
@@ -188,7 +190,10 @@ Examples:
     
     if args.example_id is not None:
         # Run single example
-        examples_to_run = [(args.example_id, examples[args.example_id])]
+        example = examples.get(args.example_id)
+        if example is None:
+            raise ValueError(f"Invalid example ID: {args.example_id}")
+        examples_to_run = [(args.example_id, example)]
     else:
         # Run all examples
         examples_to_run = list(examples.items())

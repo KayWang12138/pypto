@@ -54,11 +54,12 @@ def get_device_id():
 # ============================================================================
 # SUM Examples
 # ============================================================================
-DTYPE = pypto.DT_FP32
+dtype = pypto.DT_FP32
+
 
 def sum_op(a: torch.Tensor, dim: int, run_mode: str = "npu", keepdim: bool = False) -> torch.Tensor:
 
-    SHAPE = a.shape
+    shape = a.shape
 
     if run_mode == "npu":
         mode = pypto.RunMode.NPU
@@ -75,7 +76,7 @@ def sum_op(a: torch.Tensor, dim: int, run_mode: str = "npu", keepdim: bool = Fal
         out_shape = tuple(out_shape)
 
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
-    def sum_kernel(a: pypto.Tensor(SHAPE, DTYPE)) -> pypto.Tensor(out_shape, DTYPE):
+    def sum_kernel(a: pypto.Tensor(shape, dtype)) -> pypto.Tensor(out_shape, dtype):
         tile_shapes = [8 for _ in range(len(a.shape))]
         pypto.set_vec_tile_shapes(*tile_shapes)
         out = pypto.sum(a, dim=dim, keepdim=keepdim)
@@ -178,7 +179,7 @@ def test_sum_different_dimensions(device_id = None, run_mode: str = "npu"):
 # AMAX Examples
 # ============================================================================
 def amax_op(a: torch.Tensor, dim: int, run_mode: str = "npu", keepdim: bool = False) -> torch.Tensor:
-    SHAPE = a.shape
+    shape = a.shape
     if keepdim:
         out_shape = list(a.shape)
         out_shape[dim] = 1
@@ -197,7 +198,7 @@ def amax_op(a: torch.Tensor, dim: int, run_mode: str = "npu", keepdim: bool = Fa
         host_options={"only_codegen": True},
         runtime_options={"run_mode": mode}
         )
-    def amax_kernel(a: pypto.Tensor(SHAPE, DTYPE)) -> pypto.Tensor(out_shape, DTYPE):
+    def amax_kernel(a: pypto.Tensor(shape, dtype)) -> pypto.Tensor(out_shape, dtype):
         tile_shapes = [8 for _ in range(len(a.shape))]
         pypto.set_vec_tile_shapes(*tile_shapes)
         out = pypto.amax(a, dim=dim, keepdim=keepdim)
@@ -305,7 +306,7 @@ def test_amax_different_dimensions(device_id = None, run_mode: str = "npu"):
 # AMIN Examples
 # ============================================================================
 def amin_op(a: torch.Tensor, dim: int, run_mode: str = "npu", keepdim: bool = False) -> torch.Tensor:
-    SHAPE = a.shape
+    shape = a.shape
     if keepdim:
         out_shape = list(a.shape)
         out_shape[dim] = 1
@@ -324,7 +325,7 @@ def amin_op(a: torch.Tensor, dim: int, run_mode: str = "npu", keepdim: bool = Fa
         host_options={"only_codegen": True},
         runtime_options={"run_mode": mode}
     )
-    def amin_kernel(a: pypto.Tensor(SHAPE, DTYPE)) -> pypto.Tensor(out_shape, DTYPE):
+    def amin_kernel(a: pypto.Tensor(shape, dtype)) -> pypto.Tensor(out_shape, dtype):
         tile_shapes = [8 for _ in range(len(a.shape))]
         pypto.set_vec_tile_shapes(*tile_shapes)
         out = pypto.amin(a, dim=dim, keepdim=keepdim)
@@ -438,8 +439,8 @@ def test_amin_different_dimensions(device_id = None, run_mode: str = "npu"):
 # ============================================================================
 
 def maximum_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu") -> torch.Tensor:
-    SHAPE1 = a.shape
-    SHAPE2 = b.shape
+    shape1 = a.shape
+    shape2 = b.shape
 
     if run_mode == "npu":
         mode = pypto.RunMode.NPU
@@ -447,7 +448,7 @@ def maximum_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu") -> torch
         mode = pypto.RunMode.SIM
         
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
-    def maximum_kernel(a: pypto.Tensor(SHAPE1, DTYPE), b: pypto.Tensor(SHAPE2, DTYPE)) -> pypto.Tensor(SHAPE1, DTYPE):
+    def maximum_kernel(a: pypto.Tensor(shape1, dtype), b: pypto.Tensor(shape2, dtype)) -> pypto.Tensor(shape1, dtype):
         tile_shapes = [8 for _ in range(len(a.shape))]
         pypto.set_vec_tile_shapes(*tile_shapes)
         out = pypto.maximum(a, b)
@@ -499,8 +500,8 @@ def test_maximum_basic(device_id = None, run_mode: str = "npu"):
 # MINIMUM Examples
 # ============================================================================
 
-def minimum_op(a: torch.Tensor, b: torch.Tensor,  run_mode: str = "npu") -> torch.Tensor:
-    SHAPE = a.shape
+def minimum_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu") -> torch.Tensor:
+    shape = a.shape
 
     if run_mode == "npu":
         mode = pypto.RunMode.NPU
@@ -508,7 +509,7 @@ def minimum_op(a: torch.Tensor, b: torch.Tensor,  run_mode: str = "npu") -> torc
         mode = pypto.RunMode.SIM
         
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
-    def minimum_kernel(a: pypto.Tensor(SHAPE, DTYPE), b: pypto.Tensor(SHAPE, DTYPE)) -> pypto.Tensor(SHAPE, DTYPE):
+    def minimum_kernel(a: pypto.Tensor(shape, dtype), b: pypto.Tensor(shape, dtype)) -> pypto.Tensor(shape, dtype):
         tile_shapes = [8 for _ in range(len(a.shape))]
         pypto.set_vec_tile_shapes(*tile_shapes)
         out = pypto.minimum(a, b)

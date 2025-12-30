@@ -141,17 +141,17 @@ def create_add_broadcast_op_kernel(a_shape: tuple, b_shape: tuple,
                                    run_mode: str = "npu", 
                                    dynamic: bool = False) -> torch.Tensor:
     if dynamic:
-        M = pypto.frontend.dynamic("M")
-        N = a_shape[1]
+        m = pypto.frontend.dynamic("m")
+        n = a_shape[1]
         b_shape = pypto.frontend.dynamic("b_shape")
     else:
-        M, N = a_shape
+        m, n = a_shape
         b_shape = b_shape
 
     def add_broadcast_kernel(
-        a: pypto.Tensor((M, N), pypto.DT_FP32),
+        a: pypto.Tensor((m, n), pypto.DT_FP32),
         b: pypto.Tensor(b_shape, pypto.DT_FP32),
-    ) -> pypto.Tensor((M, N), pypto.DT_FP32):
+    ) -> pypto.Tensor((m, n), pypto.DT_FP32):
         pypto.set_vec_tile_shapes(2, 8)
         out = pypto.add(a, b)
         return out
@@ -183,7 +183,8 @@ def test_add_broadcast(device_id: int = None, run_mode: str = "npu"):
     print("✓ Test Broadcasting Between Tensors completed successfully")
 
 
-def create_add_scalar_op_kernel(shape: tuple, scalar: float, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
+def create_add_scalar_op_kernel(shape: tuple, scalar: float, run_mode: str = "npu",
+                                dynamic: bool = False) -> torch.Tensor:
     if dynamic:
         shape = pypto.frontend.dynamic("shape")
     else:
@@ -223,7 +224,8 @@ def test_add_scalar(device_id: int = None, run_mode: str = "npu"):
     print("✓ Test Adding a scalar to a tensor completed successfully")
 
 
-def create_add_with_alpha_op_kernel(a_shape: tuple, b_shape: tuple, alpha: float, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
+def create_add_with_alpha_op_kernel(a_shape: tuple, b_shape: tuple, 
+                                    alpha: float, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
     if dynamic:
         a_shape = pypto.frontend.dynamic("a_shape")
         b_shape = pypto.frontend.dynamic("b_shape")
@@ -276,22 +278,22 @@ def create_clip_op_kernel(a_shape: tuple, min_shape: tuple,
                           max_shape: tuple, run_mode: str = "npu", 
                           dynamic: bool = False) -> torch.Tensor:
     if dynamic:
-        M = pypto.frontend.dynamic("M")
-        N = a_shape[1]
-        min_M = pypto.frontend.dynamic("min_M")
-        min_N = min_shape[1]
-        max_M = pypto.frontend.dynamic("max_M")
-        max_N = max_shape[1]
+        m = pypto.frontend.dynamic("m")
+        n = a_shape[1]
+        min_m = pypto.frontend.dynamic("min_m")
+        min_n = min_shape[1]
+        max_m = pypto.frontend.dynamic("max_m")
+        max_n = max_shape[1]
     else:
-        M, N = a_shape
-        min_M, min_N = min_shape
-        max_M, max_N = max_shape
+        m, n = a_shape
+        min_m, min_n = min_shape
+        max_m, max_n = max_shape
 
     def clip_kernel(
-        a: pypto.Tensor((M, N), pypto.DT_FP32),
-        min_: pypto.Tensor((min_M, min_N), pypto.DT_FP32),
-        max_: pypto.Tensor((max_M, max_N), pypto.DT_FP32),
-    ) -> pypto.Tensor((M, N), pypto.DT_FP32):
+        a: pypto.Tensor((m, n), pypto.DT_FP32),
+        min_: pypto.Tensor((min_m, min_n), pypto.DT_FP32),
+        max_: pypto.Tensor((max_m, max_n), pypto.DT_FP32),
+    ) -> pypto.Tensor((m, n), pypto.DT_FP32):
         pypto.set_vec_tile_shapes(2, 8)
         out = pypto.clip(a, min_, max_)
         return out
@@ -327,19 +329,19 @@ def create_clip_broadcast_op_kernel(a_shape: tuple, min_shape: tuple,
                                     max_shape: tuple, run_mode: str = "npu", 
                                     dynamic: bool = False) -> torch.Tensor:
     if dynamic:
-        M = pypto.frontend.dynamic("M")
-        N = a_shape[1]
+        m = pypto.frontend.dynamic("m")
+        n = a_shape[1]
         min_shape = pypto.frontend.dynamic("min_shape")
         max_shape = pypto.frontend.dynamic("max_shape")
     else:
-        M, N = a_shape
+        m, n = a_shape
         min_shape, max_shape = min_shape, max_shape
 
     def clip_broadcast_kernel(
-        a: pypto.Tensor((M, N), pypto.DT_FP32),
+        a: pypto.Tensor((m, n), pypto.DT_FP32),
         min_: pypto.Tensor(min_shape, pypto.DT_FP32),
         max_: pypto.Tensor(max_shape, pypto.DT_FP32),
-    ) -> pypto.Tensor((M, N), pypto.DT_FP32):
+    ) -> pypto.Tensor((m, n), pypto.DT_FP32):
         pypto.set_vec_tile_shapes(2, 8)
         out = pypto.clip(a, min_, max_)
         return out
@@ -424,17 +426,17 @@ def create_div_broadcast_op_kernel(a_shape: tuple, b_shape: tuple,
                                    run_mode: str = "npu", 
                                    dynamic: bool = False) -> torch.Tensor:
     if dynamic:
-        M = pypto.frontend.dynamic("M")
-        N = a_shape[1]
+        m = pypto.frontend.dynamic("m")
+        n = a_shape[1]
         b_shape = pypto.frontend.dynamic("b_shape")
     else:
-        M, N = a_shape
+        m, n = a_shape
         b_shape = b_shape
 
     def div_broadcast_kernel(
-        a: pypto.Tensor((M, N), pypto.DT_FP32),
+        a: pypto.Tensor((m, n), pypto.DT_FP32),
         b: pypto.Tensor(b_shape, pypto.DT_FP32),
-    ) -> pypto.Tensor((M, N), pypto.DT_FP32):
+    ) -> pypto.Tensor((m, n), pypto.DT_FP32):
         pypto.set_vec_tile_shapes(2, 8)
         out = pypto.div(a, b)
         return out
@@ -466,7 +468,8 @@ def test_div_broadcast(device_id: int = None, run_mode: str = "npu"):
     print("✓ Test Broadcasting Between Tensors completed successfully")
 
 
-def create_div_scalar_op_kernel(a_shape: tuple, scalar: float, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
+def create_div_scalar_op_kernel(a_shape: tuple, scalar: float, 
+                                run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
     if dynamic:
         a_shape = pypto.frontend.dynamic("a_shape")
     else:

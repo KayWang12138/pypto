@@ -49,25 +49,25 @@ def get_device_id():
 
 def create_nested_loops_with_conditions_kernel(shape: tuple, dynamic: bool = False, run_mode: str = "npu"):
     if dynamic == True:
-        W = pypto.frontend.dynamic("W")
-        H = pypto.frontend.dynamic("H")
+        w = pypto.frontend.dynamic("w")
+        h = pypto.frontend.dynamic("h")
     else:
-        W, H = shape
+        w, h = shape
     
     def nested_loops_with_conditions_kernel(
-        a: pypto.Tensor((W, H), pypto.DT_FP32),
-        b: pypto.Tensor((W, H), pypto.DT_FP32),
-    ) -> pypto.Tensor((W, H), pypto.DT_FP32):
+        a: pypto.Tensor((w, h), pypto.DT_FP32),
+        b: pypto.Tensor((w, h), pypto.DT_FP32),
+    ) -> pypto.Tensor((w, h), pypto.DT_FP32):
         pypto.set_vec_tile_shapes(2, 8)
-        y = pypto.full((W, H), 0.0, pypto.DT_FP32)
+        y = pypto.full((w, h), 0.0, pypto.DT_FP32)
         for i in pypto.loop(2):
             for j in pypto.loop(2):
-                a_view = a[i:i+1, j:j+1]
-                b_view = b[i:i+1, j:j+1]
+                a_view = a[i:i + 1, j:j + 1]
+                b_view = b[i:i + 1, j:j + 1]
                 if i == 0:
-                    y[i:i+1, j:j+1] = a_view + b_view
+                    y[i:i + 1, j:j + 1] = a_view + b_view
                 else:
-                    y[i:i+1, j:j+1] = a_view - b_view
+                    y[i:i + 1, j:j + 1] = a_view - b_view
         return y
 
     if run_mode == "npu":

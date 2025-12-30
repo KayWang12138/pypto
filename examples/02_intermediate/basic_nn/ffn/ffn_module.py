@@ -18,13 +18,15 @@ and validates the implementation against PyTorch reference.
 import os
 import sys
 import argparse
+import math
+from dataclasses import dataclass
+from typing import Literal
 import pypto
 import torch
 import numpy as np
 from numpy.testing import assert_allclose
-from dataclasses import dataclass
-from typing import Literal
-import math
+
+
 
 
 # Constants
@@ -122,16 +124,9 @@ def gelu_activation_core(x: pypto.tensor) -> pypto.tensor:
         GELU activated tensor
     """
     pypto.set_vec_tile_shapes(*x.shape[:2] if len(x.shape) >= 2 else (32, 128))
-
-    # GELU approximation: x * 0.5 * (1 + tanh(sqrt(2/π) * (x + 0.044715 * x^3)))
-    # Using simpler approximation: x * sigmoid(1.702 * x)
-    # coeff = pypto.element(x.dtype, 1.702)
     x_scaled = pypto.mul(x, GELU_COEFF)
-
-    # sigmoid(x) = 1 / (1 + exp(-x))
     x_neg = pypto.mul(x_scaled, F_NEGA_1)
     exp_neg = pypto.exp(x_neg)
-    # one = pypto.element(x.dtype, F_1)
     ones = pypto.full(exp_neg.shape, 1.0, exp_neg.dtype, valid_shape=exp_neg.shape)
     sigmoid = pypto.div(ones, pypto.add(exp_neg, F_1))
     return pypto.mul(x, sigmoid)
@@ -156,10 +151,8 @@ def swiglu_activation_core(gate: pypto.tensor, up: pypto.tensor) -> pypto.tensor
     """
     pypto.set_vec_tile_shapes(*gate.shape[:2] if len(gate.shape) >= 2 else (32, 128))
 
-    # Swish(x) = x * sigmoid(x) = x / (1 + exp(-x))
     gate_neg = pypto.mul(gate, F_NEGA_1)
     exp_neg = pypto.exp(gate_neg)
-    # one = pypto.element(gate.dtype, F_1)
     ones = pypto.full(exp_neg.shape, F_1, exp_neg.dtype, valid_shape=exp_neg.shape)
     sigmoid = pypto.div(ones, pypto.add(exp_neg, ones))
     swish = pypto.mul(gate, sigmoid)
@@ -168,7 +161,8 @@ def swiglu_activation_core(gate: pypto.tensor, up: pypto.tensor) -> pypto.tensor
     return pypto.mul(swish, up)
 
 
-def dynamic_gelu_activation_core(output: pypto.tensor, hidden_states: pypto.tensor, gate_proj_weight: pypto.tensor, down_proj_weight: pypto.tensor, config: FFNConfig) -> None:
+def dynamic_gelu_activation_core(output: pypto.tensor, hidden_states: pypto.tensor, 
+    gate_proj_weight: pypto.tensor, down_proj_weight: pypto.tensor, config: FFNConfig) -> None:
     hidden_size, intermediate_size = config.hidden_size, config.intermediate_size
     basic_batch = config.basic_batch
     if basic_batch == 0:
@@ -249,7 +243,7 @@ def ffn(config: FFNConfig) -> torch.Tensor:
     return pypto.frontend.jit(runtime_options={"run_mode": config.run_mode})(ffn_activation_kernel)
 
 
-def test_ffn_static_gelu(device_id = None, run_mode: str = "npu", dynamic: bool = True):
+def test_ffn_static_gelu(device_id=None, run_mode: str = "npu"):
     """Test static FFN with GELU activation."""
     print("=" * 60)
     print("Testing Static FFN with GELU Activation")
@@ -273,10 +267,14 @@ def test_ffn_static_gelu(device_id = None, run_mode: str = "npu", dynamic: bool 
         run_mode=pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
     )
 
-    hidden_states_torch = torch.randn(batch_size, hidden_size, dtype=dtype, device=device) / math.sqrt(batch_size)
-    gate_proj_weight_torch = torch.randn(hidden_size, intermediate_size, dtype=dtype, device=device) / math.sqrt(batch_size)
-    up_proj_weight_torch = torch.randn(hidden_size, intermediate_size, dtype=dtype, device=device) / math.sqrt(batch_size)
-    down_proj_weight_torch = torch.randn(intermediate_size, hidden_size, dtype=dtype, device=device) / math.sqrt(batch_size)
+    hidden_states_torch = torch.randn(batch_size, hidden_size, 
+                                        dtype=dtype, device=device) / math.sqrt(batch_size)
+    gate_proj_weight_torch = torch.randn(hidden_size, intermediate_size, 
+                                        dtype=dtype, device=device) / math.sqrt(batch_size)
+    up_proj_weight_torch = torch.randn(hidden_size, intermediate_size, 
+                                        dtype=dtype, device=device) / math.sqrt(batch_size)
+    down_proj_weight_torch = torch.randn(intermediate_size, hidden_size, 
+                                        dtype=dtype, device=device) / math.sqrt(batch_size)
 
     print(f"Input shape: {hidden_states_torch.shape}")
     print(f"Gate weight shape: {gate_proj_weight_torch.shape}")
@@ -295,7 +293,7 @@ def test_ffn_static_gelu(device_id = None, run_mode: str = "npu", dynamic: bool 
     print()
 
 
-def test_ffn_static_swiglu(device_id = None, run_mode: str = "npu", dynamic: bool = True):
+def test_ffn_static_swiglu(device_id=None, run_mode: str = "npu"):
     """Test static FFN with SwiGLU activation."""
     print("=" * 60)
     print("Testing Static FFN with SwiGLU Activation")
@@ -318,10 +316,14 @@ def test_ffn_static_swiglu(device_id = None, run_mode: str = "npu", dynamic: boo
         run_mode=pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
     )
     # Create PyTorch tensors
-    hidden_states_torch = torch.randn(batch_size, hidden_size, dtype=dtype, device=device) / math.sqrt(batch_size)
-    gate_proj_weight_torch = torch.randn(hidden_size, intermediate_size, dtype=dtype, device=device) / math.sqrt(batch_size)
-    up_proj_weight_torch = torch.randn(hidden_size, intermediate_size, dtype=dtype, device=device) / math.sqrt(batch_size)
-    down_proj_weight_torch = torch.randn(intermediate_size, hidden_size, dtype=dtype, device=device) / math.sqrt(batch_size)
+    hidden_states_torch = torch.randn(batch_size, hidden_size, 
+                                        dtype=dtype, device=device) / math.sqrt(batch_size)
+    gate_proj_weight_torch = torch.randn(hidden_size, intermediate_size, 
+                                        dtype=dtype, device=device) / math.sqrt(batch_size)
+    up_proj_weight_torch = torch.randn(hidden_size, intermediate_size, 
+                                        dtype=dtype, device=device) / math.sqrt(batch_size)
+    down_proj_weight_torch = torch.randn(intermediate_size, hidden_size, 
+                                        dtype=dtype, device=device) / math.sqrt(batch_size)
     
     # PyTorch reference computation
     gate_torch = torch.matmul(hidden_states_torch, gate_proj_weight_torch)
@@ -534,7 +536,10 @@ Examples:
     examples_to_run = []
 
     if args.example_id is not None:
-        examples_to_run = [(args.example_id, examples[args.example_id])]
+        example = examples.get(args.example_id)
+        if example is None:
+            raise ValueError(f"Invalid example ID: {args.example_id}")
+        examples_to_run = [(args.example_id, example)]
     else:
         examples_to_run = list(examples.items())
 

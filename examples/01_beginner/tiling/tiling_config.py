@@ -56,13 +56,13 @@ def get_device_id():
 # Cube Tile Examples
 # ============================================================================
     
-def create_cube_tile_kernel(M, K, N, run_mode, set_shapes: list):
+def create_cube_tile_kernel(m, k, n, run_mode, set_shapes: list):
 
     @pypto.frontend.jit(runtime_options={"run_mode": run_mode})
     def compute_with_cube_tile_shapes(
-        a: pypto.Tensor((M, K), pypto.DT_FP32),
-        b: pypto.Tensor((K, N), pypto.DT_FP32),
-    ) -> pypto.Tensor((M, N), pypto.DT_FP32):
+        a: pypto.Tensor((m, k), pypto.DT_FP32),
+        b: pypto.Tensor((k, n), pypto.DT_FP32),
+    ) -> pypto.Tensor((m, n), pypto.DT_FP32):
         pypto.set_cube_tile_shapes(*set_shapes)
         out = pypto.matmul(a, b, a.dtype)
         return out
@@ -120,22 +120,22 @@ def test_set_cube_tile_shapes_basic(device_id: int = None, run_mode: str = "npu"
 
 
 def create_different_tile_shapes_kernel(run_mode):
-    B, M_BATCH, K_BATCH, N_BATCH = 2, 2, 2, 2
+    b, m_batch, k_batch, n_batch = 2, 2, 2, 2
 
     @pypto.frontend.jit(runtime_options={"run_mode": run_mode})
     def compute_with_different_tile_shapes(
-        a: pypto.Tensor((B, M_BATCH, K_BATCH), pypto.DT_FP32),
-        b: pypto.Tensor((B, K_BATCH, N_BATCH), pypto.DT_FP32),
+        a: pypto.Tensor((b, m_batch, k_batch), pypto.DT_FP32),
+        b: pypto.Tensor((b, k_batch, n_batch), pypto.DT_FP32),
     ) -> (
-        pypto.Tensor((B, M_BATCH, N_BATCH), pypto.DT_FP32),
-        pypto.Tensor((B, M_BATCH, N_BATCH), pypto.DT_FP32),
-        pypto.Tensor((B, M_BATCH, N_BATCH), pypto.DT_FP32),
+        pypto.Tensor((b, m_batch, n_batch), pypto.DT_FP32),
+        pypto.Tensor((b, m_batch, n_batch), pypto.DT_FP32),
+        pypto.Tensor((b, m_batch, n_batch), pypto.DT_FP32),
     ):
         """Compute matmul with three different tile shapes and return all results"""
-        print(f"B: {B}, M_BATCH: {M_BATCH}, K_BATCH: {K_BATCH}, N_BATCH: {N_BATCH}")
-        out1 = pypto.tensor((B, M_BATCH, N_BATCH), pypto.DT_FP32)
-        out2 = pypto.tensor((B, M_BATCH, N_BATCH), pypto.DT_FP32)
-        out3 = pypto.tensor((B, M_BATCH, N_BATCH), pypto.DT_FP32)
+        print(f"b: {b}, m_batch: {m_batch}, k_batch: {k_batch}, n_batch: {n_batch}")
+        out1 = pypto.tensor((b, m_batch, n_batch), pypto.DT_FP32)
+        out2 = pypto.tensor((b, m_batch, n_batch), pypto.DT_FP32)
+        out3 = pypto.tensor((b, m_batch, n_batch), pypto.DT_FP32)
 
         pypto.set_cube_tile_shapes([32, 32], [16, 16], [32, 32])
         print(f"pypto.get_cube_tile_shapes(): {pypto.get_cube_tile_shapes()}")
@@ -190,14 +190,14 @@ def test_set_different_tile_shapes_result(device_id: int = None, run_mode: str =
 
 
 def create_tile_32_kernel(run_mode):
-    B_RT, M_RT, K_RT, N_RT = 4, 64, 512, 128
+    b_rt, m_rt, k_rt, n_rt = 4, 64, 512, 128
 
     @pypto.frontend.jit(runtime_options={"run_mode": run_mode})
     def compute_with_tile_32(
-        a: pypto.Tensor((B_RT, M_RT, K_RT), pypto.DT_FP32),
-        b: pypto.Tensor((B_RT, N_RT, K_RT), pypto.DT_FP32),
-    ) -> pypto.Tensor((B_RT, M_RT, N_RT), pypto.DT_FP32):
-        print(f"B_RT: {B_RT}, M_RT: {M_RT}, K_RT: {K_RT}, N_RT: {N_RT}")
+        a: pypto.Tensor((b_rt, m_rt, k_rt), pypto.DT_FP32),
+        b: pypto.Tensor((b_rt, n_rt, k_rt), pypto.DT_FP32),
+    ) -> pypto.Tensor((b_rt, m_rt, n_rt), pypto.DT_FP32):
+        print(f"b_rt: {b_rt}, m_rt: {m_rt}, k_rt: {k_rt}, n_rt: {n_rt}")
         pypto.set_cube_tile_shapes([32, 32], [32, 32], [32, 32])
         output = pypto.matmul(a, b, a.dtype, b_trans=True)
         return output
@@ -206,14 +206,14 @@ def create_tile_32_kernel(run_mode):
 
 
 def create_tile_64_kernel(run_mode):
-    B_RT, M_RT, K_RT, N_RT = 4, 64, 512, 128
+    b_rt, m_rt, k_rt, n_rt = 4, 64, 512, 128
 
     @pypto.frontend.jit(runtime_options={"run_mode": run_mode})
     def compute_with_tile_64(
-        a: pypto.Tensor((B_RT, M_RT, K_RT), pypto.DT_FP32),
-        b: pypto.Tensor((B_RT, N_RT, K_RT), pypto.DT_FP32),
-    ) -> pypto.Tensor((B_RT, M_RT, N_RT), pypto.DT_FP32):
-        print(f"B_RT: {B_RT}, M_RT: {M_RT}, K_RT: {K_RT}, N_RT: {N_RT}")
+        a: pypto.Tensor((b_rt, m_rt, k_rt), pypto.DT_FP32),
+        b: pypto.Tensor((b_rt, n_rt, k_rt), pypto.DT_FP32),
+    ) -> pypto.Tensor((b_rt, m_rt, n_rt), pypto.DT_FP32):
+        print(f"b_rt: {b_rt}, m_rt: {m_rt}, k_rt: {k_rt}, n_rt: {n_rt}")
         pypto.set_cube_tile_shapes([64, 64], [128, 128], [128, 128])
         output = pypto.matmul(a, b, a.dtype, b_trans=True)
         return output
@@ -239,10 +239,10 @@ def test_set_different_tile_shapes_runtime(device_id: int = None, run_mode: str 
         mode = pypto.RunMode.SIM
         
     # Test 1: Different Tile Shape Settings on Runtime
-    B_RT, M_RT, K_RT, N_RT = 4, 64, 512, 128
+    b_rt, m_rt, k_rt, n_rt = 4, 64, 512, 128
     dtype = torch.float32
-    a = torch.randn((B_RT, M_RT, K_RT), dtype=dtype, device=device)
-    b = torch.randn((B_RT, N_RT, K_RT), dtype=dtype, device=device)
+    a = torch.randn((b_rt, m_rt, k_rt), dtype=dtype, device=device)
+    b = torch.randn((b_rt, n_rt, k_rt), dtype=dtype, device=device)
 
     compute_tile_32 = create_tile_32_kernel(mode)
     compute_tile_64 = create_tile_64_kernel(mode)
@@ -405,14 +405,14 @@ def test_set_vec_different_tile_shapes_result(device_id: int = None, run_mode: s
 
 
 def create_vec_tile_small_kernel(run_mode):
-    VEC_RT_SHAPE = (4, 32, 64, 256)
+    vec_rt_shape = (4, 32, 64, 256)
 
     @pypto.frontend.jit(runtime_options={"run_mode": run_mode})
     def compute_with_vec_tile_small(
-        a: pypto.Tensor(VEC_RT_SHAPE, pypto.DT_FP32),
-        b: pypto.Tensor(VEC_RT_SHAPE, pypto.DT_FP32),
-    ) -> pypto.Tensor(VEC_RT_SHAPE, pypto.DT_FP32):
-        print(f"VEC_RT_SHAPE: {VEC_RT_SHAPE}")
+        a: pypto.Tensor(vec_rt_shape, pypto.DT_FP32),
+        b: pypto.Tensor(vec_rt_shape, pypto.DT_FP32),
+    ) -> pypto.Tensor(vec_rt_shape, pypto.DT_FP32):
+        print(f"vec_rt_shape: {vec_rt_shape}")
         pypto.set_vec_tile_shapes(1, 2, 4, 128)
         output = pypto.add(a, b)
         return output
@@ -421,14 +421,14 @@ def create_vec_tile_small_kernel(run_mode):
 
 
 def create_vec_tile_large_kernel(run_mode):
-    VEC_RT_SHAPE = (4, 32, 64, 256)
+    vec_rt_shape = (4, 32, 64, 256)
 
     @pypto.frontend.jit(runtime_options={"run_mode": run_mode})
     def compute_with_vec_tile_large(
-        a: pypto.Tensor(VEC_RT_SHAPE, pypto.DT_FP32),
-        b: pypto.Tensor(VEC_RT_SHAPE, pypto.DT_FP32),
-    ) -> pypto.Tensor(VEC_RT_SHAPE, pypto.DT_FP32):
-        print(f"VEC_RT_SHAPE: {VEC_RT_SHAPE}")
+        a: pypto.Tensor(vec_rt_shape, pypto.DT_FP32),
+        b: pypto.Tensor(vec_rt_shape, pypto.DT_FP32),
+    ) -> pypto.Tensor(vec_rt_shape, pypto.DT_FP32):
+        print(f"vec_rt_shape: {vec_rt_shape}")
         pypto.set_vec_tile_shapes(2, 4, 8, 256)
         output = pypto.add(a, b)
         return output
@@ -454,10 +454,10 @@ def test_set_vec_different_tile_shapes_runtime(device_id: int = None, run_mode: 
         mode = pypto.RunMode.SIM
         
     # Test 1: Different Tile Shape Settings on Runtime
-    VEC_RT_SHAPE = (4, 32, 64, 256)
+    vec_rt_shape = (4, 32, 64, 256)
     dtype = torch.float32
-    a = torch.randn(VEC_RT_SHAPE, dtype=dtype, device=device)
-    b = torch.randn(VEC_RT_SHAPE, dtype=dtype, device=device)
+    a = torch.randn(vec_rt_shape, dtype=dtype, device=device)
+    b = torch.randn(vec_rt_shape, dtype=dtype, device=device)
 
     compute_vec_small = create_vec_tile_small_kernel(mode)
     compute_vec_large = create_vec_tile_large_kernel(mode)

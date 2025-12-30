@@ -111,19 +111,19 @@ def test_element_wise_operations(device_id: int = None, run_mode: str = "npu", d
 
 def create_matrix_multiply_kernel(shape: tuple, run_mode: str = "npu", dynamic: bool = False):
     if dynamic:
-        M = pypto.frontend.dynamic("M")
-        K = pypto.frontend.dynamic("K")
-        N = shape[2]
+        m = pypto.frontend.dynamic("m")
+        k = pypto.frontend.dynamic("k")
+        n = shape[2]
     else:
-        M, K, N = shape
+        m, k, n = shape
 
     def matrix_multiply_kernel(
-        A: pypto.Tensor((M, K), pypto.DT_BF16),
-        B: pypto.Tensor((K, N), pypto.DT_BF16),
-    ) -> pypto.Tensor((M, N), pypto.DT_BF16):
+        a: pypto.Tensor((m, k), pypto.DT_BF16),
+        b: pypto.Tensor((k, n), pypto.DT_BF16),
+    ) -> pypto.Tensor((m, n), pypto.DT_BF16):
         pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
-        C = pypto.matmul(A, B, A.dtype)
-        return C
+        c = pypto.matmul(a, b, a.dtype)
+        return c
 
     if run_mode == "npu":
         return pypto.frontend.jit()(matrix_multiply_kernel)
@@ -138,17 +138,17 @@ def test_matrix_multiplication(device_id: int = None, run_mode: str = "npu", dyn
     print("=" * 60)
 
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    M, K, N = 64, 128, 64
-    A_torch = torch.randn(M, K, dtype=torch.bfloat16, device=device)
-    B_torch = torch.randn(K, N, dtype=torch.bfloat16, device=device)
+    m, k, n = 64, 128, 64
+    A_torch = torch.randn(m, k, dtype=torch.bfloat16, device=device)
+    B_torch = torch.randn(k, n, dtype=torch.bfloat16, device=device)
 
-    C_torch = create_matrix_multiply_kernel((M, K, N), run_mode, dynamic)(A_torch, B_torch)
+    c_torch = create_matrix_multiply_kernel((m, k, n), run_mode, dynamic)(A_torch, B_torch)
     
     expected = torch.matmul(A_torch, B_torch)
-    max_diff = (C_torch - expected).abs().max().item()
+    max_diff = (c_torch - expected).abs().max().item()
     print(f"Matrix A shape: {A_torch.shape}")
     print(f"Matrix B shape: {B_torch.shape}")
-    print(f"Output C shape: {C_torch.shape}")
+    print(f"Output C shape: {c_torch.shape}")
     if run_mode == "npu":
         print(f"Max difference from PyTorch: {max_diff:.6f}")
         assert max_diff < 1e-1, "Result mismatch!"
@@ -266,12 +266,12 @@ def create_linear_layer_with_activation_kernel(shape: tuple, run_mode: str = "np
 
     def linear_layer_with_activation_kernel(
         x: pypto.Tensor((batch, in_features), pypto.DT_BF16),
-        W: pypto.Tensor((in_features, out_features), pypto.DT_BF16),
+        w: pypto.Tensor((in_features, out_features), pypto.DT_BF16),
         b: pypto.Tensor((out_features,), pypto.DT_BF16),
     ) -> pypto.Tensor((batch, out_features), pypto.DT_BF16):
         pypto.set_vec_tile_shapes(32, 64)
         pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
-        linear = pypto.matmul(x, W, b.dtype)
+        linear = pypto.matmul(x, w, b.dtype)
         biased = pypto.add(linear, b)
         y[:] = pypto.sigmoid(biased)
         return y
@@ -296,7 +296,8 @@ def test_combined_operations(device_id: int = None, run_mode: str = "npu", dynam
     x_torch = torch.randn(batch, in_features, dtype=torch.bfloat16, device=device)
     W_torch = torch.randn(in_features, out_features, dtype=torch.bfloat16, device=device)
     b_torch = torch.randn(out_features, dtype=torch.bfloat16, device=device)
-    y_torch = create_linear_layer_with_activation_kernel((batch, in_features, out_features), run_mode, dynamic)(x_torch, W_torch, b_torch)
+    y_torch = create_linear_layer_with_activation_kernel(
+        (batch, in_features, out_features), run_mode, dynamic)(x_torch, W_torch, b_torch)
     
     expected = torch.sigmoid(torch.matmul(x_torch, W_torch) + b_torch)
     max_diff = (y_torch - expected).abs().max().item()

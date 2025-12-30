@@ -55,16 +55,16 @@ def get_device_id():
 # Assemble Examples
 # ============================================================================
     
-def assemble_wrapper(mode: pypto.RunMode, INPUT_SHAPE: tuple, OUT_SHAPE: tuple, OFFSETS: list):
+def assemble_wrapper(mode: pypto.RunMode, input_shape: tuple, out_shape: tuple, offsets: list):
 
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def assemble_kernel(
-        x: pypto.Tensor(INPUT_SHAPE, pypto.DT_FP32),
-    ) -> pypto.Tensor(OUT_SHAPE, pypto.DT_FP32):
+        x: pypto.Tensor(input_shape, pypto.DT_FP32),
+    ) -> pypto.Tensor(out_shape, pypto.DT_FP32):
         tile_shapes = [8 for _ in range(len(x.shape))]
         pypto.set_vec_tile_shapes(*tile_shapes)
-        out = pypto.tensor(OUT_SHAPE, pypto.DT_FP32)
-        pypto.assemble(x, OFFSETS, out)
+        out = pypto.tensor(out_shape, pypto.DT_FP32)
+        pypto.assemble(x, offsets, out)
         return out
 
     return assemble_kernel
@@ -152,15 +152,16 @@ def test_assemble_different_offsets_shapes(device_id: int = None, run_mode: str 
 # ============================================================================
 # Gather Examples
 # ============================================================================
-    
-def gather_wrapper(mode: pypto.RunMode, dim: int, INPUT_SHAPE: tuple, INDEX_SHAPE: tuple):
+
+
+def gather_wrapper(mode: pypto.RunMode, dim: int, input_shape: tuple, index_shape: tuple):
     @pypto.frontend.jit(host_options={"only_codegen": True}, runtime_options={"run_mode": mode})
     def gather_kernel(
-        input_tensor: pypto.Tensor(INPUT_SHAPE, pypto.DT_INT32),
-        index_tensor: pypto.Tensor(INDEX_SHAPE, pypto.DT_INT32)
-    ) -> pypto.Tensor(INDEX_SHAPE, pypto.DT_INT32):
-        print(f"INPUT_SHAPE: {INPUT_SHAPE}")
-        print(f"INDEX_SHAPE: {INDEX_SHAPE}")
+        input_tensor: pypto.Tensor(input_shape, pypto.DT_INT32),
+        index_tensor: pypto.Tensor(index_shape, pypto.DT_INT32)
+    ) -> pypto.Tensor(index_shape, pypto.DT_INT32):
+        print(f"input_shape: {input_shape}")
+        print(f"index_shape: {index_shape}")
         tile_shapes = [8 for _ in range(len(input_tensor.shape))]
         pypto.set_vec_tile_shapes(*tile_shapes)
         out = pypto.gather(input_tensor, dim, index_tensor)
@@ -168,7 +169,7 @@ def gather_wrapper(mode: pypto.RunMode, dim: int, INPUT_SHAPE: tuple, INDEX_SHAP
     return gather_kernel
 
 
-def gather_op(input_tensor: torch.Tensor, index_tensor: torch.Tensor, dim: int, run_mode: str= "npu") -> torch.Tensor:
+def gather_op(input_tensor: torch.Tensor, index_tensor: torch.Tensor, dim: int, run_mode: str = "npu") -> torch.Tensor:
     if run_mode == "npu":
         mode = pypto.RunMode.NPU
     else:
@@ -295,7 +296,9 @@ def test_gather_negative_indexing(device_id: int = None, run_mode: str = "npu"):
 # ============================================================================
 # Scatter Examples
 # ============================================================================
-def scatter_wrapper(dim: int, src: torch.float32, INPUT_SHAPE: tuple, INDEX_SHAPE: tuple, run_mode: str = "npu"):
+
+
+def scatter_wrapper(dim: int, src: torch.float32, input_shape: tuple, index_shape: tuple, run_mode: str = "npu"):
     if run_mode == "npu":
         mode = pypto.RunMode.NPU
     else:
@@ -303,9 +306,9 @@ def scatter_wrapper(dim: int, src: torch.float32, INPUT_SHAPE: tuple, INDEX_SHAP
     
     @pypto.frontend.jit(host_options={"only_codegen": True}, runtime_options={"run_mode": mode})
     def scatter_kernel(
-        x: pypto.Tensor(INPUT_SHAPE, pypto.DT_FP32),
-        y: pypto.Tensor(INDEX_SHAPE, pypto.DT_INT64)
-    ) -> pypto.Tensor(INDEX_SHAPE, pypto.DT_FP32):
+        x: pypto.Tensor(input_shape, pypto.DT_FP32),
+        y: pypto.Tensor(index_shape, pypto.DT_INT64)
+    ) -> pypto.Tensor(index_shape, pypto.DT_FP32):
         tensor_shape = x.shape
         vec_tile_shapes = [8 for _ in range(len(tensor_shape))]
         pypto.set_vec_tile_shapes(*vec_tile_shapes)
@@ -314,6 +317,7 @@ def scatter_wrapper(dim: int, src: torch.float32, INPUT_SHAPE: tuple, INDEX_SHAP
         return out
     
     return scatter_kernel
+
 
 def test_scatter(device_id: int = None, run_mode: str = "npu"):
     """Test basic usage of scatter function"""
@@ -342,6 +346,7 @@ def test_scatter(device_id: int = None, run_mode: str = "npu"):
 # ============================================================================
 # Scatter_update Examples
 # ============================================================================
+
 
 def scatter_update(x: torch.Tensor, dim: int, y: torch.Tensor, src: torch.float32, run_mode: str = "npu") -> torch.Tensor:
     x_shape, y_shape = x.shape, y.shape
@@ -608,7 +613,9 @@ def test_view_basic(device_id = None, run_mode: str = "npu"):
     print("✓ Basic usage of view function completed successfully")
 
     
-def view_with_valid_shape_op(x: torch.Tensor, shape: list, offsets: list, valid_shape: list, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
+def view_with_valid_shape_op(x: torch.Tensor, shape: list, 
+                             offsets: list, valid_shape: list, 
+                             run_mode: str = "npu") -> torch.Tensor:
     shape_x = x.shape
 
     if run_mode == "npu":
@@ -664,8 +671,10 @@ def test_view_with_valid_shape(device_id: int = None, run_mode: str = "npu"):
 # Transpose Examples
 # ============================================================================
 
-SHAPE_TRANSPOSE = (2, 3)
-SHAPE_TRANSPOSE2 = (3, 2)
+shape_transpose = (2, 3)
+shape_transpose2 = (3, 2)
+
+
 def transpose(x: torch.Tensor, dim0: int, dim1: int, run_mode: str = "npu") -> torch.Tensor:
 
     if run_mode == "npu":
@@ -675,7 +684,9 @@ def transpose(x: torch.Tensor, dim0: int, dim1: int, run_mode: str = "npu") -> t
         
     # launch the kernel
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
-    def transpose_kernel(x: pypto.Tensor(SHAPE_TRANSPOSE, pypto.DT_FP32)) -> pypto.Tensor(SHAPE_TRANSPOSE2, pypto.DT_FP32):
+    def transpose_kernel(
+        x: pypto.Tensor(shape_transpose, pypto.DT_FP32)
+    ) -> pypto.Tensor(shape_transpose2, pypto.DT_FP32):
         tensor_shape = x.shape
         vec_tile_shapes = [8 for _ in range(len(tensor_shape))]
         pypto.set_vec_tile_shapes(*vec_tile_shapes)
@@ -732,7 +743,9 @@ data_type = {
 }
 
 
-CAST_SHAPE = 2
+cast_shape = 2
+
+
 def cast(x: torch.Tensor, dtype: torch.dtype, run_mode: str = "npu") -> torch.Tensor:
 
     pto_type = data_type[dtype]
@@ -744,7 +757,7 @@ def cast(x: torch.Tensor, dtype: torch.dtype, run_mode: str = "npu") -> torch.Te
         
     # launch the kernel
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
-    def cast_kernel(x: pypto.Tensor((CAST_SHAPE, ), pypto.DT_FP32)) -> pypto.Tensor((CAST_SHAPE, ), pypto.DT_FP16):
+    def cast_kernel(x: pypto.Tensor((cast_shape, ), pypto.DT_FP32)) -> pypto.Tensor((cast_shape, ), pypto.DT_FP16):
         tensor_shape = x.shape
         vec_tile_shapes = [8 for _ in range(len(tensor_shape))]
         pypto.set_vec_tile_shapes(*vec_tile_shapes)

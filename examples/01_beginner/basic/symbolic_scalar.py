@@ -90,7 +90,7 @@ def create_symbolicscalar_in_loop_kernel(shape: tuple, run_mode: str = "npu"):
             # Assert is not supported yet.
             # Assert whether not i.is_concrete()
             # Assert whether i.is_symbol() or i.is_expression()
-            # Execute expression: expr = i + 1
+            # Execute expression: let expr be the result of i + 1
             # Assert whether not expr.is_concrete()
             y = x + y
         return y

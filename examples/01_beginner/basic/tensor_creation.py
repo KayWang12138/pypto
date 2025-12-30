@@ -56,7 +56,7 @@ def get_device_id():
 # ============================================================================
 
 
-def create_arange_op_kernel(shape: tuple, start = None, end = None, step = None, run_mode: str= "npu") -> torch.Tensor:
+def create_arange_op_kernel(shape: tuple, start=None, end=None, step=None, run_mode: str = "npu") -> torch.Tensor:
 
     def arange_start_end_step_kernel(
         dummy_input: pypto.Tensor(shape, pypto.DT_FP32),
@@ -120,7 +120,8 @@ def test_arange_basic(device_id = None, run_mode: str = "npu"):
     dtype = torch.float32
     expected_b = torch.tensor([1.0, 2.0, 3.0], dtype=torch.float32, device=device)
 
-    out_torch = create_arange_op_kernel(shape, start=1.0, end=4.0, run_mode=run_mode)(torch.tensor([0], dtype=dtype, device=device))
+    out_torch = create_arange_op_kernel(shape, start=1.0, end=4.0, 
+                                        run_mode=run_mode)(torch.tensor([0], dtype=dtype, device=device))
     print(f"Output b: {out_torch}")
     print(f"Expected b: {expected_b}")
     if run_mode == "npu":
@@ -131,7 +132,8 @@ def test_arange_basic(device_id = None, run_mode: str = "npu"):
     dtype = torch.float32
     expected_c = torch.tensor([1.0, 1.5, 2.0, 2.5, 3.0, 3.5], dtype=torch.float32, device=device)
 
-    out_torch = create_arange_op_kernel(shape, start=1.0, end=4.0, step=0.5, run_mode=run_mode)(torch.tensor([0], dtype=dtype, device=device))
+    out_torch = create_arange_op_kernel(shape, start=1.0, end=4.0, step=0.5, 
+                                        run_mode=run_mode)(torch.tensor([0], dtype=dtype, device=device))
     print(f"Output c: {out_torch}")
     print(f"Expected c: {expected_c}")
     if run_mode == "npu":
@@ -187,7 +189,7 @@ def test_tensor_creation_with_datatypes(device_id = None, run_mode: str = "npu")
 # ============================================================================
 
 
-def create_full_op_kernel(shape: tuple, dtype: torch.dtype, fill_value: float, run_mode: str= "npu") -> torch.Tensor:
+def create_full_op_kernel(shape: tuple, fill_value: float, run_mode: str = "npu") -> torch.Tensor:
 
     def full_kernel(
         dummy_input: pypto.Tensor(shape, pypto.DT_FP32),
