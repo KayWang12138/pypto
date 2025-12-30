@@ -61,6 +61,16 @@ def _load_shared_libs():
 
 _load_shared_libs()
 
+try:
+    from . import pypto_impl  # noqa: F401
+except ImportError as e:
+    raise ImportError(
+        "Failed to import `pypto_impl` (PyPTO binary extension). "
+        "If you are developing from source, please build/install first "
+        "(e.g. `python3 -m pip install -e .` or `python3 build_ci.py ...`), "
+        "or run with `PYTHONPATH=build_out`."
+    ) from e
+
 from . import experimental
 
 from .config import *  # noqa
@@ -84,3 +94,25 @@ from . import frontend
 
 tensor = Tensor
 symbolic_scalar = SymbolicScalar
+
+
+# Lazy import for autograd module to avoid circular dependencies
+# and ensure zero overhead when autograd is not used
+_autograd_importing = False
+
+
+def __getattr__(name):
+    global _autograd_importing
+    if name == "autograd":
+        # Prevent recursive import
+        if _autograd_importing:
+            raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+        _autograd_importing = True
+        try:
+            from . import autograd
+            # Cache in module dict to prevent future __getattr__ calls
+            globals()["autograd"] = autograd
+            return autograd
+        finally:
+            _autograd_importing = False
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

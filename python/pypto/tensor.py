@@ -103,6 +103,9 @@ class Tensor:
         key = self._normalize_key(key)
 
         if all(isinstance(k, (int, SymbolicScalar)) for k in key):
+            # Autograd defense: SetTensorData is not tracked by op_wrapper
+            # In autograd mode, this would silently break gradient computation
+            self._check_autograd_scalar_write()
             pypto_impl.SetTensorData(to_sym(value), to_syms(key), self._base)
             return
 
@@ -381,7 +384,51 @@ class Tensor:
         return self._base.GetCachePolicy(policy)
 
     def move(self, other: 'Tensor') -> None:
+        """
+        Move the contents of another tensor into this tensor.
+
+        This is used for patterns like `out[:] = expr` where we want to
+        assign the result of a computation to an output tensor.
+
+        In autograd mode, this creates an SSA mapping (alias relationship)
+        between the source and destination tensors.
+        """
+        # Call autograd hook if tracing is active
+        self._call_autograd_move_hook(other)
         self._base.Move(other._base)
+
+    def _call_autograd_move_hook(self, src_tensor: 'Tensor') -> None:
+        """Call autograd hook for move operation (lazy import to avoid overhead)."""
+        try:
+            from .autograd.context import is_tracing
+            if not is_tracing():
+                return
+
+            from .autograd.tracer import _autograd_hook_move
+            _autograd_hook_move(self, src_tensor)
+        except ImportError:
+            # autograd module not available, skip
+            pass
+
+    def _check_autograd_scalar_write(self) -> None:
+        """
+        Check if scalar write (SetTensorData) is allowed in current context.
+
+        In autograd mode, scalar writes via a[i, j] = v are NOT tracked by
+        op_wrapper, which would silently break gradient computation.
+        MVP strategy: raise error in autograd mode, suggest using assemble/scatter.
+        """
+        try:
+            from .autograd.context import is_tracing
+            if is_tracing():
+                raise NotImplementedError(
+                    "Scalar tensor write (a[i, j] = v) is not supported in autograd mode. "
+                    "This operation bypasses the autograd tracer and would produce incorrect gradients. "
+                    "Please use pypto.assemble() or pypto.scatter() instead, which are properly tracked."
+                )
+        except ImportError:
+            # autograd module not available, no check needed
+            pass
 
     def base(self) -> pypto_impl.Tensor:
         return self._base
