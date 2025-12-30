@@ -420,7 +420,7 @@ OpcodeManager::OpcodeManager() {
     registerInfo(Opcode::OP_SORT, OpCoreType::AIV, "SORT",
         {MemoryType::MEM_UB}, {MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB},
         {"TileOp::Sort", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER, {OpAttributeKey::inplaceInfo, OP_ATTR_PREFIX + "start_index", OP_ATTR_PREFIX + "order"});
-    registerInfo(Opcode::OP_COMPARE_SWAP, OpCoreType::AIV, "COMP_SWAP",
+    registerInfo(Opcode::OP_COMPARE_SWAP, OpCoreType::AIV, "COMPARE_SWAP",
         {MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB},
         {"TileOp::CompareAndSwap", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER, {OpAttributeKey::inplaceInfo, OP_ATTR_PREFIX + "order"});
     registerInfo(Opcode::OP_MERGE, OpCoreType::AIV, "MERGE",
