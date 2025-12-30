@@ -313,10 +313,17 @@ inline std::string NPUArchToString(NPUArch npu_arch) {
     }
 }
 
+enum class ShortSoCVersion {
+    SoC_910B,
+    SoC_910_93,
+    SoC_UNKOWN
+};
+
 class SoC {
 private:
     Die die_;
     NPUArch version_;
+    ShortSoCVersion shortSoCVersion_{ShortSoCVersion::SoC_UNKOWN};
     size_t dies_cnt_;
     size_t ai_core_cnt_;
     size_t cube_core_cnt_;
@@ -329,12 +336,14 @@ public:
     void SetDiesNum(size_t cnt) { dies_cnt_ = cnt; }
     void SetCoreVersion(const std::unordered_map<std::string, std::string>& ver);
     void SetCCECVersion(const std::unordered_map<std::string, std::string>& ver);
+    void SetShortSoCVersion(const std::string& version);
 
     Die& GetDies() { return die_; }
     NPUArch GetNPUArch() const { return version_; }
     size_t GetDiesNum() const { return dies_cnt_; }
     std::string GetCoreVersion(std::string CoreType);
     std::string GetCCECVersion(std::string CoreType);
+    ShortSoCVersion GetShortSoCVersion(){ return shortSoCVersion_; }
 
     // SOCINFO
     size_t GetAICPUNum() const { return ai_cpu_cnt_; }
