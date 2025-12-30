@@ -423,7 +423,7 @@ class JitCallableWrapper:
             else:
                 if isinstance(run_mode, pypto.RunMode):
                     self._runtime_options.update({"run_mode": run_mode.value})
-                return
+            return
 
         cann_is_configed: bool = bool(os.environ.get("ASCEND_HOME_PATH"))
         if cann_is_configed:
