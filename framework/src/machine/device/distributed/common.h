@@ -90,7 +90,7 @@ inline std::vector<uint32_t> GetCoaVector(const uint32_t baseIndex, const uint32
 inline AicpuParamInfo DecodeAicpuCode(const npu::tile_fwk::dynamic::DevRelocVector<int32_t> &aicpuCode)
 {
     AicpuParamInfo paramInfo;
-    int index = 1;
+    int index = 2;
     paramInfo.outIndex = index + 1;
 
     index = index + aicpuCode[index] + 1;

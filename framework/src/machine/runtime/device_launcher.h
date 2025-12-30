@@ -32,6 +32,7 @@
 #include "interface/interpreter/raw_tensor_data.h"
 #include "interface/configs/config_manager.h"
 #include "tilefwk/platform.h"
+#include "machine/runtime/distributed_context.h"
 
 namespace npu::tile_fwk::dynamic {
 
@@ -167,13 +168,6 @@ public:
             devProg->memBudget.tensor.devTaskBoundaryOutcastNum);
         AssignMetaAddr(kArgs, devMem, devProg, cachedOperator);
         devProg->l2CacheOffset = devMem.GetL2Offset();
-        ASSERT(devProg->commGroupNum == config.hcclContext.size()) << "commGroupNum mismatch. commGroupNum = " <<
-               devProg->commGroupNum << ", hcclContext size = " << config.hcclContext.size();
-        ASSERT(devProg->commGroupNum <= (sizeof(devProg->hcclContext) / sizeof(uint64_t))) << "commGroupNum exceeds array size. commGroupNum = "
-               << devProg->commGroupNum << ", max allowed = " << sizeof(devProg->hcclContext) / sizeof(uint64_t);
-        for (size_t i = 0; i < devProg->commGroupNum; i++) {
-            devProg->hcclContext[i] = config.hcclContext[i];
-        }
         if (config.workspaceAddr) {
             kArgs.workspace = (int64_t *)config.workspaceAddr;
         } else if (kArgs.workspace == nullptr && (devProg->workspaceSize != 0)) {
@@ -199,6 +193,18 @@ public:
         }
         kArgs.toSubMachineConfig.isGETensorList = config.isGETensorList ? 1 : 0;
         return;
+    }
+
+    static void DeviceInitDistributedContext(const std::vector<std::string> &groupNames, const std::vector<uint8_t> &devProgData) {
+        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
+        auto hcclContext = DistributedContext::GetHcclContext(groupNames);
+        ASSERT(devProg->commGroupNum == hcclContext.size()) << "commGroupNum mismatch. commGroupNum = " <<
+               devProg->commGroupNum << ", hcclContext size = " << hcclContext.size();
+        ASSERT(devProg->commGroupNum <= (sizeof(devProg->hcclContext) / sizeof(uint64_t))) << "commGroupNum exceeds array size. commGroupNum = "
+               << devProg->commGroupNum << ", max allowed = " << sizeof(devProg->hcclContext) / sizeof(uint64_t);
+        for (size_t i = 0; i < devProg->commGroupNum; i++) {
+            devProg->hcclContext[i] = hcclContext[i];
+        }
     }
 
     template<typename DeviceMemoryTy>
