@@ -64,7 +64,9 @@ public:
         }
         return std::make_pair(true, code);
     }
-
+    
+    void CreateLeafInAndOutCast(const LogicalTensorPtr &inOrOut, LogicalTensors &inOrOutList) const override;
+    GetTensorDataIODescDict GetTensorDataForLeafGraph() override;
 private:
     SubfuncParam parameter_; // Parameter information for heterogeneous subgraph
     int programId_; // Heterogeneous subgraph ID

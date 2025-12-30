@@ -28,21 +28,6 @@ DataFlowFunction::DataFlowFunction(const Program &belongTo, const std::string &f
     : ControlFlowFunction(belongTo, funcMagicName, funcRawName, parentFunc) {
 }
 
-int DataFlowFunction::GetParamIndex(const std::shared_ptr<RawTensor> &rawTensor) {
-    if (slotScope_ == nullptr) {
-        return -1;
-    }
-    auto slots = slotScope_->LoopupArgSlot(rawTensor);
-    for (auto slot : slots) {
-        for (int idx = 0; idx < (int)explicitArgSlots_.size(); idx++) {
-            if (slot == explicitArgSlots_[idx]) {
-                return idx;
-            }
-        }
-    }
-    return -1;
-}
-
 void *DataFlowFunction::GetParamAddress(int index) {
     return explicitArgAddrs_[index];
 }
@@ -169,6 +154,55 @@ std::unordered_set<int> DataFlowFunction::LoopCheck() {
     }
     return std::unordered_set<int>{};
 }
+
+
+void DataFlowFunction::GetAnIslandIncastsOutcasts(const std::map<int, int> &opToSubgraph, const int subgraphID,
+    const std::vector<Operation *> &operations, std::vector<std::shared_ptr<LogicalTensor>> &iOperands,
+    std::vector<std::shared_ptr<LogicalTensor>> &oOperands) const {
+    std::set<std::shared_ptr<LogicalTensor>> allLogicalTensors;
+    std::set<std::shared_ptr<LogicalTensor>> notOutcasts;
+    std::set<std::shared_ptr<LogicalTensor>> notIncasts;
+    for (const auto &opPtr : operations) {
+        const auto &op = *opPtr;
+        for (auto &&operand : op.GetIOperands()) {
+            allLogicalTensors.insert(operand);
+            bool usedbyotherfunction = false;
+            for (auto &consumer : operand->GetConsumers()) {
+                auto magic = consumer->GetOpMagic();
+                if (consumer->GetOpcode() == Opcode::OP_CALL) {
+                    continue;
+                }
+                ASSERT(opToSubgraph.find(magic) != opToSubgraph.end())
+                    << "Consumer magic " << magic << " not found in opToSubgraph. " << "\n"
+                    << "Operation: " << op.Dump();
+
+                if (opToSubgraph.at(magic) != subgraphID) {
+                    usedbyotherfunction = true;
+                    break;
+                }
+            }
+            if (!usedbyotherfunction) {
+                notOutcasts.insert(operand);
+            }
+        }
+
+        for (auto &&operand : op.GetOOperands()) {
+            allLogicalTensors.insert(operand);
+            notIncasts.insert(operand);
+        }
+    }
+    std::set_difference(allLogicalTensors.begin(), allLogicalTensors.end(), notIncasts.begin(), notIncasts.end(),
+        std::inserter(iOperands, iOperands.begin()));
+    std::set<std::shared_ptr<LogicalTensor>> tryOOperands;
+    std::set_difference(allLogicalTensors.begin(), allLogicalTensors.end(), notOutcasts.begin(), notOutcasts.end(),
+        std::inserter(tryOOperands, tryOOperands.begin()));
+    std::set_difference(tryOOperands.begin(), tryOOperands.end(), iOperands.begin(), iOperands.end(),
+        std::inserter(oOperands, oOperands.begin()));
+
+    std::sort(iOperands.begin(), iOperands.end(), TensorPtrComparator());
+    std::sort(oOperands.begin(), oOperands.end(), TensorPtrComparator());
+}
+
 
 } // namespace npu::tile_fwk
 

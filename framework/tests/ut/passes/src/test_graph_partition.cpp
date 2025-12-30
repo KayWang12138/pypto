@@ -14,6 +14,7 @@
  */
 
 #include <fstream>
+#include <memory>
 #include <vector>
 #include <string>
 #include "gtest/gtest.h"
@@ -26,6 +27,7 @@
 #include "passes/pass_mgr/pass_manager.h"
 #include "interface/configs/config_manager.h"
 #include "computational_graph_builder.h"
+#include "interface/function/data_flow_function.h"
 
 namespace npu {
 namespace tile_fwk {

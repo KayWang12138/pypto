@@ -401,24 +401,6 @@ GetTensorDataIODescDict Function::GetTensorDataForTensorGraph() {
     return iodescDict;
 }
 
-GetTensorDataIODescDict Function::GetTensorDataForLeafGraph() {
-    GetTensorDataIODescDict iodescDict;
-    for (auto &op : Operations(false)) {
-        if (!CheckEmuOpcode(&op, EMUOP_TENSOR_GETDATA_IMPORT)) {
-            continue;
-        }
-        int getTensorDataIndex = GetTensorDataGetIndex(&op);
-        ASSERT(getTensorDataIndex != -1)
-            << "Failed to get tensor data index for operation";
-        auto tensor = op.GetIOperands()[0];
-        auto incastIndex = GetIncastIndex(tensor);
-        if (incastIndex != INVALID_IOINDEX) {
-            iodescDict[getTensorDataIndex] = GetTensorDataIODesc(GET_TENSOR_DATA_OPERAND_IOTYPE_INCAST, incastIndex, 0);
-        }
-    }
-    return iodescDict;
-}
-
 void Function::GetTensorDataRefreshIO(const GetTensorDataIODescDict &iodescDict) {
     for (auto &op : Operations(false)) {
         std::vector<std::reference_wrapper<SymbolicScalar>> dynamicAttributeList = op.GetDynamicAttributeList();
@@ -806,53 +788,6 @@ bool Function::OperationLoopCheck()
     return true;
 }
 
-void Function::GetAnIslandIncastsOutcasts(const std::map<int, int> &opToSubgraph, const int subgraphID,
-    const std::vector<Operation *> &operations, std::vector<std::shared_ptr<LogicalTensor>> &iOperands,
-    std::vector<std::shared_ptr<LogicalTensor>> &oOperands) const {
-    std::set<std::shared_ptr<LogicalTensor>> allLogicalTensors;
-    std::set<std::shared_ptr<LogicalTensor>> notOutcasts;
-    std::set<std::shared_ptr<LogicalTensor>> notIncasts;
-    for (const auto &opPtr : operations) {
-        const auto &op = *opPtr;
-        for (auto &&operand : op.GetIOperands()) {
-            allLogicalTensors.insert(operand);
-            bool usedbyotherfunction = false;
-            for (auto &consumer : operand->GetConsumers()) {
-                auto magic = consumer->GetOpMagic();
-                if (consumer->GetOpcode() == Opcode::OP_CALL) {
-                    continue;
-                }
-                ASSERT(opToSubgraph.find(magic) != opToSubgraph.end())
-                    << "Consumer magic " << magic << " not found in opToSubgraph. " << "\n"
-                    << "Operation: " << op.Dump();
-
-                if (opToSubgraph.at(magic) != subgraphID) {
-                    usedbyotherfunction = true;
-                    break;
-                }
-            }
-            if (!usedbyotherfunction) {
-                notOutcasts.insert(operand);
-            }
-        }
-
-        for (auto &&operand : op.GetOOperands()) {
-            allLogicalTensors.insert(operand);
-            notIncasts.insert(operand);
-        }
-    }
-    std::set_difference(allLogicalTensors.begin(), allLogicalTensors.end(), notIncasts.begin(), notIncasts.end(),
-        std::inserter(iOperands, iOperands.begin()));
-    std::set<std::shared_ptr<LogicalTensor>> tryOOperands;
-    std::set_difference(allLogicalTensors.begin(), allLogicalTensors.end(), notOutcasts.begin(), notOutcasts.end(),
-        std::inserter(tryOOperands, tryOOperands.begin()));
-    std::set_difference(tryOOperands.begin(), tryOOperands.end(), iOperands.begin(), iOperands.end(),
-        std::inserter(oOperands, oOperands.begin()));
-
-    std::sort(iOperands.begin(), iOperands.end(), TensorPtrComparator());
-    std::sort(oOperands.begin(), oOperands.end(), TensorPtrComparator());
-}
-
 std::vector<std::shared_ptr<Operation>> Function::GetSortedOperations() const {
     std::unordered_map<const Operation *, int> opToIndex;
     std::unordered_map<const Operation *, std::set<std::pair<int, int>>> usageDict;
@@ -956,6 +891,21 @@ void Function::SortOperations() {
     operations_ = sortedOperations;
     RefreshOpPosition();
     sorted_ = true;
+}
+
+int Function::GetParamIndex(const std::shared_ptr<RawTensor> &rawTensor) {
+    if (slotScope_ == nullptr) {
+        return -1;
+    }
+    auto slots = slotScope_->LoopupArgSlot(rawTensor);
+    for (auto slot : slots) {
+        for (int idx = 0; idx < (int)explicitArgSlots_.size(); idx++) {
+            if (slot == explicitArgSlots_[idx]) {
+                return idx;
+            }
+        }
+    }
+    return -1;
 }
 
 void Function::AddOperationGroup(std::vector<Operation *> operationGroup) {
@@ -2371,29 +2321,6 @@ static const SymbolicScalar RUNTIME_COA_GetOffset = AddRuntimeCoaPrefix("GET_PAR
 static const SymbolicScalar RUNTIME_COA_GetValidShape = AddRuntimeCoaPrefix("GET_PARAM_VALID_SHAPE");
 static const SymbolicScalar RUNTIME_COA_GetParam = AddRuntimeCoaPrefix("GET_PARAM");
 
-void Function::DumpTopoFile(const std::string &fileName) const
-{
-    Json totalTopoJson;
-    for (const auto &topo : topoInfo_.GetTopology()) {
-        Json sJson;
-        sJson["taskId"] = topo.esgId;
-        sJson["successors"] = Json::array();
-        for (const auto &successor : topo.outGraph) {
-            sJson["successors"].push_back(successor);
-        }
-        int id = operations_[topo.esgId]->GetProgramId();
-        if (static_cast<size_t>(id) >= calleeMagicNameList_.size()) {
-            continue;
-        }
-        sJson["funcName"] = calleeMagicNameList_[id];
-        sJson["semanticLabel"] = operations_[topo.esgId]->GetSemanticLabelStr();
-        totalTopoJson.push_back(sJson);
-    }
-    std::ofstream ofs(fileName);
-    ofs << totalTopoJson.dump(1) << std::endl;
-    ofs.close();
-}
-
 
 std::string Function::DumpSSATitle() const {
     std::stringstream ss;
@@ -3267,10 +3194,6 @@ namespace {
     static const std::map<CoreType, std::vector<int>> emptyReadySubGraphIds;
 }
 
-//------------------------------------------------------------------------------------------------------
-//------------------------------------------- ExecuteFunction ------------------------------------------
-//------------------------------------------------------------------------------------------------------
-
 
 //------------------------------------------------------------------------------------------------------
 //------------------------------------------- ControlFlowFunction --------------------------------------
@@ -3313,60 +3236,53 @@ DyndevFunctionAttribute::ValueDependDesc Function::LookupValueDepend() {
 //------------------------------------------- DataFlowFunction -----------------------------------------
 //------------------------------------------------------------------------------------------------------
 size_t Function::GetTotalSubGraphCount() const {
-    ASSERT(GetFunctionType() != FunctionType::DYNAMIC_LOOP_PATH &&
+    ASSERT(GetFunctionType() == FunctionType::DYNAMIC_LOOP_PATH &&
         "GetTotalSubGraphCount() should only be called on DataFlowFunction");
     return 0;
 }
 
 void Function::SetTotalSubGraphCount(const size_t totalSubGraphCount) {
-    ASSERT(GetFunctionType() != FunctionType::DYNAMIC_LOOP_PATH &&
+    ASSERT(GetFunctionType() == FunctionType::DYNAMIC_LOOP_PATH &&
         "SetTotalSubGraphCount() should only be called on DataFlowFunction");
     (void)totalSubGraphCount;
 }
 
-int Function::GetParamIndex(const std::shared_ptr<RawTensor> &rawTensor) {
-    ASSERT(GetFunctionType() != FunctionType::DYNAMIC_LOOP_PATH &&
-        "GetParamIndex() should only be called on DataFlowFunction");
-    (void)rawTensor;
-    return -1;
-}
-
 void *Function::GetParamAddress(int index) {
-    ASSERT(GetFunctionType() != FunctionType::DYNAMIC_LOOP_PATH &&
+    ASSERT(GetFunctionType() == FunctionType::DYNAMIC_LOOP_PATH &&
         "GetParamAddress() should only be called on DataFlowFunction");
     (void)index;
     return nullptr;
 }
 
 const SubfuncInvokeInfoTy &Function::GetSubFuncInvokeInfo(const size_t i) const {
-    ASSERT(GetFunctionType() != FunctionType::DYNAMIC_LOOP_PATH &&
+    ASSERT(GetFunctionType() == FunctionType::DYNAMIC_LOOP_PATH &&
         "GetSubFuncInvokeInfo() should only be called on DataFlowFunction");
     (void)i;
     return emptySubfuncInvokeInfo;
 }
 
 const std::map<CoreType, std::vector<int>> &Function:: GetReadySubGraphIds() const {
-    ASSERT(GetFunctionType() != FunctionType::DYNAMIC_LOOP_PATH &&
+    ASSERT(GetFunctionType() == FunctionType::DYNAMIC_LOOP_PATH &&
         "GetReadySubGraphIds() should only be called on DataFlowFunction");
     return emptyReadySubGraphIds;
 }
 
 void Function::SetReadySubGraphIds(CoreType coreType, const std::vector<int> &readySubGraphIds) {
-    ASSERT(GetFunctionType() != FunctionType::DYNAMIC_LOOP_PATH &&
+    ASSERT(GetFunctionType() == FunctionType::DYNAMIC_LOOP_PATH &&
         "SetReadySubGraphIds() should only be called on DataFlowFunction");
     (void)coreType;
     (void)readySubGraphIds;
 }
 
 void Function::EmplaceReadySubGraphIds(CoreType coreType, int readySubGraphId) {
-    ASSERT(GetFunctionType() != FunctionType::DYNAMIC_LOOP_PATH &&
+    ASSERT(GetFunctionType() == FunctionType::DYNAMIC_LOOP_PATH &&
         "EmplaceReadySubGraphIds() should only be called on DataFlowFunction");
     (void)coreType;
     (void)readySubGraphId;
 }
 
 void Function::ReplaceReadySubGraphIds(CoreType coreType, int oldIdx, int newId) {
-    ASSERT(GetFunctionType() != FunctionType::DYNAMIC_LOOP_PATH &&
+    ASSERT(GetFunctionType() == FunctionType::DYNAMIC_LOOP_PATH &&
         "ReplaceReadySubGraphIds() should only be called on DataFlowFunction");
     (void)coreType;
     (void)oldIdx;
@@ -3374,14 +3290,14 @@ void Function::ReplaceReadySubGraphIds(CoreType coreType, int oldIdx, int newId)
 }
 
 size_t Function::GetReadySubGraphCount(CoreType coreType) const {
-    ASSERT(GetFunctionType() != FunctionType::DYNAMIC_LOOP_PATH &&
+    ASSERT(GetFunctionType() == FunctionType::DYNAMIC_LOOP_PATH &&
         "GetReadySubGraphCount() should only be called on DataFlowFunction");
     (void)coreType;
     return 0;
 }
 
 int Function::GetReadySubGraphId(CoreType coreType, int index) const {
-    ASSERT(GetFunctionType() != FunctionType::DYNAMIC_LOOP_PATH &&
+    ASSERT(GetFunctionType() == FunctionType::DYNAMIC_LOOP_PATH &&
         "GetReadySubGraphId() should only be called on DataFlowFunction");
     (void)coreType;
     (void)index;
@@ -3389,16 +3305,39 @@ int Function::GetReadySubGraphId(CoreType coreType, int index) const {
 }
 
 int Function::GetAllReadySubGraphCount() const {
-    ASSERT(GetFunctionType() != FunctionType::DYNAMIC_LOOP_PATH &&
+    ASSERT(GetFunctionType() == FunctionType::DYNAMIC_LOOP_PATH &&
         "GetAllReadySubGraphCount() should only be called on DataFlowFunction");
     return 0;
 }
 
 std::unordered_set<int> Function::LoopCheck() {
-    ASSERT(GetFunctionType() != FunctionType::DYNAMIC_LOOP_PATH &&
+    ASSERT(GetFunctionType() == FunctionType::DYNAMIC_LOOP_PATH &&
         "LoopCheck() should only be called on DataFlowFunction");
     return {};
 }
+
+void Function::GetAnIslandIncastsOutcasts(const std::map<int, int> &opToSubgraph, const int subgraphID,
+    const std::vector<Operation *> &operations, std::vector<std::shared_ptr<LogicalTensor>> &iOperands,
+    std::vector<std::shared_ptr<LogicalTensor>> &oOperands) const {
+    ASSERT(GetFunctionType() == FunctionType::DYNAMIC_LOOP_PATH &&
+        "GetAnIslandIncastsOutcasts() should only be called on DataFlowFunction");
+    (void)opToSubgraph;
+    (void)subgraphID;
+    (void)operations;
+    (void)iOperands;
+    (void)oOperands;
+}
+
+//------------------------------------------------------------------------------------------------------
+//------------------------------------------- ExecuteFunction ------------------------------------------
+//------------------------------------------------------------------------------------------------------
+
+void Function::DumpTopoFile(const std::string &fileName) const
+{
+    ASSERT(GetGraphType() == GraphType::EXECUTE_GRAPH && "DumpTopoFile() should only be called on ExecuteFunction");
+    (void)fileName;
+}
+
 
 //------------------------------------------------------------------------------------------------------
 //------------------------------------------- KernelFunction -------------------------------------------
@@ -3479,4 +3418,9 @@ void Function::GetOutcastSymbolicExpr(std::map<int, SymbolicScalar>& tabel) {
 std::pair<bool, Opcode> Function::IsAicpuSubFunction() const {
     ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "IsAicpuSubFunction() should only be called on KernelFunction");
     return std::make_pair(false, Opcode::OP_UNKNOWN);
+}
+
+GetTensorDataIODescDict Function::GetTensorDataForLeafGraph(){
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "GetTensorDataForLeafGraph() should only be called on KernelFunction");
+    return {};
 }

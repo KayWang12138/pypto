@@ -23,7 +23,30 @@ ExecuteFunction::ExecuteFunction(const Program &belongTo, const std::string &fun
 const std::string &funcRawName, Function *parentFunc)
 : Function(belongTo, funcMagicName, funcRawName, parentFunc) {
 // Make the intent explicit to avoid forgetting it at creation sites.
-SetGraphType(GraphType::EXECUTE_GRAPH);
+    SetGraphType(GraphType::EXECUTE_GRAPH);
+}
+
+void ExecuteFunction::DumpTopoFile(const std::string &fileName) const
+{
+    Json totalTopoJson;
+    for (const auto &topo : topoInfo_.GetTopology()) {
+        Json sJson;
+        sJson["taskId"] = topo.esgId;
+        sJson["successors"] = Json::array();
+        for (const auto &successor : topo.outGraph) {
+            sJson["successors"].push_back(successor);
+        }
+        int id = operations_[topo.esgId]->GetProgramId();
+        if (static_cast<size_t>(id) >= calleeMagicNameList_.size()) {
+            continue;
+        }
+        sJson["funcName"] = calleeMagicNameList_[id];
+        sJson["semanticLabel"] = operations_[topo.esgId]->GetSemanticLabelStr();
+        totalTopoJson.push_back(sJson);
+    }
+    std::ofstream ofs(fileName);
+    ofs << totalTopoJson.dump(1) << std::endl;
+    ofs.close();
 }
 
 } // namespace npu::tile_fwk

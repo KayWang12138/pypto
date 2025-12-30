@@ -32,5 +32,7 @@ public:
     ExecuteFunction(ExecuteFunction &&other) = delete;
     ExecuteFunction &operator=(const ExecuteFunction &other) = delete;
     ExecuteFunction &operator=(ExecuteFunction &&other) = delete;
+
+    void DumpTopoFile(const std::string &fileName) const override;
 };
 } // namespace npu::tile_fwk

@@ -514,7 +514,7 @@ public:
     void ClearOperationGroups();
     void CheckGroupValid() const;
 
-    void CreateLeafInAndOutCast(const LogicalTensorPtr &inOrOut, LogicalTensors &inOrOutList) const;
+     // block graph function 特有的接口
     void AddOriginIncast(const std::shared_ptr<LogicalTensor> tensor);
     void AddOriginOutcast(const std::shared_ptr<LogicalTensor> tensor);
     bool IsFromInCast(const std::shared_ptr<LogicalTensor> &tensor);
@@ -556,7 +556,6 @@ public:
     Json DumpJson(bool useTable = true);
     static std::shared_ptr<Function> LoadJson(Program &belongTo, const Json &funcDump);
 
-    void DumpTopoFile(const std::string &fileName) const;
     std::string DumpSSA() const;
     std::string Dump() const;                                    // Serialize brief format
     void DumpFile(const std::string &filePath) const;
@@ -569,6 +568,16 @@ public:
     bool OperationLoopCheck();
     void ValidCheck() const;
 
+<<<<<<< HEAD
+||||||| parent of c3f7e507 (Continuous Integration for ExecuteFunction and DataFlowFunction)
+    DyndevFunctionAttribute::ValueDependDesc LookupValueDepend();
+
+=======
+    DyndevFunctionAttribute::ValueDependDesc LookupValueDepend();
+
+    int GetParamIndex(const std::shared_ptr<RawTensor> &rawTensor);
+
+>>>>>>> c3f7e507 (Continuous Integration for ExecuteFunction and DataFlowFunction)
     std::shared_ptr<OpAttribute> CreateCallOpAttribute(const std::vector<std::vector<SymbolicScalar>> &argList,
         const std::map<int, SymbolicScalar> &outIndexToExpr);
 
@@ -628,10 +637,7 @@ public:
     static bool TensorReuse(const LogicalTensorPtr &dstTensor, const LogicalTensorPtr &srcTensor);
     std::set<Operation *, LogicalTensor::CompareOp> FindConsumers(const Operation &op) const;
     std::set<Operation *, LogicalTensor::CompareOp> FindProducers(const Operation &op) const;
-    void GetAnIslandIncastsOutcasts(const std::map<int, int> &opToSubgraph, const int subgraphID,
-        const std::vector<Operation *> &operations,
-        std::vector<std::shared_ptr<LogicalTensor>> &iOperands,
-        std::vector<std::shared_ptr<LogicalTensor>> &oOperands) const;
+
 
     void SetDynloopAttribute(const std::shared_ptr<DynloopFunctionAttribute> &attr) { dynloopAttr_ = attr; }
     const std::shared_ptr<DynloopFunctionAttribute> &GetDynloopAttribute() const { return dynloopAttr_; }
@@ -719,9 +725,9 @@ public:
         }
     }
     GetTensorDataIODescDict GetTensorDataForTensorGraph();
-    GetTensorDataIODescDict GetTensorDataForLeafGraph();
+    
     void GetTensorDataRefreshIO(const GetTensorDataIODescDict &descDict);
-    void UpdateTensorDataUsage(Operation &op);
+    void UpdateTensorDataUsage(Operation &op);  // FuncRefactor 本身应该只在 GetTensorData 的关系传递的时候使用，LoopPath？
 
     void SetSourceLocation(std::shared_ptr<SourceLocation> sourceLocation) {
         sourceLocation_ = sourceLocation;
@@ -730,6 +736,7 @@ public:
     std::shared_ptr<SourceLocation> GetSourceLocation() const { return sourceLocation_; }
     void CleanRedundantOutCast();
 
+<<<<<<< HEAD
     //------------------------------------------------------------------------------------------------------
     //------------------------------------------- ControlFlowFunction --------------------------------------
     //------------------------------------------------------------------------------------------------------
@@ -742,6 +749,12 @@ public:
     virtual void AddLoopCallToOrderGroup(Operation * callOp);
     virtual void ApplyLoopCallOrderGroup();
     virtual DyndevFunctionAttribute::ValueDependDesc LookupValueDepend();
+||||||| parent of c3f7e507 (Continuous Integration for ExecuteFunction and DataFlowFunction)
+
+
+
+=======
+>>>>>>> c3f7e507 (Continuous Integration for ExecuteFunction and DataFlowFunction)
     //------------------------------------------------------------------------------------------------------
     //------------------------------------------- DataFlowFunction -----------------------------------------
     //------------------------------------------------------------------------------------------------------
@@ -750,7 +763,6 @@ public:
     virtual size_t GetTotalSubGraphCount() const;
     virtual void SetTotalSubGraphCount(const size_t totalSubGraphCount);
 
-    virtual int GetParamIndex(const std::shared_ptr<RawTensor> &rawTensor);
     virtual void *GetParamAddress(int index);
 
     virtual const SubfuncInvokeInfoTy &GetSubFuncInvokeInfo(const size_t i) const;
@@ -764,11 +776,16 @@ public:
     virtual int GetAllReadySubGraphCount() const;
 
     virtual std::unordered_set<int> LoopCheck();
+    virtual void GetAnIslandIncastsOutcasts(const std::map<int, int> &opToSubgraph, const int subgraphID,
+        const std::vector<Operation *> &operations,
+        std::vector<std::shared_ptr<LogicalTensor>> &iOperands,
+        std::vector<std::shared_ptr<LogicalTensor>> &oOperands) const;
 
     //------------------------------------------------------------------------------------------------------
     //------------------------------------------- ExecuteFunction ------------------------------------------
     //------------------------------------------------------------------------------------------------------
-    // NONE
+    virtual void DumpTopoFile(const std::string &fileName) const;
+    
 
     //------------------------------------------------------------------------------------------------------
     //------------------------------------------- KernelFunction -------------------------------------------
@@ -796,6 +813,9 @@ public:
     virtual void GetOutcastSymbolicExpr(std::map<int, SymbolicScalar>& tabel);
 
     virtual std::pair<bool, Opcode> IsAicpuSubFunction() const;
+    virtual void CreateLeafInAndOutCast(const LogicalTensorPtr &inOrOut, LogicalTensors &inOrOutList) const;
+    virtual GetTensorDataIODescDict GetTensorDataForLeafGraph();
+    
 protected:
     std::vector<std::shared_ptr<Operation>> operations_; // operation的获取必须要使用Operations函数，来获取到符合拓扑序的List
     std::unordered_map<const Operation *, int> opPosition_; // position of operation in Operation.operations_
@@ -809,8 +829,7 @@ protected:
     int functionMagic_{-1};
     std::string funcMagicName_; // Function name
     std::string funcRawName_;   // raw name
-    size_t totalAicSubGraphCount_ = 0;
-    size_t totalAivSubGraphCount_ = 0;
+
     int stackWorkespaceSize_ = 0;
     FunctionHash functionHash_{0};
     std::vector<std::string> calleeMagicNameList_;

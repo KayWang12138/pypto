@@ -35,7 +35,6 @@ public:
     size_t GetTotalSubGraphCount() const override { return totalSubGraphCount_; }
     void SetTotalSubGraphCount(const size_t totalSubGraphCount) override { totalSubGraphCount_ = totalSubGraphCount; }
 
-    int GetParamIndex(const std::shared_ptr<RawTensor> &rawTensor) override;
     void *GetParamAddress(int index) override;
 
     const SubfuncInvokeInfoTy &GetSubFuncInvokeInfo(const size_t i) const override;
@@ -76,6 +75,11 @@ public:
     }
 
     std::unordered_set<int> LoopCheck() override;
+    
+    void GetAnIslandIncastsOutcasts(const std::map<int, int> &opToSubgraph, const int subgraphID,
+        const std::vector<Operation *> &operations,
+        std::vector<std::shared_ptr<LogicalTensor>> &iOperands,
+        std::vector<std::shared_ptr<LogicalTensor>> &oOperands) const override;
 
 protected:
     auto AnnotateOperation();
@@ -83,6 +87,8 @@ protected:
 private:
     size_t totalSubGraphCount_ = 0; // Total subgraph count
     std::map<CoreType, std::vector<int>> readySubGraphIds_; // Ready subgraph IDs for different core types
+    size_t totalAicSubGraphCount_ = 0;
+    size_t totalAivSubGraphCount_ = 0;
 };
 
 } // namespace npu::tile_fwk
