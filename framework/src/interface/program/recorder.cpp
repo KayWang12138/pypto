@@ -158,6 +158,10 @@ void RecordFunc::EndFunction() {
                 Program::GetInstance().VerifyTensorGraph();
             }
             MergeAllFuncDupIocast(nullptr);
+            if (config::GetHostOption<int64_t>(COMPILE_STAGE) == COMPILE_STAGE_TENSOR_GRAPH) {
+                ALOG_INFO("Compilation stage terminates after tensor graph generation.");
+                return;
+            }
             PassManager::Instance().RunPass(Program::GetInstance(),
                 *Program::GetInstance().GetFunctionByMagicName(PROGRAM_ENTRY_FUNCTION_NAME), "FunctionUnroll");
             if (!config::GetPlatformConfig(npu::tile_fwk::KEY_ONLY_TENSOR_GRAPH, false)) {
