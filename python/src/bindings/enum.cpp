@@ -148,5 +148,11 @@ void bind_enum(py::module &m){
         .value("DIST_REDUCE_MAX", Distributed::DistReduceType::DIST_REDUCE_MAX)
         .value("DIST_REDUCE_MIN", Distributed::DistReduceType::DIST_REDUCE_MIN)
         .export_values();
+    
+    py::enum_<Distributed::AtomicType>(m, "AtomicType")
+        .value("SET", Distributed::AtomicType::SET)
+        .value("ADD", Distributed::AtomicType::ADD)
+        .export_values();
+
 }
 }

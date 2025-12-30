@@ -405,7 +405,14 @@ struct MoeConfig {
     int32_t rankNum{0};
 };
 
-// void CreateShmemTensor(Tensor &shmemTensor, int32_t rankSize, int32_t hcclGroupIndex, DataType dataType, const Shape &shape);
+enum class AtomicType {
+    SET,
+    ADD
+};
+
+
+
+void CreateShmemTensor(Tensor &shmemTensor, int32_t rankSize, int32_t hcclGroupIndex, DataType dataType, const Shape &shape);
 // Tensor CreateShmem(int32_t rankSize, int32_t expertNumPerRank, int32_t shmemCol, int32_t hcclGroupIndex, DataType dataType, uint32_t memType);
 
 
@@ -423,7 +430,20 @@ void OneShotShmemAllReduce(const Tensor& predToken, const Tensor& in, Tensor& sh
 void TwoShotShmemAllReduce(const Tensor& in, const char* group, Tensor& out);
 void ShmemMoeCombine(const Tensor& in, const Tensor& combineInfo, const Tensor& scale, const char* group,
     int32_t rankSize, int32_t totalExpertNum, Tensor& out);
-void CreateShmemTensor(Tensor& shmemTensor, int32_t rankSize, int32_t hcclGroupIndex, DataType dataType,
-    const Shape& shape, uint64_t memType = 0);
+
+
+Tensor ShmemPut(const Tensor &in, const Tensor &shmemDataTile, const Tensor &barrierDummy, int tileCount, AtomicType atomicType);
+
+Tensor ShmemGet(const Tensor &dummy, const Tensor &shmemDataTile, DataType nonShmemDataType, AtomicType atomicType);
+
+void ShmemReduce(const Tensor &in, const Tensor &shmData, const Tensor &dummy, const Tensor &out);
+
+Tensor ShmemSignal(const Tensor &dummy, const Tensor &shmemSignalTile, AtomicType atomicType);
+
+Tensor ShmemClearSignal(const Tensor &in, const Tensor &shmemSignalTile, const int32_t tileCount);
+
+Tensor WaitUntil(const Tensor &dummyIn, const Tensor &shmemSignalTile, int32_t tileCount, int32_t hcclGroupIndex, int32_t expectedSum);
+
+
 } // namespace Distributed
 } // namespace npu::tile_fwk
