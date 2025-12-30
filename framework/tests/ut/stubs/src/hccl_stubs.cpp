@@ -14,7 +14,11 @@
  */
 
 #include "hccl/hccl.h"
+#ifdef BUILD_WITH_CANN_SUB
+#include<hccl/hcom.h>
+#else
 #include "hcom.h"
+#endif
 
 extern "C" {
 HcclResult HcomGetCommHandleByGroup(const char *group, HcclComm *commHandle)
