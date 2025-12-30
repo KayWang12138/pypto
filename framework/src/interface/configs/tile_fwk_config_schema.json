@@ -248,11 +248,11 @@
                 "run_mode": {
                     "type": "integer",
                     "label": {
-                        "zh": "设置计算子图的执行设备",
-                        "en": "Set the execution device for computational subgraph"
+                        "zh": "设置计算子图的执行设备或编译阶段",
+                        "en": "Set the execution device for computational subgraph or compile stage"
                     },
                     "minimum": 0,
-                    "maximum": 1,
+                    "maximum": 6,
                     "options": [
                         {
                             "value": 0,
@@ -266,6 +266,41 @@
                             "label": {
                                 "zh": "设置计算子图在模拟器上执行",
                                 "en": "Execute computation subgraph on the simulator"
+                            }
+                        },
+                        {
+                            "value": 2,
+                            "label": {
+                                "zh": "生成最终张量图(TensorGraph)后终止",
+                                "en": "Terminate after generating the final TensorGraph"
+                            }
+                        },
+                        {
+                            "value": 3,
+                            "label": {
+                                "zh": "生成最终分片图(TileGraph)后终止",
+                                "en": "Terminate after generating the final TileGraph"
+                            }
+                        },
+                        {
+                            "value": 4,
+                            "label": {
+                                "zh": "生成最终执行图(ExecuteGraph)后终止",
+                                "en": "Terminate after generating the final ExecuteGraph"
+                            }
+                        },
+                        {
+                            "value": 5,
+                            "label": {
+                                "zh": "生成指令代码(CodegenInstruction)后终止",
+                                "en": "Terminate after generating instruction code"
+                            }
+                        },
+                        {
+                            "value": 6,
+                            "label": {
+                                "zh": "编译生成二进制代码(CodegenBinary)后终止, 编译阶段结束",
+                                "en": "Terminate after compiling to generate binary code, marking the end of the compile stage"
                             }
                         }
                     ]
