@@ -77,12 +77,13 @@ def scaled_dot_product_attention_golden(
     return output
 
 
-def scaled_dot_product_attention_core(q: pypto.Tensor, k: pypto.Tensor, v: pypto.Tensor) -> pypto.Tensor:
+def scaled_dot_product_attention_core(q: pypto.Tensor, k: pypto.Tensor, v: pypto.Tensor,
+                                      scale: float, dtype: pypto.DataType) -> pypto.Tensor:
     k_t = pypto.transpose(k, 2, 3)
-    scores = pypto.matmul(q, k_t, out_dtype=dtype_g)
-    scores_scaled = scores * scale_g
+    scores = pypto.matmul(q, k_t, out_dtype=dtype)
+    scores_scaled = scores * scale
     attn_weights = pypto.softmax(scores_scaled, dim=-1)
-    res = pypto.matmul(attn_weights, v, out_dtype=dtype_g)
+    res = pypto.matmul(attn_weights, v, out_dtype=dtype)
     return res
 
 
@@ -101,8 +102,6 @@ def scaled_dot_product_attention(q_shape: tuple, k_shape: tuple, config: Attenti
     tile = q_shape[0]
     
     scale = config.scale if config.scale is not None else (1.0 / (dim**0.5))
-    global scale_g, dtype_g
-    scale_g, dtype_g = scale, config.dtype
     
     def scaled_dot_product_attention_kernel(
         q: pypto.Tensor((bs, head, q_len, dim), pypto.DT_FP32),
@@ -133,7 +132,7 @@ def scaled_dot_product_attention(q_shape: tuple, k_shape: tuple, config: Attenti
                                 valid_shape=[b_offset_end - b_offset, head, kv_len, dim]
             )
             pypto.set_vec_tile_shapes(1, 8, 16, 64)
-            res = scaled_dot_product_attention_core(q_view, k_view, v_view,)
+            res = scaled_dot_product_attention_core(q_view, k_view, v_view, scale, config.dtype)
             pypto.assemble(res, [b_offset, 0, 0, 0], output_tensor)
         return output_tensor
     

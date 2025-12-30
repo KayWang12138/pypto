@@ -211,6 +211,7 @@ def swiglu_activation(shape: tuple, run_mode: str = "npu", dynamic: bool = False
         m = pypto.frontend.dynamic("m")
     else:
         m, n = shape
+
     # launch the kernel
     def swiglu_activation_kernel(
         gate: pypto.Tensor((m, n), pypto.DT_BF16),
@@ -236,6 +237,7 @@ def swiglu_activation(shape: tuple, run_mode: str = "npu", dynamic: bool = False
         return pypto.frontend.jit()(swiglu_activation_kernel)
     else:
         return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(swiglu_activation_kernel)
+
 
 def test_swiglu(device_id = None, run_mode: str = "npu", dynamic: bool = False) -> None:
     """Test SwiGLU activation."""
@@ -288,7 +290,7 @@ def geglu_activation(shape: tuple, run_mode: str = "npu", dynamic: bool = False)
         configure_tiling(gate)
 
         # GELU approximation: x * sigmoid(1.702 * x)
-        # TODO: reuse GeLU function in a nested function call
+        # Need to design a function to reuse GeLU function in a nested function call
         gate_scaled = gate * 1.702
         gelu_gate = gate * pypto.sigmoid(gate_scaled)
         out[:] = gelu_gate * up

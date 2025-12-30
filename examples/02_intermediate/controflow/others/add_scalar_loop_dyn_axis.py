@@ -47,6 +47,7 @@ def add_scalar_loop_dynamic_axis(shape: tuple, val: int, run_mode: str = "npu") 
     
     _, w, n, c = shape
     h = pypto.frontend.dynamic("h")
+    
     # launch the kernel
     def add_scalar_loop_dynamic_axis_kernel(
         input0: pypto.Tensor((h, w, n, c), pypto.DT_FP32),
@@ -180,7 +181,10 @@ Examples:
 
     if args.example_id is not None:
         # Run single example
-        examples_to_run = [(args.example_id, examples[args.example_id])]
+        example = examples.get(args.example_id)
+        if example is None:
+            raise ValueError(f"Invalid example ID: {args.example_id}")
+        examples_to_run = [(args.example_id, example)]
     else:
         # Run all examples
         examples_to_run = list(examples.items())

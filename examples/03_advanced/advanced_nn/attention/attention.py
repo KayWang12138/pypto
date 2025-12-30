@@ -25,12 +25,11 @@ Attention is the core mechanism in transformer architectures.
 import os
 import sys
 import argparse
-import torch
-import numpy as np
-from numpy.testing import assert_allclose
 from dataclasses import dataclass
 from typing import Optional
+import torch
 import pypto
+
 
 BATCH_SIZE = 2
 SEQ_LEN_Q = 16
@@ -381,7 +380,10 @@ Examples:
 
     if args.example_id is not None:
         # Run single example
-        examples_to_run = [(args.example_id, examples[args.example_id])]
+        example = examples.get(args.example_id)
+        if example is None:
+            raise ValueError(f"Invalid example ID: {args.example_id}")
+        examples_to_run = [(args.example_id, example)]
     else:
         # Run all examples
         examples_to_run = list(examples.items())

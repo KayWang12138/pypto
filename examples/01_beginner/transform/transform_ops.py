@@ -372,6 +372,7 @@ def scatter_update(x: torch.Tensor, dim: int, y: torch.Tensor, src: torch.float3
     
     return out
 
+
 def test_scatter_update(device_id: int = None, run_mode: str = "npu") -> None:
     """Test basic usage of scatter_update function"""
     print("=" * 60)
