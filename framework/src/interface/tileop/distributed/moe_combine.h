@@ -22,7 +22,7 @@
 #include <type_traits>
 
 namespace TileOp::Distributed {
-template <typename T, uint32_t topK, uint16_t rowShape, uint16_t colShape, uint16_t paddedColShape>
+template <typename HcclContextType, typename T, uint32_t topK, uint16_t rowShape, uint16_t colShape, uint16_t paddedColShape>
 TILEOP void ShmemMoeCombineSend(__gm__ int32_t* dummyOut, __ubuf__ T* dataBuffer, __ubuf__ int32_t* combineInfoBuffer,
     __ubuf__ int32_t* signalBuffer, __gm__ T* in, __gm__ int32_t* combineInfo, __gm__ T* shmemDataBaseAddr,
     __gm__ int32_t* shmemSignalBaseAddr, uint64_t inOffset0, uint64_t inOffset1, __gm__ int64_t* hcclContext)
@@ -46,9 +46,9 @@ TILEOP void ShmemMoeCombineSend(__gm__ int32_t* dummyOut, __ubuf__ T* dataBuffer
         int32_t tokenId = combineInfoBuffer[1];
         int32_t kOffset = combineInfoBuffer[2];
 
-        __gm__ T* winDataAddr = MapVirtualAddr<T>(hcclContext, shmemDataBaseAddr, rankId) +
+        __gm__ T* winDataAddr = MapVirtualAddr<HcclContextType, T>(hcclContext, shmemDataBaseAddr, rankId) +
             colShape * (topK * tokenId + kOffset);
-        __gm__ int32_t* winSignalAddr = MapVirtualAddr<int32_t>(hcclContext, shmemSignalBaseAddr, rankId) +
+        __gm__ int32_t* winSignalAddr = MapVirtualAddr<HcclContextType, int32_t>(hcclContext, shmemSignalBaseAddr, rankId) +
             MOE_COMBINE_SIGNAL_OFFSET * tokenId;
 
         set_flag(PIPE_S, PIPE_MTE2, EVENT_ID0);
@@ -117,7 +117,7 @@ TILEOP void ShmemMoeCombineCompute(__ubuf__ T* out, __ubuf__ float* mulFp32Buffe
     vconv_f322bf16a(out, sumFp32Buffer, repeat, 1, 1, 4, 8);
 }
 
-template <typename T, uint32_t topK, uint16_t rowShape, uint16_t colShape, uint16_t paddedColShape>
+template <typename HcclContextType, typename T, uint32_t topK, uint16_t rowShape, uint16_t colShape, uint16_t paddedColShape>
 TILEOP void ShmemMoeCombineReceive(__gm__ T* out, __ubuf__ float* mulFp32Buffer, __ubuf__ float* sumFp32Buffer,
     __ubuf__ T* outBuffer, __gm__ int32_t* dummyIn, __ubuf__ float* scale, __gm__ T* shmemDataBaseAddr,
     __gm__ int32_t* shmemSignalBaseAddr, uint64_t shmemDataOffset0, uint64_t shmemDataOffset1,
@@ -131,7 +131,7 @@ TILEOP void ShmemMoeCombineReceive(__gm__ T* out, __ubuf__ float* mulFp32Buffer,
     uint64_t rowOffset = shmemDataOffset2;
 
     for (uint64_t tokenId = rowOffset; tokenId < rowOffset + rowShape; tokenId++) {
-        __gm__ int32_t* winSignalAddr = MapVirtualAddr<int32_t>(hcclContext, shmemSignalBaseAddr, thisRankId) +
+        __gm__ int32_t* winSignalAddr = MapVirtualAddr<HcclContextType, int32_t>(hcclContext, shmemSignalBaseAddr, thisRankId) +
             MOE_COMBINE_SIGNAL_OFFSET * tokenId;
         __ubuf__ int32_t* signalBuffer = reinterpret_cast<__ubuf__ int32_t*>(outBuffer);
         set_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID0);
@@ -140,7 +140,7 @@ TILEOP void ShmemMoeCombineReceive(__gm__ T* out, __ubuf__ float* mulFp32Buffer,
 
         constexpr uint32_t scaleColShape = AlignUp<uint32_t>(sizeof(float) * topK, COPY_BLOCK_BYTE_SIZE) /
             sizeof(float);
-        __gm__ T* winDataAddr = MapVirtualAddr<T>(hcclContext, shmemDataBaseAddr, shmemDataOffset0) +
+        __gm__ T* winDataAddr = MapVirtualAddr<HcclContextType, T>(hcclContext, shmemDataBaseAddr, shmemDataOffset0) +
             colShape * topK * tokenId;
         ShmemMoeCombineCompute<T, topK, colShape, paddedColShape>(outBuffer, mulFp32Buffer,
             sumFp32Buffer, scale + scaleColShape * tokenId, winDataAddr);
