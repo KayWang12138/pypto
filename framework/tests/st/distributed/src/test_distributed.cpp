@@ -109,6 +109,9 @@ void GegisterAllOps()
     reg.registry["MoeCombine"] = [](OpTestParam &testParam, const std::string&) {
         Distributed::TestShmemMoeCombine(testParam);
     };
+    reg.registry["MoeDispatch"] = [](OpTestParam &testParam, const std::string&) {
+        Distributed::TestShmemMoeDispatch(testParam);
+    };
     reg.registry["Allgather_AttnPost_Reducescatter"] = [](OpTestParam &testParam, const std::string&) {
         Distributed::TestAllGatherAttentionPostReducescatter(testParam);
     };
