@@ -157,7 +157,10 @@ def get_pass_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]]]:
     return _pto_options.get_options("pass")
 
 
-def set_host_options(*, only_codegen: Optional[bool] = None) -> None:
+def set_host_options(*,
+                     only_codegen: Optional[bool] = None,
+                     compile_stage: Optional[str] = None
+                     ) -> None:
     """
     Set host options.
 
@@ -165,6 +168,9 @@ def set_host_options(*, only_codegen: Optional[bool] = None) -> None:
     ---------
     only_codegen : bool
         Shield the static on-board process.
+    
+    compile_stage : str
+        The stopping stage in Only Compile mode.
     """
     _pto_options.set_options("host", locals())
 
