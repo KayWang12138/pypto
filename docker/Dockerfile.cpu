@@ -1,0 +1,43 @@
+FROM quay.io/ascend/python:3.11-ubuntu22.04
+
+# install system dependencies and clean index cache
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git vim wget curl unzip tar lcov openssl ca-certificates\
+    gcc g++ make cmake zlib1g zlib1g-dev libsqlite3-dev \
+    libssl-dev libffi-dev libbz2-dev libxslt1-dev unzip pciutils \
+    net-tools openssh-client libblas-dev gfortran libblas3 llvm ccache python-is-python3 python3-pip python3-venv ninja-build python3-dev \
+    && rm -rf /var/lib/apt/list/*
+
+RUN pip install --no-cache-dir \
+    attrs cython numpy decorator sympy cffi pyyaml pathlib2 psutil protobuf scipy requests absl-py
+
+RUN pip install --no-cache-dir \
+    wheel tomli pybind11 pybind11-stubgen pytest pytest-forked pytest-xdist \
+    tabulate pandas matplotlib build ml_dtypes jinja2 cloudpickle tornado
+
+# pypto wants `setuptools>=77.0.3`
+RUN pip install --no-cache-dir --upgrade \
+    setuptools
+
+RUN pip install --no-cache-dir torch==2.6.0 --index-url https://download.pytorch.org/whl/cpu
+# RUN pip install --no-cache-dir torch-npu==2.6.0
+
+# pre-compile pypto inside container. users can later recompile with modified code.
+WORKDIR /installers
+RUN git clone https://gitcode.com/cann/pypto.git
+WORKDIR /installers/pypto
+
+# Pin one commit for reproduciblity. Now points to a commit on 2025/12/30:
+# https://gitcode.com/cann/pypto/commit/a950f28a3e4db0de809172c93bf0914509ddd976?ref=master
+# feel free to remove the `git checkout` line to always compile latest master
+RUN git checkout a950f28a \
+    && pip install -vv -e .
+
+# do not auto-load NPU backend for CPU-only env
+ENV TORCH_DEVICE_BACKEND_AUTOLOAD=0
+
+# python import should work in container
+RUN python -c "import pypto"
+
+# sim mode should just work
+RUN python examples/hello_world/hello_world.py --run_mode sim | tee run_hello_world_sim.log
