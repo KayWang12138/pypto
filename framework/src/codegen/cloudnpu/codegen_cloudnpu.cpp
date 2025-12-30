@@ -272,6 +272,10 @@ void CodeGenCloudNPU::GenCode(
             if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) != CFG_RUN_MODE_SIM) {
                 DumpCCE(compileInfo.GetCCEAbsPath(), leafKernelFunc.str());
                 DoCompileCCE(compileInfo, "");
+                if (config::GetHostOption<int64_t>(COMPILE_STAGE) == COMPILE_STAGE_CODEGEN_BINARY) {
+                    ALOG_INFO("Compilation stage terminates after codegen binary.");
+                    return;
+                }
             }
 #endif
             UpdateSubFunc(subFuncPair, compileInfo);
@@ -407,7 +411,8 @@ int CheckInjectStr(const char cmdStr[], size_t strLen) {
 }
 
 void CodeGenCloudNPU::DoCompileCCE(const CompileInfo &compileInfo, const std::string &compileOptions) const {
-    if (!compileInfo.IsNeedCompileCCE()) {
+    if (config::GetHostOption<int64_t>(COMPILE_STAGE) == COMPILE_STAGE_CODEGEN_INSTRUCTION) {
+        ALOG_INFO("Compilation stage terminates after codegen instruction.");
         return;
     }
     auto [ret, ccecCmd] = CompileCCE(compileInfo, compileOptions);
