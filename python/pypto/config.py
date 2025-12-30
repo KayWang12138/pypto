@@ -231,6 +231,9 @@ def set_runtime_options(*,
 
     stitch_cfgcache_size: int
         The size of the control flow cache, in bytes.
+
+    run_mode: int
+        Set the execution device for computational subgraph or compile stage.
     """
     options_dict = {k: v for k, v in locals().items() if v is not None}
     set_options(runtime_options=options_dict)
