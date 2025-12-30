@@ -1,8 +1,11 @@
 #include <cstdint>
+#include <memory>
 #include "gtest/gtest.h"
 
 
 #include "ir/builder/ir_builder.h"
+#include "ir/op/op_opcode.h"
+#include "ir/op/op_payload.h"
 #include "ir/program.h"
 #include "ir/function.h"
 #include "ir/type.h"
@@ -29,8 +32,8 @@ TEST(IRTEST, TestBuilder){
 
     sig.arguments = { inputTensor, scale1, dynLen };
 
-    auto resultTensor = std::make_shared<Tensor>(tensorShape, DataType::FP32, "output");
-    sig.results.push_back(resultTensor);
+    auto resultSig = std::make_shared<Tensor>(tensorShape, DataType::FP32, "output");
+    sig.results.push_back(resultSig);
 
     // ===== Function =====
     auto func = builder.CreateFunction("test_value", FunctionKind::ControlFlow, sig, /*setAsEntry=*/true);
@@ -40,6 +43,14 @@ TEST(IRTEST, TestBuilder){
         auto guard = builder.EnterFunctionBody(*func);
 
         auto constant0 = builder.CreateConst(int64_t(0), "const_0");
+        
+        TensorCreateSpec TCSpec{tensorShape, DataType::FP32};
+        auto resultTensor = builder.CreateOp(
+            Opcode::OP_TENSOR_CREATE, 
+            {}, 
+            std::make_shared<TensorCreatePayload>(TCSpec), 
+            "output"
+        )[0];
 
         ViewSpec viewSpec;
         viewSpec.shape  = { 1, 128 };
@@ -104,6 +115,5 @@ TEST(IRTEST, TestBuilder){
 
     std::cout << module << std::endl;
 }
-
 
 } // namespace pto
