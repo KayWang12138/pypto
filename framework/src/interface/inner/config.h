@@ -41,7 +41,16 @@ constexpr const char *L1_REUSE_NUM = "l1_reuse_num";
 constexpr const char *DB_TYPE = "db_type";
 constexpr const char *COPYOUT_RESOLVE_COALESCING = "copyout_resolve_coalescing";
 constexpr const char *ONLY_CODEGEN = "only_codegen";
+constexpr const char *COMPILE_STAGE = "compile_stage";
 constexpr const char *SUPPORT_DYNAMIC_ALIGNED = "support_dynamic_aligned";
+
+//compile stage
+const int64_t COMPILE_STAGE_DEFAULT = 0;
+const int64_t COMPILE_STAGE_TENSOR_GRAPH = 1;
+const int64_t COMPILE_STAGE_TILE_GRAPH = 2;
+const int64_t COMPILE_STAGE_EXECUTION_GRAPH = 3;
+const int64_t COMPILE_STAGE_CODEGEN_INSTRUCTION = 4;
+const int64_t COMPILE_STAGE_CODEGEN_BINARY = 5;
 
 //runtime
 constexpr const char *DEVICE_SCHED_MODE = "device_sched_mode";
