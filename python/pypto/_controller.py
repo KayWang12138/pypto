@@ -31,6 +31,7 @@ __all__ = [
     "set_cube_tile_shapes",
     "get_cube_tile_shapes",
     "set_matrix_size",
+    "set_dist_tile_shapes",
 
     "function",
     "loop",
@@ -172,6 +173,10 @@ def get_cube_tile_shapes() -> Tuple[List[int], List[int], List[int], bool, bool]
 
 def set_matrix_size(size: List[int]):
     pypto_impl.SetMatrixSize(size)
+
+
+def set_dist_tile_shapes(row: List[int], col: List[int], rank: List[int]):
+    pypto_impl.SetDistTile(row, col, rank)
 
 
 def set_build_static(static: bool):
