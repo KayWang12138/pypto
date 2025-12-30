@@ -416,9 +416,9 @@ class JitCallableWrapper:
 
         run_mode = self._runtime_options.get("run_mode", None)
         if run_mode is not None:
-            if run_mode not in [pypto.RunMode.NPU, pypto.RunMode.SIM, 0, 1]:
+            if run_mode not in [pypto.RunMode.NPU, pypto.RunMode.SIM, pypto.RunMode.COMPILE_ONLY, 0, 1, 2]:
                 raise RuntimeError(
-                    "Invalid run mode, run mode must be RunMode.NPU or RunMode.SIM."
+                    "Invalid run mode, run mode must be RunMode.NPU, RunMode.SIM, or RunMode.COMPILE_ONLY."
                 )
             else:
                 if isinstance(run_mode, pypto.RunMode):
@@ -682,6 +682,10 @@ class JitCallableWrapper:
                     "Please source cann environment while run mode is NPU."
                 )
             self._run_with_npu(in_tensors, out_tensors, device)
+        elif run_mode == 2:  # COMPILE_ONLY mode
+            # Skip device launch, only compile
+            print("COMPILE_ONLY mode: skipping device launch")
+            return
         else:  # SIM mode
             self._run_with_cpu(in_tensors, out_tensors)
 

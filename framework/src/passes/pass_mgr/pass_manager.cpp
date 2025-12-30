@@ -266,6 +266,12 @@ Status PassManager::RunPass(Program &program, Function &function, const std::str
         if (config::GetVerifyOption<bool>(KEY_ENABLE_PASS_VERIFY)) {
             Program::GetInstance().VerifyPass(&function, i, identifier);
         }
+        if (identifier.c_str() == "ExpandFunction"&&
+            config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) == CFG_RUN_MODE_COMPILE_ONLY&&
+            config::GetHostOption<std::string>(COMPILE_STAGE) == COMPILE_STAGE_TILE_GRAPH) {
+ 	        ALOG_INFO("Compilation stage terminates after tile graph generation.");
+ 	        return SUCCESS;
+ 	    }
     }
     return SUCCESS;
 }

@@ -180,6 +180,11 @@ void HostMachine::CompileFunction(Function* func) const {
     if (func->rootFunc_ != nullptr) {
         func->rootFunc_->DumpTopoFile(config::LogTopFolder() + "/topo.json");
     }
+    if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) == CFG_RUN_MODE_COMPILE_ONLY &&
+        config::GetHostOption<std::string>(COMPILE_STAGE) == COMPILE_STAGE_EXECUTION_GRAPH) {
+        ALOG_INFO("Compilation stage terminates after execution graph generation.");
+        return;
+    }
 }
 
 void HostMachine::SubTask(Function *function) {
