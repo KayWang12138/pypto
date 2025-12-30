@@ -20,6 +20,7 @@
 #include "interface/utils/log.h"
 #include "securec.h"
 #include "interface/operation/distributed/distributed_common.h"
+#include "tilefwk/platform.h"
 
 namespace npu::tile_fwk {
 
@@ -41,6 +42,19 @@ void CheckInRange(int64_t value)
     if (value < std::numeric_limits<uint32_t>::min() || value > std::numeric_limits<uint32_t>::max()) {
         throw std::out_of_range("Invalid value: " + std::to_string(value));
     }
+}
+
+std::string CodeGenOpCloudNPU::GetTemplateSoCVersion() const
+{
+    auto SoCVersion = Platform::Instance().GetSoc().GetShortSoCVersion();
+    std::string hcclStr{};
+    if(SoCVersion == ShortSoCVersion::SoC_910B) {
+        hcclStr = "TileOp::HcclCombinOpParam";
+    }
+    else {
+        hcclStr = "TileOp::HcclOpResParam";
+    }
+    return hcclStr;
 }
 
 std::string CodeGenOpCloudNPU::GetTemplateDType() const
@@ -77,7 +91,7 @@ void CodeGenOpCloudNPU::GenExtraTemplateParamsForMoeCombine(std::ostringstream& 
     int64_t colShape = originShape[operandIndex][originShape[operandIndex].size() - 1];
     int64_t dataIndex = (opCode == Opcode::OP_SHMEM_MOE_COMBINE_SEND) ? 4 : 6;
     int64_t rowShape = originShape[dataIndex][originShape[dataIndex].size() - 2];
-    oss << "<" << GetTemplateDType() << ", " << distOpAttr.topK << ", " << rowShape << ", " << colShape << ", "
+    oss << "<" <<GetTemplateSoCVersion() << ", " << GetTemplateDType() << ", " << distOpAttr.topK << ", " << rowShape << ", " << colShape << ", "
         << distOpAttr.paddedColShape << ">";
 }
 
@@ -116,7 +130,8 @@ std::string CodeGenOpCloudNPU::GenTemplateParamsForPutAndGet() const
     CheckInRange(bufferColShape);
     CheckInRange(stride);
 
-    oss << "<" << DataType2CCEStr(operandDtype[nonShmemDataIndex]) << ", " << DataType2CCEStr(operandDtype[shmemDataIndex])
+    oss << "<" << GetTemplateSoCVersion()
+        << ", " << DataType2CCEStr(operandDtype[nonShmemDataIndex]) << ", " << DataType2CCEStr(operandDtype[shmemDataIndex])
         << ", " << tileRowShape << ", " << tileColShape << ", " << bufferRowShape
         << ", " << bufferColShape << ", " << stride << ", " << stride << ", "
         << npu::tile_fwk::Distributed::AtomicTypeToString(distOpAttr.atomicType) << ">";
@@ -129,13 +144,12 @@ std::string CodeGenOpCloudNPU::GenTemplateParamsForSignal() const
     int32_t shmemSignalIndex = 3;
     int64_t rankShape = originShape[shmemSignalIndex][0];
     DistOpAttr distOpAttr = npu::tile_fwk::AnyCast<DistOpAttr>(opAttrs.at(OpAttributeKey::distOpAttr));
-    oss << "<" << std::to_string(distOpAttr.signalValue) << ", " << npu::tile_fwk::Distributed::AtomicTypeToString(distOpAttr.atomicType) << ", " << rankShape << ">";
+    oss << "<" << GetTemplateSoCVersion() << ", " << std::to_string(distOpAttr.signalValue) << ", " << npu::tile_fwk::Distributed::AtomicTypeToString(distOpAttr.atomicType) << ", " << rankShape << ">";
     return oss.str();
 }
 
 std::string CodeGenOpCloudNPU::GenTemplateParamsForMoeCombineSend() const
 {
-    std::ostringstream oss;
     int32_t dataBufferIndex = 1;
     GenExtraTemplateParamsForMoeCombine(oss, dataBufferIndex);
     return oss.str();
@@ -143,7 +157,6 @@ std::string CodeGenOpCloudNPU::GenTemplateParamsForMoeCombineSend() const
 
 std::string CodeGenOpCloudNPU::GenTemplateParamsForMoeCombineReceive() const
 {
-    std::ostringstream oss;
     int32_t outBufferIndex = 3;
     GenExtraTemplateParamsForMoeCombine(oss, outBufferIndex);
     return oss.str();
@@ -157,7 +170,7 @@ std::string CodeGenOpCloudNPU::GenTemplateParamsForSet() const
     int64_t bufferEleNum = distOpAttr.setBufferShape[0];
     int32_t rowDimIndex = 2;
     int32_t colDimIndex = 3;
-    oss << "<" << GetTemplateDType() << ", " << originShape[shmemTensorIndex][1] << ", "
+    oss << "<" << GetTemplateSoCVersion() << ", " <<GetTemplateDType() << ", " << originShape[shmemTensorIndex][1] << ", "
         << originShape[shmemTensorIndex][rowDimIndex] << ", " << originShape[shmemTensorIndex][colDimIndex]
         << ", " << bufferEleNum << ">";
     return oss.str();
@@ -171,9 +184,9 @@ std::string CodeGenOpCloudNPU::GenTemplateParamsDefault() const
         distOpAttr = npu::tile_fwk::AnyCast<DistOpAttr>(opAttrs.at(OpAttributeKey::distOpAttr));
     }
     if (distOpAttr.extraTemplateParam.empty()) {
-        oss << "<" << GetTemplateDType() << ">";
+        oss << "<" << GetTemplateSoCVersion() << ", " << GetTemplateDType() << ">";
     } else {
-        oss << "<" << GetTemplateDType() << ", " << distOpAttr.extraTemplateParam << ">";
+        oss << "<" << GetTemplateSoCVersion() << ", " << GetTemplateDType() << ", " << distOpAttr.extraTemplateParam << ">";
     }
     return oss.str();
 }
