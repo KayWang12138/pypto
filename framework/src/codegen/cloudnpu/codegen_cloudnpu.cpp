@@ -407,7 +407,8 @@ int CheckInjectStr(const char cmdStr[], size_t strLen) {
 }
 
 void CodeGenCloudNPU::DoCompileCCE(const CompileInfo &compileInfo, const std::string &compileOptions) const {
-    if (!compileInfo.IsNeedCompileCCE()) {
+    if (config::GetHostOption<int64_t>(COMPILE_STAGE) == COMPILE_STAGE_CODEGEN_INSTRUCTION) {
+        ALOG_INFO("Compilation stage terminates after codegen instruction.");
         return;
     }
     auto [ret, ccecCmd] = CompileCCE(compileInfo, compileOptions);

@@ -38,6 +38,18 @@ class RunMode(IntEnum):
     NPU = 0
     SIM = 1
 
+class CompileStage(Enum):
+    """Compile stage enumeration for controlling compilation exit points."""
+    DEFAULT = 0                        # Default value, no compilation termination
+    TENSOR_GRAPH = 1                    # Terminate after tensor graph generation
+    TILE_GRAPH = 2                     # Terminate after tile graph generation
+    EXECUTION_GRAPH = 3                # Terminate after execution graph generation
+    CODEGEN_INSTRUCTION = 4             # Terminate after codegen instruction
+    CODEGEN_BINARY = 5                  # Terminate after codegen binary
+
+# Define VALID_STAGES outside the Enum class to avoid it being treated as an enum member
+CompileStage.VALID_STAGES = {CompileStage.DEFAULT, CompileStage.TENSOR_GRAPH, CompileStage.TILE_GRAPH,
+                             CompileStage.EXECUTION_GRAPH, CompileStage.CODEGEN_INSTRUCTION, CompileStage.CODEGEN_BINARY}
 
 class _CachedVerifyData:
 
@@ -184,6 +196,7 @@ class _JIT:
             else:
                 self.run_cpu(kernel, tensors)
 
+<<<<<<< HEAD
     @staticmethod
     def run_npu(device, kernel, start_args):
         import torch
@@ -195,6 +208,16 @@ class _JIT:
                     start_args, [], _current_stream(), workspace_tensor.data_ptr())
             else:
                 pypto_impl.DeviceRunOnceDataFromHost(start_args, [])
+=======
+              if run_mode is configed, use run_mode
+              if run_mode is npu , check env, than run with differnet tensor type (support cpu or npu)
+              if run_mode is simulator, dont check env, change all tensor to cpu, and run
+            '''
+            if pypto.get_host_options()["compile_stage"] <= CompileStage.CODEGEN_BINARY.value:
+                print("Compilation stage terminates after codegen binary.")
+                return
+            self.dispatch_with_run_mode(in_out_tensors, [], device)
+>>>>>>> 7d79cb5 (feat(machine): Add only_compile option and compile stage option)
 
     @staticmethod
     def run_cpu(kernel, tensors):
@@ -300,6 +323,16 @@ class _JIT:
             pypto.set_codegen_options(**self.codegen_options)
 
         if isinstance(self.host_options, dict):
+            # Validate compile_stage if provided
+            compile_stage = self.host_options.get("compile_stage")
+            if compile_stage is not None:
+                # Validate compile_stage value
+                valid_values = [stage.value for stage in self.VALID_COMPILE_STAGES]
+                if compile_stage not in valid_values:
+                    raise ValueError(
+                        f"Invalid compile_stage: {compile_stage}. "
+                        f"Valid options: {valid_values}"
+                    )
             pypto.set_host_options(**self.host_options)
 
         if isinstance(self.pass_options, dict):
@@ -392,6 +425,26 @@ def verify(func, inputs, outputs, goldens, *args,
     """
     pypto_impl.DeviceInit()
 
+<<<<<<< HEAD
+=======
+    if host_options is None:
+        host_options = {"only_codegen": True}
+
+    # Validate compile_stage if provided
+    compile_stage = host_options.get("compile_stage")
+    if compile_stage is not None:
+        # Validate compile_stage value
+        valid_values = [stage.value for stage in CompileStage.VALID_STAGES]
+        if compile_stage not in valid_values:
+            raise ValueError(
+                f"Invalid compile_stage: {compile_stage}. "
+                f"Valid options: {valid_values}"
+            )
+
+
+    pypto.set_host_options(**host_options)
+
+>>>>>>> 7d79cb5 (feat(machine): Add only_compile option and compile stage option)
     if pass_options is None:
         pass_options = {}
     pypto.set_pass_options(**pass_options)

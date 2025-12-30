@@ -158,6 +158,12 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
         }
     }
     CheckDeviceId();
+    // 检查 devProgBinary 是否为空，如果为空说明在 compile_stage 提前退出时没有设置
+    // 这种情况下应该提前返回，避免运行时错误
+    if (function->GetDyndevAttribute() == nullptr || function->GetDyndevAttribute()->devProgBinary.empty()) {
+        ALOG_WARN("devProgBinary is empty, may be due to compile_stage early exit. Skipping device launch.");
+        return 0;
+    }
     DeviceKernelArgs kArgs;
     DeviceLauncherConfigFillDeviceInfo(config);
     DeviceInitDistributedContext(function->GetDyndevAttribute()->commGroupNames, function->GetDyndevAttribute()->devProgBinary);
@@ -320,7 +326,11 @@ ExportedOperator *ExportedOperatorBegin() {
 }
 
 void ExportedOperatorEnd(ExportedOperator *op) {
-    op->ResetFunction(Program::GetInstance().GetLastFunction());
+    // 如果 lastFunc_ 为 nullptr（提前退出场景），则不设置函数，避免访问已释放的函数
+    Function *lastFunc = Program::GetInstance().GetLastFunction();
+    if (lastFunc != nullptr) {
+        op->ResetFunction(lastFunc);
+    }
 }
 
 void CopyDevToHost(const DeviceTensorData &devTensor, DeviceTensorData &hostTensor) {

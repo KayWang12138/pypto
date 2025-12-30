@@ -125,6 +125,10 @@ extern "C" int32_t Execute(MachineTask *task, FunctionCache &cache) {
         ALOG_INFO("draw graph switch enabled, push finish queue.");
         return 0;
     }
+    if (config::GetHostOption<int64_t>(COMPILE_STAGE) <= COMPILE_STAGE_EXECUTION_GRAPH) {
+        ALOG_INFO("Compilation stage terminates after execution graph generation.");
+        return 0;
+    }
     auto deviceMachineTask = std::make_shared<MachineTask>(task->GetTaskId(), task->GetFunction());
     deviceMachineTask->SetCacheReuseType(task->GetCacheReuseType());
     deviceMachineTask->SetCacheKey(task->GetCacheKey());
@@ -205,6 +209,11 @@ static std::vector<Function *> GetCalleeList(FunctionCache &cache, Function *fun
 }
 
 static void FindAllExpression(FunctionCache &cache, Linker &linker, Function *func) {
+    // 检查 func 是否为 null，防止在提前退出场景下访问已释放的函数
+    if (func == nullptr) {
+        ALOG_WARN("FindAllExpression received null function pointer, skipping.");
+        return;
+    }
     if (func->IsDynloop()) {
         auto dynloopAttr = func->GetDynloopAttribute();
         auto ss = SymbolicScalar(dynloopAttr->iterSymbolName);
@@ -231,6 +240,12 @@ static void FindAllExpression(FunctionCache &cache, Linker &linker, Function *fu
     } else if (func->GetGraphType() == GraphType::TILE_GRAPH) {
         ALOG_INFO("Compile tile:", func->Dump());
         Function *root = func->GetRootFunction();
+        if (root == nullptr) {
+            // 如果 rootFunc_ 为 null，说明该函数还没有执行 SubgraphToFunction pass
+            // 在 compile_stage=2 时，这是正常的，应该跳过
+            ALOG_INFO("FindAllExpression: rootFunc is null for TILE_GRAPH function (may be due to compile_stage=2), skipping.");
+            return;
+        }
         FindAllExpression(cache, linker, root);
     } else if (func->GetGraphType() == GraphType::EXECUTE_GRAPH) {
         ALOG_INFO("Compile root:", func->Dump());
@@ -970,6 +985,12 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[ma
 
 #ifdef BUILD_WITH_CANN
     if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) != CFG_RUN_MODE_SIM) {
+        // 如果 compile_stage 设置为 CODEGEN_INSTRUCTION，则跳过编译和链接步骤
+        // 因为 DoCompileCCE 已经提前返回，没有生成 .o 文件，链接会失败
+        if (config::GetHostOption<int64_t>(COMPILE_STAGE) == COMPILE_STAGE_CODEGEN_INSTRUCTION) {
+            ALOG_INFO("Compilation stage terminates after codegen instruction, skipping CompileAICoreKernel.");
+            return;
+        }
         int ret = CompileAICoreKernel(leafDict, encodeDevAscendFunctionParam,
                                     ccePath, function->GetFunctionHash().Data(), kernelPath);
         if (ret != 0) {

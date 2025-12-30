@@ -115,7 +115,13 @@ std::string OperatorDeviceRunOnceDataFromDevice([[maybe_unused]] py::int_ python
     }
 
     ExportedOperator *op = reinterpret_cast<ExportedOperator *>(opAddr);
+    if (op == nullptr) {
+        return "invalid operator";
+    }
     Function *func = op->GetFunction();
+    if (func == nullptr) {
+        return "Invalid function: function pointer is null (may be caused by early exit)";
+    }
     if (!func->IsFunctionTypeAndGraphType(FunctionType::DYNAMIC, GraphType::TENSOR_GRAPH)) {
         return "Invalid function format";
     }

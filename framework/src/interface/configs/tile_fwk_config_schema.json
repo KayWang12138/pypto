@@ -296,6 +296,59 @@
                         "zh": "控制编译执行的阶段",
                         "en": "Set the stage of compile."
                     }
+                },
+                "compile_stage": {
+                    "type": "integer",
+                    "label": {
+                        "zh": "控制编译阶段停止的位置",
+                        "en": "Control the position where the compilation stage stops."
+                    },
+                    "minimum": 0,
+                    "maximum": 5,
+                    "options": [
+                        {
+                            "value": 0,
+                            "label": {
+                                "zh": "默认值，不终止编译",
+                                "en": "Default value, no compilation termination."
+                            }
+                        },
+                        {
+                            "value": 1,
+                            "label": {
+                                "zh": "在张量图生成后终止",
+                                "en": "Terminate after tensor graph generation."
+                            }
+                        },
+                        {
+                            "value": 2,
+                            "label": {
+                                "zh": "在切分图生成后终止",
+                                "en": "Terminate after tile graph generation."
+                            }
+                        },
+                        {
+                            "value": 3,
+                            "label": {
+                                "zh": "在执行图生成后终止",
+                                "en": "Terminate after execution graph generation."
+                            }
+                        },
+                        {
+                            "value": 4,
+                            "label": {
+                                "zh": "在代码生成指令后终止",
+                                "en": "Terminate after codegen instruction."
+                            }
+                        },
+                        {
+                            "value": 5,
+                            "label": {
+                                "zh": "在代码生成二进制后终止",
+                                "en": "Terminate after codegen binary."
+                            }
+                        }
+                    ]
                 }
             }
         },
