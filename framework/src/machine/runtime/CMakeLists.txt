@@ -40,6 +40,7 @@ target_include_directories(tile_fwk_runtime
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN_SUB}>:${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/runtime>>
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN_SUB}>:${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/runtime/runtime>>
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN_SUB}>:${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/profiling>>
+            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN_SUB}>:${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/hccl>>
         PRIVATE
             ${PTO_FWK_SRC_ROOT}/framework/src/cost_model
 )
@@ -47,9 +48,41 @@ target_compile_definitions(tile_fwk_runtime
         PUBLIC
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:BUILD_WITH_CANN>>
             $<BUILD_INTERFACE:$<$<BOOL:${ENABLE_STEST_INTERPRETER_CONFIG}>:ENABLE_STEST_INTERPRETER_CONFIG>>
-        PRIVATE
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN_SUB}>:BUILD_WITH_CANN_SUB>>
+        # PRIVATE
+        #     $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN_SUB}>:BUILD_WITH_CANN_SUB>>
 )
+
+if(BUILD_WITH_CANN)
+    # 查找 hccl
+    find_library(FOUND_HCCL hccl
+        PATHS
+            "${ASCEND_CANN_PACKAGE_PATH}/lib64"
+            "${ASCEND_CANN_PACKAGE_PATH}/lib"
+            "/usr/local/Ascend/driver/lib64/driver"
+            "/usr/local/Ascend/latest/lib64"
+            "/usr/local/Ascend/ascend-toolkit/latest/lib64"
+            "/usr/local/HiAI/lib64"
+            "$ENV{ASCEND_HOME}/latest/lib64"
+            "$ENV{ASCEND_HOME}/lib64"
+        NO_DEFAULT_PATH
+    )
+    
+    if(FOUND_HCCL)
+        message(STATUS "Found HCCL at: ${FOUND_HCCL}")
+        set(HCCL_LIBRARY ${FOUND_HCCL})
+    else()
+        # 尝试查找任何 hccl
+        file(GLOB_RECURSE HCCL_CANDIDATES "/usr/local/Ascend/*/lib*/libhccl.so*")
+        if(HCCL_CANDIDATES)
+            list(GET HCCL_CANDIDATES 0 HCCL_LIBRARY)
+            message(STATUS "Found HCCL (recursive): ${HCCL_LIBRARY}")
+        else()
+            message(FATAL_ERROR "HCCL library not found! Set BUILD_WITH_CANN=OFF or install CANN toolkit")
+        endif()
+    endif()
+endif()
+
 target_link_directories(tile_fwk_runtime
         PUBLIC
             $<BUILD_INTERFACE:${ASCEND_CANN_PACKAGE_PATH}/lib64>
@@ -64,7 +97,9 @@ target_link_libraries(tile_fwk_runtime
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:ascendcl>>
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:runtime>>
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:profapi>>
-            $<BUILD_INTERFACE:$<$<AND:$<NOT:$<BOOL:${BUILD_WITH_CANN_SUB}>>,$<BOOL:${BUILD_WITH_CANN}>>:hccl>>
+            #$<BUILD_INTERFACE:$<$<AND:$<NOT:$<BOOL:${BUILD_WITH_CANN_SUB}>>,$<BOOL:${BUILD_WITH_CANN}>>:hccl>>
+            #$<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:hccl>>
+            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:hccl>>               
         PRIVATE
             intf_pub_cxx17
             tile_fwk_intf_pub
