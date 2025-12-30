@@ -283,3 +283,13 @@ def view(
         return pypto_impl.View(input, shape, offsets)
     else:
         return pypto_impl.View(input, shape, to_syms(valid_shape), to_syms(offsets))
+
+
+@op_wrapper
+def one_shot_all_reduce(pred_token, in_tensor, group, out_tensor):
+    pypto_impl.one_shot_all_reduce(pred_token, in_tensor, group, out_tensor)
+
+
+@op_wrapper
+def two_shot_all_reduce(pred_token, in_tensor, group, out_tensor):
+    pypto_impl.two_shot_all_reduce(pred_token, in_tensor, group, out_tensor)
