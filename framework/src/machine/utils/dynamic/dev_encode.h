@@ -605,10 +605,6 @@ public:
 
     inline int GetOpAttrSize() { return operationAttrList_.size(); }
 
-    inline void FillOpAttrs(DevCceBinary *cceInfo) {
-        (void)cceInfo;
-    }
-
     inline const uint32_t &GetOperationDepGraphPredCount(int operationIndex) const {
         return At(operationList_, operationIndex).depGraphPredCount;
     }
