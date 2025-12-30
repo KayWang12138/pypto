@@ -49,33 +49,33 @@ def get_device_id():
 
 def loop_basic(run_mode: str = "npu", dynamic: bool = True) -> torch.Tensor:
     if dynamic:
-        N = pypto.frontend.dynamic("N")
+        n = pypto.frontend.dynamic("n")
     else:
-        N = 8
+        n = 8
 
-    S = 64
-    SHAPE = (N * S, S)
-    DTYPE = pypto.DT_FP16
+    s = 64
+    shape = (n * s, s)
+    dtype = pypto.DT_FP16
     
     def loop_basic_kernel(
-            t0: pypto.Tensor(SHAPE, DTYPE),
-            t1: pypto.Tensor(SHAPE, DTYPE),
+            t0: pypto.Tensor(shape, dtype),
+            t1: pypto.Tensor(shape, dtype),
         ) -> (
-            pypto.Tensor(SHAPE, DTYPE),
-            pypto.Tensor(SHAPE, DTYPE),
+            pypto.Tensor(shape, dtype),
+            pypto.Tensor(shape, dtype),
         ):
-            out0 = pypto.tensor(SHAPE, DTYPE)
-            out1 = pypto.tensor(SHAPE, DTYPE)
+            out0 = pypto.tensor(shape, dtype)
+            out1 = pypto.tensor(shape, dtype)
             pypto.set_vec_tile_shapes(64, 64)
-            for bs_idx in pypto.loop(0, N, 1):  # start, stop, step
-                t0s = t0[bs_idx * S : (bs_idx + 1) * S, :]
-                t1s = t1[bs_idx * S : (bs_idx + 1) * S, :]
-                out0[bs_idx * S : (bs_idx + 1) * S, :] = pypto.add(t0s, t1s)
+            for bs_idx in pypto.loop(0, n, 1):  # start, stop, step
+                t0s = t0[bs_idx * s: (bs_idx + 1) * s, :]
+                t1s = t1[bs_idx * s: (bs_idx + 1) * s, :]
+                out0[bs_idx * s: (bs_idx + 1) * s, :] = pypto.add(t0s, t1s)
             new_step = 2
-            for bs_idx in pypto.loop(0, N, new_step):  # start, stop, step
-                t0s = t0[bs_idx * S : (bs_idx + new_step) * S, :]
-                t1s = t1[bs_idx * S : (bs_idx + new_step) * S, :]
-                out1[bs_idx * S : (bs_idx + new_step) * S, :] = pypto.add(t0s, t1s)
+            for bs_idx in pypto.loop(0, n, new_step):  # start, stop, step
+                t0s = t0[bs_idx * s: (bs_idx + new_step) * s, :]
+                t1s = t1[bs_idx * s: (bs_idx + new_step) * s, :]
+                out1[bs_idx * s: (bs_idx + new_step) * s, :] = pypto.add(t0s, t1s)
             return out0, out1
 
     if run_mode == "npu":
@@ -114,14 +114,14 @@ def test_loop_basic(device_id = None, run_mode: str = "npu", dynamic: bool = Fal
 def loop_compile_phase_print(shape: tuple, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
 
     if dynamic:
-        M = pypto.frontend.dynamic("M")
-        _, N = shape
+        m = pypto.frontend.dynamic("m")
+        _, n = shape
     else:
-        M, N = shape
+        m, n = shape
 
     def loop_compile_phase_print_kernel(
-        in_t0: pypto.Tensor((M, N), pypto.DT_FP16), 
-        in_t1: pypto.Tensor((M, N), pypto.DT_FP16),
+        in_t0: pypto.Tensor((m, n), pypto.DT_FP16), 
+        in_t1: pypto.Tensor((m, n), pypto.DT_FP16),
     ) -> (
         pypto.Tensor(shape, pypto.DT_FP16),
         pypto.Tensor(shape, pypto.DT_FP16),
