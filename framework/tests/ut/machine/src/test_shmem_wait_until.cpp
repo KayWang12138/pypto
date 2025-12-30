@@ -38,9 +38,9 @@ auto InitializeTensorInfo(const uint32_t rankSize) {
 }
 
 auto InitializeAicpuCode(const uint32_t rankSize) {
-    constexpr size_t codeSize = 17;
+    constexpr size_t codeSize = 18;
     auto data = std::make_unique<int32_t[]>(codeSize);
-    uint32_t initData[codeSize] = {153, 2, 2, 44, 4, 2, 18, 4, 0, 2, 1, 0, 4, rankSize, rankSize, 4, 8};
+    uint32_t initData[codeSize] = {153, 0, 2, 2, 44, 4, 2, 18, 4, 0, 2, 1, 0, 4, rankSize, rankSize, 4, 8};
     std::copy(initData, initData + codeSize, data.get());
     npu::tile_fwk::dynamic::DevRelocVector<int32_t> aicpuCode(codeSize, data.get());
     return std::make_tuple(std::move(data), std::move(aicpuCode));
