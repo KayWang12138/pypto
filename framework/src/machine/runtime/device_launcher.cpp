@@ -121,6 +121,17 @@ int DeviceLauncher::RunWithProfile(rtStream_t aicoreStream, rtStream_t aicpuStre
     return 0;
 }
 
+
+int DeviceLauncher::DeviceInitArgs(AstKernelArgs& kArgs, const DeviceLauncherConfig &config, Function *function, CachedOperator *cachedOperator, 
+        const std::vector<DeviceTensorData> &inputList, const std::vector<DeviceTensorData> &outputList) {
+    DeviceLauncherConfigFillDeviceInfo(config);
+    DeviceInitDistributedContext(function->GetDyndevAttribute()->commGroupNames, function->GetDyndevAttribute()->devProgBinary);
+    DeviceInitTilingData(DeviceMemoryUtils(), kArgs, function->GetDyndevAttribute()->devProgBinary, config, cachedOperator);
+    DeviceRunCacheKernelSet(function, (uint8_t *)kArgs.cfgdata);
+    DeviceInitKernelInOuts(DeviceMemoryUtils(), kArgs, inputList, outputList,
+        function->GetDyndevAttribute()->disableL2List, config.isGETensorList);
+}
+
 int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
         Function *function, const std::vector<DeviceTensorData> &inputList, const std::vector<DeviceTensorData> &outputList,
         rtStream_t aicpuStream, rtStream_t aicoreStream, bool streamSynchronize, CachedOperator *cachedOperator,
@@ -156,11 +167,7 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
     }
     CheckDeviceId();
     AstKernelArgs kArgs;
-    DeviceLauncherConfigFillDeviceInfo(config);
-    DeviceInitTilingData(DeviceMemoryUtils(), kArgs, function->GetDyndevAttribute()->devProgBinary, config, cachedOperator);
-    DeviceRunCacheKernelSet(function, (uint8_t *)kArgs.cfgdata);
-    DeviceInitKernelInOuts(DeviceMemoryUtils(), kArgs, inputList, outputList,
-        function->GetDyndevAttribute()->disableL2List, config.isGETensorList);
+    DeviceInitArgs(kArgs, config, function, cachedOperator, inputList, outputList);
     rc = DeviceRunner::Get().RegisterKernelBin(&(*reinterpret_cast<rtBinHandle *>(CachedOperator::GetBinHandleHolder(cachedOperator))));
     if (rc < 0) {
         ALOG_ERROR_F("Register kernel bin failed.");
