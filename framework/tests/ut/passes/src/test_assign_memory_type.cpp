@@ -781,5 +781,41 @@ TEST_F(AssignMemoryTypeTest, TestViewWithAttr) {
         }
     }
 }
+void AssignUB2L1 (std::shared_ptr<Function> &currFunctionPtr) {
+    std::shared_ptr<LogicalTensor> add_in1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{12,16}, TileOpFormat::TILEOP_ND);
+    std::shared_ptr<LogicalTensor> add_in2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{12,16}, TileOpFormat::TILEOP_ND);
+    std::shared_ptr<LogicalTensor> add_out = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{12,16}, TileOpFormat::TILEOP_ND);
+    std::shared_ptr<LogicalTensor> mul_in1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{12,16});
+    std::shared_ptr<LogicalTensor> mul_out = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{16,16});
+
+    auto &add_op = currFunctionPtr->AddRawOperation(Opcode::OP_ADD, {add_in1, add_in2}, {add_out});
+    auto &add_op = currFunctionPtr->AddRawOperation(Opcode::OP_A_MUL_B, {mul_in1, add_out}, {mul_out});
+    
+    currFunctionPtr->inCasts_.push_back(add_in1);
+    currFunctionPtr->inCasts_.push_back(add_in2);
+    currFunctionPtr->inCasts_.push_back(mul_out);
+
+}
+TEST_F(AssignMemoryTypeTest, TestUB2L1) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestUB2L1", "TestUB2L1", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    Program::GetInstance().InsertFuncToFunctionMap("TestUB2L1", currFunctionPtr);
+
+    AssignUB2L1(currFunctionPtr);
+
+    std::stringstream ssBefore;
+    ssBefore << "Before_AssignMemoryType";
+
+    // Call the pass
+    AssignMemoryType assignMemoryType;
+    assignMemoryType.PreCheck(*currFunctionPtr);
+    currFunctionPtr->DumpJsonFile("./assignMemoryType_UB2L1_before.json");
+    assignMemoryType.RunOnFunction(*currFunctionPtr);
+    currFunctionPtr->DumpJsonFile("./assignMemoryType_UB2L1_after.json");
+    assignMemoryType.PostCheck(*currFunctionPtr);
+
+    std::stringstream ss;
+    ss << "After_AssignMemoryType";
+}
 }
 } // namespace npu::tile_fwk
