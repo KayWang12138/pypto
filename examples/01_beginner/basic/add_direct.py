@@ -45,6 +45,10 @@ def get_device_id():
 
 
 def create_add_direct_kernel(shape: tuple, run_mode: str = "npu"):
+
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def add_direct_kernel(
         x: pypto.Tensor(shape, pypto.DT_FP32),
         y: pypto.Tensor(shape, pypto.DT_FP32),
@@ -53,10 +57,7 @@ def create_add_direct_kernel(shape: tuple, run_mode: str = "npu"):
         z = x + y
         return z
 
-    if run_mode == "npu":
-        return pypto.frontend.jit()(add_direct_kernel)
-    else:
-        return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(add_direct_kernel)
+    return add_direct_kernel
 
 
 def test_add_direct(device_id=None, run_mode: str = "npu") -> None:

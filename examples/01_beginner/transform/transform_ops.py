@@ -170,10 +170,7 @@ def gather_wrapper(mode: pypto.RunMode, dim: int, input_shape: tuple, index_shap
 
 
 def gather_op(input_tensor: torch.Tensor, index_tensor: torch.Tensor, dim: int, run_mode: str = "npu") -> torch.Tensor:
-    if run_mode == "npu":
-        mode = pypto.RunMode.NPU
-    else:
-        mode = pypto.RunMode.SIM
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
     out = gather_wrapper(mode, dim, input_tensor.shape, index_tensor.shape)(input_tensor, index_tensor)
     return out
 
@@ -299,10 +296,7 @@ def test_gather_negative_indexing(device_id: int = None, run_mode: str = "npu"):
 
 
 def scatter_wrapper(dim: int, src: torch.float32, input_shape: tuple, index_shape: tuple, run_mode: str = "npu"):
-    if run_mode == "npu":
-        mode = pypto.RunMode.NPU
-    else:
-        mode = pypto.RunMode.SIM
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
     
     @pypto.frontend.jit(host_options={"only_codegen": True}, runtime_options={"run_mode": mode})
     def scatter_kernel(
@@ -352,10 +346,7 @@ def scatter_update(x: torch.Tensor, dim: int, y: torch.Tensor, src: torch.float3
     x_shape, y_shape = x.shape, y.shape
     update_dim_, update_src_ = dim, src
 
-    if run_mode == "npu":
-        mode = pypto.RunMode.NPU
-    else:
-        mode = pypto.RunMode.SIM
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
 
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def scatter_update_kernel(x: pypto.Tensor(x_shape, pypto.DT_FP32),
@@ -434,10 +425,7 @@ def concat_multiple_op(a: torch.Tensor, b: torch.Tensor, c: torch.Tensor, dim: i
     else:
         out_shape = (a.shape[0], a.shape[1] + b.shape[1] + c.shape[1])
 
-    if run_mode == "npu":
-        mode = pypto.RunMode.NPU
-    else:
-        mode = pypto.RunMode.SIM
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
         
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def concat_multiple_kernel(a: pypto.Tensor(a_shape, pypto.DT_FP32),
