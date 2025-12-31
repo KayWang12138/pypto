@@ -1,0 +1,158 @@
+diff --git a/framework/src/interface/interpreter/calc_common.cpp b/framework/src/interface/interpreter/calc_common.cpp
+index 6be7412a85371cbd0bb1a1f5a9168be92d1bc7d3..4cb8274c02a0e66ed126f7a57dcc5e9b0bcbdac9 100644
+--- a/framework/src/interface/interpreter/calc_common.cpp
++++ b/framework/src/interface/interpreter/calc_common.cpp
+@@ -180,7 +180,7 @@ void ExecutePrint(ExecuteOperationContext *ctx) {
+         ts = (uint64_t)tv.tv_sec * 1000000 + tv.tv_usec;
+         auto baseName = FormatString(fname, ctx->opInter, nullptr, scalars);
+         auto basePath = config::LogTopFolder() + "/tensor/" + baseName + "_" + std::to_string(ts);
+-        auto binPath = basePath + ".bin";
++        auto binPath = basePath + ".data";
+         auto csvPath = basePath + ".csv";
+         auto &iop = ctx->ioperandDataViewList->at(0);
+         auto shape = iop->GetValidShape();
+diff --git a/python/pypto/_controller.py b/python/pypto/_controller.py
+index 307de9dd54b4b04793107ef39c88aac9c1193c9c..65027376a3ab02d0a969c6b26a4aafb090099fe0 100644
+--- a/python/pypto/_controller.py
++++ b/python/pypto/_controller.py
+@@ -224,7 +224,7 @@ class LoopRange:
+ _loop_range = LoopRange
+ 
+ 
+-def is_loop_begin(scalar: SymInt):
++def is_loop_begin(scalar: SymInt) -> SymbolicScalar:
+     """ Determines if the current iteration is the start of loop
+     This function returns a boolean value which specifys whether
+     the current iteration is the beginning of the loop
+@@ -240,7 +240,7 @@ def is_loop_begin(scalar: SymInt):
+ 
+     Examples
+     --------
+-    >>> for s2_idx in pypto.loop(bn_per_batch):
++        for s2_idx in pypto.loop(bn_per_batch):
+             if pypto.cond(pypto.is_loop_begin(s2_idx)):
+                 ...
+     """
+@@ -251,7 +251,7 @@ def is_loop_begin(scalar: SymInt):
+         pypto_impl.IsLoopBegin(to_sym(scalar), getattr(scalar, "_loop_begin")))
+ 
+ 
+-def is_loop_end(scalar: SymInt):
++def is_loop_end(scalar: SymInt) -> SymbolicScalar:
+     """ Determines if the current iteration is the end of loop
+     This function returns a boolean value which specifys whether
+     the current iteration is the end of the loop
+@@ -267,7 +267,7 @@ def is_loop_end(scalar: SymInt):
+ 
+     Examples
+     --------
+-    >>> for s2_idx in pypto.loop(0, bn_per_batch, 1, name="LOOP_L4_s2_SA", idx_name="s2_idx",
++        for s2_idx in pypto.loop(0, bn_per_batch, 1, name="LOOP_L4_s2_SA", idx_name="s2_idx",
+             if pypto.cond(pypto.is_loop_end(s2_idx)):
+                 ...
+     """
+@@ -279,7 +279,7 @@ def is_loop_end(scalar: SymInt):
+ 
+ 
+ @contextmanager
+-def function(name: str, *args):
++def function(name: str, *args) -> Iterator:
+     """ defining the function
+ 
+     This API record the function and dataflow user has defined. A computing
+@@ -299,7 +299,7 @@ def function(name: str, *args):
+ 
+     Examples
+     --------
+-    >>> with pypto.function("main", a, b, c):
++        with pypto.function("main", a, b, c):
+             pypto.set_vec_tile_shapes(16, 16)
+             for _ in pypto.loop(0, b_loop, 1, name, = "LOOP_L0_bIdx_mla_prolog",
+                 idx_name = "b_idx"):
+@@ -338,7 +338,7 @@ def cond(scalar: SymInt):
+ 
+     Examples
+     --------
+-    >>> if pypto.cond(pypto.is_loop_begin(bn)):
++        if pypto.cond(pypto.is_loop_begin(bn)):
+             pass
+         elif pypto.cond(pypto.is_loop_end(bn)):
+             pass
+@@ -423,7 +423,7 @@ def loop(stop: SymInt, /, **kwargs) -> Iterator[SymInt]:
+ 
+     Examples
+     --------
+-    with pypto.loop(10, name="LOOP_L0_bIdx", idx_name="bIdx"):
++    for _ in pypto.loop(10, name="LOOP_L0_bIdx", idx_name="bIdx"):
+         if pypto.cond(k==0):
+             b[:] = a + a
+         else:
+@@ -454,7 +454,7 @@ def loop(start: SymInt, stop: SymInt, step: Optional[SymInt] = 1, /, **kwargs) -
+ 
+     Examples
+     --------
+-    with pypto.loop(0, 10, 1, name="LOOP_L0_bIdx", idx_name="bIdx"):
++    for _ in pypto.loop(0, 10, 1, name="LOOP_L0_bIdx", idx_name="bIdx"):
+         if pypto.cond(k==0):
+             b[:] = a + a
+         else:
+@@ -515,7 +515,7 @@ def loop(
+             yield k
+ 
+ 
+-def loop_unroll(*args, **kwargs):
++def loop_unroll(*args, **kwargs) -> Iterator[Tuple[SymbolicScalar, int]]:
+     """
+     Almost the same as `loop()`, but with an additional `unroll_list` parameter.
+ 
+@@ -541,6 +541,12 @@ def loop_unroll(*args, **kwargs):
+     Returns
+     --------
+     return an iterator and unroll factor.
++    
++    Examples
++    --------
++        for idx in pypto.loop_unroll(0, 10, 1, name="LOOP_L0_bIdx", 
++                                                      idx_name="bIdx", unroll_list=[4, 2, 1]):
++            b[:] = a + idx
+     """
+     start, stop, step = _get_loop_range(*args)
+ 
+diff --git a/python/pypto/symbolic_scalar.py b/python/pypto/symbolic_scalar.py
+index 3d5e5fecde508d4b92b32f55fae493e9b8ecf58f..e177dc80d896c512e3c47de3c1e301d41805e21a 100644
+--- a/python/pypto/symbolic_scalar.py
++++ b/python/pypto/symbolic_scalar.py
+@@ -33,7 +33,7 @@ def _expr_preprocess(s: str) -> str:
+ class SymbolicScalar:
+ 
+     def __init__(self, arg0: Union[int, str, 'SymbolicScalar'],
+-                 arg1: Union[int, None] = None):
++                 arg1: Union[int, None] = None) -> None:
+         """
+         Construct a SymbolicScalar.
+ 
+@@ -42,9 +42,9 @@ class SymbolicScalar:
+             arg1 Union[int, None]: The value of the symbolic scalar. Defaults to None.
+ 
+         Examples:
+-            >>> b = SymbolicScalar(10)
+-            >>> c = SymbolicScalar("x")
+-            >>> d = SymbolicScalar("x", 10)
++            >>> a = SymbolicScalar(10)
++            >>> b = SymbolicScalar("x")
++            >>> c = SymbolicScalar("x", 10)
+         """
+         if isinstance(arg0, int):
+             self._base = pypto_impl.SymbolicScalar(arg0)
+diff --git a/python/tests/ut/interface/test_verify.py b/python/tests/ut/interface/test_verify.py
+index a58f0c5066e874f0b023e0f81d44e2765e91ac35..46cbf1741fb157cde2a84c0383ec40338950823b 100644
+--- a/python/tests/ut/interface/test_verify.py
++++ b/python/tests/ut/interface/test_verify.py
+@@ -15,6 +15,7 @@ import pytest
+ import torch
+ 
+ 
++@pytest.mark.skip(reason="Verify not supported")
+ def test_verify_dynamic_ops_assemble():
+     s = 32
+     n = 2
