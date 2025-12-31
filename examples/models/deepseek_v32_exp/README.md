@@ -84,17 +84,17 @@ def mla_prolog_quant_compute(token_x, w_dq, w_uq_qr, dequant_scale, w_uk, w_dkv_
 
 ## 参数说明
 
--   **token_x**（`Tensor`）：公式中用于计算Query和Key的输入tensor。，不支持非连续的 Tensor，数据格式支持ND，数据类型支持`bfloat16`，shape为[t, h]。
+-   **token_x**（`Tensor`）：公式中用于计算Query和Key的输入tensor。不支持非连续的 Tensor，数据格式支持ND，数据类型支持`bfloat16`，shape为[t, h]。
 -   **w_dq**（`Tensor`）：公式中用于计算Query的下采样权重矩阵$W^{DQ}$，不支持非连续的 Tensor。数据格式支持NZ，数据类型支持`bfloat16`，shape为[h, q_lora_rank]。
--   **w_uq_qr**（`Tensor`）：公式中用于计算Query的上采样权重矩阵$W^{UQ}$和位置编码权重矩阵$W^{QR}$。，不支持非连续的 Tensor，数据格式支持NZ，数据类型支持`int8`，shape为[q_lora_rank, n_q * q_head_dim]。
+-   **w_uq_qr**（`Tensor`）：公式中用于计算Query的上采样权重矩阵$W^{UQ}$和位置编码权重矩阵$W^{QR}$。不支持非连续的 Tensor，数据格式支持NZ，数据类型支持`int8`，shape为[q_lora_rank, n_q * q_head_dim]。
 -   **dequant_scale**（`Tensor`）：用于MatmulQcQr矩阵乘后w_uq_qr反量化操作的per-channel参数，不支持非连续的 Tensor。数据格式支持ND，数据类型支持`float`，shape为[n_q*q_head_dim, 1]。
--   **w_uk**（`Tensor`）：公式中用于计算Key的上采样权重$W^{UK}$。，不支持非连续的 Tensor，数据格式支持ND，数据类型支持`bfloat16`，shape为[n_q, qk_nope_head_dim, kv_lora_rank]。
--   **w_dkv_kr**（`Tensor`）：公式中用于计算Key的下采样权重矩阵$W^{DKV}$和位置编码权重矩阵$W^{KR}$。，不支持非连续的 Tensor，数据格式支持NZ，数据类型支持`bfloat16`，shape为[h, kv_lora_rank+rope_dim]。
--   **gamma_cq**（`Tensor`）：计算$c^Q$的RmsNorm公式中的$\gamma$参数。，不支持非连续的 Tensor，数据格式支持ND，数据类型支持`bfloat16`，shape为[q_lora_rank]。
--   **gamma_ckv**（`Tensor`）：计算$c^{KV}$的RmsNorm公式中的$\gamma$参数。，不支持非连续的 Tensor，数据格式支持ND，数据类型支持`bfloat16`，shape为[kv_lora_rank]。
--   **cos**（`Tensor`）：用于计算旋转位置编码的余弦参数矩阵。，不支持非连续的 Tensor，数据格式支持ND，数据类型支持`bfloat16`，shape为[t, rope_dim]。
--   **sin**（`Tensor`）：用于计算旋转位置编码的正弦参数矩阵。，不支持非连续的 Tensor，数据格式支持ND，数据类型支持`bfloat16`，shape为[t, rope_dim]。
--   **cache_index**（`Tensor`）：用于存储kv_cache和kr_cache的索引。，不支持非连续的 Tensor，数据格式支持ND，数据类型支持`int64`，shape为[t]。
+-   **w_uk**（`Tensor`）：公式中用于计算Key的上采样权重$W^{UK}$。不支持非连续的 Tensor，数据格式支持ND，数据类型支持`bfloat16`，shape为[n_q, qk_nope_head_dim, kv_lora_rank]。
+-   **w_dkv_kr**（`Tensor`）：公式中用于计算Key的下采样权重矩阵$W^{DKV}$和位置编码权重矩阵$W^{KR}$。不支持非连续的 Tensor，数据格式支持NZ，数据类型支持`bfloat16`，shape为[h, kv_lora_rank+rope_dim]。
+-   **gamma_cq**（`Tensor`）：计算$c^Q$的RmsNorm公式中的$\gamma$参数。不支持非连续的 Tensor，数据格式支持ND，数据类型支持`bfloat16`，shape为[q_lora_rank]。
+-   **gamma_ckv**（`Tensor`）：计算$c^{KV}$的RmsNorm公式中的$\gamma$参数。不支持非连续的 Tensor，数据格式支持ND，数据类型支持`bfloat16`，shape为[kv_lora_rank]。
+-   **cos**（`Tensor`）：用于计算旋转位置编码的余弦参数矩阵。不支持非连续的 Tensor，数据格式支持ND，数据类型支持`bfloat16`，shape为[t, rope_dim]。
+-   **sin**（`Tensor`）：用于计算旋转位置编码的正弦参数矩阵。不支持非连续的 Tensor，数据格式支持ND，数据类型支持`bfloat16`，shape为[t, rope_dim]。
+-   **cache_index**（`Tensor`）：用于存储kv_cache和kr_cache的索引。不支持非连续的 Tensor，数据格式支持ND，数据类型支持`int64`，shape为[t]。
 -   **kv_cache**（`Tensor`）：用于cache索引的aclTensor，计算结果原地更新（对应公式中的$k^C$），不支持非连续的 Tensor。数据格式支持ND，数据类型支持`int8`，cache_mode为"PA_BSND"、shape为[block_num, block_size, n_kv, kv_lora_rank]。
 -   **kr_cache**（`Tensor`）：用于key位置编码的cache，计算结果原地更新（对应公式中的$k^R$），不支持非连续的 Tensor。数据格式支持ND，cache_mode为"PA_BSND"，数据类型支持`bfloat16`，cache_mode为"PA_BSND"、shape为[block_num, block_size, n_kv, rope_dim]。
 -   **k_scale_cache**（`Tensor`）：表示 key 反量化因子的缓存，必选参数，不支持非连续的 Tensor，数据格式支持 ND，cache_mode为"PA_BSND"，数据类型支持`float`，shape为[block_num, block_size, n_kv, 4]。
@@ -214,10 +214,10 @@ def sparse_flash_attention_quant_compute(query_nope, query_rope, key_nope_2d, ke
 
 ## 参数说明
 
--   **query_nope**（`Tensor`）：必选参数，表示MLA结构中的query的rope信息，，不支持非连续的 Tensor，数据格式支持ND，数据类型支持`bfloat16`，shape为[t * n_q, kv_lora_rank]。 
--   **query_rope**（`Tensor`）：必选参数，表示MLA结构中的query的nope信息，，不支持非连续的 Tensor，数据格式支持ND，数据类型支持`bfloat16`，shape为[t * n_q, rope_dim]。 
--   **key_nope_2d**（`Tensor`）：必选参数，表示MLA结构中的key的rope信息，，不支持非连续的 Tensor，数据格式支持ND，数据类型支持`int8`，shape为[block_num * block_size, kv_lora_rank]。 
--   **key_rope_2d**（`Tensor`）：必选参数，表示MLA结构中的key的nope信息，，不支持非连续的 Tensor，数据格式支持ND，数据类型支持`bfloat16`，shape为[block_num * block_size, rope_dim]。 
+-   **query_nope**（`Tensor`）：必选参数，表示MLA结构中的query的rope信息，不支持非连续的 Tensor，数据格式支持ND，数据类型支持`bfloat16`，shape为[t * n_q, kv_lora_rank]。 
+-   **query_rope**（`Tensor`）：必选参数，表示MLA结构中的query的nope信息，不支持非连续的 Tensor，数据格式支持ND，数据类型支持`bfloat16`，shape为[t * n_q, rope_dim]。 
+-   **key_nope_2d**（`Tensor`）：必选参数，表示MLA结构中的key的rope信息，不支持非连续的 Tensor，数据格式支持ND，数据类型支持`int8`，shape为[block_num * block_size, kv_lora_rank]。 
+-   **key_rope_2d**（`Tensor`）：必选参数，表示MLA结构中的key的nope信息，不支持非连续的 Tensor，数据格式支持ND，数据类型支持`bfloat16`，shape为[block_num * block_size, rope_dim]。 
 -   **k_nope_scales**（`Tensor`）：必选参数，表示k_nope的反量化缩放因子，必选参数，，不支持非连续的 Tensor，数据格式支持ND，数据类型支持`float`，shape为[block_num * block_size, 4]。
 -   **topk_indcies**（`Tensor`）：必选参数，表示每个token选出的topk索引，必选参数，，不支持非连续的 Tensor，数据格式支持ND，数据类型支持`int32`，shape为[t, n_kv * selected_count]。
 -   **block_table**（`Tensor`）：必选参数，表示PageAttention中KV存储使用的block映射表，不支持非连续的 Tensor，数据格式支持ND，数据类型支持`int32`，shape为[b, s2_max/block_size]，其中第二维表示长度不小于所有batch中最大的s2对应的block数量，即s2_max / block_size向上取整。
@@ -257,7 +257,7 @@ def mla_indexer_prolog_quant_d(token_x, mla_w_dq, mla_w_uq_qr, mla_dequant_scale
 
 ## 参数说明
 
--   **token_x**（`Tensor`）：公式中用于计算Query和Key的输入tensor。，不支持非连续的 Tensor，数据格式支持ND，数据类型支持`bfloat16`，shape为[t, h]。
+-   **token_x**（`Tensor`）：公式中用于计算Query和Key的输入tensor。不支持非连续的 Tensor，数据格式支持ND，数据类型支持`bfloat16`，shape为[t, h]。
 -   **mla_w_dq**（`Tensor`）：公式中用于计算Query的下采样权重矩阵$W^{DQ}$，不支持非连续的 Tensor。数据格式支持NZ，数据类型支持`bfloat16`，shape为[h, q_lora_rank]。
 -   **mla_w_uq_qr**（`Tensor`）：公式中用于计算Query的上采样权重矩阵$W^{UQ}$和位置编码权重矩阵$W^{QR}$。不支持非连续，数据格式支持NZ，数据类型支持`int8`，shape为[q_lora_rank, n_q*q_head_dim]。
 -   **mla_dequant_scale**（`Tensor`）：用于MatmulQcQr矩阵乘后w_uq_qr反量化操作的per-channel参数，不支持非连续的 Tensor。数据格式支持ND，数据类型支持`float`，shape为[n_q*q_head_dim, 1]。
