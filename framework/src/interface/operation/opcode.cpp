@@ -470,5 +470,7 @@ OpcodeManager::OpcodeManager() {
         {            Opcode::OP_PAIRMAX,       "TPairMax"},
         {            Opcode::OP_PAIRMIN,       "TPairMin"},
         {        Opcode::OP_L0C_COPY_UB,       "TExtract"},
+        {                Opcode::OP_CMP,       "TCompare"},
+        {               Opcode::OP_CMPS,       "TCompare"},       
     };
 } // namespace npu::tile_fwk
