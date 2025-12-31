@@ -37,6 +37,7 @@ public:
     void Init(DevStartArgs *args) {
         uintdevptr_t baseAddr = args->contextWorkspaceAddr;
         DevAscendProgram *devProg = args->devProg;
+        devProg_ = devProg;
 
         // Host coherent allocators MUST be initialized EARLIEST since some other allocators might depend on them
         InitMetadataAllocators(devProg);
@@ -62,8 +63,6 @@ public:
         rtBoundaryOutcastToBeFree_.reserve(devProg->memBudget.tensor.devTaskBoundaryOutcastNum);
 
         SetupItemPool(runtimeOutcastTensorPool_, devProg->runtimeOutcastPoolSize, WsMemCategory::ITEMPOOL_RUNTIME_OUTCAST);
-
-        devProg_ = devProg;
     }
 
     uintdevptr_t StackWorkspaceAddr() const { return stackWorkspaceBase_; }
