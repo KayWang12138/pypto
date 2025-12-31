@@ -21,7 +21,8 @@
 #include "tileop/distributed/hccl_context.h"
 
 namespace {
-void TestShmemWaitUntil(const uint32_t tileOpCount) {
+
+auto InitializeTestEnvironment() {
     npu::tile_fwk::Distributed::TensorInfo info;
     info.offset = {0, 1, 0, 0};
     constexpr uint32_t rankSize = 4;
@@ -77,20 +78,45 @@ void TestShmemWaitUntil(const uint32_t tileOpCount) {
     std::copy(initAttrs, initAttrs + opAttrsLength, opAttrs.get());
     shmemWaitUntil->Init(task.get());
 
+    return std::make_tuple(
+        std::move(rawAddr),       // 保持 rawAddr 生命周期
+        std::move(data),          // 保持 data 生命周期
+        std::move(allocator),     // 保持 allocator 生命周期
+        std::move(task),          // 保持 task 生命周期
+        std::move(shmemWaitUntil), // 主要测试对象
+        std::move(buffer),        // 保持 funcData 内存
+        std::move(exprTbl),       // 保持 exprTbl 生命周期
+        std::move(hcclParam),     // 保持 hcclParam 生命周期
+        std::move(rawTensorAddrHolder), // 保持 rawTensorAddrHolder 生命周期
+        std::move(rawTensorDescHolder), // 保持 rawTensorDescHolder 生命周期
+        std::move(opAttrs),       // opAttrs 用于任务准备
+        std::move(aicpuCode),     // aicpuCode 用于任务准备
+        funcData                 // funcData 指针，用于配置任务
+    );
+}
+
+void PrepareTasks(uint32_t tileOpCount, npu::tile_fwk::Distributed::ShmemWaitUntil* shmemWaitUntil,
+    const npu::tile_fwk::dynamic::DevRelocVector<int32_t>& aicpuCode, npu::tile_fwk::DynFuncData* funcData,
+    uint64_t* opAttrsPtr)
+{
+    constexpr size_t opAttrsLength = 17;
     for (uint32_t taskId = 0; taskId < tileOpCount; ++taskId) {
         auto opAtrrOffsets = std::make_unique<int32_t[]>(taskId + 1);
         opAtrrOffsets[taskId] = 0;
 
         int opAttrsSize = 1 + opAtrrOffsets[taskId] + opAttrsLength;
         auto opAttrsCopy = std::make_unique<uint64_t[]>(opAttrsSize);
-        std::copy(opAttrs.get(), opAttrs.get() + opAttrsLength, opAttrsCopy.get() + opAtrrOffsets[taskId]);
+        std::copy(opAttrsPtr, opAttrsPtr + opAttrsLength, opAttrsCopy.get() + opAtrrOffsets[taskId]);
 
         funcData->opAtrrOffsets = opAtrrOffsets.get();
         funcData->opAttrs = opAttrsCopy.get();
 
         shmemWaitUntil->PrepareTask(taskId, aicpuCode);
     }
+}
 
+void RunTests(uint32_t tileOpCount, npu::tile_fwk::Distributed::ShmemWaitUntil* shmemWaitUntil)
+{
     for (uint32_t taskId = 0; taskId < tileOpCount; ++taskId) {
         shmemWaitUntil->EnqueueOp(taskId);
 
@@ -98,6 +124,15 @@ void TestShmemWaitUntil(const uint32_t tileOpCount) {
         shmemWaitUntil->PollCompleted(completed);
         ASSERT_EQ(completed.size(), 0);
     }
+}
+
+void TestShmemWaitUntil(const uint32_t tileOpCount) {
+    auto [rawAddr, data, allocator, task, shmemWaitUntil, buffer, exprTbl, hcclParam, 
+          rawTensorAddrHolder, rawTensorDescHolder, opAttrs, aicpuCode, funcData] = InitializeTestEnvironment();
+
+    PrepareTasks(tileOpCount, shmemWaitUntil.get(), aicpuCode, funcData, opAttrs.get());
+    
+    RunTests(tileOpCount, shmemWaitUntil.get());
 }
 
 TEST(ShmemWaitUntilTest, BasicFunctionality) {
