@@ -178,7 +178,7 @@ public:
 
 private:
     void AllocateFunctionInnerWorkspace(DevAscendFunctionDupped dup, uint64_t rootInnerMemReq,
-                                        [[maybe_unused]] WsAllocatorCounter *dfxCounter = nullptr) {
+                                        [[maybe_unused]] WsAllocatorCounter *dfxCounter) {
         if (!tensorAllocators_.rootInner.CanAllocate(rootInnerMemReq)) {
             tensorAllocators_.rootInner.ResetPool();
             DEV_ASSERT_MSG(tensorAllocators_.rootInner.CanAllocate(rootInnerMemReq),
@@ -195,6 +195,119 @@ private:
         dup.RuntimeWorkspace() = allocation.ptr;
         auto &reuseInfo = dup.GetRuntimeReuseInfo();
         reuseInfo.poolResetTimes = tensorAllocators_.rootInner.ResetTimes();
+    }
+
+    // Helper: allocate outcast workspace for a duplicated root function
+    void AllocateOutcastWorkspaceForDup(DevAscendFunctionDupped devRootDup,
+                                        [[maybe_unused]] WsAllocatorCounter *pDfxCounter) {
+        DevAscendFunction *devRootSrc = devRootDup.GetSource();
+        size_t outcastMemReq = devRootSrc->exclusiveOutcastWsMemoryRequirement;
+        if (outcastMemReq != 0) {
+            DEV_ASSERT(tensorAllocators_.devTaskInnerExclusiveOutcasts.CanAllocate(outcastMemReq));
+            WsAllocation allocation = tensorAllocators_.devTaskInnerExclusiveOutcasts.Malloc(
+                outcastMemReq, WsMemCategory::TENSOR_ROOTFUNC_INTERNAL);
+#if DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
+            if (pDfxCounter) {
+                pDfxCounter->LogMalloc(allocation);
+            }
+#endif // DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
+#if DEBUG_INFINITE_LIFETIME
+            allocation = DebugDumpTensorAllocate(outcastMemReq, WsMemCategory::TENSOR_ROOTFUNC_INTERNAL);
+#endif
+            devRootDup.RuntimeOutcastBase() = allocation.ptr;
+        } else {
+            devRootDup.RuntimeOutcastBase() = 0;
+        }
+    }
+
+    // Helper: allocate inner workspace for a duplicated root function
+    void AllocateInnerWorkspaceForDup(DevAscendFunctionDupped devRootDup, WsAllocatorCounter *pDfxCounter) {
+        DevAscendFunction *devRootSrc = devRootDup.GetSource();
+        size_t rootInnerMemReq = devRootSrc->rootInnerTensorWsMemoryRequirement;
+        if (rootInnerMemReq != 0) {
+            AllocateFunctionInnerWorkspace(devRootDup, rootInnerMemReq, pDfxCounter);
+#if DEBUG_INFINITE_LIFETIME
+            WsAllocation allocation = DebugDumpTensorAllocate(rootInnerMemReq, WsMemCategory::TENSOR_ROOTFUNC_INTERNAL);
+            devRootDup.RuntimeWorkspace() = allocation.ptr;
+#endif
+        } else {
+            devRootDup.RuntimeWorkspace() = 0;
+        }
+    }
+
+    // Helper: assign incast address descriptors for a duplicated root function
+    void AssignIncastAddresses(DevAscendFunctionDupped devRootDup, DeviceExecuteSlot *slotList) {
+        DevAscendFunction *devRootSrc = devRootDup.GetSource();
+        for (size_t i = 0; i < devRootSrc->GetIncastSize(); ++i) {
+            DEV_ASSERT_MSG(devRootSrc->GetIncast(i).fromSlotList.size() > 0,
+                "Root [%s] Incast %zu has no fromSlotList.", devRootSrc->GetRawName(), i);
+
+            int slotIndex = devRootSrc->At(devRootSrc->GetIncast(i).fromSlotList, 0);
+            auto &incastDesc = devRootDup.GetIncastAddress(i);
+            incastDesc = AddressDescriptor::MakeFromRtOutcast(slotList[slotIndex].rtOutcastIter);
+            RuntimeOutcastTensorRef(incastDesc.GetRtOutcastIter());
+            DEV_VERBOSE_DEBUG("get incast %zu, from slot %d address %s.", i, slotIndex, incastDesc.Dump().c_str());
+        }
+    }
+
+    // Helper: assign outcast address descriptors for a duplicated root function
+    void AssignOutcastAddresses(DevAscendFunctionDupped devRootDup, DeviceExecuteSlot *slotList) {
+        DevAscendFunction *devRootSrc = devRootDup.GetSource();
+        uintdevptr_t outcastBaseAddr = devRootDup.RuntimeOutcastBase();
+        for (size_t i = 0; i < devRootSrc->GetOutcastSize(); ++i) {
+            int outputSlotIndex = -1;
+            int assembleSlotIndex = -1;
+            auto &toSlotList = devRootSrc->GetOutcast(i).toSlotList;
+            for (size_t k = 0; k < toSlotList.size(); ++k) {
+                auto idx = devRootSrc->At(toSlotList, k);
+                if (slotList[idx].IsOutputAddress()) {
+                    outputSlotIndex = idx;
+                } else if (slotList[idx].IsAssembleAddress()) {
+                    assembleSlotIndex = idx;
+                }
+            }
+
+            AddressDescriptor &outcastDesc = devRootDup.GetOutcastAddress(i);
+            auto rawTensor = devRootSrc->GetOutcastRawTensor(i);
+
+            if (outputSlotIndex != -1) {
+                /* Output tensor */
+                outcastDesc = AddressDescriptor::MakeFromRtOutcast(slotList[outputSlotIndex].rtOutcastIter);
+                RuntimeOutcastTensorRef(outcastDesc.GetRtOutcastIter());
+            } else if (assembleSlotIndex != -1) {
+                /* assemble outcast tensor */
+                if (slotList[assembleSlotIndex].isAssembleSlotNeedAlloc) {
+                    RuntimeOutcastTensorDerefSafe(slotList[assembleSlotIndex].rtOutcastIter);
+                    slotList[assembleSlotIndex].rtOutcastIter = MakeRuntimeOutcastTensor(
+                        AllocateSlot(devRootSrc->GetRawName()), RtMemProperty::BOUNDARY_OUTCAST);
+                    slotList[assembleSlotIndex].isAssembleSlotNeedAlloc = false;
+                } else {
+                    DEV_ASSERT_MSG(slotList[assembleSlotIndex].rtOutcastIter != ITEM_POOL_INVALID_INDEX,
+                        "Missing RUNTIME_SlotMarkNeedAlloc for assemble slot %d.", assembleSlotIndex);
+                }
+                outcastDesc = AddressDescriptor::MakeFromRtOutcast(slotList[assembleSlotIndex].rtOutcastIter);
+                RuntimeOutcastTensorRef(outcastDesc.GetRtOutcastIter());
+            } else if (devRootSrc->GetOutcast(i).exprListIndex != -1) {
+                /* something like an expression address, probably shmem */
+                uint64_t *exprTbl = devRootDup.GetExpressionAddr();
+                uint64_t addr = exprTbl[devRootSrc->GetOutcast(i).exprListIndex];
+                outcastDesc = AddressDescriptor::MakeFromRtOutcast(
+                    MakeRuntimeOutcastTensor(addr, RtMemProperty::EXTERNAL));
+            } else if (rawTensor->linkedIncastId != -1) {
+                /* reshape inplace or something */
+                auto &incastDesc = devRootDup.GetIncastAddress(rawTensor->linkedIncastId);
+                DEV_ASSERT(incastDesc.IsRtOutcast());
+                DEV_ASSERT(incastDesc.GetRtOutcastIter() != ITEM_POOL_INVALID_INDEX);
+                outcastDesc = incastDesc;
+                RuntimeOutcastTensorRef(outcastDesc.GetRtOutcastIter());
+            } else {
+                outcastDesc = AddressDescriptor::MakeFromRtOutcast(
+                    MakeRuntimeOutcastTensor(outcastBaseAddr + devRootSrc->GetOutcastRawTensor(i)->addrOffset,
+                                       RtMemProperty::DEVTASK_INNER_OUTCAST));
+            }
+
+            DEV_VERBOSE_DEBUG("get outcast %zu slot %d/%d address %s.", i, outputSlotIndex, assembleSlotIndex, outcastDesc.Dump().c_str());
+        }
     }
 
     bool CanAllocateFunctionMemory(DevAscendFunctionDupped devRootDup) {
@@ -246,105 +359,12 @@ public:
         pDfxCounter = &funcAllocDfx;
 #endif // DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
 
-        DevAscendFunction *devRootSrc = devRootDup.GetSource();
+        // Allocate required workspaces and assign descriptors using helpers
+        AllocateOutcastWorkspaceForDup(devRootDup, pDfxCounter);
+        AllocateInnerWorkspaceForDup(devRootDup, pDfxCounter);
 
-        // alloc outcast workspace
-        size_t outcastMemReq = devRootSrc->exclusiveOutcastWsMemoryRequirement;
-        if (outcastMemReq != 0) {
-            DEV_ASSERT(tensorAllocators_.devTaskInnerExclusiveOutcasts.CanAllocate(outcastMemReq));
-            WsAllocation allocation = tensorAllocators_.devTaskInnerExclusiveOutcasts.Malloc(
-                outcastMemReq, WsMemCategory::TENSOR_ROOTFUNC_INTERNAL);
-#if DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
-            funcAllocDfx.LogMalloc(allocation);
-#endif // DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
-#if DEBUG_INFINITE_LIFETIME
-            allocation = DebugDumpTensorAllocate(outcastMemReq, WsMemCategory::TENSOR_ROOTFUNC_INTERNAL);
-#endif
-            devRootDup.RuntimeOutcastBase() = allocation.ptr;
-        } else {
-            devRootDup.RuntimeOutcastBase() = 0;
-        }
-
-        // alloc inner workspace
-        size_t rootInnerMemReq = devRootSrc->rootInnerTensorWsMemoryRequirement;
-        if (rootInnerMemReq != 0) {
-            AllocateFunctionInnerWorkspace(devRootDup, rootInnerMemReq, pDfxCounter);
-#if DEBUG_INFINITE_LIFETIME
-            WsAllocation allocation = DebugDumpTensorAllocate(rootInnerMemReq, WsMemCategory::TENSOR_ROOTFUNC_INTERNAL);
-            devRootDup.RuntimeWorkspace() = allocation.ptr;
-#endif
-        } else {
-            devRootDup.RuntimeWorkspace() = 0;
-        }
-
-        // assign incast address descriptor
-        for (size_t i = 0; i < devRootSrc->GetIncastSize(); ++i) {
-            DEV_ASSERT_MSG(devRootSrc->GetIncast(i).fromSlotList.size() > 0,
-                "Root [%s] Incast %zu has no fromSlotList.", devRootSrc->GetRawName(), i);
-
-            int slotIndex = devRootSrc->At(devRootSrc->GetIncast(i).fromSlotList, 0);
-            auto &incastDesc = devRootDup.GetIncastAddress(i);
-            incastDesc = AddressDescriptor::MakeFromRtOutcast(slotList[slotIndex].rtOutcastIter);
-            RuntimeOutcastTensorRef(incastDesc.GetRtOutcastIter());
-            DEV_VERBOSE_DEBUG("get incast %zu, from slot %d address %s.", i, slotIndex, incastDesc.Dump().c_str());
-        }
-
-        // assign outcast address separately first, will be reassigned when corresponding slot was replaced
-        uintdevptr_t outcastBaseAddr = devRootDup.RuntimeOutcastBase();
-        for (size_t i = 0; i < devRootSrc->GetOutcastSize(); ++i) {
-            int outputSlotIndex = -1;
-            int assembleSlotIndex = -1;
-            auto &toSlotList = devRootSrc->GetOutcast(i).toSlotList;
-            for (size_t k = 0; k < toSlotList.size(); ++k) {
-                auto idx = devRootSrc->At(toSlotList, k);
-                if (slotList[idx].IsOutputAddress()) { // true表示固定地址，用户输出Assemble的结果
-                    outputSlotIndex = idx;
-                } else if (slotList[idx].IsAssembleAddress()) {
-                    assembleSlotIndex = idx;
-                }
-            }
-
-            AddressDescriptor &outcastDesc = devRootDup.GetOutcastAddress(i);
-            auto rawTensor = devRootSrc->GetOutcastRawTensor(i);
-
-            if (outputSlotIndex != -1) {
-                /* Output tensor */
-                outcastDesc = AddressDescriptor::MakeFromRtOutcast(slotList[outputSlotIndex].rtOutcastIter);
-                RuntimeOutcastTensorRef(outcastDesc.GetRtOutcastIter());
-            } else if (assembleSlotIndex != -1) {
-                /* assemble outcast tensor */
-                if (slotList[assembleSlotIndex].isAssembleSlotNeedAlloc) {
-                    RuntimeOutcastTensorDerefSafe(slotList[assembleSlotIndex].rtOutcastIter);
-                    slotList[assembleSlotIndex].rtOutcastIter = MakeRuntimeOutcastTensor(
-                        AllocateSlot(devRootSrc->GetRawName()), RtMemProperty::BOUNDARY_OUTCAST);
-                    slotList[assembleSlotIndex].isAssembleSlotNeedAlloc = false;
-                } else {
-                    DEV_ASSERT_MSG(slotList[assembleSlotIndex].rtOutcastIter != ITEM_POOL_INVALID_INDEX,
-                        "Missing RUNTIME_SlotMarkNeedAlloc for assemble slot %d.", assembleSlotIndex);
-                }
-                outcastDesc = AddressDescriptor::MakeFromRtOutcast(slotList[assembleSlotIndex].rtOutcastIter);
-                RuntimeOutcastTensorRef(outcastDesc.GetRtOutcastIter());
-            } else if (devRootSrc->GetOutcast(i).exprListIndex != -1) {
-                /* something like an expression address, probably shmem */
-                uint64_t *exprTbl = devRootDup.GetExpressionAddr();
-                uint64_t addr = exprTbl[devRootSrc->GetOutcast(i).exprListIndex];
-                outcastDesc = AddressDescriptor::MakeFromRtOutcast(
-                    MakeRuntimeOutcastTensor(addr, RtMemProperty::EXTERNAL));
-            } else if (rawTensor->linkedIncastId != -1) {
-                /* reshape inplace or something */
-                auto &incastDesc = devRootDup.GetIncastAddress(rawTensor->linkedIncastId);
-                DEV_ASSERT(incastDesc.IsRtOutcast());
-                DEV_ASSERT(incastDesc.GetRtOutcastIter() != ITEM_POOL_INVALID_INDEX);
-                outcastDesc = incastDesc;
-                RuntimeOutcastTensorRef(outcastDesc.GetRtOutcastIter());
-            } else {
-                outcastDesc = AddressDescriptor::MakeFromRtOutcast(
-                    MakeRuntimeOutcastTensor(outcastBaseAddr + devRootSrc->GetOutcastRawTensor(i)->addrOffset,
-                                       RtMemProperty::DEVTASK_INNER_OUTCAST));
-            }
-
-            DEV_VERBOSE_DEBUG("get outcast %zu slot %d/%d address %s.", i, outputSlotIndex, assembleSlotIndex, outcastDesc.Dump().c_str());
-        }
+        AssignIncastAddresses(devRootDup, slotList);
+        AssignOutcastAddresses(devRootDup, slotList);
 
 #if DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
         funcAllocDfx.DelayedDumpAsRootFuncAndReset(wsMemDelayedDumper_, devRootDup.GetSource()->GetRawName());
