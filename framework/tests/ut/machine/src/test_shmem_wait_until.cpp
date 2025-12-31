@@ -21,6 +21,36 @@
 #include "tileop/distributed/hccl_context.h"
 
 namespace {
+
+struct TaskContext {
+    uint32_t tileOpCount;
+    npu::tile_fwk::Distributed::ShmemWaitUntil* shmemWaitUntil;
+    const npu::tile_fwk::dynamic::DevRelocVector<int32_t>* aicpuCode;
+    npu::tile_fwk::DynFuncData* funcData;
+    uint64_t* opAttrs;
+    size_t opAttrsLength;
+};
+
+void PrepareAndEnqueueTasks(const TaskContext& context) {
+    for (uint32_t taskId = 0; taskId < context.tileOpCount; ++taskId) {
+        auto opAtrrOffsets = std::make_unique<int32_t[]>(taskId + 1);
+        opAtrrOffsets[taskId] = 0;
+        int opAttrsSize = 1 + opAtrrOffsets[taskId] + context.opAttrsLength;
+        auto opAttrsCopy = std::make_unique<uint64_t[]>(opAttrsSize);
+        std::copy(context.opAttrs, context.opAttrs + context.opAttrsLength, opAttrsCopy.get() + opAtrrOffsets[taskId]);
+        context.funcData->opAtrrOffsets = opAtrrOffsets.get();
+        context.funcData->opAttrs = opAttrsCopy.get();
+        context.shmemWaitUntil->PrepareTask(taskId, *context.aicpuCode);
+    }
+
+    for (uint32_t taskId = 0; taskId < context.tileOpCount; ++taskId) {
+        context.shmemWaitUntil->EnqueueOp(taskId);
+        std::vector<uint64_t> completed;
+        context.shmemWaitUntil->PollCompleted(completed);
+        ASSERT_EQ(completed.size(), 0);
+    }
+}
+
 void TestShmemWaitUntil(const uint32_t tileOpCount) {
     npu::tile_fwk::Distributed::TensorInfo info;
     info.offset = {0, 1, 0, 0};
@@ -77,27 +107,8 @@ void TestShmemWaitUntil(const uint32_t tileOpCount) {
     std::copy(initAttrs, initAttrs + opAttrsLength, opAttrs.get());
     shmemWaitUntil->Init(task.get());
 
-    for (uint32_t taskId = 0; taskId < tileOpCount; ++taskId) {
-        auto opAtrrOffsets = std::make_unique<int32_t[]>(taskId + 1);
-        opAtrrOffsets[taskId] = 0;
-
-        int opAttrsSize = 1 + opAtrrOffsets[taskId] + opAttrsLength;
-        auto opAttrsCopy = std::make_unique<uint64_t[]>(opAttrsSize);
-        std::copy(opAttrs.get(), opAttrs.get() + opAttrsLength, opAttrsCopy.get() + opAtrrOffsets[taskId]);
-
-        funcData->opAtrrOffsets = opAtrrOffsets.get();
-        funcData->opAttrs = opAttrsCopy.get();
-
-        shmemWaitUntil->PrepareTask(taskId, aicpuCode);
-    }
-
-    for (uint32_t taskId = 0; taskId < tileOpCount; ++taskId) {
-        shmemWaitUntil->EnqueueOp(taskId);
-
-        std::vector<uint64_t> completed;
-        shmemWaitUntil->PollCompleted(completed);
-        ASSERT_EQ(completed.size(), 0);
-    }
+    PrepareAndEnqueueTasks(tileOpCount, shmemWaitUntil.get(), aicpuCode, funcData, opAttrs.get(), opAttrsLength);
+}
 }
 
 TEST(ShmemWaitUntilTest, BasicFunctionality) {
