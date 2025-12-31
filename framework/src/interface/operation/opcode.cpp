@@ -481,5 +481,7 @@ OpcodeManager::OpcodeManager() {
         {             Opcode::OP_ONEHOT,        "TOneHot"},
         {        Opcode::OP_L0C_COPY_UB,       "TExtract"},
         {            Opcode::OP_VEC_DUP,        "TVecDup"},
+        {                Opcode::OP_CMP,       "TCompare"},
+        {               Opcode::OP_CMPS,       "TCompare"},       
     };
 } // namespace npu::tile_fwk
