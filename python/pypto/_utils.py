@@ -11,12 +11,30 @@
 """
 """
 import inspect
+import warnings
+import functools
 from pathlib import Path
 from typing import Sequence, Union, List
 
 from . import pypto_impl
 from .enum import DataType
 from .symbolic_scalar import SymbolicScalar, SymInt
+
+
+def experimental(func):
+    """
+    Decorator to mark a function as experimental.
+    It issues a FutureWarning when the function is called.
+    """
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        warnings.warn(
+            f"{func.__name__} is experimental and may change or be removed in future versions.",
+            FutureWarning,
+            stacklevel=2
+        )
+        return func(*args, **kwargs)
+    return wrapper
 
 
 def to_sym(value) -> pypto_impl.SymbolicScalar:

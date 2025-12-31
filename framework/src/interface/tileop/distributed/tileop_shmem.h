@@ -289,29 +289,31 @@ TILEOP void ShmemPutUb2Gm(__ubuf__ UBType* UBDataBaseAddr, __gm__ ShmemType* shm
     CopyUbToGm<ShmemType, UBType, tileRowShape, tileColShape, bufferRowShape, bufferColShape, srcStride, dstStride, atomicType>(shmemDataAddr, UBDataAddr);
 }
 
-template<typename HcclContextType, int64_t value, AtomicType atomicType>
+template<typename HcclContextType, int64_t value, AtomicType atomicType, uint32_t rankShape>
 TILEOP void ShmemSignal(__ubuf__ int32_t* buffer, __gm__ int32_t* shmemSignalBaseAddr,
     uint32_t shmemSignalOffset0, uint32_t shmemSignalOffset1, uint32_t shmemSignalOffset2, uint32_t shmemSignalOffset3,
     uint32_t shmemSignalRawShape0, uint32_t shmemSignalRawShape1, uint32_t shmemSignalRawShape2, uint32_t shmemSignalRawShape3, __gm__ int64_t *hcclContext)
 {
-    (void)shmemSignalRawShape0;
-    __gm__ int32_t* shmemSignalAddr = MapVirtualAddr<HcclContextType, int32_t>(hcclContext, shmemSignalBaseAddr, shmemSignalOffset0) +
-     shmemSignalOffset1 * shmemSignalRawShape2 * shmemSignalRawShape3 + shmemSignalOffset2 * shmemSignalRawShape3 + shmemSignalOffset3;
-    const uint16_t sid = 0;
-    const uint16_t nBurst = 1;
-    const uint16_t lenBurst = 1;
-    const uint16_t srcStride = 0;
-    const uint16_t dstStride = 0;
-    buffer[0] = value;
-    if constexpr (atomicType == AtomicType::ADD) {
-        set_atomic_s32();
-        set_atomic_add();
-    }
-    set_flag(PIPE_S, PIPE_MTE3, EVENT_ID0);
-    wait_flag(PIPE_S, PIPE_MTE3, EVENT_ID0);
-    copy_ubuf_to_gm(shmemSignalAddr, buffer, sid, nBurst, lenBurst, dstStride, srcStride);
-    if constexpr (atomicType == AtomicType::ADD) {
-        set_atomic_none();
+    for (uint32_t rank = shmemSignalOffset0; rank < shmemSignalOffset0 + rankShape; rank++) {
+        __gm__ int32_t* shmemSignalAddr = MapVirtualAddr<HcclContextType, int32_t>(hcclContext, shmemSignalBaseAddr, rank) +
+            shmemSignalRawShape3 * shmemSignalRawShape2 * shmemSignalOffset1 + shmemSignalRawShape3 *
+            shmemSignalOffset2 + shmemSignalOffset3;
+        const uint16_t sid = 0;
+        const uint16_t nBurst = 1;
+        const uint16_t lenBurst = 1;
+        const uint16_t srcStride = 0;
+        const uint16_t dstStride = 0;
+        buffer[0] = value;
+        if constexpr (atomicType == AtomicType::ADD) {
+            set_atomic_s32();
+            set_atomic_add();
+        }
+        set_flag(PIPE_S, PIPE_MTE3, EVENT_ID0);
+        wait_flag(PIPE_S, PIPE_MTE3, EVENT_ID0);
+        copy_ubuf_to_gm(shmemSignalAddr, buffer, sid, nBurst, lenBurst, dstStride, srcStride);
+        if constexpr (atomicType == AtomicType::ADD) {
+            set_atomic_none();
+        }
     }
 }
 

@@ -99,7 +99,7 @@ def all_reduce_kernel_two_shot(input_tensor: pypto.Tensor, output_tensor: pypto.
         dummy = pypto.shmem_put(in_tile, shmem_data_tile, fake_barrier_dummy, tile_count, pypto.AtomicType.ADD)
         dummy_signal = pypto.shmem_signal(dummy, shmem_signal_tile, pypto.AtomicType.ADD)
         
-        dummy_local = pypto.wait_until(dummy_signal, shmem_signal_tile, tile_count, group_name, world_size)
+        dummy_local = pypto.wait_until(dummy_signal, shmem_signal_tile, tile_count, world_size)
         
         tmp = pypto.shmem_get(dummy_local, shmem_data_tile, input_tensor.dtype, pypto.AtomicType.SET)
         
@@ -142,7 +142,7 @@ def all_reduce_kernel_one_shot(input_tensor: pypto.Tensor, output_tensor: pypto.
         dummy_signal = pypto.shmem_signal(dummy, shmem_signal_tile, pypto.AtomicType.ADD)
         
         if pypto.cond(this_rank == dyn_rank_id):
-            dummy_local = pypto.wait_until(dummy_signal, shmem_signal_tile, tile_count, group_name, world_size)
+            dummy_local = pypto.wait_until(dummy_signal, shmem_signal_tile, tile_count, world_size)
             tmp = pypto.shmem_get(dummy_local, shmem_data_tile, input_tensor.dtype, pypto.AtomicType.SET)
             pypto.assemble(tmp, [0, 0], output_tensor)
     
@@ -164,7 +164,8 @@ def run_all_reduce_test(rank, world_size):
     input_pto = pypto.from_torch(input_data)
     output_pto = pypto.from_torch(output_data)
 
-    all_reduce_kernel_two_shot(input_pto, output_pto, hccl_comm_name, world_size)
+    all_reduce_kernel_v1(input_pto, output_pto, hccl_comm_name, world_size)
+    # all_reduce_kernel_two_shot(input_pto, output_pto, hccl_comm_name, world_size)
     #all_reduce_kernel_one_shot(input_pto, output_pto, hccl_comm_name, world_size)
     
     # Verification
