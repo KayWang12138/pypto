@@ -119,34 +119,6 @@ int MachineAgent::PrepareWorkSpace(DeviceAgentTask *task) {
     return MACHINE_OK;
 }
 
-void PrepareDistTilingInfo(DeviceAgentTask *task, InvokeParaOffset &elm, std::vector<uint64_t> &invokeOffsetVec) {
-#ifdef BUILD_WITH_CANN
-    if (elm.offset != elm.rawTensorOffset) {
-        return;
-    }
-    auto distTilingData = task->compileInfo.distTilingManager->Get(elm.rawSymbol);
-    if (distTilingData.has_value()) {
-        if (rtMemcpy(reinterpret_cast<void *>(invokeOffsetVec.back()),
-            distTilingData.value().second,
-            distTilingData.value().first,
-            distTilingData.value().second,
-            RT_MEMCPY_HOST_TO_DEVICE) != 0) {
-            ALOG_ERROR_F("[DEVICE AGENT] Added tiling info fail: symbol=%s, devAddr=%lx, len=%lu",
-                elm.rawSymbol.c_str(), invokeOffsetVec.back(),
-                distTilingData.value().second);
-        } else {
-            ALOG_INFO_F("[DEVICE AGENT] Added tiling info success: symbol=%s, devAddr=%lx, len=%lu",
-                elm.rawSymbol.c_str(), invokeOffsetVec.back(),
-                distTilingData.value().second);
-        }
-    }
-#else
-    (void)task;
-    (void)elm;
-    (void)invokeOffsetVec;
-#endif
-}
-
 int MachineAgent::PrepareInvokeEntry(DeviceAgentTask *task) {
     uint8_t *paraWorkSpaceAddr = task->deviceInfo.workspaceGmAddr;
     ALOG_INFO_F("paraWorkSpaceAddr base addr %p", paraWorkSpaceAddr);
@@ -210,7 +182,6 @@ int MachineAgent::PrepareInvokeEntry(DeviceAgentTask *task) {
                 invokeOffsetOriVec.push_back(oriValue);
                 ALOG_INFO_F("[DEVICE AGENT] Added incast outcast workSpaceAddr: %lx", value);
             }
-            PrepareDistTilingInfo(task, elm, invokeOffsetVec);
         }
     }
     ALOG_INFO_F("[DEVICE AGENT] invokeOffsetVec size: %zu", invokeOffsetVec.size());
