@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file kernel_function.h
+ * \file block_function.h
  * \brief
  */
 

@@ -28,7 +28,7 @@
 #include "interface/tensor/logical_tensor.h"
 #include "interface/tensor/raw_tensor.h"
 #include "interface/function/function.h"
-#include "interface/function/kernel_function.h"
+#include "interface/function/block_function.h"
 #include "interface/interpreter/flow_verifier.h"
 #include "interface/machine/host/host_machine.h"
 #include "tilefwk/tilefwk.h"

@@ -9,11 +9,11 @@
  */
 
 /*!
- * \file kernel_function.cpp
+ * \file block_function.cpp
  * \brief
  */
 
-#include "interface/function/kernel_function.h"
+#include "interface/function/block_function.h"
 
 #include <unordered_map>
 
