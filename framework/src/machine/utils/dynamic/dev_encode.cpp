@@ -14,8 +14,15 @@
  */
 
 #include "machine/utils/dynamic/dev_encode.h"
-#include "machine/utils/dynamic/dev_workspace.h"
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <unordered_map>
+#include <utility>
+#include <queue>
 
+#include "machine/utils/dynamic/dev_workspace.h"
+#include "machine/device/dynamic/aicore_constants.h"
 #include "interface/operation/attribute.h"
 #include "interface/tensor/logical_tensor.h"
 #include "interface/tensor/tensor_slot.h"
@@ -25,21 +32,11 @@
 #include "interface/program/program.h"
 #include "interface/configs/config_manager.h"
 
-#include <algorithm>
-#include <cstddef>
-#include <cstdint>
-#include <unordered_map>
-#include <utility>
-#include <queue>
-
 using namespace npu::tile_fwk;
 namespace npu::tile_fwk {
 namespace dynamic {
 #define ONFILLCONTENT if (fillContent)
 #define DYN_DEVICE_TASK_EXT_SIZE 0x300
-#ifndef PAGE_SIZE
-#define PAGE_SIZE       4096
-#endif
 
 constexpr int32_t CALLOP_ARG_ATTR_BASE_INDEX = 1;
 constexpr int32_t MINI_TILE_LIST_SIZE_THRESHOLD = 16;

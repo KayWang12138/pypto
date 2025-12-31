@@ -15,16 +15,16 @@
 
 #include <gtest/gtest.h>
 #include "tilefwk/data_type.h"
-#include "interface/function/function.h"
 #include "tilefwk/tilefwk_op.h"
 #include "tilefwk/tilefwk.h"
+#include "interface/function/function.h"
+#include "interface/interpreter/raw_tensor_data.h"
+#include "operator/models/nsa/kv_compress.h"
+#include "machine/utils/dynamic/dev_encode.h"
 #include "machine/device/dynamic/device_utils.h"
+#include "test_dev_func_runner.h"
 #include "test_suite_stest_ops.h"
 #include "test_dev_func_runner.h"
-#include "interface/interpreter/raw_tensor_data.h"
-#include "machine/utils/dynamic/dev_encode.h"
-#include "test_dev_func_runner.h"
-#include "operator/models/nsa/kv_compress.h"
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
