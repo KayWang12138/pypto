@@ -65,19 +65,26 @@ static void InitDeviceWorkspaceAllocatorForTest(DeviceWorkspaceAllocator &d, Dev
 
     devProg.devArgs.generalAddr = reinterpret_cast<uint64_t>(workspace.data());
     // Put stitch pool at an offset within the same workspace region
-    devProg.devArgs.stitchPoolAddr = reinterpret_cast<uint64_t>(workspace.data()) + (1u << 15); // offset 32KB
+    devProg.devArgs.stitchPoolAddr = reinterpret_cast<uint64_t>(workspace.data()) +
+            devProg.memBudget.metadata.general; // offset 256KB
+
+    devProg.devArgs.nrAic = 1;
+    devProg.devArgs.nrAiv = 1;
+    devProg.devArgs.nrValidAic = 0;
 
     DevStartArgs args;
     args.InitWorkspace(&devProg, workspace.data());
 
     d.Init(&args);
+
+    std::cerr << "InitDeviceWorkspaceAllocatorForTest finished" << std::endl;
 }
 
 TEST_F(RuntimeOutcastTensorTest, DeviceWorkspaceAllocatorBasicOps) {
-    DeviceWorkspaceAllocator d;
-
     // Small workspace and dev program with minimal budgets to initialize allocators
     std::vector<uint8_t> workspace(1u << 20); // 1MB
+
+    DeviceWorkspaceAllocator d;
     DevAscendProgram devProg{};
     devProg.runtimeOutcastPoolSize = 8;
     // Keep tensor budgets small/zero but valid
@@ -115,8 +122,9 @@ TEST_F(RuntimeOutcastTensorTest, DeviceWorkspaceAllocatorBasicOps) {
 }
 
 TEST_F(RuntimeOutcastTensorTest, DeviceWorkspaceAllocatorSafeRefDerefNoCrash) {
-    DeviceWorkspaceAllocator d;
     std::vector<uint8_t> workspace(1u << 20); // 1MB
+
+    DeviceWorkspaceAllocator d;
     DevAscendProgram devProg{};
     devProg.runtimeOutcastPoolSize = 4;
 
@@ -129,8 +137,9 @@ TEST_F(RuntimeOutcastTensorTest, DeviceWorkspaceAllocatorSafeRefDerefNoCrash) {
 }
 
 TEST_F(RuntimeOutcastTensorTest, DerefToZeroReturnsItemToPool) {
-    DeviceWorkspaceAllocator d;
     std::vector<uint8_t> workspace(1u << 20); // 1MB
+
+    DeviceWorkspaceAllocator d;
     DevAscendProgram devProg{};
     devProg.runtimeOutcastPoolSize = 4;
 
@@ -149,8 +158,9 @@ TEST_F(RuntimeOutcastTensorTest, DerefToZeroReturnsItemToPool) {
 }
 
 TEST_F(RuntimeOutcastTensorTest, AssignReleasesPreviousDestination) {
-    DeviceWorkspaceAllocator d;
     std::vector<uint8_t> workspace(1u << 20); // 1MB
+
+    DeviceWorkspaceAllocator d;
     DevAscendProgram devProg{};
     devProg.runtimeOutcastPoolSize = 4;
 
