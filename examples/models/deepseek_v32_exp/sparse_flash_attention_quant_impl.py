@@ -22,7 +22,7 @@ Main Functions:
     - sparse_flash_attention_quant_p: JIT-compiled prefill version
 
 Example:
-    See testdsv32_sparse_flash_attention_quant.py for usage examples.
+    See deepseekv32_sparse_flash_attention_quant.py for usage examples.
 """
 from dataclasses import dataclass
 import math
