@@ -8,16 +8,13 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 
-if (NOT ENABLE_FEATURE_PYTHON_FRONT_END)
-    add_subdirectory(operator)
-endif ()
+set(_Target ${PTO_Fwk_UTestNamePrefix}_execute)
 
-add_subdirectory(interface)
-add_subdirectory(passes)
-add_subdirectory(codegen)
-add_subdirectory(machine)
-add_subdirectory(cost_model)
+file(GLOB_RECURSE _Sources src/*.cpp)
 
-if (NOT BUILD_OPEN_PROJECT)
-    add_subdirectory(execute)
-endif()
+PTO_Fwk_UTest_AddCaseLib(
+        TARGET ${_Target}
+        SOURCES ${_Sources}
+        PUBLIC_LINK_LIBRARIES tile_fwk_executor graph_base
+        GTEST_FILTER_LIST ${_CaseFilterList}
+)
