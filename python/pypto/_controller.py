@@ -21,6 +21,7 @@ from .enum import *  # noqa
 from ._utils import to_sym, set_source_location, clear_source_location
 from .symbolic_scalar import SymbolicScalar, SymInt
 from .tensor import Tensor
+from .config import CubeTile, get_current_scope
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -76,7 +77,10 @@ def set_vec_tile_shapes(*shapes: int):
 
     """
     # implementation
-    pypto_impl.SetVecTile(*shapes)
+    concrete_shapes = [
+        it.concrete() if isinstance(it, SymbolicScalar) else it for it in shapes
+    ]
+    pypto_impl.SetScope({"vec_tile_shapes": concrete_shapes})
 
 
 def get_vec_tile_shapes() -> List[int]:
@@ -98,7 +102,8 @@ def get_vec_tile_shapes() -> List[int]:
 
     """
     # implementation
-    return pypto_impl.GetVecTile()
+    scope = get_current_scope()
+    return scope.get_vec_tile_shapes()
 
 
 def set_cube_tile_shapes(m: List[int], k: List[int], n: List[int], set_l1_tile: bool = False,
@@ -143,7 +148,8 @@ def set_cube_tile_shapes(m: List[int], k: List[int], n: List[int], set_l1_tile: 
 
     """
     # implementation
-    pypto_impl.SetCubeTile(m, k, n, set_l1_tile, enable_split_k)
+    cube_tile = CubeTile(m, k, n, set_l1_tile, enable_split_k)
+    pypto_impl.SetScope({"cube_tile_shapes": cube_tile._impl})
 
 
 def get_cube_tile_shapes() -> Tuple[List[int], List[int], List[int], bool, bool]:
@@ -167,11 +173,13 @@ def get_cube_tile_shapes() -> Tuple[List[int], List[int], List[int], bool, bool]
 
     """
     # implementation
-    return pypto_impl.GetCubeTile()
+    scope = get_current_scope()
+    cube_tile = scope.get_cube_tile_shapes()
+    return tuple([cube_tile.m, cube_tile.k, cube_tile.n, cube_tile.setL1Tile, cube_tile.enableSplitK])
 
 
 def set_matrix_size(size: List[int]):
-    pypto_impl.SetMatrixSize(size)
+    pypto_impl.SetScope({"matrix_size": size})
 
 
 def set_build_static(static: bool):
@@ -405,6 +413,7 @@ def _loop_function(
     rlf = None
     try:
         set_source_location(level=3)
+        pypto_impl.BeginScope(name)
         rlf = _LoopFunction(name, loop_name, loop_range,
                             unroll_set, submit_before_loop)
         clear_source_location()
@@ -414,6 +423,7 @@ def _loop_function(
         raise
     finally:
         del rlf
+        pypto_impl.EndScope()
 
 
 @overload
