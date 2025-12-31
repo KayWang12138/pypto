@@ -146,7 +146,20 @@ void SplitLargeFanoutTensor::CreateOpFor1toM(Function &function, LogicalTensorPt
             auto newTensor = std::make_shared<LogicalTensor>(function, largeTensor->Datatype(),
                 lcmTileShape, largeTensor->Format());
             auto overlap = overlaps[0];
-            auto oldAssembleOp = *overlap->GetConsumers().begin();
+            // 由于tensor->assemble->largeTensor中assemble可以不唯一并指向其他tensor，或assemble位置为其他种类op(op_view)。所以需要找到largeTensor的生产者op
+            Operation *oldAssembleOp = nullptr;
+            for (const auto &consumerOp : overlap->GetConsumers()) {
+                for (auto tensorPtr : consumerOp->GetOOperands()) {
+                    if (tensorPtr == largeTensor) {
+                        oldAssembleOp = consumerOp;
+                    }
+                }
+            }
+            if (oldAssembleOp == nullptr) {
+                APASS_LOG_DEBUG_F(Elements::Operation, "No valid assemble op found between tensor[%d] and tensor[%d] in 1-to-M scene, skip.",
+                    overlap->GetMagic(), largeTensor->GetMagic());
+                continue;
+            }
             auto oldAssembleOpAttr = dynamic_cast<AssembleOpAttribute *>(oldAssembleOp->GetOpAttribute().get());
             Shape newAssembleOffset = oldAssembleOpAttr->GetToOffset();
             for (size_t j = 0; j < newAssembleOffset.size(); j++) {
@@ -187,7 +200,7 @@ void SplitLargeFanoutTensor::CreateOpForMtoM(Function &function, LogicalTensorPt
             }
         }
         if (oldAssembleOp == nullptr) {
-            APASS_LOG_DEBUG_F(Elements::Operation, "No valid assemble op found between tensor[%d] and tensor[%d], skip.",
+            APASS_LOG_DEBUG_F(Elements::Operation, "No valid assemble op found between tensor[%d] and tensor[%d] in M-to-M scene, skip.",
                 overlap->GetMagic(), largeTensor->GetMagic());
             continue;
         }
