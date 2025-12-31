@@ -35,12 +35,17 @@ private:
     bool CheckIgnoreScene(const Operation &oriOps);
     std::pair<bool, Status> CheckHasInplaced(const Operation &oriOps, const Operation &ops,
         std::unordered_map<int, std::shared_ptr<LogicalTensor>> &replacedTensors);
-    bool FindReplaced(const Operation &oriOps, const Operation &ops,
-        std::unordered_map<int, std::shared_ptr<LogicalTensor>> &replacedTensors);
+    Status FindReplaced(const Operation &oriOps, const Operation &ops,
+        std::unordered_map<int, std::shared_ptr<LogicalTensor>> &replacedTensors, bool& hasFound);
     void NotFindReplacedProcess(const Operation &ops,
         std::unordered_map<int, std::shared_ptr<LogicalTensor>> &replacedTensors);
     bool CheckAssembleReuse(const LogicalTensorPtr &outOperand);
     bool CanSrcDstReuse(const Operation &ops, std::shared_ptr<LogicalTensor> iOperand, std::shared_ptr<LogicalTensor> oOperand);
+    Status ProcessInplaceReuse(const Operation &oriOps, const Operation &ops, 
+        std::unordered_map<int, std::shared_ptr<LogicalTensor>> &replacedTensors, bool& hasFound);
+    Status ProcessL0MemoryReuse(const Operation& op, std::unordered_map<int, std::shared_ptr<LogicalTensor>> &replacedTensors, bool& hasFound);
+    Status FindReuseableL0Tensor(const Operation& op, std::unordered_map<int, std::shared_ptr<LogicalTensor>> &replacedTensors, 
+        LogicalTensorPtr needReplacedTensor, bool& hasFound);
 
     std::map<int, std::set<int>> tensorConsumers_;
     std::map<int, int> tensorMaxSize_;
