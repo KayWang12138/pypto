@@ -20,6 +20,7 @@
 #include <unordered_map>
 #include "tilefwk/tilefwk_op.h"
 #include "interface/function/function.h"
+#include "interface/function/kernel_function.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/configs/config_manager.h"

@@ -474,9 +474,6 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseNormal) {
     Function *function = G.GetFunction();
     EXPECT_NE(function, nullptr);
     function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
-    // Function leafFunc1(Program::GetInstance(), "leafFunc1", "leafFunc1", G.GetFunction());
-    // Function leafFunc2(Program::GetInstance(), "leafFunc2", "leafFunc2", G.GetFunction());
-    // Function leafFunc3(Program::GetInstance(), "leafFunc3", "leafFunc3", G.GetFunction());
     BlockFunction leafFunc1(Program::GetInstance(), "leafFunc1", "leafFunc1", G.GetFunction());
     BlockFunction leafFunc2(Program::GetInstance(), "leafFunc2", "leafFunc2", G.GetFunction());
     BlockFunction leafFunc3(Program::GetInstance(), "leafFunc3", "leafFunc3", G.GetFunction());
