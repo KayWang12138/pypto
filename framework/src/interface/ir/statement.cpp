@@ -4,6 +4,7 @@
 #include "ir/utils.h"
 
 #include <ostream>
+#include <sstream>
 
 namespace pto {
 
@@ -20,6 +21,339 @@ void BlockStatement::Print(std::ostream& os, int indent) const {
 
     PrintIndent(os, indent);
     os << "}\n";
+}
+
+void ForStatement::Print(std::ostream& os, int indent) const {
+    PrintIndent(os, indent);
+
+    // Print result variables if results_ is non-empty (preferred), 
+    // otherwise derive from loop body's terminal yield.
+    if (!results_.empty()) {
+        for (size_t i = 0; i < results_.size(); ++i) {
+            if (results_[i]) {
+                os << results_[i]->GetSSAName();
+            }
+            if (i + 1 < results_.size()) {
+                os << ", ";
+            }
+        }
+        os << " = ";
+    } else {
+        // Fallback: derive result variables from the loop body's terminal yield, if any.
+        const YieldStatement* loopYield = nullptr;
+        const auto& bodyStmts = scope_.GetStatements();
+        if (!bodyStmts.empty()) {
+            loopYield = dynamic_cast<const YieldStatement*>(bodyStmts.back().get());
+        }
+        if (loopYield && !loopYield->Values().empty()) {
+            const auto& vals = loopYield->Values();
+            for (size_t i = 0; i < vals.size(); ++i) {
+                if (vals[i]) {
+                    os << vals[i]->GetSSAName();
+                }
+                if (i + 1 < vals.size()) {
+                    os << ", ";
+                }
+            }
+            os << " = ";
+        }
+    }
+
+    // Print loop header: statement.for %iv = %lb to %ub step %step
+    os << "statement.for ";
+    if (iterationVar_) {
+        iterationVar_->Print(os, 0);
+    } else {
+        os << "<null>";
+    }
+    os << " = ";
+    if (range_ && range_->GetStart()) {
+        range_->GetStart()->Print(os, 0);
+    } else {
+        os << "<null>";
+    }
+    os << " to ";
+    if (range_ && range_->GetEnd()) {
+        range_->GetEnd()->Print(os, 0);
+    } else {
+        os << "<null>";
+    }
+    os << " step ";
+    if (range_ && range_->GetStep()) {
+        range_->GetStep()->Print(os, 0);
+    } else {
+        os << "<null>";
+    }
+
+    // Print iter_args if present.
+    if (!iterArgs_.empty()) {
+        os << "\n";
+        PrintIndent(os, indent + 2);
+        os << "iter_args(";
+        for (size_t i = 0; i < iterArgs_.size(); ++i) {
+            const auto& arg = iterArgs_[i];
+            // Use value's SSA name as iter_arg identifier
+            if (arg.value) {
+                os << arg.value->GetSSAName() << " = ";
+            } else {
+                os << "<no-value> = ";
+            }
+            if (arg.initValue) {
+                os << arg.initValue->GetSSAName() << " : ";
+                // Print type information
+                std::ostringstream typeStream;
+                arg.initValue->Print(typeStream, 0);
+                std::string typeStr = typeStream.str();
+                // Remove leading indentation if any
+                size_t firstNonSpace = typeStr.find_first_not_of(" \t");
+                if (firstNonSpace != std::string::npos) {
+                    typeStr = typeStr.substr(firstNonSpace);
+                }
+                os << typeStr;
+            } else {
+                os << "<null> : <unknown>";
+            }
+            if (i + 1 < iterArgs_.size()) {
+                os << ", ";
+            }
+        }
+        os << ")";
+    }
+
+    // Print attributes if present.
+    if (!Attributes().empty()) {
+        os << "\n";
+        PrintIndent(os, indent + 2);
+        os << "attributes {";
+        bool first = true;
+        for (const auto& kv : Attributes()) {
+            if (!first) {
+                os << ", ";
+            }
+            os << kv.first << " = " << kv.second;
+            first = false;
+        }
+        os << "}";
+    }
+
+    os << " {\n";
+
+    // Print loop body.
+    for (const auto& stmt : scope_.GetStatements()) {
+        if (stmt) {
+            stmt->Print(os, indent + 2);
+        }
+    }
+
+    PrintIndent(os, indent);
+    os << "}\n";
+}
+
+std::shared_ptr<YieldStatement> ForStatement::Yield() {
+    const auto& bodyStmts = scope_.GetStatements();
+    if (!bodyStmts.empty()) {
+        return std::dynamic_pointer_cast<YieldStatement>(bodyStmts.back());
+    }
+    return nullptr;
+}
+
+const std::shared_ptr<YieldStatement> ForStatement::Yield() const {
+    const auto& bodyStmts = scope_.GetStatements();
+    if (!bodyStmts.empty()) {
+        return std::dynamic_pointer_cast<YieldStatement>(bodyStmts.back());
+    }
+    return nullptr;
+}
+
+void ForStatement::BuildResult() {
+    results_.clear();
+
+    // Find terminal yield in loop body.
+    auto loopYield = Yield();
+    if (!loopYield) {
+        return;
+    }
+
+    const auto& yieldVals = loopYield->Values();
+
+    // If no iterArgs, no results to build.
+    if (iterArgs_.empty() || yieldVals.empty()) {
+        return;
+    }
+
+    // Require the same number of yielded values as iterArgs.
+    if (yieldVals.size() != iterArgs_.size()) {
+        return;
+    }
+
+    // Build result values, ensuring matching Data types with iterArgs.
+    for (size_t i = 0; i < iterArgs_.size(); ++i) {
+        auto yieldVal = yieldVals[i];
+        auto initVal = iterArgs_[i].initValue;
+        
+        if (!yieldVal || !initVal) {
+            results_.clear();
+            return;
+        }
+        
+        // Check type compatibility.
+        if (yieldVal->GetValueKind() != initVal->GetValueKind() ||
+            yieldVal->GetDataType() != initVal->GetDataType()) {
+            results_.clear();
+            return;
+        }
+
+        // For tiles, create a new tile with the same shape/element type.
+        auto yieldTile = std::dynamic_pointer_cast<Tile>(yieldVal);
+        auto initTile = std::dynamic_pointer_cast<Tile>(initVal);
+        if (yieldTile && initTile) {
+            auto res = std::make_shared<Tile>(yieldTile->GetShape(),
+                                               yieldTile->GetDataType(), yieldTile->GetName());
+            results_.push_back(res);
+        } else {
+            // For tensors, create a new tensor with the same shape/element type.
+            auto yieldTensor = std::dynamic_pointer_cast<Tensor>(yieldVal);
+            auto initTensor = std::dynamic_pointer_cast<Tensor>(initVal);
+            if (yieldTensor && initTensor) {
+                auto res = std::make_shared<Tensor>(yieldTensor->GetShape(), yieldTensor->GetDataType(),
+                                                    yieldTensor->GetName(), yieldTensor->GetFormat());
+                results_.push_back(res);
+            } else {
+                // For other types (e.g., Scalar), create a new scalar with the same type.
+                auto yieldScalar = std::dynamic_pointer_cast<Scalar>(yieldVal);
+                auto initScalar = std::dynamic_pointer_cast<Scalar>(initVal);
+                if (yieldScalar && initScalar) {
+                    auto res = std::make_shared<Scalar>(yieldScalar->GetDataType(),
+                                                         yieldScalar->GetName(),
+                                                         yieldScalar->GetScalarValueKind());
+                    results_.push_back(res);
+                } else {
+                    // Fallback: reuse the yield value.
+                    results_.push_back(yieldVal);
+                }
+            }
+        }
+    }
+}
+
+void IfStatement::BuildResult() {
+    results_.clear();
+
+    // Find terminal yields in then/else scopes.
+    const YieldStatement* thenYield = nullptr;
+    const YieldStatement* elseYield = nullptr;
+
+    const auto& thenStmts = thenScope_.GetStatements();
+    if (!thenStmts.empty()) {
+        thenYield = dynamic_cast<const YieldStatement*>(thenStmts.back().get());
+    }
+    const auto& elseStmts = elseScope_.GetStatements();
+    if (!elseStmts.empty()) {
+        elseYield = dynamic_cast<const YieldStatement*>(elseStmts.back().get());
+    }
+
+    if (!thenYield || !elseYield) {
+        return;
+    }
+
+    const auto& thenVals = thenYield->Values();
+    const auto& elseVals = elseYield->Values();
+
+    // Require the same number of yielded values.
+    if (thenVals.size() != elseVals.size() || thenVals.empty()) {
+        return;
+    }
+
+    // Build result tensors, ensuring matching Data types.
+    for (size_t i = 0; i < thenVals.size(); ++i) {
+        auto t = thenVals[i];
+        auto e = elseVals[i];
+        if (!t || !e) {
+            results_.clear();
+            return;
+        }
+        if (t->GetValueKind() != e->GetValueKind() ||
+            t->GetDataType() != e->GetDataType()) {
+            results_.clear();
+            return;
+        }
+
+        // For tiles, create a new tiles with the same shape/element type/layout.
+        auto tTile = std::dynamic_pointer_cast<Tile>(t);
+        auto eTile = std::dynamic_pointer_cast<Tile>(e);
+        if (tTile && eTile) {
+            auto res = std::make_shared<Tile>(tTile->GetShape(),
+                                            eTile->GetDataType(), tTile->GetName());
+            results_.push_back(res);
+        } else {
+            // For tensors, create a new tensor with the same shape/element type.
+            auto tTensor = std::dynamic_pointer_cast<Tensor>(t);
+            auto eTensor = std::dynamic_pointer_cast<Tensor>(e);
+            if (tTensor && eTensor) {
+                auto res = std::make_shared<Tensor>(tTensor->GetShape(), eTensor->GetDataType(),
+                                                    tTensor->GetName(), tTensor->GetFormat());
+                results_.push_back(res);
+            } else {
+                // For other types (e.g., Scalar), just reuse the then-branch value.
+                results_.push_back(t);
+            }
+        }
+    }
+}
+
+void IfStatement::Print(std::ostream& os, int indent) const {
+    PrintIndent(os, indent);
+    // If results_ is non-empty, print them as the result variables:
+    //   %r0, %r1 = statement.if ...
+    // Otherwise, treat this as a pure statement-level conditional.
+    if (!results_.empty()) {
+        for (size_t i = 0; i < results_.size(); ++i) {
+            if (results_[i]) {
+                os << results_[i]->GetSSAName();
+            }
+            if (i + 1 < results_.size()) {
+                os << ", ";
+            }
+        }
+        os << " = ";
+    }
+
+    os << "statement.if " << condition_ << " {\n";
+
+    for (const auto& stmt : thenScope_.GetStatements()) {
+        if (stmt) {
+            stmt->Print(os, indent + 2);
+        }
+    }
+
+    PrintIndent(os, indent);
+    os << "} else {\n";
+
+    for (const auto& stmt : elseScope_.GetStatements()) {
+        if (stmt) {
+            stmt->Print(os, indent + 2);
+        }
+    }
+
+    PrintIndent(os, indent);
+    os << "}\n";
+}
+
+void YieldStatement::Print(std::ostream& os, int indent) const {
+    PrintIndent(os, indent);
+    os << "statement.yield";
+    if (!values_.empty()) {
+        os << " ";
+        for (size_t i = 0; i < values_.size(); ++i) {
+            if (values_[i]) {
+                os << values_[i]->GetSSAName();
+            }
+            if (i + 1 < values_.size()) {
+                os << ", ";
+            }
+        }
+    }
+    os << "\n";
 }
 
 void ReturnStatement::Print(std::ostream& os, int indent) const {

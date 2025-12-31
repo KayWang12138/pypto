@@ -57,6 +57,138 @@ private:
 
 using BlockStatementPtr = std::shared_ptr<BlockStatement>;
 
+// A generic scope terminator that returns values to the parent.
+class YieldStatement : public Statement {
+public:
+    StatementKind GetKind() const override { return StatementKind::Yield; }
+
+    std::vector<ValuePtr>& Values() { return values_; }
+    const std::vector<ValuePtr>& Values() const { return values_; }
+
+    void Print(std::ostream& os, int indent) const override;
+
+private:
+    std::vector<ValuePtr> values_;
+};
+
+// Loop-carried accumulator argument for statement.for.
+struct IterArg {
+    ValuePtr initValue;    // Initial value (e.g., a ValuePtr to the initial tensor/scalar)
+    ValuePtr value;        // The value representing this iter_arg in loop body
+};
+
+// Loop range containing start, end, and step as Scalar values.
+class LoopRange {
+public:
+    LoopRange(std::shared_ptr<Scalar> start, std::shared_ptr<Scalar> end, std::shared_ptr<Scalar> step)
+        : start_(std::move(start)), end_(std::move(end)), step_(std::move(step)) {}
+
+    const std::shared_ptr<Scalar>& GetStart() const { return start_; }
+    const std::shared_ptr<Scalar>& GetEnd() const { return end_; }
+    const std::shared_ptr<Scalar>& GetStep() const { return step_; }
+
+private:
+    std::shared_ptr<Scalar> start_;
+    std::shared_ptr<Scalar> end_;
+    std::shared_ptr<Scalar> step_;
+};
+
+// Sequential for loop with induction variable and loop-carried values.
+class ForStatement : public Statement {
+public:
+    ForStatement(std::shared_ptr<Scalar> iterationVar, std::shared_ptr<Scalar> start,
+                 std::shared_ptr<Scalar> end, std::shared_ptr<Scalar> step)
+        : iterationVar_(std::move(iterationVar)),
+          range_(std::make_shared<LoopRange>(std::move(start), std::move(end), std::move(step))) {}
+
+    StatementKind GetKind() const override { return StatementKind::For; }
+
+    const std::shared_ptr<Scalar>& GetIterationVar() const { return iterationVar_; }
+    const std::shared_ptr<Scalar>& GetStart() const { return range_->GetStart(); }
+    const std::shared_ptr<Scalar>& GetEnd() const { return range_->GetEnd(); }
+    const std::shared_ptr<Scalar>& GetStep() const { return range_->GetStep(); }
+    const std::shared_ptr<LoopRange>& GetRange() const { return range_; }
+
+    // Optional loop-carried accumulator arguments.
+    std::vector<IterArg>& IterArgs() { return iterArgs_; }
+    const std::vector<IterArg>& IterArgs() const { return iterArgs_; }
+    
+    // Add an iter_arg with the given initial value.
+    // The value field will be created and set in ExitForStatement.
+    void AddIterArg(ValuePtr initValue) {
+        iterArgs_.push_back({std::move(initValue), nullptr});
+    }
+
+    // Loop body: sequence of nested statements.
+    std::vector<StatementPtr>& Body() { return scope_.GetStatements(); }
+    const std::vector<StatementPtr> Body() const { return scope_.GetStatements(); }
+
+    // Loop yield
+    std::shared_ptr<YieldStatement> Yield();
+    const std::shared_ptr<YieldStatement> Yield() const;
+
+    // create new tensor for the for-statement
+    void BuildResult();
+    std::vector<ValuePtr>& Results() { return results_; }
+    const std::vector<ValuePtr>& Results() const { return results_; }
+
+    // Scope for Data objects and statements created in this loop body.
+    Scope& GetScope() { return scope_; }
+    const Scope& GetScope() const { return scope_; }
+
+    void Print(std::ostream& os, int indent) const override;
+
+private:
+    std::shared_ptr<Scalar> iterationVar_;
+    std::shared_ptr<LoopRange> range_;
+    std::vector<IterArg> iterArgs_;
+    Scope scope_;  // Scope for Data objects and statements created in this loop body
+    std::vector<ValuePtr> results_;  // Result values of the for-statement
+};
+
+// A value-producing conditional.
+class IfStatement : public Statement {
+public:
+    explicit IfStatement(std::string condition)
+        : condition_(std::move(condition)) {}
+
+    StatementKind GetKind() const override { return StatementKind::If; }
+
+    const std::string& GetCondition() const { return condition_; }
+
+    std::vector<StatementPtr>& ThenBranch() { return thenScope_.GetStatements(); }
+    const std::vector<StatementPtr> ThenBranch() const { return thenScope_.GetStatements(); }
+
+    std::vector<StatementPtr>& ElseBranch() { return elseScope_.GetStatements(); }
+    const std::vector<StatementPtr> ElseBranch() const { return elseScope_.GetStatements(); }
+
+    // Scope for Data objects and statements created in the then branch.
+    Scope& GetThenScope() { return thenScope_; }
+    const Scope& GetThenScope() const { return thenScope_; }
+
+    // Scope for Data objects and statements created in the else branch.
+    Scope& GetElseScope() { return elseScope_; }
+    const Scope& GetElseScope() const { return elseScope_; }
+
+    // Build result tensors for the if-statement based on branch yields.
+    // This inspects the terminal YieldStatement in both then/else scopes,
+    // verifies that the yielded values have the same Data types, and
+    // creates new Tensor results for the if expression.
+    void BuildResult();
+
+    // Result values of the if-statement (SSA values).
+    std::vector<ValuePtr>& Results() { return results_; }
+    const std::vector<ValuePtr>& Results() const { return results_; }
+
+    void Print(std::ostream& os, int indent) const override;
+
+private:
+    std::string condition_;
+    Scope thenScope_;  // Scope for Data objects and statements created in the then branch
+    Scope elseScope_;  // Scope for Data objects and statements created in the else branch
+    std::vector<ValuePtr> results_;  // Result values of the if-statement
+};
+
 // Function-level terminator returning final values.
 class ReturnStatement : public Statement {
 public:
