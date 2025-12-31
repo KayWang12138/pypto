@@ -467,6 +467,7 @@ OpcodeManager::OpcodeManager() {
         {            Opcode::OP_PAIRSUM,       "TPairSum"},
         {            Opcode::OP_PAIRMAX,       "TPairMax"},
         {            Opcode::OP_PAIRMIN,       "TPairMin"},
+        {             Opcode::OP_ONEHOT,        "TOneHot"},
         {        Opcode::OP_L0C_COPY_UB,       "TExtract"},
     };
 } // namespace npu::tile_fwk
