@@ -330,7 +330,14 @@ Status SrcDstBufferMergeImpl::FindReuseableL0Tensor(const Operation& op, std::un
             APASS_LOG_DEBUG_F(Elements::Operation, "Tensor[%d], memId[%d] has more than 1 consumer.", inputTensor->GetMagic(), inputTensor->memoryrange.memId);
             continue;
         }
+        if (hasReusedL0Tensors_.count(inputTensor->GetMagic())) {
+            APASS_LOG_DEBUG_F(Elements::Operation, "Tensor[%d], memId[%d] has been reused", inputTensor->GetMagic(), inputTensor->memoryrange.memId);
+            continue;
+        }
+        APASS_LOG_INFO_F(Elements::Operation, "Successfully performed L0 memory reuse, Needreplaced tensor[%d] memId[%d] , input tensor[%d] memId[%d]",
+            needReplacedTensor->GetMagic(), needReplacedTensor->memoryrange.memId, inputTensor->GetMagic(), inputTensor->memoryrange.memId);
         needReplacedTensor->memoryrange.memId = inputTensor->memoryrange.memId;
+        hasReusedL0Tensors_.insert(inputTensor->GetMagic());
         if (tensorConsumers_[needReplacedTensor->memoryrange.memId].size() > tensorConsumers_[inputTensor->memoryrange.memId].size()) {
             APASS_LOG_DEBUG_F(Elements::Operation, "Needreplaced tensor[%d] consumers > matmul input tensor[%d] consumers, perform refresh.",
                 needReplacedTensor->GetMagic(), inputTensor->GetMagic());
