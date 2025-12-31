@@ -7,13 +7,13 @@
 
 namespace pto {
 
-BlockStatement& IRBuilder::CreateBlockStmt() {
-    if (!scope_) throw std::runtime_error("IRBuilder::CreateBlockStmt: scope is null");
+OpStatement& IRBuilder::CreateOpStmt() {
+    if (!scope_) throw std::runtime_error("IRBuilder::CreateOpStmt: scope is null");
 
-    auto blk = std::make_shared<BlockStatement>();
-    auto& ref = *blk;
-    scope_->AddStatement(std::move(blk));
-    block_ = &ref;
+    auto opStmt = std::make_shared<OpStatement>();
+    auto& ref = *opStmt;
+    scope_->AddStatement(std::move(opStmt));
+    opStmt_ = &ref;
     return ref;
 }
 
@@ -364,8 +364,8 @@ void IRBuilder::ExitForStatement(ForStatement& st) {
     
     // Replace initValue with iter_arg value in loop body operations
     // Also update environment table
-    auto replaceValueInOperations = [&initValueToValue](BlockStatement& block) {
-        for (auto& op : block.Operations()) {
+    auto replaceValueInOperations = [&initValueToValue](OpStatement& opStmt) {
+        for (auto& op : opStmt.Operations()) {
             if (!op) continue;
             auto& inputs = op->MutableInputs();
             for (auto& input : inputs) {
@@ -381,9 +381,9 @@ void IRBuilder::ExitForStatement(ForStatement& st) {
     std::function<void(StatementPtr)> replaceValueInStatement = [&](StatementPtr stmt) {
         if (!stmt) return;
         
-        // Handle BlockStatement
-        if (auto block = std::dynamic_pointer_cast<BlockStatement>(stmt)) {
-            replaceValueInOperations(*block);
+        // Handle OpStatement
+        if (auto opStmt = std::dynamic_pointer_cast<OpStatement>(stmt)) {
+            replaceValueInOperations(*opStmt);
         }
         // Handle YieldStatement - replace values in yield
         else if (auto yield = std::dynamic_pointer_cast<YieldStatement>(stmt)) {
