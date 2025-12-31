@@ -48,7 +48,7 @@ public:
                 }
             }
 
-            if (!allocator_) {
+            if (!allocation_) {
                 DEV_ERROR("allocation_ is nullptr\n");
             }
             DEV_ASSERT(allocator_);
@@ -57,7 +57,7 @@ public:
     }
 
     void Init(WsAllocator_T &allocator, size_t count) {
-        if (allocator_) {
+        if (allocation_) {
             DEV_ERROR("allocation_ is not nullptr\n");
         }
         DEV_ASSERT(!allocator_);
