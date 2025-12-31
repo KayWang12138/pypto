@@ -51,8 +51,8 @@ TILEOP void BinaryScalarCompute(T0 dst, T1 src0, Scalar src1) {
     auto srcStride1 = srcLayout.template GetStrideDim<DIM_2ND, expectSize>();
     auto srcStride2 = srcLayout.template GetStrideDim<DIM_3RD, expectSize>();
 
-    auto dstTile = DynPtoTile<T0>(dst).Tile();
-    auto src0Tile = DynPtoTile<T1>(src0).Tile();
+    auto dstTile = PtoTile<T0>(dst).Data();
+    auto src0Tile = PtoTile<T1>(src0).Data();
     constexpr auto dstTypeSize = sizeof(typename T0::Type);
     constexpr auto src0TypeSize = sizeof(typename T1::Type);
     for (size_t n0Index = 0; n0Index < shape0; ++n0Index) {
