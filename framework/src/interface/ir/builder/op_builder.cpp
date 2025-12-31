@@ -73,7 +73,7 @@ ValuePtrs BuildBySchema(IRBuilder& builder,
             throw std::runtime_error("BuildBySchema: unsupported result kind");
         }
 
-        builder.AddToScope(out);
+        builder.AddToCompound(out);
         autoOutputs.push_back(out);
     }
 

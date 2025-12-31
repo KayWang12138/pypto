@@ -8,94 +8,94 @@
 namespace pto {
 
 OpStatement& IRBuilder::CreateOpStmt() {
-    if (!scope_) throw std::runtime_error("IRBuilder::CreateOpStmt: scope is null");
+    if (!compound_) throw std::runtime_error("IRBuilder::CreateOpStmt: compound is null");
 
     auto opStmt = std::make_shared<OpStatement>();
     auto& ref = *opStmt;
-    scope_->AddStatement(std::move(opStmt));
+    compound_->AddStatement(std::move(opStmt));
     opStmt_ = &ref;
     return ref;
 }
 
 ForStatement& IRBuilder::CreateForStmt(std::shared_ptr<Scalar> iv, std::shared_ptr<Scalar> start, std::shared_ptr<Scalar> end, std::shared_ptr<Scalar> step) {
-    if (!scope_) throw std::runtime_error("IRBuilder::CreateForStmt: scope is null");
+    if (!compound_) throw std::runtime_error("IRBuilder::CreateForStmt: compound is null");
 
     auto st = std::make_shared<ForStatement>(std::move(iv), std::move(start), std::move(end), std::move(step));
     auto& ref = *st;
-    scope_->AddStatement(std::move(st));
+    compound_->AddStatement(std::move(st));
     return ref;
 }
 
 IfStatement& IRBuilder::CreateIfStmt(std::string cond) {
-    if (!scope_) throw std::runtime_error("IRBuilder::CreateIfStmt: scope is null");
+    if (!compound_) throw std::runtime_error("IRBuilder::CreateIfStmt: compound is null");
 
     auto st = std::make_shared<IfStatement>(std::move(cond));
     auto& ref = *st;
-    scope_->AddStatement(std::move(st));
+    compound_->AddStatement(std::move(st));
     return ref;
 }
 
 YieldStatement& IRBuilder::CreateYield(ValuePtrs values) {
-    if (!scope_) throw std::runtime_error("IRBuilder::CreateYield: scope is null");
+    if (!compound_) throw std::runtime_error("IRBuilder::CreateYield: compound is null");
 
     auto st = std::make_shared<YieldStatement>();
     st->Values() = std::move(values);
 
     auto& ref = *st;
-    scope_->AddStatement(std::move(st));
+    compound_->AddStatement(std::move(st));
     return ref;
 }
 
 ReturnStatement& IRBuilder::CreateReturn(ValuePtrs values) {
-    if (!scope_) throw std::runtime_error("IRBuilder::CreateReturn: scope is null");
+    if (!compound_) throw std::runtime_error("IRBuilder::CreateReturn: compound is null");
 
     auto st = std::make_shared<ReturnStatement>();
     st->Values() = std::move(values);
 
     auto& ref = *st;
-    scope_->AddStatement(std::move(st));
+    compound_->AddStatement(std::move(st));
     return ref;
 }
 
 // ===== Enter nested scopes =====
 std::shared_ptr<ScopeGuard> IRBuilder::EnterFunctionBody(Function& func) {
     
-    Scope& scope = func.GetScope();
+    CompoundStatement& compound = func.GetCompound();
     
-    return std::make_shared<ScopeGuard>(*this, &scope, &func);
+    return std::make_shared<ScopeGuard>(*this, &compound, &func);
 }
 
 std::shared_ptr<ScopeGuard> IRBuilder::EnterForBody(ForStatement& st) {
     if (!func_) throw std::runtime_error("IRBuilder::EnterForBody: func is null");
-    if (!scope_) throw std::runtime_error("IRBuilder::EnterForBody: scope is null");
+    if (!compound_) throw std::runtime_error("IRBuilder::EnterForBody: compound is null");
 
-    Scope& new_scope = st.GetScope();
-    new_scope.SetParent(scope_);
+    CompoundStatement& new_compound = st.GetCompound();
+    new_compound.SetParent(compound_);
 
-    return std::make_shared<ScopeGuard>(*this, &new_scope);
+    return std::make_shared<ScopeGuard>(*this, &new_compound);
 }
 
 std::shared_ptr<ScopeGuard> IRBuilder::EnterIfThen(IfStatement& st) {
     if (!func_) throw std::runtime_error("IRBuilder::EnterIfThen: func is null");
-    if (!scope_) throw std::runtime_error("IRBuilder::EnterIfThen: scope is null");
+    if (!compound_) throw std::runtime_error("IRBuilder::EnterIfThen: compound is null");
 
-    Scope& new_scope = st.GetThenScope();
-    new_scope.SetParent(scope_);
+    CompoundStatement& new_compound = st.GetThenCompound();
+    new_compound.SetParent(compound_);
 
-    return std::make_shared<ScopeGuard>(*this, &new_scope);
+    return std::make_shared<ScopeGuard>(*this, &new_compound);
 }
 
 std::shared_ptr<ScopeGuard> IRBuilder::EnterIfElse(IfStatement& st) {
     if (!func_) throw std::runtime_error("IRBuilder::EnterIfElse: func is null");
-    if (!scope_) throw std::runtime_error("IRBuilder::EnterIfElse: scope is null");
+    if (!compound_) throw std::runtime_error("IRBuilder::EnterIfElse: compound is null");
 
     // scope_ is already restored to the parent scope (before if) by ScopeGuard destructor
     // No need to restore environment, as scope_ already has the correct state
 
-    Scope& new_scope = st.GetElseScope();
-    new_scope.SetParent(scope_);
+    CompoundStatement& new_compound = st.GetElseCompound();
+    new_compound.SetParent(compound_);
 
-    return std::make_shared<ScopeGuard>(*this, &new_scope);
+    return std::make_shared<ScopeGuard>(*this, &new_compound);
 }
 
 void IRBuilder::ExitIfStatement(IfStatement& st) {
@@ -103,18 +103,18 @@ void IRBuilder::ExitIfStatement(IfStatement& st) {
     // - envBeforeIf: environment before entering if statement (from parent scope and ancestors)
     // - envAfterThen: environment after then branch (from then scope)
     // - envAfterElse: environment after else branch (from else scope)
-    Scope* parentScope = st.GetThenScope().GetParent();
-    if (!parentScope) {
-        throw std::runtime_error("IRBuilder::ExitIfStatement: then scope has no parent");
+    CompoundStatement* parentCompound = st.GetThenCompound().GetParent();
+    if (!parentCompound) {
+        throw std::runtime_error("IRBuilder::ExitIfStatement: then compound has no parent");
     }
     // Get environment from parent scope, including variables from ancestor scopes
     // GetAncestorValues() returns all variables from parent scope and its ancestors
-    std::unordered_map<std::string, ValuePtr> envBeforeIf = st.GetThenScope().GetAncestorValues();
-    std::unordered_map<std::string, ValuePtr> envAfterThen = st.GetThenScope().GetEnvTable();
-    std::unordered_map<std::string, ValuePtr> envAfterElse = st.GetElseScope().GetEnvTable();
+    std::unordered_map<std::string, ValuePtr> envBeforeIf = st.GetThenCompound().GetAncestorValues();
+    std::unordered_map<std::string, ValuePtr> envAfterThen = st.GetThenCompound().GetEnvTable();
+    std::unordered_map<std::string, ValuePtr> envAfterElse = st.GetElseCompound().GetEnvTable();
 
     // Check if else branch is empty
-    bool hasElseBranch = !st.GetElseScope().GetStatements().empty() || !envAfterElse.empty();
+    bool hasElseBranch = !st.GetElseCompound().GetStatements().empty() || !envAfterElse.empty();
     
     // Find variables modified in any branch (by comparing with envBeforeIf)
     // This includes variables modified in both branches, or only in one branch
@@ -144,7 +144,7 @@ void IRBuilder::ExitIfStatement(IfStatement& st) {
             bool existsInElse = (itAfterElse != envAfterElse.end());
             
             // Check if variable existed before if statement by searching in parent scope chain
-            ValuePtr valueBeforeIf = parentScope->GetEnvVar(varName);
+            ValuePtr valueBeforeIf = parentCompound->GetEnvVar(varName);
             bool existsBefore = (valueBeforeIf != nullptr);
 
             if (existsBefore) {
@@ -172,7 +172,7 @@ void IRBuilder::ExitIfStatement(IfStatement& st) {
         // For these variables, we'll use the original value from parent scope chain in the else branch
         for (const auto& [varName, valueAfterThen] : envAfterThen) {
             // Check if variable existed before if statement by searching in parent scope chain
-            ValuePtr valueBeforeIf = parentScope->GetEnvVar(varName);
+            ValuePtr valueBeforeIf = parentCompound->GetEnvVar(varName);
             if (valueBeforeIf && valueBeforeIf != valueAfterThen) {
                 // Modified in then branch, add to list (else branch will use original value)
                 modifiedInBothBranches.push_back(varName);
@@ -195,7 +195,7 @@ void IRBuilder::ExitIfStatement(IfStatement& st) {
 
     for (const std::string& varName : modifiedInBothBranches) {
         // Get original value from parent scope chain
-        ValuePtr originalValue = parentScope->GetEnvVar(varName);
+        ValuePtr originalValue = parentCompound->GetEnvVar(varName);
         
         // Get then value: prefer from then scope if exists, otherwise use original value
         ValuePtr thenValue = nullptr;
@@ -250,8 +250,8 @@ void IRBuilder::ExitIfStatement(IfStatement& st) {
     };
 
     // Add or update yield statements in both branches
-    addOrUpdateYield(st.GetThenScope().GetStatements(), thenValues);
-    addOrUpdateYield(st.GetElseScope().GetStatements(), elseValues);
+    addOrUpdateYield(st.GetThenCompound().GetStatements(), thenValues);
+    addOrUpdateYield(st.GetElseCompound().GetStatements(), elseValues);
 
     // Build result using IfStatement::BuildResult()
     st.BuildResult();
@@ -261,7 +261,7 @@ void IRBuilder::ExitIfStatement(IfStatement& st) {
     for (size_t i = 0; i < modifiedInBothBranches.size() && i < results.size(); ++i) {
         const std::string& varName = modifiedInBothBranches[i];
         if (results[i]) {
-            parentScope->SetEnvVar(varName, results[i]);
+            parentCompound->SetEnvVar(varName, results[i]);
         }
     }
 }
@@ -270,14 +270,14 @@ void IRBuilder::ExitForStatement(ForStatement& st) {
     // Get environments:
     // - envBeforeFor: environment before entering for loop (from parent scope and ancestors)
     // - envAfterFor: environment after loop body (from loop scope)
-    Scope* parentScope = st.GetScope().GetParent();
-    if (!parentScope) {
+    CompoundStatement* parentCompound = st.GetCompound().GetParent();
+    if (!parentCompound) {
         throw std::runtime_error("IRBuilder::ExitForStatement: loop scope has no parent");
     }
     // Get environment from parent scope, including variables from ancestor scopes
     // GetAncestorValues() returns all variables from parent scope and its ancestors
-    std::unordered_map<std::string, ValuePtr> envBeforeFor = st.GetScope().GetAncestorValues();
-    std::unordered_map<std::string, ValuePtr> envAfterFor = st.GetScope().GetEnvTable();
+    std::unordered_map<std::string, ValuePtr> envBeforeFor = st.GetCompound().GetAncestorValues();
+    std::unordered_map<std::string, ValuePtr> envAfterFor = st.GetCompound().GetEnvTable();
 
     // Find variables that were modified in the loop body.
     // These are variables that:
@@ -287,7 +287,7 @@ void IRBuilder::ExitForStatement(ForStatement& st) {
     
     for (const auto& [varName, valueAfterFor] : envAfterFor) {
         // Check if variable existed before loop by searching in parent scope chain
-        ValuePtr valueBeforeFor = parentScope->GetEnvVar(varName);
+        ValuePtr valueBeforeFor = parentCompound->GetEnvVar(varName);
         if (valueBeforeFor) {
             // Variable existed before loop - check if it was modified
             if (valueBeforeFor != valueAfterFor) {
@@ -314,12 +314,12 @@ void IRBuilder::ExitForStatement(ForStatement& st) {
     }
 
     // Create value for each iter_arg and replace initValue usage in loop body
-    Scope* loopScope = &st.GetScope();
-    Scope* savedScope = scope_;
+    CompoundStatement* loopCompound = &st.GetCompound();
+    CompoundStatement* savedCompound = compound_;
     Function* savedFunc = func_;
     
     // Temporarily set scope and func to loop scope for creating values
-    scope_ = loopScope;
+    compound_ = loopCompound;
     func_ = savedFunc;  // func_ should remain the same
     
     // Helper function to create a value based on initValue type
@@ -360,7 +360,7 @@ void IRBuilder::ExitForStatement(ForStatement& st) {
     }
     
     // Restore scope
-    scope_ = savedScope;
+    compound_ = savedCompound;
     
     // Replace initValue with iter_arg value in loop body operations
     // Also update environment table
@@ -415,7 +415,7 @@ void IRBuilder::ExitForStatement(ForStatement& st) {
     };
     
     // Replace values in all statements in loop body
-    for (auto& stmt : st.GetScope().GetStatements()) {
+    for (auto& stmt : st.GetCompound().GetStatements()) {
         replaceValueInStatement(stmt);
     }
     
@@ -436,7 +436,7 @@ void IRBuilder::ExitForStatement(ForStatement& st) {
         const std::string& varName = loopCarriedVars[i];
         auto& iterArg = st.IterArgs()[i];
         if (iterArg.value) {
-            loopScope->SetEnvVar(varName, iterArg.value);
+            loopCompound->SetEnvVar(varName, iterArg.value);
         }
     }
 
@@ -461,7 +461,7 @@ void IRBuilder::ExitForStatement(ForStatement& st) {
     };
 
     // Add or update yield statement in loop body
-    addOrUpdateYield(st.GetScope().GetStatements(), yieldValues);
+    addOrUpdateYield(st.GetCompound().GetStatements(), yieldValues);
 
     // Build result using ForStatement::BuildResult()
     st.BuildResult();
@@ -471,7 +471,7 @@ void IRBuilder::ExitForStatement(ForStatement& st) {
     for (size_t i = 0; i < loopCarriedVars.size() && i < results.size(); ++i) {
         const std::string& varName = loopCarriedVars[i];
         if (results[i]) {
-            parentScope->SetEnvVar(varName, results[i]);
+            parentCompound->SetEnvVar(varName, results[i]);
         }
     }
 }

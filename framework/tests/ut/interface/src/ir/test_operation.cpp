@@ -45,8 +45,8 @@ TEST(IRTEST, TestTensorOperation){
     auto c2 = std::make_shared<Scalar>(2.0f, "c2");
     auto c3 = std::make_shared<Scalar>(3.0f, "c3");
 
-    func->GetScope().SetEnvVar(c2->GetName(), c2);
-    func->GetScope().SetEnvVar(c3->GetName(), c3);
+    func->GetCompound().SetEnvVar(c2->GetName(), c2);
+    func->GetCompound().SetEnvVar(c3->GetName(), c3);
 
     auto block = std::make_shared<OpStatement>();
 
@@ -58,11 +58,11 @@ TEST(IRTEST, TestTensorOperation){
             { outputTensor },
             std::make_shared<TensorCreatePayload>(TCSpec))
     );
-    func->GetScope().SetEnvVar(outputTensor->GetName(), outputTensor);
+    func->GetCompound().SetEnvVar(outputTensor->GetName(), outputTensor);
 
     auto tensorA =
         std::make_shared<Tensor>(tensorShape, DataType::FP32, "tensorA");
-    func->GetScope().SetEnvVar(tensorA->GetName(), tensorA);
+    func->GetCompound().SetEnvVar(tensorA->GetName(), tensorA);
 
     ViewSpec viewSpec;
     viewSpec.shape = {1, 128};
@@ -79,7 +79,7 @@ TEST(IRTEST, TestTensorOperation){
 
     auto tensorAdd =
         std::make_shared<Tensor>(tensorShape, DataType::FP32, "tensorAdd");
-    func->GetScope().SetEnvVar(tensorAdd->GetName(), tensorAdd);
+    func->GetCompound().SetEnvVar(tensorAdd->GetName(), tensorAdd);
 
     block->Operations().push_back(
         CreateOp(
@@ -91,7 +91,7 @@ TEST(IRTEST, TestTensorOperation){
 
     auto tensorSub =
         std::make_shared<Tensor>(tensorShape, DataType::FP32, "tensorSub");
-    func->GetScope().SetEnvVar(tensorSub->GetName(), tensorSub);
+    func->GetCompound().SetEnvVar(tensorSub->GetName(), tensorSub);
 
     block->Operations().push_back(
         CreateOp(
@@ -103,7 +103,7 @@ TEST(IRTEST, TestTensorOperation){
 
     auto tensorMul =
         std::make_shared<Tensor>(tensorShape, DataType::FP32, "tensorMul");
-    func->GetScope().SetEnvVar(tensorMul->GetName(), tensorMul);
+    func->GetCompound().SetEnvVar(tensorMul->GetName(), tensorMul);
 
     block->Operations().push_back(
         CreateOp(
@@ -115,7 +115,7 @@ TEST(IRTEST, TestTensorOperation){
 
     auto tensorDiv =
         std::make_shared<Tensor>(tensorShape, DataType::FP32, "tensorDiv");
-    func->GetScope().SetEnvVar(tensorDiv->GetName(), tensorDiv);
+    func->GetCompound().SetEnvVar(tensorDiv->GetName(), tensorDiv);
 
     block->Operations().push_back(
         CreateOp(
@@ -128,7 +128,7 @@ TEST(IRTEST, TestTensorOperation){
     std::vector<Scalar> sumShape = { B };
     auto tensorSum =
         std::make_shared<Tensor>(sumShape, DataType::FP32, "sum");
-    func->GetScope().SetEnvVar(tensorSum->GetName(), tensorSum);
+    func->GetCompound().SetEnvVar(tensorSum->GetName(), tensorSum);
 
     ReduceSpec sumSpec;
     sumSpec.kind = ReduceKind::RowSum;
@@ -146,7 +146,7 @@ TEST(IRTEST, TestTensorOperation){
 
     auto maxScalar =
         std::make_shared<Scalar>(DataType::FP32, "max");
-    func->GetScope().SetEnvVar(maxScalar->GetName(), maxScalar);
+    func->GetCompound().SetEnvVar(maxScalar->GetName(), maxScalar);
 
     ReduceSpec maxSpec;
     maxSpec.kind = ReduceKind::RowMax;
@@ -164,7 +164,7 @@ TEST(IRTEST, TestTensorOperation){
 
     auto tensorOut =
         std::make_shared<Tensor>(tensorShape, DataType::FP32, "output");
-    func->GetScope().SetEnvVar(tensorOut->GetName(), tensorOut);
+    func->GetCompound().SetEnvVar(tensorOut->GetName(), tensorOut);
 
     AssembleSpec assembleSpec;
     assembleSpec.offset = { Scalar(0), Scalar(0) };
@@ -184,7 +184,7 @@ TEST(IRTEST, TestTensorOperation){
     ret->Values().push_back(tensorOut);
     func->AddStatement(std::move(ret));
 
-    ASSERT_EQ(func->GetScope().GetEnvVar("output"), tensorOut);
+    ASSERT_EQ(func->GetCompound().GetEnvVar("output"), tensorOut);
 
     std::cout << module << std::endl;
 }

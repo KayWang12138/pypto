@@ -4,16 +4,16 @@
 namespace pto {
 
 class IRBuilder;
-class Scope;
+class CompoundStatement;
 
 class ScopeGuard {
 public:
-    ScopeGuard(IRBuilder& builder, Scope* new_scope, Function* new_func = nullptr);
+    ScopeGuard(IRBuilder& builder, CompoundStatement* new_scope, Function* new_func = nullptr);
     ~ScopeGuard();
 
 private:
     IRBuilder& builder_;
-    Scope* prev_scope_;
+    CompoundStatement* prev_compound_;
     Function* prev_func_;
 };
 }

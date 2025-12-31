@@ -8,6 +8,70 @@
 
 namespace pto {
 
+ValuePtr CompoundStatement::FindValue(const std::string& name) const {
+    // Use GetEnvVar which already searches through the scope chain
+    return GetEnvVar(name);
+}
+
+void CompoundStatement::RemoveValue(ValuePtr val) {
+    for (auto it = envTable_.begin(); it != envTable_.end();) {
+        if (it->second == val) {
+            it = envTable_.erase(it);
+            return;
+        } else {
+            ++it;
+        }
+    }
+}
+
+std::unordered_map<std::string, ValuePtr> CompoundStatement::GetAncestorValues() const {
+    std::unordered_map<std::string, ValuePtr> ancestor_values;
+    
+    // Traverse all ancestor scopes (parent, grandparent, etc.)
+    CompoundStatement* current_parent = parent_;
+    while (current_parent != nullptr) {
+        // Collect all values from current ancestor scope's environment table
+        const auto& parent_env = current_parent->GetEnvTable();
+        for (const auto& pair : parent_env) {
+            if (pair.second) {
+                // If a variable with the same name exists in multiple ancestor scopes,
+                // the closer one (more recent ancestor) takes precedence
+                if (ancestor_values.find(pair.first) == ancestor_values.end()) {
+                    ancestor_values[pair.first] = pair.second;
+                }
+            }
+        }
+        
+        // Move to next ancestor
+        current_parent = current_parent->GetParent();
+    }
+    
+    return ancestor_values;
+}
+
+void CompoundStatement::SetEnvVar(const std::string& name, ValuePtr value) {
+    if (!value) {
+        throw std::runtime_error("Scope::SetEnvVar: value is null");
+    }
+    envTable_[name] = value;
+}
+
+ValuePtr CompoundStatement::GetEnvVar(const std::string& name) const {
+    // First, search in current scope
+    auto it = envTable_.find(name);
+    if (it != envTable_.end()) {
+        return it->second;
+    }
+    
+    // If not found, search in parent scope (recursively)
+    if (parent_) {
+        return parent_->GetEnvVar(name);
+    }
+    
+    // Not found in any scope
+    return nullptr;
+}
+
 void OpStatement::Print(std::ostream& os, int indent) const {
     PrintIndent(os, indent);
     os << "statement.op {\n";
@@ -41,7 +105,7 @@ void ForStatement::Print(std::ostream& os, int indent) const {
     } else {
         // Fallback: derive result variables from the loop body's terminal yield, if any.
         const YieldStatement* loopYield = nullptr;
-        const auto& bodyStmts = scope_.GetStatements();
+        const auto& bodyStmts = compound_.GetStatements();
         if (!bodyStmts.empty()) {
             loopYield = dynamic_cast<const YieldStatement*>(bodyStmts.back().get());
         }
@@ -139,7 +203,7 @@ void ForStatement::Print(std::ostream& os, int indent) const {
     os << " {\n";
 
     // Print loop body.
-    for (const auto& stmt : scope_.GetStatements()) {
+    for (const auto& stmt : compound_.GetStatements()) {
         if (stmt) {
             stmt->Print(os, indent + 2);
         }
@@ -150,7 +214,7 @@ void ForStatement::Print(std::ostream& os, int indent) const {
 }
 
 std::shared_ptr<YieldStatement> ForStatement::Yield() {
-    const auto& bodyStmts = scope_.GetStatements();
+    const auto& bodyStmts = compound_.GetStatements();
     if (!bodyStmts.empty()) {
         return std::dynamic_pointer_cast<YieldStatement>(bodyStmts.back());
     }
@@ -158,7 +222,7 @@ std::shared_ptr<YieldStatement> ForStatement::Yield() {
 }
 
 const std::shared_ptr<YieldStatement> ForStatement::Yield() const {
-    const auto& bodyStmts = scope_.GetStatements();
+    const auto& bodyStmts = compound_.GetStatements();
     if (!bodyStmts.empty()) {
         return std::dynamic_pointer_cast<YieldStatement>(bodyStmts.back());
     }
@@ -243,11 +307,11 @@ void IfStatement::BuildResult() {
     const YieldStatement* thenYield = nullptr;
     const YieldStatement* elseYield = nullptr;
 
-    const auto& thenStmts = thenScope_.GetStatements();
+    const auto& thenStmts = thenCompound_.GetStatements();
     if (!thenStmts.empty()) {
         thenYield = dynamic_cast<const YieldStatement*>(thenStmts.back().get());
     }
-    const auto& elseStmts = elseScope_.GetStatements();
+    const auto& elseStmts = elseCompound_.GetStatements();
     if (!elseStmts.empty()) {
         elseYield = dynamic_cast<const YieldStatement*>(elseStmts.back().get());
     }
@@ -320,7 +384,7 @@ void IfStatement::Print(std::ostream& os, int indent) const {
 
     os << "statement.if " << condition_ << " {\n";
 
-    for (const auto& stmt : thenScope_.GetStatements()) {
+    for (const auto& stmt : thenCompound_.GetStatements()) {
         if (stmt) {
             stmt->Print(os, indent + 2);
         }
@@ -329,7 +393,7 @@ void IfStatement::Print(std::ostream& os, int indent) const {
     PrintIndent(os, indent);
     os << "} else {\n";
 
-    for (const auto& stmt : elseScope_.GetStatements()) {
+    for (const auto& stmt : elseCompound_.GetStatements()) {
         if (stmt) {
             stmt->Print(os, indent + 2);
         }
