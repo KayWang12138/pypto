@@ -20,17 +20,18 @@ using namespace npu::tile_fwk;
 
 TileShape &TileShape::Current() {
     static TileShape instance;
+    instance = ConfigManagerNg::CurrentScope()->GenerateTileShape();
     return instance;
 }
 
 void TileShape::SetVecTile(const std::vector<int64_t> &tile) {
     vecTile = {tile};
-    ConfigManagerNg::GetInstance().CurrentScope()->UpdateValue("vec_tile_shapes", tile);
+    ConfigManagerNg::CurrentScope()->UpdateValue("vec_tile_shapes", tile);
 }
 
 void TileShape::SetVecTile(const VecTile &tile) {
     vecTile = tile;
-    ConfigManagerNg::GetInstance().CurrentScope()->UpdateValue("vec_tile_shapes", tile.tile);
+    ConfigManagerNg::CurrentScope()->UpdateValue("vec_tile_shapes", tile.tile);
 }
 
 void TileShape::SetCubeTile(const std::array<int64_t, MAX_M_DIM_SIZE> &m,
@@ -42,10 +43,45 @@ void TileShape::SetCubeTile(const std::array<int64_t, MAX_M_DIM_SIZE> &m,
         nk[2] = nk[1];
     }
     cubeTile = {m, nk, n, setL1Tile, enableSplitK};
-    ConfigManagerNg::GetInstance().CurrentScope()->UpdateValue("cube_tile_shapes", cubeTile);
+    ConfigManagerNg::CurrentScope()->UpdateValue("cube_tile_shapes", cubeTile);
 }
 
 void TileShape::SetMatrixSize(const std::vector<int64_t> &size) {
     this->matrixSize = size;
-    ConfigManagerNg::GetInstance().CurrentScope()->UpdateValue("matrix_size", size);
+    ConfigManagerNg::CurrentScope()->UpdateValue("matrix_size", size);
+}
+
+void TileShape::UpdateScopeDistTile() {
+    ConfigManagerNg::CurrentScope()->UpdateValue("dist_tile_shapes", distTile);
+}
+
+void TileShape::SetDistTile(
+    const std::array<int, MAX_DIST_DIM_SIZE> &row,
+    const std::array<int, MAX_DIST_DIM_SIZE> &col,
+    const std::array<int, MAX_DIST_DIM_SIZE> &rank
+    ) {
+    distTile.row = row;
+    distTile.col = col;
+    distTile.rank = rank;
+    UpdateScopeDistTile();
+}
+
+void TileShape::SetDistRankId(int64_t rankId) {
+    distTile.rankId = rankId;
+    UpdateScopeDistTile();
+}
+
+void TileShape::SetDistTileCol(const std::array<int, MAX_DIST_DIM_SIZE> &col) {
+    distTile.col = col;
+    UpdateScopeDistTile();
+}
+
+void TileShape::SetDistTileRow(const std::array<int, MAX_DIST_DIM_SIZE> &row) {
+    distTile.row = row;
+    UpdateScopeDistTile();
+}
+
+void TileShape::SetDistTileRank(const std::array<int, MAX_DIST_DIM_SIZE> &rank) {
+    distTile.rank = rank;
+    UpdateScopeDistTile();
 }
