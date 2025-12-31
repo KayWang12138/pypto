@@ -22,8 +22,10 @@
 #include "machine/runtime/emulation_launcher.h"
 
 #include <cstring>
+#include <cstdint>
 #include <mutex>
 #include <map>
+#include "tilefwk/platform.h"
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
@@ -83,6 +85,68 @@ int32_t MakeMc2TilingStruct(struct Mc2CommConfig &commConfig, const std::string 
     std::strncpy(commConfig.hcommCfg.algConfig, algConfig, arraySize - 1);
     commConfig.hcommCfg.algConfig[arraySize - 1] = '\0';
 
+    return 0;
+}
+
+constexpr uint32_t INIT_TILING_VERSION = 100U;
+constexpr uint32_t MAX_CC_TILING_NUM = 8U;
+
+#pragma pack(push, 8)
+struct Mc2InitTilingInner {
+    uint32_t version;
+    uint32_t mc2HcommCnt;
+    uint32_t offset[MAX_CC_TILING_NUM];
+    uint8_t debugMode;
+    uint8_t preparePosition;
+    uint16_t queueNum;
+    uint16_t commBlockNum;
+    uint8_t devType;
+    char reserved[17];
+};
+#pragma pack(pop)
+
+constexpr uint32_t GROUP_NAME_SIZE = 128U;
+constexpr uint32_t ALG_CONFIG_SIZE = 128U;
+
+struct Mc2cCTilingInner {
+    uint8_t skipLocalRankCopy;
+    uint8_t skipBufferWindowCopy;
+    uint8_t stepSize;
+    uint8_t version;
+    char reserved[9];
+    uint8_t commEngine;
+    uint8_t srcDataType;
+    uint8_t dstDataType;
+    char groupName[GROUP_NAME_SIZE];
+    char algConfig[ALG_CONFIG_SIZE];
+    uint32_t opType;
+    uint32_t reduceType;
+};
+
+struct Mc2CommConfigV2 {
+    Mc2InitTilingInner init;
+    Mc2cCTilingInner inner;
+};
+
+int32_t MakeMc2TilingStructV2(Mc2CommConfigV2 &commConfig, const std::string &groupName)
+{
+    const char *algConfig = "BatchWrite=level0:fullmesh";
+    commConfig.init.version = INIT_TILING_VERSION;
+    commConfig.init.mc2HcommCnt = 1;
+    commConfig.init.queueNum = 0;
+    commConfig.init.commBlockNum = 48U;
+    commConfig.init.devType = 4U;
+    commConfig.inner.skipLocalRankCopy = 0;
+    commConfig.inner.skipBufferWindowCopy = 0;
+    commConfig.inner.stepSize = 0;
+    commConfig.inner.opType = 18U;
+    commConfig.inner.version = 1;
+    commConfig.init.offset[0] = static_cast<uint32_t>(
+        reinterpret_cast<uint64_t>(&commConfig.inner) - reinterpret_cast<uint64_t>(&commConfig.init));
+    std::strncpy(commConfig.inner.groupName, groupName.c_str(), GROUP_NAME_SIZE - 1);
+    commConfig.inner.groupName[GROUP_NAME_SIZE - 1] = '\0';
+    std::strncpy(commConfig.inner.algConfig, algConfig, ALG_CONFIG_SIZE - 1);
+    commConfig.inner.algConfig[ALG_CONFIG_SIZE - 1] = '\0';
     return 0;
 }
 
@@ -226,6 +290,7 @@ std::string OperatorDeviceRunOnceDataFromDevice([[maybe_unused]] py::int_ python
             }
             
             std::lock_guard<std::mutex> lock(g_ctxMutex);
+            auto socVersion = Platform::Instance().GetSoc().GetShortSoCVersion();
             for (size_t i = 0; i < hcclHandles.size(); ++i) {
                 uint64_t hcclHandle = static_cast<uint64_t>(hcclHandles[i]);
                 if (hcclHandle == 0) {
@@ -237,15 +302,25 @@ std::string OperatorDeviceRunOnceDataFromDevice([[maybe_unused]] py::int_ python
                 } else {
                     const std::string& groupName = groupNames[i];
                     if (!groupName.empty()) {
-                        struct Mc2CommConfig commConfig = {};
-                        if (MakeMc2TilingStruct(commConfig, groupName) == 0) {
-                            void* commContext = nullptr;
-                            int ret = HcclAllocComResourceByTiling((void*)hcclHandle, (void*)aicoreStream, &commConfig, &commContext);
-                            if (ret == 0 && commContext != nullptr) {
-                                uint64_t contextVal = (uint64_t)commContext;
-                                g_hcclContextCache[hcclHandle] = contextVal;
-                                config.hcclContext.push_back(contextVal);
+                        void* commContext = nullptr;
+                        int ret = -1;
+                        if (socVersion == ShortSoCVersion::SoC_910B) {
+                            Mc2CommConfig commConfig = {};
+                            if (MakeMc2TilingStruct(commConfig, groupName) == 0) {
+                                ret = HcclAllocComResourceByTiling(
+                                    (void*)hcclHandle, (void*)aicoreStream, &commConfig, &commContext);
                             }
+                        } else { // 910_93 等使用 V2 tiling
+                            Mc2CommConfigV2 commConfig = {};
+                            if (MakeMc2TilingStructV2(commConfig, groupName) == 0) {
+                                ret = HcclAllocComResourceByTiling(
+                                    (void*)hcclHandle, (void*)aicoreStream, &commConfig, &commContext);
+                            }
+                        }
+                        if (ret == 0 && commContext != nullptr) {
+                            uint64_t contextVal = (uint64_t)commContext;
+                            g_hcclContextCache[hcclHandle] = contextVal;
+                            config.hcclContext.push_back(contextVal);
                         }
                     }
                 }
