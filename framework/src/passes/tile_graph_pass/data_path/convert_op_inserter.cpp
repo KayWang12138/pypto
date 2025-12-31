@@ -246,13 +246,16 @@ Status ConvertInserter::RecordConflict(Function &function) {
                 std::vector<MemoryType> paths;
                 Status status = ConstructPath(oOperand->GetMemoryTypeOriginal(),requiredMemoryType,paths,oOperand,op);
                 if (status != SUCCESS) {return status;}
-                //step5：记录需要插入的Convert Op
-                auto output = RecordInsertConvertOp(oOperand,paths,function,op);
 
-                //step6：更新消费者连接
-                GraphReconnect(oOperand, output, consumers,function);
+                //step5：对每个消费者插入的Convert Op并更新图链接
+                for (auto consumer : consumers) {
+                    auto output = RecordInsertConvertOp(oOperand,paths,function,op);
+                    if (consumer->BelongTo() == &function) {
+                        UpdateConsumerAndReconnect(oOperand, output, consumer);
+                    }
+                }
 
-                //step7：标记已处理
+                //step6：标记已处理
                 visitedTensor.push_back(oOperand->magic);
             }
         }
