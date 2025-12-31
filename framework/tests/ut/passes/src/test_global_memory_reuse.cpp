@@ -20,7 +20,7 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/cache/function_cache.h"
 #include "interface/function/function.h"
-#include "interface/function/kernel_function.h"
+#include "interface/function/block_function.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/configs/config_manager.h"
 #include "interface/tensor/tensormap.h"
