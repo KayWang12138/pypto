@@ -49,6 +49,7 @@ TEST_F(AddAllocTest, TestAddAlloc) {
     EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {64, 64}, tensorMemTypes, tensorNames, 0), true);
     EXPECT_EQ(subGraph.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
     Function *function = subGraph.GetFunction();
+    function->SetGraphType(GraphType::BLOCK_GRAPH);
     EXPECT_NE(function, nullptr);
 
     AddAlloc addalloc;
@@ -70,6 +71,7 @@ TEST_F(AddAllocTest, TestAddAllocInplace) {
     EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {64, 64}, tensorMemTypes, tensorNames, 0), true);
     EXPECT_EQ(subGraph.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
     Function *function = subGraph.GetFunction();
+    function->SetGraphType(GraphType::BLOCK_GRAPH);
     EXPECT_NE(function, nullptr);
 
     EXPECT_NE(subGraph.GetTensor("t11"), nullptr);
@@ -100,6 +102,7 @@ TEST_F(AddAllocTest, TestAddAllocAssemble) {
     EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {64, 64}, tensorMemTypes, tensorNames, 0), true);
     EXPECT_EQ(subGraph.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
     Function *function = subGraph.GetFunction();
+    function->SetGraphType(GraphType::BLOCK_GRAPH);
     EXPECT_NE(function, nullptr);
 
     EXPECT_NE(subGraph.GetTensor("t9"), nullptr);
@@ -128,6 +131,7 @@ TEST_F(AddAllocTest, TestAddAllocView) {
     EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {64, 64}, tensorMemTypes, tensorNames, 0), true);
     EXPECT_EQ(subGraph.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
     Function *function = subGraph.GetFunction();
+    function->SetGraphType(GraphType::BLOCK_GRAPH);
     EXPECT_NE(function, nullptr);
 
     EXPECT_NE(subGraph.GetTensor("t6"), nullptr);
@@ -156,6 +160,7 @@ TEST_F(AddAllocTest, TestAddAllocErrorMemId) {
     EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {64, 64}, tensorMemTypes, tensorNames, 0), true);
     EXPECT_EQ(subGraph.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
     Function *function = subGraph.GetFunction();
+    function->SetGraphType(GraphType::BLOCK_GRAPH);
     EXPECT_NE(function, nullptr);
 
     EXPECT_NE(subGraph.GetTensor("t6"), nullptr);
@@ -182,6 +187,7 @@ TEST_F(AddAllocTest, TestAddAllocErrorMemorymap) {
     EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {64, 64}, tensorMemTypes, tensorNames, 0), true);
     EXPECT_EQ(subGraph.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
     Function *function = subGraph.GetFunction();
+    function->SetGraphType(GraphType::BLOCK_GRAPH);
     EXPECT_NE(function, nullptr);
 
     EXPECT_NE(subGraph.GetTensor("t6"), nullptr);
