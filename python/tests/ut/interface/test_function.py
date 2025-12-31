@@ -8,7 +8,8 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
-""" """
+"""
+"""
 import pypto
 import pytest
 import pypto._controller as controller
@@ -42,7 +43,6 @@ def test_empty_function():
     assert True
 
 
-@pypto.jit
 def test_dyn_function():
     dtype = pypto.DT_FP16
     shape = (8, 8)
@@ -50,7 +50,8 @@ def test_dyn_function():
     b = pypto.tensor(shape, dtype, "tensor_b")
     c = pypto.tensor(shape, dtype, "tensor_c")
 
-    pypto.set_vec_tile_shapes(8, 8)
-    c[:] = pypto.add(a, b)
+    with pypto.function("ADD", a, b, c):
+        pypto.set_vec_tile_shapes(8, 8)
+        c[:] = pypto.add(a, b)
 
     print(controller.dump())

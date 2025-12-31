@@ -29,13 +29,9 @@ using namespace npu::tile_fwk;
 
 class ViewTypeUtest : public testing::Test {
 public:
-    static void SetUpTestCase() {
-        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
-    }
+    static void SetUpTestCase() {}
 
-    static void TearDownTestCase() {
-        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-    }
+    static void TearDownTestCase() {}
 
     void SetUp() override { Program::GetInstance().Reset(); }
 

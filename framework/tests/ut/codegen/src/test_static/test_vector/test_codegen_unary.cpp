@@ -31,7 +31,7 @@ public:
     static void SetUpTestCase() {}
 
     static void TearDownTestCase() {
-        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
+        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
     }
 
     void SetUp() override {

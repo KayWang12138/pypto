@@ -35,12 +35,9 @@ public:
         config::Reset();
         config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
         config::SetPlatformConfig("ENABLE_COST_MODEL", false);
-        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
     }
 
-    void TearDown() override {
-        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-    }
+    void TearDown() override {}
 };
 
 // ScatterUpdate

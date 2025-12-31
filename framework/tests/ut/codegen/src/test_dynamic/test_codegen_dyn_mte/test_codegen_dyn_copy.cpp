@@ -49,9 +49,7 @@ public:
         IdGen<IdType::CG_VAR_NAME>::Inst().SetId(DummyFuncMagic);
     }
 
-    void TearDown() override {
-        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-    }
+    void TearDown() override {}
 };
 
 std::string TestL0COutBody(bool isDynamicAligned) {

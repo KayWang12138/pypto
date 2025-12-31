@@ -34,14 +34,9 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
-        Program::GetInstance().Reset();
-        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
-    }
+    void SetUp() override { Program::GetInstance().Reset(); }
 
-    void TearDown() override {
-        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-    }
+    void TearDown() override {}
 };
 
 void SetQuantPreConfig() {
