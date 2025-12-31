@@ -22,7 +22,7 @@
 #include "test_suite_stest_ops.h"
 #include "interface/interpreter/raw_tensor_data.h"
 #include "operator/models/deepseek_v3.2_exp/lightning_indexer_topk.h"
-#include "machine/utils/dynamic/dev_encode.h"
+#include "machine/host/dev_encode.h"
 #include "test_dev_func_runner.h"
 
 using namespace npu::tile_fwk;

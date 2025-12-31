@@ -18,7 +18,7 @@
 #include <gtest/gtest.h>
 #include <thread>
 #include "interface/interpreter/raw_tensor_data.h"
-#include "machine/utils/dynamic/dev_encode.h"
+#include "machine/host/dev_encode.h"
 #include "machine/utils/dynamic/dev_tensor_creator.h"
 #include "machine/runtime/device_runner.h"
 #include "machine/device/dynamic/device_common.h"

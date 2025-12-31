@@ -13,7 +13,7 @@
  * \brief
  */
 
-#include "machine/utils/dynamic/dev_encode.h"
+#include "machine/host/dev_encode.h"
 #include "machine/utils/dynamic/dev_workspace.h"
 
 #include "interface/operation/attribute.h"
