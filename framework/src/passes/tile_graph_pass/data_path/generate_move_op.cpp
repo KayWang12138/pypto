@@ -28,9 +28,8 @@ constexpr int64_t INNER_PAD_VALUE = 32;
 constexpr int64_t OUTER_PAD_VALUE = 16;
 
 int64_t PadUB(int64_t dim, int64_t padValue) {
-    if(padValue != 0) {
-        return (dim + padValue - 1) / padValue * padValue;
-    }
+    ASSERT (padValue >0);
+    return (dim + padValue - 1) / padValue * padValue;
 }
 
 Status GenerateMoveOp::RunOnFunction(Function &function) {
