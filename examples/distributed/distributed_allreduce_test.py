@@ -164,8 +164,8 @@ def run_all_reduce_test(rank, world_size):
     input_pto = pypto.from_torch(input_data)
     output_pto = pypto.from_torch(output_data)
 
-    # all_reduce_kernel_two_shot(input_pto, output_pto, hccl_comm_name, world_size)
-    all_reduce_kernel_one_shot(input_pto, output_pto, hccl_comm_name, world_size)
+    all_reduce_kernel_two_shot(input_pto, output_pto, hccl_comm_name, world_size)
+    # all_reduce_kernel_one_shot(input_pto, output_pto, hccl_comm_name, world_size)
     
     # Verification
     expected_sum = sum(range(1, world_size + 1))
