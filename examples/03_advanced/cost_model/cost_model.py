@@ -87,6 +87,7 @@ def softmax_core(input_tensor: pypto.Tensor) -> pypto.Tensor:
 
 
 def softmax_wrapper(shape, cost_model_enable):
+    
     @pypto.frontend.jit(
         host_options={"only_codegen": True},
         runtime_options={"cfgcache_device_task_num": 100, 
@@ -119,6 +120,7 @@ def softmax_wrapper(shape, cost_model_enable):
             # Assemble result back to output tensor
             pypto.assemble(softmax_out, [b_offset, 0, 0, 0], output_tensor)
         return output_tensor
+    
     return softmax
 
 

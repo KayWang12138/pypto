@@ -57,7 +57,8 @@ def get_device_id():
 
 
 def create_arange_op_kernel(shape: tuple, start=None, end=None, step=None, run_mode: str = "npu") -> torch.Tensor:
-
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def arange_start_end_step_kernel(
         dummy_input: pypto.Tensor(shape, pypto.DT_FP32),
     ) -> pypto.Tensor(shape, pypto.DT_FP32):
@@ -65,6 +66,7 @@ def create_arange_op_kernel(shape: tuple, start=None, end=None, step=None, run_m
         output = pypto.arange(start, end, step)
         return output
     
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def arange_start_end_kernel(
         dummy_input: pypto.Tensor(shape, pypto.DT_FP32),
     ) -> pypto.Tensor(shape, pypto.DT_FP32):
@@ -72,6 +74,7 @@ def create_arange_op_kernel(shape: tuple, start=None, end=None, step=None, run_m
         output = pypto.arange(start, end)
         return output
     
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def arange_end_kernel(
         dummy_input: pypto.Tensor(shape, pypto.DT_INT32),
     ) -> pypto.Tensor(shape, pypto.DT_INT32):
@@ -80,20 +83,11 @@ def create_arange_op_kernel(shape: tuple, start=None, end=None, step=None, run_m
         return output
     
     if step is not None:
-        if run_mode == "npu":
-            return pypto.frontend.jit()(arange_start_end_step_kernel)
-        else:
-            return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(arange_start_end_step_kernel)
+        return arange_start_end_step_kernel
     elif start is not None:
-        if run_mode == "npu":
-            return pypto.frontend.jit()(arange_start_end_kernel)
-        else:
-            return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(arange_start_end_kernel)
+        return arange_start_end_kernel
     else:
-        if run_mode == "npu":
-            return pypto.frontend.jit()(arange_end_kernel)
-        else:
-            return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(arange_end_kernel)
+        return arange_end_kernel
 
 
 def test_arange_basic(device_id = None, run_mode: str = "npu"):
@@ -191,6 +185,8 @@ def test_tensor_creation_with_datatypes(device_id = None, run_mode: str = "npu")
 
 def create_full_op_kernel(shape: tuple, fill_value: float, run_mode: str = "npu") -> torch.Tensor:
 
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def full_kernel(
         dummy_input: pypto.Tensor(shape, pypto.DT_FP32),
     ) -> pypto.Tensor(shape, pypto.DT_FP32):
@@ -198,6 +194,7 @@ def create_full_op_kernel(shape: tuple, fill_value: float, run_mode: str = "npu"
         output = pypto.full(shape, fill_value, pypto.DT_FP32)
         return output
 
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def full_symbolic_scalar_kernel(
         dummy_input: pypto.Tensor(shape, pypto.DT_INT32),
     ) -> pypto.Tensor(shape, pypto.DT_INT32):
@@ -206,15 +203,9 @@ def create_full_op_kernel(shape: tuple, fill_value: float, run_mode: str = "npu"
         return output
 
     if isinstance(fill_value, pypto.SymbolicScalar):
-        if run_mode == "npu":
-            return pypto.frontend.jit()(full_symbolic_scalar_kernel)
-        else:
-            return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(full_symbolic_scalar_kernel)
+        return full_symbolic_scalar_kernel
     else:
-        if run_mode == "npu":
-            return pypto.frontend.jit()(full_kernel)
-        else:
-            return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(full_kernel)
+        return full_kernel
 
 
 def test_full_basic(device_id = None, run_mode: str = "npu"):

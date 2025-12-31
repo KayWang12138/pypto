@@ -77,7 +77,10 @@ def softmax(shape: tuple, run_mode: str = "npu", dynamic: bool = True) -> torch.
     if dynamic:
         bs = pypto.frontend.dynamic("bs")
     
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    
     # launch the kernel
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def softmax_kernel(
         input_tensor: pypto.Tensor((bs, seqlen, head, dim), pypto.DT_FP32),
     ) -> pypto.Tensor((bs, seqlen, head, dim), pypto.DT_FP32):
@@ -96,10 +99,7 @@ def softmax(shape: tuple, run_mode: str = "npu", dynamic: bool = True) -> torch.
             output_tensor[b_offset:, ...] = softmax_out
         return output_tensor
 
-    if run_mode == "npu":
-        return pypto.frontend.jit()(softmax_kernel)
-    else:
-        return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(softmax_kernel)
+    return softmax_kernel
 
 
 def test_softmax(device_id: int = None, run_mode: str = "npu", dynamic: bool = True) -> None:

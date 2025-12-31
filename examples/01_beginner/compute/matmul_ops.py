@@ -59,11 +59,8 @@ def get_device_id():
 def matmul_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu") -> torch.Tensor:
     a_shape, b_shape = a.shape, b.shape
     out_shape = (a_shape[0], b_shape[1])
-    if run_mode == "npu":
-        mode = pypto.RunMode.NPU
-    else:
-        mode = pypto.RunMode.SIM
-
+    
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
     @pypto.frontend.jit(
     host_options={"only_codegen": True}, runtime_options={"run_mode": mode}
     )
@@ -189,10 +186,7 @@ def test_matmul_broadcast(device_id: int = None, run_mode: str = "npu"):
 def matmul_trans_right_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
     a_shape, b_shape = a.shape, b.shape
     out_shape = (a_shape[0], b_shape[0])
-    if run_mode == "npu":
-        mode = pypto.RunMode.NPU
-    else:
-        mode = pypto.RunMode.SIM
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
 
     @pypto.frontend.jit(
     host_options={"only_codegen": True}, runtime_options={"run_mode": mode}
@@ -212,10 +206,7 @@ def matmul_trans_right_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu
 def matmul_trans_left_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
     a_shape, b_shape = a.shape, b.shape
     out_shape = (a_shape[1], b_shape[1])
-    if run_mode == "npu":
-        mode = pypto.RunMode.NPU
-    else:
-        mode = pypto.RunMode.SIM
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
 
     @pypto.frontend.jit(
     host_options={"only_codegen": True}, runtime_options={"run_mode": mode}
@@ -296,10 +287,7 @@ def test_matmul_trans(device_id: int = None, run_mode: str = "npu"):
 def matmul_bias_op(a: torch.Tensor, b: torch.Tensor, bias: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
     a_shape, b_shape, bias_shape = a.shape, b.shape, bias.shape
 
-    if run_mode == "npu":
-        mode = pypto.RunMode.NPU
-    else:
-        mode = pypto.RunMode.SIM
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
     
     @pypto.frontend.jit(
         host_options={"only_codegen": True}, runtime_options={"run_mode": mode}
