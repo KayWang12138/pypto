@@ -481,6 +481,31 @@ struct FunctionInterpreter {
         return -1;
     }
 
+    void UpdateOutcastDataViewList(FunctionFrame &frame, 
+        const std::shared_ptr<LogicalTensor> &oop,
+        const std::shared_ptr<LogicalTensor> &iop,
+        std::shared_ptr<FunctionIODataPair> &inoutDataPair) {
+        auto it = std::find(frame.func->outCasts_.begin(), frame.func->outCasts_.end(), oop);
+        if (it != frame.func->outCasts_.end()) {
+            ASSERT(frame.tensorDataViewDict.count(oop) != 0);
+            auto oopDataView = frame.tensorDataViewDict[oop]; 
+            ASSERT(frame.tensorDataViewDict.count(iop) != 0);
+            auto newPtr = frame.tensorDataViewDict[iop]; 
+            auto targetPair = inoutDataPair->rootInoutDataPair ? 
+                          inoutDataPair->rootInoutDataPair : 
+                          inoutDataPair;
+            bool updated = false;
+            for (auto& ptr : targetPair->outcastDataViewList) {
+                if (ptr.get() == oopDataView.get()) {
+                    ptr = newPtr;
+                    updated = true;
+                    break;
+                }
+            }      
+            ASSERT(updated); 
+        }
+    }
+
     void ExecuteInplaceOperation(FunctionFrame &frame, Operation &op, int oOperandIdx,
         const std::vector<std::shared_ptr<LogicalTensorData>> &iOpDataList,
         std::vector<std::shared_ptr<LogicalTensorData>> &oOpDataList,
@@ -505,25 +530,7 @@ struct FunctionInterpreter {
             oOpDataList.emplace_back(ret);
         } else {
             oOpDataList.emplace_back(AllocateDataView(frame, oop, iop));
-            auto it = std::find(frame.func->outCasts_.begin(), frame.func->outCasts_.end(), oop);
-            if (it != frame.func->outCasts_.end()) {
-                ASSERT(frame.tensorDataViewDict.count(oop) != 0);
-                auto oopDataView = frame.tensorDataViewDict[oop]; 
-                ASSERT(frame.tensorDataViewDict.count(iop) != 0);
-                auto newPtr = frame.tensorDataViewDict[iop]; 
-                auto targetPair = inoutDataPair->rootInoutDataPair ? 
-                              inoutDataPair->rootInoutDataPair : 
-                              inoutDataPair;
-                bool updated = false;
-                for (auto& ptr : targetPair->outcastDataViewList) {
-                    if (ptr.get() == oopDataView.get()) {
-                        ptr = newPtr;
-                        updated = true;
-                        break;
-                    }
-                }      
-            ASSERT(updated); 
-            }
+            UpdateOutcastDataViewList(frame, oop, iop, inoutDataPair);
         }
     }
 
