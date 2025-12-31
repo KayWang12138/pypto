@@ -20,7 +20,7 @@
 #include "test_dev_func_runner.h"
 #include "interface/inner/tilefwk.h"
 #include "machine/device/dynamic/device_utils.h"
-#include "machine/utils/dynamic/dev_encode.h"
+#include "machine/host/dev_encode.h"
 #include "operator/models/deepseek_v3.2_exp/quant_lightning_indexer_prolog.h"
 
 using namespace npu::tile_fwk;

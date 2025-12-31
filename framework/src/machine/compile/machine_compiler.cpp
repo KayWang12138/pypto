@@ -13,7 +13,7 @@
  * \brief
  */
 
-#include "machine/host/machine_compiler.h"
+#include "machine/compile/machine_compiler.h"
 #include <functional>
 #include <unistd.h>
 #include "tilefwk/data_type.h"
