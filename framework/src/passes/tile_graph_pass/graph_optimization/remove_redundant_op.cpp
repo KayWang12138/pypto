@@ -184,7 +184,7 @@ void RemoveRedundantOp::RemoveViewAssembleForOutcast(Function &function, Logical
             continue;
         }
         canRemove = true;
-        for (auto &endProducer: startConsumer->CinsumerOps()) {
+        for (auto &endProducer: startConsumer->ConsumerOps()) {
             if (endProducer->GetOOperands().front() != endTensor || endProducer->GetOpcode() != Opcode::OP_ASSEMBLE) {
                 canRemove = false;
             } else {
@@ -298,13 +298,7 @@ bool RemoveRedundantOp::IsValidViewAssemble(LogicalTensorPtr &startTensor, Logic
     return true;
 }
 
-void RemoveRedundantOp::GenerateNewView(Function &function, Operation &op, LogicalTensorPtr &startTensor, LogicalTensorPtr &endTensor) {
-    //查找最小的offset
-    std::vector<long> newoffset(op.iOperand[0]->offset.size(),INT_MAX);
-    if (!IsValidViewAssemble(startTensor, endTensor)) {
-        APASS_LOG_DEBUG_F(Elements::Tensor, "Not valid view-assemble case.");    
-        return; 
-    }
+void RemoveRedundantOp::CalculateViewOffset(Operation &op, std::vector<long> &newoffset) {
     for (size_t m = 0; m < op.iOperand[0]->offset.size(); m++) {
         for (auto &comsumerView : startTensor->GetConsumers()) {
             auto opcode = comsumerView->GetOpcode();
@@ -331,9 +325,19 @@ void RemoveRedundantOp::GenerateNewView(Function &function, Operation &op, Logic
             //只处理satrtTensor->view->tempTensor->assemble->endTensor
             auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(comsumerView->GetOpAttribute().get());
             auto viewOffset = viewOpAttribute->GetFromOffset();
-            newoffset[m] = std::min(newoffset[m],viewOffset[m]);
+            newoffset[m] = std::min(newoffset[m], viewOffset[m]);
         }
     }
+}
+
+void RemoveRedundantOp::GenerateNewView(Function &function, Operation &op, LogicalTensorPtr &startTensor, LogicalTensorPtr &endTensor) {
+    //查找最小的offset
+    if (!IsValidViewAssemble(startTensor, endTensor)) {
+        APASS_LOG_DEBUG_F(Elements::Tensor, "Not valid view-assemble case.");    
+        return; 
+    }
+    std::vector<long> newoffset(op.iOperand[0]->offset.size(),INT_MAX);
+    CalculateViewOffset(op, newoffset);
     //新建一个logical tensor并更新图链接关系:清除endTensor的消费者，清除endTensor，将assemble的消费者连接到newView
     LogicalTensorPtr newViewTensor;
     if (endTensor->GetConsumers().empty()) {
