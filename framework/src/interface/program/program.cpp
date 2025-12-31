@@ -234,8 +234,8 @@ bool Program::BeginFunction(const std::string &funcName,
     if (functionmap_.find(funcMagicName) == functionmap_.end()) { // new function
         std::unique_ptr<Function> newFunc;
         if (graphType == GraphType::BLOCK_GRAPH) {
-            // Create KernelFunction for BLOCK_GRAPH
-            newFunc = std::make_unique<KernelFunction>(*this, funcMagicName, funcName, currentFunctionPtr_);
+            // Create BlockFunction for BLOCK_GRAPH
+            newFunc = std::make_unique<BlockFunction>(*this, funcMagicName, funcName, currentFunctionPtr_);
         } else {
             // Create regular Function for other graph types
             newFunc = std::make_unique<Function>(*this, funcMagicName, funcName, currentFunctionPtr_);

@@ -3387,10 +3387,10 @@ DefineProg::~DefineProg() {
 }
 
 //------------------------------------------------------------------------------------------------------
-//------------------------------------------- KernelFunction -------------------------------------------
+//------------------------------------------- BlockFunction -------------------------------------------
 //------------------------------------------------------------------------------------------------------
-// Default implementations for KernelFunction virtual functions
-// These should only be called on KernelFunction instances
+// Default implementations for BlockFunction virtual functions
+// These should only be called on BlockFunction instances
 namespace {
     static std::vector<OperationPtr> emptyOperationList;
     static SubfuncParam emptySubfuncParam;
@@ -3400,121 +3400,121 @@ namespace {
 }
 
 std::vector<OperationPtr> &Function::GetProgramOp() {
-    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "GetProgramOp() should only be called on KernelFunction");
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "GetProgramOp() should only be called on BlockFunction");
     return emptyOperationList;
 }
 
 void Function::SetProgramOp(const std::vector<OperationPtr> &operations) {
-    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "SetProgramOp() should only be called on KernelFunction");
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "SetProgramOp() should only be called on BlockFunction");
     (void)operations;
 }
 
 void Function::UpdateBelongToThis() {
-    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "UpdateBelongToThis() should only be called on KernelFunction");
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "UpdateBelongToThis() should only be called on BlockFunction");
 }
 
 void Function::ScheduleBy(const std::vector<Operation *> &newList, bool needRefresh) {
-    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "ScheduleBy() should only be called on KernelFunction");
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "ScheduleBy() should only be called on BlockFunction");
     (void)newList;
     (void)needRefresh;
 }
 
 const SubfuncParam &Function::GetParameter() const {
-    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "GetParameter() should only be called on KernelFunction");
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "GetParameter() should only be called on BlockFunction");
     return emptySubfuncParam;
 }
 
 SubfuncParam &Function::GetParameter() {
-    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "GetParameter() should only be called on KernelFunction");
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "GetParameter() should only be called on BlockFunction");
     return emptySubfuncParam;
 }
 
 void Function::SetParameter(const SubfuncParam &parameter) {
-    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "SetParameter() should only be called on KernelFunction");
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "SetParameter() should only be called on BlockFunction");
     (void)parameter;
 }
 
 int Function::GetProgramId() const {
-    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "GetProgramId() should only be called on KernelFunction");
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "GetProgramId() should only be called on BlockFunction");
     return -1;
 }
 
 void Function::SetProgramId(int programId) {
-    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "SetProgramId() should only be called on KernelFunction");
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "SetProgramId() should only be called on BlockFunction");
     (void)programId;
 }
 
 void Function::SetLeafFuncAttribute(const std::shared_ptr<LeafFuncAttribute> &attr) {
-    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "SetLeafFuncAttribute() should only be called on KernelFunction");
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "SetLeafFuncAttribute() should only be called on BlockFunction");
     (void)attr;
 }
 
 const std::shared_ptr<LeafFuncAttribute> &Function::GetLeafFuncAttribute() const {
-    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "GetLeafFuncAttribute() should only be called on KernelFunction");
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "GetLeafFuncAttribute() should only be called on BlockFunction");
     return emptyLeafFuncAttr;
 }
 
 std::shared_ptr<LeafFuncAttribute> &Function::GetLeafFuncAttribute() {
-    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "GetLeafFuncAttribute() should only be called on KernelFunction");
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "GetLeafFuncAttribute() should only be called on BlockFunction");
     return emptyLeafFuncAttr;
 }
 
 std::vector<std::vector<SymbolicScalar>> Function::NormalizeCoa(
     std::vector<int> &iOffset, std::vector<int> &oOffset) {
-    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "NormalizeCoa() should only be called on KernelFunction");
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "NormalizeCoa() should only be called on BlockFunction");
     (void)iOffset;
     (void)oOffset;
     return {};
 }
 
 void Function::GetOutcastSymbolicExpr(std::map<int, SymbolicScalar>& tabel) {
-    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "GetOutcastSymbolicExpr() should only be called on KernelFunction");
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "GetOutcastSymbolicExpr() should only be called on BlockFunction");
     (void)tabel;
 }
 
 std::pair<bool, Opcode> Function::IsAicpuSubFunction() const {
-    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "IsAicpuSubFunction() should only be called on KernelFunction");
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "IsAicpuSubFunction() should only be called on BlockFunction");
     return std::make_pair(false, Opcode::OP_UNKNOWN);
 }
 
 void Function::CreateLeafInAndOutCast(const LogicalTensorPtr &inOrOut, LogicalTensors &inOrOutList) const{
-    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "CreateLeafInAndOutCast() should only be called on KernelFunction");
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "CreateLeafInAndOutCast() should only be called on BlockFunction");
     (void)inOrOut;
     (void)inOrOutList;
 }
 
 GetTensorDataIODescDict Function::GetTensorDataForLeafGraph(){
-    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "GetTensorDataForLeafGraph() should only be called on KernelFunction");
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "GetTensorDataForLeafGraph() should only be called on BlockFunction");
     return {};
 }
 
 void Function::AppendIncast(LogicalTensorPtr tensor, int opmagic, int k){
-    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "AppendIncast() should only be called on KernelFunction");
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "AppendIncast() should only be called on BlockFunction");
     (void)tensor;
     (void)opmagic;
     (void)k;
 }
 
 void Function::AppendOutcast(LogicalTensorPtr tensor, int opmagic, int k){
-    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "AppendOutcast() should only be called on KernelFunction");
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "AppendOutcast() should only be called on BlockFunction");
     (void)tensor;
     (void)opmagic;
     (void)k;
 }
 
 DynParamInfo &Function::GetMutableDynParam(std::string dim){
-    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "GetMutableDynParam() should only be called on KernelFunction");
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "GetMutableDynParam() should only be called on BlockFunction");
     (void)dim;
     return emptyDynParamInfo;
 }
 
 void Function::InsertDynParam(std::string dim, DynParamInfo &info){
-    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "InsertDynParam() should only be called on KernelFunction");
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "InsertDynParam() should only be called on BlockFunction");
     (void)dim;
     (void)info;
 }
 
 const std::map<std::string, DynParamInfo> &Function::GetDynParamTable() const{
-    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "GetDynParamTable() should only be called on KernelFunction");
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "GetDynParamTable() should only be called on BlockFunction");
     return emptyDynParamTable;
 }

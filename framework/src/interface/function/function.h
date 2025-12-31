@@ -775,11 +775,11 @@ public:
     const std::unordered_set<std::string> &LoopIdxNameList() { return loopIdxNameList_; }
     bool InsertLoopIdxNameList(const std::string &idxName);
     //------------------------------------------------------------------------------------------------------
-    //------------------------------------------- KernelFunction -------------------------------------------
+    //------------------------------------------- BlockFunction -------------------------------------------
     //------------------------------------------------------------------------------------------------------
 
-    // Virtual functions for KernelFunction interface compatibility
-    // These functions allow calling KernelFunction methods through Function* pointer
+    // Virtual functions for BlockFunction interface compatibility
+    // These functions allow calling BlockFunction methods through Function* pointer
     virtual std::vector<OperationPtr> &GetProgramOp();
     virtual void SetProgramOp(const std::vector<OperationPtr> &operations);
     virtual void UpdateBelongToThis();

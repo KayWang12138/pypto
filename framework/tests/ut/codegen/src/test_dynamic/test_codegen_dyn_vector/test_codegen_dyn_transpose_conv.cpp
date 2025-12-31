@@ -72,10 +72,10 @@ void TestDynVnchwconvBody(std::vector<int64_t> shape, std::vector<int64_t> outSh
             }
         }
         DynParamInfo fakeParam = {4, 0, 0, DynParamInfoType::VALID_SHAPE, 0, SymbolicScalar(), false, ""};
-        subFunc.second->dynParamTable_.emplace("sym_21_dim_0", fakeParam);
-        subFunc.second->dynParamTable_.emplace("sym_21_dim_1", fakeParam);
-        subFunc.second->dynParamTable_.emplace("sym_21_dim_2", fakeParam);
-        subFunc.second->dynParamTable_.emplace("sym_21_dim_3", fakeParam);
+        subFunc.second->InsertDynParam("sym_21_dim_0", fakeParam);
+        subFunc.second->InsertDynParam("sym_21_dim_1", fakeParam);
+        subFunc.second->InsertDynParam("sym_21_dim_2", fakeParam);
+        subFunc.second->InsertDynParam("sym_21_dim_3", fakeParam);
     }
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
