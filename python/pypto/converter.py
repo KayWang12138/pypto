@@ -128,7 +128,6 @@ def _dtype_from(dtype: str) -> DataType:
         raise ValueError(f"Input torch.dtype is not supported. Got {dtype}")
     return pto_dtype
 
-
 def _torch_dtype_from(dtype: DataType) -> "torch.dtype":
     """
     convert the input into a torch.dtype
@@ -162,3 +161,42 @@ def _torch_dtype_from(dtype: DataType) -> "torch.dtype":
     if torch_dtype is None:
         raise ValueError(f"Input pypto.DataType is not supported. Got {dtype}")
     return torch_dtype
+
+
+def _gen_pto_tensor(input_tensors):
+    import torch
+    
+    _dtype_dict_to_torch = {
+        DataType.DT_FP16: torch.float16,
+        DataType.DT_BF16: torch.bfloat16,
+        DataType.DT_FP32: torch.float32,
+        DataType.DT_DOUBLE: torch.float64,
+        DataType.DT_INT8: torch.int8,
+        DataType.DT_UINT8: torch.uint8,
+        DataType.DT_INT16: torch.int16,
+        DataType.DT_UINT16: torch.uint16,
+        DataType.DT_INT32: torch.int32,
+        DataType.DT_UINT32: torch.uint32,
+        DataType.DT_INT64: torch.int64,
+        DataType.DT_UINT64: torch.uint64,
+        DataType.DT_BOOL: torch.bool,
+    }
+    torch_tensors = []
+    pto_tensors = []
+    for t in input_tensors:
+        torch_dtype = _dtype_dict_to_torch.get(t.dtype)
+        if torch_dtype is None:
+            raise ValueError(f"Input dtype is not supported. Got {t.dtype}")
+        tshape = t.shape if all([isinstance(s, int) for s in t.shape]) else t.ori_shape
+        torch_tensor = torch.zeros(tshape, dtype=torch_dtype)
+        pto_tensor = Tensor(shape=tshape,
+                            dtype=t.dtype,
+                            name=t.name,
+                            data_ptr=torch_tensor.data_ptr(),
+                            format=t.format,
+                            device=torch_tensor.device,
+                            ori_shape=tshape)
+
+        torch_tensors.append(torch_tensor)
+        pto_tensors.append(pto_tensor)
+    return pto_tensors, torch_tensors
