@@ -47,14 +47,13 @@ void ExecuteOpView(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
     ASSERT(ctx->ioperandDataViewList->size() == 1);
     auto &oop = ctx->ooperandInplaceDataViewList->at(0);
-    auto iop = ctx->ioperandDataViewList->at(0);
+    auto &iop = ctx->ioperandDataViewList->at(0);
     auto opAttr = std::static_pointer_cast<ViewOpAttribute>(ctx->op->GetOpAttribute());
     auto offset = ctx->opInter->EvaluateOffset(opAttr->GetFromOffset(), opAttr->GetFromDynOffset());
     if (oop->GetData() == iop->GetData()) {
         return;
     }
     calc::LogicalView(oop, iop, offset);
-
 }
 REGISTER_CALC_OP(OP_VIEW, Opcode::OP_VIEW, ExecuteOpView); 
 
