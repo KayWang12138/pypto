@@ -238,6 +238,48 @@ def sparse_flash_attention_quant_compute(query_nope, query_rope, key_nope_2d, ke
 ## 调用示例
 
 -   详见[deepseekv32_sparse_flash_attention_quant.py](deepseekv32_sparse_flash_attention_quant.py)
+
+
+# sparse_attention_antiquant
+
+## 功能说明
+
+sa_antiquant是在sfa_quant基础上做的 存8算16 优化。在sfa_quant场景中，key_nope_2d，key_rope_2d 和 k_nope_scales 分别是 int8，bf16 和 fp32 类型；在后续 attention 的计算上，会离散地存储这三个 tensor，需要调三次离散访存指令去分别调用进行反量化和 concat；而 sa_antiquant 会将同一个 token 的 nope，rope 和 nope_scale 按尾轴合并在一起，仅需一条离散访存指令，总计可以节省 b * s * topk 次离散访存命令，节省搬运指令，提升搬运效率。
+
+## 函数原型
+
+```
+def sparse_attention_antiquant_compute(query_nope, query_rope, nope_cache, topk_indcies, block_table, 
+		kv_act_seqs, attention_out, nq, n_kv, softmax_scale, topk, block_size, max_blocknum_perbatch,
+        tile_config):
+```
+
+## 参数说明
+
+-   **query_nope**（`Tensor`）：必选参数，表示MLA结构中的query的rope信息，不支持非连续的 Tensor，数据格式支持ND，数据类型支持`bfloat16`，shape为[t * n_q, kv_lora_rank]。 
+-   **query_rope**（`Tensor`）：必选参数，表示MLA结构中的query的nope信息，不支持非连续的 Tensor，数据格式支持ND，数据类型支持`bfloat16`，shape为[t * n_q, rope_dim]。 
+-   **nope_cache**（`Tensor`）：必选参数，表示MLA结构中的key的反量化缩放因子，不支持非连续的 Tensor，数据格式支持ND，数据类型支持`int8`，shape为[block_num * block_size, kv_lora_rank + rope_dim * 2 + 4 * scale_size]，其中scale_size=4。 
+-   **topk_indcies**（`Tensor`）：必选参数，表示每个token选出的topk索引，必选参数，不支持非连续的 Tensor，数据格式支持ND，数据类型支持`int32`，shape为[t, n_kv * selected_count]。
+-   **block_table**（`Tensor`）：必选参数，表示PageAttention中KV存储使用的block映射表，不支持非连续的 Tensor，数据格式支持ND，数据类型支持`int32`，shape为[b, s2_max/block_size]，其中第二维表示长度不小于所有batch中最大的s2对应的block数量，即s2_max / block_size向上取整。
+-   **kv_act_seqs**（`Tensor`）：必选参数，数据格式支持ND,表示不同Batch中`key`和`value`的有效token数，数据类型支持`int32`,shape为[b]。
+-   **nq**（`int`）：必选参数，代表缩放系数，作为query和key矩阵乘后Muls的scalar值，数据类型支持float。
+-   **n_kv**（`int`）：必选参数，代表缩放系数，作为query和key矩阵乘后Muls的scalar值，数据类型支持float。
+-   **softmax_scale**（`float`）：必选参数，代表缩放系数，作为query和key矩阵乘后Muls的scalar值，数据类型支持float。
+-   **topk**（`int`）：必选参数，代表选取的token个数，数据类型支持int。
+-   **block_size**（`int`）：必选参数，代表sparse阶段的block大小，数据类型支持int。
+-   **max_blocknum_perbatch**（`int`）：必选参数，每个batch最大的blocksize数量，数据类型支持int。
+-   **tile_config**（`class SaTileShapeConfig`）：TileShapeConfig配置结构体，表示tile切分配置，配置项数据类型支持int。
+
+
+## 返回值说明
+
+-   **attention_out**（`Tensor`）：公式中的输出。数据格式支持ND，数据类型支持`bfloat16`，输出shape[b * s1 * n_q, kv_lora_rank]。
+
+## 调用示例
+
+-   详见[deepseekv32_sparse_attention_antiquant.py](deepseekv32_sparse_attention_antiquant.py)
+
+
 # mla_indexer_polog_quant 
 
 ## 功能说明
@@ -307,6 +349,9 @@ def mla_indexer_prolog_quant_d(token_x, mla_w_dq, mla_w_uq_qr, mla_dequant_scale
 ## 调用示例
 
 - 详见 [deepseekv32_mla_indexer_prolog_quant.py](deepseekv32_mla_indexer_prolog_quant.py)
+
+# lightning indexer
+
 ## 功能说明
 
 LightningIndexer基于一系列操作得到每一个 token 对应的 Top-$k$ 个位置。对于某个 token 对应的 Index Query $Q_{index}\in\R^{g\times d}$，给定上下文 Index Key $K_{index}\in\R^{S_{k}\times d},W\in\R^{g\times 1}$，其中 $g$ 为 GQA 对应的 group size，$d$ 为每一个头的维度，$S_{k}$ 是上下文的长度，LightningIndexer的具体计算公式如下：

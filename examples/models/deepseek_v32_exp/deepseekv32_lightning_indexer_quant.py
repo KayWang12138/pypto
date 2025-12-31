@@ -15,8 +15,8 @@ import logging
 import math
 import torch
 import numpy as np
-from dataclasses import dataclass
 import pypto
+from dataclasses import dataclass
 
 
 @dataclass
@@ -267,6 +267,7 @@ def lightning_indexer_compute(input_data_map, params):
 
 def topk_idx_compare(t: torch.Tensor, t_ref: torch.Tensor, name, atol, error_count_threshold):
     part_result_dict = {}
+    err_msg = None
 
     # 按元素遍历比较（参考1的逐元素比较逻辑）
     for idx, (exp, act) in enumerate(zip(t.flatten().tolist(), t_ref.flatten().tolist())):
@@ -303,9 +304,9 @@ def topk_idx_compare(t: torch.Tensor, t_ref: torch.Tensor, name, atol, error_cou
         # 判断是否超出阈值
         if error_count > int(error_count_threshold * atol):
             precision = "FAIL"
-            print(f"compare fail: {name} "f"error_count: {error_count}, error_count_threshold: {error_count_threshold}")
+            err_msg = f"compare fail: {name}, error_count: {error_count}, error_count_threshold: {error_count_threshold}"
             break
-    assert precision == "PASS", f"{name} comparison failed with precision: {precision}"
+    assert precision == "PASS", err_msg
 
 
 def lightning_indexer(case_name: str) -> bool:
@@ -333,7 +334,6 @@ def lightning_indexer(case_name: str) -> bool:
     block_num = sum([(s + block_size - 1) // block_size for s in act_seq])  # 总块数
     max_block_num = (s2 + block_size - 1) // block_size  # 最大块数
     selected_count = 2048  # TopK选择数量
-    error_count_threshold = 100  # 误差阈值
 
     # 构建参数字典
     params = {
