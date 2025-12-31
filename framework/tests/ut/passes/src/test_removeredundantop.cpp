@@ -250,45 +250,6 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest4) {
 }
 
 /*
-TESTRemoveDummyViewComm
-inCast{8,16}->view->ubTensor1{4, 16}->wait_flag->outCast1{4,16}
-
-inCast{8,16}->wait_flag->outCast1{4,16}
-*/
-TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest5) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestRemoveRedundantOp", "TestRemoveRedundantOp", nullptr);
-    EXPECT_TRUE(currFunctionPtr != nullptr);
-
-    // Prepare the graph
-    std::vector<int64_t> shape1 = {kNumEight, kNumExpFour};
-    std::vector<int64_t> shape2 = {kNumFour, kNumExpFour};
-    auto inCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
-    auto ubTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
-    auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
-
-    currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast}, {ubTensor});
-    auto &wait_flag = currFunctionPtr->AddOperation(Opcode::OP_COMM_WAIT_FLAG, {ubTensor}, {outCast});
-
-    currFunctionPtr->inCasts_.push_back(inCast);
-    currFunctionPtr->outCasts_.push_back(outCast);
-
-    RemoveRedundantOp removeredundantpass;
-    EXPECT_NE(removeredundantpass.PostCheck(*currFunctionPtr), SUCCESS);
-    EXPECT_EQ(removeredundantpass.RunOnFunction(*currFunctionPtr), SUCCESS);
-    EXPECT_EQ(removeredundantpass.PostCheck(*currFunctionPtr), SUCCESS);
-
-    uint32_t view_num = kNumZero;
-    for (auto &op : currFunctionPtr->Operations()) {
-        if (op.GetOpcode() == Opcode::OP_VIEW) {
-            ++view_num;
-        }
-    }
-    EXPECT_EQ(view_num, kNumZero);
-    EXPECT_EQ(wait_flag.GetInputOperandSize(), kSizeOne);
-    EXPECT_EQ(wait_flag.GetInputOperand(kSizeZero), inCast);
-}
-
-/*
 TESTRemoveDummyRegCopy
 inCast{8,16}/{a0,16}->regcopy->ubTensor1{8,16}/{a1,16}->regcopy->ubTensor2{16,8}/{a1,16}->exp->outCast1{16,8}
 inCast{8,16}/{a0,16}->regcopy->ubTensor1{8,16}/{a1,16}->exp->outCast1{16,8}

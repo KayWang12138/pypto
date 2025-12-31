@@ -200,13 +200,6 @@ Status ProcessView(const Operation &op, Function &function, bool &needToDelete) 
         needToDelete = true;
         APASS_LOG_DEBUG_F(Elements::Operation, "Delete Redundant OP_VIEW opmagic: %d", op.opmagic);
     }
-    if (out->GetConsumers().size() == 1) {
-        auto childOp = *(out->GetConsumers().begin());
-        if (childOp->GetOpcode() == Opcode::OP_COMM_WAIT_FLAG) {
-            childOp->ReplaceInput(in, out);
-            needToDelete = true;
-        }
-    }
     return SUCCESS;
 }
 
