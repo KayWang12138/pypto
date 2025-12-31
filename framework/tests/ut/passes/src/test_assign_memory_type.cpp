@@ -260,8 +260,8 @@ TEST_F(AssignMemoryTypeTest, TestVecToCubeV2) {
                 CheckConvertOp(op, true);
             }
         }
-        constexpr int expextedConvertNum = 6;
-        EXPECT_EQ(convertNum, expextedConvertNum) << "6 operations should be Convert";
+        constexpr int expextedConvertNum = 12;
+        EXPECT_EQ(convertNum, expextedConvertNum) << "12 operations should be Convert";
     }
 }
 
@@ -318,8 +318,8 @@ TEST_F(AssignMemoryTypeTest, TestCubeToCube) {
             CheckConvertOp(op, true);
             convertNum++;
         }
-        constexpr int expextedConvertNum = 4;
-        EXPECT_EQ(convertNum, expextedConvertNum) << "4 operations should be Convert";
+        constexpr int expextedConvertNum = 8;
+        EXPECT_EQ(convertNum, expextedConvertNum) << "8 operations should be Convert";
     }
 }
 
@@ -377,8 +377,8 @@ TEST_F(AssignMemoryTypeTest, TestCubeToCubeV2) {
             CheckConvertOp(op, true);
             convertNum++;
         }
-        constexpr int expextedConvertNum = 8;
-        EXPECT_EQ(convertNum, expextedConvertNum) << "8 operations should be Convert";
+        constexpr int expextedConvertNum = 24;
+        EXPECT_EQ(convertNum, expextedConvertNum) << "24 operations should be Convert";
     }
 }
 
