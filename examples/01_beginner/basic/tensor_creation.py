@@ -231,7 +231,7 @@ def test_full_basic(device_id = None, run_mode: str = "npu"):
     dtype = torch.float32
     expected_a = torch.tensor([[1.0, 1.0], [1.0, 1.0]], dtype=dtype, device=device)
 
-    out_torch = create_full_op_kernel(shape, dtype, fill_value, run_mode)(torch.tensor([0], dtype=dtype, device=device))
+    out_torch = create_full_op_kernel(shape, fill_value, run_mode)(torch.tensor([0], dtype=dtype, device=device))
     print(f"Output a: {out_torch}")
     print(f"Expected a: {expected_a}")
     if run_mode == "npu":
@@ -243,7 +243,7 @@ def test_full_basic(device_id = None, run_mode: str = "npu"):
     dtype = torch.int32
     expected_b = torch.tensor([[1, 1], [1, 1]], dtype=dtype, device=device)
 
-    out_torch = create_full_op_kernel(shape, dtype, fill_value, run_mode)(torch.tensor([0], dtype=dtype, device=device))
+    out_torch = create_full_op_kernel(shape, fill_value, run_mode)(torch.tensor([0], dtype=dtype, device=device))
     print(f"Output b: {out_torch}")
     print(f"Expected b: {expected_b}")
     if run_mode == "npu":
