@@ -8,9 +8,9 @@
 
 namespace pto {
 
-void BlockStatement::Print(std::ostream& os, int indent) const {
+void OpStatement::Print(std::ostream& os, int indent) const {
     PrintIndent(os, indent);
-    os << "statement.block {\n";
+    os << "statement.op {\n";
 
     // Print linear operations.
     for (const auto& op : operations_) {

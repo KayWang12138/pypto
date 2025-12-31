@@ -105,12 +105,12 @@ TEST(IRTEST, TestBuilder) {
 
         ASSERT_EQ(builder.GetCurrentFunction(), func.get());
         ASSERT_EQ(builder.GetCurrentScope(), &func->GetScope());
-        ASSERT_EQ(builder.GetCurrentBlock(), func->GetScope().GetStatements()[0].get());
+        ASSERT_EQ(builder.GetCurrentOpStmt(), func->GetScope().GetStatements()[0].get());
     }
 
     ASSERT_EQ(builder.GetCurrentFunction(), nullptr);
     ASSERT_EQ(builder.GetCurrentScope(), nullptr);
-    ASSERT_EQ(builder.GetCurrentBlock(), nullptr);
+    ASSERT_EQ(builder.GetCurrentOpStmt(), nullptr);
 
     // ===== Program attributes =====
     module.Attributes()["arch"] = "\"PTOv2\"";
@@ -150,7 +150,7 @@ TEST(IRTEST, TestControlFlow) {
 
     {
         auto funcGuard = builder.EnterFunctionBody(*func);
-        auto& blk = builder.CreateBlockStmt();
+        auto& opStmt = builder.CreateOpStmt();
 
         TensorCreateSpec TCSpec{tensorShape, DataType::FP32};
         auto resultX = builder.CreateOp(

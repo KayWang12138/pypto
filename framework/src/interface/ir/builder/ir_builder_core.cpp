@@ -31,15 +31,15 @@ std::shared_ptr<Function> IRBuilder::CreateFunction(
     return fn;
 }
 
-BlockStatement& IRBuilder::GetOrCreateActiveBlock() {
-    if (!scope_) throw std::runtime_error("IRBuilder::GetOrCreateActiveBlock: scope is null");
-    if (block_) return *block_;
+OpStatement& IRBuilder::GetOrCreateActiveOpStmt() {
+    if (!scope_) throw std::runtime_error("IRBuilder::GetOrCreateActiveOpStmt: scope is null");
+    if (opStmt_) return *opStmt_;
 
-    // Create a new block statement at current scope tail
-    auto blk = std::make_shared<BlockStatement>();
-    auto& ref = *blk;
-    scope_->AddStatement(std::move(blk));
-    block_ = &ref;
+    // Create a new op statement at current scope tail
+    auto opStmt = std::make_shared<OpStatement>();
+    auto& ref = *opStmt;
+    scope_->AddStatement(std::move(opStmt));
+    opStmt_ = &ref;
     return ref;
 }
 } // namespace pto

@@ -7,9 +7,9 @@
 namespace pto {
 
 Operation& IRBuilder::Emit(OperationPtr op) {
-    auto& blk = GetOrCreateActiveBlock();
-    blk.Operations().push_back(std::move(op));
-    return *blk.Operations().back();
+    auto& opStmt = GetOrCreateActiveOpStmt();
+    opStmt.Operations().push_back(std::move(op));
+    return *opStmt.Operations().back();
 }
 
 ValuePtrs IRBuilder::CreateOp(Opcode opcode,

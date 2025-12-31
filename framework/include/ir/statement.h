@@ -15,7 +15,7 @@ namespace pto {
 
 // Kinds of statement nodes supported in the prototype.
 enum class StatementKind {
-    Block,
+    Op,
     For,
     If,
     Yield,
@@ -41,9 +41,9 @@ public:
 using StatementPtr = std::shared_ptr<Statement>;
 
 // A linear basic block of operations with nested statements as children.
-class BlockStatement : public Statement {
+class OpStatement : public Statement {
 public:
-    StatementKind GetKind() const override { return StatementKind::Block; }
+    StatementKind GetKind() const override { return StatementKind::Op; }
 
     // Free-form textual operations representing concrete IR ops.
     std::vector<OperationPtr>& Operations() { return operations_; }
@@ -55,7 +55,7 @@ private:
     std::vector<OperationPtr> operations_;
 };
 
-using BlockStatementPtr = std::shared_ptr<BlockStatement>;
+using OpStatementPtr = std::shared_ptr<OpStatement>;
 
 // A generic scope terminator that returns values to the parent.
 class YieldStatement : public Statement {

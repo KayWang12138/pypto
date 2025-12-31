@@ -48,7 +48,7 @@ TEST(IRTEST, TestTensorOperation){
     func->GetScope().SetEnvVar(c2->GetName(), c2);
     func->GetScope().SetEnvVar(c3->GetName(), c3);
 
-    auto block = std::make_shared<BlockStatement>();
+    auto block = std::make_shared<OpStatement>();
 
     TensorCreateSpec TCSpec{tensorShape, DataType::FP32};
     block->Operations().push_back(

@@ -39,10 +39,10 @@ public:
 
     Function* GetCurrentFunction() const { return func_; }
     Scope* GetCurrentScope() const { return scope_; }
-    BlockStatement* GetCurrentBlock() const { return block_; }
+    OpStatement* GetCurrentOpStmt() const { return opStmt_; }
 
     // ===== Insertion point =====
-    BlockStatement& GetOrCreateActiveBlock();
+    OpStatement& GetOrCreateActiveOpStmt();
     friend class ScopeGuard;
 
     // ===== Scope registration =====
@@ -68,7 +68,7 @@ public:
                     std::string name = "");
 
     // ===== Statement building (still belongs to IRBuilder) =====
-    BlockStatement& CreateBlockStmt();
+    OpStatement& CreateOpStmt();
 
     ForStatement& CreateForStmt(std::shared_ptr<Scalar> iv,
                                 std::shared_ptr<Scalar> start,
@@ -93,7 +93,7 @@ private:
     ProgramModule* module_{nullptr};
     Function* func_{nullptr};
     Scope* scope_{nullptr};
-    BlockStatement* block_{nullptr};
+    OpStatement* opStmt_{nullptr};
 };
 
 } // namespace pto
