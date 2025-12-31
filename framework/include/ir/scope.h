@@ -35,12 +35,29 @@ public:
     // Add a Statement to this scope.
     void AddStatement(StatementPtr stmt) { statements_.push_back(std::move(stmt)); }
 
+    // Find a Value object by name in this scope and parent scopes.
+    // Returns nullptr if not found.
+    ValuePtr FindValue(const std::string& name) const;
+    // Romeve a Value in this scope
+    void RemoveValue(ValuePtr val);
+    
+    // Get all Value objects from ancestor scopes (excluding current scope).
+    // Returns a map of variable name -> ValuePtr from parent, grandparent, etc. scopes.
+    std::unordered_map<std::string, ValuePtr> GetAncestorValues() const;
+
+    // ===== Environment table management (for SSA variable tracking) =====
+    // Environment table: maps variable name (string) to latest SSA ValuePtr
+    // This is used to track the latest version of variables across scopes
+    
     // Set a variable in the environment table (by name)
     void SetEnvVar(const std::string& name, ValuePtr value);
     
     // Get a variable from the environment table (by name), searching up the scope chain
     ValuePtr GetEnvVar(const std::string& name) const;
     
+    // Get the environment table for this scope
+    std::unordered_map<std::string, ValuePtr>& GetEnvTable() { return envTable_; }
+    const std::unordered_map<std::string, ValuePtr>& GetEnvTable() const { return envTable_; } 
 
 private:
     Scope* parent_;                         // Pointer to parent scope (nullptr for root)

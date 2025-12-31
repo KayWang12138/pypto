@@ -28,15 +28,7 @@ std::shared_ptr<Function> IRBuilder::CreateFunction(
         module_->SetProgramEntry(fn);
     }
 
-    // don't set directly, use EnterFunctionBody() if you want to go into this function
-    // SetCurrentFunction(*fn);
     return fn;
-}
-
-void IRBuilder::SetCurrentFunction(Function& f) {
-    func_ = &f;
-    scope_ = &f.GetScope();
-    block_ = nullptr;
 }
 
 BlockStatement& IRBuilder::GetOrCreateActiveBlock() {

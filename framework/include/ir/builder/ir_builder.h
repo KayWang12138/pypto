@@ -37,8 +37,6 @@ public:
         FunctionSignature sig,
         bool setAsEntry = false);
 
-    void SetCurrentFunction(Function& f);
-
     Function* GetCurrentFunction() const { return func_; }
     Scope* GetCurrentScope() const { return scope_; }
     BlockStatement* GetCurrentBlock() const { return block_; }
@@ -72,10 +70,24 @@ public:
     // ===== Statement building (still belongs to IRBuilder) =====
     BlockStatement& CreateBlockStmt();
 
+    ForStatement& CreateForStmt(std::shared_ptr<Scalar> iv,
+                                std::shared_ptr<Scalar> start,
+                                std::shared_ptr<Scalar> end,
+                                std::shared_ptr<Scalar> step);
+
+    IfStatement& CreateIfStmt(std::string cond);
+
+    YieldStatement& CreateYield(ValuePtrs values);
+
     ReturnStatement& CreateReturn(ValuePtrs values);
 
-    // Enter nested scopes (optional sugar)
+    // Enter nested scopes
     std::shared_ptr<ScopeGuard> EnterFunctionBody(Function& func);
+    std::shared_ptr<ScopeGuard> EnterForBody(ForStatement& st);
+    std::shared_ptr<ScopeGuard> EnterIfThen(IfStatement& st);
+    std::shared_ptr<ScopeGuard> EnterIfElse(IfStatement& st);
+    void ExitIfStatement(IfStatement& st);
+    void ExitForStatement(ForStatement& st);
 
 private:
     ProgramModule* module_{nullptr};
