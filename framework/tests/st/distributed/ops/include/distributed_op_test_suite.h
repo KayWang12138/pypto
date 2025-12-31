@@ -25,17 +25,19 @@ struct OpTestParam {
     int rankId;
 };
 
+void TestMoeCombine(OpTestParam &testParam);
 void TestShmemMoeCombine(OpTestParam &testParam);
 void TestAllGatherAttentionPostReducescatter(OpTestParam &testParam);
 template<typename T>
 void TestDynAllGather(OpTestParam &testParam);
 template<typename T>
 void TestShmemReduceScatter(OpTestParam &testParam);
+void TestDynAllGatherMatmulReducescatter(OpTestParam &testParam);
 template<typename T, bool useTwoShot>
 void TestShmemAllReduce(OpTestParam &testParam);
-void TestShmemMoeDispatch(OpTestParam &testParam);
 template<typename T>
-void TestShmemAllReduceAddAllReduce(OpTestParam &testParam);
+void TestShmemAddAndAllReduce(OpTestParam &testParam);
+void TestShmemMoeDispatch(OpTestParam &testParam);
 } // namespace Distributed
 } // namespace npu::tile_fwk
 

@@ -79,7 +79,10 @@ void TiledShmemSignal(Function &function, const TileShape &tileShape,
 void TiledShmemWaitUntil(Function &function, const TileShape &tileShape,
     const std::vector<std::shared_ptr<LogicalTensor>> &iOperand,
     const std::vector<std::shared_ptr<LogicalTensor>> &oOperand, const Operation &op);
-void TiledShmemSet(Function &function, const TileShape &tileShape,
+void TiledShmemClearSignal(Function &function, const TileShape &tileShape,
+    const std::vector<std::shared_ptr<LogicalTensor>> &iOperand,
+    const std::vector<std::shared_ptr<LogicalTensor>> &oOperand, const Operation &op);
+void TiledShmemBarrier(Function &function, const TileShape &tileShape,
     const std::vector<std::shared_ptr<LogicalTensor>> &iOperand,
     const std::vector<std::shared_ptr<LogicalTensor>> &oOperand, const Operation &op);
 void TiledShmemReduce(Function &function, const TileShape &tileShape,

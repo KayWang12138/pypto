@@ -45,15 +45,6 @@ public:
     void TearDown() override {}
 };
 
-std::string GetFunctionRawName(const std::string& functionName)
-{
-    std::string functionRawName = FUNCTION_PREFIX + functionName + SUB_FUNC_SUFFIX;
-#if ENABLE_HIDDENLOOP
-    functionRawName += HIDDEN_FUNC_SUFFIX;
-#endif
-    return functionRawName;
-}
-
 TEST_F(TestDistributedShmemImpl, TestShmemAllGather)
 {
     const char *group = "hcom123";
@@ -67,8 +58,11 @@ TEST_F(TestDistributedShmemImpl, TestShmemAllGather)
         ShmemAllGather(in, barrierDummy, group, out);
     }
 
-    std::string functionRawName = GetFunctionRawName("L0");
-    auto function = Program::GetInstance().GetFunctionByRawName(functionRawName);
+#if ENABLE_HIDDENLOOP
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "L0" + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
+#else
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "L0" + SUB_FUNC_SUFFIX);
+#endif
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
@@ -87,8 +81,11 @@ TEST_F(TestDistributedShmemImpl, TestShmemReduceScatter)
         ShmemReduceScatter(in, group, DistReduceType::DIST_REDUCE_ADD, out);
     }
 
-    std::string functionRawName = GetFunctionRawName("RS");
-    auto function = Program::GetInstance().GetFunctionByRawName(functionRawName);
+#if ENABLE_HIDDENLOOP
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "RS" + SUB_FUNC_SUFFIX + "_hiddenfunc0");
+#else
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "RS" + SUB_FUNC_SUFFIX);
+#endif
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
@@ -107,8 +104,11 @@ TEST_F(TestDistributedShmemImpl, TestTwoShotShmemAllReduce)
         TwoShotShmemAllReduce(in, group, out);
     }
 
-    std::string functionRawName = GetFunctionRawName("TowShotAllReduce");
-    auto function = Program::GetInstance().GetFunctionByRawName(functionRawName);
+#if ENABLE_HIDDENLOOP
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "L0" + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
+#else
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "L0" + SUB_FUNC_SUFFIX);
+#endif
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
@@ -127,29 +127,11 @@ TEST_F(TestDistributedShmemImpl, TestOneShotShmemAllReduce)
         OneShotShmemAllReduce(in, group, out);
     }
 
-    std::string functionRawName = GetFunctionRawName("OneShotAllReduce");
-    auto function = Program::GetInstance().GetFunctionByRawName(functionRawName);
-    npu::tile_fwk::CodeGenCtx ctx;
-    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
-    codeGen.GenCode(*function, {});
-}
-
-TEST_F(TestDistributedShmemImpl, TestShmemSet)
-{
-    Tensor predToken(DT_INT32, {1, 1}, "predToken");
-    Tensor in(DT_BF16, {4, 1, 256, 102400}, "in");
-    Tensor out(DT_INT32, {1, 1}, "out");
-
-    std::string functionName = "ShmemSet";
-    FUNCTION(functionName + "Main", {in}, {out}) {
-        LOOP(functionName, FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
-            (void)index;
-            out = ShmemSet(predToken, in);
-        }
-    }
-
-    std::string functionRawName = GetFunctionRawName(functionName);
-    auto function = Program::GetInstance().GetFunctionByRawName(functionRawName);
+#if ENABLE_HIDDENLOOP
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "L0" + SUB_FUNC_SUFFIX + "_hiddenfunc0");
+#else
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "L0" + SUB_FUNC_SUFFIX);
+#endif
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
