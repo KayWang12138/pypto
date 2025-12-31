@@ -19,18 +19,18 @@
 
 namespace npu::tile_fwk {
 
-// KernelFunction is the dedicated subtype for BLOCK_GRAPH graphs.
+// BlockFunction is the dedicated subtype for BLOCK_GRAPH graphs.
 // It contains members and methods specific to kernel (block graph) functions.
-class KernelFunction : public Function {
+class BlockFunction : public Function {
 public:
-    KernelFunction(const Program &belongTo, const std::string &funcMagicName,
+    BlockFunction(const Program &belongTo, const std::string &funcMagicName,
         const std::string &funcRawName, Function *parentFunc);
 
-    virtual ~KernelFunction() = default;
-    KernelFunction(const KernelFunction &other) = delete;
-    KernelFunction(KernelFunction &&other) = delete;
-    KernelFunction &operator=(const KernelFunction &other) = delete;
-    KernelFunction &operator=(KernelFunction &&other) = delete;
+    virtual ~BlockFunction() = default;
+    BlockFunction(const BlockFunction &other) = delete;
+    BlockFunction(BlockFunction &&other) = delete;
+    BlockFunction &operator=(const BlockFunction &other) = delete;
+    BlockFunction &operator=(BlockFunction &&other) = delete;
 
     std::vector<OperationPtr> &GetProgramOp() override;
     void SetProgramOp(const std::vector<OperationPtr> &operations) override;

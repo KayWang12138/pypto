@@ -79,14 +79,14 @@ TEST_F(TestCodegenDynBinaryBrc, TestMulDynamic) {
             }
         }
         DynParamInfo fakeParam = {3, 0, 0, DynParamInfoType::VALID_SHAPE, 0, SymbolicScalar(), false, ""};
-        subFunc.second->dynParamTable_.emplace("sym_18_dim_0", fakeParam);
-        subFunc.second->dynParamTable_.emplace("sym_18_dim_1", fakeParam);
-        subFunc.second->dynParamTable_.emplace("sym_19_dim_0", fakeParam);
-        subFunc.second->dynParamTable_.emplace("sym_19_dim_1", fakeParam);
-        subFunc.second->dynParamTable_.emplace("sym_32_dim_0", fakeParam);
-        subFunc.second->dynParamTable_.emplace("sym_32_dim_1", fakeParam);
-        subFunc.second->dynParamTable_.emplace("sym_42_dim_0", fakeParam);
-        subFunc.second->dynParamTable_.emplace("sym_42_dim_1", fakeParam);
+        subFunc.second->InsertDynParam("sym_18_dim_0", fakeParam);
+        subFunc.second->InsertDynParam("sym_18_dim_1", fakeParam);
+        subFunc.second->InsertDynParam("sym_19_dim_0", fakeParam);
+        subFunc.second->InsertDynParam("sym_19_dim_1", fakeParam);
+        subFunc.second->InsertDynParam("sym_32_dim_0", fakeParam);
+        subFunc.second->InsertDynParam("sym_32_dim_1", fakeParam);
+        subFunc.second->InsertDynParam("sym_42_dim_0", fakeParam);
+        subFunc.second->InsertDynParam("sym_42_dim_1", fakeParam);
     }
 
     npu::tile_fwk::CodeGenCtx ctx;
