@@ -60,7 +60,9 @@ def get_out_put_path():
     return None
 
 
-def device_run(is_run_add, device_id):
+def device_run(is_run_add):
+    device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
+    torch.npu.set_device(int(device_id))
     tiling = 32
     n, m = tiling * 1, tiling * 1
 
@@ -94,10 +96,11 @@ def device_run(is_run_add, device_id):
 
     output_path = get_out_put_path()
     assert output_path
+    merged_swimlane, error = safe_json_load(os.path.join(output_path, 'merged_swimlane.json'))
+    assert not error
+    assert "traceEvents" in merged_swimlane
 
 
 def test_debug_mode():
-    device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
-    torch.npu.set_device(int(device_id))
-    device_run(True, device_id)
-    device_run(False, device_id)
+    device_run(True)
+    device_run(False)
