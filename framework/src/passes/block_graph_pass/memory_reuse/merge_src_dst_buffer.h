@@ -49,6 +49,7 @@ private:
 
     std::map<int, std::set<int>> tensorConsumers_;
     std::map<int, int> tensorMaxSize_;
+    std::set<int> hasReusedL0Tensors_;
 };
 
 class SrcDstBufferMerge : public Pass {
