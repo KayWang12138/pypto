@@ -220,31 +220,20 @@ Status ConvertInserter::RecordConflict(Function &function) {
             std::map<MemoryType, std::set<Operation *>> tobeMap = conflictMap.at(oOperand->magic);
             for (const auto &item : tobeMap) {
                 MemoryType requiredMemoryType = item.first;
+                std::set<Operation *> consumers = item.second;
                 if (requiredMemoryType == oOperand->GetMemoryTypeOriginal()) {
                     continue;
                 }
-                std::set<Operation *> consumers = item.second;
-                //step3：决定目标memorytype
-                APASS_LOG_DEBUG_F(Elements::Operation, "Operation %s[%d] has output %d ori and tobe conflict.",
-                    op.GetOpcodeStr().c_str(), op.GetOpMagic(), oOperand->magic);
-                bool crossCore = CrossCore(oOperand->GetMemoryTypeOriginal(), requiredMemoryType);
-                bool producedByAssemble = isAllProducerAssemble(oOperand);
-                if (producedByAssemble && crossCore) {
-                    oOperand->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, true);
-                    oOperand->SetMemoryTypeToBe(oOperand->GetMemoryTypeOriginal());
-                }
-
-                bool canSetBoth = isAllConsumersValid(consumers);
-                if (canSetBoth && crossCore) {
-                    requiredMemoryType = MEM_DEVICE_DDR;
-                }
+                
+                //step3：处理特殊生产者消费者场景
+                ProcessSpecialProducersOrConsumers(op, oOperand, consumers, requiredMemoryType);
                 if (requiredMemoryType == oOperand->GetMemoryTypeOriginal()) {
                     continue;
                 }
 
                 //step4:构造转换路径
                 std::vector<MemoryType> paths;
-                Status status = ConstructPath(oOperand->GetMemoryTypeOriginal(),requiredMemoryType,paths,oOperand,op);
+                Status status = ProcessConvertPath(op, oOperand, requiredMemoryType, paths);
                 if (status != SUCCESS) {return status;}
                 //step5：记录需要插入的Convert Op
                 auto output = RecordInsertConvertOp(oOperand,paths,function,op);
@@ -256,6 +245,63 @@ Status ConvertInserter::RecordConflict(Function &function) {
                 visitedTensor.push_back(oOperand->magic);
             }
         }
+    }
+    return SUCCESS;
+}
+
+//特殊场景处理：生成者均为Assemble或者消费者均为View/Assemble，且mem路径中经过DDR
+void ConvertInserter::ProcessSpecialProducersOrConsumers(const Operation &op, const std::shared_ptr<LogicalTensor> &oOperand,
+    std::set<Operation *> &consumers, MemoryType &requiredMemoryType) {
+    //case1:当tensor的生产者都是assemble，并且tensor的mem路径需要经过DDR，则将tensor的ori刷成DDR
+    APASS_LOG_DEBUG_F(Elements::Operation, "Operation %s[%d] has output %d ori and tobe conflict.",
+        op.GetOpcodeStr().c_str(), op.GetOpMagic(), oOperand->magic);
+    bool crossCore = CrossCore(oOperand->GetMemoryTypeOriginal(), requiredMemoryType);
+    bool producedByAssemble = isAllProducerAssemble(oOperand);
+    if (producedByAssemble && crossCore) {
+        oOperand->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, true);
+        oOperand->SetMemoryTypeToBe(oOperand->GetMemoryTypeOriginal());
+    }
+    //case2:当tensor的消费者都是view或者assemble，并且tensor的mem路径需要经过DDR时，将tensor的tobe刷成DDR
+    bool canSetBoth = isAllConsumersValid(consumers);
+    if (canSetBoth && crossCore) {
+        requiredMemoryType = MEM_DEVICE_DDR;
+    }
+}
+
+bool ConvertInserter::IsNotValidDataType(const std::shared_ptr<LogicalTensor> &firstCVOutput) const {
+    if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510) {
+        //A2/A3 L0C1L1仅支持以下数据类型：S4/B8/F16/BF16/S16
+        if(firstCVOutput->Datatype() != DT_INT4 && firstCVOutput->Datatype() != DT_INT8 && firstCVOutput->Datatype() != DT_UINT8 && 
+           firstCVOutput->Datatype() != DT_FP16 && firstCVOutput->Datatype() != DT_BF16 && firstCVOutput->Datatype() != DT_INT16 ) {
+            return true;
+        }
+    } else {
+        //A5 L0C1L1仅支持以下数据类型：S4/B8/F16/BF16/HF8/FP8/FP32
+        if(firstCVOutput->Datatype() != DT_INT4 && firstCVOutput->Datatype() != DT_INT8 && firstCVOutput->Datatype() != DT_UINT8 &&
+           firstCVOutput->Datatype() != DT_FP16 && firstCVOutput->Datatype() != DT_BF16 && firstCVOutput->Datatype() != DT_HF8 &&
+           firstCVOutput->Datatype() != DT_FP8 && firstCVOutput->Datatype() != DT_FP32) {
+            return true;
+        }
+    }
+    return false;
+}
+
+//构造转换路径
+Status ConvertInserter::ProcessConvertPath(const Operation &op, const std::shared_ptr<LogicalTensor> &oOperand,
+    MemoryType requiredMemoryType, std::vector<MemoryType> &paths) {
+    auto currTensorMemOri = oOperand->GetMemoryTypeOriginal();
+    if(currTensorMemOri == MemoryType::MEM_L0C && requiredMemoryType == MemoryType::MEM_L1) {
+        //特殊处理L0C2L1：针对不支持的数据类型场景路径中插入DDR
+        bool needDDRTrans = IsNotValidDataType(oOperand);
+        if(needDDRTrans) {
+            paths = {currTensorMemOri, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_L1};
+        } else {
+            paths = {currTensorMemOri, MemoryType::MEM_L1};
+        }
+    } else {
+        //常规场景：查platform硬件配置获取path处理
+        Status status = ConstructPath(oOperand->GetMemoryTypeOriginal(),requiredMemoryType,paths,oOperand,op);
+        if (status != SUCCESS) {return status;}
     }
     return SUCCESS;
 }
@@ -291,7 +337,7 @@ bool ConvertInserter::isAllProducerAssemble(const std::shared_ptr<LogicalTensor>
             [](const Operation *producerOp) { return producerOp->GetOpcode() == Opcode::OP_ASSEMBLE; });
 }
 
-//检查tensor所有的消费者是否都有效
+//检查tensor所有的消费者是否是view或者assemble
 bool ConvertInserter::isAllConsumersValid(const std::set<Operation *> &consumers) const{
     for (const auto consumer : consumers){
         if (consumer->GetOpcode() != Opcode::OP_VIEW && consumer->GetOpcode() != Opcode::OP_ASSEMBLE){
