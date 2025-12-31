@@ -123,7 +123,6 @@ def sparse_attention_antiquant_compute(query_nope, query_rope, nope_cache, topk_
                         # nope_cache索引
                         pypto.set_semantic_label("Sa_V0")
 
-                        # [2048, 672]
                         pypto.set_vec_tile_shapes(16, 672)
 
                         # [512:640:656] kv_quant 512*int8, kr 64*bf16, kv_scale 4*fp32
@@ -190,9 +189,9 @@ def sparse_attention_antiquant_compute(query_nope, query_rope, nope_cache, topk_
                         # get kr， UB --> GM
                         kr_vint8 = pypto.view(  # slc_nope_cache view
                             input=slc_nope_cache, 
-                            shape=[cur_s2_tile, dr*2], 
+                            shape=[cur_s2_tile, dr * 2], 
                             offsets=[0, dn],
-                            valid_shape=[(cur_seq - s2_idx * cur_s2_tile).min(cur_s2_tile), dr*2]
+                            valid_shape=[(cur_seq - s2_idx * cur_s2_tile).min(cur_s2_tile), dr * 2]
                         )
                         kr = pypto.view(input=kr_vint8, dtype=dtype)
 

@@ -13,11 +13,11 @@
 from dataclasses import dataclass
 import math
 import os
+import logging
 import pytest
 import torch
 import torch_npu
 import pypto
-import logging
 import numpy as np
 from sparse_attention_antiquant_impl \
     import sparse_attention_antiquant_d, sparse_attention_antiquant_p, SaTileShapeConfig
@@ -87,7 +87,7 @@ def compute_attention_aq(input_data, params, s2_tile):
 
                 topk_indcies_tmp = topk_indcies[b_idx * s1 + s1_idx, s2_start:s2_end]
                 slc_nope = torch.zeros([s2_tile_cur, kv_lora_rank + 2 * qk_rope_dim + 4 * 4], dtype=torch.int8)
-                slc_KV = torch.zeros([s2_tile_cur, kv_lora_rank + qk_rope_dim], dtype=input_dtype)
+                slc_kv_up = torch.zeros([s2_tile_cur, kv_lora_rank + qk_rope_dim], dtype=input_dtype)
 
                 # 当前b&s1&s2 topk_index  --->  kvCache的offset
                 offset = torch.zeros([s2_tile_cur], dtype=torch.int32)
@@ -112,12 +112,12 @@ def compute_attention_aq(input_data, params, s2_tile):
                 slc_kv = slc_kv_fp32 * slc_kv_scales
                 slc_kr_vin8 = slc_nope[:, kv_lora_rank:kv_lora_rank + 2 * qk_rope_dim]
                 
-                slc_KV[:, :kv_lora_rank] = slc_kv.to(input_dtype).reshape(-1, kv_lora_rank)
-                slc_KV[:, kv_lora_rank:] = slc_kr_vin8.view(input_dtype)
-                vj = slc_KV[:, :kv_lora_rank]
+                slc_kv_up[:, :kv_lora_rank] = slc_kv.to(input_dtype).reshape(-1, kv_lora_rank)
+                slc_kv_up[:, kv_lora_rank:] = slc_kr_vin8.view(input_dtype)
+                vj = slc_kv_up[:, :kv_lora_rank]
 
                 # C1
-                sij = torch.matmul(qi.to(torch.float32), slc_KV.transpose(1, 0).to(torch.float32)).to(torch.float32)
+                sij = torch.matmul(qi.to(torch.float32), slc_kv_up.transpose(1, 0).to(torch.float32)).to(torch.float32)
 
                 # V1
                 sij_scale = sij * scalar # (nq, s2_tile)
@@ -387,7 +387,7 @@ def do_test_sfa_entry(case_name: str, is_p: bool):
     return True
 
 
-def test_sfa_bf16_b4_s2_seq64K_total_int8_d():
+def test_sfa_bf16_b4_s2_seq64k_total_int8_d():
     '''
     sfa decode测试函数
     '''
@@ -395,7 +395,7 @@ def test_sfa_bf16_b4_s2_seq64K_total_int8_d():
 
 
 @pytest.mark.skip(reason="perf")
-def test_sfa_bf16_b4_s2_seq64K_per_int8_d():
+def test_sfa_bf16_b4_s2_seq64k_per_int8_d():
     '''
     sfa decode测试函数
     '''
@@ -403,7 +403,7 @@ def test_sfa_bf16_b4_s2_seq64K_per_int8_d():
 
 
 @pytest.mark.skip(reason="large test case")
-def test_sfa_bf16_b1_s256_seq64K_int8_p():
+def test_sfa_bf16_b1_s256_seq64k_int8_p():
     '''
     sfa prefill测试函数
     '''
@@ -415,6 +415,6 @@ if __name__ == "__main__":
         format='%(asctime)s - %(filename)s:%(lineno)d - %(levelname)s: %(message)s',
         level=logging.INFO
     )
-    test_sfa_bf16_b4_s2_seq64K_total_int8_d()
-    test_sfa_bf16_b4_s2_seq64K_per_int8_d()
-    test_sfa_bf16_b1_s256_seq64K_int8_p()
+    test_sfa_bf16_b4_s2_seq64k_total_int8_d()
+    test_sfa_bf16_b4_s2_seq64k_per_int8_d()
+    test_sfa_bf16_b1_s256_seq64k_int8_p()

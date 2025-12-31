@@ -102,7 +102,7 @@ def sparse_flash_attention_quant_compute(query_nope, query_rope, key_nope_2d, ke
 
     g_loop_sym = group // group_tile
 
-    attenOut_2dim = pypto.tensor([batch_size_sym * s1_n2_gsym, dn], dtype, "attenOut2Dim")
+    atten_out_2dim  = pypto.tensor([batch_size_sym * s1_n2_gsym, dn], dtype, "attenOut2Dim")
     for batch_idx in pypto.loop(0, batch_size_sym, 1, name="LOOP_L0_idx", idx_name="bIdx"):
         cur_act_seq = kv_act_seqs[batch_idx]
         for slc_idx in pypto.loop(0, s1_sym, 1, name="LOOP_L1_s1_SA", idx_name="s1Idx"):
@@ -118,8 +118,9 @@ def sparse_flash_attention_quant_compute(query_nope, query_rope, key_nope_2d, ke
                         name="LOOP_L4_s2_SA", idx_name="s2_idx", unroll_list={1}):
                         cur_s2_tile = s2_tile
 
-                        cur_topk_indcies = pypto.view(topk_indcies, [1, cur_s2_tile], [batch_idx * s1_sym + slc_idx, s2_idx * cur_s2_tile],
-                                                  valid_shape=[1, (cur_seq - s2_idx * cur_s2_tile).min(cur_s2_tile)])
+                        cur_topk_indcies = pypto.view(topk_indcies, [1, cur_s2_tile],
+                                                [batch_idx * s1_sym + slc_idx, s2_idx * cur_s2_tile],
+                                                valid_shape=[1, (cur_seq - s2_idx * cur_s2_tile).min(cur_s2_tile)])
                         cur_block_table = pypto.view(block_table, [1, max_blocknum_perbatch], [batch_idx, 0])
 
                         kn = pypto.tensor([s2_tile, dn], dtype, "kn")
@@ -140,7 +141,7 @@ def sparse_flash_attention_quant_compute(query_nope, query_rope, key_nope_2d, ke
                             kn_scale_tmp = pypto.reshape(kn_scale, [s2_tile * 8, 1])
                             pypto.set_vec_tile_shapes(128, 128)
                             kn_fp32 = pypto.mul(kn_quant_fp32_tmp, kn_scale_tmp)
-                            kn_fp32_reshape = pypto.reshape(kn_fp32, [s2_tile, dn*2])
+                            kn_fp32_reshape = pypto.reshape(kn_fp32, [s2_tile, dn * 2])
                             pypto.set_vec_tile_shapes(16, 512)
                             cur_kn_fp32 = pypto.view(kn_fp32_reshape, [cur_s2_tile, dn], [0, 0],
                                 valid_shape=[(cur_seq - s2_idx * cur_s2_tile).min(cur_s2_tile), dn])
@@ -200,9 +201,9 @@ def sparse_flash_attention_quant_compute(query_nope, query_rope, key_nope_2d, ke
                                 dn, is_b_matrix=True, is_trans=False)
                             q1 = pypto.matmul(tilda_pij_f16, vj, dtype)
 
-                        pypto.assemble(q1, [cur_offset, 0], attenOut_2dim)
-                        attention_out[:] = pypto.reshape(attenOut_2dim,
-                                                    [attention_out.shape[0],attention_out.shape[1],
+                        pypto.assemble(q1, [cur_offset, 0], atten_out_2dim )
+                        attention_out[:] = pypto.reshape(atten_out_2dim ,
+                                                    [attention_out.shape[0], attention_out.shape[1],
                                                      attention_out.shape[2], attention_out.shape[3]], inplace=True)
 
 
