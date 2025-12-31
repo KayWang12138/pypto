@@ -39,6 +39,7 @@ public:
 
 TEST_F(AddAllocTest, TestAddAlloc) {
     auto blockFunc = std::make_shared<BlockFunction>(Program::GetInstance(), "TestAddAlloc", "TestAddAlloc", nullptr);
+    blockFunc->SetGraphType(GraphType::BLOCK_GRAPH);
     ComputationalGraphBuilder subGraph(blockFunc.get());
 
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9"};
@@ -62,6 +63,7 @@ TEST_F(AddAllocTest, TestAddAlloc) {
 
 TEST_F(AddAllocTest, TestAddAllocInplace) {
     auto blockFunc = std::make_shared<BlockFunction>(Program::GetInstance(), "TestAddAllocInplace", "TestAddAllocInplace", nullptr);
+    blockFunc->SetGraphType(GraphType::BLOCK_GRAPH);
     ComputationalGraphBuilder subGraph(blockFunc.get());
 
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9", "t10", "t11"};
@@ -94,6 +96,7 @@ TEST_F(AddAllocTest, TestAddAllocInplace) {
 
 TEST_F(AddAllocTest, TestAddAllocAssemble) {
     auto blockFunc = std::make_shared<BlockFunction>(Program::GetInstance(), "TestAddAllocAssemble", "TestAddAllocAssemble", nullptr);
+    blockFunc->SetGraphType(GraphType::BLOCK_GRAPH);
     ComputationalGraphBuilder subGraph(blockFunc.get());
     
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9", "t10", "t11"};
@@ -127,6 +130,7 @@ TEST_F(AddAllocTest, TestAddAllocAssemble) {
 
 TEST_F(AddAllocTest, TestAddAllocView) {
     auto blockFunc = std::make_shared<BlockFunction>(Program::GetInstance(), "TestAddAllocView", "TestAddAllocView", nullptr);
+    blockFunc->SetGraphType(GraphType::BLOCK_GRAPH);
     ComputationalGraphBuilder subGraph(blockFunc.get());
 
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9"};
@@ -158,6 +162,7 @@ TEST_F(AddAllocTest, TestAddAllocView) {
 
 TEST_F(AddAllocTest, TestAddAllocErrorMemId) {
     auto blockFunc = std::make_shared<BlockFunction>(Program::GetInstance(), "TestAddAllocErrorMemId", "TestAddAllocErrorMemId", nullptr);
+    blockFunc->SetGraphType(GraphType::BLOCK_GRAPH);
     ComputationalGraphBuilder subGraph(blockFunc.get());
 
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9"};
@@ -187,6 +192,7 @@ TEST_F(AddAllocTest, TestAddAllocErrorMemId) {
 
 TEST_F(AddAllocTest, TestAddAllocErrorMemorymap) {
     auto blockFunc = std::make_shared<BlockFunction>(Program::GetInstance(), "TestAddAllocErrorMemorymap", "TestAddAllocErrorMemorymap", nullptr);
+    blockFunc->SetGraphType(GraphType::BLOCK_GRAPH);
     ComputationalGraphBuilder subGraph(blockFunc.get());
 
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9"};

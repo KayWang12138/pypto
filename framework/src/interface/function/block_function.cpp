@@ -32,7 +32,7 @@ BlockFunction::BlockFunction(const Program &belongTo, const std::string &funcMag
     : Function(belongTo, funcMagicName, funcRawName, parentFunc),
       programId_(-1),
       leafFuncAttr_(nullptr) {
-        SetGraphType(GraphType::BLOCK_GRAPH);
+        // SetGraphType(GraphType::BLOCK_GRAPH);
 }
 
 std::vector<OperationPtr> &BlockFunction::GetProgramOp() {
