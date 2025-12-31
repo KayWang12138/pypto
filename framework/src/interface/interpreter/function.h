@@ -26,6 +26,7 @@ namespace npu::tile_fwk {
 struct FunctionIODataPair {
     std::vector<std::shared_ptr<LogicalTensorData>> incastDataViewList;
     std::vector<std::shared_ptr<LogicalTensorData>> outcastDataViewList;
+    std::shared_ptr<FunctionIODataPair> rootInoutDataPair;
 
     FunctionIODataPair() {}
     FunctionIODataPair(std::vector<std::shared_ptr<LogicalTensorData>> incastDataViewList_,
@@ -451,10 +452,11 @@ struct FunctionInterpreter {
         return AllocateDataView(frame, tensor, tensor->GetRawTensor()->GetDataType(), inplaceTensor);
     }
 
-    void ExecuteOpCallLeaf(ExecuteOperationContext *ctx) {
+    void ExecuteOpCallLeaf(ExecuteOperationContext *ctx, std::shared_ptr<FunctionIODataPair> &rootInoutDataPair) {
         Function *callee = GetCallee(ctx->op);
         auto inoutDataPair =
             std::make_shared<FunctionIODataPair>(*ctx->ioperandDataViewList, *ctx->ooperandInplaceDataViewList);
+        inoutDataPair->rootInoutDataPair = rootInoutDataPair;
         ExecuteFunctionFrame(callee, ctx->op, inoutDataPair);
     }
 
@@ -481,7 +483,8 @@ struct FunctionInterpreter {
 
     void ExecuteInplaceOperation(FunctionFrame &frame, Operation &op, int oOperandIdx,
         const std::vector<std::shared_ptr<LogicalTensorData>> &iOpDataList,
-        std::vector<std::shared_ptr<LogicalTensorData>> &oOpDataList) {
+        std::vector<std::shared_ptr<LogicalTensorData>> &oOpDataList,
+        std::shared_ptr<FunctionIODataPair> &inoutDataPair) {
         auto oop = op.GetOOperands()[oOperandIdx];
         auto index = GetInplaceIndex(&op, oOperandIdx);
         ASSERT(index != -1);
@@ -493,11 +496,34 @@ struct FunctionInterpreter {
             Offset viewOffsets = EvaluateOffset(opAttr->GetFromOffset(), opAttr->GetFromDynOffset());
             auto validShape = EvaluateValidShape(oop->GetDynValidShape());
             auto rawShape = EvaluateValidShape(oop->GetRawTensor()->GetDynRawShape());
-            auto ret = frame.AllocateDataView(
-                oop, viewOffsets, validShape, rawShape, oop->GetRawTensor()->GetDataType(), iop);
+            std::shared_ptr<LogicalTensorData> ret;
+            if (frame.func->GetCurrentPassIndex() > 4) {
+                ret = frame.AllocateDataView(oop, viewOffsets, validShape, rawShape, oop->GetRawTensor()->GetDataType(), iop);
+            } else {
+                ret = AllocateDataView(frame, oop);
+            }
             oOpDataList.emplace_back(ret);
         } else {
             oOpDataList.emplace_back(AllocateDataView(frame, oop, iop));
+            auto it = std::find(frame.func->outCasts_.begin(), frame.func->outCasts_.end(), oop);
+            if (it != frame.func->outCasts_.end()) {
+                ASSERT(frame.tensorDataViewDict.count(oop) != 0);
+                auto oopDataView = frame.tensorDataViewDict[oop]; 
+                ASSERT(frame.tensorDataViewDict.count(iop) != 0);
+                auto newPtr = frame.tensorDataViewDict[iop]; 
+                auto targetPair = inoutDataPair->rootInoutDataPair ? 
+                              inoutDataPair->rootInoutDataPair : 
+                              inoutDataPair;
+                bool updated = false;
+                for (auto& ptr : targetPair->outcastDataViewList) {
+                    if (ptr.get() == oopDataView.get()) {
+                        ptr = newPtr;
+                        updated = true;
+                        break;
+                    }
+                }      
+            ASSERT(updated); 
+            }
         }
     }
 
@@ -511,7 +537,7 @@ struct FunctionInterpreter {
         return false;
     }
 
-    void ExecuteOperation(FunctionFrame &frame, Operation *op) {
+    void ExecuteOperation(FunctionFrame &frame, Operation *op, std::shared_ptr<FunctionIODataPair> &inoutDataPair) {
         auto iOpDataList = frame.GetDataViewList(op->GetIOperands());
         for (size_t index = 0; index < iOpDataList.size(); index++) {
             if (iOpDataList[index] == nullptr) {
@@ -524,7 +550,7 @@ struct FunctionInterpreter {
         for (size_t i = 0; i < op->GetOOperands().size(); i++) {
             auto oop = op->GetOOperands()[i];
             if (auto index = GetInplaceIndex(op, i); index != -1) {
-                ExecuteInplaceOperation(frame, *op, i, iOpDataList, oOpDataList);
+                ExecuteInplaceOperation(frame, *op, i, iOpDataList, oOpDataList, inoutDataPair);
             } else {
                 if (isConsumerAccMatmul(op)) {
                     auto dtype = oop->GetRawTensor()->GetDataType();
@@ -534,14 +560,15 @@ struct FunctionInterpreter {
                     }
                     oOpDataList.push_back(AllocateDataView(frame, oop, dtype));
                 } else {
-                    oOpDataList.push_back(AllocateDataView(frame, oop));
+                    auto ret = AllocateDataView(frame, oop);
+                    oOpDataList.push_back(ret);
                 }
             }
         }
         ExecuteOperationContext ctx = {&frame, {}, op, &iOpDataList, {}, &oOpDataList};
 
         if (op->GetOpcode() == Opcode::OP_CALL) {
-            ExecuteOpCallLeaf(&ctx);
+            ExecuteOpCallLeaf(&ctx, inoutDataPair);
         } else {
             TimeStamp ts;
             operationInterpreter->ExecuteOperation(&ctx);
@@ -601,7 +628,7 @@ struct FunctionInterpreter {
             if (op.GetOpcode() == Opcode::OP_PRINT && verifyType != VerifyType::TENSOR_GRAPH)
                 continue;
             ExecuteHandleOperationBegin(&op);
-            ExecuteOperation(*frame, &op);
+            ExecuteOperation(*frame, &op, inoutDataPair);
             ExecuteHandleOperationEnd();
         }
         ExecuteHandleFunctionEnd();
