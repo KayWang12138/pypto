@@ -93,6 +93,8 @@ void DeviceSlotContext::FillInputOutputSlot(DeviceExecuteSlot *slotList, size_t 
     for (int index = 0; index < args->GetInputTensorSize(); ++index) {
         DevTensorData &param = args->GetInputTensor(index);
         int slotIndex = devProg->startArgsInputTensorSlotIndexList[index];
+        DEV_ASSERT_MSG(slotIndex >= 0 && slotIndex < static_cast<int>(slotSize),
+            "FillInputOutputSlot: Invalid slot index %d for input param %d.", slotIndex, index);
         slotList[slotIndex].rtOutcastIter = workspace_->MakeRuntimeOutcastTensor(param.address, RtMemProperty::EXTERNAL);
         // input/output flatten
         slotList[slotIndex].isOutputSlot = true;
@@ -103,6 +105,8 @@ void DeviceSlotContext::FillInputOutputSlot(DeviceExecuteSlot *slotList, size_t 
     for (int index = 0; index < args->GetOutputTensorSize(); ++index) {
         DevTensorData &param = args->GetOutputTensor(index);
         int slotIndex = devProg->startArgsOutputTensorSlotIndexList[index];
+        DEV_ASSERT_MSG(slotIndex >= 0 && slotIndex < static_cast<int>(slotSize),
+            "FillInputOutputSlot: Invalid slot index %d for output param %d.", slotIndex, index);
         slotList[slotIndex].rtOutcastIter = workspace_->MakeRuntimeOutcastTensor(param.address, RtMemProperty::EXTERNAL);
         slotList[slotIndex].isOutputSlot = true;
         DEV_INFO("Param %d Output Slot %d = %lx.", index, slotIndex, param.address);
@@ -110,7 +114,11 @@ void DeviceSlotContext::FillInputOutputSlot(DeviceExecuteSlot *slotList, size_t 
     }
     for (size_t index = static_cast<size_t>(args->GetOutputTensorSize()); index < devProg->startArgsOutputTensorSlotIndexList.size(); ++index) {
         int outSlot = devProg->startArgsOutputTensorSlotIndexList[index];
+        DEV_ASSERT_MSG(outSlot >= 0 && outSlot < static_cast<int>(slotSize),
+            "FillInputOutputSlot: Invalid slot index %d for inplace output param %zu.", outSlot, index);
         int inSlot = devProg->outputInplaceSlotList[index];
+        DEV_ASSERT_MSG(inSlot >= 0 && inSlot < static_cast<int>(slotSize),
+            "FillInputOutputSlot: Invalid slot index %d for inplace input param %zu.", inSlot, index);
         if (inSlot != -1) {
             workspace_->RuntimeOutcastTensorAssign(slotList[outSlot].rtOutcastIter,
                                         slotList[inSlot].rtOutcastIter);
@@ -120,12 +128,16 @@ void DeviceSlotContext::FillInputOutputSlot(DeviceExecuteSlot *slotList, size_t 
     }
     for (size_t index = 0; index < devProg->assembleSlotIndexList.size(); ++index) {
         int slotIndex = devProg->assembleSlotIndexList[index];
+        DEV_ASSERT_MSG(slotIndex >= 0 && slotIndex < static_cast<int>(slotSize),
+            "FillInputOutputSlot: Invalid slot index %d for assemble slot %zu.", slotIndex, index);
         slotList[slotIndex].isAssembleSlot = true;
         DEV_VERBOSE_DEBUG("Assemble Slot %d .", slotIndex);
     }
     for (size_t index = 0, ie = devProg->partialUpdateList.size(); index < ie; index++) {
         auto &partialUpdate = devProg->At(devProg->partialUpdateList, index);
         int slotIndex = index;
+        DEV_ASSERT_MSG(slotIndex >= 0 && slotIndex < static_cast<int>(slotSize),
+            "FillInputOutputSlot: Invalid slot index %d for partial update slot %zu.", slotIndex, index);
         if (!partialUpdate.Empty()) {
             slotList[slotIndex].isPartialUpdateStitch = true;
             slotList[slotIndex].partialUpdate = &partialUpdate;
