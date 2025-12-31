@@ -174,7 +174,7 @@ void HostMachine::DestroyThread() {
 void HostMachine::CompileFunction(Function* func) const {
     auto &backend = Backend::GetBackend();
     if (!func->HasCallOperation() && backend.runPass) {
-        ALOG_INFO_F("RunPass function %s", func->GetMagicName().c_str());
+        ALOG_INFO("RunPass function %s", func->GetMagicName());
         ASSERT(backend.runPass(Program::GetInstance(), *func, config::GetPassStrategy())) << "Run pass failed.";
     }
     if (func->IsFunctionType(FunctionType::DYNAMIC) || func->IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::TILE_GRAPH)) {
@@ -207,7 +207,7 @@ void HostMachine::WaitTaskFinish() {
     while (curTaskId_ != finishQueue_.Size()) {
         usleep(1000); // sleep 1000 us
     } // wait all task finish
-    ALOG_DEBUG_F("Finish all host machine task count: %lu.", curTaskId_.load());
+    ALOG_DEBUG("Finish all host machine task count: %lu.", curTaskId_);
 
     /* reset counter */
     curTaskId_ = 0;
@@ -355,11 +355,11 @@ void HostMachine::AgentThreadFunc() {
             auto &cache = Program::GetInstance().GetFunctionCache();
             auto &backend = Backend::GetBackend();
             if (backend.simuExecute && config::GetPlatformConfig(KEY_ENABLE_COST_MODEL, true)) {
-                ALOG_INFO_F("Simulate function %s", task->GetFunction()->GetMagicName().c_str());
+                ALOG_INFO("Simulate function %s", task->GetFunction()->GetMagicName());
                 backend.simuExecute(task.get(), cache);
             }
             if (backend.execute && config::GetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true)) {
-                ALOG_INFO_F("Compile function %s", task->GetFunction()->GetMagicName().c_str());
+                ALOG_INFO("Compile function %s", task->GetFunction()->GetMagicName());
                 backend.execute(task.get(), cache);
             }
         } catch (const std::exception &e) {
