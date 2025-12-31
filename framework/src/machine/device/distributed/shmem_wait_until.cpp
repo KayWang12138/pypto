@@ -130,12 +130,6 @@ TensorInfo ShmemWaitUntil::GetTensorInfo(uint64_t taskId, const npu::tile_fwk::d
     ++index; // 跳过 rawIndex
     info.dim = aicpuCode[paramInfo_.inIndex + 2];
     info.offset = GetCoaVector(index, info.dim, opAttrs, expressionTable);
-    index += info.dim;
-    info.shape = GetCoaVector(index, info.dim, opAttrs, expressionTable);
-    index += info.dim;
-    info.rawShape = GetCoaVector(index, info.dim, opAttrs, expressionTable);
-    index += info.dim;
-    info.dynValidShape = GetCoaVector(index, info.dim, opAttrs, expressionTable);
     const uint32_t dstRankId = info.offset[0];
 
     info.expectedSum = aicpuCode[paramInfo_.attrIndex];

@@ -30,15 +30,15 @@ struct TensorInfo {
     int32_t expectedSum;
     bool resetSignal;
     std::vector<uint32_t> offset;
-    std::vector<uint32_t> shape;
-    std::vector<uint32_t> rawShape;
-    std::vector<uint32_t> dynValidShape;
 };
 
 struct AicpuParamInfo {
     int32_t outIndex{0};
     int32_t inIndex{0};
     int32_t attrIndex{0};
+    int32_t rawShapeIndex{0};
+    uint32_t rawShapeRow{0};
+    uint32_t rawShapeCol{0};
 };
 
 inline uint64_t GetVirtualAddrBist(uint64_t val, uint64_t start, uint64_t end)
@@ -67,7 +67,7 @@ inline uint64_t GetVirtaulAddrMemType(uint64_t val)
     return GetVirtualAddrBist(val, memTypeStart, memTypeEnd);
 }
 
-inline uint64_t GetCoa(const uint32_t index, __gm__ uint64_t* opAttrs, __gm__ uint64_t* expressionTable)
+inline uint64_t GetCoa(const uint32_t index, uint64_t* opAttrs, uint64_t* expressionTable)
 {
     constexpr uint64_t valueLength = 63;
     constexpr uint64_t valueMask = (1UL << valueLength) - 1;
@@ -77,8 +77,8 @@ inline uint64_t GetCoa(const uint32_t index, __gm__ uint64_t* opAttrs, __gm__ ui
     return isExpression ? expressionTable[decodedValue] : decodedValue;
 }
 
-inline std::vector<uint32_t> GetCoaVector(const uint32_t baseIndex, const uint32_t dim, __gm__ uint64_t* opAttrs,
-    __gm__ uint64_t* expressionTable)
+inline std::vector<uint32_t> GetCoaVector(const uint32_t baseIndex, const uint32_t dim, uint64_t* opAttrs,
+    uint64_t* expressionTable)
 {
     std::vector<uint32_t> vec(dim);
     for (uint32_t i = 0; i < dim; ++i) {
@@ -95,6 +95,11 @@ inline AicpuParamInfo DecodeAicpuCode(const npu::tile_fwk::dynamic::DevRelocVect
 
     index = index + aicpuCode[index] + 1;
     paramInfo.inIndex = index + 1;
+
+    index = index + aicpuCode[index] + 1;
+    paramInfo.rawShapeIndex = index + 1;
+    paramInfo.rawShapeRow = aicpuCode[index + 3]; // ShmemSignal Shape[ranksize, ranksize, row, col], 3表示row的值
+    paramInfo.rawShapeCol = aicpuCode[index + 4]; // ShmemSignal Shape[ranksize, ranksize, row, col], 4表示col的值
 
     index = index + aicpuCode[index] + 1;
     if (index + 1 < static_cast<int32_t>(aicpuCode.size())) {
