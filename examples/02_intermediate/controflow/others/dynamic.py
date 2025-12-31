@@ -108,7 +108,7 @@ def scaled_dot_product_attention(q_shape: tuple, k_shape: tuple, config: Attenti
     ) -> pypto.Tensor((bs, head, q_len, dim), pypto.DT_FP32):
         """Scaled dot-product attention with dynamic bsatch size."""
         cubse_tiling = 64
-        pypto.set_cubse_tile_shapes(
+        pypto.set_cube_tile_shapes(
             [cubse_tiling, cubse_tiling],
             [cubse_tiling, cubse_tiling],
             [cubse_tiling, cubse_tiling],
@@ -120,17 +120,17 @@ def scaled_dot_product_attention(q_shape: tuple, k_shape: tuple, config: Attenti
         for bss_idx in pypto.loop(bs_loop):
             bs_offset = bss_idx * tile
             bs_offset_end = pypto.min(bs_offset + tile, bs)
-            q_view = pypto.view(q, [tile, head, q_len, dim], [b_offset, 0, 0, 0], 
-                                valid_shape=[b_offset_end - b_offset, head, q_len, dim])
-            k_view = pypto.view(k, [tile, head, kv_len, dim], [b_offset, 0, 0, 0], 
-                                valid_shape=[b_offset_end - b_offset, head, kv_len, dim])
-            v_view = pypto.view(v, [tile, head, kv_len, dim], [b_offset, 0, 0, 0], 
-                                valid_shape=[b_offset_end - b_offset, head, kv_len, dim])
+            q_view = pypto.view(q, [tile, head, q_len, dim], [bs_offset, 0, 0, 0], 
+                                valid_shape=[bs_offset_end - bs_offset, head, q_len, dim])
+            k_view = pypto.view(k, [tile, head, kv_len, dim], [bs_offset, 0, 0, 0], 
+                                valid_shape=[bs_offset_end - bs_offset, head, kv_len, dim])
+            v_view = pypto.view(v, [tile, head, kv_len, dim], [bs_offset, 0, 0, 0], 
+                                valid_shape=[bs_offset_end - bs_offset, head, kv_len, dim])
             pypto.set_vec_tile_shapes(1, 8, 16, 64)
             res = scaled_dot_product_attention_core(
                 q_view, k_view, v_view, scale, config.dtype
             )
-            pypto.assemble(res, [b_offset, 0, 0, 0], output_tensor)
+            pypto.assemble(res, [bs_offset, 0, 0, 0], output_tensor)
         return output_tensor
     
     # launch the kernel

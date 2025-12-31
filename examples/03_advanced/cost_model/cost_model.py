@@ -94,7 +94,7 @@ def softmax_wrapper(shape, cost_model_enable):
                          "cfgcache_leaf_task_num": 10000, 
                          "run_mode": pypto.RunMode.SIM}
     )
-    def softmax(input_tensor: pypto.Tensor(shape, pypto.DT_FP32)) -> pypto.Tensor(SHAshapePE, pypto.DT_FP32):
+    def softmax(input_tensor: pypto.Tensor(shape, pypto.DT_FP32)) -> pypto.Tensor(shape, pypto.DT_FP32):
 
         tensor_shape = shape
         b = tensor_shape[0]  # Dynamic batch size

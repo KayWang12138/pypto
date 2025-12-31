@@ -56,7 +56,7 @@ def add_scalar_loop_dynamic_axis(shape: tuple, val: int, run_mode: str = "npu") 
         pypto.set_vec_tile_shapes(1, 4, 1, 64)
 
         #calculate the loop parameters
-        b = H
+        b = h
         tile_b = 1
         b_loop = b // tile_b
 

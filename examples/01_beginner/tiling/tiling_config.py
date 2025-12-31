@@ -124,8 +124,8 @@ def create_different_tile_shapes_kernel(run_mode):
 
     @pypto.frontend.jit(runtime_options={"run_mode": run_mode})
     def compute_with_different_tile_shapes(
-        a: pypto.Tensor((b, m_batch, k_batch), pypto.DT_FP32),
-        b: pypto.Tensor((b, k_batch, n_batch), pypto.DT_FP32),
+        x: pypto.Tensor((b, m_batch, k_batch), pypto.DT_FP32),
+        y: pypto.Tensor((b, k_batch, n_batch), pypto.DT_FP32),
     ) -> (
         pypto.Tensor((b, m_batch, n_batch), pypto.DT_FP32),
         pypto.Tensor((b, m_batch, n_batch), pypto.DT_FP32),
@@ -139,15 +139,15 @@ def create_different_tile_shapes_kernel(run_mode):
 
         pypto.set_cube_tile_shapes([32, 32], [16, 16], [32, 32])
         print(f"pypto.get_cube_tile_shapes(): {pypto.get_cube_tile_shapes()}")
-        out1[:] = pypto.matmul(a, b, a.dtype)
+        out1[:] = pypto.matmul(x, y, x.dtype)
 
         pypto.set_cube_tile_shapes([32, 32], [8, 64], [32, 128])
         print(f"pypto.get_cube_tile_shapes(): {pypto.get_cube_tile_shapes()}")
-        out2[:] = pypto.matmul(a, b, a.dtype)
+        out2[:] = pypto.matmul(x, y, x.dtype)
 
         pypto.set_cube_tile_shapes([64, 64], [128, 128], [128, 128])
         print(f"pypto.get_cube_tile_shapes(): {pypto.get_cube_tile_shapes()}")
-        out3[:] = pypto.matmul(a, b, a.dtype)
+        out3[:] = pypto.matmul(x, y, x.dtype)
 
         return out1, out2, out3
 
