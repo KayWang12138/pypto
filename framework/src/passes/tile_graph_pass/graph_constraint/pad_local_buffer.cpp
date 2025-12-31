@@ -35,7 +35,6 @@ constexpr int64_t CUBE_PAD_VALUE = 16;
 constexpr int64_t CUBE_PAD_INT8_VALUE = 32;
 const std::vector<bool> AXIS_COMBINED = {true};
 const std::vector<bool> BROADCAST_AXIS_COMBINED = {true, true};
-const Opcode BRCB = Opcode::OP_BRCB;
 const int64_t BRCB_SECOND_LAST_BASE = 8;
 const size_t LAST_SECOND_AXIS = 2;
 int64_t Pad(int64_t dim, int64_t padValue) {
@@ -511,7 +510,7 @@ void PadLocalBuffer::PadVectorForAxisCombine(Operation &op, LogicalTensorPtr &in
     in->oriShape = in->shape;
     in->tensor->oriRawshape = in->tensor->rawshape;
     auto producerOp = *(in->GetProducers().begin());
-    if (producerOp->GetOpcode() == BRCB) {
+    if (producerOp != nullptr && producerOp->GetOpcode() == Opcode::OP_BRCB) {
         if (lastIdx == 0 && in->tensor->rawshape[lastIdx] != 1) {
             return;
         }
@@ -523,7 +522,7 @@ void PadLocalBuffer::PadVectorForAxisCombine(Operation &op, LogicalTensorPtr &in
         in->tensor->rawshape[lastIdx] = shapeAfterPad;
         return;
     }
-    if (op.GetOpcode() == BRCB) {
+    if (op.GetOpcode() == Opcode::OP_BRCB) {
         if (lastIdx == 0 && in->tensor->rawshape[lastIdx] != 1) {
             return;
         }
@@ -545,7 +544,8 @@ void PadLocalBuffer::PadVectorForAxisCombine(Operation &op, LogicalTensorPtr &in
         in->tensor->rawshape[dimIdx] = Pad(in->tensor->rawshape[dimIdx], paddingValue);
         return;
     }
-    if (calcType == OpCalcType::ELMWISE || calcType == OpCalcType::MOVE_IN || calcType == OpCalcType::MOVE_OUT) {
+    if (calcType == OpCalcType::ELMWISE || calcType == OpCalcType::MOVE_IN || calcType == OpCalcType::MOVE_OUT ||
+            (producerOp != nullptr && OpcodeManager::Inst().GetOpCalcType(producerOp->GetOpcode()) == OpCalcType::BROADCAST)) {
         if (lastIdx > 0 && in->tensor->rawshape[lastIdx] == 1) {
             int64_t lastDim = Pad(in->tensor->rawshape[lastIdx - 1], paddingValue);
             in->tensor->rawshape[lastIdx - 1] = lastDim;

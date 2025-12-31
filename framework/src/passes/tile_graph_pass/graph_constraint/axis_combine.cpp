@@ -21,9 +21,7 @@
 
 namespace npu {
 namespace tile_fwk {
-const Opcode BRCB = Opcode::OP_BRCB;
 constexpr size_t INPUT_SIZE = 2;
-std::string prefix = "brcb_idx";
 const std::unordered_set<Opcode> NEED_BRC_OPS{
     Opcode::OP_ADD,
     Opcode::OP_SUB,
@@ -79,11 +77,11 @@ Status AlignBroadCastOpInputs(Function &function, Operation &op) {
             AlignedIfNeed(padValue, alignedShape.back());
             auto alignedTensor = std::make_shared<LogicalTensor>(function, srcTensor->Datatype(), alignedShape, srcTensor->Format());
             alignedTensor->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
-            auto &brcb = function.AddRawOperation(BRCB, {srcTensor}, {alignedTensor});
+            auto &brcb = function.AddRawOperation(Opcode::OP_BRCB, {srcTensor}, {alignedTensor});
             brcb.UpdateSubgraphID(op.GetSubgraphID());
             srcTensor->RemoveConsumer(op);
             op.ReplaceInputOperand(srcTensor, alignedTensor);
-            op.SetAttribute(prefix, idx + 1);
+            op.SetAttribute(OpAttributeKey::brcbIdx, idx + 1);
             inputTensor[idx] = alignedTensor;
         }
     }
