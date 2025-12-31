@@ -221,7 +221,16 @@ Status IntraSubgraphAdapter::AdapteTensorProducers(Function &function, LogicalTe
             APASS_LOG_DEBUG_F(Elements::Operation, "|---- Op Attr: %s", producer->Dump().c_str());
         }
         if (crossCoreMoveOps.find(producer->GetOpcode()) != crossCoreMoveOps.end()) {
-            producer->SetOpCode(Opcode::OP_COPY_OUT);
+            if (producer->GetOpcode() == Opcode::OP_CONVERT) {
+ 	            producer->SetOpCode(Opcode::OP_COPY_OUT);
+ 	            std::vector<int64_t> offset(tensor->GetShape().size(), 0);
+ 	            auto convertOpAttr = dynamic_cast<ConvertOpAttribute*>(producer->GetOpAttribute().get());
+ 	            producer->SetOpAttribute(std::make_shared<CopyOpAttribute>(convertOpAttr->GetConvertPath().first,
+ 	                OpImmediate::Specified(offset), OpImmediate::Specified(tensor->GetShape()),
+ 	                OpImmediate::Specified(tensor->GetRawTensor()->GetDynRawShape())));
+ 	        } else {
+ 	            producer->SetOpCode(Opcode::OP_COPY_OUT);
+ 	        }
             APASS_LOG_DEBUG_F(Elements::Operation, "change %s[%d] opcode to OP_COPY_OUT.", producer->GetOpcodeStr().c_str(), producer->GetOpMagic());
         }
         if (producer->GetOpcode() != Opcode::OP_ASSEMBLE && producer->GetOpcode() != Opcode::OP_COPY_OUT) {
@@ -241,6 +250,10 @@ Status IntraSubgraphAdapter::AdapteTensorConsumers(Function &function, LogicalTe
             APASS_LOG_DEBUG_F(Elements::Operation, "|---- Op Attr: %s", consumer->Dump().c_str());
         }
         if (crossCoreMoveOps.find(consumer->GetOpcode()) != crossCoreMoveOps.end()) {
+            if (consumer->GetOpcode() == Opcode::OP_CONVERT) {
+ 	            APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] : Convert should not exist at the front of a subgraph.", consumer->GetOpcodeStr().c_str(), consumer->GetOpMagic());
+ 	            return FAILED;
+ 	        }
             consumer->SetOpCode(Opcode::OP_COPY_IN);
             APASS_LOG_DEBUG_F(Elements::Operation, "change %s[%d] opcode to OP_COPY_IN.", consumer->GetOpcodeStr().c_str(), consumer->GetOpMagic());
             continue;
@@ -249,7 +262,6 @@ Status IntraSubgraphAdapter::AdapteTensorConsumers(Function &function, LogicalTe
             consumerColor2OpsMap[consumer->GetSubgraphID()].push_back(consumer);
         }
     }
-
     for (auto& [color, consumers] : consumerColor2OpsMap) {
         (void)color;
         InsertOpBetween(function, Opcode::OP_VIEW, tensor, consumers);
