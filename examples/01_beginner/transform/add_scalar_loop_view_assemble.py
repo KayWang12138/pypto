@@ -55,10 +55,7 @@ SHAPE = (32, 32, 1, 256)
 
 def add_scalar_loop_view_assemble(run_mode: str = "npu"):
     
-    if run_mode == "npu":
-        mode = pypto.RunMode.NPU
-    else:
-        mode = pypto.RunMode.SIM
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
         
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def add_scalar_loop_view_assemble_kernel(

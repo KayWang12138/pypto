@@ -57,16 +57,16 @@ def get_device_id():
 
 
 def create_abs_op_kernel(shape: tuple, run_mode: str = "npu") -> torch.Tensor:
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def abs_kernel(
         x: pypto.Tensor(shape, pypto.DT_FP32),
     ) -> pypto.Tensor(shape, pypto.DT_FP32):
         pypto.set_vec_tile_shapes(2, 8)
         out = pypto.abs(x)
         return out
-    if run_mode == "npu":
-        return pypto.frontend.jit()(abs_kernel)
-    else:
-        return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(abs_kernel)
+    return abs_kernel
 
 
 def test_abs_basic(device_id: int = None, run_mode: str = "npu"):
@@ -102,6 +102,9 @@ def create_add_op_kernel(a_shape: tuple, b_shape: tuple, run_mode: str = "npu", 
         a_shape = a_shape
         b_shape = b_shape
 
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def add_kernel(
         a: pypto.Tensor(a_shape, pypto.DT_FP32),
         b: pypto.Tensor(b_shape, pypto.DT_FP32),
@@ -110,10 +113,7 @@ def create_add_op_kernel(a_shape: tuple, b_shape: tuple, run_mode: str = "npu", 
         out = pypto.add(a, b)
         return out
 
-    if run_mode == "npu":
-        return pypto.frontend.jit()(add_kernel)
-    else:
-        return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(add_kernel)
+    return add_kernel
 
 
 def test_add_basic(device_id: int = None, run_mode: str = "npu"):
@@ -148,6 +148,9 @@ def create_add_broadcast_op_kernel(a_shape: tuple, b_shape: tuple,
         m, n = a_shape
         b_shape = b_shape
 
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def add_broadcast_kernel(
         a: pypto.Tensor((m, n), pypto.DT_FP32),
         b: pypto.Tensor(b_shape, pypto.DT_FP32),
@@ -156,10 +159,7 @@ def create_add_broadcast_op_kernel(a_shape: tuple, b_shape: tuple,
         out = pypto.add(a, b)
         return out
     
-    if run_mode == "npu":
-        return pypto.frontend.jit()(add_broadcast_kernel)
-    else:
-        return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(add_broadcast_kernel)
+    return add_broadcast_kernel
 
 
 def test_add_broadcast(device_id: int = None, run_mode: str = "npu"):
@@ -190,6 +190,9 @@ def create_add_scalar_op_kernel(shape: tuple, scalar: float, run_mode: str = "np
     else:
         shape = shape
 
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def add_scalar_kernel(
         x: pypto.Tensor(shape, pypto.DT_FP32),
     ) -> pypto.Tensor(shape, pypto.DT_FP32):
@@ -197,10 +200,7 @@ def create_add_scalar_op_kernel(shape: tuple, scalar: float, run_mode: str = "np
         out = pypto.add(x, scalar)
         return out
 
-    if run_mode == "npu":
-        return pypto.frontend.jit()(add_scalar_kernel)
-    else:
-        return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(add_scalar_kernel)
+    return add_scalar_kernel
 
 
 def test_add_scalar(device_id: int = None, run_mode: str = "npu"):
@@ -233,6 +233,9 @@ def create_add_with_alpha_op_kernel(a_shape: tuple, b_shape: tuple,
         a_shape = a_shape
         b_shape = b_shape
 
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def add_with_alpha_kernel(
         a: pypto.Tensor(a_shape, pypto.DT_FP32),
         b: pypto.Tensor(b_shape, pypto.DT_FP32),
@@ -241,10 +244,7 @@ def create_add_with_alpha_op_kernel(a_shape: tuple, b_shape: tuple,
         out = pypto.add(a, b, alpha=alpha)
         return out
 
-    if run_mode == "npu":
-        return pypto.frontend.jit()(add_with_alpha_kernel)
-    else:
-        return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(add_with_alpha_kernel)
+    return add_with_alpha_kernel
 
 
 def test_add_with_alpha(device_id: int = None, run_mode: str = "npu"):
@@ -289,6 +289,9 @@ def create_clip_op_kernel(a_shape: tuple, min_shape: tuple,
         min_m, min_n = min_shape
         max_m, max_n = max_shape
 
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def clip_kernel(
         a: pypto.Tensor((m, n), pypto.DT_FP32),
         min_: pypto.Tensor((min_m, min_n), pypto.DT_FP32),
@@ -297,10 +300,7 @@ def create_clip_op_kernel(a_shape: tuple, min_shape: tuple,
         pypto.set_vec_tile_shapes(2, 8)
         out = pypto.clip(a, min_, max_)
         return out
-    if run_mode == "npu":
-        return pypto.frontend.jit()(clip_kernel)
-    else:
-        return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(clip_kernel)
+    return clip_kernel
 
 
 def test_clip_basic(device_id: int = None, run_mode: str = "npu"):
@@ -337,6 +337,9 @@ def create_clip_broadcast_op_kernel(a_shape: tuple, min_shape: tuple,
         m, n = a_shape
         min_shape, max_shape = min_shape, max_shape
 
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def clip_broadcast_kernel(
         a: pypto.Tensor((m, n), pypto.DT_FP32),
         min_: pypto.Tensor(min_shape, pypto.DT_FP32),
@@ -346,10 +349,7 @@ def create_clip_broadcast_op_kernel(a_shape: tuple, min_shape: tuple,
         out = pypto.clip(a, min_, max_)
         return out
 
-    if run_mode == "npu":
-        return pypto.frontend.jit()(clip_broadcast_kernel)
-    else:
-        return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(clip_broadcast_kernel)
+    return clip_broadcast_kernel
 
 
 def test_clip_broadcast(device_id: int = None, run_mode: str = "npu"):
@@ -387,6 +387,9 @@ def create_div_op_kernel(a_shape: tuple, b_shape: tuple, run_mode: str = "npu", 
         a_shape = a_shape
         b_shape = b_shape
 
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def div_kernel(
         a: pypto.Tensor(a_shape, pypto.DT_FP32),
         b: pypto.Tensor(b_shape, pypto.DT_FP32),
@@ -395,10 +398,7 @@ def create_div_op_kernel(a_shape: tuple, b_shape: tuple, run_mode: str = "npu", 
         out = pypto.div(a, b)
         return out
 
-    if run_mode == "npu":
-        return pypto.frontend.jit()(div_kernel)
-    else:
-        return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(div_kernel)
+    return div_kernel
 
 
 def test_div_basic(device_id: int = None, run_mode: str = "npu"):
@@ -433,6 +433,8 @@ def create_div_broadcast_op_kernel(a_shape: tuple, b_shape: tuple,
         m, n = a_shape
         b_shape = b_shape
 
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def div_broadcast_kernel(
         a: pypto.Tensor((m, n), pypto.DT_FP32),
         b: pypto.Tensor(b_shape, pypto.DT_FP32),
@@ -441,10 +443,7 @@ def create_div_broadcast_op_kernel(a_shape: tuple, b_shape: tuple,
         out = pypto.div(a, b)
         return out
 
-    if run_mode == "npu":
-        return pypto.frontend.jit()(div_broadcast_kernel)
-    else:
-        return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(div_broadcast_kernel)
+    return div_broadcast_kernel
 
 
 def test_div_broadcast(device_id: int = None, run_mode: str = "npu"):
@@ -475,6 +474,8 @@ def create_div_scalar_op_kernel(a_shape: tuple, scalar: float,
     else:
         a_shape = a_shape
 
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def div_scalar_kernel(
         a: pypto.Tensor(a_shape, pypto.DT_FP32),
     ) -> pypto.Tensor(a_shape, pypto.DT_FP32):
@@ -482,10 +483,7 @@ def create_div_scalar_op_kernel(a_shape: tuple, scalar: float,
         out = pypto.div(a, scalar)
         return out
 
-    if run_mode == "npu":
-        return pypto.frontend.jit()(div_scalar_kernel)
-    else:
-        return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(div_scalar_kernel)
+    return div_scalar_kernel
 
 
 def test_div_scalar(device_id: int = None, run_mode: str = "npu"):
@@ -520,6 +518,8 @@ def create_exp_op_kernel(x_shape: tuple, run_mode: str = "npu", dynamic: bool = 
     else:
         x_shape = x_shape
 
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def exp_kernel(
         x: pypto.Tensor(x_shape, pypto.DT_FP32),
     ) -> pypto.Tensor(x_shape, pypto.DT_FP32):
@@ -527,10 +527,7 @@ def create_exp_op_kernel(x_shape: tuple, run_mode: str = "npu", dynamic: bool = 
         out = pypto.exp(x)
         return out
 
-    if run_mode == "npu":
-        return pypto.frontend.jit()(exp_kernel)
-    else:
-        return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(exp_kernel)
+    return exp_kernel
 
 
 def test_exp_basic(device_id: int = None, run_mode: str = "npu"):
@@ -564,6 +561,8 @@ def create_log_op_kernel(a_shape: tuple, run_mode: str = "npu", dynamic: bool = 
     else:
         a_shape = a_shape
 
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def log_kernel(
         a: pypto.Tensor(a_shape, pypto.DT_FP32),
     ) -> pypto.Tensor(a_shape, pypto.DT_FP32):
@@ -571,10 +570,7 @@ def create_log_op_kernel(a_shape: tuple, run_mode: str = "npu", dynamic: bool = 
         out = pypto.log(a)
         return out
 
-    if run_mode == "npu":
-        return pypto.frontend.jit()(log_kernel)
-    else:
-        return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(log_kernel)
+    return log_kernel
 
 
 def test_log_basic(device_id: int = None, run_mode: str = "npu"):

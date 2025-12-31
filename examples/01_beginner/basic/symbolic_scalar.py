@@ -62,6 +62,9 @@ def get_device_id():
 
 
 def create_symbolic_immediate_kernel(shape: tuple, run_mode: str = "npu"):
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def symbolic_immediate_kernel(
         x: pypto.Tensor(shape, pypto.DT_FP32),
     ) -> pypto.Tensor(shape, pypto.DT_FP32):
@@ -74,13 +77,13 @@ def create_symbolic_immediate_kernel(shape: tuple, run_mode: str = "npu"):
         y = pypto.add(x, x)
         return y
 
-    if run_mode == "npu":
-        return pypto.frontend.jit()(symbolic_immediate_kernel)
-    else:
-        return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(symbolic_immediate_kernel)
+    return symbolic_immediate_kernel
 
 
 def create_symbolicscalar_in_loop_kernel(shape: tuple, run_mode: str = "npu"):
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def symbolicscalar_in_loop_kernel(
         x: pypto.Tensor(shape, pypto.DT_FP32),
     ) -> pypto.Tensor(shape, pypto.DT_FP32):
@@ -95,10 +98,7 @@ def create_symbolicscalar_in_loop_kernel(shape: tuple, run_mode: str = "npu"):
             y = x + y
         return y
 
-    if run_mode == "npu":
-        return pypto.frontend.jit()(symbolicscalar_in_loop_kernel)
-    else:
-        return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(symbolicscalar_in_loop_kernel)
+    return symbolicscalar_in_loop_kernel
 
 
 # ----------------------------------------------------------------------------

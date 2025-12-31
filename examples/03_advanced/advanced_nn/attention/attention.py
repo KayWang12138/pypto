@@ -110,6 +110,10 @@ def scaled_dot_product_attention_core(q: pypto.Tensor, k: pypto.Tensor, v: pypto
 
 
 def scaled_dot_product_attention(run_mode: str = "npu"):
+    
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    
+    @pypto.frontend.jit(host_options={"only_codegen": True}, runtime_options={"run_mode": mode})
     def scaled_dot_product_attention_kernel(
         q: pypto.Tensor((BATCH_SIZE, NUM_HEADS, SEQ_LEN_Q, HEAD_DIM), pypto.DT_BF16),
         k: pypto.Tensor((BATCH_SIZE, NUM_HEADS, SEQ_LEN_KV, HEAD_DIM), pypto.DT_BF16),
@@ -124,11 +128,7 @@ def scaled_dot_product_attention(run_mode: str = "npu"):
         output = pypto.matmul(attn_weights, v, out_dtype=pypto.DT_BF16)
         return output
     
-    if run_mode == "npu":
-        return pypto.frontend.jit(host_options={"only_codegen": True})(scaled_dot_product_attention_kernel)
-    else:
-        return pypto.frontend.jit(host_options={"only_codegen": True}, 
-        runtime_options={"run_mode": pypto.RunMode.SIM})(scaled_dot_product_attention_kernel)
+    return scaled_dot_product_attention_kernel
 
 
 def test_scaled_dot_product_attention(device_id=None, run_mode: str = "npu", dynamic: bool = False) -> None:
@@ -182,6 +182,10 @@ def attention_with_projection_core(q_view: pypto.Tensor, k_view: pypto.Tensor,
 
 
 def attention_with_projection(run_mode: str = "npu"):
+    
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def attention_with_projection_kernel(
         hidden_states: pypto.Tensor((BATCH_SIZE, SEQ_LEN, HIDDEN_SIZE), pypto.DT_BF16),
         q_weight: pypto.Tensor((1, HIDDEN_SIZE, NUM_HEADS * HEAD_DIM), pypto.DT_BF16),
@@ -229,11 +233,8 @@ def attention_with_projection(run_mode: str = "npu"):
             output_tensor[b_offset:, ...] = output_view
 
         return output_tensor
-    
-    if run_mode == "npu":
-        return pypto.frontend.jit()(attention_with_projection_kernel)
-    else:
-        return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(attention_with_projection_kernel)
+
+    return attention_with_projection_kernel
 
 
 def attention_with_projection_golden(

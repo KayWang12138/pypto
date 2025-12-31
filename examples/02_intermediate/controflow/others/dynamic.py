@@ -101,6 +101,9 @@ def scaled_dot_product_attention(q_shape: tuple, k_shape: tuple, config: Attenti
     tile = q_shape[0]
     scale = config.scale if config.scale is not None else (1.0 / (dim**0.5))
         
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    
+    @pypto.frontend.jit(host_options={"only_codegen": True}, runtime_options={"run_mode": mode})
     def scaled_dot_product_attention_kernel(
         q: pypto.Tensor((bs, head, q_len, dim), pypto.DT_FP32),
         k: pypto.Tensor((bs, head, kv_len, dim), pypto.DT_FP32),
@@ -133,12 +136,7 @@ def scaled_dot_product_attention(q_shape: tuple, k_shape: tuple, config: Attenti
             pypto.assemble(res, [bs_offset, 0, 0, 0], output_tensor)
         return output_tensor
     
-    # launch the kernel
-    if run_mode == "npu":
-        return pypto.frontend.jit(host_options={"only_codegen": True},)(scaled_dot_product_attention_kernel)
-    else:
-        return pypto.frontend.jit(host_options={"only_codegen": True}, 
-                                  runtime_options={"run_mode": pypto.RunMode.SIM})(scaled_dot_product_attention_kernel)
+    return scaled_dot_product_attention_kernel
 
 
 def test_dynamic_shape(device_id: int = None, run_mode: str = "npu", dynamic: bool = True) -> None:

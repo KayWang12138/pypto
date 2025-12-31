@@ -52,6 +52,9 @@ def create_add_scalar_loop_dyn_axis_dyn_loop_cond_kernel(
     else:
         w, h, c, n = shape
     
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def add_scalar_loop_dyn_axis_dyn_loop_cond_kernel(
         input0: pypto.Tensor((w, h, c, n), pypto.DT_FP32),
         input1: pypto.Tensor((w, h, c, n), pypto.DT_FP32),
@@ -77,11 +80,7 @@ def create_add_scalar_loop_dyn_axis_dyn_loop_cond_kernel(
                 output[b_offset:b_offset_end, ...] = t3_sub
         return output
 
-    if run_mode == "npu":
-        return pypto.frontend.jit()(add_scalar_loop_dyn_axis_dyn_loop_cond_kernel)
-    else:
-        return pypto.frontend.jit(
-            runtime_options={"run_mode": pypto.RunMode.SIM})(add_scalar_loop_dyn_axis_dyn_loop_cond_kernel)
+    return add_scalar_loop_dyn_axis_dyn_loop_cond_kernel
 
 
 def test_add_scalar_loop_dynamic_axis_dynamic_loop_cond(device_id=None, run_mode: str = "npu") -> None:

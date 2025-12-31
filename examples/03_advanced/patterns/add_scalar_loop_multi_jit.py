@@ -58,6 +58,10 @@ def add_core(input0: pypto.Tensor, input1: pypto.Tensor, add1_flag: bool = False
 
 
 def create_add_kernel(run_mode: str = "npu", add1_flag: bool = True):
+    
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def add_kernel(
         input0: pypto.Tensor(SHAPE, pypto.DT_FP32),
         input1: pypto.Tensor(SHAPE, pypto.DT_FP32),
@@ -65,10 +69,7 @@ def create_add_kernel(run_mode: str = "npu", add1_flag: bool = True):
         out = add_core(input0, input1, add1_flag)
         return out
     
-    if run_mode == "npu":
-        return pypto.frontend.jit()(add_kernel)
-    else:
-        return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(add_kernel)
+    return add_kernel
 
 
 def test_add_scalar_loop_multi_jit(device_id=None, run_mode: str = "npu") -> None:

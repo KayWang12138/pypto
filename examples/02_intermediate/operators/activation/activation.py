@@ -95,8 +95,11 @@ def silu_activation(shape: tuple, run_mode: str = "npu", dynamic: bool = False) 
         m = pypto.frontend.dynamic("M")
     else:
         m, n = shape
-            
+    
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+         
     # launch the kernel
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def silu_activation_kernel(
         x: pypto.Tensor((m, n), pypto.DT_BF16),
     ) -> pypto.Tensor((m, n), pypto.DT_BF16):
@@ -114,10 +117,7 @@ def silu_activation(shape: tuple, run_mode: str = "npu", dynamic: bool = False) 
         out[:] = x * pypto.sigmoid(x)
         return out
 
-    if run_mode == "npu":
-        return pypto.frontend.jit()(silu_activation_kernel)
-    else:
-        return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(silu_activation_kernel)
+    return silu_activation_kernel
 
 
 def test_silu(device_id: int = None, run_mode: str = "npu", dynamic: bool = False) -> None:
@@ -153,7 +153,10 @@ def gelu_activation(shape: tuple, run_mode: str = "npu", dynamic: bool = False) 
     else:
         m, n = shape
         
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+         
     # launch the kernel
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def gelu_activation_kernel(
         x: pypto.Tensor((m, n), pypto.DT_BF16),
     ) -> pypto.Tensor((m, n), pypto.DT_BF16):
@@ -171,11 +174,8 @@ def gelu_activation(shape: tuple, run_mode: str = "npu", dynamic: bool = False) 
         # NOTE: `1.702 * x` leads to `TypeError: unsupported operand type(s) for *: 'float' and 'Tensor'`
         out[:] = x * pypto.sigmoid(x_scaled)
         return out
-    
-    if run_mode == "npu":
-        return pypto.frontend.jit()(gelu_activation_kernel)
-    else:
-        return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(gelu_activation_kernel)
+
+    return gelu_activation_kernel
 
 
 def test_gelu(device_id: int = None, run_mode: str = "npu", dynamic: bool = False) -> None:
@@ -212,7 +212,10 @@ def swiglu_activation(shape: tuple, run_mode: str = "npu", dynamic: bool = False
     else:
         m, n = shape
 
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+         
     # launch the kernel
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def swiglu_activation_kernel(
         gate: pypto.Tensor((m, n), pypto.DT_BF16),
         up: pypto.Tensor((m, n), pypto.DT_BF16),
@@ -233,10 +236,7 @@ def swiglu_activation(shape: tuple, run_mode: str = "npu", dynamic: bool = False
         out[:] = swish * up
         return out
     
-    if run_mode == "npu":
-        return pypto.frontend.jit()(swiglu_activation_kernel)
-    else:
-        return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(swiglu_activation_kernel)
+    return swiglu_activation_kernel
 
 
 def test_swiglu(device_id: int = None, run_mode: str = "npu", dynamic: bool = False) -> None:
@@ -275,7 +275,10 @@ def geglu_activation(shape: tuple, run_mode: str = "npu", dynamic: bool = False)
     else:
         m, n = shape
 
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    
     # launch the kernel
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def geglu_activation_kernel(
         gate: pypto.Tensor((m, n), pypto.DT_BF16),
         up: pypto.Tensor((m, n), pypto.DT_BF16),
@@ -296,10 +299,7 @@ def geglu_activation(shape: tuple, run_mode: str = "npu", dynamic: bool = False)
         out[:] = gelu_gate * up
         return out
 
-    if run_mode == "npu":
-        return pypto.frontend.jit()(geglu_activation_kernel)
-    else:
-        return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(geglu_activation_kernel)
+    return geglu_activation_kernel
 
 
 def test_geglu(device_id: int = None, run_mode: str = "npu", dynamic: bool = False) -> None:

@@ -73,6 +73,9 @@ def create_add_scalar_loop_dyn_axis_static_cond_kernel(shape: tuple, val: int, f
     else:
         w, h, c, n = shape
     
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def add_scalar_loop_dyn_axis_static_cond_kernel(
         input0: pypto.Tensor((w, h, c, n), pypto.DT_FP32),
         input1: pypto.Tensor((w, h, c, n), pypto.DT_FP32),
@@ -81,12 +84,7 @@ def create_add_scalar_loop_dyn_axis_static_cond_kernel(shape: tuple, val: int, f
         add_core(input0, input1, output, val, flag)
         return output
 
-    if run_mode == "npu":
-        return pypto.frontend.jit()(add_scalar_loop_dyn_axis_static_cond_kernel)
-    else:
-        return pypto.frontend.jit(
-            runtime_options={"run_mode": pypto.RunMode.SIM}
-        )(add_scalar_loop_dyn_axis_static_cond_kernel)
+    return add_scalar_loop_dyn_axis_static_cond_kernel
 
 
 def test_add_scalar_loop_dyn_axis_static_cond(device_id=None, run_mode: str = "npu") -> None:

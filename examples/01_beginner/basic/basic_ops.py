@@ -68,6 +68,9 @@ def test_tensor_creation(device_id: int = None, run_mode: str = "npu", dynamic: 
 
 
 def create_element_wise_ops_kernel(shape: tuple, run_mode: str = "npu"):
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def element_wise_ops_kernel(
         a: pypto.Tensor(shape, pypto.DT_FP16),
         b: pypto.Tensor(shape, pypto.DT_FP16),
@@ -76,10 +79,7 @@ def create_element_wise_ops_kernel(shape: tuple, run_mode: str = "npu"):
         add_result = pypto.add(a, b)
         mul_result = pypto.mul(add_result, 2.0)
         return mul_result
-    if run_mode == "npu":
-        return pypto.frontend.jit()(element_wise_ops_kernel)
-    else:
-        return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(element_wise_ops_kernel)
+    return element_wise_ops_kernel
 
 
 def test_element_wise_operations(device_id: int = None, run_mode: str = "npu", dynamic: bool = False) -> None:
@@ -117,6 +117,9 @@ def create_matrix_multiply_kernel(shape: tuple, run_mode: str = "npu", dynamic: 
     else:
         m, k, n = shape
 
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def matrix_multiply_kernel(
         a: pypto.Tensor((m, k), pypto.DT_BF16),
         b: pypto.Tensor((k, n), pypto.DT_BF16),
@@ -125,10 +128,7 @@ def create_matrix_multiply_kernel(shape: tuple, run_mode: str = "npu", dynamic: 
         c = pypto.matmul(a, b, a.dtype)
         return c
 
-    if run_mode == "npu":
-        return pypto.frontend.jit()(matrix_multiply_kernel)
-    else:
-        return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(matrix_multiply_kernel)
+    return matrix_multiply_kernel
 
 
 def test_matrix_multiplication(device_id: int = None, run_mode: str = "npu", dynamic: bool = False) -> None:
@@ -162,6 +162,9 @@ def create_apply_activations_kernel(shape: tuple, run_mode: str = "npu", dynamic
     else:
         x_shape = shape
 
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def apply_activations_kernel(
         x: pypto.Tensor(x_shape, pypto.DT_FP16),
     ) -> pypto.Tensor(x_shape, pypto.DT_FP16):
@@ -169,10 +172,7 @@ def create_apply_activations_kernel(shape: tuple, run_mode: str = "npu", dynamic
         result = pypto.sigmoid(x)
         return result
 
-    if run_mode == "npu":
-        return pypto.frontend.jit()(apply_activations_kernel)
-    else:
-        return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(apply_activations_kernel)
+    return apply_activations_kernel
 
 
 def test_activation_functions(device_id: int = None, run_mode: str = "npu", dynamic: bool = False) -> None:
@@ -206,6 +206,9 @@ def create_view_operations_kernel(shape: tuple, run_mode: str = "npu", dynamic: 
     else:
         h, w = shape
 
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def view_operations_kernel(
         input_tensor: pypto.Tensor((h, w), pypto.DT_FP16),
     ) -> pypto.Tensor((h, w), pypto.DT_FP16):
@@ -225,10 +228,7 @@ def create_view_operations_kernel(shape: tuple, run_mode: str = "npu", dynamic: 
                 pypto.assemble(result, [h_offset, w_offset], output_tensor)
         return output_tensor
 
-    if run_mode == "npu":
-        return pypto.frontend.jit()(view_operations_kernel)
-    else:
-        return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(view_operations_kernel)
+    return view_operations_kernel
 
 
 def test_view_operations(device_id: int = None, run_mode: str = "npu", dynamic: bool = False) -> None:
@@ -264,6 +264,9 @@ def create_linear_layer_with_activation_kernel(shape: tuple, run_mode: str = "np
     else:
         batch, in_features, out_features = shape
 
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def linear_layer_with_activation_kernel(
         x: pypto.Tensor((batch, in_features), pypto.DT_BF16),
         w: pypto.Tensor((in_features, out_features), pypto.DT_BF16),
@@ -276,10 +279,7 @@ def create_linear_layer_with_activation_kernel(shape: tuple, run_mode: str = "np
         y[:] = pypto.sigmoid(biased)
         return y
 
-    if run_mode == "npu":
-        return pypto.frontend.jit()(linear_layer_with_activation_kernel)
-    else:
-        return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(linear_layer_with_activation_kernel)
+    return linear_layer_with_activation_kernel
 
 
 def test_combined_operations(device_id: int = None, run_mode: str = "npu", dynamic: bool = False) -> None:
