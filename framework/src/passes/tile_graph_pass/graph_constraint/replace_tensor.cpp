@@ -140,8 +140,8 @@ Status ReplaceTensor::InplaceCheck(Function& function) {
     for (const auto& op : function.Operations()) {
         auto it = opValidators.find(op.GetOpcode());
         if (it != opValidators.end()) {
-            const auto& validator   = it->second;
-            size_t inputCount  = op.GetInputOperandSize();
+            const auto& validator = it->second;
+            size_t inputCount = op.GetInputOperandSize();
             size_t outputCount = op.GetOutputOperandSize();
             if (!validator.inputCountValidator(inputCount) || !validator.outputCountValidator(outputCount) || validator.validate(op)) {
                 APASS_LOG_ERROR_F(Elements::Operation, "%s op[%d] invalid or conflict.", validator.opName.c_str(), op.GetOpMagic());
