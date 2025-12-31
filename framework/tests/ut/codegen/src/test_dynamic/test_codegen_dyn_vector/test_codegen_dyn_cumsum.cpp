@@ -78,8 +78,8 @@ void TestCodegenDynCumSumBody(int axis) {
             }
         }
         DynParamInfo fakeParam = {3, 0, 0, DynParamInfoType::VALID_SHAPE, 0, SymbolicScalar(), false, ""};
-        subFunc.second->dynParamTable_.emplace("sym_2_dim_0", fakeParam);
-        subFunc.second->dynParamTable_.emplace("sym_2_dim_1", fakeParam);
+        subFunc.second->InsertDynParam("sym_2_dim_0", fakeParam);
+        subFunc.second->InsertDynParam("sym_2_dim_1", fakeParam);
     }
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);

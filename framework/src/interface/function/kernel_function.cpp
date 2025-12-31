@@ -26,31 +26,31 @@
 #include "interface/program/program.h"
 
 namespace npu::tile_fwk {
-KernelFunction::KernelFunction(const Program &belongTo, const std::string &funcMagicName,
+BlockFunction::BlockFunction(const Program &belongTo, const std::string &funcMagicName,
     const std::string &funcRawName, Function *parentFunc)
     : Function(belongTo, funcMagicName, funcRawName, parentFunc),
       programId_(-1),
       leafFuncAttr_(nullptr) {
 }
 
-std::vector<OperationPtr> &KernelFunction::GetProgramOp() {
+std::vector<OperationPtr> &BlockFunction::GetProgramOp() {
     return operations_;
 }
 
-void KernelFunction::SetProgramOp(const std::vector<OperationPtr> &operations) {
+void BlockFunction::SetProgramOp(const std::vector<OperationPtr> &operations) {
     operations_ = operations;
 
     RefreshOpPosition();
     sorted_ = true;
 }
 
-void KernelFunction::UpdateBelongToThis() {
+void BlockFunction::UpdateBelongToThis() {
     for (auto &ele : operations_) {
          ele->SetParentFunction(this);
     }
 }
 
-void KernelFunction::ScheduleBy(const std::vector<Operation *> &newList, bool needRefresh) {
+void BlockFunction::ScheduleBy(const std::vector<Operation *> &newList, bool needRefresh) {
     if (needRefresh) {
         RefreshOpPosition();
     }
@@ -218,7 +218,7 @@ static std::vector<SymbolicScalar> NormalizeTensor(LogicalTensorPtr operand, int
     return operandCoaList;
 }
 
-void KernelFunction::GetOutcastSymbolicExpr(std::map<int, SymbolicScalar>& tabel) {
+void BlockFunction::GetOutcastSymbolicExpr(std::map<int, SymbolicScalar>& tabel) {
     for (size_t i = 0; i< outCasts_.size(); i++) {
         auto op = *outCasts_[i]->GetProducers().begin();
         if (op->GetOpcode() == Opcode::OP_BIND_TENSOR) {
@@ -229,7 +229,7 @@ void KernelFunction::GetOutcastSymbolicExpr(std::map<int, SymbolicScalar>& tabel
     }
 }
 
-std::vector<std::vector<SymbolicScalar>> KernelFunction::NormalizeCoa(
+std::vector<std::vector<SymbolicScalar>> BlockFunction::NormalizeCoa(
     std::vector<int> &iOffset, std::vector<int> &oOffset) {
     std::unordered_map<int, Operation *> opmagicToOp;
     std::vector<std::pair<Operation*, int>> extraOutcasts;
@@ -329,13 +329,13 @@ std::vector<std::vector<SymbolicScalar>> KernelFunction::NormalizeCoa(
     return coaLists;
 }
 
-void KernelFunction::CreateLeafInAndOutCast(const LogicalTensorPtr &inOrOut,
+void BlockFunction::CreateLeafInAndOutCast(const LogicalTensorPtr &inOrOut,
     LogicalTensors &inOrOutList) const {
 inOrOutList.emplace_back(inOrOut->Clone(*parent_));
 }
 
 
-GetTensorDataIODescDict KernelFunction::GetTensorDataForLeafGraph() {
+GetTensorDataIODescDict BlockFunction::GetTensorDataForLeafGraph() {
     GetTensorDataIODescDict iodescDict;
     for (auto &op : Operations(false)) {
         if (!CheckEmuOpcode(&op, EMUOP_TENSOR_GETDATA_IMPORT)) {

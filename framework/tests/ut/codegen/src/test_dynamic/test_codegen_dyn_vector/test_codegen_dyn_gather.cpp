@@ -86,10 +86,10 @@ TEST_F(TestCodegenDynGather, TestGather) {
             }
         }
         DynParamInfo fakeParam = {3, 0, 0, DynParamInfoType::VALID_SHAPE, 0, SymbolicScalar(), false, ""};
-        subFunc.second->dynParamTable_.emplace("sym_26_dim_0", fakeParam);
-        subFunc.second->dynParamTable_.emplace("sym_26_dim_1", fakeParam);
-        subFunc.second->dynParamTable_.emplace("sym_27_dim_0", fakeParam);
-        subFunc.second->dynParamTable_.emplace("sym_27_dim_1", fakeParam);
+        subFunc.second->InsertDynParam("sym_26_dim_0", fakeParam);
+        subFunc.second->InsertDynParam("sym_26_dim_1", fakeParam);
+        subFunc.second->InsertDynParam("sym_27_dim_0", fakeParam);
+        subFunc.second->InsertDynParam("sym_27_dim_1", fakeParam);
     }
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
