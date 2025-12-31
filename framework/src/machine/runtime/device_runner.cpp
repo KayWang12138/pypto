@@ -565,14 +565,14 @@ int DeviceRunner::launchDynamicAiCpuInit(rtStream_t aicpuStream, AstKernelArgs *
 }
 
 int DeviceRunner::RunPrepare() {
-    KernelArgs kernelArgs = {};
-    for (uint32_t i = 0; i < args_.nrAic + args_.nrAiv; i++) {
-        kernelArgs.shakeBuffer[SHAK_BUF_DFX_DATA_INDEX] = reinterpret_cast<uint64_t>(perfData_[i]);
-        rtMemcpy((reinterpret_cast<uint8_t *>(args_.sharedBuffer)) + i * SHARED_BUFFER_SIZE,
-            SHARED_BUFFER_SIZE,
-            reinterpret_cast<uint8_t *>(&kernelArgs),
-            sizeof(kernelArgs),
-            RT_MEMCPY_HOST_TO_DEVICE);
+    KernelArgs kernelArgs = {}; 
+    for (uint32_t i = 0; i < args_.nrAic + args_.nrAiv; i++) {	 
+        kernelArgs.shakeBuffer[SHAK_BUF_DFX_DATA_INDEX] = reinterpret_cast<uint64_t>(perfData_[i]);	 
+        rtMemcpy((reinterpret_cast<uint8_t *>(args_.sharedBuffer)) + i * SHARED_BUFFER_SIZE,	 
+            SHARED_BUFFER_SIZE,	 
+            reinterpret_cast<uint8_t *>(&kernelArgs),	 
+            sizeof(kernelArgs), 
+            RT_MEMCPY_HOST_TO_DEVICE);	 
     }
     if (isCapture_) {
         aclmdlRICaptureMode mode = ACL_MODEL_RI_CAPTURE_MODE_GLOBAL;
