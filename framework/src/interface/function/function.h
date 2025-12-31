@@ -514,7 +514,7 @@ public:
     void ClearOperationGroups();
     void CheckGroupValid() const;
 
-     // block graph function 特有的接口
+    // block graph function 特有的接口
     void AddOriginIncast(const std::shared_ptr<LogicalTensor> tensor);
     void AddOriginOutcast(const std::shared_ptr<LogicalTensor> tensor);
     bool IsFromInCast(const std::shared_ptr<LogicalTensor> &tensor);
@@ -630,11 +630,6 @@ public:
     std::set<Operation *, LogicalTensor::CompareOp> FindConsumers(const Operation &op) const;
     std::set<Operation *, LogicalTensor::CompareOp> FindProducers(const Operation &op) const;
 
-
-    virtual void SetDynloopAttribute(const std::shared_ptr<DynloopFunctionAttribute> &attr);
-    virtual const std::shared_ptr<DynloopFunctionAttribute> &GetDynloopAttribute() const;
-    virtual std::shared_ptr<DynloopFunctionAttribute> &GetDynloopAttribute();
-
     void SetSlotScope(const std::shared_ptr<TensorSlotScope> &slotScope) { slotScope_ = slotScope; }
     const std::shared_ptr<TensorSlotScope> &GetSlotScope() const { return slotScope_; }
     std::shared_ptr<TensorSlotScope> &GetSlotScope() { return slotScope_; }
@@ -645,8 +640,6 @@ public:
     bool InsertLoopIdxNameList(const std::string &idxName);
 
     bool HasCallOperation();
-    virtual bool IsDynloop() const;
-
     bool IsHiddenFunction() {return hiddenFunction_;}
     void SetHiddenFunction(bool hiddenFunction) {hiddenFunction_ = hiddenFunction;} 
     
@@ -673,7 +666,6 @@ public:
         return dynParamTable_;
     }
    
-
     bool IsUnderDynamicFunction() const { return isUnderDynamicFunction_; }
     void SetUnderDynamicFunction(bool underDynamicFunciton) { isUnderDynamicFunction_ = underDynamicFunciton; }
 
@@ -707,9 +699,19 @@ public:
     virtual const std::shared_ptr<DyndevFunctionAttribute> &GetDyndevAttribute() const;
     virtual std::shared_ptr<DyndevFunctionAttribute> &GetDyndevAttribute();
     virtual bool IsDyndev() const;
+    virtual bool IsDynloop() const;
     virtual void AddLoopCallToOrderGroup(Operation * callOp);
     virtual void ApplyLoopCallOrderGroup();
     virtual DyndevFunctionAttribute::ValueDependDesc LookupValueDepend();
+
+    //------------------------------------------------------------------------------------------------------
+    //------------------------------------------- DynamicLoopFunction --------------------------------------
+    //------------------------------------------------------------------------------------------------------
+    // Virtual functions for DynamicLoopFunction interface compatibility
+    // These functions allow calling DynamicLoopFunction methods through Function* pointer
+    virtual void SetDynloopAttribute(const std::shared_ptr<DynloopFunctionAttribute> &attr);
+    virtual const std::shared_ptr<DynloopFunctionAttribute> &GetDynloopAttribute() const;
+    virtual std::shared_ptr<DynloopFunctionAttribute> &GetDynloopAttribute();
 
     //------------------------------------------------------------------------------------------------------
     //------------------------------------------- DataFlowFunction -----------------------------------------
@@ -718,11 +720,8 @@ public:
     // These functions allow calling DataFlowFunction methods through Function* pointer
     virtual size_t GetTotalSubGraphCount() const;
     virtual void SetTotalSubGraphCount(const size_t totalSubGraphCount);
-
     virtual void *GetParamAddress(int index);
-
     virtual const SubfuncInvokeInfoTy &GetSubFuncInvokeInfo(const size_t i) const;
-
     virtual const std::map<CoreType, std::vector<int>> &GetReadySubGraphIds() const;
     virtual void SetReadySubGraphIds(CoreType coreType, const std::vector<int> &readySubGraphIds);
     virtual void EmplaceReadySubGraphIds(CoreType coreType, int readySubGraphId);
@@ -730,7 +729,6 @@ public:
     virtual size_t GetReadySubGraphCount(CoreType coreType) const;
     virtual int GetReadySubGraphId(CoreType coreType, int index) const;
     virtual int GetAllReadySubGraphCount() const;
-
     virtual std::unordered_set<int> LoopCheck();
     virtual void GetAnIslandIncastsOutcasts(const std::map<int, int> &opToSubgraph, const int subgraphID,
         const std::vector<Operation *> &operations,
@@ -751,22 +749,17 @@ public:
     virtual void SetProgramOp(const std::vector<OperationPtr> &operations);
     virtual void UpdateBelongToThis();
     virtual void ScheduleBy(const std::vector<Operation *> &newList, bool needRefresh = false);
-
     virtual const SubfuncParam &GetParameter() const;
     virtual SubfuncParam &GetParameter();
     virtual void SetParameter(const SubfuncParam &parameter);
-
     virtual int GetProgramId() const;
     virtual void SetProgramId(int programId);
-
     virtual void SetLeafFuncAttribute(const std::shared_ptr<LeafFuncAttribute> &attr);
     virtual const std::shared_ptr<LeafFuncAttribute> &GetLeafFuncAttribute() const;
     virtual std::shared_ptr<LeafFuncAttribute> &GetLeafFuncAttribute();
-
     virtual std::vector<std::vector<SymbolicScalar>> NormalizeCoa(
         std::vector<int> &iOffset, std::vector<int> &oOffset);
     virtual void GetOutcastSymbolicExpr(std::map<int, SymbolicScalar>& tabel);
-
     virtual std::pair<bool, Opcode> IsAicpuSubFunction() const;
     virtual void CreateLeafInAndOutCast(const LogicalTensorPtr &inOrOut, LogicalTensors &inOrOutList) const;
     virtual GetTensorDataIODescDict GetTensorDataForLeafGraph();

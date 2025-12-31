@@ -58,4 +58,3 @@ private:
 };
 
 } // namespace npu::tile_fwk
-

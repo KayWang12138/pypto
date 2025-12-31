@@ -61,7 +61,6 @@ DyndevFunctionAttribute::ValueDependDesc ControlFlowFunction::LookupValueDepend(
                 ValueDependSearcher::Search(desc, cond.GetCond());
             }
         }
-
     } else {
         for (auto &op : Operations(false)) {
             std::vector<std::reference_wrapper<SymbolicScalar>> attrList = op.GetDynamicAttributeList();
