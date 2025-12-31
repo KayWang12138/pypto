@@ -38,7 +38,9 @@ public:
 };
 
 TEST_F(AddAllocTest, TestAddAlloc) {
-    ComputationalGraphBuilder subGraph;
+    auto blockFunc = std::make_shared<BlockFunction>(Program::GetInstance(), "TestAddAlloc", "TestAddAlloc", nullptr);
+    ComputationalGraphBuilder subGraph(blockFunc.get());
+
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9"};
     std::vector<MemoryType> tensorMemTypes{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, 
         MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, MemoryType::MEM_UB};
@@ -59,7 +61,9 @@ TEST_F(AddAllocTest, TestAddAlloc) {
 }
 
 TEST_F(AddAllocTest, TestAddAllocInplace) {
-    ComputationalGraphBuilder subGraph;
+    auto blockFunc = std::make_shared<BlockFunction>(Program::GetInstance(), "TestAddAllocInplace", "TestAddAllocInplace", nullptr);
+    ComputationalGraphBuilder subGraph(blockFunc.get());
+
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9", "t10", "t11"};
     std::vector<MemoryType> tensorMemTypes{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, 
         MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, 
@@ -89,7 +93,9 @@ TEST_F(AddAllocTest, TestAddAllocInplace) {
 }
 
 TEST_F(AddAllocTest, TestAddAllocAssemble) {
-    ComputationalGraphBuilder subGraph;
+    auto blockFunc = std::make_shared<BlockFunction>(Program::GetInstance(), "TestAddAllocAssemble", "TestAddAllocAssemble", nullptr);
+    ComputationalGraphBuilder subGraph(blockFunc.get());
+    
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9", "t10", "t11"};
     std::vector<MemoryType> tensorMemTypes{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, 
         MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB,
@@ -120,7 +126,9 @@ TEST_F(AddAllocTest, TestAddAllocAssemble) {
 }
 
 TEST_F(AddAllocTest, TestAddAllocView) {
-    ComputationalGraphBuilder subGraph;
+    auto blockFunc = std::make_shared<BlockFunction>(Program::GetInstance(), "TestAddAllocView", "TestAddAllocView", nullptr);
+    ComputationalGraphBuilder subGraph(blockFunc.get());
+
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9"};
     std::vector<MemoryType> tensorMemTypes{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, 
         MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB};
@@ -149,7 +157,9 @@ TEST_F(AddAllocTest, TestAddAllocView) {
 }
 
 TEST_F(AddAllocTest, TestAddAllocErrorMemId) {
-    ComputationalGraphBuilder subGraph;
+    auto blockFunc = std::make_shared<BlockFunction>(Program::GetInstance(), "TestAddAllocErrorMemId", "TestAddAllocErrorMemId", nullptr);
+    ComputationalGraphBuilder subGraph(blockFunc.get());
+
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9"};
     std::vector<MemoryType> tensorMemTypes{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, 
         MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB};
@@ -176,7 +186,9 @@ TEST_F(AddAllocTest, TestAddAllocErrorMemId) {
 }
 
 TEST_F(AddAllocTest, TestAddAllocErrorMemorymap) {
-    ComputationalGraphBuilder subGraph;
+    auto blockFunc = std::make_shared<BlockFunction>(Program::GetInstance(), "TestAddAllocErrorMemorymap", "TestAddAllocErrorMemorymap", nullptr);
+    ComputationalGraphBuilder subGraph(blockFunc.get());
+
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9"};
     std::vector<MemoryType> tensorMemTypes{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, 
         MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB};
