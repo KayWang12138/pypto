@@ -102,7 +102,7 @@ def sparse_flash_attention_quant_compute(query_nope, query_rope, key_nope_2d, ke
 
     g_loop_sym = group // group_tile
 
-    atten_out_2dim  = pypto.tensor([batch_size_sym * s1_n2_gsym, dn], dtype, "attenOut2Dim")
+    atten_out_2dim = pypto.tensor([batch_size_sym * s1_n2_gsym, dn], dtype, "attenOut2Dim")
     for batch_idx in pypto.loop(0, batch_size_sym, 1, name="LOOP_L0_idx", idx_name="bIdx"):
         cur_act_seq = kv_act_seqs[batch_idx]
         for slc_idx in pypto.loop(0, s1_sym, 1, name="LOOP_L1_s1_SA", idx_name="s1Idx"):
@@ -201,8 +201,8 @@ def sparse_flash_attention_quant_compute(query_nope, query_rope, key_nope_2d, ke
                                 dn, is_b_matrix=True, is_trans=False)
                             q1 = pypto.matmul(tilda_pij_f16, vj, dtype)
 
-                        pypto.assemble(q1, [cur_offset, 0], atten_out_2dim )
-                        attention_out[:] = pypto.reshape(atten_out_2dim ,
+                        pypto.assemble(q1, [cur_offset, 0], atten_out_2dim)
+                        attention_out[:] = pypto.reshape(atten_out_2dim,
                                                     [attention_out.shape[0], attention_out.shape[1],
                                                      attention_out.shape[2], attention_out.shape[3]], inplace=True)
 
