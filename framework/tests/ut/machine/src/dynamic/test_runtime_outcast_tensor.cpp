@@ -65,12 +65,17 @@ static void InitDeviceWorkspaceAllocatorForTest(DeviceWorkspaceAllocator &d, Dev
 
     devProg.devArgs.generalAddr = reinterpret_cast<uint64_t>(workspace.data());
     // Put stitch pool at an offset within the same workspace region
-    devProg.devArgs.stitchPoolAddr = reinterpret_cast<uint64_t>(workspace.data()) + (1u << 15); // offset 32KB
+    devProg.devArgs.stitchPoolAddr = reinterpret_cast<uint64_t>(workspace.data()) +
+            devProg.memBudget.metadata.general; // offset 256KB
 
     DevStartArgs args;
     args.InitWorkspace(&devProg, workspace.data());
 
     d.Init(&args);
+
+    std::cout << "InitDeviceWorkspaceAllocatorForTest: workspace base addr = 0x"
+              << std::hex << devProg.devArgs.generalAddr << ", size = 0x"
+              << std::hex << workspace.size() << std::dec << std::endl;
 }
 
 TEST_F(RuntimeOutcastTensorTest, DeviceWorkspaceAllocatorBasicOps) {
