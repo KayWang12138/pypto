@@ -848,6 +848,7 @@ struct EncodeDevAscendFunctionInfo {
     uint64_t totalZeroPredAIC{0};
     uint64_t totalZeroPredHub{0};
     uint64_t totalZeroPredAicpu{0};
+    uint64_t hubOpCount{0};
 
     std::unordered_map<Operation *, uint64_t> callOpPredDict;
     std::unordered_map<Operation *, OrderedSet<Operation *>> callOpSuccDict;
@@ -1059,6 +1060,9 @@ struct EncodeDevAscendFunctionInfo {
         std::set<int> noSuccOpSet;
         for (size_t index = 0; index < callList.size(); index++) {
             Operation *op = callList[index];
+            if (GetCoreType(op) == static_cast<int>(CoreType::HUB)) {
+                hubOpCount++;
+            }
             if (!callOpSuccDict.count(op) || callOpSuccDict.at(op).empty()) {
                 noSuccOpList.push_back(index);
                 noSuccOpSet.insert(index);
@@ -1562,6 +1566,7 @@ struct EncodeDevAscendFunctionInfo {
         devFunc->sourceFunc = nullptr;
         devFunc->getInputDataCount = valueDependDesc.getInputDataCount;
         devFunc->getTensorDataCount = valueDependDesc.getTensorDataCount;
+        devFunc->hubOpCount_ = hubOpCount;
         devFunc->InitIncastOutcastAttr(initOffset, incastList, outcastList, fillContent);
         devFunc->InitOperationDynamicField(initOffset, predInfo, outcastStitchCount, calleeHashIndexDict,
             expressionTable, callList, incastList, outcastList, callOpSuccDict, fillContent);
