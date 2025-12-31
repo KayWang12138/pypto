@@ -94,7 +94,12 @@ def create_layer_norm_kernel(batch_size: int, hidden_size: int, config: NormConf
         batch_size = pypto.frontend.dynamic("batch_size")
         hidden_size = pypto.frontend.dynamic("hidden_size")
 
-    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    if run_mode == "npu":
+        mode = pypto.RunMode.NPU
+    elif run_mode == "sim":
+        mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
     
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def layer_norm_kernel(
@@ -165,7 +170,12 @@ def create_rms_norm_kernel(batch_size, hidden_size, config: NormConfig, run_mode
         batch_size = pypto.frontend.dynamic("batch_size")
         hidden_size = pypto.frontend.dynamic("hidden_size")
 
-    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    if run_mode == "npu":
+        mode = pypto.RunMode.NPU
+    elif run_mode == "sim":
+        mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
     
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def rms_norm_kernel(

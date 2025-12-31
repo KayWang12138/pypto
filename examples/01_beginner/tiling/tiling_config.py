@@ -73,7 +73,12 @@ def create_cube_tile_kernel(m, k, n, run_mode, set_shapes: list):
 def compute_with_cube_tile_shapes_op(
     a: torch.Tensor, b: torch.Tensor, set_shapes: list, run_mode: str = "npu"
 ):
-    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    if run_mode == "npu":
+        mode = pypto.RunMode.NPU
+    elif run_mode == "sim":
+        mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
     return create_cube_tile_kernel(a.shape[0], a.shape[1], b.shape[1], mode, set_shapes)(a, b)
 
 
@@ -153,7 +158,12 @@ def create_different_tile_shapes_kernel(run_mode):
 
 def compute_with_different_tile_shapes_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> tuple:
     
-    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    if run_mode == "npu":
+        mode = pypto.RunMode.NPU
+    elif run_mode == "sim":
+        mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
     return create_different_tile_shapes_kernel(mode)(a, b)
 
 
@@ -278,8 +288,10 @@ def create_vec_tile_kernel(shape, run_mode, set_shapes: tuple):
 def compute_with_vec_tile_shapes_op(a: torch.Tensor, b: torch.Tensor, set_shapes: tuple, run_mode:str = "npu", dynamic: bool = False) -> torch.Tensor:
     if run_mode == "npu":
         mode = pypto.RunMode.NPU
-    else:
+    elif run_mode == "sim":
         mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
     return create_vec_tile_kernel(tuple(a.shape), mode, set_shapes)(a, b)
 
 
@@ -365,8 +377,10 @@ def compute_with_vec_different_tile_shapes_op(a: torch.Tensor, b: torch.Tensor, 
 
     if run_mode == "npu":
         mode = pypto.RunMode.NPU
-    else:
+    elif run_mode == "sim":
         mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
     return create_vec_different_tile_shapes_kernel(tuple(a.shape), mode)(a, b)
 
 

@@ -60,7 +60,12 @@ def matmul_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu") -> torch.
     a_shape, b_shape = a.shape, b.shape
     out_shape = (a_shape[0], b_shape[1])
     
-    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    if run_mode == "npu":
+        mode = pypto.RunMode.NPU
+    elif run_mode == "sim":
+        mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
     
     @pypto.frontend.jit(
     host_options={"only_codegen": True}, runtime_options={"run_mode": mode}
@@ -100,7 +105,12 @@ def test_matmul_basic(device_id: int = None, run_mode: str = "npu"):
 
 def matmul_batch_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
     a_shape, b_shape = a.shape, b.shape
-    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    if run_mode == "npu":
+        mode = pypto.RunMode.NPU
+    elif run_mode == "sim":
+        mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
         
     @pypto.frontend.jit(
     host_options={"only_codegen": True}, runtime_options={"run_mode": mode}
@@ -143,8 +153,10 @@ def matmul_broadcast_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu",
 
     if run_mode == "npu":
         mode = pypto.RunMode.NPU
-    else:
+    elif run_mode == "sim":
         mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
     
     @pypto.frontend.jit(
     host_options={"only_codegen": True}, runtime_options={"run_mode": mode}
@@ -184,7 +196,12 @@ def test_matmul_broadcast(device_id: int = None, run_mode: str = "npu"):
 def matmul_trans_right_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
     a_shape, b_shape = a.shape, b.shape
     out_shape = (a_shape[0], b_shape[0])
-    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    if run_mode == "npu":
+        mode = pypto.RunMode.NPU
+    elif run_mode == "sim":
+        mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
 
     @pypto.frontend.jit(
     host_options={"only_codegen": True}, runtime_options={"run_mode": mode}
@@ -204,7 +221,12 @@ def matmul_trans_right_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu
 def matmul_trans_left_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
     a_shape, b_shape = a.shape, b.shape
     out_shape = (a_shape[1], b_shape[1])
-    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    if run_mode == "npu":
+        mode = pypto.RunMode.NPU
+    elif run_mode == "sim":
+        mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
 
     @pypto.frontend.jit(
     host_options={"only_codegen": True}, runtime_options={"run_mode": mode}
@@ -285,7 +307,12 @@ def test_matmul_trans(device_id: int = None, run_mode: str = "npu"):
 def matmul_bias_op(a: torch.Tensor, b: torch.Tensor, bias: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
     a_shape, b_shape, bias_shape = a.shape, b.shape, bias.shape
 
-    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    if run_mode == "npu":
+        mode = pypto.RunMode.NPU
+    elif run_mode == "sim":
+        mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
     
     @pypto.frontend.jit(
         host_options={"only_codegen": True}, runtime_options={"run_mode": mode}

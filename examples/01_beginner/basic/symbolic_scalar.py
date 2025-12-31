@@ -62,7 +62,12 @@ def get_device_id():
 
 
 def create_symbolic_immediate_kernel(shape: tuple, run_mode: str = "npu"):
-    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    if run_mode == "npu":
+        mode = pypto.RunMode.NPU
+    elif run_mode == "sim":
+        mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
 
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def symbolic_immediate_kernel(
@@ -81,7 +86,12 @@ def create_symbolic_immediate_kernel(shape: tuple, run_mode: str = "npu"):
 
 
 def create_symbolicscalar_in_loop_kernel(shape: tuple, run_mode: str = "npu"):
-    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    if run_mode == "npu":
+        mode = pypto.RunMode.NPU
+    elif run_mode == "sim":
+        mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
     
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def symbolicscalar_in_loop_kernel(

@@ -68,7 +68,12 @@ def test_tensor_creation(device_id: int = None, run_mode: str = "npu", dynamic: 
 
 
 def create_element_wise_ops_kernel(shape: tuple, run_mode: str = "npu"):
-    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    if run_mode == "npu":
+        mode = pypto.RunMode.NPU
+    elif run_mode == "sim":
+        mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
 
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def element_wise_ops_kernel(
@@ -117,7 +122,12 @@ def create_matrix_multiply_kernel(shape: tuple, run_mode: str = "npu", dynamic: 
     else:
         m, k, n = shape
 
-    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    if run_mode == "npu":
+        mode = pypto.RunMode.NPU
+    elif run_mode == "sim":
+        mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
 
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def matrix_multiply_kernel(
@@ -162,7 +172,12 @@ def create_apply_activations_kernel(shape: tuple, run_mode: str = "npu", dynamic
     else:
         x_shape = shape
 
-    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    if run_mode == "npu":
+        mode = pypto.RunMode.NPU
+    elif run_mode == "sim":
+        mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
     
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def apply_activations_kernel(
@@ -206,7 +221,12 @@ def create_view_operations_kernel(shape: tuple, run_mode: str = "npu", dynamic: 
     else:
         h, w = shape
 
-    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    if run_mode == "npu":
+        mode = pypto.RunMode.NPU
+    elif run_mode == "sim":
+        mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
 
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def view_operations_kernel(
@@ -264,7 +284,12 @@ def create_linear_layer_with_activation_kernel(shape: tuple, run_mode: str = "np
     else:
         batch, in_features, out_features = shape
 
-    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    if run_mode == "npu":
+        mode = pypto.RunMode.NPU
+    elif run_mode == "sim":
+        mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
     
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def linear_layer_with_activation_kernel(

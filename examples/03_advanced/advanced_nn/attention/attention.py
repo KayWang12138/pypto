@@ -111,7 +111,12 @@ def scaled_dot_product_attention_core(q: pypto.Tensor, k: pypto.Tensor, v: pypto
 
 def scaled_dot_product_attention(run_mode: str = "npu"):
     
-    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    if run_mode == "npu":
+        mode = pypto.RunMode.NPU
+    elif run_mode == "sim":
+        mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
     
     @pypto.frontend.jit(host_options={"only_codegen": True}, runtime_options={"run_mode": mode})
     def scaled_dot_product_attention_kernel(
@@ -183,7 +188,12 @@ def attention_with_projection_core(q_view: pypto.Tensor, k_view: pypto.Tensor,
 
 def attention_with_projection(run_mode: str = "npu"):
     
-    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    if run_mode == "npu":
+        mode = pypto.RunMode.NPU
+    elif run_mode == "sim":
+        mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
     
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def attention_with_projection_kernel(

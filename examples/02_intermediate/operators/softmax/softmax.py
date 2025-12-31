@@ -77,7 +77,12 @@ def softmax(shape: tuple, run_mode: str = "npu", dynamic: bool = True) -> torch.
     if dynamic:
         bs = pypto.frontend.dynamic("bs")
     
-    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    if run_mode == "npu":
+        mode = pypto.RunMode.NPU
+    elif run_mode == "sim":
+        mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
     
     # launch the kernel
     @pypto.frontend.jit(runtime_options={"run_mode": mode})

@@ -57,7 +57,12 @@ def get_device_id():
 
 
 def create_arange_op_kernel(shape: tuple, start=None, end=None, step=None, run_mode: str = "npu") -> torch.Tensor:
-    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    if run_mode == "npu":
+        mode = pypto.RunMode.NPU
+    elif run_mode == "sim":
+        mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
 
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def arange_start_end_step_kernel(
@@ -186,7 +191,12 @@ def test_tensor_creation_with_datatypes(device_id = None, run_mode: str = "npu")
 
 def create_full_op_kernel(shape: tuple, fill_value: float, run_mode: str = "npu") -> torch.Tensor:
 
-    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    if run_mode == "npu":
+        mode = pypto.RunMode.NPU
+    elif run_mode == "sim":
+        mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
     
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def full_kernel(

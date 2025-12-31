@@ -103,7 +103,12 @@ def scaled_dot_product_attention(q_shape: tuple, k_shape: tuple, config: Attenti
     
     scale = config.scale if config.scale is not None else (1.0 / (dim**0.5))
     
-    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    if run_mode == "npu":
+        mode = pypto.RunMode.NPU
+    elif run_mode == "sim":
+        mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
     
     @pypto.frontend.jit(host_options={"only_codegen": True}, runtime_options={"run_mode": mode})
     def scaled_dot_product_attention_kernel(
@@ -184,7 +189,12 @@ def test_unordered_input_attention(device_id: int = None, run_mode: str = "npu",
 
 def op_unordered_input(shape: tuple, run_mode: str = "npu", dynamic: bool = True) -> Tuple[torch.Tensor, torch.Tensor]:
 
-    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    if run_mode == "npu":
+        mode = pypto.RunMode.NPU
+    elif run_mode == "sim":
+        mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
     
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def op_unordered_input_kernel(

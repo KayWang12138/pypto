@@ -57,7 +57,12 @@ def get_device_id():
 
 
 def create_abs_op_kernel(shape: tuple, run_mode: str = "npu") -> torch.Tensor:
-    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    if run_mode == "npu":
+        mode = pypto.RunMode.NPU
+    elif run_mode == "sim":
+        mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
 
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def abs_kernel(
@@ -102,7 +107,12 @@ def create_add_op_kernel(a_shape: tuple, b_shape: tuple, run_mode: str = "npu", 
         a_shape = a_shape
         b_shape = b_shape
 
-    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    if run_mode == "npu":
+        mode = pypto.RunMode.NPU
+    elif run_mode == "sim":
+        mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
 
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def add_kernel(
@@ -148,7 +158,12 @@ def create_add_broadcast_op_kernel(a_shape: tuple, b_shape: tuple,
         m, n = a_shape
         b_shape = b_shape
 
-    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    if run_mode == "npu":
+        mode = pypto.RunMode.NPU
+    elif run_mode == "sim":
+        mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
 
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def add_broadcast_kernel(
@@ -190,7 +205,12 @@ def create_add_scalar_op_kernel(shape: tuple, scalar: float, run_mode: str = "np
     else:
         shape = shape
 
-    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    if run_mode == "npu":
+        mode = pypto.RunMode.NPU
+    elif run_mode == "sim":
+        mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
 
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def add_scalar_kernel(
@@ -233,7 +253,12 @@ def create_add_with_alpha_op_kernel(a_shape: tuple, b_shape: tuple,
         a_shape = a_shape
         b_shape = b_shape
 
-    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    if run_mode == "npu":
+        mode = pypto.RunMode.NPU
+    elif run_mode == "sim":
+        mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
 
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def add_with_alpha_kernel(
@@ -289,7 +314,12 @@ def create_clip_op_kernel(a_shape: tuple, min_shape: tuple,
         min_m, min_n = min_shape
         max_m, max_n = max_shape
 
-    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    if run_mode == "npu":
+        mode = pypto.RunMode.NPU
+    elif run_mode == "sim":
+        mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
 
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def clip_kernel(
@@ -337,7 +367,12 @@ def create_clip_broadcast_op_kernel(a_shape: tuple, min_shape: tuple,
         m, n = a_shape
         min_shape, max_shape = min_shape, max_shape
 
-    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    if run_mode == "npu":
+        mode = pypto.RunMode.NPU
+    elif run_mode == "sim":
+        mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
 
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def clip_broadcast_kernel(
@@ -387,7 +422,12 @@ def create_div_op_kernel(a_shape: tuple, b_shape: tuple, run_mode: str = "npu", 
         a_shape = a_shape
         b_shape = b_shape
 
-    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    if run_mode == "npu":
+        mode = pypto.RunMode.NPU
+    elif run_mode == "sim":
+        mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
     
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def div_kernel(
@@ -475,7 +515,12 @@ def create_div_scalar_op_kernel(a_shape: tuple, scalar: float,
     else:
         a_shape = a_shape
 
-    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    if run_mode == "npu":
+        mode = pypto.RunMode.NPU
+    elif run_mode == "sim":
+        mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
 
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def div_scalar_kernel(
@@ -520,7 +565,12 @@ def create_exp_op_kernel(x_shape: tuple, run_mode: str = "npu", dynamic: bool = 
     else:
         x_shape = x_shape
 
-    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    if run_mode == "npu":
+        mode = pypto.RunMode.NPU
+    elif run_mode == "sim":
+        mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
 
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def exp_kernel(
@@ -564,7 +614,12 @@ def create_log_op_kernel(a_shape: tuple, run_mode: str = "npu", dynamic: bool = 
     else:
         a_shape = a_shape
 
-    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    if run_mode == "npu":
+        mode = pypto.RunMode.NPU
+    elif run_mode == "sim":
+        mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
 
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def log_kernel(
@@ -605,8 +660,10 @@ def mul_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu", dynamic: boo
     a_shape, b_shape = a.shape, b.shape
     if run_mode == "npu":
         mode = pypto.RunMode.NPU
-    else:
+    elif run_mode == "sim":
         mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
 
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def mul_kernel(
@@ -649,8 +706,10 @@ def mul_broadcast_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu", dy
 
     if run_mode == "npu":
         mode = pypto.RunMode.NPU
-    else:
+    elif run_mode == "sim":
         mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
     
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def mul_broadcast_kernel(
@@ -694,8 +753,10 @@ def mul_scalar_op(a: torch.Tensor, scalar: float, run_mode: str = "npu", dynamic
 
     if run_mode == "npu":
         mode = pypto.RunMode.NPU
-    else:
+    elif run_mode == "sim":
         mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
         
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def mul_broadcast_kernel(
@@ -741,8 +802,10 @@ def neg_op(a: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> tor
     a_shape = a.shape
     if run_mode == "npu":
         mode = pypto.RunMode.NPU
-    else:
+    elif run_mode == "sim":
         mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
         
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def neg_kernel(a: pypto.Tensor(a_shape, pypto.DT_FP32)) -> pypto.Tensor(a_shape, pypto.DT_FP32):
@@ -786,8 +849,10 @@ def pow_op(a: torch.Tensor, b: float, run_mode: str = "npu", dynamic: bool = Fal
 
     if run_mode == "npu":
         mode = pypto.RunMode.NPU
-    else:
+    elif run_mode == "sim":
         mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
 
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def pow_kernel(a: pypto.Tensor(a_shape, pypto.DT_FP32)) -> pypto.Tensor(a_shape, pypto.DT_FP32):
@@ -829,8 +894,10 @@ def rsqrt_op(a: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> t
     
     if run_mode == "npu":
         mode = pypto.RunMode.NPU
-    else:
+    elif run_mode == "sim":
         mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
         
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def rsqrt_kernel(a: pypto.Tensor(a_shape, pypto.DT_FP32)) -> pypto.Tensor(a_shape, pypto.DT_FP32):
@@ -872,8 +939,10 @@ def sqrt_op(a: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> to
     a_shape = a.shape
     if run_mode == "npu":
         mode = pypto.RunMode.NPU
-    else:
+    elif run_mode == "sim":
         mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
         
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def sqrt_kernel(a: pypto.Tensor(a_shape, pypto.DT_FP32)) -> pypto.Tensor(a_shape, pypto.DT_FP32):
@@ -917,8 +986,10 @@ def sub_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu", dynamic: boo
 
     if run_mode == "npu":
         mode = pypto.RunMode.NPU
-    else:
+    elif run_mode == "sim":
         mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
     
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def sub_kernel(
@@ -961,8 +1032,10 @@ def sub_broadcast_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu", dy
     
     if run_mode == "npu":
         mode = pypto.RunMode.NPU
-    else:
+    elif run_mode == "sim":
         mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
         
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def sub_broadcast_kernel(
@@ -1004,8 +1077,10 @@ def sub_scalar_op(a: torch.Tensor, scalar: float, run_mode: str = "npu", dynamic
     a_shape = a.shape
     if run_mode == "npu":
         mode = pypto.RunMode.NPU
-    else:
+    elif run_mode == "sim":
         mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
    
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def sub_scalar_kernel(a: pypto.Tensor(a_shape, pypto.DT_FP32)) -> pypto.Tensor(a_shape, pypto.DT_FP32):
@@ -1044,8 +1119,10 @@ def sub_with_alpha_op(a: torch.Tensor, b: torch.Tensor, alpha: float, run_mode: 
 
     if run_mode == "npu":
         mode = pypto.RunMode.NPU
-    else:
+    elif run_mode == "sim":
         mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
         
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def sub_with_alpha_kernel(

@@ -54,7 +54,12 @@ def create_nested_loops_with_conditions_kernel(shape: tuple, dynamic: bool = Fal
     else:
         w, h = shape
     
-    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    if run_mode == "npu":
+        mode = pypto.RunMode.NPU
+    elif run_mode == "sim":
+        mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
     
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def nested_loops_with_conditions_kernel(

@@ -100,7 +100,12 @@ def layernorm_core(x: pypto.Tensor, gamma: pypto.Tensor, beta: pypto.Tensor, eps
 
 
 def layer_norm(x_shape, gamma_shape, beta_shape, run_mode: str = "npu"):
-    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    if run_mode == "npu":
+        mode = pypto.RunMode.NPU
+    elif run_mode == "sim":
+        mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
     
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def layer_norm_kernel(
@@ -122,7 +127,12 @@ def layer_norm(x_shape, gamma_shape, beta_shape, run_mode: str = "npu"):
 
 # Function 2: Linear Projection
 def linear_projection(x_shape, w_shape, run_mode: str = "npu"):
-    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    if run_mode == "npu":
+        mode = pypto.RunMode.NPU
+    elif run_mode == "sim":
+        mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
     
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def linear_projection_kernel(
@@ -145,7 +155,12 @@ def linear_projection(x_shape, w_shape, run_mode: str = "npu"):
 
 # Function 3: GELU Activation
 def gelu_activation(x_shape, run_mode: str = "npu"):
-    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    if run_mode == "npu":
+        mode = pypto.RunMode.NPU
+    elif run_mode == "sim":
+        mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
     
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def gelu_activation_kernel(x: pypto.tensor(x_shape, pypto.DT_BF16)) -> pypto.tensor(x_shape, pypto.DT_BF16):
@@ -165,7 +180,12 @@ def gelu_activation(x_shape, run_mode: str = "npu"):
 
 # Function 4: Residual Connection
 def residual_add(x_shape, res_shape, run_mode: str = "npu"):
-    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    if run_mode == "npu":
+        mode = pypto.RunMode.NPU
+    elif run_mode == "sim":
+        mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
     
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def residual_add_kernel(
@@ -184,7 +204,12 @@ def residual_add(x_shape, res_shape, run_mode: str = "npu"):
     
 # Function 5: Attention (simplified)
 def attention(q_shape, k_shape, v_shape, out_shape, run_mode: str = "npu"):
-    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    if run_mode == "npu":
+        mode = pypto.RunMode.NPU
+    elif run_mode == "sim":
+        mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
     
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def attention_kernel(

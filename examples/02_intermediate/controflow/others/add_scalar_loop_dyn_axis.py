@@ -48,7 +48,12 @@ def add_scalar_loop_dynamic_axis(shape: tuple, val: int, run_mode: str = "npu") 
     _, w, n, c = shape
     h = pypto.frontend.dynamic("h")
     
-    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    if run_mode == "npu":
+        mode = pypto.RunMode.NPU
+    elif run_mode == "sim":
+        mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
     
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def add_scalar_loop_dynamic_axis_kernel(

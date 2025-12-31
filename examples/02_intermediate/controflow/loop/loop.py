@@ -57,7 +57,12 @@ def loop_basic(run_mode: str = "npu", dynamic: bool = True) -> torch.Tensor:
     shape = (n * s, s)
     dtype = pypto.DT_FP16
     
-    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    if run_mode == "npu":
+        mode = pypto.RunMode.NPU
+    elif run_mode == "sim":
+        mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
     
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def loop_basic_kernel(
@@ -119,7 +124,12 @@ def loop_compile_phase_print(shape: tuple, run_mode: str = "npu", dynamic: bool 
     else:
         m, n = shape
 
-    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    if run_mode == "npu":
+        mode = pypto.RunMode.NPU
+    elif run_mode == "sim":
+        mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
     
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def loop_compile_phase_print_kernel(

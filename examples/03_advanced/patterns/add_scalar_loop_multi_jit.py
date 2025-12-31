@@ -59,7 +59,12 @@ def add_core(input0: pypto.Tensor, input1: pypto.Tensor, add1_flag: bool = False
 
 def create_add_kernel(run_mode: str = "npu", add1_flag: bool = True):
     
-    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    if run_mode == "npu":
+        mode = pypto.RunMode.NPU
+    elif run_mode == "sim":
+        mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
     
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def add_kernel(

@@ -52,7 +52,12 @@ def create_add_scalar_loop_dyn_axis_dyn_cond_kernel(
     else:
         w, h, c, n = shape
     
-    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    if run_mode == "npu":
+        mode = pypto.RunMode.NPU
+    elif run_mode == "sim":
+        mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
     
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def add_scalar_loop_dyn_axis_dyn_cond_kernel(

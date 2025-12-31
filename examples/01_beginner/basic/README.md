@@ -15,7 +15,7 @@
 ## 样例代码特性
 
 本样例突出了 PyPTO 的以下特性：
-- **JIT 编译**: 使用 `@pypto.front.jit` 装饰器定义可以在 NPU 上执行的内核函数。
+- **JIT 编译**: 使用 `@pypto.frontend.jit` 装饰器定义可以在 NPU 上执行的内核函数。
 - **PyTorch 集成**: 能够直接接受 PyTorch NPU 张量作为输入输出，无缝衔接现有深度学习工作流。
 - **显式 Tiling 控制**: 通过 `set_vec_tile_shapes` 和 `set_cube_tile_shapes` 手动优化硬件执行效率。
 - **符号化张量**: 即使在内核函数之外，也可以定义张量的形状和类型。

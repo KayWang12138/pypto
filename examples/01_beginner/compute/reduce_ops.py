@@ -62,8 +62,10 @@ def sum_op(a: torch.Tensor, dim: int, run_mode: str = "npu", keepdim: bool = Fal
 
     if run_mode == "npu":
         mode = pypto.RunMode.NPU
-    else:
+    elif run_mode == "sim":
         mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
         
     if keepdim:
         out_shape = list(a.shape)
@@ -191,8 +193,10 @@ def amax_op(a: torch.Tensor, dim: int, run_mode: str = "npu", keepdim: bool = Fa
 
     if run_mode == "npu":
         mode = pypto.RunMode.NPU
-    else:
+    elif run_mode == "sim":
         mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
 
     @pypto.frontend.jit(
         host_options={"only_codegen": True},
@@ -319,8 +323,10 @@ def amin_op(a: torch.Tensor, dim: int, run_mode: str = "npu", keepdim: bool = Fa
 
     if run_mode == "npu":
         mode = pypto.RunMode.NPU
-    else:
+    elif run_mode == "sim":
         mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
         
     @pypto.frontend.jit(
         host_options={"only_codegen": True},
@@ -446,8 +452,10 @@ def maximum_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu") -> torch
 
     if run_mode == "npu":
         mode = pypto.RunMode.NPU
-    else:
+    elif run_mode == "sim":
         mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
         
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def maximum_kernel(a: pypto.Tensor(shape1, dtype), b: pypto.Tensor(shape2, dtype)) -> pypto.Tensor(shape1, dtype):
@@ -508,8 +516,10 @@ def minimum_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu") -> torch
     
     if run_mode == "npu":
         mode = pypto.RunMode.NPU
-    else:
+    elif run_mode == "sim":
         mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
         
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def minimum_kernel(a: pypto.Tensor(shape, dtype), b: pypto.Tensor(shape, dtype)) -> pypto.Tensor(shape, dtype):
