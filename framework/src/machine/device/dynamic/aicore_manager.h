@@ -204,7 +204,10 @@ public:
          }
 
         if (IsNeedProcAicpuTask()) {
-            aicpuTaskManager_.Init(reinterpret_cast<DynDeviceTask *>(curDevTask_));
+            ret = aicpuTaskManager_.Init(reinterpret_cast<DynDeviceTask *>(curDevTask_));
+            if (unlikely(ret != DEVICE_MACHINE_OK)) {
+                return ret;
+            }
         }
 
         uint32_t lastSent = 0;
@@ -848,7 +851,11 @@ private:
     inline int32_t ResolveDepForAicpuTask(uint64_t& taskCount) {
         int32_t ret = DEVICE_MACHINE_OK;
         taskCount = aicpuTaskManager_.TaskProcess();
-        std::vector<uint64_t> completed = aicpuTaskManager_.TaskPoll();
+        std::vector<uint64_t> completed;
+        ret = aicpuTaskManager_.TaskPoll(completed);
+        if (unlikely(ret != DEVICE_MACHINE_OK)) {
+            return ret;
+        }
         for (const uint64_t &taskId : completed) {
             ret = ResolveDepDyn(taskId);
             if (unlikely(ret != DEVICE_MACHINE_OK)) {
