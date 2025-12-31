@@ -242,6 +242,8 @@ private:
                 "Root [%s] Incast %zu has no fromSlotList.", devRootSrc->GetRawName(), i);
 
             int slotIndex = devRootSrc->At(devRootSrc->GetIncast(i).fromSlotList, 0);
+            DEV_ASSERT_MSG(slotList[slotIndex].rtOutcastIter != ITEM_POOL_INVALID_INDEX,
+                "Root incast read from empty address.");
             auto &incastDesc = devRootDup.GetIncastAddress(i);
             incastDesc = AddressDescriptor::MakeFromRtOutcast(slotList[slotIndex].rtOutcastIter);
             RuntimeOutcastTensorRef(incastDesc.GetRtOutcastIter());
