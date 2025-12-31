@@ -91,7 +91,7 @@ static void IndexPut_OperationExeFunc2Dims(
             auto viewValues = View(inputs[1], valuesViewShapes, valuesValidShapes, valuesNewOffsets);
             auto viewIndices1 = View(inputs[2], {viewShape},
                 {std::min(indicesFirstDim - bIdx * viewShape, viewShape)}, {bIdx * viewShape});
-            auto viewIndices2 = View(inputs[3], {viewShape}, 
+            auto viewIndices2 = View(inputs[3], {viewShape},
                 {std::min(indicesSecondDim - bIdx * viewShape, viewShape)}, {bIdx * viewShape});
             std::vector<Tensor> viewIndices = {viewIndices1, viewIndices2};
             TileShape::Current().SetVecTile(args->tileShape_);
@@ -126,9 +126,9 @@ static void IndexPut_OperationExeFunc3Dims(
             auto viewValues = View(inputs[1], valuesViewShapes, valuesValidShapes, valuesNewOffsets);
             auto viewIndices1 = View(inputs[2], {viewShape},
                 {std::min(indicesFirstDim - bIdx * viewShape, viewShape)}, {bIdx * viewShape});
-            auto viewIndices2 = View(inputs[3], {viewShape}, 
+            auto viewIndices2 = View(inputs[3], {viewShape},
                 {std::min(indicesSecondDim - bIdx * viewShape, viewShape)}, {bIdx * viewShape});
-            auto viewIndices3 = View(inputs[4], {viewShape}, 
+            auto viewIndices3 = View(inputs[4], {viewShape},
                 {std::min(indicesThirdDim - bIdx * viewShape, viewShape)}, {bIdx * viewShape});
             std::vector<Tensor> viewIndices = {viewIndices1, viewIndices2, viewIndices3};
             TileShape::Current().SetVecTile(args->tileShape_);
@@ -164,11 +164,11 @@ static void IndexPut_OperationExeFunc4Dims(
             auto viewValues = View(inputs[1], valuesViewShapes, valuesValidShapes, valuesNewOffsets);
             auto viewIndices1 = View(inputs[2], {viewShape},
                 {std::min(indicesFirstDim - bIdx * viewShape, viewShape)}, {bIdx * viewShape});
-            auto viewIndices2 = View(inputs[3], {viewShape}, 
+            auto viewIndices2 = View(inputs[3], {viewShape},
                 {std::min(indicesSecondDim - bIdx * viewShape, viewShape)}, {bIdx * viewShape});
-            auto viewIndices3 = View(inputs[4], {viewShape}, 
+            auto viewIndices3 = View(inputs[4], {viewShape},
                 {std::min(indicesThirdDim - bIdx * viewShape, viewShape)}, {bIdx * viewShape});
-            auto viewIndices4 = View(inputs[5], {viewShape}, 
+            auto viewIndices4 = View(inputs[5], {viewShape},
                 {std::min(indicesForthDim - bIdx * viewShape, viewShape)}, {bIdx * viewShape});
             std::vector<Tensor> viewIndices = {viewIndices1, viewIndices2, viewIndices3, viewIndices4};
             TileShape::Current().SetVecTile(args->tileShape_);
@@ -203,7 +203,7 @@ void IndexPutTestCase(TestCaseDesc &testCase_, const nlohmann::json &test_data) 
     }
     testCase_.opFunc = func[sizeIndices - 1];
     std::vector<std::string> paths = {GetGoldenDir() + "/" + testCase_.inputTensors[0].GetStorage()->Symbol() + ".bin",
-        GetGoldenDir() + "/" + testCase_.inputTensors[1].GetStorage()->Symbol() + ".bin"}; 
+        GetGoldenDir() + "/" + testCase_.inputTensors[1].GetStorage()->Symbol() + ".bin"};
     for (size_t indicesIdx = 0; indicesIdx < sizeIndices; indicesIdx++) {
         paths.push_back(GetGoldenDir() + "/" + testCase_.inputTensors[indicesIdx + NUM2].GetStorage()->Symbol() + ".bin");
     }

@@ -1014,7 +1014,7 @@ Tensor ScatterUpdate(
     return result;
 }
 
-void TiledIndexPut(Function &function, const TileShape &tileShape, const LogicalTensorPtr &inputSelf, Input &inputValues, 
+void TiledIndexPut(Function &function, const TileShape &tileShape, const LogicalTensorPtr &inputSelf, Input &inputValues,
     std::vector<Input> &inputIndices, const LogicalTensorPtr result, bool accumulate) {
     const auto &vecTile = tileShape.GetVecTile()[0];
     for (int i = 0; i < inputValues.tensor.GetShape()[0]; i += vecTile) {
@@ -1036,7 +1036,7 @@ void TiledIndexPut(Function &function, const TileShape &tileShape, const Logical
     }
 }
 
-void TiledIndexPut(Function &function, const TileShape &tileShape, const LogicalTensorPtr &self, const LogicalTensorPtr &values, 
+void TiledIndexPut(Function &function, const TileShape &tileShape, const LogicalTensorPtr &self, const LogicalTensorPtr &values,
     const std::vector<LogicalTensorPtr> &indices, const LogicalTensorPtr &result, bool accumulate) {
     ASSERT(self->GetShape().size() == self->GetOffset().size());
     ASSERT(values->GetShape().size() == values->GetOffset().size());
@@ -1058,7 +1058,7 @@ void TiledIndexPut(Function &function, const TileShape &tileShape, const Logical
     TiledIndexPut(function, tileShape, self, inputValues, inputIndices, result, accumulate);
 }
 
-void TensorIndexPut(Function &function, const LogicalTensorPtr &self, const LogicalTensors &indices, const LogicalTensorPtr &values, 
+void TensorIndexPut(Function &function, const LogicalTensorPtr &self, const LogicalTensors &indices, const LogicalTensorPtr &values,
     const LogicalTensorPtr &dst, bool accumulate) {
     Shape selfShape(self->shape);
     Shape valuesShape(values->shape);
