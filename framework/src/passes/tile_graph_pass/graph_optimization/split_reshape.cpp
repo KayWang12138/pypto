@@ -607,14 +607,8 @@ Status SplitReshape::ObtainReshapeSource(Function &function, const OpPara &para,
     auto overlap = para.oldInput;
     auto reshapeSource = para.oldOutput;
     std::vector<int64_t> assembleOffset = ObtainMapOffset(overlap, reshapeSource);
-    if (reshapeRawInputs.find(overlap->GetRawTensor()->GetRawMagic()) == reshapeRawInputs.end()) {
-        auto reshapeRawInput = std::make_shared<RawTensor>(overlap->Datatype(),
-            overlap->GetRawTensor()->GetRawShape(), overlap->Format());
-        if (reshapeRawInput == nullptr) {
-            APASS_LOG_ERROR_F(Elements::Tensor, "Failed to make a shared ptr for raw tensor.");
-            return FAILED;
-        }
-        reshapeRawInputs[overlap->GetRawTensor()->GetRawMagic()] = reshapeRawInput;
+    if (AddReshapeRawInputs(overlap->GetRawTensor()->GetRawMagic(), overlap) == FAILED) {
+        return FAILED;
     }
     newReshapeSource = std::make_shared<LogicalTensor>(function, reshapeRawInputs[overlap->GetRawTensor()->GetRawMagic()], assembleOffset, overlap->shape);
     if (newReshapeSource == nullptr) {
@@ -860,14 +854,8 @@ Status SplitReshape::UpdateForPerfectlyMatchWithAll(Function &function, Operatio
     auto newReshapeSourceTileShape = sourcePara.newReshapeSourceTileShape;
     auto newReshapeSourceTileOffset = sourcePara.newReshapeSourceTileOffset;
     auto tensor = overlaps.front();
-    if (reshapeRawInputs.find(tensor->GetRawTensor()->GetRawMagic()) == reshapeRawInputs.end()) {
-        auto reshapeRawInput = std::make_shared<RawTensor>(tensor->Datatype(),
-            tensor->GetRawTensor()->GetRawShape(), tensor->Format());
-        if (reshapeRawInput == nullptr) {
-            APASS_LOG_ERROR_F(Elements::Tensor, "Failed to make a rawtensor ptr for reshapeRawInput.");
-            return FAILED;
-        }
-        reshapeRawInputs[overlaps.front()->GetRawTensor()->GetRawMagic()] = reshapeRawInput;
+    if (AddReshapeRawInputs(tensor->GetRawTensor()->GetRawMagic(), tensor) == FAILED) {
+        return FAILED;
     }
     auto newReshapeSource = std::make_shared<LogicalTensor>(function, reshapeRawInputs[overlaps.front()->GetRawTensor()->GetRawMagic()], newReshapeSourceTileOffset, newReshapeSourceTileShape);
     if (newReshapeSource == nullptr) {
@@ -903,6 +891,19 @@ Status SplitReshape::UpdateForPerfectlyMatchWithAll(Function &function, Operatio
     if (ProcessPerfectlyMatchWithAll(function, op, perfectlyMatchwithAllPara) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "Process ProcessPerfectlyMatchWithAll failed. %s", GetFormatBacktrace(op).c_str());
         return FAILED;
+    }
+    return SUCCESS;
+}
+
+Status SplitReshape::AddReshapeRawInputs(const int overlapRawMagic, const LogicalTensorPtr overlap) {
+    if (reshapeRawInputs.find(overlapRawMagic) == reshapeRawInputs.end()) {
+        auto reshapeRawInput = std::make_shared<RawTensor>(overlap->Datatype(),
+            overlap->GetRawTensor()->GetRawShape(), overlap->Format());
+        if (reshapeRawInput == nullptr) {
+            APASS_LOG_ERROR_F(Elements::Tensor, "Failed to make a rawtensor shared ptr for reshapeRawInput.");
+            return FAILED;
+        }
+        reshapeRawInputs[overlap->GetRawTensor()->GetRawMagic()] = reshapeRawInput;
     }
     return SUCCESS;
 }

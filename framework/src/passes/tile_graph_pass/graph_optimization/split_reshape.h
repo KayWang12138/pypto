@@ -165,6 +165,7 @@ private:
     Status ProcessPerfectlyMatchWithAll(Function &function, Operation &op, const PerfectlyMatchWithAllPara &para);
     Status UpdateForPerfectlyMatchWithAll(Function &function, Operation &op, const CalcOverlapPara &para, const ReshapeSourcePara &sourcePara);
     Status ProcessMultitoOne(Function &function, Operation &op, const CalcOverlapPara &para);
+    Status AddReshapeRawInputs(const int overlapRawMagic, const LogicalTensorPtr overlap);
 
     bool CheckSameRawInput(const LogicalTensorPtr &reshapeSource);
     std::shared_ptr<ReshapeOp> ReshapeOperationExist(const std::shared_ptr<ReshapeOp> &isAddReshapeop);
