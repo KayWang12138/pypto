@@ -493,7 +493,7 @@ struct FunctionInterpreter {
             Offset viewOffsets = EvaluateOffset(opAttr->GetFromOffset(), opAttr->GetFromDynOffset());
             Offset actualOffsets = viewOffsets;
             if (std::all_of(viewOffsets.begin(), viewOffsets.end(),
-                    [](const int64_t& val){return val == static_cast<int64_t>(0)})) {
+                    [](const int64_t& val) {return val == static_cast<int64_t>(0);})) {
                 actualOffsets = iopOffsets;
             }
             auto validShape = EvaluateValidShape(oop->GetDynValidShape());
