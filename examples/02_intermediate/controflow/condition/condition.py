@@ -54,6 +54,9 @@ def create_nested_loops_with_conditions_kernel(shape: tuple, dynamic: bool = Fal
     else:
         w, h = shape
     
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def nested_loops_with_conditions_kernel(
         a: pypto.Tensor((w, h), pypto.DT_FP32),
         b: pypto.Tensor((w, h), pypto.DT_FP32),
@@ -70,11 +73,8 @@ def create_nested_loops_with_conditions_kernel(shape: tuple, dynamic: bool = Fal
                     y[i:i + 1, j:j + 1] = a_view - b_view
         return y
 
-    if run_mode == "npu":
-        return pypto.frontend.jit()(nested_loops_with_conditions_kernel)
-    else:
-        return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(nested_loops_with_conditions_kernel)
-
+    return nested_loops_with_conditions_kernel
+    
 
 def test_nested_loops_with_conditions(device_id = None, run_mode: str = "npu", dynamic: bool = True) -> None:
     """Test nested loops with conditional statements"""

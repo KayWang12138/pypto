@@ -170,10 +170,7 @@ def gather_wrapper(mode: pypto.RunMode, dim: int, input_shape: tuple, index_shap
 
 
 def gather_op(input_tensor: torch.Tensor, index_tensor: torch.Tensor, dim: int, run_mode: str = "npu") -> torch.Tensor:
-    if run_mode == "npu":
-        mode = pypto.RunMode.NPU
-    else:
-        mode = pypto.RunMode.SIM
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
     out = gather_wrapper(mode, dim, input_tensor.shape, index_tensor.shape)(input_tensor, index_tensor)
     return out
 
@@ -299,10 +296,7 @@ def test_gather_negative_indexing(device_id: int = None, run_mode: str = "npu"):
 
 
 def scatter_wrapper(dim: int, src: torch.float32, input_shape: tuple, index_shape: tuple, run_mode: str = "npu"):
-    if run_mode == "npu":
-        mode = pypto.RunMode.NPU
-    else:
-        mode = pypto.RunMode.SIM
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
     
     @pypto.frontend.jit(host_options={"only_codegen": True}, runtime_options={"run_mode": mode})
     def scatter_kernel(
@@ -348,14 +342,10 @@ def test_scatter(device_id: int = None, run_mode: str = "npu"):
 # ============================================================================
 
 
-def scatter_update(x: torch.Tensor, dim: int, y: torch.Tensor, src: torch.float32, run_mode: str = "npu") -> torch.Tensor:
-    x_shape, y_shape = x.shape, y.shape
+def scatter_update(x_shape: tuple, dim: int, y_shape: tuple, src: torch.float32, run_mode: str = "npu") -> torch.Tensor:
     update_dim_, update_src_ = dim, src
 
-    if run_mode == "npu":
-        mode = pypto.RunMode.NPU
-    else:
-        mode = pypto.RunMode.SIM
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
 
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def scatter_update_kernel(x: pypto.Tensor(x_shape, pypto.DT_FP32),
@@ -368,9 +358,7 @@ def scatter_update(x: torch.Tensor, dim: int, y: torch.Tensor, src: torch.float3
         out = pypto.scatter(x, update_dim_, y, update_src_)
         return out
 
-    out = scatter_update_kernel(x, y)
-    
-    return out
+    return scatter_update_kernel
 
 
 def test_scatter_update(device_id: int = None, run_mode: str = "npu") -> None:
@@ -387,7 +375,7 @@ def test_scatter_update(device_id: int = None, run_mode: str = "npu") -> None:
     src = 2.0
 
     golden = torch.scatter(x, dim, y, src)
-    output = scatter_update(x, dim, y, src, run_mode)
+    output = scatter_update(x.shape, dim, y.shape, src, run_mode)(x, y)
     if run_mode == "npu":
         max_diff = np.abs(output.cpu().numpy() - golden.cpu().numpy()).max()
         print(f"Max difference: {max_diff:.6f}")
@@ -399,18 +387,14 @@ def test_scatter_update(device_id: int = None, run_mode: str = "npu") -> None:
 # ============================================================================
 # Concat Examples
 # ============================================================================
-def concat_op(a: torch.Tensor, b: torch.Tensor, dim: int, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
-    a_shape = a.shape
-    b_shape = b.shape
-    if dim == 0:
-        out_shape = (a.shape[0] + b.shape[0], a.shape[1])
-    else:
-        out_shape = (a.shape[0], a.shape[1] + b.shape[1])
+def concat_op(a_shape: tuple, b_shape: tuple, dim: int, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
 
-    if run_mode == "npu":
-        mode = pypto.RunMode.NPU
+    if dim == 0:
+        out_shape = (a_shape[0] + b_shape[0], a_shape[1])
     else:
-        mode = pypto.RunMode.SIM
+        out_shape = (a_shape[0], a_shape[1] + b_shape[1])
+
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
 
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def concat_kernel(a: pypto.Tensor(a_shape, pypto.DT_FP32),
@@ -421,23 +405,19 @@ def concat_op(a: torch.Tensor, b: torch.Tensor, dim: int, run_mode: str = "npu",
         pypto.set_vec_tile_shapes(*tile_shapes)
         out = pypto.concat([a, b], dim=dim)
         return out
-    out = concat_kernel(a, b)
+    
+    return concat_kernel
 
-    return out
 
-
-def concat_multiple_op(a: torch.Tensor, b: torch.Tensor, c: torch.Tensor, dim: int, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
-    a_shape, b_shape, c_shape = a.shape, b.shape, c.shape
+def concat_multiple_op(a_shape: tuple, b_shape: tuple, c_shape: tuple, 
+                      dim: int, run_mode: str = "npu") -> torch.Tensor:
 
     if dim == 0:
-        out_shape = (a.shape[0] + b.shape[0] + c.shape[0], a.shape[1])
+        out_shape = (a_shape[0] + b_shape[0] + c_shape[0], a_shape[1])
     else:
-        out_shape = (a.shape[0], a.shape[1] + b.shape[1] + c.shape[1])
+        out_shape = (a_shape[0], a_shape[1] + b_shape[1] + c_shape[1])
 
-    if run_mode == "npu":
-        mode = pypto.RunMode.NPU
-    else:
-        mode = pypto.RunMode.SIM
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
         
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def concat_multiple_kernel(a: pypto.Tensor(a_shape, pypto.DT_FP32),
@@ -448,9 +428,8 @@ def concat_multiple_op(a: torch.Tensor, b: torch.Tensor, c: torch.Tensor, dim: i
         pypto.set_vec_tile_shapes(*tile_shapes)
         out = pypto.concat([a, b, c], dim=dim)
         return out
-    out = concat_multiple_kernel(a, b, c)
-
-    return out
+    
+    return concat_multiple_kernel
 
 
 def test_concat_basic(device_id: int = None, run_mode: str = "npu"):
@@ -469,7 +448,7 @@ def test_concat_basic(device_id: int = None, run_mode: str = "npu"):
     expected = torch.tensor([[1, 1], [1, 1],
                              [0, 0], [0, 0]], dtype=dtype, device=device)
 
-    out = concat_op(a, b, dim, run_mode)
+    out = concat_op(a.shape, b.shape, dim, run_mode)(a, b)
     max_diff = np.abs(out.cpu().numpy() - expected.cpu().numpy()).max()
     print(f"Output: {out}")
     print(f"Expected: {expected}")
@@ -495,7 +474,7 @@ def test_concat_different_dimensions(device_id: int = None, run_mode: str = "npu
     expected = torch.tensor([[1, 1, 0 ,0],
                              [1, 1, 0 ,0]], dtype=dtype, device=device)
 
-    out = concat_op(a, b, dim, run_mode)
+    out = concat_op(a.shape, b.shape, dim, run_mode)(a, b)
     max_diff = np.abs(out.cpu().numpy() - expected.cpu().numpy()).max()
     print(f"Output: {out}")
     print(f"Expected: {expected}")
@@ -524,7 +503,7 @@ def test_concat_multiple_tensors(device_id: int = None, run_mode: str = "npu"):
                              [0, 0], [0, 0],
                              [2, 2], [2, 2]], dtype=dtype, device=device)
 
-    out = concat_multiple_op(a, b, c, dim, run_mode)
+    out = concat_multiple_op(a.shape, b.shape, c.shape, dim, run_mode)(a, b, c)
     max_diff = np.abs(out.cpu().numpy() - expected.cpu().numpy()).max()
     print(f"Output: {out}")
     print(f"Expected: {expected}")
@@ -550,7 +529,7 @@ def test_concat_different_shapes(device_id: int = None, run_mode: str = "npu"):
     expected = torch.tensor([[1, 1], [1, 1],
                              [0, 0]], dtype=dtype, device=device)
 
-    out = concat_op(a, b, dim, run_mode)
+    out = concat_op(a.shape, b.shape, dim, run_mode)(a, b)
     max_diff = np.abs(out.cpu().numpy() - expected.cpu().numpy()).max()
     print(f"Output: {out}")
     print(f"Expected: {expected}")
@@ -564,13 +543,9 @@ def test_concat_different_shapes(device_id: int = None, run_mode: str = "npu"):
 # View Examples
 # ============================================================================
     
-def view_op(x: torch.Tensor, shape: list, offsets: list, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
-    shape_x = x.shape
+def view_op(shape_x: tuple, shape: list, offsets: list, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
 
-    if run_mode == "npu":
-        mode = pypto.RunMode.NPU
-    else:
-        mode = pypto.RunMode.SIM
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
         
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def view_kernel(x: pypto.Tensor(shape_x, pypto.DT_FP32)) -> pypto.Tensor(tuple(shape), pypto.DT_FP32):
@@ -579,8 +554,8 @@ def view_op(x: torch.Tensor, shape: list, offsets: list, run_mode: str = "npu", 
         pypto.set_vec_tile_shapes(*tile_shapes)
         out = pypto.view(x, shape, offsets)
         return out
-    out = view_kernel(x)
-    return out
+    
+    return view_kernel
 
 
 def test_view_basic(device_id: int = None, run_mode: str = "npu"):
@@ -604,7 +579,7 @@ def test_view_basic(device_id: int = None, run_mode: str = "npu"):
                              [3, 3, 4, 4],
                              [3, 3, 4, 4]], dtype=dtype, device=device)
 
-    out = view_op(x, shape, offsets, run_mode)
+    out = view_op(x.shape, shape, offsets, run_mode)(x)
     max_diff = np.abs(out.cpu().numpy() - expected.cpu().numpy()).max()
     print(f"Output: {out}")
     print(f"Expected: {expected}")
@@ -614,15 +589,11 @@ def test_view_basic(device_id: int = None, run_mode: str = "npu"):
     print("✓ Basic usage of view function completed successfully")
 
     
-def view_with_valid_shape_op(x: torch.Tensor, shape: list, 
+def view_with_valid_shape_op(shape_x: tuple, shape: list, 
                              offsets: list, valid_shape: list, 
                              run_mode: str = "npu") -> torch.Tensor:
-    shape_x = x.shape
 
-    if run_mode == "npu":
-        mode = pypto.RunMode.NPU
-    else:
-        mode = pypto.RunMode.SIM
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
         
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def view_with_valid_shape_kernel(x: pypto.Tensor(shape_x, pypto.DT_FP32)
@@ -632,9 +603,7 @@ def view_with_valid_shape_op(x: torch.Tensor, shape: list,
         out = pypto.view(x, shape, offsets, valid_shape=valid_shape)
         return out
     
-    out = view_with_valid_shape_kernel(x)
-
-    return out
+    return view_with_valid_shape_kernel
 
 
 def test_view_with_valid_shape(device_id: int = None, run_mode: str = "npu"):
@@ -659,7 +628,7 @@ def test_view_with_valid_shape(device_id: int = None, run_mode: str = "npu"):
                              [0, 0, 0, 0],
                              [0, 0, 0, 0]], dtype=dtype, device=device)
 
-    out = view_with_valid_shape_op(x, shape, offsets, valid_shape, run_mode)
+    out = view_with_valid_shape_op(x.shape, shape, offsets, valid_shape, run_mode)(x)
     max_diff = np.abs(out.cpu().numpy() - expected.cpu().numpy()).max()
     print(f"Output: {out}")
     print(f"Expected: {expected}")
@@ -677,12 +646,9 @@ shape_transpose = (2, 3)
 shape_transpose2 = (3, 2)
 
 
-def transpose(x: torch.Tensor, dim0: int, dim1: int, run_mode: str = "npu") -> torch.Tensor:
+def transpose(dim0: int, dim1: int, run_mode: str = "npu") -> torch.Tensor:
 
-    if run_mode == "npu":
-        mode = pypto.RunMode.NPU
-    else:
-        mode = pypto.RunMode.SIM
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
         
     # launch the kernel
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
@@ -695,8 +661,8 @@ def transpose(x: torch.Tensor, dim0: int, dim1: int, run_mode: str = "npu") -> t
 
         y = pypto.transpose(x, dim0, dim1)
         return y
-    y = transpose_kernel(x)
-    return y
+
+    return transpose_kernel
 
 
 def test_transpose(device_id: int = None, run_mode: str = "npu"):
@@ -712,7 +678,7 @@ def test_transpose(device_id: int = None, run_mode: str = "npu"):
                         [-0.1669, 0.7299, 0.4942]], dtype=dtype, device=device)
 
     dim0, dim1 = 0, 1
-    y = transpose(x, dim0, dim1, run_mode).cpu()
+    y = transpose(dim0, dim1, run_mode)(x).cpu()
     golden = torch.tensor([[ 1.0028, -0.1669],
                         [-0.9893, 0.7299],
                         [ 0.5809, 0.4942]], dtype=dtype, device=f'cpu')
@@ -745,16 +711,11 @@ data_type = {
 }
 
 
-def cast(x: torch.Tensor, dtype: torch.dtype, run_mode: str = "npu") -> torch.Tensor:
-
-    shape = x.shape
+def cast(shape: tuple, dtype: torch.dtype, run_mode: str = "npu") -> torch.Tensor:
 
     pto_type = data_type[dtype]
 
-    if run_mode == "npu":
-        mode = pypto.RunMode.NPU
-    else:
-        mode = pypto.RunMode.SIM
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
         
     # launch the kernel
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
@@ -764,8 +725,8 @@ def cast(x: torch.Tensor, dtype: torch.dtype, run_mode: str = "npu") -> torch.Te
         pypto.set_vec_tile_shapes(*vec_tile_shapes)
         out = pypto.cast(x, pto_type)
         return out
-    out = cast_kernel(x)
-    return out
+
+    return cast_kernel
 
 
 def test_cast(device_id: int = None, run_mode: str = "npu"):
@@ -779,7 +740,7 @@ def test_cast(device_id: int = None, run_mode: str = "npu"):
     dtype = torch.float32
     cast_dtype = torch.float16
     x = torch.tensor([2.0, 3.0], dtype=dtype, device=device)
-    y = cast(x, cast_dtype, run_mode).cpu()
+    y = cast(x.shape, cast_dtype, run_mode)(x).cpu()
     golden = torch.tensor([2.0, 3.0], dtype=cast_dtype, device=device).cpu()
     max_diff = np.abs(y.numpy() - golden.numpy()).max()
     print(f"y.dtype == golden.dtype: {y.dtype == golden.dtype}")

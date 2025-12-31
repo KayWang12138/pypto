@@ -73,10 +73,7 @@ def create_cube_tile_kernel(m, k, n, run_mode, set_shapes: list):
 def compute_with_cube_tile_shapes_op(
     a: torch.Tensor, b: torch.Tensor, set_shapes: list, run_mode: str = "npu"
 ):
-    if run_mode == "npu":
-        mode = pypto.RunMode.NPU
-    else:
-        mode = pypto.RunMode.SIM
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
     return create_cube_tile_kernel(a.shape[0], a.shape[1], b.shape[1], mode, set_shapes)(a, b)
 
 
@@ -156,10 +153,7 @@ def create_different_tile_shapes_kernel(run_mode):
 
 def compute_with_different_tile_shapes_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> tuple:
     
-    if run_mode == "npu":
-        mode = pypto.RunMode.NPU
-    else:
-        mode = pypto.RunMode.SIM
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
     return create_different_tile_shapes_kernel(mode)(a, b)
 
 

@@ -94,6 +94,9 @@ def create_layer_norm_kernel(batch_size: int, hidden_size: int, config: NormConf
         batch_size = pypto.frontend.dynamic("batch_size")
         hidden_size = pypto.frontend.dynamic("hidden_size")
 
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def layer_norm_kernel(
         x: pypto.Tensor((batch_size, hidden_size), pypto.DT_BF16),
         gamma: pypto.Tensor((hidden_size,), pypto.DT_BF16),
@@ -107,10 +110,7 @@ def create_layer_norm_kernel(batch_size: int, hidden_size: int, config: NormConf
         out = layernorm_core(x, gamma, beta, eps, hidden_size)
         return out
 
-    if run_mode == "npu":
-        return pypto.frontend.jit()(layer_norm_kernel)
-    else:
-        return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(layer_norm_kernel)
+    return layer_norm_kernel
 
 
 def test_layer_norm(device_id=None, run_mode: str = "npu", dynamic: bool = False):
@@ -165,6 +165,9 @@ def create_rms_norm_kernel(batch_size, hidden_size, config: NormConfig, run_mode
         batch_size = pypto.frontend.dynamic("batch_size")
         hidden_size = pypto.frontend.dynamic("hidden_size")
 
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def rms_norm_kernel(
         x: pypto.Tensor((batch_size, hidden_size), pypto.DT_BF16),
         gamma: pypto.Tensor((hidden_size,), pypto.DT_BF16),
@@ -175,10 +178,7 @@ def create_rms_norm_kernel(batch_size, hidden_size, config: NormConfig, run_mode
         out = rms_norm_core(x, gamma, eps, hidden_size)
         return out
 
-    if run_mode == "npu":
-        return pypto.frontend.jit()(rms_norm_kernel)
-    else:
-        return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(rms_norm_kernel)
+    return rms_norm_kernel
 
 
 def test_rms_norm(device_id=None, run_mode: str = "npu", dynamic: bool = False) -> None:

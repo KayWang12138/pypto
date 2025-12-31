@@ -59,6 +59,9 @@ def add_scalar_loop(shape: tuple, val: int, run_mode: str = "npu", dynamic: bool
     
     shape = (w, h, c, n)
 
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def add_kernel(
         input0: pypto.Tensor(shape, pypto.DT_FP32),
         input1: pypto.Tensor(shape, pypto.DT_FP32),
@@ -83,10 +86,7 @@ def add_scalar_loop(shape: tuple, val: int, run_mode: str = "npu", dynamic: bool
             pypto.assemble(t3_sub, [b_offset, 0, 0, 0], output)
         return output
 
-    if run_mode == "npu":
-        return pypto.frontend.jit()(add_kernel)
-    else:
-        return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(add_kernel)
+    return add_kernel
 
 
 def test_add_scalar_loop(device_id=None, run_mode: str = "npu", dynamic: bool = True) -> None:

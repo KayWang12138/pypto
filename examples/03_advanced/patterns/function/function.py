@@ -100,6 +100,9 @@ def layernorm_core(x: pypto.Tensor, gamma: pypto.Tensor, beta: pypto.Tensor, eps
 
 
 def layer_norm(x_shape, gamma_shape, beta_shape, run_mode: str = "npu"):
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def layer_norm_kernel(
         x: pypto.Tensor(x_shape, pypto.DT_BF16), 
         gamma: pypto.Tensor(gamma_shape, pypto.DT_BF16), 
@@ -114,14 +117,14 @@ def layer_norm(x_shape, gamma_shape, beta_shape, run_mode: str = "npu"):
         
         return out
     
-    if run_mode == "npu":
-        return pypto.frontend.jit()(layer_norm_kernel)
-    else:
-        return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(layer_norm_kernel)
+    return layer_norm_kernel
 
 
 # Function 2: Linear Projection
 def linear_projection(x_shape, w_shape, run_mode: str = "npu"):
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def linear_projection_kernel(
         x: pypto.Tensor(x_shape, pypto.DT_BF16),
         weight: pypto.Tensor(w_shape, pypto.DT_BF16), 
@@ -137,14 +140,14 @@ def linear_projection(x_shape, w_shape, run_mode: str = "npu"):
             out = pypto.matmul(x, weight, out_dtype=x.dtype)
         return out
     
-    if run_mode == "npu":
-        return pypto.frontend.jit()(linear_projection_kernel)
-    else:
-        return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(linear_projection_kernel)
+    return linear_projection_kernel
 
 
 # Function 3: GELU Activation
 def gelu_activation(x_shape, run_mode: str = "npu"):
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def gelu_activation_kernel(x: pypto.tensor(x_shape, pypto.DT_BF16)) -> pypto.tensor(x_shape, pypto.DT_BF16):
         # Configure tiling
         tile_shapes = [32 for _ in range(len(x.shape))]
@@ -157,14 +160,14 @@ def gelu_activation(x_shape, run_mode: str = "npu"):
         y = x * pypto.sigmoid(x_scaled)
         return y
     
-    if run_mode == "npu":
-        return pypto.frontend.jit()(gelu_activation_kernel)
-    else:
-        return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(gelu_activation_kernel)
+    return gelu_activation_kernel
 
 
 # Function 4: Residual Connection
 def residual_add(x_shape, res_shape, run_mode: str = "npu"):
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def residual_add_kernel(
             x: pypto.tensor(x_shape, pypto.DT_BF16), 
             residual: pypto.tensor(res_shape, pypto.DT_BF16),
@@ -176,14 +179,14 @@ def residual_add(x_shape, res_shape, run_mode: str = "npu"):
         out = pypto.add(x, residual)
         return out
     
-    if run_mode == "npu":
-        return pypto.frontend.jit()(residual_add_kernel)
-    else:
-        return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(residual_add_kernel)
+    return residual_add_kernel
     
     
 # Function 5: Attention (simplified)
 def attention(q_shape, k_shape, v_shape, out_shape, run_mode: str = "npu"):
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def attention_kernel(
             q: pypto.tensor(q_shape, pypto.DT_BF16), 
             k: pypto.tensor(k_shape, pypto.DT_BF16), 
@@ -207,10 +210,7 @@ def attention(q_shape, k_shape, v_shape, out_shape, run_mode: str = "npu"):
         out = pypto.matmul(attn_weights, v, out_dtype=out.dtype)
         return out
     
-    if run_mode == "npu":
-        return pypto.frontend.jit()(attention_kernel)
-    else:
-        return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(attention_kernel)
+    return attention_kernel
 
 
 def test_sequential_functions(device_id: int = None, run_mode: str = "npu", dynamic: bool = False) -> None:

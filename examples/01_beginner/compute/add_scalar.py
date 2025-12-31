@@ -51,6 +51,9 @@ def get_device_id():
 
 
 def create_add_scalar_kernel(shape: tuple, val, run_mode: str = "npu") -> torch.Tensor:
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def add_scalar_kernel(
         x: pypto.Tensor(shape, pypto.DT_FP32),
         y: pypto.Tensor(shape, pypto.DT_FP32),
@@ -58,10 +61,7 @@ def create_add_scalar_kernel(shape: tuple, val, run_mode: str = "npu") -> torch.
         pypto.set_vec_tile_shapes(1, 4, 1, 64)
         z = pypto.add(x, y) + val
         return z
-    if run_mode == "npu":
-        return pypto.frontend.jit()(add_scalar_kernel)
-    else:
-        return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(add_scalar_kernel)
+    return add_scalar_kernel
 
 
 def test_add_scalar(device_id=None, run_mode: str = "npu") -> None:

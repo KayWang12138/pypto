@@ -57,6 +57,9 @@ def loop_basic(run_mode: str = "npu", dynamic: bool = True) -> torch.Tensor:
     shape = (n * s, s)
     dtype = pypto.DT_FP16
     
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def loop_basic_kernel(
             t0: pypto.Tensor(shape, dtype),
             t1: pypto.Tensor(shape, dtype),
@@ -78,10 +81,7 @@ def loop_basic(run_mode: str = "npu", dynamic: bool = True) -> torch.Tensor:
             out1[bs_idx * s: (bs_idx + new_step) * s, :] = pypto.add(t0s, t1s)
         return out0, out1
 
-    if run_mode == "npu":
-        return pypto.frontend.jit()(loop_basic_kernel)
-    else:
-        return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(loop_basic_kernel)
+    return loop_basic_kernel
 
 
 def test_loop_basic(device_id: int = None, run_mode: str = "npu", dynamic: bool = False) -> None:
@@ -119,6 +119,9 @@ def loop_compile_phase_print(shape: tuple, run_mode: str = "npu", dynamic: bool 
     else:
         m, n = shape
 
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
+    
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def loop_compile_phase_print_kernel(
         in_t0: pypto.Tensor((m, n), pypto.DT_FP16), 
         in_t1: pypto.Tensor((m, n), pypto.DT_FP16),
@@ -160,10 +163,7 @@ def loop_compile_phase_print(shape: tuple, run_mode: str = "npu", dynamic: bool 
         print(separator)
         return out_t0, out_t1
         
-    if run_mode == "npu":
-        return pypto.frontend.jit()(loop_compile_phase_print_kernel)
-    else:
-        return pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})(loop_compile_phase_print_kernel)
+    return loop_compile_phase_print_kernel
 
 
 def test_loop_compile_phase_print(device_id: int = None, run_mode: str = "npu", dynamic: bool = False) -> None:

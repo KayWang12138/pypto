@@ -202,7 +202,8 @@ def dynamic_gelu_activation_core(output: pypto.tensor, hidden_states: pypto.tens
 def ffn(config: FFNConfig) -> torch.Tensor:
 
     batch_size, hidden_size, intermediate_size = config.batch_size, config.hidden_size, config.intermediate_size
-
+    
+    @pypto.frontend.jit(runtime_options={"run_mode": config.run_mode})
     def ffn_activation_kernel(
         hidden_states: pypto.tensor((batch_size, hidden_size), config.dtype),
         gate_proj_weight: pypto.tensor((hidden_size, intermediate_size), config.dtype),
@@ -240,7 +241,8 @@ def ffn(config: FFNConfig) -> torch.Tensor:
         if config.use_dynamic_shape == False:
             output = pypto.matmul(activated, down_proj_weight, config.dtype, b_trans=False)
         return output
-    return pypto.frontend.jit(runtime_options={"run_mode": config.run_mode})(ffn_activation_kernel)
+    
+    return ffn_activation_kernel
 
 
 def test_ffn_static_gelu(device_id=None, run_mode: str = "npu"):
