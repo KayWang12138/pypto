@@ -95,7 +95,9 @@ public:
             }
         }
     }
-
+    void UpdateOperandBeforeRemoveOp(Operation &op, const bool keepOutTensor) override;
+    void HandleControlOps(Operation &op, std::vector<Operation *> &toRemoveOps) const override;
+    
 protected:
     auto AnnotateOperation();
 

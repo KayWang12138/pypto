@@ -204,5 +204,66 @@ void DataFlowFunction::GetAnIslandIncastsOutcasts(const std::map<int, int> &opTo
 }
 
 
+void DataFlowFunction::UpdateOperandBeforeRemoveOp(Operation &op, const bool keepOutTensor) {
+    // relink, replace input of following op with the input of current op
+    if (!op.GetIOperands().empty() && !op.GetOOperands().empty()) {
+        LogicalTensorPtr inputTensor = op.GetIOperands().at(0);
+        LogicalTensorPtr outputTensor = op.GetOOperands().at(0);
+        bool isOutCast = std::find(outCasts_.begin(), outCasts_.end(), outputTensor) != outCasts_.end();
+        if (isOutCast || keepOutTensor) {
+            outputTensor->RemoveProducer(op);
+            for (auto &producer : inputTensor->GetProducers()) {
+                outputTensor->AddProducer(*producer);
+                producer->ReplaceOutputOperand(inputTensor, outputTensor);
+            }
+            inputTensor->GetProducers().clear();
+        } else {
+            inputTensor->RemoveConsumer(op);
+            for (const auto &consumer : outputTensor->GetConsumers()) {
+                inputTensor->AddConsumer(consumer);
+                consumer->ReplaceInputOperand(outputTensor, inputTensor);
+            }
+            outputTensor->GetConsumers().clear();
+        }
+    }
+}
+
+/**
+ * @brief handle input and output control edges
+ * all input ctrl edges shall be moved to output ops of current op
+ * all output ctrl edges shall be moved to input ops of current op
+ * @param op
+ */
+ void DataFlowFunction::HandleControlOps(Operation &op, std::vector<Operation *> &toRemoveOps) const {
+    const auto &inputCtrlOpSet = op.GetInCtrlOperations();
+    if (!inputCtrlOpSet.empty()) {
+        auto outputOps = GetAllOutputOperations(op);
+        for (auto peerCtrlOp : inputCtrlOpSet) {
+            if (peerCtrlOp == nullptr) {
+                continue;
+            }
+            if (peerCtrlOp->OnlyHasCtrlEdgeToOp(op)) {
+                op.RemoveInCtrlOperation(*peerCtrlOp);
+                toRemoveOps.push_back(peerCtrlOp);
+            } else {
+                for (auto &outputOp : outputOps) {
+                    outputOp->AddInCtrlOperation(*peerCtrlOp);
+                }
+            }
+        }
+        op.ClearInCtrlOperations();
+    }
+    const auto &outputCtrlOpSet = op.GetOutCtrlOperations();
+    if (!outputCtrlOpSet.empty()) {
+        auto inputOps = GetAllInputOperations(op);
+        for (auto &inputOp : inputOps) {
+            for (auto outCtrlOp : outputCtrlOpSet) {
+                inputOp->AddOutCtrlOperation(*outCtrlOp);
+            }
+        }
+        op.ClearOutCtrlOperations();
+    }
+}
+
 } // namespace npu::tile_fwk
 

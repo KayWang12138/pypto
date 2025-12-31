@@ -647,9 +647,7 @@ public:
 
     std::unordered_map<std::shared_ptr<LogicalTensor>, std::shared_ptr<LogicalTensor>> incastToInArgumentDict;
     std::unordered_map<std::shared_ptr<LogicalTensor>, std::shared_ptr<LogicalTensor>> outcastToOutArgumentDict;
-
-    void HandleControlOps(Operation &op, std::vector<Operation *> &toRemoveOps) const;
-    void UpdateOperandBeforeRemoveOp(Operation &op, const bool keepOutTensor = false);
+    
 
     bool IsDummyFunction() const {
         return std::all_of(operations_.begin(), operations_.end(), [](auto &op) {
@@ -735,6 +733,9 @@ public:
         std::vector<std::shared_ptr<LogicalTensor>> &iOperands,
         std::vector<std::shared_ptr<LogicalTensor>> &oOperands) const;
 
+    virtual void UpdateOperandBeforeRemoveOp(Operation &op, const bool keepOutTensor = false);
+    virtual void HandleControlOps(Operation &op, std::vector<Operation *> &toRemoveOps) const;
+    
     //------------------------------------------------------------------------------------------------------
     //------------------------------------------- ExecuteFunction ------------------------------------------
     //------------------------------------------------------------------------------------------------------
