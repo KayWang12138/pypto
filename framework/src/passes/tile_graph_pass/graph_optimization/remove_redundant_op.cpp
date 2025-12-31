@@ -298,7 +298,7 @@ bool RemoveRedundantOp::IsValidViewAssemble(LogicalTensorPtr &startTensor, Logic
     return true;
 }
 
-void RemoveRedundantOp::CalculateViewOffset(Operation &op, std::vector<long> &newoffset) {
+void RemoveRedundantOp::CalculateViewOffset(Operation &op, LogicalTensorPtr &startTensor, LogicalTensorPtr &endTensor, std::vector<long> &newoffset) {
     for (size_t m = 0; m < op.iOperand[0]->offset.size(); m++) {
         for (auto &comsumerView : startTensor->GetConsumers()) {
             auto opcode = comsumerView->GetOpcode();
