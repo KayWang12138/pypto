@@ -188,31 +188,12 @@ public:
         }
     }
 
-    inline int RunTask(DeviceTaskCtrl *taskCtrl) {
-        int rc, ret = DEVICE_MACHINE_OK;
-        seq = taskCtrl->taskId;
-        DEV_INFO("receive new task %lu.", taskCtrl->taskId);
-        InitDevTask(taskCtrl);
-
+    inline int RunTaskLoop(DeviceTaskCtrl *taskCtrl, uint32_t& lastSent) {
+        int ret = DEVICE_MACHINE_OK;
         uint64_t curSent = 0UL;
-         if (!taskCtrl->isFirstDevTask) {
-            ret = RunCoreTask(taskCtrl, curSent);
-            if (unlikely(ret != DEVICE_MACHINE_OK)) {
-                return ret;
-            }
-            taskCtrl->finishedFunctionCnt.fetch_add(curSent, std::memory_order_relaxed);
-         }
-
-        if (IsNeedProcAicpuTask()) {
-            ret = aicpuTaskManager_.Init(reinterpret_cast<DynDeviceTask *>(curDevTask_));
-            if (unlikely(ret != DEVICE_MACHINE_OK)) {
-                return ret;
-            }
-        }
-
-        uint32_t lastSent = 0;
         uint64_t start = GetCycles();
         uint32_t allSentCnt = taskCtrl->finishedFunctionCnt.load(std::memory_order_relaxed);
+
         while (allSentCnt < curDevTask_->coreFunctionCnt) {
             ret = RunCoreTask<true>(taskCtrl, curSent);
             if (unlikely(ret != DEVICE_MACHINE_OK)) {
@@ -228,13 +209,54 @@ public:
             }
 
             if (GetCycles() - start > TIMEOUT_CYCLES) {
-                ret = DEVICE_MACHINE_TIMEOUT_CORETASK;
-                goto FINISH;
+                return DEVICE_MACHINE_TIMEOUT_CORETASK;
             }
-
             // To prevent an unnecessary execution of RunCoreTask after the final batch of tasks is sent.
             allSentCnt = taskCtrl->finishedFunctionCnt.load(std::memory_order_relaxed) + lastSent;
         }
+        return ret;
+    }
+
+    inline int ProcessAicpuTasks() {
+        if (IsNeedProcAicpuTask()) {
+            while (!aicpuTaskManager_.Finished()) {
+                int taskResult = aicpuTaskManager_.TaskProcess();
+                if (unlikely(taskResult != DEVICE_MACHINE_OK)) {
+                    return taskResult;
+                }
+            }
+        }
+        return DEVICE_MACHINE_OK;
+    }
+
+    inline int RunTask(DeviceTaskCtrl *taskCtrl) {
+        int rc, ret = DEVICE_MACHINE_OK;
+        seq = taskCtrl->taskId;
+        DEV_INFO("receive new task %lu.", taskCtrl->taskId);
+        InitDevTask(taskCtrl);
+
+        uint64_t curSent = 0UL;
+        if (!taskCtrl->isFirstDevTask) {
+            ret = RunCoreTask(taskCtrl, curSent);
+            if (unlikely(ret != DEVICE_MACHINE_OK)) {
+                return ret;
+            }
+            taskCtrl->finishedFunctionCnt.fetch_add(curSent, std::memory_order_relaxed);
+        }
+
+        if (IsNeedProcAicpuTask()) {
+            ret = aicpuTaskManager_.Init(reinterpret_cast<DynDeviceTask *>(curDevTask_));
+            if (unlikely(ret != DEVICE_MACHINE_OK)) {
+                return ret;
+            }
+        }
+
+        uint32_t lastSent = 0;
+        ret = RunTaskLoop(taskCtrl, lastSent);
+        if (unlikely(ret != DEVICE_MACHINE_OK)) {
+            goto FINISH;
+        }
+
         if (lastSent > 0) {
             // Other SCH-AICPU are still waiting for the taskCtrl->finishedFunctionCnt actual value.
             taskCtrl->finishedFunctionCnt.fetch_add(lastSent, std::memory_order_relaxed);
@@ -247,7 +269,6 @@ public:
         if (rc != DEVICE_MACHINE_OK) {
             ret = rc;
         }
-        DEV_DEBUG("sync finish ret = %d .", rc);
 
         if (IsNeedProcAicpuTask()) {
             while (!aicpuTaskManager_.Finished()) {
@@ -255,8 +276,8 @@ public:
             }
         }
         PerfMtEnd(PERF_EVT_SYNC_AICORE, aicpuIdx_);
-        DEV_DEBUG("aicpu %d proc finish send all task,aic: %lu, aiv: %lu, aicpu: %lu.",
-            aicpuIdx_, procAicCoreFunctionCnt_, procAivCoreFunctionCnt_, procAicpuFunctionCnt_);
+        DEV_DEBUG("aicpu %d proc finish send all task,aic: %lu, aiv: %lu, aicpu: %lu, sync finish ret = %d.",
+            aicpuIdx_, procAicCoreFunctionCnt_, procAivCoreFunctionCnt_, procAicpuFunctionCnt_, rc);
     FINISH:
         wrapManager_.Deinit();
         if (unlikely(ret != DEVICE_MACHINE_OK)) {
