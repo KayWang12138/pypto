@@ -130,24 +130,12 @@ Status ReplaceTensor::InplaceCheck(Function& function) {
         std::string opName;
     };
     std::unordered_map<Opcode, OpValidator> opValidators = {
-        {Opcode::OP_VIEW,
-          {[this](const Operation& op) {return this->CheckAddrConflict(op);}, [](size_t inputCount) {return inputCount == 1;}, [](size_t outputCount) {return outputCount == 1;},
-            "View"}},
-        {Opcode::OP_ASSEMBLE,
-          {[this](const Operation& op) {return this->CheckAssembleConflict(op);}, [](size_t inputCount) {return inputCount == 1;}, [](size_t outputCount) {return outputCount == 1;},
-            "Assemble"}},
-        {Opcode::OP_INDEX_OUTCAST,
-          {[this](const Operation& op) {return this->CheckIndexOutcastConflict(op);}, [](size_t inputCount) {return inputCount == 3;},
-            [](size_t outputCount) {return outputCount == 1;}, "Index_Outcast"}},
-        {Opcode::OP_RESHAPE,
-          {[this](const Operation& op) {return this->CheckReshapeConflict(op);}, [](size_t inputCount) {return inputCount == 1;}, [](size_t outputCount) {return outputCount == 1;},
-            "Reshape"}},
-        {Opcode::OP_A_MULACC_B,
-          {[this](const Operation& op) {return this->CheckAMulAccBConflict(op);}, [](size_t inputCount) {return inputCount == 3 || inputCount == 4;},
-            [](size_t outputCount) {return outputCount == 1;}, "A_Mulacc_B"}},
-        {Opcode::OP_REMOTE_REDUCE,
-          {[this](const Operation& op) {return this->CheckRemoteReduceConflict(op);}, [](size_t inputCount) {return inputCount == 1;},
-            [](size_t outputCount) {return outputCount == 1;}, "Remote_Reduce"}},
+        {Opcode::OP_VIEW, {[this](const Operation& op) {return this->CheckAddrConflict(op);}, [](size_t inputCount) {return inputCount == 1;}, [](size_t outputCount) {return outputCount == 1;}, "View"}},
+        {Opcode::OP_ASSEMBLE, {[this](const Operation& op) {return this->CheckAssembleConflict(op);}, [](size_t inputCount) {return inputCount == 1;}, [](size_t outputCount) {return outputCount == 1;}, "Assemble"}},
+        {Opcode::OP_INDEX_OUTCAST, {[this](const Operation& op) {return this->CheckIndexOutcastConflict(op);}, [](size_t inputCount) {return inputCount == 3;}, [](size_t outputCount) {return outputCount == 1;}, "Index_Outcast"}},
+        {Opcode::OP_RESHAPE, {[this](const Operation& op) {return this->CheckReshapeConflict(op);}, [](size_t inputCount) {return inputCount == 1;}, [](size_t outputCount) {return outputCount == 1;}, "Reshape"}},
+        {Opcode::OP_A_MULACC_B, {[this](const Operation& op) {return this->CheckAMulAccBConflict(op);}, [](size_t inputCount) {return inputCount == 3 || inputCount == 4;}, [](size_t outputCount) {return outputCount == 1;}, "A_Mulacc_B"}},
+        {Opcode::OP_REMOTE_REDUCE, {[this](const Operation& op) {return this->CheckRemoteReduceConflict(op);}, [](size_t inputCount) {return inputCount == 1;}, [](size_t outputCount) {return outputCount == 1;}, "Remote_Reduce"}},
     };
     for (const auto& op : function.Operations()) {
         auto it = opValidators.find(op.GetOpcode());
