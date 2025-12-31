@@ -73,14 +73,14 @@ TEST_F(RemoveRedundantOpTest, TestIntermediateOutcast) {
     std::vector<int64_t> resShape{bs, n, d};
     PassManager &passManager = PassManager::Instance();
     passManager.RegisterStrategy("RemoveRedundantOpTestStrategy", {
-    {   "RemoveRedundantReshape",   "RemoveRedundantReshape"},
-    {      "InferMemoryConflict",      "InferMemoryConflict"},
-    {           "ExpandFunction",           "ExpandFunction"},
-    {              "DuplicateOp",              "DuplicateOp"},
-    {        "MergeViewAssemble",        "MergeViewAssemble"},
-    {         "AssignMemoryType",         "AssignMemoryType"},
-    {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor"},
-    {             "SplitReshape",             "SplitReshape"},
+        {"RemoveRedundantReshape",  PassName::REMOVE_REDUNDANT_RESHAPE},
+        {   "InferMemoryConflict",     PassName::INFER_MEMORY_CONFLICT},
+        {        "ExpandFunction",           PassName::EXPAND_FUNCTION},
+        {           "DuplicateOp",              PassName::DUPLICATE_OP},
+        {     "MergeViewAssemble",       PassName::MERGE_VIEW_ASSEMBLE},
+        {      "AssignMemoryType",        PassName::ASSIGN_MEMORY_TYPE},
+        {"SplitLargeFanoutTensor", PassName::SPLIT_LARGE_FANOUT_TENSOR},
+        {          "SplitReshape",             PassName::SPLIT_RESHAPE},
     });
     ConfigManager::Instance();
 
@@ -142,14 +142,14 @@ TEST_F(RemoveRedundantOpTest, TestInternalAssembleView) {
     std::vector<int64_t> resShape{bs, n, d};
     PassManager &passManager = PassManager::Instance();
     passManager.RegisterStrategy("RemoveRedundantOpTestStrategy", {
-    {   "RemoveRedundantReshape",   "RemoveRedundantReshape"},
-    {      "InferMemoryConflict",      "InferMemoryConflict"},
-    {           "ExpandFunction",           "ExpandFunction"},
-    {              "DuplicateOp",              "DuplicateOp"},
-    {        "MergeViewAssemble",        "MergeViewAssemble"},
-    {         "AssignMemoryType",         "AssignMemoryType"},
-    {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor"},
-    {             "SplitReshape",             "SplitReshape"},
+        {"RemoveRedundantReshape",  PassName::REMOVE_REDUNDANT_RESHAPE},
+        {   "InferMemoryConflict",     PassName::INFER_MEMORY_CONFLICT},
+        {        "ExpandFunction",           PassName::EXPAND_FUNCTION},
+        {           "DuplicateOp",              PassName::DUPLICATE_OP},
+        {     "MergeViewAssemble",       PassName::MERGE_VIEW_ASSEMBLE},
+        {      "AssignMemoryType",        PassName::ASSIGN_MEMORY_TYPE},
+        {"SplitLargeFanoutTensor", PassName::SPLIT_LARGE_FANOUT_TENSOR},
+        {          "SplitReshape",             PassName::SPLIT_RESHAPE},
     });
     ConfigManager::Instance();
 
