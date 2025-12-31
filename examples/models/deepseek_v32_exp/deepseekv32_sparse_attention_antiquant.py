@@ -395,7 +395,7 @@ def test_sfa_bf16_b4_s2_seq64K_total_int8_d():
 
 
 @pytest.mark.skip(reason="perf")
-def test_sfa_bf16_b4_s2_seq64K_per_int8f_d():
+def test_sfa_bf16_b4_s2_seq64K_per_int8_d():
     '''
     sfa decode测试函数
     '''
@@ -416,5 +416,5 @@ if __name__ == "__main__":
         level=logging.INFO
     )
     test_sfa_bf16_b4_s2_seq64K_total_int8_d()
-    test_sfa_bf16_b4_s2_seq64K_per_int8f_d()
+    test_sfa_bf16_b4_s2_seq64K_per_int8_d()
     test_sfa_bf16_b1_s256_seq64K_int8_p()

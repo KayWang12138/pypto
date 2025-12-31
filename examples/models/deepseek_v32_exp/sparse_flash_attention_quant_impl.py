@@ -418,7 +418,7 @@ def sparse_flash_attention_quant_compute_flash(query_nope, query_rope, key_nope_
 
 @pypto.jit(
     pass_options={
-        "mg_copyin_upper_bound": 1 * 1024 * 1024,
+        "mg_copyin_upper_bound": 2 * 1024 * 1024,
         "pg_upper_bound": 50000,
         "pg_lower_bound": 512,
         "pg_parallel_lower_bound": 20,
@@ -478,7 +478,7 @@ def sparse_flash_attention_quant_d(query_nope, query_rope, key_nope_2d, key_rope
 
 @pypto.jit(
     pass_options={
-        "mg_copyin_upper_bound": 1 * 1024 * 1024,
+        "mg_copyin_upper_bound": 2 * 1024 * 1024,
         "pg_upper_bound": 50000,
         "pg_lower_bound": 512,
         "pg_parallel_lower_bound": 20,
@@ -489,7 +489,7 @@ def sparse_flash_attention_quant_d(query_nope, query_rope, key_nope_2d, key_rope
     runtime_options={
         "stitch_function_inner_memory": 32,
         "stitch_function_outcast_memory": 32,
-        "stitch_function_num_initial": 512
+        "stitch_function_num_initial": 128
     },
     codegen_options={
         "codegen_expression_fusion": True

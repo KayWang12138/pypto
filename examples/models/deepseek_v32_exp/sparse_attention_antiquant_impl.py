@@ -314,7 +314,7 @@ def sparse_attention_antiquant_d(query_nope, query_rope, nope_cache, topk_indcie
     runtime_options={
         "stitch_function_inner_memory": 32,
         "stitch_function_outcast_memory": 32,
-        "stitch_function_num_initial": 512
+        "stitch_function_num_initial": 128
     },
     codegen_options={
         "codegen_expression_fusion": True
