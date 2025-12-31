@@ -328,4 +328,29 @@ std::vector<std::vector<SymbolicScalar>> KernelFunction::NormalizeCoa(
 
     return coaLists;
 }
+
+void KernelFunction::CreateLeafInAndOutCast(const LogicalTensorPtr &inOrOut,
+    LogicalTensors &inOrOutList) const {
+inOrOutList.emplace_back(inOrOut->Clone(*parent_));
+}
+
+
+GetTensorDataIODescDict KernelFunction::GetTensorDataForLeafGraph() {
+    GetTensorDataIODescDict iodescDict;
+    for (auto &op : Operations(false)) {
+        if (!CheckEmuOpcode(&op, EMUOP_TENSOR_GETDATA_IMPORT)) {
+            continue;
+        }
+        int getTensorDataIndex = GetTensorDataGetIndex(&op);
+        ASSERT(getTensorDataIndex != -1)
+            << "Failed to get tensor data index for operation";
+        auto tensor = op.GetIOperands()[0];
+        auto incastIndex = GetIncastIndex(tensor);
+        if (incastIndex != INVALID_IOINDEX) {
+            iodescDict[getTensorDataIndex] = GetTensorDataIODesc(GET_TENSOR_DATA_OPERAND_IOTYPE_INCAST, incastIndex, 0);
+        }
+    }
+    return iodescDict;
+}
+
 } // namespace npu::tile_fwk

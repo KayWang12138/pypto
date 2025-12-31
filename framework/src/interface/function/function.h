@@ -514,7 +514,6 @@ public:
     void ClearOperationGroups();
     void CheckGroupValid() const;
 
-    void CreateLeafInAndOutCast(const LogicalTensorPtr &inOrOut, LogicalTensors &inOrOutList) const;
     void AddOriginIncast(const std::shared_ptr<LogicalTensor> tensor);
     void AddOriginOutcast(const std::shared_ptr<LogicalTensor> tensor);
     bool IsFromInCast(const std::shared_ptr<LogicalTensor> &tensor);
@@ -683,17 +682,6 @@ public:
         });
     }
 
-    const std::map<std::string, DynParamInfo> &GetDynParamTable() const {
-        return dynParamTable_;
-    }
-    void InsertDynParam(std::string dim, DynParamInfo &info) {
-        dynParamTable_.emplace(dim, info);
-    }
-
-    DynParamInfo &GetMutableDynParam(std::string dim){
-        return dynParamTable_[dim];
-    }
-
     bool IsUnderDynamicFunction() const { return isUnderDynamicFunction_; }
     void SetUnderDynamicFunction(bool underDynamicFunciton) { isUnderDynamicFunction_ = underDynamicFunciton; }
 
@@ -707,16 +695,6 @@ public:
         if (!loopCallOrderGroup_.empty()) {
             AddOperationGroup(loopCallOrderGroup_);
         }
-    }
-
-    void AppendIncast(LogicalTensorPtr tensor, int opmagic, int k) {
-        incastPosition.emplace_back(opmagic, k);
-        inCasts_.emplace_back(tensor);
-    }
-
-    void AppendOutcast(LogicalTensorPtr tensor, int opmagic, int k) {
-        outcastPosition.emplace_back(opmagic, k);
-        outCasts_.emplace_back(tensor);
     }
 
     void RemoveOutcast(int idx) {
@@ -777,7 +755,7 @@ public:
         }
     }
     GetTensorDataIODescDict GetTensorDataForTensorGraph();
-    GetTensorDataIODescDict GetTensorDataForLeafGraph();
+
     void GetTensorDataRefreshIO(const GetTensorDataIODescDict &descDict);
     void UpdateTensorDataUsage(Operation &op);
 
@@ -793,6 +771,9 @@ public:
 
     const std::unordered_set<std::string> &LoopIdxNameList() { return loopIdxNameList_; }
     bool InsertLoopIdxNameList(const std::string &idxName);
+    //------------------------------------------------------------------------------------------------------
+    //------------------------------------------- KernelFunction -------------------------------------------
+    //------------------------------------------------------------------------------------------------------
 
     // Virtual functions for KernelFunction interface compatibility
     // These functions allow calling KernelFunction methods through Function* pointer
@@ -817,6 +798,14 @@ public:
     virtual void GetOutcastSymbolicExpr(std::map<int, SymbolicScalar>& tabel);
 
     virtual std::pair<bool, Opcode> IsAicpuSubFunction() const;
+
+    virtual void CreateLeafInAndOutCast(const LogicalTensorPtr &inOrOut, LogicalTensors &inOrOutList) const;
+    virtual GetTensorDataIODescDict GetTensorDataForLeafGraph();
+    virtual void AppendIncast(LogicalTensorPtr tensor, int opmagic, int k);
+    virtual void AppendOutcast(LogicalTensorPtr tensor, int opmagic, int k);
+    virtual DynParamInfo &GetMutableDynParam(std::string dim);
+    virtual void InsertDynParam(std::string dim, DynParamInfo &info);
+    virtual const std::map<std::string, DynParamInfo> &GetDynParamTable() const;
 protected:
     std::vector<std::shared_ptr<Operation>> operations_; // operation的获取必须要使用Operations函数，来获取到符合拓扑序的List
     std::unordered_map<const Operation *, int> opPosition_; // position of operation in Operation.operations_
@@ -826,7 +815,7 @@ protected:
     std::vector<std::pair<int, int>> outcastPosition;
 
     void RefreshOpPosition();
-private:
+
     int functionMagic_{-1};
     std::string funcMagicName_; // Function name
     std::string funcRawName_;   // raw name
@@ -864,8 +853,6 @@ private:
     std::vector<TensorSlot> explicitArgSlots_;
     std::vector<void *> explicitArgAddrs_;
 
-    std::map<std::string, DynParamInfo> dynParamTable_;
-
     std::shared_ptr<DynloopFunctionAttribute> dynloopAttr_;
     std::shared_ptr<DyndevFunctionAttribute> dyndevAttr_;
     std::shared_ptr<LeafFuncAttribute> leafFuncAttr_;
@@ -880,7 +867,6 @@ private:
     std::shared_ptr<SourceLocation> sourceLocation_;
     bool hiddenFunction_{false};
 
-private:
     unsigned long ComputeHashOrderless() const;
     void OpValidCheck(Operation &op) const;
     std::shared_ptr<LogicalTensor> ConnectWithOverlap(std::shared_ptr<LogicalTensor> iOperand);

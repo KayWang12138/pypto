@@ -353,11 +353,6 @@ bool Function::HasCallOperation() {
     return false;
 }
 
-void Function::CreateLeafInAndOutCast(const LogicalTensorPtr &inOrOut,
-                                      LogicalTensors &inOrOutList) const {
-    inOrOutList.emplace_back(inOrOut->Clone(*parent_));
-}
-
 static int GetTensorDataLookupOutcast(Function *func, Operation *import) {
     auto importTensor = import->GetIOperands()[0];
     auto consumerSet = importTensor->GetConsumers();
@@ -418,24 +413,6 @@ GetTensorDataIODescDict Function::GetTensorDataForTensorGraph() {
                 ASSERT(false)
                     << "Both outcast and incast indices are invalid";
             }
-        }
-    }
-    return iodescDict;
-}
-
-GetTensorDataIODescDict Function::GetTensorDataForLeafGraph() {
-    GetTensorDataIODescDict iodescDict;
-    for (auto &op : Operations(false)) {
-        if (!CheckEmuOpcode(&op, EMUOP_TENSOR_GETDATA_IMPORT)) {
-            continue;
-        }
-        int getTensorDataIndex = GetTensorDataGetIndex(&op);
-        ASSERT(getTensorDataIndex != -1)
-            << "Failed to get tensor data index for operation";
-        auto tensor = op.GetIOperands()[0];
-        auto incastIndex = GetIncastIndex(tensor);
-        if (incastIndex != INVALID_IOINDEX) {
-            iodescDict[getTensorDataIndex] = GetTensorDataIODesc(GET_TENSOR_DATA_OPERAND_IOTYPE_INCAST, incastIndex, 0);
         }
     }
     return iodescDict;
@@ -3409,12 +3386,17 @@ DefineProg::~DefineProg() {
     }
 }
 
+//------------------------------------------------------------------------------------------------------
+//------------------------------------------- KernelFunction -------------------------------------------
+//------------------------------------------------------------------------------------------------------
 // Default implementations for KernelFunction virtual functions
 // These should only be called on KernelFunction instances
 namespace {
     static std::vector<OperationPtr> emptyOperationList;
     static SubfuncParam emptySubfuncParam;
     static std::shared_ptr<LeafFuncAttribute> emptyLeafFuncAttr;
+    static DynParamInfo emptyDynParamInfo;
+    static std::map<std::string, DynParamInfo> emptyDynParamTable;
 }
 
 std::vector<OperationPtr> &Function::GetProgramOp() {
@@ -3493,4 +3475,46 @@ void Function::GetOutcastSymbolicExpr(std::map<int, SymbolicScalar>& tabel) {
 std::pair<bool, Opcode> Function::IsAicpuSubFunction() const {
     ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "IsAicpuSubFunction() should only be called on KernelFunction");
     return std::make_pair(false, Opcode::OP_UNKNOWN);
+}
+
+void Function::CreateLeafInAndOutCast(const LogicalTensorPtr &inOrOut, LogicalTensors &inOrOutList) const{
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "CreateLeafInAndOutCast() should only be called on KernelFunction");
+    (void)inOrOut;
+    (void)inOrOutList;
+}
+
+GetTensorDataIODescDict Function::GetTensorDataForLeafGraph(){
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "GetTensorDataForLeafGraph() should only be called on KernelFunction");
+    return {};
+}
+
+void Function::AppendIncast(LogicalTensorPtr tensor, int opmagic, int k){
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "AppendIncast() should only be called on KernelFunction");
+    (void)tensor;
+    (void)opmagic;
+    (void)k;
+}
+
+void Function::AppendOutcast(LogicalTensorPtr tensor, int opmagic, int k){
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "AppendOutcast() should only be called on KernelFunction");
+    (void)tensor;
+    (void)opmagic;
+    (void)k;
+}
+
+DynParamInfo &Function::GetMutableDynParam(std::string dim){
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "GetMutableDynParam() should only be called on KernelFunction");
+    (void)dim;
+    return emptyDynParamInfo;
+}
+
+void Function::InsertDynParam(std::string dim, DynParamInfo &info){
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "InsertDynParam() should only be called on KernelFunction");
+    (void)dim;
+    (void)info;
+}
+
+const std::map<std::string, DynParamInfo> &Function::GetDynParamTable() const{
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "GetDynParamTable() should only be called on KernelFunction");
+    return emptyDynParamTable;
 }
