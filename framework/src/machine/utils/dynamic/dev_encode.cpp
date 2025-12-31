@@ -367,6 +367,8 @@ void DevAscendFunction::InitRawTensorAndMemoryRequirement(
                 if (fromType != toType) {
                     int inSize = BytesOf(fromType);
                     int outSize = BytesOf(toType);
+                    ASSERT(inSize != 0 && outSize != 0) << "Detected zero byte size data type, fromType: "
+                           << static_cast<int>(fromType) << ", toType: " << static_cast<int>(toType);
                     if (inSize > outSize) {
                         ASSERT((rawTensor->GetRawShapeSize() * (inSize / outSize)) == actualRaw->GetRawShapeSize())
                                << "Shape size mismatch: expected " << rawTensor->GetRawShapeSize() * (inSize / outSize)
@@ -2097,74 +2099,91 @@ static SymbolicScalar GetDynRawTensorSize(Function *dynFunc, int funcKey, int id
     return size;
 }
 
-static TensorWorkspaceResult CalcTensorWorkspace(Function *func,DevAscendProgram &devProg) {
+// Helper: process a single DevAscendFunction's outcasts and update slot/memory accumulators
+static void ProcessDevFunctionOutcasts(Function *func, DevAscendFunction *devFunc, std::vector<SlotInfo> &slots,
+                                       uint64_t &maxExclusiveOutcastMem, uint64_t &maxRootInnerMem,
+                                       uint64_t &maxDevTaskInnerExclusiveOutcastMem, uint64_t &maxPerCoreSpilledMem) {
+    for (size_t i = 0; i < devFunc->GetOutcastSize(); i++) {
+        if (IsInputOutputSlot(slots, devFunc, i)) {
+            continue;
+        }
+
+        auto &toSlotList = devFunc->GetOutcast(i).toSlotList;
+        // maxStaticMemReq could be 0 when no need of independent allocation
+        uint64_t staticMemReq = devFunc->GetOutcastRawTensor(i)->maxStaticMemReq;
+        if (IsAssembleSlot(slots, devFunc, i)) {
+            SymbolicScalar dynMemReq;
+            // memoryRequirement == 0 means dynamic memory requirement
+            if (devFunc->GetOutcastRawTensor(i)->memoryRequirement == 0) {
+                dynMemReq = GetDynRawTensorSize(func, devFunc->funcKey, i);
+            }
+            for (size_t j = 0; j < toSlotList.size(); j++) {
+                int slotIdx = devFunc->At(toSlotList, j);
+                if (dynMemReq.IsValid() || slots[slotIdx].dynMemReq.IsValid()) {
+                    if (!dynMemReq.IsValid()) {
+                        dynMemReq = staticMemReq;
+                    }
+                    if (!slots[slotIdx].dynMemReq.IsValid()) {
+                        slots[slotIdx].dynMemReq = slots[slotIdx].maxAssembleDstMemReq;
+                        slots[slotIdx].maxAssembleDstMemReq = 0;
+                    }
+                    slots[slotIdx].dynMemReq = std::max(dynMemReq, slots[slotIdx].dynMemReq);
+                } else {
+                    slots[slotIdx].maxAssembleDstMemReq = std::max(
+                        slots[slotIdx].maxAssembleDstMemReq, staticMemReq);
+                }
+            }
+        } else {
+            for (size_t j = 0; j < toSlotList.size(); j++) {
+                int slotIdx = devFunc->At(toSlotList, j);
+                // No output slot
+                slots[slotIdx].asWriteSlot = true;
+            }
+            maxExclusiveOutcastMem = std::max(maxExclusiveOutcastMem, staticMemReq);
+        }
+    }
+
+    int unroll = ParseUnrollTimes(devFunc->GetRawName());
+    uint64_t funcRootInnerMem = CalcUnrolledRootBudget(
+        devFunc->rootInnerTensorWsMemoryRequirement, unroll, WorkspaceRecyclePeriod());
+    uint64_t funcDevTaskInnerExclusiveOutcastMem = CalcUnrolledRootBudget(
+        devFunc->exclusiveOutcastWsMemoryRequirement, unroll, EstimatedStitchingCount());
+
+    maxRootInnerMem = std::max(maxRootInnerMem, funcRootInnerMem);
+    maxDevTaskInnerExclusiveOutcastMem = std::max(maxDevTaskInnerExclusiveOutcastMem, funcDevTaskInnerExclusiveOutcastMem);
+    maxPerCoreSpilledMem = std::max(maxPerCoreSpilledMem, static_cast<uint64_t>(devFunc->stackWorkSpaceSize));
+}
+
+// Helper: compute assemble-outcast memory aggregates from slots
+static std::pair<uint64_t, SymbolicScalar> ComputeAssembleOutcastMem(const std::vector<SlotInfo> &slots) {
+    uint64_t maxStaticAssembleOutcastMem = std::accumulate(slots.begin(), slots.end(), UINT64_C(0),
+        [](uint64_t acc, const SlotInfo &slot) {
+            return std::max(acc, (slot.kindSet.Count(RuntimeSlotKind::ASSEMBLE_OUTCAST) ? slot.maxAssembleDstMemReq : 0));
+        });
+
+    SymbolicScalar maxDynamicAssembleOutcastMem = std::accumulate(slots.begin(), slots.end(),
+        SymbolicScalar(0), [](SymbolicScalar acc, const SlotInfo &slot) {
+            return std::max(acc, slot.dynMemReq.IsValid() ? slot.dynMemReq : SymbolicScalar(0));
+        });
+
+    return {maxStaticAssembleOutcastMem, maxDynamicAssembleOutcastMem};
+}
+
+static TensorWorkspaceResult CalcTensorWorkspace(Function *func, DevAscendProgram &devProg) {
     std::vector<SlotInfo> slots = MarkInputOutputAssembleSlots(devProg);
 
     uint64_t maxRootInnerMem = 0;
     uint64_t maxDevTaskInnerExclusiveOutcastMem = 0;
     uint64_t maxExclusiveOutcastMem = 0;
     uint64_t maxPerCoreSpilledMem = 0;
+
     for (auto &&devEncodeData : devProg.devEncodeList) {
         DevAscendFunction *devFunc = reinterpret_cast<DevAscendFunction *>(devEncodeData.Data());
-        for (size_t i = 0; i < devFunc->GetOutcastSize(); i++) {
-            if (IsInputOutputSlot(slots, devFunc, i)) {
-                continue;
-            }
-
-            auto &toSlotList = devFunc->GetOutcast(i).toSlotList;
-            // maxStaticMemReq could be 0 when no need of independent allocation
-            uint64_t staticMemReq = devFunc->GetOutcastRawTensor(i)->maxStaticMemReq;
-            if (IsAssembleSlot(slots, devFunc, i)) {
-                SymbolicScalar dynMemReq;
-                // memoryRequirement == 0 means dynamic memory requirement
-                if (devFunc->GetOutcastRawTensor(i)->memoryRequirement == 0) {
-                    dynMemReq = GetDynRawTensorSize(func, devFunc->funcKey, i);
-                }
-                for (size_t j = 0; j < toSlotList.size(); j++) {
-                    int slotIdx = devFunc->At(toSlotList, j);
-                    if (dynMemReq.IsValid() || slots[slotIdx].dynMemReq.IsValid()) {
-                        if (!dynMemReq.IsValid()) {
-                            dynMemReq = staticMemReq;
-                        }
-                        if (!slots[slotIdx].dynMemReq.IsValid()) {
-                            slots[slotIdx].dynMemReq = slots[slotIdx].maxAssembleDstMemReq;
-                            slots[slotIdx].maxAssembleDstMemReq = 0;
-                        }
-                        slots[slotIdx].dynMemReq = std::max(dynMemReq, slots[slotIdx].dynMemReq);
-                    } else {
-                        slots[slotIdx].maxAssembleDstMemReq = std::max(
-                            slots[slotIdx].maxAssembleDstMemReq, staticMemReq);
-                    }
-                }
-            } else {
-                for (size_t j = 0; j < toSlotList.size(); j++) {
-                    int slotIdx = devFunc->At(toSlotList, j);
-                    // No output slot
-                    slots[slotIdx].asWriteSlot = true;
-                }
-                maxExclusiveOutcastMem = std::max(maxExclusiveOutcastMem, staticMemReq);
-            }
-        }
-
-        int unroll = ParseUnrollTimes(devFunc->GetRawName());
-        uint64_t funcRootInnerMem = CalcUnrolledRootBudget(
-            devFunc->rootInnerTensorWsMemoryRequirement, unroll, WorkspaceRecyclePeriod());
-        uint64_t funcDevTaskInnerExclusiveOutcastMem = CalcUnrolledRootBudget(
-            devFunc->exclusiveOutcastWsMemoryRequirement, unroll, EstimatedStitchingCount());
-
-        maxRootInnerMem = std::max(maxRootInnerMem, funcRootInnerMem);
-        maxDevTaskInnerExclusiveOutcastMem = std::max(maxDevTaskInnerExclusiveOutcastMem, funcDevTaskInnerExclusiveOutcastMem);
-        maxPerCoreSpilledMem = std::max(maxPerCoreSpilledMem, static_cast<uint64_t>(devFunc->stackWorkSpaceSize));
+        ProcessDevFunctionOutcasts(func, devFunc, slots, maxExclusiveOutcastMem, maxRootInnerMem,
+                                   maxDevTaskInnerExclusiveOutcastMem, maxPerCoreSpilledMem);
     }
 
-    uint64_t maxStaticAssembleOutcastMem = std::accumulate(slots.begin(), slots.end(), UINT64_C(0),
-        [](uint64_t acc, const SlotInfo &slot) {
-            return std::max(acc, (slot.kindSet.Count(RuntimeSlotKind::ASSEMBLE_OUTCAST) ? slot.maxAssembleDstMemReq : 0));
-        });
-    SymbolicScalar maxDynamicAssembleOutcastMem = std::accumulate(slots.begin(), slots.end(),
-        SymbolicScalar(0), [](SymbolicScalar acc, const SlotInfo &slot) {
-            return std::max(acc, slot.dynMemReq.IsValid() ? slot.dynMemReq : SymbolicScalar(0));
-        });
+    auto [maxStaticAssembleOutcastMem, maxDynamicAssembleOutcastMem] = ComputeAssembleOutcastMem(slots);
 
     TensorWorkspaceResult res;
     res.maxStaticOutcastMem = std::max(maxExclusiveOutcastMem, maxStaticAssembleOutcastMem);
