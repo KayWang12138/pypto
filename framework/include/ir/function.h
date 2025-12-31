@@ -4,7 +4,6 @@
 #pragma once
 
 #include "ir/statement.h"
-#include "ir/scope.h"
 #include "ir/type.h"
 #include "ir/utils.h"
 
@@ -41,16 +40,16 @@ public:
     const FunctionSignature& GetSignature() const { return signature_; }
 
     // Top-level statement sequence forming the function body.
-    std::vector<StatementPtr>& Body() { return scope_.GetStatements(); }
-    const std::vector<StatementPtr> Body() const { return scope_.GetStatements(); }
+    std::vector<StatementPtr>& Body() { return compound_.GetStatements(); }
+    const std::vector<StatementPtr> Body() const { return compound_.GetStatements(); }
 
     // Scope for Data objects and statements created in this function.
-    Scope& GetScope() { return scope_; }
-    const Scope& GetScope() const { return scope_; }
+    CompoundStatement& GetCompound() { return compound_; }
+    const CompoundStatement& GetCompound() const { return compound_; }
 
     // Scope containing function arguments. This scope is the parent of the function body scope.
-    Scope& GetInputScope() { return input_scope_; }
-    const Scope& GetInputScope() const { return input_scope_; }
+    CompoundStatement& GetInputCompound() { return inputCompound_; }
+    const CompoundStatement& GetInputCompound() const { return inputCompound_; }
 
     // Convenience to append a top-level statement.
     void AddStatement(StatementPtr stmt);
@@ -61,8 +60,8 @@ public:
 private:
     FunctionKind kind_;
     FunctionSignature signature_;
-    Scope input_scope_; // Scope holding function arguments (inputs)
-    Scope scope_;  // Scope for Data objects and statements created in this function
+    CompoundStatement inputCompound_; // Scope holding function arguments (inputs)
+    CompoundStatement compound_;  // Scope for Data objects and statements created in this function
 };
 
 // Helper for convenient streaming: std::cout << func;

@@ -104,12 +104,12 @@ TEST(IRTEST, TestBuilder) {
         builder.CreateReturn({ assemOut });
 
         ASSERT_EQ(builder.GetCurrentFunction(), func.get());
-        ASSERT_EQ(builder.GetCurrentScope(), &func->GetScope());
-        ASSERT_EQ(builder.GetCurrentOpStmt(), func->GetScope().GetStatements()[0].get());
+        ASSERT_EQ(builder.GetCurrentCompound(), &func->GetCompound());
+        ASSERT_EQ(builder.GetCurrentOpStmt(), func->GetCompound().GetStatements()[0].get());
     }
 
     ASSERT_EQ(builder.GetCurrentFunction(), nullptr);
-    ASSERT_EQ(builder.GetCurrentScope(), nullptr);
+    ASSERT_EQ(builder.GetCurrentCompound(), nullptr);
     ASSERT_EQ(builder.GetCurrentOpStmt(), nullptr);
 
     // ===== Program attributes =====
@@ -237,17 +237,17 @@ TEST(IRTEST, TestControlFlow) {
             builder.ExitIfStatement(ifs);
 
             // check if then and else yield
-            auto thenYield = std::dynamic_pointer_cast<YieldStatement>(*ifs.GetThenScope().GetStatements().rbegin());
+            auto thenYield = std::dynamic_pointer_cast<YieldStatement>(*ifs.GetThenCompound().GetStatements().rbegin());
             ASSERT_EQ(thenYield->Values()[0], resLoopY);
             ASSERT_EQ(thenYield->Values()[1], resIfX);
-            auto elseYield = std::dynamic_pointer_cast<YieldStatement>(*ifs.GetElseScope().GetStatements().rbegin());
+            auto elseYield = std::dynamic_pointer_cast<YieldStatement>(*ifs.GetElseCompound().GetStatements().rbegin());
             ASSERT_EQ(elseYield->Values()[0], resIfY);
             ASSERT_EQ(elseYield->Values()[1], resLoopX);
         }
         builder.ExitForStatement(fs);
 
         // check for yeild
-        auto ifs = std::dynamic_pointer_cast<IfStatement>(fs.GetScope().GetStatements()[1]);
+        auto ifs = std::dynamic_pointer_cast<IfStatement>(fs.GetCompound().GetStatements()[1]);
         auto ifResults = ifs->Results();
         auto forYield = fs.Yield();
         ASSERT_EQ(forYield->Values(), ifResults);

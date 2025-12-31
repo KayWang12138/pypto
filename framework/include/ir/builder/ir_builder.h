@@ -6,7 +6,6 @@
 
 #include "ir/program.h"
 #include "ir/function.h"
-#include "ir/scope.h"
 #include "ir/statement.h"
 #include "ir/op/op_opcode.h"
 #include "ir/op/op_payload.h"
@@ -38,7 +37,7 @@ public:
         bool setAsEntry = false);
 
     Function* GetCurrentFunction() const { return func_; }
-    Scope* GetCurrentScope() const { return scope_; }
+    CompoundStatement* GetCurrentCompound() const { return compound_; }
     OpStatement* GetCurrentOpStmt() const { return opStmt_; }
 
     // ===== Insertion point =====
@@ -46,7 +45,7 @@ public:
     friend class ScopeGuard;
 
     // ===== Scope registration =====
-    ValuePtr AddToScope(ValuePtr v);
+    ValuePtr AddToCompound(ValuePtr v);
 
     // Optional convenience: create values (not "like", just explicit)
     std::shared_ptr<Tensor> CreateTensor(const std::vector<Scalar>& shape, DataType dt, std::string name = "");
@@ -92,7 +91,7 @@ public:
 private:
     ProgramModule* module_{nullptr};
     Function* func_{nullptr};
-    Scope* scope_{nullptr};
+    CompoundStatement* compound_{nullptr};
     OpStatement* opStmt_{nullptr};
 };
 

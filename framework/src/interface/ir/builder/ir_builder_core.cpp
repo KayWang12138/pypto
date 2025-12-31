@@ -32,13 +32,13 @@ std::shared_ptr<Function> IRBuilder::CreateFunction(
 }
 
 OpStatement& IRBuilder::GetOrCreateActiveOpStmt() {
-    if (!scope_) throw std::runtime_error("IRBuilder::GetOrCreateActiveOpStmt: scope is null");
+    if (!compound_) throw std::runtime_error("IRBuilder::GetOrCreateActiveOpStmt: compound is null");
     if (opStmt_) return *opStmt_;
 
     // Create a new op statement at current scope tail
     auto opStmt = std::make_shared<OpStatement>();
     auto& ref = *opStmt;
-    scope_->AddStatement(std::move(opStmt));
+    compound_->AddStatement(std::move(opStmt));
     opStmt_ = &ref;
     return ref;
 }
