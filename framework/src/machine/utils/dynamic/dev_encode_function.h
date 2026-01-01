@@ -441,7 +441,6 @@ public:
                 oss << INDENTINNER << "#assembleSlot_" << j << "{" << GetRedaccAssembleSlotList(j) << "}\n";
             }
         }
-
         oss << INDENTINNER << "#zeropred:" << predInfo_.totalZeroPred << "\n";
         oss << INDENTINNER << "#zeropred-aiv:" << predInfo_.totalZeroPredAIV << "\n";
         oss << INDENTINNER << "#zeropred-aic:" << predInfo_.totalZeroPredAIC << "\n";
