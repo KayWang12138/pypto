@@ -436,6 +436,7 @@ void DeviceRunner::DumpAiCoreExecutionTimeData() {
                 taskObj["execEnd"] = taskStats[j].execEnd;
                 tasksArr.push_back(taskObj);
             }
+            
         }
         coreObj["tasks"] = tasksArr;
         if (!tasksArr.empty()) {
