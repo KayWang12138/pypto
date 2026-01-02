@@ -524,7 +524,6 @@ private:
         DEV_IF_DEVICE {
             if ((curCoreStatus == AicoreStatus::CORE_SEND_STOP) && (aicoreHal_.GetFinishedTask(coreIdx) == waitAckStopVal)) {
                 aicoreHal_.SetReadyQueue(coreIdx, 0);
-                __sync_synchronize();
                 /* With the previous DevTask verified as stopped, the next DevTask can be sent early,
                 bypassing the delay for its control flow response. */
                 SendPreFetchNextDevTaskDataToCore(coreIdx);
