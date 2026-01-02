@@ -111,6 +111,7 @@ public:
         curTaskType_ = taskCtrl->taskType;
         curTaskId_ = taskCtrl->taskId;
         aicoreHal_.SetModel(taskCtrl->devTask->aicoreModel);
+        resolveHubCnt_ = 0;
 
         if (!preFetchSuccess_) {
             SendDevTaskModel(curDevTask_);
@@ -174,8 +175,7 @@ public:
                 taskCtrl->finishedAicFunctionCnt, taskCtrl->finishedAivFunctionCnt,
                 taskCtrl->finishedHubFunctionCnt, taskCtrl->finishedAicpuFunctionCnt, curDevTask_->coreFunctionCnt);
         }
-        sent += (sentAic + sentAiv + resolveHubCnt_);
-        resolveHubCnt_ = 0;
+        sent += (sentAic + sentAiv);
         return ret;
     }
 
@@ -547,7 +547,6 @@ private:
             } else {
                 uint64_t stopFlag =
                     (static_cast<uint64_t>(curTaskId_) << REG_HIGH_DTASKID_SHIFT) | (AICORE_FUNC_STOP + 1);
-                aicoreHal_.SetReadyQueue(coreIdx, stopFlag);
                 coreStatus[coreIdx] = AicoreStatus::CORE_SEND_STOP;
                 DEV_VERBOSE_DEBUG("core %d send AICORE_FUNC_STOP %lx.", coreIdx, stopFlag);
             }
