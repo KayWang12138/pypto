@@ -100,7 +100,7 @@ public:
     // total memory requirement of non-root-incast/outcast raw tensors
     uint64_t rootInnerTensorWsMemoryRequirement{0};
     uint64_t exclusiveOutcastWsMemoryRequirement{0};
-
+    uint64_t hubOpCount_{0};
 private:
     DevLocalVector<DevAscendRawTensor> rawTensorList_;
     DevLocalVector<DevRawTensorDesc> rawTensorDescList_;
