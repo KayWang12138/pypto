@@ -85,7 +85,8 @@ struct DevAscendFunction {
 
     DevAscendFunctionPredInfo predInfo_;
     uint64_t duppedDataAllocSize_;
-    uint64_t duppedDataCopySize_;
+    uint32_t duppedDataCopySize_;
+	uint32_t hubOpCount_{0};
     DevLocalVector<uint8_t> duppedData_;
 #ifdef SUPPORT_MIX_SUBGRAPH_SCHE
 public:
@@ -100,7 +101,6 @@ public:
     // total memory requirement of non-root-incast/outcast raw tensors
     uint64_t rootInnerTensorWsMemoryRequirement{0};
     uint64_t exclusiveOutcastWsMemoryRequirement{0};
-
 private:
     DevLocalVector<DevAscendRawTensor> rawTensorList_;
     DevLocalVector<DevRawTensorDesc> rawTensorDescList_;
