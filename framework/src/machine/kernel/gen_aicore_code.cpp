@@ -173,21 +173,26 @@ INLINE uint32_t GetNextTask(uint32_t lastTaskIdx, uint32_t curDevTaskId) {
     uint64_t coreStatus = 0;
     uint64_t t0 = get_sys_cnt();
     uint64_t loop_count = 0;
+    bool isForceContinue = false;
     do {
+        isForceContinue = false;
         __asm__ volatile("MOV %0, DATA_MAIN_BASE\n" : "+l"(coreStatus));
         nextLowIdx = coreStatus & 0xFFFFFFFF;
         nextLowIdx -= 1;
 
-        if ((nextLowIdx == AICORE_FUNC_STOP) &&
-            (curDevTaskId == (uint32_t)(coreStatus >> REG_HIGH_DTASKID_SHIFT))) {
-            return AICORE_FUNC_STOP;
+        if (nextLowIdx == AICORE_FUNC_STOP) {
+            if (curDevTaskId == (uint32_t)(coreStatus >> REG_HIGH_DTASKID_SHIFT)) {
+                return nextLowIdx;
+            } else {
+                isForceContinue = true;
+            }
         }
 
         ++loop_count;
         if ((loop_count % 1000 == 0) && (get_sys_cnt() - t0 > 500000000)) {
             return AICORE_TASK_STOP;
         }
-    } while (nextLowIdx == lastTaskIdx);
+    } while (nextLowIdx == lastTaskIdx || isForceContinue);
 
     return nextLowIdx;
 }
