@@ -112,6 +112,7 @@ public:
         curTaskType_ = taskCtrl->taskType;
         curTaskId_ = taskCtrl->taskId;
         aicoreHal_.SetModel(taskCtrl->devTask->aicoreModel);
+        resolveHubCnt_ = 0;
 
         if (!preFetchSuccess_) {
             SendDevTaskModel(curDevTask_);
@@ -175,8 +176,7 @@ public:
                 taskCtrl->finishedAicFunctionCnt, taskCtrl->finishedAivFunctionCnt,
                 taskCtrl->finishedHubFunctionCnt, taskCtrl->finishedAicpuFunctionCnt, curDevTask_->coreFunctionCnt);
         }
-        sent += (sentAic + sentAiv + resolveHubCnt_);
-        resolveHubCnt_ = 0;
+        sent += (sentAic + sentAiv);
         return ret;
     }
 
@@ -252,8 +252,8 @@ public:
             }
         }
         PerfMtEnd(PERF_EVT_SYNC_AICORE, aicpuIdx_);
-        DEV_DEBUG("aicpu %d proc finish send all task,aic: %lu, aiv: %lu, aicpu: %lu.",
-            aicpuIdx_, procAicCoreFunctionCnt_, procAivCoreFunctionCnt_, procAicpuFunctionCnt_);
+        DEV_DEBUG("aicpu %d proc finish send all task,aic: %lu, aiv: %lu, aicpu: %lu, hub:%lu.",
+            aicpuIdx_, procAicCoreFunctionCnt_, procAivCoreFunctionCnt_, procAicpuFunctionCnt_, resolveHubCnt_);
     FINISH:
         wrapManager_.Deinit();
         if (unlikely(ret != DEVICE_MACHINE_OK)) {

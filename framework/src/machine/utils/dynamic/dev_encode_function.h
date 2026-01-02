@@ -85,7 +85,8 @@ struct DevAscendFunction {
 
     DevAscendFunctionPredInfo predInfo_;
     uint64_t duppedDataAllocSize_;
-    uint64_t duppedDataCopySize_;
+    uint32_t duppedDataCopySize_;
+	uint32_t hubOpCount_{0};
     DevLocalVector<uint8_t> duppedData_;
 #ifdef SUPPORT_MIX_SUBGRAPH_SCHE
 public:
@@ -441,7 +442,7 @@ public:
                 oss << INDENTINNER << "#assembleSlot_" << j << "{" << GetRedaccAssembleSlotList(j) << "}\n";
             }
         }
-
+        oss << INDENTINNER << "#hubOpCount:" << hubOpCount_ << "\n";
         oss << INDENTINNER << "#zeropred:" << predInfo_.totalZeroPred << "\n";
         oss << INDENTINNER << "#zeropred-aiv:" << predInfo_.totalZeroPredAIV << "\n";
         oss << INDENTINNER << "#zeropred-aic:" << predInfo_.totalZeroPredAIC << "\n";
