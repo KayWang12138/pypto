@@ -176,9 +176,7 @@ private:
             std::cout << "!!! Run CostModel " << i << "\n";
             RunCostModel(&kArgs);
             std::cout << "!!! Run TestModel " << i << "\n";
-            RunTestMode(&kArgs);
         }
-        RunDynCostModel();
     }
 
     bool IsDumpTensorEnable() const {
