@@ -848,6 +848,7 @@ struct EncodeDevAscendFunctionInfo {
     uint64_t totalZeroPredAIC{0};
     uint64_t totalZeroPredHub{0};
     uint64_t totalZeroPredAicpu{0};
+    uint64_t hubOpCount{0};
 
     std::unordered_map<Operation *, uint64_t> callOpPredDict;
     std::unordered_map<Operation *, OrderedSet<Operation *>> callOpSuccDict;
