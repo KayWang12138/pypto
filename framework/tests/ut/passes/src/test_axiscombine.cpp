@@ -76,6 +76,34 @@ TEST_F(TestAxisCombine, Test1) {
     EXPECT_EQ(brcbCnt, K_1);
 }
 
+TEST_F(TestAxisCombine, 0105) {
+    ComputationalGraphBuilder graph;
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {1, 4, 1}, "t1"), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {1, 1, 1024}, "t2"), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {1, 4, 1024}, "t3"), true);
+    EXPECT_EQ(graph.AddOp(Opcode::OP_MUL, {"t1", "t2"}, {"t3"}, "add", true), true);
+    auto *rootFuncPtr = graph.GetFunction();
+    config::SetOperationConfig("COMBINE_AXIS", true);
+    AxisCombine pass;
+    EXPECT_EQ(pass.RunOnFunction(*rootFuncPtr), SUCCESS);
+    auto updatedOperations = rootFuncPtr->Operations();
+    int64_t brcbCnt = 0;
+    for (const auto &op : updatedOperations) {
+        if (op.GetOpcode() == Opcode::OP_BRCB) {
+            ++brcbCnt;
+        }
+        if (op.HasAttr(OpAttributeKey::brcbIdx)) {
+            auto idx = op.GetIntAttribute(OpAttributeKey::brcbIdx) - 1;
+            auto tensor = op.GetIOperands()[idx];
+            EXPECT_TRUE(tensor != nullptr);
+            EXPECT_EQ(tensor->shape[0], K_1);
+            EXPECT_EQ(tensor->shape[1], K_4);
+            EXPECT_EQ(tensor->shape[2], K_8);
+        }
+    }
+    EXPECT_EQ(brcbCnt, K_1);
+}
+
 TEST_F(TestAxisCombine, Test2) {
     ComputationalGraphBuilder graph;
     EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {4,128}, "t1"), true);
