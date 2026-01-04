@@ -9,7 +9,7 @@
 #include "ir/program.h"
 #include "ir/function.h"
 #include "ir/statement.h"
-#include "ir/type.h"
+#include "ir/value.h"
 
 
 namespace pto{

@@ -1,7 +1,7 @@
 
 #pragma once
 
-#include "ir/type.h"
+#include "ir/value.h"
 #include "ir/utils.h"
 #include "ir/operation.h"
 

@@ -9,7 +9,7 @@
 #include "ir/statement.h"
 #include "ir/op/op_opcode.h"
 #include "ir/op/op_payload.h"
-#include "ir/type.h"
+#include "ir/value.h"
 #include "ir/builder/op_builder.h"
 #include "ir/builder/guard.h"
 

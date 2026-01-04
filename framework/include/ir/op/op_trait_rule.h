@@ -1,7 +1,7 @@
 // ir/op/trait_rule.h
 #pragma once
 
-#include "ir/type.h"
+#include "ir/value.h"
 #include <vector>
 #include "ir/op/op_schema.h"
 #include "ir/op/op_payload.h"     // OpPayload

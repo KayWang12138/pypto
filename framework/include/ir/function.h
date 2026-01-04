@@ -4,7 +4,7 @@
 #pragma once
 
 #include "ir/statement.h"
-#include "ir/type.h"
+#include "ir/value.h"
 #include "ir/utils.h"
 
 #include <ostream>

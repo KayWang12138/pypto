@@ -5,7 +5,7 @@
 #include <ostream>
 #include <string>
 #include <vector>
-#include "ir/type.h"
+#include "ir/value.h"
 #include "ir/utils.h"
 
 namespace pto {
