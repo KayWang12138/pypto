@@ -52,6 +52,8 @@ TEST_F(TestCodegenDynLogicalNot, TestDynOpLogicalNot) {
     Tensor inputB(DT_FP32, shape, "B");
     Tensor output(DT_FP32, shape, "C");
 
+    config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
+
     Element scalaVal(DataType::DT_FP32, 1.0);
 
     std::string funcName = "TestDynOpLogicalNot";
