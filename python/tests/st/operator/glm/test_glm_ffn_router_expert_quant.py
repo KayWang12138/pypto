@@ -309,7 +309,7 @@ def expert_infer_base(
     group_list, group_list_cumsum = group_list_params
     w13, w13_scale = w13_params
     w2, w2_scale = w2_params
-    exp_idx, token_loop_idx, loop_base = offset_params
+    exp_idx, unroll_offset, unroll_level = offset_params
     mm1_cube_tile_shape, mm2_cube_tile_shape = tiling_params
 
     hidden_size = hidden_states.shape[1]
@@ -323,8 +323,8 @@ def expert_infer_base(
 
     # 获取该激活专家在当前loop参与计算部分，有效token的偏移地址和scale偏移地址
     hidden_states_offset_start = group_list_cumsum[exp_idx, ]
-    hidden_states_offset = [hidden_states_offset_start + token_loop_idx * loop_base, 0]
-    x_scale_offset = [hidden_states_offset_start + token_loop_idx * loop_base, 0]
+    hidden_states_offset = [hidden_states_offset_start + unroll_offset, 0]
+    x_scale_offset = [hidden_states_offset_start + unroll_offset, 0]
 
     # 获取该激活专家权重和scale的偏移地址
     weight_13_offset = [exp_idx * hidden_size, 0]
@@ -333,9 +333,8 @@ def expert_infer_base(
     w2_scale_offset = [exp_idx, 0]
 
     # 获取当前专家的实际token数和scale
-    cur_valid_size = pypto.min(token_num - token_loop_idx * loop_base, loop_base)
-    x = pypto.view(hidden_states, [loop_base, hidden_size], hidden_states_offset, valid_shape=[cur_valid_size, hidden_size])
-    x_scale = pypto.view(hidden_states_scale, [loop_base, 1], x_scale_offset, valid_shape=[cur_valid_size, 1])
+    x = pypto.view(hidden_states, [unroll_level, hidden_size], hidden_states_offset)
+    x_scale = pypto.view(hidden_states_scale, [unroll_level, 1], x_scale_offset)
 
     # 获取当前专家的weght_13和scale
     w13_weight_2d = pypto.view(w13, [hidden_size, intermediate_size * 2], weight_13_offset)
@@ -346,13 +345,13 @@ def expert_infer_base(
     w2_scale_valid = pypto.view(w2_scale, [1, hidden_size], w2_scale_offset)
 
     # up_proj的matmul计算
-    pypto.set_cube_tile_shapes([mm1_cube_tile_shape[0], mm1_cube_tile_shape[0]], [mm1_cube_tile_shape[1], mm1_cube_tile_shape[1] * 2], \
+    pypto.set_cube_tile_shapes([unroll_level, unroll_level], [mm1_cube_tile_shape[1], mm1_cube_tile_shape[1] * 2], \
                                [mm1_cube_tile_shape[2], mm1_cube_tile_shape[2]], True, True)
-    pypto.set_matrix_size([loop_base, w13_weight_2d.shape[0], w13_weight_2d.shape[1]])
+    pypto.set_matrix_size([unroll_level, w13_weight_2d.shape[0], w13_weight_2d.shape[1]])
     up_proj = pypto.matmul(x, w13_weight_2d, pypto.DT_INT32)
 
     # dequant
-    pypto.set_vec_tile_shapes(1, intermediate_size * 2)
+    pypto.set_vec_tile_shapes(4, intermediate_size * 2)
     up_proj_out = dequant_dynamic(up_proj, w13_scale_valid, x_scale)
     swiglu_out = swiglu(up_proj_out)
 
@@ -360,13 +359,13 @@ def expert_infer_base(
     # quant
     down_proj_quant, down_proj_scale = symmetric_quantization_per_token(swiglu_out)
 
-    pypto.set_cube_tile_shapes([mm2_cube_tile_shape[0], mm2_cube_tile_shape[0]], [mm2_cube_tile_shape[1], mm2_cube_tile_shape[1] * 2], \
+    pypto.set_cube_tile_shapes([unroll_level, unroll_level], [mm2_cube_tile_shape[1], mm2_cube_tile_shape[1] * 2], \
                                [mm2_cube_tile_shape[2], mm2_cube_tile_shape[2]], True, True)
-    pypto.set_matrix_size([loop_base, w2_weight_2d.shape[0], w2_weight_2d.shape[1]])
+    pypto.set_matrix_size([unroll_level, w2_weight_2d.shape[0], w2_weight_2d.shape[1]])
     down_proj = pypto.matmul(down_proj_quant, w2_weight_2d, pypto.DT_INT32)
 
     # dequant
-    pypto.set_vec_tile_shapes(1, hidden_size)
+    pypto.set_vec_tile_shapes(4, hidden_size)
     down_proj_dequant = dequant_dynamic(down_proj, w2_scale_valid, down_proj_scale)
     out = pypto.cast(down_proj_dequant, x_dtype)
     pypto.assemble(out, hidden_states_offset, ffn_res)
@@ -403,10 +402,11 @@ def moe_router_expert_main(hidden_states, hidden_states_scale,
         This function uses cube L1 reuse mode 2 for better memory efficiency.
         Each expert processes tokens in tiles of size 8.
     """
+    pypto.experimental.set_operation_config(combine_axis=True)
+
     # tiling config
     mm1_cube_tile_shape = (8, 256, 256)
     mm2_cube_tile_shape = (8, 256, 256)
-    loop_base = 8
 
     # 获取当前device上专家总数
     expert_num = group_list.shape[0]
@@ -423,9 +423,11 @@ def moe_router_expert_main(hidden_states, hidden_states_scale,
     for exp_idx in pypto.loop(expert_num, name="LOOP_FFN_ROUTER_MLP_L0", idx_name="exp_idx"):
         # 获取激活专家的token数
         token_num = group_list[exp_idx, ]
-        # 每个专家单次计算16token，不足部分会进行pad
-        exp_loop_times = (token_num + loop_base - 1) // loop_base
-        for token_loop_idx in pypto.loop(exp_loop_times, name="LOOP_FFN_ROUTER_MLP_L1", idx_name="token_loop_idx"):
+        for token_loop_idx, loop_base in pypto.loop_unroll(
+            token_num,
+            unroll_list = [1, 2, 4, 8, 16, 32, 64],
+            name="LOOP_FFN_ROUTER_MLP_L1",
+            idx_name="token_loop_idx"):
             expert_infer_base(
                 hidden_states_params=[hidden_states, hidden_states_scale_2d],
                 group_list_params=[group_list, group_list_cumsum],
