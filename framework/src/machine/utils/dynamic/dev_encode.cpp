@@ -926,7 +926,7 @@ struct EncodeDevAscendFunctionInfo {
         auto &cellMatchShape = cellMatchTableDesc.cellShape;
         for (size_t index = 0; index < shape.size(); ++index) {
             auto dimValue = shape[index];
-            if (cellMatchShape.dim[index] > dimValue) {
+            if (cellMatchShape.dim[index] < dimValue) {
                 cellMatchShape.dim[index] = dimValue;
                 if (cellMatchShape.dim[index] == 0) {
                     ALOG_ERROR_F("cellMatchShape.dim[%zu] is zero after assignment", index);
@@ -1333,6 +1333,28 @@ struct EncodeDevAscendFunctionInfo {
         }
     }
 
+    void AddDependOperandsToColorGraph(std::vector<Operation *> &callopList, std::unordered_map<Operation *, int> &callopIndexDict) {
+        std::unordered_map<std::shared_ptr<LogicalTensor>, OrderedSet<Operation *>> producerDict;
+        for (auto &op : callopList) {
+            for (auto &i : op->GetOOperands()) {
+                producerDict[i].Insert(op);
+            }
+        }
+
+        for (auto &op : callopList) {
+            for (auto &o : op->GetDependOperands()) {
+                for (auto &producer : producerDict[o]) {
+                    if (op == producer) {
+                        // Consumer and producer can not be the same.
+                        continue;
+                    }
+                    // Index for callop from its depend operand's producer callop index list
+                    colorOutGraph[callopIndexDict[producer]].push_back(callopIndexDict[op]);
+                }
+            }
+        }
+    }
+
     EncodeDevAscendFunctionInfo(
             Function *dyndev,
             const std::unordered_map<uint64_t, int> &tHashIndexDict,
@@ -1423,6 +1445,7 @@ struct EncodeDevAscendFunctionInfo {
                 }
             }
         }
+        AddDependOperandsToColorGraph(callopList, callopIndexDict);
         for (size_t index = 0; index < callopList.size(); index++) {
             std::sort(colorOutGraph[index].begin(), colorOutGraph[index].end());
             // remove repeated index in ooperand's consumer callop index list

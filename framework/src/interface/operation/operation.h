@@ -155,6 +155,7 @@ public:
     friend class Function;
     LogicalTensors iOperand; // Input operands (now actual objects, not shared_ptr)
     LogicalTensors oOperand; // Output operands (now actual objects, not shared_ptr)
+    LogicalTensors dependOperand; // Depend Operands
     int opmagic; // The magic number for the operation, default value -1
     int programFuncMagic_; // function magic of leafFunction
     int outcastRefcount{0};
@@ -274,9 +275,16 @@ public:
     [[nodiscard]] const LogicalTensors &GetOOperands() const { return oOperand; }
     LogicalTensors &GetOOperands() { return oOperand; }
 
+    [[nodiscard]] const LogicalTensors &GetDependOperands() const { return dependOperand; }
+    LogicalTensors &GetDependOperands() { return dependOperand; }
+
+    void AddDependOperand(LogicalTensorPtr dependoperand);
+
     size_t GetInputOperandSize() const { return iOperand.size(); }
 
     size_t GetOutputOperandSize() const { return oOperand.size(); }
+
+    size_t GetDependOperandSize() const { return dependOperand.size(); }
 
     LogicalTensorPtr GetInputOperand(const size_t index) const;
 
@@ -284,6 +292,7 @@ public:
 
     int GetIOperandIndex(const LogicalTensorPtr &ioperand) const;
     int GetOOperandIndex(const LogicalTensorPtr &ooperand) const;
+    int GetDependOperandIndex(const LogicalTensorPtr &dependoperand) const;
 
     void ReplaceInputOperand(const LogicalTensorPtr &originInput, const LogicalTensorPtr &newInput);
 
@@ -349,7 +358,7 @@ public:
         opAttribute_ = attr;
         static std::unordered_set<Opcode> copyOpAttrOpTypes{Opcode::OP_L1_COPY_IN, Opcode::OP_L1_COPY_OUT,
             Opcode::OP_COPY_IN, Opcode::OP_L0C_TO_L1, Opcode::OP_L1_TO_BT, Opcode::OP_L1_TO_FIX_QUANT_PRE, Opcode::OP_L1_TO_L0A,
-            Opcode::OP_L1_TO_L0B, Opcode::OP_L1_TO_L0_AT, Opcode::OP_L1_TO_L0_BT, Opcode::OP_COPY_OUT,
+            Opcode::OP_L1_TO_L0B, Opcode::OP_L1_TO_L0_AT, Opcode::OP_L1_TO_L0_BT, Opcode::OP_UB_COPY_L1, Opcode::OP_COPY_OUT,
             Opcode::OP_RESHAPE_COPY_IN, Opcode::OP_RESHAPE_COPY_OUT, Opcode::OP_INDEX_OUTCAST,
             Opcode::OP_TRANSPOSE_MOVEIN, Opcode::OP_TRANSPOSE_MOVEOUT, Opcode::OP_REMOTE_GATHER,
             Opcode::OP_LOCAL_COPY_OUT, Opcode::OP_REMOTE_REDUCE, Opcode::OP_FFN_SCHED, Opcode::OP_FFN_BATCHING,
@@ -412,6 +421,7 @@ public:
     }
 
     void EraseInput(const std::shared_ptr<LogicalTensor> &input);
+    void EraseDependTensor(const std::shared_ptr<LogicalTensor> &dependTensor);
     void ReplaceInput(const std::shared_ptr<LogicalTensor> &newInput, const std::shared_ptr<LogicalTensor> &oldInput);
     void ReplaceOutput(const std::shared_ptr<LogicalTensor> &newOutput, const std::shared_ptr<LogicalTensor> &oldOutput);
 
