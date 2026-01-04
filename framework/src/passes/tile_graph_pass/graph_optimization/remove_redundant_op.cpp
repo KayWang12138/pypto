@@ -97,6 +97,7 @@ Status RemoveRedundantOp::RemoveDummyOp(Function &function) {
 Status RemoveRedundantOp::RunOnFunction(Function &function) {
     APASS_LOG_INFO_F(Elements::Function, "===> Start RemoveRedundantOp");
     operationUpdated = true;
+    iterTime = 0U;
     while (operationUpdated) {
         operationUpdated = false;
         if (RemoveDummyOps(function) != SUCCESS) {
@@ -107,6 +108,7 @@ Status RemoveRedundantOp::RunOnFunction(Function &function) {
             APASS_LOG_ERROR_F(Elements::Function, "RemoveDummyOp failed.");
             return FAILED;
         }
+        iterTime++;
     }
     APASS_LOG_INFO_F(Elements::Function, "===> End RemoveRedundantOp");
     return SUCCESS;
@@ -127,9 +129,11 @@ Status RemoveRedundantOp::RemoveDummyOps(Function &function) {
         APASS_LOG_ERROR_F(Elements::Function, "ProcessReshape failed.");
         return FAILED;
     }
-    if (ProcessViewAssemble(function) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Function, "ProcessViewAssemble failed.");
-        return FAILED;
+    if (iterTime == 0U) {
+        if (ProcessViewAssemble(function) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Function, "ProcessViewAssemble failed.");
+            return FAILED;
+        }
     }
     return SUCCESS;
 }

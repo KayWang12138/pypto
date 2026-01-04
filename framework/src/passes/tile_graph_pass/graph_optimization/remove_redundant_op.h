@@ -56,6 +56,7 @@ private:
     bool ProcessRedundantOpWithoutDynShape(Operation &op) const;
 
     bool operationUpdated;
+    uint32_t iterTime;
 };
 } // namespace tile_fwk
 } // namespace npu
