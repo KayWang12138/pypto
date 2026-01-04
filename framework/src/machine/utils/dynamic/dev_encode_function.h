@@ -76,6 +76,7 @@ struct DevAscendFunction {
 
     uint32_t getInputDataCount;
     uint32_t getTensorDataCount;
+    uint64_t hubCount;
 
     DevLocalVector<AddressDescriptor> incastAddressList;
     DevLocalVector<AddressDescriptor> outcastAddressList;
