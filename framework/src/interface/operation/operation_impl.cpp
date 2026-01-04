@@ -1516,7 +1516,7 @@ void ExpandOperationInto(Function &function, const TileShape &tileShape, Opcode 
             break;
         }
         case Opcode::OP_SEND_TO_ROUTING_EXPERT: {
-            npu::tile_fwk::Distributed::TiledSendToRoutingExpert(function, tileShape, iOperand, oOperand, op);
+            npu::tile_fwk::Distributed::TiledDispatchSendTokensToExperts(function, tileShape, iOperand, oOperand, op);
             break;
         }
         case Opcode::OP_SEND_TO_SHARED_EXPERT: {

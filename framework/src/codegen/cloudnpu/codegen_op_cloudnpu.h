@@ -162,7 +162,7 @@ private:
     std::string GenOffsetsAndRawShapesForShmemSignal() const;
     std::string GenOffsetsAndRawShapesForMoeDistributedCombineSend() const;
     std::string GenOffsetsAndRawShapesForMoeDistributedCombineReceive() const;
-    std::string GenOffsetsAndRawShapesForSendToRoutingExpert() const;
+    std::string GenOffsetsAndRawShapesForDispatchSendTokensToExperts() const;
     std::string GenOffsetsAndRawShapesForSendToSharedExpert() const;
     std::string GenOffsetsAndRawShapesForCopyToLocalExpert() const;
     std::string GenOffsetsAndRawShapesForDispatchSetFlag() const;
