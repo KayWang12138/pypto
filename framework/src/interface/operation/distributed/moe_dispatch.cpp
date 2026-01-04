@@ -535,7 +535,7 @@ void MoeDispatch(const Tensor &tokenTensor, const Tensor &tokenExpertTable, Tens
     ASSERT(checkValidInput(expandX, 2, DataType::DT_BF16, expandXRow, 5120, assertResult)) << assertResult; // 当前仅支持hiddenSize:5120
     ASSERT(checkValidInput(combineInfo, 2, DataType::DT_INT32, expandXRow, 3, assertResult)) << assertResult; // comBineInfo固定hiddenSize:3
 
-    int flagRow = 1;
+    int flagRow = 112312;
     int flagCol = 128;
     Tensor shmemData;
     Tensor shmemFlag;
