@@ -395,6 +395,7 @@ Status InferDiscontinuousInput::NeedInsertCopy(Operation *assembleOp, bool &need
         needInsert = false;
         return SUCCESS;
     }
+    return SUCCESS;
 }
 
 void InferDiscontinuousInput::InsertViewAssemble(Function &function, Operation *viewOp, Operation *assembleOp) {
