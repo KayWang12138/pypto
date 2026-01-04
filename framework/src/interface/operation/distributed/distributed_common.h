@@ -44,10 +44,8 @@ constexpr int32_t DIST_INDEX_TWO = 2;
 constexpr uint16_t COPY_BLOCK_BYTE_SIZE = 32;
 constexpr uint16_t SAME_ADDR_BYTE_SIZE = 512;
 constexpr int32_t ROUTED_EXPET_NUM = 160;
-constexpr int32_t AIV_MAX_NUM = 8;
+constexpr int32_t FFN_TILE_SIZE = 8;
 constexpr int32_t AIV_NUM = 4;
-constexpr int32_t RECEIVE_CNT_OUT_ROW = 1024;
-constexpr int32_t RECEIVE_CNT_OUT_COL = 512;
 constexpr int32_t SHMEM_SIGNAL_STRIDE = 8;
 constexpr int32_t MAX_TILE_NUM = 1024;
 enum class TileIndex : size_t {
