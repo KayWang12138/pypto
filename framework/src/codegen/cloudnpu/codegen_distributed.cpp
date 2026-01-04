@@ -37,14 +37,13 @@ void CheckInRange(int64_t value)
 std::string CodeGenOpCloudNPU::GetTemplateDType() const
 {
     static const std::unordered_map<Opcode, int32_t> dTypeOperandIndexMap = {
-        {Opcode::OP_FFN_BATCHING, 0},
         {Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE, 0},
-        {Opcode::OP_COPY_TO_LOCAL_EXPERT, 0},
-        {Opcode::OP_SEND_TO_ROUTING_EXPERT, 1},
-        {Opcode::OP_SEND_TO_SHARED_EXPERT, 1},
-        {Opcode::OP_FFN_SCHED, 1},
-        {Opcode::OP_FFN_BATCHING, 1},
-        {Opcode::OP_FFN_VALIDCNT, 1},
+        {Opcode::OP_MOE_DISTRIBUTED_DISPATCH_LOCAL_COPY_OUT, 0},
+        {Opcode::OP_MOE_DISTRIBUTED_DISPATCH_SEND_ROUTED, 1},
+        {Opcode::OP_MOE_DISTRIBUTED_DISPATCH_SEND_SHARED, 1},
+        {Opcode::OP_MOE_DISTRIBUTED_DISPATCH_WAIT_SIGNAL, 1},
+        {Opcode::OP_MOE_DISTRIBUTED_DISPATCH_ASSEMBLE_EXPAND_X, 0},
+        {Opcode::OP_MOE_DISTRIBUTED_DISPATCH_EXPERT_TOKEN_NUM, 1},
         {Opcode::OP_SHMEM_PUT, 1},
         {Opcode::OP_SHMEM_PUT_UB2GM, 1},
         {Opcode::OP_SHMEM_SIGNAL, 1},
@@ -52,9 +51,9 @@ std::string CodeGenOpCloudNPU::GetTemplateDType() const
         {Opcode::OP_SHMEM_GET, 1},
         {Opcode::OP_SHMEM_GET_GM2UB, 1},
         {Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND, 1},
-        {Opcode::OP_FFN_COMBINEINFO, 2},
+        {Opcode::OP_MOE_DISTRIBUTED_DISPATCH_ASSEMBLE_ASSIST_INFO_FOR_COMBINE, 2},
         {Opcode::OP_SHMEM_SET, 3},
-        {Opcode::OP_DISPATCH_SET_FLAG, 4},
+        {Opcode::OP_MOE_DISTRIBUTED_DISPATCH_SET_SIGNAL, 4},
     };
     auto it = dTypeOperandIndexMap.find(opCode);
     ASSERT(it != dTypeOperandIndexMap.end());
@@ -276,7 +275,7 @@ std::string CodeGenOpCloudNPU::GenOffsetsAndRawShapesForMoeDistributedCombineRec
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::GenOffsetsAndRawShapesForSendToRoutingExpert() const
+std::string CodeGenOpCloudNPU::GenOffsetsAndRawShapesForDispatchSendToRoutingExperts() const
 {
     std::ostringstream oss;
     int32_t expertTableIndex = 6;
@@ -308,12 +307,12 @@ std::string CodeGenOpCloudNPU::GenOffsetsAndRawShapesForCopyToLocalExpert() cons
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::GenOffsetsAndRawShapesForDispatchSetFlag() const
+std::string CodeGenOpCloudNPU::GenOffsetsAndRawShapesForDispatchSetRecvSignals() const
 {
     std::ostringstream oss;
-    int32_t shmemFlagIndex = 5;
-    int32_t shmemFlagDim = 4;
-    oss << ", " << GenOffsetsAndRawShapes(shmemFlagIndex, shmemFlagDim);
+    int32_t shmemSignalIndex = 5;
+    int32_t shmemSignalDim = 4;
+    oss << ", " << GenOffsetsAndRawShapes(shmemSignalIndex, shmemSignalDim);
     return oss.str();
 }
 
@@ -326,7 +325,7 @@ std::string CodeGenOpCloudNPU::GenOffsetsAndRawShapesForFfnOperations() const
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::GenOffsetsAndRawShapesForFfnCombineInfo() const
+std::string CodeGenOpCloudNPU::GenOffsetsAndRawShapesForDispatchAssembleAssistInfoForCombine() const
 {
     std::ostringstream oss;
     int32_t shmemIndex = 2;
@@ -367,14 +366,14 @@ std::string CodeGenOpCloudNPU::GenExtraParamsStr() const
         {Opcode::OP_SHMEM_SIGNAL, [](const CodeGenOpCloudNPU* self) { return self->GenOffsetsAndRawShapesForShmemSignal(); }},
         {Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND, [](const CodeGenOpCloudNPU* self) { return self->GenOffsetsAndRawShapesForMoeDistributedCombineSend(); }},
         {Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE, [](const CodeGenOpCloudNPU* self) { return self->GenOffsetsAndRawShapesForMoeDistributedCombineReceive(); }},
-        {Opcode::OP_SEND_TO_ROUTING_EXPERT, [](const CodeGenOpCloudNPU* self) { return self->GenOffsetsAndRawShapesForSendToRoutingExpert(); }},
-        {Opcode::OP_SEND_TO_SHARED_EXPERT, [](const CodeGenOpCloudNPU* self) { return self->GenOffsetsAndRawShapesForSendToSharedExpert(); }},
-        {Opcode::OP_COPY_TO_LOCAL_EXPERT, [](const CodeGenOpCloudNPU* self) { return self->GenOffsetsAndRawShapesForCopyToLocalExpert(); }},
-        {Opcode::OP_DISPATCH_SET_FLAG, [](const CodeGenOpCloudNPU* self) { return self->GenOffsetsAndRawShapesForDispatchSetFlag(); }},
-        {Opcode::OP_FFN_SCHED, [](const CodeGenOpCloudNPU* self) { return self->GenOffsetsAndRawShapesForFfnOperations(); }},
-        {Opcode::OP_FFN_BATCHING, [](const CodeGenOpCloudNPU* self) { return self->GenOffsetsAndRawShapesForFfnOperations(); }},
-        {Opcode::OP_FFN_VALIDCNT, [](const CodeGenOpCloudNPU* self) { return self->GenOffsetsAndRawShapesForFfnOperations(); }},
-        {Opcode::OP_FFN_COMBINEINFO, [](const CodeGenOpCloudNPU* self) { return self->GenOffsetsAndRawShapesForFfnCombineInfo(); }},
+        {Opcode::OP_MOE_DISTRIBUTED_DISPATCH_SEND_ROUTED, [](const CodeGenOpCloudNPU* self) { return self->GenOffsetsAndRawShapesForDispatchSendToRoutingExperts(); }},
+        {Opcode::OP_MOE_DISTRIBUTED_DISPATCH_SEND_SHARED, [](const CodeGenOpCloudNPU* self) { return self->GenOffsetsAndRawShapesForSendToSharedExpert(); }},
+        {Opcode::OP_MOE_DISTRIBUTED_DISPATCH_LOCAL_COPY_OUT, [](const CodeGenOpCloudNPU* self) { return self->GenOffsetsAndRawShapesForCopyToLocalExpert(); }},
+        {Opcode::OP_MOE_DISTRIBUTED_DISPATCH_SET_SIGNAL, [](const CodeGenOpCloudNPU* self) { return self->GenOffsetsAndRawShapesForDispatchSetRecvSignals(); }},
+        {Opcode::OP_MOE_DISTRIBUTED_DISPATCH_WAIT_SIGNAL, [](const CodeGenOpCloudNPU* self) { return self->GenOffsetsAndRawShapesForFfnOperations(); }},
+        {Opcode::OP_MOE_DISTRIBUTED_DISPATCH_ASSEMBLE_EXPAND_X, [](const CodeGenOpCloudNPU* self) { return self->GenOffsetsAndRawShapesForFfnOperations(); }},
+        {Opcode::OP_MOE_DISTRIBUTED_DISPATCH_EXPERT_TOKEN_NUM, [](const CodeGenOpCloudNPU* self) { return self->GenOffsetsAndRawShapesForFfnOperations(); }},
+        {Opcode::OP_MOE_DISTRIBUTED_DISPATCH_ASSEMBLE_ASSIST_INFO_FOR_COMBINE, [](const CodeGenOpCloudNPU* self) { return self->GenOffsetsAndRawShapesForDispatchAssembleAssistInfoForCombine(); }},
         {Opcode::OP_SHMEM_SET, [](const CodeGenOpCloudNPU* self) { return self->GenOffsetsAndRawShapesForShmemSet(); }}
     };
 
