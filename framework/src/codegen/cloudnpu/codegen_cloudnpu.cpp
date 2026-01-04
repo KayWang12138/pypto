@@ -149,8 +149,7 @@ std::string CodeGenCloudNPU::GenFuncBody(Function &subFunc, Function &topFunc) c
 
         std::string allocSourceCode = GenAllocForLocalBuffer(op, symbolMgr);
 
-        CodeGenOpCloudNPU cop({symbolMgr, topFunc, subFunc, op, locToOffsetMap});
-
+        CodeGenOpCloudNPU cop({symbolMgr, topFunc, subFunc, op, locToOffsetMap, ctx.isMainBlock});
         // update fs
         cop.UpdateSaturateStatus(fs);
         std::string tileOpSourceCode = cop.GenOpCode();
@@ -264,7 +263,7 @@ void CodeGenCloudNPU::GenCode(
                 return;
             }
             bool isCube = subFunc->IsCube();
-            CompileInfo compileInfo(topFunc, ctx.cceDir, subFuncPair, isCube, subFunc->IsUnderDynamicFunction());
+            CompileInfo compileInfo(topFunc, ctx, subFuncPair, isCube, subFunc->IsUnderDynamicFunction());
             std::ostringstream leafKernelFunc;
             leafKernelFunc << GenFuncBodyBefore(subFuncPair, topFunc, compileInfo);
             leafKernelFunc << GenFuncBody(*subFunc, topFunc);
@@ -289,9 +288,16 @@ void CodeGenCloudNPU::UpdateSubFunc(std::pair<uint64_t, Function *> subFuncPair,
     if (attr == nullptr) {
         attr = std::make_shared<LeafFuncAttribute>();
     }
-    attr->kernelName = compileInfo.GetKernelName();
-    attr->binPath = compileInfo.GetBinAbsPath();
-    attr->kernelDeclare = compileInfo.GetFuncDeclare();
+
+    if (ctx.isMainBlock) {
+        attr->kernelNameMainBlock = compileInfo.GetKernelName();
+        attr->binPathMainBlock = compileInfo.GetBinAbsPath();
+        attr->kernelDeclareMainBlock = compileInfo.GetFuncDeclare();
+    } else {
+        attr->kernelName = compileInfo.GetKernelName();
+        attr->binPath = compileInfo.GetBinAbsPath();
+        attr->kernelDeclare = compileInfo.GetFuncDeclare();
+    }
     CoreType coreType = compileInfo.IsCube() ? CoreType::AIC : CoreType::AIV;
     attr->coreType = coreType;
     leafFunc->SetLeafFuncAttribute(attr);
@@ -572,17 +578,21 @@ bool CodeGenCloudNPU::HandleForAICpuSubFunc(Function &subFunc) {
             code.push_back(op.GetOOpAttrOffset(i));
         }
 
+        ASSERT(op.GetIOperands().size() >= 2) << "WaitUntil OP need two inputs"; // waitUntil OP有2个输入
         code.push_back(op.GetIOperands().size() * paramSizePerOperand);
         for (size_t i = 0; i < op.GetIOperands().size(); ++i) {
             code.push_back(op.GetInputOperand(i)->shape.size());
             code.push_back(op.GetIOpAttrOffset(i));
         }
+        // waitUntil OP有2个输入，下标0是dummy控制边，下标1是signal，这里只需要signal
+        code.push_back(op.GetInputOperand(1)->GetRawTensor()->rawshape.size());
+        for (auto dimShape: op.GetInputOperand(1)->GetRawTensor()->GetRawShape()) {
+            code.push_back(dimShape);
+        }
 
         if (attrs.size() != 0) {
             code.push_back(static_cast<int32_t>(attrs.size()));
-            for (size_t i = 0; i < attrs.size(); ++i) {
-                code.push_back(static_cast<int32_t>(attrs[i]));
-            }
+            code.insert(code.end(), attrs.begin(), attrs.end());
         }
         break;
     }
