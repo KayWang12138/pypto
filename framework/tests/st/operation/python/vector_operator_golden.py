@@ -1409,10 +1409,10 @@ def cumsum_golden_func(inputs: list, config: dict):
     params = config.get("params")
     axis = params["axis"]
     if inputs[0].dtype == bfloat16:
-        inputTensor = torch.as_tensor(inputs[0].astype(np.float32)).to(torch.bfloat16)
+        input_tensor = torch.as_tensor(inputs[0].astype(np.float32)).to(torch.bfloat16)
     else:
-        inputTensor = torch.from_numpy(inputs[0])
-    res = torch.cumsum(inputTensor, axis)
+        input_tensor = torch.from_numpy(inputs[0])
+    res = torch.cumsum(input_tensor, axis)
     if inputs[0].dtype == bfloat16:
         res = res.to(torch.float32).numpy().astype(bfloat16)
         return [res]
