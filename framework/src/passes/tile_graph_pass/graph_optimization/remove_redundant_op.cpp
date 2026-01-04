@@ -144,7 +144,7 @@ Status RemoveRedundantOp::ProcessViewAssemble(Function &function) {
         if(opcode != Opcode::OP_VIEW) {
             //跳过非view的op
             continue;
-        }  
+        }
         auto &startTensor = op.iOperand.front();
         auto inputMemtype = startTensor->GetMemoryTypeOriginal();
         auto consumers = op.oOperand.front()->GetConsumers();
@@ -155,6 +155,9 @@ Status RemoveRedundantOp::ProcessViewAssemble(Function &function) {
                 continue;
             }
             auto &endTensor = consumer->oOperand.front();
+            if (function.IsFromInCast(startTensor) && function.IsFromOutCast(endTensor)) {
+                continue;
+            }
             auto outputMemtype = endTensor->GetMemoryTypeOriginal();
             if (inputMemtype != outputMemtype) {
                 //跳过view输入和 assemble输出 mem类型不同的场景
