@@ -22,6 +22,16 @@
 namespace npu{
 namespace tile_fwk {
 
+const std::unordered_set<DataType> kA2A3SupportedDtypes = {DT_INT4, DT_INT8, DT_UINT8, DT_FP16, DT_BF16, DT_INT16};
+const std::unordered_set<DataType> kA5SupportedDtypes = {DT_INT4, DT_INT8, DT_UINT8, DT_FP16, DT_BF16, DT_HF8, DT_FP8, DT_FP32};
+
+const static std::unordered_map<NPUArch, std::unordered_set<DataType>> kArch2SupportedDtypes = {
+    {NPUArch::DAV_1001, kA2A3SupportedDtypes},
+    {NPUArch::DAV_2201, kA2A3SupportedDtypes},
+    {NPUArch::DAV_3510, kA5SupportedDtypes},
+    {NPUArch::DAV_UNKNOWN, kA2A3SupportedDtypes}
+};
+
 // 设置指定tensor的指定consumer op所需的mem tobe 类型
 void ConvertInserter::UpdateTensorTobeMap(const LogicalTensorPtr &tensor, Operation &operation, MemoryType t) {
     // 传入op必须为tensor的consumer
@@ -270,21 +280,19 @@ void ConvertInserter::ProcessSpecialProducersOrConsumers(const Operation &op, co
 }
 
 bool ConvertInserter::IsNotValidDataType(const std::shared_ptr<LogicalTensor> &firstCVOutput) const {
-    if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510) {
-        //A2/A3 L0C1L1仅支持以下数据类型：S4/B8/F16/BF16/S16
-        if(firstCVOutput->Datatype() != DT_INT4 && firstCVOutput->Datatype() != DT_INT8 && firstCVOutput->Datatype() != DT_UINT8 && 
-           firstCVOutput->Datatype() != DT_FP16 && firstCVOutput->Datatype() != DT_BF16 && firstCVOutput->Datatype() != DT_INT16 ) {
-            return true;
-        }
-    } else {
-        //A5 L0C1L1仅支持以下数据类型：S4/B8/F16/BF16/HF8/FP8/FP32
-        if(firstCVOutput->Datatype() != DT_INT4 && firstCVOutput->Datatype() != DT_INT8 && firstCVOutput->Datatype() != DT_UINT8 &&
-           firstCVOutput->Datatype() != DT_FP16 && firstCVOutput->Datatype() != DT_BF16 && firstCVOutput->Datatype() != DT_HF8 &&
-           firstCVOutput->Datatype() != DT_FP8 && firstCVOutput->Datatype() != DT_FP32) {
-            return true;
-        }
+    // 1. 获取当前NPU架构
+    const NPUArch currentArch = Platform::Instance().GetSoc().GetNPUArch();
+    
+    // 2. 查找当前架构对应的支持类型集合（容错：找不到则用DAV_UNKNOWN兜底）
+    auto archIter = kArch2SupportedDtypes.find(currentArch);
+    if (archIter == kArch2SupportedDtypes.end()) {
+        archIter = kArch2SupportedDtypes.find(NPUArch::DAV_UNKNOWN);
     }
-    return false;
+    const auto& supportedDtypes = archIter->second;
+
+    // 3. 判断当前张量类型是否不在支持列表中（不在则返回true，表示无效）
+    const DataType tensorDtype = firstCVOutput->Datatype();
+    return supportedDtypes.find(tensorDtype) == supportedDtypes.end();
 }
 
 //构造转换路径
