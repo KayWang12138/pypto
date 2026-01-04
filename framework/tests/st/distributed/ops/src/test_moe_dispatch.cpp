@@ -22,7 +22,7 @@
 
 namespace npu::tile_fwk::Distributed {
 
-void TestShmemMoeDispatch(OpTestParam &testParam)
+void TestMoeDistributedDispatch(OpTestParam &testParam)
 {
     constexpr size_t paramsSize = 5;
     auto [batchSize, hiddenSize, routedNum, topK, typeNum] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
