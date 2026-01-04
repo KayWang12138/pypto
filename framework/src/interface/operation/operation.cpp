@@ -651,6 +651,24 @@ int Operation::GetOOperandIndex(const LogicalTensorPtr &ooperand) const {
     }
     return -1;
 }
+int Operation::GetDependOperandIndex(const LogicalTensorPtr &dependoperand) const {
+    for (size_t i = 0; i < dependOperand.size(); ++i) {
+        ASSERT(dependOperand[i] != nullptr);
+        if (dependOperand[i] == dependoperand) {
+            return (int)i;
+        }
+    }
+    return -1;
+}
+
+void Operation::AddDependOperand(LogicalTensorPtr dependoperand) {
+    for (const auto &operand : dependOperand) {
+        if (operand == dependoperand) {
+            return;
+        }
+    }
+    dependOperand.emplace_back(dependoperand);
+}
 
 std::unordered_set<Operation *> Operation::ConsumerOps() const {
     std::unordered_set<Operation *> consumers;
@@ -834,6 +852,16 @@ void Operation::EraseInput(const std::shared_ptr<LogicalTensor> &input) {
     for (auto iter = iOperand.begin(); iter != iOperand.end();) {
         if (iter->get()->magic == input->magic) {
             iter = iOperand.erase(iter);
+        } else {
+            ++iter;
+        }
+    }
+}
+
+void Operation::EraseDependTensor(const std::shared_ptr<LogicalTensor> &dependTensor) {
+    for (auto iter = dependOperand.begin(); iter != dependOperand.end();) {
+        if (iter->get()->magic == dependTensor->magic) {
+            iter = dependOperand.erase(iter);
         } else {
             ++iter;
         }
