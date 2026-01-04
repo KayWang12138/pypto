@@ -12,8 +12,6 @@ import pypto
 
 from mla_prolog_quant_impl import mla_prolog_quant_p, mla_prolog_quant_d, MlaTileConfig
 from utils.compare import compare
-from torch._subclasses.fake_tensor import FakeTensor
-from torch._dynamo import allow_in_graph
 from hc_post_impl import hc_post_torch_graph, HcPostTileConfig
 
 torch.manual_seed(5)

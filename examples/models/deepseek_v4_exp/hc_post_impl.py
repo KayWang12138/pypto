@@ -10,6 +10,10 @@
 # -----------------------------------------------------------------------------------------------------------
 from dataclasses import dataclass
 from typing import List, Tuple
+import torch
+import torch_npu
+from torch._subclasses.fake_tensor import FakeTensor
+from torch._dynamo import allow_in_graph
 import pypto
 
 
