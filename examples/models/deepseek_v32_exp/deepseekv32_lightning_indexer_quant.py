@@ -12,9 +12,9 @@
 """
 from dataclasses import dataclass
 import os
-import pytest
 import logging
 import math
+import pytest
 import torch
 import torch_npu
 import numpy as np
@@ -409,6 +409,7 @@ def lightning_indexer(case_name: str) -> bool:
     topk_idx_compare(topk_res_npu.cpu(), topk_res_golden.cpu(), "topk_res", 5e-3, selected_count)
 
     return True
+
 
 @pytest.mark.skip(reason="large test case")
 def test_lightning_indexer_topk_quant_4_b_2_s1_64k_s2():
