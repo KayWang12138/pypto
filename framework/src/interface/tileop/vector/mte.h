@@ -72,18 +72,23 @@ __aicore__ inline void TStore(T dst, U src, C coordinate) {
         auto gmOffset = dstLayout.template GetGmOffset<C, MAX_DIMS>(coordinate);
         using SrcDtype = std::conditional_t<std::is_same_v<typename U::Type, bool>, uint8_t, typename U::Type>;
 
+        // 获取Tile形状
+        constexpr auto srcTileW = TileOp::GetTensorTileShapeDim<U, 4, MAX_DIMS>();
+        // 根据列数选择布局
+        constexpr auto srcLayoutType = (srcTileW == 1) ? pto::BLayout::ColMajor : pto::BLayout::RowMajor;
+
         if constexpr (TileOp::IsConstContinous<U>() == true) {
             // 对于静态整块场景，将UB合成二维，GM保持五维
             auto dstGlobal = PtoGlobal<T, typename U::Shape, typename T::Stride>(
                 dst.GetAddr() + gmOffset, src.GetShape(), dst.GetStride())
                                  .Data();
-            auto srctTile = PtoTile<U, pto::BLayout::RowMajor, true>().Data();
+            auto srctTile = PtoTile<U, srcLayoutType, true>().Data();
             pto::TASSIGN(srctTile, (uint64_t)src.GetAddr());
             pto::TSTORE(dstGlobal, srctTile);
             return;
         }
 
-        auto srctTile = PtoTile<U>(src);
+        auto srctTile = PtoTile<U, srcLayoutType>(src);
         auto dstGlobal = PtoGlobal<T, typename U::Shape, typename T::Stride, true>(src.GetShape(), dst.GetStride());
         for (size_t index0 = 0; index0 < srcShape0; ++index0) {
             for (size_t index1 = 0; index1 < srcShape1; ++index1) {
