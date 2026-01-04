@@ -35,6 +35,10 @@
 #include "securec.h"
 
 namespace npu::tile_fwk {
+#ifndef UNUSED
+#define UNUSED(n)       (void)(n)
+#endif
+
 using Status = uint32_t;
 #define SUCCESS 0
 #define FAILED 1
@@ -78,13 +82,14 @@ constexpr const int TILE_VEC_FOUR_DIMS = 4;
 constexpr const int SHAPE_INNER_AXIS_MAX_SIZE = 65535;
 
 constexpr const int SHAPE_BUFFER_MAX_SIZE = 32;
+
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
 inline constexpr uint64_t KIBI = 1024;
 inline constexpr uint64_t MEBI = UINT64_C(1024) * 1024;
 inline constexpr uint64_t GIBI = UINT64_C(1024) * 1024 * 1024;
 
-constexpr int BlockPaddingDim(size_t bytes) {
+constexpr inline int BlockPaddingDim(size_t bytes) {
     return BLOCK_SIZE / bytes;
 }
 

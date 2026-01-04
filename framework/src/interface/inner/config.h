@@ -16,6 +16,7 @@
 #pragma once
 #include <iostream>
 #include <variant>
+#include <unordered_map>
 #include "tilefwk/tilefwk.h"
 
 namespace npu::tile_fwk {

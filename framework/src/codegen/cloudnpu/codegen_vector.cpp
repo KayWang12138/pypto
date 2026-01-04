@@ -674,13 +674,13 @@ std::string CodeGenOpCloudNPU::PrintIndexAddDynamicUnaligned(const PrintIndexAdd
     std::string indices = "(" + addrType + " " + dataTypeExpr[ID2] + "*)" + indicesVar;
     paramList.insert(paramList.end(), {dst, src, indices});
 
-    char scalarTmpBuffer[BUFFER_SIZE_512] = "CG_ERROR";
-    int ret =
-        snprintf_s(scalarTmpBuffer, sizeof(scalarTmpBuffer), sizeof(scalarTmpBuffer) - 1, "%.9g", alph.Cast<float>());
+    char scalarTmpBuffer[BUFFER_SIZE_512];
+    int ret = snprintf_s(scalarTmpBuffer, BUFFER_SIZE_512, BUFFER_SIZE_512 - 1, "(%s)%.9g",
+        DataType2CCEStr(alph.GetDataType()), alph.Cast<float>());
     if (ret < 0) {
         ALOG_INFO_F("GenIndexAddOp snprintf_s scalarTmpBuffer failed %d", ret);
     }
-    paramList.emplace_back("(" + DataType2CCEStr(alph.GetDataType()) + ")" + scalarTmpBuffer);
+    paramList.emplace_back(scalarTmpBuffer);
     auto validShape = dynamicValidShape[ID2]; // srcvalidshape
     FillIntVecWithDummyInHead<SymbolicScalar>(validShape, SHAPE_DIM4 - validShape.size(), 1);
     for (int i = 0; i < SHAPE_DIM4; i++) {
