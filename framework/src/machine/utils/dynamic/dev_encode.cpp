@@ -1920,7 +1920,9 @@ struct EncodeDevAscendProgramInfo {
     void Init(DevAscendProgram *devProg, bool fillContent) {
         uintdevptr_t initOffset = reinterpret_cast<uintdevptr_t>(devProg->data);
         devProg->slotSize = dyndevAttr->inoutLink.totalSlot;
+        std::cout << "dev_encode: slotSize = " << devProg->slotSize << std::endl;
         devProg->runtimeOutcastPoolSize = dyndevAttr->inoutLink.totalSlot * (MAX_CACHED_FUNC_NUM + 1);
+        std::cout << "dev_encode: runtimeOutcastPoolSize = " << devProg->runtimeOutcastPoolSize << std::endl;
         devProg->assembleSlotSize = dyndevAttr->inoutLink.assembleSlotIndexList.size();
         devProg->InitSymbolTable(initOffset, &dyndevAttr->symbolTable, fillContent);
         devProg->InitExpressionTableBinary(initOffset, dyndevAttr->expressionTableBinaryList, fillContent);
@@ -2305,6 +2307,9 @@ void EncodeDevAscendProgram(Function *func, uint64_t &offset, DevAscendProgram *
         base->memBudget.debug.dumpTensor = DumpTensorWorkspace();
 
         func->GetDyndevAttribute()->maxDynamicAssembleOutcastMem = tensorWsRes.maxDynamicAssembleOutcastMem;
+
+        std::cout << "dev_encode afterall: slotSize = " << base->slotSize << std::endl;
+        std::cout << "dev_encode afterall: runtimeOutcastPoolSize = " << base->runtimeOutcastPoolSize << std::endl;
     }
 }
 } // namespace dynamic
