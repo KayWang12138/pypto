@@ -81,6 +81,9 @@
                 "PRE_CHECK": false,
                 "POST_CHECK": false,
                 "USE_MAX_FREQ_LABEL": true
+            },
+            "InferDiscontinuousInput": {
+                "POST_CHECK": true
             }
         }
     }
