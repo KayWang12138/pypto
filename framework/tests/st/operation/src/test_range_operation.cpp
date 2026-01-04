@@ -68,8 +68,7 @@ Element GetElementByType(DataType dataType, nlohmann::json test_data, string nam
         Element element(dataType, GetValueByName<int64_t>(test_data, name));
         return element;
     } else {
-        std::string errorMessage = "Unsupported DataType " + DataType2String(dataType);
-        throw std::invalid_argument(errorMessage.c_str());
+        ASSERT(false) <<  "Unsupported DataType " << DataType2String(dataType);
     }
     Element element(dataType, GetValueByName<int64_t>(test_data, name));
     return element;

@@ -26,7 +26,7 @@ void TiledLogicalNotOperation(
     if (cur == input.tensor.GetShape().size()) {
         auto tile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
         auto resultTile = result->View(function, input.tileInfo.shape, input.tileInfo.offset);
-        
+
         constexpr int64_t COUNT_NUM = 2048;
         constexpr int64_t vcmp_bit_size = COUNT_NUM / 8;
         constexpr size_t ALIGN_SIZE = 32;
@@ -37,7 +37,7 @@ void TiledLogicalNotOperation(
         } else {
             select_dtype = DT_FP16;
         }
-        
+
         int64_t total_size = COUNT_NUM * 2 + COUNT_NUM * BytesOf(select_dtype) * 2 + vcmp_bit_size + 8;
         total_size = (total_size + ALIGN_SIZE - 1) / ALIGN_SIZE * ALIGN_SIZE;
         std::vector<int64_t> tmpShape({total_size});
@@ -76,8 +76,7 @@ Tensor LogicalNot(const Tensor &self) {
                         self.GetDataType() == DT_UINT8 || self.GetDataType() == DT_INT8 ||
                         self.GetDataType() == DT_BOOL || self.GetDataType() == DT_BF16;
     if (!dtypeIsValid) {
-        std::string errorMessage = "Unsurpported Dtype " + DataType2String(self.GetDataType());
-        ASSERT(false) << errorMessage;
+        ASSERT(false) << "Unsurpported Dtype " << DataType2String(self.GetDataType());
     }
     RETURN_CALL(LogicalNotOperation, *Program::GetInstance().GetCurrentFunction(), self.GetStorage());
 }
@@ -294,8 +293,8 @@ void TiledLogicalAndOperation(Function& function, const TileShape& tileShape, si
         std::vector<int64_t> tmp_shape({static_cast<int64_t>(total_bytes)});
         auto tmp_tensor = std::make_shared<LogicalTensor>(function, DT_UINT8, tmp_shape);
 
-        function.AddOperation(Opcode::OP_LOGICALAND, {tile0, tile1}, 
-                            {resultTile, tmp_tensor});    
+        function.AddOperation(Opcode::OP_LOGICALAND, {tile0, tile1},
+                            {resultTile, tmp_tensor});
         return;
     }
 
@@ -482,7 +481,7 @@ Tensor Clip(const Tensor &self, const Element &min, const Element &max) {
     ASSERT(self.GetShape().size() >= SHAPE_DIM2 && self.GetShape().size() <= SHAPE_DIM4) << "The shape.size() only support 2~4";
     std::vector<DataType> CLIP_SUPPORT_DATATYPES = {
         DataType::DT_FP32, DataType::DT_FP16, DataType::DT_INT32, DataType::DT_INT16, DataType::DT_BF16};
-    ASSERT(std::find(CLIP_SUPPORT_DATATYPES.begin(), CLIP_SUPPORT_DATATYPES.end(), self.GetDataType()) != 
+    ASSERT(std::find(CLIP_SUPPORT_DATATYPES.begin(), CLIP_SUPPORT_DATATYPES.end(), self.GetDataType()) !=
         CLIP_SUPPORT_DATATYPES.end()) << "The datatype is not supported";
 
     Element min_ = min, max_ = max;

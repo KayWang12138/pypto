@@ -155,7 +155,7 @@ struct TileTensorUsing {
     std::string GenName() const {
         std::ostringstream oss;
         // e.g. "UBTileTensorFP32Dim2_0"
-        oss << BUFFER_TYPE_TO_PREFIX.at(bufType) << TILE_TENSOR << BriefDataType2String(dtype) << DIM << dim << "_"
+        oss << BUFFER_TYPE_TO_PREFIX.at(bufType) << TILE_TENSOR << DataType2String(dtype, true) << DIM << dim << "_"
             << IdGen<IdType::CG_USING_NAME>::Inst().NewId();
         return oss.str();
     }

@@ -187,9 +187,8 @@ void CheckIndexAddParamsInvalid(
     ASSERT(indices.GetDataType() == DT_INT32 || indices.GetDataType() == DT_INT64) << "Datatype of indices is incorrect";
     // 检验 alpha 溢出
     if (CheckAlphaOverflow(alpha, self.GetDataType())) {
-        std::string errorMessage =
-            "Value cannot be converted to type " + DataType2String(self.GetDataType()) + " without overflow!";
-        ASSERT(false) << errorMessage;
+        ASSERT(false) << "Value cannot be converted to type " << DataType2String(self.GetDataType())
+                      << " without overflow!";
     }
 }
 
@@ -474,7 +473,7 @@ void InnerTiledScatterElementS(size_t cur, Function &function, const TileShape &
     // 按照dstShape进行切分
     auto &vecTile = tileShape.GetVecTile();
     if (vecTile[axis] < std::max(dstTensor->shape[axis], idxInput->shape[axis])) {
-        ALOG_ERROR_F("the axis:%d is not allowed to be cut. tileshape:%lld dstshape:%lld idxshape:%lld", 
+        ALOG_ERROR_F("the axis:%d is not allowed to be cut. tileshape:%lld dstshape:%lld idxshape:%lld",
             axis, vecTile[axis], dstTensor->shape[axis], idxInput->shape[axis]);
     }
     ASSERT(vecTile[axis] >= dstTensor->shape[axis]) << "The axis is not supported for tile splitting";
@@ -620,7 +619,7 @@ void InnerTiledScatter(size_t cur, Function &function, const TileShape &tileShap
     // 按照dstShape进行切分
     auto &vecTile = tileShape.GetVecTile();
     if (vecTile[axis] < std::max(dstTensor->shape[axis], idxInput->shape[axis])) {
-        ALOG_ERROR_F("the axis:%d is not allowed to be cut. tileshape:%lld dstshape:%lld idxshape:%lld", 
+        ALOG_ERROR_F("the axis:%d is not allowed to be cut. tileshape:%lld dstshape:%lld idxshape:%lld",
             axis, vecTile[axis], dstTensor->shape[axis], idxInput->shape[axis]);
     }
     ASSERT(vecTile[axis] >= dstTensor->shape[axis]) << "The axis is not supported for tile splitting";
@@ -684,7 +683,7 @@ void TensorScatter(Function &function, const ScatterPara &scatterPara) {
     op.SetAttribute(OP_ATTR_PREFIX + "scatter_mode", scatterPara.scatterMode);
 }
 
-static void CheckScatterParamsInvalid(const Tensor &self, const Tensor &indices, const Tensor &src, int axis, 
+static void CheckScatterParamsInvalid(const Tensor &self, const Tensor &indices, const Tensor &src, int axis,
     const ScatterMode reduce) {
     ASSERT(self.GetShape().size() == indices.GetShape().size()) << "The shape size of self and indices should be equal";
     ASSERT(src.GetShape().size() == indices.GetShape().size()) << "The shape size of src and indices should be equal";
@@ -1032,7 +1031,7 @@ template <typename T, DataType dataType>
 Element GetCurStartElement(Element start, Element step, int id) {
     T startValue;
     T stepValue;
-    if (dataType == DT_INT32 || dataType == DT_INT64) {
+    if constexpr (dataType == DT_INT32 || dataType == DT_INT64) {
         startValue = start.GetSignedData();
         stepValue = step.GetSignedData();
     } else if (dataType == DT_FP32) {
@@ -1111,8 +1110,7 @@ Tensor RealRange(Element &start, Element &end, Element &step) {
     } else if (start.GetDataType() == DT_FP32) {
         resultSize = GetRangeResSize<float, DT_FP32>(start, end, step);
     } else {
-        std::string errorMessage = "Unsupported DataType " + DataType2String(start.GetDataType());
-        throw std::invalid_argument(errorMessage.c_str());
+        ASSERT(false) << "Unsupported DataType " << DataType2String(start.GetDataType());
     }
     ASSERT(resultSize > 0 && "The positivity or negativity of the step should be aligned with the end-start");
     resTensorShape.push_back(resultSize);
@@ -1129,16 +1127,13 @@ DataType GetResultDataType(const Element &start, const Element &end, const Eleme
     DataType endType = end.GetDataType();
     DataType stepType = step.GetDataType();
     if (IsDataTypeUnsupport(startType)) {
-        std::string errorMessage = "Unsupported Start DataType " + DataType2String(startType);
-        ASSERT(false && errorMessage.c_str());
+        ASSERT(false) << "Unsupported Start DataType " << DataType2String(startType);
     }
     if (IsDataTypeUnsupport(endType)) {
-        std::string errorMessage = "Unsupported End DataType " + DataType2String(endType);
-        ASSERT(false && errorMessage.c_str());
+        ASSERT(false) << "Unsupported End DataType " << DataType2String(endType);
     }
     if (IsDataTypeUnsupport(stepType)) {
-        std::string errorMessage = "Unsupported Step DataType " + DataType2String(stepType);
-        ASSERT(false && errorMessage.c_str());
+        ASSERT(false) << "Unsupported Step DataType " << DataType2String(stepType);
     }
     bool startIsFloat = (startType == DT_FP32 || startType == DT_FP16 || startType == DT_BF16);
     bool endIsFloat = (endType == DT_FP32 || endType == DT_FP16 || endType == DT_BF16);
@@ -1187,8 +1182,7 @@ Element GetElementWithDataType(const Element &element, DataType dataType) {
 Tensor Range(const Element &start, const Element &end, const Element &step) {
     DataType dataType = GetResultDataType(start, end, step);
     if (dataType != DT_FP32 && dataType != DT_INT32) {
-        std::string errorMessage = "Unsupported Output DataType " + DataType2String(dataType);
-        ASSERT(false && errorMessage.c_str());
+        ASSERT(false) << "Unsupported Output DataType " << DataType2String(dataType);
     }
     DataType floatDataType = DT_INT32;
     if (dataType == DT_FP32) {
