@@ -486,24 +486,23 @@ struct FunctionInterpreter {
         const std::shared_ptr<LogicalTensor> &iop,
         std::shared_ptr<FunctionIODataPair> &inoutDataPair) {
         auto it = std::find(frame.func->outCasts_.begin(), frame.func->outCasts_.end(), oop);
-        if (it != frame.func->outCasts_.end()) {
-            ASSERT(frame.tensorDataViewDict.count(oop) != 0);
-            auto oopDataView = frame.tensorDataViewDict[oop]; 
-            ASSERT(frame.tensorDataViewDict.count(iop) != 0);
-            auto newPtr = frame.tensorDataViewDict[iop]; 
-            auto targetPair = inoutDataPair->rootInoutDataPair ? 
-                          inoutDataPair->rootInoutDataPair : 
-                          inoutDataPair;
-            bool updated = false;
-            for (auto& ptr : targetPair->outcastDataViewList) {
-                if (ptr.get() == oopDataView.get()) {
-                    ptr = newPtr;
-                    updated = true;
-                    break;
-                }
-            }      
-            ASSERT(updated); 
+        if (it == frame.func->outCasts_.end()) {
+            return;
         }
+        ASSERT(frame.tensorDataViewDict.count(oop) != 0);
+        auto oopDataView = frame.tensorDataViewDict[oop]; 
+        ASSERT(frame.tensorDataViewDict.count(iop) != 0);
+        auto newPtr = frame.tensorDataViewDict[iop]; 
+        auto targetPair = inoutDataPair->rootInoutDataPair ? inoutDataPair->rootInoutDataPair : inoutDataPair;
+        bool updated = false;
+        for (auto& ptr : targetPair->outcastDataViewList) {
+            if (ptr.get() == oopDataView.get()) {
+                ptr = newPtr;
+                updated = true;
+                break;
+            }
+        }      
+        ASSERT(updated); 
     }
 
     void ExecuteInplaceOperation(FunctionFrame &frame, Operation &op, int oOperandIdx,
@@ -522,6 +521,7 @@ struct FunctionInterpreter {
             auto validShape = EvaluateValidShape(oop->GetDynValidShape());
             auto rawShape = EvaluateValidShape(oop->GetRawTensor()->GetDynRawShape());
             std::shared_ptr<LogicalTensorData> ret;
+            // ExpandFunction passIndex : 4
             if (frame.func->GetCurrentPassIndex() > 4) {
                 ret = frame.AllocateDataView(oop, viewOffsets, validShape, rawShape, oop->GetRawTensor()->GetDataType(), iop);
             } else {
