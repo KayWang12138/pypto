@@ -37,11 +37,12 @@ struct CodeGenOpCloudNPUCtx {
     Function &subFunc;
     const Operation &ops;
     const std::map<int, int> &locToOffset = {};
+    bool isMainBlock{false};
 };
 class CodeGenOpCloudNPU : public CodeGenOp {
 public:
     CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbolManager, FunctionType funcType,
-        const std::map<int, int> &locToOffset = {}, bool isUnderDynamicFunc = false);
+        const std::map<int, int> &locToOffset = {}, bool isUnderDynamicFunc = false, bool isMainBlk = false);
 
     explicit CodeGenOpCloudNPU(const CodeGenOpCloudNPUCtx &ctx);
     ~CodeGenOpCloudNPU() override = default;
@@ -99,8 +100,9 @@ public:
     std::string GenIndexOutCastOp() const;
 
     std::string GenCumSumOp() const;
-
+    std::string PrintGatherDynamicUnaligned() const;
     std::string GenGatherOp() const;
+    std::string GenGatherFromUBOp() const;
 
     std::string GenMemCopyCube(bool isLocalToGM, unsigned uf = 0) const;
     std::string GenMemL1SpillIntoGM(bool isLocalToGM, unsigned uf) const;
