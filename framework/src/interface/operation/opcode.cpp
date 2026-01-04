@@ -753,6 +753,7 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {   Opcode::OP_TRANSPOSE_MOVEIN,   "TTransMoveIn"},
     {  Opcode::OP_TRANSPOSE_MOVEOUT,  "TTransMoveOut"},
     {                Opcode::OP_ADD,           "TAdd"},
+    {            Opcode::OP_CUM_SUM,        "TCumSum"},
     {                Opcode::OP_SUB,           "TSub"},
     {                Opcode::OP_DIV,           "TDiv"},
     {                Opcode::OP_MUL,           "TMul"},
