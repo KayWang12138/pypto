@@ -3069,7 +3069,7 @@ TILEOP void DynTindexPut(__gm__ T *dst, __ubuf__ T *src1, __ubuf__ T2 *src2Dim0,
 template <typename T, typename T2, unsigned dstRank, unsigned src1RawShape1, unsigned src1RawShape2,
     unsigned src1RawShape3, bool accumulate>
 TILEOP void DynTindexPut(__gm__ T *dst, __ubuf__ T *src1, __ubuf__ T2 *src2Dim0, __ubuf__ T2 *src2Dim1,
-    __ubuf__ T2 *src2Dim2, __ubuf__ T2 *src2Dim3, unsigned TShape0, unsigned GmShape0, unsigned GmShape1
+    __ubuf__ T2 *src2Dim2, __ubuf__ T2 *src2Dim3, unsigned TShape0, unsigned GmShape0, unsigned GmShape1,
     unsigned GmShape2, unsigned GmShape3) {
     for (int i = 0; i < TShape0; i++) {
         set_flag(PIPE_MTE3, PIPE_S, EVENT_ID7);
