@@ -218,7 +218,7 @@ const std::map<std::string, CorePipeType> SCHED_CORE_PIPE_TYPE {
     {"REMOTE_REDUCE", CorePipeType::PIPE_MTE_OUT},
     {"COMM_WAIT_FLAG", CorePipeType::PIPE_S},
     {"DEPEND_ON", CorePipeType::PIPE_S},
-    {"SEND_TO_ROUTING_EXPERT", CorePipeType::PIPE_MTE_OUT},
+    {"MOE_DISTRIBUTED_DISPATCH_SEND_ROUTING", CorePipeType::PIPE_MTE_OUT},
     {"SEND_TO_SHARED_EXPERT", CorePipeType::PIPE_MTE_OUT},
     {"COPY_TO_LOCAL_EXPERT", CorePipeType::PIPE_MTE_OUT},
     {"DISPATCH_SET_FLAG", CorePipeType::PIPE_S},
