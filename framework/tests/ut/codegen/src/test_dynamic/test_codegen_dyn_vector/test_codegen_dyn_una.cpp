@@ -84,8 +84,8 @@ TEST_F(TestCodegenDynUna, TestAbsDynamic) {
             }
         }
         DynParamInfo fakeParam = {3, 0, 0, DynParamInfoType::VALID_SHAPE, 0, SymbolicScalar(), false, ""};
-        subFunc.second->dynParamTable_.emplace("sym_113_dim_0", fakeParam);
-        subFunc.second->dynParamTable_.emplace("sym_113_dim_1", fakeParam);
+        subFunc.second->InsertDynParam("sym_113_dim_0", fakeParam);
+        subFunc.second->InsertDynParam("sym_113_dim_1", fakeParam);
     }
 
     npu::tile_fwk::CodeGenCtx ctx;
