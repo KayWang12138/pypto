@@ -9,7 +9,6 @@
 #include "ir/type.h"
 #include "ir/builder/ir_builder.h"
 #include "ir/op/op_opcode.h"
-#include "ir/op/op_payload.h"
 #include "ir/program.h"
 #include "ir/function.h"
 #include "ir/value.h"
@@ -312,8 +311,8 @@ TEST(IRTEST, TestTypeAllDataTypes) {
 
 TEST(IRTEST, TestTypeCompleteProgram) {
     // ===== 创建一个完整的程序，只使用 Tile 和 Scalar 操作，不涉及 Tensor =====
-    ProgramModule module("test_type_program");
-    IRBuilder builder(&module);
+    auto module = std::make_shared<ProgramModule>("test_type_program");
+    IRBuilder builder(module);
 
     // ===== 函数签名 =====
     FunctionSignature sig;
@@ -335,7 +334,7 @@ TEST(IRTEST, TestTypeCompleteProgram) {
 
     {
         // 进入函数体作用域
-        auto guard = builder.EnterFunctionBody(*func);
+        auto guard = builder.EnterFunctionBody(func);
 
         // 创建常量 Scalar
         auto constant2 = builder.CreateConst(2.0, "const_2");
@@ -399,8 +398,8 @@ TEST(IRTEST, TestTypeCompleteProgram) {
         builder.CreateReturn({ tileDiv, scalarMul });
 
         // 验证构建器状态
-        ASSERT_EQ(builder.GetCurrentFunction(), func.get());
-        ASSERT_EQ(builder.GetCurrentCompound(), &func->GetCompound());
+        ASSERT_EQ(builder.GetCurrentFunction(), func);
+        ASSERT_EQ(builder.GetCurrentCompound(), func->GetCompound());
         ASSERT_NE(builder.GetCurrentOpStmt(), nullptr);
 
         // 验证值类型
@@ -416,14 +415,14 @@ TEST(IRTEST, TestTypeCompleteProgram) {
     ASSERT_EQ(builder.GetCurrentOpStmt(), nullptr);
 
     // 设置模块属性
-    module.Attributes()["arch"] = "\"PTOv2\"";
-    module.Attributes()["tile_default"] = "{ M=16, N=16, K=16 }";
-    module.Attributes()["enable_debug"] = "true";
-    module.Attributes()["test_type"] = "\"tile_scalar_only\"";
+    module->Attributes()["arch"] = "\"PTOv2\"";
+    module->Attributes()["tile_default"] = "{ M=16, N=16, K=16 }";
+    module->Attributes()["enable_debug"] = "true";
+    module->Attributes()["test_type"] = "\"tile_scalar_only\"";
 
     // 打印完整的 IR
     std::cout << "========== Complete Type Test Program IR (Tile & Scalar Only) ==========" << std::endl;
-    std::cout << module << std::endl;
+    std::cout << *module << std::endl;
     std::cout << "=======================================================================" << std::endl;
 }
 
