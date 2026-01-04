@@ -1515,36 +1515,36 @@ void ExpandOperationInto(Function &function, const TileShape &tileShape, Opcode 
             TiledMaxpool(function, tileShape, iOperand[0], oOperand[0], op);
             break;
         }
-        case Opcode::OP_SEND_TO_ROUTING_EXPERT: {
-            npu::tile_fwk::Distributed::TiledSendToRoutingExpert(function, tileShape, iOperand, oOperand, op);
+        case Opcode::OP_MOE_DISTRIBUTED_DISPATCH_SEND_ROUTED: {
+            npu::tile_fwk::Distributed::TiledDispatchSendToRoutingExperts(function, tileShape, iOperand, oOperand, op);
             break;
         }
-        case Opcode::OP_SEND_TO_SHARED_EXPERT: {
+        case Opcode::OP_MOE_DISTRIBUTED_DISPATCH_SEND_SHARED: {
             npu::tile_fwk::Distributed::TiledSendToSharedExpert(function, tileShape, iOperand, oOperand, op);
             break;
         }
-        case Opcode::OP_COPY_TO_LOCAL_EXPERT: {
+        case Opcode::OP_MOE_DISTRIBUTED_DISPATCH_LOCAL_COPY_OUT: {
             npu::tile_fwk::Distributed::TiledCopyToLocalExpert(function, tileShape, iOperand, oOperand, op);
             break;
         }
-        case Opcode::OP_DISPATCH_SET_FLAG: {
-            npu::tile_fwk::Distributed::TiledDispatchSetFlag(function, tileShape, iOperand, oOperand, op);
+        case Opcode::OP_MOE_DISTRIBUTED_DISPATCH_SET_FLAG: {
+            npu::tile_fwk::Distributed::TiledDispatchSetRecvFlags(function, tileShape, iOperand, oOperand, op);
             break;
         }
-        case Opcode::OP_FFN_SCHED: {
-            npu::tile_fwk::Distributed::TiledDispatchFFNSched(function, tileShape, iOperand, oOperand, op);
+        case Opcode::OP_MOE_DISTRIBUTED_DISPATCH_WAIT_FLAG: {
+            npu::tile_fwk::Distributed::TiledDispatchWaitRecvFlags(function, tileShape, iOperand, oOperand, op);
             break;
         }
-        case Opcode::OP_FFN_BATCHING: {
-            npu::tile_fwk::Distributed::TiledDispatchFFNBatching(function, tileShape, iOperand, oOperand, op);
+        case Opcode::OP_MOE_DISTRIBUTED_DISPATCH_ASSEMBLE_EXPANDX: {
+            npu::tile_fwk::Distributed::TiledDispatchAssembleExpandX(function, tileShape, iOperand, oOperand, op);
             break;
         }
-        case Opcode::OP_FFN_COMBINEINFO: {
-            npu::tile_fwk::Distributed::TiledDispatchFFNCombineInfo(function, tileShape, iOperand, oOperand, op);
+        case Opcode::OP_MOE_DISTRIBUTED_DISPATCH_ASSEMBLE_COMBINEINFO: {
+            npu::tile_fwk::Distributed::TiledDispatchAssembleCombineInfo(function, tileShape, iOperand, oOperand, op);
             break;
         }
-        case Opcode::OP_FFN_VALIDCNT: {
-            npu::tile_fwk::Distributed::TiledDispatchFFNValidCnt(function, tileShape, iOperand, oOperand, op);
+        case Opcode::OP_MOE_DISTRIBUTED_DISPATCH_EXPERT_TOKEN_NUM: {
+            npu::tile_fwk::Distributed::TiledDispatchBuildExpertTokenNum(function, tileShape, iOperand, oOperand, op);
             break;
         }
         case Opcode::OP_SHMEM_PUT: {
