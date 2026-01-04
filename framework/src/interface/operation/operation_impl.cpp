@@ -1516,7 +1516,7 @@ void ExpandOperationInto(Function &function, const TileShape &tileShape, Opcode 
             break;
         }
         case Opcode::OP_SEND_TO_ROUTING_EXPERT: {
-            npu::tile_fwk::Distributed::TiledSendToRoutingExpert(function, tileShape, iOperand, oOperand, op);
+            npu::tile_fwk::Distributed::TiledDispatchSendTokensToExperts(function, tileShape, iOperand, oOperand, op);
             break;
         }
         case Opcode::OP_SEND_TO_SHARED_EXPERT: {
@@ -1528,11 +1528,11 @@ void ExpandOperationInto(Function &function, const TileShape &tileShape, Opcode 
             break;
         }
         case Opcode::OP_DISPATCH_SET_FLAG: {
-            npu::tile_fwk::Distributed::TiledDispatchSetFlag(function, tileShape, iOperand, oOperand, op);
+            npu::tile_fwk::Distributed::TiledDispatchSetRecvFlags(function, tileShape, iOperand, oOperand, op);
             break;
         }
         case Opcode::OP_FFN_SCHED: {
-            npu::tile_fwk::Distributed::TiledDispatchFFNSched(function, tileShape, iOperand, oOperand, op);
+            npu::tile_fwk::Distributed::TiledDispatchDispatchWaitRecvFlags(function, tileShape, iOperand, oOperand, op);
             break;
         }
         case Opcode::OP_FFN_BATCHING: {
@@ -1540,7 +1540,7 @@ void ExpandOperationInto(Function &function, const TileShape &tileShape, Opcode 
             break;
         }
         case Opcode::OP_FFN_COMBINEINFO: {
-            npu::tile_fwk::Distributed::TiledDispatchFFNCombineInfo(function, tileShape, iOperand, oOperand, op);
+            npu::tile_fwk::Distributed::TiledDispatchDispatchAssembleCombineInfo(function, tileShape, iOperand, oOperand, op);
             break;
         }
         case Opcode::OP_FFN_VALIDCNT: {
