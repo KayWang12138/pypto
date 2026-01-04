@@ -4,107 +4,68 @@
 #include "ir/utils.h"
 
 #include <ostream>
-#include <variant>
 
 namespace pto {
 
+// ========== Type System Implementation ==========
 
-const std::string& Scalar::GetSymbolicExpr() const {
-    if (symbolicExpr_.empty()) {
-        symbolicExpr_ = DataTypeToString(GetDataType());
-    }
-    return symbolicExpr_;
-}
-
-int64_t Scalar::GetInt64Value() const {
-    if (!HasConstantValue()) {
-        throw std::runtime_error("Scalar does not hold a constant value");
-    }
-    return std::visit([](const auto& val) -> int64_t {
-        return static_cast<int64_t>(val);
-    }, constantValue_);
-}
-
-void Scalar::Print(std::ostream& os, int indent) const {
-    PrintIndent(os, indent);
-    
-    switch (valueKind_) {
-    case ScalarValueKind::Constant:
-        // Print the actual constant value
-        std::visit([&os](const auto& val) {
-            os << val;
-        }, constantValue_);
-        break;
-    case ScalarValueKind::Symbolic:
-        os << GetSSAName();
-        break;
+size_t Type::GetDataTypeSize(DataType dataType) {
+    switch (dataType) {
+    case DataType::INT4:
+    case DataType::HF4:
+        return 1;  // 4 bits still need 1 byte
+    case DataType::INT8:
+    case DataType::UINT8:
+    case DataType::BOOL:
+    case DataType::FP8:
+    case DataType::HF8:
+        return 1;
+    case DataType::INT16:
+    case DataType::UINT16:
+    case DataType::FP16:
+    case DataType::BF16:
+        return 2;
+    case DataType::INT32:
+    case DataType::UINT32:
+    case DataType::FP32:
+        return 4;
+    case DataType::INT64:
+    case DataType::UINT64:
+    case DataType::FP64:
+        return 8;
+    case DataType::BOTTOM:
+    case DataType::UNKNOWN:
     default:
-        os << "Unknown Scalar";
+        return 0;
     }
 }
 
-void Tensor::Print(std::ostream& os, int indent) const {
-    PrintIndent(os, indent);
-    os << "tensor<";
-
-    // ====== shape ======
-    os << "[";
-    for (size_t i = 0; i < shape_.size(); ++i) {
-        shape_[i].Print(os);
-        if (i + 1 < shape_.size()) {
-            os << ", ";
-        }
-    }
-    os << "]";
-
-    // ====== type ======
-    os << ", ";
-    os << DataTypeToString(GetDataType());
-
-    os << ">";
+void ScalarType::Print(std::ostream& os) const {
+    os << DataTypeToString(dataType_);
 }
 
-void Tile::Print(std::ostream& os, int indent) const {
-    PrintIndent(os, indent);
+size_t TileType::GetTypeSize() const {
+    size_t elementSize = GetDataTypeSize();
+    size_t totalElements = 1;
+    for (size_t dim : shape_) {
+        totalElements *= dim;
+    }
+    return elementSize * totalElements;
+}
+
+void TileType::Print(std::ostream& os) const {
     os << "tile<[";
-
-    // ====== valid shape ======
-    for (size_t i = 0; i < validShapes_.size(); ++i) {
-        validShapes_[i].Print(os, 0);
-        if (i + 1 < shape_.size()) {
-            os << ", ";
-        }
-    }
-    os << "], [";
-
-    // ====== tile shapes ======
     for (size_t i = 0; i < shape_.size(); ++i) {
         os << shape_[i];
         if (i + 1 < shape_.size()) {
             os << ", ";
         }
     }
-    os << "], ";
+    os << "], " << DataTypeToString(dataType_) << ">";
+}
 
-    // // ====== strides ======
-    // for (size_t i = 0; i < strides_.size(); ++i) {
-    //     os << strides_[i];
-    //     if (i + 1 < strides_.size()) {
-    //         os << ", ";
-    //     }
-    // }
-    // os << "], ";
-
-    // // ====== offset ======
-    // if (startOffset_.has_value()) {
-    //     (*startOffset_).Print(os, 0);
-    // }
-    // os << ", ";
-
-    // ====== type ======
-    os << DataTypeToString(GetDataType());
-
-    os << ">";
+void TensorType::Print(std::ostream& os) const {
+    os << DataTypeToString(dataType_);
 }
 
 } // namespace pto

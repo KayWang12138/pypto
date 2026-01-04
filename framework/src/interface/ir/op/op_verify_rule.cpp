@@ -1,6 +1,6 @@
 #include "ir/op/op_verify_rule.h"
 #include "ir/operation.h"
-#include "ir/type.h"
+#include "ir/value.h"
 #include "ir/op/op_payload.h"
 #include <unordered_map>
 

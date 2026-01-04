@@ -4,7 +4,7 @@
 #pragma once
 
 #include "ir/utils.h"
-#include "ir/type.h"
+#include "ir/value.h"
 #include "ir/op/op_opcode.h"
 #include "ir/op/op_schema.h"
 #include "ir/op/op_payload.h"

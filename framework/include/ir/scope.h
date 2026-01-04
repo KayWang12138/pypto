@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "ir/type.h"
+#include "ir/value.h"
 #include <vector>
 #include <unordered_map>
 

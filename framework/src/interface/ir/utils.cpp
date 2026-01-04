@@ -1,7 +1,7 @@
 // PTO-IR prototype: utility functions implementation.
 
 #include "ir/utils.h"
-#include "ir/type.h"
+#include "ir/value.h"
 
 #include <ostream>
 
