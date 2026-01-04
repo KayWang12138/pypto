@@ -184,6 +184,7 @@ Status InferParamIndex::SetSubValidShape(Function &subFunc, std::map<int, std::v
 Status InferParamIndex::UpdateParamIndex(Function &function) {
     for (auto &subProgram : function.rootFunc_->programs_) {
         auto &subFunc = *subProgram.second;
+        subFunc.SetGraphType(GraphType::BLOCK_GRAPH);
         if (ResetDynValidShape(subFunc) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Function, "ResetDynValidShape failed; Please check the ResetDynValidShape method.");
             return FAILED;
