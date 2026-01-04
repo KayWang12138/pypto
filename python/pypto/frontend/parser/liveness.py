@@ -123,7 +123,7 @@ class LivenessAnalyzer(doc.NodeVisitor):
         self._visit_assign_target(node.target, is_def=True)
 
     def visit_aug_assign(self, node: doc.AugAssign):
-        """Visit augmented assignment (e.g., +=, -=, *=)."""
+        """Visit augmented assignment."""
         self.current_stmt_id = _get_node_id(node)
         # Visit the value expression first to record uses
         self.visit(node.value)
