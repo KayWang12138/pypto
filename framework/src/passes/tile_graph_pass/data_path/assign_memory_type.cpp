@@ -460,6 +460,7 @@ void AssignMemoryType::ProcesSmallTileToLargeTile(Function &function) {
         }
     }
 }
+
 void AssignMemoryType::ProcessLargeTileToSamllTile(Function &function) {
     //CASE2:处理cube级联产经大搬小
     for (auto &op : function.Operations()) {
