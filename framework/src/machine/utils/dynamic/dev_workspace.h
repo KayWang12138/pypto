@@ -24,6 +24,7 @@
 #include "allocator/allocators.h"
 #include "machine/device/dynamic/device_perf.h"
 #include "machine/utils/dynamic/runtime_outcast_tensor.h"
+#include <iostream>
 
 namespace npu::tile_fwk::dynamic {
 inline constexpr int64_t TENSOR_ADDR_ALIGNMENT = 512;
@@ -60,6 +61,7 @@ public:
         SetupVector(rtBoundaryOutcastToBeFree_);
         rtBoundaryOutcastToBeFree_.reserve(devProg->memBudget.tensor.devTaskBoundaryOutcastNum);
 
+        std::cout << "dev_workspace: runtimeOutcastPoolSize = " << devProg->runtimeOutcastPoolSize << std::endl;
         SetupItemPool(runtimeOutcastTensorPool_, devProg->runtimeOutcastPoolSize, WsMemCategory::ITEMPOOL_RUNTIME_OUTCAST);
 
         devProg_ = devProg;
@@ -389,6 +391,10 @@ public:
         wsMemDelayedDumper_.LogTensorMalloc(rootFuncName, allocation);
 #endif // DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
         return allocation.ptr;
+    }
+
+    size_t FreeRuntimeOutcastTensorPoolSize() const {
+        return runtimeOutcastTensorPool_.FreeItemNum();
     }
 
     ItemPoolIter MakeRuntimeOutcastTensor(uintdevptr_t addr, RtMemProperty property) {
