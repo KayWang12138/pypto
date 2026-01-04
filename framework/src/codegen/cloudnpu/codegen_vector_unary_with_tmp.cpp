@@ -135,7 +135,7 @@ std::string CodeGenOpCloudNPU::PrintReduceLastAxis(const PrintUnaryTmpBuffParam 
     if (isSupportLayout) {
         return PrintReduceLastAxisTileTensor();
     }
-    
+
     if (isDynamicFunction) {
         return PrintReduceLastAxisDynamicUnalign({s0Var, tmpVar, dVar, srcDtypeStr, tmpDtypeStr, dstDtypeStr});
     }
@@ -286,7 +286,7 @@ std::string CodeGenOpCloudNPU::PrintRowSumlineStatic(const PrintUnaryTmpBuffPara
     if (axis.HasValue()) {
         reduceAxis = npu::tile_fwk::AnyCast<int64_t>(axis);
     }
-    ASSERT(((reduceAxis >= 0) && (reduceAxis < (int(shape[ID2].size()) - 1)))) << "unsupported reduce axis";
+    ASSERT(((reduceAxis >= 0) && (reduceAxis < (int(rawShape[ID2].size()) - 1)))) << "unsupported reduce axis";
     const std::string &dstDtypeStr = param.dstDtypeStr;
     const std::string &srcDtypeStr = param.srcDtypeStr;
     const std::string &tmpDtypeStr = param.tmpDtypeStr;
@@ -335,7 +335,7 @@ std::string CodeGenOpCloudNPU::PrintRowSumlineDynamicUnaligned(const PrintUnaryT
     if (axis.HasValue()) {
         reduceAxis = npu::tile_fwk::AnyCast<int64_t>(axis);
     }
-    ASSERT(((reduceAxis >= 0) && (reduceAxis < (int(shape[ID2].size()) - 1)))) << "unsupported reduce axis";
+    ASSERT(((reduceAxis >= 0) && (reduceAxis < (int(rawShape[ID2].size()) - 1)))) << "unsupported reduce axis";
     const std::string &dstDtypeStr = param.dstDtypeStr;
     const std::string &srcDtypeStr = param.srcDtypeStr;
     const std::string &tmpDtypeStr = param.tmpDtypeStr;
@@ -393,7 +393,7 @@ std::string CodeGenOpCloudNPU::PrintRowSumlineTileTensor() const {
     if (axis.HasValue()) {
         reduceAxis = npu::tile_fwk::AnyCast<int64_t>(axis);
     }
-    ASSERT(((reduceAxis >= 0) && (reduceAxis < (int(shape[ID2].size()) - 1)))) << "unsupported reduce axis";
+    ASSERT(((reduceAxis >= 0) && (reduceAxis < (int(rawShape[ID2].size()) - 1)))) << "unsupported reduce axis";
     reduceAxis += SHAPE_DIM5 - rawShape[0].size();
     std::ostringstream oss;
     oss << tileOpName << "<" << reduceAxis << ">"
@@ -434,7 +434,7 @@ std::string CodeGenOpCloudNPU::GenUnaryOpWithTmpBuff() const {
         return PrintVnchwconv({s0Var, tmpVar, dVar, srcDtypeStr, tmpDtypeStr, dstDtypeStr});
     }
 
-    if(opCode == Opcode::OP_ROWSUMLINE) {
+    if (opCode == Opcode::OP_ROWSUMLINE) {
         return PrintRowSumline({s0Var, tmpVar, dVar, srcDtypeStr, tmpDtypeStr, dstDtypeStr});
     }
     if (opCode == Opcode::OP_ROWSUM_SINGLE || opCode == Opcode::OP_ROWMAX_SINGLE ||
