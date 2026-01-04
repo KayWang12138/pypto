@@ -56,7 +56,7 @@ constexpr const int BUFFER_SIZE_512 = 512;
 constexpr const int BUFFER_SIZE_1024 = 1024;
 
 // multi input single output
-enum class MISOIdx : int {
+enum class MISOIdx : unsigned {
     DST_IDX = 0,
     SRC0_IDX = 1,
     SRC1_IDX = 2,
@@ -91,7 +91,7 @@ const std::map<OperandType, std::string> BUFFER_TYPE_TO_PREFIX = {
     {OperandType::BUF_L0A,  "L0A"},
     {OperandType::BUF_L0B,  "L0B"},
     {OperandType::BUF_L0C,  "L0C"},
-    {OperandType::BUF_FIX, "FBUF"},
+    {OperandType::BUF_FIX, "FIXBUF"},
     { OperandType::BUF_BT, "BIAS"},
     {OperandType::BUF_DDR,   "GM"},
 };
@@ -111,10 +111,12 @@ const std::map<OperandType, std::string> BUFFER_TYPE_TO_PREFIX_LC = {
 enum class VecScalMode { VEC_MODE, SCALAR_MODE };
 
 struct CodeGenCtx {
-    std::string includePath = "";
-    std::string cceDir = "";
+    std::string includePath;
+    std::string cceDir;
+    bool isMainBlock{false}; // if true, use tile shape as valid shape to imporove performance
     CodeGenCtx() = default;
-    CodeGenCtx(std::string inPath, std::string cmpPath) : includePath(std::move(inPath)), cceDir(std::move(cmpPath)) {}
+    CodeGenCtx(std::string inPath, std::string cmpPath, bool isMainBlk = false)
+        : includePath(std::move(inPath)), cceDir(std::move(cmpPath)), isMainBlock(isMainBlk) {}
     bool IsCCEPathEmpty() const { return cceDir.empty(); }
     bool IsIncludePathEmpty() const { return includePath.empty(); }
 };
@@ -122,23 +124,23 @@ struct CodeGenCtx {
 struct SortParam {
     std::vector<int64_t> dstShape{4, 1};
     std::vector<int64_t> srcShape{4, 1};
-    const std::string s0Var = "";
-    const std::string dVar = "";
-    const std::string srcDtypeStr = "";
-    const std::string dstDtypeStr = "";
+    const std::string s0Var;
+    const std::string dVar;
+    const std::string srcDtypeStr;
+    const std::string dstDtypeStr;
 };
 
 struct TiledSortParam {
     std::vector<int64_t> dstShape{4, 1};
     std::vector<int64_t> srcShape{5, 1};
-    const std::string s0Var = "";
-    const std::string s1Var = "";
-    const std::string s2Var = "";
-    const std::string s3Var = "";
-    const std::string tmpVar = "";
-    const std::string dVar = "";
-    const std::string srcDtypeStr = "";
-    const std::string dstDtypeStr = "";
+    const std::string s0Var;
+    const std::string s1Var;
+    const std::string s2Var;
+    const std::string s3Var;
+    const std::string tmpVar;
+    const std::string dVar;
+    const std::string srcDtypeStr;
+    const std::string dstDtypeStr;
 };
 
 const std::map<MemoryType, OperandType> OPERAND_TYPE_TO_MEMORY_TYPE{

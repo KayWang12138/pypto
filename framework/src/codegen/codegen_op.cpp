@@ -62,8 +62,9 @@ void CodeGenOp::CombineAxis(const Operation &oper, int operandIdx, bool isInput,
     ALOG_INFO_F("operandIdx %d, isInput: %d, ioIdx is %d ", operandIdx, isInput, ioIdx);
 
     std::vector<bool> needCombineIOIdx;
-    if ((isInput && oper.GetAttr(OpAttributeKey::inputCombineAxis, needCombineIOIdx) && needCombineIOIdx[ioIdx]) ||
-        (!isInput && oper.GetAttr(OpAttributeKey::outputCombineAxis, needCombineIOIdx) && needCombineIOIdx[ioIdx])) {
+    if (((isInput && oper.GetAttr(OpAttributeKey::inputCombineAxis, needCombineIOIdx)) ||
+            (!isInput && oper.GetAttr(OpAttributeKey::outputCombineAxis, needCombineIOIdx))) &&
+        needCombineIOIdx[ioIdx]) {
         ALOG_INFO_F("needCombineIOIdx is %s", IntVecToStr(needCombineIOIdx).c_str());
         CombineLastTwoAxis(shape[operandIdx], dim);
         CombineLastTwoAxis(rawShape[operandIdx], dim);
@@ -80,9 +81,10 @@ void CodeGenOp::UpdateShape(
 
     rawShape[operandIdx] = logicalTensor.tensor->rawshape;
     // need adapt unaligned scene after
-    originShape[operandIdx] = logicalTensor.oriShape;
+    originShape[operandIdx] = isMainBlock ? logicalTensor.shape : logicalTensor.oriShape;
     if (isDynamicFunction) {
-        dynamicValidShape[operandIdx] = logicalTensor.GetDynValidShape();
+        dynamicValidShape[operandIdx] =
+            isMainBlock ? SymbolicScalar::FromConcrete(logicalTensor.shape) : logicalTensor.GetDynValidShape();
     }
 
     ASSERT(logicalTensor.shape.size() <= MAX_DIM) << "only support max dim: " << MAX_DIM;
@@ -434,6 +436,12 @@ void CodeGenOp::GetGmParamIdx(const npu::tile_fwk::Operation &oper) {
         paramLocation[ID0] = oper.GetIOpAttrOffset(ID0);
         paramLocation[ID1] = oper.GetIOpAttrOffset(ID1);
         paramLocation[ID2] = oper.GetIOpAttrOffset(ID2);
+        GmTensorParamIdxInCallFunc = oper.GetIntAttribute("GmTensorParamIdxInCallFunc");
+        return;
+    }
+    if (oper.GetOpcode() == Opcode::OP_GATHER) {
+        paramLocation[0] = oper.GetIOpAttrOffset(0);
+        paramLocation[1] = oper.GetIOpAttrOffset(1);
         GmTensorParamIdxInCallFunc = oper.GetIntAttribute("GmTensorParamIdxInCallFunc");
         return;
     }
