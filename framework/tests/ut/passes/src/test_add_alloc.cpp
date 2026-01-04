@@ -38,7 +38,10 @@ public:
 };
 
 TEST_F(AddAllocTest, TestAddAlloc) {
-    ComputationalGraphBuilder subGraph;
+    auto blockFunc = std::make_shared<BlockFunction>(Program::GetInstance(), "TestAddAlloc", "TestAddAlloc", nullptr);
+    blockFunc->SetGraphType(GraphType::BLOCK_GRAPH);
+    ComputationalGraphBuilder subGraph(blockFunc.get());
+
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9"};
     std::vector<MemoryType> tensorMemTypes{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, 
         MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, MemoryType::MEM_UB};
@@ -49,6 +52,7 @@ TEST_F(AddAllocTest, TestAddAlloc) {
     EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {64, 64}, tensorMemTypes, tensorNames, 0), true);
     EXPECT_EQ(subGraph.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
     Function *function = subGraph.GetFunction();
+    function->SetGraphType(GraphType::BLOCK_GRAPH);
     EXPECT_NE(function, nullptr);
 
     AddAlloc addalloc;
@@ -58,7 +62,10 @@ TEST_F(AddAllocTest, TestAddAlloc) {
 }
 
 TEST_F(AddAllocTest, TestAddAllocInplace) {
-    ComputationalGraphBuilder subGraph;
+    auto blockFunc = std::make_shared<BlockFunction>(Program::GetInstance(), "TestAddAllocInplace", "TestAddAllocInplace", nullptr);
+    blockFunc->SetGraphType(GraphType::BLOCK_GRAPH);
+    ComputationalGraphBuilder subGraph(blockFunc.get());
+
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9", "t10", "t11"};
     std::vector<MemoryType> tensorMemTypes{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, 
         MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, 
@@ -70,6 +77,7 @@ TEST_F(AddAllocTest, TestAddAllocInplace) {
     EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {64, 64}, tensorMemTypes, tensorNames, 0), true);
     EXPECT_EQ(subGraph.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
     Function *function = subGraph.GetFunction();
+    function->SetGraphType(GraphType::BLOCK_GRAPH);
     EXPECT_NE(function, nullptr);
 
     EXPECT_NE(subGraph.GetTensor("t11"), nullptr);
@@ -87,7 +95,10 @@ TEST_F(AddAllocTest, TestAddAllocInplace) {
 }
 
 TEST_F(AddAllocTest, TestAddAllocAssemble) {
-    ComputationalGraphBuilder subGraph;
+    auto blockFunc = std::make_shared<BlockFunction>(Program::GetInstance(), "TestAddAllocAssemble", "TestAddAllocAssemble", nullptr);
+    blockFunc->SetGraphType(GraphType::BLOCK_GRAPH);
+    ComputationalGraphBuilder subGraph(blockFunc.get());
+    
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9", "t10", "t11"};
     std::vector<MemoryType> tensorMemTypes{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, 
         MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB,
@@ -100,6 +111,7 @@ TEST_F(AddAllocTest, TestAddAllocAssemble) {
     EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {64, 64}, tensorMemTypes, tensorNames, 0), true);
     EXPECT_EQ(subGraph.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
     Function *function = subGraph.GetFunction();
+    function->SetGraphType(GraphType::BLOCK_GRAPH);
     EXPECT_NE(function, nullptr);
 
     EXPECT_NE(subGraph.GetTensor("t9"), nullptr);
@@ -117,7 +129,10 @@ TEST_F(AddAllocTest, TestAddAllocAssemble) {
 }
 
 TEST_F(AddAllocTest, TestAddAllocView) {
-    ComputationalGraphBuilder subGraph;
+    auto blockFunc = std::make_shared<BlockFunction>(Program::GetInstance(), "TestAddAllocView", "TestAddAllocView", nullptr);
+    blockFunc->SetGraphType(GraphType::BLOCK_GRAPH);
+    ComputationalGraphBuilder subGraph(blockFunc.get());
+
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9"};
     std::vector<MemoryType> tensorMemTypes{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, 
         MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB};
@@ -128,6 +143,7 @@ TEST_F(AddAllocTest, TestAddAllocView) {
     EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {64, 64}, tensorMemTypes, tensorNames, 0), true);
     EXPECT_EQ(subGraph.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
     Function *function = subGraph.GetFunction();
+    function->SetGraphType(GraphType::BLOCK_GRAPH);
     EXPECT_NE(function, nullptr);
 
     EXPECT_NE(subGraph.GetTensor("t6"), nullptr);
@@ -145,7 +161,10 @@ TEST_F(AddAllocTest, TestAddAllocView) {
 }
 
 TEST_F(AddAllocTest, TestAddAllocErrorMemId) {
-    ComputationalGraphBuilder subGraph;
+    auto blockFunc = std::make_shared<BlockFunction>(Program::GetInstance(), "TestAddAllocErrorMemId", "TestAddAllocErrorMemId", nullptr);
+    blockFunc->SetGraphType(GraphType::BLOCK_GRAPH);
+    ComputationalGraphBuilder subGraph(blockFunc.get());
+
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9"};
     std::vector<MemoryType> tensorMemTypes{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, 
         MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB};
@@ -156,6 +175,7 @@ TEST_F(AddAllocTest, TestAddAllocErrorMemId) {
     EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {64, 64}, tensorMemTypes, tensorNames, 0), true);
     EXPECT_EQ(subGraph.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
     Function *function = subGraph.GetFunction();
+    function->SetGraphType(GraphType::BLOCK_GRAPH);
     EXPECT_NE(function, nullptr);
 
     EXPECT_NE(subGraph.GetTensor("t6"), nullptr);
@@ -171,7 +191,10 @@ TEST_F(AddAllocTest, TestAddAllocErrorMemId) {
 }
 
 TEST_F(AddAllocTest, TestAddAllocErrorMemorymap) {
-    ComputationalGraphBuilder subGraph;
+    auto blockFunc = std::make_shared<BlockFunction>(Program::GetInstance(), "TestAddAllocErrorMemorymap", "TestAddAllocErrorMemorymap", nullptr);
+    blockFunc->SetGraphType(GraphType::BLOCK_GRAPH);
+    ComputationalGraphBuilder subGraph(blockFunc.get());
+
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9"};
     std::vector<MemoryType> tensorMemTypes{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, 
         MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB};
@@ -182,6 +205,7 @@ TEST_F(AddAllocTest, TestAddAllocErrorMemorymap) {
     EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {64, 64}, tensorMemTypes, tensorNames, 0), true);
     EXPECT_EQ(subGraph.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
     Function *function = subGraph.GetFunction();
+    function->SetGraphType(GraphType::BLOCK_GRAPH);
     EXPECT_NE(function, nullptr);
 
     EXPECT_NE(subGraph.GetTensor("t6"), nullptr);

@@ -25,6 +25,7 @@
 #include "interface/tensor/logical_tensor.h"
 #include "interface/tensor/raw_tensor.h"
 #include "interface/function/function.h"
+#include "interface/function/block_function.h"
 #include "interface/interpreter/flow_verifier.h"
 #include "interface/machine/host/host_machine.h"
 #include "interface/program/program.h"
@@ -237,8 +238,14 @@ bool Program::BeginFunction(const std::string &funcName,
 
     auto funcMagicName = funcName + "_" + std::to_string(IdGen<IdType::FUNCTION>::Inst().CurId());
     if (functionmap_.find(funcMagicName) == functionmap_.end()) { // new function
-        auto newFunc =
-            std::make_unique<Function>(*this, funcMagicName, funcName, currentFunctionPtr_);
+        std::unique_ptr<Function> newFunc;
+        if (graphType == GraphType::BLOCK_GRAPH) {
+            // Create BlockFunction for BLOCK_GRAPH
+            newFunc = std::make_unique<BlockFunction>(*this, funcMagicName, funcName, currentFunctionPtr_);
+        } else {
+            // Create regular Function for other graph types
+            newFunc = std::make_unique<Function>(*this, funcMagicName, funcName, currentFunctionPtr_);
+        }
         newFunc->SetFunctionType(funcType);
         newFunc->SetGraphType(graphType);
         newFunc->SetHiddenFunction(isHiddenFunction);

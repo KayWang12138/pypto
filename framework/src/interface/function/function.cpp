@@ -316,29 +316,6 @@ void Function::RecordOOOSeq()
     opPositionAfterOOO_ = opPosition_;
 }
 
-std::vector<OperationPtr> &Function::GetProgramOp() {
-    ASSERT(graphType_ == GraphType::BLOCK_GRAPH)
-        << "Function::GetProgramOp called. Current graph type: " << static_cast<int>(graphType_);
-    return operations_;
-}
-
-void Function::SetProgramOp(const std::vector<OperationPtr> &operations) {
-    ASSERT(graphType_ == GraphType::BLOCK_GRAPH)
-        << "Function::SetProgramOp called. Current graph type: " << static_cast<int>(graphType_);
-    operations_ = operations;
-
-    RefreshOpPosition();
-    sorted_ = true;
-}
-
-void Function::UpdateBelongToThis() {
-    ASSERT(graphType_ == GraphType::BLOCK_GRAPH)
-        << "Function::UpdateBelongToThis called. Current graph type: " << static_cast<int>(graphType_);
-    for (auto &ele : operations_) {
-        ele->function_ = this;
-    }
-}
-
 const SubfuncInvokeInfoTy &Function::GetSubFuncInvokeInfo(const size_t i) const {
     auto callAttr = std::dynamic_pointer_cast<CallOpAttribute>(operations_[i]->GetOpAttribute());
     ASSERT(callAttr != nullptr)
@@ -372,11 +349,6 @@ bool Function::HasCallOperation() {
         }
     }
     return false;
-}
-
-void Function::CreateLeafInAndOutCast(const LogicalTensorPtr &inOrOut,
-                                      LogicalTensors &inOrOutList) const {
-    inOrOutList.emplace_back(inOrOut->Clone(*parent_));
 }
 
 static int GetTensorDataLookupOutcast(Function *func, Operation *import) {
@@ -439,24 +411,6 @@ GetTensorDataIODescDict Function::GetTensorDataForTensorGraph() {
                 ASSERT(false)
                     << "Both outcast and incast indices are invalid";
             }
-        }
-    }
-    return iodescDict;
-}
-
-GetTensorDataIODescDict Function::GetTensorDataForLeafGraph() {
-    GetTensorDataIODescDict iodescDict;
-    for (auto &op : Operations(false)) {
-        if (!CheckEmuOpcode(&op, EMUOP_TENSOR_GETDATA_IMPORT)) {
-            continue;
-        }
-        int getTensorDataIndex = GetTensorDataGetIndex(&op);
-        ASSERT(getTensorDataIndex != -1)
-            << "Failed to get tensor data index for operation";
-        auto tensor = op.GetIOperands()[0];
-        auto incastIndex = GetIncastIndex(tensor);
-        if (incastIndex != INVALID_IOINDEX) {
-            iodescDict[getTensorDataIndex] = GetTensorDataIODesc(GET_TENSOR_DATA_OPERAND_IOTYPE_INCAST, incastIndex, 0);
         }
     }
     return iodescDict;
@@ -1120,25 +1074,6 @@ void Function::SortOperations() {
     std::vector<std::shared_ptr<Operation>> sortedOperations = GetSortedOperations();
     operations_ = sortedOperations;
     RefreshOpPosition();
-    sorted_ = true;
-}
-
-void Function::ScheduleBy(const std::vector<Operation *> &newList, bool needRefresh) {
-    if (needRefresh) {
-        RefreshOpPosition();
-    }
-    ASSERT(newList.size() == operations_.size())
-        << "Size mismatch: newList size = " << newList.size()
-        << ", operations_ size = " << operations_.size();
-    std::vector<std::shared_ptr<Operation>> newOperations;
-    for (auto op : newList) {
-        ASSERT(opPosition_.count(op) > 0)
-            << "Operation not found in opPosition_:" << op->Dump();
-        newOperations.emplace_back(operations_[opPosition_.at(op)]);
-    }
-    operations_ = newOperations;
-    RefreshOpPosition();
-
     sorted_ = true;
 }
 
@@ -3653,7 +3588,7 @@ std::shared_ptr<LogicalTensor> Function::ConnectWithOverlap(std::shared_ptr<Logi
 
             auto assembleResult = std::make_shared<LogicalTensor>(*this, matches[0]->Datatype(), maximumShape,
                 iOperand->Format(), "Assemble_" + matches[0]->Symbol(), iOperand->nodetype);
-            ASSERT(assembleResult->GetProducers().empty()) "Assemble result should have no producers";
+            ASSERT(assembleResult->GetProducers().empty()) << "Assemble result should have no producers";
             for (size_t idx = 0; idx < matches.size(); idx++) {
                 auto &assembleOp = AddRawOperation(Opcode::OP_ASSEMBLE, {matches[idx]}, {assembleResult});
                 assembleOp.SetOpAttribute(std::make_shared<AssembleOpAttribute>(offsetOfOverlaps[idx], SymbolicScalar::FromConcrete(offsetOfOverlaps[idx])));
@@ -3787,4 +3722,136 @@ DefineProg::~DefineProg() {
     if (isRecording_) {
         ALOG_INFO("prog.end: name=", Program::GetInstance().Name());
     }
+}
+
+//------------------------------------------------------------------------------------------------------
+//------------------------------------------- BlockFunction -------------------------------------------
+//------------------------------------------------------------------------------------------------------
+// Default implementations for BlockFunction virtual functions
+// These should only be called on BlockFunction instances
+namespace {
+    static std::vector<OperationPtr> emptyOperationList;
+    static SubfuncParam emptySubfuncParam;
+    static std::shared_ptr<LeafFuncAttribute> emptyLeafFuncAttr;
+    static DynParamInfo emptyDynParamInfo;
+    static std::map<std::string, DynParamInfo> emptyDynParamTable;
+}
+
+std::vector<OperationPtr> &Function::GetProgramOp() {
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "GetProgramOp() should only be called on BlockFunction");
+    return emptyOperationList;
+}
+
+void Function::SetProgramOp(const std::vector<OperationPtr> &operations) {
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "SetProgramOp() should only be called on BlockFunction");
+    (void)operations;
+}
+
+void Function::UpdateBelongToThis() {
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "UpdateBelongToThis() should only be called on BlockFunction");
+}
+
+void Function::ScheduleBy(const std::vector<Operation *> &newList, bool needRefresh) {
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "ScheduleBy() should only be called on BlockFunction");
+    (void)newList;
+    (void)needRefresh;
+}
+
+const SubfuncParam &Function::GetParameter() const {
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "GetParameter() should only be called on BlockFunction");
+    return emptySubfuncParam;
+}
+
+SubfuncParam &Function::GetParameter() {
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "GetParameter() should only be called on BlockFunction");
+    return emptySubfuncParam;
+}
+
+void Function::SetParameter(const SubfuncParam &parameter) {
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "SetParameter() should only be called on BlockFunction");
+    (void)parameter;
+}
+
+int Function::GetProgramId() const {
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "GetProgramId() should only be called on BlockFunction");
+    return -1;
+}
+
+void Function::SetProgramId(int programId) {
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "SetProgramId() should only be called on BlockFunction");
+    (void)programId;
+}
+
+void Function::SetLeafFuncAttribute(const std::shared_ptr<LeafFuncAttribute> &attr) {
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "SetLeafFuncAttribute() should only be called on BlockFunction");
+    (void)attr;
+}
+
+const std::shared_ptr<LeafFuncAttribute> &Function::GetLeafFuncAttribute() const {
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "GetLeafFuncAttribute() should only be called on BlockFunction");
+    return emptyLeafFuncAttr;
+}
+
+std::shared_ptr<LeafFuncAttribute> &Function::GetLeafFuncAttribute() {
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "GetLeafFuncAttribute() should only be called on BlockFunction");
+    return emptyLeafFuncAttr;
+}
+
+std::vector<std::vector<SymbolicScalar>> Function::NormalizeCoa(
+    std::vector<int> &iOffset, std::vector<int> &oOffset) {
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "NormalizeCoa() should only be called on BlockFunction");
+    (void)iOffset;
+    (void)oOffset;
+    return {};
+}
+
+void Function::GetOutcastSymbolicExpr(std::map<int, SymbolicScalar>& tabel) {
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "GetOutcastSymbolicExpr() should only be called on BlockFunction");
+    (void)tabel;
+}
+
+std::pair<bool, Opcode> Function::IsAicpuSubFunction() const {
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "IsAicpuSubFunction() should only be called on BlockFunction");
+    return std::make_pair(false, Opcode::OP_UNKNOWN);
+}
+
+void Function::CreateLeafInAndOutCast(const LogicalTensorPtr &inOrOut, LogicalTensors &inOrOutList) const{
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "CreateLeafInAndOutCast() should only be called on BlockFunction");
+    (void)inOrOut;
+    (void)inOrOutList;
+}
+
+GetTensorDataIODescDict Function::GetTensorDataForLeafGraph(){
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "GetTensorDataForLeafGraph() should only be called on BlockFunction");
+    return {};
+}
+
+void Function::AppendIncast(LogicalTensorPtr tensor, int opmagic, int k){
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "AppendIncast() should only be called on BlockFunction");
+    (void)tensor;
+    (void)opmagic;
+    (void)k;
+}
+
+void Function::AppendOutcast(LogicalTensorPtr tensor, int opmagic, int k){
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "AppendOutcast() should only be called on BlockFunction");
+    (void)tensor;
+    (void)opmagic;
+    (void)k;
+}
+
+DynParamInfo &Function::GetMutableDynParam(std::string dim){
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "GetMutableDynParam() should only be called on BlockFunction");
+    (void)dim;
+    return emptyDynParamInfo;
+}
+
+void Function::InsertDynParam(std::string dim, DynParamInfo &info){
+    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "InsertDynParam() should only be called on BlockFunction");
+    (void)dim;
+    (void)info;
+}
+
+const std::map<std::string, DynParamInfo> &Function::GetDynParamTable() const{
+    return emptyDynParamTable;
 }
