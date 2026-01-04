@@ -16,6 +16,7 @@
 #include "passes/block_graph_pass/insert_sync.h"
 #include <thread>
 #include "passes/pass_log/pass_log.h"
+#include "interface/function/block_function.h"
 
 #define MODULE_NAME "InsertSync"
 
@@ -1615,7 +1616,8 @@ void InsertSync::InsertPipeAll(Function *subGraphFunc) {
         newOpList.push_back(&syncOp);
     }
     subGraphFunc->SetGraphType(GraphType::BLOCK_GRAPH);
-    subGraphFunc->ScheduleBy(newOpList, true);
+    auto subFunc = dynamic_cast<BlockFunction *>(subGraphFunc);
+    subFunc->ScheduleBy(newOpList, true);
 }
 
 Status InsertSync::CheckNewOpListSeq(const std::vector<Operation *> &oriOpList, const std::vector<Operation *> &opListNew) {
@@ -1667,7 +1669,8 @@ Status InsertSync::InsertSyncMainLoop(Function *subGraphFunc) {
         return FAILED;
     }
     subGraphFunc->SetGraphType(GraphType::BLOCK_GRAPH);
-    subGraphFunc->ScheduleBy(opListNew, true);
+    auto subFunc = dynamic_cast<BlockFunction *>(subGraphFunc);
+    subFunc->ScheduleBy(opListNew, true);
     APASS_LOG_DEBUG_F(Elements::Operation, "==========================================================================================");
     for (const auto &op : subGraphFunc->Operations(false).DuplicatedOpList()) {
         if (op->GetOpcodeStr().find("SYNC_SRC") != std::string::npos || op->GetOpcodeStr().find("SYNC_DST") != std::string::npos
