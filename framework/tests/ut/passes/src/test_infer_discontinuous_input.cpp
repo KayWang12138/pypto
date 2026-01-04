@@ -76,8 +76,9 @@ TEST_F(TestInferDiscontinuousInput, testScenarioWithoutInsert_1) {
 
     // run pass
     InferDiscontinuousInput inferDiscontinuousInput;
-    inferDiscontinuousInput.Run(*function, "", "", 0);
-    
+    EXPECT_EQ(inferDiscontinuousInput.Run(*function, "", "", 0), SUCCESS);
+    EXPECT_EQ(inferDiscontinuousInput.PostCheck(*function), SUCCESS);
+
     EXPECT_EQ(function->Operations().size(), 4);
 }
 
@@ -121,8 +122,9 @@ TEST_F(TestInferDiscontinuousInput, testScenarioWithoutInsert_2) {
 
     // run pass
     InferDiscontinuousInput inferDiscontinuousInput;
-    inferDiscontinuousInput.Run(*function, "", "", 0);
-    
+    EXPECT_EQ(inferDiscontinuousInput.Run(*function, "", "", 0), SUCCESS);
+    EXPECT_EQ(inferDiscontinuousInput.PostCheck(*function), SUCCESS);
+
     EXPECT_EQ(function->Operations().size(), 4);
 }
 
@@ -168,8 +170,9 @@ TEST_F(TestInferDiscontinuousInput, testScenarioInsert_1) {
 
     // run pass
     InferDiscontinuousInput inferDiscontinuousInput;
-    inferDiscontinuousInput.Run(*function, "", "", 0);
-    
+    EXPECT_EQ(inferDiscontinuousInput.Run(*function, "", "", 0), SUCCESS);
+    EXPECT_EQ(inferDiscontinuousInput.PostCheck(*function), SUCCESS);
+
     EXPECT_EQ(function->Operations().size(), 12);
     auto viewOp0 = *inputTensor0->GetConsumers().begin();
     EXPECT_EQ(viewOp0->GetOpcode(), Opcode::OP_VIEW);
@@ -240,8 +243,8 @@ TEST_F(TestInferDiscontinuousInput, testScenarioInsert_2) {
 
     // run pass
     InferDiscontinuousInput inferDiscontinuousInput;
-    inferDiscontinuousInput.Run(*function, "", "", 0);
-    
+    EXPECT_EQ(inferDiscontinuousInput.Run(*function, "", "", 0), SUCCESS);
+    EXPECT_EQ(inferDiscontinuousInput.PostCheck(*function), SUCCESS);
     EXPECT_EQ(function->Operations().size(), 12);
     auto viewOp0 = *inputTensor0->GetConsumers().begin();
     EXPECT_EQ(viewOp0->GetOpcode(), Opcode::OP_VIEW);
