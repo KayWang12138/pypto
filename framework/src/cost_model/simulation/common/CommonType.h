@@ -40,7 +40,6 @@ using setType = std::conditional<false, std::unordered_set<int>, std::set<int>>:
 namespace CostModel {
 enum class SimMode {
     NORMAL = 0,
-    COMMUNICATION,
     EMULATOR,
     LEAF_FUNCTION,
     PV_MODEL
@@ -177,6 +176,7 @@ enum class CorePipeType {
     PIPE_MTE_OUT,  // FOR TILE_COPY_OUT
     PIPE_S, // FOR VIEW,ASSEMBLE,RESHAPE
     PIPE_CALL,
+    PIPE_FIX,
     TOTAL_CORE_PIPE_TYPE
 };
 
@@ -253,12 +253,14 @@ inline std::string CorePipeName(CorePipeType type)
             return "SIM_CALL";
         case CorePipeType::PIPE_S:
             return "PIPE_S";
+        case CorePipeType::PIPE_FIX:
+            return "PIPE_FIX";
         default:
             return "ILLEGAL";
     }
 }
 
-enum class MachineType { UNKNOWN, DEVICE, CPU, AIC, AIV, MIXAICORE, PIPE, CACHE, ATTN, FFN, MIXED, SWITCH, HUB,
+enum class MachineType { UNKNOWN, DEVICE, CPU, AIC, AIV, MIXAICORE, PIPE, CACHE, HUB,
                          TOTAL_MACHINE_TYPE };
 
 inline std::string MachineName(MachineType type)
@@ -278,12 +280,6 @@ inline std::string MachineName(MachineType type)
             return "PIPE";
         case MachineType::CACHE:
             return "CACHE";
-        case MachineType::ATTN:
-            return "ATTN";
-        case MachineType::FFN:
-            return "FFN";
-        case MachineType::MIXED:
-            return "MIXED";
         case MachineType::HUB:
             return "HUB";
         default:
