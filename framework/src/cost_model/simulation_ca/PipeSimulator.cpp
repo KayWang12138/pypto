@@ -131,7 +131,7 @@ namespace CostModel
  	                         + "-I" + includePath + "/tileop/a2a3/dynamic "
  	                         + "-I" + includePath + "/mock "
  	                         + "-I" + includePath + "/tileop "
- 	                         + "-I" + includePath + "/tilefwk "; // >/dev/null 2>&1";
+ 	                         + "-I" + includePath + "/tilefwk " + ">/dev/null 2>&1";
         int result = std::system(cmd.c_str());
         if (result != 0) {
             MLOG_ERROR("compile error:", cmd);
