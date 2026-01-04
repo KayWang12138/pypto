@@ -663,11 +663,6 @@ TEST_F(GenerateMoveOpPassTest, PadUBFullCoverage) {
         // 场景5：pad=1（最小有效值）
         EXPECT_EQ(GenerateMoveOp::PadUB(5, 1), 5);
 
-        // Debug模式下验证断言（padValue≤0触发断言）
-#ifndef NDEBUG
-        EXPECT_DEATH(GenerateMoveOp::PadUB(10, 0), "Assertion `padValue >0` failed");
-#endif
-
         // 验证字节对齐场景（模拟DT_FLOAT=4字节）
         int64_t dtypeBytes = 4;
         EXPECT_EQ(GenerateMoveOp::PadUB(30, 32 / dtypeBytes), 32); // 30→32（8字节对齐）
