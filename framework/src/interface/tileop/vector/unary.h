@@ -33,6 +33,10 @@ TILEOP void UnaryComputeImpl(T0 dst, T1 src) {
         pto::TSQRT(dst, src);
         return;
     }
+    if constexpr (op == UnaryOp::BRCB) {
+        pto::TROWEXPAND(dst, src);
+        return;
+    }
 }
 
 template <UnaryOp op, typename T0, typename T1>
@@ -50,8 +54,26 @@ TILEOP void UnaryCompute(T0 dst, T1 src) {
     auto shape1 = dstLayout.template GetShapeDim<DIM_2ND, MAX_DIMS>();
     auto shape2 = dstLayout.template GetShapeDim<DIM_3RD, MAX_DIMS>();
 
-    auto dstTile = PtoTile<T0>(dst);
-    auto srcTile = PtoTile<T1>(src);
+    constexpr size_t expectSize = 5;
+    constexpr auto srcTileW = TileOp::GetTensorTileShapeDim<T1, 4, 5>();    
+    constexpr auto srcTileH = TileOp::GetTensorTileShapeDim<T1, 3, 5>();
+    constexpr auto dstTileW = TileOp::GetTensorTileShapeDim<T0, 4, 5>();    
+    constexpr auto dstTileH = TileOp::GetTensorTileShapeDim<T0, 3, 5>();
+
+    using DstTileDefine =pto::Tile<pto::TileType::Vec, typename T0::Type, dstTileH, dstTileW, pto::BLayout::RowMajor>;
+
+    using SrcTileDefine = typename std::conditional<((srcTileW == 1) || (srcTileH == 1)),
+    pto::Tile<pto::TileType::Vec, typename T0::Type, srcTileH, srcTileW, pto::BLayout::ColMajor>,
+    pto::Tile<pto::TileType::Vec, typename T0::Type, srcTileH, srcTileW, pto::BLayout::RowMajor, -1, -1>
+    >::type;
+
+    const auto srcLayout = src.GetLayout();
+    auto srcShape3 = srcLayout.template GetShapeDim<3, expectSize>();
+    auto srcShape4 = srcLayout.template GetShapeDim<4, expectSize>();
+    SrcTileDefine srcTile;
+    DstTileDefine dstTile;
+
+
     for (size_t n0Index = 0; n0Index < shape0; ++n0Index) {
         for (size_t n1Index = 0; n1Index < shape1; ++n1Index) {
             for (size_t n2Index = 0; n2Index < shape2; ++n2Index) {
@@ -77,5 +99,10 @@ TILEOP void TRsqrt(T0 dst, T1 src) {
 template <typename T0, typename T1>
 TILEOP void TSqrt(T0 dst, T1 src) {
     UnaryCompute<UnaryOp::SQRT>(dst, src);
+}
+
+template <typename T0, typename T1>
+TILEOP void Tbrcb(T0 dst, T1 src) {
+    UnaryCompute<UnaryOp::BRCB>(dst, src);
 }
 #endif
