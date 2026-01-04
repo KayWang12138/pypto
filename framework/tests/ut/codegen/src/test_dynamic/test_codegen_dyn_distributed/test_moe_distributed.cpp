@@ -57,32 +57,33 @@ std::string MoeDistributedGetFunctionRawName(const std::string& functionName)
 TEST_F(TestMoeDistributed, TestMoeDispatchMultipyExperts) {
     const char *group = "hcom123";
     DataType dType = DT_BF16;
-    int routingExpertNum = 160;
+    int moeExpertNum = 160;
+    int sharedExpertNum = 0;
+    int sharedExpertRankNum = 0;
     int topK = 8;
     int batchSize = 8;
     int hiddenSize = 5120;
     int rankSize = 4;
 
-    int32_t expandXRowShape = topK * rankSize < routingExpertNum ?
+    int32_t expandXRowShape = topK * rankSize < moeExpertNum ?
         static_cast<int32_t>(batchSize) * static_cast<int32_t>(topK) * rankSize :
-        static_cast<int32_t>(batchSize) * routingExpertNum;
+        static_cast<int32_t>(batchSize) * moeExpertNum;
     
-    Shape tokenTensorShape{batchSize, hiddenSize};
-    Shape tokenExpertTableShape{batchSize, topK};
+    Shape xShape{batchSize, hiddenSize};
+    Shape expertIdsShape{batchSize, topK};
     Shape expandXShape{expandXRowShape, hiddenSize};
-    Shape validCntShape{routingExpertNum / rankSize};
-    Shape combineInfoShape{expandXRowShape, 3};
+    Shape expertTokenNumsShape{moeExpertNum / rankSize};
+    Shape assistInfoForCombineShape{expandXRowShape, 3};
 
-    Tensor tokenTensor(dType, tokenTensorShape, "tokenTensor");
-    Tensor tokenExpertTable(DataType::DT_INT32, tokenExpertTableShape, "tokenExpertTable");
-    Tensor validCnt(DataType::DT_INT32, validCntShape, "validCnt");
+    Tensor x(dType, xShape, "x");
+    Tensor expertIds(DataType::DT_INT32, expertIdsShape, "expertIds");
+    Tensor expertTokenNums(DataType::DT_INT32, expertTokenNumsShape, "expertTokenNums");
     Tensor expandX(dType, expandXShape, "expandX");
-    Tensor combineInfo(DataType::DT_INT32, combineInfoShape, "combineInfo");
-
-    MoeConfig moeConfig{routingExpertNum, routingExpertNum / rankSize, rankSize};
-
-    FUNCTION("DISPATCH_F", {tokenTensor, tokenExpertTable}, {expandX, validCnt, combineInfo}) {
-        Distributed::MoeDispatch(tokenTensor, tokenExpertTable, expandX, validCnt, combineInfo, group, moeConfig);
+    Tensor assistInfoForCombine(DataType::DT_INT32, assistInfoForCombineShape, "assistInfoForCombine");
+    Tensor recvCounts(DataType::DT_INT32, {1, 128}, "recvCounts");
+    FUNCTION("DISPATCH_F", {x, expertIds}, {expandX, expertTokenNums, assistInfoForCombine}) {
+        Distributed::MoeDistributedDispatch(x, expertIds, testParam.group, testParam.rankSize, moeExpertNum, sharedExpertNum, 
+            sharedExpertRankNum, expandX, expertTokenNums, assistInfoForCombine, recvCounts)
     }
 
     auto functionRawName = MoeDistributedGetFunctionRawName("L0");
