@@ -2,8 +2,8 @@
     "test_cases": [
         {
             "case_index": 0,
-            "case_name": "MoeDispatch_test_1",
-            "operation": "MoeDispatch",
+            "case_name": "MoeDistributedDispatch_test_1",
+            "operation": "MoeDistributedDispatch",
             "input_tensors": [
                 {
                     "name": "input0",
