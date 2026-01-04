@@ -145,12 +145,12 @@ def gen_data_for_compute(params, is_quant: bool):
     # 初始化输出张量
     topk_res = torch.ones([b, s1, n2, selected_count], dtype=torch.int32)
 
-    # 生成KV缓存张量（参考1的KV缓存管理）
+    # 生成KV缓存张量
     key = gen_cache_tensor(k_bsnd, block_table_list, block_num, block_size, b)
 
     input_data_map = {}
 
-    # 量化处理逻辑（参考3的量化策略）
+    # 量化处理逻辑
     if is_quant:
         # 计算query的缩放因子（最大值/127，最小1e-3）
         q_scale = (query.abs().max(dim=-1, keepdim=True).values / 127).\
@@ -273,11 +273,11 @@ def topk_idx_compare(t: torch.Tensor, t_ref: torch.Tensor, name, atol, error_cou
     part_result_dict = {}
     err_msg = None
 
-    # 按元素遍历比较（参考1的逐元素比较逻辑）
+    # 按元素遍历比较
     for idx, (exp, act) in enumerate(zip(t.flatten().tolist(), t_ref.flatten().tolist())):
         # 按误差阈值分组（每组包含error_count_threshold个元素）
         part_index = idx // error_count_threshold
-        # 记录不匹配的索引（参考3的分组统计方法）
+        # 记录不匹配的索引
         if exp != act:
             if part_index not in part_result_dict:
                 part_result_dict[part_index] = {
