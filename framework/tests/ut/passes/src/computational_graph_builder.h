@@ -20,6 +20,7 @@
 #include <unordered_map>
 #include "tilefwk/tilefwk_op.h"
 #include "interface/function/function.h"
+#include "interface/function/block_function.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/configs/config_manager.h"
@@ -40,6 +41,7 @@ public:
         function->ResetOperations();
         function->SetFunctionType(FunctionType::STATIC);
     }
+    
     bool AddTensor(DataType dataType, const std::vector<int64_t>& tileShape, const std::string& name);
     bool AddTensor(DataType dataType, const std::vector<int64_t>& tileShape, MemoryType memType, const std::string& name,
         int subGraphID = -1);
