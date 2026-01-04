@@ -391,6 +391,10 @@ public:
         return allocation.ptr;
     }
 
+    size_t FreeRuntimeOutcastTensorPoolSize() const {
+        return runtimeOutcastTensorPool_.FreeItemNum();
+    }
+
     ItemPoolIter MakeRuntimeOutcastTensor(uintdevptr_t addr, RtMemProperty property) {
         return runtimeOutcastTensorPool_.Allocate(addr, property, 1);
     }
