@@ -207,14 +207,6 @@ enum class Opcode {
     OP_PAD,
 
     // Distributed
-    OP_SEND_TO_ROUTING_EXPERT,
-    OP_SEND_TO_SHARED_EXPERT,
-    OP_COPY_TO_LOCAL_EXPERT,
-    OP_DISPATCH_SET_FLAG,
-    OP_FFN_SCHED,
-    OP_FFN_BATCHING,
-    OP_FFN_COMBINEINFO,
-    OP_FFN_VALIDCNT,
     OP_SHMEM_SET,
     OP_SHMEM_PUT,
     OP_SHMEM_PUT_UB2GM,
@@ -224,6 +216,14 @@ enum class Opcode {
     OP_SHMEM_GET_GM2UB,
     OP_SHMEM_REDUCE,
     OP_BIND_TENSOR,
+    OP_MOE_DISTRIBUTED_DISPATCH_SEND_ROUTED,
+    OP_MOE_DISTRIBUTED_DISPATCH_SEND_SHARED,
+    OP_MOE_DISTRIBUTED_DISPATCH_LOCAL_COPY_OUT,
+    OP_MOE_DISTRIBUTED_DISPATCH_SET_SIGNAL,
+    OP_MOE_DISTRIBUTED_DISPATCH_WAIT_SIGNAL,
+    OP_MOE_DISTRIBUTED_DISPATCH_ASSEMBLE_EXPAND_X,
+    OP_MOE_DISTRIBUTED_DISPATCH_ASSEMBLE_ASSIST_INFO_FOR_COMBINE,
+    OP_MOE_DISTRIBUTED_DISPATCH_EXPERT_TOKEN_NUM,
     OP_MOE_DISTRIBUTED_COMBINE_SEND,
     OP_MOE_DISTRIBUTED_COMBINE_RECEIVE,
     // Begin: add for TOPK and ArgSort
@@ -403,11 +403,10 @@ public:
     inline bool IsCopyOut(Opcode opCode) const {
         return opCode == Opcode::OP_COPY_OUT || opCode == Opcode::OP_UB_COPY_OUT || opCode == Opcode::OP_L0C_COPY_OUT ||
                opCode == Opcode::OP_L1_COPY_OUT || opCode == Opcode::OP_TRANSPOSE_MOVEOUT ||
-               opCode == Opcode::OP_INDEX_OUTCAST ||
-               opCode == Opcode::OP_INDEX_PUT ||
-               opCode == Opcode::OP_FFN_SCHED || opCode == Opcode::OP_FFN_BATCHING ||
-               opCode == Opcode::OP_FFN_COMBINEINFO || opCode == Opcode::OP_FFN_VALIDCNT ||
-               opCode == Opcode::OP_COPY_TO_LOCAL_EXPERT || opCode == Opcode::OP_SHMEM_PUT ||
+               opCode == Opcode::OP_INDEX_OUTCAST || opCode == Opcode::OP_INDEX_PUT ||
+               opCode == Opcode::OP_MOE_DISTRIBUTED_DISPATCH_WAIT_SIGNAL || opCode == Opcode::OP_MOE_DISTRIBUTED_DISPATCH_ASSEMBLE_EXPAND_X ||
+               opCode == Opcode::OP_MOE_DISTRIBUTED_DISPATCH_ASSEMBLE_ASSIST_INFO_FOR_COMBINE || opCode == Opcode::OP_MOE_DISTRIBUTED_DISPATCH_EXPERT_TOKEN_NUM ||
+               opCode == Opcode::OP_MOE_DISTRIBUTED_DISPATCH_LOCAL_COPY_OUT || opCode == Opcode::OP_SHMEM_PUT ||
                opCode == Opcode::OP_SHMEM_SIGNAL || opCode == Opcode::OP_SHMEM_GET ||
                opCode == Opcode::OP_SHMEM_REDUCE || opCode == Opcode::OP_RESHAPE_COPY_OUT ||
                opCode == Opcode::OP_SHMEM_PUT_UB2GM  ||
@@ -426,10 +425,10 @@ public:
             opCode == Opcode::OP_SHMEM_PUT_UB2GM || opCode == Opcode::OP_SHMEM_GET_GM2UB ||
             opCode == Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND ||
             opCode == Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE ||
-            opCode == Opcode::OP_FFN_BATCHING || opCode == Opcode::OP_SEND_TO_ROUTING_EXPERT ||
-            opCode == Opcode::OP_COPY_TO_LOCAL_EXPERT || opCode == Opcode::OP_DISPATCH_SET_FLAG ||
-            opCode == Opcode::OP_FFN_SCHED || opCode == Opcode::OP_FFN_COMBINEINFO ||
-            opCode == Opcode::OP_FFN_VALIDCNT;
+            opCode == Opcode::OP_MOE_DISTRIBUTED_DISPATCH_ASSEMBLE_EXPAND_X || opCode == Opcode::OP_MOE_DISTRIBUTED_DISPATCH_SEND_ROUTED ||
+            opCode == Opcode::OP_MOE_DISTRIBUTED_DISPATCH_LOCAL_COPY_OUT || opCode == Opcode::OP_MOE_DISTRIBUTED_DISPATCH_SET_SIGNAL ||
+            opCode == Opcode::OP_MOE_DISTRIBUTED_DISPATCH_WAIT_SIGNAL || opCode == Opcode::OP_MOE_DISTRIBUTED_DISPATCH_ASSEMBLE_ASSIST_INFO_FOR_COMBINE ||
+            opCode == Opcode::OP_MOE_DISTRIBUTED_DISPATCH_EXPERT_TOKEN_NUM;
     }
 
 private:
@@ -575,9 +574,9 @@ const std::unordered_set<Opcode> LOGICALNOT_OPS{Opcode::OP_LOGICALNOT};
 
 const std::unordered_set<Opcode> LOGICALAND_OPS{Opcode::OP_LOGICALAND};
 
-const std::unordered_set<Opcode> DISTRIBUTED_OPS{Opcode::OP_SEND_TO_ROUTING_EXPERT,
-    Opcode::OP_SEND_TO_SHARED_EXPERT, Opcode::OP_COPY_TO_LOCAL_EXPERT, Opcode::OP_DISPATCH_SET_FLAG,
-    Opcode::OP_FFN_SCHED, Opcode::OP_FFN_BATCHING, Opcode::OP_FFN_COMBINEINFO, Opcode::OP_FFN_VALIDCNT,
+const std::unordered_set<Opcode> DISTRIBUTED_OPS{Opcode::OP_MOE_DISTRIBUTED_DISPATCH_SEND_ROUTED,
+    Opcode::OP_MOE_DISTRIBUTED_DISPATCH_SEND_SHARED, Opcode::OP_MOE_DISTRIBUTED_DISPATCH_LOCAL_COPY_OUT, Opcode::OP_MOE_DISTRIBUTED_DISPATCH_SET_SIGNAL,
+    Opcode::OP_MOE_DISTRIBUTED_DISPATCH_WAIT_SIGNAL, Opcode::OP_MOE_DISTRIBUTED_DISPATCH_ASSEMBLE_EXPAND_X, Opcode::OP_MOE_DISTRIBUTED_DISPATCH_ASSEMBLE_ASSIST_INFO_FOR_COMBINE, Opcode::OP_MOE_DISTRIBUTED_DISPATCH_EXPERT_TOKEN_NUM,
     Opcode::OP_SHMEM_PUT, Opcode::OP_SHMEM_SIGNAL, Opcode::OP_SHMEM_GET, Opcode::OP_SHMEM_REDUCE,
     Opcode::OP_BIND_TENSOR, Opcode::OP_SHMEM_PUT_UB2GM, Opcode::OP_SHMEM_GET_GM2UB, Opcode::OP_SHMEM_SET,
     Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND,
@@ -594,10 +593,9 @@ inline bool IsCopyIn(const Opcode opCode) {
 }
 
 inline bool IsCopyOut(const Opcode &op) {
-    return (op == Opcode::OP_COPY_OUT || op == Opcode::OP_L0C_COPY_OUT || op == Opcode::OP_TRANSPOSE_MOVEOUT ||
-            op == Opcode::OP_INDEX_OUTCAST || op == Opcode::OP_FFN_SCHED || op == Opcode::OP_FFN_BATCHING ||
-            op == Opcode::OP_INDEX_PUT ||
-            op == Opcode::OP_FFN_COMBINEINFO || op == Opcode::OP_FFN_VALIDCNT || op == Opcode::OP_COPY_TO_LOCAL_EXPERT ||
+    return (op == Opcode::OP_COPY_OUT || op == Opcode::OP_L0C_COPY_OUT || op == Opcode::OP_TRANSPOSE_MOVEOUT || op == Opcode::OP_INDEX_PUT ||
+            op == Opcode::OP_INDEX_OUTCAST || op == Opcode::OP_MOE_DISTRIBUTED_DISPATCH_WAIT_SIGNAL || op == Opcode::OP_MOE_DISTRIBUTED_DISPATCH_ASSEMBLE_EXPAND_X ||
+            op == Opcode::OP_MOE_DISTRIBUTED_DISPATCH_ASSEMBLE_ASSIST_INFO_FOR_COMBINE || op == Opcode::OP_MOE_DISTRIBUTED_DISPATCH_EXPERT_TOKEN_NUM || op == Opcode::OP_MOE_DISTRIBUTED_DISPATCH_LOCAL_COPY_OUT ||
             op == Opcode::OP_SHMEM_PUT || op == Opcode::OP_SHMEM_SIGNAL || op == Opcode::OP_SHMEM_GET ||
             op == Opcode::OP_SHMEM_REDUCE || op == Opcode::OP_RESHAPE_COPY_OUT || op == Opcode::OP_SHMEM_PUT_UB2GM ||
             op == Opcode::OP_SHMEM_SET || op == Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND ||
