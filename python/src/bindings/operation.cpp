@@ -247,6 +247,12 @@ void bind_operation(py::module &m) {
         [](const Tensor &params, const Tensor &indices) { return npu::tile_fwk::TensorIndex(params, indices); },
         "Tensor index.");
     m.def(
+        "index_select",
+        [](const Tensor &params, int dim, const Tensor &indices) {
+            return npu::tile_fwk::Gather(params, indices, dim);
+        },
+        "Tensor index_select.");
+    m.def(
         "ScatterUpdate",
         [](const Tensor &dst, const Tensor &index, const Tensor &src, int axis, std::string cacheMode, int chunkSize) {
             return npu::tile_fwk::ScatterUpdate(dst, index, src, axis, cacheMode, chunkSize);
@@ -495,13 +501,13 @@ void bind_operation(py::module &m) {
                         SymbolicScalar cond) { npu::tile_fwk::ToFile(operand, fname, scalars, cond); });
     m.def(
         "one_shot_shmem_all_reduce",
-        [](Tensor &in, const char *group, Tensor &out) {
-            return npu::tile_fwk::Distributed::OneShotShmemAllReduce(in, group, out); },
-        py::arg("in"), py::arg("group"), py::arg("out"), "Tensor all reduce");
+        [](const Tensor& predToken, Tensor &in, const char *group, Tensor &out) {
+            return npu::tile_fwk::Distributed::OneShotShmemAllReduce(predToken, in, group, out); },
+        py::arg("predToken"), py::arg("in"), py::arg("group"), py::arg("out"), "Tensor all reduce");
     m.def(
         "two_shot_shmem_all_reduce",
-        [](Tensor &in, const char *group, Tensor &out) {
-            return npu::tile_fwk::Distributed::TwoShotShmemAllReduce(in, group, out); },
-        py::arg("in"), py::arg("group"), py::arg("out"), "Tensor all reduce");
+        [](const Tensor& predToken, Tensor &in, const char *group, Tensor &out) {
+            return npu::tile_fwk::Distributed::TwoShotShmemAllReduce(predToken, in, group, out); },
+        py::arg("predToken"), py::arg("in"), py::arg("group"), py::arg("out"), "Tensor all reduce");
 }
 } // namespace pypto

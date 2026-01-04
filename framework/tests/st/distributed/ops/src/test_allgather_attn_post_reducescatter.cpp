@@ -97,7 +97,7 @@ void TestAllGatherAttentionPostReducescatter(OpTestParam &testParam)
     ProgramData::GetInstance().AppendInputs({RawTensorData::CreateTensor<bfloat16>(wOut, wOutPtr)});
     ProgramData::GetInstance().AppendOutputs({RawTensorData::CreateTensorZero(out)});
 
-    ALLGATHER_ATTNPOST_REDUCESCATTER(testParam, dtype, agIn, wLora, wOut, out, b, n, s, h, vHeadDim, kvLoraRank)
+    ALLGATHER_ATTNPOST_REDUCESCATTER(testParam, dtype, agIn, wLora, wOut, out, b, n, s, h, vHeadDim, kvLoraRank);
     DeviceLauncherConfig config;
     config.runModel = false;
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), config);

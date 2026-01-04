@@ -42,11 +42,11 @@ class CommMgr:
         )
         logical_ranks = [PHYSICAL_TO_LOGICAL[r] for r in RANK_LIST]
         self.group_handle = dist.new_group(backend="hccl", ranks=logical_ranks)
+        self._comm_group_names = []
     
     
     def get_comm_name(self):
         comm_name = self.group_handle._get_backend(torch.device("npu")).get_hccl_comm_name(self.logical_rank)
-        self._comm_group_names = []
         self._comm_group_names.append(comm_name)
         return self._comm_group_names
 

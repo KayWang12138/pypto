@@ -2702,6 +2702,7 @@ std::vector<std::vector<SymbolicScalar>> Function::NormalizeCoa(
             op->GetOpcode() == Opcode::OP_RESHAPE ||
             op->GetOpcode() == Opcode::OP_EXPAND ||
             op->GetOpcode() == Opcode::OP_LOAD ||
+            op->GetOpcode() == Opcode::OP_GATHER||
             op->GetOpcode() == Opcode::OP_GATHER_IN_UB ||
             op->GetOpcode() == Opcode::OP_GATHER_IN_L1 ||
             op->GetOpcode() == Opcode::OP_L1_TO_BT ||
@@ -2765,7 +2766,7 @@ std::vector<std::vector<SymbolicScalar>> Function::NormalizeCoa(
     }
 
     for (auto &op : operations_) {
-        if (op->GetOpcode() == Opcode::OP_VEC_DUP) {
+        if (op->GetOpcode() == Opcode::OP_VEC_DUP || op->GetOpcode() == Opcode::OP_RANGE) {
             if (op->HasAttr(OpAttributeKey::dynScalar)) {
                 SymbolicScalar dynScalar = op->GetSymbolicScalarAttribute(OpAttributeKey::dynScalar);
                 std::vector<SymbolicScalar> valueCoaList;
