@@ -90,6 +90,9 @@ inline constexpr uint64_t MEBI = UINT64_C(1024) * 1024;
 inline constexpr uint64_t GIBI = UINT64_C(1024) * 1024 * 1024;
 
 constexpr inline int BlockPaddingDim(size_t bytes) {
+    if (bytes == 0) {
+        throw std::invalid_argument("bytes must be non-zero");
+    }
     return BLOCK_SIZE / bytes;
 }
 

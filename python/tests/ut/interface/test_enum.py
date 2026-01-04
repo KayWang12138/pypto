@@ -35,9 +35,9 @@ def test_dtype():
         (pypto.DT_FP8E4M3FN, 1, 8, True),
         (pypto.DT_FP8E5M2, 1, 8, True),
     ]
-    for dtype, bytes, bits, is_float in cases:
-        assert dtype.bytes() == bytes
-        assert dtype.bits() == bits
+    for dtype, byte_cnt, bit_cnt, is_float in cases:
+        assert dtype.bytes() == byte_cnt
+        assert dtype.bits() == bit_cnt
         assert dtype.is_float() == is_float
         assert str(dtype) == f"DataType.{dtype.name}"
 

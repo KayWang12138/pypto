@@ -458,6 +458,7 @@ void TiledFull(Function &function, const TileShape &tileShape, size_t cur, const
         auto bytes = BytesOf(resultTile->Datatype());
         int paddingValue = BlockPaddingDim(bytes);
         auto tempTileShape = resultTile->shape;
+        ASSERT(paddingValue);
         tempTileShape[lastIndex] = (tempTileShape[lastIndex] + paddingValue - 1) / paddingValue * paddingValue;
         TileShape::Current().SetVecTile(tempTileShape);
         auto &op = function.AddOperation("TILE_VEC_DUP", {}, {resultTile});
