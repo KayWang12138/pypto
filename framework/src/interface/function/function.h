@@ -488,6 +488,8 @@ public:
     Function(const Program &belongTo, const std::string &funcMagicName, const std::string &funcRawName,
         Function *parentFunc);
 
+    virtual ~Function() = default;
+
     Function(const Function &other) = delete;
     Function(Function &&other) = delete;
     Function &operator=(const Function &other) = delete;
@@ -503,10 +505,7 @@ public:
     OperationsViewer OperationsAfterOOO();
     void RecordOOOSeq();
     // 这个LeafOperations写法破坏封装性，但是是针对LeafFunction特有的，后续在Function按类拆分的时候会将其只放到LeafFunction中
-    std::vector<OperationPtr> &GetProgramOp();
-    void SetProgramOp(const std::vector<OperationPtr> &operations);
     void SortOperations();
-    void ScheduleBy(const std::vector<Operation *> &newList, bool needRefresh = false);
     void EraseOperations(bool eraseRelatedTensor = true, bool sorted = true);
     void EraseOperations(const OperationDeleter &deleter);
     void AddGlobalTensor(std::shared_ptr<LogicalTensor> tensor) { globalTensors_.emplace(tensor); };
@@ -518,7 +517,6 @@ public:
     void ClearOperationGroups();
     void CheckGroupValid() const;
 
-    void CreateLeafInAndOutCast(const LogicalTensorPtr &inOrOut, LogicalTensors &inOrOutList) const;
     void AddOriginIncast(const std::shared_ptr<LogicalTensor> tensor);
     void AddOriginOutcast(const std::shared_ptr<LogicalTensor> tensor);
     bool IsFromInCast(const std::shared_ptr<LogicalTensor> &tensor);
@@ -559,10 +557,6 @@ public:
     void DumpJsonFile(std::string fileName = "");
     Json DumpJson(bool useTable = true);
     static std::shared_ptr<Function> LoadJson(Program &belongTo, const Json &funcDump);
-
-    std::vector<std::vector<SymbolicScalar>> NormalizeCoa(
-        std::vector<int> &iOffset, std::vector<int> &oOffset);
-    void GetOutcastSymbolicExpr(std::map<int, SymbolicScalar>& tabel);
 
     void DumpTopoFile(const std::string &fileName) const;
     std::string DumpSSA() const;
@@ -611,7 +605,6 @@ public:
     void SetParent(Function *parent) { parent_ = parent; }
 
     const Program &BelongTo() const { return belongTo_; }
-    void UpdateBelongToThis();
     bool IsFlattening() const;
 
     FunctionType GetFunctionType() const;
@@ -659,15 +652,13 @@ public:
     const std::shared_ptr<DyndevFunctionAttribute> &GetDyndevAttribute() const { return dyndevAttr_; }
     std::shared_ptr<DyndevFunctionAttribute> &GetDyndevAttribute() { return dyndevAttr_; }
 
-    void SetLeafFuncAttribute(const std::shared_ptr<LeafFuncAttribute> &attr) { leafFuncAttr_ = attr; }
-    const std::shared_ptr<LeafFuncAttribute> &GetLeafFuncAttribute() const { return leafFuncAttr_; }
-    std::shared_ptr<LeafFuncAttribute> &GetLeafFuncAttribute() { return leafFuncAttr_; }
-
     void SetSlotScope(const std::shared_ptr<TensorSlotScope> &slotScope) { slotScope_ = slotScope; }
     const std::shared_ptr<TensorSlotScope> &GetSlotScope() const { return slotScope_; }
     std::shared_ptr<TensorSlotScope> &GetSlotScope() { return slotScope_; }
     std::vector<int> GetInCastSlot(const std::shared_ptr<LogicalTensor> &incast);
     std::vector<int> GetOutCastSlot(const std::shared_ptr<LogicalTensor> &outcast);
+
+    const std::unordered_set<std::string> &LoopIdxNameList() const { return loopIdxNameList_; }
 
     bool HasCallOperation();
     bool IsDynloop() const { return dynloopAttr_ != nullptr; }
@@ -678,18 +669,6 @@ public:
 
     void HandleControlOps(Operation &op, std::vector<Operation *> &toRemoveOps) const;
     void UpdateOperandBeforeRemoveOp(Operation &op, const bool keepOutTensor = false);
-    std::pair<bool, Opcode> IsAicpuSubFunction() const {
-        Opcode code = Opcode::OP_UNKNOWN;
-        for (size_t i = 0UL; i < operations_.size(); i++) {
-            if ((operations_[i]->GetOpcode() != Opcode::OP_VIEW) &&
-                (operations_[i]->GetCoreType() != CoreType::AICPU)) {
-                    return std::make_pair(false, Opcode::OP_UNKNOWN);
-            } else if (operations_[i]->GetCoreType() == CoreType::AICPU) {
-                   code = operations_[i]->GetOpcode();
-            }
-        }
-        return std::make_pair(true, code);
-    }
 
     bool IsDummyFunction() const {
         return std::all_of(operations_.begin(), operations_.end(), [](auto &op) {
@@ -700,17 +679,6 @@ public:
                 opcode == Opcode::OP_ASSEMBLE ||
                 opcode == Opcode::OP_BIND_TENSOR;
         });
-    }
-
-    const std::map<std::string, DynParamInfo> &GetDynParamTable() const {
-        return dynParamTable_;
-    }
-    void InsertDynParam(std::string dim, DynParamInfo &info) {
-        dynParamTable_.emplace(dim, info);
-    }
-
-    DynParamInfo &GetMutableDynParam(std::string dim){
-        return dynParamTable_[dim];
     }
 
     bool IsUnderDynamicFunction() const { return isUnderDynamicFunction_; }
@@ -728,29 +696,12 @@ public:
         }
     }
 
-    void AppendIncast(LogicalTensorPtr tensor, int opmagic, int k) {
-        incastPosition.emplace_back(opmagic, k);
-        inCasts_.emplace_back(tensor);
-    }
-
-    void AppendOutcast(LogicalTensorPtr tensor, int opmagic, int k) {
-        outcastPosition.emplace_back(opmagic, k);
-        outCasts_.emplace_back(tensor);
-    }
-
     void RemoveOutcast(int idx) {
         outcastPosition.erase(outcastPosition.begin() + idx);
         outCasts_.erase(outCasts_.begin() + idx);
         auto &outcastSlot = slotScope_->ioslot.outcastSlot;
         outcastSlot.erase(outcastSlot.begin() + idx);
     }
-
-    const SubfuncParam &GetParameter() const { return parameter_; }
-    SubfuncParam &GetParameter() { return parameter_; }
-    void SetParameter(const SubfuncParam &parameter) { parameter_ = parameter; }
-
-    int GetProgramId() const { return programId_; }
-    void SetProgramId(int programId) { programId_ = programId; }
 
     void SetReadySubGraphIds(CoreType coreType, const std::vector<int> &readySubGraphIds) {
         readySubGraphIds_[coreType] = readySubGraphIds;
@@ -803,7 +754,7 @@ public:
         }
     }
     GetTensorDataIODescDict GetTensorDataForTensorGraph();
-    GetTensorDataIODescDict GetTensorDataForLeafGraph();
+
     void GetTensorDataRefreshIO(const GetTensorDataIODescDict &descDict);
     void UpdateTensorDataUsage(Operation &op);
 
@@ -819,11 +770,54 @@ public:
 
     const std::unordered_set<std::string> &LoopIdxNameList() { return loopIdxNameList_; }
     bool InsertLoopIdxNameList(const std::string &idxName);
-private:
+    //------------------------------------------------------------------------------------------------------
+    //------------------------------------------- BlockFunction -------------------------------------------
+    //------------------------------------------------------------------------------------------------------
+
+    // Virtual functions for BlockFunction interface compatibility
+    // These functions allow calling BlockFunction methods through Function* pointer
+    virtual std::vector<OperationPtr> &GetProgramOp();
+    virtual void SetProgramOp(const std::vector<OperationPtr> &operations);
+    virtual void UpdateBelongToThis();
+    virtual void ScheduleBy(const std::vector<Operation *> &newList, bool needRefresh = false);
+
+    virtual const SubfuncParam &GetParameter() const;
+    virtual SubfuncParam &GetParameter();
+    virtual void SetParameter(const SubfuncParam &parameter);
+
+    virtual int GetProgramId() const;
+    virtual void SetProgramId(int programId);
+
+    virtual void SetLeafFuncAttribute(const std::shared_ptr<LeafFuncAttribute> &attr);
+    virtual const std::shared_ptr<LeafFuncAttribute> &GetLeafFuncAttribute() const;
+    virtual std::shared_ptr<LeafFuncAttribute> &GetLeafFuncAttribute();
+
+    virtual std::vector<std::vector<SymbolicScalar>> NormalizeCoa(
+        std::vector<int> &iOffset, std::vector<int> &oOffset);
+    virtual void GetOutcastSymbolicExpr(std::map<int, SymbolicScalar>& tabel);
+
+    virtual std::pair<bool, Opcode> IsAicpuSubFunction() const;
+
+    virtual void CreateLeafInAndOutCast(const LogicalTensorPtr &inOrOut, LogicalTensors &inOrOutList) const;
+    virtual GetTensorDataIODescDict GetTensorDataForLeafGraph();
+    virtual void AppendIncast(LogicalTensorPtr tensor, int opmagic, int k);
+    virtual void AppendOutcast(LogicalTensorPtr tensor, int opmagic, int k);
+    virtual DynParamInfo &GetMutableDynParam(std::string dim);
+    virtual void InsertDynParam(std::string dim, DynParamInfo &info);
+    virtual const std::map<std::string, DynParamInfo> &GetDynParamTable() const;
+protected:
+    std::vector<std::shared_ptr<Operation>> operations_; // operation的获取必须要使用Operations函数，来获取到符合拓扑序的List
+    std::unordered_map<const Operation *, int> opPosition_; // position of operation in Operation.operations_
+    bool sorted_{false};
+    Function *parent_{nullptr};
+    std::vector<std::pair<int, int>> incastPosition;
+    std::vector<std::pair<int, int>> outcastPosition;
+
+    void RefreshOpPosition();
+
     int functionMagic_{-1};
     std::string funcMagicName_; // Function name
     std::string funcRawName_;   // raw name
-    bool sorted_{false};
     size_t totalAicSubGraphCount_ = 0;
     size_t totalAivSubGraphCount_ = 0;
     size_t totalSubGraphCount_ = 0;
@@ -835,11 +829,9 @@ private:
 
     std::vector<std::shared_ptr<LogicalTensor>> originInCasts_;
     std::unordered_set<std::shared_ptr<LogicalTensor>> inCastsSet_; // Input tensors set
-    std::vector<std::pair<int, int>> incastPosition;
 
     std::vector<std::shared_ptr<LogicalTensor>> originOutCasts_;
     std::map<int, int> opmagicToOutcastIdx_;
-    std::vector<std::pair<int, int>> outcastPosition;
 
     TensorMap tensorMap_; // TensorMap to register tensors
     std::unordered_set<std::shared_ptr<LogicalTensor>> globalTensors_; // global tensors
@@ -852,18 +844,13 @@ private:
     std::map<CoreType, std::vector<int>> readySubGraphIds_;
 
     std::vector<std::vector<Operation *>> operationGroups_;
-    std::vector<std::shared_ptr<Operation>> operations_; // operation的获取必须要使用Operations函数，来获取到符合拓扑序的List
-    std::unordered_map<const Operation *, int> opPosition_; // position of operation in Operation.operations_
     std::vector<std::shared_ptr<Operation>> operationsAfterOOO_;
     std::unordered_map<const Operation *, int> opPositionAfterOOO_; // position of operation sequence after OOO schedule
     const Program &belongTo_;
-    Function *parent_{nullptr};
     FunctionType functionType_{FunctionType::INVALID};
     GraphType graphType_{GraphType::INVALID};
     std::vector<TensorSlot> explicitArgSlots_;
     std::vector<void *> explicitArgAddrs_;
-
-    std::map<std::string, DynParamInfo> dynParamTable_;
 
     std::shared_ptr<DynloopFunctionAttribute> dynloopAttr_;
     std::shared_ptr<DyndevFunctionAttribute> dyndevAttr_;
@@ -878,7 +865,6 @@ private:
     std::shared_ptr<SourceLocation> sourceLocation_;
     bool hiddenFunction_{false};
 
-private:
     unsigned long ComputeHashOrderless() const;
     void OpValidCheck(Operation &op) const;
     std::shared_ptr<LogicalTensor> ConnectWithOverlap(std::shared_ptr<LogicalTensor> iOperand);
@@ -908,7 +894,6 @@ private:
     std::string DumpSSAAttribute(int indent = 2) const;
     friend class FunctionInterpreter;
 
-    void RefreshOpPosition();
     auto AnnotateOperation();
 
     void SetCallOpSlot();
