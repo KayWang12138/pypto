@@ -15,8 +15,8 @@ import logging
 import math
 import torch
 import numpy as np
-from dataclasses import dataclass
 import pypto
+from dataclasses import dataclass
 
 
 @dataclass
