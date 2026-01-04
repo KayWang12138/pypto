@@ -74,7 +74,7 @@ std::string CodeGenOpCloudNPU::PrintRowMaxlineStatic(const PrintUnaryParam &para
     if (axis.HasValue()) {
         reduceAxis = npu::tile_fwk::AnyCast<int64_t>(axis);
     }
-    ASSERT(((reduceAxis >= 0) && (reduceAxis < (int(shape[1].size()) - 1)))) << "unsupported reduce axis";
+    ASSERT(((reduceAxis >= 0) && (reduceAxis < (int(rawShape[1].size()) - 1)))) << "unsupported reduce axis";
     const std::string &dstDtypeStr = param.dstDtypeStr;
     const std::string &srcDtypeStr = param.srcDtypeStr;
     const std::string &dVar = param.dVar;
@@ -116,7 +116,7 @@ std::string CodeGenOpCloudNPU::PrintRowMaxlineDynamicUnaligned(const PrintUnaryP
     if (axis.HasValue()) {
         reduceAxis = npu::tile_fwk::AnyCast<int64_t>(axis);
     }
-    ASSERT(((reduceAxis >= 0) && (reduceAxis < (int(shape[1].size()) - 1)))) << "unsupported reduce axis";
+    ASSERT(((reduceAxis >= 0) && (reduceAxis < (int(rawShape[1].size()) - 1)))) << "unsupported reduce axis";
     const std::string &dstDtypeStr = param.dstDtypeStr;
     const std::string &srcDtypeStr = param.srcDtypeStr;
     const std::string &dVar = param.dVar;
@@ -165,7 +165,7 @@ std::string CodeGenOpCloudNPU::PrintRowMaxlineTileTensor() const {
     if (axis.HasValue()) {
         reduceAxis = npu::tile_fwk::AnyCast<int64_t>(axis);
     }
-    ASSERT(((reduceAxis >= 0) && (reduceAxis < (int(shape[1].size()) - 1)))) << "unsupported reduce axis";
+    ASSERT(((reduceAxis >= 0) && (reduceAxis < (int(rawShape[1].size()) - 1)))) << "unsupported reduce axis";
     reduceAxis += SHAPE_DIM5 - rawShape[0].size();
     std::ostringstream oss;
     oss << tileOpName << "<" << reduceAxis << ">"
@@ -338,9 +338,10 @@ std::string CodeGenOpCloudNPU::PrintExpand(const std::string &s0Var, const std::
     if (axis.HasValue()) {
         expandAxis = AnyCast<int64_t>(axis);
     }
-    ASSERT((expandAxis >= 0) && (expandAxis <= (static_cast<int>(shape[1].size() - 1)))) << "unsupported reduce axis";
+    ASSERT((expandAxis >= 0) && (expandAxis <= (static_cast<int>(rawShape[1].size() - 1))))
+        << "unsupported reduce axis";
     // modify expandAxis for SHAPE_DIM4
-    expandAxis += SHAPE_DIM4 - shape[1].size();
+    expandAxis += SHAPE_DIM4 - rawShape[1].size();
 
     if (isSupportLayout) {
         return PrintExpandLayout(expandAxis);
