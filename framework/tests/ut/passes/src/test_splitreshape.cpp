@@ -1076,6 +1076,15 @@ TEST_F(TestSplitReshapePass, TestDynUpdateForPerfectlyMatchWithAll) {
     EXPECT_EQ(viewOpAttribute->GetFromOffset(), inputView->offset);
 }
 
+void runPassStra(Function &func, const std::string passName) {
+    std::string strategyName = passName + "Strategy";
+    PassManager &passManager = PassManager::Instance();
+    passManager.RegisterStrategy(strategyName, {
+        {passName, passName},
+    });
+    EXPECT_EQ(passManager.RunPass(Program::GetInstance(), func, strategyName), SUCCESS);
+}
+
 /*
 校验一对一场景(使用expandfunction作为前序pass)
 1) 用例设置：
@@ -1107,12 +1116,8 @@ TEST_F(TestSplitReshapePass, TestPerfectlyMatchedSTest) {
     }
 
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase1");
-
-    PassManager &passManager = PassManager::Instance();
-    passManager.RegisterStrategy("ExpandFunctionStrategy", {
-        {   "ExpandFunction",   "ExpandFunction"},
-    });
-    EXPECT_EQ(passManager.RunPass(Program::GetInstance(), *func, "ExpandFunctionStrategy"), SUCCESS);
+    
+    runPassStra(*func, "ExpandFunction");
 
     int reshapeOp = 0;
     for (auto &op : func->Operations()) {
@@ -1138,10 +1143,7 @@ TEST_F(TestSplitReshapePass, TestPerfectlyMatchedSTest) {
     }
     EXPECT_EQ(reshapeOp, kNumOne);
 
-    passManager.RegisterStrategy("SplitReshapeTestStrategy", {
-        {   "SplitReshape",   "SplitReshape"},
-    });
-    EXPECT_EQ(passManager.RunPass(Program::GetInstance(), *func, "SplitReshapeTestStrategy"), SUCCESS);
+    runPassStra(*func, "SplitReshape");
 
     reshapeOp = 0;
     for (auto &op : func->Operations()) {
@@ -1205,11 +1207,7 @@ TEST_F(TestSplitReshapePass, TestBeCoveredSTest) {
 
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase2");
 
-    PassManager &passManager = PassManager::Instance();
-    passManager.RegisterStrategy("ExpandFunctionStrategy", {
-        {   "ExpandFunction",   "ExpandFunction"},
-    });
-    EXPECT_EQ(passManager.RunPass(Program::GetInstance(), *func, "ExpandFunctionStrategy"), SUCCESS);
+    runPassStra(*func, "ExpandFunction");
 
     int reshapeOp = 0;
     for (auto &op : func->Operations()) {
@@ -1235,10 +1233,7 @@ TEST_F(TestSplitReshapePass, TestBeCoveredSTest) {
     }
     EXPECT_EQ(reshapeOp, kNumOne);
 
-    passManager.RegisterStrategy("SplitReshapeTestStrategy", {
-        {   "SplitReshape",   "SplitReshape"},
-    });
-    EXPECT_EQ(passManager.RunPass(Program::GetInstance(), *func, "SplitReshapeTestStrategy"), SUCCESS);
+    runPassStra(*func, "SplitReshape");
 
     reshapeOp = 0;
     for (auto &op : func->Operations()) {
@@ -1304,11 +1299,7 @@ TEST_F(TestSplitReshapePass, TestPerfectlyMatchedWithallSTest) {
 
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase3");
 
-    PassManager &passManager = PassManager::Instance();
-    passManager.RegisterStrategy("ExpandFunctionStrategy", {
-        {   "ExpandFunction",   "ExpandFunction"},
-    });
-    EXPECT_EQ(passManager.RunPass(Program::GetInstance(), *func, "ExpandFunctionStrategy"), SUCCESS);
+    runPassStra(*func, "ExpandFunction");
 
     int reshapeOp = 0;
     for (auto &op : func->Operations()) {
@@ -1334,10 +1325,7 @@ TEST_F(TestSplitReshapePass, TestPerfectlyMatchedWithallSTest) {
     }
     EXPECT_EQ(reshapeOp, kNumOne);
 
-    passManager.RegisterStrategy("SplitReshapeTestStrategy", {
-        {   "SplitReshape",   "SplitReshape"},
-    });
-    EXPECT_EQ(passManager.RunPass(Program::GetInstance(), *func, "SplitReshapeTestStrategy"), SUCCESS);
+    runPassStra(*func, "SplitReshape");
 
     reshapeOp = 0;
     for (auto &op : func->Operations()) {
@@ -1432,11 +1420,7 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchSTest) {
     func->outCasts_.push_back(output1);
     func->outCasts_.push_back(output2);
 
-    PassManager &passManager = PassManager::Instance();
-    passManager.RegisterStrategy("SplitReshapeTestStrategy", {
-        {   "SplitReshape",   "SplitReshape"},
-    });
-    EXPECT_EQ(passManager.RunPass(Program::GetInstance(), *func, "SplitReshapeTestStrategy"), SUCCESS);
+    runPassStra(*func, "SplitReshape");
 
     int reshapeOp = 0;
     int assembleOp = 0;
@@ -1616,11 +1600,7 @@ TEST_F(TestSplitReshapePass, TestDynBeCoveredSTest) {
     func->outCasts_.push_back(output3);
     func->outCasts_.push_back(output4);
 
-    PassManager &passManager = PassManager::Instance();
-    passManager.RegisterStrategy("SplitReshapeTestStrategy", {
-        {   "SplitReshape",   "SplitReshape"},
-    });
-    EXPECT_EQ(passManager.RunPass(Program::GetInstance(), *func, "SplitReshapeTestStrategy"), SUCCESS);
+    runPassStra(*func, "SplitReshape");
 
     int reshapeOp = 0;
     int assembleOp = 0;
@@ -1804,11 +1784,7 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchWithAllSTest) {
     func->outCasts_.push_back(output1);
     func->outCasts_.push_back(output2);
 
-    PassManager &passManager = PassManager::Instance();
-    passManager.RegisterStrategy("SplitReshapeTestStrategy", {
-        {   "SplitReshape",   "SplitReshape"},
-    });
-    EXPECT_EQ(passManager.RunPass(Program::GetInstance(), *func, "SplitReshapeTestStrategy"), SUCCESS);
+    runPassStra(*func, "SplitReshape");
 
     int reshapeOp = 0;
     int assembleOp = 0;
@@ -1951,11 +1927,7 @@ TEST_F(TestSplitReshapePass, TestExceptionCase1) {
 
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase5");
 
-    PassManager &passManager = PassManager::Instance();
-    passManager.RegisterStrategy("ExpandFunctionStrategy", {
-        {   "ExpandFunction",   "ExpandFunction"},
-    });
-    EXPECT_EQ(passManager.RunPass(Program::GetInstance(), *func, "ExpandFunctionStrategy"), SUCCESS);
+    runPassStra(*func, "ExpandFunction");
 
     int reshapeOp = 0;
     int OpNum = 0;
@@ -1967,10 +1939,7 @@ TEST_F(TestSplitReshapePass, TestExceptionCase1) {
     }
     EXPECT_EQ(reshapeOp, kNumOne);
 
-    passManager.RegisterStrategy("SplitReshapeTestStrategy", {
-        {   "SplitReshape",   "SplitReshape"},
-    });
-    EXPECT_EQ(passManager.RunPass(Program::GetInstance(), *func, "SplitReshapeTestStrategy"), SUCCESS);
+    runPassStra(*func, "SplitReshape");
 
     reshapeOp = 0;
     int AfterOpNum = 0;
@@ -2017,11 +1986,7 @@ TEST_F(TestSplitReshapePass, TestExceptionCase2) {
 
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase6");
 
-    PassManager &passManager = PassManager::Instance();
-    passManager.RegisterStrategy("ExpandFunctionStrategy", {
-        {   "ExpandFunction",   "ExpandFunction"},
-    });
-    EXPECT_EQ(passManager.RunPass(Program::GetInstance(), *func, "ExpandFunctionStrategy"), SUCCESS);
+    runPassStra(*func, "ExpandFunction");
 
     int reshapeOp = 0;
     for (auto &op : func->Operations()) {
@@ -2031,10 +1996,7 @@ TEST_F(TestSplitReshapePass, TestExceptionCase2) {
     }
     EXPECT_EQ(reshapeOp, kNumOne);
 
-    passManager.RegisterStrategy("SplitReshapeTestStrategy", {
-        {   "SplitReshape",   "SplitReshape"},
-    });
-    EXPECT_EQ(passManager.RunPass(Program::GetInstance(), *func, "SplitReshapeTestStrategy"), SUCCESS);
+    runPassStra(*func, "SplitReshape");
 
     reshapeOp = 0;
     for (auto &op : func->Operations()) {
@@ -2080,11 +2042,7 @@ TEST_F(TestSplitReshapePass, TestExceptionCase3) {
 
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase7");
 
-    PassManager &passManager = PassManager::Instance();
-    passManager.RegisterStrategy("ExpandFunctionStrategy", {
-        {   "ExpandFunction",   "ExpandFunction"},
-    });
-    EXPECT_EQ(passManager.RunPass(Program::GetInstance(), *func, "ExpandFunctionStrategy"), SUCCESS);
+    runPassStra(*func, "ExpandFunction");
 
     int reshapeOp = 0;
     for (auto &op : func->Operations()) {
@@ -2094,10 +2052,7 @@ TEST_F(TestSplitReshapePass, TestExceptionCase3) {
     }
     EXPECT_EQ(reshapeOp, kNumOne);
 
-    passManager.RegisterStrategy("SplitReshapeTestStrategy", {
-        {   "SplitReshape",   "SplitReshape"},
-    });
-    EXPECT_EQ(passManager.RunPass(Program::GetInstance(), *func, "SplitReshapeTestStrategy"), SUCCESS);
+    runPassStra(*func, "SplitReshape");
 
     reshapeOp = 0;
     for (auto &op : func->Operations()) {
@@ -2165,10 +2120,6 @@ TEST_F(TestSplitReshapePass, TestExceptionCase4) {
     func->outCasts_.push_back(output1);
     func->outCasts_.push_back(output2);
 
-    PassManager &passManager = PassManager::Instance();
-    passManager.RegisterStrategy("SplitReshapeTestStrategy", {
-        {   "SplitReshape",   "SplitReshape"},
-    });
 
     int reshapeOp = 0;
     for (auto &op : func->Operations()) {
@@ -2178,7 +2129,7 @@ TEST_F(TestSplitReshapePass, TestExceptionCase4) {
     }
     EXPECT_EQ(reshapeOp, kNumOne);
 
-    EXPECT_EQ(passManager.RunPass(Program::GetInstance(), *func, "SplitReshapeTestStrategy"), SUCCESS);
+    runPassStra(*func, "SplitReshape");
 
     reshapeOp = 0;
     for (auto &op : func->Operations()) {
@@ -2221,11 +2172,7 @@ TEST_F(TestSplitReshapePass, TestExceptionCase5) {
 
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase8");
 
-    PassManager &passManager = PassManager::Instance();
-    passManager.RegisterStrategy("ExpandFunctionStrategy", {
-        {   "ExpandFunction",   "ExpandFunction"},
-    });
-    EXPECT_EQ(passManager.RunPass(Program::GetInstance(), *func, "ExpandFunctionStrategy"), SUCCESS);
+    runPassStra(*func, "ExpandFunction");
 
     int reshapeOp = 0;
     int OpNum = 0;
@@ -2237,10 +2184,7 @@ TEST_F(TestSplitReshapePass, TestExceptionCase5) {
     }
     EXPECT_EQ(reshapeOp, kNumOne);
 
-    passManager.RegisterStrategy("SplitReshapeTestStrategy", {
-        {   "SplitReshape",   "SplitReshape"},
-    });
-    EXPECT_EQ(passManager.RunPass(Program::GetInstance(), *func, "SplitReshapeTestStrategy"), SUCCESS);
+    runPassStra(*func, "SplitReshape");
 
     reshapeOp = 0;
     int AfterOpNum = 0;
