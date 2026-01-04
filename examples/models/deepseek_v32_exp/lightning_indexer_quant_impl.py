@@ -229,7 +229,7 @@ def lightning_indexer_decode_compute(
 
                 for _ in pypto.loop(length_is_gt2k * length_is_le8k, name="8K_TOPK", idx_name="unused"):
                     pypto.set_pass_options(pg_skip_partition=True)
-                    pypto.set_vec_tile_shapes(1, topk_tile)
+                    pypto.set_vec_tile_shapes(1, length_2k)
                     eff_8k = pypto.view(max_tensor, [1, length_8k], [src_offset, 0], valid_shape=[1, eff_seq])
                     ax = pypto.view(eff_8k, [1, length_8k], [0, 0], valid_shape=[1, eff_seq])
                     bx = pypto.full([1, length_8k], pad_value, pypto.DT_FP32, valid_shape=[1, length_8k - eff_seq])
@@ -242,6 +242,7 @@ def lightning_indexer_decode_compute(
                     pypto.set_vec_tile_shapes(1, 1, topk_tile)
                     topk_3d = pypto.reshape(res_idx, [1, 1, selected_count])
                     pypto.assemble(pypto.clone(topk_3d), [dst_offset, 0, 0], topk_res)
+                    pypto.set_vec_tile_shapes(1, topk_tile)
 
                 # 128K TOPK
                 total_size_y1 = MAX_LI_S2 // length_8k * selected_count
