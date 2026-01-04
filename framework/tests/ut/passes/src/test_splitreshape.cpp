@@ -1076,13 +1076,59 @@ TEST_F(TestSplitReshapePass, TestDynUpdateForPerfectlyMatchWithAll) {
     EXPECT_EQ(viewOpAttribute->GetFromOffset(), inputView->offset);
 }
 
-void runPassStra(Function &func, const std::string passName) {
+void RunPassStra(Function &func, const std::string passName) {
     std::string strategyName = passName + "Strategy";
     PassManager &passManager = PassManager::Instance();
     passManager.RegisterStrategy(strategyName, {
         {passName, passName},
     });
     EXPECT_EQ(passManager.RunPass(Program::GetInstance(), func, strategyName), SUCCESS);
+}
+
+struct CheckReshapeStruct {
+    const std::vector<int64_t> reshapeInputShape;
+    const int reshapeInputProducerSize;
+    const bool checkProducer;
+    const std::vector<int64_t> reshapeInputOperandShape;
+    const std::vector<int64_t> reshapeOutputShape;
+    const int reshapeOutputProducerSize;
+    const bool checkConsumer;
+    const std::vector<int64_t> reshapeOutputOperandShape;
+    const uint32_t reshapeOpNum;
+};
+
+void CheckOpReshape(Function *func, CheckReshapeStruct expectReshape) {
+    int reshapeOp = 0;
+    for (auto &op : func->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_RESHAPE) {
+            EXPECT_EQ(op.GetInputOperandSize(), kSizeOne);
+            auto reshapeInput = op.GetInputOperand(kSizeZero);
+            EXPECT_NE(reshapeInput, nullptr);
+            EXPECT_EQ(reshapeInput->shape, expectReshape.reshapeInputShape);
+            EXPECT_EQ(reshapeInput->GetProducers().size(), expectReshape.reshapeInputProducerSize);
+            for (const auto &producer : reshapeInput->GetProducers()) {
+                EXPECT_EQ(producer->GetOpcode(), Opcode::OP_ASSEMBLE);
+                if (expectReshape.checkProducer){
+                    EXPECT_EQ(producer->GetInputOperandSize(), kSizeOne);
+                    EXPECT_EQ(producer->GetInputOperand(kSizeZero)->shape, expectReshape.reshapeInputOperandShape);
+                }
+            }
+            EXPECT_EQ(op.GetOutputOperandSize(), kSizeOne);
+            auto reshapeOutput = op.GetOutputOperand(kSizeZero);
+            EXPECT_NE(reshapeOutput, nullptr);
+            EXPECT_EQ(reshapeOutput->shape, expectReshape.reshapeOutputShape);
+            EXPECT_EQ(reshapeOutput->GetConsumers().size(), expectReshape.reshapeOutputProducerSize);
+            for (const auto &consumer : reshapeOutput->GetConsumers()) {
+                EXPECT_EQ(consumer->GetOpcode(), Opcode::OP_VIEW);
+                if (expectReshape.checkConsumer){
+                    EXPECT_EQ(consumer->GetOutputOperandSize(), kSizeOne);
+                    EXPECT_EQ(consumer->GetOutputOperand(kSizeZero)->shape, expectReshape.reshapeOutputOperandShape);
+                }
+            }
+            reshapeOp++;
+        }
+    }
+    EXPECT_EQ(reshapeOp, expectReshape.reshapeOpNum);
 }
 
 /*
@@ -1117,57 +1163,11 @@ TEST_F(TestSplitReshapePass, TestPerfectlyMatchedSTest) {
 
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase1");
     
-    runPassStra(*func, "ExpandFunction");
+    RunPassStra(*func, "ExpandFunction");
+    CheckOpReshape(func, CheckReshapeStruct{origShape, kSizeTwo, false, {}, reshapeShape, kSizeTwo, false, {}, kNumOne});
 
-    int reshapeOp = 0;
-    for (auto &op : func->Operations()) {
-        if (op.GetOpcode() == Opcode::OP_RESHAPE) {
-            EXPECT_EQ(op.GetInputOperandSize(), kSizeOne);
-            auto reshapeInput = op.GetInputOperand(kSizeZero);
-            EXPECT_NE(reshapeInput, nullptr);
-            EXPECT_EQ(reshapeInput->shape, origShape);
-            EXPECT_EQ(reshapeInput->GetProducers().size(), kSizeTwo);
-            for (const auto &producer : reshapeInput->GetProducers()) {
-                EXPECT_EQ(producer->GetOpcode(), Opcode::OP_ASSEMBLE);
-            }
-            EXPECT_EQ(op.GetOutputOperandSize(), kSizeOne);
-            auto reshapeOutput = op.GetOutputOperand(kSizeZero);
-            EXPECT_NE(reshapeOutput, nullptr);
-            EXPECT_EQ(reshapeOutput->shape, reshapeShape);
-            EXPECT_EQ(reshapeOutput->GetConsumers().size(), kSizeTwo);
-            for (const auto &consumer : reshapeOutput->GetConsumers()) {
-                EXPECT_EQ(consumer->GetOpcode(), Opcode::OP_VIEW);
-            }
-            reshapeOp++;
-        }
-    }
-    EXPECT_EQ(reshapeOp, kNumOne);
-
-    runPassStra(*func, "SplitReshape");
-
-    reshapeOp = 0;
-    for (auto &op : func->Operations()) {
-        if (op.GetOpcode() == Opcode::OP_RESHAPE) {
-            EXPECT_EQ(op.GetInputOperandSize(), kSizeOne);
-            auto reshapeInput = op.GetInputOperand(kSizeZero);
-            EXPECT_NE(reshapeInput, nullptr);
-            EXPECT_EQ(reshapeInput->shape, tiledorigShape);
-            EXPECT_EQ(reshapeInput->GetProducers().size(), kSizeOne);
-            for (const auto &producer : reshapeInput->GetProducers()) {
-                EXPECT_EQ(producer->GetOpcode(), Opcode::OP_ASSEMBLE);
-            }
-            EXPECT_EQ(op.GetOutputOperandSize(), kSizeOne);
-            auto reshapeOutput = op.GetOutputOperand(kSizeZero);
-            EXPECT_NE(reshapeOutput, nullptr);
-            EXPECT_EQ(reshapeOutput->shape, tiledreshapeShape);
-            EXPECT_EQ(reshapeOutput->GetConsumers().size(), kSizeOne);
-            for (const auto &consumer : reshapeOutput->GetConsumers()) {
-                EXPECT_EQ(consumer->GetOpcode(), Opcode::OP_VIEW);
-            }
-            reshapeOp++;
-        }
-    }
-    EXPECT_EQ(reshapeOp, kNumTwo);
+    RunPassStra(*func, "SplitReshape");
+    CheckOpReshape(func, CheckReshapeStruct{tiledorigShape, kSizeOne, false, {}, tiledreshapeShape, kSizeOne, false, {}, kNumTwo});
 }
 
 /*
@@ -1207,59 +1207,11 @@ TEST_F(TestSplitReshapePass, TestBeCoveredSTest) {
 
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase2");
 
-    runPassStra(*func, "ExpandFunction");
+    RunPassStra(*func, "ExpandFunction");
+    CheckOpReshape(func, CheckReshapeStruct{origShape, kSizeTwo, false, {}, reshapeShape, kSizeFour, false, {}, kNumOne});
 
-    int reshapeOp = 0;
-    for (auto &op : func->Operations()) {
-        if (op.GetOpcode() == Opcode::OP_RESHAPE) {
-            EXPECT_EQ(op.GetInputOperandSize(), kSizeOne);
-            auto reshapeInput = op.GetInputOperand(kSizeZero);
-            EXPECT_NE(reshapeInput, nullptr);
-            EXPECT_EQ(reshapeInput->shape, origShape);
-            EXPECT_EQ(reshapeInput->GetProducers().size(), kSizeTwo);
-            for (const auto &producer : reshapeInput->GetProducers()) {
-                EXPECT_EQ(producer->GetOpcode(), Opcode::OP_ASSEMBLE);
-            }
-            EXPECT_EQ(op.GetOutputOperandSize(), kSizeOne);
-            auto reshapeOutput = op.GetOutputOperand(kSizeZero);
-            EXPECT_NE(reshapeOutput, nullptr);
-            EXPECT_EQ(reshapeOutput->shape, reshapeShape);
-            EXPECT_EQ(reshapeOutput->GetConsumers().size(), kSizeFour);
-            for (const auto &consumer : reshapeOutput->GetConsumers()) {
-                EXPECT_EQ(consumer->GetOpcode(), Opcode::OP_VIEW);
-            }
-            reshapeOp++;
-        }
-    }
-    EXPECT_EQ(reshapeOp, kNumOne);
-
-    runPassStra(*func, "SplitReshape");
-
-    reshapeOp = 0;
-    for (auto &op : func->Operations()) {
-        if (op.GetOpcode() == Opcode::OP_RESHAPE) {
-            EXPECT_EQ(op.GetInputOperandSize(), kSizeOne);
-            auto reshapeInput = op.GetInputOperand(kSizeZero);
-            EXPECT_NE(reshapeInput, nullptr);
-            EXPECT_EQ(reshapeInput->shape, tiledorigShape);
-            EXPECT_EQ(reshapeInput->GetProducers().size(), kSizeOne);
-            for (const auto &producer : reshapeInput->GetProducers()) {
-                EXPECT_EQ(producer->GetOpcode(), Opcode::OP_ASSEMBLE);
-            }
-            EXPECT_EQ(op.GetOutputOperandSize(), kSizeOne);
-            auto reshapeOutput = op.GetOutputOperand(kSizeZero);
-            EXPECT_NE(reshapeOutput, nullptr);
-            EXPECT_EQ(reshapeOutput->shape, tiledreshapeShape);
-            EXPECT_EQ(reshapeOutput->GetConsumers().size(), kSizeTwo);
-            for (const auto &consumer : reshapeOutput->GetConsumers()) {
-                EXPECT_EQ(consumer->GetOpcode(), Opcode::OP_VIEW);
-                EXPECT_EQ(consumer->GetOutputOperandSize(), kSizeOne);
-                EXPECT_EQ(consumer->GetOutputOperand(kSizeZero)->shape, tiledviewShape);
-            }
-            reshapeOp++;
-        }
-    }
-    EXPECT_EQ(reshapeOp, kNumTwo);
+    RunPassStra(*func, "SplitReshape");
+    CheckOpReshape(func, CheckReshapeStruct{tiledorigShape, kSizeOne, false, {}, tiledreshapeShape, kSizeTwo, true, tiledviewShape, kNumTwo});
 }
 
 /*
@@ -1299,61 +1251,11 @@ TEST_F(TestSplitReshapePass, TestPerfectlyMatchedWithallSTest) {
 
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase3");
 
-    runPassStra(*func, "ExpandFunction");
+    RunPassStra(*func, "ExpandFunction");
+    CheckOpReshape(func, CheckReshapeStruct{origShape, kSizeFour, false, {}, reshapeShape, kSizeTwo, false, {}, kNumOne});
 
-    int reshapeOp = 0;
-    for (auto &op : func->Operations()) {
-        if (op.GetOpcode() == Opcode::OP_RESHAPE) {
-            EXPECT_EQ(op.GetInputOperandSize(), kSizeOne);
-            auto reshapeInput = op.GetInputOperand(kSizeZero);
-            EXPECT_NE(reshapeInput, nullptr);
-            EXPECT_EQ(reshapeInput->shape, origShape);
-            EXPECT_EQ(reshapeInput->GetProducers().size(), kSizeFour);
-            for (const auto &producer : reshapeInput->GetProducers()) {
-                EXPECT_EQ(producer->GetOpcode(), Opcode::OP_ASSEMBLE);
-            }
-            EXPECT_EQ(op.GetOutputOperandSize(), kSizeOne);
-            auto reshapeOutput = op.GetOutputOperand(kSizeZero);
-            EXPECT_NE(reshapeOutput, nullptr);
-            EXPECT_EQ(reshapeOutput->shape, reshapeShape);
-            EXPECT_EQ(reshapeOutput->GetConsumers().size(), kSizeTwo);
-            for (const auto &consumer : reshapeOutput->GetConsumers()) {
-                EXPECT_EQ(consumer->GetOpcode(), Opcode::OP_VIEW);
-            }
-            reshapeOp++;
-        }
-    }
-    EXPECT_EQ(reshapeOp, kNumOne);
-
-    runPassStra(*func, "SplitReshape");
-
-    reshapeOp = 0;
-    for (auto &op : func->Operations()) {
-        if (op.GetOpcode() == Opcode::OP_RESHAPE) {
-            EXPECT_EQ(op.GetInputOperandSize(), kSizeOne);
-            auto reshapeInput = op.GetInputOperand(kSizeZero);
-            EXPECT_NE(reshapeInput, nullptr);
-            EXPECT_EQ(reshapeInput->shape, tiledreshapeShape);
-            EXPECT_EQ(reshapeInput->GetProducers().size(), kSizeTwo);
-            for (const auto &producer : reshapeInput->GetProducers()) {
-                EXPECT_EQ(producer->GetOpcode(), Opcode::OP_ASSEMBLE);
-                EXPECT_EQ(producer->GetInputOperandSize(), kSizeOne);
-                EXPECT_EQ(producer->GetInputOperand(kSizeZero)->shape, tiledassembleShape);
-            }
-            EXPECT_EQ(op.GetOutputOperandSize(), kSizeOne);
-            auto reshapeOutput = op.GetOutputOperand(kSizeZero);
-            EXPECT_NE(reshapeOutput, nullptr);
-            EXPECT_EQ(reshapeOutput->shape, tiledviewShape);
-            EXPECT_EQ(reshapeOutput->GetConsumers().size(), kSizeOne);
-            for (const auto &consumer : reshapeOutput->GetConsumers()) {
-                EXPECT_EQ(consumer->GetOpcode(), Opcode::OP_VIEW);
-                EXPECT_EQ(consumer->GetOutputOperandSize(), kSizeOne);
-                EXPECT_EQ(consumer->GetOutputOperand(kSizeZero)->shape, tiledviewShape);
-            }
-            reshapeOp++;
-        }
-    }
-    EXPECT_EQ(reshapeOp, kNumTwo);
+    RunPassStra(*func, "SplitReshape");
+    CheckOpReshape(func, CheckReshapeStruct{tiledreshapeShape, kSizeTwo, true, tiledassembleShape, tiledviewShape, kSizeOne, true, tiledviewShape, kNumTwo});
 }
 
 /*
@@ -1420,7 +1322,7 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchSTest) {
     func->outCasts_.push_back(output1);
     func->outCasts_.push_back(output2);
 
-    runPassStra(*func, "SplitReshape");
+    RunPassStra(*func, "SplitReshape");
 
     int reshapeOp = 0;
     int assembleOp = 0;
@@ -1600,7 +1502,7 @@ TEST_F(TestSplitReshapePass, TestDynBeCoveredSTest) {
     func->outCasts_.push_back(output3);
     func->outCasts_.push_back(output4);
 
-    runPassStra(*func, "SplitReshape");
+    RunPassStra(*func, "SplitReshape");
 
     int reshapeOp = 0;
     int assembleOp = 0;
@@ -1784,7 +1686,7 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchWithAllSTest) {
     func->outCasts_.push_back(output1);
     func->outCasts_.push_back(output2);
 
-    runPassStra(*func, "SplitReshape");
+    RunPassStra(*func, "SplitReshape");
 
     int reshapeOp = 0;
     int assembleOp = 0;
@@ -1927,7 +1829,7 @@ TEST_F(TestSplitReshapePass, TestExceptionCase1) {
 
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase5");
 
-    runPassStra(*func, "ExpandFunction");
+    RunPassStra(*func, "ExpandFunction");
 
     int reshapeOp = 0;
     int OpNum = 0;
@@ -1939,7 +1841,7 @@ TEST_F(TestSplitReshapePass, TestExceptionCase1) {
     }
     EXPECT_EQ(reshapeOp, kNumOne);
 
-    runPassStra(*func, "SplitReshape");
+    RunPassStra(*func, "SplitReshape");
 
     reshapeOp = 0;
     int AfterOpNum = 0;
@@ -1986,7 +1888,7 @@ TEST_F(TestSplitReshapePass, TestExceptionCase2) {
 
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase6");
 
-    runPassStra(*func, "ExpandFunction");
+    RunPassStra(*func, "ExpandFunction");
 
     int reshapeOp = 0;
     for (auto &op : func->Operations()) {
@@ -1996,7 +1898,7 @@ TEST_F(TestSplitReshapePass, TestExceptionCase2) {
     }
     EXPECT_EQ(reshapeOp, kNumOne);
 
-    runPassStra(*func, "SplitReshape");
+    RunPassStra(*func, "SplitReshape");
 
     reshapeOp = 0;
     for (auto &op : func->Operations()) {
@@ -2042,7 +1944,7 @@ TEST_F(TestSplitReshapePass, TestExceptionCase3) {
 
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase7");
 
-    runPassStra(*func, "ExpandFunction");
+    RunPassStra(*func, "ExpandFunction");
 
     int reshapeOp = 0;
     for (auto &op : func->Operations()) {
@@ -2052,7 +1954,7 @@ TEST_F(TestSplitReshapePass, TestExceptionCase3) {
     }
     EXPECT_EQ(reshapeOp, kNumOne);
 
-    runPassStra(*func, "SplitReshape");
+    RunPassStra(*func, "SplitReshape");
 
     reshapeOp = 0;
     for (auto &op : func->Operations()) {
@@ -2129,7 +2031,7 @@ TEST_F(TestSplitReshapePass, TestExceptionCase4) {
     }
     EXPECT_EQ(reshapeOp, kNumOne);
 
-    runPassStra(*func, "SplitReshape");
+    RunPassStra(*func, "SplitReshape");
 
     reshapeOp = 0;
     for (auto &op : func->Operations()) {
@@ -2172,7 +2074,7 @@ TEST_F(TestSplitReshapePass, TestExceptionCase5) {
 
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase8");
 
-    runPassStra(*func, "ExpandFunction");
+    RunPassStra(*func, "ExpandFunction");
 
     int reshapeOp = 0;
     int OpNum = 0;
@@ -2184,7 +2086,7 @@ TEST_F(TestSplitReshapePass, TestExceptionCase5) {
     }
     EXPECT_EQ(reshapeOp, kNumOne);
 
-    runPassStra(*func, "SplitReshape");
+    RunPassStra(*func, "SplitReshape");
 
     reshapeOp = 0;
     int AfterOpNum = 0;
