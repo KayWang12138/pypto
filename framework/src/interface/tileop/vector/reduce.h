@@ -67,6 +67,10 @@ TILEOP void ReduceCompute(T0 dst, T1 src, T2 tmp) {
             for (size_t n2Index = 0; n2Index < dstShape2; ++n2Index) {
                 using DstTileDefine =
                     pto::Tile<pto::TileType::Vec, typename T0::Type, dstTileH, dstTileW, pto::BLayout::RowMajor, -1, -1>;
+                if constexpr (dstTileW == 1) {
+                    using DstTileDefine =
+                        pto::Tile<pto::TileType::Vec, typename T0::Type, dstTileH, dstTileW, pto::BLayout::ColMajor, -1, -1>;
+                }
                 using SrcTileDefine =
                     pto::Tile<pto::TileType::Vec, typename T1::Type, srcTileH, srcTileW, pto::BLayout::RowMajor, -1, -1>;
                 DstTileDefine dstTile(dstShape3, dstShape4);

@@ -33,6 +33,10 @@ TILEOP void UnaryComputeImpl(T0 dst, T1 src) {
         pto::TSQRT(dst, src);
         return;
     }
+    if constexpr (op == UnaryOp::BRCB) {
+        pto::TBRCB(dst, src);
+        return;
+    }
 }
 
 template <UnaryOp op, typename T0, typename T1>
