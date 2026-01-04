@@ -46,8 +46,6 @@ constexpr uint16_t SAME_ADDR_BYTE_SIZE = 512;
 constexpr int32_t ROUTED_EXPET_NUM = 160;
 constexpr int32_t FFN_TILE_SIZE = 8;
 constexpr int32_t AIV_NUM = 4;
-constexpr int32_t RECEIVE_CNT_OUT_ROW = 1024;
-constexpr int32_t RECEIVE_CNT_OUT_COL = 512;
 constexpr int32_t SHMEM_SIGNAL_STRIDE = 8;
 constexpr int32_t MAX_TILE_NUM = 1024;
 enum class TileIndex : size_t {
@@ -125,21 +123,27 @@ inline bool checkValidInput(const Tensor &input, uint64_t dim, DataType dType, i
     return true;
 }
 
-inline bool checkValidConfig(const MoeConfig &moeConfig, std::string &assertResult)
+inline bool checkValidConfig(uint32_t epWorldSize, uint32_t moeExpertNum, uint32_t sharedExpertNum,
+    uint32_t sharedExpertRankNum, std::string &assertResult)
 {
-    int32_t rankNum = moeConfig.rankNum;
-    int32_t routedExpertNum = moeConfig.routedExpertNum;
-    int32_t expertNumPerRank = moeConfig.expertNumPerRank;
-    if (rankNum != 4 && rankNum != 8) { // rankNum仅支持4和8
-        assertResult = "Distributed constraint violated: moeConfig rankSize must be 4 or 8.";
+    int32_t routedExpertNum = moeExpertNum - sharedExpertNum;
+
+    if (sharedExpertRankNum != 0) {
+        assertResult = "Distributed constraint violated: sharedExpertRankNum must be 0.";
+        return false;
+    }
+
+    if (sharedExpertNum != 0) {
+        assertResult = "Distributed constraint violated: sharedExpertNum must be 0.";
+        return false;
+    }
+    
+    if (epWorldSize != 4 && epWorldSize != 8) { // rankNum仅支持4和8
+        assertResult = "Distributed constraint violated: epWorldSize must be 4 or 8.";
         return false;
     }
     if (routedExpertNum != ROUTED_EXPET_NUM) {
-        assertResult = "Distributed constraint violated: moeConfig routedExpertNum must be " + std::to_string(ROUTED_EXPET_NUM) + ".";
-        return false;
-    }
-    if (expertNumPerRank != routedExpertNum / rankNum) {
-        assertResult = "Distributed constraint violated: moeConfig expertNumPerRank must be " + std::to_string(routedExpertNum / rankNum) + ".";
+        assertResult = "Distributed constraint violated: routedExpertNum must be " + std::to_string(ROUTED_EXPET_NUM) + ".";
         return false;
     }
     return true;
