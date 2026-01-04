@@ -469,6 +469,10 @@ OpcodeManager::OpcodeManager() {
         {            Opcode::OP_PAIRMAX,       "TPairMax"},
         {            Opcode::OP_PAIRMIN,       "TPairMin"},
         {        Opcode::OP_L0C_COPY_UB,       "TExtract"},
+<<<<<<< HEAD
         {            Opcode::OP_VEC_DUP,        "TVecDup"},
+=======
+        {        Opcode::OP_BRCB,                 "Tbrcb"},
+>>>>>>> 47ead404 (feat(interface): Support ptobrcinline)
     };
 } // namespace npu::tile_fwk
