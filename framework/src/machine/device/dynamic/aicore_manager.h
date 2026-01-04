@@ -215,16 +215,9 @@ public:
         if (rc != DEVICE_MACHINE_OK) {
             ret = rc;
         }
-        DEV_DEBUG("sync finish ret = %d .", rc);
-
-        if (IsNeedProcAicpuTask()) {
-            while (!aicpuTaskManager_.Finished()) {
-                (void)aicpuTaskManager_.TaskProcess();
-            }
-        }
         PerfMtEnd(PERF_EVT_SYNC_AICORE, aicpuIdx_);
-        DEV_DEBUG("aicpu %d proc finish send all task,aic: %lu, aiv: %lu, aicpu: %lu.",
-            aicpuIdx_, procAicCoreFunctionCnt_, procAivCoreFunctionCnt_, procAicpuFunctionCnt_);
+        DEV_DEBUG("aicpu %d proc finish send all task,aic: %lu, aiv: %lu, aicpu: %lu, sync finish ret: %d.",
+            aicpuIdx_, procAicCoreFunctionCnt_, procAivCoreFunctionCnt_, procAicpuFunctionCnt_, ret);
         return ret;
     }
 
