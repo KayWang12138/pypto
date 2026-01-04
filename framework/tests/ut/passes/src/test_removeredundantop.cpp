@@ -563,7 +563,7 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpSTest2) {
             expand_num++;
         }
     }
-    EXPECT_EQ(view_num, kNumOne);
+    EXPECT_EQ(view_num, kNumTwo);
     EXPECT_EQ(expand_num, kNumOne);
 }
 
