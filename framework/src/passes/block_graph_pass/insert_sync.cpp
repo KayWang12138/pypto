@@ -1614,6 +1614,7 @@ void InsertSync::InsertPipeAll(Function *subGraphFunc) {
         syncOp.syncQueue_ = {PipeType::PIPE_ALL, PipeType::PIPE_ALL, CoreType::AIV, CoreType::AIV, -1};
         newOpList.push_back(&syncOp);
     }
+    subGraphFunc->SetGraphType(GraphType::BLOCK_GRAPH);
     subGraphFunc->ScheduleBy(newOpList, true);
 }
 
@@ -1665,6 +1666,7 @@ Status InsertSync::InsertSyncMainLoop(Function *subGraphFunc) {
         APASS_LOG_ERROR_F(Elements::Operation, "InsertSyncMainLoop failed at GenNewOpList.");
         return FAILED;
     }
+    subGraphFunc->SetGraphType(GraphType::BLOCK_GRAPH);
     subGraphFunc->ScheduleBy(opListNew, true);
     APASS_LOG_DEBUG_F(Elements::Operation, "==========================================================================================");
     for (const auto &op : subGraphFunc->Operations(false).DuplicatedOpList()) {
