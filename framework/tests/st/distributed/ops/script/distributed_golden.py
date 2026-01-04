@@ -364,7 +364,7 @@ def collect_and_save(
     routed_expert_capacity = get_routed_expert_capacity(case)
     for rank_id in range(case.rank_size):
         fixed_shape_y = torch.zeros((row, case.hidden_size), dtype=case.dtype)
-        fixed_shape_combine_info = torch.full((row, 3), -1, dtype=torch.int32)
+        fixed_shape_combine_info = torch.full((row, 3), 0, dtype=torch.int32)
         valid_count = torch.zeros([routed_expert_capacity], dtype=torch.int32)
         y_offset, combine_info_offset = 0, 0
         for expert_offset in range(routed_expert_capacity):
@@ -628,15 +628,16 @@ def generate_allreduce_add_allreduce_golden(case_name: str, output: Path, case_i
 
 @GoldenRegister.reg_golden_func(
     case_names=[
-        'TestMoeDispatch/DistributedTest.TestMoeDispatch',
+        'TestMoeDistributedDispatch/DistributedTest.TestMoeDistributedDispatch',
     ]
 )
+
 def generate_moe_dispatch_golden(case_name: str, output: Path, case_index: int = None) -> bool:
     def golden_func(config: dict):
         case = parse_moe_case(config)
         generate_moe_dispatch_case(case, output)
     logging.debug('Case(%s), Golden creating...', case_name)
-    return gen_op_golden('MoeDispatch', golden_func, output, case_index)
+    return gen_op_golden('MoeDistributedDispatch', golden_func, output, case_index)
 
 
 @GoldenRegister.reg_golden_func(
