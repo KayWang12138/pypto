@@ -15,8 +15,8 @@ import logging
 import math
 import torch
 import numpy as np
-import pypto
 from dataclasses import dataclass
+import pypto
 
 
 @dataclass
@@ -304,7 +304,8 @@ def topk_idx_compare(t: torch.Tensor, t_ref: torch.Tensor, name, atol, error_cou
         # 判断是否超出阈值
         if error_count > int(error_count_threshold * atol):
             precision = "FAIL"
-            err_msg = f"compare fail: {name}, error_count: {error_count}, error_count_threshold: {error_count_threshold}"
+            err_msg = f"compare fail: {name}, error_count: {error_count}, \
+                        error_count_threshold: {error_count_threshold}"
             break
     assert precision == "PASS", err_msg
 
