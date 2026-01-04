@@ -90,7 +90,7 @@ static void ExpandOperationExeFunc3Dims(
         std::vector<SymbolicScalar> outputsShape = {outputs[0].GetShape()[0], outputs[0].GetShape()[1], outputs[0].GetShape()[2]};
         auto args = static_cast<const ExpandOpFuncArgs *>(opArgs);
         std::vector<int64_t> viewShape = {args->viewShape_[0], args->viewShape_[1], args->viewShape_[2]};
-        std::vector<int64_t> inputViewShape = {inputs[0].GetShape()[0], inputs[0].GetShape()[1], inputs[0].GetShape()[2]};
+        std::vector<int64_t> inputViewShape = viewShape;
         std::vector<SymbolicScalar> inputValidShape = inputsShape;
         std::vector<SymbolicScalar> inputOffset(3, 0);
         const int bloop = CeilDiv(outputsShape[0], viewShape[0]);
@@ -135,7 +135,7 @@ static void ExpandOperationExeFunc4Dims(
         std::vector<SymbolicScalar> outputsShape = {outputs[0].GetShape()[0], outputs[0].GetShape()[1], outputs[0].GetShape()[2], outputs[0].GetShape()[3]};
         auto args = static_cast<const ExpandOpFuncArgs *>(opArgs);
         std::vector<int64_t> viewShape = {args->viewShape_[0], args->viewShape_[1], args->viewShape_[2], args->viewShape_[3]};
-        std::vector<int64_t> inputViewShape = {inputs[0].GetShape()[0], inputs[0].GetShape()[1], inputs[0].GetShape()[2], inputs[0].GetShape()[3]};
+        std::vector<int64_t> inputViewShape = viewShape;
         std::vector<SymbolicScalar> inputValidShape = inputsShape;
         std::vector<SymbolicScalar> inputOffset(4, 0);
         const int bloop = CeilDiv(outputsShape[0], viewShape[0]);
