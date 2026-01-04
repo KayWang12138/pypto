@@ -69,12 +69,9 @@ static void ExpandOperationExeFunc2Dims(
                 inputValidShape = {std::min(inputsShape[0] - bIdx * inputViewShape[0], inputViewShape[0]),
                                    std::min(inputsShape[1] - sIdx * inputViewShape[1], inputViewShape[1])};
                 inputOffset = {bIdx * inputViewShape[0], sIdx * inputViewShape[1]};
-                if (expandAxis == 0) {
-                    inputValidShape[0] = inputViewShape[0];
-                    inputOffset[0] = 0;
-                } else if (expandAxis == 1) {
-                    inputValidShape[1] = inputViewShape[1];
-                    inputOffset[1] = 0;
+                if (expandAxis >= 0 && expandAxis <= 1) {
+                    inputValidShape[expandAxis] = inputViewShape[expandAxis];
+                    inputOffset[expandAxis] = 0;
                 }
                 Tensor tileTensor0 = View(inputs[0], inputViewShape, inputValidShape, inputOffset);
                 TileShape::Current().SetVecTile(args->tileShape_);
@@ -115,15 +112,9 @@ static void ExpandOperationExeFunc3Dims(
                                        std::min(inputsShape[1] - sIdx * inputViewShape[1], inputViewShape[1]),
                                        std::min(inputsShape[2] - nIdx * inputViewShape[2], inputViewShape[2])};
                     inputOffset = {bIdx * inputViewShape[0], sIdx * inputViewShape[1], nIdx * inputViewShape[2]};
-                    if (expandAxis == 0) {
-                        inputValidShape[0] = inputViewShape[0];
-                        inputOffset[0] = 0;
-                    } else if (expandAxis == 1) {
-                        inputValidShape[1] = inputViewShape[1];
-                        inputOffset[1] = 0;
-                    } else if (expandAxis == 2) {
-                        inputValidShape[2] = inputViewShape[2];
-                        inputOffset[2] = 0;
+                    if (expandAxis >= 0 && expandAxis <= 2) {
+                        inputValidShape[expandAxis] = inputViewShape[expandAxis];
+                        inputOffset[expandAxis] = 0;
                     }
                     Tensor tileTensor0 = View(inputs[0], inputViewShape, inputValidShape, inputOffset);
                     TileShape::Current().SetVecTile(args->tileShape_);
@@ -168,18 +159,9 @@ static void ExpandOperationExeFunc4Dims(
                                            std::min(inputsShape[2] - nIdx * inputViewShape[2], inputViewShape[2]),
                                            std::min(inputsShape[3] - mIdx * inputViewShape[3], inputViewShape[3])};
                         inputOffset = {bIdx * inputViewShape[0], sIdx * inputViewShape[1], nIdx * inputViewShape[2], mIdx * inputViewShape[3]};
-                        if (expandAxis == 0) {
-                            inputValidShape[0] = inputViewShape[0];
-                            inputOffset[0] = 0;
-                        } else if (expandAxis == 1) {
-                            inputValidShape[1] = inputViewShape[1];
-                            inputOffset[1] = 0;
-                        } else if (expandAxis == 2) {
-                            inputValidShape[2] = inputViewShape[2];
-                            inputOffset[2] = 0;
-                        } else if (expandAxis == 3) {
-                            inputValidShape[3] = inputViewShape[3];
-                            inputOffset[3] = 0;
+                        if (expandAxis >= 0 && expandAxis <= 3) {
+                            inputValidShape[expandAxis] = inputViewShape[expandAxis];
+                            inputOffset[expandAxis] = 0;
                         }
                         Tensor tileTensor0 = View(inputs[0], inputViewShape, inputValidShape, inputOffset);
                         TileShape::Current().SetVecTile(args->tileShape_);
