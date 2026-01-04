@@ -13,6 +13,7 @@
  * \brief Unit test for codegen.
  */
 
+#include "function/block_function.h"
 #include "gtest/gtest.h"
 
 #include "tilefwk/tilefwk.h"
@@ -90,10 +91,11 @@ TEST_F(TestCodegenDynGather, TestGather) {
             }
         }
         DynParamInfo fakeParam = {3, 0, 0, DynParamInfoType::VALID_SHAPE, 0, SymbolicScalar(), false, ""};
-        subFunc.second->InsertDynParam("sym_26_dim_0", fakeParam);
-        subFunc.second->InsertDynParam("sym_26_dim_1", fakeParam);
-        subFunc.second->InsertDynParam("sym_27_dim_0", fakeParam);
-        subFunc.second->InsertDynParam("sym_27_dim_1", fakeParam);
+        auto subGraphFunc = dynamic_cast<BlockFunction*>(subFunc.second);
+        subGraphFunc->InsertDynParam("sym_26_dim_0", fakeParam);
+        subGraphFunc->InsertDynParam("sym_26_dim_1", fakeParam);
+        subGraphFunc->InsertDynParam("sym_27_dim_0", fakeParam);
+        subGraphFunc->InsertDynParam("sym_27_dim_1", fakeParam);
     }
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
