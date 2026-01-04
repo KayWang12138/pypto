@@ -10,7 +10,6 @@ import torch
 import torch_npu
 import pypto
 
-from mla_prolog_quant_impl import mla_prolog_quant_p, mla_prolog_quant_d, MlaTileConfig
 from utils.compare import compare
 from hc_post_impl import hc_post_torch_graph, HcPostTileConfig
 
