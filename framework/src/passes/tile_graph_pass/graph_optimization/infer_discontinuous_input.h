@@ -40,6 +40,10 @@ private:
     void Init(Function& function);
     std::vector<std::pair<LogicalTensorPtr, Operation *>> FilterCopyScenes(
         const std::vector<std::pair<LogicalTensorPtr, Operation *>> &);
+    Status ProcessViewAssemble(Function &function);
+    Status NeedInsertCopy(Operation *AssembleOp, bool &needInsert);
+    Status InsertCopy(Function &function, Operation *AssembleOp);
+    void InsertViewAssemble(Function &function, Operation *viewOp, Operation *assembleOp);
     std::map<LogicalTensorPtr, std::vector<std::pair<LogicalTensorPtr, Operation *>>> insertCopys_;
     std::map<Operation *, size_t> opInputDegree_;
     std::map<LogicalTensorPtr, size_t> tensorProducers_;

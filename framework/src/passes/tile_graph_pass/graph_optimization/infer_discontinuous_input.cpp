@@ -32,6 +32,10 @@ Status InferDiscontinuousInput::RunOnFunction(Function &function) {
         APASS_LOG_ERROR_F(Elements::Function, "Insert copy op failed.");
         return FAILED;
     }
+    if (ProcessViewAssemble(function) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Function, "ProcessViewAssemble failed.");
+        return FAILED;
+    }
     APASS_LOG_INFO_F(Elements::Function, "===> End InferDiscontinuousInput for function [%s].", function.GetRawName().c_str());
     return SUCCESS;
 }
@@ -367,6 +371,92 @@ Status InferDiscontinuousInput::InsertTensorCopy(Function &function) {
             InsertCopyOp(function, inputTensor, newTensor);
             inputTensor->RemoveConsumer(inplaceNode.second);
             inplaceNode.second->ReplaceInput(newTensor, inputTensor);
+        }
+    }
+    return SUCCESS;
+}
+
+Status InferDiscontinuousInput::NeedInsertCopy(Operation *assembleOp, bool &needInsert) {
+    for (auto &prodOp : assembleOp->ProducerOps()) {
+        if (prodOp->GetOpcode() != Opcode::OP_VIEW) {
+            needInsert = true;
+            return SUCCESS;
+        }
+        auto assembleAttr = std::static_pointer_cast<AssembleOpAttribute>(assembleOp->GetOpAttribute());
+        auto viewAttr = std::static_pointer_cast<ViewOpAttribute>(prodOp->GetOpAttribute());
+        if (assembleAttr == nullptr || viewAttr == nullptr) {
+            APASS_LOG_ERROR_F(Elements::Operation, "View or Assemble attribute attr is nullptr, NeedInsertCopy failed.");
+            return FAILED;
+        }
+        if (assembleAttr->GetToOffset() != viewAttr->GetFromOffset()) {
+            needInsert = true;
+            return SUCCESS;
+        }
+        needInsert = false;
+        return SUCCESS;
+    }
+}
+
+void InferDiscontinuousInput::InsertViewAssemble(Function &function, Operation *viewOp, Operation *assembleOp) {
+    auto &moveOutTensorPtr = viewOp->GetOOperands()[0];
+    LogicalTensor ddrTensor(function, moveOutTensorPtr->Datatype(), moveOutTensorPtr->GetShape());
+    ddrTensor.SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR);
+    LogicalTensor moveInTensor(function, moveOutTensorPtr->Datatype(), moveOutTensorPtr->GetShape());
+    moveInTensor.SetMemoryTypeBoth(moveOutTensorPtr->GetMemoryTypeOriginal());
+    // 修改图连接
+    moveOutTensorPtr->RemoveConsumer(assembleOp);
+    assembleOp->EraseInput(moveOutTensorPtr);
+    LogicalTensorPtr ddrTensorPtr = std::make_shared<LogicalTensor>(std::move(ddrTensor));
+    LogicalTensorPtr moveInTensorPtr = std::make_shared<LogicalTensor>(std::move(moveInTensor));
+    Operation &assemble = function.AddRawOperation(Opcode::OP_ASSEMBLE, {moveOutTensorPtr}, {ddrTensorPtr});
+    Operation &view = function.AddRawOperation(Opcode::OP_VIEW, {ddrTensorPtr}, {moveInTensorPtr});
+}
+
+Status InferDiscontinuousInput::InsertCopy(Function &function, Operation *assembleOp) {
+    for (auto &prodOp : assembleOp->ProducerOps()) {
+        if (prodOp->GetOpcode() != Opcode::OP_VIEW) {
+            continue;
+        }
+        if (assembleOp->GetOOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
+            // 将view和assemble中间的tensor的memorytype设置为UB
+            prodOp->GetOOperands()[0]->SetMemoryTypeBoth(MemoryType::MEM_UB);
+        } else if (assembleOp->GetOOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_UB ||
+            assembleOp->GetOOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
+            InsertViewAssemble(function, prodOp, assembleOp);
+        } else {
+            APASS_LOG_ERROR_F(Elements::Operation, "Assemble outTensor %d memory type is unexpected, InsertCopy failed.",
+                assembleOp->GetOOperands()[0]->GetMagic());
+            return FAILED;
+        }
+    }
+    return SUCCESS;
+}
+
+Status InferDiscontinuousInput::ProcessViewAssemble(Function &function) {
+    std::vector<Operation *> opList(function.Operations(false).DuplicatedOpList());
+    for (auto &op : opList) {
+        if (op->GetOpcode() != Opcode::OP_ASSEMBLE) {
+            continue;
+        }
+        bool isView{false};
+        for (auto &prodOp : op->ProducerOps()) {
+            if (prodOp->GetOpcode() == Opcode::OP_VIEW) {
+                isView = true;
+            }
+        }
+        if (!isView) {
+            continue;
+        }
+        bool needInsert{false};
+        if (NeedInsertCopy(op, needInsert) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Operation, "ProcessViewAssemble failed at function NeedInsertCopy.");
+            return FAILED;
+        }
+        if (needInsert) {
+            if (InsertCopy(function, op) != SUCCESS) {
+                APASS_LOG_ERROR_F(Elements::Operation, "ProcessViewAssemble failed at function InsertCopy.");
+                return FAILED;
+            }
         }
     }
     return SUCCESS;
