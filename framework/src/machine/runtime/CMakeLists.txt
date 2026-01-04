@@ -51,29 +51,6 @@ target_compile_definitions(tile_fwk_runtime
         PRIVATE
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN_SUB}>:BUILD_WITH_CANN_SUB>>
 )
-
-if(BUILD_WITH_CANN)
-    # 查找 hccl
-    find_library(FOUND_HCCL hccl
-        PATHS
-            "${ASCEND_CANN_PACKAGE_PATH}/lib64"
-        NO_DEFAULT_PATH
-    )
-    
-    if(FOUND_HCCL)
-        message(STATUS "Found HCCL at: ${FOUND_HCCL}")
-        set(HCCL_LIBRARY ${FOUND_HCCL})
-    else()
-        file(GLOB_RECURSE HCCL_CANDIDATES "/usr/local/Ascend/*/lib*/libhccl.so*")
-        if(HCCL_CANDIDATES)
-            list(GET HCCL_CANDIDATES 0 HCCL_LIBRARY)
-            message(STATUS "Found HCCL (recursive): ${HCCL_LIBRARY}")
-        else()
-            message(FATAL_ERROR "HCCL library not found! Set BUILD_WITH_CANN=OFF or install CANN toolkit")
-        endif()
-    endif()
-endif()
-
 target_link_directories(tile_fwk_runtime
         PUBLIC
             $<BUILD_INTERFACE:${ASCEND_CANN_PACKAGE_PATH}/lib64>

@@ -23,8 +23,8 @@
 
 namespace npu::tile_fwk {
 CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbolManager, FunctionType funcType,
-    const std::map<int, int> &locToOffset, bool isUnderDynamicFunc)
-    : CodeGenOp(symbolManager, funcType, locToOffset, isUnderDynamicFunc),
+    const std::map<int, int> &locToOffset, bool isUnderDynamicFunc, bool isMainBlk)
+    : CodeGenOp(symbolManager, funcType, locToOffset, isUnderDynamicFunc, isMainBlk),
       mteFixPipeOps_({
           // UB <-> GM
           {         Opcode::OP_UB_COPY_IN,              [this]() { return GenUBCopyIn(); }},
@@ -33,7 +33,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {   Opcode::OP_RESHAPE_COPY_OUT,        [this]() { return GenReshapeCopyOut(); }},
           {Opcode::OP_L1_TO_FIX_QUANT_PRE,             [this]() { return GenMemL1ToFB(); }},
           {       Opcode::OP_GATHER_IN_UB,            [this]() { return GenGatherInUB(); }},
-
+          {             Opcode::OP_GATHER,              [this]() { return GenGatherOp(); }},
           // L1 <-> GM/BT/L1
           {         Opcode::OP_L1_COPY_IN,           [this]() { return GenMemL1CopyIn(); }},
           {        Opcode::OP_L1_COPY_OUT,          [this]() { return GenMemL1CopyOut(); }},
@@ -63,7 +63,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           // lOC -> UB
           {        Opcode::OP_L0C_COPY_UB,     [this]() { return GenL0CToUBTileTensor(); }},
 
-          {      Opcode::OP_UB_COPY_L1,      [this]() { return GenUBToL1TileTensor(); }},
+          {         Opcode::OP_UB_COPY_L1,      [this]() { return GenUBToL1TileTensor(); }},
           {      Opcode::OP_UB_COPY_ND2NZ, [this]() { return GenUBToUBND2NZTileTensor(); }},
 }),
       unaryOps_({
@@ -220,7 +220,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
       }),
       gatherScatterOps_({
           // gather/scatter op
-          {Opcode::OP_GATHER, [this]() { return GenGatherOp(); }},
+          {Opcode::OP_GATHER_FROM_UB, [this]() { return GenGatherFromUBOp(); }},
           {Opcode::OP_GATHER_ELEMENT, [this]() { return GenGatherElementOp(); }},
           {Opcode::OP_SCATTER_ELEMENT, [this]() { return GenScatterElementSOp(); }},
           {Opcode::OP_SCATTER, [this]() { return GenScatterOp(); }},
@@ -243,8 +243,8 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
 }
 
 CodeGenOpCloudNPU::CodeGenOpCloudNPU(const CodeGenOpCloudNPUCtx &ctx)
-    : CodeGenOpCloudNPU(
-          ctx.symbolManager, ctx.topFunc.GetFunctionType(), ctx.locToOffset, ctx.topFunc.IsUnderDynamicFunction()) {
+    : CodeGenOpCloudNPU(ctx.symbolManager, ctx.topFunc.GetFunctionType(), ctx.locToOffset,
+          ctx.topFunc.IsUnderDynamicFunction(), ctx.isMainBlock) {
     CodeGenOp::Init(ctx.ops);
     UpdateTileTensorInfo();
 }
@@ -561,6 +561,12 @@ std::string CodeGenOpCloudNPU::GenCVSyncWaitOp() const {
     std::ostringstream oss;
     oss << "wait_intra_block(" << pipeId << ", " << std::to_string(syncQueue.eventId_) << ");\n";
     return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::PrintCoord(size_t dim, const std::string &coord) const {
+    std::string ret = COORD;
+    ret.append(std::to_string(dim)).append(DIM).append(coord);
+    return ret;
 }
 
 } // namespace npu::tile_fwk
