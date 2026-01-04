@@ -87,8 +87,8 @@ void DeviceSlotContext::UpdateSlots(DevAscendFunctionDupped &devRootDup, uint32_
     UpdateSlotsImpl(workspace_, slotList_.data(), devRootDup, devTaskId, devNextIdx);
 }
 
-void DeviceSlotContext::FillInputOutputSlot(DeviceExecuteSlot *slotList, size_t slotSize, DevAscendProgram *devProg,
-    DevStartArgs *args) {
+__attribute__((noinline))
+void DeviceSlotContext::FillInputSlots(DeviceExecuteSlot *slotList, size_t slotSize, DevAscendProgram *devProg, DevStartArgs *args) {
     DEV_TRACE_DEBUG(CtrlEvent(none(), InputTensorCount(args->GetInputTensorSize())));
     for (int index = 0; index < args->GetInputTensorSize(); ++index) {
         DevTensorData &param = args->GetInputTensor(index);
@@ -101,6 +101,10 @@ void DeviceSlotContext::FillInputOutputSlot(DeviceExecuteSlot *slotList, size_t 
         DEV_INFO("Param %d Input Slot %d = %lx.", index, slotIndex, param.address);
         DEV_TRACE_DEBUG(CtrlEvent(none(), InputTensorElement(index, param.address, param.shape.GetSize())));
     }
+}
+
+__attribute__((noinline))
+void DeviceSlotContext::FillOutputSlots(DeviceExecuteSlot *slotList, size_t slotSize, DevAscendProgram *devProg, DevStartArgs *args) {
     DEV_TRACE_DEBUG(CtrlEvent(none(), OutputTensorCount(args->GetOutputTensorSize())));
     for (int index = 0; index < args->GetOutputTensorSize(); ++index) {
         DevTensorData &param = args->GetOutputTensor(index);
@@ -112,6 +116,10 @@ void DeviceSlotContext::FillInputOutputSlot(DeviceExecuteSlot *slotList, size_t 
         DEV_INFO("Param %d Output Slot %d = %lx.", index, slotIndex, param.address);
         DEV_TRACE_DEBUG(CtrlEvent(none(), OutputTensorElement(index, param.address, param.shape.GetSize())));
     }
+}
+
+__attribute__((noinline))
+void DeviceSlotContext::HandleInplaceOutputs(DeviceExecuteSlot *slotList, size_t slotSize, DevAscendProgram *devProg, DevStartArgs *args) {
     for (size_t index = static_cast<size_t>(args->GetOutputTensorSize()); index < devProg->startArgsOutputTensorSlotIndexList.size(); ++index) {
         int outSlot = devProg->startArgsOutputTensorSlotIndexList[index];
         DEV_ASSERT_MSG(outSlot >= 0 && outSlot < static_cast<int>(slotSize),
@@ -126,6 +134,10 @@ void DeviceSlotContext::FillInputOutputSlot(DeviceExecuteSlot *slotList, size_t 
             DEV_VERBOSE_DEBUG("Param %zu Output Slot %d = inSlot %d.", index, outSlot, inSlot);
         }
     }
+}
+
+__attribute__((noinline))
+void DeviceSlotContext::MarkAssembleSlots(DeviceExecuteSlot *slotList, size_t slotSize, DevAscendProgram *devProg) {
     for (size_t index = 0; index < devProg->assembleSlotIndexList.size(); ++index) {
         int slotIndex = devProg->assembleSlotIndexList[index];
         DEV_ASSERT_MSG(slotIndex >= 0 && slotIndex < static_cast<int>(slotSize),
@@ -133,6 +145,10 @@ void DeviceSlotContext::FillInputOutputSlot(DeviceExecuteSlot *slotList, size_t 
         slotList[slotIndex].isAssembleSlot = true;
         DEV_VERBOSE_DEBUG("Assemble Slot %d .", slotIndex);
     }
+}
+
+__attribute__((noinline))
+void DeviceSlotContext::RegisterPartialUpdateSlots(DeviceExecuteSlot *slotList, size_t slotSize, DevAscendProgram *devProg) {
     for (size_t index = 0, ie = devProg->partialUpdateList.size(); index < ie; index++) {
         auto &partialUpdate = devProg->At(devProg->partialUpdateList, index);
         int slotIndex = index;
@@ -144,6 +160,15 @@ void DeviceSlotContext::FillInputOutputSlot(DeviceExecuteSlot *slotList, size_t 
             DEV_VERBOSE_DEBUG("Partial Update Slot %d.\n", slotIndex);
         }
     }
+}
+
+void DeviceSlotContext::FillInputOutputSlot(DeviceExecuteSlot *slotList, size_t slotSize, DevAscendProgram *devProg,
+    DevStartArgs *args) {
+    FillInputSlots(slotList, slotSize, devProg, args);
+    FillOutputSlots(slotList, slotSize, devProg, args);
+    HandleInplaceOutputs(slotList, slotSize, devProg, args);
+    MarkAssembleSlots(slotList, slotSize, devProg);
+    RegisterPartialUpdateSlots(slotList, slotSize, devProg);
     (void)slotSize;
 }
 

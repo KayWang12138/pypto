@@ -40,6 +40,12 @@ public:
                              DevStartArgs *args);
 
 private:
+    void FillInputSlots(DeviceExecuteSlot *slotList, size_t slotSize, DevAscendProgram *devProg, DevStartArgs *args);
+    void FillOutputSlots(DeviceExecuteSlot *slotList, size_t slotSize, DevAscendProgram *devProg, DevStartArgs *args);
+    void HandleInplaceOutputs(DeviceExecuteSlot *slotList, size_t slotSize, DevAscendProgram *devProg, DevStartArgs *args);
+    void MarkAssembleSlots(DeviceExecuteSlot *slotList, size_t slotSize, DevAscendProgram *devProg);
+    void RegisterPartialUpdateSlots(DeviceExecuteSlot *slotList, size_t slotSize, DevAscendProgram *devProg);
+
     Vector<DeviceExecuteSlot, WsMemCategory::VECTOR_SLOT_LIST> slotList_;
     DeviceWorkspaceAllocator *workspace_{nullptr};
 };
