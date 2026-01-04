@@ -27,7 +27,7 @@ namespace npu::tile_fwk {
 constexpr int64_t INNER_PAD_VALUE = 32;
 constexpr int64_t OUTER_PAD_VALUE = 16;
 
-int64_t PadUB(int64_t dim, int64_t padValue) {
+int64_t GenerateMoveOp::PadUB(int64_t dim, int64_t padValue) {
     ASSERT (padValue >0);
     return (dim + padValue - 1) / padValue * padValue;
 }
@@ -182,11 +182,11 @@ void GenerateMoveOp::ProcessUB2L1(Function &function, Operation &op) const {
         //ND转NZ时shape对齐
         auto innerIndex = ubNzTensor->shape.size() - 2; // matmul高轴
         auto outerIndex = ubNzTensor->shape.size() - 1;  // matmul低轴
-        ubNzTensor->shape[innerIndex] = PadUB(ubNzTensor->shape[innerIndex], INNER_PAD_VALUE/BytesOf(ubNdTensor->Datatype()));
-        ubNzTensor->shape[outerIndex] = PadUB(ubNzTensor->shape[outerIndex], OUTER_PAD_VALUE);
+        ubNzTensor->shape[innerIndex] = GenerateMoveOp::PadUB(ubNzTensor->shape[innerIndex], INNER_PAD_VALUE/BytesOf(ubNdTensor->Datatype()));
+        ubNzTensor->shape[outerIndex] = GenerateMoveOp::PadUB(ubNzTensor->shape[outerIndex], OUTER_PAD_VALUE);
         std::vector<int64_t> rawshape_new = ubNdTensor->tensor->rawshape;
-        rawshape_new[innerIndex] = PadUB(ubNzTensor->tensor->rawshape[innerIndex], INNER_PAD_VALUE/BytesOf(ubNdTensor->Datatype()));
-        rawshape_new[outerIndex] = PadUB(ubNzTensor->tensor->rawshape[outerIndex], OUTER_PAD_VALUE);
+        rawshape_new[innerIndex] = GenerateMoveOp::PadUB(ubNzTensor->tensor->rawshape[innerIndex], INNER_PAD_VALUE/BytesOf(ubNdTensor->Datatype()));
+        rawshape_new[outerIndex] = GenerateMoveOp::PadUB(ubNzTensor->tensor->rawshape[outerIndex], OUTER_PAD_VALUE);
         ubNzTensor->tensor->UpdateRawShape(rawshape_new);
         ubNzTensor->SetMemoryTypeBoth(MemoryType::MEM_UB);
         //插入UB2UB节点（ND2NZ)
