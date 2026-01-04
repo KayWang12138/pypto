@@ -351,4 +351,42 @@ TEST_F(TestCodegenUnary, TestVecDupUnaligned) {
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
+
+TEST_F(TestCodegenUnary, TestRowMaxLine) {
+    config::SetBuildStatic(true);
+
+    std::vector<int64_t> shape = {64, 64};
+    auto shapeImme = OpImmediate::Specified(shape);
+    TileShape::Current().SetVecTile(shape);
+    Tensor inputA(DT_FP32, shape, "A");
+    Tensor inputB(DT_FP32, shape, "B");
+    Tensor output(DT_FP32, shape, "C");
+
+    Element scalaVal(DataType::DT_FP32, 1.0);
+
+    std::string funcName = "TestRowMaxLine";
+    FUNCTION(funcName, {inputA, inputB, output}) {
+        output = Add(inputA, inputB);
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
+    auto localTensorSrc = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
+    auto localTensorDst = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
+
+    auto &op = function->AddOperation(Opcode::OP_ROWMAXLINE, {localTensorSrc}, {localTensorDst});
+
+    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
+    CodeGenCtx ctx;
+    CodeGenCloudNPU cga(ctx);
+    cga.GenAllocForLocalBuffer(op, symbolManager);
+    CodeGenOpCloudNPU cop(symbolManager, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
+    function->GetTensorMap().inverseMap_[localTensorSrc->GetMagic()] = localTensorSrc;
+    function->GetTensorMap().inverseMap_[localTensorDst->GetMagic()] = localTensorDst;
+
+    cop.Init(op);
+    std::string res = cop.GenOpCode();
+    std::string expect =
+        R"!!!(TileOp::Tmaxpool<float, /*outputHW*/32, 49, /*inputHW*/32, 49, /*stride*/0, 0, /*poolHpoolW*/0, 0>((__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0);
+)!!!";
+    EXPECT_EQ(res, expect);
+}
 } // namespace npu::tile_fwk
