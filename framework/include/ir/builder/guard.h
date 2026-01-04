@@ -8,12 +8,12 @@ class CompoundStatement;
 
 class ScopeGuard {
 public:
-    ScopeGuard(IRBuilder& builder, CompoundStatement* new_scope, Function* new_func = nullptr);
+    ScopeGuard(IRBuilder& builder, std::shared_ptr<CompoundStatement> new_scope, std::shared_ptr<Function> new_func = nullptr);
     ~ScopeGuard();
 
 private:
     IRBuilder& builder_;
-    CompoundStatement* prev_compound_;
-    Function* prev_func_;
+    std::shared_ptr<CompoundStatement> prev_compound_;
+    std::shared_ptr<Function> prev_func_;
 };
 }

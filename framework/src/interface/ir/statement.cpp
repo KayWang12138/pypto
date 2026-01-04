@@ -28,10 +28,10 @@ std::unordered_map<std::string, ValuePtr> CompoundStatement::GetAncestorValues()
     std::unordered_map<std::string, ValuePtr> ancestor_values;
     
     // Traverse all ancestor scopes (parent, grandparent, etc.)
-    CompoundStatement* current_parent = parent_;
-    while (current_parent != nullptr) {
+    auto currentParent = parent_.lock();
+    while (currentParent) {
         // Collect all values from current ancestor scope's environment table
-        const auto& parent_env = current_parent->GetEnvTable();
+        const auto& parent_env = currentParent->GetEnvTable();
         for (const auto& pair : parent_env) {
             if (pair.second) {
                 // If a variable with the same name exists in multiple ancestor scopes,
@@ -43,7 +43,7 @@ std::unordered_map<std::string, ValuePtr> CompoundStatement::GetAncestorValues()
         }
         
         // Move to next ancestor
-        current_parent = current_parent->GetParent();
+        currentParent = currentParent->GetParent().lock();
     }
     
     return ancestor_values;
@@ -64,8 +64,8 @@ ValuePtr CompoundStatement::GetEnvVar(const std::string& name) const {
     }
     
     // If not found, search in parent scope (recursively)
-    if (parent_) {
-        return parent_->GetEnvVar(name);
+    if (auto parentPtr = parent_.lock()) {
+        return parentPtr->GetEnvVar(name);
     }
     
     // Not found in any scope
@@ -105,7 +105,7 @@ void ForStatement::Print(std::ostream& os, int indent) const {
     } else {
         // Fallback: derive result variables from the loop body's terminal yield, if any.
         const YieldStatement* loopYield = nullptr;
-        const auto& bodyStmts = compound_.GetStatements();
+        const auto& bodyStmts = compound_->GetStatements();
         if (!bodyStmts.empty()) {
             loopYield = dynamic_cast<const YieldStatement*>(bodyStmts.back().get());
         }
@@ -203,7 +203,7 @@ void ForStatement::Print(std::ostream& os, int indent) const {
     os << " {\n";
 
     // Print loop body.
-    for (const auto& stmt : compound_.GetStatements()) {
+    for (const auto& stmt : compound_->GetStatements()) {
         if (stmt) {
             stmt->Print(os, indent + 2);
         }
@@ -214,7 +214,7 @@ void ForStatement::Print(std::ostream& os, int indent) const {
 }
 
 std::shared_ptr<YieldStatement> ForStatement::Yield() {
-    const auto& bodyStmts = compound_.GetStatements();
+    const auto& bodyStmts = compound_->GetStatements();
     if (!bodyStmts.empty()) {
         return std::dynamic_pointer_cast<YieldStatement>(bodyStmts.back());
     }
@@ -222,7 +222,7 @@ std::shared_ptr<YieldStatement> ForStatement::Yield() {
 }
 
 const std::shared_ptr<YieldStatement> ForStatement::Yield() const {
-    const auto& bodyStmts = compound_.GetStatements();
+    const auto& bodyStmts = compound_->GetStatements();
     if (!bodyStmts.empty()) {
         return std::dynamic_pointer_cast<YieldStatement>(bodyStmts.back());
     }
@@ -307,11 +307,11 @@ void IfStatement::BuildResult() {
     const YieldStatement* thenYield = nullptr;
     const YieldStatement* elseYield = nullptr;
 
-    const auto& thenStmts = thenCompound_.GetStatements();
+    const auto& thenStmts = thenCompound_->GetStatements();
     if (!thenStmts.empty()) {
         thenYield = dynamic_cast<const YieldStatement*>(thenStmts.back().get());
     }
-    const auto& elseStmts = elseCompound_.GetStatements();
+    const auto& elseStmts = elseCompound_->GetStatements();
     if (!elseStmts.empty()) {
         elseYield = dynamic_cast<const YieldStatement*>(elseStmts.back().get());
     }
@@ -384,7 +384,7 @@ void IfStatement::Print(std::ostream& os, int indent) const {
 
     os << "statement.if " << condition_ << " {\n";
 
-    for (const auto& stmt : thenCompound_.GetStatements()) {
+    for (const auto& stmt : thenCompound_->GetStatements()) {
         if (stmt) {
             stmt->Print(os, indent + 2);
         }
@@ -393,7 +393,7 @@ void IfStatement::Print(std::ostream& os, int indent) const {
     PrintIndent(os, indent);
     os << "} else {\n";
 
-    for (const auto& stmt : elseCompound_.GetStatements()) {
+    for (const auto& stmt : elseCompound_->GetStatements()) {
         if (stmt) {
             stmt->Print(os, indent + 2);
         }

@@ -6,10 +6,10 @@
 
 namespace pto {
 
-Operation& IRBuilder::Emit(OperationPtr op) {
-    auto& opStmt = GetOrCreateActiveOpStmt();
-    opStmt.Operations().push_back(std::move(op));
-    return *opStmt.Operations().back();
+OperationPtr IRBuilder::Emit(OperationPtr op) {
+    auto opStmt = GetOrCreateActiveOpStmt();
+    opStmt->Operations().push_back(std::move(op));
+    return opStmt->Operations().back();
 }
 
 ValuePtrs IRBuilder::CreateOp(Opcode opcode,

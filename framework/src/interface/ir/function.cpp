@@ -8,21 +8,22 @@ Function::Function(std::string name, FunctionKind kind, FunctionSignature signat
     : Object(ObjectType::Function, std::move(name)),
       kind_(kind),
       signature_(std::move(signature)) {
+    inputCompound_ = std::make_shared<CompoundStatement>();
+    // Make the function body scope a child of the input scope.
+    compound_ = std::make_shared<CompoundStatement>(inputCompound_);
+
     // Register function arguments into the dedicated input scope so that
     // Function::scope_ can see them via GetAncestorValues().
     for (const auto& arg : signature_.arguments) {
         if (arg) {
             // Use SSA name as the key in environment table
-            inputCompound_.SetEnvVar(arg->GetSSAName(), arg);
+            inputCompound_->SetEnvVar(arg->GetSSAName(), arg);
         }
     }
-
-    // Make the function body scope a child of the input scope.
-    compound_.SetParent(&inputCompound_);
 }
 
 void Function::AddStatement(StatementPtr stmt) {
-    compound_.AddStatement(std::move(stmt));
+    compound_->AddStatement(std::move(stmt));
 }
 
 static const char* toString(FunctionKind kind) {
@@ -79,7 +80,7 @@ void Function::Print(std::ostream& os, int indent) const {
     os << " {\n";
 
     // Print structured statement body if present.
-    for (const auto& stmt : compound_.GetStatements()) {
+    for (const auto& stmt : compound_->GetStatements()) {
         if (stmt) {
             stmt->Print(os, indent + 1);
         }

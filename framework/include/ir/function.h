@@ -40,16 +40,16 @@ public:
     const FunctionSignature& GetSignature() const { return signature_; }
 
     // Top-level statement sequence forming the function body.
-    std::vector<StatementPtr>& Body() { return compound_.GetStatements(); }
-    const std::vector<StatementPtr> Body() const { return compound_.GetStatements(); }
+    std::vector<StatementPtr>& Body() { return compound_->GetStatements(); }
+    const std::vector<StatementPtr> Body() const { return compound_->GetStatements(); }
 
     // Scope for Data objects and statements created in this function.
-    CompoundStatement& GetCompound() { return compound_; }
-    const CompoundStatement& GetCompound() const { return compound_; }
+    CompoundStatementPtr GetCompound() { return compound_; }
+    const CompoundStatementPtr GetCompound() const { return compound_; }
 
     // Scope containing function arguments. This scope is the parent of the function body scope.
-    CompoundStatement& GetInputCompound() { return inputCompound_; }
-    const CompoundStatement& GetInputCompound() const { return inputCompound_; }
+    CompoundStatementPtr GetInputCompound() { return inputCompound_; }
+    const CompoundStatementPtr GetInputCompound() const { return inputCompound_; }
 
     // Convenience to append a top-level statement.
     void AddStatement(StatementPtr stmt);
@@ -60,8 +60,8 @@ public:
 private:
     FunctionKind kind_;
     FunctionSignature signature_;
-    CompoundStatement inputCompound_; // Scope holding function arguments (inputs)
-    CompoundStatement compound_;  // Scope for Data objects and statements created in this function
+    CompoundStatementPtr inputCompound_; // Scope holding function arguments (inputs)
+    CompoundStatementPtr compound_;  // Scope for Data objects and statements created in this function
 };
 
 // Helper for convenient streaming: std::cout << func;
