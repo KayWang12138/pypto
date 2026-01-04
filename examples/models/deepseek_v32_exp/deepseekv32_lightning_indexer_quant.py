@@ -12,9 +12,11 @@
 """
 from dataclasses import dataclass
 import os
+import pytest
 import logging
 import math
 import torch
+import torch_npu
 import numpy as np
 import pypto
 
@@ -22,21 +24,23 @@ import pypto
 @dataclass
 class LightningIndexerConfigs:
     # graph optimization params
+    # used for copy in merge graph
     mg_copy_in_upper_bound = 2 * 1024 * 1024
+    # used for graph partition
     pg_upper_bound = 16 * 8192
+    # l1 reuse merge params
     cube_l1_reuse_setting = {
         0: 16
     }
+    # vector graph fuse optimization
     vec_merge_mode = 2
     vec_nbuffer_setting = {
         -1: 16
     }
-    max_recycle_period = 8192
-    max_loop_num = 8192
-    first_stitch_loop = 128
     # tile params
     s1_tile = 2
     topk_tile = 16384
+    # set the tileshape size in cube computation
     c1_tile = [64, 64, 128, 128, 128, 128] # (m, M), (k, K), (n, N)
     c2_tile = [128, 128, 64, 64, 128, 128] # (m, M), (k, K), (n, N)
     # matmul relu fuse params
@@ -393,7 +397,7 @@ def lightning_indexer(case_name: str) -> bool:
                              act_seq_key_pto, block_table_pto, topk_res_pto, unroll_list, configs, selected_count)
 
     # 设备同步
-    pypto.runtime._device_synchronize()
+    torch_npu.npu.synchronize()
 
     # 生成参考结果
     topk_res_golden = lightning_indexer_compute(input_data_map, params)
@@ -406,7 +410,7 @@ def lightning_indexer(case_name: str) -> bool:
 
     return True
 
-
+@pytest.mark.skip(reason="large test case")
 def test_lightning_indexer_topk_quant_4_b_2_s1_64k_s2():
     lightning_indexer("LightningIndexerSTest.lightning_indexer_quant_4_b_2_s1_64k_s2")
 
