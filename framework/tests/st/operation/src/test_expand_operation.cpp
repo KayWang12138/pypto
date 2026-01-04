@@ -33,6 +33,16 @@ struct ExpandOpMetaData {
     nlohmann::json test_data_;
 };
 
+int ExpandAxis(const std::vector<SymbolicScalar> inputsShape, std::vector<SymbolicScalar> outputsShape) {
+    int expandAxis = -1;
+    for (size_t i = 0; i < inputsShape.size(); i++) {
+        if (inputsShape[i] != outputsShape[i]) {
+            expandAxis = i;
+        }
+    }
+    return expandAxis;
+}
+
 static void ExpandOperationExeFunc2Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
@@ -40,23 +50,16 @@ static void ExpandOperationExeFunc2Dims(
         std::vector<SymbolicScalar> outputsShape = {outputs[0].GetShape()[0], outputs[0].GetShape()[1]};
         auto args = static_cast<const ExpandOpFuncArgs *>(opArgs);
         std::vector<int64_t> viewShape = {args->viewShape_[0], args->viewShape_[1]};
-        std::vector<int64_t> inputViewShape = {inputs[0].GetShape()[0], inputs[0].GetShape()[1]};
+        std::vector<int64_t> inputViewShape = viewShape;
         std::vector<SymbolicScalar> inputValidShape = inputsShape;
         std::vector<SymbolicScalar> inputOffset(2, 0);
         const int bloop = CeilDiv(outputsShape[0], viewShape[0]);
         const int sloop = CeilDiv(outputsShape[1], viewShape[1]);
-        int expandAxis = -1;
-        for (size_t i = 0; i < inputsShape.size(); i++) {
-            if (inputsShape[i] != outputsShape[i]) {
-                expandAxis = i;
-            }
-        }
-        if (expandAxis == -1) {
-            inputViewShape = viewShape;
-        } else {
+        const int expandAxis = ExpandAxis(inputsShape, outputsShape);
+        if (expandAxis != -1) {
             for (size_t i = 0; i < inputsShape.size(); i++) {
-                if (inputsShape[i] == outputsShape[i]) {
-                    inputViewShape[i] = viewShape[i];
+                if (inputsShape[i] != outputsShape[i]) {
+                    inputViewShape[i] = inputsShape[i];
                 }
             }
         }
@@ -96,18 +99,11 @@ static void ExpandOperationExeFunc3Dims(
         const int bloop = CeilDiv(outputsShape[0], viewShape[0]);
         const int sloop = CeilDiv(outputsShape[1], viewShape[1]);
         const int nloop = CeilDiv(outputsShape[2], viewShape[2]);
-        int expandAxis = -1;
-        for (size_t i = 0; i < inputsShape.size(); i++) {
-            if (inputsShape[i] != outputsShape[i]) {
-                expandAxis = i;
-            }
-        }
-        if (expandAxis == -1) {
-            inputViewShape = viewShape;
-        } else {
+        const int expandAxis = ExpandAxis(inputsShape, outputsShape);
+        if (expandAxis != -1) {
             for (size_t i = 0; i < inputsShape.size(); i++) {
-                if (inputsShape[i] == outputsShape[i]) {
-                    inputViewShape[i] = viewShape[i];
+                if (inputsShape[i] != outputsShape[i]) {
+                    inputViewShape[i] = inputsShape[i];
                 }
             }
         }
@@ -155,22 +151,14 @@ static void ExpandOperationExeFunc4Dims(
         const int sloop = CeilDiv(outputsShape[1], viewShape[1]);
         const int nloop = CeilDiv(outputsShape[2], viewShape[2]);
         const int mloop = CeilDiv(outputsShape[3], viewShape[3]);
-        int expandAxis = -1;
-        for (size_t i = 0; i < inputsShape.size(); i++) {
-            if (inputsShape[i] != outputsShape[i]) {
-                expandAxis = i;
-            }
-        }
-        if (expandAxis == -1) {
-            inputViewShape = viewShape;
-        } else {
+        const int expandAxis = ExpandAxis(inputsShape, outputsShape);
+        if (expandAxis != -1) {
             for (size_t i = 0; i < inputsShape.size(); i++) {
-                if (inputsShape[i] == outputsShape[i]) {
-                    inputViewShape[i] = viewShape[i];
+                if (inputsShape[i] != outputsShape[i]) {
+                    inputViewShape[i] = inputsShape[i];
                 }
             }
         }
-
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
                 LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
