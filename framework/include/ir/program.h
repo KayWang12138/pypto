@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "ir/utils.h"
+#include "ir/object.h"
 
 #include <memory>
 #include <ostream>
@@ -15,7 +15,7 @@ namespace pto {
 class Function;
 
 // Represents the top-level program.module container.
-class ProgramModule : public Object, public AttributeHolder {
+class ProgramModule : public Object {
 public:
     explicit ProgramModule(std::string name);
 
