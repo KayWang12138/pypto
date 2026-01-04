@@ -401,10 +401,39 @@ void InnerTiledCumSum(size_t cur, Function &function, const TileShape &tileShape
     if (cur == dstTensor->shape.size()) {
         auto dstTile = dstTensor->View(function, cumSumTileInfo.dstTileInfo.shape, cumSumTileInfo.dstTileInfo.offset);
         auto inputTile = input->View(function, cumSumTileInfo.inputTileInfo.shape, cumSumTileInfo.inputTileInfo.offset);
-        auto &op = function.AddOperation(Opcode::OP_CUM_SUM, {inputTile}, {dstTile});
-        op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
-        op.SetAttribute(OP_ATTR_PREFIX + "flag", flag);
-        return;
+        Shape shape = {1};
+        LogicalTensorPtr tmpTile = std::make_shared<LogicalTensor>(function, inputTile->Datatype(), shape);
+
+        if (inputTile->Datatype() == DT_INT8) {
+            LogicalTensorPtr inputConvertedTile =
+                std::make_shared<LogicalTensor>(function, DT_FP16, inputTile->GetShape());
+            Operation &castInputOp = function.AddOperation(Opcode::OP_CAST, {inputTile}, {inputConvertedTile});
+            castInputOp.SetAttribute(OP_ATTR_PREFIX + "mode", CastMode::CAST_NONE);
+            LogicalTensorPtr dstConvertedTile = std::make_shared<LogicalTensor>(function, DT_FP16, dstTile->GetShape());
+            auto &op = function.AddOperation(Opcode::OP_CUM_SUM, {inputConvertedTile}, {dstConvertedTile, tmpTile});
+            op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
+            op.SetAttribute(OP_ATTR_PREFIX + "flag", flag);
+            Operation &castDstOp = function.AddOperation(Opcode::OP_CAST, {dstConvertedTile}, {dstTile});
+            castDstOp.SetAttribute(OP_ATTR_PREFIX + "mode", CastMode::CAST_NONE);
+            return;
+        } else if (inputTile->Datatype() == DT_BF16 || inputTile->Datatype() == DT_FP16) {
+            LogicalTensorPtr inputConvertedTile =
+                std::make_shared<LogicalTensor>(function, DT_FP32, inputTile->GetShape());
+            Operation &castInputOp = function.AddOperation(Opcode::OP_CAST, {inputTile}, {inputConvertedTile});
+            castInputOp.SetAttribute(OP_ATTR_PREFIX + "mode", CastMode::CAST_NONE);
+            LogicalTensorPtr dstConvertedTile = std::make_shared<LogicalTensor>(function, DT_FP32, dstTile->GetShape());
+            auto &op = function.AddOperation(Opcode::OP_CUM_SUM, {inputConvertedTile}, {dstConvertedTile, tmpTile});
+            op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
+            op.SetAttribute(OP_ATTR_PREFIX + "flag", flag);
+            Operation &castDstOp = function.AddOperation(Opcode::OP_CAST, {dstConvertedTile}, {dstTile});
+            castDstOp.SetAttribute(OP_ATTR_PREFIX + "mode", CastMode::CAST_NONE);
+            return;
+        } else {
+            auto &op = function.AddOperation(Opcode::OP_CUM_SUM, {inputTile}, {dstTile, tmpTile});
+            op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
+            op.SetAttribute(OP_ATTR_PREFIX + "flag", flag);
+            return;
+        }
     }
 
     auto &vecTile = tileShape.GetVecTile();
@@ -452,19 +481,23 @@ Tensor CumSum(const Tensor &input, const int &axis) {
     auto shapeSize = input.GetShape().size();
     auto dataType = input.GetDataType();
 
-    ASSERT(SHAPE_DIM1 <= shapeSize && shapeSize <= SHAPE_DIM4) << "The shape.size() only support 1~4";
-    std::vector<DataType> CUMSUM_SUPPORT_DATATYPES = {DataType::DT_FP32, DataType::DT_INT32, DataType::DT_INT16};
+    ASSERT(SHAPE_DIM1 <= shapeSize && shapeSize <= SHAPE_DIM5) << "The shape.size() only support 1~5";
+    std::vector<DataType> CUMSUM_SUPPORT_DATATYPES = {DataType::DT_FP32, DataType::DT_FP16, DataType::DT_INT32,
+        DataType::DT_INT16, DataType::DT_INT8, DataType::DT_BF16};
     ASSERT(std::find(CUMSUM_SUPPORT_DATATYPES.begin(), CUMSUM_SUPPORT_DATATYPES.end(), dataType) !=
-           CUMSUM_SUPPORT_DATATYPES.end()) << "The datatype is not supported";
+           CUMSUM_SUPPORT_DATATYPES.end())
+        << "The datatype is not supported";
     int tmpAxis = axis < 0 ? shapeSize + axis : axis;
     bool flag = input.GetShape().size() == 1 ? true : false;
     if (flag) {
         ASSERT(tmpAxis == 0) << "when input.GetShape().size() is 1, axis must be 0";
     }
-    ASSERT(tmpAxis == 0 || static_cast<size_t>(tmpAxis) < shapeSize) << "The tmpAxis should be 0 and less than shape size";
+    ASSERT(tmpAxis == 0 || static_cast<size_t>(tmpAxis) < shapeSize)
+        << "The tmpAxis should be 0 and less than shape size";
 
     Tensor result(input.GetDataType(), input.GetShape());
-    CALL(CumSum, *Program::GetInstance().GetCurrentFunction(), {input.GetStorage(), result.GetStorage(), tmpAxis, flag});
+    CALL(
+        CumSum, *Program::GetInstance().GetCurrentFunction(), {input.GetStorage(), result.GetStorage(), tmpAxis, flag});
     result.GetStorage()->UpdateDynValidShape(input.GetStorage()->dynValidShape_);
     return result;
 }

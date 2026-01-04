@@ -22,6 +22,10 @@
 
 namespace npu::tile_fwk {
 std::string CodeGenOpCloudNPU::GenCastOp() const {
+    if (isSupportLayout) {
+        return PrintCastTileTensor();
+    }
+
     std::string s0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
     std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
 
@@ -41,9 +45,7 @@ std::string CodeGenOpCloudNPU::GenCastOp() const {
 
     char buffer[BUFFER_SIZE_1024] = "CG_ERROR";
     int ret = 0;
-    if (isSupportLayout) {
-        return PrintCastTileTensor();
-    }
+    
     if (isDynamicFunction) {
         return PrintCastDynamicUnaligned({s0Var, dVar, srcDtypeStr, dstDtypeStr});
     }
@@ -734,9 +736,8 @@ std::string CodeGenOpCloudNPU::PrintCumSumDynamicUnaligned(const PrintCumSumPara
         paramList.emplace_back(std::to_string(inputRawShape[i]));
     }
 
-    int axis = param.axis + SHAPE_DIM4 - param.inputRawShape.size(); // 调用4维tileop需要切换axis
     bool flag = param.flag;
-    paramList.emplace_back(std::to_string(axis));
+    paramList.emplace_back(std::to_string(param.axis));
     paramList.emplace_back(std::to_string(flag));
     std::string templateParam = JoinString(paramList, ", ");
 
@@ -760,17 +761,27 @@ std::string CodeGenOpCloudNPU::PrintCumSumDynamicUnaligned(const PrintCumSumPara
     return oss.str();
 }
 
+std::string CodeGenOpCloudNPU::PrintCumSumTileTensor(int axis) const {
+    axis = axis + 1;
+    std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::DST_IDX)]);
+    std::string srcTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::SRC1_IDX)]);
+    std::ostringstream oss;
+    oss << tileOpName << "<" << axis << ">"
+        << "(" << dstTensor << ", " << srcTensor << ");\n";
+    return oss.str();
+}
+
 std::string CodeGenOpCloudNPU::GenCumSumOp() const {
     std::string dstVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
-    std::string inputVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
+    std::string inputVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID2]);
 
     ALOG_INFO_F("GenCumSumOp, dst Shape is %s", IntVecToStr(shape[ID0]).c_str());
-    ALOG_INFO_F("GenCumSumOp, input Shape is %s", IntVecToStr(shape[ID1]).c_str());
+    ALOG_INFO_F("GenCumSumOp, input Shape is %s", IntVecToStr(shape[ID2]).c_str());
 
-    std::vector inputRawShape = this->rawShape[ID1];
+    std::vector inputRawShape = this->rawShape[ID2];
 
     std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
-    std::string inputDtypeStr = DataType2CCEStr(operandDtype[ID1]);
+    std::string inputDtypeStr = DataType2CCEStr(operandDtype[ID2]);
 
     constexpr int NumOperands = 2;
     std::string dataTypeExpr[NumOperands] = {dstDtypeStr, inputDtypeStr};
@@ -778,11 +789,16 @@ std::string CodeGenOpCloudNPU::GenCumSumOp() const {
 
     ASSERT(opAttrs.count(OP_ATTR_PREFIX + "axis")) << "cannot get axis attr";
     int axis = npu::tile_fwk::AnyCast<int64_t>(opAttrs.at(OP_ATTR_PREFIX + "axis"));
+    axis = axis + SHAPE_DIM4 - inputRawShape.size(); // 调用4维tileop需要切换axis
 
     ASSERT(opAttrs.count(OP_ATTR_PREFIX + "flag")) << "cannot get flag attr";
     bool flag = npu::tile_fwk::AnyCast<bool>(opAttrs.at(OP_ATTR_PREFIX + "flag"));
 
-    return PrintCumSumDynamicUnaligned({axis, flag, dstVar, inputVar, inputRawShape, dataTypeExpr});
+    if (isSupportLayout) {
+        return PrintCumSumTileTensor(axis);
+    } else {
+        return PrintCumSumDynamicUnaligned({axis, flag, dstVar, inputVar, inputRawShape, dataTypeExpr});
+    }
 }
 
 std::string CodeGenOpCloudNPU::PrintScatterElementSOpStatic(const PrintScatterElemParam &param) const {
