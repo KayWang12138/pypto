@@ -14,7 +14,7 @@
   * */
 #include <gtest/gtest.h>
 #include "passes/block_graph_pass/mix_subgraph_split.h"
-#include "computational_graph_builder.h"
+#include "interface/function/block_function.h"
 
 namespace npu {
 namespace tile_fwk {
@@ -92,7 +92,7 @@ TEST_F(MixSubgraphSplitTest, TestMixSubgraphSplit) {
         Program::GetInstance(), "test_root", "test_root", nullptr);
     rootFuncPtr->rootFunc_ = rootFuncPtr.get();
     // 创建Mix子图leaffunction
-    auto mixFuncPtr = std::make_shared<Function>(
+    auto mixFuncPtr = std::make_shared<BlockFunction>(
         Program::GetInstance(), "test_mix_func", "test_mix_func", rootFuncPtr.get());
     mixFuncPtr->SetGraphType(GraphType::BLOCK_GRAPH);
     mixFuncPtr->SetFunctionType(FunctionType::STATIC);
