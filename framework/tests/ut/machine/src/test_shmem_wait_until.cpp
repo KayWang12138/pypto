@@ -19,6 +19,7 @@
 #include "machine/device/distributed/shmem_wait_until.h"
 #include "machine/utils/dynamic/dev_workspace.h"
 #include "tileop/distributed/hccl_context.h"
+#include "machine/device/dynamic/aicore_manager.h"
 
 namespace {
 
@@ -41,6 +42,8 @@ auto InitializeTestEnvironment(const uint32_t rankSize) {
     auto allocator = std::make_unique<npu::tile_fwk::dynamic::DeviceWorkspaceAllocator>();
     auto task = std::make_unique<npu::tile_fwk::dynamic::DynDeviceTask>(*allocator);
     auto shmemWaitUntil = std::make_unique<npu::tile_fwk::Distributed::ShmemWaitUntil>();
+    auto aicpuTaskManager = std::make_unique<npu::tile_fwk::dynamic::AicpuTaskManager>();
+    auto aicoreManager = std::make_unique<npu::tile_fwk::dynamic::AiCoreManager>(*aicpuTaskManager);
     size_t headerSize = sizeof(npu::tile_fwk::DynFuncHeader);
     size_t dataSize = sizeof(npu::tile_fwk::DynFuncData);
     std::unique_ptr<void, decltype(&free)> buffer(malloc(headerSize + dataSize), free);
@@ -96,10 +99,7 @@ void PrepareTasks(uint32_t tileOpCount, npu::tile_fwk::Distributed::ShmemWaitUnt
 void RunTests(uint32_t tileOpCount, npu::tile_fwk::Distributed::ShmemWaitUntil* shmemWaitUntil) {
     for (uint32_t taskId = 0; taskId < tileOpCount; ++taskId) {
         shmemWaitUntil->EnqueueOp(taskId);
-
-        std::vector<uint64_t> completed;
-        shmemWaitUntil->PollCompleted(completed);
-        ASSERT_EQ(completed.size(), 0);
+        shmemWaitUntil->PollCompleted(*aicoreManager);
     }
 }
 
