@@ -28,14 +28,14 @@ public:
               ValuePtrs ioprands,
               ValuePtrs ooprands,
               std::string name = "");
-    
+
     ~Operation() override = default;
 
     ObjectType GetObjectType() const override { return ObjectType::Operation; }
     // ---- OpCode ----
     Opcode GetOpcode() const { return opcode_; }
 
-    // ---- OpSchema ---- 
+    // ---- OpSchema ----
     const OpSchema& GetSchema() const {
         return GetOpSchema(opcode_);
     }
@@ -58,7 +58,7 @@ public:
     void SetInput(size_t idx, const ValuePtr& value) {
         ioprands_.at(idx) = value;
     }
-    
+
     // ---- OOprands ----
     const ValuePtrs& GetOutputs() const { return ooprands_; }
     ValuePtrs&  MutableOutputs()  { return ooprands_; }
@@ -103,6 +103,11 @@ private:
 };
 
 using OperationPtr = std::shared_ptr<Operation>;
+
+#define DEF_OP DEF_CLASS_OP
+#include "operation.def"
+#undef DEF_OP
+
 } // namespace pto
 
 

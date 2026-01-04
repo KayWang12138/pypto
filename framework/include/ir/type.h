@@ -87,7 +87,7 @@ public:
         : Type(elementType), shape_(shape) {}
 
     const std::vector<size_t>& GetShape() const { return shape_; }
-    
+
     size_t GetTypeSize() const override;
     void Print(std::ostream& os) const override;
 

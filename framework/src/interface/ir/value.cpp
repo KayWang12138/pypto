@@ -27,7 +27,7 @@ int64_t Scalar::GetInt64Value() const {
 
 void Scalar::Print(std::ostream& os, int indent) const {
     PrintIndent(os, indent);
-    
+
     switch (valueKind_) {
     case ScalarValueKind::Constant:
         // Print the actual constant value

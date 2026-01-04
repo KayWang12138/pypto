@@ -17,6 +17,7 @@ file(GLOB _Interface_Srcs
         function/*.cpp
         interpreter/*.cpp
         utils/*.cpp
+        ir/*.cpp
 
         # Operation
         operation/*.cpp
