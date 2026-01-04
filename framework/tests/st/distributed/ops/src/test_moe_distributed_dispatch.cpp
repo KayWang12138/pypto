@@ -1,0 +1,93 @@
+/**
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+/*!
+ * \file test_moe_dispatch.cpp
+ * \brief
+ */
+
+#include "distributed_op_test_common.h"
+#include "tilefwk/tilefwk.h"
+#include "interface/inner/tilefwk.h"
+#include "interface/configs/config_manager.h"
+#include "tilefwk/data_type.h"
+#include "test_dev_func_runner.h"
+
+namespace npu::tile_fwk::Distributed {
+
+void TestMoeDistributedDispatch(OpTestParam &testParam)
+{
+    constexpr size_t paramsSize = 5;
+    auto [batchSize, hiddenSize, routedNum, topK, dtype_num] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
+    DataType dType = GetDataTypeNum(dtype_num);
+    int32_t totalExpertNum = routedNum;
+    int32_t expertNumPerRank = totalExpertNum / testParam.rankSize;
+    int32_t moeExpertNum = totalExpertNum;
+    int32_t sharedExpertNum = 0;
+    int32_t sharedExpertRankNum = 0;
+    Shape xShape{batchSize, hiddenSize};
+    Shape expertIdsShape{batchSize, topK};
+    int32_t expandXRowShape = std::min(static_cast<int32_t>(batchSize) *
+        static_cast<int32_t>(topK) * testParam.rankSize, static_cast<int32_t>(batchSize) * totalExpertNum);
+    Shape expandXShape{expandXRowShape, hiddenSize};
+    Shape expertTokenNumsShape{expertNumPerRank};
+    Shape assistInfoForCombineShape{expandXRowShape, 3};
+    Shape recvCountsShape{1};
+    Tensor x(dType, xShape, "x");
+    Tensor expertIds(DataType::DT_INT32, expertIdsShape, "expertIds");
+    Tensor expertTokenNums(DataType::DT_INT32, expertTokenNumsShape, "expertTokenNums");
+    Tensor expandX(dType, expandXShape, "expandX");
+    Tensor assistInfoForCombine(DataType::DT_INT32, assistInfoForCombineShape, "assistInfoForCombine");
+    Tensor recvCounts(DataType::DT_INT32, recvCountsShape, "recvCounts");
+    int64_t expandXEleNum = expandXShape[0] * expandXShape[1];
+    int64_t expertTokenNumsEleNum = expertTokenNumsShape[0];
+    int64_t assistInfoForCombineEleNum = assistInfoForCombineShape[0] * assistInfoForCombineShape[1];
+
+    using T = npu::tile_fwk::bfloat16;
+
+    std::string xPath = GetGoldenDir() + "/x_rank_" + std::to_string(testParam.rankId) + ".bin";
+    std::vector<T> xPtr = ReadToVector<T>(xPath, xShape);
+    std::string expertIdsPath = GetGoldenDir() + "/expert_ids_rank_" + std::to_string(testParam.rankId) + ".bin";
+    std::vector<int32_t> expertIdsPtr = ReadToVector<int32_t>(expertIdsPath, expertIdsShape);
+
+    FUNCTION("MoeDispatch", {x, expertIds}, {expandX, expertTokenNums, assistInfoForCombine, recvCounts}) {
+        Distributed::MoeDistributedDispatch(x, expertIds, testParam.group, testParam.rankSize, moeExpertNum, sharedExpertNum, 
+            sharedExpertRankNum, expandX, expertTokenNums, assistInfoForCombine, recvCounts);
+    }
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateTensor<T>(x, xPtr),
+        RawTensorData::CreateTensor<int32_t>(expertIds, expertIdsPtr),
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateTensorZero(expandX),
+        RawTensorData::CreateTensorZero(expertTokenNums),
+        RawTensorData::CreateTensorZero(assistInfoForCombine),
+        RawTensorData::CreateTensorZero(recvCounts),
+    });
+
+    auto dynAttr = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
+    auto hcclContext = GetHcclContext(dynAttr->commGroupNames);
+    DeviceLauncherConfig config;
+    config.runModel = false;
+    config.hcclContext = hcclContext;
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), config);
+
+    auto expandXOutPut = ProgramData::GetInstance().GetOutputData(0);
+    EXPECT_TRUE(CompareWithGolden<uint8_t *>(dType, "/y_rank_", expandXEleNum, expandXOutPut->GetDevPtr(), testParam));
+    auto expertTokenNumsOutPut = ProgramData::GetInstance().GetOutputData(1);
+    EXPECT_TRUE(CompareWithGolden<uint8_t *>(DataType::DT_INT32, "/valid_count_rank_", expertTokenNumsEleNum, expertTokenNumsOutPut->GetDevPtr(), testParam));
+    auto assistInfoForCombineOutPut = ProgramData::GetInstance().GetOutputData(2);
+    EXPECT_TRUE(CompareWithGolden<uint8_t *>(DataType::DT_INT32, "/combine_info_rank_", assistInfoForCombineEleNum, assistInfoForCombineOutPut->GetDevPtr(), testParam));
+    auto recvCountsOutPut = ProgramData::GetInstance().GetOutputData(3);
+    EXPECT_TRUE(CompareWithGolden<uint8_t *>(DataType::DT_INT32, "/recv_counts_rank_", 1, recvCountsOutPut->GetDevPtr(), testParam));
+}
+
+} // namespace npu::tile_fwk::Distributed
