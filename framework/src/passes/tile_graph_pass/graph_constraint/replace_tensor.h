@@ -29,6 +29,12 @@
 
 namespace npu {
 namespace tile_fwk {
+
+constexpr size_t SINGLE_INPUT = 1;
+constexpr size_t THREE_INPUTS = 3;
+constexpr size_t FOUR_INPUTS = 4;
+constexpr size_t SINGLE_OUTPUT = 1;
+
 /*
 key: Opcode类型
 vaule: vector of pair, 每个pair记录了第几个输入和第几个输出存在inplace关系
