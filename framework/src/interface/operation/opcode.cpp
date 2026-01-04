@@ -438,6 +438,7 @@ OpcodeManager::OpcodeManager() {
         {        Opcode::OP_UB_COPY_OUT,         "TStore"},
         {Opcode::OP_TRANSPOSE_VNCHWCONV,         "TTrans"},
         {                Opcode::OP_ADD,           "TAdd"},
+        {            Opcode::OP_CUM_SUM,        "TCumSum"},
         {                Opcode::OP_SUB,           "TSub"},
         {                Opcode::OP_DIV,           "TDiv"},
         {                Opcode::OP_MUL,           "TMul"},
