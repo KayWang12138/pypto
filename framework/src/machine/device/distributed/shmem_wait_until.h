@@ -57,13 +57,13 @@ public:
             return nullptr;
         }
         SignalTileOp* newTask = &taskArray[taskCount];
-        newTask->Init(taskId, addr, expectSum, resetSignal); //  endOffset, stride, 后续删除
+        newTask->Init(taskId, addr, expectSum, resetSignal);
         taskCount++;
         return newTask;
     }
 
     int32_t InsertTask(uint32_t taskId, int32_t *addr, int32_t expectSum, bool resetSignal) {
-        SignalTileOp* newTask = CreateTaskData(taskId, addr, expectSum, resetSignal); //  endOffset, stride, 后续删除
+        SignalTileOp* newTask = CreateTaskData(taskId, addr, expectSum, resetSignal);
         if (newTask == nullptr) {
             DEV_ERROR("newTask is nullptr");
             return dynamic::DEVICE_MACHINE_ERROR;
