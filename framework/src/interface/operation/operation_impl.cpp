@@ -1516,7 +1516,7 @@ void ExpandOperationInto(Function &function, const TileShape &tileShape, Opcode 
             break;
         }
         case Opcode::OP_SEND_TO_ROUTING_EXPERT: {
-            npu::tile_fwk::Distributed::TiledSendToRoutingExpert(function, tileShape, iOperand, oOperand, op);
+            npu::tile_fwk::Distributed::TiledDispatchSendToRoutingExperts(function, tileShape, iOperand, oOperand, op);
             break;
         }
         case Opcode::OP_SEND_TO_SHARED_EXPERT: {
@@ -1528,23 +1528,23 @@ void ExpandOperationInto(Function &function, const TileShape &tileShape, Opcode 
             break;
         }
         case Opcode::OP_DISPATCH_SET_FLAG: {
-            npu::tile_fwk::Distributed::TiledDispatchSetFlag(function, tileShape, iOperand, oOperand, op);
+            npu::tile_fwk::Distributed::TiledDispatchSetRecvFlags(function, tileShape, iOperand, oOperand, op);
             break;
         }
         case Opcode::OP_FFN_SCHED: {
-            npu::tile_fwk::Distributed::TiledDispatchFFNSched(function, tileShape, iOperand, oOperand, op);
+            npu::tile_fwk::Distributed::TiledDispatchWaitRecvFlags(function, tileShape, iOperand, oOperand, op);
             break;
         }
         case Opcode::OP_FFN_BATCHING: {
-            npu::tile_fwk::Distributed::TiledDispatchFFNBatching(function, tileShape, iOperand, oOperand, op);
+            npu::tile_fwk::Distributed::TiledDispatchAssembleExpandX(function, tileShape, iOperand, oOperand, op);
             break;
         }
         case Opcode::OP_FFN_COMBINEINFO: {
-            npu::tile_fwk::Distributed::TiledDispatchFFNCombineInfo(function, tileShape, iOperand, oOperand, op);
+            npu::tile_fwk::Distributed::TiledDispatchAssembleCombineInfo(function, tileShape, iOperand, oOperand, op);
             break;
         }
         case Opcode::OP_FFN_VALIDCNT: {
-            npu::tile_fwk::Distributed::TiledDispatchFFNValidCnt(function, tileShape, iOperand, oOperand, op);
+            npu::tile_fwk::Distributed::TiledDispatchBuildExpertTokenNum(function, tileShape, iOperand, oOperand, op);
             break;
         }
         case Opcode::OP_SHMEM_PUT: {

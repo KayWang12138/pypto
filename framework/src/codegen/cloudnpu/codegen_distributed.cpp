@@ -267,7 +267,7 @@ std::string CodeGenOpCloudNPU::GenOffsetsAndRawShapesForMoeDistributedCombineRec
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::GenOffsetsAndRawShapesForSendToRoutingExpert() const
+std::string CodeGenOpCloudNPU::GenOffsetsAndRawShapesForDispatchSendToRoutingExperts() const
 {
     std::ostringstream oss;
     int32_t expertTableIndex = 6;
@@ -299,7 +299,7 @@ std::string CodeGenOpCloudNPU::GenOffsetsAndRawShapesForCopyToLocalExpert() cons
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::GenOffsetsAndRawShapesForDispatchSetFlag() const
+std::string CodeGenOpCloudNPU::GenOffsetsAndRawShapesForDispatchSetRecvFlags() const
 {
     std::ostringstream oss;
     int32_t shmemFlagIndex = 5;
@@ -317,7 +317,7 @@ std::string CodeGenOpCloudNPU::GenOffsetsAndRawShapesForFfnOperations() const
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::GenOffsetsAndRawShapesForFfnCombineInfo() const
+std::string CodeGenOpCloudNPU::GenOffsetsAndRawShapesForDispatchAssembleCombineInfo() const
 {
     std::ostringstream oss;
     int32_t shmemIndex = 2;
@@ -351,14 +351,14 @@ std::string CodeGenOpCloudNPU::GenExtraParamsStr() const
         {Opcode::OP_SHMEM_SIGNAL, [](const CodeGenOpCloudNPU* self) { return self->GenOffsetsAndRawShapesForShmemSignal(); }},
         {Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND, [](const CodeGenOpCloudNPU* self) { return self->GenOffsetsAndRawShapesForMoeDistributedCombineSend(); }},
         {Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE, [](const CodeGenOpCloudNPU* self) { return self->GenOffsetsAndRawShapesForMoeDistributedCombineReceive(); }},
-        {Opcode::OP_SEND_TO_ROUTING_EXPERT, [](const CodeGenOpCloudNPU* self) { return self->GenOffsetsAndRawShapesForSendToRoutingExpert(); }},
+        {Opcode::OP_SEND_TO_ROUTING_EXPERT, [](const CodeGenOpCloudNPU* self) { return self->GenOffsetsAndRawShapesForDispatchSendToRoutingExperts(); }},
         {Opcode::OP_SEND_TO_SHARED_EXPERT, [](const CodeGenOpCloudNPU* self) { return self->GenOffsetsAndRawShapesForSendToSharedExpert(); }},
         {Opcode::OP_COPY_TO_LOCAL_EXPERT, [](const CodeGenOpCloudNPU* self) { return self->GenOffsetsAndRawShapesForCopyToLocalExpert(); }},
-        {Opcode::OP_DISPATCH_SET_FLAG, [](const CodeGenOpCloudNPU* self) { return self->GenOffsetsAndRawShapesForDispatchSetFlag(); }},
+        {Opcode::OP_DISPATCH_SET_FLAG, [](const CodeGenOpCloudNPU* self) { return self->GenOffsetsAndRawShapesForDispatchSetRecvFlags(); }},
         {Opcode::OP_FFN_SCHED, [](const CodeGenOpCloudNPU* self) { return self->GenOffsetsAndRawShapesForFfnOperations(); }},
         {Opcode::OP_FFN_BATCHING, [](const CodeGenOpCloudNPU* self) { return self->GenOffsetsAndRawShapesForFfnOperations(); }},
         {Opcode::OP_FFN_VALIDCNT, [](const CodeGenOpCloudNPU* self) { return self->GenOffsetsAndRawShapesForFfnOperations(); }},
-        {Opcode::OP_FFN_COMBINEINFO, [](const CodeGenOpCloudNPU* self) { return self->GenOffsetsAndRawShapesForFfnCombineInfo(); }},
+        {Opcode::OP_FFN_COMBINEINFO, [](const CodeGenOpCloudNPU* self) { return self->GenOffsetsAndRawShapesForDispatchAssembleCombineInfo(); }},
         {Opcode::OP_SHMEM_SET, [](const CodeGenOpCloudNPU* self) { return self->GenOffsetsAndRawShapesForShmemSet(); }}
     };
 
