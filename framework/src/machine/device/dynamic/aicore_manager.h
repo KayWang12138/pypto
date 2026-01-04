@@ -189,32 +189,65 @@ public:
     }
 
     inline int RunTask(DeviceTaskCtrl *taskCtrl) {
-        int rc, ret = DEVICE_MACHINE_OK;
+        int ret = ExecuteTask(taskCtrl);
+        wrapManager_.Deinit();
+        if (unlikely(ret != DEVICE_MACHINE_OK)) {
+            DEV_ERROR("Aicpu %d proc finish %lu %lu %lu, but timeout !.", aicpuIdx_,
+                taskCtrl->finishedFunctionCnt.load(), curDevTask_->coreFunctionCnt, taskCtrl->taskId);
+            DumpAiCoreStatus();
+        }
+        return ret;
+    }
+
+    inline int ExecuteTask(DeviceTaskCtrl *taskCtrl) {
+        int ret = ProcessTask(taskCtrl);
+        if (unlikely(ret != DEVICE_MACHINE_OK)) {
+            return ret;
+        }
+        ret = ProcessTaskLoop(taskCtrl);
+        if (unlikely(ret != DEVICE_MACHINE_OK)) {
+            return ret;
+        }
+        
+        return SyncAicoreDevTaskFinish();
+    }
+
+    inline int ProcessTask(DeviceTaskCtrl *taskCtrl) {
+        int ret = DEVICE_MACHINE_OK;
         seq = taskCtrl->taskId;
         DEV_INFO("receive new task %lu.", taskCtrl->taskId);
         InitDevTask(taskCtrl);
 
         uint64_t curSent = 0UL;
-         if (!taskCtrl->isFirstDevTask) {
+        if (!taskCtrl->isFirstDevTask) {
             ret = RunCoreTask(taskCtrl, curSent);
             if (unlikely(ret != DEVICE_MACHINE_OK)) {
                 return ret;
             }
             taskCtrl->finishedFunctionCnt.fetch_add(curSent, std::memory_order_relaxed);
-         }
-
-        if (IsNeedProcAicpuTask()) {
-            aicpuTaskManager_.Init(reinterpret_cast<DynDeviceTask *>(curDevTask_));
         }
 
-        uint32_t lastSent = 0;
-        uint64_t start = GetCycles();
-        uint32_t allSentCnt = taskCtrl->finishedFunctionCnt.load(std::memory_order_relaxed);
-        while (allSentCnt < curDevTask_->coreFunctionCnt) {
-            ret = RunCoreTask<true>(taskCtrl, curSent);
+        if (IsNeedProcAicpuTask()) {
+            ret = aicpuTaskManager_.Init(reinterpret_cast<DynDeviceTask *>(curDevTask_));
             if (unlikely(ret != DEVICE_MACHINE_OK)) {
                 return ret;
             }
+        }
+        return DEVICE_MACHINE_OK;
+    }
+
+    inline int ProcessTaskLoop(DeviceTaskCtrl *taskCtrl) {
+        uint32_t lastSent = 0;
+        uint64_t start = GetCycles();
+        uint32_t allSentCnt = taskCtrl->finishedFunctionCnt.load(std::memory_order_relaxed);
+        
+        while (allSentCnt < curDevTask_->coreFunctionCnt) {
+            uint64_t curSent = 0;
+            int ret = RunCoreTask<true>(taskCtrl, curSent);
+            if (unlikely(ret != DEVICE_MACHINE_OK)) {
+                return ret;
+            }
+            
             if (likely(curSent == 0)) {
                 if (lastSent > 0) {
                     taskCtrl->finishedFunctionCnt.fetch_add(lastSent, std::memory_order_relaxed);
@@ -225,43 +258,18 @@ public:
             }
 
             if (GetCycles() - start > TIMEOUT_CYCLES) {
-                ret = DEVICE_MACHINE_TIMEOUT_CORETASK;
-                goto FINISH;
+                return DEVICE_MACHINE_TIMEOUT_CORETASK;
             }
-
             // To prevent an unnecessary execution of RunCoreTask after the final batch of tasks is sent.
             allSentCnt = taskCtrl->finishedFunctionCnt.load(std::memory_order_relaxed) + lastSent;
         }
+        
         if (lastSent > 0) {
             // Other SCH-AICPU are still waiting for the taskCtrl->finishedFunctionCnt actual value.
             taskCtrl->finishedFunctionCnt.fetch_add(lastSent, std::memory_order_relaxed);
         }
-
-        PerfMtTrace(PERF_TRACE_DEV_TASK_SCHED_EXEC, aicpuIdx_);
-        PerfMtBegin(PERF_EVT_SYNC_AICORE, aicpuIdx_);
-        rc = SyncAicoreDevTaskFinish();
-        PerfMtTrace(PERF_TRACE_DEV_TASK_SYNC_CORE_STOP, aicpuIdx_);
-        if (rc != DEVICE_MACHINE_OK) {
-            ret = rc;
-        }
-        DEV_DEBUG("sync finish ret = %d .", rc);
-
-        if (IsNeedProcAicpuTask()) {
-            while (!aicpuTaskManager_.Finished()) {
-                (void)aicpuTaskManager_.TaskProcess();
-            }
-        }
-        PerfMtEnd(PERF_EVT_SYNC_AICORE, aicpuIdx_);
-        DEV_DEBUG("aicpu %d proc finish send all task,aic: %lu, aiv: %lu, aicpu: %lu.",
-            aicpuIdx_, procAicCoreFunctionCnt_, procAivCoreFunctionCnt_, procAicpuFunctionCnt_);
-    FINISH:
-        wrapManager_.Deinit();
-        if (unlikely(ret != DEVICE_MACHINE_OK)) {
-            DEV_ERROR("Aicpu %d proc finish %lu %lu %lu, but timeout !.", aicpuIdx_,
-                taskCtrl->finishedFunctionCnt.load(), curDevTask_->coreFunctionCnt, taskCtrl->taskId);
-            DumpAiCoreStatus();
-        }
-        return ret;
+        
+        return DEVICE_MACHINE_OK;
     }
 
     inline void DumpLastWord(int coreIdx) {
@@ -848,7 +856,11 @@ private:
     inline int32_t ResolveDepForAicpuTask(uint64_t& taskCount) {
         int32_t ret = DEVICE_MACHINE_OK;
         taskCount = aicpuTaskManager_.TaskProcess();
-        std::vector<uint64_t> completed = aicpuTaskManager_.TaskPoll();
+        std::vector<uint64_t> completed;
+        ret = aicpuTaskManager_.TaskPoll(completed);
+        if (unlikely(ret != DEVICE_MACHINE_OK)) {
+            return ret;
+        }
         for (const uint64_t &taskId : completed) {
             ret = ResolveDepDyn(taskId);
             if (unlikely(ret != DEVICE_MACHINE_OK)) {
