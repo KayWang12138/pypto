@@ -162,8 +162,8 @@ std::string CodeGenOpCloudNPU::GenL0CToUBTileTensor() const {
     std::ostringstream oss;
     int64_t aivId = 0;
     GetAttr(OpAttributeKey::subBlockIdx, aivId);
-    oss << tileOpName << "<" << nzVar << ">" << "(" << dstTensor << ", " << src0Tensor << ", "
-        << coord << ", " << aivId << ");\n";
+    oss << tileOpName << "<" << nzVar << ">" << "(" << dstTensor << ", " << src0Tensor << ", " << coord << ", " << aivId
+        << ");\n";
     return oss.str();
 }
 
@@ -246,7 +246,7 @@ std::string CodeGenOpCloudNPU::PrintTmove() const {
     std::ostringstream oss;
     std::vector<int64_t> tmpoffset(rawShape[ToUnderlying(MISOIdx::SRC0_IDX)].size(), 0);
     std::string coordCp = PrintParams({"(", ")"}, tmpoffset, ", ");
-    //e.g. Coord4Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 136, 0)),(RUNTIME_COA_GET_PARAM_OFFSET(2, 136, 1)))
+    // e.g. Coord4Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 136, 0)),(RUNTIME_COA_GET_PARAM_OFFSET(2, 136, 1)))
     std::string coord = "Coord" + std::to_string(rawShape[ToUnderlying(MISOIdx::SRC0_IDX)].size()) + DIM + coordCp;
     std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::DST_IDX)]);
     std::string src0Tensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::SRC0_IDX)]);
@@ -412,7 +412,7 @@ std::string CodeGenOpCloudNPU::PrintL0CToL1TileTensor() const {
 }
 
 std::string CodeGenOpCloudNPU::GenMemL0CToL1() const {
-    if(isSupportLayout){
+    if (isSupportLayout) {
         return PrintL0CToL1TileTensor();
     }
     std::string dstVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
@@ -719,10 +719,10 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL0CTileTensor(const PrintMemCopyW
     // e.g. Coord4Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 136, 0)),(RUNTIME_COA_GET_PARAM_OFFSET(2, 136, 1)))
     int dim = static_cast<int>(rawShape[param.gmIdx].size());
     std::string coord = "Coord" + std::to_string(dim) + DIM + coordCp;
-    std::string dstTensor = ToUnderlying(MISOIdx::DST_IDX) == static_cast<int>(param.gmIdx) ?
+    std::string dstTensor = ToUnderlying(MISOIdx::DST_IDX) == param.gmIdx ?
                                 sm->QueryTileTensorByBufVarName(GenGmParamVar(param.gmIdx)) :
                                 sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::DST_IDX)]);
-    std::string srcTensor = ToUnderlying(MISOIdx::SRC0_IDX) == static_cast<int>(param.gmIdx) ?
+    std::string srcTensor = ToUnderlying(MISOIdx::SRC0_IDX) == param.gmIdx ?
                                 sm->QueryTileTensorByBufVarName(GenGmParamVar(param.gmIdx)) :
                                 sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::SRC0_IDX)]);
     bool vquantFlag = false;
@@ -738,8 +738,7 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL0CTileTensor(const PrintMemCopyW
     GetAttr("op_attr_is_nz", nzValue);
     GetAttr(OP_ATTR_PREFIX + "relu_type", reluMode);
     std::string nzVar = nzValue ? "CopyOutMode::NZ2NZ" : "CopyOutMode::NZ2ND";
-    std::vector<std::string> storeConfigList = {
-        nzVar, std::to_string(isAcc), std::to_string(reluMode)};
+    std::vector<std::string> storeConfigList = {nzVar, std::to_string(isAcc), std::to_string(reluMode)};
     std::string storeConfig = PrintParams({"<", ">"}, storeConfigList, ", ");
     npu::tile_fwk::Element scaleValue = npu::tile_fwk::Element(DataType::DT_UINT64, 0);
     if (!isAcc) {
@@ -889,10 +888,10 @@ std::string CodeGenOpCloudNPU::PrintL1CopyInTileTensor(const PrintMemCopyWithL1P
     int dim = static_cast<int>(rawShape[param.gmIdx].size());
     std::string coord = "Coord" + std::to_string(dim) + DIM + coordCp;
 
-    std::string dstTensor = ToUnderlying(MISOIdx::DST_IDX) == static_cast<int>(param.gmIdx) ?
+    std::string dstTensor = ToUnderlying(MISOIdx::DST_IDX) == param.gmIdx ?
                                 sm->QueryTileTensorByBufVarName(GenGmParamVar(param.gmIdx)) :
                                 sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::DST_IDX)]);
-    std::string srcTensor = ToUnderlying(MISOIdx::SRC0_IDX) == static_cast<int>(param.gmIdx) ?
+    std::string srcTensor = ToUnderlying(MISOIdx::SRC0_IDX) == param.gmIdx ?
                                 sm->QueryTileTensorByBufVarName(GenGmParamVar(param.gmIdx)) :
                                 sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::SRC0_IDX)]);
 
@@ -1275,10 +1274,10 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithUBTileTensor(const PrintMemCopyWi
 
     std::string gmVarName =
         param.isSpillIntoGM ? GenGMAddrExprWithOffset(GM_STACK_BASE, param.gmIdx) : GenGmParamVar(param.gmIdx);
-    std::string dstTensor = ToUnderlying(MISOIdx::DST_IDX) == static_cast<int>(param.gmIdx) ?
+    std::string dstTensor = ToUnderlying(MISOIdx::DST_IDX) == param.gmIdx ?
                                 sm->QueryTileTensorByBufVarName(gmVarName) :
                                 sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::DST_IDX)]);
-    std::string srcTensor = ToUnderlying(MISOIdx::SRC0_IDX) == static_cast<int>(param.gmIdx) ?
+    std::string srcTensor = ToUnderlying(MISOIdx::SRC0_IDX) == param.gmIdx ?
                                 sm->QueryTileTensorByBufVarName(gmVarName) :
                                 sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::SRC0_IDX)]);
 
@@ -1324,7 +1323,7 @@ std::string CodeGenOpCloudNPU::GenMemL1ToFB() const {
 std::string CodeGenOpCloudNPU::GenGMAddrExprWithOffset(const std::string &addrExpr, unsigned gmIdx) const {
     // gm offset of spilling workspace is calculated by pass, the value is saved in dim 0.
     SymbolicScalar gmOffset = this->offsetGmSymbolic[gmIdx][ID0];
-    bool isZero = gmOffset.IsValid() && gmOffset.ConcreteValid() && static_cast<int>(gmOffset.Concrete()) == 0;
+    bool isZero = gmOffset.IsValid() && gmOffset.ConcreteValid() && gmOffset.Concrete() == 0;
 
     std::ostringstream oss;
     if (isZero) {
