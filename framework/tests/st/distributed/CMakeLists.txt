@@ -42,7 +42,7 @@ set(_DistributedGTestCaseFilterConfig
         "TestAllgather/DistributedTest.TestAllgather/0" "4"
         "TestAllreduce/DistributedTest.TestAllreduce/0" "4"
         "TestAllreduce/DistributedTest.TestAllreduce/1" "4"
-        "TestMoeDispatch/DistributedTest.TestMoeDispatch/0" "4"
+        "TestMoeDistributedDispatch/DistributedTest.TestMoeDistributedDispatch/0" "4"
         "TestMoeDistributedCombine/DistributedTest.TestMoeDistributedCombine/0" "4"
         "TestMoeDistributedCombine/DistributedTest.TestMoeDistributedCombine/1" "4"
         "TestReducescatter/DistributedTest.TestReducescatter/0" "4"
