@@ -16,8 +16,8 @@ namespace pto{
 
 TEST(IRTEST, TestBuilder) {
     // ===== Module =====
-    ProgramModule module("main");
-    IRBuilder builder(&module);
+    auto module = std::make_shared<ProgramModule>("main");
+    IRBuilder builder(module);
 
     // ===== Signature =====
     FunctionSignature sig;
@@ -41,7 +41,7 @@ TEST(IRTEST, TestBuilder) {
 
     {
         // enter func scope + create an initial block as insertion point
-        auto guard = builder.EnterFunctionBody(*func);
+        auto guard = builder.EnterFunctionBody(func);
 
         auto constant0 = builder.CreateConst(int64_t(0), "const_0");
         
@@ -103,9 +103,9 @@ TEST(IRTEST, TestBuilder) {
 
         builder.CreateReturn({ assemOut });
 
-        ASSERT_EQ(builder.GetCurrentFunction(), func.get());
-        ASSERT_EQ(builder.GetCurrentCompound(), &func->GetCompound());
-        ASSERT_EQ(builder.GetCurrentOpStmt(), func->GetCompound().GetStatements()[0].get());
+        ASSERT_EQ(builder.GetCurrentFunction(), func);
+        ASSERT_EQ(builder.GetCurrentCompound(), func->GetCompound());
+        ASSERT_EQ(builder.GetCurrentOpStmt(), func->GetCompound()->GetStatements()[0]);
     }
 
     ASSERT_EQ(builder.GetCurrentFunction(), nullptr);
@@ -113,17 +113,17 @@ TEST(IRTEST, TestBuilder) {
     ASSERT_EQ(builder.GetCurrentOpStmt(), nullptr);
 
     // ===== Program attributes =====
-    module.Attributes()["arch"] = "\"PTOv2\"";
-    module.Attributes()["tile_default"] = "{ M=16, N=16, K=16 }";
-    module.Attributes()["enable_debug"] = "true";
+    module->Attributes()["arch"] = "\"PTOv2\"";
+    module->Attributes()["tile_default"] = "{ M=16, N=16, K=16 }";
+    module->Attributes()["enable_debug"] = "true";
 
-    std::cout << module << std::endl;
+    std::cout << *module << std::endl;
 }
 
 TEST(IRTEST, TestControlFlow) {
     // ===== Module =====
-    ProgramModule module("main");
-    IRBuilder builder(&module);
+    auto module = std::make_shared<ProgramModule>("main");
+    IRBuilder builder(module);
 
     // ===== Signature =====
     FunctionSignature sig;
@@ -146,11 +146,11 @@ TEST(IRTEST, TestControlFlow) {
 
     // ===== Function =====
     auto func = builder.CreateFunction("test_control", FunctionKind::ControlFlow, sig, /*setAsEntry=*/false);
-    module.SetProgramEntry(func);
+    module->SetProgramEntry(func);
 
     {
-        auto funcGuard = builder.EnterFunctionBody(*func);
-        auto& opStmt = builder.CreateOpStmt();
+        auto funcGuard = builder.EnterFunctionBody(func);
+        auto opStmt = builder.CreateOpStmt();
 
         TensorCreateSpec TCSpec{tensorShape, DataType::FP32};
         auto resultX = builder.CreateOp(
@@ -170,7 +170,7 @@ TEST(IRTEST, TestControlFlow) {
         auto i = builder.CreateScalar(DataType::INT32, "i");
         auto constant0 = builder.CreateConst(int64_t(0), "const_0");
         auto constant1 = builder.CreateConst(int64_t(1), "const_1");
-        auto& fs = builder.CreateForStmt(i, constant0, batch, constant1);
+        auto fs = builder.CreateForStmt(i, constant0, batch, constant1);
         {
             auto fsGuard = builder.EnterForBody(fs);
 
@@ -212,7 +212,7 @@ TEST(IRTEST, TestControlFlow) {
             )[0];
 
             // if i then outputX = mul(outputX, scale1) else outputY = mul(outputY, scale2)
-            auto& ifs = builder.CreateIfStmt("i");
+            auto ifs = builder.CreateIfStmt("i");
             ValuePtr resIfX, resIfY;
             {
                 auto ifThenGuard = builder.EnterIfThen(ifs);
@@ -237,25 +237,25 @@ TEST(IRTEST, TestControlFlow) {
             builder.ExitIfStatement(ifs);
 
             // check if then and else yield
-            auto thenYield = std::dynamic_pointer_cast<YieldStatement>(*ifs.GetThenCompound().GetStatements().rbegin());
+            auto thenYield = std::dynamic_pointer_cast<YieldStatement>(*ifs->GetThenCompound()->GetStatements().rbegin());
             ASSERT_EQ(thenYield->Values()[0], resLoopY);
             ASSERT_EQ(thenYield->Values()[1], resIfX);
-            auto elseYield = std::dynamic_pointer_cast<YieldStatement>(*ifs.GetElseCompound().GetStatements().rbegin());
+            auto elseYield = std::dynamic_pointer_cast<YieldStatement>(*ifs->GetElseCompound()->GetStatements().rbegin());
             ASSERT_EQ(elseYield->Values()[0], resIfY);
             ASSERT_EQ(elseYield->Values()[1], resLoopX);
         }
         builder.ExitForStatement(fs);
 
         // check for yeild
-        auto ifs = std::dynamic_pointer_cast<IfStatement>(fs.GetCompound().GetStatements()[1]);
+        auto ifs = std::dynamic_pointer_cast<IfStatement>(fs->GetCompound()->GetStatements()[1]);
         auto ifResults = ifs->Results();
-        auto forYield = fs.Yield();
+        auto forYield = fs->Yield();
         ASSERT_EQ(forYield->Values(), ifResults);
 
         // return outputX, outputY
-        builder.CreateReturn(fs.Results());
+        builder.CreateReturn(fs->Results());
     }
-    std::cout << module << std::endl;
+    std::cout << *module << std::endl;
 }
 
 } // namespace pto

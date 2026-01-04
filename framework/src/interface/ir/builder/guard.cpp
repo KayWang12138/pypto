@@ -4,7 +4,7 @@
 
 namespace pto {
 
-ScopeGuard::ScopeGuard(IRBuilder& builder, CompoundStatement* new_scope, Function* new_func)
+ScopeGuard::ScopeGuard(IRBuilder& builder, std::shared_ptr<CompoundStatement> new_scope, std::shared_ptr<Function> new_func)
     : builder_(builder),
       prev_compound_(builder.compound_),
       prev_func_(builder_.func_) {

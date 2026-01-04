@@ -47,18 +47,18 @@ using StatementPtr = std::shared_ptr<Statement>;
 class CompoundStatement : public Statement {
 public:
     // Create a root scope (no parent).
-    CompoundStatement() : parent_(nullptr) {}
+    CompoundStatement() {}
 
     // Create a child scope with a parent scope.
-    explicit CompoundStatement(CompoundStatement* parent) : parent_(parent) {}
+    explicit CompoundStatement(std::shared_ptr<CompoundStatement> parent) : parent_(parent) {}
 
     StatementKind GetKind() const override { return StatementKind::Compound; }
 
     void Print(std::ostream& os, int indent) const override { os << "Not impl CompundStatement.Print() now!!!" << std::endl; }
 
     // Get the parent scope (nullptr if this is a root scope).
-    CompoundStatement* GetParent() const { return parent_; }
-    void SetParent(CompoundStatement* parent) { parent_ = parent; }
+    std::weak_ptr<CompoundStatement> GetParent() const { return parent_; }
+    void SetParent(std::weak_ptr<CompoundStatement> parent) { parent_ = parent; }
     
     // Get the list of statements in this scope.
     std::vector<StatementPtr>& GetStatements() { return statements_; }
@@ -93,10 +93,12 @@ public:
     const std::unordered_map<std::string, ValuePtr>& GetEnvTable() const { return envTable_; } 
 
 private:
-    CompoundStatement* parent_;                         // Pointer to parent scope (nullptr for root)
+    std::weak_ptr<CompoundStatement> parent_{};                         // Pointer to parent scope (nullptr for root)
     std::vector<StatementPtr> statements_;  // Statements in this scope
     std::unordered_map<std::string, ValuePtr> envTable_;  // Environment table: variable name -> latest SSA Value
 };
+
+using CompoundStatementPtr = std::shared_ptr<CompoundStatement>;
 
 // A linear basic block of operations with nested statements as children.
 class OpStatement : public Statement {
@@ -129,6 +131,8 @@ private:
     std::vector<ValuePtr> values_;
 };
 
+using YieldStatementPtr = std::shared_ptr<YieldStatement>;
+
 // Loop-carried accumulator argument for statement.for.
 struct IterArg {
     ValuePtr initValue;    // Initial value (e.g., a ValuePtr to the initial tensor/scalar)
@@ -157,7 +161,9 @@ public:
     ForStatement(std::shared_ptr<Scalar> iterationVar, std::shared_ptr<Scalar> start,
                  std::shared_ptr<Scalar> end, std::shared_ptr<Scalar> step)
         : iterationVar_(std::move(iterationVar)),
-          range_(std::make_shared<LoopRange>(std::move(start), std::move(end), std::move(step))) {}
+          range_(std::make_shared<LoopRange>(std::move(start), std::move(end), std::move(step))) {
+        compound_ = std::make_shared<CompoundStatement>();
+    }
 
     StatementKind GetKind() const override { return StatementKind::For; }
 
@@ -178,8 +184,8 @@ public:
     }
 
     // Loop body: sequence of nested statements.
-    std::vector<StatementPtr>& Body() { return compound_.GetStatements(); }
-    const std::vector<StatementPtr> Body() const { return compound_.GetStatements(); }
+    std::vector<StatementPtr>& Body() { return compound_->GetStatements(); }
+    const std::vector<StatementPtr> Body() const { return compound_->GetStatements(); }
 
     // Loop yield
     std::shared_ptr<YieldStatement> Yield();
@@ -191,8 +197,8 @@ public:
     const std::vector<ValuePtr>& Results() const { return results_; }
 
     // Scope for Data objects and statements created in this loop body.
-    CompoundStatement& GetCompound() { return compound_; }
-    const CompoundStatement& GetCompound() const { return compound_; }
+    CompoundStatementPtr GetCompound() { return compound_; }
+    const CompoundStatementPtr GetCompound() const { return compound_; }
 
     void Print(std::ostream& os, int indent) const override;
 
@@ -200,33 +206,38 @@ private:
     std::shared_ptr<Scalar> iterationVar_;
     std::shared_ptr<LoopRange> range_;
     std::vector<IterArg> iterArgs_;
-    CompoundStatement compound_;  // Scope for Data objects and statements created in this loop body
+    CompoundStatementPtr compound_;  // Scope for Data objects and statements created in this loop body
     std::vector<ValuePtr> results_;  // Result values of the for-statement
 };
+
+using ForStatementPtr = std::shared_ptr<ForStatement>;
 
 // A value-producing conditional.
 class IfStatement : public Statement {
 public:
     explicit IfStatement(std::string condition)
-        : condition_(std::move(condition)) {}
+        : condition_(std::move(condition)) {
+        thenCompound_ = std::make_shared<CompoundStatement>();
+        elseCompound_ = std::make_shared<CompoundStatement>();
+    }
 
     StatementKind GetKind() const override { return StatementKind::If; }
 
     const std::string& GetCondition() const { return condition_; }
 
-    std::vector<StatementPtr>& ThenBranch() { return thenCompound_.GetStatements(); }
-    const std::vector<StatementPtr> ThenBranch() const { return thenCompound_.GetStatements(); }
+    std::vector<StatementPtr>& ThenBranch() { return thenCompound_->GetStatements(); }
+    const std::vector<StatementPtr> ThenBranch() const { return thenCompound_->GetStatements(); }
 
-    std::vector<StatementPtr>& ElseBranch() { return elseCompound_.GetStatements(); }
-    const std::vector<StatementPtr> ElseBranch() const { return elseCompound_.GetStatements(); }
+    std::vector<StatementPtr>& ElseBranch() { return elseCompound_->GetStatements(); }
+    const std::vector<StatementPtr> ElseBranch() const { return elseCompound_->GetStatements(); }
 
     // Scope for Data objects and statements created in the then branch.
-    CompoundStatement& GetThenCompound() { return thenCompound_; }
-    const CompoundStatement& GetThenCompound() const { return thenCompound_; }
+    CompoundStatementPtr GetThenCompound() { return thenCompound_; }
+    const CompoundStatementPtr GetThenCompound() const { return thenCompound_; }
 
     // Scope for Data objects and statements created in the else branch.
-    CompoundStatement& GetElseCompound() { return elseCompound_; }
-    const CompoundStatement& GetElseCompound() const { return elseCompound_; }
+    CompoundStatementPtr GetElseCompound() { return elseCompound_; }
+    const CompoundStatementPtr GetElseCompound() const { return elseCompound_; }
 
     // Build result tensors for the if-statement based on branch yields.
     // This inspects the terminal YieldStatement in both then/else scopes,
@@ -242,10 +253,12 @@ public:
 
 private:
     std::string condition_;
-    CompoundStatement thenCompound_;  // Scope for Data objects and statements created in the then branch
-    CompoundStatement elseCompound_;  // Scope for Data objects and statements created in the else branch
+    CompoundStatementPtr thenCompound_;  // Scope for Data objects and statements created in the then branch
+    CompoundStatementPtr elseCompound_;  // Scope for Data objects and statements created in the else branch
     std::vector<ValuePtr> results_;  // Result values of the if-statement
 };
+
+using IfStatementPtr = std::shared_ptr<IfStatement>;
 
 // Function-level terminator returning final values.
 class ReturnStatement : public Statement {
@@ -260,5 +273,7 @@ public:
 private:
     std::vector<ValuePtr> values_;
 };
+
+using ReturnStatementPtr = std::shared_ptr<ReturnStatement>;
 
 }

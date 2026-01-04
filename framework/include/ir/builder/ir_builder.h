@@ -23,10 +23,10 @@ namespace pto {
 class IRBuilder {
 public:
     IRBuilder() = default;
-    explicit IRBuilder(ProgramModule* module);
+    explicit IRBuilder(std::shared_ptr<ProgramModule> module);
 
     // ===== Module / Function =====
-    void SetModule(ProgramModule& m);
+    void SetModule(std::shared_ptr<ProgramModule> m);
 
     // ===== Function =====
 
@@ -36,12 +36,12 @@ public:
         FunctionSignature sig,
         bool setAsEntry = false);
 
-    Function* GetCurrentFunction() const { return func_; }
-    CompoundStatement* GetCurrentCompound() const { return compound_; }
-    OpStatement* GetCurrentOpStmt() const { return opStmt_; }
+    std::shared_ptr<Function> GetCurrentFunction() const { return func_; }
+    std::shared_ptr<CompoundStatement> GetCurrentCompound() const { return compound_; }
+    std::shared_ptr<OpStatement> GetCurrentOpStmt() const { return opStmt_; }
 
     // ===== Insertion point =====
-    OpStatement& GetOrCreateActiveOpStmt();
+    OpStatementPtr GetOrCreateActiveOpStmt();
     friend class ScopeGuard;
 
     // ===== Scope registration =====
@@ -55,7 +55,7 @@ public:
     std::shared_ptr<Scalar> CreateConst(double v, std::string name = "");
 
     // ===== Emit op (used by schema build) =====
-    Operation& Emit(OperationPtr op);
+    OperationPtr Emit(OperationPtr op);
 
     // ===== The ONLY op-building entry =====
     // All semantics (results/payload rules) are in Schema/Trait (BuildBySchema).
@@ -67,32 +67,32 @@ public:
                     std::string name = "");
 
     // ===== Statement building (still belongs to IRBuilder) =====
-    OpStatement& CreateOpStmt();
+    OpStatementPtr CreateOpStmt();
 
-    ForStatement& CreateForStmt(std::shared_ptr<Scalar> iv,
+    ForStatementPtr CreateForStmt(std::shared_ptr<Scalar> iv,
                                 std::shared_ptr<Scalar> start,
                                 std::shared_ptr<Scalar> end,
                                 std::shared_ptr<Scalar> step);
 
-    IfStatement& CreateIfStmt(std::string cond);
+    IfStatementPtr CreateIfStmt(std::string cond);
 
-    YieldStatement& CreateYield(ValuePtrs values);
+    YieldStatementPtr CreateYield(ValuePtrs values);
 
-    ReturnStatement& CreateReturn(ValuePtrs values);
+    ReturnStatementPtr CreateReturn(ValuePtrs values);
 
     // Enter nested scopes
-    std::shared_ptr<ScopeGuard> EnterFunctionBody(Function& func);
-    std::shared_ptr<ScopeGuard> EnterForBody(ForStatement& st);
-    std::shared_ptr<ScopeGuard> EnterIfThen(IfStatement& st);
-    std::shared_ptr<ScopeGuard> EnterIfElse(IfStatement& st);
-    void ExitIfStatement(IfStatement& st);
-    void ExitForStatement(ForStatement& st);
+    std::shared_ptr<ScopeGuard> EnterFunctionBody(std::shared_ptr<Function> func);
+    std::shared_ptr<ScopeGuard> EnterForBody(ForStatementPtr st);
+    std::shared_ptr<ScopeGuard> EnterIfThen(IfStatementPtr st);
+    std::shared_ptr<ScopeGuard> EnterIfElse(IfStatementPtr st);
+    void ExitIfStatement(IfStatementPtr st);
+    void ExitForStatement(ForStatementPtr st);
 
 private:
-    ProgramModule* module_{nullptr};
-    Function* func_{nullptr};
-    CompoundStatement* compound_{nullptr};
-    OpStatement* opStmt_{nullptr};
+    std::shared_ptr<ProgramModule> module_{nullptr};
+    std::shared_ptr<Function> func_{nullptr};
+    std::shared_ptr<CompoundStatement> compound_{nullptr};
+    std::shared_ptr<OpStatement> opStmt_{nullptr};
 };
 
 } // namespace pto
