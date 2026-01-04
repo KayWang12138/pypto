@@ -16,7 +16,7 @@
 #include "passes/block_graph_pass/mix_subgraph_split.h"
 #include "passes/pass_utils/pass_utils.h"
 #include "interface/utils/id_gen.h"
-
+#include "interface/function/block_function.h"
 namespace npu {
 namespace tile_fwk {
 RawSymbolicScalarPtr ReplaceExpression(const RawSymbolicScalarPtr &expr,
@@ -1391,7 +1391,7 @@ Function* MixSubgraphSplit::CreateSplitLeafFunction(Function& rootFunc,
     ALOG_DEBUG_F("Add leafFunction %s", leafName.c_str());
     // 手动创建function对象
     auto funcMagicName = leafName + "_" + std::to_string(IdGen<IdType::FUNCTION>::Inst().CurId());
-    auto newFunc = std::make_shared<Function>(Program::GetInstance(), funcMagicName, leafName, &rootFunc);
+    auto newFunc = std::make_shared<BlockFunction>(Program::GetInstance(), funcMagicName, leafName, &rootFunc);
     // 设置function类型
     newFunc->SetFunctionType(FunctionType::STATIC);
     newFunc->SetGraphType(GraphType::BLOCK_GRAPH);
