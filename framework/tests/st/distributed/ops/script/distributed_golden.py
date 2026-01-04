@@ -626,12 +626,18 @@ def generate_allreduce_add_allreduce_golden(case_name: str, output: Path, case_i
     return gen_op_golden('Allreduce_Add_Allreduce', golden_func, output, case_index)
 
 
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        'TestMoeDistributedDispatch/DistributedTest.TestMoeDistributedDispatch',
+    ]
+)
+
 def generate_moe_dispatch_golden(case_name: str, output: Path, case_index: int = None) -> bool:
     def golden_func(config: dict):
         case = parse_moe_case(config)
         generate_moe_dispatch_case(case, output)
     logging.debug('Case(%s), Golden creating...', case_name)
-    return gen_op_golden('MoeDispatch', golden_func, output, case_index)
+    return gen_op_golden('MoeDistributedDispatch', golden_func, output, case_index)
 
 
 @GoldenRegister.reg_golden_func(
