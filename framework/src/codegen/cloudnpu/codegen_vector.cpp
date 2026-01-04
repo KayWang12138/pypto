@@ -23,6 +23,10 @@
 
 namespace npu::tile_fwk {
 std::string CodeGenOpCloudNPU::GenCastOp() const {
+    if (isSupportLayout) {
+        return PrintCastTileTensor();
+    }
+
     std::string s0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
     std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
 
@@ -42,9 +46,7 @@ std::string CodeGenOpCloudNPU::GenCastOp() const {
 
     char buffer[BUFFER_SIZE_1024] = "CG_ERROR";
     int ret = 0;
-    if (isSupportLayout) {
-        return PrintCastTileTensor();
-    }
+    
     if (isDynamicFunction) {
         return PrintCastDynamicUnaligned({s0Var, dVar, srcDtypeStr, dstDtypeStr});
     }
@@ -809,6 +811,16 @@ std::string CodeGenOpCloudNPU::PrintCumSumDynamicUnaligned(const PrintCumSumPara
     return oss.str();
 }
 
+std::string CodeGenOpCloudNPU::PrintCumSumTileTensor(int axis) const {
+    axis = axis + 1;
+    std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::DST_IDX)]);
+    std::string srcTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::SRC0_IDX)]);
+    std::ostringstream oss;
+    oss << tileOpName << "<" << axis << ">"
+        << "(" << dstTensor << ", " << srcTensor << ");\n";
+    return oss.str();
+}
+
 std::string CodeGenOpCloudNPU::GenCumSumOp() const {
     std::string dstVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
     std::string inputVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
@@ -829,7 +841,11 @@ std::string CodeGenOpCloudNPU::GenCumSumOp() const {
     ASSERT(opAttrs.count(OP_ATTR_PREFIX + "flag")) << "cannot get flag attr";
     bool flag = npu::tile_fwk::AnyCast<bool>(opAttrs.at(OP_ATTR_PREFIX + "flag"));
 
-    return PrintCumSumDynamicUnaligned({axis, flag, dstVar, inputVar, inputRawShape, dataTypeExpr});
+    if (isSupportLayout) {
+        return PrintCumSumTileTensor(axis);
+    } else {
+        return PrintCumSumDynamicUnaligned({axis, flag, dstVar, inputVar, inputRawShape, dataTypeExpr});
+    }
 }
 
 std::string CodeGenOpCloudNPU::PrintScatterElementSOpStatic(const PrintScatterElemParam &param) const {
