@@ -16,7 +16,7 @@
 namespace pto {
 
 // Base class for operations inside statements.
-class Operation : public Object, public AttributeHolder {
+class Operation : public Object {
 public:
     /// Default: invalid / placeholder op
     Operation();

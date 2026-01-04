@@ -42,7 +42,7 @@ enum class CastMode {
 };
 
 // Base class for all data types in PTO-IR.
-class Value : public Object, public AttributeHolder {
+class Value : public Object {
 public:
     explicit Value(ValueKind kind, TypePtr type, std::string name="") 
         : Object(ObjectType::Value, name), valueKind_(kind), type_(type) {}

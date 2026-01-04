@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "ir/utils.h"
+#include "ir/object.h"
 
 #include <cstddef>
 #include <memory>

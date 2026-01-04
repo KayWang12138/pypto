@@ -4,6 +4,7 @@
 #include "ir/value.h"
 #include "ir/utils.h"
 #include "ir/operation.h"
+#include "ir/object.h"
 
 #include <memory>
 #include <ostream>
@@ -26,7 +27,7 @@ enum class StatementKind {
 };
 
 // Base class for all statement nodes.
-class Statement : public Object, public AttributeHolder {
+class Statement : public Object {
 public:
     Statement() : Object(ObjectType::Statement) {}
     virtual ~Statement() = default;

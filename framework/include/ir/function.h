@@ -30,7 +30,7 @@ struct FunctionSignature {
 // Minimal container for a PTO function.
 // This prototype focuses on structural information and simple printing,
 // not on detailed statement/tensor/tile bodies.
-class Function : public Object, public AttributeHolder {
+class Function : public Object {
 public:
     Function(std::string name, FunctionKind kind, FunctionSignature signature);
 
