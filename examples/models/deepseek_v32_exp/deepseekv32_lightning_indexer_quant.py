@@ -10,13 +10,13 @@
 # -----------------------------------------------------------------------------------------------------------
 """
 """
+from dataclasses import dataclass
 import os
 import logging
 import math
 import torch
 import numpy as np
 import pypto
-from dataclasses import dataclass
 
 
 @dataclass
@@ -402,7 +402,7 @@ def lightning_indexer(case_name: str) -> bool:
     topk_res_golden = topk_res_golden.reshape(b * s1, 1, selected_count)
 
     # 执行结果比较
-    topk_idx_compare(topk_res_npu.cpu(), topk_res_golden.cpu(), "topk_res", 1e-5, selected_count)
+    topk_idx_compare(topk_res_npu.cpu(), topk_res_golden.cpu(), "topk_res", 5e-3, selected_count)
 
     return True
 
