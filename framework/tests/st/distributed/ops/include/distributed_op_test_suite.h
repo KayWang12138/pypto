@@ -34,7 +34,7 @@ template<typename T>
 void TestShmemReduceScatter(OpTestParam &testParam);
 template<typename T>
 void TestShmemAllReduce(OpTestParam &testParam);
-void TestShmemMoeDispatch(OpTestParam &testParam);
+void TestMoeDistributedDispatch(OpTestParam &testParam);
 template<typename T>
 void TestShmemAllReduceAddAllReduce(OpTestParam &testParam);
 } // namespace Distributed
