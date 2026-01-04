@@ -1091,7 +1091,11 @@ std::vector<std::shared_ptr<Operation>> Function::GetSortedOperations() const {
                 q.emplace(prevOpIndex);
             }
         }
-        for (auto &iop : op->iOperand) {
+        std::vector<LogicalTensorPtr> relatedOperand;
+        relatedOperand.reserve(op->iOperand.size() + op->dependOperand.size());
+        relatedOperand.insert(relatedOperand.end(), op->iOperand.begin(), op->iOperand.end());
+        relatedOperand.insert(relatedOperand.end(), op->dependOperand.begin(), op->dependOperand.end());
+        for (auto &iop : relatedOperand) {
             visit(op.get(), iop);
         }
         for (auto &dop : op->dependOperand) {
@@ -2775,7 +2779,7 @@ std::vector<std::vector<SymbolicScalar>> Function::NormalizeCoa(
     }
 
     for (auto &op : operations_) {
-        if (op->GetOpcode() == Opcode::OP_VEC_DUP || op->GetOpcode() == Opcode::OP_RANGE) {
+        if (op->GetOpcode() == Opcode::OP_VEC_DUP) {
             if (op->HasAttr(OpAttributeKey::dynScalar)) {
                 SymbolicScalar dynScalar = op->GetSymbolicScalarAttribute(OpAttributeKey::dynScalar);
                 std::vector<SymbolicScalar> valueCoaList;
