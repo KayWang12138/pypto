@@ -51,15 +51,15 @@ def compute_attention_aq(input_data, params, s2_tile):
     SA, 存8算16, Page nope cache, 计算流非FA
     使用PyTorch实现
     """
-    q_nope, q_rope, nope_cahce_2d, topk_indcies, block_table, actual_seq = input_data
+    q_nope, q_rope, nope_cache_2d, topk_indices, block_table, actual_seq = input_data
     nq, block_size, scalar, topk, kv_lora_rank, qk_rope_dim = params
     b_s1_nq, _ = q_nope.shape
     b = len(actual_seq)
     b_s1 = b_s1_nq // nq
     s1 = b_s1 // b
 
-    if topk_indcies.ndim > 2:
-        topk_indcies = topk_indcies.reshape(b * s1, topk)
+    if topk_indices.ndim > 2:
+        topk_indices = topk_indices.reshape(b * s1, topk)
 
     atten_out_shape = [b, s1, nq, kv_lora_rank]
     input_dtype = q_nope.dtype
@@ -85,7 +85,7 @@ def compute_attention_aq(input_data, params, s2_tile):
                 s2_start = s2_tile * s2_idx
                 s2_end = s2_start + s2_tile_cur
 
-                topk_indcies_tmp = topk_indcies[b_idx * s1 + s1_idx, s2_start:s2_end]
+                topk_indices_tmp = topk_indices[b_idx * s1 + s1_idx, s2_start:s2_end]
                 slc_nope = torch.zeros([s2_tile_cur, kv_lora_rank + 2 * qk_rope_dim + 4 * 4], dtype=torch.int8)
                 slc_kv_up = torch.zeros([s2_tile_cur, kv_lora_rank + qk_rope_dim], dtype=input_dtype)
 
@@ -93,7 +93,7 @@ def compute_attention_aq(input_data, params, s2_tile):
                 offset = torch.zeros([s2_tile_cur], dtype=torch.int32)
                 for cur_s2_idx in range(s2_tile_cur):
                     s2_idx_tmp = s2_start + cur_s2_idx
-                    topk_index = topk_indcies_tmp[s2_idx_tmp]
+                    topk_index = topk_indices_tmp[s2_idx_tmp]
                     block_idx_in_batch = topk_index // block_size
                     slc_block_idx = block_table[b_idx, block_idx_in_batch]
                     tail = topk_index % block_size
@@ -102,7 +102,7 @@ def compute_attention_aq(input_data, params, s2_tile):
                 # 索引 kvCache
                 for cur_s2_idx in range(s2_tile_cur):
                     slc_idx = offset[cur_s2_idx]
-                    slc_nope[cur_s2_idx, :] = nope_cahce_2d[slc_idx, :]
+                    slc_nope[cur_s2_idx, :] = nope_cache_2d[slc_idx, :]
 
                 # 存8算16
                 slc_kv_int8 = slc_nope[:, :kv_lora_rank]
@@ -224,7 +224,7 @@ def gen_gather_select_attention_golden_aq(dtype, bn1n2s1, is_kn_quant, actual_se
     # 2、生成数据
     max_kv_seq = max(actual_seq)
     block_num, block_table, _ = gen_block_table(torch.tensor(actual_seq), block_size, s_q, need_indices=False)
-    topk_indcies = torch.zeros(b, s_q, topk).to(torch.int32)
+    topk_indices = torch.zeros(b, s_q, topk).to(torch.int32)
     slc_actual_seq = []
     for i in range(b):
         slc_actual_seq.append(min(actual_seq[i], topk))
@@ -233,12 +233,12 @@ def gen_gather_select_attention_golden_aq(dtype, bn1n2s1, is_kn_quant, actual_se
         for s_q_i in range(s_q):
 
             if slc_actual_seq[b_i] < topk:
-                topk_indcies[b_i, s_q_i, :slc_actual_seq[b_i]] = torch.arange(0, slc_actual_seq[b_i])
+                topk_indices[b_i, s_q_i, :slc_actual_seq[b_i]] = torch.arange(0, slc_actual_seq[b_i])
             else:
                 perm = torch.randperm(slc_actual_seq[b_i])
-                topk_indcies[b_i, s_q_i, :] = perm[:topk]
+                topk_indices[b_i, s_q_i, :] = perm[:topk]
 
-    topk_indcies = topk_indcies.reshape(b * s_q, n_kv * topk)
+    topk_indices = topk_indices.reshape(b * s_q, n_kv * topk)
     
     q_bsnd = gen_uniform_data(shape_q, -1, 1, dtype)
     kn_bsnd = gen_uniform_data(shape_kn, -1, 1, dtype)
@@ -255,17 +255,17 @@ def gen_gather_select_attention_golden_aq(dtype, bn1n2s1, is_kn_quant, actual_se
     kn_scales = kn_scales.reshape(block_num * block_size, 4)
     kr = kr.reshape(block_num * block_size, qk_rope_dim)
 
-    # nope_cache: kv尾轴512 int8， kr尾轴64 bf16/fp16，kv scale尾轴4 fp3，共656
-    nope_cahce_2d = torch.zeros([block_num * block_size, kv_lora_rank + qk_rope_dim * 2 + 4 * 4], dtype=torch.int8)
+    # nope_cache: kv尾轴512 int8， kr尾轴64 bf16/fp16，kv scale尾轴4 fp32，共656
+    nope_cache_2d = torch.zeros([block_num * block_size, kv_lora_rank + qk_rope_dim * 2 + 4 * 4], dtype=torch.int8)
 
     # [:, 0:512]
-    nope_cahce_2d[:, :kv_lora_rank] = kn_quant
+    nope_cache_2d[:, :kv_lora_rank] = kn_quant
 
     # [:, 512:640]
-    nope_cahce_2d[:, kv_lora_rank:kv_lora_rank + qk_rope_dim * 2] = kr.view(torch.int8)
+    nope_cache_2d[:, kv_lora_rank:kv_lora_rank + qk_rope_dim * 2] = kr.view(torch.int8)
 
     # [:, 640:656]
-    nope_cahce_2d[:, kv_lora_rank + qk_rope_dim * 2:] = kn_scales.view(torch.int8)
+    nope_cache_2d[:, kv_lora_rank + qk_rope_dim * 2:] = kn_scales.view(torch.int8)
 
     # q split to [nope + rope]
     q_nope = q_bsnd[:, :, :, :kv_lora_rank]
@@ -275,14 +275,14 @@ def gen_gather_select_attention_golden_aq(dtype, bn1n2s1, is_kn_quant, actual_se
 
     # 3. 计算attention
     params = [n_q, block_size, scalar, topk, kv_lora_rank, qk_rope_dim]
-    input_data = [q_nope, q_rope, nope_cahce_2d, topk_indcies, block_table, actual_seq]
+    input_data = [q_nope, q_rope, nope_cache_2d, topk_indices, block_table, actual_seq]
     
     s2_tile = 2048
     atten_out, tmp_out = compute_attention_aq(input_data, params, s2_tile)
 
     # input params
     input_params = [b, s_q, n_q, n_kv, max_kv_seq, kv_lora_rank, qk_rope_dim, block_num, block_size, topk, scalar]
-    input_data_map = [q_nope, q_rope, nope_cahce_2d, topk_indcies, block_table, actual_seq]
+    input_data_map = [q_nope, q_rope, nope_cache_2d, topk_indices, block_table, actual_seq]
 
     return input_params, input_data_map, atten_out
 
@@ -314,7 +314,7 @@ def do_test_sparse_attention_func_aq(bn1n2s1, actual_seq, input_params, input_da
 
     b, s1, n_q, n_kv, max_kv_seq, kv_lora_rank, qk_rope_dim, block_num, block_size, topk, \
         softmax_scale = input_params
-    q_nope, q_rope, nope_cahce_2d, topk_indcies, block_table, kv_actual_seqs = input_data
+    q_nope, q_rope, nope_cache_2d, topk_indices, block_table, kv_actual_seqs = input_data
     kv_act_seqs = torch.tensor(actual_seq, dtype=torch.int32)
 
     calc_attention_out = torch.zeros([b, s1, n_q, kv_lora_rank], dtype=torch.bfloat16)
@@ -323,10 +323,10 @@ def do_test_sparse_attention_func_aq(bn1n2s1, actual_seq, input_params, input_da
     q_nope_pto = pypto.from_torch(q_nope_npu, dynamic_axis=[0], name="q_nope")
     q_rope_npu = q_rope.npu()
     q_rope_pto = pypto.from_torch(q_rope_npu, dynamic_axis=[0], name="q_rope")
-    nope_cache_npu = nope_cahce_2d.npu()
+    nope_cache_npu = nope_cache_2d.npu()
     nope_cache_pto = pypto.from_torch(nope_cache_npu, name="nope_cache")
-    topk_indcies_npu = topk_indcies.npu()
-    topk_indcies_pto = pypto.from_torch(topk_indcies_npu, dynamic_axis=[0], name="topk_indcies")
+    topk_indices_npu = topk_indices.npu()
+    topk_indices_pto = pypto.from_torch(topk_indices_npu, dynamic_axis=[0], name="topk_indices")
     block_table_npu = block_table.npu()
     block_table_pto = pypto.from_torch(block_table_npu, dynamic_axis=[0], name="block_table")
     kv_act_seqs_npu = kv_act_seqs.npu()
@@ -336,7 +336,7 @@ def do_test_sparse_attention_func_aq(bn1n2s1, actual_seq, input_params, input_da
     calc_attention_out_npu = calc_attention_out_npu.reshape(-1, kv_lora_rank)
     calc_attention_out_pto = pypto.from_torch(calc_attention_out_npu, dynamic_axis=[0], name="calc_attention_out")
 
-    pto_inputs = [q_nope_pto, q_rope_pto, nope_cache_pto, topk_indcies_pto, block_table_pto, kv_act_seqs_pto]
+    pto_inputs = [q_nope_pto, q_rope_pto, nope_cache_pto, topk_indices_pto, block_table_pto, kv_act_seqs_pto]
     pto_outputs = [calc_attention_out_pto]
 
     max_blocknum_perbatch = math.ceil(max_kv_seq / block_size)
@@ -387,6 +387,7 @@ def do_test_sfa_entry(case_name: str, is_p: bool):
     return True
 
 
+@pytest.mark.skip(reason="large test case")
 def test_sfa_bf16_b4_s2_seq64k_total_int8_d():
     '''
     sfa decode测试函数

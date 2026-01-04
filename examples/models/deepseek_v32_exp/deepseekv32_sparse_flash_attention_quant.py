@@ -51,7 +51,7 @@ def compute_attention(input_data, params, s2_tile):
     计算注意力机制，支持不同批次的序列长度不同
     使用PyTorch实现
     """
-    q, kn, kr, kn_scales, topk_indcies, block_table, actual_seq = input_data
+    q, kn, kr, kn_scales, topk_indices, block_table, actual_seq = input_data
     block_size, scalar, topk, d_v, is_kn_quant = params
 
     # 提取维度信息
@@ -59,8 +59,8 @@ def compute_attention(input_data, params, s2_tile):
     _, dk = kn.shape
     _, dv = kr.shape
 
-    if topk_indcies.ndim > 2:
-        topk_indcies = topk_indcies.reshape(b * s1, topk)
+    if topk_indices.ndim > 2:
+        topk_indices = topk_indices.reshape(b * s1, topk)
 
     atten_out_shape = [b, s1, n1, d_v]
     input_dtype = q.dtype
@@ -83,7 +83,7 @@ def compute_attention(input_data, params, s2_tile):
                 s2_start = s2_tile * s2_idx
                 s2_end = s2_start + s2_tile_cur
 
-                topk_indcies_tmp = topk_indcies[b_idx * s1 + s1_idx, s2_start:s2_end]
+                topk_indices_tmp = topk_indices[b_idx * s1 + s1_idx, s2_start:s2_end]
 
                 slc_kn = torch.zeros([s2_tile_cur, dk], dtype=kn_dtype)
                 slc_kr = torch.zeros([s2_tile_cur, dv], dtype=input_dtype)
@@ -93,7 +93,7 @@ def compute_attention(input_data, params, s2_tile):
                 offset = torch.zeros([s2_tile_cur], dtype=torch.int32)
                 for cur_s2_idx in range(s2_tile_cur):
                     s2_idx_tmp = s2_start + cur_s2_idx
-                    topk_index = topk_indcies_tmp[s2_idx_tmp]
+                    topk_index = topk_indices_tmp[s2_idx_tmp]
                     block_idx_in_batch = topk_index // block_size
                     slc_block_idx = block_table[b_idx, block_idx_in_batch]
                     tail = topk_index % block_size
@@ -172,7 +172,7 @@ def compute_attention_no_flash(input_data, params, s2_tile):
     使用PyTorch实现
     no flash 版本
     """
-    q, kn, kr, kn_scales, topk_indcies, block_table, actual_seq = input_data
+    q, kn, kr, kn_scales, topk_indices, block_table, actual_seq = input_data
     block_size, scalar, topk, d_v, is_kn_quant = params
 
     # 提取维度信息
@@ -180,8 +180,8 @@ def compute_attention_no_flash(input_data, params, s2_tile):
     _, dk = kn.shape
     _, dv = kr.shape
 
-    if topk_indcies.ndim > 2:
-        topk_indcies = topk_indcies.reshape(b * s1, topk)
+    if topk_indices.ndim > 2:
+        topk_indices = topk_indices.reshape(b * s1, topk)
 
     atten_out_shape = [b, s1, n1, d_v]
     input_dtype = q.dtype
@@ -204,7 +204,7 @@ def compute_attention_no_flash(input_data, params, s2_tile):
                 s2_start = s2_tile * s2_idx
                 s2_end = s2_start + s2_tile_cur
 
-                topk_indcies_tmp = topk_indcies[b_idx * s1 + s1_idx, s2_start:s2_end]
+                topk_indices_tmp = topk_indices[b_idx * s1 + s1_idx, s2_start:s2_end]
 
                 slc_kn = torch.zeros([s2_tile_cur, dk], dtype=kn_dtype)
                 slc_kr = torch.zeros([s2_tile_cur, dv], dtype=input_dtype)
@@ -214,7 +214,7 @@ def compute_attention_no_flash(input_data, params, s2_tile):
                 offset = torch.zeros([s2_tile_cur], dtype=torch.int32)
                 for cur_s2_idx in range(s2_tile_cur):
                     s2_idx_tmp = s2_start + cur_s2_idx
-                    topk_index = topk_indcies_tmp[s2_idx_tmp]
+                    topk_index = topk_indices_tmp[s2_idx_tmp]
                     block_idx_in_batch = topk_index // block_size
                     slc_block_idx = block_table[b_idx, block_idx_in_batch]
                     tail = topk_index % block_size
@@ -335,7 +335,7 @@ def gen_gather_select_attention_golden(dtype, bn1n2s1, is_kn_quant, actual_seq):
 
     max_kv_seq = max(actual_seq)
     block_num, block_table, _ = gen_block_table(torch.tensor(actual_seq), block_size, s_q, need_indices=False)
-    topk_indcies = torch.zeros(b, s_q, topk).to(torch.int32)
+    topk_indices = torch.zeros(b, s_q, topk).to(torch.int32)
     slc_actual_seq = []
     for i in range(b):
         slc_actual_seq.append(min(actual_seq[i], topk))
@@ -344,12 +344,12 @@ def gen_gather_select_attention_golden(dtype, bn1n2s1, is_kn_quant, actual_seq):
         for s_q_i in range(s_q):
 
             if slc_actual_seq[b_i] < topk:
-                topk_indcies[b_i, s_q_i, :slc_actual_seq[b_i]] = torch.arange(0, slc_actual_seq[b_i])
+                topk_indices[b_i, s_q_i, :slc_actual_seq[b_i]] = torch.arange(0, slc_actual_seq[b_i])
             else:
                 perm = torch.randperm(slc_actual_seq[b_i])
-                topk_indcies[b_i, s_q_i, :] = perm[:topk]
+                topk_indices[b_i, s_q_i, :] = perm[:topk]
 
-    topk_indcies = topk_indcies.reshape(b * s_q, n_kv * topk)
+    topk_indices = topk_indices.reshape(b * s_q, n_kv * topk)
 
     q_bsnd = gen_uniform_data(shape_q, -1, 1, dtype)
     kn_bsnd_tmp = gen_uniform_data(shape_kn, -1, 1, dtype)
@@ -369,7 +369,7 @@ def gen_gather_select_attention_golden(dtype, bn1n2s1, is_kn_quant, actual_seq):
 
     # 3. 计算attention
     params = [block_size, scalar, topk, kv_lora_rank, is_kn_quant]
-    input_data = [q_bsnd, kn, kr, kn_scales, topk_indcies, block_table, actual_seq]
+    input_data = [q_bsnd, kn, kr, kn_scales, topk_indices, block_table, actual_seq]
 
     s2_tile = 2048
     atten_out, tmp_out = compute_attention_no_flash(input_data, params, s2_tile)
@@ -383,7 +383,7 @@ def gen_gather_select_attention_golden(dtype, bn1n2s1, is_kn_quant, actual_seq):
     # input params
     input_params = [b, s_q, n_q, n_kv, max_kv_seq, kv_lora_rank, qk_rope_dim, block_num, block_size, topk,
                     is_kn_quant, scalar]
-    input_data_map = [q_nope, q_rope, kn, kr, kn_scales, topk_indcies, block_table, actual_seq]
+    input_data_map = [q_nope, q_rope, kn, kr, kn_scales, topk_indices, block_table, actual_seq]
 
     return input_params, input_data_map, atten_out
 
@@ -415,7 +415,7 @@ def do_test_sparse_attention_func(bn1n2s1, actual_seq, input_params, input_data,
 
     b, s1, n_q, n_kv, max_kv_seq, kv_lora_rank, qk_rope_dim, block_num, block_size, topk, \
         is_kn_quant, softmax_scale = input_params
-    q_nope, q_rope, kn, kr, kn_scales, topk_indcies, block_table, kv_actual_seqs = input_data
+    q_nope, q_rope, kn, kr, kn_scales, topk_indices, block_table, kv_actual_seqs = input_data
     kv_act_seqs = torch.tensor(actual_seq, dtype=torch.int32)
 
     calc_attention_out = torch.zeros([b, s1, n_q, kv_lora_rank], dtype=torch.bfloat16)
@@ -430,8 +430,8 @@ def do_test_sparse_attention_func(bn1n2s1, actual_seq, input_params, input_data,
     kr_pto = pypto.from_torch(kr_npu, name="kr")
     kn_scales_npu = kn_scales.npu()
     kn_scales_pto = pypto.from_torch(kn_scales_npu, name="kn_scales")
-    topk_indcies_npu = topk_indcies.npu()
-    topk_indcies_pto = pypto.from_torch(topk_indcies_npu, dynamic_axis=[0], name="topk_indcies")
+    topk_indices_npu = topk_indices.npu()
+    topk_indices_pto = pypto.from_torch(topk_indices_npu, dynamic_axis=[0], name="topk_indices")
     block_table_npu = block_table.npu()
     block_table_pto = pypto.from_torch(block_table_npu, dynamic_axis=[0], name="block_table")
     kv_act_seqs_npu = kv_act_seqs.npu()
@@ -440,7 +440,7 @@ def do_test_sparse_attention_func(bn1n2s1, actual_seq, input_params, input_data,
     calc_attention_out_npu = calc_attention_out.npu()
     calc_attention_out_pto = pypto.from_torch(calc_attention_out_npu, dynamic_axis=[0], name="calc_attention_out")
 
-    pto_inputs = [q_nope_pto, q_rope_pto, kn_pto, kr_pto, kn_scales_pto, topk_indcies_pto, block_table_pto,
+    pto_inputs = [q_nope_pto, q_rope_pto, kn_pto, kr_pto, kn_scales_pto, topk_indices_pto, block_table_pto,
                   kv_act_seqs_pto]
     pto_outputs = [calc_attention_out_pto]
 

@@ -22,7 +22,7 @@ Main Functions:
     - sparse_flash_attention_quant_p: JIT-compiled prefill version
 
 Example:
-    See testdsv32_sparse_flash_attention_quant.py for usage examples.
+    See deepseekv32_sparse_attention_antiquant.py for usage examples.
 """
 from dataclasses import dataclass
 import math
@@ -42,7 +42,7 @@ class SaTileShapeConfig:
     v2_tile_shape: list
 
 
-def sparse_attention_antiquant_compute(query_nope, query_rope, nope_cache, topk_indcies, 
+def sparse_attention_antiquant_compute(query_nope, query_rope, nope_cache, topk_indices, 
                                             block_table, kv_act_seqs, attention_out, 
                                             nq, n_kv, softmax_scale, topk, block_size, 
                                             max_blocknum_perbatch, tile_config):
@@ -58,7 +58,7 @@ def sparse_attention_antiquant_compute(query_nope, query_rope, nope_cache, topk_
         nope_cache: Key tensor without RoPE, Key tensor with RoPE, Dequantization scales for quantized keys, 
                     shape (block_num * block_size, kv_lora_rank + rope_dim*2 + 4*4),
                     dtype INT8
-        topk_indcies: Top-k indices for each query token, shape (t, n_kv * topk), dtype INT32
+        topk_indices: Top-k indices for each query token, shape (t, n_kv * topk), dtype INT32
         block_table: Block mapping table for PagedAttention, shape (b, max_blocknum_perbatch),
                      dtype INT32
         kv_act_seqs: Actual sequence lengths for each batch, shape (b,), dtype INT32
@@ -114,7 +114,7 @@ def sparse_attention_antiquant_compute(query_nope, query_rope, nope_cache, topk_
                         name="LOOP_L4_s2_SA", idx_name="s2_idx", unroll_list={1}):
                         cur_s2_tile = s2_tile
 
-                        cur_topk_indcies = pypto.view(topk_indcies, [1, cur_s2_tile],
+                        cur_topk_indices = pypto.view(topk_indices, [1, cur_s2_tile],
                                                   [batch_idx * s1_sym + slc_idx, s2_idx * cur_s2_tile],
                                                   valid_shape=[1, (cur_seq - s2_idx * cur_s2_tile).min(cur_s2_tile)])
                         cur_block_table = pypto.view(block_table, [1, max_blocknum_perbatch], [batch_idx, 0])
@@ -123,10 +123,11 @@ def sparse_attention_antiquant_compute(query_nope, query_rope, nope_cache, topk_
                         # nope_cache索引
                         pypto.set_semantic_label("Sa_V0")
 
+                        # kv尾轴512 int8， kr尾轴64 bf16/fp16，kv scale尾轴4 fp32，共656; 然后最后一维要32对齐，变成672
                         pypto.set_vec_tile_shapes(16, 672)
 
                         # [512:640:656] kv_quant 512*int8, kr 64*bf16, kv_scale 4*fp32
-                        cur_topk_indcies = pypto.view(topk_indcies, [1, cur_s2_tile],
+                        cur_topk_indices = pypto.view(topk_indices, [1, cur_s2_tile],
                                                   [batch_idx * s1_sym + slc_idx, s2_idx * cur_s2_tile],
                                                   valid_shape=[1, (cur_seq - s2_idx * cur_s2_tile).min(cur_s2_tile)])
                         cur_block_table = pypto.view(block_table, [1, max_blocknum_perbatch], [batch_idx, 0])
@@ -138,7 +139,7 @@ def sparse_attention_antiquant_compute(query_nope, query_rope, nope_cache, topk_
                         )
 
                         # ---- gather: GM --> UB  ----  UB非连续：shape [16, 672]， vaildshape：[16, 656]
-                        slc_nope_cache = gather_in_ub(nope_cache_view, cur_topk_indcies, cur_block_table,
+                        slc_nope_cache = gather_in_ub(nope_cache_view, cur_topk_indices, cur_block_table,
                                                       block_size, -2)
 
                         pypto.set_vec_tile_shapes(16, 512)
@@ -259,7 +260,7 @@ def sparse_attention_antiquant_compute(query_nope, query_rope, nope_cache, topk_
     },
     host_options={"only_codegen": True}
 )
-def sparse_attention_antiquant_d(query_nope, query_rope, nope_cache, topk_indcies, 
+def sparse_attention_antiquant_d(query_nope, query_rope, nope_cache, topk_indices, 
                                             block_table, kv_act_seqs, attention_out, 
                                             nq, n_kv, softmax_scale, topk, block_size, 
                                             max_blocknum_perbatch, tile_config):
@@ -271,12 +272,10 @@ def sparse_attention_antiquant_d(query_nope, query_rope, nope_cache, topk_indcie
     Args:
         query_nope: Query tensor without RoPE, shape (t * n_q, kv_lora_rank), dtype BF16
         query_rope: Query tensor with RoPE, shape (t * n_q, rope_dim), dtype BF16
-        key_nope_2d: Key tensor without RoPE, shape (block_num * block_size, kv_lora_rank),
-                     dtype BF16 or INT8
-        key_rope_2d: Key tensor with RoPE, shape (block_num * block_size, rope_dim), dtype BF16
-        k_nope_scales: Dequantization scales for quantized keys, shape (block_num * block_size, 4),
-                       dtype FP32
-        topk_indcies: Top-k indices for each query token, shape (t, n_kv * topk), dtype INT32
+        nope_cache: Key tensor without RoPE, Key tensor with RoPE, Dequantization scales for quantized keys, 
+                    shape (block_num * block_size, kv_lora_rank + rope_dim*2 + 4*4),
+                    dtype INT8
+        topk_indices: Top-k indices for each query token, shape (t, n_kv * topk), dtype INT32
         block_table: Block mapping table for PagedAttention, shape (b, max_blocknum_perbatch),
                      dtype INT32
         kv_act_seqs: Actual sequence lengths for each batch, shape (b,), dtype INT32
@@ -294,7 +293,7 @@ def sparse_attention_antiquant_d(query_nope, query_rope, nope_cache, topk_indcie
         Uses flash attention algorithm for better numerical stability.
     """
     pypto.experimental.set_operation_config(combine_axis=True)
-    sparse_attention_antiquant_compute(query_nope, query_rope, nope_cache, topk_indcies, 
+    sparse_attention_antiquant_compute(query_nope, query_rope, nope_cache, topk_indices, 
                                             block_table, kv_act_seqs, attention_out, 
                                             nq, n_kv, softmax_scale, topk, block_size, 
                                             max_blocknum_perbatch, tile_config)
@@ -320,7 +319,7 @@ def sparse_attention_antiquant_d(query_nope, query_rope, nope_cache, topk_indcie
     },
     host_options={"only_codegen": True}
 )
-def sparse_attention_antiquant_p(query_nope, query_rope, nope_cache, topk_indcies, 
+def sparse_attention_antiquant_p(query_nope, query_rope, nope_cache, topk_indices, 
                                             block_table, kv_act_seqs, attention_out, 
                                             nq, n_kv, softmax_scale, topk, block_size, 
                                             max_blocknum_perbatch, tile_config):
@@ -335,7 +334,7 @@ def sparse_attention_antiquant_p(query_nope, query_rope, nope_cache, topk_indcie
         nope_cache: Key tensor without RoPE, Key tensor with RoPE, Dequantization scales for quantized keys, 
                     shape (block_num * block_size, kv_lora_rank + rope_dim*2 + 4*4),
                     dtype INT8
-        topk_indcies: Top-k indices for each query token, shape (t, n_kv * topk), dtype INT32
+        topk_indices: Top-k indices for each query token, shape (t, n_kv * topk), dtype INT32
         block_table: Block mapping table for PagedAttention, shape (b, max_blocknum_perbatch),
                      dtype INT32
         kv_act_seqs: Actual sequence lengths for each batch, shape (b,), dtype INT32
@@ -353,7 +352,7 @@ def sparse_attention_antiquant_p(query_nope, query_rope, nope_cache, topk_indcie
         Uses flash attention algorithm for better numerical stability.
     """
     pypto.experimental.set_operation_config(combine_axis=True)
-    sparse_attention_antiquant_compute(query_nope, query_rope, nope_cache, topk_indcies, 
+    sparse_attention_antiquant_compute(query_nope, query_rope, nope_cache, topk_indices, 
                                             block_table, kv_act_seqs, attention_out, 
                                             nq, n_kv, softmax_scale, topk, block_size, 
                                             max_blocknum_perbatch, tile_config)
