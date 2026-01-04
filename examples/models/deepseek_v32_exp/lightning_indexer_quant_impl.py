@@ -118,9 +118,9 @@ def lightning_indexer_decode_compute(
     pad_idx_value = -1
     descending = True
     pad_value = -sys.float_info.max if descending else sys.float_info.max
-    length_2K = selected_count
-    length_8K = 1024 * 8
-    length_32K = 1024 * 32
+    length_2k = selected_count
+    length_8k = 1024 * 8
+    length_32k = 1024 * 32
 
     query_2d = pypto.tensor([t * idx_n_heads, index_d], qk_dtype, "query_2d")
     q_scale_3d = pypto.tensor([t, 1, idx_n_heads], scale_dtype, "q_scale_3d")
@@ -200,15 +200,15 @@ def lightning_indexer_decode_compute(
                 eff_seq = cur_seq - casual_offset
                 src_offset = s1_idx
                 dst_offset = b_idx * s1 + s1_idx
-                length_is_le2K = eff_seq <= length_2K
-                length_is_gt2K = eff_seq > length_2K
-                for _ in pypto.loop(length_is_le2K, name="2K_TOPK", idx_name="un_used"):
-                    pad_x2k = pypto.tensor([1, length_2K], xdtype, "pad_x2k")
+                length_is_le2k = eff_seq <= length_2k
+                length_is_gt2k = eff_seq > length_2k
+                for _ in pypto.loop(length_is_le2k, name="2K_TOPK", idx_name="un_used"):
+                    pad_x2k = pypto.tensor([1, length_2k], xdtype, "pad_x2k")
                     pypto.set_pass_options(pg_skip_partition=True)
-                    pypto.set_vec_tile_shapes(1, length_2K)
-                    eff_2K = pypto.view(max_tensor, [1, length_2K], [src_offset, 0], valid_shape=[1, eff_seq])
-                    ax = pypto.view(eff_2K, [1, length_2K], [0, 0], valid_shape=[1, eff_seq])
-                    bx = pypto.full([1, length_2K], pad_value, pypto.DT_FP32, valid_shape=[1, length_2K - eff_seq])
+                    pypto.set_vec_tile_shapes(1, length_2k)
+                    eff_2k = pypto.view(max_tensor, [1, length_2k], [src_offset, 0], valid_shape=[1, eff_seq])
+                    ax = pypto.view(eff_2k, [1, length_2k], [0, 0], valid_shape=[1, eff_seq])
+                    bx = pypto.full([1, length_2k], pad_value, pypto.DT_FP32, valid_shape=[1, length_2k - eff_seq])
                     pypto.assemble(pypto.clone(ax), [0, 0], pad_x2k)
                     pypto.assemble(bx, [0, eff_seq], pad_x2k)
                     pypto.set_pass_options(pg_skip_partition=False)
@@ -222,88 +222,88 @@ def lightning_indexer_decode_compute(
                     topk_indices_pad = pypto.full([1, 1, selected_count], pad_idx_value, dxdtype,
                                         valid_shape=[1, 1, selected_count - eff_seq])
                     pypto.assemble(topk_indices_pad, [dst_offset, 0, eff_seq], topk_res)
-                length_is_le8K = eff_seq <= length_8K
-                length_is_gt8K = eff_seq > length_8K
-                pad_x8K = pypto.tensor([1, length_8K], xdtype, "pad_x8K")
+                length_is_le8k = eff_seq <= length_8k
+                length_is_gt8k = eff_seq > length_8k
+                pad_x8k = pypto.tensor([1, length_8k], xdtype, "pad_x8k")
                 pypto.set_vec_tile_shapes(1, topk_tile)
 
-                for _ in pypto.loop(length_is_gt2K * length_is_le8K, name="8K_TOPK", idx_name="unused"):
+                for _ in pypto.loop(length_is_gt2k * length_is_le8k, name="8K_TOPK", idx_name="unused"):
                     pypto.set_pass_options(pg_skip_partition=True)
                     pypto.set_vec_tile_shapes(1, topk_tile)
-                    eff_8K = pypto.view(max_tensor, [1, length_8K], [src_offset, 0], valid_shape=[1, eff_seq])
-                    ax = pypto.view(eff_8K, [1, length_8K], [0, 0], valid_shape=[1, eff_seq])
-                    bx = pypto.full([1, length_8K], pad_value, pypto.DT_FP32, valid_shape=[1, length_8K - eff_seq])
-                    pypto.assemble(pypto.clone(ax), [src_offset, 0], pad_x8K)
-                    pypto.assemble(bx, [src_offset, eff_seq], pad_x8K)
+                    eff_8k = pypto.view(max_tensor, [1, length_8k], [src_offset, 0], valid_shape=[1, eff_seq])
+                    ax = pypto.view(eff_8k, [1, length_8k], [0, 0], valid_shape=[1, eff_seq])
+                    bx = pypto.full([1, length_8k], pad_value, pypto.DT_FP32, valid_shape=[1, length_8k - eff_seq])
+                    pypto.assemble(pypto.clone(ax), [src_offset, 0], pad_x8k)
+                    pypto.assemble(bx, [src_offset, eff_seq], pad_x8k)
                     pypto.set_pass_options(pg_skip_partition=False)
 
-                    res, _ = topk_sort(pypto.view(pad_x8K, [1, length_8K], [0, 0]), 0)
+                    res, _ = topk_sort(pypto.view(pad_x8k, [1, length_8k], [0, 0]), 0)
                     res_idx = topk_extract(res, selected_count, True)
                     pypto.set_vec_tile_shapes(1, 1, topk_tile)
-                    topk_3D = pypto.reshape(res_idx, [1, 1, selected_count])
-                    pypto.assemble(pypto.clone(topk_3D), [dst_offset, 0, 0], topk_res)
+                    topk_3d = pypto.reshape(res_idx, [1, 1, selected_count])
+                    pypto.assemble(pypto.clone(topk_3d), [dst_offset, 0, 0], topk_res)
 
                 # 128K TOPK
-                total_size_y1 = MAX_LI_S2 // length_8K * selected_count
-                total_size_y2 = MAX_LI_S2 // length_8K * selected_count // length_8K * selected_count
+                total_size_y1 = MAX_LI_S2 // length_8k * selected_count
+                total_size_y2 = MAX_LI_S2 // length_8k * selected_count // length_8k * selected_count
                 local_y1 = pypto.tensor([1, total_size_y1 * 2], pypto.DT_FP32, "local_y1")
                 local_y2 = pypto.tensor([1, total_size_y2 * 2], pypto.DT_FP32, "local_y2")
-                max_num_of_8K = MAX_LI_S2 // length_8K
-                num_of_8K = (eff_seq - 1) // length_8K + 1
-                valid_size_y1 = num_of_8K * selected_count
+                max_num_of_8k = MAX_LI_S2 // length_8k
+                num_of_8k = (eff_seq - 1) // length_8k + 1
+                valid_size_y1 = num_of_8k * selected_count
                 pad_size_y1 = total_size_y1 - valid_size_y1
-                num_of_32K = (eff_seq - 1) // length_32K + 1
-                valid_size_y2 = num_of_32K * selected_count
+                num_of_32k = (eff_seq - 1) // length_32k + 1
+                valid_size_y2 = num_of_32k * selected_count
                 pad_size_y2 = total_size_y2 - valid_size_y2
 
                 pypto.set_vec_tile_shapes(1, topk_tile)
                 
-                for _ in pypto.loop(1 * length_is_gt8K * (num_of_8K != max_num_of_8K),
+                for _ in pypto.loop(1 * length_is_gt8k * (num_of_8k != max_num_of_8k),
                                     name="128K_PAD_Y1Y2", idx_name="unused"):
                     pypto.assemble(pypto.full([1, total_size_y1 * 2], pad_value, xdtype,
                                             valid_shape=[1, pad_size_y1 * 2]), [0, valid_size_y1 * 2], local_y1)
                     pypto.assemble(pypto.full([1, total_size_y2 * 2], pad_value, xdtype,
                                             valid_shape=[1, pad_size_y2 * 2]), [0, valid_size_y2 * 2], local_y2)
 
-                need_8K_pad_tail = (eff_seq % length_8K) != 0
-                num_of_8K_full_block = num_of_8K - need_8K_pad_tail
+                need_8k_pad_tail = (eff_seq % length_8k) != 0
+                num_of_8k_full_block = num_of_8k - need_8k_pad_tail
 
-                for idx1 in pypto.loop(num_of_8K_full_block * length_is_gt8K,
+                for idx1 in pypto.loop(num_of_8k_full_block * length_is_gt8k,
                                        name="128K_TO_32K_FULL_SORT", idx_name="idx1"):
                     cur_in = pypto.view(max_tensor, [1, MAX_LI_S2], [src_offset, 0], valid_shape=[1, eff_seq])
-                    ax = pypto.view(cur_in, [1, length_8K], [0, idx1 * length_8K])
+                    ax = pypto.view(cur_in, [1, length_8k], [0, idx1 * length_8k])
                     res, _ = topk_sort(ax, idx1)
                     pypto.assemble(pypto.clone(pypto.view(res, [1, selected_count * 2], [0, 0])),
                                 [0, idx1 * selected_count * 2], local_y1)
 
-                for _ in pypto.loop(need_8K_pad_tail * length_is_gt8K,
+                for _ in pypto.loop(need_8k_pad_tail * length_is_gt8k,
                                        name="128K_TO_32K_TAIL", idx_name="unused"):
-                    x_start_offset = num_of_8K_full_block * length_8K
+                    x_start_offset = num_of_8k_full_block * length_8k
                     tail_block_length = eff_seq - x_start_offset
                     pypto.set_pass_options(pg_skip_partition=True)
                     pypto.set_vec_tile_shapes(1, topk_tile)
                     cur_in = pypto.view(max_tensor, [1, MAX_LI_S2], [src_offset, 0], valid_shape=[1, eff_seq])
-                    ax = pypto.view(cur_in, [1, length_8K], [0, x_start_offset],
+                    ax = pypto.view(cur_in, [1, length_8k], [0, x_start_offset],
                                     valid_shape=[1, tail_block_length])
-                    bx = pypto.full([1, length_8K], pad_value, pypto.DT_FP32,
-                        valid_shape=[1, length_8K - tail_block_length])
-                    pypto.assemble(pypto.clone(ax), [0, 0], pad_x8K)
-                    pypto.assemble(bx, [0, tail_block_length], pad_x8K)
+                    bx = pypto.full([1, length_8k], pad_value, pypto.DT_FP32,
+                        valid_shape=[1, length_8k - tail_block_length])
+                    pypto.assemble(pypto.clone(ax), [0, 0], pad_x8k)
+                    pypto.assemble(bx, [0, tail_block_length], pad_x8k)
                     pypto.set_pass_options(pg_skip_partition=False)
                     for _ in pypto.loop(0, 1, 1, name="128K_TO_32K_TAIL_SORT", idx_name="un_used0"):
-                        res, _ = topk_sort(pypto.view(pad_x8K, [1, length_8K], [0, 0]), num_of_8K_full_block)
+                        res, _ = topk_sort(pypto.view(pad_x8k, [1, length_8k], [0, 0]), num_of_8k_full_block)
                         pypto.assemble(pypto.clone(pypto.view(res, [1, selected_count * 2], [0, 0])),
-                                            [0, num_of_8K_full_block * selected_count * 2], local_y1)
+                                            [0, num_of_8k_full_block * selected_count * 2], local_y1)
 
-                for idx2 in pypto.loop(num_of_32K * length_is_gt8K, name="32K_TO_8K_MERGE", idx_name="idx2"):
-                    res = topk_merge(pypto.view(local_y1, [1, length_8K * 2],
-                                                [0, idx2 * length_8K * 2]), selected_count)
+                for idx2 in pypto.loop(num_of_32k * length_is_gt8k, name="32K_TO_8K_MERGE", idx_name="idx2"):
+                    res = topk_merge(pypto.view(local_y1, [1, length_8k * 2],
+                                                [0, idx2 * length_8k * 2]), selected_count)
                     pypto.assemble(pypto.clone(pypto.view(res, [1, selected_count * 2], [0, 0])),
                                 [0, idx2 * selected_count * 2], local_y2)
 
                 pypto.set_vec_tile_shapes(1, topk_tile)
-                for _ in pypto.loop(1 * length_is_gt8K, name="8K_TO_2K_MERGE", idx_name="unused"):
-                    res = topk_merge(pypto.view(local_y2, [1, length_8K * 2], [0, 0]), selected_count)
+                for _ in pypto.loop(1 * length_is_gt8k, name="8K_TO_2K_MERGE", idx_name="unused"):
+                    res = topk_merge(pypto.view(local_y2, [1, length_8k * 2], [0, 0]), selected_count)
                     res_idx = topk_extract(res, selected_count, True)
                     pypto.set_vec_tile_shapes(1, 1, topk_tile)
                     topk_3d = pypto.reshape(res_idx, [1, 1, selected_count])
