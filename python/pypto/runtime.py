@@ -102,7 +102,7 @@ class _JIT:
         self.dyn_func = dyn_func
         self._is_compiled: bool = False
         self._handler = None
-        self._cached_shapes = None
+        self._shape_handler_cache = {}
         self.codegen_options = codegen_options
         self.host_options = host_options
         self.pass_options = pass_options
@@ -218,16 +218,17 @@ class _JIT:
 
         # Convert tensors to tensor data before compile, as compile turns tensor shapes into symbolic scalars.
         in_out_tensors_data = _pto_to_tensor_data(in_out_tensors)
-        real_shapes = [t.GetShape() for t in in_out_tensors_data]
+        key_shapes = tuple([tuple([dim if isinstance(dim, int) else -1 for dim in t.shape]) for t in in_out_tensors])
 
         self.set_run_mode()
-        if not self._is_compiled or not self._hit_cache(real_shapes):
+        if not self._is_compiled or not self._hit_cache(key_shapes):
             self.compile(*args, **kwargs)
-            self._cached_shapes = real_shapes
+            self._shape_handler_cache[key_shapes] = self._handler
             pypto_impl.BuildCache(self._handler, in_out_tensors_data, [])
         else:
             pypto_impl.ResetLog()
             self._set_config_option()
+            self._handler = self._shape_handler_cache.get(key_shapes)
         # dispatch run mode based on ASCEND_HOME_PATH or run_mode
         '''
           if run_mode is not config, use ASCEND_HOME_PATH
@@ -265,14 +266,9 @@ class _JIT:
             pypto.set_debug_options(**self.debug_options)
 
     def _hit_cache(self, shapes):
-        if None in [self._handler, self._cached_shapes]:
+        if self._handler is None or len(self._shape_handler_cache) == 0:
             return False
-        if len(shapes) != len(self._cached_shapes):
-            raise RuntimeError("Tensor count mismatch, please check inputs and outputs")
-        for shape1, shape2 in zip(shapes, self._cached_shapes):
-            if shape1 != shape2:
-                return False
-        return True
+        return self._shape_handler_cache.get(shapes) is not None
 
 
 @overload
