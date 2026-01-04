@@ -22,7 +22,7 @@ class HP(torch.nn.Module):
 
 def prep_env():
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
-    torch.npu.set_device(5)
+    torch.npu.set_device(device_id)
     torch_npu.npu.config.allow_internal_format = True
 
 def convert_torch_tensor(tensor_dict, dynamic_axis_dict, name_prefix):
