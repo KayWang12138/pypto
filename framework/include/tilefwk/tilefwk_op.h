@@ -396,14 +396,6 @@ enum class DistReduceType {
     DIST_REDUCE_MIN,
 };
 
-struct MoeConfig {
-    int32_t routedExpertNum{0};
-    int32_t expertNumPerRank{0};
-    int32_t rankNum{0};
-};
-
-void MoeDispatch(const Tensor& tokenTensor, const Tensor& tokenExpertTable, Tensor& expandX, Tensor& validCnt,
-    Tensor& combineInfo, const char *group, const MoeConfig& moeConfig);
 void AllGather(const Tensor& predToken, const Tensor& in, const char* group, uint32_t worldSize, Tensor& out);
 void ShmemBarrier(const Tensor& predToken, Tensor& shmemSignal, const char* group, uint32_t worldSize, Tensor& out);
 Tensor ShmemDataSet(const Tensor& predToken, const Tensor& shmemData);
@@ -413,6 +405,9 @@ void OneShotAllReduce(const Tensor& predToken, const Tensor& in, const char* gro
 void OneShotAllReduce(const Tensor& predToken, const Tensor& in, const Tensor& shmemData, const Tensor& shmemSignal,
     const char* group, uint32_t worldSize, Tensor& out);
 void TwoShotAllReduce(const Tensor& predToken, const Tensor& in, const char* group, uint32_t worldSize, Tensor& out);
+void MoeDistributedDispatch(const Tensor& x, const Tensor& expertIds, const char* group, 
+    uint32_t epWorldSize, uint32_t moeExpertNum, uint32_t sharedExpertNum, uint32_t sharedExpertRankNum, Tensor& expandX,
+    Tensor& assistInfoForCombine, Tensor& expertTokenNums, Tensor& recvCounts);
 void MoeDistributedCombine(const Tensor& expandX, const Tensor& assistInfoForCombine, const Tensor& recvCounts,
     const Tensor& expertScales, const char* group, uint32_t epWorldSize, uint32_t moeExpertNum,
     uint32_t sharedExpertNum, uint32_t sharedExpertRankNum, Tensor& out);
