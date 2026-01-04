@@ -28,17 +28,16 @@
 namespace npu::tile_fwk {
 namespace {
 bool IsCopyOpWithShapeOffsetAttr(Opcode opcode) {
-    bool result = opcode == Opcode::OP_COPY_IN || opcode == Opcode::OP_COPY_OUT ||
-                  opcode == Opcode::OP_TRANSPOSE_MOVEOUT || opcode == Opcode::OP_TRANSPOSE_MOVEIN ||
-                  opcode == Opcode::OP_INDEX_OUTCAST || opcode == Opcode::OP_LOCAL_COPY_OUT ||
-                  opcode == Opcode::OP_REMOTE_REDUCE || opcode == Opcode::OP_REMOTE_GATHER ||
-                  opcode == Opcode::OP_FFN_SCHED || opcode == Opcode::OP_FFN_BATCHING ||
-                  opcode == Opcode::OP_FFN_COMBINEINFO || opcode == Opcode::OP_FFN_VALIDCNT ||
-                  opcode == Opcode::OP_COPY_TO_LOCAL_EXPERT || opcode == Opcode::OP_SHMEM_PUT ||
-                  opcode == Opcode::OP_SHMEM_PUT_UB2GM || opcode == Opcode::OP_SHMEM_SIGNAL ||
-                  opcode == Opcode::OP_SHMEM_GET || opcode == Opcode::OP_SHMEM_GET_GM2UB ||
-                  opcode == Opcode::OP_SHMEM_REDUCE || opcode == Opcode::OP_SHMEM_SET ||
-                  opcode == Opcode::OP_SHMEM_MOE_COMBINE_SEND || opcode == Opcode::OP_SHMEM_MOE_COMBINE_RECEIVE;
+    bool result =
+        opcode == Opcode::OP_COPY_IN || opcode == Opcode::OP_COPY_OUT || opcode == Opcode::OP_TRANSPOSE_MOVEOUT ||
+        opcode == Opcode::OP_TRANSPOSE_MOVEIN || opcode == Opcode::OP_INDEX_OUTCAST ||
+        opcode == Opcode::OP_LOCAL_COPY_OUT || opcode == Opcode::OP_REMOTE_REDUCE ||
+        opcode == Opcode::OP_REMOTE_GATHER || opcode == Opcode::OP_FFN_SCHED || opcode == Opcode::OP_FFN_BATCHING ||
+        opcode == Opcode::OP_FFN_COMBINEINFO || opcode == Opcode::OP_FFN_VALIDCNT ||
+        opcode == Opcode::OP_COPY_TO_LOCAL_EXPERT || opcode == Opcode::OP_SHMEM_PUT ||
+        opcode == Opcode::OP_SHMEM_PUT_UB2GM || opcode == Opcode::OP_SHMEM_SIGNAL || opcode == Opcode::OP_SHMEM_GET ||
+        opcode == Opcode::OP_SHMEM_GET_GM2UB || opcode == Opcode::OP_SHMEM_REDUCE || opcode == Opcode::OP_SHMEM_SET ||
+        opcode == Opcode::OP_SHMEM_MOE_COMBINE_SEND || opcode == Opcode::OP_SHMEM_MOE_COMBINE_RECEIVE;
     return result;
 }
 } // namespace
@@ -62,8 +61,9 @@ void CodeGenOp::CombineAxis(const Operation &oper, int operandIdx, bool isInput,
     ALOG_INFO_F("operandIdx %d, isInput: %d, ioIdx is %d ", operandIdx, isInput, ioIdx);
 
     std::vector<bool> needCombineIOIdx;
-    if ((isInput && oper.GetAttr(OpAttributeKey::inputCombineAxis, needCombineIOIdx) && needCombineIOIdx[ioIdx]) ||
-        (!isInput && oper.GetAttr(OpAttributeKey::outputCombineAxis, needCombineIOIdx) && needCombineIOIdx[ioIdx])) {
+    if (((isInput && oper.GetAttr(OpAttributeKey::inputCombineAxis, needCombineIOIdx)) ||
+            (!isInput && oper.GetAttr(OpAttributeKey::outputCombineAxis, needCombineIOIdx))) &&
+        needCombineIOIdx[ioIdx]) {
         ALOG_INFO_F("needCombineIOIdx is %s", IntVecToStr(needCombineIOIdx).c_str());
         CombineLastTwoAxis(shape[operandIdx], dim);
         CombineLastTwoAxis(rawShape[operandIdx], dim);
