@@ -13,6 +13,7 @@
  * \brief Unit test for InsertSync.
  */
 #include <gtest/gtest.h>
+#include "function/block_function.h"
 #include "tilefwk/platform.h"
 #include "passes/block_graph_pass/insert_sync.h"
 #include "ut_json/ut_json_tool.h"
@@ -149,7 +150,7 @@ public:
 TEST_F(InsertSyncTest, TestEnableDebug) {
     auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestParams", "TestParams", nullptr);
     rootFuncPtr->rootFunc_ = rootFuncPtr.get();
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestAddParams", "TestAddParams", rootFuncPtr.get());
+    auto currFunctionPtr = std::make_shared<BlockFunction>(Program::GetInstance(), "TestAddParams", "TestAddParams", rootFuncPtr.get());
     EXPECT_TRUE(currFunctionPtr != nullptr);
     rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
 
