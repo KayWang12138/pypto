@@ -45,34 +45,29 @@ struct AicpuParamInfo {
     uint32_t rawShapeCol{0};
 };
 
-inline uint64_t GetVirtualAddrBist(uint64_t val, uint64_t start, uint64_t end)
-{
+inline uint64_t GetVirtualAddrBist(uint64_t val, uint64_t start, uint64_t end) {
     return (((val) >> (start)) & ((1UL << ((end) - (start) + 1UL)) - 1UL));
 }
 
-inline uint64_t GetVirtualAddrOffset(uint64_t val)
-{
+inline uint64_t GetVirtualAddrOffset(uint64_t val) {
     constexpr uint64_t offsetStart = 0UL; 
     constexpr uint64_t offsetEnd = 57UL; 
     return GetVirtualAddrBist(val, offsetStart, offsetEnd);
 }
 
-inline uint64_t GetVirtualAddrGroupIndex(uint64_t val)
-{
+inline uint64_t GetVirtualAddrGroupIndex(uint64_t val) {
     constexpr uint64_t groupIndexStart = 58UL; 
     constexpr uint64_t groupIndexEnd = 59UL; 
     return GetVirtualAddrBist(val, groupIndexStart, groupIndexEnd);
 }
 
-inline uint64_t GetVirtaulAddrMemType(uint64_t val)
-{
+inline uint64_t GetVirtaulAddrMemType(uint64_t val) {
     constexpr uint64_t memTypeStart = 60UL; 
     constexpr uint64_t memTypeEnd = 61UL; 
     return GetVirtualAddrBist(val, memTypeStart, memTypeEnd);
 }
 
-inline uint64_t GetCoa(const uint32_t index, uint64_t* opAttrs, uint64_t* expressionTable)
-{
+inline uint64_t GetCoa(const uint32_t index, uint64_t* opAttrs, uint64_t* expressionTable) {
     constexpr uint64_t valueLength = 63;
     constexpr uint64_t valueMask = (1UL << valueLength) - 1;
     const uint64_t encodedValue = opAttrs[index];
@@ -82,8 +77,7 @@ inline uint64_t GetCoa(const uint32_t index, uint64_t* opAttrs, uint64_t* expres
 }
 
 inline std::vector<uint32_t> GetCoaVector(const uint32_t baseIndex, const uint32_t dim, uint64_t* opAttrs,
-    uint64_t* expressionTable)
-{
+    uint64_t* expressionTable) {
     std::vector<uint32_t> vec(dim);
     for (uint32_t i = 0; i < dim; ++i) {
         vec[i] = GetCoa(baseIndex + i, opAttrs, expressionTable);
@@ -91,8 +85,7 @@ inline std::vector<uint32_t> GetCoaVector(const uint32_t baseIndex, const uint32
     return vec;
 }
 
-inline AicpuParamInfo DecodeAicpuCode(const npu::tile_fwk::dynamic::DevRelocVector<int32_t> &aicpuCode)
-{
+inline AicpuParamInfo DecodeAicpuCode(const npu::tile_fwk::dynamic::DevRelocVector<int32_t> &aicpuCode) {
     AicpuParamInfo paramInfo;
     int index = 1;
     paramInfo.outIndex = index + 1;

@@ -31,8 +31,7 @@
 
 namespace npu::tile_fwk::Distributed {
 
-inline bool SignalTileOp::PollCompleted(std::vector<uint64_t> &completed) const
-{
+inline bool SignalTileOp::PollCompleted(std::vector<uint64_t> &completed) const {
     if (addr_[0] == expectedSum_) {
         completed.emplace_back(taskId_);
         if (resetSignal_) {
@@ -43,13 +42,11 @@ inline bool SignalTileOp::PollCompleted(std::vector<uint64_t> &completed) const
     return false;
 }
 
-int32_t ShmemWaitUntil::PollCompleted(std::vector<uint64_t> &completed)
-{
+int32_t ShmemWaitUntil::PollCompleted(std::vector<uint64_t> &completed) {
     return runingTaskQueue_.RemoveCompletedTasks(completed);
 }
 
-uint64_t ShmemWaitUntil::GetRawAddr(const uint64_t addr, const uint64_t dstRankId)
-{
+uint64_t ShmemWaitUntil::GetRawAddr(const uint64_t addr, const uint64_t dstRankId) {
     uint64_t groupIndex = npu::tile_fwk::Distributed::GetVirtualAddrGroupIndex(addr);
     uint64_t offset = npu::tile_fwk::Distributed::GetVirtualAddrOffset(addr);
     uint64_t memType = npu::tile_fwk::Distributed::GetVirtaulAddrMemType(addr);
@@ -61,8 +58,7 @@ uint64_t ShmemWaitUntil::GetRawAddr(const uint64_t addr, const uint64_t dstRankI
     }
 }
 
-TensorInfo ShmemWaitUntil::GetTensorInfo(uint64_t taskId, const npu::tile_fwk::dynamic::DevRelocVector<int32_t> &aicpuCode)
-{
+TensorInfo ShmemWaitUntil::GetTensorInfo(uint64_t taskId, const npu::tile_fwk::dynamic::DevRelocVector<int32_t> &aicpuCode) {
     uint32_t funcId = npu::tile_fwk::dynamic::FuncID(taskId);
     uint32_t opIndex = npu::tile_fwk::dynamic::TaskID(taskId);
     auto &funcData = funcDataList_[funcId];

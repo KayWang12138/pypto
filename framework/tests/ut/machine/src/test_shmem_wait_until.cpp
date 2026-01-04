@@ -76,8 +76,7 @@ auto InitializeTestEnvironment(const uint32_t rankSize) {
 
 void PrepareTasks(uint32_t tileOpCount, npu::tile_fwk::Distributed::ShmemWaitUntil* shmemWaitUntil,
     const npu::tile_fwk::dynamic::DevRelocVector<int32_t>& aicpuCode, npu::tile_fwk::DynFuncData* funcData,
-    uint64_t* opAttrsPtr)
-{
+    uint64_t* opAttrsPtr) {
     constexpr size_t opAttrsLength = 17;
     for (uint32_t taskId = 0; taskId < tileOpCount; ++taskId) {
         auto opAtrrOffsets = std::make_unique<int32_t[]>(taskId + 1);
@@ -94,8 +93,7 @@ void PrepareTasks(uint32_t tileOpCount, npu::tile_fwk::Distributed::ShmemWaitUnt
     }
 }
 
-void RunTests(uint32_t tileOpCount, npu::tile_fwk::Distributed::ShmemWaitUntil* shmemWaitUntil)
-{
+void RunTests(uint32_t tileOpCount, npu::tile_fwk::Distributed::ShmemWaitUntil* shmemWaitUntil) {
     for (uint32_t taskId = 0; taskId < tileOpCount; ++taskId) {
         shmemWaitUntil->EnqueueOp(taskId);
 

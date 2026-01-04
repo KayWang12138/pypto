@@ -24,8 +24,7 @@
 
 namespace npu::tile_fwk::Distributed {
 struct SignalTileOp {
-    void Init(uint64_t taskId, int32_t* addr, int32_t expectedSum, bool resetSignal)
-    {
+    void Init(uint64_t taskId, int32_t* addr, int32_t expectedSum, bool resetSignal) {
         taskId_ = taskId;
         addr_ = addr;
         expectedSum_ = expectedSum;
@@ -42,20 +41,17 @@ struct SignalTileOp {
 
 class HashMap {
 public:
-    void Init()
-    {
+    void Init() {
         (void)memset_s(&taskArray, sizeof(taskArray), 0, sizeof(taskArray));
         (void)memset_s(&hashTable, sizeof(hashTable), 0, sizeof(hashTable));
         taskCount = 0;
     }
 
-    uint32_t Hash(uint32_t taskId)
-    {
+    uint32_t Hash(uint32_t taskId) {
         return taskId & AICPU_TASK_ARRAY_SIZE_MOD;
     }
 
-    SignalTileOp* CreateTaskData(uint32_t taskId, int32_t *addr, int32_t expectSum, bool resetSignal)
-    {
+    SignalTileOp* CreateTaskData(uint32_t taskId, int32_t *addr, int32_t expectSum, bool resetSignal) {
         if (taskCount >= AICPU_TASK_ARRAY_SIZE) {
             DEV_ERROR("taskCount : %u >= AICPU_TASK_ARRAY_SIZE : %lu", taskCount, AICPU_TASK_ARRAY_SIZE);
             return nullptr;
@@ -66,8 +62,7 @@ public:
         return newTask;
     }
 
-    int32_t InsertTask(uint32_t taskId, int32_t *addr, int32_t expectSum, bool resetSignal)
-    {
+    int32_t InsertTask(uint32_t taskId, int32_t *addr, int32_t expectSum, bool resetSignal) {
         SignalTileOp* newTask = CreateTaskData(taskId, addr, expectSum, resetSignal); //  endOffset, stride, 后续删除
         if (newTask == nullptr) {
             DEV_ERROR("newTask is nullptr");
@@ -80,8 +75,7 @@ public:
         return npu::tile_fwk::dynamic::DEVICE_MACHINE_OK;
     }
 
-    SignalTileOp* FindTask(uint32_t taskId)
-    {
+    SignalTileOp* FindTask(uint32_t taskId) {
         uint32_t index = Hash(taskId);
         SignalTileOp* current = hashTable[index];
         while (current != nullptr) {
@@ -103,8 +97,7 @@ class CircularQueue {
 public:
     CircularQueue() = default;
 
-    inline int32_t Enqueue(SignalTileOp* task)
-    {
+    inline int32_t Enqueue(SignalTileOp* task) {
         queue_[rear_] = task;
         rear_ = (rear_ + 1) & AICPU_TASK_ARRAY_SIZE_MOD;
         if (rear_ == front_) {
@@ -114,13 +107,11 @@ public:
         return npu::tile_fwk::dynamic::DEVICE_MACHINE_OK;
     }
 
-    inline bool IsEmpty() const
-    {
+    inline bool IsEmpty() const {
         return front_ == rear_;
     }
 
-    inline int32_t Dequeue()
-    {
+    inline int32_t Dequeue() {
         if (IsEmpty()) {
             DEV_ERROR("Queue is empty.");
             return npu::tile_fwk::dynamic::DEVICE_MACHINE_ERROR;
@@ -129,13 +120,11 @@ public:
         return npu::tile_fwk::dynamic::DEVICE_MACHINE_OK;
     }
 
-    inline const SignalTileOp* operator[](uint16_t index) const
-    {
+    inline const SignalTileOp* operator[](uint16_t index) const {
         return queue_[index];
     }
 
-    inline int32_t Remove(uint16_t index)
-    {
+    inline int32_t Remove(uint16_t index) {
         queue_[index] = queue_[front_];
         return Dequeue();
     }
@@ -176,16 +165,14 @@ private:
 
 class ShmemWaitUntil {
 public:
-    inline void Init(npu::tile_fwk::dynamic::DynDeviceTask *dynDeviceTask)
-    {
+    inline void Init(npu::tile_fwk::dynamic::DynDeviceTask *dynDeviceTask) {
         dynDeviceTask_ = dynDeviceTask;
         funcDataList_ = reinterpret_cast<DynFuncData*>(&dynDeviceTask->GetDynFuncDataList()->At(0));
         hcclContextAddr_ = funcDataList_->hcclContext;
         hashMap_.Init();
     }
 
-    inline int32_t EnqueueOp(uint64_t taskId)
-    {
+    inline int32_t EnqueueOp(uint64_t taskId) {
         SignalTileOp* task = hashMap_.FindTask(taskId);
         if (task == nullptr) {
             DEV_ERROR("There is no this taskId: %lu", taskId);
@@ -194,8 +181,7 @@ public:
         return runingTaskQueue_.Enqueue(task);
     }
 
-    inline int32_t PrepareTask(uint64_t taskId, const npu::tile_fwk::dynamic::DevRelocVector<int32_t> &aicpuCode)
-    {
+    inline int32_t PrepareTask(uint64_t taskId, const npu::tile_fwk::dynamic::DevRelocVector<int32_t> &aicpuCode) {
         paramInfo_ = DecodeAicpuCode(aicpuCode);
         TensorInfo info = ShmemWaitUntil::GetTensorInfo(taskId, aicpuCode);
         const int32_t expectedSum = info.expectedSum;
