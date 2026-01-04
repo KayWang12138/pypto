@@ -16,6 +16,7 @@
 #include "infer_discontinuous_input.h"
 #include <queue>
 #include "passes/pass_log/pass_log.h"
+#include "passes/pass_check/infer_discontinuous_input_checker.h"
 
 #define MODULE_NAME "InferDiscontinuousInput"
 
@@ -37,7 +38,8 @@ Status InferDiscontinuousInput::RunOnFunction(Function &function) {
 }
 
 std::vector<std::pair<LogicalTensorPtr, Operation *>> GetInplacedTileTensors(LogicalTensorPtr targetTensor) {
-    std::set<Opcode> inplaceNodes{Opcode::OP_VIEW, Opcode::OP_ASSEMBLE, Opcode::OP_RESHAPE, Opcode::OP_INDEX_OUTCAST};
+    std::unordered_set<Opcode> inplaceNodes{
+        Opcode::OP_VIEW, Opcode::OP_ASSEMBLE, Opcode::OP_RESHAPE, Opcode::OP_INDEX_OUTCAST};
     std::vector<std::pair<LogicalTensorPtr, Operation *>> inplacedTensor;
     for (auto &producer : targetTensor->GetProducers()) {
         if (inplaceNodes.count(producer->GetOpcode()) == 0) {
@@ -179,16 +181,16 @@ inline std::vector<size_t> GetInputTileConflict(
             assembleCheck = false;
             break;
         }
-        rawTensorIds.push_back(pr.first->GetRawMagic());
-        rawShapes.push_back(pr.first->GetRawTensor()->GetRawShape());
-        shapes.push_back(pr.first->GetShape());
-        offsets.push_back(pr.first->GetOffset());
         std::shared_ptr<AssembleOpAttribute> attr = std::static_pointer_cast<AssembleOpAttribute>(pr.second->GetOpAttribute());
         if (attr == nullptr) {
             assembleCheck = false;
             break;
         }
         offsetTos.push_back(attr->GetToOffset());
+        rawTensorIds.push_back(pr.first->GetRawMagic());
+        rawShapes.push_back(pr.first->GetRawTensor()->GetRawShape());
+        shapes.push_back(pr.first->GetShape());
+        offsets.push_back(pr.first->GetOffset());
     }
     std::vector<size_t> copyIdx;
     if (!assembleCheck) {
@@ -370,6 +372,11 @@ Status InferDiscontinuousInput::InsertTensorCopy(Function &function) {
         }
     }
     return SUCCESS;
+}
+
+Status InferDiscontinuousInput::PostCheck(Function &function) {
+    InferDisContinuousInputChecker checker;
+    return checker.DoPostCheck(function);
 }
 } // namespace tile_fwk
 } // namespace npu

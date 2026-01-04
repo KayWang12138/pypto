@@ -1,0 +1,119 @@
+/**
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+/*!
+ * \file infer_discontinuous_input_checker.cpp
+ * \brief
+ */
+
+#include "infer_discontinuous_input_checker.h"
+#include <queue>
+#include <set>
+#include "passes/pass_log/pass_log.h"
+#define MODULE_NAME "InferDiscontinuousInputChecker"
+
+namespace npu {
+namespace tile_fwk {
+std::unordered_set<Opcode> inplaceNodes{Opcode::OP_VIEW, Opcode::OP_ASSEMBLE, Opcode::OP_RESHAPE, Opcode::OP_INDEX_OUTCAST};
+
+Status match(const std::unordered_map<LogicalTensorPtr, int64_t> &tensorMap,
+    const std::unordered_map<LogicalTensorPtr, std::pair<Offset, Offset>> &offsetMap,
+    std::unordered_map<int64_t, int64_t> &rawTensorSize) {
+    if (tensorMap.size() == 1 && offsetMap.size() == 1) {
+        return SUCCESS;
+    }
+    std::cout << "match" << tensorMap.size() << "," << offsetMap.size() << "," << rawTensorSize.size() << std::endl;
+    std::unordered_map<int, Offset> rawIdToRawOffset;
+    for (auto [logicTensor, rawId] : tensorMap) {
+        auto shape = logicTensor->GetShape();
+        int shapeSize = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
+        std::cout << logicTensor->GetMagic() << ",shapesize" << shapeSize << ",rawid" << rawId << ",size"
+                  << rawTensorSize[rawId] << std::endl;
+        rawTensorSize[rawId] -= shapeSize;
+
+        size_t rawshapeSize = logicTensor->GetRawTensor()->GetRawShape().size();
+        Offset rawOffset(rawshapeSize, 0);
+        std::pair<Offset, Offset> p = offsetMap.at(logicTensor);
+        for (size_t dim = 0; dim < rawshapeSize; dim++) {
+            rawOffset[dim] = p.second[dim] - p.first[dim];
+        }
+        if (rawIdToRawOffset.find(rawId) == rawIdToRawOffset.end()) {
+            rawIdToRawOffset[rawId] = rawOffset;
+        } else {
+            if (rawIdToRawOffset[rawId] != rawOffset) {
+                APASS_LOG_ERROR_F(Elements::Tensor, "rawID %d not match", rawId);
+                return FAILED;
+            }
+        }
+    }
+    for (auto &[id, shape] : rawTensorSize) {
+        if (shape != 0) {
+            APASS_LOG_ERROR_F(Elements::Tensor, "rawID %d is not empty %d", id, shape);
+            return FAILED;
+        }
+    }
+    return SUCCESS;
+}
+
+Status checkTensor(const LogicalTensorPtr& tensor) {
+    std::unordered_map<int64_t, int64_t> rawTensorSize;
+    std::unordered_map<LogicalTensorPtr, int64_t> tensorMap;
+    std::unordered_map<LogicalTensorPtr, std::pair<Offset, Offset>> offsetMap;
+    bool allAssemble = true;
+    for (auto producer : tensor->GetProducers()) {
+        if (inplaceNodes.find(producer->GetOpcode()) == inplaceNodes.end()) {
+            continue;
+        }
+        if (producer->GetOpcode() != Opcode::OP_ASSEMBLE) {
+            allAssemble = false;
+            break;
+        }
+        std::shared_ptr<AssembleOpAttribute> attr =
+            std::static_pointer_cast<AssembleOpAttribute>(producer->GetOpAttribute());
+        if (attr == nullptr) {
+            APASS_LOG_ERROR_F(Elements::Operation, "assemble op %d do not have attribute. %s",
+                producer->GetOpMagic(), GetFormatBacktrace(producer).c_str());
+            return FAILED;
+        }
+        LogicalTensorPtr inputTensor = *(producer->GetIOperands().begin());
+        rawTensorSize[inputTensor->tensor->GetRawMagic()] = inputTensor->tensor->GetRawShapeSize();
+        tensorMap[inputTensor] = inputTensor->GetRawTensor()->GetRawMagic();
+        offsetMap[inputTensor] = std::make_pair(inputTensor->GetOffset(), attr->GetToOffset());
+    }
+    if (!allAssemble) {
+        return SUCCESS;
+    }
+
+    if (match(tensorMap, offsetMap, rawTensorSize) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Function, "not match");
+        return FAILED;
+    }
+    return SUCCESS;
+}
+Status InferDisContinuousInputChecker::DoPostCheck(Function &function) {
+    APASS_LOG_INFO_F(Elements::Function, "PostCheck for DisContinuousInput.");
+    if (CheckGraphLoop(function) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Function, "Find loop");
+        return FAILED;
+    }
+
+    auto &tensorMap = function.GetTensorMap().tensorMap_;
+    for (const auto &tMap : tensorMap) {
+        for (const auto &logicalTensor : tMap.second) {
+            if (checkTensor(logicalTensor) != SUCCESS) {
+                return FAILED;
+            } 
+        }
+    }
+
+    return SUCCESS;
+}
+} // namespace tile_fwk
+} // namespace npu
