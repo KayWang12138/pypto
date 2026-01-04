@@ -331,8 +331,6 @@ TEST_F(MixSubgraphSplitTest, TestDependOperand) {
     Operation *add1 = subGraph.GetOp("Add1");
     std::shared_ptr<LogicalTensor> tensor3 = subGraph.GetTensor("t3");
     add1->AddDependOperand(tensor3);
-    EXPECT_EQ(copyin2->GetDependOperandIndex(tensor4), 0);
-    EXPECT_EQ(copyin2->GetDependOperandIndex(tensor3), -1);
     EXPECT_EQ(copyin2->GetDependOperands().front()->GetMagic(), MS_NUM3);
     EXPECT_EQ(copyin2->GetDependOperandSize(), 1);
 

@@ -292,7 +292,6 @@ public:
 
     int GetIOperandIndex(const LogicalTensorPtr &ioperand) const;
     int GetOOperandIndex(const LogicalTensorPtr &ooperand) const;
-    int GetDependOperandIndex(const LogicalTensorPtr &dependoperand) const;
 
     void ReplaceInputOperand(const LogicalTensorPtr &originInput, const LogicalTensorPtr &newInput);
 

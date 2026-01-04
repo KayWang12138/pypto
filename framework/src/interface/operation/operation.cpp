@@ -651,15 +651,6 @@ int Operation::GetOOperandIndex(const LogicalTensorPtr &ooperand) const {
     }
     return -1;
 }
-int Operation::GetDependOperandIndex(const LogicalTensorPtr &dependoperand) const {
-    for (size_t i = 0; i < dependOperand.size(); ++i) {
-        ASSERT(dependOperand[i] != nullptr);
-        if (dependOperand[i] == dependoperand) {
-            return (int)i;
-        }
-    }
-    return -1;
-}
 
 void Operation::AddDependOperand(LogicalTensorPtr dependoperand) {
     for (const auto &operand : dependOperand) {
