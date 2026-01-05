@@ -84,8 +84,8 @@ TEST_F(TestRemoveRedundantReshapePass, RemoveRedundantReshapeUTest1) {
     currFunctionPtr->outCasts_.push_back(outCast);
 
     RemoveRedundantReshape removeredundantpass;
-    auto status = removeredundantpass.RunOnFunction(*currFunctionPtr);
-    EXPECT_EQ(status, SUCCESS);
+    EXPECT_EQ(removeredundantpass.RunOnFunction(*currFunctionPtr), SUCCESS);
+    EXPECT_EQ(removeredundantpass.PostCheck(*currFunctionPtr), SUCCESS);
 
     const auto &operations = currFunctionPtr->Operations();
     uint32_t reshape_num = kNumZero;
@@ -174,6 +174,7 @@ TEST_F(TestRemoveRedundantReshapePass, RemoveRedundantReshapeUTest3) {
     RemoveRedundantReshape removeredundantpass;
     EXPECT_NE(removeredundantpass.PreCheck(*currFunctionPtr), SUCCESS);
     EXPECT_EQ(removeredundantpass.RunOnFunction(*currFunctionPtr), SUCCESS);
+    EXPECT_EQ(removeredundantpass.PostCheck(*currFunctionPtr), SUCCESS);
 
     uint32_t reshape_num = kNumZero;
     for (auto &op : currFunctionPtr->Operations()) {
@@ -233,6 +234,30 @@ TEST_F(TestRemoveRedundantReshapePass, RemoveRedundantReshapeUTest4) {
     EXPECT_EQ(reshape1.GetInputOperand(kSizeZero), inCast);
     EXPECT_EQ(reshape2.GetInputOperand(kSizeZero), inCast);
     EXPECT_EQ(reshape_num, kNumTwo);
+}
+
+TEST_F(TestRemoveRedundantReshapePass, RemoveRedundantReshapeUTest5) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestRemoveRedundantReshape", "TestRemoveRedundantReshape", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+
+    // Prepare the graph
+    std::vector<int64_t> shape1 = {kNumEight, kNumExpFour};
+    std::vector<int64_t> shape2 = {kNumExpFour, kNumEight};
+    std::vector<int64_t> shape3 = {kNumExpFive, kNumFour};
+    auto inCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
+    auto ubTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
+    auto ubTensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
+    auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
+
+    auto &reshape1 = currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {inCast}, {ubTensor1});
+    auto &reshape2 = currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {ubTensor1}, {ubTensor2});
+    auto &sqrt = currFunctionPtr->AddOperation(Opcode::OP_SQRT, {ubTensor2}, {outCast});
+
+    currFunctionPtr->inCasts_.push_back(inCast);
+    currFunctionPtr->outCasts_.push_back(outCast);
+
+    RemoveRedundantReshape removeredundantpass;
+    EXPECT_NE(removeredundantpass.PostCheck(*currFunctionPtr), SUCCESS);
 }
 
 /*
