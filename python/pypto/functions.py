@@ -250,6 +250,47 @@ class Function:
         """
         self.base.DumpJsonFile(file_name)
 
+    def get_tensor_by_magic(self, magic: int):
+        """Get a Tensor by its magic number using TensorMap (O(1) lookup).
+
+        Args:
+            magic: The magic number of the tensor to find.
+
+        Returns:
+            The Tensor with the given magic number, or None if not found.
+
+        Examples:
+            >>> func = pypto.get_last_function()
+            >>> tensor = func.get_tensor_by_magic(123)
+            >>> if tensor is not None:
+            ...     print(tensor.shape)
+        """
+        from .tensor import Tensor
+        result = self.base.GetTensorByMagic(magic)
+        if result is None:
+            return None
+        return Tensor.from_base(result)
+
+    def get_gradient_output_index(self, tensor_magic: int) -> int:
+        """Get the output index for the gradient of a tensor.
+
+        Args:
+            tensor_magic: The magic number of the original tensor.
+
+        Returns:
+            The output index where the gradient is stored, or -1 if not found.
+        """
+        return self.base.get_gradient_output_index(tensor_magic)
+
+    def get_gradient_tensors_info(self) -> dict:
+        """Get info about all gradient tensors in the function.
+
+        Returns:
+            A dictionary mapping original tensor magic to gradient tensor info.
+            Each info dict contains 'magic', 'output_index', 'shape', 'dtype'.
+        """
+        return self.base.get_gradient_tensors_info()
+
 
 def get_last_function() -> Optional[Function]:
     """Get the last compiled function from the Program.
