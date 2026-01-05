@@ -37,11 +37,12 @@ struct CodeGenOpCloudNPUCtx {
     Function &subFunc;
     const Operation &ops;
     const std::map<int, int> &locToOffset = {};
+    bool isMainBlock{false};
 };
 class CodeGenOpCloudNPU : public CodeGenOp {
 public:
     CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbolManager, FunctionType funcType,
-        const std::map<int, int> &locToOffset = {}, bool isUnderDynamicFunc = false);
+        const std::map<int, int> &locToOffset = {}, bool isUnderDynamicFunc = false, bool isMainBlk = false);
 
     explicit CodeGenOpCloudNPU(const CodeGenOpCloudNPUCtx &ctx);
     ~CodeGenOpCloudNPU() override = default;
@@ -149,7 +150,6 @@ public:
 private:
     std::string GenTemplateParamsForPutAndGet() const;
     std::string GenTemplateParamsForSignal() const;
-    std::string GenTemplateParamsForReduce() const;
     std::string GenTemplateParamsForMoeCombineSend() const;
     std::string GenTemplateParamsForMoeCombineReceive() const;
     std::string GenTemplateParamsForSet() const;
@@ -158,7 +158,6 @@ private:
     std::string GenOffsetsAndRawShapesForShmemPutAndGet() const;
     std::string GenOffsetsAndRawShapesForShmemPutAndGetUB() const;
     std::string GenOffsetsAndRawShapesForShmemSignal() const;
-    std::string GenOffsetsAndRawShapesForShmemReduce() const;
     std::string GenOffsetsAndRawShapesForShmemMoeCombineSend() const;
     std::string GenOffsetsAndRawShapesForShmemMoeCombineReceive() const;
     std::string GenOffsetsAndRawShapesForSendToRoutingExpert() const;
@@ -361,6 +360,9 @@ private:
     void InitDistOpsMap();
     void InitPerfOpsMap();
     void InitAICPUOpsMap();
+
+    std::string PrintCoord(size_t dim, const std::string &coord) const;
+    std::string PrintTensorForCopyBetweenGM(unsigned operandIdx, unsigned gmIdx, const std::string &gmVarName) const;
 
     const std::unordered_map<Opcode, std::function<std::string()>> mteFixPipeOps_;
 
