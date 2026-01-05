@@ -1013,4 +1013,130 @@ std::vector<std::reference_wrapper<SymbolicScalar>> Operation::GetDynamicAttribu
     return dynamicAttributeList;
 }
 
+void Operation::SetCallOpOutcastOrder(const std::vector<int> &applyOrder, Operation *callop) {
+    // Get the callee function information
+    std::string currentMagicName = GetCalleeMagicName();
+    FunctionHash currentHash = GetCalleeHash();
+    
+    Function *parentFunc = BelongTo();
+    if (parentFunc == nullptr) {
+        ALOG_WARN_F("Operation::SetCallOpOutcastOrder: parent function is null");
+        return;
+    }
+    
+    auto cacheValue = Program::GetInstance().TryHitCahce(currentHash);
+    size_t outcastCount = 0;
+    if (cacheValue.has_value() && cacheValue->cacheFunction != nullptr) {
+        outcastCount = cacheValue->cacheFunction->GetOutcast().size();
+    } else {
+        outcastCount = oOperand.size();
+    }
+
+    auto callopAttr = std::dynamic_pointer_cast<CallOpAttribute>(callop->GetOpAttribute());
+    if (callopAttr == nullptr) {
+        return;
+    }
+    
+    // Check if this callop calls the same callee function
+    bool isCallingThis = (callopAttr->GetCalleeMagicName() == currentMagicName) ||
+                            (callopAttr->GetCalleeHash() == currentHash);
+    
+    if (!isCallingThis) {
+        return;
+    }
+    
+    // Verify the outcast count matches
+    if (callop->oOperand.size() != outcastCount) {
+        return;
+    }
+    
+    // Reorder oOperand
+    std::vector<LogicalTensorPtr> newOOperands(callop->oOperand.size());
+    for (size_t oldIdx = 0; oldIdx < callop->oOperand.size(); ++oldIdx) {
+        int newIdx = applyOrder[oldIdx];
+        if (newIdx >= 0 && static_cast<size_t>(newIdx) < callop->oOperand.size()) {
+            newOOperands[newIdx] = callop->oOperand[oldIdx];
+        }
+    }
+    callop->oOperand = std::move(newOOperands);
+    
+    // Reorder oOpAttrOffset
+    if (!callop->oOpAttrOffset.empty() && callop->oOpAttrOffset.size() == outcastCount) {
+        std::vector<int> newOOpAttrOffset(callop->oOpAttrOffset.size());
+        for (size_t oldIdx = 0; oldIdx < callop->oOpAttrOffset.size(); ++oldIdx) {
+            int newIdx = applyOrder[oldIdx];
+            if (newIdx >= 0 && static_cast<size_t>(newIdx) < callop->oOpAttrOffset.size()) {
+                newOOpAttrOffset[newIdx] = callop->oOpAttrOffset[oldIdx];
+            }
+        }
+        callop->oOpAttrOffset = std::move(newOOpAttrOffset);
+    }
+    
+    // Reorder argList
+    auto &argList = callopAttr->GetArgList();
+    if (!argList.empty()) {
+        size_t incastCount = callop->iOperand.size();
+        size_t outcastCountInArg = outcastCount;
+        
+        if (argList.size() >= incastCount + outcastCountInArg) {
+            size_t outcastStartIdx = incastCount;
+            std::vector<std::vector<SymbolicScalar>> newOutcastArgList(outcastCountInArg);
+            for (size_t oldIdx = 0; oldIdx < outcastCountInArg; ++oldIdx) {
+                int newIdx = applyOrder[oldIdx];
+                if (newIdx >= 0 && static_cast<size_t>(newIdx) < outcastCountInArg) {
+                    size_t oldArgIdx = outcastStartIdx + oldIdx;
+                    if (oldArgIdx < argList.size()) {
+                        newOutcastArgList[newIdx] = std::move(argList[oldArgIdx]);
+                    }
+                }
+            }
+            
+            // Copy back the reordered arguments
+            for (size_t i = 0; i < outcastCountInArg; ++i) {
+                size_t argIdx = outcastStartIdx + i;
+                if (argIdx < argList.size()) {
+                    argList[argIdx] = std::move(newOutcastArgList[i]);
+                }
+            }
+        }
+    }
+    
+    // Reorder outIndexToExpr
+    auto &outIndexToExpr = callopAttr->GetOutCastIndexToExpr();
+    std::map<int, SymbolicScalar> newOutIndexToExpr;
+    for (const auto &[oldIdx, expr] : outIndexToExpr) {
+        if (oldIdx >= 0 && static_cast<size_t>(oldIdx) < applyOrder.size()) {
+            int newIdx = applyOrder[oldIdx];
+            if (newIdx >= 0 && static_cast<size_t>(newIdx) < outcastCount) {
+                newOutIndexToExpr[newIdx] = expr;
+            }
+        }
+    }
+    outIndexToExpr = std::move(newOutIndexToExpr);
+    
+    // Reorder invokeInfo_->outcastTensorParamList_
+    if (callopAttr->invokeInfo_ != nullptr) {
+        const auto &outcastTensorParamList = callopAttr->invokeInfo_->GetOutcastTensorParamList();
+        if (outcastTensorParamList.size() == outcastCount) {
+            // Create a new reordered list
+            std::vector<SubfuncInvokeInfoTy::OutcastParamPackTy> newOutcastTensorParamList(outcastTensorParamList.size());
+            for (size_t oldIdx = 0; oldIdx < outcastTensorParamList.size(); ++oldIdx) {
+                int newIdx = applyOrder[oldIdx];
+                if (newIdx >= 0 && static_cast<size_t>(newIdx) < outcastTensorParamList.size()) {
+                    newOutcastTensorParamList[newIdx] = outcastTensorParamList[oldIdx];
+                }
+            }
+            // Use the setter method to update the reordered list
+            callopAttr->invokeInfo_->SetOutcastTensorParamList(std::move(newOutcastTensorParamList));
+        }
+    }
+        
+    int callopMagic = callop->GetOpMagic();
+    parentFunc->UpdateOutcastPositionForOp(callopMagic, applyOrder);
+
+    ALOG_DEBUG_F("CALLOP: CallOp %d outcast applied order %s.", GetOpMagic(), IntVecToStr(applyOrder).c_str());
+
+    return;
+}
+
 } // namespace npu::tile_fwk

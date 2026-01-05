@@ -1190,43 +1190,82 @@ void Function::RefreshOpPosition() {
     }
 }
 
+std::vector<std::string> GetHashDumpFormatPatterns() {
+    static std::vector<std::string> patterns = {
+        "attr:",
+        "( ",
+        "(i0",
+        "TILE_"
+    };
+    return patterns;
+}
+
+std::string FormatHashDumpString(const std::string &content) {
+    std::string result = content;
+    auto patterns = GetHashDumpFormatPatterns();
+    
+    for (const auto &pattern : patterns) {
+        size_t pos = result.length();
+        while (pos > 0) {
+            size_t found = result.rfind(pattern, pos);
+            if (found == std::string::npos) {
+                break;
+            }
+            if (found > 0) {
+                if (pattern == "TILE_") {
+                    result.insert(found, "\n");
+                    size_t prevLineStart = result.rfind('\n', found - 1);
+                    if (prevLineStart != std::string::npos) {
+                        result.insert(prevLineStart, "\n");
+                    }
+                } else {
+                    result.insert(found, "\n");
+                }
+            }
+            if (found == 0) {
+                break;
+            }
+            pos = found - 1;
+        }
+    }
+    return result;
+}
+
 bool Function::enableMagicLookupRecord_{false};
 std::map<std::pair<int, int>, std::set<Operation *, LogicalTensor::CompareOp>> Function::tensorAndSubgraphToProducer_;
+std::map<std::pair<int, int>, std::set<Operation *, LogicalTensor::CompareOp>> Function::tensorAndSubgraphToConsumer_;
 
-void Function::ProducerMagicLookup(const Function *function, const LogicalTensorPtr &tensor,
-                                   const std::set<Operation *, LogicalTensor::CompareOp> &producers,
-                                   const int subGraphId, int &index, std::unordered_map<int, int> &magic2index,
-                                   std::stringstream &ss)
+void Function::ProducerMagicLookup(const Function *function, const LogicalTensorPtr &tensor, const std::set<Operation *, LogicalTensor::CompareOp> &producers,
+        const int subGraphId, int &index, std::unordered_map<int, int> &magic2index, std::stringstream &ss, std::vector<std::stringstream> &magics)
 {
     for (auto &op : producers) {
         if (subGraphId != INT32_MIN && op->GetSubgraphID() != subGraphId) {
             continue;
         }
         if (op->GetOOperands().size() > 1) {
-            for (size_t idx = 0; idx < op->GetOOperands().size(); idx++) {
-                if (op->GetOutputOperand(idx) == tensor) {
-                    ss << "ooperand " << idx << " ";
+            for (size_t i = 0; i < op->GetOOperands().size(); i++) {
+                if (op->GetOutputOperand(i) == tensor) {
+                    ss << "ooperand " << i << " ";
                 }
             }
         }
         bool isInBoundary = OpcodeManager::Inst().IsBoundaryIn(op->GetOpcode());
         if (isInBoundary) {
             /* 除了最高轴之外的所有内轴都纳入到hash的计算中 */
-            for (size_t idx = 1; idx < op->iOperand[0]->tensor->rawshape.size(); idx++) {
-                ss << op->iOperand[0]->tensor->rawshape[idx] << " ";
+            for (size_t i = 1; i < op->iOperand[0]->tensor->rawshape.size(); i++) {
+                ss << op->iOperand[0]->tensor->rawshape[i] << " ";
             }
         }
         bool isOutBoundary = OpcodeManager::Inst().IsBoundaryOut(op->GetOpcode());
         if (isOutBoundary) {
             /* 除了最高轴之外的所有内轴都纳入到hash的计算中 */
-            for (size_t idx = 1; idx < op->oOperand[0]->tensor->rawshape.size(); idx++) {
-                ss << op->oOperand[0]->tensor->rawshape[idx] << " ";
+            for (size_t i = 1; i < op->oOperand[0]->tensor->rawshape.size(); i++) {
+                ss << op->oOperand[0]->tensor->rawshape[i] << " ";
             }
         }
         ss << " " << op->GetOpcodeStr(true);
         for (const auto &attr : OpcodeManager::Inst().GetAttrs(op->GetOpcode())) {
-            ss << " attr: [" << attr << " : "
-               << op->DumpAttr(attr) << "]";
+            ss << " attr: [" << attr << " : " << op->DumpAttr(attr) << "]";
         }
         if (function->GetGraphType() != GraphType::BLOCK_GRAPH) {
             ss << op->GetTileShape().ToString();
@@ -1241,17 +1280,33 @@ void Function::ProducerMagicLookup(const Function *function, const LogicalTensor
                 ss << " " << op->GetOpAttribute()->Dump();
             }
         }
-        MagicLookup(function, op->iOperand, subGraphId, index, magic2index, ss);
+        MagicLookup(function, op->iOperand, subGraphId, index, magic2index, ss, magics, false);
     }
 }
 
-void Function::MagicLookup(const Function *function, const std::vector<LogicalTensorPtr> &operand,
-                           const int subGraphId, int &index, std::unordered_map<int, int> &magic2index,
-                           std::stringstream &ss)
+void Function::MagicLookup(const Function *function, const std::vector<LogicalTensorPtr> &operand, const int subGraphId,
+                           int &index, std::unordered_map<int, int> &magic2index, std::stringstream &ss,
+                           std::vector<std::stringstream> &magics, bool isOutcast)
 {
     for (auto &t : operand) {
-        if (magic2index.count(t->GetMagic()) && (function->inCastsSet_.count(t) == 0) &&
-            t->GetProducers().size() != 0) {
+        // 遇到已经被编号过的边界Tensor，停止前向遍历，但是仍要输出Tensor信息
+        if ((magic2index.count(t->GetMagic())) && tensorAndSubgraphToProducer_.count({t->GetMagic(), subGraphId}) == 0) {
+            ss << "(" << " " << static_cast<int>(t->tensor->datatype) << " ";
+            // Add shape information
+            for (const auto &dim : t->shape) {
+                ss << dim << " ";
+            }
+            if (function->IsFunctionType(FunctionType::STATIC)) {
+                for (const auto &dim : t->oriShape) {
+                    ss << dim << " ";
+                }
+            }
+            if (t->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
+                for (const auto &dim : t->offset) {
+                    ss << dim << " ";
+                }
+            }
+            ss << ")";
             continue;
         }
         magic2index[t->GetMagic()] = index++;
@@ -1271,16 +1326,21 @@ void Function::MagicLookup(const Function *function, const std::vector<LogicalTe
             }
         }
         if (!enableMagicLookupRecord_) {
-            ProducerMagicLookup(function, t, t->GetProducers(), subGraphId, index, magic2index, ss);
+            ProducerMagicLookup(function, t, t->GetProducers(), subGraphId, index, magic2index, ss, magics);
         } else if (tensorAndSubgraphToProducer_.count({t->GetMagic(), subGraphId}) > 0) {
-            ProducerMagicLookup(function, t, tensorAndSubgraphToProducer_[{t->GetMagic(), subGraphId}],
-                                subGraphId, index, magic2index, ss);
+            ProducerMagicLookup(function, t, tensorAndSubgraphToProducer_[{t->GetMagic(), subGraphId}], subGraphId,
+                                index, magic2index, ss, magics);
         }
         ss << ")";
+        if (isOutcast) {
+            magics.emplace_back(ss.str());
+            ss.str("");
+        }
     }
 }
 
-unsigned long Function::ComputeHashOrderless() const {
+FunctionHashResult Function::ComputeHashOrderless() const {
+    std::hash<std::string> hasher;
     std::stringstream ss;
     ss << std::to_string(static_cast<int>(functionType_)) << " ";
     ss << std::to_string(static_cast<int>(graphType_)) << " ";
@@ -1293,14 +1353,92 @@ unsigned long Function::ComputeHashOrderless() const {
     int index = 0;
     std::unordered_map<int, int> magic2index;
     // 只有leaf graph需要判断边界
+
+    std::stringstream magic_ss; // 用于存储当前outcast的magic
+    std::vector<std::stringstream> magics; // 用于存储所有outcast的magic
+    
     if (graphType_ == GraphType::BLOCK_GRAPH) {
         if (operations_.size()) {
             MagicLookup(
-                this, GetOutcast(), operations_[operations_.size() - 1]->GetSubgraphID(), index, magic2index, ss);
+                this, GetOutcast(), operations_[operations_.size() - 1]->GetSubgraphID(), index, magic2index, magic_ss, magics, true);
         }
     } else {
-        MagicLookup(this, GetOutcast(), INT32_MIN, index, magic2index, ss);
+        MagicLookup(this, GetOutcast(), INT32_MIN, index, magic2index, magic_ss, magics, true);
     }
+
+    // 将每个outcast的magic转换为hash值
+    for (size_t magic_index = 0; magic_index < magics.size(); magic_index++) {
+        size_t hash_value = hasher(magics[magic_index].str());
+        magics[magic_index].str(std::to_string(hash_value));
+    }
+
+    // 保存magic顺序信息到indexed_magics
+    std::vector<std::pair<size_t, std::stringstream>> indexed_magics;
+    for (size_t i = 0; i < magics.size(); i++) {
+        // indexed_magics.emplace_back(i, std::move(magics[i]));
+        indexed_magics.emplace_back(i, magics[i].str());
+    }
+
+    // 根据magic的hash值对indexed_magics进行排序
+    std::sort(indexed_magics.begin(), indexed_magics.end(), 
+        [](const std::pair<size_t, std::stringstream> &a, const std::pair<size_t, std::stringstream> &b) {
+            return a.second.str() < b.second.str();
+        });
+
+    // 提取排序后的顺序信息：排序后的第 i 个位置对应原来的第几个元素
+    std::vector<int> outcastOrder;
+    for (const auto &pair : indexed_magics) {
+        outcastOrder.push_back(static_cast<int>(pair.first));
+    }
+
+    // 将未经排序的magic放入ss
+    // for (auto &ele : magics) {
+    //     ss << ele.str();
+    // }
+
+    // 将排序后的indexed_magics放入ss
+    for (size_t i = 0; i < indexed_magics.size(); i++) {
+        ss << indexed_magics[i].second.str();
+    }
+
+    // 输出排序后的顺序信息（用于调试）
+    // std::cout << "outcast order after sorting: ";
+    // for (size_t i = 0; i < outcastOrder.size(); i++) {
+    //     std::cout << outcastOrder[i];
+    //     if (i < outcastOrder.size() - 1) {
+    //         std::cout << ", ";
+    //     }
+    // }
+    // std::cout << std::endl;
+
+    // 将排序后的 magic 放回 magics 向量
+    // magics.clear();
+    // for (auto &pair : indexed_magics) {
+    //     magics.emplace_back(std::move(pair.second));
+    // }
+
+    // ========================================INCAST MAGIC========================================================
+
+    // index = 0;
+    // magic2index.clear();
+    // std::stringstream incast_ss;
+    // std::vector<std::stringstream> incast_magics;
+    // if (graphType_ == GraphType::BLOCK_GRAPH) {
+    //     if (operations_.size()) {
+    //         MagicLookupForward(
+    //             this, GetIncast(), operations_[operations_.size() - 1]->GetSubgraphID(), index, magic2index, incast_ss, incast_magics, true);
+    //     }
+    // } else {
+    //     MagicLookupForward(this, GetIncast(), INT32_MIN, index, magic2index, incast_ss, incast_magics, true);
+    // }
+    // std::sort(incast_magics.begin(), incast_magics.end(), [](const std::stringstream &a, const std::stringstream &b) {
+    //     return a.str() < b.str();
+    // });
+    // for (auto &incast_magic : incast_magics) {
+    //     ss << incast_magic.str();
+    // }
+
+    // ============================================================================================================
 
     // 补充一些没有输出的Op的hash
     for (size_t i = 0; i < operations_.size(); i++) {
@@ -1310,8 +1448,8 @@ unsigned long Function::ComputeHashOrderless() const {
                 ss << " attr: [" << attr << " : "
                    << operations_[i]->DumpAttr(attr) << "]";
             }
-            ss << operations_[i]->GetTileShape().ToString();
-            MagicLookup(this, operations_[i]->GetIOperands(), operations_[0]->GetSubgraphID(), index, magic2index, ss);
+            ss << operations_[i]->GetTileShape().toString();
+            MagicLookup(this, operations_[i]->GetIOperands(), operations_[0]->GetSubgraphID(), index, magic2index, ss, magics, true);
         }
     }
     index = 0;
@@ -1339,12 +1477,31 @@ unsigned long Function::ComputeHashOrderless() const {
     if (functionType_ == FunctionType::DYNAMIC) {
         ss << "dynamic unaligned:" << config::GetCodeGenOption<bool>(SUPPORT_DYNAMIC_ALIGNED);
     }
-    std::hash<std::string> hasher;
-    auto result = hasher(ss.str());
+    auto serializedContent = ss.str();
+    auto result = hasher(serializedContent);
+
+    // 将hash值和顺序信息写入文件
+    const std::string hashDumpFile = config::LogTopFolder() + "/function_hash_dump.log";
+    std::ofstream hashDumpStream(hashDumpFile, std::ios::app);
+    if (hashDumpStream.is_open()) {
+        hashDumpStream << "Function: " << GetMagicName() << " (" << functionMagic_ << ")\n";
+        hashDumpStream << "Hash: " << result << "\n";
+        // 将serializedContent格式化以提高可读性
+        std::string formattedContent = FormatHashDumpString(serializedContent);
+        hashDumpStream << formattedContent << "\n\n";
+    } else {
+        ALOG_WARN_F("Failed to open hash dump file %s.", hashDumpFile.c_str());
+    }
+
     ALOG_DEBUG_F("Hash for function %d %s is %s hash value is %lu\n",
                  functionMagic_, GetMagicName().c_str(),
                  ss.str().c_str(), result);
-    return result;
+
+    FunctionHashResult hashResult;
+    hashResult.hashValue = result;
+    hashResult.inCastOrder = {};
+    hashResult.outCastOrder = outcastOrder;
+    return hashResult;
 }
 
 void Function::EraseOperations(bool eraseRelatedTensor, bool sorted) {
@@ -1423,8 +1580,23 @@ FunctionHash Function::ComputeHash() {
     for (auto &ele : inCasts_) {
         inCastsSet_.emplace(ele);
     }
-    functionHash_ = ComputeHashOrderless();
+    FunctionHashResult functionHashResult_ = ComputeHashOrderless();
+    functionHash_ = {functionHashResult_.hashValue, functionHashResult_.outCastOrder, functionHashResult_.inCastOrder};
     return functionHash_;
+}
+
+void Function::SetFunctionOutcastOrder(const std::vector<int> &applyOrder) {
+    // Change the order of outCasts_ and outcastPosition
+    std::vector<std::shared_ptr<LogicalTensor>> newOutcast(outCasts_.size());
+    std::vector<std::pair<int, int>> newOutcastPosition(outCasts_.size());
+    for (size_t i = 0; i < outCasts_.size(); i++) {
+        newOutcast[i] = outCasts_[applyOrder[i]];
+        newOutcastPosition[i] = outcastPosition[applyOrder[i]];
+    }
+    outCasts_ = newOutcast;
+    outcastPosition = newOutcastPosition;
+    ALOG_DEBUG_F("FUNCTION: outCasts_ and outcastPosition applied order %s.", IntVecToStr(applyOrder).c_str());
+    return;
 }
 
 void Function::AddOriginIncast(const std::shared_ptr<LogicalTensor> tensor) {

@@ -465,6 +465,12 @@ struct FunctionParamInfo {
     LogicalTensorPtr endValue;   // End Function时Tensor指向的 LogicalTensor
 };
 
+struct FunctionHashResult {
+    unsigned long hashValue;
+    std::vector<int> inCastOrder;
+    std::vector<int> outCastOrder;
+};
+
 #ifndef INVALID_IOINDEX
 #define INVALID_IOINDEX (-1)
 #endif
@@ -498,6 +504,7 @@ public:
     }
     std::unordered_set<int> LoopCheck();
     FunctionHash ComputeHash();
+    void SetFunctionOutcastOrder(const std::vector<int> &applyOrder);
     std::vector<std::shared_ptr<Operation>> GetSortedOperations() const;
     OperationsViewer Operations(bool sorted = true);
     OperationsViewer OperationsAfterOOO();
@@ -754,6 +761,20 @@ public:
         outcastSlot.erase(outcastSlot.begin() + idx);
     }
 
+    // Update the k values in outcastPosition for a specific operation
+    // This is used when the operation's oOperand order is changed
+    // inverseMap[oldIdx] = newIdx, where oldIdx is the old position and newIdx is the new position
+    void UpdateOutcastPositionForOp(int opmagic, const std::vector<int> &inverseMap) {
+        for (auto &[magic, k] : outcastPosition) {
+            if (magic == opmagic && k >= 0 && static_cast<size_t>(k) < inverseMap.size()) {
+                int newK = inverseMap[k];
+                if (newK >= 0) {
+                    k = newK;
+                }
+            }
+        }
+    }
+
     const SubfuncParam &GetParameter() const { return parameter_; }
     SubfuncParam &GetParameter() { return parameter_; }
     void SetParameter(const SubfuncParam &parameter) { parameter_ = parameter; }
@@ -801,6 +822,7 @@ public:
         enableMagicLookupRecord_ = enable;
         if (!enable) {
             tensorAndSubgraphToProducer_.clear();
+            tensorAndSubgraphToConsumer_.clear();
             return;
         }
         for (Operation &op : function->Operations()) {
@@ -808,6 +830,10 @@ public:
             for (std::shared_ptr<LogicalTensor> tensor : op.GetOOperands()) {
                 std::pair<int,int> tensorAndSubgraph{tensor->GetMagic(), subgraphId};
                  tensorAndSubgraphToProducer_[tensorAndSubgraph].insert(&op);
+            }
+            for (std::shared_ptr<LogicalTensor> tensor : op.GetIOperands()) {
+                std::pair<int,int> tensorAndSubgraph{tensor->GetMagic(), subgraphId};
+                tensorAndSubgraphToConsumer_[tensorAndSubgraph].insert(&op);
             }
         }
     }
@@ -837,13 +863,14 @@ private:
     size_t totalAivSubGraphCount_ = 0;
     size_t totalSubGraphCount_ = 0;
     int stackWorkespaceSize_ = 0;
-    FunctionHash functionHash_{0};
+    FunctionHash functionHash_{0, {}, {}};
     std::vector<std::string> calleeMagicNameList_;
     std::unordered_set<std::string> loopIdxNameList_;
     bool isUnderDynamicFunction_{false};
 
     std::vector<std::shared_ptr<LogicalTensor>> originInCasts_;
     std::unordered_set<std::shared_ptr<LogicalTensor>> inCastsSet_; // Input tensors set
+    std::unordered_set<std::shared_ptr<LogicalTensor>> outCastsSet_; // Output tensors set
     std::vector<std::pair<int, int>> incastPosition;
 
     std::vector<std::shared_ptr<LogicalTensor>> originOutCasts_;
@@ -883,12 +910,13 @@ private:
 
     static bool enableMagicLookupRecord_;
     static std::map<std::pair<int, int>, std::set<Operation *, LogicalTensor::CompareOp>> tensorAndSubgraphToProducer_;
+    static std::map<std::pair<int, int>, std::set<Operation *, LogicalTensor::CompareOp>> tensorAndSubgraphToConsumer_;
     std::shared_ptr<Tensor> getTensorDataOutcast_;
     std::shared_ptr<SourceLocation> sourceLocation_;
     bool hiddenFunction_{false};
 
 private:
-    unsigned long ComputeHashOrderless() const;
+    FunctionHashResult ComputeHashOrderless() const;
     void OpValidCheck(Operation &op) const;
     std::shared_ptr<LogicalTensor> ConnectWithOverlap(std::shared_ptr<LogicalTensor> iOperand);
     void RemoveOriginIncastConsumer(const std::shared_ptr<LogicalTensor> &originIncast) const;
@@ -902,10 +930,11 @@ private:
                                         std::map<int, int> &magicToRawMagic,
                                         std::map<int, std::shared_ptr<LogicalTensor>> &magicToLogicalTensor);
     static void MagicLookup(const Function* function, const std::vector<LogicalTensorPtr> &operand, const int subGraphId, int &index,
-                            std::unordered_map<int, int> &magic2index, std::stringstream &ss);
+                            std::unordered_map<int, int> &magic2index, std::stringstream &ss, 
+                            std::vector<std::stringstream> &magics, bool isOutcast = false);
     static void ProducerMagicLookup(const Function *function, const LogicalTensorPtr &tensor,
         const std::set<Operation *, LogicalTensor::CompareOp> &producers, const int subGraphId, int &index,
-        std::unordered_map<int, int> &magic2index, std::stringstream &ss);
+        std::unordered_map<int, int> &magic2index, std::stringstream &ss, std::vector<std::stringstream> &magics);
     static void LoadTensorJson(const std::shared_ptr<Function> &func, const Json &funcDump,
                                const std::unordered_map<int, std::shared_ptr<RawTensor>> &rawTensorDict,
                                std::unordered_map<int, std::shared_ptr<LogicalTensor>> &tensorDict);
