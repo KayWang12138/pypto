@@ -84,7 +84,7 @@ struct DynMachineManager {
         return;
     }
 
-    int Run(AstKernelArgs *args) {
+    int Run(PyPtoKernelArgs *args) {
         int ret = npu::tile_fwk::dynamic::DEVICE_MACHINE_OK;
         auto devArgs = PtrToPtr<int64_t, DeviceArgs>(args->cfgdata);
         if ((uint32_t)schAicpuNum_ > devArgs->nrAicpu - 1) {
@@ -239,7 +239,7 @@ extern "C" __attribute__((visibility("default"))) int DynTileFwkBackendKernelSer
 }
 
 extern "C" __attribute__((visibility("default"))) int DynTileFwkBackendKernelServer(void *targ) {
-    auto kargs = (AstKernelArgs *)targ;
+    auto kargs = (PyPtoKernelArgs *)targ;
     auto devArgs = PtrToPtr<int64_t, DeviceArgs>(kargs->cfgdata);
     kargs->taskWastTime = GetCycles();
     g_machine_mgr.Init(devArgs);
