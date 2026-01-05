@@ -30,10 +30,21 @@
 namespace npu {
 namespace tile_fwk {
 
-constexpr size_t SINGLE_INPUT = 1;
-constexpr size_t THREE_INPUTS = 3;
-constexpr size_t FOUR_INPUTS = 4;
-constexpr size_t SINGLE_OUTPUT = 1;
+struct OperandCount {
+    constexpr static size_t VIEW_INPUT = 1;
+    constexpr static size_t VIEW_OUTPUT = 1;
+    constexpr static size_t ASSEMBLE_INPUT = 1;
+    constexpr static size_t ASSEMBLE_OUTPUT = 1;
+    constexpr static size_t RESHAPE_INPUT = 1;
+    constexpr static size_t RESHAPE_OUTPUT = 1;
+    constexpr static size_t INDEX_OUTCAST_INPUTS = 3;
+    constexpr static size_t INDEX_OUTCAST_OUTPUT = 1;
+    constexpr static size_t A_MULACC_B_MIN_INPUTS = 3;
+    constexpr static size_t A_MULACC_B_MAX_INPUTS = 4;
+    constexpr static size_t A_MULACC_B_OUTPUT = 1;
+    constexpr static size_t REMOTE_REDUCE_INPUT = 1;
+    constexpr static size_t REMOTE_REDUCE_OUTPUT = 1;
+};
 
 /*
 key: Opcode类型
