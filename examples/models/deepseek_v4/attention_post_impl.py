@@ -21,6 +21,8 @@ Example:
     See testdV4_attention_post.py for usage examples.
 """
 from dataclasses import dataclass
+from torch._subclasses.fake_tensor import FakeTensor
+from torch._dynamo import allow_in_graph
 import pypto
 
 SHAPE_DIM_2 = 2
@@ -245,3 +247,37 @@ def attention_post_decode(attn_res: pypto.Tensor, cos: pypto.Tensor, sin: pypto.
 
     """
     attention_post_compute(attn_res, cos, sin, wo_a, wo_b, hidden_states, tile_config)
+
+
+@allow_in_graph
+def npu_attention_post_v4(attn_res: pypto.Tensor, cos: pypto.Tensor, sin: pypto.Tensor,
+                          wo_a: pypto.Tensor, wo_b: pypto.Tensor, hidden_states: pypto.Tensor):
+    """
+    torch npu graph interface
+
+    """
+    # mark dynamic_axis
+    atten_res_pto = pypto.from_torch(attn_res, dynamic_axis=[0], name="attn_res")
+    cos_pto = pypto.from_torch(cos, dynamic_axis=[0], name="cos")
+    sin_pto = pypto.from_torch(sin, dynamic_axis=[0], name="sin")
+    wo_a_pto = pypto.from_torch(wo_a, name="wo_a")
+    wo_b_pto = pypto.from_torch(wo_b, name="wo_b")
+    hidden_states_pto = pypto.from_torch(hidden_states, dynamic_axis=[0], name="hidden_states")
+
+    # tiling
+    tile_config = AttnPostConfig(
+        unroll_list=[64, 32, 16, 8, 4, 2, 1],
+        rope3d_tile_config = Rope3dTileConfig(
+            [1, 64],
+            [1, 64, 64],
+            [1, 64, 128, 128]
+        ),
+        c1_tile = [[128, 128], [128, 128], [128, 128]],
+        c2_tile = [[128, 128], [128, 128], [128, 128]]
+    )
+
+    # kernel
+    if not isinstance(attn_res, FakeTensor):
+        pto_inputs = [atten_res_pto, cos_pto, sin_pto, wo_a_pto, wo_b_pto]
+        pto_outputs = [hidden_states_pto]
+        attention_post_decode(*pto_inputs, *pto_outputs, tile_config)
