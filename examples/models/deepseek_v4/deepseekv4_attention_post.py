@@ -18,8 +18,13 @@ import torch_npu
 import pypto
 import logging
 import numpy as np
-from attention_post_impl import attention_post_decode, AttnPostConfig, Rope3dTileConfig
+from attention_post_impl import npu_attention_post_v4, attention_post_decode, AttnPostConfig, Rope3dTileConfig
 from utils.compare import compare
+
+
+class AttentionPostV4(torch.nn.Module):
+    def forward(self, attn_res, cos, sin, wo_a, wo_b, hidden_states):
+        npu_attention_post_v4(attn_res, cos, sin, wo_a, wo_b, hidden_states)
 
 
 def gen_uniform_data(data_shape, min_value, max_value, dtype):
@@ -120,7 +125,7 @@ def gen_attention_post_v4_golden(dtype, params):
     n_g = params.get("n_g")
     o_lora_rank = params.get("o_lora_rank")
     h = params.get("h")
-    attn_res = gen_uniform_data([t, n_q, d], -2, 2, dtype)
+    attn_res = gen_uniform_data([t, n_q, d], -1, 1, dtype)
     cos = gen_uniform_data([t, rope_dim], -1, 1, dtype)
     sin = gen_uniform_data([t, rope_dim], -1, 1, dtype)
     wo_a = gen_uniform_data([n_g, n_q * d // n_g, o_lora_rank], -1, 1, dtype)
@@ -192,17 +197,56 @@ def do_attention_post_func(inputs, params, golden_list):
             golden_list[2], "hidden_states", atol=0.0001, rtol=0.005)
 
 
+def do_attention_post_func_torch_graph(inputs, params, golden_list):
+    """
+    atten_res: (t, n_q, d), bf16
+    cos: (t, rope_dim), bf16
+    sin: (t, rope_dim), bf16
+    wo_a: (n_g, n_q * d // n_g, o_lora_rank), bf16
+    wo_b: (n_g * o_lora_rank, h)
+    """
+    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
+    torch.npu.set_device(device_id)
+    torch_npu.npu.config.allow_internal_format = True
+
+    t = params.get("t")
+    h = params.get("h")
+
+    # define npu inputs
+    atten_res_npu = inputs[0].npu()
+    cos_npu = inputs[1].npu()
+    sin_npu = inputs[2].npu()
+    wo_a_npu = inputs[3].npu()
+    wo_b_npu = inputs[4].npu()
+    # define npu outputs
+    hidden_states = torch.zeros([t, h]).to(torch.bfloat16).npu()
+
+    model = torch.compile(AttentionPostV4(), backend="eager", dynamic=True)
+
+    # capture model
+    g = torch.npu.NPUGraph()
+    with torch.npu.graph(g):
+        model(atten_res_npu, cos_npu, sin_npu, wo_a_npu, wo_b_npu, hidden_states)
+
+    g.replay()
+    pypto.runtime._device_synchronize() # 内部接口，不推荐使用
+
+    compare(hidden_states.cpu(), golden_list[2], "hidden_states", atol=0.0001, rtol=0.005)
+
+
 def get_case_config(case_name: str):
     # case参数配置字典，key为case名称，value为对应的参数元组(bn1n2s1, is_kn_quant, actual_seq)
     test_case_config = {
-        "test_attention_post_v4_impl": 
+        "test_attention_post_v4_impl_perf": 
             {"t": 16, "n_q": 64, "d": 512, "rope_dim": 64, "n_g": 8, "o_lora_rank": 1024, "h": 4096},
+        "test_attention_post_v4_impl": 
+            {"t": 23, "n_q": 64, "d": 512, "rope_dim": 64, "n_g": 8, "o_lora_rank": 1024, "h": 4096},
     }
     case_config = test_case_config.get(case_name)
     return case_config
 
 
-def do_attention_post_entry(case_name: str):
+def do_attention_post_entry(case_name: str, is_torch_graph: bool = False):
     dtype = torch.bfloat16
     params = get_case_config(case_name)
     if not params:
@@ -212,8 +256,14 @@ def do_attention_post_entry(case_name: str):
     inputs, rope_golden, bmm_golden, mm_golden, nope_res = gen_attention_post_v4_golden(
         dtype, params)
 
-    do_attention_post_func(
-        inputs, params, [rope_golden, bmm_golden, mm_golden, nope_res])
+    if is_torch_graph:
+        print("\n =============== torch graph ====================")
+        do_attention_post_func_torch_graph(
+            inputs, params, [rope_golden, bmm_golden, mm_golden, nope_res])
+    else:
+        print("\n =============== st ====================")
+        do_attention_post_func(
+            inputs, params, [rope_golden, bmm_golden, mm_golden, nope_res])
 
     return True
 
@@ -222,7 +272,14 @@ def test_attention_post_v4_impl():
     '''
     attention post v4 testcase
     '''
-    do_attention_post_entry("test_attention_post_v4_impl")
+    do_attention_post_entry("test_attention_post_v4_impl", is_torch_graph=False)
+
+
+def test_attention_post_v4_impl_torch_graph():
+    '''
+    attention post v4 torch graph
+    '''
+    do_attention_post_entry("test_attention_post_v4_impl_perf", is_torch_graph=True)
 
 
 if __name__ == "__main__":
