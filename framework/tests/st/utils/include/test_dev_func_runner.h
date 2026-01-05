@@ -133,7 +133,7 @@ private:
             return;
         }
         KernelLaunchPrecheck(inputs, outputs);
-        DevAscendProgram *functionDevProg = reinterpret_cast<DevAscendProgram *>(function_->GetDyndevAttribute()->devProgBinary.data());
+        DevPyPtoProgram *functionDevProg = reinterpret_cast<DevPyPtoProgram *>(function_->GetDyndevAttribute()->devProgBinary.data());
         if (config_.controlFlowCache) {
             functionDevProg->controlFlowCache.isRecording = true;
         }
@@ -182,7 +182,7 @@ private:
     }
 
     bool IsDumpTensorEnable() const {
-        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(GetDevProg(function_).data()));
+        auto *devProg = reinterpret_cast<DevPyPtoProgram *>(const_cast<uint8_t*>(GetDevProg(function_).data()));
         return devProg->memBudget.debug.dumpTensor != 0;
     }
 
@@ -215,7 +215,7 @@ private:
     void DumpTensorContents(const AstKernelArgs &kArgs,
                             const std::vector<RawTensorDataPtr> &inputs,
                             const std::vector<RawTensorDataPtr> &outputs) {
-        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(GetDevProg(function_).data()));
+        auto *devProg = reinterpret_cast<DevPyPtoProgram *>(const_cast<uint8_t*>(GetDevProg(function_).data()));
         uint8_t *dumpTensorWsPtr = reinterpret_cast<uint8_t *>(kArgs.workspace) + devProg->memBudget.Total() - devProg->memBudget.debug.dumpTensor;
         uint64_t dumpTensorWsUsed = 0;
         rtMemcpy(&dumpTensorWsUsed, sizeof(uint64_t), dumpTensorWsPtr, sizeof(uint64_t), RT_MEMCPY_DEVICE_TO_HOST);
@@ -328,7 +328,7 @@ private:
         (void) kArgs;
         std::thread aicpus[DEVICE_MAX_AICPU_NUM];
         std::atomic<int> idx{0};
-        auto *devProg = (DevAscendProgram *)(kArgs->cfgdata);
+        auto *devProg = (DevPyPtoProgram *)(kArgs->cfgdata);
         auto rc0 = DynTileFwkBackendKernelServerInit(kArgs);
         EXPECT_EQ(rc0, 0);
         int threadNum = static_cast<int>(devProg->devArgs.nrAicpu);

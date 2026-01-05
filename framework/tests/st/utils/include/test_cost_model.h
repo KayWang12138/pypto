@@ -150,11 +150,11 @@ private:
     }
 
     bool HasInplaceArgs() {
-        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProg_.data()));
+        auto *devProg = reinterpret_cast<DevPyPtoProgram *>(const_cast<uint8_t*>(devProg_.data()));
         return devProg->outputInplaceSlotList.size() != 0;
     }
 
-    void AssignMetaAddr(DevAscendProgram *devProg, MemoryH &h) {
+    void AssignMetaAddr(DevPyPtoProgram *devProg, MemoryH &h) {
         uint64_t generalSize = devProg->memBudget.metadata.general;
         uint64_t stitchPoolSize = devProg->memBudget.metadata.stitchPool;
         size_t shmSize = DEVICE_SHM_SIZE + DEVICE_TASK_QUEUE_SIZE * devProg->devArgs.scheCpuNum +
@@ -174,7 +174,7 @@ private:
 
     void InitTilingData(AstKernelArgs *kArgs, bool isTest) {
         MemoryH h{isTest};
-        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t *>(devProg_.data()));
+        auto *devProg = reinterpret_cast<DevPyPtoProgram *>(const_cast<uint8_t *>(devProg_.data()));
         devProg->devArgs.nrAic = 25;
         devProg->devArgs.nrAiv = 50;
         devProg->devArgs.nrAicpu = 6;
@@ -237,17 +237,17 @@ private:
             for (auto &t : tensorList) {
                 if (t) {
                     auto addrs = pv_->CopyTensorToDev((uint8_t*)t->data(), t->size());
-                    geTensors.emplace_back(DevAscendTensorDataCreator::Create((uint64_t)addrs, t->GetShape()));
+                    geTensors.emplace_back(DevPyPtoTensorDataCreator::Create((uint64_t)addrs, t->GetShape()));
                 } else {
                     std::vector<int> shape;
-                    geTensors.emplace_back(DevAscendTensorDataCreator::Create(0UL, shape));
+                    geTensors.emplace_back(DevPyPtoTensorDataCreator::Create(0UL, shape));
                 }
             }
-            auto outs = DevAscendTensorDataCreator::Encode(geTensors);
+            auto outs = DevPyPtoTensorDataCreator::Encode(geTensors);
             return (int64_t*)pv_->CopyToDev((uint8_t *)outs.data(), outs.size()*sizeof(int64_t));
         };
 
-        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProg_.data()));
+        auto *devProg = reinterpret_cast<DevPyPtoProgram *>(const_cast<uint8_t*>(devProg_.data()));
         devProg->devArgs.nrAic = 25;
         devProg->devArgs.nrAiv = 50;
         devProg->devArgs.nrAicpu = 6;
