@@ -1570,7 +1570,7 @@ FunctionHash Function::ComputeHash() {
         inCastsSet_.emplace(ele);
     }
     FunctionHashResult functionHashResult_ = ComputeHashOrderless();
-    functionHash_ = {functionHashResult_.hashValue, functionHashResult_.inCastOrder, functionHashResult_.outCastOrder};
+    functionHash_ = {functionHashResult_.hashValue, functionHashResult_.outCastOrder, functionHashResult_.inCastOrder};
     return functionHash_;
 }
 

@@ -457,6 +457,31 @@ Status SubgraphToFunction::ProcessCacheResult(const std::tuple<Function *, Opera
     if (std::get<getValue>(result)) {
         APASS_LOG_DEBUG_F(Elements::Operation, "LeafFunc %zu Hit Current hashValue is %lu.", i,
             std::get<0>(result)->ComputeHash().GetHash());
+
+        // =================================================================================================================================================================
+
+        auto functionHash = std::get<0>(result)->ComputeHash();
+        const auto &outcastOrder = functionHash.GetOutcastOrder();
+        APASS_LOG_DEBUG_F(Elements::Operation, "LeafFunc %zu Hit Current outcastOrder is %s.", i, IntVecToStr(functionHash.GetOutcastOrder()).c_str());
+        APASS_LOG_DEBUG_F(Elements::Operation, "LeafFunc %zu Hit Current incastOrder is %s.", i, IntVecToStr(functionHash.GetIncastOrder()).c_str());
+
+        bool isSequential = true;
+        for (size_t idx = 0; idx < outcastOrder.size(); ++idx) {
+            if (static_cast<size_t>(outcastOrder[idx]) != idx) {
+                isSequential = false;
+                break;
+            }
+        }
+
+        if (!isSequential && !outcastOrder.empty()) {
+            Function *func = std::get<0>(result);
+            APASS_LOG_DEBUG_F(Elements::Operation, "LeafFunc %zu need to reorder outcast.", i);
+            auto [funcPtr, callop, flag] = result;
+            // funcPtr->ReorderOutcasts(outcastOrder);
+        }
+
+        // =================================================================================================================================================================
+    
         psgToESgMap.insert({std::get<0>(result)->GetProgramId(), i});
         auto callAttr = dynamic_cast<CallOpAttribute *>(callOp.GetOpAttribute().get());
         if (callAttr == nullptr) { APASS_LOG_ERROR_F(Elements::Operation, "Failed to get CallOpAttribute for operation %zu. %s", i, GetFormatBacktrace(callOp).c_str()); return FAILED; }
