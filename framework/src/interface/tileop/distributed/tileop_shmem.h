@@ -242,6 +242,40 @@ TILEOP void ShmemSet(__ubuf__ T* buffer, __gm__ T* shmemTensorBaseAddr, uint32_t
     }
 }
 
+template<typename T, uint32_t worldSize, uint32_t stride, uint32_t signalMaxTileNum,
+    uint32_t bufferEleNum>
+TILEOP void ShmemSet(__ubuf__ T* buffer, __gm__ T* shmemTensorBaseAddr, uint32_t shmemTensorOffset0,
+    uint32_t shmemTensorOffset1, uint32_t shmemTensorOffset2, uint32_t shmemTensorOffset3, uint32_t shmemTensorOffset4, 
+    uint32_t shmemTensorRawShape0, uint32_t shmemTensorRawShape1, uint32_t shmemTensorRawShape2,
+    uint32_t shmemTensorRawShape3, uint32_t shmemTensorRawShape4, uint32_t shmemTensorShape0, uint32_t shmemTensorShape1,
+    uint32_t shmemTensorShape2, uint32_t shmemTensorShape3, uint32_t shmemTensorShape4, __gm__ int64_t *hcclContext)
+{
+    constexpr uint8_t repeat = sizeof(T) * bufferEleNum / VECTOR_INSTRUCTION_BYTE_SIZE;
+    vector_dup(buffer, static_cast<T>(0), repeat, 1, 0, 8, 0);
+
+    set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
+    wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
+
+    int32_t tileIndex = (shmemTensorOffset3 / shmemTensorShape3) *
+        (shmemTensorRawShape4 / shmemTensorShape4 + (shmemTensorRawShape4 % shmemTensorShape4 == 0 ? 0 : 1)) +
+        (shmemTensorOffset4 / shmemTensorShape4);
+    int32_t totalTileNum = (shmemTensorRawShape3 / shmemTensorShape3 + (shmemTensorRawShape3 % shmemTensorShape3 == 0 ? 0 : 1)) *
+        (shmemTensorRawShape4 / shmemTensorShape4 + (shmemTensorRawShape4 % shmemTensorShape4 == 0 ? 0 : 1));
+
+    __gm__ T* shmemTensorAddr = MapVirtualAddr<T>(hcclContext, shmemTensorBaseAddr, shmemTensorOffset0) + 
+        shmemTensorOffset0 * shmemTensorRawShape2 * totalTileNum * stride + (shmemTensorOffset2 * totalTileNum + tileIndex) * stride;
+
+    constexpr uint32_t shmemTensorEleNum = worldSize * signalMaxTileNum * stride;
+    constexpr uint32_t fullChunkCount = shmemTensorEleNum / bufferEleNum;
+    for (int32_t i = 0; i < fullChunkCount; i++) {
+        UBCopyOut<T, 1, bufferEleNum, bufferEleNum, bufferEleNum>(shmemTensorAddr + bufferEleNum * i, buffer);
+    }
+    constexpr uint32_t tailEleNum = shmemTensorEleNum % bufferEleNum;
+    if constexpr (tailEleNum != 0) {
+        UBCopyOut<T, 1, tailEleNum, tailEleNum, tailEleNum>(shmemTensorAddr + bufferEleNum * fullChunkCount, buffer);
+    }
+}
+
 template<typename NonShmemType, typename ShmemType, uint32_t tileRowShape, uint32_t tileColShape, uint32_t bufferRowShape,
     uint32_t bufferColShape, uint32_t srcStride, uint32_t dstStride, AtomicType atomicType>
 TILEOP void ShmemPut(__ubuf__ NonShmemType* buffer, __gm__ NonShmemType* nonShmemDataBaseAddr, __gm__ ShmemType* shmemDataBaseAddr,
