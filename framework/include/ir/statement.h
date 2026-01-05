@@ -54,7 +54,7 @@ public:
 
     StatementKind GetKind() const override { return StatementKind::Compound; }
 
-    void Print(std::ostream& os, int indent) const override { os << "Not impl CompundStatement.Print() now!!!" << std::endl; }
+    void Print(std::ostream& os, [[maybe_unused]] int indent) const override { os << "Not impl CompundStatement.Print() now!!!" << std::endl; }
 
     // Get the parent scope (nullptr if this is a root scope).
     std::weak_ptr<CompoundStatement> GetParent() const { return parent_; }
