@@ -30,8 +30,7 @@ namespace {
 bool IsCopyOpWithShapeOffsetAttr(Opcode opcode) {
     bool result = opcode == Opcode::OP_COPY_IN || opcode == Opcode::OP_COPY_OUT ||
                   opcode == Opcode::OP_TRANSPOSE_MOVEOUT || opcode == Opcode::OP_TRANSPOSE_MOVEIN ||
-                  opcode == Opcode::OP_INDEX_OUTCAST || opcode == Opcode::OP_LOCAL_COPY_OUT ||
-                  opcode == Opcode::OP_REMOTE_REDUCE || opcode == Opcode::OP_REMOTE_GATHER ||
+                  opcode == Opcode::OP_INDEX_OUTCAST ||
                   opcode == Opcode::OP_FFN_SCHED || opcode == Opcode::OP_FFN_BATCHING ||
                   opcode == Opcode::OP_FFN_COMBINEINFO || opcode == Opcode::OP_FFN_VALIDCNT ||
                   opcode == Opcode::OP_COPY_TO_LOCAL_EXPERT || opcode == Opcode::OP_SHMEM_PUT ||
@@ -62,8 +61,9 @@ void CodeGenOp::CombineAxis(const Operation &oper, int operandIdx, bool isInput,
     ALOG_INFO_F("operandIdx %d, isInput: %d, ioIdx is %d ", operandIdx, isInput, ioIdx);
 
     std::vector<bool> needCombineIOIdx;
-    if ((isInput && oper.GetAttr(OpAttributeKey::inputCombineAxis, needCombineIOIdx) && needCombineIOIdx[ioIdx]) ||
-        (!isInput && oper.GetAttr(OpAttributeKey::outputCombineAxis, needCombineIOIdx) && needCombineIOIdx[ioIdx])) {
+    if (((isInput && oper.GetAttr(OpAttributeKey::inputCombineAxis, needCombineIOIdx)) ||
+            (!isInput && oper.GetAttr(OpAttributeKey::outputCombineAxis, needCombineIOIdx))) &&
+        needCombineIOIdx[ioIdx]) {
         ALOG_INFO_F("needCombineIOIdx is %s", IntVecToStr(needCombineIOIdx).c_str());
         CombineLastTwoAxis(shape[operandIdx], dim);
         CombineLastTwoAxis(rawShape[operandIdx], dim);
@@ -214,6 +214,7 @@ void CodeGenOp::UpdateCodegenOpInfoByTensor(
     operand[operandIdx] = tensor->GetMemoryTypeOriginal() == MEM_DEVICE_DDR ? tensor->tensor->GetRawMagic() :
                                                                               -tensor->tensor->GetRawMagic();
     operandWithMagic[operandIdx] = tensor->GetMagic();
+    dynamicOffset[operandIdx] = tensor->GetDynOffset();
     UpdateShape(ops, *tensor, operandIdx, isInput, ioIdx);
     if (isInput) {
         UpdateOffsetForInput(ops, *tensor, operandIdx);

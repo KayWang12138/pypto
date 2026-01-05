@@ -92,6 +92,13 @@ Status RemoveRedundantOpChecker::PreCheckRegCopy(Function &function, const Opera
     return SUCCESS;
 }
 
+Status RemoveRedundantOpChecker::PreCheckReshape(const Operation &op) {
+    if (op.ConsumerOps().empty()) {
+        APASS_LOG_ERROR_F(Elements::Operation, "At least one reshape op without consumer.");
+        return FAILED;
+    }
+    return SUCCESS;
+}
 
 Status RemoveRedundantOpChecker::ProcessPreCheck(Function &function, const Operation &op) {
     if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
@@ -113,6 +120,12 @@ Status RemoveRedundantOpChecker::ProcessPreCheck(Function &function, const Opera
         APASS_LOG_DEBUG_F(Elements::Operation, "Process preCheck for regcopy op[%d].", op.GetOpMagic());
         if (PreCheckRegCopy(function, op) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "PreCheck for regcopy op[%d] failed.%s", op.GetOpMagic(), GetFormatBacktrace(op).c_str());
+            return FAILED;
+        }  
+    } else if (op.GetOpcode() == Opcode::OP_RESHAPE) {
+        APASS_LOG_DEBUG_F(Elements::Operation, "Process preCheck for reshape op[%d].", op.GetOpMagic());
+        if (PreCheckReshape(op) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Operation, "PreCheck for reshape op[%d] failed.%s", op.GetOpMagic(), GetFormatBacktrace(op).c_str());
             return FAILED;
         }  
     }
@@ -159,11 +172,6 @@ Status RemoveRedundantOpChecker::PostCheckView(const Operation &op) {
     if (childOp == nullptr) {
         APASS_LOG_ERROR_F(Elements::Operation, 
         "Found null childOp of op[%d]; Please check if the output consumers of the op[%d] are empty.%s", 
-        op.GetOpMagic(), op.GetOpMagic(), GetFormatBacktrace(op).c_str());
-        return FAILED;
-    }
-    if (childOp->GetOpcode() == Opcode::OP_COMM_WAIT_FLAG) {
-        APASS_LOG_ERROR_F(Elements::Operation, "View op[%d] has only one commit wait child; Please check view op[%d].%s", 
         op.GetOpMagic(), op.GetOpMagic(), GetFormatBacktrace(op).c_str());
         return FAILED;
     }
