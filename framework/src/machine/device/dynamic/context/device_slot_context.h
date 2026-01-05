@@ -18,13 +18,13 @@
 #include "machine/utils/dynamic/dev_workspace.h"
 
 namespace npu::tile_fwk::dynamic {
-using StitchedList = Vector<DevAscendFunctionDupped, WsMemCategory::VECTOR_STITCHED_LIST, DeviceWorkspaceAllocator>;
+using StitchedList = Vector<DevPyPtoFunctionDupped, WsMemCategory::VECTOR_STITCHED_LIST, DeviceWorkspaceAllocator>;
 struct DeviceSlotContext {
     void InitAllocator(DeviceWorkspaceAllocator &workspace, uint64_t slotSize);
 
-    void FillInputOutputSlot(DevAscendProgram *devProg, DevStartArgs *args);
+    void FillInputOutputSlot(DevPyPtoProgram *devProg, DevStartArgs *args);
 
-    int UpdateSlots(DevAscendFunctionDupped &devRootDup, const StitchedList &stitchedList, uint32_t devTaskId,
+    int UpdateSlots(DevPyPtoFunctionDupped &devRootDup, const StitchedList &stitchedList, uint32_t devTaskId,
                      uint32_t devNextIdx);
 
     DeviceExecuteSlot *GetSlotList() { return slotList_.data(); }
@@ -39,7 +39,7 @@ struct DeviceSlotContext {
     }
 
 public:
-    void FillInputOutputSlot(DeviceExecuteSlot *slotList, size_t slotSize, DevAscendProgram *devProg,
+    void FillInputOutputSlot(DeviceExecuteSlot *slotList, size_t slotSize, DevPyPtoProgram *devProg,
                              DevStartArgs *args);
 
 private:

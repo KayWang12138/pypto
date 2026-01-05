@@ -25,12 +25,12 @@ constexpr int ARG_ATTR_TYPE = 4;
 const uint32_t RAW_TENSOR_OFFSET_SIZE = 63;
 const uint32_t RAW_TENSOR_DESC_PRE_SIZE = 8;
 
-struct DevAscendFunctionDuppedData {
-    DevAscendFunction *source_;
-    DevAscendFunctionDuppedOperation operationList_;
-    DevAscendFunctionDuppedVector incastList_;
-    DevAscendFunctionDuppedVector outcastList_;
-    DevAscendFunctionDuppedVector expressionList_;
+struct DevPyPtoFunctionDuppedData {
+    DevPyPtoFunction *source_;
+    DevPyPtoFunctionDuppedOperation operationList_;
+    DevPyPtoFunctionDuppedVector incastList_;
+    DevPyPtoFunctionDuppedVector outcastList_;
+    DevPyPtoFunctionDuppedVector expressionList_;
     uintdevptr_t runtimeWorkspace_;
     RuntimeReuseInfo runtimeWsReuseInfo_;
     uintdevptr_t runtimeOutcastWorkspace_;
@@ -42,7 +42,7 @@ struct DevAscendFunctionDuppedData {
      *      AddressDescriptor                                   incastAddressListData[];
      *      AddressDescriptor                                   outcastAddressListData[];
      *      uint64_t                                            expressionListData[];
-     *      DevAscendFunctionDuppedStitchList                   stitchListData[];
+     *      DevPyPtoFunctionDuppedStitchList                   stitchListData[];
      */
 #define GET_DATA(type, data, base, index) ((reinterpret_cast<type *>(const_cast<uint8_t *>((data) + (base)))[index]))
     uint32_t GetOperationSize() const { return operationList_.size; }
@@ -50,8 +50,8 @@ struct DevAscendFunctionDuppedData {
     predcount_t &GetOperationCurrPredCount(int index) { return GET_DATA(predcount_t, data_, operationList_.predCountBase, index); }
 
     uint32_t GetStitchSize() const { return operationList_.stitchCount; }
-    const DevAscendFunctionDuppedStitchList &GetStitch(int index) const { return GET_DATA(DevAscendFunctionDuppedStitchList, data_, operationList_.stitchBase, index); }
-    DevAscendFunctionDuppedStitchList &GetStitch(int index) { return GET_DATA(DevAscendFunctionDuppedStitchList, data_, operationList_.stitchBase, index); }
+    const DevPyPtoFunctionDuppedStitchList &GetStitch(int index) const { return GET_DATA(DevPyPtoFunctionDuppedStitchList, data_, operationList_.stitchBase, index); }
+    DevPyPtoFunctionDuppedStitchList &GetStitch(int index) { return GET_DATA(DevPyPtoFunctionDuppedStitchList, data_, operationList_.stitchBase, index); }
 
     uint64_t GetExpressionSize() const { return expressionList_.size; }
     const uint64_t &GetExpression(int index) const { return GET_DATA(uint64_t, data_, expressionList_.base, index); }
@@ -78,10 +78,10 @@ struct DevAscendFunctionDuppedData {
     uintdevptr_t GetRuntimeOutcastWorkspace() const { return runtimeOutcastWorkspace_; }
     uintdevptr_t &GetRuntimeOutcastWorkspace() { return runtimeOutcastWorkspace_; }
 
-    DevAscendFunction *GetSource() const { return source_; }
-    DevAscendFunction *&GetSource() { return source_; }
+    DevPyPtoFunction *GetSource() const { return source_; }
+    DevPyPtoFunction *&GetSource() { return source_; }
 
-    const DevAscendFunctionDuppedStitchList &GetOperationStitch(int operationIndex, bool maybeNull = true) const {
+    const DevPyPtoFunctionDuppedStitchList &GetOperationStitch(int operationIndex, bool maybeNull = true) const {
         int outcastStitchIndex = GetSource()->GetOperationOutcastStitchIndex(operationIndex);
         DEV_IF_NONDEVICE {
             if (!maybeNull && outcastStitchIndex == 0) {
@@ -89,9 +89,9 @@ struct DevAscendFunctionDuppedData {
             }
             DEV_ASSERT(maybeNull || outcastStitchIndex != 0);
         }
-        return GET_DATA(DevAscendFunctionDuppedStitchList, data_, operationList_.stitchBase, outcastStitchIndex);
+        return GET_DATA(DevPyPtoFunctionDuppedStitchList, data_, operationList_.stitchBase, outcastStitchIndex);
     }
-    DevAscendFunctionDuppedStitchList &GetOperationStitch(int operationIndex, bool maybeNull = true) {
+    DevPyPtoFunctionDuppedStitchList &GetOperationStitch(int operationIndex, bool maybeNull = true) {
         int outcastStitchIndex = GetSource()->GetOperationOutcastStitchIndex(operationIndex);
         DEV_IF_NONDEVICE {
             if (!maybeNull && outcastStitchIndex == 0) {
@@ -99,7 +99,7 @@ struct DevAscendFunctionDuppedData {
             }
             DEV_ASSERT(maybeNull || outcastStitchIndex != 0);
         }
-        return GET_DATA(DevAscendFunctionDuppedStitchList, data_, operationList_.stitchBase, outcastStitchIndex);
+        return GET_DATA(DevPyPtoFunctionDuppedStitchList, data_, operationList_.stitchBase, outcastStitchIndex);
     }
 
     inline uint64_t GetIncastDataSize(int incastIndex) const {
@@ -171,13 +171,13 @@ struct DevAscendFunctionDuppedData {
     }
 };
 
-struct DevAscendFunctionDupped {
-    DevAscendFunctionDupped() = default;
-    explicit DevAscendFunctionDupped(WsAllocation tinyAlloc) : dupTiny_(tinyAlloc) {}
+struct DevPyPtoFunctionDupped {
+    DevPyPtoFunctionDupped() = default;
+    explicit DevPyPtoFunctionDupped(WsAllocation tinyAlloc) : dupTiny_(tinyAlloc) {}
 
-    static DevAscendFunctionDupped DuplicateRoot(DevAscendFunction *func, WsAllocation tinyAlloc) {
-        DevAscendFunctionDuppedData *dupData = tinyAlloc.As<DevAscendFunctionDuppedData>();
-        DevAscendFunctionDuppedData *sourceData = func->GetDuppedData();
+    static DevPyPtoFunctionDupped DuplicateRoot(DevPyPtoFunction *func, WsAllocation tinyAlloc) {
+        DevPyPtoFunctionDuppedData *dupData = tinyAlloc.As<DevPyPtoFunctionDuppedData>();
+        DevPyPtoFunctionDuppedData *sourceData = func->GetDuppedData();
         (void)memcpy_s(reinterpret_cast<uint8_t *>(dupData),
             func->GetDuppedDataCopySize(),
             sourceData,
@@ -188,7 +188,7 @@ struct DevAscendFunctionDupped {
             func->GetDuppedDataAllocSize() - func->GetDuppedDataCopySize());
         dupData->GetSource() = func;
 
-        DevAscendFunctionDupped dup(tinyAlloc);
+        DevPyPtoFunctionDupped dup(tinyAlloc);
         return dup;
     }
 
@@ -205,8 +205,8 @@ struct DevAscendFunctionDupped {
     uintdevptr_t RuntimeOutcastBase() const { return DupData()->GetRuntimeOutcastWorkspace(); }
     uintdevptr_t &RuntimeOutcastBase() { return DupData()->GetRuntimeOutcastWorkspace(); }
 
-    const DevAscendFunction *GetSource() const { return DupData()->GetSource(); }
-    DevAscendFunction *GetSource() { return DupData()->GetSource(); }
+    const DevPyPtoFunction *GetSource() const { return DupData()->GetSource(); }
+    DevPyPtoFunction *GetSource() { return DupData()->GetSource(); }
 
     inline const uint64_t &GetExpression(int arg) const { return DupData()->GetExpression(arg); };
     inline uint64_t &GetExpression(int arg) { return DupData()->GetExpression(arg); };
@@ -237,7 +237,7 @@ struct DevAscendFunctionDupped {
 
     inline uintdevptr_t GetRawTensorAddr(int rawIndex) const {
         uintdevptr_t addr = 0ULL;
-        const DevAscendRawTensor *rawTensor = GetSource()->GetRawTensor(rawIndex);
+        const DevPyPtoRawTensor *rawTensor = GetSource()->GetRawTensor(rawIndex);
         if (rawTensor->ioProperty == DevIOProperty::ROOT_INCAST) {
             AddressDescriptor incast = GetIncastAddress(rawTensor->ioIndex);
             if (incast.IsNullAddress()) {
@@ -366,7 +366,7 @@ struct DevAscendFunctionDupped {
         // seqNo,taskId,rawMagic,address,dtype,bytesOfDtype,(shapes,)
         auto *srcFunc = GetSource();
 
-        auto dumpOperand = [&](const DevAscendOperationOperandInfo &operandInfo, size_t opIdx) {
+        auto dumpOperand = [&](const DevPyPtoOperationOperandInfo &operandInfo, size_t opIdx) {
             std::stringstream os;
             uint64_t rawIdx = srcFunc->GetTensor(operandInfo.tensorIndex)->rawIndex;
             auto *rawTensor = srcFunc->GetRawTensor(rawIdx);
@@ -421,7 +421,7 @@ struct DevAscendFunctionDupped {
         oss << "seqNo=" << seqNo << ", rootHash=" << srcFunc->rootHash;
         flushStream();
 
-        auto dumpRawShape = [&](DevAscendRawTensor *rawTensor, uint32_t dimSize) {
+        auto dumpRawShape = [&](DevPyPtoRawTensor *rawTensor, uint32_t dimSize) {
             oss << "        rawShape=[";
             bool isFirstDim = true;
             for (uint32_t i = 0; i < dimSize; i++) {
@@ -608,10 +608,10 @@ struct DevAscendFunctionDupped {
     DynFuncData *GetFuncData() { return funcData; }
     void SetFuncData(DynFuncData *data) { funcData = data; }
 
-    DevAscendFunctionDuppedData *DupDataForDynFuncData() { return DupData(); }
+    DevPyPtoFunctionDuppedData *DupDataForDynFuncData() { return DupData(); }
 private:
-    const DevAscendFunctionDuppedData *DupData() const { return dupTiny_.As<DevAscendFunctionDuppedData>(); }
-    DevAscendFunctionDuppedData *DupData() { return dupTiny_.As<DevAscendFunctionDuppedData>(); }
+    const DevPyPtoFunctionDuppedData *DupData() const { return dupTiny_.As<DevPyPtoFunctionDuppedData>(); }
+    DevPyPtoFunctionDuppedData *DupData() { return dupTiny_.As<DevPyPtoFunctionDuppedData>(); }
 
 private:
     DynFuncData *funcData{nullptr}; // used by aicore

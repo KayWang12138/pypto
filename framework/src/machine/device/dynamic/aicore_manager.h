@@ -1184,7 +1184,7 @@ private:
         return callList[opIndex];
     }
 
-    inline DevAscendFunctionDuppedData *GetDuppedData(uint32_t taskId) const {
+    inline DevPyPtoFunctionDuppedData *GetDuppedData(uint32_t taskId) const {
         auto dyntask = reinterpret_cast<DynDeviceTask *>(curDevTask_);
         auto funcId = FuncID(taskId);
         return dyntask->dynFuncDataCacheList[funcId].duppedData;

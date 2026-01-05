@@ -34,7 +34,7 @@ struct DeviceExecuteContext {
     uint64_t taskId{0};
     bool isFirstTaskSend{true};
 
-    DevAscendProgram *devProg{nullptr};
+    DevPyPtoProgram *devProg{nullptr};
     DeviceExecuteProgram execProg;
     uint16_t stitchTaskLoopNumThreshold{MAX_CACHED_FUNC_NUM};
 
@@ -48,7 +48,7 @@ struct DeviceExecuteContext {
 
     Vector<int64_t, WsMemCategory::VECTOR_SYMBOL_TABLE> symbolTable;
 
-    DevAscendFunctionDupped currDevRootDup;
+    DevPyPtoFunctionDupped currDevRootDup;
 
     CostModel::ModelData *costModelData{nullptr};
 

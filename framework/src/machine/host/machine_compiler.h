@@ -22,7 +22,7 @@
 namespace npu::tile_fwk {
 constexpr int64_t AICORE_NUM = 75;
 
-/* 每次编译生成的信息，offset信息后面再放cache里,每个AscendFunction一个 */
+/* 每次编译生成的信息，offset信息后面再放cache里,每个PyPtoFunction一个 */
 struct MachineCompileInfo {
     uint32_t aicoreCnt{AICORE_NUM};// 从全局配置获取
     uint64_t programFunctionCnt; // 同构后的funciton 个数

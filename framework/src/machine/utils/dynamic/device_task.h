@@ -25,7 +25,7 @@
 namespace npu::tile_fwk::dynamic {
 class DeviceWorkspaceAllocator;
 struct DynDeviceTask : DynDeviceTaskBase {
-    Vector<DevAscendFunctionDupped, WsMemCategory::VECTOR_STITCHED_LIST, DeviceWorkspaceAllocator> stitchedList;
+    Vector<DevPyPtoFunctionDupped, WsMemCategory::VECTOR_STITCHED_LIST, DeviceWorkspaceAllocator> stitchedList;
     WsAllocation selfAlloc;
     WsSlabStageAllocMem taskStageAllocMem;
 

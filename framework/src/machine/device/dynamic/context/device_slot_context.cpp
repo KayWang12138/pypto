@@ -24,12 +24,12 @@ void DeviceSlotContext::InitAllocator(DeviceWorkspaceAllocator &workspace, uint6
     slotList_.resize(slotSize);
 }
 
-void DeviceSlotContext::FillInputOutputSlot(DevAscendProgram *devProg, DevStartArgs *args) {
+void DeviceSlotContext::FillInputOutputSlot(DevPyPtoProgram *devProg, DevStartArgs *args) {
     FillInputOutputSlot(slotList_.data(), slotList_.size(), devProg, args);
 }
 
-static void UpdateSlotsForStitch(int slotIdx, DeviceExecuteSlot &slot, DevAscendFunction *devRootSrc,
-                                 DevAscendFunctionOutcast &outcast, uint32_t devTaskId, uint32_t devNextIdx,
+static void UpdateSlotsForStitch(int slotIdx, DeviceExecuteSlot &slot, DevPyPtoFunction *devRootSrc,
+                                 DevPyPtoFunctionOutcast &outcast, uint32_t devTaskId, uint32_t devNextIdx,
                                  uint32_t outcastIndex, uint64_t *expressionList) {
     slot.stitchDupIdx = devNextIdx;
     slot.stitchOutcastIdx = outcastIndex;
@@ -51,7 +51,7 @@ static void UpdateSlotsForStitch(int slotIdx, DeviceExecuteSlot &slot, DevAscend
         }
 
         DEV_VERBOSE_DEBUG("[UpdateSlots]  slot %d CellMatchPartial=%s\n", slotIdx,
-            DevAscendFunctionDuppedStitchList::DumpTask<uint64_t>(tableData, slot.partialUpdate->cellMatchRuntimePartialUpdateTable.size()).c_str());
+            DevPyPtoFunctionDuppedStitchList::DumpTask<uint64_t>(tableData, slot.partialUpdate->cellMatchRuntimePartialUpdateTable.size()).c_str());
         slot.isPartialUpdateDirty = true;
     } else {
         auto &cellMatchTableDesc = outcast.cellMatchTableDesc;
@@ -59,16 +59,16 @@ static void UpdateSlotsForStitch(int slotIdx, DeviceExecuteSlot &slot, DevAscend
         CellMatchFillIncastOutcast<false>(
                 devRootSrc, producerList, outcast.producerList.size(), expressionList, false, cellMatchTableDesc, tableData);
         DEV_VERBOSE_DEBUG("[UpdateSlots] slot %d  CellMatchFull=%s\n", slotIdx,
-            DevAscendFunctionDuppedStitchList::DumpTask(tableData, outcast.cellMatchRuntimeFullUpdateTable.size()).c_str());
+            DevPyPtoFunctionDuppedStitchList::DumpTask(tableData, outcast.cellMatchRuntimeFullUpdateTable.size()).c_str());
     }
 }
 
 template <WsMemCategory category>
 static int UpdateSlotsImpl(DeviceWorkspaceAllocator *workspace, DeviceExecuteSlot *slotList,
     const StitchedList &stitchedList, ItemPool<uint32_t, category> &slotRefCntPool,
-    DevAscendFunctionDupped &devRootDup, uint32_t devTaskId, uint32_t devNextIdx) {
+    DevPyPtoFunctionDupped &devRootDup, uint32_t devTaskId, uint32_t devNextIdx) {
     AutoScopedPerf asp(PERF_EVT_UPDATE_SLOT);
-    DevAscendFunction *devRootSrc = devRootDup.GetSource();
+    DevPyPtoFunction *devRootSrc = devRootDup.GetSource();
     size_t outcastSize = devRootSrc->GetOutcastSize();
 
     std::vector<int64_t> newRefCntIndex;
@@ -128,7 +128,7 @@ static int UpdateSlotsImpl(DeviceWorkspaceAllocator *workspace, DeviceExecuteSlo
     return DEVICE_MACHINE_OK;
 }
 
-int DeviceSlotContext::UpdateSlots(DevAscendFunctionDupped &devRootDup, const StitchedList &stitchedList,
+int DeviceSlotContext::UpdateSlots(DevPyPtoFunctionDupped &devRootDup, const StitchedList &stitchedList,
                                     uint32_t devTaskId, uint32_t devNextIdx) {
     int ret = DEVICE_MACHINE_OK;
     ret = UpdateSlotsImpl(workspace_, slotList_.data(), stitchedList, slotRefCntPool_,
@@ -139,7 +139,7 @@ int DeviceSlotContext::UpdateSlots(DevAscendFunctionDupped &devRootDup, const St
     return ret;
 }
 
-void DeviceSlotContext::FillInputOutputSlot(DeviceExecuteSlot *slotList, size_t slotSize, DevAscendProgram *devProg,
+void DeviceSlotContext::FillInputOutputSlot(DeviceExecuteSlot *slotList, size_t slotSize, DevPyPtoProgram *devProg,
     DevStartArgs *args) {
     DEV_TRACE_DEBUG(CtrlEvent(none(), InputTensorCount(args->GetInputTensorSize())));
     for (int index = 0; index < args->GetInputTensorSize(); ++index) {
