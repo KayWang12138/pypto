@@ -1664,6 +1664,21 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchWithAllSTest) {
     EXPECT_NE(*(reshapeOutputs[0]->GetConsumers().begin()), *(reshapeOutputs[3]->GetConsumers().begin()));
 }
 
+// check the number of reshape operations
+// return the number of total operations
+int CheckOpNum(Function* func, const uint32_t expectReshapeNum){
+    int reshapeOp = 0;
+    int OpNum = 0;
+    for (auto &op : func->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_RESHAPE) {
+            reshapeOp++;
+        }
+        OpNum++;
+    }
+    EXPECT_EQ(reshapeOp, expectReshapeNum);
+    return OpNum;
+}
+
 /*
 splitreshape pass不起作用的场景
 一对多场景(使用expandfunction作为前序pass)
@@ -1699,28 +1714,9 @@ TEST_F(TestSplitReshapePass, TestExceptionCase1) {
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase5");
 
     RunPassStra(*func, "ExpandFunction");
-
-    int reshapeOp = 0;
-    int OpNum = 0;
-    for (auto &op : func->Operations()) {
-        if (op.GetOpcode() == Opcode::OP_RESHAPE) {
-            reshapeOp++;
-        }
-        OpNum++;
-    }
-    EXPECT_EQ(reshapeOp, kNumOne);
-
+    int OpNum = CheckOpNum(func, kNumOne);
     RunPassStra(*func, "SplitReshape");
-
-    reshapeOp = 0;
-    int AfterOpNum = 0;
-    for (auto &op : func->Operations()) {
-        if (op.GetOpcode() == Opcode::OP_RESHAPE) {
-            reshapeOp++;
-        }
-        AfterOpNum++;
-    }
-    EXPECT_EQ(reshapeOp, kNumOne);
+    int AfterOpNum = CheckOpNum(func, kNumOne);
     EXPECT_EQ(AfterOpNum, OpNum);
 }
 
@@ -1759,23 +1755,9 @@ TEST_F(TestSplitReshapePass, TestExceptionCase2) {
 
     RunPassStra(*func, "ExpandFunction");
 
-    int reshapeOp = 0;
-    for (auto &op : func->Operations()) {
-        if (op.GetOpcode() == Opcode::OP_RESHAPE) {
-            reshapeOp++;
-        }
-    }
-    EXPECT_EQ(reshapeOp, kNumOne);
-
+    CheckOpNum(func, kNumOne);
     RunPassStra(*func, "SplitReshape");
-
-    reshapeOp = 0;
-    for (auto &op : func->Operations()) {
-        if (op.GetOpcode() == Opcode::OP_RESHAPE) {
-            reshapeOp++;
-        }
-    }
-    EXPECT_EQ(reshapeOp, kNumOne);
+    CheckOpNum(func, kNumOne);
 }
 
 /*
@@ -1815,23 +1797,9 @@ TEST_F(TestSplitReshapePass, TestExceptionCase3) {
 
     RunPassStra(*func, "ExpandFunction");
 
-    int reshapeOp = 0;
-    for (auto &op : func->Operations()) {
-        if (op.GetOpcode() == Opcode::OP_RESHAPE) {
-            reshapeOp++;
-        }
-    }
-    EXPECT_EQ(reshapeOp, kNumOne);
-
+    CheckOpNum(func, kNumOne);
     RunPassStra(*func, "SplitReshape");
-
-    reshapeOp = 0;
-    for (auto &op : func->Operations()) {
-        if (op.GetOpcode() == Opcode::OP_RESHAPE) {
-            reshapeOp++;
-        }
-    }
-    EXPECT_EQ(reshapeOp, kNumOne);
+    CheckOpNum(func, kNumOne);
 }
 
 /*
@@ -1891,24 +1859,9 @@ TEST_F(TestSplitReshapePass, TestExceptionCase4) {
     func->outCasts_.push_back(output1);
     func->outCasts_.push_back(output2);
 
-
-    int reshapeOp = 0;
-    for (auto &op : func->Operations()) {
-        if (op.GetOpcode() == Opcode::OP_RESHAPE) {
-            reshapeOp++;
-        }
-    }
-    EXPECT_EQ(reshapeOp, kNumOne);
-
+    CheckOpNum(func.get(), kNumOne);
     RunPassStra(*func, "SplitReshape");
-
-    reshapeOp = 0;
-    for (auto &op : func->Operations()) {
-        if (op.GetOpcode() == Opcode::OP_RESHAPE) {
-            reshapeOp++;
-        }
-    }
-    EXPECT_EQ(reshapeOp, kNumOne);
+    CheckOpNum(func.get(), kNumOne);
 }
 
 /*
@@ -1944,28 +1897,9 @@ TEST_F(TestSplitReshapePass, TestExceptionCase5) {
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase8");
 
     RunPassStra(*func, "ExpandFunction");
-
-    int reshapeOp = 0;
-    int OpNum = 0;
-    for (auto &op : func->Operations()) {
-        if (op.GetOpcode() == Opcode::OP_RESHAPE) {
-            reshapeOp++;
-        }
-        OpNum++;
-    }
-    EXPECT_EQ(reshapeOp, kNumOne);
-
+    int OpNum = CheckOpNum(func, kNumOne);
     RunPassStra(*func, "SplitReshape");
-
-    reshapeOp = 0;
-    int AfterOpNum = 0;
-    for (auto &op : func->Operations()) {
-        if (op.GetOpcode() == Opcode::OP_RESHAPE) {
-            reshapeOp++;
-        }
-        AfterOpNum++;
-    }
-    EXPECT_EQ(reshapeOp, kNumOne);
+    int AfterOpNum = CheckOpNum(func, kNumOne);
     EXPECT_EQ(AfterOpNum, OpNum);
 }
 }
