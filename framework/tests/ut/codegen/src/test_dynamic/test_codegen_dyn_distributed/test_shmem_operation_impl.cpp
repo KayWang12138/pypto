@@ -133,17 +133,38 @@ TEST_F(TestDistributedShmemImpl, TestOneShotShmemAllReduce)
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(TestDistributedShmemImpl, TestShmemSet)
+TEST_F(TestDistributedShmemImpl, TestShmemDataSet)
 {
     Tensor predToken(DT_INT32, {1, 1}, "predToken");
     Tensor in(DT_BF16, {4, 1, 256, 102400}, "in");
     Tensor out(DT_INT32, {1, 1}, "out");
 
-    std::string functionName = "ShmemSet";
+    std::string functionName = "ShmemDataSet";
     FUNCTION(functionName + "Main", {in}, {out}) {
         LOOP(functionName, FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
             (void)index;
-            out = ShmemSet(predToken, in);
+            out = ShmemDataSet(predToken, in);
+        }
+    }
+
+    std::string functionRawName = GetFunctionRawName(functionName);
+    auto function = Program::GetInstance().GetFunctionByRawName(functionRawName);
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(TestDistributedShmemImpl, TestShmemSignalSet)
+{
+    Tensor predToken(DT_INT32, {1, 1}, "predToken");
+    Tensor in(DT_BF16, {4, 4, 1, 256, 102400}, "in");
+    Tensor out(DT_INT32, {1, 1}, "out");
+
+    std::string functionName = "ShmemSignalSet";
+    FUNCTION(functionName + "Main", {in}, {out}) {
+        LOOP(functionName, FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
+            (void)index;
+            out = ShmemSignalSet(predToken, in);
         }
     }
 
