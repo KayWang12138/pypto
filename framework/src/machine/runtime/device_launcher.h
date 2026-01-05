@@ -139,8 +139,8 @@ public:
         devProg->devArgs.nrValidAic = config.blockdim;
         devProg->devArgs.archInfo = static_cast<ArchInfo>(Platform::Instance().GetSoc().GetNPUArch());
         launchConfig.aicpuNum =  launchConfig.aicpuNum < static_cast<int>(Platform::Instance().GetSoc().GetAICPUNum()) - 1 ?
-            launchConfig.aicpuNum : static_cast<int>(Platform::Instance().GetSoc().GetAICPUNum()) - 1;
-        devProg->devArgs.scheCpuNum = CalcSchAicpuNumByBlockDim(launchConfig.blockdim, launchConfig.aicpuNum);
+            launchConfig.aicpuNum : static_cast<int>(Platform::Instance().GetSoc().GetAICPUNum()) - 1;  // todo : 确认最大CPU个数
+        devProg->devArgs.scheCpuNum = CalcSchAicpuNumByBlockDim(launchConfig.blockdim, launchConfig.aicpuNum, devProg->devArgs.archInfo);
         devProg->devArgs.taskType = DEVICE_TASK_TYPE_DYN;
         devProg->devArgs.isGETensorList = config.isGETensorList ? 1 : 0;
         int minCpuNum = devProg->devArgs.scheCpuNum + 1;
