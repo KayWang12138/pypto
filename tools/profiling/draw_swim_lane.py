@@ -164,7 +164,7 @@ class CoreInfo:
         self.tasks = []
         self.total_time = 0
         self.pipe_exec_cycles = {}
-        self.pipe_exec_time = {} # vector and cube time unchanged. MTE scale proportionally 
+        self.pipe_exec_time = {} # vector and cube time unchanged. MTE scale proportionally
         self.has_overlap = False
         self.last_task_end_time = 0
         self.total_wait_time = 0
@@ -401,13 +401,13 @@ def build_swim_info(swim_data, topo_data, label_type: int = 0):
         total_cores[core_idx] = core_entry
 
     # 解析topo.json 文件中的数据
-    if topo_data != None:
+    if topo_data is not None:
         for topo_task in topo_data:
             task_id = topo_task["taskId"]
             if task_id not in total_tasks:
                 build_fake_entry(task_id)
                 fake_task_list.append(task_id)
-            func_name = topo_task.get("funcName", "")        
+            func_name = topo_task.get("funcName", "")
             sematic_label = topo_task.get("semanticLabel", "")
             entry = total_tasks[task_id]
             entry.root_index = topo_task.get("rootIndex", -1)
