@@ -65,13 +65,15 @@ target_link_libraries(tile_fwk_runtime
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:ascendcl>>
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:runtime>>
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:profapi>>
-            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:hccl>>             
+            $<BUILD_INTERFACE:$<$<AND:$<NOT:$<BOOL:${BUILD_WITH_CANN_SUB}>>,$<BOOL:${BUILD_WITH_CANN}>>:hccl>>            
         PRIVATE
             intf_pub_cxx17
             tile_fwk_intf_pub
             $<$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>:kernel_tiling_headers>
             dl
             c_sec
+        INTERFACE
+            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN_SUB}>:hcomm>> 
 )
 if ((BUILD_WITH_CANN) AND (NOT PRODUCT_SIDE STREQUAL "device"))
     add_dependencies(tile_fwk_runtime tile_fwk_core)
