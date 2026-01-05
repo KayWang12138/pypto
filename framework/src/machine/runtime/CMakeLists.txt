@@ -65,9 +65,7 @@ target_link_libraries(tile_fwk_runtime
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:ascendcl>>
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:runtime>>
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:profapi>>
-            $<BUILD_INTERFACE:$<$<AND:$<NOT:$<BOOL:${BUILD_WITH_CANN_SUB}>>,$<BOOL:${BUILD_WITH_CANN}>>:hccl>>
-            #$<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:hccl>>
-            #$<$<BOOL:${BUILD_WITH_CANN}>:hccl>              
+            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:hccl>>             
         PRIVATE
             intf_pub_cxx17
             tile_fwk_intf_pub

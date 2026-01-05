@@ -176,7 +176,7 @@ using ConfigMgrCommon = std::variant<
 }
 
 namespace npu::tile_fwk::dynamic {
-std::vector<uint64_t> DistributedContext::GetHcclContext(const std::vector<std::string> &groupNames)
+std::vector<uint64_t> DistributedContext::GetHcclContext([[maybe_unused]] const std::vector<std::string> &groupNames)
 {
 #ifdef BUILD_WITH_CANN
     auto SoCVersion = Platform::Instance().GetSoc().GetShortSoCVersion();
