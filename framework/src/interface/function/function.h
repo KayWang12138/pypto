@@ -29,7 +29,6 @@
 #include "interface/tensor/tensormap.h"
 #include "interface/tensor/tensor_slot.h"
 #include "interface/cache/hash.h"
-#include "interface/operation/distributed/tiling_manager.h"
 #include "passes/pass_utils/pass_utils.h"
 
 namespace npu::tile_fwk {
@@ -291,6 +290,7 @@ struct DynloopFunctionAttribute {
     std::vector<DynloopFunctionPathCondition> GenCondWithBeginEnd(const std::vector<DynloopFunctionPathCondition> &conds) const;
     bool IterationEnd(int unroll, Function *pathFunc, Operation *operation);
     bool AppendCond(const SymbolicScalar &cond, const std::string &file, int line);
+    bool GuessCondResult(const SymbolicScalar &cond, bool &result);
 private:
     void CreateCurrCond();
 };
@@ -672,7 +672,6 @@ public:
     bool HasCallOperation();
     bool IsDynloop() const { return dynloopAttr_ != nullptr; }
     bool IsDyndev() const { return dyndevAttr_ != nullptr; }
-    std::shared_ptr<Distributed::TilingManager> &GetDistTilingManager() { return distTilingManager_; }
 
     std::unordered_map<std::shared_ptr<LogicalTensor>, std::shared_ptr<LogicalTensor>> incastToInArgumentDict;
     std::unordered_map<std::shared_ptr<LogicalTensor>, std::shared_ptr<LogicalTensor>> outcastToOutArgumentDict;
@@ -869,7 +868,6 @@ private:
     std::shared_ptr<DynloopFunctionAttribute> dynloopAttr_;
     std::shared_ptr<DyndevFunctionAttribute> dyndevAttr_;
     std::shared_ptr<LeafFuncAttribute> leafFuncAttr_;
-    std::shared_ptr<Distributed::TilingManager> distTilingManager_ = std::make_shared<Distributed::TilingManager>();
     std::shared_ptr<TensorSlotScope> slotScope_;
 
     std::vector<Operation *> loopCallOrderGroup_;
