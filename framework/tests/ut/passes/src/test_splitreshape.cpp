@@ -1258,6 +1258,64 @@ TEST_F(TestSplitReshapePass, TestPerfectlyMatchedWithallSTest) {
     CheckOpReshape(func, CheckReshapeStruct{tiledreshapeShape, kSizeTwo, true, tiledassembleShape, tiledviewShape, kSizeOne, true, tiledviewShape, kNumTwo});
 }
 
+void CollectOperations(std::shared_ptr<Function> func, std::unordered_map<LogicalTensorPtr, int> &inputsWeight, std::unordered_map<LogicalTensorPtr, Operation*> &newAssembles,
+    const uint32_t expectReshapeOp, const uint32_t expectViewOp, int expectAssembleOp){
+    int reshapeOp = 0;
+    int assembleOp = 0;
+    int viewOp = 0;
+
+    for (auto &op : func->Operations().DuplicatedOpList()) {
+        if (op->GetOpcode() == Opcode::OP_RESHAPE) {
+            reshapeOp++;
+        } else if (op->GetOpcode() == Opcode::OP_ASSEMBLE) {
+            for (auto [input, weight] : inputsWeight){
+                if (op->GetInputOperand(kSizeZero) == input){
+                    newAssembles[input] = op;
+                    assembleOp += weight;
+                }
+            }
+        } else if (op->GetOpcode() == Opcode::OP_VIEW) {
+            viewOp++;
+        }
+    }
+    EXPECT_EQ(reshapeOp, expectReshapeOp);
+    EXPECT_EQ(viewOp, expectViewOp);
+    EXPECT_EQ(assembleOp, expectAssembleOp);
+}
+
+void CheckNewAssembles(std::unordered_map<LogicalTensorPtr, Operation*> &newAssembles, std::unordered_map<LogicalTensorPtr, std::vector<int64_t>> &expectAssembleOffset,
+    std::vector<std::string> &expectAssembleDynShape, std::unordered_map<LogicalTensorPtr, std::vector<std::string>> &expectValidShapes,
+    std::vector<SymbolicScalar> &dynInputShape, LogicalTensors &reshapeOutputs, const uint32_t reshapeOutputSize = kNumFour) {
+    for (auto [input, newAssemble] : newAssembles) {
+        EXPECT_NE(newAssemble, nullptr);
+        auto assembleDynValidShape = dynamic_cast<AssembleOpAttribute *>(newAssemble->GetOpAttribute().get())->GetFromDynValidShape();
+        EXPECT_EQ(assembleDynValidShape.size(), kNumThree);
+        for (size_t i = 0; i < kNumThree; ++i) {
+            EXPECT_EQ(assembleDynValidShape[i].Dump(), dynInputShape[i].Dump());
+        }
+        auto assembleOpAttribute = dynamic_cast<AssembleOpAttribute *>(newAssemble->GetOpAttribute().get());
+        EXPECT_EQ(assembleOpAttribute->GetToOffset(), expectAssembleOffset[input]);
+        auto reshapeSource = newAssemble->GetOutputOperand(kSizeZero);
+        std::vector<SymbolicScalar> assembleDynOutput = reshapeSource->GetDynValidShape();
+        EXPECT_EQ(assembleDynOutput.size(), kNumThree);
+        for (size_t i = 0; i < kNumThree; ++i) {
+            EXPECT_EQ(assembleDynOutput[i].Dump(), expectAssembleDynShape[i]);
+        }
+        auto reshape = *(reshapeSource->GetConsumers().begin());
+        auto reshapeOutput = reshape->GetOutputOperand(kSizeZero);
+        reshapeOutputs.emplace_back(reshapeOutput);
+        std::vector<SymbolicScalar> reshapeAttrValidShape;
+        std::vector<SymbolicScalar> reshapeDynOutput = reshapeOutput->GetDynValidShape();
+        EXPECT_TRUE(reshape->GetAttr(OP_ATTR_PREFIX + "validShape", reshapeAttrValidShape));
+        EXPECT_EQ(reshapeDynOutput.size(), reshapeOutputSize);
+        EXPECT_EQ(reshapeAttrValidShape.size(), reshapeOutputSize);
+        for (size_t i = 0; i < reshapeOutputSize; ++i) {
+            EXPECT_EQ(reshapeDynOutput[i].Dump(), expectValidShapes[input][i]);
+            EXPECT_EQ(reshapeAttrValidShape[i].Dump(), expectValidShapes[input][i]);
+        }
+    }
+}
+
 /*
 验证一对一场景下动态shape的兜底策略
 因为缺乏宏构建策略，手动构造expandfunction的输出构图
@@ -1324,42 +1382,20 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchSTest) {
 
     RunPassStra(*func, "SplitReshape");
 
-    int reshapeOp = 0;
-    int assembleOp = 0;
-    int viewOp = 0;
-
-    std::unordered_map<std::shared_ptr<LogicalTensor>, int> inputsWeight = {
+    std::unordered_map<LogicalTensorPtr, int> inputsWeight = {
         {input1, 1},
         {input2, 10}
     };
-    std::unordered_map<std::shared_ptr<LogicalTensor>, Operation*> newAssembles = {
+    std::unordered_map<LogicalTensorPtr, Operation*> newAssembles = {
         {input1, nullptr},
         {input2, nullptr}
     };
-    std::unordered_map<std::shared_ptr<LogicalTensor>, std::vector<int64_t>> expectAssembleOffset = {
+
+    std::unordered_map<LogicalTensorPtr, std::vector<int64_t>> expectAssembleOffset = {
         {input1, assembleOffset1},
         {input2, assembleOffset2}
     };
-    std::vector<LogicalTensorPtr> reshapeOutputs;
-
-    for (auto &op : func->Operations().DuplicatedOpList()) {
-        if (op->GetOpcode() == Opcode::OP_RESHAPE) {
-            reshapeOp++;
-        } else if (op->GetOpcode() == Opcode::OP_ASSEMBLE) {
-            for (auto [input, weight] : inputsWeight){
-                if (op->GetInputOperand(kSizeZero) == input){
-                    newAssembles[input] = op;
-                    assembleOp += weight;
-                }
-            }
-        } else if (op->GetOpcode() == Opcode::OP_VIEW) {
-            viewOp++;
-        }
-    }
-    EXPECT_EQ(reshapeOp, kNumTwo);
-    EXPECT_EQ(viewOp, kNumTwo);
-    EXPECT_EQ(assembleOp, 11);
-
+    LogicalTensors reshapeOutputs;
     std::vector<std::string> expectAssembleDynShape = {
         "RUNTIME_Max(0, (a0*RUNTIME_Ne(a0, 0)))",
         "RUNTIME_Max(0, (a1*RUNTIME_Ne(a1, 0)))",
@@ -1371,34 +1407,13 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchSTest) {
         "1",
         "2"
     };
-    for (auto [input, newAssemble] : newAssembles) {
-        EXPECT_NE(newAssemble, nullptr);
-        auto assembleDynValidShape = dynamic_cast<AssembleOpAttribute *>(newAssemble->GetOpAttribute().get())->GetFromDynValidShape();
-        EXPECT_EQ(assembleDynValidShape.size(), kNumThree);
-        for (size_t i = 0; i < kNumThree; ++i) {
-            EXPECT_EQ(assembleDynValidShape[i].Dump(), dynInputShape[i].Dump());
-        }
-        auto assembleOpAttribute = dynamic_cast<AssembleOpAttribute *>(newAssemble->GetOpAttribute().get());
-        EXPECT_EQ(assembleOpAttribute->GetToOffset(), expectAssembleOffset[input]);
-        auto reshapeSource = newAssemble->GetOutputOperand(kSizeZero);
-        std::vector<SymbolicScalar> assembleDynOutput = reshapeSource->GetDynValidShape();
-        EXPECT_EQ(assembleDynOutput.size(), kNumThree);
-        for (size_t i = 0; i < kNumThree; ++i) {
-            EXPECT_EQ(assembleDynOutput[i].Dump(), expectAssembleDynShape[i]);
-        }
-        auto reshape = *(reshapeSource->GetConsumers().begin());
-        auto reshapeOutput = reshape->GetOutputOperand(kSizeZero);
-        reshapeOutputs.emplace_back(reshapeOutput);
-        std::vector<SymbolicScalar> reshapeAttrValidShape;
-        std::vector<SymbolicScalar> reshapeDynOutput = reshapeOutput->GetDynValidShape();
-        EXPECT_TRUE(reshape->GetAttr(OP_ATTR_PREFIX + "validShape", reshapeAttrValidShape));
-        EXPECT_EQ(reshapeDynOutput.size(), kNumFour);
-        EXPECT_EQ(reshapeAttrValidShape.size(), kNumFour);
-        for (size_t i = 0; i < kNumFour; ++i) {
-            EXPECT_EQ(reshapeDynOutput[i].Dump(), expectReshapeDynShape[i]);
-            EXPECT_EQ(reshapeAttrValidShape[i].Dump(), expectReshapeDynShape[i]);
-        }
-    }
+    std::unordered_map<LogicalTensorPtr, std::vector<std::string>> expectValidShapes = {
+        {input1, expectReshapeDynShape},
+        {input2, expectReshapeDynShape}
+    };
+
+    CollectOperations(func, inputsWeight, newAssembles, kNumTwo, kNumTwo, 11);
+    CheckNewAssembles(newAssembles, expectAssembleOffset, expectAssembleDynShape, expectValidShapes, dynInputShape, reshapeOutputs, kNumFour);
     EXPECT_NE(reshapeOutputs[0], reshapeOutputs[1]);
     EXPECT_NE(*(reshapeOutputs[0]->GetConsumers().begin()), *(reshapeOutputs[1]->GetConsumers().begin()));
 }
@@ -1489,42 +1504,19 @@ TEST_F(TestSplitReshapePass, TestDynBeCoveredSTest) {
 
     RunPassStra(*func, "SplitReshape");
 
-    int reshapeOp = 0;
-    int assembleOp = 0;
-    int viewOp = 0;
-
-    std::unordered_map<std::shared_ptr<LogicalTensor>, int> inputsWeight = {
+    std::unordered_map<LogicalTensorPtr, int> inputsWeight = {
         {input1, 1},
         {input2, 10}
     };
-    std::unordered_map<std::shared_ptr<LogicalTensor>, Operation*> newAssembles = {
+    std::unordered_map<LogicalTensorPtr, Operation*> newAssembles = {
         {input1, nullptr},
         {input2, nullptr}
     };
-    std::unordered_map<std::shared_ptr<LogicalTensor>, std::vector<int64_t>> expectAssembleOffset = {
+    std::unordered_map<LogicalTensorPtr, std::vector<int64_t>> expectAssembleOffset = {
         {input1, assembleOffset1},
         {input2, assembleOffset2}
     };
-    std::vector<LogicalTensorPtr> reshapeOutputs;
-
-    for (auto &op : func->Operations().DuplicatedOpList()) {
-        if (op->GetOpcode() == Opcode::OP_RESHAPE) {
-            reshapeOp++;
-        } else if (op->GetOpcode() == Opcode::OP_ASSEMBLE) {
-            for (auto [input, weight] : inputsWeight){
-                if (op->GetInputOperand(kSizeZero) == input){
-                    newAssembles[input] = op;
-                    assembleOp += weight;
-                }
-            }
-        } else if (op->GetOpcode() == Opcode::OP_VIEW) {
-            viewOp++;
-        }
-    }
-
-    EXPECT_EQ(reshapeOp, kNumTwo);
-    EXPECT_EQ(viewOp, kNumFour);
-    EXPECT_EQ(assembleOp, 11);
+    LogicalTensors reshapeOutputs;
 
     std::vector<std::string> expectAssembleDynShape = {
         "2",
@@ -1539,38 +1531,13 @@ TEST_F(TestSplitReshapePass, TestDynBeCoveredSTest) {
         "4",
         "RUNTIME_Max(RUNTIME_Max(0, (((RUNTIME_GetViewValidShapeDim(a,2,2)+2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a,2,2), 0))-2)), (((RUNTIME_GetViewValidShapeDim(a,2,2)+2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a,2,2), 0))-2))"
     };
-    std::unordered_map<std::shared_ptr<LogicalTensor>, std::vector<std::string>> expectValidShape = {
+    std::unordered_map<LogicalTensorPtr, std::vector<std::string>> expectValidShapes = {
         {input1, expectValidShape1},
         {input2, expectValidShape2}
     };
-
-    for (auto [input, newAssemble] : newAssembles) {
-        EXPECT_NE(newAssemble, nullptr);
-        auto assembleDynValidShape = dynamic_cast<AssembleOpAttribute *>(newAssemble->GetOpAttribute().get())->GetFromDynValidShape();
-        EXPECT_EQ(assembleDynValidShape.size(), kNumThree);
-        for (size_t i = 0; i < kNumThree; ++i) {
-            EXPECT_EQ(assembleDynValidShape[i].Dump(), dynInputShape[i].Dump());
-        }
-        auto reshapeSource = newAssemble->GetOutputOperand(kSizeZero);
-        std::vector<SymbolicScalar> assembleDynOutput = reshapeSource->GetDynValidShape();
-        EXPECT_EQ(assembleDynOutput.size(), kNumThree);
-        for (size_t i = 0; i < kNumThree; ++i) {
-            EXPECT_EQ(assembleDynOutput[i].Dump(), expectAssembleDynShape[i]);
-        }
-        auto reshape = *(reshapeSource->GetConsumers().begin());
-        auto reshapeOutput = reshape->GetOutputOperand(kSizeZero);
-        reshapeOutputs.emplace_back(reshapeOutput);
-        std::vector<SymbolicScalar> reshapeAttrValidShape;
-        std::vector<SymbolicScalar> reshapeDynOutput = reshapeOutput->GetDynValidShape();
-        EXPECT_TRUE(reshape->GetAttr(OP_ATTR_PREFIX + "validShape", reshapeAttrValidShape));
-        EXPECT_EQ(reshapeDynOutput.size(), kNumTwo);
-        EXPECT_EQ(reshapeAttrValidShape.size(), kNumTwo);
-        for (size_t i = 0; i < kNumTwo; ++i) {
-            EXPECT_EQ(reshapeDynOutput[i].Dump(), expectValidShape[input][i]);
-            EXPECT_EQ(reshapeAttrValidShape[i].Dump(), expectValidShape[input][i]);
-        }
-    }
-
+    
+    CollectOperations(func, inputsWeight, newAssembles, kNumTwo, kNumFour, 11);
+    CheckNewAssembles(newAssembles, expectAssembleOffset, expectAssembleDynShape, expectValidShapes, dynInputShape, reshapeOutputs, kNumTwo);
     std::vector<int64_t> expectedShape = {kNumFour, kNumTwo};
     EXPECT_EQ(reshapeOutputs[0]->shape, expectedShape);
     EXPECT_EQ(reshapeOutputs[1]->shape, expectedShape);
@@ -1668,49 +1635,25 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchWithAllSTest) {
     func->outCasts_.push_back(output2);
 
     RunPassStra(*func, "SplitReshape");
-
-    int reshapeOp = 0;
-    int assembleOp = 0;
-    int viewOp = 0;
-
-    std::unordered_map<std::shared_ptr<LogicalTensor>, int> inputsWeight = {
+    std::unordered_map<LogicalTensorPtr, int> inputsWeight = {
         {input1, 1},
         {input2, 10},
         {input3, 100},
         {input4, 1000}
     };
-    std::unordered_map<std::shared_ptr<LogicalTensor>, Operation*> newAssembles = {
+    std::unordered_map<LogicalTensorPtr, Operation*> newAssembles = {
         {input1, nullptr},
         {input2, nullptr},
         {input3, nullptr},
         {input4, nullptr}
     };
-    std::unordered_map<std::shared_ptr<LogicalTensor>, std::vector<int64_t>> expectAssembleOffset = {
+    std::unordered_map<LogicalTensorPtr, std::vector<int64_t>> expectAssembleOffset = {
         {input1, assembleOffset1},
         {input2, assembleOffset2},
         {input3, assembleOffset3},
         {input4, assembleOffset4}
     };
-    std::vector<LogicalTensorPtr> reshapeOutputs;
-
-    for (auto &op : func->Operations().DuplicatedOpList()) {
-        if (op->GetOpcode() == Opcode::OP_RESHAPE) {
-            reshapeOp++;
-        } else if (op->GetOpcode() == Opcode::OP_ASSEMBLE) {
-            for (auto [input, weight] : inputsWeight){
-                if (op->GetInputOperand(kSizeZero) == input){
-                    newAssembles[input] = op;
-                    assembleOp += weight;
-                }
-            }
-        } else if (op->GetOpcode() == Opcode::OP_VIEW) {
-            viewOp++;
-        }
-    }
-
-    EXPECT_EQ(reshapeOp, kNumTwo);
-    EXPECT_EQ(viewOp, kNumTwo);
-    EXPECT_EQ(assembleOp, 1111);
+    LogicalTensors reshapeOutputs;
 
     std::vector<std::string> expectAssembleDynShape = {
         "2",
@@ -1723,46 +1666,20 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchWithAllSTest) {
         "2",
         "RUNTIME_Max(0, ((RUNTIME_GetViewValidShapeDim(a,0,2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a,0,2), 0))-0))"
     };
-    std::unordered_map<std::shared_ptr<LogicalTensor>, std::vector<std::string>> expectValidShapes = {
+    std::unordered_map<LogicalTensorPtr, std::vector<std::string>> expectValidShapes = {
         {input1, expectValidShape},
         {input2, expectValidShape},
         {input3, expectValidShape},
         {input4, expectValidShape}
     };
 
-    for (auto [input, newAssemble] : newAssembles) {
-        EXPECT_NE(newAssemble, nullptr);
-        auto assembleDynValidShape = dynamic_cast<AssembleOpAttribute *>(newAssemble->GetOpAttribute().get())->GetFromDynValidShape();
-        EXPECT_EQ(assembleDynValidShape.size(), kNumThree);
-        for (size_t i = 0; i < kNumThree; ++i) {
-            EXPECT_EQ(assembleDynValidShape[i].Dump(), dynInputShape[i].Dump());
-        }
-        auto reshapeSource = newAssemble->GetOutputOperand(kSizeZero);
-        std::vector<SymbolicScalar> assembleDynOutput = reshapeSource->GetDynValidShape();
-        EXPECT_EQ(assembleDynOutput.size(), kNumThree);
-        for (size_t i = 0; i < kNumThree; ++i) {
-            EXPECT_EQ(assembleDynOutput[i].Dump(), expectAssembleDynShape[i]);
-        }
-        auto reshape = *(reshapeSource->GetConsumers().begin());
-        auto reshapeOutput = reshape->GetOutputOperand(kSizeZero);
-        reshapeOutputs.emplace_back(reshapeOutput);
-        std::vector<SymbolicScalar> reshapeAttrValidShape;
-        std::vector<SymbolicScalar> reshapeDynOutput = reshapeOutput->GetDynValidShape();
-        EXPECT_TRUE(reshape->GetAttr(OP_ATTR_PREFIX + "validShape", reshapeAttrValidShape));
-        EXPECT_EQ(reshapeDynOutput.size(), kNumFour);
-        EXPECT_EQ(reshapeAttrValidShape.size(), kNumFour);
-        for (size_t i = 0; i < kNumFour; ++i) {
-            EXPECT_EQ(reshapeDynOutput[i].Dump(), expectValidShapes[input][i]);
-            EXPECT_EQ(reshapeAttrValidShape[i].Dump(), expectValidShapes[input][i]);
-        }
-    }
+    CollectOperations(func, inputsWeight, newAssembles, kNumTwo, kNumTwo, 1111);
 
+    CheckNewAssembles(newAssembles, expectAssembleOffset, expectAssembleDynShape, expectValidShapes, dynInputShape, reshapeOutputs, kNumFour);
     EXPECT_NE(reshapeOutputs[0], reshapeOutputs[3]);
     EXPECT_EQ(reshapeOutputs[0]->GetConsumers().size(), kNumOne);
     EXPECT_EQ(reshapeOutputs[3]->GetConsumers().size(), kNumOne);
-    auto view1 = *(reshapeOutputs[0]->GetConsumers().begin());
-    auto view2 = *(reshapeOutputs[3]->GetConsumers().begin());
-    EXPECT_NE(view1, view2);
+    EXPECT_NE(*(reshapeOutputs[0]->GetConsumers().begin()), *(reshapeOutputs[3]->GetConsumers().begin()));
 }
 
 /*
