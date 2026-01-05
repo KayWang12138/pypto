@@ -35,6 +35,7 @@ std::vector<uint8_t> CompileAndLoadSection(const std::string &code, const std::s
 
     std::string assembleFilePath = sourceFilePath + ".s";
     std::string objectFilePath = sourceFilePath + ".o";
+    std::string sharedLibPath = sourceFilePath + ".so";
     std::string binaryFilePath = sourceFilePath + ".bin";
     std::string LD_PRELOAD = "LD_PRELOAD= ";
     std::string includePath = GetCurrentSharedLibPath() + "/../include/tile_fwk";
@@ -50,7 +51,11 @@ std::vector<uint8_t> CompileAndLoadSection(const std::string &code, const std::s
     ALOG_INFO("[RunCmd] ", cmdAs);
     ASSERT(system(cmdAs.c_str()) == 0);
 
-    std::string cmdObjcopy = LD_PRELOAD + objcopy + " --dump-section " + sectionName + "=" + binaryFilePath + " " + objectFilePath;
+    std::string cmdLink = LD_PRELOAD + gcc + " -shared -fPIC -o " + sharedLibPath + " " + objectFilePath;
+    ALOG_INFO("[RunCmd] ", cmdLink);
+    ASSERT(system(cmdLink.c_str()) == 0);
+
+    std::string cmdObjcopy = LD_PRELOAD + objcopy + " --dump-section " + sectionName + "=" + binaryFilePath + " " + sharedLibPath;
     ALOG_INFO("[RunCmd] ", cmdObjcopy);
     ASSERT(system(cmdObjcopy.c_str()) == 0);
 
