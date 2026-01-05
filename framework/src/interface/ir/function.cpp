@@ -17,7 +17,7 @@ Function::Function(std::string name, FunctionKind kind, FunctionSignature signat
     for (const auto& arg : signature_.arguments) {
         if (arg) {
             // Use SSA name as the key in environment table
-            inputCompound_->SetEnvVar(arg->GetSSAName(), arg);
+            inputCompound_->SetEnvVar(arg->GetName(), arg);
         }
     }
 }

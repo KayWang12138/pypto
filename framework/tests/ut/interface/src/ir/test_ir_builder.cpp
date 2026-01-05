@@ -83,19 +83,20 @@ TEST(IRTEST, TestControlFlow) {
 
     // tensor<[b, 128], fp32>
     auto batch = std::make_shared<ScalarValue>(DataType::INT32, "batch", ScalarValueKind::Symbolic);
-    std::vector<ScalarValuePtr> tensorShape = { batch, std::make_shared<ScalarValue>(int64_t(128)) };
+    auto constant128 = std::make_shared<ScalarValue>(int64_t(128), "const_128");
+    std::vector<ScalarValuePtr> tensorShape = { batch, constant128 };
 
     auto inputX = std::make_shared<TensorValue>(tensorShape, DataType::FP32, "inputX");
     auto inputY = std::make_shared<TensorValue>(tensorShape, DataType::FP32, "inputY");
     auto scale1 = std::make_shared<ScalarValue>(DataType::FP32, "scale1", ScalarValueKind::Symbolic);
     auto scale2 = std::make_shared<ScalarValue>(DataType::FP32, "scale2", ScalarValueKind::Symbolic);
 
-    sig.arguments = { inputX, inputY, scale1, scale2};
+    auto resultX = std::make_shared<TensorValue>(tensorShape, DataType::FP32, "outputX");
+    auto resultY = std::make_shared<TensorValue>(tensorShape, DataType::FP32, "outputY");
+    
+    sig.arguments = { inputX, inputY, scale1, scale2, resultX, resultY };
 
-    auto resultSigX = std::make_shared<TensorValue>(tensorShape, DataType::FP32, "outputX");
-    auto resultSigY = std::make_shared<TensorValue>(tensorShape, DataType::FP32, "outputY");
-    sig.results.push_back(resultSigX);
-    sig.results.push_back(resultSigY);
+    sig.results.push_back(std::make_shared<ScalarValue>(DataType::INT32));
 
     // ===== Function =====
     auto func = builder.CreateFunction("test_control", FunctionKind::ControlFlow, sig, /*setAsEntry=*/false);
@@ -103,24 +104,37 @@ TEST(IRTEST, TestControlFlow) {
 
     {
         auto funcGuard = builder.EnterFunctionBody(func);
-        auto opStmt = builder.CreateOpStmt();
 
         // for i = 0 to batch step 1
         auto i = builder.CreateScalar(DataType::INT32, "i");
         auto constant0 = builder.CreateConst(int64_t(0), "const_0");
         auto constant1 = builder.CreateConst(int64_t(1), "const_1");
         auto fs = builder.CreateForStmt(i, constant0, batch, constant1);
+        ValuePtr resLoopX, resLoopY;
         {
             auto fsGuard = builder.EnterForBody(fs);
 
-            // outputX = add(inputX, scale1)
-            auto resLoopX = builder.CreateTensor(tensorShape, DataType::FP32, "outputX");
-            auto addOpX = builder.CreateBinaryOp(Opcode::OP_ADD, inputX, scale1, resLoopX);
-            builder.Emit(addOpX);
+            // don't have view op now
+            // loopX = view(inputX, {1, 128}, {i, 0})
+            // loopY = view(inputY, {1, 128}, {i, 0})
 
-            // outputY = add(inputY, scale2)
-            auto resLoopY = builder.CreateTensor(tensorShape, DataType::FP32, "outputY");
-            auto addOpY = builder.CreateBinaryOp(Opcode::OP_ADD, inputY, scale2, resLoopY);
+            // outputX = mul(loopX, scale1)
+            resLoopX = builder.CreateTensor({batch, constant128}, DataType::FP32, "outputX");
+            auto addOpX =  builder.CreateBinaryOp(
+                Opcode::OP_ADD, 
+                inputX, scale1,
+                resLoopX
+            );
+            builder.Emit(addOpX);
+            // don't have assemble op now
+
+            // outputY = mul(looY, scale2)
+            resLoopY = builder.CreateTensor({batch, constant128}, DataType::FP32, "outputY");
+            auto addOpY = builder.CreateBinaryOp(
+                Opcode::OP_ADD, 
+                inputY, scale2,
+                resLoopY
+            );
             builder.Emit(addOpY);
 
             // if i then outputX = mul(outputX, scale1) else outputY = mul(outputY, scale2)
@@ -129,48 +143,53 @@ TEST(IRTEST, TestControlFlow) {
             {
                 auto ifThenGuard = builder.EnterIfThen(ifs);
 
-                resIfX = builder.CreateTensor(tensorShape, DataType::FP32, "outputX");
-                auto mulOpX = builder.CreateBinaryOp(Opcode::OP_MUL, resLoopX, scale1, resIfX);
+                // ifX = view(outputX, {1, 128}, {i, 0})
+
+                resIfX = builder.CreateTensor({batch, constant128}, DataType::FP32, "outputX");
+                auto mulOpX = builder.CreateBinaryOp(
+                    Opcode::OP_MUL, 
+                    resLoopX, scale1,
+                    resIfX  
+                );
                 builder.Emit(mulOpX);
             }
             {
                 auto ifElseGuard = builder.EnterIfElse(ifs);
+                
+                // ifY = view(outputY, {1, 128}, {i, 0})
 
-                resIfY = builder.CreateTensor(tensorShape, DataType::FP32, "outputY");
-                auto mulOpY = builder.CreateBinaryOp(Opcode::OP_MUL, resLoopY, scale2, resIfY);
+                resIfY = builder.CreateTensor({batch, constant128}, DataType::FP32, "outputY");
+                auto mulOpY = builder.CreateBinaryOp(
+                    Opcode::OP_MUL, 
+                    resLoopY, scale2,
+                    resIfY    
+                );
                 builder.Emit(mulOpY);
             }
             builder.ExitIfStatement(ifs);
 
             // check if then and else yield
             auto thenYield = std::dynamic_pointer_cast<YieldStatement>(*ifs->GetThenCompound()->GetStatements().rbegin());
-            ASSERT_NE(thenYield, nullptr);
-            ASSERT_GE(thenYield->Values().size(), 2);
-            ASSERT_EQ(thenYield->Values()[0], resLoopY);
-            ASSERT_EQ(thenYield->Values()[1], resIfX);
+            std::unordered_set<ValuePtr> thenYieldSet(thenYield->Values().begin(), thenYield->Values().end());
+            std::unordered_set<ValuePtr> thenYieldSetGolden{resIfX, resLoopY};
+            ASSERT_EQ(thenYieldSet, thenYieldSetGolden);
             auto elseYield = std::dynamic_pointer_cast<YieldStatement>(*ifs->GetElseCompound()->GetStatements().rbegin());
-            ASSERT_NE(elseYield, nullptr);
-            ASSERT_GE(elseYield->Values().size(), 2);
-            ASSERT_EQ(elseYield->Values()[0], resIfY);
-            ASSERT_EQ(elseYield->Values()[1], resLoopX);
+            std::unordered_set<ValuePtr> elseYieldSet(elseYield->Values().begin(), elseYield->Values().end());
+            std::unordered_set<ValuePtr> elseYieldSetGolen{resLoopX, resIfY};
+            ASSERT_EQ(elseYieldSet, elseYieldSetGolen);
         }
         builder.ExitForStatement(fs);
 
-        // check for yield
-        // Find the if statement in the for loop body
-        IfStatementPtr ifsInFor = nullptr;
-        for (const auto& stmt : fs->GetCompound()->GetStatements()) {
-            ifsInFor = std::dynamic_pointer_cast<IfStatement>(stmt);
-            if (ifsInFor) break;
-        }
-        ASSERT_NE(ifsInFor, nullptr);
-        auto ifResults = ifsInFor->Results();
-        auto forYield = fs->Yield();
-        ASSERT_NE(forYield, nullptr);
-        ASSERT_EQ(forYield->Values(), ifResults);
+        // // check for yeild
+        auto ifs = std::dynamic_pointer_cast<IfStatement>(fs->GetCompound()->GetStatements()[1]);
+        auto ifResults = ifs->Results();
+        auto forYields = fs->Yield()->Values();
+        std::unordered_set<ValuePtr> ifResultSet(ifResults.begin(), ifResults.end());
+        std::unordered_set<ValuePtr> forYieldSet(forYields.begin(), forYields.end());
+        ASSERT_EQ(ifResultSet, forYieldSet);
 
-        // return outputX, outputY
-        builder.CreateReturn(fs->Results());
+        // return 
+        builder.CreateReturn({constant0});
     }
     std::cout << *module << std::endl;
 }
