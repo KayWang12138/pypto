@@ -84,3 +84,25 @@ from . import frontend
 
 tensor = Tensor
 symbolic_scalar = SymbolicScalar
+
+
+# Lazy import for autograd module to avoid circular dependencies
+# and ensure zero overhead when autograd is not used
+_autograd_importing = False
+
+
+def __getattr__(name):
+    global _autograd_importing
+    if name == "autograd":
+        # Prevent recursive import
+        if _autograd_importing:
+            raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+        _autograd_importing = True
+        try:
+            from . import autograd
+            # Cache in module dict to prevent future __getattr__ calls
+            globals()["autograd"] = autograd
+            return autograd
+        finally:
+            _autograd_importing = False
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

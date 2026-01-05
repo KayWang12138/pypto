@@ -289,6 +289,69 @@ class Tensor:
     def name(self, value: str) -> None:
         self._base.SetName(value)
 
+    @property
+    def requires_grad(self) -> bool:
+        """Whether this tensor requires gradients to be computed during backward pass."""
+        return self._base.requires_grad
+
+    @requires_grad.setter
+    def requires_grad(self, value: bool) -> None:
+        """Set whether this tensor requires gradients."""
+        self._base.requires_grad = value
+
+    @property
+    def is_loss(self) -> bool:
+        """Whether this tensor is the loss tensor for backward pass."""
+        return self._base.is_loss
+
+    @is_loss.setter
+    def is_loss(self, value: bool) -> None:
+        """Set whether this tensor is the loss tensor."""
+        self._base.is_loss = value
+
+    def get_gradient_magic(self) -> int:
+        """Get the magic number of the gradient tensor (returns -1 if no gradient)."""
+        return self._base.get_gradient_magic()
+
+    def get_gradient_output_index(self) -> int:
+        """Get the output index where this tensor's gradient is stored.
+
+        Returns:
+            The output index of the gradient tensor, or -1 if no gradient exists.
+        """
+        return self._base.get_gradient_output_index()
+
+    def get_gradient_info(self):
+        """Get gradient tensor info (magic, shape, dtype, output_index) or None if no gradient.
+
+        Returns:
+            A dict with keys 'magic', 'shape', 'dtype', 'output_index', or None if no gradient.
+        """
+        return self._base.get_gradient_info()
+
+    def get_belong_function(self):
+        """Get the Function this tensor belongs to.
+
+        Returns:
+            The Function object this tensor belongs to.
+        """
+        from .functions import Function
+        base = self._base.get_belong_function()
+        if base is None:
+            return None
+        return Function.from_base(base)
+
+    def get_gradient_tensor(self) -> 'Tensor':
+        """Get the gradient Tensor using BelongFunction and TensorMap (O(1) lookup).
+
+        Returns:
+            The gradient Tensor, or None if no gradient exists.
+        """
+        result = self._base.get_gradient_tensor()
+        if result is None:
+            return None
+        return Tensor.from_base(result)
+
     @staticmethod
     def _get_assemble_offset(key, shape):
         offsets = []
@@ -381,6 +444,12 @@ class Tensor:
         return self._base.GetCachePolicy(policy)
 
     def move(self, other: 'Tensor') -> None:
+        """
+        Move the contents of another tensor into this tensor.
+
+        This is used for patterns like `out[:] = expr` where we want to
+        assign the result of a computation to an output tensor.
+        """
         self._base.Move(other._base)
 
     def base(self) -> pypto_impl.Tensor:

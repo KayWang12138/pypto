@@ -17,8 +17,9 @@
 
 #include <sstream>
 #include <stdexcept>
-#include <iostream>
 #include <fstream>
+#include <iostream>
+#include <functional>
 #include <unordered_set>
 
 #include "interface/utils/log.h"
@@ -34,6 +35,7 @@
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "passes/pass_mgr/pass_manager.h"
+#include "passes/tensor_graph_pass/vjp_registry.h"
 #include "interface/configs/config_manager_ng.h"
 
 namespace npu::tile_fwk {
@@ -92,9 +94,12 @@ void Program::Reset() {
     aliveTensors_.clear();
     functionCache_.Reset();
     functionSequence_.clear();
+    gradientRegistry_.clear();
     CreateInitFunction();
     tensorSlotManager_ = nullptr;
     currentFunctionPtr_ = functionmap_[currentFunctionMagicName_].get();
+    lastFunc_ = nullptr;
+    currentDynamicFunctionPtr_ = nullptr;
 }
 
 Function *Program::GetFunctionByRawName(const std::string &rawName) const {
@@ -165,6 +170,50 @@ void Program::UpdateCompileTask() {
         HostMachine::GetInstance().StashTask(func);
     }
     HostMachine::GetInstance().SubAllStashedTask();
+}
+
+void Program::RegisterGradientTensor(int magic, LogicalTensorPtr tensor) {
+    if (tensor != nullptr) {
+        gradientRegistry_[magic] = tensor;
+    }
+}
+
+LogicalTensorPtr Program::GetGradientTensor(int magic) {
+    auto it = gradientRegistry_.find(magic);
+    if (it != gradientRegistry_.end()) {
+        return it->second;
+    }
+    return nullptr;
+}
+
+void Program::ClearGradientRegistry() {
+    gradientRegistry_.clear();
+}
+
+std::vector<Function*> Program::GetReachableFunctions(const std::string& entryName) {
+    auto entryFunc = GetFunctionByMagicName(entryName);
+    if (!entryFunc) {
+        return {};
+    }
+
+    std::vector<Function*> reachable;
+    std::unordered_set<Function*> visited;
+    std::function<void(Function*)> visit = [&](Function* f) {
+        if (!f || !visited.insert(f).second) {
+            return;
+        }
+        for (auto* callee : f->GetCalleeFunctionList()) {
+            visit(callee);
+        }
+        if (f != entryFunc) {
+            reachable.push_back(f);
+        }
+    };
+    visit(entryFunc);
+    if (reachable.empty()) {
+        reachable.push_back(entryFunc);
+    }
+    return reachable;
 }
 
 void SetParamConfig(Function* currentFunctionPtr_) {
@@ -826,10 +875,20 @@ void RecordFunc::RecordDynFuncInner(const std::vector<std::reference_wrapper<con
         attr->startArgsInputLogicalTensorList.resize(startArgsInputTensorList.size());
         attr->startArgsOutputLogicalTensorList.resize(startArgsOutputTensorList.size());
         for (size_t k = 0; k < startArgsInputTensorList.size(); k++) {
-            attr->startArgsInputLogicalTensorList[k] = startArgsInputTensorList[k].get().GetStorage(false);
+            auto storage = startArgsInputTensorList[k].get().GetStorage(false);
+            attr->startArgsInputLogicalTensorList[k] = storage;
+            // Copy is_loss/requires_grad attributes now (before Move changes storage)
+            bool isLoss = false;
+            bool requiresGrad = false;
+            storage->GetAttr(ATTR_IS_LOSS, isLoss);
+            storage->GetAttr(ATTR_REQUIRES_GRAD, requiresGrad);
         }
         for (size_t k = 0; k < startArgsOutputTensorList.size(); k++) {
-            attr->startArgsOutputLogicalTensorList[k] = startArgsOutputTensorList[k].get().GetStorage(false);
+            auto storage = startArgsOutputTensorList[k].get().GetStorage(false);
+            attr->startArgsOutputLogicalTensorList[k] = storage;
+            // Copy attributes for outputs too
+            bool isLoss = false;
+            storage->GetAttr(ATTR_IS_LOSS, isLoss);
         }
 
         dynFunc_->SetDyndevAttribute(attr);
@@ -862,8 +921,130 @@ RecordFunc::RecordFunc(const std::string &name,
     RecordDynFuncInner(startArgsInputTensorList, startArgsOutputTensorList, inplaceArgs);
 }
 
+// Propagate is_loss/requires_grad attributes from user tensors to Function's inCasts/outCasts
+// This is necessary because Python Tensor and Function's internal LogicalTensor are different objects
+static void PropagateAutodiffAttributes(const std::shared_ptr<DyndevFunctionAttribute>& attr) {
+    if (!attr) return;
+
+    auto calleeFuncs = Program::GetInstance().GetReachableFunctions(PROGRAM_ENTRY_FUNCTION_NAME);
+    for (auto* calleeFunc : calleeFuncs) {
+        if (!calleeFunc) continue;
+
+        const auto& incasts = calleeFunc->inCasts_;
+        // Process input tensors for requires_grad
+        for (size_t i = 0; i < attr->startArgsInputTensorList.size(); ++i) {
+            const auto& tensor = attr->startArgsInputTensorList[i].get();
+            auto storage = tensor.GetStorage(false);
+            if (!storage) continue;
+
+            bool requiresGrad = false;
+            storage->GetAttr(ATTR_REQUIRES_GRAD, requiresGrad);
+
+            // Use positional matching: input tensor[i] corresponds to inCast[i]
+            if (requiresGrad && i < incasts.size()) {
+                auto& incast = incasts[i];
+                if (incast) {
+                    incast->SetAttr(ATTR_REQUIRES_GRAD, true);
+                }
+            }
+        }
+
+        auto markLossOnFunctionOutputs = [&]() {
+            for (auto& outcast : calleeFunc->outCasts_) {
+                if (outcast) {
+                    outcast->SetAttr(ATTR_IS_LOSS, true);
+                }
+            }
+            for (auto* op : calleeFunc->Operations().DuplicatedOpList()) {
+                if (op->GetOpcode() == Opcode::OP_ASSEMBLE) {
+                    for (const auto& output : op->GetOOperands()) {
+                        if (output) {
+                            output->SetAttr(ATTR_IS_LOSS, true);
+                        }
+                    }
+                }
+            }
+        };
+
+        bool outputHasLoss = false;
+        for (size_t i = 0; i < attr->startArgsOutputTensorList.size(); ++i) {
+            const auto& tensor = attr->startArgsOutputTensorList[i].get();
+            auto storage = tensor.GetStorage(false);
+            if (!storage) continue;
+
+            bool isLoss = false;
+            storage->GetAttr(ATTR_IS_LOSS, isLoss);
+            if (isLoss) {
+                outputHasLoss = true;
+                markLossOnFunctionOutputs();
+                break;
+            }
+        }
+
+        if (!outputHasLoss) {
+            // Fallback for dynamic-jit path where outputs may be passed as inputs.
+            for (size_t i = 0; i < attr->startArgsInputTensorList.size(); ++i) {
+                const auto& tensor = attr->startArgsInputTensorList[i].get();
+                auto storage = tensor.GetStorage(false);
+                if (!storage) continue;
+
+                bool isLoss = false;
+                storage->GetAttr(ATTR_IS_LOSS, isLoss);
+                if (isLoss) {
+                    markLossOnFunctionOutputs();
+                    break;
+                }
+            }
+        }
+    }
+}
+
+static void RunAutodiffPassOnCallees(Program &program) {
+    auto calleeFuncs = program.GetReachableFunctions(PROGRAM_ENTRY_FUNCTION_NAME);
+    for (auto* calleeFunc : calleeFuncs) {
+        if (!calleeFunc || calleeFunc->GetGraphType() != GraphType::TENSOR_GRAPH) {
+            continue;
+        }
+        PassManager::Instance().RunPass(program, *calleeFunc, "TensorGraphAutodiff");
+    }
+}
+
 inline bool IsVerifyEnable() {
     return config::GetVerifyOption<bool>(KEY_ENABLE_PASS_VERIFY);
+}
+
+// After AutodiffPass, propagate gradient_magic from Function's inCasts back to original Python tensors
+static void PropagateGradientMagicBack(const std::shared_ptr<DyndevFunctionAttribute>& attr) {
+    if (!attr) {
+        return;
+    }
+
+    auto calleeFuncs = Program::GetInstance().GetReachableFunctions(PROGRAM_ENTRY_FUNCTION_NAME);
+    for (auto* calleeFunc : calleeFuncs) {
+        if (!calleeFunc) continue;
+
+        const auto& incasts = calleeFunc->inCasts_;
+        // Match Python tensors to Function's inCasts by position
+        for (size_t i = 0; i < attr->startArgsInputTensorList.size(); ++i) {
+            const auto& tensor = attr->startArgsInputTensorList[i].get();
+            auto storage = tensor.GetStorage(false);
+            if (!storage) continue;
+
+            bool requiresGrad = false;
+            storage->GetAttr(ATTR_REQUIRES_GRAD, requiresGrad);
+
+            // Use positional matching: input tensor[i] corresponds to inCast[i]
+            if (requiresGrad && i < incasts.size()) {
+                const auto& incast = incasts[i];
+                if (incast) {
+                    int64_t gradMagic = 0;
+                    if (incast->GetAttr("gradient_magic", gradMagic) && gradMagic > 0) {
+                        storage->SetAttr("gradient_magic", gradMagic);
+                    }
+                }
+            }
+        }
+    }
 }
 
 void RecordFunc::EndFunction() {
@@ -891,8 +1072,22 @@ void RecordFunc::EndFunction() {
                 Program::GetInstance().VerifyTensorGraph();
             }
             MergeAllFuncDupIocast(nullptr);
+
+            // Propagate is_loss/requires_grad from user tensors to Function outCasts
+            // before running AutodiffPass
+            PropagateAutodiffAttributes(attr);
+
+            // Run AutodiffPass for automatic differentiation (if applicable)
+            // AutodiffPass internally checks is_loss/requires_grad and exits early if not needed
+            RunAutodiffPassOnCallees(Program::GetInstance());
+
+            // Propagate gradient_magic back to original Python tensors
+            // This runs immediately after AutodiffPass generates gradients
+            PropagateGradientMagicBack(attr);
+
             PassManager::Instance().RunPass(Program::GetInstance(),
                 *Program::GetInstance().GetFunctionByMagicName(PROGRAM_ENTRY_FUNCTION_NAME), "FunctionUnroll");
+
             if (!config::GetPlatformConfig(npu::tile_fwk::KEY_ONLY_TENSOR_GRAPH, false)) {
                 Program::GetInstance().UpdateCompileTask();
             }
