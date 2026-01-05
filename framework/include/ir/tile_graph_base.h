@@ -40,6 +40,16 @@ class ElementWiseUnaryTileBaseOp : public TileBaseOp {
 };
 
 class ElementWiseBinaryTileBaseOp : public ElementWiseTileBaseOp {
+public:
+    ElementWiseBinaryTileBaseOp(Opcode opcode,
+                                ValuePtr lhs,
+                                ValuePtr rhs,
+                                ValuePtr out)
+        : ElementWiseTileBaseOp() {
+        opcode_ = opcode;
+        ioperands_ = std::vector<ValuePtr>{lhs, rhs};
+        ooperands_ = std::vector<ValuePtr>{out};
+    }
 };
 
 class ElementWiseScalarMixBinaryTileBaseOp : public ElementWiseTileBaseOp {

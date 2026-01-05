@@ -309,122 +309,104 @@ TEST(IRTEST, TestTypeAllDataTypes) {
     }
 }
 
-// TEST(IRTEST, TestTypeCompleteProgram) {
-//     // ===== 创建一个完整的程序，只使用 Tile 和 Scalar 操作，不涉及 Tensor =====
-//     auto module = std::make_shared<ProgramModule>("test_type_program");
-//     IRBuilder builder(module);
+TEST(IRTEST, TestTypeCompleteProgram) {
+    // ===== 创建一个完整的程序，只使用 Tile 和 Scalar 操作，不涉及 Tensor =====
+    auto module = std::make_shared<ProgramModule>("test_type_program");
+    IRBuilder builder(module);
 
-//     // ===== 函数签名 =====
-//     FunctionSignature sig;
+    // ===== 函数签名 =====
+    FunctionSignature sig;
 
-//     // 输入：直接使用 Tile 和 Scalar，不使用 Tensor
-//     // 输入 Tile: tile<[16, 32], fp32>
-//     auto inputTile = std::make_shared<TileValue>(std::vector<size_t>{16, 32}, DataType::FP32, "input_tile");
-//     // 输入 Scalar: scalar<fp32>
-//     auto scale = std::make_shared<Scalar>(DataType::FP32, "scale", ScalarValueKind::Symbolic);
+    // 输入：直接使用 Tile 和 Scalar，不使用 Tensor
+    // 输入 Tile: tile<[16, 32], fp32>
+    auto inputTile = std::make_shared<TileValue>(std::vector<size_t>{16, 32}, DataType::FP32, "input_tile");
+    // 输入 Scalar: scalar<fp32>
+    auto scale = std::make_shared<ScalarValue>(DataType::FP32, "scale", ScalarValueKind::Symbolic);
 
-//     sig.arguments = { inputTile, scale };
+    sig.arguments = { inputTile, scale };
 
-//     // 输出：Tile tile<[16, 32], fp32>
-//     auto resultSig = std::make_shared<TileValue>(std::vector<size_t>{16, 32}, DataType::FP32, "output_tile");
-//     sig.results.push_back(resultSig);
+    // 输出：Tile tile<[16, 32], fp32>
+    auto resultSig = std::make_shared<TileValue>(std::vector<size_t>{16, 32}, DataType::FP32, "output_tile");
+    sig.results.push_back(resultSig);
 
-//     // ===== 创建函数 =====
-//     auto func = builder.CreateFunction("test_type_complete", FunctionKind::ControlFlow, sig, /*setAsEntry=*/true);
+    // ===== 创建函数 =====
+    auto func = builder.CreateFunction("test_type_complete", FunctionKind::ControlFlow, sig, /*setAsEntry=*/true);
 
-//     {
-//         // 进入函数体作用域
-//         auto guard = builder.EnterFunctionBody(func);
+    {
+        // 进入函数体作用域
+        auto guard = builder.EnterFunctionBody(func);
 
-//         // 创建常量 Scalar
-//         auto constant2 = builder.CreateConst(2.0, "const_2");
-//         auto constant3 = builder.CreateConst(3.0, "const_3");
+        // 创建常量 Scalar
+        auto constant2 = builder.CreateConst(2.0, "const_2");
+        auto constant3 = builder.CreateConst(3.0, "const_3");
 
-//         // Tile 乘法操作：tile_mul = mul(input_tile, scale)
-//         // 当两个操作数都是 Tile 时，输出也是 Tile，会使用 tile.mul
-//         auto tileMul = builder.CreateOp(
-//             Opcode::OP_MUL,
-//             { inputTile, scale },
-//             nullptr,
-//             "tile_mul"
-//         )[0];
+        // Tile 乘法操作：tile_mul = mul(input_tile, scale)
+        // 当两个操作数都是 Tile 时，输出也是 Tile，会使用 tile.mul
+        auto tileMul = builder.CreateTile(std::vector<size_t>{16, 32}, DataType::FP32, "tile_mul");
+        auto mulOp = builder.CreateBinaryOp(Opcode::OP_MUL, inputTile, scale, tileMul);
+        builder.Emit(mulOp);
 
-//         // Tile 加法操作：tile_add = add(tile_mul, constant2)
-//         // Tile + Scalar -> Tile，会使用 tile.add
-//         auto tileAdd = builder.CreateOp(
-//             Opcode::OP_ADD,
-//             { tileMul, constant2 },
-//             nullptr,
-//             "tile_add"
-//         )[0];
+        // Tile 加法操作：tile_add = add(tile_mul, constant2)
+        // Tile + Scalar -> Tile，会使用 tile.add
+        auto tileAdd = builder.CreateTile(std::vector<size_t>{16, 32}, DataType::FP32, "tile_add");
+        auto addOp = builder.CreateBinaryOp(Opcode::OP_ADD, tileMul, constant2, tileAdd);
+        builder.Emit(addOp);
 
-//         // Tile 减法操作：tile_sub = sub(tile_add, constant3)
-//         auto tileSub = builder.CreateOp(
-//             Opcode::OP_SUB,
-//             { tileAdd, constant3 },
-//             nullptr,
-//             "tile_sub"
-//         )[0];
+        // Tile 减法操作：tile_sub = sub(tile_add, constant3)
+        auto tileSub = builder.CreateTile(std::vector<size_t>{16, 32}, DataType::FP32, "tile_sub");
+        auto subOp = builder.CreateBinaryOp(Opcode::OP_SUB, tileAdd, constant3, tileSub);
+        builder.Emit(subOp);
 
-//         // Tile 除法操作：tile_div = div(tile_sub, scale)
-//         auto tileDiv = builder.CreateOp(
-//             Opcode::OP_DIV,
-//             { tileSub, scale },
-//             nullptr,
-//             "tile_div"
-//         )[0];
+        // Tile 除法操作：tile_div = div(tile_sub, scale)
+        auto tileDiv = builder.CreateTile(std::vector<size_t>{16, 32}, DataType::FP32, "tile_div");
+        auto divOp = builder.CreateBinaryOp(Opcode::OP_DIV, tileSub, scale, tileDiv);
+        builder.Emit(divOp);
 
-//         // Scalar 操作：计算两个 scalar 的和
-//         auto scalar1 = builder.CreateConst(10.5, "scalar1");
-//         auto scalar2 = builder.CreateConst(5.2, "scalar2");
+        // Scalar 操作：计算两个 scalar 的和
+        auto scalar1 = builder.CreateConst(10.5, "scalar1");
+        auto scalar2 = builder.CreateConst(5.2, "scalar2");
 
-//         // Scalar 加法：scalar_add = add(scalar1, scalar2)
-//         auto scalarAdd = builder.CreateOp(
-//             Opcode::OP_ADD,
-//             { scalar1, scalar2 },
-//             nullptr,
-//             "scalar_add"
-//         )[0];
+        // Scalar 加法：scalar_add = add(scalar1, scalar2)
+        auto scalarAdd = builder.CreateScalar(DataType::FP64, "scalar_add");
+        auto scalarAddOp = builder.CreateBinaryScalarOp(Opcode::OP_SCALAR_ADD, scalar1, scalar2, scalarAdd);
+        builder.Emit(scalarAddOp);
 
-//         // Scalar 乘法：scalar_mul = mul(scalar_add, constant2)
-//         auto scalarMul = builder.CreateOp(
-//             Opcode::OP_MUL,
-//             { scalarAdd, constant2 },
-//             nullptr,
-//             "scalar_mul"
-//         )[0];
+        // Scalar 乘法：scalar_mul = mul(scalar_add, constant2)
+        auto scalarMul = builder.CreateScalar(DataType::FP64, "scalar_mul");
+        auto scalarMulOp = builder.CreateBinaryScalarOp(Opcode::OP_SCALAR_MUL, scalarAdd, constant2, scalarMul);
+        builder.Emit(scalarMulOp);
 
-//         // 创建返回语句，返回 tile 和 scalar
-//         builder.CreateReturn({ tileDiv, scalarMul });
+        // 创建返回语句，返回 tile 和 scalar
+        builder.CreateReturn({ tileDiv, scalarMul });
 
-//         // 验证构建器状态
-//         ASSERT_EQ(builder.GetCurrentFunction(), func);
-//         ASSERT_EQ(builder.GetCurrentCompound(), func->GetCompound());
-//         ASSERT_NE(builder.GetCurrentOpStmt(), nullptr);
+        // 验证构建器状态
+        ASSERT_EQ(builder.GetCurrentFunction(), func);
+        ASSERT_EQ(builder.GetCurrentCompound(), func->GetCompound());
+        ASSERT_NE(builder.GetCurrentOpStmt(), nullptr);
 
-//         // 验证值类型
-//         ASSERT_EQ(tileMul->GetValueKind(), ValueKind::Tile);
-//         ASSERT_EQ(tileAdd->GetValueKind(), ValueKind::Tile);
-//         ASSERT_EQ(scalarAdd->GetValueKind(), ValueKind::Scalar);
-//         ASSERT_EQ(scalarMul->GetValueKind(), ValueKind::Scalar);
-//     }
+        // 验证值类型
+        ASSERT_EQ(tileMul->GetValueKind(), ValueKind::Tile);
+        ASSERT_EQ(tileAdd->GetValueKind(), ValueKind::Tile);
+        ASSERT_EQ(scalarAdd->GetValueKind(), ValueKind::Scalar);
+        ASSERT_EQ(scalarMul->GetValueKind(), ValueKind::Scalar);
+    }
 
-//     // 验证离开作用域后的状态
-//     ASSERT_EQ(builder.GetCurrentFunction(), nullptr);
-//     ASSERT_EQ(builder.GetCurrentCompound(), nullptr);
-//     ASSERT_EQ(builder.GetCurrentOpStmt(), nullptr);
+    // 验证离开作用域后的状态
+    ASSERT_EQ(builder.GetCurrentFunction(), nullptr);
+    ASSERT_EQ(builder.GetCurrentCompound(), nullptr);
+    ASSERT_EQ(builder.GetCurrentOpStmt(), nullptr);
 
-//     // 设置模块属性
-//     module->Attributes()["arch"] = "\"PTOv2\"";
-//     module->Attributes()["tile_default"] = "{ M=16, N=16, K=16 }";
-//     module->Attributes()["enable_debug"] = "true";
-//     module->Attributes()["test_type"] = "\"tile_scalar_only\"";
+    // 设置模块属性
+    module->Attributes()["arch"] = "\"PTOv2\"";
+    module->Attributes()["tile_default"] = "{ M=16, N=16, K=16 }";
+    module->Attributes()["enable_debug"] = "true";
+    module->Attributes()["test_type"] = "\"tile_scalar_only\"";
 
-//     // 打印完整的 IR
-//     std::cout << "========== Complete Type Test Program IR (Tile & Scalar Only) ==========" << std::endl;
-//     std::cout << *module << std::endl;
-//     std::cout << "=======================================================================" << std::endl;
-// }
+    // 打印完整的 IR
+    std::cout << "========== Complete Type Test Program IR (Tile & Scalar Only) ==========" << std::endl;
+    std::cout << *module << std::endl;
+    std::cout << "=======================================================================" << std::endl;
+}
 
 } // namespace pto
 
