@@ -97,7 +97,7 @@ void LoadAicpuOp::CustomAiCpuSoLoad() {
 #endif
 }
 
-int LoadAicpuOp::LaunchCustomOp([[maybe_unused]]rtStream_t stream, [[maybe_unused]]AstKernelArgs *kArgs, [[maybe_unused]]std::string &OpType) {
+int LoadAicpuOp::LaunchCustomOp([[maybe_unused]]rtStream_t stream, [[maybe_unused]]PyPtoKernelArgs *kArgs, [[maybe_unused]]std::string &OpType) {
 #ifdef BUILD_WITH_NEW_CANN
     ASSERT(customBinHandle_ != nullptr) << "customBinHandle cannot be null";
     rtFuncHandle custFuncHandle;
@@ -109,7 +109,7 @@ int LoadAicpuOp::LaunchCustomOp([[maybe_unused]]rtStream_t stream, [[maybe_unuse
     rtAicpuArgsEx_t rtArgs;
     memset_s(&rtArgs, sizeof(rtArgs), 0, sizeof(rtArgs));
     rtArgs.args = kArgs;
-    rtArgs.argsSize = sizeof(AstKernelArgs);
+    rtArgs.argsSize = sizeof(PyPtoKernelArgs);
 
     rtCpuKernelArgs_t argInfo;
     memset_s(&argInfo, sizeof(argInfo), 0, sizeof(argInfo));
@@ -156,7 +156,7 @@ int LoadAicpuOp::GetBuiltInOpBinHandle() {
     return 0;
 }
 
-int LoadAicpuOp::LaunchBuiltInOp([[maybe_unused]]rtStream_t stream, [[maybe_unused]]AstKernelArgs *kArgs, [[maybe_unused]]const int &aicpuNum,
+int LoadAicpuOp::LaunchBuiltInOp([[maybe_unused]]rtStream_t stream, [[maybe_unused]]PyPtoKernelArgs *kArgs, [[maybe_unused]]const int &aicpuNum,
                                  [[maybe_unused]]const std::string &funcName) {
 #ifdef BUILD_WITH_NEW_CANN
     rtFuncHandle funcHandle;
@@ -170,7 +170,7 @@ int LoadAicpuOp::LaunchBuiltInOp([[maybe_unused]]rtStream_t stream, [[maybe_unus
     rtAicpuArgsEx_t rtArgs;
     memset_s(&rtArgs, sizeof(rtArgs), 0, sizeof(rtArgs));
     rtArgs.args = kArgs;
-    rtArgs.argsSize = sizeof(AstKernelArgs);
+    rtArgs.argsSize = sizeof(PyPtoKernelArgs);
 
     rtCpuKernelArgs_t argInfo;
     memset_s(&argInfo, sizeof(argInfo), 0, sizeof(argInfo));
