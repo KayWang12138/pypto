@@ -3718,7 +3718,7 @@ bool Function::InsertLoopIdxNameList(const std::string &idxName) {
 
 Function* Function::Clone(const FunctionCloneInfo &cloneInfo) const {
     ALOG_DEBUG_F("Add leafFunction %s", cloneInfo.funcRawName.c_str());
-    auto newFunc = std::make_shared<Function>(Program::GetInstance(), cloneInfo.funcMagicName, cloneInfo.funcRawName, &this);
+    auto newFunc = std::make_shared<Function>(Program::GetInstance(), cloneInfo.funcMagicName, cloneInfo.funcRawName, this);
     // 设置function类型
     newFunc->SetFunctionType(FunctionType::STATIC);
     newFunc->SetGraphType(GraphType::BLOCK_GRAPH);
@@ -3727,7 +3727,7 @@ Function* Function::Clone(const FunctionCloneInfo &cloneInfo) const {
     leafAttr->aivCore = cloneInfo.aivCore;
     newFunc->SetLeafFuncAttribute(leafAttr);
     newFunc->UpdateBelongToThis();
-    ALOG_DEBUG_F("Called UpdateBelongToThis for new function: %s", funcRawName.c_str());
+    ALOG_DEBUG_F("Called UpdateBelongToThis for new function: %s", cloneInfo.funcRawName.c_str());
     newFunc->SetProgramId(cloneInfo.programID);
     // 复制参数配置
     newFunc->paramConfigs_ = cloneInfo.configs;
