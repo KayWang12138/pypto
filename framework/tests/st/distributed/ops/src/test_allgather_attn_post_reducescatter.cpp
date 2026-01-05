@@ -23,18 +23,48 @@
 
 namespace npu::tile_fwk {
 namespace Distributed {
+std::tuple<Tensor, Tensor, Tensor, Tensor> InitializeTestData(OpTestParam &testParam) {
+    constexpr size_t paramsSize = 7;
+    auto [b, s, n, kvLoraRank, vHeadDim, h, typeNum] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
+    DataType dtype = GetDataTypeNum(typeNum);
 
-void ALLGATHER_ATTNPOST_REDUCESCATTER(OpTestParam &testParam, DataType dtype, Tensor agIn, Tensor wLora, Tensor wOut, 
-        Tensor out, int32_t b, int32_t n, int32_t s, int32_t h, int32_t vHeadDim, int32_t kvLoraRank)
-{
+    Shape agInShape = {b * n * s / testParam.rankSize, kvLoraRank};
+    Shape wLoraShape = {n, kvLoraRank, vHeadDim};
+    Shape wOutShape = {n * vHeadDim, h};
+    Shape outShape = {b * s / testParam.rankSize, h};
+
+    Tensor agIn(dtype, agInShape, "agIn");
+    Tensor wLora(dtype, wLoraShape, "wLora");
+    Tensor wOut(dtype, wOutShape, "wOut");
+    Tensor out(dtype, outShape, "out");
+
+    std::vector<bfloat16> agInPtr =
+        ReadToVector<bfloat16>(GetGoldenDir() + "/ag_in_rank_" + std::to_string(testParam.rankId) + ".bin", agInShape);
+    std::vector<bfloat16> wLoraPtr =
+        ReadToVector<bfloat16>(GetGoldenDir() + "/w_lora_rank_" + std::to_string(testParam.rankId) + ".bin", wLoraShape);
+    std::vector<bfloat16> wOutPtr =
+        ReadToVector<bfloat16>(GetGoldenDir() + "/w_out_rank_" + std::to_string(testParam.rankId) + ".bin", wOutShape);
+
+    ProgramData::GetInstance().AppendInputs({RawTensorData::CreateTensor<bfloat16>(agIn, agInPtr)});
+    ProgramData::GetInstance().AppendInputs({RawTensorData::CreateTensor<bfloat16>(wLora, wLoraPtr)});
+    ProgramData::GetInstance().AppendInputs({RawTensorData::CreateTensor<bfloat16>(wOut, wOutPtr)});
+    ProgramData::GetInstance().AppendOutputs({RawTensorData::CreateTensorZero(out)});
+    return {agIn, wLora, wOut, out};
+}
+
+void TestAllGatherAttentionPostReducescatter(OpTestParam &testParam) {
+    constexpr size_t paramsSize = 7;
+    auto [b, s, n, kvLoraRank, vHeadDim, h, typeNum] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
+    DataType dtype = GetDataTypeNum(typeNum);
+    auto [agIn, wLora, wOut, out] = InitializeTestData(testParam);
+
     FUNCTION("ALLGATHER_ATTNPOST_REDUCESCATTER", {agIn, wLora, wOut}, {out}) {
         Tensor agOut(dtype, {b * n * s, kvLoraRank}, "agOut");
         LOOP("ALLGATHER", FunctionType::DYNAMIC_LOOP, unusedDynRankId, LoopRange(1)) {
             (void) unusedDynRankId;
             TileShape::Current().SetDistTile({64, b * n * s / testParam.rankSize / 64, 0}, {kvLoraRank, 1, 0}, 
                 {1, testParam.rankSize, 0});
-            Tensor fakeBarrierDummy(DT_INT32, {1, 1}, "fakeBarrierDummy");
-            ShmemAllGather(agIn, fakeBarrierDummy, testParam.group, agOut);
+            ShmemAllGather(agIn, agIn, testParam.group, agOut);
         }
         Tensor attnOut(dtype, {b * s, h}, "attnOut");
         LOOP("ATTNPOST", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(1)) {
@@ -66,38 +96,7 @@ void ALLGATHER_ATTNPOST_REDUCESCATTER(OpTestParam &testParam, DataType dtype, Te
             Distributed::ShmemReduceScatter(attnOut, testParam.group, DistReduceType::DIST_REDUCE_ADD, out);
         }
     }
-}
-
-void TestAllGatherAttentionPostReducescatter(OpTestParam &testParam)
-{
-    constexpr size_t paramsSize = 7;
-    auto [b, s, n, kvLoraRank, vHeadDim, h, typeNum] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
-    DataType dtype = GetDataTypeNum(typeNum);
-
-    Shape agInShape = {b * n * s / testParam.rankSize, kvLoraRank};
-    Shape wLoraShape = {n, kvLoraRank, vHeadDim};
-    Shape wOutShape = {n * vHeadDim, h};
-
-    Tensor agIn(dtype, agInShape, "agIn");
-    Tensor wLora(dtype, wLoraShape, "wLora");
-    Tensor wOut(dtype, wOutShape, "wOut");
-
-    std::vector<bfloat16> agInPtr =
-        ReadToVector<bfloat16>(GetGoldenDir() + "/ag_in_rank_" + std::to_string(testParam.rankId) + ".bin", agInShape);
-    std::vector<bfloat16> wLoraPtr =
-        ReadToVector<bfloat16>(GetGoldenDir() + "/w_lora_rank_" + std::to_string(testParam.rankId) + ".bin", wLoraShape);
-    std::vector<bfloat16> wOutPtr =
-        ReadToVector<bfloat16>(GetGoldenDir() + "/w_out_rank_" + std::to_string(testParam.rankId) + ".bin", wOutShape);
-
-    Shape outShape = {b * s / testParam.rankSize, h};
-    Tensor out(dtype, outShape, "out");
-
-    ProgramData::GetInstance().AppendInputs({RawTensorData::CreateTensor<bfloat16>(agIn, agInPtr)});
-    ProgramData::GetInstance().AppendInputs({RawTensorData::CreateTensor<bfloat16>(wLora, wLoraPtr)});
-    ProgramData::GetInstance().AppendInputs({RawTensorData::CreateTensor<bfloat16>(wOut, wOutPtr)});
-    ProgramData::GetInstance().AppendOutputs({RawTensorData::CreateTensorZero(out)});
-
-    ALLGATHER_ATTNPOST_REDUCESCATTER(testParam, dtype, agIn, wLora, wOut, out, b, n, s, h, vHeadDim, kvLoraRank);
+    
     DeviceLauncherConfig config;
     config.runModel = false;
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), config);
