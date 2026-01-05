@@ -167,7 +167,7 @@ def test_softmax():
     assert output_path
 
     merged_swimlane, error = safe_json_load(os.path.join(output_path, 'CostModelSimulationOutput/merged_swimlane.json'))
-    assert not error
+    assert not error, error
 
 
 if __name__ == "__main__":
