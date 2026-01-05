@@ -17,8 +17,9 @@
 
 #include <sstream>
 #include <stdexcept>
-#include <iostream>
 #include <fstream>
+#include <iostream>
+#include <functional>
 #include <unordered_set>
 
 #include "interface/utils/log.h"
@@ -34,6 +35,7 @@
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "passes/pass_mgr/pass_manager.h"
+#include "passes/tensor_graph_pass/vjp_registry.h"
 #include "interface/configs/config_manager_ng.h"
 
 namespace npu::tile_fwk {
@@ -92,9 +94,12 @@ void Program::Reset() {
     aliveTensors_.clear();
     functionCache_.Reset();
     functionSequence_.clear();
+    gradientRegistry_.clear();
     CreateInitFunction();
     tensorSlotManager_ = nullptr;
     currentFunctionPtr_ = functionmap_[currentFunctionMagicName_].get();
+    lastFunc_ = nullptr;
+    currentDynamicFunctionPtr_ = nullptr;
 }
 
 Function *Program::GetFunctionByRawName(const std::string &rawName) const {
@@ -165,6 +170,50 @@ void Program::UpdateCompileTask() {
         HostMachine::GetInstance().StashTask(func);
     }
     HostMachine::GetInstance().SubAllStashedTask();
+}
+
+void Program::RegisterGradientTensor(int magic, LogicalTensorPtr tensor) {
+    if (tensor != nullptr) {
+        gradientRegistry_[magic] = tensor;
+    }
+}
+
+LogicalTensorPtr Program::GetGradientTensor(int magic) {
+    auto it = gradientRegistry_.find(magic);
+    if (it != gradientRegistry_.end()) {
+        return it->second;
+    }
+    return nullptr;
+}
+
+void Program::ClearGradientRegistry() {
+    gradientRegistry_.clear();
+}
+
+std::vector<Function*> Program::GetReachableFunctions(const std::string& entryName) {
+    auto entryFunc = GetFunctionByMagicName(entryName);
+    if (!entryFunc) {
+        return {};
+    }
+
+    std::vector<Function*> reachable;
+    std::unordered_set<Function*> visited;
+    std::function<void(Function*)> visit = [&](Function* f) {
+        if (!f || !visited.insert(f).second) {
+            return;
+        }
+        for (auto* callee : f->GetCalleeFunctionList()) {
+            visit(callee);
+        }
+        if (f != entryFunc) {
+            reachable.push_back(f);
+        }
+    };
+    visit(entryFunc);
+    if (reachable.empty()) {
+        reachable.push_back(entryFunc);
+    }
+    return reachable;
 }
 
 void SetParamConfig(Function* currentFunctionPtr_) {
@@ -753,4 +802,5 @@ std::shared_ptr<Function> Program::GetFunctionSharedPtr(Function* rawPtr) {
     ALOG_WARN("not find function ptr in function map");
     return nullptr;
 }
+
 } // namespace npu::tile_fwk

@@ -112,6 +112,14 @@ public: // public api for torch
     void RefillCompileQueue(Function* func);
     void UpdateCompileTask();
 
+    // Gradient Registry Management (tied to Program lifecycle)
+    void RegisterGradientTensor(int magic, LogicalTensorPtr tensor);
+    LogicalTensorPtr GetGradientTensor(int magic);
+    void ClearGradientRegistry();
+
+    // Helper to collect all reachable functions from entry
+    std::vector<Function*> GetReachableFunctions(const std::string& entryName);
+
 private:
     std::string name_;
     std::vector<std::string> functionMagicNameStack_;
@@ -123,6 +131,7 @@ private:
     std::unordered_set<Tensor *> aliveTensors_;
     std::map<std::string, std::shared_ptr<npu::tile_fwk::Function>> functionmap_;
     std::shared_ptr<TensorSlotManager> tensorSlotManager_;
+    std::unordered_map<int, LogicalTensorPtr> gradientRegistry_;
 
     void CreateInitFunction();
     Operation *FinishCurrentFunction(const std::shared_ptr<TensorSlotScope> &scope, bool generateCall);
