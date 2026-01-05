@@ -239,7 +239,8 @@ class _JIT:
           if run_mode is npu , check env, than run with differnet tensor type (support cpu or npu)
           if run_mode is simulator, dont check env, change all tensor to cpu, and run
         '''
-        self.dispatch_with_run_mode(in_out_tensors, [], device)
+        if not pypto_impl.GetPlatformConfig("ONLY_TENSOR_GRAPH", False):
+            self.dispatch_with_run_mode(in_out_tensors, [], device)
 
     @property
     def handler(self):
