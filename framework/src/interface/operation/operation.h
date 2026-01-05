@@ -166,6 +166,8 @@ public:
 
     std::vector<int> inParamLocation_;
     std::vector<int> outParamLocation_;
+    std::vector<int> opOutcastOrder_;
+    std::vector<int> opIncastOrder_;
     OpSyncQueue syncQueue_;
     QueueType queueType;
 
@@ -493,6 +495,8 @@ public:
 
     const std::vector<std::string> &GetCommentList() const { return commentList_; }
     std::vector<std::string> &GetCommentList() { return commentList_; }
+
+    void SetCallOpOutcastOrder(const std::vector<int> &applyOrder, Operation *callop);
 
 private:
     Opcode opcode_{Opcode::OP_UNKNOWN};

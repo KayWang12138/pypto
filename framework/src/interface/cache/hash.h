@@ -25,17 +25,21 @@ class FunctionHash : public std::string {
 public:
     FunctionHash() : std::string(), hash_(0) {}
     FunctionHash(unsigned long hash) : std::string(std::to_string(hash)), hash_(hash) {}
-
+    FunctionHash(unsigned long hash, std::vector<int> outcastOrder, std::vector<int> incastOrder) : std::string(std::to_string(hash)), hash_(hash), outcastOrder_(outcastOrder), incastOrder_(incastOrder) {}
     FunctionHash(const FunctionHash &) = default;
     bool Empty() const { return std::string::size() == 0; }
     const std::string &Data() const { return *this; }
     uint64_t GetHash() const { return hash_; }
+    const std::vector<int> &GetOutcastOrder() const { return outcastOrder_; }
+    const std::vector<int> &GetIncastOrder() const { return incastOrder_; }
 
     bool operator==(const FunctionHash &h) { return Data() == h.Data(); }
     FunctionHash &operator=(const FunctionHash &) = default;
 
 private:
     unsigned long hash_{0};
+    std::vector<int> outcastOrder_{};
+    std::vector<int> incastOrder_{};
 };
 } // namespace npu::tile_fwk
 

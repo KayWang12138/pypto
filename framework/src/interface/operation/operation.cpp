@@ -995,4 +995,65 @@ std::vector<std::reference_wrapper<SymbolicScalar>> Operation::GetDynamicAttribu
     return dynamicAttributeList;
 }
 
+void Operation::SetCallOpOutcastOrder(const std::vector<int> &applyOrder, Operation *callop) {
+    // Reorder the output operands of this callop according to applyOrder.
+    // applyOrder[i] represents the original index of the element that should be placed at position i.
+
+    if (callop->oOperand.size() != applyOrder.size()) {
+        ALOG_ERROR_F("applyOrder size %zu does not match oOperand size %zu", applyOrder.size(), callop->oOperand.size());
+        return;
+    }
+
+    // Create new vector with reordered output operands
+    // applyOrder[i] indicates the original index of the element to be placed at position i
+    LogicalTensors newOOperand(callop->oOperand.size());
+    for (size_t i = 0; i < applyOrder.size(); i++) {
+        int sourceIdx = applyOrder[i];
+        if (sourceIdx < 0 || static_cast<size_t>(sourceIdx) >= callop->oOperand.size()) {
+            ALOG_ERROR_F("Invalid source index %d in applyOrder", sourceIdx);
+            return;
+        }
+        newOOperand[i] = callop->oOperand[sourceIdx];
+    }
+
+    // Apply the reordered oOperand
+    callop->oOperand = std::move(newOOperand);
+
+    // Reorder the outParamLocation_ if it exists
+    if (!callop->outParamLocation_.empty()) {
+        if (callop->outParamLocation_.size() != applyOrder.size()) {
+            ALOG_ERROR_F("outParamLocation_ size %zu does not match applyOrder size %zu",
+                callop->outParamLocation_.size(), applyOrder.size());
+            return;
+        }
+
+        std::vector<int> newOutParamLocation(callop->outParamLocation_.size());
+        for (size_t i = 0; i < applyOrder.size(); i++) {
+            int sourceIdx = applyOrder[i];
+            newOutParamLocation[i] = callop->outParamLocation_[sourceIdx];
+        }
+        callop->outParamLocation_ = std::move(newOutParamLocation);
+    }
+
+    // Reorder the invokeInfo_->outcastTensorParamList_ if it exists
+    auto callAttr = dynamic_cast<CallOpAttribute *>(callop->GetOpAttribute().get());
+    if (callAttr != nullptr && callAttr->invokeInfo_ != nullptr) {
+        const auto &outcastList = callAttr->invokeInfo_->GetOutcastTensorParamList();
+        if (!outcastList.empty()) {
+            if (outcastList.size() != applyOrder.size()) {
+                ALOG_ERROR_F("outcastTensorParamList size %zu does not match applyOrder size %zu",
+                    outcastList.size(), applyOrder.size());
+                return;
+            }
+
+            std::vector<SubfuncInvokeInfoTy::OutcastParamPackTy> newOutcastList(outcastList.size());
+            for (size_t i = 0; i < applyOrder.size(); i++) {
+                int sourceIdx = applyOrder[i];
+                newOutcastList[i] = outcastList[sourceIdx];
+            }
+            callAttr->invokeInfo_->SetOutcastTensorParamList(std::move(newOutcastList));
+        }
+    }
+}
+
 } // namespace npu::tile_fwk

@@ -38,7 +38,7 @@ public: // public api for torch
         const GraphType graphType = GraphType::TENSOR_GRAPH,
         const std::vector<std::reference_wrapper<const Tensor>> &explicitOpArgs = {},
         bool isHiddenFunction = false);
-    std::tuple<Function *, Operation *, bool> EndFunction(const std::string &funcName, bool generateCall = true);
+    std::tuple<Function *, Operation *, bool, std::vector<std::vector<int>>> EndFunction(const std::string &funcName, bool generateCall = true);
 
     Operation &ConnectCallerGusket(Function &caller, FunctionCallArgs &args) const;
 
