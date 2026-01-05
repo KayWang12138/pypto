@@ -80,7 +80,7 @@ Status AlignBroadCastOpInputs(Function &function, Operation &op) {
             auto &brcb = function.AddRawOperation(Opcode::OP_BRCB, {srcTensor}, {alignedTensor});
             brcb.UpdateSubgraphID(op.GetSubgraphID());
             srcTensor->RemoveConsumer(op);
-            op.ReplaceInputOperand(srcTensor, alignedTensor);
+            op.ReplaceIOperand(idx, alignedTensor);
             op.SetAttribute(OpAttributeKey::brcbIdx, idx + 1);
             inputTensor[idx] = alignedTensor;
         }
