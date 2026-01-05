@@ -26,10 +26,13 @@
 
 namespace npu::tile_fwk::dynamic {
 
-inline uint32_t CalcSchAicpuNumByBlockDim(uint32_t blockDim, uint32_t aiCpuNum) {
-    uint32_t maxScheCore = aiCpuNum - 2 >= dynamic::MAX_SCHEDULE_AICPU_NUM ?
-        dynamic::MAX_SCHEDULE_AICPU_NUM : aiCpuNum - 2; // 2 : 1 for controlFlow and 1 for singal reg
-    if (blockDim > (dynamic::MAX_SCHEDULE_AICPU_NUM - 1) * dynamic::MAX_MNG_AICORE_AVG_NUM) {
+inline uint32_t CalcSchAicpuNumByBlockDim(uint32_t blockDim, uint32_t aiCpuNum, ArchInfo archInfo) {
+    uint32_t maxScheCore = aiCpuNum - 2;    // 2 : 1 for controlFlow and 1 for singal reg
+    if (archInfo == ArchInfo::DAV_2201) {
+        maxScheCore = maxScheCore >= dynamic::MAX_SCHEDULE_AICPU_NUM ? dynamic::MAX_SCHEDULE_AICPU_NUM : maxScheCore;
+    }
+
+    if (blockDim > (maxScheCore - 1) * dynamic::MAX_MNG_AICORE_AVG_NUM) {
         return maxScheCore;
     }
 
@@ -41,7 +44,7 @@ inline uint32_t CalcSchAicpuNumByBlockDim(uint32_t blockDim, uint32_t aiCpuNum) 
 }
 
 const uint32_t AICORE_TYPE_NUM = 2;
-const int DEVICE_MAX_AICPU_NUM = 5;
+const int DEVICE_MAX_AICPU_NUM = 5; // todo:确定最大CPU数
 
 struct DeviceTaskCtrl {
     int taskType{0};
