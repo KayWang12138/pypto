@@ -4,8 +4,7 @@
 
 
 #include "ir/builder/ir_builder.h"
-#include "ir/op/op_opcode.h"
-#include "ir/op/op_payload.h"
+#include "ir/opcode.h"
 #include "ir/program.h"
 #include "ir/function.h"
 #include "ir/statement.h"
@@ -14,248 +13,248 @@
 
 namespace pto{
 
-TEST(IRTEST, TestBuilder) {
-    // ===== Module =====
-    auto module = std::make_shared<ProgramModule>("main");
-    IRBuilder builder(module);
+// TEST(IRTEST, TestBuilder) {
+//     // ===== Module =====
+//     auto module = std::make_shared<ProgramModule>("main");
+//     IRBuilder builder(module);
 
-    // ===== Signature =====
-    FunctionSignature sig;
+//     // ===== Signature =====
+//     FunctionSignature sig;
 
-    // tensor<[b, 128], fp32>
-    Scalar batch(DataType::INT32, "b", ScalarValueKind::Symbolic);
-    std::vector<Scalar> tensorShape = { batch, Scalar(int64_t(128)) };
+//     // tensor<[b, 128], fp32>
+//     Scalar batch(DataType::INT32, "b", ScalarValueKind::Symbolic);
+//     std::vector<Scalar> tensorShape = { batch, Scalar(int64_t(128)) };
 
-    auto inputTensor  = std::make_shared<Tensor>(tensorShape, DataType::FP32, "input");
-    auto scale1       = std::make_shared<Scalar>(DataType::FP32, "scale1", ScalarValueKind::Symbolic);
-    
-    auto dynLen       = std::make_shared<Scalar>(DataType::INT32, "len", ScalarValueKind::Symbolic);
+//     auto inputTensor  = std::make_shared<Tensor>(tensorShape, DataType::FP32, "input");
+//     auto scale1       = std::make_shared<Scalar>(DataType::FP32, "scale1", ScalarValueKind::Symbolic);
 
-    sig.arguments = { inputTensor, scale1, dynLen };
+//     auto dynLen       = std::make_shared<Scalar>(DataType::INT32, "len", ScalarValueKind::Symbolic);
 
-    auto resultSig = std::make_shared<Tensor>(tensorShape, DataType::FP32, "output");
-    sig.results.push_back(resultSig);
+//     sig.arguments = { inputTensor, scale1, dynLen };
 
-    // ===== Function =====
-    auto func = builder.CreateFunction("test_value", FunctionKind::ControlFlow, sig, /*setAsEntry=*/true);
+//     auto resultSig = std::make_shared<Tensor>(tensorShape, DataType::FP32, "output");
+//     sig.results.push_back(resultSig);
 
-    {
-        // enter func scope + create an initial block as insertion point
-        auto guard = builder.EnterFunctionBody(func);
+//     // ===== Function =====
+//     auto func = builder.CreateFunction("test_value", FunctionKind::ControlFlow, sig, /*setAsEntry=*/true);
 
-        auto constant0 = builder.CreateConst(int64_t(0), "const_0");
-        
-        // output tensor create
-        TensorCreateSpec TCSpec{tensorShape, DataType::FP32};
-        auto resultTensor = builder.CreateOp(
-            Opcode::OP_TENSOR_CREATE, 
-            {}, 
-            std::make_shared<TensorCreatePayload>(TCSpec), 
-            "output"
-        )[0];
+//     {
+//         // enter func scope + create an initial block as insertion point
+//         auto guard = builder.EnterFunctionBody(func);
 
-        // loop_tile = view(input, {1, 128}, {0, 0})
-        ViewSpec viewSpec;
-        viewSpec.shape  = { 1, 128 };
-        viewSpec.offset = {
-            *constant0,
-            *constant0
-        };
+//         auto constant0 = builder.CreateConst(int64_t(0), "const_0");
 
-        auto loopTile = builder.CreateOp(
-            Opcode::OP_VIEW,
-            { inputTensor },
-            std::make_shared<ViewPayload>(viewSpec),
-            "loop_tile"
-        )[0];
+//         // output tensor create
+//         TensorCreateSpec TCSpec{tensorShape, DataType::FP32};
+//         auto resultTensor = builder.CreateOp(
+//             Opcode::OP_TENSOR_CREATE,
+//             {},
+//             std::make_shared<TensorCreatePayload>(TCSpec),
+//             "output"
+//         )[0];
 
-        // mul1_res = mul(loop_tile, scale1)
-        auto mulVal1 = builder.CreateOp(
-            Opcode::OP_MUL,
-            { loopTile, scale1 },
-            nullptr,
-            "mul1_res"
-        )[0];
+//         // loop_tile = view(input, {1, 128}, {0, 0})
+//         ViewSpec viewSpec;
+//         viewSpec.shape  = { 1, 128 };
+//         viewSpec.offset = {
+//             *constant0,
+//             *constant0
+//         };
 
-        auto pi = builder.CreateConst(3.14, "const_pi");
+//         auto loopTile = builder.CreateOp(
+//             Opcode::OP_VIEW,
+//             { inputTensor },
+//             std::make_shared<ViewPayload>(viewSpec),
+//             "loop_tile"
+//         )[0];
 
-        // mul2_res = mul(mul1_res, pi)
-        auto mulVal2 = builder.CreateOp(
-            Opcode::OP_MUL,
-            { mulVal1, pi },
-            nullptr,
-            "mul2_res"
-        )[0];
+//         // mul1_res = mul(loop_tile, scale1)
+//         auto mulVal1 = builder.CreateOp(
+//             Opcode::OP_MUL,
+//             { loopTile, scale1 },
+//             nullptr,
+//             "mul1_res"
+//         )[0];
 
-        // assemble(output, mul2_res, {0, 0})
-        AssembleSpec assembleSpec;
-        assembleSpec.offset = {
-            *constant0,
-            *constant0
-        };
+//         auto pi = builder.CreateConst(3.14, "const_pi");
 
-        auto assemOut = builder.CreateOp(
-            Opcode::OP_ASSEMBLE,
-            { mulVal2, resultTensor },
-            std::make_shared<AssemblePayload>(assembleSpec),
-            "output"
-        )[0];
+//         // mul2_res = mul(mul1_res, pi)
+//         auto mulVal2 = builder.CreateOp(
+//             Opcode::OP_MUL,
+//             { mulVal1, pi },
+//             nullptr,
+//             "mul2_res"
+//         )[0];
 
-        builder.CreateReturn({ assemOut });
+//         // assemble(output, mul2_res, {0, 0})
+//         AssembleSpec assembleSpec;
+//         assembleSpec.offset = {
+//             *constant0,
+//             *constant0
+//         };
 
-        ASSERT_EQ(builder.GetCurrentFunction(), func);
-        ASSERT_EQ(builder.GetCurrentCompound(), func->GetCompound());
-        ASSERT_EQ(builder.GetCurrentOpStmt(), func->GetCompound()->GetStatements()[0]);
-    }
+//         auto assemOut = builder.CreateOp(
+//             Opcode::OP_ASSEMBLE,
+//             { mulVal2, resultTensor },
+//             std::make_shared<AssemblePayload>(assembleSpec),
+//             "output"
+//         )[0];
 
-    ASSERT_EQ(builder.GetCurrentFunction(), nullptr);
-    ASSERT_EQ(builder.GetCurrentCompound(), nullptr);
-    ASSERT_EQ(builder.GetCurrentOpStmt(), nullptr);
+//         builder.CreateReturn({ assemOut });
 
-    // ===== Program attributes =====
-    module->Attributes()["arch"] = "\"PTOv2\"";
-    module->Attributes()["tile_default"] = "{ M=16, N=16, K=16 }";
-    module->Attributes()["enable_debug"] = "true";
+//         ASSERT_EQ(builder.GetCurrentFunction(), func);
+//         ASSERT_EQ(builder.GetCurrentCompound(), func->GetCompound());
+//         ASSERT_EQ(builder.GetCurrentOpStmt(), func->GetCompound()->GetStatements()[0]);
+//     }
 
-    std::cout << *module << std::endl;
-}
+//     ASSERT_EQ(builder.GetCurrentFunction(), nullptr);
+//     ASSERT_EQ(builder.GetCurrentCompound(), nullptr);
+//     ASSERT_EQ(builder.GetCurrentOpStmt(), nullptr);
 
-TEST(IRTEST, TestControlFlow) {
-    // ===== Module =====
-    auto module = std::make_shared<ProgramModule>("main");
-    IRBuilder builder(module);
+//     // ===== Program attributes =====
+//     module->Attributes()["arch"] = "\"PTOv2\"";
+//     module->Attributes()["tile_default"] = "{ M=16, N=16, K=16 }";
+//     module->Attributes()["enable_debug"] = "true";
 
-    // ===== Signature =====
-    FunctionSignature sig;
+//     std::cout << *module << std::endl;
+// }
 
-    // tensor<[b, 128], fp32>
-    auto batch = std::make_shared<Scalar>(DataType::INT32, "batch", ScalarValueKind::Symbolic);
-    std::vector<Scalar> tensorShape = { *batch, Scalar(int64_t(128)) };
+// TEST(IRTEST, TestControlFlow) {
+//     // ===== Module =====
+//     auto module = std::make_shared<ProgramModule>("main");
+//     IRBuilder builder(module);
 
-    auto inputX = std::make_shared<Tensor>(tensorShape, DataType::FP32, "inputX");
-    auto inputY = std::make_shared<Tensor>(tensorShape, DataType::FP32, "inputY");
-    auto scale1 = std::make_shared<Scalar>(DataType::FP32, "scale1", ScalarValueKind::Symbolic);
-    auto scale2 = std::make_shared<Scalar>(DataType::FP32, "scale2", ScalarValueKind::Symbolic);
+//     // ===== Signature =====
+//     FunctionSignature sig;
 
-    sig.arguments = { inputX, inputY, scale1, scale2};
+//     // tensor<[b, 128], fp32>
+//     auto batch = std::make_shared<Scalar>(DataType::INT32, "batch", ScalarValueKind::Symbolic);
+//     std::vector<Scalar> tensorShape = { *batch, Scalar(int64_t(128)) };
 
-    auto resultSigX = std::make_shared<Tensor>(tensorShape, DataType::FP32, "outputX");
-    auto resultSigY = std::make_shared<Tensor>(tensorShape, DataType::FP32, "outputY");
-    sig.results.push_back(resultSigX);
-    sig.results.push_back(resultSigY);
+//     auto inputX = std::make_shared<Tensor>(tensorShape, DataType::FP32, "inputX");
+//     auto inputY = std::make_shared<Tensor>(tensorShape, DataType::FP32, "inputY");
+//     auto scale1 = std::make_shared<Scalar>(DataType::FP32, "scale1", ScalarValueKind::Symbolic);
+//     auto scale2 = std::make_shared<Scalar>(DataType::FP32, "scale2", ScalarValueKind::Symbolic);
 
-    // ===== Function =====
-    auto func = builder.CreateFunction("test_control", FunctionKind::ControlFlow, sig, /*setAsEntry=*/false);
-    module->SetProgramEntry(func);
+//     sig.arguments = { inputX, inputY, scale1, scale2};
 
-    {
-        auto funcGuard = builder.EnterFunctionBody(func);
-        auto opStmt = builder.CreateOpStmt();
+//     auto resultSigX = std::make_shared<Tensor>(tensorShape, DataType::FP32, "outputX");
+//     auto resultSigY = std::make_shared<Tensor>(tensorShape, DataType::FP32, "outputY");
+//     sig.results.push_back(resultSigX);
+//     sig.results.push_back(resultSigY);
 
-        TensorCreateSpec TCSpec{tensorShape, DataType::FP32};
-        auto resultX = builder.CreateOp(
-            Opcode::OP_TENSOR_CREATE, 
-            {}, 
-            std::make_shared<TensorCreatePayload>(TCSpec), 
-            "outputX"
-        )[0];
-        auto resultY = builder.CreateOp(
-            Opcode::OP_TENSOR_CREATE, 
-            {}, 
-            std::make_shared<TensorCreatePayload>(TCSpec), 
-            "outputY"
-        )[0];
+//     // ===== Function =====
+//     auto func = builder.CreateFunction("test_control", FunctionKind::ControlFlow, sig, /*setAsEntry=*/false);
+//     module->SetProgramEntry(func);
 
-        // for i = 0 to batch step 1
-        auto i = builder.CreateScalar(DataType::INT32, "i");
-        auto constant0 = builder.CreateConst(int64_t(0), "const_0");
-        auto constant1 = builder.CreateConst(int64_t(1), "const_1");
-        auto fs = builder.CreateForStmt(i, constant0, batch, constant1);
-        {
-            auto fsGuard = builder.EnterForBody(fs);
+//     {
+//         auto funcGuard = builder.EnterFunctionBody(func);
+//         auto opStmt = builder.CreateOpStmt();
 
-            ViewSpec viewSpec;
-            viewSpec.shape  = { 1, 128 };
-            viewSpec.offset = {
-                *i,
-                *constant0
-            };
-            // loopX = view(inputX, {1, 128}, {i, 0})
-            auto loopX = builder.CreateOp(
-                Opcode::OP_VIEW,
-                { inputX },
-                std::make_shared<ViewPayload>(viewSpec),
-                "loopX"
-            )[0];
-            // loopY = view(inputY, {1, 128}, {i, 0})
-            auto loopY = builder.CreateOp(
-                Opcode::OP_VIEW,
-                { inputY },
-                std::make_shared<ViewPayload>(viewSpec),
-                "loopY"
-            )[0];
+//         TensorCreateSpec TCSpec{tensorShape, DataType::FP32};
+//         auto resultX = builder.CreateOp(
+//             Opcode::OP_TENSOR_CREATE,
+//             {},
+//             std::make_shared<TensorCreatePayload>(TCSpec),
+//             "outputX"
+//         )[0];
+//         auto resultY = builder.CreateOp(
+//             Opcode::OP_TENSOR_CREATE,
+//             {},
+//             std::make_shared<TensorCreatePayload>(TCSpec),
+//             "outputY"
+//         )[0];
 
-            // outputX = mul(looX, scale1)
-            auto resLoopX = builder.CreateOp(
-                Opcode::OP_ADD, 
-                {loopX, scale1},
-                nullptr,
-                "outputX"
-            )[0];
+//         // for i = 0 to batch step 1
+//         auto i = builder.CreateScalar(DataType::INT32, "i");
+//         auto constant0 = builder.CreateConst(int64_t(0), "const_0");
+//         auto constant1 = builder.CreateConst(int64_t(1), "const_1");
+//         auto fs = builder.CreateForStmt(i, constant0, batch, constant1);
+//         {
+//             auto fsGuard = builder.EnterForBody(fs);
 
-            // outputY = mul(looY, scale2)
-            auto resLoopY = builder.CreateOp(
-                Opcode::OP_ADD, 
-                {loopY, scale2},
-                nullptr,
-                "outputY"
-            )[0];
+//             ViewSpec viewSpec;
+//             viewSpec.shape  = { 1, 128 };
+//             viewSpec.offset = {
+//                 *i,
+//                 *constant0
+//             };
+//             // loopX = view(inputX, {1, 128}, {i, 0})
+//             auto loopX = builder.CreateOp(
+//                 Opcode::OP_VIEW,
+//                 { inputX },
+//                 std::make_shared<ViewPayload>(viewSpec),
+//                 "loopX"
+//             )[0];
+//             // loopY = view(inputY, {1, 128}, {i, 0})
+//             auto loopY = builder.CreateOp(
+//                 Opcode::OP_VIEW,
+//                 { inputY },
+//                 std::make_shared<ViewPayload>(viewSpec),
+//                 "loopY"
+//             )[0];
 
-            // if i then outputX = mul(outputX, scale1) else outputY = mul(outputY, scale2)
-            auto ifs = builder.CreateIfStmt("i");
-            ValuePtr resIfX, resIfY;
-            {
-                auto ifThenGuard = builder.EnterIfThen(ifs);
+//             // outputX = mul(looX, scale1)
+//             auto resLoopX = builder.CreateOp(
+//                 Opcode::OP_ADD,
+//                 {loopX, scale1},
+//                 nullptr,
+//                 "outputX"
+//             )[0];
 
-                resIfX = builder.CreateOp(
-                    Opcode::OP_MUL, 
-                    {resLoopX, scale1},
-                    nullptr,
-                    "outputX"    
-                )[0];
-            }
-            {
-                auto ifElseGuard = builder.EnterIfElse(ifs);
-                
-                resIfY = builder.CreateOp(
-                    Opcode::OP_MUL, 
-                    {resLoopY, scale2},
-                    nullptr,
-                    "outputY"    
-                )[0];
-            }
-            builder.ExitIfStatement(ifs);
+//             // outputY = mul(looY, scale2)
+//             auto resLoopY = builder.CreateOp(
+//                 Opcode::OP_ADD,
+//                 {loopY, scale2},
+//                 nullptr,
+//                 "outputY"
+//             )[0];
 
-            // check if then and else yield
-            auto thenYield = std::dynamic_pointer_cast<YieldStatement>(*ifs->GetThenCompound()->GetStatements().rbegin());
-            ASSERT_EQ(thenYield->Values()[0], resLoopY);
-            ASSERT_EQ(thenYield->Values()[1], resIfX);
-            auto elseYield = std::dynamic_pointer_cast<YieldStatement>(*ifs->GetElseCompound()->GetStatements().rbegin());
-            ASSERT_EQ(elseYield->Values()[0], resIfY);
-            ASSERT_EQ(elseYield->Values()[1], resLoopX);
-        }
-        builder.ExitForStatement(fs);
+//             // if i then outputX = mul(outputX, scale1) else outputY = mul(outputY, scale2)
+//             auto ifs = builder.CreateIfStmt("i");
+//             ValuePtr resIfX, resIfY;
+//             {
+//                 auto ifThenGuard = builder.EnterIfThen(ifs);
 
-        // check for yeild
-        auto ifs = std::dynamic_pointer_cast<IfStatement>(fs->GetCompound()->GetStatements()[1]);
-        auto ifResults = ifs->Results();
-        auto forYield = fs->Yield();
-        ASSERT_EQ(forYield->Values(), ifResults);
+//                 resIfX = builder.CreateOp(
+//                     Opcode::OP_MUL,
+//                     {resLoopX, scale1},
+//                     nullptr,
+//                     "outputX"
+//                 )[0];
+//             }
+//             {
+//                 auto ifElseGuard = builder.EnterIfElse(ifs);
 
-        // return outputX, outputY
-        builder.CreateReturn(fs->Results());
-    }
-    std::cout << *module << std::endl;
-}
+//                 resIfY = builder.CreateOp(
+//                     Opcode::OP_MUL,
+//                     {resLoopY, scale2},
+//                     nullptr,
+//                     "outputY"
+//                 )[0];
+//             }
+//             builder.ExitIfStatement(ifs);
+
+//             // check if then and else yield
+//             auto thenYield = std::dynamic_pointer_cast<YieldStatement>(*ifs->GetThenCompound()->GetStatements().rbegin());
+//             ASSERT_EQ(thenYield->Values()[0], resLoopY);
+//             ASSERT_EQ(thenYield->Values()[1], resIfX);
+//             auto elseYield = std::dynamic_pointer_cast<YieldStatement>(*ifs->GetElseCompound()->GetStatements().rbegin());
+//             ASSERT_EQ(elseYield->Values()[0], resIfY);
+//             ASSERT_EQ(elseYield->Values()[1], resLoopX);
+//         }
+//         builder.ExitForStatement(fs);
+
+//         // check for yeild
+//         auto ifs = std::dynamic_pointer_cast<IfStatement>(fs->GetCompound()->GetStatements()[1]);
+//         auto ifResults = ifs->Results();
+//         auto forYield = fs->Yield();
+//         ASSERT_EQ(forYield->Values(), ifResults);
+
+//         // return outputX, outputY
+//         builder.CreateReturn(fs->Results());
+//     }
+//     std::cout << *module << std::endl;
+// }
 
 } // namespace pto

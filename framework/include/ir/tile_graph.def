@@ -13,7 +13,7 @@
  * \brief
  */
 
-DEF_OP(
+DEFOP(
     UnaryOp,
     INHERIT(ElementWiseUnaryTileOp),
     OPCODE(
@@ -29,7 +29,7 @@ DEF_OP(
     ATTR(int, CombineAxis)
 )
 
-DEF_OP(
+DEFOP(
     BinaryOp,
     INHERIT(ElementWiseBinaryTileOp),
     OPCODE(
@@ -43,7 +43,7 @@ DEF_OP(
     ATTR(int, CombineAxis)
 )
 
-DEF_OP(
+DEFOP(
     BinaryScalarMixOp,
     INHERIT(ElementWiseScalarMixBinaryTileOp),
     OPCODE(

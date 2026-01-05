@@ -15,13 +15,14 @@
 
 #pragma once
 
+#include "utils_defop.h"
+
 namespace pto {
 
 enum class Opcode : int64_t {
     OP_INVALID,
 
-#define DEF_OP(name, inherit, opcode, ...) DEF_##opcode,
-#define DEF_OPCODE(...) __VA_ARGS__
+#define DEFOP DEFOP_OPCODE
 
 #include "operation.def"
     OP_END_COMMON,
@@ -29,8 +30,7 @@ enum class Opcode : int64_t {
 #include "tile_graph.def"
     OP_END_TILE_GRAPH,
 
-#undef DEF_OPCODE
-#undef DEF_OP
+#undef DEFOP
 
     OP_COMMON_BEGIN = OP_INVALID + 1,
     OP_COMMON_END = OP_END_COMMON,

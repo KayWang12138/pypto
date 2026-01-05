@@ -14,12 +14,12 @@
  */
 
 #include "gtest/gtest.h"
-#include "ir/def_utils.h"
+#include "ir/utils_defop.h"
 #include "ir/opcode.h"
 #include "ir/tile_graph.h"
+#include "ir/builder/ir_builder.h"
 
 using namespace pto;
-using namespace npu::tile_fwk;
 
 class IRTest : public testing::Test {
 public:
@@ -47,8 +47,18 @@ TEST_F(IRTest, TestOpcode) {
 }
 
 TEST_F(IRTest, TestClass) {
-    std::vector<ScalarPtr> dataList;
+    std::vector<ScalarValuePtr> dataList;
     BinaryScalarOpPtr op = std::make_shared<BinaryScalarOp>(Opcode::OP_SCALAR_ADD, dataList, dataList);
-    EXPECT_EQ(0, op->GetInOperandSize());
-    EXPECT_EQ(0, op->GetOutOperandSize());
+    EXPECT_EQ(0, op->GetNumInputOperand());
+    EXPECT_EQ(0, op->GetNumOutputOperand());
+}
+
+TEST_F(IRTest, TestIRBuilder) {
+    auto module = std::make_shared<ProgramModule>("main");
+    IRBuilder builder(module);
+
+    std::vector<ScalarValuePtr> dataList;
+    BinaryScalarOpPtr op = builder.CreateBinaryScalarOp(Opcode::OP_SCALAR_ADD, dataList, dataList);
+    EXPECT_EQ(0, op->GetNumInputOperand());
+    EXPECT_EQ(0, op->GetNumOutputOperand());
 }

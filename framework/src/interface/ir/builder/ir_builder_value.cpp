@@ -17,37 +17,37 @@ ValuePtr IRBuilder::AddToCompound(ValuePtr v) {
     return v;
 }
 
-std::shared_ptr<Tensor> IRBuilder::CreateTensor(
-    const std::vector<Scalar>& shape, DataType dt, std::string name) {
+std::shared_ptr<TensorValue> IRBuilder::CreateTensor(
+    const std::vector<ScalarValuePtr>& shape, DataType dt, std::string name) {
     // Create a Tensor value object directly without creating a TensorCreate operation.
     // TensorCreate operations should only be created explicitly by the user code or parser,
     // not implicitly by helper methods.
-    auto t = std::make_shared<Tensor>(shape, dt, std::move(name));
+    auto t = std::make_shared<TensorValue>(shape, dt, std::move(name));
     AddToCompound(t);
     return t;
 }
 
-std::shared_ptr<Tile> IRBuilder::CreateTile(
+std::shared_ptr<TileValue> IRBuilder::CreateTile(
     const std::vector<size_t>& shape, DataType dt, std::string name) {
-    auto t = std::make_shared<Tile>(shape, dt, std::move(name));
+    auto t = std::make_shared<TileValue>(shape, dt, std::move(name));
     AddToCompound(t);
     return t;
 }
 
-std::shared_ptr<Scalar> IRBuilder::CreateScalar(DataType dt, std::string name) {
-    auto s = std::make_shared<Scalar>(dt, std::move(name), ScalarValueKind::Symbolic);
+std::shared_ptr<ScalarValue> IRBuilder::CreateScalar(DataType dt, std::string name) {
+    auto s = std::make_shared<ScalarValue>(dt, std::move(name), ScalarValueKind::Symbolic);
     AddToCompound(s);
     return s;
 }
 
-std::shared_ptr<Scalar> IRBuilder::CreateConst(int64_t v, std::string name) {
-    auto s = std::make_shared<Scalar>(v, std::move(name));
+std::shared_ptr<ScalarValue> IRBuilder::CreateConst(int64_t v, std::string name) {
+    auto s = std::make_shared<ScalarValue>(v, std::move(name));
     AddToCompound(s);
     return s;
 }
 
-std::shared_ptr<Scalar> IRBuilder::CreateConst(double v, std::string name) {
-    auto s = std::make_shared<Scalar>(v, std::move(name));
+std::shared_ptr<ScalarValue> IRBuilder::CreateConst(double v, std::string name) {
+    auto s = std::make_shared<ScalarValue>(v, std::move(name));
     AddToCompound(s);
     return s;
 }

@@ -79,6 +79,8 @@ public:
     void Print(std::ostream& os) const override;
 };
 
+using ScalarTypePtr = std::shared_ptr<ScalarType>;
+
 // Tile type: represents a tile type with static shape and element type.
 // TileType represents the type of a tile with a specific (shape, dataType) combination.
 class TileType : public Type {
@@ -94,6 +96,8 @@ public:
 private:
     std::vector<size_t> shape_;  // Static shape dimensions
 };
+
+using TileTypePtr = std::shared_ptr<TileType>;
 
 // Tensor type: represents a tensor type with shape and element type.
 // TensorType represents the type of a tensor with a specific (shape, dataType) combination.

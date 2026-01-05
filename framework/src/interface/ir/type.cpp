@@ -44,6 +44,10 @@ void ScalarType::Print(std::ostream& os) const {
     os << DataTypeToString(dataType_);
 }
 
+void TensorType::Print(std::ostream& os) const {
+    os << DataTypeToString(dataType_);
+}
+
 size_t TileType::GetTypeSize() const {
     size_t elementSize = GetDataTypeSize();
     size_t totalElements = 1;
@@ -62,10 +66,6 @@ void TileType::Print(std::ostream& os) const {
         }
     }
     os << "], " << DataTypeToString(dataType_) << ">";
-}
-
-void TensorType::Print(std::ostream& os) const {
-    os << DataTypeToString(dataType_);
 }
 
 } // namespace pto

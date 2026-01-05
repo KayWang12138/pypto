@@ -13,7 +13,7 @@
  * \brief
  */
 
-DEF_OP(
+DEFOP(
     UnaryScalarOp,
     INHERIT(ScalarOp),
     OPCODE(
@@ -23,7 +23,7 @@ DEF_OP(
     ),
 )
 
-DEF_OP(
+DEFOP(
     BinaryScalarOp,
     INHERIT(ScalarOp),
     OPCODE(
@@ -48,7 +48,7 @@ DEF_OP(
     ),
 )
 
-DEF_OP(
+DEFOP(
     CondScalarOp,
     INHERIT(ScalarOp),
     OPCODE(

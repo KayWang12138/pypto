@@ -16,7 +16,7 @@ OpStatementPtr IRBuilder::CreateOpStmt() {
     return opStmt;
 }
 
-ForStatementPtr IRBuilder::CreateForStmt(std::shared_ptr<Scalar> iv, std::shared_ptr<Scalar> start, std::shared_ptr<Scalar> end, std::shared_ptr<Scalar> step) {
+ForStatementPtr IRBuilder::CreateForStmt(ScalarValuePtr iv, ScalarValuePtr start, ScalarValuePtr end, ScalarValuePtr step) {
     if (!compound_) throw std::runtime_error("IRBuilder::CreateForStmt: compound is null");
 
     auto st = std::make_shared<ForStatement>(std::move(iv), std::move(start), std::move(end), std::move(step));
@@ -54,9 +54,9 @@ ReturnStatementPtr IRBuilder::CreateReturn(ValuePtrs values) {
 
 // ===== Enter nested scopes =====
 std::shared_ptr<ScopeGuard> IRBuilder::EnterFunctionBody(std::shared_ptr<Function> func) {
-    
+
     CompoundStatementPtr compound = func->GetCompound();
-    
+
     return std::make_shared<ScopeGuard>(*this, compound, func);
 }
 
@@ -110,11 +110,11 @@ void IRBuilder::ExitIfStatement(IfStatementPtr st) {
 
     // Check if else branch is empty
     bool hasElseBranch = !st->GetElseCompound()->GetStatements().empty() || !envAfterElse.empty();
-    
+
     // Find variables modified in any branch (by comparing with envBeforeIf)
     // This includes variables modified in both branches, or only in one branch
     std::vector<std::string> modifiedInBothBranches;
-    
+
     if (hasElseBranch) {
         // Case 1: Has else branch - find variables modified in any branch
         // Collect all variable names that appear in either branch or existed before if
@@ -137,7 +137,7 @@ void IRBuilder::ExitIfStatement(IfStatementPtr st) {
 
             bool existsInThen = (itAfterThen != envAfterThen.end());
             bool existsInElse = (itAfterElse != envAfterElse.end());
-            
+
             // Check if variable existed before if statement by searching in parent scope chain
             ValuePtr valueBeforeIf = parentCompound->GetEnvVar(varName);
             bool existsBefore = (valueBeforeIf != nullptr);
@@ -149,7 +149,7 @@ void IRBuilder::ExitIfStatement(IfStatementPtr st) {
                 ValuePtr valueInElse = existsInElse ? itAfterElse->second : valueBeforeIf;
                 bool modifiedInThen = existsInThen && (itAfterThen->second != valueBeforeIf);
                 bool modifiedInElse = existsInElse && (itAfterElse->second != valueBeforeIf);
-                
+
                 if (modifiedInThen || modifiedInElse) {
                     // Modified in at least one branch - need to yield
                     modifiedInBothBranches.push_back(varName);
@@ -191,7 +191,7 @@ void IRBuilder::ExitIfStatement(IfStatementPtr st) {
     for (const std::string& varName : modifiedInBothBranches) {
         // Get original value from parent scope chain
         ValuePtr originalValue = parentCompound->GetEnvVar(varName);
-        
+
         // Get then value: prefer from then scope if exists, otherwise use original value
         ValuePtr thenValue = nullptr;
         auto itThen = envAfterThen.find(varName);
@@ -201,7 +201,7 @@ void IRBuilder::ExitIfStatement(IfStatementPtr st) {
             // Fallback to original value if not found in then scope
             thenValue = originalValue;
         }
-        
+
         // Get else value: prefer from else scope if exists, otherwise use original value
         ValuePtr elseValue = nullptr;
         if (hasElseBranch) {
@@ -216,7 +216,7 @@ void IRBuilder::ExitIfStatement(IfStatementPtr st) {
             // No else branch - use original value
             elseValue = originalValue;
         }
-        
+
         // Both values should be non-null for variables that existed before if
         if (thenValue && elseValue) {
             thenValues.push_back(thenValue);
@@ -230,7 +230,7 @@ void IRBuilder::ExitIfStatement(IfStatementPtr st) {
         if (!stmts.empty()) {
             hasYield = dynamic_cast<YieldStatement*>(stmts.back().get()) != nullptr;
         }
-        
+
         if (!hasYield) {
             auto yield = std::make_shared<YieldStatement>();
             yield->Values() = values;
@@ -279,7 +279,7 @@ void IRBuilder::ExitForStatement(ForStatementPtr st) {
     // 1. Existed before the loop (accessible from parent scope chain via GetEnvVar)
     // 2. Were modified in the loop body (different value in envAfterFor)
     std::vector<std::string> loopCarriedVars;
-    
+
     for (const auto& [varName, valueAfterFor] : envAfterFor) {
         // Check if variable existed before loop by searching in parent scope chain
         ValuePtr valueBeforeFor = parentCompound->GetEnvVar(varName);
@@ -312,36 +312,36 @@ void IRBuilder::ExitForStatement(ForStatementPtr st) {
     auto loopCompound = st->GetCompound();
     auto savedCompound = compound_;
     auto savedFunc = func_;
-    
+
     // Temporarily set scope and func to loop scope for creating values
     compound_ = loopCompound;
     func_ = savedFunc;  // func_ should remain the same
-    
+
     // Helper function to create a value based on initValue type
     // Create value directly without operations (no tensor.create op)
     auto createIterArgValue = [this](ValuePtr initValue) -> ValuePtr {
         if (!initValue) return nullptr;
-        
+
         ValueKind kind = initValue->GetValueKind();
         DataType dt = initValue->GetDataType();
-        
+
         if (kind == ValueKind::Tensor) {
-            auto tensor = std::dynamic_pointer_cast<Tensor>(initValue);
+            auto tensor = std::dynamic_pointer_cast<TensorValue>(initValue);
             if (tensor) {
                 return CreateTensor(tensor->GetShape(), dt, tensor->GetName());
             }
         } else if (kind == ValueKind::Tile) {
-            auto tile = std::dynamic_pointer_cast<Tile>(initValue);
+            auto tile = std::dynamic_pointer_cast<TileValue>(initValue);
             if (tile) {
                 return CreateTile(tile->GetShape(), dt, tile->GetName());
             }
         } else if (kind == ValueKind::Scalar) {
             return CreateScalar(dt, initValue->GetName());
         }
-        
+
         return nullptr;
     };
-    
+
     // Create values for iter_args and store mapping from initValue to value
     std::unordered_map<ValuePtr, ValuePtr> initValueToValue;
     for (auto& iterArg : st->IterArgs()) {
@@ -353,17 +353,17 @@ void IRBuilder::ExitForStatement(ForStatementPtr st) {
             }
         }
     }
-    
+
     // Restore scope
     compound_ = savedCompound;
-    
+
     // Replace initValue with iter_arg value in loop body operations
     // Also update environment table
     auto replaceValueInOperations = [&initValueToValue](OpStatement& opStmt) {
         for (auto& op : opStmt.Operations()) {
             if (!op) continue;
-            auto& inputs = op->MutableInputs();
-            for (auto& input : inputs) {
+            for (size_t k = 0; k < op->GetNumInputOperand(); k++) {
+                auto input = op->GetInputOperand(k);
                 auto it = initValueToValue.find(input);
                 if (it != initValueToValue.end()) {
                     input = it->second;
@@ -371,11 +371,11 @@ void IRBuilder::ExitForStatement(ForStatementPtr st) {
             }
         }
     };
-    
+
     // Recursive function to replace values in all nested statements
     std::function<void(StatementPtr)> replaceValueInStatement = [&](StatementPtr stmt) {
         if (!stmt) return;
-        
+
         // Handle OpStatement
         if (auto opStmt = std::dynamic_pointer_cast<OpStatement>(stmt)) {
             replaceValueInOperations(*opStmt);
@@ -408,12 +408,12 @@ void IRBuilder::ExitForStatement(ForStatementPtr st) {
             }
         }
     };
-    
+
     // Replace values in all statements in loop body
     for (auto& stmt : st->GetCompound()->GetStatements()) {
         replaceValueInStatement(stmt);
     }
-    
+
     // Collect values to yield from loop body BEFORE updating environment table
     // envAfterFor contains the final computed values from the loop body (e.g., %32)
     ValuePtrs yieldValues;
@@ -441,7 +441,7 @@ void IRBuilder::ExitForStatement(ForStatementPtr st) {
         if (!stmts.empty()) {
             hasYield = dynamic_cast<YieldStatement*>(stmts.back().get()) != nullptr;
         }
-        
+
         if (!hasYield) {
             auto yield = std::make_shared<YieldStatement>();
             yield->Values() = values;

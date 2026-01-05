@@ -9,23 +9,23 @@
 namespace pto {
 // ========== Value System Implementation ==========
 
-const std::string& Scalar::GetSymbolicExpr() const {
+const std::string& ScalarValue::GetSymbolicExpr() const {
     if (symbolicExpr_.empty()) {
         symbolicExpr_ = DataTypeToString(GetDataType());
     }
     return symbolicExpr_;
 }
 
-int64_t Scalar::GetInt64Value() const {
+int64_t ScalarValue::GetInt64Value() const {
     if (!HasConstantValue()) {
-        throw std::runtime_error("Scalar does not hold a constant value");
+        throw std::runtime_error("ScalarValue does not hold a constant value");
     }
     return std::visit([](const auto& val) -> int64_t {
         return static_cast<int64_t>(val);
     }, constantValue_);
 }
 
-void Scalar::Print(std::ostream& os, int indent) const {
+void ScalarValue::Print(std::ostream& os, int indent) const {
     PrintIndent(os, indent);
 
     switch (valueKind_) {
@@ -39,11 +39,11 @@ void Scalar::Print(std::ostream& os, int indent) const {
         os << GetSSAName();
         break;
     default:
-        os << "Unknown Scalar";
+        os << "Unknown ScalarValue";
     }
 }
 
-void Tensor::Print(std::ostream& os, int indent) const {
+void TensorValue::Print(std::ostream& os, int indent) const {
     PrintIndent(os, indent);
     os << "tensor<";
 
@@ -51,7 +51,7 @@ void Tensor::Print(std::ostream& os, int indent) const {
     os << "[";
     auto shape = GetShape();
     for (size_t i = 0; i < shape.size(); ++i) {
-        shape[i].Print(os);
+        shape[i]->Print(os);
         if (i + 1 < shape.size()) {
             os << ", ";
         }
@@ -65,14 +65,14 @@ void Tensor::Print(std::ostream& os, int indent) const {
     os << ">";
 }
 
-void Tile::Print(std::ostream& os, int indent) const {
+void TileValue::Print(std::ostream& os, int indent) const {
     PrintIndent(os, indent);
     os << "tile<[";
 
     // ====== valid shape ======
     const auto& shape = GetShape();
     for (size_t i = 0; i < validShapes_.size(); ++i) {
-        validShapes_[i].Print(os, 0);
+        validShapes_[i]->Print(os, 0);
         if (i + 1 < shape.size()) {
             os << ", ";
         }
@@ -87,21 +87,6 @@ void Tile::Print(std::ostream& os, int indent) const {
         }
     }
     os << "], ";
-
-    // // ====== strides ======
-    // for (size_t i = 0; i < strides_.size(); ++i) {
-    //     os << strides_[i];
-    //     if (i + 1 < strides_.size()) {
-    //         os << ", ";
-    //     }
-    // }
-    // os << "], ";
-
-    // // ====== offset ======
-    // if (startOffset_.has_value()) {
-    //     (*startOffset_).Print(os, 0);
-    // }
-    // os << ", ";
 
     // ====== type ======
     os << DataTypeToString(GetDataType());

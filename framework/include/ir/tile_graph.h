@@ -15,13 +15,13 @@
 
 #pragma once
 
-#include "def_utils.h"
-#include "tile_graph_def.h"
+#include "utils_defop.h"
+#include "tile_graph_base.h"
 
 namespace pto {
 
-#define DEF_OP DEF_CLASS_OP
+#define DEFOP DEFOP_CLASS
 #include "tile_graph.def"
-#undef DEF_OP
+#undef DEFOP
 
 } // namespace pto

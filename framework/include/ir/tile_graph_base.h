@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file tile_graph_def.h
+ * \file tile_graph_base.h
  * \brief
  */
 
@@ -25,15 +25,6 @@
 #include "operation.h"
 
 namespace pto {
-
-class TileType : public Type {
-
-};
-
-class TileValue : public Value {
-public:
-    std::shared_ptr<ScalarType> GetType();
-};
 
 class TileOp : public Operation {
 public:

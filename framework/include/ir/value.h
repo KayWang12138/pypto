@@ -75,34 +75,34 @@ using ValuePtrs = std::vector<ValuePtr>;
 using ConstantType = std::variant<bool, int, int64_t, size_t, double>;
 
 // Scalar type: bool, int4, int8, int16, int32, int64, fp8, fp16, bf16, fp32, fp64
-class Scalar : public Value {
+class ScalarValue : public Value {
 public:
-    explicit Scalar(DataType type, std::string name="", ScalarValueKind valueKind = ScalarValueKind::Symbolic)
+    explicit ScalarValue(DataType type, std::string name="", ScalarValueKind valueKind = ScalarValueKind::Symbolic)
         : Value(ValueKind::Scalar, std::make_shared<ScalarType>(type), name), valueKind_(valueKind), constantValue_(int64_t{0}) {}
 
-    explicit Scalar(std::string typeName, std::string name="", ScalarValueKind valueKind = ScalarValueKind::Symbolic)
+    explicit ScalarValue(std::string typeName, std::string name="", ScalarValueKind valueKind = ScalarValueKind::Symbolic)
         : Value(ValueKind::Scalar, std::make_shared<ScalarType>(StringToValueType(typeName)), name), valueKind_(valueKind), constantValue_(int64_t{0}) {}
 
-    explicit Scalar(DataType type, std::string name, ScalarValueKind valueKind, std::string expr, ConstantType constantVal)
+    explicit ScalarValue(DataType type, std::string name, ScalarValueKind valueKind, std::string expr, ConstantType constantVal)
         : Value(ValueKind::Scalar, std::make_shared<ScalarType>(type), name), symbolicExpr_(expr), valueKind_(valueKind), constantValue_(constantVal) {}
 
     // Constant value constructors - DataType is inferred from value type
-    explicit Scalar(bool value, std::string name="")
+    explicit ScalarValue(bool value, std::string name="")
         : Value(ValueKind::Scalar, std::make_shared<ScalarType>(DataType::BOOL), name), valueKind_(ScalarValueKind::Constant), constantValue_(value) {}
 
-    explicit Scalar(int value, std::string name="")
+    explicit ScalarValue(int value, std::string name="")
         : Value(ValueKind::Scalar, std::make_shared<ScalarType>(DataType::INT32), name), valueKind_(ScalarValueKind::Constant), constantValue_(value) {}
 
-    explicit Scalar(int64_t value, std::string name="")
+    explicit ScalarValue(int64_t value, std::string name="")
         : Value(ValueKind::Scalar, std::make_shared<ScalarType>(DataType::INT64), name), valueKind_(ScalarValueKind::Constant), constantValue_(value) {}
 
-    explicit Scalar(double value, std::string name="")
+    explicit ScalarValue(double value, std::string name="")
         : Value(ValueKind::Scalar, std::make_shared<ScalarType>(DataType::FP64), name), valueKind_(ScalarValueKind::Constant), constantValue_(value) {}
 
-    explicit Scalar(size_t value, std::string name="")
+    explicit ScalarValue(size_t value, std::string name="")
         : Value(ValueKind::Scalar, std::make_shared<ScalarType>(DataType::UINT64), name), valueKind_(ScalarValueKind::Constant), constantValue_(value) {}
 
-    Scalar() : Value(ValueKind::Scalar, std::make_shared<ScalarType>(DataType::UNKNOWN)) {}
+    ScalarValue() : Value(ValueKind::Scalar, std::make_shared<ScalarType>(DataType::UNKNOWN)) {}
 
     const std::string& GetSymbolicExpr() const;
     ScalarValueKind GetScalarValueKind() const { return valueKind_; }
@@ -125,6 +125,7 @@ private:
     ConstantType constantValue_;  // Constant value storage
 };
 
+using ScalarValuePtr = std::shared_ptr<ScalarValue>;
 
 enum class MemSpaceKind {
     UNKNOWN,
@@ -159,10 +160,10 @@ private:
 };
 
 // Tile: tile<validshape, tile_shapes, strides, start_offset, elem_type, memory>
-class Tile : public Value {
+class TileValue : public Value {
 public:
-    Tile(std::string name, std::vector<Scalar> validShapes, std::vector<size_t> shape,
-            std::vector<size_t> strides, Scalar startOffset, DataType elementType,
+    TileValue(std::string name, std::vector<ScalarValuePtr> validShapes, std::vector<size_t> shape,
+            std::vector<size_t> strides, ScalarValuePtr startOffset, DataType elementType,
             std::shared_ptr<Memory> mem=nullptr)
         : Value(ValueKind::Tile, std::make_shared<TileType>(elementType, shape), name),
           validShapes_(validShapes),
@@ -170,21 +171,21 @@ public:
           startOffset_(startOffset),
           mem_(mem) {}
 
-    Tile(std::vector<size_t> shape, DataType elementType,
-         std::vector<Scalar> validShapes, std::string name="")
+    TileValue(std::vector<size_t> shape, DataType elementType,
+         std::vector<ScalarValuePtr> validShapes, std::string name="")
         : Value(ValueKind::Tile, std::make_shared<TileType>(elementType, shape), name),
           validShapes_(validShapes) { }
 
-    Tile(std::vector<size_t> shape, DataType elementType,
+    TileValue(std::vector<size_t> shape, DataType elementType,
          std::string name="")
         : Value(ValueKind::Tile, std::make_shared<TileType>(elementType, shape), name) {
         validShapes_.reserve(shape.size());
         for (size_t i = 0; i < shape.size(); i++) {
-            validShapes_.emplace_back(Scalar(shape[i]));
+            validShapes_.emplace_back(std::make_shared<ScalarValue>(shape[i]));
         }
     }
 
-    const std::vector<Scalar>& GetValidShape() const { return validShapes_; }
+    const std::vector<ScalarValuePtr>& GetValidShape() const { return validShapes_; }
 
     // Get shape from Type system (TileType)
     const std::vector<size_t>& GetShape() const {
@@ -196,7 +197,7 @@ public:
     }
 
     const std::vector<size_t>& GetStrides() const { return strides_; }
-    Scalar GetStartOffset() const { return *startOffset_; }
+    ScalarValuePtr GetStartOffset() const { return *startOffset_; }
     const std::shared_ptr<Memory> GetMemory() const { return mem_; }
 
     void SetShape(const std::vector<size_t>& newShape) {
@@ -204,17 +205,19 @@ public:
         type_ = std::make_shared<TileType>(GetDataType(), newShape);
     }
     void SetStrides(const std::vector<size_t>& newStrides) { strides_ = newStrides; }
-    void SetStartOffset(const Scalar newStartOffset) { startOffset_ = newStartOffset; }
+    void SetStartOffset(const ScalarValuePtr newStartOffset) { startOffset_ = newStartOffset; }
     void SetMemory(const std::shared_ptr<Memory> newMem) { mem_ = newMem; }
 
     void Print(std::ostream& os, int indent = 0) const override;
 
 private:
-    std::vector<Scalar> validShapes_;
+    std::vector<ScalarValuePtr> validShapes_;
     std::vector<size_t> strides_;
-    std::optional<Scalar> startOffset_;
+    std::optional<ScalarValuePtr> startOffset_;
     std::shared_ptr<Memory> mem_;
 };
+
+using TileValuePtr = std::shared_ptr<TileValue>;
 
 // Enumeration for tile operation formats.
 enum class TileOpFormat {
@@ -222,38 +225,38 @@ enum class TileOpFormat {
     TILEOP_NZ = 1   // Non-zero (sparse) format
 };
 
-class Tensor : public Value {
+class TensorValue : public Value {
 public:
     // Construct tensor from a vector of Scalar dimensions.
-    Tensor(const std::vector<Scalar>& shape, DataType type, std::string name="",
+    TensorValue(const std::vector<ScalarValuePtr>& shape, DataType type, std::string name="",
             TileOpFormat format = TileOpFormat::TILEOP_ND) :
         Value(ValueKind::Tensor, std::make_shared<TensorType>(type), name), shape_(shape), format_(format) {}
 
     // Convenience constructor for static integer shapes.
     // This is mainly used by Python bindings where shapes are passed as ints.
     // The parameter order is aligned with Python Tensor(dtype, shape, name, format).
-    Tensor(DataType type, const std::vector<size_t>& shape, std::string name="",
+    TensorValue(DataType type, const std::vector<size_t>& shape, std::string name="",
             TileOpFormat format = TileOpFormat::TILEOP_ND) :
         Value(ValueKind::Tensor, std::make_shared<TensorType>(type), name), format_(format) {
 
         shape_.reserve(shape.size());
         for (size_t i = 0; i < shape.size(); ++i) {
-            shape_.emplace_back(shape[i]);
+            shape_.emplace_back(std::make_shared<ScalarValue>(shape[i]));
         }
     }
 
-    const std::vector<Scalar>& GetShape() const { return shape_; }
+    const std::vector<ScalarValuePtr>& GetShape() const { return shape_; }
 
     TileOpFormat GetFormat() const { return format_; }
     void SetFormat(TileOpFormat format) { format_ = format; }
 
     void Print(std::ostream& os, int indent) const override;
 private:
-    std::vector<Scalar> shape_;
+    std::vector<ScalarValuePtr> shape_;
     TileOpFormat format_;
 };
 
-static inline std::vector<ValuePtr> CastScalarToValue(const std::vector<ScalarPtr> &scalarList) {
+static inline std::vector<ValuePtr> CastScalarToValue(const std::vector<ScalarValuePtr> &scalarList) {
     std::vector<ValuePtr> valueList;
     for (auto scalar : scalarList) {
         valueList.emplace_back(std::static_pointer_cast<Value>(scalar));

@@ -12,16 +12,4 @@ OperationPtr IRBuilder::Emit(OperationPtr op) {
     return opStmt->Operations().back();
 }
 
-ValuePtrs IRBuilder::CreateOp(Opcode opcode,
-                              ValuePtrs inputs,
-                              std::shared_ptr<OpPayload> payload,
-                              std::string name) {
-    // Delegate to schema/traits but keep caller-provided outputs.
-    return BuildBySchema(*this,
-                         opcode,
-                         std::move(inputs),
-                         std::move(payload),
-                         name);
-}
-
 } // namespace pto

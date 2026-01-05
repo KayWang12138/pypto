@@ -1,10 +1,11 @@
 
 #pragma once
 
+#include "ir/object.h"
 #include "ir/value.h"
 #include "ir/utils.h"
 #include "ir/operation.h"
-#include "ir/object.h"
+#include "ir/tile_graph.h"
 
 #include <memory>
 #include <ostream>
@@ -59,7 +60,7 @@ public:
     // Get the parent scope (nullptr if this is a root scope).
     std::weak_ptr<CompoundStatement> GetParent() const { return parent_; }
     void SetParent(std::weak_ptr<CompoundStatement> parent) { parent_ = parent; }
-    
+
     // Get the list of statements in this scope.
     std::vector<StatementPtr>& GetStatements() { return statements_; }
     // const overload return non-reference, avoid iterator invalidation if modify statements_ in iteration.
@@ -73,7 +74,7 @@ public:
     ValuePtr FindValue(const std::string& name) const;
     // Romeve a Value in this scope
     void RemoveValue(ValuePtr val);
-    
+
     // Get all Value objects from ancestor scopes (excluding current scope).
     // Returns a map of variable name -> ValuePtr from parent, grandparent, etc. scopes.
     std::unordered_map<std::string, ValuePtr> GetAncestorValues() const;
@@ -81,16 +82,16 @@ public:
     // ===== Environment table management (for SSA variable tracking) =====
     // Environment table: maps variable name (string) to latest SSA ValuePtr
     // This is used to track the latest version of variables across scopes
-    
+
     // Set a variable in the environment table (by name)
     void SetEnvVar(const std::string& name, ValuePtr value);
-    
+
     // Get a variable from the environment table (by name), searching up the scope chain
     ValuePtr GetEnvVar(const std::string& name) const;
-    
+
     // Get the environment table for this scope
     std::unordered_map<std::string, ValuePtr>& GetEnvTable() { return envTable_; }
-    const std::unordered_map<std::string, ValuePtr>& GetEnvTable() const { return envTable_; } 
+    const std::unordered_map<std::string, ValuePtr>& GetEnvTable() const { return envTable_; }
 
 private:
     std::weak_ptr<CompoundStatement> parent_{};                         // Pointer to parent scope (nullptr for root)
@@ -142,24 +143,24 @@ struct IterArg {
 // Loop range containing start, end, and step as Scalar values.
 class LoopRange {
 public:
-    LoopRange(std::shared_ptr<Scalar> start, std::shared_ptr<Scalar> end, std::shared_ptr<Scalar> step)
+    LoopRange(ScalarValuePtr start, ScalarValuePtr end, ScalarValuePtr step)
         : start_(std::move(start)), end_(std::move(end)), step_(std::move(step)) {}
 
-    const std::shared_ptr<Scalar>& GetStart() const { return start_; }
-    const std::shared_ptr<Scalar>& GetEnd() const { return end_; }
-    const std::shared_ptr<Scalar>& GetStep() const { return step_; }
+    const ScalarValuePtr& GetStart() const { return start_; }
+    const ScalarValuePtr& GetEnd() const { return end_; }
+    const ScalarValuePtr& GetStep() const { return step_; }
 
 private:
-    std::shared_ptr<Scalar> start_;
-    std::shared_ptr<Scalar> end_;
-    std::shared_ptr<Scalar> step_;
+    ScalarValuePtr start_;
+    ScalarValuePtr end_;
+    ScalarValuePtr step_;
 };
 
 // Sequential for loop with induction variable and loop-carried values.
 class ForStatement : public Statement {
 public:
-    ForStatement(std::shared_ptr<Scalar> iterationVar, std::shared_ptr<Scalar> start,
-                 std::shared_ptr<Scalar> end, std::shared_ptr<Scalar> step)
+    ForStatement(ScalarValuePtr iterationVar, ScalarValuePtr start,
+                 ScalarValuePtr end, ScalarValuePtr step)
         : iterationVar_(std::move(iterationVar)),
           range_(std::make_shared<LoopRange>(std::move(start), std::move(end), std::move(step))) {
         compound_ = std::make_shared<CompoundStatement>();
@@ -167,16 +168,16 @@ public:
 
     StatementKind GetKind() const override { return StatementKind::For; }
 
-    const std::shared_ptr<Scalar>& GetIterationVar() const { return iterationVar_; }
-    const std::shared_ptr<Scalar>& GetStart() const { return range_->GetStart(); }
-    const std::shared_ptr<Scalar>& GetEnd() const { return range_->GetEnd(); }
-    const std::shared_ptr<Scalar>& GetStep() const { return range_->GetStep(); }
+    const ScalarValuePtr& GetIterationVar() const { return iterationVar_; }
+    const ScalarValuePtr& GetStart() const { return range_->GetStart(); }
+    const ScalarValuePtr& GetEnd() const { return range_->GetEnd(); }
+    const ScalarValuePtr& GetStep() const { return range_->GetStep(); }
     const std::shared_ptr<LoopRange>& GetRange() const { return range_; }
 
     // Optional loop-carried accumulator arguments.
     std::vector<IterArg>& IterArgs() { return iterArgs_; }
     const std::vector<IterArg>& IterArgs() const { return iterArgs_; }
-    
+
     // Add an iter_arg with the given initial value.
     // The value field will be created and set in ExitForStatement.
     void AddIterArg(ValuePtr initValue) {
@@ -203,7 +204,7 @@ public:
     void Print(std::ostream& os, int indent) const override;
 
 private:
-    std::shared_ptr<Scalar> iterationVar_;
+    ScalarValuePtr iterationVar_;
     std::shared_ptr<LoopRange> range_;
     std::vector<IterArg> iterArgs_;
     CompoundStatementPtr compound_;  // Scope for Data objects and statements created in this loop body

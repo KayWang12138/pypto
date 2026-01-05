@@ -62,30 +62,33 @@
 #define MAP_CONCAT(a, b) MAP_CONCAT_(a, b)
 #define MAP(fn, ...) MAP_CONCAT(MAP_, MAP_SIZE(__VA_ARGS__))(fn, __VA_ARGS__)
 
-#define DEF_OPCODE_DICT_OP(name, inherit, opcode, ...) DEF_OPCODE_DICT_##opcode
-#define DEF_OPCODE_DICT_OPCODE(...) MAP(DEF_OPCODE_DICT_NAME, __VA_ARGS__)
-#define DEF_OPCODE_DICT_NAME(n) {Opcode::n, #n},
+#define DEFOP_OPCODE(name, inherit, opcode, ...) DEFOP_OPCODE_##opcode,
+#define DEFOP_OPCODE_OPCODE(...) __VA_ARGS__
 
-#define DEF_CLASS_INHERIT(name) name
-#define DEF_CLASS_ATTR(attr) DEF_CLASS_GET_SET_##attr
-#define DEF_CLASS_GET_SET_
-#define DEF_CLASS_GET_SET_ATTR(type, name) \
+#define DEFOP_OPCODE_DICT(name, inherit, opcode, ...) DEFOP_OPCODE_DICT_##opcode
+#define DEFOP_OPCODE_DICT_OPCODE(...) MAP(DEFOP_OPCODE_DICT_NAME, __VA_ARGS__)
+#define DEFOP_OPCODE_DICT_NAME(n) {Opcode::n, #n},
+
+#define DEFOP_CLASS_INHERIT(name) name
+#define DEFOP_CLASS_ATTR(attr) DEFOP_CLASS_GET_SET_##attr
+#define DEFOP_CLASS_GET_SET_
+#define DEFOP_CLASS_GET_SET_ATTR(type, name) \
     private: \
         type attr##name##_; \
     public: \
         type Get##name() const { return attr##name##_; } \
         void Set##name(type &&value) { attr##name##_ = value; }
 
-#define DEF_CLASS_OP(name, inherit, opcode, ...) \
-    class name : public DEF_CLASS_##inherit { \
+#define DEFOP_CLASS(name, inherit, opcode, ...) \
+    class name : public DEFOP_CLASS_##inherit { \
     public: \
         template<typename ...TyArgs> \
-        name(TyArgs && ...val) : DEF_CLASS_##inherit(val...) {} \
+        name(TyArgs && ...args) : DEFOP_CLASS_##inherit(args...) {} \
     private: \
-        MAP(DEF_CLASS_ATTR, __VA_ARGS__) \
+        MAP(DEFOP_CLASS_ATTR, __VA_ARGS__) \
     }; \
     using name##Ptr = std::shared_ptr<name>;
 
-namespace pto {
-
-} // namespace pto
+#define DEFOP_IRBUILDER(name, inherit, opcode, ...) \
+    template<typename ...TyArgs> \
+    name##Ptr Create##name(TyArgs && ...args) { return std::make_shared<name>(args...); }

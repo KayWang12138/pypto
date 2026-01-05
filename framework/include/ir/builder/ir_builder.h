@@ -4,19 +4,17 @@
 
 #pragma once
 
-#include "ir/program.h"
-#include "ir/function.h"
-#include "ir/statement.h"
-#include "ir/op/op_opcode.h"
-#include "ir/op/op_payload.h"
-#include "ir/value.h"
-#include "ir/builder/op_builder.h"
-#include "ir/builder/guard.h"
-
 #include <memory>
 #include <string>
 #include <vector>
 #include <unordered_map>
+
+#include "ir/program.h"
+#include "ir/function.h"
+#include "ir/statement.h"
+#include "ir/value.h"
+#include "ir/utils_defop.h"
+#include "ir/builder/guard.h"
 
 namespace pto {
 
@@ -48,11 +46,11 @@ public:
     ValuePtr AddToCompound(ValuePtr v);
 
     // Optional convenience: create values (not "like", just explicit)
-    std::shared_ptr<Tensor> CreateTensor(const std::vector<Scalar>& shape, DataType dt, std::string name = "");
-    std::shared_ptr<Tile>   CreateTile(const std::vector<size_t>& shape, DataType dt, std::string name = "");
-    std::shared_ptr<Scalar> CreateScalar(DataType dt, std::string name = "");
-    std::shared_ptr<Scalar> CreateConst(int64_t v, std::string name = "");
-    std::shared_ptr<Scalar> CreateConst(double v, std::string name = "");
+    std::shared_ptr<TensorValue> CreateTensor(const std::vector<ScalarValuePtr>& shape, DataType dt, std::string name = "");
+    std::shared_ptr<TileValue> CreateTile(const std::vector<size_t>& shape, DataType dt, std::string name = "");
+    std::shared_ptr<ScalarValue> CreateScalar(DataType dt, std::string name = "");
+    std::shared_ptr<ScalarValue> CreateConst(int64_t v, std::string name = "");
+    std::shared_ptr<ScalarValue> CreateConst(double v, std::string name = "");
 
     // ===== Emit op (used by schema build) =====
     OperationPtr Emit(OperationPtr op);
@@ -61,18 +59,18 @@ public:
     // All semantics (results/payload rules) are in Schema/Trait (BuildBySchema).
     // Writeback-style: caller provides outputs (for a few ops like assemble)
 
-    ValuePtrs CreateOp(Opcode opcode,
-                    ValuePtrs inputs,
-                    std::shared_ptr<OpPayload> payload = nullptr,
-                    std::string name = "");
+#define DEFOP DEFOP_IRBUILDER
+#include "ir/operation.def"
+#include "ir/tile_graph.def"
+#undef DEFOP
 
     // ===== Statement building (still belongs to IRBuilder) =====
     OpStatementPtr CreateOpStmt();
 
-    ForStatementPtr CreateForStmt(std::shared_ptr<Scalar> iv,
-                                std::shared_ptr<Scalar> start,
-                                std::shared_ptr<Scalar> end,
-                                std::shared_ptr<Scalar> step);
+    ForStatementPtr CreateForStmt(ScalarValuePtr iv,
+                                ScalarValuePtr start,
+                                ScalarValuePtr end,
+                                ScalarValuePtr step);
 
     IfStatementPtr CreateIfStmt(std::string cond);
 

@@ -18,6 +18,7 @@ file(GLOB _Interface_Srcs
         interpreter/*.cpp
         utils/*.cpp
         ir/*.cpp
+        ir/builder/*.cpp
 
         # Operation
         operation/*.cpp
@@ -103,5 +104,3 @@ if (ENABLE_TORCH_VERIFIER)
                 $<$<BOOL:${ENABLE_GCOV}>:$<$<CXX_COMPILER_ID:GNU>:-fprofile-arcs -ftest-coverage>>
     )
 endif () ## ENABLE_TORCH_VERIFIER
-
-add_subdirectory(ir)

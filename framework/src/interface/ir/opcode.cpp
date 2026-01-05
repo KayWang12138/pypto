@@ -19,16 +19,16 @@
 #include <unordered_set>
 #include <unordered_map>
 #include "ir/opcode.h"
-#include "ir/def_utils.h"
+#include "ir/utils_defop.h"
 
 namespace pto {
 
 static std::unordered_map<Opcode, std::string> opcodeNameDict = {
 
-#define DEF_OP DEF_OPCODE_DICT_OP
+#define DEFOP DEFOP_OPCODE_DICT
 #include "ir/operation.def"
 #include "ir/tile_graph.def"
-#undef DEF_OP
+#undef DEFOP
 
 };
 

@@ -20,5 +20,4 @@
 #include "ir/tile_graph.h"
 
 namespace pto {
-
 } // namespace pto

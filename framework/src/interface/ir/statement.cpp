@@ -26,7 +26,7 @@ void CompoundStatement::RemoveValue(ValuePtr val) {
 
 std::unordered_map<std::string, ValuePtr> CompoundStatement::GetAncestorValues() const {
     std::unordered_map<std::string, ValuePtr> ancestor_values;
-    
+
     // Traverse all ancestor scopes (parent, grandparent, etc.)
     auto currentParent = parent_.lock();
     while (currentParent) {
@@ -41,11 +41,11 @@ std::unordered_map<std::string, ValuePtr> CompoundStatement::GetAncestorValues()
                 }
             }
         }
-        
+
         // Move to next ancestor
         currentParent = currentParent->GetParent().lock();
     }
-    
+
     return ancestor_values;
 }
 
@@ -62,12 +62,12 @@ ValuePtr CompoundStatement::GetEnvVar(const std::string& name) const {
     if (it != envTable_.end()) {
         return it->second;
     }
-    
+
     // If not found, search in parent scope (recursively)
     if (auto parentPtr = parent_.lock()) {
         return parentPtr->GetEnvVar(name);
     }
-    
+
     // Not found in any scope
     return nullptr;
 }
@@ -90,7 +90,7 @@ void OpStatement::Print(std::ostream& os, int indent) const {
 void ForStatement::Print(std::ostream& os, int indent) const {
     PrintIndent(os, indent);
 
-    // Print result variables if results_ is non-empty (preferred), 
+    // Print result variables if results_ is non-empty (preferred),
     // otherwise derive from loop body's terminal yield.
     if (!results_.empty()) {
         for (size_t i = 0; i < results_.size(); ++i) {
@@ -254,12 +254,12 @@ void ForStatement::BuildResult() {
     for (size_t i = 0; i < iterArgs_.size(); ++i) {
         auto yieldVal = yieldVals[i];
         auto initVal = iterArgs_[i].initValue;
-        
+
         if (!yieldVal || !initVal) {
             results_.clear();
             return;
         }
-        
+
         // Check type compatibility.
         if (yieldVal->GetValueKind() != initVal->GetValueKind() ||
             yieldVal->GetDataType() != initVal->GetDataType()) {
@@ -268,26 +268,26 @@ void ForStatement::BuildResult() {
         }
 
         // For tiles, create a new tile with the same shape/element type.
-        auto yieldTile = std::dynamic_pointer_cast<Tile>(yieldVal);
-        auto initTile = std::dynamic_pointer_cast<Tile>(initVal);
+        auto yieldTile = std::dynamic_pointer_cast<TileValue>(yieldVal);
+        auto initTile = std::dynamic_pointer_cast<TileValue>(initVal);
         if (yieldTile && initTile) {
-            auto res = std::make_shared<Tile>(yieldTile->GetShape(),
+            auto res = std::make_shared<TileValue>(yieldTile->GetShape(),
                                                yieldTile->GetDataType(), yieldTile->GetName());
             results_.push_back(res);
         } else {
             // For tensors, create a new tensor with the same shape/element type.
-            auto yieldTensor = std::dynamic_pointer_cast<Tensor>(yieldVal);
-            auto initTensor = std::dynamic_pointer_cast<Tensor>(initVal);
+            auto yieldTensor = std::dynamic_pointer_cast<TensorValue>(yieldVal);
+            auto initTensor = std::dynamic_pointer_cast<TensorValue>(initVal);
             if (yieldTensor && initTensor) {
-                auto res = std::make_shared<Tensor>(yieldTensor->GetShape(), yieldTensor->GetDataType(),
+                auto res = std::make_shared<TensorValue>(yieldTensor->GetShape(), yieldTensor->GetDataType(),
                                                     yieldTensor->GetName(), yieldTensor->GetFormat());
                 results_.push_back(res);
             } else {
                 // For other types (e.g., Scalar), create a new scalar with the same type.
-                auto yieldScalar = std::dynamic_pointer_cast<Scalar>(yieldVal);
-                auto initScalar = std::dynamic_pointer_cast<Scalar>(initVal);
+                auto yieldScalar = std::dynamic_pointer_cast<ScalarValue>(yieldVal);
+                auto initScalar = std::dynamic_pointer_cast<ScalarValue>(initVal);
                 if (yieldScalar && initScalar) {
-                    auto res = std::make_shared<Scalar>(yieldScalar->GetDataType(),
+                    auto res = std::make_shared<ScalarValue>(yieldScalar->GetDataType(),
                                                          yieldScalar->GetName(),
                                                          yieldScalar->GetScalarValueKind());
                     results_.push_back(res);
@@ -343,18 +343,18 @@ void IfStatement::BuildResult() {
         }
 
         // For tiles, create a new tiles with the same shape/element type/layout.
-        auto tTile = std::dynamic_pointer_cast<Tile>(t);
-        auto eTile = std::dynamic_pointer_cast<Tile>(e);
+        auto tTile = std::dynamic_pointer_cast<TileValue>(t);
+        auto eTile = std::dynamic_pointer_cast<TileValue>(e);
         if (tTile && eTile) {
-            auto res = std::make_shared<Tile>(tTile->GetShape(),
+            auto res = std::make_shared<TileValue>(tTile->GetShape(),
                                             eTile->GetDataType(), tTile->GetName());
             results_.push_back(res);
         } else {
             // For tensors, create a new tensor with the same shape/element type.
-            auto tTensor = std::dynamic_pointer_cast<Tensor>(t);
-            auto eTensor = std::dynamic_pointer_cast<Tensor>(e);
+            auto tTensor = std::dynamic_pointer_cast<TensorValue>(t);
+            auto eTensor = std::dynamic_pointer_cast<TensorValue>(e);
             if (tTensor && eTensor) {
-                auto res = std::make_shared<Tensor>(tTensor->GetShape(), eTensor->GetDataType(),
+                auto res = std::make_shared<TensorValue>(tTensor->GetShape(), eTensor->GetDataType(),
                                                     tTensor->GetName(), tTensor->GetFormat());
                 results_.push_back(res);
             } else {
