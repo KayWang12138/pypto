@@ -116,8 +116,8 @@ TILEOP void DynL1CopyInNZ2NZ(__cbuf__ L1T *dst, __gm__ GMT *src, unsigned TShape
         for (int32_t nIdx = 0; nIdx < static_cast<int32_t>(TShape1 / c0Size); ++nIdx) {
             int64_t dstOffsetStep = nIdx * c0Size * TShape0;
             int64_t srcOffsetStep = nIdx * c0Size * curH + srcOffset;
-            copy_gm_to_cbuf(dst + dstOffsetStep, src + srcOffsetStep, 0, nBurst, lenBurst, srcStride, dstStride,
-                            PAD_NONE);
+            copy_gm_to_cbuf(
+                dst + dstOffsetStep, src + srcOffsetStep, 0, nBurst, lenBurst, srcStride, dstStride, PAD_NONE);
         }
     } else {
         copy_gm_to_cbuf(dst, src + srcOffset, 0, nBurst, lenBurst, srcStride, dstStride, PAD_NONE);
@@ -142,8 +142,8 @@ TILEOP void DynL1ToL0A(__ca__ T *dst, __cbuf__ T *src, unsigned dstM, unsigned d
         dstK = CeilAlign<uint16_t>(dstK, BLOCK_CUBE_M_N);
         // LOAD3DV2 param: dstAddr, srcAddr, stepK, stepM, posK, posM, strideW, strideH, Wk, Hk, dilationW, dilationH,
         // filterW, filterH, transpose, fmatrixCtrl, sizeChannel
-        img2colv2_cbuf_to_ca(dst, src, dstK, dstM, Offset1, Offset0, 1, 1, 1, 1, 1, 1, false, false, false, false,
-                             srcK);
+        img2colv2_cbuf_to_ca(
+            dst, src, dstK, dstM, Offset1, Offset0, 1, 1, 1, 1, 1, 1, false, false, false, false, srcK);
         return;
     }
 
@@ -179,7 +179,7 @@ TILEOP void DynL1ToL0At(__ca__ T *dst, __cbuf__ T *src, unsigned dstM, unsigned 
     srcK = CeilAlign<uint16_t>(srcK, BLOCK_CUBE_M_N);
 
     if constexpr (std::is_same<T, float>::value) {
-        uint64_t config = srcK | (1 << 16);  // 16含义：featureH对应的寄存器偏移
+        uint64_t config = srcK | (1 << 16); // 16含义：featureH对应的寄存器偏移
         set_fmatrix(config);
         // LOAD3DV2 param: dstAddr, srcAddr, stepK, stepM, posK, posM, strideW, strideH, Wk, Hk, dilationW, dilationH,
         // filterW, filterH, transpose, fmatrixCtrl, sizeChannel
@@ -312,7 +312,7 @@ TILEOP void DynL1ToL0Bt(__cb__ T *dst, __cbuf__ T *src, unsigned dstK, unsigned 
 }
 
 template <typename L1T, typename BTT, unsigned Offset>
-TILEOP void DynL1ToBT(uint64_t dst, __cbuf__ L1T *src, unsigned nSize){
+TILEOP void DynL1ToBT(uint64_t dst, __cbuf__ L1T *src, unsigned nSize) {
     constexpr uint16_t nBurst = 1;
     uint16_t lenBurst = CeilDiv<uint16_t>(nSize * sizeof(L1T), 64); // IN UNIT OF 64B
     constexpr uint16_t sourceGap = 0;
@@ -322,16 +322,16 @@ TILEOP void DynL1ToBT(uint64_t dst, __cbuf__ L1T *src, unsigned nSize){
 }
 
 template <typename T, unsigned L1Offset>
-TILEOP void DynL1ToFB(__fbuf__ T* dst, __cbuf__ T *src, unsigned nSize){
-   // align to 128B
-   uint16_t deqDataSize = CeilDiv<uint16_t>(nSize * sizeof(uint64_t), 128) * 128;
-   // l1->fb
-   uint16_t fbufBurstLen = deqDataSize / 128; // copy from cbuf to fbuf,burst len uint is 128Bytes
-   copy_cbuf_to_fbuf(dst,src + L1Offset, 1, fbufBurstLen, 0, 0);
-   // FPC of fixpipe for quant_pre is FPX[15:8],uint is 128Bytes
-   // 7 means dst to 8 to set fpc
-   uint64_t deqTensorAddr = ((uint64_t)dst >> static_cast<uint64_t>(7)) << 8;
-   set_fpc(deqTensorAddr);
+TILEOP void DynL1ToFB(__fbuf__ T *dst, __cbuf__ T *src, unsigned nSize) {
+    // align to 128B
+    uint16_t deqDataSize = CeilDiv<uint16_t>(nSize * sizeof(uint64_t), 128) * 128;
+    // l1->fb
+    uint16_t fbufBurstLen = deqDataSize / 128; // copy from cbuf to fbuf,burst len uint is 128Bytes
+    copy_cbuf_to_fbuf(dst, src + L1Offset, 1, fbufBurstLen, 0, 0);
+    // FPC of fixpipe for quant_pre is FPX[15:8],uint is 128Bytes
+    // 7 means dst to 8 to set fpc
+    uint64_t deqTensorAddr = ((uint64_t)dst >> static_cast<uint64_t>(7)) << 8;
+    set_fpc(deqTensorAddr);
 }
 
 template <typename Tc, typename Ta, typename Tb, unsigned Offset0, unsigned Offset1, bool HasBias = false>
@@ -348,15 +348,15 @@ TILEOP void DynTmad(__cc__ Tc *c, __ca__ Ta *a, __cb__ Tb *b, uint16_t m, uint16
         n = CeilAlign<uint16_t>(n, 32); // 32含义：int8场景总是保证L0B中32对齐
     }
     constexpr bool kDirectionAlign = true;
-    mad((__cc__ Tc *)(c + (Offset0 * BLOCK_CUBE_M_N) + Offset1 * L0CShape0), a, b, m, k, n, 0, kDirectionAlign,
-        HasBias, zero_C);
+    mad((__cc__ Tc *)(c + (Offset0 * BLOCK_CUBE_M_N) + Offset1 * L0CShape0), a, b, m, k, n, 0, kDirectionAlign, HasBias,
+        zero_C);
     pipe_barrier(PIPE_M);
 }
 
 template <typename GMT, typename L0CT, bool enableNZ2ND, uint8_t reluMode>
 TILEOP void DynL0CCopyOut(__gm__ GMT *dst, __cc__ L0CT *src, unsigned oriTShape0, unsigned oriTShape1,
-    unsigned GmShape0, unsigned GmShape1, unsigned GmOffset0, unsigned GmOffset1, unsigned curH, unsigned curW,
-    int uf, uint64_t scaleValue = 0) {
+    unsigned GmShape0, unsigned GmShape1, unsigned GmOffset0, unsigned GmOffset1, unsigned curH, unsigned curW, int uf,
+    uint64_t scaleValue = 0) {
     if (oriTShape0 == 0 || oriTShape1 == 0) {
         return;
     }
@@ -399,12 +399,12 @@ TILEOP void DynL0CCopyOut(__gm__ GMT *dst, __cc__ L0CT *src, unsigned oriTShape0
             quantPre = QuantMode_t::NoQuant;
         }
     } else if constexpr (std::is_same<L0CT, int32_t>::value && std::is_same<GMT, half>::value) {
-       if (scaleValue == 0) {
-           quantPre = QuantMode_t::VDEQF16;
-       }else {
-           set_quant_pre(scaleValue);
-           quantPre = QuantMode_t::DEQF16;
-       }
+        if (scaleValue == 0) {
+            quantPre = QuantMode_t::VDEQF16;
+        } else {
+            set_quant_pre(scaleValue);
+            quantPre = QuantMode_t::DEQF16;
+        }
     }
     uint8_t unitFlagMode = uf;
 
@@ -426,13 +426,14 @@ TILEOP void DynL0CCopyOut(__gm__ GMT *dst, __cc__ L0CT *src, unsigned oriTShape0
 }
 
 template <typename L1T, typename L0CT, uint8_t reluMode>
-TILEOP void DynL0CToL1(__cbuf__ L1T *dst, __cc__ L0CT *src, unsigned oriTShape0, unsigned oriTShape1,
-    unsigned l1Shape0, unsigned l1Shape1, unsigned l1Offset0, unsigned l1Offset1, uint64_t scaleValue = 0) {
+TILEOP void DynL0CToL1(__cbuf__ L1T *dst, __cc__ L0CT *src, unsigned shape0, unsigned shape1, unsigned l1Shape0,
+    unsigned l1Shape1, unsigned l1Offset0, unsigned l1Offset1, unsigned l0cShape0, unsigned l0cShape1,
+    unsigned l0cOffset0, unsigned l0cOffset1, uint64_t scaleValue = 0) {
     int64_t c0Size = BLOCK_ALIGN_BYTE / sizeof(L1T);
-    uint16_t mSize = oriTShape0;
-    uint16_t nSize = CeilAlign<uint16_t>(oriTShape1, c0Size);
+    uint16_t mSize = shape0;
+    uint16_t nSize = CeilAlign<uint16_t>(shape1, c0Size);
     uint32_t dstStrideDstD = l1Shape0;
-    uint16_t srcStride = CeilAlign<uint16_t>(oriTShape0, BLOCK_CUBE_M_N);
+    uint16_t srcStride = CeilAlign<uint16_t>(shape0, BLOCK_CUBE_M_N);
 
     uint8_t unitFlagMode = 0;
     uint64_t quantPre = NoQuant;
@@ -446,26 +447,37 @@ TILEOP void DynL0CToL1(__cbuf__ L1T *dst, __cc__ L0CT *src, unsigned oriTShape0,
             quantPre = QuantMode_t::NoQuant;
         }
     } else if constexpr (std::is_same<L0CT, int32_t>::value && std::is_same<L1T, half>::value) {
-       if (scaleValue == 0) {
-           quantPre = QuantMode_t::VDEQF16;
-       }else {
-           set_quant_pre(scaleValue);
-           quantPre = QuantMode_t::DEQF16;
-       }
+        if (scaleValue == 0) {
+            quantPre = QuantMode_t::VDEQF16;
+        } else {
+            set_quant_pre(scaleValue);
+            quantPre = QuantMode_t::DEQF16;
+        }
     }
-
     bool channelSplit = std::is_same<L1T, float>::value;
     bool nZ2NDEN = false;
+    // 等大搬运
     int64_t l1Offset = l1Offset1 * l1Shape0 + l1Offset0 * c0Size;
-    copy_matrix_cc_to_cbuf((__cbuf__ L1T *)(dst + l1Offset), (__cc__ L0CT *)src, 0, nSize, mSize, dstStrideDstD,
-        srcStride, unitFlagMode, quantPre, reluMode, channelSplit, nZ2NDEN);
+    int64_t l0cOffset = 0;
+    // 大搬小
+    if (l1Shape0 < l0cShape0 || l1Shape1 < l0cShape1) {
+        l0cOffset = l0cShape0 * l1Offset1;
+        l1Offset = 0;
+    } else if (l1Shape0 > l0cShape0 || l1Shape1 > l0cShape1) { // 小搬大
+        l0cOffset = l1Shape0 * l0cOffset1;
+    }
+
+    copy_matrix_cc_to_cbuf((__cbuf__ L1T *)(dst + l1Offset), (__cc__ L0CT *)(src + l0cOffset), 0, nSize, mSize,
+        dstStrideDstD, srcStride, unitFlagMode, quantPre, reluMode, channelSplit, nZ2NDEN);
 }
 
 // Internal: Reserved for custom scenarios.
-template <typename T, typename T2, typename T3, int64_t dstRawShape0, int64_t offsetRawShape1, int64_t srcColumnStartOffset, int64_t blockSize>
+template <typename T, typename T2, typename T3, int64_t dstRawShape0, int64_t offsetRawShape1,
+    int64_t srcColumnStartOffset, int64_t blockSize>
 TILEOP void GatherInL1(__cbuf__ T *dst, int64_t dstOriginShape0, int64_t dstOriginShape1, __gm__ T *src,
-    int64_t srcRawShape1, __gm__ T2 *offsets, __gm__ T3 *blockTable, int64_t offsetsRowStartOffset, int64_t offsetsColumnStartOffset,
-    int64_t GMBlockTableStride1, int64_t GMBlockTableOffset0, int64_t GMBlockTableOffset1) {
+    int64_t srcRawShape1, __gm__ T2 *offsets, __gm__ T3 *blockTable, int64_t offsetsRowStartOffset,
+    int64_t offsetsColumnStartOffset, int64_t GMBlockTableStride1, int64_t GMBlockTableOffset0,
+    int64_t GMBlockTableOffset1) {
     static_assert(std::is_same_v<T2, int32_t> || std::is_same_v<T2, int64_t>);
     constexpr uint16_t c0Size = BLOCK_SIZE / sizeof(T);
     uint16_t nBurst = dstOriginShape1 / c0Size;
@@ -483,8 +495,8 @@ TILEOP void GatherInL1(__cbuf__ T *dst, int64_t dstOriginShape0, int64_t dstOrig
                 uint64_t gatherOffset = offsets[i + offsetsStartOffset];
                 gatherOffset = CalaOffset2PageAttention<uint64_t, T3, blockSize>(blockTable, gatherOffset);
                 copy_gm_to_cbuf_multi_nd2nz_b8((__cbuf__ T *)dst + i * c0Size,
-                    (__gm__ T *)src + gatherOffset * srcRawShape1 + srcColumnStartOffset, 0, 1,
-                    1, dValue, 0, srcDValue, dstNzC0Stride, 1, 1);
+                    (__gm__ T *)src + gatherOffset * srcRawShape1 + srcColumnStartOffset, 0, 1, 1, dValue, 0, srcDValue,
+                    dstNzC0Stride, 1, 1);
             }
         }
         if constexpr (std::is_same<T, half>::value || std::is_same<T, bfloat16_t>::value) {
@@ -492,8 +504,8 @@ TILEOP void GatherInL1(__cbuf__ T *dst, int64_t dstOriginShape0, int64_t dstOrig
                 uint64_t gatherOffset = offsets[i + offsetsStartOffset];
                 gatherOffset = CalaOffset2PageAttention<uint64_t, T3, blockSize>(blockTable, gatherOffset);
                 copy_gm_to_cbuf_multi_nd2nz_b16((__cbuf__ T *)dst + i * c0Size,
-                    (__gm__ T *)src + gatherOffset * srcRawShape1 + srcColumnStartOffset, 0, 1,
-                    1, dValue, 0, srcDValue, dstNzC0Stride, 1, 1);
+                    (__gm__ T *)src + gatherOffset * srcRawShape1 + srcColumnStartOffset, 0, 1, 1, dValue, 0, srcDValue,
+                    dstNzC0Stride, 1, 1);
             }
         }
         if constexpr (std::is_same<T, float>::value) {
@@ -501,8 +513,8 @@ TILEOP void GatherInL1(__cbuf__ T *dst, int64_t dstOriginShape0, int64_t dstOrig
                 uint64_t gatherOffset = offsets[i + offsetsStartOffset];
                 gatherOffset = CalaOffset2PageAttention<uint64_t, T3, blockSize>(blockTable, gatherOffset);
                 copy_gm_to_cbuf_multi_nd2nz_b32s((__cbuf__ T *)dst + i * c0Size,
-                    (__gm__ T *)src + gatherOffset * srcRawShape1 + srcColumnStartOffset, 0, 1,
-                    1, dValue, 0, srcDValue, dstNzC0Stride, 1, 1);
+                    (__gm__ T *)src + gatherOffset * srcRawShape1 + srcColumnStartOffset, 0, 1, 1, dValue, 0, srcDValue,
+                    dstNzC0Stride, 1, 1);
             }
         }
     } else {
@@ -512,8 +524,7 @@ TILEOP void GatherInL1(__cbuf__ T *dst, int64_t dstOriginShape0, int64_t dstOrig
         for (int64_t i = 0; i < dstOriginShape0; i++) {
             uint64_t gatherOffset = offsets[i + offsetsStartOffset];
             gatherOffset = CalaOffset2PageAttention<uint64_t, T3, blockSize>(blockTable, gatherOffset);
-            copy_gm_to_cbuf(dst + i * c0Size,
-                src + gatherOffset * srcRawShape1 + srcColumnStartOffset, 0, nBurst, 1, 0,
+            copy_gm_to_cbuf(dst + i * c0Size, src + gatherOffset * srcRawShape1 + srcColumnStartOffset, 0, nBurst, 1, 0,
                 dstStride, PAD_NONE);
         }
     }
