@@ -102,6 +102,8 @@ TILEOP void TgatherElement(T0 dst, T1 src0, T2 src1, T3 tmp) {
                         pto::TASSIGN(srcTile, (uint64_t)(src0.GetAddr()));
                         pto::TASSIGN(idxTile, (uint64_t)(tmp.GetAddr()));
                         pto::TGATHER(dstTile, srcTile, idxTile);
+                        set_flag(PIPE_V, PIPE_S, EVENT_ID7);
+                        wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
                     }
                 }
             }
