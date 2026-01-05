@@ -460,13 +460,14 @@ void DeviceRunner::DumpAiCoreExecutionTimeData() {
     std::string topo_txt_path = config::LogTopFolder() + "/dyn_topo.txt";
     std::string program_json_path = config::LogTopFolder() + "/program.json";
     std::string draw_swim_lane_py_path = GetCurrentSharedLibPath() + "/scripts/draw_swim_lane.py";
+    uint32_t freq = (args_.archInfo == ArchInfo::DAV_2201) ? 50 : 1000;
 
     if (FileExist(program_json_path) && FileExist(topo_txt_path)) {
         ALOG_INFO("The files program.json and dyn_topo.txt exist. Start merging the swimlane.");
         std::string command = "python3 "+ draw_swim_lane_py_path + " \""
                                 + jsonFilePath + "\" \""
                                 + topo_txt_path + "\" \""
-                                + program_json_path + "\" --label_type=1 --time_convert_denominator=50";
+                                + program_json_path + "\" --label_type=1 --time_convert_denominator=" + std::to_string(freq);
         if (system(command.c_str()) != 0) {
            ALOG_WARN("Failed to execute draw_swim_lane.py. Stop merging the swimlane.");
         }
@@ -740,7 +741,7 @@ int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, r
     localArgs.nrAicpu = launchAicpuNum;
     blockDim_ = blockdim;
     aicpuNum_ = launchAicpuNum;
-    localArgs.scheCpuNum = dynamic::CalcSchAicpuNumByBlockDim(blockdim, aicpuNum_);
+    localArgs.scheCpuNum = dynamic::CalcSchAicpuNumByBlockDim(blockdim, aicpuNum_, localArgs.archInfo);
     localArgs.enableCtrl = ctrlStream == nullptr ? 1 : 0; // need set 0 if use custom cpu launch ctrl cpu
     localArgs.validGetPgMask = machine::GetRA()->GetValidGetPgMask();
     localArgs.disableSync = config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_NO_DEVICE_TENSOR_DEPEND ? 1 : 0;

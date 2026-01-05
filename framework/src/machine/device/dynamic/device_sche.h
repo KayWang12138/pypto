@@ -43,9 +43,6 @@ struct AicoreLogManager {
 class DeviceMachine {
 public:
     DeviceMachine() {
-        for (uint32_t i = 0; i < MAX_SCHEDULE_AICPU_NUM; ++i) {
-            aicoreManager_[i] = std::make_unique<AiCoreManager>(aicpuTaskManager_);
-        }
         validCore_.fill(false);
     }
 
@@ -54,6 +51,10 @@ public:
     }
     
     void init(uint32_t schNum) {
+        schNum = schNum == 0 ? 1 : schNum; // avoid segment error
+        for (uint32_t i = 0; i < schNum; ++i) {
+            aicoreManager_.push_back(std::make_unique<AiCoreManager>(aicpuTaskManager_));
+        }
         schAicpuNum_ = schNum;
     }
 
@@ -66,7 +67,7 @@ public:
         }
 
         DEV_INFO("thread %d start .", threadIdx);
-        if (static_cast<uint32_t>(threadIdx) >= MAX_SCHEDULE_AICPU_NUM) {
+        if (static_cast<uint32_t>(threadIdx) >= args->scheCpuNum) {
             DEV_INFO("thread start ignore ");
             return DEVICE_MACHINE_OK;
         }
@@ -128,7 +129,7 @@ public:
 private:
     AicpuTaskManager aicpuTaskManager_;
     uint32_t schAicpuNum_{MAX_SCHEDULE_AICPU_NUM};
-    std::unique_ptr<AiCoreManager> aicoreManager_[MAX_SCHEDULE_AICPU_NUM];
+    std::vector<std::unique_ptr<AiCoreManager>> aicoreManager_ {};
     std::array<bool, MAX_AICORE_NUM> validCore_;
 #if ENABLE_AICORE_PRINT
     AicoreLogManager logManager;
