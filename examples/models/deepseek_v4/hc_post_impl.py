@@ -84,7 +84,7 @@ def hc_post_kernel(
 
 
 @allow_in_graph
-def hc_post_torch_graph(
+def npu_hc_post(
     x: torch.tensor,
     residual: torch.tensor,
     post: torch.tensor,
@@ -106,4 +106,3 @@ def hc_post_torch_graph(
         pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
         pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
         hc_post_kernel(*pto_inputs, *pto_outputs, tile_config)
-        pypto.runtime._device_synchronize()#内部接口，不推荐使用
