@@ -1388,14 +1388,10 @@ Function* MixSubgraphSplit::CreateSplitLeafFunction(Function& rootFunc,
                                                     SubgraphToFunction& subgraphToFunction) {
     // 创建新的function名称
     std::string leafName = originalMixFunc.GetRawName() + "_leaf" + std::to_string(i);
-    ALOG_DEBUG_F("Add leafFunction %s", leafName.c_str());
-    // 手动创建function对象
     auto funcMagicName = leafName + "_" + std::to_string(IdGen<IdType::FUNCTION>::Inst().CurId());
-    auto newFunc = std::make_shared<Function>(Program::GetInstance(), funcMagicName, leafName, &rootFunc);
-    // 设置function类型
-    newFunc->SetFunctionType(FunctionType::STATIC);
-    newFunc->SetGraphType(GraphType::BLOCK_GRAPH);
-
+    // 手动创建function对象
+    auto newFunc = rootFunc.Clone(newProgramID, funcMagicName, leafName, component.aivCore);
+    
     std::vector<std::shared_ptr<Operation>> programOps;
     // 获取原始Mix子图的所有op（按原始顺序）
     auto originalOps = originalMixFunc.Operations(false).DuplicatedOpList();
@@ -1412,7 +1408,6 @@ Function* MixSubgraphSplit::CreateSplitLeafFunction(Function& rootFunc,
                 break;
             }
         }
-
         if (belongsToComponent) {
             programOps.push_back(originalOp->shared_from_this());
             ALOG_DEBUG_F("Added op %d to leaf function %s (original order preserved)",
@@ -1423,18 +1418,9 @@ Function* MixSubgraphSplit::CreateSplitLeafFunction(Function& rootFunc,
     ALOG_DEBUG_F("Leaf function %s has %zu ops in original order",
                 leafName.c_str(), programOps.size());
     newFunc->SetProgramOp(programOps);
-    // 创建并设置LeafFuncAttribute
-    auto leafAttr = std::make_shared<LeafFuncAttribute>();
-    // 设置aivCore属性
-    leafAttr->aivCore = component.aivCore;
-    newFunc->SetLeafFuncAttribute(leafAttr);
-    newFunc->UpdateBelongToThis();
-    newFunc->SetProgramId(newProgramID);
-    // 复制参数配置
-    newFunc->paramConfigs_ = originalMixFunc.paramConfigs_;
-    ALOG_DEBUG_F("Called UpdateBelongToThis for new function: %s", leafName.c_str());
     newFunc->ComputeHash();
     FunctionHash funcHash = newFunc->GetFunctionHash();
+    
     ALOG_DEBUG_F("Function %s computed hash: %lu", leafName.c_str(), funcHash);
     Program::GetInstance().GetFunctionCache().Insert(funcHash, *newFunc);
     ALOG_DEBUG_F("Inserted new function %s into function cache with hash %lu",
