@@ -35,27 +35,21 @@ inline bool IsViewOp(const Operation& op) {
     return opc == Opcode::OP_VIEW || opc == Opcode::OP_VIEW_TYPE;
 }
 
-template <typename NextFn, typename OnViewFn>
-Operation* SkipViewChain(Operation* start, NextFn next, OnViewFn on_view) {
+template <typename NextFn>
+Operation* SkipViewChain(Operation* start, NextFn nextFn) {
     if (start == nullptr || !IsViewOp(*start)) return nullptr;
     Operation* op = start;
     Operation* lastView = nullptr;
     while (op != nullptr && IsViewOp(*op)) {
-        on_view(op);
         lastView = op;
-        // next 返回迭代方向的集合
-        decltype(auto) nextOps = next(op);
+        // nextFn 返回迭代方向的集合
+        decltype(auto) nextOps = nextFn(op);
         if (nextOps.empty()) break;
-        Operation* nxt = *nextOps.begin();
-        if (nxt == nullptr) break;
-        op = nxt;
+        Operation* nextOp = *nextOps.begin();
+        if (nextOp == nullptr) break;
+        op = nextOp;
     }
     return lastView;
-}
-
-template <typename NextFn>
-Operation* SkipViewChain(Operation* start, NextFn next) {
-    return SkipViewChain(start, next, [](Operation*) {});
 }
 
 IssueEntry::IssueEntry(Operation &op, uint64_t issueId)
@@ -111,20 +105,26 @@ Operation* IssueEntry::FindFirstView(Operation *op, LogicalTensorPtr tensor) con
     auto next = [](Operation* x) {
         return x->GetInputOperand(0)->GetProducers();
     };
-    auto on_view = [&](Operation* viewOp) {
-        viewOp->GetOutputOperand(0)->memoryrange.memId = tensor->memoryrange.memId;
-    };
-    return SkipViewChain(op, next, on_view); 
+    return SkipViewChain(op, next); 
 }
 
 void IssueEntry::UpdateTensorInputForView(Operation& op,
     std::shared_ptr<IssueEntry> &spillSrcIssue, LogicalTensorPtr tensor) const {
+    bool hit = false;
     for (auto it : op.GetInputOperand(0)->GetProducers()) {
         if (it == &(spillSrcIssue->tileOp)) {
+            hit = true;
             op.UpdateInputOperand(0, tensor);
-            op.GetOutputOperand(0)->memoryrange.memId = tensor->memoryrange.memId;
             break;
         }
+    }
+    if (!hit) return;
+    // 向后刷该View链路上的MemId
+    for (Operation* p = &op; p != nullptr && IsViewOp(*p); ) {
+        p->GetOutputOperand(0)->memoryrange.memId = tensor->memoryrange.memId;
+        auto consumers = p->GetOutputOperand(0)->GetConsumers();
+        if (consumers.empty()) break;
+        p = *consumers.begin();
     }
 }
 
@@ -1103,7 +1103,7 @@ Status OoOScheduler::FindMoveFromTensor(Operation &occupyOp, int oldMemId, Memor
     }
     // 如果moveFrom Tensor是UB且数据类型为bf16, rearrange失败
     if (memType == MemoryType::MEM_UB && moveFromTensor->Datatype() == DataType::DT_BF16) {
-        APASS_LOG_WARN_F(Elements::Tensor, "Cannot rearrange UB tensor with datatype bf16, do schedulemainloop spill.");
+        APASS_LOG_ERROR_F(Elements::Tensor, "Cannot rearrange UB tensor with datatype bf16, do schedulemainloop spill.");
         rearrangeUBBF16 = true;
     }
     return SUCCESS;
