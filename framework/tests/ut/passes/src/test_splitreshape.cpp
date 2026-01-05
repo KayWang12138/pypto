@@ -1522,8 +1522,6 @@ TEST_F(TestSplitReshapePass, TestDynBeCoveredSTest) {
         }
     }
 
-    Operation *newAssemble1 = newAssembles[input1];
-    Operation *newAssemble2 = newAssembles[input2];
     EXPECT_EQ(reshapeOp, kNumTwo);
     EXPECT_EQ(viewOp, kNumFour);
     EXPECT_EQ(assembleOp, 11);
@@ -1546,7 +1544,6 @@ TEST_F(TestSplitReshapePass, TestDynBeCoveredSTest) {
         {input2, expectValidShape2}
     };
 
-    
     for (auto [input, newAssemble] : newAssembles) {
         EXPECT_NE(newAssemble, nullptr);
         auto assembleDynValidShape = dynamic_cast<AssembleOpAttribute *>(newAssemble->GetOpAttribute().get())->GetFromDynValidShape();
@@ -1675,107 +1672,96 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchWithAllSTest) {
     int reshapeOp = 0;
     int assembleOp = 0;
     int viewOp = 0;
-    Operation *newAssemble1 = nullptr;
-    Operation *newAssemble2 = nullptr;
-    Operation *newAssemble3 = nullptr;
-    Operation *newAssemble4 = nullptr;
+
+    std::unordered_map<std::shared_ptr<LogicalTensor>, int> inputsWeight = {
+        {input1, 1},
+        {input2, 10},
+        {input3, 100},
+        {input4, 1000}
+    };
+    std::unordered_map<std::shared_ptr<LogicalTensor>, Operation*> newAssembles = {
+        {input1, nullptr},
+        {input2, nullptr},
+        {input3, nullptr},
+        {input4, nullptr}
+    };
+    std::unordered_map<std::shared_ptr<LogicalTensor>, std::vector<int64_t>> expectAssembleOffset = {
+        {input1, assembleOffset1},
+        {input2, assembleOffset2},
+        {input3, assembleOffset3},
+        {input4, assembleOffset4}
+    };
+    std::vector<LogicalTensorPtr> reshapeOutputs;
+
     for (auto &op : func->Operations().DuplicatedOpList()) {
         if (op->GetOpcode() == Opcode::OP_RESHAPE) {
             reshapeOp++;
         } else if (op->GetOpcode() == Opcode::OP_ASSEMBLE) {
-            if (op->GetInputOperand(kSizeZero) == input1) {
-                newAssemble1 = op;
-                assembleOp += 1;
-            } else if (op->GetInputOperand(kSizeZero) == input2) {
-                newAssemble2 = op;
-                assembleOp += 10;
-            } else if (op->GetInputOperand(kSizeZero) == input3) {
-                newAssemble3 = op;
-                assembleOp += 100;
-            } else if (op->GetInputOperand(kSizeZero) == input4) {
-                newAssemble4 = op;
-                assembleOp += 1000;
+            for (auto [input, weight] : inputsWeight){
+                if (op->GetInputOperand(kSizeZero) == input){
+                    newAssembles[input] = op;
+                    assembleOp += weight;
+                }
             }
         } else if (op->GetOpcode() == Opcode::OP_VIEW) {
             viewOp++;
         }
     }
+
     EXPECT_EQ(reshapeOp, kNumTwo);
     EXPECT_EQ(viewOp, kNumTwo);
-
     EXPECT_EQ(assembleOp, 1111);
-    EXPECT_NE(newAssemble1, nullptr);
-    EXPECT_NE(newAssemble2, nullptr);
-    EXPECT_EQ(newAssemble1->GetOutputOperand(kSizeZero), newAssemble2->GetOutputOperand(kSizeZero));
-    EXPECT_NE(newAssemble3, nullptr);
-    EXPECT_NE(newAssemble4, nullptr);
-    EXPECT_EQ(newAssemble3->GetOutputOperand(kSizeZero), newAssemble4->GetOutputOperand(kSizeZero));
-    auto reshapeSource1 = newAssemble1->GetOutputOperand(kSizeZero);
-    auto reshapeSource2 = newAssemble4->GetOutputOperand(kSizeZero);
-    EXPECT_NE(reshapeSource1, reshapeSource2);
 
-    auto assembleDynValidShape1 = dynamic_cast<AssembleOpAttribute *>(newAssemble1->GetOpAttribute().get())->GetFromDynValidShape();
-    auto assembleDynValidShape2 = dynamic_cast<AssembleOpAttribute *>(newAssemble2->GetOpAttribute().get())->GetFromDynValidShape();
-    auto assembleDynValidShape3 = dynamic_cast<AssembleOpAttribute *>(newAssemble3->GetOpAttribute().get())->GetFromDynValidShape();
-    auto assembleDynValidShape4 = dynamic_cast<AssembleOpAttribute *>(newAssemble4->GetOpAttribute().get())->GetFromDynValidShape();
-    EXPECT_EQ(assembleDynValidShape1.size(), kNumThree);
-    EXPECT_EQ(assembleDynValidShape2.size(), kNumThree);
-    EXPECT_EQ(assembleDynValidShape3.size(), kNumThree);
-    EXPECT_EQ(assembleDynValidShape4.size(), kNumThree);
-    for (size_t i = 0; i < kNumThree; ++i) {
-        EXPECT_EQ(assembleDynValidShape1[i].Dump(), dynInputShape[i].Dump());
-        EXPECT_EQ(assembleDynValidShape2[i].Dump(), dynInputShape[i].Dump());
-        EXPECT_EQ(assembleDynValidShape3[i].Dump(), dynInputShape[i].Dump());
-        EXPECT_EQ(assembleDynValidShape4[i].Dump(), dynInputShape[i].Dump());
-    }
-
-    std::vector<SymbolicScalar> assembleDynOutput1 = reshapeSource1->GetDynValidShape();
-    std::vector<SymbolicScalar> assembleDynOutput2 = reshapeSource2->GetDynValidShape();
-    EXPECT_EQ(assembleDynOutput1.size(), kNumThree);
-    EXPECT_EQ(assembleDynOutput2.size(), kNumThree);
     std::vector<std::string> expectAssembleDynShape = {
         "2",
         "4",
         "RUNTIME_Max(RUNTIME_Max(0, (a*RUNTIME_Ne(a, 0))), (a*RUNTIME_Ne(a, 0)))"
     };
-    for (size_t i = 0; i < kNumThree; ++i) {
-        EXPECT_EQ(assembleDynOutput1[i].Dump(), expectAssembleDynShape[i]);
-        EXPECT_EQ(assembleDynOutput2[i].Dump(), expectAssembleDynShape[i]);
-    }
-
-    auto reshape1 = *(reshapeSource1->GetConsumers().begin());
-    auto reshape2 = *(reshapeSource2->GetConsumers().begin());
-    EXPECT_NE(reshape1, reshape2);
-    auto reshapeOutput1 = reshape1->GetOutputOperand(kSizeZero);
-    auto reshapeOutput2 = reshape2->GetOutputOperand(kSizeZero);
-
-    std::vector<SymbolicScalar> reshapeAttrValidShape1;
-    std::vector<SymbolicScalar> reshapeAttrValidShape2;
-    std::vector<SymbolicScalar> reshapeDynOutput1 = reshapeOutput1->GetDynValidShape();
-    std::vector<SymbolicScalar> reshapeDynOutput2 = reshapeOutput2->GetDynValidShape();
-    EXPECT_TRUE(reshape1->GetAttr(OP_ATTR_PREFIX + "validShape", reshapeAttrValidShape1));
-    EXPECT_TRUE(reshape2->GetAttr(OP_ATTR_PREFIX + "validShape", reshapeAttrValidShape2));
-
-    EXPECT_EQ(reshapeDynOutput1.size(), kNumFour);
-    EXPECT_EQ(reshapeDynOutput2.size(), kNumFour);
     std::vector<std::string> expectValidShape = {
         "2",
         "2",
         "2",
         "RUNTIME_Max(0, ((RUNTIME_GetViewValidShapeDim(a,0,2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a,0,2), 0))-0))"
     };
-    for (size_t i = 0; i < kNumFour; ++i) {
-        EXPECT_EQ(reshapeDynOutput1[i].Dump(), expectValidShape[i]);
-        EXPECT_EQ(reshapeDynOutput2[i].Dump(), expectValidShape[i]);
-        EXPECT_EQ(reshapeAttrValidShape1[i].Dump(), expectValidShape[i]);
-        EXPECT_EQ(reshapeAttrValidShape2[i].Dump(), expectValidShape[i]);
+    std::unordered_map<std::shared_ptr<LogicalTensor>, std::vector<std::string>> expectValidShapes = {
+        {input1, expectValidShape},
+        {input2, expectValidShape},
+        {input3, expectValidShape},
+        {input4, expectValidShape}
+    };
+
+    for (auto [input, newAssemble] : newAssembles) {
+        EXPECT_NE(newAssemble, nullptr);
+        auto assembleDynValidShape = dynamic_cast<AssembleOpAttribute *>(newAssemble->GetOpAttribute().get())->GetFromDynValidShape();
+        EXPECT_EQ(assembleDynValidShape.size(), kNumThree);
+        for (size_t i = 0; i < kNumThree; ++i) {
+            EXPECT_EQ(assembleDynValidShape[i].Dump(), dynInputShape[i].Dump());
+        }
+        auto reshapeSource = newAssemble->GetOutputOperand(kSizeZero);
+        std::vector<SymbolicScalar> assembleDynOutput = reshapeSource->GetDynValidShape();
+        EXPECT_EQ(assembleDynOutput.size(), kNumThree);
+        for (size_t i = 0; i < kNumThree; ++i) {
+            EXPECT_EQ(assembleDynOutput[i].Dump(), expectAssembleDynShape[i]);
+        }
+        auto reshape = *(reshapeSource->GetConsumers().begin());
+        auto reshapeOutput = reshape->GetOutputOperand(kSizeZero);
+        reshapeOutputs.emplace_back(reshapeOutput);
+        std::vector<SymbolicScalar> reshapeAttrValidShape;
+        std::vector<SymbolicScalar> reshapeDynOutput = reshapeOutput->GetDynValidShape();
+        EXPECT_TRUE(reshape->GetAttr(OP_ATTR_PREFIX + "validShape", reshapeAttrValidShape));
+        EXPECT_EQ(reshapeDynOutput.size(), kNumFour);
+        EXPECT_EQ(reshapeAttrValidShape.size(), kNumFour);
+        for (size_t i = 0; i < kNumFour; ++i) {
+            EXPECT_EQ(reshapeDynOutput[i].Dump(), expectValidShapes[input][i]);
+            EXPECT_EQ(reshapeAttrValidShape[i].Dump(), expectValidShapes[input][i]);
+        }
     }
 
-    EXPECT_NE(reshapeOutput1, reshapeOutput2);
-    EXPECT_EQ(reshapeOutput1->GetConsumers().size(), kNumOne);
-    EXPECT_EQ(reshapeOutput2->GetConsumers().size(), kNumOne);
-    auto view1 = *(reshapeOutput1->GetConsumers().begin());
-    auto view2 = *(reshapeOutput2->GetConsumers().begin());
+    EXPECT_NE(reshapeOutputs[0], reshapeOutputs[3]);
+    EXPECT_EQ(reshapeOutputs[0]->GetConsumers().size(), kNumOne);
+    EXPECT_EQ(reshapeOutputs[3]->GetConsumers().size(), kNumOne);
+    auto view1 = *(reshapeOutputs[0]->GetConsumers().begin());
+    auto view2 = *(reshapeOutputs[3]->GetConsumers().begin());
     EXPECT_NE(view1, view2);
 }
 
