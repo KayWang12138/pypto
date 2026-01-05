@@ -268,5 +268,47 @@ TEST_F(TestInferDiscontinuousInput, testScenarioInsert_2) {
     auto assembleOp3 = *insertTensor3->GetConsumers().begin();
     EXPECT_EQ(assembleOp3->GetOpcode(), Opcode::OP_ASSEMBLE);
 }
+
+TEST_F(TestInferDiscontinuousInput, testProcessViewAssembleDDR) {
+    // Build Graph
+    ComputationalGraphBuilder G;
+    Function *function = G.GetFunction();
+    G.AddTensor(DataType::DT_FP16, {16, 32}, MemoryType::MEM_DEVICE_DDR, "incast");
+    G.AddTensor(DataType::DT_FP16, {16, 32}, MemoryType::MEM_DEVICE_DDR, "outcast");
+    G.AddTensor(DataType::DT_FP16, {16, 16}, MemoryType::MEM_DEVICE_DDR, "t1");
+    G.AddTensor(DataType::DT_FP16, {16, 16}, MemoryType::MEM_DEVICE_DDR, "t2");
+    G.AddTensor(DataType::DT_FP16, {16, 16}, MemoryType::MEM_DEVICE_DDR, "t3");
+    auto incast = G.GetTensor("incast");
+    auto outcast = G.GetTensor("outcast");
+    auto t1 = G.GetTensor("t1");
+    auto t2 = G.GetTensor("t2");
+    auto t3 = G.GetTensor("t3");
+
+    G.AddOp(Opcode::OP_VIEW, {"incast"}, {"t1"}, "view1");
+    auto view1 = G.GetOp("view1");
+    auto attrView1 = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 0}, MemoryType::MEM_DEVICE_DDR);
+    view1->SetOpAttribute(attrView1);
+
+    G.AddOp(Opcode::OP_ASSEMBLE, {"t1"}, {"outcast"}, "assemble1");
+    auto assemble1 = G.GetOp("assemble1");
+    auto attrAssemble1 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, std::vector<int64_t>{0, 0});
+    assemble1->SetOpAttribute(attrAssemble1);
+
+    G.AddOp(Opcode::OP_VIEW, {"incast"}, {"t2"}, "view2");
+    auto view2 = G.GetOp("view2");
+    auto attrView2 = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{16, 16}, MemoryType::MEM_DEVICE_DDR);
+    view2->SetOpAttribute(attrView2);
+
+    G.AddOp(Opcode::OP_MUL, {"t2"}, {"t3"}, "mul");
+
+    G.AddOp(Opcode::OP_ASSEMBLE, {"t3"}, {"outcast"}, "assemble2");
+    auto assemble2 = G.GetOp("assemble2");
+    auto attrAssemble2 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, std::vector<int64_t>{16, 16});
+    assemble2->SetOpAttribute(attrAssemble2);
+
+    // run pass
+    InferDiscontinuousInput inferDiscontinuousInput;
+    inferDiscontinuousInput.Run(*function, "", "", 0);
+}
 } // namespace tile_fwk
 } // namespace npu
