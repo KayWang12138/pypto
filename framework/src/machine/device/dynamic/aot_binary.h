@@ -128,13 +128,13 @@ struct AOTBinaryExpressionTable : AOTBinary {
 };
 
 struct DeviceExecuteProgram {
-    DevAscendProgram *prog{nullptr};
+    DevPyPtoProgram *prog{nullptr};
 
     AOTBinaryControlFlow controlFlowBinary;
     AOTBinaryExpressionTable exprBinary;
 
     DeviceExecuteProgram() {}
-    DeviceExecuteProgram(DevAscendProgram *prog_, AOTBinaryControlFlow::controlFlowEntry entry = nullptr)
+    DeviceExecuteProgram(DevPyPtoProgram *prog_, AOTBinaryControlFlow::controlFlowEntry entry = nullptr)
         : prog(prog_),
           controlFlowBinary(IsDeviceMode() ? prog_->GetDevControlFlowBinary() : prog_->GetHostControlFlowBinary(), entry),
           exprBinary(prog_->GetExpressionTableBinary()) {}

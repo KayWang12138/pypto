@@ -15,7 +15,7 @@
 #include "machine/host/machine_compiler.h"
 
 namespace npu::tile_fwk {
-/* 每次device agent 处理后的信息, 如所有在workspace申请的内存, 每个AscendFunction一个 */
+/* 每次device agent 处理后的信息, 如所有在workspace申请的内存, 每个PyPtoFunction一个 */
 struct MachineDeviceAgentInfo {
     //uint32_t aicoreCnt{AICORE_NUM}; // 从全局配置获取
     uint8_t* workspaceGmAddr{nullptr};

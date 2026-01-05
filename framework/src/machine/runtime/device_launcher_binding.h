@@ -191,7 +191,7 @@ public:
         const std::vector<DeviceTensorData> &outputs) const {
         auto dynAttr = func_->GetDyndevAttribute();
         std::vector<uint8_t> &devProgData = dynAttr->devProgBinary;
-        auto *devProg = reinterpret_cast<DevAscendProgram *>(devProgData.data());
+        auto *devProg = reinterpret_cast<DevPyPtoProgram *>(devProgData.data());
         Evaluator eval{dynAttr->inputSymbolDict, inputs, outputs};
         devProg->memBudget.tensor.maxDynamicAssembleOutcastMem = eval.Evaluate(dynAttr->maxDynamicAssembleOutcastMem);
         return devProg->memBudget.Total();

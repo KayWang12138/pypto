@@ -19,14 +19,14 @@
 #include "interface/tensor/runtime_slot.h"
 
 namespace npu::tile_fwk::dynamic {
-struct DevAscendOperationOperandInfo {
+struct DevPyPtoOperationOperandInfo {
     int tensorIndex{0};
     int staticOffsetAttrBeginIndex{0};
     int staticShapeAttrBeginIndex{0};
     int staticRawShapeAttrBeginIndex{0};
 
-    DevAscendOperationOperandInfo() {}
-    DevAscendOperationOperandInfo(int tTensorIndex, int tStaticAttrBeginIndex, int tStaticDim)
+    DevPyPtoOperationOperandInfo() {}
+    DevPyPtoOperationOperandInfo(int tTensorIndex, int tStaticAttrBeginIndex, int tStaticDim)
         : tensorIndex(tTensorIndex),
           staticOffsetAttrBeginIndex(tStaticAttrBeginIndex),
           staticShapeAttrBeginIndex(tStaticAttrBeginIndex + tStaticDim),
@@ -34,9 +34,9 @@ struct DevAscendOperationOperandInfo {
     int GetDim() const { return staticShapeAttrBeginIndex - staticOffsetAttrBeginIndex; }
 };
 
-struct DevAscendOperation {
-    DevLocalVector<DevAscendOperationOperandInfo> ioperandList;
-    DevLocalVector<DevAscendOperationOperandInfo> ooperandList;
+struct DevPyPtoOperation {
+    DevLocalVector<DevPyPtoOperationOperandInfo> ioperandList;
+    DevLocalVector<DevPyPtoOperationOperandInfo> ooperandList;
     DevLocalVector<SymInt> attrList; // opattr[0] -> hash
     int32_t outcastStitchIndex;
     uint32_t depGraphPredCount;
@@ -45,24 +45,24 @@ struct DevAscendOperation {
     uint64_t debugOpmagic; // DEBUG_ONLY
 };
 
-struct DevAscendFunctionCallOperandUse {
+struct DevPyPtoFunctionCallOperandUse {
     int operationIdx{-1};
     int operandIdx{-1};
     int offsetAttrIdx{-1};
     int shapeAttrIdx{-1};
 
-    DevAscendFunctionCallOperandUse() = default;
-    DevAscendFunctionCallOperandUse(int operationIdx_, int operandIdx_, int offsetAttrIdx_, int shapeAttrIdx_)
+    DevPyPtoFunctionCallOperandUse() = default;
+    DevPyPtoFunctionCallOperandUse(int operationIdx_, int operandIdx_, int offsetAttrIdx_, int shapeAttrIdx_)
         : operationIdx(operationIdx_), operandIdx(operandIdx_), offsetAttrIdx(offsetAttrIdx_), shapeAttrIdx(shapeAttrIdx_) {}
 };
 
-struct DevAscendFunctionIncast {
+struct DevPyPtoFunctionIncast {
     int tensorIndex;
     DevLocalVector<int> fromSlotList;
 
     int dim;
     int stitchByAllFullMatch;
-    DevLocalVector<DevAscendFunctionCallOperandUse> consumerList;
+    DevLocalVector<DevPyPtoFunctionCallOperandUse> consumerList;
 
     DevCellMatchTableDesc cellMatchTableDesc;
     DevLocalVector<uint32_t> cellMatchStaticIncastTable;
@@ -70,7 +70,7 @@ struct DevAscendFunctionIncast {
     DevLocalVector<uint32_t> stitchPolicyFullCoverConsumerAllOpIdxList;
 };
 
-struct DevAscendFunctionOutcast {
+struct DevPyPtoFunctionOutcast {
     int tensorIndex;
     DevLocalVector<int> toSlotList;
 
@@ -78,24 +78,24 @@ struct DevAscendFunctionOutcast {
     int stitchByAllFullMatch;
     RuntimeSlotDesc desc;
 
-    DevLocalVector<DevAscendFunctionCallOperandUse> producerList;
+    DevLocalVector<DevPyPtoFunctionCallOperandUse> producerList;
 
     DevCellMatchTableDesc cellMatchTableDesc;
     DevLocalVector<uint32_t> cellMatchStaticOutcastTable;
     DevLocalVector<uint32_t> cellMatchRuntimeFullUpdateTable;
 
     int stitchPolicyFullCoverProducerHubOpIdx;
-    DevLocalVector<DevAscendFunctionCallOperandUse> stitchPolicyFullCoverProducerList;
+    DevLocalVector<DevPyPtoFunctionCallOperandUse> stitchPolicyFullCoverProducerList;
     DevLocalVector<uint32_t> stitchPolicyFullCoverProducerAllOpIdxList;
     int exprListIndex;
 };
 
 struct InoutOperationAttr {
     int dim;
-    std::vector<DevAscendFunctionCallOperandUse> useList;
+    std::vector<DevPyPtoFunctionCallOperandUse> useList;
     int cellMatchSize;
 
-    std::vector<DevAscendFunctionCallOperandUse> stitchPolicyFullCoverProducerList;
+    std::vector<DevPyPtoFunctionCallOperandUse> stitchPolicyFullCoverProducerList;
     int stitchPolicyFullCoverProducerHubOpIdx;
 
     DevCellMatchTableDesc cellMatchTableDesc;
@@ -104,14 +104,14 @@ struct InoutOperationAttr {
     int bindTensorExprIndex{-1};
 };
 
-struct DevAscendFunctionDuppedOperation {
+struct DevPyPtoFunctionDuppedOperation {
     uint32_t size;
     uint32_t predCountBase;
     uint32_t stitchBase;
     uint32_t stitchCount;
 };
 
-struct DevAscendFunctionDuppedVector {
+struct DevPyPtoFunctionDuppedVector {
     uint32_t size;
     uint32_t base;
 };

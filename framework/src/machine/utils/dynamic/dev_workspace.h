@@ -30,11 +30,11 @@ inline constexpr uint32_t SUBMMIT_TASK_QUE_SIZE = 32;
 class DeviceWorkspaceAllocator {
 public:
     DeviceWorkspaceAllocator() = default;
-    explicit DeviceWorkspaceAllocator(DevAscendProgram *base) : devProg_(base) {}
+    explicit DeviceWorkspaceAllocator(DevPyPtoProgram *base) : devProg_(base) {}
     ~DeviceWorkspaceAllocator() = default;
     void Init(DevStartArgs *args) {
         uintdevptr_t baseAddr = args->contextWorkspaceAddr;
-        DevAscendProgram *devProg = args->devProg;
+        DevPyPtoProgram *devProg = args->devProg;
 
         // Host coherent allocators MUST be initialized EARLIEST since some other allocators might depend on them
         InitMetadataAllocators(devProg);
@@ -89,11 +89,11 @@ public:
         return tensorWsVerifier_.Verify(ptr, size);
     }
 
-    void VerifyStitchedListMemory(DevStartArgs &args, const DevAscendFunctionDupped *stitchedList, size_t size) {
+    void VerifyStitchedListMemory(DevStartArgs &args, const DevPyPtoFunctionDupped *stitchedList, size_t size) {
         struct MemoryInfo {
             uintdevptr_t ptr;
             size_t size;
-            DevAscendFunctionDupped dup;
+            DevPyPtoFunctionDupped dup;
             size_t stitchedListIndex;
             size_t rawIndex;
 
@@ -177,7 +177,7 @@ public:
     }
 
 private:
-    bool TryAllocateFuncWs(DevAscendFunctionDupped dup, uint64_t rootInnerSize, WsAllocatorCounter *dfxCounter = nullptr) {
+    bool TryAllocateFuncWs(DevPyPtoFunctionDupped dup, uint64_t rootInnerSize, WsAllocatorCounter *dfxCounter = nullptr) {
         if (!tensorAllocators_.rootInner.CanAllocate(rootInnerSize)) {
             tensorAllocators_.rootInner.ResetPool();
             if (!tensorAllocators_.rootInner.CanAllocate(rootInnerSize)) {
@@ -214,7 +214,7 @@ public:
     }
 #endif
 
-    bool TryAllocateFunctionMemory(DevAscendFunctionDupped devRootDup, DeviceExecuteSlot *slotList) {
+    bool TryAllocateFunctionMemory(DevPyPtoFunctionDupped devRootDup, DeviceExecuteSlot *slotList) {
         AutoScopedPerf asp(PERF_EVT_ALLOCATE_WORKSPACE);
 
         WsAllocatorCounter *pDfxCounter = nullptr;
@@ -223,7 +223,7 @@ public:
         pDfxCounter = &funcAllocDfx;
 #endif // DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
 
-        DevAscendFunction *devRootSrc = devRootDup.GetSource();
+        DevPyPtoFunction *devRootSrc = devRootDup.GetSource();
 
         // alloc outcast workspace
         size_t outcastSize = devRootSrc->exclusiveOutcastWsMemoryRequirement;
@@ -402,12 +402,12 @@ public:
         tensorAllocators_.rootInner.ResetPool();
     }
 
-    DevAscendFunctionDupped DuplicateRoot(DevAscendFunction *func) {
+    DevPyPtoFunctionDupped DuplicateRoot(DevPyPtoFunction *func) {
         WsAllocation tinyAlloc = ControlFlowAllocateSlab(devProg_, func->GetDuppedDataAllocSize(), SlabAlloc(func->GetDuppedDataAllocSize(), WsAicpuSlabMemType::DUPPED_FUNC_DATA));
-        return DevAscendFunctionDupped::DuplicateRoot(func, tinyAlloc);
+        return DevPyPtoFunctionDupped::DuplicateRoot(func, tinyAlloc);
     }
 
-    void DestroyDuppedFunc(DevAscendFunctionDupped &dup) {
+    void DestroyDuppedFunc(DevPyPtoFunctionDupped &dup) {
         dup.ReleaseDuppedMemory(metadataAllocators_.general);
     }
 
@@ -418,10 +418,10 @@ public:
         return dynTask;
     }
 
-    DevAscendFunctionDuppedStitch *AllocateStitch() {
-        WsAllocation allocation = ControlFlowAllocateSlab(devProg_, sizeof(DevAscendFunctionDuppedStitch), SlabAlloc(sizeof(DevAscendFunctionDuppedStitch), WsAicpuSlabMemType::DUPPED_STITCH));
-        DevAscendFunctionDuppedStitch *stitch = allocation.As<DevAscendFunctionDuppedStitch>();
-        uint64_t *clear = PtrToPtr<DevAscendFunctionDuppedStitch, uint64_t>(stitch);
+    DevPyPtoFunctionDuppedStitch *AllocateStitch() {
+        WsAllocation allocation = ControlFlowAllocateSlab(devProg_, sizeof(DevPyPtoFunctionDuppedStitch), SlabAlloc(sizeof(DevPyPtoFunctionDuppedStitch), WsAicpuSlabMemType::DUPPED_STITCH));
+        DevPyPtoFunctionDuppedStitch *stitch = allocation.As<DevPyPtoFunctionDuppedStitch>();
+        uint64_t *clear = PtrToPtr<DevPyPtoFunctionDuppedStitch, uint64_t>(stitch);
         clear[0] = 0;
         clear[1] = 0;
         return stitch;
@@ -577,7 +577,7 @@ public:
     void Deallocate(WsAllocation) {} // just for support vector allocator,so need have this fucntion member
 
 private:
-    void InitMetadataAllocators(DevAscendProgram *devProg) {
+    void InitMetadataAllocators(DevPyPtoProgram *devProg) {
         // Initialize aicpu memory
         metadataAllocators_.general.InitMetadataAllocator(devProg->devArgs.generalAddr, devProg->memBudget.metadata.general);
         DEV_TRACE_DEBUG(CtrlEvent(none(), WorkspaceMetadataGeneral(Range(devProg->devArgs.generalAddr, devProg->devArgs.generalAddr + devProg->memBudget.metadata.general))));
@@ -588,7 +588,7 @@ private:
 
     void InitTensorAllocators(uintdevptr_t workspaceAddr,
                               uint64_t tensorWorkspaceSize,
-                              DevAscendProgram *devProg) {
+                              DevPyPtoProgram *devProg) {
         uint64_t baseAddr = workspaceAddr;
 
         // Initialize tensor workspace memory verifier
@@ -637,7 +637,7 @@ private:
     }
 
     void InitAICoreSpilledMemory(uintdevptr_t workspaceAddr,
-                                 DevAscendProgram *devProg) {
+                                 DevPyPtoProgram *devProg) {
         uint64_t coreNum = devProg->devArgs.GetBlockNum();
         if (coreNum == 0) {
             return;
@@ -675,7 +675,7 @@ private:
 
     /* 按照devicetask最大支持stitch阈值分配对象 */
     uint32_t VecStitchListSLabMemObjSize() {
-        return MAX_CACHED_FUNC_NUM * sizeof(DevAscendFunctionDupped);
+        return MAX_CACHED_FUNC_NUM * sizeof(DevPyPtoFunctionDupped);
     }
 
     uint32_t DynDevTaskSlabMemObjSize() {
@@ -683,7 +683,7 @@ private:
     }
 
     uint32_t DuppedStitchSlabMemObjSize() {
-        return sizeof(struct DevAscendFunctionDuppedStitch);
+        return sizeof(struct DevPyPtoFunctionDuppedStitch);
     }
 
     uint32_t ReadyQueSlabMemObjSize() {
@@ -823,7 +823,7 @@ private:
     uint64_t stackWorkspaceSize_{0};
 
     uint32_t maxDevFuncDuppedSize_{0};
-    DevAscendProgram *devProg_{nullptr};
+    DevPyPtoProgram *devProg_{nullptr};
     WsAllocation *assembleSlotBuffer_{nullptr};
 
     WsMemoryVerifier tensorWsVerifier_;

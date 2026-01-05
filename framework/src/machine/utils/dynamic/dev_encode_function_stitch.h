@@ -21,8 +21,8 @@
 
 namespace npu::tile_fwk::dynamic {
 constexpr uint32_t DUPPED_STITCH_SIZE  = 0x10 - (sizeof(void *) / sizeof(uint32_t)) - 0x1;
-struct DevAscendFunctionDuppedStitch {
-    void InitWithNext(DevAscendFunctionDuppedStitch *next) {
+struct DevPyPtoFunctionDuppedStitch {
+    void InitWithNext(DevPyPtoFunctionDuppedStitch *next) {
         next_ = next;
         size_ = 0;
     }
@@ -36,8 +36,8 @@ struct DevAscendFunctionDuppedStitch {
     }
 
     uint32_t Size() const { return size_; }
-    DevAscendFunctionDuppedStitch * const &Next() const { return next_; }
-    DevAscendFunctionDuppedStitch *&Next() { return next_; }
+    DevPyPtoFunctionDuppedStitch * const &Next() const { return next_; }
+    DevPyPtoFunctionDuppedStitch *&Next() { return next_; }
 
     uint32_t At(uint32_t idx) const {
         if (idx >= size_) {
@@ -54,18 +54,18 @@ struct DevAscendFunctionDuppedStitch {
     }
 
 private:
-    DevAscendFunctionDuppedStitch *next_;
+    DevPyPtoFunctionDuppedStitch *next_;
     uint32_t size_;
     uint32_t taskList_[DUPPED_STITCH_SIZE];
 };
 
-struct DevAscendFunctionDuppedStitchList {
-    DevAscendFunctionDuppedStitchList() = default;
+struct DevPyPtoFunctionDuppedStitchList {
+    DevPyPtoFunctionDuppedStitchList() = default;
 
     bool IsNull() const { return head_ == nullptr; }
 
-    DevAscendFunctionDuppedStitch* const &Head() const { return head_; }
-    DevAscendFunctionDuppedStitch* &Head() { return head_; }
+    DevPyPtoFunctionDuppedStitch* const &Head() const { return head_; }
+    DevPyPtoFunctionDuppedStitch* &Head() { return head_; }
 
     // Low performance, only used in debug
     void ForEach(const std::function<void(uint32_t id)> &callback) const {
@@ -74,7 +74,7 @@ struct DevAscendFunctionDuppedStitchList {
         }
     }
 
-    void PushBack(uint32_t taskId, std::function<DevAscendFunctionDuppedStitch *()> allocate) {
+    void PushBack(uint32_t taskId, std::function<DevPyPtoFunctionDuppedStitch *()> allocate) {
         if (head_ == nullptr || head_->Size() == DUPPED_STITCH_SIZE) {
             auto *newNode = allocate();
             newNode->InitWithNext(head_);
@@ -125,11 +125,11 @@ struct DevAscendFunctionDuppedStitchList {
     }
 
 private:
-    DevAscendFunctionDuppedStitch *head_{nullptr};
+    DevPyPtoFunctionDuppedStitch *head_{nullptr};
 };
-static_assert(sizeof(DevAscendFunctionDuppedStitchList) == sizeof(void *));
+static_assert(sizeof(DevPyPtoFunctionDuppedStitchList) == sizeof(void *));
 
-struct DevAscendProgramPartialUpdate {
+struct DevPyPtoProgramPartialUpdate {
     int slotIndex;
 
     DevCellMatchTableDesc cellMatchTableDesc;
@@ -267,7 +267,7 @@ static void CellMatchFill(const uint64_t offset[DEV_SHAPE_DIM_MAX], const uint64
 }
 
 template<bool skipExpression>
-static bool GetTensorOffsetAndShape(const DevAscendFunction *devFunc, uint64_t offset[DEV_SHAPE_DIM_MAX],
+static bool GetTensorOffsetAndShape(const DevPyPtoFunction *devFunc, uint64_t offset[DEV_SHAPE_DIM_MAX],
         uint64_t shape[DEV_SHAPE_DIM_MAX], const uint64_t *runtimeExpressionList, int dims, int operationIndex, int operandIndex,
         bool isIOperand = true) {
     auto [offsetSymList, shapeSymList] = devFunc->GetTensorOffsetShapeSymList(operationIndex, operandIndex, isIOperand);
@@ -301,7 +301,7 @@ static bool GetTensorOffsetAndShape(const DevAscendFunction *devFunc, uint64_t o
 }
 
 template<bool skipExpression>
-static bool GetTensorRawShape(DevAscendFunction *devFunc, uint64_t rawShape[DEV_SHAPE_DIM_MAX],
+static bool GetTensorRawShape(DevPyPtoFunction *devFunc, uint64_t rawShape[DEV_SHAPE_DIM_MAX],
         const uint64_t *runtimeExpressionList, int dims, int operationIndex, int operandIndex, bool isIOperand = true) {
     auto &operandInfo = devFunc->GetOperationOperandInfo(operationIndex, operandIndex, isIOperand);
     const SymInt *rawShapeSymList = &(devFunc->GetOperationAttr(operationIndex, operandInfo.staticRawShapeAttrBeginIndex));
@@ -322,7 +322,7 @@ static bool GetTensorRawShape(DevAscendFunction *devFunc, uint64_t rawShape[DEV_
 }
 
 template<bool skipExpression, typename ... TyArgs>
-static bool CellMatchFillIncastOutcast(DevAscendFunction *devFunc, DevAscendFunctionCallOperandUse *operandUseList,
+static bool CellMatchFillIncastOutcast(DevPyPtoFunction *devFunc, DevPyPtoFunctionCallOperandUse *operandUseList,
         size_t useSize, const uint64_t *runtimeExpressionList, bool isIOperand,
         const DevCellMatchTableDesc &cellMatchTableDesc, TyArgs... args) {
     bool allConcrete = true;

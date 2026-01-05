@@ -27,7 +27,7 @@ struct EncodeRawTensorAttr {
     uint64_t storageOffset = 0;
 };
 
-struct DevAscendStride {
+struct DevPyPtoStride {
     int64_t dimSize;
     uint64_t dimStride[DEV_SHAPE_DIM_MAX];
 
@@ -65,7 +65,7 @@ struct DevAscendStride {
 
 struct DevCellMatchTableDesc {
     DevShape cellShape;
-    DevAscendStride stride;
+    DevPyPtoStride stride;
 
     int GetDimensionSize() const { return cellShape.dimSize; }
 
@@ -111,8 +111,8 @@ struct DevSymShape {
     }
 };
 
-struct DevAscendRawTensor {
-    // Offset in DevAscendFunction (root outcasts & non i/o raw tensors, separately recorded)
+struct DevPyPtoRawTensor {
+    // Offset in DevPyPtoFunction (root outcasts & non i/o raw tensors, separately recorded)
     uint64_t addrOffset{UINT64_MAX};
     uint64_t memoryRequirement; // Only available for incast/outcast
                                 // For workspace tensors, the memoryRequirement property is deprecated
@@ -176,7 +176,7 @@ struct DevAscendRawTensor {
     }
 };
 
-struct DevAscendTensor {
+struct DevPyPtoTensor {
     uint64_t rawIndex;
 };
 }

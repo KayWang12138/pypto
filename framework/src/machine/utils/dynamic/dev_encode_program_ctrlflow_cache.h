@@ -42,10 +42,10 @@ struct ReadyQueueCache {
 };
 
 struct DynFuncDataCache {
-    DevAscendFunction *devFunc;
+    DevPyPtoFunction *devFunc;
     predcount_t *predCount;
     int *calleeList;
-    DevAscendFunctionDuppedData *duppedData;
+    DevPyPtoFunctionDuppedData *duppedData;
 
     const DynFuncDataCache &At(size_t index) const { return this[index]; }
     DynFuncDataCache &At(size_t index) { return this[index]; }
@@ -108,7 +108,7 @@ struct DeviceExecuteSlot {
     uint32_t stitchDupIdx{INVALID_STITCH_IDX};
     uint32_t stitchOutcastIdx;
 
-    DevAscendProgramPartialUpdate *partialUpdate{nullptr};
+    DevPyPtoProgramPartialUpdate *partialUpdate{nullptr};
 
     bool IsOutputAddress() const {
         return isOutputSlot;
@@ -264,22 +264,22 @@ struct DevProgramControlFlowCache {
     void MatchInputOutputDump(DevStartArgsBase *startArgs) const {
         DEV_VERBOSE_DEBUG("matchio cache input size: %d", (int)inputTensorDataList.size());
         for (size_t k = 0; k < inputTensorDataList.size(); k++) {
-            DEV_VERBOSE_DEBUG("matchio cache input %d: %s", (int)k, DevAscendFunction::DumpShape(inputTensorDataList[k].shape).c_str());
+            DEV_VERBOSE_DEBUG("matchio cache input %d: %s", (int)k, DevPyPtoFunction::DumpShape(inputTensorDataList[k].shape).c_str());
         }
 
         DEV_VERBOSE_DEBUG("matchio cache output size: %d", (int)outputTensorDataList.size());
         for (size_t k = 0; k < outputTensorDataList.size(); k++) {
-            DEV_VERBOSE_DEBUG("matchio cache output %d: %s", (int)k, DevAscendFunction::DumpShape(outputTensorDataList[k].shape).c_str());
+            DEV_VERBOSE_DEBUG("matchio cache output %d: %s", (int)k, DevPyPtoFunction::DumpShape(outputTensorDataList[k].shape).c_str());
         }
 
         DEV_VERBOSE_DEBUG("matchio real input size: %d", (int)startArgs->inputTensorSize);
         for (size_t k = 0; k < startArgs->inputTensorSize; k++) {
-            DEV_VERBOSE_DEBUG("matchio real input %d: %s", (int)k, DevAscendFunction::DumpShape(startArgs->GetInputTensor(k).shape).c_str());
+            DEV_VERBOSE_DEBUG("matchio real input %d: %s", (int)k, DevPyPtoFunction::DumpShape(startArgs->GetInputTensor(k).shape).c_str());
         }
 
         DEV_VERBOSE_DEBUG("matchio real output size: %d", (int)startArgs->outputTensorSize);
         for (size_t k = 0; k < startArgs->outputTensorSize; k++) {
-            DEV_VERBOSE_DEBUG("matchio real output %d: %s", (int)k, DevAscendFunction::DumpShape(startArgs->GetOutputTensor(k).shape).c_str());
+            DEV_VERBOSE_DEBUG("matchio real output %d: %s", (int)k, DevPyPtoFunction::DumpShape(startArgs->GetOutputTensor(k).shape).c_str());
         }
     }
 
@@ -338,7 +338,7 @@ struct DevProgramControlFlowCache {
         for (size_t dupIndex = 0; dupIndex < dynFuncDataList->Size(); ++dupIndex) {
             DynFuncDataCache *dynDataCache = &dynFuncDataCacheList->At(dupIndex);
             DynFuncDataBackup *dynDataBackup = &dynFuncDataBackupList->At(dupIndex);
-            DevAscendFunctionDuppedData *duppedData = dynDataCache->duppedData;
+            DevPyPtoFunctionDuppedData *duppedData = dynDataCache->duppedData;
             size_t backupSize = sizeof(predcount_t) * duppedData->GetOperationSize();
 
             predcount_t *predCountBackup = reinterpret_cast<predcount_t *>(AllocateCache(backupSize));
@@ -358,7 +358,7 @@ struct DevProgramControlFlowCache {
         for (size_t dupIndex = 0; dupIndex < dynFuncDataList->Size(); ++dupIndex) {
             DynFuncDataCache *dynDataCache = &dynFuncDataCacheList->At(dupIndex);
             DynFuncDataBackup *dynDataBackup = &dynFuncDataBackupList->At(dupIndex);
-            DevAscendFunctionDuppedData *duppedData = dynDataCache->duppedData;
+            DevPyPtoFunctionDuppedData *duppedData = dynDataCache->duppedData;
             size_t backupSize = sizeof(predcount_t) * duppedData->GetOperationSize();
 
             memcpy_s(&duppedData->GetOperationCurrPredCount(0), backupSize, dynDataBackup->predCountBackup, backupSize);
@@ -477,7 +477,7 @@ struct DevProgramControlFlowCache {
             DynFuncData *dynData = &dynFuncDataList->At(dupIndex);
             DynFuncDataCache *dynDataCache = &dynFuncDataCacheList->At(dupIndex);
             DynFuncDataBackup *dynDataBackup = &dynFuncDataBackupList->At(dupIndex);
-            DevAscendFunctionDuppedData *duppedData = dynDataCache->duppedData;
+            DevPyPtoFunctionDuppedData *duppedData = dynDataCache->duppedData;
             size_t backupSize = sizeof(uint64_t) * (duppedData->GetIncastSize() + duppedData->GetOutcastSize());
 
             uint64_t *rawTensorAddrBackup = reinterpret_cast<uint64_t *>(AllocateCache(backupSize));
@@ -497,7 +497,7 @@ struct DevProgramControlFlowCache {
             DynFuncData *dynData = &dynFuncDataList->At(dupIndex);
             DynFuncDataCache *dynDataCache = &dynFuncDataCacheList->At(dupIndex);
             DynFuncDataBackup *dynDataBackup = &dynFuncDataBackupList->At(dupIndex);
-            DevAscendFunctionDuppedData *duppedData = dynDataCache->duppedData;
+            DevPyPtoFunctionDuppedData *duppedData = dynDataCache->duppedData;
             size_t backupSize = sizeof(uint64_t) * (duppedData->GetIncastSize() + duppedData->GetOutcastSize());
 
             memcpy_s(dynData->rawTensorAddr, backupSize, dynDataBackup->rawTensorAddrBackup, backupSize);
@@ -519,7 +519,7 @@ struct DevProgramControlFlowCache {
             DynFuncData *dynData = &dynFuncDataList->At(dupIndex);
             DynFuncDataCache *dynDataCache = &dynFuncDataCacheList->At(dupIndex);
             DynFuncDataBackup *dynDataBackup = &dynFuncDataBackupList->At(dupIndex);
-            DevAscendFunctionDuppedData *duppedData = dynDataCache->duppedData;
+            DevPyPtoFunctionDuppedData *duppedData = dynDataCache->duppedData;
 
             dynDataBackup->workspaceAddressBackup.runtimeWorkspace = duppedData->runtimeWorkspace_;
             dynDataBackup->workspaceAddressBackup.runtimeOutcastWorkspace = duppedData->runtimeOutcastWorkspace_;
@@ -536,7 +536,7 @@ struct DevProgramControlFlowCache {
             DynFuncData *dynData = &dynFuncDataList->At(dupIndex);
             DynFuncDataCache *dynDataCache = &dynFuncDataCacheList->At(dupIndex);
             DynFuncDataBackup *dynDataBackup = &dynFuncDataBackupList->At(dupIndex);
-            DevAscendFunctionDuppedData *duppedData = dynDataCache->duppedData;
+            DevPyPtoFunctionDuppedData *duppedData = dynDataCache->duppedData;
 
             duppedData->runtimeWorkspace_ = dynDataBackup->workspaceAddressBackup.runtimeWorkspace;
             duppedData->runtimeOutcastWorkspace_ = dynDataBackup->workspaceAddressBackup.runtimeOutcastWorkspace;
@@ -565,7 +565,7 @@ struct DevProgramControlFlowCache {
             for (uint32_t dupIndex = 0; dupIndex < dynFuncDataList->funcNum; dupIndex++) {
                 DynFuncData *dynData = &dynFuncDataList->At(dupIndex);
                 DynFuncDataCache *dynDataCache = &dynFuncDataCacheList->At(dupIndex);
-                DevAscendFunctionDuppedData *duppedData = dynDataCache->duppedData;
+                DevPyPtoFunctionDuppedData *duppedData = dynDataCache->duppedData;
                 DynFuncDataBackup *dynDataBackup = &dynFuncDataBackupList->At(dupIndex);
 
                 if (devStartArgs == nullptr) {
@@ -613,7 +613,7 @@ struct DevProgramControlFlowCache {
                 DynFuncDataCache *dynDataCache = &dynFuncDataCacheList->At(dupIndex);
                 DynFuncDataBackup *dynDataBackup = &dynFuncDataBackupList->At(dupIndex);
 
-                DevAscendFunctionDuppedData *duppedData = dynDataCache->duppedData;
+                DevPyPtoFunctionDuppedData *duppedData = dynDataCache->duppedData;
                 if (devStartArgs == nullptr) {
                     // Host: addr uses backup
                     for (uint64_t i = 0; i < duppedData->GetIncastSize(); i++) {
@@ -780,15 +780,15 @@ struct DevProgramControlFlowCache {
                 DynFuncDataCache *dynDataCache = &dynFuncDataCacheList->At(dupIndex);
                 DynFuncDataBackup *dynDataBackup = &dynFuncDataBackupList->At(dupIndex);
 
-                DevAscendFunctionDuppedData *&duppedDataRef = dynDataCache->duppedData;
-                DevAscendFunctionDuppedData *duppedData = RelocControlFlowCachePointer(duppedDataRef, relocProgram);
+                DevPyPtoFunctionDuppedData *&duppedDataRef = dynDataCache->duppedData;
+                DevPyPtoFunctionDuppedData *duppedData = RelocControlFlowCachePointer(duppedDataRef, relocProgram);
 
                 // Reloc Stitch
                 for (uint32_t i = 0; i < duppedData->GetStitchSize(); i++) {
-                    DevAscendFunctionDuppedStitchList &stitchList = duppedData->GetStitch(i);
-                    DevAscendFunctionDuppedStitch *&stitchRef = stitchList.Head();
-                    for (DevAscendFunctionDuppedStitch **nodePtr = &stitchRef; *nodePtr != nullptr; ) {
-                        DevAscendFunctionDuppedStitch *node = RelocControlFlowCachePointer(*nodePtr, relocProgram);
+                    DevPyPtoFunctionDuppedStitchList &stitchList = duppedData->GetStitch(i);
+                    DevPyPtoFunctionDuppedStitch *&stitchRef = stitchList.Head();
+                    for (DevPyPtoFunctionDuppedStitch **nodePtr = &stitchRef; *nodePtr != nullptr; ) {
+                        DevPyPtoFunctionDuppedStitch *node = RelocControlFlowCachePointer(*nodePtr, relocProgram);
                         nodePtr = &node->Next();
                     }
                 }
