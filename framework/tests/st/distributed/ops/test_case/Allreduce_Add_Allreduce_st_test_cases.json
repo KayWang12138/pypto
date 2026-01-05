@@ -8,8 +8,8 @@
                 {
                     "name": "input0",
                     "shape": [
-                        256,
-                        102400
+                        4096,
+                        8192
                     ],
                     "dtype": "bfloat16",
                     "format": "ND",
@@ -24,8 +24,8 @@
                 {
                     "name": "output0",
                     "shape": [
-                        256,
-                        102400
+                        4096,
+                        8192
                     ],
                     "dtype": "bfloat16",
                     "format": "ND",
