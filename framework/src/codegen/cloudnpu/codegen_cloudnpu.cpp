@@ -582,8 +582,12 @@ bool CodeGenCloudNPU::HandleForAICpuSubFunc(Function &subFunc) {
             code.push_back(op.GetIOpAttrOffset(i));
         }
         // waitUntil OP有2个输入，下标0是dummy控制边，下标1是signal，这里只需要signal
-        code.push_back(op.GetInputOperand(1)->GetRawTensor()->rawshape.size());
+        code.push_back(op.GetInputOperand(1)->GetRawTensor()->rawshape.size() * paramSizePerOperand);
         for (auto dimShape: op.GetInputOperand(1)->GetRawTensor()->GetRawShape()) {
+            code.push_back(dimShape);
+        }
+
+        for (auto dimShape: op.GetInputOperand(1)->GetShape()) {
             code.push_back(dimShape);
         }
 
