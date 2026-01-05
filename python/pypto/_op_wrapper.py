@@ -8,7 +8,7 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
-"""PyPTO"""
+"""PyPTO operation wrapper."""
 import functools
 
 from . import pypto_impl
@@ -41,18 +41,18 @@ def _from_base(out):
 
 
 def op_wrapper(func):
+    """Decorator that wraps PyPTO operations for type conversion and source tracking."""
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         args = _to_base(args)
         kwargs = _to_base(kwargs)
         if not isinstance(args, (list, tuple)):
             raise TypeError(f"args must be list or tuple, but got {type(args)}.")
+
         set_source_location()
         out = func(*args, **kwargs)
         clear_source_location()
-        if out is None:
-            return None
-        else:
-            return _from_base(out)
+
+        return _from_base(out) if out is not None else None
 
     return wrapper

@@ -14,11 +14,11 @@
  */
 
 #include "interface/configs/config_manager.h"
-#include "interface/tensor/logical_tensor.h"
-#include "interface/tensor/raw_tensor.h"
 #include "interface/utils/log.h"
 #include "passes/pass_mgr/pass_manager.h"
-#include "tilefwk/tilefwk.h"
+#include "passes/tensor_graph_pass/vjp_registry.h"
+
+#include <functional>
 
 namespace npu::tile_fwk {
 const std::string PROGRAM_ENTRY_FUNCTION_NAME = "PROGRAM_ENTRY";
@@ -54,6 +54,99 @@ void static MergeAllFuncDupIocast(Function* func) {
 
     for (auto callee : calleeLists) {
         MergeAllFuncDupIocast(callee);
+    }
+}
+
+// Autodiff helper functions
+namespace {
+
+inline std::vector<Function*> GetCalleeFunctions() {
+    return Program::GetInstance().GetReachableFunctions(PROGRAM_ENTRY_FUNCTION_NAME);
+}
+
+void MarkFunctionOutputsAsLoss(Function* func) {
+    for (auto& outcast : func->outCasts_) {
+        if (outcast) {
+            outcast->SetAttr(ATTR_IS_LOSS, true);
+        }
+    }
+    for (auto* op : func->Operations().DuplicatedOpList()) {
+        if (op->GetOpcode() != Opcode::OP_ASSEMBLE) continue;
+        for (const auto& output : op->GetOOperands()) {
+            if (output) {
+                output->SetAttr(ATTR_IS_LOSS, true);
+            }
+        }
+    }
+}
+
+template <typename TensorList>
+bool HasLossAttribute(const TensorList& tensorList) {
+    for (const auto& tensorRef : tensorList) {
+        auto storage = tensorRef.get().GetStorage(false);
+        if (!storage) continue;
+        bool isLoss = false;
+        storage->GetAttr(ATTR_IS_LOSS, isLoss);
+        if (isLoss) return true;
+    }
+    return false;
+}
+
+using IncastCallback = std::function<void(LogicalTensorPtr, const LogicalTensorPtr&)>;
+
+void ProcessRequiresGradInputs(const std::shared_ptr<DyndevFunctionAttribute>& attr,
+                               Function* func, const IncastCallback& callback) {
+    const auto& incasts = func->inCasts_;
+    for (size_t i = 0; i < attr->startArgsInputTensorList.size(); ++i) {
+        auto storage = attr->startArgsInputTensorList[i].get().GetStorage(false);
+        if (!storage || i >= incasts.size() || !incasts[i]) continue;
+        bool requiresGrad = false;
+        storage->GetAttr(ATTR_REQUIRES_GRAD, requiresGrad);
+        if (requiresGrad) {
+            callback(storage, incasts[i]);
+        }
+    }
+}
+
+} // anonymous namespace
+
+static void PropagateAutodiffAttributes(const std::shared_ptr<DyndevFunctionAttribute>& attr) {
+    if (!attr) return;
+
+    for (auto* func : GetCalleeFunctions()) {
+        if (!func) continue;
+        ProcessRequiresGradInputs(attr, func, [](LogicalTensorPtr, const LogicalTensorPtr& incast) {
+            incast->SetAttr(ATTR_REQUIRES_GRAD, true);
+        });
+        bool hasLoss = HasLossAttribute(attr->startArgsOutputTensorList) ||
+                       HasLossAttribute(attr->startArgsInputTensorList);
+        if (hasLoss) {
+            MarkFunctionOutputsAsLoss(func);
+        }
+    }
+}
+
+static void RunAutodiffPassOnCallees(Program& program) {
+    auto calleeFuncs = program.GetReachableFunctions(PROGRAM_ENTRY_FUNCTION_NAME);
+    for (auto* calleeFunc : calleeFuncs) {
+        if (!calleeFunc || calleeFunc->GetGraphType() != GraphType::TENSOR_GRAPH) {
+            continue;
+        }
+        PassManager::Instance().RunPass(program, *calleeFunc, "TensorGraphAutodiff");
+    }
+}
+
+static void PropagateGradientMagicBack(const std::shared_ptr<DyndevFunctionAttribute>& attr) {
+    if (!attr) return;
+
+    for (auto* func : GetCalleeFunctions()) {
+        if (!func) continue;
+        ProcessRequiresGradInputs(attr, func, [](LogicalTensorPtr storage, const LogicalTensorPtr& incast) {
+            int64_t gradMagic = 0;
+            if (incast->GetAttr("gradient_magic", gradMagic) && gradMagic > 0) {
+                storage->SetAttr("gradient_magic", gradMagic);
+            }
+        });
     }
 }
 
@@ -95,10 +188,20 @@ void RecordFunc::RecordDynFuncInner(const std::vector<std::reference_wrapper<con
         attr->startArgsInputLogicalTensorList.resize(startArgsInputTensorList.size());
         attr->startArgsOutputLogicalTensorList.resize(startArgsOutputTensorList.size());
         for (size_t k = 0; k < startArgsInputTensorList.size(); k++) {
-            attr->startArgsInputLogicalTensorList[k] = startArgsInputTensorList[k].get().GetStorage(false);
+            auto storage = startArgsInputTensorList[k].get().GetStorage(false);
+            attr->startArgsInputLogicalTensorList[k] = storage;
+            // Copy is_loss/requires_grad attributes now (before Move changes storage)
+            bool isLoss = false;
+            bool requiresGrad = false;
+            storage->GetAttr(ATTR_IS_LOSS, isLoss);
+            storage->GetAttr(ATTR_REQUIRES_GRAD, requiresGrad);
         }
         for (size_t k = 0; k < startArgsOutputTensorList.size(); k++) {
-            attr->startArgsOutputLogicalTensorList[k] = startArgsOutputTensorList[k].get().GetStorage(false);
+            auto storage = startArgsOutputTensorList[k].get().GetStorage(false);
+            attr->startArgsOutputLogicalTensorList[k] = storage;
+            // Copy attributes for outputs too
+            bool isLoss = false;
+            storage->GetAttr(ATTR_IS_LOSS, isLoss);
         }
 
         dynFunc_->SetDyndevAttribute(attr);
@@ -150,6 +253,7 @@ void RecordFunc::EndFunction() {
     if (dynFunc_) {
         Program::GetInstance().SetLastFunction(dynFunc_);
         if (dynFunc_->IsDyndev()) {
+            Program::GetInstance().ClearEmptyHiddenFunction();
             dynFunc_->CleanRedundantOutCast();
             // Destructor GetTensorData small Tensor
             auto attr = dynFunc_->GetDyndevAttribute();
@@ -160,6 +264,19 @@ void RecordFunc::EndFunction() {
                 Program::GetInstance().VerifyTensorGraph();
             }
             MergeAllFuncDupIocast(nullptr);
+
+            // Propagate is_loss/requires_grad from user tensors to Function outCasts
+            // before running AutodiffPass
+            PropagateAutodiffAttributes(attr);
+
+            // Run AutodiffPass for automatic differentiation (if applicable)
+            // AutodiffPass internally checks is_loss/requires_grad and exits early if not needed
+            RunAutodiffPassOnCallees(Program::GetInstance());
+
+            // Propagate gradient_magic back to original Python tensors
+            // This runs immediately after AutodiffPass generates gradients
+            PropagateGradientMagicBack(attr);
+
             PassManager::Instance().RunPass(Program::GetInstance(),
                 *Program::GetInstance().GetFunctionByMagicName(PROGRAM_ENTRY_FUNCTION_NAME), "FunctionUnroll");
             if (!config::GetPlatformConfig(npu::tile_fwk::KEY_ONLY_TENSOR_GRAPH, false)) {
@@ -338,19 +455,6 @@ bool RecordLoopFunc::Iterator::operator!=(const IteratorEnd &rhs) {
     ASSERT(rlf_.StillHaveUnrollTimes());
     cur_ = 0;
     scalar_ = originalScalar_;
-    if (rlf_.LoopBegin().IsImmediate()) {
-        auto beginValue = std::static_pointer_cast<RawSymbolicImmediate>(rlf_.LoopBegin().Raw())->Immediate();
-        if (rlf_.LoopStep().IsImmediate() && rlf_.LoopEnd().IsImmediate()) {
-            auto endValue = std::static_pointer_cast<RawSymbolicImmediate>(rlf_.LoopEnd().Raw())->Immediate();
-            scalar_.Raw()->ResetValueGuesser(
-                ValueGuesser(NotLessThan(beginValue), NotGreaterThan(endValue - 1)));
-        } else {
-            scalar_.Raw()->ResetValueGuesser(ValueGuesser(NotLessThan(beginValue)));
-        }
-    } else {
-        scalar_.Raw()->ResetValueGuesser(ValueGuesser::Any());
-    }
-
     scalar_.AsLoopBegin(true);
     rlf_.IterationBegin();
     if (rlf_.IsCustomUnrollTimes(rlf_.CurUnrollTimes()) || cur_ + 1 == rlf_.CurUnrollTimes()) {
@@ -360,22 +464,10 @@ bool RecordLoopFunc::Iterator::operator!=(const IteratorEnd &rhs) {
 }
 
 RecordLoopFunc::Iterator RecordLoopFunc::begin() {
-    if (loopRange_->Begin().ConcreteValid()) {
-        return {*this, SymbolicScalar(iterName_, NotLessThan(loopRange_->Begin().Concrete()))};
-    }
     return {*this, SymbolicScalar(iterName_)};
 }
 
 RecordLoopFunc::IteratorEnd RecordLoopFunc::end() {
-    if (loopRange_->End().ConcreteValid()) {
-        if (funcType_ == FunctionType::STATIC) {
-            /* Static loop, expand all */
-            return {*this, SymbolicScalar(iterName_, NotGreaterThan(loopRange_->End().Concrete()))};
-        } else {
-            /* Runtime: Run only once */
-            return {*this, SymbolicScalar(iterName_, NotGreaterThan(loopRange_->End().Concrete()))};
-        }
-    }
     return {*this, SymbolicScalar(iterName_)};
 }
 

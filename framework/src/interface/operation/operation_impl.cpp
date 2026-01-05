@@ -1451,7 +1451,10 @@ void ExpandOperationInto(Function &function, const TileShape &tileShape, Opcode 
             TiledInnerRegisterCopy(function, tileShape, iOperand[0], oOperand[0]);
             break;
         }
-        case Opcode::OP_A_MUL_B: {
+        case Opcode::OP_A_MUL_B:
+        case Opcode::OP_A_MUL_BT:
+        case Opcode::OP_AT_MUL_B:
+        case Opcode::OP_AT_MUL_BT: {
             Matrix::ConstructTileGraph(function, tileShape, iOperand, oOperand[0], op);
             break;
         }

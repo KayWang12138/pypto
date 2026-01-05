@@ -531,8 +531,13 @@ void SetMatmulAttrParam(const Operation &op, MatmulAttrParam &param)
                                                         : Element(DataType::DT_UINT64, 0).GetUnsignedData();
     param.hasBias = (op.HasAttr(A_MUL_B_BIAS_ATTR)) ? op.GetBoolAttribute(A_MUL_B_BIAS_ATTR) : false;
     param.hasScale = (op.HasAttr(A_MUL_B_VECTOR_QUANT_FLAG)) ? op.GetBoolAttribute(A_MUL_B_VECTOR_QUANT_FLAG) : false;
-    param.transA = (op.HasAttr(A_MUL_B_TRANS_A)) ? op.GetBoolAttribute(A_MUL_B_TRANS_A) : false;
-    param.transB = (op.HasAttr(A_MUL_B_TRANS_B)) ? op.GetBoolAttribute(A_MUL_B_TRANS_B) : false;
+    // Infer transA/transB from opcode, with attribute override
+    Opcode opcode = op.GetOpcode();
+    bool opcodeTransA = (opcode == Opcode::OP_AT_MUL_B || opcode == Opcode::OP_AT_MUL_BT);
+    bool opcodeTransB = (opcode == Opcode::OP_A_MUL_BT || opcode == Opcode::OP_AT_MUL_BT ||
+                         opcode == Opcode::OP_A_MULACC_BT);
+    param.transA = (op.HasAttr(A_MUL_B_TRANS_A)) ? op.GetBoolAttribute(A_MUL_B_TRANS_A) : opcodeTransA;
+    param.transB = (op.HasAttr(A_MUL_B_TRANS_B)) ? op.GetBoolAttribute(A_MUL_B_TRANS_B) : opcodeTransB;
     param.gmAccumulationFlag = (op.HasAttr(A_MUL_B_GM_ACC)) ? op.GetBoolAttribute(A_MUL_B_GM_ACC) : false;
 }
 

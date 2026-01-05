@@ -32,6 +32,7 @@
 #include "passes/tensor_graph_pass/remove_undriven_view.h"
 #include "passes/tensor_graph_pass/expand_function.h"
 #include "passes/tensor_graph_pass/loop_unroll.h"
+#include "passes/tensor_graph_pass/autodiff.h"
 //  tile graph pass
 #include "passes/tile_graph_pass/graph_partition/graph_partition.h"
 #include "passes/tile_graph_pass/graph_optimization/graph_optimization.h"
@@ -95,6 +96,7 @@ void RegPass() {
     REG_PASS(MixSubgraphSplit);
     REG_PASS(DuplicateOp);
     REG_PASS(AxisCombine);
+    REG_PASS(AutodiffPass);
 }
 
 void PassManager::RegDefaultStrategy() {
@@ -142,6 +144,10 @@ void PassManager::RegDefaultStrategy() {
     RegisterStrategy(
         "FunctionUnroll", {
             {               "LoopUnroll",               "LoopUnroll"}
+    });
+    RegisterStrategy(
+        "TensorGraphAutodiff", {
+            {            "AutodiffPass",            PassName::AUTODIFF_PASS}
     });
     RegisterStrategy(
         "ExecuteGraph", {
