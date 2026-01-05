@@ -1,6 +1,6 @@
 # 计算算子样例 (Compute Operations)
 
-本目录包含 PyPTO 中各种计算算子的使用示例，包括逐元素运算、矩阵乘法和规约运算。
+本目录包含 PyPTO 中各种计算算子的使用示例，包括逐元素运算、矩阵乘法和归约运算。
 
 ## 总览介绍
 
@@ -13,7 +13,7 @@
 
 - **`elementwise_ops.py`**: 逐元素算子示例，涵盖 `abs`, `add`, `clip`, `div`, `exp`, `log`, `mul`, `neg`, `pow`, `rsqrt`, `sqrt`, `sub`。
 - **`matmul_ops.py`**: 矩阵乘法示例，涵盖基础矩阵乘法、批量矩阵乘法、广播矩阵乘法、带转置的矩阵乘法以及带 Bias 的矩阵乘法。
-- **`reduce_ops.py`**: 规约算子示例，涵盖 `amax`, `amin`, `maximum`, `minimum`, `sum`。
+- **`reduce_ops.py`**: 归约算子示例，涵盖 `amax`, `amin`, `maximum`, `minimum`, `sum`。
 
 ## 运行方法
 
@@ -47,31 +47,42 @@ python3 elementwise_ops.py abs::test_abs_basic
 ### 逐元素运算
 支持广播（Broadcasting）机制和标量（Scalar）操作。
 ```python
-@pypto.jit
-def add_example(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> None:
+@pypto.frontend.jit()
+def add_example(
+    a: pypto.Tensor(shape, dtype), 
+    b: pypto.Tensor(shape, dtype)
+) -> pypto.Tensor(shape, dtype):
     pypto.set_vec_tile_shapes(2, 8)
-    out[:] = pypto.add(a, b)
+    out = pypto.add(a, b)
+    return out
 ```
 
 ### 矩阵乘法
 使用 Cube Tiling 进行高效计算，支持指定输出数据类型。
 ```python
-@pypto.jit
-def matmul_example(a: pypto.Tensor, b: pypto.Tensor, out: pypto.Tensor) -> None:
+@pypto.frontend.jit()
+def matmul_example(
+    a: pypto.Tensor((M, K), pypto.DT_BF16), 
+    b: pypto.Tensor((K, N), pypto.DT_BF16)
+) -> pypto.Tensor((M, N), pypto.DT_BF16):
     pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
-    out[:] = pypto.matmul(a, b, out_dtype=pypto.DT_BF16)
+    out = pypto.matmul(a, b, out_dtype=pypto.DT_BF16)
+    return out
 ```
 
-### 规约运算
+### 归约运算
 支持指定维度（dim）和是否保持维度（keepdim）。
 ```python
-@pypto.jit
-def sum_example(x: pypto.Tensor, out: pypto.Tensor) -> None:
+@pypto.frontend.jit()
+def sum_example(
+    x: pypto.Tensor(x_shape, dtype)
+) -> pypto.Tensor(out_shape, dtype):
     pypto.set_vec_tile_shapes(2, 8)
-    out[:] = pypto.sum(x, dim=0, keepdim=True)
+    out = pypto.sum(x, dim=0, keepdim=True)
+    return out
 ```
 
 ## 注意事项
 - 在进行矩阵乘法时，建议显式设置 Cube Tile 形状以获得最佳性能。
-- 规约操作通常涉及到跨 Tile 的数据交互，请注意 Tiling 的划分策略。
+- 归约操作通常涉及到跨 Tile 的数据交互，请注意 Tiling 的划分策略。
 - 所有的样例都包含与 PyTorch 原生算子的对比验证，确保计算结果的准确性。

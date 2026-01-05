@@ -8,14 +8,14 @@
 
 ### 1. 基础操作 ([basic](basic/))
 - **内容**: 展示了最基础的张量创建、逐元素运算、矩阵乘法、View 操作以及简单算子组合。包含张量创建操作和符号标量（Symbolic Scalar）的使用。
-- **核心特性**: `pypto.tensor`, `@pypto.jit`, `pypto.from_torch`, `pypto.view`, `pypto.assemble`, `pypto.scalar`。
+- **核心特性**: `pypto.tensor`, `@pypto.frontend.jit`, `pypto.from_torch`, `pypto.view`, `pypto.assemble`, `pypto.scalar`。
 - **推荐人群**: 初次接触 PyPTO 的开发者。
 
 ### 3. 计算算子 ([compute](compute/))
 - **内容**: 详尽展示了各种计算算子的用法。
   - `elementwise_ops.py`: 逐元素算子（Add, Sub, Mul, Div, Exp, Log, Abs, Sqrt, Rsqrt, Clip 等），包含广播机制和标量运算。
   - `matmul_ops.py`: 矩阵乘法（Matmul）的各种配置。
-  - `reduce_ops.py`: 规约算子（Sum, Max, Min 等）。
+  - `reduce_ops.py`: 归约算子（Sum, Max, Min 等）。
 - **核心特性**: 各类数学计算 API。
 
 ### 4. Tiling (分块) 策略 ([tiling](tiling/))

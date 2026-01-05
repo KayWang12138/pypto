@@ -34,9 +34,14 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override { Program::GetInstance().Reset(); }
+    void SetUp() override {
+        Program::GetInstance().Reset();
+        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
+    }
 
-    void TearDown() override {}
+    void TearDown() override {
+        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
+    }
 };
 
 void SetQuantPreConfig() {
@@ -206,7 +211,6 @@ void TestDeepSeekIndexerAttentionQuantUTest(DSIASimpleParams &params) {
 }
 
 void test_common_ut(DSIASimpleParams params) {
-    ConfigManager::Instance().SetCodeGenConfig(npu::tile_fwk::CODEGEN_EXPRESSION_FUSION, true);
     params.topk = 2048;
     params.cacheMode = "PA_BSND";
 
