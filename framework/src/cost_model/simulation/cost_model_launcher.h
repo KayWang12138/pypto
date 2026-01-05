@@ -182,7 +182,7 @@ private:
         if (!config_.runModel) {
             return;
         }
-        AstKernelArgs kArgs;
+        KernelArgs kArgs;
         config_.onBoard = false;
         DeviceLauncherConfigFillDeviceInfo(config_);
         DeviceInitTilingData(MemoryHelper(true), kArgs, function_->GetDyndevAttribute()->devProgBinary, config_, nullptr);
@@ -225,7 +225,7 @@ private:
         }
     }
 
-    void DumpTensorContents(const AstKernelArgs &kArgs,
+    void DumpTensorContents(const KernelArgs &kArgs,
                             const std::vector<RawTensorDataPtr> &inputs,
                             const std::vector<RawTensorDataPtr> &outputs) {
         auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(GetDevProg(function_).data()));
@@ -267,7 +267,7 @@ private:
         fout.close();
     }
 
-    void RunCostModel(AstKernelArgs *kArgs) {
+    void RunCostModel(KernelArgs *kArgs) {
         if (!config::GetPlatformConfig("ENABLE_DYN_COST_MODEL", true)) {
             return;
         }
@@ -306,7 +306,7 @@ private:
         costModelAgent.TerminateCostModel();
     }
 
-    void RunTestMode(AstKernelArgs *kArgs) {
+    void RunTestMode(KernelArgs *kArgs) {
         (void) kArgs;
         const int BUFFER_SIZE_64 = 64;
         std::thread aicpus[DEVICE_MAX_AICPU_NUM];
@@ -341,7 +341,7 @@ private:
         }
     }
 
-    void InitKernelInOuts(AstKernelArgs &kArgs, const std::vector<RawTensorDataPtr> &inputTensors,
+    void InitKernelInOuts(KernelArgs &kArgs, const std::vector<RawTensorDataPtr> &inputTensors,
         const std::vector<RawTensorDataPtr> &outputTensors, bool isTest) {
         std::vector<DeviceTensorData> inputList;
         std::vector<DeviceTensorData> outputList;
