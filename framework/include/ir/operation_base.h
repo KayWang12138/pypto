@@ -48,54 +48,80 @@ public:
 
     // ---- IOprands ----
     void AppendInput(const ValuePtr& value) {
-        ioprands_.push_back(value);
+        ioperands_.push_back(value);
     }
 
-    size_t GetNumInputOperand() const { return ioprands_.size(); }
+    size_t GetNumInputOperand() const { return ioperands_.size(); }
 
     ValuePtr GetInputOperand(size_t idx) const {
-        return ioprands_.at(idx);
+        return ioperands_.at(idx);
     }
 
     void SetInputOperand(size_t idx, const ValuePtr& value) {
-        ioprands_.at(idx) = value;
+        ioperands_.at(idx) = value;
     }
+
+    size_t GetNumInputScalarOperand() const { return iScalarIndex_; }
+    ScalarValuePtr GetInputScalarOperand(size_t idx) const { return std::static_pointer_cast<ScalarValue>(GetInputOperand(iScalarIndex_ + idx)); }
+    void SetInputScalarOperand(size_t idx, ScalarValuePtr ptr) { SetInputOperand(iScalarIndex_ + idx, ptr); }
 
     // ---- OOprands ----
     void AppendOutput(const ValuePtr& value) {
-        ooprands_.push_back(value);
+        ooperands_.push_back(value);
     }
 
-    size_t GetNumOutputOperand() const { return ooprands_.size(); }
+    size_t GetNumOutputOperand() const { return ooperands_.size(); }
 
     ValuePtr GetOutputOperand(size_t idx) const {
-        return ooprands_.at(idx);
+        return ooperands_.at(idx);
     }
 
     void SetOutputOperand(size_t idx, const ValuePtr& value) {
-        ooprands_.at(idx) = value;
+        ooperands_.at(idx) = value;
     }
+
+    size_t GetNumOutputScalarOperand() const { return oScalarIndex_; }
+    ScalarValuePtr GetOutputScalarOperand(size_t idx) const { return std::static_pointer_cast<ScalarValue>(GetOutputOperand(oScalarIndex_ + idx)); }
+    void SetOutputScalarOperand(size_t idx, ScalarValuePtr ptr) { SetOutputOperand(oScalarIndex_ + idx, ptr); }
 
     // Pretty-print with the given indentation (in spaces).
     void Print(std::ostream& os, int indent = 0) const;
 public:
-    std::vector<ValuePtr> ioprands_;
-    std::vector<ValuePtr> ooprands_;
+    std::vector<ValuePtr> ioperands_;
+    std::vector<ValuePtr> ooperands_;
     Opcode opcode_;
+    ssize_t iScalarIndex_{-1};
+    ssize_t oScalarIndex_{-1};
 };
 
 using OperationPtr = std::shared_ptr<Operation>;
 
-class ScalarOp : public Operation {
+class ScalarBaseOp : public Operation {
 public:
-    ScalarOp(Opcode opcode,
-             const std::vector<ScalarValuePtr> &inOperandList,
-             const std::vector<ScalarValuePtr> &outOperandList)
+    ScalarBaseOp(
+            Opcode opcode,
+            const std::vector<ScalarValuePtr> &inOperandList,
+            const std::vector<ScalarValuePtr> &outOperandList)
         : Operation(opcode, CastScalarToValue(inOperandList), CastScalarToValue(outOperandList)) {}
 
     ScalarValuePtr GetInOperand(size_t index) const;
     ScalarValuePtr GetOutOperand(size_t index) const;
 };
-using ScalarOpPtr = std::shared_ptr<ScalarOp>;
+using ScalarBaseOpPtr = std::shared_ptr<ScalarBaseOp>;
+
+class UnaryScalarBaseOp : public ScalarBaseOp {
+    UnaryScalarBaseOp(Opcode opcode, ScalarValuePtr in, ScalarValuePtr out)
+        : ScalarBaseOp(opcode, std::vector<ScalarValuePtr>({in}), std::vector<ScalarValuePtr>({out})) {}
+};
+
+class BinaryScalarBaseOp : public ScalarBaseOp {
+    BinaryScalarBaseOp(Opcode opcode, ScalarValuePtr lhs, ScalarValuePtr rhs, ScalarValuePtr out)
+        : ScalarBaseOp(opcode, std::vector<ScalarValuePtr>({lhs, rhs}), std::vector<ScalarValuePtr>({out})) {}
+};
+
+class CondScalarBaseOp : public ScalarBaseOp {
+    CondScalarBaseOp(Opcode opcode, ScalarValuePtr cond, ScalarValuePtr sat, ScalarValuePtr unsat, ScalarValuePtr out)
+        : ScalarBaseOp(opcode, std::vector<ScalarValuePtr>({cond, sat, unsat}), std::vector<ScalarValuePtr>({out})) {}
+};
 
 } // namespace pto

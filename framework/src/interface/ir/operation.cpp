@@ -19,9 +19,22 @@ Operation::Operation(Opcode opcode,
                      ValuePtrs outputs,
                      std::string name)
     : Object(ObjectType::Operation, std::move(name)),
-      ioprands_(std::move(inputs)),
-      ooprands_(std::move(outputs)),
-      opcode_(opcode) {}
+      ioperands_(std::move(inputs)),
+      ooperands_(std::move(outputs)),
+      opcode_(opcode) {
+    for (size_t i = 0; i < inputs.size(); i++) {
+        if (std::dynamic_pointer_cast<ScalarValue>(inputs[i])) {
+            iScalarIndex_ = i;
+            break;
+        }
+    }
+    for (size_t i = 0; i < outputs.size(); i++) {
+        if (std::dynamic_pointer_cast<ScalarValue>(outputs[i])) {
+            oScalarIndex_ = i;
+            break;
+        }
+    }
+}
 
 
 void Operation::Print(std::ostream& os, int indent) const {

@@ -47,18 +47,27 @@ TEST_F(IRTest, TestOpcode) {
 }
 
 TEST_F(IRTest, TestClass) {
-    std::vector<ScalarValuePtr> dataList;
-    BinaryScalarOpPtr op = std::make_shared<BinaryScalarOp>(Opcode::OP_SCALAR_ADD, dataList, dataList);
-    EXPECT_EQ(0, op->GetNumInputOperand());
-    EXPECT_EQ(0, op->GetNumOutputOperand());
+    ScalarValuePtr lhs = std::make_shared<ScalarValue>(int64_t{2});
+    ScalarValuePtr rhs = std::make_shared<ScalarValue>(int64_t{4});
+    ScalarValuePtr out = std::make_shared<ScalarValue>(DataType::INT64, "aaa");
+    BinaryScalarOpPtr op = std::make_shared<BinaryScalarOp>(Opcode::OP_SCALAR_ADD, rhs, lhs, out);
+    EXPECT_EQ(2, op->GetNumInputOperand());
+    EXPECT_EQ(1, op->GetNumOutputOperand());
 }
 
 TEST_F(IRTest, TestIRBuilder) {
     auto module = std::make_shared<ProgramModule>("main");
     IRBuilder builder(module);
 
+    auto func = builder.CreateFunction("bbb", FunctionKind::Kernel, FunctionSignature());
+    auto guard = builder.EnterFunctionBody(func);
+
+    ScalarValuePtr lhs = builder.CreateConst(int64_t{2});
+    ScalarValuePtr rhs = builder.CreateConst(int64_t{4});
+    ScalarValuePtr out = builder.CreateScalar(DataType::INT64, "aaa");
+
     std::vector<ScalarValuePtr> dataList;
-    BinaryScalarOpPtr op = builder.CreateBinaryScalarOp(Opcode::OP_SCALAR_ADD, dataList, dataList);
-    EXPECT_EQ(0, op->GetNumInputOperand());
-    EXPECT_EQ(0, op->GetNumOutputOperand());
+    BinaryScalarOpPtr op = builder.CreateBinaryScalarOp(Opcode::OP_SCALAR_ADD, lhs, rhs, out);
+    EXPECT_EQ(2, op->GetNumInputOperand());
+    EXPECT_EQ(1, op->GetNumOutputOperand());
 }

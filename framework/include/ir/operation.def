@@ -15,7 +15,7 @@
 
 DEFOP(
     UnaryScalarOp,
-    INHERIT(ScalarOp),
+    INHERIT(UnaryScalarBaseOp),
     OPCODE(
         OP_SCALAR_NOT,
         OP_SCALAR_NEG,
@@ -25,7 +25,7 @@ DEFOP(
 
 DEFOP(
     BinaryScalarOp,
-    INHERIT(ScalarOp),
+    INHERIT(BinaryScalarBaseOp),
     OPCODE(
         OP_SCALAR_ADD,
         OP_SCALAR_SUB,
@@ -50,7 +50,7 @@ DEFOP(
 
 DEFOP(
     CondScalarOp,
-    INHERIT(ScalarOp),
+    INHERIT(CondScalarBaseOp),
     OPCODE(
         OP_SCALAR_ITE
     ),

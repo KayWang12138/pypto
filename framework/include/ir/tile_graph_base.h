@@ -57,7 +57,7 @@ class DataCopyTileOp : public TileOp {
 class MatmulTileOp : public TileOp {
 };
 
-class SysOp : public ScalarOp {
+class SysOp : public ScalarBaseOp {
 public:
     std::string GetName() const;
 private:
