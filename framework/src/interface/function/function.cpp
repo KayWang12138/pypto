@@ -1184,6 +1184,47 @@ void Function::RefreshOpPosition() {
     }
 }
 
+std::vector<std::string> GetHashDumpFormatPatterns() {
+    static std::vector<std::string> patterns = {
+        "attr:",
+        "( ",
+        "(i0",
+        "TILE_"
+    };
+    return patterns;
+}
+
+std::string FormatHashDumpString(const std::string &content) {
+    std::string result = content;
+    auto patterns = GetHashDumpFormatPatterns();
+    
+    for (const auto &pattern : patterns) {
+        size_t pos = result.length();
+        while (pos > 0) {
+            size_t found = result.rfind(pattern, pos);
+            if (found == std::string::npos) {
+                break;
+            }
+            if (found > 0) {
+                if (pattern == "TILE_") {
+                    result.insert(found, "\n");
+                    size_t prevLineStart = result.rfind('\n', found - 1);
+                    if (prevLineStart != std::string::npos) {
+                        result.insert(prevLineStart, "\n");
+                    }
+                } else {
+                    result.insert(found, "\n");
+                }
+            }
+            if (found == 0) {
+                break;
+            }
+            pos = found - 1;
+        }
+    }
+    return result;
+}
+
 bool Function::enableMagicLookupRecord_{false};
 std::map<std::pair<int, int>, std::set<Operation *, LogicalTensor::CompareOp>> Function::tensorAndSubgraphToProducer_;
 
@@ -1275,6 +1316,7 @@ void Function::MagicLookup(const Function *function, const std::vector<LogicalTe
 }
 
 unsigned long Function::ComputeHashOrderless() const {
+    std::hash<std::string> hasher;
     std::stringstream ss;
     ss << std::to_string(static_cast<int>(functionType_)) << " ";
     ss << std::to_string(static_cast<int>(graphType_)) << " ";
@@ -1333,8 +1375,21 @@ unsigned long Function::ComputeHashOrderless() const {
     if (functionType_ == FunctionType::DYNAMIC) {
         ss << "dynamic unaligned:" << config::GetCodeGenOption<bool>(SUPPORT_DYNAMIC_ALIGNED);
     }
-    std::hash<std::string> hasher;
-    auto result = hasher(ss.str());
+    auto serializedContent = ss.str();
+    auto result = hasher(serializedContent);
+
+    const std::string hashDumpFile = config::LogTopFolder() + "/function_hash_dump.log";
+    std::ofstream hashDumpStream(hashDumpFile, std::ios::app);
+    if (hashDumpStream.is_open()) {
+        hashDumpStream << "Function: " << GetMagicName() << " (" << functionMagic_ << ")\n";
+        hashDumpStream << "Hash: " << result << "\n";
+        // 格式化hash string以提高可读性
+        std::string formattedContent = FormatHashDumpString(serializedContent);
+        hashDumpStream << formattedContent << "\n\n";
+    } else {
+        ALOG_WARN_F("Failed to open hash dump file %s.", hashDumpFile.c_str());
+    }
+
     ALOG_DEBUG_F("Hash for function %d %s is %s hash value is %lu\n",
                  functionMagic_, GetMagicName().c_str(),
                  ss.str().c_str(), result);
