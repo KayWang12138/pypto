@@ -26,13 +26,13 @@ namespace {
     const size_t DUP_PRED_COUNT_PRE_LOOP_CNT = 4;
 }
 
-void DeviceTaskContext::InitAllocator(DevAscendProgram *devProg, DeviceWorkspaceAllocator &workspace, npu::tile_fwk::DevStartArgsBase *startArgs) {
+void DeviceTaskContext::InitAllocator(DevPyPtoProgram *devProg, DeviceWorkspaceAllocator &workspace, npu::tile_fwk::DevStartArgsBase *startArgs) {
     devProg_ = devProg;
     workspace_ = &workspace;
     startArgs_ = startArgs;
 }
 
-DynDeviceTask *DeviceTaskContext::BuildDeviceTaskData(DeviceStitchContext &stitchContext, uint32_t taskId, DevAscendProgram *devProg, bool withoutTail) {
+DynDeviceTask *DeviceTaskContext::BuildDeviceTaskData(DeviceStitchContext &stitchContext, uint32_t taskId, DevPyPtoProgram *devProg, bool withoutTail) {
     int ret = DEVICE_MACHINE_OK;
     PerfBegin(PERF_EVT_ALLOCATE_TASK);
     DynDeviceTask *dynTask = workspace_->MakeDynDeviceTask();
@@ -75,7 +75,7 @@ void DeviceTaskContext::ShowStats() {
     DEV_ERROR("   Leaf function data size: %10lu bytes.", leafFuncDataSize);
 }
 
-int DeviceTaskContext::BuildReadyQueue(DynDeviceTask *dyntask, DevAscendProgram *devProg) {
+int DeviceTaskContext::BuildReadyQueue(DynDeviceTask *dyntask, DevPyPtoProgram *devProg) {
     PerfBegin(PERF_EVT_READY_QUEUE_IN);
     uint32_t size = sizeof(ReadyCoreFunctionQueue) + dyntask->devTask.coreFunctionCnt * sizeof(taskid_t);
     if (dyntask->devTask.coreFunctionCnt > devProg->stitchFunctionsize) {
@@ -110,7 +110,7 @@ int DeviceTaskContext::BuildReadyQueue(DynDeviceTask *dyntask, DevAscendProgram 
     uint32v8 base = {0, 1, 2, 3, 4, 5, 6, 7};
     size_t funcSize = dyntask->dynFuncDataCacheListSize;
     for (size_t funcIdx = 0; funcIdx < funcSize; ++funcIdx) {
-        DevAscendFunctionDuppedData *duppedData = dynFuncDataCacheList->At(funcIdx).duppedData;
+        DevPyPtoFunctionDuppedData *duppedData = dynFuncDataCacheList->At(funcIdx).duppedData;
         predcount_t *dupPredCountList = &duppedData->GetOperationCurrPredCount(0);
         auto &predInfo = duppedData->GetSource()->GetPredInfo();
         size_t totalZeroPredAIVBatchEnd = predInfo.totalZeroPredAIV & ~0x7;
@@ -168,8 +168,8 @@ int DeviceTaskContext::BuildReadyQueue(DynDeviceTask *dyntask, DevAscendProgram 
     return DEVICE_MACHINE_OK;
 }
 
-int DeviceTaskContext::BuildDynFuncData(DynDeviceTask *dyntask, uint32_t taskId, DevAscendProgram *devProg,
-    DevAscendFunctionDupped *stitchedList, uint64_t stitchedSize) {
+int DeviceTaskContext::BuildDynFuncData(DynDeviceTask *dyntask, uint32_t taskId, DevPyPtoProgram *devProg,
+    DevPyPtoFunctionDupped *stitchedList, uint64_t stitchedSize) {
     size_t headerSize = sizeof(DynFuncHeader) + stitchedSize * sizeof(DynFuncData);
     auto header = workspace_->AllocateDynFuncData(headerSize);
     dyntask->dynFuncDataList = header;
@@ -311,7 +311,7 @@ void DeviceTaskContext::DumpReadyQueue(DynDeviceTask *dynTask, const char *prefi
         DEV_ERROR("%s: ready queue aicpu[%d]: %x", prefix, (int)i, dynTask->readyQueue[aicpuIndex]->elem[i]);
     }
 }
-void DeviceTaskContext::DumpDepend(DynDeviceTask *dyntask, DevAscendProgram *devProg, DevStartArgs *startArgs, const char *prefix) {
+void DeviceTaskContext::DumpDepend(DynDeviceTask *dyntask, DevPyPtoProgram *devProg, DevStartArgs *startArgs, const char *prefix) {
     (void)devProg;
     (void)startArgs;
     int total = 0;
@@ -350,7 +350,7 @@ void DeviceTaskContext::DumpDepend(DynDeviceTask *dyntask, DevAscendProgram *dev
         DynFuncData &dynFuncData = dynFuncDataList->At(dupIndex);
         DynFuncDataCache &dynFuncDataCache = dynFuncDataCacheList->At(dupIndex);
 
-        DevAscendFunctionDuppedData *duppedData = dynFuncDataCache.duppedData;
+        DevPyPtoFunctionDuppedData *duppedData = dynFuncDataCache.duppedData;
 
         predcount_t *pred = &duppedData->GetOperationCurrPredCount(0);
         for (size_t opIndex = 0; opIndex < duppedData->GetOperationSize(); opIndex++) {
@@ -360,7 +360,7 @@ void DeviceTaskContext::DumpDepend(DynDeviceTask *dyntask, DevAscendProgram *dev
                 (int)pred[opIndex]);
         }
         for (size_t stitchIndex = 1; stitchIndex < duppedData->GetStitchSize(); stitchIndex++) {
-            DevAscendFunctionDuppedStitchList stitchList = duppedData->GetStitch(stitchIndex);
+            DevPyPtoFunctionDuppedStitchList stitchList = duppedData->GetStitch(stitchIndex);
             stitchList.ForEach([&](int succTaskId){
                 uint32_t succDupIndex = FuncID(succTaskId);
                 uint32_t succOpIndex = TaskID(succTaskId);
@@ -425,7 +425,7 @@ void DeviceTaskContext::DumpDepend(DynDeviceTask *dyntask, DevAscendProgram *dev
     }
 }
 
-int DeviceTaskContext::BuildDeviceTaskDataAndReadyQueue(DynDeviceTask *dyntask, uint32_t taskId, DevAscendProgram *devProg) {
+int DeviceTaskContext::BuildDeviceTaskDataAndReadyQueue(DynDeviceTask *dyntask, uint32_t taskId, DevPyPtoProgram *devProg) {
     int ret = DEVICE_MACHINE_OK;
     dyntask->cceBinary = devProg->GetCceBinary(0);
     dyntask->aicpuLeafBinary = devProg->GetAicpuLeafBinary(0);

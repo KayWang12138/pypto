@@ -20,10 +20,10 @@
 
 namespace npu::tile_fwk::dynamic {
 struct DeviceTaskContext {
-    void InitAllocator(DevAscendProgram *devProg, DeviceWorkspaceAllocator &workspace,
+    void InitAllocator(DevPyPtoProgram *devProg, DeviceWorkspaceAllocator &workspace,
                        npu::tile_fwk::DevStartArgsBase *startArgs);
 
-    DynDeviceTask *BuildDeviceTaskData(DeviceStitchContext &stitchContext, uint32_t taskId, DevAscendProgram *devProg,
+    DynDeviceTask *BuildDeviceTaskData(DeviceStitchContext &stitchContext, uint32_t taskId, DevPyPtoProgram *devProg,
                                        bool withoutTail);
 
     void ReleaseFinishedTasks(int perfEvtReleaseFinishTask, int perfEvtDeallocateTask);
@@ -41,22 +41,22 @@ private:
     uint64_t dynFuncDataSize {0};
     uint64_t leafFuncDataSize {0};
 private:
-    DevAscendProgram *devProg_{nullptr};
+    DevPyPtoProgram *devProg_{nullptr};
     DeviceWorkspaceAllocator *workspace_{nullptr};
     npu::tile_fwk::DevStartArgsBase *startArgs_{nullptr};
 private:
-    int BuildReadyQueue(DynDeviceTask *dyntask, DevAscendProgram *devProg);
+    int BuildReadyQueue(DynDeviceTask *dyntask, DevPyPtoProgram *devProg);
 
 #ifdef SUPPORT_MIX_SUBGRAPH_SCHE
-    int BuildReadyQueueWithMixTask(DynDeviceTask *dyntask, DevAscendProgram *devProg);
+    int BuildReadyQueueWithMixTask(DynDeviceTask *dyntask, DevPyPtoProgram *devProg);
     uint32_t* AllocWrapTasklist(DynDeviceTask *dyntask);
     WrapInfoQueue* AllocWrapQueue(DynDeviceTask *dyntask);
     void ProcessWrapQueue(DynDeviceTask *dyntask, uint32_t wrapId, int funcIndex, size_t opIndex,
         WrapInfoQueue *wrapQueue, uint32_t *wrapTasklistAddr);
 #endif
 
-    int BuildDynFuncData(DynDeviceTask *dyntask, uint32_t taskId, DevAscendProgram *devProg,
-        DevAscendFunctionDupped *stitchedList, uint64_t stitchedSize);
+    int BuildDynFuncData(DynDeviceTask *dyntask, uint32_t taskId, DevPyPtoProgram *devProg,
+        DevPyPtoFunctionDupped *stitchedList, uint64_t stitchedSize);
 
     inline void doResolve(DynDeviceTask *dyntask, int coreType, size_t funcIdx, size_t succIdx, predcount_t *predList) {
         predList[succIdx] -= 1;
@@ -91,8 +91,8 @@ private:
 public:
     static void DumpReadyQueue(DynDeviceTask *dynTask, const char *prefix);
 
-    static void DumpDepend(DynDeviceTask *dyntask, DevAscendProgram *devProg, DevStartArgs *startArgs, const char *prefix);
+    static void DumpDepend(DynDeviceTask *dyntask, DevPyPtoProgram *devProg, DevStartArgs *startArgs, const char *prefix);
 
-    int BuildDeviceTaskDataAndReadyQueue(DynDeviceTask *dyntask, uint32_t taskId, DevAscendProgram *devProg);
+    int BuildDeviceTaskDataAndReadyQueue(DynDeviceTask *dyntask, uint32_t taskId, DevPyPtoProgram *devProg);
 };
 }

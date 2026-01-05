@@ -89,7 +89,7 @@ public:
     }
 
     static bool HasInplaceArgs(Function *function) {
-        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(GetDevProg(function).data()));
+        auto *devProg = reinterpret_cast<DevPyPtoProgram *>(const_cast<uint8_t*>(GetDevProg(function).data()));
         return devProg->outputInplaceSlotList.size() != 0;
     }
 
@@ -106,7 +106,7 @@ public:
     }
 
     template<typename DeviceMemoryTy>
-    static void AssignMetaAddr(AstKernelArgs &kArgs, DeviceMemoryTy devMem, DevAscendProgram *devProg, CachedOperator *cachedOperator) {
+    static void AssignMetaAddr(PyPtoKernelArgs &kArgs, DeviceMemoryTy devMem, DevPyPtoProgram *devProg, CachedOperator *cachedOperator) {
         uint64_t generalSize = devProg->memBudget.metadata.general;
         uint64_t stitchPoolSize = devProg->memBudget.metadata.stitchPool;
         size_t shmSize = DEVICE_SHM_SIZE + DEVICE_TASK_QUEUE_SIZE * devProg->devArgs.scheCpuNum +
@@ -129,11 +129,10 @@ public:
     }
 
     template<typename DeviceMemoryTy>
-    static void DeviceInitTilingData(DeviceMemoryTy devMem, AstKernelArgs &kArgs, const std::vector<uint8_t> &devProgData,
-        const DeviceLauncherConfig &config, CachedOperator *cachedOperator) {
+    static void DeviceProgramConstruct(DeviceMemoryTy devMem, PyPtoKernelArgs &kArgs, DevPyPtoProgram *devProg,
+                                      const DeviceLauncherConfig &config, CachedOperator *cachedOperator) {
         DeviceLauncherConfig &launchConfig = const_cast<DeviceLauncherConfig &>(config);
         ASSERT(launchConfig.blockdim != 0) << "Invalid blockdim: " << launchConfig.blockdim << ", must not be zero";
-        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
         devProg->devArgs.nrAic = kDefaultAicNum;
         devProg->devArgs.nrAiv = kDefaultAivNum;
         devProg->devArgs.nrValidAic = config.blockdim;
@@ -169,7 +168,14 @@ public:
         ASSERT(devProg->commGroupNum == config.hcclContext.size()) << "commGroupNum mismatch. commGroupNum = " <<
                devProg->commGroupNum << ", hcclContext size = " << config.hcclContext.size();
         ASSERT(devProg->commGroupNum <= (sizeof(devProg->hcclContext) / sizeof(uint64_t))) << "commGroupNum exceeds array size. commGroupNum = "
-               << devProg->commGroupNum << ", max allowed = " << sizeof(devProg->hcclContext) / sizeof(uint64_t);
+               << devProg->commGroupNum << ", max allowed = " << sizeof(devProg->hcclContext) / sizeof(uint64_t)
+    }
+
+    template<typename DeviceMemoryTy>
+    static void DeviceInitTilingData(DeviceMemoryTy devMem, PyPtoKernelArgs &kArgs, const std::vector<uint8_t> &devProgData,
+        const DeviceLauncherConfig &config, CachedOperator *cachedOperator) {
+        auto *devProg = reinterpret_cast<DevPyPtoProgram *>(const_cast<uint8_t*>(devProgData.data()));
+        DeviceProgramConstruct(devMem, kArgs, devProg, config, cachedOperator);
         for (size_t i = 0; i < devProg->commGroupNum; i++) {
             devProg->hcclContext[i] = config.hcclContext[i];
         }
@@ -203,7 +209,7 @@ public:
     template<typename DeviceMemoryTy>
     static void DeviceInitTensorLists(
             DeviceMemoryTy devMem,
-            AstKernelArgs &kArgs,
+            PyPtoKernelArgs &kArgs,
             const std::vector<DeviceTensorData> &inputList,
             const std::vector<DeviceTensorData> &outputList) {
         auto buildInouts = [&](const std::vector<DeviceTensorData> &tensorDataList) {
@@ -214,9 +220,9 @@ public:
                 if (tensorData.GetAddr() != 0) {
                     addr = (uint64_t)tensorData.GetAddr();
                 }
-                geTensors.emplace_back(DevAscendTensorDataCreator::Create(addr, tensorData.GetShape()));
+                geTensors.emplace_back(DevPyPtoTensorDataCreator::Create(addr, tensorData.GetShape()));
             }
-            std::vector<int64_t> encoded = DevAscendTensorDataCreator::Encode(geTensors);
+            std::vector<int64_t> encoded = DevPyPtoTensorDataCreator::Encode(geTensors);
             return encoded;
         };
         std::vector<int64_t> encodedInputList = buildInouts(inputList);
@@ -239,7 +245,7 @@ public:
      *                  |     ...     |
      */
     template<typename DeviceMemoryTy>
-    static void DeviceInitKernelInOuts(DeviceMemoryTy devMem, AstKernelArgs &kArgs,
+    static void DeviceInitKernelInOuts(DeviceMemoryTy devMem, PyPtoKernelArgs &kArgs,
             const std::vector<DeviceTensorData> &inputList, const std::vector<DeviceTensorData> &outputList,
             const std::vector<uint8_t>& disableL2List, bool isGETensorList) {
         if (isGETensorList) {
@@ -259,7 +265,7 @@ public:
                     ALOG_INFO_F("Tneosr[%zu] ori:%lx, l2offset[%lu].", tensorIdx, addr, devMem.GetL2Offset());
                     addr += devMem.GetL2Offset();
                 }
-                tensors.emplace_back(DevAscendTensorDataCreator::Create(addr, tensorData.GetShape()));
+                tensors.emplace_back(DevPyPtoTensorDataCreator::Create(addr, tensorData.GetShape()));
                 tensorIdx++;
             }
             (void)memcpy_s(data, size, tensors.data(), size);

@@ -23,12 +23,12 @@ class DyndevFunctionAttribute;
 }
 
 namespace npu::tile_fwk::dynamic {
-struct DevAscendProgramSymbol {
+struct DevPyPtoProgramSymbol {
     DevRelocVector<char> name;
     uint64_t index;
 };
 
-struct DevAscendProgram {
+struct DevPyPtoProgram {
     // shadow definition in `aicore_runtime_manager.h`, make sure the first 4 members are the same
     DeviceArgs devArgs;
     uint64_t workspaceSize;
@@ -88,7 +88,7 @@ struct DevAscendProgram {
     uint16_t stitchFunctionNumInitial;
     uint16_t stitchFunctionNumStep;
     uint32_t stitchFunctionsize;
-    DevRelocVector<DevAscendProgramSymbol> symbolTable;
+    DevRelocVector<DevPyPtoProgramSymbol> symbolTable;
     DevRelocVector<char> symbolTableNameList;
     uint64_t expressionTableSize;
     DevRelocVector<uint64_t> expressionTableOffsetList;
@@ -108,7 +108,7 @@ struct DevAscendProgram {
     DevRelocVector<SymbolHandler> startArgsSymbolHandlerList;
     DevRelocVector<uint64_t> assembleSlotIndexList;
     DevRelocVector<uint64_t> outputInplaceSlotList;
-    DevRelocVector<DevAscendProgramPartialUpdate> partialUpdateList;
+    DevRelocVector<DevPyPtoProgramPartialUpdate> partialUpdateList;
     DevRelocVector<uint64_t> cellMatchRuntimePartialUpdateTableList;
     DevRelocVector<PrefetchInfo> prefetchInfoList;
     DevRelocVector<uint8_t> disableL2List;
@@ -118,7 +118,7 @@ struct DevAscendProgram {
     uint8_t data[0];
 
     /*
-     *      DevAscendProgramSymbol symbolTableData[]
+     *      DevPyPtoProgramSymbol symbolTableData[]
      *      char symbolTableNameListData[]
      *      uint64_t expressionTableOffsetListData[]
      *      uint8_t preGuardPageData[PAGE_SIZE]
@@ -134,8 +134,8 @@ struct DevAscendProgram {
      *      SymbolHandler startArgsSymbolHandlerListData[]
      *      uint64_t assembleSlotIndexList[]
 	 *      uint64_t outputInplaceSlotList[];
-     *      DevAscendProgramPartialUpdate partialUpdateList[]
-     *      DevAscendProgramSlot slotList[]
+     *      DevPyPtoProgramPartialUpdate partialUpdateList[]
+     *      DevPyPtoProgramSlot slotList[]
      */
 
     template <typename T>
@@ -176,7 +176,7 @@ struct DevAscendProgram {
         oss << INDENTINNER << "#assembleSlot{" << assembleSlotSize << "}\n";
         oss << INDENTINNER << "#symbolCount:" << symbolTable.size() << "\n";
         for (size_t i = 0; i < symbolTable.size(); i++) {
-            const DevAscendProgramSymbol &symbol = At(symbolTable, i);
+            const DevPyPtoProgramSymbol &symbol = At(symbolTable, i);
             oss << INDENTINNER << "#symbol:" << symbol.index << " = " << &At(symbol.name, 0) << "\n";
         }
         oss << INDENTINNER << "#inputCount:" << startArgsInputTensorSlotIndexList.size() << "\n";
@@ -199,7 +199,7 @@ struct DevAscendProgram {
             auto &partialUpdate = At(partialUpdateList, i);
             oss << INDENTINNER << "#slot-partial-update-" << i << ":" << !partialUpdate.Empty();
             if (!partialUpdate.Empty()) {
-                oss << " | #cellMatchTableDesc:" << DevAscendFunction::DumpCellMatchTableDesc(partialUpdate.cellMatchTableDesc)
+                oss << " | #cellMatchTableDesc:" << DevPyPtoFunction::DumpCellMatchTableDesc(partialUpdate.cellMatchTableDesc)
                     << " | #cellMatchStaticTable:" << partialUpdate.cellMatchRuntimePartialUpdateTable.size();
             }
             oss << "\n";
@@ -220,14 +220,14 @@ struct DevAscendProgram {
         for (size_t i = 0; i < expressionTableBinary.size(); i += WIDTH) {
             oss << INDENTINNERINNER << AddressDescriptor::DumpAddress(i, ADDRESS_MIN_WIDTH) << ":";
             for (size_t off = i; off < std::min(i + WIDTH, expressionTableBinary.size()); off++) {
-                oss << " " << DevAscendFunction::DumpByte(At(expressionTableBinary, off));
+                oss << " " << DevPyPtoFunction::DumpByte(At(expressionTableBinary, off));
             }
             oss << "\n";
         }
 
         oss << INDENTINNER << "#func:" << devEncodeList.size() << "\n";
         for (size_t i = 0; i < devEncodeList.size(); i++) {
-            const DevAscendFunction *func = reinterpret_cast<const DevAscendFunction *>(&At(At(devEncodeList, i), 0));
+            const DevPyPtoFunction *func = reinterpret_cast<const DevPyPtoFunction *>(&At(At(devEncodeList, i), 0));
             oss << func->Dump(IDENT_SIZE) << "\n";
         }
 
@@ -243,7 +243,7 @@ struct DevAscendProgram {
         for (size_t i = 0; i < hostControlFlowBinary.size(); i += WIDTH) {
             oss << INDENTINNERINNER << AddressDescriptor::DumpAddress(i, ADDRESS_MIN_WIDTH) << ":";
             for (size_t off = i; off < std::min(i + WIDTH, hostControlFlowBinary.size()); off++) {
-                oss << " " << DevAscendFunction::DumpByte(At(hostControlFlowBinary, off));
+                oss << " " << DevPyPtoFunction::DumpByte(At(hostControlFlowBinary, off));
             }
             oss << "\n";
         }
@@ -260,7 +260,7 @@ struct DevAscendProgram {
         for (size_t i = 0; i < devControlFlowBinary.size(); i += WIDTH) {
             oss << INDENTINNERINNER << AddressDescriptor::DumpAddress(i, ADDRESS_MIN_WIDTH) << ":";
             for (size_t off = i; off < std::min(i + WIDTH, devControlFlowBinary.size()); off++) {
-                oss << " " << DevAscendFunction::DumpByte(At(devControlFlowBinary, off));
+                oss << " " << DevPyPtoFunction::DumpByte(At(devControlFlowBinary, off));
             }
             oss << "\n";
         }
@@ -334,13 +334,13 @@ struct DevAscendProgram {
 
     uint64_t GetFunctionSize() const { return devEncodeList.size(); }
 
-    DevAscendFunction *GetFunction(int index) const {
-        return reinterpret_cast<DevAscendFunction *>(const_cast<uint8_t *>(devEncodeList[index].Data()));
+    DevPyPtoFunction *GetFunction(int index) const {
+        return reinterpret_cast<DevPyPtoFunction *>(const_cast<uint8_t *>(devEncodeList[index].Data()));
     }
 
-    DevAscendFunction *GetFunctionByRawName(const std::string &rawName) const {
+    DevPyPtoFunction *GetFunctionByRawName(const std::string &rawName) const {
         for (size_t i = 0; i < GetFunctionSize(); i++) {
-            DevAscendFunction *func = GetFunction(static_cast<int>(i));
+            DevPyPtoFunction *func = GetFunction(static_cast<int>(i));
             if (func->GetRawName() == rawName) {
                 return func;
             }
@@ -405,7 +405,7 @@ struct DevAscendProgram {
         RelocOffset(shift, offset, disableL2List);
         if (relocFunc) {
             for (int i = 0; i < static_cast<int>(GetFunctionSize()); i++) {
-                DevAscendFunction *func = GetFunction(i);
+                DevPyPtoFunction *func = GetFunction(i);
                 func->Reloc(reinterpret_cast<uint64_t>(func), true);
             }
         }
@@ -508,7 +508,7 @@ struct DevAscendProgram {
     uint64_t GetSize() const { return reinterpret_cast<uintptr_t>(programLastField.End()) - reinterpret_cast<uintptr_t>(this); }
 
 private:
-    friend struct EncodeDevAscendProgramInfo;
+    friend struct EncodeDevPyPtoProgramInfo;
 
     void InitSymbolTable(
             uintdevptr_t &initOffset, SymbolicSymbolTable *symbolTableInput, bool fillContent);

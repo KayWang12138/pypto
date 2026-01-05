@@ -278,7 +278,7 @@ void DeviceExecuteContext::DumpDeviceTask(uint64_t taskId, DynDeviceTask *device
         return;
     }
     for (uint64_t dupIdx = 0; dupIdx < deviceTask->dynFuncDataCacheListSize; dupIdx++) {
-        DevAscendFunctionDuppedData *dupped = deviceTask->dynFuncDataCacheList[dupIdx].duppedData;
+        DevPyPtoFunctionDuppedData *dupped = deviceTask->dynFuncDataCacheList[dupIdx].duppedData;
         DEV_TRACE_DEBUG(REvent(RUid(taskId, dupIdx, dupped->GetSource()->GetRootIndex()), dupped->SchemaGetWorkspace()));
         size_t incastSize = dupped->GetSource()->GetIncastSize();
         DEV_TRACE_DEBUG(REvent(RUid(taskId, dupIdx, dupped->GetSource()->GetRootIndex()), RActIncastCount(incastSize)));
@@ -389,7 +389,7 @@ int DeviceExecuteContext::ControlFlowCacheStopCache(uint64_t rootKey) {
 
 void *DeviceExecuteContext::CallRootFunctionAlloc(uint64_t rootKey) {
     int ret = DEVICE_MACHINE_OK;
-    DevAscendFunction *devRoot = devProg->GetFunction(rootKey);
+    DevPyPtoFunction *devRoot = devProg->GetFunction(rootKey);
     DEV_DEBUG("Slloc one func %lu %p %s.", rootKey, devRoot, devRoot->GetRawName());
     if (stitchContext.Size() == stitchTaskLoopNumThreshold ||
         stitchContext.stitchedCallOpSize() + devRoot->GetOperationSize() > devProg->stitchFunctionsize) {
