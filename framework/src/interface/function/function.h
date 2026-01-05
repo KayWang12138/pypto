@@ -560,7 +560,7 @@ public:
     bool IsCube() const;
 
     Function *GetRootFunction() const { return rootFunc_; }
-    Function *Clone(const FunctionCloneInfo &cloneInfo) const;
+    std::shared_ptr<Function> Clone(const FunctionCloneInfo &cloneInfo) const;
 
     void Substitute(std::shared_ptr<LogicalTensor> oldTensor, std::shared_ptr<LogicalTensor> newTensor);
     void SubstituteIn(std::shared_ptr<LogicalTensor> oldTensor, std::shared_ptr<LogicalTensor> newTensor);
