@@ -1316,24 +1316,7 @@ void CheckNewAssembles(std::unordered_map<LogicalTensorPtr, Operation*> &newAsse
     }
 }
 
-/*
-验证一对一场景下动态shape的兜底策略
-因为缺乏宏构建策略，手动构造expandfunction的输出构图
-1) 用例设置：
-                                 {a0,a1,1,4}
-{2,2,2} -> assemble -> {2,2,4} -> reshape -> {2,2,1,4} -> view -> {2,2,1,2}
-{2,2,2} -> assemble                                    -> view -> {2,2,1,2}
-2) splitreshape
-                                 {a0,a1,1,2}
-{2,2,2} -> assemble -> {2,2,2} -> reshape -> {2,2,1,2} -> view -> {2,2,1,2}
-{2,2,2} -> assemble -> {2,2,2} -> reshape -> {2,2,1,2} -> view -> {2,2,1,2}
-{a0,a1,2}             {a0,a1,2}              {a0,a1,1,2}
-{a0,a1,2}             {a0,a1,2}              {a0,a1,1,2}
-*/
-TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchSTest) {
-    auto func = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
-    EXPECT_TRUE(func != nullptr);
-
+LogicalTensors BuildDynPerfectlyMatchFunc(std::shared_ptr<Function> func){
     std::vector<int64_t> shape1 = {kNumTwo, kNumTwo, kNumTwo};
     std::vector<int64_t> shape2 = {kNumTwo, kNumTwo, kNumFour};
     std::vector<int64_t> shape3 = {kNumTwo, kNumTwo, kNumOne, kNumFour};
@@ -1379,21 +1362,47 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchSTest) {
     func->inCasts_.push_back(input2);
     func->outCasts_.push_back(output1);
     func->outCasts_.push_back(output2);
+    return {input1, input2};
+}
+
+/*
+验证一对一场景下动态shape的兜底策略
+因为缺乏宏构建策略，手动构造expandfunction的输出构图
+1) 用例设置：
+                                 {a0,a1,1,4}
+{2,2,2} -> assemble -> {2,2,4} -> reshape -> {2,2,1,4} -> view -> {2,2,1,2}
+{2,2,2} -> assemble                                    -> view -> {2,2,1,2}
+2) splitreshape
+                                 {a0,a1,1,2}
+{2,2,2} -> assemble -> {2,2,2} -> reshape -> {2,2,1,2} -> view -> {2,2,1,2}
+{2,2,2} -> assemble -> {2,2,2} -> reshape -> {2,2,1,2} -> view -> {2,2,1,2}
+{a0,a1,2}             {a0,a1,2}              {a0,a1,1,2}
+{a0,a1,2}             {a0,a1,2}              {a0,a1,1,2}
+*/
+TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchSTest) {
+    auto func = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+    EXPECT_TRUE(func != nullptr);
+    std::vector<int64_t> assembleOffset1 = {kNumZero, kNumZero, kNumZero};
+    std::vector<int64_t> assembleOffset2 = {kNumZero, kNumZero, kNumTwo};
+    std::vector<SymbolicScalar> dynInputShape = {SymbolicScalar("a0"), SymbolicScalar("a1"), kNumTwo};
+
+    auto inputs = BuildDynPerfectlyMatchFunc(func);
 
     RunPassStra(*func, "SplitReshape");
 
     std::unordered_map<LogicalTensorPtr, int> inputsWeight = {
-        {input1, 1},
-        {input2, 10}
+        {inputs[0], 1},
+        {inputs[1], 10}
     };
     std::unordered_map<LogicalTensorPtr, Operation*> newAssembles = {
-        {input1, nullptr},
-        {input2, nullptr}
+        {inputs[0], nullptr},
+        {inputs[1], nullptr}
     };
+    CollectOperations(func, inputsWeight, newAssembles, kNumTwo, kNumTwo, 11);
 
     std::unordered_map<LogicalTensorPtr, std::vector<int64_t>> expectAssembleOffset = {
-        {input1, assembleOffset1},
-        {input2, assembleOffset2}
+        {inputs[0], assembleOffset1},
+        {inputs[1], assembleOffset2}
     };
     LogicalTensors reshapeOutputs;
     std::vector<std::string> expectAssembleDynShape = {
@@ -1408,14 +1417,65 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchSTest) {
         "2"
     };
     std::unordered_map<LogicalTensorPtr, std::vector<std::string>> expectValidShapes = {
-        {input1, expectReshapeDynShape},
-        {input2, expectReshapeDynShape}
+        {inputs[0], expectReshapeDynShape},
+        {inputs[1], expectReshapeDynShape}
     };
-
-    CollectOperations(func, inputsWeight, newAssembles, kNumTwo, kNumTwo, 11);
     CheckNewAssembles(newAssembles, expectAssembleOffset, expectAssembleDynShape, expectValidShapes, dynInputShape, reshapeOutputs, kNumFour);
     EXPECT_NE(reshapeOutputs[0], reshapeOutputs[1]);
     EXPECT_NE(*(reshapeOutputs[0]->GetConsumers().begin()), *(reshapeOutputs[1]->GetConsumers().begin()));
+}
+
+LogicalTensors BuildDynBeCoveredFunc(std::shared_ptr<Function> func){
+    std::vector<int64_t> shape1 = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> shape2 = {kNumTwo, kNumTwo, kNumFour};
+    std::vector<int64_t> shape3 = {kNumFour, kNumFour};
+    std::vector<int64_t> shape4 = {kNumTwo, kNumTwo};
+    std::vector<int64_t> assembleOffset1 = {kNumZero, kNumZero, kNumZero};
+    std::vector<int64_t> assembleOffset2 = {kNumZero, kNumZero, kNumTwo};
+    std::vector<int64_t> viewOffset1 = {kNumZero, kNumZero};
+    std::vector<int64_t> viewOffset2 = {kNumZero, kNumTwo};
+    std::vector<int64_t> viewOffset3 = {kNumTwo, kNumZero};
+    std::vector<int64_t> viewOffset4 = {kNumTwo, kNumTwo};
+    std::vector<SymbolicScalar> validShape = {kNumFour, SymbolicScalar("a")};
+    std::vector<SymbolicScalar> dynInputShape = {kNumTwo, kNumTwo, SymbolicScalar("a")};
+
+    std::shared_ptr<RawTensor> ddrRawTensor1 = std::make_shared<RawTensor>(DT_FP32, shape2);
+    std::shared_ptr<RawTensor> ddrRawTensor2 = std::make_shared<RawTensor>(DT_FP32, shape3);
+    auto input1 = std::make_shared<LogicalTensor>(*func, ddrRawTensor1, assembleOffset1, shape1, dynInputShape);
+    input1->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
+    auto input2 = std::make_shared<LogicalTensor>(*func, ddrRawTensor1, assembleOffset2, shape1, dynInputShape);
+    input2->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
+    auto ubTensor1 = std::make_shared<LogicalTensor>(*func, DT_FP32, shape2);
+    ubTensor1->SetMemoryTypeOriginal(MemoryType::MEM_UNKNOWN, false);
+    auto ubTensor2 = std::make_shared<LogicalTensor>(*func, DT_FP32, shape3);
+    ubTensor2->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
+    auto output1 = std::make_shared<LogicalTensor>(*func, ddrRawTensor2, viewOffset1, shape4);
+    output1->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
+    auto output2 = std::make_shared<LogicalTensor>(*func, ddrRawTensor2, viewOffset2, shape4);
+    output2->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
+    auto output3 = std::make_shared<LogicalTensor>(*func, ddrRawTensor2, viewOffset3, shape4);
+    output3->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
+    auto output4 = std::make_shared<LogicalTensor>(*func, ddrRawTensor2, viewOffset4, shape4);
+    output4->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
+
+    auto &assemble_op1 = func->AddOperation(Opcode::OP_ASSEMBLE, {input1}, {ubTensor1});
+    assemble_op1.SetOpAttribute(std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, assembleOffset1));
+    auto &assemble_op2 = func->AddOperation(Opcode::OP_ASSEMBLE, {input2}, {ubTensor1});
+    assemble_op2.SetOpAttribute(std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, assembleOffset2));
+    auto &reshape_op = func->AddOperation(Opcode::OP_RESHAPE, {ubTensor1}, {ubTensor2});
+    reshape_op.SetAttribute(OP_ATTR_PREFIX + "validShape", validShape);
+    auto &view_op1 = func->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output1});
+    view_op1.SetOpAttribute(std::make_shared<ViewOpAttribute>(viewOffset1));
+    auto &view_op2 = func->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output2});
+    view_op2.SetOpAttribute(std::make_shared<ViewOpAttribute>(viewOffset2));
+    auto &view_op3 = func->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output3});
+    view_op3.SetOpAttribute(std::make_shared<ViewOpAttribute>(viewOffset3));
+    auto &view_op4 = func->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output4});
+    view_op4.SetOpAttribute(std::make_shared<ViewOpAttribute>(viewOffset4));
+
+    func->inCasts_ = {input1, input2};
+    func->outCasts_ = {output1, output2, output3, output4};
+    return {input1, input2};
 }
 
 /*
@@ -1440,84 +1500,18 @@ TEST_F(TestSplitReshapePass, TestDynBeCoveredSTest) {
     auto func = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(func != nullptr);
 
-    std::vector<int64_t> shape1 = {kNumTwo, kNumTwo, kNumTwo};
-    std::vector<int64_t> shape2 = {kNumTwo, kNumTwo, kNumFour};
-    std::vector<int64_t> shape3 = {kNumFour, kNumFour};
-    std::vector<int64_t> shape4 = {kNumTwo, kNumTwo};
     std::vector<int64_t> assembleOffset1 = {kNumZero, kNumZero, kNumZero};
     std::vector<int64_t> assembleOffset2 = {kNumZero, kNumZero, kNumTwo};
-    std::vector<int64_t> viewOffset1 = {kNumZero, kNumZero};
-    std::vector<int64_t> viewOffset2 = {kNumZero, kNumTwo};
-    std::vector<int64_t> viewOffset3 = {kNumTwo, kNumZero};
-    std::vector<int64_t> viewOffset4 = {kNumTwo, kNumTwo};
-    std::vector<SymbolicScalar> validShape = {kNumFour, SymbolicScalar("a")};
     std::vector<SymbolicScalar> dynInputShape = {kNumTwo, kNumTwo, SymbolicScalar("a")};
 
-    std::shared_ptr<RawTensor> ddrRawTensor1 = std::make_shared<RawTensor>(DT_FP32, shape2);
-    std::shared_ptr<RawTensor> ddrRawTensor2 = std::make_shared<RawTensor>(DT_FP32, shape3);
-    auto input1 = std::make_shared<LogicalTensor>(*func, ddrRawTensor1, assembleOffset1, shape1);
-    input1->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
-    input1->UpdateDynValidShape(dynInputShape);
-    auto input2 = std::make_shared<LogicalTensor>(*func, ddrRawTensor1, assembleOffset2, shape1);
-    input2->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
-    input2->UpdateDynValidShape(dynInputShape);
-    auto ubTensor1 = std::make_shared<LogicalTensor>(*func, DT_FP32, shape2);
-    ubTensor1->SetMemoryTypeOriginal(MemoryType::MEM_UNKNOWN, false);
-    auto ubTensor2 = std::make_shared<LogicalTensor>(*func, DT_FP32, shape3);
-    ubTensor2->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
-    auto output1 = std::make_shared<LogicalTensor>(*func, ddrRawTensor2, viewOffset1, shape4);
-    output1->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
-    auto output2 = std::make_shared<LogicalTensor>(*func, ddrRawTensor2, viewOffset2, shape4);
-    output2->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
-    auto output3 = std::make_shared<LogicalTensor>(*func, ddrRawTensor2, viewOffset3, shape4);
-    output3->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
-    auto output4 = std::make_shared<LogicalTensor>(*func, ddrRawTensor2, viewOffset4, shape4);
-    output4->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
-
-    auto &assemble_op1 = func->AddOperation(Opcode::OP_ASSEMBLE, {input1}, {ubTensor1});
-    auto assemble_Attr1 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, assembleOffset1);
-    assemble_op1.SetOpAttribute(assemble_Attr1);
-    auto &assemble_op2 = func->AddOperation(Opcode::OP_ASSEMBLE, {input2}, {ubTensor1});
-    auto assemble_Attr2 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, assembleOffset2);
-    assemble_op2.SetOpAttribute(assemble_Attr2);
-    auto &reshape_op = func->AddOperation(Opcode::OP_RESHAPE, {ubTensor1}, {ubTensor2});
-    reshape_op.SetAttribute(OP_ATTR_PREFIX + "validShape", validShape);
-    auto &view_op1 = func->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output1});
-    auto view_Attr1 = std::make_shared<ViewOpAttribute>(viewOffset1);
-    view_op1.SetOpAttribute(view_Attr1);
-    auto &view_op2 = func->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output2});
-    auto view_Attr2 = std::make_shared<ViewOpAttribute>(viewOffset2);
-    view_op2.SetOpAttribute(view_Attr2);
-    auto &view_op3 = func->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output3});
-    auto view_Attr3 = std::make_shared<ViewOpAttribute>(viewOffset3);
-    view_op3.SetOpAttribute(view_Attr3);
-    auto &view_op4 = func->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output4});
-    auto view_Attr4 = std::make_shared<ViewOpAttribute>(viewOffset4);
-    view_op4.SetOpAttribute(view_Attr4);
-
-    func->inCasts_.push_back(input1);
-    func->inCasts_.push_back(input2);
-    func->outCasts_.push_back(output1);
-    func->outCasts_.push_back(output2);
-    func->outCasts_.push_back(output3);
-    func->outCasts_.push_back(output4);
-
+    auto inputs = BuildDynBeCoveredFunc(func);
     RunPassStra(*func, "SplitReshape");
 
-    std::unordered_map<LogicalTensorPtr, int> inputsWeight = {
-        {input1, 1},
-        {input2, 10}
-    };
-    std::unordered_map<LogicalTensorPtr, Operation*> newAssembles = {
-        {input1, nullptr},
-        {input2, nullptr}
-    };
-    std::unordered_map<LogicalTensorPtr, std::vector<int64_t>> expectAssembleOffset = {
-        {input1, assembleOffset1},
-        {input2, assembleOffset2}
-    };
-    LogicalTensors reshapeOutputs;
+    std::unordered_map<LogicalTensorPtr, int> inputsWeight = {{inputs[0], 1}, {inputs[1], 10}};
+    std::unordered_map<LogicalTensorPtr, Operation*> newAssembles = {{inputs[0], nullptr}, {inputs[1], nullptr}};
+    CollectOperations(func, inputsWeight, newAssembles, kNumTwo, kNumFour, 11);
 
+    LogicalTensors reshapeOutputs;
     std::vector<std::string> expectAssembleDynShape = {
         "2",
         "2",
@@ -1531,12 +1525,8 @@ TEST_F(TestSplitReshapePass, TestDynBeCoveredSTest) {
         "4",
         "RUNTIME_Max(RUNTIME_Max(0, (((RUNTIME_GetViewValidShapeDim(a,2,2)+2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a,2,2), 0))-2)), (((RUNTIME_GetViewValidShapeDim(a,2,2)+2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a,2,2), 0))-2))"
     };
-    std::unordered_map<LogicalTensorPtr, std::vector<std::string>> expectValidShapes = {
-        {input1, expectValidShape1},
-        {input2, expectValidShape2}
-    };
-    
-    CollectOperations(func, inputsWeight, newAssembles, kNumTwo, kNumFour, 11);
+    std::unordered_map<LogicalTensorPtr, std::vector<int64_t>> expectAssembleOffset = {{inputs[0], assembleOffset1}, {inputs[1], assembleOffset2}};
+    std::unordered_map<LogicalTensorPtr, std::vector<std::string>> expectValidShapes = {{inputs[0], expectValidShape1}, {inputs[1], expectValidShape2}};
     CheckNewAssembles(newAssembles, expectAssembleOffset, expectAssembleDynShape, expectValidShapes, dynInputShape, reshapeOutputs, kNumTwo);
     std::vector<int64_t> expectedShape = {kNumFour, kNumTwo};
     EXPECT_EQ(reshapeOutputs[0]->shape, expectedShape);
@@ -1553,27 +1543,7 @@ TEST_F(TestSplitReshapePass, TestDynBeCoveredSTest) {
     EXPECT_NE(view1, view4);
 }
 
-/*
-验证多对一场景下动态shape的兜底策略
-因为缺乏宏构建策略，手动构造expandfunction的输出构图
-1) 用例设置：
-{2,2,2} -> assemble -> {2,8,2} -> reshape -> {2,4,2,2} -> view -> {2,2,2,2}
-{2,2,2} -> assemble                                    -> view -> {2,2,2,2}
-{2,2,2} -> assemble
-{2,2,2} -> assemble
-{2,2,a}                         {2,4,2,a}
-2) splitreshape
-{2,2,2} -> assemble ->
-{2,2,2} -> assemble -> reshape -> {2,2,2,2} -> view -> {2,2,2,2}
-{2,2,2} -> assemble -> reshape -> {2,2,2,2} -> view -> {2,2,2,2}
-{2,2,2} -> assemble ->
-{2,2,a}           {2,4,a}         {2,2,2,a}
-                        {2,2,2,Max(0, RUNTIME_GetViewValidShapeDim(a,0,2))}
-*/
-TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchWithAllSTest) {
-    auto func = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
-    EXPECT_TRUE(func != nullptr);
-
+LogicalTensors BuildDynPerfectlyMatchWithAllFunc(std::shared_ptr<Function> func){
     std::vector<int64_t> shape1 = {kNumTwo, kNumTwo, kNumTwo};
     std::vector<int64_t> shape2 = {kNumTwo, kNumEight, kNumTwo};
     std::vector<int64_t> shape3 = {kNumTwo, kNumFour, kNumTwo, kNumTwo};
@@ -1607,51 +1577,68 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchWithAllSTest) {
     output2->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
 
     auto &assemble_op1 = func->AddOperation(Opcode::OP_ASSEMBLE, {input1}, {ubTensor1});
-    auto assemble_Attr1 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, assembleOffset1);
-    assemble_op1.SetOpAttribute(assemble_Attr1);
+    assemble_op1.SetOpAttribute(std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, assembleOffset1));
     auto &assemble_op2 = func->AddOperation(Opcode::OP_ASSEMBLE, {input2}, {ubTensor1});
-    auto assemble_Attr2 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, assembleOffset2);
-    assemble_op2.SetOpAttribute(assemble_Attr2);
+    assemble_op2.SetOpAttribute(std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, assembleOffset2));
     auto &assemble_op3 = func->AddOperation(Opcode::OP_ASSEMBLE, {input3}, {ubTensor1});
-    auto assemble_Attr3 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, assembleOffset3);
-    assemble_op3.SetOpAttribute(assemble_Attr3);
+    assemble_op3.SetOpAttribute(std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, assembleOffset3));
     auto &assemble_op4 = func->AddOperation(Opcode::OP_ASSEMBLE, {input4}, {ubTensor1});
-    auto assemble_Attr4 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, assembleOffset4);
-    assemble_op4.SetOpAttribute(assemble_Attr4);
+    assemble_op4.SetOpAttribute(std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, assembleOffset4));
     auto &reshape_op = func->AddOperation(Opcode::OP_RESHAPE, {ubTensor1}, {ubTensor2});
     reshape_op.SetAttribute(OP_ATTR_PREFIX + "validShape", validShape);
     auto &view_op1 = func->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output1});
-    auto view_Attr1 = std::make_shared<ViewOpAttribute>(viewOffset1);
-    view_op1.SetOpAttribute(view_Attr1);
+    view_op1.SetOpAttribute(std::make_shared<ViewOpAttribute>(viewOffset1));
     auto &view_op2 = func->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output2});
-    auto view_Attr2 = std::make_shared<ViewOpAttribute>(viewOffset2);
-    view_op2.SetOpAttribute(view_Attr2);
+    view_op2.SetOpAttribute(std::make_shared<ViewOpAttribute>(viewOffset2));
 
-    func->inCasts_.push_back(input1);
-    func->inCasts_.push_back(input2);
-    func->inCasts_.push_back(input3);
-    func->inCasts_.push_back(input4);
-    func->outCasts_.push_back(output1);
-    func->outCasts_.push_back(output2);
+    func->inCasts_ = {input1, input2, input3, input4};
+    func->outCasts_ = {output1, output2};
+    return {input1, input2, input3, input4};
+}
 
+/*
+验证多对一场景下动态shape的兜底策略
+因为缺乏宏构建策略，手动构造expandfunction的输出构图
+1) 用例设置：
+{2,2,2} -> assemble -> {2,8,2} -> reshape -> {2,4,2,2} -> view -> {2,2,2,2}
+{2,2,2} -> assemble                                    -> view -> {2,2,2,2}
+{2,2,2} -> assemble
+{2,2,2} -> assemble
+{2,2,a}                         {2,4,2,a}
+2) splitreshape
+{2,2,2} -> assemble ->
+{2,2,2} -> assemble -> reshape -> {2,2,2,2} -> view -> {2,2,2,2}
+{2,2,2} -> assemble -> reshape -> {2,2,2,2} -> view -> {2,2,2,2}
+{2,2,2} -> assemble ->
+{2,2,a}           {2,4,a}         {2,2,2,a}
+                        {2,2,2,Max(0, RUNTIME_GetViewValidShapeDim(a,0,2))}
+*/
+TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchWithAllSTest) {
+    auto func = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
+    EXPECT_TRUE(func != nullptr);
+
+    std::vector<int64_t> assembleOffset1 = {kNumZero, kNumZero, kNumZero};
+    std::vector<int64_t> assembleOffset2 = {kNumZero, kNumTwo, kNumZero};
+    std::vector<int64_t> assembleOffset3 = {kNumZero, kNumFour, kNumZero};
+    std::vector<int64_t> assembleOffset4 = {kNumZero, kNumSix, kNumZero};
+    std::vector<SymbolicScalar> dynInputShape = {kNumTwo, kNumTwo, SymbolicScalar("a")};
+
+    auto inputs = BuildDynPerfectlyMatchWithAllFunc(func);
     RunPassStra(*func, "SplitReshape");
+
     std::unordered_map<LogicalTensorPtr, int> inputsWeight = {
-        {input1, 1},
-        {input2, 10},
-        {input3, 100},
-        {input4, 1000}
+        {inputs[0], 1}, {inputs[1], 10},
+        {inputs[2], 100}, {inputs[3], 1000}
     };
     std::unordered_map<LogicalTensorPtr, Operation*> newAssembles = {
-        {input1, nullptr},
-        {input2, nullptr},
-        {input3, nullptr},
-        {input4, nullptr}
+        {inputs[0], nullptr}, {inputs[1], nullptr},
+        {inputs[2], nullptr}, {inputs[3], nullptr}
     };
+    CollectOperations(func, inputsWeight, newAssembles, kNumTwo, kNumTwo, 1111);
+
     std::unordered_map<LogicalTensorPtr, std::vector<int64_t>> expectAssembleOffset = {
-        {input1, assembleOffset1},
-        {input2, assembleOffset2},
-        {input3, assembleOffset3},
-        {input4, assembleOffset4}
+        {inputs[0], assembleOffset1}, {inputs[1], assembleOffset2},
+        {inputs[2], assembleOffset3}, {inputs[3], assembleOffset4}
     };
     LogicalTensors reshapeOutputs;
 
@@ -1667,14 +1654,9 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchWithAllSTest) {
         "RUNTIME_Max(0, ((RUNTIME_GetViewValidShapeDim(a,0,2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a,0,2), 0))-0))"
     };
     std::unordered_map<LogicalTensorPtr, std::vector<std::string>> expectValidShapes = {
-        {input1, expectValidShape},
-        {input2, expectValidShape},
-        {input3, expectValidShape},
-        {input4, expectValidShape}
+        {inputs[0], expectValidShape}, {inputs[1], expectValidShape},
+        {inputs[2], expectValidShape}, {inputs[3], expectValidShape}
     };
-
-    CollectOperations(func, inputsWeight, newAssembles, kNumTwo, kNumTwo, 1111);
-
     CheckNewAssembles(newAssembles, expectAssembleOffset, expectAssembleDynShape, expectValidShapes, dynInputShape, reshapeOutputs, kNumFour);
     EXPECT_NE(reshapeOutputs[0], reshapeOutputs[3]);
     EXPECT_EQ(reshapeOutputs[0]->GetConsumers().size(), kNumOne);
