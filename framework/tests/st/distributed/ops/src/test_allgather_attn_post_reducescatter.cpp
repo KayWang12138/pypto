@@ -59,8 +59,7 @@ void TestAllGatherAttentionPostReducescatter(OpTestParam &testParam)
             (void) unusedDynRankId;
             TileShape::Current().SetDistTile({64, b * n * s / testParam.rankSize / 64, 0}, {kvLoraRank, 1, 0}, 
                 {1, testParam.rankSize, 0});
-            Tensor fakeBarrierDummy(DT_INT32, {1, 1}, "fakeBarrierDummy");
-            ShmemAllGather(agIn, fakeBarrierDummy, testParam.group, agOut);
+            ShmemAllGather(agIn, agIn, testParam.group, agOut);
         }
         Tensor attnOut(dtype, {b * s, h}, "attnOut");
         LOOP("ATTNPOST", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(1)) {
