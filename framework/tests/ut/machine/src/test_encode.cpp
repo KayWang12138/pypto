@@ -69,7 +69,7 @@ TEST_F(TestDevEncode, test_dev_encode_program) {
 
     std::shared_ptr<DyndevFunctionAttribute> funcDynDev = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
     ASSERT_NE(funcDynDev, nullptr);
-    DevAscendProgram *devProg = reinterpret_cast<DevAscendProgram *>(funcDynDev->devProgBinary.data());
+    DevPyPtoProgram *devProg = reinterpret_cast<DevPyPtoProgram *>(funcDynDev->devProgBinary.data());
     ASSERT_NE(devProg, nullptr);
     devProg->RelocProgram(0, reinterpret_cast<uint64_t>(devProg), true);
     devProg->controlFlowCache.isRecording = false;
@@ -91,7 +91,7 @@ TEST_F(TestDevEncode, test_dev_encode_program) {
     (void)devProg->GetHostControlFlowBinary();
     (void)devProg->GetExpressionTableBinary();
 
-    DevAscendFunction *devFunc = devProg->GetFunction(0);
+    DevPyPtoFunction *devFunc = devProg->GetFunction(0);
     ASSERT_NE(devFunc, nullptr);
     EXPECT_NE(devProg->GetFunctionByRawName(devFunc->GetRawName()), nullptr);
     devFunc->Dump();
@@ -102,7 +102,7 @@ TEST_F(TestDevEncode, test_dev_encode_program) {
     (void)devFunc->LookupIncastBySlotIndexList(slotIndexList);
     (void)devFunc->LookupOutcastBySlotIndexList(slotIndexList);
 
-    DevAscendFunction *devFunc1 = devProg->GetFunction(1);
+    DevPyPtoFunction *devFunc1 = devProg->GetFunction(1);
     if (devFunc1 != nullptr) {
         devFunc->LookupConnectionSlotIndexFrom(devFunc1);
     }

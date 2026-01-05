@@ -618,11 +618,11 @@ static void SetDyndevProgBinary(Function *function) {
     }
     std::shared_ptr<DyndevFunctionAttribute> dynAttrPtr = function->GetDyndevAttribute();
     uint64_t size = 0;
-    dynamic::EncodeDevAscendProgram(function, size, nullptr);
+    dynamic::EncodeDevPyPtoProgram(function, size, nullptr);
     dynAttrPtr->devProgBinary.resize(size);
 
-    dynamic::DevAscendProgram *devProg = reinterpret_cast<dynamic::DevAscendProgram *>(&dynAttrPtr->devProgBinary[0]);
-    dynamic::EncodeDevAscendProgram(function, size, devProg);
+    dynamic::DevPyPtoProgram *devProg = reinterpret_cast<dynamic::DevPyPtoProgram *>(&dynAttrPtr->devProgBinary[0]);
+    dynamic::EncodeDevPyPtoProgram(function, size, devProg);
 
     if (config::GetPassDefaultConfig(npu::tile_fwk::KEY_PRINT_PROGRAM, false)) {
         devProg->DumpFile(config::LogTopFolder() + "/program.tifwkbintxt");
@@ -667,21 +667,21 @@ std::vector<SymbolicExpressionTable *> GetAllExpressionTable(DyndevFunctionAttri
     return exprTableList;
 }
 
-static void ConstructCodeInfo(struct EncodeDevAscendFunctionParam &encodeDevAscendFunctionParam,
+static void ConstructCodeInfo(struct EncodeDevPyPtoFunctionParam &encodeDevPyPtoFunctionParam,
     std::map<uint64_t, Function *> &leafDict, std::shared_ptr<DyndevFunctionAttribute> attr) {
     attr->cceCodeInfo.resize(leafDict.size() + 1);
     /* cceIdx 0 for dummy callop */
     attr->cceCodeInfo[0].coreType = static_cast<uint32_t>(CoreType::HUB);
     attr->cceCodeInfo[0].psgId = 0;
     attr->cceCodeInfo[0].funcHash = 0;
-    encodeDevAscendFunctionParam.calleeHashIndexDict[0] = 0;
+    encodeDevPyPtoFunctionParam.calleeHashIndexDict[0] = 0;
 
     int leafIndex = 1;
     for (auto &[hash, leaf] : leafDict) {
       auto leafFuncAttr = leaf->GetLeafFuncAttribute();
       ASSERT(leafFuncAttr != nullptr)<<"leafFuncAttr is null\n";
 
-      encodeDevAscendFunctionParam.calleeHashIndexDict[hash] = leafIndex;
+      encodeDevPyPtoFunctionParam.calleeHashIndexDict[hash] = leafIndex;
       attr->devLeafIndex2Hash[leafIndex] = hash;
       ALOG_INFO("Dyndev.codegen: [", leafIndex, "] hash=", hash, " binpath=", leafFuncAttr->binPath);
       attr->cceCodeInfo[leafIndex].coreType = static_cast<uint32_t>(leafFuncAttr->coreType);
@@ -696,17 +696,17 @@ static void ConstructCodeInfo(struct EncodeDevAscendFunctionParam &encodeDevAsce
 #endif
       leafIndex++;
     }
-    encodeDevAscendFunctionParam.cceCodeInfoList = attr->cceCodeInfo;
+    encodeDevPyPtoFunctionParam.cceCodeInfoList = attr->cceCodeInfo;
     return;
 }
 
 static void EncodeOutcastProperty(
-        EncodeDevAscendFunctionParam &encodeDevAscendFunctionParam,
+        EncodeDevPyPtoFunctionParam &encodeDevPyPtoFunctionParam,
         const IncastOutcastLink *inoutLink,
         const IncastOutcastSlot *slot) {
-    encodeDevAscendFunctionParam.outcastDescList.clear();
-    encodeDevAscendFunctionParam.assembleSlotList.clear();
-    Function *devRoot = encodeDevAscendFunctionParam.devRoot;
+    encodeDevPyPtoFunctionParam.outcastDescList.clear();
+    encodeDevPyPtoFunctionParam.assembleSlotList.clear();
+    Function *devRoot = encodeDevPyPtoFunctionParam.devRoot;
 
     std::unordered_map<std::shared_ptr<RawTensor>, int> incastDict;
     for (size_t incastIndex = 0; incastIndex < devRoot->GetIncast().size(); incastIndex++) {
@@ -719,9 +719,9 @@ static void EncodeOutcastProperty(
             outcastSlotKindSetList[outcastIndex] = outcastSlotKindSetList[outcastIndex] | inoutLink->runtimeSlotKindSetList[slotIndex];
         }
     }
-    encodeDevAscendFunctionParam.outcastDescList.resize(slot->outcastSlot.size());
+    encodeDevPyPtoFunctionParam.outcastDescList.resize(slot->outcastSlot.size());
     for (size_t outcastIndex = 0; outcastIndex < slot->outcastSlot.size(); outcastIndex++) {
-        RuntimeSlotDesc &desc = encodeDevAscendFunctionParam.outcastDescList[outcastIndex];
+        RuntimeSlotDesc &desc = encodeDevPyPtoFunctionParam.outcastDescList[outcastIndex];
         if (outcastSlotKindSetList[outcastIndex].Count(RuntimeSlotKind::INPUT)) {
             desc.kind = RuntimeSlotKind::INPUT;
         } else if (outcastSlotKindSetList[outcastIndex].Count(RuntimeSlotKind::OUTPUT)) {
@@ -745,9 +745,9 @@ static void EncodeOutcastProperty(
     }
 
     for (size_t outcastIndex = 0; outcastIndex < slot->outcastSlot.size(); outcastIndex++) {
-        if (encodeDevAscendFunctionParam.outcastDescList[outcastIndex].kind == RuntimeSlotKind::ASSEMBLE_OUTCAST) {
+        if (encodeDevPyPtoFunctionParam.outcastDescList[outcastIndex].kind == RuntimeSlotKind::ASSEMBLE_OUTCAST) {
             for (auto &slotIndex : slot->outcastSlot[outcastIndex]) {
-                encodeDevAscendFunctionParam.assembleSlotList.push_back(slotIndex);
+                encodeDevPyPtoFunctionParam.assembleSlotList.push_back(slotIndex);
             }
         }
     }
@@ -764,7 +764,7 @@ static bool IsNeedDumpAicpuKernel(const std::string &inputFile) {
     }
     return true;
 }
-static void OverCallOpMaxNum(Function *devRoot, DevAscendFunction *funcBin){
+static void OverCallOpMaxNum(Function *devRoot, DevPyPtoFunction *funcBin){
     uint32_t CallOpSize = funcBin->GetOperationSize();
     uint32_t CallOpmaxSize = config::GetRuntimeOption<uint32_t>(STITCH_FUNCTION_SIZE);
     auto funcMagicName = devRoot->GetRawName() + "_" + std::to_string(devRoot->GetFuncMagic());
@@ -901,14 +901,14 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[ma
         }
     }
 
-    struct EncodeDevAscendFunctionParam encodeDevAscendFunctionParam = {};
-    ConstructCodeInfo(encodeDevAscendFunctionParam, leafDict, attr);
+    struct EncodeDevPyPtoFunctionParam encodeDevPyPtoFunctionParam = {};
+    ConstructCodeInfo(encodeDevPyPtoFunctionParam, leafDict, attr);
 
-    encodeDevAscendFunctionParam.inoutLink = &attr->inoutLink;
+    encodeDevPyPtoFunctionParam.inoutLink = &attr->inoutLink;
 
 #ifdef BUILD_WITH_CANN
     if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) != CFG_RUN_MODE_SIM) {
-        int ret = CompileAICoreKernel(leafDict, encodeDevAscendFunctionParam,
+        int ret = CompileAICoreKernel(leafDict, encodeDevPyPtoFunctionParam,
                                     ccePath, function->GetFunctionHash().Data(), kernelPath);
         if (ret != 0) {
             ALOG_ERROR_F("Compile dynamic aicore.o failed.");
@@ -929,25 +929,25 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[ma
         ASSERT(attr->inoutLink.ioslotDict.count(devTile))<<"devTile not found in rootTileDict";
         IncastOutcastSlot *slot = &attr->inoutLink.ioslotDict[devTile];
 
-        encodeDevAscendFunctionParam.symbolTable = linker.GetSymbolTable();
+        encodeDevPyPtoFunctionParam.symbolTable = linker.GetSymbolTable();
         if (linker.GetExpressionTableDictGroup().devRootCoaDict.count(devRoot) != 0) {
-            encodeDevAscendFunctionParam.expressionTable = &linker.GetExpressionTableDictGroup().devRootCoaDict.find(devRoot)->second;
+            encodeDevPyPtoFunctionParam.expressionTable = &linker.GetExpressionTableDictGroup().devRootCoaDict.find(devRoot)->second;
         }
-        encodeDevAscendFunctionParam.devRoot = devRoot;
-        encodeDevAscendFunctionParam.slot = slot;
-        EncodeOutcastProperty(encodeDevAscendFunctionParam, &attr->inoutLink, slot);
+        encodeDevPyPtoFunctionParam.devRoot = devRoot;
+        encodeDevPyPtoFunctionParam.slot = slot;
+        EncodeOutcastProperty(encodeDevPyPtoFunctionParam, &attr->inoutLink, slot);
 
         uint64_t size = 0;
-        EncodeDevAscendFunction(function, encodeDevAscendFunctionParam, size, nullptr);
+        EncodeDevPyPtoFunction(function, encodeDevPyPtoFunctionParam, size, nullptr);
 
         attr->devEncodeList[devRootKey].resize(size);
-        DevAscendFunction *funcBin = reinterpret_cast<DevAscendFunction *>(&attr->devEncodeList[devRootKey][0]);
+        DevPyPtoFunction *funcBin = reinterpret_cast<DevPyPtoFunction *>(&attr->devEncodeList[devRootKey][0]);
         funcBin->rootHash = devRoot->GetFunctionHash().GetHash();
         funcBin->funcKey = devRootKey;
         funcBin->stackWorkSpaceSize = devTile->GetStackWorkespaceSize();
         funcBin->getInputDataCount = 0;
         funcBin->getTensorDataCount = 0;
-        EncodeDevAscendFunction(function, encodeDevAscendFunctionParam, size, funcBin);
+        EncodeDevPyPtoFunction(function, encodeDevPyPtoFunctionParam, size, funcBin);
         funcBin->Reloc(-reinterpret_cast<int64_t>(funcBin), true);
         uint32_t CallOpmaxSize = config::GetRuntimeOption<uint32_t>(STITCH_FUNCTION_SIZE);
         ASSERT(CallOpmaxSize <= STITCH_FUNCTION_MAX_SIZE) << " CallOpmaxSize set: "<< CallOpmaxSize

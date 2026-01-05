@@ -218,7 +218,7 @@ int AiCoreManager::WaitAllAicoreFinish(int coreIdxStart, int coreIdxEnd) {
             }
         }
     }
-    uint64_t tmp_task_finish_time;
+    uint64_t tmp_task_finish_time = 0;
     task_end_time_ = std::max(task_end_time_, tmp_task_finish_time);
     DEV_DEBUG("Last task finish with time: %lu\n", task_end_time_);
     return 0;
