@@ -133,21 +133,64 @@ TEST_F(TestDistributedShmemImpl, TestOneShotShmemAllReduce)
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(TestDistributedShmemImpl, TestShmemSet)
+TEST_F(TestDistributedShmemImpl, TestShmemDataSet)
 {
     Tensor predToken(DT_INT32, {1, 1}, "predToken");
     Tensor in(DT_BF16, {4, 1, 256, 102400}, "in");
     Tensor out(DT_INT32, {1, 1}, "out");
 
-    std::string functionName = "ShmemSet";
+    std::string functionName = "ShmemDataSet";
     FUNCTION(functionName + "Main", {in}, {out}) {
         LOOP(functionName, FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
             (void)index;
-            out = ShmemSet(predToken, in);
+            out = ShmemDataSet(predToken, in);
         }
     }
 
     std::string functionRawName = GetFunctionRawName(functionName);
+    auto function = Program::GetInstance().GetFunctionByRawName(functionRawName);
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(TestDistributedShmemImpl, TestShmemSignalSet)
+{
+    int64_t worldSize = 4;
+    Tensor predToken(DT_INT32, {1, 1}, "predToken");
+    Tensor in(DT_BF16, {worldSize, worldSize, 1, 256, 102400}, "in");
+    Tensor out(DT_INT32, {1, 1}, "out");
+
+    std::string functionName = "ShmemSignalSet";
+    FUNCTION(functionName + "Main", {in}, {out}) {
+        LOOP(functionName, FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
+            (void)index;
+            out = ShmemSignalSet(predToken, in);
+        }
+    }
+
+    std::string functionRawName = GetFunctionRawName(functionName);
+    auto function = Program::GetInstance().GetFunctionByRawName(functionRawName);
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(TestDistributedShmemImpl, TestPredTokenView1D)
+{
+    const char* group = "hcom123";
+    uint32_t worldSize = 4;
+    int64_t row = 16;
+    int64_t col = 32;
+    Tensor in(DT_FP16, {row, col}, "in");
+    Tensor out(DT_FP16, {row, col}, "out");
+    FUNCTION("ALLGATHER", {in}, {out}) {
+        TileShape::Current().SetVecTile({4, 8});
+        Tensor predToken(DT_INT32, {2, 9}, "predToken");
+        AllGather(predToken, in, group, worldSize, out);
+    }
+
+    std::string functionRawName = GetFunctionRawName("L0");
     auto function = Program::GetInstance().GetFunctionByRawName(functionRawName);
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
