@@ -1334,56 +1334,8 @@ struct EncodeDevPyPtoFunctionInfo {
         }
     }
 
-<<<<<<< HEAD
     void EncodeZeroPredCount(std::vector<Operation *>& callopList) {
         std::unordered_map<Operation *, int> callopCoreTypeDict;
-=======
-    EncodeDevPyPtoFunctionInfo(
-            Function *dyndev,
-            const std::unordered_map<uint64_t, int> &tHashIndexDict,
-            const std::vector<CceCodeInfo> &tCceCodeInfoList,
-            const SymbolicExpressionTable *tExpressionTable,
-            Function *tdevRoot)
-            : devRoot(tdevRoot),
-              calleeHashIndexDict(tHashIndexDict),
-              cceCodeInfoList(tCceCodeInfoList),
-              expressionTable(tExpressionTable) {
-        (void)dyndev;
-        ASSERT(dyndev->GetDyndevAttribute()->rootTileDict.count(devRoot)) << "devRoot: " << devRoot << " not found in rootTileDict of dyndev";
-        devTile = dyndev->GetDyndevAttribute()->rootTileDict[devRoot];
-        if (dyndev->GetDyndevAttribute()->valueDependDescDict.count(devTile)) {
-            valueDependDesc = dyndev->GetDyndevAttribute()->valueDependDescDict[devTile];
-        }
-
-        std::unordered_map<std::shared_ptr<LogicalTensor>, OrderedSet<Operation *>> consumerDict;
-        std::unordered_map<Operation *, int> callopIndexDict;
-
-        rawName = devRoot->GetRawName();
-
-        incastList = devRoot->GetIncast();
-        outcastList = devRoot->GetOutcast();
-
-        incastSet.insert(incastList.begin(), incastList.end());
-        outcastSet.insert(outcastList.begin(), outcastList.end());
-
-        std::vector<Operation *> callopList;
-        for (auto &op : devRoot->Operations()) {
-            if (op.GetOpcode() == Opcode::OP_CALL) {
-                callopIndexDict[&op] = callopList.size();
-                callopList.push_back(&op);
-
-                for (auto &i : op.GetIOperands()) {
-                    tensorList.Insert(i);
-                    RecordRawTensor(i);
-                    consumerDict[i].Insert(&op);
-                }
-                for (auto &j : op.GetOOperands()) {
-                    tensorList.Insert(j);
-                    RecordRawTensor(j);
-                }
-            }
-        }
->>>>>>> e4634bd (fix(machine): Change Ast to PyPto)
         for (auto &op : callopList) {
             auto callOpAttr = std::static_pointer_cast<CallOpAttribute>(op->GetOpAttribute());
             auto calleeHash = callOpAttr->GetCalleeHash().GetHash();
