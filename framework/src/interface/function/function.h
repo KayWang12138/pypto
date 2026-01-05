@@ -551,6 +551,7 @@ public:
     bool IsCube() const;
 
     Function *GetRootFunction() const { return rootFunc_; }
+    Function *Clone(uint64_t programID, const std::string &funcMagicName, const std::string &funcRawName, const AIVCore &aivCore) const;
 
     void Substitute(std::shared_ptr<LogicalTensor> oldTensor, std::shared_ptr<LogicalTensor> newTensor);
     void SubstituteIn(std::shared_ptr<LogicalTensor> oldTensor, std::shared_ptr<LogicalTensor> newTensor);
