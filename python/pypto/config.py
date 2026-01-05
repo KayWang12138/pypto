@@ -559,7 +559,7 @@ def get_options_tree():
 
 class CubeTile:
     """CubeTile"""
-    def __init__(self, m, k, n, set_l1_tile=False):
+    def __init__(self, m, k, n, enable_multi_data_load=False, enable_split_k=False):
         """
         CubeTile tile for matmul operation, m[0], k[0], n[0] for L0 Cache, m[1], k[1], n[1] for L1 Cache
 
@@ -571,7 +571,7 @@ class CubeTile:
             tile size for K dimension, can have 2 or 3 elements
         n: list
             tile size for N dimension, must have exactly 2 elements
-        setL1Tile: bool
+        enableMultiDataLoad: bool
             whether to set L1 tile
         """
 
@@ -586,7 +586,7 @@ class CubeTile:
         if len(k_padded) == 2:
             k_padded.append(k_padded[1])  # k[2] = k[1]
 
-        self._impl = pypto_impl.CubeTile(list(m), k_padded, list(n), set_l1_tile)
+        self._impl = pypto_impl.CubeTile(list(m), k_padded, list(n), enable_multi_data_load, enable_split_k)
 
     def __getattr__(self, name):
         return getattr(self._impl, name)
