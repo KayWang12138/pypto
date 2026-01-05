@@ -1073,14 +1073,21 @@ void OoOScheduler::UpdateMoveOpAttr(Operation &moveOp, Operation &occupyOp) {
     }
 }
 
-IssueEntryPtr OoOScheduler::ProcessMoveOp(Operation &moveOp, Operation &occupyOp, int oldMemId, int newMemId) {
-    UpdateMoveOpAttr(moveOp, occupyOp);
-    IssueEntryPtr moveIssue = std::make_shared<IssueEntry>(moveOp, issueId);
-    issueEntryMap[issueId++] = moveIssue;
-    moveIssue->reqMemIds = {oldMemId, newMemId};
-    moveIssue->isRetired = true;
-    APASS_LOG_DEBUG_F(Elements::Operation, "Add MOVEOP: %s.", moveIssue->GetOpInfo().c_str());
-    return moveIssue;
+void OoOScheduler::ProcessMoveIssue(IssueEntryPtr moveIssuePtr, IssueEntryPtr AllocIssue, MemoryType memType, int oldMemId, int newMemId) {
+    issueEntryMap[issueId++] = moveIssuePtr;
+    moveIssuePtr->reqMemIds = {oldMemId, newMemId};
+    moveIssuePtr->isRetired = true;
+    APASS_LOG_DEBUG_F(Elements::Operation, "Add MOVEOP: %s.", moveIssuePtr->GetOpInfo().c_str());
+    tensorOccupyMap[memType][newMemId] = moveIssuePtr;
+    // 更新moveIssue的相关信息
+    auto occupyIssuePtr = tensorOccupyMap[memType][oldMemId];
+    moveIssuePtr->predecessors.insert(occupyIssuePtr->id);
+    occupyIssuePtr->successors.insert(moveIssuePtr->id);
+    // 更新执行序
+    moveIssuePtr->execOrder = AllocIssue->execOrder;
+    InsertIssueEntries(moveIssuePtr);
+    // 找出moveFromTensor的所有consumer中未执行的, 并改变图的连接
+    UpdateReloadIssueDepend(moveIssuePtr, occupyIssuePtr, oldMemId);
 }
 
 Status OoOScheduler::FindMoveFromTensor(Operation &occupyOp, int oldMemId, MemoryType memType, bool &rearrangeUBBF16, LogicalTensorPtr &moveFromTensor) {
@@ -1152,17 +1159,10 @@ Status OoOScheduler::GenRearrangeCopyOp(IssueEntryPtr AllocIssue, MemoryType mem
     moveToTensor->tensor->rawshape = inTensor->tensor->rawshape;
     newOperations_.push_back(&moveOp);
     // UpdateMoveOpAttr & 创建moveop的issueEntry
-    auto moveIssuePtr = ProcessMoveOp(moveOp, occupyOp, oldMemId, newMemId);
-    tensorOccupyMap[memType][newMemId] = moveIssuePtr;
-    // 更新moveIssue的相关信息
-    auto occupyIssuePtr = tensorOccupyMap[memType][oldMemId];
-    moveIssuePtr->predecessors.insert(occupyIssuePtr->id);
-    occupyIssuePtr->successors.insert(moveIssuePtr->id);
-    // 更新执行序
-    moveIssuePtr->execOrder = AllocIssue->execOrder;
-    InsertIssueEntries(moveIssuePtr);
-    // 找出moveFromTensor的所有consumer中未执行的, 并改变图的连接
-    UpdateReloadIssueDepend(moveIssuePtr, occupyIssuePtr, oldMemId);
+    UpdateMoveOpAttr(moveOp, occupyOp);
+    IssueEntryPtr moveIssuePtr = std::make_shared<IssueEntry>(moveOp, issueId);
+    // 处理issue & 改变图连接
+    ProcessMoveIssue(moveIssuePtr, AllocIssue, memType, oldMemId, newMemId);
     // 更新memId
     if (UpdateMemId(oldMemId, newMemId) != SUCCESS) {
         APASS_LOG_WARN_F(Elements::Operation, "GenRearrangeCopyOp failed at UpdateMemId.", GetFormatBacktrace(moveOp).c_str());
