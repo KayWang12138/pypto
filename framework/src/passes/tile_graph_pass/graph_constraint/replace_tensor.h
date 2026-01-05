@@ -51,11 +51,10 @@ vaule: vector of pair, 每个pair记录了第几个输入和第几个输出存�
 const std::unordered_map<Opcode, std::vector<std::pair<size_t, size_t>>> inplaceOpMap = {
     {   Opcode::OP_A_MULACC_B, {std::pair<size_t, size_t>{2, 0}}},
     {Opcode::OP_INDEX_OUTCAST, {std::pair<size_t, size_t>{2, 0}}},
-    {Opcode::OP_REMOTE_REDUCE, {std::pair<size_t, size_t>{0, 0}}},
 };
 
 const std::unordered_set<Opcode> inplaceOpSet = {Opcode::OP_VIEW, Opcode::OP_ASSEMBLE, Opcode::OP_RESHAPE, Opcode::OP_A_MULACC_B,
-                                                 Opcode::OP_INDEX_OUTCAST, Opcode::OP_REMOTE_REDUCE, Opcode::OP_VIEW_TYPE};
+                                                 Opcode::OP_INDEX_OUTCAST, Opcode::OP_VIEW_TYPE};
 
 class UnionFind {
 public:
@@ -126,7 +125,6 @@ private:
     bool CheckIndexOutcastConflict(const Operation& op);
     bool CheckReshapeConflict(const Operation& op);
     bool CheckAMulAccBConflict(const Operation& op);
-    bool CheckRemoteReduceConflict(const Operation& op);
     Status InplaceCheck(Function &function);
     bool CheckInplace(const Operation &op);
 
