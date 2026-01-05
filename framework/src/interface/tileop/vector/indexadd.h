@@ -17,64 +17,6 @@
 #include "utils/layout.h"
 #include "utils/tile_tensor.h"
 
-constexpr uint32_t FP32_TO_BF16_MAN_LEN = 16;
-
-// fp32->bf16, rint mode
-INLINE bfloat16_t Fp32ToBf16R(const float fVal) {
-    union Bfloat16Union {
-        bfloat16_t bVal;
-        uint16_t bNum;
-    } bf16Union = {};
-    union Float32Union {
-        float fVal;
-        size_t fNum;
-    } fp32Union;
-    fp32Union.fVal = fVal;
-    size_t x = fp32Union.fNum;
-    // 处理特殊值
-    size_t exp = x & 0x7F800000;
-    if (exp == 0x7F800000) { // NaN 或无穷大
-        bf16Union.bNum = static_cast<uint16_t>((x >> FP32_TO_BF16_MAN_LEN) | 0x7F80);
-        return bf16Union.bVal;
-    }
-    if (exp == 0) { // 0或非规格化
-        bf16Union.bNum = static_cast<uint16_t>((x >> FP32_TO_BF16_MAN_LEN) & 0x8000);
-        return bf16Union.bVal;
-    }
-    // RINT舍入
-    size_t lsb = (x >> FP32_TO_BF16_MAN_LEN) & 1;
-    size_t roundingBit = (x >> (FP32_TO_BF16_MAN_LEN - 1)) & 1;
-    size_t sticky = x & 0x7FFF;
-
-    size_t roundUp = 0;
-    if (roundingBit) {
-        roundUp = (sticky != 0) ? 1 : lsb;
-    }
-
-    size_t result = (x + (roundUp << (FP32_TO_BF16_MAN_LEN - 1))) >> FP32_TO_BF16_MAN_LEN;
-    // 溢出检查
-    if ((result & 0x7F80) == 0x7F80) {
-        result = (result & 0x8000) | 0x7F80;
-    }
-    bf16Union.bNum = static_cast<uint16_t>(result);
-    return bf16Union.bVal;
-}
-
-// bf16->fp32
-INLINE float Bf16ToFp32(const bfloat16_t bVal) {
-    union Bfloat16Union {
-        bfloat16_t bVal;
-        uint16_t bNum;
-    } bf16Union;
-    union Float32Union {
-        float fVal;
-        size_t fNum;
-    } fp32Union = {};
-    bf16Union.bVal = bVal;
-    fp32Union.fNum = static_cast<size_t>(bf16Union.bNum) << FP32_TO_BF16_MAN_LEN;
-    return fp32Union.fVal;
-}
-
 template <typename T0, typename T2, typename dstTileDefine, typename src1TileDefine, typename Scalar, size_t dstTileW,
     size_t src1TileW>
 TILEOP void IndexAddNotLastAxisCompute(dstTileDefine dstTile, src1TileDefine src1Tile, Scalar alpha,
@@ -90,7 +32,7 @@ TILEOP void IndexAddNotLastAxisCompute(dstTileDefine dstTile, src1TileDefine src
         pto::TASSIGN(src1Temp, (uint64_t)(src1Addr + src1Offset));
         pto::TASSIGN(dstTemp, (uint64_t)(dstAddr + dstOffset));
 
-        if (static_cast<float>(alpha) != 1.0f) {
+        if (abs(static_cast<float>(alpha) - 1) > EPSILON) {
             pto::TMULS(src1Tile, src1Tile, alpha);
             #ifdef __DAV_V220
             pipe_barrier(PIPE_V);
@@ -114,7 +56,7 @@ TILEOP void IndexAddNotLastAxisCompute(dstTileDefine dstTile, src1TileDefine src
         #endif
         pto::TCVT(dstTile, dstTemp, pto::RoundMode::CAST_NONE);
     } else {
-        if (static_cast<float>(alpha) != 1.0f) {
+        if (abs(static_cast<float>(alpha) - 1) > EPSILON) {
             pto::TMULS(src1Tile, src1Tile, alpha);
             #ifdef __DAV_V220
             pipe_barrier(PIPE_V);
@@ -135,7 +77,7 @@ TILEOP void IndexAddLastAxisCompute(T0 dst, T2 src1, T3 src2, Scalar alpha, size
     wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
     uint64_t dstOffset = 0;
     uint64_t src1Offset = 0;
-    if (static_cast<float>(alpha) != 1.0f) {
+    if (abs(static_cast<float>(alpha) - 1) > EPSILON) {
         for (size_t i = 0; i < src1Shape0; ++i) {
             for (size_t j = 0; j < src1Shape1; ++j) {
                 for (size_t k = 0; k < src1Shape2; ++k) {
