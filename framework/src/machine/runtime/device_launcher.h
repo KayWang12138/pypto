@@ -148,7 +148,7 @@ public:
 
         config.aicpuNum = std::min(config.aicpuNum,
             static_cast<int>(Platform::Instance().GetSoc().GetAICPUNum()) - 1);
-        devProg->devArgs.scheCpuNum = CalcSchAicpuNumByBlockDim(config.blockdim, config.aicpuNum);
+        devProg->devArgs.scheCpuNum = CalcSchAicpuNumByBlockDim(config.blockdim, config.aicpuNum, devProg->devArgs.archInfo);
 
         devProg->devArgs.taskType = DEVICE_TASK_TYPE_DYN;
         devProg->devArgs.isGETensorList = config.isGETensorList ? 1 : 0;
