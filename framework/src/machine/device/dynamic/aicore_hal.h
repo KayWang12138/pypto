@@ -67,6 +67,7 @@ public:
             regSprDataMainBase_ = DAV_3510::REG_SPR_DATA_MAIN_BASE;
             regSprCond_ = DAV_3510::REG_SPR_COND;
             isNeedWriteRegForFastPath_ = false;
+            freq_ = 1000;   // 1000 : DAV_3510 freq
         } 
     }
 
@@ -391,7 +392,7 @@ public:
         }
 
         oss << "{\"blockIdx\":" << coreIdx << ",\"coreType\":\"SCHED" << aicpuIdx << "-"
-            << (coretype == CoreType::AIC ? "AIC" : "AIV") << "\",\"freq\":50,\"tasks\":[";
+            << (coretype == CoreType::AIC ? "AIC" : "AIV") << "\",\"freq\":" << freq_ << ",\"tasks\":[";
 
         uint64_t curCycle = 0;
         for (uint32_t type = 0; type < PERF_TRACE_CORE_MAX; type++) {
@@ -517,6 +518,7 @@ private:
     int aivStart_{0};
     int aivEnd_{0};
     uint32_t regNum_{0};
+    uint32_t freq_{50};
     
     std::array<volatile KernelArgs*, MAX_AICORE_NUM> args_;
 
