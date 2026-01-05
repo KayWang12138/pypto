@@ -57,7 +57,7 @@ TEST_F(ControlFlowTest, RunDeviceContext) {
 
     struct Inspector {
         int count{0};
-        std::vector<DevAscendFunction *> rootList;
+        std::vector<DevPyPtoFunction *> rootList;
         static void Entry(void *inspector_, DeviceExecuteContext *execCtx, DynDeviceTask *task) {
             Inspector *inspector = reinterpret_cast<Inspector *>(inspector_);
             (void)execCtx; (void)task;
@@ -195,8 +195,8 @@ TEST_F(ControlFlowTest, TensorRecycleDestruct) {
 
     DynDeviceTask *task = inspector.taskList[0];
     DynFuncDataCache *cacheList = task->GetDynFuncDataCacheList();
-    DevAscendFunctionDuppedData *dup0 = cacheList->At(0).duppedData;
-    DevAscendFunctionDuppedData *dup1 = cacheList->At(0x4 * 0x4 + 0x1).duppedData;
+    DevPyPtoFunctionDuppedData *dup0 = cacheList->At(0).duppedData;
+    DevPyPtoFunctionDuppedData *dup1 = cacheList->At(0x4 * 0x4 + 0x1).duppedData;
     EXPECT_TRUE(dup0->GetOutcastAddress(0).IsAddress());
     EXPECT_TRUE(dup1->GetOutcastAddress(0).IsAddress());
     EXPECT_NE(dup0->GetOutcastAddress(0).GetAddressValue(), dup1->GetOutcastAddress(0).GetAddressValue());

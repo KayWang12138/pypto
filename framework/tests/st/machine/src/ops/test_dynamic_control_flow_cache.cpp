@@ -147,7 +147,7 @@ TEST_F(DynamicControlFlowCacheTest, CheckShape) {
     config.blockdim = 24; // 24:max aicore num
     EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), {}, {}, config));
 
-    DevAscendProgram *devProg = reinterpret_cast<DevAscendProgram *>(
+    DevPyPtoProgram *devProg = reinterpret_cast<DevPyPtoProgram *>(
         const_cast<uint8_t*>(DeviceLauncher::GetDevProg(Program::GetInstance().GetLastFunction()).data()));
     EXPECT_NE(devProg->controlFlowCache.deviceTaskCount, 0);
 
@@ -250,7 +250,7 @@ TEST_F(DynamicControlFlowCacheTest, CheckLackMemory) {
     config.blockdim = 24; // 24:max aicore num
     EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), {}, {}, config));
 
-    DevAscendProgram *devProg = reinterpret_cast<DevAscendProgram *>(
+    DevPyPtoProgram *devProg = reinterpret_cast<DevPyPtoProgram *>(
         const_cast<uint8_t*>(DeviceLauncher::GetDevProg(Program::GetInstance().GetLastFunction()).data()));
     EXPECT_EQ(devProg->controlFlowCache.deviceTaskCount, 0);
     EXPECT_EQ(devProg->controlFlowCache.deviceTaskSkippedCount, 1);
@@ -356,7 +356,7 @@ TEST_F(DynamicControlFlowCacheTest, PartialCache) {
     config.blockdim = 24; // 24:max aicore num
     EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), inputList, outputList, config));
 
-    DevAscendProgram *devProg = reinterpret_cast<DevAscendProgram *>(
+    DevPyPtoProgram *devProg = reinterpret_cast<DevPyPtoProgram *>(
         const_cast<uint8_t*>(DeviceLauncher::GetDevProg(Program::GetInstance().GetLastFunction()).data()));
 
     EXPECT_EQ(0x3, devProg->controlFlowCache.deviceTaskCount);
@@ -463,7 +463,7 @@ TEST_F(DynamicControlFlowCacheTest, PartialCacheChangeWorkspaceAddress) {
     config.blockdim = 24; // 24:max aicore num
     EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), inputList, outputList, config));
 
-    DevAscendProgram *devProg = reinterpret_cast<DevAscendProgram *>(
+    DevPyPtoProgram *devProg = reinterpret_cast<DevPyPtoProgram *>(
         const_cast<uint8_t*>(DeviceLauncher::GetDevProg(Program::GetInstance().GetLastFunction()).data()));
 
     EXPECT_EQ(0x1, devProg->controlFlowCache.deviceTaskCount);
@@ -567,7 +567,7 @@ TEST_F(DynamicControlFlowCacheTest, PartialCacheValueDependData) {
     config.blockdim = 24; // 24:max aicore num
     EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), {}, {}, config));
 
-    DevAscendProgram *devProg = reinterpret_cast<DevAscendProgram *>(
+    DevPyPtoProgram *devProg = reinterpret_cast<DevPyPtoProgram *>(
         const_cast<uint8_t*>(DeviceLauncher::GetDevProg(Program::GetInstance().GetLastFunction()).data()));
 
     EXPECT_EQ(0x1, devProg->controlFlowCache.deviceTaskCount);
@@ -650,7 +650,7 @@ TEST_F(DynamicControlFlowCacheTest, PartialCacheValueDependControl) {
     config.blockdim = 24; // 24:max aicore num
     EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), inputList, outputList, config));
 
-    DevAscendProgram *devProg = reinterpret_cast<DevAscendProgram *>(
+    DevPyPtoProgram *devProg = reinterpret_cast<DevPyPtoProgram *>(
         const_cast<uint8_t*>(DeviceLauncher::GetDevProg(Program::GetInstance().GetLastFunction()).data()));
 
     EXPECT_EQ(0x1, devProg->controlFlowCache.deviceTaskCount);
