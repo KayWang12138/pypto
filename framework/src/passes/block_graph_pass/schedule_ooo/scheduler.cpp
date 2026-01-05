@@ -37,17 +37,15 @@ inline bool IsViewOp(const Operation& op) {
 
 template <typename NextFn>
 Operation* SkipViewChain(Operation* start, NextFn nextFn) {
-    if (start == nullptr || !IsViewOp(*start)) return nullptr;
+    if (start == nullptr) return nullptr;
     Operation* op = start;
     Operation* lastView = nullptr;
     while (op != nullptr && IsViewOp(*op)) {
         lastView = op;
-        // nextFn 返回迭代方向的集合
+        // nextFn 返回沿某迭代方向的op集合
         decltype(auto) nextOps = nextFn(op);
         if (nextOps.empty()) break;
-        Operation* nextOp = *nextOps.begin();
-        if (nextOp == nullptr) break;
-        op = nextOp;
+        op = *nextOps.begin();
     }
     return lastView;
 }
