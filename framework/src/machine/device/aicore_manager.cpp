@@ -88,7 +88,6 @@ int AiCoreManager::Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *ta
         return ret;
     }
 
-    prof_.ProfStart();
     if (taskCtrl != nullptr) {
         ret = RunTask(taskCtrl);
     } else {
@@ -121,8 +120,6 @@ void AiCoreManager::DumpTaskProf() {
         DEV_DEBUG("Dump core %d prof data , task cnt %ld, metric:%p \n.", coreIdx, metric->taskCount, metric);
         for (int i = 0; i < metric->taskCount; i++) {
             volatile TaskStat *stat = &metric->tasks[i];
-            prof_.ProfGet(coreIdx, stat->subGraphId, stat->taskId,
-                &((Metrics *)(arg->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]))->tasks[i]);
             DEV_DEBUG("  Dump prof for task %d, execstart: %ld execend :%ld .\n", stat->taskId, stat->execStart,
                 stat->execEnd);
         }
@@ -133,7 +130,6 @@ void AiCoreManager::ProfStop() {
 #if PROF_DFX_HOST_PREPARE_MEMORY_MODE
     DumpTaskProf();
 #endif
-    prof_.ProfStop();
 }
 
 void AiCoreManager::DumpAiCoreStatus() const {
@@ -223,7 +219,6 @@ int AiCoreManager::WaitAllAicoreFinish(int coreIdxStart, int coreIdxEnd) {
         }
     }
     uint64_t tmp_task_finish_time;
-    prof_.AsmCntvc(tmp_task_finish_time);
     task_end_time_ = std::max(task_end_time_, tmp_task_finish_time);
     DEV_DEBUG("Last task finish with time: %lu\n", task_end_time_);
     return 0;
@@ -331,7 +326,6 @@ uint64_t AiCoreManager::DispatchAiCoreTask(CoreType type, StaticReadyCoreFunctio
 
 void AiCoreManager::SendTaskToAiCore(CoreType type, int coreIdx, uint64_t newTask) {
     if (isFirstTaskSend_) {
-        prof_.AsmCntvc(task_start_time_);
         DEV_DEBUG("First task start with time: %lu\n", task_start_time_);
         isFirstTaskSend_ = false;
     }
@@ -345,8 +339,6 @@ void AiCoreManager::SetAiCpuStat(int coreIdx, uint64_t taskId) {
     struct AiCpuTaskStat aiCpuTaskStat;
     aiCpuTaskStat.taskId = taskId;
     aiCpuTaskStat.coreId = GetPhyIdByBlockId(coreIdx);
-    prof_.AsmCntvc(aiCpuTaskStat.taskGetStart);
-    prof_.SetAiCpuTaskStat(taskId, aiCpuTaskStat);
 };
 
 void AiCoreManager::AddTask(int coreIdx, uint64_t taskId) {
@@ -647,10 +639,6 @@ void AiCoreManager::ResolveDep(uint64_t finishId) {
         &(reinterpret_cast<CoreFunctionWsAddr *>(curDevTask_->coreFuncData.coreFunctionWsAddr)[finishId]);
     auto topo = reinterpret_cast<CoreFunctionTopo *>(funcInfo->topoAddr);
     DEV_DEBUG("resolve %lx, Dep core function num: %lu\n", finishId, topo->depNum);
-#if PERF_AICPU_TEST_SWITCH
-    struct AiCpuTaskStat aiCpuTaskStat = prof_.GetAiCpuTaskStat(finishId);
-    prof_.AsmCntvc(aiCpuTaskStat.execStart);
-#endif
     for (uint64_t i = 0; i < topo->depNum; i++) {
         uint64_t dep = topo->depIds[i];
         int ret = __sync_add_and_fetch(&(readyState[dep].readyCount), 1);
@@ -659,10 +647,6 @@ void AiCoreManager::ResolveDep(uint64_t finishId) {
         }
         ResolveByCoreType(readyState[dep].coreType, dep, readyState);
     }
-#if PERF_AICPU_TEST_SWITCH // 性能AICPU数据测试
-    prof_.AsmCntvc(aiCpuTaskStat.execEnd);
-    prof_.ProfGetAiCpuTaskStat(aicpuIdx_, &aiCpuTaskStat);
-#endif
 }
 
 void AiCoreManager::ResolveDepWithDfx(CoreType type, int coreIdx, uint64_t finishId) {
@@ -709,18 +693,11 @@ void AiCoreManager::Init(int threadIdx, DeviceArgs *deviceArgs) {
     DEV_DEBUG("Init aicore manager aicNum_ %d aivNum_  %d aicpuNum_ %d aicpuIdx_ %d "
                 "aicValidNum_ %d regAddrs_ %p sharedBuffer_ %p \n",
         aicNum_, aivNum_, aicpuNum_, aicpuIdx_, aicValidNum_, regAddrs_, (void *)sharedBuffer_);
-    prof_.ProfInit(reinterpret_cast<int64_t *>(deviceArgs->corePmuRegAddr),
-                    reinterpret_cast<int64_t *>(deviceArgs->pmuEventAddr));
 }
 
 int AiCoreManager::HandkShake() {
     DEV_INFO("Aicpu %d handshake start.\n", aicpuIdx_);
     int rc = ForEachManageAicoreWithRet([this](int coreIdx) -> int {
-#if PERF_AICPU_TEST_SWITCH
-        struct AiCpuHandShakeSta shakeHandStat;
-        shakeHandStat.threadId = aicpuIdx_;
-        prof_.AsmCntvc(shakeHandStat.shakeStart);
-#endif
         int ret = npu::tile_fwk::dynamic::DEVICE_MACHINE_OK;
         auto args =
             reinterpret_cast<KernelArgs *>((static_cast<uint64_t>(sharedBuffer_)) + SHARED_BUFFER_SIZE * coreIdx);
@@ -734,18 +711,10 @@ int AiCoreManager::HandkShake() {
             }
         }
         args_[coreIdx] = args;
-#if PERF_AICPU_TEST_SWITCH
-        prof_.AsmCntvc(shakeHandStat.shakeEnd);
-        shakeHandStat.coreId = *shakeBuffer >> NUM_THIRTY_TWO;
-        prof_.ProGetHandShake(aicpuIdx_, &shakeHandStat);
-#endif
         blockIdToPhyCoreId_[coreIdx] = (*shakeBuffer >> NUM_THIRTY_TWO) & AICORE_COREID_MASK;
         DEV_DEBUG("coreidx %d handshake  phycorid %d .\n", coreIdx, blockIdToPhyCoreId_[coreIdx]);
         return ret;
     });
-#if PERF_AICPU_TEST_SWITCH
-    prof_.ProfStopHandShake();
-#endif
     if (rc != npu::tile_fwk::dynamic::DEVICE_MACHINE_OK) {
         DEV_DEBUG("Aicpu %d handshake failed end.\n", aicpuIdx_);
         return rc;
@@ -837,18 +806,9 @@ void AiCoreManager::DfxProcAfterFinishTask(int coreIdx, uint64_t taskId) {
     int pos = GetDfxPos(coreIdx);
     volatile TaskStat *stat = &args_[coreIdx]->taskStat[pos];
     (void)stat;
-
-#if PROF_DFX_HOST_PREPARE_MEMORY_MODE != 1
-    prof_.ProfGet(coreIdx, stat->subGraphId, stat->taskId, &args_[coreIdx]->taskStat[pos]);
-#endif
-
     DEV_IF_VERBOSE_DEBUG {
         DumpTaskTensor(coreIdx, stat);
         recvFinTask_[coreIdx].push_back(TaskInfo(coreIdx, taskId));
     }
-
-#if PROF_DFX_HOST_PREPARE_MEMORY_MODE != 1
-    SetNextDfxPos(coreIdx); // pingpong 存储
-#endif
 }
 }
