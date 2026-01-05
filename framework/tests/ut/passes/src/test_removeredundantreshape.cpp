@@ -84,8 +84,8 @@ TEST_F(TestRemoveRedundantReshapePass, RemoveRedundantReshapeUTest1) {
     currFunctionPtr->outCasts_.push_back(outCast);
 
     RemoveRedundantReshape removeredundantpass;
-    auto status = removeredundantpass.RunOnFunction(*currFunctionPtr);
-    EXPECT_EQ(status, SUCCESS);
+    EXPECT_EQ(removeredundantpass.RunOnFunction(*currFunctionPtr), SUCCESS);
+    EXPECT_EQ(removeredundantpass.PostCheck(*currFunctionPtr), SUCCESS);
 
     const auto &operations = currFunctionPtr->Operations();
     uint32_t reshape_num = kNumZero;
