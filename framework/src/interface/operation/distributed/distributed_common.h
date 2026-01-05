@@ -49,6 +49,7 @@ constexpr int32_t AIV_NUM = 4;
 constexpr int32_t RECEIVE_CNT_OUT_ROW = 1024;
 constexpr int32_t RECEIVE_CNT_OUT_COL = 512;
 constexpr int32_t SHMEM_SIGNAL_STRIDE = 8;
+constexpr int32_t DEFAULT_SIGNAL_NUM = 512;
 constexpr int32_t MAX_TILE_NUM = 1024;
 enum class TileIndex : size_t {
     HEAD_SHAPE,
@@ -83,7 +84,7 @@ public:
     AtomicType atomicType = AtomicType::SET;
     int64_t signalValue;
     int64_t signalStride;
-    int64_t memType;
+    int64_t setType;
     std::vector<int64_t> aicpuOpParams;
     bool fp32Mode;
     int64_t topK;
