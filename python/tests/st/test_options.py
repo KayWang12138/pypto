@@ -77,7 +77,7 @@ def cust_dyn_func_add(a, c, tiling=None):
         assert [32, 32] == get_options("vec_tile_shapes")
 
 
-def check_cube_tile_shapes(expected_m, expected_k, expected_n, expected_set_l1_tile=False):
+def check_cube_tile_shapes(expected_m, expected_k, expected_n, expected_enable_multi_data_load=False):
     """Check if cube_tile_shapes matches expected values"""
     cube_tile = get_options("cube_tile_shapes")
     # Expand k to 3 elements if needed
@@ -86,7 +86,7 @@ def check_cube_tile_shapes(expected_m, expected_k, expected_n, expected_set_l1_t
     return (list(cube_tile.m) == expected_m and
             list(cube_tile.k) == expected_k and
             list(cube_tile.n) == expected_n and
-            cube_tile.setL1Tile == expected_set_l1_tile)
+            cube_tile.enableMultiDataLoad == expected_enable_multi_data_load)
 
 
 def get_options(key):
