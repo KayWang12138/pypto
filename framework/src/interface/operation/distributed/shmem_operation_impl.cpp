@@ -108,8 +108,7 @@ Tensor ShmemPut(const Tensor &in, const Tensor &shmemDataTile, const Tensor &bar
     AtomicType atomicType = AtomicType::SET)
 {
     auto &function = *Program::GetInstance().GetCurrentFunction();
-    Shape shape{MAX_TILE_NUM, 1};
-    auto dummy = std::make_shared<LogicalTensor>(function, DT_INT32, shape);
+    auto dummy = std::make_shared<LogicalTensor>(function, DT_INT32, barrierDummy.GetShape());
     auto &op = function.AddOperation(Opcode::OP_SHMEM_PUT,
         {in.GetStorage(), shmemDataTile.GetStorage(), barrierDummy.GetStorage()}, {dummy});
     DistOpAttr distOpAttr;
@@ -183,8 +182,7 @@ Tensor ShmemGetGm2Ub(const Tensor &dummy, const Tensor &shmemDataTile, DataType 
 Tensor WaitUntil(const Tensor &dummyIn, const Tensor &shmemSignalTile, int32_t expectedSum, bool resetSignal = false)
 {
     auto &function = *Program::GetInstance().GetCurrentFunction();
-    Shape shape{MAX_TILE_NUM, 1};
-    auto dummy = std::make_shared<LogicalTensor>(function, DT_INT32, shape);
+    auto dummy = std::make_shared<LogicalTensor>(function, DT_INT32, dummyIn.GetShape());
     auto &op = function.AddOperation(Opcode::OP_SHMEM_WAIT_UNTIL, {dummyIn.GetStorage(), shmemSignalTile.GetStorage()},
         {dummy});
     std::vector<int64_t> param = {static_cast<int64_t>(expectedSum), static_cast<int64_t>(SHMEM_SIGNAL_STRIDE), static_cast<int64_t>(resetSignal)};
@@ -240,30 +238,48 @@ void CreateShmemSignal(const char *group, Tensor &shmemData, Tensor &shmemSignal
     op.SetAttribute(OpAttributeKey::bindTensor, BindTensor(hcclGroupIndex, 0,
         BytesOf(DataType::DT_INT32) * worldSize * SHMEM_SIGNAL_STRIDE * MAX_TILE_NUM));
 }
-void ShmemBarrier(const Tensor& predToken, Tensor& shmemSignal, const char* group, Tensor& out)
+void ShmemBarrier(const Tensor& predToken, Tensor& shmemSignal, const char* group, uint32_t worldSize, Tensor& out)
 {
     ValidateGroup(group);
 
     int32_t hcclGroupIndex = static_cast<int32_t>(CommGroupRecorder::GetInstance().Input(std::string(group)));
-    auto [rankSize, tileCount] = GetRankSizeAndTileCount();
-    (void)tileCount;
     SymbolicScalar thisRank = GetHcclRankId(hcclGroupIndex);
 
-    auto shmemSignalTile = View(shmemSignal, {rankSize, 1, 1, 8}, std::vector<SymbolicScalar>{0, 0, 0, 0});
+    auto shmemSignalTile = View(shmemSignal, {worldSize, 1, 1, shmemSignal.GetShape(3), shmemSignal.GetShape(4)},
+        std::vector<SymbolicScalar>{0, 0, 0, 0, 0});
     auto shmemSignalOut = ShmemSignal(predToken, shmemSignalTile, AtomicType::ADD);
-    auto shmemSignalLocal = View(shmemSignal, {1, 1, 1, 8}, std::vector<SymbolicScalar>{thisRank, 0, 0, 0});
-    out = WaitUntil(shmemSignalOut, shmemSignalLocal, rankSize, true);
+    auto shmemSignalLocal = View(shmemSignal, {1, 1, 1, shmemSignal.GetShape(3), shmemSignal.GetShape(4)},
+        std::vector<SymbolicScalar>{thisRank, 0, 0, 0, 0});
+    out = WaitUntil(shmemSignalOut, shmemSignalLocal, worldSize, true);
 }
 
-Tensor ShmemSet(const Tensor& predToken, const Tensor& shmemTensor)
+Tensor ShmemDataSet(const Tensor& predToken, const Tensor& shmemData)
 {
     constexpr int32_t supportedDim = 4;
-    ASSERT(shmemTensor.GetShape().size() == supportedDim) << "The dim of \"shmemTensor\" only supports " << supportedDim
-        << ", but got " << shmemTensor.GetShape().size();
+    ASSERT(shmemData.GetShape().size() == supportedDim) << "The dim of \"shmemData\" only supports " << supportedDim
+        << ", but got " << shmemData.GetShape().size();
 
     auto& function = *Program::GetInstance().GetCurrentFunction();
     auto out = std::make_shared<LogicalTensor>(function, DT_INT32, Shape{1, 1});
-    function.AddOperation(Opcode::OP_SHMEM_SET, {predToken.GetStorage(), shmemTensor.GetStorage()}, {out});
+    auto& op = function.AddOperation(Opcode::OP_SHMEM_SET, {predToken.GetStorage(), shmemData.GetStorage()}, {out});
+    DistOpAttr distOpAttr;
+    distOpAttr.memType = 0;
+    op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
+    return out;
+}
+
+Tensor ShmemSignalSet(const Tensor& predToken, const Tensor& shmemSignal)
+{
+    constexpr int32_t supportedDim = 5;
+    ASSERT(shmemSignal.GetShape().size() == supportedDim) << "The dim of \"shmemSignal\" only supports " << supportedDim
+        << ", but got " << shmemSignal.GetShape().size();
+
+    auto& function = *Program::GetInstance().GetCurrentFunction();
+    auto out = std::make_shared<LogicalTensor>(function, DT_INT32, Shape{1, 1});
+    auto& op = function.AddOperation(Opcode::OP_SHMEM_SET, {predToken.GetStorage(), shmemSignal.GetStorage()}, {out});
+    DistOpAttr distOpAttr;
+    distOpAttr.memType = 1;
+    op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
     return out;
 }
 

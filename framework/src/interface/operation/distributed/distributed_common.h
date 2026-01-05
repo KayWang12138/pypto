@@ -49,7 +49,8 @@ constexpr int32_t AIV_NUM = 4;
 constexpr int32_t RECEIVE_CNT_OUT_ROW = 1024;
 constexpr int32_t RECEIVE_CNT_OUT_COL = 512;
 constexpr int32_t SHMEM_SIGNAL_STRIDE = 8;
-constexpr int32_t MAX_TILE_NUM = 1024;
+constexpr int32_t DEFAULT_SIGNAL_NUM = 1024;
+constexpr int32_t MAX_TILE_NUM = 512;
 enum class TileIndex : size_t {
     HEAD_SHAPE,
     HEAD_NUM,
