@@ -84,7 +84,7 @@ Status RemoveRedundantReshapeChecker::ProcessPostCheck(const Operation *op) {
             return FAILED;
         }
     }
-    return false;
+    return SUCCESS;
 }
 
 bool CheckForConsecutiveReshape(const Operation *childOp){

@@ -174,7 +174,7 @@ TEST_F(TestRemoveRedundantReshapePass, RemoveRedundantReshapeUTest3) {
     RemoveRedundantReshape removeredundantpass;
     EXPECT_NE(removeredundantpass.PreCheck(*currFunctionPtr), SUCCESS);
     EXPECT_EQ(removeredundantpass.RunOnFunction(*currFunctionPtr), SUCCESS);
-    EXPECT_EQ(removeredundantpass.PreCheck(*currFunctionPtr), SUCCESS);
+    EXPECT_EQ(removeredundantpass.PostCheck(*currFunctionPtr), SUCCESS);
 
     uint32_t reshape_num = kNumZero;
     for (auto &op : currFunctionPtr->Operations()) {
