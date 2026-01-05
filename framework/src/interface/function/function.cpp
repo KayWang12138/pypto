@@ -3716,7 +3716,7 @@ bool Function::InsertLoopIdxNameList(const std::string &idxName) {
     return true;
 }
 
-std::shared_ptr<Function> Function::Clone(const FunctionCloneInfo &cloneInfo) const {
+std::shared_ptr<Function> Function::Clone(const FunctionCloneInfo &cloneInfo) {
     ALOG_DEBUG_F("Add leafFunction %s", cloneInfo.funcRawName.c_str());
     auto newFunc = std::make_shared<Function>(Program::GetInstance(), cloneInfo.funcMagicName, cloneInfo.funcRawName, this);
     // 设置function类型
