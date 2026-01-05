@@ -406,6 +406,25 @@ static std::string BuildControlFlowCallee(Function *func, int ident) {
     return oss.str();
 }
 
+// ============================================================================
+// 全局变量和常量定义
+// ============================================================================
+// 
+// g_globalFuncIdx: 全局函数索引计数器
+//   用途：在生成 SetExprSubFunc 辅助函数时，为每个函数分配唯一的索引号
+//   命名规则：SetExprSubFunc0, SetExprSubFunc1, SetExprSubFunc2, ...
+//   重置时机：仅在处理最顶层的 DYNAMIC 函数时（indent == 0）重置为 0
+//   递增时机：每生成一个 SetExprSubFunc 函数后递增
+//
+// EXPR_PER_BATCH: 每个辅助函数包含的最大表达式数量
+//   用途：当 RUNTIME_SetExpr 调用数量超过此值时，将其拆分为多个辅助函数
+//   设计原因：避免单个函数包含过多的 RUNTIME_SetExpr 调用，提高代码可读性和编译效率
+//   当前值：3（可根据实际需求调整）
+//
+static size_t g_globalFuncIdx = 0;
+
+static constexpr size_t EXPR_PER_BATCH = 8000;
+
 static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::string &sectionName,
     Function *func,
     std::unordered_map<int, int> &slotIdxMapping,
@@ -440,8 +459,121 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
         }
 
         controlFlowOss << "#define LOOP(idx, b, e, s) for (int64_t idx = (b), idxEnd = (e), idxStep = (s); idx < idxEnd; idx += idxStep)\n"
-            << "namespace npu::tile_fwk {\n"
-            << BuildControlFlowCallee(func, 0)
+            << "namespace npu::tile_fwk {\n";
+        
+        // ========================================================================
+        // 第一阶段：重置全局状态（仅在处理最顶层的 DYNAMIC 函数时）
+        // ========================================================================
+        // 当 indent == 0 时，表示这是最顶层的 DYNAMIC 函数，需要重置全局函数索引
+        // 这确保了每次编译新的控制流时，函数索引从 0 开始
+        if (indent == 0) {
+            g_globalFuncIdx = 0;
+        }
+        
+        // ========================================================================
+        // 第二阶段：收集需要拆分的表达式表（在递归调用之前）
+        // ========================================================================
+        // 目的：预先识别所有需要拆分为多个辅助函数的表达式表
+        // 
+        // 遍历逻辑：
+        //   1. 遍历 group.devRootList 中的所有函数
+        //   2. 筛选出类型为 EXECUTE_GRAPH 的函数
+        //   3. 查找每个函数的符号表达式表（SymbolicExpressionTable）
+        //   4. 如果表达式数量 > EXPR_PER_BATCH，则标记为需要拆分
+        //
+        // 为什么在递归调用之前收集？
+        //   - 需要先知道所有需要拆分的函数，才能为它们分配连续的函数索引
+        //   - 确保生成的辅助函数在 ControlFlowEntry 之前，符合 C++ 的声明顺序要求
+        //
+        std::vector<std::pair<int, SymbolicExpressionTable*>> exprTablesToSplit;
+        ALOG_INFO_F("BuildControlFlow DYNAMIC: group.devRootList.size()=%zu", group.devRootList.size());
+        for (size_t idx = 0; idx < group.devRootList.size(); idx++) {
+            Function *devRoot = group.devRootList[idx];
+            if (devRoot->GetGraphType() == GraphType::EXECUTE_GRAPH) {
+                int devRootKey = group.devRootList.GetIndex(devRoot);
+                SymbolicExpressionTable *exprTable = linker.LookupDevRootCoa(devRoot);
+                if (exprTable != nullptr) {
+                    size_t exprSize = exprTable->GetPrimaryExpressionSet().size();
+                    ALOG_INFO_F("BuildControlFlow DYNAMIC: devRootKey=%d, exprSize=%zu", devRootKey, exprSize);
+                    // 如果表达式数量超过阈值，需要拆分为多个辅助函数
+                    if (exprSize > EXPR_PER_BATCH) {
+                        exprTablesToSplit.push_back({devRootKey, exprTable});
+                    }
+                }
+            }
+        }
+        ALOG_INFO_F("BuildControlFlow DYNAMIC: exprTablesToSplit.size()=%zu", exprTablesToSplit.size());
+        
+        // ========================================================================
+        // 第三阶段：生成辅助函数（在 ControlFlowEntry 之前）
+        // ========================================================================
+        // 目的：为每个需要拆分的表达式表生成多个 SetExprSubFunc 辅助函数
+        //
+        // 生成逻辑：
+        //   1. 对每个需要拆分的表达式表：
+        //      a. 计算需要生成的辅助函数数量：batchCount = ceil(exprCount / EXPR_PER_BATCH)
+        //      b. 记录起始函数索引：startFuncIdx = g_globalFuncIdx
+        //      c. 生成 batchCount 个辅助函数，每个函数包含最多 EXPR_PER_BATCH 个 RUNTIME_SetExpr
+        //   2. 每个辅助函数的命名：SetExprSubFunc{索引}
+        //   3. 函数签名：接收 ControlFlowEntry 的所有参数，用于访问运行时上下文
+        //
+        // 为什么在 ControlFlowEntry 之前生成？
+        //   - C++ 要求函数在使用前必须声明或定义
+        //   - ControlFlowEntry 中会调用这些辅助函数，因此必须在之前定义
+        //
+        // 函数索引分配：
+        //   - 按照 exprTablesToSplit 的顺序（即 group.devRootList 的顺序）分配索引
+        //   - 每个 devRootKey 的所有辅助函数使用连续的索引范围
+        //   - 例如：devRootKey=0 使用 SetExprSubFunc0-2，devRootKey=1 使用 SetExprSubFunc3-5
+        //
+        for (auto &[devRootKey, exprTable] : exprTablesToSplit) {
+            const auto &exprSet = exprTable->GetPrimaryExpressionSet();
+            size_t exprCount = exprSet.size();
+            // 计算需要生成的辅助函数数量（向上取整）
+            // 例如：11 个表达式，EXPR_PER_BATCH=3，则 batchCount = (11+3-1)/3 = 4
+            size_t batchCount = (exprCount + EXPR_PER_BATCH - 1) / EXPR_PER_BATCH;
+            
+            // 记录当前 devRootKey 的起始函数索引
+            // 注意：这个值在 EXECUTE_GRAPH 分支中会通过重新计算得到，这里仅用于生成函数名
+            size_t startFuncIdx = g_globalFuncIdx;
+            
+            // 为当前 devRootKey 生成 batchCount 个辅助函数
+            for (size_t batchIdx = 0; batchIdx < batchCount; batchIdx++) {
+                // 计算当前批次包含的表达式范围
+                size_t startIdx = batchIdx * EXPR_PER_BATCH;
+                size_t endIdx = std::min(startIdx + EXPR_PER_BATCH, exprCount);
+                
+                // 生成函数声明和定义
+                // 函数名：SetExprSubFunc{索引}
+                // 参数：与 ControlFlowEntry 相同，用于访问运行时上下文和符号表
+                controlFlowOss << "uint64_t static inline SetExprSubFunc" << g_globalFuncIdx 
+                    << "(void *ctx, int64_t *symbolTable,\n"
+                    << "  RuntimeCallEntryType runtimeCallList[], DevStartArgsBase *startArgs, uint64_t *exprList" << devRootKey << ") {\n";
+                
+                // 生成函数体：为当前批次的每个表达式生成 RUNTIME_SetExpr 调用
+                // 优化：使用索引直接访问 OrderedSet，避免遍历所有表达式
+                for (size_t exprIdx = startIdx; exprIdx < endIdx; exprIdx++) {
+                    const auto &expr = exprSet[exprIdx];
+                    // 获取表达式在符号表中的索引
+                    auto index = exprTable->GetPrimaryExpressionSet().GetIndex(expr);
+                    // 构建表达式的字符串表示（用于代码生成）
+                    auto exprStr = exprTable->BuildExpression(expr);
+                    // 生成 RUNTIME_SetExpr 调用
+                    // 参数：exprList{devRootKey} - 表达式列表指针
+                    //      index - 表达式在列表中的索引
+                    //      exprStr - 表达式的字符串表示
+                    controlFlowOss << "  RUNTIME_SetExpr(exprList" << devRootKey << ", " << index << ", " << exprStr << ");\n";
+                }
+                
+                controlFlowOss << "  return 0;\n";
+                controlFlowOss << "}\n\n";
+                
+                // 递增全局函数索引，为下一个辅助函数分配索引
+                g_globalFuncIdx++;
+            }
+        }
+        
+        controlFlowOss << BuildControlFlowCallee(func, 0)
             << "__attribute__((section(\"" << sectionName
             << "\")))\n"
             << "uint64_t ControlFlowEntry(void *ctx, int64_t *symbolTable, RuntimeCallEntryType runtimeCallList[], DevStartArgsBase *startArgs) {\n";
@@ -550,12 +682,106 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
         controlFlowOss << BuildControlFlowCallee(func, indent * TABSIZE);
         controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "uint64_t *exprList" << devRootKey << " = (uint64_t *)RUNTIME_RootAlloc(" << devRootKey << "ULL);\n";
 
+        // ========================================================================
+        // EXECUTE_GRAPH 分支：生成表达式设置代码
+        // ========================================================================
+        // 目的：为当前 EXECUTE_GRAPH 函数生成设置符号表达式的代码
+        //
+        // 策略选择：
+        //   1. 如果表达式数量 <= EXPR_PER_BATCH：
+        //      - 直接生成 RUNTIME_SetExpr 调用（内联到 ControlFlowEntry 中）
+        //   2. 如果表达式数量 > EXPR_PER_BATCH：
+        //      - 调用之前生成的 SetExprSubFunc 辅助函数
+        //      - 需要计算当前 devRootKey 对应的函数索引范围
+        //
         SymbolicExpressionTable *exprTable = linker.LookupDevRootCoa(func);
         if (exprTable != nullptr) {
-            for (auto &expr : exprTable->GetPrimaryExpressionSet()) {
-                auto index = exprTable->GetPrimaryExpressionSet().GetIndex(expr);
-                auto exprStr = exprTable->BuildExpression(expr);
-                controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "RUNTIME_SetExpr(exprList" << devRootKey << ", " << index << ", " << exprStr << ");\n";
+            const auto &exprSet = exprTable->GetPrimaryExpressionSet();
+            size_t exprCount = exprSet.size();
+            
+            if (exprCount > EXPR_PER_BATCH) {
+                // ====================================================================
+                // 情况1：表达式数量超过阈值，需要调用辅助函数
+                // ====================================================================
+                // 
+                // 函数索引计算逻辑：
+                //   由于我们移除了全局映射变量，需要通过重新遍历 group.devRootList 来计算索引
+                //   计算原理：
+                //     1. 辅助函数是按照 group.devRootList 的顺序生成的
+                //     2. 每个 devRootKey 的所有辅助函数使用连续的索引范围
+                //     3. 当前 devRootKey 的起始索引 = 前面所有需要拆分的 devRootKey 的函数总数
+                //
+                // 示例：
+                //   假设 group.devRootList 中有 3 个 EXECUTE_GRAPH 函数：
+                //     - devRootKey=0: 11 个表达式 -> 需要 4 个辅助函数（索引 0-3）
+                //     - devRootKey=1: 5 个表达式 -> 需要 2 个辅助函数（索引 4-5）
+                //     - devRootKey=2: 8 个表达式 -> 需要 3 个辅助函数（索引 6-8）
+                //   
+                //   当处理 devRootKey=2 时：
+                //     - 遍历到 devRootKey=0：累加 4，startFuncIdx = 4
+                //     - 遍历到 devRootKey=1：累加 2，startFuncIdx = 6
+                //     - 遍历到 devRootKey=2：找到目标，startFuncIdx = 6
+                //
+                size_t startFuncIdx = 0;  // 当前 devRootKey 的起始函数索引
+                size_t batchCount = (exprCount + EXPR_PER_BATCH - 1) / EXPR_PER_BATCH;  // 需要的辅助函数数量
+                bool found = false;
+                
+                // 遍历 group.devRootList，计算当前 devRootKey 之前所有需要拆分的函数的总数
+                // 注意：遍历顺序必须与 DYNAMIC 分支中生成辅助函数的顺序一致
+                for (size_t idx = 0; idx < group.devRootList.size(); idx++) {
+                    Function *devRoot = group.devRootList[idx];
+                    if (devRoot->GetGraphType() == GraphType::EXECUTE_GRAPH) {
+                        int currentDevRootKey = group.devRootList.GetIndex(devRoot);
+                        if (currentDevRootKey == devRootKey) {
+                            // 找到目标 devRootKey，startFuncIdx 就是前面所有需要拆分的函数的总数
+                            found = true;
+                            break;
+                        }
+                        // 计算当前 devRoot 需要的辅助函数数量
+                        // 只有当表达式数量 > EXPR_PER_BATCH 时才需要拆分
+                        SymbolicExpressionTable *currentExprTable = linker.LookupDevRootCoa(devRoot);
+                        if (currentExprTable != nullptr) {
+                            size_t currentExprSize = currentExprTable->GetPrimaryExpressionSet().size();
+                            if (currentExprSize > EXPR_PER_BATCH) {
+                                // 计算当前 devRoot 需要的辅助函数数量（向上取整）
+                                size_t currentBatchCount = (currentExprSize + EXPR_PER_BATCH - 1) / EXPR_PER_BATCH;
+                                // 累加到 startFuncIdx，表示前面已经分配的函数数量
+                                startFuncIdx += currentBatchCount;
+                            }
+                        }
+                    }
+                }
+                
+                if (found) {
+                    // 生成调用辅助函数的代码
+                    // 调用顺序：按照 batchIdx 的顺序调用 SetExprSubFunc{startFuncIdx + i}
+                    // 例如：如果 startFuncIdx=6, batchCount=3，则调用 SetExprSubFunc6, SetExprSubFunc7, SetExprSubFunc8
+                    for (size_t i = 0; i < batchCount; i++) {
+                        controlFlowOss << std::setw(indent * TABSIZE) << ' ' 
+                            << "SetExprSubFunc" << (startFuncIdx + i) 
+                            << "(ctx, symbolTable, runtimeCallList, startArgs, exprList" << devRootKey << ");\n";
+                    }
+                } else {
+                    // 异常情况：理论上不应该发生，因为 exprTablesToSplit 中应该包含所有需要拆分的函数
+                    // 如果发生，回退到直接生成 RUNTIME_SetExpr 调用
+                    ALOG_INFO_F("BuildControlFlow EXECUTE_GRAPH: No mapping found for devRootKey=%d, generating RUNTIME_SetExpr directly", devRootKey);
+                    for (auto &expr : exprSet) {
+                        auto index = exprTable->GetPrimaryExpressionSet().GetIndex(expr);
+                        auto exprStr = exprTable->BuildExpression(expr);
+                        controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "RUNTIME_SetExpr(exprList" << devRootKey << ", " << index << ", " << exprStr << ");\n";
+                    }
+                }
+            } else {
+                // ====================================================================
+                // 情况2：表达式数量 <= EXPR_PER_BATCH，直接内联生成 RUNTIME_SetExpr
+                // ====================================================================
+                // 不需要拆分，直接在 ControlFlowEntry 中生成 RUNTIME_SetExpr 调用
+                // 这样可以减少函数调用开销，提高执行效率
+                for (auto &expr : exprSet) {
+                    auto index = exprTable->GetPrimaryExpressionSet().GetIndex(expr);
+                    auto exprStr = exprTable->BuildExpression(expr);
+                    controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "RUNTIME_SetExpr(exprList" << devRootKey << ", " << index << ", " << exprStr << ");\n";
+                }
             }
         }
         controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "RUNTIME_RootStitch(" << devRootKey << "ULL);\n";
