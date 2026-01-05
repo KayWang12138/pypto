@@ -25,7 +25,7 @@
 
 namespace npu::tile_fwk {
 namespace {
-const std::string CACHE_FILE_PREFIX = "ast_op_";
+const std::string CACHE_FILE_PREFIX = "pypto_op_";
 const std::string CACHE_CONTROL_FILE_PREFIX = "pypto_control_";
 const std::string CACHE_BIN_FILE_SUFFIX = ".o";
 const std::string CACHE_CUSTOM_BIN_FILE_SUFFIX = "_control.so";
@@ -55,7 +55,7 @@ bool CacheManager::Initialize() {
         return false;
     }
     std::string homeEnvPath(envPath);
-    cacheDirPath_ = homeEnvPath + "/ast_data/" + PlatformManager::Instance().GetShortSocVersion();
+    cacheDirPath_ = homeEnvPath + "/pypto_data/" + PlatformManager::Instance().GetShortSocVersion();
     ALOG_DEBUG_F("Begin to initialize cache manager, cache dir path is [%s].", cacheDirPath_.c_str());
     if (RealPath(cacheDirPath_).empty() && !CreateMultiLevelDir(cacheDirPath_)) {
         ALOG_ERROR_F("Failed to create cache dir[%s].", cacheDirPath_.c_str());
