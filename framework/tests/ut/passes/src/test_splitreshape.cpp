@@ -1439,16 +1439,16 @@ LogicalTensors BuildDynBeCoveredFunc(std::shared_ptr<Function> func){
     std::vector<SymbolicScalar> validShape = {kNumFour, SymbolicScalar("a")};
     std::vector<SymbolicScalar> dynInputShape = {kNumTwo, kNumTwo, SymbolicScalar("a")};
 
-    std::shared_ptr<RawTensor> ddrRawTensor1 = std::make_shared<RawTensor>(DT_FP32, shape2);
-    std::shared_ptr<RawTensor> ddrRawTensor2 = std::make_shared<RawTensor>(DT_FP32, shape3);
-    auto input1 = std::make_shared<LogicalTensor>(*func, ddrRawTensor1, assembleOffset1, shape1, dynInputShape);
-    input1->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
-    auto input2 = std::make_shared<LogicalTensor>(*func, ddrRawTensor1, assembleOffset2, shape1, dynInputShape);
-    input2->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
     auto ubTensor1 = std::make_shared<LogicalTensor>(*func, DT_FP32, shape2);
     ubTensor1->SetMemoryTypeOriginal(MemoryType::MEM_UNKNOWN, false);
     auto ubTensor2 = std::make_shared<LogicalTensor>(*func, DT_FP32, shape3);
     ubTensor2->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
+    std::shared_ptr<RawTensor> ddrRawTensor1 = std::make_shared<RawTensor>(DT_FP32, shape2);
+    auto input1 = std::make_shared<LogicalTensor>(*func, ddrRawTensor1, assembleOffset1, shape1, dynInputShape);
+    input1->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
+    auto input2 = std::make_shared<LogicalTensor>(*func, ddrRawTensor1, assembleOffset2, shape1, dynInputShape);
+    input2->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
+    std::shared_ptr<RawTensor> ddrRawTensor2 = std::make_shared<RawTensor>(DT_FP32, shape3);
     auto output1 = std::make_shared<LogicalTensor>(*func, ddrRawTensor2, viewOffset1, shape4);
     output1->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
     auto output2 = std::make_shared<LogicalTensor>(*func, ddrRawTensor2, viewOffset2, shape4);
@@ -1839,20 +1839,16 @@ TEST_F(TestSplitReshapePass, TestExceptionCase4) {
     auto output2 = std::make_shared<LogicalTensor>(*func, ddrRawTensor2, viewOffset2, shape4);
     output2->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
 
-    auto &assemble_op1 = func->AddOperation(Opcode::OP_ASSEMBLE, {input1}, {ubTensor1});
-    auto assemble_Attr1 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, assembleOffset1);
-    assemble_op1.SetOpAttribute(assemble_Attr1);
-    auto &assemble_op2 = func->AddOperation(Opcode::OP_ASSEMBLE, {input2}, {ubTensor1});
-    auto assemble_Attr2 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, assembleOffset2);
-    assemble_op2.SetOpAttribute(assemble_Attr2);
     auto &reshape_op = func->AddOperation(Opcode::OP_RESHAPE, {ubTensor1}, {ubTensor2});
     reshape_op.SetAttribute(OP_ATTR_PREFIX + "validShape", validShape);
     auto &view_op1 = func->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output1});
-    auto view_Attr1 = std::make_shared<ViewOpAttribute>(viewOffset1);
-    view_op1.SetOpAttribute(view_Attr1);
+    view_op1.SetOpAttribute(std::make_shared<ViewOpAttribute>(viewOffset1));
     auto &view_op2 = func->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {output2});
-    auto view_Attr2 = std::make_shared<ViewOpAttribute>(viewOffset2);
-    view_op2.SetOpAttribute(view_Attr2);
+    view_op2.SetOpAttribute(std::make_shared<ViewOpAttribute>(viewOffset2));
+    auto &assemble_op1 = func->AddOperation(Opcode::OP_ASSEMBLE, {input1}, {ubTensor1});
+    assemble_op1.SetOpAttribute(std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, assembleOffset1));
+    auto &assemble_op2 = func->AddOperation(Opcode::OP_ASSEMBLE, {input2}, {ubTensor1});
+    assemble_op2.SetOpAttribute(std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, assembleOffset2));
 
     func->inCasts_.push_back(input1);
     func->inCasts_.push_back(input2);
