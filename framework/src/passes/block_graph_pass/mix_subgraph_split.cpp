@@ -1389,8 +1389,6 @@ Function* MixSubgraphSplit::CreateSplitLeafFunction(Function& rootFunc,
     // 创建新的function名称
     std::string leafName = originalMixFunc.GetRawName() + "_leaf" + std::to_string(i);
     auto funcMagicName = leafName + "_" + std::to_string(IdGen<IdType::FUNCTION>::Inst().CurId());
-    // 手动创建function对象
-    auto newFunc = rootFunc.Clone(newProgramID, funcMagicName, leafName, component.aivCore);
     
     std::vector<std::shared_ptr<Operation>> programOps;
     // 获取原始Mix子图的所有op（按原始顺序）
@@ -1417,10 +1415,11 @@ Function* MixSubgraphSplit::CreateSplitLeafFunction(Function& rootFunc,
     // 验证顺序正确性
     ALOG_DEBUG_F("Leaf function %s has %zu ops in original order",
                 leafName.c_str(), programOps.size());
-    newFunc->SetProgramOp(programOps);
-    newFunc->ComputeHash();
+    // 手动创建function对象
+    FunctionCloneInfo cloneInfo{newProgramID, funcMagicName, leafName, component.aivCore, originalMixFunc.paramConfigs_, programOps};
+    auto newFunc = rootFunc.Clone(cloneInfo);
     FunctionHash funcHash = newFunc->GetFunctionHash();
-    
+
     ALOG_DEBUG_F("Function %s computed hash: %lu", leafName.c_str(), funcHash);
     Program::GetInstance().GetFunctionCache().Insert(funcHash, *newFunc);
     ALOG_DEBUG_F("Inserted new function %s into function cache with hash %lu",

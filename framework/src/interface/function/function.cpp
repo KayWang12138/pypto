@@ -3716,21 +3716,23 @@ bool Function::InsertLoopIdxNameList(const std::string &idxName) {
     return true;
 }
 
-Function *Clone(uint64_t programID, const std::string &funcMagicName, const std::string &funcRawName, const AIVCore &aivCore) const {
-    ALOG_DEBUG_F("Add leafFunction %s", funcRawName.c_str());
-    auto newFunc = std::make_shared<Function>(Program::GetInstance(), funcMagicName, funcRawName, &this);
+Function* Function::Clone(const FunctionCloneInfo &cloneInfo) const {
+    ALOG_DEBUG_F("Add leafFunction %s", cloneInfo.funcRawName.c_str());
+    auto newFunc = std::make_shared<Function>(Program::GetInstance(), cloneInfo.funcMagicName, cloneInfo.funcRawName, &this);
     // 设置function类型
     newFunc->SetFunctionType(FunctionType::STATIC);
     newFunc->SetGraphType(GraphType::BLOCK_GRAPH);
     // 创建并设置LeafFuncAttribute
     auto leafAttr = std::make_shared<LeafFuncAttribute>();
-    leafAttr->aivCore = component.aivCore;
+    leafAttr->aivCore = cloneInfo.aivCore;
     newFunc->SetLeafFuncAttribute(leafAttr);
     newFunc->UpdateBelongToThis();
     ALOG_DEBUG_F("Called UpdateBelongToThis for new function: %s", funcRawName.c_str());
-    newFunc->SetProgramId(programID);
+    newFunc->SetProgramId(cloneInfo.programID);
     // 复制参数配置
-    newFunc->paramConfigs_ = originalMixFunc.paramConfigs_;
+    newFunc->paramConfigs_ = cloneInfo.configs;
+    newFunc->SetProgramOp(cloneInfo.programOps);
+    newFunc->ComputeHash();
     return newFunc;
 }
 

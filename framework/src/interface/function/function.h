@@ -465,6 +465,15 @@ struct FunctionParamInfo {
     LogicalTensorPtr endValue;   // End Function时Tensor指向的 LogicalTensor
 };
 
+struct FunctionCloneInfo {
+    uint64_t programID;
+    std::string funcMagicName;
+    std::string funcRawName;
+    AIVCore aivCore;
+    ParamConfigs configs;
+    std::vector<std::shared_ptr<Operation>> programOps;
+};
+
 #ifndef INVALID_IOINDEX
 #define INVALID_IOINDEX (-1)
 #endif
@@ -551,7 +560,7 @@ public:
     bool IsCube() const;
 
     Function *GetRootFunction() const { return rootFunc_; }
-    Function *Clone(uint64_t programID, const std::string &funcMagicName, const std::string &funcRawName, const AIVCore &aivCore) const;
+    Function *Clone(const FunctionCloneInfo &cloneInfo) const;
 
     void Substitute(std::shared_ptr<LogicalTensor> oldTensor, std::shared_ptr<LogicalTensor> newTensor);
     void SubstituteIn(std::shared_ptr<LogicalTensor> oldTensor, std::shared_ptr<LogicalTensor> newTensor);
