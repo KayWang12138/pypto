@@ -967,15 +967,17 @@ TEST_F(TestPadLocalBuffer, axiscombine) {
     for (const auto &op : updatedOperations) {
         if (op.GetOpcode() == Opcode::OP_BRCB) {
             ++cnt;
-            if (op.HasAttr(OpAttributeKey::brcbIdx)) {
-                auto idx = op.GetIntAttribute(OpAttributeKey::brcbIdx) - 1;
-                auto tensor = op.GetIOperands()[idx];
-                EXPECT_TRUE(tensor != nullptr);
-                EXPECT_EQ(tensor->shape[0], K_4);
-                EXPECT_EQ(tensor->shape[1], K_8);
-                EXPECT_EQ(tensor->GetRawTensor()->GetRawShape()[0], K_8);
-                EXPECT_EQ(tensor->GetRawTensor()->GetRawShape()[1], K_8);
-            }
+            auto outputTensor = op.GetOOperands()[0];
+            EXPECT_TRUE(outputTensor->GetConsumers().size() != 0);
+        }
+        if (op.HasAttr(OpAttributeKey::brcbIdx)) {
+            auto idx = op.GetIntAttribute(OpAttributeKey::brcbIdx) - 1;
+            auto tensor = op.GetIOperands()[idx];
+            EXPECT_TRUE(tensor != nullptr);
+            EXPECT_EQ(tensor->shape[0], K_4);
+            EXPECT_EQ(tensor->shape[1], K_8);
+            EXPECT_EQ(tensor->GetRawTensor()->GetRawShape()[0], K_8);
+            EXPECT_EQ(tensor->GetRawTensor()->GetRawShape()[1], K_8);
         }
     }
     EXPECT_EQ(cnt, K_1);
