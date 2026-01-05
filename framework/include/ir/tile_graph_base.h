@@ -26,45 +26,45 @@
 
 namespace pto {
 
-class TileOp : public Operation {
+class TileBaseOp : public Operation {
 public:
     std::shared_ptr<TileValue> GetInOperand(size_t index) const;
     std::shared_ptr<TileValue> GetOutOperand(size_t index) const;
 private:
 };
 
-class ElementWiseTileOp : public TileOp {
+class ElementWiseTileBaseOp : public TileBaseOp {
 };
 
-class ElementWiseUnaryTileOp : public TileOp {
+class ElementWiseUnaryTileBaseOp : public TileBaseOp {
 };
 
-class ElementWiseBinaryTileOp : public ElementWiseTileOp {
+class ElementWiseBinaryTileBaseOp : public ElementWiseTileBaseOp {
 };
 
-class ElementWiseScalarMixBinaryTileOp : public ElementWiseTileOp {
+class ElementWiseScalarMixBinaryTileBaseOp : public ElementWiseTileBaseOp {
 };
 
-class ReduceTileOp : public TileOp {
+class ReduceTileBaseOp : public TileBaseOp {
 };
 
-class BroadcastTileOp : public TileOp {
+class BroadcastTileBaseOp : public TileBaseOp {
 };
 
-class DataCopyTileOp : public TileOp {
+class DataCopyTileBaseOp : public TileBaseOp {
 };
 
-class MatmulTileOp : public TileOp {
+class MatmulTileBaseOp : public TileBaseOp {
 };
 
-class SysOp : public ScalarBaseOp {
+class SysBaseOp : public ScalarBaseOp {
 public:
     std::string GetName() const;
 private:
     std::string name_;
 };
 
-class CustomTileOp : public TileOp {
+class CustomTileBaseOp : public TileBaseOp {
 
 };
 

@@ -15,7 +15,7 @@
 
 DEFOP(
     UnaryOp,
-    INHERIT(ElementWiseUnaryTileOp),
+    INHERIT(ElementWiseUnaryTileBaseOp),
     OPCODE(
         OP_EXP,
         OP_NEG,
@@ -31,7 +31,7 @@ DEFOP(
 
 DEFOP(
     BinaryOp,
-    INHERIT(ElementWiseBinaryTileOp),
+    INHERIT(ElementWiseBinaryTileBaseOp),
     OPCODE(
         OP_ADD,
         OP_SUB,
@@ -45,7 +45,7 @@ DEFOP(
 
 DEFOP(
     BinaryScalarMixOp,
-    INHERIT(ElementWiseScalarMixBinaryTileOp),
+    INHERIT(ElementWiseScalarMixBinaryTileBaseOp),
     OPCODE(
         OP_ADD_S,
         OP_SUB_S,
