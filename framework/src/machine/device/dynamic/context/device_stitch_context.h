@@ -25,7 +25,7 @@ const int SKIP_EMPTY = -2;
 const int INVALID_TOO_AHEAD = -1;
 const int NO_DEP = 0;
 const int NEEDS_DEP = 1;
-using StitchedList = Vector<DevAscendFunctionDupped, WsMemCategory::VECTOR_STITCHED_LIST, DeviceWorkspaceAllocator>;
+using StitchedList = Vector<DevPyPtoFunctionDupped, WsMemCategory::VECTOR_STITCHED_LIST, DeviceWorkspaceAllocator>;
 struct DeviceStitchContext {
     struct StitchReuseContext {
         // changing with stitching progress
@@ -33,7 +33,7 @@ struct DeviceStitchContext {
         int32_t lastNonEmptyDupIdx{-1};
     } stitchReuseContext_;
 
-    void Init(DevAscendProgram *devProg, DeviceWorkspaceAllocator &workspace);
+    void Init(DevPyPtoProgram *devProg, DeviceWorkspaceAllocator &workspace);
     void Reset();
 
     void DumpStitchInfo();
@@ -41,15 +41,15 @@ struct DeviceStitchContext {
     size_t Size() const { return stitchedList_.size(); }
     bool Empty() const { return stitchedList_.empty(); }
     
-    void Append(DevAscendFunctionDupped &devRootDup) { stitchedList_.push_back(devRootDup); }
+    void Append(DevPyPtoFunctionDupped &devRootDup) { stitchedList_.push_back(devRootDup); }
 
     const auto &GetStitchedList() const { return stitchedList_; }
 
-    static void CheckStitch(DevAscendFunctionDupped *stitchedList, int size, DevAscendFunctionDupped *nextDup);
+    static void CheckStitch(DevPyPtoFunctionDupped *stitchedList, int size, DevPyPtoFunctionDupped *nextDup);
 
     static void CheckStitch(DynDeviceTask *dyntask);
 
-    uint64_t Stitch(DeviceSlotContext &slotContext, DevAscendFunctionDupped &nextDup, size_t devTaskId,
+    uint64_t Stitch(DeviceSlotContext &slotContext, DevPyPtoFunctionDupped &nextDup, size_t devTaskId,
                     size_t devNextIdx);
 
     void RecycleTensorWorkspace();
@@ -67,7 +67,7 @@ struct DeviceStitchContext {
         workspace_->VerifyStitchedListMemory(args, stitchedList_.data(), stitchedList_.size());
     }
 
-    static void PushBackTask(DevAscendFunctionDuppedStitchList &stitch, uint32_t coreTask,
+    static void PushBackTask(DevPyPtoFunctionDuppedStitchList &stitch, uint32_t coreTask,
                              DeviceWorkspaceAllocator *workspace) {
         stitch.PushBack(coreTask, [workspace] { return workspace->AllocateStitch(); });
     }
@@ -114,18 +114,18 @@ public:
     }
 
     static void HandleOneStitch(
-            DevAscendFunctionDupped &producerDup, DevAscendFunctionDupped &consumerDup,
-            DevAscendFunctionDuppedStitchList &producerStitchList, size_t producerOperationIdx,
+            DevPyPtoFunctionDupped &producerDup, DevPyPtoFunctionDupped &consumerDup,
+            DevPyPtoFunctionDuppedStitchList &producerStitchList, size_t producerOperationIdx,
             size_t consumerIdx, size_t consumerOperationIdx, DeviceWorkspaceAllocator *workspace,
             StitchKind debugStitchKind, int debugSlotIdx);
 
     static void HandleOneStitch(
-            DevAscendFunctionDupped &producerDup, DevAscendFunctionDupped &consumerDup,
+            DevPyPtoFunctionDupped &producerDup, DevPyPtoFunctionDupped &consumerDup,
             size_t producerOperationIdx, size_t consumerIdx, size_t consumerOperationIdx,
             DeviceWorkspaceAllocator *workspace, StitchKind debugStitchKind, int debugSlotIdx);
 
     template<typename T>
-    static inline std::string IntVecToStr(DevAscendFunctionDupped &dup, DevLocalVector<T> &vec) {
+    static inline std::string IntVecToStr(DevPyPtoFunctionDupped &dup, DevLocalVector<T> &vec) {
         std::stringstream ss;
         ss << "[";
         ss << dup.GetSource()->At(vec, 0);
@@ -146,21 +146,21 @@ public:
         return ss.str();
     }
 
-    uint64_t PartialUpdateStitch(DevAscendFunctionDupped &nextDup, size_t devTaskId, size_t devNextIdx,
-        DeviceExecuteSlot& slot, int slotIdx, DevAscendFunctionIncast& incast);
+    uint64_t PartialUpdateStitch(DevPyPtoFunctionDupped &nextDup, size_t devTaskId, size_t devNextIdx,
+        DeviceExecuteSlot& slot, int slotIdx, DevPyPtoFunctionIncast& incast);
 
-    uint64_t FullCoverDefaultUpdateStitch(DevAscendFunctionDupped &nextDup, size_t devNextIdx, DeviceExecuteSlot& slot,
-        int slotIdx, DevAscendFunctionIncast& incast);
+    uint64_t FullCoverDefaultUpdateStitch(DevPyPtoFunctionDupped &nextDup, size_t devNextIdx, DeviceExecuteSlot& slot,
+        int slotIdx, DevPyPtoFunctionIncast& incast);
 
-    uint64_t FullCoverUpdateStitch(DevAscendFunctionDupped &nextDup, size_t devNextIdx, DeviceExecuteSlot& slot,
-        int slotIdx, DevAscendFunctionIncast& incast);
+    uint64_t FullCoverUpdateStitch(DevPyPtoFunctionDupped &nextDup, size_t devNextIdx, DeviceExecuteSlot& slot,
+        int slotIdx, DevPyPtoFunctionIncast& incast);
 
-    void ReuseStitch(DevAscendFunctionDupped &nextDup, size_t devNextIdx);
+    void ReuseStitch(DevPyPtoFunctionDupped &nextDup, size_t devNextIdx);
 
-    uint64_t FastStitch(DeviceExecuteSlot *slotList, size_t slotSize, DevAscendFunctionDupped &nextDup,
+    uint64_t FastStitch(DeviceExecuteSlot *slotList, size_t slotSize, DevPyPtoFunctionDupped &nextDup,
         size_t devTaskId, size_t devNextIdx);
 
-    static void DumpStitchInfo(DevAscendFunctionDupped *stitchedList, int stitchedSize);
+    static void DumpStitchInfo(DevPyPtoFunctionDupped *stitchedList, int stitchedSize);
 
 private:
     static
@@ -168,8 +168,8 @@ private:
         return !(ahead + alength <= bhead || bhead + blength <= ahead);
     }
 
-    static void StitchForWorkspaceReuse(DevAscendFunctionDupped *stitchingList, int stitchingSize,
-        DevAscendFunctionDupped &prevDup, DevAscendFunctionDupped &currDup, size_t devCurrIdx,
+    static void StitchForWorkspaceReuse(DevPyPtoFunctionDupped *stitchingList, int stitchingSize,
+        DevPyPtoFunctionDupped &prevDup, DevPyPtoFunctionDupped &currDup, size_t devCurrIdx,
         DeviceWorkspaceAllocator *workspace);
 };
 }

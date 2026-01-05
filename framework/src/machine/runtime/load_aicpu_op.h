@@ -36,9 +36,10 @@ private:
 public:
     LoadAicpuOp() = default;
     ~LoadAicpuOp() {};
-    int LaunchBuiltInOp(rtStream_t stream, AstKernelArgs *kArgs, const int &aicpuNum, const std::string &funcName);
+    void ContructAicpuLaunchCfg();
+    int LaunchBuiltInOp(rtStream_t stream, PyPtoKernelArgs *kArgs, const int &aicpuNum, const std::string &funcName);
     int GetBuiltInOpBinHandle();
-    int LaunchCustomOp(rtStream_t stream, AstKernelArgs *kArgs, std::string &OpType);
+    int LaunchCustomOp(rtStream_t stream, PyPtoKernelArgs *kArgs, std::string &OpType);
     void CustomAiCpuSoLoad();
     void GenBuiltInOpInfo(const std::string &jsonPath);
     static LoadAicpuOp &GetInstance() {

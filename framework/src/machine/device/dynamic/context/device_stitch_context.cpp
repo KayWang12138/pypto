@@ -16,7 +16,7 @@
 #include "machine/device/dynamic/context/device_stitch_context.h"
 
 namespace npu::tile_fwk::dynamic {
-void DeviceStitchContext::Init(DevAscendProgram *devProg, DeviceWorkspaceAllocator &workspace) {
+void DeviceStitchContext::Init(DevPyPtoProgram *devProg, DeviceWorkspaceAllocator &workspace) {
     workspace.SetupVector(stitchedList_);
     workspace_ = &workspace;
 
@@ -36,12 +36,12 @@ void DeviceStitchContext::DumpStitchInfo() {
     DumpStitchInfo(stitchedList_.data(), stitchedList_.size());
 }
 
-void DeviceStitchContext::CheckStitch(DevAscendFunctionDupped *stitchedList, int size, DevAscendFunctionDupped *nextDup) {
+void DeviceStitchContext::CheckStitch(DevPyPtoFunctionDupped *stitchedList, int size, DevPyPtoFunctionDupped *nextDup) {
     DEV_IF_NONDEVICE {
         uint32_t dynPredCount = 0;
         uint32_t dynSuccCount = 0;
         for (int k = 0; k <= size; k++) {
-            DevAscendFunctionDupped *dup = nullptr;
+            DevPyPtoFunctionDupped *dup = nullptr;
             if (k < size) {
                 dup = &stitchedList[k];
             } else if (nextDup != nullptr) {
@@ -68,12 +68,12 @@ void DeviceStitchContext::CheckStitch(DevAscendFunctionDupped *stitchedList, int
 }
 
 void DeviceStitchContext::CheckStitch(DynDeviceTask *dyntask) {
-    DevAscendFunctionDupped *stitchedList = &dyntask->stitchedList[0];
+    DevPyPtoFunctionDupped *stitchedList = &dyntask->stitchedList[0];
     int stitchedSize = dyntask->stitchedList.size();
     CheckStitch(stitchedList, stitchedSize, nullptr);
 }
 
-uint64_t DeviceStitchContext::Stitch(DeviceSlotContext &slotContext, DevAscendFunctionDupped &nextDup, size_t devTaskId,
+uint64_t DeviceStitchContext::Stitch(DeviceSlotContext &slotContext, DevPyPtoFunctionDupped &nextDup, size_t devTaskId,
                                      size_t devNextIdx) {
     uint64_t count = FastStitch(slotContext.GetSlotList(), slotContext.GetSlotSize(), nextDup, devTaskId, devNextIdx);
     if (stitchedList_.capacity() == 0) {
@@ -258,8 +258,8 @@ int DeviceStitchContext::MoveTo(DynDeviceTask *dynTask) {
 }
 
 void DeviceStitchContext::HandleOneStitch(
-        DevAscendFunctionDupped &producerDup, DevAscendFunctionDupped &consumerDup,
-        DevAscendFunctionDuppedStitchList &producerStitchList, size_t producerOperationIdx,
+        DevPyPtoFunctionDupped &producerDup, DevPyPtoFunctionDupped &consumerDup,
+        DevPyPtoFunctionDuppedStitchList &producerStitchList, size_t producerOperationIdx,
         size_t consumerIdx, size_t consumerOperationIdx,
         DeviceWorkspaceAllocator *workspace,
         StitchKind debugStitchKind, int debugSlotIdx) {
@@ -286,7 +286,7 @@ void DeviceStitchContext::HandleOneStitch(
 }
 
 void DeviceStitchContext::HandleOneStitch(
-        DevAscendFunctionDupped &producerDup, DevAscendFunctionDupped &consumerDup,
+        DevPyPtoFunctionDupped &producerDup, DevPyPtoFunctionDupped &consumerDup,
         size_t producerOperationIdx, size_t consumerIdx, size_t consumerOperationIdx,
         DeviceWorkspaceAllocator *workspace, StitchKind debugStitchKind, int debugSlotIdx) {
     auto &producerStitchList = producerDup.GetOperationStitch(producerOperationIdx, false);
@@ -294,8 +294,8 @@ void DeviceStitchContext::HandleOneStitch(
         consumerIdx, consumerOperationIdx, workspace, debugStitchKind, debugSlotIdx);
 }
 
-uint64_t DeviceStitchContext::PartialUpdateStitch(DevAscendFunctionDupped &nextDup, size_t devTaskId, size_t devNextIdx,
-        DeviceExecuteSlot& slot, int slotIdx, DevAscendFunctionIncast& incast) {
+uint64_t DeviceStitchContext::PartialUpdateStitch(DevPyPtoFunctionDupped &nextDup, size_t devTaskId, size_t devNextIdx,
+        DeviceExecuteSlot& slot, int slotIdx, DevPyPtoFunctionIncast& incast) {
     uint64_t matchCount = 0;
     auto *nextSrc = nextDup.GetSource();
     auto expressionList = &nextDup.GetExpression(0);
@@ -303,7 +303,7 @@ uint64_t DeviceStitchContext::PartialUpdateStitch(DevAscendFunctionDupped &nextD
     auto partialUpdateTableData = &slot.partialUpdate->cellMatchRuntimePartialUpdateTable[0];
     struct HandleCellMatchPartial {
         static inline void Process(int index, uint64_t *cellMatchTableData, uint64_t *matchCount,
-                DevAscendFunctionDupped *stitchingList, int stitchingSize, DevAscendFunctionDupped *nextDup,
+                DevPyPtoFunctionDupped *stitchingList, int stitchingSize, DevPyPtoFunctionDupped *nextDup,
                 size_t devTaskId, size_t devNextIdx, int consumerOperationIdx,
                 DeviceWorkspaceAllocator *workspace,
                 int debugSlotIdx) {
@@ -311,7 +311,7 @@ uint64_t DeviceStitchContext::PartialUpdateStitch(DevAscendFunctionDupped &nextD
             if (id != AICORE_TASK_INIT && devTaskId == static_cast<uint32_t>(id >> TASKID_SHIFT32)) {
                 auto funcId = FuncID(static_cast<uint32_t>(id));
                 auto producerOperationIdx = TaskID(static_cast<uint32_t>(id));
-                DevAscendFunctionDupped &prevDup = stitchingList[funcId];
+                DevPyPtoFunctionDupped &prevDup = stitchingList[funcId];
                 (*matchCount)++;
                 DEV_VERBOSE_DEBUG("nextindex %lu stitch depend slot table cell[%d] = taskid(%u ! %u),", devNextIdx, index, funcId, producerOperationIdx);
                 DeviceStitchContext::HandleOneStitch(prevDup, *nextDup, producerOperationIdx, devNextIdx, consumerOperationIdx,
@@ -342,10 +342,10 @@ uint64_t DeviceStitchContext::PartialUpdateStitch(DevAscendFunctionDupped &nextD
     return matchCount;
 }
 
-uint64_t DeviceStitchContext::FullCoverDefaultUpdateStitch(DevAscendFunctionDupped &nextDup, size_t devNextIdx,
-    DeviceExecuteSlot& slot, int slotIdx, DevAscendFunctionIncast& incast) {
+uint64_t DeviceStitchContext::FullCoverDefaultUpdateStitch(DevPyPtoFunctionDupped &nextDup, size_t devNextIdx,
+    DeviceExecuteSlot& slot, int slotIdx, DevPyPtoFunctionIncast& incast) {
     uint64_t matchCount = 0;
-    DevAscendFunctionDupped &prevDup = stitchedList_[slot.stitchDupIdx];
+    DevPyPtoFunctionDupped &prevDup = stitchedList_[slot.stitchDupIdx];
     auto *prevSrc = prevDup.GetSource();
     auto &outcast = prevSrc->GetOutcast(slot.stitchOutcastIdx);
     auto *nextSrc = nextDup.GetSource();
@@ -357,7 +357,7 @@ uint64_t DeviceStitchContext::FullCoverDefaultUpdateStitch(DevAscendFunctionDupp
                 int index,
                 uint32_t *cellMatchTableData,
                 uint64_t *matchCount,
-                DevAscendFunctionDupped *prevDup, DevAscendFunctionDupped *nextDup,
+                DevPyPtoFunctionDupped *prevDup, DevPyPtoFunctionDupped *nextDup,
                 size_t devNextIdx, int consumerOperationIdx,
                 DeviceWorkspaceAllocator *workspace,
                 int debugSlotIdx) {
@@ -392,9 +392,9 @@ uint64_t DeviceStitchContext::FullCoverDefaultUpdateStitch(DevAscendFunctionDupp
     return matchCount;
 }
 
-uint64_t DeviceStitchContext::FullCoverUpdateStitch(DevAscendFunctionDupped &nextDup, size_t devNextIdx,
-    DeviceExecuteSlot& slot, int slotIdx, DevAscendFunctionIncast& incast) {
-    DevAscendFunctionDupped &prevDup = stitchedList_[slot.stitchDupIdx];
+uint64_t DeviceStitchContext::FullCoverUpdateStitch(DevPyPtoFunctionDupped &nextDup, size_t devNextIdx,
+    DeviceExecuteSlot& slot, int slotIdx, DevPyPtoFunctionIncast& incast) {
+    DevPyPtoFunctionDupped &prevDup = stitchedList_[slot.stitchDupIdx];
     auto *prevSrc = prevDup.GetSource();
     auto &outcast = prevSrc->GetOutcast(slot.stitchOutcastIdx);
     auto *nextSrc = nextDup.GetSource();
@@ -435,7 +435,7 @@ uint64_t DeviceStitchContext::FullCoverUpdateStitch(DevAscendFunctionDupped &nex
     return FullCoverDefaultUpdateStitch(nextDup, devNextIdx, slot, slotIdx, incast);
 }
 
-void DeviceStitchContext::ReuseStitch(DevAscendFunctionDupped &nextDup, size_t devNextIdx) {
+void DeviceStitchContext::ReuseStitch(DevPyPtoFunctionDupped &nextDup, size_t devNextIdx) {
     if (nextDup.GetSource()->rootInnerTensorWsMemoryRequirement == 0) {
         // 0 length workspace, no dependency in need
         return;
@@ -497,7 +497,7 @@ void DeviceStitchContext::ReuseStitch(DevAscendFunctionDupped &nextDup, size_t d
     }
 }
 
-uint64_t DeviceStitchContext::FastStitch(DeviceExecuteSlot *slotList, size_t slotSize, DevAscendFunctionDupped &nextDup,
+uint64_t DeviceStitchContext::FastStitch(DeviceExecuteSlot *slotList, size_t slotSize, DevPyPtoFunctionDupped &nextDup,
     size_t devTaskId, size_t devNextIdx) {
     AutoScopedPerf asp(PERF_EVT_FAST_STITCH);
 #if !ENABLE_STITCH
@@ -547,7 +547,7 @@ uint64_t DeviceStitchContext::FastStitch(DeviceExecuteSlot *slotList, size_t slo
     return matchCount;
 }
 
-void DeviceStitchContext::DumpStitchInfo(DevAscendFunctionDupped *stitchedList, int stitchedSize) {
+void DeviceStitchContext::DumpStitchInfo(DevPyPtoFunctionDupped *stitchedList, int stitchedSize) {
     int funcId = 0;
     for (int i = 0; i < stitchedSize; i++) {
         auto &funcDup = stitchedList[i];
@@ -564,8 +564,8 @@ void DeviceStitchContext::DumpStitchInfo(DevAscendFunctionDupped *stitchedList, 
     }
 }
 
-void DeviceStitchContext::StitchForWorkspaceReuse(DevAscendFunctionDupped *stitchingList, int stitchingSize,
-    DevAscendFunctionDupped &prevDup, DevAscendFunctionDupped &currDup,
+void DeviceStitchContext::StitchForWorkspaceReuse(DevPyPtoFunctionDupped *stitchingList, int stitchingSize,
+    DevPyPtoFunctionDupped &prevDup, DevPyPtoFunctionDupped &currDup,
     size_t devCurrIdx, DeviceWorkspaceAllocator *workspace) {
     // Add dependency between root functions
     auto *prevSrc = prevDup.GetSource();

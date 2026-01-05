@@ -28,7 +28,7 @@ struct DevInputSymbol {
 struct DevStartArgs : DevStartArgsBase {
     uint64_t contextWorkspaceAddr;
     uint64_t contextWorkspaceSize;
-    DevAscendProgram *devProg;
+    DevPyPtoProgram *devProg;
 
     DevInputSymbol *inputSymbolList;
     uint64_t inputSymbolSize;
@@ -36,7 +36,7 @@ struct DevStartArgs : DevStartArgsBase {
     std::atomic<uint64_t> syncFlag{0}; // sche and ctrl soft sync flag
 
 public:
-    void InitWorkspace(DevAscendProgram *tDevProg, void *workspace) {
+    void InitWorkspace(DevPyPtoProgram *tDevProg, void *workspace) {
         contextWorkspaceAddr = reinterpret_cast<uint64_t>(workspace);
         devProg = tDevProg;
         inputSymbolList = nullptr;

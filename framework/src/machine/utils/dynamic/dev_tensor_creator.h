@@ -27,7 +27,7 @@ struct InputsHeader {
     InputsHeader *next() { return reinterpret_cast<InputsHeader *>(reinterpret_cast<uint64_t>(this) + size()); }
 };
 
-struct DevAscendTensorDataCreator {
+struct DevPyPtoTensorDataCreator {
     template<typename T>
     static DevTensorData Create(uintdevptr_t tensorAddress, const std::vector<T> &tensorShape) {
         DevTensorData tensorData;
@@ -49,7 +49,7 @@ struct DevAscendTensorDataCreator {
         }
     }
 
-    static int Decode(int64_t *inputs, DevAscendProgram* devProg, int idxOffset,
+    static int Decode(int64_t *inputs, DevPyPtoProgram* devProg, int idxOffset,
                       DevTensorData *tensorData) {
         int64_t addrOffset = *inputs;
         int64_t *ptrBase = reinterpret_cast<int64_t *>(reinterpret_cast<uint64_t>(inputs) + addrOffset);

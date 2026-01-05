@@ -35,7 +35,7 @@ class SymbolicExpressionTable;
 namespace npu::tile_fwk::dynamic {
 constexpr int INVALID_INDEX = -1;
 
-struct DevAscendFunctionPredInfo {
+struct DevPyPtoFunctionPredInfo {
     uint64_t totalZeroPred;
     uint64_t totalZeroPredAIV;
     uint64_t totalZeroPredAIC;
@@ -43,7 +43,7 @@ struct DevAscendFunctionPredInfo {
     uint64_t totalZeroPredAicpu;
 };
 
-struct EncodeDevAscendFunctionParam {
+struct EncodeDevPyPtoFunctionParam {
     /* The following are common parameter */
     std::unordered_map<uint64_t, int> calleeHashIndexDict;
     std::vector<CceCodeInfo> cceCodeInfoList;
@@ -58,12 +58,12 @@ struct EncodeDevAscendFunctionParam {
     std::vector<int> assembleSlotList;
 };
 
-struct DevAscendFunctionDuppedData;
-struct DevAscendFunction {
+struct DevPyPtoFunctionDuppedData;
+struct DevPyPtoFunction {
     uint64_t rootHash;
     uint64_t funcKey;
     // source root function after duplication
-    DevAscendFunction *sourceFunc{nullptr};
+    DevPyPtoFunction *sourceFunc{nullptr};
 
     // Fill base address after stitch
     uintdevptr_t runtimeWorkspace;
@@ -83,7 +83,7 @@ struct DevAscendFunction {
     DevLocalVector<uint64_t> expressionList;
 #define allocateLastField expressionList
 
-    DevAscendFunctionPredInfo predInfo_;
+    DevPyPtoFunctionPredInfo predInfo_;
     uint64_t duppedDataAllocSize_;
     uint64_t duppedDataCopySize_;
     DevLocalVector<uint8_t> duppedData_;
@@ -102,26 +102,26 @@ public:
     uint64_t exclusiveOutcastWsMemoryRequirement{0};
 
 private:
-    DevLocalVector<DevAscendRawTensor> rawTensorList_;
+    DevLocalVector<DevPyPtoRawTensor> rawTensorList_;
     DevLocalVector<DevRawTensorDesc> rawTensorDescList_;
-    DevLocalVector<DevAscendTensor> tensorList_;
+    DevLocalVector<DevPyPtoTensor> tensorList_;
     DevLocalVector<int> noPredOpList_;
     DevLocalVector<int> noSuccOpList_;
-    DevLocalVector<DevAscendOperation> operationList_;
-    DevLocalVector<DevAscendOperationOperandInfo> operationOperandInfoList_;
+    DevLocalVector<DevPyPtoOperation> operationList_;
+    DevLocalVector<DevPyPtoOperationOperandInfo> operationOperandInfoList_;
     DevLocalVector<SymInt> operationAttrList_;
     DevLocalVector<int> opAttrOffsetList_;
     DevLocalVector<int> opCalleeList_;
     DevLocalVector<int> operationSuccList_;
     DevLocalVector<int> operationCopyOutResolveSuccIndexList_;
 
-    DevLocalVector<DevAscendFunctionIncast> incastList;
-    DevLocalVector<DevAscendFunctionOutcast> outcastList;
+    DevLocalVector<DevPyPtoFunctionIncast> incastList;
+    DevLocalVector<DevPyPtoFunctionOutcast> outcastList;
     DevLocalVector<int> slotList;
     DevLocalVector<int> redaccAssembleSlotList_;
 
-    DevLocalVector<DevAscendFunctionCallOperandUse> useList;
-    DevLocalVector<DevAscendFunctionCallOperandUse> stitchPolicyFullCoverProducerList_;
+    DevLocalVector<DevPyPtoFunctionCallOperandUse> useList;
+    DevLocalVector<DevPyPtoFunctionCallOperandUse> stitchPolicyFullCoverProducerList_;
     DevLocalVector<uint32_t> stitchPolicyFullCoverOpList_;
 
     DevLocalVector<uint32_t> cellMatchRuntimeFullUpdateTableList;
@@ -135,23 +135,23 @@ public:
      *  Duplicated:
      *      AddressDescriptor                                   incastAddressListData;
      *      AddressDescriptor                                   outcastAddressListData;
-     *      DevAscendOperationDynamicField                      opDynamicFieldListData[];
+     *      DevPyPtoOperationDynamicField                      opDynamicFieldListData[];
      *  Allocated:
      *      uint64_t                                            expressionListData[];
      *
      *  Shared:
      *      DevRawTensorDesc                              rawTensorDescListData[];
-     *      DevAscendRawTensor                                  rawTensorListData[];
-     *      DevAscendTensor                                     tensorListData[];
+     *      DevPyPtoRawTensor                                  rawTensorListData[];
+     *      DevPyPtoTensor                                     tensorListData[];
      *      int                                                 noPredOpListData[];
      *      int                                                 noSuccOpListData[];
-     *      DevAscendOperation                                  operationListData[];
-     *      DevAscendOperationOperandInfo                       operationOperandListData[];
+     *      DevPyPtoOperation                                  operationListData[];
+     *      DevPyPtoOperationOperandInfo                       operationOperandListData[];
      *      SymInt                                              operationAttrListData[];
      *      int                                                 operationSuccListData[];
      *      int                                                 operationCopyOutResolveSuccIndexData[];
-     *      DevAscendFunctionIncast                             incastListData[];
-     *      DevAscendFunctionOutcast                            outcastListData[];
+     *      DevPyPtoFunctionIncast                             incastListData[];
+     *      DevPyPtoFunctionOutcast                            outcastListData[];
      *      int                                                 slotListData[];
      *      int                                                 outputOutcastSlotList[];
      *      int                                                 assembleOutcastSlotList[];
@@ -225,7 +225,7 @@ public:
         return oss.str();
     }
 
-    static std::string DumpStride(const DevAscendStride &stride) {
+    static std::string DumpStride(const DevPyPtoStride &stride) {
         std::ostringstream oss;
         oss << "<";
         for (int k = 0; k < stride.dimSize; k++) {
@@ -313,7 +313,7 @@ public:
         auto rawTensorDesc = GetRawTensorDesc(rawIndex);
         oss << rawTensor->DumpType() << " @" << rawIndex <<"&"<<rawTensor->linkedIncastId << " = ";
         oss << rawTensor->DumpAttr() << " ";
-        oss << DevAscendRawTensor::DumpAttrDesc(rawTensorDesc);
+        oss << DevPyPtoRawTensor::DumpAttrDesc(rawTensorDesc);
         if (addr != 0) {
             oss << AddressDescriptor::DumpAddress(addr);
         }
@@ -322,7 +322,7 @@ public:
 
     std::string DumpIncast(int incastIndex, const std::string &indent, uint64_t *runtimeExpressionList = nullptr, const std::vector<uintdevptr_t> &slotAddrList = {}) const {
         std::ostringstream oss;
-        const DevAscendFunctionIncast &incast = GetIncast(incastIndex);
+        const DevPyPtoFunctionIncast &incast = GetIncast(incastIndex);
         oss << "#incast:" << incastIndex << " = " << DumpTensor(incast.tensorIndex);
         for (size_t j = 0; j < incast.fromSlotList.size(); j++) {
             int slot = At(incast.fromSlotList, j);
@@ -363,8 +363,8 @@ public:
 
     std::string DumpOutcast(int outcastIndex, const std::string &indent, uint64_t *runtimeExpressionList = nullptr, const std::vector<uintdevptr_t> &slotAddrList = {}) const {
         std::ostringstream oss;
-        const DevAscendFunctionOutcast &outcast = GetOutcast(outcastIndex);
-        auto dumpProducer = [this, &oss, &indent, &outcast, &runtimeExpressionList](const DevLocalVector<DevAscendFunctionCallOperandUse>& producerList) -> void {
+        const DevPyPtoFunctionOutcast &outcast = GetOutcast(outcastIndex);
+        auto dumpProducer = [this, &oss, &indent, &outcast, &runtimeExpressionList](const DevLocalVector<DevPyPtoFunctionCallOperandUse>& producerList) -> void {
             for (size_t j = 0; j < producerList.size(); j++) {
                 auto &producer = At(producerList, j);
                 int producerIdx = producer.operationIdx;
@@ -463,18 +463,18 @@ public:
 
     int GetFuncKey() const { return funcKey; }
 
-    const DevAscendFunction *GetSource() const { return sourceFunc; }
-    DevAscendFunction *GetSource() { return sourceFunc; }
+    const DevPyPtoFunction *GetSource() const { return sourceFunc; }
+    DevPyPtoFunction *GetSource() { return sourceFunc; }
 
     int GetRootIndex() const { return funcKey; }
 
     const int &GetFuncidx() const { return funcidx; }
     int &GetFuncidx() { return funcidx; }
 
-    const DevAscendFunctionPredInfo &GetPredInfo() const { return predInfo_; }
+    const DevPyPtoFunctionPredInfo &GetPredInfo() const { return predInfo_; }
     uint64_t GetDuppedDataAllocSize() const { return duppedDataAllocSize_; }
     uint64_t GetDuppedDataCopySize() const { return duppedDataCopySize_; }
-    DevAscendFunctionDuppedData *GetDuppedData() const { return reinterpret_cast<DevAscendFunctionDuppedData *>(const_cast<uint8_t*>(&At(duppedData_, 0))); }
+    DevPyPtoFunctionDuppedData *GetDuppedData() const { return reinterpret_cast<DevPyPtoFunctionDuppedData *>(const_cast<uint8_t*>(&At(duppedData_, 0))); }
 
     int32_t *GetOpAttrOffsetAddr() { return &At(opAttrOffsetList_, 0); }
     inline int32_t GetOpAttrOffsetSize() { return opAttrOffsetList_.size(); }
@@ -498,19 +498,19 @@ public:
     inline uint64_t &GetExpression(int tableIndex) { return At(expressionList, tableIndex); }
     inline uint64_t GetExpressionSize() const { return expressionList.size(); }
     inline uint64_t GetRawTensorSize() const { return rawTensorList_.size(); }
-    inline const DevAscendRawTensor *GetRawTensor(const DevAscendTensor *tensor) const {
+    inline const DevPyPtoRawTensor *GetRawTensor(const DevPyPtoTensor *tensor) const {
         int rawTensorIndex = tensor->rawIndex;
         return &At(rawTensorList_, rawTensorIndex);
     }
-    inline const DevAscendRawTensor *GetRawTensor(int rawIndex) const { return &At(rawTensorList_, rawIndex); }
-    inline DevAscendRawTensor *GetRawTensor(int rawIndex) { return &At(rawTensorList_, rawIndex); }
+    inline const DevPyPtoRawTensor *GetRawTensor(int rawIndex) const { return &At(rawTensorList_, rawIndex); }
+    inline DevPyPtoRawTensor *GetRawTensor(int rawIndex) { return &At(rawTensorList_, rawIndex); }
     inline const DevRawTensorDesc *GetRawTensorDesc(int rawIndex) const { return &At(rawTensorDescList_, rawIndex); }
     inline DevRawTensorDesc *GetRawTensorDesc(int rawIndex) { return &At(rawTensorDescList_, rawIndex); }
     inline size_t GetRawTensorDescSize() { return rawTensorDescList_.size(); }
 
     inline uint64_t GetTensorSize() const { return tensorList_.size(); }
-    inline const DevAscendTensor *GetTensor(int index) const { return &At(tensorList_, index); }
-    inline DevAscendTensor *GetTensor(int index) { return &At(tensorList_, index); }
+    inline const DevPyPtoTensor *GetTensor(int index) const { return &At(tensorList_, index); }
+    inline DevPyPtoTensor *GetTensor(int index) { return &At(tensorList_, index); }
 
     inline size_t GetNoPredOpSize() const { return noPredOpList_.size(); }
     inline int GetNoPredOpIdx(size_t idx) const { return At(noPredOpList_, idx); }
@@ -532,23 +532,23 @@ public:
         return At(operationList_, operationIndex).ooperandList.size();
     }
 
-    inline const DevAscendOperationOperandInfo &GetOperationIOperandInfo(int operationIndex, int operandIndex) const {
+    inline const DevPyPtoOperationOperandInfo &GetOperationIOperandInfo(int operationIndex, int operandIndex) const {
         return At(At(operationList_, operationIndex).ioperandList, operandIndex);
     }
-    inline const DevAscendTensor *GetOperationIOperand(int operationIndex, int operandIndex) const {
+    inline const DevPyPtoTensor *GetOperationIOperand(int operationIndex, int operandIndex) const {
         int tensorIndex = GetOperationIOperandInfo(operationIndex, operandIndex).tensorIndex;
         return GetTensor(tensorIndex);
     }
 
-    inline const DevAscendOperationOperandInfo &GetOperationOOperandInfo(int operationIndex, int operandIndex) const {
+    inline const DevPyPtoOperationOperandInfo &GetOperationOOperandInfo(int operationIndex, int operandIndex) const {
         return At(At(operationList_, operationIndex).ooperandList, operandIndex);
     }
-    inline const DevAscendTensor *GetOperationOOperand(int operationIndex, int operandIndex) const {
+    inline const DevPyPtoTensor *GetOperationOOperand(int operationIndex, int operandIndex) const {
         int tensorIndex = GetOperationOOperandInfo(operationIndex, operandIndex).tensorIndex;
         return GetTensor(tensorIndex);
     }
 
-    inline const DevAscendOperationOperandInfo &GetOperationOperandInfo(
+    inline const DevPyPtoOperationOperandInfo &GetOperationOperandInfo(
         int operationIndex, int operandIndex, bool isIOperand = true) const {
         if (isIOperand) {
             return GetOperationIOperandInfo(operationIndex, operandIndex);
@@ -601,16 +601,16 @@ public:
     }
 
     inline size_t GetIncastSize() const { return incastList.size(); }
-    inline const struct DevAscendFunctionIncast &GetIncast(int index) const { return At(incastList, index); }
-    inline struct DevAscendFunctionIncast &GetIncast(int index) { return At(incastList, index); }
-    inline const DevAscendRawTensor *GetIncastRawTensor(int index) const {
+    inline const struct DevPyPtoFunctionIncast &GetIncast(int index) const { return At(incastList, index); }
+    inline struct DevPyPtoFunctionIncast &GetIncast(int index) { return At(incastList, index); }
+    inline const DevPyPtoRawTensor *GetIncastRawTensor(int index) const {
         int tensorIndex = GetIncast(index).tensorIndex;
         return GetRawTensor(GetTensor(tensorIndex));
     }
 
     inline size_t GetOutcastSize() const { return outcastList.size(); }
-    inline const struct DevAscendFunctionOutcast &GetOutcast(int index) const { return At(outcastList, index); }
-    inline struct DevAscendFunctionOutcast &GetOutcast(int index) { return At(outcastList, index); }
+    inline const struct DevPyPtoFunctionOutcast &GetOutcast(int index) const { return At(outcastList, index); }
+    inline struct DevPyPtoFunctionOutcast &GetOutcast(int index) { return At(outcastList, index); }
 
     inline size_t GetRedaccAssembleSlotListSize() const { return redaccAssembleSlotList_.size(); }
     inline const int &GetRedaccAssembleSlotList(int index) const { return At(redaccAssembleSlotList_, index); }
@@ -618,7 +618,7 @@ public:
 
     int LookupIncastBySlotIndex(int slotIndex) const {
         for (size_t incastIndex = 0; incastIndex < GetIncastSize(); incastIndex++) {
-            const DevAscendFunctionIncast &incast = GetIncast(incastIndex);
+            const DevPyPtoFunctionIncast &incast = GetIncast(incastIndex);
             for (size_t fromIndex = 0; fromIndex < incast.fromSlotList.size(); fromIndex++) {
                 int slot = At(incast.fromSlotList, fromIndex);
                 if (slot == slotIndex) {
@@ -638,7 +638,7 @@ public:
 
     int LookupOutcastBySlotIndex(int slotIndex) const {
         for (size_t outcastIndex = 0; outcastIndex < GetOutcastSize(); outcastIndex++) {
-            const DevAscendFunctionOutcast &outcast = GetOutcast(outcastIndex);
+            const DevPyPtoFunctionOutcast &outcast = GetOutcast(outcastIndex);
             for (size_t toIndex = 0; toIndex < outcast.toSlotList.size(); toIndex++) {
                 int slot = At(outcast.toSlotList, toIndex);
                 if (slot == slotIndex) {
@@ -656,15 +656,15 @@ public:
         return resultList;
     }
 
-    std::vector<std::tuple<int, int, int>> LookupConnectionSlotIndexFrom(const DevAscendFunction *func) const {
+    std::vector<std::tuple<int, int, int>> LookupConnectionSlotIndexFrom(const DevPyPtoFunction *func) const {
         std::vector<std::tuple<int, int, int>> connectionList;
         for (size_t incastIndex = 0; incastIndex < GetIncastSize(); incastIndex++) {
-            const DevAscendFunctionIncast &incast = GetIncast(incastIndex);
+            const DevPyPtoFunctionIncast &incast = GetIncast(incastIndex);
             for (size_t fromIndex = 0; fromIndex < incast.fromSlotList.size(); fromIndex++) {
                 int fromSlot = At(incast.fromSlotList, fromIndex);
 
                 for (size_t outcastIndex = 0; outcastIndex < func->GetOutcastSize(); outcastIndex++) {
-                    const DevAscendFunctionOutcast &outcast = func->GetOutcast(outcastIndex);
+                    const DevPyPtoFunctionOutcast &outcast = func->GetOutcast(outcastIndex);
                     for (size_t toIndex = 0; toIndex < outcast.toSlotList.size(); toIndex++) {
                         int toSlot = func->At(outcast.toSlotList, toIndex);
                         if (fromSlot == toSlot) {
@@ -677,13 +677,13 @@ public:
         return connectionList;
     }
 
-    inline const DevAscendRawTensor *GetOutcastRawTensor(int index) const {
+    inline const DevPyPtoRawTensor *GetOutcastRawTensor(int index) const {
         int tensorIndex = GetOutcast(index).tensorIndex;
         return GetRawTensor(GetTensor(tensorIndex));
     }
 
-    inline void GetTensorOffset(uint64_t offset[DEV_SHAPE_DIM_MAX], const DevAscendRawTensor *rawTensor,
-        const DevAscendOperationOperandInfo &operandInfo) const {
+    inline void GetTensorOffset(uint64_t offset[DEV_SHAPE_DIM_MAX], const DevPyPtoRawTensor *rawTensor,
+        const DevPyPtoOperationOperandInfo &operandInfo) const {
         const SymInt *offsetSymList = &At(operationAttrList_, operandInfo.staticOffsetAttrBeginIndex);
         for (int i = 0; i < rawTensor->GetDim(); i++) {
             offset[i] = offsetSymList[i].IsExpression() ? At(expressionList, offsetSymList[i].Value()) :
@@ -708,7 +708,7 @@ public:
     inline const char *GetRawName() const { return &At(rawName_, 0); }
 
 private:
-    friend struct EncodeDevAscendFunctionInfo;
+    friend struct EncodeDevPyPtoFunctionInfo;
 
     void InitIncastOutcastAttr(
             uintdevptr_t &initOffset,
@@ -716,7 +716,7 @@ private:
             const std::vector<std::shared_ptr<LogicalTensor>> &oList, bool fillContent);
     void InitOperationDynamicField(
             uintdevptr_t &initOffset,
-            DevAscendFunctionPredInfo predInfo,
+            DevPyPtoFunctionPredInfo predInfo,
             uint32_t outcastStitchCount,
             const std::unordered_map<uint64_t, int> &calleeHashIndexDict,
             const SymbolicExpressionTable *expressionTable,
@@ -732,12 +732,12 @@ private:
             const OrderedSet<std::shared_ptr<RawTensor>> &rawList,
             const std::unordered_map<int, std::shared_ptr<RawTensor>> &rawMagicToRawTensor,
             const std::vector<EncodeRawTensorAttr> &rawAttrs,
-            const EncodeDevAscendFunctionParam &param,
+            const EncodeDevPyPtoFunctionParam &param,
             const SymbolicExpressionTable *expressionTable,
             bool fillContent);
 
     void UpdateRawTensorDesc(const std::shared_ptr<RawTensor> &rawTensor, size_t i, size_t incastRawListSize,
-        DevAscendRawTensor &encoded);
+        DevPyPtoRawTensor &encoded);
 
     void InitTensor(
             uintdevptr_t &initOffset,
@@ -766,6 +766,6 @@ private:
         const OrderedSet<std::shared_ptr<LogicalTensor>> &tlist,
         const std::unordered_map<std::shared_ptr<LogicalTensor>, InoutOperationAttr> &incastOpAttrDict,
         const std::unordered_map<std::shared_ptr<LogicalTensor>, InoutOperationAttr> &outcastOpAttrDict,
-        const EncodeDevAscendFunctionParam &param, const std::string &initRawName, bool fillContent);
+        const EncodeDevPyPtoFunctionParam &param, const std::string &initRawName, bool fillContent);
 };
 }

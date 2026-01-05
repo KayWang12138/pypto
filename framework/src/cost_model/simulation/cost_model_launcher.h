@@ -168,7 +168,7 @@ private:
             return;
         }
 
-        DevAscendProgram *functionDevProg = reinterpret_cast<DevAscendProgram *>(function_->GetDyndevAttribute()->devProgBinary.data());
+        DevPyPtoProgram *functionDevProg = reinterpret_cast<DevPyPtoProgram *>(function_->GetDyndevAttribute()->devProgBinary.data());
         if (config_.controlFlowCache) {
             functionDevProg->controlFlowCache.isRecording = true;
         }
@@ -182,7 +182,7 @@ private:
         if (!config_.runModel) {
             return;
         }
-        AstKernelArgs kArgs;
+        PyPtoKernelArgs kArgs;
         config_.onBoard = false;
         DeviceLauncherConfigFillDeviceInfo(config_);
         DeviceInitTilingData(MemoryHelper(true), kArgs, function_->GetDyndevAttribute()->devProgBinary, config_, nullptr);
@@ -196,7 +196,7 @@ private:
     }
 
     bool IsDumpTensorEnable() const {
-        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(GetDevProg(function_).data()));
+        auto *devProg = reinterpret_cast<DevPyPtoProgram *>(const_cast<uint8_t*>(GetDevProg(function_).data()));
         return devProg->memBudget.debug.dumpTensor != 0;
     }
 
@@ -225,10 +225,10 @@ private:
         }
     }
 
-    void DumpTensorContents(const AstKernelArgs &kArgs,
+    void DumpTensorContents(const PyPtoKernelArgs &kArgs,
                             const std::vector<RawTensorDataPtr> &inputs,
                             const std::vector<RawTensorDataPtr> &outputs) {
-        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(GetDevProg(function_).data()));
+        auto *devProg = reinterpret_cast<DevPyPtoProgram *>(const_cast<uint8_t*>(GetDevProg(function_).data()));
         uint8_t *dumpTensorWsPtr = reinterpret_cast<uint8_t *>(kArgs.workspace) + devProg->memBudget.tensor.Total() + devProg->memBudget.metadata.Total();
         uint64_t dumpTensorWsUsed = 0;
         ALOG_ERROR_F("[DumpTensor] dumpTensorWsPtr=%p, memory used=%lu\n", dumpTensorWsPtr, dumpTensorWsUsed);
@@ -267,7 +267,7 @@ private:
         fout.close();
     }
 
-    void RunCostModel(AstKernelArgs *kArgs) {
+    void RunCostModel(PyPtoKernelArgs *kArgs) {
         if (!config::GetPlatformConfig("ENABLE_DYN_COST_MODEL", true)) {
             return;
         }
@@ -306,12 +306,12 @@ private:
         costModelAgent.TerminateCostModel();
     }
 
-    void RunTestMode(AstKernelArgs *kArgs) {
+    void RunTestMode(PyPtoKernelArgs *kArgs) {
         (void) kArgs;
         const int BUFFER_SIZE_64 = 64;
         std::thread aicpus[DEVICE_MAX_AICPU_NUM];
         std::atomic<int> idx{0};
-        auto *devProg = (DevAscendProgram *)(kArgs->cfgdata);
+        auto *devProg = (DevPyPtoProgram *)(kArgs->cfgdata);
         (void)DynTileFwkBackendKernelServerInit(kArgs);
         int threadNum = static_cast<int>(devProg->devArgs.nrAicpu);
         threadNum = (devProg->devArgs.enableCtrl == 1) ? threadNum : threadNum + 1;
@@ -341,7 +341,7 @@ private:
         }
     }
 
-    void InitKernelInOuts(AstKernelArgs &kArgs, const std::vector<RawTensorDataPtr> &inputTensors,
+    void InitKernelInOuts(PyPtoKernelArgs &kArgs, const std::vector<RawTensorDataPtr> &inputTensors,
         const std::vector<RawTensorDataPtr> &outputTensors, bool isTest) {
         std::vector<DeviceTensorData> inputList;
         std::vector<DeviceTensorData> outputList;

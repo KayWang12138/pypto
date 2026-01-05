@@ -114,7 +114,7 @@ class DeviceCtrlMachine {
         inspector_ = inspector;
     }
 
-    void InitTaskPipeWithSched(DevAscendProgram *devProg) {
+    void InitTaskPipeWithSched(DevPyPtoProgram *devProg) {
         taskctrl_ = reinterpret_cast<DeviceTaskCtrl *>(devProg->devArgs.taskCtrl);
         taskQueue_ = reinterpret_cast<SPSCQueue<DeviceTaskCtrl *, DEFAULT_QUEUE_SIZE> *>(devProg->devArgs.taskQueue);
         for (uint32_t i = 0; i < MAX_DEVICE_TASK_NUM; i++) {
@@ -127,7 +127,7 @@ class DeviceCtrlMachine {
         }
     }
 
-    void InitCtrlFlowCache(DevAscendProgram *devProg, bool firstInit) {
+    void InitCtrlFlowCache(DevPyPtoProgram *devProg, bool firstInit) {
         auto devArgs = reinterpret_cast<DevStartArgs *>(devProg->devArgs.startArgsAddr);
         DEV_INFO("ControlFlowCache: deviceTask:%d firstInit:%d\n", (int)devProg->controlFlowCache.deviceTaskCount, (int)firstInit);
         if (devProg->controlFlowCache.isRecording) {
@@ -151,9 +151,9 @@ class DeviceCtrlMachine {
         }
     }
 
-    int InitDyn(AstKernelArgs *kargs) {
-        DEV_INFO("AscendCppDyInitTask begin");
-        auto devProg = PtrToPtr<int64_t, DevAscendProgram>(kargs->cfgdata);
+    int InitDyn(PyPtoKernelArgs *kargs) {
+        DEV_INFO("PyPtoCppDyInitTask begin");
+        auto devProg = PtrToPtr<int64_t, DevPyPtoProgram>(kargs->cfgdata);
         auto devArgs = reinterpret_cast<DevStartArgs *>(devProg->devArgs.startArgsAddr);
         schAicpuNum_ = devProg->devArgs.scheCpuNum;
         InitTaskPipeWithSched(devProg);
@@ -178,9 +178,9 @@ class DeviceCtrlMachine {
         uint64_t outputSize = 0;
         if (devProg->devArgs.isGETensorList == 1) {
             inputPtr = PtrToPtr<DevStartArgs, DevTensorData>(devArgs + 1);
-            inputSize = DevAscendTensorDataCreator::Decode(kargs->inputs, devProg, 0, inputPtr);
+            inputSize = DevPyPtoTensorDataCreator::Decode(kargs->inputs, devProg, 0, inputPtr);
             auto outputPtr = inputPtr + inputSize;
-            outputSize = DevAscendTensorDataCreator::Decode(kargs->outputs, devProg, inputSize, outputPtr);
+            outputSize = DevPyPtoTensorDataCreator::Decode(kargs->outputs, devProg, inputSize, outputPtr);
         } else {
             inputSize = *kargs->inputs;
             outputSize = *(kargs->inputs + 1);
@@ -199,14 +199,14 @@ class DeviceCtrlMachine {
         devArgs->hcclContextAddr = (uint64_t*)&devProg->hcclContext[0];
 
         InitCtrlFlowCache(devProg, firstInit);
-        DEV_INFO("AscendCppDyInitTask done.");
+        DEV_INFO("PyPtoCppDyInitTask done.");
         return 0;
     }
 
-    int ExecDyn(npu::tile_fwk::AstKernelArgs *args) {
+    int ExecDyn(npu::tile_fwk::PyPtoKernelArgs *args) {
         int ret = 0;
         DEV_INFO("start control flow.");
-        auto devProg = PtrToPtr<int64_t, DevAscendProgram>(args->cfgdata);
+        auto devProg = PtrToPtr<int64_t, DevPyPtoProgram>(args->cfgdata);
         auto devStartArgs = (DevStartArgs *)devProg->devArgs.startArgsAddr;
         DeviceExecuteContext ctx(devStartArgs);
         ctx.costModelData = reinterpret_cast<CostModel::ModelData*>(args->costmodeldata);

@@ -76,7 +76,7 @@ WrapInfoQueue* DeviceTaskContext::AllocWrapQueue(DynDeviceTask *dyntask) {
     return q;
 }
 
-int DeviceTaskContext::BuildReadyQueueWithMixTask(DynDeviceTask *dyntask, DevAscendProgram *devProg) {
+int DeviceTaskContext::BuildReadyQueueWithMixTask(DynDeviceTask *dyntask, DevPyPtoProgram *devProg) {
     PerfBegin(PERF_EVT_READY_QUEUE_IN);
     uint32_t size = sizeof(ReadyCoreFunctionQueue) + dyntask->devTask.coreFunctionCnt * sizeof(taskid_t);
     if (dyntask->devTask.coreFunctionCnt > devProg->stitchFunctionsize) {
@@ -120,7 +120,7 @@ int DeviceTaskContext::BuildReadyQueueWithMixTask(DynDeviceTask *dyntask, DevAsc
     size_t funcSize = dyntask->dynFuncDataCacheListSize;
     for (size_t funcIndex = 0; funcIndex < funcSize; ++funcIndex) {
         int32_t* opWrapList = reinterpret_cast<int32_t *>(dyntask->devTask.opWrapList[funcIndex]);
-        DevAscendFunctionDuppedData *duppedData = dynFuncDataCacheList->At(funcIndex).duppedData;
+        DevPyPtoFunctionDuppedData *duppedData = dynFuncDataCacheList->At(funcIndex).duppedData;
         predcount_t *dupPredCountList = &duppedData->GetOperationCurrPredCount(0);
         auto &predInfo = duppedData->GetSource()->GetPredInfo();
 

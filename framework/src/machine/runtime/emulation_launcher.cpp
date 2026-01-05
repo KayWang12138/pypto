@@ -23,12 +23,12 @@ extern "C" int DynTileFwkBackendKernelServerInit(void *targ);
 
 namespace npu::tile_fwk::dynamic {
 
-static int EmulationLaunchOnce(AstKernelArgs &kArgs) {
+static int EmulationLaunchOnce(PyPtoKernelArgs &kArgs) {
     constexpr int threadNum = 6;
     std::thread aicpuThreadList[threadNum];
     int aicpuResultList[threadNum] = {0};
     std::atomic<int> idx{0};
-    auto *devProg = (DevAscendProgram *)(kArgs.cfgdata);
+    auto *devProg = (DevPyPtoProgram *)(kArgs.cfgdata);
     auto rc = DynTileFwkBackendKernelServerInit(&kArgs);
     if (rc != 0) {
         return rc;
@@ -67,7 +67,7 @@ int EmulationLauncher::EmulationLaunchOnceWithHostTensorData(
         const DeviceLauncherConfig &config) {
     std::cout << "!!! Emulation Launch\n";
 
-    AstKernelArgs kArgs;
+    PyPtoKernelArgs kArgs;
     DeviceLauncher::DeviceInitTilingData(EmulationMemoryUtils(), kArgs, function->GetDyndevAttribute()->devProgBinary,
                                          config, nullptr);
     DeviceLauncher::DeviceInitKernelInOuts(EmulationMemoryUtils(), kArgs, inputList, outputList,
@@ -93,11 +93,11 @@ int EmulationLauncher::BuildControlFlowCacheWithEmulationTensorData(
     (void)cachedOperator;
     std::cout << "!!! Emulation ControlFlowCache\n";
     std::vector<uint8_t> &devProgData = DeviceLauncher::GetDevProg(function);
-    DevAscendProgram *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
+    DevPyPtoProgram *devProg = reinterpret_cast<DevPyPtoProgram *>(const_cast<uint8_t*>(devProgData.data()));
     devProg->controlFlowCache.isRecording = true;
     devProg->controlFlowCache.deviceTaskCount = 0;
     devProg->controlFlowCache.cacheDataOffset = 0;
-    AstKernelArgs kArgs;
+    PyPtoKernelArgs kArgs;
     DeviceLauncher::DeviceInitTilingData(EmulationMemoryUtils(), kArgs, devProgData, config, nullptr);
     DeviceLauncher::DeviceInitKernelInOuts(EmulationMemoryUtils(), kArgs, inputList, outputList,
         function->GetDyndevAttribute()->disableL2List, config.isGETensorList);
