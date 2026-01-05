@@ -582,8 +582,11 @@ bool CodeGenCloudNPU::HandleForAICpuSubFunc(Function &subFunc) {
             code.push_back(op.GetIOpAttrOffset(i));
         }
         // waitUntil OP有2个输入，下标0是dummy控制边，下标1是signal，这里只需要signal
-        code.push_back(op.GetInputOperand(1)->GetRawTensor()->rawshape.size());
+        code.push_back(op.GetInputOperand(1)->GetRawTensor()->rawshape.size() * paramSizePerOperand);
         for (auto dimShape: op.GetInputOperand(1)->GetRawTensor()->GetRawShape()) {
+            code.push_back(dimShape);
+        }
+        for (auto dimShape: op.GetInputOperand(1)->GetShape()) {
             code.push_back(dimShape);
         }
 
@@ -597,7 +600,6 @@ bool CodeGenCloudNPU::HandleForAICpuSubFunc(Function &subFunc) {
     if (code.size() % 2 != 0) { // 确保 code.size() 是 2 的倍数，间接保证 code 占用的字节数是 8 的倍数
         code.push_back(0);
     }
-
     std::shared_ptr<LeafFuncAttribute> attr = std::make_shared<LeafFuncAttribute>();
     attr->coreType = CoreType::AICPU;
     attr->aicpuLeafCode = std::move(code);
