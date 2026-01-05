@@ -15,6 +15,7 @@
 #include <gtest/gtest.h>
 #include "passes/block_graph_pass/mix_subgraph_split.h"
 #include "interface/function/block_function.h"
+#include "computational_graph_builder.h"
 
 namespace npu {
 namespace tile_fwk {
@@ -311,7 +312,9 @@ TEST_F(MixSubgraphSplitTest, TestMixSubgraphSplit) {
 
 TEST_F(MixSubgraphSplitTest, TestDependOperand) {
     // Build Graph
-    ComputationalGraphBuilder subGraph;
+    // ComputationalGraphBuilder subGraph;
+    auto blockFunc = std::make_shared<BlockFunction>(Program::GetInstance(), "TestAddAlloc", "TestAddAlloc", nullptr);
+    ComputationalGraphBuilder subGraph(blockFunc);
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6"};
     std::vector<MemoryType> tensorMemTypes{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB,
         MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB};
