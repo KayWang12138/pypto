@@ -16,15 +16,101 @@
 #include "simulation/backend.h"
 
 #include <cctype>
+#include <thread>
 #include "interface/configs/config_manager.h"
 #include "interface/cache/function_cache.h"
 #include "interface/machine/host/machine_task.h"
+#include "simulation/common/CommonType.h"
+#include "machine/device/dynamic/costmodel_utils.h"
+#include "machine/utils/dynamic/dev_encode_program.h"
+
+
+
+extern "C" int DynTileFwkBackendKernelServer(void *targ);
+extern "C" int DynTileFwkBackendKernelServerInit(void *targ);
+extern "C" int PyptoKernelCtrlServer(void *targ);
 
 namespace {
 const std::string PROGRAM_ENTRY_FUNCTION_NAME = "PROGRAM_ENTRY";
+constexpr uint32_t BufferSize = 64;
+constexpr uint32_t DEVICE_MAX_AICPU_NUM = 5;
 }
 
 namespace npu::tile_fwk {
+
+void CostModelAgent::RunCostModel(DeviceKernelArgs *kArgs) {
+    if (!config::GetPlatformConfig("ENABLE_DYN_COST_MODEL", true)) {
+        return;
+    }
+    Function *function = Program::GetInstance().GetLastFunction();
+    if (function == nullptr) {
+        return;
+    }
+    config::SetSimConfig("SIM_MODE", CostModel::SimMode::LEAF_FUNCTION);
+    SubmitLeafFunctionsToCostModel();
+    RunCostModel();
+    TerminateCostModel();
+    CostModel::ModelData* modelData = new CostModel::ModelData();
+    auto attr = function->GetDyndevAttribute();
+    modelData->functionTime.resize(attr->devLeafIndex2Hash.size(), 0);
+    for (const auto& [index, hash] : attr->devLeafIndex2Hash) {
+        auto time = GetLeafFunctionTimeCost(hash);
+        ALOG_INFO("devLeafIndex2Hash, %d -> %lu: %lu\n", index, hash, time);
+        modelData->functionTime[index] = time;
+    }
+    kArgs->costmodeldata = modelData;
+}
+
+void CostModelAgent::RunDynCostModel()
+{
+    if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) != CFG_RUN_MODE_SIM) {
+        return;
+    }
+    config::SetSimConfig("SIM_MODE", CostModel::SimMode::NORMAL);
+
+    std::string path = config::LogTopFolder() + "/dyn_topo.txt";
+    SubmitTopo(path);
+    SubmitLeafFunctionsToCostModel();
+    RunCostModel();
+    TerminateCostModel();
+}
+
+void CostModelAgent::RunTestMode(DeviceKernelArgs *kArgs) {
+    (void) kArgs;
+    std::thread aicpus[DEVICE_MAX_AICPU_NUM];
+    std::atomic<int> idx{0};
+    auto *devProg = (DevAscendProgram *)(kArgs->cfgdata);
+    auto rc0 = DynTileFwkBackendKernelServerInit(kArgs);
+    ASSERT(rc0 == 0) << "Test mode kernelServer init failed";
+    int threadNum = static_cast<int>(devProg->devArgs.nrAicpu);
+    threadNum = (devProg->devArgs.enableCtrl == 1) ? threadNum : threadNum + 1;
+    for (int i = 0; i < threadNum; i++) {
+        aicpus[i] = std::thread([&]() {
+            int tidx = idx++;
+            cpu_set_t cpuset;
+            CPU_ZERO(&cpuset);
+            CPU_SET(tidx, &cpuset);
+            char name[BufferSize];
+            (void)sprintf_s(name, BufferSize, "aicput%d", tidx);
+            std::cout << "start thread: " << name << std::endl;
+            pthread_setname_np(pthread_self(), name);
+            pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
+            auto rc = 0;
+            if ((devProg->devArgs.enableCtrl == 0) && (uint32_t)tidx == devProg->devArgs.scheCpuNum) {
+                rc = PyptoKernelCtrlServer(kArgs);
+            } else {
+                rc = DynTileFwkBackendKernelServer(kArgs);
+            }
+            ASSERT(rc == 0) << "Test mode kernelServer failed";
+        });
+    }
+
+    for (int i = 0; i < threadNum; i++) {
+        if (aicpus[i].joinable()) {
+            aicpus[i].join();
+        }
+    }
+}
 
 void CostModelAgent::BuildCostModel()
 {

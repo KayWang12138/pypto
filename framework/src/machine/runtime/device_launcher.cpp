@@ -17,6 +17,8 @@
 #include "machine/runtime/device_launcher_binding.h"
 #include "machine/host/backend.h"
 #include "machine/runtime/host_prof.h"
+
+
 namespace npu::tile_fwk::dynamic {
 namespace {
     constexpr uint32_t kMinDefaultDim = 20;
@@ -156,7 +158,7 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
         }
     }
     CheckDeviceId();
-    AstKernelArgs kArgs;
+    DeviceKernelArgs kArgs;
     DeviceLauncherConfigFillDeviceInfo(config);
     DeviceInitTilingData(DeviceMemoryUtils(), kArgs, function->GetDyndevAttribute()->devProgBinary, config, cachedOperator);
     DeviceRunCacheKernelSet(function, (uint8_t *)kArgs.cfgdata);
