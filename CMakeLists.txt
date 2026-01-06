@@ -130,7 +130,6 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END AND BUILD_OPEN_PROJECT)
 
     # 安装 配置文件
     install(FILES
-                framework/src/interface/configs/tile_fwk_config.json
                 framework/src/interface/configs/tile_fwk_types.json
                 framework/src/interface/configs/tile_fwk_config_ng.json
                 framework/src/interface/configs/tile_fwk_config_schema.json
