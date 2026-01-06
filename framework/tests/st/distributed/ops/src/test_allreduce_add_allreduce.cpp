@@ -61,9 +61,9 @@ void LoopCreateShmemTensor(const Tensor& addOut, Tensor& shmemBarrier1ShmemSigna
     LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
         (void)index;
         CreateShmemTensor(shmemBarrier1ShmemSignal, testParam.rankSize, hcclGroupIndex, DT_INT32, Shape{1, 1, 8},
-            1);
+            TileOpFormat::TILEOP_ND, 1);
         CreateShmemTensor(shmemBarrier2ShmemSignal, testParam.rankSize, hcclGroupIndex, DT_INT32, Shape{1, 1, 8},
-            1);
+            TileOpFormat::TILEOP_ND, 1);
         TileShape::Current().SetDistTile({row, 1, 0}, {col, 1, 0}, {1, testParam.rankSize, 0});
         int32_t tileCount = 1;
         Shape allReduce2ShmemDataShape = {1, addOut.GetShape(0), addOut.GetShape(1)};

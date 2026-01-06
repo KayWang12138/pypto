@@ -75,7 +75,13 @@ TEST_F(DistributedTest, shmem_allgather_attn_post_reducescatter_bfloat16_64_1_32
 TEST_F(DistributedTest, shmem_all_gather_int32_128_256_4)
 {
     config::SetHostOption(ONLY_CODEGEN, true);
-    Distributed::TestDynAllGather<int32_t>(testParam);
+    Distributed::TestShmemAllGather<int32_t>(testParam);
+}
+
+TEST_F(DistributedTest, shmem_all_gather_int32_NZ_128_256_4)
+{
+    config::SetHostOption(ONLY_CODEGEN, true);
+    Distributed::TestShmemAllGather<int32_t>(testParam);
 }
 
 TEST_F(DistributedTest, shmem_moe_dispatch_bfloat16_8_5120_0_160_8_4)
@@ -91,6 +97,12 @@ TEST_F(DistributedTest, shmem_moe_dispatch_bfloat16_8_5120_0_160_8_8)
 }
 
 TEST_F(DistributedTest, shmem_reduce_scatter_int32_128_256_4)
+{
+    config::SetHostOption(ONLY_CODEGEN, true);
+    Distributed::TestShmemReduceScatter<int32_t>(testParam);
+}
+
+TEST_F(DistributedTest, shmem_reduce_scatter_int32_NZ_128_256_4)
 {
     config::SetHostOption(ONLY_CODEGEN, true);
     Distributed::TestShmemReduceScatter<int32_t>(testParam);
@@ -115,6 +127,12 @@ TEST_F(DistributedTest, shmem_all_reduce_int32_64_256_4)
 }
 
 TEST_F(DistributedTest, shmem_all_reduce_bfloat16_50_256_4)
+{
+    config::SetHostOption(ONLY_CODEGEN, true);
+    Distributed::TestShmemAllReduce<bfloat16, false>(testParam);
+}
+
+TEST_F(DistributedTest, shmem_all_reduce_bfloat16_NZ_50_256_4)
 {
     config::SetHostOption(ONLY_CODEGEN, true);
     Distributed::TestShmemAllReduce<bfloat16, false>(testParam);
