@@ -61,6 +61,7 @@ def hc_pre(x, hc_fn, hc_scale, hc_base):
     return res, post, comb
 
 def gen_hc_pre_data(t = 16):
+    print("t is ", t)
     x = torch.empty((t, hc, d), dtype=torch.bfloat16).uniform_(-1, 1)
     hc_fn = torch.empty((mix_hc, hc*d), dtype=torch.float32).uniform_(-1, 1)
     hc_scale = torch.empty((3,), dtype=torch.float32).uniform_(-1, 1)
