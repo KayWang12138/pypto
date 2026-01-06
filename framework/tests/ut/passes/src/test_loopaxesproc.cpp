@@ -19,6 +19,7 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/function/function.h"
 #include "interface/operation/operation.h"
+#include "passes/pass_mgr/pass_manager.h"
 
 #define private public
 #include "passes/block_graph_pass/loopaxes_proc.h"
@@ -49,7 +50,7 @@ public:
 };
 
 TEST_F(TestLoopaxesProcPass, LoopaxesProcUTest1) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestRemoveRedundantReshape", "TestRemoveRedundantReshape", nullptr);
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestLoopaxesProcPass", "TestLoopaxesProcPass", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     // Prepare the graph
