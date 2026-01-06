@@ -558,19 +558,6 @@ public:
     Json DumpJson(bool useTable = true);
     static std::shared_ptr<Function> LoadJson(Program &belongTo, const Json &funcDump);
 
-    std::vector<std::vector<SymbolicScalar>> NormalizeCoa(
-        std::vector<int> &iOffset, std::vector<int> &oOffset);
-    void NormalizeCoaForInCasts(std::vector<int> &iOffset, std::vector<std::vector<SymbolicScalar>> &coaLists,
-        int &coaIndex, std::unordered_map<LogicalTensorPtr, int> &processedOperands,
-        const std::unordered_map<int, Operation *> &opmagicToOp);
-    void NormalizeCoaForOutCasts(std::vector<int> &oOffset, std::vector<std::vector<SymbolicScalar>> &coaLists,
-        int &coaIndex, std::unordered_map<LogicalTensorPtr, int> &processedOperands,
-        const std::unordered_map<int, Operation *> &opmagicToOp);
-    void NormalizeCoaForNormalOperands(std::vector<std::vector<SymbolicScalar>> &coaLists, int &coaIndex,
-        std::unordered_map<LogicalTensorPtr, int> &processedOperands);
-    void NormalizeCoaForSpecialInfo(std::vector<std::vector<SymbolicScalar>> &coaLists, int &coaIndex);
-    void GetOutcastSymbolicExpr(std::map<int, SymbolicScalar>& tabel);
-
     void DumpTopoFile(const std::string &fileName) const;
     std::string DumpSSA() const;
     std::string Dump() const;                                    // Serialize brief format
@@ -807,6 +794,15 @@ public:
 
     virtual std::vector<std::vector<SymbolicScalar>> NormalizeCoa(
         std::vector<int> &iOffset, std::vector<int> &oOffset);
+    virtual void NormalizeCoaForInCasts(std::vector<int> &iOffset, std::vector<std::vector<SymbolicScalar>> &coaLists,
+        int &coaIndex, std::unordered_map<LogicalTensorPtr, int> &processedOperands,
+        const std::unordered_map<int, Operation *> &opmagicToOp);
+    virtual void NormalizeCoaForOutCasts(std::vector<int> &oOffset, std::vector<std::vector<SymbolicScalar>> &coaLists,
+        int &coaIndex, std::unordered_map<LogicalTensorPtr, int> &processedOperands,
+        const std::unordered_map<int, Operation *> &opmagicToOp);
+    virtual void NormalizeCoaForNormalOperands(std::vector<std::vector<SymbolicScalar>> &coaLists, int &coaIndex,
+        std::unordered_map<LogicalTensorPtr, int> &processedOperands);
+    virtual void NormalizeCoaForSpecialInfo(std::vector<std::vector<SymbolicScalar>> &coaLists, int &coaIndex);
     virtual void GetOutcastSymbolicExpr(std::map<int, SymbolicScalar>& tabel);
 
     virtual std::pair<bool, Opcode> IsAicpuSubFunction() const;
