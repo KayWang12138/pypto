@@ -11,7 +11,7 @@
 set(_Target ${PTO_Fwk_UTestNamePrefix}_machine)
 
 file(GLOB_RECURSE _Sources src/*.cpp)
-list(APPEND _Sources ${PTO_FWK_SRC_ROOT}/framework/src/machine/device/aicore_prof.cpp)
+list(APPEND _Sources ${PTO_FWK_SRC_ROOT}/framework/src/machine/device/dynamic/aicore_prof.cpp)
 list(APPEND _Sources ${PTO_FWK_SRC_ROOT}/framework/src/machine/device/device_machine.cpp)
 list(APPEND _Sources ${PTO_FWK_SRC_ROOT}/framework/src/machine/device/distributed/shmem_wait_until.cpp)
 set(_Include "include")
