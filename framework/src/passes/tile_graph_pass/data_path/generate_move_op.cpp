@@ -133,7 +133,31 @@ Status GenerateMoveOp::SetOpcodeByMemPath(Operation &op,MemoryType from,MemoryTy
         return FAILED;
     }
     auto opcodeFindByPath = it->second;
+    if (opcodeFindByPath == Opcode::OP_L0C_TO_L1) {
+        Shape fromOffset = {0, 0};
+        Shape toOffset = {0, 0};
+        Shape validShape = {0, 0};
+        if (op.GetOpcode() == Opcode::OP_VIEW) {
+            auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(op.GetOpAttribute().get());
+            fromOffset = viewOpAttribute->GetFromOffset();
+            validShape = op.oOperand.front()->GetShape();
+        }
+        if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
+            auto assembleOpAttribute = dynamic_cast<AssembleOpAttribute *>(op.GetOpAttribute().get());
+            toOffset = assembleOpAttribute->GetToOffset();
+            validShape = op.iOperand.front()->GetShape();
+        }
+        auto copyAttr = std::make_shared<CopyOpAttribute>(
+            OpImmediate::Specified(fromOffset),
+            MemoryType::MEM_L1, OpImmediate::Specified(validShape),
+            OpImmediate::Specified(validShape)
+        );
+        copyAttr->SetToOffset(OpImmediate::Specified(toOffset));
+        copyAttr->SetToDynValidShape(OpImmediate::Specified(validShape));
+        op.SetOpAttribute(copyAttr);
+    }
     op.SetOpCode(opcodeFindByPath);
+    
     return SUCCESS;
 }
 
@@ -141,9 +165,14 @@ void GenerateMoveOp::CreateMoveOpForAssemble(Operation &op) const {
     auto assembleOpAttribute = dynamic_cast<AssembleOpAttribute *>(op.GetOpAttribute().get());
     auto ASSEMBLE_in = op.iOperand.front();
     auto parentOp = *ASSEMBLE_in->GetProducers().begin();
-    if (op.iOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR ||
-        op.oOperand.front()->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR ||
+    auto inputMemtype = op.iOperand.front()->GetMemoryTypeOriginal();
+    auto outputMemtype = op.oOperand.front()->GetMemoryTypeOriginal();
+    if (inputMemtype == MemoryType::MEM_DEVICE_DDR || outputMemtype != MemoryType::MEM_DEVICE_DDR ||
         parentOp->GetOpcode() == Opcode::OP_TRANSPOSE_MOVEOUT || parentOp->GetOpcode() == Opcode::OP_INDEX_OUTCAST) {
+        return;
+    }
+    if (inputMemtype == MemoryType::MEM_L0C || outputMemtype == MemoryType::MEM_L1) {
+        SetOpcodeByMemPath(op, inputMemtype, outputMemtype);
         return;
     }
     op.SetOpCode(Opcode::OP_COPY_OUT);
@@ -163,7 +192,7 @@ Status GenerateMoveOp::CreateMoveOpForConvert(Function &function, Operation &op)
     Status status = SetOpcodeByMemPath(op,from,to);
     if(op.GetOpcode() == Opcode::OP_UB_COPY_L1) {
         ProcessUB2L1(function, op);
-    }  
+    }
     if(status != SUCCESS) {return status;}
     auto childOp = *op.oOperand.front()->GetConsumers().begin();
     op.UpdateSubgraphID(childOp->GetSubgraphID());
