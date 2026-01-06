@@ -19,6 +19,7 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "cost_model/simulation/CostModelInterface.h"
+#include "machine/utils/machine_ws_intf.h"
 
 namespace npu::tile_fwk {
 
@@ -51,6 +52,9 @@ public:
     void DebugSingleFunc(Function *func);
     void GetFunctionFromJson(const std::string &jsonPath);
     uint64_t GetLeafFunctionTimeCost(uint64_t hash);
+    void RunCostModel(DeviceKernelArgs *kArgs);
+    void RunDynCostModel();
+    void RunTestMode(DeviceKernelArgs *kArgs);
 
 private:
     std::shared_ptr<CostModel::CostModelInterface> costModel;
