@@ -13,7 +13,7 @@
  * \brief
  */
 
-#include "machine/kernel/gen_aicore_code.h"
+#include "machine/compile/gen_aicore_code.h"
 #include "interface/utils/file_utils.h"
 
 namespace npu::tile_fwk {
