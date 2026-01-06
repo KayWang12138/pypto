@@ -377,7 +377,7 @@ public:
         return tensorAllocators_.devTaskBoundaryOutcasts.IsValidSlotMemRequirement(memReq);
     }
 
-    uintdevptr_t AllocateSlot([[maybe_unused]] const char *rootFuncName = "unknown_root") {
+    uintdevptr_t AllocateSlot([[maybe_unused]] const char *rootFuncName = nullptr) {
         WsAllocation allocation;
 #if !DEBUG_INFINITE_LIFETIME
         allocation = tensorAllocators_.devTaskBoundaryOutcasts.Allocate();
@@ -386,7 +386,7 @@ public:
             WsMemCategory::TENSOR_ROOTFUNC_OUTCAST_SLOT);
 #endif
 #if DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
-        wsMemDelayedDumper_.LogTensorMalloc(rootFuncName, allocation);
+        wsMemDelayedDumper_.LogTensorMalloc(rootFuncName == nullptr ? "unspecified_root" : rootFuncName, allocation);
 #endif // DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
         return allocation.ptr;
     }
@@ -410,13 +410,14 @@ public:
         DEV_ASSERT(outcast.refCnt > 0);
         outcast.refCnt--;
         if (outcast.refCnt == 0) {
-            RtOutcastDestruct(outcast);
+            RuntimeOutcastTensorDestruct(outcast);
         }
     }
 
     void RuntimeOutcastTensorRef(ItemPoolIter iter) {
         DEV_ASSERT(iter != ITEM_POOL_INVALID_INDEX);
         auto &outcast = runtimeOutcastTensorPool_.At(iter);
+        DEV_ASSERT_MSG(outcast.refCnt > 0, "Shouldn't ref a possibly destroyed tensor, iter=%" PRId64, iter);
         outcast.refCnt++;
     }
 
@@ -433,6 +434,9 @@ public:
     }
 
     void RuntimeOutcastTensorAssign(ItemPoolIter &dst, ItemPoolIter src) {
+        if (dst == src) {
+            return;
+        }
         RuntimeOutcastTensorDerefSafe(dst);
         dst = src;
         RuntimeOutcastTensorRefSafe(src);
@@ -446,7 +450,7 @@ public:
     }
 
 private:
-    void RtOutcastDestruct(RuntimeOutcastTensor &outcast) {
+    void RuntimeOutcastTensorDestruct(RuntimeOutcastTensor &outcast) {
 #if !DEBUG_INFINITE_LIFETIME
         if (outcast.property == RtMemProperty::BOUNDARY_OUTCAST) {
             rtBoundaryOutcastToBeFree_.push_back(outcast);
