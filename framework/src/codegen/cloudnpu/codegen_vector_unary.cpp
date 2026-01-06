@@ -358,8 +358,19 @@ std::string CodeGenOpCloudNPU::PrintExpand(const std::string &s0Var, const std::
     ASSERT(ret >= 0) << "GenUnaryOp" << OpcodeManager::Inst().GetOpcodeStr(opCode) << " sprintf_s failed " << ret;
     return buffer;
 }
-
+std::string CodeGenOpCloudNPU::PrintOneHotLayout() const{
+ 	     std::string dstTensor =sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::DST_IDX)]);
+ 	     std::string srcTensor =sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::SRC0_IDX)]);
+ 	     std::ostringstream oss;
+ 	     oss << tileOpName << "(" << dstTensor <<","<< srcTensor << ");\n";
+ 	     return oss.str();
+ 	 }
+ 	 
 std::string CodeGenOpCloudNPU::PrintOneHot(const PrintUnaryParam &param) const {
+    if (isSupportLayout)
+ 	{
+ 	    return PrintOneHotLayout();
+ 	}
     const std::string &srcDtypeStr = param.srcDtypeStr;
     const std::string &dVar = param.dVar;
     const std::string &s0Var = param.s0Var;
