@@ -84,7 +84,24 @@ struct DynMachineManager {
         return;
     }
 
-    int Run(AstKernelArgs *args) {
+    int AicpuExit(const int &ret, const int &threadIdx, DeviceArgs* devArgs) {
+        if (++finished_ == static_cast<std::atomic<int>>(devArgs->nrAicpu)) {
+            LastFinishThreadIdx_ = threadIdx;
+#if ENABLE_AICORE_HAND_SHAKE_BY_REG
+            if (!schRunFailed_ && handshakeByGm_) {
+                machine_.CacheValidCore();
+                handshakeByGm_ = false; // hand shake by reg next time
+            }
+#endif      
+            if (unlikely(!machine_.CheckAndResetReg())) {
+                DEV_WARN("Some registers force closed!");
+            }
+            return npu::tile_fwk::dynamic::DEVICE_MACHINE_FINISHED;
+        }
+        return ret;
+    }
+
+    int Run(DeviceKernelArgs *args) {
         int ret = npu::tile_fwk::dynamic::DEVICE_MACHINE_OK;
         auto devArgs = PtrToPtr<int64_t, DeviceArgs>(args->cfgdata);
         if ((uint32_t)schAicpuNum_ > devArgs->nrAicpu - 1) {
@@ -121,20 +138,7 @@ struct DynMachineManager {
         DEV_INFO("ThreadIdx %d finished, ret %d .", threadIdx, ret);
         GetLogger().Flush();
         PerfMtTrace(PERF_TRACE_EXIT, threadIdx);
-        if (++finished_ == static_cast<std::atomic<int>>(devArgs->nrAicpu)) {
-            LastFinishThreadIdx_ = threadIdx;
-#if ENABLE_AICORE_HAND_SHAKE_BY_REG
-            if (!schRunFailed_ && handshakeByGm_) {
-                machine_.CacheValidCore();
-                handshakeByGm_ = false; // hand shake by reg next time
-            }
-#endif      
-            if (unlikely(!machine_.CheckAndResetReg())) {
-                DEV_WARN("Some registers force closed!");
-            }
-            return npu::tile_fwk::dynamic::DEVICE_MACHINE_FINISHED;
-        }
-        return ret;
+        return AicpuExit(ret, threadIdx, devArgs);
     }
 
     void Init(DeviceArgs *args) {
@@ -239,7 +243,7 @@ extern "C" __attribute__((visibility("default"))) int DynTileFwkBackendKernelSer
 }
 
 extern "C" __attribute__((visibility("default"))) int DynTileFwkBackendKernelServer(void *targ) {
-    auto kargs = (AstKernelArgs *)targ;
+    auto kargs = (DeviceKernelArgs *)targ;
     auto devArgs = PtrToPtr<int64_t, DeviceArgs>(kargs->cfgdata);
     kargs->taskWastTime = GetCycles();
     g_machine_mgr.Init(devArgs);
