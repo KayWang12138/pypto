@@ -20,47 +20,48 @@
 
 namespace pto {
 
-ValuePtr IRBuilder::AddToCompound(ValuePtr v) {
-    if (!compound_) throw std::runtime_error("IRBuilder::AddToScope: scope is null");
-    if (!v) throw std::runtime_error("IRBuilder::AddToScope: value is null");
-    // Use SSA name as the key in environment table
+ValuePtr IRBuilder::AddToCompound(IRBuilderContext& ctx, ValuePtr v) {
+    if (!ctx.compound) throw std::runtime_error("IRBuilder::AddToCompound: ctx.compound is null");
+    if (!v) throw std::runtime_error("IRBuilder::AddToCompound: value is null");
+
     std::string key = v->GetName();
-    compound_->SetEnvVar(key, v);
+    ctx.compound->SetEnvVar(key, v);
     return v;
 }
 
 std::shared_ptr<TensorValue> IRBuilder::CreateTensor(
+    IRBuilderContext& ctx,
     const std::vector<ScalarValuePtr>& shape, DataType dt, std::string name) {
-    // Create a Tensor value object directly without creating a TensorCreate operation.
-    // TensorCreate operations should only be created explicitly by the user code or parser,
-    // not implicitly by helper methods.
+
     auto t = std::make_shared<TensorValue>(shape, dt, std::move(name));
-    AddToCompound(t);
+    AddToCompound(ctx, t);
     return t;
 }
 
 std::shared_ptr<TileValue> IRBuilder::CreateTile(
+    IRBuilderContext& ctx,
     const std::vector<size_t>& shape, DataType dt, std::string name) {
+
     auto t = std::make_shared<TileValue>(shape, dt, std::move(name));
-    AddToCompound(t);
+    AddToCompound(ctx, t);
     return t;
 }
 
-std::shared_ptr<ScalarValue> IRBuilder::CreateScalar(DataType dt, std::string name) {
+std::shared_ptr<ScalarValue> IRBuilder::CreateScalar(IRBuilderContext& ctx, DataType dt, std::string name) {
     auto s = std::make_shared<ScalarValue>(dt, std::move(name), ScalarValueKind::Symbolic);
-    AddToCompound(s);
+    AddToCompound(ctx, s);
     return s;
 }
 
-std::shared_ptr<ScalarValue> IRBuilder::CreateConst(int64_t v, std::string name) {
+std::shared_ptr<ScalarValue> IRBuilder::CreateConst(IRBuilderContext& ctx, int64_t v, std::string name) {
     auto s = std::make_shared<ScalarValue>(v, std::move(name));
-    AddToCompound(s);
+    AddToCompound(ctx, s);
     return s;
 }
 
-std::shared_ptr<ScalarValue> IRBuilder::CreateConst(double v, std::string name) {
+std::shared_ptr<ScalarValue> IRBuilder::CreateConst(IRBuilderContext& ctx, double v, std::string name) {
     auto s = std::make_shared<ScalarValue>(v, std::move(name));
-    AddToCompound(s);
+    AddToCompound(ctx, s);
     return s;
 }
 

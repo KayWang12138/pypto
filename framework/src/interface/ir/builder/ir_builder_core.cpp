@@ -23,9 +23,9 @@ namespace pto {
 IRBuilder::IRBuilder(std::shared_ptr<ProgramModule> module) : module_(module) {}
 
 void IRBuilder::SetModule(std::shared_ptr<ProgramModule> m) {
-    module_ = m;
+    module_ = std::move(m);
 }
-    
+
 std::shared_ptr<Function> IRBuilder::CreateFunction(
     std::string name,
     FunctionKind kind,
@@ -46,14 +46,18 @@ std::shared_ptr<Function> IRBuilder::CreateFunction(
     return fn;
 }
 
-OpStatementPtr IRBuilder::GetOrCreateActiveOpStmt() {
-    if (!compound_) throw std::runtime_error("IRBuilder::GetOrCreateActiveOpStmt: compound is null");
-    if (opStmt_) return opStmt_;
+OpStatementPtr IRBuilder::GetOrCreateActiveOpStmt(IRBuilderContext& ctx) {
+    if (!ctx.compound) {
+        throw std::runtime_error("IRBuilder::GetOrCreateActiveOpStmt: ctx.compound is null");
+    }
+    if (ctx.activeOpStmt) {
+        return ctx.activeOpStmt;
+    }
 
-    // Create a new op statement at current scope tail
     auto opStmt = std::make_shared<OpStatement>();
-    compound_->AddStatement(opStmt);
-    opStmt_ = opStmt;
+    ctx.compound->AddStatement(opStmt);
+    ctx.activeOpStmt = opStmt;
     return opStmt;
 }
+
 } // namespace pto

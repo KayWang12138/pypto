@@ -18,8 +18,8 @@
 
 namespace pto {
 
-OperationPtr IRBuilder::Emit(OperationPtr op) {
-    auto opStmt = GetOrCreateActiveOpStmt();
+OperationPtr IRBuilder::Emit(IRBuilderContext& ctx, OperationPtr op) {
+    auto opStmt = GetOrCreateActiveOpStmt(ctx);
     opStmt->Operations().push_back(std::move(op));
     return opStmt->Operations().back();
 }

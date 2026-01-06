@@ -16,8 +16,8 @@
 #include "gtest/gtest.h"
 #include "ir/utils_defop.h"
 #include "ir/opcode.h"
-#include "ir/tile_graph.h"
 #include "ir/builder/ir_builder.h"
+#include "ir/builder/ir_context.h"
 
 using namespace pto;
 
@@ -58,16 +58,20 @@ TEST_F(IRTest, TestClass) {
 TEST_F(IRTest, TestIRBuilder) {
     auto module = std::make_shared<ProgramModule>("main");
     IRBuilder builder(module);
+    IRBuilderContext ctx;
 
     auto func = builder.CreateFunction("bbb", FunctionKind::Kernel, FunctionSignature());
-    auto guard = builder.EnterFunctionBody(func);
+    builder.EnterFunctionBody(ctx, func);
 
-    ScalarValuePtr lhs = builder.CreateConst(int64_t{2});
-    ScalarValuePtr rhs = builder.CreateConst(int64_t{4});
-    ScalarValuePtr out = builder.CreateScalar(DataType::INT64, "aaa");
+    ScalarValuePtr lhs = builder.CreateConst(ctx, int64_t{2});
+    ScalarValuePtr rhs = builder.CreateConst(ctx, int64_t{4});
+    ScalarValuePtr out = builder.CreateScalar(ctx, DataType::INT64, "aaa");
 
     std::vector<ScalarValuePtr> dataList;
     BinaryScalarOpPtr op = builder.CreateBinaryScalarOp(Opcode::OP_SCALAR_ADD, lhs, rhs, out);
+    builder.Emit(ctx, op);
     EXPECT_EQ(2, op->GetNumInputOperand());
     EXPECT_EQ(1, op->GetNumOutputOperand());
+
+    ctx.PopScope();
 }

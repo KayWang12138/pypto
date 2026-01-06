@@ -18,14 +18,13 @@
 #include <memory>
 #include <string>
 #include <vector>
-#include <unordered_map>
 
 #include "ir/program.h"
 #include "ir/function.h"
 #include "ir/statement.h"
 #include "ir/value.h"
 #include "ir/utils_defop.h"
-#include "ir/builder/guard.h"
+#include "ir/builder/ir_context.h"
 
 namespace pto {
 
@@ -34,74 +33,77 @@ public:
     IRBuilder() = default;
     explicit IRBuilder(std::shared_ptr<ProgramModule> module);
 
-    // ===== Module / Function =====
+    // ===== Module =====
     void SetModule(std::shared_ptr<ProgramModule> m);
+    std::shared_ptr<ProgramModule> GetModule() const { return module_; }
 
-    // ===== Function =====
-
+    // ===== Function (stateless: no current func stored in builder) =====
     std::shared_ptr<Function> CreateFunction(
         std::string name,
         FunctionKind kind,
         FunctionSignature sig,
         bool setAsEntry = false);
 
-    std::shared_ptr<Function> GetCurrentFunction() const { return func_; }
-    std::shared_ptr<CompoundStatement> GetCurrentCompound() const { return compound_; }
-    std::shared_ptr<OpStatement> GetCurrentOpStmt() const { return opStmt_; }
-
     // ===== Insertion point =====
-    OpStatementPtr GetOrCreateActiveOpStmt();
-    friend class ScopeGuard;
+    OpStatementPtr GetOrCreateActiveOpStmt(IRBuilderContext& ctx);
 
     // ===== Scope registration =====
-    ValuePtr AddToCompound(ValuePtr v);
+    ValuePtr AddToCompound(IRBuilderContext& ctx, ValuePtr v);
 
-    // Optional convenience: create values (not "like", just explicit)
-    std::shared_ptr<TensorValue> CreateTensor(const std::vector<ScalarValuePtr>& shape, DataType dt, std::string name = "");
-    std::shared_ptr<TileValue> CreateTile(const std::vector<size_t>& shape, DataType dt, std::string name = "");
-    std::shared_ptr<ScalarValue> CreateScalar(DataType dt, std::string name = "");
-    std::shared_ptr<ScalarValue> CreateConst(int64_t v, std::string name = "");
-    std::shared_ptr<ScalarValue> CreateConst(double v, std::string name = "");
+    // Optional convenience: create values (explicit creation only)
+    std::shared_ptr<TensorValue> CreateTensor(IRBuilderContext& ctx,
+        const std::vector<ScalarValuePtr>& shape, DataType dt, std::string name = "");
+    std::shared_ptr<TileValue> CreateTile(IRBuilderContext& ctx,
+        const std::vector<size_t>& shape, DataType dt, std::string name = "");
+    std::shared_ptr<ScalarValue> CreateScalar(IRBuilderContext& ctx,
+        DataType dt, std::string name = "");
+    std::shared_ptr<ScalarValue> CreateConst(IRBuilderContext& ctx,
+        int64_t v, std::string name = "");
+    std::shared_ptr<ScalarValue> CreateConst(IRBuilderContext& ctx,
+        double v, std::string name = "");
 
     // ===== Emit op (used by schema build) =====
-    OperationPtr Emit(OperationPtr op);
+    OperationPtr Emit(IRBuilderContext& ctx, OperationPtr op);
 
     // ===== The ONLY op-building entry =====
-    // All semantics (results/payload rules) are in Schema/Trait (BuildBySchema).
-    // Writeback-style: caller provides outputs (for a few ops like assemble)
+    // NOTE: your operation.def/tile_graph.def macros must call Emit(ctx, ...)
+    // If your current DEFOP_IRBUILDER assumes Emit(op) without ctx, you need to
+    // update that macro to include IRBuilderContext& ctx as the first argument.
 
 #define DEFOP DEFOP_IRBUILDER
 #include "ir/operation.def"
 #include "ir/tile_graph.def"
 #undef DEFOP
 
-    // ===== Statement building (still belongs to IRBuilder) =====
-    OpStatementPtr CreateOpStmt();
+    // ===== Statement building =====
+    OpStatementPtr CreateOpStmt(IRBuilderContext& ctx);
 
-    ForStatementPtr CreateForStmt(ScalarValuePtr iv,
-                                ScalarValuePtr start,
-                                ScalarValuePtr end,
-                                ScalarValuePtr step);
+    ForStatementPtr CreateForStmt(IRBuilderContext& ctx,
+        ScalarValuePtr iv,
+        ScalarValuePtr start,
+        ScalarValuePtr end,
+        ScalarValuePtr step);
 
-    IfStatementPtr CreateIfStmt(ScalarValuePtr cond);
+    IfStatementPtr CreateIfStmt(IRBuilderContext& ctx, std::string cond);
 
-    YieldStatementPtr CreateYield(ValuePtrs values);
+    YieldStatementPtr CreateYield(IRBuilderContext& ctx, ValuePtrs values);
 
-    ReturnStatementPtr CreateReturn(ValuePtrs values);
+    ReturnStatementPtr CreateReturn(IRBuilderContext& ctx, ValuePtrs values);
 
-    // Enter nested scopes
-    std::shared_ptr<ScopeGuard> EnterFunctionBody(std::shared_ptr<Function> func);
-    std::shared_ptr<ScopeGuard> EnterForBody(ForStatementPtr st);
-    std::shared_ptr<ScopeGuard> EnterIfThen(IfStatementPtr st);
-    std::shared_ptr<ScopeGuard> EnterIfElse(IfStatementPtr st);
-    void ExitIfStatement(IfStatementPtr st);
-    void ExitForStatement(ForStatementPtr st);
+    // ===== Enter nested scopes (explicit, stack-based) =====
+    // These helpers only push; caller decides when to pop.
+    void EnterFunctionBody(IRBuilderContext& ctx, std::shared_ptr<Function> func);
+    void EnterForBody(IRBuilderContext& ctx, ForStatementPtr st);
+    void EnterIfThen(IRBuilderContext& ctx, IfStatementPtr st);
+    void EnterIfElse(IRBuilderContext& ctx, IfStatementPtr st);
+
+    // ===== Exit helpers =====
+    // These do not pop scopes; they only finalize merge/yield/results and update parent env.
+    void ExitIfStatement(IRBuilderContext& ctx, IfStatementPtr st);
+    void ExitForStatement(IRBuilderContext& ctx, ForStatementPtr st);
 
 private:
     std::shared_ptr<ProgramModule> module_{nullptr};
-    std::shared_ptr<Function> func_{nullptr};
-    std::shared_ptr<CompoundStatement> compound_{nullptr};
-    std::shared_ptr<OpStatement> opStmt_{nullptr};
 };
 
 } // namespace pto

@@ -24,6 +24,7 @@
 #include "ir/function.h"
 #include "ir/value.h"
 #include "ir/builder/ir_builder.h"
+#include "ir/builder/ir_context.h"
 
 namespace pto{
 
@@ -31,6 +32,7 @@ TEST(IRTEST, TestTensorOperation){
     // ===== Program module =====
     auto module = std::make_shared<ProgramModule>("main");
     IRBuilder builder(module);
+    IRBuilderContext ctx;
 
     // ===== Function signature =====
     FunctionSignature sig;
@@ -52,33 +54,35 @@ TEST(IRTEST, TestTensorOperation){
     auto func = builder.CreateFunction("test_all_ops", FunctionKind::ControlFlow, sig, /*setAsEntry=*/true);
 
     {
-        auto guard = builder.EnterFunctionBody(func);
+        builder.EnterFunctionBody(ctx, func);
 
-        auto c2 = builder.CreateConst(2.0, "c2");
-        auto c3 = builder.CreateConst(3.0, "c3");
+        auto c2 = builder.CreateConst(ctx, 2.0, "c2");
+        auto c3 = builder.CreateConst(ctx, 3.0, "c3");
 
         // tensorAdd = add(input, c2)
-        auto tensorAdd = builder.CreateTensor(tensorShape, DataType::FP32, "tensorAdd");
+        auto tensorAdd = builder.CreateTensor(ctx, tensorShape, DataType::FP32, "tensorAdd");
         auto addOp = builder.CreateBinaryOp(Opcode::OP_ADD, inputTensor, c2, tensorAdd);
-        builder.Emit(addOp);
+        builder.Emit(ctx, addOp);
 
         // tensorSub = sub(tensorAdd, c3)
-        auto tensorSub = builder.CreateTensor(tensorShape, DataType::FP32, "tensorSub");
+        auto tensorSub = builder.CreateTensor(ctx, tensorShape, DataType::FP32, "tensorSub");
         auto subOp = builder.CreateBinaryOp(Opcode::OP_SUB, tensorAdd, c3, tensorSub);
-        builder.Emit(subOp);
+        builder.Emit(ctx, subOp);
 
         // tensorMul = mul(tensorSub, c2)
-        auto tensorMul = builder.CreateTensor(tensorShape, DataType::FP32, "tensorMul");
+        auto tensorMul = builder.CreateTensor(ctx, tensorShape, DataType::FP32, "tensorMul");
         auto mulOp = builder.CreateBinaryOp(Opcode::OP_MUL, tensorSub, c2, tensorMul);
-        builder.Emit(mulOp);
+        builder.Emit(ctx, mulOp);
 
         // tensorDiv = div(tensorMul, c2)
-        auto tensorDiv = builder.CreateTensor(tensorShape, DataType::FP32, "tensorDiv");
+        auto tensorDiv = builder.CreateTensor(ctx, tensorShape, DataType::FP32, "tensorDiv");
         auto divOp = builder.CreateBinaryOp(Opcode::OP_DIV, tensorMul, c2, tensorDiv);
-        builder.Emit(divOp);
+        builder.Emit(ctx, divOp);
 
         // return tensorDiv
-        builder.CreateReturn({ tensorDiv });
+        builder.CreateReturn(ctx, { tensorDiv });
+
+        ctx.PopScope();
     }
 
     ASSERT_EQ(func->GetCompound()->GetEnvVar("tensorDiv"), func->GetCompound()->GetEnvVar("tensorDiv"));
