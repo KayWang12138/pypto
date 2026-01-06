@@ -66,7 +66,7 @@ Status ConfigManager::Initialize() {
     /* 环境变量优先生效 */
     std::string jsonFilePath = GetEnvVar(tilefwkConfigEnvName);
     if (jsonFilePath.empty()) {
-        jsonFilePath = RealPath(GetCurrentSharedLibPath() + "/configs/tile_fwk_config.json");
+        jsonFilePath = RealPath(GetCurrentSharedLibPath() + "/configs/tile_fwk_config_ng.json");
     }
 
     config::SetRunDataOption(KEY_PTO_CONFIG_FILE, jsonFilePath);
@@ -104,7 +104,7 @@ Status ConfigManager::Initialize() {
 
     originJson_ = json_;
 
-    if (auto *node = GetJsonChild(json_, "pass_global_configs")) {
+    if (auto *node = GetJsonNode(json_, {"global", "pass_configs"})) {
         globalPassConfigs_ = InternalGetGlobalConfigs(*node);
     }
 
@@ -113,7 +113,7 @@ Status ConfigManager::Initialize() {
 }
 
 void ConfigManager::RefreshGlobalPassCfg() {
-    if (auto *node = GetJsonChild(json_, "pass_global_configs")) {
+    if (auto *node = GetJsonNode(json_, {"global", "pass_configs"})) {
         globalPassConfigs_ = InternalGetGlobalConfigs(*node);
     }
 }
@@ -177,7 +177,7 @@ void ConfigManager::ResetLog() {
 }
 
 PassConfigs ConfigManager::GetPassConfigs(const std::string &strategy, const std::string &identifier) const {
-    auto *node = GetJsonNode(json_, {"strategies", strategy, identifier});
+    auto *node = GetJsonNode(json_, {"global", "pass_strategies", strategy, identifier});
     if (!node) {
         return globalPassConfigs_.defaultPassConfigs;
     }
@@ -186,7 +186,7 @@ PassConfigs ConfigManager::GetPassConfigs(const std::string &strategy, const std
 
 void ConfigManager::PassConfigsDebugInfo(
     const std::string &strategy, const std::vector<std::string> &identifiers) const {
-    auto *node = GetJsonNode(json_, {"strategies", strategy});
+    auto *node = GetJsonNode(json_, {"global", "pass_strategies", strategy});
     if (!node) {
         ALOG_INFO("[ConfigManager] Missing custom pass strategy <", strategy, "> configs. ",
                     "You may add your own custom strategy configs in 'tile_fwk_config.json'.");
