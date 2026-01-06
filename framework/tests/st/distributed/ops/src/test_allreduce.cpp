@@ -27,15 +27,15 @@ namespace Distributed {
 template<typename T, bool useTwoShot>
 void TestShmemAllReduce(OpTestParam &testParam)
 {
-    constexpr size_t paramsSize = 3;
-    auto [row, col, typeNum] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
+    constexpr size_t paramsSize = 4;
+    auto [row, col, typeNum, format] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
     DataType dType = GetDataTypeNum(typeNum);
 
     int32_t outSize = row * col;
 
     Shape shape{row, col};
-    Tensor in(dType, shape, "in");
-    Tensor out(dType, shape, "out");
+    Tensor in = constructTensor(dType, shape, "in", format);
+    Tensor out = constructTensor(dType, shape, "out", format);
 
     std::vector<T> inPtr = ReadToVector<T>(
         GetGoldenDir() + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", {row, col});

@@ -25,10 +25,10 @@ namespace npu::tile_fwk {
 namespace Distributed {
 
 template<typename T>
-void TestDynAllGather(OpTestParam &testParam)
+void TestShmemAllGather(OpTestParam &testParam)
 {
-    constexpr size_t paramsSize = 3;
-    auto [M, N, typeNum] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
+    constexpr size_t paramsSize = 4;
+    auto [M, N, typeNum, format] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
 
     DataType dType = GetDataTypeNum(typeNum);
 
@@ -36,9 +36,9 @@ void TestDynAllGather(OpTestParam &testParam)
 
     Shape shape{M, N};
     Shape outShape{testParam.rankSize * M, N};
-    Tensor in(dType, shape, "in");
-    Tensor barrierDummy(DT_INT32, {1, 1}, "barrierDummy");
-    Tensor out(dType, outShape, "out");
+    Tensor in = constructTensor(dType, shape, "in", format);
+    Tensor barrierDummy = constructTensor(DT_INT32, {1, 1}, "barrierDummy");
+    Tensor out = constructTensor(dType, outShape, "out", format);
 
     std::vector<T> inPtr = ReadToVector<T>(GetGoldenDir() + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", shape);
 
@@ -70,10 +70,10 @@ void TestDynAllGather(OpTestParam &testParam)
     auto outPtr = ProgramData::GetInstance().GetOutputData(0)->GetDevPtr();
     EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, "/output_rank_", outSize, outPtr, testParam));
 }
-template void TestDynAllGather<int32_t>(OpTestParam &testParam);
-template void TestDynAllGather<float>(OpTestParam &testParam);
-template void TestDynAllGather<float16>(OpTestParam &testParam);
-template void TestDynAllGather<bfloat16>(OpTestParam &testParam);
+template void TestShmemAllGather<int32_t>(OpTestParam &testParam);
+template void TestShmemAllGather<float>(OpTestParam &testParam);
+template void TestShmemAllGather<float16>(OpTestParam &testParam);
+template void TestShmemAllGather<bfloat16>(OpTestParam &testParam);
 
 } // namespace Distributed
 } // namespace npu::tile_fwk

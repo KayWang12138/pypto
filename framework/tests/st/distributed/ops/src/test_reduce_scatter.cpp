@@ -26,12 +26,12 @@ namespace Distributed {
 template<typename T>
 void TestShmemReduceScatter(OpTestParam &testParam)
 {
-    constexpr size_t paramsSize = 3;
-    auto [row, col, typeNum] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
+    constexpr size_t paramsSize = 4;
+    auto [row, col, typeNum, format] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
     int rowOut = row / testParam.rankSize;
     DataType dType = GetDataTypeNum(typeNum);
-    Tensor in(dType, {row, col}, "in");
-    Tensor out(dType, {rowOut, col}, "out");
+    Tensor in = constructTensor(dType, {row, col}, "in", format);
+    Tensor out = constructTensor(dType, {rowOut, col}, "out", format);
 
     std::vector<T> inData = ReadToVector<T>(
         GetGoldenDir() + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", {row, col});

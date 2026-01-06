@@ -47,6 +47,12 @@ inline DataType GetDataTypeNum(const int64_t typeNum)
     return static_cast<DataType>(typeNum);
 }
 
+inline Tensor constructTensor(const DataType dType, const std::vector<int64_t> &shape, const string &name, uint32_t formatNum = 0)
+{
+    TileOpFormat format = (formatNum == 0) ? TileOpFormat::TILEOP_ND : TileOpFormat::TILEOP_NZ;
+    return Tensor(dType, shape, name, format);
+}
+
 template <typename T>
 std::vector<T> ReadToVector(const std::string &filePath, const std::vector<int64_t> &shape)
 {

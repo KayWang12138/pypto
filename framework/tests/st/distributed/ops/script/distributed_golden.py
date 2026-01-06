@@ -47,12 +47,18 @@ TORCH_DTYPE_TO_NUM = {
     torch.bfloat16: 8,
 }
 
+TORCH_FORMAT_TO_NUM = {
+    'ND': 0,
+    'NZ': 1
+}
+
 
 @dataclasses.dataclass(frozen=True)
 class BaseCase:
     dtype: torch.dtype
     shape: Tuple[int, ...]
     rank_size: int
+    format: str = "ND"
 
 
 @dataclasses.dataclass
@@ -93,18 +99,67 @@ def get_dtype_num(dtype: torch.dtype) -> int:
         raise ValueError(f'Unsupported dtype: {dtype}')
     return TORCH_DTYPE_TO_NUM[dtype]
 
+def get_optimal_block_size(dtype: torch.dtype) -> int:
+    """
+    根据数据类型返回业界推荐的分块大小。
+    """
+    dtype_block_mapping = {
+        torch.float32: 32,
+        torch.float16: 16,
+        torch.bfloat16: 16,
+        torch.int8: 32,
+        torch.int32: 16,
+    }
+    return dtype_block_mapping.get(dtype, 16)
+
+
+def convert_nd_to_nz(tensor_nd: torch.Tensor, block_size) -> torch.Tensor:
+    """
+    将2D ND张量转换为NZ分形格式[1](@ref)。
+    注意：此函数为简化实现，实际应用需考虑填充、对齐及硬件特定要求。
+    """
+    if tensor_nd.dim() != 2:
+        raise ValueError("当前仅支持2D张量的转换")
+    block_size = get_optimal_block_size(tensor_nd.dtype)
+    logging.info(f"自动为数据类型 {tensor_nd.dtype} 选择分块大小: {block_size}")
+    M, N = tensor_nd.shape
+    M0, N0 = block_size, block_size  # 分块大小通常为16（FP16）或32（INT8）[1](@ref)
+    M1 = math.ceil(M / M0)
+    N1 = math.ceil(N / N0)
+    pad_m = M1 * M0 - M
+    pad_n = N1 * N0 - N
+
+    padded_tensor = torch.zeros((pad_m, pad_n), dtype=tensor_nd.dtype)
+    padded_tensor[:M, :N] = tensor_nd
+
+    reshaped_tensor = padded_tensor.reshape(M1, M0, N1, N0)
+    nz_tensor = reshaped_tensor.permute(2, 0, 1, 3)
+    
+    return nz_tensor
 
 def parse_base_case(case_name: str, dim: int) -> BaseCase:
     parts = case_name.split('_')
     if len(parts) < dim + 2:
         raise ValueError(f'case_name {case_name} format is error.')
     rank_size = int(parts[-1])
-    shape = tuple(map(int, parts[-(dim + 1):-1]))
-    dtype = get_dtype(parts[-(dim + 2)])
+    shape = tuple(map(int, parts[-(dim+1):-1]))
 
-    case = BaseCase(dtype=dtype, shape=shape, rank_size=rank_size)
-    logging.info(f'Case {case_name}, case info: {case}')
-    return case
+    temp = parts[-(dim+2)] 
+    if temp in ["ND", "NZ"]:
+        # format存在：部分顺序为 ... dtype、format、shape...
+        if len(parts) < dim + 3:
+            raise ValueError(f'case_name {case_name} 缺少 dtype 部分')
+        format_str = temp
+        dtype_str = parts[-(dim+3)]
+    else:
+        format_str = "ND"
+        dtype_str = temp
+
+    if format_str not in ["ND", "NZ"]:
+        raise ValueError(f'Unsupported format: {format_str}, must be ND or NZ')
+
+    dtype = get_dtype(dtype_str)
+    return BaseCase(dtype=dtype, shape=shape, rank_size=rank_size, format=format_str)
 
 
 def validate_rank_size(rank_size: int) -> None:
@@ -179,28 +234,41 @@ def all_reduce_and_save(
     save_tensor_list(outputs, save_dir, filename_prefix)
     return outputs
 
+def save_nz_tensors(tensor_lists, save_dir, prefix):
+    """
+    根据指定的格式处理张量(进行ND到NZ的转换)并保存到文件
+    Args:
+        inputs: 输入张量列表
+        save_dir: 保存目录路径
+        prefix: 输入张量文件名前缀
+    """
+    tensor_lists = [convert_nd_to_nz(tensor) for tensor in tensor_lists]
+    save_tensor_list(tensor_lists, save_dir, prefix)
 
 def generate_all_gather_golden(case_name: str, save_dir: pathlib.Path):
     dim = 2
     case = parse_base_case(case_name, dim)
     row, col = case.shape
-    rank_size, dtype = case.rank_size, case.dtype
+    rank_size, dtype, format = case.rank_size, case.dtype, case.format  # 获取格式
 
     validate_rank_size(rank_size)
 
-    params = (row, col, get_dtype_num(dtype))
+    params = (row, col, get_dtype_num(dtype), TORCH_FORMAT_TO_NUM.get(format))
     save_params(params, save_dir)
 
     inputs = generate_random_tensor_list_and_save((row, col), dtype, rank_size, save_dir, 'input')
 
-    all_gather_and_save(inputs, rank_size, save_dir, 'output')
-
+    outputs = all_gather_and_save(inputs, rank_size, save_dir, 'output')
+    if format == "NZ":
+        save_nz_tensors(inputs, save_dir, 'input')
+        save_nz_tensors(outputs, save_dir, 'output')
+    
 
 def generate_reduce_scatter_golden(case_name: str, save_dir: pathlib.Path):
     dim = 2
     case = parse_base_case(case_name, dim)
     row, col = case.shape
-    rank_size, dtype = case.rank_size, case.dtype
+    rank_size, dtype, format = case.rank_size, case.dtype, case.format  # 获取格式
 
     validate_rank_size(rank_size)
     if row % rank_size != 0:
@@ -208,17 +276,20 @@ def generate_reduce_scatter_golden(case_name: str, save_dir: pathlib.Path):
             'The first dimension of the input tensor must be an integer multiple of the rank size, '
             f'got row={row}, rank_size={rank_size}'
         )
-    params = (row, col, get_dtype_num(dtype))
+    params = (row, col, get_dtype_num(dtype), TORCH_FORMAT_TO_NUM.get(format))
     save_params(params, save_dir)
     inputs = generate_random_tensor_list_and_save((row, col), dtype, rank_size, save_dir, 'input')
-    reduce_scatter_and_save(inputs, row, rank_size, save_dir, 'output')
+    outputs = reduce_scatter_and_save(inputs, row, rank_size, save_dir, 'output')
+    if format == "NZ":
+        save_nz_tensors(inputs, save_dir, 'input')
+        save_nz_tensors(outputs, save_dir, 'output')
 
 
 def generate_all_reduce_golden(case_name: str, save_dir: pathlib.Path):
     dim = 2
     case = parse_base_case(case_name, dim)
     row, col = case.shape
-    rank_size, dtype = case.rank_size, case.dtype
+    rank_size, dtype, format = case.rank_size, case.dtype, case.format  # 获取格式
 
     validate_rank_size(rank_size)
     if row == 0:
@@ -227,11 +298,13 @@ def generate_all_reduce_golden(case_name: str, save_dir: pathlib.Path):
             f'got row={row}, rank_size={rank_size}'
         )
 
-    params = (row, col, get_dtype_num(dtype))
+    params = (row, col, get_dtype_num(dtype), TORCH_FORMAT_TO_NUM.get(format))
     save_params(params, save_dir)
     inputs = generate_random_tensor_list_and_save((row, col), dtype, rank_size, save_dir, 'input')
-    all_reduce_and_save(inputs, rank_size, save_dir, 'output')
-
+    outputs = all_reduce_and_save(inputs, rank_size, save_dir, 'output')
+    if format == "NZ":
+        save_nz_tensors(inputs, save_dir, 'input')
+        save_nz_tensors(outputs, save_dir, 'output')
 
 def parse_moe_case(case_name: str) -> MoeCase:
     parts = case_name.split('_')
@@ -620,13 +693,16 @@ OPERATOR_DISPATCHERS = [
 
 @GoldenRegister.reg_golden_func(
     case_names=[
-        'DistributedTest.shmem_all_gather_int32_128_256_4',
+        'DistributedTest.shmem_all_gather_int32_128_256_4', # Format(ND/NZ)在type后，不加默认ND
+        'DistributedTest.shmem_all_gather_int32_NZ_128_256_4',
         'DistributedTest.shmem_reduce_scatter_int32_128_256_4',
+        'DistributedTest.shmem_reduce_scatter_int32_NZ_128_256_4',
         'DistributedTest.shmem_allgather_attn_post_reducescatter_bfloat16_64_1_32_256_128_128_4',
         'DistributedTest.shmem_reduce_scatter_float16_128_256_4',
         'DistributedTest.shmem_reduce_scatter_bfloat16_32_32_4',
         'DistributedTest.shmem_all_reduce_int32_64_256_4',
         'DistributedTest.shmem_all_reduce_bfloat16_50_256_4',
+        'DistributedTest.shmem_all_reduce_bfloat16_NZ_50_256_4',
         'DistributedTest.shmem_moe_combine_bfloat16_8_5120_0_160_8_4',
         'DistributedTest.shmem_moe_combine_bfloat16_256_5120_0_160_8_4',
         'DistributedTest.shmem_moe_combine_bfloat16_8_5120_0_160_8_8',
