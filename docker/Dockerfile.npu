@@ -1,0 +1,45 @@
+FROM quay.io/ascend/cann:8.5.0.alpha002-910b-ubuntu22.04-py3.11
+
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Pin commit for reproducibility
+ARG PYPTO_COMMIT=2365f69d2f9524e00f66a713117de10f00d259a0
+
+# Runtime/build env vars
+ENV PTO_TILE_LIB_CODE_PATH=/installers/pto-isa \
+    PYPTO_THIRD_PARTY_PATH=/installers/pypto/thirdparty 
+    
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git gawk wget curl tar lcov openssl ca-certificates \
+    gcc g++ make cmake zlib1g zlib1g-dev libsqlite3-dev \
+    libssl-dev libffi-dev libbz2-dev libxslt1-dev pciutils \
+    net-tools openssh-client libblas-dev gfortran libblas3 llvm ccache \
+    python-is-python3 python3-pip python3-venv ninja-build python3-dev \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN python -m pip install --no-cache-dir --upgrade pip setuptools wheel \
+ && python -m pip install --no-cache-dir \
+    attrs cython numpy decorator sympy cffi pyyaml pathlib2 psutil protobuf scipy requests absl-py \
+    tomli pybind11 pybind11-stubgen pytest pytest-forked pytest-xdist \
+    tabulate pandas matplotlib build ml_dtypes jinja2 cloudpickle tornado
+
+RUN python -m pip install --no-cache-dir torch==2.6.0 --index-url https://download.pytorch.org/whl/cpu \
+ && python -m pip install --no-cache-dir torch-npu==2.6.0
+
+WORKDIR /installers
+
+RUN git clone --depth 1 https://gitcode.com/cann/pto-isa.git \
+ && cd /installers/pto-isa \
+ && chmod +x build.sh \
+ && ./build.sh
+
+RUN git clone https://gitcode.com/cann/pypto.git \
+ && cd /installers/pypto \
+ && git fetch --depth 1 origin ${PYPTO_COMMIT} \
+ && git checkout ${PYPTO_COMMIT} \
+ && export LD_LIBRARY_PATH=/usr/local/Ascend/ascend-toolkit/latest/`uname -i`-linux/devlib:${LD_LIBRARY_PATH}  \
+ && python -m pip install -r python/requirements.txt \
+ && mkdir -p thirdparty \
+ && bash tools/prepare_env.sh --type=third_party --download-path=/installers/pypto/thirdparty \
+ && python -m pip install -vv -e .
