@@ -505,14 +505,14 @@ void PaPostNewOnlyMm5Nd(Tensor &quant0In, Tensor &weightO, Tensor &mm5Out) {
     FUNCTION("main",
         {quant0In, weightO}, {mm5Out}) {
         SymbolicScalar B = quant0In.GetShape()[0] / S; // S=1
-        std::cout<<"B: "<<B<<std::endl;
         const int bTile = 8;
+        std::cout<<"B: "<<B<<std::endl;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
-            auto quant0InUnit = View(quant0In, {bTile * S, N * vHeadDim}, {bIdx * bTile * S, 0});
             // // (bTile*S, N*vHeadDim) @ (N*vHeadDim, H) = (bTile*S, H)
             // // int8 @ int8 = int32
             TileShape::Current().SetCubeTile({std::min(32, bTile * S), std::min(32, bTile * S)},
                 {std::min(128, N * vHeadDim), std::min(128, N * vHeadDim)}, {std::min(512, H), std::min(512, H)});
+            auto quant0InUnit = View(quant0In, {bTile * S, N * vHeadDim}, {bIdx * bTile * S, 0});
             Tensor res = npu::tile_fwk::Matrix::Matmul(DataType::DT_INT32, quant0InUnit, weightO);
 
             std::vector<SymbolicScalar> dynOffset = {bIdx * bTile * S, 0};
@@ -574,29 +574,17 @@ void PaPostNewOnlyMm5NdK(Tensor &quant0In, Tensor &weightO, Tensor &mm5Out) {
     FUNCTION("main",
         {quant0In, weightO}, {mm5Out}) {
         SymbolicScalar B = quant0In.GetShape()[0] / S; // S=1
-        std::cout<<"B: "<<B<<std::endl;
+        std::cout<<"Scalar B: "<<B<<std::endl;
         const int bTile = 8;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
             auto quant0InUnit = View(quant0In, {bTile * S, N * vHeadDim}, {bIdx * bTile * S, 0});
 
             // (bTile*S, N*vHeadDim) @ (N*vHeadDim, H) = (bTile*S, H)
             // int8 @ int8 = int32
-            TileShape::Current().SetVecTile({std::min(4, bTile * S), std::min(7168, H)});
-            Tensor tmpC = Full(Element(DataType::DT_INT32, static_cast<int64_t>(0)), DT_INT32, {bTile*S, H});
-            std::vector<Tensor> matmulResult;
-            auto kSplit = 8;
-            auto kSplitSize = N*vHeadDim / kSplit; // 16K / 8 = 2k
             TileShape::Current().SetCubeTile({std::min(32, bTile * S), std::min(32, bTile * S)},
-                {std::min(128, N * vHeadDim), std::min(128, N * vHeadDim)},
-                {std::min(512, H), std::min(512, H)}); // raw  16  2048  128
-            for (int ki = 0; ki < kSplit; ki++) {
-                auto inputMk = View(quant0InUnit, {bTile*S, kSplitSize}, {0, ki * kSplitSize});
-                auto inputKn = View(weightO, {kSplitSize, H}, {ki * kSplitSize, 0});
-                auto tmp = npu::tile_fwk::Matrix::Matmul(DT_INT32, inputMk, inputKn, tmpC);  // (8, 16k) @ (16k, 7168)
-                matmulResult.emplace_back(tmp);
-            }
-            TileShape::Current().SetVecTile({std::min(32, bTile * S), std::min(512, H)}); // 与cubeTileShape MN保持一致
-            Tensor res = npu::tile_fwk::Reduce(matmulResult, ReduceMode::ATOMIC_ADD);  // (bTile*S, H)
+                {std::min(128, N * vHeadDim), std::min(128, N * vHeadDim)}, {std::min(512, H), std::min(512, H)}, 
+                false, true);                                                                            // raw  16  2048  128
+            Tensor res = npu::tile_fwk::Matrix::Matmul(DT_INT32, quant0InUnit, weightO); // (bTile*S, H)
 
             std::vector<SymbolicScalar> dynOffset = {bIdx * bTile * S, 0};
             Assemble(res, dynOffset, mm5Out);
@@ -665,22 +653,10 @@ void PaPostNewMm5NdkUnquantR3(Tensor &quant0In, Tensor &weightO, Tensor &weightO
 
             // (bTile*S, N*vHeadDim) @ (N*vHeadDim, H) = (bTile*S, H)
             // int8 @ int8 = int32
-            TileShape::Current().SetVecTile({std::min(4, bTile * S), std::min(7168, H)});
-            Tensor tmpC = Full(Element(DataType::DT_INT32, static_cast<int64_t>(0)), DT_INT32, {bTile*S, H});
-            std::vector<Tensor> matmulResult;
-            auto kSplit = 8;
-            auto kSplitSize = N*vHeadDim / kSplit; // 16K / 8 = 2k
             TileShape::Current().SetCubeTile({std::min(32, bTile * S), std::min(32, bTile * S)},
                 {std::min(128, N * vHeadDim), std::min(128, N * vHeadDim)},
-                {std::min(512, H), std::min(512, H)}); // raw  16  2048  128
-            for (int ki = 0; ki < kSplit; ki++) {
-                auto inputMk = View(quant0InUnit, {bTile*S, kSplitSize}, {0, ki * kSplitSize});
-                auto inputKn = View(weightO, {kSplitSize, H}, {ki * kSplitSize, 0});
-                auto tmp = npu::tile_fwk::Matrix::Matmul(DT_INT32, inputMk, inputKn, tmpC);  // (8, 16k) @ (16k, 7168)
-                matmulResult.emplace_back(tmp);
-            }
-            TileShape::Current().SetVecTile({std::min(32, bTile * S), std::min(512, H)}); // 与cubeTileShape MN保持一致
-            Tensor res = npu::tile_fwk::Reduce(matmulResult, ReduceMode::ATOMIC_ADD);  // (bTile*S, H)
+                {std::min(512, H), std::min(512, H)}, false, true); // raw  16  2048  128
+            Tensor res = npu::tile_fwk::Matrix::Matmul(DT_INT32, quant0InUnit, weightO);  // (bTile*S, H)
 
             TileShape::Current().SetVecTile(std::min(8, bTile * S), std::min(1024, H)); // raw (8, 7168)
             res = Cast(res, DataType::DT_FP32);
@@ -756,9 +732,10 @@ void PaPostNewOnlyMm5Nz(Tensor &quant0In, Tensor &weightO, Tensor &mm5Out) {
 
     FUNCTION("main",
         {quant0In, weightO}, {mm5Out}) {
+        const int bTile = 8;
         SymbolicScalar B = quant0In.GetShape()[0] / S; // S=1
         std::cout<<"B: "<<B<<std::endl;
-        const int bTile = 8;
+        
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
             auto quant0InUnit = View(quant0In, {bTile * S, N * vHeadDim}, {bIdx * bTile * S, 0});
 
@@ -833,22 +810,10 @@ void PaPostNewOnlyMm5NzK(Tensor &quant0In, Tensor &weightO, Tensor &mm5Out) {
 
             // (bTile*S, N*vHeadDim) @ (N*vHeadDim, H) = (bTile*S, H)
             // int8 @ int8 = int32
-            TileShape::Current().SetVecTile({std::min(4, bTile * S), std::min(7168, H)});
-            Tensor tmpC = Full(Element(DataType::DT_INT32, static_cast<int64_t>(0)), DT_INT32, {bTile*S, H});
-            std::vector<Tensor> matmulResult;
-            auto kSplit = 8;
-            auto kSplitSize = N*vHeadDim / kSplit; // 16K / 8 = 2k
             TileShape::Current().SetCubeTile({std::min(32, bTile * S), std::min(32, bTile * S)},
                 {std::min(128, N * vHeadDim), std::min(128, N * vHeadDim)},
-                {std::min(512, H), std::min(512, H)}); // raw  16  2048  128
-            for (int ki = 0; ki < kSplit; ki++) {
-                auto inputMk = View(quant0InUnit, {bTile*S, kSplitSize}, {0, ki * kSplitSize});
-                auto inputKn = View(weightO, {kSplitSize, H}, {ki * kSplitSize, 0});
-                auto tmp = npu::tile_fwk::Matrix::Matmul(DT_INT32, inputMk, inputKn, tmpC);  // (8, 16k) @ (16k, 7168)
-                matmulResult.emplace_back(tmp);
-            }
-            TileShape::Current().SetVecTile({std::min(32, bTile * S), std::min(512, H)}); // 与cubeTileShape MN保持一致
-            Tensor res = npu::tile_fwk::Reduce(matmulResult, ReduceMode::ATOMIC_ADD);  // (bTile*S, H)
+                {std::min(512, H), std::min(512, H)}, false, true); // raw  16  2048  128
+            Tensor res = npu::tile_fwk::Matrix::Matmul(DT_INT32, quant0InUnit, weightO);  // (bTile*S, H)
 
             std::vector<SymbolicScalar> dynOffset = {bIdx * bTile * S, 0};
             Assemble(res, dynOffset, mm5Out);
@@ -1540,8 +1505,8 @@ void PaPostDebugCastFirstCrtb4trQMM5ND(Tensor &postIn, Tensor &weightUV, Tensor 
 
             TileShape::Current().SetVecTile(1, N * vHeadDim); // raw (8, 128*128)
             auto quantA = Quant(r2Res);
-            auto quantizedA = std::get<0>(quantA); //(bTile * S, N*vHeadDim)
             auto dequantScaleA = std::get<1>(quantA); //(bTile * S, 1)
+            auto quantizedA = std::get<0>(quantA); //(bTile * S, N*vHeadDim)
 
             // // (bTile*S, N*vHeadDim) @ (N*vHeadDim, H) = (bTile*S, H)
             // // int8 @ int8 = int32
@@ -1627,7 +1592,7 @@ void PaPostDebugCastFirstCrtb4trQMM5NDk(Tensor &postIn, Tensor &weightUV, Tensor
                 {std::min(256L, kvLoraRank), std::min(256L, kvLoraRank)}, {vHeadDim, vHeadDim}); // raw 8*1  512   128
             auto bmmRes = Matrix::BatchMatmul(dtype, t1Res, weightUV); // (N, bTile, kvLoraRank) * (N, kvLoraRank, vHeadDim) -> (N, bTile, vHeadDim)
 
-            TileShape::Current().SetVecTile(64, std::min(8, bTile * S), vHeadDim); // raw (128, 8, 128)
+            TileShape::Current().SetVecTile(64, std::min(8, bTile * S), vHeadDim);
             auto t3Res = Transpose(bmmRes, {0, 1}); // (N, bTile, vHeadDim) -> (bTile, N, vHeadDim)
             TileShape::Current().SetVecTile(std::min(8, bTile * S), 64, vHeadDim);
             auto r2Res = Reshape(t3Res, {bTile * S, N * vHeadDim}); // (bTile * S, N, vHeadDim) -> (bTile * S, N*vHeadDim)
@@ -1639,22 +1604,10 @@ void PaPostDebugCastFirstCrtb4trQMM5NDk(Tensor &postIn, Tensor &weightUV, Tensor
 
             // (bTile*S, N*vHeadDim) @ (N*vHeadDim, H) = (bTile*S, H)
             // int8 @ int8 = int32
-            TileShape::Current().SetVecTile({std::min(4, bTile * S), std::min(7168L, H)});
-            Tensor tmpC = Full(Element(DataType::DT_INT32, static_cast<int64_t>(0)), DT_INT32, {bTile*S, H});
-            std::vector<Tensor> matmulResult;
-            auto kSplit = 8;
-            auto kSplitSize = N*vHeadDim / kSplit; // 16K / 8 = 2k
             TileShape::Current().SetCubeTile({std::min(32, bTile * S), std::min(32, bTile * S)},
                 {std::min(128L, N * vHeadDim), std::min(128L, N * vHeadDim)},
-                {std::min(512L, H), std::min(512L, H)}); // raw  16  2048  128
-            for (int ki = 0; ki < kSplit; ki++) {
-                auto inputMk = View(quantizedA, {bTile*S, kSplitSize}, {0, ki * kSplitSize});
-                auto inputKn = View(weightO, {kSplitSize, H}, {ki * kSplitSize, 0});
-                auto tmp = npu::tile_fwk::Matrix::Matmul(DT_INT32, inputMk, inputKn, tmpC);  // (8, 16k) @ (16k, 7168)
-                matmulResult.emplace_back(tmp);
-            }
-            TileShape::Current().SetVecTile({std::min(32, bTile * S), std::min(512L, H)}); // 与cubeTileShape MN保持一致
-            Tensor res = npu::tile_fwk::Reduce(matmulResult, ReduceMode::ATOMIC_ADD);  // (bTile*S, H)
+                {std::min(512L, H), std::min(512L, H)}, false, true); // raw  16  2048  128
+            Tensor res = npu::tile_fwk::Matrix::Matmul(DT_INT32, quantizedA, weightO);
 
             std::vector<SymbolicScalar> dynOffset = {bIdx * bTile * S, 0};
             Assemble(res, dynOffset, mm5Out);
@@ -1713,9 +1666,9 @@ void PaPostDebugCastFirstMm5UnsplitKLow(Tensor &postIn, Tensor &weightUV, Tensor
                                         Tensor &postOut) {
     auto dtype = weightUV.GetStorage()->Datatype();  // bf16
     auto N = weightUV.GetShape()[0];
+    auto H = weightO.GetShape()[1];
     auto kvLoraRank = weightUV.GetShape()[1];
     auto vHeadDim = weightUV.GetShape()[2];
-    auto H = weightO.GetShape()[1];
     int S = 1;
 
     FUNCTION("main",
@@ -1724,7 +1677,7 @@ void PaPostDebugCastFirstMm5UnsplitKLow(Tensor &postIn, Tensor &weightUV, Tensor
         const int bTile = 2;
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / bTile, 1)) {
             auto postInUnit = View(postIn, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
-            TileShape::Current().SetVecTile({std::min(64L, bTile * S * N), kvLoraRank}); // raw (2*1*32, 512)
+            TileShape::Current().SetVecTile({std::min(64L, bTile * S * N), kvLoraRank});
 
             auto cast1 = Cast(postInUnit, DT_BF16);
             auto r1Res = Reshape(cast1, {bTile*S, N, kvLoraRank});
@@ -1733,7 +1686,7 @@ void PaPostDebugCastFirstMm5UnsplitKLow(Tensor &postIn, Tensor &weightUV, Tensor
 
             TileShape::Current().SetVecTile({32, 2, 128});
             TileShape::Current().SetCubeTile({std::min(32, bTile * S), std::min(32, bTile * S)},
-                {std::min(256L, kvLoraRank), std::min(256L, kvLoraRank)}, {vHeadDim, vHeadDim}); // raw 8*1  512   128
+                {std::min(256L, kvLoraRank), std::min(256L, kvLoraRank)}, {vHeadDim, vHeadDim});
             auto bmmRes = Matrix::BatchMatmul(dtype, t1Res, weightUV); // (N, bTile, kvLoraRank) * (N, kvLoraRank, vHeadDim) -> (N, bTile, vHeadDim)
 
             TileShape::Current().SetVecTile(32, std::min(8, bTile * S), vHeadDim); // raw (32, 2, 128)
@@ -2030,8 +1983,8 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_new_mm5nz_unsplitk) {
 void PaPostDebugCastFirstMm5SplitK(Tensor &postIn, Tensor &weightUV, Tensor &weightO, Tensor &weightOScaleW,
                                    Tensor &postOut) {
     auto dtype = weightUV.GetStorage()->Datatype();  // bf16
-    auto N = weightUV.GetShape()[0];
     auto kvLoraRank = weightUV.GetShape()[1];
+    auto N = weightUV.GetShape()[0];
     auto vHeadDim = weightUV.GetShape()[2];
     auto H = weightO.GetShape()[1];
     int S = 1;
@@ -2047,7 +2000,7 @@ void PaPostDebugCastFirstMm5SplitK(Tensor &postIn, Tensor &weightUV, Tensor &wei
             config::SetSemanticLabel("CAST+TRANSPOSE1");
             TileShape::Current().SetVecTile({std::min(32, bTile * S), 2, kvLoraRank}); // raw (bTile*1, 128, 512)
             auto cast1 = Cast(r1Res, DT_BF16);
-            auto t1Res = Transpose(cast1, {0, 1}); // (N, bTile * S, kvLoraRank)    // 128个
+            auto t1Res = Transpose(cast1, {0, 1}); // (N, bTile * S, kvLoraRank)
 
             config::SetPassOption(CUBE_NBUFFER_SETTING, std::map<int64_t, int64_t>{{0, 4}});
             config::SetSemanticLabel("BMM4");
@@ -2065,27 +2018,15 @@ void PaPostDebugCastFirstMm5SplitK(Tensor &postIn, Tensor &weightUV, Tensor &wei
             config::SetSemanticLabel("QUANT");
             TileShape::Current().SetVecTile(1, N * vHeadDim); // raw (bTile*1, 128*128)
             auto quantA = Quant(r2Res);
-            auto quantizedA = std::get<0>(quantA); //(bTile * S, N*vHeadDim)
             auto dequantScaleA = std::get<1>(quantA); //(bTile * S, 1)
+            auto quantizedA = std::get<0>(quantA); //(bTile * S, N*vHeadDim)
 
             // // (bTile*S, N*vHeadDim) @ (N*vHeadDim, H) = (bTile*S, H)
             // // int8 @ int8 = int32
-            TileShape::Current().SetVecTile({std::min(32, bTile * S), std::min(1024L, H)}); // raw (bTile*1, 7168)
-            Tensor tmpC = Full(Element(DataType::DT_INT32, static_cast<int64_t>(0)), DT_INT32, {bTile*S, H});
-            std::vector<Tensor> matmulResult;
-            auto kSplit = 8;
-            auto kSplitSize = N*vHeadDim / kSplit;
             TileShape::Current().SetCubeTile({std::min(32, bTile * S), std::min(32, bTile * S)},
                 {std::min(128L, N * vHeadDim), std::min(128L, N * vHeadDim)},
-                {std::min(512L, H), std::min(512L, H)}); // 14个
-            for (int ki = 0; ki < kSplit; ki++) {
-                auto inputMk = View(quantizedA, {bTile*S, kSplitSize}, {0, ki * kSplitSize});
-                auto inputKn = View(weightO, {kSplitSize, H}, {ki * kSplitSize, 0});
-                auto tmp = npu::tile_fwk::Matrix::Matmul(DT_INT32, inputMk, inputKn, tmpC);  // (32, 16384) @ (16384, 7168)
-                matmulResult.emplace_back(tmp);
-            }
-            TileShape::Current().SetVecTile(std::min(32, bTile * S), std::min(512L, H)); // 14个
-            Tensor res = npu::tile_fwk::Reduce(matmulResult, ReduceMode::ATOMIC_ADD);
+                {std::min(512L, H), std::min(512L, H)}, false, true); // 14个
+            Tensor res = npu::tile_fwk::Matrix::Matmul(DT_INT32, quantizedA, weightO);
 
             config::SetSemanticLabel("CMMC");
             TileShape::Current().SetVecTile(std::min(32, bTile * S), std::min(32L, H)); // raw (bTile*1, 7168)
@@ -2357,22 +2298,10 @@ void PaPostDebugCastFirstMm5SplitKLow(Tensor &postIn, Tensor &weightUV, Tensor &
 
             // (bTile*S, N*vHeadDim) @ (N*vHeadDim, H) = (bTile*S, H)
             // int8 @ int8 = int32
-            TileShape::Current().SetVecTile({std::min(4, bTile * S), std::min(7168L, H)});
-            Tensor tmpC = Full(Element(DataType::DT_INT32, static_cast<int64_t>(0)), DT_INT32, {bTile*S, H});
-            std::vector<Tensor> matmulResult;
-            auto kSplit = 2;
-            auto kSplitSize = N*vHeadDim / kSplit; // 16K / 8 = 2k
             TileShape::Current().SetCubeTile({std::min(32, bTile * S), std::min(32, bTile * S)},
                 {std::min(128L, N * vHeadDim), std::min(128L, N * vHeadDim)},
-                {std::min(512L, H), std::min(512L, H)}); // raw  16  2048  128
-            for (int ki = 0; ki < kSplit; ki++) {
-                auto inputMk = View(quantizedA, {bTile*S, kSplitSize}, {0, ki * kSplitSize});
-                auto inputKn = View(weightO, {kSplitSize, H}, {ki * kSplitSize, 0});
-                auto tmp = npu::tile_fwk::Matrix::Matmul(DT_INT32, inputMk, inputKn, tmpC);  // (8, 16k) @ (16k, 7168)
-                matmulResult.emplace_back(tmp);
-            }
-            TileShape::Current().SetVecTile({std::min(32, bTile * S), std::min(512L, H)}); // 与cubeTileShape MN保持一致
-            Tensor res = npu::tile_fwk::Reduce(matmulResult, ReduceMode::ATOMIC_ADD);  // (bTile*S, H)
+                {std::min(512L, H), std::min(512L, H)}, false, true); // raw  16  2048  128
+            Tensor res = npu::tile_fwk::Matrix::Matmul(DT_INT32, quantizedA, weightO);  // (bTile*S, H)
 
             TileShape::Current().SetVecTile(std::min(8, bTile * S), std::min(1024L, H)); // raw (2, 7168)
             res = Cast(res, DataType::DT_FP32);
@@ -2555,7 +2484,7 @@ void PageAttentionPostBf16(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache
 
                     TileShape::Current().SetCubeTile(
                         {c1Tile[0], c1Tile[1]}, {c1Tile[2], c1Tile[3]}, {c1Tile[4], c1Tile[5]});
-                    auto sij = Matrix::Matmul<false, true>(DataType::DT_FP32, qi, kj); // (curNTile, dN+dR), (curS2Tile, dN+dR) -> (curNTile, curS2Tile)
+                    auto sij = Matrix::Matmul(DataType::DT_FP32, qi, kj, false, true); // (curNTile, dN+dR), (curS2Tile, dN+dR) -> (curNTile, curS2Tile)
                     TileShape::Current().SetVecTile(v1Tile[0], v1Tile[1]);
                     auto sijScale = Mul(sij, Element(DataType::DT_FP32, softmaxScale)); // (curNTile, curS2Tile)
 
@@ -2569,7 +2498,7 @@ void PageAttentionPostBf16(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache
                     IF (IsLoopBegin(bn, 0)) {
                         TileShape::Current().SetCubeTile(
                             {c2Tile[0], c2Tile[1]}, {c2Tile[2], c2Tile[3]}, {c2Tile[4], c2Tile[5]});
-                        auto oiTmp = Matrix::Matmul<false, false>(DataType::DT_FP32, tildaPijF16, vj);; // (curNTile, curS2Tile), (curS2Tile, dN) -> (curNTile, dN)
+                        auto oiTmp = Matrix::Matmul(DataType::DT_FP32, tildaPijF16, vj, false, false);; // (curNTile, curS2Tile), (curS2Tile, dN) -> (curNTile, dN)
                         TileShape::Current().SetVecTile(v2Tile[0], v2Tile[1]);
                         IF (IsLoopEnd(bn, bnPerBatch)) {
                             oiUpdate = Div(oiTmp, tildaLij); // (nTileCur, dN) / (nTileCur, 1) -> (nTileCur, dN)
@@ -2596,7 +2525,7 @@ void PageAttentionPostBf16(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache
                         auto q3 = Mul(oi, t2); // (curNTile, dN), (curNTile, 1) -> (curNTile, dN)
                         TileShape::Current().SetCubeTile(
                             {c2Tile[0], c2Tile[1]}, {c2Tile[2], c2Tile[3]}, {c2Tile[4], c2Tile[5]});
-                        auto q1 = Matrix::Matmul<false, false>(DataType::DT_FP32, tildaPijF16, vj); // (curNTile, curS2Tile), (curS2Tile, dN) -> (curNTile, dN)
+                        auto q1 = Matrix::Matmul(DataType::DT_FP32, tildaPijF16, vj, false, false); // (curNTile, curS2Tile), (curS2Tile, dN) -> (curNTile, dN)
                         TileShape::Current().SetVecTile(v2Tile[0], v2Tile[1]);
                         auto q2 = Mul(q1, t4);    // (nTileCur, dN), (nTileCur, 1) -> (nTileCur, dN)
                         auto oiTmp = Add(q3, q2); // (nTileCur, dN), (nTileCur, dN) -> (nTileCur, dN)
