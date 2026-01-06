@@ -172,6 +172,7 @@ void DeviceExecuteContext::GELaunchRunCached(DevStartArgs *startArgs, PushTaskEn
         DynDeviceTask *dynTask = reinterpret_cast<DynDeviceTask *>(devProg->controlFlowCache.deviceTaskCacheList[index].dynTaskBase);
         devProg->controlFlowCache.PredCountDataRestore(dynTask);
         devProg->controlFlowCache.ReadyQueueDataRestore(dynTask);
+        devProg->controlFlowCache.MixTaskDataRestore(dynTask);
         taskContext.UpdateReadyTaskNum(dynTask->readyQueueBackup->readyTaskNum);
 
         PROF_STAGE_BEGIN(PERF_EVT_STAGE_PUSH_TASK, "push.before\n");
@@ -307,16 +308,12 @@ int DeviceExecuteContext::SubmitToAicoreAndRecycleMemory(bool withoutTail, bool 
     PROF_STAGE_BEGIN(PERF_EVT_DECIDE_SLOT_ADDRESS, "slotaddr.before\n");
     stitchContext.DecideSlotAddress(slotContext.GetSlotList(), slotContext.GetSlotSize());
     PROF_STAGE_END(PERF_EVT_DECIDE_SLOT_ADDRESS, "slotaddr.after\n");
-    if (unlikely(ret != DEVICE_MACHINE_OK)) {
-        return DEVICE_MACHINE_ERROR;
-    }
+    if (unlikely(ret != DEVICE_MACHINE_OK)) { return DEVICE_MACHINE_ERROR;}
 
     PROF_STAGE_BEGIN(PERF_EVT_DECIDE_INCAST_ADDRESS, "incastaddr.before\n");
     ret = stitchContext.DecideIncastOutcast(taskId);
     PROF_STAGE_END(PERF_EVT_DECIDE_INCAST_ADDRESS, "incastaddr.after\n");
-    if (unlikely(ret != DEVICE_MACHINE_OK)) {
-        return DEVICE_MACHINE_ERROR;
-    }
+    if (unlikely(ret != DEVICE_MACHINE_OK)) { return DEVICE_MACHINE_ERROR;}
 
     DEV_IF_VERBOSE_DEBUG {
             stitchContext.DumpStitchInfo();
@@ -351,6 +348,7 @@ int DeviceExecuteContext::SubmitToAicoreAndRecycleMemory(bool withoutTail, bool 
         if (!devProg->controlFlowCache.IsRecordingStopped()) {
             devProg->controlFlowCache.PredCountDataBackup(dynTask);
             devProg->controlFlowCache.ReadyQueueDataBackup(dynTask);
+            devProg->controlFlowCache.MixTaskDataBackup(dynTask);
             devProg->controlFlowCache.IncastOutcastAddrBackup(dynTask);
             devProg->controlFlowCache.TaskAddrBackupWorkspace(dynTask);
             devProg->controlFlowCache.RuntimeAddrBackup(slotContext.GetSlotList(), workspace.GetRuntimeOutcastTensorPoolBase(),
