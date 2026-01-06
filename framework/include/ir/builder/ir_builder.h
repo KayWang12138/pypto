@@ -84,7 +84,7 @@ public:
         ScalarValuePtr end,
         ScalarValuePtr step);
 
-    IfStatementPtr CreateIfStmt(IRBuilderContext& ctx, std::string cond);
+    IfStatementPtr CreateIfStmt(IRBuilderContext& ctx, ScalarValuePtr cond);
 
     YieldStatementPtr CreateYield(IRBuilderContext& ctx, ValuePtrs values);
 
