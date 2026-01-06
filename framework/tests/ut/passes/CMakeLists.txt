@@ -16,7 +16,6 @@ PTO_Fwk_UTest_AddCaseLib(
         TARGET ${_Target}
         SOURCES ${_Sources}
         PUBLIC_LINK_LIBRARIES tile_fwk_passes tile_fwk_interface
-        GTEST_FILTER_LIST ${_CaseFilterList}
 )
 add_custom_command(
         TARGET ${_Target} PRE_BUILD
