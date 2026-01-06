@@ -89,8 +89,7 @@ TEST_F(TestLoopaxesProcPass, LoopaxesProcUTest1) {
 
     EXPECT_TRUE(view1.HasAttr(OpAttributeKey::loopGroup));
     EXPECT_EQ(view1.GetIntAttribute(OpAttributeKey::loopGroup), kKeepOut);
-    EXPECT_TRUE(view1.HasAttr(OpAttributeKey::loopAxes));
-    EXPECT_TRUE(view1.GetVectorIntAttribute(OpAttributeKey::loopAxes).empty());
+    EXPECT_FALSE(view1.HasAttr(OpAttributeKey::loopAxes));
     
     expectedLoopAxis = {kNum2, kNum2};
     EXPECT_TRUE(view2.HasAttr(OpAttributeKey::loopGroup));
