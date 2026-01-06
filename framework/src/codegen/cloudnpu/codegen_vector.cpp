@@ -1219,23 +1219,44 @@ std::string CodeGenOpCloudNPU::PrintWhereOp(const WhereParam &param) const {
     }
 }
 
-std::string CodeGenOpCloudNPU::PrintWhereOpTileTensor() const {
+std::string CodeGenOpCloudNPU::PrintWhereOpTileTensor(const WhereParam &param) const {
+    std::vector<std::string> dataTypeExpr = param.dataTypeExpr;
     std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(WhereOpIdx::resIdx)]);
     std::string tempTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(WhereOpIdx::tempIdx)]);
     std::string condTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(WhereOpIdx::condIdx)]);
-    std::string src0Tensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(WhereOpIdx::src0Idx)]);
-    std::string src1Tensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(WhereOpIdx::src1Idx)]);
-
     std::ostringstream oss;
-    oss << tileOpName << "(" << dstTensor << ", " << tempTensor << ", " << condTensor << ", " << src0Tensor << ", "
-        << src1Tensor << ");\n";
+    oss << tileOpName << "(" << dstTensor << ", " << tempTensor << ", " << condTensor << ", ";
+    if (opCode == Opcode::OP_WHERE_TT) {
+        std::string src0Tensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(WhereOpIdx::src0Idx)]);
+        std::string src1Tensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(WhereOpIdx::src1Idx)]);
+        oss << src0Tensor << ", " << src1Tensor << ");\n";
+    }
+    if (opCode == Opcode::OP_WHERE_TS) {
+        std::string src0Tensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(WhereOpIdx::src0Idx)]);
+        std::string scalarVar = FormatFloat(extOperandVal.GetVariantData());
+        oss << src0Tensor << ", " << dataTypeExpr[0] + "(" + scalarVar + ")" << ");\n";
+    }
+    if (opCode == Opcode::OP_WHERE_ST) {
+        std::string src0Tensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(WhereOpIdx::src0Idx)]);
+        std::string scalarVar = FormatFloat(extOperandVal.GetVariantData());
+        oss << dataTypeExpr[0] + "(" + scalarVar + ")" << ", " << src0Tensor << ");\n";
+    }
+    if (opCode == Opcode::OP_WHERE_SS) {
+        std::string src0Var = FormatFloat(extScalarVec[0].GetVariantData());
+        std::string src1Var = FormatFloat(extScalarVec[1].GetVariantData());
+        std::vector<std::string> extList;
+        extList.emplace_back(dataTypeExpr[0] + "(" + src0Var + ")");
+        extList.emplace_back(dataTypeExpr[0] + "(" + src1Var + ")");
+        auto extParam = JoinString(extList, ", ");
+        oss << extParam << ");\n";
+    }
     return oss.str();
 }
 
 std::string CodeGenOpCloudNPU::GenWhereOp() const {
     WhereParam param = PrepareWhereParam();
     if (isSupportLayout) {
-        return PrintWhereOpTileTensor();
+        return PrintWhereOpTileTensor(param);
     }
     return PrintWhereOp(param);
 }
