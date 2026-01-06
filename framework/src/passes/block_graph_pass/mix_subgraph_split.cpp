@@ -519,7 +519,7 @@ Status MixSubgraphSplit::ApplySplitResultsWithRemap(Function& function,
     return SUCCESS;
 }
 
-void MixSubgraphSplit::CloneCallOp(Operation &callOp,
+Status MixSubgraphSplit::CloneCallOp(Operation &callOp,
                                    SubgraphToFunction& subgraphToFunction,
                                    const CallOpCreationInfo &callOpInfo) {
     auto originalCallAttr = dynamic_cast<CallOpAttribute*>(callOpInfo.originalCallOp->GetOpAttribute().get());
@@ -531,13 +531,13 @@ void MixSubgraphSplit::CloneCallOp(Operation &callOp,
     auto extractedArgList = ExtractArgListForLeafFunction(callOpInfo.leafFunc, originalCallAttr, invokeInfo, callOpInfo.iOffsets, callOpInfo.oOffsets);
     ALOG_DEBUG_F("Created callOp %d: %zu arg blocks (from original callOp %d), %zu input offsets, %zu output offsets", callOp.GetOpMagic(), extractedArgList.size(), originalCallOp->GetOpMagic(), iOffsets.size(), oOffsets.size());
     std::map<int, SymbolicScalar> outIndexToExpr;
-    leafFunc.GetOutcastSymbolicExpr(outIndexToExpr);
+    callOpInfo.leafFunc.GetOutcastSymbolicExpr(outIndexToExpr);
     // 创建CallOpAttribute（使用从原始CallOp提取的argList）
     auto callAttr = leafFunc.CreateCallOpAttribute(extractedArgList, outIndexToExpr);
     auto callOpAttr = std::dynamic_pointer_cast<CallOpAttribute>(callAttr);
     if (callOpAttr != nullptr) {
         callOpAttr->wrapId = callOpInfo.wrapId;
-        ALOG_DEBUG_F("Set wrapId=%lu to callOp attribute for programID=%d (from original callOp %d)", callOpInfo.wrapId, callOpInfo.newProgramID, originalCallOp->GetOpMagic());
+        ALOG_DEBUG_F("Set wrapId=%lu to callOp attribute for programID=%d (from original callOp %d)", callOpInfo.wrapId, callOpInfo.newProgramID, callOpInfo.originalCallOp->GetOpMagic());
     }
     callOp.SetOpAttribute(callAttr);
     callOp.SetOpOffset(callOpInfo.iOffsets, callOpInfo.oOffsets);
@@ -549,6 +549,7 @@ void MixSubgraphSplit::CloneCallOp(Operation &callOp,
     if (callOpAttr != nullptr && callOpAttr->invokeInfo_ != nullptr) {
         callOpAttr->invokeInfo_->UpdateProgramSubgraphId(callOpInfo.newProgramID);
     }
+    return SUCCESS;
 }
 
 Status MixSubgraphSplit::CreateCallOpInRootFunction(Function& rootFunc,
@@ -594,7 +595,9 @@ Status MixSubgraphSplit::CreateCallOpInRootFunction(Function& rootFunc,
     ALOG_INFO_F("Created operands for new callOp %d: %zu inputs, %zu outputs",
             callOp.GetOpMagic(), newIOperands.size(), newOOperands.size());
     CallOpCreationInfo callOpInfo{leafFunc, newProgramID, componentIndex, originalCallOp, wrapId, iOffsets, oOffsets};
-    CloneCallOp(callOp, subgraphToFunction, callOpInfo);
+    if (CloneCallOp(callOp, subgraphToFunction, callOpInfo) != SUCCESS) {
+        return FAILED;
+    }
     ALOG_INFO_F("Successfully created callOp in root function for programID=%d, leaf=%s", newProgramID, leafFunc.GetRawName().c_str());
     return SUCCESS;
 }

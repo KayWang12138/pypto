@@ -176,7 +176,7 @@ private:
                                     uint64_t newProgramID,
                                     uint64_t componentIndex,
                                     SubgraphToFunction& subgraphToFunction);
-    void CloneCallOp(Operation &callOp,
+    Status CloneCallOp(Operation &callOp,
                     SubgraphToFunction& subgraphToFunction,
                     const CallOpCreationInfo &callOpInfo);
     // 在root function中创建call op
