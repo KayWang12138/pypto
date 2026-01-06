@@ -1244,15 +1244,14 @@ def gen_numpy_op_golden(case_name: str, output: Path, case_index: int = None) ->
         step = params["step"]
         output_tensors_type = config["output_tensors"][0]["dtype"]
         inputdata_type = get_dtype_by_name(output_tensors_type)
-        if isinstance(start, float) or isinstance(end, float) or isinstance(step, float):
-            if inputdata_type == bfloat16:
-                result = torch.arange(np.float32(start), np.float32(end), np.float32(step), dtype=torch.float32)
-                return [result.numpy().astype(bfloat16)]
-            elif inputdata_type == np.float16:
-                return [torch.arange(np.float32(start), np.float32(end), np.float32(step), dtype=torch.float16).numpy()]
-            else:
-                return [torch.arange(np.float32(start), np.float32(end), np.float32(step), dtype=torch.float32).numpy()]
-        return [torch.arange(start, end, step).numpy()]
+        if inputdata_type == bfloat16:
+            result = torch.arange(np.float32(start), np.float32(end), np.float32(step), dtype=torch.float32)
+            return [result.numpy().astype(bfloat16)]
+        elif inputdata_type == np.float16:
+            return [torch.arange(np.float32(start), np.float32(end), np.float32(step), dtype=torch.float16).numpy()]
+        elif inputdata_type == np.float32:
+            return [torch.arange(np.float32(start), np.float32(end), np.float32(step), dtype=torch.float32).numpy()]
+        return [torch.arange(np.int32(start), np.int32(end), np.int32(step)).numpy()]
 
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("Range", golden_func, output, case_index)
@@ -1409,8 +1408,14 @@ def gen_gatherelement_op_golden(
 def cumsum_golden_func(inputs: list, config: dict):
     params = config.get("params")
     axis = params["axis"]
-    inputTensor = torch.from_numpy(inputs[0])
-    res = torch.cumsum(inputTensor, axis)
+    if inputs[0].dtype == bfloat16:
+        input_tensor = torch.as_tensor(inputs[0].astype(np.float32)).to(torch.bfloat16)
+    else:
+        input_tensor = torch.from_numpy(inputs[0])
+    res = torch.cumsum(input_tensor, axis)
+    if inputs[0].dtype == bfloat16:
+        res = res.to(torch.float32).numpy().astype(bfloat16)
+        return [res]
     
     return [res.numpy()]
 
@@ -1494,14 +1499,14 @@ def scatter_golden_func(inputs, config: dict):
     scalar = params["src"]
     indices = torch.from_numpy(inputs[1])
 
-    # 和pypto测试golden生成保持一致，fp16和bf16先转换为fp32在进行计算，否则golden精度会不如实际npu计算结果，导致比对失败
-    if inputs[0].dtype == bfloat16 or inputs[0].dtype == np.float16:
+    if inputs[0].dtype == bfloat16:
+        bf16_scalar = np.array([scalar], np.float32).astype(inputs[0].dtype).astype(np.float32)
         src = torch.from_numpy(inputs[0].astype(np.float32))
         if len(reduceop) == 0 or reduceop == "None":
-            res = src.scatter(axis, indices, scalar).numpy().astype(inputs[0].dtype)
+            res = src.scatter(axis, indices, bf16_scalar[0]).numpy().astype(inputs[0].dtype)
         else:
             res = (
-                src.scatter(axis, indices, scalar, reduce=reduceop)
+                src.scatter(axis, indices, bf16_scalar[0], reduce=reduceop)
                 .numpy()
                 .astype(inputs[0].dtype)
             )

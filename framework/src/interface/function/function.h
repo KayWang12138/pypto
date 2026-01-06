@@ -29,7 +29,6 @@
 #include "interface/tensor/tensormap.h"
 #include "interface/tensor/tensor_slot.h"
 #include "interface/cache/hash.h"
-#include "interface/operation/distributed/tiling_manager.h"
 #include "passes/pass_utils/pass_utils.h"
 
 namespace npu::tile_fwk {
@@ -167,8 +166,11 @@ private:
 
 struct LeafFuncAttribute {
     std::string kernelName;    // 异构子图kernel函数名
-    std::string binPath;       // 异构子图二进制文件路径
+    std::string kernelNameMainBlock;    // 异构子图kernel函数名(运行时选择主尾块场景中的主块)
+    std::string binPath;                // 异构子图二进制文件路径
+    std::string binPathMainBlock;       // 异构子图二进制文件路径(运行时选择主尾块场景中的主块)
     std::string kernelDeclare; // 异构子图代码的kernel声明，用于后续整体调用
+    std::string kernelDeclareMainBlock; // 异构子图代码的kernel声明，用于后续整体调用(运行时选择主尾块场景中的主块)
     CoreType coreType{CoreType::INVALID};
     AIVCore aivCore{AIVCore::UNSPECIFIED};  // 表示Mix子图切完的vector子图放在AIV0核还是AIV1核，0=AIV0, 1=AIV1, -1=未指定
     int32_t mixId{-1};  // 表示哪些切完的leafFunction是从一个Mix子图切出来的
@@ -288,6 +290,7 @@ struct DynloopFunctionAttribute {
     std::vector<DynloopFunctionPathCondition> GenCondWithBeginEnd(const std::vector<DynloopFunctionPathCondition> &conds) const;
     bool IterationEnd(int unroll, Function *pathFunc, Operation *operation);
     bool AppendCond(const SymbolicScalar &cond, const std::string &file, int line);
+    bool GuessCondResult(const SymbolicScalar &cond, bool &result);
 private:
     void CreateCurrCond();
 };
@@ -559,6 +562,15 @@ public:
 
     std::vector<std::vector<SymbolicScalar>> NormalizeCoa(
         std::vector<int> &iOffset, std::vector<int> &oOffset);
+    void NormalizeCoaForInCasts(std::vector<int> &iOffset, std::vector<std::vector<SymbolicScalar>> &coaLists,
+        int &coaIndex, std::unordered_map<LogicalTensorPtr, int> &processedOperands,
+        const std::unordered_map<int, Operation *> &opmagicToOp);
+    void NormalizeCoaForOutCasts(std::vector<int> &oOffset, std::vector<std::vector<SymbolicScalar>> &coaLists,
+        int &coaIndex, std::unordered_map<LogicalTensorPtr, int> &processedOperands,
+        const std::unordered_map<int, Operation *> &opmagicToOp);
+    void NormalizeCoaForNormalOperands(std::vector<std::vector<SymbolicScalar>> &coaLists, int &coaIndex,
+        std::unordered_map<LogicalTensorPtr, int> &processedOperands);
+    void NormalizeCoaForSpecialInfo(std::vector<std::vector<SymbolicScalar>> &coaLists, int &coaIndex);
     void GetOutcastSymbolicExpr(std::map<int, SymbolicScalar>& tabel);
 
     void DumpTopoFile(const std::string &fileName) const;
@@ -669,7 +681,6 @@ public:
     bool HasCallOperation();
     bool IsDynloop() const { return dynloopAttr_ != nullptr; }
     bool IsDyndev() const { return dyndevAttr_ != nullptr; }
-    std::shared_ptr<Distributed::TilingManager> &GetDistTilingManager() { return distTilingManager_; }
 
     std::unordered_map<std::shared_ptr<LogicalTensor>, std::shared_ptr<LogicalTensor>> incastToInArgumentDict;
     std::unordered_map<std::shared_ptr<LogicalTensor>, std::shared_ptr<LogicalTensor>> outcastToOutArgumentDict;
@@ -866,7 +877,6 @@ private:
     std::shared_ptr<DynloopFunctionAttribute> dynloopAttr_;
     std::shared_ptr<DyndevFunctionAttribute> dyndevAttr_;
     std::shared_ptr<LeafFuncAttribute> leafFuncAttr_;
-    std::shared_ptr<Distributed::TilingManager> distTilingManager_ = std::make_shared<Distributed::TilingManager>();
     std::shared_ptr<TensorSlotScope> slotScope_;
 
     std::vector<Operation *> loopCallOrderGroup_;

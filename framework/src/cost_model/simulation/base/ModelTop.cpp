@@ -374,32 +374,6 @@ void SimSys::BuildSystem()
     BuildSystemStat();
 }
 
-void SimSys::BuildCommSystem()
-{
-    config.OverrideDefaultConfig(&cfgs);
-    machineGroup.resize(int(MachineType::TOTAL_MACHINE_TYPE));
-    // SwitchFabricMachine
-    auto sfMachine = std::make_shared<SwitchFabricMachine>();
-    sfMachine->sim = GetShared();
-    sfMachine->machineType = MachineType::SWITCH;
-    sfMachine->machineId = GetProcessID(MachineType::SWITCH, 0);
-    AddMachine(sfMachine);
-    sfMachine->Build();
-    // WorkerMachine
-    for (uint64_t i = 0; i < config.workerMachineNumber; ++i) {
-        auto machine = std::make_shared<WorkerMachine>();
-        machine->sim = GetShared();
-        machine->machineType = MachineType::MIXED;
-        machine->machineId = GetProcessID(MachineType::MIXED, i);
-        machine->busMachine = sfMachine;
-        AddMachine(machine);
-        machine->Build();
-        std::string name = "WorkerMachine " + std::to_string(i);
-        totalTraceLogger->SetProcessName(name, machine->machineId, i);
-        totalTraceLogger->SetThreadName(name, machine->machineId, machine->coreTid);
-    }
-}
-
 void SimSys::InitCoreTask()
 {
     testSingleFunc = true;
@@ -653,7 +627,7 @@ void SimSys::OutputLogForSwimLane(std::string prefix)
     MLOG_INFO("topo_txt_path: ", topo_txt_path);
     std::string program_json_path = outdir + "/../" + "program.json";
     MLOG_INFO("program_json_path: ", program_json_path);
-    std::string label_type = "--label_type=1 --time_convert_denominator=50";
+    std::string label_type = "--label_type=1 --time_convert_denominator=1800"; // default 1.8GHz
     MLOG_INFO("label_type: ", label_type);
     if (devicePtr->config.submitTopo) {
         cmd = "python3 " + mergeScriptPath + " " + outSwimPath + " " + topo_txt_path + " " + program_json_path + " " + label_type;
@@ -664,24 +638,6 @@ void SimSys::OutputLogForSwimLane(std::string prefix)
     MLOG_INFO("cmd: ", cmd);
     int result2 = system(cmd.c_str());
     if (result2 != 0) {
-        MLOG_ERROR("cmd error: ", cmd.c_str());
-    }
-}
-
-void SimSys::OutputLogForCommSwimLane(std::string prefix)
-{
-    std::string outPath = GetFileName(outdir, jsonPath, prefix, "attn-ffn.swim.json");
-    std::ofstream os(outPath);
-    totalTraceLogger->ToCommJson(os);
-    os.close();
-    MLOG_WARN("Log For Draw SwimLane Graph Path (PNG):", outPath);
-
-    // Get Draw PND Python Scripts Path
-    std::string drawScriptPath =  GetCurrentSharedLibPath() + "/scripts/draw_comm_swim_lane_png.py";
-    MLOG_WARN("SwimLane Graph Generated (PNG):", outPath);
-    std::string cmd = "python3 " + drawScriptPath + " " + outPath;
-    int result = system(cmd.c_str());
-    if (result != 0) {
         MLOG_ERROR("cmd error: ", cmd.c_str());
     }
 }
@@ -725,14 +681,7 @@ void SimSys::OutputConfig(std::string prefix)
         auto cachePtr = std::dynamic_pointer_cast<CacheMachine>(machineGroup[int(MachineType::CACHE)][0]);
         os << cachePtr->config.DumpParameters() << std::endl;
     }
-    if (!machineGroup[int(MachineType::SWITCH)].empty()) {
-        auto sfPtr = std::dynamic_pointer_cast<SwitchFabricMachine>(machineGroup[int(MachineType::SWITCH)][0]);
-        os << sfPtr->config.DumpParameters() << std::endl;
-    }
-    if (!machineGroup[int(MachineType::MIXED)].empty()) {
-        auto workerPtr = std::dynamic_pointer_cast<WorkerMachine>(machineGroup[int(MachineType::MIXED)][0]);
-        os << workerPtr->config.DumpParameters() << std::endl;
-    }
+
     os.close();
 }
 
@@ -925,7 +874,7 @@ void SimSys::InitBufferThreshold(PipeConfig &pipeConfig)
     bufferSizeThreshold[CorePipeType::PIPE_CUBE_BMU_L1] = pipeConfig.l1SizeThreshold;
     bufferSizeThreshold[CorePipeType::PIPE_CUBE_BMU_L0A] = pipeConfig.l0aSizeThreshold;
     bufferSizeThreshold[CorePipeType::PIPE_CUBE_BMU_L0B] = pipeConfig.l0bSizeThreshold;
-    bufferSizeThreshold[CorePipeType::PIPE_CUBE_BMU_L0C] = pipeConfig.l0cSizeThreshold;
+    bufferSizeThreshold[CorePipeType::PIPE_CUBE_BMU_L0C] = pipeConfig.l0cSizeThreshold * 2;
 }
 
 uint64_t SimSys::GetBufferThreshold(CorePipeType pType)

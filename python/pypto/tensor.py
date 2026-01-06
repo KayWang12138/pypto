@@ -16,6 +16,7 @@ import pypto
 from .enum import *  # noqa
 from ._utils import to_syms, to_sym
 from .symbolic_scalar import SymbolicScalar, SymInt
+from ._element import Element
 
 
 class Tensor:
@@ -381,7 +382,10 @@ class Tensor:
         return self._base.GetCachePolicy(policy)
 
     def move(self, other: 'Tensor') -> None:
-        self._base.Move(other._base)
+        if isinstance(other, Tensor):
+            self._base.Move(other._base)
+        else:
+            raise TypeError(f"'{type(other).__name__}' type cannot be moved to Tensor")
 
     def base(self) -> pypto_impl.Tensor:
         return self._base
@@ -525,10 +529,10 @@ class Tensor:
     def scatter_update(self, dim: int, index: 'Tensor', src: 'Tensor') -> 'Tensor':
         return pypto.scatter_update(self, dim, index, src)
 
-    def scatter_(self, dim: int, index: 'Tensor', src: float, *, reduce: str = None) -> 'Tensor':
+    def scatter_(self, dim: int, index: 'Tensor', src: Union[float, Element], *, reduce: str = None) -> 'Tensor':
         return pypto.scatter_(self, dim, index, src, reduce=reduce)
 
-    def scatter(self, dim: int, index: 'Tensor', src: float, *, reduce: str = None) -> 'Tensor':
+    def scatter(self, dim: int, index: 'Tensor', src: Union[float, Element], *, reduce: str = None) -> 'Tensor':
         return pypto.scatter(self, dim, index, src, reduce=reduce)
 
     def _is_empty_slice(self, key):
