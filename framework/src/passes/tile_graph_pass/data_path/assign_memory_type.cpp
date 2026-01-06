@@ -173,15 +173,19 @@ void AssignMemoryType::ProcessViewwithSpecificMem(Operation &operation) {
     auto out = operation.GetOOperands().front();
     out->SetMemoryTypeOriginal(attrToType,true); 
     for (auto &consumerOp : out->GetConsumers()) {
-        inserter.UpdateTensorTobeMap(out,*consumerOp,attrToType);
+        inserter.UpdateTensorTobeMap(out, *consumerOp, attrToType);
     }
     if(attrToType == MemoryType::MEM_L1) {
         auto in =operation.iOperand.front();
+        if (in->GetMemoryTypeOriginal() = MemoryType::MEM_UB || in->GetMemoryTypeOriginal() = MemoryType::MEM_L0C) {
+ 	             //大包搬运L0C2L1和UB2L1场景需要在view(L1)前插入convert
+ 	             inserter.UpdateTensorTobeMap(in, operation, attrToType);
+ 	    }
         auto producerOps = operation.ProducerOps();
-        for(const auto &producerOp : producerOps) {
-            if(producerOp->GetOpcode() == Opcode::OP_VIEW) {
+        for (const auto &producerOp : producerOps) {
+            if (producerOp->GetOpcode() == Opcode::OP_VIEW) {
                 in->SetMemoryTypeOriginal(attrToType,true);
-                inserter.UpdateTensorTobeMap(in,operation,attrToType);
+                inserter.UpdateTensorTobeMap(in, operation, attrToType);
             }
         }
     }

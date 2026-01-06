@@ -102,7 +102,7 @@ Status GenerateMoveOp::CreateMoveOpForView(Function &function, Operation &op) co
             return SUCCESS;
         }
         Status status = SetOpcodeByMemPath(op,from,to);
-        if(op.GetOpcode() == Opcode::OP_UB_COPY_L1) {
+        if (from == MemoryType::MEM_UB && to == MemoryType::MEM_L1) {
             ProcessUB2L1(function, op);
         } 
         if(status != SUCCESS) {return status;}
@@ -161,10 +161,10 @@ Status GenerateMoveOp::CreateMoveOpForConvert(Function &function, Operation &op)
     auto convertOpAttribute = dynamic_cast<ConvertOpAttribute *>(op.GetOpAttribute().get());
     auto [from, to] = convertOpAttribute->GetConvertPath();
     Status status = SetOpcodeByMemPath(op,from,to);
-    if(op.GetOpcode() == Opcode::OP_UB_COPY_L1) {
+    if (from == MemoryType::MEM_UB && to == MemoryType::MEM_L1) {
         ProcessUB2L1(function, op);
     }  
-    if(status != SUCCESS) {return status;}
+    if (status != SUCCESS) {return status;}
     auto childOp = *op.oOperand.front()->GetConsumers().begin();
     op.UpdateSubgraphID(childOp->GetSubgraphID());
     return SUCCESS;
@@ -173,7 +173,7 @@ void GenerateMoveOp::ProcessUB2L1(Function &function, Operation &op) const {
     //插入UB2L1节点（NZ2NZ)，并设置UBcopyL1的NZ属性
     op.SetAttribute(OP_ATTR_PREFIX + "is_nz", 1);
     auto inputTensor = op.iOperand.front();
-    if(inputTensor->Format() == TileOpFormat::TILEOP_ND) {
+    if (inputTensor->Format() == TileOpFormat::TILEOP_ND) {
         //新建一块logcialtensor
         std::shared_ptr<LogicalTensor> ubNdTensor = inputTensor;
         std::shared_ptr<RawTensor> newRawTensor = std::make_shared<RawTensor>(ubNdTensor->Datatype(), ubNdTensor->GetShape(), TileOpFormat::TILEOP_NZ);
