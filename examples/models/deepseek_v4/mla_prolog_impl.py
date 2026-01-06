@@ -1,0 +1,320 @@
+#!/usr/bin/env python3
+# coding: utf-8
+# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+# CANN Open Software License Agreement Version 2.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# -----------------------------------------------------------------------------------------------------------
+"""
+"""
+from dataclasses import dataclass
+import math
+import torch
+import torch_npu
+import pypto
+from typing import List
+
+
+"""
+MLA Prolog Quantization Module
+
+This module implements MLA (Multi-head Latent Attention) Prolog quantization
+for DeepSeek V32 model. It converts hidden states to query, key, and value
+projections with support for quantization and RoPE (Rotary Position Embedding).
+
+Main Functions:
+    - mla_prolog_quant_compute: Core MLA prolog computation with quantization
+    - pre_compute_2d: Pre-computation for query and key-value projections
+    - rms_norm: RMS normalization implementation
+    - quant: Quantization function with symmetry and smooth factor support
+    - dequant: Dequantization function
+    - rope_v2: 2D RoPE implementation
+    - rope_3d_v2: 3D RoPE implementation
+    - k_nope_quant: Key quantization function
+
+Example:
+    See testdsv32_mla_prolog_quant.py for usage examples.
+"""
+from dataclasses import dataclass
+from typing import List, Tuple
+import pypto
+
+
+SHAPE_DIM_2 = 2
+SHAPE_DIM_3 = 3
+
+NUM_0 = 0
+NUM_1 = 1
+NUM_2 = 2
+NUM_3 = 3
+NUM_4096 = 4096
+NUM_512 = 512
+
+TILE_CUBE_DIM = 6
+Q_PARAM_DIM = 2
+NZ_DIM = 4
+COS_SIN_DIM = 2
+L0M_INDEX = 0
+L1M_INDEX = 1
+L0K_INDEX = 2
+L1K_INDEX = 3
+L0N_INDEX = 4
+L1N_INDEX = 5
+SCATTER_DIM = -2
+NZ_FIRST_DIM = 16
+NZ_B8_C0 = 32
+NZ_B16_C0 = 16
+
+VEC_TILE_256 = 256
+VEC_TILE_128 = 128
+VEC_TILE_64 = 64
+VEC_TILE_8 = 8
+VEC_TILE_4 = 4
+VEC_TILE_32 = 32
+
+
+@dataclass
+class MlaPrologV4Output:
+    x: torch.tensor  # BF16, (t, h)
+    wq_a: torch.tensor  # BF16, (h, q_lora_rank)
+    wq_b: torch.tensor # BF16, (q_lora_rank, n_q*head_dim)
+    wkv: torch.tensor # BF16, (h, head_dim)
+    rmsnorm_gamma_cq: torch.tensor # BF16, (q_lora_rank, )
+    rmsnorm_gamma_ckv: torch.tensor  # BF16, (head_dim, )
+    cos: torch.tensor # BF16, (t, rope_dim)
+    sin: torch.tensor # BF16, (t, rope_dim)
+
+
+@dataclass
+class MlaPrologV4Output:
+    q: torch.tensor  # BF16, (t, n_q, head_dim)
+    kv: torch.tensor  # BF16, (t, head_dim)
+    qr: torch.tensor  # BF16, (t, q_lora_rank)
+
+
+@dataclass
+class MlaPrologV4Attrs:
+    eps: float
+    layout_query: str
+    layout_key: str
+
+@dataclass
+class MlaPrologV4Configs:
+    unroll_list: List[int]
+    cube_l1_reuse_setting: dict[int, int]
+    mg_copyin_upper_bound: int
+    pg_upper_bound: int 
+    block_size: int
+    t_sub_tile: int
+    chunk_size: int
+    vec_nbuffer_mode: int
+
+def rms_norm(input_tensor: pypto.Tensor, epsilon: float) -> pypto.Tensor:
+    """Compute RMS (Root Mean Square) normalization.
+
+    Applies RMS normalization to the input tensor. RMS normalization is similar
+    to LayerNorm but uses root mean square instead of standard deviation.
+
+    Formula: output = gamma * input / sqrt(mean(input^2) + epsilon)
+
+    Args:
+        input_tensor: Input tensor to normalize
+        epsilon: Small constant added to variance to avoid division by zero
+
+    Returns:
+        Normalized tensor with the same shape as input
+
+    Note:
+        The normalization is performed along the last dimension.
+        Computation is done in FP32 for numerical stability.
+    """
+    input_fp32 = pypto.cast(input_tensor, pypto.DT_FP32)
+    dim = len(input_tensor.shape)
+    y = pypto.mul(input_fp32, input_fp32)
+    y = pypto.mul(y, 1.0 / input_tensor.shape[dim - 1])
+    y = pypto.sum(y, -1, keepdim=True)
+    y = pypto.add(y, epsilon)
+    y = pypto.sqrt(y)
+    ones_vector = pypto.full(y.shape, 1.0, pypto.DT_FP32)
+    y = pypto.div(ones_vector, y)
+    y = pypto.mul(input_fp32, y)
+    return y
+
+def rotate_half(input_tensor: pypto.Tensor) -> pypto.Tensor:
+    """Rotate half of the tensor dimensions for RoPE computation.
+
+    Splits the last dimension in half and applies rotation transformation:
+    [-x2, x1] where x1 is the first half and x2 is the second half.
+    This is a key component of RoPE (Rotary Position Embedding).
+
+    Args:
+        input_tensor: Input tensor with last dimension divisible by 2
+
+    Returns:
+        Rotated tensor with same shape as input
+
+    Raises:
+        AssertionError: If input dimension is less than 1 or last dimension
+                       is not divisible by 2
+    """
+    shape = input_tensor.shape
+    shape_size = len(shape)
+
+    new_shape = list(shape)
+    new_shape[shape_size - 1] //= 2
+
+    offset1 = [0] * shape_size
+    offset2 = [0] * shape_size
+    offset2[shape_size - 1] = new_shape[shape_size - 1]
+
+    x1 = pypto.view(input_tensor, new_shape, offset1)
+    x2 = pypto.view(input_tensor, new_shape, offset2)
+
+    return pypto.concat([x2 * (-1.0), x1 + 0.0], -1)
+
+
+def rope_2d(
+    x: pypto.Tensor, cos: pypto.Tensor, sin: pypto.Tensor) -> pypto.Tensor:
+    """Apply 2D Rotary Position Embedding (RoPE) version 2.
+
+    Implements RoPE transformation for 2D tensors with optimized tiling.
+    The function reshapes and transposes the input before applying rotation.
+
+    Args:
+        x: Input tensor of shape (seq_size, d_r)
+        cos: Cosine values for RoPE, shape (seq_size, d_r)
+        sin: Sine values for RoPE, shape (seq_size, d_r)
+        tile_config: RopeTileShapeConfig object containing tiling parameters:
+            - two_dim: Tile shape for 2D operations
+            - three_dim: Tile shape for 3D reshape operations
+
+    Returns:
+        Tensor with RoPE applied, same shape as input x
+
+    Note:
+        The function performs reshape and transpose operations before applying
+        rotation to optimize memory access patterns.
+    """
+    assert len(x.shape) == 2 and len(cos.shape) == 2 and len(sin.shape) == 2
+    seq_size = x.shape[0]
+    d_r = x.shape[1]
+    x_dtype = x.dtype
+
+    pypto.set_vec_tile_shapes(16, 64)
+    cast_x = pypto.cast(x, pypto.DT_FP32)
+    cast_cos = pypto.cast(cos, pypto.DT_FP32)
+    cast_sin = pypto.cast(sin, pypto.DT_FP32)
+
+    pypto.set_vec_tile_shapes(16, 64, 64)
+    x_view = pypto.reshape(cast_x, [seq_size, d_r // 2, 2])
+    x_trans = pypto.transpose(x_view, 1, 2)
+    x_re_second = pypto.reshape(x_trans, [seq_size, d_r])
+
+    pypto.set_vec_tile_shapes(16, 64)
+    x_embded = x_re_second * cast_cos + rotate_half(x_re_second) * cast_sin
+
+    return pypto.cast(x_embded, x.dtype)
+
+
+def rope_3d(x: pypto.Tensor, cos: pypto.Tensor, sin: pypto.Tensor) -> pypto.Tensor:
+    """Apply 3D Rotary Position Embedding (RoPE) version 2.
+
+    Implements RoPE transformation for 3D tensors with shape (batch, heads, dim).
+    The RoPE is applied independently to each head using broadcasted cos/sin values.
+
+    Args:
+        x: Input tensor of shape (batch, heads, rope_dim)
+        cos: Cosine values for RoPE, shape (batch, rope_dim)
+        sin: Sine values for RoPE, shape (batch, rope_dim)
+
+    Returns:
+        Tensor with RoPE applied, same shape as input x
+
+    Note:
+        The function broadcasts cos and sin to match the head dimension,
+        then applies rotation: x_rotated = x * cos + rotate_half(x) * sin
+    """
+    assert len(x.shape) == 3 and len(cos.shape) == 2 and len(sin.shape) == 2
+
+    pypto.set_vec_tile_shapes(1, 64)
+    cast_cos = pypto.cast(cos, pypto.DT_FP32)
+    cast_sin = pypto.cast(sin, pypto.DT_FP32)
+
+    pypto.set_vec_tile_shapes(1, 64, 64)
+    cast_x = pypto.cast(x, pypto.DT_FP32)
+    cast_cos = pypto.reshape(cast_cos, [x.shape[0], 1, x.shape[2]])
+    cast_sin = pypto.reshape(cast_sin, [x.shape[0], 1, x.shape[2]])
+
+    pypto.set_vec_tile_shapes(1, 64, 128, 128)
+    x_view = pypto.reshape(cast_x, [x.shape[0], x.shape[1], x.shape[2] // 2, 2])
+    x_trans = pypto.transpose(x_view, 2, 3)
+    x_re_second = pypto.reshape(x_trans, x.shape)
+    x_embed = x_re_second * cast_cos + rotate_half(x_re_second) * cast_sin
+
+    return pypto.cast(x_embed, x.dtype)
+
+def mla_prolog_v4_compute(x, wq_a, wq_b, wkv, rmsnorm_gamma_cq, rmsnorm_gamma_ckv, cos, sin, q_out, kv_out, qr_out, attrs, configs):
+    t = x.shape[0]
+    h = x.shape[1]
+    q_lora_rank = rmsnorm_gamma_cq.shape[0]
+    head_dim = rmsnorm_gamma_ckv.shape[0]
+    head_num = wq_b.shape[1] // head_dim
+    rope_dim = cos.shape[1]
+    gamma_cq_2d = pypto.reshape(rmsnorm_gamma_cq, [1, rmsnorm_gamma_cq.shape[0]], inplace=True)
+    gamma_ckv_2d = pypto.reshape(rmsnorm_gamma_ckv, [1, rmsnorm_gamma_ckv.shape[0]], inplace=True)
+
+    unroll_list = configs.unroll_list
+    for tIdx, unrollLength in pypto.loop_unroll(0, t, 1, name="MLA_BS_LOOP", idx_name="bs_offset",
+                                                unroll_list=unroll_list, ):
+        t_tile = unrollLength
+        x_tile = pypto.view(x, [t_tile, h], [tIdx, 0], valid_shape=[t_tile, h])
+        pypto.set_semantic_label("wqa-linear")
+        pypto.set_cube_tile_shapes([32, 32], [512, 512], [64, 64], True)
+        q = pypto.matmul(x_tile, wq_a, pypto.DataType.DT_BF16)
+        pypto.set_semantic_label("q-rmsnorm with weight")
+        pypto.set_vec_tile_shapes(8, q_lora_rank)
+        qr = rms_norm(q, attrs.eps)
+        gamma_cq_2d = pypto.cast(gamma_cq_2d, pypto.DataType.DT_FP32)
+        qr = pypto.mul(qr, gamma_cq_2d)
+        qr = pypto.cast(qr, pypto.DataType.DT_BF16)
+        pypto.assemble(qr, [tIdx, 0], qr_out)
+
+        pypto.set_semantic_label("wqb-linear")
+        pypto.set_cube_tile_shapes([32, 32], [128, 128], [256, 256], True)
+        q = pypto.matmul(qr, wq_b, pypto.DataType.DT_BF16)
+        q_3d = pypto.reshape(q, [t_tile, head_num, head_dim])
+        pypto.set_vec_tile_shapes(4, 64, 64)
+        qr2_3d = rms_norm(q_3d, attrs.eps)
+        qr2_3d = pypto.cast(qr2_3d, pypto.DataType.DT_BF16)
+        pypto.set_vec_tile_shapes(4, 64)
+        cos_2d = pypto.view(cos, [t_tile, rope_dim], [tIdx, 0], valid_shape =[t_tile, rope_dim])
+        sin_2d = pypto.view(sin, [t_tile, rope_dim], [tIdx, 0], valid_shape =[t_tile, rope_dim])
+        pypto.set_vec_tile_shapes(4, 64, 64)
+        qr2_3d_nope = pypto.view(qr2_3d, [t_tile, head_num, head_dim-rope_dim], [0, 0, 0], valid_shape=[t_tile, head_num, head_dim-rope_dim])
+        qr2_3d_rope = pypto.view(qr2_3d, [t_tile, head_num, rope_dim], [0, 0, head_dim-rope_dim], valid_shape=[t_tile, head_num, rope_dim])
+        qr2_3d_rope = rope_3d(qr2_3d_rope, cos_2d, sin_2d)
+        qr2_3d = pypto.concat([qr2_3d_nope, qr2_3d_rope], -1)
+        pypto.assemble(qr2_3d, [tIdx, 0, 0], q_out)
+
+        pypto.set_semantic_label("wkv-linear")
+        pypto.set_cube_tile_shapes([32, 32], [256, 256], [128, 128], True)
+        kv = pypto.matmul(x_tile, wkv, pypto.DataType.DT_BF16)
+        pypto.set_vec_tile_shapes(4, 64)
+        kv_norm = rms_norm(kv, attrs.eps)
+        gamma_ckv_2d = pypto.cast(gamma_ckv_2d, pypto.DataType.DT_FP32)
+        kv_norm = pypto.mul(kv_norm, gamma_ckv_2d)
+        kv_norm = pypto.cast(kv_norm, pypto.DataType.DT_BF16)
+
+        kv_norm_nope = pypto.view(kv_norm, [t_tile, head_dim-rope_dim], [0, 0], valid_shape=[t_tile, head_dim-rope_dim])
+        kv_norm_rope = pypto.view(kv_norm, [t_tile, rope_dim], [0, head_dim-rope_dim], valid_shape=[t_tile, rope_dim])
+        kv_norm_rope = rope_2d(kv_norm_rope, cos_2d, sin_2d)
+        kv_norm = pypto.concat([kv_norm_nope, kv_norm_rope], -1)
+        pypto.assemble(kv_norm, [tIdx, 0], kv_out)
+
+
+@pypto.jit(debug_options=dict(compile_debug_mode=1, runtime_debug_mode=1))
+def mla_prolog_v4(x, wq_a, wq_b, wkv, rmsnorm_gamma_cq, rmsnorm_gamma_ckv, cos, sin, q_out, kv_out, qr_out, attrs, configs):
+    mla_prolog_v4_compute(x, wq_a, wq_b, wkv, rmsnorm_gamma_cq, rmsnorm_gamma_ckv, cos, sin, q_out, kv_out, qr_out, attrs, configs)
