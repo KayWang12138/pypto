@@ -13,6 +13,8 @@
 from dataclasses import dataclass
 import math
 import torch
+from torch._dynamo import allow_in_graph
+from torch._subclasses.fake_tensor import FakeTensor
 import torch_npu
 import pypto
 from typing import List
@@ -318,3 +320,29 @@ def mla_prolog_v4_compute(x, wq_a, wq_b, wkv, rmsnorm_gamma_cq, rmsnorm_gamma_ck
 @pypto.jit(debug_options=dict(compile_debug_mode=1, runtime_debug_mode=1))
 def mla_prolog_v4(x, wq_a, wq_b, wkv, rmsnorm_gamma_cq, rmsnorm_gamma_ckv, cos, sin, q_out, kv_out, qr_out, attrs, configs):
     mla_prolog_v4_compute(x, wq_a, wq_b, wkv, rmsnorm_gamma_cq, rmsnorm_gamma_ckv, cos, sin, q_out, kv_out, qr_out, attrs, configs)
+
+@allow_in_graph
+def mla_prolog_v4_in(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, 
+    output_q_data, output_kv_data, output_qr_data, attrs, configs):
+
+    if isinstance(output_q_data, FakeTensor) or isinstance(output_kv_data, FakeTensor) or isinstance(output_qr_data, FakeTensor):
+        return output_q_data, output_kv_data, output_qr_data
+    out_q = pypto.from_torch(output_q_data, dynamic_axis=[0], name="output_q")
+    out_kv = pypto.from_torch(output_kv_data, dynamic_axis=[0], name="output_kv")
+    out_qr = pypto.from_torch(output_qr_data, dynamic_axis=[0], name="output_qr")
+
+    token_x_data = pypto.from_torch(token_x, dynamic_axis=[0], name="token_x")
+    wq_a_data = pypto.from_torch(wq_a, name="wq_a")
+    wq_b_data = pypto.from_torch(wq_b, name="wq_a")
+    wkv_data = pypto.from_torch(wkv, name="w_kv")
+    rope_cos_data = pypto.from_torch(rope_cos, dynamic_axis=[0], name="rope_cos")
+    rope_sin_data = pypto.from_torch(rope_sin, dynamic_axis=[0], name="rope_sin")
+    gamma_cq_data = pypto.from_torch(gamma_cq, name="gamma_cq")
+    gamma_ckv_data = pypto.from_torch(gamma_ckv, name="gamma_ckv")
+
+    input_data = [token_x_data, wq_a_data, wq_b_data, wkv_data, gamma_cq_data, gamma_ckv_data, rope_cos_data, rope_sin_data]
+    output_data = [out_q, out_kv, out_qr]
+
+    mla_prolog_v4(*input_data, *output_data, attrs, configs)
+
+    return output_q_data, output_kv_data, output_qr_data

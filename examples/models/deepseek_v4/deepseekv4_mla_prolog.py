@@ -17,13 +17,11 @@ from pathlib import Path
 import math
 import pytest
 import torch
-from torch._dynamo import allow_in_graph
-from torch._subclasses.fake_tensor import FakeTensor
 import torch_npu
 import pypto
 import logging
 import numpy as np
-from mla_prolog_impl import mla_prolog_v4, MlaPrologV4Configs, MlaPrologV4Attrs
+from mla_prolog_impl import mla_prolog_v4_in, MlaPrologV4Configs, MlaPrologV4Attrs
 from utils.compare import compare
 
 torch.manual_seed(5)
@@ -249,37 +247,11 @@ def convert_pypto_to_torch_type(pypto_type):
         raise ValueError(f"Unsupported pypto.DataType: {pypto_type}")
 
 
-@allow_in_graph
-def mla_prolog_kernel(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, 
-    output_q_data, output_kv_data, output_qr_data, attrs, configs):
-
-    if isinstance(output_q_data, FakeTensor) or isinstance(output_kv_data, FakeTensor) or isinstance(output_qr_data, FakeTensor):
-        return output_q_data, output_kv_data, output_qr_data
-    out_q = pypto.from_torch(output_q_data, dynamic_axis=[0], name="output_q")
-    out_kv = pypto.from_torch(output_kv_data, dynamic_axis=[0], name="output_kv")
-    out_qr = pypto.from_torch(output_qr_data, dynamic_axis=[0], name="output_qr")
-
-    token_x_data = pypto.from_torch(token_x, dynamic_axis=[0], name="token_x")
-    wq_a_data = pypto.from_torch(wq_a, name="wq_a")
-    wq_b_data = pypto.from_torch(wq_b, name="wq_a")
-    wkv_data = pypto.from_torch(wkv, name="w_kv")
-    rope_cos_data = pypto.from_torch(rope_cos, dynamic_axis=[0], name="rope_cos")
-    rope_sin_data = pypto.from_torch(rope_sin, dynamic_axis=[0], name="rope_sin")
-    gamma_cq_data = pypto.from_torch(gamma_cq, name="gamma_cq")
-    gamma_ckv_data = pypto.from_torch(gamma_ckv, name="gamma_ckv")
-
-    input_data = [token_x_data, wq_a_data, wq_b_data, wkv_data, gamma_cq_data, gamma_ckv_data, rope_cos_data, rope_sin_data]
-    output_data = [out_q, out_kv, out_qr]
-
-    mla_prolog_v4(*input_data, *output_data, attrs, configs)
-
-    return output_q_data, output_kv_data, output_qr_data
-
 class MLA_MODEL(torch.nn.Module):
     def forward(self, token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, output_q_data, output_kv_data, output_qr_data, attrs, configs):
-        return mla_prolog_kernel(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, output_q_data, output_kv_data, output_qr_data, attrs, configs)
+        return mla_prolog_v4_in(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, output_q_data, output_kv_data, output_qr_data, attrs, configs)
 
-def mla_prolog(params, input_tensors, golden_tensors, dtype, is_nz, attrs, configs):
+def mla_prolog(params, input_tensors, golden_tensors, dtype, is_nz):
     d_type = pypto.DataType.DT_FP16 if dtype == pypto.DataType.DT_FP16 else pypto.DataType.DT_BF16
     t = params['t']
     n1 = params["num_heads"]
@@ -326,6 +298,16 @@ def mla_prolog(params, input_tensors, golden_tensors, dtype, is_nz, attrs, confi
     output_qr_data = torch.zeros(qr_out_shape, dtype=convert_pypto_to_torch_type(d_type)).npu()
     outputs = [output_q_data, output_kv_data, output_qr_data]
 
+    attrs = MlaPrologV4Attrs(eps=1e-6, layout_query="TND", layout_key="PA_BSND")
+    configs = MlaPrologV4Configs(unroll_list=[4, 2, 1],
+                                cube_l1_reuse_setting={2: 4},
+                                mg_copyin_upper_bound=2 * 1024 * 1024,
+                                pg_upper_bound=8192,
+                                block_size=128,
+                                t_sub_tile=1,
+                                chunk_size=2,
+                                vec_nbuffer_mode=1)
+
     #capture model
     mla_prolog_model = torch.compile(MLA_MODEL(), backend="eager", dynamic=True)
     g = torch.npu.NPUGraph()
@@ -359,17 +341,8 @@ def test_t4_pa_nd_bf16():
     }
     dtype = pypto.DataType.DT_BF16
     is_nz = False
-    attrs = MlaPrologV4Attrs(eps=1e-6, layout_query="TND", layout_key="PA_BSND")
-    configs = MlaPrologV4Configs(unroll_list=[4, 2, 1],
-                                cube_l1_reuse_setting={2: 4},
-                                mg_copyin_upper_bound=2 * 1024 * 1024,
-                                pg_upper_bound=8192,
-                                block_size=128,
-                                t_sub_tile=1,
-                                chunk_size=2,
-                                vec_nbuffer_mode=1)
     input_tensors, golden_data = gen_mla_prolog_data(params, torch.bfloat16, is_nz)
-    mla_prolog(params, input_tensors, golden_data, dtype, is_nz, attrs, configs)
+    mla_prolog(params, input_tensors, golden_data, dtype, is_nz)
 
 
 def test_t16_pa_nd_bf16():
@@ -384,17 +357,8 @@ def test_t16_pa_nd_bf16():
     }
     dtype = pypto.DataType.DT_BF16
     is_nz = False
-    attrs = MlaPrologV4Attrs(eps=1e-6, layout_query="TND", layout_key="PA_BSND")
-    configs = MlaPrologV4Configs(unroll_list=[4, 2, 1],
-                                cube_l1_reuse_setting={2: 4},
-                                mg_copyin_upper_bound=2 * 1024 * 1024,
-                                pg_upper_bound=8192,
-                                block_size=128,
-                                t_sub_tile=1,
-                                chunk_size=2,
-                                vec_nbuffer_mode=1)
     input_tensors, golden_data = gen_mla_prolog_data(params, torch.bfloat16, is_nz)
-    mla_prolog(params, input_tensors, golden_data, dtype, is_nz, attrs, configs)
+    mla_prolog(params, input_tensors, golden_data, dtype, is_nz)
 
 if __name__ == "__main__":
     logging.basicConfig(
