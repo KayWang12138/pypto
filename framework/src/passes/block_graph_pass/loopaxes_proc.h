@@ -19,6 +19,7 @@
 #include "interface/function/function.h"
 #include "interface/operation/operation.h"
 #include "interface/tensor/logical_tensor.h"
+#include "passes/pass_interface/pass.h"
 
 namespace npu {
 namespace tile_fwk {
