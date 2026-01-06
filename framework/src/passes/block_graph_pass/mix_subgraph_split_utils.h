@@ -34,17 +34,17 @@ public:
     static void BroadcastDependencyClosure(std::set<int> &deps_i, std::set<int> &newDeps, std::unordered_map<int, std::set<int>> &closure, bool &changed, int i);
     static void InitiateClosure(const std::unordered_map<int, std::vector<int>>& directDeps, std::unordered_map<int, std::set<int>> &closure);
     static void CalculateClosure(std::unordered_map<int, std::set<int>> &closure);
-    static void UpdateOperandsForIncast(const std::vector<IncastParamPackTy> &incastParamList,
+    static void UpdateOperandsForIncast(const std::vector<SubfuncInvokeInfoTy::IncastParamPackTy> &incastParamList,
                                         const LogicalTensors &originalTensors, 
                                         const LogicalTensors &originalOperands, 
                                         LogicalTensors &newOperands, 
                                         std::set<LogicalTensorPtr> &processedTensors);
-    static void UpdateOperandsForOutcast(const std::vector<OutcastParamPackTy> &outcastParamList,
+    static void UpdateOperandsForOutcast(const std::vector<SubfuncInvokeInfoTy::OutcastParamPackTy> &outcastParamList,
                                         const LogicalTensors &originalTensors, 
                                         const LogicalTensors &originalOperands, 
                                         LogicalTensors &newOperands, 
                                         std::set<LogicalTensorPtr> &processedTensors);
-    static void UpdateOperandsForGlobalTensor(const std::vector<TensorParamPackTy> &paramList,
+    static void UpdateOperandsForGlobalTensor(const std::vector<SubfuncInvokeInfoTy::TensorParamPackTy> &paramList,
                                             const LogicalTensors &originalTensors, 
                                             const LogicalTensors &originalOperands, 
                                             LogicalTensors &newOperands, 

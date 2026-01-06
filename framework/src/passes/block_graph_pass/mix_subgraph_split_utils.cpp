@@ -80,7 +80,7 @@ static void MixSubgraphSplitUtils::CalculateClosure(std::unordered_map<int, std:
     } while (changed);
 }
 
-static void MixSubgraphSplitUtils::UpdateOperandsForIncast(const std::vector<IncastParamPackTy> &incastParamList,
+static void MixSubgraphSplitUtils::UpdateOperandsForIncast(const std::vector<SubfuncInvokeInfoTy::IncastParamPackTy> &incastParamList,
                                                             const LogicalTensors &originalIncasts, 
                                                             const LogicalTensors &originalIOperands, 
                                                             LogicalTensors &newIOperands, 
@@ -97,7 +97,7 @@ static void MixSubgraphSplitUtils::UpdateOperandsForIncast(const std::vector<Inc
     }
 }
 
-static void MixSubgraphSplitUtils::UpdateOperandsForOutcast(const std::vector<OutcastParamPackTy> &outcastParamList,
+static void MixSubgraphSplitUtils::UpdateOperandsForOutcast(const std::vector<SubfuncInvokeInfoTy::OutcastParamPackTy> &outcastParamList,
                                                             const LogicalTensors &originalOutcasts, 
                                                             const LogicalTensors &originalOOperands, 
                                                             LogicalTensors &newOOperands, 
@@ -114,7 +114,7 @@ static void MixSubgraphSplitUtils::UpdateOperandsForOutcast(const std::vector<Ou
     }
 }
 
-static void MixSubgraphSplitUtils::UpdateOperandsForGlobalTensor(const std::vector<TensorParamPackTy> &paramList,
+static void MixSubgraphSplitUtils::UpdateOperandsForGlobalTensor(const std::vector<SubfuncInvokeInfoTy::TensorParamPackTy> &paramList,
                                                                 const LogicalTensors &originalTensors, 
                                                                 const LogicalTensors &originalOperands, 
                                                                 LogicalTensors &newOperands, 
