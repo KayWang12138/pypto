@@ -536,7 +536,7 @@ TEST_F(TestCodegenDynCopy, UBCopyInAligned) {
 
 TEST_F(TestCodegenDynCopy, L0CToL1) {
     std::vector<int64_t> shape = {64, 64};
-    auto shapeImme = OpImmediate::Specified(shape);
+    auto shapeImmeL0C = OpImmediate::Specified(shape);
     TileShape::Current().SetVecTile(shape);
     TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {128, 128});
     Tensor inputA(DT_FP32, shape, "A");
@@ -555,6 +555,10 @@ TEST_F(TestCodegenDynCopy, L0CToL1) {
     auto localOutTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_L1, shape, dynValidShape});
 
     auto &op = function->AddOperation(Opcode::OP_L0C_TO_L1, {localTensor}, {localOutTensor});
+    op.SetOpAttribute(std::make_shared<CopyOpAttribute>(MEM_L0C, OpImmediate::Specified({0, 0}), shapeImmeL0C, shapeImmeL0C));
+    auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(op.GetOpAttribute());
+    copyAttr->SetFromOffset(OpImmediate::Specified({0, 0}));
+    copyAttr->SetToDynValidShape(OpImmediate::Specified(shape));
     op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
 
     std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
@@ -567,9 +571,8 @@ TEST_F(TestCodegenDynCopy, L0CToL1) {
 
     cop.Init(op);
     std::string res = cop.GenOpCode();
-    printf("res: %s", res.c_str());
     std::string expect =
-        R"!!!(TileOp::DynL0CToL1<float, float, 0>((__cbuf__ float*)L1_S0_E0, (__cc__ float*)L0C_S0_E0, 64, 64, 64, 64, 0, 0, 0);
+        R"!!!(TileOp::DynL0CToL1<float, float, 0>((__cbuf__ float*)L1_S0_E0, (__cc__ float*)L0C_S0_E0, 64, 64, 64, 64, 0, 0, 64, 64, 0, 0, 0);
 )!!!";
     EXPECT_EQ(res, expect);
 }
