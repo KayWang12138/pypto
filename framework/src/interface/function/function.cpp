@@ -1386,14 +1386,14 @@ FunctionHashResult Function::ComputeHashOrderless() const {
     }
 
     // 将未经排序的magic放入ss
-    for (auto &ele : magics) {
-        ss << ele.str();
-    }
+    // for (auto &ele : magics) {
+    //     ss << ele.str();
+    // }
 
     // 将排序后的indexed_magics放入ss
-    // for (size_t i = 0; i < indexed_magics.size(); i++) {
-    //     ss << indexed_magics[i].second.str();
-    // }
+    for (size_t i = 0; i < indexed_magics.size(); i++) {
+        ss << indexed_magics[i].second.str();
+    }
 
     // 输出排序后的顺序信息（用于调试）
     // std::cout << "outcast order after sorting: ";

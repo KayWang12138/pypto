@@ -166,6 +166,8 @@ public:
 
     std::vector<int> inParamLocation_;
     std::vector<int> outParamLocation_;
+    std::vector<int> opOutcastOrder_;
+    std::vector<int> opIncastOrder_;
     OpSyncQueue syncQueue_;
     QueueType queueType;
 

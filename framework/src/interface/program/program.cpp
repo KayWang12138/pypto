@@ -325,7 +325,7 @@ void Program::HandleTaskSubmission(Function *result) {
 }
 
 // End the current function and pop the function index from the stack
-std::tuple<Function*, Operation *, bool> Program::EndFunction(const std::string &funcName,
+std::tuple<Function*, Operation *, bool, std::vector<std::vector<int>>> Program::EndFunction(const std::string &funcName,
                                                                           bool generateCall) {
 #if ENABLE_HIDDENLOOP
     // End child hidden loop
@@ -342,13 +342,14 @@ std::tuple<Function*, Operation *, bool> Program::EndFunction(const std::string 
     currentFunctionPtr_->SetUnderDynamicFunction(Program::GetInstance().GetCurrentDynamicFunction() != nullptr);
     if (currentFunctionPtr_->IsStatic() && funcName != currentFunctionPtr_->GetRawName()) {
         ALOG_ERROR("Function name not match current: ", currentFunctionPtr_->GetRawName(), " != ", funcName);
-        return std::make_tuple(nullptr, nullptr, false);
+        return std::make_tuple(nullptr, nullptr, false, std::vector<std::vector<int>>());
     }
 
     if (currentFunctionPtr_->IsHiddenFunction() && currentFunctionPtr_->Operations(false).size() <= 0) {
         generateCall = false;
     }
     Operation *callop = FinishCurrentFunction(scope, generateCall);
+    std::vector<std::vector<int>> opCastOrder = {currentFunctionPtr_->GetFunctionHash().GetOutcastOrder(), currentFunctionPtr_->GetFunctionHash().GetIncastOrder()};
     bool hit = QueryAndUpdateCurrentFunction();
     auto result = currentFunctionPtr_;
 
@@ -362,7 +363,7 @@ std::tuple<Function*, Operation *, bool> Program::EndFunction(const std::string 
         currentFunctionPtr_->GetRawName() + "_hiddenfunc" + std::to_string(currentFunctionPtr_->GetCallopList().size()));
 #endif
 
-    return std::make_tuple(result, callop, hit);
+    return std::make_tuple(result, callop, hit, opCastOrder);
 }
 
 void Program::PopStackAndUpdateCurrent() {

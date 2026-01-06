@@ -423,6 +423,8 @@ void SubgraphToFunction::InsertParameter(size_t i, Function& leafFunc) {
     }
 }
 
+std::unordered_map<unsigned long, std::vector<int>> outcastOrderMap;
+
 Status SubgraphToFunction::ProcessSubgraph(
     Function &function, size_t i, size_t &programIdx, std::vector<Function *> &outputFuncList) {
     auto subgraph = nLIST[i];
@@ -447,40 +449,40 @@ Status SubgraphToFunction::ProcessSubgraph(
 
     SetSemanticLabel(subgraph, *callOp);
 
+    // =================================================================================================================================================================
+
+    if (!std::get<2>(result)) {
+        // Cache miss, record the outcast order.
+        outcastOrderMap[std::get<0>(result)->GetFunctionHash().GetHash()] = std::get<0>(result)->GetFunctionHash().GetOutcastOrder();
+        APASS_LOG_DEBUG_F(Elements::Operation, "LeafFunc %zu Cache Miss, record the outcast order.", i);
+        APASS_LOG_DEBUG_F(Elements::Operation, "Outcast Order is %s.", IntVecToStr(outcastOrderMap[std::get<0>(result)->GetFunctionHash().GetHash()]).c_str());
+    } else {
+        // Cache hit, check whether the outcast order is matched.
+        if (outcastOrderMap.find(std::get<0>(result)->GetFunctionHash().GetHash()) == outcastOrderMap.end()) {
+            APASS_LOG_DEBUG_F(Elements::Operation, "LeafFunc %zu Cache Hit but not recorded in outcastOrderMap!!!", i);
+            return FAILED;
+        }
+        if (outcastOrderMap[std::get<0>(result)->GetFunctionHash().GetHash()] != std::get<0>(result)->GetFunctionHash().GetOutcastOrder()) {
+            APASS_LOG_DEBUG_F(Elements::Operation, "LeafFunc %zu Cache Hit with different Outcast Order.", i);
+            APASS_LOG_DEBUG_F(Elements::Operation, "Recorded Outcast Order is %s.", IntVecToStr(outcastOrderMap[std::get<0>(result)->GetFunctionHash().GetHash()]).c_str());
+            APASS_LOG_DEBUG_F(Elements::Operation, "Current Outcast Order is %s.", IntVecToStr(std::get<0>(result)->GetFunctionHash().GetOutcastOrder()).c_str());
+            // TODO: reorder outcast
+            // reorderOutcast(std::get<0>(result), std::get<0>(result)->GetFunctionHash().GetOutcastOrder(), std::get<3>(result)[0]);
+        }
+    }
+
+    // =================================================================================================================================================================
+
     return ProcessCacheResult(result, i, programIdx, outputFuncList, *callOp);
 }
 
-Status SubgraphToFunction::ProcessCacheResult(const std::tuple<Function *, Operation *, bool> &result, size_t i,
+Status SubgraphToFunction::ProcessCacheResult(const std::tuple<Function *, Operation *, bool, std::vector<std::vector<int>>> &result, size_t i,
     size_t &programIdx, std::vector<Function *> &outputFuncList, Operation &callOp) {
     const int getValue = 2;
     // 3.1 Hit subgraph
     if (std::get<getValue>(result)) {
         APASS_LOG_DEBUG_F(Elements::Operation, "LeafFunc %zu Hit Current hashValue is %lu.", i,
             std::get<0>(result)->ComputeHash().GetHash());
-
-        // =================================================================================================================================================================
-
-        auto functionHash = std::get<0>(result)->ComputeHash();
-        const auto &outcastOrder = functionHash.GetOutcastOrder();
-        APASS_LOG_DEBUG_F(Elements::Operation, "LeafFunc %zu Hit Current outcastOrder is %s.", i, IntVecToStr(functionHash.GetOutcastOrder()).c_str());
-        APASS_LOG_DEBUG_F(Elements::Operation, "LeafFunc %zu Hit Current incastOrder is %s.", i, IntVecToStr(functionHash.GetIncastOrder()).c_str());
-
-        bool isSequential = true;
-        for (size_t idx = 0; idx < outcastOrder.size(); ++idx) {
-            if (static_cast<size_t>(outcastOrder[idx]) != idx) {
-                isSequential = false;
-                break;
-            }
-        }
-
-        if (!isSequential && !outcastOrder.empty()) {
-            Function *func = std::get<0>(result);
-            APASS_LOG_DEBUG_F(Elements::Operation, "LeafFunc %zu need to reorder outcast.", i);
-            auto [funcPtr, callop, flag] = result;
-            // funcPtr->ReorderOutcasts(outcastOrder);
-        }
-
-        // =================================================================================================================================================================
     
         psgToESgMap.insert({std::get<0>(result)->GetProgramId(), i});
         auto callAttr = dynamic_cast<CallOpAttribute *>(callOp.GetOpAttribute().get());
