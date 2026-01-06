@@ -395,7 +395,9 @@ void IfStatement::Print(std::ostream& os, int indent) const {
         os << " = ";
     }
 
-    os << "statement.if " << condition_ << " {\n";
+    os << "statement.if ";
+    condition_->Print(os, 0);
+    os << " {\n";
 
     for (const auto& stmt : thenCompound_->GetStatements()) {
         if (stmt) {

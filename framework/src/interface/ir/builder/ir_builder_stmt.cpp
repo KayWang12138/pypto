@@ -39,7 +39,7 @@ ForStatementPtr IRBuilder::CreateForStmt(ScalarValuePtr iv, ScalarValuePtr start
     return st;
 }
 
-IfStatementPtr IRBuilder::CreateIfStmt(std::string cond) {
+IfStatementPtr IRBuilder::CreateIfStmt(ScalarValuePtr cond) {
     if (!compound_) throw std::runtime_error("IRBuilder::CreateIfStmt: compound is null");
 
     auto st = std::make_shared<IfStatement>(std::move(cond));

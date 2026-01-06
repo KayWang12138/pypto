@@ -230,7 +230,7 @@ using ForStatementPtr = std::shared_ptr<ForStatement>;
 // A value-producing conditional.
 class IfStatement : public Statement {
 public:
-    explicit IfStatement(std::string condition)
+    explicit IfStatement(ScalarValuePtr condition)
         : condition_(std::move(condition)) {
         thenCompound_ = std::make_shared<CompoundStatement>();
         elseCompound_ = std::make_shared<CompoundStatement>();
@@ -238,7 +238,7 @@ public:
 
     StatementKind GetKind() const override { return StatementKind::If; }
 
-    const std::string& GetCondition() const { return condition_; }
+    const ScalarValuePtr GetCondition() const { return condition_; }
 
     std::vector<StatementPtr>& ThenBranch() { return thenCompound_->GetStatements(); }
     const std::vector<StatementPtr> ThenBranch() const { return thenCompound_->GetStatements(); }
@@ -267,7 +267,7 @@ public:
     void Print(std::ostream& os, int indent) const override;
 
 private:
-    std::string condition_;
+    ScalarValuePtr condition_;
     CompoundStatementPtr thenCompound_;  // Scope for Data objects and statements created in the then branch
     CompoundStatementPtr elseCompound_;  // Scope for Data objects and statements created in the else branch
     std::vector<ValuePtr> results_;  // Result values of the if-statement

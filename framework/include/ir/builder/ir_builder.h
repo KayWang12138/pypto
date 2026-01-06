@@ -83,7 +83,7 @@ public:
                                 ScalarValuePtr end,
                                 ScalarValuePtr step);
 
-    IfStatementPtr CreateIfStmt(std::string cond);
+    IfStatementPtr CreateIfStmt(ScalarValuePtr cond);
 
     YieldStatementPtr CreateYield(ValuePtrs values);
 

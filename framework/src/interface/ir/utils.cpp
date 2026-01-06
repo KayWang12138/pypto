@@ -17,6 +17,7 @@
 #include "ir/value.h"
 
 #include <ostream>
+#include <unordered_map>
 
 namespace pto {
 
@@ -41,50 +42,34 @@ void PrintIndent(std::ostream& os, int indent) {
     }
 }
 
+static std::unordered_map<DataType, std::string> dataTypeNameDict = {
+    {DataType::BOOL, "bool"},
+    {DataType::INT4, "int4"},
+    {DataType::INT8, "int8"},
+    {DataType::INT16, "int16"},
+    {DataType::INT32, "int32"},
+    {DataType::INT64, "int64"},
+    {DataType::UINT8, "uint8"},
+    {DataType::UINT16, "uint16"},
+    {DataType::UINT32, "uint32"},
+    {DataType::UINT64, "uint64"},
+    {DataType::FP8, "fp8"},
+    {DataType::FP16, "fp16"},
+    {DataType::BF16, "bf16"},
+    {DataType::FP32, "fp32"},
+    {DataType::FP64, "fp64"},
+    {DataType::HF4, "hf4"},
+    {DataType::HF8, "hf8"},
+    {DataType::BOTTOM, "bottom"},
+    {DataType::UNKNOWN, "unknown"}
+};
+
 std::string DataTypeToString(DataType type) {
-    switch (type) {
-    case DataType::BOOL:
-        return "bool";
-    case DataType::INT4:
-        return "int4";
-    case DataType::INT8:
-        return "int8";
-    case DataType::INT16:
-        return "int16";
-    case DataType::INT32:
-        return "int32";
-    case DataType::INT64:
-        return "int64";
-    case DataType::UINT8:
-        return "uint8";
-    case DataType::UINT16:
-        return "uint16";
-    case DataType::UINT32:
-        return "uint32";
-    case DataType::UINT64:
-        return "uint64";
-    case DataType::FP8:
-        return "fp8";
-    case DataType::FP16:
-        return "fp16";
-    case DataType::BF16:
-        return "bf16";
-    case DataType::FP32:
-        return "fp32";
-    case DataType::FP64:
-        return "fp64";
-    case DataType::HF4:
-        return "hf4";
-    case DataType::HF8:
-        return "hf8";
-    case DataType::BOTTOM:
-        return "bottom";
-    case DataType::UNKNOWN:
-        return "unknown";
-    default:
+    if (dataTypeNameDict.count(type)) {
+        return dataTypeNameDict[type];
+    } else {
         return "unknown";
     }
-    return "unknown";
 }
 
 DataType StringToValueType(const std::string& name) {

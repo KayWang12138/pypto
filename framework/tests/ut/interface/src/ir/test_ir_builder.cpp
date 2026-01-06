@@ -153,12 +153,10 @@ TEST(IRTEST, TestControlFlow) {
             builder.Emit(addOpY);
 
             // if i then outputX = mul(outputX, scale1) else outputY = mul(outputY, scale2)
-            auto ifs = builder.CreateIfStmt("i");
+            auto ifs = builder.CreateIfStmt(i);
             ValuePtr resIfX, resIfY;
             {
                 auto ifThenGuard = builder.EnterIfThen(ifs);
-
-                // ifX = view(outputX, {1, 128}, {i, 0})
 
                 resIfX = builder.CreateTensor({batch, constant128}, DataType::FP32, "outputX");
                 auto mulOpX = builder.CreateBinaryOp(
@@ -171,8 +169,6 @@ TEST(IRTEST, TestControlFlow) {
             {
                 auto ifElseGuard = builder.EnterIfElse(ifs);
                 
-                // ifY = view(outputY, {1, 128}, {i, 0})
-
                 resIfY = builder.CreateTensor({batch, constant128}, DataType::FP32, "outputY");
                 auto mulOpY = builder.CreateBinaryOp(
                     Opcode::OP_MUL, 
