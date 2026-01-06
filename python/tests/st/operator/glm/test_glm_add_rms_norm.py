@@ -189,7 +189,6 @@ def test_rms_norm_main():
         with torch.npu.graph(g):
             add_rms_norm_kernel(*pto_inputs, *pto_outputs, eps)
         g.replay()
-        torch_npu.npu.synchronize()
 
         golden_hidden_states, golden_residual = add_rms_norm_golden(hidden_states_tensor,
                                                                     residual_tensor, weight_tensor, bias_input, eps)
@@ -225,7 +224,6 @@ def add_rms_norm(
     pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
     pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
     add_rms_norm_kernel(*pto_inputs, *pto_outputs, eps)
-    torch_npu.npu.synchronize()
 
 
 def main():
