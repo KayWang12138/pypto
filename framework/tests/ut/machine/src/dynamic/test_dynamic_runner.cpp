@@ -61,7 +61,7 @@ TEST_F(TestDynamicDeviceRunner, TestDynamicRun) {
     args.nrAic = 2;
     args.nrAiv = 2;
     runner.InitDynamicArgs(args);
-    [[maybe_unused]]npu::tile_fwk::AstKernelArgs taskArgs;
+    [[maybe_unused]]npu::tile_fwk::DeviceKernelArgs taskArgs;
     runner.args_.nrAic = 2;
     runner.args_.nrAiv = 2;
     int ret = runner.DynamicRun(0, 0, 0, 0, &taskArgs, 2);
