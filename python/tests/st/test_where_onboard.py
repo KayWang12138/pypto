@@ -58,9 +58,8 @@ def test_vector_operation_where():
                                           (pypto.symbolic_scalar(m) - s_idx * view_shape[1]).min(
                                           pypto.symbolic_scalar(view_shape[1]))])
                 pypto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
-                tile_input.move(pypto.where(tile_cond, tile_input, tile_other))
-                pypto.assemble(
-                    tile_input, [b_idx * view_shape[0], s_idx * view_shape[1]], out)
+                result = pypto.where(tile_cond, tile_input, tile_other)
+                pypto.assemble(result, [b_idx * view_shape[0], s_idx * view_shape[1]], out)
 
     cond_tensor = torch.randint(0, 2, (n, m), dtype=torch.bool)
     input_tensor = torch.rand(n, m, dtype=torch.float32)
