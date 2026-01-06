@@ -49,7 +49,7 @@ def sigmoid(x: pypto.Tensor) -> pypto.Tensor:
     return sigmoid
 
 
-def hc_split_sinkhorn(x: pypto.Tensor, hc_scale: pypto.Tensor, hc_base: pypto.Tensor) \
+def hc_split_sinkhorn(x: pypto.Tensor, hc_scale: pypto.Tensor, hc_base: pypto.Tensor, real_t, t_idx) \
     -> tuple[pypto.Tensor, pypto.Tensor, pypto.Tensor]:
     tile_t, _ = x.shape # (tile_t, 24)
 
@@ -62,7 +62,7 @@ def hc_split_sinkhorn(x: pypto.Tensor, hc_scale: pypto.Tensor, hc_base: pypto.Te
 
     comb_flag = (x[:, 2*hc: ] * (hc_scale[2:3].reshape([1, 1])) + hc_base[:, 2*hc: ])
 
-    comb_flag = comb_flag.reshape([tile_t, hc, hc]) # (tile_t, 4, 4)
+    comb_flag = comb_flag.reshape([tile_t, hc, hc], valid_shape=[pypto.min(real_t - t_idx * tile_t, tile_t), hc, hc]) # (tile_t, 4, 4)
     pypto.set_vec_tile_shapes(16, 64, 64)
     row_max = pypto.amax(comb_flag, -1, True)   # (tile_t, 4, 1)
     comb_flag = pypto.exp(comb_flag - row_max)    # (tile_t, 4, 4)
@@ -85,12 +85,12 @@ def hc_split_sinkhorn(x: pypto.Tensor, hc_scale: pypto.Tensor, hc_base: pypto.Te
 def hc_pre_kernel(x: pypto.Tensor, hc_fn: pypto.Tensor, hc_scale: pypto.Tensor, hc_base_: pypto.Tensor,
                 y: pypto.Tensor, post: pypto.Tensor, comb: pypto.Tensor
 ):
-    # pypto.set_debug_options(runtime_debug_mode=1)
+    pypto.set_debug_options(runtime_debug_mode=1)
 
     pypto.set_vec_tile_shapes(64, 64)
     pypto.set_cube_tile_shapes([16, 16], [256, 512], [128, 128])
 
-    tile_t = 8
+    tile_t = 16
     real_t = x.shape[0]
     loop_t_times = (real_t + tile_t - 1) // tile_t
 
@@ -100,18 +100,18 @@ def hc_pre_kernel(x: pypto.Tensor, hc_fn: pypto.Tensor, hc_scale: pypto.Tensor, 
     for t_idx in pypto.loop(loop_t_times, name="t_loop", idx_name="t_idx"):
         x_view = pypto.view(x_2d, [tile_t, hc*d], [t_idx*tile_t, 0])
         x_fp32 = pypto.cast(x_view, pypto.DT_FP32)
-        mm_res = pypto.matmul(x_fp32, hc_fn, pypto.DT_FP32, b_trans=True)
+        mm_res = pypto.matmul(x_fp32, hc_fn, pypto.DT_FP32, b_trans=True)   # (t, hc*d) @ (mix_hc, hc*d)^t = (t, mix_hc)
         rms_res = rms_norm_denom(x_fp32)
         rms_res = mm_res / rms_res
-        pre, post_, comb_ = hc_split_sinkhorn(rms_res, hc_scale, hc_base) # (tile_t, hc), (tile_t, hc), (tile_t, hc, hc)
-        pre_3d = pre.reshape([tile_t, hc, 1])
-        x_fp32_3d = x_fp32.reshape([tile_t, hc, d])
+        pre, post_, comb_ = hc_split_sinkhorn(rms_res, hc_scale, hc_base, real_t, t_idx)   # (tile_t, hc), (tile_t, hc), (tile_t, hc, hc)
+        pre_3d = pre.reshape([tile_t, hc, 1], valid_shape=[pypto.min(real_t - t_idx * tile_t, tile_t), hc, 1])
+        x_fp32_3d = x_fp32.reshape([tile_t, hc, d], valid_shape=[pypto.min(real_t - t_idx * tile_t, tile_t), hc, d])
         comb[t_idx*tile_t:, :, :] = comb_
         mul_res = pre_3d * x_fp32_3d
         res_fp32 = pypto.sum(mul_res, dim=-2)
         pypto.set_vec_tile_shapes(64, 64)
         y[t_idx*tile_t:, :] = pypto.cast(res_fp32, pypto.DT_BF16)
-        post[t_idx*tile_t:, :] = post_
+        post[t_idx*tile_t:, :] = post_ + 0.0
 
 
 @allow_in_graph
@@ -173,8 +173,8 @@ def test_hc_pre_inmodel(t = 16):
         pypto.runtime._device_synchronize()
         y, post, comb = y.cpu(), post.cpu(), comb.cpu()
         ### compare
-        compare(y, y_gd, "res", atol=0.0001, rtol=0.0078125)
-        print("res compare success!!!")
+        compare(y, y_gd, "y", atol=0.0001, rtol=0.0078125)
+        print("y compare success!!!")
         compare(post, post_gd, "post", atol=0.000025, rtol=0.005)
         print("post compare success!!!")
         compare(comb, comb_gd, "comb", atol=0.000025, rtol=0.005)
@@ -186,10 +186,10 @@ def test_hc_pre(t = 16):
     torch.npu.set_device(int(device_id))
     torch.manual_seed(42)
 
-    x, hc_fn, hc_scale, hc_base, res_gd, post_gd, comb_gd = gen_hc_pre_data(t)
+    x, hc_fn, hc_scale, hc_base, y_gd, post_gd, comb_gd = gen_hc_pre_data(t)
     print("gen golden success !!!")
 
-    res = torch.zeros_like(res_gd).to(device=f'npu:{device_id}')
+    y = torch.zeros_like(y_gd).to(device=f'npu:{device_id}')
     post = torch.zeros_like(post_gd).to(device=f'npu:{device_id}')
     comb = torch.zeros_like(comb_gd).to(device=f'npu:{device_id}')
 
@@ -198,7 +198,7 @@ def test_hc_pre(t = 16):
         hc_fn.to(device=f'npu:{device_id}'): None,
         hc_scale.to(device=f'npu:{device_id}'): None,
         hc_base.to(device=f'npu:{device_id}'): None,
-        res:[0],
+        y:[0],
         post:[0],
         comb:[0],
     }
@@ -207,16 +207,16 @@ def test_hc_pre(t = 16):
     hc_pre_kernel(*pto_in_outs)
     torch_npu.npu.synchronize()
 
-    res = res.cpu()
+    y = y.cpu()
     post = post.cpu()
     comb = comb.cpu()
 
-    # print("res", res.shape, res)
+    # print("y", y.shape, y)
     # print("post", post.shape, post)
     # print("comb", comb.shape, comb)
 
-    compare(res, res_gd, "res", atol=0.0001, rtol=0.0078125)
-    print("res compare success!!!")
+    compare(y, y_gd, "y", atol=0.0001, rtol=0.0078125)
+    print("y compare success!!!")
     compare(post, post_gd, "post", atol=0.000025, rtol=0.005)
     print("post compare success!!!")
     compare(comb, comb_gd, "comb", atol=0.000025, rtol=0.005)
@@ -226,4 +226,6 @@ def test_hc_pre(t = 16):
 if __name__ == "__main__":
     print("start test !!!")
     # test_hc_pre_inmodel()
-    test_hc_pre()
+    t_list = {8, 15, 16, 31, 32, 512}
+    for t in t_list:
+        test_hc_pre(t)
