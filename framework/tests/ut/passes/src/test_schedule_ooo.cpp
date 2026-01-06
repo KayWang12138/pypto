@@ -131,8 +131,8 @@ TEST_F(ScheduleOoOTest, TestMainScheduleOoO) {
     EXPECT_TRUE(emptyOpFunctionPtr != nullptr);
     currFunctionPtr->SetGraphType(GraphType::BLOCK_GRAPH);
     emptyOpFunctionPtr->SetGraphType(GraphType::BLOCK_GRAPH);
-    rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
-    rootFuncPtr->rootFunc_->programs_.emplace(emptyOpFunctionPtr->GetFuncMagic(), emptyOpFunctionPtr.get());
+    rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr);
+    rootFuncPtr->rootFunc_->programs_.emplace(emptyOpFunctionPtr->GetFuncMagic(), emptyOpFunctionPtr);
     std::vector<int64_t> shape = {128, 128};
     auto shapeImme = OpImmediate::Specified(shape);
 

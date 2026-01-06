@@ -2456,7 +2456,7 @@ std::shared_ptr<Function> Function::LoadJson(Program &belongTo, const Json &func
     if (funcDump.count("programs") != 0) {
         uint64_t index = 0;
         for (auto &programMagic : funcDump["programs"]) {
-            func->programs_.emplace(std::make_pair(index++, belongTo.GetFunctionByMagic(programMagic.get<int>()).get()));
+            func->programs_.emplace(std::make_pair(index++, belongTo.GetFunctionByMagic(programMagic.get<int>())));
         }
     }
 

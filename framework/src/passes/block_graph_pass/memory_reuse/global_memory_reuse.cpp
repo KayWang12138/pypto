@@ -467,7 +467,7 @@ void Allocator::InitializeLeafGlobalMemoryReuse() {
         return;
     }
     for (auto& program : function_->programs_) {
-        Function* leafProgram = program.second;
+        Function* leafProgram = program.second.get();
         ProcessLeafGlobalMemoryReuse(*leafProgram);
     }
     // 标记无重叠的消费者张量

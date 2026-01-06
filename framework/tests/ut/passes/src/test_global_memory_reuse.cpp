@@ -571,9 +571,9 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseNormal) {
     auto opAttributeCall3 = std::make_shared<CallOpAttribute>(leafFunc3.ComputeHash(), symbolicScalarFunction3);
     G.GetOp("call3")->SetOpAttribute(opAttributeCall3);
 
-    function->programs_.emplace(1, &leafFunc1); // 索引1 绑定 leafFunc1
-    function->programs_.emplace(2, &leafFunc2); // 索引2 绑定 leafFunc2
-    function->programs_.emplace(3, &leafFunc3); // 索引3 绑定 leafFunc3
+    function->programs_.emplace(1, std::shared_ptr<Function>(&leafFunc1, [](Function*){ /* do nothing */ })); // 索引1 绑定 leafFunc1
+    function->programs_.emplace(2, std::shared_ptr<Function>(&leafFunc2, [](Function*){ /* do nothing */ })); // 索引2 绑定 leafFunc2
+    function->programs_.emplace(3, std::shared_ptr<Function>(&leafFunc3, [](Function*){ /* do nothing */ })); // 索引3 绑定 leafFunc3
 
     auto &cache = Program::GetInstance().GetFunctionCache();
     leafFunc1.SetGraphType(GraphType::BLOCK_GRAPH);
@@ -696,9 +696,9 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseOutputActualRawmagic) {
     auto opAttributeCall3 = std::make_shared<CallOpAttribute>(leafFunc3.ComputeHash(), symbolicScalarFunction3);
     G.GetOp("call3")->SetOpAttribute(opAttributeCall3);
 
-    function->programs_.emplace(1, &leafFunc1); // 索引1 绑定 leafFunc1
-    function->programs_.emplace(2, &leafFunc2); // 索引2 绑定 leafFunc2
-    function->programs_.emplace(3, &leafFunc3); // 索引3 绑定 leafFunc3
+    function->programs_.emplace(1, std::shared_ptr<Function>(&leafFunc1, [](Function*){ /* do nothing */ })); // 索引1 绑定 leafFunc1
+    function->programs_.emplace(2, std::shared_ptr<Function>(&leafFunc2, [](Function*){ /* do nothing */ })); // 索引2 绑定 leafFunc2
+    function->programs_.emplace(3, std::shared_ptr<Function>(&leafFunc3, [](Function*){ /* do nothing */ })); // 索引3 绑定 leafFunc3
 
     auto &cache = Program::GetInstance().GetFunctionCache();
     leafFunc1.SetGraphType(GraphType::BLOCK_GRAPH);
@@ -821,9 +821,9 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseInputActualRawmagic) {
     auto opAttributeCall3 = std::make_shared<CallOpAttribute>(leafFunc3.ComputeHash(), symbolicScalarFunction3);
     G.GetOp("call3")->SetOpAttribute(opAttributeCall3);
 
-    function->programs_.emplace(1, &leafFunc1); // 索引1 绑定 leafFunc1
-    function->programs_.emplace(2, &leafFunc2); // 索引2 绑定 leafFunc2
-    function->programs_.emplace(3, &leafFunc3); // 索引3 绑定 leafFunc3
+    function->programs_.emplace(1, std::shared_ptr<Function>(&leafFunc1, [](Function*){ /* do nothing */ })); // 索引1 绑定 leafFunc1
+    function->programs_.emplace(2, std::shared_ptr<Function>(&leafFunc2, [](Function*){ /* do nothing */ })); // 索引2 绑定 leafFunc2
+    function->programs_.emplace(3, std::shared_ptr<Function>(&leafFunc3, [](Function*){ /* do nothing */ })); // 索引3 绑定 leafFunc3
 
     auto &cache = Program::GetInstance().GetFunctionCache();
     leafFunc1.SetGraphType(GraphType::BLOCK_GRAPH);
@@ -945,9 +945,9 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseInputLessThanOutput) {
     auto opAttributeCall3 = std::make_shared<CallOpAttribute>(leafFunc3.ComputeHash(), symbolicScalarFunction3);
     G.GetOp("call3")->SetOpAttribute(opAttributeCall3);
 
-    function->programs_.emplace(1, &leafFunc1); // 索引1 绑定 leafFunc1
-    function->programs_.emplace(2, &leafFunc2); // 索引2 绑定 leafFunc2
-    function->programs_.emplace(3, &leafFunc3); // 索引3 绑定 leafFunc3
+    function->programs_.emplace(1, std::shared_ptr<Function>(&leafFunc1, [](Function*){ /* do nothing */ })); // 索引1 绑定 leafFunc1
+    function->programs_.emplace(2, std::shared_ptr<Function>(&leafFunc2, [](Function*){ /* do nothing */ })); // 索引2 绑定 leafFunc2
+    function->programs_.emplace(3, std::shared_ptr<Function>(&leafFunc3, [](Function*){ /* do nothing */ })); // 索引3 绑定 leafFunc3
 
     auto &cache = Program::GetInstance().GetFunctionCache();
     leafFunc1.SetGraphType(GraphType::BLOCK_GRAPH);
@@ -1069,9 +1069,9 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseInputEightTimesOutput) {
     auto opAttributeCall3 = std::make_shared<CallOpAttribute>(leafFunc3.ComputeHash(), symbolicScalarFunction3);
     G.GetOp("call3")->SetOpAttribute(opAttributeCall3);
 
-    function->programs_.emplace(1, &leafFunc1); // 索引1 绑定 leafFunc1
-    function->programs_.emplace(2, &leafFunc2); // 索引2 绑定 leafFunc2
-    function->programs_.emplace(3, &leafFunc3); // 索引3 绑定 leafFunc3
+    function->programs_.emplace(1, std::shared_ptr<Function>(&leafFunc1, [](Function*){ /* do nothing */ })); // 索引1 绑定 leafFunc1
+    function->programs_.emplace(2, std::shared_ptr<Function>(&leafFunc2, [](Function*){ /* do nothing */ })); // 索引2 绑定 leafFunc2
+    function->programs_.emplace(3, std::shared_ptr<Function>(&leafFunc3, [](Function*){ /* do nothing */ })); // 索引3 绑定 leafFunc3
 
     auto &cache = Program::GetInstance().GetFunctionCache();
     leafFunc1.SetGraphType(GraphType::BLOCK_GRAPH);
@@ -1193,9 +1193,9 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseInputLessThanEightTimesOutput
     auto opAttributeCall3 = std::make_shared<CallOpAttribute>(leafFunc3.ComputeHash(), symbolicScalarFunction3);
     G.GetOp("call3")->SetOpAttribute(opAttributeCall3);
 
-    function->programs_.emplace(1, &leafFunc1); // 索引1 绑定 leafFunc1
-    function->programs_.emplace(2, &leafFunc2); // 索引2 绑定 leafFunc2
-    function->programs_.emplace(3, &leafFunc3); // 索引3 绑定 leafFunc3
+    function->programs_.emplace(1, std::shared_ptr<Function>(&leafFunc1, [](Function*){ /* do nothing */ })); // 索引1 绑定 leafFunc1
+    function->programs_.emplace(2, std::shared_ptr<Function>(&leafFunc2, [](Function*){ /* do nothing */ })); // 索引2 绑定 leafFunc2
+    function->programs_.emplace(3, std::shared_ptr<Function>(&leafFunc3, [](Function*){ /* do nothing */ })); // 索引3 绑定 leafFunc3
 
     auto &cache = Program::GetInstance().GetFunctionCache();
     leafFunc1.SetGraphType(GraphType::BLOCK_GRAPH);
@@ -1317,9 +1317,9 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseDim) {
     auto opAttributeCall3 = std::make_shared<CallOpAttribute>(leafFunc3.ComputeHash(), symbolicScalarFunction3);
     G.GetOp("call3")->SetOpAttribute(opAttributeCall3);
 
-    function->programs_.emplace(1, &leafFunc1); // 索引1 绑定 leafFunc1
-    function->programs_.emplace(2, &leafFunc2); // 索引2 绑定 leafFunc2
-    function->programs_.emplace(3, &leafFunc3); // 索引3 绑定 leafFunc3
+    function->programs_.emplace(1, std::shared_ptr<Function>(&leafFunc1, [](Function*){ /* do nothing */ })); // 索引1 绑定 leafFunc1
+    function->programs_.emplace(2, std::shared_ptr<Function>(&leafFunc2, [](Function*){ /* do nothing */ })); // 索引2 绑定 leafFunc2
+    function->programs_.emplace(3, std::shared_ptr<Function>(&leafFunc3, [](Function*){ /* do nothing */ })); // 索引3 绑定 leafFunc3
 
     auto &cache = Program::GetInstance().GetFunctionCache();
     leafFunc1.SetGraphType(GraphType::BLOCK_GRAPH);
@@ -1441,9 +1441,9 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseDataType) {
     auto opAttributeCall3 = std::make_shared<CallOpAttribute>(leafFunc3.ComputeHash(), symbolicScalarFunction3);
     G.GetOp("call3")->SetOpAttribute(opAttributeCall3);
 
-    function->programs_.emplace(1, &leafFunc1); // 索引1 绑定 leafFunc1
-    function->programs_.emplace(2, &leafFunc2); // 索引2 绑定 leafFunc2
-    function->programs_.emplace(3, &leafFunc3); // 索引3 绑定 leafFunc3
+    function->programs_.emplace(1, std::shared_ptr<Function>(&leafFunc1, [](Function*){ /* do nothing */ })); // 索引1 绑定 leafFunc1
+    function->programs_.emplace(2, std::shared_ptr<Function>(&leafFunc2, [](Function*){ /* do nothing */ })); // 索引2 绑定 leafFunc2
+    function->programs_.emplace(3, std::shared_ptr<Function>(&leafFunc3, [](Function*){ /* do nothing */ })); // 索引3 绑定 leafFunc3
 
     auto &cache = Program::GetInstance().GetFunctionCache();
     leafFunc1.SetGraphType(GraphType::BLOCK_GRAPH);
@@ -1565,9 +1565,9 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseNotMaxmunAxisNotEqual) {
     auto opAttributeCall3 = std::make_shared<CallOpAttribute>(leafFunc3.ComputeHash(), symbolicScalarFunction3);
     G.GetOp("call3")->SetOpAttribute(opAttributeCall3);
 
-    function->programs_.emplace(1, &leafFunc1); // 索引1 绑定 leafFunc1
-    function->programs_.emplace(2, &leafFunc2); // 索引2 绑定 leafFunc2
-    function->programs_.emplace(3, &leafFunc3); // 索引3 绑定 leafFunc3
+    function->programs_.emplace(1, std::shared_ptr<Function>(&leafFunc1, [](Function*){ /* do nothing */ })); // 索引1 绑定 leafFunc1
+    function->programs_.emplace(2, std::shared_ptr<Function>(&leafFunc2, [](Function*){ /* do nothing */ })); // 索引2 绑定 leafFunc2
+    function->programs_.emplace(3, std::shared_ptr<Function>(&leafFunc3, [](Function*){ /* do nothing */ })); // 索引3 绑定 leafFunc3
 
     auto &cache = Program::GetInstance().GetFunctionCache();
     leafFunc1.SetGraphType(GraphType::BLOCK_GRAPH);
@@ -1726,10 +1726,10 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseNormal2) {
     auto opAttributeCall4 = std::make_shared<CallOpAttribute>(leafFunc4.ComputeHash(), symbolicScalarFunction4);
     G.GetOp("call4")->SetOpAttribute(opAttributeCall4);
 
-    function->programs_.emplace(1, &leafFunc1); // 索引1 绑定 leafFunc1
-    function->programs_.emplace(2, &leafFunc2); // 索引2 绑定 leafFunc2
-    function->programs_.emplace(3, &leafFunc3); // 索引3 绑定 leafFunc3
-    function->programs_.emplace(4, &leafFunc4); // 索引4 绑定 leafFunc4
+    function->programs_.emplace(1, std::shared_ptr<Function>(&leafFunc1, [](Function*){ /* do nothing */ })); // 索引1 绑定 leafFunc1
+    function->programs_.emplace(2, std::shared_ptr<Function>(&leafFunc2, [](Function*){ /* do nothing */ })); // 索引2 绑定 leafFunc2
+    function->programs_.emplace(3, std::shared_ptr<Function>(&leafFunc3, [](Function*){ /* do nothing */ })); // 索引3 绑定 leafFunc3
+    function->programs_.emplace(4, std::shared_ptr<Function>(&leafFunc4, [](Function*){ /* do nothing */ })); // 索引4 绑定 leafFunc4
 
     auto &cache = Program::GetInstance().GetFunctionCache();
     leafFunc1.SetGraphType(GraphType::BLOCK_GRAPH);
@@ -1896,10 +1896,10 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseNormal3) {
     auto opAttributeCall4 = std::make_shared<CallOpAttribute>(leafFunc4.ComputeHash(), symbolicScalarFunction4);
     G.GetOp("call4")->SetOpAttribute(opAttributeCall4);
 
-    function->programs_.emplace(1, &leafFunc1); // 索引1 绑定 leafFunc1
-    function->programs_.emplace(2, &leafFunc2); // 索引2 绑定 leafFunc2
-    function->programs_.emplace(3, &leafFunc3); // 索引3 绑定 leafFunc3
-    function->programs_.emplace(4, &leafFunc4); // 索引4 绑定 leafFunc4
+    function->programs_.emplace(1, std::shared_ptr<Function>(&leafFunc1, [](Function*){ /* do nothing */ })); // 索引1 绑定 leafFunc1
+    function->programs_.emplace(2, std::shared_ptr<Function>(&leafFunc2, [](Function*){ /* do nothing */ })); // 索引2 绑定 leafFunc2
+    function->programs_.emplace(3, std::shared_ptr<Function>(&leafFunc3, [](Function*){ /* do nothing */ })); // 索引3 绑定 leafFunc3
+    function->programs_.emplace(4, std::shared_ptr<Function>(&leafFunc4, [](Function*){ /* do nothing */ })); // 索引4 绑定 leafFunc4
 
     auto &cache = Program::GetInstance().GetFunctionCache();
     leafFunc1.SetGraphType(GraphType::BLOCK_GRAPH);
@@ -2066,10 +2066,10 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseOffsetNotImmediate1) {
     auto opAttributeCall4 = std::make_shared<CallOpAttribute>(leafFunc4.ComputeHash(), symbolicScalarFunction4);
     G.GetOp("call4")->SetOpAttribute(opAttributeCall4);
 
-    function->programs_.emplace(1, &leafFunc1); // 索引1 绑定 leafFunc1
-    function->programs_.emplace(2, &leafFunc2); // 索引2 绑定 leafFunc2
-    function->programs_.emplace(3, &leafFunc3); // 索引3 绑定 leafFunc3
-    function->programs_.emplace(4, &leafFunc4); // 索引4 绑定 leafFunc4
+    function->programs_.emplace(1, std::shared_ptr<Function>(&leafFunc1, [](Function*){ /* do nothing */ })); // 索引1 绑定 leafFunc1
+    function->programs_.emplace(2, std::shared_ptr<Function>(&leafFunc2, [](Function*){ /* do nothing */ })); // 索引2 绑定 leafFunc2
+    function->programs_.emplace(3, std::shared_ptr<Function>(&leafFunc3, [](Function*){ /* do nothing */ })); // 索引3 绑定 leafFunc3
+    function->programs_.emplace(4, std::shared_ptr<Function>(&leafFunc4, [](Function*){ /* do nothing */ })); // 索引4 绑定 leafFunc4
 
     auto &cache = Program::GetInstance().GetFunctionCache();
     leafFunc1.SetGraphType(GraphType::BLOCK_GRAPH);
@@ -2232,10 +2232,10 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseOffsetNotImmediate2) {
     auto opAttributeCall4 = std::make_shared<CallOpAttribute>(leafFunc4.ComputeHash(), symbolicScalarFunction4);
     G.GetOp("call4")->SetOpAttribute(opAttributeCall4);
 
-    function->programs_.emplace(1, &leafFunc1); // 索引1 绑定 leafFunc1
-    function->programs_.emplace(2, &leafFunc2); // 索引2 绑定 leafFunc2
-    function->programs_.emplace(3, &leafFunc3); // 索引3 绑定 leafFunc3
-    function->programs_.emplace(4, &leafFunc4); // 索引4 绑定 leafFunc4
+    function->programs_.emplace(1, std::shared_ptr<Function>(&leafFunc1, [](Function*){ /* do nothing */ })); // 索引1 绑定 leafFunc1
+    function->programs_.emplace(2, std::shared_ptr<Function>(&leafFunc2, [](Function*){ /* do nothing */ })); // 索引2 绑定 leafFunc2
+    function->programs_.emplace(3, std::shared_ptr<Function>(&leafFunc3, [](Function*){ /* do nothing */ })); // 索引3 绑定 leafFunc3
+    function->programs_.emplace(4, std::shared_ptr<Function>(&leafFunc4, [](Function*){ /* do nothing */ })); // 索引4 绑定 leafFunc4
 
     auto &cache = Program::GetInstance().GetFunctionCache();
     leafFunc1.SetGraphType(GraphType::BLOCK_GRAPH);
@@ -2398,10 +2398,10 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseShapeNotImmediate1) {
     auto opAttributeCall4 = std::make_shared<CallOpAttribute>(leafFunc4.ComputeHash(), symbolicScalarFunction4);
     G.GetOp("call4")->SetOpAttribute(opAttributeCall4);
 
-    function->programs_.emplace(1, &leafFunc1); // 索引1 绑定 leafFunc1
-    function->programs_.emplace(2, &leafFunc2); // 索引2 绑定 leafFunc2
-    function->programs_.emplace(3, &leafFunc3); // 索引3 绑定 leafFunc3
-    function->programs_.emplace(4, &leafFunc4); // 索引4 绑定 leafFunc4
+    function->programs_.emplace(1, std::shared_ptr<Function>(&leafFunc1, [](Function*){ /* do nothing */ })); // 索引1 绑定 leafFunc1
+    function->programs_.emplace(2, std::shared_ptr<Function>(&leafFunc2, [](Function*){ /* do nothing */ })); // 索引2 绑定 leafFunc2
+    function->programs_.emplace(3, std::shared_ptr<Function>(&leafFunc3, [](Function*){ /* do nothing */ })); // 索引3 绑定 leafFunc3
+    function->programs_.emplace(4, std::shared_ptr<Function>(&leafFunc4, [](Function*){ /* do nothing */ })); // 索引4 绑定 leafFunc4
 
     auto &cache = Program::GetInstance().GetFunctionCache();
     leafFunc1.SetGraphType(GraphType::BLOCK_GRAPH);
@@ -2568,10 +2568,10 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseShapeNotImmediate2) {
     auto opAttributeCall4 = std::make_shared<CallOpAttribute>(leafFunc4.ComputeHash(), symbolicScalarFunction4);
     G.GetOp("call4")->SetOpAttribute(opAttributeCall4);
 
-    function->programs_.emplace(1, &leafFunc1); // 索引1 绑定 leafFunc1
-    function->programs_.emplace(2, &leafFunc2); // 索引2 绑定 leafFunc2
-    function->programs_.emplace(3, &leafFunc3); // 索引3 绑定 leafFunc3
-    function->programs_.emplace(4, &leafFunc4); // 索引4 绑定 leafFunc4
+    function->programs_.emplace(1, std::shared_ptr<Function>(&leafFunc1, [](Function*){ /* do nothing */ })); // 索引1 绑定 leafFunc1
+    function->programs_.emplace(2, std::shared_ptr<Function>(&leafFunc2, [](Function*){ /* do nothing */ })); // 索引2 绑定 leafFunc2
+    function->programs_.emplace(3, std::shared_ptr<Function>(&leafFunc3, [](Function*){ /* do nothing */ })); // 索引3 绑定 leafFunc3
+    function->programs_.emplace(4, std::shared_ptr<Function>(&leafFunc4, [](Function*){ /* do nothing */ })); // 索引4 绑定 leafFunc4
 
     auto &cache = Program::GetInstance().GetFunctionCache();
     leafFunc1.SetGraphType(GraphType::BLOCK_GRAPH);
@@ -2734,10 +2734,10 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseNormalOverlap) {
     auto opAttributeCall4 = std::make_shared<CallOpAttribute>(leafFunc4.ComputeHash(), symbolicScalarFunction4);
     G.GetOp("call4")->SetOpAttribute(opAttributeCall4);
 
-    function->programs_.emplace(1, &leafFunc1); // 索引1 绑定 leafFunc1
-    function->programs_.emplace(2, &leafFunc2); // 索引2 绑定 leafFunc2
-    function->programs_.emplace(3, &leafFunc3); // 索引3 绑定 leafFunc3
-    function->programs_.emplace(4, &leafFunc4); // 索引4 绑定 leafFunc4
+    function->programs_.emplace(1, std::shared_ptr<Function>(&leafFunc1, [](Function*){ /* do nothing */ })); // 索引1 绑定 leafFunc1
+    function->programs_.emplace(2, std::shared_ptr<Function>(&leafFunc2, [](Function*){ /* do nothing */ })); // 索引2 绑定 leafFunc2
+    function->programs_.emplace(3, std::shared_ptr<Function>(&leafFunc3, [](Function*){ /* do nothing */ })); // 索引3 绑定 leafFunc3
+    function->programs_.emplace(4, std::shared_ptr<Function>(&leafFunc4, [](Function*){ /* do nothing */ })); // 索引4 绑定 leafFunc4
 
     auto &cache = Program::GetInstance().GetFunctionCache();
     leafFunc1.SetGraphType(GraphType::BLOCK_GRAPH);
@@ -2902,9 +2902,9 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseNormal4) {
     auto opAttributeCall3 = std::make_shared<CallOpAttribute>(leafFunc3.ComputeHash(), symbolicScalarFunction3);
     G.GetOp("call3")->SetOpAttribute(opAttributeCall3);
 
-    function->programs_.emplace(1, &leafFunc1); // 索引1 绑定 leafFunc1
-    function->programs_.emplace(2, &leafFunc2); // 索引2 绑定 leafFunc2
-    function->programs_.emplace(3, &leafFunc3); // 索引3 绑定 leafFunc3
+    function->programs_.emplace(1, std::shared_ptr<Function>(&leafFunc1, [](Function*){ /* do nothing */ })); // 索引1 绑定 leafFunc1
+    function->programs_.emplace(2, std::shared_ptr<Function>(&leafFunc2, [](Function*){ /* do nothing */ })); // 索引2 绑定 leafFunc2
+    function->programs_.emplace(3, std::shared_ptr<Function>(&leafFunc3, [](Function*){ /* do nothing */ })); // 索引3 绑定 leafFunc3
 
     auto &cache = Program::GetInstance().GetFunctionCache();
     leafFunc1.SetGraphType(GraphType::BLOCK_GRAPH);
@@ -3070,9 +3070,9 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseNormal5) {
     auto opAttributeCall3 = std::make_shared<CallOpAttribute>(leafFunc3.ComputeHash(), symbolicScalarFunction3);
     G.GetOp("call3")->SetOpAttribute(opAttributeCall3);
 
-    function->programs_.emplace(1, &leafFunc1); // 索引1 绑定 leafFunc1
-    function->programs_.emplace(2, &leafFunc2); // 索引2 绑定 leafFunc2
-    function->programs_.emplace(3, &leafFunc3); // 索引3 绑定 leafFunc3
+    function->programs_.emplace(1, std::shared_ptr<Function>(&leafFunc1, [](Function*){ /* do nothing */ })); // 索引1 绑定 leafFunc1
+    function->programs_.emplace(2, std::shared_ptr<Function>(&leafFunc2, [](Function*){ /* do nothing */ })); // 索引2 绑定 leafFunc2
+    function->programs_.emplace(3, std::shared_ptr<Function>(&leafFunc3, [](Function*){ /* do nothing */ })); // 索引3 绑定 leafFunc3
 
     auto &cache = Program::GetInstance().GetFunctionCache();
     leafFunc1.SetGraphType(GraphType::BLOCK_GRAPH);
@@ -3288,12 +3288,12 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseMultiOpSerialConn) {
     auto opAttributeCall6 = std::make_shared<CallOpAttribute>(leafFunc6.ComputeHash(), symbolicScalarFunction6);
     G.GetOp("call6")->SetOpAttribute(opAttributeCall6);
 
-    function->programs_.emplace(1, &leafFunc1); // 索引1 绑定 leafFunc1
-    function->programs_.emplace(2, &leafFunc2); // 索引2 绑定 leafFunc2
-    function->programs_.emplace(3, &leafFunc3); // 索引3 绑定 leafFunc3
-    function->programs_.emplace(4, &leafFunc4); // 索引4 绑定 leafFunc4
-    function->programs_.emplace(5, &leafFunc5); // 索引5 绑定 leafFunc5
-    function->programs_.emplace(6, &leafFunc6); // 索引6 绑定 leafFunc6
+    function->programs_.emplace(1, std::shared_ptr<Function>(&leafFunc1, [](Function*){ /* do nothing */ })); // 索引1 绑定 leafFunc1
+    function->programs_.emplace(2, std::shared_ptr<Function>(&leafFunc2, [](Function*){ /* do nothing */ })); // 索引2 绑定 leafFunc2
+    function->programs_.emplace(3, std::shared_ptr<Function>(&leafFunc3, [](Function*){ /* do nothing */ })); // 索引3 绑定 leafFunc3
+    function->programs_.emplace(4, std::shared_ptr<Function>(&leafFunc4, [](Function*){ /* do nothing */ })); // 索引4 绑定 leafFunc4
+    function->programs_.emplace(5, std::shared_ptr<Function>(&leafFunc5, [](Function*){ /* do nothing */ })); // 索引5 绑定 leafFunc5
+    function->programs_.emplace(6, std::shared_ptr<Function>(&leafFunc6, [](Function*){ /* do nothing */ })); // 索引6 绑定 leafFunc6
 
     auto &cache = Program::GetInstance().GetFunctionCache();
     leafFunc1.SetGraphType(GraphType::BLOCK_GRAPH);
@@ -3507,12 +3507,12 @@ TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseMultiOpParallelConn) {
     auto opAttributeCall6 = std::make_shared<CallOpAttribute>(leafFunc6.ComputeHash(), symbolicScalarFunction6);
     G.GetOp("call6")->SetOpAttribute(opAttributeCall6);
 
-    function->programs_.emplace(1, &leafFunc1); // 索引1 绑定 leafFunc1
-    function->programs_.emplace(2, &leafFunc2); // 索引2 绑定 leafFunc2
-    function->programs_.emplace(3, &leafFunc3); // 索引3 绑定 leafFunc3
-    function->programs_.emplace(4, &leafFunc4); // 索引4 绑定 leafFunc4
-    function->programs_.emplace(5, &leafFunc5); // 索引5 绑定 leafFunc5
-    function->programs_.emplace(6, &leafFunc6); // 索引6 绑定 leafFunc6
+    function->programs_.emplace(1, std::shared_ptr<Function>(&leafFunc1, [](Function*){ /* do nothing */ })); // 索引1 绑定 leafFunc1
+    function->programs_.emplace(2, std::shared_ptr<Function>(&leafFunc2, [](Function*){ /* do nothing */ })); // 索引2 绑定 leafFunc2
+    function->programs_.emplace(3, std::shared_ptr<Function>(&leafFunc3, [](Function*){ /* do nothing */ })); // 索引3 绑定 leafFunc3
+    function->programs_.emplace(4, std::shared_ptr<Function>(&leafFunc4, [](Function*){ /* do nothing */ })); // 索引4 绑定 leafFunc4
+    function->programs_.emplace(5, std::shared_ptr<Function>(&leafFunc5, [](Function*){ /* do nothing */ })); // 索引5 绑定 leafFunc5
+    function->programs_.emplace(6, std::shared_ptr<Function>(&leafFunc6, [](Function*){ /* do nothing */ })); // 索引6 绑定 leafFunc6
 
     auto &cache = Program::GetInstance().GetFunctionCache();
     leafFunc1.SetGraphType(GraphType::BLOCK_GRAPH);

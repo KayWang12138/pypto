@@ -97,7 +97,7 @@ TEST_F(MixSubgraphSplitTest, TestMixSubgraphSplit) {
     mixFuncPtr->SetGraphType(GraphType::BLOCK_GRAPH);
     mixFuncPtr->SetFunctionType(FunctionType::STATIC);
     // 添加到programs
-    rootFuncPtr->programs_[programId] = mixFuncPtr.get();
+    rootFuncPtr->programs_[programId] = mixFuncPtr;
 
     std::vector<int64_t> tensorShape = {MS_NUM16, MS_NUM16};
     // 创建tensors

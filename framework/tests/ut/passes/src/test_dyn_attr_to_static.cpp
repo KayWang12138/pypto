@@ -121,7 +121,7 @@ TEST_F(DynAttrToStaticTest, TestGetTensorData) {
     Function* rootFunc = loopPathFunc->rootFunc_;
     ASSERT_NE(rootFunc, nullptr);
     for (auto it = rootFunc->programs_.begin(); it != rootFunc->programs_.end(); it++) {
-        Function* leafFunc = it->second;
+        Function* leafFunc = it->second.get();
         auto operationViewer = leafFunc->Operations(false);
         for (size_t j = 0; j < operationViewer.size(); j++) {
             auto &op = operationViewer[j];
@@ -175,7 +175,7 @@ TEST_F(DynAttrToStaticTest, TestSetTensorData) {
     Function* rootFunc = loopPathFunc->rootFunc_;
     ASSERT_NE(rootFunc, nullptr);
     for (auto it = rootFunc->programs_.begin(); it != rootFunc->programs_.end(); it++) {
-        Function* leafFunc = it->second;
+        Function* leafFunc = it->second.get();
         auto operationViewer = leafFunc->Operations(false);
         for (size_t j = 0; j < operationViewer.size(); j++) {
             auto &op = operationViewer[j];
@@ -229,7 +229,7 @@ TEST_F(DynAttrToStaticTest, TestDynExpression) {
     Function* rootFunc = loopPathFunc->rootFunc_;
     ASSERT_NE(rootFunc, nullptr);
     for (auto it = rootFunc->programs_.begin(); it != rootFunc->programs_.end(); it++) {
-        Function* leafFunc = it->second;
+        Function* leafFunc = it->second.get();
         for (const auto &dynParam : leafFunc->GetDynParamTable()) {
             if (dynParam.second.replacedSymbol.empty() && dynParam.second.dim.IsValid()) {
                 std::reference_wrapper<SymbolicScalar> dynExpr = const_cast<SymbolicScalar&>(dynParam.second.dim);
