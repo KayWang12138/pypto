@@ -16,15 +16,64 @@
 #include "simulation/backend.h"
 
 #include <cctype>
+#include <thread>
 #include "interface/configs/config_manager.h"
 #include "interface/cache/function_cache.h"
 #include "interface/machine/host/machine_task.h"
 
 namespace {
 const std::string PROGRAM_ENTRY_FUNCTION_NAME = "PROGRAM_ENTRY";
+constexpr uint32_t DEVICE_MAX_AICPU_NUM = 5;
+}
+
+namespace CostModel {
+
+class ModelData {
+public:
+    std::map<uint64_t, uint64_t> taskTime;
+    std::vector<uint64_t> functionTime;
+};
 }
 
 namespace npu::tile_fwk {
+
+void CostModelAgent::RunCostModel(void *costModeData) {
+    if (!config::GetPlatformConfig("ENABLE_DYN_COST_MODEL", true)) {
+        return;
+    }
+    Function *function = Program::GetInstance().GetLastFunction();
+    if (function == nullptr) {
+        return;
+    }
+    config::SetSimConfig("SIM_MODE", CostModel::SimMode::LEAF_FUNCTION);
+    SubmitLeafFunctionsToCostModel();
+    RunCostModel();
+    TerminateCostModel();
+    CostModel::ModelData* modelData = new CostModel::ModelData();
+    auto attr = function->GetDyndevAttribute();
+    modelData->functionTime.resize(attr->devLeafIndex2Hash.size(), 0);
+    for (const auto& [index, hash] : attr->devLeafIndex2Hash) {
+        auto time = GetLeafFunctionTimeCost(hash);
+        ALOG_INFO("devLeafIndex2Hash, %d -> %lu: %lu\n", index, hash, time);
+        modelData->functionTime[index] = time;
+    }
+    costModeData = modelData;
+    (void)costModeData;
+}
+
+void CostModelAgent::RunDynCostModel()
+{
+    if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) != CFG_RUN_MODE_SIM) {
+        return;
+    }
+    config::SetSimConfig("SIM_MODE", CostModel::SimMode::NORMAL);
+
+    std::string path = config::LogTopFolder() + "/dyn_topo.txt";
+    SubmitTopo(path);
+    SubmitLeafFunctionsToCostModel();
+    RunCostModel();
+    TerminateCostModel();
+}
 
 void CostModelAgent::BuildCostModel()
 {
