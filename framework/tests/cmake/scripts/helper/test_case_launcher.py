@@ -72,20 +72,12 @@ class TestCaseLauncher:
         clean_str = "-c" if self.clean else ""
         cmd = f"{sys.executable} build_ci.py {clean_str}"
         if self.python:
-            cmd += " -f=python3"
+            cmd += " -f=python3 --editable"
         else:
             cmd += (
                 " -f=cpp -s='TestAdd/AddOperationTest.TestAdd/*' --disable_auto_execute"
             )
         TestCaseShellActuator.run(cmd)
-
-        if self.python:
-            pypto_pkg = f"{self.work_path}/build_out/pypto-*.whl"
-            if len(glob(pypto_pkg)) == 0:
-                raise FileNotFoundError(f"Not found pypto install package.")
-            os.system(
-                f"{sys.executable} -m pip install --upgrade --no-deps --force-reinstall {pypto_pkg}"
-            )
 
     def run_test_case(self, test_case_info):
         log_file = f"{self.log_path}/{test_case_info['case_name']}.log"
