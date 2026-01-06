@@ -17,7 +17,7 @@
         "device_sched_mode": 0,
         "stitch_function_inner_memory": 10,
         "stitch_function_outcast_memory": 50,
-        "stitch_function_num_initial": 30,
+        "stitch_function_num_initial": 128,
         "stitch_function_num_step": 30,
         "cfgcache_device_task_num": 0,
         "cfgcache_root_task_num": 0,
