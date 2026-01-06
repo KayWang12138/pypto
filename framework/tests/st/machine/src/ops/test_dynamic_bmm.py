@@ -200,9 +200,33 @@ def gen_bmm_data_two_batch(input_config: ShapeConfigTwoBatch, output_dir: Path):
         "DynamicBatchMatmulTest.test_bmm_A_B_ND_bf16_tile1",
         "DynamicBatchMatmulTest.test_bmm_At_Bt_ND_fp16",
         "DynamicBatchMatmulTest.test_bmm_At_Bt_ANZ_BND_fp16",
+        "DynamicBatchMatmulTest.test_transposed_batchmatmul",
     ]
 )
 def gen_dynamic_bmm_golden(case_name: str, output: Path) -> bool:
+    if case_name == "DynamicBatchMatmulTest.test_transposed_batchmatmul":
+        b = 3
+        m = 128
+        k = 64
+        n = 256
+
+        shape_a = [m, b, k]
+        shape_b = [b, k, n]
+
+        c_path = Path(output, 'mat_c.bin')
+        a_path = Path(output, 'mat_a.bin')
+        b_path = Path(output, 'mat_b.bin')
+
+        a = np.random.uniform(-1, 1, shape_a).astype(FP16)
+        b = np.random.uniform(-1, 1, shape_b).astype(FP16)
+        a_trans = np.transpose(a, axes=(1, 0, 2))
+        c = np.matmul(a_trans.astype(FP32), b.astype(FP32))
+        c_trans = np.transpose(c,  axes=(1, 0, 2))
+
+        a.tofile(a_path)
+        b.tofile(b_path)
+        c_trans.tofile(c_path)
+        return True
     if case_name == "DynamicBatchMatmulTest.test_bmm_A_Bt_ND_fp16":
         input_config = ShapeConfigOneBatch(3, 2, 576, 4096, FP16, FP32, False, True, False, False, False)
         gen_bmm_data(input_config, output)
