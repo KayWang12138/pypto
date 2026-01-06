@@ -110,8 +110,10 @@ function(PTO_Fwk_GTest_RunExe_GetPreExecSetup PY_CMD_SETUP PY_ENV_LINES BASH_CMD
 
     # 环境变量
     set(EnvLines)
-    # 处理变量 LD_LIBRARIES_EXT 及环境变量 LD_LIBRARY_PATH
-    set(LD_LIBRARY_PATH_EXT)
+    # 处理变量 LD_LIBRARIES_EXT 及环境变量 LD_LIBRARY_PATH 及 CMAKE_LIBRARY_OUTPUT_DIRECTORY
+    # 1. 当前 UTest/STest 已把动态库生成路径设置到 CMAKE_LIBRARY_OUTPUT_DIRECTORY 路径下, 此处需增加该路径配置;
+    # 2. LD_LIBRARY_PATH_EXT 处理保留, 已供后续其他场景使用;
+    set(LD_LIBRARY_PATH_EXT ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
     foreach (LIBRARY ${ARG_LD_LIBRARIES_EXT})
         add_dependencies(${ARG_TARGET} ${LIBRARY})
         list(APPEND LD_LIBRARY_PATH_EXT "$<TARGET_FILE_DIR:${LIBRARY}>")
