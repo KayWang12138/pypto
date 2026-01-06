@@ -25,15 +25,15 @@ using intdevptr_t = int64_t;
 namespace npu::tile_fwk::dynamic {
 
 #define X(value) value,
-enum class RtMemProperty : uint8_t {
-#include "machine/utils/dynamic/rt_mem_properties.in"
+enum class RuntimeTensorMemProperty : uint8_t {
+#include "machine/utils/dynamic/runtime_tensor_mem_properties.in"
 };
 #undef X
 
-inline constexpr const char *GetRtMemPropertyName(RtMemProperty property) {
+inline constexpr const char *GetRuntimeTensorMemPropertyName(RuntimeTensorMemProperty property) {
 #define X(value) #value,
     constexpr const char *NAMELIST[] = {
-#include "machine/utils/dynamic/rt_mem_properties.in"
+#include "machine/utils/dynamic/runtime_tensor_mem_properties.in"
     };
 #undef X
 
@@ -42,15 +42,15 @@ inline constexpr const char *GetRtMemPropertyName(RtMemProperty property) {
 
 struct RuntimeOutcastTensor {
     uintdevptr_t addr;
-    RtMemProperty property;
+    RuntimeTensorMemProperty property;
     uint32_t refCnt;
 
-    RuntimeOutcastTensor(uintdevptr_t taddr, RtMemProperty tproperty, uint32_t trefCnt)
+    RuntimeOutcastTensor(uintdevptr_t taddr, RuntimeTensorMemProperty tproperty, uint32_t trefCnt)
         : addr(taddr), property(tproperty), refCnt(trefCnt) {}
 
     std::string Dump() const {
         std::stringstream ss;
-        ss << "&0x" << std::hex << addr << ", " << GetRtMemPropertyName(property);
+        ss << "&0x" << std::hex << addr << ", " << GetRuntimeTensorMemPropertyName(property);
         return std::move(ss).str();
     }
 };

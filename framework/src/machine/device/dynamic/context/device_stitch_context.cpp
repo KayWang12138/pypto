@@ -125,9 +125,9 @@ void DeviceStitchContext::DecideSlotAddress(DeviceExecuteSlot *slotList, size_t 
     for (size_t slotIdx = 0; slotIdx < slotSize; ++slotIdx) {
         auto &slot = slotList[slotIdx];
         if (slot.rtOutcastIter != ITEM_POOL_INVALID_INDEX &&
-            workspace_->GetRuntimeOutcastTensor(slot.rtOutcastIter).property == RtMemProperty::DEVTASK_INNER_OUTCAST) {
+            workspace_->GetRuntimeOutcastTensor(slot.rtOutcastIter).property == RuntimeTensorMemProperty::DEVTASK_INNER_OUTCAST) {
             workspace_->RuntimeOutcastTensorReplaceAddrWithoutRecycle(
-                slot.rtOutcastIter, workspace_->AllocateSlot(), RtMemProperty::BOUNDARY_OUTCAST);
+                slot.rtOutcastIter, workspace_->AllocateSlot(), RuntimeTensorMemProperty::BOUNDARY_OUTCAST);
         }
     }
 #endif // !DEBUG_INFINITE_LIFETIME
