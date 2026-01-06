@@ -63,14 +63,13 @@ TEST_F(TestCodegenDynLogicalNot, TestDynOpLogicalNot) {
     }
     auto function =
         Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
-    auto localTensorInput = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
-    auto localTensorRes = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
-    auto localTensorTmpCond = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
 
     std::vector<SymbolicScalar> dynValidShape = {64, 64};
-    localTensorInput->UpdateDynValidShape(dynValidShape);
-    localTensorRes->UpdateDynValidShape(dynValidShape);
-    localTensorTmpCond->UpdateDynValidShape(dynValidShape);
+    auto localTensorInput =
+        CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
+    auto localTensorRes = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
+    auto localTensorTmpCond =
+        CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
 
     auto &op = function->AddOperation(Opcode::OP_LOGICALNOT, {localTensorInput}, {localTensorRes, localTensorTmpCond});
     op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
