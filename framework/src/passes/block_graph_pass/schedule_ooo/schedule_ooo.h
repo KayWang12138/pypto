@@ -20,6 +20,8 @@
 #include "passes/block_graph_pass/schedule_ooo/scheduler.h"
 #include "passes/statistics/ooo_schedule_statistic.h"
 #include "passes/pass_utils/pass_utils.h"
+#include "passes/block_graph_pass/schedule_ooo/optimize_sort.h"
+#include "passes/block_graph_pass/schedule_ooo/estimate_latency.h"
 
 namespace npu::tile_fwk {
 class OoOSchedule : public Pass {
@@ -33,6 +35,9 @@ private:
     Status PreCheck(Function &function) override;
     Status PostCheck(Function &function) override;
     void DoHealthCheckAfter(Function &function, const std::string &folderPath) override;
+    void SortTaskList(std::vector<Operation*> &operations, std::vector<Operation*> &taskList);
+    Status SortAndLatencyEstimate(std::vector<Operation*> &opList, std::vector<Operation*> &taskOpList,
+        int &latency);
     std::vector<Function *> oriFunctions;
     std::map<uint64_t, OoOScheduler> schedulerMap;
     OoOScheduleChecker checker;
