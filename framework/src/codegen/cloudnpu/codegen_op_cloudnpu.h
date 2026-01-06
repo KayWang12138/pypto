@@ -353,7 +353,7 @@ private:
     WhereParam PrepareWhereParam() const;
     void GetVarAndTypeParam(std::vector<std::string> &varExpr, std::vector<std::string> &dataTypeExpr) const;
     std::string PrintWhereOp(const WhereParam &param) const;
-    std::string PrintWhereOpTileTensor() const;
+    std::string PrintWhereOpTileTensor(const WhereParam &param) const;
 
     void InitOpsGenMap();
     void InitScalaOpsMap();
