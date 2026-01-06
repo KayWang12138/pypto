@@ -44,7 +44,7 @@ static void MixSubgraphSplitUtils::BroadcastDependencyClosure(std::set<int> &dep
 }
 
 static void MixSubgraphSplitUtils::InitiateClosure(const std::unordered_map<int, std::vector<int>>& directDeps,
-                                    std::unordered_map<int, std::set<int>> &closure) {
+                                                std::unordered_map<int, std::set<int>> &closure) {
     // 确保所有组件都在closure中，即使没有出边
     int maxComponent = 0;
     for (const auto& [component, deps] : directDeps) {

@@ -574,8 +574,8 @@ Status MixSubgraphSplit::CreateCallOpInRootFunction(Function& rootFunc,
     // 从invokeInfo获取incast和outcast参数信息
     const auto& invokeInfo = subgraphToFunction.subFuncInvokeInfos[componentIndex];
     // 构建新的operands列表
-    std::vector<LogicalTensorPtr> newIOperands;
-    std::vector<LogicalTensorPtr> newOOperands;
+    LogicalTensors newIOperands;
+    LogicalTensors newOOperands;
     // 用于跟踪已经处理过的tensor
     std::set<LogicalTensorPtr> processedTensors;
     // 1. 为incast构建新的iOperands
@@ -600,8 +600,7 @@ Status MixSubgraphSplit::CreateCallOpInRootFunction(Function& rootFunc,
 }
 
 // 辅助函数：在tensor列表中查找指定magic的tensor索引
-int MixSubgraphSplit::FindTensorIndexInList(int tensorMagic,
-                                           const std::vector<LogicalTensorPtr>& tensorList) const {
+int MixSubgraphSplit::FindTensorIndexInList(int tensorMagic, const LogicalTensors& tensorList) const {
     for (size_t i = 0; i < tensorList.size(); ++i) {
         if (tensorList[i] != nullptr && tensorList[i]->magic == tensorMagic) {
             return static_cast<int>(i);
@@ -1398,12 +1397,14 @@ std::unordered_map<int, std::vector<int>> MixSubgraphSplit::AnalyzeComponentDepe
         // 分析该op的输出tensor的消费者
         for (size_t k = 0; k < op.GetOOperands().size(); k++) {
             auto oOperand = op.GetOOperands()[k];
-            if (oOperand == nullptr) continue;
-
+            if (oOperand == nullptr) {
+                continue;
+            }
             auto consumers = oOperand->GetConsumers();
             for (auto* consumer : consumers) {
-                if (consumer == nullptr) continue;
-
+                if (consumer == nullptr) {
+                    continue;
+                }
                 int consumerID = consumer->GetInternalSubgraphID();
                 // 记录子图间依赖（忽略同一组件内的依赖）
                 if (producerInternalID != consumerID) {
@@ -1416,7 +1417,7 @@ std::unordered_map<int, std::vector<int>> MixSubgraphSplit::AnalyzeComponentDepe
 }
 
 void MixSubgraphSplit::PropagateIncastDependencies(const std::vector<Function*>& leafFunctions,
-                                                const std::unordered_map<int, std::vector<LogicalTensorPtr>> &directIncasts,
+                                                const std::unordered_map<int, LogicalTensors> &directIncasts,
                                                 const std::unordered_map<int, std::set<int>>& dependencyClosure,
                                                 const SubgraphToFunction& subgraphToFunction) const {
     for (const auto& pair : directIncasts) {
@@ -1453,7 +1454,7 @@ void MixSubgraphSplit::PropagateIncastDependencies(const std::vector<Function*>&
 }
 
 void MixSubgraphSplit::PropagateOutcastDependencies(const std::vector<Function*>& leafFunctions,
-                                                    const std::unordered_map<int, std::vector<LogicalTensorPtr>> &directOutcasts,
+                                                    const std::unordered_map<int, LogicalTensors> &directOutcasts,
                                                     const std::unordered_map<int, std::set<int>>& dependencyClosure,
                                                     const SubgraphToFunction& subgraphToFunction) const {
     for (const auto& pair : directOutcasts) {
@@ -1490,8 +1491,8 @@ void MixSubgraphSplit::PropagateExternalDependencies(const std::vector<Function*
                                                     const std::unordered_map<int, std::set<int>>& dependencyClosure,
                                                     const SubgraphToFunction& subgraphToFunction) const {
     // 收集所有leaf function的直接外部依赖
-    std::unordered_map<int, std::vector<LogicalTensorPtr>> directIncasts;
-    std::unordered_map<int, std::vector<LogicalTensorPtr>> directOutcasts;
+    std::unordered_map<int, LogicalTensors> directIncasts;
+    std::unordered_map<int, LogicalTensors> directOutcasts;
     // 第一遍：收集直接的外部依赖
     for (size_t i = 0; i < leafFunctions.size(); i++) {
         auto* leafFunc = leafFunctions[i];

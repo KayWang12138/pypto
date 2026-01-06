@@ -191,7 +191,7 @@ private:
                                      std::vector<int>& iOffsets,
                                      std::vector<int>& oOffsets);
     
-    int FindTensorIndexInList(int tensorMagic, const std::vector<LogicalTensorPtr>& tensorList) const;
+    int FindTensorIndexInList(int tensorMagic, const LogicalTensors& tensorList) const;
 
     // 依赖分析函数
     std::unordered_map<int, std::vector<int>> AnalyzeComponentDependencies(Function& mixFunc) const;
@@ -199,11 +199,11 @@ private:
     std::unordered_map<int, std::set<int>> ComputeDependencyClosure(const std::unordered_map<int, std::vector<int>>& directDeps) const;
 
     void PropagateIncastDependencies(const std::vector<Function*>& leafFunctions,
-                                    const std::unordered_map<int, std::vector<LogicalTensorPtr>> &directIncasts,
+                                    const std::unordered_map<int, LogicalTensors> &directIncasts,
                                     const std::unordered_map<int, std::set<int>>& dependencyClosure,   
                                     const SubgraphToFunction& subgraphToFunction) const;
     void PropagateOutcastDependencies(const std::vector<Function*>& leafFunctions,
-                                    const std::unordered_map<int, std::vector<LogicalTensorPtr>> &directOutcasts,
+                                    const std::unordered_map<int, LogicalTensors> &directOutcasts,
                                     const std::unordered_map<int, std::set<int>>& dependencyClosure,   
                                     const SubgraphToFunction& subgraphToFunction) const;
     void PropagateExternalDependencies(const std::vector<Function*>& leafFunctions,
