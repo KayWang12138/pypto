@@ -11,14 +11,14 @@
 if (ENABLE_UTEST)
     add_subdirectory(stubs)
 
-    add_subdirectory(operator)
-    add_subdirectory(interface)
-    add_subdirectory(passes)
-    add_subdirectory(simulation)
+    PTO_Fwk_GTest_AddModuleDir(MODULE_LIST ${ENABLE_UTEST_MODULE} DIR operator)
+    PTO_Fwk_GTest_AddModuleDir(MODULE_LIST ${ENABLE_UTEST_MODULE} DIR interface)
+    PTO_Fwk_GTest_AddModuleDir(MODULE_LIST ${ENABLE_UTEST_MODULE} DIR passes)
+    PTO_Fwk_GTest_AddModuleDir(MODULE_LIST ${ENABLE_UTEST_MODULE} DIR simulation)
 
     if (BUILD_WITH_CANN)
-        add_subdirectory(machine)
-        add_subdirectory(codegen)
+        PTO_Fwk_GTest_AddModuleDir(MODULE_LIST ${ENABLE_UTEST_MODULE} DIR machine)
+        PTO_Fwk_GTest_AddModuleDir(MODULE_LIST ${ENABLE_UTEST_MODULE} DIR codegen)
     endif ()
 
     execute_process(
