@@ -89,6 +89,10 @@ def gather_in_ub(param: Tensor, indices: Tensor, block_table: Tensor,
     return pypto_impl.gather_in_ub(param, indices, block_table, block_size, axis)
 
 
+@op_wrapper
+def transposed_batchmatmul(tensor_a: Tensor, tensor_b: Tensor, out_dtype) -> Tensor:
+    return pypto_impl.TransposedBatchMatmul(out_dtype, tensor_a, tensor_b)
+
 def set_operation_config(*, force_combine_axis: Optional[bool] = None,
                          combine_axis: Optional[bool] = None):
 
