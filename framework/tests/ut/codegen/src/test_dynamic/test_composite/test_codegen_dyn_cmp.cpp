@@ -63,16 +63,13 @@ TEST_F(TestCodegenDynCmp, TestDynOpCmp) {
     }
     auto function =
         Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
-    auto localTensorInput1 = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
-    auto localTensorInput2 = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
-    auto localTensorRes = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
-    auto localTensorTmp = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
-
     std::vector<SymbolicScalar> dynValidShape = {64, 64};
-    localTensorInput1->UpdateDynValidShape(dynValidShape);
-    localTensorInput2->UpdateDynValidShape(dynValidShape);
-    localTensorRes->UpdateDynValidShape(dynValidShape);
-    localTensorTmp->UpdateDynValidShape(dynValidShape);
+    auto localTensorInput1 =
+        CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
+    auto localTensorInput2 =
+        CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
+    auto localTensorRes = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
+    auto localTensorTmp = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
 
     auto &op = function->AddOperation(
         Opcode::OP_CMP, {localTensorInput1, localTensorInput2}, {localTensorRes, localTensorTmp});
@@ -117,14 +114,11 @@ TEST_F(TestCodegenDynCmp, TestDynOpCmpS) {
     }
     auto function =
         Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
-    auto localTensorInput1 = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
-    auto localTensorRes = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
-    auto localTensorTmp = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
-
     std::vector<SymbolicScalar> dynValidShape = {64, 64};
-    localTensorInput1->UpdateDynValidShape(dynValidShape);
-    localTensorRes->UpdateDynValidShape(dynValidShape);
-    localTensorTmp->UpdateDynValidShape(dynValidShape);
+    auto localTensorInput1 =
+        CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
+    auto localTensorRes = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
+    auto localTensorTmp = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
 
     auto &op = function->AddOperation(Opcode::OP_CMPS, {localTensorInput1}, {localTensorRes, localTensorTmp});
     op.SetAttribute("GmTensorParamIdxInCallFunc", 0);

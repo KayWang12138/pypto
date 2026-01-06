@@ -61,17 +61,16 @@ TEST_F(TestCodegenDynScatter, TestDynOpScatterElement) {
             output = Add(inputA, inputB);
         }
     }
+
     auto function =
         Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
-    auto localTensorSrc = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
-    auto localTensorIdx = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, {32}});
-    auto localTensorDst = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
 
     std::vector<SymbolicScalar> dynValidShape = {64, 64};
     std::vector<SymbolicScalar> dynValidShapeIdx = {32};
-    localTensorSrc->UpdateDynValidShape(dynValidShape);
-    localTensorIdx->UpdateDynValidShape(dynValidShapeIdx);
-    localTensorDst->UpdateDynValidShape(dynValidShape);
+    auto localTensorSrc = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
+    auto localTensorIdx =
+        CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, {32}, dynValidShapeIdx});
+    auto localTensorDst = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
 
     auto &op = function->AddOperation(Opcode::OP_SCATTER_ELEMENT, {localTensorSrc, localTensorIdx}, {localTensorDst});
     op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
@@ -97,7 +96,6 @@ TEST_F(TestCodegenDynScatter, TestDynOpScatterElement) {
 }
 
 TEST_F(TestCodegenDynScatter, TestOpDynScatter) {
-
     std::vector<int64_t> shape = {64, 64};
     auto shapeImme = OpImmediate::Specified(shape);
     TileShape::Current().SetVecTile(shape);
@@ -116,17 +114,15 @@ TEST_F(TestCodegenDynScatter, TestOpDynScatter) {
     }
     auto function =
         Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
-    auto localTensorSelf = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
-    auto localTensorSrc = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
-    auto localTensorIdx = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, {32}});
-    auto localTensorDst = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
 
     std::vector<SymbolicScalar> dynValidShape = {64, 64};
     std::vector<SymbolicScalar> dynValidShapeIdx = {32};
-    localTensorSelf->UpdateDynValidShape(dynValidShape);
-    localTensorSrc->UpdateDynValidShape(dynValidShape);
-    localTensorIdx->UpdateDynValidShape(dynValidShapeIdx);
-    localTensorDst->UpdateDynValidShape(dynValidShape);
+    auto localTensorSelf =
+        CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
+    auto localTensorSrc = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
+    auto localTensorIdx =
+        CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, {32}, dynValidShapeIdx});
+    auto localTensorDst = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
 
     auto &op =
         function->AddOperation(Opcode::OP_SCATTER, {localTensorSelf, localTensorIdx, localTensorSrc}, {localTensorDst});
