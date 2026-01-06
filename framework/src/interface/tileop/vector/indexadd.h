@@ -32,7 +32,7 @@ TILEOP void IndexAddNotLastAxisCompute(dstTileDefine dstTile, src1TileDefine src
         pto::TASSIGN(src1Temp, (uint64_t)(src1Addr + src1Offset));
         pto::TASSIGN(dstTemp, (uint64_t)(dstAddr + dstOffset));
 
-        if (abs(static_cast<float>(alpha) - 1) > EPSILON) {
+        if (abs(static_cast<float>(alpha) - 1) > TileOp::EPSILON) {
             pto::TMULS(src1Tile, src1Tile, alpha);
             #ifdef __DAV_V220
             pipe_barrier(PIPE_V);
@@ -56,7 +56,7 @@ TILEOP void IndexAddNotLastAxisCompute(dstTileDefine dstTile, src1TileDefine src
         #endif
         pto::TCVT(dstTile, dstTemp, pto::RoundMode::CAST_NONE);
     } else {
-        if (abs(static_cast<float>(alpha) - 1) > EPSILON) {
+        if (abs(static_cast<float>(alpha) - 1) > TileOp::EPSILON) {
             pto::TMULS(src1Tile, src1Tile, alpha);
             #ifdef __DAV_V220
             pipe_barrier(PIPE_V);
@@ -77,7 +77,7 @@ TILEOP void IndexAddLastAxisCompute(T0 dst, T2 src1, T3 src2, Scalar alpha, size
     wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
     uint64_t dstOffset = 0;
     uint64_t src1Offset = 0;
-    if (abs(static_cast<float>(alpha) - 1) > EPSILON) {
+    if (abs(static_cast<float>(alpha) - 1) > TileOp::EPSILON) {
         for (size_t i = 0; i < src1Shape0; ++i) {
             for (size_t j = 0; j < src1Shape1; ++j) {
                 for (size_t k = 0; k < src1Shape2; ++k) {
@@ -92,10 +92,9 @@ TILEOP void IndexAddLastAxisCompute(T0 dst, T2 src1, T3 src2, Scalar alpha, size
                                     static_cast<float>(src1Addr[src1Offset]) * static_cast<float>(alpha);
                                 src1Addr[src1Offset] = mulsResult;
                             } else if constexpr (Std::is_same_v<Scalar, bfloat16_t>) { // bf16
-                                float mulsResult = src1Addr[src1Offset] * Bf16ToFp32(alpha);
-                                bfloat16_t mulsResBf16 = Fp32ToBf16R(mulsResult);
-                                src1Addr[src1Offset] = Bf16ToFp32(mulsResBf16);
-
+                                float mulsResult = src1Addr[src1Offset] * TileOp::Bf16ToFp32(alpha);
+                                bfloat16_t mulsResBf16 = TileOp::Fp32ToBf16R(mulsResult);
+                                src1Addr[src1Offset] = TileOp::Bf16ToFp32(mulsResBf16);
                             } else { // int8,int16,int32,float32
                                 Scalar mulsResult = static_cast<Scalar>(src1Addr[src1Offset]) * alpha;
                                 src1Addr[src1Offset] = static_cast<typename T2::Type>(mulsResult);
@@ -120,8 +119,8 @@ TILEOP void IndexAddLastAxisCompute(T0 dst, T2 src1, T3 src2, Scalar alpha, size
                             dstAddr[dstOffset] = static_cast<typename T0::Type>(addResult);
                         } else if constexpr (Std::is_same_v<Scalar, bfloat16_t>) {
                             float addResult = dstAddr[dstOffset] + src1Addr[src1Offset];
-                            bfloat16_t addResBf16 = Fp32ToBf16R(addResult);
-                            dstAddr[dstOffset] = Bf16ToFp32(addResBf16);
+                            bfloat16_t addResBf16 = TileOp::Fp32ToBf16R(addResult);
+                            dstAddr[dstOffset] = TileOp::Bf16ToFp32(addResBf16);
                         } else { // int8,int16,int32,float32
                             Scalar addResult =
                                 static_cast<Scalar>(dstAddr[dstOffset]) + static_cast<Scalar>(src1Addr[src1Offset]);

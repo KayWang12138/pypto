@@ -2280,7 +2280,7 @@ TILEOP void IndexAddPublicTool(
     uint32_t repeatTime = TShape3 / rptElm;
     uint32_t remainElm = TShape3 % rptElm;
     if (repeatTime) {
-        if (std::abs(static_cast<float>(alpha) - 1) > EPSILON) {
+        if (abs(static_cast<float>(alpha) - 1) > EPSILON) {
             vmuls(src + srcOffset, src + srcOffset, (T)alpha, repeatTime, 1, 1, 8, 8);
             pipe_barrier(PIPE_V);
             if constexpr (std::is_same_v<T2, bfloat16_t>) {
@@ -2301,7 +2301,7 @@ TILEOP void IndexAddPublicTool(
     }
     if (remainElm) {
         SetContinuousMask(remainElm);
-        if (std::abs(static_cast<float>(alpha) - 1) > EPSILON) {
+        if (abs(static_cast<float>(alpha) - 1) > EPSILON) {
             vmuls(src + srcOffset + repeatTime * rptElm, src + srcOffset + repeatTime * rptElm, (T)alpha, 1, 1, 1, 8, 8);
             pipe_barrier(PIPE_V);
             if constexpr (std::is_same_v<T2, bfloat16_t>) {
@@ -2388,7 +2388,7 @@ TILEOP void IndexAddAxis3(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T1 *indices
     uint64_t dstOffset = 0;
     uint64_t srcOffset = 0;
     // 乘法
-    if (std::abs(static_cast<float>(alpha) - 1) > EPSILON) {
+    if (abs(static_cast<float>(alpha) - 1) > EPSILON) {
         for (uint32_t i = 0; i < TShape0; ++i) {
             for (uint32_t j = 0; j < TShape1; ++j) {
                 for (uint32_t k = 0; k < TShape2; ++k) {
