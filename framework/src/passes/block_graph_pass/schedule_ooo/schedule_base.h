@@ -48,7 +48,6 @@ constexpr int32_t UB_BLOCK_SIZE = 32;
 const std::unordered_set<Opcode> USE_LESS_OPS2 = {
     Opcode::OP_NOP,
     Opcode::OP_RESHAPE,
-    Opcode::OP_COMM_WAIT_FLAG,
     Opcode::OP_SHMEM_WAIT_UNTIL,
     Opcode::OP_VIEW,
     Opcode::OP_ASSEMBLE,
