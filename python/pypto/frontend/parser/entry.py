@@ -271,14 +271,8 @@ class JitCallableWrapper:
 
         # Resolve symbolic dimensions using current input shapes so outputs
         # allocated below match the runtime dynamic sizes.
-        concrete_input_shapes = [list(in_tensor.shape) for in_tensor in in_tensors]
-        self._compile_if_needed(concrete_input_shapes)
-        symbolic_dim_value_map = {}
         tmp_parser = self._create_parser()
         input_tensor_defs, output_tensor_defs = tmp_parser.get_signature()
-        symbolic_dim_value_map = tmp_parser.match_input_shapes(
-            concrete_input_shapes, input_tensor_defs
-        )
 
         for out_tensor_def in output_tensor_defs:
             shape_list = []
@@ -299,6 +293,22 @@ class JitCallableWrapper:
             dtype = _torch_dtype_from(out_tensor_def.dtype)
             out_tensor = torch.empty(shape, dtype=dtype, device=device)
             out_tensors.append(out_tensor)
+
+        if isinstance(self._verify_options, dict) and self._verify_options.get("enable_pass_verify"):
+            host_pto_tensors = [i.cpu() for i in in_tensors + out_tensors]
+            pypto_tensors = []
+            for t in host_pto_tensors:
+                pto_tensor = pypto.from_torch(t)
+                pypto_tensors.append(pto_tensor)
+            host_pto_t_datas = _pto_to_tensor_data(pypto_tensors)
+            pypto_impl.SetVerifyData(host_pto_t_datas, [], [])
+
+        concrete_input_shapes = [list(in_tensor.shape) for in_tensor in in_tensors]
+        self._compile_if_needed(concrete_input_shapes)
+        symbolic_dim_value_map = {}
+        symbolic_dim_value_map = tmp_parser.match_input_shapes(
+            concrete_input_shapes, input_tensor_defs
+        )
 
         # Execute the function using dispatch based on run mode
         def convert_tensors_with_metadata(torch_tensors, tensor_defs):
@@ -515,7 +525,7 @@ class JitCallableWrapper:
         self._parser.parse()
 
         # Initialize backend for compilation
-        pypto_impl.DeviceInit()
+        # pypto_impl.DeviceInit()
         handler = pypto_impl.OperatorBegin()
 
         # Set options AFTER OperatorBegin() to match @pypto.jit behavior
