@@ -397,7 +397,7 @@ void SubgraphToFunction::SymbolizeEachFunction(Function &rootFunc, std::vector<F
     pSgParamInfo.Finalize();
     mergedFuncList1[pSgId]->SetParameter(pSgParamInfo);
     mergedFuncList1[pSgId]->SetProgramId(pSgId);
-    rootFunc.programs_.insert({pSgId, mergedFuncList1[pSgId]});
+    rootFunc.programs_.insert({pSgId, std::shared_ptr<Function>(mergedFuncList1[pSgId], [](Function*){ /* do nothing */ })});
 }
 
 void SubgraphToFunction::SymbolizeFunction(Function &rootFunc, std::vector<Function *> &mergedFuncList1) const{

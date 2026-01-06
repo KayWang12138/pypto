@@ -68,7 +68,7 @@ void OoOSchedule::DoHealthCheckAfter(Function &function, const std::string &fold
         auto fileName = folderPath + '/' + scheduler.second.oooCheck.jsonFileName + "_Block_Graph_Health_Report.json";
         auto it = function.rootFunc_->programs_.find(scheduler.first);
         if (it != function.rootFunc_->programs_.end()) {
-            auto subFunc = it->second;
+            auto subFunc = *it->second;
             scheduler.second.oooCheck.DoHealthCheck(subFunc, fileName);
         }
     }
