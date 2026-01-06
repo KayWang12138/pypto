@@ -310,7 +310,7 @@ public:
         }
     }
 
-    inline int Run(int threadIdx, DeviceArgs *deviceArgs, bool handShakeByGm = true) {
+    inline int Run(int threadIdx, DeviceArgs *deviceArgs) {
         int ret = DEVICE_MACHINE_OK;
         DEV_DEBUG("schedule run threadIdx:%d", threadIdx);
         Init(threadIdx, deviceArgs);
@@ -319,10 +319,10 @@ public:
         DeviceTaskCtrl *taskCtrl = nullptr;
         taskQueue_ = &(reinterpret_cast<SPSCQueue<DeviceTaskCtrl *, DEFAULT_QUEUE_SIZE>*>(deviceArgs->taskQueue)[threadIdx]);
         if constexpr (IsDeviceMode()) {
-            ret = HandShake(handShakeByGm);
+            ret = HandShake();
             PerfMtTrace(PERF_TRACE_CORE_HAND_SHAKE, threadIdx);
             if (unlikely(ret != DEVICE_MACHINE_OK)) {
-                DEV_ERROR("hand shake timeout %d.", handShakeByGm);
+                DEV_ERROR("hand shake timeout.");
                 AbnormalStop();
                 while ((taskCtrl = taskQueue_->Dequeue())) {
                     taskCtrl->PutTask(ret);
@@ -381,13 +381,11 @@ public:
             ProfStop();
         }
         DEV_INFO("Aicpu %d stop ret = %d, proc aic task cnt: %lu, aiv task cnt: %lu.",
-            aicpuIdx_,
-            ret,
-            procAicCoreFunctionCnt_,
-            procAivCoreFunctionCnt_);
+                 aicpuIdx_, ret, procAicCoreFunctionCnt_, procAivCoreFunctionCnt_);
         return ret;
     }
-     int32_t ProcessCompletedAicpuTask(uint64_t taskId) {
+
+    int32_t ProcessCompletedAicpuTask(uint64_t taskId) {
         int32_t ret = ResolveDepDyn(taskId);
         if (unlikely(ret != DEVICE_MACHINE_OK)) {
             return ret;
@@ -1498,15 +1496,9 @@ private:
         return DEVICE_MACHINE_OK;
     }
 
-    inline int HandShake(bool isHandShakeByGm) {
+    inline int HandShake() {
         DEV_INFO("aicpu %d handshake start.", aicpuIdx_);
-        int rc = DEVICE_MACHINE_OK;
-        if (isHandShakeByGm) {
-            rc = HandShakeByGmWithPreSendTask();
-        } else {
-            rc = aicoreHal_.HandShakeByReg(dotStatus_);
-        }
-
+        int rc = HandShakeByGmWithPreSendTask();
         if (rc != DEVICE_MACHINE_OK) {
             DEV_ERROR("Aicpu %d handshake failed end.", aicpuIdx_);
             return rc;
