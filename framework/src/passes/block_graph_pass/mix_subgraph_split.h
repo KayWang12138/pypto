@@ -187,12 +187,17 @@ private:
                                     uint64_t componentIndex,
                                     SubgraphToFunction& subgraphToFunction);
 
-    void UpdateOperandsForInOutCast(const std::vector<IncastParamPackTy> &paramList,
-                                    const LogicalTensors &originalTensors,
-                                    const LogicalTensors &originalOperands,
-                                    LogicalTensors &newOperands,
-                                    std::set<LogicalTensorPtr> &processedTensors);
-    void UpdateOperandsForGlobalTensor(const std::vector<IncastParamPackTy> &paramList,
+    void UpdateOperandsForIncast(const std::vector<IncastParamPackTy> &incastParamList,
+                                const LogicalTensors &originalTensors, 
+                                const LogicalTensors &originalOperands, 
+                                LogicalTensors &newOperands, 
+                                std::set<LogicalTensorPtr> &processedTensors);
+    void UpdateOperandsForOutcast(const std::vector<OutcastParamPackTy> &outcastParamList,
+                                const LogicalTensors &originalTensors, 
+                                const LogicalTensors &originalOperands, 
+                                LogicalTensors &newOperands, 
+                                std::set<LogicalTensorPtr> &processedTensors);
+    void UpdateOperandsForGlobalTensor(const std::vector<TensorParamPackTy> &paramList,
                                         const LogicalTensors &originalTensors, 
                                         const LogicalTensors &originalOperands, 
                                         LogicalTensors &newOperands, 
@@ -223,6 +228,9 @@ private:
     std::unordered_map<int, std::vector<int>> AnalyzeComponentDependencies(Function& mixFunc) const;
     
     void BroadcastDependencyClosure(std::set<int> &deps_i, std::set<int> &newDeps, std::unordered_map<int, std::set<int>> &closure, bool &changed, int i) const;
+    
+    void InitiateClosure(const std::unordered_map<int, std::vector<int>>& directDeps, std::unordered_map<int, std::set<int>> &closure);
+    void CalculateClosure(std::unordered_map<int, std::set<int>> &closure);
     std::unordered_map<int, std::set<int>> ComputeDependencyClosure(const std::unordered_map<int, std::vector<int>>& directDeps) const;
 
     void PropagateIncastDependencies(const std::vector<Function*>& leafFunctions,
@@ -281,11 +289,17 @@ private:
         std::vector<int>& iOffsets,
         std::vector<int>& oOffsets) const;
 
+    bool FindOriginalOffsetInProducers(LogicalTensorPtr tensor, int &offset);
+    bool FindOriginalOffsetInConsumers(LogicalTensorPtr tensor, int &offset);
     int FindOriginalOffsetInMixFunction(LogicalTensorPtr tensor) const;
 
     int GetOffsetFromIncastParam(const SubfuncInvokeInfoTy::IncastParamPackTy& incastParam, Function& leafFunc) const;
     int GetOffsetFromOutcastParam(const SubfuncInvokeInfoTy::OutcastParamPackTy& outcastParam, Function& leafFunc) const;
     int GetOffsetFromTensorParam(const SubfuncInvokeInfoTy::TensorParamPackTy& tensorParam, Function& leafFunc) const;
+    
+    void SetOffsetForIncast(Function& leafFunc, const std::vector<IncastParamPackTy> &incastParamList, const std::vector<int> &iOffsets, int &iOffsetIndex);
+    void SetOffsetForOutcast(Function& leafFunc, const std::vector<OutcastParamPackTy> &outcastParamList, const std::vector<int> &oOffsets, int &oOffsetIndex);
+    void SetOffsetForGlobalTensor(Function& leafFunc, const std::vector<TensorParamPackTy> &paramList, const std::vector<int> &offsets, int &offsetIndex);
     Status SetOffsetsToLeafFunction(Function& leafFunc, const std::vector<int>& iOffsets, const std::vector<int> &oOffsets, const SubfuncInvokeInfoTy& invokeInfo);
     bool SetOffsetToOpByMagic(int opMagic, int operandIdx, int offset, Function& leafFunc, bool isOutput) const;
     void UpdateCopyOpAttributeExpressions(Operation* op, int newOffset, bool isOutput) const;
