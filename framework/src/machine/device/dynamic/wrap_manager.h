@@ -22,7 +22,6 @@ namespace npu::tile_fwk::dynamic {
 
 using SendTaskToAiCoreFunc = std::function<void(CoreType type, int coreIdx, uint64_t newTask)>;
 
-#ifdef SUPPORT_MIX_SUBGRAPH_SCHE
 enum class MixResourceType {
     MIX_UNKNOWN = 0,
     MIX_1C1V = 1,
@@ -38,6 +37,16 @@ inline void WrapInfoQueueUnLock(WrapInfoQueue* rq) {
     while (!__sync_bool_compare_and_swap(&rq->lock, 1, 0)) {
     }
 }
+
+#define RETURN_NULL_IF_NOT(val) \
+    if (!val) {  \
+        return;  \
+    }
+
+#define RETURN_RET_IF_NOT(val, ret) \
+    if (!val) {  \
+        return ret;  \
+    }
 
 class WrapManager {
 public:
@@ -55,9 +64,15 @@ public:
     uint32_t* wrapTasklist_{nullptr};
     uint32_t wrapCoreStatus_[MAX_AICORE_NUM]{0};
     SendTaskToAiCoreFunc SendTaskToAiCore;
+    bool isSupportMixSche {false};
+
+    inline void InitArchInfo(ArchInfo info) {
+        isSupportMixSche = (info == ArchInfo::DAV_3510);
+    }
 
     inline void Init(DeviceTask* curDevTask, uint32_t* coreRunReadyCnt, uint32_t* runReadyCoreIdxZero,
         uint32_t* runReadyCoreIdxOne, uint32_t* corePendReadyCnt, int aicValidNum, SendTaskToAiCoreFunc func) {
+        RETURN_NULL_IF_NOT(isSupportMixSche);
         curDevTask_ = curDevTask;
         coreRunReadyCnt_ = coreRunReadyCnt;
         runReadyCoreIdx_[CORE_IDX_AIV] = runReadyCoreIdxZero;
@@ -67,16 +82,17 @@ public:
         aicValidNum_ = aicValidNum;
         SendTaskToAiCore = func;
 
-        readyWrapCoreFunctionQue_ = reinterpret_cast<WrapInfoQueue *>(curDevTask_->readyWrapCoreFunctionQue);
-        wrapTasklist_ = reinterpret_cast<uint32_t *>(curDevTask_->wrapTasklist);
+        readyWrapCoreFunctionQue_ = reinterpret_cast<WrapInfoQueue *>(curDevTask_->mixTaskData.readyWrapCoreFunctionQue);
+        wrapTasklist_ = reinterpret_cast<uint32_t *>(curDevTask_->mixTaskData.wrapTasklist);
 
         wrapQueueForThread_.head = 0;
         wrapQueueForThread_.tail = 0;
-        wrapQueueForThread_.elem = curDevTask_->wrapIdNum == 0 ? nullptr :
-            static_cast<uint64_t *>(malloc(curDevTask_->wrapIdNum * sizeof(uint64_t)));
+        wrapQueueForThread_.elem = curDevTask_->mixTaskData.wrapIdNum == 0 ? nullptr :
+            static_cast<uint64_t *>(malloc(curDevTask_->mixTaskData.wrapIdNum * sizeof(uint64_t)));
     }
 
     inline void Deinit() {
+        RETURN_NULL_IF_NOT(isSupportMixSche);
         if (wrapQueueForThread_.elem != nullptr) {
             free(wrapQueueForThread_.elem);
             wrapQueueForThread_.elem = nullptr;
@@ -84,6 +100,7 @@ public:
     }
 
     inline bool GetWrapCoreAvailable(int coreIdx) {
+        RETURN_RET_IF_NOT(isSupportMixSche, true);
         return wrapCoreStatus_[coreIdx] == 0;
     }
 
@@ -219,7 +236,8 @@ public:
     }
 
     inline void DispatchMixCoreTask() {
-        if (curDevTask_->wrapIdNum == 0) {
+        RETURN_NULL_IF_NOT(isSupportMixSche);
+        if (curDevTask_->mixTaskData.wrapIdNum == 0) {
             return;
         }
         UpdateWrapQueueForThread();
@@ -264,7 +282,7 @@ public:
         auto dyntask = reinterpret_cast<DynDeviceTask *>(curDevTask_);
         auto funcId = FuncID(taskId);
         auto opIndex = TaskID(taskId);
-        auto opWrapList = reinterpret_cast<int32_t*>(dyntask->devTask.opWrapList[funcId]);
+        auto opWrapList = reinterpret_cast<int32_t*>(dyntask->devTask.mixTaskData.opWrapList[funcId]);
         if (opWrapList[opIndex] != -1) {
             return MakeMixWrapID(funcId, opWrapList[opIndex]);
         } else {
@@ -276,7 +294,7 @@ public:
         auto dyntask = reinterpret_cast<DynDeviceTask *>(curDevTask_);
         auto funcId = FuncID(taskId);
         auto opIndex = TaskID(taskId);
-        auto opWrapTaskNumList = reinterpret_cast<uint32_t*>(dyntask->devTask.opWrapTaskNumList[funcId]);
+        auto opWrapTaskNumList = reinterpret_cast<uint32_t*>(dyntask->devTask.mixTaskData.opWrapTaskNumList[funcId]);
         return opWrapTaskNumList[opIndex];
     }
 
@@ -308,7 +326,8 @@ public:
     }
 
     bool IsBindedWrapId(uint32_t taskId) {
-        if (curDevTask_->wrapIdNum == 0 || GetWrapId(taskId) != -1) {
+        RETURN_RET_IF_NOT(isSupportMixSche, false);
+        if (curDevTask_->mixTaskData.wrapIdNum == 0 || GetWrapId(taskId) != -1) {
             return false;
         }
         return true;
@@ -396,7 +415,8 @@ public:
     }
 
     inline void UpdateFinishIdForMixCore(uint32_t finishId, int coreIdx) {
-        if (curDevTask_->wrapIdNum == 0 || GetWrapId(finishId) == -1) {
+        RETURN_NULL_IF_NOT(isSupportMixSche);
+        if (curDevTask_->mixTaskData.wrapIdNum == 0 || GetWrapId(finishId) == -1) {
             return;
         }
         uint32_t wrapId = GetWrapId(finishId);
@@ -428,52 +448,4 @@ public:
         }
     }
 };
-#else
-class WrapManager {
-public:
-    ~WrapManager(){};
-    WrapManager(){};
-
-    inline void Init(DeviceTask* curDevTask, uint32_t* coreRunReadyCnt, uint32_t* runReadyCoreIdxZero,
-        uint32_t* runReadyCoreIdxOne, uint32_t* corePendReadyCnt, int aicValidNum, SendTaskToAiCoreFunc func) {
-        (void)curDevTask;
-        (void)coreRunReadyCnt;
-        (void)runReadyCoreIdxZero;
-        (void)runReadyCoreIdxOne;
-        (void)corePendReadyCnt;
-        (void)aicValidNum;
-        (void)func;
-        return;
-    }
-
-    inline void Deinit() {
-        return;
-    }
-
-    inline bool GetWrapCoreAvailable(int coreIdx) {
-        (void)coreIdx;
-        return true;
-    }
-
-    inline void DispatchMixCoreTask() {
-        return;
-    }
-
-    bool IsBindedWrapId(uint32_t taskId) {
-        (void)taskId;
-        return false;
-    }
-
-    inline void ResolveDepForMixCore(uint32_t taskId) {
-        (void)taskId;
-        return;
-    }
-
-    inline void UpdateFinishIdForMixCore(uint32_t finishId, int coreIdx) {
-        (void)finishId;
-        (void)coreIdx;
-        return;
-    }
-};
-#endif
 }
