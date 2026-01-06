@@ -79,42 +79,31 @@ TEST_F(TestLoopaxesProcPass, LoopaxesProcUTest1) {
     EXPECT_EQ(status, SUCCESS);
 
     int loopGroup;
-    std::vector<int> loopAxes;
 
     EXPECT_TRUE(view1.HasAttr(OpAttributeKey::loopGroup));
-    view1.GetAttr(OpAttributeKey::loopGroup, loopGroup);
-    EXPECT_EQ(loopGroup, kKeepOut);
+    EXPECT_EQ(view1.GetIntAttribute(OpAttributeKey::loopGroup), kKeepOut);
     EXPECT_TRUE(view1.HasAttr(OpAttributeKey::loopAxes));
-    view1.GetAttr(OpAttributeKey::loopAxes, loopAxes);
-    EXPECT_TRUE(loopAxes.empty());
+    EXPECT_TRUE(view1.GetVectorIntAttribute(OpAttributeKey::loopAxes).empty());
     
     EXPECT_TRUE(view2.HasAttr(OpAttributeKey::loopGroup));
-    view2.GetAttr(OpAttributeKey::loopGroup, loopGroup);
-    EXPECT_EQ(loopGroup, kNum0);
+    EXPECT_EQ(view2.GetIntAttribute(OpAttributeKey::loopGroup), kNum0);
     EXPECT_TRUE(view2.HasAttr(OpAttributeKey::loopAxes));
-    view2.GetAttr(OpAttributeKey::loopAxes, loopAxes);
-    EXPECT_EQ(loopAxes, {kNum2, kNum2});
+    EXPECT_EQ(view2.GetVectorIntAttribute(OpAttributeKey::loopAxes), {kNum2, kNum2});
     
     EXPECT_TRUE(reshape1.HasAttr(OpAttributeKey::loopGroup));
-    reshape1.GetAttr(OpAttributeKey::loopGroup, loopGroup);
-    EXPECT_EQ(loopGroup, kNum0);
+    EXPECT_EQ(reshape1.GetIntAttribute(OpAttributeKey::loopGroup), kNum0);
     EXPECT_TRUE(reshape1.HasAttr(OpAttributeKey::loopAxes));
-    reshape1.GetAttr(OpAttributeKey::loopAxes, loopAxes);
-    EXPECT_EQ(loopAxes, {kNum2, kNum2});
+    EXPECT_EQ(reshape1.GetVectorIntAttribute(OpAttributeKey::loopAxes), {kNum2, kNum2});
     
     EXPECT_TRUE(add.HasAttr(OpAttributeKey::loopGroup));
-    add.GetAttr(OpAttributeKey::loopGroup, loopGroup);
-    EXPECT_EQ(loopGroup, kNum0);
+    EXPECT_EQ(add.GetIntAttribute(OpAttributeKey::loopGroup), kNum0);
     EXPECT_TRUE(add.HasAttr(OpAttributeKey::loopAxes));
-    add.GetAttr(OpAttributeKey::loopAxes, loopAxes);
-    EXPECT_EQ(loopAxes, {kNum2, kNum2});
+    EXPECT_EQ(add.GetVectorIntAttribute(OpAttributeKey::loopAxes), {kNum2, kNum2});
     
     EXPECT_TRUE(reshape2.HasAttr(OpAttributeKey::loopGroup));
-    reshape2.GetAttr(OpAttributeKey::loopGroup, loopGroup);
-    EXPECT_EQ(loopGroup, kNum1);
+    EXPECT_EQ(reshape2.GetIntAttribute(OpAttributeKey::loopGroup), kNum1);
     EXPECT_TRUE(reshape2.HasAttr(OpAttributeKey::loopAxes));
-    reshape2.GetAttr(OpAttributeKey::loopAxes, loopAxes);
-    EXPECT_EQ(loopAxes, {kNum4});
+    EXPECT_EQ(reshape2.GetVectorIntAttribute(OpAttributeKey::loopAxes), {kNum4});
 }
 }
 }

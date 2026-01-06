@@ -39,10 +39,10 @@ Status LoopaxesProc::UpdateOpLoopAxes(Operation &op) {
     auto shape = output->GetShape();
     if (shape.size() <= 1) {
         // 被纳入group的要求维度大于2，否则将其设置为-1
-        op.SetAttr(OpAttributeKey::loopGroup, -1);
+        op.SetAttribute(OpAttributeKey::loopGroup, -1);
     } else {
         if (op.HasAttr(OpAttributeKey::loopAxes)) {
-            op.GetAttr(OpAttributeKey::loopAxes, loopAxes);
+            loopAxes = op.GetVectorIntAttribute(OpAttributeKey::loopAxes);
         } else {
             for (size_t i = 0UL; i < shape.size() - 1UL; ++i) {
                 loopAxes.push_back(shape[i]);
@@ -53,8 +53,8 @@ Status LoopaxesProc::UpdateOpLoopAxes(Operation &op) {
         if (loopAxes == previousLoopAxes) {
             groupIdx++;
         }
-        op.SetAttr(OpAttributeKey::loopGroup, groupIdx);
-        op.SetAttr(OpAttributeKey::loopAxes, loopAxes);
+        op.SetAttribute(OpAttributeKey::loopGroup, groupIdx);
+        op.SetAttribute(OpAttributeKey::loopAxes, loopAxes);
     }
     return SUCCESS;
 }
