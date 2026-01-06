@@ -30,8 +30,8 @@ public:
 private:
     Status UpdateFuncLoopAxes(Function &function);
     Status UpdateOpLoopAxes(Operation &op);
-    int groupIdx = -1;
-    std::vector<int> previousLoopAxes;
+    int64_t groupIdx = -1;
+    std::vector<int64_t> previousLoopAxes;
 };
 
 } // namespace tile_fwk

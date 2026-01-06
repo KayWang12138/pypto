@@ -50,8 +50,9 @@ Status LoopaxesProc::UpdateOpLoopAxes(Operation &op) {
         }
         // 当前节点的loopaxes和group的loopaxes一致，当前节点划入当前的loopaxes
         // 当前节点的loopaxes和group的loopaxes不一致，划入一个新的group起点，进行group
-        if (loopAxes == previousLoopAxes) {
+        if (loopAxes != previousLoopAxes) {
             groupIdx++;
+            previousLoopAxes = loopAxes;
         }
         op.SetAttribute(OpAttributeKey::loopGroup, groupIdx);
         op.SetAttribute(OpAttributeKey::loopAxes, loopAxes);
