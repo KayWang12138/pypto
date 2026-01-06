@@ -32,6 +32,7 @@
 #include "interface/configs/config_manager.h"
 #include "tilefwk/platform.h"
 
+
 namespace npu::tile_fwk::dynamic {
 
 int GetCfgBlockdim();
@@ -84,6 +85,7 @@ class DeviceLauncher {
 public:
     static constexpr uint32_t kDefaultAicNum = 25;
     static constexpr uint32_t kDefaultAivNum = 50;
+    void RunTestMode(DeviceKernelArgs *kArgs);
     static std::vector<uint8_t>& GetDevProg(Function *func) {
         return func->GetDyndevAttribute()->devProgBinary;
     }
@@ -103,10 +105,10 @@ public:
         if (devConfig.blockdim == 0 || devConfig.blockdim > maxBlockDim) {
             devConfig.blockdim = maxBlockDim;
         }
-    }
+    }  
 
     template<typename DeviceMemoryTy>
-    static void AssignMetaAddr(AstKernelArgs &kArgs, DeviceMemoryTy devMem, DevAscendProgram *devProg, CachedOperator *cachedOperator) {
+    static void AssignMetaAddr(DeviceKernelArgs &kArgs, DeviceMemoryTy devMem, DevAscendProgram *devProg, CachedOperator *cachedOperator) {
         uint64_t generalSize = devProg->memBudget.metadata.general;
         uint64_t stitchPoolSize = devProg->memBudget.metadata.stitchPool;
         size_t shmSize = DEVICE_SHM_SIZE + DEVICE_TASK_QUEUE_SIZE * devProg->devArgs.scheCpuNum +
@@ -177,7 +179,7 @@ public:
 
     // Fill metadata and kArgs (templated because it uses DeviceMemoryTy) (keeps <= 50 lines)
     template<typename DeviceMemoryTy>
-    static void FillKernelMeta(DeviceMemoryTy devMem, AstKernelArgs &kArgs, DevAscendProgram *devProg,
+    static void FillKernelMeta(DeviceMemoryTy devMem, DeviceKernelArgs &kArgs, DevAscendProgram *devProg,
             const std::vector<uint8_t> &devProgData, const DeviceLauncherConfig &config, CachedOperator *cachedOperator) {
         AssignMetaAddr(kArgs, devMem, devProg, cachedOperator);
         devProg->l2CacheOffset = devMem.GetL2Offset();
@@ -185,6 +187,13 @@ public:
                devProg->commGroupNum << ", hcclContext size = " << config.hcclContext.size();
         ASSERT(devProg->commGroupNum <= (sizeof(devProg->hcclContext) / sizeof(uint64_t))) << "commGroupNum exceeds array size. commGroupNum = "
                << devProg->commGroupNum << ", max allowed = " << sizeof(devProg->hcclContext) / sizeof(uint64_t);
+    }
+
+    template<typename DeviceMemoryTy>
+    static void DeviceInitTilingData(DeviceMemoryTy devMem, DeviceKernelArgs &kArgs, const std::vector<uint8_t> &devProgData,
+        const DeviceLauncherConfig &config, CachedOperator *cachedOperator) {      
+        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
+        DeviceProgramConstruct(devMem, kArgs, devProg, config, cachedOperator);
         for (size_t i = 0; i < devProg->commGroupNum; i++) {
             devProg->hcclContext[i] = config.hcclContext[i];
         }
@@ -215,7 +224,7 @@ public:
     }
 
     template<typename DeviceMemoryTy>
-    static void DeviceInitTilingData(DeviceMemoryTy devMem, AstKernelArgs &kArgs, const std::vector<uint8_t> &devProgData,
+    static void DeviceInitTilingData(DeviceMemoryTy devMem, DeviceKernelArgs &kArgs, const std::vector<uint8_t> &devProgData,
         const DeviceLauncherConfig &config, CachedOperator *cachedOperator) {
         auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
         PrepareDevProgArgs(devProg, config);
@@ -226,7 +235,7 @@ public:
     template<typename DeviceMemoryTy>
     static void DeviceInitTensorLists(
             DeviceMemoryTy devMem,
-            AstKernelArgs &kArgs,
+            DeviceKernelArgs &kArgs,
             const std::vector<DeviceTensorData> &inputList,
             const std::vector<DeviceTensorData> &outputList) {
         auto buildInouts = [&](const std::vector<DeviceTensorData> &tensorDataList) {
@@ -262,7 +271,7 @@ public:
      *                  |     ...     |
      */
     template<typename DeviceMemoryTy>
-    static void DeviceInitKernelInOuts(DeviceMemoryTy devMem, AstKernelArgs &kArgs,
+    static void DeviceInitKernelInOuts(DeviceMemoryTy devMem, DeviceKernelArgs &kArgs,
             const std::vector<DeviceTensorData> &inputList, const std::vector<DeviceTensorData> &outputList,
             const std::vector<uint8_t>& disableL2List, bool isGETensorList) {
         if (isGETensorList) {
