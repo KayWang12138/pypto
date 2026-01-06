@@ -10,6 +10,7 @@
 
 if (ENABLE_UTEST)
     add_subdirectory(stubs)
+    add_subdirectory(utils)
 
     add_subdirectory(operator)
     add_subdirectory(interface)
