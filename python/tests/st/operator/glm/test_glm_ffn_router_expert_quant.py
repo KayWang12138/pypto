@@ -69,8 +69,8 @@ def dequant_dynamic(in_tensor, scale_1, scale_2):
     in_tensor_fp32 = pypto.cast(in_tensor, pypto.DT_FP32, pypto.CastMode.CAST_NONE)
     scale_1_fp32 = pypto.cast(scale_1, pypto.DT_FP32, pypto.CastMode.CAST_NONE)
     scale_2_fp32 = pypto.cast(scale_2, pypto.DT_FP32, pypto.CastMode.CAST_NONE)
-    out_scale_2 =pypto.mul(in_tensor_fp32, scale_2_fp32)
-    out =pypto.mul(out_scale_2, scale_1_fp32)
+    out_scale_2 = pypto.mul(in_tensor_fp32, scale_2_fp32)
+    out = pypto.mul(out_scale_2, scale_1_fp32)
     return out
 
 
@@ -254,21 +254,25 @@ def gen_input(
     device_id: int
 ) -> tuple[torch.Tensor, ...]:
     torch.manual_seed(42)
-    hidden_states = torch.randn((b * s * topk, hidden_size), dtype = dtypes, device = f'npu:{device_id}') * 0.01 * 2 - 0.01
+    hidden_states = torch.randn((b * s * topk, hidden_size), \
+        dtype=dtypes, device=f'npu:{device_id}') * 0.01 * 2 - 0.01
     hidden_states, hidden_states_scale = ffn_golden_quan_per_token(hidden_states)
     hidden_states_scale = hidden_states_scale.reshape(-1).to(torch.float32)
 
-    group_list = torch.tensor([1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], dtype = torch.int32, device = f'npu:{device_id}')
+    group_list = torch.tensor([1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], \
+        dtype=torch.int32, device=f'npu:{device_id}')
     group_list_cumsum = get_token_acc_table(group_list).to(torch.int32)
-    w13 = torch.randn((per_expert_num, hidden_size, intermediate_size * 2), dtype = dtypes, device = f'npu:{device_id}')  * 0.01 * 2 - 0.01
+    w13 = torch.randn((per_expert_num, hidden_size, intermediate_size * 2), \
+        dtype=dtypes, device=f'npu:{device_id}')  * 0.01 * 2 - 0.01
     w13, w13_scale = ffn_golden_quan_per_channel_3d(w13)
     w13_scale = w13_scale.squeeze(1).to(torch.float32)
 
-    w2 = torch.randn((per_expert_num, intermediate_size, hidden_size), dtype = dtypes, device = f'npu:{device_id}')  * 0.01 * 2 - 0.01
+    w2 = torch.randn((per_expert_num, intermediate_size, hidden_size), dtype=dtypes, \
+        device=f'npu:{device_id}') * 0.01 * 2 - 0.01
     w2, w2_scale = ffn_golden_quan_per_channel_3d(w2)
     w2_scale = w2_scale.squeeze(1).to(dtypes)
 
-    ffn_res = torch.empty(hidden_states.shape, dtype =w2_scale.dtype, device = f'npu:{device_id}')
+    ffn_res = torch.empty(hidden_states.shape, dtype=w2_scale.dtype, device=f'npu:{device_id}')
     return hidden_states, hidden_states_scale, group_list, group_list_cumsum, w13, w13_scale, w2, w2_scale, ffn_res
 
 
@@ -318,8 +322,6 @@ def expert_infer_base(
 
     # 计算对应激活专家的偏移地址
     pypto.set_vec_tile_shapes(32)
-    # 获取该激活专家的当前loop参与计算的token
-    token_num = group_list[exp_idx,]
 
     # 获取该激活专家在当前loop参与计算部分，有效token的偏移地址和scale偏移地址
     hidden_states_offset_start = group_list_cumsum[exp_idx, ]
@@ -425,7 +427,7 @@ def moe_router_expert_main(hidden_states, hidden_states_scale,
         token_num = group_list[exp_idx, ]
         for token_loop_idx, loop_base in pypto.loop_unroll(
             token_num,
-            unroll_list = [1, 2, 4, 8, 16, 32, 64],
+            unroll_list=[1, 2, 4, 8, 16, 32],
             name="LOOP_FFN_ROUTER_MLP_L1",
             idx_name="token_loop_idx"):
             expert_infer_base(
@@ -537,8 +539,8 @@ def test_ffn_router() -> None:
         # calc valid token num for compare
         vaild_token_cumsum = group_list.cumsum(dim=0)
         valid_size = vaild_token_cumsum[vaild_token_cumsum.shape[0] - 1] * hidden_size
-        assert_allclose(np.array(ffn_res.cpu().flatten().tolist()[0 : valid_size]),\
-                        np.array(golden.cpu().flatten().tolist()[0 : valid_size]), rtol=0.0078125, atol=0.0001)
+        assert_allclose(np.array(ffn_res.cpu().flatten().tolist()[0: valid_size]), \
+                        np.array(golden.cpu().flatten().tolist()[0: valid_size]), rtol=0.0078125, atol=0.0001)
 
 
 if __name__ == "__main__":
