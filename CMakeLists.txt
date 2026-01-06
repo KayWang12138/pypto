@@ -78,7 +78,7 @@ include(cmake/intf.cmake)
 include(cmake/third_party/nlohmann_json/nlohmann_json.cmake)
 include(cmake/third_party/libboundscheck/libboundscheck.cmake)
 include(cmake/third_party/googletest/googletest.cmake)
-
+add_definitions(-DSUPPORT_MIX_SUBGRAPH_SCHE)
 
 ########################################################################################################################
 # 编译流程
