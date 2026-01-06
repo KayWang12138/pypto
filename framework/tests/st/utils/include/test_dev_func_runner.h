@@ -27,6 +27,7 @@
 #include "machine/runtime/device_launcher.h"
 #include "cost_model/simulation/backend.h"
 #include "machine/runtime/host_prof.h"
+#include "/cost_model/simulation/cost_model_launcher.h"
 
 using namespace npu::tile_fwk::dynamic;
 
@@ -168,13 +169,14 @@ private:
         if (!config_.runModel) {
             return;
         }
-        AstKernelArgs kArgs;
+        DeviceKernelArgs kArgs;
         DeviceLauncherConfigFillDeviceInfo(config_);
         DeviceInitTilingData(MemoryHelper(true), kArgs, function_->GetDyndevAttribute()->devProgBinary, config_, nullptr);
         for (int i = 0; i < (config_.controlFlowCache ? 1 : config_.repeatNum); i++) {
             InitKernelInOuts(kArgs, inputs, outputs, true, {}, false);
             std::cout << "!!! Run CostModel " << i << "\n";
-            RunCostModel(&kArgs);
+            auto costMode = CostModelLauncher(function_, config_);
+            costMode.RunCostModel(&kArgs);
             std::cout << "!!! Run TestModel " << i << "\n";
             RunTestMode(&kArgs);
         }
@@ -212,7 +214,7 @@ private:
         }
     }
 
-    void DumpTensorContents(const AstKernelArgs &kArgs,
+    void DumpTensorContents(const DeviceKernelArgs &kArgs,
                             const std::vector<RawTensorDataPtr> &inputs,
                             const std::vector<RawTensorDataPtr> &outputs) {
         auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(GetDevProg(function_).data()));
@@ -263,7 +265,7 @@ private:
             return;
         }
         CheckDeviceId();
-        AstKernelArgs kArgs;
+        DeviceKernelArgs kArgs;
         DeviceLauncherConfigFillDeviceInfo(config_);
         DeviceInitTilingData(MemoryHelper(false), kArgs, function_->GetDyndevAttribute()->devProgBinary, config_, nullptr);
         auto aicpuStream = machine::GetRA()->GetScheStream();
@@ -285,28 +287,8 @@ private:
         }
     }
 
-    void RunCostModel(AstKernelArgs *kArgs) {
-        if (!config::GetPlatformConfig("ENABLE_DYN_COST_MODEL", true)) {
-            return;
-        }
-        Function *function = Program::GetInstance().GetLastFunction();
-        if (function == nullptr) {
-            return;
-        }
-        config::SetSimConfig("SIM_MODE", CostModel::SimMode::LEAF_FUNCTION);
-        CostModelAgent costModelAgent;
-        costModelAgent.SubmitLeafFunctionsToCostModel();
-        costModelAgent.RunCostModel();
-        costModelAgent.TerminateCostModel();
-        CostModel::ModelData* modelData = new CostModel::ModelData();
-        auto attr = function->GetDyndevAttribute();
-        modelData->functionTime.resize(attr->devLeafIndex2Hash.size(), 0);
-        for (const auto& [index, hash] : attr->devLeafIndex2Hash) {
-            auto time = costModelAgent.GetLeafFunctionTimeCost(hash);
-            DEV_INFO("devLeafIndex2Hash, %d -> %lu: %lu\n", index, hash, time);
-            modelData->functionTime[index] = time;
-        }
-        kArgs->costmodeldata = modelData;
+    void RunCostModel(DeviceKernelArgs *kArgs) {
+        LaunchMode(kArgs);
     }
 
     void RunDynCostModel()
@@ -324,7 +306,7 @@ private:
         costModelAgent.TerminateCostModel();
     }
 
-    void RunTestMode(AstKernelArgs *kArgs) {
+    void RunTestMode(DeviceKernelArgs *kArgs) {
         (void) kArgs;
         std::thread aicpus[DEVICE_MAX_AICPU_NUM];
         std::atomic<int> idx{0};
@@ -361,7 +343,7 @@ private:
         }
     }
 
-    void InitKernelInOuts(AstKernelArgs &kArgs, const std::vector<RawTensorDataPtr> &inputTensors,
+    void InitKernelInOuts(DeviceKernelArgs &kArgs, const std::vector<RawTensorDataPtr> &inputTensors,
         const std::vector<RawTensorDataPtr> &outputTensors, bool isTest, const std::vector<uint8_t>& disableL2List,
         bool isGETensorList) {
         std::vector<DeviceTensorData> inputList;

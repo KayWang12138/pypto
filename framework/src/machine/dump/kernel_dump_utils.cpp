@@ -27,7 +27,7 @@ namespace npu::tile_fwk {
 namespace {
 constexpr int64_t LEVEL_FOUR = 4;
 constexpr int64_t MAX_BLOCK_NUM = 24;
-const std::string KERNEL_FILE_PREFIX = "ast_op_";
+const std::string KERNEL_FILE_PREFIX = "pypto_op_";
 const std::string KERNEL_BIN_FILE_SUFFIX = ".o";
 const std::string KERNEL_JSON_FILE_SUFFIX = ".json";
 const std::string AICORE_KERNEL_FILE_PATH = "kernel/kernel.o";
@@ -130,7 +130,7 @@ void KernelDumpUtils::DumpJsonFile(const DeviceAgentTask *deviceAgentTask, const
     Json binJson;
     binJson["binFileName"] = kernelName;
     binJson["binFileSuffix"] = KERNEL_BIN_FILE_SUFFIX;
-    binJson["kernelName"] = "ast_main_0";
+    binJson["kernelName"] = "pypto_main_0";
     binJson["coreType"] = "MIX";
     binJson["blockDim"] = PlatformManager::Instance().GetAiCoreCnt();
     binJson["magic"] = "RT_DEV_BINARY_MAGIC_ELF";
@@ -226,7 +226,7 @@ void KernelDumpUtils::WriteFatbinJson(const std::vector<JsonInfo> &allBinJsonInf
     fatbinJson["binFileName"] = binFileName;
     fatbinJson["binFileSuffix"] = ".o";
     fatbinJson["coreType"] = "MIX";
-    fatbinJson["kernelName"] = "ast_main_0";
+    fatbinJson["kernelName"] = "pypto_main_0";
     fatbinJson["magic"] = "RT_DEV_BINARY_MAGIC_ELF";
     fatbinJson["dynamicParamMode"] = "folded_with_desc";
     fatbinJson["blockDim"] = -1;

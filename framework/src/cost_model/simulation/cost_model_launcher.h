@@ -182,7 +182,7 @@ private:
         if (!config_.runModel) {
             return;
         }
-        AstKernelArgs kArgs;
+        DeviceKernelArgs kArgs;
         config_.onBoard = false;
         DeviceLauncherConfigFillDeviceInfo(config_);
         DeviceInitTilingData(MemoryHelper(true), kArgs, function_->GetDyndevAttribute()->devProgBinary, config_, nullptr);
@@ -225,7 +225,7 @@ private:
         }
     }
 
-    void DumpTensorContents(const AstKernelArgs &kArgs,
+    void DumpTensorContents(const DeviceKernelArgs &kArgs,
                             const std::vector<RawTensorDataPtr> &inputs,
                             const std::vector<RawTensorDataPtr> &outputs) {
         auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(GetDevProg(function_).data()));
@@ -267,28 +267,8 @@ private:
         fout.close();
     }
 
-    void RunCostModel(AstKernelArgs *kArgs) {
-        if (!config::GetPlatformConfig("ENABLE_DYN_COST_MODEL", true)) {
-            return;
-        }
-        Function *function = Program::GetInstance().GetLastFunction();
-        if (function == nullptr) {
-            return;
-        }
-        config::SetSimConfig("SIM_MODE", CostModel::SimMode::LEAF_FUNCTION);
-        CostModelAgent costModelAgent;
-        costModelAgent.SubmitLeafFunctionsToCostModel();
-        costModelAgent.RunCostModel();
-        costModelAgent.TerminateCostModel();
-        CostModel::ModelData* modelData = new CostModel::ModelData();
-        auto attr = function->GetDyndevAttribute();
-        modelData->functionTime.resize(attr->devLeafIndex2Hash.size(), 0);
-        for (const auto& [index, hash] : attr->devLeafIndex2Hash) {
-            auto time = costModelAgent.GetLeafFunctionTimeCost(hash);
-            DEV_INFO("devLeafIndex2Hash, %d -> %lu: %lu\n", index, hash, time);
-            modelData->functionTime[index] = time;
-        }
-        kArgs->costmodeldata = modelData;
+    void RunCostModel(DeviceKernelArgs *kArgs) {
+        LaunchMode(kArgs);
     }
 
     void RunDynCostModel()
@@ -306,7 +286,7 @@ private:
         costModelAgent.TerminateCostModel();
     }
 
-    void RunTestMode(AstKernelArgs *kArgs) {
+    void RunTestMode(DeviceKernelArgs *kArgs) {
         (void) kArgs;
         const int BUFFER_SIZE_64 = 64;
         std::thread aicpus[DEVICE_MAX_AICPU_NUM];
@@ -341,7 +321,7 @@ private:
         }
     }
 
-    void InitKernelInOuts(AstKernelArgs &kArgs, const std::vector<RawTensorDataPtr> &inputTensors,
+    void InitKernelInOuts(DeviceKernelArgs &kArgs, const std::vector<RawTensorDataPtr> &inputTensors,
         const std::vector<RawTensorDataPtr> &outputTensors, bool isTest) {
         std::vector<DeviceTensorData> inputList;
         std::vector<DeviceTensorData> outputList;
