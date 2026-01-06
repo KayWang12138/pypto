@@ -410,13 +410,14 @@ public:
         DEV_ASSERT(outcast.refCnt > 0);
         outcast.refCnt--;
         if (outcast.refCnt == 0) {
-            RtOutcastDestruct(outcast);
+            RuntimeOutcastTensorDestruct(outcast);
         }
     }
 
     void RuntimeOutcastTensorRef(ItemPoolIter iter) {
         DEV_ASSERT(iter != ITEM_POOL_INVALID_INDEX);
         auto &outcast = runtimeOutcastTensorPool_.At(iter);
+        DEV_ASSERT_MSG(outcast.refCnt > 0, "Shouldn't ref a possibly destroyed tensor, iter=%zu", iter);
         outcast.refCnt++;
     }
 
@@ -433,6 +434,9 @@ public:
     }
 
     void RuntimeOutcastTensorAssign(ItemPoolIter &dst, ItemPoolIter src) {
+        if (dst == src) {
+            return;
+        }
         RuntimeOutcastTensorDerefSafe(dst);
         dst = src;
         RuntimeOutcastTensorRefSafe(src);
@@ -446,12 +450,11 @@ public:
     }
 
 private:
-    void RtOutcastDestruct(RuntimeOutcastTensor &outcast) {
-#if !DEBUG_INFINITE_LIFETIME
+    void RuntimeOutcastTensorDestruct(RuntimeOutcastTensor &outcast) {
+        // When dump tensor is on (DEBUG_INFINITE_LIFETIME), no tensor with BOUNDARY_OUTCAST would be produced
         if (outcast.property == RtMemProperty::BOUNDARY_OUTCAST) {
             rtBoundaryOutcastToBeFree_.push_back(outcast);
         }
-#endif // !DEBUG_INFINITE_LIFETIME
         runtimeOutcastTensorPool_.Destroy(&outcast);
     }
 
