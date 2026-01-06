@@ -39,9 +39,9 @@ inline SymbolicScalar CeilDivSymbolicScalar(SymbolicScalar a, int b) {
 }
 
 template <typename dtype>
-Tensor constructMatmulTensor(const std::vector<int64_t> &shape, const string &name, bool isNz) {
+Tensor constructMatmulTensor(const std::vector<int64_t> &shape, const string &name, uint32_t isNz) {
     auto dataType = GetAstDtype<dtype>();
-    if (isNz) {
+    if (isNz == 1) {
         return Tensor(dataType, shape, name, TileOpFormat::TILEOP_NZ);
     }
     return Tensor(dataType, shape, name);

@@ -28,7 +28,7 @@ struct OpTestParam {
 void TestShmemMoeCombine(OpTestParam &testParam);
 void TestAllGatherAttentionPostReducescatter(OpTestParam &testParam);
 template<typename T>
-void TestDynAllGather(OpTestParam &testParam);
+void TestShmemAllGather(OpTestParam &testParam);
 template<typename T>
 void TestShmemReduceScatter(OpTestParam &testParam);
 template<typename T, bool useTwoShot>
