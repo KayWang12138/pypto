@@ -66,6 +66,8 @@ parser.parser : Main parser implementation
 from . import parser
 from .parser import jit, function
 from ..symbolic_scalar import SymbolicScalar
+# Export set_verify_golden_data for convenience
+from ..runtime import set_verify_golden_data
 
 
 def dynamic(name: str) -> SymbolicScalar:

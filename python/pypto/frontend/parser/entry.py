@@ -26,6 +26,8 @@ from pypto.converter import _torch_dtype_from
 from pypto.cost_model import _cost_model_run_once_data_from_host
 from pypto.frontend.parser.diagnostics import Source
 from pypto.frontend.parser.parser import NestedFunctionMarker, Parser
+# Import _pto_verify_datas to access golden data set by set_verify_golden_data
+from pypto.runtime import _pto_verify_datas  # type: ignore
 
 
 def _default_globals() -> dict[str, Any]:
@@ -301,7 +303,8 @@ class JitCallableWrapper:
                 pto_tensor = pypto.from_torch(t)
                 pypto_tensors.append(pto_tensor)
             host_pto_t_datas = _pto_to_tensor_data(pypto_tensors)
-            pypto_impl.SetVerifyData(host_pto_t_datas, [], [])
+            # Use golden data from set_verify_golden_data if available
+            pypto_impl.SetVerifyData(host_pto_t_datas, [], _pto_verify_datas.get_data())
 
         concrete_input_shapes = [list(in_tensor.shape) for in_tensor in in_tensors]
         self._compile_if_needed(concrete_input_shapes)
@@ -540,6 +543,9 @@ class JitCallableWrapper:
         pypto_impl.OperatorEnd(handler)
         self._handler = handler
         self._is_compiled = True
+        
+        # Reset golden data after compilation, similar to pypto.jit
+        _pto_verify_datas.reset()
 
     def _run(
         self,
