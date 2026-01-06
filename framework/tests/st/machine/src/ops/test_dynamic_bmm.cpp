@@ -227,6 +227,63 @@ void TestDynBatchMatmul(
     EXPECT_TRUE(resultCmp(golden, (outputDtype *)outs->data(), 0.001f));
 }
 
+template <typename outputDtype>
+static void TestTransposedBatchmatmul(const Tensor &tensor_a, const Tensor &tensor_b, Tensor &tensor_c) {
+    const auto &aShape = tensor_a.GetShape();
+    std::vector<SymbolicScalar> aValidShape = {aShape[0], aShape[1], aShape[2]};
+    const auto &bShape = tensor_b.GetShape();
+    std::vector<SymbolicScalar> bValidShape = {bShape[0], bShape[1], bShape[2]};
+
+    FUNCTION("TestTransposedBatchmatmul", {tensor_a, tensor_b}, {tensor_c}) {
+        LOOP("mLoop", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(1)) {
+            (void)mIdx;
+            Tensor dyn_a = View(tensor_a, aShape, aValidShape, {0, 0, 0});
+            Tensor dyn_b = View(tensor_b, bShape, bValidShape, {0, 0, 0});
+            tensor_c = Matrix::TransposedBatchMatmul(GetAstDtype<outputDtype>(), dyn_a, dyn_b);
+        }
+    }
+}
+
+TEST_F(DynamicBatchMatmulTest, test_transposed_batchmatmul) {
+    TileShape::Current().SetCubeTile({128, 128}, {64, 64}, {256, 256}, true);
+    int64_t b = 3;
+    int64_t m = 128;
+    int64_t k = 64;
+    int64_t n = 256;
+
+    Tensor tensor_a = constructMatmulTensor<npu::tile_fwk::float16>({m, b, k}, "tensor_a", false) ;
+    Tensor tensor_b = constructMatmulTensor<npu::tile_fwk::float16>({b, k, n}, "tensor_b", false);
+    Tensor tensor_c = constructMatmulTensor<npu::tile_fwk::float16>({m, b, n}, "tensor_c", false);
+
+    std::vector<npu::tile_fwk::float16> aData(b * m * k, 0);
+    std::vector<npu::tile_fwk::float16> bData(b * k * n, 0);
+    std::vector<npu::tile_fwk::float16> golden(b * m * n, 0);
+
+    readInput<npu::tile_fwk::float16>(GetGoldenDir() + "/mat_c.bin", golden);
+    readInput<npu::tile_fwk::float16>(GetGoldenDir() + "/mat_a.bin", aData);
+    readInput<npu::tile_fwk::float16>(GetGoldenDir() + "/mat_b.bin", bData);
+
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<npu::tile_fwk::float16>(tensor_c, 0.0f),
+    });
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateTensor<npu::tile_fwk::float16>(tensor_a, aData),
+        RawTensorData::CreateTensor<npu::tile_fwk::float16>(tensor_b, bData),
+    });
+
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<npu::tile_fwk::float16>(tensor_c, golden),
+    });
+
+    TestTransposedBatchmatmul<npu::tile_fwk::float16>(tensor_a, tensor_b, tensor_c);
+
+    // excute
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
+    auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
+    EXPECT_TRUE(resultCmp(golden, (npu::tile_fwk::float16 *)outs->data(), 0.001f));
+}
+
 TEST_F(DynamicBatchMatmulTest, test_bmm_A_Bt_ND_fp16) {
     TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
     int64_t b = 3;
