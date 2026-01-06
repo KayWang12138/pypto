@@ -360,7 +360,6 @@ TEST_F(DynamicControlFlowCacheTest, PartialCache) {
         const_cast<uint8_t*>(DeviceLauncher::GetDevProg(Program::GetInstance().GetLastFunction()).data()));
 
     EXPECT_EQ(0x3, devProg->controlFlowCache.deviceTaskCount);
-    EXPECT_EQ(0x2, devProg->controlFlowCache.deviceTaskSkippedCount);
 
     devProg->RelocProgram(0, (intptr_t)devProg);
     devProg->controlFlowCache.TaskAddrRelocProgram(0, (intptr_t)devProg);

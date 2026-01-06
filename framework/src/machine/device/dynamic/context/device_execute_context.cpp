@@ -172,6 +172,7 @@ void DeviceExecuteContext::GELaunchRunCached(DevStartArgs *startArgs, PushTaskEn
         DynDeviceTask *dynTask = reinterpret_cast<DynDeviceTask *>(devProg->controlFlowCache.deviceTaskCacheList[index].dynTaskBase);
         devProg->controlFlowCache.PredCountDataRestore(dynTask);
         devProg->controlFlowCache.ReadyQueueDataRestore(dynTask);
+        devProg->controlFlowCache.MixTaskDataRestore(dynTask);
         taskContext.UpdateReadyTaskNum(dynTask->readyQueueBackup->readyTaskNum);
 
         PROF_STAGE_BEGIN(PERF_EVT_STAGE_PUSH_TASK, "push.before\n");
@@ -352,6 +353,7 @@ int DeviceExecuteContext::SubmitToAicoreAndRecycleMemory(bool withoutTail, bool 
         if (!devProg->controlFlowCache.IsRecordingStopped()) {
             devProg->controlFlowCache.PredCountDataBackup(dynTask);
             devProg->controlFlowCache.ReadyQueueDataBackup(dynTask);
+            devProg->controlFlowCache.MixTaskDataBackup(dynTask);
             devProg->controlFlowCache.IncastOutcastAddrBackup(dynTask);
             devProg->controlFlowCache.TaskAddrBackupWorkspace(dynTask);
             devProg->controlFlowCache.RuntimeAddrBackup(slotContext.GetSlotList(), &slotContext.GetSlotRefCntPool().At(0), devProg->slotSize, workspace.GetTensorAllocator());
