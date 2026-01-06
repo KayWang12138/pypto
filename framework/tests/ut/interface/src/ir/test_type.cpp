@@ -332,17 +332,16 @@ TEST(IRTEST, TestTypeCompleteProgram) {
     // ===== 函数签名 =====
     FunctionSignature sig;
 
-    // 输入：直接使用 Tile 和 Scalar，不使用 Tensor
+    // 参数：直接使用 Tile 和 Scalar，不使用 Tensor
     // 输入 Tile: tile<[16, 32], fp32>
     auto inputTile = std::make_shared<TileValue>(std::vector<size_t>{16, 32}, DataType::FP32, "input_tile");
     // 输入 Scalar: scalar<fp32>
     auto scale = std::make_shared<ScalarValue>(DataType::FP32, "scale", ScalarValueKind::Symbolic);
-
-    sig.arguments = { inputTile, scale };
-
     // 输出：Tile tile<[16, 32], fp32>
-    auto resultSig = std::make_shared<TileValue>(std::vector<size_t>{16, 32}, DataType::FP32, "output_tile");
-    sig.results.push_back(resultSig);
+    auto result = std::make_shared<TileValue>(std::vector<size_t>{16, 32}, DataType::FP32, "output_tile");
+    sig.arguments = { inputTile, scale, result };
+
+    sig.results.push_back(std::make_shared<ScalarValue>(DataType::FP64, "res"));
 
     // ===== 创建函数 =====
     auto func = builder.CreateFunction("test_type_complete", FunctionKind::ControlFlow, sig, /*setAsEntry=*/true);
@@ -392,7 +391,7 @@ TEST(IRTEST, TestTypeCompleteProgram) {
         builder.Emit(scalarMulOp);
 
         // 创建返回语句，返回 tile 和 scalar
-        builder.CreateReturn({ tileDiv, scalarMul });
+        builder.CreateReturn({ scalarMul });
 
         // 验证构建器状态
         ASSERT_EQ(builder.GetCurrentFunction(), func);

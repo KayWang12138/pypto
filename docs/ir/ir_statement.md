@@ -20,7 +20,7 @@ program
         └── statement.return
 ```
 
-示例：
+示例1：
 ```ir
 program.module @main {
   program.entry @test_value
@@ -37,6 +37,35 @@ program.module @main {
     statement.return
   }
   // func.kind = control_flow
+}
+```
+
+示例2：
+```ir
+program.module @test_type_program {
+  program.entry @test_type_complete
+  attr arch = "PTOv2"
+  attr enable_debug = true
+  attr test_type = "tile_scalar_only"
+  attr tile_default = { M=16, N=16, K=16 }
+  func.func @test_type_complete(%input_tile_1: tile<[16, 32], [16, 32], fp32> #in, %scale_4: fp32 #in, %output_tile_5: tile<[16, 32], [16, 32], fp32> #out) -> (fp64) {
+    statement.op {
+        %const_2_9 = 2.0 : fp64
+        %const_3_10 = 3.0 : fp64
+        %tile_mul_11 = tile.OP_MUL %input_tile_1, %scale_4 : (tile<[16, 32], [16, 32], fp32>, fp32) -> tile<[16, 32], [16, 32], fp32>
+        %tile_add_14 = tile.OP_ADD %tile_mul_11, %const_2_9 : (tile<[16, 32], [16, 32], fp32>, fp64) -> tile<[16, 32], [16, 32], fp32>
+        %tile_sub_17 = tile.OP_SUB %tile_add_14, %const_3_10 : (tile<[16, 32], [16, 32], fp32>, fp64) -> tile<[16, 32], [16, 32], fp32>
+        %tile_div_20 = tile.OP_DIV %tile_sub_17, %scale_4 : (tile<[16, 32], [16, 32], fp32>, fp32) -> tile<[16, 32], [16, 32], fp32>
+        %output_tile_21 = tile.assemble %tile_div_20, %output_tile_5 : (tile<[16, 32], [16, 32], fp32>, tile<[16, 32], [16, 32], fp32>) -> tile<[16, 32], [16, 32], fp32> {offset=[0, 0]}
+        %scalar1_23 = 10.5 : fp64
+        %scalar2_24 = 5.2 : fp64
+        %scalar_add_25 = tensor.OP_SCALAR_ADD %scalar1_23, %scalar2_24 : (fp64, fp64) -> fp64
+        %scalar_mul_26 = tensor.OP_SCALAR_MUL %scalar_add_25, %const_2_9 : (fp64, fp64) -> fp64
+    }
+    statement.return %scalar_mul_26
+  }
+  // func.kind = kernel
+
 }
 ```
 

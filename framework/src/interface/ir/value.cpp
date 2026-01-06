@@ -21,31 +21,24 @@
 namespace pto {
 // ========== Value System Implementation ==========
 
-const std::string& ScalarValue::GetSymbolicExpr() const {
-    if (symbolicExpr_.empty()) {
-        symbolicExpr_ = DataTypeToString(GetDataType());
-    }
-    return symbolicExpr_;
-}
-
 int64_t ScalarValue::GetInt64Value() const {
-    if (!HasConstantValue()) {
+    if (!HasImmediateValue()) {
         throw std::runtime_error("ScalarValue does not hold a constant value");
     }
     return std::visit([](const auto& val) -> int64_t {
         return static_cast<int64_t>(val);
-    }, constantValue_);
+    }, immediateValue_);
 }
 
 void ScalarValue::Print(std::ostream& os, int indent) const {
     PrintIndent(os, indent);
 
     switch (valueKind_) {
-    case ScalarValueKind::Constant:
+    case ScalarValueKind::Immediate:
         // Print the actual constant value
         std::visit([&os](const auto& val) {
             os << val;
-        }, constantValue_);
+        }, immediateValue_);
         break;
     case ScalarValueKind::Symbolic:
         os << GetSSAName();

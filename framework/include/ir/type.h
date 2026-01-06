@@ -63,15 +63,15 @@ public:
     DataType GetDataType() const { return dataType_; }
 
     // Get the size of the data type in bytes (e.g., FP32 -> 4 bytes).
-    static size_t GetDataTypeSize(DataType dataType);
+    static uint64_t GetDataTypeSize(DataType dataType);
 
     // Get the size of the data type in bytes for this type instance.
-    size_t GetDataTypeSize() const { return GetDataTypeSize(dataType_); }
+    uint64_t GetDataTypeSize() const { return GetDataTypeSize(dataType_); }
 
     // Get the total size of this type in bytes.
     // For ScalarType: returns GetDataTypeSize()
     // For TileType/TensorType: returns GetDataTypeSize() * product of shape dimensions
-    virtual size_t GetTypeSize() const = 0;
+    virtual uint64_t GetTypeSize() const = 0;
 
     // Pretty-print the type.
     virtual void Print(std::ostream& os) const = 0;
@@ -87,7 +87,7 @@ class ScalarType : public Type {
 public:
     explicit ScalarType(DataType dataType) : Type(dataType) {}
 
-    size_t GetTypeSize() const override { return GetDataTypeSize(); }
+    uint64_t GetTypeSize() const override { return GetDataTypeSize(); }
     void Print(std::ostream& os) const override;
 };
 
@@ -97,16 +97,16 @@ using ScalarTypePtr = std::shared_ptr<ScalarType>;
 // TileType represents the type of a tile with a specific (shape, dataType) combination.
 class TileType : public Type {
 public:
-    TileType(DataType elementType, const std::vector<size_t>& shape)
+    TileType(DataType elementType, const std::vector<uint64_t>& shape)
         : Type(elementType), shape_(shape) {}
 
-    const std::vector<size_t>& GetShape() const { return shape_; }
+    const std::vector<uint64_t>& GetShape() const { return shape_; }
 
-    size_t GetTypeSize() const override;
+    uint64_t GetTypeSize() const override;
     void Print(std::ostream& os) const override;
 
 private:
-    std::vector<size_t> shape_;  // Static shape dimensions
+    std::vector<uint64_t> shape_;  // Static shape dimensions
 };
 
 using TileTypePtr = std::shared_ptr<TileType>;
@@ -117,7 +117,7 @@ class TensorType : public Type {
 public:
     explicit TensorType(DataType dataType) : Type(dataType) {}
 
-    size_t GetTypeSize() const override { return GetDataTypeSize(); }
+    uint64_t GetTypeSize() const override { return GetDataTypeSize(); }
     void Print(std::ostream& os) const override;
 };
 

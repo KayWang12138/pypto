@@ -22,7 +22,7 @@ namespace pto {
 
 // ========== Type System Implementation ==========
 
-size_t Type::GetDataTypeSize(DataType dataType) {
+uint64_t Type::GetDataTypeSize(DataType dataType) {
     switch (dataType) {
     case DataType::INT4:
     case DataType::HF4:
@@ -61,9 +61,9 @@ void TensorType::Print(std::ostream& os) const {
     os << DataTypeToString(dataType_);
 }
 
-size_t TileType::GetTypeSize() const {
-    size_t elementSize = GetDataTypeSize();
-    size_t totalElements = 1;
+uint64_t TileType::GetTypeSize() const {
+    uint64_t elementSize = GetDataTypeSize();
+    uint64_t totalElements = 1;
     for (size_t dim : shape_) {
         totalElements *= dim;
     }
