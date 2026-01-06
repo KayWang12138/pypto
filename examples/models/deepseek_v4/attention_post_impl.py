@@ -222,18 +222,18 @@ def attention_post_compute(attn_res: pypto.Tensor, cos: pypto.Tensor, sin: pypto
 
 
 @pypto.jit(
-    # pass_options={
-    #     "mg_copyin_upper_bound": 1 * 1024 * 1024,
-    #     "pg_upper_bound": 20000,
-    #     "pg_lower_bound": 512,
-    #     "pg_parallel_lower_bound": 20,
-    #     "vec_nbuffer_mode": 2,
-    #     "vec_nbuffer_setting": {-1: 2},
-    # },
-    # runtime_options={
-    #     "stitch_function_inner_memory": 128,
-    #     "stitch_function_outcast_memory": 128
-    # },
+    pass_options={
+        "mg_copyin_upper_bound": 16 * 1024 * 1024,
+        "pg_upper_bound": 80000,
+        "pg_lower_bound": 512,
+        "pg_parallel_lower_bound": 40,
+        # "vec_nbuffer_mode": 2,
+        # "vec_nbuffer_setting": {-1: 2},
+    },
+    runtime_options={
+        "stitch_function_inner_memory": 128,
+        "stitch_function_outcast_memory": 128
+    },
     host_options={"only_codegen": True}
 )
 def attention_post_decode(attn_res: pypto.Tensor, cos: pypto.Tensor, sin: pypto.Tensor,
@@ -272,8 +272,8 @@ def npu_attention_post_v4(attn_res: pypto.Tensor, cos: pypto.Tensor, sin: pypto.
             [1, 64, 64],
             [1, 64, 128, 128]
         ),
-        c1_tile = [[128, 128], [128, 128], [128, 128]],
-        c2_tile = [[128, 128], [128, 128], [128, 128]]
+        c1_tile = [[128, 128], [64, 64], [512, 512]],
+        c2_tile = [[128, 128], [128, 128], [256, 256]]
     )
 
     # kernel
