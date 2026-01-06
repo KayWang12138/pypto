@@ -158,21 +158,16 @@ class PTOTestCaseRunner(TestCaseRunner):
         function += (
             f"with pypto.function('{self._operation}', *input_tensors, *output_tensors):\n"
         )
-        for index in list(range(len(loop_range_tuple))):
+        for index, range in enumerate(loop_range_tuple):
             function += prefix + (tab * (index + 1))
-            function += f"with pypto._controller._loop_function({loop_desc[index][0]}, {loop_desc[index][1]}, "
-            function += f"pypto._controller._loop_range({loop_range_tuple[index]})) as {loop_desc[index][2]}:\n"
-        prefix = tab * (len(loop_range_tuple) + 1)
-        for index in list(range(len(loop_range_tuple))):
-            function += prefix + (tab * (index + 1))
-            function += f"for {loop_desc[index][1][1:-1]} in {loop_desc[index][2]}:\n"
+            function += f"for index_{index} in pypto.loop({range}):\n"
         prefix = tab * 2 * (len(loop_range_tuple) + 1)
         function += prefix + "input_data = []\n"
         view_offset = [
-            f"{loop_desc[index][1][1:-1]} * {self._view_shape[index]}"
+            f"index_{index} * {self._view_shape[index]}"
             for index in range(len(loop_range_tuple))
         ]
-        for index in list(range(len(input_tensors))):
+        for index, _tensor in enumerate(input_tensors):
             function += prefix
             function += f"input_{index} = pypto.view(input_tensors[{index}], {self._view_shape}, ["
             for offset in view_offset:
