@@ -102,6 +102,7 @@ protected:
     std::vector<int64_t> originShape[MAX_OPERANDS] = {};
     std::vector<SymbolicScalar> dynamicValidShape[MAX_OPERANDS] = {}; // valid shape
     std::vector<SymbolicScalar> offsetGmSymbolic[MAX_OPERANDS] = {};  // for spilling into GM scene
+    std::vector<SymbolicScalar> dynValidShapeFromOpAttr[MAX_OPERANDS] = {};
     // if operand is an variable, record its related argument location
     // In COA(Call Operation Attribute), 0-index is the callee's cce info. So the tensor list starts from 1.
     int paramLocation[MAX_OPERANDS] = {1, 1, 1, 1, 1, 1};
@@ -142,6 +143,7 @@ private:
         const Operation &oper, const LogicalTensor &logicalTensor, int operandIdx, bool isInput, size_t ioIdx);
     void UpdateOffsetForInput(const Operation &oper, const LogicalTensor &logicalTensor, int operandIdx);
     void UpdateOffsetForOutput(const Operation &oper, const LogicalTensor &logicalTensor, int operandIdx);
+    void UpdateShapeFromAttr(const std::vector<OpImmediate> &toValidShape, int operandIdx);
     void UpdateOffsetValueForGM(const std::vector<OpImmediate> &offsets, int operandIdx);
     void UpdateScalarValue(const npu::tile_fwk::Operation &ops);
     void UpdateOpAttribute(const npu::tile_fwk::Operation &ops);
