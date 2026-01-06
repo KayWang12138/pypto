@@ -17,6 +17,17 @@
 
 namespace npu {
 namespace tile_fwk {
+int GetStartIndex(const std::vector<Operation *> &opList, Operation* startOp) {
+    // 找到起始op的索引
+    for (size_t i = 0; i < opList.size(); ++i) {
+        if (opList[i] == startOp) {
+            return i;
+        }
+    }
+    ALOG_DEBUG_F("Start op %d not found in sequence", startOp->GetOpMagic());
+    return -1;
+}
+
 static void MixSubgraphSplitUtils::BroadcastDependencyClosure(std::set<int> &deps_i, std::set<int> &newDeps, std::unordered_map<int, std::set<int>> &closure, bool &changed, int i) {
     for (int j : deps_i) {
         // 如果j有传递依赖k，把k也加入i的依赖

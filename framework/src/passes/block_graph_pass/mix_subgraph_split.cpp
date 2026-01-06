@@ -23,17 +23,6 @@ RawSymbolicScalarPtr ReplaceExpression(const RawSymbolicScalarPtr &expr,
                                         const RawSymbolicScalarPtr &src,
                                         const RawSymbolicScalarPtr &dst);
 
-int GetStartIndex(const std::vector<Operation *> &opList, Operation* startOp) {
-    // 找到起始op的索引
-    for (size_t i = 0; i < opList.size(); ++i) {
-        if (opList[i] == startOp) {
-            return i;
-        }
-    }
-    ALOG_DEBUG_F("Start op %d not found in sequence", startOp->GetOpMagic());
-    return -1;
-}
-
 Status MixSubgraphSplit::GatherSubGraphInfo(Function &function, std::vector<MixSubgraphInfo> &mixSubgraphs, std::set<uint64_t> &mixSubgraphIDsToDelete, std::vector<Operation*> &callOpsToDelete) {
     // 获取所有CallOps
     auto rootFunc = function.rootFunc_;
@@ -420,7 +409,6 @@ AIVCore MixSubgraphSplit::DetermineComponentAIVCore(const std::vector<Operation*
         ALOG_DEBUG_F("Component AIC determined by op %s", operations[0]->GetOpcodeStr().c_str());
         return AIVCore::UNSPECIFIED;  // Cube组件
     }
-
     // Vector组件：查找第一个非同步op的AIVCore
     for (auto* op : operations) {
         if (!MixSubgraphSplitUtils::IsSyncOperation(op)) {
