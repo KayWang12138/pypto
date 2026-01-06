@@ -104,6 +104,11 @@ void CodeGenOp::UpdateShape(
         shape[operandIdx] = attr->GetSpecifiedShape(1);
         ALOG_INFO_F("attrShape(from op CopyOpAttribute) = %s", IntVecToStr(shape[operandIdx]).c_str());
     }
+    if ((opCode == Opcode::OP_L0C_TO_L1) && (operandIdx == 0)) {
+        std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(oper.GetOpAttribute());
+        ASSERT(attr != nullptr) << ": missing OpAttr in copy op: \n" << oper.Dump();
+        UpdateShapeFromAttr(attr->GetToDynValidShape(), operandIdx);
+    }
 
     CombineAxis(oper, operandIdx, isInput, ioIdx);
 }
@@ -120,11 +125,23 @@ void CodeGenOp::UpdateOffsetValueForGM(const std::vector<OpImmediate> &offsets, 
     ALOG_INFO_F("UpdateOffsetValueForGM , offsetGmSymbolic is %s", IntVecToStr(dynOffset).c_str());
 }
 
+void CodeGenOp::UpdateShapeFromAttr(const std::vector<OpImmediate> &toValidShape, int operandIdx) {
+    std::vector<SymbolicScalar> validShape(toValidShape.size());
+    for (size_t i = 0; i < toValidShape.size(); ++i) {
+        if (toValidShape[i].IsSpecified()) {
+            auto val = toValidShape[i].GetSpecifiedValue();
+            validShape[i] = val;
+        }
+    }
+    dynValidShapeFromOpAttr[operandIdx] = validShape;
+    ALOG_INFO_F("UpdateShapeFromAttr , dynValidShapeFromOpAttr is %s", IntVecToStr(validShape).c_str());
+}
+
 void CodeGenOp::UpdateOffsetForInput(const Operation &oper, const LogicalTensor &logicalTensor, int operandIdx) {
     const std::set<Opcode> cubeMDLOpCode = {Opcode::OP_L1_TO_L0A, Opcode::OP_L1_TO_L0B, Opcode::OP_L1_TO_L0_AT,
-        Opcode::OP_L1_TO_L0_BT, Opcode::OP_L1_TO_BT, Opcode::OP_L1_TO_FIX_QUANT_PRE};
+        Opcode::OP_L1_TO_L0_BT, Opcode::OP_L1_TO_BT, Opcode::OP_L1_TO_FIX_QUANT_PRE, Opcode::OP_L0C_TO_L1};
     std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(oper.GetOpAttribute());
-    bool cubeMDLCondition = cubeMDLOpCode.count(opCode) && (attr != nullptr);
+    bool cubeMDLCondition = cubeMDLOpCode.count(opCode);
     bool useAttrShapeOffsetForInputGM = OpcodeManager::Inst().IsCopyIn(opCode);
     if (cubeMDLCondition || (useAttrShapeOffsetForInputGM && logicalTensor.GetMemoryTypeOriginal() == MEM_DEVICE_DDR)) {
         // only used for 1. L1 Copy; 2. spilling into gm scene(e.g., ooo spilling); 3. matmul Multi-Data Load scene.
@@ -140,17 +157,19 @@ void CodeGenOp::UpdateOffsetForInput(const Operation &oper, const LogicalTensor 
 
 void CodeGenOp::UpdateOffsetForOutput(const Operation &oper, const LogicalTensor &logicalTensor, int operandIdx) {
     bool useAttrShapeOffsetForOutputGM = OpcodeManager::Inst().IsCopyOut(opCode);
-    if (!useAttrShapeOffsetForOutputGM || logicalTensor.GetMemoryTypeOriginal() != MEM_DEVICE_DDR) {
-        offset[operandIdx] = logicalTensor.offset; // Local Tensor offset just use offset from LogicalTensor
-        ALOG_INFO_F("UpdateOffsetForOutput offset is %s", IntVecToStr(offset[operandIdx]).c_str());
+    const std::set<Opcode> cubeMDLOutOpCode = {Opcode::OP_L0C_TO_L1};
+    std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(oper.GetOpAttribute());
+    bool cubeMDLCondition = cubeMDLOutOpCode.count(opCode);
+    if (cubeMDLCondition || (useAttrShapeOffsetForOutputGM && logicalTensor.GetMemoryTypeOriginal() == MEM_DEVICE_DDR)) {
+        // only used for 1. L1 Copy; 2. spilling into gm scene(e.g., ooo spilling); 3. matmul Multi-Data Load scene.
+        ALOG_INFO_F("start update offset for GM output");
+        ASSERT(attr != nullptr) << ": missing OpAttr in copy in op: \n" << oper.Dump();
+        UpdateOffsetValueForGM(attr->GetCopyOutAttr().second, operandIdx);
         return;
     }
 
-    // only used for 1. L1 Copy; 2. spilling into gm scene(e.g., ooo spilling)
-    ALOG_INFO_F("start update offset for GM output");
-    std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(oper.GetOpAttribute());
-    ASSERT(attr != nullptr) << ": missing OpAttr in copy out op: \n" << oper.Dump();
-    UpdateOffsetValueForGM(attr->GetCopyOutAttr().second, operandIdx);
+    offset[operandIdx] = logicalTensor.offset; // Local Tensor offset just use offset from LogicalTensor
+    ALOG_INFO_F("UpdateOffsetForInput offset is %s", IntVecToStr(offset[operandIdx]).c_str());
 }
 
 void CodeGenOp::UpdateScalarValue(const npu::tile_fwk::Operation &ops) {
