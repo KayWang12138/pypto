@@ -215,12 +215,12 @@ void ShmemReduce(const Tensor &in, const Tensor &shmData, const Tensor &dummy, c
 }
 
 void CreateShmemTensor(Tensor& shmemTensor, int32_t rankSize, int32_t hcclGroupIndex, DataType dataType,
-    const Shape& shape, uint64_t memType)
+    const Shape& shape, uint64_t memType, TileOpFormat format)
 {
     auto &function = *Program::GetInstance().GetCurrentFunction();
     Shape shmemShape{rankSize};
     shmemShape.insert(shmemShape.end(), shape.begin(), shape.end());
-    auto shmemTensorInner = std::make_shared<LogicalTensor>(function, dataType, shmemShape);
+    auto shmemTensorInner = std::make_shared<LogicalTensor>(function, dataType, shmemShape, format);
     shmemTensor = shmemTensorInner;
     Program::GetInstance().GetTensorSlotManager()->TensorWrite(shmemTensor, SlotProperty::SHMEM_TENSOR);
     auto &op = function.AddOperation(Opcode::OP_BIND_TENSOR, {}, {shmemTensorInner});
@@ -276,7 +276,7 @@ void ShmemAllGather(const Tensor &in, const Tensor &barrierDummy, const char *gr
     ValidateParams(in, out, shmemDataShape, shmemSignalShape, in.GetDataType());
     LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
         (void)index;
-        CreateShmemTensor(shmemData, rankSize, hcclGroupIndex, in.GetDataType(), shmemDataShape);
+        CreateShmemTensor(shmemData, rankSize, hcclGroupIndex, in.GetDataType(), shmemDataShape, 0, in.Format());
         CreateShmemTensor(shmemSignal, rankSize, hcclGroupIndex, DT_INT32, shmemSignalShape);
     }
     LOOP("L0", FunctionType::DYNAMIC_LOOP, dynRankId, LoopRange(0, rankSize, 1)) {
@@ -326,7 +326,7 @@ void ShmemReduceScatter(const Tensor& in, const char* group, DistReduceType redu
     ValidateParams(in, out, shmemDataShape, shmemSignalShape, shmemDataType, false, true, {DT_INT32, DT_FP32, DT_FP16, DT_BF16});
     LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
         (void)index;
-        CreateShmemTensor(shmemData, rankSize, hcclGroupIndex, shmemDataType, shmemDataShape);
+        CreateShmemTensor(shmemData, rankSize, hcclGroupIndex, shmemDataType, shmemDataShape, 0, in.Format());
         CreateShmemTensor(shmemSignal, rankSize, hcclGroupIndex, DT_INT32, shmemSignalShape);
     }
     LOOP("RS", FunctionType::DYNAMIC_LOOP, dynRankId, LoopRange(0, rankSize, 1)) {
@@ -430,7 +430,7 @@ void CreateShmemTensorAndAllReduce(const Tensor& predToken, const Tensor& in, co
     int32_t hcclGroupIndex = static_cast<int32_t>(CommGroupRecorder::GetInstance().Input(std::string(group)));
     LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
         (void)index;
-        CreateShmemTensor(shmemData, rankSize, hcclGroupIndex, shmemDataType, shmemDataShape);
+        CreateShmemTensor(shmemData, rankSize, hcclGroupIndex, shmemDataType, shmemDataShape, 0, in.Format());
         CreateShmemTensor(shmemSignal, rankSize, hcclGroupIndex, DT_INT32, shmemSignalShape);
     }
     if constexpr (allReduceType == AllReduceType::ONE_SHOT) {
