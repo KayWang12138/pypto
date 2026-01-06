@@ -13,7 +13,7 @@
  * \brief
  */
 
-#include "machine/host/machine_compiler.h"
+#include "machine/compile/machine_compiler.h"
 #include <functional>
 #include <unistd.h>
 #include "tilefwk/data_type.h"
@@ -25,37 +25,21 @@
 #include "interface/program/program.h"
 #include "interface/machine/host/host_machine.h"
 
+namespace npu::tile_fwk {
+namespace {
 constexpr int DUMP_INCAST = 2;
 constexpr int DUMP_OUTCAST = 3;
-
-namespace npu::tile_fwk {
-void CalcFunctionInvokeWorkespace(Function* cacheFunction, Function* function,
-                                  MachineCompileInfo& compileInfo)
-{
-    if (!function) {
-        ALOG_WARN("Function  pointer is null!");
+std::shared_ptr<RawTensor> GetRawTensorByTensorMagic(const Function *compiledFunction, const int tensorMagic) {
+    auto rawTensor = compiledFunction->GetTensorMap().GetRawTensorByRawMagic(tensorMagic);
+    ALOG_DEBUG_F("magic is %d", tensorMagic);
+    if (!rawTensor) {
+        ALOG_WARN("Raw tensor is null for magic: ");
     }
-    MACHINE_ASSERT(function);
-    ALOG_INFO("Begin calc invoke entry workespace!");
-    uint64_t totalSize = 0;
-    Function *compiledFunction = cacheFunction ? cacheFunction : function;
-    ASSERT(compiledFunction->rootFunc_ != nullptr) << "compiledFunction.rootFunc_ is nullptr , FuncMagic is %d \n"<< compiledFunction->GetFuncMagic();
+    MACHINE_ASSERT(rawTensor);
+    return rawTensor;
+}
 
-    /* rawtensor magic -> {workspace offset , shape size} */
-    std::map<int, std::pair<uint64_t, uint64_t>> rawTensorOffsetMap;
-
-    auto getRawTensorByTensorMagic = [&compiledFunction](int tensorMagic) -> auto
-    {
-        auto rawTensor = compiledFunction->GetTensorMap().GetRawTensorByRawMagic(tensorMagic);
-        ALOG_DEBUG_F("magic is %d", tensorMagic);
-        if (!rawTensor) {
-            ALOG_WARN("Raw tensor is null for magic: ");
-        }
-        MACHINE_ASSERT(rawTensor);
-        return rawTensor;
-    };
-
-    auto calcOffsetFunc = [](const std::vector<int64_t> &offset, const std::vector<int64_t> &shape) -> uint64_t {
+uint64_t CalcTensorOffset(const std::vector<int64_t> &offset, const std::vector<int64_t> &shape) {
         if (offset.size() != shape.size()) {
             ALOG_ERROR_F("Offset size (%zu) does not match shape size (%zu)", offset.size(), shape.size());
         }
@@ -74,8 +58,21 @@ void CalcFunctionInvokeWorkespace(Function* cacheFunction, Function* function,
         }
         return offSetSize;
     };
+}
 
-    auto workSpaceOffsetProcFunc = [&getRawTensorByTensorMagic, &rawTensorOffsetMap, &totalSize, &calcOffsetFunc,
+void CalcFunctionInvokeWorkespace(Function* cacheFunction, Function* function, MachineCompileInfo& compileInfo) {
+    if (!function) {
+        ALOG_WARN("Function  pointer is null!");
+    }
+    MACHINE_ASSERT(function);
+    ALOG_INFO("Begin calc invoke entry workespace!");
+    uint64_t totalSize = 0;
+    Function *compiledFunction = cacheFunction ? cacheFunction : function;
+    ASSERT(compiledFunction->rootFunc_ != nullptr) << "compiledFunction.rootFunc_ is nullptr , FuncMagic is %d \n"<< compiledFunction->GetFuncMagic();
+
+    /* rawtensor magic -> {workspace offset , shape size} */
+    std::map<int, std::pair<uint64_t, uint64_t>> rawTensorOffsetMap;
+    auto workSpaceOffsetProcFunc = [&rawTensorOffsetMap, &totalSize,
                                     &compiledFunction](const LogicalTensorPtr& tensor, int rawMagic,
                                                        const std::vector<int64_t>& rawShape, const std::vector<int64_t>& offset,
                                                        std::list<InvokeParaOffset>& curSubFuncParaOffset,
@@ -83,7 +80,7 @@ void CalcFunctionInvokeWorkespace(Function* cacheFunction, Function* function,
         InvokeParaOffset paraOffset;
         uint64_t rawTensorOffset = 0;
         auto& storage = tensor->storage_;
-        auto rawTensor = getRawTensorByTensorMagic(rawMagic);
+        auto rawTensor = GetRawTensorByTensorMagic(compiledFunction, rawMagic);
         int storageId = rawTensor->GetRawMagic();
         uint64_t alignSize = 0;
         if (storage != nullptr) {
@@ -111,7 +108,7 @@ void CalcFunctionInvokeWorkespace(Function* cacheFunction, Function* function,
                 storageId, rawTensorOffset, alignSize);
         }
 
-        uint64_t offSetSize = calcOffsetFunc(offset, rawShape) * BytesOf(rawTensor->GetDataType());
+        uint64_t offSetSize = CalcTensorOffset(offset, rawShape) * BytesOf(rawTensor->GetDataType());
 
         paraOffset.isTensorParam = isTensorPara;
         paraOffset.offset = rawTensorOffset + offSetSize;
@@ -141,8 +138,8 @@ void CalcFunctionInvokeWorkespace(Function* cacheFunction, Function* function,
             ALOG_DEBUG_F("ele Shape %s, RawShape %s, Offset %s", IntVecToStr(elm.shape).c_str(),
                 IntVecToStr(elm.rawShape).c_str(), IntVecToStr(elm.offset).c_str());
             InvokeParaOffset paraOffset;
-            auto rawTensor = getRawTensorByTensorMagic(elm.ddrId);
-            paraOffset.offset = calcOffsetFunc(elm.offset, elm.rawShape) * BytesOf(elm.dType);
+            auto rawTensor = GetRawTensorByTensorMagic(compiledFunction, elm.ddrId);
+            paraOffset.offset = CalcTensorOffset(elm.offset, elm.rawShape) * BytesOf(elm.dType);
             paraOffset.paramType = elm.isOutputToGM ? 0 : 1;
             paraOffset.tensorShape = elm.shape;
             paraOffset.rawTensorShape = elm.rawShape;
