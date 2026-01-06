@@ -34,7 +34,7 @@ Status LoopaxesProc::RunOnFunction(Function &function) {
 }
 
 Status LoopaxesProc::UpdateOpLoopAxes(Operation &op) {
-    std::vector<int> loopAxes;
+    std::vector<int64_t> loopAxes;
     auto output = op.GetOOperands().front();
     auto shape = output->GetShape();
     if (shape.size() <= 1) {
