@@ -56,9 +56,17 @@ void：Set方法无返回值。设置操作成功即生效。
 
 ```python
 pypto.set_runtime_options(device_sched_mode=1,
-                          stitch_function_inner_memory=10,
-                          stitch_function_outcast_memory=60,
-                          stitch_function_num_initial=30,
+                          stitch_function_inner_memory=128,
+                          stitch_function_outcast_memory=128,
+                          stitch_function_num_initial=128,
                           stitch_function_num_step=20)
+ @pypto.jit(    
+ 	     runtime_options={"stitch_function_num_initial": 128,
+ 	     "stitch_function_outcast_memory": 128,
+ 	     "stitch_function_inner_memory": 128,
+ 	     "cfgcache_device_task_num": 100,
+ 	     "cfgcache_root_task_num": 1000,
+ 	     "cfgcache_leaf_task_num": 10000}
+ 	 )
 ```
 
