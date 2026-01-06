@@ -418,6 +418,6 @@ void TwoShotShmemAllReduce(const Tensor& predToken, const Tensor& in, const char
 void ShmemMoeCombine(const Tensor& in, const Tensor& combineInfo, const Tensor& scale, const char* group,
     int32_t rankSize, int32_t totalExpertNum, Tensor& out);
 void CreateShmemTensor(Tensor& shmemTensor, int32_t rankSize, int32_t hcclGroupIndex, DataType dataType,
-    const Shape& shape, uint64_t memType = 0);
+    const Shape& shape, uint64_t memType = 0, TileOpFormat format = TileOpFormat::TILEOP_ND);
 } // namespace Distributed
 } // namespace npu::tile_fwk
