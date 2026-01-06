@@ -50,8 +50,13 @@ public:
 };
 
 TEST_F(TestLoopaxesProcPass, LoopaxesProcUTest1) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestLoopaxesProcPass", "TestLoopaxesProcPass", nullptr);
+    auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestLoopaxesProcPass", "TestLoopaxesProcPass", nullptr);
+    rootFuncPtr->rootFunc_ = rootFuncPtr.get();
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestLoopaxesProcPassLeaf", "TestLoopaxesProcPassLeaf", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
+    rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
+    rootFuncPtr->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
+    rootFuncPtr->SetUnderDynamicFunction(true);
 
     // Prepare the graph
     std::vector<int64_t> shape1 = {kNum16};
@@ -76,7 +81,7 @@ TEST_F(TestLoopaxesProcPass, LoopaxesProcUTest1) {
     currFunctionPtr->outCasts_.push_back(outCast);
 
     LoopaxesProc loopaxesprocpass;
-    auto status = loopaxesprocpass.RunOnFunction(*currFunctionPtr);
+    auto status = loopaxesprocpass.RunOnFunction(*rootFuncPtr);
     EXPECT_EQ(status, SUCCESS);
 
     int loopGroup;
