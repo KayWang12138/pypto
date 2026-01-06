@@ -453,6 +453,7 @@ OpcodeManager::OpcodeManager() {
         {         Opcode::OP_ROWSUMLINE,    "TRowSumLine"},
         {           Opcode::OP_WHERE_TT,         "TWhere"},
         {               Opcode::OP_ADDS,          "TAddS"},
+        {               Opcode::OP_SUBS,          "TSubS"},
         {               Opcode::OP_MULS,          "TMulS"},
         {               Opcode::OP_DIVS,          "TDivS"},
         {              Opcode::OP_RSQRT,         "TRsqrt"},
