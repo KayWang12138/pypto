@@ -187,6 +187,24 @@ private:
                                     uint64_t componentIndex,
                                     SubgraphToFunction& subgraphToFunction);
 
+    void UpdateOperandsForInOutCast(const std::vector<IncastParamPackTy> &paramList,
+                                    const LogicalTensors &originalTensors,
+                                    const LogicalTensors &originalOperands,
+                                    LogicalTensors &newOperands,
+                                    std::set<LogicalTensorPtr> &processedTensors);
+    void UpdateOperandsForGlobalTensor(const std::vector<IncastParamPackTy> &paramList,
+                                        const LogicalTensors &originalTensors, 
+                                        const LogicalTensors &originalOperands, 
+                                        LogicalTensors &newOperands, 
+                                        std::set<LogicalTensorPtr> &processedTensors);
+    void UpdateBroadcastForInOutCast(const LogicalTensors &actualTensors, 
+                                    const LogicalTensors &originalTensors, 
+                                    const LogicalTensors &originalOperands, 
+                                    LogicalTensors &newOperands, 
+                                    std::set<LogicalTensorPtr> &processedTensors);
+    void CloneCallOp(Operation &callOp,
+                    SubgraphToFunction& subgraphToFunction,
+                    const CallOpCreationInfo &callOpInfo);
     // 在root function中创建call op
     Status CreateCallOpInRootFunction(Function& rootFunc,
                                      Function& leafFunc,
