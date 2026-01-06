@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------------------------------------
-# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
 # CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -8,14 +8,17 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 
-set(_Target ${PTO_Fwk_UTestNamePrefix}_codegen)
-
-file(GLOB_RECURSE _Sources src/*.cpp)
-set(_Include "include")
-
-PTO_Fwk_UTest_AddCaseLib(
-        TARGET ${_Target}
-        SOURCES ${_Sources}
-        PRIVATE_INCLUDE_DIRECTORIES ${_Include}
-        PUBLIC_LINK_LIBRARIES tile_fwk_codegen tile_fwk_interface
+set(_Target ${PTO_Fwk_UTestNamePrefix}_utils)
+add_library(${_Target} INTERFACE)
+target_include_directories(${_Target}
+        INTERFACE
+            include
+)
+target_link_libraries(${_Target}
+        INTERFACE
+            GTest::gtest
+)
+target_compile_definitions(${_Target}
+        INTERFACE
+            $<$<BOOL:${BUILD_WITH_CANN}>:BUILD_WITH_CANN>
 )
