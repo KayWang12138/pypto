@@ -202,4 +202,51 @@ TEST_F(TestCodegenDynSort, TestDynTiledMgrSort) {
     EXPECT_EQ(res, expect);
 }
 
+TEST_F(TestCodegenDynSort, TestDynTopkSort) {
+    std::vector<int64_t> shape = {64, 64};
+    std::vector<SymbolicScalar> dynValidShape = {64, 64};
+    auto shapeImme = OpImmediate::Specified(shape);
+    TileShape::Current().SetVecTile(shape);
+    Tensor inputA(DT_FP32, shape, "A");
+    Tensor inputB(DT_FP32, shape, "B");
+    Tensor output(DT_FP32, shape, "C");
+
+    Element scalaVal(DataType::DT_FP32, 1.0);
+
+    std::string funcName = "TestDynTopkSort";
+    FUNCTION(funcName, {inputA, inputB, output}) {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            output = Add(inputA, inputB);
+        }
+    }
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
+    auto yVar = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
+    auto tmpVar = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
+    auto xVar = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
+
+    auto &op = function->AddOperation(Opcode::OP_TOPK_SORT, {yVar}, {tmpVar, xVar});
+    op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
+    op.SetAttribute(OP_ATTR_PREFIX + "axis", 0);
+    SymbolicScalar startIdx(1);
+    op.SetAttribute(OpAttributeKey::dynScalar, startIdx);
+
+    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
+    CodeGenCtx ctx;
+    CodeGenCloudNPU cga(ctx);
+    cga.GenAllocForLocalBuffer(op, symbolManager);
+    CodeGenOpCloudNPU cop(symbolManager, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
+    function->GetTensorMap().inverseMap_[yVar->GetMagic()] = yVar;
+    function->GetTensorMap().inverseMap_[tmpVar->GetMagic()] = tmpVar;
+    function->GetTensorMap().inverseMap_[xVar->GetMagic()] = xVar;
+
+    cop.Init(op);
+    std::string res = cop.GenOpCode();
+    std::string expect =
+        R"!!!(TileOp::DynTiledMrgSort<float, 1, 1, 64, 64, 1, 1, 64, 64, 64, 0>((__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, 1, 1, 64, 64, 64, 64, 64);
+)!!!";
+    EXPECT_EQ(res, expect);
+}
+
 } // namespace npu::tile_fwk
