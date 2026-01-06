@@ -10,7 +10,6 @@
 
 set(PTO_Fwk_UTestCaseLibraries         "" CACHE INTERNAL "" FORCE)     # UTest 各模块 用例实现二进制
 set(PTO_Fwk_UTestCaseLdLibrariesExt    "" CACHE INTERNAL "" FORCE)     # UTest 各模块 额外 Load 二进制
-set(PTO_Fwk_UTestCaseGTestFilterList   "" CACHE INTERNAL "" FORCE)     # UTest 各模块 GTestFilter 配置
 
 # UTest 添加测试用例二进制库
 #[[
@@ -21,18 +20,16 @@ Parameters:
       SOURCES                     : [Required] 编译源码
       PRIVATE_INCLUDE_DIRECTORIES : [Optional] 头文件搜索路径(PRIVATE)
       PUBLIC_LINK_LIBRARIES       : [Optional] 链接库(PUBLIC)
-      GTEST_FILTER_LIST           : [Optional] GTestFilter 配置, Filter 间以 ';' 分割
       LD_LIBRARIES_EXT            : [Optional] 需要在执行时将所在路径配置到环境变量 LD_LIBRARY_PATH 中的 Libraries
 Attention:
-    1. 单次调用本函数时, 可以通过在 GTEST_FILTER_LIST 中配置多个过滤条件('gtest_filter') 以实现执行多用例;
-    2. 一般 LD_LIBRARIES_EXT 内配置的二进制, 在正常 source CANN 包环境变量后, LD_LIBRARY_PATH 内也应包含其所在路径;
+    1. 一般 LD_LIBRARIES_EXT 内配置的二进制, 在正常 source CANN 包环境变量后, LD_LIBRARY_PATH 内也应包含其所在路径;
 ]]
 function(PTO_Fwk_UTest_AddCaseLib)
     cmake_parse_arguments(
             ARG
             ""
             "TARGET"
-            "SOURCES;PRIVATE_INCLUDE_DIRECTORIES;PUBLIC_LINK_LIBRARIES;GTEST_FILTER_LIST;LD_LIBRARIES_EXT"
+            "SOURCES;PRIVATE_INCLUDE_DIRECTORIES;PUBLIC_LINK_LIBRARIES;LD_LIBRARIES_EXT"
             ""
             ${ARGN}
     )
@@ -51,7 +48,6 @@ function(PTO_Fwk_UTest_AddCaseLib)
 
     set(PTO_Fwk_UTestCaseLibraries       ${PTO_Fwk_UTestCaseLibraries}       ${ARG_TARGET}            CACHE INTERNAL "" FORCE)
     set(PTO_Fwk_UTestCaseLdLibrariesExt  ${PTO_Fwk_UTestCaseLdLibrariesExt}  ${ARG_LD_LIBRARIES_EXT}  CACHE INTERNAL "" FORCE)
-    set(PTO_Fwk_UTestCaseGTestFilterList ${PTO_Fwk_UTestCaseGTestFilterList} ${ARG_GTEST_FILTER_LIST} CACHE INTERNAL "" FORCE)
 endfunction()
 
 # UTest 执行可执行程序
@@ -154,7 +150,7 @@ function(PTO_Fwk_UTest_AddExe_RunExe)
 
     list(FILTER PTO_Fwk_UTestCaseLibraries         EXCLUDE REGEX "PARALLEL_SEPARATOR")
     list(FILTER PTO_Fwk_UTestCaseLdLibrariesExt    EXCLUDE REGEX "PARALLEL_SEPARATOR")
-    list(FILTER GTestFilterList                     EXCLUDE REGEX "PARALLEL_SEPARATOR")
+    list(FILTER GTestFilterList                    EXCLUDE REGEX "PARALLEL_SEPARATOR")
     list(REMOVE_DUPLICATES PTO_Fwk_UTestCaseLibraries)
     list(REMOVE_DUPLICATES PTO_Fwk_UTestCaseLdLibrariesExt)
     list(REMOVE_DUPLICATES GTestFilterList)
