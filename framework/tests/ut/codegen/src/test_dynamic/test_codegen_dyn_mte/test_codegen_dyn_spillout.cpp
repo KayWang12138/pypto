@@ -29,13 +29,9 @@ namespace npu::tile_fwk {
 
 class TestCodegenDynSpillOut : public ::testing::Test {
 public:
-    static void SetUpTestCase() {
-        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
-    }
+    static void SetUpTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false); }
 
-    static void TearDownTestCase() {
-        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-    }
+    static void TearDownTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true); }
 
     void SetUp() override {
         Program::GetInstance().Reset();
@@ -48,7 +44,6 @@ public:
 };
 
 TEST_F(TestCodegenDynSpillOut, UBSpillOut) {
-
     const std::vector<int64_t> shape = {64, 64};
     auto shapeImme = OpImmediate::Specified(shape);
     TileShape::Current().SetVecTile(shape);
@@ -64,22 +59,12 @@ TEST_F(TestCodegenDynSpillOut, UBSpillOut) {
 
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
     function->SetUnderDynamicFunction(true);
-    std::shared_ptr<RawTensor> ddrRawTensor =
-        std::make_shared<RawTensor>(DataType::DT_FP32, shape, TileOpFormat::TILEOP_ND, "UBSpillOut", SYMBOL_STACK_BASE);
-    const std::vector<int64_t> offset = {0, 0};
 
-    auto ddrTensor = std::make_shared<LogicalTensor>(*function, ddrRawTensor, offset, shape);
-    ddrTensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
-    ddrTensor->SetMemoryTypeToBe(MemoryType::MEM_DEVICE_DDR);
-
-    auto ubTensor = std::make_shared<LogicalTensor>(*function, DT_FP32, shape);
-    ubTensor->UpdateSubgraphID(0);
-    ubTensor->SetMemoryTypeOriginal(MemoryType::MEM_UB);
-    ubTensor->SetMemoryTypeToBe(MemoryType::MEM_UB);
-    ubTensor->SetMagic(3);
-    ubTensor->SetAttr(OpAttributeKey::needAlloc, true);
-    ubTensor->UpdateDynValidShape({SymbolicScalar("S0"), SymbolicScalar("S1")});
-    ubTensor->memoryrange = TileRange{0, 0, 0};
+    auto ddrTensor =
+        CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_DEVICE_DDR, shape, "UBSpillOut"});
+    auto ubTensor = CreateLogicalTensor({
+        *function, DataType::DT_FP32, MemoryType::MEM_UB, shape2, {SymbolicScalar("S0"), SymbolicScalar("S1")}
+    });
 
     auto &op = function->AddOperation(Opcode::OP_COPY_OUT, {ubTensor}, {ddrTensor});
     op.SetOpAttribute(std::make_shared<CopyOpAttribute>(MEM_UB, OpImmediate::Specified({0, 0}), shapeImme, shapeImme));
@@ -99,7 +84,6 @@ TEST_F(TestCodegenDynSpillOut, UBSpillOut) {
 }
 
 TEST_F(TestCodegenDynSpillOut, L1SpillOut) {
-
     const std::vector<int64_t> shape = {64, 64};
     auto shapeImme = OpImmediate::Specified(shape);
     TileShape::Current().SetVecTile(shape);
@@ -108,29 +92,18 @@ TEST_F(TestCodegenDynSpillOut, L1SpillOut) {
     Tensor inputB(DT_FP32, shape, "B");
     Tensor output(DT_FP32, shape, "C");
 
-    std::string funcName = "ADD";
-    
+    std::string funcName = "L1SpillOut";
     FUNCTION(funcName, {inputA, inputB, output}) {
         output = Add(inputA, inputB);
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
     function->SetUnderDynamicFunction(true);
-    std::shared_ptr<RawTensor> ddrRawTensor =
-        std::make_shared<RawTensor>(DataType::DT_FP32, shape, TileOpFormat::TILEOP_ND, "L1SpillOut", SYMBOL_STACK_BASE);
-    const std::vector<int64_t> offset = {0, 0};
 
-    auto ddrTensor = std::make_shared<LogicalTensor>(*function, ddrRawTensor, offset, shape);
-    ddrTensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
-    ddrTensor->SetMemoryTypeToBe(MemoryType::MEM_DEVICE_DDR);
-
-    auto l1Tensor = std::make_shared<LogicalTensor>(*function, DT_FP32, shape);
-    l1Tensor->UpdateSubgraphID(0);
-    l1Tensor->SetMemoryTypeOriginal(MemoryType::MEM_L1);
-    l1Tensor->SetMemoryTypeToBe(MemoryType::MEM_L1);
-    l1Tensor->SetMagic(3);
-    l1Tensor->SetAttr(OpAttributeKey::needAlloc, true);
-    l1Tensor->UpdateDynValidShape({SymbolicScalar("S0"), SymbolicScalar("S1")});
-    l1Tensor->memoryrange = TileRange{0, 0, 0};
+    auto ddrTensor =
+        CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_DEVICE_DDR, shape, "L1SpillOut"});
+    auto l1Tensor = CreateLogicalTensor({
+        *function, DataType::DT_FP32, MemoryType::MEM_L1, shape2, {SymbolicScalar("S0"), SymbolicScalar("S1")}
+    });
 
     auto &op = function->AddOperation(Opcode::OP_COPY_OUT, {l1Tensor}, {ddrTensor});
     op.SetOpAttribute(std::make_shared<CopyOpAttribute>(MEM_L1, OpImmediate::Specified({0, 0}), shapeImme, shapeImme));

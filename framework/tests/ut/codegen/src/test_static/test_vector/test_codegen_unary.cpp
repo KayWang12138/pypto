@@ -37,6 +37,7 @@ public:
     void SetUp() override {
         Program::GetInstance().Reset();
         config::Reset();
+        config::SetBuildStatic(true);
         config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
         config::SetPlatformConfig("ENABLE_COST_MODEL", false);
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
@@ -52,7 +53,6 @@ void TestRowMaxSingleBody(
     TileShape::Current().SetVecTile(tileShape);
     Tensor input_a(DT_FP32, shape, "A");
     Tensor output(DT_FP32, outShape, "C");
-    config::SetBuildStatic(true);
     FUNCTION(name, {input_a, output}) {
         output = Amax(input_a, -1, true);
     }
@@ -79,7 +79,6 @@ void TestRowSumSingleBody(
     TileShape::Current().SetVecTile(tileShape);
     Tensor input_a(DT_FP32, shape, "A");
     Tensor output(DT_FP32, outShape, "C");
-    config::SetBuildStatic(true);
     FUNCTION(name, {input_a, output}) {
         output = Sum(input_a, -1, true);
     }
@@ -110,7 +109,6 @@ void TestTransposeVnchwconvBody(std::vector<int64_t> shape, std::vector<int64_t>
     TileShape::Current().SetVecTile(tileShape);
     Tensor input(DT_FP32, shape, "input");
     Tensor output(DT_FP32, outShape, "output");
-    config::SetBuildStatic(true);
     FUNCTION(name, {input, output}) {
         output = Transpose(input, transposeShape);
     }
@@ -142,7 +140,6 @@ void TestRowMaxExpandBody(
     TileShape::Current().SetVecTile(tileShape);
     Tensor input_a(DT_FP32, shape, "A");
     Tensor output(DT_FP32, outShape, "C");
-    config::SetBuildStatic(true);
     FUNCTION(name, {input_a, output}) {
         output = RowMaxExpand(input_a);
     }
@@ -165,7 +162,6 @@ Function &TestCastBody(std::vector<int64_t> shape, std::vector<int64_t> outShape
     TileShape::Current().SetVecTile(tileShape);
     Tensor input_a(DT_INT32, shape, "A");
     Tensor output(DT_FP32, outShape, "C");
-    config::SetBuildStatic(true);
     FUNCTION(name, {input_a, output}) {
         output = Cast(input_a, DT_FP32);
     }
@@ -229,7 +225,6 @@ Function& TestExpandBody(std::vector<int64_t> shape, std::vector<int64_t> outSha
     Tensor input_a(DT_FP32, shape, "A");
     Tensor output(DT_FP32, outShape, "C");
 
-    config::SetBuildStatic(true);
     FUNCTION(name, {input_a, output}) {
         output = Expand(input_a, outShape);
     }
@@ -294,7 +289,6 @@ void TestRowSumBody(
     Tensor input_a(DataType::DT_FP32, shape, "A");
     Tensor output(DataType::DT_FP32, outShape, "C");
 
-    config::SetBuildStatic(true);
     FUNCTION(name, {input_a, output}) {
         output = Sum(input_a, axis, true);
     }
@@ -323,7 +317,6 @@ TEST_F(TestCodegenUnary, TestVecDup) {
     TileShape::Current().SetVecTile({16, 1, 16});
 
     Tensor output(DataType::DT_INT32, shape, "C");
-    config::SetBuildStatic(true);
     FUNCTION(funcName, {output}) {
         output = npu::tile_fwk::Full(src, DT_INT32, shape);
     }
@@ -342,7 +335,6 @@ TEST_F(TestCodegenUnary, TestVecDupUnaligned) {
     Tensor output(DataType::DT_FP32, shape, "C");
 
     std::string funcName = "VECDUP_T";
-    config::SetBuildStatic(true);
     FUNCTION(funcName, {output}) {
         output = npu::tile_fwk::Full(src, DT_FP32, shape);
     }
