@@ -23,6 +23,7 @@
 #include "interface/tensor/logical_tensor.h"
 #include "tilefwk/tilefwk.h"
 #include "passes/tile_graph_pass/subgraph_to_function.h"
+#include "passes/block_graph_pass/mix_subgraph_split_utils.h"
 #include <unordered_map>
 #include <set>
 #include <vector>
@@ -139,9 +140,6 @@ private:
                               const std::vector<Operation*>& originalCallOps,
                               std::vector<MixSubgraphSplitResult>& splitResults);
 
-    // 检查是否为需要拆分的Mix子图
-    bool IsMixSubgraph(Function& leafFunc) const;
-
     // 分析Mix子图内部的独立子图结构
     std::vector<InternalComponentInfo> AnalyzeInternalComponents(Function& mixSubgraphFunc) const;
 
@@ -170,14 +168,6 @@ private:
                            std::map<int, std::vector<Operation*>>& componentsByInternalID,
                            std::unordered_map<Operation*, int>& opToComponentMap,
                            Function& mixSubgraphFunc) const;
-    // 搜索函数
-    Operation* FindFirstOpForward(Operation* startOp,
-                                 Function& mixSubgraphFunc,
-                                 std::function<bool(Operation*)> predicate) const;
-
-    Operation* FindFirstOpBackward(Operation* startOp,
-                                  Function& mixSubgraphFunc,
-                                  std::function<bool(Operation*)> predicate) const;
 
     // 创建拆分后的Leaf function
     Function* CreateSplitLeafFunction(Function& rootFunc,
@@ -186,27 +176,6 @@ private:
                                     uint64_t newProgramID,
                                     uint64_t componentIndex,
                                     SubgraphToFunction& subgraphToFunction);
-
-    void UpdateOperandsForIncast(const std::vector<IncastParamPackTy> &incastParamList,
-                                const LogicalTensors &originalTensors, 
-                                const LogicalTensors &originalOperands, 
-                                LogicalTensors &newOperands, 
-                                std::set<LogicalTensorPtr> &processedTensors);
-    void UpdateOperandsForOutcast(const std::vector<OutcastParamPackTy> &outcastParamList,
-                                const LogicalTensors &originalTensors, 
-                                const LogicalTensors &originalOperands, 
-                                LogicalTensors &newOperands, 
-                                std::set<LogicalTensorPtr> &processedTensors);
-    void UpdateOperandsForGlobalTensor(const std::vector<TensorParamPackTy> &paramList,
-                                        const LogicalTensors &originalTensors, 
-                                        const LogicalTensors &originalOperands, 
-                                        LogicalTensors &newOperands, 
-                                        std::set<LogicalTensorPtr> &processedTensors);
-    void UpdateBroadcastForInOutCast(const LogicalTensors &actualTensors, 
-                                    const LogicalTensors &originalTensors, 
-                                    const LogicalTensors &originalOperands, 
-                                    LogicalTensors &newOperands, 
-                                    std::set<LogicalTensorPtr> &processedTensors);
     void CloneCallOp(Operation &callOp,
                     SubgraphToFunction& subgraphToFunction,
                     const CallOpCreationInfo &callOpInfo);
@@ -227,10 +196,6 @@ private:
     // 依赖分析函数
     std::unordered_map<int, std::vector<int>> AnalyzeComponentDependencies(Function& mixFunc) const;
     
-    void BroadcastDependencyClosure(std::set<int> &deps_i, std::set<int> &newDeps, std::unordered_map<int, std::set<int>> &closure, bool &changed, int i) const;
-    
-    void InitiateClosure(const std::unordered_map<int, std::vector<int>>& directDeps, std::unordered_map<int, std::set<int>> &closure);
-    void CalculateClosure(std::unordered_map<int, std::set<int>> &closure);
     std::unordered_map<int, std::set<int>> ComputeDependencyClosure(const std::unordered_map<int, std::vector<int>>& directDeps) const;
 
     void PropagateIncastDependencies(const std::vector<Function*>& leafFunctions,
@@ -270,8 +235,6 @@ private:
     MixResourceType GetMixResourceType(Function& mixFunc) const;
     AIVCore FindConsumerVectorAIVCore(Operation* copyOp) const;
     AIVCore DetermineComponentAIVCore(const std::vector<Operation*>& operations) const;
-    bool IsSyncOperation(Operation* op) const;
-    bool IsInUnassignedOps(Operation* op, const std::vector<Operation*>& unassignedOps) const;
     Operation* FindPreviousOpInSequence(Operation* op, Function& mixSubgraphFunc) const;
     Operation* FindNextOpInSequence(Operation* op, Function& mixSubgraphFunc) const;
     void DisplayArg(const std::vector<SymbolicScalar>& originalLinearArgs) const;

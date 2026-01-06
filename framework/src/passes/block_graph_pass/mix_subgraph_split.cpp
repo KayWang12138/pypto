@@ -51,7 +51,7 @@ Status MixSubgraphSplit::GatherSubGraphInfo(Function &function, std::vector<MixS
         }
     }
     for (auto &program : rootFunc->programs_) {
-        if (program.second != nullptr && IsMixSubgraph(*program.second)) {
+        if (program.second != nullptr && MixSubgraphSplitUtils::IsMixSubgraph(*program.second)) {
             auto components = AnalyzeInternalComponents(*program.second);
             if (components.size() > 1) {
                 // 获取该programID对应的原始callOps
@@ -173,26 +173,6 @@ Status MixSubgraphSplit::RunOnFunction(Function &function) {
     return SUCCESS;
 }
 
-bool MixSubgraphSplit::IsMixSubgraph(Function& function) const {
-    auto operations = function.Operations(false);
-    for (size_t idx = 0; idx < operations.size(); idx++) {
-        auto& op = operations[idx];
-        if (op.IsNOP()) continue;
-        // 只要有一个op有有效的internalSubgraphID，就认为是Mix子图
-        int internalSubgraphID = op.GetInternalSubgraphID();
-        if (internalSubgraphID > 0) {
-            ALOG_DEBUG_F("Function %s identified as mix subgraph: op %s has internalSubgraphID=%d",
-                        function.GetRawName().c_str(),
-                        op.GetOpcodeStr().c_str(),
-                        internalSubgraphID);
-            return true;
-        }
-    }
-    ALOG_DEBUG_F("Function %s is not a mix subgraph: no ops with internalSubgraphID",
-            function.GetRawName().c_str());
-    return false;
-}
-
 std::map<int, std::vector<Operation*>> MixSubgraphSplit::GroupOperationsByExistingInternalID(Function& mixSubgraphFunc,
                                                                                                     std::vector<Operation*>& unassignedOps) const {
     std::map<int, std::vector<Operation*>> internalIDToOperations;
@@ -214,10 +194,9 @@ std::map<int, std::vector<Operation*>> MixSubgraphSplit::GroupOperationsByExisti
     return internalIDToOperations;
 }
 
-void MixSubgraphSplit::ProcessUnassignedOperations(
-    std::vector<Operation*>& unassignedOps,
-    std::map<int, std::vector<Operation*>>& componentsByInternalID,
-    Function& mixSubgraphFunc) const {
+void MixSubgraphSplit::ProcessUnassignedOperations(std::vector<Operation*>& unassignedOps,
+                                                std::map<int, std::vector<Operation*>>& componentsByInternalID,
+                                                Function& mixSubgraphFunc) const {
     // 预先构建op到组件的映射表，并分析现有组件的coreType
     std::unordered_map<Operation*, int> opToComponentMap;
     for (const auto& [internalID, operations] : componentsByInternalID) {
@@ -242,7 +221,7 @@ void MixSubgraphSplit::ProcessUnassignedOperations(
             merged = MergeMoveOutOperation(op, componentsByInternalID, opToComponentMap);
         }
         // 处理同步节点
-        else if (IsSyncOperation(op)) {
+        else if (MixSubgraphSplitUtils::IsSyncOperation(op)) {
             merged = MergeSyncOperation(op, componentsByInternalID, opToComponentMap, mixSubgraphFunc);
         }
         if (!merged) {
@@ -257,10 +236,9 @@ void MixSubgraphSplit::ProcessUnassignedOperations(
 }
 
 // 合并MOVE_IN类型的op
-bool MixSubgraphSplit::MergeMoveInOperation(
-    Operation* op,
-    std::map<int, std::vector<Operation*>>& componentsByInternalID,
-    std::unordered_map<Operation*, int>& opToComponentMap) const {
+bool MixSubgraphSplit::MergeMoveInOperation(Operation* op,
+                                            std::map<int, std::vector<Operation*>>& componentsByInternalID,
+                                            std::unordered_map<Operation*, int>& opToComponentMap) const {
     ALOG_DEBUG_F("Processing MOVE_IN operation %s", op->GetOpcodeStr().c_str());
     // 主要策略：与输出tensor的消费者合并
     for (auto& outputTensor : op->GetOOperands()) {
@@ -282,10 +260,9 @@ bool MixSubgraphSplit::MergeMoveInOperation(
 }
 
 // 合并MOVE_OUT类型的op
-bool MixSubgraphSplit::MergeMoveOutOperation(
-    Operation* op,
-    std::map<int, std::vector<Operation*>>& componentsByInternalID,
-    std::unordered_map<Operation*, int>& opToComponentMap) const {
+bool MixSubgraphSplit::MergeMoveOutOperation(Operation* op,
+                                            std::map<int, std::vector<Operation*>>& componentsByInternalID,
+                                            std::unordered_map<Operation*, int>& opToComponentMap) const {
     ALOG_DEBUG_F("Processing MOVE_OUT operation %s", op->GetOpcodeStr().c_str());
     // 主要策略：与输入tensor的生产者合并
     for (auto& inputTensor : op->GetIOperands()) {
@@ -327,7 +304,7 @@ Operation* MixSubgraphSplit::FindNextOpInSequence(Operation* op, Function& mixSu
 }
 
 bool MixSubgraphSplit::MergeSyncPhase2(Operation* op, Function& mixSubgraphFunc, std::map<int, std::vector<Operation*>>& componentsByInternalID, std::unordered_map<Operation*, int>& opToComponentMap) const {
-    Operation* targetOp = FindFirstOpBackward(op, mixSubgraphFunc,
+    Operation* targetOp = MixSubgraphSplitUtils::FindFirstOpBackward(op, mixSubgraphFunc,
         [](Operation* candidate) {
             return candidate->GetOpcode() == Opcode::OP_COPY_IN;
         });
@@ -347,7 +324,7 @@ bool MixSubgraphSplit::MergeSyncPhase2(Operation* op, Function& mixSubgraphFunc,
 }
 
 bool MixSubgraphSplit::MergeSyncPhase1(Operation* op, Function& mixSubgraphFunc, std::map<int, std::vector<Operation*>>& componentsByInternalID, std::unordered_map<Operation*, int>& opToComponentMap) const {
-    Operation* targetOp = FindFirstOpForward(op, mixSubgraphFunc,
+    Operation* targetOp = MixSubgraphSplitUtils::FindFirstOpForward(op, mixSubgraphFunc,
         [](Operation* candidate) {
             return candidate->GetOpcode() == Opcode::OP_COPY_IN;
         });
@@ -397,7 +374,7 @@ bool MixSubgraphSplit::MergeSyncOperation(Operation* op, std::map<int, std::vect
 
     // OP_SYNC_SRC、OP_CV_SYNC_SRC: 往前找到第一个非同步op放到该op所在分组
     if (opcode == Opcode::OP_SYNC_SRC || opcode == Opcode::OP_CV_SYNC_SRC) {
-        Operation* targetSrcOp = FindFirstOpBackward(op, mixSubgraphFunc, [this](Operation* candidate) { return !IsSyncOperation(candidate); });
+        Operation* targetSrcOp = MixSubgraphSplitUtils::FindFirstOpBackward(op, mixSubgraphFunc, [this](Operation* candidate) { return !MixSubgraphSplitUtils::IsSyncOperation(candidate); });
         return MergeSyncSrcDst(op, targetSrcOp, componentsByInternalID, opToComponentMap);
     }
 
@@ -405,76 +382,13 @@ bool MixSubgraphSplit::MergeSyncOperation(Operation* op, std::map<int, std::vect
     if (opcode == Opcode::OP_BAR_V || opcode == Opcode::OP_BAR_M ||
         opcode == Opcode::OP_BAR_ALL || opcode == Opcode::OP_SYNC_DST ||
         opcode == Opcode::OP_CV_SYNC_DST) {
-        Operation* targetDstOp = FindFirstOpForward(op, mixSubgraphFunc, [this](Operation* candidate) { return !IsSyncOperation(candidate); });
+        Operation* targetDstOp = MixSubgraphSplitUtils::FindFirstOpForward(op, mixSubgraphFunc, [this](Operation* candidate) { return !MixSubgraphSplitUtils::IsSyncOperation(candidate); });
         return MergeSyncSrcDst(op, targetDstOp, componentsByInternalID, opToComponentMap);
     }
 
     ALOG_ERROR_F("Unhandled sync operation type: %s %d",
                 op->GetOpcodeStr().c_str(), op->GetOpMagic());
     return false;
-}
-
-Operation* MixSubgraphSplit::FindFirstOpForward(Operation* startOp, Function& mixSubgraphFunc, std::function<bool(Operation*)> predicate) const {
-    const auto& opList = mixSubgraphFunc.Operations(false).DuplicatedOpList();
-    int startIndex = GetStartIndex(opList, startOp);
-    if (startIndex == -1) {
-        return nullptr;
-    }
-
-    // 向后搜索（向序列结束方向）
-    for (int i = startIndex + 1; i < static_cast<int>(opList.size()); ++i) {
-        Operation* candidate = opList[i];
-        if (predicate(candidate)) {
-            ALOG_DEBUG_F("Found target op %d at index %d (searching forward from %d)", candidate->GetOpMagic(), i, startIndex);
-            return candidate;
-        }
-    }
-
-    ALOG_DEBUG_F("No matching op found for op %d in forward direction", startOp->GetOpMagic());
-    return nullptr;
-}
-
-Operation* MixSubgraphSplit::FindFirstOpBackward(Operation* startOp, Function& mixSubgraphFunc, std::function<bool(Operation*)> predicate) const {
-    const auto& opList = mixSubgraphFunc.Operations(false).DuplicatedOpList();
-    int startIndex = GetStartIndex(opList, startOp);
-    if (startIndex == -1) {
-        return nullptr;
-    }
-
-    // 向前搜索（向序列开始方向）
-    for (int i = startIndex - 1; i >= 0; --i) {
-        Operation* candidate = opList[i];
-        if (predicate(candidate)) {
-            ALOG_DEBUG_F("Found target op %d at index %d (searching backward from %d)", candidate->GetOpMagic(), i, startIndex);
-            return candidate;
-        }
-    }
-
-    ALOG_DEBUG_F("No matching op found for op %d in backward direction", startOp->GetOpMagic());
-    return nullptr;
-}
-
-bool MixSubgraphSplit::IsInUnassignedOps(Operation* op, const std::vector<Operation*>& unassignedOps) const {
-    return std::find(unassignedOps.begin(), unassignedOps.end(), op) != unassignedOps.end();
-}
-
-bool MixSubgraphSplit::IsSyncOperation(Operation* op) const {
-    if (!op) {
-        return false;
-    }
-
-    Opcode opcode = op->GetOpcode();
-
-    // 同步操作类型列表
-    return opcode == Opcode::OP_SYNC_SRC ||
-           opcode == Opcode::OP_SYNC_DST ||
-           opcode == Opcode::OP_CV_SYNC_SRC ||
-           opcode == Opcode::OP_CV_SYNC_DST ||
-           opcode == Opcode::OP_PHASE1 ||
-           opcode == Opcode::OP_PHASE2 ||
-           opcode == Opcode::OP_BAR_V ||
-           opcode == Opcode::OP_BAR_M ||
-           opcode == Opcode::OP_BAR_ALL;
 }
 
 AIVCore MixSubgraphSplit::FindConsumerVectorAIVCore(Operation* copyOp) const {
@@ -529,7 +443,7 @@ AIVCore MixSubgraphSplit::DetermineComponentAIVCore(const std::vector<Operation*
 
     // Vector组件：查找第一个非同步op的AIVCore
     for (auto* op : operations) {
-        if (!IsSyncOperation(op)) {
+        if (!MixSubgraphSplitUtils::IsSyncOperation(op)) {
             AIVCore opCore = op->GetAIVCore();
             if (opCore != AIVCore::UNSPECIFIED) {
                 // 直接返回第一个非同步op的AIVCore
@@ -637,84 +551,6 @@ Status MixSubgraphSplit::ApplySplitResultsWithRemap(Function& function,
     return SUCCESS;
 }
 
-void MixSubgraphSplit::UpdateOperandsForIncast(const std::vector<IncastParamPackTy> &incastParamList,
-                                                const LogicalTensors &originalIncasts, 
-                                                const LogicalTensors &originalIOperands, 
-                                                LogicalTensors &newIOperands, 
-                                                std::set<LogicalTensorPtr> &processedTensors) {
-    for (const auto& param : inCastParamList) {
-        int tensorMagic = incastParam.tensor->magic;
-        int originalIndex = FindTensorIndexInList(tensorMagic, originalIncasts);
-        if (originalIndex >= 0 && originalIndex < static_cast<int>(originalIOperands.size())) {
-            newIOperands.push_back(originalIOperands[originalIndex]);
-            processedTensors.insert(param.tensor);
-            ALOG_DEBUG_F("  Found: tensor magic=%d -> original Operand[%d] (tensor magic=%d)",
-                                tensorMagic, originalIndex, originalIOperands[originalIndex]->magic);
-        } 
-    }
-}
-
-void MixSubgraphSplit::UpdateOperandsForOutcast(const std::vector<OutcastParamPackTy> &outcastParamList,
-                                                const LogicalTensors &originalOutcasts, 
-                                                const LogicalTensors &originalOOperands, 
-                                                LogicalTensors &newOOperands, 
-                                                std::set<LogicalTensorPtr> &processedTensors) {
-    for (const auto& param : outcastParamList) {
-        int tensorMagic = incastParam.tensor->magic;
-        int originalIndex = FindTensorIndexInList(tensorMagic, originalOutcasts);
-        if (originalIndex >= 0 && originalIndex < static_cast<int>(originalOOperands.size())) {
-            newOOperands.push_back(originalOperands[originalIndex]);
-            processedTensors.insert(param.tensor);
-            ALOG_DEBUG_F("  Found: tensor magic=%d -> original Operand[%d] (tensor magic=%d)",
-                                tensorMagic, originalIndex, originalOOperands[originalIndex]->magic);
-        } 
-    }
-}
-
-void MixSubgraphSplit::UpdateOperandsForGlobalTensor(const std::vector<TensorParamPackTy> &paramList,
-                                                    const LogicalTensors &originalTensors, 
-                                                    const LogicalTensors &originalOperands, 
-                                                    LogicalTensors &newOperands, 
-                                                    std::set<LogicalTensorPtr> &processedTensors) {
-    for (const auto& tensorParam : paramList) {
-        if (tensorParam.opMagic == -1 || tensorParam.tensor == nullptr || tensorParam.isOutputToGM) {
-            continue;
-        }
-        int tensorMagic = tensorParam.tensor->magic;
-        int originalIndex = FindTensorIndexInList(tensorMagic, originalTensors);
-        if (originalIndex >= 0 && originalIndex < static_cast<int>(originalOperands.size())) {
-            newOperands.push_back(originalOperands[originalIndex]);
-            processedTensors.insert(tensorParam.tensor);
-            ALOG_DEBUG_F("  Found: global tensor magic=%d -> original Operand[%d]",
-                            tensorMagic, originalIndex);
-        } 
-    }
-}
-
-void MixSubgraphSplit::UpdateBroadcastForInOutCast(const LogicalTensors &actualTensors, 
-                                                const LogicalTensors &originalTensors, 
-                                                const LogicalTensors &originalOperands, 
-                                                LogicalTensors &newOperands, 
-                                                std::set<LogicalTensorPtr> &processedTensors) {
-    // 处理传播的tensor
-    for (const auto& tensor : actualTensors) {       
-        // 检查是否已经在之前的列表中处理过
-        if (processedTensors.count(tensor) > 0) {
-            ALOG_DEBUG_F("  Propagated incast tensor magic=%d already processed, skipping", incast->magic);
-            continue;
-        }
-        int tensorMagic = tensor->magic;
-        ALOG_DEBUG_F("  Checking propagated incast tensor magic=%d", tensorMagic);
-        int originalIndex = FindTensorIndexInList(tensorMagic, originalTensors);
-        if (originalIndex >= 0 && originalIndex < static_cast<int>(originalOperands.size())) {
-            newOperands.push_back(originalOperands[originalIndex]);
-            processedTensors.insert(tensor);
-            ALOG_DEBUG_F("    Found: propagated incast tensor magic=%d -> original iOperand[%d]",
-                            tensorMagic, originalIndex);
-        } 
-    }
-}
-
 void MixSubgraphSplit::CloneCallOp(Operation &callOp,
                                    SubgraphToFunction& subgraphToFunction,
                                    const CallOpCreationInfo &callOpInfo) {
@@ -775,17 +611,17 @@ Status MixSubgraphSplit::CreateCallOpInRootFunction(Function& rootFunc,
     // 用于跟踪已经处理过的tensor
     std::set<LogicalTensorPtr> processedTensors;
     // 1. 为incast构建新的iOperands
-    UpdateOperandsForIncast(invokeInfo.GetIncastTensorParamList(), originalIncasts, originalIOperands, newIOperands, processedTensors);
+    MixSubgraphSplitUtils::UpdateOperandsForIncast(invokeInfo.GetIncastTensorParamList(), originalIncasts, originalIOperands, newIOperands, processedTensors);
     // 2. 为global tensor输入构建新的iOperands
-    UpdateOperandsForGlobalTensor(invokeInfo.GetTensorParamList(), originalIncasts, originalIOperands, newIOperands, processedTensors);
+    MixSubgraphSplitUtils::UpdateOperandsForGlobalTensor(invokeInfo.GetTensorParamList(), originalIncasts, originalIOperands, newIOperands, processedTensors);
     // 3. 为outcast构建新的oOperands
-    UpdateOperandsForOutcast(invokeInfo.GetOutcastTensorParamList(), originalOutcasts, originalOOperands, newOOperands, processedTensors);
+    MixSubgraphSplitUtils::UpdateOperandsForOutcast(invokeInfo.GetOutcastTensorParamList(), originalOutcasts, originalOOperands, newOOperands, processedTensors);
     // 4. 为global tensor输出构建新的oOperands
-    UpdateOperandsForGlobalTensor(invokeInfo.GetTensorParamList(), originalOutcasts, originalOOperands, newOOperands, processedTensors);
+    MixSubgraphSplitUtils::UpdateOperandsForGlobalTensor(invokeInfo.GetTensorParamList(), originalOutcasts, originalOOperands, newOOperands, processedTensors);
     // 5. 处理传播依赖添加的参数
     // 获取传播依赖后的实际incast/outcast
-    UpdateBroadcastForInOutCast(leafFunc.GetIncast(), originalIncasts, originalIOperands, newIOperands, processedTensors);
-    UpdateBroadcastForInOutCast(leafFunc.GetOutcast(), originalOutcasts, originalOOperands, newOOperands, processedTensors);
+    MixSubgraphSplitUtils::UpdateBroadcastForInOutCast(leafFunc.GetIncast(), originalIncasts, originalIOperands, newIOperands, processedTensors);
+    MixSubgraphSplitUtils::UpdateBroadcastForInOutCast(leafFunc.GetOutcast(), originalOutcasts, originalOOperands, newOOperands, processedTensors);
     auto& callOp = rootFunc.AddRawOperation(Opcode::OP_CALL, newIOperands, newOOperands, false);
     ALOG_INFO_F("Created operands for new callOp %d: %zu inputs, %zu outputs",
             callOp.GetOpMagic(), newIOperands.size(), newOOperands.size());
@@ -1811,67 +1647,13 @@ void MixSubgraphSplit::PropagateOutcastToLeafFunction(Function* sourceLeafFunc,
     }
 }
 
-void MixSubgraphSplit::BroadcastDependencyClosure(std::set<int> &deps_i, std::set<int> &newDeps,
-                                                std::unordered_map<int, std::set<int>> &closure,
-                                                bool &changed, int i) const {
-    for (int j : deps_i) {
-        // 如果j有传递依赖k，把k也加入i的依赖
-        if (closure.count(j)) {
-            for (int k : closure[j]) {
-                if (newDeps.insert(k).second) {
-                    changed = true;
-                    ALOG_DEBUG_F("Iteration: %d -> %d -> %d, added %d -> %d",
-                                i, j, k, i, k);
-                }
-            }
-        }
-    }
-}
-
-void MixSubgraphSplit::InitiateClosure(const std::unordered_map<int, std::vector<int>>& directDeps,
-                                    std::unordered_map<int, std::set<int>> &closure) {
-    // 确保所有组件都在closure中，即使没有出边
-    int maxComponent = 0;
-    for (const auto& [component, deps] : directDeps) {
-        closure[component] = std::set<int>(deps.begin(), deps.end());
-        if (component > maxComponent) {
-            maxComponent = component;
-        }
-        for (int dep : deps) {
-            if (dep > maxComponent) {
-                maxComponent = dep;
-            }
-        }
-    }
-    // 确保所有组件索引都在closure中
-    for (int i = 0; i <= maxComponent; i++) {
-        closure[i]; // 确保存在，即使没有依赖关系
-    } 
-}
-
-void MixSubgraphSplit::CalculateClosure(std::unordered_map<int, std::set<int>> &closure) {
-    bool changed;
-    int iteration = 0;
-    do {
-        changed = false;
-        iteration++;
-        for (auto& [i, deps_i] : closure) {
-            std::set<int> newDeps = deps_i;
-            // 对于i的每个直接依赖j
-            BroadcastDependencyClosure(deps_i, newDeps, closure, changed, i);
-            deps_i = std::move(newDeps);
-        }
-        ALOG_DEBUG_F("After iteration %d, changed: %s", iteration, changed ? "true" : "false");
-    } while (changed);
-}
-
 // 计算依赖传递闭包
 std::unordered_map<int, std::set<int>> MixSubgraphSplit::ComputeDependencyClosure(const std::unordered_map<int, std::vector<int>>& directDeps) const {
     std::unordered_map<int, std::set<int>> closure;
     // 步骤1：初始化直接依赖
-    InitiateClosure(directDeps, closure);
+    MixSubgraphSplitUtils::InitiateClosure(directDeps, closure);
     // 步骤2：使用Floyd-Warshall算法计算传递闭包
-    CalculateClosure(closure);
+    MixSubgraphSplitUtils::CalculateClosure(closure);
     return closure;
 }
 
