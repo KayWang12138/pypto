@@ -22,6 +22,7 @@
 #include "passes/pass_mgr/pass_manager.h"
 #include "interface/configs/config_manager.h"
 #include "passes/block_graph_pass/schedule_ooo/schedule_ooo.h"
+#include "passes/block_graph_pass/schedule_ooo/core_assign.h"
 #include "operator/models/deepseek/deepseek_mla.h"
 #include "computational_graph_builder.h"
 
@@ -509,7 +510,7 @@ TEST_F(ScheduleOoOTest, TestSpillAssemble) {
         MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB,
         MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB};
     std::vector<Opcode> opCodes{Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_ADD,
-        Opcode::OP_ADD, Opcode::OP_ADD, Opcode::OP_ADD, Opcode::OP_ADD, Opcode::OP_ADD, Opcode::OP_SUB, Opcode::OP_SUB, Opcode::OP_ASSEMBLE, Opcode::OP_ASSEMBLE, 
+        Opcode::OP_ADD, Opcode::OP_ADD, Opcode::OP_ADD, Opcode::OP_ADD, Opcode::OP_ADD, Opcode::OP_SUB, Opcode::OP_SUB, Opcode::OP_ASSEMBLE, Opcode::OP_ASSEMBLE,
         Opcode::OP_ASSEMBLE, Opcode::OP_ASSEMBLE, Opcode::OP_MUL};
     std::vector<std::vector<std::string>> ioperands{{}, {}, {}, {}, {}, {"t1"}, {"t2"}, {"t3"}, {"t4"}, {"t5"}, {"t6"}, {"t7"}, {"t8"}, {"t9"}, {"t10"}, {"t11"}, {"t12"}, {"t13"}};
     std::vector<std::vector<std::string>> ooperands{{"t5"}, {"t6"}, {"t7"}, {"t8"}, {"t12"}, {"t5"}, {"t6"}, {"t7"}, {"t8"}, {"t9"}, {"t10"}, {"t11"}, {"t12"}, {"t13"}, {"t13"}, {"t13"}, {"t13"}, {"t14"}};
@@ -1185,7 +1186,7 @@ TEST_F(ScheduleOoOTest, TestBufferUsage) {
     };
     EXPECT_NE(ooOScheduler.oooCheck.bufferTotalUsage, invalidBufferTotalUsage);
     EXPECT_NE(ooOScheduler.oooCheck.bufferMaxUsage, invalidBufferMaxUsage);
-    
+
     // 增加健康检查校验
     ooOScheduler.oooCheck.clock = 3; // 模拟数据
     res = ooOScheduler.oooCheck.HealthCheckOoOSchedule();
@@ -1350,7 +1351,7 @@ TEST_F(ScheduleOoOTest, TestScheduleGenSpillInfiniteLoop) {
     EXPECT_NE(subGraph.GetTensor("t4"), nullptr);
     std::shared_ptr<LogicalTensor> tensor1 = subGraph.GetTensor("t4");
     tensor1->shape = {176,256};
-    
+
     EXPECT_NE(subGraph.GetTensor("t5"), nullptr);
     std::shared_ptr<LogicalTensor> tensor2 = subGraph.GetTensor("t5");
     tensor2->shape = {176,256};
@@ -1448,7 +1449,7 @@ TEST_F(ScheduleOoOTest, TestOoOMemoryRefactoring) {
 
     res = ooOScheduler.PriorDFS(preNodePriority);
     EXPECT_EQ(res, SUCCESS);
-         
+
     EXPECT_NE(subGraph.GetOp("OP_L0C_COPY_OUT_2"), nullptr);
     Operation *op = subGraph.GetOp("OP_L0C_COPY_OUT_2");
     int idx = 0;
@@ -1564,6 +1565,71 @@ TEST_F(ScheduleOoOTest, TestHasEnoughBufferAddMemId) {
     ooOScheduler.InitLocalBuffer(tensor2, 1);
     bool res = ooOScheduler.HasEnoughBuffer(issue, MemoryType::MEM_UB);
     EXPECT_EQ(res, false);
+}
+
+TEST_F(ScheduleOoOTest, TestCoreAssign) {
+    ComputationalGraphBuilder subGraph;
+    std::vector<std::string> tensorNames{"t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9", "t10"};
+    std::vector<Opcode> opCodes{Opcode::OP_A_MUL_B, Opcode::OP_ADDS, Opcode::OP_ADDS, Opcode::OP_ADDS,
+        Opcode::OP_ADDS, Opcode::OP_A_MUL_B, Opcode::OP_ADDS, Opcode::OP_A_MUL_B, Opcode::OP_ADD, Opcode::OP_A_MULACC_B};
+    std::vector<std::vector<std::string>> ioperands{{"t0", "t0"}, {"t1"}, {"t1"}, {"t1"}, {"t2", "t2"}, {"t2"}, {"t4"}, {"t5", "t5"}, {"t3", "t6"}, {"t7", "t8", "t9"}};
+    std::vector<std::vector<std::string>> ooperands{{"t1"}, {"t2"}, {"t8"}, {"t9"}, {"t3"}, {"t4"}, {"t5"}, {"t6"}, {"t7"}, {"t10"}};
+    std::vector<std::string> opNames{"op1", "op2", "op3", "op4", "op5", "op6", "op7", "op8", "op9", "op10"};
+    EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {256, 256}, tensorNames), true);
+    EXPECT_EQ(subGraph.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
+    Function *function = subGraph.GetFunction();
+    EXPECT_NE(function, nullptr);
+    auto opList = function->Operations(false).DuplicatedOpList();
+    TaskSpliter spliter;
+    spliter.SplitGraph(opList);
+    CoreScheduler coreScheduler;
+    const int bruteForceThreshold = 10;
+    coreScheduler.Schedule(spliter.GetTaskGraph(), bruteForceThreshold);
+    const int taskNum = 6;
+    EXPECT_EQ(spliter.GetTaskGraph().tasks.size(), taskNum);
+    spliter.MergeTask();
+    OoOScheduler ooOScheduler(*function);
+    spliter.MarkInternalSubgraphID();
+    EXPECT_EQ(spliter.GetMergedOperations().size(), opList.size());
+}
+
+TEST_F(ScheduleOoOTest, TestLatencyEstimatorMainLoop) {
+    // 创建测试数据
+    ComputationalGraphBuilder subGraph;
+
+    // 定义测试张量
+    std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5"};
+    std::vector<MemoryType> tensorMemTypes{
+        MemoryType::MEM_UB, MemoryType::MEM_L0A, MemoryType::MEM_L0B,
+        MemoryType::MEM_L0C, MemoryType::MEM_UB
+    };
+
+    std::vector<Opcode> opCodes{Opcode::OP_L0A_ALLOC, Opcode::OP_L0B_ALLOC, Opcode::OP_A_MUL_B, Opcode::OP_L0C_ALLOC,
+        Opcode::OP_UB_ALLOC, Opcode::OP_L0C_COPY_UB, Opcode::OP_UB_COPY_L1};
+
+    std::vector<std::vector<std::string>> ioperands{{}, {}, {"t2", "t3"}, {}, {}, {"t4"},  {"t1"}};
+
+    std::vector<std::vector<std::string>> ooperands{{"t2"}, {"t3"}, {"t4"}, {"t4"}, {"t5"}, {"t5"}, {"t2"}};
+
+    std::vector<std::string> opNames{
+        "L0A_Alloc1", "L0B_Alloc1", "Mul1", "L0C_Alloc1",
+        "UB_ALLOC1", "OP_L0C_COPY_UB", "OP_UB_COPY_L1"
+    };
+
+    // 构建计算图
+    EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {16, 16}, tensorMemTypes, tensorNames, 0), true);
+    EXPECT_EQ(subGraph.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
+
+    Function *function = subGraph.GetFunction();
+    EXPECT_NE(function, nullptr);
+
+    // 创建LatencyEstimator实例
+    auto opList = function->Operations(false).DuplicatedOpList();
+    LatencyEstimator latencyEstimator(opList);
+
+    // 测试LatencyEstimatorMainLoop
+    Status res = latencyEstimator.LatencyEstimatorMainLoop();
+    EXPECT_EQ(res, SUCCESS);
 }
 
 } // namespace npu::tile_fwk
