@@ -38,6 +38,7 @@ public:
     void SetUp() override {
         Program::GetInstance().Reset();
         config::Reset();
+        config::SetBuildStatic(true);
         config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
         config::SetPlatformConfig("ENABLE_COST_MODEL", false);
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
@@ -58,8 +59,7 @@ TEST_F(TestCodegenSpillOut, UBSpillOut) {
     Tensor inputB(DT_FP32, shape, "B");
     Tensor output(DT_FP32, shape, "C");
 
-    std::string funcName = "ADD";
-    config::SetBuildStatic(true);
+    std::string funcName = "UBSpillOut";
     FUNCTION(funcName, {inputA, inputB, output}) {
         output = Add(inputA, inputB);
     }
@@ -108,8 +108,7 @@ TEST_F(TestCodegenSpillOut, UBSpillOutTileTensor) {
     Tensor inputB(DT_FP32, shape, "B");
     Tensor output(DT_FP32, shape, "C");
 
-    std::string funcName = "ADD_TILETENSOR";
-    config::SetBuildStatic(true);
+    std::string funcName = "UBSpillOutTileTensor";
     FUNCTION(funcName, {inputA, inputB, output}) {
         output = Add(inputA, inputB);
     }
@@ -162,8 +161,7 @@ TEST_F(TestCodegenSpillOut, L1SpillOut) {
     Tensor inputB(DT_FP32, shape, "B");
     Tensor output(DT_FP32, shape, "C");
 
-    std::string funcName = "ADD";
-    config::SetBuildStatic(true);
+    std::string funcName = "L1SpillOut";
     FUNCTION(funcName, {inputA, inputB, output}) {
         output = Add(inputA, inputB);
     }
