@@ -21,7 +21,7 @@ import torch_npu
 import pypto
 import logging
 import numpy as np
-from mla_prolog_impl import mla_prolog_v4_in, MlaPrologV4Configs, MlaPrologV4Attrs
+from mla_prolog_impl import mla_prolog_v4_in
 from utils.compare import compare
 
 torch.manual_seed(5)
@@ -248,8 +248,8 @@ def convert_pypto_to_torch_type(pypto_type):
 
 
 class MLA_MODEL(torch.nn.Module):
-    def forward(self, token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, output_q_data, output_kv_data, output_qr_data, attrs, configs):
-        return mla_prolog_v4_in(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, output_q_data, output_kv_data, output_qr_data, attrs, configs)
+    def forward(self, token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, output_q_data, output_kv_data, output_qr_data):
+        return mla_prolog_v4_in(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, output_q_data, output_kv_data, output_qr_data)
 
 def mla_prolog(params, input_tensors, golden_tensors, dtype, is_nz):
     d_type = pypto.DataType.DT_FP16 if dtype == pypto.DataType.DT_FP16 else pypto.DataType.DT_BF16
@@ -298,21 +298,11 @@ def mla_prolog(params, input_tensors, golden_tensors, dtype, is_nz):
     output_qr_data = torch.zeros(qr_out_shape, dtype=convert_pypto_to_torch_type(d_type)).npu()
     outputs = [output_q_data, output_kv_data, output_qr_data]
 
-    attrs = MlaPrologV4Attrs(eps=1e-6, layout_query="TND", layout_key="PA_BSND")
-    configs = MlaPrologV4Configs(unroll_list=[4, 2, 1],
-                                cube_l1_reuse_setting={2: 4},
-                                mg_copyin_upper_bound=2 * 1024 * 1024,
-                                pg_upper_bound=8192,
-                                block_size=128,
-                                t_sub_tile=1,
-                                chunk_size=2,
-                                vec_nbuffer_mode=1)
-
     #capture model
     mla_prolog_model = torch.compile(MLA_MODEL(), backend="eager", dynamic=True)
     g = torch.npu.NPUGraph()
     with torch.npu.graph(g):
-        output_q_data, output_kv_data, output_qr_data = mla_prolog_model(*inputs, *outputs, attrs, configs)
+        output_q_data, output_kv_data, output_qr_data = mla_prolog_model(*inputs, *outputs)
     g.replay()
     pypto.runtime._device_synchronize()
     # golden data 

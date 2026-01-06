@@ -323,7 +323,7 @@ def mla_prolog_v4(x, wq_a, wq_b, wkv, rmsnorm_gamma_cq, rmsnorm_gamma_ckv, cos, 
 
 @allow_in_graph
 def mla_prolog_v4_in(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, 
-    output_q_data, output_kv_data, output_qr_data, attrs, configs):
+    output_q_data, output_kv_data, output_qr_data):
 
     if isinstance(output_q_data, FakeTensor) or isinstance(output_kv_data, FakeTensor) or isinstance(output_qr_data, FakeTensor):
         return output_q_data, output_kv_data, output_qr_data
@@ -342,7 +342,15 @@ def mla_prolog_v4_in(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gam
 
     input_data = [token_x_data, wq_a_data, wq_b_data, wkv_data, gamma_cq_data, gamma_ckv_data, rope_cos_data, rope_sin_data]
     output_data = [out_q, out_kv, out_qr]
-
+    attrs = MlaPrologV4Attrs(eps=1e-6, layout_query="TND", layout_key="PA_BSND")
+    configs = MlaPrologV4Configs(unroll_list=[4, 2, 1],
+                                cube_l1_reuse_setting={2: 4},
+                                mg_copyin_upper_bound=2 * 1024 * 1024,
+                                pg_upper_bound=8192,
+                                block_size=128,
+                                t_sub_tile=1,
+                                chunk_size=2,
+                                vec_nbuffer_mode=1)
     mla_prolog_v4(*input_data, *output_data, attrs, configs)
 
     return output_q_data, output_kv_data, output_qr_data
