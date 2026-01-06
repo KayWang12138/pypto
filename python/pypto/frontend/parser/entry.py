@@ -296,18 +296,8 @@ class JitCallableWrapper:
             out_tensor = torch.empty(shape, dtype=dtype, device=device)
             out_tensors.append(out_tensor)
 
-        if isinstance(self._verify_options, dict) and self._verify_options.get("enable_pass_verify"):
-            host_pto_tensors = [i.cpu() for i in in_tensors + out_tensors]
-            pypto_tensors = []
-            for t in host_pto_tensors:
-                pto_tensor = pypto.from_torch(t)
-                pypto_tensors.append(pto_tensor)
-            host_pto_t_datas = _pto_to_tensor_data(pypto_tensors)
-            # Use golden data from set_verify_golden_data if available
-            pypto_impl.SetVerifyData(host_pto_t_datas, [], _pto_verify_datas.get_data())
-
         concrete_input_shapes = [list(in_tensor.shape) for in_tensor in in_tensors]
-        self._compile_if_needed(concrete_input_shapes)
+        self._compile_if_needed(concrete_input_shapes, in_tensors, out_tensors)
         symbolic_dim_value_map = {}
         symbolic_dim_value_map = tmp_parser.match_input_shapes(
             concrete_input_shapes, input_tensor_defs
@@ -498,6 +488,8 @@ class JitCallableWrapper:
     def _compile_if_needed(
         self,
         concrete_input_shapes: list[list[int]],
+        in_tensors: list[torch.Tensor],
+        out_tensors: list[torch.Tensor],
     ) -> None:
         """Compile the function on first call if not already compiled (lazy compilation).
 
@@ -528,7 +520,9 @@ class JitCallableWrapper:
         self._parser.parse()
 
         # Initialize backend for compilation
-        # pypto_impl.DeviceInit()
+        pypto_impl.DeviceInit()
+        # 紧挨 DeviceInit 之后设置 verify/golden 数据
+        self._setup_verify_data(in_tensors, out_tensors)
         handler = pypto_impl.OperatorBegin()
 
         # Set options AFTER OperatorBegin() to match @pypto.jit behavior
@@ -543,9 +537,42 @@ class JitCallableWrapper:
         pypto_impl.OperatorEnd(handler)
         self._handler = handler
         self._is_compiled = True
-        
+
         # Reset golden data after compilation, similar to pypto.jit
         _pto_verify_datas.reset()
+
+    def _setup_verify_data(
+        self,
+        in_tensors: list[torch.Tensor],
+        out_tensors: list[torch.Tensor],
+    ) -> None:
+        """Set verify input/output/golden data for pass-level verification.
+
+        This mirrors the behavior of pypto.runtime._JIT.compile:
+        - 将当前输入/输出从 NPU 拷到 Host
+        - 使用 set_verify_golden_data 预先注入的 golden 数据
+        - 调用 SetVerifyData 将三者注册给底层 ProgramData
+        """
+        if not (
+            isinstance(self._verify_options, dict)
+            and self._verify_options.get("enable_pass_verify")
+        ):
+            return
+
+        # 将 NPU Tensor 拷贝到 CPU，再转成 pypto.Tensor，便于构造 DeviceTensorData
+        host_pto_tensors = [t.cpu() for t in in_tensors + out_tensors]
+        pypto_tensors: list[pypto.Tensor] = []
+        for t in host_pto_tensors:
+            pto_tensor = pypto.from_torch(t)
+            pypto_tensors.append(pto_tensor)
+
+        host_pto_t_datas = _pto_to_tensor_data(pypto_tensors)
+        # 使用 set_verify_golden_data 预先注入的 golden 数据
+        pypto_impl.SetVerifyData(
+            host_pto_t_datas,
+            [],
+            _pto_verify_datas.get_data(),
+        )
 
     def _run(
         self,
