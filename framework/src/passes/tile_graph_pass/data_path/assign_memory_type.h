@@ -48,6 +48,7 @@ private:
     void UpdateOverSizedLocalBuffer(Operation &operation);
     void ProcesSmallTileToLargeTile(Function &function);
     void ProcessLargeTileToSamllTile(Function &function);
+    bool IsDimMultiple(const Shape &shape1, const Shape &shape2);
     std::string PrintTensorMem(std::shared_ptr<LogicalTensor>& tensor) const;
     ConvertInserter inserter;
 };

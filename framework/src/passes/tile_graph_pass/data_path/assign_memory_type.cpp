@@ -438,6 +438,7 @@ void AssignMemoryType::AssignMemUnknown(Function &function) {
         }
     }
 }
+
 void AssignMemoryType::ProcesSmallTileToLargeTile(Function &function) {
     //CASE1:处理cube级联场景小搬大
     for (auto &op : function.Operations()) {
@@ -448,10 +449,15 @@ void AssignMemoryType::ProcesSmallTileToLargeTile(Function &function) {
         auto oOperand = op.GetOOperands().front();
         auto iOperand = op.GetIOperands().front();
         if(iOperand->GetMemoryTypeOriginal() == MEM_L0C) {
-            oOperand->SetMemoryTypeOriginal(MEM_DEVICE_DDR, true);
+            if (IsDimMultiple(oOperand->GetShape(), iOperand->GetShape())){
+                oOperand->SetMemoryTypeOriginal(MEM_L1, true);
+            } else {
+                oOperand->SetMemoryTypeOriginal(MEM_DEVICE_DDR, true);
+            }
         }
     }
 }
+
 void AssignMemoryType::ProcessLargeTileToSamllTile(Function &function) {
     //CASE2:处理cube级联产经大搬小
     for (auto &op : function.Operations()) {
@@ -463,14 +469,31 @@ void AssignMemoryType::ProcessLargeTileToSamllTile(Function &function) {
         MemoryType attrToType = viewOpAttribute->GetTo();
         if(attrToType == MEM_L1) {
             auto iOperand = op.GetIOperands().front();
-            if(iOperand->GetMemoryTypeOriginal() != MEM_L0C && iOperand->GetMemoryTypeOriginal() != MEM_UB) {
-                continue;
-            }
             auto oOperand = op.GetOOperands().front();
-            if(oOperand->shape != iOperand->shape) {
+            if(iOperand->GetMemoryTypeOriginal() == MEM_UB && oOperand->shape != iOperand->shape) {
+                inserter.UpdateTensorTobeMap(iOperand, op, MEM_DEVICE_DDR);
+            }
+            if(iOperand->GetMemoryTypeOriginal() == MEM_L0C && !IsDimMultiple(iOperand->GetShape(), oOperand->GetShape())) {
                 inserter.UpdateTensorTobeMap(iOperand, op, MEM_DEVICE_DDR);
             }
         }
     }
+}
+
+/*
+    @brief 检查第一个矩阵的所有维度是否为第二个矩阵的正整数倍
+    @param shape1为第一个矩阵，shape2为第二个矩阵。
+    @return 如果第一个矩阵是第二个的正整数倍，则返回true；否则返回false。
+*/
+bool AssignMemoryType::IsDimMultiple(const Shape &shape1, const Shape &shape2) {
+    if (shape1.size() != shape2.size()) {
+        return false;
+    }
+    for (size_t i = 0; i < shape1.size(); ++i) {
+        if (shape2[i] == 0 || shape1[i] % shape2[i] != 0) {
+            return false;
+        }
+    }
+    return true;
 }
 } //namespace npu::tile_fwk
