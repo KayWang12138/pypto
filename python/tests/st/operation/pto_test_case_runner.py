@@ -8,8 +8,7 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
-"""
-"""
+""" """
 import logging
 from math import ceil, prod
 from pathlib import Path
@@ -139,14 +138,6 @@ class PTOTestCaseRunner(TestCaseRunner):
 
     def exec_dyn_func(self, input_tensors: list, output_tensors: list):
         loop_range_tuple = self.gen_loop_range_tuple()
-        loop_desc = [
-            ['"b0"', '"bIdx"', "bloop"],
-            ['"s0"', '"sIdx"', "sloop"],
-            ['"h0"', '"hIdx"', "hloop"],
-            ['"n0"', '"nIdx"', "nloop"],
-        ]
-        tab = "    "
-        prefix = tab
         function = "import pypto\n"
         function += """import os\n"""
         function += """import torch\n"""
@@ -155,24 +146,20 @@ class PTOTestCaseRunner(TestCaseRunner):
         function += """device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))\n"""
         function += """torch.npu.set_device(device_id)\n"""
         function += "\n"
-        function += (
-            f"with pypto.function('{self._operation}', *input_tensors, *output_tensors):\n"
-        )
-        for index in list(range(len(loop_range_tuple))):
-            function += prefix + (tab * (index + 1))
-            function += f"with pypto._controller._loop_function({loop_desc[index][0]}, {loop_desc[index][1]}, "
-            function += f"pypto._controller._loop_range({loop_range_tuple[index]})) as {loop_desc[index][2]}:\n"
-        prefix = tab * (len(loop_range_tuple) + 1)
-        for index in list(range(len(loop_range_tuple))):
-            function += prefix + (tab * (index + 1))
-            function += f"for {loop_desc[index][1][1:-1]} in {loop_desc[index][2]}:\n"
-        prefix = tab * 2 * (len(loop_range_tuple) + 1)
+        function += f"with pypto.function('{self._operation}', *input_tensors, *output_tensors):\n"
+        tab = "    "
+        prefix = tab
+        for index, range in enumerate(loop_range_tuple):
+            function += prefix + (tab * index)
+            function += f"for index_{index} in pypto.loop({range}):\n"
+        loop_range_len = len(loop_range_tuple)
+        prefix = tab * (loop_range_len + 1)
         function += prefix + "input_data = []\n"
         view_offset = [
-            f"{loop_desc[index][1][1:-1]} * {self._view_shape[index]}"
-            for index in range(len(loop_range_tuple))
+            f"index_{index} * {self._view_shape[index]}"
+            for index, _ in enumerate(loop_range_tuple)
         ]
-        for index in list(range(len(input_tensors))):
+        for index, _ in enumerate(input_tensors):
             function += prefix
             function += f"input_{index} = pypto.view(input_tensors[{index}], {self._view_shape}, ["
             for offset in view_offset:
@@ -180,7 +167,7 @@ class PTOTestCaseRunner(TestCaseRunner):
             function += "])\n"
             function += prefix + f"input_data.append(input_{index})\n"
         function += prefix + f"res = []\n"
-        function += prefix + f"for _index in range(len(output_tensors)):\n"
+        function += prefix + f"for _ in enumerate(output_tensors):\n"
         function += prefix + f"    res.append(pypto.tensor())\n"
         function += prefix + f"if len(res) == 1:\n"
         function += prefix + f"    res[0].move(op_func(input_data, params))\n"
@@ -229,10 +216,16 @@ class PTOTestCaseRunner(TestCaseRunner):
     def run_on_device(self, inputs: list) -> list:
         output = self.output_data()
 
-        pto_inputs_tensor = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
-        pto_output_tensor = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(output)]
+        pto_inputs_tensor = [
+            pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)
+        ]
+        pto_output_tensor = [
+            pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(output)
+        ]
 
-        pypto.runtime._device_run_once_data_from_host(*pto_inputs_tensor, *pto_output_tensor)
+        pypto.runtime._device_run_once_data_from_host(
+            *pto_inputs_tensor, *pto_output_tensor
+        )
         return [
             torch.tensor(
                 output[index],
