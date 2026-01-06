@@ -476,6 +476,10 @@ void CumSumOperationTileFunc(Function &function, const TileShape &tileShape,
     TiledCumSum(function, tileShape, {iOperand[0], oOperand[0], axis, flag});
 }
 
+Tensor Triu(const Tensor &input, const int &diagonal){
+
+}
+
 // beginregin: Clip
 
 Tensor Clip(const Tensor &self, const Element &min, const Element &max) {
