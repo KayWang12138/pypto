@@ -16,14 +16,11 @@
 #pragma once
 
 #include "tilefwk/aicpu_common.h"
+#include "machine/device/dynamic/aicore_constants.h"
 #include "machine/device/dynamic/aicore_prof.h"
 #include "machine/device/dynamic/costmodel_utils.h"
 
 namespace npu::tile_fwk::dynamic {
-constexpr uint32_t MAX_AICORE_NUM = 108;
-constexpr uint32_t NAX_AIV_TOTAL_NUM = 72;
-const uint32_t CORE_NUM_PER_AI_CORE = 3;
-
 constexpr uint32_t NUM_ONE = 1;
 constexpr uint32_t NUM_TWO = 2;
 constexpr uint32_t NUM_THREE = 3;
@@ -44,10 +41,6 @@ const int32_t CORE_QUEUE_MODE_NUM_1 = 1;
 const uint32_t REG_SPR_MAGIC = 0x78;
 constexpr int32_t AICORE_COREID_MASK = 0x0FFF;
 constexpr int32_t AICORE_BLOCKID_MASK = 0x0FFF;
-
-const uint32_t REG_SPR_FAST_PATH_ENABLE = 0x18;
-const uint64_t REG_SPR_FAST_PATH_OPEN = 0xE;
-const uint64_t REG_SPR_FAST_PATH_CLOSE = 0xF;
 
 namespace DAV_2201 {
     const uint32_t REG_SPR_DATA_MAIN_BASE = 0xA0;
