@@ -76,7 +76,12 @@ Operation &GetWhereOp(Function *function, Opcode opCode, const LogicalTensors &i
     return op;
 }
 
-void TestWhereBody(const Opcode opCode, const std::string &caseName, const std::string &expect) {
+void TestWhereBody(const Opcode opCode, const std::string &caseName,
+                   const std::string &expect, bool isSupportTileTensor = false) {
+    if (isSupportTileTensor) {
+        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
+        config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
+    }
     config::SetBuildStatic(true);
 
     std::vector<int64_t> shape = {64, 64};
@@ -142,6 +147,34 @@ TEST_F(TestCodegenWhere, TestOpWhereTT) {
         R"!!!(TileOp::Where_TT<float, float, /*DstRawShape*/ 1, 64, 64, /*ConditionRawShape*/ 1, 64, 64, /*Src0RawShape*/ 1, 64, 64>((__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, 1, 1, 1, 1);
 )!!!";
     TestWhereBody(Opcode::OP_WHERE_TT, "TestOpWhereTT", expect);
+}
+
+TEST_F(TestCodegenWhere, TestOpWhereSS_TileTensor) {
+    std::string expect =
+        R"!!!(TileOp::Where_SS<float, float, /*DstRawShape*/ 1, 64, 64, /*ConditionRawShape*/ 1, 64, 64, /*Src0RawShape*/ 1, 1, 1>((__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, float(1), float(2), 1, 1, 1, 1);
+)!!!";
+    TestWhereBody(Opcode::OP_WHERE_SS, "TestOpWhereSS", expect, true);
+}
+
+TEST_F(TestCodegenWhere, TestOpWhereST_TileTensor) {
+    std::string expect =
+        R"!!!(TileOp::Where_ST<float, float, /*DstRawShape*/ 1, 64, 64, /*ConditionRawShape*/ 1, 64, 64, /*Src0RawShape*/ 1, 64, 64>((__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, float(1), (__ubuf__ float*)UB_S0_E0, 1, 1, 1, 1);
+)!!!";
+    TestWhereBody(Opcode::OP_WHERE_ST, "TestOpWhereST", expect, true);
+}
+
+TEST_F(TestCodegenWhere, TestOpWhereTS_TileTensor) {
+    std::string expect =
+        R"!!!(TileOp::Where_TS<float, float, /*DstRawShape*/ 1, 64, 64, /*ConditionRawShape*/ 1, 64, 64, /*Src0RawShape*/ 1, 64, 64>((__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, float(1), 1, 1, 1, 1);
+)!!!";
+    TestWhereBody(Opcode::OP_WHERE_TS, "TestOpWhereTS", expect, true);
+}
+
+TEST_F(TestCodegenWhere, TestOpWhereTT_TileTensor) {
+    std::string expect =
+        R"!!!(TileOp::Where_TT<float, float, /*DstRawShape*/ 1, 64, 64, /*ConditionRawShape*/ 1, 64, 64, /*Src0RawShape*/ 1, 64, 64>((__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, 1, 1, 1, 1);
+)!!!";
+    TestWhereBody(Opcode::OP_WHERE_TT, "TestOpWhereTT", expect, true);
 }
 
 } // namespace npu::tile_fwk
