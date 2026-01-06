@@ -21,6 +21,7 @@ import pypto
 class HcPostTileConfig: 
     def __init__(self): 
         self.tile_b = 8
+        self.unroll_list = [32, 16, 8, 4, 2, 1]
         
 
 @dataclass
@@ -50,28 +51,38 @@ def hc_post_compute(
     comb_reshape = pypto.reshape(comb, [t, hc, hc, 1], inplace=True)
     residual_reshape = pypto.reshape(residual, [t, hc, 1, d], inplace=True)
 
-    assert hc == 4 or d == 512
-    for t_idx in pypto.loop(0, t, 1, name="LI_LOOP_BATCH", idx_name="t_idx"):
-        pypto.set_vec_tile_shapes(1, 4, 128)
-        post_slice = pypto.view(post_reshape, [1, hc, 1], [t_idx, 0, 0])
-        x_slice = pypto.view(x_reshape, [1, 1, d], [t_idx, 0, 0])
+    assert hc == 4 and d == 4096
+    for t_idx, unrollLength in pypto.loop_unroll(0, t, 1, name="LI_LOOP_BATCH", idx_name="t_idx",
+                                                unroll_list=tile_config.unroll_list, ):
+        t_tile = unrollLength
+        pypto.set_vec_tile_shapes(1, 4, 1)
+        post_slice = pypto.view(post_reshape, [t_tile, hc, 1], [t_idx, 0, 0])
+        pypto.set_vec_tile_shapes(1, 4, 2048)
+        x_slice = pypto.view(x_reshape, [t_tile, 1, d], [t_idx, 0, 0])
         x_slice_fp32 = pypto.cast(x_slice, pypto.DT_FP32)
-        post_res = post_slice * x_slice_fp32
+        x_slice_expand = pypto.expand_clone(x_slice_fp32, [t_tile, 4, d])
+        post_res = post_slice * x_slice_expand
 
-        pypto.set_vec_tile_shapes(1, 4, 4, 128)
-        residual_slice = pypto.view(residual_reshape, [1, hc, 1, d], [t_idx, 0, 0, 0])
-        comb_slice = pypto.view(comb_reshape, [1, hc, hc, 1], [t_idx, 0, 0, 0])
+        pypto.set_vec_tile_shapes(1, 4, 1, 2048)
+        residual_slice = pypto.view(residual_reshape, [t_tile, hc, 1, d], [t_idx, 0, 0, 0])
+        pypto.set_vec_tile_shapes(1, 4, 4, 2048)
+        comb_slice = pypto.view(comb_reshape, [t_tile, hc, hc, 1], [t_idx, 0, 0, 0])
 
-        residual_res = residual_slice * comb_slice
+        residual_slice_expand = pypto.expand_clone(residual_slice, [t_tile, hc, 4, d])
+        residual_res = residual_slice_expand * comb_slice
+
         residual_reduce = pypto.sum(residual_res, 1)
-        pypto.set_vec_tile_shapes(1, 4, 128)
+        pypto.set_vec_tile_shapes(1, 4, 2048)
         y_tmp = pypto.add(post_res, residual_reduce)
         y_dtype = pypto.cast(y_tmp, pypto.DT_BF16)
         pypto.assemble(y_dtype, [t_idx, 0, 0], y)
 
 
 @pypto.jit(
-    host_options={"only_codegen": True}
+    host_options={"only_codegen": True},
+    runtime_options={"cfgcache_device_task_num": 100,
+                     "cfgcache_root_task_num": 1000,
+                     "cfgcache_leaf_task_num": 10000}
 )
 def hc_post_kernel(
     x: pypto.tensor,
@@ -80,6 +91,7 @@ def hc_post_kernel(
     comb: pypto.tensor,
     y: pypto.tensor,
     tile_config: HcPostTileConfig):
+    pypto.experimental.set_operation_config(combine_axis=True)
     hc_post_compute(x, residual, post, comb, y, tile_config)
 
 
