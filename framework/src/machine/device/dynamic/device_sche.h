@@ -17,14 +17,12 @@
 
 #include "device_common.h"
 #include "aicore_manager.h"
+#include "aicore_constants.h"
 #include "machine/utils/machine_ws_intf.h"
 #include "machine/utils/device_log.h"
 #include "tilefwk/aicore_print.h"
 
 namespace npu::tile_fwk::dynamic {
-#ifndef PAGE_SIZE
-#define PAGE_SIZE       4096
-#endif
 struct AicoreLogManager {
     AicoreLogManager() {
         data_ = aligned_alloc(PAGE_SIZE, MAX_AICORE_NUM * PRINT_BUFFER_SIZE);
@@ -57,7 +55,7 @@ public:
         schAicpuNum_ = schNum;
     }
 
-    int Run(int threadIdx, DeviceArgs *args, bool handShakeByGm = true) {
+    int Run(int threadIdx, DeviceArgs *args) {
         int ret = 0;
         if (args->nrAic == 0 || args->nrValidAic == 0 || args->nrAicpu < NEED_LAUNCH_AICPU_MINNUM) {
             DEV_ERROR("Device machinr run invalid args aicnum:%u, blockdim:%u, launchAicpu num:%u",
@@ -73,7 +71,7 @@ public:
 #if ENABLE_AICORE_PRINT
         aicoreManager_[threadIdx]->InitLogger(logManager.logger);
 #endif
-        ret = aicoreManager_[threadIdx]->Run(threadIdx, args, handShakeByGm);
+        ret = aicoreManager_[threadIdx]->Run(threadIdx, args);
         DEV_INFO("thread  %d end , ret = %d", threadIdx, ret);
         return ret;
     }
