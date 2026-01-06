@@ -1,0 +1,2 @@
+case_name,input_shape,input_dtype,input_format,input_datarange,output_shape,output_dtype,output_format,view_shape,tile_shape,diagonal
+CumSum_test_0,"[8, 8]","int32","ND","[-10, 10]","[8,8]",int32,ND,"[4, 4]","[4, 4]",0

@@ -538,6 +538,79 @@ void CumSumOperationTileFunc(Function &function, const TileShape &tileShape,
     TiledCumSum(function, tileShape, {iOperand[0], oOperand[0], axis, flag});
 }
 
+struct TriULTileInfoPara {
+    TileInfo inputTileInfo;
+    TileInfo dstTileInfo;
+};
+
+struct TriULPara {
+    const LogicalTensorPtr &input;
+    const LogicalTensorPtr &dstTensor;
+    const int diagonal;
+    const bool flag;
+};
+
+void TiledTriUL(Function &function, const TileShape &tileShape, const TriULPara &triULPara) {
+    assert(triULPara.Input->GetShape().size() == triULPara.Input->GetOffset().size());
+
+    TriULTileInfoPara triULTileInfo{
+        TileInfo(triULPara.Input->GetShape().size(), triULPara.Input->GetOffset().size()),
+        TileInfo(triULPara.dstTensor->GetShape().size(), triULPara.dstTensor->GetOffset().size())};
+
+    InnerTiledTriUL(0, function, tileShape, triULPara, triULTileInfo);
+    return;
+}
+
+void TensorTriUL(Function &function, const TriULPara &triULPara) {
+    if (triULPara.input->Datatype() == DT_INT8) {
+        LogicalTensorPtr inputConverted = std::make_shared<LogicalTensor>(function, DT_FP16, triULPara.input->GetShape());
+        Operation &castinputOp = function.AddOperation(Opcode::OP_CAST, {triULPara.input}, {inputConverted});
+        castinputOp.SetAttribute(OP_ATTR_PREFIX + "mode", CastMode::CAST_NONE);
+        LogicalTensorPtr dstConverted = std::make_shared<LogicalTensor>(function, DT_FP16, triULPara.dstTensor->GetShape());
+        auto &op = function.AddOperation(Opcode::OP_TRIUL, {inputConverted}, {dstConverted});
+        op.SetAttribute(OP_ATTR_PREFIX + "diagonal", triULPara.diagonal);
+        op.SetAttribute(OP_ATTR_PREFIX + "flag", triULPara.flag);
+        op.SetAttribute(OP_ATTR_PREFIX + "rowIdx", 0);
+        op.SetAttribute(OP_ATTR_PREFIX + "colIdx", 0);
+        Operation &castDstOp = function.AddOperation(Opcode::OP_CAST, {dstConverted}, {triULPara.dstTensor});
+        castDstOp.SetAttribute(OP_ATTR_PREFIX + "mode", CastMode::CAST_NONE);
+        return;
+    } else {
+        auto &op = function.AddOperation(Opcode::OP_TRIUL, {triULPara.input}, {triULPara.dstTensor});
+        op.SetAttribute(OP_ATTR_PREFIX + "diagonal", triULPara.diagonal);
+        op.SetAttribute(OP_ATTR_PREFIX + "flag", triULPara.flag);
+        op.SetAttribute(OP_ATTR_PREFIX + "rowIdx", 0);
+        op.SetAttribute(OP_ATTR_PREFIX + "colIdx", 0);
+        return;
+    }
+}
+
+Tensor Triu(const Tensor &input, const int &diagonal){
+    DECLARE_TRACER();
+    auto shapeSize = input.GetShape().size();
+    auto dataType = input.GetDataType();
+
+    ASSERT(SHAPE_DIM2 <= shapeSize && shapeSize <= SHAPE_DIM5) << "The shape.size() only support 2~5";
+    std::vector<DataType> TRIU_SUPPORT_DATATYPES = {DataType::DT_FP32, DataType::DT_FP16, DataType::DT_INT32,
+        DataType::DT_INT16, DataType::DT_INT8, DataType::DT_BF16};
+    ASSERT(std::find(TRIU_SUPPORT_DATATYPES.begin(), TRIU_SUPPORT_DATATYPES.end(), dataType) !=
+           TRIU_SUPPORT_DATATYPES.end()) << "The datatype is not supported";
+    ASSERT(std::is_integral_v<decltype(diagonal)>) << "The diagonal must be int";
+    bool flag = true;
+
+    Tensor result(input.GetDataType(), input.GetShape());
+    CALL(TriUL, *Program::GetInstance().GetCurrentFunction(),
+        {input.GetStorage(), result.GetStorage(), diagonal, flag});
+    return result;
+}
+
+void TriULOperationTileFunc(Function &function, const TileShape &tileShape,
+    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand, const Operation &op) {
+    int diagonal = op.GetIntAttribute(OP_ATTR_PREFIX + "diagonal");
+    bool flag = op.GetBoolAttribute(OP_ATTR_PREFIX + "flag");
+    TiledTriUL(function, tileShape, {iOperand[0], oOperand[0], diagonal, flag});
+}
+
 // beginregin: Clip
 
 Tensor Clip(const Tensor &self, const Element &min, const Element &max) {
@@ -600,4 +673,5 @@ REGISTER_OPERATION_TILED_FUNC(OP_LOGICALNOT, Opcode::OP_LOGICALNOT, LogicNotOper
 REGISTER_OPERATION_TILED_FUNC(OP_ONEHOT, Opcode::OP_ONEHOT, OneHotOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_LOGICALAND, Opcode::OP_LOGICALAND, LogicAndOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_CUM_SUM, Opcode::OP_CUM_SUM, CumSumOperationTileFunc);
+REGISTER_OPERATION_TILED_FUNC(OP_TRIUL, Opcode::OP_TRIUL, TriULOperationTileFunc);
 } // namespace npu::tile_fwk
