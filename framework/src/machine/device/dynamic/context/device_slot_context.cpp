@@ -94,7 +94,7 @@ void DeviceSlotContext::FillInputOutputSlot(DeviceExecuteSlot *slotList, [[maybe
         DevTensorData &param = args->GetInputTensor(index);
         int slotIndex = devProg->startArgsInputTensorSlotIndexList[index];
         DEV_ASSERT_MSG(slotIndex >= 0 && slotIndex < static_cast<int>(slotSize), "Invalid slot index %d", slotIndex);
-        slotList[slotIndex].rtOutcastIter = workspace_->MakeRuntimeOutcastTensor(param.address, RtMemProperty::EXTERNAL);
+        slotList[slotIndex].rtOutcastIter = workspace_->MakeRuntimeOutcastTensor(param.address, RuntimeTensorMemProperty::EXTERNAL);
         // input/output flatten
         slotList[slotIndex].isOutputSlot = true;
         DEV_INFO("Param %d Input Slot %d = %lx.", index, slotIndex, param.address);
@@ -105,7 +105,7 @@ void DeviceSlotContext::FillInputOutputSlot(DeviceExecuteSlot *slotList, [[maybe
         DevTensorData &param = args->GetOutputTensor(index);
         int slotIndex = devProg->startArgsOutputTensorSlotIndexList[index];
         DEV_ASSERT_MSG(slotIndex >= 0 && slotIndex < static_cast<int>(slotSize), "Invalid slot index %d", slotIndex);
-        slotList[slotIndex].rtOutcastIter = workspace_->MakeRuntimeOutcastTensor(param.address, RtMemProperty::EXTERNAL);
+        slotList[slotIndex].rtOutcastIter = workspace_->MakeRuntimeOutcastTensor(param.address, RuntimeTensorMemProperty::EXTERNAL);
         slotList[slotIndex].isOutputSlot = true;
         DEV_INFO("Param %d Output Slot %d = %lx.", index, slotIndex, param.address);
         DEV_TRACE_DEBUG(CtrlEvent(none(), OutputTensorElement(index, param.address, param.shape.GetSize())));

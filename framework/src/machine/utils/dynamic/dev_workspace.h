@@ -280,7 +280,7 @@ private:
                 if (slotList[assembleSlotIndex].isAssembleSlotNeedAlloc) {
                     RuntimeOutcastTensorDerefSafe(slotList[assembleSlotIndex].rtOutcastIter);
                     slotList[assembleSlotIndex].rtOutcastIter = MakeRuntimeOutcastTensor(
-                        AllocateSlot(devRootSrc->GetRawName()), RtMemProperty::BOUNDARY_OUTCAST);
+                        AllocateSlot(devRootSrc->GetRawName()), RuntimeTensorMemProperty::BOUNDARY_OUTCAST);
                     slotList[assembleSlotIndex].isAssembleSlotNeedAlloc = false;
                 } else {
                     DEV_ASSERT_MSG(slotList[assembleSlotIndex].rtOutcastIter != ITEM_POOL_INVALID_INDEX,
@@ -293,7 +293,7 @@ private:
                 uint64_t *exprTbl = devRootDup.GetExpressionAddr();
                 uint64_t addr = exprTbl[devRootSrc->GetOutcast(i).exprListIndex];
                 outcastDesc = AddressDescriptor::MakeFromRtOutcast(
-                    MakeRuntimeOutcastTensor(addr, RtMemProperty::EXTERNAL));
+                    MakeRuntimeOutcastTensor(addr, RuntimeTensorMemProperty::EXTERNAL));
             } else if (rawTensor->linkedIncastId != -1) {
                 /* reshape inplace or something */
                 auto &incastDesc = devRootDup.GetIncastAddress(rawTensor->linkedIncastId);
@@ -304,7 +304,7 @@ private:
             } else {
                 outcastDesc = AddressDescriptor::MakeFromRtOutcast(
                     MakeRuntimeOutcastTensor(outcastBaseAddr + devRootSrc->GetOutcastRawTensor(i)->addrOffset,
-                                       RtMemProperty::DEVTASK_INNER_OUTCAST));
+                                       RuntimeTensorMemProperty::DEVTASK_INNER_OUTCAST));
             }
 
             DEV_VERBOSE_DEBUG("get outcast %zu slot %d/%d address %s.", i, outputSlotIndex, assembleSlotIndex, outcastDesc.Dump().c_str());
@@ -391,7 +391,7 @@ public:
         return allocation.ptr;
     }
 
-    ItemPoolIter MakeRuntimeOutcastTensor(uintdevptr_t addr, RtMemProperty property) {
+    ItemPoolIter MakeRuntimeOutcastTensor(uintdevptr_t addr, RuntimeTensorMemProperty property) {
         return runtimeOutcastTensorPool_.Allocate(addr, property, 1);
     }
 
@@ -442,7 +442,7 @@ public:
         RuntimeOutcastTensorRefSafe(src);
     }
 
-    void RuntimeOutcastTensorReplaceAddrWithoutRecycle(ItemPoolIter iter, uintdevptr_t addr, RtMemProperty property) {
+    void RuntimeOutcastTensorReplaceAddrWithoutRecycle(ItemPoolIter iter, uintdevptr_t addr, RuntimeTensorMemProperty property) {
         DEV_ASSERT(iter != ITEM_POOL_INVALID_INDEX);
         auto &outcast = runtimeOutcastTensorPool_.At(iter);
         outcast.addr = addr;
@@ -452,7 +452,7 @@ public:
 private:
     void RuntimeOutcastTensorDestruct(RuntimeOutcastTensor &outcast) {
 #if !DEBUG_INFINITE_LIFETIME
-        if (outcast.property == RtMemProperty::BOUNDARY_OUTCAST) {
+        if (outcast.property == RuntimeTensorMemProperty::BOUNDARY_OUTCAST) {
             rtBoundaryOutcastToBeFree_.push_back(outcast);
         }
 #endif // !DEBUG_INFINITE_LIFETIME
