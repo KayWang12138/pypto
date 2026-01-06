@@ -11,7 +11,7 @@ import torch_npu
 import pypto
 
 from utils.compare import compare
-from hc_post_impl import hc_post_torch_graph, HcPostTileConfig
+from hc_post_impl import npu_hc_post, HcPostTileConfig
 
 torch.manual_seed(5)
 
