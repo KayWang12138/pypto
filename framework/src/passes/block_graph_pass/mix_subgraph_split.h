@@ -235,8 +235,6 @@ private:
     MixResourceType GetMixResourceType(Function& mixFunc) const;
     AIVCore FindConsumerVectorAIVCore(Operation* copyOp) const;
     AIVCore DetermineComponentAIVCore(const std::vector<Operation*>& operations) const;
-    Operation* FindPreviousOpInSequence(Operation* op, Function& mixSubgraphFunc) const;
-    Operation* FindNextOpInSequence(Operation* op, Function& mixSubgraphFunc) const;
     void DisplayArg(const std::vector<SymbolicScalar>& originalLinearArgs) const;
     
     bool ExtractArgListFromIncast(const SubfuncInvokeInfoTy& invokeInfo, Function& leafFunc, std::vector<SymbolicScalar> &originalLinearArgs, ExtractInfo& extractInfo) const;

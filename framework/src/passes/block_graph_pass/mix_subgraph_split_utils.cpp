@@ -225,5 +225,49 @@ static bool MixSubgraphSplitUtils::IsMixSubgraph(Function& leafFunc) {
             function.GetRawName().c_str());
     return false;
 }
+
+static bool MixSubgraphSplitUtils::FindOriginalOffsetInProducers(LogicalTensorPtr tensor, int &offset) {
+    // 检查producers
+    auto producers = tensor->GetProducers();
+    for (auto* producer : producers) {
+        if (producer == nullptr) {
+            continue;
+        }
+        auto oOperands = producer->GetOOperands();
+        for (size_t i = 0; i < oOperands.size(); i++) {
+            if (oOperands[i] == tensor) {
+                offset = producer->GetOOpAttrOffset(i);
+                if (offset != -1) {
+                    ALOG_DEBUG_F("Found offset %d for tensor %d via producer op %d output[%zu]",
+                                offset, tensor->GetRawMagic(), producer->GetOpMagic(), i);
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
+static bool MixSubgraphSplitUtils::FindOriginalOffsetInConsumers(LogicalTensorPtr tensor, int &offset) {
+    // 检查consumers
+    auto consumers = tensor->GetConsumers();
+    for (auto* consumer : consumers) {
+        if (consumer == nullptr) {
+            continue;
+        }
+        auto iOperands = consumer->GetIOperands();
+        for (size_t i = 0; i < iOperands.size(); i++) {
+            if (iOperands[i] == tensor) {
+                offset = consumer->GetIOpAttrOffset(i);
+                if (offset != -1) {
+                    ALOG_DEBUG_F("Found offset %d for tensor %d via consumer op %d input[%zu]",
+                                offset, tensor->GetRawMagic(), consumer->GetOpMagic(), i);
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
 }
 }

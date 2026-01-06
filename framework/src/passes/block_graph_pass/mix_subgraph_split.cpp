@@ -283,26 +283,6 @@ bool MixSubgraphSplit::MergeMoveOutOperation(Operation* op,
     return false;
 }
 
-Operation* MixSubgraphSplit::FindPreviousOpInSequence(Operation* op, Function& mixSubgraphFunc) const {
-    const auto& opList = mixSubgraphFunc.Operations(false).DuplicatedOpList();
-    for (size_t i = 0; i < opList.size(); ++i) {
-        if (opList[i] == op && i > 0) {
-            return opList[i - 1];
-        }
-    }
-    return nullptr;
-}
-
-Operation* MixSubgraphSplit::FindNextOpInSequence(Operation* op, Function& mixSubgraphFunc) const {
-    const auto& opList = mixSubgraphFunc.Operations(false).DuplicatedOpList();
-    for (size_t i = 0; i < opList.size(); ++i) {
-        if (opList[i] == op && i + 1 < opList.size()) {
-            return opList[i + 1];
-        }
-    }
-    return nullptr;
-}
-
 bool MixSubgraphSplit::MergeSyncPhase2(Operation* op, Function& mixSubgraphFunc, std::map<int, std::vector<Operation*>>& componentsByInternalID, std::unordered_map<Operation*, int>& opToComponentMap) const {
     Operation* targetOp = MixSubgraphSplitUtils::FindFirstOpBackward(op, mixSubgraphFunc,
         [](Operation* candidate) {
@@ -873,12 +853,11 @@ void MixSubgraphSplit::DisplayArg(const std::vector<SymbolicScalar>& originalLin
     }
 }
 
-std::vector<std::vector<SymbolicScalar>> MixSubgraphSplit::ExtractArgListForLeafFunction(
-        Function& leafFunc,
-        CallOpAttribute* originalCallAttr,
-        const SubfuncInvokeInfoTy& invokeInfo,
-        std::vector<int>& iOffsets,
-        std::vector<int>& oOffsets) const {
+std::vector<std::vector<SymbolicScalar>> MixSubgraphSplit::ExtractArgListForLeafFunction(Function& leafFunc,
+                                                                                        CallOpAttribute* originalCallAttr,
+                                                                                        const SubfuncInvokeInfoTy& invokeInfo,
+                                                                                        std::vector<int>& iOffsets,
+                                                                                        std::vector<int>& oOffsets) const {
     auto originalLinearArgs = originalCallAttr->GetLinearArgList();
     std::vector<std::vector<SymbolicScalar>> extractedArgList;
     DisplayArg(originalLinearArgs);
@@ -1060,7 +1039,7 @@ void MixSubgraphSplit::UpdateCopyOpAttributeExpressions(Operation* op, int newOf
 
 // 更新offset表达式
 void MixSubgraphSplit::UpdateOffsetExpressions(std::vector<OpImmediate>& offsets,
-                                            const RawSymbolicScalarPtr& newOffsetValue) const {
+                                                const RawSymbolicScalarPtr& newOffsetValue) const {
     for (size_t i = 0; i < offsets.size(); ++i) {
         SymbolicScalar& ss = offsets[i].GetSpecifiedValue();
         RawSymbolicScalarPtr ssRaw = ss.Raw();
@@ -1076,50 +1055,6 @@ void MixSubgraphSplit::UpdateOffsetExpressions(std::vector<OpImmediate>& offsets
     }
 }
 
-bool MixSubgraphSplit::FindOriginalOffsetInProducers(LogicalTensorPtr tensor, int &offset) {
-    // 检查producers
-    auto producers = tensor->GetProducers();
-    for (auto* producer : producers) {
-        if (producer == nullptr) {
-            continue;
-        }
-        auto oOperands = producer->GetOOperands();
-        for (size_t i = 0; i < oOperands.size(); i++) {
-            if (oOperands[i] == tensor) {
-                offset = producer->GetOOpAttrOffset(i);
-                if (offset != -1) {
-                    ALOG_DEBUG_F("Found offset %d for tensor %d via producer op %d output[%zu]",
-                                offset, tensor->GetRawMagic(), producer->GetOpMagic(), i);
-                    return true;
-                }
-            }
-        }
-    }
-    return false;
-}
-
-bool MixSubgraphSplit::FindOriginalOffsetInConsumers(LogicalTensorPtr tensor, int &offset) {
-    // 检查consumers
-    auto consumers = tensor->GetConsumers();
-    for (auto* consumer : consumers) {
-        if (consumer == nullptr) {
-            continue;
-        }
-        auto iOperands = consumer->GetIOperands();
-        for (size_t i = 0; i < iOperands.size(); i++) {
-            if (iOperands[i] == tensor) {
-                offset = consumer->GetIOpAttrOffset(i);
-                if (offset != -1) {
-                    ALOG_DEBUG_F("Found offset %d for tensor %d via consumer op %d input[%zu]",
-                                offset, tensor->GetRawMagic(), consumer->GetOpMagic(), i);
-                    return true;
-                }
-            }
-        }
-    }
-    return false;
-}
-
 int MixSubgraphSplit::FindOriginalOffsetInMixFunction(LogicalTensorPtr tensor) const {
     if (tensor == nullptr) {
         ALOG_ERROR_F("Tensor is nullptr in FindOriginalOffsetInMixFunction");
@@ -1127,10 +1062,10 @@ int MixSubgraphSplit::FindOriginalOffsetInMixFunction(LogicalTensorPtr tensor) c
     }
     ALOG_DEBUG_F("Finding original offset for tensor %d in mix function", tensor->GetRawMagic());
     int offset = -1;
-    if (FindOriginalOffsetInProducers(tensor, offset)) {
+    if (MixSubgraphSplitUtils::FindOriginalOffsetInProducers(tensor, offset)) {
         return offset;
     }
-    if (FindOriginalOffsetInConsumers(tensor, offset)) {
+    if (MixSubgraphSplitUtils::FindOriginalOffsetInConsumers(tensor, offset)) {
         return offset;
     }
     ALOG_ERROR_F("Failed to find original offset for tensor %d in mix function (checked %zu producers, %zu consumers)",
@@ -1563,10 +1498,9 @@ void MixSubgraphSplit::PropagateOutcastDependencies(const std::vector<Function*>
     }
 }
 
-void MixSubgraphSplit::PropagateExternalDependencies(
-    const std::vector<Function*>& leafFunctions,
-    const std::unordered_map<int, std::set<int>>& dependencyClosure,
-    const SubgraphToFunction& subgraphToFunction) const {
+void MixSubgraphSplit::PropagateExternalDependencies(const std::vector<Function*>& leafFunctions,
+                                                    const std::unordered_map<int, std::set<int>>& dependencyClosure,
+                                                    const SubgraphToFunction& subgraphToFunction) const {
     // 收集所有leaf function的直接外部依赖
     std::unordered_map<int, std::vector<LogicalTensorPtr>> directIncasts;
     std::unordered_map<int, std::vector<LogicalTensorPtr>> directOutcasts;
@@ -1593,10 +1527,9 @@ void MixSubgraphSplit::PropagateExternalDependencies(
 }
 
 // 传播incast到目标leaf function
-void MixSubgraphSplit::PropagateIncastToLeafFunction(
-    Function* targetLeafFunc,
-    int sourceComp,
-    const std::vector<SimpleIncastParam>& incastParams) const {
+void MixSubgraphSplit::PropagateIncastToLeafFunction(Function* targetLeafFunc,
+                                                    int sourceComp,
+                                                    const std::vector<SimpleIncastParam>& incastParams) const {
     if (targetLeafFunc == nullptr) return;
     // 获取当前leaf function已有的incast
     auto existingIncasts = targetLeafFunc->GetIncast();
@@ -1622,8 +1555,8 @@ void MixSubgraphSplit::PropagateIncastToLeafFunction(
 
 // 传播outcast到源leaf function（共享tensor）
 void MixSubgraphSplit::PropagateOutcastToLeafFunction(Function* sourceLeafFunc,
-                                                        int targetComp,
-                                                        const std::vector<SimpleOutcastParam>& outcastParams) const {
+                                                    int targetComp,
+                                                    const std::vector<SimpleOutcastParam>& outcastParams) const {
     if (sourceLeafFunc == nullptr) return;
     // 获取当前leaf function已有的outcast
     auto existingOutcasts = sourceLeafFunc->GetOutcast();

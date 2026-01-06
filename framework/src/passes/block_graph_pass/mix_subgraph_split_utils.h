@@ -62,11 +62,13 @@ public:
     static Operation* FindFirstOpBackward(Operation* startOp,
                                         Function& mixSubgraphFunc,
                                         std::function<bool(Operation*)> predicate);
-    
     // 判断是否为同步算子
     static bool IsSyncOperation(Operation* op);
     // 检查是否为需要拆分的Mix子图
     static bool IsMixSubgraph(Function& leafFunc);
+
+    static bool FindOriginalOffsetInProducers(LogicalTensorPtr tensor, int &offset);
+    static bool FindOriginalOffsetInConsumers(LogicalTensorPtr tensor, int &offset);
 };
 } // namespace tile_fwk
 } // namespace npu
