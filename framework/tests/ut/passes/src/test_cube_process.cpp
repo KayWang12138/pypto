@@ -617,19 +617,8 @@ TEST_F(SplitKTest, Test_MM_FP16_Atomic_On) {
         auto kSplitSize = k / kSplit;
         config::SetBuildStatic(true);
         FUNCTION("MM_FP16_Atomic_On", {mat_a, mat_b, final_out}) {
-            TileShape::Current().SetVecTile(64, 64);
-            auto tmpC = Full(Element(outputAstDtype, 0.0f), outputAstDtype, shape_c);
-            tmpC.SetName("tmp_c");
-            std::vector<Tensor> matmulResult;
-            TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {64, 64});
-            for (int ki = 0; ki < kSplit; ki++) {
-                auto input_mk = View(mat_a, {m, kSplitSize}, {0, ki * kSplitSize});
-                auto input_kn = View(mat_b, {kSplitSize, n}, {ki * kSplitSize, 0});
-                auto tmpC1 = Matrix::Matmul<false, false>(outputAstDtype, input_mk, input_kn, tmpC);
-                matmulResult.emplace_back(tmpC1);
-            }
-            TileShape::Current().SetVecTile(32, 256);
-            tmpC = npu::tile_fwk::Reduce(matmulResult, ReduceMode::ATOMIC_ADD);
+            TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {64, 64}, false, true);
+            auto tmpC = Matrix::Matmul(outputAstDtype, mat_a, mat_b, false, false);
             TileShape::Current().SetVecTile(32, 32);
             final_out = Add(tmpC, Element(DataType::DT_FP32, 0.0));
         }
