@@ -51,6 +51,7 @@ static constexpr uint64_t GENERAL_METADATA_SIZE_MIN = 4 * MEBI;
 constexpr uint32_t FRIENDLY_CACHE_ALIGN_U64_SIZE = 2; // 友好的cache对齐是2个u64
 
 void DevPyPtoFunction::InitIncastOutcastAttr(
+void DevPyPtoFunction::InitIncastOutcastAttr(
         uintdevptr_t &initOffset,
         const std::vector<std::shared_ptr<LogicalTensor>> &iList,
         const std::vector<std::shared_ptr<LogicalTensor>> &oList, bool /* fillContent */) {
@@ -59,7 +60,9 @@ void DevPyPtoFunction::InitIncastOutcastAttr(
 }
 
 void DevPyPtoFunction::InitOperationDynamicField(
+void DevPyPtoFunction::InitOperationDynamicField(
         uintdevptr_t &initOffset,
+        DevPyPtoFunctionPredInfo predInfo,
         DevPyPtoFunctionPredInfo predInfo,
         uint32_t outcastStitchCount,
         [[maybe_unused]]const std::unordered_map<uint64_t, int> &calleeHashIndexDict,
@@ -80,7 +83,10 @@ void DevPyPtoFunction::InitOperationDynamicField(
     uint64_t outcastDataSize = ALIGN_UP(outcastSize * sizeof(void *), sizeof(uint64_t));
     uint64_t expressionDataSize = ALIGN_UP(expressionSize * sizeof(uint64_t), sizeof(uint64_t));
     uint64_t stitchDataSize = ALIGN_UP(outcastStitchCount * sizeof(DevPyPtoFunctionDuppedStitchList), sizeof(uint64_t));
+    uint64_t stitchDataSize = ALIGN_UP(outcastStitchCount * sizeof(DevPyPtoFunctionDuppedStitchList), sizeof(uint64_t));
     uint64_t totalDataSize = predCountListDataSize + incastDataSize + outcastDataSize + expressionDataSize + stitchDataSize;
+    duppedDataAllocSize_ = sizeof(DevPyPtoFunctionDuppedData) + totalDataSize;
+    duppedDataCopySize_ = sizeof(DevPyPtoFunctionDuppedData) + predCountListDataSize;
     duppedDataAllocSize_ = sizeof(DevPyPtoFunctionDuppedData) + totalDataSize;
     duppedDataCopySize_ = sizeof(DevPyPtoFunctionDuppedData) + predCountListDataSize;
     duppedData_.HostInitDataSizeOffset(initOffset, duppedDataAllocSize_);
@@ -89,6 +95,7 @@ void DevPyPtoFunction::InitOperationDynamicField(
         " aic=", predInfo.totalZeroPredAIC, " hub=", predInfo.totalZeroPredHub, " aicpu=", predInfo.totalZeroPredAicpu);
 
     ONFILLCONTENT {
+        DevPyPtoFunctionDuppedData *dupData = reinterpret_cast<DevPyPtoFunctionDuppedData *>(&At(duppedData_, 0));
         DevPyPtoFunctionDuppedData *dupData = reinterpret_cast<DevPyPtoFunctionDuppedData *>(&At(duppedData_, 0));
         dupData->operationList_.size = operationSize;
 
@@ -122,6 +129,7 @@ void DevPyPtoFunction::InitOperationDynamicField(
         uint8_t *stitchBegin = &dupData->data_[dupData->operationList_.stitchBase];
         uint8_t *dataEnd = &dupData->data_[totalDataSize];
         uint8_t *dataEndAlloc = &dupData->data_[duppedDataAllocSize_ - sizeof(DevPyPtoFunctionDuppedData)];
+        uint8_t *dataEndAlloc = &dupData->data_[duppedDataAllocSize_ - sizeof(DevPyPtoFunctionDuppedData)];
         ASSERT(dataEnd == dataEndAlloc) << "Pointer mismatch:dataEnd " << dataEnd << " != dataEndAlloc " << dataEndAlloc;
         for (uint64_t i = 0; i < operationSize; i++) {
             uint8_t *ptr = reinterpret_cast<uint8_t *>(&dupData->GetOperationCurrPredCount(i));
@@ -151,6 +159,7 @@ void HandleActualRaw(const OrderedSet<std::shared_ptr<RawTensor>> &incastRawList
     const std::unordered_map<int, std::shared_ptr<RawTensor>> &rawMagicToRawTensor,
     const std::shared_ptr<RawTensor> &rawTensor,
     DevPyPtoRawTensor &encoded) {
+    DevPyPtoRawTensor &encoded) {
     auto iter = rawMagicToRawTensor.find(rawTensor->actualRawmagic);
     if (iter != rawMagicToRawTensor.end()) {
         if (iter->second->addrOffset == UINT64_MAX) {
@@ -175,6 +184,8 @@ void HandleActualRaw(const OrderedSet<std::shared_ptr<RawTensor>> &incastRawList
     }
 }
 
+void DevPyPtoFunction::UpdateRawTensorDesc(const std::shared_ptr<RawTensor> &rawTensor, size_t i, size_t incastRawListSize,
+    DevPyPtoRawTensor &encoded) {
 void DevPyPtoFunction::UpdateRawTensorDesc(const std::shared_ptr<RawTensor> &rawTensor, size_t i, size_t incastRawListSize,
     DevPyPtoRawTensor &encoded) {
     if (rawTensor->actualRawmagic != -1) {
@@ -218,6 +229,7 @@ static int64_t GetShapeSizeSafe(const std::vector<int64_t> &shape) {
 }
 
 static void EncodeRawShape(const SymbolicExpressionTable *expressionTable, DevPyPtoRawTensor *encoded,
+static void EncodeRawShape(const SymbolicExpressionTable *expressionTable, DevPyPtoRawTensor *encoded,
         std::shared_ptr<RawTensor> rawTensor, bool needIndependentlyAlloc, const std::string rawName = "") {
     std::vector<SymInt> shape;
     bool isDyn = false;
@@ -250,6 +262,7 @@ static bool ShouldDropBudget(const OrderedSet<std::shared_ptr<RawTensor>>& outca
         const IncastOutcastSlot* slotInfo,
         const std::vector<npu::tile_fwk::RuntimeSlotKindSet>& runtimeSlotKindSetList,
         const std::shared_ptr<RawTensor> rawTensor, const DevPyPtoRawTensor& encoded) {
+        const std::shared_ptr<RawTensor> rawTensor, const DevPyPtoRawTensor& encoded) {
     if (!outcastRawList.count(rawTensor)) {
         return false;
     }
@@ -276,12 +289,14 @@ static bool HasInputOutputOrAssembleDst(
 }
 
 void DevPyPtoFunction::InitRawTensorAndMemoryRequirement(
+void DevPyPtoFunction::InitRawTensorAndMemoryRequirement(
         uintdevptr_t &initOffset,
         const OrderedSet<std::shared_ptr<RawTensor>> &incastRawList,
         const OrderedSet<std::shared_ptr<RawTensor>> &outcastRawList,
         const OrderedSet<std::shared_ptr<RawTensor>> &rawList,
         const std::unordered_map<int, std::shared_ptr<RawTensor>> &rawMagicToRawTensor,
         const std::vector<EncodeRawTensorAttr> &rawAttrs,
+        const EncodeDevPyPtoFunctionParam &param,
         const EncodeDevPyPtoFunctionParam &param,
         const SymbolicExpressionTable *expressionTable,
         bool fillContent) {
@@ -424,6 +439,7 @@ void DevPyPtoFunction::InitRawTensorAndMemoryRequirement(
 }
 
 void DevPyPtoFunction::InitTensor(
+void DevPyPtoFunction::InitTensor(
         uintdevptr_t &initOffset,
         const OrderedSet<std::shared_ptr<LogicalTensor>> &tlist,
         const OrderedSet<std::shared_ptr<RawTensor>> &rawList, bool fillContent) {
@@ -435,6 +451,7 @@ void DevPyPtoFunction::InitTensor(
     }
 }
 
+void DevPyPtoFunction::InitOperation(
 void DevPyPtoFunction::InitOperation(
         uintdevptr_t &initOffset,
         const SymbolicExpressionTable *expressionTable,
@@ -500,6 +517,7 @@ void DevPyPtoFunction::InitOperation(
 
     ONFILLCONTENT {
         DevPyPtoFunctionDuppedData *dupData = reinterpret_cast<DevPyPtoFunctionDuppedData *>(&At(duppedData_, 0));
+        DevPyPtoFunctionDuppedData *dupData = reinterpret_cast<DevPyPtoFunctionDuppedData *>(&At(duppedData_, 0));
         operanSize = 0;
         staticAttributeSize = 0;
         sucSize = 0;
@@ -507,6 +525,7 @@ void DevPyPtoFunction::InitOperation(
         for (size_t index = 0; index < callList.size(); index++) {
             Operation *op = callList[index];
             auto callop = std::static_pointer_cast<CallOpAttribute>(callList[index]->GetOpAttribute());
+            DevPyPtoOperation &staticField = At(operationList_, index);
             DevPyPtoOperation &staticField = At(operationList_, index);
 
             staticField.outcastStitchIndex = outcastStitchIndexList[index];
@@ -520,6 +539,7 @@ void DevPyPtoFunction::InitOperation(
                 rawTensorIndex[coaIndex] = rawList.find(tensor->tensor)->second;
                 At(staticField.ioperandList, k) =
                     DevPyPtoOperationOperandInfo(tlist.GetIndex(tensor), coaIndex + COA_INDEX_DIM_BASE, tensor->GetShape().size());
+                    DevPyPtoOperationOperandInfo(tlist.GetIndex(tensor), coaIndex + COA_INDEX_DIM_BASE, tensor->GetShape().size());
             }
             operanSize += op->GetIOperands().size();
 
@@ -530,6 +550,7 @@ void DevPyPtoFunction::InitOperation(
                 const std::shared_ptr<LogicalTensor> &tensor = op->GetOOperands()[k];
                 rawTensorIndex[coaIndex] = rawList.find(tensor->tensor)->second;
                 At(staticField.ooperandList, k) =
+                    DevPyPtoOperationOperandInfo(tlist.GetIndex(tensor), coaIndex + COA_INDEX_DIM_BASE, tensor->GetShape().size());
                     DevPyPtoOperationOperandInfo(tlist.GetIndex(tensor), coaIndex + COA_INDEX_DIM_BASE, tensor->GetShape().size());
             }
             operanSize += op->GetOOperands().size();
@@ -595,6 +616,7 @@ void DevPyPtoFunction::InitOperation(
             uint8_t *ptr = reinterpret_cast<uint8_t *>(&dupData->GetOperationStitch(index));
             uint8_t *stitchBegin = &dupData->data_[dupData->operationList_.stitchBase];
             uint8_t *dataEndAlloc = &dupData->data_[duppedDataAllocSize_ - sizeof(DevPyPtoFunctionDuppedData)];
+            uint8_t *dataEndAlloc = &dupData->data_[duppedDataAllocSize_ - sizeof(DevPyPtoFunctionDuppedData)];
             ASSERT(stitchBegin <= ptr && ptr < dataEndAlloc) << "Address out of range: ptr " << ptr << " not in [" <<
                    stitchBegin << ", " << dataEndAlloc << ")";
         }
@@ -603,6 +625,7 @@ void DevPyPtoFunction::InitOperation(
 }
 
 #ifdef SUPPORT_MIX_SUBGRAPH_SCHE
+void DevPyPtoFunction::InitWrapInfo(uintdevptr_t &initOffset, const OrderedSet<Operation *> &callList, bool fillContent) {
 void DevPyPtoFunction::InitWrapInfo(uintdevptr_t &initOffset, const OrderedSet<Operation *> &callList, bool fillContent) {
     opWrapList_.HostInitDataSizeOffset(initOffset, callList.size());
     opWrapTaskNumList_.HostInitDataSizeOffset(initOffset, callList.size());
@@ -626,12 +649,14 @@ void DevPyPtoFunction::InitWrapInfo(uintdevptr_t &initOffset, const OrderedSet<O
 #endif
 
 void DevPyPtoFunction::InitIncastOutcast(
+void DevPyPtoFunction::InitIncastOutcast(
         uintdevptr_t &initOffset,
         const std::vector<std::shared_ptr<LogicalTensor>> &incastTensorList,
         const std::vector<std::shared_ptr<LogicalTensor>> &outcastTensorList,
         const OrderedSet<std::shared_ptr<LogicalTensor>> &tlist,
         const std::unordered_map<std::shared_ptr<LogicalTensor>, InoutOperationAttr> &incastOpAttrDict,
         const std::unordered_map<std::shared_ptr<LogicalTensor>, InoutOperationAttr> &outcastOpAttrDict,
+        const EncodeDevPyPtoFunctionParam &param, const std::string &initRawName, bool fillContent) {
         const EncodeDevPyPtoFunctionParam &param, const std::string &initRawName, bool fillContent) {
     {
         // Fill metadata
@@ -832,6 +857,7 @@ void DevPyPtoFunction::InitIncastOutcast(
 }
 
 struct EncodeDevPyPtoFunctionInfo {
+struct EncodeDevPyPtoFunctionInfo {
     Function *devRoot{nullptr};
     Function *devTile{nullptr};
 
@@ -896,6 +922,8 @@ struct EncodeDevPyPtoFunctionInfo {
     }
     static DevPyPtoStride InitStride(const std::vector<int64_t> &stride) {
         DevPyPtoStride initStride;
+    static DevPyPtoStride InitStride(const std::vector<int64_t> &stride) {
+        DevPyPtoStride initStride;
         initStride.dimSize = stride.size();
         for (size_t index = 0; index < DEV_SHAPE_DIM_MAX; index++) {
             if (index < stride.size()) {
@@ -918,6 +946,7 @@ struct EncodeDevPyPtoFunctionInfo {
         std::vector<int> data(&shape.dim[0], &shape.dim[shape.dimSize]);
         return data;
     }
+    std::vector<int> StrideToVector(const DevPyPtoStride &stride) {
     std::vector<int> StrideToVector(const DevPyPtoStride &stride) {
         std::vector<int> data(&stride.dimStride[0], &stride.dimStride[stride.dimSize]);
         return data;
@@ -979,6 +1008,8 @@ struct EncodeDevPyPtoFunctionInfo {
             auto callAttr = dynamic_cast<CallOpAttribute *>(op.GetOpAttribute().get());
             std::vector<DevPyPtoFunctionCallOperandUse> useList;
             DevPyPtoFunctionCallOperandUse stitchPolicyFullCoverProducer;
+            std::vector<DevPyPtoFunctionCallOperandUse> useList;
+            DevPyPtoFunctionCallOperandUse stitchPolicyFullCoverProducer;
             for (size_t j = 0; j < op.GetOOperands().size(); ++j) {
                 auto &oOperand = op.GetOOperands()[j];
                 if (o->tensor->rawmagic != oOperand->tensor->rawmagic) {
@@ -989,6 +1020,7 @@ struct EncodeDevPyPtoFunctionInfo {
                 std::vector<int64_t> offset = callAttr->GetLinearImmediateArgList(coaIndex, coaIndex + dimSize, true);
                 std::vector<int64_t> shape = callAttr->GetLinearImmediateArgList(coaIndex + dimSize, coaIndex + dimSize * 0x2, false);
                 if (offset == std::vector<int64_t>(dimSize, 0) && shape == oOperand->GetShape()) {
+                    stitchPolicyFullCoverProducer = DevPyPtoFunctionCallOperandUse(i, j, coaIndex, coaIndex + dimSize);
                     stitchPolicyFullCoverProducer = DevPyPtoFunctionCallOperandUse(i, j, coaIndex, coaIndex + dimSize);
                 } else {
                     useList.emplace_back(i, j, coaIndex, coaIndex + dimSize);
@@ -1067,6 +1099,7 @@ struct EncodeDevPyPtoFunctionInfo {
         }
 
         /*
+         * As we need a reference of null, we use the 0-th element for the reference of null for DevPyPtoFunctionDuppedData
          * As we need a reference of null, we use the 0-th element for the reference of null for DevPyPtoFunctionDuppedData
          * So outcastStitchCount starts from 1, as the 0-th is for the reference of null.
          */
@@ -1334,56 +1367,8 @@ struct EncodeDevPyPtoFunctionInfo {
         }
     }
 
-<<<<<<< HEAD
     void EncodeZeroPredCount(std::vector<Operation *>& callopList) {
         std::unordered_map<Operation *, int> callopCoreTypeDict;
-=======
-    EncodeDevPyPtoFunctionInfo(
-            Function *dyndev,
-            const std::unordered_map<uint64_t, int> &tHashIndexDict,
-            const std::vector<CceCodeInfo> &tCceCodeInfoList,
-            const SymbolicExpressionTable *tExpressionTable,
-            Function *tdevRoot)
-            : devRoot(tdevRoot),
-              calleeHashIndexDict(tHashIndexDict),
-              cceCodeInfoList(tCceCodeInfoList),
-              expressionTable(tExpressionTable) {
-        (void)dyndev;
-        ASSERT(dyndev->GetDyndevAttribute()->rootTileDict.count(devRoot)) << "devRoot: " << devRoot << " not found in rootTileDict of dyndev";
-        devTile = dyndev->GetDyndevAttribute()->rootTileDict[devRoot];
-        if (dyndev->GetDyndevAttribute()->valueDependDescDict.count(devTile)) {
-            valueDependDesc = dyndev->GetDyndevAttribute()->valueDependDescDict[devTile];
-        }
-
-        std::unordered_map<std::shared_ptr<LogicalTensor>, OrderedSet<Operation *>> consumerDict;
-        std::unordered_map<Operation *, int> callopIndexDict;
-
-        rawName = devRoot->GetRawName();
-
-        incastList = devRoot->GetIncast();
-        outcastList = devRoot->GetOutcast();
-
-        incastSet.insert(incastList.begin(), incastList.end());
-        outcastSet.insert(outcastList.begin(), outcastList.end());
-
-        std::vector<Operation *> callopList;
-        for (auto &op : devRoot->Operations()) {
-            if (op.GetOpcode() == Opcode::OP_CALL) {
-                callopIndexDict[&op] = callopList.size();
-                callopList.push_back(&op);
-
-                for (auto &i : op.GetIOperands()) {
-                    tensorList.Insert(i);
-                    RecordRawTensor(i);
-                    consumerDict[i].Insert(&op);
-                }
-                for (auto &j : op.GetOOperands()) {
-                    tensorList.Insert(j);
-                    RecordRawTensor(j);
-                }
-            }
-        }
->>>>>>> e4634bd (fix(machine): Change Ast to PyPto)
         for (auto &op : callopList) {
             auto callOpAttr = std::static_pointer_cast<CallOpAttribute>(op->GetOpAttribute());
             auto calleeHash = callOpAttr->GetCalleeHash().GetHash();
@@ -1631,7 +1616,9 @@ struct EncodeDevPyPtoFunctionInfo {
     }
 
     void Init(DevPyPtoFunction *devFunc, const EncodeDevPyPtoFunctionParam &param, bool fillContent) {
+    void Init(DevPyPtoFunction *devFunc, const EncodeDevPyPtoFunctionParam &param, bool fillContent) {
         uintdevptr_t initOffset = reinterpret_cast<uintdevptr_t>(&devFunc->data) - reinterpret_cast<uintdevptr_t>(devFunc);
+        DevPyPtoFunctionPredInfo predInfo = {totalZeroPred, totalZeroPredAIV, totalZeroPredAIC, totalZeroPredHub,
         DevPyPtoFunctionPredInfo predInfo = {totalZeroPred, totalZeroPredAIV, totalZeroPredAIC, totalZeroPredHub,
             totalZeroPredAicpu};
         devFunc->sourceFunc = nullptr;
@@ -1657,8 +1644,11 @@ struct EncodeDevPyPtoFunctionInfo {
 
 void EncodeDevPyPtoFunction(Function *dyndev, const EncodeDevPyPtoFunctionParam &param, uint64_t &offset, DevPyPtoFunction *base) {
     EncodeDevPyPtoFunctionInfo encodeInfo(dyndev, param.calleeHashIndexDict, param.cceCodeInfoList, param.expressionTable, param.devRoot);
+void EncodeDevPyPtoFunction(Function *dyndev, const EncodeDevPyPtoFunctionParam &param, uint64_t &offset, DevPyPtoFunction *base) {
+    EncodeDevPyPtoFunctionInfo encodeInfo(dyndev, param.calleeHashIndexDict, param.cceCodeInfoList, param.expressionTable, param.devRoot);
 
     if (base == nullptr) {
+        DevPyPtoFunction devfunc;
         DevPyPtoFunction devfunc;
         encodeInfo.Init(&devfunc, param, false);
         offset = devfunc.GetSize();
@@ -1668,6 +1658,7 @@ void EncodeDevPyPtoFunction(Function *dyndev, const EncodeDevPyPtoFunctionParam 
     }
 }
 
+void DevPyPtoProgram::InitSymbolTable(
 void DevPyPtoProgram::InitSymbolTable(
         uintdevptr_t &initOffset, SymbolicSymbolTable *symbolTableInput, bool fillContent) {
     symbolTable.HostInitDataSizeOffset(initOffset, symbolTableInput->GetSymbolTable().size());
@@ -1688,6 +1679,7 @@ void DevPyPtoProgram::InitSymbolTable(
     symbolTableNameList.HostInitDataSizeOffset(initOffset, offset);
 }
 void DevPyPtoProgram::InitExpressionTableBinary(
+void DevPyPtoProgram::InitExpressionTableBinary(
         uintdevptr_t &initOffset, const std::vector<std::vector<uint8_t>> &expressionTableBinaryListInput, bool fillContent) {
     expressionTableOffsetList.HostInitDataSizeOffset(initOffset, expressionTableBinaryListInput.size());
     preGuardPage.HostInitDataSizeOffset(initOffset, PAGE_SIZE);
@@ -1703,6 +1695,7 @@ void DevPyPtoProgram::InitExpressionTableBinary(
     expressionTableBinary.HostInitDataSizeOffset(initOffset, offset);
 }
 void DevPyPtoProgram::InitControlFlowBinary(
+void DevPyPtoProgram::InitControlFlowBinary(
         uintdevptr_t &initOffset,
         const std::vector<uint8_t> &hostControlFlowBinaryInput, const std::vector<uint8_t> &devControlFlowBinaryInput,
         bool fillContent) {
@@ -1714,6 +1707,7 @@ void DevPyPtoProgram::InitControlFlowBinary(
     devControlFlowBinary.HostInitDataSizeOffset(initOffset, alignedDevControlFlowBinaryInputSize);
     ONFILLCONTENT { memcpy_s(devControlFlowBinary.Data(), devControlFlowBinaryInput.size(), devControlFlowBinaryInput.data(), devControlFlowBinaryInput.size()); }
 }
+void DevPyPtoProgram::InitDevEncodeList(
 void DevPyPtoProgram::InitDevEncodeList(
         uintdevptr_t &initOffset,
         const std::vector<std::vector<uint8_t>> &devEncodeListInput,
@@ -1734,6 +1728,7 @@ void DevPyPtoProgram::InitDevEncodeList(
     }
     devEncodeDataList.HostInitDataSizeOffset(initOffset, offset);
 }
+void DevPyPtoProgram::InitCceCodeList(uintdevptr_t &initOffset, const std::vector<CceCodeInfo> &cceInfo,
 void DevPyPtoProgram::InitCceCodeList(uintdevptr_t &initOffset, const std::vector<CceCodeInfo> &cceInfo,
                                        bool fillContent) {
     cceCodeList.HostInitDataSizeOffset(initOffset, cceInfo.size());
@@ -1760,6 +1755,7 @@ void DevPyPtoProgram::InitCceCodeList(uintdevptr_t &initOffset, const std::vecto
 }
 
 void DevPyPtoProgram::InitPrefetchInfoList(uintdevptr_t &initOffset, const std::vector<L2Info> &l2InfoList,
+void DevPyPtoProgram::InitPrefetchInfoList(uintdevptr_t &initOffset, const std::vector<L2Info> &l2InfoList,
     bool fillContent) {
     prefetchInfoList.HostInitDataSizeOffset(initOffset, l2InfoList.size());
     for (size_t index = 0; index < l2InfoList.size(); index++) {
@@ -1769,12 +1765,14 @@ void DevPyPtoProgram::InitPrefetchInfoList(uintdevptr_t &initOffset, const std::
 }
 
 void DevPyPtoProgram::InitDisableL2List(uintdevptr_t &initOffset, const std::vector<uint8_t> &disableL2,
+void DevPyPtoProgram::InitDisableL2List(uintdevptr_t &initOffset, const std::vector<uint8_t> &disableL2,
                                          bool fillContent) {
   disableL2List.HostInitDataSizeOffset(initOffset, disableL2.size());
   ONFILLCONTENT { (void)memcpy_s(disableL2List.Data(), disableL2.size(), disableL2.data(), disableL2.size()); };
   return;
 }
 
+void DevPyPtoProgram::InitStartArgsABIParamList(
 void DevPyPtoProgram::InitStartArgsABIParamList(
         uintdevptr_t &initOffset,
         const std::vector<int> &tStartArgsInputTensorSlotIndexList,
@@ -1814,6 +1812,7 @@ void DevPyPtoProgram::InitStartArgsABIParamList(
 }
 
 static void InitPartialUpdateCellMatch(
+        const std::vector<const DevPyPtoFunctionOutcast *> &outcastList,
         const std::vector<const DevPyPtoFunctionOutcast *> &outcastList,
         DevCellMatchTableDesc *partialUpdateCellMatchTableDesc) {
     std::vector<int> tensorShape;
@@ -1855,6 +1854,7 @@ static void InitPartialUpdateCellMatch(
 }
 
 void DevPyPtoProgram::InitPartialUpdateSlot(
+void DevPyPtoProgram::InitPartialUpdateSlot(
         uintdevptr_t &initOffset,
         const std::vector<std::vector<uint8_t>> &devEncodeListInput,
         const std::unordered_map<Function *, int> &rootFuncKeyDict,
@@ -1870,11 +1870,13 @@ void DevPyPtoProgram::InitPartialUpdateSlot(
     int totalCellMatchSize = 0;
     for (size_t index = 0; index < tPartialUpdateSlotIndexList.size(); index++) {
         std::vector<const DevPyPtoFunctionOutcast *> outcastList;
+        std::vector<const DevPyPtoFunctionOutcast *> outcastList;
         auto slotIndex = tPartialUpdateSlotIndexList[index];
         ASSERT(slotRootOutcastDict.count(slotIndex)) << "slotIndex: " << slotIndex << " not found in slotRootOutcastDict";
         for (auto &[root, outcastIndex] : slotRootOutcastDict.find(slotIndex)->second) {
             ASSERT(rootFuncKeyDict.count(root)) << "root: " << root << " not found in rootFuncKeyDict";
             int funcKey = rootFuncKeyDict.find(root)->second;
+            DevPyPtoFunction *devFunc = reinterpret_cast<DevPyPtoFunction *>(const_cast<uint8_t *>(devEncodeListInput[funcKey].data()));
             DevPyPtoFunction *devFunc = reinterpret_cast<DevPyPtoFunction *>(const_cast<uint8_t *>(devEncodeListInput[funcKey].data()));
             outcastList.push_back(&devFunc->GetOutcast(outcastIndex));
         }
@@ -1920,6 +1922,7 @@ static int WorkspaceRecyclePeriod() {
 }
 
 void DevPyPtoProgram::InitControlFlowCache(
+void DevPyPtoProgram::InitControlFlowCache(
         uintdevptr_t &initOffset,
         const std::shared_ptr<DyndevFunctionAttribute> &dyndevAttr,
         bool fillContent) {
@@ -1934,6 +1937,7 @@ void DevPyPtoProgram::InitControlFlowCache(
     for (size_t index = 0; index < dyndevAttr->devEncodeList.size(); index++) {
         std::vector<uint8_t> &devEncode = dyndevAttr->devEncodeList[index];
         const DevPyPtoFunction *devFunc = reinterpret_cast<const DevPyPtoFunction *>(devEncode.data());
+        const DevPyPtoFunction *devFunc = reinterpret_cast<const DevPyPtoFunction *>(devEncode.data());
         uint64_t duppedDataAllocSize = devFunc->GetDuppedDataAllocSize();
         if (maxDuppedDataAllocSize < duppedDataAllocSize) {
             maxDuppedDataAllocSize = duppedDataAllocSize;
@@ -1946,6 +1950,7 @@ void DevPyPtoProgram::InitControlFlowCache(
     ControlFlowCacheFactor factorList[] = {
         {"actualDupped",        0, maxDuppedDataAllocSize, 0},
         {"actualDeviceTask",    sizeof(DynDeviceTaskBase) + DYN_DEVICE_TASK_EXT_SIZE, 0, 0},
+        {"actualStitch",        0, 0, sizeof(DevPyPtoFunctionDuppedStitch)},
         {"actualStitch",        0, 0, sizeof(DevPyPtoFunctionDuppedStitch)},
         {"actualDynFuncData",   sizeof(DynFuncHeader), sizeof(DynFuncData), 0},
         {"actualReadyQueue",    sizeof(ReadyCoreFunctionQueue) * READY_QUEUE_SIZE, 0, sizeof(taskid_t) * READY_QUEUE_SIZE},
@@ -1986,16 +1991,19 @@ void DevPyPtoProgram::InitControlFlowCache(
 }
 
 struct EncodeDevPyPtoProgramInfo {
+struct EncodeDevPyPtoProgramInfo {
     Function *func;
     std::shared_ptr<DyndevFunctionAttribute> dyndevAttr;
     uint64_t getTensorDataCount = 0;
     uint64_t getInputDataCount = 0;
 
     explicit EncodeDevPyPtoProgramInfo(Function *tfunc) : func(tfunc) {
+    explicit EncodeDevPyPtoProgramInfo(Function *tfunc) : func(tfunc) {
         ASSERT(func->GetDyndevAttribute() != nullptr) << "DyndevAttribute is null for function: " << func;
         dyndevAttr = func->GetDyndevAttribute();
     }
 
+    void Init(DevPyPtoProgram *devProg, bool fillContent) {
     void Init(DevPyPtoProgram *devProg, bool fillContent) {
         uintdevptr_t initOffset = reinterpret_cast<uintdevptr_t>(devProg->data);
         devProg->slotSize = dyndevAttr->inoutLink.totalSlot;
@@ -2061,6 +2069,7 @@ struct SlotInfo {
 };
 
 static std::vector<SlotInfo> MarkInputOutputAssembleSlots(DevPyPtoProgram &devProg) {
+static std::vector<SlotInfo> MarkInputOutputAssembleSlots(DevPyPtoProgram &devProg) {
     std::vector<SlotInfo> slotInfoList(devProg.slotSize);
     std::vector<int> inputSlotIdxList = devProg.GetInputTensorSlotIndexList();
     for (int inputSlotIdx : inputSlotIdxList) {
@@ -2074,6 +2083,7 @@ static std::vector<SlotInfo> MarkInputOutputAssembleSlots(DevPyPtoProgram &devPr
         slotInfoList[slotIdx].kindSet.Add(RuntimeSlotKind::ASSEMBLE_OUTCAST);
     }
     for (auto &&devEncodeData : devProg.devEncodeList) {
+        DevPyPtoFunction *devFunc = reinterpret_cast<DevPyPtoFunction *>(devEncodeData.Data());
         DevPyPtoFunction *devFunc = reinterpret_cast<DevPyPtoFunction *>(devEncodeData.Data());
         for (size_t outcastIdx = 0; outcastIdx < devFunc->GetOutcastSize(); outcastIdx++) {
             auto &toSlotList = devFunc->GetOutcast(outcastIdx).toSlotList;
@@ -2114,6 +2124,7 @@ static std::vector<SlotInfo> MarkInputOutputAssembleSlots(DevPyPtoProgram &devPr
 }
 
 static bool IsInputOutputSlot(const std::vector<SlotInfo> &slotInfoList, DevPyPtoFunction *func, size_t idx) {
+static bool IsInputOutputSlot(const std::vector<SlotInfo> &slotInfoList, DevPyPtoFunction *func, size_t idx) {
     auto &toSlotList = func->GetOutcast(idx).toSlotList;
     for (size_t j = 0; j < toSlotList.size(); j++) {
         int slotIdx = func->At(toSlotList, j);
@@ -2125,6 +2136,7 @@ static bool IsInputOutputSlot(const std::vector<SlotInfo> &slotInfoList, DevPyPt
     return false;
 }
 
+static bool IsAssembleSlot(std::vector<SlotInfo> &slots, DevPyPtoFunction *func, size_t idx) {
 static bool IsAssembleSlot(std::vector<SlotInfo> &slots, DevPyPtoFunction *func, size_t idx) {
     auto &toSlotList = func->GetOutcast(idx).toSlotList;
     bool isAssemble = false;
@@ -2183,6 +2195,7 @@ static SymbolicScalar GetDynRawTensorSize(Function *dynFunc, int funcKey, int id
 }
 
 static TensorWorkspaceResult CalcTensorWorkspace(Function *func,DevPyPtoProgram &devProg) {
+static TensorWorkspaceResult CalcTensorWorkspace(Function *func,DevPyPtoProgram &devProg) {
     std::vector<SlotInfo> slots = MarkInputOutputAssembleSlots(devProg);
 
     uint64_t maxRootInnerMem = 0;
@@ -2190,6 +2203,7 @@ static TensorWorkspaceResult CalcTensorWorkspace(Function *func,DevPyPtoProgram 
     uint64_t maxExclusiveOutcastMem = 0;
     uint64_t maxPerCoreSpilledMem = 0;
     for (auto &&devEncodeData : devProg.devEncodeList) {
+        DevPyPtoFunction *devFunc = reinterpret_cast<DevPyPtoFunction *>(devEncodeData.Data());
         DevPyPtoFunction *devFunc = reinterpret_cast<DevPyPtoFunction *>(devEncodeData.Data());
         for (size_t i = 0; i < devFunc->GetOutcastSize(); i++) {
             if (IsInputOutputSlot(slots, devFunc, i)) {
@@ -2273,6 +2287,7 @@ static TensorWorkspaceResult CalcTensorWorkspace(Function *func,DevPyPtoProgram 
 }
 
 static uint64_t CalcGeneralMetadataWorkspace(DevPyPtoProgram *devProg) {
+static uint64_t CalcGeneralMetadataWorkspace(DevPyPtoProgram *devProg) {
     DeviceWorkspaceAllocator workspace(devProg);
     uint64_t generalMetadataSize = 0;
     uint32_t slabSize = workspace.CalcSlabMemObjmaxSize() * ALLOC_NUM_ONE_SLAB;
@@ -2309,6 +2324,7 @@ static uint64_t CalcGeneralMetadataWorkspace(DevPyPtoProgram *devProg) {
 }
 
 static uint64_t CalcStitchWorkspace(DevPyPtoProgram &devProg) {
+static uint64_t CalcStitchWorkspace(DevPyPtoProgram &devProg) {
     (void)devProg;
     static constexpr uint64_t AICPU_STITCH_SIZE = 2 * MEBI;
     return AICPU_STITCH_SIZE;
@@ -2325,8 +2341,11 @@ static uint64_t DumpTensorWorkspace() {
 
 void EncodeDevPyPtoProgram(Function *func, uint64_t &offset, DevPyPtoProgram *base) {
     EncodeDevPyPtoProgramInfo encodeInfo(func);
+void EncodeDevPyPtoProgram(Function *func, uint64_t &offset, DevPyPtoProgram *base) {
+    EncodeDevPyPtoProgramInfo encodeInfo(func);
 
     if (base == nullptr) {
+        DevPyPtoProgram devfunc;
         DevPyPtoProgram devfunc;
         encodeInfo.Init(&devfunc, false);
         offset = devfunc.GetSize();
