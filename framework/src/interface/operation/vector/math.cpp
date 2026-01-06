@@ -528,6 +528,32 @@ void CumSumOperationTileFunc(Function &function, const TileShape &tileShape,
     TiledCumSum(function, tileShape, {iOperand[0], oOperand[0], axis, flag});
 }
 
+Tensor Triu(const Tensor &input, const int &diagonal){
+    DECLARE_TRACER();
+    auto shapeSize = input.GetShape().size();
+    auto dataType = input.GetDataType();
+
+    ASSERT(SHAPE_DIM2 <= shapeSize && shapeSize <= SHAPE_DIM5) << "The shape.size() only support 2~5";
+    std::vector<DataType> TRIU_SUPPORT_DATATYPES = {DataType::DT_FP32, DataType::DT_FP16, DataType::DT_INT32,
+        DataType::DT_INT16, DataType::DT_INT8, DataType::DT_BF16};
+    ASSERT(std::find(TRIU_SUPPORT_DATATYPES.begin(), TRIU_SUPPORT_DATATYPES.end(), dataType) !=
+           TRIU_SUPPORT_DATATYPES.end()) << "The datatype is not supported";
+    ASSERT(std::is_integral_v<decltype(diagonal)>) << "The diagonal must be int";
+    bool flag = true;
+
+    Tensor result(input.GetDataType(), input.GetShape());
+    CALL(Triu, *Program::GetInstance().GetCurrentFunction(),
+        {input.GetStorage(), result.GetStorage(), diagonal, flag});
+    return result;
+}
+
+void TriuOperationTileFunc(Function &function, const TileShape &tileShape,
+    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand, const Operation &op) {
+    int diagonal = op.GetIntAttribute(OP_ATTR_PREFIX + "diagonal");
+    bool flag = op.GetBoolAttribute(OP_ATTR_PREFIX + "flag");
+    TiledTriu(function, tileShape, {iOperand[0], oOperand[0], diagonal, flag});
+}
+
 // beginregin: Clip
 
 Tensor Clip(const Tensor &self, const Element &min, const Element &max) {
@@ -586,4 +612,5 @@ REGISTER_OPERATION_TILED_FUNC(OP_LOGICALNOT, Opcode::OP_LOGICALNOT, LogicNotOper
 REGISTER_OPERATION_TILED_FUNC(OP_ONEHOT, Opcode::OP_ONEHOT, OneHotOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_LOGICALAND, Opcode::OP_LOGICALAND, LogicAndOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_CUM_SUM, Opcode::OP_CUM_SUM, CumSumOperationTileFunc);
+REGISTER_OPERATION_TILED_FUNC(OP_TRIU, Opcode::OP_TRIU, TriuOperationTileFunc);
 } // namespace npu::tile_fwk
