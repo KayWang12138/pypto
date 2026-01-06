@@ -17,6 +17,13 @@
 #include "machine/runtime/device_launcher_binding.h"
 #include "machine/host/backend.h"
 #include "machine/runtime/host_prof.h"
+#include "cost_model/simulation/backend.h"
+
+
+extern "C" int DynTileFwkBackendKernelServer(void *targ);
+extern "C" int DynTileFwkBackendKernelServerInit(void *targ);
+extern "C" int PyptoKernelCtrlServer(void *targ);
+
 namespace npu::tile_fwk::dynamic {
 namespace {
     constexpr uint32_t kMinDefaultDim = 20;
@@ -156,7 +163,7 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
         }
     }
     CheckDeviceId();
-    AstKernelArgs kArgs;
+    DeviceKernelArgs kArgs;
     DeviceLauncherConfigFillDeviceInfo(config);
     DeviceInitTilingData(DeviceMemoryUtils(), kArgs, function->GetDyndevAttribute()->devProgBinary, config, cachedOperator);
     DeviceRunCacheKernelSet(function, (uint8_t *)kArgs.cfgdata);
@@ -207,6 +214,83 @@ int DeviceLauncher::DeviceRunOnce(Function *function, const DeviceLauncherConfig
     (void)config;
     return 0;
 #endif
+}
+
+void DeviceLauncher::RunCostModel(DeviceKernelArgs *kArgs) {
+    if (!config::GetPlatformConfig("ENABLE_DYN_COST_MODEL", true)) {
+        return;
+    }
+    Function *function = Program::GetInstance().GetLastFunction();
+    if (function == nullptr) {
+        return;
+    }
+    config::SetSimConfig("SIM_MODE", CostModel::SimMode::LEAF_FUNCTION);
+    CostModelAgent costModelAgent;
+    costModelAgent.SubmitLeafFunctionsToCostModel();
+    costModelAgent.RunCostModel();
+    costModelAgent.TerminateCostModel();
+    CostModel::ModelData* modelData = new CostModel::ModelData();
+    auto attr = function->GetDyndevAttribute();
+    modelData->functionTime.resize(attr->devLeafIndex2Hash.size(), 0);
+    for (const auto& [index, hash] : attr->devLeafIndex2Hash) {
+        auto time = costModelAgent.GetLeafFunctionTimeCost(hash);
+        DEV_INFO("devLeafIndex2Hash, %d -> %lu: %lu\n", index, hash, time);
+        modelData->functionTime[index] = time;
+    }
+    kArgs->costmodeldata = modelData;
+}
+
+void DeviceLauncher::RunDynCostModel()
+{
+    if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) != CFG_RUN_MODE_SIM) {
+        return;
+    }
+    config::SetSimConfig("SIM_MODE", CostModel::SimMode::NORMAL);
+    CostModelAgent costModelAgent;
+
+    std::string path = config::LogTopFolder() + "/dyn_topo.txt";
+    costModelAgent.SubmitTopo(path);
+    costModelAgent.SubmitLeafFunctionsToCostModel();
+    costModelAgent.RunCostModel();
+    costModelAgent.TerminateCostModel();
+}
+
+void DeviceLauncher::RunTestMode(DeviceKernelArgs *kArgs) {
+    (void) kArgs;
+    const int BUFFER_SIZE_64 = 64;
+    std::thread aicpus[DEVICE_MAX_AICPU_NUM];
+    std::atomic<int> idx{0};
+    auto *devProg = (DevAscendProgram *)(kArgs->cfgdata);
+    auto rc0 = DynTileFwkBackendKernelServerInit(kArgs);
+    ASSERT(rc0 == 0) << "Test mode kernelServer init failed";
+    int threadNum = static_cast<int>(devProg->devArgs.nrAicpu);
+    threadNum = (devProg->devArgs.enableCtrl == 1) ? threadNum : threadNum + 1;
+    for (int i = 0; i < threadNum; i++) {
+        aicpus[i] = std::thread([&]() {
+            int tidx = idx++;
+            cpu_set_t cpuset;
+            CPU_ZERO(&cpuset);
+            CPU_SET(tidx, &cpuset);
+            char name[BUFFER_SIZE_64];
+            (void)sprintf_s(name, BUFFER_SIZE_64, "aicput%d", tidx);
+            std::cout << "start thread: " << name << std::endl;
+            pthread_setname_np(pthread_self(), name);
+            pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
+            auto rc = 0;
+            if ((devProg->devArgs.enableCtrl == 0) && (uint32_t)tidx == devProg->devArgs.scheCpuNum) {
+                rc = PyptoKernelCtrlServer(kArgs);
+            } else {
+                rc = DynTileFwkBackendKernelServer(kArgs);
+            }
+            ASSERT(rc == 0) << "Test mode kernelServer failed";
+        });
+    }
+
+    for (int i = 0; i < threadNum; i++) {
+        if (aicpus[i].joinable()) {
+            aicpus[i].join();
+        }
+    }
 }
 
 struct DeviceRunCacheInfo {
