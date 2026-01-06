@@ -42,11 +42,11 @@ using npu::tile_fwk::CoreFunctionData;
 constexpr uint32_t STATUS_TASKID_SHIFT = 32;
 
 #if defined(__MIX__) && defined(__AIV__)
-#define blockIdx __v_blockIdx
+#define aicoreBlockIdx __v_blockIdx
 #define GmWorkspace __v_GmWorkspace
 #endif
 
-[[block_local]] int blockIdx;
+[[block_local]] int aicoreBlockIdx;
 [[block_local]] int64_t GmWorkspace;
 
 enum DFX_STAGE_STATUS {
@@ -235,7 +235,7 @@ INLINE void ExecStaticCoreFunctionKernel(ExecuteContext *ctx, uint32_t taskId) {
             &((__gm__ npu::tile_fwk::CoreFunctionWsAddr*)coreFuncData->coreFunctionWsAddr)[taskId];
     StaticKernelFunc kernel = (StaticKernelFunc)functionInfo->functionBinAddr;
     kernel((__gm__ int64_t *)functionInfo->invokeEntryAddr,
-           coreFuncData->stackWorkSpaceAddr + blockIdx * coreFuncData->stackWorkSpaceSize,
+           coreFuncData->stackWorkSpaceAddr + aicoreBlockIdx * coreFuncData->stackWorkSpaceSize,
            (__gm__ int64_t *)coreFuncData->hcclContextAddr,
            (__gm__ int64_t *)functionInfo->invokeEntryOriAddr);
 
@@ -263,7 +263,7 @@ INLINE void ExecDynCoreFunctionKernel(ExecuteContext *ctx, uint32_t taskId) {
 #else
     CoreFuncParam param = {funcData, opAttrs, funcData->exprTbl, taskId, nullptr};
 #endif
-    CallSubFuncTask(opAttrs[0], &param, funcData->stackWorkSpaceAddr + blockIdx * funcData->stackWorkSpaceSize,
+    CallSubFuncTask(opAttrs[0], &param, funcData->stackWorkSpaceAddr + aicoreBlockIdx * funcData->stackWorkSpaceSize,
                     (__gm__ int64_t *)funcData->hcclContext);
     SetStatus(ctx->args, STAGE_FINISH_EXEC_COREFUNC_KERNEL);
     PipeSync();
@@ -307,12 +307,12 @@ INLINE void ExecCoreFunctionKernel(ExecuteContext *ctx, uint32_t curTaskId, bool
 extern "C" __global__ __aicore__ void KERNEL_ENTRY(__OPTYPE__, __TILINGKEY__)(int64_t ffts_addr, int64_t inputs,
         int64_t outputs, int64_t workspace, int64_t tilingdata, int64_t cfgdata) {
 #if defined(__AIV__) and defined(__MIX__)
-    blockIdx = get_block_idx() * get_subblockdim() + get_subblockid() + get_block_num();
+    aicoreBlockIdx = get_block_idx() * get_subblockdim() + get_subblockid() + get_block_num();
 #else
-    blockIdx = get_block_idx();
+    aicoreBlockIdx = get_block_idx();
 #endif
     auto devArgs = (DeviceArgs*)cfgdata;
-    __gm__ KernelArgs *args = (__gm__ KernelArgs *)(devArgs->sharedBuffer + blockIdx * SHARED_BUFFER_SIZE);
+    __gm__ KernelArgs *args = (__gm__ KernelArgs *)(devArgs->sharedBuffer + aicoreBlockIdx * SHARED_BUFFER_SIZE);
     bool isDyn = devArgs->taskType == DEVICE_TASK_TYPE_DYN ? true : false;
 
     SetStatus(args, STAGE_HANDSHAKE_START);
