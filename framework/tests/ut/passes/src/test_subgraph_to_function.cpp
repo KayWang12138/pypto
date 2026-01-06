@@ -727,7 +727,7 @@ TEST_F(SubgraphToFunctionTest, TestBasicSubgraphConversion) {
     EXPECT_EQ(topoInfo.topology_.size(), 1);  // 应有一个子图调用
 
     // 检查子图内部操作（应保留VIEW+VIEW+ADD+ABS）
-    auto leafFunc = rootFunc->programs_.begin()->second;
+    auto leafFunc = rootFunc->programs_.begin()->second.get();
     EXPECT_EQ(leafFunc->Operations().size(), 4);
 }
 

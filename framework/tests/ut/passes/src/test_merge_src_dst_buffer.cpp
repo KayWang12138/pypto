@@ -100,14 +100,14 @@ TEST_F(MergeSrcDstBufferTest, AppointInplace) {
     Function func(Program::GetInstance(), "", "", nullptr);
     Function func1(Program::GetInstance(), "", "", nullptr);
     Function *rootFunc = &func1;
-    rootFunc->programs_.insert(std::pair<uint64_t, Function*>(1, &function));
+    rootFunc->programs_.insert(std::pair<uint64_t, std::shared_ptr<Function>>(1, std::shared_ptr<Function>(&function, [](Function*){ /* do nothing */ })));
     func.rootFunc_ = rootFunc;
     srcDstMerge.Run(func);
 }
 
 void MergeSrcDstBufferTest::StubInputOutput(Function *function) {
     Function *rootFunc = function;
-    rootFunc->programs_.insert(std::pair<uint64_t, Function*>(1, function));
+    rootFunc->programs_.insert(std::pair<uint64_t, std::shared_ptr<Function>>(1, std::shared_ptr<Function>(function, [](Function*){ /* do nothing */ })));
     function->rootFunc_ = rootFunc;
 }
 

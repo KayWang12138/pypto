@@ -151,7 +151,7 @@ TEST_F(InsertSyncTest, TestEnableDebug) {
     rootFuncPtr->rootFunc_ = rootFuncPtr.get();
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestAddParams", "TestAddParams", rootFuncPtr.get());
     EXPECT_TRUE(currFunctionPtr != nullptr);
-    rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
+    rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr);
 
     // Prepare the graph
     std::vector<int64_t> shape = {IS_NUM8, IS_NUM16};
@@ -260,7 +260,7 @@ TEST_F(InsertSyncTest, TestFindDep) {
     rootFuncPtr->rootFunc_ = rootFuncPtr.get();
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestFindDepLeaf", "TestFindDepLeaf", rootFuncPtr.get());
     EXPECT_TRUE(currFunctionPtr != nullptr);
-    rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
+    rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr);
 
     std::vector<Operation *> opLogPtr;
     auto tensors = AddOpForTestFindDep(opLogPtr, currFunctionPtr);
@@ -312,7 +312,7 @@ TEST_F(InsertSyncTest, TestPhaseKernelProcess) {
     rootFuncPtr->rootFunc_ = rootFuncPtr.get();
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestPhaseKernelProcessLeaf", "TestPhaseKernelProcessLeaf", rootFuncPtr.get());
     EXPECT_TRUE(currFunctionPtr != nullptr);
-    rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
+    rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr);
 
     std::vector<int64_t> shape = {IS_NUM16, IS_NUM16};
     auto tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
@@ -389,7 +389,7 @@ TEST_F(InsertSyncTest, TestUpdateDep) {
     rootFuncPtr->rootFunc_ = rootFuncPtr.get();
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestUpdateDepLeaf", "TestUpdateDepLeaf", rootFuncPtr.get());
     EXPECT_TRUE(currFunctionPtr != nullptr);
-    rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
+    rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr);
 
     std::vector<Operation *> opLogPtr;
     AddOpForTestUpdateDep(opLogPtr, currFunctionPtr);
@@ -465,7 +465,7 @@ TEST_F(InsertSyncTest, TestHandleEventID) {
     rootFuncPtr->rootFunc_ = rootFuncPtr.get();
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestHandleEventIDLeaf", "TestHandleEventIDLeaf", rootFuncPtr.get());
     EXPECT_TRUE(currFunctionPtr != nullptr);
-    rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
+    rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr);
 
     std::vector<Operation *> opLogPtr;
     AddOpForTestHandleEventID(opLogPtr, currFunctionPtr);
@@ -509,7 +509,7 @@ TEST_F(InsertSyncTest, TestRelaxFakeDataDep) {
     rootFuncPtr->rootFunc_ = rootFuncPtr.get();
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestRelaxFakeDataDepLeaf", "TestRelaxFakeDataDepLeaf", rootFuncPtr.get());
     EXPECT_TRUE(currFunctionPtr != nullptr);
-    rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
+    rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr);
 
     std::vector<int64_t> shape = {IS_NUM8, IS_NUM8};
     auto tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);

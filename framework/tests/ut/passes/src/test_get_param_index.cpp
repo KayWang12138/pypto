@@ -44,7 +44,7 @@ TEST_F(GetParamIdxTest, TestAdd) {
     rootFuncPtr->rootFunc_ = rootFuncPtr.get();
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestAddParams", "TestAddParams", rootFuncPtr.get());
     EXPECT_TRUE(currFunctionPtr != nullptr);
-    rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
+    rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr);
 
     // Prepare the graph
     std::vector<int64_t> shape = {8, 16};
@@ -95,8 +95,8 @@ TEST_F(GetParamIdxTest, TestAddExp) {
     rootGraphPtr->rootFunc_ = rootGraphPtr.get();
     auto subGraphPtr0 = std::make_shared<Function>(Program::GetInstance(), "TestAddParams", "TestAddParams", rootGraphPtr.get());
     auto subGraphPtr1 = std::make_shared<Function>(Program::GetInstance(), "TestExpParams", "TestExpParams", rootGraphPtr.get());
-    rootGraphPtr->rootFunc_->programs_.emplace(subGraphPtr0->GetFuncMagic(), subGraphPtr0.get());
-    rootGraphPtr->rootFunc_->programs_.emplace(subGraphPtr1->GetFuncMagic(), subGraphPtr1.get());
+    rootGraphPtr->rootFunc_->programs_.emplace(subGraphPtr0->GetFuncMagic(), subGraphPtr0);
+    rootGraphPtr->rootFunc_->programs_.emplace(subGraphPtr1->GetFuncMagic(), subGraphPtr1);
     // Prepare the graph
     std::vector<int64_t> shape = {8, 16};
     auto shapeImme = OpImmediate::Specified(shape);
