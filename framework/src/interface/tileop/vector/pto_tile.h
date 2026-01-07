@@ -58,10 +58,6 @@ private:
     Type data_;
 };
 
-template <typename... Indexs>
-using Offsets = Std::tuple<Indexs...>;
-
-using TileOffset = Offsets<size_t, size_t, size_t>;
 
 template <typename T, bool Mergeable = false>
 __aicore__ inline constexpr size_t GetMergedAxisIfNeed() {
