@@ -25,6 +25,8 @@
 #include "tilefwk/aicpu_common.h"
 
 namespace npu::tile_fwk::dynamic {
+constexpr uint32_t MAX_MANAGER_AIV_NUM = 72;
+const uint32_t READY_ID_FIX_CACHE_NUM = 512;
 
 inline uint32_t CalcSchAicpuNumByBlockDim(uint32_t blockDim, uint32_t aiCpuNum) {
     uint32_t maxScheCore = aiCpuNum - 2 >= dynamic::MAX_SCHEDULE_AICPU_NUM ?
@@ -43,6 +45,29 @@ inline uint32_t CalcSchAicpuNumByBlockDim(uint32_t blockDim, uint32_t aiCpuNum) 
 const uint32_t AICORE_TYPE_NUM = 2;
 const int DEVICE_MAX_AICPU_NUM = 5;
 
+struct TaskResolveContext {
+    uint32_t& pendingIdRef;
+    int& pendingResolveIndexBaseRef;
+    uint32_t& runningIdRef;
+    int& runningResolveIndexBaseRef;
+    bool isWrapCoreAvailable;
+    TaskResolveContext(uint32_t& pId, int& pIdx, uint32_t& rId, int& rIdx, bool wrapAvail) :
+        pendingIdRef(pId), pendingResolveIndexBaseRef(pIdx), runningIdRef(rId),
+        runningResolveIndexBaseRef(rIdx), isWrapCoreAvailable(wrapAvail) {}
+};
+
+struct AicoreManagerStackVars {
+    uint64_t waitTaskCnt_[AICORE_TYPE_NUM]{0,0};
+    uint32_t corePendReadyCnt_[AICORE_TYPE_NUM]{0,0};
+    uint32_t coreRunReadyCnt_[AICORE_TYPE_NUM]{0,0};
+    uint32_t runReadyCoreIdx_[AICORE_TYPE_NUM][MAX_MANAGER_AIV_NUM];
+    uint32_t lastPendReadyCoreIdx_[AICORE_TYPE_NUM]{0,0};
+    uint64_t resolveHubCnt_{0};
+
+    uint32_t readyIds[AICORE_TYPE_NUM][READY_ID_FIX_CACHE_NUM];
+    uint32_t readyCount[AICORE_TYPE_NUM]{0,0};
+    uint32_t sendCnt_[AICORE_TYPE_NUM]{0,0};
+};
 struct DeviceTaskCtrl {
     int taskType{0};
     uint64_t taskId{0};
