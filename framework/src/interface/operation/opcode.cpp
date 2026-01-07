@@ -323,11 +323,11 @@ OpcodeManager::OpcodeManager() {
      *    a. AtomicType：类型为 AtomicType，默认值为 AtomicType::SET
      * 3. buffer 的使用说明：根据需要初始化一个一维的 LogicalTensor，类型与输入一致、大小为一次传输的元素个数，如果不是 32B 对齐，底层实现会补齐到 32B 对齐
      * 4. 控制边的说明：
-     *    a. dummy：用于保证 SHMEM_SIGNAL 在 SHMEM_PUT 之后执行
+     *    a. putToken：用于保证 SHMEM_SIGNAL 在 SHMEM_PUT 之后执行
      */
     registerInfo(Opcode::OP_SHMEM_PUT, OpCoreType::AIV, "SHMEM_PUT",
-        {MemoryType::MEM_DEVICE_DDR /* nonShmemData */, MemoryType::MEM_DEVICE_DDR /* shmemData */, MemoryType::MEM_DEVICE_DDR /* dummpy */},
-        {MemoryType::MEM_DEVICE_DDR /* dummy */, MemoryType::MEM_UB /* buffer */},
+        {MemoryType::MEM_DEVICE_DDR /* nonShmemData */, MemoryType::MEM_DEVICE_DDR /* shmemData */, MemoryType::MEM_DEVICE_DDR /* predToken */},
+        {MemoryType::MEM_DEVICE_DDR /* putToken */, MemoryType::MEM_UB /* buffer */},
         {"TileOp::Distributed::ShmemPut", PIPE_S, PIPE_S, CoreType::AIV},
         OpCalcType::DISTRIBUTED, {OpAttributeKey::requiresBoundaryCopy});
     registerInfo(Opcode::OP_SHMEM_PUT_UB2GM, OpCoreType::AIV, "SHMEM_PUT_UB2GM",
@@ -342,10 +342,10 @@ OpcodeManager::OpcodeManager() {
      *    b. AtomicType：类型为 AtomicType，默认值为 AtomicType::SET
      * 3. buffer 的使用说明：初始化一个一维的 LogicalTensor，类型为 int32_t、大小为 8，如果大小不是 8，底层实现仍然会使用 8
      * 4. 控制边的说明：
-     *    a. dummy：用于保证 SHMEM_SIGNAL 在 SHMEM_PUT 之后执行
+     *    a. predToken：用于保证 SHMEM_SIGNAL 在 SHMEM_PUT 之后执行
      */
     registerInfo(Opcode::OP_SHMEM_SIGNAL, OpCoreType::AIV, "SHMEM_SIGNAL",
-        {MemoryType::MEM_DEVICE_DDR /* dummy */, MemoryType::MEM_DEVICE_DDR /* shmemSignal */},
+        {MemoryType::MEM_DEVICE_DDR /* predToken */, MemoryType::MEM_DEVICE_DDR /* shmemSignal */},
         {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB /* buffer */},
         {"TileOp::Distributed::ShmemSignal", PIPE_S, PIPE_S, CoreType::AIV},
         OpCalcType::DISTRIBUTED, {OpAttributeKey::requiresBoundaryCopy});
@@ -354,12 +354,12 @@ OpcodeManager::OpcodeManager() {
      * 2. 支持的属性：
      *    a. Value：类型为 int32_t，默认值为 1
      * 3. 控制边的说明：
-     *    a. dummyIn：用于保证 SHMEM_WAIT_UNTIL 在 nonShmemDataIn 准备好之后执行
-     *    b. dummyOut：用于保证 SHMEM_GET 在 SHMEM_WAIT_UNTIL 之后执行
+     *    a. predToken：用于保证 SHMEM_WAIT_UNTIL 在 nonShmemDataIn 准备好之后执行
+     *    b. readyToken：用于保证 SHMEM_GET 在 SHMEM_WAIT_UNTIL 之后执行
      */
     registerInfo(Opcode::OP_SHMEM_WAIT_UNTIL, OpCoreType::AICPU, "SHMEM_WAIT_UNTIL",
-        {MemoryType::MEM_DEVICE_DDR /* dummyIn */, MemoryType::MEM_DEVICE_DDR /* shmemSignal */},
-        {MemoryType::MEM_DEVICE_DDR /* dummyOut */},
+        {MemoryType::MEM_DEVICE_DDR /* predToken */, MemoryType::MEM_DEVICE_DDR /* shmemSignal */},
+        {MemoryType::MEM_DEVICE_DDR /* readyToken */},
         TileOpCfg(),
         OpCalcType::DISTRIBUTED,
         {OP_ATTR_PREFIX + "distributed"});
@@ -369,10 +369,10 @@ OpcodeManager::OpcodeManager() {
      *    a. AtomicType：类型为 AtomicType，默认值为 AtomicType::SET
      * 3. buffer 的使用说明：根据需要初始化一个一维的 LogicalTensor，类型与输入一致、大小为一次传输的元素个数，如果不是 32B 对齐，底层实现会补齐到 32B 对齐
      * 4. 控制边的说明：
-     *    a. dummy：用于保证 SHMEM_GET 在 SHMEM_WAIT_UNTIL 之后执行
+     *    a. predToken：用于保证 SHMEM_GET 在 SHMEM_WAIT_UNTIL 之后执行
      */
     registerInfo(Opcode::OP_SHMEM_GET, OpCoreType::AIV, "SHMEM_GET",
-        {MemoryType::MEM_DEVICE_DDR /* dummy */, MemoryType::MEM_DEVICE_DDR /* shmemData */},
+        {MemoryType::MEM_DEVICE_DDR /* predToken */, MemoryType::MEM_DEVICE_DDR /* shmemData */},
         {MemoryType::MEM_DEVICE_DDR /* nonShmemData */, MemoryType::MEM_UB /* buffer */},
         {"TileOp::Distributed::ShmemGet", PIPE_S, PIPE_S, CoreType::AIV},
         OpCalcType::DISTRIBUTED, {OpAttributeKey::requiresBoundaryCopy});
