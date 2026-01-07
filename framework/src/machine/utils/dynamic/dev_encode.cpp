@@ -1379,7 +1379,6 @@ struct EncodeDevAscendFunctionInfo {
         });
 
         totalZeroPred = callopList.size();
-        AddDependOperandsToColorGraph(callopList, callopIndexDict);
         for (size_t index = 0; index < callopList.size(); index++) {
             if (callOpPredDict[callopList[index]] != 0) {
                 totalZeroPred = index;
@@ -1508,6 +1507,7 @@ struct EncodeDevAscendFunctionInfo {
                 }
             }
         }
+        AddDependOperandsToColorGraph(callopList, callopIndexDict);
         for (size_t index = 0; index < callopList.size(); index++) {
             std::sort(colorOutGraph[index].begin(), colorOutGraph[index].end());
             // remove repeated index in ooperand's consumer callop index list
