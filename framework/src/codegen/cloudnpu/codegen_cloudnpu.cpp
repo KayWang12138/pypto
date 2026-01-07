@@ -16,7 +16,6 @@
 #include "codegen_op_cloudnpu.h"
 
 #include <cstring>
-#include <nlohmann/json.hpp>
 
 #include "interface/utils/log.h"
 #include "codegen/utils/parallel_execute.h"
@@ -26,10 +25,10 @@
 #include "interface/configs/config_manager.h"
 #include "securec.h"
 #include "tilefwk/tilefwk.h"
-#include "interface/program/program.h"
 #include "interface/utils/op_info_manager.h"
 #include "codegen_cloudnpu.h"
 #include "interface/operation/distributed/distributed_common.h"
+#include "codegen/stmt_mgr/codegen_for_block.h"
 
 namespace npu::tile_fwk {
 const std::string ENV_ASCEND_HOME_PATH = "ASCEND_HOME_PATH";
@@ -134,6 +133,7 @@ std::string CodeGenCloudNPU::GenFuncBody(Function &subFunc, Function &topFunc) c
         topFunc.Dump().c_str());
 
     std::shared_ptr<SymbolManager> symbolMgr = std::make_shared<SymbolManager>();
+    std::shared_ptr<ForBlockManager> forBlkMgr = std::make_shared<ForBlockManager>(symbolMgr);
     std::string allocSourceRegion;
     std::string tileOpSourceRegion;
     auto locToOffsetMap = GenRealizeIdMap(subFunc.GetParameter());
@@ -149,7 +149,7 @@ std::string CodeGenCloudNPU::GenFuncBody(Function &subFunc, Function &topFunc) c
 
         std::string allocSourceCode = GenAllocForLocalBuffer(op, symbolMgr);
 
-        CodeGenOpCloudNPU cop({symbolMgr, topFunc, subFunc, op, locToOffsetMap, ctx.isMainBlock});
+        CodeGenOpCloudNPU cop({symbolMgr, forBlkMgr, topFunc, subFunc, op, locToOffsetMap, ctx.isMainBlock});
         // update fs
         cop.UpdateSaturateStatus(fs);
         std::string tileOpSourceCode = cop.GenOpCode();
@@ -461,7 +461,7 @@ std::string CodeGenCloudNPU::GetPtoTileLibPathByEnv() const {
         return envPath;
     }
 
-    // Priority 2: Obtain pto-isa from the installed cann package. 
+    // Priority 2: Obtain pto-isa from the installed cann package.
     homePath = std::getenv(ENV_ASCEND_HOME_PATH.c_str());
     if (homePath != nullptr) {
         std::string cannPath = std::string(homePath) + "/include";
@@ -573,11 +573,11 @@ void EncodeWaitUntilInfo(const Operation &op, std::vector<int32_t> &code) {
     // waitUntil OP有2个输入，下标0是dummy控制边，下标1是signal
     // 编码signal的rawShape
     code.push_back(op.GetInputOperand(1)->GetRawTensor()->rawshape.size() * paramSizePerOperand);
-    for (auto dimShape: op.GetInputOperand(1)->GetRawTensor()->GetRawShape()) {
+    for (auto dimShape : op.GetInputOperand(1)->GetRawTensor()->GetRawShape()) {
         code.push_back(dimShape);
     }
     // 编码signal的shape
-    for (auto dimShape: op.GetInputOperand(1)->GetShape()) {
+    for (auto dimShape : op.GetInputOperand(1)->GetShape()) {
         code.push_back(dimShape);
     }
     // 编码waitUntil的attr属性
@@ -600,7 +600,7 @@ bool CodeGenCloudNPU::HandleForAICpuSubFunc(Function &subFunc) {
         return false;
     }
     std::vector<int32_t> code;
-    
+
     auto operationList = subFunc.Operations(false);
     for (const auto &op : operationList) {
         if (op.GetCoreType() != CoreType::AICPU) {
