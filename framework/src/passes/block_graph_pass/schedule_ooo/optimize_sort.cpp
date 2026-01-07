@@ -611,6 +611,9 @@ Status OptimizeSort::ExecuteOp() {
 Status OptimizeSort::SortOps() {
     APASS_LOG_INFO_F(Elements::Operation, "====>start SortOps");
     Init(operations);
+    if (operations.empty()) {
+        return SUCCESS;
+    }
     std::string sortMethodStr;
     std::string funcName = function_.GetMagicName();
 
