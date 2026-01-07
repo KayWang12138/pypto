@@ -23,7 +23,6 @@ Main Functions:
 import os
 import torch
 import torch_npu
-from typing import Tuple
 import pypto
 import numpy as np
 from numpy.testing import assert_allclose
@@ -32,7 +31,7 @@ from torch._dynamo import allow_in_graph
 from utils.get_format import get_format
 
 
-def symmetric_quantization_per_token(input_tensor) -> Tuple:
+def symmetric_quantization_per_token(input_tensor):
     """
     Perform symmetric quantization per token (per row).
     
