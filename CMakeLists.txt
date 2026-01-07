@@ -47,6 +47,7 @@ option(ENABLE_TESTS_EXECUTE_PARALLEL "Auto execute tests executable parallel" OF
 option(ENABLE_TESTS_EXECUTE_PARALLEL_TIMEOUT "Auto execute tests executable parallel timeout" OFF)
 option(ENABLE_TESTS_EXECUTE_CHANGED_FILE "Specify tests changed file" OFF)
 option(ENABLE_UTEST "Enable UTest" OFF)
+option(ENABLE_UTEST_MODULE "Enable UTest Module compile and execute" OFF)
 option(ENABLE_STEST_GOLDEN_PATH "Specific STest Golden Path" OFF)
 option(ENABLE_STEST_GOLDEN_PATH_CLEAN "Clean STest Golden" OFF)
 option(ENABLE_STEST_EXECUTE_DEVICE_ID "Auto execute tests executable with Device Id" OFF)
@@ -140,12 +141,12 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END AND BUILD_OPEN_PROJECT)
 
     # 安装 脚本文件
     install(FILES
-                tools/draw_swim_lane.py
+                tools/profiling/draw_swim_lane.py
                 framework/src/cost_model/simulation/scripts/print_swim_lane.py
                 framework/src/cost_model/simulation/scripts/draw_comm_swim_lane_png.py
                 framework/src/cost_model/simulation/scripts/draw_pipe_swim_lane.py
-                tools/function_json_convert.py
-                tools/parse_pipe_time_trace.py
+                tools/profiling/function_json_convert.py
+                tools/profiling/parse_pipe_time_trace.py
             DESTINATION ${PyPTO_WhlName}/lib/scripts
     )
 
