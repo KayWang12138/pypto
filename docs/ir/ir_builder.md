@@ -29,36 +29,46 @@ IRBuilder
 
 示例：
 ```cpp
+// ===== Module =====
 auto module = std::make_shared<ProgramModule>("main");
 IRBuilder builder(module);
-IRBuilderContext ctx;  // 显式上下文对象
+IRBuilderContext ctx;
 
-// 创建函数签名
+// ===== Signature =====
 FunctionSignature sig;
-auto inputTensor = std::make_shared<TensorValue>(tensorShape, DataType::FP32, "input");
-sig.arguments = { inputTensor };
 
-// 创建函数
-auto func = builder.CreateFunction("test_value", FunctionKind::ControlFlow, sig, true);
+// tensor<[b, 128], fp32>
+auto batch = std::make_shared<ScalarValue>(DataType::INT32, "b", ScalarValueKind::Symbolic);
+std::vector<ScalarValuePtr> tensorShape = { batch, std::make_shared<ScalarValue>(int64_t(128)) };
 
-{
-    // 进入函数体作用域
-    builder.EnterFunctionBody(ctx, func);
-    
-    // 创建常量
-    auto constant0 = builder.CreateConst(ctx, int64_t(0), "const_0");
-    
-    // 创建操作
-    auto result = builder.CreateTensor(ctx, tensorShape, DataType::FP32, "result");
-    auto mulOp = builder.CreateBinaryOp(Opcode::OP_MUL, inputTensor, scale1, result);
-    builder.Emit(ctx, mulOp);
-    
-    // 创建返回语句
-    builder.CreateReturn(ctx, { result });
-    
-    // 手动退出作用域
-    ctx.PopScope();
-}
+auto inputTensor  = std::make_shared<TensorValue>(tensorShape, DataType::FP32, "input");
+auto scale1       = std::make_shared<ScalarValue>(DataType::FP32, "scale1", ScalarValueKind::Symbolic);
+
+auto result = std::make_shared<TensorValue>(tensorShape, DataType::FP32, "output");
+
+sig.arguments = { inputTensor, scale1, result };
+
+// ===== Function =====
+auto func = builder.CreateFunction("test_value", FunctionKind::ControlFlow, sig, /*setAsEntry=*/true);
+
+// enter func scope + create an initial block as insertion point
+builder.EnterFunctionBody(ctx, func);
+
+// mul1_res = mul(input, scale1)
+auto mulVal1 = builder.CreateTensor(ctx, tensorShape, DataType::FP32, "mul1_res");
+auto mulOp1 = builder.CreateBinaryOp(Opcode::OP_MUL, inputTensor, scale1, mulVal1);
+builder.Emit(ctx, mulOp1);
+
+auto pi = builder.CreateConst(ctx, 3.14, "const_pi");
+
+// mul2_res = mul(mul1_res, pi)
+auto mulVal2 = builder.CreateTensor(ctx, tensorShape, DataType::FP32, "output");
+auto mulOp2 = builder.CreateBinaryOp(Opcode::OP_MUL, mulVal1, pi, mulVal2);
+builder.Emit(ctx, mulOp2);
+
+builder.CreateReturn(ctx, { });
+ctx.PopScope();
+
 ```
 
 ## IRBuilder
@@ -142,12 +152,12 @@ std::shared_ptr<Function> CreateFunction(
 
 #### Syntax
 ```cpp
-{
-    builder.EnterFunctionBody(ctx, func);
-    // 在函数体作用域内构建IR
-    // ...
-    ctx.PopScope();  // 手动退出作用域
-}
+
+builder.EnterFunctionBody(ctx, func);
+// 在函数体作用域内构建IR
+// ...
+ctx.PopScope();  // 手动退出作用域
+
 ```
 
 #### 数据结构
@@ -312,12 +322,11 @@ auto constant1 = builder.CreateConst(ctx, int64_t(1), "const_1");
 auto batch = ...; // 循环上界
 
 auto fs = builder.CreateForStmt(ctx, i, constant0, batch, constant1);
-{
-    builder.EnterForBody(ctx, fs);
-    // 循环体内的操作
-    // ...
-    ctx.PopScope();  // 退出循环体作用域
-}
+
+builder.EnterForBody(ctx, fs);
+// 循环体内的操作
+// ...
+ctx.PopScope();  // 退出循环体作用域
 builder.ExitForStatement(ctx, fs);  // 处理循环携带变量
 ```
 
@@ -356,20 +365,19 @@ ForStatementPtr CreateForStmt(
 auto cond = builder.CreateScalar(ctx, DataType::BOOL, "cond");
 auto ifs = builder.CreateIfStmt(ctx, cond);
 ValuePtr resIfX, resIfY;
-{
-    builder.EnterIfThen(ctx, ifs);
-    resIfX = builder.CreateTensor(ctx, tensorShape, DataType::FP32, "outputX");
-    auto mulOpX = builder.CreateBinaryOp(Opcode::OP_MUL, resLoopX, scale1, resIfX);
-    builder.Emit(ctx, mulOpX);
-    ctx.PopScope();  // 退出 then 分支作用域
-}
-{
-    builder.EnterIfElse(ctx, ifs);
-    resIfY = builder.CreateTensor(ctx, tensorShape, DataType::FP32, "outputY");
-    auto mulOpY = builder.CreateBinaryOp(Opcode::OP_MUL, resLoopY, scale2, resIfY);
-    builder.Emit(ctx, mulOpY);
-    ctx.PopScope();  // 退出 else 分支作用域
-}
+
+builder.EnterIfThen(ctx, ifs);
+resIfX = builder.CreateTensor(ctx, tensorShape, DataType::FP32, "outputX");
+auto mulOpX = builder.CreateBinaryOp(Opcode::OP_MUL, resLoopX, scale1, resIfX);
+builder.Emit(ctx, mulOpX);
+ctx.PopScope();  // 退出 then 分支作用域
+
+builder.EnterIfElse(ctx, ifs);
+resIfY = builder.CreateTensor(ctx, tensorShape, DataType::FP32, "outputY");
+auto mulOpY = builder.CreateBinaryOp(Opcode::OP_MUL, resLoopY, scale2, resIfY);
+builder.Emit(ctx, mulOpY);
+ctx.PopScope();  // 退出 else 分支作用域
+
 builder.ExitIfStatement(ctx, ifs);  // 处理分支合并
 ```
 
@@ -397,8 +405,7 @@ IfStatementPtr CreateIfStmt(IRBuilderContext& ctx, ScalarValuePtr cond);
 
 #### Syntax
 ```cpp
-builder.CreateReturn(ctx, { result });
-builder.CreateReturn(ctx, fs->Results());  // 返回循环结果
+builder.CreateReturn(ctx, { scalar });
 ```
 
 #### 数据结构
@@ -444,17 +451,16 @@ IRBuilder 使用显式的栈式作用域管理，通过 `IRBuilderContext` 的 `
 ```cpp
 IRBuilderContext ctx;  // 创建上下文对象
 
-{
-    builder.EnterFunctionBody(ctx, func);  // 进入函数体作用域
-    // 在函数体作用域内
-    {
-        builder.EnterForBody(ctx, fs);  // 进入循环体作用域
-        // 在循环体作用域内
-        // ...
-        ctx.PopScope();  // 手动退出循环体作用域
-    }
-    ctx.PopScope();  // 手动退出函数体作用域
-}
+builder.EnterFunctionBody(ctx, func);  // 进入函数体作用域
+// 在函数体作用域内
+    
+builder.EnterForBody(ctx, fs);  // 进入循环体作用域
+// 在循环体作用域内
+// ...
+ctx.PopScope();  // 手动退出循环体作用域
+    
+ctx.PopScope();  // 手动退出函数体作用域
+
 ```
 
 #### 作用域栈（Scope Stack）
