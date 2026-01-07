@@ -75,10 +75,12 @@ public:
     std::weak_ptr<CompoundStatement> GetParent() const { return parent_; }
     void SetParent(std::weak_ptr<CompoundStatement> parent) { parent_ = parent; }
 
-    // Get the list of statements in this scope.
-    std::vector<StatementPtr>& GetStatements() { return statements_; }
-    // const overload return non-reference, avoid iterator invalidation if modify statements_ in iteration.
-    const std::vector<StatementPtr> GetStatements() const { return statements_; }
+    // Get the number of statements in this scope.
+    size_t GetStatementsNum() const { return statements_.size(); }
+    // Get the statement by index
+    StatementPtr GetStatement(size_t index) const { return statements_[index]; }
+    // Set the statement by index
+    void SetStatement(size_t index, StatementPtr stmt) { statements_[index] = stmt; }
 
     // Add a Statement to this scope.
     void AddStatement(StatementPtr stmt) { statements_.push_back(std::move(stmt)); }
@@ -199,8 +201,9 @@ public:
     }
 
     // Loop body: sequence of nested statements.
-    std::vector<StatementPtr>& Body() { return compound_->GetStatements(); }
-    const std::vector<StatementPtr> Body() const { return compound_->GetStatements(); }
+    size_t BodyStmtsNum() const { return compound_->GetStatementsNum(); }
+    StatementPtr GetBodyStatement(size_t index) const { return compound_->GetStatement(index); }
+    void SetBodyStatement(size_t index, StatementPtr stmt) { compound_->SetStatement(index, stmt); }
 
     // Loop yield
     std::shared_ptr<YieldStatement> Yield();
@@ -240,11 +243,13 @@ public:
 
     const ScalarValuePtr GetCondition() const { return condition_; }
 
-    std::vector<StatementPtr>& ThenBranch() { return thenCompound_->GetStatements(); }
-    const std::vector<StatementPtr> ThenBranch() const { return thenCompound_->GetStatements(); }
+    size_t ThenBranchStmtsNum() const { return thenCompound_->GetStatementsNum(); }
+    StatementPtr GetThenBranchStatement(size_t index) const { return thenCompound_->GetStatement(index); }
+    void SetThenBranchStatement(size_t index, StatementPtr stmt) { thenCompound_->SetStatement(index, stmt); }
 
-    std::vector<StatementPtr>& ElseBranch() { return elseCompound_->GetStatements(); }
-    const std::vector<StatementPtr> ElseBranch() const { return elseCompound_->GetStatements(); }
+    size_t ElseBranchStmtsNum() const { return elseCompound_->GetStatementsNum(); }
+    StatementPtr GetElseBranchStatement(size_t index) const { return elseCompound_->GetStatement(index); }
+    void SetElseBranchStatement(size_t index, StatementPtr stmt) { elseCompound_->SetStatement(index, stmt); }
 
     // Scope for Data objects and statements created in the then branch.
     CompoundStatementPtr GetThenCompound() { return thenCompound_; }

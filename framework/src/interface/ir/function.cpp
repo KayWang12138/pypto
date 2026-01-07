@@ -93,7 +93,8 @@ void Function::Print(std::ostream& os, int indent) const {
     os << " {\n";
 
     // Print structured statement body if present.
-    for (const auto& stmt : compound_->GetStatements()) {
+    for (size_t i = 0; i < compound_->GetStatementsNum(); ++i) {
+        auto stmt = compound_->GetStatement(i);
         if (stmt) {
             stmt->Print(os, indent + 1);
         }

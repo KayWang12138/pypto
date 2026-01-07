@@ -52,8 +52,9 @@ public:
     const FunctionSignature& GetSignature() const { return signature_; }
 
     // Top-level statement sequence forming the function body.
-    std::vector<StatementPtr>& Body() { return compound_->GetStatements(); }
-    const std::vector<StatementPtr> Body() const { return compound_->GetStatements(); }
+    size_t BodyStmtsNum() const { return compound_->GetStatementsNum(); }
+    StatementPtr GetBodyStatement(size_t index) const { return compound_->GetStatement(index); }
+    void SetBodyStatement(size_t index, StatementPtr stmt) { compound_->SetStatement(index, stmt); }
 
     // Scope for Data objects and statements created in this function.
     CompoundStatementPtr GetCompound() { return compound_; }

@@ -74,9 +74,9 @@ TEST(IRTEST, TestBuilder) {
 
     builder.CreateReturn(ctx, { mulVal2 });
 
-    ASSERT_EQ(ctx.func, func);
-    ASSERT_EQ(ctx.compound, func->GetCompound());
-    ASSERT_EQ(ctx.activeOpStmt, func->GetCompound()->GetStatements()[0]);
+        ASSERT_EQ(ctx.func, func);
+        ASSERT_EQ(ctx.compound, func->GetCompound());
+        ASSERT_EQ(ctx.activeOpStmt, func->GetCompound()->GetStatement(0));
 
     ctx.PopScope();
     
@@ -168,32 +168,32 @@ TEST(IRTEST, TestControlFlow) {
             
     builder.ExitIfStatement(ctx, ifs);
 
-    // check if then and else yield
-    auto thenYield = std::dynamic_pointer_cast<YieldStatement>(*ifs->GetThenCompound()->GetStatements().rbegin());
-    std::unordered_set<ValuePtr> thenYieldSet(thenYield->Values().begin(), thenYield->Values().end());
-    std::unordered_set<ValuePtr> thenYieldSetGolden{resIfX, resLoopY};
-    ASSERT_EQ(thenYieldSet, thenYieldSetGolden);
+            // check if then and else yield
+            auto thenYield = std::dynamic_pointer_cast<YieldStatement>(ifs->GetThenCompound()->GetStatement(ifs->GetThenCompound()->GetStatementsNum() - 1));
+            std::unordered_set<ValuePtr> thenYieldSet(thenYield->Values().begin(), thenYield->Values().end());
+            std::unordered_set<ValuePtr> thenYieldSetGolden{resIfX, resLoopY};
+            ASSERT_EQ(thenYieldSet, thenYieldSetGolden);
 
-    auto elseYield = std::dynamic_pointer_cast<YieldStatement>(*ifs->GetElseCompound()->GetStatements().rbegin());
-    std::unordered_set<ValuePtr> elseYieldSet(elseYield->Values().begin(), elseYield->Values().end());
-    std::unordered_set<ValuePtr> elseYieldSetGolden{resLoopX, resIfY};
-    ASSERT_EQ(elseYieldSet, elseYieldSetGolden);
-    ASSERT_NE(elseYield, nullptr);
-    ASSERT_GE(elseYield->Values().size(), 2);
-    ASSERT_EQ(elseYield->Values()[0], resIfY);
-    ASSERT_EQ(elseYield->Values()[1], resLoopX);
+            auto elseYield = std::dynamic_pointer_cast<YieldStatement>(ifs->GetElseCompound()->GetStatement(ifs->GetElseCompound()->GetStatementsNum() - 1));
+            std::unordered_set<ValuePtr> elseYieldSet(elseYield->Values().begin(), elseYield->Values().end());
+            std::unordered_set<ValuePtr> elseYieldSetGolden{resLoopX, resIfY};
+            ASSERT_EQ(elseYieldSet, elseYieldSetGolden);
+            ASSERT_NE(elseYield, nullptr);
+            ASSERT_GE(elseYield->Values().size(), 2);
+            ASSERT_EQ(elseYield->Values()[0], resIfY);
+            ASSERT_EQ(elseYield->Values()[1], resLoopX);
 
     ctx.PopScope(); // for-body
         
     builder.ExitForStatement(ctx, fs);
 
-    // check for yield of for-statement: for 的结果应等于 if 的结果
-    auto ifsInFor = std::dynamic_pointer_cast<IfStatement>(fs->GetCompound()->GetStatements()[1]);
-    auto ifResults = ifsInFor->Results();
-    auto forYields = fs->Yield()->Values();
-    std::unordered_set<ValuePtr> ifResultSet(ifResults.begin(), ifResults.end());
-    std::unordered_set<ValuePtr> forYieldSet(forYields.begin(), forYields.end());
-    ASSERT_EQ(ifResultSet, forYieldSet);
+        // check for yield of for-statement: for 的结果应等于 if 的结果
+        auto ifsInFor = std::dynamic_pointer_cast<IfStatement>(fs->GetCompound()->GetStatement(1));
+        auto ifResults = ifsInFor->Results();
+        auto forYields = fs->Yield()->Values();
+        std::unordered_set<ValuePtr> ifResultSet(ifResults.begin(), ifResults.end());
+        std::unordered_set<ValuePtr> forYieldSet(forYields.begin(), forYields.end());
+        ASSERT_EQ(ifResultSet, forYieldSet);
 
     // return 
     builder.CreateReturn(ctx, {constant0});

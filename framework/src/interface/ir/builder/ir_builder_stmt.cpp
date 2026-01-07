@@ -131,7 +131,7 @@ void IRBuilder::ExitIfStatement(IRBuilderContext& ctx, IfStatementPtr st) {
     std::unordered_map<std::string, ValuePtr> envAfterThen = st->GetThenCompound()->GetEnvTable();
     std::unordered_map<std::string, ValuePtr> envAfterElse = st->GetElseCompound()->GetEnvTable();
 
-    bool hasElseBranch = !st->GetElseCompound()->GetStatements().empty() || !envAfterElse.empty();
+    bool hasElseBranch = st->GetElseCompound()->GetStatementsNum() > 0 || !envAfterElse.empty();
 
     std::vector<std::string> modifiedVars;
 
@@ -198,23 +198,25 @@ void IRBuilder::ExitIfStatement(IRBuilderContext& ctx, IfStatementPtr st) {
         }
     }
 
-    auto addOrUpdateYield = [](std::vector<StatementPtr>& stmts, const ValuePtrs& values) {
+    auto addOrUpdateYield = [](CompoundStatementPtr compound, const ValuePtrs& values) {
         bool hasYield = false;
-        if (!stmts.empty()) {
-            hasYield = dynamic_cast<YieldStatement*>(stmts.back().get()) != nullptr;
+        if (compound->GetStatementsNum() > 0) {
+            auto lastStmt = compound->GetStatement(compound->GetStatementsNum() - 1);
+            hasYield = dynamic_cast<YieldStatement*>(lastStmt.get()) != nullptr;
         }
         if (!hasYield) {
             auto yield = std::make_shared<YieldStatement>();
             yield->Values() = values;
-            stmts.push_back(yield);
+            compound->AddStatement(yield);
         } else {
-            auto yield = dynamic_cast<YieldStatement*>(stmts.back().get());
+            auto lastStmt = compound->GetStatement(compound->GetStatementsNum() - 1);
+            auto yield = dynamic_cast<YieldStatement*>(lastStmt.get());
             if (yield) yield->Values() = values;
         }
     };
 
-    addOrUpdateYield(st->GetThenCompound()->GetStatements(), thenValues);
-    addOrUpdateYield(st->GetElseCompound()->GetStatements(), elseValues);
+    addOrUpdateYield(st->GetThenCompound(), thenValues);
+    addOrUpdateYield(st->GetElseCompound(), elseValues);
 
     st->BuildResult();
 
@@ -319,14 +321,24 @@ void IRBuilder::ExitForStatement(IRBuilderContext& ctx, ForStatementPtr st) {
                 }
             }
         } else if (auto ifStmt = std::dynamic_pointer_cast<IfStatement>(stmt)) {
-            for (auto& thenStmt : ifStmt->ThenBranch()) replaceValueInStatement(thenStmt);
-            for (auto& elseStmt : ifStmt->ElseBranch()) replaceValueInStatement(elseStmt);
+            for (size_t i = 0; i < ifStmt->ThenBranchStmtsNum(); ++i) {
+                auto thenStmt = ifStmt->GetThenBranchStatement(i);
+                replaceValueInStatement(thenStmt);
+            }
+            for (size_t i = 0; i < ifStmt->ElseBranchStmtsNum(); ++i) {
+                auto elseStmt = ifStmt->GetElseBranchStatement(i);
+                replaceValueInStatement(elseStmt);
+            }
         } else if (auto forStmt = std::dynamic_pointer_cast<ForStatement>(stmt)) {
-            for (auto& nestedStmt : forStmt->Body()) replaceValueInStatement(nestedStmt);
+            for (size_t i = 0; i < forStmt->BodyStmtsNum(); ++i) {
+                auto nestedStmt = forStmt->GetBodyStatement(i);
+                replaceValueInStatement(nestedStmt);
+            }
         }
     };
 
-    for (auto& stmt : st->GetCompound()->GetStatements()) {
+    for (size_t i = 0; i < st->GetCompound()->GetStatementsNum(); ++i) {
+        auto stmt = st->GetCompound()->GetStatement(i);
         replaceValueInStatement(stmt);
     }
 
@@ -346,22 +358,24 @@ void IRBuilder::ExitForStatement(IRBuilderContext& ctx, ForStatementPtr st) {
         }
     }
 
-    auto addOrUpdateYield = [](std::vector<StatementPtr>& stmts, const ValuePtrs& values) {
+    auto addOrUpdateYield = [](CompoundStatementPtr compound, const ValuePtrs& values) {
         bool hasYield = false;
-        if (!stmts.empty()) {
-            hasYield = dynamic_cast<YieldStatement*>(stmts.back().get()) != nullptr;
+        if (compound->GetStatementsNum() > 0) {
+            auto lastStmt = compound->GetStatement(compound->GetStatementsNum() - 1);
+            hasYield = dynamic_cast<YieldStatement*>(lastStmt.get()) != nullptr;
         }
         if (!hasYield) {
             auto yield = std::make_shared<YieldStatement>();
             yield->Values() = values;
-            stmts.push_back(yield);
+            compound->AddStatement(yield);
         } else {
-            auto yield = dynamic_cast<YieldStatement*>(stmts.back().get());
+            auto lastStmt = compound->GetStatement(compound->GetStatementsNum() - 1);
+            auto yield = dynamic_cast<YieldStatement*>(lastStmt.get());
             if (yield) yield->Values() = values;
         }
     };
 
-    addOrUpdateYield(st->GetCompound()->GetStatements(), yieldValues);
+    addOrUpdateYield(st->GetCompound(), yieldValues);
 
     st->BuildResult();
 

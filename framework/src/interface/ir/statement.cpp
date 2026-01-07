@@ -118,9 +118,9 @@ void ForStatement::Print(std::ostream& os, int indent) const {
     } else {
         // Fallback: derive result variables from the loop body's terminal yield, if any.
         const YieldStatement* loopYield = nullptr;
-        const auto& bodyStmts = compound_->GetStatements();
-        if (!bodyStmts.empty()) {
-            loopYield = dynamic_cast<const YieldStatement*>(bodyStmts.back().get());
+        if (compound_->GetStatementsNum() > 0) {
+            auto lastStmt = compound_->GetStatement(compound_->GetStatementsNum() - 1);
+            loopYield = dynamic_cast<const YieldStatement*>(lastStmt.get());
         }
         if (loopYield && !loopYield->Values().empty()) {
             const auto& vals = loopYield->Values();
@@ -216,7 +216,8 @@ void ForStatement::Print(std::ostream& os, int indent) const {
     os << " {\n";
 
     // Print loop body.
-    for (const auto& stmt : compound_->GetStatements()) {
+    for (size_t i = 0; i < compound_->GetStatementsNum(); ++i) {
+        auto stmt = compound_->GetStatement(i);
         if (stmt) {
             stmt->Print(os, indent + 2);
         }
@@ -227,17 +228,15 @@ void ForStatement::Print(std::ostream& os, int indent) const {
 }
 
 std::shared_ptr<YieldStatement> ForStatement::Yield() {
-    const auto& bodyStmts = compound_->GetStatements();
-    if (!bodyStmts.empty()) {
-        return std::dynamic_pointer_cast<YieldStatement>(bodyStmts.back());
+    if (compound_->GetStatementsNum() > 0) {
+        return std::dynamic_pointer_cast<YieldStatement>(compound_->GetStatement(compound_->GetStatementsNum() - 1));
     }
     return nullptr;
 }
 
 const std::shared_ptr<YieldStatement> ForStatement::Yield() const {
-    const auto& bodyStmts = compound_->GetStatements();
-    if (!bodyStmts.empty()) {
-        return std::dynamic_pointer_cast<YieldStatement>(bodyStmts.back());
+    if (compound_->GetStatementsNum() > 0) {
+        return std::dynamic_pointer_cast<YieldStatement>(compound_->GetStatement(compound_->GetStatementsNum() - 1));
     }
     return nullptr;
 }
@@ -320,13 +319,13 @@ void IfStatement::BuildResult() {
     const YieldStatement* thenYield = nullptr;
     const YieldStatement* elseYield = nullptr;
 
-    const auto& thenStmts = thenCompound_->GetStatements();
-    if (!thenStmts.empty()) {
-        thenYield = dynamic_cast<const YieldStatement*>(thenStmts.back().get());
+    if (thenCompound_->GetStatementsNum() > 0) {
+        auto lastThenStmt = thenCompound_->GetStatement(thenCompound_->GetStatementsNum() - 1);
+        thenYield = dynamic_cast<const YieldStatement*>(lastThenStmt.get());
     }
-    const auto& elseStmts = elseCompound_->GetStatements();
-    if (!elseStmts.empty()) {
-        elseYield = dynamic_cast<const YieldStatement*>(elseStmts.back().get());
+    if (elseCompound_->GetStatementsNum() > 0) {
+        auto lastElseStmt = elseCompound_->GetStatement(elseCompound_->GetStatementsNum() - 1);
+        elseYield = dynamic_cast<const YieldStatement*>(lastElseStmt.get());
     }
 
     if (!thenYield || !elseYield) {
@@ -399,7 +398,8 @@ void IfStatement::Print(std::ostream& os, int indent) const {
     condition_->Print(os, 0);
     os << " {\n";
 
-    for (const auto& stmt : thenCompound_->GetStatements()) {
+    for (size_t i = 0; i < thenCompound_->GetStatementsNum(); ++i) {
+        auto stmt = thenCompound_->GetStatement(i);
         if (stmt) {
             stmt->Print(os, indent + 2);
         }
@@ -408,7 +408,8 @@ void IfStatement::Print(std::ostream& os, int indent) const {
     PrintIndent(os, indent);
     os << "} else {\n";
 
-    for (const auto& stmt : elseCompound_->GetStatements()) {
+    for (size_t i = 0; i < elseCompound_->GetStatementsNum(); ++i) {
+        auto stmt = elseCompound_->GetStatement(i);
         if (stmt) {
             stmt->Print(os, indent + 2);
         }
