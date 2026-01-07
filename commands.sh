@@ -1,5 +1,7 @@
 export GLOBAL_LOG_LEVEL=0
 
+export TILE_FWK_DEVICE_ID=8
+
 source ../../ssh.sh
 
 export PTO_TILE_LIB_CODE_PATH="/data/y00949728/workspace/pto-isa"

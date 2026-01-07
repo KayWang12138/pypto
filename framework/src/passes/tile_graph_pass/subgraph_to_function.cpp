@@ -462,10 +462,10 @@ Status SubgraphToFunction::ProcessSubgraph(
             APASS_LOG_DEBUG_F(Elements::Operation, "LeafFunc %zu Cache Hit but not recorded in outcastOrderMap!!!", i);
             return FAILED;
         }
-        if (outcastOrderMap[std::get<0>(result)->GetFunctionHash().GetHash()] != std::get<0>(result)->GetFunctionHash().GetOutcastOrder()) {
+        if (outcastOrderMap[std::get<0>(result)->GetFunctionHash().GetHash()] != std::get<3>(result)[0]) {
             APASS_LOG_DEBUG_F(Elements::Operation, "LeafFunc %zu Cache Hit with different Outcast Order.", i);
             APASS_LOG_DEBUG_F(Elements::Operation, "Recorded Outcast Order is %s.", IntVecToStr(outcastOrderMap[std::get<0>(result)->GetFunctionHash().GetHash()]).c_str());
-            APASS_LOG_DEBUG_F(Elements::Operation, "Current Outcast Order is %s.", IntVecToStr(std::get<0>(result)->GetFunctionHash().GetOutcastOrder()).c_str());
+            APASS_LOG_DEBUG_F(Elements::Operation, "Current Outcast Order is %s. NEED REORDER!!!", IntVecToStr(std::get<3>(result)[0]).c_str());
             // TODO: reorder outcast
             // reorderOutcast(std::get<0>(result), std::get<0>(result)->GetFunctionHash().GetOutcastOrder(), std::get<3>(result)[0]);
         }
