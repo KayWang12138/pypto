@@ -200,8 +200,6 @@ std::vector<std::reference_wrapper<SymbolicScalar>> DynAttrToStatic::GetOpDynami
         if (copyAttr != nullptr) {
             FilterSpecifiedValue(copyAttr->GetToOffset(), dynamicAttributeList);
             FilterSpecifiedValue(copyAttr->GetFromOffset(), dynamicAttributeList);
-            FilterSpecifiedValue(copyAttr->GetToDynValidShape(), dynamicAttributeList);
-            FilterSpecifiedValue(copyAttr->GetFromDynValidShape(), dynamicAttributeList);
         }
     }
     return dynamicAttributeList;
@@ -274,6 +272,10 @@ Status DynAttrToStatic::BuildNewCoa(
     // 2. 遍历不同caller下的取值，确认是否是常数
     IsConstMetric scalarValue;
     for (auto argList : callopArglistOneDim) {
+        if (static_cast<size_t>(coaIndex) >= argList.size()) {
+            APASS_LOG_WARN_F(Elements::Operation, "invalid coaIndex: %d and argList size: %d", coaIndex, argList.size());
+            return FAILED;
+        }
         auto callopAttr = argList[coaIndex];
         if (!callopAttr.IsImmediate()) {
             scalarValue.MarkNotConst();
@@ -364,6 +366,10 @@ void ReBuildConcreteParam(Function *leafFunc, std::vector<std::vector<SymbolicSc
         IsConstMetric scalarValue;
         auto isConstParam = [&callopArglistOneDim, &scalarValue](int argIdx) {
             for (auto& calleeArgs : callopArglistOneDim) {
+                if (static_cast<size_t>(argIdx) >= calleeArgs.size()) {
+                    APASS_LOG_WARN_F(Elements::Operation, "invalid argIdx: %d and calleeArgs size: %d", argIdx, calleeArgs.size());
+                    return false;
+                }
                 auto callopAttr = calleeArgs[argIdx];
                 if (!callopAttr.IsImmediate()) {
                     return false;
