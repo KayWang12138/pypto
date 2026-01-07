@@ -32,6 +32,8 @@ static const int kNum1 = 1;
 static const int kNum2 = 2;
 static const int kNum4 = 4;
 static const int kNum16 = 2;
+static const std::vector<int64_t> expectedLoopAxis1 = {kNum2, kNum2};
+static const std::vector<int64_t> expectedLoopAxis2 = {kNum4};
 
 class TestLoopaxesProcPass : public ::testing::Test {
 public:
@@ -58,7 +60,6 @@ TEST_F(TestLoopaxesProcPass, LoopaxesProcUTest1) {
     rootFuncPtr->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
     rootFuncPtr->SetUnderDynamicFunction(true);
 
-    // Prepare the graph
     std::vector<int64_t> shape1 = {kNum16};
     std::vector<int64_t> shape2 = {kNum2, kNum2, kNum4};
     std::vector<int64_t> shape3 = {kNum4, kNum4};
@@ -75,45 +76,36 @@ TEST_F(TestLoopaxesProcPass, LoopaxesProcUTest1) {
     auto &reshape1 = currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {ubTensor1}, {ubTensor3});
     auto &add = currFunctionPtr->AddOperation(Opcode::OP_ADD, {ubTensor2, ubTensor3}, {ubTensor4});
     auto &reshape2 = currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {ubTensor4}, {outCast});
-
     currFunctionPtr->inCasts_.push_back(inCast1);
     currFunctionPtr->inCasts_.push_back(inCast2);
     currFunctionPtr->outCasts_.push_back(outCast);
 
     LoopaxesProc loopaxesprocpass;
-    auto status = loopaxesprocpass.RunOnFunction(*rootFuncPtr);
-    EXPECT_EQ(status, SUCCESS);
-
-    int loopGroup;
-    std::vector<int64_t> expectedLoopAxis;
+    EXPECT_EQ(loopaxesprocpass.RunOnFunction(*rootFuncPtr), SUCCESS);
 
     EXPECT_TRUE(view1.HasAttr(OpAttributeKey::loopGroup));
     EXPECT_EQ(view1.GetIntAttribute(OpAttributeKey::loopGroup), kKeepOut);
     EXPECT_FALSE(view1.HasAttr(OpAttributeKey::loopAxes));
     
-    expectedLoopAxis = {kNum2, kNum2};
     EXPECT_TRUE(view2.HasAttr(OpAttributeKey::loopGroup));
     EXPECT_EQ(view2.GetIntAttribute(OpAttributeKey::loopGroup), kNum0);
     EXPECT_TRUE(view2.HasAttr(OpAttributeKey::loopAxes));
-    EXPECT_EQ(view2.GetVectorIntAttribute(OpAttributeKey::loopAxes), expectedLoopAxis);
+    EXPECT_EQ(view2.GetVectorIntAttribute(OpAttributeKey::loopAxes), expectedLoopAxis1);
     
-    expectedLoopAxis = {kNum2, kNum2};
     EXPECT_TRUE(reshape1.HasAttr(OpAttributeKey::loopGroup));
     EXPECT_EQ(reshape1.GetIntAttribute(OpAttributeKey::loopGroup), kNum0);
     EXPECT_TRUE(reshape1.HasAttr(OpAttributeKey::loopAxes));
-    EXPECT_EQ(reshape1.GetVectorIntAttribute(OpAttributeKey::loopAxes), expectedLoopAxis);
+    EXPECT_EQ(reshape1.GetVectorIntAttribute(OpAttributeKey::loopAxes), expectedLoopAxis1);
     
-    expectedLoopAxis = {kNum2, kNum2};
     EXPECT_TRUE(add.HasAttr(OpAttributeKey::loopGroup));
     EXPECT_EQ(add.GetIntAttribute(OpAttributeKey::loopGroup), kNum0);
     EXPECT_TRUE(add.HasAttr(OpAttributeKey::loopAxes));
-    EXPECT_EQ(add.GetVectorIntAttribute(OpAttributeKey::loopAxes), expectedLoopAxis);
+    EXPECT_EQ(add.GetVectorIntAttribute(OpAttributeKey::loopAxes), expectedLoopAxis1);
     
-    expectedLoopAxis = {kNum4};
     EXPECT_TRUE(reshape2.HasAttr(OpAttributeKey::loopGroup));
     EXPECT_EQ(reshape2.GetIntAttribute(OpAttributeKey::loopGroup), kNum1);
     EXPECT_TRUE(reshape2.HasAttr(OpAttributeKey::loopAxes));
-    EXPECT_EQ(reshape2.GetVectorIntAttribute(OpAttributeKey::loopAxes), expectedLoopAxis);
+    EXPECT_EQ(reshape2.GetVectorIntAttribute(OpAttributeKey::loopAxes), expectedLoopAxis2);
 }
 }
 }
