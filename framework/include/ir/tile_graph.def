@@ -1,0 +1,143 @@
+/**
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+/*!
+ * \file tile_graph.def
+ * \brief
+ */
+
+enum CastMode {
+    CAST_NONE = 0,
+    CAST_RINT = 1,  // round to nearest, tie to even
+    CAST_ROUND = 2, // round to nearest, tie away from zero
+    CAST_FLOOR = 3, // round to minus infinity
+    CAST_CEIL = 4,  // round to positive infinity
+    CAST_TRUNC = 5, // round to zero
+    CAST_ODD = 6,   // round to odd (Von Neumann rounding)
+};
+
+DEF_OP(
+    UnaryOp,
+    INHERIT(ElementWiseUnaryTileOp),
+    OPCODE(
+        OP_EXP,
+        OP_NEG,
+        OP_RSQRT,
+        OP_SQRT,
+        OP_LOGICALNOT,
+        OP_RECIPROCAL,
+        OP_ABS,
+        OP_LN,
+        OP_CAST,
+        OP_CUM_SUM,
+        OP_ROWSUMLINE,
+        OP_RANGE
+
+    ),
+    ATTR(int, CombineAxis)
+    ATTR(CastMode, mode)
+    ATTR(int, axis)  // rowsumline
+    ATTR(bool, flag)  // rowsumline
+    ATTR(int, START)  // range
+    ATTR(int, STEP)   // range
+)
+
+DEF_OP(
+    BinaryOp,
+    INHERIT(ElementWiseBinaryTileOp),
+    OPCODE(
+        OP_ADD,
+        OP_SUB,
+        OP_MUL,
+        OP_DIV,
+        OP_MIN,
+        OP_MAX,
+        OP_S_ADD,
+        OP_S_SUB,
+        OP_S_MUL,
+        OP_S_DIV,
+        OP_S_MAX,
+        OP_S_MIN,
+        OP_SCATTER_ELEMENT,
+        OP_SCATTER,
+        OP_INDEX_PUT,
+        OP_LOGICALAND,
+        OP_ROWMAXLINE,
+        OP_ROWMINLINE
+    ),
+    ATTR(int, CombineAxis)
+    ATTR(int, axis)    // scatterelements/scatter 指定轴
+    ATTR(int, scalar)   // scatterelements 填充值
+    ATTR(int, scatterMode)  // scatterelements/scatter reduce 类型
+    ATTR(int, accumulate)   // index put 是否累加
+    ATTR(int, indiceSize)   // 索引轴大小
+)
+
+DEF_OP(
+    BinaryScalarMixOp,
+    INHERIT(ElementWiseScalarMixBinaryTileOp),
+    OPCODE(
+        OP_ADDS,
+        OP_SUBS,
+        OP_MULS,
+        OP_DIVS,
+        OP_MAXS,
+        OP_MINS,
+        OP_POW,
+        OP_S_ADDS,
+        OP_S_SUBS,
+        OP_S_MULS,
+        OP_S_DIVS,
+        OP_S_MAXS,
+        OP_S_MINS,
+        
+    ),
+    ATTR(int, CombineAxis),
+    ATTR(int, Reverse),
+)
+
+DEF_OP(
+    BinaryScalarMixOp,
+    INHERIT(BroadcastTileOp),
+    OPCODE(
+        OP_MAXIMUM,
+        OP_MINIMUM,
+        OP_PAIRMAX,
+        OP_PAIRMIN,
+        OP_PAIRSUM,
+        
+    ),
+    ATTR(int, CombineAxis),
+)
+
+DEF_OP(
+    BinaryScalarMixOp,
+    INHERIT(ReduceTileOp),
+    OPCODE(
+        OP_ROWMAX_SINGLE,
+        OP_ROWMIN_SINGLE,
+        OP_ROWSUM_SINGLE,
+        OP_ROWMAX_COMBINE_AXIS_SINGLE,
+        OP_ROWSUM_COMBINE_AXIS_SINGLE,
+        
+    ),
+    ATTR(int, CombineAxis),
+)
+
+DEF_OP(
+    BinaryScalarMixOp,
+    INHERIT(DataCopyTileOp),
+    OPCODE(
+        OP_UB_COPY_IN,
+        OP_UB_COPY_OUT
+        
+    ),
+    ATTR(int, CombineAxis),
+)
