@@ -90,6 +90,7 @@ public:
     std::string GenGatherElementOp() const;
 
     std::string GenRangeOp() const;
+    std::string PrintRangeTileTensor(std::string startVal, std::string stepVal) const;
     std::string GenL0CToUBTileTensor() const;
 
     std::string GenScatterElementSOp() const;
@@ -356,6 +357,10 @@ private:
     std::string PrintWhereOp(const WhereParam &param) const;
     std::string PrintWhereOpTileTensor() const;
 
+    std::string PrintCmpTileTensor() const;
+    std::string PrintLogicalAndTileTensor() const;
+    std::string PrintLogicalNotTileTensor() const;
+
     void InitOpsGenMap();
     void InitScalaOpsMap();
     void InitMTEOpsMap();
@@ -367,6 +372,8 @@ private:
 
     std::string PrintCoord(size_t dim, const std::string &coord) const;
     std::string PrintTensorForCopyBetweenGM(unsigned operandIdx, unsigned gmIdx, const std::string &gmVarName) const;
+    void FillParamWithFullShape(std::vector<std::string> &paramList, const std::vector<int64_t> &input) const;
+    void FillParamWithShapeExceptFirst(std::vector<std::string> &paramList, const std::vector<int64_t> &input) const;
 
     const std::unordered_map<Opcode, std::function<std::string()>> mteFixPipeOps_;
 
