@@ -245,7 +245,7 @@ TEST_F(TestCodegenUnary, ExpandDim2Axis0TileTensor) {
     std::string res = GetResultFromCpp(func);
     std::string expect = R"!!!(#include "TileOpImpl.h"
 
-// funcHash: 16742946980865972364
+// funcHash: 5995765167501508645
 
 extern "C" [aicore] void TENSOR_EXPAND_TILETENSOR_2_0_4503599627370496(__gm__ GMTensorInfo* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam) {
 float __ubuf__ *UB_S0_E32 = (float __ubuf__ *)get_imm(0x0); // size: 0x20

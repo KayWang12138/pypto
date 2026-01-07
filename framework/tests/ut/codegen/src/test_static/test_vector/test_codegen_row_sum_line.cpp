@@ -93,7 +93,7 @@ TEST_F(TestCodegenRowSumLine, TestOperationRowSumLineTileTensor) {
     std::string res = GetResultFromCpp(*function);
     std::string expect = R"!!!(#include "TileOpImpl.h"
 
-// funcHash: 12633186027675011673
+// funcHash: 6137045810289906969
 
 extern "C" [aicore] void TENSOR_Reduce3dimMoe_TILERENSOR_2_0_4503599627370496(__gm__ GMTensorInfo* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam) {
 float __ubuf__ *UB_S0_E32768 = (float __ubuf__ *)get_imm(0x0); // size: 0x8000

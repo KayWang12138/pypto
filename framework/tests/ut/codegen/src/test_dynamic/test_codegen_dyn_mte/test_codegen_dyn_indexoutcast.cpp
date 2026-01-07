@@ -177,7 +177,7 @@ TEST_F(TestCodegenDynIndexOutCast, DynIndexOutUnaligned) {
 #if ENABLE_HIDDENLOOP
     std::string expect = R"!!!(#include "TileOpImpl.h"
 
-// funcHash: 12544314081076844009
+// funcHash: 3871225803021453838
 
 extern "C" [aicore] void TENSOR_ScatterUpdate_Unroll1_PATH0_hiddenfunc0_7_0_4503599627370496(CoreFuncParam* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam) {
 int32_t __ubuf__ *UB_S0_E4096 = (int32_t __ubuf__ *)get_imm(0x0); // size: 0x1000
@@ -204,7 +204,7 @@ TileOp::DynTIndexoutcast<int32_t, int32_t, 1, 32, 32, 32, 0, 1>((__gm__ int32_t*
 #else
     std::string expect = R"!!!(#include "TileOpImpl.h"
 
-// funcHash: 12544314081076844009
+// funcHash: 3871225803021453838
 
 extern "C" [aicore] void TENSOR_ScatterUpdate_Unroll1_PATH0_3_0_4503599627370496(CoreFuncParam* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam) {
 int32_t __ubuf__ *UB_S0_E4096 = (int32_t __ubuf__ *)get_imm(0x0); // size: 0x1000
