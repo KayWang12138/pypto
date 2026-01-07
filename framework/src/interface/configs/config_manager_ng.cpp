@@ -123,11 +123,6 @@ const Any &ConfigScope::GetConfig(const std::string &key) const {
     if (values_.find(key) == values_.end()) {
         if (parent_) {
             return parent_->GetConfig(key);
-        } else {
-            if (Type(key) == typeid(std::map<int64_t, int64_t>)){
-                static const Any emptyMap = std::map<int64_t, int64_t>{};
-                return emptyMap;
-            }
         }
         throw std::runtime_error("Config " + key + " not found");
     }
@@ -273,7 +268,7 @@ struct ConfigManagerImpl {
         global->name_ = "global";
         scopes.push(global);
     }
-    
+
     void PushScope(ConfigScopePtr scope) {
         // Ensure the provided scope is not null
         ASSERT(scope != nullptr) << "Cannot push a null scope";
@@ -365,6 +360,13 @@ private:
             root->AddValue(prefix, jdata.get<int64_t>());
         } else if (jdata.is_boolean()) {
             root->AddValue(prefix, jdata.get<bool>());
+        } else if (typeInfo.Type(prefix) == typeid(std::map<int64_t, int64_t>)) {
+            std::map<int64_t, int64_t> mapJson;
+            auto arr = jdata.get<std::vector<int64_t>>();
+            for (size_t i = 0; i + 1 < arr.size(); i += 2) {
+                mapJson[arr[i]] = arr[i + 1];
+            }
+            root->AddValue(prefix, mapJson);
         } else if (jdata.is_array()) {
             if (typeInfo.Type(prefix) == typeid(std::vector<int64_t>)) {
                 root->AddValue(prefix, jdata.get<std::vector<int64_t>>());
@@ -386,7 +388,7 @@ private:
     void LoadConf() {
         std::string confPath = GetEnvVar("TILEFWK_CONFIG_PATH");
         if (confPath.empty()) {
-            confPath = GetConfDir() + "tile_fwk_config_ng.json";
+            confPath = GetConfDir() + "tile_fwk_config.json";
         }
         std::ifstream ifs(confPath);
         ASSERT(ifs.is_open()) << "Open file " << confPath << " failed";
