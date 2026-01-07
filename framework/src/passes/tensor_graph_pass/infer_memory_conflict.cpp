@@ -167,13 +167,6 @@ bool InferMemoryConflict::IsValidTileShape(const Operation &op) const {
 
 Status InferMemoryConflict::UpdateForwardTensor(Function &function, const LogicalTensorPtr &curTensor, Operation* consumer, std::queue<LogicalTensorPtr> &curTensors) {
     for (const auto &outputTensor : consumer->GetOOperands()) {
-        // if (consumer->GetOpcode() == Opcode::OP_RESHAPE) {
-        //     bool isInplace = consumer->GetBoolAttribute(OP_ATTR_PREFIX + "isInplace");
-        //     if (!isInplace && CheckRawShapeConflict(memoryInfo[curTensor], outputTensor)) {
-        //         preregcopys.insert(consumer);
-        //         continue;
-        //     }
-        // }
         if (memoryInfo.find(outputTensor) != memoryInfo.end() && function.IsFromOutCast(memoryInfo[outputTensor])) {
             if (CheckConflict(memoryInfo[curTensor], memoryInfo[outputTensor])) {
                 preregcopys.insert(consumer);
@@ -197,20 +190,9 @@ Status InferMemoryConflict::UpdateBackwardTensor(const LogicalTensorPtr &curTens
         if (producer->GetOpcode() == Opcode::OP_INDEX_OUTCAST && producer->GetIOperandIndex(inputTensor) != index) {
             continue;
         }
-        // if (producer->GetOpcode() == Opcode::OP_RESHAPE) {
-        //     bool isInplace = producer->GetBoolAttribute(OP_ATTR_PREFIX + "isInplace");
-        //     if (!isInplace && CheckRawShapeConflict(inputTensor, memoryInfo[curTensor])) {
-        //         postregcopys.insert(producer);
-        //         continue;
-        //     }
-        // }
         if (memoryInfo.find(inputTensor) != memoryInfo.end()) {
             if (CheckConflict(memoryInfo[curTensor], memoryInfo[inputTensor])) {
-                // if (producer->GetOpcode() == Opcode::OP_RESHAPE) {
-                //     postregcopys.insert(producer);
-                // } else {
-                    preregcopys.insert(producer);
-                // }
+                preregcopys.insert(producer);
             }
         } else {
             memoryInfo[inputTensor] = memoryInfo[curTensor];
