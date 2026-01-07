@@ -791,4 +791,25 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {            Opcode::OP_RANGE,           "TRange"},
     {               Opcode::OP_BRCB,          "Tbrcb"},
 };
+
+std::unordered_set<Opcode> SUPPORT_VF_FUSE_OPS{
+    Opcode::OP_ADD,
+    Opcode::OP_SUB,
+    Opcode::OP_DIV,
+    Opcode::OP_MUL,
+    Opcode::OP_ADDS,
+    Opcode::OP_MULS,
+    Opcode::OP_SUBS,
+    Opcode::OP_DIVS,
+    Opcode::OP_RSQRT,
+    Opcode::OP_SQRT,
+    Opcode::OP_EXP,
+    Opcode::OP_MAXIMUM,
+    Opcode::OP_MINIMUM,
+    Opcode::OP_ROWSUM_SINGLE,
+    Opcode::OP_ROWMAX_SINGLE,
+    Opcode::OP_ROWMIN_SINGLE,
+    Opcode::OP_CAST,
+    Opcode::OP_EXPAND,
+};
 } // namespace npu::tile_fwk
