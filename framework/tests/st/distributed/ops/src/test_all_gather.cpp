@@ -38,7 +38,6 @@ void TestDynAllGather(OpTestParam &testParam)
     Shape outShape{testParam.rankSize * M, N};
     Tensor in(dType, shape, "in");
     Tensor predToken(DT_INT32, {1, 1}, "predToken");
-    Tensor barrierDummy(DT_INT32, {1, 1}, "barrierDummy");
     Tensor out(dType, outShape, "out");
 
     std::vector<T> inPtr = ReadToVector<T>(GetGoldenDir() + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", shape);
