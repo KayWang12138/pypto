@@ -47,16 +47,7 @@ private:
     void CollectProducerColors(LogicalTensorPtr tensor, std::set<int>& colors);
     void CollectConsumerColors(LogicalTensorPtr tensor, std::set<int>& colors);
     std::set<int> SetIntersection(std::set<int>& a, std::set<int>& b);
-<<<<<<< HEAD
     bool IsCrossCoreMoveOps(Operation *op);
-=======
-
-private:
-    const std::unordered_set<Opcode> crossCoreMoveOps = {
-        Opcode::OP_UB_COPY_L1, Opcode::OP_UB_COPY_L1_ND,
-        Opcode::OP_L1_COPY_UB, Opcode::OP_L0C_COPY_UB, Opcode::OP_CONVERT,
-    };
->>>>>>> f312ff7 (a5 support atten&atten pre)
 };
 } // namespace npu::tile_fwk
 #endif // PASS_INTRA_SUBGRAPH_ADAPTER_H_
