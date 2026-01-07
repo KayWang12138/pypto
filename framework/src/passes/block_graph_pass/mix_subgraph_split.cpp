@@ -307,6 +307,10 @@ void MixSubgraphSplit::ProcessUnassignedOperations(
     // 报告未分配的op
     if (!remainingOps.empty()) {
         ALOG_ERROR_F("Found %d unexpected unassigned operations after first step:", remainingOps.size());
+        for (auto* op : remainingOps) {
+            ALOG_DEBUG_F("  Unassigned: %s %d", 
+                        op->GetOpcodeStr().c_str(), op->GetOpMagic());
+        }
     }
 }
 

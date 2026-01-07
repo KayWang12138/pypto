@@ -130,9 +130,7 @@ struct InternalDependencyInfo {
 
 class MixSubgraphSplit : public Pass {
 public:
-    MixSubgraphSplit() : Pass("MixSubgraphSplit"), nextWrapId_(0), nextMixId_(0) {
-        SetSupportedArches({NPUArch::DAV_3510});
-    }
+    MixSubgraphSplit() : Pass("MixSubgraphSplit"), nextWrapId_(0), nextMixId_(0) {}
     ~MixSubgraphSplit() override = default;
 
     Status RunOnFunction(Function &function) override;
@@ -392,6 +390,6 @@ private:
 };
 
 } // namespace tile_fwk
-} // namespace npu
+} // namespace npugit 
 
 #endif // PASS_MIX_SUBGRAPH_SPLIT_H
