@@ -65,25 +65,27 @@ void RunLLamaLayerCostModel(const AttentionDims &dimsCfg, float threadhold = 0.0
     }
 }
 
-TEST_F(CostModelTest, TestComm)
-{
-    CostModelAgent costModelAgent;
+void RunMatrixCostModel() {
+    int bs = 1;
+    int m = 32;
+    int k = 32;
+    int n = 32;
 
-    ALOG_INFO("Init CostModel Communication Simulation.");
-    costModelAgent.costModel = std::make_shared<CostModel::CostModelInterface>();
-    std::vector<std::string> configs;
-    auto folder = config::LogTopFolder() + "/" + ("CostModelSimulationOutput");
-    configs.push_back("-o");
-    configs.push_back(folder);
-    configs.push_back("-m");
-    configs.push_back("1");
-    configs.push_back("-s");
-    configs.push_back("Worker.layerNum=5");
-    configs.push_back("-s");
-    configs.push_back("Worker.useFixedRandomSeed=true");
-    costModelAgent.costModel->BuildCostModel(configs);
-    costModelAgent.RunCostModel();
-    costModelAgent.TerminateCostModel();
+    std::vector<int64_t> shapeA = {bs, m, k};
+    std::vector<int64_t> shapeB = {bs, k, n};
+    std::vector<int64_t> shapeC = {bs, m, n};
+
+    config::Reset();
+    TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
+    Tensor matA(DT_FP16, shapeA, "MatA", TileOpFormat::TILEOP_NZ);
+    Tensor matB(DT_FP16, shapeB, "MatB", TileOpFormat::TILEOP_ND);
+    Tensor matC(DT_FP32, shapeC, "MatC");
+    config::SetBuildStatic(true);
+    FUNCTION("BATCHMATMUL", {matA, matB, matC})
+    {
+        config::SetPassConfig("PVC2_OOO", "OoOSchedule", "DISABLE_PASS", true);
+        matC = npu::tile_fwk::Matrix::BatchMatmul<false, false>(DT_FP32, matA, matB);
+    }
 }
 
 void RunAttentionPostCostModel()
@@ -219,6 +221,13 @@ TEST_F(CostModelTest, TestAttentionPostAccuracy2)
     RunAttentionPostCostModel();
 }
 
+TEST_F(CostModelTest, TestAttentionPostAccuracy3)
+{
+    int accuracylevel = 2;
+    config::SetSimConfig("ACCURACY_LEVEL", accuracylevel);
+    RunMatrixCostModel();
+}
+
 TEST_F(CostModelTest, TestAttentionPostL2Cache)
 {
     int accuracylevel = 1;
@@ -233,7 +242,7 @@ TEST_F(CostModelTest, TestAttentionPostL2Cache)
 
 TEST_F(CostModelTest, TestBuildBasedOnConfigs)
 {
-    ALOG_INFO("Init CostModel Communication Simulation.");
+    ALOG_INFO("Init CostModel Simulation.");
     std::string configPath("./config/test_config.conf");
     std::vector<std::string> configs;
     configs.push_back("--conf");

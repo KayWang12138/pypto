@@ -37,11 +37,12 @@ struct CodeGenOpCloudNPUCtx {
     Function &subFunc;
     const Operation &ops;
     const std::map<int, int> &locToOffset = {};
+    bool isMainBlock{false};
 };
 class CodeGenOpCloudNPU : public CodeGenOp {
 public:
     CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbolManager, FunctionType funcType,
-        const std::map<int, int> &locToOffset = {}, bool isUnderDynamicFunc = false);
+        const std::map<int, int> &locToOffset = {}, bool isUnderDynamicFunc = false, bool isMainBlk = false);
 
     explicit CodeGenOpCloudNPU(const CodeGenOpCloudNPUCtx &ctx);
     ~CodeGenOpCloudNPU() override = default;
@@ -59,6 +60,8 @@ public:
 
     std::string GenUBCopyIn() const;
     std::string GenUBCopyOut() const;
+    std::string GenUBToL1TileTensor() const;
+    std::string GenUBToUBND2NZTileTensor() const;
     std::string GenReshapeCopyIn() const;
     std::string GenReshapeCopyOut() const;
 
@@ -97,8 +100,9 @@ public:
     std::string GenIndexOutCastOp() const;
 
     std::string GenCumSumOp() const;
-
+    std::string PrintGatherDynamicUnaligned() const;
     std::string GenGatherOp() const;
+    std::string GenGatherFromUBOp() const;
 
     std::string GenMemCopyCube(bool isLocalToGM, unsigned uf = 0) const;
     std::string GenMemL1SpillIntoGM(bool isLocalToGM, unsigned uf) const;
@@ -122,7 +126,6 @@ public:
     std::string GenDistOp() const;
     std::string GetTemplateDType() const;
     std::string GenTemplateParams() const;
-    void GenExtraTemplateParamsForPutAndGet(std::ostringstream &oss) const;
     void GenExtraTemplateParamsForMoeCombine(std::ostringstream &oss, int32_t operandIndex) const;
     std::string GenOffsets(int32_t operandIndex, int32_t dim) const;
     std::string GenRawShapes(int32_t operandIndex, int32_t dim) const;
@@ -145,6 +148,27 @@ public:
     void UpdateSaturateStatus(FloatSaturateStatus &fs);
 
 private:
+    std::string GenTemplateParamsForPutAndGet() const;
+    std::string GenTemplateParamsForSignal() const;
+    std::string GenTemplateParamsForMoeCombineSend() const;
+    std::string GenTemplateParamsForMoeCombineReceive() const;
+    std::string GenTemplateParamsForSet() const;
+    std::string GenTemplateParamsDefault() const;
+
+    std::string GenOffsetsAndRawShapesForShmemPutAndGet() const;
+    std::string GenOffsetsAndRawShapesForShmemPutAndGetUB() const;
+    std::string GenOffsetsAndRawShapesForShmemSignal() const;
+    std::string GenOffsetsAndRawShapesForShmemMoeCombineSend() const;
+    std::string GenOffsetsAndRawShapesForShmemMoeCombineReceive() const;
+    std::string GenOffsetsAndRawShapesForSendToRoutingExpert() const;
+    std::string GenOffsetsAndRawShapesForSendToSharedExpert() const;
+    std::string GenOffsetsAndRawShapesForCopyToLocalExpert() const;
+    std::string GenOffsetsAndRawShapesForDispatchSetFlag() const;
+    std::string GenOffsetsAndRawShapesForFfnOperations() const;
+    std::string GenOffsetsAndRawShapesForFfnCombineInfo() const;
+    std::string GenOffsetsAndRawShapesForShmemSet() const;
+    std::string GenOffsetsAndRawShapesDefault() const;
+
     void UpdateTileTensorInfo();
 
     int GetCacheModeFlag(const std::string &cacheMode) const;
@@ -313,6 +337,7 @@ private:
     std::string PrintMemL1ToL0TileTensor() const;
     std::string PrintMatmulTileTensor(bool isAcc) const;
     std::string PrintTmove() const;
+    std::string PrintL0CToL1TileTensor() const;
 
     std::string PrintScatterElementSOpStatic(const PrintScatterElemParam &param) const;
     std::string PrintScatterElementSOpDynamicUnaligned(const PrintScatterElemParam &param) const;
@@ -335,6 +360,9 @@ private:
     void InitDistOpsMap();
     void InitPerfOpsMap();
     void InitAICPUOpsMap();
+
+    std::string PrintCoord(size_t dim, const std::string &coord) const;
+    std::string PrintTensorForCopyBetweenGM(unsigned operandIdx, unsigned gmIdx, const std::string &gmVarName) const;
 
     const std::unordered_map<Opcode, std::function<std::string()>> mteFixPipeOps_;
 

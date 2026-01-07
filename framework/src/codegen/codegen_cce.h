@@ -27,7 +27,7 @@ namespace npu::tile_fwk {
 
 class CodeGenCCE {
 public:
-    explicit CodeGenCCE(const CodeGenCtx &cctx) : ctx(cctx.includePath, cctx.cceDir) {
+    explicit CodeGenCCE(CodeGenCtx cctx) : ctx(std::move(cctx)) {
         if (ctx.IsCCEPathEmpty()) {
             PrepareDefaultOutputPath();
         }
@@ -41,6 +41,8 @@ protected:
     CodeGenCtx ctx;
 
 private:
+    static std::string GetEmitPath(const std::string &name);
+    void PrepareOutputPath();
     void PrepareDefaultOutputPath();
 };
 

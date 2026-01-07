@@ -23,45 +23,48 @@
 
 namespace npu::tile_fwk {
 CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbolManager, FunctionType funcType,
-    const std::map<int, int> &locToOffset, bool isUnderDynamicFunc)
-    : CodeGenOp(symbolManager, funcType, locToOffset, isUnderDynamicFunc),
+    const std::map<int, int> &locToOffset, bool isUnderDynamicFunc, bool isMainBlk)
+    : CodeGenOp(symbolManager, funcType, locToOffset, isUnderDynamicFunc, isMainBlk),
       mteFixPipeOps_({
           // UB <-> GM
-          {         Opcode::OP_UB_COPY_IN,          [this]() { return GenUBCopyIn(); }},
-          {        Opcode::OP_UB_COPY_OUT,         [this]() { return GenUBCopyOut(); }},
-          {    Opcode::OP_RESHAPE_COPY_IN,     [this]() { return GenReshapeCopyIn(); }},
-          {   Opcode::OP_RESHAPE_COPY_OUT,    [this]() { return GenReshapeCopyOut(); }},
-          {Opcode::OP_L1_TO_FIX_QUANT_PRE,         [this]() { return GenMemL1ToFB(); }},
-          {       Opcode::OP_GATHER_IN_UB,        [this]() { return GenGatherInUB(); }},
-
+          {         Opcode::OP_UB_COPY_IN,              [this]() { return GenUBCopyIn(); }},
+          {        Opcode::OP_UB_COPY_OUT,             [this]() { return GenUBCopyOut(); }},
+          {    Opcode::OP_RESHAPE_COPY_IN,         [this]() { return GenReshapeCopyIn(); }},
+          {   Opcode::OP_RESHAPE_COPY_OUT,        [this]() { return GenReshapeCopyOut(); }},
+          {Opcode::OP_L1_TO_FIX_QUANT_PRE,             [this]() { return GenMemL1ToFB(); }},
+          {       Opcode::OP_GATHER_IN_UB,            [this]() { return GenGatherInUB(); }},
+          {             Opcode::OP_GATHER,              [this]() { return GenGatherOp(); }},
           // L1 <-> GM/BT/L1
-          {         Opcode::OP_L1_COPY_IN,       [this]() { return GenMemL1CopyIn(); }},
-          {        Opcode::OP_L1_COPY_OUT,      [this]() { return GenMemL1CopyOut(); }},
-          {       Opcode::OP_GATHER_IN_L1,        [this]() { return GenGatherInL1(); }},
+          {         Opcode::OP_L1_COPY_IN,           [this]() { return GenMemL1CopyIn(); }},
+          {        Opcode::OP_L1_COPY_OUT,          [this]() { return GenMemL1CopyOut(); }},
+          {       Opcode::OP_GATHER_IN_L1,            [this]() { return GenGatherInL1(); }},
 
           // L0C <-> GM
-          {       Opcode::OP_L0C_COPY_OUT,     [this]() { return GenMemL0CCopyOut(); }},
+          {       Opcode::OP_L0C_COPY_OUT,         [this]() { return GenMemL0CCopyOut(); }},
 
-          {          Opcode::OP_L0C_TO_L1,        [this]() { return GenMemL0CToL1(); }},
+          {          Opcode::OP_L0C_TO_L1,            [this]() { return GenMemL0CToL1(); }},
 
           // L1 <-> L0
-          {          Opcode::OP_L1_TO_L0A,         [this]() { return GenMemL1ToL0(); }},
-          {          Opcode::OP_L1_TO_L0B,         [this]() { return GenMemL1ToL0(); }},
-          {        Opcode::OP_L1_TO_L0_BT,         [this]() { return GenMemL1ToL0(); }},
-          {        Opcode::OP_L1_TO_L0_AT,         [this]() { return GenMemL1ToL0(); }},
-          {           Opcode::OP_L1_TO_BT,         [this]() { return GenMemL1ToBt(); }},
+          {          Opcode::OP_L1_TO_L0A,             [this]() { return GenMemL1ToL0(); }},
+          {          Opcode::OP_L1_TO_L0B,             [this]() { return GenMemL1ToL0(); }},
+          {        Opcode::OP_L1_TO_L0_BT,             [this]() { return GenMemL1ToL0(); }},
+          {        Opcode::OP_L1_TO_L0_AT,             [this]() { return GenMemL1ToL0(); }},
+          {           Opcode::OP_L1_TO_BT,             [this]() { return GenMemL1ToBt(); }},
 
           // load op
-          {               Opcode::OP_LOAD,            [this]() { return GenLoadOp(); }},
+          {               Opcode::OP_LOAD,                [this]() { return GenLoadOp(); }},
 
           // transpose with gm
-          {  Opcode::OP_TRANSPOSE_MOVEOUT, [this]() { return GenTransposeDataMove(); }},
-          {   Opcode::OP_TRANSPOSE_MOVEIN, [this]() { return GenTransposeDataMove(); }},
+          {  Opcode::OP_TRANSPOSE_MOVEOUT,     [this]() { return GenTransposeDataMove(); }},
+          {   Opcode::OP_TRANSPOSE_MOVEIN,     [this]() { return GenTransposeDataMove(); }},
 
           // index outcast
-          {      Opcode::OP_INDEX_OUTCAST,    [this]() { return GenIndexOutCastOp(); }},
+          {      Opcode::OP_INDEX_OUTCAST,        [this]() { return GenIndexOutCastOp(); }},
           // lOC -> UB
-          {        Opcode::OP_L0C_COPY_UB, [this]() { return GenL0CToUBTileTensor(); }},
+          {        Opcode::OP_L0C_COPY_UB,     [this]() { return GenL0CToUBTileTensor(); }},
+
+          {         Opcode::OP_UB_COPY_L1,      [this]() { return GenUBToL1TileTensor(); }},
+          {      Opcode::OP_UB_COPY_ND2NZ, [this]() { return GenUBToUBND2NZTileTensor(); }},
 }),
       unaryOps_({
           // cast op
@@ -193,10 +196,6 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
       }),
       distributeOps_({
           // distribute op
-          {Opcode::OP_WRITE_REMOTE, [this]() { return GenDistOp(); }},
-          {Opcode::OP_REMOTE_REDUCE, [this]() { return GenDistOp(); }},
-          {Opcode::OP_REMOTE_GATHER, [this]() { return GenDistOp(); }},
-          {Opcode::OP_LOCAL_COPY_OUT, [this]() { return GenDistOp(); }},
           {Opcode::OP_FFN_SCHED, [this]() { return GenDistOp(); }},
           {Opcode::OP_FFN_BATCHING, [this]() { return GenDistOp(); }},
           {Opcode::OP_FFN_COMBINEINFO, [this]() { return GenDistOp(); }},
@@ -205,7 +204,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {Opcode::OP_SEND_TO_SHARED_EXPERT, [this]() { return GenDistOp(); }},
           {Opcode::OP_DISPATCH_SET_FLAG, [this]() { return GenDistOp(); }},
           {Opcode::OP_COPY_TO_LOCAL_EXPERT, [this]() { return GenDistOp(); }},
-          {Opcode::OP_SHMEM_CLEAR_SIGNAL, [this]() { return GenDistOp(); }},
+          {Opcode::OP_SHMEM_SET, [this]() { return GenDistOp(); }},
           {Opcode::OP_SHMEM_PUT, [this]() { return GenDistOp(); }},
           {Opcode::OP_SHMEM_PUT_UB2GM, [this]() { return GenDistOp(); }},
           {Opcode::OP_SHMEM_SIGNAL, [this]() { return GenDistOp(); }},
@@ -217,7 +216,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
       }),
       gatherScatterOps_({
           // gather/scatter op
-          {Opcode::OP_GATHER, [this]() { return GenGatherOp(); }},
+          {Opcode::OP_GATHER_FROM_UB, [this]() { return GenGatherFromUBOp(); }},
           {Opcode::OP_GATHER_ELEMENT, [this]() { return GenGatherElementOp(); }},
           {Opcode::OP_SCATTER_ELEMENT, [this]() { return GenScatterElementSOp(); }},
           {Opcode::OP_SCATTER, [this]() { return GenScatterOp(); }},
@@ -240,8 +239,8 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
 }
 
 CodeGenOpCloudNPU::CodeGenOpCloudNPU(const CodeGenOpCloudNPUCtx &ctx)
-    : CodeGenOpCloudNPU(
-          ctx.symbolManager, ctx.topFunc.GetFunctionType(), ctx.locToOffset, ctx.topFunc.IsUnderDynamicFunction()) {
+    : CodeGenOpCloudNPU(ctx.symbolManager, ctx.topFunc.GetFunctionType(), ctx.locToOffset,
+          ctx.topFunc.IsUnderDynamicFunction(), ctx.isMainBlock) {
     CodeGenOp::Init(ctx.ops);
     UpdateTileTensorInfo();
 }
@@ -554,10 +553,16 @@ std::string CodeGenOpCloudNPU::GenCVSyncSetOp() const {
 }
 
 std::string CodeGenOpCloudNPU::GenCVSyncWaitOp() const {
-    auto pipeId = GetPipeId(syncQueue.pipeId_);
+    auto pipeId = GetPipeId(syncQueue.trigPipeId_);
     std::ostringstream oss;
     oss << "wait_intra_block(" << pipeId << ", " << std::to_string(syncQueue.eventId_) << ");\n";
     return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::PrintCoord(size_t dim, const std::string &coord) const {
+    std::string ret = COORD;
+    ret.append(std::to_string(dim)).append(DIM).append(coord);
+    return ret;
 }
 
 } // namespace npu::tile_fwk

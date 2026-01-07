@@ -188,20 +188,6 @@ def rms_norm_bias(tensor_value, gamma, bias, mean_coff, eps, tile_shape):
     pypto.set_vec_tile_shapes(*tile_shape)
     tensor_value_fp32 = pypto.cast(tensor_value, pypto.DT_FP32)
 
-    # gamma reshape
-    pypto.set_vec_tile_shapes(tile_shape[-1])
-    target_shape = [1] * len(tensor_value_fp32.shape)
-    target_shape[-1] = gamma.shape[0]
-    gamma_3d = pypto.reshape(gamma, target_shape)
-
-    target_shape[-1] = bias.shape[0]
-    bias_3d = pypto.reshape(bias, target_shape)
-
-    # gamma cast
-    pypto.set_vec_tile_shapes(*tile_shape)
-    gamma_fp32 = pypto.cast(gamma_3d, pypto.DT_FP32)
-    bias_fp32 = pypto.cast(bias_3d, pypto.DT_FP32)
-
     # square
     square = pypto.mul(tensor_value_fp32, tensor_value_fp32)
 
@@ -219,9 +205,9 @@ def rms_norm_bias(tensor_value, gamma, bias, mean_coff, eps, tile_shape):
     res_div = pypto.div(tensor_value_fp32, reduce_sqrt)
 
     # gamma mul
-    res = pypto.mul(res_div, gamma_fp32)
+    res = pypto.mul(res_div, gamma)
 
-    res_add = pypto.add(res, bias_fp32)
+    res_add = pypto.add(res, bias)
 
     # cast
     y_bf16 = pypto.cast(res_add, input_dtype)
@@ -250,7 +236,6 @@ def rope_data(x1, x2, cos, sin, tile_shape):
     "cfgcache_root_task_num": 1000,
     "cfgcache_leaf_task_num": 10000},
     host_options={"only_codegen": True},
-    codegen_options={"codegen_expression_fusion": True}
 )
 def quant_attention_pre_kernel(x, residual_input, x_gamma, x_bias,
                                x_scale, x_offset, weight, quant_bias,
@@ -329,6 +314,20 @@ def quant_attention_pre_kernel(x, residual_input, x_gamma, x_bias,
     x_offset_2d = pypto.reshape(x_offset, [1, hidden_size], inplace=True)
     quant_bias_2d = pypto.reshape(quant_bias, [1, total_head_size], inplace=True)
     deq_scale_2d = pypto.reshape(deq_scale, [1, total_head_size], inplace=True)
+    q_gamma_2d = pypto.reshape(q_gamma, [1, 1, head_size], inplace=True)
+    q_bias_2d = pypto.reshape(q_bias, [1, 1, head_size], inplace=True)
+    k_gamma_2d = pypto.reshape(k_gamma, [1, 1, head_size], inplace=True)
+    k_bias_2d = pypto.reshape(k_bias, [1, 1, head_size], inplace=True)
+
+    pypto.set_vec_tile_shapes(1, 1, head_size)
+    q_gamma_2d_fp32 = pypto.cast(q_gamma_2d, calc_dtype)
+    q_bias_2d_fp32 = pypto.cast(q_bias_2d, calc_dtype)
+    k_gamma_2d_fp32 = pypto.cast(k_gamma_2d, calc_dtype)
+    k_bias_2d_fp32 = pypto.cast(k_bias_2d, calc_dtype)
+    q_gamma_expand = pypto.expand_clone(q_gamma_2d_fp32, [1, q_num_head, head_size])
+    q_bias_expand = pypto.expand_clone(q_bias_2d_fp32, [1, q_num_head, head_size])
+    k_gamma_expand = pypto.expand_clone(k_gamma_2d_fp32, [1, kv_num_head, head_size])
+    k_bias_expand = pypto.expand_clone(k_bias_2d_fp32, [1, kv_num_head, head_size])
 
     # 5. 实现kernel逻辑，循环展开BS动态轴
     for bs_idx in pypto.loop(bs_loop, name="LOOP_ATT_PRE_L0", idx_name="bs_idx"):
@@ -398,8 +397,10 @@ def quant_attention_pre_kernel(x, residual_input, x_gamma, x_bias,
             valid_shape=[act_bs_tile, kv_num_head, head_size])
 
         # rms norm
-        q_norm = rms_norm_bias(q_tile, q_gamma, q_bias, qk_mean_coff, eps, [q_batch_tile, q_num_head, head_size])
-        k_norm = rms_norm_bias(k_tile, k_gamma, k_bias, qk_mean_coff, eps, [q_batch_tile, kv_num_head, head_size])
+        q_norm = rms_norm_bias(q_tile, q_gamma_expand, q_bias_expand, qk_mean_coff, eps,
+            [q_batch_tile, q_num_head, head_size])
+        k_norm = rms_norm_bias(k_tile, k_gamma_expand, k_bias_expand, qk_mean_coff, eps,
+            [q_batch_tile, kv_num_head, head_size])
 
         q_rot = pypto.view(q_norm, [bs_tile, q_num_head, rotary_dim], [0, 0, 0],
             valid_shape=[act_bs_tile, q_num_head, rotary_dim])
@@ -468,7 +469,7 @@ def test_quant_attention_pre():
     half_rotary_dim = rotary_dim // 2
     eps = 1e-05
 
-    device_id = int(os.environ.get('TILE_FWK_STEST_DEVICE_ID', 0))
+    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
 
     # 2. 构造多种shape，测试动态case
@@ -489,8 +490,9 @@ def test_quant_attention_pre():
         x_bias = torch.rand(hidden_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
         x_scale = torch.rand(hidden_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
         x_offset = torch.rand(hidden_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
-        weight = torch.randint(0, 255, size=(hidden_size, total_head_size), dtype=torch.int8, device=f'npu:{device_id}')
-        quant_bias = torch.randint(0, 255, size=(total_head_size,), dtype=torch.int32, device=f'npu:{device_id}')
+        weight = torch.randint(-128, 128, size=(hidden_size, total_head_size), dtype=torch.int8,
+            device=f'npu:{device_id}')
+        quant_bias = torch.randint(-128, 128, size=(total_head_size,), dtype=torch.int32, device=f'npu:{device_id}')
         deq_scale = torch.rand(total_head_size, dtype=torch.float32, device=f'npu:{device_id}')
         q_gamma = torch.rand(head_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
         q_bias = torch.rand(head_size, dtype=torch.bfloat16, device=f'npu:{device_id}')

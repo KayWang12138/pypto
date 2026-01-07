@@ -21,7 +21,6 @@
 #include "machine/runtime/device_launcher_binding.h"
 #include "interface/configs/config_manager.h"
 #include "interface/function/function.h"
-#include "machine/utils/dynamic/dev_encode.h"
 #include "machine/utils/dynamic/dev_tensor_creator.h"
 #include "machine/device/dynamic/device_common.h"
 #include "machine/runtime/device_memory_utils.h"
@@ -112,7 +111,7 @@ public:
         uint64_t stitchPoolSize = devProg->memBudget.metadata.stitchPool;
         size_t shmSize = DEVICE_SHM_SIZE + DEVICE_TASK_QUEUE_SIZE * devProg->devArgs.scheCpuNum +
             generalSize + stitchPoolSize;
-        uint64_t shmAddr = (uint64_t)devMem.AllocZero(shmSize, CachedOperator::GetMetaDataDevAddrHolder(cachedOperator));
+        uint64_t shmAddr = (uint64_t)devMem.AllocDev(shmSize, CachedOperator::GetMetaDataDevAddrHolder(cachedOperator));
         devProg->devArgs.startArgsAddr = shmAddr;
         shmAddr += DEV_ARGS_SIZE;
         devProg->devArgs.taskCtrl = shmAddr;
