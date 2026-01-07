@@ -1312,10 +1312,6 @@ Tensor Reshape(const Tensor &operand, const std::vector<int64_t> &dstshape, cons
     }
     auto newShape = CheckAndInferShape(operand.GetShape(), dstshape);
     if (ReshapeNeedCopy(operand)) {
-        // Tensor copyOperand(operand.GetStorage()->Datatype(), operand.GetShape(), "", operand.Format());
-        // copyOperand.GetStorage()->UpdateDynValidShape(operand.GetStorage()->GetDynValidShape());
-        // CALL(InnerAssign, *Program::GetInstance().GetCurrentFunction(), operand.GetStorage(),
-        //     copyOperand.GetStorage());
         Tensor result(operand.GetStorage()->Datatype(), newShape, "", operand.Format());
         CALL(InnerReshape, *Program::GetInstance().GetCurrentFunction(), operand.GetStorage(),
             result.GetStorage(), validShapeDefault);
