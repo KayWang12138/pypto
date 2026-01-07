@@ -169,6 +169,7 @@ Status GenerateMoveOp::CreateMoveOpForConvert(Function &function, Operation &op)
     op.UpdateSubgraphID(childOp->GetSubgraphID());
     return SUCCESS;
 }
+
 void GenerateMoveOp::ProcessUB2L1(Function &function, Operation &op) const {
     //插入UB2L1节点（NZ2NZ)，并设置UBcopyL1的NZ属性
     op.SetAttribute(OP_ATTR_PREFIX + "is_nz", 1);
@@ -187,37 +188,6 @@ void GenerateMoveOp::ProcessUB2L1(Function &function, Operation &op) const {
         std::vector<int64_t> rawshape_new = ubNdTensor->tensor->rawshape;
         rawshape_new[innerIndex] = GenerateMoveOp::PadUB(ubNzTensor->tensor->rawshape[innerIndex], INNER_PAD_VALUE/BytesOf(ubNdTensor->Datatype()));
         rawshape_new[outerIndex] = GenerateMoveOp::PadUB(ubNzTensor->tensor->rawshape[outerIndex], OUTER_PAD_VALUE);
-        ubNzTensor->tensor->UpdateRawShape(rawshape_new);
-        ubNzTensor->SetMemoryTypeBoth(MemoryType::MEM_UB);
-        //插入UB2UB节点（ND2NZ)
-        auto &ub2ub = function.AddRawOperation(Opcode::OP_UB_COPY_ND2NZ, {inputTensor}, {ubNzTensor});
-        ub2ub.UpdateSubgraphID(op.GetSubgraphID());
-
-        //图重连
-        op.iOperand = {ubNzTensor};
-        inputTensor->RemoveConsumer(op);
-        ubNzTensor->AddConsumer(op);
-    }   
-}
-
-void GenerateMoveOp::ProcessUB2L1(Function &function, Operation &op) const {
-    //插入UB2L1节点（NZ2NZ)，并设置UBcopyL1的NZ属性
-    op.SetAttribute(OP_ATTR_PREFIX + "is_nz", 1);
-    auto inputTensor = op.iOperand.front();
-    if(inputTensor->Format() == TileOpFormat::TILEOP_ND) {
-        //新建一块logcialtensor
-        std::shared_ptr<LogicalTensor> ubNdTensor = inputTensor;
-        std::shared_ptr<RawTensor> newRawTensor = std::make_shared<RawTensor>(ubNdTensor->Datatype(), ubNdTensor->GetShape(), TileOpFormat::TILEOP_NZ);
-        std::vector<int64_t> newoffset(inputTensor->GetShape().size(),0);
-        std::shared_ptr<LogicalTensor> ubNzTensor = std::make_shared<LogicalTensor>(function, newRawTensor, newoffset, inputTensor->shape, inputTensor->GetDynValidShape()); 
-        //ND转NZ时shape对齐
-        auto innerIndex = ubNzTensor->shape.size() - 2; // matmul高轴
-        auto outerIndex = ubNzTensor->shape.size() - 1;  // matmul低轴
-        ubNzTensor->shape[innerIndex] = PadUB(ubNzTensor->shape[innerIndex], INNER_PAD_VALUE/BytesOf(ubNdTensor->Datatype()));
-        ubNzTensor->shape[outerIndex] = PadUB(ubNzTensor->shape[outerIndex], OUTER_PAD_VALUE);
-        std::vector<int64_t> rawshape_new = ubNdTensor->tensor->rawshape;
-        rawshape_new[innerIndex] = PadUB(ubNzTensor->tensor->rawshape[innerIndex], INNER_PAD_VALUE/BytesOf(ubNdTensor->Datatype()));
-        rawshape_new[outerIndex] = PadUB(ubNzTensor->tensor->rawshape[outerIndex], OUTER_PAD_VALUE);
         ubNzTensor->tensor->UpdateRawShape(rawshape_new);
         ubNzTensor->SetMemoryTypeBoth(MemoryType::MEM_UB);
         //插入UB2UB节点（ND2NZ)
