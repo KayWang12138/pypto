@@ -32,10 +32,9 @@
 
 namespace npu::tile_fwk {
 const std::string PROGRAM_ENTRY_FUNCTION_NAME = "PROGRAM_ENTRY";
-void GetEnv(const char * const envName, std::string &envValue)
-{
+void GetEnv(const char *const envName, std::string &envValue) {
     const size_t envValueMaxLen = 1024UL * 1024UL;
-    const char * const envTemp = std::getenv(envName);
+    const char *const envTemp = std::getenv(envName);
     if ((envTemp == nullptr) || (strnlen(envTemp, envValueMaxLen) >= envValueMaxLen)) {
         ALOG_INFO_F("Env[%s] not found.\n", envName);
         return;
@@ -110,8 +109,7 @@ void Program::SetCurrentFunction(Function *function) {
 
 void Program::CreateInitFunction() {
     currentFunctionMagicName_ = PROGRAM_ENTRY_FUNCTION_NAME;
-    auto newFunc =
-        std::make_shared<Function>(*this, currentFunctionMagicName_, currentFunctionMagicName_, nullptr);
+    auto newFunc = std::make_shared<Function>(*this, currentFunctionMagicName_, currentFunctionMagicName_, nullptr);
     newFunc->SetFunctionType(FunctionType::EAGER);
     currentFunctionPtr_ = newFunc.get();
     functionmap_.emplace(currentFunctionMagicName_, std::move(newFunc));
@@ -150,7 +148,7 @@ void Program::CreateCallerCalleeLink(Function *caller, Function *callee) {
     }
 }
 
-void Program::RefillCompileQueue(Function* func) {
+void Program::RefillCompileQueue(Function *func) {
     functionSequence_.emplace_back(func);
 }
 
@@ -173,7 +171,7 @@ void Program::ClearEmptyHiddenFunction() {
     }
 }
 
-void SetParamConfig(Function* currentFunctionPtr_) {
+void SetParamConfig(Function *currentFunctionPtr_) {
     std::shared_ptr<ConfigScope> currentScope = ConfigManagerNg::GetInstance().CurrentScope();
     currentFunctionPtr_->paramConfigs_.l1ReuseNum = currentScope->GetPassConfig<int>(CUBE_L1_REUSE_MODE);
     currentFunctionPtr_->paramConfigs_.cubeNBufferMode = currentScope->GetPassConfig<int>(CUBE_NBUFFER_MODE);
@@ -182,32 +180,35 @@ void SetParamConfig(Function* currentFunctionPtr_) {
     currentFunctionPtr_->paramConfigs_.sgParallelNum = currentScope->GetPassConfig<int>(SG_PARALLEL_NUM);
     currentFunctionPtr_->paramConfigs_.sgMgCopyInUpperBound = currentScope->GetPassConfig<int>(MG_COPYIN_UPPER_BOUND);
     currentFunctionPtr_->paramConfigs_.machineConfig_ = currentScope->GetRuntimeConfig<uint8_t>(DEVICE_SCHED_MODE);
-    currentFunctionPtr_->paramConfigs_.stitchFunctionNumInitial_ = currentScope->GetRuntimeConfig<uint16_t>(STITCH_FUNCTION_NUM_INITIAL);
-    currentFunctionPtr_->paramConfigs_.stitchFunctionNumStep_ = currentScope->GetRuntimeConfig<uint16_t>(STITCH_FUNCTION_NUM_STEP);
-    currentFunctionPtr_->paramConfigs_.cubeL1ReuseSetting = currentScope->GetPassConfig<std::map<int64_t, int64_t>>(CUBE_L1_REUSE_SETTING);
-    currentFunctionPtr_->paramConfigs_.cubeNBufferSetting = currentScope->GetPassConfig<std::map<int64_t, int64_t>>(CUBE_NBUFFER_SETTING);
-    currentFunctionPtr_->paramConfigs_.vecNBufferSetting = currentScope->GetPassConfig<std::map<int64_t, int64_t>>(VEC_NBUFFER_SETTING);
+    currentFunctionPtr_->paramConfigs_.stitchFunctionNumInitial_ =
+        currentScope->GetRuntimeConfig<uint16_t>(STITCH_FUNCTION_NUM_INITIAL);
+    currentFunctionPtr_->paramConfigs_.stitchFunctionNumStep_ =
+        currentScope->GetRuntimeConfig<uint16_t>(STITCH_FUNCTION_NUM_STEP);
+    currentFunctionPtr_->paramConfigs_.cubeL1ReuseSetting =
+        currentScope->GetPassConfig<std::map<int64_t, int64_t>>(CUBE_L1_REUSE_SETTING);
+    currentFunctionPtr_->paramConfigs_.cubeNBufferSetting =
+        currentScope->GetPassConfig<std::map<int64_t, int64_t>>(CUBE_NBUFFER_SETTING);
+    currentFunctionPtr_->paramConfigs_.vecNBufferSetting =
+        currentScope->GetPassConfig<std::map<int64_t, int64_t>>(VEC_NBUFFER_SETTING);
     currentFunctionPtr_->paramConfigs_.vecNBuffermode = currentScope->GetPassConfig<int>(VEC_NBUFFER_MODE);
     currentFunctionPtr_->paramConfigs_.sgCubeParallelNum = currentScope->GetPassConfig<int>(SG_CUBE_PARALLEL_NUM);
     currentFunctionPtr_->paramConfigs_.mgVecParallelLb = currentScope->GetPassConfig<int>(MG_VEC_PARALLEL_LB);
     currentFunctionPtr_->paramConfigs_.pgSkipPartition = currentScope->GetPassConfig<bool>(PG_SKIP_PARTITION);
-    currentFunctionPtr_->paramConfigs_.copyOutResolveCoalescing = currentScope->GetPassConfig<int>(COPYOUT_RESOLVE_COALESCING);
+    currentFunctionPtr_->paramConfigs_.copyOutResolveCoalescing =
+        currentScope->GetPassConfig<int>(COPYOUT_RESOLVE_COALESCING);
 }
 
 #if ENABLE_HIDDENLOOP
 void Program::BeginHiddenLoop(Function *func, const FunctionType &funcType, const std::string funcName) {
-    if (func->GetGraphType() == GraphType::TENSOR_GRAPH
-        && func->GetFunctionType() == funcType
-        && !func->IsHiddenFunction()) {
+    if (func->GetGraphType() == GraphType::TENSOR_GRAPH && func->GetFunctionType() == funcType &&
+        !func->IsHiddenFunction()) {
         BeginFunction(funcName, FunctionType::DYNAMIC_LOOP_PATH, GraphType::TENSOR_GRAPH, {}, true);
     }
 }
 
 void Program::EndHiddenLoop(Function *func, bool generateCall) {
-    if (func->GetGraphType() == GraphType::TENSOR_GRAPH
-        && func->GetFunctionType() == FunctionType::DYNAMIC_LOOP_PATH
-        && func->IsHiddenFunction()
-        && !func->Parent().IsHiddenFunction()) {
+    if (func->GetGraphType() == GraphType::TENSOR_GRAPH && func->GetFunctionType() == FunctionType::DYNAMIC_LOOP_PATH &&
+        func->IsHiddenFunction() && !func->Parent().IsHiddenFunction()) {
         func->Parent().SetHiddenFunction(true);
         EndFunction(func->GetRawName(), generateCall);
         func->Parent().SetHiddenFunction(false);
@@ -216,12 +217,11 @@ void Program::EndHiddenLoop(Function *func, bool generateCall) {
 #endif
 
 // Start a new function and push it to the functions vector
-bool Program::BeginFunction(const std::string &funcName,
-    const FunctionType funcType,
-    const GraphType graphType,
-    const std::vector<std::reference_wrapper<const Tensor>>& explicitOpArgs,
-    bool isHiddenFunction) {
-    if (currentFunctionPtr_->IsFlattening() && (funcType == FunctionType::STATIC && (graphType == GraphType::TENSOR_GRAPH || graphType == GraphType::TILE_GRAPH))) {
+bool Program::BeginFunction(const std::string &funcName, const FunctionType funcType, const GraphType graphType,
+    const std::vector<std::reference_wrapper<const Tensor>> &explicitOpArgs, bool isHiddenFunction) {
+    if (currentFunctionPtr_->IsFlattening() &&
+        (funcType == FunctionType::STATIC &&
+            (graphType == GraphType::TENSOR_GRAPH || graphType == GraphType::TILE_GRAPH))) {
         // Static function's subfunction should be ignored
         ASSERT(funcName != currentFunctionPtr_->GetRawName());
         return false;
@@ -237,8 +237,7 @@ bool Program::BeginFunction(const std::string &funcName,
 
     auto funcMagicName = funcName + "_" + std::to_string(IdGen<IdType::FUNCTION>::Inst().CurId());
     if (functionmap_.find(funcMagicName) == functionmap_.end()) { // new function
-        auto newFunc =
-            std::make_unique<Function>(*this, funcMagicName, funcName, currentFunctionPtr_);
+        auto newFunc = std::make_unique<Function>(*this, funcMagicName, funcName, currentFunctionPtr_);
         newFunc->SetFunctionType(funcType);
         newFunc->SetGraphType(graphType);
         newFunc->SetHiddenFunction(isHiddenFunction);
@@ -262,7 +261,8 @@ bool Program::BeginFunction(const std::string &funcName,
 #if ENABLE_HIDDENLOOP
     // Begin new hidden loop for the new function
     BeginHiddenLoop(currentFunctionPtr_, FunctionType::DYNAMIC_LOOP_PATH,
-        currentFunctionPtr_->GetRawName() + "_hiddenfunc" + std::to_string(currentFunctionPtr_->GetCallopList().size()));
+        currentFunctionPtr_->GetRawName() + "_hiddenfunc" +
+            std::to_string(currentFunctionPtr_->GetCallopList().size()));
 #endif
     return true;
 }
@@ -300,8 +300,7 @@ Operation *Program::FinishCurrentFunction(const std::shared_ptr<TensorSlotScope>
 
 // Helper function: Dump tensor graph if needed
 void Program::DumpTensorGraphIfNeeded(Function *result) {
-    if (config::GetPassDefaultConfig("print_graph", false) &&
-        result->IsGraphType(GraphType::TENSOR_GRAPH)) {
+    if (config::GetPassDefaultConfig("print_graph", false) && result->IsGraphType(GraphType::TENSOR_GRAPH)) {
         result->DumpJsonFile(config::LogTensorGraphFolder() + "/" + result->GetRawName() + ".json");
         result->DumpFile(config::LogTensorGraphFolder() + "/" + result->GetRawName() + ".tifwkgr");
     }
@@ -309,7 +308,8 @@ void Program::DumpTensorGraphIfNeeded(Function *result) {
 
 // Helper function: Handle task submission
 void Program::HandleTaskSubmission(Function *result) {
-    if (result->IsGraphType(GraphType::TENSOR_GRAPH) || result->IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::TILE_GRAPH)) {
+    if (result->IsGraphType(GraphType::TENSOR_GRAPH) ||
+        result->IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::TILE_GRAPH)) {
         if (result->IsUnderDynamicFunction() || currentDynamicFunctionPtr_ != nullptr) {
             if (!result->IsHiddenFunction() || result->Operations().size() > 0) {
                 HostMachine::GetInstance().StashTask(result);
@@ -330,8 +330,7 @@ void Program::HandleTaskSubmission(Function *result) {
 }
 
 // End the current function and pop the function index from the stack
-std::tuple<Function*, Operation *, bool> Program::EndFunction(const std::string &funcName,
-                                                                          bool generateCall) {
+std::tuple<Function *, Operation *, bool> Program::EndFunction(const std::string &funcName, bool generateCall) {
 #if ENABLE_HIDDENLOOP
     // End child hidden loop
     EndHiddenLoop(currentFunctionPtr_, generateCall);
@@ -364,7 +363,8 @@ std::tuple<Function*, Operation *, bool> Program::EndFunction(const std::string 
 #if ENABLE_HIDDENLOOP
     // Begin new hidden loop for parent function
     BeginHiddenLoop(result, FunctionType::DYNAMIC_LOOP,
-        currentFunctionPtr_->GetRawName() + "_hiddenfunc" + std::to_string(currentFunctionPtr_->GetCallopList().size()));
+        currentFunctionPtr_->GetRawName() + "_hiddenfunc" +
+            std::to_string(currentFunctionPtr_->GetCallopList().size()));
 #endif
 
     return std::make_tuple(result, callop, hit);
@@ -382,14 +382,12 @@ void Program::PopStackAndUpdateCurrent() {
 }
 
 // Add an operation to the current function and insert operands into the TensorMap
-Operation &Program::AddOperation(const std::string &opName,
-    const std::vector<std::shared_ptr<LogicalTensor>> &iOperand,
+Operation &Program::AddOperation(const std::string &opName, const std::vector<std::shared_ptr<LogicalTensor>> &iOperand,
     const std::vector<std::shared_ptr<LogicalTensor>> &oOperand) {
     return AddOperation(FindOpcode(opName), iOperand, oOperand);
 }
 
-Operation &Program::AddOperation(const Opcode opCode,
-    const std::vector<std::shared_ptr<LogicalTensor>> &iOperand,
+Operation &Program::AddOperation(const Opcode opCode, const std::vector<std::shared_ptr<LogicalTensor>> &iOperand,
     const std::vector<std::shared_ptr<LogicalTensor>> &oOperand) {
     // Add the operation to the current function
     if (currentFunctionMagicName_ == PROGRAM_ENTRY_FUNCTION_NAME) {
@@ -405,13 +403,15 @@ std::string Program::DumpStack(const std::string &funcName) const {
     for (size_t i = 0; i < functionMagicNameStack_.size(); i++) {
         auto func = functionmap_.find(functionMagicNameStack_[i])->second;
         if (func) {
-            oss << "stack-" << i << ": " << functionMagicNameStack_[i] << " " << GetFunctionTypeNameDict().Find(func->GetFunctionType()) << "\n";
+            oss << "stack-" << i << ": " << functionMagicNameStack_[i] << " "
+                << GetFunctionTypeNameDict().Find(func->GetFunctionType()) << "\n";
         } else {
             oss << "stack-:" << i << ": " << functionMagicNameStack_[i] << " is nullptr\n";
         };
     }
     if (currentFunctionPtr_) {
-        oss << "current: " << currentFunctionMagicName_ << " " << GetFunctionTypeNameDict().Find(currentFunctionPtr_->GetFunctionType()) << "\n";
+        oss << "current: " << currentFunctionMagicName_ << " "
+            << GetFunctionTypeNameDict().Find(currentFunctionPtr_->GetFunctionType()) << "\n";
     } else {
         oss << "current: " << currentFunctionMagicName_ << " is nullptr\n";
     }
@@ -521,8 +521,7 @@ Json Program::DumpJson(Function *mainFunc) const {
     return progDump;
 }
 
-std::shared_ptr<Function> Program::GetFunctionByMagic(int funcMagic)
-{
+std::shared_ptr<Function> Program::GetFunctionByMagic(int funcMagic) {
     for (auto &func : functionmap_) {
         if (func.second->GetFuncMagic() == funcMagic) {
             return func.second;
@@ -532,7 +531,7 @@ std::shared_ptr<Function> Program::GetFunctionByMagic(int funcMagic)
     return nullptr;
 }
 
-Function* Program::GetFunctionByMagicName(const std::string &magicName) const {
+Function *Program::GetFunctionByMagicName(const std::string &magicName) const {
     auto it = functionmap_.find(magicName);
     if (it != functionmap_.end()) {
         return it->second.get();
@@ -649,7 +648,8 @@ void Program::GraphCheck() const {
                 ASSERT(it != functionmap_.end());
                 ASSERT(op.iOperand.size() == it->second->inCasts_.size())
                     << "operation \"" << op.GetOpcodeStr() << "\" iOperand size: " << op.iOperand.size()
-                    << ", function \"" << it->second->GetMagicName() << "\" inCasts_ size: " << it->second->inCasts_.size();
+                    << ", function \"" << it->second->GetMagicName()
+                    << "\" inCasts_ size: " << it->second->inCasts_.size();
                 ASSERT(op.oOperand.size() == it->second->outCasts_.size())
                     << "operation \"" << op.GetOpcodeStr() << "\" oOperand size: " << op.oOperand.size()
                     << ", function \"" << it->second->GetMagicName()
@@ -657,8 +657,8 @@ void Program::GraphCheck() const {
             }
             for (auto &oOperand : op.oOperand) {
                 if (!oOperand->HasProducer(op)) {
-                    std::cout << "ASSERT FAILED: " << oOperand->HasProducer(op)
-                              << "  opmagic: " << op.opmagic << " oOperand:" << oOperand->magic << std::endl;
+                    std::cout << "ASSERT FAILED: " << oOperand->HasProducer(op) << "  opmagic: " << op.opmagic
+                              << " oOperand:" << oOperand->magic << std::endl;
                 }
             }
             for (auto &iOperand : op.iOperand) {
@@ -704,8 +704,7 @@ bool Program::QueryAndUpdateCurrentFunction() {
 }
 
 /* submit to hostmachine , prepare compile */
-int Program::EndFunction(const bool isWaitTaskFinished)
-{
+int Program::EndFunction(const bool isWaitTaskFinished) {
     ASSERT(currentFunctionPtr_ != nullptr);
     auto scope = GetTensorSlotManager()->EndScope();
     auto funcArgs = currentFunctionPtr_->EndFunction(scope);
@@ -734,7 +733,8 @@ void Program::VerifyTensorGraph() {
     ProgramData::GetInstance().CopyToGoldenDataViewList(goldenDataViewList);
 
     auto &flowVerifier = FlowVerifier::GetInstance();
-    flowVerifier.VerifyTensorGraph(func, inputDataViewList, outputDataViewList, goldenDataViewList, GetTensorSlotManager());
+    flowVerifier.VerifyTensorGraph(
+        func, inputDataViewList, outputDataViewList, goldenDataViewList, GetTensorSlotManager());
 }
 
 void Program::VerifyPass(Function *func, int passIndex, const std::string &passIdentifier) {
@@ -748,8 +748,8 @@ void Program::VerifyPass(Function *func, int passIndex, const std::string &passI
     flowVerifier.VerifyPass(func, passIndex, passIdentifier);
 }
 
-std::shared_ptr<Function> Program::GetFunctionSharedPtr(Function* rawPtr) {
-    for (const auto& pair : functionmap_) {
+std::shared_ptr<Function> Program::GetFunctionSharedPtr(Function *rawPtr) {
+    for (const auto &pair : functionmap_) {
         auto sharedPtr = pair.second;
         if (sharedPtr.get() == rawPtr) {
             return sharedPtr;
