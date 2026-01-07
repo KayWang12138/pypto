@@ -24,6 +24,7 @@ import os
 import torch
 import torch_npu
 import pypto
+from typing import Tuple
 import numpy as np
 from numpy.testing import assert_allclose
 from torch._subclasses.fake_tensor import FakeTensor
