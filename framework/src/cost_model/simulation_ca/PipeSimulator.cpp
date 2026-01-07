@@ -41,6 +41,7 @@ namespace CostModel
     static std::string GenerateBuf(const TileOpPtr &tileOp)
     {
         std::shared_ptr<SimplifiedMemoryAllocator> memoryAllocator = std::make_shared<SimplifiedMemoryAllocator>();
+        std::shared_ptr<ForBlockManager> forBlkMgr = std::make_shared<ForBlockManager>(memoryAllocator);
         auto locToOffsetMap = GenRealizeIdMap(tileOp->funcPtr->parentFunction->GetParameter());
         CodeGenCtx ctx;
         CodeGenCloudNPU cga(ctx);
@@ -61,8 +62,8 @@ namespace CostModel
             genExtraAllocForTensor(operand);
         }
         tileOp->funcPtr->parentFunction->SetFunctionType(npu::tile_fwk::FunctionType::DYNAMIC_LOOP_PATH);
-        CodeGenOpCloudNPU cop({memoryAllocator, *tileOp->funcPtr->parentFunction, *tileOp->funcPtr->parentFunction,
-            *(tileOp->operation), locToOffsetMap});
+        CodeGenOpCloudNPU cop({memoryAllocator, forBlkMgr, *tileOp->funcPtr->parentFunction,
+            *tileOp->funcPtr->parentFunction, *(tileOp->operation), locToOffsetMap});
         return cop.GenOpCode();
     }
 

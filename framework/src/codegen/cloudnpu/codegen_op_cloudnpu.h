@@ -28,11 +28,13 @@
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "codegen/symbol_mgr/codegen_symbol.h"
+#include "codegen/stmt_mgr/codegen_for_block.h"
 #include "codegen/codegen_op.h"
 
 namespace npu::tile_fwk {
 struct CodeGenOpCloudNPUCtx {
     std::shared_ptr<SymbolManager> symbolManager;
+    std::shared_ptr<ForBlockManager> forBlockManager;
     Function &topFunc;
     Function &subFunc;
     const Operation &ops;
@@ -138,14 +140,7 @@ public:
 
     std::string GenWhereOp() const;
 
-    std::string GenOpCode() const override {
-        auto iter = opsGenMap_.find(opCode);
-        if (iter != opsGenMap_.end()) {
-            return iter->second();
-        }
-        // To aid in testing, do not use ASSERT.
-        return std::string{"CAN NOT HANDLE OP: " + opCodeStr};
-    }
+    std::string GenOpCode() const override;
 
     void UpdateSaturateStatus(FloatSaturateStatus &fs);
 
@@ -172,12 +167,27 @@ private:
     std::string GenOffsetsAndRawShapesDefault() const;
 
     void UpdateTileTensorInfo();
+    void UpdateLoopInfo();
+    std::vector<int64_t> GetShapeInLoop(const std::vector<int64_t> &input, size_t loopDepth);
 
     int GetCacheModeFlag(const std::string &cacheMode) const;
-    template <typename T>
-    bool GetAttr(const std::string &key, T &value) const;
 
-    TileTensor BuildTileTensor(int paramIdx, const std::string &usingType);
+    template <typename T>
+    bool GetAttr(const std::string &key, T &value) const {
+        auto it = opAttrs.find(key);
+        if (it == opAttrs.end()) {
+            ALOG_ERROR_F("can not find key: %s in opAttrs", key.c_str());
+            return false;
+        }
+        if (it->second.Type() == typeid(T)) {
+            value = npu::tile_fwk::AnyCast<T>(it->second);
+            return true;
+        }
+        ALOG_ERROR_F("Type mismatch: %s != %s", it->second.Type().name(), typeid(T).name());
+        return false;
+    }
+
+    TileTensor BuildTileTensor(int paramIdx, const std::string &usingType, bool isInLoop = false);
     void UpdateTileTensorShapeAndStride(int paramIdx, TileTensor &tileTensor, bool isSpillToGm);
     std::vector<std::string> BuildStride(const std::vector<int64_t> &input);
 
@@ -402,6 +412,8 @@ private:
     std::unordered_map<Opcode, std::function<std::string()>> aicpuOps_;
 
     std::unordered_map<Opcode, std::function<std::string()>> opsGenMap_;
+
+    std::shared_ptr<ForBlockManager> forBlkMgr_;
 
     mutable std::map<unsigned, std::reference_wrapper<std::string>> tempVarsMap;
     mutable unsigned tempKey = 0;
