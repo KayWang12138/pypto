@@ -107,7 +107,7 @@ void OptimizeSort::QueueNotReadyPreNode(Operation* curOp, std::map<Operation*, b
             int depB = GetMaxDepthSimple(b);
             if (depA == depB) {
                 int aIdx = std::find(operations.begin(), operations.end(), a) - operations.begin();
-                int bIdx = std::find(operations.begin(), operations.end(), a) - operations.begin();
+                int bIdx = std::find(operations.begin(), operations.end(), b) - operations.begin();
                 return aIdx < bIdx;
             }
             return depA < depB;
