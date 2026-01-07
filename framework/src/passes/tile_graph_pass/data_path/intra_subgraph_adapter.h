@@ -30,10 +30,8 @@ class IntraSubgraphAdapter : public Pass {
 public:
     IntraSubgraphAdapter() : Pass("IntraSubgraphAdapter") {}
     ~IntraSubgraphAdapter() override = default;
-
-private:
     Status RunOnFunction(Function &function) override;
-
+private:
     Status CheckBoundaryTensor(LogicalTensorPtr tensor);
     Status SplitBoundaryTensor(Function &function, LogicalTensorPtr tensor,
         int mainSubgraphID, LogicalTensors& newBoundaryTensors);
@@ -56,7 +54,7 @@ private:
 private:
     const std::unordered_set<Opcode> crossCoreMoveOps = {
         Opcode::OP_UB_COPY_L1, Opcode::OP_UB_COPY_L1_ND,
-        Opcode::OP_L1_COPY_UB, Opcode::OP_L0C_COPY_UB,
+        Opcode::OP_L1_COPY_UB, Opcode::OP_L0C_COPY_UB, Opcode::OP_CONVERT,
     };
 };
 } // namespace npu::tile_fwk

@@ -101,6 +101,9 @@ bool Die::SetMemoryPath(const std::vector<std::vector<std::string>>& dataPaths) 
     memoryGraph_.AddPath(MemoryType::MEM_UB, MemoryType::MEM_DEVICE_DDR);
     memoryGraph_.AddPath(MemoryType::MEM_L0C, MemoryType::MEM_DEVICE_DDR);
     memoryGraph_.AddPath(MemoryType::MEM_L0C, MemoryType::MEM_L1);
+    memoryGraph_.AddPath(MemoryType::MEM_L0C, MemoryType::MEM_UB);
+    memoryGraph_.AddPath(MemoryType::MEM_UB, MemoryType::MEM_L1);
+    memoryGraph_.AddPath(MemoryType::MEM_L1, MemoryType::MEM_UB);
     for (const auto &pathDesc : dataPaths) {
         if (pathDesc.size() != 2U) {
             continue;
