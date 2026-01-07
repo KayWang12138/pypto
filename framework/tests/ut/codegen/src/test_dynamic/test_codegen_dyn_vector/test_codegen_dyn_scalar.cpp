@@ -162,7 +162,7 @@ TEST_F(TestCodegenDynScalar, TestAddsTileTensor) {
 #if ENABLE_HIDDENLOOP
     std::string expect = R"!!!(#include "TileOpImpl.h"
 
-// funcHash: 8862770922887829658
+// funcHash: 3008566517347017509
 
 extern "C" [aicore] void TENSOR_ADDS_TILETENSOR_Unroll1_PATH0_hiddenfunc0_8_0_4503599627370496(CoreFuncParam* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam) {
 float __ubuf__ *UB_S0_E4096 = (float __ubuf__ *)get_imm(0x0); // size: 0x1000
@@ -190,7 +190,7 @@ TStore(gmTensor_5, ubTensor_1, Coord2Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 10, 0)
 #else
     std::string expect = R"!!!(#include "TileOpImpl.h"
 
-// funcHash: 8862770922887829658
+// funcHash: 3008566517347017509
 
 extern "C" [aicore] void TENSOR_ADDS_TILETENSOR_Unroll1_PATH0_4_0_4503599627370496(CoreFuncParam* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam) {
 float __ubuf__ *UB_S0_E4096 = (float __ubuf__ *)get_imm(0x0); // size: 0x1000
