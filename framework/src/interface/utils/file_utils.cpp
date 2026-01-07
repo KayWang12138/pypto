@@ -439,7 +439,7 @@ std::string GetCurRunningPath() {
     char buffer[size] = {};
     std::string cwd = getcwd(buffer, size);
     if (cwd.empty()) {
-        ALOG_ERROR_F("failed to call getcwd()");
+        ALOG_ERROR_F("Failed to call getcwd()");
         return "";
     }
     return cwd;
@@ -448,7 +448,7 @@ std::string GetCurRunningPath() {
 void RemoveOldestDirs(const std::string &path, const std::string &prefix, int left) {
     DIR *dir = opendir(path.c_str());
     if (dir == nullptr) {
-        ALOG_WARN_F("failed to opendir: ", path.c_str());
+        ALOG_WARN_F("Failed to opendir: ", path.c_str());
         return;
     }
 
