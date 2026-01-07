@@ -873,7 +873,7 @@ Status MixSubgraphSplit::CreateCallOpInRootFunction(Function& rootFunc,
     ALOG_INFO_F("Created operands for new callOp %d: %zu inputs, %zu outputs",
             callOp.GetOpMagic(), newIOperands.size(), newOOperands.size());
     // 使用invokeInfo提取argList
-    auto extractedArgList = ExtractArgListForLeafFunction(leafFunc, originalCallAttr, invokeInfo, info.iOffsets, info.oOffsets);
+    auto extractedArgList = ExtractArgListForLeafFunction(leafFunc, originalCallAttr, invokeInfo, info.iOffsets, info.oOffsets, originalMixFunc);
     ALOG_DEBUG_F("Created callOp %d: %zu arg blocks (from original callOp %d), %zu input offsets, %zu output offsets", callOp.GetOpMagic(), extractedArgList.size(), originalCallOp->GetOpMagic(), info.iOffsets.size(), info.oOffsets.size());
     std::map<int, SymbolicScalar> outIndexToExpr;
     leafFunc.GetOutcastSymbolicExpr(outIndexToExpr);
@@ -1033,7 +1033,7 @@ bool MixSubgraphSplit::ExtractArgListFromGlobalTensor(const SubfuncInvokeInfoTy&
     return true;
 }
 
-bool MixSubgraphSplit::ExtractArgListFromActualIncasts(const std::vector<std::shared_ptr<LogicalTensor>> &actualIncasts, std::vector<SymbolicScalar> &originalLinearArgs, ExtractInfo& extractInfo) const {
+bool MixSubgraphSplit::ExtractArgListFromActualIncasts(const std::vector<std::shared_ptr<LogicalTensor>> &actualIncasts, std::vector<SymbolicScalar> &originalLinearArgs, ExtractInfo& extractInfo, Function* originalMixFunc) const {
     // 然后处理传播依赖添加的参数（在actualIncasts中但不在InvokeInfo中）
     for (const auto& incast : actualIncasts) {
         if (incast == nullptr || extractInfo.processedTensors.count(incast) > 0) {
@@ -1044,7 +1044,7 @@ bool MixSubgraphSplit::ExtractArgListFromActualIncasts(const std::vector<std::sh
         ALOG_DEBUG_F("Processing propagated incast: tensor=%d", incast->GetRawMagic());
 
         // 在原始Mix function中查找这个tensor的offset
-        int offset = FindOriginalOffsetInMixFunction(incast);
+        int offset = FindOriginalOffsetInMixFunction(incast, originalMixFunc);
         if (offset == -1) {
             ALOG_ERROR_F("Failed to find offset for propagated incast tensor %d!", incast->GetRawMagic());
             return false;  // 直接报错返回
@@ -1086,7 +1086,7 @@ bool MixSubgraphSplit::ExtractArgListFromActualIncasts(const std::vector<std::sh
     return true;
 }
 
-bool MixSubgraphSplit::ExtractArgListFromActualOutcasts(const std::vector<std::shared_ptr<LogicalTensor>> &actualOutcasts, std::vector<SymbolicScalar> &originalLinearArgs, ExtractInfo& extractInfo) const {
+bool MixSubgraphSplit::ExtractArgListFromActualOutcasts(const std::vector<std::shared_ptr<LogicalTensor>> &actualOutcasts, std::vector<SymbolicScalar> &originalLinearArgs, ExtractInfo& extractInfo, Function* originalMixFunc) const {
     // 处理传播依赖添加的outcast参数（在actualOutcasts中但不在InvokeInfo中）
     for (const auto& outcast : actualOutcasts) {
         if (outcast == nullptr || extractInfo.processedTensors.count(outcast) > 0) {
@@ -1098,7 +1098,7 @@ bool MixSubgraphSplit::ExtractArgListFromActualOutcasts(const std::vector<std::s
             ALOG_ERROR_F("Propagated outcast tensor %d has empty shape!", outcast->GetRawMagic());
             return false;
         }
-        int offset = FindOriginalOffsetInMixFunction(outcast);
+        int offset = FindOriginalOffsetInMixFunction(outcast, originalMixFunc);
         if (offset == -1) {
             ALOG_ERROR_F("Failed to find offset for propagated outcast tensor %d!", outcast->GetRawMagic());
             return false;  // 直接报错返回
@@ -1154,7 +1154,8 @@ std::vector<std::vector<SymbolicScalar>> MixSubgraphSplit::ExtractArgListForLeaf
         CallOpAttribute* originalCallAttr,
         const SubfuncInvokeInfoTy& invokeInfo,
         std::vector<int>& iOffsets,
-        std::vector<int>& oOffsets) const {
+        std::vector<int>& oOffsets,
+        Function* originalMixFunc) const {
     auto originalLinearArgs = originalCallAttr->GetLinearArgList();
     std::vector<std::vector<SymbolicScalar>> extractedArgList;
     DisplayArg(originalLinearArgs);
@@ -1185,11 +1186,11 @@ std::vector<std::vector<SymbolicScalar>> MixSubgraphSplit::ExtractArgListForLeaf
         return {};
     }
     // 然后处理传播依赖添加的参数（在actualIncasts中但不在InvokeInfo中）
-    if (!ExtractArgListFromActualIncasts(actualIncasts, originalLinearArgs, extractInfo)) {
+    if (!ExtractArgListFromActualIncasts(actualIncasts, originalLinearArgs, extractInfo, originalMixFunc)) {
         return {};
     }
     // 处理传播依赖添加的outcast参数（在actualOutcasts中但不在InvokeInfo中）
-    if (!ExtractArgListFromActualOutcasts(actualOutcasts, originalLinearArgs, extractInfo)) {
+    if (!ExtractArgListFromActualOutcasts(actualOutcasts, originalLinearArgs, extractInfo, originalMixFunc)) {
         return {};
     }
 
@@ -1392,110 +1393,117 @@ void MixSubgraphSplit::UpdateOffsetExpressions(std::vector<OpImmediate>& offsets
     }
 }
 
-int MixSubgraphSplit::FindOriginalOffsetInMixFunction(LogicalTensorPtr tensor) const {
-    if (tensor == nullptr) {
-        ALOG_ERROR_F("Tensor is nullptr in FindOriginalOffsetInMixFunction");
+int MixSubgraphSplit::FindOriginalOffsetInMixFunction(LogicalTensorPtr tensor, Function* originalMixFunc) const {
+    if (tensor == nullptr || originalMixFunc == nullptr) {
+        ALOG_ERROR_F("Tensor or function is nullptr in FindOriginalOffsetInMixFunction");
         return -1;
     }
-
-    ALOG_DEBUG_F("Finding original offset for tensor %d in mix function", tensor->GetRawMagic());
-
-    // 检查producers
-    auto producers = tensor->GetProducers();
-    for (auto* producer : producers) {
-        if (producer == nullptr) {
-            continue;
-        }
-
-        auto oOperands = producer->GetOOperands();
-        for (size_t i = 0; i < oOperands.size(); i++) {
-            if (oOperands[i] == tensor) {
-                int offset = producer->GetOOpAttrOffset(i);
-                if (offset != -1) {
-                    ALOG_DEBUG_F("Found offset %d for tensor %d via producer op %d output[%zu]",
-                                offset, tensor->GetRawMagic(), producer->GetOpMagic(), i);
-                    return offset;
-                }
-            }
-        }
-    }
-
-    // 检查consumers
-    auto consumers = tensor->GetConsumers();
-    for (auto* consumer : consumers) {
-        if (consumer == nullptr) {
-            continue;
-        }
-
-        auto iOperands = consumer->GetIOperands();
+    int rawMagic = tensor->GetRawMagic();
+    ALOG_DEBUG_F("Finding original offset for tensor raw magic=%d in function %s", 
+            rawMagic, originalMixFunc->GetRawName().c_str());
+    auto operations = originalMixFunc->Operations(false);
+    for (auto& op : operations) {
+        if (op.IsNOP()) continue;
+        auto iOperands = op.GetIOperands();
         for (size_t i = 0; i < iOperands.size(); i++) {
-            if (iOperands[i] == tensor) {
-                int offset = consumer->GetIOpAttrOffset(i);
+            auto inputTensor = iOperands[i];
+            if (inputTensor.get() == tensor.get()) {  
+                int offset = op.GetIOpAttrOffset(i);
                 if (offset != -1) {
-                    ALOG_DEBUG_F("Found offset %d for tensor %d via consumer op %d input[%zu]",
-                                offset, tensor->GetRawMagic(), consumer->GetOpMagic(), i);
                     return offset;
                 }
             }
         }
-    }
-
-    ALOG_ERROR_F("Failed to find original offset for tensor %d in mix function (checked %zu producers, %zu consumers)",
-                tensor->GetRawMagic(), producers.size(), consumers.size());
+        auto oOperands = op.GetOOperands();
+        for (size_t i = 0; i < oOperands.size(); i++) {
+            auto outputTensor = oOperands[i];
+            if (outputTensor.get() == tensor.get()) {  
+                int offset = op.GetOOpAttrOffset(i);
+                if (offset != -1) {
+                    return offset;
+                }
+            }
+        }
+    }   
+    ALOG_ERROR_F("Tensor raw magic=%d not found in function %s operations",
+                rawMagic, originalMixFunc->GetRawName().c_str());
     return -1;
 }
 
 int MixSubgraphSplit::GetOffsetFromIncastParam(const SubfuncInvokeInfoTy::IncastParamPackTy& incastParam, Function& leafFunc) const {
-    // 通过opMagic在leafFunc中查找对应的操作
-    auto operations = leafFunc.Operations(false);
-    for (auto& op : operations) {
-        if (op.GetOpMagic() == incastParam.opMagic) {
-            // 检查输入操作数
-            if (incastParam.operandIdx >= 0 && static_cast<size_t>(incastParam.operandIdx) < op.GetIOperands().size()) {
-                int offset = op.GetIOpAttrOffset(incastParam.operandIdx);
-                if (offset != -1) {
-                    ALOG_DEBUG_F("Found input offset %d for incast (op=%d, idx=%d)",
-                                offset, incastParam.opMagic, incastParam.operandIdx);
-                    return offset;
-                } else {
-                    ALOG_WARN_F("Input offset is -1 for incast (op=%d, idx=%d)",
-                                incastParam.opMagic, incastParam.operandIdx);
-                }
-            } else {
-                ALOG_WARN_F("Invalid operand index %d for op %d (max=%zu)",
-                            incastParam.operandIdx, incastParam.opMagic, op.GetIOperands().size());
-            }
-            break;
-        }
+    // 首先尝试通过映射表查找
+    auto mapIt = leafFuncMagicMaps_.find(&leafFunc);
+    if (mapIt == leafFuncMagicMaps_.end()) {
+        ALOG_ERROR_F("No magic mapping found for leaf function %s", 
+                    leafFunc.GetRawName().c_str());
+        return -1;
     }
-    ALOG_WARN_F("Could not find op %d for incast", incastParam.opMagic);
-    return -1;
+    const auto& magicMap = mapIt->second.originalToClonedMagic;
+    auto magicIt = magicMap.find(incastParam.opMagic);
+    if (magicIt == magicMap.end()) {
+        ALOG_ERROR_F("No magic mapping for original magic %d in leaf function %s (incast)",
+                    incastParam.opMagic, leafFunc.GetRawName().c_str());
+        return -1;
+    }    
+    int mappedMagic = magicIt->second;
+    ALOG_DEBUG_F("Mapping original magic %d to %d for leaf function", 
+                incastParam.opMagic, mappedMagic);
+    // 用映射后的magic查找在leafFunc中查找对应的op
+    return GetOffsetFromOp(mappedMagic, incastParam.operandIdx, leafFunc, false);
 }
 
 int MixSubgraphSplit::GetOffsetFromOutcastParam(const SubfuncInvokeInfoTy::OutcastParamPackTy& outcastParam, Function& leafFunc) const {
-    // 通过opMagic在leafFunc中查找对应的操作
+    // 获取该leaf function的magic映射
+    auto mapIt = leafFuncMagicMaps_.find(&leafFunc);
+    if (mapIt == leafFuncMagicMaps_.end()) {
+        ALOG_ERROR_F("No magic mapping found for leaf function %s", 
+                    leafFunc.GetRawName().c_str());
+        return -1;
+    }
+    const auto& magicMap = mapIt->second.originalToClonedMagic;
+    // 查找对应的新magic
+    auto magicIt = magicMap.find(outcastParam.opMagic);
+    if (magicIt == magicMap.end()) {
+        ALOG_ERROR_F("No magic mapping for original magic %d in leaf function %s (outcast)",
+                    outcastParam.opMagic, leafFunc.GetRawName().c_str());
+        return -1;
+    }
+    int mappedMagic = magicIt->second;
+    ALOG_DEBUG_F("Mapping outcast op magic %d -> %d", outcastParam.opMagic, mappedMagic);
+    // 使用映射后的magic查找offset
+    return GetOffsetFromOp(mappedMagic, outcastParam.operandIdx, leafFunc, true);
+}
+
+// 统一的offset获取函数
+int MixSubgraphSplit::GetOffsetFromOp(int opMagic, int operandIdx, 
+                                     Function& leafFunc, bool isOutput) const {
     auto operations = leafFunc.Operations(false);
     for (auto& op : operations) {
-        if (op.GetOpMagic() == outcastParam.opMagic) {
-            // 检查输出操作数
-            if (outcastParam.operandIdx >= 0 && static_cast<size_t>(outcastParam.operandIdx) < op.GetOOperands().size()) {
-                int offset = op.GetOOpAttrOffset(outcastParam.operandIdx);
-                if (offset != -1) {
-                    ALOG_DEBUG_F("Found output offset %d for outcast (op=%d, idx=%d)",
-                                offset, outcastParam.opMagic, outcastParam.operandIdx);
+        if (op.GetOpMagic() == opMagic) {
+            if (isOutput) {
+                if (operandIdx >= 0 && static_cast<size_t>(operandIdx) < op.GetOOperands().size()) {
+                    int offset = op.GetOOpAttrOffset(operandIdx);
+                    if (offset != -1) {
+                        ALOG_DEBUG_F("Found output offset %d for op %d idx %d", 
+                                    offset, opMagic, operandIdx);
+                    }
                     return offset;
-                } else {
-                    ALOG_WARN_F("Output offset is -1 for outcast (op=%d, idx=%d)",
-                                outcastParam.opMagic, outcastParam.operandIdx);
                 }
             } else {
-                ALOG_WARN_F("Invalid operand index %d for op %d (max=%zu)",
-                            outcastParam.operandIdx, outcastParam.opMagic, op.GetOOperands().size());
+                if (operandIdx >= 0 && static_cast<size_t>(operandIdx) < op.GetIOperands().size()) {
+                    int offset = op.GetIOpAttrOffset(operandIdx);
+                    if (offset != -1) {
+                        ALOG_DEBUG_F("Found input offset %d for op %d idx %d", 
+                                    offset, opMagic, operandIdx);
+                    }
+                    return offset;
+                }
             }
-            break;
         }
     }
-    ALOG_WARN_F("Could not find op %d for outcast", outcastParam.opMagic);
+    
+    ALOG_WARN_F("Could not find offset for op %d idx %d (isOutput=%d)", 
+                opMagic, operandIdx, isOutput);
     return -1;
 }
 
