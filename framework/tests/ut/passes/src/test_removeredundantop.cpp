@@ -938,5 +938,22 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest17) {
     EXPECT_EQ(view_num, kNumZero);
     EXPECT_EQ(reshape_num, kNumZero);
 }
+
+TEST_F(TestRemoveRedundantOpPass, TestFailViewAssemble) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestRemoveRedundantOp", "TestRemoveRedundantOp", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    // Prepare the graph
+    std::vector<int64_t> shape = {kNumEight, kNumExpFour};
+    std::vector<int64_t> offset = {kNumZero, kNumZero};
+    auto viewIn = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    viewIn->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
+    auto viewOut = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    viewOut->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
+    currFunctionPtr->AddOperation(Opcode::OP_VIEW, {viewIn}, {viewOut});
+    auto assOut = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {viewOut}, {assOut});
+    RemoveRedundantOp removeredundantpass;
+    EXPECT_EQ(removeredundantpass.JudgedViewAssemble(*currFunctionPtr), FAILED);
+}
 }
 }
