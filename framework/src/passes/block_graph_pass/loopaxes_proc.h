@@ -32,7 +32,11 @@ private:
     Status UpdateFuncLoopAxes(Function &function);
     Status UpdateOpLoopAxes(Operation &op);
     bool SameLoopAxes(const std::vector<SymbolicScalar> &curLoopAxes);
-    int64_t groupIdx = -1;
+    void ClearStatus();
+
+    int64_t groupIdx{INVALID_LOOP_GROUPID};
+    int64_t lastGroupIdx{INVALID_LOOP_GROUPID};
+    std::shared_ptr<Operation> lastOpInLoop{nullptr};
     std::vector<SymbolicScalar> previousLoopAxes;
 };
 

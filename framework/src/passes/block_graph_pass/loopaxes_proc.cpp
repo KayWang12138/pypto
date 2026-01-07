@@ -27,23 +27,46 @@
 namespace npu {
 namespace tile_fwk {
 Status LoopaxesProc::RunOnFunction(Function &function) {
-    APASS_LOG_INFO_F(Elements::Operation, "===============================================================> Start LoopaxesProc.");
+    bool useMarkFor = config::GetPassGlobalConfig(KEY_VF_OPT_MARK_FOR, false);
+    if (!useMarkFor) {
+        return SUCCESS;
+    }
+
+    APASS_LOG_INFO_F(
+        Elements::Operation, "===============================================================> Start LoopaxesProc.");
     UpdateFuncLoopAxes(function);
-    APASS_LOG_INFO_F(Elements::Operation, "===============================================================> Finish LoopaxesProc.");
+    APASS_LOG_INFO_F(
+        Elements::Operation, "===============================================================> Finish LoopaxesProc.");
     return SUCCESS;
+}
+
+void SetOpLoopEnd(std::shared_ptr<Operation> op) {
+    op->SetAttribute(OpAttributeKey::loopGroupEnd, true);
+    APASS_LOG_INFO_F(
+        Elements::Operation, "Op Code %s, Op[%d] set loopGroup --End--", op->GetOpcodeStr().c_str(), op->GetOpMagic());
+}
+
+void LoopaxesProc::ClearStatus() {
+    lastGroupIdx = INVALID_LOOP_GROUPID;
+    previousLoopAxes.clear();
+    if (lastOpInLoop != nullptr) {
+        SetOpLoopEnd(lastOpInLoop);
+        lastOpInLoop.reset();
+    }
 }
 
 Status LoopaxesProc::UpdateOpLoopAxes(Operation &op) {
     std::vector<SymbolicScalar> loopAxes;
-    if (op.GetOOperands().empty() || op.GetOOperands().front() == nullptr) {
-        APASS_LOG_DEBUG_F(Elements::Operation, "Op[%d] has no output.", op.opmagic);
+    if (SUPPORT_VF_FUSE_OPS.find(op.GetOpcode()) == SUPPORT_VF_FUSE_OPS.end()) {
+        ClearStatus();
         return SUCCESS;
     }
     auto output = op.GetOOperands().front();
     auto shape = output->GetDynValidShape();
-    if (shape.size() <= 2) {
+    if (shape.size() <= NUM2) {
         // 被纳入group的要求维度大于2，否则将其设置为-1
-        op.SetAttribute(OpAttributeKey::loopGroup, -1);
+        op.SetAttribute(OpAttributeKey::loopGroup, INVALID_LOOP_GROUPID);
+        ClearStatus();
     } else {
         if (op.HasAttr(OpAttributeKey::loopAxes)) {
             loopAxes = op.GetVectorSymbolicScalarAttribute(OpAttributeKey::loopAxes);
@@ -55,30 +78,43 @@ Status LoopaxesProc::UpdateOpLoopAxes(Operation &op) {
         // 当前节点的loopaxes和group的loopaxes一致，当前节点划入当前的loopaxes
         // 当前节点的loopaxes和group的loopaxes不一致，划入一个新的group起点，进行group
         if (!SameLoopAxes(loopAxes)) {
-            groupIdx++;
+            lastGroupIdx = groupIdx++;
             previousLoopAxes = loopAxes;
+            op.SetAttribute(OpAttributeKey::loopGroupStart, true);
+            if (lastOpInLoop != nullptr) {
+                SetOpLoopEnd(lastOpInLoop);
+            }
+            APASS_LOG_INFO_F(Elements::Operation, "Op Code %s, Op[%d] set loopGroup ++Start++",
+                op.GetOpcodeStr().c_str(), op.GetOpMagic());
         }
         op.SetAttribute(OpAttributeKey::loopGroup, groupIdx);
         op.SetAttribute(OpAttributeKey::loopAxes, loopAxes);
+        lastOpInLoop = op.shared_from_this();
+        APASS_LOG_INFO_F(Elements::Operation, "Op Code %s, Op[%d] groupIdx is %d, loopAxes is %s",
+            op.GetOpcodeStr().c_str(), op.GetOpMagic(), groupIdx, IntVecToStr(loopAxes).c_str());
     }
     return SUCCESS;
 }
 
 Status LoopaxesProc::UpdateFuncLoopAxes(Function &function) {
-    for (auto &op : function.Operations(false)) {
-        UpdateOpLoopAxes(op);
-    }
     if (function.rootFunc_ == nullptr) {
         return SUCCESS;
     }
     APASS_LOG_DEBUG_F(Elements::Operation, "Function[%s] has rootFunc.", function.GetMagicName().c_str());
     for (auto &subProgram : function.rootFunc_->programs_) {
+        groupIdx = INVALID_LOOP_GROUPID;
+        lastGroupIdx = groupIdx;
+        lastOpInLoop.reset();
         if (subProgram.second == nullptr) {
-            APASS_LOG_DEBUG_F(Elements::Operation, "subProgram[%d] of Function[%s] is nullptr.", subProgram.first, function.GetMagicName().c_str());
+            APASS_LOG_DEBUG_F(Elements::Operation, "subProgram[%d] of Function[%s] is nullptr.", subProgram.first,
+                function.GetMagicName().c_str());
             continue;
         }
         for (auto &op : subProgram.second->Operations(false)) {
             UpdateOpLoopAxes(op);
+        }
+        if (lastGroupIdx != INVALID_LOOP_GROUPID && lastOpInLoop != nullptr) {
+            SetOpLoopEnd(lastOpInLoop);
         }
     }
     return SUCCESS;
