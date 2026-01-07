@@ -284,7 +284,7 @@ def ifa_func(q, k, v, block_table, kv_act_seqs, atten_out):
         the full attention matrix, significantly reducing memory requirements.
     """
     # 1. 添加支持动态的config
-    pypto.experimental.set_operation_config(combine_axis=True)
+    #pypto.experimental.set_operation_config(combine_axis=True)
 
     atten_cfg, tile_cfg = get_qwen_common_config()
     softmax_scale = atten_cfg.softmax_scale
@@ -427,7 +427,7 @@ def ifa_func(q, k, v, block_table, kv_act_seqs, atten_out):
                             pypto.assemble(oi_final_3d, oi_ofs, atten_out)
 
 def IFA(atten_cfg):
-    device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
+    device_id = os.environ.get('TILE_FWK_DEVICE_ID', 1)
     torch_dtype = torch.float16
     torch.npu.set_device(int(device_id))
     b = atten_cfg.b
@@ -510,7 +510,7 @@ def IFA(atten_cfg):
 @pytest.mark.skip(reason="large test case")
 def test_ifa():
     # 1. 设置参数
-    device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
+    device_id = os.environ.get('TILE_FWK_DEVICE_ID', 1)
     device = f'npu:{device_id}'
     atten_cfg, _ = get_qwen_common_config(device=device)
 
