@@ -88,6 +88,8 @@ public:
     static const std::string quantFlag;
     static const std::string loopGroup;
     static const std::string loopAxes;
+    static const std::string loopGroupStart;
+    static const std::string loopGroupEnd;
 };
 
 
