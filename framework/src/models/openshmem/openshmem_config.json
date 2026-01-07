@@ -1,0 +1,62 @@
+{
+  "openshmem": {
+    "numPes": 8,
+    "myPe": 0,
+    "symmetricHeapSize": 1073741824,
+    "enableNpuOptimization": true,
+    "enablePtoIntegration": true,
+    "ptoAccuracyLevel": 1,
+    "ptoArchType": "A2A3",
+    "npuCoreCount": 32,
+    "hbmMemorySize": 34359738368,
+    "enableHbmOptimization": true,
+    "maxConcurrentOperations": 16
+  },
+  "communication": {
+    "protocols": ["rdma", "hbm", "shared_memory"],
+    "bufferSizes": {
+      "sendBuffer": 4194304,
+      "recvBuffer": 4194304,
+      "symmetricHeap": 1073741824
+    },
+    "optimizations": {
+      "messageAggregation": true,
+      "communicationOverlap": true,
+      "zeroCopy": true,
+      "kernelBypass": true
+    }
+  },
+  "network": {
+    "topology": "mesh",
+    "dimensions": 2,
+    "bandwidthGBps": 100.0,
+    "latencyNs": 500,
+    "congestionControl": true,
+    "adaptiveRouting": true
+  },
+  "synchronization": {
+    "barrierAlgorithm": "dissemination",
+    "lockMechanism": "mcs_lock",
+    "fenceScope": "global",
+    "teamManagement": true
+  },
+  "performance": {
+    "monitoring": {
+      "enableRealTime": true,
+      "collectStatistics": true,
+      "bottleneckDetection": true
+    },
+    "optimization": {
+      "autoTune": true,
+      "loadBalancing": true,
+      "resourceAware": true
+    }
+  },
+  "pto_integration": {
+    "enableSimulation": true,
+    "simulationAccuracy": "high",
+    "feedbackOptimization": true,
+    "performancePrediction": true,
+    "bottleneckAnalysis": true
+  }
+}
