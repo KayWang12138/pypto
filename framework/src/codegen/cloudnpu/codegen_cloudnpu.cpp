@@ -30,6 +30,7 @@
 #include "interface/utils/op_info_manager.h"
 #include "codegen_cloudnpu.h"
 #include "interface/operation/distributed/distributed_common.h"
+#include "codegen/stmt_mgr/codegen_for_block.h"
 
 namespace npu::tile_fwk {
 const std::string ENV_ASCEND_HOME_PATH = "ASCEND_HOME_PATH";
@@ -134,6 +135,7 @@ std::string CodeGenCloudNPU::GenFuncBody(Function &subFunc, Function &topFunc) c
         topFunc.Dump().c_str());
 
     std::shared_ptr<SymbolManager> symbolMgr = std::make_shared<SymbolManager>();
+    std::shared_ptr<ForBlockManager> forBlkMgr = std::make_shared<ForBlockManager>();
     std::string allocSourceRegion;
     std::string tileOpSourceRegion;
     auto locToOffsetMap = GenRealizeIdMap(subFunc.GetParameter());
@@ -149,7 +151,7 @@ std::string CodeGenCloudNPU::GenFuncBody(Function &subFunc, Function &topFunc) c
 
         std::string allocSourceCode = GenAllocForLocalBuffer(op, symbolMgr);
 
-        CodeGenOpCloudNPU cop({symbolMgr, topFunc, subFunc, op, locToOffsetMap, ctx.isMainBlock});
+        CodeGenOpCloudNPU cop({symbolMgr, forBlkMgr, topFunc, subFunc, op, locToOffsetMap, ctx.isMainBlock});
         // update fs
         cop.UpdateSaturateStatus(fs);
         std::string tileOpSourceCode = cop.GenOpCode();
@@ -165,6 +167,7 @@ std::string CodeGenCloudNPU::GenFuncBody(Function &subFunc, Function &topFunc) c
         if (!allocSourceCode.empty()) {
             ALOG_INFO_F(": extra alloc generated(moved up to alloc region): %s", allocSourceCode.c_str());
         }
+        symbolMgr->OutForLoop();
         ALOG_INFO_F(": op codegen result: \n, %s", tileOpSourceCode.c_str());
         ALOG_INFO_F("------------------------ Op CodeGenNPU Finish -----------------------");
     }
