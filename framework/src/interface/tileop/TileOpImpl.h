@@ -39,6 +39,7 @@
 #include "vector/cast.h"
 #include "vector/reduce.h"
 #include "vector/sort.h"
+#include "vector/index_outcast.h"
 #include "vector/mte.h"
 #include "vector/gather.h"
 #include "vector/expand.h"
