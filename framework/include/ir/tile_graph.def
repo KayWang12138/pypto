@@ -24,7 +24,9 @@ DEFOP(
         OP_LOGICALNOT,
         OP_RECIPROCAL,
         OP_ABS,
-        OP_LN
+        OP_LN,
+        OP_DUPLICATE, // 没找到代码
+
     ),
     ATTR(int, CombineAxis)
 )
@@ -57,3 +59,82 @@ DEFOP(
     ATTR(int, CombineAxis),
     ATTR(int, Reverse),
 )
+
+
+
+
+
+DEF_OP(
+    TernaryOp,
+    INHERIT(ElementWiseTernaryTileOp),
+    OPCODE(
+        OP_WHERE_TT
+
+    ),
+    ATTR(int, whereBitMode)
+)
+
+DEF_OP(
+    TernaryScalarMixOp,
+    INHERIT(ElementWiseScalarMixTernaryTileOp),
+    OPCODE(
+        OP_WHERE_TS,
+        OP_WHERE_ST,
+        OP_WHERE_SS,
+        OP_INDEX_ADD, //他是三个tensor  两个 scalar  无额外属性
+        
+    ),
+    ATTR(int, whereBitMode),
+
+)
+
+DEF_OP(
+    MoveOp,
+    INHERIT(DataCopyTileOp),
+    OPCODE(
+        OP_INDEX_OUTCAST, // 三个tensor，三个scalar  无额外属性
+        OP_CONVERT,
+        OP_COPY_IN,
+        OP_COPY_OUT,
+        OP_GATHER_IN_L1,
+        OP_GATHER_IN_UB,
+        OP_LOAD,
+        OP_VLD,  //  没有代码
+        OP_VST   //  没有代码
+    ),
+    ATTR(int, startOffset),
+    ATTR(int, inputCombineAxis),
+    ATTR(int, outputCombineAxis),
+    ATTR(int, excludeBufferReuse),
+
+)
+
+DEF_OP(
+    SortOp,
+    INHERIT(SortTileOp),
+    OPCODE(
+        OP_BITSORT,
+        OP_MRGSORT,
+        OP_ARGSORT,
+        OP_TILEDMRGSORT,
+        OP_TOPK
+        
+    ),
+    ATTR(int, TOPK_OFFSET),
+    ATTR(int, TOPK_KVALUE)
+    ATTR(int, maskMode),
+    ATTR(int, TOPK_VALIDBIT),
+)
+
+DEF_OP(
+    BroadCastOp,
+    INHERIT(BroadcastTileOp),
+    OPCODE(
+        OP_FUSED_OP  // 没有代码，注册的是BROADCAST
+    ),
+    
+)
+
+
+
+
