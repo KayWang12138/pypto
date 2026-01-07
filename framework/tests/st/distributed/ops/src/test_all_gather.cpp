@@ -13,7 +13,6 @@
  * \brief
  */
 
-#include "distributed_op_test_suite.h"
 #include "distributed_op_test_common.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
@@ -27,34 +26,30 @@ namespace Distributed {
 template<typename T>
 void TestDynAllGather(OpTestParam &testParam)
 {
-    constexpr size_t paramsSize = 3;
-    auto [M, N, typeNum] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
+    constexpr size_t paramsSize = 5;
+    auto [row, col, typeNum, tileNumRow, tileNumCol] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
 
     DataType dType = GetDataTypeNum(typeNum);
 
-    int32_t outSize = M * N * testParam.rankSize;
+    int32_t outSize = row * col * testParam.rankSize;
 
-    Shape shape{M, N};
-    Shape outShape{testParam.rankSize * M, N};
+    Shape shape{row, col};
+    Shape outShape{testParam.rankSize * row, col};
     Tensor in(dType, shape, "in");
+    Tensor predToken(DT_INT32, {1, 1}, "predToken");
     Tensor barrierDummy(DT_INT32, {1, 1}, "barrierDummy");
     Tensor out(dType, outShape, "out");
 
     std::vector<T> inPtr = ReadToVector<T>(GetGoldenDir() + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", shape);
 
-    int32_t tileNum1 = 8;
-    int32_t tileNum2 = 8;
-    FUNCTION("ALLGATHER", {in, barrierDummy}, {out}) {
-        TileShape::Current().SetDistTile(
-            {M / tileNum1, tileNum1, M % tileNum1},
-            {N / tileNum2, tileNum2, N % tileNum2},
-            {1, testParam.rankSize, 0});
-        ShmemAllGather(in, barrierDummy, testParam.group, out);
+    FUNCTION("ALLGATHER", {in, predToken}, {out}) {
+        TileShape::Current().SetVecTile({M / tileNumRow, N / tileNumCol});
+        AllGather(predToken, in, testParam.group, static_cast<uint32_t>(testParam.rankSize), out);
     }
 
     ProgramData::GetInstance().AppendInputs({
         RawTensorData::CreateTensor<T>(in, inPtr),
-        RawTensorData::CreateTensorZero(barrierDummy)
+        RawTensorData::CreateTensorZero(predToken)
     });
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateTensorZero(out)
