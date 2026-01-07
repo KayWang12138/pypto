@@ -675,6 +675,71 @@ TEST_F(PreGraphTest, TestFixPipeReconnectGraph) {
     EXPECT_EQ(scaleValue, Element(DataType::DT_UINT64, NUM10));
     EXPECT_EQ(reluType, 1);
 }
+
+TEST_F(PreGraphTest, offsetcopy1) {
+    ComputationalGraphBuilder G;
+    // add tensor
+    DataType inputAstDtype = DataType::DT_FP16;
+    DataType outputAstDtype = DataType::DT_FP16;
+    G.AddTensor(inputAstDtype, {16, 64, 64}, "t1");
+    G.AddTensor(inputAstDtype, {1, 64, 64}, "t2");
+    G.AddTensor(outputAstDtype, {64, 64}, "t3");
+    G.AddTensor(outputAstDtype, {64, 64}, "t4");
+    // add op
+    G.AddOp(Opcode::OP_VIEW, {"t1"}, {"t2"}, "VIEW");
+    G.AddOp(Opcode::OP_RESHAPE, {"t2"}, {"t3"}, "RESHAPE");
+    std::vector<int64_t> offset = {2, 0, 0};
+    auto View = G.GetOp("VIEW");
+    auto attrA = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{2, 0, 0}, MemoryType::MEM_UNKNOWN);
+    View->SetOpAttribute(attrA);
+    G.AddOp(Opcode::OP_COPY_IN, {"t3"}, {"t4"}, "COPYIN");
+    // set incast and outcast
+    G.SetInCast({"t1"});
+    G.SetOutCast({"t4"});
+    // check before pass
+
+    // run pass
+    Function *function = G.GetFunction();
+    function->DumpJsonFile("offsetcopy1before.json");
+    EXPECT_NE(function, nullptr);
+    PreGraphProcess passLocal;
+    passLocal.Run(*function, "", "", 0);
+    function->DumpJsonFile("offsetcopy1after.json");
+    // check after pass
+}
+
+TEST_F(PreGraphTest, offsetcopy2) {
+    ComputationalGraphBuilder G;
+    // add tensor
+    DataType inputAstDtype = DataType::DT_FP16;
+    DataType outputAstDtype = DataType::DT_FP16;
+    G.AddTensor(inputAstDtype, {64, 64}, "t0");
+    G.AddTensor(inputAstDtype, {64, 64}, "t1");
+    G.AddTensor(inputAstDtype, {1, 64, 64}, "t2");
+    G.AddTensor(outputAstDtype, {16, 64, 64}, MemoryType::MEM_DEVICE_DDR, "t3");
+    // add op
+    G.AddOp(Opcode::OP_COPY_OUT, {"t0"}, {"t1"}, "COPYOUT");
+    G.AddOp(Opcode::OP_RESHAPE, {"t1"}, {"t2"}, "RESHAPE");
+    G.AddOp(Opcode::OP_ASSEMBLE, {"t2"}, {"t3"}, "ASSEMBLE");
+
+    auto ASSEMBLE = G.GetOp("ASSEMBLE");
+    auto attrA = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, std::vector<int64_t>{2, 0, 0},
+        std::vector<SymbolicScalar>{SymbolicScalar(2), SymbolicScalar(0), SymbolicScalar(0)});
+    ASSEMBLE->SetOpAttribute(attrA);
+    // set incast and outcast
+    G.SetInCast({"t0"});
+    G.SetOutCast({"t3"});
+    // check before pass
+
+    // run pass
+    Function *function = G.GetFunction();
+    function->DumpJsonFile("offsetcopy2before.json");
+    EXPECT_NE(function, nullptr);
+    PreGraphProcess passLocal;
+    passLocal.Run(*function, "", "", 0);
+    function->DumpJsonFile("offsetcopy2after.json");
+    // check after pass
+}
 } // namespace tile_fwk
 } // namespace npu
 #undef private
