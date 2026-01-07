@@ -56,30 +56,30 @@ TEST(IRTEST, TestBuilder) {
     // ===== Function =====
     auto func = builder.CreateFunction("test_value", FunctionKind::ControlFlow, sig, /*setAsEntry=*/true);
 
-    {
-        // enter func scope + create an initial block as insertion point
-        builder.EnterFunctionBody(ctx, func);
+    
+    // enter func scope + create an initial block as insertion point
+    builder.EnterFunctionBody(ctx, func);
 
-        // mul1_res = mul(input, scale1)
-        auto mulVal1 = builder.CreateTensor(ctx, tensorShape, DataType::FP32, "mul1_res");
-        auto mulOp1 = builder.CreateBinaryOp(Opcode::OP_MUL, inputTensor, scale1, mulVal1);
-        builder.Emit(ctx, mulOp1);
+    // mul1_res = mul(input, scale1)
+    auto mulVal1 = builder.CreateTensor(ctx, tensorShape, DataType::FP32, "mul1_res");
+    auto mulOp1 = builder.CreateBinaryOp(Opcode::OP_MUL, inputTensor, scale1, mulVal1);
+    builder.Emit(ctx, mulOp1);
 
-        auto pi = builder.CreateConst(ctx, 3.14, "const_pi");
+    auto pi = builder.CreateConst(ctx, 3.14, "const_pi");
 
-        // mul2_res = mul(mul1_res, pi)
-        auto mulVal2 = builder.CreateTensor(ctx, tensorShape, DataType::FP32, "mul2_res");
-        auto mulOp2 = builder.CreateBinaryOp(Opcode::OP_MUL, mulVal1, pi, mulVal2);
-        builder.Emit(ctx, mulOp2);
+    // mul2_res = mul(mul1_res, pi)
+    auto mulVal2 = builder.CreateTensor(ctx, tensorShape, DataType::FP32, "mul2_res");
+    auto mulOp2 = builder.CreateBinaryOp(Opcode::OP_MUL, mulVal1, pi, mulVal2);
+    builder.Emit(ctx, mulOp2);
 
-        builder.CreateReturn(ctx, { mulVal2 });
+    builder.CreateReturn(ctx, { mulVal2 });
 
-        ASSERT_EQ(ctx.func, func);
-        ASSERT_EQ(ctx.compound, func->GetCompound());
-        ASSERT_EQ(ctx.activeOpStmt, func->GetCompound()->GetStatements()[0]);
+    ASSERT_EQ(ctx.func, func);
+    ASSERT_EQ(ctx.compound, func->GetCompound());
+    ASSERT_EQ(ctx.activeOpStmt, func->GetCompound()->GetStatements()[0]);
 
-        ctx.PopScope();
-    }
+    ctx.PopScope();
+    
 
     ASSERT_EQ(ctx.func, nullptr);
     ASSERT_EQ(ctx.compound, nullptr);
@@ -122,88 +122,86 @@ TEST(IRTEST, TestControlFlow) {
     // ===== Function =====
     auto func = builder.CreateFunction("test_control", FunctionKind::ControlFlow, sig, /*setAsEntry=*/false);
     module->SetProgramEntry(func);
-
-    {
         // 进入函数体作用域
-        builder.EnterFunctionBody(ctx, func);
+    builder.EnterFunctionBody(ctx, func);
 
-        // for i = 0 to batch step 1
-        auto i = builder.CreateScalar(ctx, DataType::INT32, "i");
-        auto constant0 = builder.CreateConst(ctx, int64_t(0), "const_0");
-        auto constant1 = builder.CreateConst(ctx, int64_t(1), "const_1");
-        auto fs = builder.CreateForStmt(ctx, i, constant0, batch, constant1);
-        {
-            builder.EnterForBody(ctx, fs);
+    // for i = 0 to batch step 1
+    auto i = builder.CreateScalar(ctx, DataType::INT32, "i");
+    auto constant0 = builder.CreateConst(ctx, int64_t(0), "const_0");
+    auto constant1 = builder.CreateConst(ctx, int64_t(1), "const_1");
+    auto fs = builder.CreateForStmt(ctx, i, constant0, batch, constant1);
+        
+    builder.EnterForBody(ctx, fs);
 
-            // 目前没有 view / assemble，直接在整张 tensor 上做计算
-            // outputX = add(inputX, scale1)
-            auto resLoopX = builder.CreateTensor(ctx, tensorShape, DataType::FP32, "outputX");
-            auto addOpX = builder.CreateBinaryOp(Opcode::OP_ADD, inputX, scale1, resLoopX);
-            builder.Emit(ctx, addOpX);
+    // 目前没有 view / assemble，直接在整张 tensor 上做计算
+    // outputX = add(inputX, scale1)
+    auto resLoopX = builder.CreateTensor(ctx, tensorShape, DataType::FP32, "outputX");
+    auto addOpX = builder.CreateBinaryOp(Opcode::OP_ADD, inputX, scale1, resLoopX);
+    builder.Emit(ctx, addOpX);
 
-            // outputY = add(inputY, scale2)
-            auto resLoopY = builder.CreateTensor(ctx, tensorShape, DataType::FP32, "outputY");
-            auto addOpY = builder.CreateBinaryOp(Opcode::OP_ADD, inputY, scale2, resLoopY);
-            builder.Emit(ctx, addOpY);
+    // outputY = add(inputY, scale2)
+    auto resLoopY = builder.CreateTensor(ctx, tensorShape, DataType::FP32, "outputY");
+    auto addOpY = builder.CreateBinaryOp(Opcode::OP_ADD, inputY, scale2, resLoopY);
+    builder.Emit(ctx, addOpY);
 
-            // if i then outputX = mul(outputX, scale1) else outputY = mul(outputY, scale2)
-            auto ifs = builder.CreateIfStmt(ctx, i);
-            ValuePtr resIfX;
-            ValuePtr resIfY;
-            {
-                builder.EnterIfThen(ctx, ifs);
+    // if i then outputX = mul(outputX, scale1) else outputY = mul(outputY, scale2)
+    auto ifs = builder.CreateIfStmt(ctx, i);
+    ValuePtr resIfX;
+    ValuePtr resIfY;
+    
+    builder.EnterIfThen(ctx, ifs);
 
-                resIfX = builder.CreateTensor(ctx, tensorShape, DataType::FP32, "outputX");
-                auto mulOpX = builder.CreateBinaryOp(Opcode::OP_MUL, resLoopX, scale1, resIfX);
-                builder.Emit(ctx, mulOpX);
+    resIfX = builder.CreateTensor(ctx, tensorShape, DataType::FP32, "outputX");
+    auto mulOpX = builder.CreateBinaryOp(Opcode::OP_MUL, resLoopX, scale1, resIfX);
+    builder.Emit(ctx, mulOpX);
 
-                ctx.PopScope();
-            }
-            {
-                builder.EnterIfElse(ctx, ifs);
+    ctx.PopScope();
 
-                resIfY = builder.CreateTensor(ctx, tensorShape, DataType::FP32, "outputY");
-                auto mulOpY = builder.CreateBinaryOp(Opcode::OP_MUL, resLoopY, scale2, resIfY);
-                builder.Emit(ctx, mulOpY);
 
-                ctx.PopScope();
-            }
-            builder.ExitIfStatement(ctx, ifs);
+    builder.EnterIfElse(ctx, ifs);
 
-            // check if then and else yield
-            auto thenYield = std::dynamic_pointer_cast<YieldStatement>(*ifs->GetThenCompound()->GetStatements().rbegin());
-            std::unordered_set<ValuePtr> thenYieldSet(thenYield->Values().begin(), thenYield->Values().end());
-            std::unordered_set<ValuePtr> thenYieldSetGolden{resIfX, resLoopY};
-            ASSERT_EQ(thenYieldSet, thenYieldSetGolden);
+    resIfY = builder.CreateTensor(ctx, tensorShape, DataType::FP32, "outputY");
+    auto mulOpY = builder.CreateBinaryOp(Opcode::OP_MUL, resLoopY, scale2, resIfY);
+    builder.Emit(ctx, mulOpY);
 
-            auto elseYield = std::dynamic_pointer_cast<YieldStatement>(*ifs->GetElseCompound()->GetStatements().rbegin());
-            std::unordered_set<ValuePtr> elseYieldSet(elseYield->Values().begin(), elseYield->Values().end());
-            std::unordered_set<ValuePtr> elseYieldSetGolden{resLoopX, resIfY};
-            ASSERT_EQ(elseYieldSet, elseYieldSetGolden);
-            ASSERT_NE(elseYield, nullptr);
-            ASSERT_GE(elseYield->Values().size(), 2);
-            ASSERT_EQ(elseYield->Values()[0], resIfY);
-            ASSERT_EQ(elseYield->Values()[1], resLoopX);
+    ctx.PopScope();
+            
+    builder.ExitIfStatement(ctx, ifs);
 
-            ctx.PopScope(); // for-body
-        }
-        builder.ExitForStatement(ctx, fs);
+    // check if then and else yield
+    auto thenYield = std::dynamic_pointer_cast<YieldStatement>(*ifs->GetThenCompound()->GetStatements().rbegin());
+    std::unordered_set<ValuePtr> thenYieldSet(thenYield->Values().begin(), thenYield->Values().end());
+    std::unordered_set<ValuePtr> thenYieldSetGolden{resIfX, resLoopY};
+    ASSERT_EQ(thenYieldSet, thenYieldSetGolden);
 
-        // check for yield of for-statement: for 的结果应等于 if 的结果
-        auto ifsInFor = std::dynamic_pointer_cast<IfStatement>(fs->GetCompound()->GetStatements()[1]);
-        auto ifResults = ifsInFor->Results();
-        auto forYields = fs->Yield()->Values();
-        std::unordered_set<ValuePtr> ifResultSet(ifResults.begin(), ifResults.end());
-        std::unordered_set<ValuePtr> forYieldSet(forYields.begin(), forYields.end());
-        ASSERT_EQ(ifResultSet, forYieldSet);
+    auto elseYield = std::dynamic_pointer_cast<YieldStatement>(*ifs->GetElseCompound()->GetStatements().rbegin());
+    std::unordered_set<ValuePtr> elseYieldSet(elseYield->Values().begin(), elseYield->Values().end());
+    std::unordered_set<ValuePtr> elseYieldSetGolden{resLoopX, resIfY};
+    ASSERT_EQ(elseYieldSet, elseYieldSetGolden);
+    ASSERT_NE(elseYield, nullptr);
+    ASSERT_GE(elseYield->Values().size(), 2);
+    ASSERT_EQ(elseYield->Values()[0], resIfY);
+    ASSERT_EQ(elseYield->Values()[1], resLoopX);
 
-        // return 
-        builder.CreateReturn(ctx, {constant0});
-        // return outputX, outputY
-        builder.CreateReturn(ctx, fs->Results());
+    ctx.PopScope(); // for-body
+        
+    builder.ExitForStatement(ctx, fs);
 
-        ctx.PopScope(); // function-body
-    }
+    // check for yield of for-statement: for 的结果应等于 if 的结果
+    auto ifsInFor = std::dynamic_pointer_cast<IfStatement>(fs->GetCompound()->GetStatements()[1]);
+    auto ifResults = ifsInFor->Results();
+    auto forYields = fs->Yield()->Values();
+    std::unordered_set<ValuePtr> ifResultSet(ifResults.begin(), ifResults.end());
+    std::unordered_set<ValuePtr> forYieldSet(forYields.begin(), forYields.end());
+    ASSERT_EQ(ifResultSet, forYieldSet);
+
+    // return 
+    builder.CreateReturn(ctx, {constant0});
+    // return outputX, outputY
+    builder.CreateReturn(ctx, fs->Results());
+
+    ctx.PopScope(); // function-body
+    
     std::cout << *module << std::endl;
 }
 

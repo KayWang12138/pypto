@@ -349,67 +349,65 @@ TEST(IRTEST, TestTypeCompleteProgram) {
     // ===== 创建函数 =====
     auto func = builder.CreateFunction("test_type_complete", FunctionKind::ControlFlow, sig, /*setAsEntry=*/true);
 
-    {
-        // 进入函数体作用域
-        builder.EnterFunctionBody(ctx, func);
+    // 进入函数体作用域
+    builder.EnterFunctionBody(ctx, func);
 
-        // 创建常量 Scalar
-        auto constant2 = builder.CreateConst(ctx, 2.0, "const_2");
-        auto constant3 = builder.CreateConst(ctx, 3.0, "const_3");
+    // 创建常量 Scalar
+    auto constant2 = builder.CreateConst(ctx, 2.0, "const_2");
+    auto constant3 = builder.CreateConst(ctx, 3.0, "const_3");
 
-        // Tile 乘法操作：tile_mul = mul(input_tile, scale)
-        // 当两个操作数都是 Tile 时，输出也是 Tile，会使用 tile.mul
-        auto tileMul = builder.CreateTile(ctx, std::vector<size_t>{16, 32}, DataType::FP32, "tile_mul");
-        auto mulOp = builder.CreateBinaryOp(Opcode::OP_MUL, inputTile, scale, tileMul);
-        builder.Emit(ctx, mulOp);
+    // Tile 乘法操作：tile_mul = mul(input_tile, scale)
+    // 当两个操作数都是 Tile 时，输出也是 Tile，会使用 tile.mul
+    auto tileMul = builder.CreateTile(ctx, std::vector<size_t>{16, 32}, DataType::FP32, "tile_mul");
+    auto mulOp = builder.CreateBinaryOp(Opcode::OP_MUL, inputTile, scale, tileMul);
+    builder.Emit(ctx, mulOp);
 
-        // Tile 加法操作：tile_add = add(tile_mul, constant2)
-        // Tile + Scalar -> Tile，会使用 tile.add
-        auto tileAdd = builder.CreateTile(ctx, std::vector<size_t>{16, 32}, DataType::FP32, "tile_add");
-        auto addOp = builder.CreateBinaryOp(Opcode::OP_ADD, tileMul, constant2, tileAdd);
-        builder.Emit(ctx, addOp);
+    // Tile 加法操作：tile_add = add(tile_mul, constant2)
+    // Tile + Scalar -> Tile，会使用 tile.add
+    auto tileAdd = builder.CreateTile(ctx, std::vector<size_t>{16, 32}, DataType::FP32, "tile_add");
+    auto addOp = builder.CreateBinaryOp(Opcode::OP_ADD, tileMul, constant2, tileAdd);
+    builder.Emit(ctx, addOp);
 
-        // Tile 减法操作：tile_sub = sub(tile_add, constant3)
-        auto tileSub = builder.CreateTile(ctx, std::vector<size_t>{16, 32}, DataType::FP32, "tile_sub");
-        auto subOp = builder.CreateBinaryOp(Opcode::OP_SUB, tileAdd, constant3, tileSub);
-        builder.Emit(ctx, subOp);
+    // Tile 减法操作：tile_sub = sub(tile_add, constant3)
+    auto tileSub = builder.CreateTile(ctx, std::vector<size_t>{16, 32}, DataType::FP32, "tile_sub");
+    auto subOp = builder.CreateBinaryOp(Opcode::OP_SUB, tileAdd, constant3, tileSub);
+    builder.Emit(ctx, subOp);
 
-        // Tile 除法操作：tile_div = div(tile_sub, scale)
-        auto tileDiv = builder.CreateTile(ctx, std::vector<size_t>{16, 32}, DataType::FP32, "tile_div");
-        auto divOp = builder.CreateBinaryOp(Opcode::OP_DIV, tileSub, scale, tileDiv);
-        builder.Emit(ctx, divOp);
+    // Tile 除法操作：tile_div = div(tile_sub, scale)
+    auto tileDiv = builder.CreateTile(ctx, std::vector<size_t>{16, 32}, DataType::FP32, "tile_div");
+    auto divOp = builder.CreateBinaryOp(Opcode::OP_DIV, tileSub, scale, tileDiv);
+    builder.Emit(ctx, divOp);
 
-        // Scalar 操作：计算两个 scalar 的和
-        auto scalar1 = builder.CreateConst(ctx, 10.5, "scalar1");
-        auto scalar2 = builder.CreateConst(ctx, 5.2, "scalar2");
+    // Scalar 操作：计算两个 scalar 的和
+    auto scalar1 = builder.CreateConst(ctx, 10.5, "scalar1");
+    auto scalar2 = builder.CreateConst(ctx, 5.2, "scalar2");
 
-        // Scalar 加法：scalar_add = add(scalar1, scalar2)
-        auto scalarAdd = builder.CreateScalar(ctx, DataType::FP64, "scalar_add");
-        auto scalarAddOp = builder.CreateBinaryScalarOp(Opcode::OP_SCALAR_ADD, scalar1, scalar2, scalarAdd);
-        builder.Emit(ctx, scalarAddOp);
+    // Scalar 加法：scalar_add = add(scalar1, scalar2)
+    auto scalarAdd = builder.CreateScalar(ctx, DataType::FP64, "scalar_add");
+    auto scalarAddOp = builder.CreateBinaryScalarOp(Opcode::OP_SCALAR_ADD, scalar1, scalar2, scalarAdd);
+    builder.Emit(ctx, scalarAddOp);
 
-        // Scalar 乘法：scalar_mul = mul(scalar_add, constant2)
-        auto scalarMul = builder.CreateScalar(ctx, DataType::FP64, "scalar_mul");
-        auto scalarMulOp = builder.CreateBinaryScalarOp(Opcode::OP_SCALAR_MUL, scalarAdd, constant2, scalarMul);
-        builder.Emit(ctx, scalarMulOp);
+    // Scalar 乘法：scalar_mul = mul(scalar_add, constant2)
+    auto scalarMul = builder.CreateScalar(ctx, DataType::FP64, "scalar_mul");
+    auto scalarMulOp = builder.CreateBinaryScalarOp(Opcode::OP_SCALAR_MUL, scalarAdd, constant2, scalarMul);
+    builder.Emit(ctx, scalarMulOp);
 
-        // 创建返回语句，返回 tile 和 scalar
-        builder.CreateReturn(ctx, { tileDiv, scalarMul });
+    // 创建返回语句，返回 tile 和 scalar
+    builder.CreateReturn(ctx, { tileDiv, scalarMul });
 
-        // 验证构建器状态
-        ASSERT_EQ(ctx.func, func);
-        ASSERT_EQ(ctx.compound, func->GetCompound());
-        ASSERT_NE(ctx.activeOpStmt, nullptr);
+    // 验证构建器状态
+    ASSERT_EQ(ctx.func, func);
+    ASSERT_EQ(ctx.compound, func->GetCompound());
+    ASSERT_NE(ctx.activeOpStmt, nullptr);
 
-        // 验证值类型
-        ASSERT_EQ(tileMul->GetValueKind(), ValueKind::Tile);
-        ASSERT_EQ(tileAdd->GetValueKind(), ValueKind::Tile);
-        ASSERT_EQ(scalarAdd->GetValueKind(), ValueKind::Scalar);
-        ASSERT_EQ(scalarMul->GetValueKind(), ValueKind::Scalar);
+    // 验证值类型
+    ASSERT_EQ(tileMul->GetValueKind(), ValueKind::Tile);
+    ASSERT_EQ(tileAdd->GetValueKind(), ValueKind::Tile);
+    ASSERT_EQ(scalarAdd->GetValueKind(), ValueKind::Scalar);
+    ASSERT_EQ(scalarMul->GetValueKind(), ValueKind::Scalar);
 
-        ctx.PopScope();
-    }
-
+    ctx.PopScope();
+    
     // 验证离开作用域后的状态
     ASSERT_EQ(ctx.func, nullptr);
     ASSERT_EQ(ctx.compound, nullptr);

@@ -54,8 +54,6 @@ struct IRBuilderContext {
     }
 
     void PopScope() {
-        // assert(!scopeStack.empty() && "IRBuilderContext::PopScope: scopeStack is empty");
-
         ScopeFrame frame = scopeStack.back();
         scopeStack.pop_back();
 
