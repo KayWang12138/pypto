@@ -28,6 +28,7 @@
 #include "ir/program.h"
 #include "ir/function.h"
 #include "ir/value.h"
+#include "ir/utils.h"
 
 namespace pto {
 
@@ -322,6 +323,69 @@ TEST(IRTEST, TestTypeAllDataTypes) {
         std::ostringstream oss;
         tensorType->Print(oss);
         ASSERT_FALSE(oss.str().empty());
+    }
+}
+
+TEST(IRTEST, TestStringToValueType) {
+    // 测试 StringToValueType 函数的基本功能
+    // 测试所有支持的数据类型字符串（完整名称）
+    ASSERT_EQ(StringToValueType("bool"), DataType::BOOL);
+    ASSERT_EQ(StringToValueType("int4"), DataType::INT4);
+    ASSERT_EQ(StringToValueType("int8"), DataType::INT8);
+    ASSERT_EQ(StringToValueType("int16"), DataType::INT16);
+    ASSERT_EQ(StringToValueType("int32"), DataType::INT32);
+    ASSERT_EQ(StringToValueType("int64"), DataType::INT64);
+    ASSERT_EQ(StringToValueType("uint8"), DataType::UINT8);
+    ASSERT_EQ(StringToValueType("uint16"), DataType::UINT16);
+    ASSERT_EQ(StringToValueType("uint32"), DataType::UINT32);
+    ASSERT_EQ(StringToValueType("uint64"), DataType::UINT64);
+    ASSERT_EQ(StringToValueType("fp8"), DataType::FP8);
+    ASSERT_EQ(StringToValueType("fp16"), DataType::FP16);
+    ASSERT_EQ(StringToValueType("bf16"), DataType::BF16);
+    ASSERT_EQ(StringToValueType("fp32"), DataType::FP32);
+    ASSERT_EQ(StringToValueType("fp64"), DataType::FP64);
+    ASSERT_EQ(StringToValueType("hf4"), DataType::HF4);
+    ASSERT_EQ(StringToValueType("hf8"), DataType::HF8);
+    ASSERT_EQ(StringToValueType("bottom"), DataType::BOTTOM);
+    ASSERT_EQ(StringToValueType("unknown"), DataType::UNKNOWN);
+
+    // 测试别名（简短形式）
+    ASSERT_EQ(StringToValueType("i8"), DataType::INT8);
+    ASSERT_EQ(StringToValueType("i16"), DataType::INT16);
+    ASSERT_EQ(StringToValueType("i32"), DataType::INT32);
+    ASSERT_EQ(StringToValueType("i64"), DataType::INT64);
+    ASSERT_EQ(StringToValueType("u8"), DataType::UINT8);
+    ASSERT_EQ(StringToValueType("u16"), DataType::UINT16);
+    ASSERT_EQ(StringToValueType("u32"), DataType::UINT32);
+    ASSERT_EQ(StringToValueType("u64"), DataType::UINT64);
+    ASSERT_EQ(StringToValueType("f16"), DataType::FP16);
+    ASSERT_EQ(StringToValueType("f32"), DataType::FP32);
+    ASSERT_EQ(StringToValueType("f64"), DataType::FP64);
+
+    // 测试未知字符串（应该返回默认值 INT32）
+    ASSERT_EQ(StringToValueType("invalid_type"), DataType::UNKNOWN);
+    ASSERT_EQ(StringToValueType(""), DataType::UNKNOWN);
+    ASSERT_EQ(StringToValueType("xyz"), DataType::UNKNOWN);
+    ASSERT_EQ(StringToValueType("float"), DataType::UNKNOWN);
+    ASSERT_EQ(StringToValueType("double"), DataType::UNKNOWN);
+
+    // 测试大小写敏感性（函数是大小写敏感的，不匹配的字符串返回默认值 INT32）
+    ASSERT_EQ(StringToValueType("INT32"), DataType::UNKNOWN);  // 不匹配，返回默认值 INT32
+    ASSERT_EQ(StringToValueType("Int32"), DataType::UNKNOWN);  // 不匹配，返回默认值 INT32
+    ASSERT_EQ(StringToValueType("FP32"), DataType::UNKNOWN);   // 不匹配，返回默认值 INT32
+
+    // 测试与 DataTypeToString 的往返转换
+    std::vector<DataType> testTypes = {
+        DataType::BOOL, DataType::INT8, DataType::INT32, DataType::INT64,
+        DataType::UINT8, DataType::UINT32, DataType::UINT64,
+        DataType::FP16, DataType::FP32, DataType::FP64,
+        DataType::BF16, DataType::FP8, DataType::HF4, DataType::HF8
+    };
+
+    for (DataType dt : testTypes) {
+        std::string typeStr = DataTypeToString(dt);
+        DataType converted = StringToValueType(typeStr);
+        ASSERT_EQ(converted, dt) << "Failed to convert " << typeStr << " back to DataType";
     }
 }
 

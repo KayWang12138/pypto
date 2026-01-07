@@ -84,7 +84,7 @@ TEST(IRTEST, TestTensorOperation){
 
     ctx.PopScope();
 
-    ASSERT_EQ(func->GetCompound()->GetEnvVar("output"), tensorDiv);
+    ASSERT_EQ(func->GetCompound()->FindValue("output"), tensorDiv);
 
     std::cout << *module << std::endl;
 }

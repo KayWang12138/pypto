@@ -126,6 +126,9 @@ TEST(IRTEST, TestControlFlow) {
     auto constant0 = builder.CreateConst(ctx, int64_t(0), "const_0");
     auto constant1 = builder.CreateConst(ctx, int64_t(1), "const_1");
     auto fs = builder.CreateForStmt(ctx, i, constant0, batch, constant1);
+
+    // test for attribute
+    fs->Attributes()["unroll"] = "4";
         
     builder.EnterForBody(ctx, fs);
 
@@ -150,6 +153,11 @@ TEST(IRTEST, TestControlFlow) {
     resIfX = builder.CreateTensor(ctx, tensorShape, DataType::FP32, "outputX");
     auto mulOpX = builder.CreateBinaryOp(Opcode::OP_MUL, resLoopX, scale1, resIfX);
     builder.Emit(ctx, mulOpX);
+
+    // test compound remove value
+    ifs->GetThenCompound()->RemoveValue(resIfX);
+    ASSERT_EQ(ifs->GetThenCompound()->FindValue("outputX"), resLoopX);
+    ifs->GetThenCompound()->SetEnvVar("outputX", resIfX);
 
     ctx.PopScope();
 

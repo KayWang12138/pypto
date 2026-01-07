@@ -103,8 +103,7 @@ void OpStatement::Print(std::ostream& os, int indent) const {
 void ForStatement::Print(std::ostream& os, int indent) const {
     PrintIndent(os, indent);
 
-    // Print result variables if results_ is non-empty (preferred),
-    // otherwise derive from loop body's terminal yield.
+    // Print result variables if results_ is non-empty
     if (!results_.empty()) {
         for (size_t i = 0; i < results_.size(); ++i) {
             if (results_[i]) {
@@ -115,27 +114,8 @@ void ForStatement::Print(std::ostream& os, int indent) const {
             }
         }
         os << " = ";
-    } else {
-        // Fallback: derive result variables from the loop body's terminal yield, if any.
-        const YieldStatement* loopYield = nullptr;
-        if (compound_->GetStatementsNum() > 0) {
-            auto lastStmt = compound_->GetStatement(compound_->GetStatementsNum() - 1);
-            loopYield = dynamic_cast<const YieldStatement*>(lastStmt.get());
-        }
-        if (loopYield && !loopYield->Values().empty()) {
-            const auto& vals = loopYield->Values();
-            for (size_t i = 0; i < vals.size(); ++i) {
-                if (vals[i]) {
-                    os << vals[i]->GetSSAName();
-                }
-                if (i + 1 < vals.size()) {
-                    os << ", ";
-                }
-            }
-            os << " = ";
-        }
-    }
-
+    } 
+    
     // Print loop header: statement.for %iv = %lb to %ub step %step
     os << "statement.for ";
     if (iterationVar_) {

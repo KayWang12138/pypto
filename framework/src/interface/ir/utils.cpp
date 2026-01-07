@@ -104,7 +104,7 @@ DataType StringToValueType(const std::string& name) {
     if (name == "bottom") return DataType::BOTTOM;
     if (name == "unknown") return DataType::UNKNOWN;
     // Default to INT32 if unknown
-    return DataType::INT32;
+    return DataType::UNKNOWN;
 }
 
 } // namespace pto
