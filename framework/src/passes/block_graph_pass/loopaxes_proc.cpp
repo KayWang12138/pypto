@@ -27,16 +27,18 @@
 namespace npu {
 namespace tile_fwk {
 Status LoopaxesProc::RunOnFunction(Function &function) {
-    APASS_LOG_INFO_F(Elements::Operation, "===============================================================> Start LoopaxesProc.");
+    APASS_LOG_INFO_F(
+        Elements::Operation, "===============================================================> Start LoopaxesProc.");
     UpdateFuncLoopAxes(function);
-    APASS_LOG_INFO_F(Elements::Operation, "===============================================================> Finish LoopaxesProc.");
+    APASS_LOG_INFO_F(
+        Elements::Operation, "===============================================================> Finish LoopaxesProc.");
     return SUCCESS;
 }
 
 Status LoopaxesProc::UpdateOpLoopAxes(Operation &op) {
     std::vector<SymbolicScalar> loopAxes;
-    if (op.GetOOperands().empty() || op.GetOOperands().front() == nullptr) {
-        APASS_LOG_DEBUG_F(Elements::Operation, "Op[%d] has no output.", op.opmagic);
+    if (SUPPORT_VF_FUSE_OPS.find(op.GetOpcode()) == SUPPORT_VF_FUSE_OPS.end()) {
+        previousLoopAxes.clear();
         return SUCCESS;
     }
     auto output = op.GetOOperands().front();
@@ -44,6 +46,7 @@ Status LoopaxesProc::UpdateOpLoopAxes(Operation &op) {
     if (shape.size() <= 2) {
         // 被纳入group的要求维度大于2，否则将其设置为-1
         op.SetAttribute(OpAttributeKey::loopGroup, -1);
+        previousLoopAxes.clear();
     } else {
         if (op.HasAttr(OpAttributeKey::loopAxes)) {
             loopAxes = op.GetVectorSymbolicScalarAttribute(OpAttributeKey::loopAxes);
@@ -60,21 +63,21 @@ Status LoopaxesProc::UpdateOpLoopAxes(Operation &op) {
         }
         op.SetAttribute(OpAttributeKey::loopGroup, groupIdx);
         op.SetAttribute(OpAttributeKey::loopAxes, loopAxes);
+        APASS_LOG_INFO_F(Elements::Operation, "Op Code %s, Op[%d] groupIdx is %d, loopAxes is %s",
+            op.GetOpcodeStr().c_str(), op.opmagic, groupIdx, IntVecToStr(loopAxes).c_str());
     }
     return SUCCESS;
 }
 
 Status LoopaxesProc::UpdateFuncLoopAxes(Function &function) {
-    for (auto &op : function.Operations(false)) {
-        UpdateOpLoopAxes(op);
-    }
     if (function.rootFunc_ == nullptr) {
         return SUCCESS;
     }
     APASS_LOG_DEBUG_F(Elements::Operation, "Function[%s] has rootFunc.", function.GetMagicName().c_str());
     for (auto &subProgram : function.rootFunc_->programs_) {
         if (subProgram.second == nullptr) {
-            APASS_LOG_DEBUG_F(Elements::Operation, "subProgram[%d] of Function[%s] is nullptr.", subProgram.first, function.GetMagicName().c_str());
+            APASS_LOG_DEBUG_F(Elements::Operation, "subProgram[%d] of Function[%s] is nullptr.", subProgram.first,
+                function.GetMagicName().c_str());
             continue;
         }
         for (auto &op : subProgram.second->Operations(false)) {
