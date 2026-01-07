@@ -155,26 +155,11 @@ def attention_post_compute(attn_res: pypto.Tensor, cos: pypto.Tensor, sin: pypto
     c1_tile = tile_config.c1_tile
     c2_tile = tile_config.c2_tile
 
-    print(f"\n =============== shape args start ====================")
-    print(f"t: {t}, n_q: {n_q}, d: {d}")
-    print(f"n_g: {n_g}, o_lora_rank: {o_lora_rank}")
-    print(f"rope_dim: {rope_dim}, nope_dim: {nope_dim}")
-    print(f"h: {h}")
-    print(f"unroll_list: {unroll_list}")
-    print(f"rope3d_tile_config: {rope3d_tile_config}")
-    print(f"c1_tile: {c1_tile}")
-    print(f"c2_tile: {c2_tile}")
-    print(f"=============== shape args end ==================== \n")
-
-
     for t_idx, unrollLength in pypto.loop_unroll(0, t, 1, name="ATTN_POST_T_LOOP", idx_name="t_idx",
                                                  unroll_list=unroll_list):
         tile_t = unrollLength
 
-        print("========================= tile_t: ", tile_t)
-        print("========================= t_idx: ", t_idx)
-
-        # TODO: 先实现功能版本，会产生冗余搬运，后续考虑如何进行inplace的rope
+        # for nope+rope
         tmp_tensor = pypto.tensor([tile_t, n_q, d], dtype, "tmp_tensor")
 
         # copy nope to tmp_tensor
@@ -233,8 +218,7 @@ def attention_post_compute(attn_res: pypto.Tensor, cos: pypto.Tensor, sin: pypto
     runtime_options={
         "stitch_function_inner_memory": 128,
         "stitch_function_outcast_memory": 128
-    },
-    host_options={"only_codegen": True}
+    }
 )
 def attention_post_decode(attn_res: pypto.Tensor, cos: pypto.Tensor, sin: pypto.Tensor,
                           wo_a: pypto.Tensor, wo_b: pypto.Tensor, hidden_states: pypto.Tensor,
@@ -266,13 +250,13 @@ def npu_attention_post_v4(attn_res: pypto.Tensor, cos: pypto.Tensor, sin: pypto.
 
     # tiling
     tile_config = AttnPostConfig(
-        unroll_list=[64, 32, 16, 8, 4, 2, 1],
+        unroll_list=[128, 64, 32, 16, 8, 1],
         rope3d_tile_config = Rope3dTileConfig(
             [1, 64],
             [1, 64, 64],
             [1, 64, 128, 128]
         ),
-        c1_tile = [[128, 128], [64, 64], [512, 512]],
+        c1_tile = [[64, 64], [64, 64], [512, 512]],
         c2_tile = [[128, 128], [128, 128], [256, 256]]
     )
 
