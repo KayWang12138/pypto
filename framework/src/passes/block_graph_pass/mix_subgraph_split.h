@@ -92,10 +92,8 @@ struct MixSubgraphInfo {
 };
 
 struct ExtractInfo {
-    std::vector<std::vector<SymbolicScalar>> &extractedArgList;
     std::vector<int>& iOffsets;
     std::vector<int>& oOffsets;
-    int& currentOffset;
     std::set<LogicalTensorPtr>& processedTensors;
 };
 
@@ -274,11 +272,11 @@ private:
     Operation* FindNextOpInSequence(Operation* op, Function& mixSubgraphFunc) const;
     void DisplayArg(const std::vector<SymbolicScalar>& originalLinearArgs) const;
     
-    bool ExtractArgListFromIncast(const SubfuncInvokeInfoTy& invokeInfo, Function& leafFunc, std::vector<SymbolicScalar> &originalLinearArgs, ExtractInfo& extractInfo) const;
-    bool ExtractArgListFromOutcast(const SubfuncInvokeInfoTy& invokeInfo, Function& leafFunc, std::vector<SymbolicScalar> &originalLinearArgs, ExtractInfo& extractInfo) const;
-    bool ExtractArgListFromGlobalTensor(const SubfuncInvokeInfoTy& invokeInfo, Function& leafFunc, std::vector<SymbolicScalar> &originalLinearArgs, ExtractInfo& extractInfo) const;
-    bool ExtractArgListFromActualIncasts(const std::vector<std::shared_ptr<LogicalTensor>> &actualIncasts, std::vector<SymbolicScalar> &originalLinearArgs, ExtractInfo& extractInfo, Function* originalMixFunc) const; 
-    bool ExtractArgListFromActualOutcasts(const std::vector<std::shared_ptr<LogicalTensor>> &actualOutcasts, std::vector<SymbolicScalar> &originalLinearArgs, ExtractInfo& extractInfo, Function* originalMixFunc) const;
+    bool ExtractArgListFromIncast(const SubfuncInvokeInfoTy& invokeInfo, Function& leafFunc, ExtractInfo& extractInfo) const;
+    bool ExtractArgListFromOutcast(const SubfuncInvokeInfoTy& invokeInfo, Function& leafFunc, ExtractInfo& extractInfo) const;
+    bool ExtractArgListFromGlobalTensor(const SubfuncInvokeInfoTy& invokeInfo, Function& leafFunc, ExtractInfo& extractInfo) const;
+    bool ExtractArgListFromActualIncasts(const std::vector<std::shared_ptr<LogicalTensor>> &actualIncasts, ExtractInfo& extractInfo, Function* originalMixFunc) const; 
+    bool ExtractArgListFromActualOutcasts(const std::vector<std::shared_ptr<LogicalTensor>> &actualOutcasts, ExtractInfo& extractInfo, Function* originalMixFunc) const;
     // 参数提取函数
     std::vector<std::vector<SymbolicScalar>> ExtractArgListForLeafFunction(
         Function& leafFunc,
