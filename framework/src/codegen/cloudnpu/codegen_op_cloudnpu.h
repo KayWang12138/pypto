@@ -28,11 +28,13 @@
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "codegen/symbol_mgr/codegen_symbol.h"
+#include "codegen/stmt_mgr/codegen_for_block.h"
 #include "codegen/codegen_op.h"
 
 namespace npu::tile_fwk {
 struct CodeGenOpCloudNPUCtx {
     std::shared_ptr<SymbolManager> symbolManager;
+    std::shared_ptr<ForBlockManager> forBlockManager;
     Function &topFunc;
     Function &subFunc;
     const Operation &ops;
@@ -177,7 +179,7 @@ private:
     template <typename T>
     bool GetAttr(const std::string &key, T &value) const;
 
-    TileTensor BuildTileTensor(int paramIdx, const std::string &usingType);
+    TileTensor BuildTileTensor(int paramIdx, const std::string &usingType, bool isInLoop = false);
     void UpdateTileTensorShapeAndStride(int paramIdx, TileTensor &tileTensor, bool isSpillToGm);
     std::vector<std::string> BuildStride(const std::vector<int64_t> &input);
 
@@ -402,6 +404,8 @@ private:
     std::unordered_map<Opcode, std::function<std::string()>> aicpuOps_;
 
     std::unordered_map<Opcode, std::function<std::string()>> opsGenMap_;
+
+    std::shared_ptr<ForBlockManager> forBlkMgr_;
 
     mutable std::map<unsigned, std::reference_wrapper<std::string>> tempVarsMap;
     mutable unsigned tempKey = 0;

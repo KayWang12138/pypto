@@ -123,12 +123,23 @@ std::string SymbolManager::AddTileTensorUsing(const TileTensorUsing &tileTensorU
 void SymbolManager::AddTileTensor(const TileTensor &tileTensor) {
     auto result = tileTensor_.insert({tileTensor, tileTensor.tensorName});
     std::string tensorName = result.second ? tileTensor.tensorName : result.first->second;
-    tileTensorByMagic_.insert({tileTensor.magic, tensorName});
+    if (tileTensor.isInLoop) {
+        tileTensorByMagicInLoop_.insert({tileTensor.magic, tensorName});
+    } else {
+        tileTensorByMagic_.insert({tileTensor.magic, tensorName});
+    }
     ALOG_INFO_F("tileTensor_.insert result is %d Add TileTensor --> tensor magic: %d, tensor name: %s, tile tensor: %s",
         result.second, tileTensor.magic, tensorName.c_str(), tileTensor.ToString().c_str());
 }
 
-std::string SymbolManager::QueryTileTensorByMagic(int magic) {
+std::string SymbolManager::QueryTileTensorByMagic(int magic, bool isInLoop) {
+    if (isInLoop) {
+        auto iterByMagic = tileTensorByMagicInLoop_.find(magic);
+        if (iterByMagic != tileTensorByMagicInLoop_.end()) {
+            return iterByMagic->second;
+        }
+    }
+
     auto iterByMagic = tileTensorByMagic_.find(magic);
     if (iterByMagic != tileTensorByMagic_.end()) {
         return iterByMagic->second;

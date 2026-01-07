@@ -59,6 +59,7 @@ struct TileTensor {
     std::vector<int64_t> rawShape;
     std::vector<int64_t> localBufOffset;
     bool isStatic;
+    bool isInLoop;
 
     bool operator==(const TileTensor &other) const {
         return dim == other.dim && bufVar == other.bufVar && shape == other.shape && dtype == other.dtype &&
@@ -224,7 +225,7 @@ public:
 
     std::string AddTileTensorUsing(const TileTensorUsing &tileTensorUsing);
     void AddTileTensor(const TileTensor &tileTensor);
-    std::string QueryTileTensorByMagic(int magic);
+    std::string QueryTileTensorByMagic(int magic, bool isInLoop=false);
     // To be compatible with GM Tensor in Static Function Type like same ddr magic number with different parmaIdx & 'GMStackBase'
     // e.g. ((__gm__ GMTensorInfo*)param + 1), ((__gm__ GMTensorInfo*)param + 2)
     std::string QueryTileTensorByBufVarName(const std::string &bufVarName);
@@ -248,6 +249,7 @@ private:
     std::unordered_map<TileTensor, std::string, TileTensorHash> tileTensor_;
     //<tensor magic, tensorName>
     std::unordered_map<int, std::string> tileTensorByMagic_;
+    std::unordered_map<int, std::string> tileTensorByMagicInLoop_;
     //<using type, TileTensorUsing>
     std::unordered_map<std::string, TileTensorUsing> tileTensorUsing_;
 };
