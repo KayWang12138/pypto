@@ -16,7 +16,8 @@
 #include "tileop_common.h"
 #include "vector.h"
 #include "mte_dyn.h"
-#include <array>#include "cube.h"
+#include <array>
+#include "cube.h"
 
 #include <type_traits>
 
