@@ -111,6 +111,7 @@ public: // public api for torch
     void CreateCallerCalleeLink(Function *caller, Function *callee);
     void RefillCompileQueue(Function* func);
     void UpdateCompileTask();
+    void ClearEmptyHiddenFunction();
 
     // Gradient Registry Management (tied to Program lifecycle)
     void RegisterGradientTensor(int magic, LogicalTensorPtr tensor);

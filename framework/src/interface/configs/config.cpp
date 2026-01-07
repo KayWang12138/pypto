@@ -104,6 +104,11 @@ struct RunDataDir {
     bool empty() {
         return (path.empty() || dName.empty());
     }
+
+    void Reset() {
+        path.clear();
+        dName.clear();
+    }
 };
 
 struct ConfigStorage {
@@ -125,6 +130,7 @@ struct ConfigStorage {
     void Reset() {
         funcType = FunctionType::DYNAMIC;
         semanticLabel = nullptr;
+        rundataDir.Reset();
         for (auto &[key, val] : g_passConfig) {
             options["pass." + key] = val;
         }
@@ -320,7 +326,7 @@ static void SetOptionPost(const std::string &key) {
 }
 
 void experimental::SetOption(const std::string &key, int64_t value) {
-    ConfigManagerNg::GetInstance().CurrentScope()->UpdateValue(key, value);
+    ConfigManagerNg::CurrentScope()->UpdateValue(key, value);
     g_rwlock.lock();
     g_config.options[StringUtils::ToLower(key)] = value;
     g_rwlock.unlock();
@@ -328,7 +334,7 @@ void experimental::SetOption(const std::string &key, int64_t value) {
 }
 
 void experimental::SetOption(const std::string &key, bool value) {
-    ConfigManagerNg::GetInstance().CurrentScope()->UpdateValue(key, value);
+    ConfigManagerNg::CurrentScope()->UpdateValue(key, value);
     g_rwlock.lock();
     g_config.options[StringUtils::ToLower(key)] = value;
     g_rwlock.unlock();
@@ -336,7 +342,7 @@ void experimental::SetOption(const std::string &key, bool value) {
 }
 
 void experimental::SetOption(const std::string &key, const char *value) {
-    ConfigManagerNg::GetInstance().CurrentScope()->UpdateValue(key, value);
+    ConfigManagerNg::CurrentScope()->UpdateValue(key, value);
     g_rwlock.lock();
     g_config.options[StringUtils::ToLower(key)] = value;
     g_rwlock.unlock();
@@ -344,7 +350,7 @@ void experimental::SetOption(const std::string &key, const char *value) {
 }
 
 void experimental::SetOption(const std::string &key, const std::string &value) {
-    ConfigManagerNg::GetInstance().CurrentScope()->UpdateValue(key, value);
+    ConfigManagerNg::CurrentScope()->UpdateValue(key, value);
     g_rwlock.lock();
     g_config.options[StringUtils::ToLower(key)] = value;
     g_rwlock.unlock();
@@ -352,7 +358,7 @@ void experimental::SetOption(const std::string &key, const std::string &value) {
 }
 
 void experimental::SetOption(const std::string &key, const std::vector<int64_t> &value) {
-    ConfigManagerNg::GetInstance().CurrentScope()->UpdateValue(key, value);
+    ConfigManagerNg::CurrentScope()->UpdateValue(key, value);
     g_rwlock.lock();
     g_config.options[StringUtils::ToLower(key)] = value;
     g_rwlock.unlock();
@@ -367,7 +373,7 @@ void experimental::SetOption(const std::string &key, const std::vector<std::stri
 }
 
 void experimental::SetOption(const std::string &key, const std::map<int64_t, int64_t> &value) {
-    ConfigManagerNg::GetInstance().CurrentScope()->UpdateValue(key, value);
+    ConfigManagerNg::CurrentScope()->UpdateValue(key, value);
     g_rwlock.lock();
     g_config.options[StringUtils::ToLower(key)] = value;
     g_rwlock.unlock();
@@ -388,6 +394,7 @@ PrintOptions &GetPrintOptions() {
 void Reset() {
     g_rwlock.lock();
     g_config.Reset();
+    ConfigManagerNg::CurrentScope()->Clear();
     g_rwlock.unlock();
 }
 
@@ -395,14 +402,15 @@ std::unordered_map<std::string, ValueType> GetOptions(){
     return g_config.options;
 }
 
-std::shared_ptr<ConfigStorage> Duplicate() {
+std::shared_ptr<ConfigScope> Duplicate() {
     std::shared_lock lock(g_rwlock);
-    return std::make_shared<ConfigStorage>(g_config);
+    auto scopeClone = ConfigManagerNg::CurrentScope();
+    return scopeClone;
 }
 
-void Restore(std::shared_ptr<ConfigStorage> config) {
+void Restore(std::shared_ptr<ConfigScope> config) {
     g_rwlock.lock();
-    g_config = *config;
+    ConfigManagerNg::GetInstance().PushScope(config);
     g_rwlock.unlock();
 }
 

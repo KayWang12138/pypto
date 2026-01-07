@@ -13,8 +13,6 @@
  * \brief
  */
 
-#include "tilefwk/tilefwk.h"
-
 #include <sstream>
 #include <stdexcept>
 #include <fstream>
@@ -31,8 +29,6 @@
 #include "interface/function/function.h"
 #include "interface/interpreter/flow_verifier.h"
 #include "interface/machine/host/host_machine.h"
-#include "tilefwk/tilefwk.h"
-#include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "passes/pass_mgr/pass_manager.h"
 #include "passes/tensor_graph_pass/vjp_registry.h"
@@ -220,48 +216,16 @@ std::vector<Function*> Program::GetReachableFunctions(const std::string& entryNa
     return reachable;
 }
 
-void Program::RegisterGradientTensor(int magic, LogicalTensorPtr tensor) {
-    if (tensor != nullptr) {
-        gradientRegistry_[magic] = tensor;
-    }
-}
-
-LogicalTensorPtr Program::GetGradientTensor(int magic) {
-    auto it = gradientRegistry_.find(magic);
-    if (it != gradientRegistry_.end()) {
-        return it->second;
-    }
-    return nullptr;
-}
-
-void Program::ClearGradientRegistry() {
-    gradientRegistry_.clear();
-}
-
-std::vector<Function*> Program::GetReachableFunctions(const std::string& entryName) {
-    auto entryFunc = GetFunctionByMagicName(entryName);
-    if (!entryFunc) {
-        return {};
-    }
-
-    std::vector<Function*> reachable;
-    std::unordered_set<Function*> visited;
-    std::function<void(Function*)> visit = [&](Function* f) {
-        if (!f || !visited.insert(f).second) {
-            return;
+void Program::ClearEmptyHiddenFunction() {
+    std::vector<std::string> funcNames;
+    for (auto &[name, func] : functionmap_) {
+        if (func->IsHiddenFunction() && func->Operations(false).IsEmpty()) {
+            funcNames.push_back(name);
         }
-        for (auto* callee : f->GetCalleeFunctionList()) {
-            visit(callee);
-        }
-        if (f != entryFunc) {
-            reachable.push_back(f);
-        }
-    };
-    visit(entryFunc);
-    if (reachable.empty()) {
-        reachable.push_back(entryFunc);
     }
-    return reachable;
+    for (auto &name : funcNames) {
+        functionmap_.erase(name);
+    }
 }
 
 void SetParamConfig(Function* currentFunctionPtr_) {
@@ -287,7 +251,7 @@ void SetParamConfig(Function* currentFunctionPtr_) {
 
 #if ENABLE_HIDDENLOOP
 void Program::BeginHiddenLoop(Function *func, const FunctionType &funcType, const std::string funcName) {
-    if (func->GetGraphType() == GraphType::TENSOR_GRAPH 
+    if (func->GetGraphType() == GraphType::TENSOR_GRAPH
         && func->GetFunctionType() == funcType
         && !func->IsHiddenFunction()) {
         BeginFunction(funcName, FunctionType::DYNAMIC_LOOP_PATH, GraphType::TENSOR_GRAPH, {}, true);
@@ -295,9 +259,9 @@ void Program::BeginHiddenLoop(Function *func, const FunctionType &funcType, cons
 }
 
 void Program::EndHiddenLoop(Function *func, bool generateCall) {
-    if (func->GetGraphType() == GraphType::TENSOR_GRAPH 
-        && func->GetFunctionType() == FunctionType::DYNAMIC_LOOP_PATH 
-        && func->IsHiddenFunction() 
+    if (func->GetGraphType() == GraphType::TENSOR_GRAPH
+        && func->GetFunctionType() == FunctionType::DYNAMIC_LOOP_PATH
+        && func->IsHiddenFunction()
         && !func->Parent().IsHiddenFunction()) {
         func->Parent().SetHiddenFunction(true);
         EndFunction(func->GetRawName(), generateCall);
@@ -406,7 +370,6 @@ void Program::HandleTaskSubmission(Function *result) {
                 HostMachine::GetInstance().StashTask(result);
             } else {
                 ALOG_INFO("Empty function: ", result->GetRawName(), ", skip stashing and removed");
-                functionmap_.erase(result->GetMagicName());
                 auto &scopes = GetTensorSlotManager()->scopeList;
                 scopes.erase(std::remove_if(scopes.begin(), scopes.end(),
                                  [result](const std::shared_ptr<TensorSlotScope> &scope) {

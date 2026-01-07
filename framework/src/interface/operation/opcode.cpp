@@ -437,6 +437,8 @@ OpcodeManager::OpcodeManager() {
         {         Opcode::OP_UB_COPY_IN,          "TLoad"},
         {        Opcode::OP_UB_COPY_OUT,         "TStore"},
         {Opcode::OP_TRANSPOSE_VNCHWCONV,         "TTrans"},
+        {   Opcode::OP_TRANSPOSE_MOVEIN,   "TTransMoveIn"},
+        {  Opcode::OP_TRANSPOSE_MOVEOUT,  "TTransMoveOut"},
         {                Opcode::OP_ADD,           "TAdd"},
         {                Opcode::OP_SUB,           "TSub"},
         {                Opcode::OP_DIV,           "TDiv"},
@@ -450,7 +452,10 @@ OpcodeManager::OpcodeManager() {
         {               Opcode::OP_CAST,          "TCast"},
         {      Opcode::OP_ROWSUM_SINGLE,  "TRowSumSingle"},
         {      Opcode::OP_ROWMAX_SINGLE,  "TRowMaxSingle"},
+        {      Opcode::OP_ROWMIN_SINGLE,  "TRowMinSingle"},
         {         Opcode::OP_ROWSUMLINE,    "TRowSumLine"},
+        {         Opcode::OP_ROWMAXLINE,    "TRowMaxLine"},
+        {         Opcode::OP_ROWMINLINE,    "TRowMinLine"},
         {           Opcode::OP_WHERE_TT,         "TWhere"},
         {               Opcode::OP_ADDS,          "TAddS"},
         {               Opcode::OP_MULS,          "TMulS"},
@@ -464,5 +469,6 @@ OpcodeManager::OpcodeManager() {
         {            Opcode::OP_PAIRMAX,       "TPairMax"},
         {            Opcode::OP_PAIRMIN,       "TPairMin"},
         {        Opcode::OP_L0C_COPY_UB,       "TExtract"},
+        {            Opcode::OP_VEC_DUP,        "TVecDup"},
     };
 } // namespace npu::tile_fwk

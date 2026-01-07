@@ -16,7 +16,6 @@ add_subdirectory(framework)
 set(_Target ${PTO_Fwk_STestNamePrefix}_distributed)
 file(GLOB_RECURSE _Sources src/*.cpp)
 set(_PrivateLinkLibraries
-        tile_fwk_passes
         tile_fwk_interface
         tile_fwk_codegen
         tile_fwk_compiler
@@ -51,7 +50,6 @@ set(_DistributedGTestCaseFilterConfig
         "DistributedTest.shmem_moe_combine_bfloat16_8_5120_0_160_8_4" "4"
         "DistributedTest.shmem_moe_combine_bfloat16_256_5120_0_160_8_4" "4"
         "DistributedTest.shmem_allgather_attn_post_reducescatter_bfloat16_64_1_32_256_128_128_4" "4"
-        "DistributedTest.shmem_allreduce_add_allreduce_bfloat16_256_102400_4" "4"
 )
 set(_LdLibrariesExt
         tile_fwk_compiler

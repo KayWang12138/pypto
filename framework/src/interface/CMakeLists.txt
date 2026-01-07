@@ -17,6 +17,8 @@ file(GLOB _Interface_Srcs
         function/*.cpp
         interpreter/*.cpp
         utils/*.cpp
+        ir/*.cpp
+        ir/builder/*.cpp
 
         # Operation
         operation/*.cpp
@@ -49,7 +51,6 @@ target_link_libraries(tile_fwk_interface
         PRIVATE
             intf_pub_cxx17
             tile_fwk_intf_pub
-            $<$<BOOL:${ENABLE_UTEST}>:tile_fwk_passes>
 
             dl
             Threads::Threads
