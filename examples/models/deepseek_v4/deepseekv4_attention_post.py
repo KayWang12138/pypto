@@ -12,7 +12,6 @@
 """
 import math
 import os
-import pytest
 import torch
 import torch_npu
 import pypto
@@ -24,6 +23,8 @@ from utils.compare import compare
 
 class AttentionPostV4(torch.nn.Module):
     def forward(self, attn_res, cos, sin, wo_a, wo_b, hidden_states):
+        for i in range(20):
+            torch.add(attn_res, 0)
         npu_attention_post_v4(attn_res, cos, sin, wo_a, wo_b, hidden_states)
 
 
@@ -181,13 +182,13 @@ def do_attention_post_func(inputs, params, golden_list):
     pto_outputs = [hidden_states_pto]
 
     tile_config = AttnPostConfig(
-        unroll_list=[64, 32, 16, 8, 4, 2, 1],
+        unroll_list=[128, 64, 32, 16, 8, 1],
         rope3d_tile_config = Rope3dTileConfig(
             [1, 64],
             [1, 64, 64],
             [1, 64, 128, 128]
         ),
-        c1_tile = [[128, 128], [64, 64], [512, 512]],
+        c1_tile = [[64, 64], [64, 64], [512, 512]],
         c2_tile = [[128, 128], [128, 128], [256, 256]]
     )
 
@@ -220,7 +221,7 @@ def do_attention_post_func_torch_graph(inputs, params, golden_list):
     sin_npu = inputs[2].npu()
     wo_a_npu = inputs[3].npu()
     wo_b_npu = inputs[4].npu()
-    wo_b_nz = torch_npu.npu_format_cast(wo_b, torch_npu.Format.FRACTAL_NZ)
+    wo_b_nz = torch_npu.npu_format_cast(wo_b_npu, torch_npu.Format.FRACTAL_NZ)
     # define npu outputs
     hidden_states = torch.zeros([t, h]).to(torch.bfloat16).npu()
 
@@ -231,19 +232,19 @@ def do_attention_post_func_torch_graph(inputs, params, golden_list):
     with torch.npu.graph(g):
         model(atten_res_npu, cos_npu, sin_npu, wo_a_npu, wo_b_nz, hidden_states)
 
-    g.replay()
-    pypto.runtime._device_synchronize() # 内部接口，不推荐使用
+    for i in range(5):
+        g.replay()
+        pypto.runtime._device_synchronize() # 内部接口，不推荐使用
 
     compare(hidden_states.cpu(), golden_list[2], "hidden_states", atol=0.0001, rtol=0.005)
 
 
 def get_case_config(case_name: str):
-    # case参数配置字典，key为case名称，value为对应的参数元组(bn1n2s1, is_kn_quant, actual_seq)
     test_case_config = {
-        "test_attention_post_v4_impl_perf": 
+        "test_attention_post_v4_impl_perf":
             {"t": 16, "n_q": 64, "d": 512, "rope_dim": 64, "n_g": 8, "o_lora_rank": 1024, "h": 4096},
-        "test_attention_post_v4_impl": 
-            {"t": 23, "n_q": 64, "d": 512, "rope_dim": 64, "n_g": 8, "o_lora_rank": 1024, "h": 4096},
+        "test_attention_post_v4_impl_prec":
+            {"t": 249, "n_q": 64, "d": 512, "rope_dim": 64, "n_g": 8, "o_lora_rank": 1024, "h": 4096},
     }
     case_config = test_case_config.get(case_name)
     return case_config
@@ -271,11 +272,18 @@ def do_attention_post_entry(case_name: str, is_torch_graph: bool = False):
     return True
 
 
+def test_attention_post_v4_impl_prec():
+    '''
+    attention post v4 泛化精度用例
+    '''
+    do_attention_post_entry("test_attention_post_v4_impl_prec", is_torch_graph=False)
+
+
 def test_attention_post_v4_impl():
     '''
     attention post v4 testcase
     '''
-    do_attention_post_entry("test_attention_post_v4_impl", is_torch_graph=False)
+    do_attention_post_entry("test_attention_post_v4_impl_perf", is_torch_graph=False)
 
 
 def test_attention_post_v4_impl_torch_graph():
