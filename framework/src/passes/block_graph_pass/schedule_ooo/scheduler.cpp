@@ -704,8 +704,13 @@ Status OoOScheduler::CheckAllocIssue() {
                     issue->tileOp.GetOpMagic(), GetFormatBacktrace(issue->tileOp).c_str());
                 return FAILED;
             }
+            UpdateAllocMap(issue, tensorAllocMap);
         }
-        UpdateAllocMap(issue, tensorAllocMap);
+    }
+    for (const auto &issue : issueEntries) {
+        if (!issue->isAlloc) {
+            UpdateAllocMap(issue, tensorAllocMap);
+        }
     }
     for (auto tensorAlloc : tensorAllocMap) {
         if (!tensorAlloc.second->isAlloc) {
