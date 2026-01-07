@@ -55,6 +55,8 @@ class ElementWiseScalarMixBinaryTileOp : public ElementWiseTileOp {
 };
 
 class ReduceTileOp : public TileOp {
+private:
+    int AXIS;
 };
 
 class BroadcastTileOp : public TileOp {
