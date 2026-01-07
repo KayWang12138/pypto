@@ -57,6 +57,7 @@ private:
     
     Status ProcessSubgraph(Function& function, size_t i, size_t& programIdx, std::vector<Function*>& outputFuncList);
     Status ProcessCacheResult(const std::tuple<Function*, Operation*, bool, std::vector<std::vector<int>>>& result, size_t i, size_t& programIdx, std::vector<Function*>& outputFuncList, Operation& callOp);
+    bool ReorderOutcast(const std::tuple<Function *, Operation *, bool, std::vector<std::vector<int>>> &result, const std::vector<int> &outcastOrder, const std::vector<int> &currentOutcastOrder);
     void SetSemanticLabel(const std::vector<std::shared_ptr<Operation>>& subgraph, Operation& callOp);
     void InitializeRootFunction(Function& function, Function& rootFunc);
     Status IslandToFunction(Function &function);

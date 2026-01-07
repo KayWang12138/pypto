@@ -467,7 +467,12 @@ Status SubgraphToFunction::ProcessSubgraph(
             APASS_LOG_DEBUG_F(Elements::Operation, "Recorded Outcast Order is %s.", IntVecToStr(outcastOrderMap[std::get<0>(result)->GetFunctionHash().GetHash()]).c_str());
             APASS_LOG_DEBUG_F(Elements::Operation, "Current Outcast Order is %s. NEED REORDER!!!", IntVecToStr(std::get<3>(result)[0]).c_str());
             // TODO: reorder outcast
-            // reorderOutcast(std::get<0>(result), std::get<0>(result)->GetFunctionHash().GetOutcastOrder(), std::get<3>(result)[0]);
+            if (ReorderOutcast(result, std::get<0>(result)->GetFunctionHash().GetOutcastOrder(), std::get<3>(result)[0])) {
+                APASS_LOG_DEBUG_F(Elements::Operation, "Reordered outcast for leaf function %zu.", i);
+            } else {
+                APASS_LOG_ERROR_F(Elements::Operation, "Failed to reorder outcast for leaf function %zu.", i);
+                return FAILED;
+            }
         }
     }
 
@@ -508,6 +513,19 @@ Status SubgraphToFunction::ProcessCacheResult(const std::tuple<Function *, Opera
     outputFuncList.push_back(std::get<0>(result));
     std::get<0>(result)->UpdateBelongToThis();
     return SUCCESS;
+}
+
+bool SubgraphToFunction::ReorderOutcast(const std::tuple<Function *, Operation *, bool, std::vector<std::vector<int>>> &result, const std::vector<int> &outcastOrder, const std::vector<int> &currentOutcastOrder) {
+    std::vector<int> applyOrder(outcastOrder.size(), -1);
+    // Deduce the order to apply on outcast
+    for (size_t i = 0; i < outcastOrder.size(); i++) {
+        applyOrder[outcastOrder[i]] = currentOutcastOrder[i];
+    }
+    APASS_LOG_DEBUG_F(Elements::Operation, "Apply Order is %s.", IntVecToStr(applyOrder).c_str());
+
+    // Apply the order to outcast
+
+    return true;
 }
 
 void SubgraphToFunction::SetSemanticLabel(const std::vector<std::shared_ptr<Operation>>& subgraph, Operation& callOp) {
