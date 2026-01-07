@@ -13,6 +13,30 @@
  * \brief
  */
 
+enum class CmpOperationType {
+    EQ,
+    NE,
+    LT,
+    LE,
+    GT,
+    GE,
+};
+
+enum class CmpModeType {
+    BOOL,
+    BIT,
+};
+
+enum CastMode {
+    CAST_NONE = 0,
+    CAST_RINT = 1,  // round to nearest, tie to even
+    CAST_ROUND = 2, // round to nearest, tie away from zero
+    CAST_FLOOR = 3, // round to minus infinity
+    CAST_CEIL = 4,  // round to positive infinity
+    CAST_TRUNC = 5, // round to zero
+    CAST_ODD = 6,   // round to odd (Von Neumann rounding)
+};
+
 DEFOP(
     UnaryOp,
     INHERIT(ElementWiseUnaryTileBaseOp),
@@ -24,9 +48,38 @@ DEFOP(
         OP_LOGICALNOT,
         OP_RECIPROCAL,
         OP_ABS,
-        OP_LN
+        OP_LN,
+        OP_DUPLICATE, // 没找到代码
+        OP_EXP,
+        OP_TRANSPOSE_MOVEIN,
+        OP_TRANSPOSE_MOVEOUT,
+        OP_TRANSPOSE_VNCHWCONV,
+        OP_EXPAND,
+        OP_ONEHOT,
+        OP_CONCAT,
+        OP_COMPACT,
+        OP_ROWMAX,   // 待移动  reduce
+        OP_ROWSUM,   // 待移动  reduce
+        OP_ROWEXPMAX,
+        OP_ROWEXPSUM,
+        OP_REGISTER_COPY,
+        OP_CAST,
+        OP_CUM_SUM,
+        OP_ROWSUMLINE,  // 待移动  reduce
+        OP_RANGE   //  输入scalar   输出tenor
     ),
     ATTR(int, CombineAxis)
+    ATTR(std::vector<int64_t>, shape),          // 形状信息，用于TRANSPOSE系列
+    ATTR(int, EXPANDDIM),                        // 扩展维度，用于OP_EXPAND
+    ATTR(int, numClasses),                       // 类别数，用于OP_ONEHOT
+    ATTR(int, inputCombineAxis),                 // 输入合并轴，用于OP_CONCAT
+    ATTR(int, outputCombineAxis),                // 输出合并轴，用于OP_CONCAT
+    ATTR(bool, excludeBufferReuse),               // 是否排除buffer复用，用于TRANSPOSE_VNCHWCONV/ONEHOT/ROWMAX/ROWEXPMAX/ROWEXPSUM
+    ATTR(CastMode, mode),
+    ATTR(int, axis),  // rowsumline
+    ATTR(bool, flag),  // rowsumline
+    ATTR(int, START),  // range
+    ATTR(int, STEP)   // range
 )
 
 DEFOP(
@@ -38,9 +91,43 @@ DEFOP(
         OP_MUL,
         OP_DIV,
         OP_MIN,
-        OP_MAX
+        OP_MAX,
+        OP_PAD,
+        OP_S_ADD,
+        OP_S_SUB,
+        OP_S_MUL,
+        OP_S_DIV,
+        OP_S_MAX,
+        OP_S_MIN,
+        OP_SCATTER_ELEMENT,
+        OP_SCATTER,
+        OP_INDEX_PUT,
+        OP_LOGICALAND,
+        OP_ROWMAXLINE,  // 带Row的都确认一下。
+        OP_ROWMINLINE
     ),
-    ATTR(int, CombineAxis)
+    ATTR(int, CombineAxis),
+    ATTR(int, inputCombineAxis),                 // 输入合并轴
+    ATTR(int, outputCombineAxis),                 // 输出合并轴
+    ATTR(int, axis),    // scatterelements/scatter 指定轴
+    ATTR(int, scalar),   // scatterelements 填充值
+    ATTR(int, scatterMode),  // scatterelements/scatter reduce 类型
+    ATTR(int, accumulate),   // index put 是否累加
+    ATTR(int, indiceSize)   // 索引轴大小
+)
+
+DEF_OP(
+    BinaryBroadcastOp,
+    INHERIT(BroadcastBinaryTileOp),
+    OPCODE(
+        OP_ADD_BRC,
+        OP_SUB_BRC,
+        OP_MUL_BRC,
+        OP_DIV_BRC,
+        OP_MAX_BRC,
+        OP_MIN_BRC
+    ),
+    ATTR(int, inputCombineAxis)                  // 输入合并轴
 )
 
 DEFOP(
@@ -52,8 +139,136 @@ DEFOP(
         OP_MUL_S,
         OP_DIV_S,
         OP_MIN_S,
-        OP_MAX_S
+        OP_MAX_S,
+        OP_MINS,
+        OP_POW,   // 后面讨论
+        OP_S_ADDS,
+        OP_S_SUBS,
+        OP_S_MULS,
+        OP_S_DIVS,
+        OP_S_MAXS,
+        OP_S_MINS,
+        OP_MAXIMUM,
+        OP_MINIMUM,
+        OP_PAIRMAX,
+        OP_PAIRMIN,
+        OP_PAIRSUM,
+        OP_ROWMAX_SINGLE,
+        OP_ROWMIN_SINGLE,
+        OP_ROWSUM_SINGLE,
+        OP_ROWMAX_COMBINE_AXIS_SINGLE,
+        OP_ROWSUM_COMBINE_AXIS_SINGLE,
+        //  疑问：带了scalar？这不是放在move里
+        OP_UB_COPY_IN,
+        OP_UB_COPY_OUT
     ),
     ATTR(int, CombineAxis),
     ATTR(int, Reverse),
+)
+
+DEF_OP(
+    PowOp,
+    INHERIT(ElementWiseMixTileOp),
+    OPCODE(
+        OP_POW
+    ),
+    // 这些属性存疑
+    ATTR(bool, reverseOperand),                  // 是否反转操作数顺序（与Reverse语义一致，重复）
+    ATTR(int, inputCombineAxis),                 // 输入合并轴
+    ATTR(int, outputCombineAxis),                // 输出合并轴
+    ATTR(bool, excludeBufferReuse)               // 是否排除buffer复用
+)
+
+DEF_OP(
+    TernaryOp,
+    INHERIT(ElementWiseTernaryTileOp),
+    OPCODE(
+        OP_WHERE_TT
+
+    ),
+    ATTR(int, whereBitMode)
+)
+
+DEF_OP(
+    TernaryScalarMixOp,
+    INHERIT(ElementWiseScalarMixTernaryTileOp),
+    OPCODE(
+        OP_WHERE_TS,
+        OP_WHERE_ST,
+        OP_WHERE_SS,
+        OP_INDEX_ADD, //他是三个tensor  两个 scalar  无额外属性
+        
+    ),
+    ATTR(int, whereBitMode),
+
+)
+
+DEF_OP(
+    MoveOp,
+    INHERIT(DataCopyTileOp),
+    OPCODE(
+        OP_INDEX_OUTCAST, // 三个tensor，三个scalar  无额外属性
+        OP_CONVERT,
+        OP_COPY_IN,
+        OP_COPY_OUT,
+        OP_GATHER_IN_L1,
+        OP_GATHER_IN_UB,
+        OP_LOAD,
+        OP_VLD,  //  没有代码
+        OP_VST   //  没有代码
+    ),
+    ATTR(int, startOffset),
+    ATTR(int, inputCombineAxis),
+    ATTR(int, outputCombineAxis),
+    ATTR(int, excludeBufferReuse),
+
+)
+
+DEF_OP(
+    SortOp,
+    INHERIT(SortTileOp),
+    OPCODE(
+        OP_BITSORT,
+        OP_MRGSORT,
+        OP_ARGSORT,
+        OP_TILEDMRGSORT,
+        OP_TOPK
+        
+    ),
+    ATTR(int, TOPK_OFFSET),
+    ATTR(int, TOPK_KVALUE)
+    ATTR(int, maskMode),
+    ATTR(int, TOPK_VALIDBIT),
+)
+
+DEF_OP(
+    BroadCastOp,
+    INHERIT(BroadcastTileOp),
+    OPCODE(
+        OP_FUSED_OP  // 没有代码，注册的是BROADCAST
+    ),
+    
+)
+
+DEF_OP(
+    GatherOp,
+    INHERIT(GatherTileOp),
+    OPCODE(
+        OP_GATHER_FROM_UB,
+        OP_GATHER,
+        OP_GATHER_ELEMENT
+    ),
+    ATTR(int, axis),                             // 操作的轴
+    ATTR(bool, excludeBufferReuse)               // 是否排除buffer复用（GATHER_FROM_UB/GATHER_ELEMENT使用）
+)
+
+DEF_OP(
+    CompareOp,
+    INHERIT(CompareTileOp),
+    OPCODE(
+        OP_CMP,
+        OP_CMPS
+    ),
+    ATTR(CmpOperationType, cmp_operation),           // 【枚举】比较操作类型
+    ATTR(CmpModeType, cmp_mode),                     // 【枚举】比较模式
 )
