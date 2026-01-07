@@ -67,7 +67,8 @@ Status CodegenPreproc::SaveGmTensorParamIdxToOp(Function &func) const {
                 gmParamInCallFunc[addrPos].emplace_back(&op);
             }
         }
-        APASS_LOG_INFO_F(Elements::Operation, "%d:%sgmParamInCallFunc size: %zu", __LINE__, __FUNCTION__, gmParamInCallFunc.size());
+        APASS_LOG_INFO_F(
+            Elements::Operation, "%d:%sgmParamInCallFunc size: %zu", __LINE__, __FUNCTION__, gmParamInCallFunc.size());
         int tensorParamIdx{0};
         for (auto param : gmParamInCallFunc) {
             for (auto op : param.second) {
@@ -97,7 +98,9 @@ Status CodegenPreproc::ProcessAxis(Operation &op, std::vector<bool> attr, bool i
         }
     }
     if (attr.size() != operands.size()) {
-        APASS_LOG_ERROR_F(Elements::Operation, "%d %s attr size(%zu) is not equal to operands size(%zu), ProcessAxis failed.", op.GetOpMagic(), op.GetOpcodeStr().c_str(), attr.size(), operands.size());
+        APASS_LOG_ERROR_F(Elements::Operation,
+            "%d %s attr size(%zu) is not equal to operands size(%zu), ProcessAxis failed.", op.GetOpMagic(),
+            op.GetOpcodeStr().c_str(), attr.size(), operands.size());
         return FAILED;
     }
     for (size_t i = 0; i < operands.size(); ++i) {
@@ -122,7 +125,9 @@ Status CodegenPreproc::ForceCombineAxis(Function &func) const {
                 op.GetAttr(OP_ATTR_PREFIX + "input_combine_axis", attrIn);
                 op.SetAttribute(OpAttributeKey::inputCombineAxisDone, true);
                 if (ProcessAxis(op, attrIn, true) != SUCCESS) {
-                    APASS_LOG_ERROR_F(Elements::Operation, "ForceCombineAxis failed at function ProcessAxis(input) for subProgram(%lu).", subProgram.first);
+                    APASS_LOG_ERROR_F(Elements::Operation,
+                        "ForceCombineAxis failed at function ProcessAxis(input) for subProgram(%lu).",
+                        subProgram.first);
                     return FAILED;
                 }
                 if (op.GetOpcode() == Opcode::OP_COPY_OUT) {
@@ -135,8 +140,9 @@ Status CodegenPreproc::ForceCombineAxis(Function &func) const {
                 std::vector<bool> attrOut;
                 op.GetAttr(OP_ATTR_PREFIX + "output_combine_axis", attrOut);
                 op.SetAttribute(OpAttributeKey::outputCombineAxisDone, true);
-                if (ProcessAxis(op, attrOut, false) !=SUCCESS) {
-                    APASS_LOG_ERROR_F(Elements::Operation, "ForceCombineAxis failed at function ProcessAxis(out) for subProgram(%lu).", subProgram.first);
+                if (ProcessAxis(op, attrOut, false) != SUCCESS) {
+                    APASS_LOG_ERROR_F(Elements::Operation,
+                        "ForceCombineAxis failed at function ProcessAxis(out) for subProgram(%lu).", subProgram.first);
                     return FAILED;
                 }
                 if (op.GetOpcode() == Opcode::OP_COPY_IN) {
@@ -150,7 +156,7 @@ Status CodegenPreproc::ForceCombineAxis(Function &func) const {
     return SUCCESS;
 }
 
-inline bool IsUBCopy(Operation& op) {
+inline bool IsUBCopy(Operation &op) {
     if (IsCopyIn(op.GetOpcode())) {
         auto outTensor = *(op.GetOOperands().begin());
         if (outTensor->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
@@ -224,7 +230,7 @@ std::string CodegenPreproc::DumpOpList(Function &function) {
                 bool needAlloc = false;
                 op.oOperand[0]->GetAttr(OpAttributeKey::needAlloc, needAlloc);
                 ss << op.GetOpcodeStr() << "[" << op.GetOpMagic() << "], needAlloc: " << static_cast<int>(needAlloc)
-                    << ", memId: " << op.oOperand[0]->memoryrange.memId << "\n";
+                   << ", memId: " << op.oOperand[0]->memoryrange.memId << "\n";
             } else {
                 ss << op.GetOpcodeStr() << "[" << op.GetOpMagic() << "]" << "\n";
             }
@@ -263,13 +269,15 @@ Status CodegenPreproc::RunOnFunction(Function &function) {
         }
     }
     if (SaveGmTensorParamIdxToOp(function) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "CodegenPreproc RunOnFunction failed at function SaveGmTensorParamIdxToOp.");
+        APASS_LOG_ERROR_F(
+            Elements::Operation, "CodegenPreproc RunOnFunction failed at function SaveGmTensorParamIdxToOp.");
         return FAILED;
     }
 
     if (combineAxis) {
         if (ForceCombineAxisForAxisCombine(function) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "CodegenPreproc RunOnFunction failed at function ForceCombineAxisForAxisCombine.");
+            APASS_LOG_ERROR_F(
+                Elements::Operation, "CodegenPreproc RunOnFunction failed at function ForceCombineAxisForAxisCombine.");
             return FAILED;
         }
     } else {
@@ -280,7 +288,8 @@ Status CodegenPreproc::RunOnFunction(Function &function) {
     }
 
     SetNeedAllocAttr(function);
-    APASS_LOG_INFO_F(Elements::Operation, "===============================================================> Finish CodegenPreproc.");
+    APASS_LOG_INFO_F(
+        Elements::Operation, "===============================================================> Finish CodegenPreproc.");
     return SUCCESS;
 }
 
