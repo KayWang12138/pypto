@@ -144,6 +144,7 @@ def do_attention_post_func(inputs, params, golden_list):
     wo_a: (n_g, n_q * d // n_g, o_lora_rank), bf16
     wo_b: (n_g * o_lora_rank, h)
     """
+    torch_npu.npu.config.allow_internal_format = True
     # rope + batch_matmul + matmul
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
@@ -153,6 +154,7 @@ def do_attention_post_func(inputs, params, golden_list):
     sin = inputs[2].npu()
     wo_a = inputs[3].npu()
     wo_b = inputs[4].npu()
+    wo_b_nz = torch_npu.npu_format_cast(wo_b, torch_npu.Format.FRACTAL_NZ)
 
     t = params.get("t")
     rope_dim = params.get("rope_dim")
@@ -170,7 +172,7 @@ def do_attention_post_func(inputs, params, golden_list):
     cos_pto = pypto.from_torch(cos, dynamic_axis=[0], name="cos")
     sin_pto = pypto.from_torch(sin, dynamic_axis=[0], name="sin")
     wo_a_pto = pypto.from_torch(wo_a, name="wo_a")
-    wo_b_pto = pypto.from_torch(wo_b, name="wo_b")
+    wo_b_pto = pypto.from_torch(wo_b_nz, name="wo_b")
 
     hidden_states_pto = pypto.from_torch(
         hidden_states, dynamic_axis=[0], name="hidden_states")
@@ -205,9 +207,9 @@ def do_attention_post_func_torch_graph(inputs, params, golden_list):
     wo_a: (n_g, n_q * d // n_g, o_lora_rank), bf16
     wo_b: (n_g * o_lora_rank, h)
     """
+    torch_npu.npu.config.allow_internal_format = True
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
-    torch_npu.npu.config.allow_internal_format = True
 
     t = params.get("t")
     h = params.get("h")
@@ -218,6 +220,7 @@ def do_attention_post_func_torch_graph(inputs, params, golden_list):
     sin_npu = inputs[2].npu()
     wo_a_npu = inputs[3].npu()
     wo_b_npu = inputs[4].npu()
+    wo_b_nz = torch_npu.npu_format_cast(wo_b, torch_npu.Format.FRACTAL_NZ)
     # define npu outputs
     hidden_states = torch.zeros([t, h]).to(torch.bfloat16).npu()
 
@@ -226,7 +229,7 @@ def do_attention_post_func_torch_graph(inputs, params, golden_list):
     # capture model
     g = torch.npu.NPUGraph()
     with torch.npu.graph(g):
-        model(atten_res_npu, cos_npu, sin_npu, wo_a_npu, wo_b_npu, hidden_states)
+        model(atten_res_npu, cos_npu, sin_npu, wo_a_npu, wo_b_nz, hidden_states)
 
     g.replay()
     pypto.runtime._device_synchronize() # 内部接口，不推荐使用
