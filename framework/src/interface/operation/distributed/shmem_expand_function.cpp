@@ -109,8 +109,8 @@ void TiledShmemPut(Function& function, const TileShape& tileShape,
     ASSERT(oOperand.size() == 1UL) << "TiledShmemPut oOperand size is not equal to 1";
     auto in = iOperand[0];
     auto shmemData = iOperand[1];
-    auto predToken = iOperand[2]; // operand 2
-    auto dummy = oOperand[0];
+    auto predToken = iOperand[2];
+    auto putToken = oOperand[0];
     TileInfo tileInfo(in->shape.size(), in->offset.size());
     auto startInput = Input{in, tileInfo};
     size_t inDim = startInput.tileInfo.shape.size();
@@ -139,11 +139,11 @@ void TiledShmemPut(Function& function, const TileShape& tileShape,
         }
         auto shmDataTile = shmemData->View(function, shmemShape, shmemOffset);
 
-        auto dummyTile = dummy->View(function, {1, 1}, {tileIndex, 0});
+        auto putTokenTile = putToken->View(function, {1, 1}, {tileIndex, 0});
         auto copyBufferShape = GetCopyBufferShape(inTile->Datatype(), shmDataTile->Datatype(), input.tileInfo.shape);
         auto ubTensor = CreateAdaptiveUbTensor(function, copyBufferShape, inTile->Datatype(), shmDataTile->Datatype());
         auto& tileOp = function.AddOperation(Opcode::OP_SHMEM_PUT, {inTile, shmDataTile, predToken},
-            {dummyTile, ubTensor});
+            {putTokenTile, ubTensor});
         DistOpAttr distOpAttr;
         op.GetAttr(OpAttributeKey::distOpAttr, distOpAttr);
         distOpAttr.copyBufferShape = copyBufferShape;
@@ -177,9 +177,9 @@ void TiledShmemSignal(Function& function, const TileShape& tileShape,
 {
     ASSERT(iOperand.size() == 2UL) << "TiledShmemSignal iOperand size is not equal to 2";
     ASSERT(oOperand.size() == 1UL) << "TiledShmemSignal oOperand size is not equal to 1";
-    auto dummy = iOperand[0];
+    auto predToken = iOperand[0];
     auto shmemSignal = iOperand[1];
-    auto dummyOut = oOperand[0];
+    auto signalToken = oOperand[0];
     std::vector<int64_t> inShape(tileShape.GetVecTile().size());
     std::vector<int64_t> inOffset(tileShape.GetVecTile().size());
     TileInfo tileInfo(inShape, inOffset);
@@ -199,12 +199,12 @@ void TiledShmemSignal(Function& function, const TileShape& tileShape,
             ASSERT(shmemShape[shmemDim] != 0);
         }
 
-        auto dummyTile = dummy->View(function, {1, 1}, {tileIndex, 0});
+        auto predTokenTile = predToken->View(function, {1, 1}, {tileIndex, 0});
         auto shmSignalTile = shmemSignal->View(function, shmemShape, shmemOffset);
-        auto dummyOutTile = dummyOut->View(function, {1, 1}, {tileIndex, 0});
+        auto signalTokenTile = signalToken->View(function, {1, 1}, {tileIndex, 0});
         auto ubTensor = std::make_shared<LogicalTensor>(function, shmemSignal->Datatype(), Shape{SHMEM_SIGNAL_STRIDE});
-        auto& tileOp = function.AddOperation(Opcode::OP_SHMEM_SIGNAL, {dummyTile, shmSignalTile},
-            {dummyOutTile, ubTensor});
+        auto& tileOp = function.AddOperation(Opcode::OP_SHMEM_SIGNAL, {predTokenTile, shmSignalTile},
+            {signalTokenTile, ubTensor});
         DistOpAttr distOpAttr;
         op.GetAttr(OpAttributeKey::distOpAttr, distOpAttr);
         tileOp.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
@@ -219,9 +219,9 @@ void TiledShmemWaitUntil(Function& function, const TileShape& tileShape,
 {
     ASSERT(iOperand.size() == 2UL) << "TiledShmemWaitUntil iOperand size is not equal to 2";
     ASSERT(oOperand.size() == 1UL) << "TiledShmemWaitUntil oOperand size is not equal to 1";
-    auto dummyIn = iOperand[0];
+    auto predToken = iOperand[0];
     auto shmemSignal = iOperand[1];
-    auto dummy = oOperand[0];
+    auto readyToken = oOperand[0];
     std::vector<int64_t> inShape(tileShape.GetVecTile().size());
     std::vector<int64_t> inOffset(tileShape.GetVecTile().size());
     TileInfo tileInfo(inShape, inOffset);
@@ -242,11 +242,11 @@ void TiledShmemWaitUntil(Function& function, const TileShape& tileShape,
             ASSERT(shmemShape[shmemDim] != 0);
         }
 
-        auto dummyInTile = dummyIn->View(function, {1, 1}, {tileIndex, 0});
+        auto predTokenTile = predToken->View(function, {1, 1}, {tileIndex, 0});
         auto shmSignalTile = shmemSignal->View(function, shmemShape, shmemOffset);
-        auto dummyTile = dummy->View(function, {1, 1}, {tileIndex, 0});
-        auto& tileOp = function.AddOperation(Opcode::OP_SHMEM_WAIT_UNTIL, {dummyInTile, shmSignalTile},
-            {dummyTile});
+        auto readyTokenTile = readyToken->View(function, {1, 1}, {tileIndex, 0});
+        auto& tileOp = function.AddOperation(Opcode::OP_SHMEM_WAIT_UNTIL, {predTokenTile, shmSignalTile},
+            {readyTokenTile});
         DistOpAttr distOpAttr;
         op.GetAttr(OpAttributeKey::distOpAttr, distOpAttr);
         tileOp.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
@@ -259,7 +259,7 @@ void TiledShmemGet(Function& function, const TileShape& tileShape,
 {
     ASSERT(iOperand.size() == 2UL) << "TiledShmemGet iOperand size is not equal to 2";
     ASSERT(oOperand.size() == 1UL) << "TiledShmemGet oOperand size is not equal to 1";
-    auto dummy = iOperand[0];
+    auto predToken = iOperand[0];
     auto shmemData = iOperand[1];
     auto out = oOperand[0];
     std::vector<int64_t> inShape(tileShape.GetVecTile().size());
@@ -281,12 +281,12 @@ void TiledShmemGet(Function& function, const TileShape& tileShape,
             ASSERT(shmemShape[shmemDim] != 0);
         }
 
-        auto dummyTile = dummy->View(function, {1, 1}, {tileIndex, 0});
+        auto predTokenTile = predToken->View(function, {1, 1}, {tileIndex, 0});
         auto shmDataTile = shmemData->View(function, shmemShape, shmemOffset);
         auto outTile = out->View(function, input.tileInfo.shape, input.tileInfo.offset);
         auto copyBufferShape = GetCopyBufferShape(out->Datatype(), shmDataTile->Datatype(), input.tileInfo.shape);
         auto ubTensor = CreateAdaptiveUbTensor(function, copyBufferShape, out->Datatype(), shmDataTile->Datatype());
-        auto& tileOp = function.AddOperation(Opcode::OP_SHMEM_GET, {dummyTile, shmDataTile}, {outTile, ubTensor});
+        auto& tileOp = function.AddOperation(Opcode::OP_SHMEM_GET, {predTokenTile, shmDataTile}, {outTile, ubTensor});
         DistOpAttr distOpAttr;
         op.GetAttr(OpAttributeKey::distOpAttr, distOpAttr);
         distOpAttr.copyBufferShape = copyBufferShape;
