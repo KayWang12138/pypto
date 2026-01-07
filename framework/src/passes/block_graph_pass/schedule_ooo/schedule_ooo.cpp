@@ -77,6 +77,7 @@ Status OoOSchedule::RunOnFunction(Function &function) {
     std::unordered_map<TargetCoreType, std::string>  targetToString{{TargetCoreType::AIC, "AIC"}, {TargetCoreType::AIV0, "AIV0"}, {TargetCoreType::AIV1, "AIV1"}, {TargetCoreType::UNKNOWN, "UNKNOWN"}};
     for (auto &program : function.rootFunc_->programs_) {
         auto opList = program.second->Operations(false).DuplicatedOpList();
+        oriFunctions.emplace_back(program.second);
         OptimizeSort optimizeSort(opList, *program.second);
         if (optimizeSort.SortOps() != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "Global sortOps failed.");
