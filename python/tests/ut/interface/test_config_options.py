@@ -71,3 +71,17 @@ def test_operation_option():
     set_operation_config(combine_axis=True)
     option = get_operation_config()
     assert option["combine_axis"] == True
+
+def test_global_option():
+    res = pypto.get_global_config("platform.ENABLE_COST_MODEL")
+    assert res == False
+    pypto.set_global_config("platform.ENABLE_COST_MODEL", True)
+    res = pypto.get_global_config("platform.ENABLE_COST_MODEL")
+    assert res == True
+
+    pypto.set_global_config("codegen.parallel_compile", 10)
+    res = pypto.get_global_config("codegen.parallel_compile")
+    assert res == 10
+
+if __name__ == "__main__":
+    test_global_option()
