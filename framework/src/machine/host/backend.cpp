@@ -103,7 +103,6 @@ extern "C" int32_t Execute(MachineTask *task, FunctionCache &cache) {
     auto function = deviceAgentTask->compileTask->GetFunction();
     deviceAgentTask->SetAsync(false);
     deviceAgentTask->SetOpOriginArgsInfo(function->GetOpOriginArgsInfo());
-    deviceAgentTask->compileInfo.distTilingManager = function->GetDistTilingManager();
     deviceAgentTask->compileInfo.commGroups = npu::tile_fwk::Distributed::CommGroupRecorder::GetInstance().Output();
     std::string kernelPath;
     // recover task info and bin
@@ -118,10 +117,10 @@ extern "C" int32_t Execute(MachineTask *task, FunctionCache &cache) {
             CalcFunctionInvokeWorkespace(nullptr, function, deviceAgentTask->compileInfo);
         }
 
-        deviceAgentTask->compileInfo.PrintDistributed();
         deviceAgentTask->compileInfo.workSpaceStackSize = function->GetStackWorkespaceSize();
 
-        if (config::GetCodeGenOption<bool>(CODEGEN_EXPRESSION_FUSION)) {
+        if (function->IsFunctionType(
+                {FunctionType::DYNAMIC, FunctionType::DYNAMIC_LOOP, FunctionType::DYNAMIC_LOOP_PATH})) {
             if (function->GetGraphType() == GraphType::TILE_GRAPH) {
                 // When expression fusion, don't need tile graph codegen.
                 return 0;
@@ -801,9 +800,7 @@ static void CompileControlFlow(const std::string &aicpuDirPath,
 
 static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[maybe_unused]] const std::string &ccePath,
                                   std::string &kernelPath) {
-    if (config::GetCodeGenOption<bool>(CODEGEN_EXPRESSION_FUSION)) {
-        PassManager::Instance().RunPass(Program::GetInstance(), *function, "ExecuteGraph");
-    }
+    PassManager::Instance().RunPass(Program::GetInstance(), *function, "ExecuteGraph");
 
     std::shared_ptr<DyndevFunctionAttribute> attr = function->GetDyndevAttribute();
     ASSERT(attr != nullptr)<<"DyndevFunctionAttribute is nullptr\n";
@@ -886,13 +883,11 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[ma
 
     std::map<uint64_t, Function *> leafDict;
     for (auto &devRoot : attr->funcGroup.devRootList) {
-        if (config::GetCodeGenOption<bool>(CODEGEN_EXPRESSION_FUSION)) {
-            Function *devTile = attr->rootTileDict[devRoot];
-            config::SetCodeGenOption(SUPPORT_DYNAMIC_ALIGNED, devTile->paramConfigs_.dynamicAlignedOps);
-            npu::tile_fwk::CodeGenCtx codeGenCtx("", GetEmitPath("kernel_aicore"));
-            npu::tile_fwk::CodeGen codeGen(codeGenCtx);
-            codeGen.GenCode(*devTile, {});
-        }
+        Function *devTile = attr->rootTileDict[devRoot];
+        config::SetCodeGenOption(SUPPORT_DYNAMIC_ALIGNED, devTile->paramConfigs_.dynamicAlignedOps);
+        npu::tile_fwk::CodeGenCtx codeGenCtx("", GetEmitPath("kernel_aicore"));
+        npu::tile_fwk::CodeGen codeGen(codeGenCtx);
+        codeGen.GenCode(*devTile, {});
 
         for (auto &[psgId, leaf] : devRoot->programs_) {
             (void)psgId;
@@ -985,9 +980,7 @@ MachineTask *GenCode(
      * the filepath of the object file is updated to the binPath_ member.
      */
     if (function->GetGraphType() == GraphType::TILE_GRAPH) {
-        if (!config::GetCodeGenOption<bool>(CODEGEN_EXPRESSION_FUSION)) {
-            codeGen.GenCode(*function, invokeParaOffset);
-        }
+        codeGen.GenCode(*function, invokeParaOffset);
     } else {
         if (function->IsFunctionType(FunctionType::DYNAMIC)) {
             std::string cce_path = RealPath(codeGenCtx.cceDir) + "/";

@@ -251,7 +251,6 @@ def softmax(x, is_fp16=False):
     "stitch_function_outcast_memory": 1024,
     "stitch_function_inner_memory": 1024},
     host_options={"only_codegen": True},
-    codegen_options={"codegen_expression_fusion": True},
     # 当子图大小达到上界不允许与其他子图合并
     pass_options={"pg_upper_bound": 1536,
     # Q常驻，0代表第一组mmad，4代表4次matmul合并
@@ -428,7 +427,7 @@ def ifa_func(q, k, v, block_table, kv_act_seqs, atten_out):
                             pypto.assemble(oi_final_3d, oi_ofs, atten_out)
 
 def IFA(atten_cfg):
-    device_id = os.environ.get('TILE_FWK_STEST_DEVICE_ID', 0)
+    device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
     torch_dtype = torch.float16
     torch.npu.set_device(int(device_id))
     b = atten_cfg.b
@@ -511,7 +510,7 @@ def IFA(atten_cfg):
 @pytest.mark.skip(reason="large test case")
 def test_ifa():
     # 1. 设置参数
-    device_id = os.environ.get('TILE_FWK_STEST_DEVICE_ID', 0)
+    device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
     device = f'npu:{device_id}'
     atten_cfg, _ = get_qwen_common_config(device=device)
 
