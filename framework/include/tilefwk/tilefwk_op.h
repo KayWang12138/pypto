@@ -421,11 +421,11 @@ void MoeDistributedCombineV2(const Tensor& expandX, const Tensor& assistInfoForC
 void CreateShmemData(const char *group, int64_t worldSize, DataType dataType,
     const Shape &shape, Tensor &shmemTensor, uint64_t memType = 0);
 void CreateShmemSignal(const char *group, Tensor &shmemData, Tensor &shmemSignal);
-Tensor ShmemPut(const Tensor& in, const Tensor& shmemDataTile, const Tensor& barrierDummy,
+Tensor ShmemPut(const Tensor& predToken, const Tensor& in, const Tensor& shmemData,
     AtomicType atomicType = AtomicType::SET);
-Tensor ShmemSignal(const Tensor& dummy, const Tensor& shmemSignalTile, AtomicType atomicType);
-Tensor WaitUntil(const Tensor& dummyIn, const Tensor& shmemSignalTile, int32_t expectedSum, bool resetSignal = false);
-Tensor ShmemGet(const Tensor& dummy, const Tensor& shmemDataTile, DataType nonShmemDataType = DataType::DT_BOTTOM,
+Tensor ShmemSignal(const Tensor& predToken, const Tensor& shmemSignal, AtomicType atomicType);
+Tensor WaitUntil(const Tensor& predToken, const Tensor& shmemSignal, int32_t expectedSum, bool resetSignal = false);
+Tensor ShmemGet(const Tensor& predToken, const Tensor& shmemData, DataType nonShmemDataType = DataType::DT_BOTTOM,
     AtomicType atomicType = AtomicType::SET);
 Tensor ShmemGetGm2Ub(const Tensor &dummy, const Tensor &shmemDataTile, DataType nonShmemDataType = DataType::DT_BOTTOM,
     AtomicType atomicType = AtomicType::SET);
