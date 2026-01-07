@@ -23,8 +23,8 @@
 
 namespace npu::tile_fwk {
 CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbolManager, FunctionType funcType,
-    const std::map<int, int> &locToOffset, bool isUnderDynamicFunc)
-    : CodeGenOp(symbolManager, funcType, locToOffset, isUnderDynamicFunc),
+    const std::map<int, int> &locToOffset, bool isUnderDynamicFunc, bool isMainBlk)
+    : CodeGenOp(symbolManager, funcType, locToOffset, isUnderDynamicFunc, isMainBlk),
       mteFixPipeOps_({
           // UB <-> GM
           {         Opcode::OP_UB_COPY_IN,              [this]() { return GenUBCopyIn(); }},
@@ -33,7 +33,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {   Opcode::OP_RESHAPE_COPY_OUT,        [this]() { return GenReshapeCopyOut(); }},
           {Opcode::OP_L1_TO_FIX_QUANT_PRE,             [this]() { return GenMemL1ToFB(); }},
           {       Opcode::OP_GATHER_IN_UB,            [this]() { return GenGatherInUB(); }},
-
+          {             Opcode::OP_GATHER,              [this]() { return GenGatherOp(); }},
           // L1 <-> GM/BT/L1
           {         Opcode::OP_L1_COPY_IN,           [this]() { return GenMemL1CopyIn(); }},
           {        Opcode::OP_L1_COPY_OUT,          [this]() { return GenMemL1CopyOut(); }},
@@ -63,7 +63,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           // lOC -> UB
           {        Opcode::OP_L0C_COPY_UB,     [this]() { return GenL0CToUBTileTensor(); }},
 
-          {      Opcode::OP_UB_COPY_L1,      [this]() { return GenUBToL1TileTensor(); }},
+          {         Opcode::OP_UB_COPY_L1,      [this]() { return GenUBToL1TileTensor(); }},
           {      Opcode::OP_UB_COPY_ND2NZ, [this]() { return GenUBToUBND2NZTileTensor(); }},
 }),
       unaryOps_({
@@ -196,10 +196,6 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
       }),
       distributeOps_({
           // distribute op
-          {Opcode::OP_WRITE_REMOTE, [this]() { return GenDistOp(); }},
-          {Opcode::OP_REMOTE_REDUCE, [this]() { return GenDistOp(); }},
-          {Opcode::OP_REMOTE_GATHER, [this]() { return GenDistOp(); }},
-          {Opcode::OP_LOCAL_COPY_OUT, [this]() { return GenDistOp(); }},
           {Opcode::OP_FFN_SCHED, [this]() { return GenDistOp(); }},
           {Opcode::OP_FFN_BATCHING, [this]() { return GenDistOp(); }},
           {Opcode::OP_FFN_COMBINEINFO, [this]() { return GenDistOp(); }},
@@ -220,7 +216,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
       }),
       gatherScatterOps_({
           // gather/scatter op
-          {Opcode::OP_GATHER, [this]() { return GenGatherOp(); }},
+          {Opcode::OP_GATHER_FROM_UB, [this]() { return GenGatherFromUBOp(); }},
           {Opcode::OP_GATHER_ELEMENT, [this]() { return GenGatherElementOp(); }},
           {Opcode::OP_SCATTER_ELEMENT, [this]() { return GenScatterElementSOp(); }},
           {Opcode::OP_SCATTER, [this]() { return GenScatterOp(); }},
@@ -243,8 +239,8 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
 }
 
 CodeGenOpCloudNPU::CodeGenOpCloudNPU(const CodeGenOpCloudNPUCtx &ctx)
-    : CodeGenOpCloudNPU(
-          ctx.symbolManager, ctx.topFunc.GetFunctionType(), ctx.locToOffset, ctx.topFunc.IsUnderDynamicFunction()) {
+    : CodeGenOpCloudNPU(ctx.symbolManager, ctx.topFunc.GetFunctionType(), ctx.locToOffset,
+          ctx.topFunc.IsUnderDynamicFunction(), ctx.isMainBlock) {
     CodeGenOp::Init(ctx.ops);
     UpdateTileTensorInfo();
 }
@@ -322,6 +318,54 @@ void CodeGenOpCloudNPU::AppendLocalBufferVarOffset(
 
         var.append(" + ").append(std::to_string(resOffset));
     }
+}
+
+SymbolicScalar CodeGenOpCloudNPU::GetOperandStartOffset(int operandIdx) const {
+    std::vector varOffset = offset[operandIdx];
+    if (varOffset.empty()) {
+        return 0;
+    }
+
+    const auto &dynOffset = dynamicOffset[operandIdx];
+    if (!dynOffset.empty()) {
+        std::vector varRawShape = rawShape[operandIdx]; // 内部应该不能出现dynRawShape，所以这里用立即数即可
+        ASSERT(!varRawShape.empty()) << "varRawShape is empty!!";
+        ASSERT(dynOffset.size() == varRawShape.size())
+        << "dynOffset " << SymbolicVecToStr(dynOffset) << ", size " << dynOffset.size() << " vs varRawShape "
+        << IntVecToStr(varRawShape) << ", size " << varRawShape.size() << " is not equal!!";
+
+        SymbolicScalar resOffset = 0;
+        for (size_t i = 0; i < dynOffset.size(); i++) {
+            resOffset = resOffset * varRawShape[i];
+            resOffset = resOffset + dynOffset[i];
+        }
+
+        ASSERT(operandIdx < operandCnt) << "operandIdx: " << operandIdx << ", operandCnt: " << operandCnt;
+        ALOG_DEBUG_F(" varRawShape: %s", IntVecToStr(varRawShape).c_str());
+        ALOG_DEBUG_F(" varOffset: %s", SymbolicVecToStr(dynOffset).c_str());
+        ALOG_DEBUG_F(" resOffset: %s", resOffset.Dump().c_str());
+        if (resOffset.ConcreteValid()) {
+            return resOffset.Concrete();
+        }
+        return SymbolicExpressionTable::BuildExpression(resOffset);
+    }
+
+    std::vector varRawShape = rawShape[operandIdx];
+    ASSERT(!varRawShape.empty()) << "varRawShape is empty!!";
+    ASSERT(varOffset.size() == varRawShape.size())
+        << "varOffset " << IntVecToStr(varOffset) << ", size " << varOffset.size() << " vs varRawShape "
+        << IntVecToStr(varRawShape) << ", size " << varRawShape.size() << " is not equal!!";
+
+    int64_t resOffset = CalcLinearOffset(varRawShape, varOffset);
+    if (resOffset == 0) {
+        return 0;
+    }
+
+    ASSERT(operandIdx < operandCnt) << "operandIdx: " << operandIdx << ", operandCnt: " << operandCnt;
+    ALOG_DEBUG_F(" varRawShape: %s", IntVecToStr(varRawShape).c_str());
+    ALOG_DEBUG_F(" varOffset: %s", IntVecToStr(varOffset).c_str());
+    ALOG_DEBUG_F(" resOffset: %d", resOffset);
+    return resOffset;
 }
 
 std::string CodeGenOpCloudNPU::GenGmParamVar(unsigned gmParamIdx) const {
@@ -561,6 +605,22 @@ std::string CodeGenOpCloudNPU::GenCVSyncWaitOp() const {
     std::ostringstream oss;
     oss << "wait_intra_block(" << pipeId << ", " << std::to_string(syncQueue.eventId_) << ");\n";
     return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::PrintCoord(size_t dim, const std::string &coord) const {
+    std::string ret = COORD;
+    ret.append(std::to_string(dim)).append(DIM).append(coord);
+    return ret;
+}
+
+void CodeGenOpCloudNPU::FillParamWithFullShape(
+    std::vector<std::string> &paramList, const std::vector<int64_t> &input) const {
+    FillParamWithInput(paramList, input, 0, input.size());
+}
+
+void CodeGenOpCloudNPU::FillParamWithShapeExceptFirst(
+    std::vector<std::string> &paramList, const std::vector<int64_t> &input) const {
+    FillParamWithInput(paramList, input, 1, input.size());
 }
 
 } // namespace npu::tile_fwk

@@ -234,6 +234,7 @@ void ShmemBarrier(const Tensor& predToken, Tensor& shmemSignal, const char* grou
 
     int32_t hcclGroupIndex = static_cast<int32_t>(CommGroupRecorder::GetInstance().Input(std::string(group)));
     auto [rankSize, tileCount] = GetRankSizeAndTileCount();
+    (void)tileCount;
     SymbolicScalar thisRank = GetHcclRankId(hcclGroupIndex);
 
     auto shmemSignalTile = View(shmemSignal, {rankSize, 1, 1, 8}, std::vector<SymbolicScalar>{0, 0, 0, 0});
@@ -265,10 +266,6 @@ void ShmemAllGather(const Tensor &in, const Tensor &barrierDummy, const char *gr
     Shape shmemSignalShape = {rankSize, tileCount, 8};
     Shape outShape = {row * rankSize, col};
     ASSERT(out.GetShape() == outShape) << "This shape of out is invalid";
-    DataType shmemDataType = in.GetDataType();
-    if ((shmemDataType == DT_BF16) || (shmemDataType == DT_FP16)) {
-        shmemDataType = DT_FP32;
-    }
     const TileShape& tileShape = TileShape::Current();
     ValidateTilingSize(tileShape.GetDistTileRow(), row, "row");
     ValidateTilingSize(tileShape.GetDistTileCol(), col, "col");
@@ -410,7 +407,7 @@ void TwoShotAllReduce(const Tensor& predToken, const Tensor& in, Tensor& shmemDa
 }
 
 template<AllReduceType allReduceType>
-void CreateShmemTensorAndAllReduce(const Tensor& in, const char* group, Tensor& out)
+void CreateShmemTensorAndAllReduce(const Tensor& predToken, const Tensor& in, const char* group, Tensor& out)
 {
     int32_t row = in.GetShape(0);
     int32_t col = in.GetShape(1);
@@ -436,7 +433,6 @@ void CreateShmemTensorAndAllReduce(const Tensor& in, const char* group, Tensor& 
         CreateShmemTensor(shmemData, rankSize, hcclGroupIndex, shmemDataType, shmemDataShape);
         CreateShmemTensor(shmemSignal, rankSize, hcclGroupIndex, DT_INT32, shmemSignalShape);
     }
-    Tensor predToken(DT_INT32, {1, 1}, "predToken");
     if constexpr (allReduceType == AllReduceType::ONE_SHOT) {
         OneShotAllReduce(predToken, in, shmemData, shmemSignal, group, out);
     } else {
@@ -444,9 +440,9 @@ void CreateShmemTensorAndAllReduce(const Tensor& in, const char* group, Tensor& 
     }
 }
 
-void OneShotShmemAllReduce(const Tensor& in, const char* group, Tensor& out)
+void OneShotShmemAllReduce(const Tensor& predToken, const Tensor& in, const char* group, Tensor& out)
 {
-    CreateShmemTensorAndAllReduce<AllReduceType::ONE_SHOT>(in, group, out);
+    CreateShmemTensorAndAllReduce<AllReduceType::ONE_SHOT>(predToken, in, group, out);
 }
 
 void OneShotShmemAllReduce(const Tensor& predToken, const Tensor& in, Tensor& shmemData, Tensor& shmemSignal,
@@ -455,9 +451,9 @@ void OneShotShmemAllReduce(const Tensor& predToken, const Tensor& in, Tensor& sh
     OneShotAllReduce(predToken, in, shmemData, shmemSignal, group, out);
 }
 
-void TwoShotShmemAllReduce(const Tensor& in, const char* group, Tensor& out)
+void TwoShotShmemAllReduce(const Tensor& predToken, const Tensor& in, const char* group, Tensor& out)
 {
-    CreateShmemTensorAndAllReduce<AllReduceType::TWO_SHOT>(in, group, out);
+    CreateShmemTensorAndAllReduce<AllReduceType::TWO_SHOT>(predToken, in, group, out);
 }
 
 Tensor MoeCombineSend(const Tensor& in, const Tensor& combineInfo, const Tensor& shmemData, const Tensor& shmemSignal,

@@ -336,15 +336,31 @@ void SplitLargeFanoutTensor::CollectLargeTensorToInfo(const LogicalTensorPtr &la
 
 void SplitLargeFanoutTensor::CollectLargeTensorFromInfo(const LogicalTensorPtr &largeTensor) {
     for (const auto &viewOp : largeTensor->GetConsumers()) {
+        if (viewOp->GetOpcode() != Opcode::OP_VIEW) {
+            continue;
+        }
         // 收集outputs
         auto output = viewOp->GetOOperands().front();
         if (fromInfoMap.count(largeTensor->tensor->rawmagic) == 0) {
             fromInfoMap.insert({largeTensor->tensor->rawmagic, {}});
         }
         auto opAttr = dynamic_cast<ViewOpAttribute *>(viewOp->GetOpAttribute().get());
-        if (opAttr != nullptr) {
-            fromInfoMap[largeTensor->tensor->rawmagic].emplace_back(output, opAttr->GetFromOffset());
+        if (opAttr == nullptr) { // 不可能为空，否则有问题
+            continue;
         }
+        if (!opAttr->GetFromDynOffset().empty()) {
+            bool hasDynOffset = false;
+            for (auto dynOffset : opAttr->GetFromDynOffset()) {
+                if (!dynOffset.ConcreteValid()) {
+                    hasDynOffset = true;
+                    break;
+                }
+            }
+            if (hasDynOffset) { // 当View存在动态offset时，无法进行split，因为不知道会用哪些Assemble
+                continue;
+            }
+        }
+        fromInfoMap[largeTensor->tensor->rawmagic].emplace_back(output, opAttr->GetFromOffset());
         // 收集outputs的shape
         if (fromShapes.count(largeTensor) == 0) {
             fromShapes.insert({largeTensor, {}});
@@ -418,20 +434,22 @@ void SplitLargeFanoutTensor::SplitLargeTensor(Function &function) {
                     APASS_LOG_INFO_F(Elements::Tensor, "Calculate LCM shape failed, don't cal LcmShape.");
                     continue;
                 }
-                // 当lcmTile的每个维度都大于等于largeTensor时, 仍会聚合到同样大小的Tensor, 因此不做处理
-                bool unsplit = std::equal(lcmShape.begin(), lcmShape.end(), largeTensor->shape.begin(),
-                    [](int lcmDim, int largeTensorDim) { return lcmDim >= largeTensorDim; });
-                if (unsplit) {
+                // 当lcmTile的某一维度大于largeTensor时，修改为与largeTensor相等
+                for (size_t i = 0; i < lcmShape.size(); i++) {
+                    lcmShape[i] = std::min(lcmShape[i], largeTensor->GetShape()[i]);
+                }
+                // 当lcmTile的每个维度都等于largeTensor时, 仍会聚合到同样大小的Tensor, 因此不做处理
+                if (lcmShape == largeTensor->GetShape()) {
                     APASS_LOG_INFO_F(Elements::Tensor, "Skip SplitLargeTensor for magic[%d] since shape to assemble (lcmShape) equals "
-                        "or is larger than the largeTensor's shape.", largeTensor->GetMagic());
+                        "the largeTensor's shape.", largeTensor->GetMagic());
                     continue;
                 }
-                // 当lcmTile的shape小于largeTensor时, 开始尝试拆分
-                APASS_LOG_INFO_F(Elements::Tensor, "Try to split, large tensor magic is %d.", largeTensor->GetMagic());
                 lcmShapes.insert(lcmShape);
             }
         }
         for (const auto &lcmShape : lcmShapes) {
+            // 当lcmTile的shape小于largeTensor时, 开始尝试拆分
+            APASS_LOG_INFO_F(Elements::Tensor, "Try to split, large tensor magic is %d.", largeTensor->GetMagic());
             TryToSplitLargeTensor(function, lcmShape, largeTensor);
         }
     }
