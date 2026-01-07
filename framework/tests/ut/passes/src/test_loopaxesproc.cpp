@@ -16,13 +16,9 @@
 #include <gtest/gtest.h>
 #include <vector>
 #include <string>
-#include "ir/value.h"
-#include "ir/opcode.h"
-#include "ir/program.h"
-#include "ir/function.h"
-#include "ir/statement.h"
-#include "ir/builder/ir_builder.h"
-#include "ir/builder/ir_context.h"
+#include "tilefwk/tilefwk.h"
+#include "interface/function/function.h"
+#include "interface/operation/operation.h"
 #include "passes/pass_mgr/pass_manager.h"
 
 #define private public
@@ -45,77 +41,71 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {}
+    void SetUp() override {
+        Program::GetInstance().Reset();
+        config::Reset();
+        config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+        config::SetHostConfig(KEY_STRATEGY, "ExpandFunctionTestStrategy");
+        config::SetPlatformConfig("ENABLE_COST_MODEL", false);
+    }
     void TearDown() override {}
 };
 
-std::shared_ptr<ProgramModule> MakeTestBlockIr() {
-    auto module = std::make_shared<ProgramModule>("main");
-    IRBuilder builder(module);
-    IRBuilderContext ctx;
-    // ===== Function signature =====
-    FunctionSignature sig;
-
-    // tensor<[32, 16, 64, 128], f32>
-    std::vector<ScalarValuePtr> tensorShape1 = {std::make_shared<ScalarValue>(int64_t(32)),
-                                                std::make_shared<ScalarValue>(int64_t(16)),
-                                                std::make_shared<ScalarValue>(int64_t(64)),
-                                                std::make_shared<ScalarValue>(int64_t(128))};
-    // tensor<[32, 128, 64], f32>
-    std::vector<ScalarValuePtr> tensorShape2 = {std::make_shared<ScalarValue>(int64_t(32)),
-                                                std::make_shared<ScalarValue>(int64_t(128)),
-                                                std::make_shared<ScalarValue>(int64_t(64))};
-    // tensor<[128, 64], f32>
-    std::vector<ScalarValuePtr> tensorShape3 = {std::make_shared<ScalarValue>(int64_t(128)),
-                                                std::make_shared<ScalarValue>(int64_t(64))};
-    auto inputTensor = std::make_shared<TensorValue>(tensorShape1, DataType::FP32, "incast");
-    auto outputTensor = std::make_shared<TensorValue>(tensorShape3, DataType::FP32, "output");
-    
-    sig.arguments = {inputTensor, outputTensor};
-
-    // ===== Function =====
-    auto func = builder.CreateFunction("test_loopaxes", FunctionKind::ControlFlow, sig, /*setAsEntry=*/true);
-
-    builder.EnterFunctionBody(ctx, func);
-
-    // ubTensor1 = view(input)
-    auto ubTensor1 = builder.CreateTensor(ctx, tensorShape1, DataType::FP32, "ubTensor1");
-    auto op1 = builder.CreateUnaryOp(Opcode::OP_VIEW, inputTensor, ubTensor1);
-    builder.Emit(ctx, op1);
-
-    // ubTensor2 = exp(ubTensor1)
-    auto ubTensor2 = builder.CreateTensor(ctx, tensorShape1, DataType::FP32, "ubTensor2");
-    auto op2 = builder.CreateUnaryOp(Opcode::OP_EXP, ubTensor1, ubTensor2);
-    builder.Emit(ctx, op2);
-
-    // ubTensor3 = reciprocal(ubTensor2)
-    auto ubTensor3 = builder.CreateTensor(ctx, tensorShape1, DataType::FP32, "ubTensor3");
-    auto op4 = builder.CreateUnaryOp(Opcode::OP_RECIPROCAL, ubTensor2, ubTensor3);
-    builder.Emit(ctx, op4);
-
-    // ubTensor4 = nop(ubTensor3)
-    auto ubTensor4 = builder.CreateTensor(ctx, tensorShape2, DataType::FP32, "ubTensor4");
-    auto op3 = builder.CreateUnaryOp(Opcode::OP_NOP, ubTensor3, ubTensor4);
-    builder.Emit(ctx, op3);
-
-    // ubTensor5 = exp(ubTensor4)
-    auto ubTensor5 = builder.CreateTensor(ctx, tensorShape2, DataType::FP32, "ubTensor5");
-    auto op5 = builder.CreateUnaryOp(Opcode::OP_EXP, ubTensor4, ubTensor5);
-    builder.Emit(ctx, op5);
-
-    // output = nop(ubTensor5)
-    auto op6 = builder.CreateUnaryOp(Opcode::OP_NOP, ubTensor5, outputTensor);
-    builder.Emit(ctx, op5);
-
-    builder.CreateReturn(ctx, { });
-    ctx.PopScope();
-
- 	std::cout << *module << std::endl;
-    return module;
-}
-
 TEST_F(TestLoopaxesProcPass, LoopaxesProcUTest1) {
-    auto module = MakeTestBlockIR();
+    auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestLoopaxesProcPass", "TestLoopaxesProcPass", nullptr);
+    rootFuncPtr->rootFunc_ = rootFuncPtr.get();
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestLoopaxesProcPassLeaf", "TestLoopaxesProcPassLeaf", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
+    rootFuncPtr->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
+    rootFuncPtr->SetUnderDynamicFunction(true);
+
+    std::vector<int64_t> shape1 = {kNum16};
+    std::vector<int64_t> shape2 = {kNum2, kNum2, kNum4};
+    std::vector<int64_t> shape3 = {kNum4, kNum4};
+    auto inCast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
+    auto inCast2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
+    auto ubTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
+    auto ubTensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
+    auto ubTensor3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
+    auto ubTensor4 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
+    auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
+
+    auto &view1 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast1}, {ubTensor1});
+    auto &view2 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast2}, {ubTensor2});
+    auto &reshape1 = currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {ubTensor1}, {ubTensor3});
+    auto &add = currFunctionPtr->AddOperation(Opcode::OP_ADD, {ubTensor2, ubTensor3}, {ubTensor4});
+    auto &reshape2 = currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {ubTensor4}, {outCast});
+    currFunctionPtr->inCasts_.push_back(inCast1);
+    currFunctionPtr->inCasts_.push_back(inCast2);
+    currFunctionPtr->outCasts_.push_back(outCast);
+
+    LoopaxesProc loopaxesprocpass;
+    EXPECT_EQ(loopaxesprocpass.RunOnFunction(*rootFuncPtr), SUCCESS);
+
+    EXPECT_TRUE(view1.HasAttr(OpAttributeKey::loopGroup));
+    EXPECT_EQ(view1.GetIntAttribute(OpAttributeKey::loopGroup), kKeepOut);
+    EXPECT_FALSE(view1.HasAttr(OpAttributeKey::loopAxes));
+    
+    EXPECT_TRUE(view2.HasAttr(OpAttributeKey::loopGroup));
+    EXPECT_EQ(view2.GetIntAttribute(OpAttributeKey::loopGroup), kNum0);
+    EXPECT_TRUE(view2.HasAttr(OpAttributeKey::loopAxes));
+    EXPECT_EQ(view2.GetVectorIntAttribute(OpAttributeKey::loopAxes), expectedLoopAxis1);
+    
+    EXPECT_TRUE(reshape1.HasAttr(OpAttributeKey::loopGroup));
+    EXPECT_EQ(reshape1.GetIntAttribute(OpAttributeKey::loopGroup), kNum0);
+    EXPECT_TRUE(reshape1.HasAttr(OpAttributeKey::loopAxes));
+    EXPECT_EQ(reshape1.GetVectorIntAttribute(OpAttributeKey::loopAxes), expectedLoopAxis1);
+    
+    EXPECT_TRUE(add.HasAttr(OpAttributeKey::loopGroup));
+    EXPECT_EQ(add.GetIntAttribute(OpAttributeKey::loopGroup), kNum0);
+    EXPECT_TRUE(add.HasAttr(OpAttributeKey::loopAxes));
+    EXPECT_EQ(add.GetVectorIntAttribute(OpAttributeKey::loopAxes), expectedLoopAxis1);
+    
+    EXPECT_TRUE(reshape2.HasAttr(OpAttributeKey::loopGroup));
+    EXPECT_EQ(reshape2.GetIntAttribute(OpAttributeKey::loopGroup), kNum1);
+    EXPECT_TRUE(reshape2.HasAttr(OpAttributeKey::loopAxes));
+    EXPECT_EQ(reshape2.GetVectorIntAttribute(OpAttributeKey::loopAxes), expectedLoopAxis2);
 }
 }
 }
