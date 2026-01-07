@@ -87,7 +87,6 @@ struct IssueEntry {
         LogicalTensorPtr tensor) const;
     void UpdateTensorInputForView(Operation& op, std::shared_ptr<IssueEntry> &spillSrcIssue,
         LogicalTensorPtr tensor) const;
-    Operation* FindFirstView(Operation *op) const;
     std::string GetOpInfo();
 };
 

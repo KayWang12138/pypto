@@ -35,17 +35,21 @@ inline bool IsViewOp(const Operation& op) {
     return opc == Opcode::OP_VIEW || opc == Opcode::OP_VIEW_TYPE;
 }
 
-template <typename NextFn>
-Operation* SkipViewChain(Operation* start, NextFn nextFn) {
+inline Operation* SkipViewChain(Operation* start, bool followProducers) {
     if (start == nullptr) return nullptr;
     Operation* op = start;
     Operation* lastView = nullptr;
     while (op != nullptr && IsViewOp(*op)) {
         lastView = op;
-        // nextFn 返回沿某迭代方向的op集合
-        decltype(auto) nextOps = nextFn(op);
-        if (nextOps.empty()) break;
-        op = *nextOps.begin();
+        if (followProducers) {
+            const auto& nextOps = op->GetInputOperand(0)->GetProducers();
+            if (nextOps.size() != 1) break;
+            op = *nextOps.begin();
+        } else {
+            const auto& nextOps = op->GetOutputOperand(0)->GetConsumers();
+            if (nextOps.size() != 1) break;
+            op = *nextOps.begin();
+        }
     }
     return lastView;
 }
@@ -91,19 +95,12 @@ void IssueEntry::UpdateTensorInputForOperand(size_t index, std::shared_ptr<Issue
     LogicalTensorPtr tensor) const {
     for (auto &inOp : tileOp.GetIOperands()[index]->GetProducers()) {
         if (IsViewOp(*inOp)) {
-            Operation* op = FindFirstView(inOp);
+            Operation* op = SkipViewChain(inOp, true);
             UpdateTensorInputForView(*op, spillSrcIssue, tensor);
         } else if (inOp == &(spillSrcIssue->tileOp)) {
             tileOp.UpdateInputOperand(index, tensor);
         }
     }
-}
-
-Operation* IssueEntry::FindFirstView(Operation *op) const {
-    auto next = [](Operation* x) {
-        return x->GetInputOperand(0)->GetProducers();
-    };
-    return SkipViewChain(op, next); 
 }
 
 void IssueEntry::UpdateTensorInputForView(Operation& op,
@@ -801,8 +798,6 @@ Status OoOScheduler::InitDependencies() {
         issue->successors.clear();
         op2IssueEntryMap[&(issue->tileOp)] = issue;
     }
-    auto nextProd = [](Operation* x) { return x->ProducerOps(); };
-    auto nextCon  = [](Operation* x) { return x->ConsumerOps(); };
     std::map<int, IssueEntryPtr> tensor2AllocMap;
     for (const auto &issue : issueEntries) {
         if (issue->isAlloc) {
@@ -817,7 +812,7 @@ Status OoOScheduler::InitDependencies() {
         for (auto &producer : issue->tileOp.ProducerOps()) {
             if (IsViewOp(*producer)) {
                 for (auto viewProducer : producer->ProducerOps()) {
-                    Operation* lastView = SkipViewChain(viewProducer, nextProd);
+                    Operation* lastView = SkipViewChain(viewProducer, true);
                     Operation* realProd = (lastView != nullptr) ? *lastView->ProducerOps().begin() : viewProducer;
                     auto viewProdIssue = op2IssueEntryMap[realProd];
                     AddDependency(viewProdIssue, issue, false);
@@ -830,7 +825,7 @@ Status OoOScheduler::InitDependencies() {
         for (auto &consumer : issue->tileOp.ConsumerOps()) {
             if (IsViewOp(*consumer)) {
                 for (auto viewConsumer : consumer->ConsumerOps()) {
-                    Operation* lastView = SkipViewChain(viewConsumer, nextCon);
+                    Operation* lastView = SkipViewChain(viewConsumer, false);
                     Operation* realCon = (lastView != nullptr) ? *lastView->ConsumerOps().begin() : viewConsumer;
                     auto viewConIssue = op2IssueEntryMap[realCon];
                     AddDependency(issue, viewConIssue, false);
