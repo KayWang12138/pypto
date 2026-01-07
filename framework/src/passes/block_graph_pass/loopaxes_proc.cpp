@@ -27,9 +27,11 @@
 namespace npu {
 namespace tile_fwk {
 Status LoopaxesProc::RunOnFunction(Function &function) {
-    APASS_LOG_INFO_F(Elements::Operation, "===============================================================> Start LoopaxesProc.");
+    APASS_LOG_INFO_F(
+        Elements::Operation, "===============================================================> Start LoopaxesProc.");
     UpdateFuncLoopAxes(function);
-    APASS_LOG_INFO_F(Elements::Operation, "===============================================================> Finish LoopaxesProc.");
+    APASS_LOG_INFO_F(
+        Elements::Operation, "===============================================================> Finish LoopaxesProc.");
     return SUCCESS;
 }
 
@@ -37,6 +39,10 @@ Status LoopaxesProc::UpdateOpLoopAxes(Operation &op) {
     std::vector<SymbolicScalar> loopAxes;
     if (op.GetOOperands().empty() || op.GetOOperands().front() == nullptr) {
         APASS_LOG_DEBUG_F(Elements::Operation, "Op[%d] has no output.", op.opmagic);
+        return SUCCESS;
+    }
+    if (SUPPORT_VF_FUSE_OPS.find(opCode) == SUPPORT_VF_FUSE_OPS.end()) {
+        previousLoopAxes.clear();
         return SUCCESS;
     }
     auto output = op.GetOOperands().front();
@@ -74,7 +80,8 @@ Status LoopaxesProc::UpdateFuncLoopAxes(Function &function) {
     APASS_LOG_DEBUG_F(Elements::Operation, "Function[%s] has rootFunc.", function.GetMagicName().c_str());
     for (auto &subProgram : function.rootFunc_->programs_) {
         if (subProgram.second == nullptr) {
-            APASS_LOG_DEBUG_F(Elements::Operation, "subProgram[%d] of Function[%s] is nullptr.", subProgram.first, function.GetMagicName().c_str());
+            APASS_LOG_DEBUG_F(Elements::Operation, "subProgram[%d] of Function[%s] is nullptr.", subProgram.first,
+                function.GetMagicName().c_str());
             continue;
         }
         for (auto &op : subProgram.second->Operations(false)) {
