@@ -30,16 +30,19 @@ static const int kKeepOut = -1;
 static const int kNum0 = 0;
 static const int kNum1 = 1;
 static const int kNum2 = 2;
+static const int kNum3 = 3;
 static const int kNum4 = 4;
 static const int kNum16 = 2;
 static const std::vector<int64_t> shape1 = {kNum2, kNum16};
 static const std::vector<int64_t> shape2 = {kNum2, kNum2, kNum2, kNum4};
 static const std::vector<int64_t> shape3 = {kNum4, kNum2, kNum4};
+static const std::vector<int64_t> shape4 = {kNum3, kNum2, kNum2, kNum4};
 static const std::vector<SymbolicScalar> symShape1 = {kNum2, kNum16};
 static const std::vector<SymbolicScalar> symShape2 = {kNum2, kNum2, kNum2, kNum4};
 static const std::vector<SymbolicScalar> symShape3 = {kNum4, kNum2, kNum4};
+static const std::vector<SymbolicScalar> symShape4 = {kNum3, kNum2, kNum2, kNum4};
 static const std::vector<SymbolicScalar> expectedLoopAxis1 = {kNum2, kNum2};
-static const std::vector<SymbolicScalar> expectedLoopAxis2 = {kNum4};
+static const std::vector<SymbolicScalar> expectedLoopAxis2 = {kNum3, kNum2};
 
 class TestLoopaxesProcPass : public ::testing::Test {
 public:
@@ -50,7 +53,8 @@ public:
     void SetUp() override {
         Program::GetInstance().Reset();
         config::Reset();
-        config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+        config::SetPassGlobalConfig(KEY_VF_OPT_MARK_FOR, true);
+        config::SetHostOption(COMPILE_STAGE, HOST_COMPILE_END);
         config::SetHostConfig(KEY_STRATEGY, "ExpandFunctionTestStrategy");
         config::SetPlatformConfig("ENABLE_COST_MODEL", false);
     }
@@ -70,9 +74,11 @@ bool EqualSymShape(const std::vector<SymbolicScalar> &A, const std::vector<Symbo
 }
 
 TEST_F(TestLoopaxesProcPass, LoopaxesProcUTest1) {
-    auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestLoopaxesProcPass", "TestLoopaxesProcPass", nullptr);
+    auto rootFuncPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestLoopaxesProcPass", "TestLoopaxesProcPass", nullptr);
     rootFuncPtr->rootFunc_ = rootFuncPtr.get();
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestLoopaxesProcPassLeaf", "TestLoopaxesProcPassLeaf", nullptr);
+    auto currFunctionPtr = std::make_shared<Function>(
+        Program::GetInstance(), "TestLoopaxesProcPassLeaf", "TestLoopaxesProcPassLeaf", nullptr);
     rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
     rootFuncPtr->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
     rootFuncPtr->SetUnderDynamicFunction(true);
@@ -89,43 +95,50 @@ TEST_F(TestLoopaxesProcPass, LoopaxesProcUTest1) {
     ubTensor3->UpdateDynValidShape(symShape2);
     auto ubTensor4 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
     ubTensor4->UpdateDynValidShape(symShape2);
+    auto ubTensor5 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
+    ubTensor5->UpdateDynValidShape(symShape2);
+    auto ubTensor6 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape4);
+    ubTensor6->UpdateDynValidShape(symShape4);
+    auto ubTensor7 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape4);
+    ubTensor7->UpdateDynValidShape(symShape4);
+    auto ubTensor8 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape4);
+    ubTensor8->UpdateDynValidShape(symShape4);
     auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
     outCast->UpdateDynValidShape(symShape3);
 
-    auto &view1 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast1}, {ubTensor1});
-    auto &view2 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast2}, {ubTensor2});
-    auto &reshape1 = currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {ubTensor1}, {ubTensor3});
+    auto &expand = currFunctionPtr->AddOperation(Opcode::OP_EXPAND, {inCast2}, {ubTensor2});
+    expand.SetAttribute(OP_ATTR_PREFIX + "EXPANDDIM", kNum3);
+    auto &syncOp = currFunctionPtr->AddOperation(npu::tile_fwk::Opcode::OP_BAR_ALL, {inCast1}, {ubTensor2});
     auto &add = currFunctionPtr->AddOperation(Opcode::OP_ADD, {ubTensor2, ubTensor3}, {ubTensor4});
-    auto &reshape2 = currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {ubTensor4}, {outCast});
+    auto &mul = currFunctionPtr->AddOperation(Opcode::OP_MUL, {ubTensor2, ubTensor4}, {ubTensor5});
+    auto &sub = currFunctionPtr->AddOperation(Opcode::OP_SUB, {ubTensor6, ubTensor7}, {ubTensor8});
+    auto &reshape2 = currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {ubTensor5}, {outCast});
     currFunctionPtr->inCasts_.push_back(inCast1);
     currFunctionPtr->inCasts_.push_back(inCast2);
     currFunctionPtr->outCasts_.push_back(outCast);
 
     LoopaxesProc loopaxesprocpass;
     EXPECT_EQ(loopaxesprocpass.RunOnFunction(*rootFuncPtr), SUCCESS);
-    EXPECT_TRUE(view1.HasAttr(OpAttributeKey::loopGroup));
-    EXPECT_EQ(view1.GetIntAttribute(OpAttributeKey::loopGroup), kKeepOut);
-    EXPECT_FALSE(view1.HasAttr(OpAttributeKey::loopAxes));
-    
-    EXPECT_TRUE(view2.HasAttr(OpAttributeKey::loopGroup));
-    EXPECT_EQ(view2.GetIntAttribute(OpAttributeKey::loopGroup), kNum0);
-    EXPECT_TRUE(view2.HasAttr(OpAttributeKey::loopAxes));
-    EXPECT_TRUE(EqualSymShape(view2.GetVectorSymbolicScalarAttribute(OpAttributeKey::loopAxes), expectedLoopAxis1));
-    
-    EXPECT_TRUE(reshape1.HasAttr(OpAttributeKey::loopGroup));
-    EXPECT_EQ(reshape1.GetIntAttribute(OpAttributeKey::loopGroup), kNum0);
-    EXPECT_TRUE(reshape1.HasAttr(OpAttributeKey::loopAxes));
-    EXPECT_TRUE(EqualSymShape(reshape1.GetVectorSymbolicScalarAttribute(OpAttributeKey::loopAxes), expectedLoopAxis1));
-    
+
+    EXPECT_TRUE(expand.HasAttr(OpAttributeKey::loopGroup));
+    EXPECT_EQ(expand.GetIntAttribute(OpAttributeKey::loopGroup), kNum0);
+    EXPECT_TRUE(expand.HasAttr(OpAttributeKey::loopAxes));
+    EXPECT_TRUE(EqualSymShape(expand.GetVectorSymbolicScalarAttribute(OpAttributeKey::loopAxes), expectedLoopAxis1));
+
     EXPECT_TRUE(add.HasAttr(OpAttributeKey::loopGroup));
-    EXPECT_EQ(add.GetIntAttribute(OpAttributeKey::loopGroup), kNum0);
+    EXPECT_EQ(add.GetIntAttribute(OpAttributeKey::loopGroup), kNum1);
     EXPECT_TRUE(add.HasAttr(OpAttributeKey::loopAxes));
     EXPECT_TRUE(EqualSymShape(add.GetVectorSymbolicScalarAttribute(OpAttributeKey::loopAxes), expectedLoopAxis1));
-    
-    EXPECT_TRUE(reshape2.HasAttr(OpAttributeKey::loopGroup));
-    EXPECT_EQ(reshape2.GetIntAttribute(OpAttributeKey::loopGroup), kNum1);
-    EXPECT_TRUE(reshape2.HasAttr(OpAttributeKey::loopAxes));
-    EXPECT_TRUE(EqualSymShape(reshape2.GetVectorSymbolicScalarAttribute(OpAttributeKey::loopAxes), expectedLoopAxis2));
+
+    EXPECT_TRUE(mul.HasAttr(OpAttributeKey::loopGroup));
+    EXPECT_EQ(mul.GetIntAttribute(OpAttributeKey::loopGroup), kNum1);
+    EXPECT_TRUE(mul.HasAttr(OpAttributeKey::loopAxes));
+    EXPECT_TRUE(EqualSymShape(mul.GetVectorSymbolicScalarAttribute(OpAttributeKey::loopAxes), expectedLoopAxis1));
+
+    EXPECT_TRUE(sub.HasAttr(OpAttributeKey::loopGroup));
+    EXPECT_EQ(sub.GetIntAttribute(OpAttributeKey::loopGroup), kNum2);
+    EXPECT_TRUE(sub.HasAttr(OpAttributeKey::loopAxes));
+    EXPECT_TRUE(EqualSymShape(sub.GetVectorSymbolicScalarAttribute(OpAttributeKey::loopAxes), expectedLoopAxis2));
 }
-}
-}
+} // namespace tile_fwk
+} // namespace npu
