@@ -63,8 +63,8 @@ TILEOP void TOneHot(DstTensor dst,SrcTensor src){
     using DstDtype = typename DstTensor::Type;
     using DstTileShape = typename DstTensor::TileShape;
 
-    constexpr auto dstTileH = TileOp::GetTileShapeDim<3, 5, dstShapeSize,DstTileShape>();
-    constexpr auto dstTileW = TileOp::GetTileShapeDim<4, 5, dstShapeSize,DstTileShape>();
+    constexpr auto dstTileH = TileOp::GetTensorTileShapeDim<3, dstShapeSize, DstTileShape>();
+    constexpr auto dstTileW = TileOp::GetTensorTileShapeDim<4, dstShapeSize, DstTileShape>();
 
     using DstTileType = pto::Tile<pto::TileType::Vec, DstDtype, dstTileH, dstTileW, pto::BLayout::RowMajor, -1, -1>;
 
