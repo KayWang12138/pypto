@@ -263,7 +263,7 @@ def gen_input(
         dtype=torch.int32, device=f'npu:{device_id}')
     group_list_cumsum = get_token_acc_table(group_list).to(torch.int32)
     w13 = torch.randn((per_expert_num, hidden_size, intermediate_size * 2), \
-        dtype=dtypes, device=f'npu:{device_id}')  * 0.01 * 2 - 0.01
+        dtype=dtypes, device=f'npu:{device_id}') * 0.01 * 2 - 0.01
     w13, w13_scale = ffn_golden_quan_per_channel_3d(w13)
     w13_scale = w13_scale.squeeze(1).to(torch.float32)
 
