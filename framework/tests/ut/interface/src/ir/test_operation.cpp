@@ -48,7 +48,7 @@ TEST(IRTEST, TestTensorOperation){
     // Output tensor
     auto outputTensor =
         std::make_shared<TensorValue>(tensorShape, DataType::FP32, "output");
-    sig.results.push_back(outputTensor);
+    sig.arguments.push_back(outputTensor);
 
     // ===== Function =====
     auto func = builder.CreateFunction("test_all_ops", FunctionKind::ControlFlow, sig, /*setAsEntry=*/true);
@@ -75,16 +75,16 @@ TEST(IRTEST, TestTensorOperation){
     builder.Emit(ctx, mulOp);
 
     // tensorDiv = div(tensorMul, c2)
-    auto tensorDiv = builder.CreateTensor(ctx, tensorShape, DataType::FP32, "tensorDiv");
+    auto tensorDiv = builder.CreateTensor(ctx, tensorShape, DataType::FP32, "output");
     auto divOp = builder.CreateBinaryOp(Opcode::OP_DIV, tensorMul, c2, tensorDiv);
     builder.Emit(ctx, divOp);
 
     // return tensorDiv
-    builder.CreateReturn(ctx, { tensorDiv });
+    builder.CreateReturn(ctx, { });
 
     ctx.PopScope();
 
-    ASSERT_EQ(func->GetCompound()->GetEnvVar("tensorDiv"), func->GetCompound()->GetEnvVar("tensorDiv"));
+    ASSERT_EQ(func->GetCompound()->GetEnvVar("output"), tensorDiv);
 
     std::cout << *module << std::endl;
 }

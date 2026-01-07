@@ -46,17 +46,13 @@ TEST(IRTEST, TestBuilder) {
     auto inputTensor  = std::make_shared<TensorValue>(tensorShape, DataType::FP32, "input");
     auto scale1       = std::make_shared<ScalarValue>(DataType::FP32, "scale1", ScalarValueKind::Symbolic);
 
-    auto dynLen       = std::make_shared<ScalarValue>(DataType::INT32, "len", ScalarValueKind::Symbolic);
+    auto result = std::make_shared<TensorValue>(tensorShape, DataType::FP32, "output");
 
-    sig.arguments = { inputTensor, scale1, dynLen };
-
-    auto resultSig = std::make_shared<TensorValue>(tensorShape, DataType::FP32, "output");
-    sig.results.push_back(resultSig);
+    sig.arguments = { inputTensor, scale1, result };
 
     // ===== Function =====
     auto func = builder.CreateFunction("test_value", FunctionKind::ControlFlow, sig, /*setAsEntry=*/true);
 
-    
     // enter func scope + create an initial block as insertion point
     builder.EnterFunctionBody(ctx, func);
 
@@ -68,15 +64,15 @@ TEST(IRTEST, TestBuilder) {
     auto pi = builder.CreateConst(ctx, 3.14, "const_pi");
 
     // mul2_res = mul(mul1_res, pi)
-    auto mulVal2 = builder.CreateTensor(ctx, tensorShape, DataType::FP32, "mul2_res");
+    auto mulVal2 = builder.CreateTensor(ctx, tensorShape, DataType::FP32, "output");
     auto mulOp2 = builder.CreateBinaryOp(Opcode::OP_MUL, mulVal1, pi, mulVal2);
     builder.Emit(ctx, mulOp2);
 
-    builder.CreateReturn(ctx, { mulVal2 });
+    builder.CreateReturn(ctx, { });
 
-        ASSERT_EQ(ctx.func, func);
-        ASSERT_EQ(ctx.compound, func->GetCompound());
-        ASSERT_EQ(ctx.activeOpStmt, func->GetCompound()->GetStatement(0));
+    ASSERT_EQ(ctx.func, func);
+    ASSERT_EQ(ctx.compound, func->GetCompound());
+    ASSERT_EQ(ctx.activeOpStmt, func->GetCompound()->GetStatement(0));
 
     ctx.PopScope();
     
@@ -168,37 +164,35 @@ TEST(IRTEST, TestControlFlow) {
             
     builder.ExitIfStatement(ctx, ifs);
 
-            // check if then and else yield
-            auto thenYield = std::dynamic_pointer_cast<YieldStatement>(ifs->GetThenCompound()->GetStatement(ifs->GetThenCompound()->GetStatementsNum() - 1));
-            std::unordered_set<ValuePtr> thenYieldSet(thenYield->Values().begin(), thenYield->Values().end());
-            std::unordered_set<ValuePtr> thenYieldSetGolden{resIfX, resLoopY};
-            ASSERT_EQ(thenYieldSet, thenYieldSetGolden);
+    // check if then and else yield
+    auto thenYield = std::dynamic_pointer_cast<YieldStatement>(ifs->GetThenCompound()->GetStatement(ifs->GetThenCompound()->GetStatementsNum() - 1));
+    std::unordered_set<ValuePtr> thenYieldSet(thenYield->Values().begin(), thenYield->Values().end());
+    std::unordered_set<ValuePtr> thenYieldSetGolden{resIfX, resLoopY};
+    ASSERT_EQ(thenYieldSet, thenYieldSetGolden);
 
-            auto elseYield = std::dynamic_pointer_cast<YieldStatement>(ifs->GetElseCompound()->GetStatement(ifs->GetElseCompound()->GetStatementsNum() - 1));
-            std::unordered_set<ValuePtr> elseYieldSet(elseYield->Values().begin(), elseYield->Values().end());
-            std::unordered_set<ValuePtr> elseYieldSetGolden{resLoopX, resIfY};
-            ASSERT_EQ(elseYieldSet, elseYieldSetGolden);
-            ASSERT_NE(elseYield, nullptr);
-            ASSERT_GE(elseYield->Values().size(), 2);
-            ASSERT_EQ(elseYield->Values()[0], resIfY);
-            ASSERT_EQ(elseYield->Values()[1], resLoopX);
+    auto elseYield = std::dynamic_pointer_cast<YieldStatement>(ifs->GetElseCompound()->GetStatement(ifs->GetElseCompound()->GetStatementsNum() - 1));
+    std::unordered_set<ValuePtr> elseYieldSet(elseYield->Values().begin(), elseYield->Values().end());
+    std::unordered_set<ValuePtr> elseYieldSetGolden{resLoopX, resIfY};
+    ASSERT_EQ(elseYieldSet, elseYieldSetGolden);
+    ASSERT_NE(elseYield, nullptr);
+    ASSERT_GE(elseYield->Values().size(), 2);
+    ASSERT_EQ(elseYield->Values()[0], resIfY);
+    ASSERT_EQ(elseYield->Values()[1], resLoopX);
 
     ctx.PopScope(); // for-body
         
     builder.ExitForStatement(ctx, fs);
 
-        // check for yield of for-statement: for 的结果应等于 if 的结果
-        auto ifsInFor = std::dynamic_pointer_cast<IfStatement>(fs->GetCompound()->GetStatement(1));
-        auto ifResults = ifsInFor->Results();
-        auto forYields = fs->Yield()->Values();
-        std::unordered_set<ValuePtr> ifResultSet(ifResults.begin(), ifResults.end());
-        std::unordered_set<ValuePtr> forYieldSet(forYields.begin(), forYields.end());
-        ASSERT_EQ(ifResultSet, forYieldSet);
+    // check for yield of for-statement: for 的结果应等于 if 的结果
+    auto ifsInFor = std::dynamic_pointer_cast<IfStatement>(fs->GetCompound()->GetStatement(1));
+    auto ifResults = ifsInFor->Results();
+    auto forYields = fs->Yield()->Values();
+    std::unordered_set<ValuePtr> ifResultSet(ifResults.begin(), ifResults.end());
+    std::unordered_set<ValuePtr> forYieldSet(forYields.begin(), forYields.end());
+    ASSERT_EQ(ifResultSet, forYieldSet);
 
     // return 
     builder.CreateReturn(ctx, {constant0});
-    // return outputX, outputY
-    builder.CreateReturn(ctx, fs->Results());
 
     ctx.PopScope(); // function-body
     
