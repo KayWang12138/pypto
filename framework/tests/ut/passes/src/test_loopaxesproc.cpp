@@ -32,6 +32,12 @@ static const int kNum1 = 1;
 static const int kNum2 = 2;
 static const int kNum4 = 4;
 static const int kNum16 = 2;
+static const std::vector<int64_t> shape1 = {kNum16};
+static const std::vector<int64_t> shape2 = {kNum2, kNum2, kNum4};
+static const std::vector<int64_t> shape3 = {kNum4, kNum4};
+static const std::vector<SymbolicScalar> symShape1 = {kNum16};
+static const std::vector<SymbolicScalar> symShape2 = {kNum2, kNum2, kNum4};
+static const std::vector<SymbolicScalar> symShape3 = {kNum4, kNum4};
 static const std::vector<SymbolicScalar> expectedLoopAxis1 = {kNum2, kNum2};
 static const std::vector<SymbolicScalar> expectedLoopAxis2 = {kNum4};
 
@@ -55,17 +61,10 @@ TEST_F(TestLoopaxesProcPass, LoopaxesProcUTest1) {
     auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestLoopaxesProcPass", "TestLoopaxesProcPass", nullptr);
     rootFuncPtr->rootFunc_ = rootFuncPtr.get();
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestLoopaxesProcPassLeaf", "TestLoopaxesProcPassLeaf", nullptr);
-    EXPECT_TRUE(currFunctionPtr != nullptr);
     rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
     rootFuncPtr->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
     rootFuncPtr->SetUnderDynamicFunction(true);
 
-    std::vector<int64_t> shape1 = {kNum16};
-    std::vector<SymbolicScalar> symShape1 = {kNum16};
-    std::vector<int64_t> shape2 = {kNum2, kNum2, kNum4};
-    std::vector<SymbolicScalar> symShape2 = {kNum2, kNum2, kNum4};
-    std::vector<int64_t> shape3 = {kNum4, kNum4};
-    std::vector<SymbolicScalar> symShape3 = {kNum4, kNum4};
     auto inCast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
     inCast1->UpdateDynValidShape(symShape1);
     auto inCast2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
@@ -92,7 +91,6 @@ TEST_F(TestLoopaxesProcPass, LoopaxesProcUTest1) {
 
     LoopaxesProc loopaxesprocpass;
     EXPECT_EQ(loopaxesprocpass.RunOnFunction(*rootFuncPtr), SUCCESS);
-
     EXPECT_TRUE(view1.HasAttr(OpAttributeKey::loopGroup));
     EXPECT_EQ(view1.GetIntAttribute(OpAttributeKey::loopGroup), kKeepOut);
     EXPECT_FALSE(view1.HasAttr(OpAttributeKey::loopAxes));

@@ -54,7 +54,7 @@ Status LoopaxesProc::UpdateOpLoopAxes(Operation &op) {
         }
         // 当前节点的loopaxes和group的loopaxes一致，当前节点划入当前的loopaxes
         // 当前节点的loopaxes和group的loopaxes不一致，划入一个新的group起点，进行group
-        if (loopAxes != previousLoopAxes) {
+        if (!SameLoopAxes(loopAxes)) {
             groupIdx++;
             previousLoopAxes = loopAxes;
         }
@@ -77,6 +77,18 @@ Status LoopaxesProc::UpdateFuncLoopAxes(Function &function) {
         }
     }
     return SUCCESS;
+}
+
+bool LoopaxesProc::SameLoopAxes(const std::vector<SymbolicScalar> &curLoopAxes) {
+    if (curLoopAxes.size() != previousLoopAxes.size()) {
+        return false;
+    }
+    for (size_t i = 0; i < curLoopAxes.size(); ++i) {
+        if (curLoopAxes[i].Dump() != previousLoopAxes[i].Dump()) {
+            return false;
+        }
+    }
+    return true;
 }
 } // namespace tile_fwk
 } // namespace npu
