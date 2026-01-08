@@ -180,7 +180,7 @@ def gen_mla_prolog_input_data(params, dtypes, is_nz=False):
     logging.debug("x shape is %s", x_shape)
     logging.debug("wq_a shape is %s", wq_a_shape)
     logging.debug("wq_b shape is %s", wq_b_shape)
-    logging.debug("cos sin shape is %s %s", cos_shape)
+    logging.debug("cos sin shape is %s", cos_shape)
     logging.debug("w_kv shape is %s", wkv_shape)
     logging.debug("cgamma_cq shape is %s", gamma_cq_shape)
     logging.debug("cgamma_ckv is %s", gamma_ckv_shape)
@@ -317,7 +317,7 @@ def mla_prolog(params, input_tensors, golden_tensors, dtype, is_nz):
     compare(output_kv_data.cpu(), golden2.cpu(), "kvOut", 0.0001, 0.0078125, 0.005)
     print("qr ================")
     compare(output_qr_data.cpu(), golden3.cpu(), "qrOut", 0.0001, 0.0078125, 0.005)
-
+    print("=========== pass ==========")
 
 def test_t4_pa_nd_bf16():
     prep_env()

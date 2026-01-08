@@ -128,3 +128,5 @@ def compare(t: torch.Tensor, t_ref: torch.Tensor, name, atol, rtol, max_error_ra
     assert error_count <= error_count_threshold, \
         (f"compare fail: {name}, max diff: {max_diff.item():.8f} at {max_pos}, "
          f"error_count: {error_count}, error_count_threshold: {error_count_threshold}")
+    
+    print("compare success !!!!")
