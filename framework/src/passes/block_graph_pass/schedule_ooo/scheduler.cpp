@@ -512,47 +512,9 @@ bool OoOScheduler::IsInissueEntries(Operation* op){
     return false;
 }
 
-Status OoOScheduler::InitMemWithoutAlloc() {
-    std::set<int> needAllocMem;
-    for (const auto &issue : issueEntries) {
-        for (auto &iOperand : issue->tileOp.GetIOperands()) {
-            bool needAlloc = true;
-            if (iOperand->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR){
-                needAlloc = false;
-                continue;
-            }
-            for (auto pre : iOperand->GetProducers()) {
-                if (pre->GetOpcode() == Opcode::OP_VIEW || pre->GetOpcode() == Opcode::OP_VIEW_TYPE || IsInissueEntries(pre)) {
-                    needAlloc = false;
-                    break;
-                }
-            }
-            if (needAlloc){
-                auto memId = iOperand->memoryrange.memId;
-                needAllocMem.insert(memId);
-                APASS_LOG_DEBUG_F(Elements::Tensor, "Buffer[%d] memId [%d] is ALLOC, it has no producers", iOperand->GetMagic(), memId);
-            }
-        }
-    }
-    for (auto memId : needAllocMem) {
-        auto memType = localBufferMap[memId]->memType;
-        if (!bufferManagerMap[memType].IsFull(localBufferMap[memId])) {
-            if (bufferManagerMap[memType].Allocate(localBufferMap[memId]) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Operation, "InitMemWithoutAlloc alloc tensor[%d] failed.", memId);
-                return FAILED;
-            }
-        }
-    }
-    return SUCCESS;
-}
-
 Status OoOScheduler::ScheduleMainLoop() {
     UpdateIssueExecOrder();
     LaunchReadyIssue();
-    if (InitMemWithoutAlloc() != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "InitMemWithoutAlloc failed.");
-        return FAILED;
-    }
     numTotalIssues = issueEntries.size();
     uint64_t commitCnt = 0; // 当前已提交的issue数量
     bool isAllRetired = false;
@@ -777,8 +739,6 @@ void OoOScheduler::InitBufRefCount() {
         issue->Clear();
         for (auto &tensor : issue->tileOp.GetIOperands()) {
             UpdateBufRefCount(issue, tensor);
-            int memId = tensor->memoryrange.memId;
-            InitLocalBuffer(tensor, memId);
         }
         for (auto &tensor : issue->tileOp.GetOOperands()) {
             UpdateBufRefCount(issue, tensor);
