@@ -29,6 +29,7 @@
 #include "ir/function.h"
 #include "ir/value.h"
 #include "ir/utils.h"
+#include "ir/printer/ir_printer.h"
 
 namespace pto {
 
@@ -482,10 +483,12 @@ TEST(IRTEST, TestTypeCompleteProgram) {
     module->Attributes()["enable_debug"] = "true";
     module->Attributes()["test_type"] = "\"tile_scalar_only\"";
 
-    // 打印完整的 IR
-    std::cout << "========== Complete Type Test Program IR (Tile & Scalar Only) ==========" << std::endl;
-    std::cout << *module << std::endl;
-    std::cout << "=======================================================================" << std::endl;
+   // 使用 IRPrinter 输出 IR 结构
+   std::ostringstream oss;
+   IRPrinter printer(oss);
+   printer.VisitProgramModule(*module);
+   std::cout << "------ IRPrinter output ------" << std::endl;
+   std::cout << oss.str() << std::endl;
 }
 
 } // namespace pto

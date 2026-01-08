@@ -26,6 +26,7 @@
 #include "ir/function.h"
 #include "ir/statement.h"
 #include "ir/value.h"
+#include "ir/printer/ir_printer.h"
 
 
 namespace pto{
@@ -86,7 +87,12 @@ TEST(IRTEST, TestBuilder) {
     module->Attributes()["tile_default"] = "{ M=16, N=16, K=16 }";
     module->Attributes()["enable_debug"] = "true";
 
-    std::cout << *module << std::endl;
+    // 使用 IRPrinter 输出 IR 结构
+    std::ostringstream oss;
+    IRPrinter printer(oss);
+    printer.VisitProgramModule(*module);
+    std::cout << "------ IRPrinter output ------" << std::endl;
+    std::cout << oss.str() << std::endl;
 }
 
 TEST(IRTEST, TestControlFlow) {
@@ -204,7 +210,12 @@ TEST(IRTEST, TestControlFlow) {
 
     ctx.PopScope(); // function-body
     
-    std::cout << *module << std::endl;
+    // 使用 IRPrinter 输出 IR 结构
+    std::ostringstream oss;
+    IRPrinter printer(oss);
+    printer.VisitProgramModule(*module);
+    std::cout << "------ IRPrinter output ------" << std::endl;
+    std::cout << oss.str() << std::endl;
 }
 
 } // namespace pto

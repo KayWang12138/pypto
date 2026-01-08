@@ -50,9 +50,6 @@ public:
     ObjectType GetObjectType() const override { return ObjectType::Statement; }
 
     virtual StatementKind GetKind() const = 0;
-
-    // Pretty-print with the given indentation (in spaces).
-    virtual void Print(std::ostream& os, int indent) const = 0;
 };
 
 using StatementPtr = std::shared_ptr<Statement>;
@@ -68,8 +65,6 @@ public:
     explicit CompoundStatement(std::shared_ptr<CompoundStatement> parent) : parent_(parent) {}
 
     StatementKind GetKind() const override { return StatementKind::Compound; }
-
-    void Print(std::ostream& os, [[maybe_unused]] int indent) const override { os << "Not impl CompundStatement.Print() now!!!" << std::endl; }
 
     // Get the parent scope (nullptr if this is a root scope).
     std::weak_ptr<CompoundStatement> GetParent() const { return parent_; }
@@ -126,8 +121,6 @@ public:
     std::vector<OperationPtr>& Operations() { return operations_; }
     const std::vector<OperationPtr>& Operations() const { return operations_; }
 
-    void Print(std::ostream& os, int indent) const override;
-
 private:
     std::vector<OperationPtr> operations_;
 };
@@ -141,8 +134,6 @@ public:
 
     std::vector<ValuePtr>& Values() { return values_; }
     const std::vector<ValuePtr>& Values() const { return values_; }
-
-    void Print(std::ostream& os, int indent) const override;
 
 private:
     std::vector<ValuePtr> values_;
@@ -218,8 +209,6 @@ public:
     CompoundStatementPtr GetCompound() { return compound_; }
     const CompoundStatementPtr GetCompound() const { return compound_; }
 
-    void Print(std::ostream& os, int indent) const override;
-
 private:
     ScalarValuePtr iterationVar_;
     std::shared_ptr<LoopRange> range_;
@@ -269,8 +258,6 @@ public:
     std::vector<ValuePtr>& Results() { return results_; }
     const std::vector<ValuePtr>& Results() const { return results_; }
 
-    void Print(std::ostream& os, int indent) const override;
-
 private:
     ScalarValuePtr condition_;
     CompoundStatementPtr thenCompound_;  // Scope for Data objects and statements created in the then branch
@@ -287,8 +274,6 @@ public:
 
     std::vector<ValuePtr>& Values() { return values_; }
     const std::vector<ValuePtr>& Values() const { return values_; }
-
-    void Print(std::ostream& os, int indent) const override;
 
 private:
     std::vector<ValuePtr> values_;

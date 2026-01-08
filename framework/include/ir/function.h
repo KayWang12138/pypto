@@ -67,19 +67,12 @@ public:
     // Convenience to append a top-level statement.
     void AddStatement(StatementPtr stmt);
 
-    // Pretty-print a standalone function in PTO-IR-like syntax.
-    void Print(std::ostream& os, int indent = 0) const;
-
 private:
     FunctionKind kind_;
     FunctionSignature signature_;
     CompoundStatementPtr inputCompound_; // Scope holding function arguments (inputs)
     CompoundStatementPtr compound_;  // Scope for Data objects and statements created in this function
 };
-
-// Helper for convenient streaming: std::cout << func;
-std::ostream& operator<<(std::ostream& os, const Function& func);
-
 } // namespace pto
 
 

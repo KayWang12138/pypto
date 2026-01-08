@@ -25,6 +25,7 @@
 #include "ir/value.h"
 #include "ir/builder/ir_builder.h"
 #include "ir/builder/ir_context.h"
+#include "ir/printer/ir_printer.h"
 
 namespace pto{
 
@@ -86,7 +87,12 @@ TEST(IRTEST, TestTensorOperation){
 
     ASSERT_EQ(func->GetCompound()->FindValue("output"), tensorDiv);
 
-    std::cout << *module << std::endl;
+    // 使用 IRPrinter 输出 IR 结构
+    std::ostringstream oss;
+    IRPrinter printer(oss);
+    printer.VisitProgramModule(*module);
+    std::cout << "------ IRPrinter output ------" << std::endl;
+    std::cout << oss.str() << std::endl;
 }
 
 };
