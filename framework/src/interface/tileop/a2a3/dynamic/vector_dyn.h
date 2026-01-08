@@ -2787,14 +2787,41 @@ TILEOP void CumSum(__ubuf__ T *dst, __ubuf__ T *src) {
     }
 }
 
-template <typename T, unsigned inputRawShape0, unsigned inputRawShape1, unsigned inputRawShape2,
-    unsigned inputRawShape3, int axis, bool flag>
+template <typename T, unsigned inputRawShape0, unsigned inputRawShape1, unsigned inputRawShape2, unsigned inputRawShape3, unsigned axis,
+    bool flag>
 TILEOP void DynTcumSum(
     __ubuf__ T *dst, __ubuf__ T *input, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned TShape3) {
     set_flag(PIPE_V, PIPE_S, EVENT_ID7);
     wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
+    uint64_t inputStride1 = inputRawShape1 * inputRawShape2 * inputRawShape3;
+    uint64_t inputStride2 = inputRawShape2 * inputRawShape3;
+    uint64_t inputStride3 = inputRawShape3;
 
-    CumSum<T, axis, inputRawShape0, inputRawShape1, inputRawShape2, inputRawShape3>(dst, input);
+    if constexpr (axis != 3) {
+        CumSumAxis0_2<T, axis>(
+            dst, input, TShape0, TShape1, TShape2, TShape3, inputStride1, inputStride2, inputStride3);
+    } else {
+        uint64_t offset = 0;
+        for (uint32_t i = 0; i < TShape0; ++i) {
+            for (uint32_t j = 0; j < TShape1; ++j) {
+                for (uint32_t k = 0; k < TShape2; ++k) {
+                    for (uint32_t idx = 0; idx < TShape3; ++idx) {
+                        offset = i * inputStride1 + j * inputStride2 + k * inputStride3 + idx;
+                        if (idx == 0) {
+                            dst[offset] = input[offset];
+                        } else {
+                            if constexpr (std::is_same_v<T, half>){
+                                int8_t tmp = static_cast<int8_t>(input[offset]) + static_cast<int8_t>(dst[offset - 1]);
+                                dst[offset] = tmp;
+                            } else {
+                                dst[offset] = input[offset] + dst[offset -1];
+                            }
+ 	                    }
+                    }
+                }
+            }
+        }
+    }
 
     set_flag(PIPE_S, PIPE_V, EVENT_ID7);
     wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
