@@ -68,6 +68,8 @@ enum class PassName {
     CODEGEN_PREPROC,
     DYN_ATTR_TO_STATIC,
     LOOPAXES_PROC,
+    TUNE_TILEOP_SEQ_FOR_VF,
+    TUNE_SYNC_FOR_VF,
     NOT_DEFINED
 };
 
