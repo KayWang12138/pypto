@@ -31,7 +31,7 @@ public:
     Status RunOnFunction(Function &function) override;
 
 private:
-    void ChangeOpSeq(std::vector<Operation *> &opList, std::vector<size_t> &tunedOpList, std::vector<size_t> &pipeVIdx, PipeSync &ps, bool isAIV1);
+    void ChangeOpSeq(std::vector<Operation *> &opList, PipeSync &ps, bool isAIV1);
     void PushBackIdx(size_t idx, std::vector<size_t> &vec);
 };
 }
