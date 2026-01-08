@@ -78,6 +78,10 @@ Status OoOSchedule::RunOnFunction(Function &function) {
     for (auto &program : function.rootFunc_->programs_) {
         auto opList = program.second->Operations(false).DuplicatedOpList();
         oriFunctions.emplace_back(program.second);
+        // ooo不处理aicpu子图
+        if (IsAicpuProgram(opList)) {
+            continue;
+        }
         if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510 || !IsMixGraph(opList)) {
             // 直接对oplist进行GenSpill和mainLoop
             OoOScheduler ooOSchedule(*program.second, ConfigManager::Instance().GetOperationConfig("COMBINE_AXIS", false));

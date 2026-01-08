@@ -897,21 +897,21 @@ Status OoOScheduler::Init(const std::vector<Operation *> &operations) {
     InitMemorySize();
 
     std::vector<Operation *> newOperations;
-     for (auto& op : operations) {
-         if (op->GetOpcodeStr().find("ALLOC") != std::string::npos) {
-             newOperations.insert(newOperations.begin(), op);
-             continue;
-         }
-         newOperations.push_back(op);
-     }
+    for (auto& op : operations) {
+    if (op->GetOpcodeStr().find("ALLOC") != std::string::npos) {
+        newOperations.insert(newOperations.begin(), op);
+        continue;
+    }
+    newOperations.push_back(op);
+    }
 
-     // 校验并初始化issueEntry
-     for (const auto &op : newOperations) {
+    // 校验并初始化issueEntry
+    for (const auto &op : newOperations) {
         if (op->GetOpcode() == Opcode::OP_VIEW) {
             if (op->GetOutputOperand(0)->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
                 newOperations_.push_back(op);
             }
-            continue;
+        continue;
         }
         if (CheckOpBufferSize(op) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] CheckOpBufferSize failed! %s",
