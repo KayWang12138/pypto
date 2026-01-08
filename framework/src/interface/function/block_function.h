@@ -52,13 +52,13 @@ public:
         std::vector<int> &iOffset, std::vector<int> &oOffset) override;
     void NormalizeCoaForInCasts(std::vector<int> &iOffset, std::vector<std::vector<SymbolicScalar>> &coaLists,
         int &coaIndex, std::unordered_map<LogicalTensorPtr, int> &processedOperands,
-        const std::unordered_map<int, Operation *> &opmagicToOp) override;
+        const std::unordered_map<int, Operation *> &opmagicToOp);
     void NormalizeCoaForOutCasts(std::vector<int> &oOffset, std::vector<std::vector<SymbolicScalar>> &coaLists,
         int &coaIndex, std::unordered_map<LogicalTensorPtr, int> &processedOperands,
-        const std::unordered_map<int, Operation *> &opmagicToOp) override;
+        const std::unordered_map<int, Operation *> &opmagicToOp);
     void NormalizeCoaForNormalOperands(std::vector<std::vector<SymbolicScalar>> &coaLists, int &coaIndex,
-        std::unordered_map<LogicalTensorPtr, int> &processedOperands) override;
-    void NormalizeCoaForSpecialInfo(std::vector<std::vector<SymbolicScalar>> &coaLists, int &coaIndex) override;
+        std::unordered_map<LogicalTensorPtr, int> &processedOperands);
+    void NormalizeCoaForSpecialInfo(std::vector<std::vector<SymbolicScalar>> &coaLists, int &coaIndex);
     void GetOutcastSymbolicExpr(std::map<int, SymbolicScalar>& tabel) override;
 
     std::pair<bool, Opcode> IsAicpuSubFunction() const override {

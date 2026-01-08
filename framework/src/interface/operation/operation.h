@@ -189,7 +189,7 @@ public:
     Operation &operator=(Operation &&other) = delete;
 
     Function *BelongTo() const { return function_; }
-    void SetParentFunction(Function *function) { function_ = function; }
+    void SetBelongingFunction(Function *function) { function_ = function; }
     
     const QueueType &GetQueueType() const { return queueType; }
 

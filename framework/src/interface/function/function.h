@@ -504,7 +504,7 @@ public:
     OperationsViewer Operations(bool sorted = true);
     OperationsViewer OperationsAfterOOO();
     void RecordOOOSeq();
-    // 这个LeafOperations写法破坏封装性，但是是针对LeafFunction特有的，后续在Function按类拆分的时候会将其只放到LeafFunction中
+
     void SortOperations();
     void EraseOperations(bool eraseRelatedTensor = true, bool sorted = true);
     void EraseOperations(const OperationDeleter &deleter);
@@ -658,8 +658,6 @@ public:
     std::vector<int> GetInCastSlot(const std::shared_ptr<LogicalTensor> &incast);
     std::vector<int> GetOutCastSlot(const std::shared_ptr<LogicalTensor> &outcast);
 
-    const std::unordered_set<std::string> &LoopIdxNameList() const { return loopIdxNameList_; }
-
     bool HasCallOperation();
     bool IsDynloop() const { return dynloopAttr_ != nullptr; }
     bool IsDyndev() const { return dyndevAttr_ != nullptr; }
@@ -767,7 +765,8 @@ public:
 
     void SetHiddenFunction(bool hiddenFunction) { hiddenFunction_ = hiddenFunction; }
     bool IsHiddenFunction() const { return hiddenFunction_; }
-
+    
+    const std::unordered_set<std::string> &LoopIdxNameList() const { return loopIdxNameList_; }
     const std::unordered_set<std::string> &LoopIdxNameList() { return loopIdxNameList_; }
     bool InsertLoopIdxNameList(const std::string &idxName);
     //------------------------------------------------------------------------------------------------------
@@ -794,15 +793,6 @@ public:
 
     virtual std::vector<std::vector<SymbolicScalar>> NormalizeCoa(
         std::vector<int> &iOffset, std::vector<int> &oOffset);
-    virtual void NormalizeCoaForInCasts(std::vector<int> &iOffset, std::vector<std::vector<SymbolicScalar>> &coaLists,
-        int &coaIndex, std::unordered_map<LogicalTensorPtr, int> &processedOperands,
-        const std::unordered_map<int, Operation *> &opmagicToOp);
-    virtual void NormalizeCoaForOutCasts(std::vector<int> &oOffset, std::vector<std::vector<SymbolicScalar>> &coaLists,
-        int &coaIndex, std::unordered_map<LogicalTensorPtr, int> &processedOperands,
-        const std::unordered_map<int, Operation *> &opmagicToOp);
-    virtual void NormalizeCoaForNormalOperands(std::vector<std::vector<SymbolicScalar>> &coaLists, int &coaIndex,
-        std::unordered_map<LogicalTensorPtr, int> &processedOperands);
-    virtual void NormalizeCoaForSpecialInfo(std::vector<std::vector<SymbolicScalar>> &coaLists, int &coaIndex);
     virtual void GetOutcastSymbolicExpr(std::map<int, SymbolicScalar>& tabel);
 
     virtual std::pair<bool, Opcode> IsAicpuSubFunction() const;

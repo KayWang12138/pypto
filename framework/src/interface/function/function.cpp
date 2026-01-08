@@ -3475,42 +3475,6 @@ std::vector<std::vector<SymbolicScalar>> Function::NormalizeCoa(
     return {};
 }
 
-void Function::NormalizeCoaForInCasts(std::vector<int> &iOffset, std::vector<std::vector<SymbolicScalar>> &coaLists,
-    int &coaIndex, std::unordered_map<LogicalTensorPtr, int> &processedOperands,
-    const std::unordered_map<int, Operation *> &opmagicToOp){
-    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "NormalizeCoaForInCasts() should only be called on BlockFunction");
-    (void)iOffset;
-    (void)coaLists;
-    (void)coaIndex;
-    (void)processedOperands;
-    (void)opmagicToOp;
-}
-
-void Function::NormalizeCoaForOutCasts(std::vector<int> &oOffset, std::vector<std::vector<SymbolicScalar>> &coaLists,
-    int &coaIndex, std::unordered_map<LogicalTensorPtr, int> &processedOperands,
-    const std::unordered_map<int, Operation *> &opmagicToOp){
-    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "NormalizeCoaForOutCasts() should only be called on BlockFunction");
-    (void)oOffset;
-    (void)coaLists;
-    (void)coaIndex;
-    (void)processedOperands;
-    (void)opmagicToOp;
-}
-
-void Function::NormalizeCoaForNormalOperands(std::vector<std::vector<SymbolicScalar>> &coaLists, int &coaIndex,
-    std::unordered_map<LogicalTensorPtr, int> &processedOperands){
-    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "NormalizeCoaForNormalOperands() should only be called on BlockFunction");
-    (void)coaLists;
-    (void)coaIndex;
-    (void)processedOperands;
-}
-
-void Function::NormalizeCoaForSpecialInfo(std::vector<std::vector<SymbolicScalar>> &coaLists, int &coaIndex){
-    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "NormalizeCoaForSpecialInfo() should only be called on BlockFunction");
-    (void)coaLists;
-    (void)coaIndex;
-}
-
 void Function::GetOutcastSymbolicExpr(std::map<int, SymbolicScalar>& tabel) {
     ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "GetOutcastSymbolicExpr() should only be called on BlockFunction");
     (void)tabel;

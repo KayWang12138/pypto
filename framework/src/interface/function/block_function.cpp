@@ -47,7 +47,7 @@ void BlockFunction::SetProgramOp(const std::vector<OperationPtr> &operations) {
 
 void BlockFunction::UpdateBelongToThis() {
     for (auto &ele : operations_) {
-         ele->SetParentFunction(this);
+         ele->SetBelongingFunction(this);
     }
 }
 
@@ -59,7 +59,7 @@ void BlockFunction::ScheduleBy(const std::vector<Operation *> &newList, bool nee
     std::vector<std::shared_ptr<Operation>> newOperations;
     for (auto op : newList) {
         ASSERT(opPosition_.count(op) > 0);
-        newOperations.emplace_back(operations_[opPosition_.at(op)]);
+        newOperations.emplace_back(operations_[opPosition_.at(op)]);   
     }
     operations_ = newOperations;
     RefreshOpPosition();
