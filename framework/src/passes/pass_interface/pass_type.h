@@ -66,6 +66,7 @@ enum class PassName {
     MIX_SUBGRAPH_SPLIT,
     CODEGEN_PREPROC,
     DYN_ATTR_TO_STATIC,
+    LOOPAXES_PROC,
     NOT_DEFINED
 };
 
