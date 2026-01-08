@@ -37,15 +37,17 @@ class ElementWiseTileBaseOp : public TileBaseOp {
 };
 
 class ElementWiseUnaryTileBaseOp : public TileBaseOp {
+public:
+    ElementWiseUnaryTileBaseOp(Opcode opcode, ValuePtr in, ValuePtr out) {
+        opcode_ = opcode;
+        ioperands_ = std::vector<ValuePtr>{in};
+        ooperands_ = std::vector<ValuePtr>{out};
+    }
 };
 
 class ElementWiseBinaryTileBaseOp : public ElementWiseTileBaseOp {
 public:
-    ElementWiseBinaryTileBaseOp(Opcode opcode,
-                                ValuePtr lhs,
-                                ValuePtr rhs,
-                                ValuePtr out)
-        : ElementWiseTileBaseOp() {
+    ElementWiseBinaryTileBaseOp(Opcode opcode, ValuePtr lhs, ValuePtr rhs, ValuePtr out) {
         opcode_ = opcode;
         ioperands_ = std::vector<ValuePtr>{lhs, rhs};
         ooperands_ = std::vector<ValuePtr>{out};
@@ -53,6 +55,13 @@ public:
 };
 
 class ElementWiseScalarMixBinaryTileBaseOp : public ElementWiseTileBaseOp {
+public:
+    ElementWiseScalarMixBinaryTileBaseOp(
+        Opcode opcode, TileValuePtr lhs, ScalarValuePtr scalar, TileValuePtr out) {
+        opcode_ = opcode;
+        ioperands_ = std::vector<ValuePtr>{lhs, scalar};
+        ooperands_ = std::vector<ValuePtr>{out};
+    }
 };
 
 class ReduceTileBaseOp : public TileBaseOp {
