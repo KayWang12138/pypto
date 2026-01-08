@@ -24,6 +24,7 @@ from dataclasses import dataclass
 from torch._subclasses.fake_tensor import FakeTensor
 from torch._dynamo import allow_in_graph
 import pypto
+import torch
 
 SHAPE_DIM_2 = 2
 SHAPE_DIM_3 = 3
