@@ -234,13 +234,11 @@ Status ProcessView(Function &function) {
                 return SUCCESS;
             }
         }
-        // view
         auto opAttr = std::dynamic_pointer_cast<ViewOpAttribute>(view->GetOpAttribute());
         if (opAttr == nullptr) {
             return FAILED;
         }
         auto &offset = opAttr->GetFromDynOffset();
-        std::cout << "viewoffset" << vectorToString(offset) << std::endl;
         std::vector<int64_t> newRawShape;
         std::vector<SymbolicScalar> newDynOffset;
         bool ret = CalculateNewRawShape1(reshape.GetIOperands()[0]->shape, reshape.GetOOperands()[0]->shape,
@@ -249,10 +247,7 @@ Status ProcessView(Function &function) {
             APASS_LOG_ERROR_F(Elements::Function, "calculateShape1 failed.");
             return FAILED;
         }
-        std::cout << "newrawshape" << vectorToString(newRawShape) << std::endl;
         GetDynOffsetBeforeReshape(offset, reshape.GetIOperands()[0]->shape, newRawShape, newDynOffset);
-        std::cout << "newoffset1" << vectorToString(newDynOffset) << std::endl;
-        // copyin更新
         for (auto copyIn : reshape.GetOOperands().front()->GetConsumers()) {
             std::shared_ptr<CopyOpAttribute> copyAttr =
                 std::static_pointer_cast<CopyOpAttribute>(copyIn->GetOpAttribute());
@@ -261,19 +256,12 @@ Status ProcessView(Function &function) {
             for (size_t i = 0; i < oriCopyOffset.size(); i++) {
                 newOffset[i] = newOffset[i] + oriCopyOffset[i];
             }
-            std::cout << "preocessview match pattern, view:" << view->GetOpMagic()
-                      << ",reshape:" << reshape.GetOpMagic() << ",copyin:" << copyIn->GetOpMagic() << "newoffset2"
-                      << SymbolicVecToStr(OpImmediate::ToSpecified(newOffset)).c_str() << std::endl;
-            // 刷到reshape后的copyin
             copyAttr->SetFromOffset(newOffset);
             copyAttr->SetRawShape(OpImmediate::Specified(newRawShape));
         }
-
-        // replace
         reshape.GetOOperands()[0]->shape = newRawShape;
         reshape.GetOOperands()[0]->tensor->UpdateRawShape(newRawShape);
         reshape.ReplaceIOperand(0, view->GetIOperands()[0]);
-        // 删除view
         view->SetAsDeleted();
     }
     return SUCCESS;
