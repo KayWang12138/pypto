@@ -86,6 +86,8 @@ public:
     static const std::string indicesSize;
     static const std::string brcbIdx;
     static const std::string quantFlag;
+    static const std::string loopGroup;
+    static const std::string loopAxes;
 };
 
 
