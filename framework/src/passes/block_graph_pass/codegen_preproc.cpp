@@ -165,6 +165,15 @@ inline bool IsUBCopy(Operation& op) {
     return false;
 }
 
+bool checkReduce(const Operation &op) {
+    if (OpcodeManager::Inst().GetOpCalcType(op.GetOpcode()) != OpCalcType::REDUCE) {
+        return true;
+    }
+    auto axis = op.GetIntAttribute(OP_ATTR_PREFIX + "AXIS");
+    int64_t shapeSize = static_cast<int64_t>(op.GetIOperands().front()->shape.size());
+    return shapeSize <= 2 || axis != (shapeSize - 2);
+}
+
 Status CodegenPreproc::ForceCombineAxisForAxisCombine(Function &func) const {
     const std::set<Opcode> skipInputCombineOps = {Opcode::OP_BRCB, Opcode::OP_EXPAND};
     for (auto &subProgram : func.rootFunc_->programs_) {
@@ -173,8 +182,8 @@ Status CodegenPreproc::ForceCombineAxisForAxisCombine(Function &func) const {
                 continue;
             }
             std::vector<bool> inputCombineAxis;
-            for (size_t i = 0; i < op.GetIOperands().size(); ++i) {
-                LogicalTensors operands = op.GetIOperands();
+            LogicalTensors operands = op.GetIOperands();
+            for (size_t i = 0; i < operands.size(); ++i) {
                 if (operands[i]->tensor->rawshape.back() == 1 && skipInputCombineOps.count(op.GetOpcode()) == 0) {
                     inputCombineAxis.push_back(true);
                 } else {
@@ -183,9 +192,13 @@ Status CodegenPreproc::ForceCombineAxisForAxisCombine(Function &func) const {
             }
             op.SetAttr(OpAttributeKey::inputCombineAxis, inputCombineAxis);
             std::vector<bool> outputCombineAxis;
-            for (size_t i = 0; i < op.GetOOperands().size(); ++i) {
-                LogicalTensors operands = op.GetOOperands();
-                if (operands[i]->tensor->rawshape.back() == 1 && OpcodeManager::Inst().GetOpCalcType(op.GetOpcode()) != OpCalcType::REDUCE) {
+            operands = op.GetOOperands();
+            for (size_t i = 0; i < operands.size(); ++i) {
+                if (operands[i]->tensor->rawshape.back() == 1 && checkReduce(op)) {
+                    if (OpcodeManager::Inst().GetOpCalcType(op.GetOpcode()) != OpCalcType::REDUCE) {
+                        std::cout << op.GetOpcodeStr() << ",magic:" << op.GetOpMagic()
+                                  << ",tensor:" << operands[i]->GetMagic() << std::endl;
+                    }
                     outputCombineAxis.push_back(true);
                 } else {
                     outputCombineAxis.push_back(false);
