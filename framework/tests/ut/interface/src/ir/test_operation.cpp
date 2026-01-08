@@ -56,6 +56,10 @@ TEST(IRTEST, TestTensorOperation){
     
     builder.EnterFunctionBody(ctx, func);
 
+    auto blockIdx = builder.CreateScalar(ctx, DataType::INT64, "block_idx");
+    auto getBlockIdxOp = builder.CreateSysOp(Opcode::OP_GET_BLOCK_IDX, blockIdx);
+    builder.Emit(ctx, getBlockIdxOp);
+
     auto c2 = builder.CreateConst(ctx, 2.0, "c2");
     auto c3 = builder.CreateConst(ctx, 3.0, "c3");
 
