@@ -35,11 +35,11 @@ Status LoopaxesProc::RunOnFunction(Function &function) {
 
 Status LoopaxesProc::UpdateOpLoopAxes(Operation &op) {
     std::vector<SymbolicScalar> loopAxes;
-    auto output = op.GetOOperands().front();
-    if (output == nullptr) {
+    if (op.GetOOperands().empty() || op.GetOOperands().front() == nullptr) {
         APASS_LOG_DEBUG_F(Elements::Operation, "Op[%d] has no output.", op.opmagic);
         return SUCCESS;
     }
+    auto output = op.GetOOperands().front();
     auto shape = output->GetDynValidShape();
     if (shape.size() <= 1) {
         // 被纳入group的要求维度大于2，否则将其设置为-1
