@@ -96,6 +96,7 @@ Status OoOScheduler::UpdateTensorAttr(
     tensor->SetMemoryTypeOriginal(memType);
     tensor->oriShape = spillTensor->oriShape;
     tensor->UpdateDynValidShape(spillTensor->GetDynValidShape());
+    tensor->UpdateDynValidShapeOri(spillTensor->GetDynValidShapeOri());
     if (memType == MEM_DEVICE_DDR) {
         if (localBufferMap.find(spillMemId) == localBufferMap.end()) {
             APASS_LOG_ERROR_F(Elements::Tensor, "Cannot find Tensor[%d] in localBufferMap.", spillMemId);
