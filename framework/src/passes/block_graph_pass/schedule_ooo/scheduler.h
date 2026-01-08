@@ -203,7 +203,6 @@ private:
     Status AllocViewTensorMemRange(Operation &operation);
     Status SpillOnBlock();
     Status CheckAndUpdateLifecycle();
-    bool IsInissueEntries(Operation* op);
     
     void InsertIssueEntries(IssueEntryPtr insertIssue);
     void UpdateIssueExecOrder();
