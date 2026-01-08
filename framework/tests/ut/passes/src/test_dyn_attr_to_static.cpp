@@ -230,7 +230,6 @@ TEST_F(DynAttrToStaticTest, TestDynExpression) {
     Function* rootFunc = loopPathFunc->rootFunc_;
     ASSERT_NE(rootFunc, nullptr);
     for (auto it = rootFunc->programs_.begin(); it != rootFunc->programs_.end(); it++) {
-        // Function* leafFunc = it->second;
         auto leafFunc = dynamic_cast<BlockFunction *>(it->second);
         for (const auto &dynParam : leafFunc->GetDynParamTable()) {
             if (dynParam.second.replacedSymbol.empty() && dynParam.second.dim.IsValid()) {
