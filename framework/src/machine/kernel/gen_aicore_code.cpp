@@ -92,6 +92,7 @@ struct TaskEntry {
 struct KernelArgs {
     int64_t shakeBuffer[8];
     int64_t shakeBufferCpuToCore[8];
+    int64_t waveBufferCpuToCore[8];
     TaskEntry taskEntry;
     TaskStat taskStat[2];
 };
@@ -187,7 +188,6 @@ INLINE uint32_t GetNextTask(uint32_t lastTaskIdx, uint32_t curDevTaskId) {
                 isForceContinue = true;
             }
         }
-
         ++loop_count;
         if ((loop_count % 1000 == 0) && (get_sys_cnt() - t0 > 500000000)) {
             return AICORE_TASK_STOP;
@@ -409,6 +409,20 @@ INLINE void ExecCoreFunctionKernel(ExecuteContext *ctx, uint32_t curTaskIdx) {
 #endif
 }
 
+INLINE void WaitWaveSignal(__gm__ KernelArgs *args) {
+    uint64_t t2 = get_sys_cnt();
+    volatile __gm__ int64_t *waveBuffer = args->waveBufferCpuToCore;
+    while (true) {         
+        dcci(waveBuffer, SINGLE_CACHE_LINE, CACHELINE_OUT);
+        if (*waveBuffer == AICORE_SAY_GOODBYE) {
+            return;
+        }
+        if ((get_sys_cnt() - t2 > 50000000)) {
+            return;
+        }
+    }
+}
+
 extern "C" __global__ __aicore__ void KERNEL_ENTRY(__OPTYPE__, __TILINGKEY__)(int64_t ffts_addr, int64_t inputs,
         int64_t outputs, int64_t workspace, int64_t tilingdata, int64_t cfgdata) {
 #if defined(__AIV__) and defined(__MIX__)
@@ -442,7 +456,7 @@ extern "C" __global__ __aicore__ void KERNEL_ENTRY(__OPTYPE__, __TILINGKEY__)(in
         lastTaskIdx = AICORE_TASK_INIT;
         if (bIsExit) {
             DfxProcWhenCoreExit(&ctx, args, metric);
-            return; // no data exit
+            return WaitWaveSignal(args); // no data exit
         }
         coreFuncData = getCoreFuncionData(args, coreFuncData);
         if (coreFuncData == 0) {
