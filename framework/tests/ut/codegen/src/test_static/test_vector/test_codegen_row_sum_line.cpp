@@ -49,7 +49,7 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(TestCodegenRowSumLine, TestOperationRowSumLineTileTensor) {
+Function &TestFunction() {
     config::SetHostOption(ONLY_CODEGEN, true);
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
     config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
@@ -90,8 +90,14 @@ TEST_F(TestCodegenRowSumLine, TestOperationRowSumLineTileTensor) {
 
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
-    codeGen.GenCode(*function, {});
-    std::string res = GetResultFromCpp(*function);
+    codeGen.GenCode(*function, {});   
+    return *function;
+}
+
+
+TEST_F(TestCodegenRowSumLine, TestOperationRowSumLineTileTensor) {
+    Function &function = TestFunction();
+    std::string res = GetResultFromCpp(function);
     std::string expect = R"!!!(#include "TileOpImpl.h"
 
 // funcHash: 6137045810289906969
