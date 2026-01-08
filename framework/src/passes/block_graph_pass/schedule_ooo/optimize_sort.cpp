@@ -328,7 +328,7 @@ void OptimizeSort::ReorderOp(std::vector<size_t> &preIdx, std::vector<Operation*
     curOpList.insert(curOpList.begin() + startIndex + 1, moveOpList.begin(), moveOpList.end());
 }
 
-void OptimizeSort::FindIndex(const Operation* op, const std::vector<Operation*> curOpList, size_t &index) {
+void OptimizeSort::FindIndex(Operation* op, std::vector<Operation*> curOpList, size_t &index) {
     for (size_t i = 0; i < curOpList.size(); i++) {
         if (curOpList[i] == op) {
             index = i;

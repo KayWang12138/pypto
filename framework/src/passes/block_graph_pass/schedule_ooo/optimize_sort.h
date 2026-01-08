@@ -80,7 +80,7 @@ public:
         std::map<Operation*, bool>& visited);
 
     void ReorderOp(std::vector<size_t> &preIdx, std::vector<Operation*> &curOpList, size_t startIndex);
-    void FindIndex(const Operation* op, const std::vector<Operation*> curOpList, const size_t &index);
+    void FindIndex(Operation* op, std::vector<Operation*> curOpList, size_t &index);
     Status FindConsumerList(size_t consumerIndex, std::vector<size_t> &preOpList, std::vector<Operation*> &curOpList);
     Status UpdateOOperandPreDependence(size_t startIndex, std::vector<Operation*> &curOpList,
         std::vector<Operation*> consumersGroup);
@@ -90,7 +90,7 @@ public:
         std::map<MemoryType, int64_t> &curMemoryMap);
     Status BacktraceOnMemoryExceeded(size_t &startIndex, std::vector<Operation*> &curOpList,
         std::map<MemoryType, int64_t> &curMemoryMap);
-    bool IsBufferFull(const std::map<MemoryType, int64_t> curMemoryMap, const MemoryType memType, const int64_t size);
+    bool IsBufferFull(std::map<MemoryType, int64_t> curMemoryMap, MemoryType memType, int64_t size);
     Status ModifyBuffer(std::map<MemoryType, int64_t> &curMemoryMap, MemoryType memType, int64_t size, bool isAdd);
     Status RetireOpBuffer(std::map<MemoryType, int64_t> &curMemoryMap, Operation* op);
     void OpMemoryUpdate(Operation* op, size_t startIndex, std::vector<Operation*> curOpList,
