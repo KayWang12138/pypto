@@ -1445,6 +1445,12 @@ void NormalizeGatherShape(std::vector<T> &rawShape, const int paramDim, const in
     rawShape.erase(rawShape.begin() + normalizedAxis);
     rawShape.insert(rawShape.begin() + normalizedAxis, indicesShape.begin(), indicesShape.end());
 }
+void helpNormalize(std::vector<size_t> &index, int axis, int paramDim) {
+    size_t delNum = NUM4 - paramDim;
+    index.erase(index.begin() + delNum);
+    axis = NormalizeAxis(axis, paramDim);
+    index.insert(index.begin() + axis, delNum);
+}
 std::string CodeGenOpCloudNPU::PrintGatherDynamicUnaligned() const {
     std::vector dstShape = this->rawShape[0];
     std::vector src0Shape = this->rawShape[1];
@@ -1462,8 +1468,8 @@ std::string CodeGenOpCloudNPU::PrintGatherDynamicUnaligned() const {
     auto indicesValidShapes = dynamicValidShape[ID2];
     const int paramDim = paramRawShapes.size();
     const int indicesDim = indicesRawShapes.size();
-    constexpr int paramIndex = 0;
-    constexpr int indicesIndex = 1;
+    constexpr int paramIndex = 1;
+    constexpr int indicesIndex = 2;
     auto normalizedOutputRawShapes = outputRawShapes;
     NormalizeGatherShape<int64_t>(normalizedOutputRawShapes, paramDim, indicesDim, axis);
     std::ostringstream os;
@@ -1477,8 +1483,8 @@ std::string CodeGenOpCloudNPU::PrintGatherDynamicUnaligned() const {
     std::string templateParam = JoinString(paramList, ", ");
     paramList.clear();
 
-    std::string paramVar = GenGmParamVar(0);
-    std::string indicesVar = GenGmParamVar(1);
+    std::string paramVar = GenGmParamVar(paramIndex);
+    std::string indicesVar = GenGmParamVar(indicesIndex);
     std::string outputVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
     std::string outputParamStr = "(__ubuf__ " + resultDtypeStr + "*)" + outputVar;
     std::string paramParamStr = "(__gm__ " + paramDtypeStr + "*)" + paramVar;
@@ -1512,11 +1518,53 @@ std::string CodeGenOpCloudNPU::PrintGatherDynamicUnaligned() const {
 
     return os.str();
 }
+std::string CodeGenOpCloudNPU::PrintGatherLayout() const {
+    // constexpr int paramIndex = 0;
+    // constexpr int indicesIndex = 1;
+    auto outputRawShapes = rawShape[ID0];
+    auto paramRawShapes = rawShape[ID1];
+    auto indicesRawShapes = rawShape[ID2];
+    auto outputValidShapes = dynamicValidShape[ID0];
+    auto paramValidShapes = dynamicValidShape[ID1];
+    auto indicesValidShapes = dynamicValidShape[ID2];
+    size_t paramDim = paramValidShapes.size();
+    size_t indicesDim = indicesValidShapes.size();
+    const int64_t axis = npu::tile_fwk::AnyCast<int64_t>(opAttrs.at("op_attr_axis"));
+    std::vector<size_t> helpIndex = {0, 1, 2, 3, 4};
+    if (indicesDim == 1 && axis != 0) {
+        helpNormalize(helpIndex, axis, paramDim);
+    }
+    auto paramOffsetSymbol = GenGetParamMacroPacked(ID1, paramDim, PREFIX_STR_OFFSET);
+    auto indicesOffsetSymbol = GenGetParamMacroPacked(ID2, indicesDim, PREFIX_STR_OFFSET);
+    std::string coordCpparamOffset = WrapParamByParentheses(paramOffsetSymbol);
+    std::string coordCpindicesOffset = WrapParamByParentheses(indicesOffsetSymbol);
+    std::string coord4Param = "Coord" + std::to_string(paramDim) + DIM + coordCpparamOffset;
+    std::string coord4Indices = "Coord" + std::to_string(indicesDim) + DIM + coordCpindicesOffset;
+
+    std::string outputTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::DST_IDX)]);
+    std::string paramTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::SRC0_IDX)]);
+    std::string indicesTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::SRC1_IDX)]);
+    std::vector<std::string> paramList;
+    paramList.emplace_back(std::to_string(NormalizeAxis(axis, paramDim)));
+    std::transform(
+        helpIndex.begin(), helpIndex.end(), back_inserter(paramList), [](size_t x) { return std::to_string(x); });
+    std::string templateParam = JoinString(paramList, CONN_COMMA);
+
+    std::vector<std::string> tileOpParamList = {outputTensor, paramTensor, indicesTensor, coord4Param, coord4Indices};
+    std::ostringstream oss;
+    oss << tileOpName;
+    oss << "<";
+    oss << templateParam;
+    oss << ">";
+
+    oss << WrapParamByParentheses(tileOpParamList);
+    oss << ";\n";
+    return oss.str();
+}
 
 std::string CodeGenOpCloudNPU::GenGatherOp() const {
     if (isSupportLayout) {
-        ASSERT(false) << "Gather operator does not support Layout";
-        return {};
+        return PrintGatherLayout();
     }
     if (isDynamicFunction) {
         return PrintGatherDynamicUnaligned();
