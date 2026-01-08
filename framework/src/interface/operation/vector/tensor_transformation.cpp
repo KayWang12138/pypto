@@ -47,7 +47,7 @@ void CheckExpandTensorVaild(const LogicalTensorPtr &operand, const LogicalTensor
             numExpandAxis++;
         }
     }
-    // ASSERT(numExpandAxis <= 1) << "Only allow to expand one axis";
+    ASSERT(numExpandAxis <= 1) << "Only allow to expand one axis";
 }
 
 void ExpandTile(Function &function, const struct ExpandInfo &expandInfo) {

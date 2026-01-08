@@ -53,11 +53,13 @@ def hc_split_sinkhorn(x: pypto.Tensor, hc_scale: pypto.Tensor, hc_base: pypto.Te
     tile_t, _ = x.shape # (tile_t, 24)
     print("x.shape ", x.shape)
 
-    comb_flag = (x[:, 2*hc: ] * (hc_scale[2:3].reshape([1, 1])) + hc_base[:, 2*hc: ])
+    comb_flag = (x[:, 2*hc: ] * (hc_scale[2:3].reshape([1, 1]).expand_clone([tile_t, 1])) + hc_base[:, 2*hc: ])
     comb_flag = comb_flag.reshape([tile_t, hc, hc]) # (tile_t, 4, 4)
 
     if tile_t <= 20:
         pypto.set_vec_tile_shapes(1, 16, 16)
+    elif tile_t <= 64:
+        pypto.set_vec_tile_shapes(4, 16, 16)
     else:
         pypto.set_vec_tile_shapes(128, 16, 16)
 
@@ -78,21 +80,17 @@ def hc_split_sinkhorn(x: pypto.Tensor, hc_scale: pypto.Tensor, hc_base: pypto.Te
 
 
 @pypto.jit(
-    host_options={"only_codegen": True},
+    host_options={"only_codegen": True}
     # for acl graph
-    runtime_options={"cfgcache_device_task_num": 100,
-                     "cfgcache_root_task_num": 1000,
-                     "cfgcache_leaf_task_num": 10000}
+    # runtime_options={"cfgcache_device_task_num": 100,
+    #                  "cfgcache_root_task_num": 1000,
+    #                  "cfgcache_leaf_task_num": 10000}
 )
 def hc_pre_kernel(x: pypto.Tensor, hc_fn: pypto.Tensor, hc_scale: pypto.Tensor, hc_base_: pypto.Tensor,
                 y: pypto.Tensor, post: pypto.Tensor, comb: pypto.Tensor,
 ):
     # pypto.set_debug_options(runtime_debug_mode=1)
-    pypto.set_debug_options(runtime_debug_mode=2)   ## for acl graph
-
-
-    pypto.set_vec_tile_shapes(16, 512)
-    pypto.set_cube_tile_shapes([16, 16], [256, 512], [128, 128])
+    # pypto.set_debug_options(runtime_debug_mode=2)   ## for acl graph
 
     t = x.shape[0]
     hc = x.shape[1]
@@ -100,43 +98,57 @@ def hc_pre_kernel(x: pypto.Tensor, hc_fn: pypto.Tensor, hc_scale: pypto.Tensor, 
     mix_hc = (2 + hc) * hc
     hc_eps = 1e-6
 
-    unroll_list = [16, 1]
-    # unroll_list=[128, 64, 32, 16, 8, 4, 2, 1]
+    # unroll_list = [16, 1]
+    unroll_list=[1024, 256, 64, 32, 16, 8, 4, 2, 1]
 
     for _ in pypto.loop(1):
         x_2d = pypto.reshape(x, [t, hc*d], inplace=True)
         hc_base= pypto.reshape(hc_base_, [1, mix_hc], inplace=True)
     print("t in kernel is ", t)
     for t_idx, unrollLength in pypto.loop_unroll(0, t, 1, name="t_loop", idx_name="t_idx", unroll_list=unroll_list):
-        pypto.set_vec_tile_shapes(16, 512)
-
         tile_t = unrollLength
         print("========================= tile_t: ", tile_t)
         print("========================= t_idx: ", t_idx)
 
+        pypto.set_cube_tile_shapes([16, 16], [256, 512], [128, 128])
+        tile_shapes_1 = [16, 512]
+        tile_shape_2 = 64
+        if tile_t <= 16:
+            tile_shapes_1 = [2, 1024]
+            tile_shape_2 = 128
+            pypto.set_cube_tile_shapes([8, 8], [1024, 1024], [128, 128])
+        elif tile_t <= 64:
+            tile_shapes_1 = [8, 1024]
+            tile_shape_2 = 32
+        else:
+            tile_shapes_1 = [16, 512]
+            tile_shape_2 = 128
+
+        pypto.set_vec_tile_shapes(tile_shapes_1[0], tile_shapes_1[1])
+
         x_view = pypto.view(x_2d, [tile_t, hc*d], [t_idx, 0])
         x_fp32 = pypto.cast(x_view, pypto.DT_FP32)
+        rms_res = rms_norm_denom(x_fp32)    ## (t, hc*d) -> (t, 1)
+
+        pypto.set_vec_tile_shapes(tile_shape_2, 16)
         mm_res = pypto.matmul(x_view, hc_fn, pypto.DT_BF16, b_trans=True)   # (t, hc*d) @ (mix_hc, hc*d)^t = (t, mix_hc)
         mm_res = pypto.cast(mm_res, pypto.DT_FP32)
 
-        rms_res = rms_norm_denom(x_fp32)    ## (t, hc*d) -> (t, 1)
-        pypto.set_vec_tile_shapes(128, 16)
         rms_res = mm_res / rms_res  ## t, mix_hc
 
-        pre = rms_res[:, :hc] * (hc_scale[0:1].reshape([1, 1])) + hc_base[:, :hc] # (tile_t, 4)
+        pre = rms_res[:, :hc] * (hc_scale[0:1].reshape([1, 1]).expand_clone([tile_t, 1])) + hc_base[:, :hc] # (tile_t, 4)
         pre = sigmoid(pre) + hc_eps # (tile_t, 4)
 
-        pypto.set_vec_tile_shapes(128, 16)
         pre_3d = pre.reshape([tile_t, hc, 1])
         x_fp32_3d = x_fp32.reshape([tile_t, hc, d])
-        pypto.set_vec_tile_shapes(128, 16, 16)
+        pypto.set_vec_tile_shapes(tile_shape_2, 16, 16)
 
         mul_res = pre_3d * x_fp32_3d
         res_fp32 = pypto.sum(mul_res, dim=-2)
         res_bf16 = pypto.cast(res_fp32, pypto.DT_BF16)
         pypto.assemble(res_bf16, [t_idx, 0], y)
 
-        post_ = rms_res[:, hc: 2*hc] * (hc_scale[1:2].reshape([1, 1])) + hc_base[:, hc: 2*hc] # (tile_t, 4)
+        post_ = rms_res[:, hc: 2*hc] * (hc_scale[1:2].reshape([1, 1]).expand_clone([tile_t, 1])) + hc_base[:, hc: 2*hc] # (tile_t, 4)
         post_ = sigmoid(post_) * 2.0 # (tile_t, 4)
         pypto.assemble(post_, [t_idx, 0], post)
 
@@ -311,9 +323,9 @@ def test_hc_pre(t = 16):
 
 if __name__ == "__main__":
     print("start test !!!")
-    test_hc_pre_inmodel(16)
-    # t_list = {8192, 127, 1}
-    # for t_dyn in t_list:
+    # test_hc_pre_inmodel(16)
+    # decode_t_list = {2048, 8192, }
+    # for t_dyn in decode_t_list:
     #     test_hc_pre(t_dyn)
-    # test_hc_pre(16)
+    test_hc_pre(127)
 
