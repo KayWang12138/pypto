@@ -47,6 +47,7 @@
 #include "passes/block_graph_pass/copy_out_resolve.h"
 #include "passes/block_graph_pass/dyn_attr_to_static.h"
 #include "passes/block_graph_pass/mix_subgraph_split.h"
+#include "passes/block_graph_pass/loopaxes_proc.h"
 
 namespace npu::tile_fwk {
 PassManager &PassManager::Instance() {
@@ -95,6 +96,7 @@ void RegPass() {
     REG_PASS(MixSubgraphSplit);
     REG_PASS(DuplicateOp);
     REG_PASS(AxisCombine);
+    REG_PASS(LoopaxesProc);
 }
 
 void PassManager::RegDefaultStrategy() {
@@ -137,6 +139,7 @@ void PassManager::RegDefaultStrategy() {
             {          "CopyOutResolve",           PassName::COPY_OUT_RESOLVE},
             {              "InsertSync",                PassName::INSERT_SYNC},
             {        "MixSubgraphSplit",         PassName::MIX_SUBGRAPH_SPLIT},
+            {             "LoopaxesProc",             PassName::LOOPAXES_PROC},
             {          "CodegenPreproc",            PassName::CODEGEN_PREPROC},
     });
     RegisterStrategy(
