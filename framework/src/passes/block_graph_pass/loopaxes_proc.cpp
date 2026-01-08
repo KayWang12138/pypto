@@ -74,7 +74,7 @@ Status LoopaxesProc::UpdateFuncLoopAxes(Function &function) {
     APASS_LOG_DEBUG_F(Elements::Operation, "Function[%s] has rootFunc.", function.GetMagicName().c_str());
     for (auto &subProgram : function.rootFunc_->programs_) {
         if (subProgram.second == nullptr) {
-            APASS_LOG_DEBUG_F(Elements::Operation, "subProgram[%s] is nullptr.", subProgram.GetMagicName().c_str());
+            APASS_LOG_DEBUG_F(Elements::Operation, "subProgram[%d] of Function[%s] is nullptr.", subProgram.first, function.GetMagicName().c_str());
             continue;
         }
         for (auto &op : subProgram.second->Operations(false)) {
