@@ -246,15 +246,7 @@ static void MaxS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Elem
 }
 
 static void Range(LogicalTensorDataPtr out, const Element &start, const Element &end, const Element &step) {
-    auto to_double = [](const Element& e) -> double {
-        if (e.IsFloat()) return e.GetFloatData();
-        if (e.IsSigned()) return static_cast<double>(e.GetSignedData());
-        return static_cast<double>(e.GetUnsignedData());
-    };
-    double start_val = to_double(start);
-    double end_val   = to_double(end); 
-    double step_val  = to_double(step);
-    auto tmp = torch::arange(start_val, end_val, step_val);
+    auto tmp = torch::arange(From(start), From(end), From(step));
     int64_t expected_numel = 1;
     for (int64_t dim : out->GetShape()) {
         expected_numel *= dim;
