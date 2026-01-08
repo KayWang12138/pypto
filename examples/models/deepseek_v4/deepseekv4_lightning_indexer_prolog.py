@@ -28,8 +28,6 @@ from utils.compare import compare
 class IP(torch.nn.Module):
     def forward(self, x, q_norm, w_qb, w_proj, cos_idx_rope, sin_idx_rope, hadamard_q,
                                     q_bf16, weights):
-        for i in range(30):
-            torch.add(x, 0)
         lighting_indexer_prolog_dyn(x, q_norm, w_qb, w_proj, cos_idx_rope, sin_idx_rope, hadamard_q,
                                     q_bf16, weights)
 
@@ -258,9 +256,8 @@ def do_test_lighting_indexer_prolog(case_name, configs):
         model(x, q_norm, w_qb, w_proj, cos_idx_rope, sin_idx_rope, hadamard_q,
                                     q_bf16, weights)
 
-    for i in range(20):
-        g.replay()
-        pypto.runtime._device_synchronize()#内部接口，不推荐使用
+    g.replay()
+    pypto.runtime._device_synchronize()#内部接口，不推荐使用
 
     compare(q_bf16.cpu(), q_golden, "q_bf16", 0.0001, 0.0078125, 0.001)
     compare(weights.cpu(), weights_golden, "weights", 0.0001, 0.0078125, 0.001)
