@@ -251,7 +251,6 @@ Status PassManager::RunPass(Program &program, Function &function, const std::str
             passDfxCfg.dumpGraph = true;
         }
         pass->SetPassConfigs(passDfxCfg);
-        function.SetCurrentPassIndex(i);
         ALOG_INFO_F("[PassManager] Apply pass <%s> on function: %s.", identifier.c_str(), function.GetMagicName().c_str());
         auto start = std::chrono::high_resolution_clock::now();
         if (pass->Run(function, strategy, identifier, i) != SUCCESS) {

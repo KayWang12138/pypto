@@ -828,8 +828,6 @@ public:
 
     const std::unordered_set<std::string> &LoopIdxNameList() { return loopIdxNameList_; }
     bool InsertLoopIdxNameList(const std::string &idxName);
-    void SetCurrentPassIndex(size_t passIndex) {currentPassIndex_ = passIndex;}
-    int GetCurrentPassIndex() const {return currentPassIndex_;}
 private:
     int functionMagic_{-1};
     std::string funcMagicName_; // Function name
@@ -843,7 +841,6 @@ private:
     std::vector<std::string> calleeMagicNameList_;
     std::unordered_set<std::string> loopIdxNameList_;
     bool isUnderDynamicFunction_{false};
-    int currentPassIndex_{-1};
 
     std::vector<std::shared_ptr<LogicalTensor>> originInCasts_;
     std::unordered_set<std::shared_ptr<LogicalTensor>> inCastsSet_; // Input tensors set

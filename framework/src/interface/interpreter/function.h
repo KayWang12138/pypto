@@ -86,6 +86,7 @@ struct FunctionFrame {
     int frameIndex;
     int funcIndex;
     int rootFuncIndex{-1};
+    int passIndex{-1};
 
     Operation *currentOperation;
 
@@ -342,6 +343,7 @@ struct FunctionInterpreter {
 
     VerifyType verifyType{VerifyType::INVALID};
     int captureIndex{0};
+    int passIndex{-1};
 
     std::vector<std::shared_ptr<LogicalTensorData>> &GetInputDataViewList() {
         return operationInterpreter->evaluateSymbol->GetInputDataViewList();
@@ -533,7 +535,7 @@ struct FunctionInterpreter {
             auto rawShape = EvaluateValidShape(oop->GetRawTensor()->GetDynRawShape());
             std::shared_ptr<LogicalTensorData> ret;
             // ExpandFunction passIndex : 4
-            if (frame.func->GetCurrentPassIndex() > 4) {
+            if (frame.passIndex > 4) {
                 ret = frame.AllocateDataView(oop, viewOffsets, validShape, rawShape, oop->GetRawTensor()->GetDataType(), iop);
             } else {
                 ret = AllocateDataView(frame, oop);
@@ -633,6 +635,7 @@ struct FunctionInterpreter {
             std::make_shared<FunctionFrame>(func, callop, callopAttr, inoutDataPair, frameCount++);
         captureFrameList->push_back(frame);
         frame->funcIndex = func->GetFuncMagic();
+        frame->passIndex = passIndex;
         if (func->HasParent()) {
             frame->rootFuncIndex = func->Parent().GetFuncMagic();
         }
