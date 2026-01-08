@@ -93,6 +93,7 @@ struct TaskEntry {
 struct KernelArgs {
     int64_t shakeBuffer[8];
     int64_t shakeBufferCpuToCore[8];
+    int64_t waveBufferCpuToCore[8];
     TaskEntry taskEntry;
     TaskStat taskStat[2]; // 寄存器高低32位，两个task 和 pending & running task存储： 2 * 2 个
 };
