@@ -20,6 +20,16 @@
 
 namespace pto {
 
+enum CastMode {
+    CAST_NONE = 0,
+    CAST_RINT = 1,  // round to nearest, tie to even
+    CAST_ROUND = 2, // round to nearest, tie away from zero
+    CAST_FLOOR = 3, // round to minus infinity
+    CAST_CEIL = 4,  // round to positive infinity
+    CAST_TRUNC = 5, // round to zero
+    CAST_ODD = 6   // round to odd (Von Neumann rounding)
+};
+
 #define DEFOP DEFOP_CLASS
 #include "tile_graph.def"
 #undef DEFOP
