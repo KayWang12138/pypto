@@ -114,6 +114,34 @@ class MlaPrologV4Configs:
     chunk_size: int
     vec_nbuffer_mode: int
 
+
+def check_input_output_shape_dtype(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, 
+                                    output_q_data, output_kv_data, output_qr_data):
+    assert token_x.size(1) == 4096 and token_x.dim() == 2, f"expected token_x dim num 2, token_x axis1 4096"
+    assert wq_a.dim() == 2 and wq_a.size(0) == 4096 and wq_a.size(1) == 1024, f"expected wq_a dim num 2 residual axis0 4096, wq_a axis1 1024"
+    assert wq_b.dim() == 2 and wq_b.size(0) == 1024 and wq_b.size(1) == 32768, f"expected wq_b dim num 2, wq_b axis0 1024, wq_b axis1 32768"
+    assert wkv.dim() == 2 and wkv.size(0) == 4096 and wkv.size(1) == 512, f"expected wkv dim num 2, wkv axis0 4096, wkv axis1 512"
+    assert rope_cos.dim() == 2 and rope_cos.size(1) == 64, f"expected rope_cos dim num 2, rope_cos axis1 64"
+    assert rope_sin.dim() == 2 and rope_sin.size(1) == 64, f"expected rope_sin dim num 2, rope_sin axis1 64"
+    assert gamma_cq.dim() == 1 and gamma_cq.size(0) == 1024 , f"expected gamma_cq dim num 1, gamma_cq axis0 1024"
+    assert gamma_ckv.dim() == 1 and gamma_ckv.size(0) == 512, f"expected gamma_ckv dim num 1, gamma_ckv axis0 512"
+    assert output_q_data.dim() == 3 and output_q_data.size(1) == 64 and output_q_data.size(2) == 512, f"expected output_q_data dim num 3, output_q_data axis1 64, output_q_data axis2 512"
+    assert output_kv_data.dim() == 2 and output_kv_data.size(1) == 512, f"expected output_kv_data dim num 2, output_kv_data axis1 512"
+    assert output_qr_data.dim() == 2 and output_qr_data.size(1) == 1024, f"expected output_qr_data dim num 2, output_qr_data axis1 4096"
+
+    assert token_x.dtype == torch.bfloat16, f"token_x.dtype is {token_x.dtype}, expected torch.bfloat16"
+    assert wq_a.dtype == torch.bfloat16, f"wq_a.dtype is {wq_a.dtype}, expected torch.bfloat16"
+    assert wq_b.dtype == torch.bfloat16,  f"wq_b.dtype is {wq_b.dtype}, expected torch.bfloat16"
+    assert wkv.dtype == torch.bfloat16, f"wkv.dtype is {wkv.dtype}, expected torch.bfloat16"
+    assert rope_cos.dtype == torch.bfloat16, f"rope_cos.dtype is {rope_cos.dtype}, expected torch.bfloat16"
+    assert rope_sin.dtype == torch.bfloat16, f"rope_sin.dtype is {rope_sin.dtype}, expected torch.bfloat16"
+    assert gamma_cq.dtype == torch.bfloat16, f"gamma_cq.dtype is {gamma_cq.dtype}, expected torch.bfloat16"
+    assert gamma_ckv.dtype == torch.bfloat16,  f"gamma_ckv.dtype is {gamma_ckv.dtype}, expected torch.bfloat16"
+    assert output_q_data.dtype == torch.bfloat16, f"output_q_data.dtype is {output_q_data.dtype}, expected torch.bfloat16"
+    assert output_kv_data.dtype == torch.bfloat16, f"output_kv_data.dtype is {output_kv_data.dtype}, expected torch.bfloat16"
+    assert output_qr_data.dtype == torch.bfloat16, f"output_qr_data.dtype is {output_qr_data.dtype}, expected torch.bfloat16"
+
+
 def rms_norm(input_tensor: pypto.Tensor, epsilon: float) -> pypto.Tensor:
     """Compute RMS (Root Mean Square) normalization.
 
@@ -324,6 +352,9 @@ def mla_prolog_v4(x, wq_a, wq_b, wkv, rmsnorm_gamma_cq, rmsnorm_gamma_ckv, cos, 
 @allow_in_graph
 def mla_prolog_v4_in(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, 
     output_q_data, output_kv_data, output_qr_data):
+
+    check_input_output_shape_dtype(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, 
+                                    output_q_data, output_kv_data, output_qr_data)
 
     if isinstance(output_q_data, FakeTensor) or isinstance(output_kv_data, FakeTensor) or isinstance(output_qr_data, FakeTensor):
         return output_q_data, output_kv_data, output_qr_data
