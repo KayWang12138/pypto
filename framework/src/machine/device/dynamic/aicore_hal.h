@@ -616,11 +616,12 @@ public:
         return DEVICE_MACHINE_OK;
     }
 
+    // We must makesure close 0x18 before aicore exit.
     void ResetShakeBuf(int coreIdx) {
         if (isNeedWriteRegForFastPath_) {
             WriteReg32(coreIdx, REG_SPR_FAST_PATH_ENABLE, REG_SPR_FAST_PATH_CLOSE);
         }
-        args_[coreIdx]->shakeBuffer[0] = 0;
+        args_[coreIdx]->shakeBuffer[0] = AICORE_SAY_GOODBYE;
         args_[coreIdx]->shakeBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_COREFUNC_DATA_INDEX] = 0;
         return;
     }

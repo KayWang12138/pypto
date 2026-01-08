@@ -168,7 +168,7 @@ struct ExecuteContext {
 #endif
 };
 
-INLINE uint32_t GetNextTask(uint32_t lastTaskIdx, uint32_t curDevTaskId) {
+INLINE uint32_t GetNextTask(__gm__ volatile KernelArgs* args, uint32_t lastTaskIdx, uint32_t curDevTaskId) {
     uint32_t nextLowIdx = 0;
     uint64_t coreStatus = 0;
     uint64_t t0 = get_sys_cnt();
@@ -182,7 +182,11 @@ INLINE uint32_t GetNextTask(uint32_t lastTaskIdx, uint32_t curDevTaskId) {
             (curDevTaskId == (uint32_t)(coreStatus >> REG_HIGH_DTASKID_SHIFT))) {
             return AICORE_FUNC_STOP;
         }
-
+        volatile __gm__ int64_t *shakeBuffer = args->shakeBuffer;
+        dcci(shakeBuffer, SINGLE_CACHE_LINE, CACHELINE_OUT);
+        if (*shakeBuffer == AICORE_SAY_GOODBYE) {
+            return AICORE_TASK_STOP;
+        }
         ++loop_count;
         if ((loop_count % 1000 == 0) && (get_sys_cnt() - t0 > 500000000)) {
             return AICORE_TASK_STOP;
@@ -452,7 +456,7 @@ extern "C" __global__ __aicore__ void KERNEL_ENTRY(__OPTYPE__, __TILINGKEY__)(in
             if ((inner_loop_count % 1000 == 0) && (get_sys_cnt() - t1 > 3000000000)) {
                 break;
             }
-            curTaskIdx = GetNextTask(lastTaskIdx, ctx.seqNo);
+            curTaskIdx = GetNextTask(args, lastTaskIdx, ctx.seqNo);
             if (curTaskIdx == AICORE_TASK_STOP) {
                 DfxProcWhenDevTaskStop(&ctx, args, metric);
                 SetStatus(args, STAGE_CORE_EXIT);
