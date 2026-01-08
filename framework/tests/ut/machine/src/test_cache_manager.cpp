@@ -38,8 +38,8 @@ TEST(CacheManagerUnitTest, test_init_case1) {
     config::SetHostConfig(KEY_ENABLE_BINARY_CACHE, true);
     CacheManager cacheManager;
     EXPECT_EQ(cacheManager.Initialize(), true);
-    EXPECT_EQ(cacheManager.MatchBinCache("112233"), false);
-    EXPECT_EQ(cacheManager.RecoverTask("112233", nullptr), false);
+    EXPECT_EQ(cacheManager.MatchBinCache(112233), false);
+    EXPECT_EQ(cacheManager.RecoverTask(112233, nullptr), false);
     config::SetHostConfig(KEY_ENABLE_BINARY_CACHE, false);
 }
 
@@ -55,8 +55,8 @@ TEST(CacheManagerUnitTest, test_match_cache) {
     config::SetHostConfig(KEY_ENABLE_BINARY_CACHE, true);
     CacheManager cacheManager;
     EXPECT_EQ(cacheManager.Initialize(), true);
-    EXPECT_EQ(cacheManager.MatchBinCache("112233"), false);
-    EXPECT_EQ(cacheManager.RecoverTask("112233", nullptr), false);
+    EXPECT_EQ(cacheManager.MatchBinCache(112233), false);
+    EXPECT_EQ(cacheManager.RecoverTask(112233, nullptr), false);
     config::SetHostConfig(KEY_ENABLE_BINARY_CACHE, false);
 }
 
@@ -102,15 +102,15 @@ TEST(CacheManagerUnitTest, test_page_attention) {
                   tileConfig, 1, false);
     Function *lastFunc = Program::GetInstance().GetLastFunction();
     EXPECT_NE(lastFunc, nullptr);
-    std::cout << "===hash of last func==" << lastFunc->GetFunctionHash().Data() << lastFunc->GetFunctionTypeStr() << std::endl;
+    std::cout << "===hash of last func==" << lastFunc->GetFunctionHash() << lastFunc->GetFunctionTypeStr() << std::endl;
     config::SetHostConfig(KEY_ENABLE_BINARY_CACHE, true);
     CacheManager cacheManager;
     EXPECT_EQ(cacheManager.Initialize(), true);
     auto task = std::make_shared<MachineTask>(111, lastFunc);
-    task->SetCacheKey(lastFunc->GetFunctionHash().Data());
+    task->SetCacheKey(lastFunc->GetFunctionHash());
     auto deviceAgentTask = std::make_unique<DeviceAgentTask>(task);
     cacheManager.SaveTaskFile(deviceAgentTask.get());
     EXPECT_EQ(cacheManager.MatchBinCache(task->GetCacheKey()), true);
-    cacheManager.RecoverTask(lastFunc->GetFunctionHash().Data(), deviceAgentTask.get());
+    cacheManager.RecoverTask(lastFunc->GetFunctionHash(), deviceAgentTask.get());
 }
 }

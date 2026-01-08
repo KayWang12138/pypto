@@ -66,14 +66,14 @@ bool CacheManager::Initialize() {
     return true;
 }
 
-bool CacheManager::MatchBinCache(const std::string &cacheKey) const {
+bool CacheManager::MatchBinCache(uint64_t cacheKey) const {
     if (!IsCahceEnable()) {
         return false;
     }
-    if (cacheKey.empty()) {
+    if (cacheKey == 0) {
         return false;
     }
-    std::string cacheBinFile = cacheDirPath_ + "/" + CACHE_FILE_PREFIX + cacheKey + CACHE_BIN_FILE_SUFFIX;
+    std::string cacheBinFile = cacheDirPath_ + "/" + CACHE_FILE_PREFIX + std::to_string(cacheKey) + CACHE_BIN_FILE_SUFFIX;
     ALOG_DEBUG_F("Try to check whether bin file[%s] is existed.", cacheBinFile.c_str());
     std::string customSoPath = cacheDirPath_ + "/lib" + OpInfoManager::GetInstance().GetOpFuncName() +
                                         CACHE_CUSTOM_BIN_FILE_SUFFIX;
@@ -101,7 +101,7 @@ void CacheManager::SaveTaskFile(const DeviceAgentTask *deviceAgentTask) const {
         return;
     }
     Function *function = deviceAgentTask->GetFunction();
-    std::string basePath = cacheDirPath_ + "/" + CACHE_FILE_PREFIX + deviceAgentTask->compileTask->GetCacheKey();
+    std::string basePath = cacheDirPath_ + "/" + CACHE_FILE_PREFIX + std::to_string(deviceAgentTask->compileTask->GetCacheKey());
     std::string binFilePath = basePath + CACHE_BIN_FILE_SUFFIX;
     std::string kernelFilePath = basePath + CACHE_KERNEL_FILE_SUFFIX;
     std::string customSoPath = cacheDirPath_ + "/lib" + OpInfoManager::GetInstance().GetOpFuncName() +
@@ -118,7 +118,7 @@ void CacheManager::SaveTaskFile(const DeviceAgentTask *deviceAgentTask) const {
     if (function->IsFunctionType(FunctionType::DYNAMIC) && function->GetDyndevAttribute() != nullptr) {
         ALOG_INFO_F("Save devProgBinary at bin file[%s].", binFilePath.c_str());
         std::string lockFilePath =
-            cacheDirPath_ + "/" + CACHE_FILE_PREFIX + deviceAgentTask->compileTask->GetCacheKey() + CACHE_LOCK_FILE_SUFFIX;
+            cacheDirPath_ + "/" + CACHE_FILE_PREFIX + std::to_string(deviceAgentTask->compileTask->GetCacheKey()) + CACHE_LOCK_FILE_SUFFIX;
         FILE *fp = LockAndOpenFile(lockFilePath);
         if (fp == nullptr) {
             return;
@@ -143,7 +143,7 @@ void CacheManager::SaveTaskFile(const DeviceAgentTask *deviceAgentTask) const {
     }
 }
 
-bool CacheManager::RecoverTask(const std::string &cacheKey, DeviceAgentTask *deviceAgentTask) const {
+bool CacheManager::RecoverTask(uint64_t cacheKey, DeviceAgentTask *deviceAgentTask) const {
     if (!IsCahceEnable()) {
         return false;
     }
@@ -151,8 +151,8 @@ bool CacheManager::RecoverTask(const std::string &cacheKey, DeviceAgentTask *dev
         return false;
     }
     Function *function = deviceAgentTask->GetFunction();
-    std::string cacheBinFile = cacheDirPath_ + "/" + CACHE_FILE_PREFIX + cacheKey + CACHE_BIN_FILE_SUFFIX;
-    std::string cacheKernelFile = cacheDirPath_ + "/" + CACHE_FILE_PREFIX + cacheKey + CACHE_KERNEL_FILE_SUFFIX;
+    std::string cacheBinFile = cacheDirPath_ + "/" + CACHE_FILE_PREFIX + std::to_string(cacheKey) + CACHE_BIN_FILE_SUFFIX;
+    std::string cacheKernelFile = cacheDirPath_ + "/" + CACHE_FILE_PREFIX + std::to_string(cacheKey) + CACHE_KERNEL_FILE_SUFFIX;
     std::string customJsonPath = cacheDirPath_ + "/lib" + OpInfoManager::GetInstance().GetOpFuncName() +
                                  CACHE_CUSTOM_JSON_FILE_SUFFIX;
     ALOG_DEBUG_F("Try to recover device task from bin file[%s], function type is [%s].", cacheBinFile.c_str(),

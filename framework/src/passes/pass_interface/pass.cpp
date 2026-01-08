@@ -98,7 +98,7 @@ std::string Pass::GetDumpFilePrefix(Function& function, bool before, Function* s
     }
     ss << std::setw(printWide) << std::setfill('0') << passRuntimeIndex_ << "_" << filePrefix
           << "_LEAF_program_id_" << std::setw(funcPrintWide) << std::setfill('0') << subFuncId << "_"
-            << subFunction->GetFunctionHash().GetHash();
+            << subFunction->GetFunctionHash();
     return ss.str();
 }
 

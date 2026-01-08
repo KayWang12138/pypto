@@ -28,7 +28,7 @@ using RunPassFunc = int (*)(npu::tile_fwk::Program &, npu::tile_fwk::Function &,
 using GetResumePathFunc = std::string (*)(const std::string &);
 using ExecuteFunc = int (*)(npu::tile_fwk::MachineTask *, npu::tile_fwk::FunctionCache &);
 using PlatformFunc = std::string (*)();
-using MatchCacheFunc = bool (*)(const std::string &);
+using MatchCacheFunc = bool (*)(uint64_t);
 using InitFunc = int (*)();
 
 struct Backend {
@@ -244,18 +244,17 @@ void HostMachine::ClearStashFuncQueue() {
     stashedFuncQueue_.Clear();
 }
 
-std::string HostMachine::GetCacheKeyFromFunction(Function *function) {
-    std::string cacheKey;
+uint64_t HostMachine::GetCacheKeyFromFunction(Function *function) {
+    uint64_t cacheKey = 0;
     if (function == nullptr) {
         return cacheKey;
     }
     if (function->BelongTo().GetLastFunction() != nullptr &&
         function->BelongTo().GetLastFunction()->GetFunctionType() == FunctionType::DYNAMIC) {
-        cacheKey = function->BelongTo().GetLastFunction()->GetFunctionHash().Data();
-        OpInfoManager::GetInstance().GetOpFuncName() = function->BelongTo().GetLastFunction()->GetMagicName() +
-                                                        cacheKey;
+        cacheKey = function->BelongTo().GetLastFunction()->GetFunctionHash();
+        OpInfoManager::GetInstance().SetOpFuncName(function->BelongTo().GetLastFunction()->GetMagicName() + std::to_string(cacheKey));
     } else {
-        cacheKey = function->GetFunctionHash().Data();
+        cacheKey = function->GetFunctionHash();
     }
     return cacheKey;
 }

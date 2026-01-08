@@ -56,7 +56,7 @@ void CalcOperatorInfo(Function &function, json &report) {
     // 非静态场景下 无法计算size 直接返回
     if(function.GetFunctionType() != FunctionType::STATIC) {
         ALOG_INFO_F("PeakMemory can't be calculated; because functiontype is not static, name %s, hash %lu.",
-                     function.GetMagicName().c_str(), function.GetFunctionHash().GetHash());
+                     function.GetMagicName().c_str(), function.GetFunctionHash());
         return;
     }
     uint64_t totalCopySize = 0;

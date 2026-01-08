@@ -33,11 +33,11 @@ public:
 
     bool Initialize();
 
-    bool MatchBinCache(const std::string &cacheKey) const;
+    bool MatchBinCache(uint64_t cacheKey) const;
 
     void SaveTaskFile(const DeviceAgentTask *deviceAgentTask) const;
 
-    bool RecoverTask(const std::string &cacheKey, DeviceAgentTask *deviceAgentTask) const;
+    bool RecoverTask(uint64_t cacheKey, DeviceAgentTask *deviceAgentTask) const;
 
     CacheMode GetCacheMode() const { return cacheMode_; }
 

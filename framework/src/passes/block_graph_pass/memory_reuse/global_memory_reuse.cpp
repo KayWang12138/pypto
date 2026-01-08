@@ -181,7 +181,7 @@ void Allocator::FindReusableInputForOutput(Function &leafFunc, Operation &op, co
         ScanParentOps(leafFunc, *parent, visited, operations);
         if (!CheckReuseOp(operations, parents, outWspInfo, inputWorkspaceInfoMap, leafFuncReuseMap)) {
             APASS_LOG_INFO_F(Elements::Tensor, "CheckReuseOp for leaf function: %s hash %lu.",
-                             leafFunc.GetMagicName().c_str(), leafFunc.GetFunctionHash().GetHash());
+                             leafFunc.GetMagicName().c_str(), leafFunc.GetFunctionHash());
             return;
         }
     }
@@ -201,7 +201,7 @@ void Allocator::ProcessOutputForGlobalMemoryReuse(Function &leafFunc, WorkspaceI
     }
     if (producers.empty()) {
         APASS_LOG_WARN_F(Elements::Tensor, "Tensor %d producer is empty, function hash %lu.",
-                         out->magic, leafFunc.GetFunctionHash().GetHash());
+                         out->magic, std::to_string(leafFunc.GetFunctionHash()));
         return;
     }
     Operation* producer = *producers.begin();
@@ -302,7 +302,7 @@ void Allocator::CollectInputTensor(Function &leafFunc, std::unordered_map<Logica
 // 6. 如果outcast在leafFunction中存在后继的reshape，那么不需要复用
 void Allocator::ProcessLeafGlobalMemoryReuse(Function &leafFunc) {
     APASS_LOG_DEBUG_F(Elements::Operation, "Start processing the reuse of leaf function: %s (hash %lu).",
-                      leafFunc.GetMagicName().c_str(), leafFunc.GetFunctionHash().GetHash());
+                      leafFunc.GetMagicName().c_str(), std::to_string(leafFunc.GetFunctionHash()));
     std::unordered_map<LogicalTensorPtr, size_t> tensorToInfo;
     std::vector<WorkspaceInfo> outWspInfo;
     std::unordered_map<LogicalTensorPtr, WorkspaceInfo> inputWorkspaceInfoMap;
@@ -640,7 +640,7 @@ bool Allocator::TryReuseInputForOutput(
     auto cacheValue = Program::GetInstance().TryHitCahce(calleeHash);
     if (cacheValue == std::nullopt) {
         APASS_LOG_WARN_F(Elements::Operation, "Cannot find program hash %lu by op %d.",
-                         callOp.GetCalleeHash().GetHash(), callOp.opmagic);
+                         std::to_string(callOp.GetCalleeHash()), callOp.opmagic);
         return false;
     }
     Function* leafProgram = cacheValue->cacheFunction;
@@ -681,7 +681,7 @@ bool Allocator::TryReuseInputForOutput(
         return false;
     }
     APASS_LOG_DEBUG_F(Elements::Tensor, "Callop %d leaf function %s (hash %lu) output %zu reuses input %d.",
-                      callOp.opmagic, leafProgram->GetMagicName().c_str(), leafProgram->GetFunctionHash().GetHash(),
+                      callOp.opmagic, leafProgram->GetMagicName().c_str(), std::to_string(leafProgram->GetFunctionHash()),
                       outputIdx, incastIdx);
     return true;
 }

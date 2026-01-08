@@ -482,12 +482,12 @@ Json Program::DumpJson(Function *mainFunc) const {
         }
 
         if (dyndevFunc != nullptr) {
-            progDump["entryhash"] = dyndevFunc->GetFunctionHash().c_str();
+            progDump["entryhash"] = dyndevFunc->GetFunctionHash();
             progDump["curr_funcmagic"] = dyndevFunc->GetFuncMagic();
         } else {
             // 纯静态场景
             if (!rootFuncs.empty()) {
-                progDump["entryhash"] = rootFuncs[0]->GetFunctionHash().c_str();
+                progDump["entryhash"] = rootFuncs[0]->GetFunctionHash();
                 if (!tileGraphFuncs.empty()) {
                     progDump["curr_funcmagic"] = tileGraphFuncs[0]->GetFuncMagic();
                 } else if (tensorGraphFunc != nullptr) {
@@ -496,10 +496,10 @@ Json Program::DumpJson(Function *mainFunc) const {
                     ASSERT(false) << "cannot find current function magic";
                 }
             } else if (!tileGraphFuncs.empty()) {
-                progDump["entryhash"] = tileGraphFuncs[0]->GetFunctionHash().c_str();
+                progDump["entryhash"] = tileGraphFuncs[0]->GetFunctionHash();
                 progDump["curr_funcmagic"] = tileGraphFuncs[0]->GetFuncMagic();
             } else if (tensorGraphFunc != nullptr) {
-                progDump["entryhash"] = tensorGraphFunc->GetFunctionHash().c_str();
+                progDump["entryhash"] = tensorGraphFunc->GetFunctionHash();
                 progDump["curr_funcmagic"] = tensorGraphFunc->GetFuncMagic();
             } else {
                 ALOG_ERROR_F("Failed to find main function.");
@@ -507,11 +507,11 @@ Json Program::DumpJson(Function *mainFunc) const {
         }
     } else {
         progDump["curr_funcmagic"] = mainFunc->GetFuncMagic();
-        progDump["entryhash"] = mainFunc->GetFunctionHash().c_str();
+        progDump["entryhash"] = mainFunc->GetFunctionHash();
 
         if (mainFunc->rootFunc_ != nullptr) {
             progDump["functions"].emplace_back(mainFunc->rootFunc_->DumpJson());
-            progDump["entryhash"] = mainFunc->rootFunc_->GetFunctionHash().c_str();
+            progDump["entryhash"] = mainFunc->rootFunc_->GetFunctionHash();
             for (auto &leaf : mainFunc->rootFunc_->programs_) {
                 progDump["functions"].emplace_back(leaf.second->DumpJson());
             }

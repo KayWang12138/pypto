@@ -314,7 +314,7 @@ struct FunctionInterpreter {
     }
 
     Function *entry_;
-    std::unordered_map<FunctionHash, Function *> calleeHashDict;
+    std::unordered_map<uint64_t, Function *> calleeHashDict;
     std::unordered_set<int> outputSlotSet_;
     std::shared_ptr<OperationInterpreter> operationInterpreter;
     std::unordered_map<int, std::shared_ptr<LogicalTensorData>> slotDataViewDict_;
@@ -425,7 +425,7 @@ struct FunctionInterpreter {
         return callee;
     }
 
-    void UpdateHashDict(const std::unordered_map<FunctionHash, Function *> &hashDict) {
+    void UpdateHashDict(const std::unordered_map<uint64_t, Function *> &hashDict) {
         for (auto &[hash, callee] : hashDict) {
             if (calleeHashDict.count(hash)) {
                 ASSERT(calleeHashDict.find(hash)->second == callee);

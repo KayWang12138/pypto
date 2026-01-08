@@ -1434,7 +1434,7 @@ Function* MixSubgraphSplit::CreateSplitLeafFunction(Function& rootFunc,
     newFunc->paramConfigs_ = originalMixFunc.paramConfigs_;
     ALOG_DEBUG_F("Called UpdateBelongToThis for new function: %s", leafName.c_str());
     newFunc->ComputeHash();
-    FunctionHash funcHash = newFunc->GetFunctionHash();
+    uint64_t funcHash = newFunc->GetFunctionHash();
     ALOG_DEBUG_F("Function %s computed hash: %lu", leafName.c_str(), funcHash);
     Program::GetInstance().GetFunctionCache().Insert(funcHash, *newFunc);
     ALOG_DEBUG_F("Inserted new function %s into function cache with hash %lu",

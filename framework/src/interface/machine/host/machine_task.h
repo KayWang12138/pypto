@@ -77,14 +77,14 @@ public:
     void SetFunction(Function *func) { function_ = func; }
     CacheReuseType GetCacheReuseType() const { return cacheReuseType_; }
     void SetCacheReuseType(const CacheReuseType cacheReuseType) { cacheReuseType_ = cacheReuseType; }
-    const std::string& GetCacheKey() const { return cacheKey_; }
-    void SetCacheKey(const std::string &cacheKey) { cacheKey_ = cacheKey; }
+    uint64_t GetCacheKey() const { return cacheKey_; }
+    void SetCacheKey(uint64_t cacheKey) { cacheKey_ = cacheKey; }
     void SetError(std::string msg) { error = std::move(msg); }
     const std::string &Error() { return error; }
 private:
     uint64_t taskId_;
     Function *function_;
-    std::string cacheKey_;
+    uint64_t cacheKey_;
     CacheReuseType cacheReuseType_;
     std::string error;
 };

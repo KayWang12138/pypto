@@ -411,7 +411,7 @@ public:
         return std::static_pointer_cast<CallOpAttribute>(opAttribute_)->GetCalleeBracketName();
     }
 
-    const FunctionHash &GetCalleeHash() const {
+    uint64_t GetCalleeHash() const {
         ASSERT(IsCall() || opcode_ == Opcode::OP_CALL_NOT_EXPAND);
         auto callop = std::dynamic_pointer_cast<CallOpAttribute>(opAttribute_);
         return callop->GetCalleeHash();

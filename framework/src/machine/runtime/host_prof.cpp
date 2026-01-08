@@ -198,7 +198,7 @@ void HostProf::SetProfFunction(Function *function)
     return;
   }
   // current using functionHashId as opName;
-  opName_ = function->GetFunctionHash().Data();
+  opName_ = std::to_string(function->GetFunctionHash());
   profFunction_ = function;
   inputsSize_ = profFunction_->inCasts_.size();
 }

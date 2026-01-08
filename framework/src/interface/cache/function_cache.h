@@ -19,7 +19,6 @@
 #include <mutex>
 #include <unordered_map>
 #include "interface/function/function.h"
-#include "interface/cache/hash.h"
 #include "tilefwk/core_func_data.h"
 
 
@@ -47,7 +46,6 @@ struct ReadyCoreFunctionCache {
     ReadyCoreFunction readyCoreFunction[0];
 };
 
-using HashKey = FunctionHash;
 struct CacheHeader {
     uint64_t coreFunctionNum;  // CoreFunction的个数，通过此值可以分配xxOffset的内存
     uint64_t virtualFunctionNum{0};
@@ -57,7 +55,7 @@ struct CacheHeader {
 
 struct CacheValue {
     CacheHeader header;
-    HashKey tilingFuncKey;
+    uint64_t tilingFuncKey;
     std::shared_ptr<CoreFunctionTopoCache> topoCache = nullptr;
     std::shared_ptr<CoreFunctionBinCache> binCache = nullptr;
     std::shared_ptr<ReadyCoreFunctionCache> readyListCache = nullptr;
@@ -78,9 +76,9 @@ class FunctionCache {
 public:
     FunctionCache() = default;
 
-    std::optional<CacheValue> Get(HashKey key);
+    std::optional<CacheValue> Get(uint64_t key);
 
-    void Insert(const HashKey& key, Function& func);
+    void Insert(uint64_t key, Function& func);
 
     size_t Size();
 
@@ -90,8 +88,8 @@ public:
 
     virtual ~FunctionCache();
 
-    Function *GetCacheFunction(const HashKey &key);
-    void BuildHashDict(Function *func, std::unordered_map<FunctionHash, Function *> &hashDict) {
+    Function *GetCacheFunction(uint64_t key);
+    void BuildHashDict(Function *func, std::unordered_map<uint64_t, Function *> &hashDict) {
         std::vector<std::shared_ptr<CallOpAttribute>> callopAttrList = func->GetCallopAttrList();
         for (auto &callopAttr : callopAttrList) {
             auto hash = callopAttr->GetCalleeHash();
@@ -104,13 +102,13 @@ public:
         }
     }
 private:
-    void Insert(const HashKey& key, CacheValue value);
+    void Insert(uint64_t key, CacheValue value);
     void UpdateTopoCache(const Function &func, CacheValue &value);
     void UpdateBinCache(const Function &func, CacheValue &value);
     void UpdateReadyFunction(const Function &func, CacheValue &value);
 
 private:
-    std::unordered_map<HashKey, CacheValue> cache_;
+    std::unordered_map<uint64_t, CacheValue> cache_;
     std::mutex lock_;
     int64_t getCnt_ {0};
     int64_t hitCnt_ {0};

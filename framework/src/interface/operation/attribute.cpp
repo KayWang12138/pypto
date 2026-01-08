@@ -253,19 +253,19 @@ std::shared_ptr<OpAttribute> AssembleOpAttribute::Clone() const {
     return std::make_shared<AssembleOpAttribute>(from_, toOffset_, toDynOffset_, fromDynValidShape_);
 }
 
-CallOpAttribute::CallOpAttribute(const FunctionHash &calleeHash, const std::vector<std::vector<SymbolicScalar>> &argList,
+CallOpAttribute::CallOpAttribute(uint64_t calleeHash, const std::vector<std::vector<SymbolicScalar>> &argList,
         const std::string &calleMagicName, const std::map<int, SymbolicScalar> &outIndexToExpr,
         const std::vector<SymbolicScalar> &linearArgList)
     : invokeInfo_(std::make_shared<SubfuncInvokeInfoTy>()), calleeHash_(calleeHash), argList_(argList),
     linearArgList_(linearArgList), outIndexToExpr_(outIndexToExpr) {
     // Make dump happy
-    calleeBracketName_ = calleeHash_.Data() + "[" + calleeHash_.Data() + "]";
+    calleeBracketName_ = std::to_string(calleeHash_) + "[" + std::to_string(calleeHash_) + "]";
     calleMagicName_ = calleMagicName;
 }
 
 std::string CallOpAttribute::Dump() const {
     std::stringstream ss;
-    ss << calleeBracketName_ << "_" << calleeHash_.Data();
+    ss << calleeBracketName_ << "_" << std::to_string(calleeHash_);
     ss << " attr:[";
     for (size_t i = 0; i < argList_.size(); i++) {
         if (i != 0) {
@@ -286,7 +286,7 @@ std::string CallOpAttribute::Dump() const {
 
 Json CallOpAttribute::DumpDynJson() {
     Json res = Json::array();
-    res.push_back(static_cast<uint64_t>(calleeHash_.GetHash()));
+    res.push_back(static_cast<uint64_t>(calleeHash_));
     res.push_back(static_cast<int32_t>(argList_.size()));
     for (size_t i = 0; i < argList_.size(); i++) {
         res.push_back(static_cast<int32_t>(argList_[i].size()));
@@ -372,7 +372,7 @@ std::shared_ptr<CallOpAttribute> CallOpAttribute::DeserializeFrom(const Json& at
     // CallOp特殊：attrJson为整体的Json而不是单独的attr Json
     auto &attrJsonReal = attrJson["attr"];
     int despos = 0;
-    FunctionHash calleeHash = static_cast<uint64_t>(attrJsonReal[despos++]);
+    uint64_t calleeHash = static_cast<uint64_t>(attrJsonReal[despos++]);
     int32_t tensorCount = attrJsonReal[despos++];
     std::vector<std::vector<SymbolicScalar>> argList(tensorCount, std::vector<SymbolicScalar>());
     for (int i = 0; i < tensorCount; i++) {

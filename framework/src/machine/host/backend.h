@@ -41,7 +41,7 @@ struct Linker {
     DyndevFunctionAttribute::ExpressionTableDictGroup &GetExpressionTableDictGroup() { return exprTableDictGroup_; }
 
     static std::string GetTitle(Function *func) {
-        std::string title = "name=" + func->GetRawName() + " hash=" + std::to_string(func->GetFunctionHash().GetHash());
+        std::string title = "name=" + func->GetRawName() + " hash=" + std::to_string(func->GetFunctionHash());
         return title;
     }
 

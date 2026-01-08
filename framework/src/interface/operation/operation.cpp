@@ -345,12 +345,12 @@ Json Operation::DumpJson(bool dumpTensor) const {
             }
         }
         if (callee == nullptr) {
-            ALOG_ERROR_F("Cannot find function by calleeHash %s", calleeHash.c_str());
+            ALOG_ERROR_F("Cannot find function by calleeHash %lu", calleeHash);
         } else {
             if (callee->rootFunc_ == nullptr) {
-                opDump["calleehash"] = calleeHash.Data();
+                opDump["calleehash"] = calleeHash;
             } else {
-                opDump["calleehash"] = callee->rootFunc_->GetFunctionHash().Data();
+                opDump["calleehash"] = callee->rootFunc_->GetFunctionHash();
             }
         }
     }

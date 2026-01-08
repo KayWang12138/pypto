@@ -23,8 +23,6 @@
 #include "interface/inner/hash_buffer.h"
 #include "tilefwk/error.h"
 #include "tilefwk/data_type.h"
-#include "interface/cache/hash.h"
-#include "interface/cache/hash.h"
 #include "interface/tensor/symbolic_scalar.h"
 #include "interface/tensor/logical_tensor.h"
 
@@ -293,7 +291,7 @@ class CallOpAttribute : public OpAttribute {
 public:
     CallOpAttribute() = default;
 
-    CallOpAttribute(const FunctionHash &calleeHash, const std::vector<std::vector<SymbolicScalar>> &argList,
+    CallOpAttribute(uint64_t calleeHash, const std::vector<std::vector<SymbolicScalar>> &argList,
         const std::string &calleMagicName = "", const std::map<int, SymbolicScalar> &outIndexToExpr = {},
         const std::vector<SymbolicScalar> &linearArgList = {});
 
@@ -307,9 +305,9 @@ public:
     const std::string &GetCalleeMagicName() const { return calleMagicName_; }
     const std::string &GetCalleeBracketName() const { return calleeBracketName_; }
     int GetCalleeMagic() const { return calleeMagic_; }
-    const FunctionHash &GetCalleeHash() const { return calleeHash_; }
+    uint64_t GetCalleeHash() const { return calleeHash_; }
     void SetCalleeMagicName(const std::string &magicName) { calleMagicName_ = magicName; }
-    void SetCalleeHash(const FunctionHash &hash) { calleeHash_ = hash; }
+    void SetCalleeHash(uint64_t hash) { calleeHash_ = hash; }
 
     const std::vector<std::vector<SymbolicScalar>> &GetArgList() const { return argList_; }
     std::vector<std::vector<SymbolicScalar>> &GetArgList() { return argList_; }
@@ -335,7 +333,7 @@ private:
     std::string calleMagicName_;
     std::string calleeBracketName_;
     int calleeMagic_ = 0;
-    FunctionHash calleeHash_;
+    uint64_t calleeHash_;
     std::vector<std::vector<SymbolicScalar>> argList_;
     std::vector<SymbolicScalar> linearArgList_;
     std::map<int, SymbolicScalar> outIndexToExpr_;

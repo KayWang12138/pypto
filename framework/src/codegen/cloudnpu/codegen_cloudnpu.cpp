@@ -67,7 +67,7 @@ std::string CodeGenCloudNPU::GenInclude(const Function &topFunc) const {
 std::string CodeGenCloudNPU::GenCommentBeforeFuncHeader(Function &subFunc) {
     std::ostringstream comment;
     comment << "// funcHash: " << subFunc.GetFunctionHash() << "\n\n";
-    ALOG_INFO_F("function hash is: %s", subFunc.GetFunctionHash().c_str());
+    ALOG_INFO_F("function hash is: %lu", subFunc.GetFunctionHash());
     return comment.str();
 }
 

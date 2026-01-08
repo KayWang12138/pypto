@@ -309,7 +309,7 @@ public:
         for (auto &[name, leaf] : leafDict) {
             (void) name;
             if (leaf->IsDummyFunction()) {
-                cceBin.emplace_back(PvModelCceBin(leaf->GetProgramId(), leaf->GetFunctionHash().GetHash(), npu::tile_fwk::CoreType::HUB));
+                cceBin.emplace_back(PvModelCceBin(leaf->GetProgramId(), leaf->GetFunctionHash(), npu::tile_fwk::CoreType::HUB));
             } else {
                 auto leafFuncAttr = leaf->GetLeafFuncAttribute();
                 auto binPath = leafFuncAttr == nullptr ? "" : leafFuncAttr->binPath;
@@ -340,7 +340,7 @@ public:
                 }
 
                 cceBin.emplace_back(
-                    PvModelCceBin(leaf->GetProgramId(), leaf->GetFunctionHash().GetHash(), coreType, srcPath, binPath));
+                    PvModelCceBin(leaf->GetProgramId(), leaf->GetFunctionHash(), coreType, srcPath, binPath));
             }
         }
     }

@@ -23,7 +23,7 @@
 #include "interface/utils/log.h"
 
 namespace npu::tile_fwk {
-std::optional<CacheValue> FunctionCache::Get(HashKey key) {
+std::optional<CacheValue> FunctionCache::Get(uint64_t key) {
     std::lock_guard<std::mutex> cLockGuard(lock_);
     getCnt_++;
     if (auto it = cache_.find(key); it != cache_.end()) {
@@ -193,7 +193,7 @@ void FunctionCache::UpdateReadyFunction(const Function &func, CacheValue &value)
 }
 
 
-void FunctionCache::Insert(const HashKey& key, Function &func) {
+void FunctionCache::Insert(uint64_t key, Function &func) {
     CacheValue cacheVal;
     if (func.IsFunctionTypeAndGraphType({FunctionType::DYNAMIC_LOOP, FunctionType::DYNAMIC_LOOP_PATH, FunctionType::STATIC}, {GraphType::TENSOR_GRAPH, GraphType::TILE_GRAPH})) {
         if (func.rootFunc_ && func.GetFunctionType() == FunctionType::STATIC) {
@@ -212,7 +212,7 @@ void FunctionCache::Insert(const HashKey& key, Function &func) {
     Insert(key, cacheVal);
 }
 
-void FunctionCache::Insert(const HashKey& key, CacheValue value) {
+void FunctionCache::Insert(uint64_t key, CacheValue value) {
     std::lock_guard<std::mutex> cLockGuard(lock_);
     cache_[key] = value;
 }
@@ -228,7 +228,7 @@ std::string FunctionCache::GetHitRate() {
     return temp;
 }
 
-Function *FunctionCache::GetCacheFunction(const HashKey &key) {
+Function *FunctionCache::GetCacheFunction(uint64_t key) {
     std::lock_guard<std::mutex> cLockGuard(lock_);
     getCnt_++;
     if (auto it = cache_.find(key); it != cache_.end()) {

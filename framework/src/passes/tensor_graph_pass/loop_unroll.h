@@ -33,7 +33,6 @@
 #include "passes/pass_interface/pass.h"
 #include "passes/pass_utils/pass_utils.h"
 #include "interface/tensor/symbolic_scalar_evaluate.h"
-#include "interface/cache/hash.h"
 #include "interface/utils/id_gen.h"
 #include "interface/machine/host/host_machine.h"
 

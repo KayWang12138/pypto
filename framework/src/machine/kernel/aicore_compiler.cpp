@@ -91,7 +91,7 @@ std::string GenSubFuncCall(std::map<uint64_t, Function *> &leafDict, CoreType co
   // Declare extern leaf func.
   for (const auto &iter : leafDict) {
       const auto leaf = iter.second;
-      leafIndex = param.calleeHashIndexDict[leaf->ComputeHash().GetHash()];
+      leafIndex = param.calleeHashIndexDict[leaf->ComputeHash()];
       auto leafFuncAttr = leaf->GetLeafFuncAttribute();
       ASSERT(leafFuncAttr != nullptr) << "LeafFuncAttr is null for leaf: " << leaf;
       if (coreType != leafFuncAttr->coreType) {

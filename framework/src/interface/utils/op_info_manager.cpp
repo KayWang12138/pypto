@@ -79,5 +79,9 @@ void OpInfoManager::SetControlBinHandle(void *controlFlowBindHandle) {
 std::string &OpInfoManager::GetOpFuncName() {
   return funcName_;
 }
+
+void OpInfoManager::SetOpFuncName(const std::string& newFuncName) {
+    funcName_ = newFuncName;
+}
 }
 

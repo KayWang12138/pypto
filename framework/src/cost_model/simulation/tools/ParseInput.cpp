@@ -285,7 +285,7 @@ void ParseInput::BuildFunction(std::shared_ptr<CostModel::SimSys> sim, npu::tile
     tileMagicIdMap.clear();
     bool isCube = false;
     func->parentFunction = parentFunc;
-    func->functionHash = parentFunc->GetFunctionHash().GetHash();
+    func->functionHash = parentFunc->GetFunctionHash();
     func->magic = parentFunc->GetFuncMagic();
     func->funcName = parentFunc->GetMagicName();
     func->InitPipeExecTime();
@@ -367,7 +367,7 @@ void ParseInput::BuildFunction(std::shared_ptr<CostModel::SimSys> sim, npu::tile
         tileOp->bufType = OperandType::BUF_UB;
         if (tileOp->IsCall()) {
             hasCall = true;
-            tileOp->calleeHash = op.GetCalleeHash().GetHash();
+            tileOp->calleeHash = op.GetCalleeHash();
         }
         tileOp->GetPipeType();
         tileOp->IsSpecial();
@@ -488,7 +488,7 @@ void ParseInput::ParseFunction(std::shared_ptr<CostModel::SimSys> sim,
                 sim->pv->Submit(rootFunction, &PvData::Instance(), static_cast<int>(sim->pvLevel), sim->outdir);
             }
             FunctionPtr func = std::make_shared<Function>();
-            func->functionHash = rootFunction->GetFunctionHash().GetHash();
+            func->functionHash = rootFunction->GetFunctionHash();
             func->magic = rootFunction->GetFuncMagic();
             func->funcName = rootFunction->GetMagicName();
 
@@ -501,7 +501,7 @@ void ParseInput::ParseFunction(std::shared_ptr<CostModel::SimSys> sim,
                 entry.eSgId = topo.esgId;
                 entry.readyState = topo.readyState;
                 entry.outGraph = topo.outGraph;
-                entry.calleeHash = operations[topo.esgId].GetCalleeHash().GetHash();
+                entry.calleeHash = operations[topo.esgId].GetCalleeHash();
                 func->inputTopo.push_back(entry);
             }
             BuildFunction(sim, rootFunction, func);

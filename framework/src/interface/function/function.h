@@ -28,7 +28,7 @@
 #include "tilefwk/tensor.h"
 #include "interface/tensor/tensormap.h"
 #include "interface/tensor/tensor_slot.h"
-#include "interface/cache/hash.h"
+#include "interface/operation/distributed/tiling_manager.h"
 #include "passes/pass_utils/pass_utils.h"
 
 namespace npu::tile_fwk {
@@ -497,7 +497,7 @@ public:
         return IsFunctionTypeAndGraphType(FunctionType::STATIC, {GraphType::EXECUTE_GRAPH, GraphType::BLOCK_GRAPH});
     }
     std::unordered_set<int> LoopCheck();
-    FunctionHash ComputeHash();
+    uint64_t ComputeHash();
     std::vector<std::shared_ptr<Operation>> GetSortedOperations() const;
     OperationsViewer Operations(bool sorted = true);
     OperationsViewer OperationsAfterOOO();
@@ -612,7 +612,7 @@ public:
     const std::vector<std::shared_ptr<LogicalTensor>> &GetOriginOutcast() const { return originOutCasts_; }
     const std::vector<std::shared_ptr<LogicalTensor>> &GetIncast() const { return inCasts_; }
     const std::vector<std::shared_ptr<LogicalTensor>> &GetOutcast() const { return outCasts_; }
-    FunctionHash GetFunctionHash() const { return functionHash_; }
+    uint64_t GetFunctionHash() const { return functionHash_; }
 
     bool HasParent() const { return parent_ != nullptr; }
     auto &Parent() { return *parent_; }
@@ -837,7 +837,7 @@ private:
     size_t totalAivSubGraphCount_ = 0;
     size_t totalSubGraphCount_ = 0;
     int stackWorkespaceSize_ = 0;
-    FunctionHash functionHash_{0};
+    uint64_t functionHash_{0};
     std::vector<std::string> calleeMagicNameList_;
     std::unordered_set<std::string> loopIdxNameList_;
     bool isUnderDynamicFunction_{false};
@@ -927,7 +927,7 @@ private:
     TensorGraphInfo GetGraphInfo();
     void ClearUselessLink(TensorGraphInfo &graphInfo);
     void LinkIoWithCallOp(std::vector<LogicalTensors> &callopInCasts, std::vector<LogicalTensors> &callopOutCasts);
-    void EraseCallOpOpnd(const FunctionHash &calleeHash, size_t index);
+    void EraseCallOpOpnd(uint64_t calleeHash, size_t index);
     void CheckAndUpdateGetTensorData(size_t currOutcastIdx, size_t newOutcastIdx);
     void CleanRedundantOutcast(std::map<Function *, std::set<size_t>> &removeRecord,
         std::map<Function *, std::set<size_t>> &getTensorDataRecord);

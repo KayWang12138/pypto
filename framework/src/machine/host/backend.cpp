@@ -48,7 +48,7 @@ extern "C" int32_t Initialize() {
     return 0;
 }
 
-extern "C" bool MatchCache(const std::string &cacheKey) {
+extern "C" bool MatchCache(uint64_t cacheKey) {
     return CacheManager::Instance().MatchBinCache(cacheKey);
 }
 
@@ -107,7 +107,7 @@ extern "C" int32_t Execute(MachineTask *task, FunctionCache &cache) {
     // recover task info and bin
     if (task->GetCacheReuseType() == CacheReuseType::Bin) {
         if (!CacheManager::Instance().RecoverTask(task->GetCacheKey(), deviceAgentTask.get())) {
-            ALOG_WARN_F("Fail to recover task from cache[%s].", task->GetCacheKey().c_str());
+            ALOG_WARN_F("Fail to recover task from cache[%lu].", task->GetCacheKey());
             return 0;
         }
     } else {
@@ -168,7 +168,7 @@ static std::vector<Function *> GetCalleeList(FunctionCache &cache, Function *fun
         if (cacheFunction != nullptr) {
             calleeList.push_back(cacheFunction);
         } else {
-            ALOG_ERROR_F("Cannot find cache %lu", hash.GetHash());
+            ALOG_ERROR_F("Cannot find cache %lu", hash);
         }
     }
     return calleeList;
@@ -858,12 +858,12 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[ma
         DumpFile(expressionSource, expressionFilePath);
     }
 
-    std::string funcHash = function->GetFunctionHash().Data();
+    std::string funcHash = std::to_string(function->GetFunctionHash());
     std::string controlFlowHostFilePath = aicpuDirPath + "/controlFlow_host_" + funcHash + ".cpp";
     attr->hostControlFlowBinary = CompileAndLoadSection(controlFlowSource, controlFlowHostFilePath,
         "g++", "objcopy", "ast2", IsNeedDumpAicpuKernel(controlFlowHostFilePath), cflags);
     AlignUpTo(attr->hostControlFlowBinary, 0x8, 0);
-    std::string funcName = function->GetMagicName() + function->GetFunctionHash().Data();
+    std::string funcName = function->GetMagicName() + std::to_string(function->GetFunctionHash());
     CompileControlFlow(aicpuDirPath, funcName, controlFlowSource, expressionSource);
     std::string arm64TargetToolPath = Arm64TargetTool("g++");
     if (FileExist(arm64TargetToolPath)) {
@@ -890,7 +890,7 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[ma
 
         for (auto &[psgId, leaf] : devRoot->programs_) {
             (void)psgId;
-            auto hash = leaf->GetFunctionHash().GetHash();
+            auto hash = leaf->GetFunctionHash();
             if (!leafDict.count(hash)) {
                 leafDict[hash] = leaf;
                 ALOG_INFO("Dyndev.codegen: ", leaf->GetRawName());
@@ -908,7 +908,7 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[ma
 #ifdef BUILD_WITH_CANN
     if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) != CFG_RUN_MODE_SIM) {
         int ret = CompileAICoreKernel(leafDict, encodeDevAscendFunctionParam,
-                                    ccePath, function->GetFunctionHash().Data(), kernelPath);
+                                    ccePath, std::to_string(function->GetFunctionHash()), kernelPath);
         if (ret != 0) {
             ALOG_ERROR_F("Compile dynamic aicore.o failed.");
             return;
@@ -941,7 +941,7 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[ma
 
         attr->devEncodeList[devRootKey].resize(size);
         DevAscendFunction *funcBin = reinterpret_cast<DevAscendFunction *>(&attr->devEncodeList[devRootKey][0]);
-        funcBin->rootHash = devRoot->GetFunctionHash().GetHash();
+        funcBin->rootHash = devRoot->GetFunctionHash();
         funcBin->funcKey = devRootKey;
         funcBin->stackWorkSpaceSize = devTile->GetStackWorkespaceSize();
         funcBin->getInputDataCount = 0;

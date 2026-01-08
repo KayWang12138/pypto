@@ -103,7 +103,7 @@ public: // public api for torch
     void SetLastFunction(Function *func) { lastFunc_ = func; }
     Function *GetLastFunction() const { return lastFunc_; }
 
-    std::optional<CacheValue> TryHitCahce(const FunctionHash &functionHash) { return functionCache_.Get(functionHash); }
+    std::optional<CacheValue> TryHitCahce(uint64_t functionHash) { return functionCache_.Get(functionHash); }
     FunctionCache& GetFunctionCache() { return functionCache_; }
     std::shared_ptr<npu::tile_fwk::Function> GetFunctionSharedPtr(Function* rawPtr);
 

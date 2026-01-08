@@ -456,13 +456,13 @@ Status SubgraphToFunction::ProcessCacheResult(const std::tuple<Function *, Opera
     // 3.1 Hit subgraph
     if (std::get<getValue>(result)) {
         APASS_LOG_DEBUG_F(Elements::Operation, "LeafFunc %zu Hit Current hashValue is %lu.", i,
-            std::get<0>(result)->ComputeHash().GetHash());
+            std::get<0>(result)->ComputeHash());
         psgToESgMap.insert({std::get<0>(result)->GetProgramId(), i});
         auto callAttr = dynamic_cast<CallOpAttribute *>(callOp.GetOpAttribute().get());
         if (callAttr == nullptr) { APASS_LOG_ERROR_F(Elements::Operation, "Failed to get CallOpAttribute for operation %zu. %s", i, GetFormatBacktrace(callOp).c_str()); return FAILED; }
         auto cacheValue = Program::GetInstance().TryHitCahce(callAttr->GetCalleeHash());
         if (!cacheValue) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Cache miss for callee hash %lu. %s", callAttr->GetCalleeHash().GetHash(), GetFormatBacktrace(callOp).c_str());
+            APASS_LOG_ERROR_F(Elements::Operation, "Cache miss for callee hash %lu. %s", callAttr->GetCalleeHash(), GetFormatBacktrace(callOp).c_str());
             return FAILED;
         }
         callAttr->SetCalleeMagicName(cacheValue->cacheFunction->GetMagicName());
@@ -471,7 +471,7 @@ Status SubgraphToFunction::ProcessCacheResult(const std::tuple<Function *, Opera
     }
     // 3.2 not hit subgraph
     APASS_LOG_DEBUG_F(Elements::Operation,
-        "LeafFunc %zu Not Hit. hashValue is %lu.", i, std::get<0>(result)->ComputeHash().GetHash());
+        "LeafFunc %zu Not Hit. hashValue is %lu.", i, std::get<0>(result)->ComputeHash());
     psgToESgMap.insert({programIdx, i});
     std::get<0>(result)->SetProgramId(programIdx);
     auto callAttr = dynamic_cast<CallOpAttribute *>(callOp.GetOpAttribute().get());

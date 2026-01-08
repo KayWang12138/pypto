@@ -41,6 +41,7 @@ public:
     std::vector<char>& GetCustomJson();
     std::string &GetCustomOpJsonPath();
     std::string &GetOpFuncName();
+    void SetOpFuncName(const std::string& newFuncName);
     void *GetControlBinHandle(const std::string &controlJsonPath);
     void SetControlBinHandle(void *controlFlowBindHandle);
 private:

@@ -132,7 +132,7 @@ bool SharedAicpuCompile(const std::string &funcName, const std::string &aicpuDir
 }
 
 bool TileFwkAiCpuCompile(const std::string &funcName, const std::string &aicpuDirPath) {
-    OpInfoManager::GetInstance().GetOpFuncName() = funcName;
+    OpInfoManager::GetInstance().SetOpFuncName(funcName);
     std::string controlAicpuPath = aicpuDirPath + "/" + funcName + "/aicpu/";
     if (!GenTilingFunc(funcName, controlAicpuPath)) {
         ALOG_ERROR_F("Gen op[%s]  not success\n", funcName.c_str());

@@ -54,7 +54,7 @@ bool ArePsgHashesUnique(const Function &function) {
     std::unordered_set<size_t> hashSet;
     for (const auto &[psgId, program] : function.programs_) {
         (void)psgId;
-        size_t hashValue = program->ComputeHash().GetHash();
+        size_t hashValue = program->ComputeHash();
         if (hashSet.find(hashValue) != hashSet.end()) {
             return false;
         }

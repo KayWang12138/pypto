@@ -535,7 +535,7 @@ void DevAscendFunction::InitOperation(
             auto callArgs = callop->GetLinearArgList();
             int opStaticAttrSize = callArgs.size();
             staticField.attrList.AssignRangeOffsetSize(operationAttrList_, staticAttributeSize, opStaticAttrSize);
-            At(staticField.attrList, 0) = calleeHashIndexDict.at(callop->GetCalleeHash().GetHash());
+            At(staticField.attrList, 0) = calleeHashIndexDict.at(callop->GetCalleeHash());
             for (size_t k = CALLOP_ARG_ATTR_BASE_INDEX; k < (size_t)opStaticAttrSize; k++) {
                 int fillValue = 0;
                 if (callArgs[k].IsImmediate()) {
@@ -551,7 +551,7 @@ void DevAscendFunction::InitOperation(
             }
 
             At(opAttrOffsetList_, index) = staticAttributeSize;
-            At(opCalleeList_, index) = calleeHashIndexDict.at(callop->GetCalleeHash().GetHash());
+            At(opCalleeList_, index) = calleeHashIndexDict.at(callop->GetCalleeHash());
             staticAttributeSize += opStaticAttrSize;
 
             // Fill succ
@@ -1149,7 +1149,7 @@ struct EncodeDevAscendFunctionInfo {
     }
 
     int GetCoreType(Operation *callop) {
-        int leafIndex = calleeHashIndexDict.at(callop->GetCalleeHash().GetHash());
+        int leafIndex = calleeHashIndexDict.at(callop->GetCalleeHash());
         return cceCodeInfoList[leafIndex].coreType;
     }
 

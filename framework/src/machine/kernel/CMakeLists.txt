@@ -31,7 +31,9 @@ set(AI_CORE_FLAGS
     -I${PTO_FWK_SRC_ROOT}/framework/include \
     -I${PTO_FWK_SRC_ROOT}/framework/src \
     -I${PTO_FWK_SRC_ROOT}/framework/src/interface \
-    -I${PTO_FWK_SRC_ROOT}/framework/src/interface/machine/device"
+    -I${PTO_FWK_SRC_ROOT}/framework/src/interface/machine/device \
+    -I/usr/include \
+    -I/usr/include/c++/11"
 )
 
 separate_arguments(AI_CORE_FLAGS)

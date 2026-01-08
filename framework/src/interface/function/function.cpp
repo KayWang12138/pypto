@@ -18,7 +18,6 @@
 #include <algorithm>
 #include <unordered_map>
 #include "interface/inner/pre_def.h"
-#include "interface/cache/hash.h"
 #include "interface/operation/opcode.h"
 #include "interface/operation/operation.h"
 #include "interface/tensor/tensor_offset.h"
@@ -512,7 +511,7 @@ void CalleeSlotNoConsumer(Function &calleeFunc, Function &func, const std::map<s
     }
 }
 
-void Function::EraseCallOpOpnd(const FunctionHash &calleeHash, size_t index) {
+void Function::EraseCallOpOpnd(uint64_t calleeHash, size_t index) {
     for (auto callop : GetCallopList()) {
         auto callopAttr = std::static_pointer_cast<CallOpAttribute>(callop->GetOpAttribute());
         ASSERT(callopAttr != nullptr) << "Processing CallOp:" << callop->Dump();
@@ -1414,8 +1413,8 @@ void Function::EraseOperations(const OperationDeleter &deleter) {
     EraseOperations();
 }
 
-FunctionHash Function::ComputeHash() {
-    if (functionHash_.GetHash() != 0 &&
+uint64_t Function::ComputeHash() {
+    if (functionHash_ != 0 &&
         (functionType_ != FunctionType::DYNAMIC_LOOP && functionType_ != FunctionType::DYNAMIC)) {
         /* 动态类型的graph里面的op和tensor会随着循环的展开而变化，每次都需要刷新 */
         return functionHash_;
@@ -2044,7 +2043,7 @@ void Function::DumpJsonFile(std::string fileName) {
     Json progDump;
     progDump["version"] = T_VERSION;
     progDump["functions"].push_back(DumpJson());
-    progDump["entryhash"] = this->GetFunctionHash().Data();
+    progDump["entryhash"] = this->GetFunctionHash();
     file << progDump.dump(1) << std::endl;
     file.close();
 }
@@ -2160,7 +2159,7 @@ Json Function::DumpJson(bool useTable) {
         }
     }
     funcDump["operations"] = operations;
-    funcDump["hash"] = functionHash_.Data();
+    funcDump["hash"] = functionHash_;
 
     if (leafFuncAttr_ != nullptr && leafFuncAttr_->coreType != CoreType::INVALID) {
         funcDump["leaf_func_attr"]["coretype"] = leafFuncAttr_->coreType;
@@ -3580,7 +3579,7 @@ void Function::ValidCheck() const {
 
 std::shared_ptr<OpAttribute> Function::CreateCallOpAttribute(const std::vector<std::vector<SymbolicScalar>> &argList,
                                                              const std::map<int, SymbolicScalar> &outIndexToExpr) {
-    FunctionHash hash;
+    uint64_t hash;
     if (rootFunc_ != nullptr) {
         /* has rootFunc, then current function is cutted */
         hash = rootFunc_->ComputeHash();

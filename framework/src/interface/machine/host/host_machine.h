@@ -110,7 +110,7 @@ private:
     void PushAgentQueue(std::unique_ptr<MachineTask> task);
     void PushFinishQueue(std::unique_ptr<MachineTask> task);
 
-    static std::string GetCacheKeyFromFunction(Function *function);
+    static uint64_t GetCacheKeyFromFunction(Function *function);
 
 private:
     std::atomic<bool> initialized_;
