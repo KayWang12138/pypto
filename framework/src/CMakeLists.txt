@@ -13,6 +13,8 @@ if (NOT ENABLE_FEATURE_PYTHON_FRONT_END)
 endif ()
 
 add_subdirectory(interface)
+# Optional communication models (e.g. NVSHMEM-like fine-grain communication)
+add_subdirectory(models/npucomm)
 add_subdirectory(passes)
 add_subdirectory(codegen)
 add_subdirectory(machine)

@@ -26,6 +26,7 @@ recursive-include framework/src/cost_model/simulation_ca *
 recursive-include framework/src/cost_model/simulation_platform *
 include framework/src/cost_model/CMakeLists.txt
 recursive-include framework/src/interface *
+recursive-include framework/src/models *
 recursive-include framework/src/machine *
 recursive-include framework/src/passes *
 

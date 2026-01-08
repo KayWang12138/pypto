@@ -37,6 +37,14 @@ if (BUILD_WITH_CANN AND DEFINED ENV{LD_LIBRARY_PATH})
     set_target_properties(c_sec_shared PROPERTIES
             IMPORTED_LOCATION ${c_sec_LIBRARY}
     )
+    # Keep consistent with the non-CANN path: expose an interface target `c_sec`
+    # so downstream targets can link against it (instead of raw "-lc_sec").
+    if (NOT TARGET c_sec)
+        add_library(c_sec INTERFACE)
+        set_target_properties(c_sec PROPERTIES
+                INTERFACE_LINK_LIBRARIES "c_sec_shared"
+        )
+    endif ()
     message(STATUS "Use c_sec from binary, c_sec_shared: ${c_sec_LIBRARY}")
     return()
 endif ()

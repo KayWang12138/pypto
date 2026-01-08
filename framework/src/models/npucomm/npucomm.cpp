@@ -1221,8 +1221,10 @@ void* NpuComm::calloc(size_t nmemb, size_t size) {
 
 void* NpuComm::align(size_t alignment, size_t size) {
     void* ptr = nullptr;
-    posix_memalign(&ptr, alignment, size);
-    return ptr;
+    // posix_memalign returns 0 on success; on failure it returns an error number and leaves ptr unspecified.
+    // Return nullptr on failure to avoid propagating an invalid pointer.
+    int ret = posix_memalign(&ptr, alignment, size);
+    return (ret == 0) ? ptr : nullptr;
 }
 
 void NpuComm::free(void* ptr) {
@@ -1241,8 +1243,8 @@ CommStatus NpuComm::shfree(void* ptr) {
 
 void* NpuComm::shmemalign(size_t alignment, size_t size) {
     void* ptr = nullptr;
-    posix_memalign(&ptr, alignment, size);
-    return ptr;
+    int ret = posix_memalign(&ptr, alignment, size);
+    return (ret == 0) ? ptr : nullptr;
 }
 
 void* NpuComm::shrealloc(void* ptr, size_t size) {

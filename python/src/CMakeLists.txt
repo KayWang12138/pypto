@@ -43,7 +43,7 @@ target_include_directories(pypto_impl
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN_SUB}>:${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/profiling>>
         PRIVATE
             ${CMAKE_CURRENT_LIST_DIR}
-            ${CMAKE_CURRENT_LIST_DIR}/../../framework/src
+            ${CMAKE_CURRENT_LIST_DIR}/../../../framework/src
             $<BUILD_INTERFACE:$<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<BOOL:${BUILD_WITH_CANN}>>:${ASCEND_CANN_PACKAGE_PATH}/include/experiment/runtime>>
             $<BUILD_INTERFACE:$<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<BOOL:${BUILD_WITH_CANN}>>:${ASCEND_CANN_PACKAGE_PATH}/include/experiment/runtime/runtime>>
 )

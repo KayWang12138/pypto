@@ -53,16 +53,16 @@ target_link_libraries(openshmem_npu_demo PRIVATE
 
 # 安装配置
 install(TARGETS openshmem_npu
-    LIBRARY DESTINATION lib
-    ARCHIVE DESTINATION lib
+    LIBRARY DESTINATION ${PyPTO_WhlName}/lib
+    ARCHIVE DESTINATION ${PyPTO_WhlName}/lib
 )
 
 install(TARGETS openshmem_npu_demo
-    RUNTIME DESTINATION bin
+    RUNTIME DESTINATION ${PyPTO_WhlName}/bin
 )
 
 install(FILES
     openshmem_npu.h
     openshmem_pto_integration.h
-    DESTINATION include/openshmem
+    DESTINATION ${PyPTO_WhlName}/lib/include/openshmem
 )

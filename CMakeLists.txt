@@ -41,6 +41,11 @@ option(ENABLE_FEATURE_PYTHON_FRONT_END "Enable Python Front-end" ON)
 option(ENABLE_FEATURE_INSTALL_EXPERIMENT "Enable experiment header or binary file install" OFF)
 option(ENABLE_TORCH_VERIFIER "Flow verify with libtorch" OFF)
 
+# Install layout: when we install into a Python package (wheel/editable),
+# we expect binaries/headers to live under this subdir (e.g. <prefix>/pypto/lib, <prefix>/pypto/include).
+# Define it early so subdirectories (models like npucomm/openshmem) can reference it in their install() rules.
+set(PyPTO_WhlName "pypto" CACHE STRING "Python package dir name used for CMake install layout (wheel/editable)")
+
 # 公开编译开关(tests)
 option(ENABLE_TESTS_EXECUTE "Enable auto execute tests executable" OFF)
 option(ENABLE_TESTS_EXECUTE_PARALLEL "Auto execute tests executable parallel" OFF)
@@ -94,8 +99,10 @@ add_subdirectory(python)
 ########################################################################################################################
 
 if (ENABLE_FEATURE_PYTHON_FRONT_END AND BUILD_OPEN_PROJECT)
-    # whl 包名配置
-    set(PyPTO_WhlName "pypto")
+    # whl 包名配置: default is set above; keep this for backward compatibility if overridden externally.
+    if (NOT PyPTO_WhlName)
+        set(PyPTO_WhlName "pypto")
+    endif ()
 
     # 安装 二进制文件
     set(InstallExport ${PROJECT_NAME}Targets)
@@ -108,6 +115,7 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END AND BUILD_OPEN_PROJECT)
             tile_fwk_runtime_stub
             tile_fwk_simulation
             tile_fwk_simulation_ca
+            npucomm
     )
     if (BUILD_WITH_CANN)
         install(TARGETS tile_fwk_server LIBRARY DESTINATION "${PyPTO_WhlName}/lib")

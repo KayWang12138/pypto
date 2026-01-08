@@ -8,8 +8,10 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 #
 
-cmake_minimum_required(VERSION 3.16)
-project(npucomm LANGUAGES CXX)
+if (CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+    cmake_minimum_required(VERSION 3.16)
+    project(npucomm LANGUAGES CXX)
+endif ()
 
 # NPU Communication Library (NPUCOMM)
 # Based on NVSHMEM design principles, optimized for NPU fine-grain communication
@@ -17,25 +19,31 @@ project(npucomm LANGUAGES CXX)
 # Dependencies
 find_package(Threads REQUIRED)
 
-# Locate tile_fwk_interface when building standalone (outside main project)
-set(TILE_FWK_INTERFACE_SEARCH_PATHS
-    $ENV{TILE_FWK_INTERFACE_DIR}
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../../build/framework/src/interface
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../../../build/framework/src/interface
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../../build/output/lib
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../../../build/output/lib
-    ${CMAKE_BINARY_DIR}/../interface        # when built from project root
-)
+# Locate tile_fwk_interface:
+# - When built as part of the main project, prefer the CMake target.
+# - When built standalone, fall back to searching for the shared library.
+if (TARGET tile_fwk_interface)
+    set(TILE_FWK_INTERFACE_LIB tile_fwk_interface)
+else()
+    set(TILE_FWK_INTERFACE_SEARCH_PATHS
+        $ENV{TILE_FWK_INTERFACE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/../../../build/framework/src/interface
+        ${CMAKE_CURRENT_SOURCE_DIR}/../../../../build/framework/src/interface
+        ${CMAKE_CURRENT_SOURCE_DIR}/../../../build/output/lib
+        ${CMAKE_CURRENT_SOURCE_DIR}/../../../../build/output/lib
+        ${CMAKE_BINARY_DIR}/../interface        # when built from project root
+    )
 
-find_library(TILE_FWK_INTERFACE_LIB
-    NAMES tile_fwk_interface
-    HINTS ${TILE_FWK_INTERFACE_SEARCH_PATHS}
-)
+    find_library(TILE_FWK_INTERFACE_LIB
+        NAMES tile_fwk_interface
+        HINTS ${TILE_FWK_INTERFACE_SEARCH_PATHS}
+    )
 
-if(NOT TILE_FWK_INTERFACE_LIB)
-    message(FATAL_ERROR "tile_fwk_interface not found. "
-        "Set TILE_FWK_INTERFACE_DIR to the directory containing libtile_fwk_interface.so "
-        "or build from the project root so the target is available.")
+    if(NOT TILE_FWK_INTERFACE_LIB)
+        message(FATAL_ERROR "tile_fwk_interface not found. "
+            "Set TILE_FWK_INTERFACE_DIR to the directory containing libtile_fwk_interface.so "
+            "or build from the project root so the target is available.")
+    endif()
 endif()
 
 # NPU Communication Library (NPUCOMM)
@@ -78,6 +86,14 @@ target_link_libraries(npucomm
         Threads::Threads
 )
 
+# Align with the main project: some deps (e.g. libc_sec) are provided as imported targets.
+# Prefer linking the concrete shared lib target to avoid toolchain/library search path issues.
+if (TARGET c_sec_shared)
+    target_link_libraries(npucomm PRIVATE c_sec_shared)
+elseif (TARGET c_sec)
+    target_link_libraries(npucomm PRIVATE c_sec)
+endif ()
+
 # Compiler features and options
 target_compile_features(npucomm PUBLIC cxx_std_17)
 
@@ -99,24 +115,29 @@ endif()
 
 # Installation
 install(TARGETS npucomm
-    LIBRARY DESTINATION lib
-    ARCHIVE DESTINATION lib
-    RUNTIME DESTINATION bin
-    INCLUDES DESTINATION include
+    LIBRARY DESTINATION ${PyPTO_WhlName}/lib
+    ARCHIVE DESTINATION ${PyPTO_WhlName}/lib
+    RUNTIME DESTINATION ${PyPTO_WhlName}/bin
+    INCLUDES DESTINATION ${PyPTO_WhlName}/lib/include
 )
 
 install(FILES ${NPUCOMM_HEADERS}
-    DESTINATION include
+    DESTINATION ${PyPTO_WhlName}/lib/include/npucomm
 )
 
 # Also install nvshmem.h in a separate location for compatibility
 install(FILES nvshmem.h
-    DESTINATION include/nvshmem
+    DESTINATION ${PyPTO_WhlName}/lib/include/nvshmem
 )
 
 # Optional: Build examples and tests
-option(BUILD_NPUCOMM_EXAMPLES "Build NPUCOMM examples" ON)
-option(BUILD_NPUCOMM_TESTS "Build NPUCOMM tests" ON)
+if (CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+    option(BUILD_NPUCOMM_EXAMPLES "Build NPUCOMM examples" ON)
+    option(BUILD_NPUCOMM_TESTS "Build NPUCOMM tests" ON)
+else()
+    option(BUILD_NPUCOMM_EXAMPLES "Build NPUCOMM examples" OFF)
+    option(BUILD_NPUCOMM_TESTS "Build NPUCOMM tests" OFF)
+endif()
 
 if(BUILD_NPUCOMM_EXAMPLES)
     add_subdirectory(examples)

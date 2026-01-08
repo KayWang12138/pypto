@@ -15,7 +15,7 @@
 
 #include "pybind_common.h"
 #include "bindings.h"
-#include "../../framework/src/models/npucomm/nvshmem.h"
+#include "models/npucomm/nvshmem.h"
 
 namespace pypto {
 
