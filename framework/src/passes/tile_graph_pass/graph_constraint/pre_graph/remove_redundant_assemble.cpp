@@ -15,7 +15,6 @@
 
 #include "remove_redundant_assemble.h"
 #include "passes/pass_log/pass_log.h"
-#include <sstream>
 
 #define MODULE_NAME "PreGraphProcess"
 
@@ -27,33 +26,7 @@ std::vector<OpImmediate> SumOffset(const std::vector<OpImmediate> offset1, const
     }
     return res;
 }
-template <typename T>
-std::string vectorToString(const std::vector<T> &vec, const std::string &separator = ",") {
-    std::ostringstream oss; // 字符串流，用于高效拼接
 
-    // 空 vector 处理
-    if (vec.empty()) {
-        return "Vector is empty!";
-    }
-
-    // 拼接起始标识
-    oss << "[";
-
-    // 遍历并拼接所有元素
-    for (size_t i = 0; i < vec.size(); ++i) {
-        oss << vec[i]; // 将元素写入字符串流
-        // 最后一个元素后不加分隔符
-        if (i != vec.size() - 1) {
-            oss << separator;
-        }
-    }
-
-    // 拼接结束标识
-    oss << "]";
-
-    // 转换为 std::string 并返回
-    return oss.str();
-}
 // 当前op为Copy Out时，需要将后继Assemble上的offset累加到当前op的CopyOpAttr上
 void UpdateCopyOutAttr(Operation &op, Operation &opNext) {
     std::cout << "in UpdateCopyOutAttr" << op.GetOpMagic() << "," << opNext.GetOpMagic() << std::endl;
@@ -66,13 +39,11 @@ void UpdateCopyOutAttr(Operation &op, Operation &opNext) {
             opAttr->SetToOffset(SumOffset(OpImmediate::Specified(opNextAttr->GetToDynOffset()), opAttr->GetToOffset()));
         }
     }
-    std::cout << "assemble offset1" << vectorToString(opNextAttr->GetToOffset()) << std::endl;
-    std::cout << "assemble dyn offset2" << vectorToString(opNextAttr->GetToDynOffset()) << std::endl;
     opAttr->SetRawShape(OpImmediate::Specified(op.GetOOperands().front()->tensor->GetDynRawShape()));
 }
 
 bool CalculateNewRawShape(const std::vector<int64_t> &oriShape, const std::vector<int64_t> &newShape,
-    const std::vector<int64_t> &oriRawShape, std::vector<int64_t> &newRawShape) {
+    const std::vector<int64_t> &oriRawShape, std::vector<int64_t> &newRawShape, bool skipAccumulate) {
     std::vector<int64_t> oriScale;
     size_t oriSize = oriShape.size();
     oriScale.resize(oriSize);
@@ -87,35 +58,38 @@ bool CalculateNewRawShape(const std::vector<int64_t> &oriShape, const std::vecto
     size_t newSize = newShape.size();
     newRawShape.resize(newSize);
     std::vector<int64_t> newScale(newSize, 1);
-    int64_t accumuOriScale = oriScale[oriSize - 1];
-    int64_t accumuOriShape = oriShape[oriSize - 1];
-    int64_t accumuNewShape = newShape[newSize - 1];
-    for (int i = oriSize - 1, j = newSize - 1; i >= 0 && j >= 0;) {
-        if (accumuOriShape < accumuNewShape) {
-            i--;
-            if (i >= 0) {
-                accumuOriShape *= oriShape[i];
-                accumuOriScale *= oriScale[i];
+    if (!skipAccumulate) {
+        int64_t accumuOriScale = oriScale[oriSize - 1];
+        int64_t accumuOriShape = oriShape[oriSize - 1];
+        int64_t accumuNewShape = newShape[newSize - 1];
+        for (int i = oriSize - 1, j = newSize - 1; i >= 0 && j >= 0;) {
+            if (accumuOriShape < accumuNewShape) {
+                i--;
+                if (i >= 0) {
+                    accumuOriShape *= oriShape[i];
+                    accumuOriScale *= oriScale[i];
+                }
+                continue;
             }
-            continue;
-        }
-        if (accumuOriShape == accumuNewShape) {
-            newScale[j] *= accumuOriScale;
-            i--;
+            if (accumuOriShape == accumuNewShape) {
+                newScale[j] *= accumuOriScale;
+                i--;
+                j--;
+                if (i >= 0 && j >= 0) {
+                    accumuOriScale = oriScale[i];
+                    accumuOriShape = oriShape[i];
+                    accumuNewShape = newShape[j];
+                }
+                continue;
+            }
             j--;
-            if (i >= 0 && j >= 0) {
-                accumuOriScale = oriScale[i];
-                accumuOriShape = oriShape[i];
-                accumuNewShape = newShape[j];
+            if (j >= 0) {
+                accumuNewShape *= newShape[j];
             }
-            continue;
         }
-        j--;
-        if (j >= 0) {
-            accumuNewShape *= newShape[j];
-        }
+    } else {
+        newScale = oriScale;
     }
-
     APASS_LOG_DEBUG_F(Elements::Operation, "newScale is %s.", IntVecToStr(newScale).c_str());
     for (size_t j = 0; j < newSize; j++) {
         newRawShape[j] = newShape[j] * newScale[j];
@@ -181,99 +155,62 @@ void GetDynOffsetBeforeReshape(const std::vector<SymbolicScalar> &oriOffset, con
     }
 }
 
-bool CalculateNewRawShape1(const std::vector<int64_t> &oriShape, const std::vector<int64_t> &newShape,
-    const std::vector<int64_t> &oriRawShape, std::vector<int64_t> &newRawShape) {
-    std::cout << "CalculateNewRawShape oriShape" << vectorToString(oriShape) << std::endl;
-    std::cout << "CalculateNewRawShape newShape" << vectorToString(newShape) << std::endl;
-    std::cout << "CalculateNewRawShape oriRawShape" << vectorToString(oriRawShape) << std::endl;
-    std::vector<int64_t> oriScale;
-    size_t oriSize = oriShape.size();
-    oriScale.resize(oriSize);
-    for (size_t i = 0; i < oriSize; i++) {
-        oriScale[i] = oriRawShape[i] / oriShape[i];
-        if ((i != 0) && (oriScale[i] != 1)) {
-            // 只有当最高轴存在Assemble的行为时，才可以将数据直接拷贝到Assemble之后的内存
-            return false;
-        }
-    }
-    std::cout << "scale" << IntVecToStr(oriScale).c_str() << std::endl;
-    APASS_LOG_DEBUG_F(Elements::Operation, "oriScale is %s.", IntVecToStr(oriScale).c_str());
-    size_t newSize = newShape.size();
-    newRawShape.resize(newSize);
-
-    for (size_t j = 0; j < newSize; j++) {
-        newRawShape[j] = newShape[j] * oriScale[j];
-    }
-    return true;
-}
-
 bool MatchReshapePattern(const LogicalTensorPtr &reshapeInput, const LogicalTensorPtr &reshapeOutput) {
     return (reshapeInput->GetShape()[0] == 1 && reshapeInput->GetShape().size() == 3 &&
             reshapeOutput->GetShape().size() == 2 && reshapeInput->GetShape()[1] == reshapeOutput->GetShape()[0] &&
             reshapeInput->GetShape()[2] == reshapeOutput->GetShape()[1]);
 }
 
+/*
+处理场景:
+VIEW -> RESHAPE -> COPYIN
+                -> COPYIN
+*/
 Status ProcessView(Function &function) {
     for (auto &op : function.Operations()) {
         if (op.GetOpcode() != Opcode::OP_RESHAPE) {
             continue;
         }
         auto &reshape = op;
-        LogicalTensorPtr reshapeInput = reshape.GetIOperands().front();
-        LogicalTensorPtr reshapeOutput = reshape.GetOOperands().front();
-        if (!MatchReshapePattern(reshapeInput, reshapeOutput)) {
+        if (!MatchReshapePattern(reshape.GetIOperands().front(), reshape.GetOOperands().front())) {
             continue;
         }
-        auto consumers = reshapeInput->GetProducers();
-        auto view = *consumers.begin();
-        if (view == nullptr || consumers.size() != 1 || view->GetOpcode() != Opcode::OP_VIEW) {
+        auto producer = reshape.GetIOperands().front()->GetProducers();
+        auto view = *producer.begin();
+        if (view == nullptr || producer.size() != 1 || view->GetOpcode() != Opcode::OP_VIEW) {
             continue;
         }
+        auto viewInput = view->GetIOperands().front();
         for (auto reshapeConsumer : reshape.GetOOperands().front()->GetConsumers()) {
             if (reshapeConsumer->GetOpcode() != Opcode::OP_COPY_IN) {
                 return SUCCESS;
             }
         }
-        // view
         auto opAttr = std::dynamic_pointer_cast<ViewOpAttribute>(view->GetOpAttribute());
         if (opAttr == nullptr) {
             return FAILED;
         }
         auto &offset = opAttr->GetFromDynOffset();
-        std::cout << "viewoffset" << vectorToString(offset) << std::endl;
         std::vector<int64_t> newRawShape;
         std::vector<SymbolicScalar> newDynOffset;
-        bool ret = CalculateNewRawShape1(reshape.GetIOperands()[0]->shape, reshape.GetOOperands()[0]->shape,
-            view->GetIOperands()[0]->tensor->rawshape, newRawShape);
-        if (!ret) {
-            APASS_LOG_ERROR_F(Elements::Function, "calculateShape1 failed.");
+        if (!CalculateNewRawShape(reshape.GetIOperands().front()->shape, reshape.GetOOperands().front()->shape,
+                viewInput->tensor->rawshape, newRawShape, true)) {
             return FAILED;
         }
-        std::cout << "newrawshape" << vectorToString(newRawShape) << std::endl;
-        GetDynOffsetBeforeReshape(offset, reshape.GetIOperands()[0]->shape, newRawShape, newDynOffset);
-        std::cout << "newoffset1" << vectorToString(newDynOffset) << std::endl;
-        // copyin更新
+        GetDynOffsetBeforeReshape(offset, reshape.GetIOperands().front()->shape, newRawShape, newDynOffset);
         for (auto copyIn : reshape.GetOOperands().front()->GetConsumers()) {
-            std::shared_ptr<CopyOpAttribute> copyAttr =
-                std::static_pointer_cast<CopyOpAttribute>(copyIn->GetOpAttribute());
+            auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(copyIn->GetOpAttribute());
             auto oriCopyOffset = copyAttr->GetFromOffset();
             std::vector<OpImmediate> newOffset = OpImmediate::Specified(newDynOffset);
             for (size_t i = 0; i < oriCopyOffset.size(); i++) {
                 newOffset[i] = newOffset[i] + oriCopyOffset[i];
             }
-            std::cout << "preocessview match pattern, view:" << view->GetOpMagic()
-                      << ",reshape:" << reshape.GetOpMagic() << ",copyin:" << copyIn->GetOpMagic() << "newoffset2"
-                      << SymbolicVecToStr(OpImmediate::ToSpecified(newOffset)).c_str() << std::endl;
-            // 刷到reshape后的copyin
             copyAttr->SetFromOffset(newOffset);
             copyAttr->SetRawShape(OpImmediate::Specified(newRawShape));
         }
-
-        // replace
-        reshape.GetOOperands()[0]->shape = newRawShape;
-        reshape.GetOOperands()[0]->tensor->UpdateRawShape(newRawShape);
-        reshape.ReplaceIOperand(0, view->GetIOperands()[0]);
-        // 删除view
+        reshape.GetOOperands().front()->shape = newRawShape;
+        reshape.GetOOperands().front()->tensor->UpdateRawShape(newRawShape);
+        reshape.ReplaceIOperand(0, viewInput);
         view->SetAsDeleted();
     }
     return SUCCESS;
@@ -297,13 +234,12 @@ Status HandleDynOffsetForReshape(const LogicalTensorPtr &oriBackUp, Operation &a
             assembleOp.GetOpcodeStr().c_str(), assembleOp.GetOpMagic());
         return SUCCESS;
     }
-    std::cout << "in HandleDynOffsetForReshape" << std::endl;
     if (producers.size() != 1) {
         APASS_LOG_DEBUG_F(Elements::Operation, "Op:%s[%d] has multiple producer operations, size: %zu", 
             assembleOp.GetOpcodeStr().c_str(), assembleOp.GetOpMagic(), producers.size());
         return SUCCESS;
     }
-    auto producer = *(producers.begin()); // reshape
+    auto producer = *(producers.begin());
     if (producer->GetOpcode() != Opcode::OP_RESHAPE) {
         APASS_LOG_DEBUG_F(Elements::Operation, "Producer op:%s[%d] is not Reshape", 
             producer->GetOpcodeStr().c_str(), producer->GetOpMagic());
@@ -311,8 +247,8 @@ Status HandleDynOffsetForReshape(const LogicalTensorPtr &oriBackUp, Operation &a
     }
 
     auto &assembleOutShape = assembleOp.GetOOperands()[0]->tensor->rawshape;
-    // reshape的输出tensor shape， reshape输入tensor shape， assemble输出tensor rawshape，
-    bool ret = CalculateNewRawShape(oriBackUp->shape, producer->GetIOperands()[0]->shape, assembleOutShape, newRawShape);
+    bool ret = CalculateNewRawShape(
+        oriBackUp->shape, producer->GetIOperands()[0]->shape, assembleOutShape, newRawShape, false);
     if (ret == false) return SUCCESS;
     GetDynOffsetBeforeReshape(dynOffset, assembleOutShape, newRawShape, newDynOffset);
     for (auto copyOut : producer->GetIOperands()[0]->GetProducers()) {
@@ -325,10 +261,10 @@ Status HandleDynOffsetForReshape(const LogicalTensorPtr &oriBackUp, Operation &a
         for (size_t i = 0; i < oriCopyOffset.size(); i++) {
             newOffset[i] = newOffset[i] + oriCopyOffset[i];
         }
-        copyAttr->SetRawShape(OpImmediate::Specified(newRawShape)); // reshpe前copyout的rawshape和offset
+        copyAttr->SetRawShape(OpImmediate::Specified(newRawShape));
         copyAttr->SetToOffset(newOffset);
     }
-    producer->GetIOperands()[0]->tensor->UpdateRawShape(newRawShape); // reshape 输入tensor rawshape
+    producer->GetIOperands()[0]->tensor->UpdateRawShape(newRawShape);
     return SUCCESS;
 }
 
@@ -440,7 +376,6 @@ Status RemoveRedundantAssemble::HanldeForSingleAssemble(
     auto producersBackup = input->GetProducers();
     auto &consumers = input->GetConsumers();
     LogicalTensorPtr oriOutputBackUp = nullptr;
-    std::cout << "in HanldeForSingleAssemble" << std::endl;
     for (auto &cons : consumers) {
         if (cons->GetOpcode() != Opcode::OP_ASSEMBLE) {
             APASS_LOG_DEBUG_F(Elements::Operation, "Change the connection relationship of non assemble op:%s[%d]",
@@ -450,7 +385,6 @@ Status RemoveRedundantAssemble::HanldeForSingleAssemble(
             continue;
         }
         cons->SetAsDeleted();
-        std::cout << "for may call updatecopyout attr" << producersBackup.size() << std::endl;
         for (auto &producer : producersBackup) {
             oriOutputBackUp = producer->oOperand[0]; // producer --> oriOutputBackUp(input) --> op
             producer->ReplaceOutput(output, oriOutputBackUp);
