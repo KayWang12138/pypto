@@ -174,7 +174,87 @@ static std::vector<Function *> GetCalleeList(FunctionCache &cache, Function *fun
     return calleeList;
 }
 
+static SymbolicScalar AddUniqueCondition(SymbolicScalar &runtimeAnd, SymbolicScalar &currentCond,
+                                        const SymbolicScalar &newCond, std::unordered_set<std::string> &mainBlockGroup)
+{
+    std::string condStr = newCond.Dump();
+    if (mainBlockGroup.find(condStr) == mainBlockGroup.end()) {
+        mainBlockGroup.insert(condStr);
+        return runtimeAnd(currentCond, newCond);
+    }
+    return currentCond;
+}
+
+static SymbolicScalar IsSameShape(Shape &shape, std::vector<SymbolicScalar>&dynShape, SymbolicScalar &runtimeAnd,
+                                 std::unordered_set<std::string> &mainBlockGroup)
+{
+    if (shape.size() != dynShape.size()) {
+        return SymbolicScalar(false);
+    }
+    SymbolicScalar cond = SymbolicScalar(true);
+    for (uint32_t i = 0; i < shape.size(); i++) {
+        SymbolicScalar shapeCond = (shape[i] == dynShape[i]);
+        cond = AddUniqueCondition(runtimeAnd, cond, shapeCond, mainBlockGroup);
+    }
+    return cond;
+}
+
+static SymbolicScalar SetMainBlock(Function *func, std::unordered_set<std::string> &mainBlockGroup)
+{
+    SymbolicScalar runtimeAnd("RUNTIME_And");
+    SymbolicScalar cond = SymbolicScalar(true);
+
+    for (auto &op : func->Operations()) {
+        for (auto &iop : op.GetIOperands()) {
+            if (IsCopyIn(op.GetOpcode())) {
+                continue;
+            }
+            SymbolicScalar shapeCond = IsSameShape(iop->shape, iop->GetDynValidShapeOri(), runtimeAnd, mainBlockGroup);
+            cond = AddUniqueCondition(runtimeAnd, cond, shapeCond, mainBlockGroup);
+        }
+        for (auto &oop : op.GetOOperands()) {
+            if (IsCopyOut(op.GetOpcode())) {
+                continue;
+            }
+            SymbolicScalar shapeCond = IsSameShape(oop->shape, oop->GetDynValidShapeOri(), runtimeAnd, mainBlockGroup);
+            cond = AddUniqueCondition(runtimeAnd, cond, shapeCond, mainBlockGroup);
+        }
+    }
+    return cond;
+}
+
+static void HandleExecuteGraph(FunctionCache &cache, Linker &linker, Function *func)
+{
+    SymbolicScalar runtimeSelect("RUNTIME_Select");
+
+    ALOG_INFO("Compile root:", func->Dump());
+    linker.mainBlockScalar_ = true;
+    linker.mainBlockGroup_.clear();
+    for (auto &callopAttr : func->GetCallopAttrList()) {
+        for (auto &arg : callopAttr->GetLinearArgList()) {
+            linker.AddPrimaryExpressionForDevRootCoa(func, arg);
+        }
+        auto hash = callopAttr->GetCalleeHash();
+        Function *leafFunc = cache.GetCacheFunction(hash);
+        FindAllExpression(cache, linker, leafFunc);
+    }
+    for (auto &incast : func->inCasts_) {
+        for (auto  &arg : incast->GetRawTensor()->GetDynRawShape()) {
+            linker.AddPrimaryExpressionForDevRootCoa(func, arg);
+        }
+    }
+    for (auto &outcast : func->outCasts_) {
+        for (auto  &arg : outcast->GetRawTensor()->GetDynRawShape()) {
+            linker.AddPrimaryExpressionForDevRootCoa(func, arg);
+        }
+    }
+    linker.mainBlockScalar_ = runtimeSelect(linker.mainBlockScalar_, 1, 0);
+    linker.SetMainBlockExpressionForDevRootCoa(func, linker.mainBlockScalar_);
+}
+
 static void FindAllExpression(FunctionCache &cache, Linker &linker, Function *func) {
+    SymbolicScalar runtimeAnd("RUNTIME_And");
+
     if (func->IsDynloop()) {
         auto dynloopAttr = func->GetDynloopAttribute();
         auto ss = SymbolicScalar(dynloopAttr->iterSymbolName);
@@ -203,26 +283,10 @@ static void FindAllExpression(FunctionCache &cache, Linker &linker, Function *fu
         Function *root = func->GetRootFunction();
         FindAllExpression(cache, linker, root);
     } else if (func->GetGraphType() == GraphType::EXECUTE_GRAPH) {
-        ALOG_INFO("Compile root:", func->Dump());
-        for (auto &callopAttr : func->GetCallopAttrList()) {
-            for (auto &arg : callopAttr->GetLinearArgList()) {
-                linker.AddPrimaryExpressionForDevRootCoa(func, arg);
-            }
-            auto hash = callopAttr->GetCalleeHash();
-            Function *leafFunc = cache.GetCacheFunction(hash);
-            FindAllExpression(cache, linker, leafFunc);
-        }
-        for (auto &incast : func->inCasts_) {
-            for (auto  &arg : incast->GetRawTensor()->GetDynRawShape()) {
-                linker.AddPrimaryExpressionForDevRootCoa(func, arg);
-            }
-        }
-        for (auto &outcast : func->outCasts_) {
-            for (auto  &arg : outcast->GetRawTensor()->GetDynRawShape()) {
-                linker.AddPrimaryExpressionForDevRootCoa(func, arg);
-            }
-        }
+        HandleExecuteGraph(cache, linker, func);
     } else if (func->GetGraphType() == GraphType::BLOCK_GRAPH) {
+        SymbolicScalar cond = SetMainBlock(func, linker.mainBlockGroup_);
+        linker.mainBlockScalar_ = AddUniqueCondition(runtimeAnd, linker.mainBlockScalar_, cond, linker.mainBlockGroup_);
         for (auto &op : func->Operations()) {
             if (op.GetOpcode() == Opcode::OP_VEC_DUP) {
                 if (op.HasAttr(OpAttributeKey::dynScalar)) {
@@ -885,8 +949,11 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[ma
         Function *devTile = attr->rootTileDict[devRoot];
         config::SetCodeGenOption(SUPPORT_DYNAMIC_ALIGNED, devTile->paramConfigs_.dynamicAlignedOps);
         npu::tile_fwk::CodeGenCtx codeGenCtx("", GetEmitPath("kernel_aicore"));
+        npu::tile_fwk::CodeGenCtx codeGenCtxMainBlock("", GetEmitPath("kernel_aicore"), true);
         npu::tile_fwk::CodeGen codeGen(codeGenCtx);
+        npu::tile_fwk::CodeGen codeGenMainBlock(codeGenCtxMainBlock);
         codeGen.GenCode(*devTile, {});
+        codeGenMainBlock.GenCode(*devTile, {});
 
         for (auto &[psgId, leaf] : devRoot->programs_) {
             (void)psgId;
@@ -971,15 +1038,18 @@ MachineTask *GenCode(
     MachineTask *task, const std::map<uint64_t, std::list<InvokeParaOffset>> &invokeParaOffset, FunctionCache &cache,
     std::string &kernelPath) {
     npu::tile_fwk::CodeGenCtx codeGenCtx("", GetEmitPath("kernel_aicore"));
+    npu::tile_fwk::CodeGenCtx codeGenCtxMainBlock("", GetEmitPath("kernel_aicore"), true);
     npu::tile_fwk::CreateMultiLevelDir(codeGenCtx.cceDir);
 
     npu::tile_fwk::CodeGen codeGen(codeGenCtx);
+    npu::tile_fwk::CodeGen codeGenMainBlock(codeGenCtxMainBlock);
     auto function = task->GetFunction();
     /* each leafFunction inside is compiled to a standalone object file.
      * the filepath of the object file is updated to the binPath_ member.
      */
     if (function->GetGraphType() == GraphType::TILE_GRAPH) {
         codeGen.GenCode(*function, invokeParaOffset);
+        codeGenMainBlock.GenCode(*function, invokeParaOffset);
     } else {
         if (function->IsFunctionType(FunctionType::DYNAMIC)) {
             std::string cce_path = RealPath(codeGenCtx.cceDir) + "/";
