@@ -17,6 +17,7 @@
 #include "interface/utils/log.h"
 #include "interface/interpreter/operation.h"
 #include "calc.h"
+#include "interface/operation/operation_impl.h"
 
 namespace npu::tile_fwk {
 
@@ -26,13 +27,30 @@ void ExecuteOpAMulB(ExecuteOperationContext *ctx) {
     auto ret = ctx->ooperandInplaceDataViewList->at(0);
     auto lhs = ctx->ioperandDataViewList->at(0);
     auto rhs = ctx->ioperandDataViewList->at(1);
+    bool transA = (ctx->op->HasAttr(npu::tile_fwk::Matrix::A_MUL_B_TRANS_A)) ? ctx->op->GetBoolAttribute(npu::tile_fwk::Matrix::A_MUL_B_TRANS_A) : false;
+    bool transB = (ctx->op->HasAttr(npu::tile_fwk::Matrix::A_MUL_B_TRANS_B)) ? ctx->op->GetBoolAttribute(npu::tile_fwk::Matrix::A_MUL_B_TRANS_B) : false;
 
     auto &cubeTile = ctx->op->GetTileShape().GetCubeTile();
     int k1 = cubeTile.k[1];
     int k2 = cubeTile.k[2];
     int kStep = std::gcd(k1, k2);
     switch (ctx->op->GetOpcode()) {
-        case Opcode::OP_A_MUL_B: npu::tile_fwk::calc::MatMul<false, false>(ret, lhs, rhs, kStep); break;
+        case Opcode::OP_A_MUL_B: {
+            if (transA && transB) {
+                npu::tile_fwk::calc::MatMul<true, true>(ret, lhs, rhs, kStep);
+            }
+            else if (transA) {
+                npu::tile_fwk::calc::MatMul<true, false>(ret, lhs, rhs, kStep);
+            }
+            else if (transB) {
+                std::cout<<"hit transB"<<std::endl;
+                npu::tile_fwk::calc::MatMul<false, true>(ret, lhs, rhs, kStep);
+            }
+            else {
+                npu::tile_fwk::calc::MatMul<false, false>(ret, lhs, rhs, kStep);
+            }
+            
+        } break;
         case Opcode::OP_A_MULACC_B: {
             ASSERT(ctx->ioperandDataViewList->size() == SIZE_THREE);
             auto acc = ctx->ioperandDataViewList->at(2);
