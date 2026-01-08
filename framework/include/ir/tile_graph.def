@@ -24,9 +24,7 @@ DEFOP(
         OP_LOGICALNOT,
         OP_RECIPROCAL,
         OP_ABS,
-        OP_LN,
-        OP_DUPLICATE, // 没找到代码
-
+        OP_LN
     ),
     ATTR(int, CombineAxis)
 )
@@ -60,10 +58,6 @@ DEFOP(
     ATTR(int, Reverse),
 )
 
-
-
-
-
 DEF_OP(
     TernaryOp,
     INHERIT(ElementWiseTernaryTileOp),
@@ -81,8 +75,7 @@ DEF_OP(
         OP_WHERE_TS,
         OP_WHERE_ST,
         OP_WHERE_SS,
-        OP_INDEX_ADD, //他是三个tensor  两个 scalar  无额外属性
-        
+        OP_INDEX_ADD, // 输入是三个tensor  两个 scalar  无额外属性
     ),
     ATTR(int, whereBitMode),
 
@@ -92,22 +85,29 @@ DEF_OP(
     MoveOp,
     INHERIT(DataCopyTileOp),
     OPCODE(
-        OP_INDEX_OUTCAST, // 三个tensor，三个scalar  无额外属性
+        OP_INDEX_OUTCAST, // 输入是三个tensor，三个scalar  无额外属性
         OP_CONVERT,
         OP_COPY_IN,
         OP_COPY_OUT,
-        OP_GATHER_IN_L1,
-        OP_GATHER_IN_UB,
         OP_LOAD,
-        OP_VLD,  //  没有代码
-        OP_VST   //  没有代码
+        OP_VLD,  //  只有注册的一行
+        OP_VST,  //  只有注册的一行
+        OP_DUPLICATE,  // duplicate会转化为copyout
     ),
-    ATTR(int, startOffset),
-    ATTR(int, inputCombineAxis),
-    ATTR(int, outputCombineAxis),
-    ATTR(int, excludeBufferReuse),
 
 )
+
+DEF_OP(
+    GatherOp,
+    INHERIT(????????),
+    OPCODE(
+        OP_GATHER_IN_L1,
+        OP_GATHER_IN_UB,
+    ),
+    ATTR(int, startOffset) // OP_GATHER_IN_L1
+
+)
+
 
 DEF_OP(
     SortOp,
@@ -116,14 +116,18 @@ DEF_OP(
         OP_BITSORT,
         OP_MRGSORT,
         OP_ARGSORT,
-        OP_TILEDMRGSORT,
-        OP_TOPK
-        
+        OP_TILEDMRGSORT
     ),
-    ATTR(int, TOPK_OFFSET),
-    ATTR(int, TOPK_KVALUE)
-    ATTR(int, maskMode),
-    ATTR(int, TOPK_VALIDBIT),
+    ATTR(int, TOPK_OFFSET),  // OP_BITSORT
+    ATTR(int, TOPK_VALIDBIT)  // OP_TILEDMRGSORT
+)
+
+DEF_OP(
+    TopKOp,
+    INHERIT(SortTileOp),
+    OPCODE(
+        OP_TOPK
+    ),
 )
 
 DEF_OP(
