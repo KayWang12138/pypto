@@ -49,6 +49,10 @@ public:
         validCore_.fill(false);
     }
 
+    void SetStackMembers(int threadIdx, AicoreManagerStackVars* stackVars) {
+        aicoreManager_[threadIdx]->SetCommonMembers(stackVars);
+    }
+    
     bool CheckAndResetReg(){
         return aicoreManager_[0]->CheckAndResetReg();
     }
