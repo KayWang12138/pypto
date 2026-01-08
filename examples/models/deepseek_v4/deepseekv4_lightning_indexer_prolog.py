@@ -36,8 +36,8 @@ def gen_dims(params):
     dims = {}
     dims["b"] = params["b"]
     dims["t"] = params["b"] * params["s1"]
-    dims["h"] = 7168
-    dims["q_lora_rank"] = 1536
+    dims["h"] = 4096
+    dims["q_lora_rank"] = 1024
     dims["idx_head_dim"] = 128
     dims["idx_n_heads"] = 32
     dims["rope_head_dim"] = 64
@@ -180,6 +180,13 @@ def lighting_indexer_prolog_dyn(x: torch.tensor,
                                 hadamard_q: torch.tensor,
                                 q_bf16: torch.tensor,
                                 weights: torch.tensor):
+    assert len(x.shape) == 2 and len(q_norm.shape) == 2 and len(w_qb.shape) == 2 and len(w_proj.shape) == 2 \
+        and len(cos_idx_rope.shape) == 2 and len(sin_idx_rope.shape) == 2 and len(hadamard_q.shape) == 2 \
+        and len(q_bf16.shape) == 3 and len(weights.shape) == 2
+    assert x.dtype == torch.bfloat16 and q_norm.dtype == torch.bfloat16 and w_qb.dtype == torch.bfloat16 \
+        and w_proj.dtype == torch.bfloat16 and cos_idx_rope.dtype == torch.bfloat16 \
+        and sin_idx_rope.dtype == torch.bfloat16 and hadamard_q.dtype == torch.bfloat16 \
+        and q_bf16.dtype == torch.bfloat16 and weights.dtype == torch.bfloat16
     attrs = IndexerPrologAttr(
         eps=1e-6,
         layerout_query="TND",
