@@ -1335,7 +1335,7 @@ struct EncodeDevAscendFunctionInfo {
         std::unordered_map<Operation *, int> callopCoreTypeDict;
         for (auto &op : callopList) {
             auto callOpAttr = std::static_pointer_cast<CallOpAttribute>(op->GetOpAttribute());
-            auto calleeHash = callOpAttr->GetCalleeHash().GetHash();
+            auto calleeHash = callOpAttr->GetCalleeHash();
             ASSERT(calleeHashIndexDict.count(calleeHash)) << "calleeHash 0x" << std::hex << calleeHash << " is not found in calleeHashIndexDict";
             int cceIndex = calleeHashIndexDict.find(calleeHash)->second;
             ASSERT(cceIndex < static_cast<int>(cceCodeInfoList.size())) << "cceIndex " << cceIndex << " exceeds cceCodeInfoList size: " << cceCodeInfoList.size();

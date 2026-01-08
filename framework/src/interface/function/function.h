@@ -28,7 +28,6 @@
 #include "tilefwk/tensor.h"
 #include "interface/tensor/tensormap.h"
 #include "interface/tensor/tensor_slot.h"
-#include "interface/operation/distributed/tiling_manager.h"
 #include "passes/pass_utils/pass_utils.h"
 
 namespace npu::tile_fwk {
