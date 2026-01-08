@@ -49,6 +49,10 @@ public:
         validCore_.fill(false);
     }
 
+    void SetStackMembers(int threadIdx, SchduleContext* contextPtr) {
+        aicoreManager_[threadIdx]->SetCommonMembers(contextPtr);
+    }
+    
     bool CheckAndResetReg(){
         return aicoreManager_[0]->CheckAndResetReg();
     }
