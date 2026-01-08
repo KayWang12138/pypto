@@ -163,9 +163,9 @@ def hc_pre_kernel(x: pypto.Tensor, hc_fn: pypto.Tensor, hc_scale: pypto.Tensor, 
 
 
 def check_input_output_shape_dtype(x: torch.Tensor, hc_fn: torch.Tensor, hc_scale: torch.Tensor, hc_base: torch.Tensor):
-    assert x.dim() == 3 and x.size(1) == 4 and x.size(2) == 4096,\ 
+    assert x.dim() == 3 and x.size(1) == 4 and x.size(2) == 4096,\
         f"expected x dim num {x.dim()}, x axis1 {x.size(1)}, x axis2 {x.size(2)}"
-    assert hc_fn.dim() == 2 and hc_fn.size(0) == 24 and hc_fn.size(1) == 4 * 4096,\ 
+    assert hc_fn.dim() == 2 and hc_fn.size(0) == 24 and hc_fn.size(1) == 4 * 4096,\
         f"expected hc_fn dim num 2, hc_fn axis0 24, hc_fn axis1 12384"
     assert hc_scale.dim() == 1 and hc_scale.size(0) == 3, f"expected hc_scale dim num 1, hc_scale axis0 3"
     assert hc_base.dim() == 1 and hc_base.size(0) == 24, f"expected hc_scale dim num 1, hc_scale axis0 24"
