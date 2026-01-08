@@ -278,6 +278,11 @@ void FunctionInterpreter::DumpOperationTensor(Operation *op, FunctionFrame *fram
  
     int indent = GetFrameSize();
  
+    std::vector<SymbolicScalar> linearArgList;
+    if (frame->callopAttr != nullptr) {
+        linearArgList = frame->callopAttr->GetLinearArgList();
+    }
+
     auto oopSize = op->GetOOperands().size();
     auto iopSize = op->GetIOperands().size();
     std::vector<std::string> opInfo(toIndex(OpInfoCsvHeader::COL_COUNT));
@@ -296,7 +301,7 @@ void FunctionInterpreter::DumpOperationTensor(Operation *op, FunctionFrame *fram
             auto offsetView = operationInterpreter->EvaluateOpImmediate(frame, offset);
             opInfo[toIndex(OpInfoCsvHeader::offset)] = ShapeToString(offsetView);
         } else {
-            Offset offsetView = EvaluateOffset(opAttr->GetFromOffset(), opAttr->GetFromDynOffset());
+            Offset offsetView = EvaluateOffset(opAttr->GetFromOffset(), opAttr->GetFromDynOffset(), linearArgList);
             opInfo[toIndex(OpInfoCsvHeader::offset)] = ShapeToString(offsetView);
         }
     }
@@ -332,7 +337,7 @@ void FunctionInterpreter::DumpOperationTensor(Operation *op, FunctionFrame *fram
             opInfo[toIndex(OpInfoCsvHeader::rawTensorMagic)] = std::to_string(op->GetOOperands()[k]->GetRawTensor()->GetRawMagic());
             opInfo[toIndex(OpInfoCsvHeader::outputShape)] = ShapeToString(dataView->GetShape());      
             opInfo[toIndex(OpInfoCsvHeader::outputValidShape)] = ShapeToString(dataView->GetValidShape());
-            opInfo[toIndex(OpInfoCsvHeader::outputDynValidShape)] = ShapeToString(EvaluateValidShape((op->GetOOperands()[k]->GetDynValidShape())));    
+            opInfo[toIndex(OpInfoCsvHeader::outputDynValidShape)] = ShapeToString(EvaluateValidShape((op->GetOOperands()[k]->GetDynValidShape()), linearArgList));    
             opInfo[toIndex(OpInfoCsvHeader::outputDtype)] = DataType2String(dataView->GetDataType());     
             opInfo[toIndex(OpInfoCsvHeader::outputTensor)] = dumpTensorFileName;
             opInfo[toIndex(OpInfoCsvHeader::verifyResult)] = "-";
