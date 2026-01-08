@@ -82,7 +82,7 @@ def check_input_output_shape_dtype(x: torch.tensor, residual: torch.tensor, post
     assert x.size(1) == 4096 and x.dim() == 2, f"expected x dim num 2, x axis1 4096"
     assert residual.dim() == 3 and residual.size(1) == 4 and residual.size(2) == 4096, f"expected residual dim num 3, residual axis1 4, residual axis1 4096"
     assert post.dim() == 2 and post.size(1) == 4, f"expected post dim num 2, post axis1 4"
-    assert comb.dim() == 3 * 1024 and comb.size(1) == 4 and comb.size(2) == 4, f"expected comb dim num 3, comb axis1 4, comb axis2 4"
+    assert comb.dim() == 3 and comb.size(1) == 4 and comb.size(2) == 4, f"expected comb dim num 3, comb axis1 4, comb axis2 4"
     assert y.dim() == 3 and y.size(1) == 4 and y.size(2) == 4096, f"expected y dim num 3, y axis1 4, y axis2 4096"
 
     assert x.dtype == torch.bfloat16, f"x.dtype is {x.dtype}, expected torch.bfloat16"
