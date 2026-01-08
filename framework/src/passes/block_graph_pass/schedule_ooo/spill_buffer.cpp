@@ -96,6 +96,7 @@ Status OoOScheduler::UpdateTensorAttr(
     tensor->SetMemoryTypeOriginal(memType);
     tensor->oriShape = spillTensor->oriShape;
     tensor->UpdateDynValidShape(spillTensor->GetDynValidShape());
+    tensor->UpdateDynValidShapeOri(spillTensor->GetDynValidShapeOri());
     tensor->tensor->rawshape = spillTensor->tensor->rawshape;
     if (memType == MEM_DEVICE_DDR) {
         if (localBufferMap.find(spillMemId) == localBufferMap.end()) {
