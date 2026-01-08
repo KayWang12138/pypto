@@ -46,7 +46,7 @@ Status LoopaxesProc::UpdateOpLoopAxes(Operation &op) {
         op.SetAttribute(OpAttributeKey::loopGroup, -1);
     } else {
         if (op.HasAttr(OpAttributeKey::loopAxes)) {
-            loopAxes = op.GetVectorIntAttribute(OpAttributeKey::loopAxes);
+            loopAxes = op.GetVectorSymbolicScalarAttribute(OpAttributeKey::loopAxes);
         } else {
             for (size_t i = 0UL; i < shape.size() - 1UL; ++i) {
                 loopAxes.push_back(shape[i]);
