@@ -109,7 +109,7 @@ void TaskGraph::ClearSchedule() {
 }
 
 // 寻找时间槽不重叠情况下的最早执行时间
-void CoreScheduler::FindEarliestSlot(std::vector<std::pair<int,int>> &timeSlot, int earliestStart, int latency, int &currentIdx, std::pair<int,int> &currentInterval) {
+void CoreScheduler::FindEarliestSlot(std::vector<std::pair<int, int>> &timeSlot, int earliestStart, int latency, int &currentIdx, std::pair<int, int> &currentInterval) {
     int currentEarliestStart = INT32_MAX;
     currentIdx = -1;
     currentInterval = std::make_pair(-1, -1);
