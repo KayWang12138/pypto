@@ -495,12 +495,23 @@ int64_t PadLocalBuffer::ProcessBroadcastForAxisCombine(Operation &op, size_t blo
     return (dimSize - 1);
 }
 
-void AlignedRawTensorIfNeed(LogicalTensorPtr &in, int64_t pos, const int64_t base) {
+int64_t ProcessReduceForAxisCombine(const LogicalTensorPtr &in) {
+    int64_t lastIdx = static_cast<int64_t>(in->shape.size()) - 1;
+    for (int64_t idx = lastIdx; idx >= 0; --idx) {
+        if (in->shape[idx] != 1) {
+            return idx;
+        }
+    }
+    return lastIdx;
+}
+
+int64_t AlignedRawTensorIfNeed(LogicalTensorPtr &in, int64_t pos, const int64_t base) {
     if (in == nullptr || pos < 0 || pos >= static_cast<int64_t>(in->tensor->rawshape.size())) {
-        return;
+        return -1;
     }
     int64_t padDim = Pad(in->tensor->rawshape[pos], base);
     in->tensor->rawshape[pos] = padDim;
+    return padDim;
 }
 
 void PadLocalBuffer::PadVectorForAxisCombine(Operation &op, LogicalTensorPtr &in, std::unordered_set<std::shared_ptr<RawTensor>> &visitedRaw) {
@@ -525,8 +536,18 @@ void PadLocalBuffer::PadVectorForAxisCombine(Operation &op, LogicalTensorPtr &in
         AlignedRawTensorIfNeed(in, lastIdx - 1, BRCB_SECOND_LAST_BASE);
     }
     if (calcType == OpCalcType::REDUCE) {
-        AlignedRawTensorIfNeed(in, lastIdx, paddingValue);
-        return;
+        auto axis = op.GetIntAttribute(OP_ATTR_PREFIX + "AXIS");
+        if (axis != static_cast<int64_t>(lastIdx) - 1) {
+            int64_t idx = ProcessReduceForAxisCombine(in);
+            int64_t padDim = AlignedRawTensorIfNeed(in, idx, paddingValue);
+            if (op.GetOpcode() == Opcode::OP_ROWSUMLINE) {
+                auto tmp = op.GetOOperands()[1];
+                size_t tmpLastIdx = tmp->shape.size() - 1;
+                tmp->shape[tmpLastIdx] = padDim;
+                tmp->GetRawTensor()->rawshape[tmpLastIdx] = padDim;
+            }
+            return;
+        }
     }
     if (op.GetOpcode() == Opcode::OP_BRCB) {
         if (lastIdx == 0 && in->tensor->rawshape[lastIdx] != 1) {
