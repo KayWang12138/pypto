@@ -104,6 +104,7 @@ public:
     Status ProcessViewAssembleOrder(std::vector<Operation *> &opLog, std::vector<Operation *> &opListNew);
 
 private:
+    friend class TuneTileOpSeqForVF;
     struct PipeCoreReal {
         PipeCoreReal(PipeType p, CoreType c) :pipe(p), core(c) {}
         PipeType pipe;
