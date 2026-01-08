@@ -222,8 +222,10 @@ Function &TestExpandBody(std::vector<int64_t> shape, std::vector<int64_t> outSha
     if (isSupportTileTensor) {
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
         config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
+        config::SetCodeGenConfig(KEY_PARALLEL_COMPILE, 1u);
     } else {
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
+        config::SetCodeGenConfig(KEY_PARALLEL_COMPILE, 1u);
     }
     TileShape::Current().SetVecTile(tileShape);
     Tensor input_a(DT_FP32, shape, "A");

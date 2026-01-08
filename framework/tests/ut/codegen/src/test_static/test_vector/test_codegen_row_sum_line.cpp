@@ -53,6 +53,7 @@ TEST_F(TestCodegenRowSumLine, TestOperationRowSumLineTileTensor) {
     config::SetHostOption(ONLY_CODEGEN, true);
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
     config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
+    config::SetCodeGenConfig(KEY_PARALLEL_COMPILE, 1u);
     int shape0 = 6;
     int shape1 = 1;
     int shape2 = 8;
