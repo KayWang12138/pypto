@@ -676,28 +676,29 @@ TEST_F(PreGraphTest, TestFixPipeReconnectGraph) {
     EXPECT_EQ(reluType, 1);
 }
 
-TEST_F(PreGraphTest, TestRemoveRedundantView) {
-    ComputationalGraphBuilder G;
+void ConstructRemoveRedundantView(ComputationalGraphBuilder &G) {
     // add tensor
-    DataType inputAstDtype = DataType::DT_FP16;
-    DataType outputAstDtype = DataType::DT_FP16;
-    G.AddTensor(inputAstDtype, {16, 64, 64}, "t1");
-    G.AddTensor(inputAstDtype, {1, 64, 64}, "t2");
-    G.AddTensor(outputAstDtype, {64, 64}, "t3");
-    G.AddTensor(outputAstDtype, {64, 64}, "t4");
+    G.AddTensor(DataType::DT_FP16, {16, 64, 64}, "t1");
+    G.AddTensor(DataType::DT_FP16, {1, 64, 64}, "t2");
+    G.AddTensor(DataType::DT_FP16, {64, 64}, "t3");
+    G.AddTensor(DataType::DT_FP16, {64, 64}, "t4");
     // add op
     G.AddOp(Opcode::OP_VIEW, {"t1"}, {"t2"}, "VIEW");
     G.AddOp(Opcode::OP_RESHAPE, {"t2"}, {"t3"}, "RESHAPE");
+    G.AddOp(Opcode::OP_COPY_IN, {"t3"}, {"t4"}, "COPYIN");
     std::vector<int64_t> offset = {2, 0, 0};
     auto view = G.GetOp("VIEW");
     auto attrA = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{2, 0, 0}, MemoryType::MEM_UNKNOWN,
         OpImmediate::ToSpecified(OpImmediate::Specified(std::vector<int64_t>{2, 0, 0})));
     view->SetOpAttribute(attrA);
-    G.AddOp(Opcode::OP_COPY_IN, {"t3"}, {"t4"}, "COPYIN");
-    // set incast and outcast
+        // set incast and outcast
     G.SetInCast({"t1"});
     G.SetOutCast({"t4"});
+}
 
+TEST_F(PreGraphTest, TestRemoveRedundantView) {
+    ComputationalGraphBuilder G;
+    ConstructRemoveRedundantView(G);
     // run pass
     Function *function = G.GetFunction();
     EXPECT_NE(function, nullptr);
@@ -716,43 +717,28 @@ TEST_F(PreGraphTest, TestRemoveRedundantView) {
     std::shared_ptr<CopyOpAttribute> copyAttr = std::static_pointer_cast<CopyOpAttribute>(copyIn->GetOpAttribute());
     auto newDynOffset = copyAttr->GetFromOffset();
     EXPECT_EQ(newDynOffset[0].Dump(), "128");
+    EXPECT_EQ(newDynOffset[1].Dump(), "0");
+    auto newRawShape = copyAttr->GetRawShape();
+    EXPECT_EQ(newRawShape[0].Dump(), "1024");
+    EXPECT_EQ(newRawShape[1].Dump(), "64");
+    auto t = G.GetTensor("t3");
+    EXPECT_EQ(t->GetShape(), (std::vector<int64_t>{1024, 64}));
 }
 
 TEST_F(PreGraphTest, TestRemoveRedundantViewMultiReshape) {
     ComputationalGraphBuilder G;
-    // add tensor
-    DataType inputAstDtype = DataType::DT_FP16;
-    DataType outputAstDtype = DataType::DT_FP16;
-    G.AddTensor(inputAstDtype, {16, 64, 64}, "t1");
-    G.AddTensor(inputAstDtype, {1, 64, 64}, "t2");
-    G.AddTensor(outputAstDtype, {64, 64}, "t3");
-    G.AddTensor(outputAstDtype, {64, 64}, "t4");
-    G.AddTensor(outputAstDtype, {64, 64}, "t41");
-    // add op
-    G.AddOp(Opcode::OP_VIEW, {"t1"}, {"t2"}, "VIEW");
-    G.AddOp(Opcode::OP_RESHAPE, {"t2"}, {"t3"}, "RESHAPE");
-
-    std::vector<int64_t> offset = {2, 0, 0};
-    auto view = G.GetOp("VIEW");
-    auto attrA = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{2, 0, 0}, MemoryType::MEM_UNKNOWN,
-        OpImmediate::ToSpecified(OpImmediate::Specified(std::vector<int64_t>{2, 0, 0})));
-    view->SetOpAttribute(attrA);
-    G.AddOp(Opcode::OP_COPY_IN, {"t3"}, {"t4"}, "COPYIN1");
+    ConstructRemoveRedundantView(G);
+    G.AddTensor(DataType::DT_FP16, {64, 64}, "t41");
     G.AddOp(Opcode::OP_COPY_IN, {"t3"}, {"t41"}, "COPYIN2");
     auto copyIn = G.GetOp("COPYIN2");
     auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(copyIn->GetOpAttribute());
     copyAttr->SetFromOffset(OpImmediate::Specified(std::vector<int64_t>{32, 0}));
-    //  set incast and outcast
-    G.SetInCast({"t1"});
-    G.SetOutCast({"t4"});
 
     // run pass
     Function *function = G.GetFunction();
-    function->DumpJsonFile("offsetcopy11before.json");
     EXPECT_NE(function, nullptr);
     PreGraphProcess passLocal;
     EXPECT_EQ(passLocal.Run(*function, "", "", 0), SUCCESS);
-    function->DumpJsonFile("offsetcopy11after.json");
     // check after pass
     auto opList = function->Operations();
     int64_t viewCnt = 0;
@@ -762,7 +748,7 @@ TEST_F(PreGraphTest, TestRemoveRedundantViewMultiReshape) {
         }
     }
     EXPECT_EQ(viewCnt, 0);
-    copyIn = G.GetOp("COPYIN1");
+    copyIn = G.GetOp("COPYIN");
     copyAttr = std::static_pointer_cast<CopyOpAttribute>(copyIn->GetOpAttribute());
     auto newDynOffset = copyAttr->GetFromOffset();
     EXPECT_EQ(newDynOffset[0].Dump(), "128");
@@ -770,39 +756,6 @@ TEST_F(PreGraphTest, TestRemoveRedundantViewMultiReshape) {
     copyAttr = std::static_pointer_cast<CopyOpAttribute>(copyIn->GetOpAttribute());
     newDynOffset = copyAttr->GetFromOffset();
     EXPECT_EQ(newDynOffset[0].Dump(), "160");
-}
-
-TEST_F(PreGraphTest, offsetcopy2) {
-    ComputationalGraphBuilder G;
-    // add tensor
-    DataType inputAstDtype = DataType::DT_FP16;
-    DataType outputAstDtype = DataType::DT_FP16;
-    G.AddTensor(inputAstDtype, {64, 64}, "t0");
-    G.AddTensor(inputAstDtype, {64, 64}, "t1");
-    G.AddTensor(inputAstDtype, {1, 64, 64}, "t2");
-    G.AddTensor(outputAstDtype, {16, 64, 64}, MemoryType::MEM_DEVICE_DDR, "t3");
-    // add op
-    G.AddOp(Opcode::OP_COPY_OUT, {"t0"}, {"t1"}, "COPYOUT");
-    G.AddOp(Opcode::OP_RESHAPE, {"t1"}, {"t2"}, "RESHAPE");
-    G.AddOp(Opcode::OP_ASSEMBLE, {"t2"}, {"t3"}, "ASSEMBLE");
-
-    auto ASSEMBLE = G.GetOp("ASSEMBLE");
-    auto attrA = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, std::vector<int64_t>{2, 0, 0},
-        std::vector<SymbolicScalar>{SymbolicScalar(2), SymbolicScalar(0), SymbolicScalar(0)});
-    ASSEMBLE->SetOpAttribute(attrA);
-    // set incast and outcast
-    G.SetInCast({"t0"});
-    G.SetOutCast({"t3"});
-    // check before pass
-
-    // run pass
-    Function *function = G.GetFunction();
-    function->DumpJsonFile("offsetcopy2before.json");
-    EXPECT_NE(function, nullptr);
-    PreGraphProcess passLocal;
-    passLocal.Run(*function, "", "", 0);
-    function->DumpJsonFile("offsetcopy2after.json");
-    // check after pass
 }
 } // namespace tile_fwk
 } // namespace npu
