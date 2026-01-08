@@ -17,8 +17,8 @@ torch.manual_seed(5)
 
 
 class HP(torch.nn.Module):
-    def forward(self, x, residual, post, comb, y):
-        npu_hc_post(x, residual, post, comb, y)
+    def forward(self, x, residual, post, comb):
+        npu_hc_post(x, residual, post, comb)
 
 def prep_env():
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
@@ -100,10 +100,7 @@ def test_b4_s64k2_nd_bf16_hc_post():
     input_tensors = [x, residual, post, comb]
     y = hc_post_commpute(input_tensors, params)
 
-    y_out_shape = [b * s, hc, d]
-    y_out = torch.empty(y_out_shape, dtype=torch.bfloat16).npu()
-
-    npu_hc_post(x.npu(), residual.npu(), post.npu(), comb.npu(), y_out)
+    npu_hc_post(x.npu(), residual.npu(), post.npu(), comb.npu())
     compare(y_out.cpu(), y.cpu(), 'y', 0.0001, 0.0078125,
             0.005)
 
@@ -170,8 +167,6 @@ def test_b4_s64k2_nd_bf16_hc_post_npu_graph():
     input_tensors = [x, residual, post, comb]
     y = hc_post_commpute(input_tensors, params)
 
-    y_out_shape = [b * s, hc, d]
-    y_out = torch.empty(y_out_shape, dtype=torch.bfloat16).npu()
     
     x_npu = x.npu()
     residual_npu = residual.npu()
@@ -180,7 +175,7 @@ def test_b4_s64k2_nd_bf16_hc_post_npu_graph():
     # capture model
     g = torch.npu.NPUGraph()
     with torch.npu.graph(g):
-        npu_hc_post(x_npu, residual_npu, post_npu, comb_npu, y_out)
+        npu_hc_post(x_npu, residual_npu, post_npu, comb_npu)
     
     g.replay()
     pypto.runtime._device_synchronize()#内部接口，不推荐使用

@@ -258,12 +258,15 @@ def check_input_output_shape_dtype(attn_res: torch.Tensor, cos: torch.Tensor, si
 
 @allow_in_graph
 def npu_attention_post_v4(attn_res: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor,
-                          wo_a: torch.Tensor, wo_b: torch.Tensor, hidden_states: torch.Tensor):
+                          wo_a: torch.Tensor, wo_b: torch.Tensor):
     """
     torch npu graph interface
 
     """
     # mark dynamic_axis
+    # define npu outputs
+    hidden_states = torch.zeros([t, h], dtype=x.dtype, device=f'{x.device}')
+
     check_input_output_shape_dtype(attn_res, cos, sin, wo_a, wo_b, hidden_states)
     atten_res_pto = pypto.from_torch(attn_res, dynamic_axis=[0], name="attn_res")
     cos_pto = pypto.from_torch(cos, dynamic_axis=[0], name="cos")

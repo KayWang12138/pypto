@@ -114,10 +114,10 @@ def npu_hc_post(
     x: torch.tensor,
     residual: torch.tensor,
     post: torch.tensor,
-    comb: torch.tensor,
-    y: torch.tensor):
+    comb: torch.tensor):
 
     tile_config = HcPostTileConfig()
+    y = torch.zeros([b * s, hc, d], dtype=x.dtype, device=f'{x.device}')
     inputs = {
         x: [0],
         residual: [0],

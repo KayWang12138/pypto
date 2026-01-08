@@ -22,10 +22,10 @@ from utils.compare import compare
 
 
 class AttentionPostV4(torch.nn.Module):
-    def forward(self, attn_res, cos, sin, wo_a, wo_b, hidden_states):
+    def forward(self, attn_res, cos, sin, wo_a, wo_b):
         for i in range(20):
             torch.add(attn_res, 0)
-        npu_attention_post_v4(attn_res, cos, sin, wo_a, wo_b, hidden_states)
+        npu_attention_post_v4(attn_res, cos, sin, wo_a, wo_b)
 
 
 def gen_uniform_data(data_shape, min_value, max_value, dtype):
@@ -222,15 +222,13 @@ def do_attention_post_func_torch_graph(inputs, params, golden_list):
     wo_a_npu = inputs[3].npu()
     wo_b_npu = inputs[4].npu()
     wo_b_nz = torch_npu.npu_format_cast(wo_b_npu, torch_npu.Format.FRACTAL_NZ)
-    # define npu outputs
-    hidden_states = torch.zeros([t, h]).to(torch.bfloat16).npu()
 
     model = torch.compile(AttentionPostV4(), backend="eager", dynamic=True)
 
     # capture model
     g = torch.npu.NPUGraph()
     with torch.npu.graph(g):
-        model(atten_res_npu, cos_npu, sin_npu, wo_a_npu, wo_b_nz, hidden_states)
+        model(atten_res_npu, cos_npu, sin_npu, wo_a_npu, wo_b_nz)
 
     for i in range(5):
         g.replay()
