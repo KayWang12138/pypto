@@ -454,7 +454,7 @@ void OoOScheduler::GetListToAdvance(size_t rollBackIndex, size_t backTraceIndex,
 
 // curBackTrace 位置回退
 Status OoOScheduler::RollBack(size_t &startIndex,
-    std::vector<IssueEntryPtr> &curIssueEntries, std::map<MemoryType, int64_t> &curMemoryMap) {
+    std::vector<IssueEntryPtr> &curIssueEntries, std::unordered_map<MemoryType, int64_t> &curMemoryMap) {
     APASS_LOG_DEBUG_F(Elements::Operation, "=====> Start RollBack.");
     curIssueEntries = backTraceIssueEntries[backTraceIssue].second;
     MemoryType memType = recordIssueBuffer[backTraceIssue];
@@ -595,7 +595,7 @@ void OoOScheduler::GetConsumerGroup(std::vector<IssueEntryPtr> consumers, std::v
 }
 
 void OoOScheduler::GetStackTop(size_t &startIndex, std::vector<IssueEntryPtr> &curIssueEntries,
-    std::map<MemoryType, int64_t> &curMemoryMap) {
+    std::unordered_map<MemoryType, int64_t> &curMemoryMap) {
     auto topNode = needFreeIssueStack.top();
     needFreeIssueStack.pop();
     curIssueEntries = recordIssueEntries[topNode.first].second;
@@ -604,7 +604,7 @@ void OoOScheduler::GetStackTop(size_t &startIndex, std::vector<IssueEntryPtr> &c
 }
 
 Status OoOScheduler::BacktraceOnMemoryExceeded(size_t &startIndex,
-    std::vector<IssueEntryPtr> &curIssueEntries, std::map<MemoryType, int64_t> &curMemoryMap) {
+    std::vector<IssueEntryPtr> &curIssueEntries, std::unordered_map<MemoryType, int64_t> &curMemoryMap) {
     MemoryType memType = curIssueEntries[startIndex]->tileOp.GetOutputOperand(0)->GetMemoryTypeOriginal();
     while (startIndex < curIssueEntries.size() && startIndex > 0) {
         startIndex--;
@@ -656,7 +656,7 @@ Status OoOScheduler::BacktraceOnMemoryExceeded(size_t &startIndex,
 }
 
 // 计算 tensor 对应的 memType （只对 L0C L0A L0B 进行内存处理） 是否已满
-bool OoOScheduler::IsBufferFull(std::map<MemoryType, int64_t> curMemoryMap, MemoryType memType, int64_t size) {
+bool OoOScheduler::IsBufferFull(std::unordered_map<MemoryType, int64_t> curMemoryMap, MemoryType memType, int64_t size) {
     if (memType != MemoryType::MEM_L0A && memType != MemoryType::MEM_L0B && memType != MemoryType::MEM_L0C) {
         APASS_LOG_DEBUG_F(Elements::Operation, "MemoryType is not L0A, L0B, or L0C.");
         return false;
@@ -670,7 +670,7 @@ bool OoOScheduler::IsBufferFull(std::map<MemoryType, int64_t> curMemoryMap, Memo
 }
 
 // 修改内存
-Status OoOScheduler::ModifyBuffer(std::map<MemoryType, int64_t> &curMemoryMap, MemoryType memType, int64_t size, bool isAdd) {
+Status OoOScheduler::ModifyBuffer(std::unordered_map<MemoryType, int64_t> &curMemoryMap, MemoryType memType, int64_t size, bool isAdd) {
     if (memType != MemoryType::MEM_L0A && memType != MemoryType::MEM_L0B && memType != MemoryType::MEM_L0C) {
         APASS_LOG_DEBUG_F(Elements::Operation, "MemoryType is not L0A, L0B, or L0C.");
         return SUCCESS;
@@ -694,7 +694,7 @@ Status OoOScheduler::ModifyBuffer(std::map<MemoryType, int64_t> &curMemoryMap, M
 }
 
 // 释放内存
-Status OoOScheduler::RetireIssueBuffer(std::map<MemoryType, int64_t> &curMemoryMap, IssueEntryPtr issue) {
+Status OoOScheduler::RetireIssueBuffer(std::unordered_map<MemoryType, int64_t> &curMemoryMap, IssueEntryPtr issue) {
     for (auto memId : issue->reqMemIds) {
         if (DelBufRefCount(memId) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "DelBufRefCount tensor[%d] failed.", memId);
@@ -711,16 +711,16 @@ Status OoOScheduler::RetireIssueBuffer(std::map<MemoryType, int64_t> &curMemoryM
     return SUCCESS;
 }
 
-void OoOScheduler::issueMemoryUpdate(IssueEntryPtr issue, size_t startIndex, std::vector<IssueEntryPtr> curIssueEntries,
-    std::map<MemoryType, int64_t> curMemoryMap) {
-    recordIssueEntries[issue] = make_pair(startIndex, curIssueEntries);
+void OoOScheduler::issueMemoryUpdate(IssueEntryPtr issue, size_t startIndex, const std::vector<IssueEntryPtr> &curIssueEntries,
+    const std::unordered_map<MemoryType, int64_t> &curMemoryMap) {
+    recordIssueEntries[issue] = std::make_pair(startIndex, curIssueEntries);
     recordBufferAllocate[issue] = curMemoryMap;
     recordIssueBuffer[issue] = issue->tileOp.GetOutputOperand(0)->GetMemoryTypeOriginal();
     recordBufRefCount[issue] = bufRefCount;
 }
 
 Status OoOScheduler::AllocExecute(IssueEntryPtr issue, std::vector<IssueEntryPtr> &curIssueEntries,
-    std::map<MemoryType, int64_t> &curMemoryMap, size_t &startIndex, bool &isContinue) {
+    std::unordered_map<MemoryType, int64_t> &curMemoryMap, size_t &startIndex, bool &isContinue) {
     APASS_LOG_DEBUG_F(Elements::Operation, "alloc issue: %s", issue->GetOpInfo().c_str());
     auto allocBuffer = localBufferMap[issue->reqMemIds[0]];
     if (IsBufferFull(curMemoryMap, allocBuffer->memType, allocBuffer->size)) {
@@ -747,7 +747,7 @@ Status OoOScheduler::AllocExecute(IssueEntryPtr issue, std::vector<IssueEntryPtr
 }
 
 Status OoOScheduler::IssueEntriesExecute(std::vector<IssueEntryPtr> &curIssueEntries,
-    std::map<MemoryType, int64_t> &curMemoryMap, size_t &startIndex) {
+    std::unordered_map<MemoryType, int64_t> &curMemoryMap, size_t &startIndex) {
     APASS_LOG_DEBUG_F(Elements::Operation, "===>Start issueEntriesExecute, startIndex: %d", startIndex);
     if (curIssueEntries.empty()) {
         curIssueEntries = issueEntries;
@@ -787,7 +787,7 @@ Status OoOScheduler::IssueEntriesExecute(std::vector<IssueEntryPtr> &curIssueEnt
 
 Status OoOScheduler::ExecuteIssue() {
     std::vector<IssueEntryPtr> curIssueEntries;
-    std::map<MemoryType, int64_t> curMemoryMap = {{MemoryType::MEM_L0A, 0}, {MemoryType::MEM_L0B, 0},
+    std::unordered_map<MemoryType, int64_t> curMemoryMap = {{MemoryType::MEM_L0A, 0}, {MemoryType::MEM_L0B, 0},
         {MemoryType::MEM_L0C, 0}};
     size_t startIndex{0};
     for (auto &issue : issueEntries) {
