@@ -13,7 +13,17 @@
  * \brief
  */
 
-DEFOP(
+enum CastMode {
+    CAST_NONE = 0,
+    CAST_RINT = 1,  // round to nearest, tie to even
+    CAST_ROUND = 2, // round to nearest, tie away from zero
+    CAST_FLOOR = 3, // round to minus infinity
+    CAST_CEIL = 4,  // round to positive infinity
+    CAST_TRUNC = 5, // round to zero
+    CAST_ODD = 6,   // round to odd (Von Neumann rounding)
+};
+
+DEF_OP(
     UnaryOp,
     INHERIT(ElementWiseUnaryTileBaseOp),
     OPCODE(
@@ -24,14 +34,91 @@ DEFOP(
         OP_LOGICALNOT,
         OP_RECIPROCAL,
         OP_ABS,
-        OP_LN
+        OP_LN,
+        OP_TRANSPOSE_MOVEIN,
+ 	    OP_TRANSPOSE_MOVEOUT,
+ 	    OP_TRANSPOSE_VNCHWCONV,
+ 	    OP_COMPACT,
+    ),
+    INPUT(Tile, Input),
+    OUTPUT(Tile, Output),
+    ATTR(int, CombineAxis)
+)
+
+DEF_OP(
+    ExpandOp,
+    INHERIT(ExpandTileBaseOp),
+    OPCODE(
+ 	    OP_EXPAND,
+    ),
+    INPUT(Tile, Input),
+    OUTPUT(Tile, Output),
+ 	ATTR(int, EXPANDDIM),                        // 扩展维度，用于OP_EXPAND
+)
+
+DEF_OP(
+    TransposeOp,
+    INHERIT(TransposeTileBaseOp),
+    OPCODE(
+        OP_TRANSPOSE_MOVEIN,
+ 	    OP_TRANSPOSE_MOVEOUT,
+ 	    OP_TRANSPOSE_VNCHWCONV,
+    ),
+    INPUT(Tile, Input),
+    OUTPUT(Tile, Output),
+    ATTR(std::vector<int64_t>, shape),          // 形状信息，用于TRANSPOSE系列
+ 	ATTR(bool, excludeBufferReuse)               // 是否排除buffer复用，用于TRANSPOSE_VNCHWCONV/ONEHOT/ROWMAX/ROWEXPMAX/ROWEXPSUM
+)
+
+DEF_OP(
+    OnehotOp,
+    INHERIT(OnehotTileBaseOp),
+    OPCODE(
+ 	    OP_ONEHOT,
+    ),
+    INPUT(Tile, Input),
+    OUTPUT(Tile, Output),
+ 	ATTR(int, numClasses),                       // 类别数，用于OP_ONEHOT
+)
+
+DEF_OP(
+    CastOp,
+    INHERIT(CastTileBaseOp),
+    OPCODE(
+        OP_CAST,
     ),
     INPUT(Tile, Input),
     OUTPUT(Tile, Output),
     ATTR(int, CombineAxis, -1)
+    ATTR(CastMode, Mode)
 )
 
-DEFOP(
+DEF_OP(
+    RangeOp,
+    INHERIT(RangeTileBaseOp),
+    OPCODE(
+        OP_RANGE,
+    ),
+    INPUT(Scalar, START),
+    INPUT(Scalar, STEP),
+    OUTPUT(Tile, Output),
+    ATTR(int, CombineAxis)
+)
+
+DEF_OP(
+    CumSumOp,
+    INHERIT(CumSumTileBaseOp),
+    OPCODE(
+        OP_CUM_SUM,
+    ),
+    INPUT(Tile, Input),
+    OUTPUT(Tile, Output),
+    INPUT(Scalar, Axis),
+    ATTR(int, CombineAxis)
+    ATTR(bool, Flag)
+)
+
+DEF_OP(
     BinaryOp,
     INHERIT(ElementWiseBinaryTileBaseOp),
     OPCODE(
@@ -40,15 +127,40 @@ DEFOP(
         OP_MUL,
         OP_DIV,
         OP_MIN,
-        OP_MAX
+        OP_MAX,
+        OP_S_ADD,
+        OP_S_SUB,
+        OP_S_MUL,
+        OP_S_DIV,
+        OP_S_MAX,
+        OP_S_MIN,
+        OP_LOGICALAND,
+        OP_PAD
     ),
     INPUT(Tile, Lhs),
     INPUT(Tile, Rhs),
     OUTPUT(Tile, Output),
     ATTR(int, CombineAxis, -1)
+    ATTR(bool, ReverseOperand, false),
+    ATTR(int, InputCombineAxis),                 // 输入合并轴
+ 	ATTR(int, OutputCombineAxis)                 // 输出合并轴
 )
 
-DEFOP(
+DEF_OP(
+    ScatterOp,
+    INHERIT(ScatetrTileBaseOp),
+    OPCODE(
+        OP_SCATTER_ELEMENT,
+        OP_SCATTER,
+        OP_INDEX_PUT,
+    ),
+    ATTR(int, CombineAxis)
+    ATTR(int, Axis)    // scatterelements/scatter 指定轴
+    ATTR(int, ScatterMode)  // scatterelements/scatter reduce 类型
+    ATTR(int, Accumulate)   // index put 是否累加
+)
+
+DEF_OP(
     BinaryScalarMixOp,
     INHERIT(ElementWiseScalarMixBinaryTileBaseOp),
     OPCODE(
@@ -57,11 +169,173 @@ DEFOP(
         OP_MULS,
         OP_DIVS,
         OP_MINS,
-        OP_MAXS
+        OP_MAXS,
+        OP_POW,
+        OP_S_ADDS,
+        OP_S_SUBS,
+        OP_S_MULS,
+        OP_S_DIVS,
+        OP_S_MAXS,
+        OP_S_MINS,
+        
     ),
     INPUT(Tile, Lhs),
     INPUT(Scalar, Rhs),
     OUTPUT(Tile, Output),
     ATTR(int, CombineAxis, -1),
-    ATTR(bool, Reverse, false)
+    ATTR(bool, ReverseOperand, false)
+)
+
+DEF_OP(
+    PowOp,
+    INHERIT(PowTileBaseOp),
+    OPCODE(
+        OP_POW
+    ),
+    ATTR(int, InputCombineAxis),                 // 输入合并轴
+ 	ATTR(int, OutputCombineAxis),                // 输出合并轴
+ 	ATTR(bool, ExcludeBufferReuse)               // 是否排除buffer复用
+)
+
+DEF_OP(
+    GatherOp,
+    INHERIT(GatherTileBaseOp),
+    OPCODE(
+        OP_GATHER_FROM_UB,
+        OP_GATHER,
+        OP_GATHER_ELEMENT
+    ),
+    ATTR(int, Axis),                             // 操作的轴
+    ATTR(bool, ExcludeBufferReuse)               // 是否排除buffer复用（GATHER_FROM_UB/GATHER_ELEMENT使用）
+)
+
+DEF_OP(
+    BroadcastOp,
+    INHERIT(BroadcastTileBaseOp),
+    OPCODE(
+        OP_MAXIMUM,
+        OP_MINIMUM,
+        OP_PAIRMAX,
+        OP_PAIRMIN,
+        OP_PAIRSUM,
+        OP_FUSED_OP  // 没有代码，注册的是BROADCAST
+        
+    ),
+    ATTR(int, CombineAxis),
+)
+
+DEF_OP(
+    ReduceOp,
+    INHERIT(ReduceTileBaseOp),
+    OPCODE(
+        OP_ROWMAX_SINGLE,
+        OP_ROWMIN_SINGLE,
+        OP_ROWSUM_SINGLE,
+        OP_ROWMAX_COMBINE_AXIS_SINGLE,
+        OP_ROWSUM_COMBINE_AXIS_SINGLE,
+        OP_ROWMAXLINE,
+        OP_ROWMINLINE,
+        OP_ROWMAX,
+ 	    OP_ROWSUM,
+ 	    OP_ROWEXPMAX,
+ 	    OP_ROWEXPSUM,
+        
+    ),
+    ATTR(int, CombineAxis),
+    ATTR(int, Axis),
+)
+
+DEF_OP(
+    MovOp,
+    INHERIT(DataCopyTileBaseOp),
+    OPCODE(
+        OP_UB_COPY_IN,
+        OP_UB_COPY_OUT,
+        OP_INDEX_OUTCAST, // 输入是三个tensor，三个scalar  无额外属性
+ 	    OP_CONVERT,
+ 	    OP_COPY_IN,
+ 	    OP_COPY_OUT,
+ 	    OP_LOAD,
+ 	    OP_VLD,  //  只有注册的一行
+ 	    OP_VST,  //  只有注册的一行
+ 	    OP_DUPLICATE,  // duplicate会转化为copyout
+        
+    ),
+    ATTR(int, CombineAxis),
+)
+
+DEF_OP(
+    TopKOp,
+    INHERIT(SortTileBaseOp),
+    OPCODE(
+        OP_TOPK
+    ),
+)
+
+DEF_OP(
+ 	SortOp,
+ 	INHERIT(SortTileBaseOp),
+ 	OPCODE(
+ 	    OP_BITSORT,
+ 	    OP_MRGSORT,
+ 	    OP_ARGSORT,
+ 	    OP_TILEDMRGSORT,
+ 	    OP_EXTRACT
+ 	),
+ 	ATTR(int, TopOffset),  // OP_BITSORT
+ 	ATTR(int, TopKValidBit)  // OP_TILEDMRGSORT
+ 	ATTR(int, ExtractMaskMode)  // OP_EXTRACT
+)
+
+DEF_OP(
+ 	ExperimentOp,
+ 	INHERIT(DataCopyTileBaseOp),   // 存疑
+ 	OPCODE(
+ 	    OP_GATHER_IN_L1,
+ 	    OP_GATHER_IN_UB,
+ 	),
+ 	ATTR(int, StartOffset) // OP_GATHER_IN_L1
+)
+
+DEF_OP(
+ 	TernaryOp,
+ 	INHERIT(ElementWiseTernaryTileBaseOp),
+ 	OPCODE(
+ 	    OP_WHERE_TT
+ 	),
+)
+ 	 
+DEF_OP(
+    TernaryScalarMixOp,
+    INHERIT(ElementWiseScalarMixTernaryTileBaseOp),
+    OPCODE(
+        OP_WHERE_TS,
+        OP_WHERE_ST,
+        OP_WHERE_SS,
+        OP_INDEX_ADD, // 输入是三个tensor  两个 scalar  无额外属性
+    ),
+)
+
+enum class CmpOperationType {
+    EQ,
+    NE,
+    LT,
+    LE,
+    GT,
+    GE,
+};
+enum class CmpModeType {
+    BOOL,
+    BIT,
+};
+
+DEF_OP(
+    CompareOp,
+    INHERIT(CompareTileOp),
+    OPCODE(
+        OP_CMP,
+        OP_CMPS
+    ),
+    ATTR(CmpOperationType, CmpOperation),           // 【枚举】比较操作类型
+    ATTR(CmpModeType, CmpMode),                     // 【枚举】比较模式
 )

@@ -64,10 +64,52 @@ public:
         : ElementWiseTileBaseOp(opcode, {ValueCast<Value>(lhs), ValueCast<Value>(rhs)}, {ValueCast<Value>(output)}) {}
 };
 
+class ElementWiseTernaryTileBaseOp : public ElementWiseTileBaseOp {
+};
+
+class ElementWiseScalarMixTernaryTileBaseOp : public ElementWiseTileBaseOp {
+};
+
 class ReduceTileBaseOp : public TileBaseOp {
 };
 
+class CastTileBaseOp : public TileBaseOp {
+};
+
+class RangeTileBaseOp : public TileBaseOp {
+};
+
+class ScatterTileBaseOp : public TileBaseOp {
+};
+
+class GatherTileBaseOp : public TileBaseOp {
+};
+
+class ExpandTileBaseOp : public TileBaseOp {
+};
+
+class OnehotTileBaseOp : public TileBaseOp {
+};
+
+class ConcatTileBaseOp : public TileBaseOp {
+};
+
+class TransposeTileBaseOp : public TileBaseOp {
+};
+
+class PowTileBaseOp : public TileBaseOp {
+};
+
+class CumSumTileBaseOp : public TileBaseOp {
+};
+
+class SortTileBaseOp : public TileBaseOp {
+};
+
 class BroadcastTileBaseOp : public TileBaseOp {
+};
+
+class BroadcastBinaryTileOp : public TileBaseOp {
 };
 
 class DataCopyTileBaseOp : public TileBaseOp {
