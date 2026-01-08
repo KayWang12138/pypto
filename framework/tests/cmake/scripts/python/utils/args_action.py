@@ -33,22 +33,31 @@ class ArgsGTestFilterListAction(argparse.Action):
 
     # 耗时最长的测试用例列表（按耗时降序排列）
     SLOW_TESTS = [
-        "DeepSeekIndexerAttentionQuantUTest.4B_mtp_ut",
-        "DynamicQuantLightningIndexerPrologUtest.b4_s1_2_s2_64k",
-        "DynamicOpsTest.Cube",
-        "DecodeIndexerAttentionUtest.utest_decode_indexer_attention",
-        "DynamicPATest.dynamic_pa_low_lantency_manual_unroll",
-        "FunctionTest.Test_quantMM",
-        "DynamicGenGatedScoreUtest.utest_gen_gated_score_dyn",
-        "DynamicGenGatedScoreUtest.utest_gen_gated_score_plus_dyn",
-        "DynamicLightningIndexerPrologUtest.utest_lightning_indexer_prolog",
-        "AttentionPostUTest.b32_s1_nz_fp16_quant",
-        "TestLightningIndexerUtest.lightning_indexer_b_4_s1_2_s2_64k_quant",
-        "DynamicAttentionUtTest.dynamic_attention_low_nz",
-        "GenAttnUtTest.TestDynamicGenAttenTest_FP16_ut",
-        "DynamicAttentionUtTest.dynamic_attention_low",
-        "DynamicGatherSlcFlashAttnUtest.dsa_gather_slc_attn_bf16_b32_s4_int8",
-        "DynamicGatherSlcFlashAttnUtest.dsa_gather_slc_attn_bf16_b32_s4"
+        "DeepSeekIndexerAttentionQuantUTest.4B_mtp_ut",                           # 189.57s
+        "DynamicOpsTest.Cube",                                                    # 162.98s
+        "DynamicQuantLightningIndexerPrologUtest.b4_s1_2_s2_64k",               # 158.45s
+        "DecodeIndexerAttentionUtest.utest_decode_indexer_attention",             # 152.57s
+        "DynamicPATest.dynamic_pa_low_lantency_manual_unroll",                   # 132.50s
+        "FunctionTest.Test_quantMM",                                             # 91.75s
+        "DynamicGenGatedScoreUtest.utest_gen_gated_score_dyn",                   # 76.20s
+        "DynamicGenGatedScoreUtest.utest_gen_gated_score_plus_dyn",              # 38.90s
+        "DynamicLightningIndexerPrologUtest.utest_lightning_indexer_prolog",      # 38.20s
+        "AttentionPostUTest.b32_s1_nz_fp16_quant",                               # 37.32s
+        "TestLightningIndexerUtest.lightning_indexer_b_4_s1_2_s2_64k_quant",      # 35.02s
+        "DynamicGatherSlcFlashAttnUtest.dsa_gather_slc_attn_bf16_b32_s4_int8",   # 31.89s
+        "DynamicAttentionUtTest.dynamic_attention_low",                          # 31.71s
+        "DynamicAttentionUtTest.dynamic_attention_low_nz",                       # 31.25s
+        "GenAttnUtTest.TestDynamicGenAttenTest_FP16_ut",                        # 31.25s
+        "DynamicPATest.dynamic_pa_low_lantency_unroll",                         # 29.44s
+        "DynamicFunctionTest.TestLoopIfWithRank",                               # 29.37s
+        "DynamicGatherSlcFlashAttnUtest.dsa_gather_slc_attn_bf16_b32_s4",       # 26.84s
+        "CmpAttnTopk.cmp_attn_with_topk_singleop_bf16",                         # 24.31s
+        "MlaPrologQuantV32UTest.b8_s64k2_pa_nd_bf16_quantB",                   # 23.86s
+        "MlaPrologUTest.b16_s1_pa_nd_fp16_allquant",                           # 20.20s
+        "TestCodegenDispatch.TestMoeDispatchMultipyExperts",                   # 20.09s
+        "CostModelTest.TestAttentionPostAccuracy3",                            # 16.99s
+        "MlaPrologUtest.mla_ut_bf16_high_quant_smooth_nz_pa_bsnd",             # 13.55s
+        "FunctionTest.low"                                                     # 13.53s
     ]
 
     def __init__(self, option_strings: Sequence[str], dest: str, nargs: Optional[int] = None, **kwargs: Any) -> None:
