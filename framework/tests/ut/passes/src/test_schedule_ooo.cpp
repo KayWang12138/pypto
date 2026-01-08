@@ -1232,6 +1232,7 @@ TEST_F(ScheduleOoOTest, TestScheduleMainLoopRearrangeUB) {
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.SortOps();
     EXPECT_EQ(res, SUCCESS);
+    std::swap(ooOScheduler.issueEntries[0], ooOScheduler.issueEntries[1]);
     res = ooOScheduler.ScheduleMainLoop();
     EXPECT_EQ(res, SUCCESS);
 
@@ -1311,6 +1312,7 @@ TEST_F(ScheduleOoOTest, TestScheduleMainLoopRearrangeL1) {
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.SortOps();
     EXPECT_EQ(res, SUCCESS);
+    std::swap(ooOScheduler.issueEntries[0], ooOScheduler.issueEntries[1]);
     res = ooOScheduler.ScheduleMainLoop();
     EXPECT_EQ(res, SUCCESS);
 
