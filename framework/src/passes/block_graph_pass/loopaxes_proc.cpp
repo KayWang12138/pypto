@@ -34,9 +34,13 @@ Status LoopaxesProc::RunOnFunction(Function &function) {
 }
 
 Status LoopaxesProc::UpdateOpLoopAxes(Operation &op) {
-    std::vector<int64_t> loopAxes;
+    std::vector<SymbolicScalar> loopAxes;
     auto output = op.GetOOperands().front();
-    auto shape = output->GetShape();
+    if (output == nullptr) {
+        APASS_LOG_DEBUG_F(Elements::Operation, "Op[%d] has no output.", op.opmagic);
+        return SUCCESS;
+    }
+    auto shape = output->GetDynValidShape();
     if (shape.size() <= 1) {
         // 被纳入group的要求维度大于2，否则将其设置为-1
         op.SetAttribute(OpAttributeKey::loopGroup, -1);
@@ -61,9 +65,15 @@ Status LoopaxesProc::UpdateOpLoopAxes(Operation &op) {
 }
 
 Status LoopaxesProc::UpdateFuncLoopAxes(Function &function) {
-    for (auto &subProgram : function.rootFunc_->programs_) {
-        for (auto &op : subProgram.second->Operations(false)) {
-            UpdateOpLoopAxes(op);
+    for (auto &op : function.Operations(false)) {
+        UpdateOpLoopAxes(op);
+    }
+    if (function.rootFunc_ != nullptr) {
+        APASS_LOG_DEBUG_F(Elements::Operation, "Function[%s] has rootFunc.", function.GetMagicName().c_str());
+        for (auto &subProgram : function.rootFunc_->programs_) {
+            for (auto &op : subProgram.second->Operations(false)) {
+                UpdateOpLoopAxes(op);
+            }
         }
     }
     return SUCCESS;

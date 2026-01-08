@@ -32,8 +32,8 @@ static const int kNum1 = 1;
 static const int kNum2 = 2;
 static const int kNum4 = 4;
 static const int kNum16 = 2;
-static const std::vector<int64_t> expectedLoopAxis1 = {kNum2, kNum2};
-static const std::vector<int64_t> expectedLoopAxis2 = {kNum4};
+static const std::vector<SymbolicScalar> expectedLoopAxis1 = {kNum2, kNum2};
+static const std::vector<SymbolicScalar> expectedLoopAxis2 = {kNum4};
 
 class TestLoopaxesProcPass : public ::testing::Test {
 public:
@@ -61,15 +61,25 @@ TEST_F(TestLoopaxesProcPass, LoopaxesProcUTest1) {
     rootFuncPtr->SetUnderDynamicFunction(true);
 
     std::vector<int64_t> shape1 = {kNum16};
+    std::vector<SymbolicScalar> symShape1 = {kNum16};
     std::vector<int64_t> shape2 = {kNum2, kNum2, kNum4};
+    std::vector<SymbolicScalar> symShape2 = {kNum2, kNum2, kNum4};
     std::vector<int64_t> shape3 = {kNum4, kNum4};
+    std::vector<SymbolicScalar> symShape3 = {kNum4, kNum4};
     auto inCast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
+    inCast1->UpdateDynValidShape(symShape1);
     auto inCast2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
+    inCast2->UpdateDynValidShape(symShape2);
     auto ubTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
+    ubTensor1->UpdateDynValidShape(symShape1);
     auto ubTensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
+    ubTensor2->UpdateDynValidShape(symShape2);
     auto ubTensor3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
+    ubTensor3->UpdateDynValidShape(symShape2);
     auto ubTensor4 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
+    ubTensor4->UpdateDynValidShape(symShape2);
     auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
+    outCast->UpdateDynValidShape(symShape3);
 
     auto &view1 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast1}, {ubTensor1});
     auto &view2 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast2}, {ubTensor2});

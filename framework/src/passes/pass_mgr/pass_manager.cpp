@@ -139,8 +139,8 @@ void PassManager::RegDefaultStrategy() {
             {          "CopyOutResolve",           PassName::COPY_OUT_RESOLVE},
             {              "InsertSync",                PassName::INSERT_SYNC},
             {        "MixSubgraphSplit",         PassName::MIX_SUBGRAPH_SPLIT},
-            {          "CodegenPreproc",            PassName::CODEGEN_PREPROC},
             {             "LoopaxesProc",             PassName::LOOPAXES_PROC},
+            {          "CodegenPreproc",            PassName::CODEGEN_PREPROC},
     });
     RegisterStrategy(
         "FunctionUnroll", {
