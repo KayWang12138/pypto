@@ -234,8 +234,8 @@ def attention_post_decode(attn_res: pypto.Tensor, cos: pypto.Tensor, sin: pypto.
 
 
 @allow_in_graph
-def npu_attention_post_v4(attn_res: pypto.Tensor, cos: pypto.Tensor, sin: pypto.Tensor,
-                          wo_a: pypto.Tensor, wo_b: pypto.Tensor, hidden_states: pypto.Tensor):
+def npu_attention_post_v4(attn_res: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor,
+                          wo_a: torch.Tensor, wo_b: torch.Tensor, hidden_states: torch.Tensor):
     """
     torch npu graph interface
 
