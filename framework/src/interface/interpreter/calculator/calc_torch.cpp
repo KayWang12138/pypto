@@ -14,6 +14,7 @@
  */
 
 #include <torch/torch.h>
+#include "tilefwk/error.h"
 #include "../calc_api.h"
 
 namespace npu::tile_fwk {
@@ -251,8 +252,7 @@ static void Range(LogicalTensorDataPtr out, const Element &start, const Element 
     for (int64_t dim : out->GetShape()) {
         expected_numel *= dim;
     }
-    TORCH_CHECK(tmp.numel() == expected_numel,
-        "Range numel mismatch: generated ", tmp.numel(), ", expected ", expected_numel);
+    ASSERT(tmp.numel() == expected_numel) << "Range numel mismatch: generated " << tmp.numel() << ", expected " << expected_numel;
     auto tout = From(out);
     tout.copy_(tmp);
 }
