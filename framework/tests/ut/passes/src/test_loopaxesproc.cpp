@@ -57,6 +57,18 @@ public:
     void TearDown() override {}
 };
 
+bool EqualSymShape(const std::vector<SymbolicScalar> &A, const std::vector<SymbolicScalar> &B) {
+    if (A.size() != B.size()) {
+        return false;
+    }
+    for (size_t i = 0; i < A.size(); ++i) {
+        if (A[i].Dump() != B[i].Dump()) {
+            return false;
+        }
+    }
+    return true;
+}
+
 TEST_F(TestLoopaxesProcPass, LoopaxesProcUTest1) {
     auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestLoopaxesProcPass", "TestLoopaxesProcPass", nullptr);
     rootFuncPtr->rootFunc_ = rootFuncPtr.get();
@@ -98,22 +110,22 @@ TEST_F(TestLoopaxesProcPass, LoopaxesProcUTest1) {
     EXPECT_TRUE(view2.HasAttr(OpAttributeKey::loopGroup));
     EXPECT_EQ(view2.GetIntAttribute(OpAttributeKey::loopGroup), kNum0);
     EXPECT_TRUE(view2.HasAttr(OpAttributeKey::loopAxes));
-    EXPECT_EQ(view2.GetVectorIntAttribute(OpAttributeKey::loopAxes), expectedLoopAxis1);
+    EXPECT_TRUE(EqualSymShape(view2.GetVectorSymbolicScalarAttribute(OpAttributeKey::loopAxes), expectedLoopAxis1));
     
     EXPECT_TRUE(reshape1.HasAttr(OpAttributeKey::loopGroup));
     EXPECT_EQ(reshape1.GetIntAttribute(OpAttributeKey::loopGroup), kNum0);
     EXPECT_TRUE(reshape1.HasAttr(OpAttributeKey::loopAxes));
-    EXPECT_EQ(reshape1.GetVectorIntAttribute(OpAttributeKey::loopAxes), expectedLoopAxis1);
+    EXPECT_TRUE(EqualSymShape(reshape1.GetVectorSymbolicScalarAttribute(OpAttributeKey::loopAxes), expectedLoopAxis1));
     
     EXPECT_TRUE(add.HasAttr(OpAttributeKey::loopGroup));
     EXPECT_EQ(add.GetIntAttribute(OpAttributeKey::loopGroup), kNum0);
     EXPECT_TRUE(add.HasAttr(OpAttributeKey::loopAxes));
-    EXPECT_EQ(add.GetVectorIntAttribute(OpAttributeKey::loopAxes), expectedLoopAxis1);
+    EXPECT_TRUE(EqualSymShape(add.GetVectorSymbolicScalarAttribute(OpAttributeKey::loopAxes), expectedLoopAxis1));
     
     EXPECT_TRUE(reshape2.HasAttr(OpAttributeKey::loopGroup));
     EXPECT_EQ(reshape2.GetIntAttribute(OpAttributeKey::loopGroup), kNum1);
     EXPECT_TRUE(reshape2.HasAttr(OpAttributeKey::loopAxes));
-    EXPECT_EQ(reshape2.GetVectorIntAttribute(OpAttributeKey::loopAxes), expectedLoopAxis2);
+    EXPECT_TRUE(EqualSymShape(reshape2.GetVectorSymbolicScalarAttribute(OpAttributeKey::loopAxes), expectedLoopAxis2));
 }
 }
 }
