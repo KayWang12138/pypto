@@ -296,16 +296,16 @@ def lightning_indexer_prolog_compute(x_in,
 
 @pypto.jit
 def lightning_indexer_prolog(x_in,
-                                   q_norm_in,
-                                   w_qb_in,
-                                   w_proj_in,
-                                   cos_idx_rope_in,
-                                   sin_idx_rope_in,
-                                   hadamard_q_in,
-                                   q_bf16_out,
-                                   weights_out,
-                                   attrs, 
-                                   configs):
+                            q_norm_in,
+                            w_qb_in,
+                            w_proj_in,
+                            cos_idx_rope_in,
+                            sin_idx_rope_in,
+                            hadamard_q_in,
+                            q_bf16_out,
+                            weights_out,
+                            attrs, 
+                            configs):
     """JIT-compiled wrapper for Lightning Indexer Prolog computation.
 
     This is the main entry point for the Lightning Indexer Prolog operator.

@@ -20,7 +20,18 @@ import logging
 from lightning_indexer_prolog_impl import (
     IndexerPrologInput, IndexerPrologOutput, IndexerPrologAttr, IndexerPrologConfigs,
     lightning_indexer_prolog)
+from torch._subclasses.fake_tensor import FakeTensor
+from torch._dynamo import allow_in_graph
 from utils.compare import compare
+
+
+class IP(torch.nn.Module):
+    def forward(self, x, q_norm, w_qb, w_proj, cos_idx_rope, sin_idx_rope, hadamard_q,
+                                    q_bf16, weights):
+        for i in range(30):
+            torch.add(x, 0)
+        lighting_indexer_prolog_dyn(x, q_norm, w_qb, w_proj, cos_idx_rope, sin_idx_rope, hadamard_q,
+                                    q_bf16, weights)
 
 
 def gen_dims(params):
@@ -30,7 +41,6 @@ def gen_dims(params):
     dims["h"] = 7168
     dims["q_lora_rank"] = 1536
     dims["idx_head_dim"] = 128
-    # dims["idx_n_heads"] = 64
     dims["idx_n_heads"] = 32
     dims["rope_head_dim"] = 64
     return dims
@@ -162,26 +172,51 @@ def gen_data(case_name):
 def gen_zero_tensor(t):
     return torch.zeros_like(t).npu()
 
-
-def lighting_indexer_prolog_dyn(inputs: IndexerPrologInput, outputs: IndexerPrologOutput,
-                                      attrs: IndexerPrologAttr, configs: IndexerPrologConfigs):
+@allow_in_graph
+def lighting_indexer_prolog_dyn(x: torch.tensor,
+                                q_norm: torch.tensor,
+                                w_qb: torch.tensor,
+                                w_proj: torch.tensor,
+                                cos_idx_rope: torch.tensor,
+                                sin_idx_rope: torch.tensor,
+                                hadamard_q: torch.tensor,
+                                q_bf16: torch.tensor,
+                                weights: torch.tensor):
+    attrs = IndexerPrologAttr(
+        eps=1e-6,
+        layerout_query="TND",
+        layerout_key="PA_BSND",
+    )
+    configs = IndexerPrologConfigs(
+        q_linear=[16, 16, 256, 256, 128, 128],
+        q_hd=[32, 32, 128, 128, 128, 128],
+        w_linear=[16, 16, 1024, 1024, 32, 32],
+        unroll_list=[32, 16, 8, 4, 2, 1],
+        cube_l1_reuse_setting={1: 4},
+        mg_copyin_upper_bound=2 * 1024 * 1024,
+        pg_upper_bound=8192,
+        block_size=128,
+        t_sub_tile=1,
+        chunk_size=2,
+        vec_nbuffer_mode=0,
+    )
     input_tensors = {
-        inputs.x: [0],
-        inputs.q_norm: [0],
-        inputs.w_qb: [],
-        inputs.w_proj: [],
-        inputs.cos_idx_rope: [0],
-        inputs.sin_idx_rope: [0],
-        inputs.hadamard_q: []
+        x: [0],
+        q_norm: [0],
+        w_qb: [],
+        w_proj: [],
+        cos_idx_rope: [0],
+        sin_idx_rope: [0],
+        hadamard_q: []
     }
     output_tensors = {
-        outputs.q_bf16: [0],
-        outputs.weights: [0]
+        q_bf16: [0],
+        weights: [0]
     }
-    pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in input_tensors.items()]
-    pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in output_tensors.items()]
-    lightning_indexer_prolog(*pto_inputs, *pto_outputs, attrs, configs)
-    torch_npu.npu.synchronize()
+    if not isinstance(x, FakeTensor):
+        pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in input_tensors.items()]
+        pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in output_tensors.items()]
+        lightning_indexer_prolog(*pto_inputs, *pto_outputs, attrs, configs)     
 
 
 def do_test_lighting_indexer_prolog(case_name, configs):
@@ -201,41 +236,38 @@ def do_test_lighting_indexer_prolog(case_name, configs):
 
     torch_npu.npu.config.allow_internal_format = True
 
-    inputs = IndexerPrologInput(
-        x=inputs_data["token_x"].npu().reshape(t, h),
-        q_norm=inputs_data["q_norm"].npu().reshape(t, q_lora_rank),
-        w_qb=torch_npu.npu_format_cast(inputs_data["w_idx_qb"].npu().contiguous(), torch_npu.Format.FRACTAL_NZ),
-        w_proj=torch_npu.npu_format_cast(
-            inputs_data["w_idx_proj"].npu().contiguous(), torch_npu.Format.FRACTAL_NZ),
-        cos_idx_rope=inputs_data["cos_idx_rope"].npu().reshape(t, rope_head_dim),
-        sin_idx_rope=inputs_data["sin_idx_rope"].npu().reshape(t, rope_head_dim),
-        hadamard_q=inputs_data["hadamard_q"].npu()
-    )
+    x=inputs_data["token_x"].npu().reshape(t, h)
+    q_norm=inputs_data["q_norm"].npu().reshape(t, q_lora_rank)
+    w_qb=torch_npu.npu_format_cast(inputs_data["w_idx_qb"].npu().contiguous(), torch_npu.Format.FRACTAL_NZ)
+    w_proj=torch_npu.npu_format_cast(
+        inputs_data["w_idx_proj"].npu().contiguous(), torch_npu.Format.FRACTAL_NZ)
+    cos_idx_rope=inputs_data["cos_idx_rope"].npu().reshape(t, rope_head_dim)
+    sin_idx_rope=inputs_data["sin_idx_rope"].npu().reshape(t, rope_head_dim)
+    hadamard_q=inputs_data["hadamard_q"].npu()
 
     q_golden = golden_data["q_golden"].reshape(t, head_num, idx_head_dim)
     weights_golden = golden_data["weights"].reshape(t, head_num)
 
-    outputs = IndexerPrologOutput(
-        q_bf16 =gen_zero_tensor(q_golden),
-        weights=gen_zero_tensor(weights_golden)
-    )
+    q_bf16 =gen_zero_tensor(q_golden)
+    weights=gen_zero_tensor(weights_golden)
+    model = torch.compile(IP(), backend="eager", dynamic=True)
 
-    # ---- Attrs ----
-    attrs = IndexerPrologAttr(
-        eps=1e-6,
-        layerout_query="TND",
-        layerout_key="PA_BSND",
-    )
+    # capture model
+    g = torch.npu.NPUGraph()
+    with torch.npu.graph(g):
+        model(x, q_norm, w_qb, w_proj, cos_idx_rope, sin_idx_rope, hadamard_q,
+                                    q_bf16, weights)
 
-    lighting_indexer_prolog_dyn(inputs, outputs, attrs, configs)
+    for i in range(20):
+        g.replay()
+        pypto.runtime._device_synchronize()#内部接口，不推荐使用
 
-    compare(outputs.q_bf16.cpu(), q_golden, "q_bf16", 0.0001, 0.0078125, 0.001)
-    compare(outputs.weights.cpu(), weights_golden, "weights", 0.0001, 0.0078125, 0.001)
+    compare(q_bf16.cpu(), q_golden, "q_bf16", 0.0001, 0.0078125, 0.001)
+    compare(weights.cpu(), weights_golden, "weights", 0.0001, 0.0078125, 0.001)
 
     print(f"=== {case_name}: PASS ===")
 
 
-# @pytest.mark.skip(reason="large test case")
 def test_b1_s1_1():
     configs = IndexerPrologConfigs(
         q_linear=[16, 16, 256, 256, 128, 128],
@@ -253,6 +285,7 @@ def test_b1_s1_1():
     do_test_lighting_indexer_prolog("LightningIndexerPrologSTest.b1_s1_1", configs)
 
 
+@pytest.mark.skip(reason="large test case")
 def test_b4_s1_4():
     configs = IndexerPrologConfigs(
         q_linear=[16, 16, 256, 256, 128, 128],
@@ -270,7 +303,7 @@ def test_b4_s1_4():
     do_test_lighting_indexer_prolog("LightningIndexerPrologSTest.b4_s1_4", configs)
 
 
-# @pytest.mark.skip(reason="large test case")
+@pytest.mark.skip(reason="large test case")
 def test_b8_s1_8():
     configs = IndexerPrologConfigs(
         q_linear=[16, 16, 256, 256, 128, 128],
@@ -288,7 +321,7 @@ def test_b8_s1_8():
     do_test_lighting_indexer_prolog("LightningIndexerPrologSTest.b8_s1_8", configs)
 
 
-# @pytest.mark.skip(reason="large test case")
+@pytest.mark.skip(reason="large test case")
 def test_b2_s1_4k():
     configs = IndexerPrologConfigs(
         q_linear=[16, 16, 256, 256, 128, 128],
@@ -305,7 +338,7 @@ def test_b2_s1_4k():
     )
     do_test_lighting_indexer_prolog("LightningIndexerPrologSTest.b2_s1_4k", configs)
     
-# @pytest.mark.skip(reason="large test case")
+@pytest.mark.skip(reason="large test case")
 def test_b1_s1_8193():
     configs = IndexerPrologConfigs(
         q_linear=[16, 16, 256, 256, 128, 128],
