@@ -495,6 +495,16 @@ int64_t PadLocalBuffer::ProcessBroadcastForAxisCombine(Operation &op, size_t blo
     return (dimSize - 1);
 }
 
+int64_t PadLocalBuffer::ProcessReduceForAxisCombine(const LogicalTensorPtr &in) {
+    int64_t lastIdx = static_cast<int64_t>(in->shape.size()) - 1;
+    for (int64_t idx = lastIdx; idx >= 0; --idx) {
+        if (in->shape[idx] != 1) {
+            return idx;
+        }
+    }
+    return lastIdx;
+}
+
 void AlignedRawTensorIfNeed(LogicalTensorPtr &in, int64_t pos, const int64_t base) {
     if (in == nullptr || pos < 0 || pos >= static_cast<int64_t>(in->tensor->rawshape.size())) {
         return;
@@ -525,7 +535,8 @@ void PadLocalBuffer::PadVectorForAxisCombine(Operation &op, LogicalTensorPtr &in
         AlignedRawTensorIfNeed(in, lastIdx - 1, BRCB_SECOND_LAST_BASE);
     }
     if (calcType == OpCalcType::REDUCE) {
-        AlignedRawTensorIfNeed(in, lastIdx, paddingValue);
+        int64_t idx = ProcessReduceForAxisCombine(in);
+        AlignedRawTensorIfNeed(in, idx, paddingValue);
         return;
     }
     if (op.GetOpcode() == Opcode::OP_BRCB) {
