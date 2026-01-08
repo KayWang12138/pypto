@@ -24,6 +24,8 @@ MachineTask *GenCode(
 
 struct Linker {
     SymbolicSymbolTable &symbolTable_;
+    SymbolicScalar mainBlockScalar_;
+    std::unordered_set<std::string> mainBlockGroup_;
 
     DyndevFunctionAttribute::FunctionGroup &funcGroup_;
     DyndevFunctionAttribute::ExpressionTableDictGroup &exprTableDictGroup_;
@@ -94,6 +96,11 @@ struct Linker {
         exprTable.SetElementKeyOnce(key);
         exprTable.SetTitleOnce(GetTitle(func));
     }
+
+    void SetMainBlockExpressionForDevRootCoa(Function *func, const SymbolicScalar &ss) {
+ 	    auto &exprTable = exprTableDictGroup_.devRootCoaDict[func];
+ 	    exprTable.mainBlockScalar_ = ss;
+ 	}
 
     SymbolicExpressionTable *LookupDevRootCoa(Function *func) {
         if (exprTableDictGroup_.devRootCoaDict.count(func)) {
