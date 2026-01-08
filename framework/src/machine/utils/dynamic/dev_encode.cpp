@@ -52,6 +52,7 @@ constexpr int64_t DEFAULT_CACHE_DEVICE_TASK_NUM = 10000;
 constexpr int32_t MAX_CELLMATCHSSTRIDE = 20000000;
 static constexpr uint64_t GENERAL_METADATA_SIZE_MIN = 4 * MEBI;
 constexpr uint32_t FRIENDLY_CACHE_ALIGN_U64_SIZE = 2; // 友好的cache对齐是2个u64
+constexpr const uint8_t MAIN_BLOCK_SIZE = 2;
 
 void DevAscendFunction::InitIncastOutcastAttr(
         uintdevptr_t &initOffset,
@@ -435,6 +436,16 @@ void DevAscendFunction::InitTensor(
     }
 }
 
+static int GetCceIndex(const std::unordered_map<uint64_t, int> &calleeHashIndexDict,
+    const std::shared_ptr<CallOpAttribute> &callop)
+{
+    int cceIndex = calleeHashIndexDict.at(callop->GetCalleeHash().GetHash());
+    if (config::GetRuntimeOption<int64_t>(CFG_VALID_SHAPE_OPTIMIZE) == 1) {
+        cceIndex = std::max(0, cceIndex * MAIN_BLOCK_SIZE - 1);
+    }
+    return cceIndex;
+}
+
 void DevAscendFunction::InitOperation(
         uintdevptr_t &initOffset,
         const SymbolicExpressionTable *expressionTable,
@@ -538,7 +549,7 @@ void DevAscendFunction::InitOperation(
             auto callArgs = callop->GetLinearArgList();
             int opStaticAttrSize = callArgs.size();
             staticField.attrList.AssignRangeOffsetSize(operationAttrList_, staticAttributeSize, opStaticAttrSize);
-            At(staticField.attrList, 0) = calleeHashIndexDict.at(callop->GetCalleeHash().GetHash());
+            At(staticField.attrList, 0) = GetCceIndex(calleeHashIndexDict, callop);
             for (size_t k = CALLOP_ARG_ATTR_BASE_INDEX; k < (size_t)opStaticAttrSize; k++) {
                 int fillValue = 0;
                 if (callArgs[k].IsImmediate()) {
