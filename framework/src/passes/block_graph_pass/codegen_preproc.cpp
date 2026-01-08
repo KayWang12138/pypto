@@ -173,8 +173,8 @@ Status CodegenPreproc::ForceCombineAxisForAxisCombine(Function &func) const {
                 continue;
             }
             std::vector<bool> inputCombineAxis;
-            for (size_t i = 0; i < op.GetIOperands().size(); ++i) {
-                LogicalTensors operands = op.GetIOperands();
+            LogicalTensors operands = op.GetIOperands();
+            for (size_t i = 0; i < operands.size(); ++i) {
                 if (operands[i]->tensor->rawshape.back() == 1 && skipInputCombineOps.count(op.GetOpcode()) == 0) {
                     inputCombineAxis.push_back(true);
                 } else {
@@ -183,9 +183,10 @@ Status CodegenPreproc::ForceCombineAxisForAxisCombine(Function &func) const {
             }
             op.SetAttr(OpAttributeKey::inputCombineAxis, inputCombineAxis);
             std::vector<bool> outputCombineAxis;
-            for (size_t i = 0; i < op.GetOOperands().size(); ++i) {
-                LogicalTensors operands = op.GetOOperands();
-                if (operands[i]->tensor->rawshape.back() == 1 && OpcodeManager::Inst().GetOpCalcType(op.GetOpcode()) != OpCalcType::REDUCE) {
+            operands = op.GetOOperands();
+            for (size_t i = 0; i < operands.size(); ++i) {
+                if (operands[i]->tensor->rawshape.back() == 1 &&
+                    OpcodeManager::Inst().GetOpCalcType(op.GetOpcode()) != OpCalcType::REDUCE) {
                     outputCombineAxis.push_back(true);
                 } else {
                     outputCombineAxis.push_back(false);
