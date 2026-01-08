@@ -3515,13 +3515,3 @@ DynParamInfo &Function::GetMutableDynParam(std::string dim){
     (void)dim;
     return emptyDynParamInfo;
 }
-
-void Function::InsertDynParam(std::string dim, DynParamInfo &info){
-    ASSERT(GetGraphType() == GraphType::BLOCK_GRAPH && "InsertDynParam() should only be called on BlockFunction");
-    (void)dim;
-    (void)info;
-}
-
-const std::map<std::string, DynParamInfo> &Function::GetDynParamTable() const{
-    return emptyDynParamTable;
-}

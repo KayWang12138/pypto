@@ -21,6 +21,7 @@
 #include "interface/interpreter/raw_tensor_data.h"
 #include "interface/tensor/logical_tensor.h"
 #include "interface/operation/operation.h"
+#include "interface/function/block_function.h"
 #include "interface/utils/id_gen.h"
 #include "tilefwk/data_type.h"
 #include "codegen/codegen.h"
@@ -82,10 +83,11 @@ void TestAddDynBody(const std::vector<int64_t> &shape, const std::vector<int64_t
             }
         }
         DynParamInfo fakeParam = {3, 0, 0, DynParamInfoType::VALID_SHAPE, 0, SymbolicScalar(), false, ""};
-        subFunc.second->InsertDynParam("sym_2_dim_0", fakeParam);
-        subFunc.second->InsertDynParam("sym_2_dim_1", fakeParam);
-        subFunc.second->InsertDynParam("sym_4_dim_0", fakeParam);
-        subFunc.second->InsertDynParam("sym_4_dim_1", fakeParam);
+        auto leafFunc = dynamic_cast<BlockFunction *>(subFunc.second);
+        leafFunc->InsertDynParam("sym_2_dim_0", fakeParam);
+        leafFunc->InsertDynParam("sym_2_dim_1", fakeParam);
+        leafFunc->InsertDynParam("sym_4_dim_0", fakeParam);
+        leafFunc->InsertDynParam("sym_4_dim_1", fakeParam);
     }
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
@@ -131,10 +133,11 @@ TEST_F(TestCodegenDynBinary, TestAddsDynamic) {
             }
         }
         DynParamInfo fakeParam = {3, 0, 0, DynParamInfoType::VALID_SHAPE, 0, SymbolicScalar(), false, ""};
-        subFunc.second->InsertDynParam("sym_2_dim_0", fakeParam);
-        subFunc.second->InsertDynParam("sym_2_dim_1", fakeParam);
-        subFunc.second->InsertDynParam("sym_4_dim_0", fakeParam);
-        subFunc.second->InsertDynParam("sym_4_dim_1", fakeParam);
+        auto leafFunc = dynamic_cast<BlockFunction *>(subFunc.second);
+        leafFunc->InsertDynParam("sym_2_dim_0", fakeParam);
+        leafFunc->InsertDynParam("sym_2_dim_1", fakeParam);
+        leafFunc->InsertDynParam("sym_4_dim_0", fakeParam);
+        leafFunc->InsertDynParam("sym_4_dim_1", fakeParam);
     }
 
     npu::tile_fwk::CodeGenCtx ctx;
@@ -177,10 +180,11 @@ TEST_F(TestCodegenDynBinary, TestGatherEle) {
             }
         }
         DynParamInfo fakeParam = {2, 0, 0, DynParamInfoType::VALID_SHAPE, 0, SymbolicScalar(), false, ""};
-        subFunc.second->InsertDynParam("sym_2_dim_0", fakeParam);
-        subFunc.second->InsertDynParam("sym_2_dim_1", fakeParam);
-        subFunc.second->InsertDynParam("sym_4_dim_0", fakeParam);
-        subFunc.second->InsertDynParam("sym_4_dim_1", fakeParam);
+        auto leafFunc = dynamic_cast<BlockFunction *>(subFunc.second);
+        leafFunc->InsertDynParam("sym_2_dim_0", fakeParam);
+        leafFunc->InsertDynParam("sym_2_dim_1", fakeParam);
+        leafFunc->InsertDynParam("sym_4_dim_0", fakeParam);
+        leafFunc->InsertDynParam("sym_4_dim_1", fakeParam);
     }
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);

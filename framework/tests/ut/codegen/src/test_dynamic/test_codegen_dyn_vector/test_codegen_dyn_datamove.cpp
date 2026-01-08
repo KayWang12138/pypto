@@ -20,6 +20,7 @@
 #include "interface/inner/tilefwk.h"
 #include "interface/configs/config_manager.h"
 #include "interface/operation/operation.h"
+#include "interface/function/block_function.h"
 #include "tilefwk/data_type.h"
 #include "codegen/codegen.h"
 #include "codegen/symbol_mgr/codegen_symbol.h"
@@ -79,9 +80,10 @@ TEST_F(TestCodegenDynDataMove, TestDatamoveUnalignDim3) {
         DynParamInfo fakeParam = {3, 0, 0, DynParamInfoType::VALID_SHAPE, 0, SymbolicScalar(), true, ""};
         DynParamInfo replaceParam = {3, 0, 0, DynParamInfoType::VALID_SHAPE, 0, SymbolicScalar(), false, "sym_2_dim_0"};
         DynParamInfo baseParam = {3, 0, 0, DynParamInfoType::OFFSET, 0, SymbolicScalar(), false, ""};
-        subFunc.second->InsertDynParam("sym_2_dim_0", fakeParam);
-        subFunc.second->InsertDynParam("sym_2_dim_1", replaceParam);
-        subFunc.second->InsertDynParam("sym_2_dim_2", baseParam);
+        auto leafFunc = dynamic_cast<BlockFunction *>(subFunc.second);
+        leafFunc->InsertDynParam("sym_2_dim_0", fakeParam);
+        leafFunc->InsertDynParam("sym_2_dim_1", replaceParam);
+        leafFunc->InsertDynParam("sym_2_dim_2", baseParam);
     }
 
     npu::tile_fwk::CodeGenCtx ctx;
@@ -123,10 +125,11 @@ TEST_F(TestCodegenDynDataMove, TestDatamoveUnalignDim4) {
             }
         }
         DynParamInfo fakeParam = {4, 0, 0, DynParamInfoType::VALID_SHAPE, 0, SymbolicScalar(), false, ""};
-        subFunc.second->InsertDynParam("sym_13_dim_0", fakeParam);
-        subFunc.second->InsertDynParam("sym_13_dim_1", fakeParam);
-        subFunc.second->InsertDynParam("sym_13_dim_2", fakeParam);
-        subFunc.second->InsertDynParam("sym_13_dim_3", fakeParam);
+        auto leafFunc = dynamic_cast<BlockFunction *>(subFunc.second);
+        leafFunc->InsertDynParam("sym_13_dim_0", fakeParam);
+        leafFunc->InsertDynParam("sym_13_dim_1", fakeParam);
+        leafFunc->InsertDynParam("sym_13_dim_2", fakeParam);
+        leafFunc->InsertDynParam("sym_13_dim_3", fakeParam);
     }
 
     npu::tile_fwk::CodeGenCtx ctx;

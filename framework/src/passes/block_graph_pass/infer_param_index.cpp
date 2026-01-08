@@ -19,6 +19,7 @@
 #include "interface/operation/op_infer_shape_impl.h"
 #include "interface/operation/opcode.h"
 #include "passes/pass_log/pass_log.h"
+#include "interface/function/block_function.h"
 
 #define MODULE_NAME "InferParamIndex"
 
@@ -173,7 +174,9 @@ Status InferParamIndex::SetSubValidShape(Function &subFunc, std::map<int, std::v
             auto paramInfo = DynParamInfo{
                 static_cast<int>(validShape.second.size()), tensorIndex, tensorBaseAddrCoaIndex, DynParamInfoType::VALID_SHAPE,
                 dimIdx, dynDim, false, ""};
-            subFunc.InsertDynParam(dim.Dump(), paramInfo);
+            
+            auto leafFunc = dynamic_cast<BlockFunction* >(&subFunc);
+            leafFunc->InsertDynParam(dim.Dump(), paramInfo);
             dimIdx++;
         }
         tensorIndex++;
@@ -204,7 +207,8 @@ Status InferParamIndex::UpdateParamIndex(Function &function) {
             APASS_LOG_ERROR_F(Elements::Function, "Update valid shape for the function %s failed. Please check above for more information.", function.GetRawName().c_str());
             return FAILED;
         }
-        APASS_LOG_DEBUG_F(Elements::Function, "Print function after update: %s\n", DumpParamIndex(subFunc.GetDynParamTable()).c_str());
+        auto leafFunc = dynamic_cast<BlockFunction* >(&subFunc);
+        APASS_LOG_DEBUG_F(Elements::Function, "Print function after update: %s\n", DumpParamIndex(leafFunc->GetDynParamTable()).c_str());
     }
     return SUCCESS;
 }

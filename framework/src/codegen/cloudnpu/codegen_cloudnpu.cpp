@@ -23,6 +23,7 @@
 #include "interface/utils/file_utils.h"
 #include "interface/tensor/logical_tensor.h"
 #include "interface/function/function.h"
+#include "interface/function/block_function.h"
 #include "interface/configs/config_manager.h"
 #include "securec.h"
 #include "tilefwk/tilefwk.h"
@@ -217,7 +218,8 @@ std::string CodeGenCloudNPU::GenDynParamForExpr(const Function &func) const {
         return {};
     }
     std::string dynParamList;
-    for (const auto &dynParam : func.GetDynParamTable()) {
+    auto leafFunc = dynamic_cast<const BlockFunction*>(&func);
+    for (const auto &dynParam : leafFunc->GetDynParamTable()) {
         if (dynParam.second.replacedSymbol.empty()) {
             std::string dynParamExpr = "uint64_t " + dynParam.first + " = ";
             DynParamInfo info = dynParam.second;
@@ -234,7 +236,8 @@ std::string CodeGenCloudNPU::GenDynParamForExpr(const Function &func) const {
             dynParamList += dynParamExpr;
         }
     }
-    for (const auto &dynParam : func.GetDynParamTable()) {
+    leafFunc = dynamic_cast<const BlockFunction*>(&func);
+    for (const auto &dynParam : leafFunc->GetDynParamTable()) {
         if (!dynParam.second.replacedSymbol.empty()) {
             std::string dynParamExpr = "uint64_t " + dynParam.first + " = ";
             dynParamExpr += dynParam.second.replacedSymbol;

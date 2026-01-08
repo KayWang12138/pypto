@@ -16,6 +16,7 @@
 #include "gtest/gtest.h"
 #include "tilefwk/tilefwk_op.h"
 #include "interface/function/function.h"
+#include "interface/function/block_function.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "passes/pass_mgr/pass_manager.h"
@@ -229,7 +230,8 @@ TEST_F(DynAttrToStaticTest, TestDynExpression) {
     Function* rootFunc = loopPathFunc->rootFunc_;
     ASSERT_NE(rootFunc, nullptr);
     for (auto it = rootFunc->programs_.begin(); it != rootFunc->programs_.end(); it++) {
-        Function* leafFunc = it->second;
+        // Function* leafFunc = it->second;
+        auto leafFunc = dynamic_cast<BlockFunction *>(it->second);
         for (const auto &dynParam : leafFunc->GetDynParamTable()) {
             if (dynParam.second.replacedSymbol.empty() && dynParam.second.dim.IsValid()) {
                 std::reference_wrapper<SymbolicScalar> dynExpr = const_cast<SymbolicScalar&>(dynParam.second.dim);

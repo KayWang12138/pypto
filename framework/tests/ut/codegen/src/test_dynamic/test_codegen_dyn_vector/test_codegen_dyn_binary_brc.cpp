@@ -25,6 +25,7 @@
 #include "codegen/symbol_mgr/codegen_symbol.h"
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
 #include "test_codegen_common.h"
+#include "interface/function/block_function.h"
 
 namespace npu::tile_fwk {
 
@@ -79,14 +80,15 @@ TEST_F(TestCodegenDynBinaryBrc, TestMulDynamic) {
             }
         }
         DynParamInfo fakeParam = {3, 0, 0, DynParamInfoType::VALID_SHAPE, 0, SymbolicScalar(), false, ""};
-        subFunc.second->InsertDynParam("sym_18_dim_0", fakeParam);
-        subFunc.second->InsertDynParam("sym_18_dim_1", fakeParam);
-        subFunc.second->InsertDynParam("sym_19_dim_0", fakeParam);
-        subFunc.second->InsertDynParam("sym_19_dim_1", fakeParam);
-        subFunc.second->InsertDynParam("sym_32_dim_0", fakeParam);
-        subFunc.second->InsertDynParam("sym_32_dim_1", fakeParam);
-        subFunc.second->InsertDynParam("sym_42_dim_0", fakeParam);
-        subFunc.second->InsertDynParam("sym_42_dim_1", fakeParam);
+        auto leafFunc = dynamic_cast<BlockFunction *>(subFunc.second);
+        leafFunc->InsertDynParam("sym_18_dim_0", fakeParam);
+        leafFunc->InsertDynParam("sym_18_dim_1", fakeParam);
+        leafFunc->InsertDynParam("sym_19_dim_0", fakeParam);
+        leafFunc->InsertDynParam("sym_19_dim_1", fakeParam);
+        leafFunc->InsertDynParam("sym_32_dim_0", fakeParam);
+        leafFunc->InsertDynParam("sym_32_dim_1", fakeParam);
+        leafFunc->InsertDynParam("sym_42_dim_0", fakeParam);
+        leafFunc->InsertDynParam("sym_42_dim_1", fakeParam);
     }
 
     npu::tile_fwk::CodeGenCtx ctx;

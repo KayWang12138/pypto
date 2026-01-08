@@ -20,6 +20,7 @@
 #include "interface/inner/tilefwk.h"
 #include "interface/configs/config_manager.h"
 #include "interface/operation/operation.h"
+#include "interface/function/block_function.h"
 #include "tilefwk/data_type.h"
 #include "codegen/codegen.h"
 #include "codegen/symbol_mgr/codegen_symbol.h"
@@ -72,10 +73,11 @@ void TestDynVnchwconvBody(std::vector<int64_t> shape, std::vector<int64_t> outSh
             }
         }
         DynParamInfo fakeParam = {4, 0, 0, DynParamInfoType::VALID_SHAPE, 0, SymbolicScalar(), false, ""};
-        subFunc.second->InsertDynParam("sym_21_dim_0", fakeParam);
-        subFunc.second->InsertDynParam("sym_21_dim_1", fakeParam);
-        subFunc.second->InsertDynParam("sym_21_dim_2", fakeParam);
-        subFunc.second->InsertDynParam("sym_21_dim_3", fakeParam);
+        auto leafFunc = dynamic_cast<BlockFunction *>(subFunc.second);
+        leafFunc->InsertDynParam("sym_21_dim_0", fakeParam);
+        leafFunc->InsertDynParam("sym_21_dim_1", fakeParam);
+        leafFunc->InsertDynParam("sym_21_dim_2", fakeParam);
+        leafFunc->InsertDynParam("sym_21_dim_3", fakeParam);
     }
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);

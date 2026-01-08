@@ -14,6 +14,7 @@
  */
 
 #include "passes/block_graph_pass/dyn_attr_to_static.h"
+#include "interface/function/block_function.h"
 
 namespace npu {
 namespace tile_fwk {
@@ -313,7 +314,8 @@ void ReplaceCommonSymbol(Function *leafFunc, std::vector<std::vector<SymbolicSca
         }
     } 
     std::map<std::string, int> symbol2CoaIdx;
-    for (const auto &dynParam : leafFunc->GetDynParamTable()) {
+    auto subFunc = dynamic_cast<BlockFunction *>(leafFunc);
+    for (const auto &dynParam : subFunc->GetDynParamTable()) {
         if (dynParam.second.dim.IsValid()) {
             std::string dynParamExpr = SymbolicExpressionTable::BuildExpression(dynParam.second.dim);
             if (dynParamExpr.find(COA_PREFIX) != 1) {
@@ -349,7 +351,8 @@ inline SymbolicScalar BuildMaybeConstCoa(int attrValue, const DynParamInfo &para
 
 void ReBuildConcreteParam(Function *leafFunc, std::vector<std::vector<SymbolicScalar>> &callopArglistOneDim) {
     std::map<std::string, int> concreteParamCoaIdx;
-    for (auto &dynParam : leafFunc->GetDynParamTable()) {
+    auto subFunc = dynamic_cast<BlockFunction *>(leafFunc);
+    for (auto &dynParam : subFunc->GetDynParamTable()) {
         if (dynParam.second.dim.IsValid()) {
             std::string dynParamExpr = SymbolicExpressionTable::BuildExpression(dynParam.second.dim);
             if (dynParamExpr.find(COA_PREFIX) != 1) {

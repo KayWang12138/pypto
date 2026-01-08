@@ -802,8 +802,6 @@ public:
     virtual void AppendIncast(LogicalTensorPtr tensor, int opmagic, int k);
     virtual void AppendOutcast(LogicalTensorPtr tensor, int opmagic, int k);
     virtual DynParamInfo &GetMutableDynParam(std::string dim);
-    virtual void InsertDynParam(std::string dim, DynParamInfo &info);
-    virtual const std::map<std::string, DynParamInfo> &GetDynParamTable() const;
 protected:
     std::vector<std::shared_ptr<Operation>> operations_; // operation的获取必须要使用Operations函数，来获取到符合拓扑序的List
     std::unordered_map<const Operation *, int> opPosition_; // position of operation in Operation.operations_

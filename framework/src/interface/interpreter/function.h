@@ -20,6 +20,7 @@
 #include "interface/interpreter/operation.h"
 #include "interface/tensor/symbolic_scalar_evaluate.h"
 #include "calc.h"
+#include "interface/function/block_function.h"
 
 namespace npu::tile_fwk {
 
@@ -598,7 +599,8 @@ struct FunctionInterpreter {
         }
 
         UpdateIODataPair(inoutDataPair);
-        auto dynParamTable = func->GetDynParamTable();
+        auto leafFunc = dynamic_cast<BlockFunction *>(func);
+        auto dynParamTable = leafFunc->GetDynParamTable();
         EvaluateDynParam(dynParamTable, linearArgList);
 
         ExecuteHandleFunctionBegin(func, frame);

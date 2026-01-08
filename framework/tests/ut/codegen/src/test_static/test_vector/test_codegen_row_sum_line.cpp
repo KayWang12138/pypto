@@ -22,6 +22,7 @@
 #include "interface/operation/operation.h"
 #include "interface/interpreter/raw_tensor_data.h"
 #include "interface/function/function.h"
+#include "interface/function/block_function.h"
 #include "tilefwk/data_type.h"
 #include "codegen/codegen.h"
 #include "codegen/symbol_mgr/codegen_symbol.h"
@@ -82,9 +83,10 @@ TEST_F(TestCodegenRowSumLine, TestOperationRowSumLineTileTensor) {
             }
         }
         DynParamInfo fakeParam = {3, 0, 0, DynParamInfoType::VALID_SHAPE, 0, SymbolicScalar(), false, ""};
-        subFunc.second->InsertDynParam("sym_23_dim_0", fakeParam);
-        subFunc.second->InsertDynParam("sym_23_dim_1", fakeParam);
-        subFunc.second->InsertDynParam("sym_23_dim_2", fakeParam);
+        auto leafFunc = dynamic_cast<BlockFunction *>(subFunc.second);
+        leafFunc->InsertDynParam("sym_23_dim_0", fakeParam);
+        leafFunc->InsertDynParam("sym_23_dim_1", fakeParam);
+        leafFunc->InsertDynParam("sym_23_dim_2", fakeParam);
     }
 
     npu::tile_fwk::CodeGenCtx ctx;

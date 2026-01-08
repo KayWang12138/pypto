@@ -22,6 +22,7 @@
 #include "interface/inner/tilefwk.h"
 #include "interface/configs/config_manager.h"
 #include "interface/operation/operation.h"
+#include "interface/function/block_function.h"
 #include "tilefwk/data_type.h"
 #include "codegen/symbol_mgr/codegen_symbol.h"
 #include "passes/pass_mgr/pass_manager.h"
@@ -164,10 +165,11 @@ TEST_F(TestCodegenDynIndexOutCast, DynIndexOutUnaligned) {
             }
         }
         DynParamInfo fakeParam = {2, 0, 1, DynParamInfoType::VALID_SHAPE, 0, SymbolicScalar(), false, ""};
-        subFunc.second->InsertDynParam("sym_32_dim_0", fakeParam);
-        subFunc.second->InsertDynParam("sym_32_dim_1", fakeParam);
-        subFunc.second->InsertDynParam("sym_38_dim_0", fakeParam);
-        subFunc.second->InsertDynParam("sym_38_dim_1", fakeParam);
+        auto leafFunc = dynamic_cast<BlockFunction *>(subFunc.second);
+        leafFunc->InsertDynParam("sym_32_dim_0", fakeParam);
+        leafFunc->InsertDynParam("sym_32_dim_1", fakeParam);
+        leafFunc->InsertDynParam("sym_38_dim_0", fakeParam);
+        leafFunc->InsertDynParam("sym_38_dim_1", fakeParam);
     }
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);

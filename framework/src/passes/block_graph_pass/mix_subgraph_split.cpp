@@ -1877,14 +1877,16 @@ std::unordered_map<int, std::set<int>> MixSubgraphSplit::ComputeDependencyClosur
 Status MixSubgraphSplit::CopyInferParamIndexInfo(Function* originalMixFunc,
                                                 const std::vector<Function*>& newFunctions) const {
     // 获取原Mix子图的完整符号表
-    const auto& originalDynParamTable = originalMixFunc->GetDynParamTable();
+    auto leafFunc = dynamic_cast<BlockFunction*>(originalMixFunc);
+    const auto& originalDynParamTable = leafFunc->GetDynParamTable();
 
     // 为每个新子图继承相同的符号表
     for (auto* newFunc : newFunctions) {
         // 使用InsertDynParam方法逐个复制dynParam
         for (const auto& [dim, info] : originalDynParamTable) {
             DynParamInfo copiedInfo = info;
-            newFunc->InsertDynParam(dim, copiedInfo);
+            auto newLeafFunc = dynamic_cast<BlockFunction*>(newFunc);
+            newLeafFunc->InsertDynParam(dim, copiedInfo);
         }
         ALOG_DEBUG_F("Copied %zu dyn param entries to function: %s",
                     originalDynParamTable.size(), newFunc->GetRawName().c_str());

@@ -91,11 +91,11 @@ public:
         return dynParamTable_[dim];
     }
 
-    void InsertDynParam(std::string dim, DynParamInfo &info) override {
+    void InsertDynParam(std::string dim, DynParamInfo &info) {
         dynParamTable_.emplace(dim, info);
     }
 
-    const std::map<std::string, DynParamInfo> &GetDynParamTable() const override {
+    const std::map<std::string, DynParamInfo> &GetDynParamTable() const {
         return dynParamTable_;
     }
 private:
