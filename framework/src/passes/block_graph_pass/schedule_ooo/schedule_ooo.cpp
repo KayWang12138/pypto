@@ -80,7 +80,7 @@ Status OoOSchedule::RunOnFunction(Function &function) {
         oriFunctions.emplace_back(program.second);
         if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510 || !IsMixGraph(opList)) {
             // 直接对oplist进行GenSpill和mainLoop
-            OoOScheduler oooSchedule(*program.second, ConfigManager::Instance().GetOperationConfig("COMBINE_AXIS", false));
+            OoOScheduler ooOSchedule(*program.second, ConfigManager::Instance().GetOperationConfig("COMBINE_AXIS", false));
             if (ooOSchedule.Schedule(opList) != SUCCESS) {
                 APASS_LOG_ERROR_F(Elements::Operation, "Non-mixGraph schedule failed.");
                 return FAILED;
