@@ -20,8 +20,21 @@ import pypto
 import logging
 import numpy as np
 from sparse_flash_attention_impl \
-    import sparse_flash_attention_d, sparse_flash_attention_p, SaTileShapeConfig
+    import sparse_flash_attention_v4, sparse_flash_attention_d, sparse_flash_attention_p, SaTileShapeConfig
 from utils.compare import compare
+
+
+class SparseFlashAttentionV4(torch.nn.Module):
+    def forward(self, q_nope_npu, q_rope_npu, kn_npu, kr_npu,
+                             topk_indices_npu, block_table_npu, kv_act_seqs_npu, atten_sink_npu,
+                             attention_out_npu, n_q, n_kv, softmax_scale, topk,
+                             block_size, max_blocknum_perbatch, is_p):
+        for i in range(30):
+            torch.add(q_nope_npu, 0)
+        sparse_flash_attention_v4(q_nope_npu, q_rope_npu, kn_npu, kr_npu,
+                             topk_indices_npu, block_table_npu, kv_act_seqs_npu, atten_sink_npu,
+                             attention_out_npu, n_q, n_kv, softmax_scale, topk,
+                             block_size, max_blocknum_perbatch, is_p)
 
 
 def gen_uniform_data(data_shape, min_value, max_value, dtype):
@@ -327,6 +340,48 @@ def do_test_sparse_attention_func(bn1n2s1, actual_seq, input_params, input_data,
     compare(calc_attention_out_npu.cpu(), atten_out, "atten_out", atol=0.0001, rtol=0.005, max_error_count=100)
 
 
+def do_test_sparse_attention_func_acl_graph(bn1n2s1, actual_seq, input_params, input_data, atten_out, is_p):
+    b, n1, n2, s1 = bn1n2s1
+
+    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
+    torch.npu.set_device(device_id)
+
+    b, s1, n_q, n_kv, max_kv_seq, kv_lora_rank, qk_rope_dim, block_num, block_size, topk, \
+        softmax_scale = input_params
+    q_nope, q_rope, kn, kr, topk_indices, block_table, atten_sink = input_data
+    kv_act_seqs = torch.tensor(actual_seq, dtype=torch.int32)
+
+    calc_attention_out = torch.zeros([b, s1, n_q, kv_lora_rank], dtype=torch.bfloat16)
+
+    q_nope_npu = q_nope.npu()
+    q_rope_npu = q_rope.npu()
+    kn_npu = kn.npu()
+    kr_npu = kr.npu()
+    topk_indices_npu = topk_indices.npu()
+    block_table_npu = block_table.npu()
+    kv_act_seqs_npu = kv_act_seqs.npu()
+    atten_sink_npu = atten_sink.npu()
+
+    calc_attention_out_npu = calc_attention_out.npu()
+
+    max_blocknum_perbatch = math.ceil(max_kv_seq / block_size)
+
+    sfa_model = torch.compile(SparseFlashAttentionV4(), backend="eager", dynamic=True)
+
+    # capture model
+    g = torch.npu.NPUGraph()
+    with torch.npu.graph(g):
+        sfa_model(q_nope_npu, q_rope_npu, kn_npu, kr_npu, topk_indices_npu, block_table_npu,
+                                  kv_act_seqs_npu, atten_sink_npu, calc_attention_out_npu, n_q, n_kv, softmax_scale,
+                                  topk, block_size, max_blocknum_perbatch, is_p)
+
+    for i in range(20):
+        g.replay()
+        pypto.runtime._device_synchronize() # 内部接口，不推荐使用
+
+    compare(calc_attention_out_npu.cpu(), atten_out, "atten_out", atol=0.0001, rtol=0.005, max_error_count=100)
+
+
 def get_case_config(case_name: str):
     # case参数配置字典，key为case名称，value为对应的参数元组(bn1n2s1, is_kn_quant, actual_seq)
     test_case_config = {
@@ -347,7 +402,7 @@ def get_case_config(case_name: str):
     return case_config
 
 
-def do_test_sfa_entry(case_name: str, is_p: bool):
+def do_test_sfa_entry(case_name: str, is_p: bool,  is_acl_graph: bool = False):
     case_config = get_case_config(case_name)
     if not case_config:
         logging.error("Can't get func to gen golden, Case(%s)", case_name)
@@ -357,9 +412,14 @@ def do_test_sfa_entry(case_name: str, is_p: bool):
     input_params, input_data, atten_out = gen_gather_select_attention_golden(
         torch.bfloat16, bn1n2s1, actual_seq
     )
-    do_test_sparse_attention_func(
-        bn1n2s1, actual_seq, input_params, input_data, atten_out, is_p
-    )
+    if is_acl_graph:
+        do_test_sparse_attention_func_acl_graph(
+            bn1n2s1, actual_seq, input_params, input_data, atten_out, is_p
+        )
+    else:
+        do_test_sparse_attention_func(
+            bn1n2s1, actual_seq, input_params, input_data, atten_out, is_p
+        )
     return True
 
 
@@ -384,6 +444,14 @@ def test_sfa_bf16_b4_s4_seq64k_per_d():
     sfa decode测试函数
     '''
     do_test_sfa_entry("sfa_bf16_b4_s4_seq64K_per_int8_d", is_p=False)
+
+
+# @pytest.mark.skip(reason="acl graph perf")
+def test_sfa_bf16_b4_s4_seq64k_per_graph_d():
+    '''
+    sfa decode测试函数
+    '''
+    do_test_sfa_entry("sfa_bf16_b4_s4_seq64K_per_int8_d", is_p=False, is_acl_graph=True)
 
 
 # @pytest.mark.skip(reason="large test case")
