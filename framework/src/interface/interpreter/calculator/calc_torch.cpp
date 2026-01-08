@@ -246,8 +246,23 @@ static void MaxS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Elem
 }
 
 static void Range(LogicalTensorDataPtr out, const Element &start, const Element &end, const Element &step) {
+    auto to_double = [](const Element& e) -> double {
+        if (e.IsFloat()) return e.GetFloatData();
+        if (e.IsSigned()) return static_cast<double>(e.GetSignedData());
+        return static_cast<double>(e.GetUnsignedData());
+    };
+    double start_val = to_double(start);
+    double end_val   = to_double(end); 
+    double step_val  = to_double(step);
+    auto tmp = torch::arange(start_val, end_val, step_val);
+    int64_t expected_numel = 1;
+    for (int64_t dim : out->GetShape()) {
+        expected_numel *= dim;
+    }
+    TORCH_CHECK(tmp.numel() == expected_numel,
+        "Range numel mismatch: generated ", tmp.numel(), ", expected ", expected_numel);
     auto tout = From(out);
-    torch::range_out(tout, From(start), From(end), From(step));
+    tout.copy_(tmp);
 }
 
 static void Compare(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other,
