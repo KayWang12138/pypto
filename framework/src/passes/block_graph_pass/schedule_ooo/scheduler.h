@@ -190,6 +190,8 @@ private:
     Status GenSpillSchedule();
     Status ExecuteAllocIssue(IssueEntryPtr issue, size_t &pcIdx);
     Status RetireIssue(IssueEntryPtr issue);
+    bool IsInissueEntries(Operation* op);
+    Status InitMemWithoutAlloc();
     Status ScheduleMainLoop();
     void LaunchReadyIssue();
     Status RetireIssueStage(uint64_t& commitCnt, int& nextCycle);

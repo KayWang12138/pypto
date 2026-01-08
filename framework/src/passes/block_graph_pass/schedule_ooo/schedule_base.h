@@ -176,6 +176,8 @@ public:
             outGraph[op].clear();
             for (auto &tensor : op->GetIOperands()) {
                 UpdateBufRefCount(tensor);
+                int memId = tensor->memoryrange.memId;
+                InitLocalBuffer(tensor, memId);
             }
             for (auto &tensor : op->GetOOperands()) {
                 UpdateBufRefCount(tensor);
