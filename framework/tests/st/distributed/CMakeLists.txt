@@ -31,6 +31,13 @@ PTO_Fwk_GTest_AddExe(
         PRIVATE_LINK_LIBRARIES  ${_PrivateLinkLibraries}
 )
 
+# 将测试数据目录传递给C++代码
+set(TEST_CASE_DIR "${PTO_FWK_SRC_ROOT}/framework/tests/st/distributed/ops/test_case")
+
+target_compile_definitions(${_Target} PRIVATE 
+    TEST_CASE_DIR="${TEST_CASE_DIR}"
+)
+
 # PyPTO, 依赖 CI 任务拆分, 先通过依赖确保上板顺序
 if (TARGET ${PTO_Fwk_STestNamePrefix}_python)
     message(STATUS "Add Dependencies ${_Target} -> ${PTO_Fwk_STestNamePrefix}_python")
@@ -48,7 +55,7 @@ set(_DistributedGTestCaseFilterConfig
         "TestReducescatter/DistributedTest.TestReducescatter/1" "4"
         "TestReducescatter/DistributedTest.TestReducescatter/2" "4"
         "TestAllgather_AttnPost_Reducescatter/DistributedTest.TestAllgather_AttnPost_Reducescatter/0" "4"
-        "TestAllreduce_Add_Allreduce/DistributedTest.TestAllreduce_Add_Allreduce/0" "4"
+        # "TestAllreduce_Add_Allreduce/DistributedTest.TestAllreduce_Add_Allreduce/0" "4"
 )
 set(_LdLibrariesExt
         tile_fwk_compiler

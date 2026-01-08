@@ -23,6 +23,7 @@
 #include "test_common.h"
 #include "distributed_op_test_suite.h"
 #include "distributed_test_framework.h"
+#include <filesystem>
 
 namespace npu::tile_fwk::Distributed {
 
@@ -119,7 +120,21 @@ void GegisterAllOps()
 template <typename T>
 std::vector<T> GetOpMetaData(const std::string &op)
 {
-    auto caseFile = "../../../framework/tests/st/distributed/ops/test_case/" + op + "_st_test_cases.json";
+    // 使用CMake传递的绝对路径
+    #ifdef TEST_CASE_DIR
+    std::filesystem::path caseFile = std::filesystem::path(TEST_CASE_DIR) / (op + "_st_test_cases.json");
+    #else
+    // 回退方案，使用相对路径
+    std::filesystem::path caseFile = "../../../framework/tests/st/distributed/ops/test_case/" 
+                       + op + "_st_test_cases.json";
+    #endif
+    
+    // 检查文件是否存在
+    if (!std::filesystem::exists(caseFile)) {
+        std::cerr << "JSON文件不存在: " << caseFile << std::endl;
+        std::cerr << "绝对路径: " << std::filesystem::absolute(caseFile) << std::endl;
+        return {};
+    }
     std::ifstream jsonFile(caseFile);
     if (!jsonFile.is_open()) {
         std::cerr << "Failed to open JSON file for op " << op << ". "
