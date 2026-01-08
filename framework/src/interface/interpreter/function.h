@@ -368,11 +368,13 @@ struct FunctionInterpreter {
     ScalarImmediateType EvaluateSymbolicScalar(const SymbolicScalar &ss) {
         return operationInterpreter->EvaluateSymbolicScalar(ss);
     }
-    std::vector<int64_t> EvaluateOffset(const std::vector<int64_t> &offset, const std::vector<SymbolicScalar> &dynOffset){
-        return operationInterpreter->EvaluateOffset(offset, dynOffset);
+    std::vector<int64_t> EvaluateOffset(const std::vector<int64_t> &offset, const std::vector<SymbolicScalar> &dynOffset,
+            const std::vector<SymbolicScalar> &linearArgList = {}){
+        return operationInterpreter->EvaluateOffset(offset, dynOffset, linearArgList);
     }
-    std::vector<int64_t> EvaluateValidShape(const std::vector<SymbolicScalar> &dynValidShape) {
-        return operationInterpreter->EvaluateValidShape(dynValidShape);
+    std::vector<int64_t> EvaluateValidShape(const std::vector<SymbolicScalar> &dynValidShape,
+            const std::vector<SymbolicScalar> &linearArgList = {}) {
+        return operationInterpreter->EvaluateValidShape(dynValidShape, linearArgList);
     }
     void EvaluateDynParam(
         const std::map<std::string, DynParamInfo> &dynParamTable, const std::vector<SymbolicScalar> &linearArgList) {
@@ -439,8 +441,12 @@ struct FunctionInterpreter {
     std::shared_ptr<LogicalTensorData> AllocateDataView(FunctionFrame &frame,
         const std::shared_ptr<LogicalTensor> &tensor, DataType dtype,
         const std::shared_ptr<LogicalTensor> &inplaceTensor = nullptr) {
-        std::vector<int64_t> offset = EvaluateOffset(tensor->GetOffset(), tensor->GetDynOffset());
-        auto validShape = EvaluateValidShape(tensor->GetDynValidShape());
+        std::vector<SymbolicScalar> linearArgList;
+        if (frame.callopAttr != nullptr) {
+            linearArgList = frame.callopAttr->GetLinearArgList();
+        }
+        std::vector<int64_t> offset = EvaluateOffset(tensor->GetOffset(), tensor->GetDynOffset(), linearArgList);
+        auto validShape = EvaluateValidShape(tensor->GetDynValidShape(), linearArgList);
         auto rawShape = EvaluateValidShape(tensor->GetRawTensor()->GetDynRawShape());
         auto ret = frame.AllocateDataView(tensor, offset, validShape, rawShape, dtype, inplaceTensor);
         return ret;
