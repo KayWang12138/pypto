@@ -47,42 +47,62 @@ public:
 
     void TearDown() override {}
 };
-TEST_F(TestCodegenDynOneHot, TestDynOneHotUnalign) {
+void TestOneHotBody(int dim = 2) {
     std::vector<int64_t> indicesShape = {8, 16};
-    std::vector<int64_t> outputShape = {8, 16, 32}; // depth=32
+    std::vector<int64_t> outputShape = {8, 16, 64}; // depth=64
+    std::vector<SymbolicScalar> dynValidShape = {8, 16};
+    std::vector<SymbolicScalar> dynOutputShape = {8, 16, 64};
+    if (dim == 3) {
+        indicesShape = {8, 16, 32};
+        outputShape = {8, 16, 32, 64}; // depth=64
+        dynValidShape = {8, 16, 32};
+        dynOutputShape = {8, 16, 32, 64};
+    }
+    auto shapeImme = OpImmediate::Specified(outputShape);
+    TileShape::Current().SetVecTile(outputShape);
 
-    TileShape::Current().SetVecTile({8, 16, 32});
+    Tensor inputStub(DT_INT32, indicesShape, "indices");
+    Tensor outputStub(DT_INT64, outputShape, "onehot");
 
-    Tensor input(DataType::DT_INT32, indicesShape, "indices");
-    Tensor output(DataType::DT_INT64, outputShape, "onehot");
     std::string funcName = "ONEHOT";
-    FUNCTION(funcName, {input, output}) {
+    FUNCTION(funcName, {inputStub, outputStub}) {
         LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
             (void)i;
-            output = Transpose(input, {0});
+            outputStub = Add(inputStub, inputStub);
         }
     }
-    auto function = Program::GetInstance().GetFunctionByRawName(
-        FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
-    function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
     function->SetUnderDynamicFunction(true);
-    for (auto &subFunc : function->rootFunc_->programs_) {
-        for (auto &op : subFunc.second->Operations()) {
-            if (OpcodeManager::Inst().IsCopyIn(op.GetOpcode()) ||
-                OpcodeManager::Inst().IsCopyOut(op.GetOpcode())) {
-                op.SetIOpAttrOffset(0, 0);
-                op.SetOOpAttrOffset(0, 0);
-                op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
-            }
-        }
-        DynParamInfo p = {3, 0, 0, DynParamInfoType::VALID_SHAPE, 0, SymbolicScalar(), false, ""};
-        subFunc.second->dynParamTable_.emplace("sym_23_dim_0", p);
-        subFunc.second->dynParamTable_.emplace("sym_23_dim_1", p);
-        subFunc.second->dynParamTable_.emplace("sym_23_dim_2", p);
-    }
 
-    npu::tile_fwk::CodeGenCtx ctx;
-    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
-    codeGen.GenCode(*function, {});
+    auto localIndices =
+        CreateLogicalTensor({*function, DataType::DT_INT32, MemoryType::MEM_UB, indicesShape, dynValidShape});
+    auto localOutput = CreateLogicalTensor({*function, DataType::DT_INT64, MemoryType::MEM_UB, outputShape, dynOutputShape});
+
+    auto &op = function->AddOperation(Opcode::OP_ONE_HOT, {localIndices}, {localOutput});
+    op.SetAttribute(OP_ATTR_PREFIX + "shape", outputShape);
+    op.SetAttribute("depth", static_cast<int64_t>(64));
+    op.SetAttribute("axis", static_cast<int64_t>(-1));
+    op.SetOOpAttrOffset(0, 0);
+    op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
+
+    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
+    CodeGenCtx ctx;
+    CodeGenCloudNPU cga(ctx);
+    cga.GenAllocForLocalBuffer(op, symbolManager);
+    CodeGenOpCloudNPU cop(symbolManager, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
+    function->GetTensorMap().inverseMap_[localIndices->GetMagic()] = localIndices;
+    function->GetTensorMap().inverseMap_[localOutput->GetMagic()] = localOutput;
+
+    cop.Init(op);
+    cop.GenOpCode();
 }
+
+TEST_F(TestCodegenDynOneHot, OneHotDim2) {
+    TestOneHotBody();
 }
+
+TEST_F(TestCodegenDynOneHot, OneHotDim3) {
+    TestOneHotBody(3);
+}
+} // namespace npu::tile_fwk
