@@ -84,6 +84,9 @@ include(cmake/third_party/googletest/googletest.cmake)
 # 编译流程
 ########################################################################################################################
 
+add_compile_options(-Wno-free-nonheap-object)
+add_compile_options(-Wno-error=free-nonheap-object)
+
 add_subdirectory(framework)
 add_subdirectory(python)
 
