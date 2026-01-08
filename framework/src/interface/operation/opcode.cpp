@@ -437,6 +437,8 @@ OpcodeManager::OpcodeManager() {
         {         Opcode::OP_UB_COPY_IN,          "TLoad"},
         {        Opcode::OP_UB_COPY_OUT,         "TStore"},
         {Opcode::OP_TRANSPOSE_VNCHWCONV,         "TTrans"},
+        {   Opcode::OP_TRANSPOSE_MOVEIN,   "TTransMoveIn"},
+        {  Opcode::OP_TRANSPOSE_MOVEOUT,  "TTransMoveOut"},
         {                Opcode::OP_ADD,           "TAdd"},
         {                Opcode::OP_SUB,           "TSub"},
         {                Opcode::OP_DIV,           "TDiv"},
@@ -467,5 +469,6 @@ OpcodeManager::OpcodeManager() {
         {            Opcode::OP_PAIRMAX,       "TPairMax"},
         {            Opcode::OP_PAIRMIN,       "TPairMin"},
         {        Opcode::OP_L0C_COPY_UB,       "TExtract"},
+        {            Opcode::OP_VEC_DUP,        "TVecDup"},
     };
 } // namespace npu::tile_fwk
