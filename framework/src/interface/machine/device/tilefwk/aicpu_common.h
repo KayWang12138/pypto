@@ -26,6 +26,7 @@ const uint64_t AICORE_TASK_MAX = 0x70000000;
 
 const uint64_t AICORE_SAY_HELLO = 0x80000000;
 const uint64_t AICORE_SAY_ACK = 0x80000000;
+const uint64_t AICORE_SAY_GOODBYE = 0x88888888;
 const int64_t PRO_LEVEL1 = 2;
 const int64_t PRO_LEVEL2 = 3;
 

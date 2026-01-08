@@ -1554,9 +1554,6 @@ private:
 
     inline void NormalStop() {
         DEV_INFO("aicore manager %d try normal stop .", aicpuIdx_);
-        ForEachManageAicore([this](auto coreIdx) { aicoreHal_.SetReadyQueue(coreIdx, AICORE_TASK_STOP + 1) ; });
-        /* write to MAINBASE reg must be done before close 0x18 */
-        __sync_synchronize();
         ForEachManageAicore([this](auto coreIdx) {
             aicoreHal_.ResetShakeBuf(coreIdx);
         });
@@ -1564,8 +1561,6 @@ private:
     }
 
     inline void NormalStopSingleCore(int coreIdx) {
-        aicoreHal_.SetReadyQueue(coreIdx, AICORE_TASK_STOP + 1);
-        __sync_synchronize();
         aicoreHal_.ResetShakeBuf(coreIdx);
     }
 
