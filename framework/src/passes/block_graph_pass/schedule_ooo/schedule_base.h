@@ -371,7 +371,7 @@ struct OpQueue {
     }
 
     bool Empty() {
-        return queue.size() == 0;
+        return queue.empty();
     }
 
     Operation* Front() {

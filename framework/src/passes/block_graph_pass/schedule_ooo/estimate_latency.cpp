@@ -70,6 +70,7 @@ Status LatencyEstimator::RetireOpAndAwakeSucc(Operation* op, uint64_t& commitCnt
         for (auto pred : inGraph[succ]) {
             if (!opRetiredInfo[pred]) {
                 ready = false;
+                break;
             }
         }
         if (ready) {

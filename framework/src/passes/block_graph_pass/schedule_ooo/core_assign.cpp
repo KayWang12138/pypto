@@ -33,8 +33,11 @@ inline std::string ScheduleCoreTypeToString(ScheduleCoreType coreType) {
 }
 
 inline std::string TargetCoreTypeToString(TargetCoreType coreType) {
-    std::unordered_map<TargetCoreType, std::string> targetToString{{TargetCoreType::AIC, "AIC"},
-        {TargetCoreType::AIV0, "AIV0"}, {TargetCoreType::AIV1, "AIV1"}, {TargetCoreType::UNKNOWN, "UNKNOWN"}};
+    std::unordered_map<TargetCoreType, std::string> targetToString{
+        {TargetCoreType::AIC, "AIC"},
+        {TargetCoreType::AIV0, "AIV0"}, 
+        {TargetCoreType::AIV1, "AIV1"}, 
+        {TargetCoreType::UNKNOWN, "UNKNOWN"}};
     if (targetToString.count(coreType) > 0) {
         return targetToString[coreType];
     }
@@ -153,13 +156,14 @@ std::vector<int> CoreScheduler::GetDFSTopoSeq(TaskGraph &taskGraph) {
             taskStack.push_back(task.idx);
         }
     }
+    std::vector<int> notReadyPrevTaskIds;
     while (taskStack.size() > 0) {
         int taskId = taskStack.back();
         taskStack.pop_back();
         if (finishedTasks[taskId]) {
             continue;
         }
-        std::vector<int> notReadyPrevTaskIds;
+        notReadyPrevTaskIds.clear();
         for (int prevTaskId : taskGraph.tasks[taskId].inTasks) {
             if (!finishedTasks[prevTaskId]) {
                 notReadyPrevTaskIds.push_back(prevTaskId);
@@ -860,7 +864,7 @@ void DAGReachableJudger::Build(const std::vector<std::set<int>> &inGraph, const 
 }
 
 // 设定从src到dst可达
-void DAGReachableJudger::SetReachable(int src, int dst) {
+void DAGReachableJudger::SetReachable(const int src, const int dst) {
     const int bitPerBlock = 32;
     size_t index = dst / bitPerBlock;
     size_t offset = dst % bitPerBlock;
