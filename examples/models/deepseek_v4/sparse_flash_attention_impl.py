@@ -29,7 +29,9 @@ import math
 import os
 import pypto
 import numpy as np
-from pypto.experimental import gather_in_l1, gather_in_ub
+from pypto.experimental import gather_in_ub
+from torch._dynamo import allow_in_graph
+from torch._subclasses.fake_tensor import FakeTensor
 
 
 @dataclass
@@ -258,7 +260,7 @@ def sparse_flash_attention_d(query_nope, query_rope, key_nope_2d, key_rope_2d,
         Configured for decode phase with optimized memory and parallelism settings.
         Uses flash attention algorithm for better numerical stability.
     """
-    pypto.set_debug_options(runtime_debug_mode=1)
+    pypto.set_debug_options(runtime_debug_mode=2)
 
     pypto.experimental.set_operation_config(combine_axis=True)
 
@@ -324,3 +326,42 @@ def sparse_flash_attention_p(query_nope, query_rope, key_nope_2d, key_rope_2d,
                                    topk_indices, block_table, kv_act_seqs, atten_sink,
                                    attention_out, nq, n_kv, softmax_scale, topk,
                                    block_size, max_blocknum_perbatch, tile_config)
+
+
+@allow_in_graph
+def sparse_flash_attention_v4(q_nope_npu, q_rope_npu, kn_npu, kr_npu,
+                             topk_indices_npu, block_table_npu, kv_act_seqs_npu, atten_sink_npu,
+                             attention_out_npu, n_q, n_kv, softmax_scale, topk,
+                             block_size, max_blocknum_perbatch, is_p):
+    tile_config = SaTileShapeConfig(
+        g_tile=128,
+        s_kv_tile=2048,
+        c1_tile_shape=[128, 128, 128, 128, 128, 128],
+        v1_tile_shape=[8, 2048],
+        c2_tile_shape=[128, 128, 128, 128, 128, 128],
+        v2_tile_shape=[64, 128]
+    )
+
+    if isinstance(q_nope_npu, FakeTensor):
+        return
+
+    q_nope_pto = pypto.from_torch(q_nope_npu, dynamic_axis=[0], name="q_nope")
+    q_rope_pto = pypto.from_torch(q_rope_npu, dynamic_axis=[0], name="q_rope")
+    kn_pto = pypto.from_torch(kn_npu, name="kn")
+    kr_pto = pypto.from_torch(kr_npu, name="kr")
+    topk_indices_pto = pypto.from_torch(topk_indices_npu, dynamic_axis=[0], name="topk_indices")
+    block_table_pto = pypto.from_torch(block_table_npu, dynamic_axis=[0], name="block_table")
+    kv_act_seqs_pto = pypto.from_torch(kv_act_seqs_npu, dynamic_axis=[0], name="kv_act_seqs")
+    atten_sink_pto = pypto.from_torch(atten_sink_npu, name="atten_sink")
+    
+    calc_attention_out_pto = pypto.from_torch(attention_out_npu, dynamic_axis=[0], name="calc_attention_out")
+
+    pto_inputs = [q_nope_pto, q_rope_pto, kn_pto, kr_pto, topk_indices_pto, block_table_pto, kv_act_seqs_pto, atten_sink_pto]
+    pto_outputs = [calc_attention_out_pto]
+
+    if is_p:
+        sparse_flash_attention_p(*pto_inputs, *pto_outputs, n_q, n_kv, softmax_scale, topk, block_size,
+                                        max_blocknum_perbatch, tile_config)
+    else:
+        sparse_flash_attention_d(*pto_inputs, *pto_outputs, n_q, n_kv, softmax_scale, topk,
+                                        block_size, max_blocknum_perbatch, tile_config)
