@@ -35,8 +35,8 @@ public:
     static void TearDownTestCase() {}
 
     void SetUp() override {
-        config::SetPlatformConfig("ENABLE_COST_MODEL", true);
-        config::SetSimConfig("BUILD_TASK_BASED_TOPO", true);
+        config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, true);
+        config::SetSimConfig(KEY_BUILD_TASK_BASED_TOPO, true);
         config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
         Program::GetInstance().Reset();
     }
@@ -83,7 +83,7 @@ void RunMatrixCostModel() {
     config::SetBuildStatic(true);
     FUNCTION("BATCHMATMUL", {matA, matB, matC})
     {
-        config::SetPassConfig("PVC2_OOO", "OoOSchedule", "DISABLE_PASS", true);
+        config::SetPassConfig("PVC2_OOO", "OoOSchedule", KEY_DISABLE_PASS, true);
         matC = npu::tile_fwk::Matrix::BatchMatmul<false, false>(DT_FP32, matA, matB);
     }
 }
@@ -130,18 +130,18 @@ void RunAttentionPostCostModel()
 TEST_F(CostModelTest, TestAttentionPostAccuracy1)
 {
     int accuracylevel = 1;
-    config::SetSimConfig("ACCURACY_LEVEL", accuracylevel);
+    config::SetSimConfig(KEY_ACCURACY_LEVEL, accuracylevel);
     RunAttentionPostCostModel();
 }
 
 TEST_F(CostModelTest, TestAttentionPostAccuracyFromJson)
 {
-    config::SetPlatformConfig("ENABLE_COST_MODEL", false);
+    config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
     RunAttentionPostCostModel();
 
     std::string jPath = config::LogTopFolder() + "/program.json";
-    config::SetPlatformConfig("ENABLE_COST_MODEL", true);;
-    config::SetSimConfig("AGENT_JSON_PATH", jPath);
+    config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, true);;
+    config::SetSimConfig("agent_json_path", jPath);
     CostModelAgent costModelAgent;
     costModelAgent.SubmitToCostModel(nullptr);
     costModelAgent.RunCostModel();
@@ -151,7 +151,7 @@ TEST_F(CostModelTest, TestAttentionPostAccuracyFromJson)
 TEST_F(CostModelTest, TestGenCalendarSchedule)
 {
     int accuracylevel = 1;
-    config::SetSimConfig("ACCURACY_LEVEL", accuracylevel);
+    config::SetSimConfig(KEY_ACCURACY_LEVEL, accuracylevel);
     std::vector<std::string> arg = config::GetSimConfig("args", std::vector<std::string>{});
     arg.emplace_back("Model.genCalendarScheduleCpp=true");
     config::SetSimConfig("args", arg);
@@ -161,7 +161,7 @@ TEST_F(CostModelTest, TestGenCalendarSchedule)
 TEST_F(CostModelTest, TestAttentionPostCVMIXMode)
 {
     int accuracylevel = 1;
-    config::SetSimConfig("ACCURACY_LEVEL", accuracylevel);
+    config::SetSimConfig(KEY_ACCURACY_LEVEL, accuracylevel);
     std::vector<std::string> arg = config::GetSimConfig("args", std::vector<std::string>{});
     arg.emplace_back("Model.cubeVecMixMode=true");
     config::SetSimConfig("args", arg);
@@ -171,7 +171,7 @@ TEST_F(CostModelTest, TestAttentionPostCVMIXMode)
 TEST_F(CostModelTest, TestAttentionPostSimulationSchedule)
 {
     int accuracylevel = 1;
-    config::SetSimConfig("ACCURACY_LEVEL", accuracylevel);
+    config::SetSimConfig(KEY_ACCURACY_LEVEL, accuracylevel);
     std::vector<std::string> arg;
     arg.emplace_back("Model.statisticReportToFile=true");
     arg.emplace_back("Model.deviceArch=A2A3");
@@ -183,8 +183,8 @@ TEST_F(CostModelTest, TestAttentionPostSimulationSchedule)
 TEST_F(CostModelTest, TestAttentionPostFunctional)
 {
     int accuracylevel = 1;
-    config::SetSimConfig("SIM_MODE", int(CostModel::SimMode::EMULATOR));
-    config::SetSimConfig("ACCURACY_LEVEL", accuracylevel);
+    config::SetSimConfig(KEY_SIM_MODE, int(CostModel::SimMode::EMULATOR));
+    config::SetSimConfig(KEY_ACCURACY_LEVEL, accuracylevel);
     RunAttentionPostCostModel();
 }
 
@@ -217,21 +217,21 @@ TEST_F(CostModelTest, TestFixedLatencyTasks)
 TEST_F(CostModelTest, TestAttentionPostAccuracy2)
 {
     int accuracylevel = 2;
-    config::SetSimConfig("ACCURACY_LEVEL", accuracylevel);
+    config::SetSimConfig(KEY_ACCURACY_LEVEL, accuracylevel);
     RunAttentionPostCostModel();
 }
 
 TEST_F(CostModelTest, TestAttentionPostAccuracy3)
 {
     int accuracylevel = 2;
-    config::SetSimConfig("ACCURACY_LEVEL", accuracylevel);
+    config::SetSimConfig(KEY_ACCURACY_LEVEL, accuracylevel);
     RunMatrixCostModel();
 }
 
 TEST_F(CostModelTest, TestAttentionPostL2Cache)
 {
     int accuracylevel = 1;
-    config::SetSimConfig("ACCURACY_LEVEL", accuracylevel);
+    config::SetSimConfig(KEY_ACCURACY_LEVEL, accuracylevel);
     std::vector<std::string> arg;
     arg.emplace_back("Model.statisticReportToFile=false");
     arg.emplace_back("Model.deviceArch=A2A3");
@@ -264,7 +264,7 @@ TEST_F(CostModelTest, TestBuildBasedOnConfigs)
 TEST_F(CostModelTest, TestCoreMachineDeadlock)
 {
     int accuracylevel = 1;
-    config::SetSimConfig("ACCURACY_LEVEL", accuracylevel);
+    config::SetSimConfig(KEY_ACCURACY_LEVEL, accuracylevel);
     std::vector<std::string> arg = config::GetSimConfig("args", std::vector<std::string>{});
     arg.emplace_back("Model.testDeadLock=true");
     arg.emplace_back("Core.bufferBackPressure=true");
@@ -316,8 +316,8 @@ TEST_F(CostModelTest, TestGlobalCalendar)
 
 TEST_F(CostModelTest, TestLeafFunctionMode)
 {
-    config::SetSimConfig("SIM_MODE", int(CostModel::SimMode::LEAF_FUNCTION));
-    config::SetSimConfig("ACCURACY_LEVEL", 1);
+    config::SetSimConfig(KEY_SIM_MODE, int(CostModel::SimMode::LEAF_FUNCTION));
+    config::SetSimConfig(KEY_ACCURACY_LEVEL, 1);
     std::vector<std::string> arg;
     arg.emplace_back("Model.deviceArch=A2A3");
     arg.emplace_back("Model.statisticReportToFile=false");
@@ -350,13 +350,13 @@ public:
 
     void EnablePVModel(int level)
     {
-        oriPvLevel = config::GetSimConfig("PV_LEVEL", 0);
-        config::SetSimConfig("PV_LEVEL", level);
+        oriPvLevel = config::GetSimConfig(KEY_PV_LEVEL, 0);
+        config::SetSimConfig(KEY_PV_LEVEL, level);
     }
 
     void ResetPVModelConfig()
     {
-        config::SetSimConfig("PV_LEVEL", oriPvLevel);
+        config::SetSimConfig(KEY_PV_LEVEL, oriPvLevel);
     }
 
 protected:

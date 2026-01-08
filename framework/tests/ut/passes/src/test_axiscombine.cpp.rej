@@ -1,0 +1,10 @@
+diff a/framework/tests/ut/passes/src/test_axiscombine.cpp b/framework/tests/ut/passes/src/test_axiscombine.cpp	(rejected hunks)
+@@ -125,7 +125,7 @@ TEST_F(TestAxisCombine, Test3) {
+     EXPECT_EQ(graph.AddOp(Opcode::OP_ADD, {"t2","t5"}, {"t6"}, "add2", true), true);
+
+     auto *rootFuncPtr = graph.GetFunction();
+-    config::SetOperationConfig("COMBINE_AXIS", true);
++    config::SetOperationConfig(KEY_COMBINE_AXIS, true);
+     AxisCombine pass;
+     EXPECT_EQ(pass.RunOnFunction(*rootFuncPtr), SUCCESS);
+     // ================== Verify Pass Effect ==================
