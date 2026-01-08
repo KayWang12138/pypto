@@ -57,3 +57,12 @@ DEFOP(
     ATTR(int, CombineAxis),
     ATTR(int, Reverse),
 )
+
+DEFOP(
+    SysOp,
+    INHERIT(SysBaseOp),
+    OPCODE(
+        OP_GET_BLOCK_IDX
+    )
+    ATTR(std::string, Name)
+)
