@@ -20,6 +20,7 @@
 #include "interface/program/program.h"
 #include "interface/function/function.h"
 #include "passes/pass_utils/pass_utils.h"
+#include "passes/block_graph_pass/insert_sync.h"
 
 namespace npu::tile_fwk {
 class TuneTileOpSeqForVF : public Pass {
@@ -30,7 +31,8 @@ public:
     Status RunOnFunction(Function &function) override;
 
 private:
-    Status ChangeOpSeq(std::vector<Operation *> &opList, std::vector<size_t> &tunedOpList, std::vector<size_t> &pipeVIdx, PipeSync &ps, bool isAIV1);
+    void ChangeOpSeq(std::vector<Operation *> &opList, std::vector<size_t> &tunedOpList, std::vector<size_t> &pipeVIdx, PipeSync &ps, bool isAIV1);
+    void PushBackIdx(size_t idx, std::vector<size_t> &vec);
 };
 }
 #endif // TUNE_TILEOPSEQ_FOR_VF_H
