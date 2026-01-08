@@ -30,6 +30,22 @@ constexpr int32_t DIM_FIVE = 5;
 constexpr int32_t LAST_TWO_DIM = 2;
 constexpr int32_t UB_BLOCK_SIZE = 32;
 
+inline bool IsMixGraph(const std::vector<Operation*> &operations) {
+    bool hasAIC = false;
+    bool hasAIV = false;
+    for (auto opPtr : operations) {
+        if (OpcodeManager::Inst().GetCoreType(opPtr->GetOpcode()) == OpCoreType::AIV) {
+            hasAIV = true;
+        } else if (OpcodeManager::Inst().GetCoreType(opPtr->GetOpcode()) == OpCoreType::AIC) {
+            hasAIC = true;
+        }
+        if (hasAIC && hasAIV) {
+            return true;
+        }
+    }
+    return false;
+}
+
 IssueEntry::IssueEntry(Operation &op, uint64_t issueId)
     : tileOp(op), id(issueId), execOrder(issueId), type(RescheduleUtils::GetOpPipeType(&op)) {
     if (tileOp.GetOpcodeStr().find("ALLOC") != std::string::npos) {
@@ -502,16 +518,6 @@ void OoOScheduler::LaunchReadyIssue() {
     }
 }
 
-bool OoOScheduler::IsInissueEntries(Operation* op){
-    for (auto &issue : issueEntries) {
-        if(issue->tileOp.GetOpMagic() == op->GetOpMagic()){
-            return true;
-        }
-
-    }
-    return false;
-}
-
 Status OoOScheduler::ScheduleMainLoop() {
     UpdateIssueExecOrder();
     LaunchReadyIssue();
@@ -681,13 +687,8 @@ Status OoOScheduler::CheckAllocIssue() {
                     issue->tileOp.GetOpMagic(), GetFormatBacktrace(issue->tileOp).c_str());
                 return FAILED;
             }
-            UpdateAllocMap(issue, tensorAllocMap);
         }
-    }
-    for (const auto &issue : issueEntries) {
-        if (!issue->isAlloc) {
-            UpdateAllocMap(issue, tensorAllocMap);
-        }
+        UpdateAllocMap(issue, tensorAllocMap);
     }
     for (auto tensorAlloc : tensorAllocMap) {
         if (!tensorAlloc.second->isAlloc) {
@@ -767,71 +768,57 @@ Status OoOScheduler::InitAllocDependencies(IssueEntryPtr issue, std::map<int, Is
 }
 
 void OoOScheduler::AddDependency(IssueEntryPtr preIssue, IssueEntryPtr postIssue, bool isAlloc) {
-    if (std::find(issueEntries.begin(), issueEntries.end(), preIssue) == issueEntries.end()) {
-        return;
-    }
-    if (std::find(issueEntries.begin(), issueEntries.end(), postIssue) == issueEntries.end()) {
-        return;
-    }
     if (isAlloc || (!preIssue->isAlloc && !postIssue->isAlloc)) {
         preIssue->successors.insert(postIssue->id);
         postIssue->predecessors.insert(preIssue->id);
     }
 }
 
-void OoOScheduler::FindDependencies(IssueEntryPtr issue, std::map<Operation*, IssueEntryPtr> op2IssueEntryMap) {
-    for (auto &producer : issue->tileOp.ProducerOps()) {
-        if (producer->GetOpcode() == Opcode::OP_VIEW) {
-            for (auto viewProducer : producer->ProducerOps()) {
-                auto viewProdIssue = op2IssueEntryMap[viewProducer];
-                AddDependency(viewProdIssue, issue, false);
-            }
-            continue;
-        }
-        auto prodIssue = op2IssueEntryMap[producer];
-        AddDependency(prodIssue, issue, false);
-    }
-    for (auto &consumer : issue->tileOp.ConsumerOps()) {
-        if (consumer->GetOpcode() == Opcode::OP_VIEW) {
-            for (auto viewConsumer : consumer->ConsumerOps()) {
-                auto viewConIssue = op2IssueEntryMap[viewConsumer];
-                AddDependency(issue, viewConIssue, false);
-            }
-        }
-    }
-}
-
 Status OoOScheduler::InitDependencies() {
-    std::map<Operation*, IssueEntryPtr> op2IssueEntryMap;
-    for (const auto &issue : issueEntries) {
-        issue->predecessors.clear();
-        issue->successors.clear();
-        op2IssueEntryMap[&(issue->tileOp)] = issue;
-    }
-    std::map<int, IssueEntryPtr> tensor2AllocMap;
-    for (const auto &issue : issueEntries) {
-        if (issue->isAlloc) {
-            if (issue->tileOp.GetOOperands().size() != 1) {
-                APASS_LOG_ERROR_F(Elements::Operation, "Alloc[%d] oOperand must be 1.", issue->tileOp.GetOpMagic());
-                return FAILED;
-            }
-            int memId = issue->tileOp.GetOutputOperand(0)->memoryrange.memId;
-            tensor2AllocMap[memId] = issue;
-            continue;
-        }
-    }
-    for (const auto &issue : issueEntries) {
-        if (!issue->isAlloc) {
-            FindDependencies(issue, op2IssueEntryMap);
-            if (InitAllocDependencies(issue, tensor2AllocMap) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Operation, "InitAllocDependencies failed.");
-                return FAILED;
-            }
-        }
-    }
-    PrintDependencies();
-    return SUCCESS;
-}
+     std::map<Operation*, IssueEntryPtr> op2IssueEntryMap;
+     for (const auto &issue : issueEntries) {
+         issue->predecessors.clear();
+         issue->successors.clear();
+         op2IssueEntryMap[&(issue->tileOp)] = issue;
+     }
+     std::map<int, IssueEntryPtr> tensor2AllocMap;
+     for (const auto &issue : issueEntries) {
+         if (issue->isAlloc) {
+             if (issue->tileOp.GetOOperands().size() != 1) {
+                 APASS_LOG_ERROR_F(Elements::Operation, "Alloc[%d] oOperand must be 1.", issue->tileOp.GetOpMagic());
+                 return FAILED;
+             }
+             int memId = issue->tileOp.GetOutputOperand(0)->memoryrange.memId;
+             tensor2AllocMap[memId] = issue;
+             continue;
+         }
+         for (auto &producer : issue->tileOp.ProducerOps()) {
+             if (producer->GetOpcode() == Opcode::OP_VIEW) {
+                 for (auto viewProducer : producer->ProducerOps()) {
+                     auto viewProdIssue = op2IssueEntryMap[viewProducer];
+                     AddDependency(viewProdIssue, issue, false);
+                 }
+             } else {
+                 auto prodIssue = op2IssueEntryMap[producer];
+                 AddDependency(prodIssue, issue, false);
+             }
+         }
+         for (auto &consumer : issue->tileOp.ConsumerOps()) {
+             if (consumer->GetOpcode() == Opcode::OP_VIEW) {
+                 for (auto viewConsumer : consumer->ConsumerOps()) {
+                     auto viewConIssue = op2IssueEntryMap[viewConsumer];
+                     AddDependency(issue, viewConIssue, false);
+                 }
+             }
+         }
+         if (InitAllocDependencies(issue, tensor2AllocMap) != SUCCESS) {
+             APASS_LOG_ERROR_F(Elements::Operation, "InitAllocDependencies failed.");
+             return FAILED;
+         }
+     }
+     PrintDependencies();
+     return SUCCESS;
+ }
 
 void OoOScheduler::CalcBufferSize(LogicalTensors tensors, std::map<MemoryType, int64_t> &bufferSize, std::set<int> &memIdMap) {
     for (auto tensor : tensors) {
@@ -909,8 +896,17 @@ Status OoOScheduler::Init(const std::vector<Operation *> &operations) {
     // 初始化芯片各buffer大小
     InitMemorySize();
 
-    // 校验并初始化issueEntry
-    for (const auto &op : operations) {
+    std::vector<Operation *> newOperations;
+     for (auto& op : operations) {
+         if (op->GetOpcodeStr().find("ALLOC") != std::string::npos) {
+             newOperations.insert(newOperations.begin(), op);
+             continue;
+         }
+         newOperations.push_back(op);
+     }
+
+     // 校验并初始化issueEntry
+     for (const auto &op : newOperations) {
         if (op->GetOpcode() == Opcode::OP_VIEW) {
             if (op->GetOutputOperand(0)->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
                 newOperations_.push_back(op);
@@ -978,6 +974,13 @@ Status OoOScheduler::Schedule(const std::vector<Operation *> &operations) {
     if (Init(operations) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "Init failed!");
         return FAILED;
+    }
+    if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510 || !IsMixGraph(operations)) {
+        // op执行排序
+        if (SortOps() != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Operation, "SortOps failed!");
+            return FAILED;
+        }
     }
     // 生成spill指令
     if (GenSpillSchedule() != SUCCESS) {

@@ -78,6 +78,15 @@ Status OoOSchedule::RunOnFunction(Function &function) {
     for (auto &program : function.rootFunc_->programs_) {
         auto opList = program.second->Operations(false).DuplicatedOpList();
         oriFunctions.emplace_back(program.second);
+        if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510 || !IsMixGraph(opList)) {
+            // 直接对oplist进行GenSpill和mainLoop
+            OoOScheduler oooSchedule(*program.second, ConfigManager::Instance().GetOperationConfig("COMBINE_AXIS", false));
+            if (ooOSchedule.Schedule(opList) != SUCCESS) {
+                APASS_LOG_ERROR_F(Elements::Operation, "Non-mixGraph schedule failed.");
+                return FAILED;
+            }
+            continue;
+        }
         OptimizeSort optimizeSort(opList, *program.second);
         if (optimizeSort.SortOps() != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "Global sortOps failed.");
@@ -85,15 +94,6 @@ Status OoOSchedule::RunOnFunction(Function &function) {
         }
         // 全局排序的序列
         opList = optimizeSort.operations;
-        if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510 || !IsMixGraph(opList)) {
-            // 直接对oplist进行GenSpill和mainLoop
-            OoOScheduler ooOSchedule(*program.second);
-            if (ooOSchedule.Schedule(opList) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Operation, "Non-mixGraph schedule failed.");
-                return FAILED;
-            }
-            continue;
-        }
         TaskSpliter spliter;
         spliter.SplitGraph(opList);
         for (auto &taskNode : spliter.GetTaskGraph().tasks) {

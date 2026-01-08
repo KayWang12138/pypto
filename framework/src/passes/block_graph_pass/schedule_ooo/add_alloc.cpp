@@ -52,14 +52,14 @@ Status AddAlloc::AddAndCheckAlloc(Function &function) {
         return FAILED;
     }
     std::vector<Operation *> newOperations;
-     for (auto& op : function.Operations(false).DuplicatedOpList()) {
-         if (op->GetOpcodeStr().find("ALLOC") != std::string::npos) {
-             newOperations.insert(newOperations.begin(), op);
-             continue;
-         }
-         newOperations.push_back(op);
+    for (auto& op : function.Operations(false).DuplicatedOpList()) {
+     if (op->GetOpcodeStr().find("ALLOC") != std::string::npos) {
+         newOperations.insert(newOperations.begin(), op);
+         continue;
      }
-     function.ScheduleBy(newOperations);
+     newOperations.push_back(op);
+    }
+    function.ScheduleBy(newOperations);
     return SUCCESS;
 }
 
