@@ -186,7 +186,7 @@ Status OptimizeSort::PriorDFS(std::unordered_map<Opcode, int> preNodePriority) {
     for (size_t i = 0; i < operations.size(); i++) {
         visited[operations[i]] = false;
         if (outGraph[operations[i]].empty()) {
-            outNodeQueue.insert(operations[i]);
+            outNodeQueue.emplace_back(operations[i]);
         }
     }
 
