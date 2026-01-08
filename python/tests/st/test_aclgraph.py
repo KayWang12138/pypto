@@ -19,7 +19,9 @@ import numpy as np
 from numpy.testing import assert_allclose
 
 
-@pypto.jit
+@pypto.jit(
+    runtime_options={"valid_shape_optimize": 1}
+)
 def cust_dyn_func(a, b, c, tiling=None):
     pypto.set_vec_tile_shapes(32, 32)
     for _ in pypto.loop(1, name="s0", idx_name="k"):
