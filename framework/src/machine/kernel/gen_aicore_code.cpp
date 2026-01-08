@@ -187,7 +187,6 @@ INLINE uint32_t GetNextTask(uint32_t lastTaskIdx, uint32_t curDevTaskId) {
                 isForceContinue = true;
             }
         }
-
         ++loop_count;
         if ((loop_count % 1000 == 0) && (get_sys_cnt() - t0 > 500000000)) {
             return AICORE_TASK_STOP;
@@ -442,6 +441,17 @@ extern "C" __global__ __aicore__ void KERNEL_ENTRY(__OPTYPE__, __TILINGKEY__)(in
         lastTaskIdx = AICORE_TASK_INIT;
         if (bIsExit) {
             DfxProcWhenCoreExit(&ctx, args, metric);
+            uint64_t t2 = get_sys_cnt();
+            volatile __gm__ int64_t *shakeBuffer = args->shakeBuffer;
+            while (true) {         
+                dcci(shakeBuffer, SINGLE_CACHE_LINE, CACHELINE_OUT);
+                if (*shakeBuffer == AICORE_SAY_GOODBYE) {
+                    return;
+                }
+                if ((get_sys_cnt() - t2 > 50000000)) {
+                    return;
+                }
+            }
             return; // no data exit
         }
         coreFuncData = getCoreFuncionData(args, coreFuncData);
