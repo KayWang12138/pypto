@@ -525,6 +525,10 @@ bool SubgraphToFunction::ReorderOutcast(const std::tuple<Function *, Operation *
 
     // Apply the order to outcast
 
+    // From idx i in applyOrder, newOutcast[i] = currentOutcast[applyOrder[i]]
+
+    // TODO: To be implemented. CHANGE OUTCAST ORDER IN FUNCTION AND CALLOP.
+
     return true;
 }
 
