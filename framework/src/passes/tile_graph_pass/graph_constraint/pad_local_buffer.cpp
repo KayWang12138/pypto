@@ -495,12 +495,41 @@ int64_t PadLocalBuffer::ProcessBroadcastForAxisCombine(Operation &op, size_t blo
     return (dimSize - 1);
 }
 
-void AlignedRawTensorIfNeed(LogicalTensorPtr &in, int64_t pos, const int64_t base) {
+int64_t AlignedRawTensorIfNeed(LogicalTensorPtr &in, int64_t pos, const int64_t base) {
     if (in == nullptr || pos < 0 || pos >= static_cast<int64_t>(in->tensor->rawshape.size())) {
-        return;
+        return -1;
     }
     int64_t padDim = Pad(in->tensor->rawshape[pos], base);
     in->tensor->rawshape[pos] = padDim;
+    return padDim;
+}
+
+int64_t ProcessReduceForAxisCombine(Operation &op, LogicalTensorPtr &in, size_t paddingValue) {
+    auto axis = op.GetIntAttribute(OP_ATTR_PREFIX + "AXIS");
+    int64_t sz = static_cast<int64_t>(in->shape.size());
+    int64_t lastIdx = sz - 1;
+    if (sz > 2 && axis == static_cast<int64_t>(lastIdx) - 1) {
+        AlignedRawTensorIfNeed(in, lastIdx, paddingValue);
+        return;
+    }
+    int64_t idx = lastIdx;
+    bool find = false;
+    for (; idx >= 0; --idx) {
+        if (in->shape[idx] != 1) {
+            find = true;
+            break;
+        }
+    }
+    if (!find) {
+        idx = lastIdx;
+    }
+    int64_t padDim = AlignedRawTensorIfNeed(in, idx, paddingValue);
+    if (op.GetOpcode() == Opcode::OP_ROWSUMLINE) {
+        auto tmp = op.GetOOperands()[1];
+        size_t tmpLastIdx = tmp->shape.size() - 1;
+        tmp->shape[tmpLastIdx] = padDim;
+        tmp->GetRawTensor()->rawshape[tmpLastIdx] = padDim;
+    }
 }
 
 void PadLocalBuffer::PadVectorForAxisCombine(Operation &op, LogicalTensorPtr &in, std::unordered_set<std::shared_ptr<RawTensor>> &visitedRaw) {
@@ -525,7 +554,7 @@ void PadLocalBuffer::PadVectorForAxisCombine(Operation &op, LogicalTensorPtr &in
         AlignedRawTensorIfNeed(in, lastIdx - 1, BRCB_SECOND_LAST_BASE);
     }
     if (calcType == OpCalcType::REDUCE) {
-        AlignedRawTensorIfNeed(in, lastIdx, paddingValue);
+        ProcessReduceForAxisCombine(op, in, paddingValue);
         return;
     }
     if (op.GetOpcode() == Opcode::OP_BRCB) {
