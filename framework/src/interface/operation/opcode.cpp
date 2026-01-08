@@ -773,6 +773,7 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {         Opcode::OP_ROWSUMLINE,    "TRowSumLine"},
     {         Opcode::OP_ROWMAXLINE,    "TRowMaxLine"},
     {         Opcode::OP_ROWMINLINE,    "TRowMinLine"},
+    {         Opcode::OP_LOGICALAND,    "TLogicalAnd"},
     {           Opcode::OP_WHERE_TT,         "TWhere"},
     {               Opcode::OP_ADDS,          "TAddS"},
     {               Opcode::OP_SUBS,          "TSubS"},
