@@ -2701,6 +2701,16 @@ void Function::GetOutcastSymbolicExpr(std::map<int, SymbolicScalar> &tabel) {
     }
 }
 
+void DupValidShapeMainBlock(std::shared_ptr<Operation> op)
+{
+    for (auto &iop : op->GetIOperands()) {
+        iop->UpdateDynValidShapeOri(iop->GetDynValidShape());
+    }
+    for (auto &oop : op->GetOOperands()) {
+        oop->UpdateDynValidShapeOri(oop->GetDynValidShape());
+    }
+}
+
 std::vector<std::vector<SymbolicScalar>> Function::NormalizeCoa(std::vector<int> &iOffset, std::vector<int> &oOffset) {
     std::unordered_map<int, Operation *> opmagicToOp;
     std::unordered_map<LogicalTensorPtr, int> processedOperands;
@@ -2859,6 +2869,7 @@ void Function::NormalizeCoaForSpecialInfo(std::vector<std::vector<SymbolicScalar
                 coaIndex += 1;
             }
         }
+        DupValidShapeMainBlock(op);
     }
 }
 

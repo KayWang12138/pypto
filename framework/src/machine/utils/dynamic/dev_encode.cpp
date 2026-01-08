@@ -49,6 +49,7 @@ constexpr int64_t MAX_SHAPE_WARN_THRESHOLE = 512 * 512;
 constexpr int32_t ALLOC_NUM_ONE_SLAB = 4;
 static constexpr uint64_t GENERAL_METADATA_SIZE_MIN = 4 * MEBI;
 constexpr uint32_t FRIENDLY_CACHE_ALIGN_U64_SIZE = 2; // 友好的cache对齐是2个u64
+constexpr const uint8_t MAIN_BLOCK_SIZE = 2;
 
 void DevAscendFunction::InitIncastOutcastAttr(
         uintdevptr_t &initOffset,
@@ -535,7 +536,7 @@ void DevAscendFunction::InitOperation(
             auto callArgs = callop->GetLinearArgList();
             int opStaticAttrSize = callArgs.size();
             staticField.attrList.AssignRangeOffsetSize(operationAttrList_, staticAttributeSize, opStaticAttrSize);
-            At(staticField.attrList, 0) = calleeHashIndexDict.at(callop->GetCalleeHash().GetHash());
+            At(staticField.attrList, 0) = calleeHashIndexDict.at(callop->GetCalleeHash().GetHash()) * MAIN_BLOCK_SIZE - 1;
             for (size_t k = CALLOP_ARG_ATTR_BASE_INDEX; k < (size_t)opStaticAttrSize; k++) {
                 int fillValue = 0;
                 if (callArgs[k].IsImmediate()) {
