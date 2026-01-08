@@ -496,6 +496,8 @@ public:
     const std::vector<std::string> &GetCommentList() const { return commentList_; }
     std::vector<std::string> &GetCommentList() { return commentList_; }
 
+    void SetCallOpOutcastOrder(const std::vector<int> &applyOrder);
+
 private:
     Opcode opcode_{Opcode::OP_UNKNOWN};
     int subgraphID_{NOT_IN_SUBGRAPH};

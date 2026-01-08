@@ -505,6 +505,7 @@ public:
     }
     std::unordered_set<int> LoopCheck();
     FunctionHash ComputeHash();
+    void SetFunctionOutcastOrder(const std::vector<int> &applyOrder);
     std::vector<std::shared_ptr<Operation>> GetSortedOperations() const;
     OperationsViewer Operations(bool sorted = true);
     OperationsViewer OperationsAfterOOO();
@@ -751,6 +752,20 @@ public:
         outCasts_.erase(outCasts_.begin() + idx);
         auto &outcastSlot = slotScope_->ioslot.outcastSlot;
         outcastSlot.erase(outcastSlot.begin() + idx);
+    }
+
+    // Update the k values in outcastPosition for a specific operation
+    // This is used when the operation's oOperand order is changed
+    // inverseMap[oldIdx] = newIdx, where oldIdx is the old position and newIdx is the new position
+    void UpdateOutcastPositionForOp(int opmagic, const std::vector<int> &inverseMap) {
+        for (auto &[magic, k] : outcastPosition) {
+            if (magic == opmagic && k >= 0 && static_cast<size_t>(k) < inverseMap.size()) {
+                int newK = inverseMap[k];
+                if (newK >= 0) {
+                    k = newK;
+                }
+            }
+        }
     }
 
     const SubfuncParam &GetParameter() const { return parameter_; }

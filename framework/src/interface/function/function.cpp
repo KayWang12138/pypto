@@ -1574,6 +1574,20 @@ FunctionHash Function::ComputeHash() {
     return functionHash_;
 }
 
+void Function::SetFunctionOutcastOrder(const std::vector<int> &applyOrder) {
+    // Change the order of outCasts_ and outcastPosition
+    std::vector<std::shared_ptr<LogicalTensor>> newOutcast(outCasts_.size());
+    std::vector<std::pair<int, int>> newOutcastPosition(outCasts_.size());
+    for (size_t i = 0; i < outCasts_.size(); i++) {
+        newOutcast[i] = outCasts_[applyOrder[i]];
+        newOutcastPosition[i] = outcastPosition[applyOrder[i]];
+    }
+    outCasts_ = newOutcast;
+    outcastPosition = newOutcastPosition;
+    ALOG_DEBUG_F("FUNCTION: outCasts_ and outcastPosition applied order %s.", IntVecToStr(applyOrder).c_str());
+    return;
+}
+
 void Function::AddOriginIncast(const std::shared_ptr<LogicalTensor> tensor) {
     originInCasts_.push_back(tensor);
 }
