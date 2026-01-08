@@ -24,9 +24,7 @@ DEFOP(
         OP_LOGICALNOT,
         OP_RECIPROCAL,
         OP_ABS,
-        OP_LN,
-        OP_DUPLICATE, // 没找到代码
-
+        OP_LN
     ),
     ATTR(int, CombineAxis)
 )
@@ -60,10 +58,6 @@ DEFOP(
     ATTR(int, Reverse),
 )
 
-
-
-
-
 DEF_OP(
     TernaryOp,
     INHERIT(ElementWiseTernaryTileOp),
@@ -71,7 +65,7 @@ DEF_OP(
         OP_WHERE_TT
 
     ),
-    ATTR(int, whereBitMode)
+    ATTR(int, WhereBitMode)
 )
 
 DEF_OP(
@@ -81,33 +75,36 @@ DEF_OP(
         OP_WHERE_TS,
         OP_WHERE_ST,
         OP_WHERE_SS,
-        OP_INDEX_ADD, //他是三个tensor  两个 scalar  无额外属性
-        
+        OP_INDEX_ADD, // 输入是三个tensor  两个 scalar  无额外属性
     ),
-    ATTR(int, whereBitMode),
-
+    ATTR(int, WhereBitMode),
 )
 
 DEF_OP(
     MoveOp,
     INHERIT(DataCopyTileOp),
     OPCODE(
-        OP_INDEX_OUTCAST, // 三个tensor，三个scalar  无额外属性
+        OP_INDEX_OUTCAST, // 输入是三个tensor，三个scalar  无额外属性
         OP_CONVERT,
         OP_COPY_IN,
         OP_COPY_OUT,
+        OP_LOAD,
+        OP_VLD,  //  只有注册的一行
+        OP_VST,  //  只有注册的一行
+        OP_DUPLICATE,  // duplicate会转化为copyout
+    ),
+)
+
+DEF_OP(
+    ExperimentOp,
+    INHERIT(DataCopyTileOp),   // 存疑
+    OPCODE(
         OP_GATHER_IN_L1,
         OP_GATHER_IN_UB,
-        OP_LOAD,
-        OP_VLD,  //  没有代码
-        OP_VST   //  没有代码
     ),
-    ATTR(int, startOffset),
-    ATTR(int, inputCombineAxis),
-    ATTR(int, outputCombineAxis),
-    ATTR(int, excludeBufferReuse),
-
+    ATTR(int, startOffset) // OP_GATHER_IN_L1
 )
+
 
 DEF_OP(
     SortOp,
@@ -117,13 +114,19 @@ DEF_OP(
         OP_MRGSORT,
         OP_ARGSORT,
         OP_TILEDMRGSORT,
-        OP_TOPK
-        
+        OP_EXTRACT
     ),
-    ATTR(int, TOPK_OFFSET),
-    ATTR(int, TOPK_KVALUE)
-    ATTR(int, maskMode),
-    ATTR(int, TOPK_VALIDBIT),
+    ATTR(int, TopOffset),  // OP_BITSORT
+    ATTR(int, TopKValidBit)  // OP_TILEDMRGSORT
+    ATTR(int, ExtractMaskMode)  // OP_EXTRACT
+)
+
+DEF_OP(
+    TopKOp,
+    INHERIT(SortTileOp),
+    OPCODE(
+        OP_TOPK
+    ),
 )
 
 DEF_OP(
@@ -132,9 +135,107 @@ DEF_OP(
     OPCODE(
         OP_FUSED_OP  // 没有代码，注册的是BROADCAST
     ),
-    
 )
 
 
+//   下面是姜昊的
 
+
+DEF_OP(
+    UnaryOp,
+    INHERIT(ElementWiseUnaryTileOp),
+    OPCODE(
+        OP_EXP,
+        OP_TRANSPOSE_MOVEIN,
+        OP_TRANSPOSE_MOVEOUT,
+        OP_TRANSPOSE_VNCHWCONV,
+        OP_EXPAND,
+        OP_ONEHOT,
+        OP_CONCAT,
+        OP_COMPACT,
+        OP_ROWMAX,
+        OP_ROWSUM,
+        OP_ROWEXPMAX,
+        OP_ROWEXPSUM,
+        OP_REGISTER_COPY
+    ),
+    ATTR(std::vector<int64_t>, shape),          // 形状信息，用于TRANSPOSE系列
+    ATTR(int, EXPANDDIM),                        // 扩展维度，用于OP_EXPAND
+    ATTR(int, numClasses),                       // 类别数，用于OP_ONEHOT
+    ATTR(int, inputCombineAxis),                 // 输入合并轴，用于OP_CONCAT
+    ATTR(int, outputCombineAxis),                // 输出合并轴，用于OP_CONCAT
+    ATTR(bool, excludeBufferReuse)               // 是否排除buffer复用，用于TRANSPOSE_VNCHWCONV/ONEHOT/ROWMAX/ROWEXPMAX/ROWEXPSUM
+)
+
+DEF_OP(
+    BinaryOp,
+    INHERIT(ElementWiseBinaryTileOp),
+    OPCODE(
+        OP_PAD
+    ),
+    ATTR(int, inputCombineAxis),                 // 输入合并轴
+    ATTR(int, outputCombineAxis)                 // 输出合并轴
+)
+
+DEF_OP(
+    BinaryBroadcastOp,
+    INHERIT(BroadcastBinaryTileOp),
+    OPCODE(
+        OP_ADD_BRC,
+        OP_SUB_BRC,
+        OP_MUL_BRC,
+        OP_DIV_BRC,
+        OP_MAX_BRC,
+        OP_MIN_BRC
+    ),
+    ATTR(int, inputCombineAxis)                  // 输入合并轴
+)
+
+DEF_OP(
+    PowOp,
+    INHERIT(ElementWiseMixTileOp),
+    OPCODE(
+        OP_POW
+    ),
+    ATTR(bool, reverseOperand),                  // 是否反转操作数顺序（与Reverse语义一致，重复）
+    ATTR(int, inputCombineAxis),                 // 输入合并轴
+    ATTR(int, outputCombineAxis),                // 输出合并轴
+    ATTR(bool, excludeBufferReuse)               // 是否排除buffer复用
+)
+
+DEF_OP(
+    GatherOp,
+    INHERIT(GatherTileOp),
+    OPCODE(
+        OP_GATHER_FROM_UB,
+        OP_GATHER,
+        OP_GATHER_ELEMENT
+    ),
+    ATTR(int, axis),                             // 操作的轴
+    ATTR(bool, excludeBufferReuse)               // 是否排除buffer复用（GATHER_FROM_UB/GATHER_ELEMENT使用）
+)
+
+enum class CmpOperationType {
+    EQ,
+    NE,
+    LT,
+    LE,
+    GT,
+    GE,
+};
+enum class CmpModeType {
+    BOOL,
+    BIT,
+};
+
+DEF_OP(
+    CompareOp,
+    INHERIT(CompareTileOp),
+    OPCODE(
+        OP_CMP,
+        OP_CMPS
+    ),
+    ATTR(CmpOperationType, cmp_operation),           // 【枚举】比较操作类型
+    ATTR(CmpModeType, cmp_mode),                     // 【枚举】比较模式
+)
 
