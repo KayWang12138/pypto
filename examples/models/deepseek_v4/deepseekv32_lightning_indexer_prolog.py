@@ -303,7 +303,7 @@ def test_b2_s1_4k():
         chunk_size=2,
         vec_nbuffer_mode=0,
     )
-    do_test_lighting_indexer_prolog("LightningIndexerPrologSTest.b1_s1_8193", configs)
+    do_test_lighting_indexer_prolog("LightningIndexerPrologSTest.b2_s1_4k", configs)
     
 # @pytest.mark.skip(reason="large test case")
 def test_b1_s1_8193():
