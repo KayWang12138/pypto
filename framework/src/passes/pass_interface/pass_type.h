@@ -113,6 +113,8 @@ inline constexpr const char *PassNameStr(PassName name){
         case PassName::MIX_SUBGRAPH_SPLIT: return "MixSubgraphSplit";
         case PassName::CODEGEN_PREPROC: return "CodegenPreproc";
         case PassName::DYN_ATTR_TO_STATIC: return "DynAttrToStatic";
+        case PassName::TUNE_TILEOP_SEQ_FOR_VF: return "TuneTileOpSeqForVF";
+        case PassName::TUNE_SYNC_FOR_VF: return "TuneSyncForVF";
         case PassName::NOT_DEFINED: return "NotDefined";
         default: 
             ASSERT(false) << "[PassDependency][Manager][ERROR]: PassName not defined.";
