@@ -33,7 +33,7 @@ using namespace npu::tile_fwk;
 namespace npu {
 namespace tile_fwk {
 constexpr int NUM10 = 10;
-
+constexpr int NUM128 = 128;
 void PrintGraphInfoPreGraph(Function* func, std::set<int>& tensorMagicWithColorSet) {
     std::cout << "func->Operations().size() = "  << func->Operations().size() << std::endl;
     for (auto &op : func->Operations()) {
@@ -676,7 +676,7 @@ TEST_F(PreGraphTest, TestFixPipeReconnectGraph) {
     EXPECT_EQ(reluType, 1);
 }
 
-TEST_F(PreGraphTest, offsetcopy1) {
+TEST_F(PreGraphTest, TestRemoveRedundantView) {
     ComputationalGraphBuilder G;
     // add tensor
     DataType inputAstDtype = DataType::DT_FP16;
@@ -689,23 +689,87 @@ TEST_F(PreGraphTest, offsetcopy1) {
     G.AddOp(Opcode::OP_VIEW, {"t1"}, {"t2"}, "VIEW");
     G.AddOp(Opcode::OP_RESHAPE, {"t2"}, {"t3"}, "RESHAPE");
     std::vector<int64_t> offset = {2, 0, 0};
-    auto View = G.GetOp("VIEW");
-    auto attrA = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{2, 0, 0}, MemoryType::MEM_UNKNOWN);
-    View->SetOpAttribute(attrA);
+    auto view = G.GetOp("VIEW");
+    auto attrA = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{2, 0, 0}, MemoryType::MEM_UNKNOWN,
+        OpImmediate::ToSpecified(OpImmediate::Specified(std::vector<int64_t>{2, 0, 0})));
+    view->SetOpAttribute(attrA);
     G.AddOp(Opcode::OP_COPY_IN, {"t3"}, {"t4"}, "COPYIN");
     // set incast and outcast
     G.SetInCast({"t1"});
     G.SetOutCast({"t4"});
-    // check before pass
 
     // run pass
     Function *function = G.GetFunction();
-    function->DumpJsonFile("offsetcopy1before.json");
     EXPECT_NE(function, nullptr);
     PreGraphProcess passLocal;
-    passLocal.Run(*function, "", "", 0);
-    function->DumpJsonFile("offsetcopy1after.json");
+    EXPECT_EQ(passLocal.Run(*function, "", "", 0), SUCCESS);
     // check after pass
+    auto opList = function->Operations();
+    int64_t viewCnt = 0;
+    for (const auto &op : opList) {
+        if (op.GetOpcode() == Opcode::OP_VIEW) {
+            ++viewCnt;
+        }
+    }
+    EXPECT_EQ(viewCnt, 0);
+    auto copyIn = G.GetOp("COPYIN");
+    std::shared_ptr<CopyOpAttribute> copyAttr = std::static_pointer_cast<CopyOpAttribute>(copyIn->GetOpAttribute());
+    auto newDynOffset = copyAttr->GetFromOffset();
+    EXPECT_EQ(newDynOffset[0].Dump(), "128");
+}
+
+TEST_F(PreGraphTest, TestRemoveRedundantViewMultiReshape) {
+    ComputationalGraphBuilder G;
+    // add tensor
+    DataType inputAstDtype = DataType::DT_FP16;
+    DataType outputAstDtype = DataType::DT_FP16;
+    G.AddTensor(inputAstDtype, {16, 64, 64}, "t1");
+    G.AddTensor(inputAstDtype, {1, 64, 64}, "t2");
+    G.AddTensor(outputAstDtype, {64, 64}, "t3");
+    G.AddTensor(outputAstDtype, {64, 64}, "t4");
+    G.AddTensor(outputAstDtype, {64, 64}, "t41");
+    // add op
+    G.AddOp(Opcode::OP_VIEW, {"t1"}, {"t2"}, "VIEW");
+    G.AddOp(Opcode::OP_RESHAPE, {"t2"}, {"t3"}, "RESHAPE");
+
+    std::vector<int64_t> offset = {2, 0, 0};
+    auto view = G.GetOp("VIEW");
+    auto attrA = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{2, 0, 0}, MemoryType::MEM_UNKNOWN,
+        OpImmediate::ToSpecified(OpImmediate::Specified(std::vector<int64_t>{2, 0, 0})));
+    view->SetOpAttribute(attrA);
+    G.AddOp(Opcode::OP_COPY_IN, {"t3"}, {"t4"}, "COPYIN1");
+    G.AddOp(Opcode::OP_COPY_IN, {"t3"}, {"t41"}, "COPYIN2");
+    auto copyIn = G.GetOp("COPYIN2");
+    auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(copyIn->GetOpAttribute());
+    copyAttr->SetFromOffset(OpImmediate::Specified(std::vector<int64_t>{32, 0}));
+    //  set incast and outcast
+    G.SetInCast({"t1"});
+    G.SetOutCast({"t4"});
+
+    // run pass
+    Function *function = G.GetFunction();
+    function->DumpJsonFile("offsetcopy11before.json");
+    EXPECT_NE(function, nullptr);
+    PreGraphProcess passLocal;
+    EXPECT_EQ(passLocal.Run(*function, "", "", 0), SUCCESS);
+    function->DumpJsonFile("offsetcopy11after.json");
+    // check after pass
+    auto opList = function->Operations();
+    int64_t viewCnt = 0;
+    for (const auto &op : opList) {
+        if (op.GetOpcode() == Opcode::OP_VIEW) {
+            ++viewCnt;
+        }
+    }
+    EXPECT_EQ(viewCnt, 0);
+    copyIn = G.GetOp("COPYIN1");
+    copyAttr = std::static_pointer_cast<CopyOpAttribute>(copyIn->GetOpAttribute());
+    auto newDynOffset = copyAttr->GetFromOffset();
+    EXPECT_EQ(newDynOffset[0].Dump(), "128");
+    copyIn = G.GetOp("COPYIN2");
+    copyAttr = std::static_pointer_cast<CopyOpAttribute>(copyIn->GetOpAttribute());
+    newDynOffset = copyAttr->GetFromOffset();
+    EXPECT_EQ(newDynOffset[0].Dump(), "160");
 }
 
 TEST_F(PreGraphTest, offsetcopy2) {
