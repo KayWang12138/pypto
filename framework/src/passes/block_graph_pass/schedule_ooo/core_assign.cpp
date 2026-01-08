@@ -33,8 +33,11 @@ inline std::string ScheduleCoreTypeToString(ScheduleCoreType coreType) {
 }
 
 inline std::string TargetCoreTypeToString(TargetCoreType coreType) {
-    std::unordered_map<TargetCoreType, std::string> targetToString{{TargetCoreType::AIC, "AIC"},
-        {TargetCoreType::AIV0, "AIV0"}, {TargetCoreType::AIV1, "AIV1"}, {TargetCoreType::UNKNOWN, "UNKNOWN"}};
+    std::unordered_map<TargetCoreType, std::string> targetToString{
+        {TargetCoreType::AIC, "AIC"},
+        {TargetCoreType::AIV0, "AIV0"}, 
+        {TargetCoreType::AIV1, "AIV1"}, 
+        {TargetCoreType::UNKNOWN, "UNKNOWN"}};
     if (targetToString.count(coreType) > 0) {
         return targetToString[coreType];
     }
@@ -109,7 +112,7 @@ void TaskGraph::ClearSchedule() {
 }
 
 // 寻找时间槽不重叠情况下的最早执行时间
-void CoreScheduler::FindEarliestSlot(std::vector<std::pair<int,int>> &timeSlot, int earliestStart, int latency, int &currentIdx, std::pair<int,int> &currentInterval) {
+void CoreScheduler::FindEarliestSlot(std::vector<std::pair<int, int>> &timeSlot, int earliestStart, int latency, int &currentIdx, std::pair<int, int> &currentInterval) {
     int currentEarliestStart = INT32_MAX;
     currentIdx = -1;
     currentInterval = std::make_pair(-1, -1);
@@ -153,13 +156,14 @@ std::vector<int> CoreScheduler::GetDFSTopoSeq(TaskGraph &taskGraph) {
             taskStack.push_back(task.idx);
         }
     }
+    std::vector<int> notReadyPrevTaskIds;
     while (taskStack.size() > 0) {
         int taskId = taskStack.back();
         taskStack.pop_back();
         if (finishedTasks[taskId]) {
             continue;
         }
-        std::vector<int> notReadyPrevTaskIds;
+        notReadyPrevTaskIds.clear();
         for (int prevTaskId : taskGraph.tasks[taskId].inTasks) {
             if (!finishedTasks[prevTaskId]) {
                 notReadyPrevTaskIds.push_back(prevTaskId);
@@ -835,7 +839,7 @@ void DAGReachableJudger::Build(const std::vector<std::set<int>> &inGraph, const 
 }
 
 // 设定从src到dst可达
-void DAGReachableJudger::SetReachable(int src, int dst) {
+void DAGReachableJudger::SetReachable(const int src, const int dst) {
     const int bitPerBlock = 32;
     size_t index = dst / bitPerBlock;
     size_t offset = dst % bitPerBlock;

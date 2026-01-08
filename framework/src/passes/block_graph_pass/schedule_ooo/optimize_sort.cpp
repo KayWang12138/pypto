@@ -276,6 +276,7 @@ Status OptimizeSort::RollBack(size_t &startIndex,
     size_t rollBackIndex = backTraceIndex;
     APASS_LOG_DEBUG_F(Elements::Operation, "backTraceOp: %s, backTraceIndex: %d, memType: %d",
         GetOpInfo(backTraceOp).c_str(), backTraceIndex, memType);
+    std::set<size_t> advanceIndexList;
     while (rollBackIndex < curOpList.size() && rollBackIndex > 0) {
         rollBackIndex--;
         Operation* rollBackOp = curOpList[rollBackIndex];
@@ -288,7 +289,7 @@ Status OptimizeSort::RollBack(size_t &startIndex,
         recordBufferAllocate = backTraceBufferAllocate;
         recordOpList = backTraceOpList;
         recordBufRefCount = backTraceBufRefCount;
-        std::set<size_t> advanceIndexList;
+        advanceIndexList.clear();
         GetListToAdvance(rollBackIndex, backTraceIndex, curOpList, advanceIndexList);
         ReplaceIndex(curOpList, advanceIndexList, rollBackIndex);
         startIndex = rollBackIndex;
@@ -327,7 +328,7 @@ void OptimizeSort::ReorderOp(std::vector<size_t> &preIdx, std::vector<Operation*
     curOpList.insert(curOpList.begin() + startIndex + 1, moveOpList.begin(), moveOpList.end());
 }
 
-void OptimizeSort::FindIndex(Operation* op, std::vector<Operation*> curOpList, size_t &index) {
+void OptimizeSort::FindIndex(const Operation* op, const std::vector<Operation*> curOpList, const size_t &index) {
     for (size_t i = 0; i < curOpList.size(); i++) {
         if (curOpList[i] == op) {
             index = i;
@@ -400,7 +401,7 @@ void OptimizeSort::RecoverSymbol(size_t startIndex, std::vector<Operation*> curO
 void OptimizeSort::GetConsumerGroup(std::set<Operation*> consumers, std::vector<Operation*> &consumersGroup) {
     for (auto op : consumers) {
         APASS_LOG_DEBUG_F(Elements::Operation, "consumer: %s", GetOpInfo(op).c_str());
-        if (visitedOp[op] == false) {
+        if (!visitedOp[op]) {
             consumersGroup.push_back(op);
             APASS_LOG_DEBUG_F(Elements::Operation, "unvisited consumer: %s", GetOpInfo(op).c_str());
         }
@@ -420,6 +421,7 @@ Status OptimizeSort::BacktraceOnMemoryExceeded(size_t &startIndex,
     std::vector<Operation*> &curOpList, std::map<MemoryType, int64_t> &curMemoryMap) {
     APASS_LOG_DEBUG_F(Elements::Tensor, "=====> Start Backtrace.");
     MemoryType memType = curOpList[startIndex]->GetOutputOperand(0)->GetMemoryTypeOriginal();
+    std::vector<Operation*> consumersGroup;
     while (startIndex < curOpList.size() && startIndex > 0) {
         startIndex--;
         auto op = curOpList[startIndex];
@@ -432,7 +434,7 @@ Status OptimizeSort::BacktraceOnMemoryExceeded(size_t &startIndex,
         }
         APASS_LOG_DEBUG_F(Elements::Operation, "===>start to find unvisited consumer");
         APASS_LOG_DEBUG_F(Elements::Operation, "current index： %d", startIndex);
-        std::vector<Operation*> consumersGroup;
+        consumersGroup.clear();
         GetConsumerGroup(outGraph[op], consumersGroup);
         if (consumersGroup.empty()) {
             continue;
@@ -466,7 +468,7 @@ Status OptimizeSort::BacktraceOnMemoryExceeded(size_t &startIndex,
 }
 
 // 计算 tensor 对应的 memType （只对 L0C L0A L0B 进行内存处理） 是否已满
-bool OptimizeSort::IsBufferFull(std::map<MemoryType, int64_t> curMemoryMap, MemoryType memType, int64_t size) {
+bool OptimizeSort::IsBufferFull(const std::map<MemoryType, int64_t> curMemoryMap, const MemoryType memType, const int64_t size) {
     if (memType != MemoryType::MEM_L0A && memType != MemoryType::MEM_L0B && memType != MemoryType::MEM_L0C) {
         APASS_LOG_DEBUG_F(Elements::Operation, "MemoryType is not L0A, L0B, or L0C.");
         return false;
@@ -624,22 +626,6 @@ Status OptimizeSort::SortOps() {
 
     sortMethodStr = function_.paramConfigs_.OoOPreScheduleMethod;
     if (sortMethodStr == "PriorDFS") {
-        std::unordered_map<Opcode, int> preNodePriority = {
-            // ALLOC 节点优先级最高，因为一个节点的前序ALLOC节点要在最靠近该节点的地方访问。
-            {Opcode::OP_UB_ALLOC, 0}, {Opcode::OP_L1_ALLOC, 0}, {Opcode::OP_L0A_ALLOC, 0}, {Opcode::OP_L0B_ALLOC, 0},
-            {Opcode::OP_L0C_ALLOC, 0}, {Opcode::OP_BT_ALLOC, 0}, {Opcode::OP_FIX_ALLOC, 0},
-            // 其次是L0级数据搬运Op。
-            {Opcode::OP_L1_TO_L0A, 1}, {Opcode::OP_L1_TO_L0B, 1}, {Opcode::OP_L1_TO_L0_AT, 1},
-            {Opcode::OP_L1_TO_L0_BT, 1}, {Opcode::OP_L1_TO_FIX, 1}, {Opcode::OP_L1_TO_FIX_QUANT_PRE, 1},
-            {Opcode::OP_L1_TO_FIX_RELU_PRE, 1}, {Opcode::OP_L1_TO_FIX_RELU_POST, 1},
-            {Opcode::OP_L1_TO_FIX_QUANT_POST, 1}, {Opcode::OP_L1_TO_FIX_ELT_ANTIQ, 1},
-            {Opcode::OP_L1_TO_FIX_MTE2_ANTIQ, 1}, {Opcode::OP_L1_TO_BT, 1},
-            // 再其次是L1级数据搬运Op。
-            {Opcode::OP_COPY_IN, 2}, {Opcode::OP_UB_COPY_IN, 2}, {Opcode::OP_L1_COPY_IN, 2},
-            {Opcode::OP_L1_COPY_IN_FRACTAL_Z, 2}, {Opcode::OP_L1_COPY_UB, 2},
-            {Opcode::OP_L0C_COPY_UB, 2}, {Opcode::OP_UB_COPY_L1, 2},
-            // 最后访问其它计算节点（其它节点默认的优先级为10）。
-        };
         if (PriorDFS(preNodePriority) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "PriorDFS failed.");
             return FAILED;

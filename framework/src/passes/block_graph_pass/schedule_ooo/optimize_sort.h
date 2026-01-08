@@ -20,6 +20,22 @@
 #include <vector>
 
 namespace npu::tile_fwk {
+std::unordered_map<Opcode, int> preNodePriority = {
+    // ALLOC 节点优先级最高，因为一个节点的前序ALLOC节点要在最靠近该节点的地方访问。
+    {Opcode::OP_UB_ALLOC, 0}, {Opcode::OP_L1_ALLOC, 0}, {Opcode::OP_L0A_ALLOC, 0}, {Opcode::OP_L0B_ALLOC, 0},
+    {Opcode::OP_L0C_ALLOC, 0}, {Opcode::OP_BT_ALLOC, 0}, {Opcode::OP_FIX_ALLOC, 0},
+    // 其次是L0级数据搬运Op。
+    {Opcode::OP_L1_TO_L0A, 1}, {Opcode::OP_L1_TO_L0B, 1}, {Opcode::OP_L1_TO_L0_AT, 1},
+    {Opcode::OP_L1_TO_L0_BT, 1}, {Opcode::OP_L1_TO_FIX, 1}, {Opcode::OP_L1_TO_FIX_QUANT_PRE, 1},
+    {Opcode::OP_L1_TO_FIX_RELU_PRE, 1}, {Opcode::OP_L1_TO_FIX_RELU_POST, 1},
+    {Opcode::OP_L1_TO_FIX_QUANT_POST, 1}, {Opcode::OP_L1_TO_FIX_ELT_ANTIQ, 1},
+    {Opcode::OP_L1_TO_FIX_MTE2_ANTIQ, 1}, {Opcode::OP_L1_TO_BT, 1},
+    // 再其次是L1级数据搬运Op。
+    {Opcode::OP_COPY_IN, 2}, {Opcode::OP_UB_COPY_IN, 2}, {Opcode::OP_L1_COPY_IN, 2},
+    {Opcode::OP_L1_COPY_IN_FRACTAL_Z, 2}, {Opcode::OP_L1_COPY_UB, 2},
+    {Opcode::OP_L0C_COPY_UB, 2}, {Opcode::OP_UB_COPY_L1, 2},
+    // 最后访问其它计算节点（其它节点默认的优先级为10）。
+};
 class OptimizeSort : public ScheduleBase {
 public:
     OptimizeSort(std::vector<Operation*> opList, Function &function) :
@@ -64,7 +80,7 @@ public:
         std::map<Operation*, bool>& visited);
 
     void ReorderOp(std::vector<size_t> &preIdx, std::vector<Operation*> &curOpList, size_t startIndex);
-    void FindIndex(Operation* op, std::vector<Operation*> curOpList, size_t &index);
+    void FindIndex(const Operation* op, const std::vector<Operation*> curOpList, const size_t &index)
     Status FindConsumerList(size_t consumerIndex, std::vector<size_t> &preOpList, std::vector<Operation*> &curOpList);
     Status UpdateOOperandPreDependence(size_t startIndex, std::vector<Operation*> &curOpList,
         std::vector<Operation*> consumersGroup);
@@ -74,7 +90,7 @@ public:
         std::map<MemoryType, int64_t> &curMemoryMap);
     Status BacktraceOnMemoryExceeded(size_t &startIndex, std::vector<Operation*> &curOpList,
         std::map<MemoryType, int64_t> &curMemoryMap);
-    bool IsBufferFull(std::map<MemoryType, int64_t> curMemoryMap, MemoryType memType, int64_t size);
+    bool IsBufferFull(const std::map<MemoryType, int64_t> curMemoryMap, const MemoryType memType, const int64_t size);
     Status ModifyBuffer(std::map<MemoryType, int64_t> &curMemoryMap, MemoryType memType, int64_t size, bool isAdd);
     Status RetireOpBuffer(std::map<MemoryType, int64_t> &curMemoryMap, Operation* op);
     void OpMemoryUpdate(Operation* op, size_t startIndex, std::vector<Operation*> curOpList,

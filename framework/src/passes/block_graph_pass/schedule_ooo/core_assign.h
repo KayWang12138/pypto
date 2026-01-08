@@ -147,7 +147,7 @@ public:
 class DAGReachableJudger {
 public:
     void Build(const std::vector<std::set<int>> &inGraph, const std::vector<std::set<int>> &outGraph);
-    void SetReachable(int src, int dst);
+    void SetReachable(const int src, const int dst);
     void MergeReachable(int src, int dst);
     bool IsReachable(int src, int dst);
     std::vector<std::vector<uint32_t>> reachableSet;
