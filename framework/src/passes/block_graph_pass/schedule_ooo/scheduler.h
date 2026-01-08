@@ -154,7 +154,7 @@ private:
     std::vector<Operation *> operations_;
 
     bool issueFinish{false};
-    std::map<IssueEntryPtr, std::map<MemoryType, int64_t>> recordBufferAllocate;
+    std::map<IssueEntryPtr, std::unordered_map<MemoryType, int64_t>> recordBufferAllocate;
     std::map<IssueEntryPtr, std::pair<size_t, std::vector<IssueEntryPtr>>> recordIssueEntries;
     std::map<IssueEntryPtr, MemoryType> recordIssueBuffer;
     std::stack<std::pair<IssueEntryPtr, MemoryType>> needFreeIssueStack;
@@ -162,7 +162,7 @@ private:
     std::map<IssueEntryPtr, std::unordered_map<int, int>> recordBufRefCount;
     // 回溯点位置,当前执行issue的全部信息,用于后期回退
     IssueEntryPtr backTraceIssue{nullptr};
-    std::map<IssueEntryPtr, std::map<MemoryType, int64_t>> backTraceBufferAllocate;
+    std::map<IssueEntryPtr, std::unordered_map<MemoryType, int64_t>> backTraceBufferAllocate;
     std::map<IssueEntryPtr, std::pair<size_t, std::vector<IssueEntryPtr>>> backTraceIssueEntries;
     std::map<IssueEntryPtr, std::unordered_map<int, int>> backTraceBufRefCount;
     std::unordered_map<IssueEntryPtr, int> depthCache_;
@@ -178,7 +178,7 @@ private:
     Status InitDependencies();
     void FindDependencies(IssueEntryPtr issue, std::map<Operation*, IssueEntryPtr> op2IssueEntryMap);
     void AddDependency(IssueEntryPtr preIssue, IssueEntryPtr postIssue, bool isAlloc);
-    Status InitAllocDependencies(IssueEntryPtr issue, std::map<int, IssueEntryPtr> tensor2AllocMap);
+    Status InitAllocDependencies(IssueEntryPtr issue, std::unordered_map<int, IssueEntryPtr> tensor2AllocMap);
     void InitLocalBuffer(LogicalTensorPtr oOperand, int memId);
     void InitLocalBufferForAxisCombine(LogicalTensorPtr oOperand, int memId);
     void InitBufRefCount();
@@ -237,7 +237,7 @@ private:
         std::unordered_set<IssueEntryPtr> &preNodeTotal, std::map<IssueEntryPtr, bool>& visited);
 
     Status RollBack(size_t &startIndex, std::vector<IssueEntryPtr> &curIssueEntries,
-        std::map<MemoryType, int64_t> &curMemoryMap);
+        std::unordered_map<MemoryType, int64_t> &curMemoryMap);
     void GetListToAdvance(size_t rollBackIndex, size_t backTraceIndex,
         std::vector<IssueEntryPtr> curIssueEntries, std::set<size_t> &AdvanceIndexList);
     void ReplaceIndex(std::vector<IssueEntryPtr> &curIssueEntries,
@@ -256,18 +256,18 @@ private:
         std::vector<IssueEntryPtr> consumersGroup);
     void RecoverSymbol(size_t startIndex, std::vector<IssueEntryPtr> curIssueEntries);
     void GetConsumerGroup(std::vector<IssueEntryPtr> consumers, std::vector<IssueEntryPtr> &consumersGroup);
-    void GetStackTop(size_t &startIndex, std::vector<IssueEntryPtr> &curIssueEntries, std::map<MemoryType, int64_t> &curMemoryMap);
+    void GetStackTop(size_t &startIndex, std::vector<IssueEntryPtr> &curIssueEntries, std::unordered_map<MemoryType, int64_t> &curMemoryMap);
     Status BacktraceOnMemoryExceeded(size_t &startIndex,
-        std::vector<IssueEntryPtr> &curIssueEntries, std::map<MemoryType, int64_t> &curMemoryMap);
-    bool IsBufferFull(std::map<MemoryType, int64_t> curMemoryMap, MemoryType memType, int64_t size);
-    Status ModifyBuffer(std::map<MemoryType, int64_t> &curMemoryMap, MemoryType memType, int64_t size, bool isAdd);
-    Status RetireIssueBuffer(std::map<MemoryType, int64_t> &curMemoryMap, IssueEntryPtr issue);
-    void issueMemoryUpdate(IssueEntryPtr issue, size_t startIndex, std::vector<IssueEntryPtr> curIssueEntries,
-        std::map<MemoryType, int64_t> curMemoryMap);
+        std::vector<IssueEntryPtr> &curIssueEntries, std::unordered_map<MemoryType, int64_t> &curMemoryMap);
+    bool IsBufferFull(std::unordered_map<MemoryType, int64_t> curMemoryMap, MemoryType memType, int64_t size);
+    Status ModifyBuffer(std::unordered_map<MemoryType, int64_t> &curMemoryMap, MemoryType memType, int64_t size, bool isAdd);
+    Status RetireIssueBuffer(std::unordered_map<MemoryType, int64_t> &curMemoryMap, IssueEntryPtr issue);
+    void issueMemoryUpdate(IssueEntryPtr issue, size_t startIndex, const std::vector<IssueEntryPtr> &curIssueEntries,
+        const std::unordered_map<MemoryType, int64_t> &curMemoryMap);
     Status AllocExecute(IssueEntryPtr issue, std::vector<IssueEntryPtr> &curIssueEntries,
-        std::map<MemoryType, int64_t> &curMemoryMap, size_t &startIndex, bool &isContinue);
+        std::unordered_map<MemoryType, int64_t> &curMemoryMap, size_t &startIndex, bool &isContinue);
     Status IssueEntriesExecute(std::vector<IssueEntryPtr> &curIssueEntries,
-        std::map<MemoryType, int64_t> &curMemoryMap, size_t &startIndex);
+        std::unordered_map<MemoryType, int64_t> &curMemoryMap, size_t &startIndex);
     Status ExecuteIssue();
 
     // gen spill
