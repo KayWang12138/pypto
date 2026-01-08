@@ -148,9 +148,7 @@ TEST_F(TestConfigManager, NormalRuntimeTest) {
         {STITCH_FUNCTION_OUTCAST_MEMORY, {1, INT_MAX}},
         {STITCH_FUNCTION_NUM_INITIAL, {1, 128}},
         {STITCH_FUNCTION_NUM_STEP, {0, 128}},
-        {CFGCACHE_DEVICE_TASK_NUM, {0, 100}},
-        {CFGCACHE_ROOT_TASK_NUM, {0, 1000}},
-        {CFGCACHE_LEAF_TASK_NUM, {0, 10000}},
+        {STITCH_CFGCACHE_SIZE, {0, 100000000}},
         {STITCH_FUNCTION_SIZE, {1, 65535}},
         {CFG_RUN_MODE, {0, 1}},
     };
@@ -167,9 +165,7 @@ TEST_F(TestConfigManager, AbnormalRuntimeTest) {
         {STITCH_FUNCTION_OUTCAST_MEMORY, {0, outVal}},
         {STITCH_FUNCTION_NUM_INITIAL, {0, 129}},
         {STITCH_FUNCTION_NUM_STEP, {-1, 129}},
-        {CFGCACHE_DEVICE_TASK_NUM, {-1, 101}},
-        {CFGCACHE_ROOT_TASK_NUM, {-1, 1001}},
-        {CFGCACHE_LEAF_TASK_NUM, {-1, 10001}},
+        {STITCH_CFGCACHE_SIZE, {-1, 100000001}},
         {STITCH_FUNCTION_SIZE, {0, 65536}},
         {CFG_RUN_MODE, {-1, 2}},
     };
@@ -227,4 +223,31 @@ TEST_F(TestConfigManager, AbnormalPassTest) {
     };
     ret = RangeTest<std::map<int64_t, int64_t>>(input2, &(config::SetOption), "pass");
     EXPECT_EQ(ret, true);
+}
+
+TEST_F(TestConfigManager, GlobalConfig) {
+    std::string res = ConfigManagerNg::GetGlobalConfig<std::string>("platform.DEVICE_PLATFORM");
+    EXPECT_EQ(res, "ASCEND_910B2");
+
+    ConfigManagerNg::SetGlobalConfig("platform.DEVICE_PLATFORM", "test");
+    res = ConfigManagerNg::GetGlobalConfig<std::string>("platform.DEVICE_PLATFORM");
+    EXPECT_EQ(res, "test");
+
+    ConfigManagerNg::SetGlobalConfig("simulation.EXECUTE_CYCLE_THRESHOLD", 10);
+    long res_int = ConfigManagerNg::GetGlobalConfig<long>("simulation.EXECUTE_CYCLE_THRESHOLD");
+    EXPECT_EQ(res_int, 10);
+
+    ConfigManagerNg::SetGlobalConfig("codegen.CODEGEN_SUPPORT_TILE_TENSOR", true);
+    bool res_bool = ConfigManagerNg::GetGlobalConfig<bool>("codegen.CODEGEN_SUPPORT_TILE_TENSOR");
+    EXPECT_EQ(res_bool, true);
+
+    // python pybind interface
+    std::map<std::string, Any> config_values = {
+        {"simulation.EXECUTE_CYCLE_THRESHOLD", 10}
+    };
+    ConfigManagerNg::GetInstance().SetGlobalConfig(std::move(config_values), "default", 1);
+    ConfigManagerNg::GetInstance().GlobalScope();
+
+    std::map<std::string, Any> empty_values = {};
+    ConfigManagerNg::GetInstance().SetGlobalConfig(std::move(empty_values), "default", 1);
 }

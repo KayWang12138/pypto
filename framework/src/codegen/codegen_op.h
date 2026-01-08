@@ -55,8 +55,11 @@ const int NULL_OPERAND = 0;
 class CodeGenOp {
 public:
     CodeGenOp(const std::shared_ptr<SymbolManager> &symbolManager, FunctionType funcType,
-        const std::map<int, int> &locToOffset = {}, bool isUnderDynamicFunc = false)
-        : functionType(funcType), paramLocToParamListOffset(locToOffset), isUnderDynamicFunction(isUnderDynamicFunc) {
+        const std::map<int, int> &locToOffset = {}, bool isUnderDynamicFunc = false, bool isMainBlk = false)
+        : functionType(funcType),
+          paramLocToParamListOffset(locToOffset),
+          isUnderDynamicFunction(isUnderDynamicFunc),
+          isMainBlock(isMainBlk) {
         for (size_t i = 0; i < MAX_OPERANDS; i++) {
             operand[i] = NULL_OPERAND;
             operandType[i] = BUF_UNKNOWN;
@@ -97,6 +100,7 @@ protected:
     // need adapt unaligned scene
     // Used for unaligned scene. In AST 1.0 it was padded in LogicalTensor constructor
     std::vector<int64_t> originShape[MAX_OPERANDS] = {};
+    std::vector<SymbolicScalar> dynamicOffset[MAX_OPERANDS] = {};
     std::vector<SymbolicScalar> dynamicValidShape[MAX_OPERANDS] = {}; // valid shape
     std::vector<SymbolicScalar> offsetGmSymbolic[MAX_OPERANDS] = {};  // for spilling into GM scene
     // if operand is an variable, record its related argument location
@@ -123,6 +127,7 @@ protected:
     const std::map<int, int> &paramLocToParamListOffset{};
     bool isUnderDynamicFunction{false};
     int operandCnt{0};
+    bool isMainBlock{false};
 
 private:
     void UpdateCodegenOpInfoByTensor(const Operation &ops, bool isInput, const std::shared_ptr<LogicalTensor> &tensor,

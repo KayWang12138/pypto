@@ -627,7 +627,7 @@ void SimSys::OutputLogForSwimLane(std::string prefix)
     MLOG_INFO("topo_txt_path: ", topo_txt_path);
     std::string program_json_path = outdir + "/../" + "program.json";
     MLOG_INFO("program_json_path: ", program_json_path);
-    std::string label_type = "--label_type=1 --time_convert_denominator=50";
+    std::string label_type = "--label_type=1 --time_convert_denominator=1800"; // default 1.8GHz
     MLOG_INFO("label_type: ", label_type);
     if (devicePtr->config.submitTopo) {
         cmd = "python3 " + mergeScriptPath + " " + outSwimPath + " " + topo_txt_path + " " + program_json_path + " " + label_type;
@@ -874,7 +874,7 @@ void SimSys::InitBufferThreshold(PipeConfig &pipeConfig)
     bufferSizeThreshold[CorePipeType::PIPE_CUBE_BMU_L1] = pipeConfig.l1SizeThreshold;
     bufferSizeThreshold[CorePipeType::PIPE_CUBE_BMU_L0A] = pipeConfig.l0aSizeThreshold;
     bufferSizeThreshold[CorePipeType::PIPE_CUBE_BMU_L0B] = pipeConfig.l0bSizeThreshold;
-    bufferSizeThreshold[CorePipeType::PIPE_CUBE_BMU_L0C] = pipeConfig.l0cSizeThreshold;
+    bufferSizeThreshold[CorePipeType::PIPE_CUBE_BMU_L0C] = pipeConfig.l0cSizeThreshold * 2;
 }
 
 uint64_t SimSys::GetBufferThreshold(CorePipeType pType)

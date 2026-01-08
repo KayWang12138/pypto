@@ -40,12 +40,12 @@ public:
     void TearDown() override {
     }
 };
-const Opcode BRCB = Opcode::OP_BRCB;
-std::string prefix = "brcb_idx";
+
 constexpr int64_t K_1 = 1;
 constexpr int64_t K_2 = 2;
 constexpr int64_t K_4 = 4;
 constexpr int64_t K_8 = 8;
+constexpr int64_t K_16 = 16;
 constexpr int64_t K_32 = 32;
 constexpr int64_t K_64 = 64;
 constexpr int64_t K_128 = 128;
@@ -63,15 +63,17 @@ TEST_F(TestAxisCombine, Test1) {
     auto updatedOperations = rootFuncPtr->Operations();
     int64_t brcbCnt = 0;
     for (const auto &op : updatedOperations) {
-        if (op.GetOpcode() == BRCB) {
+        if (op.GetOpcode() == Opcode::OP_BRCB) {
             ++brcbCnt;
-            if (op.HasAttr(prefix)) {
-                auto idx = op.GetIntAttribute(prefix) - 1;
-                auto tensor = op.GetIOperands()[idx];
-                EXPECT_TRUE(tensor != nullptr);
-                EXPECT_EQ(tensor->shape[0], K_4);
-                EXPECT_EQ(tensor->shape[1], K_8);
-            }
+            auto outputTensor = op.GetOOperands()[0];
+            EXPECT_TRUE(outputTensor->GetConsumers().size() != 0);
+        }
+        if (op.HasAttr(OpAttributeKey::brcbIdx)) {
+            auto idx = op.GetIntAttribute(OpAttributeKey::brcbIdx) - 1;
+            auto tensor = op.GetIOperands()[idx];
+            EXPECT_TRUE(tensor != nullptr);
+            EXPECT_EQ(tensor->shape[0], K_4);
+            EXPECT_EQ(tensor->shape[1], K_8);
         }
     }
     EXPECT_EQ(brcbCnt, K_1);
@@ -91,15 +93,17 @@ TEST_F(TestAxisCombine, Test2) {
     auto updatedOperations = rootFuncPtr->Operations();
     int64_t cnt = 0;
     for (const auto &op : updatedOperations) {
-        if (op.GetOpcode() == BRCB) {
+        if (op.GetOpcode() == Opcode::OP_BRCB) {
             ++cnt;
-            if (op.HasAttr(prefix)) {
-                auto idx = op.GetIntAttribute(prefix) - 1;
-                auto tensor = op.GetIOperands()[idx];
-                EXPECT_TRUE(tensor != nullptr);
-                EXPECT_EQ(tensor->shape[1], K_8);
-                EXPECT_EQ(tensor->shape[0], K_4);
-            }
+            auto outputTensor = op.GetOOperands()[0];
+            EXPECT_TRUE(outputTensor->GetConsumers().size() != 0);
+        }
+        if (op.HasAttr(OpAttributeKey::brcbIdx)) {
+            auto idx = op.GetIntAttribute(OpAttributeKey::brcbIdx) - 1;
+            auto tensor = op.GetIOperands()[idx];
+            EXPECT_TRUE(tensor != nullptr);
+            EXPECT_EQ(tensor->shape[1], K_8);
+            EXPECT_EQ(tensor->shape[0], K_4);
         }
     }
     EXPECT_EQ(cnt, K_1);
@@ -127,16 +131,18 @@ TEST_F(TestAxisCombine, Test3) {
     // ================== Verify Pass Effect ==================
     auto updatedOperations = rootFuncPtr->Operations();
     for (const auto &op : updatedOperations) {
-        if (op.GetOpcode() == BRCB) {
-            if (op.HasAttr(prefix)) {
-                auto idx = op.GetIntAttribute(prefix);
-                auto tensor = op.GetIOperands()[idx];
-                EXPECT_TRUE(tensor != nullptr);
-                EXPECT_EQ(tensor->shape[0], K_4);
-                EXPECT_EQ(tensor->shape[1], K_8);
-                EXPECT_EQ(tensor->GetRawTensor()->GetRawShape()[0], K_8);
-                EXPECT_EQ(tensor->GetRawTensor()->GetRawShape()[1], K_8);
-            }
+        if (op.GetOpcode() == Opcode::OP_BRCB) {
+            auto outputTensor = op.GetOOperands()[0];
+            EXPECT_TRUE(outputTensor->GetConsumers().size() != 0);
+        }
+        if (op.HasAttr(OpAttributeKey::brcbIdx)) {
+            auto idx = op.GetIntAttribute(OpAttributeKey::brcbIdx) - 1;
+            auto tensor = op.GetIOperands()[idx];
+            EXPECT_TRUE(tensor != nullptr);
+            EXPECT_EQ(tensor->shape[0], K_16);
+            EXPECT_EQ(tensor->shape[1], K_8);
+            EXPECT_EQ(tensor->GetRawTensor()->GetRawShape()[0], K_16);
+            EXPECT_EQ(tensor->GetRawTensor()->GetRawShape()[1], K_8);
         }
     }
 }

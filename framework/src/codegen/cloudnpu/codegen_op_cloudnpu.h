@@ -37,11 +37,12 @@ struct CodeGenOpCloudNPUCtx {
     Function &subFunc;
     const Operation &ops;
     const std::map<int, int> &locToOffset = {};
+    bool isMainBlock{false};
 };
 class CodeGenOpCloudNPU : public CodeGenOp {
 public:
     CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbolManager, FunctionType funcType,
-        const std::map<int, int> &locToOffset = {}, bool isUnderDynamicFunc = false);
+        const std::map<int, int> &locToOffset = {}, bool isUnderDynamicFunc = false, bool isMainBlk = false);
 
     explicit CodeGenOpCloudNPU(const CodeGenOpCloudNPUCtx &ctx);
     ~CodeGenOpCloudNPU() override = default;
@@ -89,6 +90,7 @@ public:
     std::string GenGatherElementOp() const;
 
     std::string GenRangeOp() const;
+    std::string PrintRangeTileTensor(std::string startVal, std::string stepVal) const;
     std::string GenL0CToUBTileTensor() const;
 
     std::string GenScatterElementSOp() const;
@@ -127,6 +129,7 @@ public:
     std::string GenTemplateParams() const;
     void GenExtraTemplateParamsForMoeCombine(std::ostringstream &oss, int32_t operandIndex) const;
     std::string GenOffsets(int32_t operandIndex, int32_t dim) const;
+    std::string GenShapes(int32_t operandIndex, int32_t dim) const;
     std::string GenRawShapes(int32_t operandIndex, int32_t dim) const;
     std::string GenOffsetsAndRawShapes() const;
     std::string GenOffsetsAndRawShapes(int32_t operandIndex, int32_t dim) const;
@@ -149,7 +152,6 @@ public:
 private:
     std::string GenTemplateParamsForPutAndGet() const;
     std::string GenTemplateParamsForSignal() const;
-    std::string GenTemplateParamsForReduce() const;
     std::string GenTemplateParamsForMoeCombineSend() const;
     std::string GenTemplateParamsForMoeCombineReceive() const;
     std::string GenTemplateParamsForSet() const;
@@ -158,7 +160,6 @@ private:
     std::string GenOffsetsAndRawShapesForShmemPutAndGet() const;
     std::string GenOffsetsAndRawShapesForShmemPutAndGetUB() const;
     std::string GenOffsetsAndRawShapesForShmemSignal() const;
-    std::string GenOffsetsAndRawShapesForShmemReduce() const;
     std::string GenOffsetsAndRawShapesForShmemMoeCombineSend() const;
     std::string GenOffsetsAndRawShapesForShmemMoeCombineReceive() const;
     std::string GenOffsetsAndRawShapesForSendToRoutingExpert() const;
@@ -196,6 +197,9 @@ private:
     }
     void AppendLocalBufferVarOffset(const std::map<unsigned, std::reference_wrapper<std::string>> &vars) const;
 
+    // get start offset in total block
+    SymbolicScalar GetOperandStartOffset(int operandIdx) const;
+
     std::string GenGmParamVar(unsigned gmParamIdx) const;
 
     bool CombineAxis(
@@ -217,6 +221,7 @@ private:
     std::string PrintDupOp(const PrintDupOpParam &param) const;
     std::string PrintDupOpDynUnaligned(const PrintDupOpParam &param) const;
     std::string PrintDupOpStatic(const PrintDupOpParam &param) const;
+    std::string PrintDupTileTensor(const PrintDupOpParam &param) const;
 
     std::string PrintRowMaxline(const PrintUnaryParam &param) const;
     std::string PrintRowMaxlineTileTensor() const;
@@ -295,6 +300,7 @@ private:
     std::string PrintBinaryBrc(const PrintBinaryBrcParam &param) const;
 
     std::string PrintTransposeDataMove(const PrintTransposeDataMoveParam &param) const;
+    std::string PrintTransposeDataMoveLayout(const PrintTransposeDataMoveParam &param) const;
     std::string PrintTransposeDataMoveStatic(const PrintTransposeDataMoveParam &param) const;
     std::string PrintTransposeDataMoveDynamic(const PrintTransposeDataMoveParam &param) const;
     std::string PrintTransposeDataMoveDynamicUnaligned(const PrintTransposeDataMoveParam &param) const;
@@ -353,6 +359,10 @@ private:
     std::string PrintWhereOp(const WhereParam &param) const;
     std::string PrintWhereOpTileTensor() const;
 
+    std::string PrintCmpTileTensor() const;
+    std::string PrintLogicalAndTileTensor() const;
+    std::string PrintLogicalNotTileTensor() const;
+
     void InitOpsGenMap();
     void InitScalaOpsMap();
     void InitMTEOpsMap();
@@ -361,6 +371,11 @@ private:
     void InitDistOpsMap();
     void InitPerfOpsMap();
     void InitAICPUOpsMap();
+
+    std::string PrintCoord(size_t dim, const std::string &coord) const;
+    std::string PrintTensorForCopyBetweenGM(unsigned operandIdx, unsigned gmIdx, const std::string &gmVarName) const;
+    void FillParamWithFullShape(std::vector<std::string> &paramList, const std::vector<int64_t> &input) const;
+    void FillParamWithShapeExceptFirst(std::vector<std::string> &paramList, const std::vector<int64_t> &input) const;
 
     const std::unordered_map<Opcode, std::function<std::string()>> mteFixPipeOps_;
 

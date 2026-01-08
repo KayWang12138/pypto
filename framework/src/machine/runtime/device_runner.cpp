@@ -152,6 +152,16 @@ void DeviceRunner::InitDynamicArgs(DeviceArgs &args) {
     }
 }
 
+void DeviceRunner::ResetPerData() {
+    auto size = MAX_DFX_TASK_NUM_PER_CORE * sizeof(TaskStat) + sizeof(Metrics);
+    for (uint64_t i = 0; i < args_.nrAic + args_.nrAiv; i++) {
+        int rc = rtMemset(perfData_[i], size, 0, size);
+        if (rc != 0) {
+            ALOG_WARN_F("CoreId %lu, rtMemSet failed, rc: %d", i, rc);
+        }
+    }
+}
+
 int DeviceRunner::InitDeviceArgs(DeviceArgs &args) {
     addressMappingTable_[ArchInfo::DAV_2201] = [&args](std::vector<int64_t>& regs, std::vector<int64_t>& regsPmu) {
         std::vector<int64_t> aiv;
@@ -450,6 +460,7 @@ void DeviceRunner::DumpAiCoreExecutionTimeData() {
     std::string topo_txt_path = config::LogTopFolder() + "/dyn_topo.txt";
     std::string program_json_path = config::LogTopFolder() + "/program.json";
     std::string draw_swim_lane_py_path = GetCurrentSharedLibPath() + "/scripts/draw_swim_lane.py";
+    config::SetRunDataOption(KEY_SWIM_GRAPH_PATH, config::GetAbsoluteTopFolder() + "/merged_swimlane.json");        
 
     if (FileExist(program_json_path) && FileExist(topo_txt_path)) {
         ALOG_INFO("The files program.json and dyn_topo.txt exist. Start merging the swimlane.");
@@ -565,13 +576,11 @@ int DeviceRunner::launchDynamicAiCpuInit(rtStream_t aicpuStream, AstKernelArgs *
 }
 
 int DeviceRunner::RunPrepare() {
-    KernelArgs kernelArgs = {};
-    for (uint32_t i = 0; i < args_.nrAic + args_.nrAiv; i++) {
-        kernelArgs.shakeBuffer[SHAK_BUF_DFX_DATA_INDEX] = reinterpret_cast<uint64_t>(perfData_[i]);
-        rtMemcpy((reinterpret_cast<uint8_t *>(args_.sharedBuffer)) + i * SHARED_BUFFER_SIZE,
-            SHARED_BUFFER_SIZE,
-            reinterpret_cast<uint8_t *>(&kernelArgs),
-            sizeof(kernelArgs),
+   for (uint32_t i = 0; i < args_.nrAic + args_.nrAiv; i++) {
+        rtMemcpy((reinterpret_cast<uint8_t *>(args_.sharedBuffer + sizeof(uint64_t) * SHAK_BUF_DFX_DATA_INDEX)) + i * SHARED_BUFFER_SIZE,
+            sizeof(uint64_t),
+            reinterpret_cast<uint8_t *>(&perfData_[i]),
+            sizeof(uint64_t),
             RT_MEMCPY_HOST_TO_DEVICE);
     }
     if (isCapture_) {

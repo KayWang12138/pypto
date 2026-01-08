@@ -21,18 +21,20 @@ def _count_calls(func):
     count = 0
 
     @wraps(func)
-    def wrapper(tensor, name: str = "", dynamic_axis: Optional[List[int]] = None):
+    def wrapper(tensor, name: str = "", *, dynamic_axis: Optional[List[int]] = None,
+                tensor_format: Optional[TileOpFormat] = None):
         nonlocal count
         count += 1
         if name == "":
             name = f"TENSOR_{count}"
-        return func(tensor, name, dynamic_axis)
+        return func(tensor, name, dynamic_axis, tensor_format)
 
     return wrapper
 
 
 @_count_calls
-def from_torch(tensor, name: str = "", dynamic_axis: Optional[List[int]] = None):
+def from_torch(tensor, name: str = "", dynamic_axis: Optional[List[int]] = None,
+               tensor_format: Optional[TileOpFormat] = None):
     """
     convert the input into a PyPTO Tensor
 
@@ -61,9 +63,13 @@ def from_torch(tensor, name: str = "", dynamic_axis: Optional[List[int]] = None)
     >>> print(x_pto.shape)
     [2, 3]
     >>> y = torch.randn(2, 3)
-    >>> y_pto = pypto.from_torch(y, "input_tensor", [0])
+    >>> y_pto = pypto.from_torch(y, "input_tensor", dynamic_axis=[0])
     >>> print(y_pto.shape)
     [SymbolicScalar(RUNTIME_GetInputShapeDim(ARG_input_tensor,0)), 3]
+    >>> y = torch.randn(2, 3)
+    >>> y_pto = pypto.from_torch(y, "input_tensor", tensor_format=pypto.TileOpFormat.TILEOP_NZ)
+    >>> print(y_pto.format)
+    TileOpFormat.TILEOP_NZ
     """
     import torch
 
@@ -73,12 +79,13 @@ def from_torch(tensor, name: str = "", dynamic_axis: Optional[List[int]] = None)
     if not tensor.is_contiguous():
         raise RuntimeError("not all tensors are contiguous")
 
-    tile_op_format = TileOpFormat.TILEOP_ND
-    if tensor.device.type == "npu":
-        import torch_npu
+    if tensor_format is None:
+        tensor_format = TileOpFormat.TILEOP_ND
+        if tensor.device.type == "npu":
+            import torch_npu
 
-        if torch_npu.get_npu_format(tensor) == 29:
-            tile_op_format = TileOpFormat.TILEOP_NZ
+            if torch_npu.get_npu_format(tensor) == 29:
+                tensor_format = TileOpFormat.TILEOP_NZ
 
     dtype = _dtype_from(tensor.dtype)
     if tensor.dim() == 0:
@@ -87,7 +94,7 @@ def from_torch(tensor, name: str = "", dynamic_axis: Optional[List[int]] = None)
             dtype=dtype,
             name=name,
             data_ptr=tensor.data_ptr(),
-            format=tile_op_format,
+            format=tensor_format,
             device=tensor.device,
         )
     dyn_shape = list(tensor.shape)
@@ -99,7 +106,7 @@ def from_torch(tensor, name: str = "", dynamic_axis: Optional[List[int]] = None)
         dtype=dtype,
         name=name,
         data_ptr=tensor.data_ptr(),
-        format=tile_op_format,
+        format=tensor_format,
         device=tensor.device,
         ori_shape=list(tensor.shape),
     )
@@ -153,8 +160,11 @@ def _torch_dtype_from(dtype: DataType) -> "torch.dtype":
         DataType.DT_INT8: torch.int8,
         DataType.DT_UINT8: torch.uint8,
         DataType.DT_INT16: torch.int16,
+        DataType.DT_UINT16: torch.uint16,
         DataType.DT_INT32: torch.int32,
+        DataType.DT_UINT32: torch.uint32,
         DataType.DT_INT64: torch.int64,
+        DataType.DT_UINT64: torch.uint64,
         DataType.DT_BOOL: torch.bool,
     }
 
@@ -162,3 +172,25 @@ def _torch_dtype_from(dtype: DataType) -> "torch.dtype":
     if torch_dtype is None:
         raise ValueError(f"Input pypto.DataType is not supported. Got {dtype}")
     return torch_dtype
+
+
+def _gen_pto_tensor(input_tensors):
+    import torch
+    
+    torch_tensors = []
+    pto_tensors = []
+    for t in input_tensors:
+        torch_dtype = _torch_dtype_from(t.dtype)
+        tshape = t.shape if all([isinstance(s, int) for s in t.shape]) else t.ori_shape
+        torch_tensor = torch.zeros(tshape, dtype=torch_dtype)
+        pto_tensor = Tensor(shape=tshape,
+                            dtype=t.dtype,
+                            name=t.name,
+                            data_ptr=torch_tensor.data_ptr(),
+                            format=t.format,
+                            device=torch_tensor.device,
+                            ori_shape=tshape)
+
+        torch_tensors.append(torch_tensor)
+        pto_tensors.append(pto_tensor)
+    return pto_tensors, torch_tensors

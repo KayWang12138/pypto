@@ -171,6 +171,9 @@ inline void IndexAdd(LogicalTensorDataPtr out, LogicalTensorDataPtr self, Logica
     LogicalTensorDataPtr indices, int axis, const Element &alpha = Element(DT_FP32, 1.0)) {
     GetCalcOps()->IndexAdd(out, self, src, indices, axis, alpha);
 }
+inline void CumSum(LogicalTensorDataPtr out, LogicalTensorDataPtr in, int axis) {
+    GetCalcOps()->CumSum(out, in, axis);
+}
 inline void Reshape(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     GetCalcOps()->Reshape(out, self);
 }
@@ -201,6 +204,10 @@ inline void BitSort(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int64_t
 }
 inline void Gather(LogicalTensorDataPtr out, LogicalTensorDataPtr params, LogicalTensorDataPtr indices, int64_t axis) {
     GetCalcOps()->Gather(out, params, indices, axis);
+}
+inline void GatherINUB(LogicalTensorDataPtr out, LogicalTensorDataPtr params, LogicalTensorDataPtr indices,
+    LogicalTensorDataPtr pageTable, int64_t blockSize, int64_t axis) {
+    GetCalcOps()->GatherINUB(out, params, indices, pageTable, blockSize, axis);
 }
 
 inline void Extract(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int mod, bool descending) {

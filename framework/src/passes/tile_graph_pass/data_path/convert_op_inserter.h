@@ -113,6 +113,10 @@ public:
     //检查tensor所有的消费者是否都有效
     bool isAllConsumersValid(const std::set<Operation *> &consumers) const;
     
+    //为每个存在内存冲突的消费者插入convert op
+    void InsertConvertOpForEachConsumer(Function &function, const Operation &op, const std::shared_ptr<LogicalTensor> &oOperand,
+        std::set<Operation *> &consumers, std::vector<MemoryType> &paths); 
+
     //记录需要插入的convert op
     std::shared_ptr<LogicalTensor> RecordInsertConvertOp(const std::shared_ptr<LogicalTensor> &oOperand, const std::vector<MemoryType> &paths,
         Function &function,const Operation &op);
@@ -120,6 +124,17 @@ public:
     //graph重连
     void GraphReconnect(const std::shared_ptr<LogicalTensor> &oOperand, std::shared_ptr<LogicalTensor> output, 
         const std::set<Operation *> &consumers,Function &function) const;
+    
+    //cube级联场景
+    bool IsNotValidDataType(const std::shared_ptr<LogicalTensor> &firstCVOutput) const;
+
+    //特殊场景处理：生成者均为Assemble或者消费者均为View/Assemble，且mem路径中经过DDR
+    void ProcessSpecialProducersOrConsumers(const Operation &op, const std::shared_ptr<LogicalTensor> &oOperand,
+        std::set<Operation *> &consumers, MemoryType &requiredMemoryType);
+
+    //构造转换路径
+    Status ProcessConvertPath(const Operation &op, const std::shared_ptr<LogicalTensor> &oOperand,
+        MemoryType requiredMemoryType, std::vector<MemoryType> &paths);
 };
 } 
 }// namespace npu::tile_fwk

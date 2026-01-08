@@ -53,11 +53,11 @@ public:
     void SetHalfwayStrategy() {
         PassManager &passManager = PassManager::Instance();
         passManager.RegisterStrategy("AssignMemoryTypeTestStrategy", {
-            {   "RemoveRedundantReshape",   "RemoveRedundantReshape"},
-            {      "InferMemoryConflict",      "InferMemoryConflict"},
-            {           "ExpandFunction",           "ExpandFunction"},
-            {              "DuplicateOp",              "DuplicateOp"},
-            {        "MergeViewAssemble",        "MergeViewAssemble"},
+            {"RemoveRedundantReshape", PassName::REMOVE_REDUNDANT_RESHAPE},
+            {   "InferMemoryConflict",    PassName::INFER_MEMORY_CONFLICT},
+            {        "ExpandFunction",          PassName::EXPAND_FUNCTION},
+            {           "DuplicateOp",             PassName::DUPLICATE_OP},
+            {     "MergeViewAssemble",      PassName::MERGE_VIEW_ASSEMBLE},
         });
         ConfigManager::Instance();
     }
@@ -260,8 +260,8 @@ TEST_F(AssignMemoryTypeTest, TestVecToCubeV2) {
                 CheckConvertOp(op, true);
             }
         }
-        constexpr int expextedConvertNum = 6;
-        EXPECT_EQ(convertNum, expextedConvertNum) << "6 operations should be Convert";
+        constexpr int expextedConvertNum = 12;
+        EXPECT_EQ(convertNum, expextedConvertNum) << "12 operations should be Convert";
     }
 }
 
@@ -318,8 +318,8 @@ TEST_F(AssignMemoryTypeTest, TestCubeToCube) {
             CheckConvertOp(op, true);
             convertNum++;
         }
-        constexpr int expextedConvertNum = 4;
-        EXPECT_EQ(convertNum, expextedConvertNum) << "4 operations should be Convert";
+        constexpr int expextedConvertNum = 0;
+        EXPECT_EQ(convertNum, expextedConvertNum) << "0 operations should be Convert";
     }
 }
 
@@ -377,8 +377,8 @@ TEST_F(AssignMemoryTypeTest, TestCubeToCubeV2) {
             CheckConvertOp(op, true);
             convertNum++;
         }
-        constexpr int expextedConvertNum = 8;
-        EXPECT_EQ(convertNum, expextedConvertNum) << "8 operations should be Convert";
+        constexpr int expextedConvertNum = 32;
+        EXPECT_EQ(convertNum, expextedConvertNum) << "32 operations should be Convert";
     }
 }
 

@@ -149,8 +149,7 @@ std::string CodeGenCloudNPU::GenFuncBody(Function &subFunc, Function &topFunc) c
 
         std::string allocSourceCode = GenAllocForLocalBuffer(op, symbolMgr);
 
-        CodeGenOpCloudNPU cop({symbolMgr, topFunc, subFunc, op, locToOffsetMap});
-
+        CodeGenOpCloudNPU cop({symbolMgr, topFunc, subFunc, op, locToOffsetMap, ctx.isMainBlock});
         // update fs
         cop.UpdateSaturateStatus(fs);
         std::string tileOpSourceCode = cop.GenOpCode();
@@ -264,7 +263,7 @@ void CodeGenCloudNPU::GenCode(
                 return;
             }
             bool isCube = subFunc->IsCube();
-            CompileInfo compileInfo(topFunc, ctx.cceDir, subFuncPair, isCube, subFunc->IsUnderDynamicFunction());
+            CompileInfo compileInfo(topFunc, ctx, subFuncPair, isCube, subFunc->IsUnderDynamicFunction());
             std::ostringstream leafKernelFunc;
             leafKernelFunc << GenFuncBodyBefore(subFuncPair, topFunc, compileInfo);
             leafKernelFunc << GenFuncBody(*subFunc, topFunc);
@@ -289,9 +288,16 @@ void CodeGenCloudNPU::UpdateSubFunc(std::pair<uint64_t, Function *> subFuncPair,
     if (attr == nullptr) {
         attr = std::make_shared<LeafFuncAttribute>();
     }
-    attr->kernelName = compileInfo.GetKernelName();
-    attr->binPath = compileInfo.GetBinAbsPath();
-    attr->kernelDeclare = compileInfo.GetFuncDeclare();
+
+    if (ctx.isMainBlock) {
+        attr->kernelNameMainBlock = compileInfo.GetKernelName();
+        attr->binPathMainBlock = compileInfo.GetBinAbsPath();
+        attr->kernelDeclareMainBlock = compileInfo.GetFuncDeclare();
+    } else {
+        attr->kernelName = compileInfo.GetKernelName();
+        attr->binPath = compileInfo.GetBinAbsPath();
+        attr->kernelDeclare = compileInfo.GetFuncDeclare();
+    }
     CoreType coreType = compileInfo.IsCube() ? CoreType::AIC : CoreType::AIV;
     attr->coreType = coreType;
     leafFunc->SetLeafFuncAttribute(attr);
@@ -443,18 +449,27 @@ std::string CodeGenCloudNPU::GetIncludePathForCompileCCE() const {
 }
 
 std::string CodeGenCloudNPU::GetPtoTileLibPathByEnv() const {
-    const char *homePath = std::getenv(ENV_PTO_TILE_LIB_CODE_PATH.c_str());
-    if (homePath == nullptr) {
-        homePath = std::getenv(ENV_ASCEND_HOME_PATH.c_str());
-        if (homePath == nullptr) {
-            return "";
-        }
+    if (!ConfigManager::Instance().GetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false)) {
+        return "";
     }
 
-    std::string includePath = std::string(homePath) + "/include";
-    if (IsPathExist(includePath)) {
-        return includePath;
+    // Priority 1: Obtain pto-isa from the patch specified by the environment variable "PTO_TILE_LIB_CODE_PATH".
+    const char *homePath = std::getenv(ENV_PTO_TILE_LIB_CODE_PATH.c_str());
+    if (homePath != nullptr) {
+        std::string envPath = std::string(homePath) + "/include";
+        ASSERT(IsPathExist(envPath + "/pto")) << "Pto-isa path " << envPath << "/pto not found! please check.";
+        return envPath;
     }
+
+    // Priority 2: Obtain pto-isa from the installed cann package. 
+    homePath = std::getenv(ENV_ASCEND_HOME_PATH.c_str());
+    if (homePath != nullptr) {
+        std::string cannPath = std::string(homePath) + "/include";
+        ASSERT(IsPathExist(cannPath + "/pto")) << "Pto-isa path " << cannPath << "/pto not found! please check.";
+        return cannPath;
+    }
+
+    ASSERT(false) << "Pto-isa path not found. please install pto-isa properly.";
     return "";
 }
 
@@ -542,52 +557,64 @@ std::pair<int, std::string> CodeGenCloudNPU::CompileCCE(
     return {ret, ccecCmd};
 }
 
+void EncodeWaitUntilInfo(const Operation &op, std::vector<int32_t> &code) {
+    constexpr int32_t paramSizePerOperand = 2; // waitUntil编码每个operand的2个属性：dim和coaIndex
+    code.push_back(op.GetOOperands().size() * paramSizePerOperand);
+    for (size_t i = 0; i < op.GetOOperands().size(); ++i) {
+        code.push_back(op.GetOutputOperand(i)->shape.size());
+        code.push_back(op.GetOOpAttrOffset(i));
+    }
+
+    code.push_back(op.GetIOperands().size() * paramSizePerOperand);
+    for (size_t i = 0; i < op.GetIOperands().size(); ++i) {
+        code.push_back(op.GetInputOperand(i)->shape.size());
+        code.push_back(op.GetIOpAttrOffset(i));
+    }
+    // waitUntil OP有2个输入，下标0是dummy控制边，下标1是signal
+    // 编码signal的rawShape
+    code.push_back(op.GetInputOperand(1)->GetRawTensor()->rawshape.size() * paramSizePerOperand);
+    for (auto dimShape: op.GetInputOperand(1)->GetRawTensor()->GetRawShape()) {
+        code.push_back(dimShape);
+    }
+    // 编码signal的shape
+    for (auto dimShape: op.GetInputOperand(1)->GetShape()) {
+        code.push_back(dimShape);
+    }
+    // 编码waitUntil的attr属性
+    std::map<std::string, npu::tile_fwk::Any> map = op.GetAllAttribute();
+    auto it = map.find(OpAttributeKey::distOpAttr);
+    std::vector<int64_t> attrs;
+    if (it != map.end()) {
+        npu::tile_fwk::Distributed::DistOpAttr distOpAttr =
+            npu::tile_fwk::AnyCast<npu::tile_fwk::Distributed::DistOpAttr>(it->second);
+        attrs = distOpAttr.aicpuOpParams;
+    }
+    if (attrs.size() != 0) {
+        code.push_back(static_cast<int32_t>(attrs.size()));
+        code.insert(code.end(), attrs.begin(), attrs.end());
+    }
+}
+
 bool CodeGenCloudNPU::HandleForAICpuSubFunc(Function &subFunc) {
     if (!subFunc.IsAicpuSubFunction().first) {
         return false;
     }
     std::vector<int32_t> code;
-    constexpr int32_t paramSizePerOperand = 2; // 每个 operand 都有 dim 和 coaIndex
+    
     auto operationList = subFunc.Operations(false);
     for (const auto &op : operationList) {
         if (op.GetCoreType() != CoreType::AICPU) {
             continue;
         }
-        std::map<std::string, npu::tile_fwk::Any> map = op.GetAllAttribute();
-        auto it = map.find(OpAttributeKey::distOpAttr);
-        std::vector<int64_t> attrs;
-        if (it != map.end()) {
-            npu::tile_fwk::Distributed::DistOpAttr distOpAttr =
-                npu::tile_fwk::AnyCast<npu::tile_fwk::Distributed::DistOpAttr>(it->second);
-            attrs = distOpAttr.aicpuOpParams;
-        }
         code.push_back(static_cast<int32_t>(op.GetOpcode()));
 
-        code.push_back(op.GetOOperands().size() * paramSizePerOperand);
-        for (size_t i = 0; i < op.GetOOperands().size(); ++i) {
-            code.push_back(op.GetOutputOperand(i)->shape.size());
-            code.push_back(op.GetOOpAttrOffset(i));
+        if (op.GetOpcode() == Opcode::OP_SHMEM_WAIT_UNTIL) {
+            EncodeWaitUntilInfo(op, code);
         }
-
-        code.push_back(op.GetIOperands().size() * paramSizePerOperand);
-        for (size_t i = 0; i < op.GetIOperands().size(); ++i) {
-            code.push_back(op.GetInputOperand(i)->shape.size());
-            code.push_back(op.GetIOpAttrOffset(i));
-        }
-
-        if (attrs.size() != 0) {
-            code.push_back(static_cast<int32_t>(attrs.size()));
-            for (size_t i = 0; i < attrs.size(); ++i) {
-                code.push_back(static_cast<int32_t>(attrs[i]));
-            }
-        }
-        break;
     }
-
     if (code.size() % 2 != 0) { // 确保 code.size() 是 2 的倍数，间接保证 code 占用的字节数是 8 的倍数
         code.push_back(0);
     }
-
     std::shared_ptr<LeafFuncAttribute> attr = std::make_shared<LeafFuncAttribute>();
     attr->coreType = CoreType::AICPU;
     attr->aicpuLeafCode = std::move(code);

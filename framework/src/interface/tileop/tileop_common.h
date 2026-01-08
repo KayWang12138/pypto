@@ -24,6 +24,10 @@
 #define __aicore__ [aicore]
 #endif
 
+#ifndef __aicore_host__
+#define __aicore_host__ [host, aicore]
+#endif
+
 #ifndef TILEOP
 #define TILEOP static __attribute__((always_inline))[aicore]
 #endif
@@ -59,14 +63,20 @@
     wait_flag(PIPE_MTE1, PIPE_MTE2, EVENT_ID7)
 #endif
 
-enum CopyInMode : int64_t
+enum class CopyInMode : int64_t
 {
     ND2ND = 0,
     ND2NZ = 1,
     NZ2NZ = 2
 };
 
-enum ReLuType : int64_t
+enum class CopyOutMode : int64_t
+{
+    NZ2ND = 0,
+    NZ2NZ = 1
+};
+
+enum class ReLuType : int64_t
 {
     NoReLu = 0,
     ReLu = 1

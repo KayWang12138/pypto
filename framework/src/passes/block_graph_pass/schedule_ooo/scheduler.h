@@ -42,7 +42,6 @@ const std::unordered_set<Opcode> USE_LESS_OPS = {
     Opcode::OP_RESHAPE, 
     Opcode::OP_VIEW, 
     Opcode::OP_ASSEMBLE, 
-    Opcode::OP_COMM_WAIT_FLAG, 
     Opcode::OP_SHMEM_WAIT_UNTIL,
     Opcode::OP_BIND_TENSOR,
     Opcode::OP_VIEW_TYPE,
@@ -85,7 +84,7 @@ struct IssueEntry {
     void UpdateTensorInput(std::shared_ptr<IssueEntry> &spillSrcIssue, LogicalTensorPtr tensor) const;
     void UpdateTensorInputForOperand(size_t index, std::shared_ptr<IssueEntry> &spillSrcIssue,
         LogicalTensorPtr tensor) const;
-    void UpdateTensorInputForView(Operation *op, std::shared_ptr<IssueEntry> &spillSrcIssue,
+    void UpdateTensorInputForView(Operation& op, std::shared_ptr<IssueEntry> &spillSrcIssue,
         LogicalTensorPtr tensor) const;
     std::string GetOpInfo();
 };
@@ -165,6 +164,7 @@ private:
     std::map<IssueEntryPtr, std::map<MemoryType, int64_t>> backTraceBufferAllocate;
     std::map<IssueEntryPtr, std::pair<size_t, std::vector<IssueEntryPtr>>> backTraceIssueEntries;
     std::map<IssueEntryPtr, std::unordered_map<int, int>> backTraceBufRefCount;
+    std::unordered_map<IssueEntryPtr, int> depthCache_;
     // 回退点,防止死循环
     IssueEntryPtr rollBackNodeIssue{nullptr};
     int GetMaxDepthSimple(IssueEntryPtr issue);
@@ -215,6 +215,7 @@ private:
     // sort ops
     Status SortOps();
     Status PriorDFS(std::unordered_map<Opcode, int> preNodePriority);
+    int GetDepth(IssueEntryPtr issue);
     Status DFSFromOutNode(std::vector<IssueEntryPtr> outNodeQueue, 
     std::unordered_map<Opcode, int> preNodePriority, std::map<IssueEntryPtr, bool> &visited);
     void DFSFromSingleNode(IssueEntryPtr issue, std::map<IssueEntryPtr, bool>& visited,
@@ -315,10 +316,10 @@ private:
 
     // buffer rearrange
     Status RearrangeBuffers(IssueEntryPtr issue, bool isGenSpillStage, bool &rearrangeUBBF16);
-    Status GenRearrangeCopyOp(MemoryType memType, int memId, int &newMemId, bool &rearrangeUBBF16);
+    Status GenRearrangeCopyOp(IssueEntryPtr issue, MemoryType memType, int memId, int &newMemId, bool &rearrangeUBBF16);
     Status UpdateMemId(int oldMemId, int newMemId);
     void UpdateMoveOpAttr(Operation &moveOp, Operation &occupyOp);
-    IssueEntryPtr ProcessMoveOp(Operation &moveOp,  Operation &occupyOp, int oldMemId, int newMemId);
+    void ProcessMoveIssue(IssueEntryPtr moveIssuePtr, IssueEntryPtr AllocIssue, MemoryType memType, int oldMemId, int newMemId);
     Status UpdateRange(int newMemId, size_t offset, MemoryType memType, BufferPool &bufferManager);
     Status FindMoveFromTensor(Operation &occupyOp, int oldMemId, MemoryType memType, bool &rearrangeUBBF16, LogicalTensorPtr &moveFromTensor);
     Status GetMoveOpInTensor(Opcode moveOpcode, Operation &occupyOp, LogicalTensorPtr &inTensor, LogicalTensorPtr &moveFromTensor);

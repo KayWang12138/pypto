@@ -10,7 +10,7 @@
 # -----------------------------------------------------------------------------------------------------------
 """
 """
-
+import sys
 import inspect
 import itertools
 import logging
@@ -21,6 +21,7 @@ from .enum import *  # noqa
 from ._utils import to_sym, set_source_location, clear_source_location
 from .symbolic_scalar import SymbolicScalar, SymInt
 from .tensor import Tensor
+from .config import CubeTile, get_current_scope
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -43,13 +44,21 @@ __all__ = [
 
 class Controller:
     _loop_idx_generator = itertools.count(0)
+    in_function = False
 
     @classmethod
     def next_loop_idx(cls) -> int:
         return next(cls._loop_idx_generator)
 
     @classmethod
-    def reset(cls):
+    def begin_function(cls):
+        if cls.in_function:
+            raise RuntimeError("function nested is not allowed")
+        cls.in_function = True
+
+    @classmethod
+    def end_function(cls):
+        cls.in_function = False
         cls._loop_idx_generator = itertools.count(0)
 
 
@@ -76,7 +85,10 @@ def set_vec_tile_shapes(*shapes: int):
 
     """
     # implementation
-    pypto_impl.SetVecTile(*shapes)
+    concrete_shapes = [
+        it.concrete() if isinstance(it, SymbolicScalar) else it for it in shapes
+    ]
+    pypto_impl.SetScope({"vec_tile_shapes": concrete_shapes})
 
 
 def get_vec_tile_shapes() -> List[int]:
@@ -98,10 +110,11 @@ def get_vec_tile_shapes() -> List[int]:
 
     """
     # implementation
-    return pypto_impl.GetVecTile()
+    scope = get_current_scope()
+    return scope.get_vec_tile_shapes()
 
 
-def set_cube_tile_shapes(m: List[int], k: List[int], n: List[int], set_l1_tile: bool = False,
+def set_cube_tile_shapes(m: List[int], k: List[int], n: List[int], enable_multi_data_load: bool = False, 
                         enable_split_k: bool = False):
     """ set the tile shapes in cube computation
 
@@ -123,7 +136,7 @@ def set_cube_tile_shapes(m: List[int], k: List[int], n: List[int], set_l1_tile: 
         the value of the tile shape in n dimension
         The length of the list must be 2.
 
-    set_l1_tile: bool
+    enable_multi_data_load: bool
         whether the process of moving L1 to L0 is multi data load.
         default is false (i.e. not multi data load)
 
@@ -143,7 +156,8 @@ def set_cube_tile_shapes(m: List[int], k: List[int], n: List[int], set_l1_tile: 
 
     """
     # implementation
-    pypto_impl.SetCubeTile(m, k, n, set_l1_tile, enable_split_k)
+    cube_tile = CubeTile(m, k, n, enable_multi_data_load, enable_split_k)
+    pypto_impl.SetScope({"cube_tile_shapes": cube_tile.impl()})
 
 
 def get_cube_tile_shapes() -> Tuple[List[int], List[int], List[int], bool, bool]:
@@ -167,11 +181,13 @@ def get_cube_tile_shapes() -> Tuple[List[int], List[int], List[int], bool, bool]
 
     """
     # implementation
-    return pypto_impl.GetCubeTile()
+    scope = get_current_scope()
+    cube_tile = scope.get_cube_tile_shapes()
+    return tuple([cube_tile.m, cube_tile.k, cube_tile.n, cube_tile.enableMultiDataLoad, cube_tile.enableSplitK])
 
 
 def set_matrix_size(size: List[int]):
-    pypto_impl.SetMatrixSize(size)
+    pypto_impl.SetScope({"matrix_size": size})
 
 
 def set_build_static(static: bool):
@@ -224,7 +240,7 @@ class LoopRange:
 _loop_range = LoopRange
 
 
-def is_loop_begin(scalar: SymInt):
+def is_loop_begin(scalar: SymInt) -> SymbolicScalar:
     """ Determines if the current iteration is the start of loop
     This function returns a boolean value which specifys whether
     the current iteration is the beginning of the loop
@@ -240,7 +256,7 @@ def is_loop_begin(scalar: SymInt):
 
     Examples
     --------
-    >>> for s2_idx in pypto.loop(bn_per_batch):
+        for s2_idx in pypto.loop(bn_per_batch):
             if pypto.cond(pypto.is_loop_begin(s2_idx)):
                 ...
     """
@@ -251,7 +267,7 @@ def is_loop_begin(scalar: SymInt):
         pypto_impl.IsLoopBegin(to_sym(scalar), getattr(scalar, "_loop_begin")))
 
 
-def is_loop_end(scalar: SymInt):
+def is_loop_end(scalar: SymInt) -> SymbolicScalar:
     """ Determines if the current iteration is the end of loop
     This function returns a boolean value which specifys whether
     the current iteration is the end of the loop
@@ -267,7 +283,7 @@ def is_loop_end(scalar: SymInt):
 
     Examples
     --------
-    >>> for s2_idx in pypto.loop(0, bn_per_batch, 1, name="LOOP_L4_s2_SA", idx_name="s2_idx",
+        for s2_idx in pypto.loop(0, bn_per_batch, 1, name="LOOP_L4_s2_SA", idx_name="s2_idx",
             if pypto.cond(pypto.is_loop_end(s2_idx)):
                 ...
     """
@@ -279,7 +295,7 @@ def is_loop_end(scalar: SymInt):
 
 
 @contextmanager
-def function(name: str, *args):
+def function(name: str, *args) -> Iterator:
     """ defining the function
 
     This API record the function and dataflow user has defined. A computing
@@ -299,7 +315,7 @@ def function(name: str, *args):
 
     Examples
     --------
-    >>> with pypto.function("main", a, b, c):
+        with pypto.function("main", a, b, c):
             pypto.set_vec_tile_shapes(16, 16)
             for _ in pypto.loop(0, b_loop, 1, name, = "LOOP_L0_bIdx_mla_prolog",
                 idx_name = "b_idx"):
@@ -308,8 +324,8 @@ def function(name: str, *args):
     """
     in_out_tensors = [item for item in args if isinstance(item, Tensor)]
     func = None
+    Controller.begin_function()
     try:
-        Controller.reset()
         set_source_location(level=2)
         func = pypto_impl.RecordFunc(name, [t.base() for t in in_out_tensors])
         clear_source_location()
@@ -320,7 +336,7 @@ def function(name: str, *args):
     finally:
         assert func
         func.EndFunction()
-        del func
+        Controller.end_function()
 
 
 def cond(scalar: SymInt, file: Optional[str] = None, lineno: Optional[int] = None):
@@ -342,7 +358,7 @@ def cond(scalar: SymInt, file: Optional[str] = None, lineno: Optional[int] = Non
 
     Examples
     --------
-    >>> if pypto.cond(pypto.is_loop_begin(bn)):
+        if pypto.cond(pypto.is_loop_begin(bn)):
             pass
         elif pypto.cond(pypto.is_loop_end(bn)):
             pass
@@ -405,6 +421,8 @@ def _loop_function(
     rlf = None
     try:
         set_source_location(level=3)
+        frame = sys._getframe(3)
+        pypto_impl.BeginScope(name, {}, frame.f_code.co_filename, frame.f_lineno)
         rlf = _LoopFunction(name, loop_name, loop_range,
                             unroll_set, submit_before_loop)
         clear_source_location()
@@ -414,6 +432,7 @@ def _loop_function(
         raise
     finally:
         del rlf
+        pypto_impl.EndScope()
 
 
 @overload
@@ -435,7 +454,7 @@ def loop(stop: SymInt, /, **kwargs) -> Iterator[SymInt]:
 
     Examples
     --------
-    with pypto.loop(10, name="LOOP_L0_bIdx", idx_name="bIdx"):
+    for _ in pypto.loop(10, name="LOOP_L0_bIdx", idx_name="bIdx"):
         if pypto.cond(k==0):
             b[:] = a + a
         else:
@@ -466,7 +485,7 @@ def loop(start: SymInt, stop: SymInt, step: Optional[SymInt] = 1, /, **kwargs) -
 
     Examples
     --------
-    with pypto.loop(0, 10, 1, name="LOOP_L0_bIdx", idx_name="bIdx"):
+    for _ in pypto.loop(0, 10, 1, name="LOOP_L0_bIdx", idx_name="bIdx"):
         if pypto.cond(k==0):
             b[:] = a + a
         else:
@@ -527,7 +546,7 @@ def loop(
             yield k
 
 
-def loop_unroll(*args, **kwargs):
+def loop_unroll(*args, **kwargs) -> Iterator[Tuple[SymbolicScalar, int]]:
     """
     Almost the same as `loop()`, but with an additional `unroll_list` parameter.
 
@@ -553,6 +572,12 @@ def loop_unroll(*args, **kwargs):
     Returns
     --------
     return an iterator and unroll factor.
+    
+    Examples
+    --------
+        for idx in pypto.loop_unroll(0, 10, 1, name="LOOP_L0_bIdx", 
+                                                      idx_name="bIdx", unroll_list=[4, 2, 1]):
+            b[:] = a + idx
     """
     start, stop, step = _get_loop_range(*args)
 
