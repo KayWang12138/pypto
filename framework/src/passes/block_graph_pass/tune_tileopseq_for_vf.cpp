@@ -28,72 +28,84 @@ void TuneTileOpSeqForVF::PushBackIdx(size_t idx, std::vector<size_t> &vec) {
     }
 }
 
-void TuneTileOpSeqForVF::ChangeOpSeq(std::vector<Operation *> &opList, std::vector<size_t> &tunedOpList, std::vector<size_t> &pipeVIdx, PipeSync &ps, bool isAIV1) {
+void TuneTileOpSeqForVF::ChangeOpSeq(std::vector<Operation *> &opList, PipeSync &ps, bool isAIV1) {
     AIVCore coreType;
     if (!isAIV1) {
         coreType = AIVCore::AIV0;
     } else {
         coreType = AIVCore::AIV1;
     }
+
+    std::vector<size_t> pipeVIdx;
     for (size_t i = 0; i < opList.size(); i++) {
         auto opcfg = OpcodeManager::Inst().GetTileOpCfg(opList[i]->GetOpcode());
         if (opcfg.pipeIdStart_ == PipeType::PIPE_V && opList[i]->GetAIVCore() == coreType) {
             pipeVIdx.emplace_back(i);
         }
     }
+
     if (pipeVIdx.size() <= 1) {
+        return;
+    }
+
+    // // 将第一个pipeVop前面的op加入到tunedOpList中
+    // if (pipeVIdx[0] > 0) {
+    //     for (size_t i = 0; i < pipeVIdx[0]; i++) {
+    //         PushBackIdx(i, tunedOpList);
+    //     }
+    // }
+    for (size_t idx = 0; idx + 1 < pipeVIdx.size(); idx++) {
+        size_t left = pipeVIdx[idx];
+        size_t right = pipeVIdx[idx + 1];
+        if (right == left + 1) {
+            continue;
+        }
+        bool hasDep = false;
+        for (size_t k = left + 1; k < right; k++) {
+            if (ps.HasDataDependency(*opList[left], *opList[k], left, k) || ps.HasDataDependency(*opList[k], *opList[right], k, right)) {
+                hasDep = true;
+                break;
+            }
+        }
+        // 存在依赖，不能融合
+        if (hasDep) {
+            continue;
+        }
+        // 不存在依赖，可以融合
+        std::vector<Operation *> toMove;
+        std::vector<size_t> toMoveIdx;
+        for (size_t k = left + 1; k < right; k++) {
+            toMove.emplace_back(opList[k]);
+            toMoveIdx.emplace_back(k);
+        }
+        for (auto it = toMoveIdx.rbegin(); it != toMoveIdx.rend(); it++) {
+            opList.erase(opList.begin() + *it);
+        }
+        // 删掉这些op后，right = left + 1, 在right右侧将删掉的op重新插入，即在left + 2的位置开始插入
+        auto insertPos = opList.begin() + left + 2;
+        opList.insert(insertPos, toMove.begin(), toMove.end());
+        // 由于移动，pipeVop的idx会发生变化，需要重新更新pipeVIdx
+        pipeVIdx.clear();
         for (size_t i = 0; i < opList.size(); i++) {
-            PushBackIdx(i, tunedOpList);
-        }
-    } else {
-        // 将第一个pipeVop前面的op加入到tunedOpList中
-        if (pipeVIdx[0] > 0) {
-            for (size_t i = 0; i < pipeVIdx[0]; i++) {
-                PushBackIdx(i, tunedOpList);
-            }
-        }
-        for (size_t idx = 0; idx + 1 < pipeVIdx.size(); idx++) {
-            size_t left = pipeVIdx[idx];
-            size_t right = pipeVIdx[idx + 1];
-            std::vector<size_t> nonPipeVOp;
-            bool hasDep = false;
-            for (size_t k = left + 1; k < right; k++) {
-                if (ps.HasDataDependency(*opList[left], *opList[k], left, k) || ps.HasDataDependency(*opList[k], *opList[right], k, right)) {
-                    hasDep = true;
-                }
-            }
-            // 存在依赖，不能融合
-            if (hasDep) {
-                for (size_t i = left; i <= right; i++) {
-                    PushBackIdx(i, tunedOpList);
-                }
-            // 不存在依赖，可以融合
-            } else {
-                PushBackIdx(left, tunedOpList);
-                PushBackIdx(right, tunedOpList);
-                for (size_t i = left + 1; i < right; i++) {
-                    PushBackIdx(i, tunedOpList);
-                }
-            }
-        }
-        // 将最后一个pipeVop后面的op加入到tunedOpList中
-        if (pipeVIdx[pipeVIdx.size() - 1] < opList.size() - 1) {
-            for (size_t i = pipeVIdx[pipeVIdx.size() - 1] + 1; i < opList.size(); i++) {
-                PushBackIdx(i, tunedOpList);
+            auto opcfg = OpcodeManager::Inst().GetTileOpCfg(opList[i]->GetOpcode());
+            if (opcfg.pipeIdStart_ == PipeType::PIPE_V && opList[i]->GetAIVCore() == coreType) {
+                pipeVIdx.emplace_back(i);
             }
         }
     }
+    // // 将最后一个pipeVop后面的op加入到tunedOpList中
+    // if (pipeVIdx[pipeVIdx.size() - 1] < opList.size() - 1) {
+    //     for (size_t i = pipeVIdx[pipeVIdx.size() - 1] + 1; i < opList.size(); i++) {
+    //         PushBackIdx(i, tunedOpList);
+    //     }
+    // }
 }
 
 Status TuneTileOpSeqForVF::RunOnFunction(Function &function) {
     for (auto &program : function.rootFunc_->programs_) {
-        std::vector<Operation *> oriOpList(program.second->Operations(false).DuplicatedOpList());
-        std::vector<size_t> tunedOpList0;
-        std::vector<size_t> tunedOpList1;
-        std::vector<size_t> pipeVIdx0;
-        std::vector<size_t> pipeVIdx1;
+        std::vector<Operation *> opList(program.second->Operations(false).DuplicatedOpList());
         PipeSync ps;
-        for (const auto &op : oriOpList) {
+        for (const auto &op : opList) {
             ps.BuildTensorRangeMap(op);
             auto opcfg = OpcodeManager::Inst().GetTileOpCfg(op->GetOpcode());
             if (opcfg.pipeIdStart_ != PipeType::PIPE_V) {
@@ -105,18 +117,10 @@ Status TuneTileOpSeqForVF::RunOnFunction(Function &function) {
                 return FAILED;
             }
         }
-        ChangeOpSeq(oriOpList, tunedOpList0, pipeVIdx0, ps, false);
-        std::vector<Operation *> flagOpList;
-        for (size_t i = 0; i < tunedOpList0.size(); i++) {
-            flagOpList.emplace_back(oriOpList[tunedOpList0[i]]);
-        }
-        ChangeOpSeq(flagOpList, tunedOpList1, pipeVIdx1, ps, true);
+        ChangeOpSeq(opList, ps, false);
+        ChangeOpSeq(opList, ps, true);
         // 将调整后的oplist刷新到function中去
-        std::vector<Operation *> resOpList;
-        for (size_t i = 0; i < tunedOpList1.size(); i++) {
-            resOpList.emplace_back(flagOpList[tunedOpList1[i]]);
-        }
-        program.second->ScheduleBy(resOpList, true);
+        program.second->ScheduleBy(opList, true);
 
         // TODO 增加拓扑逻辑校验
     }
