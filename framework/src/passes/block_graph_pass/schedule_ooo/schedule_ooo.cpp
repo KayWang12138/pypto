@@ -133,6 +133,12 @@ Status OoOSchedule::RunOnFunction(Function &function) {
                 APASS_LOG_ERROR_F(Elements::Operation, "TaskNode[%d] schedule failed.", taskNode.idx);
                 return FAILED;
             }
+            if (oooSchedule.oooCheck.doHealthCheck) {
+                oooSchedule.oooCheck.workspaceOffset = oooSchedule.workspaceOffset;
+                oooSchedule.oooCheck.clock = oooSchedule.clock;
+                oooSchedule.oooCheck.jsonFileName = GetDumpFilePrefix(function, false, program.second, program.first);
+                schedulerMap.insert({program.first, oooSchedule});
+            }
         }
         spliter.MarkInternalSubgraphID();
         APASS_LOG_INFO_F(Elements::Operation, "Subgraph[%d] OOOSchedule end.", program.first);
@@ -141,12 +147,6 @@ Status OoOSchedule::RunOnFunction(Function &function) {
         RescheduleUtils::UpdateTensorConsProd(program.second);
         maxWorkeSpaceSize = std::max(maxWorkeSpaceSize, (*program.second).GetStackWorkespaceSize());
         function.SetStackWorkespaceSize(maxWorkeSpaceSize);
-        if (oooSchedule.oooCheck.doHealthCheck) {
-            oooSchedule.oooCheck.workspaceOffset = oooSchedule.workspaceOffset;
-            oooSchedule.oooCheck.clock = oooSchedule.clock;
-            oooSchedule.oooCheck.jsonFileName = GetDumpFilePrefix(function, false, program.second, program.first);
-            schedulerMap.insert({program.first, oooSchedule});
-        }
     }
     APASS_LOG_INFO_F(Elements::Operation, "=============== END 2CoreSplit ===============");
     return SUCCESS;
