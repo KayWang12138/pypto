@@ -1517,6 +1517,53 @@ TEST_F(ScheduleOoOTest, TestOoORollback) {
     EXPECT_EQ(res, SUCCESS);
 }
 
+TEST_F(ScheduleOoOTest, TestOoORollbackA5) {
+    ComputationalGraphBuilder subGraph;
+    std::vector<std::string> tensorNames{"t3", "t1", "t6", "t8", "t11", "t13", "t16", "t18", "t21", "DDR1", "DDR2", "DDR3", "DDR4", "DDR5", "DDR6", "DDR7"};
+    std::vector<MemoryType> tensorMemTypes{MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L1,
+    MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR,
+    MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR};
+    std::vector<std::string> tensorNames_L0AB{"t4", "t2", "t7", "t9", "t12", "t14", "t19", "t17"};
+    std::vector<MemoryType> tensorMemTypes_L0AB{MemoryType::MEM_L0B, MemoryType::MEM_L0A, MemoryType::MEM_L0A, MemoryType::MEM_L0B,
+        MemoryType::MEM_L0A, MemoryType::MEM_L0B, MemoryType::MEM_L0B, MemoryType::MEM_L0A};
+    std::vector<std::string> tensorNames_L0C{"t5", "t10", "t15", "t20"};
+    std::vector<MemoryType> tensorMemTypes_L0C{MemoryType::MEM_L0C, MemoryType::MEM_L0C, MemoryType::MEM_L0C, MemoryType::MEM_L0C};
+    std::vector<Opcode> opCodes{Opcode::OP_L1_ALLOC, Opcode::OP_L1_ALLOC, Opcode::OP_L1_ALLOC, Opcode::OP_L1_ALLOC, Opcode::OP_L1_ALLOC, Opcode::OP_L1_ALLOC,
+        Opcode::OP_L1_ALLOC, Opcode::OP_L1_ALLOC, Opcode::OP_L1_ALLOC, Opcode::OP_L0A_ALLOC, Opcode::OP_L0A_ALLOC, Opcode::OP_L0A_ALLOC,
+        Opcode::OP_L0A_ALLOC, Opcode::OP_L0B_ALLOC, Opcode::OP_L0B_ALLOC, Opcode::OP_L0B_ALLOC, Opcode::OP_L0B_ALLOC, Opcode::OP_L0C_ALLOC,
+        Opcode::OP_L0C_ALLOC, Opcode::OP_L0C_ALLOC, Opcode::OP_COPY_IN, Opcode::OP_COPY_IN, Opcode::OP_COPY_IN, Opcode::OP_COPY_IN,
+        Opcode::OP_COPY_IN, Opcode::OP_COPY_IN, Opcode::OP_L1_TO_L0A, Opcode::OP_L1_TO_L0A, Opcode::OP_L1_TO_L0A, Opcode::OP_L1_TO_L0A,
+        Opcode::OP_L1_TO_L0B, Opcode::OP_L1_TO_L0B, Opcode::OP_L1_TO_L0B, Opcode::OP_L1_TO_L0B, Opcode::OP_L0C_TO_L1, Opcode::OP_L0C_TO_L1,
+        Opcode::OP_L0C_TO_L1, Opcode::OP_A_MUL_B, Opcode::OP_A_MUL_B, Opcode::OP_A_MUL_B, Opcode::OP_A_MULACC_B, Opcode::OP_COPY_OUT};
+    std::vector<std::vector<std::string>> ioperands{{}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {},
+        {"DDR2"}, {"DDR1"}, {"DDR3"}, {"DDR4"}, {"DDR5"}, {"DDR6"}, {"t1"}, {"t6"}, {"t11"}, {"t16"}, {"t3"}, {"t8"}, {"t13"}, {"t18"},
+        {"t5"}, {"t15"}, {"t20"}, {"t2", "t4"}, {"t7", "t9"}, {"t12", "t14"}, {"t10", "t17", "t19"}, {"t21"}};
+    std::vector<std::vector<std::string>> ooperands{{"t1"}, {"t3"}, {"t6"}, {"t8"}, {"t11"}, {"t13"}, {"t16"}, {"t18"}, {"t21"}, {"t2"}, {"t7"},
+        {"t12"}, {"t17"}, {"t4"}, {"t9"}, {"t14"}, {"t19"}, {"t5"}, {"t10"}, {"t15"},
+        {"t3"}, {"t1"}, {"t8"}, {"t11"}, {"t13"}, {"t18"}, {"t2"}, {"t7"}, {"t12"}, {"t17"}, {"t4"}, {"t9"}, {"t14"}, {"t19"},
+        {"t6"}, {"t16"}, {"t21"}, {"t5"}, {"t10"}, {"t15"}, {"t20"}, {"DDR7"}};
+    std::vector<std::string> opNames{"L1_Alloc1", "L1_Alloc2", "L1_Alloc3", "L1_Alloc4", "L1_Alloc5", "L1_Alloc6",
+        "L1_Alloc7", "L1_Alloc8", "L1_Alloc9", "L0A_Alloc1", "L0A_Alloc2", "L0A_Alloc3", "L0A_Alloc4",
+        "L0B_Alloc1", "L0B_Alloc2", "L0B_Alloc3", "L0B_Alloc4", "L0C_Alloc1", "L0C_Alloc2", "L0C_Alloc3",
+        "Copyin2", "Copyin1", "Copyin3", "Copyin4", "Copyin5", "Copyin6", "OP_L1_TO_L0A_1", "OP_L1_TO_L0A_2", "OP_L1_TO_L0A_3",
+        "OP_L1_TO_L0A_4", "OP_L1_TO_L0B_1", "OP_L1_TO_L0B_2", "OP_L1_TO_L0B_3", "OP_L1_TO_L0B_4",
+        "OP_L0C_TO_L1_1", "OP_L0C_TO_L1_2", "OP_L0C_TO_L1_3", "OP_A_MUL_B_1", "OP_A_MUL_B_2", "OP_A_MUL_B_3", "OP_A_MULACC_B", "Copyout"
+    };
+    EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {16, 16}, tensorMemTypes, tensorNames, 0), true);
+    EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {128, 128}, tensorMemTypes_L0AB, tensorNames_L0AB, 0), true);
+    EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {128, 256}, tensorMemTypes_L0C, tensorNames_L0C, 0), true);
+    EXPECT_EQ(subGraph.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
+    Function *function = subGraph.GetFunction();
+    std::shared_ptr<LogicalTensor> tensor1 = subGraph.GetTensor("t10");
+    tensor1->memoryrange.memId =
+        subGraph.GetTensor("t20")->memoryrange.memId;
+    EXPECT_NE(function, nullptr);
+
+    OptimizeSort optimizeSort(function->Operations().DuplicatedOpList(), *function);
+    Status res = optimizeSort.SortOps();
+    EXPECT_EQ(res, SUCCESS);
+}
+
 TEST_F(ScheduleOoOTest, TestHasEnoughBuffer) {
     ComputationalGraphBuilder subGraph;
     std::vector<std::string> tensorNames{"t1", "t2"};
