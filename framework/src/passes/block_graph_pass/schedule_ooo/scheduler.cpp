@@ -370,9 +370,12 @@ Status OoOScheduler::LaunchIssueStage(int& nextCycle) {
             continue;
         }
         IssueEntryPtr issue = pipe.PopFront();
+        //标注op的生命周期
+        issue->tileOp.cycleStart = clock;
+        issue->tileOp.cycleEnd = clock + issue->tileOp.GetLatency();
         pipe.busy = true;
         pipe.curIssue = issue;
-        pipe.curOpRetireCycle = clock + issue->tileOp.GetLatency();
+        pipe.curOpRetireCycle = clock + issue->tileOp.GetLatency(); // TODO:start
         oooCheck.pipeUsageCount[pipeType] += issue->tileOp.GetLatency();
         for (auto& op : issue->viewOps) {
             if (std::find(newOperations_.begin(), newOperations_.end(), op) != newOperations_.end()) {
