@@ -21,7 +21,14 @@
 
 namespace npu {
 namespace tile_fwk {
-Status TuneTileOpSeqForVF::ChangeOpSeq(std::vector<Operation *> &opList, std::vector<size_t> &tunedOpList, std::vector<size_t> &pipeVIdx, PipeSync &ps, bool isAIV1) {
+void TuneTileOpSeqForVF::PushBackIdx(size_t idx, std::vector<size_t> &vec) {
+    auto it = std::find(vec.begin(), vec.end(). idx);
+    if (it == vec.end()) {
+        vec.emplace_back(idx);
+    }
+}
+
+void TuneTileOpSeqForVF::ChangeOpSeq(std::vector<Operation *> &opList, std::vector<size_t> &tunedOpList, std::vector<size_t> &pipeVIdx, PipeSync &ps, bool isAIV1) {
     AIVCore coreType;
     if (!isAIV1) {
         coreType = AIVCore::AIV0;
@@ -34,11 +41,17 @@ Status TuneTileOpSeqForVF::ChangeOpSeq(std::vector<Operation *> &opList, std::ve
             pipeVIdx.emplace_back(i);
         }
     }
-    if (pipeVIdx.size() < 2) {
+    if (pipeVIdx.size() <= 1) {
         for (size_t i = 0; i < opList.size(); i++) {
-            tunedOpList.emplace_back(i);
+            PushBackIdx(i, tunedOpList);
         }
     } else {
+        // 将第一个pipeVop前面的op加入到tunedOpList中
+        if (pipeVIdx[0] > 0) {
+            for (size_t i = 0; i < pipeVIdx[0]; i++) {
+                PushBackIdx(i, tunedOpList);
+            }
+        }
         for (size_t idx = 0; idx + 1 < pipeVIdx.size(); idx++) {
             size_t left = pipeVIdx[idx];
             size_t right = pipeVIdx[idx + 1];
@@ -52,21 +65,21 @@ Status TuneTileOpSeqForVF::ChangeOpSeq(std::vector<Operation *> &opList, std::ve
             // 存在依赖，不能融合
             if (hasDep) {
                 for (size_t i = left; i <= right; i++) {
-                    tunedOpList.emplace_back(i);
+                    PushBackIdx(i, tunedOpList);
                 }
             // 不存在依赖，可以融合
             } else {
-                tunedOpList.emplace_back(left);
-                tunedOpList.emplace_back(right);
+                PushBackIdx(left, tunedOpList);
+                PushBackIdx(right, tunedOpList);
                 for (size_t i = left + 1; i < right; i++) {
-                    tunedOpList.emplace_back(i);
+                    PushBackIdx(i, tunedOpList);
                 }
             }
         }
         // 将最后一个pipeVop后面的op加入到tunedOpList中
         if (pipeVIdx[pipeVIdx.size() - 1] < opList.size() - 1) {
             for (size_t i = pipeVIdx[pipeVIdx.size() - 1] + 1; i < opList.size(); i++) {
-                tunedOpList.emplace_back(i);
+                PushBackIdx(i, tunedOpList);
             }
         }
     }
