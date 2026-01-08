@@ -840,7 +840,7 @@ void OoOScheduler::InitBufRefCount() {
     }
 }
 
-Status OoOScheduler::InitAllocDependencies(IssueEntryPtr issue, std::map<int, IssueEntryPtr> tensor2AllocMap) {
+Status OoOScheduler::InitAllocDependencies(IssueEntryPtr issue, std::unordered_map<int, IssueEntryPtr> tensor2AllocMap) {
     for (auto &tensor : issue->tileOp.GetOOperands()) {
         int memId = tensor->memoryrange.memId;
         if (tensor->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
@@ -891,13 +891,13 @@ void OoOScheduler::FindDependencies(IssueEntryPtr issue, std::map<Operation*, Is
 }
 
 Status OoOScheduler::InitDependencies() {
-    std::map<Operation*, IssueEntryPtr> op2IssueEntryMap;
+    std::unordered_map<Operation*, IssueEntryPtr> op2IssueEntryMap;
     for (const auto &issue : issueEntries) {
         issue->predecessors.clear();
         issue->successors.clear();
         op2IssueEntryMap[&(issue->tileOp)] = issue;
     }
-    std::map<int, IssueEntryPtr> tensor2AllocMap;
+    std::unordered_map<int, IssueEntryPtr> tensor2AllocMap;
     for (const auto &issue : issueEntries) {
         if (issue->isAlloc) {
             if (issue->tileOp.GetOOperands().size() != 1) {
