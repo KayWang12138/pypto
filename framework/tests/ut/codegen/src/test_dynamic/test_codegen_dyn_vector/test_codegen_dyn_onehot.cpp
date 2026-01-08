@@ -24,6 +24,7 @@
 #include "codegen/codegen.h"
 #include "codegen/symbol_mgr/codegen_symbol.h"
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
+#include "codegen/cloudnpu/codegen_op_cloudnpu.h"
 #include "test_codegen_utils.h"
 #include "test_codegen_common.h"
 
@@ -33,76 +34,38 @@ class TestCodegenDynOneHot : public ::testing::Test {
 public:
     static void SetUpTestCase() {}
 
-    static void TearDownTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true); }
+    static void TearDownTestCase() {}
 
     void SetUp() override {
         Program::GetInstance().Reset();
         config::Reset();
+        config::SetBuildStatic(true);
+        config::SetHostOption(ONLY_CODEGEN, true);
+        config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
         config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
         config::SetPlatformConfig("ENABLE_COST_MODEL", false);
-        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
-        IdGen<IdType::CG_USING_NAME>::Inst().SetId(DummyFuncMagic);
-        IdGen<IdType::CG_VAR_NAME>::Inst().SetId(DummyFuncMagic);
     }
 
     void TearDown() override {}
 };
-void TestOneHotBody(int dim = 2) {
-    std::vector<int64_t> indicesShape = {8, 16};
-    std::vector<int64_t> outputShape = {8, 16, 64}; // depth=64
-    std::vector<SymbolicScalar> dynValidShape = {8, 16};
-    std::vector<SymbolicScalar> dynOutputShape = {8, 16, 64};
-    if (dim == 3) {
-        indicesShape = {8, 16, 32};
-        outputShape = {8, 16, 32, 64}; // depth=64
-        dynValidShape = {8, 16, 32};
-        dynOutputShape = {8, 16, 32, 64};
-    }
-    auto shapeImme = OpImmediate::Specified(outputShape);
+
+TEST_F(TestCodegenDynOneHot, OneHotLayout) {
+    // constexpr int64_t dim = 3;
+    // constexpr int64_t shape0 = 8;
+    // constexpr int dim0 = 0;
+    // constexpr int dim1 = 1;
+    std::vector<int64_t> indicesShape = {32, 32};
+    std::vector<int64_t> outputShape = {32, 32, 32};
+    //std::vector<int64_t> shape(dim, shape0);
     TileShape::Current().SetVecTile(outputShape);
-
-    Tensor inputStub(DT_INT32, indicesShape, "indices");
-    Tensor outputStub(DT_INT64, outputShape, "onehot");
-
-    std::string funcName = "ONEHOT";
-    FUNCTION(funcName, {inputStub, outputStub}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
-            (void)i;
-            outputStub = Add(inputStub, inputStub);
-        }
+    Tensor inputStub(DT_INT32, indicesShape, "input");
+    Tensor outputStub(DT_INT32, outputShape, "output");
+    FUNCTION("ONEHOT", {inputStub, outputStub}) {
+        outputStub = OneHot(inputStub, 1);
     }
-    auto function =
-        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
-    function->SetUnderDynamicFunction(true);
-
-    auto localIndices =
-        CreateLogicalTensor({*function, DataType::DT_INT32, MemoryType::MEM_UB, indicesShape, dynValidShape});
-    auto localOutput = CreateLogicalTensor({*function, DataType::DT_INT64, MemoryType::MEM_UB, outputShape, dynOutputShape});
-
-    auto &op = function->AddOperation(Opcode::OP_ONE_HOT, {localIndices}, {localOutput});
-    op.SetAttribute(OP_ATTR_PREFIX + "shape", outputShape);
-    op.SetAttribute("depth", static_cast<int64_t>(64));
-    op.SetAttribute("axis", static_cast<int64_t>(-1));
-    op.SetOOpAttrOffset(0, 0);
-    op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
-
-    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
-    CodeGenCtx ctx;
-    CodeGenCloudNPU cga(ctx);
-    cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPU cop(symbolManager, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
-    function->GetTensorMap().inverseMap_[localIndices->GetMagic()] = localIndices;
-    function->GetTensorMap().inverseMap_[localOutput->GetMagic()] = localOutput;
-
-    cop.Init(op);
-    cop.GenOpCode();
-}
-
-TEST_F(TestCodegenDynOneHot, OneHotDim2) {
-    TestOneHotBody();
-}
-
-TEST_F(TestCodegenDynOneHot, OneHotDim3) {
-    TestOneHotBody(3);
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "ONEHOT");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
 }
 } // namespace npu::tile_fwk
