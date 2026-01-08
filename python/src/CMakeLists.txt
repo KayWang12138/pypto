@@ -21,6 +21,7 @@ pybind11_add_module(pypto_impl
             bindings/cost_model.cpp
             bindings/pass_config.cpp
             bindings/function.cpp
+            bindings/nvshmem.cpp
 )
 target_include_directories(pypto_impl
         PRIVATE  # 使用 CANN 场景依赖
@@ -42,6 +43,7 @@ target_include_directories(pypto_impl
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN_SUB}>:${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/profiling>>
         PRIVATE
             ${CMAKE_CURRENT_LIST_DIR}
+            ${CMAKE_CURRENT_LIST_DIR}/../../framework/src
             $<BUILD_INTERFACE:$<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<BOOL:${BUILD_WITH_CANN}>>:${ASCEND_CANN_PACKAGE_PATH}/include/experiment/runtime>>
             $<BUILD_INTERFACE:$<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<BOOL:${BUILD_WITH_CANN}>>:${ASCEND_CANN_PACKAGE_PATH}/include/experiment/runtime/runtime>>
 )

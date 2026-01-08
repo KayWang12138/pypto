@@ -8,6 +8,36 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 #
 
+cmake_minimum_required(VERSION 3.16)
+project(npucomm LANGUAGES CXX)
+
+# NPU Communication Library (NPUCOMM)
+# Based on NVSHMEM design principles, optimized for NPU fine-grain communication
+
+# Dependencies
+find_package(Threads REQUIRED)
+
+# Locate tile_fwk_interface when building standalone (outside main project)
+set(TILE_FWK_INTERFACE_SEARCH_PATHS
+    $ENV{TILE_FWK_INTERFACE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../../build/framework/src/interface
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../../../build/framework/src/interface
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../../build/output/lib
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../../../build/output/lib
+    ${CMAKE_BINARY_DIR}/../interface        # when built from project root
+)
+
+find_library(TILE_FWK_INTERFACE_LIB
+    NAMES tile_fwk_interface
+    HINTS ${TILE_FWK_INTERFACE_SEARCH_PATHS}
+)
+
+if(NOT TILE_FWK_INTERFACE_LIB)
+    message(FATAL_ERROR "tile_fwk_interface not found. "
+        "Set TILE_FWK_INTERFACE_DIR to the directory containing libtile_fwk_interface.so "
+        "or build from the project root so the target is available.")
+endif()
+
 # NPU Communication Library (NPUCOMM)
 # Based on NVSHMEM design principles, optimized for NPU fine-grain communication
 
@@ -43,7 +73,7 @@ target_include_directories(npucomm
 # Link dependencies
 target_link_libraries(npucomm
     PUBLIC
-        tile_fwk_interface
+        ${TILE_FWK_INTERFACE_LIB}
     PRIVATE
         Threads::Threads
 )
