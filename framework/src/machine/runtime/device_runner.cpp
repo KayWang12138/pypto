@@ -659,8 +659,6 @@ int DeviceRunner::DynamicKernelLaunch(rtStream_t aicpuStream, rtStream_t aicoreS
         return rc;
     }
     ReportHostProfInfo(startTime, blockdim, MSPROF_GE_TASK_TYPE_MIX_AIC, true);
-
-    rc = RunPost(aicpuStream, aicoreStream);
     return rc;
 }
 

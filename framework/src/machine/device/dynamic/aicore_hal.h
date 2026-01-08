@@ -20,16 +20,6 @@
 #include "machine/device/dynamic/costmodel_utils.h"
 
 namespace npu::tile_fwk::dynamic {
-constexpr uint32_t MAX_AICORE_NUM = 108;
-constexpr uint32_t NAX_AIV_TOTAL_NUM = 72;
-const uint32_t CORE_NUM_PER_AI_CORE = 3;
-
-constexpr uint32_t NUM_ONE = 1;
-constexpr uint32_t NUM_TWO = 2;
-constexpr uint32_t NUM_THREE = 3;
-constexpr uint32_t NUM_FOUR = 4;
-constexpr uint32_t NUM_FIVE = 5;
-constexpr uint32_t NUM_THIRTY_TWO = 32;
 constexpr uint32_t SHIFT_NUM_FORTYEIGHT = 48;
 
 const int32_t CORE_QUEUE_MODE_NUM_8 = 8;
@@ -456,6 +446,7 @@ public:
             }
             volatile KernelArgs *arg = args_[coreIdx];
             arg->shakeBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_COREFUNC_DATA_INDEX] = funcdata;
+            arg->waveBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_GOODBYE_INDEX] = 0;
 #if ENABLE_AICORE_PRINT
             arg->shakeBuffer[SHAK_BUF_PRINT_BUFFER_INDEX] = buffer;
 #endif
@@ -616,12 +607,15 @@ public:
         return DEVICE_MACHINE_OK;
     }
 
+    // We must makesure close 0x18 before aicore exit.
     void ResetShakeBuf(int coreIdx) {
         if (isNeedWriteRegForFastPath_) {
             WriteReg32(coreIdx, REG_SPR_FAST_PATH_ENABLE, REG_SPR_FAST_PATH_CLOSE);
+            __sync_synchronize();
         }
         args_[coreIdx]->shakeBuffer[0] = 0;
         args_[coreIdx]->shakeBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_COREFUNC_DATA_INDEX] = 0;
+        args_[coreIdx]->waveBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_GOODBYE_INDEX] = AICORE_SAY_GOODBYE;
         return;
     }
 

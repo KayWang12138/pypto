@@ -67,17 +67,6 @@ struct Metrics {
   TaskStat tasks[];
 };
 
-inline const char *AicorePerfTraceName[] = {
-    "BEGIN",
-    "INIT",
-    "DEV_TASK_RCV_MODEL",
-    "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK",
-    "DEV_TASK_ALL_CALLOP_TASK_EXEC",
-    "DEV_TASK_WAIT_SYNC_STOP_NOTIFY",
-    "WAIT_ALL_DEV_TASK_CALLOP_EXEC_FINISH",
-    "WAIT_EXIT_NOTIFY"
-};
-
 struct TaskEntry {
     int32_t subGraphId;
     int32_t taskId;
@@ -90,9 +79,21 @@ struct TaskEntry {
     uint32_t reserved[1];
 };
 
+inline const char *AicorePerfTraceName[] = {
+    "BEGIN",
+    "INIT",
+    "DEV_TASK_RCV_MODEL",
+    "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK",
+    "DEV_TASK_ALL_CALLOP_TASK_EXEC",
+    "DEV_TASK_WAIT_SYNC_STOP_NOTIFY",
+    "WAIT_ALL_DEV_TASK_CALLOP_EXEC_FINISH",
+    "WAIT_EXIT_NOTIFY"
+};
+
 struct KernelArgs {
     int64_t shakeBuffer[8];
     int64_t shakeBufferCpuToCore[8];
+    int64_t waveBufferCpuToCore[8];
     TaskEntry taskEntry;
     TaskStat taskStat[2]; // 寄存器高低32位，两个task 和 pending & running task存储： 2 * 2 个
 };
