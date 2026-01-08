@@ -1517,7 +1517,7 @@ TEST_F(ScheduleOoOTest, TestOoORollback) {
     EXPECT_EQ(res, SUCCESS);
 }
 
-TEST_F(ScheduleOoOTest, TestOoORollbackA5) {
+TEST_F(ScheduleOoOTest, TestOoORollbackMix) {
     ComputationalGraphBuilder subGraph;
     std::vector<std::string> tensorNames{"T3", "T1", "T6", "T8", "T11", "T13", "T16", "T18", "T21", "DDR1", "DDR2", "DDR3", "DDR4", "DDR5", "DDR6", "DDR7"};
     std::vector<MemoryType> tensorMemTypes{MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L1,
@@ -1672,10 +1672,30 @@ TEST_F(ScheduleOoOTest, TestLatencyEstimatorMainLoop) {
 
     // 创建LatencyEstimator实例
     auto opList = function->Operations(false).DuplicatedOpList();
-    LatencyEstimator latencyEstimator(opList);
+    int latency = 0;
+    OoOSchedule oooSchedule;
+    Status res = oooSchedule.SortAndLatencyEstimate(opList, opList, latency);
+    EXPECT_EQ(res, SUCCESS);
+}
 
-    // 测试LatencyEstimatorMainLoop
-    Status res = latencyEstimator.LatencyEstimatorMainLoop();
+TEST_F(ScheduleOoOTest, TestMixSchedule) {
+    ComputationalGraphBuilder subGraph;
+    std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8"};
+    std::vector<MemoryType> tensorMemTypes{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB,
+        MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB};
+    std::vector<Opcode> opCodes{Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC,
+        Opcode::OP_UB_ALLOC, Opcode::OP_COPY_IN, Opcode::OP_COPY_IN, Opcode::OP_ROWMAX_SINGLE, Opcode::OP_ADD, Opcode::OP_COPY_OUT};
+    std::vector<std::vector<std::string>> ioperands{{}, {}, {}, {}, {}, {"t1"}, {"t3"}, {"t2"}, {"t4", "t5"}, {"t5"}};
+    std::vector<std::vector<std::string>> ooperands{{"t2"}, {"t4"}, {"t5"}, {"t6"}, {"t8"}, {"t2"}, {"t4"}, {"t5", "t6"}, {"t8"}, {"t7"}};
+    std::vector<std::string> opNames{"Alloc1", "Alloc2", "Alloc3", "Alloc4", "Alloc5", "Copyin1", "Copyin2", "RowMax1", "Add1", "Copyout1"};
+    EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {32, 32}, tensorMemTypes, tensorNames, 0), true);
+    EXPECT_EQ(subGraph.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
+    Function *function = subGraph.GetFunction();
+    OoOSchedule oooSchedule;
+    auto opList = function->Operations(false).DuplicatedOpList();
+    std::pair<uint64_t, Function*> functionPair = std::make_pair(0, function);
+    int size = 0;
+    Status res = oooSchedule.A5Schedule(opList, *function, functionPair, size);
     EXPECT_EQ(res, SUCCESS);
 }
 
