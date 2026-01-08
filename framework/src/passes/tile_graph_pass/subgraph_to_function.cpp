@@ -531,7 +531,7 @@ bool SubgraphToFunction::ReorderOutcast(const std::tuple<Function *, Operation *
 
     std::get<0>(result)->SetFunctionOutcastOrder(applyOrder);
 
-    std::get<1>(result)->SetCallOpOutcastOrder(applyOrder);
+    std::get<1>(result)->SetCallOpOutcastOrder(applyOrder, std::get<1>(result));
 
     return true;
 }
