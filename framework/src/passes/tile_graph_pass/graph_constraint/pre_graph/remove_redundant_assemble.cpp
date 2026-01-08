@@ -209,33 +209,29 @@ bool CalculateNewRawShape1(const std::vector<int64_t> &oriShape, const std::vect
 
 Status ProcessView(Function &function) {
     for (auto &op : function.Operations()) {
-        if (op.GetOpcode() != Opcode::OP_COPY_IN) {
+        if (op.GetOpcode() != Opcode::OP_RESHAPE) {
             continue;
         }
-        LogicalTensorPtr input = op.GetIOperands().front();
-        auto consumers = input->GetProducers();
-        auto reshape = *consumers.begin();
-        if (reshape == nullptr)
-            continue;
-        if (consumers.size() != 1 && reshape->GetOpcode() != Opcode::OP_RESHAPE) {
-            continue;
-        }
-        LogicalTensorPtr reshapeInput = reshape->GetIOperands().front();
+        auto &reshape = op;
+        LogicalTensorPtr reshapeInput = reshape.GetIOperands().front();
+        LogicalTensorPtr reshapeOutput = reshape.GetOOperands().front();
         if (!(reshapeInput->GetShape()[0] == 1 && reshapeInput->GetShape().size() == 3 &&
-                input->GetShape().size() == 2 && reshapeInput->GetShape()[1] == input->GetShape()[0] &&
-                reshapeInput->GetShape()[2] == input->GetShape()[1])) {
+                reshapeOutput->GetShape().size() == 2 && reshapeInput->GetShape()[1] == reshapeOutput->GetShape()[0] &&
+                reshapeInput->GetShape()[2] == reshapeOutput->GetShape()[1])) {
             continue;
         }
-        consumers = reshapeInput->GetProducers();
+        auto consumers = reshapeInput->GetProducers();
         auto view = *consumers.begin();
         if (view == nullptr)
             continue;
         if (consumers.size() != 1 && view->GetOpcode() != Opcode::OP_VIEW) {
             continue;
         }
-        std::cout << "preocessview match pattern, view:" << view->GetOpMagic() << ",reshape:" << reshape->GetOpMagic()
-                  << ",copyin:" << op.GetOpMagic() << std::endl;
-
+        for (auto reshapeConsumer : reshape.GetOOperands().front()->GetConsumers()) {
+            if (reshapeConsumer->GetOpcode() != Opcode::OP_COPY_IN) {
+                return SUCCESS;
+            }
+        }
         // view
         auto opAttr = std::dynamic_pointer_cast<ViewOpAttribute>(view->GetOpAttribute());
         if (opAttr == nullptr) {
@@ -245,35 +241,41 @@ Status ProcessView(Function &function) {
         std::cout << "viewoffset" << vectorToString(offset) << std::endl;
         std::vector<int64_t> newRawShape;
         std::vector<SymbolicScalar> newDynOffset;
-        bool ret = CalculateNewRawShape1(reshape->GetIOperands()[0]->shape, reshape->GetOOperands()[0]->shape,
+        bool ret = CalculateNewRawShape1(reshape.GetIOperands()[0]->shape, reshape.GetOOperands()[0]->shape,
             view->GetIOperands()[0]->tensor->rawshape, newRawShape);
         if (!ret) {
             APASS_LOG_ERROR_F(Elements::Function, "calculateShape1 failed.");
             return FAILED;
         }
         std::cout << "newrawshape" << vectorToString(newRawShape) << std::endl;
-        GetDynOffsetBeforeReshape(offset, reshape->GetIOperands()[0]->shape, newRawShape, newDynOffset);
+        GetDynOffsetBeforeReshape(offset, reshape.GetIOperands()[0]->shape, newRawShape, newDynOffset);
         std::cout << "newoffset1" << vectorToString(newDynOffset) << std::endl;
         // 删除view
         view->SetAsDeleted();
         // copyin更新
-        std::shared_ptr<OpAttribute> &attr = op.GetOpAttribute();
-        std::shared_ptr<CopyOpAttribute> copyAttr = std::static_pointer_cast<CopyOpAttribute>(attr);
-        // 泛化，+offset
-        // auto oriCopyOffset = copyAttr->GetFromOffset();
-        // std::vector<OpImmediate> newOffset = OpImmediate::Specified(newDynOffset);
-        // for (size_t i = 0; i < oriCopyOffset.size(); i++) {
-        //     newOffset[i] = newOffset[i] + oriCopyOffset[i];
-        // }
-        // std::cout << "newoffset2" << SymbolicVecToStr(OpImmediate::ToSpecified(newOffset)).c_str() << std::endl;
-        // 刷到reshape后的copyin
-        op.SetOpAttribute(std::make_shared<CopyOpAttribute>(OpImmediate::Specified(newDynOffset),
-            op.oOperand.front()->GetMemoryTypeOriginal(), OpImmediate::Specified(input->GetShape()),
-            OpImmediate::Specified(newRawShape), copyAttr->GetFromDynValidShape()));
+        std::cout << "reshape output" << reshape.GetOOperands().front()->GetConsumers().size() << std::endl;
+        for (auto copyIn : reshape.GetOOperands().front()->GetConsumers()) {
+            std::cout << "preocessview match pattern, view:" << view->GetOpMagic()
+                      << ",reshape:" << reshape.GetOpMagic() << ",copyin:" << copyIn->GetOpMagic() << std::endl;
+            std::shared_ptr<CopyOpAttribute> copyAttr =
+                std::static_pointer_cast<CopyOpAttribute>(copyIn->GetOpAttribute());
+            auto oriCopyOffset = copyAttr->GetFromOffset();
+            std::vector<OpImmediate> newOffset = OpImmediate::Specified(newDynOffset);
+            for (size_t i = 0; i < oriCopyOffset.size(); i++) {
+                newOffset[i] = newOffset[i] + oriCopyOffset[i];
+            }
+            std::cout << "newoffset2" << SymbolicVecToStr(OpImmediate::ToSpecified(newOffset)).c_str() << std::endl;
+            // 刷到reshape后的copyin
+            copyIn->SetOpAttribute(std::make_shared<CopyOpAttribute>(newOffset,
+                op.oOperand.front()->GetMemoryTypeOriginal(), OpImmediate::Specified(reshapeOutput->GetShape()),
+                OpImmediate::Specified(newRawShape), copyAttr->GetFromDynValidShape()));
+        }
+
         // replace
-        reshape->GetOOperands()[0]->shape = newRawShape;
-        reshape->GetOOperands()[0]->tensor->UpdateRawShape(newRawShape);
-        reshape->ReplaceIOperand(0, view->GetIOperands()[0]);
+        reshape.GetOOperands()[0]->shape = newRawShape;
+        reshape.GetOOperands()[0]->tensor->UpdateRawShape(newRawShape);
+        reshape.ReplaceIOperand(0, view->GetIOperands()[0]);
+        // reshape->ReplaceInputOperand(reshapeInput, view->GetIOperands()[0]);
     }
     return SUCCESS;
 }
