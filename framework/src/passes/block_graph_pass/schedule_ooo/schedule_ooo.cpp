@@ -39,11 +39,11 @@ Status OoOSchedule::RunOnFunction(Function &function) {
         if (IsAicpuProgram(opList)) {
             continue;
         }
-        OoOScheduler oooSchedule(*program.second, ConfigManager::Instance().GetOperationConfig("COMBINE_AXIS", false));
+        OoOScheduler oooSchedule(*program.second, ConfigManager::Instance().GetOperationConfig(KEY_COMBINE_AXIS, false));
         oooSchedule.oooCheck.doHealthCheck = passDfxconfigs_.healthCheck;
         APASS_LOG_INFO_F(Elements::Operation, "Subgraph[%d] OOOSchedule start.", program.first);
-        if (oooSchedule.Schedule(opList) != SUCCESS) { 
-            APASS_LOG_ERROR_F(Elements::Graph, "Subgraph[%d] OoO Schedule failed.", program.first); 
+        if (oooSchedule.Schedule(opList) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Graph, "Subgraph[%d] OoO Schedule failed.", program.first);
             return FAILED;
         }
         APASS_LOG_INFO_F(Elements::Operation, "Subgraph[%d] OOOSchedule end.", program.first);
