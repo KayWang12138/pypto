@@ -44,8 +44,6 @@
 namespace npu::tile_fwk::dynamic {
 
 const uint32_t AICORE_STATUS_INIT = 0xFFFFFFFFU;
-const uint32_t READY_ID_FIX_CACHE_NUM = 2048;
-constexpr uint32_t  MAX_MANAGER_AIV_NUM = NAX_AIV_TOTAL_NUM;
 
 constexpr uint32_t REG_31_BITS = 0x7FFFFFFF;
 constexpr uint32_t REG_32_BITS = 0xFFFFFFFF;
@@ -79,7 +77,10 @@ public:
             aicoreHal_.InitTaskData(coreIdx, funcdata, (uint64_t)logbuf);
         });
     }
-
+    inline inline void SetCommonMembers(SchduleContext * m_contextPtr_) {
+        m_contextPtr_ = m_contextPtr_;
+    }
+    
     inline bool CheckAndResetReg() {
         if (!validGetPgMask_) {
             return true;
@@ -1693,16 +1694,7 @@ private:
     ReadyCoreFunctionQueue* readyAivCoreFunctionQue_{nullptr};
     ReadyCoreFunctionQueue* readyAicpuFunctionQue_{nullptr};
     WrapManager wrapManager_;
-    uint64_t waitTaskCnt_[AICORE_TYPE_NUM]{0,0};
-    uint32_t corePendReadyCnt_[AICORE_TYPE_NUM]{0,0};
-    uint32_t coreRunReadyCnt_[AICORE_TYPE_NUM]{0,0};
-    uint32_t runReadyCoreIdx_[AICORE_TYPE_NUM][MAX_MANAGER_AIV_NUM];
-    uint32_t lastPendReadyCoreIdx_[AICORE_TYPE_NUM]{0,0};
-    uint64_t resolveHubCnt_{0};
-
-    uint32_t readyIds[AICORE_TYPE_NUM][READY_ID_FIX_CACHE_NUM];
-    uint32_t readyCount[AICORE_TYPE_NUM]{0,0};
-    uint32_t sendCnt_[AICORE_TYPE_NUM]{0,0};
+    SchduleContext * m_contextPtr_{nullptr};
 
     bool preFetchSuccess_{false};
     DeviceTaskCtrl* preFetchNextDevTaskCtrl_{nullptr};
