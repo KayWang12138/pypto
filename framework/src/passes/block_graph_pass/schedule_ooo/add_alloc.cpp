@@ -51,7 +51,15 @@ Status AddAlloc::AddAndCheckAlloc(Function &function) {
         APASS_LOG_ERROR_F(Elements::Tensor, "GenAllocNode failed.");
         return FAILED;
     }
-    function.SortOperations();
+    std::vector<Operation *> newOperations;
+     for (auto& op : function.Operations(false).DuplicatedOpList()) {
+         if (op->GetOpcodeStr().find("ALLOC") != std::string::npos) {
+             newOperations.insert(newOperations.begin(), op);
+             continue;
+         }
+         newOperations.push_back(op);
+     }
+     function.ScheduleBy(newOperations);
     return SUCCESS;
 }
 
