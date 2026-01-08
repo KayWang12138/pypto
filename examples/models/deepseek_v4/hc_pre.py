@@ -98,6 +98,12 @@ def hc_pre_kernel(x: pypto.Tensor, hc_fn: pypto.Tensor, hc_scale: pypto.Tensor, 
     mix_hc = (2 + hc) * hc
     hc_eps = 1e-6
 
+    ### check shape
+    assert hc == 4, f"hc is {hc}, expected 4"
+    assert d == 4096, f"d is {d}, expected 4096"
+    assert mix_hc == hc_fn.shape[0], f"mix_hc is {hc_fn.shape[0]}, expected 24"
+    assert hc_scale.shape[0] == 3, f"hc_scale.shape[0] is {hc_scale.shape[0]}, expected 3"
+
     # unroll_list = [16, 1]
     unroll_list=[1024, 256, 64, 32, 16, 8, 4, 2, 1]
 
@@ -163,6 +169,13 @@ def npu_hc_pre(x: torch.Tensor, hc_fn: torch.Tensor, hc_scale: torch.Tensor, hc_
     hc = x.shape[1]
     d = x.shape[2]
 
+    print("x.shape in npu_hc_pre", x.shape)
+    ### check dtype
+    assert x.dtype == torch.bfloat16, f"x.dtype is {x.dtype}, expected torch.bfloat16"
+    assert hc_fn.dtype == torch.bfloat16, f"hc_fn.dtype is {hc_fn.dtype}, expected torch.bfloat16"
+    assert hc_scale.dtype == torch.float32, f"hc_scale.dtype is {hc_scale.dtype}, expected torch.float32"
+    assert hc_base.dtype == torch.float32, f"hc_base.dtype is {hc_base.dtype}, expected torch.float32"
+
     y = torch.zeros([t, d], dtype=x.dtype, device=f'{x.device}')
     post = torch.zeros([t, hc], dtype=hc_scale.dtype, device=f'{x.device}')
     comb = torch.zeros([t, hc, hc], dtype=hc_scale.dtype, device=f'{x.device}')
@@ -185,57 +198,6 @@ def npu_hc_pre(x: torch.Tensor, hc_fn: torch.Tensor, hc_scale: torch.Tensor, hc_
 
 class HC_PRE(torch.nn.Module):
     def forward(self, x, hc_fn, hc_scale, hc_base):
-        torch.add(x, 0.0)
-        torch.add(x, 0.0)
-        torch.add(x, 0.0)
-        torch.add(x, 0.0)
-        torch.add(x, 0.0)
-        torch.add(x, 0.0)
-        torch.add(x, 0.0)
-        torch.add(x, 0.0)
-        torch.add(x, 0.0)
-        torch.add(x, 0.0)
-        torch.add(x, 0.0)
-        torch.add(x, 0.0)
-        torch.add(x, 0.0)
-        torch.add(x, 0.0)
-        torch.add(x, 0.0)
-        torch.add(x, 0.0)
-        torch.add(x, 0.0)
-        torch.add(x, 0.0)
-        torch.add(x, 0.0)
-        torch.add(x, 0.0)
-        torch.add(x, 0.0)
-        torch.add(x, 0.0)
-        torch.add(x, 0.0)
-        torch.add(x, 0.0)
-        torch.add(x, 0.0)
-        torch.add(x, 0.0)
-        torch.add(x, 0.0)
-        torch.add(x, 0.0)
-        torch.add(x, 0.0)
-        torch.add(x, 0.0)
-        torch.add(x, 0.0)
-        torch.add(x, 0.0)
-        torch.add(x, 0.0)
-        torch.add(x, 0.0)
-        torch.add(x, 0.0)
-        torch.add(x, 0.0)
-        torch.add(x, 0.0)
-        torch.add(x, 0.0)
-        torch.add(x, 0.0)
-        torch.add(x, 0.0)
-        torch.add(x, 0.0)
-        torch.add(x, 0.0)
-        torch.add(x, 0.0)
-        torch.add(x, 0.0)
-        torch.add(x, 0.0)
-        torch.add(x, 0.0)
-        torch.add(x, 0.0)
-        torch.add(x, 0.0)
-        torch.add(x, 0.0)
-        torch.add(x, 0.0)
-        torch.add(x, 0.0)
         y, post, comb = npu_hc_pre(x, hc_fn, hc_scale, hc_base)
         return y, post, comb
 
@@ -323,9 +285,9 @@ def test_hc_pre(t = 16):
 
 if __name__ == "__main__":
     print("start test !!!")
-    # test_hc_pre_inmodel(16)
+    test_hc_pre_inmodel(16)
     # decode_t_list = {2048, 8192, }
     # for t_dyn in decode_t_list:
     #     test_hc_pre(t_dyn)
-    test_hc_pre(127)
+    # test_hc_pre(127)
 
