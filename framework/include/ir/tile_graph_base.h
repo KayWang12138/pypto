@@ -55,7 +55,28 @@ public:
 class ElementWiseScalarMixBinaryTileBaseOp : public ElementWiseTileBaseOp {
 };
 
+class ElementWiseTernaryTileBaseOp : public ElementWiseTileBaseOp {
+};
+
+class ElementWiseScalarMixTernaryTileBaseOp : public ElementWiseTileBaseOp {
+};
+
 class ReduceTileBaseOp : public TileBaseOp {
+};
+
+class CastTileBaseOp : public TileBaseOp {
+};
+
+class RangeTileBaseOp : public TileBaseOp {
+};
+
+class ScatterTileBaseOp : public TileBaseOp {
+};
+
+class CumSumTileBaseOp : public TileBaseOp {
+};
+
+class SortTileBaseOp : public TileBaseOp {
 };
 
 class BroadcastTileBaseOp : public TileBaseOp {

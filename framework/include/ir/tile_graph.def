@@ -13,9 +13,19 @@
  * \brief
  */
 
-DEFOP(
+enum CastMode {
+    CAST_NONE = 0,
+    CAST_RINT = 1,  // round to nearest, tie to even
+    CAST_ROUND = 2, // round to nearest, tie away from zero
+    CAST_FLOOR = 3, // round to minus infinity
+    CAST_CEIL = 4,  // round to positive infinity
+    CAST_TRUNC = 5, // round to zero
+    CAST_ODD = 6,   // round to odd (Von Neumann rounding)
+};
+
+DEF_OP(
     UnaryOp,
-    INHERIT(ElementWiseUnaryTileBaseOp),
+    INHERIT(ElementWiseUnaryTileOp),
     OPCODE(
         OP_EXP,
         OP_NEG,
@@ -24,36 +34,203 @@ DEFOP(
         OP_LOGICALNOT,
         OP_RECIPROCAL,
         OP_ABS,
-        OP_LN
+        OP_LN,
     ),
     ATTR(int, CombineAxis)
 )
 
-DEFOP(
+DEF_OP(
+    CastOp,
+    INHERIT(CastTileBaseOp),
+    OPCODE(
+        OP_CAST,
+    ),
+    ATTR(int, CombineAxis)
+    ATTR(CastMode, mode)
+)
+
+DEF_OP(
+    RangeOp,
+    INHERIT(RangeTileBaseOp),
+    OPCODE(
+        OP_RANGE,
+    ),
+    ATTR(int, CombineAxis)
+)
+
+DEF_OP(
+    CumSumOp,
+    INHERIT(CumSumTileBaseOp),
+    OPCODE(
+        OP_CUM_SUM,
+    ),
+    ATTR(int, CombineAxis)
+    ATTR(int, axis) 
+    ATTR(bool, flag)
+)
+
+DEF_OP(
     BinaryOp,
-    INHERIT(ElementWiseBinaryTileBaseOp),
+    INHERIT(ElementWiseBinaryTileOp),
     OPCODE(
         OP_ADD,
         OP_SUB,
         OP_MUL,
         OP_DIV,
         OP_MIN,
-        OP_MAX
+        OP_MAX,
+        OP_S_ADD,
+        OP_S_SUB,
+        OP_S_MUL,
+        OP_S_DIV,
+        OP_S_MAX,
+        OP_S_MIN,
+        OP_LOGICALAND,
     ),
     ATTR(int, CombineAxis)
+    ATTR(int, indiceSize)   // 索引轴大小
+    ATTR(int, reverseOperand),
+
 )
 
-DEFOP(
+DEF_OP(
+    ScatterOp,
+    INHERIT(ScatetrTileBaseOp),
+    OPCODE(
+        OP_SCATTER_ELEMENT,
+        OP_SCATTER,
+        OP_INDEX_PUT,
+    ),
+    ATTR(int, CombineAxis)
+    ATTR(int, axis)    // scatterelements/scatter 指定轴
+    ATTR(int, scatterMode)  // scatterelements/scatter reduce 类型
+    ATTR(int, accumulate)   // index put 是否累加
+)
+
+DEF_OP(
     BinaryScalarMixOp,
     INHERIT(ElementWiseScalarMixBinaryTileBaseOp),
     OPCODE(
-        OP_ADD_S,
-        OP_SUB_S,
-        OP_MUL_S,
-        OP_DIV_S,
-        OP_MIN_S,
-        OP_MAX_S
+        OP_ADDS,
+        OP_SUBS,
+        OP_MULS,
+        OP_DIVS,
+        OP_MAXS,
+        OP_MINS,
+        OP_POW,
+        OP_S_ADDS,
+        OP_S_SUBS,
+        OP_S_MULS,
+        OP_S_DIVS,
+        OP_S_MAXS,
+        OP_S_MINS,
+        
     ),
     ATTR(int, CombineAxis),
-    ATTR(int, Reverse),
+    ATTR(int, reverseOperand),
+)
+
+DEF_OP(
+    BroadcastOp,
+    INHERIT(BroadcastTileBaseOp),
+    OPCODE(
+        OP_MAXIMUM,
+        OP_MINIMUM,
+        OP_PAIRMAX,
+        OP_PAIRMIN,
+        OP_PAIRSUM,
+        OP_FUSED_OP  // 没有代码，注册的是BROADCAST
+        
+    ),
+    ATTR(int, CombineAxis),
+)
+
+DEF_OP(
+    ReduceOp,
+    INHERIT(ReduceTileBaseOp),
+    OPCODE(
+        OP_ROWMAX_SINGLE,
+        OP_ROWMIN_SINGLE,
+        OP_ROWSUM_SINGLE,
+        OP_ROWMAX_COMBINE_AXIS_SINGLE,
+        OP_ROWSUM_COMBINE_AXIS_SINGLE,
+        OP_ROWMAXLINE,
+        OP_ROWMINLINE
+        
+    ),
+    ATTR(int, CombineAxis),
+    ATTR(int, axis),
+)
+
+DEF_OP(
+    MovOp,
+    INHERIT(DataCopyTileBaseOp),
+    OPCODE(
+        OP_UB_COPY_IN,
+        OP_UB_COPY_OUT,
+        OP_INDEX_OUTCAST, // 输入是三个tensor，三个scalar  无额外属性
+ 	    OP_CONVERT,
+ 	    OP_COPY_IN,
+ 	    OP_COPY_OUT,
+ 	    OP_LOAD,
+ 	    OP_VLD,  //  只有注册的一行
+ 	    OP_VST,  //  只有注册的一行
+ 	    OP_DUPLICATE,  // duplicate会转化为copyout
+        
+    ),
+    ATTR(int, CombineAxis),
+)
+
+DEF_OP(
+    TopKOp,
+    INHERIT(SortTileBaseOp),
+    OPCODE(
+        OP_TOPK
+    ),
+)
+
+DEF_OP(
+ 	SortOp,
+ 	INHERIT(SortTileBaseOp),
+ 	OPCODE(
+ 	    OP_BITSORT,
+ 	    OP_MRGSORT,
+ 	    OP_ARGSORT,
+ 	    OP_TILEDMRGSORT,
+ 	    OP_EXTRACT
+ 	),
+ 	ATTR(int, TopOffset),  // OP_BITSORT
+ 	ATTR(int, TopKValidBit)  // OP_TILEDMRGSORT
+ 	ATTR(int, ExtractMaskMode)  // OP_EXTRACT
+)
+
+DEF_OP(
+ 	ExperimentOp,
+ 	INHERIT(DataCopyTileBaseOp),   // 存疑
+ 	OPCODE(
+ 	    OP_GATHER_IN_L1,
+ 	    OP_GATHER_IN_UB,
+ 	),
+ 	ATTR(int, startOffset) // OP_GATHER_IN_L1
+)
+
+DEF_OP(
+ 	TernaryOp,
+ 	INHERIT(ElementWiseTernaryTileBaseOp),
+ 	OPCODE(
+ 	    OP_WHERE_TT
+ 	),
+ 	ATTR(int, WhereBitMode)
+)
+ 	 
+DEF_OP(
+    TernaryScalarMixOp,
+    INHERIT(ElementWiseScalarMixTernaryTileBaseOp),
+    OPCODE(
+        OP_WHERE_TS,
+        OP_WHERE_ST,
+        OP_WHERE_SS,
+        OP_INDEX_ADD, // 输入是三个tensor  两个 scalar  无额外属性
+    ),
+    ATTR(int, WhereBitMode),
 )
