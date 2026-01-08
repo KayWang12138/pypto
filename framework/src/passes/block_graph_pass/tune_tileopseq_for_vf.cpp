@@ -105,7 +105,7 @@ Status TuneTileOpSeqForVF::RunOnFunction(Function &function) {
         }
         program.second->ScheduleBy(resOpList, true);
 
-        // TODO: 增加拓扑逻辑校验
+        // TODO 增加拓扑逻辑校验
     }
     return SUCCESS;
 }
