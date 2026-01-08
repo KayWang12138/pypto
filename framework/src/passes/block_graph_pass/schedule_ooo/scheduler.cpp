@@ -580,14 +580,14 @@ Status OoOScheduler::ScheduleMainLoop() {
 Status OoOScheduler::RetireIssue(IssueEntryPtr issue) {
     issue->isRetired = true;
     for (auto memId : issue->reqMemIds) {
-        if (DelBufRefCount(memId) != SUCCESS) { 
-            APASS_LOG_ERROR_F(Elements::Tensor, "DelBufRefCount tensor[%d] failed.", memId); 
-            return FAILED; 
+        if (DelBufRefCount(memId) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Tensor, "DelBufRefCount tensor[%d] failed.", memId);
+            return FAILED;
         }
         if (bufRefCount[memId] == 0) {
-            if (bufferManagerMap[localBufferMap[memId]->memType].Free(localBufferMap[memId]->id) != SUCCESS) { 
-                APASS_LOG_ERROR_F(Elements::Tensor, "Free tensor[%d] failed.", memId); 
-                return FAILED; 
+            if (bufferManagerMap[localBufferMap[memId]->memType].Free(localBufferMap[memId]->id) != SUCCESS) {
+                APASS_LOG_ERROR_F(Elements::Tensor, "Free tensor[%d] failed.", memId);
+                return FAILED;
             }
         }
     }
@@ -617,9 +617,9 @@ Status OoOScheduler::ExecuteAllocIssue(IssueEntryPtr issue, size_t &pcIdx) {
         }
     }
 
-    if (bufferManagerMap[allocBuffer->memType].Allocate(allocBuffer) != SUCCESS) { 
-        APASS_LOG_ERROR_F(Elements::Tensor, "Allocate tensor[%u] failed.", allocBuffer->id); 
-        return FAILED; 
+    if (bufferManagerMap[allocBuffer->memType].Allocate(allocBuffer) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Tensor, "Allocate tensor[%u] failed.", allocBuffer->id);
+        return FAILED;
     }
     return SUCCESS;
 }
@@ -633,28 +633,28 @@ Status OoOScheduler::GenSpillSchedule() {
         APASS_LOG_DEBUG_F(Elements::Operation, "Launch %s", issue->GetOpInfo().c_str());
         if (issue->isAlloc) {
             if (ExecuteAllocIssue(issue, pcIdx) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Operation, "ExecuteAllocIssue failed! %s", GetFormatBacktrace(issue->tileOp).c_str()); 
+                APASS_LOG_ERROR_F(Elements::Operation, "ExecuteAllocIssue failed! %s", GetFormatBacktrace(issue->tileOp).c_str());
                 return FAILED;
             }
         }
         if (RetireIssue(issue) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "RetireIssue failed! %s", GetFormatBacktrace(issue->tileOp).c_str()); 
+            APASS_LOG_ERROR_F(Elements::Operation, "RetireIssue failed! %s", GetFormatBacktrace(issue->tileOp).c_str());
             return FAILED;
         }
         pcIdx += 1;
     }
     for (auto bufRef : bufRefCount) {
-        if (bufRef.second != 0) { 
-            APASS_LOG_ERROR_F(Elements::Tensor, "Tensor[%d] bufRefCount not equal to 0!", bufRef.first); 
-            return FAILED; 
+        if (bufRef.second != 0) {
+            APASS_LOG_ERROR_F(Elements::Tensor, "Tensor[%d] bufRefCount not equal to 0!", bufRef.first);
+            return FAILED;
         }
     }
     APASS_LOG_DEBUG_F(Elements::Operation, "=========> End GenSpillSchedule.");
     InitBufRefCount();
     // 更新依赖关系
-    if (InitDependencies() != SUCCESS) { 
-        APASS_LOG_ERROR_F(Elements::Operation, "InitDependencies failed!"); 
-        return FAILED; 
+    if (InitDependencies() != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "InitDependencies failed!");
+        return FAILED;
     }
     return SUCCESS;
 }
@@ -700,7 +700,7 @@ Status OoOScheduler::CheckAllocIssue() {
     for (const auto &issue : issueEntries) {
         if (issue->isAlloc) {
             if (issue->reqMemIds.size() != 1) {
-                APASS_LOG_ERROR_F(Elements::Operation, "ALLOC[%d] reqMemIds size not equal to 0. %s", 
+                APASS_LOG_ERROR_F(Elements::Operation, "ALLOC[%d] reqMemIds size not equal to 0. %s",
                     issue->tileOp.GetOpMagic(), GetFormatBacktrace(issue->tileOp).c_str());
                 return FAILED;
             }
@@ -714,7 +714,7 @@ Status OoOScheduler::CheckAllocIssue() {
     }
     for (auto tensorAlloc : tensorAllocMap) {
         if (!tensorAlloc.second->isAlloc) {
-            APASS_LOG_ERROR_F(Elements::Tensor, "%s Tensor[%d] is missing Alloc.", 
+            APASS_LOG_ERROR_F(Elements::Tensor, "%s Tensor[%d] is missing Alloc.",
                 tensorAlloc.second->GetOpInfo().c_str(), tensorAlloc.first);
             return FAILED;
         }
@@ -892,8 +892,8 @@ Status OoOScheduler::CheckOpBufferSize(Operation *op) {
             continue;
         }
         if (op->GetOpcodeStr().find("ALLOC") != std::string::npos) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Alloc tensor[%d] size[%d] exceeds %s size[%d]! %s", 
-                op->GetOutputOperand(0)->GetMagic(), buffer.second, MemoryTypeToString(buffer.first).c_str(), 
+            APASS_LOG_ERROR_F(Elements::Operation, "Alloc tensor[%d] size[%d] exceeds %s size[%d]! %s",
+                op->GetOutputOperand(0)->GetMagic(), buffer.second, MemoryTypeToString(buffer.first).c_str(),
                 localMemorySize[buffer.first], GetFormatBacktrace(*op).c_str());
             APASS_LOG_ERROR_F(Elements::Operation, "Tensor[%d] producer info:", op->GetOutputOperand(0)->GetMagic());
             for (auto producer : op->GetOutputOperand(0)->GetProducers()) {
@@ -903,7 +903,7 @@ Status OoOScheduler::CheckOpBufferSize(Operation *op) {
                 APASS_LOG_ERROR_F(Elements::Operation, "    %s.", dumpOpInfo(*producer).c_str());
             }
         } else {
-            APASS_LOG_ERROR_F(Elements::Operation, "OP %s[%d] in/output total size[%ld] exceeds %s size[%d]!", 
+            APASS_LOG_ERROR_F(Elements::Operation, "OP %s[%d] in/output total size[%ld] exceeds %s size[%d]!",
                 op->GetOpcodeStr().c_str(), op->GetOpMagic(), buffer.second, MemoryTypeToString(buffer.first).c_str(),
                 localMemorySize[buffer.first]);
             APASS_LOG_ERROR_F(Elements::Operation, "%s.", dumpOpInfo(*op).c_str());
@@ -939,14 +939,14 @@ Status OoOScheduler::Init(const std::vector<Operation *> &operations) {
             continue;
         }
         if (CheckOpBufferSize(op) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] CheckOpBufferSize failed! %s", 
+            APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] CheckOpBufferSize failed! %s",
                 op->GetOpcodeStr().c_str(), op->GetOpMagic(), GetFormatBacktrace(*op).c_str());
             return FAILED;
         }
         auto issue = std::make_shared<IssueEntry>(*op, issueId);
         issueEntryMap[issueId++] = issue;
         if (issue == nullptr) {
-            APASS_LOG_ERROR_F(Elements::Operation, "IssueEntry %s, %d init failed! %s", 
+            APASS_LOG_ERROR_F(Elements::Operation, "IssueEntry %s, %d init failed! %s",
                 op->GetOpcodeStr().c_str(), op->GetOpMagic(), GetFormatBacktrace(*op).c_str());
             return FAILED;
         }
@@ -994,23 +994,23 @@ Status OoOScheduler::Schedule(const std::vector<Operation *> &operations) {
         return SUCCESS;
     }
     PrintOpList(operations);
-    if (Init(operations) != SUCCESS) { 
-        APASS_LOG_ERROR_F(Elements::Operation, "Init failed!"); 
-        return FAILED; 
+    if (Init(operations) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "Init failed!");
+        return FAILED;
     }
     // op执行排序
-    if (SortOps() != SUCCESS) { 
-        APASS_LOG_ERROR_F(Elements::Operation, "SortOps failed!"); 
-        return FAILED; 
+    if (SortOps() != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "SortOps failed!");
+        return FAILED;
     }
     // 生成spill指令
-    if (GenSpillSchedule() != SUCCESS) { 
-        APASS_LOG_ERROR_F(Elements::Operation, "GenSpillSchedule failed!"); 
-        return FAILED; 
+    if (GenSpillSchedule() != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "GenSpillSchedule failed!");
+        return FAILED;
     }
     // 模拟调度
     if (ScheduleMainLoop() != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "ScheduleMainLoop failed!"); 
+        APASS_LOG_ERROR_F(Elements::Operation, "ScheduleMainLoop failed!");
         return FAILED;
     }
     if (CheckAndUpdateLifecycle() != SUCCESS) {
