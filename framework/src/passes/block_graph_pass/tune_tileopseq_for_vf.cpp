@@ -21,13 +21,6 @@
 
 namespace npu {
 namespace tile_fwk {
-void TuneTileOpSeqForVF::PushBackIdx(size_t idx, std::vector<size_t> &vec) {
-    auto it = std::find(vec.begin(), vec.end(). idx);
-    if (it == vec.end()) {
-        vec.emplace_back(idx);
-    }
-}
-
 void TuneTileOpSeqForVF::ChangeOpSeq(std::vector<Operation *> &opList, PipeSync &ps, bool isAIV1) {
     AIVCore coreType;
     if (!isAIV1) {
@@ -48,12 +41,6 @@ void TuneTileOpSeqForVF::ChangeOpSeq(std::vector<Operation *> &opList, PipeSync 
         return;
     }
 
-    // // 将第一个pipeVop前面的op加入到tunedOpList中
-    // if (pipeVIdx[0] > 0) {
-    //     for (size_t i = 0; i < pipeVIdx[0]; i++) {
-    //         PushBackIdx(i, tunedOpList);
-    //     }
-    // }
     for (size_t idx = 0; idx + 1 < pipeVIdx.size(); idx++) {
         size_t left = pipeVIdx[idx];
         size_t right = pipeVIdx[idx + 1];
@@ -93,12 +80,6 @@ void TuneTileOpSeqForVF::ChangeOpSeq(std::vector<Operation *> &opList, PipeSync 
             }
         }
     }
-    // // 将最后一个pipeVop后面的op加入到tunedOpList中
-    // if (pipeVIdx[pipeVIdx.size() - 1] < opList.size() - 1) {
-    //     for (size_t i = pipeVIdx[pipeVIdx.size() - 1] + 1; i < opList.size(); i++) {
-    //         PushBackIdx(i, tunedOpList);
-    //     }
-    // }
 }
 
 Status TuneTileOpSeqForVF::RunOnFunction(Function &function) {
