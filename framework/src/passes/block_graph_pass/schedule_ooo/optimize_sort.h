@@ -80,7 +80,7 @@ public:
         std::map<Operation*, bool>& visited);
 
     void ReorderOp(std::vector<size_t> &preIdx, std::vector<Operation*> &curOpList, size_t startIndex);
-    void FindIndex(const Operation* op, const std::vector<Operation*> curOpList, const size_t &index)
+    void FindIndex(const Operation* op, const std::vector<Operation*> curOpList, const size_t &index);
     Status FindConsumerList(size_t consumerIndex, std::vector<size_t> &preOpList, std::vector<Operation*> &curOpList);
     Status UpdateOOperandPreDependence(size_t startIndex, std::vector<Operation*> &curOpList,
         std::vector<Operation*> consumersGroup);
