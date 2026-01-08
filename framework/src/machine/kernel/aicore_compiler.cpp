@@ -31,6 +31,7 @@ constexpr const size_t CMD_SIZE_1K = 1024;
 constexpr const size_t CMD_SIZE_2K = 2048;
 constexpr const char* BISHENG_PROGRAM_CMD = "bisheng";
 constexpr const char* BISHENG_LD_CMD = "ld.lld";
+constexpr const uint8_t MAIN_BLOCK_SIZE = 2;
 }
 
 static int CompileCoreMachine(const std::string &objFile, bool isCube, uint64_t tilingKey,
@@ -98,8 +99,11 @@ std::string GenSubFuncCall(std::map<uint64_t, Function *> &leafDict, CoreType co
           continue;
       }
       src_obj << leafFuncAttr->binPath << " ";
+      src_obj << leafFuncAttr->binPathMainBlock << " ";
       code << leafFuncAttr->kernelDeclare << std::endl;
-      idxNameMap[leafIndex] = leafFuncAttr->kernelName;
+      code << leafFuncAttr->kernelDeclareMainBlock << std::endl;
+      idxNameMap[leafIndex * MAIN_BLOCK_SIZE - 1] = leafFuncAttr->kernelName;
+      idxNameMap[leafIndex * MAIN_BLOCK_SIZE] = leafFuncAttr->kernelNameMainBlock;
       ALOG_DEBUG_F("Func[%d] kernel_name[%s].", leafIndex, leafFuncAttr->kernelName.c_str());
   }
   if (idxNameMap.empty()) {
