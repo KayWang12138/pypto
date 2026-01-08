@@ -68,10 +68,8 @@ class MatmulTileBaseOp : public TileBaseOp {
 };
 
 class SysBaseOp : public ScalarBaseOp {
-public:
-    std::string GetName() const;
-private:
-    std::string name_;
+    SysBaseOp(Opcode opcode, ScalarValuePtr out)
+        : ScalarBaseOp(opcode, std::vector<ScalarValuePtr>({}), std::vector<ScalarValuePtr>({out})) {}
 };
 
 class CustomTileBaseOp : public TileBaseOp {
