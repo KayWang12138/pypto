@@ -122,6 +122,9 @@ int64_t RuntimeNe(int64_t input1, int64_t input2) {
 #define RUNTIME_Max(lhs, rhs) RuntimeMax(lhs, rhs)
 #define RUNTIME_Min(lhs, rhs) RuntimeMin(lhs, rhs)
 
+#define RUNTIME_And(lhs, rhs) ((lhs) && (rhs))
+#define RUNTIME_Select(cond, set, unset) ((cond) ? (set) : (unset))
+
 #define RUNTIME_GetSymbol(idx)          (symbolTable[idx])
 
 #define RUNTIME_SetExpr(exprList, index, value) \
