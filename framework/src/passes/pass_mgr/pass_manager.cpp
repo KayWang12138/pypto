@@ -47,6 +47,8 @@
 #include "passes/block_graph_pass/copy_out_resolve.h"
 #include "passes/block_graph_pass/dyn_attr_to_static.h"
 #include "passes/block_graph_pass/mix_subgraph_split.h"
+#include "passes/block_graph_pass/tune_tileopseq_for_vf.h"
+#include "passes/block_graph_pass/tune_sync_for_vf.h"
 
 namespace npu::tile_fwk {
 PassManager &PassManager::Instance() {
@@ -95,6 +97,8 @@ void RegPass() {
     REG_PASS(MixSubgraphSplit);
     REG_PASS(DuplicateOp);
     REG_PASS(AxisCombine);
+    REG_PASS(TuneTileOpSeqForVF);
+    REG_PASS(TuneSyncForVF);
 }
 
 void PassManager::RegDefaultStrategy() {
@@ -132,10 +136,12 @@ void PassManager::RegDefaultStrategy() {
             {        "SrcDstBufferMerge",        "SrcDstBufferMerge"},
             {                 "AddAlloc",                 "AddAlloc"},
             {              "OoOSchedule",              "OoOSchedule"},
+            {       "TuneTileOpSeqForVF",       "TuneTileOpSeqForVF"},
             {        "GlobalMemoryReuse",        "GlobalMemoryReuse"},
             {              "RemoveAlloc",              "RemoveAlloc"},
             {           "CopyOutResolve",           "CopyOutResolve"},
             {               "InsertSync",               "InsertSync"},
+            {            "TuneSyncForVF",            "TuneSyncForVF"},
             {         "MixSubgraphSplit",         "MixSubgraphSplit"},
             {           "CodegenPreproc",           "CodegenPreproc"},
     });
