@@ -62,6 +62,7 @@ template <typename... Indexs>
 using Offsets = Std::tuple<Indexs...>;
 
 using TileOffset = Offsets<size_t, size_t, size_t>;
+using TileOffset4Dim = Offsets<size_t, size_t, size_t, size_t>;
 
 template <typename T, bool Mergeable = false>
 __aicore__ inline constexpr size_t GetMergedAxisIfNeed() {
@@ -107,21 +108,37 @@ public:
     using Dtype = std::conditional_t<std::is_same_v<typename T::Type, bool>, uint8_t, typename T::Type>;
     using Type = pto::Tile<pto::TileType::Vec, Dtype, tileH, tileW, Layout, validH, validW>;
 
-    __aicore__ inline PtoTile(const T &tensor = T(0)) {
-        if constexpr (!T::IsStaticLayout()) {
-            Type tile(tensor.GetLayout().template GetShapeDim<DIM_4TH, MAX_DIMS>(),
-                tensor.GetLayout().template GetShapeDim<DIM_5TH, MAX_DIMS>());
-            data_ = tile;
-        }
+    __aicore__ inline PtoTile() : data_() {
+        static_assert(T::IsStaticLayout(), "Only valild for static layout tile tensor.");
     }
+
+    __aicore__ inline PtoTile(const int &h, const int &w) : data_(h, w) {}
+
+    __aicore__ inline PtoTile(const T &tensor)
+        : PtoTile(tensor.GetLayout().template GetShapeDim<DIM_4TH, MAX_DIMS>(),
+              tensor.GetLayout().template GetShapeDim<DIM_5TH, MAX_DIMS>()) {}
 
     __aicore__ inline const Type &Data() const { return data_; }
 
-    __aicore__ inline void Assign(T &tensor, const TileOffset &offsets = TileOffset(0, 0, 0)) {
+    __aicore__ inline void Assign(const uint64_t addr) { pto::TASSIGN(data_, addr); }
+
+    __aicore__ inline void Assign(T &tensor) { Assign((uint64_t)(tensor.GetAddr())); }
+
+    __aicore__ inline void Assign(T &tensor, const TileOffset &offsets) {
         const auto layout = tensor.GetLayout();
         size_t offset = Std::get<DIM_1ST>(offsets) * layout.template GetStrideDim<DIM_1ST, MAX_DIMS>();
         offset += Std::get<DIM_2ND>(offsets) * layout.template GetStrideDim<DIM_2ND, MAX_DIMS>();
         offset += Std::get<DIM_3RD>(offsets) * layout.template GetStrideDim<DIM_3RD, MAX_DIMS>();
+        pto::TASSIGN(data_, (uint64_t)(tensor.GetAddr() + offset * sizeof(typename T::Type)));
+    }
+
+    __aicore__ inline void Assign(T &tensor, const TileOffset4Dim &offsets, size_t ext_offset) {
+        const auto layout = tensor.GetLayout();
+        size_t offset = ext_offset;
+        offset += Std::get<DIM_1ST>(offsets) * layout.template GetStrideDim<DIM_1ST, MAX_DIMS>();
+        offset += Std::get<DIM_2ND>(offsets) * layout.template GetStrideDim<DIM_2ND, MAX_DIMS>();
+        offset += Std::get<DIM_3RD>(offsets) * layout.template GetStrideDim<DIM_3RD, MAX_DIMS>();
+        offset += Std::get<DIM_4TH>(offsets) * layout.template GetStrideDim<DIM_4TH, MAX_DIMS>();
         pto::TASSIGN(data_, (uint64_t)(tensor.GetAddr() + offset * sizeof(typename T::Type)));
     }
 

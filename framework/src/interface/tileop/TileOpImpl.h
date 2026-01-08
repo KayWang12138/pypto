@@ -43,6 +43,7 @@
 #include "vector/gather.h"
 #include "vector/expand.h"
 #include "vector/extract.h"
+#include "vector/logicalnot.h"
 #include "vector/pair_binary.h"
 #include "vector/where.h"
 #include "vector/vector_dup.h"
