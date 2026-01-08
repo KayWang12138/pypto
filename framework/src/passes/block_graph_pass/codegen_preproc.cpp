@@ -105,7 +105,7 @@ Status CodegenPreproc::ProcessAxis(Operation &op, std::vector<bool> attr, bool i
             CombineTailAxis(operands[i]->shape, shapeSize);
             CombineTailAxis(operands[i]->oriShape, shapeSize);
             CombineTailAxis(operands[i]->tensor->rawshape, shapeSize);
-            if (ConfigManager::Instance().GetOperationConfig(KEY_FORCE_COMBINE_AXIS, false)) {
+            if (ConfigManager::Instance().GetOperationConfig("FORCE_COMBINE_AXIS", false)) {
                 CombineLastAxis(operands[i]->dynValidShape_, shapeSize);
             }
         }
@@ -121,7 +121,9 @@ Status CodegenPreproc::ForceCombineAxis(Function &func) const {
                 op.GetAttr(OP_ATTR_PREFIX + "input_combine_axis", attrIn);
                 op.SetAttribute(OpAttributeKey::inputCombineAxisDone, true);
                 if (ProcessAxis(op, attrIn, true) != SUCCESS) {
-                    APASS_LOG_ERROR_F(Elements::Operation, "ForceCombineAxis failed at function ProcessAxis(input) for subProgram(%lu).", subProgram.first);
+                    APASS_LOG_ERROR_F(Elements::Operation,
+                        "ForceCombineAxis failed at function ProcessAxis(input) for subProgram(%lu).",
+                        subProgram.first);
                     return FAILED;
                 }
                 if (op.GetOpcode() == Opcode::OP_COPY_OUT) {
@@ -134,8 +136,9 @@ Status CodegenPreproc::ForceCombineAxis(Function &func) const {
                 std::vector<bool> attrOut;
                 op.GetAttr(OP_ATTR_PREFIX + "output_combine_axis", attrOut);
                 op.SetAttribute(OpAttributeKey::outputCombineAxisDone, true);
-                if (ProcessAxis(op, attrOut, false) !=SUCCESS) {
-                    APASS_LOG_ERROR_F(Elements::Operation, "ForceCombineAxis failed at function ProcessAxis(out) for subProgram(%lu).", subProgram.first);
+                if (ProcessAxis(op, attrOut, false) != SUCCESS) {
+                    APASS_LOG_ERROR_F(Elements::Operation,
+                        "ForceCombineAxis failed at function ProcessAxis(out) for subProgram(%lu).", subProgram.first);
                     return FAILED;
                 }
                 if (op.GetOpcode() == Opcode::OP_COPY_IN) {
@@ -173,19 +176,34 @@ Status CodegenPreproc::ForceCombineAxisForAxisCombine(Function &func) const {
                 continue;
             }
             std::vector<bool> inputCombineAxis;
-            for (size_t i = 0; i < op.GetIOperands().size(); ++i) {
-                LogicalTensors operands = op.GetIOperands();
+            LogicalTensors operands = op.GetIOperands();
+            for (size_t i = 0; i < operands.size(); ++i) {
                 if (operands[i]->tensor->rawshape.back() == 1 && skipInputCombineOps.count(op.GetOpcode()) == 0) {
                     inputCombineAxis.push_back(true);
+                    auto producers = operands[i]->GetProducers();
+                    if (producers.size() != 1) {
+                        continue;
+                    }
+                    auto p = *producers.begin();
+                    if (OpcodeManager::Inst().GetOpCalcType(p->GetOpcode()) == OpCalcType::REDUCE) {
+                        std::vector<bool> reduceOutputCombineAxis;
+                        p->GetAttr(OpAttributeKey::outputCombineAxis, reduceOutputCombineAxis);
+                        int idx = p->GetOOperandIndex(operands[i]);
+                        if (!reduceOutputCombineAxis[idx]) {
+                            reduceOutputCombineAxis[idx] = true;
+                        }
+                        p->SetAttr(OpAttributeKey::outputCombineAxis, reduceOutputCombineAxis);
+                    }
                 } else {
                     inputCombineAxis.push_back(false);
                 }
             }
             op.SetAttr(OpAttributeKey::inputCombineAxis, inputCombineAxis);
             std::vector<bool> outputCombineAxis;
-            for (size_t i = 0; i < op.GetOOperands().size(); ++i) {
-                LogicalTensors operands = op.GetOOperands();
-                if (operands[i]->tensor->rawshape.back() == 1 && OpcodeManager::Inst().GetOpCalcType(op.GetOpcode()) != OpCalcType::REDUCE) {
+            operands = op.GetOOperands();
+            for (size_t i = 0; i < operands.size(); ++i) {
+                if (operands[i]->tensor->rawshape.back() == 1 &&
+                    OpcodeManager::Inst().GetOpCalcType(op.GetOpcode()) != OpCalcType::REDUCE) {
                     outputCombineAxis.push_back(true);
                 } else {
                     outputCombineAxis.push_back(false);
@@ -248,7 +266,7 @@ Status CodegenPreproc::RunOnFunction(Function &function) {
         return FAILED;
     }
 
-    if (ConfigManager::Instance().GetOperationConfig(KEY_COMBINE_AXIS, false)) {
+    if (ConfigManager::Instance().GetOperationConfig("COMBINE_AXIS", false)) {
         if (ForceCombineAxisForAxisCombine(function) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "CodegenPreproc RunOnFunction failed at function ForceCombineAxisForAxisCombine.");
             return FAILED;
