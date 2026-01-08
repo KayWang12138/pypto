@@ -821,6 +821,21 @@ struct FunctionInterpreter {
             FunctionFrame *frame,
             const std::vector<std::shared_ptr<LogicalTensorData>> *ooperandDataViewList,
         const std::vector<std::shared_ptr<LogicalTensorData>> *ioperandDataViewList);
+
+private:
+    void FillOperationBasicInfo(Operation *op, FunctionFrame *frame, std::vector<std::string> &opInfo);
+    void FillOperationOffsetInfo(Operation *op, FunctionFrame *frame, 
+                                  const std::vector<SymbolicScalar> &linearArgList,
+                                  std::vector<std::string> &opInfo);
+    void FillOperationInputInfo(Operation *op, FunctionFrame *frame,
+                                const std::vector<std::shared_ptr<LogicalTensorData>> *ioperandDataViewList,
+                                std::vector<std::string> &opInfo);
+    void FillOperationOutputInfo(Operation *op, FunctionFrame *frame,
+                                 const std::vector<std::shared_ptr<LogicalTensorData>> *ooperandDataViewList,
+                                 const std::vector<SymbolicScalar> &linearArgList,
+                                 int indent, std::vector<std::string> &opInfo);
+
+public:
     void DumpTensorBinary(
             const std::shared_ptr<LogicalTensor> &tensor,
             const std::shared_ptr<LogicalTensorData> &dataView);
