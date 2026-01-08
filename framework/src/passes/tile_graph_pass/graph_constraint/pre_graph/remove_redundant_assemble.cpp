@@ -192,15 +192,12 @@ bool CalculateNewRawShape1(const std::vector<int64_t> &oriShape, const std::vect
     for (size_t i = 0; i < oriSize; i++) {
         oriScale[i] = oriRawShape[i] / oriShape[i];
         if ((i != 0) && (oriScale[i] != 1)) {
-            // 只有当最高轴存在Assemble的行为时，才可以将数据直接拷贝到Assemble之后的内存
             return false;
         }
     }
-    std::cout << "scale" << IntVecToStr(oriScale).c_str() << std::endl;
     APASS_LOG_DEBUG_F(Elements::Operation, "oriScale is %s.", IntVecToStr(oriScale).c_str());
     size_t newSize = newShape.size();
     newRawShape.resize(newSize);
-
     for (size_t j = 0; j < newSize; j++) {
         newRawShape[j] = newShape[j] * oriScale[j];
     }
@@ -213,6 +210,11 @@ bool MatchReshapePattern(const LogicalTensorPtr &reshapeInput, const LogicalTens
             reshapeInput->GetShape()[2] == reshapeOutput->GetShape()[1]);
 }
 
+/*
+处理场景:
+VIEW -> RESHAPE -> COPYIN
+                -> COPYIN
+*/
 Status ProcessView(Function &function) {
     for (auto &op : function.Operations()) {
         if (op.GetOpcode() != Opcode::OP_RESHAPE) {
@@ -224,35 +226,31 @@ Status ProcessView(Function &function) {
         if (!MatchReshapePattern(reshapeInput, reshapeOutput)) {
             continue;
         }
-        auto consumers = reshapeInput->GetProducers();
-        auto view = *consumers.begin();
-        if (view == nullptr || consumers.size() != 1 || view->GetOpcode() != Opcode::OP_VIEW) {
+        auto producer = reshapeInput->GetProducers();
+        auto view = *producer.begin();
+        if (view == nullptr || producer.size() != 1 || view->GetOpcode() != Opcode::OP_VIEW) {
             continue;
         }
+        auto viewInput = view->GetIOperands().front();
         for (auto reshapeConsumer : reshape.GetOOperands().front()->GetConsumers()) {
             if (reshapeConsumer->GetOpcode() != Opcode::OP_COPY_IN) {
                 return SUCCESS;
             }
         }
-        // view
         auto opAttr = std::dynamic_pointer_cast<ViewOpAttribute>(view->GetOpAttribute());
         if (opAttr == nullptr) {
             return FAILED;
         }
         auto &offset = opAttr->GetFromDynOffset();
-        std::cout << "viewoffset" << vectorToString(offset) << std::endl;
         std::vector<int64_t> newRawShape;
         std::vector<SymbolicScalar> newDynOffset;
-        bool ret = CalculateNewRawShape1(reshape.GetIOperands()[0]->shape, reshape.GetOOperands()[0]->shape,
-            view->GetIOperands()[0]->tensor->rawshape, newRawShape);
+        bool ret =
+            CalculateNewRawShape1(reshapeInput->shape, reshapeOutput->shape, viewInput->tensor->rawshape, newRawShape);
         if (!ret) {
             APASS_LOG_ERROR_F(Elements::Function, "calculateShape1 failed.");
             return FAILED;
         }
-        std::cout << "newrawshape" << vectorToString(newRawShape) << std::endl;
-        GetDynOffsetBeforeReshape(offset, reshape.GetIOperands()[0]->shape, newRawShape, newDynOffset);
-        std::cout << "newoffset1" << vectorToString(newDynOffset) << std::endl;
-        // copyin更新
+        GetDynOffsetBeforeReshape(offset, reshapeInput->shape, newRawShape, newDynOffset);
         for (auto copyIn : reshape.GetOOperands().front()->GetConsumers()) {
             std::shared_ptr<CopyOpAttribute> copyAttr =
                 std::static_pointer_cast<CopyOpAttribute>(copyIn->GetOpAttribute());
@@ -261,19 +259,12 @@ Status ProcessView(Function &function) {
             for (size_t i = 0; i < oriCopyOffset.size(); i++) {
                 newOffset[i] = newOffset[i] + oriCopyOffset[i];
             }
-            std::cout << "preocessview match pattern, view:" << view->GetOpMagic()
-                      << ",reshape:" << reshape.GetOpMagic() << ",copyin:" << copyIn->GetOpMagic() << "newoffset2"
-                      << SymbolicVecToStr(OpImmediate::ToSpecified(newOffset)).c_str() << std::endl;
-            // 刷到reshape后的copyin
             copyAttr->SetFromOffset(newOffset);
             copyAttr->SetRawShape(OpImmediate::Specified(newRawShape));
         }
-
-        // replace
-        reshape.GetOOperands()[0]->shape = newRawShape;
-        reshape.GetOOperands()[0]->tensor->UpdateRawShape(newRawShape);
-        reshape.ReplaceIOperand(0, view->GetIOperands()[0]);
-        // 删除view
+        reshapeOutput->shape = newRawShape;
+        reshapeOutput->tensor->UpdateRawShape(newRawShape);
+        reshape.ReplaceIOperand(0, viewInput);
         view->SetAsDeleted();
     }
     return SUCCESS;
