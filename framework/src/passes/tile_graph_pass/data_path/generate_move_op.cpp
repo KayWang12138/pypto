@@ -120,6 +120,12 @@ void GenerateMoveOp::SetCopyAttr(Operation &op,ViewOpAttribute *viewOpAttribute)
     op.GetOOperands()[0]->UpdateDynValidShape(viewOpAttribute->GetToDynValidShape());
     if (op.iOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_L0C && op.oOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
         copyAttr->SetToOffset(OpImmediate::Specified({0, 0}));
+        std::vector<SymbolicScalar> validShape;
+        for (auto dim : op.GetOOperands()[0]->GetShape()) {
+            SymbolicScalar scal = SymbolicScalar(dim);
+            validShape.push_back(scal);
+        }
+        copyAttr->SetToDynValidShape(OpImmediate::Specified(validShape));
     }
     op.SetOpAttribute(copyAttr);
 }
