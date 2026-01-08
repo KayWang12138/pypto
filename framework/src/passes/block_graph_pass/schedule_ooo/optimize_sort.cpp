@@ -328,7 +328,7 @@ void OptimizeSort::ReorderOp(std::vector<size_t> &preIdx, std::vector<Operation*
     curOpList.insert(curOpList.begin() + startIndex + 1, moveOpList.begin(), moveOpList.end());
 }
 
-void OptimizeSort::FindIndex(const Operation* op, const std::vector<Operation*> curOpList, const size_t &index) {
+void OptimizeSort::FindIndex(const Operation* op, const std::vector<Operation*> curOpList, size_t &index) {
     for (size_t i = 0; i < curOpList.size(); i++) {
         if (curOpList[i] == op) {
             index = i;
@@ -468,7 +468,7 @@ Status OptimizeSort::BacktraceOnMemoryExceeded(size_t &startIndex,
 }
 
 // 计算 tensor 对应的 memType （只对 L0C L0A L0B 进行内存处理） 是否已满
-bool OptimizeSort::IsBufferFull(const std::map<MemoryType, int64_t> curMemoryMap, const MemoryType memType, const int64_t size) {
+bool OptimizeSort::IsBufferFull(std::map<MemoryType, int64_t> curMemoryMap, MemoryType memType, int64_t size) {
     if (memType != MemoryType::MEM_L0A && memType != MemoryType::MEM_L0B && memType != MemoryType::MEM_L0C) {
         APASS_LOG_DEBUG_F(Elements::Operation, "MemoryType is not L0A, L0B, or L0C.");
         return false;
@@ -626,7 +626,7 @@ Status OptimizeSort::SortOps() {
 
     sortMethodStr = function_.paramConfigs_.OoOPreScheduleMethod;
     if (sortMethodStr == "PriorDFS") {
-        if (PriorDFS(preNodePriority) != SUCCESS) {
+        if (PriorDFS(preNodePriorityList) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "PriorDFS failed.");
             return FAILED;
         }

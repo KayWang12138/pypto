@@ -1680,16 +1680,16 @@ TEST_F(ScheduleOoOTest, TestLatencyEstimatorMainLoop) {
 
 TEST_F(ScheduleOoOTest, TestMixSchedule) {
     ComputationalGraphBuilder subGraph;
-    std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8"};
+    std::vector<std::string> tensorNames{"T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8"};
     std::vector<MemoryType> tensorMemTypes{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB,
         MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB};
-    std::vector<Opcode> opCodes{Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC,
+    std::vector<Opcode> opcodeList{Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC,
         Opcode::OP_UB_ALLOC, Opcode::OP_COPY_IN, Opcode::OP_COPY_IN, Opcode::OP_ROWMAX_SINGLE, Opcode::OP_ADD, Opcode::OP_COPY_OUT};
-    std::vector<std::vector<std::string>> ioperands{{}, {}, {}, {}, {}, {"t1"}, {"t3"}, {"t2"}, {"t4", "t5"}, {"t5"}};
-    std::vector<std::vector<std::string>> ooperands{{"t2"}, {"t4"}, {"t5"}, {"t6"}, {"t8"}, {"t2"}, {"t4"}, {"t5", "t6"}, {"t8"}, {"t7"}};
+    std::vector<std::vector<std::string>> inputoperands{{}, {}, {}, {}, {}, {"T1"}, {"T3"}, {"T2"}, {"T4", "T5"}, {"T5"}};
+    std::vector<std::vector<std::string>> outputoperands{{"T2"}, {"T4"}, {"T5"}, {"T6"}, {"T8"}, {"T2"}, {"T4"}, {"T5", "T6"}, {"T8"}, {"T7"}};
     std::vector<std::string> opNames{"Alloc1", "Alloc2", "Alloc3", "Alloc4", "Alloc5", "Copyin1", "Copyin2", "RowMax1", "Add1", "Copyout1"};
     EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {32, 32}, tensorMemTypes, tensorNames, 0), true);
-    EXPECT_EQ(subGraph.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
+    EXPECT_EQ(subGraph.AddOps(opcodeList, inputoperands, outputoperands, opNames, true), true);
     Function *function = subGraph.GetFunction();
     OoOSchedule oooSchedule;
     auto opList = function->Operations(false).DuplicatedOpList();

@@ -20,7 +20,7 @@
 #include <vector>
 
 namespace npu::tile_fwk {
-std::unordered_map<Opcode, int> preNodePriority = {
+std::unordered_map<Opcode, int> preNodePriorityList = {
     // ALLOC 节点优先级最高，因为一个节点的前序ALLOC节点要在最靠近该节点的地方访问。
     {Opcode::OP_UB_ALLOC, 0}, {Opcode::OP_L1_ALLOC, 0}, {Opcode::OP_L0A_ALLOC, 0}, {Opcode::OP_L0B_ALLOC, 0},
     {Opcode::OP_L0C_ALLOC, 0}, {Opcode::OP_BT_ALLOC, 0}, {Opcode::OP_FIX_ALLOC, 0},
