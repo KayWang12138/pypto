@@ -124,7 +124,7 @@ def npu_hc_post(
         post: [0],
         comb: [0],
     }
-    outputs = {WW
+    outputs = {
         y: [0]
     }
 
