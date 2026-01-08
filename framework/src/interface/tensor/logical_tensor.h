@@ -59,6 +59,7 @@ public:
     Shape oriShape;
     std::vector<SymbolicScalar> dynOffset_;
     std::vector<SymbolicScalar> dynValidShape_;
+    std::vector<SymbolicScalar> dynValidShapeOri_;
 
     Shape storageShape;
     std::shared_ptr<Storage> storage_ = nullptr;
@@ -141,6 +142,9 @@ public:
     void UpdateDynValidShape(const std::vector<SymbolicScalar> &dynValidShape) {
         dynValidShape_ = dynValidShape;
     }
+    void UpdateDynValidShapeOri(const std::vector<SymbolicScalar> &dynValidShape) {
+ 	    dynValidShapeOri_ = dynValidShape;
+ 	}
     struct CompareOp {
         bool operator() (const Operation *a, const Operation *b) const;
     };
@@ -181,7 +185,9 @@ public:
 
     const std::vector<SymbolicScalar> &GetDynOffset() const { return dynOffset_; }
     const std::vector<SymbolicScalar> &GetDynValidShape() const { return dynValidShape_; }
+    const std::vector<SymbolicScalar> &GetDynValidShapeOri() const { return dynValidShapeOri_; }
     std::vector<SymbolicScalar> &GetDynValidShape() { return dynValidShape_; }
+    std::vector<SymbolicScalar> &GetDynValidShapeOri() { return dynValidShapeOri_; }
 
     void SetCachePolicy(CachePolicy policy, bool value) {
       if (tensor != nullptr) {
