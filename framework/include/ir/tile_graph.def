@@ -24,9 +24,7 @@ DEFOP(
         OP_LOGICALNOT,
         OP_RECIPROCAL,
         OP_ABS,
-        OP_LN,
-        OP_DUPLICATE, // 没找到代码
-
+        OP_LN
     ),
     ATTR(int, CombineAxis)
 )
@@ -60,10 +58,6 @@ DEFOP(
     ATTR(int, Reverse),
 )
 
-
-
-
-
 DEF_OP(
     TernaryOp,
     INHERIT(ElementWiseTernaryTileOp),
@@ -71,7 +65,7 @@ DEF_OP(
         OP_WHERE_TT
 
     ),
-    ATTR(int, whereBitMode)
+    ATTR(int, WhereBitMode)
 )
 
 DEF_OP(
@@ -81,33 +75,36 @@ DEF_OP(
         OP_WHERE_TS,
         OP_WHERE_ST,
         OP_WHERE_SS,
-        OP_INDEX_ADD, //他是三个tensor  两个 scalar  无额外属性
-        
+        OP_INDEX_ADD, // 输入是三个tensor  两个 scalar  无额外属性
     ),
-    ATTR(int, whereBitMode),
-
+    ATTR(int, WhereBitMode),
 )
 
 DEF_OP(
     MoveOp,
     INHERIT(DataCopyTileOp),
     OPCODE(
-        OP_INDEX_OUTCAST, // 三个tensor，三个scalar  无额外属性
+        OP_INDEX_OUTCAST, // 输入是三个tensor，三个scalar  无额外属性
         OP_CONVERT,
         OP_COPY_IN,
         OP_COPY_OUT,
+        OP_LOAD,
+        OP_VLD,  //  只有注册的一行
+        OP_VST,  //  只有注册的一行
+        OP_DUPLICATE,  // duplicate会转化为copyout
+    ),
+)
+
+DEF_OP(
+    ExperimentOp,
+    INHERIT(DataCopyTileOp),
+    OPCODE(
         OP_GATHER_IN_L1,
         OP_GATHER_IN_UB,
-        OP_LOAD,
-        OP_VLD,  //  没有代码
-        OP_VST   //  没有代码
     ),
-    ATTR(int, startOffset),
-    ATTR(int, inputCombineAxis),
-    ATTR(int, outputCombineAxis),
-    ATTR(int, excludeBufferReuse),
-
+    ATTR(int, startOffset) // OP_GATHER_IN_L1
 )
+
 
 DEF_OP(
     SortOp,
@@ -117,13 +114,19 @@ DEF_OP(
         OP_MRGSORT,
         OP_ARGSORT,
         OP_TILEDMRGSORT,
-        OP_TOPK
-        
+        OP_EXTRACT
     ),
-    ATTR(int, TOPK_OFFSET),
-    ATTR(int, TOPK_KVALUE)
-    ATTR(int, maskMode),
-    ATTR(int, TOPK_VALIDBIT),
+    ATTR(int, TopOffset),  // OP_BITSORT
+    ATTR(int, TopKValidBit)  // OP_TILEDMRGSORT
+    ATTR(int, ExtractMaskMode)  // OP_EXTRACT
+)
+
+DEF_OP(
+    TopKOp,
+    INHERIT(SortTileOp),
+    OPCODE(
+        OP_TOPK
+    ),
 )
 
 DEF_OP(
@@ -132,7 +135,6 @@ DEF_OP(
     OPCODE(
         OP_FUSED_OP  // 没有代码，注册的是BROADCAST
     ),
-    
 )
 
 
