@@ -417,6 +417,9 @@ Status OoOScheduler::LaunchIssueStage(int& nextCycle) {
                     continue;
                 }
                 IssueEntryPtr issue = pipe.PopFront();
+                //标注op的生命周期
+                issue->tileOp.cycleStart = clock;
+                issue->tileOp.cycleEnd = clock + issue->tileOp.GetLatency();
                 pipe.busy = true;
                 pipe.curIssue = issue;
                 pipe.curOpRetireCycle = clock + issue->tileOp.GetLatency();
