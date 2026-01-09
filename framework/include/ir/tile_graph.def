@@ -17,6 +17,7 @@ DEFOP(
     UnaryOp,
     INHERIT(ElementWiseUnaryTileBaseOp),
     OPCODE(
+        OP_ASSIGN,
         OP_EXP,
         OP_NEG,
         OP_RSQRT,
@@ -155,4 +156,26 @@ DEFOP(
     INPUT(Tile, Input),
     INPUT(ScalarList, Offsets),
     OUTPUT(Tile, Output)
+)
+
+DEFOP(
+    UBCopyInOp,
+    INHERIT(DataCopyInTileBaseOp),
+    OPCODE(
+        OP_UB_COPY_IN
+    ),
+    INPUT(Tensor, Src),
+    INPUT(ScalarList, Offset),
+    OUTPUT(Tile, Dst)
+)
+
+DEFOP(
+    UBCopyOutOp,
+    INHERIT(DataCopyOutTileBaseOp),
+    OPCODE(
+        OP_UB_COPY_OUT
+    ),
+    INPUT(Tile, Src),
+    INPUT(ScalarList, Offset),
+    OUTPUT(Tensor, Dst)
 )
