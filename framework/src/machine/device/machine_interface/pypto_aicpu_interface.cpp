@@ -59,11 +59,7 @@ __attribute__((visibility("default"))) uint32_t DynPyptoKernelServerNull(void *a
         DEV_ERROR("Server init input args is null");
         return 1;
     }
-    auto kargs = (AstKernelArgs *)args;
-    if (kargs == nullptr) {
-        DEV_ERROR("Server init AstKernelArgs is null");
-        return 1;
-    }
+    auto kargs = (DeviceKernelArgs *)args;
     auto devArgs = reinterpret_cast<DeviceArgs*>(kargs->cfgdata);
     auto data = reinterpret_cast<char *>(devArgs->aicpuSoBin);
     if (!g_handleManager.SaveSoFile(data, devArgs->aicpuSoLen, devArgs->deviceId)) {
