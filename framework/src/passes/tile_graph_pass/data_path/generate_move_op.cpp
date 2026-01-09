@@ -118,6 +118,15 @@ void GenerateMoveOp::SetCopyAttr(Operation &op,ViewOpAttribute *viewOpAttribute)
         OpImmediate::Specified(viewOpAttribute->GetToDynValidShape())
     );
     op.GetOOperands()[0]->UpdateDynValidShape(viewOpAttribute->GetToDynValidShape());
+    if (op.iOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_L0C && op.oOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
+        copyAttr->SetToOffset(OpImmediate::Specified({0, 0}));
+        std::vector<SymbolicScalar> validShape;
+        for (auto dim : op.GetOOperands()[0]->GetShape()) {
+            SymbolicScalar scal = SymbolicScalar(dim);
+            validShape.push_back(scal);
+        }
+        copyAttr->SetToDynValidShape(OpImmediate::Specified(validShape));
+    }
     op.SetOpAttribute(copyAttr);
 }
 
@@ -141,8 +150,13 @@ void GenerateMoveOp::CreateMoveOpForAssemble(Operation &op) const {
     auto assembleOpAttribute = dynamic_cast<AssembleOpAttribute *>(op.GetOpAttribute().get());
     auto ASSEMBLE_in = op.iOperand.front();
     auto parentOp = *ASSEMBLE_in->GetProducers().begin();
-    if (op.iOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR ||
-        op.oOperand.front()->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR ||
+    auto inputMemtype = op.iOperand.front()->GetMemoryTypeOriginal();
+    auto outputMemtype = op.oOperand.front()->GetMemoryTypeOriginal();
+    if (inputMemtype == MemoryType::MEM_L0C && outputMemtype == MemoryType::MEM_L1) {
+        SetOpcodeByMemPath(op, inputMemtype, outputMemtype);
+        return;
+    }
+    if (inputMemtype == MemoryType::MEM_DEVICE_DDR || outputMemtype != MemoryType::MEM_DEVICE_DDR ||
         parentOp->GetOpcode() == Opcode::OP_TRANSPOSE_MOVEOUT || parentOp->GetOpcode() == Opcode::OP_INDEX_OUTCAST) {
         return;
     }
