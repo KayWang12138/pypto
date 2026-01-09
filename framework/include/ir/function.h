@@ -77,6 +77,8 @@ private:
     CompoundStatementPtr compound_;  // Scope for Data objects and statements created in this function
 };
 
+using FunctionPtr = std::shared_ptr<Function>;
+
 // Helper for convenient streaming: std::cout << func;
 std::ostream& operator<<(std::ostream& os, const Function& func);
 
