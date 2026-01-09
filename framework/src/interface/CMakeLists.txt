@@ -21,6 +21,7 @@ file(GLOB _Interface_Srcs
         ir/builder/*.cpp
         ir/serializer/*.cpp
         plugin/*.cpp
+        ir/transform/*.cpp
 
         # Operation
         operation/*.cpp
