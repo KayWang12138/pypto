@@ -1084,11 +1084,17 @@ class BuildCtrl(CMakeParam):
         # 执行用例, Models/STest, 支持混合执行
         dev_lst = [int(d) for d in self.tests.stest_exec.auto_execute_device_id.split(":")]
         dev_ext = " ".join(f"{d}" for d in dev_lst)
+        dev_ext_comma = ",".join(f"{d}" for d in dev_lst)
         ext_str = f"-n {len(dev_lst)} --device {dev_ext}"
         self.py_tests_run_pytest(dist=dist, params=[(self.tests.models, "models"),
                                                     (self.tests.stest, "python/tests/st")],
                                  ext=ext_str)
-
+        
+        # 执行用例, Examples
+        self.py_run_examples(dist=dist, tests=self.tests.example,
+                            def_filter=str(Path(self.src_root, "examples")),
+                            dev_ext_comma=dev_ext_comma, n_workers=n_workers)
+        
     def py_tests_run_pytest(self, dist: Optional[Path], params: List[Tuple[TestsFilterParam, str]], ext: str = ""):
         """
         调用 pytest 执行用例
@@ -1110,6 +1116,44 @@ class BuildCtrl(CMakeParam):
             return
         # 执行 pytest
         self._py_tests_run_pytest(dist=dist, filter_str=filter_str, ext=ext)
+    
+    def py_run_examples(self, dist: Optional[Path], tests: TestsFilterParam, def_filter: str,
+                        dev_ext_comma: str = "0", n_workers: str = "auto"):
+        if not tests.enable:
+            return
+        if not self.tests.exec.auto_execute:
+            return
+        # filter 处理
+        filter_str = tests.get_filter_str(def_filter=def_filter).replace(',', ' ')
+
+        # 根据 backend_type 决定执行模式
+        origin_env = os.environ.copy()
+        update_env = {}
+        if dist:
+            ori_env_python_path = origin_env.get(self._PYTHONPATH, "")
+            act_env_python_path = f"{dist}:{ori_env_python_path}" if ori_env_python_path else f"{dist}"
+            update_env.update({self._PYTHONPATH: act_env_python_path})
+
+        # 获取 case_timeout 参数
+        case_timeout = self.tests.exec.case_execute_timeout
+        timeout_arg = f" --timeout {case_timeout}" if case_timeout and case_timeout > 0 else ""
+
+        if self.feature.backend_type == "npu":
+            # NPU 模式
+            cmd = f"{sys.executable} examples/validate_examples.py -t {filter_str} -d {dev_ext_comma}{timeout_arg}"
+            logging.info("examples --run_mode npu, Cmd: %s", cmd)
+            ret, duration = self.run_build_cmd(cmd=cmd, check=True, update_env=update_env)
+            ret.check_returncode()
+            logging.info("examples --run_mode npu, Cmd: %s, Duration %s sec", cmd, duration)
+        elif self.feature.backend_type == "cost_model":
+            # SIM 模式
+            n_workers_val = int(n_workers) if n_workers != "auto" else 16
+            cmd = f"{sys.executable} examples/validate_examples.py -t {filter_str} \
+                --run_mode sim -w {n_workers_val}{timeout_arg} --no-serial-fallback"
+            logging.info("examples --run_mode sim, Cmd: %s", cmd)
+            ret, duration = self.run_build_cmd(cmd=cmd, check=True, update_env=update_env)
+            ret.check_returncode()
+            logging.info("examples --run_mode sim, Cmd: %s, Duration %s sec", cmd, duration)
 
     def _py_tests_run_pytest(self, dist: Optional[Path], filter_str: str, ext: str = ""):
         if not self.tests.exec.auto_execute:
