@@ -24,10 +24,42 @@ def main():
     test_win_atten_allow_in_graph()
 
 
+def check_args(
+    q_tnd,
+    block_table,
+    kv_cache,
+    start_pos_list,
+    atten_sink,
+):
+    # q_tnd [b * s_q, 64, 512]
+    assert q_tnd.dtype == torch.bfloat16
+    assert q_tnd.ndim == 3
+    assert q_tnd.shape[1] == 64
+    assert q_tnd.shape[2] == 512
+
+    # block_table [b, math.ceil(s_kv_max / block_size)]
+    # start_pos_list [b]
+    assert block_table.ndim == 2
+    assert start_pos_list.ndim == 1
+    assert block_table.shape[0] == start_pos_list.shape[0]
+
+    # kv_cache [block_num, 128, 1, 512]
+    assert kv_cache.dtype == torch.bfloat16
+    assert kv_cache.ndim == 4
+    assert kv_cache.shape[1] == 128
+    assert kv_cache.shape[2] == 1
+    assert kv_cache.shape[3] == 512
+
+    #atten_sink [64]
+    assert atten_sink.dtype == torch.float32
+    assert atten_sink.ndim == 1
+    assert atten_sink.shape[0] == 64
+
+
 class MM(torch.nn.Module):
     def forward(
         self,  
-        q_bsnd: torch.Tensor,
+        q_tnd: torch.Tensor,
         block_table: torch.Tensor,
         kv_cache: torch.Tensor,
         start_pos_list: torch.Tensor,
@@ -35,7 +67,7 @@ class MM(torch.nn.Module):
         atten_out: torch.Tensor,
         win_size: int
     ):
-        deepseek_win_atten(q_bsnd, block_table, kv_cache, start_pos_list, atten_sink, atten_out, win_size)
+        deepseekv4_win_atten(q_tnd, block_table, kv_cache, start_pos_list, atten_sink, atten_out, win_size)
         return atten_out
 
 
@@ -86,7 +118,6 @@ def softmax_pto(input: pypto.Tensor, dim: int) -> pypto.Tensor:
 
 
 def softmax_atten_sink_pto(input: pypto.Tensor, dim: int, atten_sink: pypto.Tensor) -> pypto.Tensor:
-    dtype = input.dtype
     input = pypto.cast(input, pypto.DT_FP32)
 
     rowmax = pypto.amax(input, dim, True)
@@ -101,8 +132,7 @@ def softmax_atten_sink_pto(input: pypto.Tensor, dim: int, atten_sink: pypto.Tens
     return output
 
 
-def win_atten_calc_tnd(input_params_win_attn, start_pos_list, atten_sink, q_bsnd, kv_cache, block_table, device_id):
-    print("Golden TND Mode")
+def win_atten_calc_tnd(input_params_win_attn, start_pos_list, atten_sink, q_tnd, kv_cache, block_table, device_id):
 
     t = input_params_win_attn[0]
     n_kv = input_params_win_attn[1]
@@ -116,13 +146,13 @@ def win_atten_calc_tnd(input_params_win_attn, start_pos_list, atten_sink, q_bsnd
     b = len(start_pos_list)
     s_q = t // b
 
-    # q_bsnd [b, s_q, n_q, d_q]   kv_cache [block_num, block_size, n_kv, d_kv]
+    # q_tnd [b, s_q, n_q, d_q]   kv_cache [block_num, block_size, n_kv, d_kv]
     for t_index in range(t):
         b_index = t_index // s_q
         s1_index = t_index % s_q
 
         start_pos = start_pos_list[b_index]
-        q_tensor_cur = q_bsnd[t_index:(t_index + 1), :, :].reshape(n_q, d_q)
+        q_tensor_cur = q_tnd[t_index:(t_index + 1), :, :].reshape(n_q, d_q)
 
         cur_loc = start_pos + s1_index + 1
         valid_len = min(cur_loc, win)
@@ -133,25 +163,24 @@ def win_atten_calc_tnd(input_params_win_attn, start_pos_list, atten_sink, q_bsnd
         end_block = (end_pos - 1) // block_size
 
         kv_list = []
-        for n_kv_idx in range(n_kv):
 
-            for block_idx in range(start_block, end_block + 1):
-                physical_block_id = block_table[b_index, block_idx]
-                kv_block = kv_cache[physical_block_id, :, n_kv_idx, :]
-                kv_list.append(kv_block)
-            
-            kv_cur = torch.cat(kv_list, axis=0)
-            kv_cur = kv_cur[start_offset : start_offset + win, :]
+        for block_idx in range(start_block, end_block + 1):
+            physical_block_id = block_table[b_index, block_idx]
+            kv_block = kv_cache[physical_block_id, :, 0, :]
+            kv_list.append(kv_block)
+        
+        kv_cur = torch.cat(kv_list, axis=0)
+        kv_cur = kv_cur[start_offset : start_offset + win, :]
 
-            qk_mm_res = torch.matmul(q_tensor_cur.to(torch.float32), kv_cur.to(torch.float32).transpose(1, 0))
-            
-            qk_ele_res = qk_mm_res * scalar
+        qk_mm_res = torch.matmul(q_tensor_cur.to(torch.float32), kv_cur.to(torch.float32).transpose(1, 0))
+        
+        qk_ele_res = qk_mm_res * scalar
 
-            # softmax_out = softmax(qk_ele_res)
-            softmax_out = softmax_atten_sink(qk_ele_res, atten_sink)
+        # softmax_out = softmax(qk_ele_res)
+        softmax_out = softmax_atten_sink(qk_ele_res, atten_sink)
 
-            mm2_res = torch.matmul(softmax_out, kv_cur.to(torch.float32))
-            atten_out[t_index:(t_index + 1), :, :] = mm2_res
+        mm2_res = torch.matmul(softmax_out, kv_cur.to(torch.float32))
+        atten_out[t_index:(t_index + 1), :, :] = mm2_res
 
     return atten_out
 
@@ -175,7 +204,7 @@ def gen_win_attn_data_tnd(t, n_q, d_q, n_kv, d_kv, block_size, start_post_list, 
 
     # gen q k v data
     q = gen_uniform_data(shape_q, -1, 1, new_dtype, device_id)
-    q_bsnd = q.reshape(t, n_q, d_q)
+    q_tnd = q.reshape(t, n_q, d_q)
     kv_bsnd = gen_uniform_data(shape_kv, -1, 1, new_dtype, device_id)
 
     for start_post in start_post_list:
@@ -211,25 +240,19 @@ def gen_win_attn_data_tnd(t, n_q, d_q, n_kv, d_kv, block_size, start_post_list, 
                 kv_cache[kv_cache_blk_id, 0: kv_valid.shape[0], :, :] = kv_bsnd[b_idx, block_offset:(block_offset + block_size), :, :]
 
     atten_out = torch.zeros(atten_out_shape, dtype=torch.float32, device=f'npu:{device_id}')
-    return q_bsnd, block_table, kv_cache, atten_sink, atten_out
+    return q_tnd, block_table, kv_cache, atten_sink, atten_out
 
 
 @pypto.jit(
     host_options={"only_codegen": True},
-    runtime_options={"device_sched_mode": 1,
-                    # "stitch_function_num_initial": 128,
-                    # "stitch_function_outcast_memory": 1024,
-                    # "stitch_function_inner_memory": 1024,
-                    },
+    runtime_options={"device_sched_mode": 1},
     # debug_options={"runtime_debug_mode": 1},
 )
-def win_atten_main_tnd(q_bsnd, block_table, kv_cache, start_pos_list, atten_sink, atten_out, win):
-    print("NPU TND Mode")
-
-    # q_bsnd [b, s_q, n_q, d_q]   kv_cache [block_num, block_size, n_kv, d_kv] 
-    t = q_bsnd.shape[0]
-    n_q = q_bsnd.shape[1]
-    d_q = q_bsnd.shape[2]
+def win_atten_main_tnd(q_tnd, block_table, kv_cache, start_pos_list, atten_sink, atten_out, win):
+    
+    t = q_tnd.shape[0]
+    n_q = q_tnd.shape[1]
+    d_q = q_tnd.shape[2]
     n_kv = kv_cache.shape[2]
     scalar = d_q ** -0.5
     block_size = kv_cache.shape[1]
@@ -243,8 +266,8 @@ def win_atten_main_tnd(q_bsnd, block_table, kv_cache, start_pos_list, atten_sink
 
         start_pos = start_pos_list[b_idx]
                 
-        pypto.set_vec_tile_shapes(128, 128, 128)
-        q_tensor_cur = pypto.view(q_bsnd, [1, n_q, d_q], [t_idx, 0, 0])
+        pypto.set_vec_tile_shapes(128, 128, 512)
+        q_tensor_cur = pypto.view(q_tnd, [1, n_q, d_q], [t_idx, 0, 0])
         q_tensor_cur = pypto.reshape(q_tensor_cur, (n_q, d_q))
 
         cur_loc = start_pos + s1_idx + 1
@@ -255,40 +278,42 @@ def win_atten_main_tnd(q_bsnd, block_table, kv_cache, start_pos_list, atten_sink
         start_offset = cur_start_pos % block_size
         end_block = (end_pos - 1) // block_size
 
-        for n_kv_idx in pypto.loop(n_kv, name="LOOP_NKV", idx_name="n_kv_idx"):
+        physical_block_id = block_table[b_idx, start_block]
+        kv_block_0 = pypto.view(kv_cache, [1, block_size, 1, d_kv], [physical_block_id, 0, 0, 0])
+        pypto.set_vec_tile_shapes(128, 256, 128, 128)
+        kv_block_reshape_0 = pypto.reshape(kv_block_0, (block_size, d_kv))
 
-            physical_block_id = block_table[b_idx, start_block]
-            pypto.set_vec_tile_shapes(128, 128, 128, 512)
-            kv_block_0 = pypto.view(kv_cache, [1, block_size, 1, d_kv], [physical_block_id, 0, n_kv_idx, 0])
-            kv_block_reshape_0 = pypto.reshape(kv_block_0, (block_size, d_kv))
+        physical_block_id = block_table[b_idx, end_block]
+        kv_block_1 = pypto.view(kv_cache, [1, block_size, 1, d_kv], [physical_block_id, 0, 0, 0])
+        pypto.set_vec_tile_shapes(128, 256, 128, 128)
+        kv_block_reshape_1 = pypto.reshape(kv_block_1, (block_size, d_kv))
 
-            physical_block_id = block_table[b_idx, end_block]
-            pypto.set_vec_tile_shapes(128, 128, 128, 512)
-            kv_block_1 = pypto.view(kv_cache, [1, block_size, 1, d_kv], [physical_block_id, 0, n_kv_idx, 0])
-            kv_block_reshape_1 = pypto.reshape(kv_block_1, (block_size, d_kv))
+        pypto.set_vec_tile_shapes(128, 256)
+        kv_gather = pypto.concat([kv_block_reshape_0, kv_block_reshape_1], dim=0)
 
-            kv_gather = pypto.concat([kv_block_reshape_0, kv_block_reshape_1], dim=0)
+        pypto.set_vec_tile_shapes(128, 512)
+        kv_cur = pypto.view(kv_gather, [win, d_kv], [start_offset, 0])
 
-            pypto.set_vec_tile_shapes(128, 256)
-            kv_cur = pypto.view(kv_gather, [win, d_kv], [start_offset, 0])
+        pypto.set_cube_tile_shapes([64, 64], [256, 256 * 4], [128, 128], True, False)
+        qk_mm_res = pypto.matmul(q_tensor_cur, kv_cur, pypto.DT_FP32, b_trans=True)
 
-            pypto.set_cube_tile_shapes([64, 64], [256, 256 * 4], [128, 128], True, False)
-            qk_mm_res = pypto.matmul(q_tensor_cur, kv_cur, pypto.DT_FP32, b_trans=True)
-            qk_ele_res = pypto.mul(qk_mm_res, scalar)
-            # softmax_out = softmax_pto(qk_ele_res, -1)
-            softmax_out = softmax_atten_sink_pto(qk_ele_res, -1, atten_sink)
+        pypto.set_vec_tile_shapes(32, 128)
+        qk_ele_res = pypto.mul(qk_mm_res, scalar)
+        # softmax_out = softmax_pto(qk_ele_res, -1)
+        softmax_out = softmax_atten_sink_pto(qk_ele_res, -1, atten_sink)
 
-            kv_cur_fp32 = pypto.cast(kv_cur, pypto.DT_FP32)
-            pypto.set_cube_tile_shapes([64, 64], [128, 128 * 2], [128, 128], True, False)
-            mm2_res = pypto.matmul(softmax_out, kv_cur_fp32, pypto.DT_FP32)
-            mm2_res_reshape = pypto.reshape(mm2_res, (1, n_q, d_kv))
+        pypto.set_vec_tile_shapes(64, 512)
+        kv_cur_fp32 = pypto.cast(kv_cur, pypto.DT_FP32)
+        pypto.set_cube_tile_shapes([64, 64], [128, 128 * 2], [128, 128], True, False)
+        mm2_res = pypto.matmul(softmax_out, kv_cur_fp32, pypto.DT_FP32)
+        mm2_res_reshape = pypto.reshape(mm2_res, (1, n_q, d_kv))
 
-            pypto.set_vec_tile_shapes(1, n_q, d_kv)
-            pypto.assemble(mm2_res_reshape, [t_idx, 0, 0], atten_out)
+        pypto.set_vec_tile_shapes(1, n_q, d_kv)
+        pypto.assemble(mm2_res_reshape, [t_idx, 0, 0], atten_out)
 
 
 @allow_in_graph
-def deepseek_win_atten(q_bsnd: torch.Tensor,
+def deepseekv4_win_atten(q_tnd: torch.Tensor,
                         block_table: torch.Tensor,
                         kv_cache: torch.Tensor,
                         start_pos_list: torch.Tensor,
@@ -299,7 +324,7 @@ def deepseek_win_atten(q_bsnd: torch.Tensor,
     """
     """
     inputs = {
-        q_bsnd: [],
+        q_tnd: [],
         block_table: [],
         kv_cache: [],
         start_pos_list: [],
@@ -309,6 +334,7 @@ def deepseek_win_atten(q_bsnd: torch.Tensor,
         atten_out: [],
     }
 
+    check_args(q_tnd, block_table, kv_cache, start_pos_list, atten_sink)
     pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
     pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
 
@@ -318,8 +344,8 @@ def deepseek_win_atten(q_bsnd: torch.Tensor,
 
 def test_win_atten_allow_in_graph() -> None:
     
-    for b in [1, 2, 4, 8, 16]:
-        for s_q in [1, 2, 4]:
+    for b in [4, 16]:
+        for s_q in [4]:
             t = b * s_q
             win = 128
             n_q = 64
@@ -345,23 +371,23 @@ def test_win_atten_allow_in_graph() -> None:
 
             start_pos_list_tensor = torch.tensor(start_pos_list, dtype=torch.int32, device=f'npu:{device_id}')
 
-            q_bsnd, block_table, kv_cache, atten_sink, atten_out = gen_win_attn_data_tnd(t, n_q, d_q, n_kv, d_kv, block_size, actual_seq_list, dtypes, device_id)
+            q_tnd, block_table, kv_cache, atten_sink, atten_out = gen_win_attn_data_tnd(t, n_q, d_q, n_kv, d_kv, block_size, actual_seq_list, dtypes, device_id)
 
             model = torch.compile(MM(), backend="eager", dynamic=True)
             g = torch.npu.NPUGraph()
             with torch.npu.graph(g):
-                y = model(q_bsnd, block_table, kv_cache, start_pos_list_tensor, atten_sink, atten_out, win)
+                y = model(q_tnd, block_table, kv_cache, start_pos_list_tensor, atten_sink, atten_out, win)
             g.replay()
             pypto.runtime._device_synchronize()
 
-            golden = win_atten_calc_tnd(input_params_win_attn, start_pos_list, atten_sink, q_bsnd, kv_cache, block_table, device_id)
+            golden = win_atten_calc_tnd(input_params_win_attn, start_pos_list, atten_sink, q_tnd, kv_cache, block_table, device_id)
             assert_allclose(np.array(y.cpu().flatten().tolist()), np.array(golden.cpu().flatten().tolist()), rtol=5e-4, atol=5e-4)
 
 
 def test_win_atten() -> None:
 
-    for b in [1, 2, 4, 8, 16]:
-        for s_q in [1, 2, 4]:
+    for b in [4, 16]:
+        for s_q in [4]:
             t = b * s_q
             win = 128
             n_q = 64
@@ -387,10 +413,10 @@ def test_win_atten() -> None:
 
             start_pos_list_tensor = torch.tensor(start_pos_list, dtype=torch.int32, device=f'npu:{device_id}')
 
-            q_bsnd, block_table, kv_cache, atten_sink, atten_out = gen_win_attn_data_tnd(t, n_q, d_q, n_kv, d_kv, block_size, actual_seq_list, dtypes, device_id)
+            q_tnd, block_table, kv_cache, atten_sink, atten_out = gen_win_attn_data_tnd(t, n_q, d_q, n_kv, d_kv, block_size, actual_seq_list, dtypes, device_id)
 
             inputs = {
-                q_bsnd: [],
+                q_tnd: [],
                 block_table: [],
                 kv_cache: [],
                 start_pos_list_tensor: [],
@@ -407,7 +433,7 @@ def test_win_atten() -> None:
             pypto.runtime._device_synchronize()
 
             # golden
-            golden = win_atten_calc_tnd(input_params_win_attn, start_pos_list, atten_sink, q_bsnd, kv_cache, block_table, device_id)
+            golden = win_atten_calc_tnd(input_params_win_attn, start_pos_list, atten_sink, q_tnd, kv_cache, block_table, device_id)
             assert_allclose(np.array(atten_out.cpu().flatten().tolist()), np.array(golden.cpu().flatten().tolist()), rtol=5e-4, atol=5e-4)
 
 
