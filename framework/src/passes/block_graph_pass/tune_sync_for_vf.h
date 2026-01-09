@@ -22,12 +22,22 @@
 #include "passes/pass_utils/pass_utils.h"
 
 namespace npu::tile_fwk {
+constexpr float vfPrarm = 0.8f;
 class TuneSyncForVF : public Pass {
 public:
     TuneSyncForVF() : Pass("TuneSyncForVF") {}
     ~TuneSyncForVF() override = default;
 
     Status RunOnFunction(Function &function) override;
+
+private:
+    void ChangeOpSeq(Function *subGraphFunc, bool isAIV1);
+    bool NeedAdjustSetFlag(Function *subGraphFunc, Operation *vecTileOp0, Operation *vecTileOp1, Operation *setFlag);
+    bool NeedAdjustWaitFlag(Function *subGraphFunc, Operation *vecTileOp0, Operation *vecTileOp1, Operation *waitFlag);
+    void AdjustSetWaitFlag(Function *subGraphFunc, std::vector<Operation *> &setFlagList, 
+        std::vector<Operation *> &waitFlagList, size_t vecTileOp0Idx, size_t vecTileOp1Idx, int groupNum);
+    std::vector<Operation *> &opList_;
+    std::vector<std::vector<Operation *>> mergedOps;
 };
 }
 #endif // TUNE_SYNC_FOR_VF_H
