@@ -20,6 +20,7 @@
 #include "interface/utils/log.h"
 #include "securec.h"
 #include "interface/operation/distributed/distributed_common.h"
+#include "tilefwk/platform.h"
 
 namespace npu::tile_fwk {
 
@@ -32,6 +33,17 @@ void CheckInRange(int64_t value)
     if (value < std::numeric_limits<uint32_t>::min() || value > std::numeric_limits<uint32_t>::max()) {
         throw std::out_of_range("Invalid value: " + std::to_string(value));
     }
+}
+
+std::string CodeGenOpCloudNPU::GetDistributedContextType() const
+{
+    auto SoCVersion = Platform::Instance().GetSoc().GetShortSoCVersion();
+    std::string hcclStr;
+    if (SoCVersion == ShortSoCVersion::SoC_910B) {
+        hcclStr = "TileOp::HcclCombinOpParam";
+    } else {
+        hcclStr = "TileOp::HcclOpResParam";
+    } 
 }
 
 std::string CodeGenOpCloudNPU::GetTemplateDType() const
@@ -71,8 +83,8 @@ std::string CodeGenOpCloudNPU::GenExtraTemplateParamsForMoeDistributedCombine(in
     }
     int64_t colShape = originShape[operandIndex][originShape[operandIndex].size() - 1];
     std::ostringstream oss;
-    oss << "<" << GetTemplateDType() << ", " << distOpAttr.topK << ", " << rowShape << ", " << colShape << ", "
-        << distOpAttr.paddedColShape << ">";
+    oss << "<" <<GetDistributedContextType() << ", " << GetTemplateDType() << ", " << distOpAttr.topK << ", " 
+        << rowShape<< ", " << colShape << ", " << distOpAttr.paddedColShape << ">";
     return oss.str();
 }
 
@@ -111,10 +123,10 @@ std::string CodeGenOpCloudNPU::GenTemplateParamsForPutAndGet() const
     CheckInRange(bufferColShape);
     CheckInRange(stride);
 
-    oss << "<" << DataType2CCEStr(operandDtype[nonShmemDataIndex]) << ", " << DataType2CCEStr(operandDtype[shmemDataIndex])
-        << ", " << tileRowShape << ", " << tileColShape << ", " << bufferRowShape
-        << ", " << bufferColShape << ", " << stride << ", " << stride << ", "
-        << npu::tile_fwk::Distributed::AtomicTypeToString(distOpAttr.atomicType) << ">";
+    oss << "<" << GetDistributedContextType()<< ", " << DataType2CCEStr(operandDtype[nonShmemDataIndex]) << ", " 
+        << DataType2CCEStr(operandDtype[shmemDataIndex])<< ", " << tileRowShape << ", " << tileColShape << ", "
+        << bufferRowShape<< ", " << bufferColShape << ", " << stride << ", " << stride
+        << ", " << npu::tile_fwk::Distributed::AtomicTypeToString(distOpAttr.atomicType) << ">";
     return oss.str();
 }
 
@@ -122,7 +134,7 @@ std::string CodeGenOpCloudNPU::GenTemplateParamsForSignal() const
 {
     std::ostringstream oss;
     DistOpAttr distOpAttr = npu::tile_fwk::AnyCast<DistOpAttr>(opAttrs.at(OpAttributeKey::distOpAttr));
-    oss << "<" << std::to_string(distOpAttr.signalValue) << ", "
+    oss << "<" << GetDistributedContextType() << ", " << std::to_string(distOpAttr.signalValue) << ", "
         << std::to_string(distOpAttr.signalStride) << ", "
         << npu::tile_fwk::Distributed::AtomicTypeToString(distOpAttr.atomicType) << ">";
     return oss.str();
@@ -152,8 +164,8 @@ std::string CodeGenOpCloudNPU::GenTemplateParamsForSet() const
     int64_t bufferEleNum = distOpAttr.setBufferShape[0];
     int32_t rowDimIndex = 2;
     int32_t colDimIndex = 3;
-    oss << "<" << GetTemplateDType() << ", " << originShape[shmemTensorIndex][1] << ", "
-        << originShape[shmemTensorIndex][rowDimIndex] << ", " << originShape[shmemTensorIndex][colDimIndex]
+    oss << "<" << GetDistributedContextType() << ", " <<GetTemplateDType() << ", " << originShape[shmemTensorIndex][1]
+        << ", " << originShape[shmemTensorIndex][rowDimIndex] << ", " << originShape[shmemTensorIndex][colDimIndex]
         << ", " << bufferEleNum << ">";
     return oss.str();
 }
@@ -166,9 +178,10 @@ std::string CodeGenOpCloudNPU::GenTemplateParamsDefault() const
         distOpAttr = npu::tile_fwk::AnyCast<DistOpAttr>(opAttrs.at(OpAttributeKey::distOpAttr));
     }
     if (distOpAttr.extraTemplateParam.empty()) {
-        oss << "<" << GetTemplateDType() << ">";
+        oss << "<" << GetDistributedContextType() << ", " << GetTemplateDType() << ">";
     } else {
-        oss << "<" << GetTemplateDType() << ", " << distOpAttr.extraTemplateParam << ">";
+        oss << "<" << GetDistributedContextType() << ", " << GetTemplateDType() << ", " << distOpAttr.extraTemplateParam
+            << ">";
     }
     return oss.str();
 }

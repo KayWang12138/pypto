@@ -169,16 +169,71 @@ TILEOP uint64_t GetVirtaulAddrMemType(uint64_t val)
     return GetVirtualAddrBist(val, memTypeStart, memTypeEnd);
 }
 
-template<typename T>
+template <typename T>
+TILEOP  __gm__ T* GetRawAddrV1(__gm__ int64_t *hcclContext, uint64_t groupIndex, uint32_t dstRankId,
+    uint64_t offset, uint64_t memType)
+{
+    auto hcclOpParam = (__gm__ TileOp::HcclCombinOpParam*)(hcclContext[groupIndex]);
+    if (memType == 0) {
+        return (__gm__ T*)(hcclOpParam->windowsIn[dstRankId] + offset);
+    } else {
+        return (__gm__ T*)(hcclOpParam->windowsExp[dstRankId] + offset);
+    }
+}
+
+template <typename T>
+TILEOP  __gm__ T* GetRawAddrV2(__gm__ int64_t *hcclContext, uint64_t groupIndex, uint32_t dstRankId,
+    uint64_t offset)
+{
+    auto hcclOpParam = (__gm__ TileOp::HcclOpResParam*)(hcclContext[groupIndex]);
+    if ((uint32_t)dstRankId == hcclOpParam->localUsrRankId) {
+        return (__gm__ T*)(hcclOpParam->localWindowsIn + offset);
+    } else {
+        return (__gm__ T*)(((__gm__ TileOp::HcclRankRelationResV2*)(hcclOpParam->remoteRes[dstRankId].nextDevicePtr))->windowsIn +
+                            offset);
+    }
+}
+
+template <typename HcclContextType, typename T>
 TILEOP __gm__ T* MapVirtualAddr(__gm__ int64_t *hcclContext, __gm__ T* vAddr, uint32_t dstRankId)
 {
     auto groupIndex = GetVirtaulAddrGroupIndex((uint64_t)vAddr);
     auto offset = GetVirtaulAddrOffset((uint64_t)vAddr);
     auto memType = GetVirtaulAddrMemType((uint64_t)vAddr);
-    if (memType == 0) {
-        return (__gm__ T*)(((__gm__ TileOp::HcclCombinOpParam *)hcclContext[groupIndex])->windowsIn[dstRankId] + offset);
+    if constexpr (std::is_same_v<HcclContextType, TileOp::HcclCombinOpParam>) {
+        return GetRawAddrV1(groupIndex, dstRankId, offset, memType);
+    } else if constexpr (std::is_same_v<HcclContextType, TileOp::HcclOpResParam>) {
+        return GetRawAddrV2(groupIndex, dstRankId, offset) ;
     } else {
-        return (__gm__ T*)(((__gm__ TileOp::HcclCombinOpParam *)hcclContext[groupIndex])->windowsExp[dstRankId] + offset);
+        return nullptr;
+    }
+}
+
+template <typename HcclContextType>
+TILEOP int32_t GetLocalUsrRankId(__gm__ int64_t *hcclContext, uint32_t groupIndex)
+{
+    if constexpr (std::is_same_v<HcclContextType, TileOp::HcclCombinOpParam>) {
+        __gm__ TileOp::HcclCombinOpParam *winContext = (__gm__ TileOp::HcclCombinOpParam *)(hcclContext[groupIndex]);
+        return static_cast<int32_t>(winContext->rankId);
+    } else if constexpr (std::is_same_v<HcclContextType, TileOp::HcclOpResParam>) {
+        __gm__ TileOp::HcclOpResParam *winContext = (__gm__ TileOp::HcclOpResParam *)(hcclContext[groupIndex]);
+        return static_cast<int32_t>(winContext->localUsrRankId);
+    } else {
+         return 0;
+    }
+}
+
+template <typename HcclContextType>
+TILEOP int32_t GetRankNum(__gm__ int64_t *hcclContext, uint32_t groupIndex)
+{
+    if constexpr (std::is_same_v<HcclContextType, TileOp::HcclCombinOpParam>) {
+        __gm__ TileOp::HcclCombinOpParam *winContext = (__gm__ TileOp::HcclCombinOpParam *)(hcclContext[groupIndex]);
+        return static_cast<int32_t>(winContext->rankNum);
+    } else if constexpr (std::is_same_v<HcclContextType, TileOp::HcclOpResParam>) {
+        __gm__ TileOp::HcclOpResParam *winContext = (__gm__ TileOp::HcclOpResParam *)(hcclContext[groupIndex]);
+        return static_cast<int32_t>(winContext->rankSize); 
+    } else {
+        return 0;
     }
 }
 
@@ -326,12 +381,13 @@ TILEOP void WaitFlagV2(__gm__ T *out, __ubuf__ uint32_t *src0, __ubuf__ uint32_t
     GatherMaskAndSum(out, src0, src1, dst, MASK_SELECT_SEND_FLAG, cnt, hcclContext);
 }
 
+template <typename HcclContextType>
 TILEOP void ClearFlagV2(__ubuf__ int32_t *flag, uint32_t offset, uint32_t repeat,
     __gm__ int64_t *hcclContext, DispatchInfo &dispatchInfo, __gm__ int32_t *shmemFlagBaseAddr)
 {
-    __gm__ HcclCombinOpParam *winContext = (__gm__ HcclCombinOpParam *)(hcclContext[dispatchInfo.groupIndex]);
-    uint32_t localUsrRankId = winContext->rankId;
-    GM_ADDR winFlagBaseAddr = (GM_ADDR)MapVirtualAddr<int32_t>(hcclContext, shmemFlagBaseAddr, localUsrRankId); // flag 在 win 区的基地址
+    uint32_t localUsrRankId = GetLocalUsrRankId<HcclContextType>(hcclContext, dispatchInfo.groupIndex);
+    GM_ADDR winFlagBaseAddr = (GM_ADDR)MapVirtualAddr<HcclContextType, int32_t>(
+        hcclContext, shmemFlagBaseAddr, localUsrRankId); // flag 在 win 区的基地址
     GM_ADDR winFlagReadStartAddr = winFlagBaseAddr + offset;
  
     ClearFlagBuf(flag);
@@ -355,13 +411,13 @@ TILEOP void ClearFlagV2(__ubuf__ int32_t *flag, uint32_t offset, uint32_t repeat
     set_atomic_none();
 }
 
-template<typename T>
+template<typename HcclContextType, typename T>
 TILEOP void ReadFlagV2(__ubuf__ uint32_t *flag, uint32_t offset, uint32_t repeat,
     __gm__ int64_t *hcclContext, __gm__ T* shmemFlagBaseAddr, DispatchInfo &dispatchInfo)
 {
-    __gm__ HcclCombinOpParam *winContext = (__gm__ HcclCombinOpParam *)(hcclContext[dispatchInfo.groupIndex]);
-    uint32_t localUsrRankId = winContext->rankId;
-    __gm__ T* winFlagBaseAddr = MapVirtualAddr<T>(hcclContext, shmemFlagBaseAddr, localUsrRankId); // flag 在 win 区的基地址
+    uint32_t localUsrRankId = GetLocalUsrRankId<HcclContextType>(hcclContext, dispatchInfo.groupIndex);
+    __gm__ T* winFlagBaseAddr = 
+        MapVirtualAddr<HcclContextType, T>(hcclContext, shmemFlagBaseAddr, localUsrRankId); // flag 在 win 区的基地址
     GM_ADDR winFlagReadStartAddr = (GM_ADDR) winFlagBaseAddr + static_cast<uint32_t>(offset);
  
     DataCopyParams dataCopyParams;
