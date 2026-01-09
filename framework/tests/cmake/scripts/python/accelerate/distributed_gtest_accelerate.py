@@ -213,41 +213,6 @@ class DistriutedGTestAccelerate(ABC):
             return [self.cntr_id, self.gtest_filter, (datetime.now(timezone.utc) - self.ts)]
 
 
-    @property
-    def brief(self) -> List[Any]:
-        """简要信息
-        """
-        return [
-            ["Executable", self.exe.file],
-            ["Total Timeout", self.exe_timeout],
-            ["HaltOnError", self.exe_halt_on_error],
-            ["Device Groups", len(self.exe_params)],
-            ["Test Cases", len(self.case_list)],
-            ["Case Timeout", self.exe.timeout],
-            ["Execution Mode", "4-Card Distributed Only"]
-        ]
-
-    @property
-    @abstractmethod
-    def mark(self) -> str:
-        pass
-
-    @staticmethod
-    def reg_args(parser: argparse.ArgumentParser):
-        """注册命令行参数
-        """
-        parser.add_argument("-t", "--target", nargs=1, type=str, required=True,
-                          help="Target executable file path")
-        parser.add_argument("-e", "--env", nargs="+", action=ArgsEnvDictAction, 
-                          default={}, dest="envs", help="Environment variables")
-        parser.add_argument("--timeout", type=int, default=None, help="Total timeout")
-        parser.add_argument("--timeout_case", type=int, default=None, help="Per-case timeout")
-        parser.add_argument("--halt_on_error", action="store_true", default=False,
-                          help="Stop on first failure")
-        parser.add_argument("--gtest_filter", nargs="+", action=ArgsGTestFilterListAction,
-                          default=[], required=True, dest="cases", help="Test cases to run")
-        
-
     def __init__(self, args, params: List[ExecParam], cntr_name: str = "Cntr"):
         """
         :param args: 命令行参数
@@ -286,6 +251,43 @@ class DistriutedGTestAccelerate(ABC):
                          len(self.case_list), len(self.exe_params), len(self.case_list))
             self.exe_params = self.exe_params[:len(self.case_list)]
         logging.info("\n\n%s 4-Card Distributed Execution Args:%s", self.mark, Table.table(datas=self.brief))
+
+
+    @property
+    def brief(self) -> List[Any]:
+        """简要信息
+        """
+        return [
+            ["Executable", self.exe.file],
+            ["Total Timeout", self.exe_timeout],
+            ["HaltOnError", self.exe_halt_on_error],
+            ["Device Groups", len(self.exe_params)],
+            ["Test Cases", len(self.case_list)],
+            ["Case Timeout", self.exe.timeout],
+            ["Execution Mode", "4-Card Distributed Only"]
+        ]
+
+
+    @property
+    @abstractmethod
+    def mark(self) -> str:
+        pass
+
+
+    @staticmethod
+    def reg_args(parser: argparse.ArgumentParser):
+        """注册命令行参数
+        """
+        parser.add_argument("-t", "--target", nargs=1, type=str, required=True,
+                          help="Target executable file path")
+        parser.add_argument("-e", "--env", nargs="+", action=ArgsEnvDictAction, 
+                          default={}, dest="envs", help="Environment variables")
+        parser.add_argument("--timeout", type=int, default=None, help="Total timeout")
+        parser.add_argument("--timeout_case", type=int, default=None, help="Per-case timeout")
+        parser.add_argument("--halt_on_error", action="store_true", default=False,
+                          help="Stop on first failure")
+        parser.add_argument("--gtest_filter", nargs="+", action=ArgsGTestFilterListAction,
+                          default=[], required=True, dest="cases", help="Test cases to run")
 
 
     def process(self):
@@ -587,7 +589,7 @@ class DistriutedGTestAccelerate(ABC):
         # 异常后处理
         if self.exe_halt_on_error:
             self.cntr_terminate_event.set()
-            logging.info("%s Send terminate event upload.", self._get_process_desc())
+            logging.info("Send terminate event upload.")
 
 
     def _cntr_progress(self, update=True) -> str:

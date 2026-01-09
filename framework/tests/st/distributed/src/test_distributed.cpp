@@ -125,25 +125,22 @@ void GegisterAllOps()
 template <typename T>
 std::vector<T> GetOpMetaData(const std::string &op)
 {
-    // 使用CMake传递的绝对路径
     #ifdef TEST_CASE_DIR
     std::filesystem::path caseFile = std::filesystem::path(TEST_CASE_DIR) / (op + "_st_test_cases.json");
     #else
-    // 回退方案，使用相对路径
     std::filesystem::path caseFile = "../../../framework/tests/st/distributed/ops/test_case/" 
                        + op + "_st_test_cases.json";
     #endif
     
-    // 检查文件是否存在
     if (!std::filesystem::exists(caseFile)) {
-        std::cerr << "JSON文件不存在: " << caseFile << std::endl;
-        std::cerr << "绝对路径: " << std::filesystem::absolute(caseFile) << std::endl;
+        ALOG_ERROR_F("File not found: %s, absolute path: %s", caseFile.string().c_str(),
+            std::filesystem::absolute(caseFile).string().c_str());
         return {};
     }
     std::ifstream jsonFile(caseFile);
     if (!jsonFile.is_open()) {
-        std::cerr << "Failed to open JSON file for op " << op << ". "
-        << "Please check the path and ensure the file exists: " << caseFile << std::endl;
+        ALOG_ERROR_F("Failed to open JSON file for op %s. Path: %s", op.c_str(),
+            std::filesystem::absolute(caseFile).string().c_str());
         return {};
     }
     nlohmann::json jsonData = nlohmann::json::parse(jsonFile);
@@ -152,8 +149,8 @@ std::vector<T> GetOpMetaData(const std::string &op)
         testCaseList.emplace_back(tc);
     }
     if (testCaseList.empty()) {
-        std::cerr << "No test cases found in json for op: " << op << ". "
-        << "Please check the contents of: " << caseFile << std::endl;
+        ALOG_ERROR_F("No test cases found in json for op: %s. File: %s", op.c_str(),
+            std::filesystem::absolute(caseFile).string().c_str());
     }
     return testCaseList;
 }
