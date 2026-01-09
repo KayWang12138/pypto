@@ -1180,6 +1180,7 @@ class BuildCtrl(CMakeParam):
         # 设置 Device 相关参数
         dev_lst = [int(d) for d in self.tests.stest_exec.auto_execute_device_id.split(":")]
         dev_ext = " ".join(f"{d}" for d in dev_lst)
+        dev_ext_comma = ",".join(f"{d}" for d in dev_lst)
         ext_str = f"-n {len(dev_lst)} --device {dev_ext}"
 
         # 执行用例, STest
@@ -1188,9 +1189,9 @@ class BuildCtrl(CMakeParam):
                                  ext=ext_str)
 
         # 执行用例, Examples
-        self.py_tests_run_pytest(dist=dist, tests=self.tests.example,
-                                 def_filter=str(Path(self.src_root, "examples")),
-                                 ext=ext_str)
+        self.py_run_examples(dist=dist, tests=self.tests.example,
+                            def_filter=str(Path(self.src_root, "examples")),
+                            dev_ext_comma=dev_ext_comma)
 
     def py_tests_run_pytest(self, dist: Optional[Path], tests: TestsFilterParam, def_filter: str, ext: str = ""):
         if not tests.enable:
@@ -1199,6 +1200,14 @@ class BuildCtrl(CMakeParam):
         filter_str = tests.get_filter_str(def_filter=def_filter)
         # 执行 pytest
         self._py_tests_run_pytest(dist=dist, filter_str=filter_str, ext=ext)
+    
+    def py_run_examples(self, dist: Optional[Path], tests: TestsFilterParam, def_filter: str, dev_ext_comma: str = ""):
+        if not tests.enable:
+            return
+        # filter 处理
+        filter_str = tests.get_filter_str(def_filter=def_filter)
+        # 执行 validate_examples脚本
+        self._py_run_examples(dist=dist, filter_str=filter_str, dev_ext_comma=dev_ext_comma)
 
     def _py_tests_run_pytest(self, dist: Optional[Path], filter_str: str, ext: str = ""):
         if not self.tests.exec.auto_execute:
@@ -1221,6 +1230,34 @@ class BuildCtrl(CMakeParam):
         ret.check_returncode()
         duration = int((datetime.now(tz=timezone.utc) - ts).seconds)
         logging.info("pytest run, Cmd: %s, Duration %s sec", cmd, duration)
+    
+    def _py_run_examples(self, dist: Optional[Path], filter_str: str, dev_ext_comma: str = ""):
+        if not self.tests.exec.auto_execute:
+            return
+        # filter 处理
+        filter_str = filter_str.replace(',', ' ')
+        # cmd 拼接
+        cmd_npu = f"{sys.executable} examples/validate_examples.py -t {filter_str} -d {dev_ext_comma}"
+        cmd_sim = f"{sys.executable} examples/validate_examples.py -t {filter_str} --run_mode sim -w 16"
+        # cmd 执行
+        origin_env = os.environ.copy()
+        update_env = {}
+        if dist:
+            ori_env_python_path = origin_env.get(self._PYTHONPATH, "")
+            act_env_python_path = f"{dist}:{ori_env_python_path}" if ori_env_python_path else f"{dist}"
+            update_env.update({self._PYTHONPATH: act_env_python_path})
+        ts = datetime.now(tz=timezone.utc)
+        logging.info("examples --run_mode npu, Cmd: %s", cmd_npu)
+        ret = self.run_build_cmd(cmd=cmd_npu, check=True, update_env=update_env)
+        ret.check_returncode()
+        duration = int((datetime.now(tz=timezone.utc) - ts).seconds)
+        logging.info("examples --run_mode npu, Cmd: %s, Duration %s sec", cmd_npu, duration)
+        ts = datetime.now(tz=timezone.utc)
+        logging.info("examples --run_mode sim, Cmd: %s", cmd_sim)
+        ret = self.run_build_cmd(cmd=cmd_sim, check=True, update_env=update_env)
+        ret.check_returncode()
+        duration = int((datetime.now(tz=timezone.utc) - ts).seconds)
+        logging.info("examples --run_mode sim, Cmd: %s, Duration %s sec", cmd_sim, duration)
 
     def _tests_enable(self) -> bool:
         return self.tests.utest.enable or self.tests.stest.enable
