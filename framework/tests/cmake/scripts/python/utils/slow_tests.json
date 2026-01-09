@@ -1,0 +1,52 @@
+{
+  "description": "Slow test cases configuration - sorted by execution time descending",
+  "version": "1.0",
+  "slow_tests": [
+    "DeepSeekIndexerAttentionQuantUTest.4B_mtp_ut",                         // 189.66s
+    "DynamicOpsTest.Cube",                                                  // 162.96s
+    "DynamicQuantLightningIndexerPrologUtest.b4_s1_2_s2_64k",               // 161.16s
+    "DecodeIndexerAttentionUtest.utest_decode_indexer_attention",           // 154.81s
+    "DynamicPATest.dynamic_pa_low_lantency_manual_unroll",                  // 135.72s
+    "FunctionTest.Test_quantMM",                                            // 93.55s
+    "DynamicGenGatedScoreUtest.utest_gen_gated_score_dyn",                  // 81.77s
+    "DynamicGenGatedScoreUtest.utest_gen_gated_score_plus_dyn",             // 41.65s
+    "DynamicLightningIndexerPrologUtest.utest_lightning_indexer_prolog",    // 38.81s
+    "AttentionPostUTest.b32_s1_nz_fp16_quant",                              // 36.92s
+    "TestLightningIndexerUtest.lightning_indexer_b_4_s1_2_s2_64k_quant",    // 34.39s
+    "DynamicPATest.dynamic_pa_low_lantency_unroll",                        // 33.52s
+    "GenAttnUtTest.TestDynamicGenAttenTest_FP16_ut",                       // 32.61s
+    "DynamicGatherSlcFlashAttnUtest.dsa_gather_slc_attn_bf16_b32_s4_int8",  // 32.60s
+    "DynamicFunctionTest.TestLoopIfWithRank",                              // 32.10s
+    "DynamicAttentionUtTest.dynamic_attention_low",                         // 31.30s
+    "DynamicGatherSlcFlashAttnUtest.dsa_gather_slc_attn_bf16_b32_s4",      // 30.82s
+    "DynamicAttentionUtTest.dynamic_attention_low_nz",                      // 30.72s
+    "MlaPrologQuantV32UTest.b8_s64k2_pa_nd_bf16_quantB",                   // 27.19s
+    "CmpAttnTopk.cmp_attn_with_topk_singleop_bf16",                        // 26.97s
+    "TestCodegenDispatch.TestMoeDispatchMultipyExperts",                  // 23.73s
+    "MlaPrologUTest.b16_s1_pa_nd_fp16_allquant",                          // 19.09s
+    "CostModelTest.TestAttentionPostAccuracy3",                           // 18.62s
+    "MlaPrologUtest.mla_ut_bf16_high_quant_smooth_nz_pa_bsnd",            // 16.95s
+    "FunctionTest.low",                                                   // 16.18s
+    "CostModelTest.TestFixedLatencyTasks",                               // 11.98s
+    "CostModelTest.TestGlobalCalendar",                                 // 11.52s
+    "TestCodegenDynPa.PaHighThroughputDviewLargeDynamicValidShape",     // 10.30s
+    "DynamicOpsTest.OpsElementWise",                                    // 9.84s
+    "FunctionTest.dynamic_page_attention_adds_single_single_out",       // 9.76s
+    "DynamicFunctionTest.TestLoopWithRank",                             // 9.68s
+    "CacheManagerUnitTest.test_page_attention",                         // 9.59s
+    "FunctionTest.dynamic_page_attention_adds",                         // 9.59s
+    "DyNsa.gateScore_mini_mtp",                                         // 9.17s
+    "TestCodegenStaticUnderDyn.TestStaticFuncUnderDyn",                 // 8.56s
+    "DyNsa.GenSlc_b1_s1_fp_6k1",                                        // 7.71s
+    "DynamicFunctionTest.TestHybridLoopIf",                             // 7.59s
+    "GraphTest.llama_1_1_1024_128",                                     // 7.17s
+    "DynamicOpsTest.MatmulFP32FP32",                                   // 7.15s
+    "CostModelTest.TestAttentionPostSimulationSchedule",               // 7.12s
+    "CostModelTest.TestCoreMachineDeadlock"                            // 7.00s
+  ],
+  "metadata": {
+    "total_tests": 49,
+    "generated_at": "2024-01-08",
+    "description": "Slowest test cases sorted by execution time descending for parallel test scheduling optimization"
+  }
+}
