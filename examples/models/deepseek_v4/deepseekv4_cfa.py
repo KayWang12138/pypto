@@ -9,9 +9,9 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 """
-GLM-4.5 Attention Module
+deepseekv4 Attention Module
 
-This module implements the Attention mechanism for GLM-4.5 model, which uses
+This module implements the Attention mechanism for deepseekv4 model, which uses
 a paged memory management approach similar to operating systems to efficiently
 handle variable-length sequences and dynamic batch sizes in attention computation.
 
@@ -32,19 +32,18 @@ from torch._subclasses.fake_tensor import FakeTensor
 from torch._dynamo import allow_in_graph
 from utils.get_format import get_format
 
-
 np.random.seed(0)
 torch.manual_seed(0)
 np.set_printoptions(formatter={'float': '{:.6f}'.format})
 
 
 def check_args(
-    query,
-    key_cache,
-    value_cache,
-    blk_tbl,
-    actual_seqs,
-    attn_res
+        query,
+        key_cache,
+        value_cache,
+        blk_tbl,
+        actual_seqs,
+        attn_res
 ):
     assert query.dim() == 3
     assert get_format(query) == 'ND'
@@ -64,6 +63,7 @@ def check_args(
     assert attn_res.dim() == 3
     assert get_format(attn_res) == 'ND'
     assert attn_res.dtype == torch.bfloat16
+
 
 @dataclass
 class AttentionConfig:
@@ -96,27 +96,25 @@ def get_case_info(device="cpu"):
     actual_seq_values = [s2] * b
     actual_seq_tensor = torch.tensor(actual_seq_values, dtype=torch.int32, device=device)
     attn_cfg = AttentionConfig(b=b, s1=s1, s2=s2, n1=nq, n2=nkv,
-                                q_d=q_d, kv_d=q_d, block_size=block_size, block_table_batch=block_table_batch,
-                                kv_num_blocks=kv_num_blocks, actual_seq=actual_seq_tensor, cmp_r=cmp_r)
+                               q_d=q_d, kv_d=q_d, block_size=block_size, block_table_batch=block_table_batch,
+                               kv_num_blocks=kv_num_blocks, actual_seq=actual_seq_tensor, cmp_r=cmp_r)
     attn_cfg.max_blocks = (s2 + block_size - 1) // block_size
     return attn_cfg
 
 
 @pypto.jit(
-    runtime_options={"stitch_function_num_initial": 128, 
-    "stitch_function_outcast_memory": 1024,
-    "stitch_function_inner_memory": 1024},
+    runtime_options={"stitch_function_num_initial": 128,
+                     "stitch_function_outcast_memory": 1024,
+                     "stitch_function_inner_memory": 1024},
     host_options={"only_codegen": True},
     debug_options={"runtime_debug_mode": 1},
-    # codegen_options={"codegen_expression_fusion": True},
     # 当子图大小达到上界不允许与其他子图合并
-    pass_options={"pg_upper_bound": 1536,
-    # Q常驻，0代表第一组mmad，4代表4次matmul合并
-    "cube_l1_reuse_setting": {0: 4}}
+    pass_options={"cube_l1_reuse_setting": {0: 4}}
 )
-def ifa_flash(q, k, v, attn_sink, block_table, start_pos, atten_out, cmp_r=1, unroll_list=[]):
+def ifa_flash(q, k, v, attn_sink, block_table, start_pos, atten_out, cmp_r=1, unroll_list=[], pg_upper_bound=3072):
     pypto.experimental.set_operation_config(combine_axis=True)
     # pypto.set_debug_options(runtime_debug_mode=2) #开启AICPU抢跑
+    pypto.set_pass_options(pg_upper_bound=pg_upper_bound)
     shape_q = q.shape
     shape_k = k.shape
     bs_scalar = shape_q[0]
@@ -133,13 +131,14 @@ def ifa_flash(q, k, v, attn_sink, block_table, start_pos, atten_out, cmp_r=1, un
 
     m_tile = 128
     cube_tile = 128
+    k_cube_tile = 256
     s2_tile = 512
 
     g_tile = min(32, nq)
-    c1_tile = [[m_tile, m_tile], [cube_tile, cube_tile], [cube_tile, cube_tile]]
+    c1_tile = [[m_tile, m_tile], [k_cube_tile, k_cube_tile], [cube_tile, cube_tile]]
     v1_tile = [m_tile, s2_tile]
-    c2_tile = [[m_tile, m_tile], [cube_tile, cube_tile], [cube_tile, cube_tile]]
-    v2_tile = [m_tile, cube_tile]
+    c2_tile = [[m_tile, m_tile], [cube_tile, cube_tile], [k_cube_tile, k_cube_tile]]
+    v2_tile = [m_tile, k_cube_tile]
 
     # 3. 得到动态tensor的shape
     s1_scalar = bs_scalar // b_scalar
@@ -173,7 +172,6 @@ def ifa_flash(q, k, v, attn_sink, block_table, start_pos, atten_out, cmp_r=1, un
                     # 5. 按照计算图实现运算逻辑，设置set_vec_tile_shapes时应尽可能用满UB，但不要超过UB的大小。
                     pypto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
                     qi = pypto.view(q_2d, [g_tile, dn], [bs_ofs * nq + n1g_ofs, 0])
-                    
 
                     kj_assemble = pypto.tensor([s2_tile, dn], k_2d.dtype, "kj_assemble")
                     for i in range(block_num):
@@ -187,9 +185,9 @@ def ifa_flash(q, k, v, attn_sink, block_table, start_pos, atten_out, cmp_r=1, un
                     # 6. 下面是flash attention的计算逻辑
                     pypto.set_cube_tile_shapes(c1_tile[0], c1_tile[1], c1_tile[2])
                     sij = pypto.matmul(qi, kj_assemble, pypto.DT_FP32, a_trans=False,
-                                        b_trans=True)
+                                       b_trans=True)
                     sij = pypto.view(sij, [g_tile, s2_tile], [0, 0],
-                                        valid_shape=[g_tile, actual_s2_tile])
+                                     valid_shape=[g_tile, actual_s2_tile])
                     # v1
                     pypto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
                     if pypto.cond(pypto.is_loop_begin(s2_idx)):
@@ -210,14 +208,14 @@ def ifa_flash(q, k, v, attn_sink, block_table, start_pos, atten_out, cmp_r=1, un
                             vj_assemble[i * block_size:(i + 1) * block_size, 0:] = \
                                 pypto.view(v_2d, [block_size, dn], [block_idx_valid * block_size, 0])
                         vj_assemble = pypto.view(vj_assemble, [s2_tile, dn],
-                                                    [0, 0], valid_shape=[actual_s2_tile, dn])
+                                                 [0, 0], valid_shape=[actual_s2_tile, dn])
                         pypto.set_cube_tile_shapes(c2_tile[0], c2_tile[1], c2_tile[2])
                         oi_tmp = pypto.matmul(tilda_pij_fp16, vj_assemble, pypto.DT_FP32)
 
                         pypto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
                         oi_update[:] = oi_tmp
                     else:
-                        pypto.set_pass_options(sg_set_scope=1)
+                        # pypto.set_pass_options(sg_set_scope=1)
                         sij_scale = pypto.mul(sij, softmax_scale)
                         tilda_mij = pypto.amax(sij_scale, dim=-1, keepdim=True)
                         max_new = pypto.maximum(max_update, tilda_mij)
@@ -225,16 +223,16 @@ def ifa_flash(q, k, v, attn_sink, block_table, start_pos, atten_out, cmp_r=1, un
                         tilda_pij = pypto.exp(tsub)
                         tilda_pij_fp16 = pypto.cast(tilda_pij, dtype)
                         sum_local = pypto.sum(tilda_pij, dim=-1, keepdim=True)
-                        pypto.set_pass_options(sg_set_scope=-1)
+                        # pypto.set_pass_options(sg_set_scope=-1)
 
-                        pypto.set_pass_options(sg_set_scope=2)
+                        # pypto.set_pass_options(sg_set_scope=2)
                         tsub2 = pypto.sub(max_update, max_new)
                         max_update[:] = max_new
                         update_mul = pypto.exp(tsub2)
                         sum_update[:] = sum_update * update_mul + sum_local
-                        pypto.set_pass_options(sg_set_scope=-1)
+                        # pypto.set_pass_options(sg_set_scope=-1)
 
-                        #c2
+                        # c2
                         vj_assemble = pypto.tensor([s2_tile, dn], v_2d.dtype, "vj_assemble")
                         for i in range(block_num):
                             block_idx = block_table[b_idx, idx + i]
@@ -242,7 +240,7 @@ def ifa_flash(q, k, v, attn_sink, block_table, start_pos, atten_out, cmp_r=1, un
                             vj_assemble[i * block_size:(i + 1) * block_size, 0:] = \
                                 pypto.view(v_2d, [block_size, dn], [block_idx_valid * block_size, 0])
                         vj_assemble = pypto.view(vj_assemble, [s2_tile, dn],
-                                                    [0, 0], valid_shape=[actual_s2_tile, dn])
+                                                 [0, 0], valid_shape=[actual_s2_tile, dn])
                         pypto.set_cube_tile_shapes(c2_tile[0], c2_tile[1], c2_tile[2])
                         oi_tmp = pypto.matmul(tilda_pij_fp16, vj_assemble, pypto.DT_FP32)
 
@@ -253,36 +251,37 @@ def ifa_flash(q, k, v, attn_sink, block_table, start_pos, atten_out, cmp_r=1, un
                         attn_sink_tile = pypto.view(attn_sink_2d, [g_tile, 1], [0, 0])
                         sum_local = pypto.add(sum_update, attn_sink_tile)
                         oi_final = pypto.div(oi_update, sum_local)
-                        
+
                         pypto.set_vec_tile_shapes(16, v2_tile[0], v2_tile[1])
                         oi_final_3d = pypto.cast(
                             pypto.reshape(oi_final, [1, g_tile, dn]),
                             dtype)
                         # 7. 将结果搬运到输出tensor上
                         pypto.assemble(oi_final_3d, oi_ofs, atten_out)
-                        
-                        
+
+
 class MM(torch.nn.Module):
     def forward(
-        self,  
-        query: torch.Tensor,
-        key_cache: torch.Tensor,
-        value_cache: torch.Tensor,
-        attn_sink: torch.Tensor,
-        blk_tbl: torch.Tensor,
-        start_pos: torch.Tensor,
-        attn_res: torch.Tensor,
-        cmp_r: int = 1,
-        unroll_list: list | None = None
+            self,
+            query: torch.Tensor,
+            key_cache: torch.Tensor,
+            value_cache: torch.Tensor,
+            attn_sink: torch.Tensor,
+            blk_tbl: torch.Tensor,
+            start_pos: torch.Tensor,
+            attn_res: torch.Tensor,
+            cmp_r: int = 1,
+            unroll_list: list | None = None
     ):
         attention(query, key_cache, value_cache, attn_sink, blk_tbl, start_pos, attn_res, cmp_r, unroll_list)
         return attn_res
-                            
+
+
 @pytest.mark.skip(reason="large test case")
-def test_ifa(enable_flash: bool, enable_high_perf: bool, enable_graph: bool, device_id: int):
+def test_ifa(enable_flash: bool, enable_high_perf: bool, enable_graph: bool, device_id: int, pg_upper_bound: int):
     device_id = max(device_id, int(os.environ.get('DEVICE_ID', 0)))
     device = f'npu:{device_id}'
-    attn_cfg = get_case_info(device=device)    
+    attn_cfg = get_case_info(device=device)
     torch_dtype = torch.bfloat16
     b = attn_cfg.b
     s1 = attn_cfg.s1
@@ -298,13 +297,13 @@ def test_ifa(enable_flash: bool, enable_high_perf: bool, enable_graph: bool, dev
     q_shape = [b * s1, nq, d]
     kv_shape = [attn_cfg.kv_num_blocks, block_size, nkv, d]
     blk_tbl_shape = [attn_cfg.block_table_batch, max_blocks]
-    
+
     empty_kwargs = {"dtype": torch_dtype, "device": device}
     q = torch.empty(q_shape, **empty_kwargs).uniform_(-1, 1)
     k = torch.empty(kv_shape, **empty_kwargs).uniform_(-1, 1)
     v = torch.empty(kv_shape, **empty_kwargs).uniform_(-1, 1)
     attn_sink = torch.empty(nq, dtype=torch.float32, device=device).uniform_(-1, 1)
-    
+
     import utils.golden.attn_golden as attn_golden
     output = torch.zeros(q_shape, **empty_kwargs)
     output_flash = torch.zeros(q_shape, **empty_kwargs)
@@ -314,40 +313,41 @@ def test_ifa(enable_flash: bool, enable_high_perf: bool, enable_graph: bool, dev
     out_npu = torch.zeros(q_shape, **empty_kwargs)
 
     debug_str = os.environ.get("HIGH_PERFORMANCE", "False").lower()
-    unroll_list = []
+    unroll_list = [2, 1]
     if debug_str in ["true", "1"] or enable_high_perf:
-        unroll_list = [8, 4, 2, 1]    
-    attention(q,k,v,attn_sink,blk_tbl,start_pos,out_npu,cmp_r,unroll_list)
+        unroll_list = [2, 1]
+    attention(q, k, v, attn_sink, blk_tbl, start_pos, out_npu, cmp_r, unroll_list, pg_upper_bound=pg_upper_bound)
     from utils.np_compare import detailed_allclose_manual as compare
-    
-    attn_golden.ifa_golden(q, k, v, attn_sink, blk_tbl, start_pos, output, enable_flash=False,cmp_r=cmp_r)
-    attn_golden.ifa_golden(q, k, v, attn_sink, blk_tbl, start_pos, output_flash, enable_flash=True,cmp_r=cmp_r)
+
+    attn_golden.ifa_golden(q, k, v, attn_sink, blk_tbl, start_pos, output, enable_flash=False, cmp_r=cmp_r)
+    attn_golden.ifa_golden(q, k, v, attn_sink, blk_tbl, start_pos, output_flash, enable_flash=True, cmp_r=cmp_r)
     threhold = 5e-4
     compare(output, output_flash, "no flash golden vs flash golden", rtol=threhold, atol=threhold)
     compare(output_flash, out_npu, "golden vs npu", rtol=threhold, atol=threhold)
-    
+
     # acl graph
-    model = torch.compile(MM(), backend="eager", dynamic=True)
-    g = torch.npu.NPUGraph()
-    with torch.npu.graph(g):
-        y = model(q,k,v,attn_sink,blk_tbl,start_pos,out_npu,cmp_r,unroll_list)
-    g.replay()
-    pypto.runtime._device_synchronize()
-    compare(output_flash, y, "golden vs graph npu", rtol=threhold, atol=threhold)   
-     
+    if enable_graph:
+        model = torch.compile(MM(), backend="eager", dynamic=True)
+        g = torch.npu.NPUGraph()
+        with torch.npu.graph(g):
+            y = model(q, k, v, attn_sink, blk_tbl, start_pos, out_npu, cmp_r, unroll_list)
+        g.replay()
+        pypto.runtime._device_synchronize()
+        compare(output_flash, y, "golden vs graph npu", rtol=threhold, atol=threhold)
 
 
 @allow_in_graph
 def attention(
-    query: torch.Tensor,
-    key_cache: torch.Tensor,
-    value_cache: torch.Tensor,
-    attn_sink: torch.Tensor,
-    blk_tbl: torch.Tensor,
-    start_pos: torch.Tensor,
-    attn_res: torch.Tensor,
-    cmp_r: int = 1,
-    unroll_list: list | None = None
+        query: torch.Tensor,
+        key_cache: torch.Tensor,
+        value_cache: torch.Tensor,
+        attn_sink: torch.Tensor,
+        blk_tbl: torch.Tensor,
+        start_pos: torch.Tensor,
+        attn_res: torch.Tensor,
+        cmp_r: int = 1,
+        unroll_list: list | None = None,
+        pg_upper_bound: int = 3072
 ) -> None:
     """
     Main attention function with Attention support.
@@ -394,15 +394,19 @@ def attention(
     pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
     if unroll_list is None:
         unroll_list = []
-    ifa_flash(*pto_inputs, *pto_outputs, cmp_r, unroll_list)
-    pypto.runtime._device_synchronize()#内部接口，不推荐使用
+    ifa_flash(*pto_inputs, *pto_outputs, cmp_r, unroll_list, pg_upper_bound)
+    pypto.runtime._device_synchronize()  # 内部接口，不推荐使用
+
 
 if __name__ == "__main__":
     import argparse as ap
+
     p = ap.ArgumentParser(description="参数配置")
     p.add_argument("-f", "--enable-flash", action="store_true", help="开启flash模式")
     p.add_argument("-p", "--high-perf", action="store_true", help="启用高性能模式")
     p.add_argument("-g", "--enable-graph", action="store_true", help="启用高性能模式")
     p.add_argument("-c", "--device-id", type=int, default=0, help="显卡序号，默认0")
+    p.add_argument("-u", "--upper", type=int, default=3072, help="融合上限法")
     args = p.parse_args()
-    test_ifa(enable_flash=args.enable_flash, enable_high_perf=args.high_perf, enable_graph=args.enable_graph,device_id=args.device_id)
+    test_ifa(enable_flash=args.enable_flash, enable_high_perf=args.high_perf, enable_graph=args.enable_graph,
+             device_id=args.device_id, pg_upper_bound=args.upper)
