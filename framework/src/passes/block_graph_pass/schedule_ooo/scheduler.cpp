@@ -1061,6 +1061,13 @@ Status OoOScheduler::Schedule(const std::vector<Operation *> &operations) {
         APASS_LOG_ERROR_F(Elements::Operation, "Init failed!"); 
         return FAILED; 
     }
+    if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510 || !IsMixGraph(operations)) {
+        // op执行排序
+        if (SortOps() != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Operation, "SortOps failed!");
+            return FAILED;
+        }
+    }
     // 生成spill指令
     if (GenSpillSchedule() != SUCCESS) { 
         APASS_LOG_ERROR_F(Elements::Operation, "GenSpillSchedule failed!"); 
