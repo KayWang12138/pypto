@@ -35,6 +35,7 @@ option(BUILD_WITH_CANN_SUB "Build with CANN Sub package" OFF)
 option(ENABLE_ASAN "Enable AddressSanitizer" OFF)
 option(ENABLE_UBSAN "Enable UndefinedBehaviorSanitizer" OFF)
 option(ENABLE_GCOV "Enable GNU Coverage Instrumentation Tool" OFF)
+option(ENABLE_COMPILE_DEPENDENCY_CHECK "Enable compile dependency relation check" OFF)
 
 # 公开编译开关(Feature 特性级开关)
 option(ENABLE_FEATURE_PYTHON_FRONT_END "Enable Python Front-end" ON)
