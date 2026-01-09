@@ -50,6 +50,14 @@ public:
     ObjectType GetObjectType() const override { return ObjectType::Statement; }
 
     virtual StatementKind GetKind() const = 0;
+
+    // Get cached hash value
+    uint64_t GetHash() const { return cachedHash_; }
+    // Set cached hash value
+    void SetHash(uint64_t hash) { cachedHash_ = hash; }
+
+private:
+    uint64_t cachedHash_{0};
 };
 
 using StatementPtr = std::shared_ptr<Statement>;

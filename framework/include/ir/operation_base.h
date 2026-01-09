@@ -86,7 +86,8 @@ public:
 
     // Pretty-print with the given indentation (in spaces).
     void Print(std::ostream& os, int indent = 0) const;
-public:
+
+protected:
     std::vector<ValuePtr> ioperands_;
     std::vector<ValuePtr> ooperands_;
     Opcode opcode_;

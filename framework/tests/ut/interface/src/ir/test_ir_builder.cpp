@@ -210,6 +210,9 @@ TEST(IRTEST, TestControlFlow) {
 
     ctx.PopScope(); // function-body
     
+    // compute hash
+    std::cout << "hash of function: " << func->ComputeHash() << std::endl;
+
     // 使用 IRPrinter 输出 IR 结构
     std::ostringstream oss;
     IRPrinter printer(oss);

@@ -14,7 +14,7 @@
  */
 
 #include "ir/function.h"
-#include "ir/printer/ir_printer.h"
+#include "ir/hash_computer.h"
 
 namespace pto {
 
@@ -38,6 +38,12 @@ Function::Function(std::string name, FunctionKind kind, FunctionSignature signat
 
 void Function::AddStatement(StatementPtr stmt) {
     compound_->AddStatement(std::move(stmt));
+}
+
+uint64_t Function::ComputeHash() {
+    IRHashComputer computer;
+    functionHash_ = computer.VisitFunction(const_cast<Function&>(*this));
+    return functionHash_;
 }
 } // namespace pto
 
