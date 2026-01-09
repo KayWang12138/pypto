@@ -2148,7 +2148,7 @@ void MixSubgraphSplit::EliminateRedundantIncasts(
                 int compId = comps[i];
                 auto& incasts = allIncasts[compId];       
                 auto newEnd = std::remove_if(incasts.begin(), incasts.end(),
-                    [&](const SimpleIncastParam& param) {
+                    [tensor](const SimpleIncastParam& param) {
                         return param.tensor == tensor;
                     });
                 incasts.erase(newEnd, incasts.end());
@@ -2211,7 +2211,7 @@ void MixSubgraphSplit::EliminateRedundantOutcasts(
                 auto& outcasts = allOutcasts[compId];
                 
                 auto newEnd = std::remove_if(outcasts.begin(), outcasts.end(),
-                    [&](const SimpleOutcastParam& param) {
+                    [tensor](const SimpleOutcastParam& param) {
                         return param.tensor == tensor;
                     });
                 
