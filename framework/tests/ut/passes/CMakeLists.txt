@@ -10,7 +10,7 @@
 
 set(_Target ${PTO_Fwk_UTestNamePrefix}_passes)
 
-file(GLOB_RECURSE _Sources src/*.cpp)
+file(GLOB_RECURSE _Sources src/*.cpp block_ir/*.cpp)
 
 PTO_Fwk_UTest_AddCaseLib(
         TARGET ${_Target}

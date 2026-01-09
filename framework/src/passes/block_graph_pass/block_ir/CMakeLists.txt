@@ -8,9 +8,14 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 
-file(GLOB_RECURSE _Passes_Srcs *.cpp)
-# Include block_ir subdirectory
-add_subdirectory(block_graph_pass/block_ir)
-#PTO_Fwk_Debug_Source_List(NAME "_Passes_Srcs" LIST ${_Passes_Srcs} DETAIL OFF)
+# Block IR transformations for PTO IR
 
-target_sources(tile_fwk_interface PRIVATE ${_Passes_Srcs})
+set(BLOCK_IR_SRCS
+    ${CMAKE_CURRENT_SOURCE_DIR}/static_for_unroll.cpp
+)
+
+set(BLOCK_IR_HEADERS
+    ${CMAKE_CURRENT_SOURCE_DIR}/static_for_unroll.h
+)
+
+target_sources(tile_fwk_interface PRIVATE ${BLOCK_IR_SRCS})
