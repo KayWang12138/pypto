@@ -483,9 +483,9 @@ function(PTO_Fwk_STest_Distributed_RunExe)
             PTO_Fwk_STest_RunExe_GenerateGolden(TARGET ${ARG_TARGET} GTEST_FILTER_LIST ${GTestFilterList})
             # 执行流程
             math(EXPR MaxRankSizeTimes2 "${MaxRankSize} * 2")
-            list(LENGTH GTestFilterList GtestFilterListLen)
             string(REPLACE ";" ":" GtestFilterStr "${GTestFilterList}")
-            if(ENABLE_TESTS_EXECUTE_PARALLEL OR (GtestFilterListLen GREATER MaxRankSizeTimes2))
+            list(LENGTH PTO_Fwk_StestExecuteDeviceIdList DeviceIdListLen)
+            if(ENABLE_TESTS_EXECUTE_PARALLEL OR (DeviceIdListLen GREATER MaxRankSizeTimes2))
                 # 仅在使能并行执行全局开关, 且需要做 filter 时才进行执行加速
                 set(_File $<TARGET_FILE:${ARG_TARGET}>)
                 set(_Args "-t=${_File}" "--gtest_filter=${GtestFilterStr}" "--halt_on_error")
