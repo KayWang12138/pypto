@@ -1331,6 +1331,28 @@ struct EncodeDevAscendFunctionInfo {
         }
     }
 
+     void AddDependOperandsToColorGraph(std::vector<Operation *> &callopList, std::unordered_map<Operation *, int> &callopIndexDict) {
+        std::unordered_map<std::shared_ptr<LogicalTensor>, OrderedSet<Operation *>> producerDict;
+        for (auto &op : callopList) {
+            for (auto &i : op->GetOOperands()) {
+                producerDict[i].Insert(op);
+            }
+        }
+
+        for (auto &op : callopList) {
+            for (auto &o : op->GetDependOperands()) {
+                for (auto &producer : producerDict[o]) {
+                    if (op == producer) {
+                        // Consumer and producer can not be the same.
+                        continue;
+                    }
+                    // Index for callop from its depend operand's producer callop index list
+                    colorOutGraph[callopIndexDict[producer]].push_back(callopIndexDict[op]);
+                }
+            }
+        }
+    }
+
     void EncodeZeroPredCount(std::vector<Operation *>& callopList) {
         std::unordered_map<Operation *, int> callopCoreTypeDict;
         for (auto &op : callopList) {
@@ -1485,6 +1507,7 @@ struct EncodeDevAscendFunctionInfo {
                 }
             }
         }
+        AddDependOperandsToColorGraph(callopList, callopIndexDict);
         for (size_t index = 0; index < callopList.size(); index++) {
             std::sort(colorOutGraph[index].begin(), colorOutGraph[index].end());
             // remove repeated index in ooperand's consumer callop index list
