@@ -586,11 +586,8 @@ Status ReplaceTensor::BackwardProcess() {
                     return FAILED;
                 }
             } else if (producerOp->GetOpcode() == Opcode::OP_COPY_OUT) {
-                if (BackUpdateCopyOut(producerOp) == FAILED) {
-                    return FAILED;
-                }
-            }
-            else {
+                if (BackUpdateCopyOut(producerOp) == FAILED) return FAILED;
+            } else {
                 continue;
             }
         }
