@@ -90,6 +90,7 @@ public:
     std::string GenGatherElementOp() const;
 
     std::string GenRangeOp() const;
+    std::string PrintRangeTileTensor(std::string startVal, std::string stepVal) const;
     std::string GenL0CToUBTileTensor() const;
 
     std::string GenScatterElementSOp() const;
@@ -128,6 +129,7 @@ public:
     std::string GenTemplateParams() const;
     void GenExtraTemplateParamsForMoeCombine(std::ostringstream &oss, int32_t operandIndex) const;
     std::string GenOffsets(int32_t operandIndex, int32_t dim) const;
+    std::string GenShapes(int32_t operandIndex, int32_t dim) const;
     std::string GenRawShapes(int32_t operandIndex, int32_t dim) const;
     std::string GenOffsetsAndRawShapes() const;
     std::string GenOffsetsAndRawShapes(int32_t operandIndex, int32_t dim) const;
@@ -219,6 +221,7 @@ private:
     std::string PrintDupOp(const PrintDupOpParam &param) const;
     std::string PrintDupOpDynUnaligned(const PrintDupOpParam &param) const;
     std::string PrintDupOpStatic(const PrintDupOpParam &param) const;
+    std::string PrintDupTileTensor(const PrintDupOpParam &param) const;
 
     std::string PrintRowMaxline(const PrintUnaryParam &param) const;
     std::string PrintRowMaxlineTileTensor() const;
@@ -297,6 +300,7 @@ private:
     std::string PrintBinaryBrc(const PrintBinaryBrcParam &param) const;
 
     std::string PrintTransposeDataMove(const PrintTransposeDataMoveParam &param) const;
+    std::string PrintTransposeDataMoveLayout(const PrintTransposeDataMoveParam &param) const;
     std::string PrintTransposeDataMoveStatic(const PrintTransposeDataMoveParam &param) const;
     std::string PrintTransposeDataMoveDynamic(const PrintTransposeDataMoveParam &param) const;
     std::string PrintTransposeDataMoveDynamicUnaligned(const PrintTransposeDataMoveParam &param) const;
@@ -354,6 +358,10 @@ private:
     void GetVarAndTypeParam(std::vector<std::string> &varExpr, std::vector<std::string> &dataTypeExpr) const;
     std::string PrintWhereOp(const WhereParam &param) const;
     std::string PrintWhereOpTileTensor() const;
+
+    std::string PrintCmpTileTensor() const;
+    std::string PrintLogicalAndTileTensor() const;
+    std::string PrintLogicalNotTileTensor() const;
 
     void InitOpsGenMap();
     void InitScalaOpsMap();

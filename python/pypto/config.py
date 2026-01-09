@@ -219,10 +219,8 @@ def set_runtime_options(*,
                         stitch_function_outcast_memory: Optional[int] = None,
                         stitch_function_num_initial: Optional[int] = None,
                         stitch_function_num_step: Optional[int] = None,
-                        cfgcache_device_task_num: Optional[int] = None,
-                        cfgcache_root_task_num: Optional[int] = None,
-                        cfgcache_leaf_task_num: Optional[int] = None,
                         stitch_function_size: int = None,
+                        stitch_cfgcache_size: Optional[int] = None,
                         run_mode: Optional[int] = None
                         ) -> None:
     """
@@ -254,6 +252,9 @@ def set_runtime_options(*,
     stitch_function_size: int
         The maximum Callop computation amount per loop for stitch tasks,
         controlled in the ctrlflow AICPU during machine runtime.
+
+    stitch_cfgcache_size: int
+        The size of the control flow cache, in bytes.
     """
     options_dict = {k: v for k, v in locals().items() if v is not None}
     set_options(runtime_options=options_dict)
@@ -530,6 +531,18 @@ def get_current_scope():
     return ConfigScope(cpp_scope)
 
 
+def get_global_config(key: str):
+    """Get global config config."""
+    cpp_scope = pypto_impl.GlobalScope()
+    py_scope = ConfigScope(cpp_scope)
+    return py_scope.get_options_prefix("global." + key)
+
+
+def set_global_config(key, value):
+    """Set global config config."""
+    pypto_impl.SetGlobalConfig({"global." + key: value})
+
+
 def set_options(
     codegen_options=None,
     host_options=None,
@@ -574,7 +587,7 @@ def get_options_tree():
 
 class CubeTile:
     """CubeTile"""
-    def __init__(self, m: List[int], k: List[int], n: List[int], set_l1_tile: bool = False,
+    def __init__(self, m: List[int], k: List[int], n: List[int], enable_multi_data_load: bool = False,
                         enable_split_k: bool = False):
         """
         CubeTile tile for matmul operation, m[0], k[0], n[0] for L0 Cache, m[1], k[1], n[1] for L1 Cache
@@ -593,7 +606,7 @@ class CubeTile:
             the value of the tile shape in n dimension
             The length of the list must be 2.
 
-        set_l1_tile: bool
+        enable_multi_data_load: bool
             whether the process of moving L1 to L0 is multi data load.
             default is false (i.e. not multi data load)
 
@@ -613,7 +626,7 @@ class CubeTile:
         if len(k_padded) == 2:
             k_padded.append(k_padded[1])  # k[2] = k[1]
 
-        self._impl = pypto_impl.CubeTile(list(m), k_padded, list(n), set_l1_tile, enable_split_k)
+        self._impl = pypto_impl.CubeTile(list(m), k_padded, list(n), enable_multi_data_load, enable_split_k)
 
     def __getattr__(self, name):
         return getattr(self._impl, name)
