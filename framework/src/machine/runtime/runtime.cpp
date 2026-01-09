@@ -169,7 +169,8 @@ void *RuntimeAgentMemory::MapAiCoreReg() {
         return nullptr;
     }
 
-    rc = rtMemcpy(devAddr, regAddrSize, regAddr.data(), regAddrSize, RT_MEMCPY_HOST_TO_DEVICE);
+    rc = rtMemcpyAsync(devAddr, regAddrSize, regAddr.data(), regAddrSize, RT_MEMCPY_HOST_TO_DEVICE, GetAgent()->GetScheStream());
+    rtStreamSynchronize(GetAgent()->GetScheStream());
     if (rc != 0) {
         ASLOGE("rtMemcpy failed. size: %zu", regAddrSize);
         return nullptr;

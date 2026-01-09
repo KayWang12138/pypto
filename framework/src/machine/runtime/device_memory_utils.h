@@ -46,7 +46,8 @@ struct DeviceMemoryUtils {
 
     uint8_t *CopyToDev(uint8_t *data, uint64_t size, uint8_t **cachedDevAddrHolder) {
         uint8_t *devPtr = AllocDev(size, cachedDevAddrHolder);
-        rtMemcpy(devPtr, size, data, size, RT_MEMCPY_HOST_TO_DEVICE);
+        rtMemcpyAsync(devPtr, size, data, size, RT_MEMCPY_HOST_TO_DEVICE, machine::GetRA()->GetScheStream());
+        rtStreamSynchronize(machine::GetRA()->GetScheStream());
         return devPtr;
     }
 
@@ -56,7 +57,8 @@ struct DeviceMemoryUtils {
     }
 
     void CopyFromDev(uint8_t *data, uint8_t *devPtr, uint64_t size) {
-        rtMemcpy(data, size, devPtr, size, RT_MEMCPY_DEVICE_TO_HOST);
+        rtMemcpyAsync(data, size, devPtr, size, RT_MEMCPY_DEVICE_TO_HOST, machine::GetRA()->GetScheStream());
+        rtStreamSynchronize(machine::GetRA()->GetScheStream());
     }
 
     uint8_t *CopyToDev(RawTensorData &data) {

@@ -169,13 +169,15 @@ public:
     }
 
     static void CopyToDev(uint8_t *devDstAddr, uint8_t *hostSrcAddr, uint64_t size) {
-        rtMemcpy(devDstAddr, size, hostSrcAddr, size, RT_MEMCPY_HOST_TO_DEVICE);
+        rtMemcpyAsync(devDstAddr, size, hostSrcAddr, size, RT_MEMCPY_HOST_TO_DEVICE, GetAgent()->GetScheStream());
+        rtStreamSynchronize(GetAgent()->GetScheStream());
         ALOG_DEBUG_F("RuntimeAgent::CopyToDev for src %lx to dst %lx with size %u", reinterpret_cast<uint64_t>(hostSrcAddr),
             reinterpret_cast<uint64_t>(devDstAddr), size);
     }
 
     static void CopyFromDev(uint8_t *hostDstAddr, uint8_t *devSrcAddr, uint64_t size) {
-        rtMemcpy(hostDstAddr, size, devSrcAddr, size, RT_MEMCPY_DEVICE_TO_HOST);
+        rtMemcpyAsync(hostDstAddr, size, devSrcAddr, size, RT_MEMCPY_DEVICE_TO_HOST, GetAgent()->GetScheStream());
+        rtStreamSynchronize(GetAgent()->GetScheStream());
     }
 
     int GetAicoreRegInfo(std::vector<int64_t> &aic, std::vector<int64_t> &aiv, const int &addrType);
@@ -272,8 +274,8 @@ public:
 #ifdef RUN_WITH_ASCEND_CAMODEL
         rtMemcpy(hostDstAddr, size, devSrcAddr, size, RT_MEMCPY_DEVICE_TO_HOST);
 #else
-        rtMemcpyAsync(hostDstAddr, size, devSrcAddr, size, RT_MEMCPY_DEVICE_TO_HOST, GetStream());
-        rtStreamSynchronize(GetStream());
+        rtMemcpyAsync(hostDstAddr, size, devSrcAddr, size, RT_MEMCPY_DEVICE_TO_HOST, GetScheStream());
+        rtStreamSynchronize(GetScheStream());
 #endif
     }
 

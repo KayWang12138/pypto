@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>PyPTO Hello World 代码流程思维导图</title>
+    <script src="https://cdn.jsdelivr.net/npm/markmap-autoloader@0.18.0"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+        }
+        .markmap-container {
+            width: 100%;
+            height: 100vh;
+        }
+    </style>
+</head>
+<body>
+    <div class="markmap-container">
+        <svg id="markmap" style="width: 100%; height: 100vh;"></svg>
+    </div>
+
+    <script type="text/template" id="markmap-content">
+# PyPTO Hello World 代码流程
+
+## 整体架构
+
+### Python 前端层
+- **路径**: `python/pypto/`
+- **功能**: 用户 API、JIT 编译、运行时执行
+
+### C++ 框架层
+- **路径**: `framework/`
+- **功能**: 底层运行时、设备启动器
+
+### 示例层
+- **路径**: `examples/`
+- **功能**: 用户代码示例
+
+## 阶段1: 程序入口和初始化
+
+### 命令行参数解析
+- `main()` 函数
+- argparse 解析 `--run_mode`、`--list` 等
+
+### 设备ID获取
+- `get_device_id()` 函数
+- 从环境变量 `TILE_FWK_DEVICE_ID` 获取
+- 设备验证
+
+### 运行模式设置
+- **NPU模式**: 需要 CANN 环境和 NPU 硬件
+- **SIM模式**: 模拟器模式，无需硬件
+
+## 阶段2: 内核函数定义和装饰
+
+### 装饰器应用
+- `@pypto.frontend.jit()` 装饰器
+- 创建 `JitCallableWrapper` 对象
+- **延迟编译模式**（此时不编译）
+
+### JitCallableWrapper 类
+- `_original_func`: 原始 Python 函数
+- `_pto_function`: 编译后的 PTO 函数（初始 None）
+- `_is_compiled`: 编译标志（初始 False）
+- `_runtime_options`: 运行时选项
+
+### 关键代码路径
+- `python/pypto/frontend/parser/entry.py::jit()`
+- `python/pypto/frontend/parser/entry.py::JitCallableWrapper.__init__()`
+
+## 阶段3: 内核函数调用（触发编译和执行）
+
+### 3.1 输入张量转换
+- 转换 `torch.Tensor` → `pypto.Tensor`
+- 提取设备信息
+- `JitCallableWrapper.__call__()`
+
+### 3.2 延迟编译（Lazy Compilation）
+- **创建解析器**: `_create_parser()`
+- **解析AST**: `_parser.parse()` + 活跃性分析
+- **初始化后端**: `DeviceInit()` + `OperatorBegin()`
+- **设置配置**: `_set_config_option()`
+- **绑定动态维度**: `bind_dynamic_dims_from_inputs()`
+- **生成IR**: `_parser.execute()` → `pypto.Function`
+- **后端编译**: `OperatorEnd()` → handler
+
+#### 编译过程详解
+- **AST解析**: Python函数 → AST → doc AST → 活跃性分析
+- **IR生成**: 访问AST节点 → 生成PTO IR → 处理张量操作
+- **后端编译**: 代码生成 → 优化 → 生成二进制
+
+### 3.3 输出张量分配
+- 从函数签名获取输出形状和类型
+- 分配输出张量
+
+### 3.4 运行时执行分发
+- 设置运行时调试模式
+- 检查 CANN 环境 (`ASCEND_HOME_PATH`)
+- **NPU模式**: `_run_with_npu()`
+- **SIM模式**: `_run_with_cpu()`
+
+## 阶段4: NPU 模式执行
+
+### 4.1 NPU 执行准备
+- 转换为设备张量数据: `_pto_to_tensor_data()`
+- 设备切换: `torch.npu.set_device()`
+
+### 4.2 工作空间分配和执行
+- 获取工作空间大小: `GetWorkSpaceSize()`
+- 分配工作空间内存: `torch.empty()`
+- 调用后端执行: `OperatorDeviceRunOnceDataFromDevice()`
+
+### 4.3 C++ 层设备启动（14个阶段）
+- **阶段0**: 函数开始
+- **阶段1**: 初始化和配置设置 (`SetRunDataOption`)
+- **阶段2**: 设置二进制数据 (`SetBinData`)
+- **阶段3**: 设置捕获流 (`SetCaptureStream`)
+- **阶段4**: 设置捕获模式和性能分析函数
+- **阶段5**: ACL 初始化 (`aclInit`)
+- **阶段6**: 缓存操作符处理
+- **阶段7**: 检查设备 ID (`CheckDeviceId`)
+- **阶段8**: 初始化 Tiling 数据 (`DeviceInitTilingData`)
+- **阶段9**: 初始化内核输入输出 (`DeviceInitKernelInOuts`)
+- **阶段10**: 注册内核二进制 (`RegisterKernelBin`)
+- **阶段11**: 动态启动 (`DynamicLaunch`)
+- **阶段12**: 性能分析运行 (`RunWithProfile`)
+- **阶段13**: 流同步 (`DynamicLaunchSynchronize`)
+
+## 阶段5: SIM 模式执行
+
+### CPU 模拟执行
+- `_run_with_cpu()` 方法
+- 调用成本模型接口: `_cost_model_run_once_data_from_host()`
+- 无需 NPU 硬件
+
+## 阶段6: 结果验证
+
+### 准备输入数据
+- `torch.rand()` 生成随机数据
+
+### 执行内核
+- 调用编译后的函数: `create_add_kernel()()`
+
+### 计算黄金值
+- `torch.add()` CPU 参考实现
+
+### 比较结果
+- `assert_allclose()` 容差检查
+- `rtol=3e-3`, `atol=3e-3`
+
+## 关键数据流
+
+### 张量数据流
+```
+torch.Tensor (用户输入)
+  ↓
+pypto.Tensor (前端转换)
+  ↓
+DeviceTensorData (C++ 层)
+  ↓
+NPU 设备内存
+  ↓
+执行结果
+  ↓
+torch.Tensor (返回给用户)
+```
+
+### 编译流程
+```
+Python 函数 (add_kernel)
+  ↓
+@pypto.frontend.jit 装饰器
+  ↓
+JitCallableWrapper (延迟编译)
+  ↓
+首次调用时:
+  - AST 解析
+  - doc AST 转换
+  - 活跃性分析
+  - IR 生成
+  - 后端编译
+  ↓
+pypto.Function + handler
+  ↓
+可执行内核二进制
+```
+
+### 执行流程
+```
+用户调用 add_kernel(x, y)
+  ↓
+JitCallableWrapper.__call__()
+  ↓
+编译检查 → 如未编译则编译
+  ↓
+输出张量分配
+  ↓
+运行模式分发
+  ├─ NPU 模式 → _run_with_npu() → DeviceLaunchOnceWithDeviceTensorData()
+  └─ SIM 模式 → _run_with_cpu() → 成本模型模拟
+  ↓
+结果返回
+```
+
+## 关键类和接口
+
+### Python 层
+- **JitCallableWrapper**: JIT 编译和执行包装器 (`entry.py`)
+- **Parser**: AST 到 PTO IR 的解析器 (`parser.py`)
+- **RunMode**: 运行模式枚举 (`runtime.py`)
+
+### C++ 层
+- **DeviceLauncher**: 设备启动器，负责内核执行 (`device_launcher.cpp`)
+- **DeviceRunner**: 设备运行器，管理设备资源 (`device_runner.cpp`)
+- **Function**: PTO 函数表示，包含编译后的二进制
+
+## 配置选项
+
+### 运行时选项 (runtime_options)
+- `run_mode`: `RunMode.NPU` 或 `RunMode.SIM`
+
+### 代码生成选项 (codegen_options)
+- 控制代码生成过程
+
+### 主机选项 (host_options)
+- 控制主机端行为
+
+### Pass 选项 (pass_options)
+- 控制编译器优化 Pass
+
+## 错误处理
+
+### 编译时错误
+- 由 Parser 的 Diagnostics 系统报告
+
+### 运行时错误
+- 由后端返回错误消息
+
+### 设备错误
+- 检查 CANN 环境和设备可用性
+
+## 性能优化特性
+
+### 延迟编译
+- 首次调用时才编译，避免模块加载时的开销
+
+### 缓存机制
+- 相同输入形状的编译结果可复用
+
+### 工作空间复用
+- 工作空间内存可复用
+
+### 流异步执行
+- 支持异步执行和流同步
+
+## 总结
+
+### 定义阶段
+- 使用 `@pypto.frontend.jit` 装饰器定义内核函数
+
+### 编译阶段
+- 首次调用时进行延迟编译
+- 将 Python 代码转换为 PTO IR 和可执行二进制
+
+### 执行阶段
+- 根据运行模式（NPU/SIM）分发到相应的执行路径
+
+### 验证阶段
+- 比较执行结果与黄金值
+
+### 设计理念
+- **用户友好的 Python API + 高效的底层执行**
+    </script>
+
+    <script>
+        // 使用 markmap-autoloader 自动渲染
+        const content = document.getElementById('markmap-content').textContent;
+        const { markmap } = window;
+        if (markmap) {
+            markmap.Markmap.create('#markmap', {
+                content: content,
+                color: (node) => {
+                    const depth = node.depth || 0;
+                    const colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b'];
+                    return colors[depth % colors.length];
+                }
+            });
+        }
+    </script>
+</body>
+</html>

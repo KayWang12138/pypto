@@ -62,6 +62,10 @@ public:
     int DynamicLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, rtStream_t aicoreStream, int64_t taskId, AstKernelArgs *kernelArgs, int blockdim, int launchAicpuNum);
     int DynamicLaunchSynchronize(rtStream_t aicpuStream, rtStream_t ctrlStream, rtStream_t aicoreStream);
     int DynamicRun(rtStream_t aicpuStream, rtStream_t ctrlStream, rtStream_t aicoreStream, int64_t taskId, AstKernelArgs *kernelArgs, int blockdim = 25, int launchAicpuNum = 5);
+    // Optimized staged launch functions for better performance
+    int DynamicLaunchInit(rtStream_t aicpuStream, AstKernelArgs *kernelArgsInit, int blockdim, int launchAicpuNum);
+    int DynamicLaunchAiCpu(rtStream_t aicpuStream, AstKernelArgs *kernelArgsAiCpu);
+    int DynamicLaunchAiCore(rtStream_t aicoreStream, AstKernelArgs *kernelArgsAiCore, int blockdim);
     void InitDynamicArgs(DeviceArgs &args);
     int RegisterKernelBin(void **hdl);
     static void SetBinData(const std::vector<uint8_t> &binBuf);

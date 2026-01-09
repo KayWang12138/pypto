@@ -157,18 +157,50 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
         }
     }
     CheckDeviceId();
-    AstKernelArgs kArgs;
     DeviceLauncherConfigFillDeviceInfo(config);
-    DeviceInitTilingData(DeviceMemoryUtils(), kArgs, function->GetDyndevAttribute()->devProgBinary, config, cachedOperator);
-    DeviceRunCacheKernelSet(function, (uint8_t *)kArgs.cfgdata);
-    DeviceInitKernelInOuts(DeviceMemoryUtils(), kArgs, inputList, outputList,
-        function->GetDyndevAttribute()->disableL2List, config.isGETensorList);
+    
+    // Optimized staged launch: prepare and launch kArgs separately for each stage to improve performance
+    // Step 1: Prepare kArgs for launchDynamicAiCpuInit (only what's needed for Init)
+    AstKernelArgs kArgsInit;
+    PrepareKArgsForAiCpuInit(DeviceMemoryUtils(), kArgsInit, function->GetDyndevAttribute()->devProgBinary, config, cachedOperator);
+    DeviceRunCacheKernelSet(function, (uint8_t *)kArgsInit.cfgdata);
+    
     rc = DeviceRunner::Get().RegisterKernelBin(&(*reinterpret_cast<rtBinHandle *>(CachedOperator::GetBinHandleHolder(cachedOperator))));
     if (rc < 0) {
         ALOG_ERROR_F("Register kernel bin failed.");
         return rc;
     }
-    rc = DeviceRunner::Get().DynamicLaunch(aicpuStream, nullptr, aicoreStream, 0, &kArgs, config.blockdim, config.aicpuNum);
+    
+    // Step 2: Launch Init stage (only needs cfgdata, opMetaAddrs, workspace, toSubMachineConfig, machineConfig)
+    // Init stage doesn't need inputs/outputs, so we can launch it early and prepare inputs/outputs in parallel
+    rc = DeviceRunner::Get().DynamicLaunchInit(aicpuStream, &kArgsInit, config.blockdim, config.aicpuNum);
+    if (rc < 0) {
+        ALOG_ERROR_F("launch aicpu init failed %d\n", rc);
+        return rc;
+    }
+    
+    // Step 3: Prepare kArgs for launchDynamicAiCpu (adds inputs/outputs while Init is running)
+    AstKernelArgs kArgsAiCpu = kArgsInit;  // Copy base args from Init
+    PrepareKArgsForAiCpu(DeviceMemoryUtils(), kArgsAiCpu, inputList, outputList,
+        function->GetDyndevAttribute()->disableL2List, config.isGETensorList);
+    
+    // Step 4: Launch AiCpu stage (needs full kArgs with inputs/outputs)
+    rc = DeviceRunner::Get().DynamicLaunchAiCpu(aicpuStream, &kArgsAiCpu);
+    if (rc < 0) {
+        ALOG_ERROR_F("launch aicpu failed %d\n", rc);
+        return rc;
+    }
+    
+    // Step 5: Launch AiCore stage (only needs cfgdata, already prepared in Init)
+    AstKernelArgs kArgsAiCore = kArgsInit;  // Only need cfgdata from Init
+    rc = DeviceRunner::Get().DynamicLaunchAiCore(aicoreStream, &kArgsAiCore, config.blockdim);
+    if (rc < 0) {
+        ALOG_ERROR_F("launch aicore failed %d\n", rc);
+        return rc;
+    }
+    
+    // Step 6: Run post-sync operations
+    rc = DeviceRunner::Get().RunPost(aicpuStream, aicoreStream);
     if (rc < 0) {
         return rc;
     }
