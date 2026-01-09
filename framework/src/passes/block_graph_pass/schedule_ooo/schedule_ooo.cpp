@@ -67,7 +67,7 @@ void OoOSchedule::OoOHealthCheck(OoOScheduler &oooSchedule, Function &function, 
     }
 }
 
-Status OoOSchedule::A23Schedule(std::vector<Operation*> &opList, Function &function,
+Status OoOSchedule::NonMixSchedule(std::vector<Operation*> &opList, Function &function,
     std::pair<uint64_t, Function*> &program, int &maxWorkeSpaceSize) {
     // 直接对oplist进行GenSpill和mainLoop
     OoOScheduler oooSchedule(*program.second, ConfigManager::Instance().GetOperationConfig(KEY_COMBINE_AXIS, false));
@@ -85,7 +85,7 @@ Status OoOSchedule::A23Schedule(std::vector<Operation*> &opList, Function &funct
     return SUCCESS;
 }
 
-Status OoOSchedule::A5Schedule(std::vector<Operation*> &opList, Function &function,
+Status OoOSchedule::MixSchedule(std::vector<Operation*> &opList, Function &function,
     std::pair<uint64_t, Function*> &program, int &maxWorkeSpaceSize) {
     std::unordered_map<TargetCoreType, std::string>  targetToString{{TargetCoreType::AIC, "AIC"}, {TargetCoreType::AIV0, "AIV0"}, {TargetCoreType::AIV1, "AIV1"}, {TargetCoreType::UNKNOWN, "UNKNOWN"}};
     OptimizeSort optimizeSort(opList, *program.second);

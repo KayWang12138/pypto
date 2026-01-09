@@ -850,6 +850,9 @@ Status OoOScheduler::InitAllocDependencies(IssueEntryPtr issue, std::map<int, Is
 }
 
 void OoOScheduler::AddDependency(IssueEntryPtr preIssue, IssueEntryPtr postIssue, bool isAlloc) {
+    if (preIssue == nullptr || postIssue == nullptr) {
+        return;
+    }
     if (isAlloc || (!preIssue->isAlloc && !postIssue->isAlloc)) {
         preIssue->successors.insert(postIssue->id);
         postIssue->predecessors.insert(preIssue->id);
