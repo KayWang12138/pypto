@@ -91,7 +91,7 @@ extern "C" std::string GetPlatformInfo() {
 }
 
 extern "C" int32_t Execute(MachineTask *task, FunctionCache &cache) {
-    if (config::GetPlatformConfig(KEY_ONLY_HOST_COMPILE, false)) {
+    if (config::GetHostOption<int64_t>(COMPILE_STAGE, 0) == CompileStage::HOST_COMPILE_END) {
         ALOG_INFO("draw graph switch enabled, push finish queue.");
         return 0;
     }
@@ -138,7 +138,7 @@ extern "C" int32_t Execute(MachineTask *task, FunctionCache &cache) {
         CacheManager::Instance().SaveTaskFile(deviceAgentTask.get());
     }
 
-    if (config::GetHostOption<bool>(ONLY_CODEGEN)) {
+    if (config::GetHostOption<int64_t>(COMPILE_STAGE, 0) == CompileStage::GEN_KERNEL_CODE) {
         ALOG_INFO("only gen code switch enabled, push finish queue.");
         // only static use gDeviceAgentTaskPtr; when dynamic, delete deviceMachineTask
         return 0;

@@ -27,7 +27,7 @@ class OperationImplTest : public testing::Test {
 public:
     static void TearDownTestCase() {}
 
-    static void SetUpTestCase() { config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true); }
+    static void SetUpTestCase() { config::SetHostOption(COMPILE_STAGE, CompileStage::HOST_COMPILE_END); }
 
     void SetUp() override { config::Reset(); }
 
