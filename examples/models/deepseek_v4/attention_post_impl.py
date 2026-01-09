@@ -292,3 +292,5 @@ def npu_attention_post_v4(attn_res: torch.Tensor, cos: torch.Tensor, sin: torch.
         pto_inputs = [atten_res_pto, cos_pto, sin_pto, wo_a_pto, wo_b_pto]
         pto_outputs = [hidden_states_pto]
         attention_post_decode(*pto_inputs, *pto_outputs, tile_config)
+        
+    return hidden_states
