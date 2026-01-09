@@ -33,7 +33,7 @@ using namespace npu::tile_fwk;
 namespace npu {
 namespace tile_fwk {
 constexpr int NUM10 = 10;
-
+constexpr int NUM128 = 128;
 void PrintGraphInfoPreGraph(Function* func, std::set<int>& tensorMagicWithColorSet) {
     std::cout << "func->Operations().size() = "  << func->Operations().size() << std::endl;
     for (auto &op : func->Operations()) {
@@ -674,6 +674,95 @@ TEST_F(PreGraphTest, TestFixPipeReconnectGraph) {
     auto reluType = (copyout.HasAttr(A_MUL_B_RELU_ATTR)) ? copyout.GetIntAttribute(A_MUL_B_RELU_ATTR) : 0;
     EXPECT_EQ(scaleValue, Element(DataType::DT_UINT64, NUM10));
     EXPECT_EQ(reluType, 1);
+}
+
+void ConstructRemoveRedundantView(ComputationalGraphBuilder &G, bool multi) {
+    // add tensor
+    G.AddTensor(DataType::DT_FP16, {16, 64, 64}, "t1");
+    G.AddTensor(DataType::DT_FP16, {1, 64, 64}, "t2");
+    G.AddTensor(DataType::DT_FP16, {64, 64}, "t3");
+    G.AddTensor(DataType::DT_FP16, {64, 64}, "t4");
+    // add op
+    G.AddOp(Opcode::OP_VIEW, {"t1"}, {"t2"}, "VIEW");
+    G.AddOp(Opcode::OP_RESHAPE, {"t2"}, {"t3"}, "RESHAPE");
+    G.AddOp(Opcode::OP_COPY_IN, {"t3"}, {"t4"}, "COPYIN");
+    std::vector<int64_t> offset = {2, 0, 0};
+    auto view = G.GetOp("VIEW");
+    auto attrA = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{2, 0, 0}, MemoryType::MEM_UNKNOWN,
+        OpImmediate::ToSpecified(OpImmediate::Specified(std::vector<int64_t>{2, 0, 0})));
+    view->SetOpAttribute(attrA);
+    // set incast and outcast
+    G.SetInCast({"t1"});
+    G.SetOutCast({"t4"});
+
+    // another copyin
+    if (multi) {
+        G.AddTensor(DataType::DT_FP32, {64, 64}, "t41");
+        G.SetOutCast({"t41"});
+        G.AddOp(Opcode::OP_COPY_IN, {"t3"}, {"t41"}, "COPYIN2");
+        auto copyIn2 = G.GetOp("COPYIN2");
+        auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(copyIn2->GetOpAttribute());
+        copyAttr->SetFromOffset(OpImmediate::Specified(std::vector<int64_t>{32, 0}));
+    }
+}
+
+TEST_F(PreGraphTest, TestRemoveRedundantView) {
+    ComputationalGraphBuilder G;
+    ConstructRemoveRedundantView(G, false);
+    // run pass
+    Function *function = G.GetFunction();
+    EXPECT_NE(function, nullptr);
+    PreGraphProcess passLocal;
+    EXPECT_EQ(passLocal.Run(*function, "", "", 0), SUCCESS);
+    // check after pass
+    auto opList = function->Operations();
+    int64_t viewCnt = 0;
+    for (const auto &op : opList) {
+        if (op.GetOpcode() == Opcode::OP_VIEW) {
+            ++viewCnt;
+        }
+    }
+    EXPECT_EQ(viewCnt, 0);
+
+    auto copyIn = G.GetOp("COPYIN");
+    std::shared_ptr<CopyOpAttribute> copyAttr = std::static_pointer_cast<CopyOpAttribute>(copyIn->GetOpAttribute());
+    auto newDynOffset = copyAttr->GetFromOffset();
+    EXPECT_EQ(newDynOffset[0].Dump(), "128");
+    EXPECT_EQ(newDynOffset[1].Dump(), "0");
+
+    auto newRawShape = copyAttr->GetRawShape();
+    EXPECT_EQ(newRawShape[0].Dump(), "1024");
+    EXPECT_EQ(newRawShape[1].Dump(), "64");
+    auto t = G.GetTensor("t3");
+    EXPECT_EQ(t->GetShape(), (std::vector<int64_t>{1024, 64}));
+}
+
+TEST_F(PreGraphTest, TestRemoveRedundantViewMultiReshape) {
+    ComputationalGraphBuilder G;
+    ConstructRemoveRedundantView(G, true);
+
+    // run pass
+    Function *function = G.GetFunction();
+    EXPECT_NE(function, nullptr);
+    PreGraphProcess passLocal;
+    EXPECT_EQ(passLocal.Run(*function, "", "", 0), SUCCESS);
+    // check after pass
+    auto opList = function->Operations();
+    int64_t viewCnt = 0;
+    for (const auto &op : opList) {
+        if (op.GetOpcode() == Opcode::OP_VIEW) {
+            ++viewCnt;
+        }
+    }
+    EXPECT_EQ(viewCnt, 0);
+    auto copyIn = G.GetOp("COPYIN");
+    auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(copyIn->GetOpAttribute());
+    auto newDynOffset = copyAttr->GetFromOffset();
+    EXPECT_EQ(newDynOffset[0].Dump(), "128");
+    copyIn = G.GetOp("COPYIN2");
+    copyAttr = std::static_pointer_cast<CopyOpAttribute>(copyIn->GetOpAttribute());
+    newDynOffset = copyAttr->GetFromOffset();
+    EXPECT_EQ(newDynOffset[0].Dump(), "160");
 }
 } // namespace tile_fwk
 } // namespace npu
