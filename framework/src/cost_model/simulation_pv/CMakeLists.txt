@@ -20,8 +20,8 @@ target_include_directories(tile_fwk_simulation_pv
 )
 target_link_libraries(tile_fwk_simulation_pv
         PUBLIC
-            $<$<BOOL:${ENABLE_UTEST}>:tile_fwk_codegen>
-            $<$<BOOL:${ENABLE_UTEST}>:tile_fwk_simulation>
+            $<$<BOOL:${ENABLE_COMPILE_DEPENDENCY_CHECK}>:tile_fwk_codegen>
+            $<$<BOOL:${ENABLE_COMPILE_DEPENDENCY_CHECK}>:tile_fwk_simulation>
             json
         PRIVATE
             intf_pub_cxx17
