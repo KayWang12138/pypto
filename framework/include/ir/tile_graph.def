@@ -65,3 +65,32 @@ DEFOP(
     ATTR(int, CombineAxis, -1),
     ATTR(bool, Reverse, false)
 )
+
+DEFOP(
+    MatmulCommonOp,
+    INHERIT(MatmulTileBaseOp),
+    OPCODE(
+        OP_L1_COPY_IN,
+        OP_L1_TO_L0A,
+        OP_L1_TO_L0B,
+        OP_L1_TO_L0_AT,
+        OP_L1_TO_L0_BT,
+        OP_A_MUL_B,
+        OP_A_MULACC_B,
+        OP_L0C_COPY_OUT,
+        OP_L0C_TO_L1,
+        OP_L0C_COPY_UB,
+        OP_UB_COPY_L1,
+        OP_UB_COPY_ND2NZ
+    ),
+    ATTR(int, CombineAxis)
+)
+
+DEFOP(
+    MatmulExtendOp,
+    INHERIT(MatmulTileBaseOp),
+    OPCODE(
+        OP_L1_TO_BT,
+        OP_L1_TO_FIX_QUANT_PRE
+    )
+)
