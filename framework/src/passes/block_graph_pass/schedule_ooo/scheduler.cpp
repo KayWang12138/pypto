@@ -562,9 +562,14 @@ Status OoOScheduler::RetireOpAndAwakeSucc(IssueEntryPtr issue, uint64_t& commitC
 
 Status OoOScheduler::RetireCoreIssue(OpCoreType coreType, int idx, uint64_t& commitCnt, int& nextCycle) {
     for (auto& [pipeType, pipe] : issueQueues[coreType][idx]) {
-        (void)pipeType;
         if (!pipe.busy) {
             continue;
+        }
+        if (!pipeEndTime.count(pipeType)) {
+            pipeEndTime.emplace(pipeType, pipe.curOpRetireCycle);
+        } else {
+            auto curEndTime = pipeEndTime[pipeType];
+            pipeEndTime[pipeType] = std::max(curEndTime, pipe.curOpRetireCycle);
         }
         if (pipe.curOpRetireCycle <= clock) {   // 如果该pipe内当前正在执行op，在clock的时刻已经执行完毕。
             IssueEntryPtr issue = pipe.curIssue;
@@ -1171,6 +1176,7 @@ Status OoOScheduler::Schedule(const std::vector<Operation *> &operations, const 
     }
     PrintOpList(newOperations_);
     function_.SetStackWorkespaceSize(workspaceOffset);
+    function_.pipeEndTime = pipeEndTime;
     return SUCCESS;
 }
 
