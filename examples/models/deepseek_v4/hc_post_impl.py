@@ -22,14 +22,6 @@ class HcPostTileConfig:
     def __init__(self): 
         self.tile_b = 8
         self.unroll_list = [32, 16, 8, 4, 2, 1]
-        
-
-@dataclass
-class MlaQuantInputs: 
-    x: pypto.tensor = None
-    residual: pypto.tensor = None
-    post: pypto.tensor = None
-    comb: pypto.tensor = None
 
 
 def hc_post_compute(
@@ -117,7 +109,7 @@ def npu_hc_post(
     comb: torch.tensor):
 
     tile_config = HcPostTileConfig()
-    y = torch.zeros([b * s, hc, d], dtype=x.dtype, device=f'{x.device}')
+    y = torch.zeros([x.size(0), residual.size(1), residual.size(2)], dtype=x.dtype, device=f'{x.device}')
     inputs = {
         x: [0],
         residual: [0],
@@ -133,3 +125,5 @@ def npu_hc_post(
         pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
         pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
         hc_post_kernel(*pto_inputs, *pto_outputs, tile_config)
+
+    return y

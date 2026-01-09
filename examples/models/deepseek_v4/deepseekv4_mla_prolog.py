@@ -247,9 +247,26 @@ def convert_pypto_to_torch_type(pypto_type):
         raise ValueError(f"Unsupported pypto.DataType: {pypto_type}")
 
 
+pyptolib = torch.library.Library("pypto", "FRAGMENT")
+pyptolib.define("mla_prolog(Tensor token_x, Tensor wq_a, Tensor wq_b, Tensor wkv, Tensor rope_cos, Tensor rope_sin, Tensor gamma_cq, Tensor gamma_ckv) -> (Tensor, Tensor, Tensor)")
+
+@torch.library.impl(pyptolib, "mla_prolog", "Meta")
+def mla_prolog(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv):
+    q_out_shape = torch.empty([token_x.size(0), wq_b.size(1) // gamma_ckv.size(0), gamma_ckv.size(0)], dtype=token_x.dtype, device=token_x.device)
+    kv_out_shape = torch.empty([token_x.size(0), gamma_ckv.size(0)], dtype=token_x.dtype, device=token_x.device)
+    qr_out_shape = torch.empty([token_x.size(0), gamma_cq.size(0)], dtype=token_x.dtype, device=token_x.device)
+
+    return q_out_shape, kv_out_shape, qr_out_shape
+
+
+@torch.library.impl(pyptolib, "mla_prolog", "NPU")
+def mla_prolog(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv):
+    return mla_prolog_v4_in(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv)
+
+
 class MLA_MODEL(torch.nn.Module):
-    def forward(self, token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, output_q_data, output_kv_data, output_qr_data):
-        return mla_prolog_v4_in(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, output_q_data, output_kv_data, output_qr_data)
+    def forward(self, token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv):
+        return torch.ops.pypto.mla_prolog(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv)
 
 def mla_prolog(params, input_tensors, golden_tensors, dtype, is_nz):
     d_type = pypto.DataType.DT_FP16 if dtype == pypto.DataType.DT_FP16 else pypto.DataType.DT_BF16
@@ -293,18 +310,16 @@ def mla_prolog(params, input_tensors, golden_tensors, dtype, is_nz):
     gamma_ckv = input_tensors["gamma_ckv"].reshape(rmsnorm_gamma_ckv_shape).npu()
     inputs = [token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv]
 
-    output_q_data = torch.zeros(q_out_shape, dtype=convert_pypto_to_torch_type(d_type)).npu()
-    output_kv_data = torch.zeros(kv_out_shape, dtype=convert_pypto_to_torch_type(d_type)).npu()
-    output_qr_data = torch.zeros(qr_out_shape, dtype=convert_pypto_to_torch_type(d_type)).npu()
-    outputs = [output_q_data, output_kv_data, output_qr_data]
-
-    #capture model
-    mla_prolog_model = torch.compile(MLA_MODEL(), backend="eager", dynamic=True)
-    g = torch.npu.NPUGraph()
-    with torch.npu.graph(g):
-        output_q_data, output_kv_data, output_qr_data = mla_prolog_model(*inputs, *outputs)
-    g.replay()
+    import torchair as tng
+    from torchair.configs.compiler_config import CompilerConfig
+    compiler_config = CompilerConfig()
+    compiler_config.mode = "reduce-overhead"
+    npu_backend = tng.get_npu_backend(compiler_config=compiler_config)
+    model = torch.compile(MLA_MODEL(), dynamic=False, fullgraph=True, backend=npu_backend)
+    
+    output_q_data, output_kv_data, output_qr_data = model(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv)
     pypto.runtime._device_synchronize()
+
     # golden data 
     golden1 = golden_tensors["q_golden"].reshape(q_out_shape)
     golden2 = golden_tensors["kv_golden"].reshape(kv_out_shape)

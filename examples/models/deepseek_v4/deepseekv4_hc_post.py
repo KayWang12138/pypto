@@ -15,10 +15,21 @@ from hc_post_impl import npu_hc_post
 
 torch.manual_seed(5)
 
+pyptolib = torch.library.Library("pypto", "FRAGMENT")
+pyptolib.define("hc_post(Tensor x, Tensor residual, Tensor post, Tensor comb) -> (Tensor)")
+
+@torch.library.impl(pyptolib, "hc_post", "Meta")
+def hc_post(x, residual, post, comb):
+    y = torch.empty([x.size(0), residual.size(1), residual.size(2)], dtype=x.dtype, device=x.device)
+    return y
+
+@torch.library.impl(pyptolib, "hc_post", "NPU")
+def hc_post(x, residual, post, comb):
+    return npu_hc_post(x, residual, post, comb)
 
 class HP(torch.nn.Module):
     def forward(self, x, residual, post, comb):
-        npu_hc_post(x, residual, post, comb)
+        return torch.ops.pypto.hc_post(x, residual, post, comb)
 
 def prep_env():
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
@@ -100,7 +111,7 @@ def test_b4_s64k2_nd_bf16_hc_post():
     input_tensors = [x, residual, post, comb]
     y = hc_post_commpute(input_tensors, params)
 
-    npu_hc_post(x.npu(), residual.npu(), post.npu(), comb.npu())
+    y_out = npu_hc_post(x.npu(), residual.npu(), post.npu(), comb.npu())
     compare(y_out.cpu(), y.cpu(), 'y', 0.0001, 0.0078125,
             0.005)
 
@@ -125,23 +136,21 @@ def test_b4_s64k2_nd_bf16_hc_post_graph():
     x, residual, post, comb = gen_hc_post_input_data(params, dtypes)
     input_tensors = [x, residual, post, comb]
     y = hc_post_commpute(input_tensors, params)
-
-    y_out_shape = [b * s, hc, d]
-    y_out = torch.empty(y_out_shape, dtype=torch.bfloat16).npu()
-
-    model = torch.compile(HP(), backend="eager", dynamic=True)
+    
+    import torchair as tng
+    from torchair.configs.compiler_config import CompilerConfig
+    compiler_config = CompilerConfig()
+    compiler_config.mode = "reduce-overhead"
+    npu_backend = tng.get_npu_backend(compiler_config=compiler_config)
+    model = torch.compile(HP(), dynamic=False, fullgraph=True, backend=npu_backend)
+    # model = torch.compile(HP(), dynamic=False, fullgraph=True, backend="npugraph_ex")
     
     x_npu = x.npu()
     residual_npu = residual.npu()
     post_npu = post.npu()
     comb_npu = comb.npu()
-    # capture model
-    g = torch.npu.NPUGraph()
-    with torch.npu.graph(g):
-        model(x_npu, residual_npu, post_npu, comb_npu, y_out)
-    
-    g.replay()
-    pypto.runtime._device_synchronize()#内部接口，不推荐使用
+    y_out = model(x_npu, residual_npu, post_npu, comb_npu)
+    pypto.runtime._device_synchronize()
     compare(y_out.cpu(), y.cpu(), 'y', 0.0001, 0.0078125,
             0.005)
 
@@ -175,7 +184,7 @@ def test_b4_s64k2_nd_bf16_hc_post_npu_graph():
     # capture model
     g = torch.npu.NPUGraph()
     with torch.npu.graph(g):
-        npu_hc_post(x_npu, residual_npu, post_npu, comb_npu)
+        y_out = npu_hc_post(x_npu, residual_npu, post_npu, comb_npu)
     
     g.replay()
     pypto.runtime._device_synchronize()#内部接口，不推荐使用
