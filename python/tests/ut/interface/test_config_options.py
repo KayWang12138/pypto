@@ -33,7 +33,7 @@ def test_pass_option():
 
 
 def test_host_option():
-    pypto.set_host_options(only_codegen=True)
+    pypto.set_host_options(compile_stage=pypto.GEN_KERNEL_CODE)
     host_option = pypto.get_host_options()
     assert host_option["only_codegen"] == True
 
@@ -48,7 +48,7 @@ def test_reset_option():
     pypto.set_runtime_options(stitch_function_num_initial=23)
     runtime_option = pypto.get_runtime_options()
     assert runtime_option["stitch_function_num_initial"] == 23
-    pypto.set_host_options(only_codegen=True)
+    pypto.set_host_options(compile_stage=pypto.GEN_KERNEL_CODE)
     host_option = pypto.get_host_options()
     assert host_option["only_codegen"] == True
     pypto.reset_options()

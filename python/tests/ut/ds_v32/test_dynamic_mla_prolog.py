@@ -561,7 +561,7 @@ class MlaBuildConfig:
 
 
 def setup_codegen_passes():
-    pypto.set_host_options(only_codegen=True)
+    pypto.set_host_options(compile_stage=pypto.GEN_KERNEL_CODE)
     pypto.set_pass_options(
         vec_nbuffer_mode=NUM_1,
         cube_l1_reuse_mode=NUM_4,

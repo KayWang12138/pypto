@@ -40,7 +40,7 @@ constexpr const char *NBUFFER_NUM = "nbuffer_num";
 constexpr const char *L1_REUSE_NUM = "l1_reuse_num";
 constexpr const char *DB_TYPE = "db_type";
 constexpr const char *COPYOUT_RESOLVE_COALESCING = "copyout_resolve_coalescing";
-constexpr const char *ONLY_CODEGEN = "only_codegen";
+constexpr const char *COMPILE_STAGE = "compile_stage";
 constexpr const char *SUPPORT_DYNAMIC_ALIGNED = "support_dynamic_aligned";
 
 //runtime
@@ -80,6 +80,13 @@ const std::string KEY_PASS_VERIFY_SAVE_TENSOR_DIR = "pass_verify_save_tensor_dir
 const std::string KEY_PASS_VERIFY_FILTER = "pass_verify_pass_filter";
 
 struct ConfigStorage;
+
+enum class CompileStage {
+    ALL_COMPLETE,
+    GEN_TENSOR_GRAPH,
+    HOST_COMPILE_END,
+    GEN_KERNEL_CODE
+};
 
 struct PrintOptions {
     int edgeItems;

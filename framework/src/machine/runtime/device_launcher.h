@@ -56,7 +56,7 @@ public:
         Program::GetInstance().Reset();
         ProgramData::GetInstance().Reset();
 
-        config::SetHostOption(ONLY_CODEGEN, true);
+        config::SetHostOption(COMPILE_STAGE, CompileStage::GEN_KERNEL_CODE);
     }
 
     void DeviceFini() {

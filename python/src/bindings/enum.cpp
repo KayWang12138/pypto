@@ -142,5 +142,12 @@ void bind_enum(py::module &m){
         .value("LOG_2", LogBaseType::LOG_2)
         .value("LOG_10", LogBaseType::LOG_10)
         .export_values();
+    
+    py::enum_<CompileStage>(m, "CompileStage")
+        .value("ALL_COMPLETED", CompileStage::ALL_COMPLETED)
+        .value("GEN_TENSOR_GRAPH", CompileStage::GEN_TENSOR_GRAPH)
+        .value("HOST_COMPILE_END", CompileStage::HOST_COMPILE_END)
+        .value("GEN_KERNEL_CODE", CompileStage::GEN_KERNEL_CODE)
+        .export_values();
 }
 }

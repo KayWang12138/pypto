@@ -322,7 +322,7 @@ void Program::HandleTaskSubmission(Function *result) {
                                  }),
                     scopes.end());
             }
-        } else if (!config::GetPlatformConfig(KEY_ONLY_TENSOR_GRAPH, false)) {
+        } else if (config::GetHostOption<int64_t>(COMPILE_STAGE) != CompileStage::GEN_TENSOR_GRAPH) {
             HostMachine::GetInstance().SubTask(result);
             HostMachine::GetInstance().WaitTaskFinish();
         }
