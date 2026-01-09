@@ -14,10 +14,10 @@ import argparse
 import logging
 from typing import Any, Optional, Dict
 
-from accelerate.distributed_gtest_accelerate import DistriutedGTestAccelerate
+from accelerate.distributed_gtest_accelerate import DistributedGTestAccelerate
 
 
-class DistributedSTestAccelerate(DistriutedGTestAccelerate):
+class DistributedSTestAccelerate(DistributedGTestAccelerate):
     """STest 执行加速
 
     通过多进程并行执行, 以提升 STest 执行效率.
@@ -44,7 +44,7 @@ class DistributedSTestAccelerate(DistriutedGTestAccelerate):
         if args.device is not None:
             device_list = [int(d) for d in list(set(args.device)) if d is not None and str(d) != ""]
         for _id in device_list:
-            p = DistriutedGTestAccelerate.ExecParam(cntr_id=_id,
+            p = DistributedGTestAccelerate.ExecParam(cntr_id=_id,
                                                     envs_func=DistributedSTestAccelerate.set_device_id_envs)
             params.append(p)
         ctrl = DistributedSTestAccelerate(args=args, params=params, cntr_name="Device")

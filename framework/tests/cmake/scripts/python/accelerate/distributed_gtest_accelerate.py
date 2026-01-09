@@ -28,7 +28,7 @@ from utils.executable import Executable
 from utils.table import Table
 
 
-class DistriutedGTestAccelerate(ABC):
+class DistributedGTestAccelerate(ABC):
     """GTest 加速 - 支持4卡用例在16卡上并行执行
     """
 
@@ -223,9 +223,9 @@ class DistriutedGTestAccelerate(ABC):
         self.exe: Executable = Executable(file=args.target[0], envs=args.envs, timeout=args.timeout_case)
         
         # 自动创建设备组感知的执行参数
-        self.exe_params: List[DistriutedGTestAccelerate.ExecParam] = self._create_4card_distributed_params(args)
-        self.exe_result: DistriutedGTestAccelerate.ExecResult = (
-            DistriutedGTestAccelerate.ExecResult(cntr_name=cntr_name)
+        self.exe_params: List[DistributedGTestAccelerate.ExecParam] = self._create_4card_distributed_params(args)
+        self.exe_result: DistributedGTestAccelerate.ExecResult = (
+            DistributedGTestAccelerate.ExecResult(cntr_name=cntr_name)
         )
         self.exe_timeout: Optional[int] = args.timeout
         self.exe_halt_on_error: bool = args.halt_on_error
@@ -355,7 +355,7 @@ class DistriutedGTestAccelerate(ABC):
             envs_dict = getattr(args, 'envs', {})
             
             # 创建新的ExecParam
-            new_param = DistriutedGTestAccelerate.ExecParam(
+            new_param = DistributedGTestAccelerate.ExecParam(
                 cntr_id=group_id,
                 envs_func=make_envs_func(device_list, device_list_str, envs_dict),
                 custom={
@@ -484,7 +484,7 @@ class DistriutedGTestAccelerate(ABC):
     def _cntr(self, cntr_id: int, exec_param, delay: int):
         """容器进程 - 专用于4卡分布式执行
         """
-        ctx = DistriutedGTestAccelerate.CntrContext(cntr_id=cntr_id, exec_param=exec_param)
+        ctx = DistributedGTestAccelerate.CntrContext(cntr_id=cntr_id, exec_param=exec_param)
         
         try:
             time.sleep(delay)
@@ -536,7 +536,7 @@ class DistriutedGTestAccelerate(ABC):
     def _case(self, cntr_id: int, param: ExecParam, gtest_filter: str):
         """执行GTest用例 - 实时输出4卡分布式测试结果
         """
-        ctx = DistriutedGTestAccelerate.CaseContext(cntr_id=cntr_id, exec_param=param, 
+        ctx = DistributedGTestAccelerate.CaseContext(cntr_id=cntr_id, exec_param=param, 
                                          gtest_filter=gtest_filter)
         device_info = f"Device{param.custom['devices']}"
         logging.info("Executing %s on %s", gtest_filter, device_info)
@@ -590,28 +590,6 @@ class DistriutedGTestAccelerate(ABC):
         if self.exe_halt_on_error:
             self.cntr_terminate_event.set()
             logging.info("Send terminate event upload.")
-
-
-    def _cntr_progress(self, update=True) -> str:
-        """获取 Container 处理进展
-        """
-        if update:
-            with self.cntr_exit_count.get_lock():
-                self.cntr_exit_count.value += 1
-        cnt = int(self.cntr_exit_count.value)
-        pgs = cnt / len(self.exe_params) * 100 if len(self.exe_params) > 0 else 0
-        return f"{self.cntr_name}Progress[{cnt}/{len(self.exe_params)} {pgs:.2f}%]"
-
-
-    def _case_progress(self, update=True) -> str:
-        """获取 Case 处理进展
-        """
-        if update:
-            with self.case_exec_count.get_lock():
-                self.case_exec_count.value += 1
-        cnt = int(self.case_exec_count.value)
-        pgs = cnt / len(self.case_list) * 100 if len(self.case_list) > 0 else 0
-        return f"CaseProgress[{cnt}/{len(self.case_list)} {pgs:.2f}%]"
 
 
     def _put_case_exception_info(self, info: str, chunk_size: int = 4096):
