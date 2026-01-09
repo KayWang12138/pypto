@@ -22,6 +22,7 @@
 namespace npu::tile_fwk {
 const std::string version = "version";
 const std::string npuArchInfo = "NpuArch";
+const std::string shortSocVer = "Short_SoC_version";
 const std::string socInfo = "SoCInfo";
 const std::string aiCoreCnt = "ai_core_cnt";
 const std::string cubeCoreCnt = "cube_core_cnt";
@@ -147,6 +148,16 @@ void SoC::SetCCECVersion(const std::unordered_map<std::string, std::string>& ver
     }
 }
 
+void SoC::SetShortSoCVersion(const std::string& versionStr) {
+    const std::unordered_map<std::string, ShortSoCVersion> ShortSoCVersionMap = {
+        {"Ascend910B", ShortSoCVersion::SoC_910B},
+        {"Ascend910_93", ShortSoCVersion::SoC_910_93}};
+    auto it = ShortSoCVersionMap.find(versionStr);
+    if (it != ShortSoCVersionMap.end()) {
+        shortSoCVersion_ = ShortSoCVersionMap.at(versionStr);
+    }
+}
+
 std::string SoC::GetCoreVersion(std::string CoreType) {
     if (CoreType == "AIC") {
         return GetAICCore().GetVersion();
@@ -252,6 +263,9 @@ void Platform::LoadFromIni(const std::string &filePath) {
     if (parser.GetStringVal(version, npuArchInfo, archType) == SUCCESS) {
         GetSoc().SetNPUArch(archType);
     }
+    if (parser.GetStringVal(version, shortSocVer, archType) == SUCCESS) {
+        GetSoc().SetShortSoCVersion(archType);
+    }
     if (parser.GetCCECVersion(versionInfo) == SUCCESS) {
         GetSoc().SetCCECVersion(versionInfo);
     }
@@ -287,7 +301,7 @@ void Platform::LoadFromIni(const std::string &filePath) {
     if (parser.GetSizeVal(aiCoreSpec, ubSize, memoryLimit) == SUCCESS) {
         GetAIVCore().AddMemory(MemoryInfo(MemoryType::MEM_UB, memoryLimit));
     }
-
+    
     std::vector<std::vector<std::string>> dataPath;
     if (parser.GetDataPath(dataPath) == SUCCESS) {
         GetDie().SetMemoryPath(dataPath);
