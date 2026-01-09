@@ -59,7 +59,6 @@ def create_ir_module(name="main"):
 
     # ===== Function Body =====
     func = builder.create_function("test_control", ir.FunctionKind.ControlFlow, sig, False)
-    module.entry = func
 
     with function_scope(builder, ctx, func):
         # Setup constants
@@ -99,6 +98,7 @@ def create_ir_module(name="main"):
 
         builder.create_return(ctx, [constant0])
 
+    module.entry = func
     return module
 
 if __name__ == "__main__":

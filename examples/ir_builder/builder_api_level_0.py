@@ -36,7 +36,6 @@ def create_ir_module(name="main"):
     # ===== Function =====
     func = builder.create_function(
         "test_control", ir.FunctionKind.ControlFlow, sig, False)
-    module.entry = func
 
     # Enter function body scope
     builder.enter_function(ctx, func)
@@ -92,6 +91,8 @@ def create_ir_module(name="main"):
     builder.create_return(ctx, [constant0])
 
     ctx.pop_scope()  # function-body
+
+    module.entry = func
     return module
 
 
