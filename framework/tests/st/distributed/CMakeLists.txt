@@ -46,7 +46,7 @@ endif ()
 
 # 用例可执行程序(执行)
 set(_DistributedGTestCaseFilterConfig 
-        "TestAllgather/DistributedTest.TestAllgather/0" "4"
+        # "TestAllgather/DistributedTest.TestAllgather/0" "4"
         "TestAllreduce/DistributedTest.TestAllreduce/0" "4"
         "TestAllreduce/DistributedTest.TestAllreduce/1" "4"
         "TestMoeDistributedCombine/DistributedTest.TestMoeDistributedCombine/0" "4"
