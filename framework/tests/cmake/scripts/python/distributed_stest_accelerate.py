@@ -12,7 +12,7 @@
 """
 import argparse
 import logging
-from typing import List, Any, Optional, Dict
+from typing import Any, Optional, Dict
 
 from accelerate.distributed_gtest_accelerate import DistriutedGTestAccelerate
 
@@ -32,10 +32,10 @@ class DistributedSTestAccelerate(DistriutedGTestAccelerate):
         """主处理流程
         """
         # 参数注册
-        parser = argparse.ArgumentParser(description=f"STest Execute Accelerate", epilog="Best Regards!")
-        DistributedSTestAccelerate.reg_args(parser=parser)
-        parser.add_argument("-d", "--device", nargs="?", type=int, action="append",
-                            help="Specific parallel accelerate device, "
+        parser = argparse.ArgumentParser(description = f"STest Execute Accelerate", epilog = "Best Regards!")
+        DistributedSTestAccelerate.reg_args(parser = parser)
+        parser.add_argument("-d", "--device", nargs = "?", type = int, action = "append",
+                            help = "Specific parallel accelerate device, "
                                  "If this parameter is not specified, 0 device will be used by default.")
         # 流程处理
         args = parser.parse_args()
@@ -44,9 +44,10 @@ class DistributedSTestAccelerate(DistriutedGTestAccelerate):
         if args.device is not None:
             device_list = [int(d) for d in list(set(args.device)) if d is not None and str(d) != ""]
         for _id in device_list:
-            p = DistriutedGTestAccelerate.ExecParam(cntr_id=_id, envs_func=DistributedSTestAccelerate.set_device_id_envs)
+            p = DistriutedGTestAccelerate.ExecParam(cntr_id = _id,
+                                                    envs_func = DistributedSTestAccelerate.set_device_id_envs)
             params.append(p)
-        ctrl = DistributedSTestAccelerate(args=args, params=params, cntr_name="Device")
+        ctrl = DistributedSTestAccelerate(args = args, params = params, cntr_name = "Device")
         ctrl.process()
         return ctrl.post()
 
@@ -58,9 +59,9 @@ class DistributedSTestAccelerate(DistriutedGTestAccelerate):
 
 if __name__ == "__main__":
     logging.basicConfig(
-        format='%(asctime)s - %(filename)s:%(lineno)d - PID[%(process)d] - %(levelname)s: %(message)s',
-        level=logging.INFO,
-        handlers=[
+        format = '%(asctime)s - %(filename)s:%(lineno)d - PID[%(process)d] - %(levelname)s: %(message)s',
+        level = logging.INFO,
+        handlers = [
             logging.StreamHandler()
         ]
     )
