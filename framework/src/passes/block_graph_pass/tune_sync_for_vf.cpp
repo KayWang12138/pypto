@@ -17,7 +17,7 @@
 #include "passes/block_graph_pass/insert_sync.h"
 #include "passes/pass_log/pass_log.h"
 
-#define MODULE_NAME "TuneSyncForVF"
+// #define MODULE_NAME "TuneSyncForVF"
 
 namespace npu {
 namespace tile_fwk {
@@ -31,7 +31,7 @@ bool TuneSyncForVF::NeedAdjustSetFlag(Function *subGraphFunc, Operation *vecTile
     float ty = t0 + vfPrarm * vecTileOp0->GetLatency() + vfPrarm * vecTileOp1->GetLatency();
     Operation *tileOpZ = subGraphFunc->setWaitOpMap[vecTileOp0];
     float tb = static_cast<float>(tileOpZ->cycleStart);
-    if (std::max(tv - t2 + ty, tx + std::max(0, (ty - std::max(t1, tb)))) < tv) {
+    if (std::max(tv - t2 + ty, tx + std::max(static_cast<float>(0), (ty - std::max(t1, tb)))) < tv) {
         return true;
     }
     return false;
@@ -70,7 +70,7 @@ void TuneSyncForVF::AdjustSetWaitFlag(Function *subGraphFunc, std::vector<Operat
     // 在vecTileOp0Idx集合的左侧将setflag插入
     size_t mergedSize = mergedOps[groupNum].size();
     auto insertPos2 = opList_.begin() + vecTileOp0Idx - mergedSize;
-    opList_.insert(insertPos2. setFlagList.begin(), setFlagList.end());
+    opList_.insert(insertPos2, setFlagList.begin(), setFlagList.end());
 
     // 更新各pipe上op的时间戳
     // TODO: 更新pipe_v的时间戳
@@ -121,7 +121,7 @@ void TuneSyncForVF::ChangeOpSeq(Function *subGraphFunc, bool isAIV1) {
         }
         // 两个pipeV的op间的op如果有一个既不是SYNC_SRC也不是SYNC_DST,则说明这两个pipeV op不能合并
         if (hasNonSetWaitOp || (setFlagList.empty() && waitFlagList.empty())) {
-            continue
+            continue;
         }
         // 判断是否需要进行调整 （所有的SYNC_SRC和SYNC_DST中，只要有一个是有收益的，就进行融合）
         bool needAdjustSet = false;
@@ -156,7 +156,7 @@ void TuneSyncForVF::ChangeOpSeq(Function *subGraphFunc, bool isAIV1) {
         auto vecTileOp0 = opList_[left];
         auto vecTileOp1 = opList_[right];
         if (groupNum == -1) {
-            std::vector<Operation> newOp = {vecTileOp0};
+            std::vector<Operation *> newOp = {vecTileOp0};
             mergedOps.emplace_back(newOp);
             groupNum = mergedOps.size() - 1;
         }

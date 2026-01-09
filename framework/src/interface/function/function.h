@@ -30,7 +30,7 @@
 #include "interface/tensor/tensor_slot.h"
 #include "interface/cache/hash.h"
 #include "passes/pass_utils/pass_utils.h"
-#include "passes/block_graph_pass/insert_sync.h"
+// #include "passes/block_graph_pass/insert_sync.h"
 
 namespace npu::tile_fwk {
 constexpr int FUNCTION_MAX_INCASTS = 10000;
@@ -493,7 +493,7 @@ public:
     std::unordered_map<Operation *, Operation *> opSetMap;
     std::unordered_map<Operation *, Operation *> waitOpMap;
     std::unordered_map<Operation *, Operation *> opWaitMap;
-    std::vector<PipeSync::IssueQueue> issueState;
+    // std::vector<PipeSync::IssueQueue> issueState;
     std::vector<Operation *> oriOpList;
 
     Function(const Program &belongTo, const std::string &funcMagicName, const std::string &funcRawName,

@@ -391,7 +391,7 @@ Status OoOScheduler::LaunchIssueStage(int& nextCycle) {
         issue->tileOp.cycleEnd = clock + issue->tileOp.GetLatency();
         pipe.busy = true;
         pipe.curIssue = issue;
-        pipe.curOpRetireCycle = clock + issue->tileOp.GetLatency(); // TODO:start
+        pipe.curOpRetireCycle = clock + issue->tileOp.GetLatency();
         oooCheck.pipeUsageCount[pipeType] += issue->tileOp.GetLatency();
         for (auto& op : issue->viewOps) {
             if (std::find(newOperations_.begin(), newOperations_.end(), op) != newOperations_.end()) {
