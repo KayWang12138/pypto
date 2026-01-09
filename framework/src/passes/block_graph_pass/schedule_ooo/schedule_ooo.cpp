@@ -69,13 +69,6 @@ void OoOSchedule::OoOHealthCheck(OoOScheduler &oooSchedule, Function &function, 
 
 Status OoOSchedule::NonMixSchedule(std::vector<Operation*> &opList, Function &function,
     std::pair<uint64_t, Function*> &program, int &maxWorkeSpaceSize) {
-    OptimizeSort optimizeSort(opList, *program.second);
-    if (optimizeSort.SortOps() != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Global sortOps failed");
-        return FAILED;
-    }
-    // 全局排序的序列
-    opList = optimizeSort.operations;
     // 直接对oplist进行GenSpill和mainLoop
     OoOScheduler oooSchedule(*program.second, ConfigManager::Instance().GetOperationConfig(KEY_COMBINE_AXIS, false));
     if (oooSchedule.Schedule(opList) != SUCCESS) {
@@ -95,13 +88,6 @@ Status OoOSchedule::NonMixSchedule(std::vector<Operation*> &opList, Function &fu
 Status OoOSchedule::MixSchedule(std::vector<Operation*> &opList, Function &function,
     std::pair<uint64_t, Function*> &program, int &maxWorkeSpaceSize) {
     std::unordered_map<TargetCoreType, std::string>  targetToString{{TargetCoreType::AIC, "AIC"}, {TargetCoreType::AIV0, "AIV0"}, {TargetCoreType::AIV1, "AIV1"}, {TargetCoreType::UNKNOWN, "UNKNOWN"}};
-    OptimizeSort optimizeSort(opList, *program.second);
-    if (optimizeSort.SortOps() != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Global sortOps failed.");
-        return FAILED;
-    }
-    // 全局排序的序列
-    opList = optimizeSort.operations;
     TaskSpliter spliter;
     spliter.SplitGraph(opList);
     for (auto &taskNode : spliter.GetTaskGraph().tasks) {
@@ -160,6 +146,13 @@ Status OoOSchedule::RunOnFunction(Function &function) {
         if (IsAicpuProgram(opList)) {
             continue;
         }
+        OptimizeSort optimizeSort(opList, *program.second);
+        if (optimizeSort.SortOps() != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Operation, "Global sortOps failed");
+            return FAILED;
+        }
+        // 全局排序的序列
+        opList = optimizeSort.operations;
         std::pair<uint64_t, Function*> programRef;
         programRef.first = program.first;
         programRef.second = program.second;
