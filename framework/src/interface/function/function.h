@@ -30,6 +30,7 @@
 #include "interface/tensor/tensor_slot.h"
 #include "interface/cache/hash.h"
 #include "passes/pass_utils/pass_utils.h"
+#include "passes/block_graph_pass/insert_sync.h"
 
 namespace npu::tile_fwk {
 constexpr int FUNCTION_MAX_INCASTS = 10000;
@@ -484,6 +485,16 @@ public:
     std::map<uint64_t, Function*> programs_; // root function持有，所有异构的leaf function
     Function *rootFunc_ = nullptr; // TileGraph和RootGraph都需要保留，且需要映射关系
     ParamConfigs paramConfigs_;
+    // vf融合适配需要pass间传递的参数
+    std::unordered_map<PipeType, int> pipeEndTime; // function中每个pipe执行结束的时间
+    std::unordered_map<Operation *, Operation *> setWaitOpMap;
+    std::unordered_map<Operation *, Operation *> waitSetOpMap;
+    std::unordered_map<Operation *, Operation *> setOpMap;
+    std::unordered_map<Operation *, Operation *> opSetMap;
+    std::unordered_map<Operation *, Operation *> waitOpMap;
+    std::unordered_map<Operation *, Operation *> opWaitMap;
+    std::vector<PipeSync::IssueQueue> issueState;
+    std::vector<Operation *> oriOpList;
 
     Function(const Program &belongTo, const std::string &funcMagicName, const std::string &funcRawName,
         Function *parentFunc);

@@ -98,6 +98,7 @@ Status TuneTileOpSeqForVF::RunOnFunction(Function &function) {
                 return FAILED;
             }
         }
+        // AIV0和AIV1各调整一次
         ChangeOpSeq(opList, ps, false);
         ChangeOpSeq(opList, ps, true);
         // 将调整后的oplist刷新到function中去
