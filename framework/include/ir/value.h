@@ -60,13 +60,6 @@ public:
         : Object(ObjectType::Value, name), valueKind_(kind), type_(type) {}
     virtual ~Value() = default;
 
-    const std::string GetSSAName() const {
-        if (name_.empty()) {
-            return "%" + std::to_string(id_);
-        }
-        // If tensor has a name, return it directly without adding numeric suffix
-        return GetPrefixedName() + "_" + std::to_string(id_);
-    }
     ObjectType GetObjectType() const override { return ObjectType::Value; }
 
     ValueKind GetValueKind() const { return valueKind_; }

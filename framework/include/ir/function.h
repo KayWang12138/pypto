@@ -18,6 +18,7 @@
 #include "ir/statement.h"
 #include "ir/value.h"
 #include "ir/utils.h"
+#include "interface/function/function.h"
 
 #include <ostream>
 #include <string>
@@ -29,7 +30,7 @@ namespace pto {
 enum class FunctionKind {
     ControlFlow, // control-flow functions using statement dialect
     DataFlow,    // pure data-flow graphs at tensor/tile level
-    Kernel       // low-level kernels near instruction/memory level
+    Block       // low-level kernels near instruction/memory level
 };
 
 // Signature of a function: arguments and results.
@@ -37,6 +38,15 @@ enum class FunctionKind {
 struct FunctionSignature {
     std::vector<ValuePtr> arguments; // argument types with names stored in Value::name
     std::vector<ValuePtr> results;  // return types
+    std::map<std::string, npu::tile_fwk::DynParamInfo> dynParamTable_;
+
+    void SetDynParam(const std::string &name, const npu::tile_fwk::DynParamInfo &dynParam) {
+        dynParamTable_[name] = dynParam;
+    }
+
+    const npu::tile_fwk::DynParamInfo &GetDynParam(const std::string &name) const {
+        return dynParamTable_.at(name);
+    }
 };
 
 // Minimal container for a PTO function.
@@ -70,12 +80,47 @@ public:
     // Pretty-print a standalone function in PTO-IR-like syntax.
     void Print(std::ostream& os, int indent = 0) const;
 
-private:
+    // stack workspace size for function
+    int GetStackWorkspaceSize() const { return stackWorkspaceSize_; }
+    void SetStackWorkspaceSize(int stackWorkspaceSize) { stackWorkspaceSize_ = stackWorkspaceSize; }
+
+protected:
     FunctionKind kind_;
     FunctionSignature signature_;
     CompoundStatementPtr inputCompound_; // Scope holding function arguments (inputs)
     CompoundStatementPtr compound_;  // Scope for Data objects and statements created in this function
+
+    int stackWorkspaceSize_{0};
 };
+
+class BlockFunction : public Function {
+public:
+    BlockFunction(std::string name, FunctionSignature signature) : Function(name, FunctionKind::Block, signature) {}
+
+    int GetProgramId() const { return programId_; }
+    void SetProgramId(int programId) { programId_ = programId; }
+
+    void SetDynParam(const std::string &name, const npu::tile_fwk::DynParamInfo &dynParam) {
+        signature_.SetDynParam(name, dynParam);
+    }
+
+    const npu::tile_fwk::DynParamInfo &GetDynParam(const std::string &name) const {
+        return signature_.GetDynParam(name);
+    }
+
+    void SetLeafFuncAttribute(const std::shared_ptr<npu::tile_fwk::LeafFuncAttribute> &leafFuncAttr) {
+        leafFuncAttr_ = leafFuncAttr;
+    }
+
+    const std::shared_ptr<npu::tile_fwk::LeafFuncAttribute> &GetLeafFuncAttribute() const {
+        return leafFuncAttr_;
+    }
+
+private:
+    int programId_;
+    std::shared_ptr<npu::tile_fwk::LeafFuncAttribute> leafFuncAttr_;
+};
+
 
 // Helper for convenient streaming: std::cout << func;
 std::ostream& operator<<(std::ostream& os, const Function& func);
