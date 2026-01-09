@@ -100,6 +100,7 @@ TEST(IRTEST, TestControlFlow) {
     // tensor<[b, 128], fp32>
     auto batch = std::make_shared<ScalarValue>(DataType::INT32, "batch", ScalarValueKind::Symbolic);
     auto constant128 = std::make_shared<ScalarValue>(int64_t(128), "const_128");
+    auto one = std::make_shared<ScalarValue>(int64_t(1), "one");
     std::vector<ScalarValuePtr> tensorShape = { batch, constant128 };
 
     std::vector<int64_t> tileShape = { 128, 128 };
