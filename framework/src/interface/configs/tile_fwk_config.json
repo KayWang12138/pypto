@@ -27,7 +27,7 @@
         "run_mode": 0
     },
     "host": {
-        "only_codegen": false
+        "compile_stage": 0
     },
     "codegen": {
         "support_dynamic_aligned": false
@@ -54,8 +54,6 @@
             "enable_cost_model": false,
             "enable_dyn_cost_model": false,
             "enable_aihac_backend": true,
-            "only_tensor_graph": false,
-            "only_host_compile": false,
             "test_is_tig": false,
             "dump_source_location": true,
             "enable_checker": false,
@@ -63,13 +61,12 @@
             "enable_prof_func": false,
             "enable_prof_aicore_time": false,
             "enable_prof_aicore_pmu": false
-        },
-        "host": {
+         },
+         "host": {
             "strategy": "PVC2_OOO",
             "enable_binary_cache": false,
             "stitch_function_inner_memory": 10,
-            "stitch_function_outcast_memory": 50,
-            "only_codegen":false
+            "stitch_function_outcast_memory": 50
         },
         "device": {},
         "core": {},
