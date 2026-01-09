@@ -332,8 +332,8 @@ private:
             return "control_flow";
         case FunctionKind::DataFlow:
             return "data_flow";
-        case FunctionKind::Kernel:
-            return "kernel";
+        case FunctionKind::Block:
+            return "block";
         default:
             return "unknown";
         }
