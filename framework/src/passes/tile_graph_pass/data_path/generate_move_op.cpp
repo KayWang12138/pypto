@@ -130,6 +130,22 @@ void GenerateMoveOp::SetCopyAttr(Operation &op,ViewOpAttribute *viewOpAttribute)
     op.SetOpAttribute(copyAttr);
 }
 
+void GenerateMoveOp::SetCopyAttr(Operation &op) const {
+    std::vector<SymbolicScalar> validShape;
+    for (auto dim : op.GetOOperands()[0]->GetShape()) {
+        SymbolicScalar scal = SymbolicScalar(dim);
+        validShape.push_back(scal);
+    }
+    auto copyAttr = std::make_shared<CopyOpAttribute>(
+        OpImmediate::Specified({0, 0}),
+        op.oOperand.front()->GetMemoryTypeOriginal(), OpImmediate::Specified(op.oOperand.front()->shape),
+        OpImmediate::Specified(op.iOperand.front()->tensor->GetDynRawShape()),
+        OpImmediate::Specified(validShape)
+    );
+    copyAttr->SetToOffset(OpImmediate::Specified({0, 0}));
+    op.SetOpAttribute(copyAttr);
+}
+
 Status GenerateMoveOp::SetOpcodeByMemPath(Operation &op,MemoryType from,MemoryType to) const {
     std::pair<MemoryType,MemoryType> memPathPair = {from,to};
     auto it = platformPathMap.find(memPathPair);
@@ -177,7 +193,10 @@ Status GenerateMoveOp::CreateMoveOpForConvert(Function &function, Operation &op)
     Status status = SetOpcodeByMemPath(op,from,to);
     if(op.GetOpcode() == Opcode::OP_UB_COPY_L1) {
         ProcessUB2L1(function, op);
-    }  
+    }
+    if (op.GetOpcode() == Opcode::OP_L0C_TO_L1) {
+        SetCopyAttr(op);
+    }
     if(status != SUCCESS) {return status;}
     auto childOp = *op.oOperand.front()->GetConsumers().begin();
     op.UpdateSubgraphID(childOp->GetSubgraphID());
