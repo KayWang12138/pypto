@@ -56,7 +56,7 @@ function(PTO_Fwk_AnalysisTargetSymbols)
             ${ARGN}
     )
     if (BUILD_OPEN_PROJECT
-            AND (ENABLE_UTEST)
+            AND (ENABLE_COMPILE_DEPENDENCY_CHECK)
             AND (CMAKE_GENERATOR STREQUAL "Unix Makefiles")
             AND (CMAKE_C_COMPILER_ID STREQUAL "GNU"))
         set(_file $<TARGET_FILE:${ARG_TARGET}>)
@@ -68,12 +68,16 @@ function(PTO_Fwk_AnalysisTargetSymbols)
         if (ARG_IGNORE_UDF_SELF)
             list(APPEND _Args "--ignore_undefined_symbols_self")
         endif ()
-        if (NOT ARG_IGNORE_UDF_PASSED)
+        if (ARG_IGNORE_UDF_PASSED)
             list(APPEND _Args "--ignore_undefined_symbols_pass")
+        endif ()
+        set(_LdLibPathExt)
+        if (ENABLE_COMPILE_DEPENDENCY_CHECK AND CMAKE_SKIP_RPATH)
+            set(_LdLibPathExt ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
         endif ()
         add_custom_command(
                 TARGET ${ARG_TARGET} POST_BUILD
-                COMMAND ${Python3_EXECUTABLE} ${_PyScript} ARGS ${_Args}
+                COMMAND cmake -E env LD_LIBRARY_PATH=$ENV{LD_LIBRARY_PATH}:${_LdLibPathExt} ${Python3_EXECUTABLE} ${_PyScript} ARGS ${_Args}
                 COMMENT "Analysis symbol of ${ARG_TARGET}"
         )
     endif ()
@@ -95,7 +99,7 @@ function(PTO_Fwk_AnalysisTargetHeaderFiles)
             ${ARGN}
     )
     if (BUILD_OPEN_PROJECT
-            AND (ENABLE_UTEST OR ENABLE_STEST OR ENABLE_STEST_DISTRIBUTED)
+            AND (ENABLE_COMPILE_DEPENDENCY_CHECK)
             AND (CMAKE_GENERATOR STREQUAL "Unix Makefiles")
             AND (CMAKE_C_COMPILER_ID STREQUAL "GNU"))
         set(_TargetFile $<TARGET_FILE:${ARG_TARGET}>)

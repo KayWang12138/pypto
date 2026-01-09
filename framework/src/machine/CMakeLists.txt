@@ -48,8 +48,8 @@ target_link_directories(tile_fwk_compiler
 )
 target_link_libraries(tile_fwk_compiler
         PRIVATE
-            $<$<BOOL:${ENABLE_UTEST}>:tile_fwk_interface>
-            $<$<BOOL:${ENABLE_UTEST}>:tile_fwk_codegen>
+            $<$<BOOL:${ENABLE_COMPILE_DEPENDENCY_CHECK}>:tile_fwk_interface>
+            $<$<BOOL:${ENABLE_COMPILE_DEPENDENCY_CHECK}>:tile_fwk_codegen>
             json
         PRIVATE
             intf_pub_cxx17
@@ -57,6 +57,9 @@ target_link_libraries(tile_fwk_compiler
             dl
             c_sec
 )
+if (BUILD_WITH_CANN)
+    add_dependencies(tile_fwk_compiler pypto_ctrl_server)
+endif ()
 
 PTO_Fwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_compiler)
 PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_compiler)
