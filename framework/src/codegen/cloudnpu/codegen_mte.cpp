@@ -1178,10 +1178,8 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithUBDynamicSupportUnaligned(const P
     for (int i = 1; i < MAX_DIM; ++i) {
         paramList.emplace_back(std::to_string(localRawShape[i]));
     }
-    bool inCoreAssemble = false;
-    GetAttr(OpAttributeKey::inCoreAssemble, inCoreAssemble);
-    if (inCoreAssemble) {
-        paramList.emplace_back(std::to_string(inCoreAssemble));
+    if (isPartialMem[localIdx]) {
+        paramList.emplace_back("true");
     }
     std::string templateParam = JoinString(paramList, CONN_COMMA);
 

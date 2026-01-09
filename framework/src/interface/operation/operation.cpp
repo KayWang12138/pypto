@@ -67,7 +67,6 @@ const std::string OpAttributeKey::distOpAttr = "DIST_OP_ATTR";
 const std::string OpAttributeKey::subBlockIdx = "SUB_BLOCK_IDX";
 const std::string OpAttributeKey::brcbIdx = "brcb_idx";
 const std::string OpAttributeKey::quantFlag = "op_attr_vector_quant_flag";
-const std::string OpAttributeKey::inCoreAssemble = "IN_CORE_ASSEMBLE";
 
 const std::string ConvOpAttributeKey::cin = "CIN";
 const std::string ConvOpAttributeKey::cout = "COUT";

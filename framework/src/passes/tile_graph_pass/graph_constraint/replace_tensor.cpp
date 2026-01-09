@@ -749,7 +749,7 @@ Status ReplaceTensor::RunOnFunction(Function &function) {
     if (ProcessHubOp(function) == FAILED) {
         return FAILED;
     }
-    if (MarkInCoreAssemble(function) == FAILED) {
+    if (MarkTensorAsPartialMem(function) == FAILED) {
         return FAILED;
     }
     APASS_LOG_INFO_F(Elements::Operation, "===> End ReplaceTensor.");
@@ -852,7 +852,7 @@ Status ReplaceTensor::BackUpdateAssemble(Operation *op) {
     return SUCCESS;
 }
 
-Status ReplaceTensor::MarkInCoreAssemble(Function &func) {
+Status ReplaceTensor::MarkTensorAsPartialMem(Function &func) {
     for (auto &op : func.Operations()) {
         if (op.GetOpcode() != Opcode::OP_ASSEMBLE) {
             continue;
@@ -862,7 +862,7 @@ Status ReplaceTensor::MarkInCoreAssemble(Function &func) {
         if (iOperand->GetRawTensor() != oOperand->GetRawTensor()) {
             continue;
         }
-        iOperand->SetAttr(OpAttributeKey::inCoreAssemble, true);
+        iOperand->SetAttr("isPartialMem", true);
     }
     return SUCCESS;
 }
