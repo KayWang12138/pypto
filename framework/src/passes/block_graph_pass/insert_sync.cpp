@@ -723,10 +723,10 @@ Status PipeSync::InjectWaitFlag(Function &function, size_t idx, std::vector<Inde
             crossCoreFreeEventId_[{setWaitCoreType.second, setWaitCoreType.first}].push_back(eventId);
         }
         // 记录set op 和 wait op的对应关系 及 wait op 和 waitflag的对应关系
-        setWaitOpMap.emplace({oriOpList_[ele], oriOpList_[idx]});
-        waitSetOpMap.emplace({oriOpList_[idx], oriOpList_[ele]});
-        waitOpMap.emplace({&syncOp, oriOpList_[idx]});
-        opWaitMap.emplace({oriOpList_[idx], &syncOp});
+        setWaitOpMap.emplace(oriOpList_[ele], oriOpList_[idx]);
+        waitSetOpMap.emplace(oriOpList_[idx], oriOpList_[ele]);
+        waitOpMap.emplace(&syncOp, oriOpList_[idx]);
+        opWaitMap.emplace(oriOpList_[idx], &syncOp);
     }
     return SUCCESS;
 }
@@ -755,8 +755,8 @@ Status PipeSync::InjectSetFlag(Function &function, size_t idx, std::vector<Index
                 GetPipeTypeDict().Find(syncOp.syncQueue_.trigPipeId_).c_str(), syncOp.syncQueue_.eventId_);
             setWaitPairMap_[{idx, ele}] = eventId;
             // 记录set op 和 setflag的对应关系
-            setOpMap.emplace({&syncOp, oriOpList_[idx]});
-            opSetMap.emplace({oriOpList_[idx], &syncOp});
+            setOpMap.emplace(&syncOp, oriOpList_[idx]);
+            opSetMap.emplace(oriOpList_[idx], &syncOp);
             continue;
         }
         syncOp.SetAsDeleted();
@@ -1666,7 +1666,7 @@ Status InsertSync::GenNewOpList(Function *subGraphFunc, std::vector<Operation *>
     subGraphFunc->opSetMap = ps.opSetMap;
     subGraphFunc->waitOpMap = ps.waitOpMap;
     subGraphFunc->opWaitMap = ps.opWaitMap;
-    subGraphFunc->issueState = ps.GetIssueState();
+    // subGraphFunc->issueState = ps.GetIssueState();
     subGraphFunc->oriOpList = ps.GetOriOpList();
     return SUCCESS;
 }

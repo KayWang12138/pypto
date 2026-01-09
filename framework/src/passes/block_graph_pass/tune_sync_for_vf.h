@@ -36,7 +36,7 @@ private:
     bool NeedAdjustWaitFlag(Function *subGraphFunc, Operation *vecTileOp0, Operation *vecTileOp1, Operation *waitFlag);
     void AdjustSetWaitFlag(Function *subGraphFunc, std::vector<Operation *> &setFlagList, 
         std::vector<Operation *> &waitFlagList, size_t vecTileOp0Idx, size_t vecTileOp1Idx, int groupNum);
-    std::vector<Operation *> &opList_;
+    std::vector<Operation *> opList_;
     std::vector<std::vector<Operation *>> mergedOps;
 };
 }
