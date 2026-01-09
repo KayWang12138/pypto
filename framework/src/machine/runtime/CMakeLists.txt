@@ -58,8 +58,8 @@ target_link_directories(tile_fwk_runtime
 )
 target_link_libraries(tile_fwk_runtime
         PUBLIC
-            $<BUILD_INTERFACE:$<$<BOOL:${ENABLE_UTEST}>:tile_fwk_interface>>
-            $<BUILD_INTERFACE:$<$<BOOL:${ENABLE_UTEST}>:tile_fwk_compiler>>
+            $<BUILD_INTERFACE:$<$<BOOL:${ENABLE_COMPILE_DEPENDENCY_CHECK}>:tile_fwk_interface>>
+            $<BUILD_INTERFACE:$<$<BOOL:${ENABLE_COMPILE_DEPENDENCY_CHECK}>:tile_fwk_compiler>>
             $<BUILD_INTERFACE:json>
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:ascendcl>>
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:runtime>>
@@ -96,8 +96,8 @@ target_compile_definitions(tile_fwk_runtime_stub
 )
 target_link_libraries(tile_fwk_runtime_stub
         PUBLIC
-            $<BUILD_INTERFACE:$<$<BOOL:${ENABLE_UTEST}>:tile_fwk_interface>>
-            $<BUILD_INTERFACE:$<$<BOOL:${ENABLE_UTEST}>:tile_fwk_compiler>>
+            $<BUILD_INTERFACE:$<$<BOOL:${ENABLE_COMPILE_DEPENDENCY_CHECK}>:tile_fwk_interface>>
+            $<BUILD_INTERFACE:$<$<BOOL:${ENABLE_COMPILE_DEPENDENCY_CHECK}>:tile_fwk_compiler>>
             $<BUILD_INTERFACE:json>
         PRIVATE
             intf_pub_cxx17
