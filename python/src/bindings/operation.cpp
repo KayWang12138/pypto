@@ -543,5 +543,15 @@ void bind_operation(py::module &m) {
         "TopKExtract(x, k:int, is_index:bool=False) -> y\n"
         "Extracts the top-k values (or indices if is_index=True)."
     );
+    m.def(
+ 	    "one_shot_all_reduce",
+ 	    [](const Tensor& predToken, Tensor &in, const char *group, uint32_t ranksize, Tensor &out) {
+ 	        return npu::tile_fwk::Distributed::OneShotAllReduce(predToken, in, group, ranksize, out); },
+ 	    py::arg("pred_token"), py::arg("in"), py::arg("group"), py::arg("ranksize"), py::arg("out"), "Tensor all reduce");
+    m.def(
+ 	    "two_shot_all_reduce",
+ 	    [](const Tensor& predToken, Tensor &in, const char *group, uint32_t ranksize, Tensor &out) {
+ 	        return npu::tile_fwk::Distributed::TwoShotAllReduce(predToken, in, group, ranksize, out); },
+ 	    py::arg("pred_token"), py::arg("in"), py::arg("group"), py::arg("ranksize"), py::arg("out"), "Tensor all reduce");
 }
 } // namespace pypto
