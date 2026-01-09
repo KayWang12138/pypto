@@ -157,15 +157,15 @@ Status OoOSchedule::RunOnFunction(Function &function) {
         programRef.first = program.first;
         programRef.second = program.second;
         if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510 || !IsMixGraph(opList)) {
-            if (A23Schedule(opList, function, programRef, maxWorkeSpaceSize) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Operation, "A2/3 OoO schedule failed.");
+            if (NonMixSchedule(opList, function, programRef, maxWorkeSpaceSize) != SUCCESS) {
+                APASS_LOG_ERROR_F(Elements::Operation, "NonMix OoO schedule failed.");
                 return FAILED;
             }
             programRef.second = program.second;
             continue;
         }
-        if (A5Schedule(opList, function, programRef, maxWorkeSpaceSize) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "A5 OoO schedule failed.");
+        if (MixSchedule(opList, function, programRef, maxWorkeSpaceSize) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Operation, "Mix OoO schedule failed.");
             return FAILED;
         }
         programRef.second = program.second;
