@@ -54,7 +54,7 @@ target_link_libraries(tile_fwk_interface
 
             dl
             Threads::Threads
-            tile_fwk_simulation_platform
+            $<$<BOOL:${ENABLE_COMPILE_DEPENDENCY_CHECK}>:tile_fwk_simulation_platform>
 )
 PTO_Fwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_interface)
 PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_interface)
