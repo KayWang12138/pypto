@@ -41,10 +41,10 @@ auto InitializeTensorInfo(const uint32_t rankSize) {
     return std::make_tuple(info, std::move(rawAddr), rawShape0, rawShape1, rawShape2, rawShape3);
 }
 
-auto InitializeAicpuCode(const uint32_t rankSize) {
-    constexpr size_t codeSize = 17;
+auto InitializeAicpuCode(const uint32_t socType, const uint32_t rankSize) {
+    constexpr size_t codeSize = 18;
     auto data = std::make_unique<int32_t[]>(codeSize);
-    uint32_t initData[codeSize] = {153, 2, 2, 44, 4, 2, 18, 4, 0, 2, 1, 0, 4, rankSize, rankSize, 4, 8};
+    uint32_t initData[codeSize] = {153, socType, 2, 2, 44, 4, 2, 18, 4, 0, 2, 1, 0, 4, rankSize, rankSize, 4, 8};
     std::copy(initData, initData + codeSize, data.get());
     npu::tile_fwk::dynamic::DevRelocVector<int32_t> aicpuCode(codeSize, data.get());
     return std::make_tuple(std::move(data), std::move(aicpuCode));
@@ -95,9 +95,9 @@ auto ConfigureFuncData(npu::tile_fwk::DynFuncData* funcData, uint64_t rawAddr,
                           std::move(opAttrs));
 }
 
-auto InitializeTestEnvironment(const uint32_t rankSize) {
+auto InitializeTestEnvironment(const uint32_t socType, const uint32_t rankSize) {
     auto [info, rawAddr, rawShape0, rawShape1, rawShape2, rawShape3] = InitializeTensorInfo(rankSize);
-    auto [data, aicpuCode] = InitializeAicpuCode(rankSize);
+    auto [data, aicpuCode] = InitializeAicpuCode(socType, rankSize);
     auto allocator = std::make_unique<npu::tile_fwk::dynamic::DeviceWorkspaceAllocator>();
     auto task = std::make_unique<npu::tile_fwk::dynamic::DynDeviceTask>(*allocator);
     auto shmemWaitUntil = std::make_unique<npu::tile_fwk::Distributed::ShmemWaitUntil>();
@@ -143,10 +143,11 @@ void RunTests(uint32_t tileOpCount, npu::tile_fwk::Distributed::ShmemWaitUntil* 
     }
 }
 
-void TestShmemWaitUntil(const uint32_t tileOpCount) {
+void TestShmemWaitUntil(const uint32_t socType, const uint32_t tileOpCount) {
     const uint32_t rankSize = 4;
-    auto [rawAddr, data, allocator, task, shmemWaitUntil, buffer, exprTbl, hcclParam, 
-          rawTensorAddrHolder, rawTensorDescHolder, opAttrs, aicpuCode, funcData, aicoreManager] = InitializeTestEnvironment(rankSize);
+    auto [rawAddr, data, allocator, task, shmemWaitUntil, buffer, exprTbl, hcclParam, rawTensorAddrHolder,
+          rawTensorDescHolder, opAttrs, aicpuCode, funcData,
+          aicoreManager] = InitializeTestEnvironment(socType, rankSize);
 
     PrepareTasks(tileOpCount, shmemWaitUntil.get(), aicpuCode, funcData, opAttrs.get());
     
@@ -155,12 +156,22 @@ void TestShmemWaitUntil(const uint32_t tileOpCount) {
 
 TEST(ShmemWaitUntilTest, BasicFunctionality) {
     constexpr int32_t tileOpCount = 1;
-    TestShmemWaitUntil(tileOpCount);
+    TestShmemWaitUntil(0, tileOpCount);
+}
+
+TEST(ShmemWaitUntilTest, BasicFunctionalityV2) {
+    constexpr int32_t tileOpCount = 1;
+    TestShmemWaitUntil(1, tileOpCount);
 }
 
 TEST(ShmemWaitUntilTest, VectorResize) {
     constexpr int32_t tileOpCount = npu::tile_fwk::Distributed::AICPU_TASK_ARRAY_SIZE - 1;
-    TestShmemWaitUntil(tileOpCount);
+    TestShmemWaitUntil(0, tileOpCount);
+}
+
+TEST(ShmemWaitUntilTest, VectorResizeV2) {
+    constexpr int32_t tileOpCount = npu::tile_fwk::Distributed::AICPU_TASK_ARRAY_SIZE - 1;
+    TestShmemWaitUntil(1, tileOpCount);
 }
 
 } // namespace
