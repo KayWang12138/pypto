@@ -1,8 +1,8 @@
 from pypto.pypto_impl import ir
 
-def test_control_flow():
-    # ===== Module =====
-    module = ir.module("main")
+
+def create_ir_module(name="main"):
+    module = ir.module(name)
     builder = ir.IrBuilder(module)
     ctx = ir.IrBuilderContext()
 
@@ -90,9 +90,11 @@ def test_control_flow():
     builder.create_return(ctx, [constant0])
 
     ctx.pop_scope()  # function-body
+    return module
+
+
+if __name__ == "__main__":
+    module = create_ir_module()
 
     # TODO: assert module attributes and structure
     print(module, module.entry, module.functions)
-
-if __name__ == "__main__":
-    test_control_flow()
