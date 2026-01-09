@@ -88,6 +88,9 @@ class RangeTileBaseOp : public TileBaseOp {
 class ScatterTileBaseOp : public TileBaseOp {
 };
 
+class ScatetrElementsTileBaseOp : public TileBaseOp {
+};
+
 class GatherTileBaseOp : public TileBaseOp {
 };
 
@@ -110,6 +113,12 @@ class CumSumTileBaseOp : public TileBaseOp {
 };
 
 class SortTileBaseOp : public TileBaseOp {
+};
+
+class CompareScalarTileBaseOp : public TileBaseOp {
+};
+
+class CompareTileBaseOp : public TileBaseOp {
 };
 
 class BroadcastTileBaseOp : public TileBaseOp {
