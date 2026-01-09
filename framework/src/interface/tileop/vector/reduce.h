@@ -56,9 +56,9 @@ TILEOP void ReduceLastAxisCompute(T0 dst, T1 src, T2 tmp) {
     const auto srcLayout = src.GetLayout();
     auto srcShape3 = srcLayout.template GetShapeDim<3, expectSize>();
     auto srcShape4 = srcLayout.template GetShapeDim<4, expectSize>();
-    if (srcShape3 == 0 || srcShape4 == 0) {
-        return;
-    }
+    // if (srcShape3 == 0 || srcShape4 == 0) {
+    //     return;
+    // }
     auto srcStride0 = srcLayout.template GetStrideDim<0, expectSize>();
     auto srcStride1 = srcLayout.template GetStrideDim<1, expectSize>();
     auto srcStride2 = srcLayout.template GetStrideDim<2, expectSize>();
@@ -79,9 +79,9 @@ TILEOP void ReduceLastAxisCompute(T0 dst, T1 src, T2 tmp) {
                 pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * srcTypeSize));
                 pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * srcTypeSize));
                 pto::TASSIGN(tmpTile, (uint64_t)(tmp.GetAddr()));
-                if (srcShape3 == 0 || srcShape4 == 0){
-                    return;
-                }
+                // if (srcShape3 == 0 || srcShape4 == 0){
+                //     return;
+                // }
                 ReduceComputeImpl<op>(dstTile, srcTile, tmpTile);
             }
         }
