@@ -153,8 +153,10 @@ public:
         devProg->devArgs.isGETensorList = config.isGETensorList ? 1 : 0;
 
         int minCpuNum = devProg->devArgs.scheCpuNum + 1;
-        int effectiveAicpuNum = (aicpuNum < minCpuNum || aicpuNum > DEVICE_MAX_AICPU_NUM) ? (minCpuNum + 1) : aicpuNum;
+        int effectiveAicpuNum = (clampedAicpu < minCpuNum || clampedAicpu > DEVICE_MAX_AICPU_NUM) ? (minCpuNum + 1) : clampedAicpu;
         devProg->devArgs.nrAicpu = effectiveAicpuNum;
+        DeviceLauncherConfig &launchConfig = const_cast<DeviceLauncherConfig &>(config);
+        launchConfig.aicpuNum = effectiveAicpuNum;
 
         ALOG_DEBUG_F("Set aicore blockdim:%d aicpu blockdim:%d.", effectiveBlockdim, effectiveAicpuNum);
 
