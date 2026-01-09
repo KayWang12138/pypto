@@ -12,7 +12,8 @@
  * \file aicore_compiler.cpp
  * \brief
  */
-#include "aicore_compiler.h"
+
+#include "machine/compile/aicore_compiler.h"
 #include <cstdlib>
 #include <iostream>
 #include <sstream>
@@ -22,7 +23,7 @@
 #include "interface/utils/file_utils.h"
 #include "interface/utils/op_info_manager.h"
 #include "machine/dump/kernel_dump_utils.h"
-#include "machine/kernel/gen_aicore_code.h"
+#include "machine/compile/gen_aicore_code.h"
 #include "tilefwk/platform.h"
 
 namespace npu::tile_fwk {
@@ -60,9 +61,9 @@ static int CompileCoreMachine(const std::string &objFile, bool isCube, uint64_t 
                    "-D__HEAD_FILE__=%s "
                    "%s "
                    "%s "
-                   "-I%s/tileop/a2a3 "
+                   "-I%s/tileop/arch32 "
                    "-I%s/ "
-                   "-I%s/include/tileop/a2a3 "
+                   "-I%s/include/tileop/arch32 "
                    "-I%s/include/ "
                    "-o %s "
                    "%s",
