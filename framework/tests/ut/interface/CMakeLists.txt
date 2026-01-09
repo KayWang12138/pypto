@@ -14,8 +14,13 @@ file(GLOB_RECURSE _Sources
         src/*.cpp
 )
 
+set(LinkLibraries)
+if (TARGET tile_fwk_calculator)
+    list(APPEND LinkLibraries tile_fwk_calculator)
+endif ()
+
 PTO_Fwk_UTest_AddCaseLib(
         TARGET ${_Target}
         SOURCES ${_Sources}
-        PUBLIC_LINK_LIBRARIES tile_fwk_interface
+        LINK_LIBRARIES ${LinkLibraries}
 )
