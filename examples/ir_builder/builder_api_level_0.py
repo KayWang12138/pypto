@@ -1,3 +1,5 @@
+# same as python/tests/ut/ir/test_ir_binding.py
+
 from pypto.pypto_impl import ir
 
 
@@ -97,4 +99,4 @@ if __name__ == "__main__":
     module = create_ir_module()
 
     # TODO: assert module attributes and structure
-    print(module, module.entry, module.functions)
+    print(f"Module: {module}\nEntry: {module.entry}\nFunctions: {module.functions}")
