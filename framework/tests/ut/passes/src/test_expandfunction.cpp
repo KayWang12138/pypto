@@ -79,7 +79,7 @@ public:
         config::Reset();
         config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
         config::SetHostConfig(KEY_STRATEGY, "ExpandFunctionTestStrategy");
-        config::SetPlatformConfig("ENABLE_COST_MODEL", false);
+        config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
     }
     void TearDown() override {}
 };
@@ -354,7 +354,7 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionSTest1) {
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase1");
     EXPECT_EQ(func->Operations().size(), kSizeThree);
     passManager.RegisterStrategy("ExpandFunctionTestStrategy", {
-        {   "ExpandFunction",   "ExpandFunction"},
+        {   "ExpandFunction",   PassName::EXPAND_FUNCTION},
     });
     auto ret = passManager.RunPass(Program::GetInstance(), *func, "ExpandFunctionTestStrategy");
     EXPECT_EQ(ret, SUCCESS);
@@ -428,7 +428,7 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionSTest2) {
     ConstructGraphST2();
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase2");
     passManager.RegisterStrategy("ExpandFunctionTestStrategy", {
-        {   "ExpandFunction",   "ExpandFunction"},
+        {   "ExpandFunction",   PassName::EXPAND_FUNCTION},
     });
     auto ret = passManager.RunPass(Program::GetInstance(), *func, "ExpandFunctionTestStrategy");
     EXPECT_EQ(ret, SUCCESS);

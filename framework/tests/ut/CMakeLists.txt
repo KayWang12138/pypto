@@ -11,18 +11,18 @@
 if (ENABLE_UTEST)
     add_subdirectory(stubs)
 
-    add_subdirectory(operator)
-    add_subdirectory(interface)
-    add_subdirectory(passes)
-    add_subdirectory(simulation)
+    PTO_Fwk_UTest_AddModuleDir(DIR operator)
+    PTO_Fwk_UTest_AddModuleDir(DIR interface)
+    PTO_Fwk_UTest_AddModuleDir(DIR passes)
+    PTO_Fwk_UTest_AddModuleDir(DIR simulation)
 
     if (BUILD_WITH_CANN)
-        add_subdirectory(machine)
-        add_subdirectory(codegen)
+        PTO_Fwk_UTest_AddModuleDir(DIR machine)
+        PTO_Fwk_UTest_AddModuleDir(DIR codegen)
     endif ()
 
     execute_process(
-            COMMAND ${Python3_EXECUTABLE} "validate.py" "tile_fwk_config_ng.json" "tile_fwk_config_schema.json"
+            COMMAND ${Python3_EXECUTABLE} "validate.py" "tile_fwk_config.json" "tile_fwk_config_schema.json"
             WORKING_DIRECTORY ${PTO_FWK_SRC_ROOT}/framework/src/interface/configs
             RESULT_VARIABLE VALIDATE_RESULT
     )

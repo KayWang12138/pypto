@@ -42,7 +42,7 @@ public:
         config::Reset();
         config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
         config::SetHostConfig(KEY_STRATEGY, "ViewAssembleTestStrategy");
-        config::SetPlatformConfig("ENABLE_COST_MODEL", false);
+        config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
     }
     void TearDown() override {}
 };
@@ -64,10 +64,10 @@ TEST_F(MergeViewAssembleTest, TestMergeViewAssemble) {
 
     PassManager &passManager = PassManager::Instance();
     passManager.RegisterStrategy("ViewAssembleTestStrategy", {
-        {   "RemoveRedundantReshape",   "RemoveRedundantReshape"},
-        {      "InferMemoryConflict",      "InferMemoryConflict"},
-        {           "ExpandFunction",           "ExpandFunction"},
-        {              "DuplicateOp",              "DuplicateOp"},
+        {   "RemoveRedundantReshape",   PassName::REMOVE_REDUNDANT_RESHAPE},
+        {      "InferMemoryConflict",      PassName::INFER_MEMORY_CONFLICT},
+        {           "ExpandFunction",           PassName::EXPAND_FUNCTION},
+        {              "DuplicateOp",              PassName::DUPLICATE_OP},
     });
 
     Function* originFunction = nullptr;

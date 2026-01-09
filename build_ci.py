@@ -513,6 +513,7 @@ class TestsParam(CMakeParam):
         self.exec: TestsExecuteParam = TestsExecuteParam(args=args)
         self.golden: TestsGoldenParam = TestsGoldenParam(args=args)
         self.utest: TestsFilterParam = TestsFilterParam(argv=args.utest, opt="ENABLE_UTEST")
+        self.utest_module: TestsFilterParam = TestsFilterParam(argv=args.utest_module, opt="ENABLE_UTEST_MODULE")
         self.stest_exec: STestExecuteParam = STestExecuteParam(args=args, enable_binary_cache=self.exec.ci_model)
         self.stest_tools: STestToolsParam = STestToolsParam()
         self.stest: TestsFilterParam = TestsFilterParam(argv=args.stest, opt="ENABLE_STEST")
@@ -577,6 +578,7 @@ class TestsParam(CMakeParam):
         TestsExecuteParam.reg_args(parser=parser)
         TestsGoldenParam.reg_args(parser=parser)
         TestsFilterParam.reg_args(parser=parser, ext="utest")
+        TestsFilterParam.reg_args(parser=parser, ext="utest_module")
         STestExecuteParam.reg_args(parser=parser)
         STestToolsParam.reg_args(parser=ext)
         TestsFilterParam.reg_args(parser=parser, ext="stest")
@@ -591,6 +593,8 @@ class TestsParam(CMakeParam):
         cmd += self.example.get_cfg_cmd()
         if self.enable:
             cmd += self.exec.get_cfg_cmd()
+            if self.utest.enable:
+                cmd += self.utest_module.get_cfg_cmd()
             if self.stest.enable or self.stest_distributed.enable:
                 cmd += self.golden.get_cfg_cmd()
                 cmd += self.stest_exec.get_cfg_cmd()
@@ -671,11 +675,11 @@ class ModelParam(CMakeParam):
 
     def _gen_simulation_json_sim(self, cfg: Dict[Any, Any]):
         if self.sim:
-            cfg["global_configs"]["platform_configs"]["ENABLE_COST_MODEL"] = True
+            cfg["global_configs"]["platform_configs"]["enable_cost_model"] = True
 
     def _gen_simulation_json_sim_with_onboard_aicpu(self, cfg: Dict[Any, Any]):
         if self.sim_with_onboard_aicpu:
-            cfg["global_configs"]["platform_configs"]["ENABLE_COST_MODEL"] = True
+            cfg["global_configs"]["platform_configs"]["enable_cost_model"] = True
             cfg["global_configs"]["simulation_configs"]["USE_ON_BOARD_INFO"] = True
             cfg["global_configs"]["simulation_configs"]["args"] = [
                 "Model.statisticReportToFile=true",
@@ -689,7 +693,7 @@ class ModelParam(CMakeParam):
             if self.replay_file_path is None:
                 logging.error("Error: replay_file_path is required when back_annotation_aicpu is enabled")
                 raise ValueError("Missing required argument: -rf, --replay_file_path")
-            cfg["global_configs"]["platform_configs"]["ENABLE_COST_MODEL"] = True
+            cfg["global_configs"]["platform_configs"]["enable_cost_model"] = True
             cfg["global_configs"]["simulation_configs"]["args"] = [
                 "Model.statisticReportToFile=true",
                 "Model.deviceArch=910B",
@@ -704,9 +708,9 @@ class ModelParam(CMakeParam):
             if self.replay_file_path is None:
                 logging.error("Error: replay_file_path is required when back_annotation_aicore is enabled")
                 raise ValueError("Missing required argument: -rf, --replay_file_path")
-            cfg["global_configs"]["platform_configs"]["ENABLE_COST_MODEL"] = True
+            cfg["global_configs"]["platform_configs"]["enable_cost_model"] = True
             cfg["global_configs"]["simulation_configs"]["USE_ON_BOARD_INFO"] = True
-            cfg["global_configs"]["simulation_configs"]["JSON_PATH"] = self.replay_file_path
+            cfg["global_configs"]["simulation_configs"]["json_path"] = self.replay_file_path
             cfg["global_configs"]["simulation_configs"]["args"] = [
                 "Model.statisticReportToFile=true",
                 "Model.deviceArch=910B",
@@ -719,7 +723,7 @@ class ModelParam(CMakeParam):
             if self.replay_file_path is None:
                 logging.error("Error: replay_file_path is required when calendar is enabled")
                 raise ValueError("Missing required argument: -rf, --replay_file_path")
-            cfg["global_configs"]["platform_configs"]["ENABLE_COST_MODEL"] = True
+            cfg["global_configs"]["platform_configs"]["enable_cost_model"] = True
             cfg["global_configs"]["simulation_configs"]["args"] = [
                 "Model.statisticReportToFile=true",
                 "Model.deviceArch=910B",
@@ -737,8 +741,8 @@ class ModelParam(CMakeParam):
 
     def _gen_simulation_json_pvmodel(self, cfg: Dict[Any, Any]):
         if self.pvmodel:
-            cfg["global_configs"]["platform_configs"]["ENABLE_COST_MODEL"] = True
-            cfg["global_configs"]["simulation_configs"]["PV_LEVEL"] = 2
+            cfg["global_configs"]["platform_configs"]["enable_cost_model"] = True
+            cfg["global_configs"]["simulation_configs"]["pv_level"] = 2
             cfg["global_configs"]["simulation_configs"]["args"] = [
                 "Model.statisticReportToFile=true",
                 "Model.deviceArch=910B",

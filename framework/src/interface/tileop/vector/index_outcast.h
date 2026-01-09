@@ -13,204 +13,212 @@
  * \brief
  */
 
-template <typename T, typename T2>
-TILEOP void DynTIndexoutcast(__gm__ T *dst, __ubuf__ T *src, __ubuf__ T2 *index, unsigned src1OriShape0,
-    unsigned src1OriShape1, unsigned src1rawShape1, unsigned src0OriShape3, unsigned src0rawShape1, unsigned src0rawShape3) {
-    unsigned b = src1OriShape0;
-    unsigned s1 = src1OriShape1;
-    unsigned s1_32aligned = src1rawShape1;
-    unsigned nd = src0OriShape3;
-    unsigned nd_32aligned = src0rawShape3;
-
-    set_flag(PIPE_MTE2, PIPE_S, EVENT_ID7);
-    wait_flag(PIPE_MTE2, PIPE_S, EVENT_ID7);
-    __gm__ T *curDst = dst;
-    __ubuf__ T2 *dstIdx = index;
-    __ubuf__ T *curSrc = src;
-    for (int i = 0; i < b; ++i) {
-        for (int j = 0; j < s1; ++j) {
-            curDst = dst +  *dstIdx * nd;                                        // dst [index[i][j]] [n][d]
-            set_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
-            wait_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
-            copy_ubuf_to_gm_align_b32(
-                curDst, curSrc, 0 /*sid*/, 1, nd * sizeof(T), 0, 0, (nd_32aligned - nd) * sizeof(T) / BLOCK_SIZE, 0);
-            curSrc += nd_32aligned;
-            dstIdx++;
-        }
-        curSrc += (src0rawShape1 - s1) * nd_32aligned;
-        dstIdx += s1_32aligned - s1;
-    }
-}
-
-
-template <typename T, typename T2, unsigned src0rawShape1, unsigned cacheMode, unsigned blockSize>
-TILEOP void TIndexoutcastBase(__gm__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *src1, unsigned src0OriShape1,
-    unsigned src1OriShape1, unsigned GmShape1) {
-    for (auto i = 0; i < src1OriShape1; i++) {
-        set_flag(PIPE_MTE3, PIPE_S, EVENT_ID7); 
-        wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID7);
-        set_flag(PIPE_MTE2, PIPE_S, EVENT_ID7);
-        wait_flag(PIPE_MTE2, PIPE_S, EVENT_ID7);
-        set_flag(PIPE_V, PIPE_S, EVENT_ID7);
-        wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
-        T2 curValue = *(reinterpret_cast<__ubuf__ T2 *>(src1 + i));
-        if constexpr (cacheMode == 1) { // PA_NZ
-            T2 blockCount = curValue / blockSize;
-            T2 index = curValue % blockSize;
-
-            __gm__ T *new_dst = dst + blockCount * blockSize * GmShape1 + index * 32 / sizeof(T);
-            set_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
-            wait_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
-
-            copy_ubuf_to_gm(new_dst, src0 + i * src0OriShape1, 0 /*sid*/, src0OriShape1 / 32 * sizeof(T), 1, 0, blockSize - 1);//ok
-        } else {
-            __gm__ T *new_dst = dst + curValue * GmShape1;
-            set_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
-            wait_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
-            TileOp::UBCopyOutBase<T, src0rawShape1>(new_dst, src0 + i * src0rawShape1, 1, src0OriShape1, GmShape1);
-        }
-    }
-}
-
-// src1=index [1,2] , src0: [TShape0,TShape1,TShape2,TShape3],  dst [GmShape0,GmShape1,GmShape2,GmShape3]
-template <typename T, typename T2, unsigned src0rawShape1, unsigned src0rawShape2, unsigned src0rawShape3,
-    unsigned src1rawShape3, unsigned cacheMode, unsigned blockSize>
-TILEOP void DynTIndexoutcast(__gm__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *src1, unsigned src0OriShape0,
-    unsigned src0OriShape1, unsigned src0OriShape3, unsigned src1OriShape0, unsigned src1OriShape1,
-    unsigned GmShape0, unsigned GmShape1, unsigned GmShape2, unsigned GmShape3,
-    unsigned Offset0, unsigned Offset1, unsigned Offset2, unsigned Offset3) {
-    if (src0OriShape0 == 0 || src0OriShape1 == 0 || src0OriShape3 == 0 || src1OriShape0 == 0 || src1OriShape1 == 0) {
-        return;
-    }
-    if (cacheMode == 2) {
-        DynTIndexoutcast<T, T2>(dst, src0, src1, src1OriShape0, src1OriShape1, src1rawShape3,
-            src0OriShape3, src0rawShape1, src0rawShape3);
-        return;
-    }
-    dst += CalcLinearOffset(GmShape1, GmShape2, GmShape3, Offset0, Offset1, Offset2, Offset3);
-
-    int alignTS2TS3 = src0rawShape2 * src0rawShape3; // ub需要32B对齐
-    int alignSrc1 = src1rawShape3;                   // 修改对 src1 的大小计算
-    for (int i = 0; i < src0OriShape0; ++i) {
-        for (int j = 0; j < src0OriShape1; ++j) {
-            TileOp::TIndexoutcastBase<T, T2, src0rawShape3, cacheMode, blockSize>
-                (dst, src0, src1, src0OriShape3, src1OriShape1, GmShape3);
-        }
-        src0 += alignTS2TS3;
-        src1 += alignSrc1;
-        dst += GmShape2 * GmShape3;
-    }
-}
-
 #ifndef TILEOP_TILE_OPERATOR_INDEX_OUTCAST__H
 #define TILEOP_TILE_OPERATOR_INDEX_OUTCAST__H
 
 #include "utils/layout.h"
 #include "utils/tile_tensor.h"
 
-template <typename T, typename T2, unsigned cacheMode, unsigned blockSize>
-__aicore__ inline void TScatterUpdate(
-    T dst,        // GM 
-    T src,  // UB 中的数据 [S × D]
-    T2 src1  // UB 中的索引 [S]
-){
+template <unsigned cacheMode, unsigned blockSize, typename T0, typename T1, typename T2>
+TILEOP  void TIndexOutcast(T0 dst, T1 src, T2 src1)
+{
+   constexpr auto expectSize = 5; // 所有张量都是 5D
+
+    // === src0: data [1, B, S, 1, D] ===
     const auto uLayout = src.GetLayout();
-    auto uShape0 = uLayout.template GetShapeDim<0, 5>();
-    auto uShape1 = uLayout.template GetShapeDim<1, 5>();
-    auto uShape2 = uLayout.template GetShapeDim<2, 5>();
-    auto uShape3 = uLayout.template GetShapeDim<3, 5>(); // S
-    auto uShape4 = uLayout.template GetShapeDim<4, 5>(); // D
+    auto uShape1 = uLayout.template GetShapeDim<1, expectSize>(); 
+    auto uShape2 = uLayout.template GetShapeDim<2, expectSize>();
+    auto uShape3 = uLayout.template GetShapeDim<3, expectSize>(); 
+    auto uShape4 = uLayout.template GetShapeDim<4, expectSize>(); 
 
-    auto uStride0 = uLayout.template GetStrideDim<0, 5>();
-    auto uStride1 = uLayout.template GetStrideDim<1, 5>();
-    auto uStride2 = uLayout.template GetStrideDim<2, 5>();
-    auto uStride3 = uLayout.template GetStrideDim<3, 5>();
-    auto uStride4 = uLayout.template GetStrideDim<4, 5>();
+    // Stride for src0
+    auto uStride1 = uLayout.template GetStrideDim<1, expectSize>(); 
+    auto uStride2 = uLayout.template GetStrideDim<2, expectSize>(); 
+    auto uStride4 = uLayout.template GetStrideDim<4, expectSize>(); // stride of D (should be 1)
 
-    // === Get indices layout info ===
+    // === src1: indices [1, 1, 1, B, S] ===
     const auto iLayout = src1.GetLayout();
-    auto iShape0 = iLayout.template GetShapeDim<0, 5>();
-    auto iShape1 = iLayout.template GetShapeDim<1, 5>();
-    auto iShape2 = iLayout.template GetShapeDim<2, 5>();
-    auto iShape3 = iLayout.template GetShapeDim<3, 5>();
-    auto iShape4 = iLayout.template GetShapeDim<4, 5>();
+    auto iShape3 = iLayout.template GetShapeDim<3, expectSize>(); // B
+    auto iShape4 = iLayout.template GetShapeDim<4, expectSize>(); // S
 
-    auto iStride0 = iLayout.template GetStrideDim<0, 5>();
-    auto iStride1 = iLayout.template GetStrideDim<1, 5>();
-    auto iStride2 = iLayout.template GetStrideDim<2, 5>();
-    auto iStride3 = iLayout.template GetStrideDim<3, 5>();
-    auto iStride4 = iLayout.template GetStrideDim<4, 5>();
+    auto iStride3 = iLayout.template GetStrideDim<3, expectSize>(); // stride of B
+    auto iStride4 = iLayout.template GetStrideDim<4, expectSize>(); // stride of S (should be 1)
 
-    // === Get dst layout info ===
+    // === dst: [1, N, K, 1, D] ===
     const auto dLayout = dst.GetLayout();
-    auto dShape0 = dLayout.template GetShapeDim<0, 5>();
-    auto dShape1 = dLayout.template GetShapeDim<1, 5>();
-    auto dShape2 = dLayout.template GetShapeDim<2, 5>();
-    auto dShape3 = dLayout.template GetShapeDim<3, 5>();
-    auto dShape4 = dLayout.template GetShapeDim<4, 5>();
+    auto dShape1 = dLayout.template GetShapeDim<1, expectSize>(); // N (logical rows)
+    auto dShape2 = dLayout.template GetShapeDim<2, expectSize>(); // K = 32 or 128 (physical block size)
+    auto dShape4 = dLayout.template GetShapeDim<4, expectSize>(); // D
 
-    auto dStride0 = dLayout.template GetStrideDim<0, 5>();
-    auto dStride1 = dLayout.template GetStrideDim<1, 5>();
-    auto dStride2 = dLayout.template GetStrideDim<2, 5>();
-    auto dStride3 = dLayout.template GetStrideDim<3, 5>();
-    auto dStride4 = dLayout.template GetStrideDim<4, 5>();
+    auto dStride1 = dLayout.template GetStrideDim<1, expectSize>();   
+    auto dStride4 = dLayout.template GetStrideDim<4, expectSize>(); // should be 1
 
-    if (uShape0 == 0 || uShape1 == 0 || uShape3 == 0 || iShape0 == 0 || iShape1 == 0) {
+    using DstDtype = typename T0::Type;   // dst 的数据类型
+    using SrcDtype = typename T1::Type;   // src (data) 的数据类型
+    using IdxDtype = typename T2::Type;   // src1 (index) 的数据类型
+        
+    // === 提取对齐后的 raw shape（TileShape 是 5D）===
+    constexpr auto dstTileH = TileOp::GetTensorTileShapeDim<T0, 3, 5>(); // dim3 = 1
+    constexpr auto dstTileW = TileOp::GetTensorTileShapeDim<T0, 4, 5>(); // D_32aligned
+    constexpr auto src0rawShape4 = dstTileW;                             // D_32aligned
+    constexpr auto src0rawShape2 = TileOp::GetTensorTileShapeDim<T1, 2, 5>(); // S_32aligned from src
+
+    constexpr auto src1rawShape4 = TileOp::GetTensorTileShapeDim<T2, 4, 5>(); // S_32aligned for index
+
+    if (uShape1 == 0 || uShape2 == 0 || uShape4 == 0 || iShape3 == 0 || iShape4 == 0) {
         return;
     }
-    if (cacheMode == 2) {
-    unsigned batch     = uShape2;   // B
-    unsigned seqLen    = uShape3;   // S (number of indices per batch)
-    unsigned dim       = uShape4;   // D
 
-    constexpr unsigned ALIGN_BYTES = 32;
-    constexpr unsigned ELEM_SIZE = sizeof(T);
-    unsigned paddedDim = (dim + (ALIGN_BYTES / ELEM_SIZE - 1)) / (ALIGN_BYTES / ELEM_SIZE) * (ALIGN_BYTES / ELEM_SIZE);
+    if constexpr (cacheMode == 2) {
+        set_flag(PIPE_MTE2, PIPE_S, EVENT_ID7);
+        wait_flag(PIPE_MTE2, PIPE_S, EVENT_ID7);
 
-    unsigned paddedSeqUpd = (uStride3 == 0) ? seqLen : (uStride2 / uStride3);
-    unsigned paddedSeqIdx = (iStride4 == 0) ? seqLen : (iStride3 / iStride4);
-    set_flag(PIPE_MTE2, PIPE_S, EVENT_ID7);
-    wait_flag(PIPE_MTE2, PIPE_S, EVENT_ID7);
+        __ubuf__ SrcDtype* srcBase = reinterpret_cast<__ubuf__ SrcDtype*>(src.GetAddr());
+        __ubuf__ IdxDtype* idxBase = reinterpret_cast<__ubuf__ IdxDtype*>(src1.GetAddr());
+        __gm__ DstDtype* dstBase   = reinterpret_cast<__gm__ DstDtype*>(dst.GetAddr());
 
-    __gm__ T* baseDst = (__gm__ T*)((uint64_t)(dst.GetAddr()));
-    __ubuf__ T2* dstIdx = (__ubuf__ T2*)((uint64_t)(src1.GetAddr()));
-    __ubuf__ T* curSrc = (__ubuf__ T*)((uint64_t)(src.GetAddr()));
+        unsigned B = iShape3;
+        unsigned S = iShape4;
+        unsigned D = uShape4;
 
-    using DstDtype = std::conditional_t<std::is_same_v<T, bool>, uint8_t, T>;
-    using SrcDtype = DstDtype;
+        constexpr unsigned S_32aligned = src0rawShape2;
+        constexpr unsigned D_32aligned = src0rawShape4;
 
-    for (unsigned b = 0; b < batch; ++b) {
-        for (unsigned s = 0; s < seqLen; ++s) {
-            unsigned idx_val = static_cast<unsigned>(*dstIdx);
-            __gm__ DstDtype* scatterAddr = reinterpret_cast<__gm__ DstDtype*>(baseDst) + idx_val * paddedDim;
+        for (unsigned b = 0; b < B; ++b) {
+            for (unsigned s = 0; s < S; ++s) {
+                // 读取 index: src1[0,0,0,b,s]
+                IdxDtype idx_val_raw = idxBase[b * iStride3 + s * iStride4];
+                unsigned idx_val = static_cast<unsigned>(idx_val_raw);
 
-            // 构造 GlobalTensor: shape [1,1,1,1,dim], stride [0,0,0,0,1] ===
-            pto::GlobalTensor<DstDtype, pto::Shape<1, 1, 1, 1, -1>, pto::Stride<0, 0, 0, 0, 1>> 
-                dstGlobal(scatterAddr, pto::Shape(1, 1, 1, 1, dim));
+                // 计算 src0 地址: [0, b, s, 0, 0]
+                // src0 layout: [1, B, S, 1, D]
+                // offset = b * stride_B + s * stride_S + 0 * stride_1 + 0 * stride_D
+                // 由于 dim3=1, stride3 = D, 但我们从 [b][s][0][0] 开始，所以只需前两项
+                uint64_t srcOffset = b * uStride1 + s * uStride2; 
+                // 构造 src tile: w * h
+                using SrcTileDefine = pto::Tile<pto::TileType::Vec, SrcDtype, dstTileH, dstTileW, 
+                                               pto::BLayout::RowMajor, -1, -1>;
+                SrcTileDefine srcTile(uShape3, uShape4);
+                pto::TASSIGN(srcTile, reinterpret_cast<uint64_t>(srcBase + srcOffset));
 
-            pto::Tile<pto::TileType::Vec, SrcDtype, 1, 1, pto::BLayout::RowMajor, -1, -1> srcUB(1, dim);
-            pto::TASSIGN(srcUB, (uint64_t)curSrc);
-            pto::TSTORE(dstGlobal, srcUB);
-            curSrc += paddedDim;
-            dstIdx++;
+                // 写入 dst: dst[0, idx_val, 0, 0, 0]
+                // dst layout: [1, N, K, 1, D] → 逻辑行 idx_val 的起始地址 = dstBase + idx_val * dStride1
+                __gm__ DstDtype* scatterAddr = dstBase + idx_val * dStride1;
+
+              // 使用 5D 动态 GlobalTensor
+                using DstGlobalType = pto::GlobalTensor<
+                    DstDtype,
+                    pto::Shape<-1, -1, -1, -1, -1>,
+                    pto::Stride<-1, -1, -1, -1, -1>
+                >;
+
+                DstGlobalType dstGlobal(
+                    scatterAddr,
+                    pto::Shape<-1, -1, -1, -1, -1>(1, 1, 1, 1, static_cast<int64_t>(D)),  
+                    pto::Stride<-1, -1, -1, -1, -1>(0, 0, 0, 0, 1)                          
+                );
+                pto::TSTORE(dstGlobal, srcTile.Data());
+            } 
+            // 在 UB 中，src0 的 S 维被 padding 到 S_32aligned
+            // 所以每处理完一个 b，要跳过 (S_32aligned - S) 个 S-slice
+            // 每个 S-slice 占 D_32aligned 个元素（因为 D 也可能 padding）
+            constexpr unsigned D_32aligned = src0rawShape4;
+
+            // 对于 index buffer (src1): 每个 S 元素占 1 个 IdxDtype，S 维 padding 到 S_32aligned
+            idxBase += (S_32aligned - S); // 因为 src1 的 D=1，stride_S=1
+
+            // 对于 data buffer (src0): 每个 S-slice 占 D_32aligned 个元素
+            srcBase += (S_32aligned - S) * D_32aligned; // 关键！不是 * D，而是 * D_32aligned
         }
-        curSrc += (paddedSeqUpd - seqLen) * paddedDim;
-        dstIdx += (paddedSeqIdx - seqLen);
+        return;
     }
-    return;
-    }
-    dst += CalcLinearOffset(GmShape1, GmShape2, GmShape3, Offset0, Offset1, Offset2, Offset3);
+    unsigned B = uShape1;   // = iShape3
+    unsigned S = uShape2;   // = iShape4
+    unsigned D = uShape4;   // logical D
 
-    int alignTS2TS3 = src0rawShape2 * src0rawShape3; // ub需要32B对齐
-    int alignSrc1 = src1rawShape3;                   // 修改对 src1 的大小计算
-    for (int i = 0; i < src0OriShape0; ++i) {
-        for (int j = 0; j < src0OriShape1; ++j) {
-            TileOp::TIndexoutcastBase<T, T2, src0rawShape3, cacheMode, blockSize>
-                (dst, src0, src1, src0OriShape3, src1OriShape1, GmShape3);
+    constexpr unsigned S_32aligned = src0rawShape2; // S aligned in UB
+    constexpr unsigned D_32aligned = src0rawShape4; // D aligned in UB
+
+    // UB 起始地址
+    __ubuf__ SrcDtype* src0_base = reinterpret_cast<__ubuf__ SrcDtype*>(src.GetAddr());
+    __ubuf__ IdxDtype* src1_base = reinterpret_cast<__ubuf__ IdxDtype*>(src1.GetAddr());
+    __gm__  DstDtype* dst_base   = reinterpret_cast<__gm__  DstDtype*>(dst.GetAddr());
+
+    // 按 B 维度遍历
+    for (unsigned b = 0; b < B; ++b) {
+        // 当前 B 块在 UB 中的起始地址
+        __ubuf__ SrcDtype* cur_src0 = src0_base + b * (S_32aligned * D_32aligned);
+        __ubuf__ IdxDtype* cur_src1 = src1_base + b * S_32aligned;
+
+        // 按 S 维度遍历（每个 index 对应一个 D 向量）
+        for (unsigned s = 0; s < S; ++s) {
+            // 插入流水屏障（按原 Base 函数）
+            set_flag(PIPE_MTE3, PIPE_S, EVENT_ID7);
+            wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID7);
+            set_flag(PIPE_MTE2, PIPE_S, EVENT_ID7);
+            wait_flag(PIPE_MTE2, PIPE_S, EVENT_ID7);
+            set_flag(PIPE_V, PIPE_S, EVENT_ID7);
+            wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
+
+            // 读取 index: src1[b][s]
+            IdxDtype curValue = cur_src1[s];
+
+            if constexpr (cacheMode == 1) { // PA_NZ
+                // PA_NZ 模式：index = blockCount * blockSize + offset
+                auto blockCount = static_cast<unsigned>(curValue) / blockSize;
+                auto index_in_block = static_cast<unsigned>(curValue) % blockSize;
+                unsigned global_row = blockCount * blockSize + index_in_block;
+
+                
+
+                // 计算 dst 地址:
+                // - 每个 block 占 blockSize 行
+                // - 每行 stride = dStride1 (padded_D)
+               __gm__ DstDtype* new_dst = dst_base + global_row * dStride1;
+
+                set_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
+                wait_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
+
+                // 使用 TSTORE 直接拷贝 D 个元素
+                using SrcTileDefine = pto::Tile<pto::TileType::Vec, SrcDtype, dstTileH, dstTileW,
+                                               pto::BLayout::RowMajor, -1, -1>;
+                SrcTileDefine srcTile(1, D);
+                pto::TASSIGN(srcTile, reinterpret_cast<uint64_t>(cur_src0 + s * D_32aligned));
+
+                using ScatterShape  = pto::Shape<1, 1, 1, 1, -1>;
+                using ScatterStride = pto::Stride<0, 0, 0, 0, -1>;
+
+                auto dstGlobal = pto::GlobalTensor<DstDtype, ScatterShape, ScatterStride>(
+                    new_dst,
+                    pto::Shape<1, 1, 1, 1, -1>(1, 1, 1, 1, static_cast<int64_t>(D)),
+                    pto::Stride<0, 0, 0, 0, -1>(0, 0, 0, 0, 1)
+                );
+                pto::TSTORE(dstGlobal, srcTile.Data());
+            } else { // cacheMode == 0 或其他：普通 scatter
+                // curValue 是逻辑行号（0 ～ N-1）
+                unsigned row_id = static_cast<unsigned>(curValue);
+                __gm__ DstDtype* new_dst = dst_base + row_id * dStride1;
+
+                set_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
+                wait_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
+
+                using SrcTileDefine = pto::Tile<pto::TileType::Vec, SrcDtype, dstTileH, dstTileW,
+                                                pto::BLayout::RowMajor, -1, -1>;
+                SrcTileDefine srcTile(1, D);
+                pto::TASSIGN(srcTile, reinterpret_cast<uint64_t>(cur_src0 + s * D_32aligned));
+
+                using ScatterShape  = pto::Shape<1, 1, 1, 1, -1>;
+                using ScatterStride = pto::Stride<0, 0, 0, 0, -1>;
+
+                auto dstGlobal = pto::GlobalTensor<DstDtype, ScatterShape, ScatterStride>(
+                    new_dst,
+                    pto::Shape<1, 1, 1, 1, -1>(1, 1, 1, 1, static_cast<int64_t>(D)),
+                    pto::Stride<0, 0, 0, 0, -1>(0, 0, 0, 0, 1)
+                );
+                pto::TSTORE(dstGlobal, srcTile.Data());
+                }
         }
-        src0 += alignTS2TS3;
-        src1 += alignSrc1;
-        dst += GmShape2 * GmShape3;
     }
 }
+
 #endif // TILEOP_TILE_OPERATOR_INDEX_OUTCAST__H
