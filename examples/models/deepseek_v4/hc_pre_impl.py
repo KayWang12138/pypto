@@ -169,17 +169,13 @@ def check_input_output_shape_dtype(x: torch.Tensor, hc_fn: torch.Tensor, hc_scal
 @allow_in_graph
 def npu_hc_pre(x: torch.Tensor, hc_fn: torch.Tensor, hc_scale: torch.Tensor, hc_base: torch.Tensor)\
         -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    t = x.shape[0]
-    hc = x.shape[1]
-    d = x.shape[2]
-
     print("x.shape in npu_hc_pre", x.shape)
     ### check dtype
     check_input_output_shape_dtype(x, hc_fn, hc_scale, hc_base)
 
-    y = torch.zeros([t, d], dtype=x.dtype, device=f'{x.device}')
-    post = torch.zeros([t, hc], dtype=hc_scale.dtype, device=f'{x.device}')
-    comb = torch.zeros([t, hc, hc], dtype=hc_scale.dtype, device=f'{x.device}')
+    y = torch.zeros([x.size(0), x.size(2)], dtype=x.dtype, device=f'{x.device}')
+    post = torch.zeros([x.size(0), x.size(1)], dtype=hc_scale.dtype, device=f'{x.device}')
+    comb = torch.zeros([x.size(0), x.size(1), x.size(1)], dtype=hc_scale.dtype, device=f'{x.device}')
 
     in_outs = {
         x: [0],

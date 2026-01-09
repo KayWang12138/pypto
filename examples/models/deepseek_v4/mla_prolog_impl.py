@@ -350,17 +350,17 @@ def mla_prolog_v4(x, wq_a, wq_b, wkv, rmsnorm_gamma_cq, rmsnorm_gamma_ckv, cos, 
     mla_prolog_v4_compute(x, wq_a, wq_b, wkv, rmsnorm_gamma_cq, rmsnorm_gamma_ckv, cos, sin, q_out, kv_out, qr_out, attrs, configs)
 
 @allow_in_graph
-def mla_prolog_v4_in(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, 
-    output_q_data, output_kv_data, output_qr_data):
-
+def mla_prolog_v4_in(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv):
+    output_q_data = torch.zeros([token_x.size(0), wq_b.size(1) // gamma_ckv.size(0), gamma_ckv.size(0)], dtype=token_x.dtype, device=f'{token_x.device}')
+    output_kv_data = torch.zeros([token_x.size(0), gamma_ckv.size(0)], dtype=token_x.dtype, device=f'{token_x.device}')
+    output_qr_data = torch.zeros([token_x.size(0), gamma_cq.size(0)], dtype=token_x.dtype, device=f'{token_x.device}')
+    
     check_input_output_shape_dtype(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, 
                                     output_q_data, output_kv_data, output_qr_data)
-
-    if isinstance(output_q_data, FakeTensor) or isinstance(output_kv_data, FakeTensor) or isinstance(output_qr_data, FakeTensor):
-        return output_q_data, output_kv_data, output_qr_data
-    out_q = pypto.from_torch(output_q_data, dynamic_axis=[0], name="output_q")
-    out_kv = pypto.from_torch(output_kv_data, dynamic_axis=[0], name="output_kv")
-    out_qr = pypto.from_torch(output_qr_data, dynamic_axis=[0], name="output_qr")
+    if not isinstance(token_x, FakeTensor):
+        out_q = pypto.from_torch(output_q_data, dynamic_axis=[0], name="output_q")
+        out_kv = pypto.from_torch(output_kv_data, dynamic_axis=[0], name="output_kv")
+        out_qr = pypto.from_torch(output_qr_data, dynamic_axis=[0], name="output_qr")
 
     token_x_data = pypto.from_torch(token_x, dynamic_axis=[0], name="token_x")
     wq_a_data = pypto.from_torch(wq_a, name="wq_a")

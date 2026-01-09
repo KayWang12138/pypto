@@ -52,7 +52,6 @@ def gen_hc_split_sinkhorn(x, hc_scale, hc_base):
         comb_flag = comb_flag / (row_sum + hc_eps) # (t, 4, 4)
         col_sum = comb_flag.sum(-2, keepdim=True) # (t, 4, 4)
         comb_flag = comb_flag / (col_sum + hc_eps) # (t, 4, 4)
-
     return pre, post, comb_flag
 
 
@@ -88,13 +87,26 @@ def gen_hc_pre_data(t = 16):
     # print("res", res.shape, res)
     # print("post", post.shape, post)
     # print("comb", comb.shape, comb)
-
     return x, hc_fn, hc_scale, hc_base, res, post, comb, mm_res
+
+pyptolib = torch.library.Library("pypto", "FRAGMENT") 
+pyptolib.define("hc_pre(Tensor x, Tensor hc_fn, Tensor hc_scale, Tensor hc_base) -> (Tensor, Tensor, Tensor)")
+
+@torch.library.impl(pyptolib, "hc_pre", "Meta")
+def hc_pre(x, hc_fn, hc_scale, hc_base):
+    y = torch.empty([x.size(0), x.size(2)], dtype=x.dtype, device=f'{x.device}')
+    post = torch.empty([x.size(0), x.size(1)], dtype=hc_scale.dtype, device=f'{hc_scale.device}')
+    comb = torch.empty([x.size(0), x.size(1), x.size(1)], dtype=hc_scale.dtype, device=f'{hc_scale.device}')
+    return y, post, comb
+
+
+@torch.library.impl(pyptolib, "hc_pre", "NPU")
+def hc_pre(x, hc_fn, hc_scale, hc_base):
+    return npu_hc_pre(x, hc_fn, hc_scale, hc_base)
 
 class HC_PRE(torch.nn.Module):
     def forward(self, x, hc_fn, hc_scale, hc_base):
-        y, post, comb = npu_hc_pre(x, hc_fn, hc_scale, hc_base)
-        return y, post, comb
+        return torch.ops.pypto.hc_pre(x, hc_fn, hc_scale, hc_base)
 
 def test_hc_pre_inmodel(t = 16):
     device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
@@ -109,27 +121,22 @@ def test_hc_pre_inmodel(t = 16):
     hc_scale = hc_scale.to(device=f'npu:{device_id}')
     hc_base = hc_base.to(device=f'npu:{device_id}')
 
-    model = torch.compile(HC_PRE(), backend="eager", dynamic=True)
-    # capture model
-    g = torch.npu.NPUGraph()
-    with torch.npu.graph(g):
-        y, post, comb = model(x, hc_fn, hc_scale, hc_base)
+    import torchair as tng
+    from torchair.configs.compiler_config import CompilerConfig
+    compiler_config = CompilerConfig()
+    compiler_config.mode = "reduce-overhead"
+    npu_backend = tng.get_npu_backend(compiler_config=compiler_config)
+    model = torch.compile(HC_PRE(), dynamic=False, fullgraph=True, backend=npu_backend)
+    y, post, comb = model(x, hc_fn, hc_scale, hc_base)
+    pypto.runtime._device_synchronize()
 
-    for i in range(30):
-        print(f"##### Iteration {i+1} before replay")
-        # execute
-        g.replay()
-        pypto.runtime._device_synchronize()
-
-        # y, post, comb = y.cpu(), post.cpu(), comb.cpu()
-        # ### compare
-        # compare(y, y_gd, "y", atol=0.0001, rtol=0.0078125)
-        # print("y compare success!!!")
-        # compare(post, post_gd, "post", atol=0.000025, rtol=0.005)
-        # print("post compare success!!!")
-        # compare(comb, comb_gd, "comb", atol=0.000025, rtol=0.005)
-        # print("comb compare success!!!")
-        print(f"##### Iteration {i+1} passed")
+    ### compare
+    compare(y.cpu(), y_gd, "y", atol=0.0001, rtol=0.0078125)
+    print("y compare success!!!")
+    compare(post.cpu(), post_gd, "post", atol=0.000025, rtol=0.005)
+    print("post compare success!!!")
+    compare(comb.cpu(), comb_gd, "comb", atol=0.000025, rtol=0.005)
+    print("comb compare success!!!")
 
 def test_hc_pre(t = 16):
     device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)

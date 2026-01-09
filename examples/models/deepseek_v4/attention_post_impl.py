@@ -258,12 +258,15 @@ def check_input_output_shape_dtype(attn_res: torch.Tensor, cos: torch.Tensor, si
 
 @allow_in_graph
 def npu_attention_post_v4(attn_res: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor,
-                          wo_a: torch.Tensor, wo_b: torch.Tensor, hidden_states: torch.Tensor):
+                          wo_a: torch.Tensor, wo_b: torch.Tensor):
     """
     torch npu graph interface
 
     """
     # mark dynamic_axis
+    # define npu outputs
+    hidden_states = torch.zeros([attn_res.size(0), wo_b.size(1)], dtype=attn_res.dtype, device=f'{attn_res.device}')
+
     check_input_output_shape_dtype(attn_res, cos, sin, wo_a, wo_b, hidden_states)
     atten_res_pto = pypto.from_torch(attn_res, dynamic_axis=[0], name="attn_res")
     cos_pto = pypto.from_torch(cos, dynamic_axis=[0], name="cos")
@@ -289,3 +292,5 @@ def npu_attention_post_v4(attn_res: torch.Tensor, cos: torch.Tensor, sin: torch.
         pto_inputs = [atten_res_pto, cos_pto, sin_pto, wo_a_pto, wo_b_pto]
         pto_outputs = [hidden_states_pto]
         attention_post_decode(*pto_inputs, *pto_outputs, tile_config)
+        
+    return hidden_states
