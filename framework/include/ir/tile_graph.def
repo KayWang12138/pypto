@@ -154,17 +154,42 @@ DEF_OP(
 )
 
 DEF_OP(
-    ScatterOp,
+    ScatterElementsOp,
     INHERIT(ScatetrTileBaseOp),
     OPCODE(
         OP_SCATTER_ELEMENT,
-        OP_SCATTER,
-        OP_INDEX_PUT,
     ),
+    INPUT(Tile, Src0),
+    INPUT(Tile, Src1),
+    INPUT(Scalar, scatter),
+    OUTPUT(Tile, Output),
     ATTR(int, CombineAxis)
     ATTR(int, Axis)    // scatterelements/scatter 指定轴
     ATTR(int, ScatterMode)  // scatterelements/scatter reduce 类型
     ATTR(int, Accumulate)   // index put 是否累加
+)
+
+DEF_OP(
+    ScatterOp,
+    INHERIT(ScatetrTileBaseOp),
+    OPCODE(
+        OP_SCATTER,
+    ),
+    INPUT(Tile, Src0),
+    INPUT(Tile, Src1),
+    INPUT(Tile, Src2),
+    OUTPUT(Tile, Output),   // todo tileop 实现 output 与 Src0 共内存
+    ATTR(int, CombineAxis)
+    ATTR(int, Axis)    //  指定轴
+    ATTR(int, ScatterMode)  // reduce 类型
+    ATTR(int, Accumulate)   // index put 是否累加
+)
+
+DEF_OP(
+    IndexPutOp,      // 没有对应的TileOp，OP_INDEX_PUT实际使用scatter update
+    OPCODE(
+        OP_INDEX_PUT,
+    ),
 )
 
 DEF_OP(
@@ -177,7 +202,6 @@ DEF_OP(
         OP_DIVS,
         OP_MINS,
         OP_MAXS,
-        OP_POW,
         OP_S_ADDS,
         OP_S_SUBS,
         OP_S_MULS,
@@ -199,6 +223,9 @@ DEF_OP(
     OPCODE(
         OP_POW
     ),
+    INPUT(Tile, Lhs),
+    INPUT(Scalar, Rhs),
+    OUTPUT(Tile, Output),
     ATTR(int, InputCombineAxis),                 // 输入合并轴
  	ATTR(int, OutputCombineAxis),                // 输出合并轴
  	ATTR(bool, ExcludeBufferReuse)               // 是否排除buffer复用
@@ -212,6 +239,9 @@ DEF_OP(
         OP_GATHER,
         OP_GATHER_ELEMENT
     ),
+    INPUT(Tile, Lhs),
+    INPUT(Tile, Rhs),
+    OUTPUT(Tile, Output),
     ATTR(int, Axis),                             // 操作的轴
     ATTR(bool, ExcludeBufferReuse)               // 是否排除buffer复用（GATHER_FROM_UB/GATHER_ELEMENT使用）
 )
@@ -226,6 +256,10 @@ DEF_OP(
         OP_PAIRMIN,
         OP_PAIRSUM
     ),
+    INPUT(Tile, Lhs),
+    INPUT(Tile, Rhs),
+    OUTPUT(Tile, Output),
+    OUTPUT(Tile, TemTensor),
     ATTR(int, CombineAxis),
 )
 
@@ -249,16 +283,15 @@ DEF_OP(
         OP_ROWMAX_SINGLE,
         OP_ROWMIN_SINGLE,
         OP_ROWSUM_SINGLE,
-        OP_ROWMAX_COMBINE_AXIS_SINGLE,
-        OP_ROWSUM_COMBINE_AXIS_SINGLE,
         OP_ROWMAXLINE,
         OP_ROWMINLINE,
-        OP_ROWMAX,
- 	    OP_ROWSUM,
- 	    OP_ROWEXPMAX,
- 	    OP_ROWEXPSUM,
+        OP_ROWMAX,      //暂定无法确认是否有实现
+ 	    OP_ROWSUM,      //暂定无法确认是否有实现
+ 	    OP_ROWEXPMAX,   //暂定无法确认是否有实现 
+ 	    OP_ROWEXPSUM,   //暂定无法确认是否有实现  
     ),
-    ATTR(int, CombineAxis),
+    INPUT(Tile, Input),
+    OUTPUT(Tile, Output),
     ATTR(int, Axis),
 )
 
@@ -460,8 +493,23 @@ DEF_OP(
     INHERIT(CompareTileOp),
     OPCODE(
         OP_CMP,
-        OP_CMPS
     ),
+    INPUT(Tile, input1),
+    INPUT(Tile, input2),
+    OUTPUT(Tile, Output)
+    ATTR(CmpOperationType, CmpOperation),           // 【枚举】比较操作类型
+    ATTR(CmpModeType, CmpMode),                     // 【枚举】比较模式
+)
+
+DEF_OP(
+    CompareOp,
+    INHERIT(CompareTileOp),
+    OPCODE(
+        OP_CMPS,
+    ),
+    INPUT(Tile, input1),
+    INPUT(Scalar, input2),
+    OUTPUT(Tile, Output)
     ATTR(CmpOperationType, CmpOperation),           // 【枚举】比较操作类型
     ATTR(CmpModeType, CmpMode),                     // 【枚举】比较模式
 )
