@@ -2117,7 +2117,9 @@ void MixSubgraphSplit::EliminateRedundantIncasts(
         sameTypeReachable[dep.srcComp].insert(dep.dstComp);
     }
     // 步骤3：对于每个tensor，找出所有接收它的组件，分析哪些是冗余的
-    for (const auto& [tensor, compSet] : tensorToComponents) {
+    for (const auto& item : tensorToComponents) {
+        const auto& tensor = item.first;
+        const auto& compSet = item.second;
         if (compSet.size() <= 1) continue;  
         ALOG_DEBUG_F("Analyzing tensor %d propagated to %zu components", 
                     tensor->GetRawMagic(), compSet.size());    
@@ -2179,7 +2181,9 @@ void MixSubgraphSplit::EliminateRedundantOutcasts(
         sameTypeReachable[dep.srcComp].insert(dep.dstComp);
     }
     // 步骤3：对于每个tensor，分析哪些scope的outcast是冗余的
-    for (const auto& [tensor, compSet] : tensorFromComponents) {
+    for (const auto& item : tensorFromComponents) {
+        const auto& tensor = item.first;
+        const auto& compSet = item.second;
         if (compSet.size() <= 1) continue;
         ALOG_DEBUG_F("Outcast tensor %d is produced by %zu components", 
                     tensor->GetRawMagic(), compSet.size());
