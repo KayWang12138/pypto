@@ -257,7 +257,6 @@ bool Program::BeginFunction(const std::string &funcName,
         currentFunctionPtr_->GetGraphType() != GraphType::EXECUTE_GRAPH) {
         GetTensorSlotManager()->BeginScope(currentFunctionPtr_);
     }
-    SetParamConfig(currentFunctionPtr_);
 
 #if ENABLE_HIDDENLOOP
     // Begin new hidden loop for the new function
@@ -300,7 +299,7 @@ Operation *Program::FinishCurrentFunction(const std::shared_ptr<TensorSlotScope>
 
 // Helper function: Dump tensor graph if needed
 void Program::DumpTensorGraphIfNeeded(Function *result) {
-    if (config::GetPassDefaultConfig("print_graph", false) &&
+    if (config::GetPassDefaultConfig(KEY_PRINT_GRAPH, false) &&
         result->IsGraphType(GraphType::TENSOR_GRAPH)) {
         result->DumpJsonFile(config::LogTensorGraphFolder() + "/" + result->GetRawName() + ".json");
         result->DumpFile(config::LogTensorGraphFolder() + "/" + result->GetRawName() + ".tifwkgr");
@@ -356,6 +355,8 @@ std::tuple<Function*, Operation *, bool> Program::EndFunction(const std::string 
     Operation *callop = FinishCurrentFunction(scope, generateCall);
     bool hit = QueryAndUpdateCurrentFunction();
     auto result = currentFunctionPtr_;
+
+    SetParamConfig(currentFunctionPtr_);
 
     DumpTensorGraphIfNeeded(result);
     PopStackAndUpdateCurrent();
@@ -441,8 +442,8 @@ void TraverAndDumpParent(Function *func, Json &progDump) {
 Json Program::DumpJson(Function *mainFunc) const {
     Json progDump;
     progDump["version"] = T_VERSION;
-    progDump["pass_thread_num"] = config::GetPassGlobalConfig("pass_thread_num", 1);
-    progDump["enable_cvfuse"] = config::GetPassGlobalConfig("enable_cv_fuse", false);
+    progDump["pass_thread_num"] = config::GetPassGlobalConfig(KEY_PASS_THREAD_NUM, 1);
+    progDump["enable_cvfuse"] = config::GetPassGlobalConfig(KEY_ENABLE_CV_FUSE, false);
     if (mainFunc == nullptr) {
         std::shared_ptr<npu::tile_fwk::Function> dyndevFunc = nullptr;
         std::vector<std::shared_ptr<npu::tile_fwk::Function>> rootFuncs;
