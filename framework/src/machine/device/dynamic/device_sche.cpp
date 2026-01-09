@@ -83,10 +83,17 @@ struct DynMachineManager {
         sigaction(SIGABRT, &myAct, &oriBordAct_);
         return;
     }
-
+    void RunDevInfo(DeviceArgs* devArgs, int threadIdx) {
+        DEV_INFO("TaskType %d threadIdx %d aicNum %u aivNum %u aicpuNum %u validAicNum %u .",
+            static_cast<int>(devArgs->taskType), threadIdx, devArgs->nrAic,
+            devArgs->nrAiv, devArgs->nrAicpu, devArgs->nrValidAic);
+        DEV_INFO("devQueueAddr %lx, sharedBuffer %lx coreRegAddr %lx corePmuAdr %lx .", devArgs->devQueueAddr,
+            devArgs->sharedBuffer, devArgs->coreRegAddr, devArgs->corePmuAddr);
+ 	}
     int Run(AstKernelArgs *args) {
         int ret = npu::tile_fwk::dynamic::DEVICE_MACHINE_OK;
         auto devArgs = PtrToPtr<int64_t, DeviceArgs>(args->cfgdata);
+        SchduleContext local_context;
         if ((uint32_t)schAicpuNum_ > devArgs->nrAicpu - 1) {
             DEV_ERROR("Aicpu num[%u] less than sche num[%d].", devArgs->nrAicpu, schAicpuNum_);
             return npu::tile_fwk::dynamic::DEVICE_MACHINE_ERROR;
@@ -101,7 +108,8 @@ struct DynMachineManager {
             DEV_INFO("devQueueAddr %lx, sharedBuffer %lx coreRegAddr %lx corePmuAdr %lx .", devArgs->devQueueAddr,
                 devArgs->sharedBuffer, devArgs->coreRegAddr, devArgs->corePmuAddr);
             DEV_TRACE_DEBUG(schema::ScheEvent(threadIdx, schema::ThreadStart()));
-            ret = machine_.Run(threadIdx, devArgs, handshakeByGm_);
+            machine_.SetStackMembers(threadIdx, &local_context);
+            ret = machine_.Run(threadIdx, devArgs);
             if (ret != DEVICE_MACHINE_OK) {
                 schRunFailed_ = true;
             }
