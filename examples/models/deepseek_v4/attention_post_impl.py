@@ -265,7 +265,7 @@ def npu_attention_post_v4(attn_res: torch.Tensor, cos: torch.Tensor, sin: torch.
     """
     # mark dynamic_axis
     # define npu outputs
-    hidden_states = torch.zeros([t, h], dtype=x.dtype, device=f'{x.device}')
+    hidden_states = torch.zeros([attn_res.size(0), wo_b.size(1)], dtype=x.dtype, device=f'{x.device}')
 
     check_input_output_shape_dtype(attn_res, cos, sin, wo_a, wo_b, hidden_states)
     atten_res_pto = pypto.from_torch(attn_res, dynamic_axis=[0], name="attn_res")
