@@ -90,7 +90,11 @@ class DistriutedGTestAccelerate(ABC):
             if len(datas) != 0:
                 brief = Table.table(datas=datas, headers=heads)
             # 并行执行收益计算
-            rate = float((duration_sum - self.duration) / self.duration) * 100 if self.duration and duration_sum.total_seconds() > 0 else 0
+            rate = (
+                float((duration_sum - self.duration) / self.duration) * 100 
+                if self.duration and duration_sum.total_seconds() > 0 
+                else 0
+            )
             desc = f"Duration {self.duration.total_seconds():.2f} secs, Revenue(Act/Ori, "
             desc += f"{self.duration.total_seconds():.2f}/{duration_sum.total_seconds():.2f}) {rate:.2f}%"
             return f"\n\n{self.cntr_name} Execution Brief:{brief}", desc
@@ -155,7 +159,11 @@ class DistriutedGTestAccelerate(ABC):
                 case_duration = _brief[2]
                 job_duration = self.cntr_duration_dict[job_idx]
                 ratio_job = float(case_duration / job_duration) * 100 if job_duration.total_seconds() > 0 else 0
-                ratio_process = float(case_duration / self.duration) * 100 if self.duration and self.duration.total_seconds() > 0 else 0
+                ratio_process = (
+                    float(case_duration / self.duration) * 100
+                    if self.duration and self.duration.total_seconds() > 0 
+                    else 0
+                )
                 datas.append(
                     [job_idx, case_name, case_duration.total_seconds(),
                      f"{case_duration.total_seconds():.2f}/{job_duration.total_seconds():.2f} {ratio_job:.2f}%",
@@ -204,91 +212,6 @@ class DistriutedGTestAccelerate(ABC):
         def brief(self) -> List[Any]:
             return [self.cntr_id, self.gtest_filter, (datetime.now(timezone.utc) - self.ts)]
 
-    def __init__(self, args, params: List[ExecParam], cntr_name: str = "Cntr"):
-        """
-        :param args: 命令行参数
-        :param params: 执行参数
-        :param cntr_name: 容器名称, 用于回显内容
-        """
-        # 用例执行参数, 执行行为控制参数
-        self.exe: Executable = Executable(file=args.target[0], envs=args.envs, timeout=args.timeout_case)
-        
-        # 自动创建设备组感知的执行参数
-        self.exe_params: List[DistriutedGTestAccelerate.ExecParam] = self._create_4card_distributed_params(args)
-        self.exe_result: DistriutedGTestAccelerate.ExecResult = DistriutedGTestAccelerate.ExecResult(cntr_name=cntr_name)
-        self.exe_timeout: Optional[int] = args.timeout
-        self.exe_halt_on_error: bool = args.halt_on_error
-
-        # 用例管理
-        self.case_list: List[str] = args.cases
-        self.case_queue: JoinableQueue = JoinableQueue()
-        self.case_execution_queue: JoinableQueue = JoinableQueue()
-        self.case_exception_queue: JoinableQueue = JoinableQueue()
-        self.case_terminate_queue: JoinableQueue = JoinableQueue()
-        self.case_exec_count = Value('i', 0)
-
-        # 容器管理
-        self.cntr_name: str = cntr_name
-        self.cntr_execution_queue: JoinableQueue = JoinableQueue()
-        self.cntr_terminate_event = Event()
-        self.cntr_exit_count = Value('i', 0)
-
-        if len(self.exe_params) == 0:
-            raise ValueError("No device groups created, cannot run any task")
-        if len(self.exe_params) > len(self.case_list):
-            logging.info("CaseNum(%s) less than device groups=%s, will use first %s groups",
-                         len(self.case_list), len(self.exe_params), len(self.case_list))
-            self.exe_params = self.exe_params[:len(self.case_list)]
-        logging.info("\n\n%s 4-Card Distributed Execution Args:%s", self.mark, Table.table(datas=self.brief))
-
-    def _create_4card_distributed_params(self, args) -> List[ExecParam]:
-        """创建设备组参数 - 专用于4卡分布式执行
-        """
-        if hasattr(args, 'device') and args.device is not None:
-            total_devices = len(args.device)
-            logging.info(f"Have {total_devices} devices: {args.device}")
-        else:
-            total_devices = 0
-            logging.error(f"Have {total_devices} device.")
-        devices_per_group = 4
-        num_groups = total_devices // devices_per_group
-        
-        if num_groups == 0:
-            logging.error("Not enough devices for 4-card distributed execution")
-            return []
-        
-        # 创建设备组
-        device_groups = []
-        for group_id in range(num_groups):
-            start_device = group_id * devices_per_group
-            device_list = list(range(start_device, start_device + devices_per_group))
-            device_list_str = ','.join(map(str, device_list))
-            
-            # 为每个设备组创建环境变量函数
-            def create_group_envs(param, devices=device_list, device_str=device_list_str):
-                env_vars = {
-                    "TILE_FWK_DEVICE_ID_LIST": device_str,
-                    "CUDA_VISIBLE_DEVICES": device_str,
-                    "ASCEND_DEVICE_IDS": device_str,
-                }
-                if hasattr(args, 'envs') and args.envs:
-                    env_vars.update(args.envs)
-                return env_vars
-            
-            # 创建新的ExecParam
-            new_param = DistriutedGTestAccelerate.ExecParam(
-                cntr_id=group_id,
-                envs_func=create_group_envs,
-                custom={
-                    "devices": device_list,
-                    "device_list_str": device_list_str,
-                }
-            )
-            device_groups.append(new_param)
-        
-        logging.info("Created %d device groups for 4-card distributed execution:", len(device_groups))
-        return device_groups
-
 
     @property
     def brief(self) -> List[Any]:
@@ -323,6 +246,47 @@ class DistriutedGTestAccelerate(ABC):
                           help="Stop on first failure")
         parser.add_argument("--gtest_filter", nargs="+", action=ArgsGTestFilterListAction,
                           default=[], required=True, dest="cases", help="Test cases to run")
+        
+
+    def __init__(self, args, params: List[ExecParam], cntr_name: str = "Cntr"):
+        """
+        :param args: 命令行参数
+        :param params: 执行参数
+        :param cntr_name: 容器名称, 用于回显内容
+        """
+        # 用例执行参数, 执行行为控制参数
+        self.exe: Executable = Executable(file=args.target[0], envs=args.envs, timeout=args.timeout_case)
+        
+        # 自动创建设备组感知的执行参数
+        self.exe_params: List[DistriutedGTestAccelerate.ExecParam] = self._create_4card_distributed_params(args)
+        self.exe_result: DistriutedGTestAccelerate.ExecResult = (
+            DistriutedGTestAccelerate.ExecResult(cntr_name=cntr_name)
+        )
+        self.exe_timeout: Optional[int] = args.timeout
+        self.exe_halt_on_error: bool = args.halt_on_error
+
+        # 用例管理
+        self.case_list: List[str] = args.cases
+        self.case_queue: JoinableQueue = JoinableQueue()
+        self.case_execution_queue: JoinableQueue = JoinableQueue()
+        self.case_exception_queue: JoinableQueue = JoinableQueue()
+        self.case_terminate_queue: JoinableQueue = JoinableQueue()
+        self.case_exec_count = Value('i', 0)
+
+        # 容器管理
+        self.cntr_name: str = cntr_name
+        self.cntr_execution_queue: JoinableQueue = JoinableQueue()
+        self.cntr_terminate_event = Event()
+        self.cntr_exit_count = Value('i', 0)
+
+        if len(self.exe_params) == 0:
+            raise ValueError("No device groups created, cannot run any task")
+        if len(self.exe_params) > len(self.case_list):
+            logging.info("CaseNum(%s) less than device groups=%s, will use first %s groups",
+                         len(self.case_list), len(self.exe_params), len(self.case_list))
+            self.exe_params = self.exe_params[:len(self.case_list)]
+        logging.info("\n\n%s 4-Card Distributed Execution Args:%s", self.mark, Table.table(datas=self.brief))
+
 
     def process(self):
         """执行任务
@@ -330,6 +294,7 @@ class DistriutedGTestAccelerate(ABC):
         ts = datetime.now(tz=timezone.utc)
         self._main()
         self.exe_result.duration = datetime.now(tz=timezone.utc) - ts
+
 
     def post(self) -> bool:
         """后处理, 获得执行结果汇总
@@ -346,6 +311,61 @@ class DistriutedGTestAccelerate(ABC):
         else:
             logging.error(out)
         return case_exec_result
+
+
+    def _create_4card_distributed_params(self, args) -> List[ExecParam]:
+        """创建设备组参数 - 使用闭包避免可变默认参数
+        """
+        if hasattr(args, 'device') and args.device is not None:
+            total_devices = len(args.device)
+            logging.info(f"Have {total_devices} devices: {args.device}")
+        else:
+            total_devices = 0
+            logging.error(f"Have {total_devices} device.")
+        devices_per_group = 4
+        num_groups = total_devices // devices_per_group
+        
+        if num_groups == 0:
+            logging.error("Not enough devices for 4-card distributed execution")
+            return []
+        
+        # 创建设备组
+        device_groups = []
+        for group_id in range(num_groups):
+            start_device = group_id * devices_per_group
+            device_list = list(range(start_device, start_device + devices_per_group))
+            device_list_str = ','.join(map(str, device_list))
+            
+            # 使用闭包捕获当前值，避免默认参数问题
+            def make_envs_func(devices, d_str, env_dict):
+                def create_group_envs(param):
+                    env_vars = {
+                        "TILE_FWK_DEVICE_ID_LIST": d_str,
+                        "CUDA_VISIBLE_DEVICES": d_str,
+                        "ASCEND_DEVICE_IDS": d_str,
+                    }
+                    if env_dict:
+                        env_vars.update(env_dict)
+                    return env_vars
+                return create_group_envs
+            
+            # 获取环境变量字典
+            envs_dict = getattr(args, 'envs', {})
+            
+            # 创建新的ExecParam
+            new_param = DistriutedGTestAccelerate.ExecParam(
+                cntr_id=group_id,
+                envs_func=make_envs_func(device_list, device_list_str, envs_dict),
+                custom={
+                    "devices": device_list,
+                    "device_list_str": device_list_str,
+                }
+            )
+            device_groups.append(new_param)
+        
+        logging.info("Created %d device groups for 4-card distributed execution:", len(device_groups))
+        return device_groups
+
 
     def _post_case_exec_info(self) -> Tuple[str, bool]:
         """获取 Case 执行信息.
@@ -378,6 +398,7 @@ class DistriutedGTestAccelerate(ABC):
         out = execution_brief + duration_brief + terminate_brief + exception_brief
         return out, rst
 
+
     def _main(self):
         """主执行逻辑
         """
@@ -391,6 +412,7 @@ class DistriutedGTestAccelerate(ABC):
         finally:
             self._cleanup_processes(cntr_process_group)
 
+
     def _push_all_cases(self):
         """将用例加入队列
         """
@@ -398,6 +420,7 @@ class DistriutedGTestAccelerate(ABC):
             self.case_queue.put(case)
         for _ in range(len(self.exe_params)):
             self.case_queue.put(None)
+
 
     def _start_cntr_process_group(self) -> List[Process]:
         """启动容器进程组
@@ -413,6 +436,7 @@ class DistriutedGTestAccelerate(ABC):
             processes.append(process)
             process.start()
         return processes
+
 
     def _wait_for_completion(self, processes: List[Process], check_interval: int = 1):
         """等待进程完成
@@ -434,6 +458,7 @@ class DistriutedGTestAccelerate(ABC):
                 self.cntr_terminate_event.set()
                 break
 
+
     def _cleanup_processes(self, processes: List[Process], timeout: int = 5):
         """清理进程
         """
@@ -448,13 +473,11 @@ class DistriutedGTestAccelerate(ABC):
                 try:
                     os.kill(process.pid, signal.SIGTERM)
                     process.join(timeout=1)
-                except:
-                    pass
-            if process.is_alive():
-                try:
-                    os.kill(process.pid, signal.SIGKILL)
-                except:
-                    pass
+                except ProcessLookupError:
+                    logging.warning(f"process {process.pid} stopped")
+                except Exception as e:
+                    logging.warning(f"process {process.pid} error: {e}")
+
 
     def _cntr(self, cntr_id: int, exec_param, delay: int):
         """容器进程 - 专用于4卡分布式执行
@@ -469,7 +492,8 @@ class DistriutedGTestAccelerate(ABC):
                     break
                 self._execute_case(cntr_id, exec_param, case, ctx)
         except KeyboardInterrupt:
-            pass
+            self.cntr_terminate_event.set()
+            logging.info(f" {cntr_id} exit success")
 
 
     def _get_next_case(self) -> Optional[str]:
@@ -481,6 +505,7 @@ class DistriutedGTestAccelerate(ABC):
             return case
         except queue.Empty:
             return None
+
 
     def _execute_case(self, cntr_id: int, exec_param, case: str, ctx: CntrContext):
         """执行单个用例
@@ -539,7 +564,8 @@ class DistriutedGTestAccelerate(ABC):
                 self.case_execution_queue.put(ctx.brief)
             else:
                 logging.error("TestCase: %s failed, return: %s", gtest_filter, return_code)
-                self._case_exception_exit(cntr_id, command, return_code, out = "not put", err = f"return: {return_code}")
+                self._case_exception_exit(cntr_id, command, return_code, out="", err=f"return: {return_code}")
+                
                 
         except subprocess.TimeoutExpired as e:
             self._report_case_error(cntr_id, str(e), 1, "timesOut")
@@ -561,7 +587,8 @@ class DistriutedGTestAccelerate(ABC):
         # 异常后处理
         if self.exe_halt_on_error:
             self.cntr_terminate_event.set()
-            exit(ret_code)
+            logging.info("%s Send terminate event upload.", self._get_process_desc())
+
 
     def _cntr_progress(self, update=True) -> str:
         """获取 Container 处理进展
@@ -573,6 +600,7 @@ class DistriutedGTestAccelerate(ABC):
         pgs = cnt / len(self.exe_params) * 100 if len(self.exe_params) > 0 else 0
         return f"{self.cntr_name}Progress[{cnt}/{len(self.exe_params)} {pgs:.2f}%]"
 
+
     def _case_progress(self, update=True) -> str:
         """获取 Case 处理进展
         """
@@ -583,16 +611,8 @@ class DistriutedGTestAccelerate(ABC):
         pgs = cnt / len(self.case_list) * 100 if len(self.case_list) > 0 else 0
         return f"CaseProgress[{cnt}/{len(self.case_list)} {pgs:.2f}%]"
 
-    def _put_case_execution_info(self, info: List[Any]):
-        self.case_execution_queue.put(info)
 
     def _put_case_exception_info(self, info: str, chunk_size: int = 4096):
         for i in range(0, len(info), chunk_size):
             self.case_exception_queue.put(info[i:i + chunk_size])
         self.case_exception_queue.put("")  # 插入分隔符
-
-    def _put_case_terminate_info(self, info: List[Any]):
-        self.case_terminate_queue.put(info)
-
-    def _put_cntr_execution_info(self, info: List[Any]):
-        self.cntr_execution_queue.put(info)

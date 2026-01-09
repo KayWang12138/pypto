@@ -12,7 +12,7 @@
 """
 import argparse
 import logging
-from typing import List, Any, Optional, Dict
+from typing import Any, Optional, Dict
 
 from accelerate.distributed_gtest_accelerate import DistriutedGTestAccelerate
 
@@ -44,7 +44,8 @@ class DistributedSTestAccelerate(DistriutedGTestAccelerate):
         if args.device is not None:
             device_list = [int(d) for d in list(set(args.device)) if d is not None and str(d) != ""]
         for _id in device_list:
-            p = DistriutedGTestAccelerate.ExecParam(cntr_id=_id, envs_func=DistributedSTestAccelerate.set_device_id_envs)
+            p = DistriutedGTestAccelerate.ExecParam(cntr_id=_id,
+                                                    envs_func=DistributedSTestAccelerate.set_device_id_envs)
             params.append(p)
         ctrl = DistributedSTestAccelerate(args=args, params=params, cntr_name="Device")
         ctrl.process()
