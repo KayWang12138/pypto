@@ -414,6 +414,19 @@ Status ReplaceTensor::ForwardCopyOut(Operation *op, LogicalTensorPtr &rootTensor
     return SUCCESS;
 }
 
+Status ReplaceTensor::ForUpdateCopyIn(Operation *op) {
+    auto copyInOut = op->GetIOperands()[0];
+    auto copyInAttr = std::static_pointer_cast<CopyOpAttribute>(op->GetOpAttribute());
+    if (copyInAttr == nullptr) {
+        APASS_LOG_ERROR_F(Elements::Operation, "ReplaceTensor::ForUpdateCopyIn: CopyIn op %d Attribute is nullptr.", op->GetOpMagic());
+        return FAILED;
+    }
+    copyInAttr->SetToOffset(OpImmediate::Specified(copyInOut->GetOffset()));
+    copyInAttr->SetRawShape(OpImmediate::Specified(copyInOut->tensor->GetRawShape()));
+
+    return SUCCESS;
+}
+
 Status ReplaceTensor::BackwardReshape(Operation *op, LogicalTensorPtr &rootTensor) {
     processedOp.insert(op->GetOpMagic());
     op->GetIOperands()[0]->tensor->actualRawmagic = rootTensor->GetRawMagic();
@@ -464,6 +477,19 @@ Status ReplaceTensor::BackwardViewType(Operation *op, LogicalTensorPtr &rootTens
         return FAILED;
     }
     backRoots.push(viewTypeIn);
+    return SUCCESS;
+}
+
+Status ReplaceTensor::BackUpdateCopyOut(Operation *op) {
+    auto copyOutOut = op->GetOOperands()[0];
+    auto copyOutAttr = std::static_pointer_cast<CopyOpAttribute>(op->GetOpAttribute());
+    if (copyOutAttr == nullptr) {
+        APASS_LOG_ERROR_F(Elements::Operation, "ReplaceTensor::BackUpdateCopyOut: CopyOut op %d Attribute is nullptr.", op->GetOpMagic());
+        return FAILED;
+    }
+    copyOutAttr->SetToOffset(OpImmediate::Specified(copyOutOut->GetOffset()));
+    copyOutAttr->SetRawShape(OpImmediate::Specified(copyOutOut->tensor->GetRawShape()));
+
     return SUCCESS;
 }
 
@@ -518,7 +544,12 @@ Status ReplaceTensor::ForwardProcess(Function &function) {
                 if (ForwardCopyOut(consumerOp, rootTensor, function) == FAILED) {
                     return FAILED;
                 }
-            } else {
+            } else if (consumerOp->GetOpcode() == Opcode::OP_COPY_IN) {
+                if (ForUpdateCopyIn(consumerOp) == FAILED) {
+                    return FAILED;
+                }
+            } 
+            else {
                 continue;
             }
         }
@@ -554,8 +585,9 @@ Status ReplaceTensor::BackwardProcess() {
                 if (BackwardViewType(producerOp, rootTensor) == FAILED) {
                     return FAILED;
                 }
-            }
-            else {
+            } else if (producerOp->GetOpcode() == Opcode::OP_COPY_OUT) {
+                if (BackUpdateCopyOut(producerOp) == FAILED) return FAILED;
+            } else {
                 continue;
             }
         }

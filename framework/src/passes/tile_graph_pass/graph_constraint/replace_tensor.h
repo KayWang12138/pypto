@@ -157,7 +157,9 @@ private:
     Status BackwardViewType(Operation *op, LogicalTensorPtr &rootTensor);
 
     Status ForUpdateView(Operation *op);
+    Status ForUpdateCopyIn(Operation *op);
     Status BackUpdateAssemble(Operation *op);
+    Status BackUpdateCopyOut(Operation *op);
 
     std::unordered_map<DataType, int> viewTypeTable = {{DT_INT8, 1}, {DT_BF16, 2}, {DT_FP16, 2}, {DT_FP32, 4}};
     std::queue<LogicalTensorPtr> backRoots;
