@@ -49,9 +49,6 @@ function(PTO_Fwk_STest_AddLib)
                 ${PTO_Fwk_STestNamePrefix}_utils
                 GTest::gtest
     )
-    # 后检查
-    PTO_Fwk_AnalysisTargetHeaderFiles(TARGET ${ARG_TARGET})
-    # STest 暂不支持并行执行
     set(PTO_Fwk_STestCaseLibraries            ${PTO_Fwk_STestCaseLibraries}            ${ARG_TARGET}            CACHE INTERNAL "" FORCE)
     set(PTO_Fwk_STestCaseLdLibrariesExt       ${PTO_Fwk_STestCaseLdLibrariesExt}       ${ARG_LD_LIBRARIES_EXT}  CACHE INTERNAL "" FORCE)
     set(PTO_Fwk_STestCaseGoldenScriptPathList ${PTO_Fwk_STestCaseGoldenScriptPathList} ${ARG_GOLDEN_SCRIPT_DIR} CACHE INTERNAL "" FORCE)
@@ -313,7 +310,6 @@ function(PTO_Fwk_STest_AddExe_RunExe)
             SOURCES                     ${_Sources}
             PRIVATE_LINK_LIBRARIES      ${PTO_Fwk_STestNamePrefix}_intf_pub ${PTO_Fwk_Libraries} ${PTO_Fwk_STestCaseLibraries}
     )
-    add_dependencies(${ARG_TARGET} tile_fwk_server)
 
     #
     # 执行
