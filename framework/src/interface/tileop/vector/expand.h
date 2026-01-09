@@ -46,9 +46,9 @@ TILEOP void TExpand(T0 dst, T1 src) {
 
     constexpr auto typeSize = sizeof(DstDtype);
 
-    if (dstShape3 == 0 || dstShape4 == 0) {
-        return;
-    }
+    // if (dstShape3 == 0 || dstShape4 == 0) {
+    //     return;
+    // }
 
     constexpr auto dstTileH = TileOp::GetTensorTileShapeDim<T0, 3, 5>();
     constexpr auto dstTileW = TileOp::GetTensorTileShapeDim<T0, 4, 5>();
