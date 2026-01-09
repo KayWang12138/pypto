@@ -94,99 +94,6 @@ Status RemoveRedundantOp::RemoveDummyOp(Function &function) {
     return SUCCESS;
 }
 
-Status RemoveRedundantOp::NeedInsertCopy(Operation *assembleOp, bool &needInsert) {
-    for (auto &prodOp : assembleOp->ProducerOps()) {
-        if (prodOp->GetOpcode() != Opcode::OP_VIEW) {
-            needInsert = true;
-            return SUCCESS;
-        }
-        auto assembleAttr = std::static_pointer_cast<AssembleOpAttribute>(assembleOp->GetOpAttribute());
-        auto viewAttr = std::static_pointer_cast<ViewOpAttribute>(prodOp->GetOpAttribute());
-        if (assembleAttr == nullptr || viewAttr == nullptr) {
-            APASS_LOG_ERROR_F(Elements::Operation, "View or Assemble attribute is nullptr, NeedInsertCopy Failed.");
-            return FAILED;
-        }
-        if (assembleAttr->GetToOffset() != viewAttr->GetFromOffset()) {
-            needInsert = true;
-            return SUCCESS;
-        }
-        needInsert = false;
-        return SUCCESS;
-    }
-    return SUCCESS;
-}
-
-void RemoveRedundantOp::InsertViewAssemble(Function &function, Operation *viewOp, Operation *assembleOp) {
-    auto &moveOutTensorPtr = viewOp->GetOOperands()[0];
-    LogicalTensor ddrTensor(function, moveOutTensorPtr->Datatype(), moveOutTensorPtr->GetShape());
-    ddrTensor.SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR);
-    LogicalTensor moveInTensor(function, moveOutTensorPtr->Datatype(), moveOutTensorPtr->GetShape());
-    moveInTensor.SetMemoryTypeBoth(moveOutTensorPtr->GetMemoryTypeOriginal());
-    LogicalTensorPtr ddrTensorPtr = std::make_shared<LogicalTensor>(std::move(ddrTensor));
-    LogicalTensorPtr moveInTensorPtr = std::make_shared<LogicalTensor>(std::move(moveInTensor));
-    std::vector<int64_t> offset(moveOutTensorPtr->GetShape().size(), 0);
-    std::vector<SymbolicScalar> dynOffset(moveOutTensorPtr->GetShape().size(), 0);
-    Operation &assemble = function.AddRawOperation(Opcode::OP_ASSEMBLE, {moveOutTensorPtr}, {ddrTensorPtr});
-    assemble.SetOpAttribute(std::make_shared<AssembleOpAttribute>(moveOutTensorPtr->GetMemoryTypeOriginal(), 
-                                                                  offset, 
-                                                                  dynOffset, 
-                                                                  moveOutTensorPtr->GetDynValidShape()));
-    Operation &view = function.AddRawOperation(Opcode::OP_VIEW, {ddrTensorPtr}, {moveInTensorPtr});
-    view.SetOpAttribute(std::make_shared<ViewOpAttribute>(offset, 
-                                                          moveOutTensorPtr->GetMemoryTypeOriginal(), 
-                                                          dynOffset, 
-                                                          moveOutTensorPtr->GetDynValidShape()));
-    assembleOp->ReplaceInput(moveInTensorPtr, moveOutTensorPtr);
-    moveOutTensorPtr->RemoveConsumer(assembleOp);
-    assembleOp->EraseInput(moveOutTensorPtr);
-}
-
-Status RemoveRedundantOp::InsertCopy(Function &function, Operation *assembleOp) {
-    for (auto &prodOp : assembleOp->ProducerOps()) {
-        if (prodOp->GetOpcode() != Opcode::OP_VIEW) {
-            continue;
-        }
-        if (assembleOp->GetOOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
-            prodOp->GetOOperands()[0]->SetMemoryTypeBoth(MemoryType::MEM_UB);
-        } else if (assembleOp->GetOOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_L1 ||
-                   assembleOp->GetOOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
-            InsertViewAssemble(function, prodOp, assembleOp);
-        } else {
-            APASS_LOG_ERROR_F(Elements::Operation, "Assemble outTensor %d memory type is unexpected, InsertCopy failed.",
-                              assembleOp->GetOOperands()[0]->GetMagic());
-            return FAILED;
-        }
-    }
-    return SUCCESS;
-}
-
-Status RemoveRedundantOp::JudgedViewAssemble(Function &function) {
-    std::vector<Operation *> opList(function.Operations(false).DuplicatedOpList());
-    for (auto &op : opList) {
-        if (op->GetOpcode() != Opcode::OP_ASSEMBLE) {
-            continue;
-        }
-        bool isView{false};
-        for (auto &prodOp : op->ProducerOps()) {
-            if (prodOp->GetOpcode() == Opcode::OP_VIEW) {
-                isView = true;
-                break;
-            }
-        }
-        if (!isView) continue;
-        bool needInsert{false};
-        if (NeedInsertCopy(op, needInsert) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "JudgedViewAssemble Failed At Function NeedInsertCopy.");
-            return FAILED;
-        }
-        if (needInsert && InsertCopy(function, op) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "JudgedViewAssemble Failed At Function InsertCopy.");
-            return FAILED;
-        }
-    }
-    return SUCCESS;
-}
-
 Status RemoveRedundantOp::RunOnFunction(Function &function) {
     APASS_LOG_INFO_F(Elements::Function, "===> Start RemoveRedundantOp");
     operationUpdated = true;
@@ -202,10 +109,6 @@ Status RemoveRedundantOp::RunOnFunction(Function &function) {
             return FAILED;
         }
         iterTime++;
-    }
-    if (JudgedViewAssemble(function) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Function, "JudgedViewAssemble Failed.");
-        return FAILED;
     }
     APASS_LOG_INFO_F(Elements::Function, "===> End RemoveRedundantOp");
     return SUCCESS;

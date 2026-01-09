@@ -45,9 +45,6 @@ private:
     Status ProcessViewAssemble(Function &function);
     Status ProcessReshape(Function &function);
     Status RemoveDummyOps(Function &function);
-    Status JudgedViewAssemble(Function &function);
-    Status NeedInsertCopy(Operation *assembleOp, bool &needInsert);
-    Status InsertCopy(Function &function, Operation *assembleOp);
     void ProcessPerfectMatch(Function &function, LogicalTensorPtr &startTensor, LogicalTensorPtr &endTensor);
     void RemoveViewAssembleForOutcast(Function &function, LogicalTensorPtr &startTensor, LogicalTensorPtr &endTensor);
     void CalculateViewOffset(Operation &op, LogicalTensorPtr &startTensor, LogicalTensorPtr &endTensor, std::vector<long> &newoffset);
@@ -57,7 +54,6 @@ private:
     bool IsValidViewAssemble(LogicalTensorPtr &startTensor, LogicalTensorPtr &endTensor) const;
     bool ProcessRedundantOpWithDynShape(Operation &op) const;
     bool ProcessRedundantOpWithoutDynShape(Operation &op) const;
-    void InsertViewAssemble(Function &function, Operation *viewOp, Operation *assembleOp);
 
     bool operationUpdated;
     uint32_t iterTime;
