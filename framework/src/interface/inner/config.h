@@ -40,7 +40,7 @@ constexpr const char *NBUFFER_NUM = "nbuffer_num";
 constexpr const char *L1_REUSE_NUM = "l1_reuse_num";
 constexpr const char *DB_TYPE = "db_type";
 constexpr const char *COPYOUT_RESOLVE_COALESCING = "copyout_resolve_coalescing";
-constexpr const char *ONLY_CODEGEN = "only_codegen";
+constexpr const char *COMPILE_STAGE = "compile_stage";
 constexpr const char *SUPPORT_DYNAMIC_ALIGNED = "support_dynamic_aligned";
 
 //runtime
@@ -78,6 +78,11 @@ const std::string KEY_ENABLE_PASS_VERIFY = "enable_pass_verify";
 const std::string KEY_PASS_VERIFY_SAVE_TENSOR = "pass_verify_save_tensor";
 const std::string KEY_PASS_VERIFY_SAVE_TENSOR_DIR = "pass_verify_save_tensor_dir";
 const std::string KEY_PASS_VERIFY_FILTER = "pass_verify_pass_filter";
+
+constexpr const int ALL_COMPLETE = 0;
+constexpr const int GEN_TENSOR_GRAPH = 1;
+constexpr const int GEN_TENSOR_GRAPH = 2;
+constexpr const int GEN_KERNEL_CODE = 3;
 
 struct ConfigStorage;
 
