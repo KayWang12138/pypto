@@ -32,6 +32,14 @@ void CompoundStatement::RemoveValue(ValuePtr val) {
             ++it;
         }
     }
+    for (auto it = valuesIndexTable_.begin(); it != valuesIndexTable_.end();) {
+        if (it->second == val) {
+            it = valuesIndexTable_.erase(it);
+            return;
+        } else {
+            ++it;
+        }
+    }
 }
 
 std::unordered_map<std::string, ValuePtr> CompoundStatement::GetAncestorValues() const {
