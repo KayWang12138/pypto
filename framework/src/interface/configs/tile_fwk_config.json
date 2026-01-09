@@ -27,7 +27,7 @@
         "run_mode": 0
     },
     "host": {
-        "only_codegen": false
+        "compile_stage": 0
     },
     "codegen": {
         "support_dynamic_aligned": false
@@ -51,25 +51,22 @@
     },
     "global": {
         "platform": {
-            "enable_cost_model": false,
-            "enable_dyn_cost_model": false,
-            "enable_aihac_backend": true,
-            "only_tensor_graph": false,
-            "only_host_compile": false,
-            "test_is_tig": false,
-            "dump_source_location": true,
-            "enable_checker": false,
-            "device_platform":"ASCEND_910B2",
-            "enable_prof_func": false,
-            "enable_prof_aicore_time": false,
-            "enable_prof_aicore_pmu": false
+            "ENABLE_COST_MODEL": false,
+            "ENABLE_DYN_COST_MODEL": false,
+            "ENABLE_AIHAC_BACKEND": true,
+            "TEST_IS_TIG": false,
+            "DUMP_SOURCE_LOCATION": true,
+            "ENABLE_CHECKER": false,
+            "DEVICE_PLATFORM":"ASCEND_910B2",
+            "ENABLE_PROF_FUNC": false,
+            "ENABLE_PROF_AICORE_TIME": false,
+            "ENABLE_PROF_AICORE_PMU": false
         },
         "host": {
             "strategy": "PVC2_OOO",
             "enable_binary_cache": false,
             "stitch_function_inner_memory": 10,
-            "stitch_function_outcast_memory": 50,
-            "only_codegen":false
+            "stitch_function_outcast_memory": 50
         },
         "device": {},
         "core": {},
