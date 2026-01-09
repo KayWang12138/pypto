@@ -1695,7 +1695,7 @@ TEST_F(ScheduleOoOTest, TestMixSchedule) {
     auto opList = function->Operations(false).DuplicatedOpList();
     std::pair<uint64_t, Function*> functionPair = std::make_pair(0, function);
     int size = 0;
-    Status res = oooSchedule.A5Schedule(opList, *function, functionPair, size);
+    Status res = oooSchedule.MixSchedule(opList, *function, functionPair, size);
     EXPECT_EQ(res, SUCCESS);
 }
 
