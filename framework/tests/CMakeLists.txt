@@ -9,7 +9,6 @@
 # -----------------------------------------------------------------------------------------------------------
 
 include(cmake/config.cmake)
-include(cmake/intf.cmake)
 include(cmake/func.cmake)
 include(cmake/func_utest.cmake)
 include(cmake/func_stest.cmake)

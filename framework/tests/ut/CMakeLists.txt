@@ -9,6 +9,7 @@
 # -----------------------------------------------------------------------------------------------------------
 
 if (ENABLE_UTEST)
+    add_subdirectory(utils)
     add_subdirectory(stubs)
 
     PTO_Fwk_UTest_AddModuleDir(DIR operator)

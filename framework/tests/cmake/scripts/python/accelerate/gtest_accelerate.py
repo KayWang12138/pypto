@@ -506,7 +506,7 @@ class GTestAccelerate(ABC):
         ]
         return pairs
 
-    def _start_cntr_process_grp(self, delay: int = 5) -> List[Process]:
+    def _start_cntr_process_grp(self, delay: int = 2) -> List[Process]:
         """启动 Cntr 进程组
 
         :param delay: 各 Cntr 启动后, 处理具体 Case 前延迟时长, 在多消费者模式下, 各消费者启动时增加一定延迟, 等待所有消费者启动完成
