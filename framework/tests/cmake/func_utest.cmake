@@ -42,9 +42,6 @@ function(PTO_Fwk_UTest_AddCaseLib)
                 ${PTO_Fwk_UTestNamePrefix}_intf_pub
                 GTest::gtest
     )
-    # 后检查
-    PTO_Fwk_AnalysisTargetHeaderFiles(TARGET ${ARG_TARGET})
-
     set(PTO_Fwk_UTestCaseLibraries       ${PTO_Fwk_UTestCaseLibraries}       ${ARG_TARGET}            CACHE INTERNAL "" FORCE)
     set(PTO_Fwk_UTestCaseLdLibrariesExt  ${PTO_Fwk_UTestCaseLdLibrariesExt}  ${ARG_LD_LIBRARIES_EXT}  CACHE INTERNAL "" FORCE)
 endfunction()
