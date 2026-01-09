@@ -592,27 +592,6 @@ class DistriutedGTestAccelerate(ABC):
             logging.info("Send terminate event upload.")
 
 
-    def _cntr_progress(self, update=True) -> str:
-        """获取 Container 处理进展
-        """
-        if update:
-            with self.cntr_exit_count.get_lock():
-                self.cntr_exit_count.value += 1
-        cnt = int(self.cntr_exit_count.value)
-        pgs = cnt / len(self.exe_params) * 100 if len(self.exe_params) > 0 else 0
-        return f"{self.cntr_name}Progress[{cnt}/{len(self.exe_params)} {pgs:.2f}%]"
-
-
-    def _case_progress(self, update=True) -> str:
-        """获取 Case 处理进展
-        """
-        if update:
-            with self.case_exec_count.get_lock():
-                self.case_exec_count.value += 1
-        cnt = int(self.case_exec_count.value)
-        pgs = cnt / len(self.case_list) * 100 if len(self.case_list) > 0 else 0
-        return f"CaseProgress[{cnt}/{len(self.case_list)} {pgs:.2f}%]"
-
 
     def _put_case_exception_info(self, info: str, chunk_size: int = 4096):
         for i in range(0, len(info), chunk_size):
