@@ -9,12 +9,12 @@
 
 ## 功能说明
 
-该接口是编译框架提供的运行时动态配置管理功能的核心部分，它将原本静态配置在tile\_fwk\_config.json中的参数转变为动态、可编程的指令，主要功能是控制上板流程的执行。
+该接口是编译框架提供的运行时动态配置管理功能的核心部分，它将原本静态配置在tile\_fwk\_config.json中的参数转变为动态、可编程的指令，主要功能是控制编译阶段和上板流程的执行。
 
 ## 函数原型
 
 ```python
-set_host_options(*, only_codegen: bool = None) -> None
+set_host_options(*, compile_stage: int = 0) -> None
 ```
 
 ## 参数说明
@@ -22,7 +22,7 @@ set_host_options(*, only_codegen: bool = None) -> None
 
 | 参数名          | 输入/输出 | 说明                                                                 |
 |-----------------|-----------|----------------------------------------------------------------------|
-| only_codegen    | 输入      | 含义：忽略静态的上板流程 <br> 说明：当值为True时，对于静态function用例，执行到代码生成阶段终止，不执行上板流程，当值为False时，代码生成之后正常执行上板流程。 <br> 类型：bool <br> 取值范围：{True, False} <br> 默认值：False |
+| compile_stage    | 输入      | 含义：控制编译执行的阶段 <br> 说明：<br> 0: 不控制编译执行阶段，完整执行；<br> 1: 生成TensorGraph后，终止执行；<br> 2: 仅完成Host编译，不执行Codegen编译; <br> 3: 执行完Codegen生成kernel代码后，忽略静态的上板流程，终止执行;<br> 类型: int <br> 取值范围: 0或1或2或3 <br> 默认值: 0 |
 
 ## 返回值说明
 
@@ -36,6 +36,6 @@ void：Set方法无返回值。设置操作成功即生效。
 ## 调用示例
 
 ```python
-pypto.set_host_options(only_codegen=False)
+pypto.set_host_options(compile_stage=0)
 ```
 
