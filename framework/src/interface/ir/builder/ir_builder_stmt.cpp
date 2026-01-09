@@ -301,7 +301,7 @@ void IRBuilder::ExitForStatement(IRBuilderContext& ctx, ForStatementPtr st) {
                 auto input = op->GetInputOperand(k);
                 auto it = initValueToValue.find(input);
                 if (it != initValueToValue.end()) {
-                    input = it->second;
+                    op->SetInputOperand(k, it->second);
                 }
             }
         }
