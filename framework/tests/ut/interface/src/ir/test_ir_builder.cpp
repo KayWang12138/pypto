@@ -25,6 +25,8 @@
 #include "ir/function.h"
 #include "ir/statement.h"
 #include "ir/value.h"
+#include "ir/operation_base.h"
+#include "ir/transform/unroll_static_for.h"
 
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
