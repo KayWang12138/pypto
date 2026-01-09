@@ -42,9 +42,6 @@ function(PTO_Fwk_UTest_AddCaseLib)
                 ${PTO_Fwk_UTestNamePrefix}_intf_pub
                 GTest::gtest
     )
-    # 后检查
-    PTO_Fwk_AnalysisTargetHeaderFiles(TARGET ${ARG_TARGET})
-
     set(PTO_Fwk_UTestCaseLibraries       ${PTO_Fwk_UTestCaseLibraries}       ${ARG_TARGET}            CACHE INTERNAL "" FORCE)
     set(PTO_Fwk_UTestCaseLdLibrariesExt  ${PTO_Fwk_UTestCaseLdLibrariesExt}  ${ARG_LD_LIBRARIES_EXT}  CACHE INTERNAL "" FORCE)
 endfunction()
@@ -134,13 +131,6 @@ function(PTO_Fwk_UTest_AddExe_RunExe)
     set(_Sources ${CMAKE_CURRENT_BINARY_DIR}/${PTO_Fwk_UTestNamePrefix}_main_stub.cpp)
     execute_process(COMMAND touch ${_Sources})
 
-    set(_PrivateLinkLibraries
-            ${PTO_Fwk_UTestNamePrefix}_intf_pub
-            $<$<BOOL:${BUILD_WITH_CANN}>:${PTO_Fwk_UTestNamePrefix}_stubs>
-            # Interface 内 HostMachine 存在 dlopen 逻辑, 此处增加对应库连接, 触发相关 so 被添加到可执行程序依赖中
-            tile_fwk_compiler
-    )
-
     # 默认全部执行
     set(GTestFilterList "*")
     # 支持由 ENABLE_UTEST 传入指定的 Filter
@@ -163,11 +153,22 @@ function(PTO_Fwk_UTest_AddExe_RunExe)
         endif ()
     endif ()
 
+    set(_PrivateLinkLibraries
+            ${PTO_Fwk_UTestNamePrefix}_intf_pub
+            $<$<BOOL:${BUILD_WITH_CANN}>:${PTO_Fwk_UTestNamePrefix}_stubs>
+            # Interface 内 HostMachine 存在 dlopen 逻辑, 此处增加对应库连接, 触发相关 so 被添加到可执行程序依赖中
+            tile_fwk_simulation_platform
+            tile_fwk_interface
+            tile_fwk_codegen
+            tile_fwk_compiler
+            ${PTO_Fwk_UTestCaseLibraries}
+    )
+    list(REMOVE_DUPLICATES _PrivateLinkLibraries)
     PTO_Fwk_GTest_AddExe(
             TARGET                      ${ARG_TARGET}
             SOURCES                     ${_Sources}
             PRIVATE_INCLUDE_DIRECTORIES ${ARG_PRIVATE_INCLUDE_DIRECTORIES}
-            PRIVATE_LINK_LIBRARIES      ${_PrivateLinkLibraries} ${PTO_Fwk_UTestCaseLibraries}
+            PRIVATE_LINK_LIBRARIES      ${_PrivateLinkLibraries}
     )
     PTO_Fwk_UTest_RunExe(
             TARGET              ${ARG_TARGET}
