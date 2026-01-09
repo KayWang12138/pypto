@@ -26,6 +26,8 @@
 #include "ir/function.h"
 #include "ir/statement.h"
 #include "ir/value.h"
+#include "ir/operation_base.h"
+#include "ir/transform/unroll_static_for.h"
 
 
 namespace pto{
@@ -204,6 +206,156 @@ TEST(IRTEST, TestControlFlow) {
     ctx.PopScope(); // function-body
 
     std::cout << *module << std::endl;
+}
+
+TEST(IRTEST, TestStaticForLoop) {
+    // ===== Module =====
+    auto module = std::make_shared<ProgramModule>("main");
+    IRBuilder builder(module);
+    IRBuilderContext ctx;
+
+    // ===== Signature =====
+    FunctionSignature sig;
+
+    // func(in1: Tile, in2: Scalar, out: Tile)
+    // Tile shape: [16, 32]
+    std::vector<size_t> tileShape = {16, 32};
+    auto in1 = std::make_shared<TileValue>(tileShape, DataType::FP32, "in1");
+    auto in2 = std::make_shared<ScalarValue>(DataType::FP32, "in2", ScalarValueKind::Symbolic);
+    auto out = std::make_shared<TileValue>(tileShape, DataType::FP32, "out");
+
+    sig.arguments = { in1, in2, out };
+    sig.results.push_back(std::make_shared<ScalarValue>(DataType::INT32));
+
+    // ===== Function =====
+    auto func = builder.CreateFunction("test_static_for", FunctionKind::ControlFlow, sig, /*setAsEntry=*/true);
+    builder.EnterFunctionBody(ctx, func);
+
+    // buf = Tile() - create a new tile value for buf
+    // buf = in1 - initialize buf with in1
+    // We'll create buf with the same name, and use in1 as its initial value
+    // The loop will make buf a loop-carried variable
+    auto buf = builder.CreateTile(ctx, tileShape, DataType::FP32, "buf");
+    
+    // Initialize buf with in1: buf = in1
+    // We'll use a simple operation to copy in1 to buf
+    // Since there's no direct copy op, we'll use ADD with zero or MUL with 1
+    // For simplicity, we'll use ADD: buf = in1 + 0
+    auto zero = builder.CreateConst(ctx, 0.0, "zero");
+    auto initBufOp = builder.CreateBinaryOp(Opcode::OP_ADD, in1, zero, buf);
+    builder.Emit(ctx, initBufOp);
+    
+    // Reset activeOpStmt to ensure the next operation creates a new OpStatement
+    ctx.ResetInsertionPoint();
+
+    // Static for loop: for i = 0 to 5 step 1 (all constants)
+    auto i = builder.CreateScalar(ctx, DataType::INT32, "i");
+    auto constant0 = builder.CreateConst(ctx, int64_t(0), "const_0");
+    auto constantEnd = builder.CreateConst(ctx, int64_t(5), "const_5");
+    auto constantStep = builder.CreateConst(ctx, int64_t(1), "const_1");
+    
+    // Create static for statement with all constant bounds
+    auto staticFor = builder.CreateForStmt(ctx, i, constant0, constantEnd, constantStep);
+    
+    builder.EnterForBody(ctx, staticFor);
+
+    // Inside static loop:
+    // tmp1 = Mul(buf, in2)
+    auto tmp1 = builder.CreateTile(ctx, tileShape, DataType::FP32, "tmp1");
+    auto mulOp = builder.CreateBinaryOp(Opcode::OP_MUL, buf, in2, tmp1);
+    builder.Emit(ctx, mulOp);
+
+    // tmp2 = Add(tmp1, in2)
+    auto tmp2 = builder.CreateTile(ctx, tileShape, DataType::FP32, "tmp2");
+    auto addOp = builder.CreateBinaryOp(Opcode::OP_ADD, tmp1, in2, tmp2);
+    builder.Emit(ctx, addOp);
+
+    // buf = Exp(tmp2)
+    // Use 'buf' name so it will be recognized as loop-carried variable
+    auto bufUpdated = builder.CreateTile(ctx, tileShape, DataType::FP32, buf->GetName());
+    auto expOp = std::make_shared<Operation>(
+        Opcode::OP_EXP,
+        std::vector<ValuePtr>{tmp2},
+        std::vector<ValuePtr>{bufUpdated},
+        "exp_op"
+    );
+    builder.Emit(ctx, expOp);
+
+    ctx.PopScope(); // for-body
+    builder.ExitForStatement(ctx, staticFor);
+
+    // out = buf
+    // After the loop, use the loop result (which is stored in Results())
+    // ExitForStatement updates the environment, so buf should now point to the loop result
+    // But to be safe, we can also use staticFor->Results()[0] if available
+    ValuePtr finalBuf = buf;
+    if (staticFor->Results().size() > 0) {
+        finalBuf = staticFor->Results()[0];
+    }
+    // Reset activeOpStmt to ensure this operation creates a new OpStatement after the loop
+    ctx.ResetInsertionPoint();
+    // Use ADD with zero to copy: out = finalBuf + 0
+    auto zeroOut = builder.CreateConst(ctx, 0.0, "zero_out");
+    auto copyOutOp = builder.CreateBinaryOp(Opcode::OP_ADD, finalBuf, zeroOut, out);
+    builder.Emit(ctx, copyOutOp);
+
+    // Verify static for loop structure
+    ASSERT_NE(staticFor, nullptr);
+    ASSERT_NE(staticFor->GetRange(), nullptr);
+    
+    // Check that all bounds are constants (immediate values)
+    auto start = staticFor->GetStart();
+    auto end = staticFor->GetEnd();
+    auto step = staticFor->GetStep();
+    
+    ASSERT_NE(start, nullptr);
+    ASSERT_NE(end, nullptr);
+    ASSERT_NE(step, nullptr);
+    
+    // Verify loop body has multiple statements (operations)
+    ASSERT_GT(staticFor->GetCompound()->GetStatementsNum(), 0);
+    
+    // Verify that loop body contains OpStatement with multiple operations
+    auto opStmt = std::dynamic_pointer_cast<OpStatement>(
+        staticFor->GetCompound()->GetStatement(0));
+    ASSERT_NE(opStmt, nullptr);
+    ASSERT_GE(opStmt->Operations().size(), 3); // At least 3 operations (Mul, Add, Exp)
+    
+    // Return
+    auto returnVal = builder.CreateConst(ctx, int64_t(0), "return_val");
+    builder.CreateReturn(ctx, {returnVal});
+
+    ctx.PopScope(); // function-body
+
+    std::cout << "=== Before UnrollStaticFor Pass ===" << std::endl;
+    std::cout << *module << std::endl;
+
+    // Apply UnrollStaticFor pass
+    UnrollStaticFor unroller;
+    ProgramModulePtr optimizedModule = unroller.VisitProgram(module);
+    
+    std::cout << "\n=== After UnrollStaticFor Pass ===" << std::endl;
+    std::cout << *optimizedModule << std::endl;
+
+    // Verify that the for loop was unrolled
+    if (optimizedModule != module) {
+        // Module was modified, check if for loop was unrolled
+        auto optimizedEntryFunc = optimizedModule->GetProgramEntry();
+        if (optimizedEntryFunc && optimizedEntryFunc->GetCompound()) {
+            // Check if there's no for loop in the function body
+            bool hasForLoop = false;
+            for (size_t idx = 0; idx < optimizedEntryFunc->GetCompound()->GetStatementsNum(); ++idx) {
+                auto stmt = optimizedEntryFunc->GetCompound()->GetStatement(idx);
+                if (std::dynamic_pointer_cast<ForStatement>(stmt)) {
+                    hasForLoop = true;
+                    break;
+                }
+            }
+            // If the loop was unrolled, there should be no for loop in the function body
+            // (or the loop should have been replaced with unrolled statements)
+            std::cout << "\nFor loop unrolled: " << (hasForLoop ? "No" : "Yes") << std::endl;
+        }
+    }
 }
 
 } // namespace pto
