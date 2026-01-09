@@ -70,6 +70,12 @@ class ElementWiseTernaryTileBaseOp : public ElementWiseTileBaseOp {
 class ElementWiseScalarMixTernaryTileBaseOp : public ElementWiseTileBaseOp {
 };
 
+class SortTileOp : public TileOp {
+};
+
+class DataCopyTileOp : public TileOp {
+};
+
 class ReduceTileBaseOp : public TileBaseOp {
 };
 

@@ -13,6 +13,13 @@
  * \brief
  */
 
+
+// 问题1：  输入有 MemoryType::MEM_DEVICE_DDR， MemoryType::MEM_UB， MemoryType::MEM_L1，需要感知吗？
+// 问题2：  MTE类的opcode 没有和接口绑定，后续对齐有特殊性吗？
+
+
+
+
 enum CastMode {
     CAST_NONE = 0,
     CAST_RINT = 1,  // round to nearest, tie to even
@@ -217,12 +224,23 @@ DEF_OP(
         OP_MINIMUM,
         OP_PAIRMAX,
         OP_PAIRMIN,
-        OP_PAIRSUM,
-        OP_FUSED_OP  // 没有代码，注册的是BROADCAST
-        
+        OP_PAIRSUM
     ),
     ATTR(int, CombineAxis),
 )
+
+
+DEF_OP(
+    FusedOp,
+    INHERIT(BroadcastTileBaseOp),
+    OPCODE(
+        OP_FUSED_OP
+    ),
+    INPUT(Tile, Lhs),
+    INPUT(Tile, Rhs),
+    OUTPUT(Tile, Output),
+)
+
 
 DEF_OP(
     ReduceOp,
@@ -239,29 +257,67 @@ DEF_OP(
  	    OP_ROWSUM,
  	    OP_ROWEXPMAX,
  	    OP_ROWEXPSUM,
-        
     ),
     ATTR(int, CombineAxis),
     ATTR(int, Axis),
 )
 
 DEF_OP(
-    MovOp,
+    MoveOp,
     INHERIT(DataCopyTileBaseOp),
     OPCODE(
-        OP_UB_COPY_IN,
-        OP_UB_COPY_OUT,
-        OP_INDEX_OUTCAST, // 输入是三个tensor，三个scalar  无额外属性
  	    OP_CONVERT,
  	    OP_COPY_IN,
  	    OP_COPY_OUT,
- 	    OP_LOAD,
  	    OP_VLD,  //  只有注册的一行
  	    OP_VST,  //  只有注册的一行
  	    OP_DUPLICATE,  // duplicate会转化为copyout
+    ),
+    INPUT(Tile, Lhs),
+    OUTPUT(Tile, Output),
+    ATTR(int, inputCombineAxis),   // OP_COPY_OUT
+    ATTR(int, outputCombineAxis),  // OP_COPY_IN
+    ATTR(int, excludeBufferReuse)  // OP_COPY_IN, OP_COPY_OUT
+)
+
+DEF_OP(
+    LoadOp,
+    INHERIT(DataCopyTileBaseOp),
+    OPCODE(
+ 	    OP_LOAD
+    ),
+    INPUT(Tile, Lhs),
+    INPUT(Tile, Rhs),
+    OUTPUT(Tile, Output)
+)
+
+DEF_OP(
+    IndexOp,
+    INHERIT(DataCopyTileBaseOp),
+    OPCODE(
+        OP_INDEX_OUTCAST, // 输入是三个tensor，三个scalar  无额外属性
         
     ),
-    ATTR(int, CombineAxis),
+    INPUT(Tile, Src),
+    INPUT(Tile, Index),
+    INPUT(Tile, Dst),
+    INPUT(Scalar, Axis),
+    INPUT(Scalar, PanzBlockSize),
+    INPUT(Scalar, CacheMode),
+    OUTPUT(Tile, Output)
+)
+
+DEF_OP(
+    UBMoveOp,
+    INHERIT(DataCopyTileBaseOp),
+    OPCODE(
+        OP_UB_COPY_IN,
+        OP_UB_COPY_OUT
+    ),
+    INPUT(Tile, Lhs),
+    INPUT(Tile, Rhs),
+    OUTPUT(Tile, Output),
+    ATTR(int, ExcludeBufferReuse),  // OP_UB_COPY_IN, OP_UB_COPY_OUT
 )
 
 DEF_OP(
@@ -270,6 +326,13 @@ DEF_OP(
     OPCODE(
         OP_TOPK
     ),
+    INPUT(Tile, Lhs),
+    INPUT(Scalar, Axis),
+    INPUT(Scalar, KValue),
+    INPUT(Scalar, Order),
+    OUTPUT(Tile, Output1),
+    OUTPUT(Tile, Output2),
+
 )
 
 DEF_OP(
@@ -279,12 +342,28 @@ DEF_OP(
  	    OP_BITSORT,
  	    OP_MRGSORT,
  	    OP_ARGSORT,
- 	    OP_TILEDMRGSORT,
  	    OP_EXTRACT
  	),
+    INPUT(Tile, Lhs),
+    OUTPUT(Tile, Output),
  	ATTR(int, TopOffset),  // OP_BITSORT
- 	ATTR(int, TopKValidBit)  // OP_TILEDMRGSORT
  	ATTR(int, ExtractMaskMode)  // OP_EXTRACT
+)
+
+DEF_OP(
+ 	TileSortOp,
+ 	INHERIT(SortTileBaseOp),
+ 	OPCODE(
+ 	    OP_TILEDMRGSORT
+ 	),
+    INPUT(Tile, input1),
+    INPUT(Tile, input2),
+    INPUT(Tile, input3),
+    INPUT(Tile, input4),
+    INPUT(Scalar, KValue),
+    OUTPUT(Tile, Output),
+    OUTPUT(Tile, Temp),
+ 	ATTR(int, TopKValidBit)  // OP_TILEDMRGSORT
 )
 
 DEF_OP(
@@ -294,6 +373,10 @@ DEF_OP(
  	    OP_GATHER_IN_L1,
  	    OP_GATHER_IN_UB,
  	),
+    INPUT(Tile, input1),
+    INPUT(Tile, input2),
+    INPUT(Tile, input3),
+    OUTPUT(Tile, Output),
  	ATTR(int, StartOffset) // OP_GATHER_IN_L1
 )
 
@@ -303,17 +386,60 @@ DEF_OP(
  	OPCODE(
  	    OP_WHERE_TT
  	),
+    INPUT(Tile, Condition),
+    INPUT(Tile, Input),
+    INPUT(Tile, Other),
+    OUTPUT(Tile, Output)
 )
  	 
 DEF_OP(
-    TernaryScalarMixOp,
+    WhereSTOp,
     INHERIT(ElementWiseScalarMixTernaryTileBaseOp),
     OPCODE(
-        OP_WHERE_TS,
-        OP_WHERE_ST,
-        OP_WHERE_SS,
-        OP_INDEX_ADD, // 输入是三个tensor  两个 scalar  无额外属性
+        OP_WHERE_ST
     ),
+    INPUT(Tile, Condition),
+    INPUT(Scalar, Input),
+    INPUT(Tile, Other),
+    OUTPUT(Tile, Output)
+)
+
+DEF_OP(
+    WhereTSOp,
+    INHERIT(ElementWiseScalarMixTernaryTileBaseOp),
+    OPCODE(
+        OP_WHERE_TS
+    ),
+    INPUT(Tile, Condition),
+    INPUT(Tile, Input),
+    INPUT(Scalar, Other),
+    OUTPUT(Tile, Output)
+)
+
+DEF_OP(
+    WhereSSOp,
+    INHERIT(ElementWiseScalarMixTernaryTileBaseOp),
+    OPCODE(
+        OP_WHERE_SS
+    ),
+    INPUT(Tile, Condition),
+    INPUT(Scalar, Input),
+    INPUT(Scalar, Other),
+    OUTPUT(Tile, Output)
+)
+
+DEF_OP(
+    IndexAddOp,
+    INHERIT(ElementWiseScalarMixTernaryTileBaseOp),    //  存疑
+    OPCODE(
+        OP_INDEX_ADD
+    ),
+    INPUT(Tile, input1),
+    INPUT(Tile, input2),
+    INPUT(Tile, input3),
+    INPUT(Scalar, Axis),
+    INPUT(Scalar, Alpha),
+    OUTPUT(Tile, Output)
 )
 
 enum class CmpOperationType {
