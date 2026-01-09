@@ -22,7 +22,6 @@
 #include <signal.h>
 #include <sys/ucontext.h>
 #include "machine/device/dynamic/device_utils.h"
-#include "machine/kernel/aicore.h"
 #include "machine/utils/device_log.h"
 #include "device_utils.h"
 
@@ -131,12 +130,6 @@ struct DynMachineManager {
         PerfMtTrace(PERF_TRACE_EXIT, threadIdx);
         if (++finished_ == static_cast<std::atomic<int>>(devArgs->nrAicpu)) {
             LastFinishThreadIdx_ = threadIdx;
-#if ENABLE_AICORE_HAND_SHAKE_BY_REG
-            if (!schRunFailed_ && handshakeByGm_) {
-                machine_.CacheValidCore();
-                handshakeByGm_ = false; // hand shake by reg next time
-            }
-#endif      
             if (unlikely(!machine_.CheckAndResetReg())) {
                 DEV_WARN("Some registers force closed!");
             }
@@ -179,7 +172,6 @@ struct DynMachineManager {
     struct sigaction oriBordAct_;
     std::atomic<bool> reset_{false};
     std::atomic<bool> init_{false};
-    bool handshakeByGm_{true};
     std::atomic<bool> schRunFailed_{false};
 };
 
