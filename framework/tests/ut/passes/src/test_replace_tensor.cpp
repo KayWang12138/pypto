@@ -50,63 +50,151 @@ public:
     }
 
     void TearDown() override {}
+
+    void BuildViewAssemble(std::shared_ptr<Function> currFunctionPtr) {
+        // Prepare the graph
+        std::vector<int64_t> shape = {kNumEight, kNumEight};
+        std::vector<int64_t> shape1 = {kNumEight, kNumFour};
+        std::vector<int64_t> offset0 = {kNumZero, kNumZero};
+        std::vector<int64_t> offset1 = {kNumZero, kNumFour};
+        // init RawTensor
+        std::shared_ptr<RawTensor> inRawTensor = std::make_shared<RawTensor>(DT_FP32, shape);
+        std::shared_ptr<RawTensor> viewRawTensor0 = std::make_shared<RawTensor>(DT_FP32, shape1);
+        std::shared_ptr<RawTensor> viewRawTensor1 = std::make_shared<RawTensor>(DT_FP32, shape1);
+        std::shared_ptr<RawTensor> assRawTensor0 = std::make_shared<RawTensor>(DT_FP32, shape1);
+        std::shared_ptr<RawTensor> assRawTensor1 = std::make_shared<RawTensor>(DT_FP32, shape1);
+        std::shared_ptr<RawTensor> outRawTensor = std::make_shared<RawTensor>(DT_FP32, shape);
+        // init LogicalTensor
+        auto incast = std::make_shared<LogicalTensor>(*currFunctionPtr, inRawTensor, offset0, shape);
+        auto viewOut0 = std::make_shared<LogicalTensor>(*currFunctionPtr, viewRawTensor0, offset0, shape1);
+        auto viewOut1 = std::make_shared<LogicalTensor>(*currFunctionPtr, viewRawTensor1, offset1, shape1);
+        auto copyOut0 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
+        auto copyOut1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
+        auto assOut0 = std::make_shared<LogicalTensor>(*currFunctionPtr, assRawTensor0, offset0, shape1);
+        auto assOut1 = std::make_shared<LogicalTensor>(*currFunctionPtr, assRawTensor1, offset1, shape1);
+        auto outcast = std::make_shared<LogicalTensor>(*currFunctionPtr, outRawTensor, offset0, shape);
+        /*       Init Graph
+                    /————> view0 ————> copy ————> assemble \
+            incast -                                        - outcast
+                    \————> view1 ————> copy ————> assemble /
+        */
+        auto &viewOp0 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {incast}, {viewOut0});
+        auto &viewOp1 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {incast}, {viewOut1});
+        auto &copyInOp0 = currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {viewOut0}, {copyOut0});
+        auto &copyInOp1 = currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {viewOut1}, {copyOut1});
+        auto &copyOutOp0 = currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {copyOut0}, {assOut0});
+        auto &copyOutOp1 = currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {copyOut1}, {assOut1});
+        auto &assOp0 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {assOut0}, {outcast});
+        auto &assOp1 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {assOut1}, {outcast});
+        // Init Attribute
+        auto viewAttr0 = std::make_shared<ViewOpAttribute>(offset0);
+        auto viewAttr1 = std::make_shared<ViewOpAttribute>(offset1);
+        auto copyInAttr0 = std::make_shared<CopyOpAttribute>(
+                    OpImmediate::Specified(offset0), MemoryType::MEM_UNKNOWN,
+                    OpImmediate::Specified(shape1), OpImmediate::Specified(shape1));
+        auto copyInAttr1 = std::make_shared<CopyOpAttribute>(
+                    OpImmediate::Specified(offset0), MemoryType::MEM_UNKNOWN,
+                    OpImmediate::Specified(shape1), OpImmediate::Specified(shape1));
+        auto copyOutAttr0 = std::make_shared<CopyOpAttribute>(
+                    MemoryType::MEM_UNKNOWN, OpImmediate::Specified(offset0),
+                    OpImmediate::Specified(shape1), OpImmediate::Specified(shape1));
+        auto copyOutAttr1 = std::make_shared<CopyOpAttribute>(
+                    MemoryType::MEM_UNKNOWN, OpImmediate::Specified(offset0),
+                    OpImmediate::Specified(shape1), OpImmediate::Specified(shape1));
+        auto assAttr0 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset0);
+        auto assAttr1 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset1);
+        viewOp0.SetOpAttribute(viewAttr0);
+        viewOp1.SetOpAttribute(viewAttr1);
+        copyInOp0.SetOpAttribute(copyInAttr0);
+        copyInOp1.SetOpAttribute(copyInAttr1);
+        copyOutOp0.SetOpAttribute(copyOutAttr0);
+        copyOutOp1.SetOpAttribute(copyOutAttr1);
+        assOp0.SetOpAttribute(assAttr0);
+        assOp1.SetOpAttribute(assAttr1);
+        currFunctionPtr->inCasts_.push_back(incast);
+        currFunctionPtr->outCasts_.push_back(outcast);
+    }
+
+    void BuildBackView(std::shared_ptr<Function> currFunctionPtr) {
+         // Prepare the graph
+        std::vector<int64_t> shape = {kNumEight, kNumEight};
+        std::vector<int64_t> shape1 = {kNumEight, kNumFour};
+        std::vector<int64_t> offset0 = {kNumZero, kNumZero};
+        std::vector<int64_t> offset1 = {kNumZero, kNumFour};
+        // init RawTensor
+        std::shared_ptr<RawTensor> outRawTensor = std::make_shared<RawTensor>(DT_FP32, shape);
+        std::shared_ptr<RawTensor> viewRawTensor0 = std::make_shared<RawTensor>(DT_FP32, shape1);
+        std::shared_ptr<RawTensor> viewRawTensor1 = std::make_shared<RawTensor>(DT_FP32, shape1);
+        std::shared_ptr<RawTensor> viewTypeRaw0 = std::make_shared<RawTensor>(DT_FP32, shape1);
+        std::shared_ptr<RawTensor> viewTypeRaw1 = std::make_shared<RawTensor>(DT_FP32, shape1);
+        std::shared_ptr<RawTensor> assRawTensor0 = std::make_shared<RawTensor>(DT_FP32, shape1);
+        std::shared_ptr<RawTensor> assRawTensor1 = std::make_shared<RawTensor>(DT_FP32, shape1);
+        // init LogicalTensor
+        auto incast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+        auto copy0 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
+        auto copy1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
+        auto viewIn0 = std::make_shared<LogicalTensor>(*currFunctionPtr, viewRawTensor0, offset0, shape1);
+        auto viewIn1 = std::make_shared<LogicalTensor>(*currFunctionPtr, viewRawTensor1, offset0, shape1);
+        auto viewTypeIn0 = std::make_shared<LogicalTensor>(*currFunctionPtr, viewTypeRaw0, offset0, shape1);
+        auto viewTypeIn1 = std::make_shared<LogicalTensor>(*currFunctionPtr, viewTypeRaw1, offset0, shape1);
+        auto assIn0 = std::make_shared<LogicalTensor>(*currFunctionPtr, assRawTensor0, offset0, shape1);
+        auto assIn1 = std::make_shared<LogicalTensor>(*currFunctionPtr, assRawTensor1, offset1, shape1);
+        auto outcast = std::make_shared<LogicalTensor>(*currFunctionPtr, outRawTensor, offset0, shape);
+        // Init Graph
+        auto &copyInOp0 = currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {incast}, {copy0});
+        auto &copyInOp1 = currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {incast}, {copy1});
+        auto &copyOutOp0 = currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {copy0}, {viewIn0});
+        auto &copyOutOp1 = currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {copy1}, {viewIn1});
+        auto &viewOp0 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {viewIn0}, {viewTypeIn0});
+        auto &viewOp1 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {viewIn1}, {viewTypeIn1});
+        currFunctionPtr->AddOperation(Opcode::OP_VIEW_TYPE, {viewTypeIn0}, {assIn0});
+        currFunctionPtr->AddOperation(Opcode::OP_VIEW_TYPE, {viewTypeIn1}, {assIn1});
+        auto &assOp0 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {assIn0}, {outcast});
+        auto &assOp1 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {assIn1}, {outcast});
+        // Init Attribute
+        auto copyIn_Attr0 = std::make_shared<CopyOpAttribute>(
+                    OpImmediate::Specified(offset0), MemoryType::MEM_UNKNOWN,
+                    OpImmediate::Specified(shape1), OpImmediate::Specified(shape1));
+        auto copyIn_Attr1 = std::make_shared<CopyOpAttribute>(
+                    OpImmediate::Specified(offset0), MemoryType::MEM_UNKNOWN,
+                    OpImmediate::Specified(shape1), OpImmediate::Specified(shape1));
+        auto copyOut_Attr0 = std::make_shared<CopyOpAttribute>(
+                    MemoryType::MEM_UNKNOWN, OpImmediate::Specified(offset0),
+                    OpImmediate::Specified(shape1), OpImmediate::Specified(shape1));
+        auto copyOut_Attr1 = std::make_shared<CopyOpAttribute>(
+                    MemoryType::MEM_UNKNOWN, OpImmediate::Specified(offset0),
+                    OpImmediate::Specified(shape1), OpImmediate::Specified(shape1));
+        auto view_Attr0 = std::make_shared<ViewOpAttribute>(offset0);
+        auto view_Attr1 = std::make_shared<ViewOpAttribute>(offset1);
+        auto ass_Attr0 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset0);
+        auto ass_Attr1 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset1);
+        copyInOp0.SetOpAttribute(copyIn_Attr0);
+        copyInOp1.SetOpAttribute(copyIn_Attr1);
+        copyOutOp0.SetOpAttribute(copyOut_Attr0);
+        copyOutOp1.SetOpAttribute(copyOut_Attr1);
+        viewOp0.SetOpAttribute(view_Attr0);
+        viewOp1.SetOpAttribute(view_Attr1);
+        assOp0.SetOpAttribute(ass_Attr0);
+        assOp1.SetOpAttribute(ass_Attr1);
+        currFunctionPtr->inCasts_.push_back(incast);
+        currFunctionPtr->outCasts_.push_back(outcast);
+    }
 };
 
 TEST_F(ReplaceTensorTest, TestViewAssemble) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestViewAssemble", "TestViewAssemble", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
-    // Prepare the graph
-    std::vector<int64_t> shape = {kNumEight, kNumEight};
-    std::vector<int64_t> shape1 = {kNumEight, kNumFour};
-    std::vector<int64_t> offset0 = {kNumZero, kNumZero};
-    std::vector<int64_t> offset1 = {kNumZero, kNumFour};
-    // init RawTensor
-    std::shared_ptr<RawTensor> inRawTensor = std::make_shared<RawTensor>(DT_FP32, shape);
-    std::shared_ptr<RawTensor> viewRawTensor0 = std::make_shared<RawTensor>(DT_FP32, shape1);
-    std::shared_ptr<RawTensor> viewRawTensor1 = std::make_shared<RawTensor>(DT_FP32, shape1);
-    std::shared_ptr<RawTensor> assRawTensor0 = std::make_shared<RawTensor>(DT_FP32, shape1);
-    std::shared_ptr<RawTensor> assRawTensor1 = std::make_shared<RawTensor>(DT_FP32, shape1);
-    std::shared_ptr<RawTensor> outRawTensor = std::make_shared<RawTensor>(DT_FP32, shape);
-    // init LogicalTensor
-    auto incast = std::make_shared<LogicalTensor>(*currFunctionPtr, inRawTensor, offset0, shape);
-    auto viewOut0 = std::make_shared<LogicalTensor>(*currFunctionPtr, viewRawTensor0, offset0, shape1);
-    auto viewOut1 = std::make_shared<LogicalTensor>(*currFunctionPtr, viewRawTensor1, offset1, shape1);
-    auto copyOut0 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
-    auto copyOut1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
-    auto assOut0 = std::make_shared<LogicalTensor>(*currFunctionPtr, assRawTensor0, offset0, shape1);
-    auto assOut1 = std::make_shared<LogicalTensor>(*currFunctionPtr, assRawTensor1, offset1, shape1);
-    auto outcast = std::make_shared<LogicalTensor>(*currFunctionPtr, outRawTensor, offset0, shape);
-    /*       Init Graph
-                /————> view0 ————> copy ————> assemble \
-        incast -                                        - outcast
-                \————> view1 ————> copy ————> assemble /
-    */
-    auto &viewOp0 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {incast}, {viewOut0});
-    auto &viewOp1 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {incast}, {viewOut1});
-    currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {viewOut0}, {copyOut0});
-    currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {viewOut1}, {copyOut1});
-    currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {copyOut0}, {assOut0});
-    currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {copyOut1}, {assOut1});
-    auto &assOp0 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {assOut0}, {outcast});
-    auto &assOp1 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {assOut1}, {outcast});
-    // Init Attribute
-    auto viewAttr0 = std::make_shared<ViewOpAttribute>(offset0);
-    auto viewAttr1 = std::make_shared<ViewOpAttribute>(offset1);
-    auto assAttr0 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset0);
-    auto assAttr1 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset1);
-    viewOp0.SetOpAttribute(viewAttr0);
-    viewOp1.SetOpAttribute(viewAttr1);
-    assOp0.SetOpAttribute(assAttr0);
-    assOp1.SetOpAttribute(assAttr1);
+    BuildViewAssemble(currFunctionPtr);
     // Run the Pass
     ReplaceTensor pass;
-    currFunctionPtr->inCasts_.push_back(incast);
-    currFunctionPtr->outCasts_.push_back(outcast);
+    auto incast = currFunctionPtr->GetIncast()[0];
+    auto outcast = currFunctionPtr->GetOutcast()[0];
     EXPECT_EQ(pass.RunOnFunction(*currFunctionPtr), SUCCESS);
-    EXPECT_EQ(incast->GetRawMagic(), viewOut0->GetRawMagic());
-    EXPECT_EQ(incast->GetRawMagic(), viewOut1->GetRawMagic());
-    EXPECT_EQ(outcast->GetRawMagic(), assOut0->GetRawMagic());
-    EXPECT_EQ(outcast->GetRawMagic(), assOut1->GetRawMagic());
+    for (auto &op : currFunctionPtr->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_VIEW ||op.GetOpcode() == Opcode::OP_ASSEMBLE) {
+            EXPECT_EQ(incast->GetRawMagic(), op.GetOOperands()[0]->GetRawMagic());
+        }
+    }
     EXPECT_EQ(pass.PostCheck(*currFunctionPtr), SUCCESS);
 }
 
@@ -336,61 +424,17 @@ TEST_F(ReplaceTensorTest, TestPreCheck_FailNoSubgraphID) {
 TEST_F(ReplaceTensorTest, TestBackView) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestViewAssemble", "TestViewAssemble", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
-    // Prepare the graph
-    std::vector<int64_t> shape = {kNumEight, kNumEight};
-    std::vector<int64_t> shape1 = {kNumEight, kNumFour};
-    std::vector<int64_t> offset0 = {kNumZero, kNumZero};
-    std::vector<int64_t> offset1 = {kNumZero, kNumFour};
-    // init RawTensor
-    std::shared_ptr<RawTensor> outRawTensor = std::make_shared<RawTensor>(DT_FP32, shape);
-    std::shared_ptr<RawTensor> viewRawTensor0 = std::make_shared<RawTensor>(DT_FP32, shape1);
-    std::shared_ptr<RawTensor> viewRawTensor1 = std::make_shared<RawTensor>(DT_FP32, shape1);
-    std::shared_ptr<RawTensor> viewTypeRaw0 = std::make_shared<RawTensor>(DT_FP32, shape1);
-    std::shared_ptr<RawTensor> viewTypeRaw1 = std::make_shared<RawTensor>(DT_FP32, shape1);
-    std::shared_ptr<RawTensor> assRawTensor0 = std::make_shared<RawTensor>(DT_FP32, shape1);
-    std::shared_ptr<RawTensor> assRawTensor1 = std::make_shared<RawTensor>(DT_FP32, shape1);
-    // init LogicalTensor
-    auto incast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
-    auto copy0 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
-    auto copy1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
-    auto viewIn0 = std::make_shared<LogicalTensor>(*currFunctionPtr, viewRawTensor0, offset0, shape1);
-    auto viewIn1 = std::make_shared<LogicalTensor>(*currFunctionPtr, viewRawTensor1, offset0, shape1);
-    auto viewTypeIn0 = std::make_shared<LogicalTensor>(*currFunctionPtr, viewTypeRaw0, offset0, shape1);
-    auto viewTypeIn1 = std::make_shared<LogicalTensor>(*currFunctionPtr, viewTypeRaw1, offset0, shape1);
-    auto assIn0 = std::make_shared<LogicalTensor>(*currFunctionPtr, assRawTensor0, offset0, shape1);
-    auto assIn1 = std::make_shared<LogicalTensor>(*currFunctionPtr, assRawTensor1, offset1, shape1);
-    auto outcast = std::make_shared<LogicalTensor>(*currFunctionPtr, outRawTensor, offset0, shape);
-    // Init Graph
-    currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {incast}, {copy0});
-    currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {incast}, {copy1});
-    currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {copy0}, {viewIn0});
-    currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {copy1}, {viewIn1});
-    auto &viewOp0 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {viewIn0}, {viewTypeIn0});
-    auto &viewOp1 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {viewIn1}, {viewTypeIn1});
-    currFunctionPtr->AddOperation(Opcode::OP_VIEW_TYPE, {viewTypeIn0}, {assIn0});
-    currFunctionPtr->AddOperation(Opcode::OP_VIEW_TYPE, {viewTypeIn1}, {assIn1});
-    auto &assOp0 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {assIn0}, {outcast});
-    auto &assOp1 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {assIn1}, {outcast});
-    // Init Attribute
-    auto view_Attr0 = std::make_shared<ViewOpAttribute>(offset0);
-    auto view_Attr1 = std::make_shared<ViewOpAttribute>(offset1);
-    auto ass_Attr0 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset0);
-    auto ass_Attr1 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset1);
-    viewOp0.SetOpAttribute(view_Attr0);
-    viewOp1.SetOpAttribute(view_Attr1);
-    assOp0.SetOpAttribute(ass_Attr0);
-    assOp1.SetOpAttribute(ass_Attr1);
+    BuildBackView(currFunctionPtr);
     // Run the Pass
     ReplaceTensor pass;
-    currFunctionPtr->inCasts_.push_back(incast);
-    currFunctionPtr->outCasts_.push_back(outcast);
+    auto incast = currFunctionPtr->GetIncast()[0];
+    auto outcast = currFunctionPtr->GetOutcast()[0];
     EXPECT_EQ(pass.RunOnFunction(*currFunctionPtr), SUCCESS);
-    EXPECT_EQ(outcast->GetRawMagic(), assIn0->GetRawMagic());
-    EXPECT_EQ(outcast->GetRawMagic(), assIn1->GetRawMagic());
-    EXPECT_EQ(outcast->GetRawMagic(), viewTypeIn0->GetRawMagic());
-    EXPECT_EQ(outcast->GetRawMagic(), viewTypeIn1->GetRawMagic());
-    EXPECT_EQ(outcast->GetRawMagic(), viewIn0->GetRawMagic());
-    EXPECT_EQ(outcast->GetRawMagic(), viewIn1->GetRawMagic());
+    for (auto &op : currFunctionPtr->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_VIEW || op.GetOpcode() == Opcode::OP_ASSEMBLE || op.GetOpcode() == Opcode::OP_VIEW_TYPE) {
+            EXPECT_EQ(incast->GetRawMagic(), op.GetOOperands()[0]->GetRawMagic());
+        }
+    }
     EXPECT_EQ(pass.PostCheck(*currFunctionPtr), SUCCESS);
 }
 
