@@ -61,6 +61,9 @@ public:
             if (arg) {
                 arg->PrintValue(os_);
             }
+            if (arg->Attributes().find("io") != arg->Attributes().end()) {
+                os_ << " #" << arg->Attributes().at("io");
+            }
             if (i + 1 < signature.arguments.size()) {
                 os_ << ", ";
             }

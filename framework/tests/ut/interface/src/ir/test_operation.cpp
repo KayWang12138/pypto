@@ -43,12 +43,13 @@ TEST(IRTEST, TestTensorOperation){
     std::vector<ScalarValuePtr> tensorShape = { B, std::make_shared<ScalarValue>(int64_t(128)) };
     auto inputTensor =
         std::make_shared<TensorValue>(tensorShape, DataType::FP32, "input");
-
+    inputTensor->Attributes()["io"] = "in";
     sig.arguments.push_back(inputTensor);
 
     // Output tensor
     auto outputTensor =
         std::make_shared<TensorValue>(tensorShape, DataType::FP32, "output");
+    outputTensor->Attributes()["io"] = "out";
     sig.arguments.push_back(outputTensor);
 
     // ===== Function =====

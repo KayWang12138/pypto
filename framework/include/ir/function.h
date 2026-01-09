@@ -88,6 +88,15 @@ public:
     // Get function hash value
     uint64_t GetFunctionHash() const { return functionHash_; }
 
+    // check if value is from in cast
+    bool isFromInCast(const ValuePtr &value) const;
+    // check if value is from out cast
+    bool isFromOutCast(const ValuePtr &value) const;
+    // get index of in cast
+    int GetIncastIndex(const ValuePtr &value) const;
+    // get index of out cast
+    int GetOutcastIndex(const ValuePtr &value) const;
+
 protected:
     FunctionKind kind_;
     FunctionSignature signature_;
