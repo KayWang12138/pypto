@@ -749,6 +749,9 @@ Status ReplaceTensor::RunOnFunction(Function &function) {
     if (ProcessHubOp(function) == FAILED) {
         return FAILED;
     }
+    if (MarkInCoreAssemble(function) == FAILED) {
+        return FAILED;
+    }
     APASS_LOG_INFO_F(Elements::Operation, "===> End ReplaceTensor.");
     return SUCCESS;
 }
@@ -846,6 +849,21 @@ Status ReplaceTensor::BackUpdateAssemble(Operation *op) {
     assAttr->SetToOffset(assOffset, assAttr->GetToDynOffset());
     TensorOffset newOffset(assOffset, assDynOffset);
     assembleIn->UpdateOffset(newOffset);
+    return SUCCESS;
+}
+
+Status ReplaceTensor::MarkInCoreAssemble(Function &func) {
+    for (auto &op : func.Operations()) {
+        if (op.GetOpcode() != Opcode::OP_ASSEMBLE) {
+            continue;
+        }
+        auto iOperand = op.GetInputOperand(0);
+        auto oOperand = op.GetOutputOperand(0);
+        if (iOperand->GetRawTensor() != oOperand->GetRawTensor()) {
+            continue;
+        }
+        iOperand->SetAttr(OpAttributeKey::inCoreAssemble, true);
+    }
     return SUCCESS;
 }
 } // namespace tile_fwk
