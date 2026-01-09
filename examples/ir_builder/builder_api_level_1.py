@@ -1,3 +1,5 @@
+"""use context manager to simplify builder_api_level_0.py"""
+
 from pypto.pypto_impl import ir
 from pypto.ir.context import (
     function_scope, for_scope, if_then_scope, if_else_scope
