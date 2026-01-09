@@ -12,8 +12,13 @@ set(_Target ${PTO_Fwk_UTestNamePrefix}_operator)
 
 file(GLOB_RECURSE _Sources src/*.cpp)
 
+set(LinkLibraries tile_fwk_operator)
+if (TARGET tile_fwk_calculator)
+    list(APPEND LinkLibraries tile_fwk_calculator)
+endif ()
+
 PTO_Fwk_UTest_AddCaseLib(
         TARGET ${_Target}
         SOURCES ${_Sources}
-        PUBLIC_LINK_LIBRARIES tile_fwk_interface tile_fwk_operator
+        LINK_LIBRARIES ${LinkLibraries}
 )
