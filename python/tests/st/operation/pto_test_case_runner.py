@@ -196,7 +196,7 @@ class PTOTestCaseRunner(TestCaseRunner):
         function += prefix + "for tmp in res:\n"
         function += prefix + "    del tmp\n"
         logging.info(function)
-        pypto.set_host_options(only_codegen=True)
+        pypto.set_host_options(compile_stage=3)
         pypto.set_vec_tile_shapes(*self.tile_shape)
         exec(
             function,
