@@ -618,7 +618,7 @@ class BuildCtrl(CMakeParam):
         self.build: BuildParam = BuildParam(args=args)
         self.tests: TestsParam = TestsParam(args=args)
         self.third_party_path: Optional[Path] = Path(args.third_party_path).resolve() if args.third_party_path else None
-        self.verbose: bool = args.verbose
+        self.verbose: bool = True
         self.cmake: Optional[Path] = self.which_cmake()
         if not self.cmake:
             raise RuntimeError(f"Can't find cmake")
