@@ -35,6 +35,7 @@ def if_else_scope(builder, ctx, if_node):
     finally:
         ctx.pop_scope()
 
+
 def create_ir_module(name="main"):
     module = ir.module(name)
     builder = ir.IrBuilder(module)
@@ -57,49 +58,61 @@ def create_ir_module(name="main"):
     sig.arguments = [input_x, input_y, scale1, scale2, result_x, result_y]
     sig.returns = [ir.Scalar(ir.DataType.int32, None)]
 
-    # ===== Function Body =====
-    func = builder.create_function("test_control", ir.FunctionKind.ControlFlow, sig, False)
+    # NOTE: shape parameter `batch`, `constant128`, `tile_shape` are passed via closure
+    def create_function(
+        builder,
+        ctx,
+        name="test_control",
+        function_kind=ir.FunctionKind.ControlFlow,
+        sig=None
+    ):
+        func = builder.create_function(name, function_kind, sig, False)
 
-    with function_scope(builder, ctx, func):
-        # Setup constants
-        i = builder.create_scalar(ctx, ir.DataType.int32, "i")
-        constant0 = builder.create_const(ctx, 0, "const_0")
-        constant1 = builder.create_const(ctx, 1, "const_1")
+        with function_scope(builder, ctx, func):
+            i = builder.create_scalar(ctx, ir.DataType.int32, "i")
+            constant0 = builder.create_const(ctx, 0, "const_0")
+            constant1 = builder.create_const(ctx, 1, "const_1")
 
-        # Create Loop
-        fs = builder.create_for(ctx, i, constant0, batch, constant1)
-        fs.properties()["unroll"] = "4"
+            fs = builder.create_for(ctx, i, constant0, batch, constant1)
+            fs.properties()["unroll"] = "4"
 
-        with for_scope(builder, ctx, fs):
-            # Loop Body Logic
-            res_loop_x = builder.create_tile(ctx, tile_shape, ir.DataType.float, "outputX")
-            add_op_x = builder.create_binary_scalar_op(ir.Opcode.OP_ADDS, res_loop_x, scale1, res_loop_x)
-            builder.emit(ctx, add_op_x)
+            with for_scope(builder, ctx, fs):
+                res_loop_x = builder.create_tile(ctx, tile_shape, ir.DataType.float, "outputX")
+                add_op_x = builder.create_binary_scalar_op(ir.Opcode.OP_ADDS, res_loop_x, scale1, res_loop_x)
+                builder.emit(ctx, add_op_x)
 
-            res_loop_y = builder.create_tile(ctx, tile_shape, ir.DataType.float, "outputY")
-            add_op_y = builder.create_binary_scalar_op(ir.Opcode.OP_ADDS, res_loop_y, scale2, res_loop_y)
-            builder.emit(ctx, add_op_y)
+                res_loop_y = builder.create_tile(ctx, tile_shape, ir.DataType.float, "outputY")
+                add_op_y = builder.create_binary_scalar_op(ir.Opcode.OP_ADDS, res_loop_y, scale2, res_loop_y)
+                builder.emit(ctx, add_op_y)
 
-            # Conditional Logic
-            ifs = builder.create_if(ctx, i)
+                ifs = builder.create_if(ctx, i)
 
-            with if_then_scope(builder, ctx, ifs):
-                res_if_x = builder.create_tile(ctx, tile_shape, ir.DataType.float, "outputX")
-                mul_op_x = builder.create_binary_scalar_op(ir.Opcode.OP_MULS, res_loop_x, scale1, res_if_x)
-                builder.emit(ctx, mul_op_x)
+                with if_then_scope(builder, ctx, ifs):
+                    res_if_x = builder.create_tile(ctx, tile_shape, ir.DataType.float, "outputX")
+                    mul_op_x = builder.create_binary_scalar_op(ir.Opcode.OP_MULS, res_loop_x, scale1, res_if_x)
+                    builder.emit(ctx, mul_op_x)
 
-            with if_else_scope(builder, ctx, ifs):
-                res_if_y = builder.create_tile(ctx, tile_shape, ir.DataType.float, "outputY")
-                mul_op_y = builder.create_binary_scalar_op(ir.Opcode.OP_MULS, res_loop_y, scale2, res_if_y)
-                builder.emit(ctx, mul_op_y)
+                with if_else_scope(builder, ctx, ifs):
+                    res_if_y = builder.create_tile(ctx, tile_shape, ir.DataType.float, "outputY")
+                    mul_op_y = builder.create_binary_scalar_op(ir.Opcode.OP_MULS, res_loop_y, scale2, res_if_y)
+                    builder.emit(ctx, mul_op_y)
 
-            # Close out the IF node
-            builder.exit_if(ctx, ifs)
+                builder.exit_if(ctx, ifs)
 
-        builder.create_return(ctx, [constant0])
+            builder.create_return(ctx, [constant0])
 
+        return func
+
+    func = create_function(
+        builder,
+        ctx,
+        name="test_control",
+        function_kind=ir.FunctionKind.ControlFlow,
+        sig=sig
+    )
     module.entry = func
     return module
+
 
 if __name__ == "__main__":
     module = create_ir_module()
