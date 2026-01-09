@@ -632,17 +632,17 @@ std::string CodeGenOpCloudNPU::GenGatherElementOp() const {
     return PrintGatherElementStatic({gatherEleAxis, dVar, s0Var, s1Var, dos, ds, s0s, s1s, dataTypeExpr});
 }
 
-std::string CodeGenOpCloudNPU::PrintRangeTileTensor(std::string startVal, std::string stepVal) const {
-    std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::DST_IDX)]);
-    auto dstValidShape = dynamicValidShape[ToUnderlying(MISOIdx::DST_IDX)];
-    std::vector<std::string> paramList = {
-        dstTensor, SymbolicExpressionTable::BuildExpression(dstValidShape[ID0]), startVal, stepVal};
-    std::ostringstream oss;
-    oss << tileOpName;
-    oss << PrintParams({"(", ")"}, paramList, ", ");
-    oss << ";\n";
-    return oss.str();
-}
+ std::string CodeGenOpCloudNPU::PrintRangeTileTensor(std::string startVal, std::string stepVal, std::string &tileIdxExpr) const {
+ 	     std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::DST_IDX)]);
+ 	     auto dstValidShape = dynamicValidShape[ToUnderlying(MISOIdx::DST_IDX)];
+ 	     std::vector<std::string> paramList = {
+ 	         dstTensor, SymbolicExpressionTable::BuildExpression(dstValidShape[ID0]), startVal, stepVal, tileIdxExpr};
+ 	     std::ostringstream oss;
+ 	     oss << tileOpName;
+ 	     oss << PrintParams({"(", ")"}, paramList, ", ");
+ 	     oss << ";\n";
+ 	     return oss.str();
+ 	 }
 
 std::string CodeGenOpCloudNPU::GenRangeOp() const {
     auto start = opAttrs.at(OP_ATTR_PREFIX + "START");
@@ -674,7 +674,7 @@ std::string CodeGenOpCloudNPU::GenRangeOp() const {
         tileIdxExpr = "((int64_t)(" + SymbolicExpressionTable::BuildExpression(scalarExpr) + "))";
     }
     if (isSupportLayout) {
-        return PrintRangeTileTensor(startVal, stepVal);
+        return PrintRangeTileTensor(startVal, stepVal, tileIdxExpr);
     }
     // only support 1 dim
     std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
