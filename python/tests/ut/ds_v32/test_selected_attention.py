@@ -22,7 +22,7 @@ SHAPE_DIM_1 = 1
 
 
 def set_config():
-    pypto.set_host_options(only_codegen=True)
+    pypto.set_host_options(compile_stage=pypto.GEN_KERNEL_CODE)
 
 
 @dataclass

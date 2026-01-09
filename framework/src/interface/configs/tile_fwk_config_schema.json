@@ -136,7 +136,11 @@
         "host": {
             "type": "object",
             "properties": {
-                "only_codegen": {"type": "boolean"}
+                "compile_stage": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 3
+                }
             }
         },
         "codegen": {

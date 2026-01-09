@@ -40,7 +40,7 @@ public:
 
 TEST_F(DynamicGenGatedScoreUtest, utest_gen_gated_score_plus_dyn) {
     std::vector<int64_t> bnsh = {4, 128, 4, 7168};
-    config::SetHostOption(ONLY_CODEGEN, true);
+    config::SetHostOption(COMPILE_STAGE, CompileStage::GEN_KERNEL_CODE);
 
     int64_t b = bnsh[0];
     int64_t n = bnsh[1];
@@ -66,7 +66,7 @@ TEST_F(DynamicGenGatedScoreUtest, utest_gen_gated_score_plus_dyn) {
 
 TEST_F(DynamicGenGatedScoreUtest, utest_gen_gated_score_dyn) {
     std::vector<int64_t> bnsh = {4, 128, 4, 7168};
-    config::SetHostOption(ONLY_CODEGEN, true);
+    config::SetHostOption(COMPILE_STAGE, CompileStage::GEN_KERNEL_CODE);
 
     int64_t b = bnsh[0];
     int64_t n = bnsh[1];
