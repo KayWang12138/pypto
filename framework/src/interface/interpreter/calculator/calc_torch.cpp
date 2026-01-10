@@ -14,6 +14,7 @@
  */
 
 #include <torch/torch.h>
+#include "tilefwk/error.h"
 #include "../calc_api.h"
 
 namespace npu::tile_fwk {
@@ -88,6 +89,13 @@ static torch::Tensor View(const torch::Tensor &self, const std::vector<int64_t> 
         storageOffset += self.stride(dim) * offset[dim];
     }
     return self.as_strided(shape, self.strides(), storageOffset);
+}
+
+static void LogicalView(LogicalTensorDataPtr out, LogicalTensorDataPtr self, Offset offset) {
+    auto shape = out->GetShape();
+    auto tself = From(self);
+    auto view = View(tself, shape, offset);
+    From(out) = view;
 }
 
 static bool AllClose(LogicalTensorDataPtr self, LogicalTensorDataPtr other, double atol, double rtol) {
@@ -246,8 +254,14 @@ static void MaxS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Elem
 }
 
 static void Range(LogicalTensorDataPtr out, const Element &start, const Element &end, const Element &step) {
+    auto tmp = torch::arange(From(start), From(end), From(step));
+    int64_t expected_numel = 1;
+    for (int64_t dim : out->GetShape()) {
+        expected_numel *= dim;
+    }
+    ASSERT(tmp.numel() == expected_numel) << "Range numel mismatch: generated " << tmp.numel() << ", expected " << expected_numel;
     auto tout = From(out);
-    torch::range_out(tout, From(start), From(end), From(step));
+    tout.copy_(tmp);
 }
 
 static void Compare(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other,
@@ -481,6 +495,93 @@ void Gather(LogicalTensorDataPtr out, LogicalTensorDataPtr params, LogicalTensor
     tout = tout.view(outSize);
     tout.copy_(gathered.reshape(outSize));
 }
+void GatherINUBGolden(torch::Tensor &out, const torch::Tensor &params, const torch::Tensor &indices,
+    const torch::Tensor &pageTable, int64_t blockSize, int64_t axis) {
+    // ---- 基本约束：只做 CPU，不考虑 CUDA ----
+    TORCH_CHECK(params.is_cpu() && indices.is_cpu() && pageTable.is_cpu() && out.is_cpu(),
+        "CPU-only: params/indices/pageTable/out must all be on CPU.");
+
+    // ---- axis：严格等价你 golden（token 维），只允许 axis==0 ----
+    if (axis < 0)
+        axis += params.dim();
+    TORCH_CHECK(axis == 0, "Only axis==0 is supported to match the original golden logic.");
+    TORCH_CHECK(blockSize > 0, "blockSize must be > 0.");
+
+    // ---- 形状严格限制：indices/pageTable 只能是 [1, a] ----
+    TORCH_CHECK(params.dim() == 2, "params must be [num_buffer_tokens, hidden_dim]");
+    TORCH_CHECK(indices.dim() == 2 && indices.size(0) == 1, "indices must be [1, topk_count]");
+    TORCH_CHECK(pageTable.dim() == 2 && pageTable.size(0) == 1, "pageTable must be [1, num_logical_blocks]");
+    TORCH_CHECK(out.dim() == 2, "out must be [topk_count, hidden_dim]");
+
+    const int64_t hidden_dim = params.size(1);
+    const int64_t topk_count = indices.size(1);
+    const int64_t num_logical_blocks = pageTable.size(1);
+
+    TORCH_CHECK(out.size(0) == topk_count && out.size(1) == hidden_dim, "out must have shape [topk_count, hidden_dim]");
+
+    // ---- dtype：indices/pageTable 必须是整数；统一转 int64（不转 params）----
+    TORCH_CHECK(
+        indices.scalar_type() == at::kInt || indices.scalar_type() == at::kLong, "indices must be int32 or int64");
+    TORCH_CHECK(pageTable.scalar_type() == at::kInt || pageTable.scalar_type() == at::kLong,
+        "pageTable must be int32 or int64");
+
+    // out/params dtype 必须一致（index_select 不会帮你做 dtype cast）
+    TORCH_CHECK(out.scalar_type() == params.scalar_type(), "out and params must have the same dtype");
+
+    // ---- 1) logical indices: [topk] int64 ----
+    at::Tensor logical = indices.reshape({-1}).to(at::kLong);
+
+    // ---- logical 越界检查： [0, num_logical_blocks * blockSize) ----
+    const int64_t total_logical_tokens = num_logical_blocks * blockSize;
+    TORCH_CHECK(total_logical_tokens >= 0, "total_logical_tokens overflow?");
+    TORCH_CHECK(logical.ge(0).all().item<bool>(), "logical_index < 0 exists in indices");
+    TORCH_CHECK(logical.lt(total_logical_tokens).all().item<bool>(),
+        "logical_index out of range: must be < num_logical_blocks * blockSize");
+
+    // ---- 2) pageTable: [num_logical_blocks] int64 ----
+    at::Tensor pt = pageTable.reshape({-1}).to(at::kLong);
+    TORCH_CHECK(pt.numel() == num_logical_blocks, "pageTable numel mismatch");
+
+    // ---- 3) compute physical indices (完全等价 golden) ----
+    // logical_block = logical / blockSize
+    // offset        = logical % blockSize
+    // physical_blk  = pt[logical_block]
+    // physical      = physical_blk * blockSize + offset
+    at::Tensor logical_block = logical.floor_divide(blockSize); // trunc div for int64
+    at::Tensor offset = logical.remainder(blockSize);  // same as % for non-negative
+
+    // 逻辑块 id 范围检查（其实 logical 已经检查过，这里更保险）
+    TORCH_CHECK(logical_block.ge(0).all().item<bool>(), "logical_block_id < 0 exists");
+    TORCH_CHECK(logical_block.lt(num_logical_blocks).all().item<bool>(), "logical_block_id out of range for pageTable");
+
+    at::Tensor physical_block = pt.index_select(0, logical_block);
+    at::Tensor physical = physical_block.mul(blockSize).add(offset); // int64
+
+    // ---- physical 越界检查：[0, num_buffer_tokens) ----
+    TORCH_CHECK(physical.ge(0).all().item<bool>(), "physical_index < 0 exists");
+
+    // ---- 4) index_select gather: params[physical, :] -> [topk, hidden_dim] ----
+    at::Tensor selected = params.index_select(0, physical); // dtype 跟 params 一样
+
+    // 写到 out（不要求 out contiguous；copy_ 会处理）
+    out.copy_(selected);
+}
+static torch::Tensor From4GatherINUB(LogicalTensorDataPtr data) {
+    RawTensorDataPtr raw = data->GetData();
+    auto tensor = torch::from_blob(raw->data(), raw->GetShape(), FromDataType(raw->GetDataType()));
+    auto view = tensor.as_strided({raw->GetShape()[0],data->GetShape()[1]}, raw->GetStride(), data->GetStorageOffset());
+    if (data->IsAxisCombine())
+        view = view.transpose_(-1, AXIS_TO_LAST);
+    return view;
+}
+void GatherINUB(LogicalTensorDataPtr out, LogicalTensorDataPtr params, LogicalTensorDataPtr indices,
+    LogicalTensorDataPtr pageTable, int64_t blockSize, int64_t axis) {
+    auto tout = From(out);
+    auto tparams = From4GatherINUB(params);
+    auto tindices = From(indices);
+    auto tpageTable = From(pageTable);
+    GatherINUBGolden(tout, tparams, tindices, tpageTable, blockSize, axis);
+}
 
 void GatherElements(LogicalTensorDataPtr out, LogicalTensorDataPtr params, LogicalTensorDataPtr indices, int axis) {
     auto ret = From(out);
@@ -495,6 +596,13 @@ void IndexAdd(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensor
     torch::Tensor inputSrc = From(src);
     torch::Tensor inputIndices = From(indices);
     torch::index_add_out(output, inputSelf, axis, inputIndices, inputSrc, From(alpha));
+}
+
+void CumSum(LogicalTensorDataPtr out, LogicalTensorDataPtr in, int axis) {
+    torch::Tensor output = From(out);
+    torch::Tensor input = From(in);
+
+    torch::cumsum_out(output, input, axis);
 }
 
 static void Copy(LogicalTensorDataPtr out, LogicalTensorDataPtr self, bool trans) {
@@ -752,7 +860,7 @@ bool ScatterDateCopy(const std::vector<int64_t> &loopIdx, torch::Tensor &src, to
     if (ret.dim() == 2) { // 2 dim
         int64_t srcIdx = i * s + j;
         if ((dataIdx < 0 || dataIdx >= ret.size(0)) || (srcIdx < 0 || srcIdx >= src.size(0))) {
-            ALOG_ERROR_F("index out of range. i:%d, j:%d, dst_idx:%d, srcIdx:%d\n", i, j, dataIdx, srcIdx);
+            printf("index out of range. i:%ld, j:%ld, dst_idx:%ld, srcIdx:%ld\n", i, j, dataIdx, srcIdx);
             return flag;
         }
         ret[dataIdx] = src[srcIdx];
@@ -761,7 +869,7 @@ bool ScatterDateCopy(const std::vector<int64_t> &loopIdx, torch::Tensor &src, to
         int64_t bIdx = dataIdx / blockSize;
         int64_t sIdx = dataIdx % blockSize;
         if ((bIdx < 0 || bIdx >= ret.size(0)) || (sIdx < 0 || sIdx >= ret.size(1))) {
-            ALOG_ERROR_F("index out of range. i:%d, j:%d, dst_idx:%d, blockSize:%d\n", i, j, dataIdx, blockSize);
+            printf("index out of range. i:%ld, j:%ld, dst_idx:%ld, blockSize:%d\n", i, j, dataIdx, blockSize);
             return flag;
         }
         ret[bIdx][sIdx] = src[i][j];
@@ -855,12 +963,14 @@ static struct CalcOps calcOps = {
     .Expand = Expand,
     .GatherElements = GatherElements,
     .IndexAdd = IndexAdd,
+    .CumSum = CumSum,
     .Reshape = Reshape,
     .Permute = Permute,
     .Transpose = Transpose,
     .ReduceAcc = ReduceAcc,
     .Copy = Copy,
     .ScatterUpdate = ScatterUpdate,
+    .LogicalView = LogicalView,
     .Scatter = Scatter,
     .FormatND2NZ = FormatND2NZ,
     .FormatNZ2ND = FormatNZ2ND,
@@ -869,6 +979,7 @@ static struct CalcOps calcOps = {
     .Extract = Extract,
     .Topk = Topk,
     .Gather = Gather,
+    .GatherINUB = GatherINUB,
 };
 
 extern "C" struct CalcOps *GetCalcOps() {
