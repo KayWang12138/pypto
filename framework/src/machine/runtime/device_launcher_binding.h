@@ -201,6 +201,8 @@ private:
     std::shared_ptr<Function> func_;
 };
 
+void PyptoLauncherInit();
+
 int ExportedOperatorDeviceLaunchOnceWithDeviceTensorData(ExportedOperator *op,
     const std::vector<DeviceTensorData> &inputList, const std::vector<DeviceTensorData> &outputList,
     DeviceStream aicpuStream, DeviceStream aicoreStream, bool streamSynchronize,

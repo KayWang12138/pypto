@@ -74,7 +74,8 @@ public:
     void DumpAiCoreExecutionTimeData();
     void DumpAiCorePmuData();
     void SynchronizeDeviceToHostProfData();
-
+    int PyptoInit();
+    rtError_t AicpuLaunchCallback1(rtAicpuInfo_t &aicpuInfo);
 private:
     DeviceRunner() = default;
     void *DevAlloc(int size);
@@ -116,6 +117,9 @@ private:
     HostProf hostProf_;
     std::unordered_map<ArchInfo, std::function<int(std::vector<int64_t>&, std::vector<int64_t>&)>> addressMappingTable_;
     bool isCapture_ = false;
+    bool useEvent1_{false};
+    aclrtEvent event1_;
+    aclrtEvent event2_;
 };
 }
 #else
