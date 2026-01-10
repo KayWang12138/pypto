@@ -328,7 +328,7 @@ public:
         return SUCCESS;
     }
 
-    Status Init(std::vector<Operation*> opList) {
+    Status Init(std::vector<Operation*> &opList) {
         // 初始化芯片各buffer大小
         InitMemorySize();
         operations = opList;
@@ -352,6 +352,8 @@ public:
             APASS_LOG_ERROR_F(Elements::Operation, "CheckAllocOp failed!");
             return FAILED;
         }
+
+        opList = operations;
         return SUCCESS;
     }
 
