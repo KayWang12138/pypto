@@ -22,12 +22,23 @@ from attention_hc_post_impl import (
 from utils.compare import compare
 
 
-pyptolib = 
+pyptolib = torch.library.Library("pypto", "FRAGMENT")
+pyptolib.define("attn_hc_post(Tensor x, Tensor cos, Tensor sin, Tensor wo_a, Tensor wo_b, Tensor residual, Tensor post, Tensor comb) -> (Tensor)")
+
+@torch.library.impl(pyptolib, "attn_hc_post", "Meta")
+def attn_hc_post(x, cos, sin, wo_a, wo_b, residual, post, comb):
+    y = torch.empty([x.size(0), post.size(1), residual.size(2)], dtype=x.dtype, device=x.device)
+    return y
+
+@torch.library.impl(pyptolib, "attn_hc_post", "NPU")
+def attn_hc_post(x, cos, sin, wo_a, wo_b, residual, post, comb):
+    for i in range(40):
+            torch.add(x, 0.0)
+    return npu_attention_hc_post(x, cos, sin, wo_a, wo_b, residual, post, comb)
+
 class AttentionHcPost(torch.nn.Module):
     def forward(self, x, cos, sin, wo_a, wo_b, residual, post, comb):
-        for i in range(20):
-            torch.add(x, 0.0)
-        return npu_attention_hc_post(x, cos, sin, wo_a, wo_b, residual, post, comb)
+        return torch.ops.pypto.attn_hc_post(x, cos, sin, wo_a, wo_b, residual, post, comb)
 
 
 def gen_uniform_data(data_shape, min_value, max_value, dtype):
@@ -263,19 +274,15 @@ def do_attention_hc_post_func_torch_graph(inputs, params, golden_list):
     hc = params.get("hc", 4)
     attn_dtype = params.get("attn_dtype", torch.bfloat16)
 
-    # define npu outputs
-    y = torch.zeros([t, hc, h]).to(attn_dtype).npu()
-
-    model = torch.compile(AttentionHcPost(), backend="eager", dynamic=True)
-
-    # capture model
-    g = torch.npu.NPUGraph()
-    with torch.npu.graph(g):
-        model(x, cos, sin, wo_a, wo_b_nz, residual, post, comb, y)
-
-    for i in range(5):
-        g.replay()
-        pypto.runtime._device_synchronize()  # 内部接口，不推荐使用
+    import torchair as tng
+    from torchair.configs.compiler_config import CompilerConfig
+    compiler_config = CompilerConfig()
+    compiler_config.mode = "reduce-overhead"
+    npu_backend = tng.get_npu_backend(compiler_config=compiler_config)
+    model = torch.compile(AttentionHcPost(), dynamic=False, fullgraph=True, backend=npu_backend)
+    
+    y = model(x, cos, sin, wo_a, wo_b_nz, residual, post, comb)
+    pypto.runtime._device_synchronize()
 
     compare(y.cpu(), golden_list[3], "y", atol=0.0001, rtol=0.005)
 
