@@ -45,7 +45,7 @@ public:
 class ElementWiseUnaryTileBaseOp : public ElementWiseTileBaseOp {
 public:
     ElementWiseUnaryTileBaseOp(Opcode opcode, TileValuePtr input, TileValuePtr output)
-        : ElementWiseTileBaseOp(opcode, {ValueCast<Value>(input)}, {ValueCast<Value>(output)}) {}
+        : ElementWiseTileBaseOp(opcode, {ObjectCast<Value>(input)}, {ObjectCast<Value>(output)}) {}
 };
 
 class ElementWiseBinaryTileBaseOp : public ElementWiseTileBaseOp {
@@ -61,7 +61,7 @@ public:
 class ElementWiseScalarMixBinaryTileBaseOp : public ElementWiseTileBaseOp {
 public:
     ElementWiseScalarMixBinaryTileBaseOp(Opcode opcode, TileValuePtr lhs, ScalarValuePtr rhs, TileValuePtr output)
-        : ElementWiseTileBaseOp(opcode, {ValueCast<Value>(lhs), ValueCast<Value>(rhs)}, {ValueCast<Value>(output)}) {}
+        : ElementWiseTileBaseOp(opcode, {ObjectCast<Value>(lhs), ObjectCast<Value>(rhs)}, {ObjectCast<Value>(output)}) {}
 };
 
 class ReduceTileBaseOp : public TileBaseOp {
@@ -71,16 +71,24 @@ class BroadcastTileBaseOp : public TileBaseOp {
 };
 
 class DataCopyTileBaseOp : public TileBaseOp {
+public:
+    DataCopyTileBaseOp(Opcode opcode, ValuePtr src, std::vector<ScalarValuePtr> offset, std::vector<ScalarValuePtr> shape, ValuePtr dst)
+      : TileBaseOp(opcode, ValueUtils::Join(src, offset, shape), {dst}) {}
+};
+
+class DataCopyInTileBaseOp : public DataCopyTileBaseOp {
+public:
+    DataCopyInTileBaseOp(Opcode opcode, TensorValuePtr src, std::vector<ScalarValuePtr> offset, std::vector<ScalarValuePtr> shape, TileValuePtr dst)
+      : DataCopyTileBaseOp(opcode, ObjectCast<Value>(src), offset, shape, ObjectCast<Value>(dst)) {}
+};
+
+class DataCopyOutTileBaseOp : public DataCopyTileBaseOp {
+public:
+    DataCopyOutTileBaseOp(Opcode opcode, TileValuePtr src, std::vector<ScalarValuePtr> offset, std::vector<ScalarValuePtr> shape, TensorValuePtr dst)
+      : DataCopyTileBaseOp(opcode, ObjectCast<Value>(src), offset, shape, ObjectCast<Value>(dst)) {}
 };
 
 class MatmulTileBaseOp : public TileBaseOp {
-};
-
-class SysBaseOp : public ScalarBaseOp {
-public:
-    std::string GetName() const;
-private:
-    std::string name_;
 };
 
 class CustomTileBaseOp : public TileBaseOp {
