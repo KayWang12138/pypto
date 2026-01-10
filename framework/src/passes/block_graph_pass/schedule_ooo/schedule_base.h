@@ -315,7 +315,7 @@ public:
                         GetOpInfo(op).c_str());
                     return FAILED;
                 }
-            UpdateAllocMap(op, tensorAllocMap);
+                UpdateAllocMap(op, tensorAllocMap);
             }
         }
         for (const auto &op : list) {
