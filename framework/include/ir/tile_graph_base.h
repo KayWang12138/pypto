@@ -45,7 +45,7 @@ public:
 class ElementWiseUnaryTileBaseOp : public ElementWiseTileBaseOp {
 public:
     ElementWiseUnaryTileBaseOp(Opcode opcode, TileValuePtr input, TileValuePtr output)
-        : ElementWiseTileBaseOp(opcode, {ValueCast<Value>(input)}, {ValueCast<Value>(output)}) {}
+        : ElementWiseTileBaseOp(opcode, {ObjectCast<Value>(input)}, {ObjectCast<Value>(output)}) {}
 };
 
 class ElementWiseBinaryTileBaseOp : public ElementWiseTileBaseOp {
@@ -61,7 +61,7 @@ public:
 class ElementWiseScalarMixBinaryTileBaseOp : public ElementWiseTileBaseOp {
 public:
     ElementWiseScalarMixBinaryTileBaseOp(Opcode opcode, TileValuePtr lhs, ScalarValuePtr rhs, TileValuePtr output)
-        : ElementWiseTileBaseOp(opcode, {ValueCast<Value>(lhs), ValueCast<Value>(rhs)}, {ValueCast<Value>(output)}) {}
+        : ElementWiseTileBaseOp(opcode, {ObjectCast<Value>(lhs), ObjectCast<Value>(rhs)}, {ObjectCast<Value>(output)}) {}
 };
 
 class ReduceTileBaseOp : public TileBaseOp {
@@ -71,16 +71,24 @@ class BroadcastTileBaseOp : public TileBaseOp {
 };
 
 class DataCopyTileBaseOp : public TileBaseOp {
+public:
+    DataCopyTileBaseOp(Opcode opcode, ValuePtr src, std::vector<ScalarValuePtr> offset, ValuePtr dst)
+      : TileBaseOp(opcode, ValueUtils::Join(src, offset), {dst}) {}
+};
+
+class DataCopyInTileBaseOp : public DataCopyTileBaseOp {
+public:
+    DataCopyInTileBaseOp(Opcode opcode, TensorValuePtr src, std::vector<ScalarValuePtr> offset, TileValuePtr dst)
+      : DataCopyTileBaseOp(opcode, ObjectCast<Value>(src), offset, ObjectCast<Value>(dst)) {}
+};
+
+class DataCopyOutTileBaseOp : public DataCopyTileBaseOp {
+public:
+    DataCopyOutTileBaseOp(Opcode opcode, TileValuePtr src, std::vector<ScalarValuePtr> offset, TensorValuePtr dst)
+      : DataCopyTileBaseOp(opcode, ObjectCast<Value>(src), offset, ObjectCast<Value>(dst)) {}
 };
 
 class MatmulTileBaseOp : public TileBaseOp {
-};
-
-class SysBaseOp : public ScalarBaseOp {
-public:
-    std::string GetName() const;
-private:
-    std::string name_;
 };
 
 class CustomTileBaseOp : public TileBaseOp {
