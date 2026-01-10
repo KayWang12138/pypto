@@ -17,15 +17,85 @@
 
 namespace pto {
 
+// ----------------- Public Visit* entrypoints (default to DefaultVisit*) -----------------
+
 void IRVisitor::VisitProgram_(ProgramModulePtr& program) {
+  DefaultVisitProgram(program);
+}
+
+void IRVisitor::VisitFunction_(FunctionPtr& func) {
+  DefaultVisitFunction(func);
+}
+
+void IRVisitor::VisitStmt_(CompoundStatementPtr& stmt) {
+  DefaultVisitStmt(stmt);
+}
+
+void IRVisitor::VisitStmt_(OpStatementPtr& stmt) {
+  DefaultVisitStmt(stmt);
+}
+
+void IRVisitor::VisitStmt_(ForStatementPtr& stmt) {
+  DefaultVisitStmt(stmt);
+}
+
+void IRVisitor::VisitStmt_(IfStatementPtr& stmt) {
+  DefaultVisitStmt(stmt);
+}
+
+void IRVisitor::VisitStmt_(YieldStatementPtr& stmt) {
+  DefaultVisitStmt(stmt);
+}
+
+void IRVisitor::VisitStmt_(ReturnStatementPtr& stmt) {
+  DefaultVisitStmt(stmt);
+}
+
+void IRVisitor::VisitStmt_(StatementPtr& stmt) {
+  DefaultVisitStmt(stmt);
+}
+
+// ---- Concrete ops (auto-generated from *.def) ----
+#define DEFOP(name, inherit, opcode, ...)            \
+  void IRVisitor::VisitOp_(name##Ptr& op) {          \
+    OperationPtr opPtr = std::static_pointer_cast<Operation>(op); \
+    DefaultVisitOp(opPtr);                           \
+  }
+#include "ir/operation.def"
+#include "ir/tile_graph.def"
+#undef DEFOP
+
+void IRVisitor::VisitOp_(OperationPtr& op) {
+  DefaultVisitOp(op);
+}
+
+void IRVisitor::VisitValue_(ScalarValuePtr& value) {
+  DefaultVisitValue(value);
+}
+
+void IRVisitor::VisitValue_(TileValuePtr& value) {
+  DefaultVisitValue(value);
+}
+
+void IRVisitor::VisitValue_(TensorValuePtr& value) {
+  DefaultVisitValue(value);
+}
+
+void IRVisitor::VisitValue_(ValuePtr& value) {
+  DefaultVisitValue(value);
+}
+
+// ----------------- Default traversal implementations -----------------
+
+void IRVisitor::DefaultVisitProgram(ProgramModulePtr& program) {
   if (!program) return;
-  
+
   // Visit program entry
   if (auto entry = program->GetProgramEntry()) {
     FunctionPtr entryPtr = entry;
     VisitFunction(entryPtr);
   }
-  
+
   // Visit all functions
   for (auto func : program->GetFunctions()) {
     FunctionPtr funcPtr = func;
@@ -33,28 +103,28 @@ void IRVisitor::VisitProgram_(ProgramModulePtr& program) {
   }
 }
 
-void IRVisitor::VisitFunction_(FunctionPtr& func) {
+void IRVisitor::DefaultVisitFunction(FunctionPtr& func) {
   if (!func) return;
-  
+
   // Visit signature arguments
   const auto& sig = func->GetSignature();
   for (const auto& arg : sig.arguments) {
     ValuePtr argPtr = arg;
     VisitValue(argPtr);
   }
-  
+
   // Visit signature results
   for (const auto& result : sig.results) {
     ValuePtr resultPtr = result;
     VisitValue(resultPtr);
   }
-  
+
   // Visit input compound
   if (auto inputCompound = func->GetInputCompound()) {
     StatementPtr inputPtr = std::static_pointer_cast<Statement>(inputCompound);
     VisitStmt(inputPtr);
   }
-  
+
   // Visit function body compound
   if (auto compound = func->GetCompound()) {
     StatementPtr compoundPtr = std::static_pointer_cast<Statement>(compound);
@@ -62,20 +132,18 @@ void IRVisitor::VisitFunction_(FunctionPtr& func) {
   }
 }
 
-void IRVisitor::VisitStmt_(CompoundStatementPtr& stmt) {
+void IRVisitor::DefaultVisitStmt(CompoundStatementPtr& stmt) {
   if (!stmt) return;
-  
-  // Visit all statements in the compound
+
   for (size_t i = 0; i < stmt->GetStatementsNum(); ++i) {
     StatementPtr stmtPtr = stmt->GetStatement(i);
     VisitStmt(stmtPtr);
   }
 }
 
-void IRVisitor::VisitStmt_(OpStatementPtr& stmt) {
+void IRVisitor::DefaultVisitStmt(OpStatementPtr& stmt) {
   if (!stmt) return;
-  
-  // Visit all operations
+
   const auto& ops = stmt->Operations();
   for (const auto& op : ops) {
     OperationPtr opPtr = op;
@@ -83,15 +151,15 @@ void IRVisitor::VisitStmt_(OpStatementPtr& stmt) {
   }
 }
 
-void IRVisitor::VisitStmt_(ForStatementPtr& stmt) {
+void IRVisitor::DefaultVisitStmt(ForStatementPtr& stmt) {
   if (!stmt) return;
-  
+
   // Visit iteration variable
   if (auto iterVar = stmt->GetIterationVar()) {
     ValuePtr iterVarPtr = std::static_pointer_cast<Value>(iterVar);
     VisitValue(iterVarPtr);
   }
-  
+
   // Visit range values
   if (auto range = stmt->GetRange()) {
     if (auto start = range->GetStart()) {
@@ -107,7 +175,7 @@ void IRVisitor::VisitStmt_(ForStatementPtr& stmt) {
       VisitValue(stepPtr);
     }
   }
-  
+
   // Visit iter args
   const auto& iterArgs = stmt->IterArgs();
   for (const auto& iterArg : iterArgs) {
@@ -120,13 +188,13 @@ void IRVisitor::VisitStmt_(ForStatementPtr& stmt) {
       VisitValue(valuePtr);
     }
   }
-  
+
   // Visit loop body compound
   if (auto compound = stmt->GetCompound()) {
     StatementPtr compoundPtr = std::static_pointer_cast<Statement>(compound);
     VisitStmt(compoundPtr);
   }
-  
+
   // Visit results
   const auto& results = stmt->Results();
   for (const auto& result : results) {
@@ -135,27 +203,27 @@ void IRVisitor::VisitStmt_(ForStatementPtr& stmt) {
   }
 }
 
-void IRVisitor::VisitStmt_(IfStatementPtr& stmt) {
+void IRVisitor::DefaultVisitStmt(IfStatementPtr& stmt) {
   if (!stmt) return;
-  
+
   // Visit condition
   if (auto condition = stmt->GetCondition()) {
     ValuePtr conditionPtr = std::static_pointer_cast<Value>(condition);
     VisitValue(conditionPtr);
   }
-  
+
   // Visit then branch
   if (auto thenCompound = stmt->GetThenCompound()) {
     StatementPtr thenPtr = std::static_pointer_cast<Statement>(thenCompound);
     VisitStmt(thenPtr);
   }
-  
+
   // Visit else branch
   if (auto elseCompound = stmt->GetElseCompound()) {
     StatementPtr elsePtr = std::static_pointer_cast<Statement>(elseCompound);
     VisitStmt(elsePtr);
   }
-  
+
   // Visit results
   const auto& results = stmt->Results();
   for (const auto& result : results) {
@@ -164,10 +232,9 @@ void IRVisitor::VisitStmt_(IfStatementPtr& stmt) {
   }
 }
 
-void IRVisitor::VisitStmt_(YieldStatementPtr& stmt) {
+void IRVisitor::DefaultVisitStmt(YieldStatementPtr& stmt) {
   if (!stmt) return;
-  
-  // Visit values
+
   const auto& values = stmt->Values();
   for (const auto& value : values) {
     ValuePtr valuePtr = value;
@@ -175,10 +242,9 @@ void IRVisitor::VisitStmt_(YieldStatementPtr& stmt) {
   }
 }
 
-void IRVisitor::VisitStmt_(ReturnStatementPtr& stmt) {
+void IRVisitor::DefaultVisitStmt(ReturnStatementPtr& stmt) {
   if (!stmt) return;
-  
-  // Visit values
+
   const auto& values = stmt->Values();
   for (const auto& value : values) {
     ValuePtr valuePtr = value;
@@ -186,25 +252,20 @@ void IRVisitor::VisitStmt_(ReturnStatementPtr& stmt) {
   }
 }
 
-void IRVisitor::VisitStmt_(StatementPtr& stmt) {
-  // Fallback for unknown statement types
+void IRVisitor::DefaultVisitStmt(StatementPtr& stmt) {
+  // Fallback for unknown statement types: no children to visit.
   (void)stmt;
 }
 
-void IRVisitor::VisitOp_(ScalarBaseOpPtr& op) {
-  OperationPtr opPtr = std::static_pointer_cast<Operation>(op);
-  VisitOp_(opPtr);
-}
-
-void IRVisitor::VisitOp_(OperationPtr& op) {
+void IRVisitor::DefaultVisitOp(OperationPtr& op) {
   if (!op) return;
-  
+
   // Visit input operands
   for (size_t i = 0; i < op->GetNumInputOperand(); ++i) {
     ValuePtr operandPtr = op->GetInputOperand(i);
     VisitValue(operandPtr);
   }
-  
+
   // Visit output operands
   for (size_t i = 0; i < op->GetNumOutputOperand(); ++i) {
     ValuePtr operandPtr = op->GetOutputOperand(i);
@@ -212,21 +273,19 @@ void IRVisitor::VisitOp_(OperationPtr& op) {
   }
 }
 
-void IRVisitor::VisitValue_(ScalarValuePtr& value) {
-  // ScalarValue is a leaf node, no children to visit
+void IRVisitor::DefaultVisitValue(ScalarValuePtr& value) {
+  // ScalarValue is a leaf node
   (void)value;
 }
 
-void IRVisitor::VisitValue_(TileValuePtr& value) {
-  // TileValue may have validShapes, but they are ScalarValuePtr which are leaf nodes
-  // No need to traverse further
+void IRVisitor::DefaultVisitValue(TileValuePtr& value) {
+  // TileValue treated as leaf in this IR
   (void)value;
 }
 
-void IRVisitor::VisitValue_(TensorValuePtr& value) {
+void IRVisitor::DefaultVisitValue(TensorValuePtr& value) {
   if (!value) return;
-  
-  // Visit shape scalars
+
   const auto& shape = value->GetShape();
   for (const auto& shapeElem : shape) {
     ValuePtr shapePtr = std::static_pointer_cast<Value>(shapeElem);
@@ -234,10 +293,9 @@ void IRVisitor::VisitValue_(TensorValuePtr& value) {
   }
 }
 
-void IRVisitor::VisitValue_(ValuePtr& value) {
+void IRVisitor::DefaultVisitValue(ValuePtr& value) {
   // Fallback for unknown value types
   (void)value;
 }
 
 } // namespace pto
-
