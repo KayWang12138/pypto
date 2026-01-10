@@ -315,8 +315,13 @@ public:
                         GetOpInfo(op).c_str());
                     return FAILED;
                 }
-            }
             UpdateAllocMap(op, tensorAllocMap);
+            }
+        }
+        for (const auto &op : list) {
+            if (!IsOpAlloc(op)) {
+                UpdateAllocMap(op, tensorAllocMap);
+            }
         }
         for (auto tensorAlloc : tensorAllocMap) {
             if (!IsOpAlloc(tensorAlloc.second)) {
