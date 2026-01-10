@@ -84,6 +84,7 @@ class DeviceLauncher {
 public:
     static constexpr uint32_t kDefaultAicNum = 25;
     static constexpr uint32_t kDefaultAivNum = 50;
+    void RunTestMode(AstKernelArgs *kArgs);
     static std::vector<uint8_t>& GetDevProg(Function *func) {
         return func->GetDyndevAttribute()->devProgBinary;
     }
