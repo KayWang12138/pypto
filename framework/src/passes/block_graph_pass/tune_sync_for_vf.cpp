@@ -71,11 +71,6 @@ void TuneSyncForVF::AdjustSetWaitFlag(Function *subGraphFunc, std::vector<Operat
     size_t mergedSize = mergedOps[groupNum].size();
     auto insertPos2 = opList_.begin() + vecTileOp0Idx - mergedSize;
     opList_.insert(insertPos2, setFlagList.begin(), setFlagList.end());
-
-    // 更新各pipe上op的时间戳
-    // TODO: 更新pipe_v的时间戳
-    // auto &pipeVIssueQ = subGraphFunc->issueState[static_cast<int>(PipeSeq::AIV_V)];
-
 }
 
 void TuneSyncForVF::ChangeOpSeq(Function *subGraphFunc, bool isAIV1) {
