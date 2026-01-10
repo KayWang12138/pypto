@@ -269,7 +269,7 @@ void IRBuilder::ExitForStatement(IRBuilderContext& ctx, ForStatementPtr st) {
 
         if (kind == ValueKind::Tensor) {
             auto tensor = std::dynamic_pointer_cast<TensorValue>(initValue);
-            if (tensor) return CreateTensor(ctx, tensor->GetShape(), dt, tensor->GetName());
+            if (tensor) return CreateTensor(ctx, tensor->GetShape(), tensor->GetStride(), dt, tensor->GetName());
         } else if (kind == ValueKind::Tile) {
             auto tile = std::dynamic_pointer_cast<TileValue>(initValue);
             if (tile) return CreateTile(ctx, tile->GetShape(), dt, tile->GetName());
