@@ -621,6 +621,15 @@ Status OptimizeSort::SortOps() {
     if (operations.empty()) {
         return SUCCESS;
     }
+    std::vector<Operation *> newOperations;
+    for (auto& op : operations) {
+        if (op->GetOpcodeStr().find("ALLOC") != std::string::npos) {
+            newOperations.insert(newOperations.begin(), op);
+            continue;
+        }
+        newOperations.push_back(op);
+    }
+    operations = newOperations;
     std::string sortMethodStr;
     std::string funcName = function_.GetMagicName();
 

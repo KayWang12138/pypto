@@ -404,20 +404,13 @@ public:
         // 初始化芯片各buffer大小
         InitMemorySize();
         operations = opList;
-        std::vector<Operation *> newOperations;
         for (auto& op : operations) {
             if (CheckOpBufferSize(op) != SUCCESS) {
                 APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] checkOpBufferSize failed! %s",
                     op->GetOpcodeStr().c_str(), op->GetOpMagic(), GetFormatBacktrace(*op).c_str());
                 return FAILED;
             }
-            if (op->GetOpcodeStr().find("ALLOC") != std::string::npos) {
-                newOperations.insert(newOperations.begin(), op);
-                continue;
-            }
-            newOperations.push_back(op);
         }
-        operations = newOperations;
         InitBufRefCount();
         // 构建依赖关系
         if (InitDependencies() != SUCCESS) {
