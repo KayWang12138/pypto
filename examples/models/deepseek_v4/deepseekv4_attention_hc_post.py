@@ -22,6 +22,7 @@ from attention_hc_post_impl import (
 from utils.compare import compare
 
 
+pyptolib = 
 class AttentionHcPost(torch.nn.Module):
     def forward(self, x, cos, sin, wo_a, wo_b, residual, post, comb):
         for i in range(20):
