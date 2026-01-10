@@ -73,6 +73,50 @@ DeviceRunner &DeviceRunner::Get() {
     return runner;
 }
 
+rtError_t AicpuLaunchCallback(rtAicpuInfo_t &aicpuInfo) {
+    return DeviceRunner::Get().PyptoAicpuLaunchCallback(aicpuInfo);
+}
+
+rtError_t DeviceRunner::PyptoAicpuLaunchCallback(rtAicpuInfo_t &aicpuInfo) {
+    // not pypto
+    ALOG_INFO_F("Aicpu launch callback");
+    if (strcmp(aicpuInfo.opName, "AST_DYN_AICPU") == 0) {
+        ALOG_INFO_F("Pypto aicpu task no proc.");
+        return 0;
+    }
+    ALOG_ERROR_F("Other aicpu task, add sync to pypto.");
+    aclrtEvent event = useEvent1_ ? event1_ : event2_;
+
+    auto rc = aclrtRecordEvent(event, aicpuInfo.stm);
+    if (rc < 0) {
+        ALOG_INFO_F("aclrtRecordEvent failed %d\n", rc);
+        return -1;
+    }
+    static auto aicpuStream = machine::GetRA()->GetScheStream();
+    rc = aclrtStreamWaitEvent(aicpuStream, event);
+    if (rc < 0) {
+        ALOG_INFO_F("aclrtStreamWaitEvent failed %d\n", rc);
+        return -1;
+    }
+    return 0;
+}
+
+int DeviceRunner::PyptoInit() {
+    ALOG_ERROR_F("====PyptoInit====");
+    int rc = aclrtCreateEventExWithFlag(&event1_, ACL_EVENT_SYNC);
+    if (rc < 0) {
+        ALOG_INFO_F("aclrtCreateEvent1 failed %d\n", rc);
+        return -1;
+    }
+    rc = aclrtCreateEventExWithFlag(&event2_, ACL_EVENT_SYNC);
+    if (rc < 0) {
+        ALOG_INFO_F("aclrtCreateEvent2 failed %d\n", rc);
+        return -1;
+    }
+    (void)machine::GetRA();
+    return rtRegAicpuLaunchCallback(AicpuLaunchCallback);
+}
+
 HostProf& DeviceRunner::GetHostProfInstance() {
     return hostProf_;
 }
@@ -843,6 +887,7 @@ int DeviceRunner::Init(void) {
         ALOG_ERROR("RegisterKernelBin failed\n");
         return -1;
     }
+    PyptoInit();
     return 0;
 }
 } // namespace npu::tile_fwk

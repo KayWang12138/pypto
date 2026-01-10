@@ -175,6 +175,8 @@ public:
             devProg->memBudget.tensor.devTaskBoundaryOutcastNum);
     }
 
+    static void PyptoInit();
+    
     // Fill metadata and kArgs (templated because it uses DeviceMemoryTy) (keeps <= 50 lines)
     template<typename DeviceMemoryTy>
     static void FillKernelMeta(DeviceMemoryTy devMem, AstKernelArgs &kArgs, DevAscendProgram *devProg,

@@ -186,6 +186,10 @@ int DeviceLauncher::DeviceSynchronize(rtStream_t aicpuStream, rtStream_t aicoreS
     int rc = DeviceRunner::Get().DynamicLaunchSynchronize(aicpuStream, nullptr, aicoreStream);
     return rc;
 }
+
+void DeviceLauncher::PyptoInit() {
+    (void)DeviceRunner::Get().PyptoInit();
+}
 #endif
 
 int DeviceLauncher::DeviceRunOnce(Function *function, const DeviceLauncherConfig &config) {
@@ -290,6 +294,10 @@ int DeviceSynchronize(DeviceStream aicpuStream, DeviceStream aicoreStream) {
     (void)aicoreStream;
     return 0;
 #endif
+}
+
+void PyptoLauncherInit() {
+    return DeviceLauncher::PyptoInit();
 }
 
 int DeviceRunOnce(Function *function, const DeviceLauncherConfig &config) {
