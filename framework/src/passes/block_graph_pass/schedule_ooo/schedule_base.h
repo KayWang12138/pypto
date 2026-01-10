@@ -285,6 +285,73 @@ public:
         return SUCCESS;
     }
 
+    void CalcBufferSize(LogicalTensors tensors, std::map<MemoryType, int64_t> &bufferSize, std::set<int> &memIdMap) {
+        for (auto logicalTensor : tensors) {
+            if (memIdMap.find(logicalTensor->memoryrange.memId) == memIdMap.end()) {
+                bufferSize[logicalTensor->GetMemoryTypeOriginal()] += logicalTensor->GetDataSize();
+                memIdMap.insert(logicalTensor->memoryrange.memId);
+            }
+        }
+    }
+
+    std::string dumpOpInfo(Operation &op) {
+        std::ostringstream os;
+        os << "op: " << op.GetOpcodeStr().c_str() << "[" << op.GetOpMagic() << "] | ";
+        os << "inputs: { ";
+        for (size_t i = 0; i < op.iOperand.size(); i++) {
+            os << "Tensor [" << op.GetInputOperand(i)->GetMagic() << "] ";
+            os << op.iOperand[i]->DumpSSA(false, true, true);
+            if (i != op.iOperand.size() - 1) {
+                os << ", ";
+            }
+        }
+        os << " }" << " | ";
+        os << "outputs: { ";
+        for (size_t i = 0; i < op.oOperand.size(); i++) {
+            os << "Tensor [" << op.GetOutputOperand(i)->GetMagic() << "] ";
+            os << op.oOperand[i]->DumpSSA(false, true, true);
+            if (i != op.oOperand.size() - 1) {
+                os << ", ";
+            }
+        }
+        os << "} ";
+        return os.str();
+    }
+
+    Status CheckOpBufferSize(Operation *op) {
+        std::map<MemoryType, int64_t> bufferSizeMap;
+        std::set<int> memIdMap;
+        CalcBufferSize(op->GetIOperands(), bufferSizeMap, memIdMap);
+        CalcBufferSize(op->GetOOperands(), bufferSizeMap, memIdMap);
+        for (auto &bufferPair : bufferSizeMap) {
+            if (localMemSize.find(bufferPair.first) == localMemSize.end()) {
+                continue;
+            }
+            if (bufferPair.second <= localMemSize[bufferPair.first]) {
+                continue;
+            }
+            if (op->GetOpcodeStr().find("ALLOC") != std::string::npos) {
+                APASS_LOG_ERROR_F(Elements::Operation, "Alloc tensor [%d] size [%d] exceeds %s size [%d]! %s",
+                    op->GetOutputOperand(0)->GetMagic(), bufferPair.second, MemoryTypeToString(bufferPair.first).c_str(),
+                    localMemSize[bufferPair.first], GetFormatBacktrace(*op).c_str());
+                APASS_LOG_ERROR_F(Elements::Operation, "Tensor [%d] producer info:", op->GetOutputOperand(0)->GetMagic());
+                for (auto producer : op->GetOutputOperand(0)->GetProducers()) {
+                    if (producer == op) {
+                        continue;
+                    }
+                    APASS_LOG_ERROR_F(Elements::Operation, "      %s.", dumpOpInfo(*producer).c_str());
+                }
+            } else {
+                APASS_LOG_ERROR_F(Elements::Operation, "OP %s[%d] in/output total size [%ld] exceeds %s size [%d]!",
+                    op->GetOpcodeStr().c_str(), op->GetOpMagic(), bufferPair.second, MemoryTypeToString(bufferPair.first).c_str(),
+                    localMemSize[bufferPair.first]);
+                APASS_LOG_ERROR_F(Elements::Operation, " %s.", dumpOpInfo(*op).c_str());
+            }
+            return FAILED;
+        }
+        return SUCCESS;
+    }
+
     void UpdateAllocMap(Operation* op, std::map<int, Operation*> &tensorAllocMap) {
         for (auto outTensor : op->GetOOperands()) {
             if (outTensor->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
@@ -339,6 +406,11 @@ public:
         operations = opList;
         std::vector<Operation *> newOperations;
         for (auto& op : operations) {
+            if (CheckOpBufferSize(op) != SUCCESS) {
+                APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] checkOpBufferSize failed! %s",
+                    op->GetOpcodeStr().c_str(), op->GetOpMagic(), GetFormatBacktrace(*op).c_str());
+                return FAILED;
+            }
             if (op->GetOpcodeStr().find("ALLOC") != std::string::npos) {
                 newOperations.insert(newOperations.begin(), op);
                 continue;
