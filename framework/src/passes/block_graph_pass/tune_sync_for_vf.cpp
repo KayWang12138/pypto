@@ -291,9 +291,14 @@ Status TuneSyncForVF::ChangeOpSeq(Function *subGraphFunc, bool isAIV1) {
 }
 
 Status TuneSyncForVF::RunOnFunction(Function &function) {
+    size_t funcId = 0;
     for (auto &program : function.rootFunc_->programs_) {
         std::vector<Operation *> opList(program.second->Operations(false).DuplicatedOpList());
         opList_ = opList;
+        ALOG_DEBUG_F(Elements::Function, "=======================function %d ======================", funcId);
+        for (const auto &op : opList_) {
+            ALOG_DEBUG_F(Elements::Operation, "Input Operation %d %s", op->GetOpMagic(), op->GetOpcodeStr().c_str());
+        }
         // AIV0和AIV1各调整一次
         if (ChangeOpSeq(program.second, false) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Function, "RunOnFunction failed at function ChangeOpSeq.");
@@ -305,6 +310,11 @@ Status TuneSyncForVF::RunOnFunction(Function &function) {
         }
         // 将调整后的oplist刷新到function中去
         program.second->ScheduleBy(opList_, true);
+        ALOG_DEBUG_F(Elements::Function, "---------------------------------------------------");
+        for (const auto &op : opList_) {
+            ALOG_DEBUG_F(Elements::Operation, "Output Operation %d %s", op->GetOpMagic(), op->GetOpcodeStr().c_str());
+        }
+        funcId++;
     }
     return SUCCESS;
 }
