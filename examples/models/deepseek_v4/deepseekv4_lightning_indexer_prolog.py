@@ -170,6 +170,45 @@ def gen_data(case_name):
 def gen_zero_tensor(t):
     return torch.zeros_like(t).npu()
 
+def check_input_output_shape_dtype(x: torch.tensor,
+                                    q_norm: torch.tensor,
+                                    w_qb: torch.tensor,
+                                    w_proj: torch.tensor,
+                                    cos_idx_rope: torch.tensor,
+                                    sin_idx_rope: torch.tensor,
+                                    hadamard_q: torch.tensor,
+                                    q_bf16: torch.tensor,
+                                    weights: torch.tensor):
+    assert x.size(1) == 4096 and x.dim() == 2, f"expected x axis1 4096, x dim num 2"
+    assert q_norm.size(1) == 1024 and q_norm.dim() == 2, \
+        f"expected q_norm axis1 1024, q_norm dim num 2"
+    assert w_qb.size(0) == 1024 and w_qb.size(1) == 4096 and w_qb.dim() == 2, \
+        f"expected w_qb axis0 1024, w_qb axis1 4096, w_qb dim num 2"
+    assert w_proj.size(0) == 4096 and w_proj.size(1) == 32 and w_proj.dim() == 2, \
+        f"expected w_proj axis0 4096, w_proj axis1 32, w_proj dim num 2"
+    assert cos_idx_rope.size(1) == 64 and cos_idx_rope.dim() == 2, \
+        f"expected cos_idx_rope axis1 64, cos_idx_rope dim num 2"
+    assert sin_idx_rope.size(1) == 64 and sin_idx_rope.dim() == 2, \
+        f"expected sin_idx_rope axis1 64, sin_idx_rope dim num 2"
+    assert hadamard_q.size(0) == 128 and hadamard_q.size(1) == 128 and hadamard_q.dim() == 2, \
+        f"expected hadamard_q axis0 128, hadamard_q axis1 128, hadamard_q dim num 2"
+    assert q_bf16.size(1) == 32 and q_bf16.size(2) == 128 and q_bf16.dim() == 3, \
+        f"expected q_bf16 axis1 32, q_bf16 axis2 128, q_bf16 dim num 3"
+    assert weights.size(1) == 32 and weights.dim() == 2, \
+        f"expected weights axis1 32, weights dim num 2"
+
+    
+    assert x.dtype == torch.bfloat16, f"x.dtype is {x.dtype}, expected torch.bfloat16"
+    assert q_norm.dtype == torch.bfloat16, f"q_norm.dtype is {q_norm.dtype}, expected torch.bfloat16"
+    assert w_qb.dtype == torch.bfloat16, f"w_qb.dtype is {w_qb.dtype}, expected torch.bfloat16"
+    assert w_proj.dtype == torch.bfloat16, f"w_proj.dtype is {w_proj.dtype}, expected torch.bfloat16"
+    assert cos_idx_rope.dtype == torch.bfloat16, f"cos_idx_rope.dtype is {cos_idx_rope.dtype}, expected torch.bfloat16"
+    assert sin_idx_rope.dtype == torch.bfloat16, f"sin_idx_rope.dtype is {sin_idx_rope.dtype}, expected torch.bfloat16"
+    assert hadamard_q.dtype == torch.bfloat16, f"hadamard_q.dtype is {hadamard_q.dtype}, expected torch.bfloat16"
+    assert q_bf16.dtype == torch.bfloat16, f"q_bf16.dtype is {q_bf16.dtype}, expected torch.bfloat16"
+    assert weights.dtype == torch.bfloat16, f"weights.dtype is {weights.dtype}, expected torch.bfloat16"
+    
+
 @allow_in_graph
 def lighting_indexer_prolog_dyn(x: torch.tensor,
                                 q_norm: torch.tensor,
@@ -180,21 +219,11 @@ def lighting_indexer_prolog_dyn(x: torch.tensor,
                                 hadamard_q: torch.tensor,
                                 q_bf16: torch.tensor,
                                 weights: torch.tensor):
-    assert len(x.shape) == 2 and len(q_norm.shape) == 2 and len(w_qb.shape) == 2 and len(w_proj.shape) == 2 \
-        and len(cos_idx_rope.shape) == 2 and len(sin_idx_rope.shape) == 2 and len(hadamard_q.shape) == 2 \
-        and len(q_bf16.shape) == 3 and len(weights.shape) == 2
-    assert x.dtype == torch.bfloat16 and q_norm.dtype == torch.bfloat16 and w_qb.dtype == torch.bfloat16 \
-        and w_proj.dtype == torch.bfloat16 and cos_idx_rope.dtype == torch.bfloat16 \
-        and sin_idx_rope.dtype == torch.bfloat16 and hadamard_q.dtype == torch.bfloat16 \
-        and q_bf16.dtype == torch.bfloat16 and weights.dtype == torch.bfloat16
-    attrs = IndexerPrologAttr(
-        eps=1e-6,
-        layerout_query="TND",
-        layerout_key="PA_BSND",
-    )
+    
+    check_input_output_shape_dtype(x, q_norm, w_qb, w_proj, cos_idx_rope, sin_idx_rope, hadamard_q, q_bf16, weights)
     configs = IndexerPrologConfigs(
-        q_linear=[16, 16, 256, 256, 128, 128],
-        q_hd=[32, 32, 128, 128, 128, 128],
+        q_linear=[16, 16, 128, 256, 256, 256],
+        q_hd=[32, 32, 128, 128, 256, 256],
         w_linear=[16, 16, 1024, 1024, 32, 32],
         unroll_list=[32, 16, 8, 4, 2, 1],
         cube_l1_reuse_setting={1: 4},
@@ -221,12 +250,12 @@ def lighting_indexer_prolog_dyn(x: torch.tensor,
     if not isinstance(x, FakeTensor):
         pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in input_tensors.items()]
         pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in output_tensors.items()]
-        lightning_indexer_prolog(*pto_inputs, *pto_outputs, attrs, configs)     
+        lightning_indexer_prolog(*pto_inputs, *pto_outputs, configs)
 
 
 def do_test_lighting_indexer_prolog(case_name, configs):
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
-    torch.npu.set_device(device_id)
+    torch.npu.set_device(1)
 
     print(f"=== run test case: {case_name} ===")
 
@@ -274,8 +303,8 @@ def do_test_lighting_indexer_prolog(case_name, configs):
 
 def test_b1_s1_1():
     configs = IndexerPrologConfigs(
-        q_linear=[16, 16, 256, 256, 128, 128],
-        q_hd=[32, 32, 128, 128, 128, 128],
+        q_linear=[16, 16, 128, 256, 256, 256],
+        q_hd=[32, 32, 128, 128, 256, 256],
         w_linear=[16, 16, 1024, 1024, 32, 32],
         unroll_list=[32, 16, 8, 4, 2, 1],
         cube_l1_reuse_setting={1: 4},
@@ -289,11 +318,11 @@ def test_b1_s1_1():
     do_test_lighting_indexer_prolog("LightningIndexerPrologSTest.b1_s1_1", configs)
 
 
-@pytest.mark.skip(reason="large test case")
+# @pytest.mark.skip(reason="large test case")
 def test_b4_s1_4():
     configs = IndexerPrologConfigs(
-        q_linear=[16, 16, 256, 256, 128, 128],
-        q_hd=[32, 32, 128, 128, 128, 128],
+        q_linear=[16, 16, 128, 256, 256, 256],
+        q_hd=[32, 32, 128, 128, 256, 256],
         w_linear=[16, 16, 1024, 1024, 32, 32],
         unroll_list=[32, 16, 8, 4, 2, 1],
         cube_l1_reuse_setting={1: 4},
@@ -307,11 +336,11 @@ def test_b4_s1_4():
     do_test_lighting_indexer_prolog("LightningIndexerPrologSTest.b4_s1_4", configs)
 
 
-@pytest.mark.skip(reason="large test case")
+# @pytest.mark.skip(reason="large test case")
 def test_b8_s1_8():
     configs = IndexerPrologConfigs(
-        q_linear=[16, 16, 256, 256, 128, 128],
-        q_hd=[32, 32, 128, 128, 128, 128],
+        q_linear=[16, 16, 128, 256, 256, 256],
+        q_hd=[32, 32, 128, 128, 256, 256],
         w_linear=[16, 16, 1024, 1024, 32, 32],
         unroll_list=[32, 16, 8, 4, 2, 1],
         cube_l1_reuse_setting={1: 4},
@@ -325,11 +354,11 @@ def test_b8_s1_8():
     do_test_lighting_indexer_prolog("LightningIndexerPrologSTest.b8_s1_8", configs)
 
 
-@pytest.mark.skip(reason="large test case")
+# @pytest.mark.skip(reason="large test case")
 def test_b2_s1_4k():
     configs = IndexerPrologConfigs(
-        q_linear=[16, 16, 256, 256, 128, 128],
-        q_hd=[32, 32, 128, 128, 128, 128],
+        q_linear=[16, 16, 128, 256, 256, 256],
+        q_hd=[32, 32, 128, 128, 256, 256],
         w_linear=[16, 16, 1024, 1024, 32, 32],
         unroll_list=[32, 16, 8, 4, 2, 1],
         cube_l1_reuse_setting={1: 4},
@@ -341,12 +370,13 @@ def test_b2_s1_4k():
         vec_nbuffer_mode=0,
     )
     do_test_lighting_indexer_prolog("LightningIndexerPrologSTest.b2_s1_4k", configs)
+
     
-@pytest.mark.skip(reason="large test case")
+# @pytest.mark.skip(reason="large test case")
 def test_b1_s1_8193():
     configs = IndexerPrologConfigs(
-        q_linear=[16, 16, 256, 256, 128, 128],
-        q_hd=[32, 32, 128, 128, 128, 128],
+        q_linear=[16, 16, 128, 256, 256, 256],
+        q_hd=[32, 32, 128, 128, 256, 256],
         w_linear=[16, 16, 1024, 1024, 32, 32],
         unroll_list=[32, 16, 8, 4, 2, 1],
         cube_l1_reuse_setting={1: 4},
