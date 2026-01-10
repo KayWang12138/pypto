@@ -42,7 +42,6 @@ bool TuneSyncForVF::NeedAdjustWaitFlag(Function *subGraphFunc, Operation *vecTil
     float tv = static_cast<float>(subGraphFunc->pipeEndTime[PipeType::PIPE_V]);
     float tx = static_cast<float>(subGraphFunc->pipeEndTime[pipeX]);
     float t0 = static_cast<float>(vecTileOp0->cycleStart);
-    float t1 = static_cast<float>(vecTileOp0->cycleEnd);
     float t2 = static_cast<float>(vecTileOp1->cycleEnd);
     Operation *tileOpZ = subGraphFunc->waitSetOpMap[vecTileOp1];
     float tb = static_cast<float>(tileOpZ->cycleEnd);
@@ -177,12 +176,13 @@ Status TuneSyncForVF::AdjustSetWaitFlag(Function *subGraphFunc, std::vector<Oper
     findFlag = false;
     for (size_t k = 0; k < pipeVops.size(); k++) {
         if (pipeVops[k]->GetOpMagic() == firstOp->GetOpMagic()) {
+            findFlag = true;
             for (size_t j = k; j < pipeVops.size(); j++) {
                 pipeVops[j]->cycleStart += maxMoveBackDist;
                 pipeVops[j]->cycleEnd += maxMoveBackDist;
             }
+            break;
         }
-        break;
     }
     if (!findFlag) {
         APASS_LOG_ERROR_F(Elements::Operation, "Cannot find %d %s in %s oplist, AdjustSetWaitFlag falied.", 
