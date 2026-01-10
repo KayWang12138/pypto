@@ -38,8 +38,8 @@ Status ReduceCopyMerge::RunOnFunction(Function &function) {
         return SUCCESS;
     }
     ReduceCopyRunner runner;
-    const double lowerBound = 0.1;
-    const double upperBound = 10.0;
+    const double lowerBound = 0.5;
+    const double upperBound = 2.0;
     runner.mergeThresholds = {{lowerBound, upperBound}};
     runner.upperBound = function.paramConfigs_.sgPgUpperBound;
     if (runner.ReduceCopy(function) != SUCCESS) {
