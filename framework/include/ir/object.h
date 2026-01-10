@@ -18,7 +18,7 @@
 #include "ir/utils.h"
 
 namespace pto {
-    
+
 // Object type categories for ID generation.
 enum class ObjectType {
     Program,
@@ -27,6 +27,7 @@ enum class ObjectType {
     Operation,
     Value,
     Memory,
+    Type,
 };
 
 // Simple key/value attribute bag used across IR nodes.
@@ -42,7 +43,7 @@ public:
     int GetID() const { return id_; }
     const std::string& GetName() const { return name_; }
     void SetName(std::string name) { name_ = name; }
-    
+
     // Get the name with prefix for display/printing
     // - Program and Function: add @ prefix
     // - Value: add % prefix
@@ -51,7 +52,7 @@ public:
         if (name_.empty()) {
             return name_;
         }
-        
+
         ObjectType type = GetObjectType();
         char prefix = '\0';
         if (type == ObjectType::Program || type == ObjectType::Function) {
@@ -59,11 +60,11 @@ public:
         } else if (type == ObjectType::Value) {
             prefix = '%';
         }
-        
+
         if (prefix != '\0') {
             return std::string(1, prefix) + name_;
         }
-        
+
         return name_;
     }
 
