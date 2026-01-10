@@ -216,11 +216,6 @@ TEST(IRTEST, TestControlFlow) {
     std::cout << ss.str() << std::endl;
 }
 
-<<<<<<< HEAD
-} // namespace pto
-||||||| parent of c1b8446 (feat(ir): Add IR transform infrastructure and optimization passes)
-} // namespace pto
-=======
 TEST(IRTEST, TestStaticForLoop) {
     // ===== Module =====
     auto module = std::make_shared<ProgramModule>("main");
@@ -345,4 +340,3 @@ TEST(IRTEST, TestStaticForLoop) {
 }
 
 } // namespace pto
->>>>>>> c1b8446 (feat(ir): Add IR transform infrastructure and optimization passes)
