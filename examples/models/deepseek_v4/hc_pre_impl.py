@@ -73,9 +73,9 @@ def hc_split_sinkhorn(x: pypto.Tensor, hc_scale: pypto.Tensor, hc_base: pypto.Te
 @pypto.jit(
     host_options={"only_codegen": True}
     # for acl graph
-    # runtime_options={"cfgcache_device_task_num": 100,
-    #                  "cfgcache_root_task_num": 1000,
-    #                  "cfgcache_leaf_task_num": 10000}
+    # runtime_options={
+    #    "stitch_cfgcache_size": 2500000                 
+    # }
 )
 def hc_pre_kernel(x: pypto.Tensor, hc_fn: pypto.Tensor, hc_scale: pypto.Tensor, hc_base_: pypto.Tensor,
                 y: pypto.Tensor, post: pypto.Tensor, comb: pypto.Tensor,
