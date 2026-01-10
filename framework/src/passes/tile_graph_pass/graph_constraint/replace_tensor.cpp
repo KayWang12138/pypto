@@ -405,7 +405,7 @@ Status ReplaceTensor::ForwardInputIdx(Operation *op, LogicalTensorPtr &rootTenso
     auto inTensor = op->GetIOperands()[index];
     auto outTensor = op->GetOOperands().front();
     if (inTensor != rootTensor) {
-        APASS_LOG_INFO_F(Elements::Operation, "OP %s[%d] tensorIn %d is not same as rootTensor %d.",
+        APASS_LOG_INFO_F(Elements::Operation, "op %s[%d] tensorIn %d is not same as rootTensor %d.",
                             op->GetOpcodeStr().c_str(), op->GetOpMagic(), inTensor->GetMagic(), rootTensor->GetMagic());
         return SUCCESS;
     }
