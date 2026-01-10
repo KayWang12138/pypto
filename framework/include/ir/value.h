@@ -221,6 +221,7 @@ public:
     void SetStrides(const std::vector<int64_t>& newStrides) { strides_ = newStrides; }
     void SetStartOffset(const ScalarValuePtr newStartOffset) { startOffset_ = newStartOffset; }
     void SetMemory(const std::shared_ptr<Memory> newMem) { mem_ = newMem; }
+    void SetValidShapes(const std::vector<ScalarValuePtr> &validShapes) { validShapes_ = validShapes; }
 
     void Print(std::ostream& os, int indent = 0) const override;
 
@@ -234,7 +235,7 @@ private:
 using TileValuePtr = std::shared_ptr<TileValue>;
 
 template<typename TDst, typename TSrc>
-static inline std::shared_ptr<TDst> ValueCast(const std::shared_ptr<TSrc> &src) {
+static inline std::shared_ptr<TDst> ObjectCast(const std::shared_ptr<TSrc> &src) {
     return std::static_pointer_cast<TDst>(src);
 }
 
@@ -247,9 +248,9 @@ enum class Format {
 class TensorValue : public Value {
 public:
     // Construct tensor from a vector of Scalar dimensions.
-    TensorValue(const std::vector<ScalarValuePtr>& shape, DataType type, std::string name="",
+    TensorValue(const std::vector<ScalarValuePtr>& shape, const std::vector<ScalarValuePtr>& stride, DataType type, std::string name="",
             Format format = Format::ND) :
-        Value(ValueKind::Tensor, std::make_shared<TensorType>(type), name), shape_(shape), format_(format) {}
+        Value(ValueKind::Tensor, std::make_shared<TensorType>(type), name), shape_(shape), stride_(stride), format_(format) {}
 
     // Convenience constructor for static integer shapes.
     // This is mainly used by Python bindings where shapes are passed as ints.
@@ -265,6 +266,7 @@ public:
     }
 
     const std::vector<ScalarValuePtr>& GetShape() const { return shape_; }
+    const std::vector<ScalarValuePtr>& GetStride() const { return stride_; }
 
     Format GetFormat() const { return format_; }
     void SetFormat(Format format) { format_ = format; }
@@ -272,15 +274,43 @@ public:
     void Print(std::ostream& os, int indent) const override;
 private:
     std::vector<ScalarValuePtr> shape_;
+    std::vector<ScalarValuePtr> stride_;
     Format format_;
 };
 
-static inline std::vector<ValuePtr> CastScalarToValue(const std::vector<ScalarValuePtr> &scalarList) {
-    std::vector<ValuePtr> valueList;
-    for (auto scalar : scalarList) {
-        valueList.emplace_back(std::static_pointer_cast<Value>(scalar));
+using TensorValuePtr = std::shared_ptr<TensorValue>;
+
+struct ValueUtils {
+    template<typename ...TyArgs>
+    static inline std::vector<ValuePtr> Join(TyArgs... args) {
+        std::vector<ValuePtr> valueList;
+        ValueExtend(valueList, args...);
+        return valueList;
     }
-    return valueList;
-}
+private:
+    static inline void ValueAppend(std::vector<ValuePtr> &holder, ValuePtr data) {
+        holder.push_back(data);
+    }
+    static inline void ValueAppend(std::vector<ValuePtr> &holder, TileValuePtr data) {
+        ValueAppend(holder, std::static_pointer_cast<Value>(data));
+    }
+    static inline void ValueAppend(std::vector<ValuePtr> &holder, ScalarValuePtr data) {
+        ValueAppend(holder, std::static_pointer_cast<Value>(data));
+    }
+    static inline void ValueAppend(std::vector<ValuePtr> &holder, const std::vector<ScalarValuePtr> &data) {
+        for (auto v : data) {
+            ValueAppend(holder, v);
+        }
+    }
+    template<typename Ty, typename ...TyArgs>
+    static inline void ValueExtend(std::vector<ValuePtr> &holder, Ty &&arg, TyArgs... args) {
+        ValueAppend(holder, arg);
+        ValueExtend(holder, args...);
+    }
+
+    static inline void ValueExtend(std::vector<ValuePtr> &holder) {
+        (void)holder;
+    }
+};
 
 } // namespace pto
