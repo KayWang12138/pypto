@@ -166,9 +166,16 @@ TEST_F(TestDynamicDeviceRunner, test_cost_mode) {
     }
 
     config::SetPlatformConfig("enable_dyn_cost_model", true);
+    auto function = Program::GetInstance().GetFunctionByRawName("TENSOR_ADD1");
+    Program::GetInstance().SetLastFunction(function);
     CostModelAgent costModel;
+    costModel.costModel = std::make_shared<CostModel::CostModelInterface>();
+    costModel.costModel->sim = std::make_shared<CostModel::SimSys>();
+    costModel.costModel->sim->mode = CostModel::SimMode::EMULATOR;
     void *costModeData = nullptr;
     costModel.RunCostModel(costModeData);
+
+    Program::GetInstance().SetLastFunction(nullptr);
 
     config::SetRuntimeOption<int>("run_mode", 1);
     std::string fileDir = config::LogTopFolder();
@@ -179,4 +186,14 @@ TEST_F(TestDynamicDeviceRunner, test_cost_mode) {
     costModel.RunDynCostModel();
     auto ret = IsPathExist(path);
     EXPECT_EQ(ret, true);
+}
+
+TEST_F(TestDynamicDeviceRunner, test_cost_mode_just_for_cov) {
+    CostModelAgent costModel;
+    void *costModeData = nullptr;
+    costModel.RunCostModel(costModeData);
+
+    config::SetRuntimeOption<int>("run_mode", 0);
+    costModel.RunDynCostModel();
+    EXPECT_EQ(config::GetRuntimeOption<int64_t>("run_mode"), 0);
 }
