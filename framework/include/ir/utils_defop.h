@@ -190,6 +190,23 @@
             MAP(DEFOP_CLASS_PREFIX_CONSTRUCT_OUTPUT_INDEX, __VA_ARGS__) \
             outputIndexList_[DEFOP_CLASS_OUTPUT_FIELD_INDEX(DefopMax)] = outputIndexBase; \
         } \
+        \
+        static std::shared_ptr<name> Rebuild( \
+            const std::shared_ptr<name> &oldOp, \
+            const std::vector<ValuePtr> &newInputs, \
+            const std::vector<ValuePtr> &newOutputs) { \
+            (void)newInputs; \
+            (void)newOutputs; \
+            auto rebuilt = std::make_shared<name>(*oldOp); \
+            for (size_t i = 0; i < newInputs.size(); ++i) { \
+                rebuilt->SetInputOperand(i, newInputs[i]); \
+            } \
+            for (size_t i = 0; i < newOutputs.size(); ++i) { \
+                rebuilt->SetOutputOperand(i, newOutputs[i]); \
+            } \
+            rebuilt->Attributes() = oldOp->Attributes(); \
+            return rebuilt; \
+        } \
     private: \
         enum class InputOperandIndex : int { \
             MAP(DEFOP_CLASS_PREFIX_INPUT_OPERAND_INDEX, __VA_ARGS__) \
