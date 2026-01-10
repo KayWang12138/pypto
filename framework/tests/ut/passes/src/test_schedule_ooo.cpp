@@ -339,7 +339,7 @@ TEST_F(ScheduleOoOTest, TestDependenciesTrue) {
     EXPECT_EQ(res, SUCCESS);
     std::rotate(ooOScheduler.issueEntries.begin(), ooOScheduler.issueEntries.begin() + 1, ooOScheduler.issueEntries.end());
     res = ooOScheduler.InitDependencies();
-    EXPECT_EQ(res, True);
+    EXPECT_EQ(res, SUCCESS);
 }
 
 TEST_F(ScheduleOoOTest, TestSpillCopyIn) {
