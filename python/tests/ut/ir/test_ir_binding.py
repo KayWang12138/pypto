@@ -11,6 +11,7 @@
 """
 """
 from pypto.pypto_impl import ir
+from pypto._ir_builder_wrapper import wrap_tile
 
 
 def test_dtype():
@@ -140,28 +141,26 @@ def test_control_flow():
 
     res_loop_x = builder.create_tile(
         ctx, tile_shape, ir.DataType.float, "outputX")
-    # Note: create_op used as CreateBinaryOp placeholder
-    add_op_x = builder.create_binary_scalar_op(
-        ir.Opcode.OP_ADDS, res_loop_x, scale1, res_loop_x)
-    # add_op_x setup would occur here (opcode, inputs, outputs)
-    builder.emit(ctx, add_op_x)
+    # Simplified syntax: res_loop_x += scale1 (in-place)
+    res_loop_x_wrapped = wrap_tile(res_loop_x, builder, ctx, "outputX")
+    res_loop_x_wrapped += scale1
+    res_loop_x = res_loop_x_wrapped.tile
 
     res_loop_y = builder.create_tile(
         ctx, tile_shape, ir.DataType.float, "outputY")
-    add_op_y = builder.create_binary_scalar_op(
-        ir.Opcode.OP_ADDS, res_loop_y, scale2, res_loop_y)
-    builder.emit(ctx, add_op_y)
+    # Simplified syntax: res_loop_y += scale2 (in-place)
+    res_loop_y_wrapped = wrap_tile(res_loop_y, builder, ctx, "outputY")
+    res_loop_y_wrapped += scale2
+    res_loop_y = res_loop_y_wrapped.tile
 
     # if i then outputX = mul(outputX, scale1) else outputY = mul(outputY, scale2)
     ifs = builder.create_if(ctx, i)
 
     # --- IF THEN ---
     builder.enter_if_then(ctx, ifs)
-    res_if_x = builder.create_tile(
-        ctx, tile_shape, ir.DataType.float, "outputX")
-    mul_op_x = builder.create_binary_scalar_op(
-        ir.Opcode.OP_MULS, res_loop_x, scale1, res_if_x)
-    builder.emit(ctx, mul_op_x)
+    res_loop_x_wrapped = wrap_tile(res_loop_x, builder, ctx, "outputX")
+    # Simplified syntax: res_if_x = res_loop_x * scale1
+    res_if_x = (res_loop_x_wrapped * scale1).tile
 
     # test compound remove value (Assuming remove_var exists in binding)
     then_comp = ifs.then_stmts()
@@ -171,11 +170,9 @@ def test_control_flow():
 
     # --- IF ELSE ---
     builder.enter_if_else(ctx, ifs)
-    res_if_y = builder.create_tile(
-        ctx, tile_shape, ir.DataType.float, "outputY")
-    mul_op_y = builder.create_binary_scalar_op(
-        ir.Opcode.OP_MULS, res_loop_y, scale2, res_if_y)
-    builder.emit(ctx, mul_op_y)
+    # Simplified syntax: res_if_y = res_loop_y * scale2
+    res_loop_y_wrapped = wrap_tile(res_loop_y, builder, ctx, "outputY")
+    res_if_y = (res_loop_y_wrapped * scale2).tile
 
     ctx.pop_scope()
 
