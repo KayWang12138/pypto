@@ -45,12 +45,16 @@ void CostModelAgent::RunCostModel(void *costModeData) {
     if (function == nullptr) {
         return;
     }
-    config::SetSimConfig("SIM_MODE", CostModel::SimMode::LEAF_FUNCTION);
+    config::SetSimConfig("sim_mode", CostModel::SimMode::LEAF_FUNCTION);
     SubmitLeafFunctionsToCostModel();
     RunCostModel();
     TerminateCostModel();
     CostModel::ModelData* modelData = new CostModel::ModelData();
     auto attr = function->GetDyndevAttribute();
+    if (attr == nullptr) {
+        ALOG_WARN("Dynamic attr is null, please to check it");
+        return;
+    }
     modelData->functionTime.resize(attr->devLeafIndex2Hash.size(), 0);
     for (const auto& [index, hash] : attr->devLeafIndex2Hash) {
         auto time = GetLeafFunctionTimeCost(hash);
