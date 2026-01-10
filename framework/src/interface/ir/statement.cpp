@@ -271,7 +271,7 @@ void ForStatement::BuildResult() {
             auto yieldTensor = std::dynamic_pointer_cast<TensorValue>(yieldVal);
             auto initTensor = std::dynamic_pointer_cast<TensorValue>(initVal);
             if (yieldTensor && initTensor) {
-                auto res = std::make_shared<TensorValue>(yieldTensor->GetShape(), yieldTensor->GetDataType(),
+                auto res = std::make_shared<TensorValue>(yieldTensor->GetShape(), yieldTensor->GetStride(), yieldTensor->GetDataType(),
                                                     yieldTensor->GetName(), yieldTensor->GetFormat());
                 results_.push_back(res);
             } else {

@@ -101,16 +101,17 @@ TEST(IRTEST, TestControlFlow) {
     auto batch = std::make_shared<ScalarValue>(DataType::INT32, "batch", ScalarValueKind::Symbolic);
     auto constant128 = std::make_shared<ScalarValue>(int64_t(128), "const_128");
     std::vector<ScalarValuePtr> tensorShape = { batch, constant128 };
+    std::vector<ScalarValuePtr> tensorStride = { constant128, 1 };
 
     std::vector<int64_t> tileShape = { 128, 128 };
 
-    auto inputX = std::make_shared<TensorValue>(tensorShape, DataType::FP32, "inputX");
-    auto inputY = std::make_shared<TensorValue>(tensorShape, DataType::FP32, "inputY");
+    auto inputX = std::make_shared<TensorValue>(tensorShape, tensorStride, DataType::FP32, "inputX");
+    auto inputY = std::make_shared<TensorValue>(tensorShape, tensorStride, DataType::FP32, "inputY");
     auto scale1 = std::make_shared<ScalarValue>(DataType::FP32, "scale1", ScalarValueKind::Symbolic);
     auto scale2 = std::make_shared<ScalarValue>(DataType::FP32, "scale2", ScalarValueKind::Symbolic);
 
-    auto resultX = std::make_shared<TensorValue>(tensorShape, DataType::FP32, "outputX");
-    auto resultY = std::make_shared<TensorValue>(tensorShape, DataType::FP32, "outputY");
+    auto resultX = std::make_shared<TensorValue>(tensorShape, tensorStride, DataType::FP32, "outputX");
+    auto resultY = std::make_shared<TensorValue>(tensorShape, tensorStride, DataType::FP32, "outputY");
 
     sig.arguments = { inputX, inputY, scale1, scale2, resultX, resultY };
 
