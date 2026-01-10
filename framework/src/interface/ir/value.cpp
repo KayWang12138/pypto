@@ -30,12 +30,10 @@ int64_t ScalarValue::GetInt64Value() const {
     }, immediateValue_);
 }
 
-void ScalarValue::Print(std::ostream& os, int indent) const {
-    PrintIndent(os, indent);
-
+void ScalarValue::PrintSSAName(std::ostream& os) const {
     switch (valueKind_) {
     case ScalarValueKind::Immediate:
-        // Print the actual constant value
+        // For immediate values, print the actual constant value
         std::visit([&os](const auto& val) {
             os << val;
         }, immediateValue_);
@@ -48,42 +46,72 @@ void ScalarValue::Print(std::ostream& os, int indent) const {
     }
 }
 
-void TensorValue::Print(std::ostream& os, int indent) const {
+void ScalarValue::PrintValue(std::ostream& os, int indent) const {
     PrintIndent(os, indent);
-    os << "tensor<";
+    PrintSSAName(os);
+    os << ": ";
+    PrintType(os);
+}
 
+void ScalarValue::PrintType(std::ostream& os) const {
+    if (type_) {
+        type_->Print(os);
+    } else {
+        os << "unknown";
+    }
+}
+
+void TensorValue::PrintSSAName(std::ostream& os) const {
+    os << GetSSAName();
+}
+
+void TensorValue::PrintValue(std::ostream& os, int indent) const {
+    PrintIndent(os, indent);
+    PrintSSAName(os);
+    os << ": ";
+    PrintType(os);
+}
+
+void TensorValue::PrintType(std::ostream& os) const {
+    os << "tensor<";
     // ====== shape ======
     os << "[";
     auto shape = GetShape();
     for (size_t i = 0; i < shape.size(); ++i) {
-        shape[i]->Print(os);
+        shape[i]->PrintSSAName(os);
         if (i + 1 < shape.size()) {
             os << ", ";
         }
     }
     os << "]";
-
     // ====== type ======
     os << ", ";
     os << DataTypeToString(GetDataType());
-
     os << ">";
 }
 
-void TileValue::Print(std::ostream& os, int indent) const {
-    PrintIndent(os, indent);
-    os << "tile<[";
+void TileValue::PrintSSAName(std::ostream& os) const {
+    os << GetSSAName();
+}
 
+void TileValue::PrintValue(std::ostream& os, int indent) const {
+    PrintIndent(os, indent);
+    PrintSSAName(os);
+    os << ": ";
+    PrintType(os);
+}
+
+void TileValue::PrintType(std::ostream& os) const {
+    os << "tile<[";
     // ====== valid shape ======
     const auto& shape = GetShape();
     for (size_t i = 0; i < validShapes_.size(); ++i) {
-        validShapes_[i]->Print(os, 0);
+        validShapes_[i]->PrintSSAName(os);
         if (i + 1 < shape.size()) {
             os << ", ";
         }
     }
     os << "], [";
-
     // ====== tile shapes ======
     for (size_t i = 0; i < shape.size(); ++i) {
         os << shape[i];
@@ -92,10 +120,8 @@ void TileValue::Print(std::ostream& os, int indent) const {
         }
     }
     os << "], ";
-
     // ====== type ======
     os << DataTypeToString(GetDataType());
-
     os << ">";
 }
 

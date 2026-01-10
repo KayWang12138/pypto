@@ -29,7 +29,7 @@
 #include "ir/function.h"
 #include "ir/value.h"
 #include "ir/utils.h"
-
+#include "ir/transform/ir_printer.h"
 namespace pto {
 
 TEST(IRTEST, TestScalarType) {
@@ -484,7 +484,10 @@ TEST(IRTEST, TestTypeCompleteProgram) {
 
     // 打印完整的 IR
     std::cout << "========== Complete Type Test Program IR (Tile & Scalar Only) ==========" << std::endl;
-    std::cout << *module << std::endl;
+    std::stringstream ss;
+    IRPrinter printer(ss);
+    printer.VisitProgram(module);
+    std::cout << ss.str() << std::endl;
     std::cout << "=======================================================================" << std::endl;
 }
 
