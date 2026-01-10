@@ -188,6 +188,10 @@ int DeviceLauncher::DeviceSynchronize(rtStream_t aicpuStream, rtStream_t aicoreS
 }
 #endif
 
+void DeviceLauncher::PyptoInit() {
+    (void)DeviceRunner::Get().PyptoInit();
+}
+
 int DeviceLauncher::DeviceRunOnce(Function *function, const DeviceLauncherConfig &config) {
 #ifdef BUILD_WITH_CANN
     auto &inputDataList = ProgramData::GetInstance().GetInputDataList();
@@ -290,6 +294,10 @@ int DeviceSynchronize(DeviceStream aicpuStream, DeviceStream aicoreStream) {
     (void)aicoreStream;
     return 0;
 #endif
+}
+
+void PyptoLauncherInit() {
+    return DeviceLauncher::PyptoInit();
 }
 
 int DeviceRunOnce(Function *function, const DeviceLauncherConfig &config) {
