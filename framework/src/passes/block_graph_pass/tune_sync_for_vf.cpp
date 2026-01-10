@@ -122,7 +122,7 @@ Status TuneSyncForVF::AdjustSetWaitFlag(Function *subGraphFunc, std::vector<Oper
     }
     if (!findFlag) {
         APASS_LOG_ERROR_F(Elements::Operation, "Cannot find %d %s in %s oplist, AdjustSetWaitFlag falied.", 
-            vecTileOp1->GetOpMagic(), vecTileOp1->GetOpcodeStr().c_str(), GetPipeTypeDict().Find(PipeType::PIPE_V).c_str())
+            vecTileOp1->GetOpMagic(), vecTileOp1->GetOpcodeStr().c_str(), GetPipeTypeDict().Find(PipeType::PIPE_V).c_str());
         return FAILED;
     }
     // setflag对应的各pipe
@@ -209,7 +209,7 @@ Status TuneSyncForVF::ChangeOpSeq(Function *subGraphFunc, bool isAIV1) {
     }
 
     if (pipeVIdx.size() <= 1) {
-        return;
+        return SUCCESS;
     }
 
     mergedOps.clear();
