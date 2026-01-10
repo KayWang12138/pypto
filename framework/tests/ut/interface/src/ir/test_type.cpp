@@ -178,12 +178,12 @@ TEST(IRTEST, TestTileType) {
 
 TEST(IRTEST, TestTensorType) {
     // 测试 TensorType 的基本功能
-    auto tensorFP32 = std::make_shared<TensorType>(DataType::FP32);
-    auto tensorFP64 = std::make_shared<TensorType>(DataType::FP64);
-    auto tensorINT32 = std::make_shared<TensorType>(DataType::INT32);
-    auto tensorINT64 = std::make_shared<TensorType>(DataType::INT64);
-    auto tensorBOOL = std::make_shared<TensorType>(DataType::BOOL);
-    auto tensorFP16 = std::make_shared<TensorType>(DataType::FP16);
+    auto tensorFP32 = std::make_shared<TensorType>(DataType::FP32, 0x2);
+    auto tensorFP64 = std::make_shared<TensorType>(DataType::FP64, 0x3);
+    auto tensorINT32 = std::make_shared<TensorType>(DataType::INT32, 0x4);
+    auto tensorINT64 = std::make_shared<TensorType>(DataType::INT64, 0x5);
+    auto tensorBOOL = std::make_shared<TensorType>(DataType::BOOL, 0x2);
+    auto tensorFP16 = std::make_shared<TensorType>(DataType::FP16, 0x3);
 
     // 测试 GetDataType()
     ASSERT_EQ(tensorFP32->GetDataType(), DataType::FP32);
@@ -313,8 +313,9 @@ TEST(IRTEST, TestTypeAllDataTypes) {
     };
 
     for (DataType dt : commonTypes) {
-        auto tensorType = std::make_shared<TensorType>(dt);
+        auto tensorType = std::make_shared<TensorType>(dt, 0x2);
         ASSERT_EQ(tensorType->GetDataType(), dt);
+        ASSERT_EQ(tensorType->GetDimNum(), 0x2);
 
         std::ostringstream oss;
         tensorType->Print(oss);
