@@ -166,6 +166,8 @@ TEST_F(TestDynamicDeviceRunner, test_cost_mode) {
     }
 
     config::SetPlatformConfig("enable_dyn_cost_model", true);
+    auto function = Program::GetInstance().GetFunctionByRawName("TENSOR_ADD1");
+    Program::GetInstance().SetLastFunction(function);
     CostModelAgent costModel;
     void *costModeData = nullptr;
     costModel.RunCostModel(costModeData);
