@@ -112,6 +112,16 @@ public:
 private:
     friend class TuneTileOpSeqForVF;
 
+    struct PipeCoreReal {	 
+        PipeCoreReal(PipeType p, CoreType c) :pipe(p), core(c) {} 
+        PipeType pipe; 
+        CoreType core; 
+
+        bool operator==(const PipeCoreReal &t) const { return (this->pipe == t.pipe && this->core == t.core); } 
+
+        bool operator!=(const PipeCoreReal &t) const { return !(*this == t); } 
+    };
+
     struct PipeCoreRealCompare {
         bool operator()(const PipeCoreReal &lhs, const PipeCoreReal &rhs) const {
             return ((static_cast<uint64_t>(lhs.core) << LEFT_OFFSET2) | (static_cast<uint64_t>(lhs.pipe) << LEFT_OFFSET3))
