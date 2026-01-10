@@ -87,9 +87,9 @@ Status TuneTileOpSeqForVF::RunOnFunction(Function &function) {
     for (auto &program : function.rootFunc_->programs_) {
         std::vector<Operation *> opList(program.second->Operations(false).DuplicatedOpList());
         PipeSync ps;
-        ALOG_DEBUG_F(Elements::Function, "=======================function %d ======================", funcId);
+        APASS_LOG_DEBUG_F(Elements::Function, "=======================function %d ======================", funcId);
         for (const auto &op : opList) {
-            ALOG_DEBUG_F(Elements::Operation, "Input Operation %d %s", op->GetOpMagic(), op->GetOpcodeStr().c_str());
+            APASS_LOG_DEBUG_F(Elements::Operation, "Input Operation %d %s", op->GetOpMagic(), op->GetOpcodeStr().c_str());
             ps.BuildTensorRangeMap(op);
             auto opcfg = OpcodeManager::Inst().GetTileOpCfg(op->GetOpcode());
             if (opcfg.pipeIdStart_ != PipeType::PIPE_V) {
@@ -106,9 +106,9 @@ Status TuneTileOpSeqForVF::RunOnFunction(Function &function) {
         ChangeOpSeq(opList, ps, true);
         // 将调整后的oplist刷新到function中去
         program.second->ScheduleBy(opList, true);
-        ALOG_DEBUG_F(Elements::Function, "---------------------------------------------------");
+        APASS_LOG_DEBUG_F(Elements::Function, "---------------------------------------------------");
         for (const auto &op : opList) {
-            ALOG_DEBUG_F(Elements::Operation, "Output Operation %d %s", op->GetOpMagic(), op->GetOpcodeStr().c_str());
+            APASS_LOG_DEBUG_F(Elements::Operation, "Output Operation %d %s", op->GetOpMagic(), op->GetOpcodeStr().c_str());
         }
         funcId++;
 
