@@ -157,7 +157,7 @@ TEST_F(TestInsertCopyPass, TestNoEqualSize) {
     InsertCopyForViewAssemble pass;
     EXPECT_EQ(pass.RunOnFunction(*currFunctionPtr), SUCCESS);
     EXPECT_EQ(currFunctionPtr->Operations().size(), kSizeEight);
-    EXPECT_EQ(midTensor0->GetMemoryTypeOriginal(), MemoryType::UB);
+    EXPECT_EQ(midTensor0->GetMemoryTypeOriginal(), MemoryType::MEM_UB);
 }
 
 TEST_F(TestInsertCopyPass, TestInsert) {
