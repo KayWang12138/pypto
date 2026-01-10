@@ -18,6 +18,9 @@
 #include "ir/statement.h"
 #include "ir/value.h"
 #include "ir/operation_base.h"
+#include "ir/operation.h"
+#include "ir/tile_graph.h"
+#include "ir/utils_defop_switch.h"
 #include "ir/function.h"
 #include "ir/program.h"
 
@@ -202,42 +205,64 @@ R StatementFunctor<R, Args...>::VisitStmt(StatementPtr& stmt, Args... args) {
  */
 template <typename R, typename... Args>
 class OperationFunctor {
- public:
+public:
   virtual ~OperationFunctor() = default;
 
   /**
-   * @brief Dispatcher for operation types
-   *
-   * Uses dynamic_cast to determine concrete type and dispatch to appropriate handler.
-   *
-   * @param op Operation pointer (non-null)
-   * @param args Additional arguments
-   * @return Result of visiting the operation
-   */
+  * @brief Dispatcher for operation types
+  *
+  * Uses dynamic_cast to determine concrete type and dispatch to appropriate handler.
+  *
+  * @param op Operation pointer (non-null)
+  * @param args Additional arguments
+  * @return Result of visiting the operation
+  */
   virtual R VisitOp(OperationPtr& op, Args... args);
 
- protected:
-  // Operation types
-  virtual R VisitOp_(ScalarBaseOpPtr& op, Args... args) = 0;
-  virtual R VisitOp_(OperationPtr& op, Args... args) = 0;
-};
+protected:
+  // ---- Concrete op hooks (auto-generated from *.def) ----
+  // Subclasses may override any concrete op type. If you only care about generic
+  // traversal, override VisitOp_(OperationPtr&) instead.
+#define DEFOP(name, inherit, opcode, ...) virtual R VisitOp_(name##Ptr& op, Args... args) = 0;
+#include "ir/operation.def"
+#include "ir/tile_graph.def"
+#undef DEFOP
 
-// Macro to dispatch based on operation type
-#define OP_FUNCTOR_DISPATCH(OpType)                            \
-  if (auto op_ptr = std::dynamic_pointer_cast<OpType>(op)) { \
-    return VisitOp_(op_ptr, std::forward<Args>(args)...);          \
-  }
+virtual R VisitOp_(OperationPtr& op, Args... args) = 0;
+
+};
 
 template <typename R, typename... Args>
 R OperationFunctor<R, Args...>::VisitOp(OperationPtr& op, Args... args) {
-  // Dispatch to concrete operation types
-  OP_FUNCTOR_DISPATCH(ScalarBaseOp);
-  OP_FUNCTOR_DISPATCH(Operation);
+  if (!op) {
+    throw std::runtime_error("Null operation in OperationFunctor::VisitOp");
+  }
 
-  // Should never reach here if all types are handled
-  throw std::runtime_error("Unknown operation type in OperationFunctor::VisitOp");
+  // 1) Prefer dispatch by opcode for DEFOP-generated concrete ops.
+  switch (op->GetOpcode()) {
+#define PTO_OP_CASE(OPCLASS, OPC)                                             \
+    case Opcode::OPC: {                                                       \
+      auto casted = std::dynamic_pointer_cast<OPCLASS>(op);                   \
+      if (!casted) {                                                          \
+        throw std::runtime_error("Opcode/type mismatch in OperationFunctor::VisitOp"); \
+      }                                                                       \
+      OPCLASS##Ptr typed = casted;                                            \
+      return VisitOp_(typed, std::forward<Args>(args)...);                    \
+    }
+
+#define DEFOP(OPCLASS, inherit, opcode_token, ...) \
+    PTO_DEFOP_SWITCH(OPCLASS, opcode_token, PTO_OP_CASE)
+#include "ir/operation.def"
+#include "ir/tile_graph.def"
+#undef DEFOP
+ 
+#undef PTO_OP_CASE
+    default:
+      break;
+  }
+  return VisitOp_(op, std::forward<Args>(args)...);
 }
-
+ 
 #undef OP_FUNCTOR_DISPATCH
 
 /**
