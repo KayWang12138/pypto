@@ -35,7 +35,7 @@ private:
 };
 
 TEST(CacheManagerUnitTest, test_init_case1) {
-    config::SetHostConfig(KEY_ENABLE_BINARY_CACHE, true);
+    config::SetPassGlobalConfig(KEY_ENABLE_BINARY_CACHE, true);
     CacheManager cacheManager;
     EXPECT_EQ(cacheManager.Initialize(), true);
     EXPECT_EQ(cacheManager.MatchBinCache(112233), false);
@@ -44,15 +44,15 @@ TEST(CacheManagerUnitTest, test_init_case1) {
 }
 
 TEST(CacheManagerUnitTest, test_init_case2) {
-    config::SetHostConfig(KEY_ENABLE_BINARY_CACHE, true);
+    config::SetPassGlobalConfig(KEY_ENABLE_BINARY_CACHE, true);
     CacheManager cacheManager;
     EXPECT_EQ(cacheManager.Initialize(), true);
     EXPECT_EQ(cacheManager.Initialize(), true);
-    config::SetHostConfig(KEY_ENABLE_BINARY_CACHE, false);
+    config::SetPassGlobalConfig(KEY_ENABLE_BINARY_CACHE, false);
 }
 
 TEST(CacheManagerUnitTest, test_match_cache) {
-    config::SetHostConfig(KEY_ENABLE_BINARY_CACHE, true);
+    config::SetPassGlobalConfig(KEY_ENABLE_BINARY_CACHE, true);
     CacheManager cacheManager;
     EXPECT_EQ(cacheManager.Initialize(), true);
     EXPECT_EQ(cacheManager.MatchBinCache(112233), false);
