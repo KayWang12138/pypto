@@ -12,7 +12,7 @@
  * \file dev_encode.cpp
  * \brief
  */
-
+#include "tilefwk/platform.h"
 #include "machine/utils/dynamic/dev_encode.h"
 #include "machine/utils/dynamic/dev_workspace.h"
 
@@ -599,8 +599,10 @@ void DevAscendFunction::InitOperation(
     }
 }
 
-#ifdef SUPPORT_MIX_SUBGRAPH_SCHE
 void DevAscendFunction::InitWrapInfo(uintdevptr_t &initOffset, const OrderedSet<Operation *> &callList, bool fillContent) {
+    if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510) {
+        return;
+    }
     opWrapList_.HostInitDataSizeOffset(initOffset, callList.size());
     opWrapTaskNumList_.HostInitDataSizeOffset(initOffset, callList.size());
 
@@ -620,7 +622,6 @@ void DevAscendFunction::InitWrapInfo(uintdevptr_t &initOffset, const OrderedSet<
         }
     }
 }
-#endif
 
 void DevAscendFunction::InitIncastOutcast(
         uintdevptr_t &initOffset,
@@ -1331,6 +1332,28 @@ struct EncodeDevAscendFunctionInfo {
         }
     }
 
+     void AddDependOperandsToColorGraph(std::vector<Operation *> &callopList, std::unordered_map<Operation *, int> &callopIndexDict) {
+        std::unordered_map<std::shared_ptr<LogicalTensor>, OrderedSet<Operation *>> producerDict;
+        for (auto &op : callopList) {
+            for (auto &i : op->GetOOperands()) {
+                producerDict[i].Insert(op);
+            }
+        }
+
+        for (auto &op : callopList) {
+            for (auto &o : op->GetDependOperands()) {
+                for (auto &producer : producerDict[o]) {
+                    if (op == producer) {
+                        // Consumer and producer can not be the same.
+                        continue;
+                    }
+                    // Index for callop from its depend operand's producer callop index list
+                    colorOutGraph[callopIndexDict[producer]].push_back(callopIndexDict[op]);
+                }
+            }
+        }
+    }
+
     void EncodeZeroPredCount(std::vector<Operation *>& callopList) {
         std::unordered_map<Operation *, int> callopCoreTypeDict;
         for (auto &op : callopList) {
@@ -1485,11 +1508,12 @@ struct EncodeDevAscendFunctionInfo {
                 }
             }
         }
-        for (size_t index = 0; index < callopList.size(); index++) {
-            std::sort(colorOutGraph[index].begin(), colorOutGraph[index].end());
-            // remove repeated index in ooperand's consumer callop index list
-            colorOutGraph[index].resize(std::unique(colorOutGraph[index].begin(), colorOutGraph[index].end()) -
-                                colorOutGraph[index].begin());
+        AddDependOperandsToColorGraph(callopList, callopIndexDict);
+        for (size_t idx = 0; idx < callopList.size(); idx++) {
+            std::sort(colorOutGraph[idx].begin(), colorOutGraph[idx].end());
+            // remove repeated idx in ooperand's consumer callop idx list
+            colorOutGraph[idx].resize(std::unique(colorOutGraph[idx].begin(), colorOutGraph[idx].end()) -
+                                colorOutGraph[idx].begin());
         }
     }
 
@@ -1505,9 +1529,9 @@ struct EncodeDevAscendFunctionInfo {
                     RecordRawTensor(i);
                     consumerDict[i].Insert(&op);
                 }
-                for (auto &j : op.GetOOperands()) {
-                    tensorList.Insert(j);
-                    RecordRawTensor(j);
+                for (auto &o : op.GetOOperands()) {
+                    tensorList.Insert(o);
+                    RecordRawTensor(o);
                 }
             }
         }
@@ -1597,9 +1621,7 @@ struct EncodeDevAscendFunctionInfo {
                 initOffset, expressionTable, callList, tensorList, rawTensorList,
                 callOpPredDict, callOpSuccDict, calleeHashIndexDict, outcastStitchIndexList,
                 noPredOpList, noSuccOpList, copyOutResolveSuccIndexListDict, fillContent);
-#ifdef SUPPORT_MIX_SUBGRAPH_SCHE
         devFunc->InitWrapInfo(initOffset, callList, fillContent);
-#endif
         devFunc->InitIncastOutcast(initOffset, incastList, outcastList, tensorList, incastOpAttrDict, outcastOpAttrDict, param, rawName, fillContent);
     }
 };
@@ -1694,10 +1716,8 @@ void DevAscendProgram::InitCceCodeList(uintdevptr_t &initOffset, const std::vect
             cceCodeList[index].coreType = cceInfo[index].coreType;
             cceCodeList[index].psgId = cceInfo[index].psgId;
             cceCodeList[index].funcHash = cceInfo[index].funcHash;
-#ifdef SUPPORT_MIX_SUBGRAPH_SCHE
             cceCodeList[index].wrapVecId = cceInfo[index].wrapVecId;
             cceCodeList[index].mixResourceType = cceInfo[index].mixResourceType;
-#endif
             auto dataLen = cceInfo[index].aicpuLeafCode.size();
             aicpuLeafCodeList[index].aicpuLeafCode.HostAssignRangeOffsetSize(aicpuLeafCodeDataList, offset, dataLen);
             (void)memcpy_s(aicpuLeafCodeList[index].aicpuLeafCode.Data(), sizeof(int32_t) * dataLen,
@@ -2240,10 +2260,8 @@ static uint64_t CalcGeneralMetadataWorkspace(DevAscendProgram *devProg) {
         1,// VecStitchList
         1,// DynDevTask
         READY_QUEUE_SIZE, //ReadyQue
-        #ifdef SUPPORT_MIX_SUBGRAPH_SCHE
         1,
         1,
-        #endif
     };
     workspace.CalculateSlabCapacityPerType(slabSize, slabCapacity,
     ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT));
