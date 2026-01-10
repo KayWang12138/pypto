@@ -138,10 +138,6 @@ struct MemoryHelper {
     bool isTest_{true};
 };
 
-extern "C" int DynTileFwkBackendKernelServer(void *targ);
-extern "C" int DynTileFwkBackendKernelServerInit(void *targ);
-extern "C" int PyptoKernelCtrlServer(void *targ);
-
 class CostModelLauncher : public DeviceLauncher {
 public:
     static void CostModelRunOnce(Function *function, const std::vector<RawTensorDataPtr> &inputs,
@@ -188,156 +184,12 @@ private:
         DeviceInitTilingData(MemoryHelper(true), kArgs, function_->GetDyndevAttribute()->devProgBinary, config_, nullptr);
         InitKernelInOuts(kArgs, inputs, outputs, true);
         std::cout << "Run CostModel " << "\n";
-        RunCostModel(&kArgs);
+        CostModelAgent costModeAgent;
+        costModeAgent.RunCostModel(kArgs.costmodeldata);
         std::cout << "Run TestModel " << "\n";
         RunTestMode(&kArgs);
         std::cout << "Run DynCostModel " << "\n";
-        RunDynCostModel();
-    }
-
-    bool IsDumpTensorEnable() const {
-        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(GetDevProg(function_).data()));
-        return devProg->memBudget.debug.dumpTensor != 0;
-    }
-
-    static void DumpDevDataBinary(std::ostream &os, const uint8_t *hostData, uint64_t size, const uint8_t *devptr) {
-        /*
-         * Format:
-         *   8 bytes: address on device
-         *   8 bytes: data block size
-         *   n bytes: data block
-         */
-        uint64_t header[] = {
-            reinterpret_cast<uint64_t>(devptr),
-            size,
-        };
-        os.write(reinterpret_cast<const char *>(header), sizeof(header));
-        if (hostData != nullptr) {
-            os.write(reinterpret_cast<const char *>(hostData), size);
-        } else {
-            static constexpr uint64_t THROUGHPUT = UINT64_C(1024) * 1024 * 1024;
-            std::vector<uint8_t> buf;
-            buf.reserve(std::min(THROUGHPUT, size));
-            for (uint64_t offset = 0; offset < size; offset += THROUGHPUT) {
-                uint64_t blockSize = std::min(THROUGHPUT, size - offset);
-                os.write(reinterpret_cast<const char *>(buf.data()), blockSize);
-            }
-        }
-    }
-
-    void DumpTensorContents(const AstKernelArgs &kArgs,
-                            const std::vector<RawTensorDataPtr> &inputs,
-                            const std::vector<RawTensorDataPtr> &outputs) {
-        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(GetDevProg(function_).data()));
-        uint8_t *dumpTensorWsPtr = reinterpret_cast<uint8_t *>(kArgs.workspace) + devProg->memBudget.tensor.Total() + devProg->memBudget.metadata.Total();
-        uint64_t dumpTensorWsUsed = 0;
-        ALOG_ERROR_F("[DumpTensor] dumpTensorWsPtr=%p, memory used=%lu\n", dumpTensorWsPtr, dumpTensorWsUsed);
-
-        std::string path = config::LogTopFolder() + "/dump_tensor.txt";
-        std::ofstream fout(path, std::ios::out | std::ios::binary);
-
-        auto printIODevAddrs = [&](const std::vector<RawTensorDataPtr> &ptrs) {
-            uint64_t ptrNum = ptrs.size();
-            fout.write(reinterpret_cast<const char *>(&ptrNum), sizeof(ptrNum));
-            int idx = 0;
-            for (auto &ptr : ptrs) {
-                uint64_t devPtr = ptr ? reinterpret_cast<uint64_t>(ptr->GetDevPtr()) : 0;
-                ALOG_ERROR_F("[DumpTensor] devPtr %d = %lu\n", idx++, devPtr);
-                fout.write(reinterpret_cast<const char *>(&devPtr), sizeof(devPtr));
-            }
-        };
-
-        // write input/output devAddr list
-        ALOG_ERROR_F("[DumpTensor] #inputs=%zu\n", inputs.size());
-        printIODevAddrs(inputs);
-        ALOG_ERROR_F("[DumpTensor] #outputs=%zu\n", outputs.size());
-        printIODevAddrs(outputs);
-
-        DumpDevDataBinary(fout, nullptr, dumpTensorWsUsed, dumpTensorWsPtr);
-        for (auto &input : inputs) {
-            if (input) {
-                DumpDevDataBinary(fout, input->data(), input->GetDataSize(), input->GetDevPtr());
-            }
-        }
-        for (auto &output : outputs) {
-            if (output) {
-                DumpDevDataBinary(fout, output->data(), output->GetDataSize(), output->GetDevPtr());
-            }
-        }
-        fout.close();
-    }
-
-    void RunCostModel(AstKernelArgs *kArgs) {
-        if (!config::GetPlatformConfig(KEY_ENABLE_DYN_COST_MODEL, true)) {
-            return;
-        }
-        Function *function = Program::GetInstance().GetLastFunction();
-        if (function == nullptr) {
-            return;
-        }
-        config::SetSimConfig(KEY_SIM_MODE, CostModel::SimMode::LEAF_FUNCTION);
-        CostModelAgent costModelAgent;
-        costModelAgent.SubmitLeafFunctionsToCostModel();
-        costModelAgent.RunCostModel();
-        costModelAgent.TerminateCostModel();
-        CostModel::ModelData* modelData = new CostModel::ModelData();
-        auto attr = function->GetDyndevAttribute();
-        modelData->functionTime.resize(attr->devLeafIndex2Hash.size(), 0);
-        for (const auto& [index, hash] : attr->devLeafIndex2Hash) {
-            auto time = costModelAgent.GetLeafFunctionTimeCost(hash);
-            DEV_INFO("devLeafIndex2Hash, %d -> %lu: %lu\n", index, hash, time);
-            modelData->functionTime[index] = time;
-        }
-        kArgs->costmodeldata = modelData;
-    }
-
-    void RunDynCostModel()
-    {
-        if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) != CFG_RUN_MODE_SIM) {
-            return;
-        }
-        config::SetSimConfig(KEY_SIM_MODE, CostModel::SimMode::NORMAL);
-        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
-        CostModelAgent costModelAgent;
-
-        std::string path = config::LogTopFolder() + "/dyn_topo.txt";
-        costModelAgent.SubmitTopo(path);
-        costModelAgent.SubmitLeafFunctionsToCostModel();
-        costModelAgent.RunCostModel();
-        costModelAgent.TerminateCostModel();
-    }
-
-    void RunTestMode(AstKernelArgs *kArgs) {
-        (void) kArgs;
-        std::thread aicpus[DEVICE_MAX_AICPU_NUM];
-        std::atomic<int> idx{0};
-        auto *devProg = (DevAscendProgram *)(kArgs->cfgdata);
-        (void)DynTileFwkBackendKernelServerInit(kArgs);
-        int threadNum = static_cast<int>(devProg->devArgs.nrAicpu);
-        threadNum = (devProg->devArgs.enableCtrl == 1) ? threadNum : threadNum + 1;
-        for (int i = 0; i < threadNum; i++) {
-            aicpus[i] = std::thread([&]() {
-                int tidx = idx++;
-                cpu_set_t cpuset;
-                CPU_ZERO(&cpuset);
-                CPU_SET(tidx, &cpuset);
-                std::string name = "aicput" + std::to_string(tidx);
-                std::cout << "start thread: " << name << std::endl;
-                pthread_setname_np(pthread_self(), name.c_str());
-                pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
-                if ((devProg->devArgs.enableCtrl == 0) && (uint32_t)tidx == devProg->devArgs.scheCpuNum) {
-                    (void)PyptoKernelCtrlServer(kArgs);
-                } else {
-                    (void)DynTileFwkBackendKernelServer(kArgs);
-                }
-            });
-        }
-
-        for (int i = 0; i < threadNum; i++) {
-            if (aicpus[i].joinable()) {
-                aicpus[i].join();
-            }
-        }
+        costModeAgent.RunDynCostModel();
     }
 
     void InitKernelInOuts(AstKernelArgs &kArgs, const std::vector<RawTensorDataPtr> &inputTensors,
