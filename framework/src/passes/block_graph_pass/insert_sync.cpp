@@ -1666,8 +1666,7 @@ Status InsertSync::GenNewOpList(Function *subGraphFunc, std::vector<Operation *>
     subGraphFunc->opSetMap = ps.opSetMap;
     subGraphFunc->waitOpMap = ps.waitOpMap;
     subGraphFunc->opWaitMap = ps.opWaitMap;
-    // subGraphFunc->issueState = ps.GetIssueState();
-    // subGraphFunc->oriOpList = ps.GetOriOpList();
+    subGraphFunc->oriOpList = ps.GetOriOpList();
     return SUCCESS;
 }
 

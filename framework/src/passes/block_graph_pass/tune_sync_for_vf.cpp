@@ -17,7 +17,7 @@
 #include "passes/block_graph_pass/insert_sync.h"
 #include "passes/pass_log/pass_log.h"
 
-// #define MODULE_NAME "TuneSyncForVF"
+#define MODULE_NAME "TuneSyncForVF"
 
 namespace npu {
 namespace tile_fwk {
@@ -53,8 +53,27 @@ bool TuneSyncForVF::NeedAdjustWaitFlag(Function *subGraphFunc, Operation *vecTil
     return false;
 }
 
-void TuneSyncForVF::AdjustSetWaitFlag(Function *subGraphFunc, std::vector<Operation *> &setFlagList, 
+void TuneSyncForVF::GenPipeOpMap(Function *subGraphFunc) {
+    PipeSync ps;
+    std::vector<Operation *> oriOpList = subGraphFunc->oriOpList;
+    for (auto &op : oriOpList) {
+        auto opcfg = OpcodeManager::Inst().GetTileOpCfg(op->GetOpcode());
+        ps.AdjustOpCfg(opcfg, *op);
+        if (opcfg.coreType_ != CoreType::AIV) {
+            continue;
+        }
+        if (pipeOpMap.count(opcfg.pipeIdStart_)) {
+            pipeOpMap[opcfg.pipeIdStart_].emplace_back(op);
+        } else {
+            pipeOpMap[opcfg.pipeIdStart_] = {op};
+        }
+    }
+}
+
+Status TuneSyncForVF::AdjustSetWaitFlag(Function *subGraphFunc, std::vector<Operation *> &setFlagList, 
         std::vector<Operation *> &waitFlagList, size_t vecTileOp0Idx, size_t vecTileOp1Idx, int groupNum) {
+    auto vecTileOp0 = opList_[vecTileOp0Idx];
+    auto vecTileOp1 = opList_[vecTileOp1Idx];
     // 改变opList执行顺序
     // 先将setwaitflag删掉
     std::vector<size_t> setWaitIdx;
@@ -69,11 +88,111 @@ void TuneSyncForVF::AdjustSetWaitFlag(Function *subGraphFunc, std::vector<Operat
     opList_.insert(insertPos, waitFlagList.begin(), waitFlagList.end());
     // 在vecTileOp0Idx集合的左侧将setflag插入
     size_t mergedSize = mergedOps[groupNum].size();
-    auto insertPos2 = opList_.begin() + vecTileOp0Idx - mergedSize;
+    auto insertPos2 = opList_.begin() + vecTileOp0Idx - mergedSize + 1;
     opList_.insert(insertPos2, setFlagList.begin(), setFlagList.end());
+
+    // 更新各pipe上op的时间戳
+    GenPipeOpMap(subGraphFunc);
+    // pipe_v
+    int curVFStartTime = mergedOps[groupNum][0]->cycleStart; // 当前vf融合op开始时间
+    int prevEndTime = curVFStartTime;
+    int preVectileOp1EndTime = mergedOps[groupNum][mergedOps[groupNum].size() - 1]->cycleEnd;
+    for (size_t i = 0; i < mergedSize; i++) {
+        mergedOps[groupNum][i]->cycleStart = prevEndTime;
+        auto oriLatency = mergedOps[groupNum][i]->GetLatency();
+        mergedOps[groupNum][i]->UpdateLatency(static_cast<int>(oriLatency * vfPrarm));
+        auto newLatency = mergedOps[groupNum][i]->GetLatency();
+        mergedOps[groupNum][i]->cycleEnd = mergedOps[groupNum][i]->cycleStart + newLatency;
+        prevEndTime = mergedOps[groupNum][i]->cycleEnd;
+    }
+    int curVecTileOp1EndTime = mergedOps[groupNum][mergedOps[groupNum].size() - 1]->cycleEnd; // 当前vf融合op结束时间
+    int moveFrontTime = preVectileOp1EndTime - curVecTileOp1EndTime;
+    // 找到vecTileOp1在pipe_v中的位置，然后将后面的op的开始终止时间全部提前moveFrontTime
+    auto &pipeVops = pipeOpMap[PipeType::PIPE_V];
+    bool findFlag = false;
+    for (size_t k = 0; k < pipeVops.size(); k++) {
+        if (pipeVops[k]->GetOpMagic() == vecTileOp1->GetOpMagic()) {
+            findFlag = true;
+            for (size_t j = k + 1; j < pipeVops.size(); j++) {
+                pipeVops[j]->cycleStart -= moveFrontTime;
+                pipeVops[j]->cycleEnd -= moveFrontTime;
+            }
+            break;
+        }
+    }
+    if (!findFlag) {
+        APASS_LOG_ERROR_F(Elements::Operation, "Cannot find %d %s in %s oplist, AdjustSetWaitFlag falied.", 
+            vecTileOp1->GetOpMagic(), vecTileOp1->GetOpcodeStr().c_str(), GetPipeTypeDict().Find(PipeType::PIPE_V).c_str())
+        return FAILED;
+    }
+    // setflag对应的各pipe
+    for (auto &setFlag : setFlagList) {
+        findFlag = false;
+        auto pipeX = setFlag->syncQueue_.trigPipeId_;
+        auto &tileOpZ = subGraphFunc->setWaitOpMap[vecTileOp0];
+        // 在pipeX的队列中找到tileopZ
+        auto &pipeXops = pipeOpMap[pipeX];
+        for (size_t k = 0; k < pipeXops.size(); k++) {
+            if (pipeXops[k]->GetOpMagic() == tileOpZ->GetOpMagic()) {
+                findFlag = true;
+                auto preOpEndTime = pipeXops[k-1]->cycleEnd;
+                auto tileOpZNewStartTime = std::max(preOpEndTime, curVecTileOp1EndTime);
+                int moveDist = tileOpZ->cycleStart - tileOpZNewStartTime;
+                for (size_t j = k; j < pipeXops.size(); j++) {
+                    pipeXops[j]->cycleStart -= moveDist;
+                    pipeXops[j]->cycleEnd -= moveDist;
+                }
+                break;
+            }
+        }
+        if (!findFlag) {
+            APASS_LOG_ERROR_F(Elements::Operation, "Cannot find %d %s in %s oplist, AdjustSetWaitFlag falied.", 
+                tileOpZ->GetOpMagic(), tileOpZ->GetOpcodeStr().c_str(), GetPipeTypeDict().Find(pipeX).c_str());
+            return FAILED;
+        }
+    }
+    // waitflag对应的各pipe  需要让pipev的op后移来满足依赖关系
+    int maxMoveBackDist{0};
+    for (auto &waitFlag : waitFlagList) {
+        findFlag = false;
+        auto pipeX = waitFlag->syncQueue_.pipeId_;
+        auto &tileOpZ = subGraphFunc->waitSetOpMap[vecTileOp1];
+        // 在pipeX的队列中找到tileopZ
+        auto &pipeXops = pipeOpMap[pipeX];
+        for (size_t k = 0; k < pipeXops.size(); k++) {
+            if (pipeXops[k]->GetOpMagic() == tileOpZ->GetOpMagic()) {
+                findFlag = true;
+                maxMoveBackDist = std::max(maxMoveBackDist, tileOpZ->cycleEnd - curVFStartTime);
+                break;
+            }
+        }
+        if (!findFlag) {
+            APASS_LOG_ERROR_F(Elements::Operation, "Cannot find %d %s in %s oplist, AdjustSetWaitFlag falied.", 
+                tileOpZ->GetOpMagic(), tileOpZ->GetOpcodeStr().c_str(), GetPipeTypeDict().Find(pipeX).c_str());
+            return FAILED;
+        }
+    }
+    // 后移vf融合op及其之后的pipe_v Op
+    auto &firstOp = mergedOps[groupNum][0];
+    findFlag = false;
+    for (size_t k = 0; k < pipeVops.size(); k++) {
+        if (pipeVops[k]->GetOpMagic() == firstOp->GetOpMagic()) {
+            for (size_t j = k; j < pipeVops.size(); j++) {
+                pipeVops[j]->cycleStart += maxMoveBackDist;
+                pipeVops[j]->cycleEnd += maxMoveBackDist;
+            }
+        }
+        break;
+    }
+    if (!findFlag) {
+        APASS_LOG_ERROR_F(Elements::Operation, "Cannot find %d %s in %s oplist, AdjustSetWaitFlag falied.", 
+            firstOp->GetOpMagic(), firstOp->GetOpcodeStr().c_str(), GetPipeTypeDict().Find(PipeType::PIPE_V).c_str());
+        return FAILED;
+    }
+    return SUCCESS;
 }
 
-void TuneSyncForVF::ChangeOpSeq(Function *subGraphFunc, bool isAIV1) {
+Status TuneSyncForVF::ChangeOpSeq(Function *subGraphFunc, bool isAIV1) {
     AIVCore coreType;
     if (!isAIV1) {
         coreType = AIVCore::AIV0;
@@ -148,17 +267,17 @@ void TuneSyncForVF::ChangeOpSeq(Function *subGraphFunc, bool isAIV1) {
                 }
             }
         }
-        auto vecTileOp0 = opList_[left];
-        auto vecTileOp1 = opList_[right];
         if (groupNum == -1) {
-            std::vector<Operation *> newOp = {vecTileOp0};
+            // 将vecTileop1和vecTileop1添加到mergedOps中
+            std::vector<Operation *> newOp = {opList_[left], opList_[right]};
             mergedOps.emplace_back(newOp);
             groupNum = mergedOps.size() - 1;
         }
         // 进行调整
-        AdjustSetWaitFlag(subGraphFunc, setFlagList, waitFlagList, left, right, groupNum);
-        // 将vecTileop1添加到mergedOps中
-        mergedOps[groupNum].emplace_back(vecTileOp1);
+        if (AdjustSetWaitFlag(subGraphFunc, setFlagList, waitFlagList, left, right, groupNum) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Function, "ChangeOpSeq failed at function AdjustSetWaitFlag.");
+            return FAILED;
+        }
         // 由于移动，pipeVop的idx会发生变化，需要重新更新pipeVIdx
         pipeVIdx.clear();
         for (size_t i = 0; i < opList_.size(); i++) {
@@ -168,6 +287,7 @@ void TuneSyncForVF::ChangeOpSeq(Function *subGraphFunc, bool isAIV1) {
             }
         }
     }
+    return SUCCESS;
 }
 
 Status TuneSyncForVF::RunOnFunction(Function &function) {
@@ -175,8 +295,14 @@ Status TuneSyncForVF::RunOnFunction(Function &function) {
         std::vector<Operation *> opList(program.second->Operations(false).DuplicatedOpList());
         opList_ = opList;
         // AIV0和AIV1各调整一次
-        ChangeOpSeq(program.second, false);
-        ChangeOpSeq(program.second, true);
+        if (ChangeOpSeq(program.second, false) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Function, "RunOnFunction failed at function ChangeOpSeq.");
+            return FAILED;
+        }
+        if (ChangeOpSeq(program.second, true) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Function, "RunOnFunction failed at function ChangeOpSeq.");
+            return FAILED;
+        }
         // 将调整后的oplist刷新到function中去
         program.second->ScheduleBy(opList_, true);
     }
