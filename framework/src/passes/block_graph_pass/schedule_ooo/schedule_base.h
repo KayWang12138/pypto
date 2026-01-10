@@ -285,7 +285,7 @@ public:
         return SUCCESS;
     }
 
-    void UpdateAllocMap(Operation* op, std::map<int, Operation*> tensorAllocMap) {
+    void UpdateAllocMap(Operation* op, std::map<int, Operation*> &tensorAllocMap) {
         for (auto outTensor : op->GetOOperands()) {
             if (outTensor->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
                 continue;
