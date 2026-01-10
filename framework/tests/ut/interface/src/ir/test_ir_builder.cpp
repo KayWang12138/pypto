@@ -224,7 +224,7 @@ TEST(IRTEST, TestStaticForLoop) {
 
     // func(in1: Tile, in2: Scalar, out: Tile)
     // Tile shape: [16, 32]
-    std::vector<size_t> tileShape = {16, 32};
+    std::vector<int64_t> tileShape = {16, 32};
     auto in1 = std::make_shared<TileValue>(tileShape, DataType::FP32, "in1");
     auto in2 = std::make_shared<ScalarValue>(DataType::FP32, "in2", ScalarValueKind::Symbolic);
     auto out = std::make_shared<TileValue>(tileShape, DataType::FP32, "out");

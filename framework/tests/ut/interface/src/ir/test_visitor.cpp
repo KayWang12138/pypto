@@ -164,7 +164,7 @@ TEST(IRVisitorTest, TestBasicTraversal) {
   IRBuilderContext ctx;
 
   FunctionSignature sig;
-  std::vector<uint64_t> tileShape = { 128, 128 };
+  std::vector<int64_t> tileShape = { 128, 128 };
   auto inputTensor = std::make_shared<TileValue>(tileShape, DataType::FP32, "input");
   auto outputTensor = std::make_shared<TileValue>(tileShape, DataType::FP32, "output");
   sig.arguments = { inputTensor, outputTensor };
@@ -206,7 +206,7 @@ TEST(IRVisitorTest, TestValueCollection) {
   IRBuilderContext ctx;
 
   FunctionSignature sig;
-  std::vector<uint64_t> tileShape = { 64, 64 };
+  std::vector<int64_t> tileShape = { 64, 64 };
   auto in1 = std::make_shared<TileValue>(tileShape, DataType::FP32, "in1");
   auto in2 = std::make_shared<TileValue>(tileShape, DataType::FP32, "in2");
   sig.arguments = { in1, in2 };
@@ -263,7 +263,7 @@ TEST(IRVisitorTest, TestControlFlowTraversal) {
   auto batch = std::make_shared<ScalarValue>(DataType::INT32, "batch", ScalarValueKind::Symbolic);
   auto constant128 = std::make_shared<ScalarValue>(int64_t(128), "const_128");
   std::vector<ScalarValuePtr> tensorShape = { batch, constant128 };
-  std::vector<uint64_t> tileShape = { 128, 128 };
+  std::vector<int64_t> tileShape = { 128, 128 };
 
   auto inputX = std::make_shared<TensorValue>(tensorShape, DataType::FP32, "inputX");
   auto scale1 = std::make_shared<ScalarValue>(DataType::FP32, "scale1", ScalarValueKind::Symbolic);
@@ -432,7 +432,7 @@ TEST(IRVisitorTest, TestDefaultTraversal) {
   IRBuilderContext ctx;
 
   FunctionSignature sig;
-  std::vector<uint64_t> tileShape = { 32, 32 };
+  std::vector<int64_t> tileShape = { 32, 32 };
   auto input = std::make_shared<TileValue>(tileShape, DataType::FP32, "input");
   sig.arguments = { input };
 
@@ -465,7 +465,7 @@ TEST(IRVisitorTest, TestDefaultVisitMethods) {
   IRBuilderContext ctx;
 
   FunctionSignature sig;
-  std::vector<uint64_t> tileShape = { 64, 64 };
+  std::vector<int64_t> tileShape = { 64, 64 };
   auto input = std::make_shared<TileValue>(tileShape, DataType::FP32, "input");
   auto output = std::make_shared<TileValue>(tileShape, DataType::FP32, "output");
   sig.arguments = { input, output };

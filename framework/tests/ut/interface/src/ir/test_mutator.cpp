@@ -334,7 +334,7 @@ TEST(IRMutatorTest, TestBasicMutate) {
   IRBuilderContext ctx;
 
   FunctionSignature sig;
-  std::vector<uint64_t> tileShape = { 128, 128 };
+  std::vector<int64_t> tileShape = { 128, 128 };
   auto inputTensor = std::make_shared<TileValue>(tileShape, DataType::FP32, "input");
   auto outputTensor = std::make_shared<TileValue>(tileShape, DataType::FP32, "output");
   sig.arguments = { inputTensor, outputTensor };
@@ -375,7 +375,7 @@ TEST(IRMutatorTest, TestIdentityMutate) {
   IRBuilderContext ctx;
 
   FunctionSignature sig;
-  std::vector<uint64_t> tileShape = { 64, 64 };
+  std::vector<int64_t> tileShape = { 64, 64 };
   auto input = std::make_shared<TileValue>(tileShape, DataType::FP32, "input");
   sig.arguments = { input };
 
@@ -408,7 +408,7 @@ TEST(IRMutatorTest, TestDefaultVisitMethods) {
   IRBuilderContext ctx;
 
   FunctionSignature sig;
-  std::vector<uint64_t> tileShape = { 32, 32 };
+  std::vector<int64_t> tileShape = { 32, 32 };
   auto input = std::make_shared<TileValue>(tileShape, DataType::FP32, "input");
   auto output = std::make_shared<TileValue>(tileShape, DataType::FP32, "output");
   sig.arguments = { input, output };
@@ -469,7 +469,7 @@ TEST(IRMutatorTest, TestConstantReplacement) {
   IRBuilderContext ctx;
 
   FunctionSignature sig;
-  std::vector<uint64_t> tileShape = { 32, 32 };
+  std::vector<int64_t> tileShape = { 32, 32 };
   auto input = std::make_shared<TileValue>(tileShape, DataType::FP32, "input");
   sig.arguments = { input };
 
@@ -541,7 +541,7 @@ TEST(IRMutatorTest, TestControlFlowMutate) {
   auto batch = std::make_shared<ScalarValue>(DataType::INT32, "batch", ScalarValueKind::Symbolic);
   auto constant128 = std::make_shared<ScalarValue>(int64_t(128), "const_128");
   std::vector<ScalarValuePtr> tensorShape = { batch, constant128 };
-  std::vector<uint64_t> tileShape = { 128, 128 };
+  std::vector<int64_t> tileShape = { 128, 128 };
 
   auto inputX = std::make_shared<TensorValue>(tensorShape, DataType::FP32, "inputX");
   auto scale1 = std::make_shared<ScalarValue>(DataType::FP32, "scale1", ScalarValueKind::Symbolic);
@@ -607,7 +607,7 @@ TEST(IRMutatorTest, TestMultipleMutations) {
   IRBuilderContext ctx;
 
   FunctionSignature sig;
-  std::vector<uint64_t> tileShape = { 16, 16 };
+  std::vector<int64_t> tileShape = { 16, 16 };
   auto input = std::make_shared<TileValue>(tileShape, DataType::FP32, "input");
   sig.arguments = { input };
 
