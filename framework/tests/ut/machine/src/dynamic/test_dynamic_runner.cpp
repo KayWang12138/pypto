@@ -25,6 +25,7 @@
 #include "tilefwk/data_type.h"
 #define private public
 using namespace npu::tile_fwk;
+extern "C" uint32_t DynPyptoKernelServerNull(void *targ);
 class TestDynamicDeviceRunner : public testing::Test {
 public:
     static void SetUpTestCase() {
@@ -103,4 +104,73 @@ TEST_F(TestDynamicDeviceRunner, TestRegisterDynamicKernel) {
     [[maybe_unused]]rtBinHandle staticHdl_;
     npu::tile_fwk::DeviceRunner runner;
     runner.RegisterKernelBin(&staticHdl_);
+}
+
+TEST_F(TestDynamicDeviceRunner, test_pypto_kernel_server_null) {
+    AstKernelArgs pyptoKernelArgs;
+    DeviceArgs devKernelArgs;
+    devKernelArgs.aicpuSoLen = 2;
+    pyptoKernelArgs.cfgdata = static_cast<int64_t *>(static_cast<void *>(&devKernelArgs));
+    auto ret = DynPyptoKernelServerNull(&pyptoKernelArgs);
+    EXPECT_EQ(ret, 1);
+}
+
+TEST_F(TestDynamicDeviceRunner, test_kernel_dump) {
+    const std::vector<int64_t> shape = {64, 64};
+    TileShape::Current().SetVecTile(shape);
+
+    Tensor inputA(DT_FP32, shape, "A0");
+    Tensor inputB(DT_FP32, shape, "B1");
+    Tensor output(DT_FP32, shape, "C0");
+
+    config::SetBuildStatic(true);
+    FUNCTION("ADD0", {inputA, inputB, output}) {
+        output = Add(inputA, inputB);
+    }
+
+    auto function = Program::GetInstance().GetFunctionByRawName("TENSOR_ADD0");
+    auto task_1 = std::make_shared<MachineTask>(0, function);
+    auto deviceMachineTask = std::make_shared<MachineTask>(task_1->GetTaskId(), task_1->GetFunction());
+    auto deviceAgentTask = std::make_shared<DeviceAgentTask>(deviceMachineTask);
+
+    KernelDumpUtils kernelDump;
+    std::string jsonDir = "/tmp/pypto/";
+    std::string kerneName = "pypto_add";
+    kernelDump.DumpJsonFile(deviceAgentTask.get(), kerneName,jsonDir);
+    std::vector<JsonInfo> binJsonPath;
+    std::string jsonFilePath = jsonDir + kerneName + ".json";
+    std::string binFileName = "add_bin";
+    kernelDump.WriteFatbinJson(binJsonPath, jsonFilePath, binFileName);
+    auto ret = IsPathExist(jsonFilePath);
+    EXPECT_EQ(ret, false);
+}
+
+
+TEST_F(TestDynamicDeviceRunner, test_cost_mode) {
+    const std::vector<int64_t> shape = {64, 64};
+    TileShape::Current().SetVecTile(shape);
+
+    Tensor inputA(DT_FP32, shape, "A1");
+    Tensor inputB(DT_FP32, shape, "B1");
+    Tensor output(DT_FP32, shape, "C1");
+
+    config::SetBuildStatic(true);
+    FUNCTION("ADD1", {inputA, inputB, output}) {
+        output = Add(inputA, inputB);
+    }
+
+    config::SetPlatformConfig("ENABLE_DYN_COST_MODEL", true);
+    CostModelAgent costModel;
+    void *costModeData = nullptr;
+    costModel.RunCostModel(costModeData);
+
+    config::SetRuntimeOption<int>("run_mode", 1);
+    std::string fileDir = config::LogTopFolder();
+    std::string path = config::LogTopFolder() + "/dyn_topo.txt";
+    CreateMultiLevelDir(fileDir);
+    std::string topo = "seqNo, taskId, rootIndex, rootHash, opMagic, leafIndex, leafHash, coreType, psgId, successors";
+    DumpFile(topo, path);
+    costModel.RunDynCostModel();
+    auto ret = IsPathExist(path);
+    EXPECT_EQ(ret, true);
 }

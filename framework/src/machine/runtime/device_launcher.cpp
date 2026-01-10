@@ -17,9 +17,15 @@
 #include "machine/runtime/device_launcher_binding.h"
 #include "machine/host/backend.h"
 #include "machine/runtime/host_prof.h"
+
+extern "C" int DynTileFwkBackendKernelServer(void *targ);
+extern "C" int DynTileFwkBackendKernelServerInit(void *targ);
+extern "C" int PyptoKernelCtrlServer(void *targ);
+
 namespace npu::tile_fwk::dynamic {
 namespace {
     constexpr uint32_t kMinDefaultDim = 20;
+    constexpr uint32_t BufferSize = 64;
 }
 int GetCfgBlockdim() {
 #ifdef BUILD_WITH_CANN
@@ -208,6 +214,43 @@ int DeviceLauncher::DeviceRunOnce(Function *function, const DeviceLauncherConfig
     (void)config;
     return 0;
 #endif
+}
+
+void DeviceLauncher::RunTestMode(AstKernelArgs *kArgs) {
+    (void) kArgs;
+    std::thread aicpus[DEVICE_MAX_AICPU_NUM];
+    std::atomic<int> idx{0};
+    auto *devProg = (DevAscendProgram *)(kArgs->cfgdata);
+    auto rc0 = DynTileFwkBackendKernelServerInit(kArgs);
+    ASSERT(rc0 == 0) << "Test mode kernelServer init failed";
+    int threadNum = static_cast<int>(devProg->devArgs.nrAicpu);
+    threadNum = (devProg->devArgs.enableCtrl == 1) ? threadNum : threadNum + 1;
+    for (int i = 0; i < threadNum; i++) {
+        aicpus[i] = std::thread([&]() {
+            int tidx = idx++;
+            cpu_set_t cpuset;
+            CPU_ZERO(&cpuset);
+            CPU_SET(tidx, &cpuset);
+            char name[BufferSize];
+            (void)sprintf_s(name, BufferSize, "aicput%d", tidx);
+            std::cout << "start thread: " << name << std::endl;
+            pthread_setname_np(pthread_self(), name);
+            pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
+            auto rc = 0;
+            if ((devProg->devArgs.enableCtrl == 0) && (uint32_t)tidx == devProg->devArgs.scheCpuNum) {
+                rc = PyptoKernelCtrlServer(kArgs);
+            } else {
+                rc = DynTileFwkBackendKernelServer(kArgs);
+            }
+            ASSERT(rc == 0) << "Test mode kernelServer failed";
+        });
+    }
+
+    for (int i = 0; i < threadNum; i++) {
+        if (aicpus[i].joinable()) {
+            aicpus[i].join();
+        }
+    }
 }
 
 struct DeviceRunCacheInfo {

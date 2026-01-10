@@ -51,6 +51,8 @@ public:
     void DebugSingleFunc(Function *func);
     void GetFunctionFromJson(const std::string &jsonPath);
     uint64_t GetLeafFunctionTimeCost(uint64_t hash);
+    void RunCostModel(void *costModeData);
+    void RunDynCostModel();
 
 private:
     std::shared_ptr<CostModel::CostModelInterface> costModel;
