@@ -26,8 +26,7 @@
 #include "ir/statement.h"
 #include "ir/value.h"
 #include "ir/operation_base.h"
-#include "ir/transform/unroll_static_for.h"
-
+#include "ir/transform/ir_printer.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 using namespace npu::tile_fwk;
@@ -91,7 +90,10 @@ TEST(IRTEST, TestBuilder) {
     module->Attributes()["tile_default"] = "{ M=16, N=16, K=16 }";
     module->Attributes()["enable_debug"] = "true";
 
-    std::cout << *module << std::endl;
+    std::stringstream ss;
+    IRPrinter printer(ss);
+    printer.VisitProgram(module);
+    std::cout << ss.str() << std::endl;
 }
 
 TEST(IRTEST, TestControlFlow) {
@@ -216,7 +218,10 @@ TEST(IRTEST, TestControlFlow) {
 
     ctx.PopScope(); // function-body
 
-    std::cout << *module << std::endl;
+    std::stringstream ss;
+    IRPrinter printer(ss);
+    printer.VisitProgram(module);
+    std::cout << ss.str() << std::endl;
 }
 
 std::shared_ptr<Function> TestBlockFunction(

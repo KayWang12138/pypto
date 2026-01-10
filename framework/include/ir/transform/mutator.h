@@ -46,7 +46,13 @@ class IRMutator : public IRFunctor<ProgramModulePtr, FunctionPtr, StatementPtr,
   StatementPtr VisitStmt_(StatementPtr& stmt) override;
 
   // Operation mutator methods
-  OperationPtr VisitOp_(ScalarBaseOpPtr& op) override;
+  // Concrete ops (auto-generated from *.def)
+#define DEFOP(name, inherit, opcode, ...) OperationPtr VisitOp_(name##Ptr& op) override;
+#include "ir/operation.def"
+#include "ir/tile_graph.def"
+#undef DEFOP
+
+  // Operation mutator methods
   OperationPtr VisitOp_(OperationPtr& op) override;
 
   // Value mutator methods
@@ -54,6 +60,32 @@ class IRMutator : public IRFunctor<ProgramModulePtr, FunctionPtr, StatementPtr,
   ValuePtr VisitValue_(TileValuePtr& value) override;
   ValuePtr VisitValue_(TensorValuePtr& value) override;
   ValuePtr VisitValue_(ValuePtr& value) override;
+
+  protected:
+  /**
+   * \brief Default traversal logic (copy-on-write).
+   *
+   * Derived mutators are encouraged to override VisitXXX_ for specific node
+   * kinds, and call the corresponding DefaultVisit... method to reuse the standard
+   * traversal + reconstruction logic.
+   */
+  virtual ProgramModulePtr DefaultVisitProgram(ProgramModulePtr& program);
+  virtual FunctionPtr DefaultVisitFunction(FunctionPtr& func);
+
+  virtual StatementPtr DefaultVisitStmt(CompoundStatementPtr& stmt);
+  virtual StatementPtr DefaultVisitStmt(OpStatementPtr& stmt);
+  virtual StatementPtr DefaultVisitStmt(ForStatementPtr& stmt);
+  virtual StatementPtr DefaultVisitStmt(IfStatementPtr& stmt);
+  virtual StatementPtr DefaultVisitStmt(YieldStatementPtr& stmt);
+  virtual StatementPtr DefaultVisitStmt(ReturnStatementPtr& stmt);
+  virtual StatementPtr DefaultVisitStmt(StatementPtr& stmt);
+
+  virtual OperationPtr DefaultVisitOp(OperationPtr& op);
+
+  virtual ValuePtr DefaultVisitValue(ScalarValuePtr& value);
+  virtual ValuePtr DefaultVisitValue(TileValuePtr& value);
+  virtual ValuePtr DefaultVisitValue(TensorValuePtr& value);
+  virtual ValuePtr DefaultVisitValue(ValuePtr& value);
 };
 
 } // namespace pto

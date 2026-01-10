@@ -42,18 +42,11 @@ public:
     void AddFunction(const std::shared_ptr<Function>& function);
     const std::vector<std::shared_ptr<Function>> GetFunctions() const { return functions_; }
 
-    // Pretty-print to a textual PTO-IR-like form.
-    void Print(std::ostream& os, int indent = 0) const;
-
 private:
     std::shared_ptr<Function> programEntry_;
     std::vector<std::shared_ptr<Function>> functions_;
 };
 
-using ProgramModulePtr = std::shared_ptr<ProgramModule>;
-
-// Helper for convenient streaming: std::cout << module;
-std::ostream& operator<<(std::ostream& os, const ProgramModule& module);
 using ProgramModulePtr = std::shared_ptr<ProgramModule>;
 } // namespace pto
 

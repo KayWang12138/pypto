@@ -22,11 +22,89 @@
 
 namespace pto {
 
+// ==============================
+// Virtual overrides: default to DefaultVisit...
+// ==============================
+
 ProgramModulePtr IRMutator::VisitProgram_(ProgramModulePtr& program) {
+  return DefaultVisitProgram(program);
+}
+
+FunctionPtr IRMutator::VisitFunction_(FunctionPtr& func) {
+  return DefaultVisitFunction(func);
+}
+
+StatementPtr IRMutator::VisitStmt_(CompoundStatementPtr& stmt) {
+  return DefaultVisitStmt(stmt);
+}
+
+StatementPtr IRMutator::VisitStmt_(OpStatementPtr& stmt) {
+  return DefaultVisitStmt(stmt);
+}
+
+StatementPtr IRMutator::VisitStmt_(ForStatementPtr& stmt) {
+  return DefaultVisitStmt(stmt);
+}
+
+StatementPtr IRMutator::VisitStmt_(IfStatementPtr& stmt) {
+  return DefaultVisitStmt(stmt);
+}
+
+StatementPtr IRMutator::VisitStmt_(YieldStatementPtr& stmt) {
+  return DefaultVisitStmt(stmt);
+}
+
+StatementPtr IRMutator::VisitStmt_(ReturnStatementPtr& stmt) {
+  return DefaultVisitStmt(stmt);
+}
+
+StatementPtr IRMutator::VisitStmt_(StatementPtr& stmt) { return DefaultVisitStmt(stmt); }
+
+#define DEFOP(name, inherit, opcode, ...) \
+OperationPtr IRMutator::VisitOp_(name##Ptr &op) { \
+  bool changed = false; \
+  std::vector<ValuePtr> newInputs; \
+  newInputs.reserve(op->GetNumInputOperand()); \
+  for (size_t i = 0; i < op->GetNumInputOperand(); ++i) { \
+    ValuePtr v = op->GetInputOperand(i); \
+    ValuePtr nv = VisitValue(v); \
+    if (nv != v) changed = true; \
+    newInputs.push_back(nv); \
+  } \
+  std::vector<ValuePtr> newOutputs; \
+  newOutputs.reserve(op->GetNumOutputOperand()); \
+  for (size_t i = 0; i < op->GetNumOutputOperand(); ++i) { \
+    ValuePtr v = op->GetOutputOperand(i); \
+    ValuePtr nv = VisitValue(v); \
+    if (nv != v) changed = true; \
+    newOutputs.push_back(nv); \
+  } \
+  if (!changed) return op; \
+  return name::Rebuild(op, newInputs, newOutputs); \
+}
+#include "ir/operation.def"
+#include "ir/tile_graph.def"
+#undef DEFOP
+
+OperationPtr IRMutator::VisitOp_(OperationPtr& op) { return DefaultVisitOp(op); }
+
+ValuePtr IRMutator::VisitValue_(ScalarValuePtr& value) { return DefaultVisitValue(value); }
+
+ValuePtr IRMutator::VisitValue_(TileValuePtr& value) { return DefaultVisitValue(value); }
+
+ValuePtr IRMutator::VisitValue_(TensorValuePtr& value) { return DefaultVisitValue(value); }
+
+ValuePtr IRMutator::VisitValue_(ValuePtr& value) { return DefaultVisitValue(value); }
+
+// ==============================
+// Default traversal (copy-on-write)
+// ==============================
+
+ProgramModulePtr IRMutator::DefaultVisitProgram(ProgramModulePtr& program) {
   if (!program) return program;
-  
+
   bool changed = false;
-  
+
   // Visit and mutate program entry
   FunctionPtr entry = program->GetProgramEntry();
   FunctionPtr newEntry = entry;
@@ -36,7 +114,7 @@ ProgramModulePtr IRMutator::VisitProgram_(ProgramModulePtr& program) {
       changed = true;
     }
   }
-  
+
   // Visit and mutate all functions
   // Skip the entry function if it's in the functions list to avoid duplicate processing
   std::vector<FunctionPtr> newFunctions;
@@ -49,7 +127,7 @@ ProgramModulePtr IRMutator::VisitProgram_(ProgramModulePtr& program) {
       }
       continue;
     }
-    
+
     FunctionPtr funcPtr = func;
     FunctionPtr newFunc = VisitFunction(funcPtr);
     newFunctions.push_back(newFunc);
@@ -57,7 +135,7 @@ ProgramModulePtr IRMutator::VisitProgram_(ProgramModulePtr& program) {
       changed = true;
     }
   }
-  
+
   // Create new ProgramModule if any child was modified
   if (changed) {
     auto newProgram = std::make_shared<ProgramModule>(program->GetName());
@@ -71,15 +149,15 @@ ProgramModulePtr IRMutator::VisitProgram_(ProgramModulePtr& program) {
     newProgram->Attributes() = program->Attributes();
     return newProgram;
   }
-  
+
   return program;
 }
 
-FunctionPtr IRMutator::VisitFunction_(FunctionPtr& func) {
+FunctionPtr IRMutator::DefaultVisitFunction(FunctionPtr& func) {
   if (!func) return func;
-  
+
   bool changed = false;
-  
+
   // Visit and mutate signature arguments
   FunctionSignature newSig = func->GetSignature();
   for (auto& arg : newSig.arguments) {
@@ -90,7 +168,7 @@ FunctionPtr IRMutator::VisitFunction_(FunctionPtr& func) {
       arg = newArg;
     }
   }
-  
+
   // Visit and mutate signature results
   for (auto& result : newSig.results) {
     ValuePtr resultPtr = result;
@@ -100,7 +178,7 @@ FunctionPtr IRMutator::VisitFunction_(FunctionPtr& func) {
       result = newResult;
     }
   }
-  
+
   // Visit and mutate input compound
   CompoundStatementPtr inputCompound = func->GetInputCompound();
   if (inputCompound) {
@@ -112,7 +190,7 @@ FunctionPtr IRMutator::VisitFunction_(FunctionPtr& func) {
       inputCompound = newInputCompound;
     }
   }
-  
+
   // Visit and mutate function body compound
   CompoundStatementPtr compound = func->GetCompound();
   if (compound) {
@@ -124,7 +202,7 @@ FunctionPtr IRMutator::VisitFunction_(FunctionPtr& func) {
       compound = newCompound;
     }
   }
-  
+
   // Create new Function if any child was modified
   if (changed) {
     auto newFunc = std::make_shared<Function>(func->GetName(), func->GetKind(), newSig);
@@ -135,16 +213,16 @@ FunctionPtr IRMutator::VisitFunction_(FunctionPtr& func) {
     newFunc->Attributes() = func->Attributes();
     return newFunc;
   }
-  
+
   return func;
 }
 
-StatementPtr IRMutator::VisitStmt_(CompoundStatementPtr& stmt) {
+StatementPtr IRMutator::DefaultVisitStmt(CompoundStatementPtr& stmt) {
   if (!stmt) return stmt;
-  
+
   bool changed = false;
   std::vector<StatementPtr> newStatements;
-  
+
   // Visit and mutate all statements
   for (size_t i = 0; i < stmt->GetStatementsNum(); ++i) {
     StatementPtr stmtPtr = stmt->GetStatement(i);
@@ -154,7 +232,7 @@ StatementPtr IRMutator::VisitStmt_(CompoundStatementPtr& stmt) {
       changed = true;
     }
   }
-  
+
   // Create new CompoundStatement if any child was modified
   if (changed) {
     auto newStmt = std::make_shared<CompoundStatement>();
@@ -170,16 +248,16 @@ StatementPtr IRMutator::VisitStmt_(CompoundStatementPtr& stmt) {
     newStmt->Attributes() = stmt->Attributes();
     return newStmt;
   }
-  
+
   return stmt;
 }
 
-StatementPtr IRMutator::VisitStmt_(OpStatementPtr& stmt) {
+StatementPtr IRMutator::DefaultVisitStmt(OpStatementPtr& stmt) {
   if (!stmt) return stmt;
-  
+
   bool changed = false;
   std::vector<OperationPtr> newOperations;
-  
+
   // Visit and mutate all operations
   const auto& ops = stmt->Operations();
   for (const auto& op : ops) {
@@ -190,7 +268,7 @@ StatementPtr IRMutator::VisitStmt_(OpStatementPtr& stmt) {
       changed = true;
     }
   }
-  
+
   // Create new OpStatement if any child was modified
   if (changed) {
     auto newStmt = std::make_shared<OpStatement>();
@@ -201,15 +279,15 @@ StatementPtr IRMutator::VisitStmt_(OpStatementPtr& stmt) {
     newStmt->Attributes() = stmt->Attributes();
     return newStmt;
   }
-  
+
   return stmt;
 }
 
-StatementPtr IRMutator::VisitStmt_(ForStatementPtr& stmt) {
+StatementPtr IRMutator::DefaultVisitStmt(ForStatementPtr& stmt) {
   if (!stmt) return stmt;
-  
+
   bool changed = false;
-  
+
   // Visit and mutate iteration variable
   ScalarValuePtr iterVar = stmt->GetIterationVar();
   if (iterVar) {
@@ -220,14 +298,14 @@ StatementPtr IRMutator::VisitStmt_(ForStatementPtr& stmt) {
       iterVar = std::dynamic_pointer_cast<ScalarValue>(newIterVar);
     }
   }
-  
+
   // Visit and mutate range values
   ScalarValuePtr start, end, step;
   if (auto range = stmt->GetRange()) {
     start = range->GetStart();
     end = range->GetEnd();
     step = range->GetStep();
-    
+
     if (start) {
       ValuePtr startValue = std::static_pointer_cast<Value>(start);
       ValuePtr newStart = VisitValue(startValue);
@@ -253,7 +331,7 @@ StatementPtr IRMutator::VisitStmt_(ForStatementPtr& stmt) {
       }
     }
   }
-  
+
   // Visit and mutate iter args
   std::vector<IterArg> newIterArgs;
   const auto& iterArgs = stmt->IterArgs();
@@ -277,7 +355,7 @@ StatementPtr IRMutator::VisitStmt_(ForStatementPtr& stmt) {
     }
     newIterArgs.push_back(newIterArg);
   }
-  
+
   // Visit and mutate loop body compound
   CompoundStatementPtr compound = stmt->GetCompound();
   if (compound) {
@@ -289,7 +367,7 @@ StatementPtr IRMutator::VisitStmt_(ForStatementPtr& stmt) {
       compound = newCompound;
     }
   }
-  
+
   // Visit and mutate results
   std::vector<ValuePtr> newResults;
   const auto& results = stmt->Results();
@@ -301,7 +379,7 @@ StatementPtr IRMutator::VisitStmt_(ForStatementPtr& stmt) {
       changed = true;
     }
   }
-  
+
   // Create new ForStatement if any child was modified
   if (changed) {
     auto newStmt = std::make_shared<ForStatement>(
@@ -327,15 +405,15 @@ StatementPtr IRMutator::VisitStmt_(ForStatementPtr& stmt) {
     newStmt->Attributes() = stmt->Attributes();
     return newStmt;
   }
-  
+
   return stmt;
 }
 
-StatementPtr IRMutator::VisitStmt_(IfStatementPtr& stmt) {
+StatementPtr IRMutator::DefaultVisitStmt(IfStatementPtr& stmt) {
   if (!stmt) return stmt;
-  
+
   bool changed = false;
-  
+
   // Visit and mutate condition
   ScalarValuePtr condition = stmt->GetCondition();
   if (condition) {
@@ -346,7 +424,7 @@ StatementPtr IRMutator::VisitStmt_(IfStatementPtr& stmt) {
       condition = std::dynamic_pointer_cast<ScalarValue>(newCondition);
     }
   }
-  
+
   // Visit and mutate then branch
   CompoundStatementPtr thenCompound = stmt->GetThenCompound();
   if (thenCompound) {
@@ -358,7 +436,7 @@ StatementPtr IRMutator::VisitStmt_(IfStatementPtr& stmt) {
       thenCompound = newThenCompound;
     }
   }
-  
+
   // Visit and mutate else branch
   CompoundStatementPtr elseCompound = stmt->GetElseCompound();
   if (elseCompound) {
@@ -370,7 +448,7 @@ StatementPtr IRMutator::VisitStmt_(IfStatementPtr& stmt) {
       elseCompound = newElseCompound;
     }
   }
-  
+
   // Visit and mutate results
   std::vector<ValuePtr> newResults;
   const auto& results = stmt->Results();
@@ -382,7 +460,7 @@ StatementPtr IRMutator::VisitStmt_(IfStatementPtr& stmt) {
       changed = true;
     }
   }
-  
+
   // Create new IfStatement if any child was modified
   if (changed) {
     auto newStmt = std::make_shared<IfStatement>(
@@ -395,16 +473,16 @@ StatementPtr IRMutator::VisitStmt_(IfStatementPtr& stmt) {
     newStmt->Attributes() = stmt->Attributes();
     return newStmt;
   }
-  
+
   return stmt;
 }
 
-StatementPtr IRMutator::VisitStmt_(YieldStatementPtr& stmt) {
+StatementPtr IRMutator::DefaultVisitStmt(YieldStatementPtr& stmt) {
   if (!stmt) return stmt;
-  
+
   bool changed = false;
   std::vector<ValuePtr> newValues;
-  
+
   // Visit and mutate values
   const auto& values = stmt->Values();
   for (const auto& value : values) {
@@ -415,7 +493,7 @@ StatementPtr IRMutator::VisitStmt_(YieldStatementPtr& stmt) {
       changed = true;
     }
   }
-  
+
   // Create new YieldStatement if any child was modified
   if (changed) {
     auto newStmt = std::make_shared<YieldStatement>();
@@ -426,16 +504,16 @@ StatementPtr IRMutator::VisitStmt_(YieldStatementPtr& stmt) {
     newStmt->Attributes() = stmt->Attributes();
     return newStmt;
   }
-  
+
   return stmt;
 }
 
-StatementPtr IRMutator::VisitStmt_(ReturnStatementPtr& stmt) {
+StatementPtr IRMutator::DefaultVisitStmt(ReturnStatementPtr& stmt) {
   if (!stmt) return stmt;
-  
+
   bool changed = false;
   std::vector<ValuePtr> newValues;
-  
+
   // Visit and mutate values
   const auto& values = stmt->Values();
   for (const auto& value : values) {
@@ -446,7 +524,7 @@ StatementPtr IRMutator::VisitStmt_(ReturnStatementPtr& stmt) {
       changed = true;
     }
   }
-  
+
   // Create new ReturnStatement if any child was modified
   if (changed) {
     auto newStmt = std::make_shared<ReturnStatement>();
@@ -457,26 +535,18 @@ StatementPtr IRMutator::VisitStmt_(ReturnStatementPtr& stmt) {
     newStmt->Attributes() = stmt->Attributes();
     return newStmt;
   }
-  
+
   return stmt;
 }
 
-StatementPtr IRMutator::VisitStmt_(StatementPtr& stmt) {
-  // Fallback for unknown statement types
-  return stmt;
-}
+StatementPtr IRMutator::DefaultVisitStmt(StatementPtr& stmt) { return stmt; }
 
-OperationPtr IRMutator::VisitOp_(ScalarBaseOpPtr& op) {
-  OperationPtr opPtr = std::static_pointer_cast<Operation>(op);
-  return VisitOp_(opPtr);
-}
-
-OperationPtr IRMutator::VisitOp_(OperationPtr& op) {
+OperationPtr IRMutator::DefaultVisitOp(OperationPtr& op) {
   if (!op) return op;
-  
+
   bool changed = false;
   std::vector<ValuePtr> newInputs, newOutputs;
-  
+
   // Visit and mutate input operands
   for (size_t i = 0; i < op->GetNumInputOperand(); ++i) {
     ValuePtr operand = op->GetInputOperand(i);
@@ -486,7 +556,7 @@ OperationPtr IRMutator::VisitOp_(OperationPtr& op) {
       changed = true;
     }
   }
-  
+
   // Visit and mutate output operands
   for (size_t i = 0; i < op->GetNumOutputOperand(); ++i) {
     ValuePtr operand = op->GetOutputOperand(i);
@@ -496,7 +566,7 @@ OperationPtr IRMutator::VisitOp_(OperationPtr& op) {
       changed = true;
     }
   }
-  
+
   // Create new Operation if any child was modified
   if (changed) {
     auto newOp = std::make_shared<Operation>(op->GetOpcode(), newInputs, newOutputs, op->GetName());
@@ -507,27 +577,24 @@ OperationPtr IRMutator::VisitOp_(OperationPtr& op) {
     newOp->Attributes() = op->Attributes();
     return newOp;
   }
-  
+
   return op;
 }
 
-ValuePtr IRMutator::VisitValue_(ScalarValuePtr& value) {
-  // ScalarValue is a leaf node, no children to visit
-  return value;
-}
+ValuePtr IRMutator::DefaultVisitValue(ScalarValuePtr& value) { return value; }
 
-ValuePtr IRMutator::VisitValue_(TileValuePtr& value) {
+ValuePtr IRMutator::DefaultVisitValue(TileValuePtr& value) {
   // TileValue may have validShapes, but they are ScalarValuePtr which are leaf nodes
   // No need to traverse further
   return value;
 }
 
-ValuePtr IRMutator::VisitValue_(TensorValuePtr& value) {
+ValuePtr IRMutator::DefaultVisitValue(TensorValuePtr& value) {
   if (!value) return value;
-  
+
   bool changed = false;
   std::vector<ScalarValuePtr> newShape;
-  
+
   // Visit and mutate shape scalars
   const auto& shape = value->GetShape();
   for (const auto& shapeElem : shape) {
@@ -539,7 +606,7 @@ ValuePtr IRMutator::VisitValue_(TensorValuePtr& value) {
       changed = true;
     }
   }
-  
+
   // Create new TensorValue if any child was modified
   if (changed) {
     auto newValue = std::make_shared<TensorValue>(
@@ -549,14 +616,11 @@ ValuePtr IRMutator::VisitValue_(TensorValuePtr& value) {
     newValue->Attributes() = value->Attributes();
     return newValue;
   }
-  
+
   return value;
 }
 
-ValuePtr IRMutator::VisitValue_(ValuePtr& value) {
-  // Fallback for unknown value types
-  return value;
-}
+ValuePtr IRMutator::DefaultVisitValue(ValuePtr& value) { return value; }
 
 } // namespace pto
 
