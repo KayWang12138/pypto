@@ -25,7 +25,6 @@
 #include "machine/runtime/device_launcher.h"
 #include "machine/runtime/load_aicpu_op.h"
 #include "machine/utils/machine_ws_intf.h"
-#include "machine/kernel/aicore.h"
 #include "machine/device/dynamic/device_common.h"
 #include "interface/utils/log.h"
 #include "interface/utils/file_utils.h"
@@ -460,6 +459,7 @@ void DeviceRunner::DumpAiCoreExecutionTimeData() {
     std::string topo_txt_path = config::LogTopFolder() + "/dyn_topo.txt";
     std::string program_json_path = config::LogTopFolder() + "/program.json";
     std::string draw_swim_lane_py_path = GetCurrentSharedLibPath() + "/scripts/draw_swim_lane.py";
+    config::SetRunDataOption(KEY_SWIM_GRAPH_PATH, config::GetAbsoluteTopFolder() + "/merged_swimlane.json");        
 
     if (FileExist(program_json_path) && FileExist(topo_txt_path)) {
         ALOG_INFO("The files program.json and dyn_topo.txt exist. Start merging the swimlane.");
@@ -658,8 +658,6 @@ int DeviceRunner::DynamicKernelLaunch(rtStream_t aicpuStream, rtStream_t aicoreS
         return rc;
     }
     ReportHostProfInfo(startTime, blockdim, MSPROF_GE_TASK_TYPE_MIX_AIC, true);
-
-    rc = RunPost(aicpuStream, aicoreStream);
     return rc;
 }
 

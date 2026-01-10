@@ -17,6 +17,7 @@
 #include <iostream>
 #include <variant>
 #include "tilefwk/tilefwk.h"
+#include "interface/configs/config_manager_ng.h"
 
 namespace npu::tile_fwk {
 
@@ -51,9 +52,7 @@ constexpr const char *STITCH_FUNCTION_NUM_STEP = "stitch_function_num_step";
 constexpr const char *PROFILE_ENABLE = "profile_enable";
 constexpr const char *COST_MODEL_ENABLE = "cost_model_enable";
 constexpr const char *STITCH_FUNCTION_SIZE = "stitch_function_size";
-constexpr const char *CFGCACHE_DEVICE_TASK_NUM = "cfgcache_device_task_num";
-constexpr const char *CFGCACHE_ROOT_TASK_NUM = "cfgcache_root_task_num";
-constexpr const char *CFGCACHE_LEAF_TASK_NUM = "cfgcache_leaf_task_num";
+constexpr const char *STITCH_CFGCACHE_SIZE = "stitch_cfgcache_size";
 constexpr const char *CFG_RUN_MODE = "run_mode";
 const int64_t CFG_RUN_MODE_NPU = 0;
 const int64_t CFG_RUN_MODE_SIM = 1;
@@ -136,12 +135,9 @@ T GetOption(const std::string &key) {
 }
 
 #define DEFINE_CONFIG_GROUP(group, prefix)                   \
-    inline bool Has##group##Option(const std::string &key) { \
-        return HasOption(prefix "." + key);                  \
-    }                                                        \
     template <typename T>                                    \
     inline T Get##group##Option(const std::string &key) {    \
-        return GetOption<T>(prefix "." + key);               \
+        return ConfigManagerNg::CurrentScope()->GetConfigAllType<T>(prefix "." + key); \
     }
 
 DEFINE_CONFIG_GROUP(CodeGen, "codegen")
@@ -151,8 +147,8 @@ DEFINE_CONFIG_GROUP(Host, "host")
 DEFINE_CONFIG_GROUP(Verify, "verify")
 DEFINE_CONFIG_GROUP(Debug, "debug")
 
-std::shared_ptr<ConfigStorage> Duplicate();
-void Restore(std::shared_ptr<ConfigStorage> config);
+std::shared_ptr<ConfigScope> Duplicate();
+void Restore(std::shared_ptr<ConfigScope> config);
 
 PrintOptions &GetPrintOptions();
 

@@ -686,7 +686,6 @@ std::string CodeGenOpCloudNPU::GenMemCopyVar(bool isCopyLocalToGM, unsigned uf) 
     std::vector<int64_t> gmShape = this->rawShape[gmIdx];
     ALOG_INFO_F("gmShape is %s", IntVecToStr(gmShape).c_str());
     std::vector<int64_t> tileShapeForMT = GetTileShapeForMemTransfer(localType, gmShape, localIdx);
-    ALOG_INFO_F("========dst shape is %s", IntVecToStr(shape[ID0]).c_str());
     ALOG_INFO_F("========tileShapeForMT is %s", IntVecToStr(tileShapeForMT).c_str());
 
     std::vector<std::string> addrExpr(ID2);
@@ -1059,23 +1058,26 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL1Dynamic(const PrintMemCopyWithL
     return oss.str();
 }
 
+// When ub tensor spilling to GM occurred, the spilling unit is entire raw shape of ub tensor.
+// So ub offset is always zero under this scene, do not need to calculate anymore.
 std::string CodeGenOpCloudNPU::PrintMemCopyWithUB(PrintMemCopyWithUBParam &param) const {
     unsigned localIdx = param.localIdx;
     std::vector<std::string> &addrExpr = param.addrExpr;
-    // When ub tensor spilling to GM occurred, the spilling unit is entire raw shape of ub tensor.
-    // So ub offset is always zero under this scene, do not need to calculate anymore.
-    AppendLocalBufferVarOffset({
-        {localIdx, std::ref(addrExpr[localIdx])}
-    });
     if (isSupportLayout) {
         return PrintMemCopyWithUBTileTensor(param);
     }
     if (isSupportDynamicAligned) {
+        AppendLocalBufferVarOffset({
+            {localIdx, addrExpr[localIdx]}
+        });
         return PrintMemCopyWithUBDynamic(param);
     }
     if (isDynamicFunction) {
         return PrintMemCopyWithUBDynamicSupportUnaligned(param);
     }
+    AppendLocalBufferVarOffset({
+        {localIdx, addrExpr[localIdx]}
+    });
     return PrintMemCopyWithUBStatic(param);
 }
 
@@ -1176,6 +1178,9 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithUBDynamicSupportUnaligned(const P
     for (int i = 1; i < MAX_DIM; ++i) {
         paramList.emplace_back(std::to_string(localRawShape[i]));
     }
+    if (isPartialMem[localIdx]) {
+        paramList.emplace_back("true");
+    }
     std::string templateParam = JoinString(paramList, CONN_COMMA);
 
     paramList.clear();
@@ -1187,6 +1192,10 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithUBDynamicSupportUnaligned(const P
         paramList.emplace_back(SymbolicExpressionTable::BuildExpression(ts));
     }
     paramList.insert(paramList.end(), paramPack.paramList.begin(), paramPack.paramList.end());
+    auto startOffset = GetOperandStartOffset(localIdx);
+    if (!startOffset.ConcreteValid() || startOffset.Concrete() != 0) {
+        paramList.emplace_back(startOffset.Dump());
+    }
 
     std::string tiloOpCallParam = JoinString(paramList, CONN_COMMA);
     os << tileOpName.c_str() << "<" << templateParam << ">"

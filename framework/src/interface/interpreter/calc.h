@@ -171,6 +171,9 @@ inline void IndexAdd(LogicalTensorDataPtr out, LogicalTensorDataPtr self, Logica
     LogicalTensorDataPtr indices, int axis, const Element &alpha = Element(DT_FP32, 1.0)) {
     GetCalcOps()->IndexAdd(out, self, src, indices, axis, alpha);
 }
+inline void CumSum(LogicalTensorDataPtr out, LogicalTensorDataPtr in, int axis) {
+    GetCalcOps()->CumSum(out, in, axis);
+}
 inline void Reshape(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     GetCalcOps()->Reshape(out, self);
 }
@@ -192,6 +195,9 @@ inline void ScatterUpdate(LogicalTensorDataPtr out, LogicalTensorDataPtr self, L
     int axis = -2, std::string cacheMode = "BSND", int blockSize = 1) {
     GetCalcOps()->ScatterUpdate(out, self, index, axis, cacheMode, blockSize);
 }
+inline void LogicalView(LogicalTensorDataPtr out, LogicalTensorDataPtr self, Offset offset) {
+    GetCalcOps()->LogicalView(out, self, offset);
+}
 inline void Scatter(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr index, const Element &src,
     int axis, int reduce) {
     GetCalcOps()->Scatter(out, self, index, src, axis, reduce);
@@ -201,6 +207,10 @@ inline void BitSort(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int64_t
 }
 inline void Gather(LogicalTensorDataPtr out, LogicalTensorDataPtr params, LogicalTensorDataPtr indices, int64_t axis) {
     GetCalcOps()->Gather(out, params, indices, axis);
+}
+inline void GatherINUB(LogicalTensorDataPtr out, LogicalTensorDataPtr params, LogicalTensorDataPtr indices,
+    LogicalTensorDataPtr pageTable, int64_t blockSize, int64_t axis) {
+    GetCalcOps()->GatherINUB(out, params, indices, pageTable, blockSize, axis);
 }
 
 inline void Extract(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int mod, bool descending) {

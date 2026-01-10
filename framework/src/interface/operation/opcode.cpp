@@ -162,7 +162,7 @@ OpcodeManager::OpcodeManager() {
     registerInfo(Opcode::OP_SCATTER_SCALAR, OpCoreType::ANY, "SCATTER_SCALAR",
         {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {}, OpCalcType::OTHER);
     registerInfo(Opcode::OP_CUM_SUM, OpCoreType::AIV, "CUM_SUM", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
-        {"TileOp::TcumSum", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER, {OP_ATTR_PREFIX + "axis", OP_ATTR_PREFIX + "flag"});
+        {"TileOp::TcumSum", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER, {OP_ATTR_PREFIX + "axis", OP_ATTR_PREFIX + "flag", OpAttributeKey::excludeBufferReuse});
     registerInfo(Opcode::OP_MAXIMUM, OpCoreType::AIV, "MAXIMUM", {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::Tmax", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::BROADCAST, {OpAttributeKey::inputCombineAxis}, TileShapeVerifier::Verify);
     registerInfo(Opcode::OP_MINIMUM, OpCoreType::AIV, "MINIMUM", {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::Tmin", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::BROADCAST, {OpAttributeKey::inputCombineAxis}, TileShapeVerifier::Verify);
     registerInfo(Opcode::OP_PAIRMAX, OpCoreType::AIV, "PAIRMAX", {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::Tmaxpair", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::BROADCAST, {OpAttributeKey::inputCombineAxis, OpAttributeKey::excludeBufferReuse});
@@ -306,12 +306,6 @@ OpcodeManager::OpcodeManager() {
     registerInfo(Opcode::OP_BAR_V, OpCoreType::ANY, "BAR.V", {}, {}, {"BAR.V", PIPE_S, PIPE_S, CoreType::AIC}, OpCalcType::SYNC);
     registerInfo(Opcode::OP_BAR_M, OpCoreType::ANY, "BAR.M", {}, {}, {"BAR.M", PIPE_S, PIPE_S, CoreType::AIC}, OpCalcType::SYNC);
     registerInfo(Opcode::OP_BAR_ALL, OpCoreType::ANY, "BAR.ALL", {}, {}, {"BAR.ALL", PIPE_S, PIPE_S, CoreType::AIC}, OpCalcType::SYNC);
-    registerInfo(Opcode::OP_REMOTE_GATHER, OpCoreType::ANY, "REMOTE_GATHER", {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB}, {"TileOp::Distributed::RemoteGather", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::DISTRIBUTED, {OpAttributeKey::requiresBoundaryCopy, OpAttributeKey::excludeBufferReuse});
-    registerInfo(Opcode::OP_LOCAL_COPY_OUT, OpCoreType::ANY, "LOCAL_COPY_OUT", {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_DEVICE_DDR}, {"TileOp::Distributed::LocalCopyOut", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::DISTRIBUTED, {OpAttributeKey::requiresBoundaryCopy});
-    registerInfo(Opcode::OP_WRITE_REMOTE, OpCoreType::ANY, "WRITE_REMOTE", {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::Distributed::WriteRemote", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::DISTRIBUTED, {OpAttributeKey::requiresBoundaryCopy});
-    registerInfo(Opcode::OP_REMOTE_REDUCE, OpCoreType::ANY, "REMOTE_REDUCE", {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB}, {"TileOp::Distributed::RemoteReduce", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::DISTRIBUTED, {OpAttributeKey::requiresBoundaryCopy});
-    registerInfo(Opcode::OP_COMM_WAIT_FLAG, OpCoreType::AICPU, "COMM_WAIT_FLAG", {MemoryType::MEM_DEVICE_DDR}, {MemoryType::MEM_DEVICE_DDR}, TileOpCfg(), OpCalcType::DISTRIBUTED, {OP_ATTR_PREFIX + "distributed"});
-    registerInfo(Opcode::OP_DEPEND_ON, OpCoreType::AICPU, "DEPEND_ON", {MemoryType::MEM_UB}, {MemoryType::MEM_DEVICE_DDR}, TileOpCfg(), OpCalcType::DISTRIBUTED);
     registerInfo(Opcode::OP_SEND_TO_ROUTING_EXPERT, OpCoreType::ANY, "SEND_TO_ROUTING_EXPERT", {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR}, {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::Distributed::SendToRoutingExpert", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::DISTRIBUTED, {OP_ATTR_PREFIX + "distributed"});
     registerInfo(Opcode::OP_SEND_TO_SHARED_EXPERT, OpCoreType::ANY, "SEND_TO_SHARED_EXPERT", {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR}, {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB}, {"TileOp::Distributed::SendToSharedExpert", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::DISTRIBUTED, {OpAttributeKey::requiresBoundaryCopy});
     registerInfo(Opcode::OP_COPY_TO_LOCAL_EXPERT, OpCoreType::ANY, "COPY_TO_LOCAL_EXPERT", {MemoryType::MEM_DEVICE_DDR}, {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB}, {"TileOp::Distributed::CopyToLocalExpert", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::DISTRIBUTED, {OpAttributeKey::requiresBoundaryCopy});
@@ -395,16 +389,24 @@ OpcodeManager::OpcodeManager() {
     registerInfo(Opcode::OP_BIND_TENSOR, OpCoreType::ANY, "BIND_TENSOR",
         {}, {MemoryType::MEM_DEVICE_DDR}, {"TileOp::Distributed::ShmemGet", PIPE_S, PIPE_S, CoreType::AIV},
         OpCalcType::DISTRIBUTED, {OP_ATTR_PREFIX + "BindTensor"});
-    registerInfo(Opcode::OP_SHMEM_MOE_COMBINE_SEND, OpCoreType::ANY, "SHMEM_MOE_COMBINE_SEND",
-        {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR},
+    registerInfo(
+        Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND,
+        OpCoreType::ANY,
+        "MOE_DISTRIBUTED_COMBINE_SEND",
+        {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR},
         {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB},
-        {"TileOp::Distributed::ShmemMoeCombineSend", PIPE_S, PIPE_S, CoreType::AIV},
-        OpCalcType::DISTRIBUTED, {OpAttributeKey::requiresBoundaryCopy});
-    registerInfo(Opcode::OP_SHMEM_MOE_COMBINE_RECEIVE, OpCoreType::ANY, "SHMEM_MOE_COMBINE_RECEIVE",
+        {"TileOp::Distributed::MoeDistributedCombineSend", PIPE_S, PIPE_S, CoreType::AIV},
+        OpCalcType::DISTRIBUTED,
+        {OpAttributeKey::requiresBoundaryCopy});
+    registerInfo(
+        Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE,
+        OpCoreType::ANY,
+        "MOE_DISTRIBUTED_COMBINE_RECEIVE",
         {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR},
         {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB},
-        {"TileOp::Distributed::ShmemMoeCombineReceive", PIPE_S, PIPE_S, CoreType::AIV},
-        OpCalcType::DISTRIBUTED, {OpAttributeKey::requiresBoundaryCopy});
+        {"TileOp::Distributed::MoeDistributedCombineReceive", PIPE_S, PIPE_S, CoreType::AIV},
+        OpCalcType::DISTRIBUTED,
+        {OpAttributeKey::requiresBoundaryCopy});
 
     registerInfo(Opcode::OP_AICPU_CALL_AIC, OpCoreType::ANY, "AICPU_CALL_AIC", {}, {}, {"TileOp::AicpuCall", PIPE_S, PIPE_S, CoreType::AIC}, OpCalcType::SYS);
     registerInfo(Opcode::OP_AICPU_CALL_AIV, OpCoreType::ANY, "AICPU_CALL_AIV", {}, {}, {"TileOp::AicpuCall", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::SYS);
@@ -443,6 +445,8 @@ OpcodeManager::OpcodeManager() {
         {         Opcode::OP_UB_COPY_IN,          "TLoad"},
         {        Opcode::OP_UB_COPY_OUT,         "TStore"},
         {Opcode::OP_TRANSPOSE_VNCHWCONV,         "TTrans"},
+        {   Opcode::OP_TRANSPOSE_MOVEIN,   "TTransMoveIn"},
+        {  Opcode::OP_TRANSPOSE_MOVEOUT,  "TTransMoveOut"},
         {                Opcode::OP_ADD,           "TAdd"},
         {                Opcode::OP_SUB,           "TSub"},
         {                Opcode::OP_DIV,           "TDiv"},
@@ -456,7 +460,10 @@ OpcodeManager::OpcodeManager() {
         {               Opcode::OP_CAST,          "TCast"},
         {      Opcode::OP_ROWSUM_SINGLE,  "TRowSumSingle"},
         {      Opcode::OP_ROWMAX_SINGLE,  "TRowMaxSingle"},
+        {      Opcode::OP_ROWMIN_SINGLE,  "TRowMinSingle"},
         {         Opcode::OP_ROWSUMLINE,    "TRowSumLine"},
+        {         Opcode::OP_ROWMAXLINE,    "TRowMaxLine"},
+        {         Opcode::OP_ROWMINLINE,    "TRowMinLine"},
         {           Opcode::OP_WHERE_TT,         "TWhere"},
         {               Opcode::OP_ADDS,          "TAddS"},
         {               Opcode::OP_MULS,          "TMulS"},
@@ -470,5 +477,6 @@ OpcodeManager::OpcodeManager() {
         {            Opcode::OP_PAIRMAX,       "TPairMax"},
         {            Opcode::OP_PAIRMIN,       "TPairMin"},
         {        Opcode::OP_L0C_COPY_UB,       "TExtract"},
+        {            Opcode::OP_VEC_DUP,        "TVecDup"},
     };
 } // namespace npu::tile_fwk
