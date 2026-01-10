@@ -181,6 +181,10 @@ std::string OperatorDeviceSynchronize(py::int_ incomingStreamPython) {
     return "";
 }
 
+void PyptoInit() {
+    PyptoLauncherInit();
+}
+
 void DeviceInit() {
     DeviceLauncherInit();
 }

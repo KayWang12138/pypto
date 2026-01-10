@@ -74,7 +74,7 @@ public:
     void DumpAiCoreExecutionTimeData();
     void DumpAiCorePmuData();
     void SynchronizeDeviceToHostProfData();
-
+    rtError_t AicpuLaunchCallback(rtAicpuInfo_t &aicpuInfo);
 private:
     DeviceRunner() = default;
     void *DevAlloc(int size);
@@ -96,6 +96,7 @@ private:
     int launchDynamicAiCpuInit(rtStream_t aicpuStream, AstKernelArgs *kArgs);
     void InitAiCpuSoBin();
     void GetHostProfTypeSwtich();
+    int PyptoInit();
     void ReportHostProfInfo(uint64_t startTime, uint32_t blockDim, uint16_t taskType, bool isCore = false);
     int DynamicKernelLaunch(rtStream_t aicpuStream, rtStream_t aicoreStream, AstKernelArgs *kernelArgs, int blockdim);
     int DynamicSeparateLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, rtStream_t aicoreStream, AstKernelArgs *kernelArgs, int blockdim);
@@ -116,6 +117,9 @@ private:
     HostProf hostProf_;
     std::unordered_map<ArchInfo, std::function<int(std::vector<int64_t>&, std::vector<int64_t>&)>> addressMappingTable_;
     bool isCapture_ = false;
+    bool useEvent1_{false};
+    aclrtEvent event1_;
+    aclrtEvent event2_;
 };
 }
 #else
