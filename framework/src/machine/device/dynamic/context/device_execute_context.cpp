@@ -172,6 +172,7 @@ void DeviceExecuteContext::GELaunchRunCached(DevStartArgs *startArgs, PushTaskEn
         DynDeviceTask *dynTask = reinterpret_cast<DynDeviceTask *>(devProg->controlFlowCache.deviceTaskCacheList[index].dynTaskBase);
         devProg->controlFlowCache.PredCountDataRestore(dynTask);
         devProg->controlFlowCache.ReadyQueueDataRestore(dynTask);
+        devProg->controlFlowCache.MixTaskDataRestore(dynTask);
         taskContext.UpdateReadyTaskNum(dynTask->readyQueueBackup->readyTaskNum);
 
         PROF_STAGE_BEGIN(PERF_EVT_STAGE_PUSH_TASK, "push.before\n");
@@ -294,29 +295,40 @@ void DeviceExecuteContext::DumpDeviceTask(uint64_t taskId, DynDeviceTask *device
     }
 }
 
+void DeviceExecuteContext::ProcessControlFlowCacheRecord(DynDeviceTask *dynTask) {
+    if (devProg->controlFlowCache.IsRecording()) {
+        if (!devProg->controlFlowCache.IsRecordingStopped()) {
+            devProg->controlFlowCache.PredCountDataBackup(dynTask);
+            devProg->controlFlowCache.ReadyQueueDataBackup(dynTask);
+            devProg->controlFlowCache.MixTaskDataBackup(dynTask);
+            devProg->controlFlowCache.IncastOutcastAddrBackup(dynTask);
+            devProg->controlFlowCache.TaskAddrBackupWorkspace(dynTask);
+            devProg->controlFlowCache.RuntimeAddrBackup(slotContext.GetSlotList(), workspace.GetRuntimeOutcastTensorPoolBase(),
+                devProg->slotSize, devProg->runtimeOutcastPoolSize, workspace.GetTensorAllocator());
+        }
+        devProg->controlFlowCache.AppendDeviceTask(dynTask);
+    }
+}
+
 int DeviceExecuteContext::SubmitToAicoreAndRecycleMemory(bool withoutTail, bool isLastTask) {
     int ret = DEVICE_MACHINE_OK;
-    DEV_VERBOSE_DEBUG("Submit stitch task.");
+    DEV_VERBOSE_DEBUG("Submit stitch task");
     DEV_TRACE_DEBUG(DEvent(taskId, DActSubmit(stitchContext.Size())));
     AutoScopedPerf asp(PERF_EVT_SUBMIT_AICORE);
     if (stitchContext.Empty()) {
-        DEV_INFO("Stitch context is empty.");
+        DEV_INFO("Stitch context is empty");
         return ret;
     }
 
-    PROF_STAGE_BEGIN(PERF_EVT_DECIDE_SLOT_ADDRESS, "slotaddr.before\n");
+    PROF_STAGE_BEGIN(PERF_EVT_DECIDE_SLOT_ADDRESS, "slotaddress.before\n");
     stitchContext.DecideSlotAddress(slotContext.GetSlotList(), slotContext.GetSlotSize());
-    PROF_STAGE_END(PERF_EVT_DECIDE_SLOT_ADDRESS, "slotaddr.after\n");
-    if (unlikely(ret != DEVICE_MACHINE_OK)) {
-        return DEVICE_MACHINE_ERROR;
-    }
+    PROF_STAGE_END(PERF_EVT_DECIDE_SLOT_ADDRESS, "slotaddress.after\n");
+    if (unlikely(ret != DEVICE_MACHINE_OK)) { return DEVICE_MACHINE_ERROR;}
 
-    PROF_STAGE_BEGIN(PERF_EVT_DECIDE_INCAST_ADDRESS, "incastaddr.before\n");
+    PROF_STAGE_BEGIN(PERF_EVT_DECIDE_INCAST_ADDRESS, "incastaddress.before\n");
     ret = stitchContext.DecideIncastOutcast(taskId);
-    PROF_STAGE_END(PERF_EVT_DECIDE_INCAST_ADDRESS, "incastaddr.after\n");
-    if (unlikely(ret != DEVICE_MACHINE_OK)) {
-        return DEVICE_MACHINE_ERROR;
-    }
+    PROF_STAGE_END(PERF_EVT_DECIDE_INCAST_ADDRESS, "incastaddress.after\n");
+    if (unlikely(ret != DEVICE_MACHINE_OK)) { return DEVICE_MACHINE_ERROR;}
 
     DEV_IF_VERBOSE_DEBUG {
             stitchContext.DumpStitchInfo();
@@ -329,40 +341,30 @@ int DeviceExecuteContext::SubmitToAicoreAndRecycleMemory(bool withoutTail, bool 
     workspace.MarkAsNewStitchWindow();
 #endif // DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
 
-    PROF_STAGE_BEGIN(PERF_EVT_STAGE_BUILD_TASK, "BuildDeviceTaskData.before\n");
+    PROF_STAGE_BEGIN(PERF_EVT_STAGE_BUILD_TASK, "BuildDeviceTaskData.before.\n");
     DynDeviceTask *dynTask = taskContext.BuildDeviceTaskData(stitchContext, taskId, devProg, withoutTail);
     if (dynTask == nullptr) {
         DEV_ERROR("Build device task data failed.");
         return DEVICE_MACHINE_ERROR;
     }
     dynTask->SetLastTask(isLastTask);
-    PROF_STAGE_END(PERF_EVT_STAGE_BUILD_TASK, "BuildDeviceTaskData.after\n");
+    PROF_STAGE_END(PERF_EVT_STAGE_BUILD_TASK, "BuildDeviceTaskData.after.\n");
 
-    PROF_STAGE_BEGIN(PERF_EVT_DEALLOCATE_WORKSPACE, "RecycleTensorWorkspace.before\n");
+    PROF_STAGE_BEGIN(PERF_EVT_DEALLOCATE_WORKSPACE, "RecycleTensorWorkspace.before.\n");
     // Memory recycling
     stitchContext.RecycleTensorWorkspace();
 
     // Reset stitch context
     stitchContext.Reset();
     slotContext.ClearDirty();
-    PROF_STAGE_END(PERF_EVT_DEALLOCATE_WORKSPACE, "RecycleTensorWorkspace.after\n");
+    PROF_STAGE_END(PERF_EVT_DEALLOCATE_WORKSPACE, "RecycleTensorWorkspace.after.\n");
 
-    if (devProg->controlFlowCache.IsRecording()) {
-        if (!devProg->controlFlowCache.IsRecordingStopped()) {
-            devProg->controlFlowCache.PredCountDataBackup(dynTask);
-            devProg->controlFlowCache.ReadyQueueDataBackup(dynTask);
-            devProg->controlFlowCache.IncastOutcastAddrBackup(dynTask);
-            devProg->controlFlowCache.TaskAddrBackupWorkspace(dynTask);
-            devProg->controlFlowCache.RuntimeAddrBackup(slotContext.GetSlotList(), workspace.GetRuntimeOutcastTensorPoolBase(),
-                devProg->slotSize, devProg->runtimeOutcastPoolSize, workspace.GetTensorAllocator());
-        }
-        devProg->controlFlowCache.AppendDeviceTask(dynTask);
-    }
+    ProcessControlFlowCacheRecord(dynTask);
 
-    PROF_STAGE_BEGIN(PERF_EVT_STAGE_PUSH_TASK, "push.before\n");
+    PROF_STAGE_BEGIN(PERF_EVT_STAGE_PUSH_TASK, "Push.before\n");
     DumpDeviceTask(taskId, dynTask);
     PushTask(dynTask);
-    PROF_STAGE_END(PERF_EVT_STAGE_PUSH_TASK, "push.after\n");
+    PROF_STAGE_END(PERF_EVT_STAGE_PUSH_TASK, "Push.after\n");
     PerfMtTrace(PERF_TRACE_DEV_TASK_BUILD, CTRL_CPU_THREAD_IDX);
     return ret;
 }
