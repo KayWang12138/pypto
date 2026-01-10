@@ -219,9 +219,7 @@ def attention_post_compute(attn_res: pypto.Tensor, cos: pypto.Tensor, sin: pypto
     runtime_options={
         "stitch_function_inner_memory": 128,
         "stitch_function_outcast_memory": 128,
-        "cfgcache_device_task_num": 100,
-        "cfgcache_root_task_num": 1000,
-        "cfgcache_leaf_task_num": 10000
+        "stitch_cfgcache_size": 2500000
     }
 )
 def attention_post_decode(attn_res: pypto.Tensor, cos: pypto.Tensor, sin: pypto.Tensor,
