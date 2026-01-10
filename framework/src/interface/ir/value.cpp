@@ -19,6 +19,26 @@
 #include <variant>
 
 namespace pto {
+
+static std::unordered_map<MemSpaceKind, std::string> memSpaceNameDict = {
+    {DDR,   "DDR"},
+    {L2,    "L2"},
+    {UB,    "UB"},
+    {L1,    "L1"},
+    {L0A,   "L0A"},
+    {L0B,   "L0B"},
+    {L0C,   "L0C"},
+    {REG,   "REG"},
+    {SHMEM, "SHMEM"},
+};
+std::string GetMemSpaceKindName(MemSpaceKind kind) {
+    if (memSpaceNameDict.count(kind)) {
+        return memSpaceNameDict[kind];
+    } else {
+        return "UNKNOWN";
+    }
+}
+
 // ========== Value System Implementation ==========
 
 int64_t ScalarValue::GetInt64Value() const {
