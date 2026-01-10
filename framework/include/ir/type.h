@@ -126,11 +126,17 @@ using TileTypePtr = std::shared_ptr<TileType>;
 // TensorType represents the type of a tensor with a specific (shape, dataType) combination.
 class TensorType : public Type {
 public:
-    explicit TensorType(DataType dataType) : Type(dataType) {}
+    explicit TensorType(DataType dataType, int dimNum) : Type(dataType), dimNum_(dimNum) {}
 
     uint64_t GetTypeSize() const override { return GetDataTypeSize(); }
+    int GetDimNum() const { return dimNum_; }
+
     void Print(std::ostream& os) const override;
+private:
+    int dimNum_;
 };
+
+using TensorTypePtr = std::shared_ptr<TensorType>;
 
 } // namespace pto
 
