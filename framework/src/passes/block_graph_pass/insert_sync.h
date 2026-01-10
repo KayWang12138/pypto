@@ -96,30 +96,12 @@ enum class PipeSeq { AIC_MTE2 = 0, AIC_MTE1, AIC_M, AIC_FIX, AIV_MTE2, AIV_V, AI
 
 class PipeSync {
 public:
-    struct PipeCoreReal {
-        PipeCoreReal(PipeType p, CoreType c) :pipe(p), core(c) {}
-        PipeType pipe;
-        CoreType core;
-
-        bool operator==(const PipeCoreReal &t) const { return (this->pipe == t.pipe && this->core == t.core); }
-
-        bool operator!=(const PipeCoreReal &t) const { return !(*this == t); }
-    };
-    struct IssueQueue {
-        explicit IssueQueue(PipeCoreReal pipe) : selfPipeCore(pipe) {}
-        PipeCoreReal selfPipeCore;
-        size_t currOp{0};
-        std::vector<size_t> ops;
-        std::string DumpIssueQueue(std::vector<Operation *> opLogPtr = {});
-    };
     PipeSync() { InitIssueQueue(); }
     Status InsertSync(Function &function, std::vector<Operation *> &syncedOpLog);
     void PhaseKernelProcess(Function &function, std::vector<Operation *> srcLog, std::vector<Operation *> &dstLog);
     Status ProcessViewOrder(Operation &op, std::vector<Operation *> &opLog, std::unordered_map<Operation *, Operation *> &changeMap);
     Status ProcessAssembleOrder(Operation &op, std::vector<Operation *> &opLog, std::unordered_map<Operation *, Operation *> &changeMap);
     Status ProcessViewAssembleOrder(std::vector<Operation *> &opLog, std::vector<Operation *> &opListNew);
-    std::vector<IssueQueue> GetIssueState() { return issueState_; }
-    std::vector<Operation *> GetOriOpList() { return oriOpList_; }
     std::unordered_map<Operation *, Operation *> setWaitOpMap;
     std::unordered_map<Operation *, Operation *> waitSetOpMap;
     std::unordered_map<Operation *, Operation *> setOpMap;
@@ -200,6 +182,14 @@ private:
         std::vector<size_t> setPipe;  // this op will set_flag for op in setPipe; 后
         std::vector<size_t> waitPipe; // this op will wait_flag for op in waitPipe; 前
         std::string DumpDepOp(std::vector<Operation *> opLog = {});
+    };
+
+    struct IssueQueue {
+        explicit IssueQueue(PipeCoreReal pipe) : selfPipeCore(pipe) {}
+        PipeCoreReal selfPipeCore;
+        size_t currOp{0};
+        std::vector<size_t> ops;
+        std::string DumpIssueQueue(std::vector<Operation *> opLogPtr = {});
     };
 
     struct PipeDepInfo {
