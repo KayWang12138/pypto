@@ -13,44 +13,7 @@
  * \brief
  */
 
-#include "ir/function.h"
-#include "ir/program.h"
+#pragma once
 
-namespace pto {
-
-class IRBuffer {
-public:
-    virtual ~IRBuffer() = default;
-    virtual void Append(const std::string &data) = 0;
-    virtual void Append(const std::vector<uint8_t> &data) = 0;
-};
-
-class IRMemoryBuffer : IRBuffer {
-public:
-    virtual void Append(const std::string &data);
-    virtual void Append(const std::vector<uint8_t> &data);
-
-    std::string &GetRawBuffer() { return buffer_; }
-private:
-    std::string buffer_;
-};
-
-class IRSerializer {
-public:
-    enum SerializerKind {
-        /* assemble style */
-        SOURCE_ASM,
-        /* cplusplus style which is for codegen. Serializer is not responsible for whether the serialized code is further compiled
-        * as AscendC or pure C++ code. */
-        SOURCE_CPP,
-    };
-public:
-    virtual ~IRSerializer() = default;
-    virtual void Serialize(IRBuffer &buffer, ProgramModulePtr module) = 0;
-
-    virtual ProgramModulePtr Deserialize(IRBuffer &buffer) = 0;
-private:
-    SerializerKind kind_;
-};
-
-}
+#include "ir/serializer/serializer_base.h"
+#include "ir/serializer/source_cpp.h"
