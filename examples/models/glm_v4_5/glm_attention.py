@@ -96,9 +96,9 @@ class AttentionConfig:
 
 
 def get_qwen_common_config(device="cpu"):
-    b = 8
+    b = 1
     s1 = 1
-    s2 = 16384
+    s2 = 512
     q_d = 128
     nq = 12
     nkv = 1
@@ -332,7 +332,7 @@ def ifa_func(q, k, v, block_table, kv_act_seqs, atten_out):
                     oi_update = pypto.tensor([g_tile, dn], pypto.DT_FP32, "oi_update")
                     sum_update = pypto.tensor([g_tile, 1], pypto.DT_FP32, "sum_update")
                     max_update = pypto.tensor([g_tile, 1], pypto.DT_FP32, "max_update")
-                    for s2_idx in pypto.loop(s2_loop, name="LOOP_s2", idx_name="s2_idx", unroll_list=[8, 4, 2, 1]):
+                    for s2_idx in pypto.loop(s2_loop, name="LOOP_s2", idx_name="s2_idx", unroll_list=[]):
                         block_num = s2_tile // block_size
                         idx = s2_idx * block_num
                         bs_ofs = b_idx * s1_scalar + s1_idx
