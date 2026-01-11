@@ -205,6 +205,7 @@ def compressor_kernel(x, sin, cos, wkv, wgate, ape, weight, hadamard, out, out1,
             [1, 64, 128, 128]
         )
         kv_rope = interleaved_rope_3d(kv_rope, cos, sin, rope3d_tile_config)
+        pypto.set_vec_tile_shapes(1, 8, d)
         kv = pypto.concat([kv_nope, kv_rope], dim=-1) ## b,cut,d
 
         if name == "indexer":
@@ -357,6 +358,7 @@ def test_indexer_comp():
     assert_allclose(out.cpu().float().numpy(), kv.cpu().float().numpy(), rtol=1e-3, atol=1e-3)
     # assert_allclose(out1.cpu().float()[:,2,:].numpy(), expected.cpu().float()[:,2,:].numpy(), rtol=1e-2, atol=1e-2)
     # print("Compressor completed successfully")
+    print("test_indexer_comp passed!")
     
 def test_compressor():
     """Test Compressor"""
@@ -382,8 +384,9 @@ def test_compressor():
     
     compressor(x, sin, cos, wkv, wgate, ape, weight, out, out1, start_pos, rope_head_dim, "compressor", hadamard=hadamard)
     assert_allclose(out.cpu().float().numpy(), kv.cpu().float().numpy(), rtol=1e-3, atol=1e-3)
+    print("test_compressor passed!")
     # assert_allclose(out1.cpu().float()[:,2,:].numpy(), expected.cpu().float()[:,2,:].numpy(), rtol=1e-2, atol=1e-2)
     # print("Compressor completed successfully")
     
 # test_indexer_comp()
-test_compressor()
+# test_compressor()
