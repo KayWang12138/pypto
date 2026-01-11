@@ -2,6 +2,18 @@ import pypto
 import torch
 import os
 from numpy.testing import assert_allclose
+from dataclasses import dataclass
+from typing import List
+
+# Constants for shape dimensions
+SHAPE_DIM_2 = 2
+SHAPE_DIM_3 = 3
+
+@dataclass
+class Rope3dTileConfig:
+    # two_dim_tile: List[int]
+    three_dim_tile: List[int]
+    four_dim_tile: List[int]
 
 def compressor(x, sin, cos, wkv, wgate, ape, weight, out, out1, start_pos, rope_head_dim, name, **kwargs):
     inputs = {
@@ -89,6 +101,42 @@ def rope_3d(x: pypto.Tensor, cos: pypto.Tensor, sin: pypto.Tensor) -> pypto.Tens
     res = (x_view * cast_cos) + ((rotate_half(x_view)) * cast_sin)
     res = pypto.cast(res, x_dtype)
     return res
+
+def interleaved_rope_3d(x: pypto.Tensor, cos: pypto.Tensor, sin: pypto.Tensor, rope_3d_config: Rope3dTileConfig) -> pypto.Tensor:
+    """Apply 3D Rotary Position Embedding (RoPE).
+
+    Implements RoPE transformation for 3D tensors with shape (batch, heads, dim).
+    The RoPE is applied independently to each head using broadcasted cos/sin values.
+
+    Args:
+        x: Input tensor of shape (batch, heads, rope_dim)
+        cos: Cosine values for RoPE, shape (batch, rope_dim)
+        sin: Sine values for RoPE, shape (batch, rope_dim)
+
+    Returns:
+        Tensor with RoPE applied, same shape as input x
+
+    Note:
+        The function broadcasts cos and sin to match the head dimension,
+        then applies rotation: x_rotated = x * cos + rotate_half(x) * sin
+    """
+    # assert (len(x.shape) == SHAPE_DIM_3 and len(cos.shape) == SHAPE_DIM_2 and len(sin.shape) == SHAPE_DIM_2)
+
+    # pypto.set_vec_tile_shapes(*rope_3d_config.two_dim_tile) # (1, 64)
+    pypto.set_vec_tile_shapes(*rope_3d_config.three_dim_tile) # (1, 64, 64)
+    cast_x = pypto.cast(x, pypto.DataType.DT_FP32)
+    cast_cos = pypto.cast(cos, pypto.DataType.DT_FP32)
+    cast_sin = pypto.cast(sin, pypto.DataType.DT_FP32)
+    # cast_cos = pypto.reshape(cast_cos, [x.shape[0], 1, x.shape[2]])
+    # cast_sin = pypto.reshape(cast_sin, [x.shape[0], 1, x.shape[2]])
+
+    pypto.set_vec_tile_shapes(*rope_3d_config.four_dim_tile)  # (1, 64, 128, 128)
+    x_view = pypto.reshape(cast_x, [x.shape[0], x.shape[1], x.shape[2] // 2, 2])
+    x_trans = pypto.transpose(x_view, 2, 3)
+    x_re_second = pypto.reshape(x_trans, x.shape)
+    x_embed = x_re_second * cast_cos + rotate_half(x_re_second) * cast_sin
+
+    return pypto.cast(x_embed, x.dtype)
     
 @pypto.jit(
     host_options={"only_codegen": True},
@@ -151,7 +199,12 @@ def compressor_kernel(x, sin, cos, wkv, wgate, ape, weight, hadamard, out, out1,
         cos = pypto.view(cos, [b, cutlen, rope_head_dim], [0, 0, 0]) ## b, cut, 64
         kv_nope = pypto.view(kv, [b, cutlen, d-rope_head_dim], [0, 0, 0])
         kv_rope = pypto.view(kv, [b, cutlen, rope_head_dim], [0, 0, d-rope_head_dim])
-        kv_rope = rope_3d(kv_rope, cos, sin)
+        #kv_rope = rope_3d(kv_rope, cos, sin)
+        rope3d_tile_config = Rope3dTileConfig(
+            [1, 64, 64],
+            [1, 64, 128, 128]
+        )
+        kv_rope = interleaved_rope_3d(kv_rope, cos, sin, rope3d_tile_config)
         kv = pypto.concat([kv_nope, kv_rope], dim=-1) ## b,cut,d
 
         if name == "indexer":
@@ -189,8 +242,8 @@ def apply_rotary_pos_emb_v2(x: torch.Tensor, sin: torch.Tensor, cos: torch.Tenso
         cos = cos.to(torch.float32)
         sin = sin.to(torch.float32)
     
-    # b, s, d = x.shape
-    # x = x.reshape(b, s, d // 2, 2).permute(0, 1, 3, 2).reshape(b, s, d) # [b, cut, 64]
+    b, s, d = x.shape
+    x = x.reshape(b, s, d // 2, 2).permute(0, 1, 3, 2).reshape(b, s, d)
     
     x1, x2 = x.chunk(2, dim=-1)
     p = torch.cat((-x2, x1), dim=-1)
@@ -331,3 +384,6 @@ def test_compressor():
     assert_allclose(out.cpu().float().numpy(), kv.cpu().float().numpy(), rtol=1e-3, atol=1e-3)
     # assert_allclose(out1.cpu().float()[:,2,:].numpy(), expected.cpu().float()[:,2,:].numpy(), rtol=1e-2, atol=1e-2)
     # print("Compressor completed successfully")
+    
+# test_indexer_comp()
+test_compressor()
