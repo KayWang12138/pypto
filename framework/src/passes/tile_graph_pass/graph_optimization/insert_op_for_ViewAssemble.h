@@ -9,12 +9,12 @@
  */
 
 /*!
- * \file insert_op_for_ViewAssemble.h
+ * \file insert_op_for_viewassemble.h
  * \brief
  */
 
-#ifndef INSERT_OP_FOR_VIEWASSEEMBLE_H
-#define INSERT_OP_FOR_VIEWASSEEMBLE_H
+#pragma once
+
 #include "interface/operation/opcode.h"
 #include "tilefwk/data_type.h"
 #include "tilefwk/tilefwk.h"
@@ -31,20 +31,19 @@
 
 namespace npu {
 namespace tile_fwk {
-class InsertCopyForViewAssemble : public Pass {
+class InsertOpForViewAssemble : public Pass {
 public:
-    InsertCopyForViewAssemble() : Pass("InsertCopyForViewAssemble") {}
-    ~InsertCopyForViewAssemble() override = default;
+    InsertOpForViewAssemble() : Pass("InsertOpForViewAssemble") {}
+    ~InsertOpForViewAssemble() override = default;
 private:
     Status RunOnFunction(Function &function) override;
     Status JudgedViewAssemble(Function &function);
-    Status InsertCopy(Function &function, std::pair<Operation *, Operation *> &opPair);
+    Status InsertCopy(Function &function, Operation *viewOp, Operation *assOp);
     bool NeedInsertCopy(LogicalTensorPtr &assembleOut);
     void InsertViewAssemble(Function &function, Operation *viewOp, Operation *assembleOp);
 
-    std::set<LogicalTensorPtr> assembleOutSet;
-    std::vector<std::pair<Operation*, Operation*>> recordOpPair;
+    std::set<LogicalTensorPtr> assembleOutSet_;
+    std::vector<std::pair<Operation*, Operation*>> recordOpPair_;
 };
 } // namespace tile_fwk
 } // namespace npu
-#endif // REMOVE_REDUNDANT_OP_H

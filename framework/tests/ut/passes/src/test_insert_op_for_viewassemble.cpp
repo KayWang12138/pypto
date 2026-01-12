@@ -9,8 +9,8 @@
  */
 
 /*!
- * \file test_expand_function.cpp
- * \brief Unit test for ExpandFunction pass.
+ * \file test_insert_op_for_viewassemble.cpp
+ * \brief Unit test for InsertOpForViewAssemble pass.
  */
 
  #include <gtest/gtest.h>
@@ -23,7 +23,7 @@
 #include "interface/configs/config_manager.h"
 
 #define private public
-#include "passes/tile_graph_pass/graph_optimization/insert_op_for_ViewAssemble.h"
+#include "passes/tile_graph_pass/graph_optimization/insert_op_for_viewassemble.h"
 
 namespace npu {
 namespace tile_fwk{
@@ -98,7 +98,7 @@ TEST_F(TestInsertCopyPass, TestNormalCase) {
     auto &assOp3 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {midTensor3}, {outTensor});
     assOp3.SetOpAttribute(std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, offset3));
 
-    InsertCopyForViewAssemble pass;
+    InsertOpForViewAssemble pass;
     EXPECT_EQ(pass.RunOnFunction(*currFunctionPtr), SUCCESS);
     EXPECT_EQ(currFunctionPtr->Operations().size(), kSizeEight);
     EXPECT_EQ(midTensor0->GetMemoryTypeOriginal(), MemoryType::MEM_DEVICE_DDR);
@@ -154,7 +154,7 @@ TEST_F(TestInsertCopyPass, TestNoEqualSize) {
     auto &assOp3 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {midTensor3}, {outTensor});
     assOp3.SetOpAttribute(std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, offset3));
 
-    InsertCopyForViewAssemble pass;
+    InsertOpForViewAssemble pass;
     EXPECT_EQ(pass.RunOnFunction(*currFunctionPtr), SUCCESS);
     EXPECT_EQ(currFunctionPtr->Operations().size(), kSizeEight);
     EXPECT_EQ(midTensor0->GetMemoryTypeOriginal(), MemoryType::MEM_UB);
@@ -196,7 +196,7 @@ TEST_F(TestInsertCopyPass, TestInsert) {
     auto &assOp1 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {midTensor2}, {outTensor});
     assOp1.SetOpAttribute(std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UB, offset1));
 
-    InsertCopyForViewAssemble pass;
+    InsertOpForViewAssemble pass;
     EXPECT_EQ(pass.RunOnFunction(*currFunctionPtr), SUCCESS);
     const int result = 7;
     EXPECT_EQ(currFunctionPtr->Operations().size(), result);

@@ -95,7 +95,7 @@ void RegPass() {
     REG_PASS(MixSubgraphSplit);
     REG_PASS(DuplicateOp);
     REG_PASS(AxisCombine);
-    REG_PASS(InsertCopyForViewAssemble);
+    REG_PASS(InsertOpForViewAssemble);
 }
 
 void PassManager::RegDefaultStrategy() {
@@ -114,7 +114,7 @@ void PassManager::RegDefaultStrategy() {
             {         "AssignMemoryType",            PassName::ASSIGN_MEMORY_TYPE},
             {  "InferDiscontinuousInput",     PassName::INFER_DISCONTINUOUS_INPUT},
             {        "RemoveRedundantOp",           PassName::REMOVE_REDUNDANT_OP},
-            {"InsertCopyForViewAssemble",  PassName::INSERT_COPY_FOR_VIEWASSEMBLE},
+            {  "InsertOpForViewAssemble",    PassName::INSERT_OP_FOR_VIEWASSEMBLE},
             {                   "SplitK",                       PassName::SPLIT_K},
             {           "GraphPartition",               PassName::GRAPH_PARTITION},
             {          "ReduceCopyMerge",             PassName::REDUCE_COPY_MERGE},

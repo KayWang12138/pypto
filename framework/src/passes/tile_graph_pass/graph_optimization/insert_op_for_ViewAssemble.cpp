@@ -9,17 +9,17 @@
  */
 
 /*!
- * \file insert_op_for_ViewAssemble.cpp
+ * \file insert_op_for_viewassemble.cpp
  * \brief
  */
-#include "insert_op_for_ViewAssemble.h"
+#include "insert_op_for_viewassemble.h"
 #include "passes/pass_log/pass_log.h"
 
-#define MODULE_NAME "InsertCopyForViewAssemble"
+#define MODULE_NAME "InsertOpForViewAssemble"
 
 namespace npu {
 namespace tile_fwk {
-void InsertCopyForViewAssemble::InsertViewAssemble(Function &function, Operation *viewOp, Operation *assembleOp) {
+void InsertOpForViewAssemble::InsertViewAssemble(Function &function, Operation *viewOp, Operation *assembleOp) {
     auto &moveOutTensorPtr = viewOp->GetOOperands()[0];
     LogicalTensor ddrTensor(function, moveOutTensorPtr->Datatype(), moveOutTensorPtr->GetShape());
     ddrTensor.SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
@@ -40,27 +40,23 @@ void InsertCopyForViewAssemble::InsertViewAssemble(Function &function, Operation
                                                           dynOffset, 
                                                           moveOutTensorPtr->GetDynValidShape()));
     assembleOp->ReplaceInput(moveInTensorPtr, moveOutTensorPtr);
-    moveOutTensorPtr->RemoveConsumer(assembleOp);
-    assembleOp->EraseInput(moveOutTensorPtr);
 }
 
-Status InsertCopyForViewAssemble::InsertCopy(Function &function, std::pair<Operation *, Operation *> &opPair) {
-    auto viewOp = opPair.first;
-    auto assOp = opPair.second;
-    if (assOp->GetOOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
+Status InsertOpForViewAssemble::InsertCopy(Function &function, Operation *viewOp, Operation *assOp) {
+    if (assOp->GetIOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
         assOp->GetIOperands()[0]->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
-    } else if (assOp->GetOOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_L1 ||
-               assOp->GetOOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
+    } else if (assOp->GetIOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_L1 ||
+            assOp->GetIOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
         InsertViewAssemble(function, viewOp, assOp);
     } else {
-        APASS_LOG_ERROR_F(Elements::Operation, "Assemble outTensor %d memory type is unexpected, InsertCopy failed.",
-                          assOp->GetOOperands()[0]->GetMagic());
+        APASS_LOG_ERROR_F(Elements::Operation, "Assemble inTensor %d memory type is unexpected, InsertCopy failed.",
+                          assOp->GetIOperands()[0]->GetMagic());
         return FAILED;
     }
     return SUCCESS;
 }
 
-bool InsertCopyForViewAssemble::NeedInsertCopy(LogicalTensorPtr &assembleOut) {
+bool InsertOpForViewAssemble::NeedInsertCopy(LogicalTensorPtr &assembleOut) {
     bool isNeedInsert = false;
     for (auto &assOp : assembleOut->GetProducers()) {
         auto &prodOp = *assOp->GetIOperands()[0]->GetProducers().begin();
@@ -68,7 +64,7 @@ bool InsertCopyForViewAssemble::NeedInsertCopy(LogicalTensorPtr &assembleOut) {
             isNeedInsert = true;
             continue;
         }
-        recordOpPair.push_back(std::make_pair(prodOp, assOp));
+        recordOpPair_.push_back(std::make_pair(prodOp, assOp));
         auto assembleAttr = std::static_pointer_cast<AssembleOpAttribute>(assOp->GetOpAttribute());
         auto viewAttr = std::static_pointer_cast<ViewOpAttribute>(prodOp->GetOpAttribute());
         if (assembleAttr == nullptr || viewAttr == nullptr) {
@@ -76,6 +72,10 @@ bool InsertCopyForViewAssemble::NeedInsertCopy(LogicalTensorPtr &assembleOut) {
             return FAILED;
         }
         if (assembleAttr->GetToOffset() != viewAttr->GetFromOffset()) {
+            isNeedInsert = true;
+            continue;
+        }
+        if (assembleAttr->GetToDynOffset() != viewAttr->GetFromDynOffset()) {
             isNeedInsert = true;
             continue;
         }
@@ -96,21 +96,23 @@ bool InsertCopyForViewAssemble::NeedInsertCopy(LogicalTensorPtr &assembleOut) {
     return isNeedInsert;
 }
 
-Status InsertCopyForViewAssemble::JudgedViewAssemble(Function &function) {
+Status InsertOpForViewAssemble::JudgedViewAssemble(Function &function) {
     for (auto &op : function.Operations()) {
         if (op.GetOpcode() != Opcode::OP_ASSEMBLE) {
             continue;
         }
         auto &prodOp = *op.GetIOperands()[0]->GetProducers().begin();
-        if (prodOp->GetOpcode() == Opcode::OP_VIEW && assembleOutSet.find(op.GetOOperands()[0]) == assembleOutSet.end()) {
-            assembleOutSet.insert(op.GetOOperands()[0]);
+        if (prodOp->GetOpcode() == Opcode::OP_VIEW && assembleOutSet_.find(op.GetOOperands()[0]) == assembleOutSet_.end()) {
+            assembleOutSet_.insert(op.GetOOperands()[0]);
         }
     }
-    for (auto assembleOut : assembleOutSet) {
-        recordOpPair.clear();
+    for (auto assembleOut : assembleOutSet_) {
+        recordOpPair_.clear();
         if (NeedInsertCopy(assembleOut)) {
-            for (auto &opPair : recordOpPair) {
-                if (InsertCopy(function, opPair) == FAILED) {
+            for (auto &opPair : recordOpPair_) {
+                auto viewOp = opPair.first;
+                auto assOp = opPair.second;
+                if (InsertCopy(function, viewOp, assOp) == FAILED) {
                     return FAILED;
                 }
             }
@@ -119,13 +121,13 @@ Status InsertCopyForViewAssemble::JudgedViewAssemble(Function &function) {
     return SUCCESS;
 }
 
-Status InsertCopyForViewAssemble::RunOnFunction(Function &function) {
-    APASS_LOG_INFO_F(Elements::Function, "===> Start InsertCopyForViewAssemble");
+Status InsertOpForViewAssemble::RunOnFunction(Function &function) {
+    APASS_LOG_INFO_F(Elements::Function, "===> Start InsertOpForViewAssemble");
     if (JudgedViewAssemble(function) == FAILED) {
         APASS_LOG_ERROR_F(Elements::Function, "JudgedViewAssemble Failed.");
         return FAILED;
     }
-    APASS_LOG_INFO_F(Elements::Function, "===> End InsertCopyForViewAssemble");
+    APASS_LOG_INFO_F(Elements::Function, "===> End InsertOpForViewAssemble");
     return SUCCESS;
 }
 }

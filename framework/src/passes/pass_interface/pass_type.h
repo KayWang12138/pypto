@@ -86,7 +86,7 @@ inline constexpr const char *PassNameStr(PassName name){
         case PassName::ASSIGN_MEMORY_TYPE: return "AssignMemoryType";
         case PassName::INFER_DISCONTINUOUS_INPUT: return "InferDiscontinuousInput";
         case PassName::REMOVE_REDUNDANT_OP: return "RemoveRedundantOp";
-        case PassName::INSERT_COPY_FOR_VIEWASSEMBLE: return "InsertCopyForViewAssemble";
+        case PassName::INSERT_OP_FOR_VIEWASSEMBLE: return "InsertOpForViewAssemble";
         case PassName::SPLIT_K: return "SplitK";
         case PassName::GRAPH_PARTITION: return "GraphPartition";
         case PassName::REDUCE_COPY_MERGE: return "ReduceCopyMerge";
