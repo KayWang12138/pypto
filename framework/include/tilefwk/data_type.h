@@ -49,6 +49,9 @@ enum DataType {
     DT_UINT64 = 14,
     DT_BOOL = 15,
     DT_DOUBLE = 16,
+    DT_FP8_E4M3FN = 17,
+    DT_FP8_E5M2 = 18,
+    DT_FP8_E8M0 = 19,
     DT_BOTTOM
 };
 
@@ -80,12 +83,14 @@ enum MemoryType {
     MEM_BT = 12,
     MEM_L2 = 13,
     MEM_L3 = 14,
-    MEM_DEVICE_DDR = 15,
-    MEM_HOST1 = 16,
-    MEM_FAR1 = 17,
-    MEM_FAR2 = 18,
-    MEM_WORKSPACE = 19,
-    MEM_VECTOR_REG = 20,
+    MEM_L0AMX = 15,
+    MEM_L0BMX = 16,
+    MEM_DEVICE_DDR = 17,
+    MEM_HOST1 = 18,
+    MEM_FAR1 = 19,
+    MEM_FAR2 = 20,
+    MEM_WORKSPACE = 21,
+    MEM_VECTOR_REG = 22,
     MEM_UNKNOWN
 };
 
@@ -133,6 +138,9 @@ inline std::string DataType2String(DataType t) {
         case DT_UINT16: return "DT_UINT16";
         case DT_UINT32: return "DT_UINT32";
         case DT_UINT64: return "DT_UINT64";
+        case DT_FP8_E4M3FN: return "DT_FP8_E4M3FN";
+        case DT_FP8_E5M2: return "DT_FP8_E5M2";
+        case DT_FP8_E8M0: return "DT_FP8_E8M0";
         default: throw std::invalid_argument("Unknown DataType");
     }
 }
@@ -156,6 +164,9 @@ inline std::string DataType2String(DataType t) {
         case DT_UINT64: return "UINT64";
         case DT_BOOL: return "BOOL";
         case DT_DOUBLE: return "DOUBLE";
+        case DT_FP8_E4M3FN: return "FP8_E4M3FN";
+        case DT_FP8_E5M2: return "FP8_E5M2";
+        case DT_FP8_E8M0: return "FP8_E8M0";
         default: throw std::invalid_argument("Unknown DataType");
     }
 }
@@ -178,6 +189,9 @@ inline std::string DataType2CCEStr(DataType t) {
         case DT_UINT16: return "uint16_t";
         case DT_UINT32: return "uint32_t";
         case DT_UINT64: return "uint64_t";
+        case DT_FP8_E4M3FN: return "float8_e4m3_t";
+        case DT_FP8_E5M2: return "float8_e5m2_t";
+        case DT_FP8_E8M0: return "float8_e8m0_t";
         default: throw std::invalid_argument("Unknown DataType");
     }
 }
@@ -212,7 +226,10 @@ const std::unordered_map<std::string, DataType> STR_DATA_TYPE_MAP = {
     {"uint32",   DT_UINT32},
     {"uint64",   DT_UINT64},
     {"bool",     DT_BOOL},
-    {"double",   DT_DOUBLE}
+    {"double",   DT_DOUBLE},
+    {"float8_e4m3fn", DT_FP8_E4M3FN},
+    {"float8_e5m2", DT_FP8_E5M2},
+    {"float8_e8m0", DT_FP8_E8M0}
 };
 
 inline std::string MemoryTypeToString(MemoryType mt) {
@@ -279,6 +296,9 @@ inline size_t BytesOf(DataType t) {
         case DT_DOUBLE:
         case DT_UINT64:
         case DT_INT64: return 0x8;
+        case DT_FP8_E4M3FN: return 1;
+        case DT_FP8_E5M2: return 1;
+        case DT_FP8_E8M0: return 1;
         default: throw std::invalid_argument("Unknown DataType");
     }
 }
