@@ -18,6 +18,13 @@ from functools import wraps
 from . import pypto_impl
 
 
+class CompStage(enum.Enum):
+    ALL = 0
+    CODEGEN = 1
+    HOST = 2
+    TENSOR = 3
+
+
 class _CachedOptions:
 
     def __init__(self):
@@ -160,16 +167,16 @@ def get_pass_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]]]:
 
 
 
-def set_host_options(*, only_codegen: Optional[bool] = None) -> None:
+def set_host_options(*, compile_stage: Optional[CompStage] = None) -> None:
     """
     Set host options.
 
     Parameters
     ---------
-    only_codegen : bool
-        Shield the static on-board process.
+    compile_stage : CompStage
+        Set the stage of compile.
     """
-    options_dict = {k: v for k, v in locals().items() if v is not None}
+    options_dict = {k: v.value for k, v in locals().items() if v is not None}
     set_options(host_options=options_dict)
 
 
@@ -532,14 +539,14 @@ def get_current_scope():
 
 
 def get_global_config(key: str):
-    """Get global config config."""
+    """Get global config."""
     cpp_scope = pypto_impl.GlobalScope()
     py_scope = ConfigScope(cpp_scope)
     return py_scope.get_options_prefix("global." + key)
 
 
 def set_global_config(key, value):
-    """Set global config config."""
+    """Set global config."""
     pypto_impl.SetGlobalConfig({"global." + key: value})
 
 
