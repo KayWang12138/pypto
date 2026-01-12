@@ -2110,7 +2110,6 @@ void MixSubgraphSplit::EliminateRedundantIncasts(
             }
         }
     }
-    ALOG_INFO_F("Found %zu unique external tensors", tensorToComponents.size());
     // 步骤2：构建同类型依赖的快速查找表
     std::unordered_map<int, std::set<int>> sameTypeReachable;
     for (const auto& dep : internalDeps) {
@@ -2121,8 +2120,6 @@ void MixSubgraphSplit::EliminateRedundantIncasts(
         const auto& tensor = item.first;
         const auto& compSet = item.second;
         if (compSet.size() <= 1) continue;  
-        ALOG_DEBUG_F("Analyzing tensor %d propagated to %zu components", 
-                    tensor->GetRawMagic(), compSet.size());    
         std::vector<int> comps(compSet.begin(), compSet.end());
         std::vector<bool> isRedundant(comps.size(), false);
         for (size_t i = 0; i < comps.size(); i++) {
@@ -2174,7 +2171,6 @@ void MixSubgraphSplit::EliminateRedundantOutcasts(
             }
         }
     }
-    ALOG_INFO_F("Found %zu unique outcast tensors", tensorFromComponents.size());
     // 步骤2：构建同类型依赖的快速查找表
     std::unordered_map<int, std::set<int>> sameTypeReachable;
     for (const auto& dep : internalDeps) {
@@ -2185,8 +2181,6 @@ void MixSubgraphSplit::EliminateRedundantOutcasts(
         const auto& tensor = item.first;
         const auto& compSet = item.second;
         if (compSet.size() <= 1) continue;
-        ALOG_DEBUG_F("Outcast tensor %d is produced by %zu components", 
-                    tensor->GetRawMagic(), compSet.size());
         std::vector<int> comps(compSet.begin(), compSet.end());
         std::vector<bool> isRedundant(comps.size(), false);
         for (size_t i = 0; i < comps.size(); i++) {
