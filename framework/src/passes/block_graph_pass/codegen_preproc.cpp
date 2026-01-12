@@ -185,7 +185,7 @@ Status CodegenPreproc::ForceCombineAxisForAxisCombine(Function &func) const {
             std::vector<bool> outputCombineAxis;
             for (size_t i = 0; i < op.GetOOperands().size(); ++i) {
                 LogicalTensors operands = op.GetOOperands();
-                if (operands[i]->tensor->rawshape.back() == 1 && OpcodeManager::Inst().GetOpCalcType(op.GetOpcode()) != OpCalcType::REDUCE) {
+                if (operands[i]->tensor->rawshape.back() == 1) {
                     outputCombineAxis.push_back(true);
                 } else {
                     outputCombineAxis.push_back(false);
