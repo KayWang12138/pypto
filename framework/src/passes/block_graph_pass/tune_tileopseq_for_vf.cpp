@@ -64,7 +64,7 @@ void TuneTileOpSeqForVF::ChangeOpSeq(std::vector<Operation *> &opList, PipeSync 
             // 如果该op和vecTileop0和vecTileop1都存在依赖关系，则不能融合
             if (ps.HasDataDependency(*opList[left], *opList[k], left, k) && ps.HasDataDependency(*opList[k], *opList[right], k, right)) {
                 canMerge = false;
-                continue;
+                break;
             }
             // vecTileop0 op(set) vecTileop1(wait) 这种情况下两个vecTileop中间的op需要前移
             if (ps.HasDataDependency(*opList[k], *opList[right], k, right)) {
@@ -82,11 +82,13 @@ void TuneTileOpSeqForVF::ChangeOpSeq(std::vector<Operation *> &opList, PipeSync 
                     if (canMerge) {
                         moveBack = false;
                     } else {
-                        continue;
+                        break;
                     }
                 }
             }
-
+        }
+        if (!canMerge) {
+            continue;
         }
         // 可以融合
         // 将vecTileop0和vecTileop1添加到mergedOps中
