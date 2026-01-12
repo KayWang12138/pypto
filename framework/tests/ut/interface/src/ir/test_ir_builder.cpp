@@ -34,7 +34,7 @@ namespace pto{
 TEST(IRTEST, TestBuilder) {
     // ===== Module =====
     auto module = std::make_shared<ProgramModule>("main");
-    IRBuilder builder(module);
+    IRBuilder builder;
     IRBuilderContext ctx;
 
     // ===== Signature =====
@@ -51,7 +51,9 @@ TEST(IRTEST, TestBuilder) {
     sig.arguments = { inputTensor, scale1, result };
 
     // ===== Function =====
-    auto func = builder.CreateFunction("test_value", FunctionKind::ControlFlow, sig, /*setAsEntry=*/true);
+    auto func = builder.CreateFunction("test_value", FunctionKind::ControlFlow, sig);
+    module->AddFunction(func);
+    module->SetProgramEntry(func);
 
     // enter func scope + create an initial block as insertion point
     builder.EnterFunctionBody(ctx, func);
@@ -95,7 +97,7 @@ TEST(IRTEST, TestBuilder) {
 TEST(IRTEST, TestControlFlow) {
     // ===== Module =====
     auto module = std::make_shared<ProgramModule>("main");
-    IRBuilder builder(module);
+    IRBuilder builder;
     IRBuilderContext ctx;
 
     // ===== Signature =====
@@ -121,9 +123,10 @@ TEST(IRTEST, TestControlFlow) {
     sig.results.push_back(std::make_shared<ScalarValue>(DataType::INT32));
 
     // ===== Function =====
-    auto func = builder.CreateFunction("test_control", FunctionKind::ControlFlow, sig, /*setAsEntry=*/false);
+    auto func = builder.CreateFunction("test_control", FunctionKind::ControlFlow, sig);
+    module->AddFunction(func);
     module->SetProgramEntry(func);
-        // 进入函数体作用域
+        // 进入函数体作用域 
     builder.EnterFunctionBody(ctx, func);
 
     // for i = 0 to batch step 1
