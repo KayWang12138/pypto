@@ -107,7 +107,7 @@ def gen_quan_per_channel_weight_nz(x):
 
 
 @pypto.jit(
-    host_options={"only_codegen": True},
+    host_options={"compile_stage": 3},
     runtime_options={"device_sched_mode": 1,
                      "stitch_function_num_initial": 128,
                      "stitch_function_outcast_memory": 128,
