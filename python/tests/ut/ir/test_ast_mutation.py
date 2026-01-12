@@ -1,6 +1,5 @@
 import os
 import ast
-from inspect import BlockFinder
 from pypto.pypto_impl import ir
 from pypto.blockgraph.builder_helper import BlockBuilderHelper
 from pypto.blockgraph.ast_mutator import AstMutator
