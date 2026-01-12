@@ -3300,6 +3300,10 @@ void Function::SetCallOpSlot() {
     }
     std::vector<Function *> calleeList = GetCalleeFunctionList();
     for (auto callee: calleeList) {
+        if (callee == nullptr) {
+            printf("callee is nullptr!!!!!!\n");
+            continue;
+        }
         const std::shared_ptr<TensorSlotScope> calleeScope = callee->GetSlotScope();
         // callee incast -> call op iOperand, callee outcast -> call op oOperand
         UpdateOriIocastSlot(calleeScope);
