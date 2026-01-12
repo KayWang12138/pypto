@@ -82,7 +82,6 @@ def test_control_flow():
 
             # --- IF THEN ---
             with block.if_then_scope(ifs):
-                builder.enter_if_then(ctx, ifs)
                 res_if_x = builder.create_tile(
                     ctx, tile_shape, ir.DataType.float, "outputX")
                 mul_op_x = builder.create_binary_scalar_op(
