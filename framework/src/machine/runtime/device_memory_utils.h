@@ -21,6 +21,7 @@
 #include "machine/runtime/device_runner.h"
 #include "machine/platform/platform_manager.h"
 #include "interface/interpreter/raw_tensor_data.h"
+#include "machine/runtime/runtime_timing.h"
 
 namespace npu::tile_fwk::dynamic {
 struct DeviceMemoryUtils {
@@ -40,13 +41,17 @@ struct DeviceMemoryUtils {
 
     uint8_t *AllocZero(uint64_t size, uint8_t **cachedDevAddrHolder) {
         uint8_t *devPtr = AllocDev(size, cachedDevAddrHolder);
-        (void)rtMemset(devPtr, size, 0, size);
+        int rc;
+        RT_TIMING_WRAP(rtMemset(devPtr, size, 0, size), "rtMemset_AllocZero", rc);
+        (void)rc;
         return devPtr;
     }
 
     uint8_t *CopyToDev(uint8_t *data, uint64_t size, uint8_t **cachedDevAddrHolder) {
         uint8_t *devPtr = AllocDev(size, cachedDevAddrHolder);
-        rtMemcpy(devPtr, size, data, size, RT_MEMCPY_HOST_TO_DEVICE);
+        int rc;
+        RT_TIMING_WRAP(rtMemcpy(devPtr, size, data, size, RT_MEMCPY_HOST_TO_DEVICE), "rtMemcpy_CopyToDev_H2D", rc);
+        (void)rc;
         return devPtr;
     }
 
@@ -56,7 +61,9 @@ struct DeviceMemoryUtils {
     }
 
     void CopyFromDev(uint8_t *data, uint8_t *devPtr, uint64_t size) {
-        rtMemcpy(data, size, devPtr, size, RT_MEMCPY_DEVICE_TO_HOST);
+        int rc;
+        RT_TIMING_WRAP(rtMemcpy(data, size, devPtr, size, RT_MEMCPY_DEVICE_TO_HOST), "rtMemcpy_CopyFromDev_D2H", rc);
+        (void)rc;
     }
 
     uint8_t *CopyToDev(RawTensorData &data) {

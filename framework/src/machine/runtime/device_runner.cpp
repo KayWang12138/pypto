@@ -39,6 +39,7 @@
 #include "tilefwk/platform.h"
 #include "machine/platform/platform_manager.h"
 #include "machine/runtime/device_error_tracking.h"
+#include "machine/runtime/runtime_timing.h"
 #include "nlohmann/json.hpp"
 
 using json = nlohmann::json;
@@ -253,11 +254,11 @@ int DeviceRunner::Run(rtStream_t aicpuStream, rtStream_t aicoreStream, int64_t t
     if (rc < 0) {
         return rc;
     }
-    rc = rtStreamSynchronize(aicoreStream);
+    RT_TIMING_WRAP(rtStreamSynchronize(aicoreStream), "rtStreamSynchronize_aicore_Run", rc);
     if (rc != 0) {
         ALOG_INFO_F("aicore stream sync failed");
     }
-    rc = rtStreamSynchronize(aicpuStream);
+    RT_TIMING_WRAP(rtStreamSynchronize(aicpuStream), "rtStreamSynchronize_aicpu_Run", rc);
     if (rc != 0) {
         ALOG_INFO_F("aicpu stream sync failed");
     }
@@ -486,11 +487,13 @@ void DeviceRunner::SynchronizeDeviceToHostProfData() {
 }
 
 int DeviceRunner::DynamicLaunchSynchronize(rtStream_t aicpuStream, rtStream_t ctrlStream, rtStream_t aicoreStream) {
-    int rcAicore = rtStreamSynchronize(aicoreStream);
-    int rcAicpu = rtStreamSynchronize(aicpuStream);
+    int rcAicore;
+    RT_TIMING_WRAP(rtStreamSynchronize(aicoreStream), "rtStreamSynchronize_aicore", rcAicore);
+    int rcAicpu;
+    RT_TIMING_WRAP(rtStreamSynchronize(aicpuStream), "rtStreamSynchronize_aicpu", rcAicpu);
     int rcCtrl = 0;
     if (ctrlStream != nullptr) {
-        rcCtrl = rtStreamSynchronize(aicpuStream);
+        RT_TIMING_WRAP(rtStreamSynchronize(ctrlStream), "rtStreamSynchronize_ctrl", rcCtrl);
     }
     if (IsAstDataDumpEnabled()) {
         ALOG_DEBUG_F("DataDumpServerInit is called \n");
@@ -511,7 +514,9 @@ int DeviceRunner::launchDynamicAiCore(rtStream_t aicoreStream, AstKernelArgs *ke
     uint64_t tilingKey = OpInfoManager::GetInstance().GetOpTilingKey();
     rtTaskCfgInfo_t cfg = {};
     cfg.schemMode = RT_SCHEM_MODE_BATCH;
-    return rtKernelLaunchWithHandleV2(binHdl_, tilingKey, blockDim_, &rtArgs, nullptr, aicoreStream, &cfg);
+    int rc;
+    RT_TIMING_WRAP(rtKernelLaunchWithHandleV2(binHdl_, tilingKey, blockDim_, &rtArgs, nullptr, aicoreStream, &cfg), "rtKernelLaunchWithHandleV2_launchDynamicAiCore", rc);
+    return rc;
 }
 
 int DeviceRunner::launchDynamicAiCpu(rtStream_t aicpuStream, AstKernelArgs *kArgs) {
@@ -710,6 +715,7 @@ int DeviceRunner::DynamicSeparateLaunch(rtStream_t aicpuStream, rtStream_t ctrlS
 
 int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, rtStream_t aicoreStream, int64_t taskId,
     AstKernelArgs *kernelArgs, int blockdim, int launchAicpuNum) {
+    FuncTimer _timer(__func__);
     InitializeErrorCallback();
     if (!g_IsFirstInit) {
         InitAiCpuSoBin();
@@ -745,7 +751,8 @@ int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, r
     localArgs.generalAddr = kernelArgs->opMetaAddrs.generalAddr;
     localArgs.stitchPoolAddr = kernelArgs->opMetaAddrs.stitchPoolAddr;
     localArgs.isGETensorList = kernelArgs->toSubMachineConfig.isGETensorList;
-    int rc = rtMemcpy(kernelArgs->cfgdata, sizeof(localArgs), &localArgs, sizeof(localArgs), RT_MEMCPY_HOST_TO_DEVICE);
+    int rc;
+    RT_TIMING_WRAP(rtMemcpy(kernelArgs->cfgdata, sizeof(localArgs), &localArgs, sizeof(localArgs), RT_MEMCPY_HOST_TO_DEVICE), "rtMemcpy_DynamicLaunch", rc);
     if (rc != 0) {
         ALOG_ERROR_F("Copy args failed %p rc %d\n", kernelArgs->cfgdata, rc);
         return rc;
