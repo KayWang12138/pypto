@@ -145,8 +145,8 @@ private:
     std::map<PipeType, IssueQueue> issueQueues;
     std::unordered_map<MemoryType, int64_t> localMemorySize;
 
-    std::map<Operation*, std::vector<Operation*>> opConsumers;
-    std::map<Operation*, std::vector<Operation*>> opProducers;
+    std::map<Operation*, std::unordered_set<Operation*>> opConsumers;
+    std::map<Operation*, std::unordered_set<Operation*>> opProducers;
 
     Function &function_;
     int issueId{0};

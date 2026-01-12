@@ -75,8 +75,8 @@ public:
     std::unordered_map<MemoryType, int64_t> localMemSize; //内存剩余情况
     std::unordered_map<MemoryType, int64_t> localMemoryCurrentSize;
     std::unordered_map<int, LocalBufferPtr> localBufferMap; //memid:local
-    std::map<Operation*, std::vector<Operation*>> opConsumers;
-    std::map<Operation*, std::vector<Operation*>> opProducers;
+    std::map<Operation*, std::unordered_set<Operation*>> opConsumers;
+    std::map<Operation*, std::unordered_set<Operation*>> opProducers;
 
     //  初始依赖的list序列
     std::vector<Operation*> operations;
