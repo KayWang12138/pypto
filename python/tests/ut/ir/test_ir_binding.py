@@ -15,21 +15,21 @@ from pypto.pypto_impl import ir
 
 def test_dtype():
     dtypes = [
-        (ir.DataType.bool, 'bool', 8, 1, False),
-        (ir.DataType.uint8, 'uint8', 8, 1, False),
-        (ir.DataType.uint16, 'uint16', 16, 2, False),
-        (ir.DataType.uint32, 'uint32', 32, 4, False),
-        (ir.DataType.uint64, 'uint64', 64, 8, False),
-        (ir.DataType.int8, 'int8', 8, 1, False),
-        (ir.DataType.int16, 'int16', 16, 2, False),
-        (ir.DataType.int32, 'int32', 32, 4, False),
-        (ir.DataType.int64, 'int64', 64, 8, False),
-        (ir.DataType.float8_e4m3fn, 'float8_e4m3fn', 8, 1, True),
-        (ir.DataType.float8_e5m2, 'float8_e5m2', 8, 1, True),
-        (ir.DataType.float, 'float32', 32, 4, True),
-        (ir.DataType.float32, 'float32', 32, 4, True),
-        (ir.DataType.float64, 'float64', 64, 8, True),
-        (ir.DataType.double, 'float64', 64, 8, True),
+        (ir.DataType.bool, "bool", 8, 1, False),
+        (ir.DataType.uint8, "uint8", 8, 1, False),
+        (ir.DataType.uint16, "uint16", 16, 2, False),
+        (ir.DataType.uint32, "uint32", 32, 4, False),
+        (ir.DataType.uint64, "uint64", 64, 8, False),
+        (ir.DataType.int8, "int8", 8, 1, False),
+        (ir.DataType.int16, "int16", 16, 2, False),
+        (ir.DataType.int32, "int32", 32, 4, False),
+        (ir.DataType.int64, "int64", 64, 8, False),
+        (ir.DataType.float8_e4m3fn, "float8_e4m3fn", 8, 1, True),
+        (ir.DataType.float8_e5m2, "float8_e5m2", 8, 1, True),
+        (ir.DataType.float, "float32", 32, 4, True),
+        (ir.DataType.float32, "float32", 32, 4, True),
+        (ir.DataType.float64, "float64", 64, 8, True),
+        (ir.DataType.double, "float64", 64, 8, True),
     ]
     for (dtype, name, bit_cnt, byte_cnt, is_fp) in dtypes:
         assert str(dtype) == f"DataType.{name}"
@@ -104,24 +104,19 @@ def test_control_flow():
     tensor_shape = [batch, constant128]
     tile_shape = [128, 128]
 
-    input_x = ir.Tensor(tensor_shape, ir.DataType.float,
-                        "inputX", ir.Format.ND)
-    input_y = ir.Tensor(tensor_shape, ir.DataType.float,
-                        "inputY", ir.Format.ND)
+    input_x = ir.Tensor(tensor_shape, ir.DataType.float, "inputX", ir.Format.ND)
+    input_y = ir.Tensor(tensor_shape, ir.DataType.float, "inputY", ir.Format.ND)
     scale1 = ir.Scalar(ir.DataType.float, None, "scale1")
     scale2 = ir.Scalar(ir.DataType.float, None, "scale2")
 
-    result_x = ir.Tensor(tensor_shape, ir.DataType.float,
-                         "outputX", ir.Format.ND)
-    result_y = ir.Tensor(tensor_shape, ir.DataType.float,
-                         "outputY", ir.Format.ND)
+    result_x = ir.Tensor(tensor_shape, ir.DataType.float, "outputX", ir.Format.ND)
+    result_y = ir.Tensor(tensor_shape, ir.DataType.float, "outputY", ir.Format.ND)
 
     sig.arguments = [input_x, input_y, scale1, scale2, result_x, result_y]
     sig.returns = [ir.Scalar(ir.DataType.int32, None)]
 
     # ===== Function =====
-    func = builder.create_function(
-        "test_control", ir.FunctionKind.ControlFlow, sig)
+    func = builder.create_function("test_control", ir.FunctionKind.ControlFlow, sig)
     module.add_function(func)
     module.entry = func  # NOTE: now runs until here
 
@@ -139,18 +134,18 @@ def test_control_flow():
 
     builder.enter_for(ctx, fs)
 
-    res_loop_x = builder.create_tile(
-        ctx, tile_shape, ir.DataType.float, "outputX")
+    res_loop_x = builder.create_tile(ctx, tile_shape, ir.DataType.float, "outputX")
     # Note: create_op used as CreateBinaryOp placeholder
     add_op_x = builder.create_binary_scalar_op(
-        ir.Opcode.OP_ADDS, res_loop_x, scale1, res_loop_x)
+        ir.Opcode.OP_ADDS, res_loop_x, scale1, res_loop_x
+    )
     # add_op_x setup would occur here (opcode, inputs, outputs)
     builder.emit(ctx, add_op_x)
 
-    res_loop_y = builder.create_tile(
-        ctx, tile_shape, ir.DataType.float, "outputY")
+    res_loop_y = builder.create_tile(ctx, tile_shape, ir.DataType.float, "outputY")
     add_op_y = builder.create_binary_scalar_op(
-        ir.Opcode.OP_ADDS, res_loop_y, scale2, res_loop_y)
+        ir.Opcode.OP_ADDS, res_loop_y, scale2, res_loop_y
+    )
     builder.emit(ctx, add_op_y)
 
     # if i then outputX = mul(outputX, scale1) else outputY = mul(outputY, scale2)
@@ -158,10 +153,10 @@ def test_control_flow():
 
     # --- IF THEN ---
     builder.enter_if_then(ctx, ifs)
-    res_if_x = builder.create_tile(
-        ctx, tile_shape, ir.DataType.float, "outputX")
+    res_if_x = builder.create_tile(ctx, tile_shape, ir.DataType.float, "outputX")
     mul_op_x = builder.create_binary_scalar_op(
-        ir.Opcode.OP_MULS, res_loop_x, scale1, res_if_x)
+        ir.Opcode.OP_MULS, res_loop_x, scale1, res_if_x
+    )
     builder.emit(ctx, mul_op_x)
 
     # test compound remove value (Assuming remove_var exists in binding)
@@ -172,10 +167,10 @@ def test_control_flow():
 
     # --- IF ELSE ---
     builder.enter_if_else(ctx, ifs)
-    res_if_y = builder.create_tile(
-        ctx, tile_shape, ir.DataType.float, "outputY")
+    res_if_y = builder.create_tile(ctx, tile_shape, ir.DataType.float, "outputY")
     mul_op_y = builder.create_binary_scalar_op(
-        ir.Opcode.OP_MULS, res_loop_y, scale2, res_if_y)
+        ir.Opcode.OP_MULS, res_loop_y, scale2, res_if_y
+    )
     builder.emit(ctx, mul_op_y)
 
     ctx.pop_scope()
@@ -251,12 +246,20 @@ def test_unary_operations():
     op_sqrt = builder.create_unary_op(ir.Opcode.OP_SQRT, input_tile, res_sqrt)
     builder.emit(ctx, op_sqrt)
 
-    res_logicalnot = builder.create_tile(ctx, tile_shape, ir.DataType.float, "res_logicalnot")
-    op_logicalnot = builder.create_unary_op(ir.Opcode.OP_LOGICALNOT, input_tile, res_logicalnot)
+    res_logicalnot = builder.create_tile(
+        ctx, tile_shape, ir.DataType.float, "res_logicalnot"
+    )
+    op_logicalnot = builder.create_unary_op(
+        ir.Opcode.OP_LOGICALNOT, input_tile, res_logicalnot
+    )
     builder.emit(ctx, op_logicalnot)
 
-    res_reciprocal = builder.create_tile(ctx, tile_shape, ir.DataType.float, "res_reciprocal")
-    op_reciprocal = builder.create_unary_op(ir.Opcode.OP_RECIPROCAL, input_tile, res_reciprocal)
+    res_reciprocal = builder.create_tile(
+        ctx, tile_shape, ir.DataType.float, "res_reciprocal"
+    )
+    op_reciprocal = builder.create_unary_op(
+        ir.Opcode.OP_RECIPROCAL, input_tile, res_reciprocal
+    )
     builder.emit(ctx, op_reciprocal)
 
     res_abs = builder.create_tile(ctx, tile_shape, ir.DataType.float, "res_abs")
@@ -359,27 +362,39 @@ def test_binary_scalar_mix_operations():
 
     # Test all binary scalar mix operations
     res_adds = builder.create_tile(ctx, tile_shape, ir.DataType.float, "res_adds")
-    op_adds = builder.create_binary_scalar_op(ir.Opcode.OP_ADDS, input_tile, scale, res_adds)
+    op_adds = builder.create_binary_scalar_op(
+        ir.Opcode.OP_ADDS, input_tile, scale, res_adds
+    )
     builder.emit(ctx, op_adds)
 
     res_subs = builder.create_tile(ctx, tile_shape, ir.DataType.float, "res_subs")
-    op_subs = builder.create_binary_scalar_op(ir.Opcode.OP_SUBS, input_tile, scale, res_subs)
+    op_subs = builder.create_binary_scalar_op(
+        ir.Opcode.OP_SUBS, input_tile, scale, res_subs
+    )
     builder.emit(ctx, op_subs)
 
     res_muls = builder.create_tile(ctx, tile_shape, ir.DataType.float, "res_muls")
-    op_muls = builder.create_binary_scalar_op(ir.Opcode.OP_MULS, input_tile, scale, res_muls)
+    op_muls = builder.create_binary_scalar_op(
+        ir.Opcode.OP_MULS, input_tile, scale, res_muls
+    )
     builder.emit(ctx, op_muls)
 
     res_divs = builder.create_tile(ctx, tile_shape, ir.DataType.float, "res_divs")
-    op_divs = builder.create_binary_scalar_op(ir.Opcode.OP_DIVS, input_tile, scale, res_divs)
+    op_divs = builder.create_binary_scalar_op(
+        ir.Opcode.OP_DIVS, input_tile, scale, res_divs
+    )
     builder.emit(ctx, op_divs)
 
     res_mins = builder.create_tile(ctx, tile_shape, ir.DataType.float, "res_mins")
-    op_mins = builder.create_binary_scalar_op(ir.Opcode.OP_MINS, input_tile, scale, res_mins)
+    op_mins = builder.create_binary_scalar_op(
+        ir.Opcode.OP_MINS, input_tile, scale, res_mins
+    )
     builder.emit(ctx, op_mins)
 
     res_maxs = builder.create_tile(ctx, tile_shape, ir.DataType.float, "res_maxs")
-    op_maxs = builder.create_binary_scalar_op(ir.Opcode.OP_MAXS, input_tile, scale, res_maxs)
+    op_maxs = builder.create_binary_scalar_op(
+        ir.Opcode.OP_MAXS, input_tile, scale, res_maxs
+    )
     builder.emit(ctx, op_maxs)
 
     builder.create_return(ctx, [res_maxs])

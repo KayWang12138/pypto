@@ -24,7 +24,7 @@ def test_ast_to_ir_explicit():
         scale1: ir.Scalar(ir.DataType.float, None, "scale1"),
         scale2: ir.Scalar(ir.DataType.float, None, "scale2"),
         result_x: ir.Tensor(tensor_shape, ir.DataType.float, "outputX", ir.Format.ND),
-        result_y: ir.Tensor(tensor_shape, ir.DataType.float, "outputY", ir.Format.ND)
+        result_y: ir.Tensor(tensor_shape, ir.DataType.float, "outputY", ir.Format.ND),
     ) -> (ir.Scalar(ir.DataType.int32, None),):
         # NOTE: original low-level example does not use input_x/y to compute result_x/y
         #       will fix accordingly after the low-level example is fixed
@@ -53,7 +53,7 @@ def test_ast_to_ir_explicit():
     ast.fix_missing_locations(module_ast)
     print("unparsed:\n", ast.unparse(module_ast))
 
-    code = compile(module_ast, filename='<ast>', mode='exec')
+    code = compile(module_ast, filename="<ast>", mode="exec")
 
     # The transformed function needs access to:
     exec_namespace = {
@@ -62,10 +62,7 @@ def test_ast_to_ir_explicit():
     }
     exec(code, exec_namespace)
     my_kernel_transformed = exec_namespace["my_kernel"]
-    metadata = {
-        "name": "my_kernel",
-        "function_kind": ir.FunctionKind.ControlFlow
-    }
+    metadata = {"name": "my_kernel", "function_kind": ir.FunctionKind.ControlFlow}
     func_ir = my_kernel_transformed(metadata)
     module.add_function(func_ir)
     module.entry = func_ir
@@ -93,7 +90,9 @@ def test_ast_to_ir_decorator():
     # NOTE: `block` helper and shape parameter `tensor_shape`, `tile_shape`, `batch` are passed via closure
     @ast_to_ir(
         metadata=dict(name="my_kernel", function_kind=ir.FunctionKind.ControlFlow),
-        closure_vars=dict(tensor_shape=tensor_shape, tile_shape=tile_shape, batch=batch, block=block)
+        closure_vars=dict(
+            tensor_shape=tensor_shape, tile_shape=tile_shape, batch=batch, block=block
+        ),
     )
     def my_kernel(
         input_x: ir.Tensor(tensor_shape, ir.DataType.float, "inputX", ir.Format.ND),
@@ -101,7 +100,7 @@ def test_ast_to_ir_decorator():
         scale1: ir.Scalar(ir.DataType.float, None, "scale1"),
         scale2: ir.Scalar(ir.DataType.float, None, "scale2"),
         result_x: ir.Tensor(tensor_shape, ir.DataType.float, "outputX", ir.Format.ND),
-        result_y: ir.Tensor(tensor_shape, ir.DataType.float, "outputY", ir.Format.ND)
+        result_y: ir.Tensor(tensor_shape, ir.DataType.float, "outputY", ir.Format.ND),
     ) -> (ir.Scalar(ir.DataType.int32, None),):
         # NOTE: original low-level example does not use input_x/y to compute result_x/y
         #       will fix accordingly after the low-level example is fixed
@@ -129,6 +128,7 @@ def test_ast_to_ir_decorator():
     assert isinstance(my_kernel, ir.Function)
     print("obtained ir.Function from ast!")
     # TODO: assert more information in `ir.Function` structure
+
 
 if __name__ == "__main__":
     test_ast_to_ir_explicit()

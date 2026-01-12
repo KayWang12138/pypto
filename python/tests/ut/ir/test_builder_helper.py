@@ -34,17 +34,13 @@ def test_control_flow():
     tensor_shape = [batch, constant128]
     tile_shape = [128, 128]
 
-    input_x = ir.Tensor(tensor_shape, ir.DataType.float,
-                        "inputX", ir.Format.ND)
-    input_y = ir.Tensor(tensor_shape, ir.DataType.float,
-                        "inputY", ir.Format.ND)
+    input_x = ir.Tensor(tensor_shape, ir.DataType.float, "inputX", ir.Format.ND)
+    input_y = ir.Tensor(tensor_shape, ir.DataType.float, "inputY", ir.Format.ND)
     scale1 = ir.Scalar(ir.DataType.float, None, "scale1")
     scale2 = ir.Scalar(ir.DataType.float, None, "scale2")
 
-    result_x = ir.Tensor(tensor_shape, ir.DataType.float,
-                         "outputX", ir.Format.ND)
-    result_y = ir.Tensor(tensor_shape, ir.DataType.float,
-                         "outputY", ir.Format.ND)
+    result_x = ir.Tensor(tensor_shape, ir.DataType.float, "outputX", ir.Format.ND)
+    result_y = ir.Tensor(tensor_shape, ir.DataType.float, "outputY", ir.Format.ND)
 
     sig.arguments = [input_x, input_y, scale1, scale2, result_x, result_y]
     sig.returns = [ir.Scalar(ir.DataType.int32, None)]
@@ -131,16 +127,12 @@ def test_control_flow_closure():
     # NOTE: `block` helper and shape parameter `tensor_shape`, `tile_shape`, `batch` are passed via closure
     # NOTE: use `metadata` kwarg so we reserve positional args for input arguments in pre-transformed ast
     def create_function(metadata=None):
-        input_x = ir.Tensor(tensor_shape, ir.DataType.float,
-                            "inputX", ir.Format.ND)
-        input_y = ir.Tensor(tensor_shape, ir.DataType.float,
-                            "inputY", ir.Format.ND)
+        input_x = ir.Tensor(tensor_shape, ir.DataType.float, "inputX", ir.Format.ND)
+        input_y = ir.Tensor(tensor_shape, ir.DataType.float, "inputY", ir.Format.ND)
         scale1 = ir.Scalar(ir.DataType.float, None, "scale1")
         scale2 = ir.Scalar(ir.DataType.float, None, "scale2")
-        result_x = ir.Tensor(tensor_shape, ir.DataType.float,
-                            "outputX", ir.Format.ND)
-        result_y = ir.Tensor(tensor_shape, ir.DataType.float,
-                            "outputY", ir.Format.ND)
+        result_x = ir.Tensor(tensor_shape, ir.DataType.float, "outputX", ir.Format.ND)
+        result_y = ir.Tensor(tensor_shape, ir.DataType.float, "outputY", ir.Format.ND)
 
         sig = ir.FunctionSignature()
         sig.arguments = [input_x, input_y, scale1, scale2, result_x, result_y]
@@ -176,13 +168,8 @@ def test_control_flow_closure():
 
         return func
 
-    metadata=dict(
-        name="test_control",
-        function_kind=ir.FunctionKind.ControlFlow
-    )
-    func = create_function(
-        metadata=metadata
-    )
+    metadata = dict(name="test_control", function_kind=ir.FunctionKind.ControlFlow)
+    func = create_function(metadata=metadata)
     module.add_function(func)
     module.entry = func
 
@@ -216,7 +203,7 @@ def test_unary_operations():
     with block.function_scope(func):
         # Create input tile inside function scope
         input_tile = block.Tile(tile_shape, ir.DataType.float, "input_tile")
-        
+
         # Test all unary operations
         res_exp = block.Tile(tile_shape, ir.DataType.float, "res_exp")
         block.exp(input_tile, out=res_exp)
@@ -275,7 +262,7 @@ def test_binary_operations():
         # Create input tiles inside function scope
         input_x = block.Tile(tile_shape, ir.DataType.float, "input_x")
         input_y = block.Tile(tile_shape, ir.DataType.float, "input_y")
-        
+
         # Test all binary operations
         res_sub = block.Tile(tile_shape, ir.DataType.float, "res_sub")
         block.sub(input_x, input_y, out=res_sub)
@@ -324,7 +311,7 @@ def test_binary_scalar_mix_operations():
     with block.function_scope(func):
         # Create input tile inside function scope
         input_tile = block.Tile(tile_shape, ir.DataType.float, "input_tile")
-        
+
         # Test all binary scalar mix operations
         res_adds = block.Tile(tile_shape, ir.DataType.float, "res_adds")
         block.adds(input_tile, scale, out=res_adds)

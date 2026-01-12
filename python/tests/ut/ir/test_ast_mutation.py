@@ -20,47 +20,52 @@ def _get_dump_path(test_name: str) -> str:
 def _verify_transformed_ast(transformed_ast: ast.FunctionDef, func_name: str):
     """
     Verify that the transformed AST contains expected patterns.
-    
+
     Args:
         transformed_ast: The transformed AST function node
         func_name: The name of the original function
     """
     # Verify it's a FunctionDef node
     assert isinstance(transformed_ast, ast.FunctionDef), "Expected FunctionDef node"
-    
+
     # Unparse and check for expected patterns
     source = ast.unparse(transformed_ast)
-    
+
     # Check for expected transformations
     assert "block.create_function" in source, "Expected block.create_function call"
-    assert "block.function_scope" in source, "Expected block.function_scope context manager"
+    assert (
+        "block.function_scope" in source
+    ), "Expected block.function_scope context manager"
     assert "block.create_return" in source, "Expected block.create_return call"
-    
+
     # Check that metadata parameter is present
     assert "metadata" in source, "Expected metadata parameter"
-    
+
     # Verify the function signature accepts metadata parameter
-    assert f"def {func_name}(metadata):" in source or f"def {func_name}(metadata" in source, \
-        f"Function should accept metadata parameter"
-    
+    assert (
+        f"def {func_name}(metadata):" in source or f"def {func_name}(metadata" in source
+    ), f"Function should accept metadata parameter"
+
     # Verify key transformations are present (positive checks)
     # The presence of these patterns confirms the transformation worked
     assert "FunctionSignature" in source, "Should create FunctionSignature"
     assert "sig.arguments" in source, "Should set signature arguments"
     assert "sig.returns" in source, "Should set signature returns"
-    
+
     # Check for control flow transformations if present in the source
     # (These are optional depending on the test case)
     if "block.for_scope" in source:
         assert "block.ForNode" in source, "Expected block.ForNode call"
         assert "block.Scalar" in source, "Expected block.Scalar call for loop variable"
-    
+
     if "block.if_then_scope" in source:
         assert "block.IfNode" in source, "Expected block.IfNode call"
         assert "block.exit_if" in source, "Expected block.exit_if call"
-    
+
     if "block.if_else_scope" in source:
-        assert "block.if_then_scope" in source, "Expected block.if_then_scope when else is present"
+        assert (
+            "block.if_then_scope" in source
+        ), "Expected block.if_then_scope when else is present"
 
 
 def test_ast_transform():
@@ -84,7 +89,7 @@ def test_ast_transform():
         scale1: ir.Scalar(ir.DataType.float, None, "scale1"),
         scale2: ir.Scalar(ir.DataType.float, None, "scale2"),
         result_x: ir.Tensor(tensor_shape, ir.DataType.float, "outputX", ir.Format.ND),
-        result_y: ir.Tensor(tensor_shape, ir.DataType.float, "outputY", ir.Format.ND)
+        result_y: ir.Tensor(tensor_shape, ir.DataType.float, "outputY", ir.Format.ND),
     ) -> (ir.Scalar(ir.DataType.int32, None),):
         # NOTE: original low-level example does not use input_x/y to compute result_x/y
         #       will fix accordingly after the low-level example is fixed
@@ -108,16 +113,22 @@ def test_ast_transform():
         return (constant0,)
 
     # Get transformed AST (without executing)
-    transformed_ast = AstMutator.mutate_ast(my_kernel, dump_source=_get_dump_path("test_ast_transform"))
-    
+    transformed_ast = AstMutator.mutate_ast(
+        my_kernel, dump_source=_get_dump_path("test_ast_transform")
+    )
+
     # Verify transformed AST
     _verify_transformed_ast(transformed_ast, "my_kernel")
-    
+
     # Additional checks specific to this test (for loop and if statement)
     source = ast.unparse(transformed_ast)
     assert "block.for_scope" in source, "Expected block.for_scope context manager"
-    assert "block.if_then_scope" in source, "Expected block.if_then_scope context manager"
-    assert "block.if_else_scope" in source, "Expected block.if_else_scope context manager"
+    assert (
+        "block.if_then_scope" in source
+    ), "Expected block.if_then_scope context manager"
+    assert (
+        "block.if_else_scope" in source
+    ), "Expected block.if_else_scope context manager"
 
 
 def test_nested_for_loops():
@@ -142,11 +153,13 @@ def test_nested_for_loops():
                 block.adds(res, input_x, out=res)
         return (constant0,)
 
-    transformed_ast = AstMutator.mutate_ast(my_kernel, dump_source=_get_dump_path("test_nested_for_loops"))
-    
+    transformed_ast = AstMutator.mutate_ast(
+        my_kernel, dump_source=_get_dump_path("test_nested_for_loops")
+    )
+
     # Verify transformed AST
     _verify_transformed_ast(transformed_ast, "my_kernel")
-    
+
     # Additional checks specific to nested for loops
     source = ast.unparse(transformed_ast)
     assert "block.for_scope" in source, "Expected block.for_scope context manager"
@@ -182,15 +195,21 @@ def test_nested_if_statements():
             res3 = block.Tile(tile_shape, ir.DataType.float, "output3")
         return (constant0,)
 
-    transformed_ast = AstMutator.mutate_ast(my_kernel, dump_source=_get_dump_path("test_nested_if_statements"))
-    
+    transformed_ast = AstMutator.mutate_ast(
+        my_kernel, dump_source=_get_dump_path("test_nested_if_statements")
+    )
+
     # Verify transformed AST
     _verify_transformed_ast(transformed_ast, "my_kernel")
-    
+
     # Additional checks specific to nested if statements
     source = ast.unparse(transformed_ast)
-    assert "block.if_then_scope" in source, "Expected block.if_then_scope context manager"
-    assert "block.if_else_scope" in source, "Expected block.if_else_scope context manager"
+    assert (
+        "block.if_then_scope" in source
+    ), "Expected block.if_then_scope context manager"
+    assert (
+        "block.if_else_scope" in source
+    ), "Expected block.if_else_scope context manager"
     # Should have multiple if_then_scope calls for nested ifs
     assert source.count("block.if_then_scope") >= 2, "Expected nested if statements"
 
@@ -219,16 +238,22 @@ def test_for_with_nested_if():
                 block.muls(res, input_x, out=res)
         return (constant0,)
 
-    transformed_ast = AstMutator.mutate_ast(my_kernel, dump_source=_get_dump_path("test_for_with_nested_if"))
-    
+    transformed_ast = AstMutator.mutate_ast(
+        my_kernel, dump_source=_get_dump_path("test_for_with_nested_if")
+    )
+
     # Verify transformed AST
     _verify_transformed_ast(transformed_ast, "my_kernel")
-    
+
     # Additional checks specific to for loop with nested if
     source = ast.unparse(transformed_ast)
     assert "block.for_scope" in source, "Expected block.for_scope context manager"
-    assert "block.if_then_scope" in source, "Expected block.if_then_scope context manager"
-    assert "block.if_else_scope" in source, "Expected block.if_else_scope context manager"
+    assert (
+        "block.if_then_scope" in source
+    ), "Expected block.if_then_scope context manager"
+    assert (
+        "block.if_else_scope" in source
+    ), "Expected block.if_else_scope context manager"
 
 
 def test_if_with_nested_for():
@@ -256,15 +281,21 @@ def test_if_with_nested_for():
             res = block.Tile(tile_shape, ir.DataType.float, "output")
         return (constant0,)
 
-    transformed_ast = AstMutator.mutate_ast(my_kernel, dump_source=_get_dump_path("test_if_with_nested_for"))
-    
+    transformed_ast = AstMutator.mutate_ast(
+        my_kernel, dump_source=_get_dump_path("test_if_with_nested_for")
+    )
+
     # Verify transformed AST
     _verify_transformed_ast(transformed_ast, "my_kernel")
-    
+
     # Additional checks specific to if statement with nested for
     source = ast.unparse(transformed_ast)
-    assert "block.if_then_scope" in source, "Expected block.if_then_scope context manager"
-    assert "block.if_else_scope" in source, "Expected block.if_else_scope context manager"
+    assert (
+        "block.if_then_scope" in source
+    ), "Expected block.if_then_scope context manager"
+    assert (
+        "block.if_else_scope" in source
+    ), "Expected block.if_else_scope context manager"
     assert "block.for_scope" in source, "Expected block.for_scope context manager"
 
 
@@ -289,14 +320,18 @@ def test_if_without_else():
             block.adds(res, input_x, out=res)
         return (constant0,)
 
-    transformed_ast = AstMutator.mutate_ast(my_kernel, dump_source=_get_dump_path("test_if_without_else"))
-    
+    transformed_ast = AstMutator.mutate_ast(
+        my_kernel, dump_source=_get_dump_path("test_if_without_else")
+    )
+
     # Verify transformed AST
     _verify_transformed_ast(transformed_ast, "my_kernel")
-    
+
     # Additional checks specific to if without else
     source = ast.unparse(transformed_ast)
-    assert "block.if_then_scope" in source, "Expected block.if_then_scope context manager"
+    assert (
+        "block.if_then_scope" in source
+    ), "Expected block.if_then_scope context manager"
     # Should not have if_else_scope when there's no else clause
     # (The helper function checks for if_else_scope only if it exists in source)
 
@@ -321,16 +356,22 @@ def test_if_with_python_bool_constant():
             block.adds(res, input_x, out=res)
         return (constant0,)
 
-    transformed_ast = AstMutator.mutate_ast(my_kernel, dump_source=_get_dump_path("test_if_with_python_bool_constant"))
-    
+    transformed_ast = AstMutator.mutate_ast(
+        my_kernel, dump_source=_get_dump_path("test_if_with_python_bool_constant")
+    )
+
     # Verify transformed AST
     _verify_transformed_ast(transformed_ast, "my_kernel")
-    
+
     # Check that Python bool constant is NOT transformed
     source = ast.unparse(transformed_ast)
     # Should NOT have block.if_then_scope for Python bool constant
-    assert "block.if_then_scope" not in source, "Python bool constant should not be transformed"
-    assert "block.IfNode" not in source, "Python bool constant should not be transformed"
+    assert (
+        "block.if_then_scope" not in source
+    ), "Python bool constant should not be transformed"
+    assert (
+        "block.IfNode" not in source
+    ), "Python bool constant should not be transformed"
     # Should still have the original if True pattern
     assert "if True:" in source, "Original if True should remain"
 
@@ -356,16 +397,22 @@ def test_if_with_python_bool_variable():
             block.adds(res, input_x, out=res)
         return (constant0,)
 
-    transformed_ast = AstMutator.mutate_ast(my_kernel, dump_source=_get_dump_path("test_if_with_python_bool_variable"))
-    
+    transformed_ast = AstMutator.mutate_ast(
+        my_kernel, dump_source=_get_dump_path("test_if_with_python_bool_variable")
+    )
+
     # Verify transformed AST
     _verify_transformed_ast(transformed_ast, "my_kernel")
-    
+
     # Check that Python bool variable is NOT transformed
     source = ast.unparse(transformed_ast)
     # Should NOT have block.if_then_scope for Python bool variable
-    assert "block.if_then_scope" not in source, "Python bool variable should not be transformed"
-    assert "block.IfNode" not in source, "Python bool variable should not be transformed"
+    assert (
+        "block.if_then_scope" not in source
+    ), "Python bool variable should not be transformed"
+    assert (
+        "block.IfNode" not in source
+    ), "Python bool variable should not be transformed"
     # Should still have the original if x pattern
     assert "if x:" in source, "Original if x should remain"
 
@@ -391,11 +438,14 @@ def test_if_with_ir_scalar_still_transformed():
             block.adds(res, input_x, out=res)
         return (constant0,)
 
-    transformed_ast = AstMutator.mutate_ast(my_kernel, dump_source=_get_dump_path("test_if_with_ir_scalar_still_transformed"))
-    
+    transformed_ast = AstMutator.mutate_ast(
+        my_kernel,
+        dump_source=_get_dump_path("test_if_with_ir_scalar_still_transformed"),
+    )
+
     # Verify transformed AST
     _verify_transformed_ast(transformed_ast, "my_kernel")
-    
+
     # Check that ir.Scalar condition IS transformed
     source = ast.unparse(transformed_ast)
     assert "block.if_then_scope" in source, "ir.Scalar condition should be transformed"
@@ -412,12 +462,15 @@ if __name__ == "__main__":
         ("test_if_without_else", test_if_without_else),
         ("test_if_with_python_bool_constant", test_if_with_python_bool_constant),
         ("test_if_with_python_bool_variable", test_if_with_python_bool_variable),
-        ("test_if_with_ir_scalar_still_transformed", test_if_with_ir_scalar_still_transformed),
+        (
+            "test_if_with_ir_scalar_still_transformed",
+            test_if_with_ir_scalar_still_transformed,
+        ),
     ]
-    
+
     passed = 0
     failed = 0
-    
+
     for test_name, test_func in tests:
         try:
             print(f"Running {test_name}...")
@@ -427,9 +480,10 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"✗ {test_name} failed: {e}\n")
             import traceback
+
             traceback.print_exc()
             failed += 1
-    
+
     print(f"\nSummary: {passed} passed, {failed} failed")
     if failed > 0:
         exit(1)

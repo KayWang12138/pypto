@@ -17,8 +17,10 @@ def ast_to_ir_demo():
     # NOTE: `block` helper and shape parameter `tensor_shape`, `tile_shape`, `batch` are passed via closure
     @ast_to_ir(
         metadata=dict(name="my_kernel", function_kind=ir.FunctionKind.ControlFlow),
-        closure_vars=dict(tensor_shape=tensor_shape, tile_shape=tile_shape, batch=batch, block=block),
-        verbose=True
+        closure_vars=dict(
+            tensor_shape=tensor_shape, tile_shape=tile_shape, batch=batch, block=block
+        ),
+        verbose=True,
     )
     def my_kernel(
         input_x: ir.Tensor(tensor_shape, ir.DataType.float, "inputX", ir.Format.ND),
@@ -26,7 +28,7 @@ def ast_to_ir_demo():
         scale1: ir.Scalar(ir.DataType.float, None, "scale1"),
         scale2: ir.Scalar(ir.DataType.float, None, "scale2"),
         result_x: ir.Tensor(tensor_shape, ir.DataType.float, "outputX", ir.Format.ND),
-        result_y: ir.Tensor(tensor_shape, ir.DataType.float, "outputY", ir.Format.ND)
+        result_y: ir.Tensor(tensor_shape, ir.DataType.float, "outputY", ir.Format.ND),
     ) -> (ir.Scalar(ir.DataType.int32, None),):
         # NOTE: original low-level example does not use input_x/y to compute result_x/y
         #       will fix accordingly after the low-level example is fixed
