@@ -17,7 +17,8 @@ def ast_to_ir_demo():
     # NOTE: `block` helper and shape parameter `tensor_shape`, `tile_shape`, `batch` are passed via closure
     @ast_to_ir(
         metadata=dict(name="my_kernel", function_kind=ir.FunctionKind.ControlFlow),
-        closure_vars=dict(tensor_shape=tensor_shape, tile_shape=tile_shape, batch=batch, block=block)
+        closure_vars=dict(tensor_shape=tensor_shape, tile_shape=tile_shape, batch=batch, block=block),
+        verbose=True
     )
     def my_kernel(
         input_x: ir.Tensor(tensor_shape, ir.DataType.float, "inputX", ir.Format.ND),
@@ -52,3 +53,7 @@ def ast_to_ir_demo():
     module.entry = my_kernel
     assert isinstance(my_kernel, ir.Function)
     print(my_kernel)
+
+
+if __name__ == "__main__":
+    ast_to_ir_demo()

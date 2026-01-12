@@ -459,7 +459,7 @@ class AstMutator(ast.NodeTransformer):
             f.write(source)
 
 
-def ast_to_ir(metadata=None, closure_vars=None):
+def ast_to_ir(metadata=None, closure_vars=None, verbose=False):
     """
     Decorator that transforms a function's AST and returns an IR function.
     
@@ -479,7 +479,9 @@ def ast_to_ir(metadata=None, closure_vars=None):
         transformed_ast = AstMutator.mutate_ast(func)
         module_ast = ast.Module(body=[transformed_ast], type_ignores=[])
         ast.fix_missing_locations(module_ast)
-        print("unparsed:\n", ast.unparse(module_ast))
+
+        if verbose:
+            print("Low-level builder calls:\n", ast.unparse(module_ast))
 
         code = compile(module_ast, filename='<ast>', mode='exec')
 
