@@ -83,12 +83,100 @@ class BlockBuilderHelper:
 
     # ===== Operations =====
 
+    # Unary operations (Tile -> Tile)
+    def exp(self, a, out):
+        op = self.builder.create_unary_op(ir.Opcode.OP_EXP, a, out)
+        self.builder.emit(self.ctx, op)
+        return op
+
+    def neg(self, a, out):
+        op = self.builder.create_unary_op(ir.Opcode.OP_NEG, a, out)
+        self.builder.emit(self.ctx, op)
+        return op
+
+    def rsqrt(self, a, out):
+        op = self.builder.create_unary_op(ir.Opcode.OP_RSQRT, a, out)
+        self.builder.emit(self.ctx, op)
+        return op
+
+    def sqrt(self, a, out):
+        op = self.builder.create_unary_op(ir.Opcode.OP_SQRT, a, out)
+        self.builder.emit(self.ctx, op)
+        return op
+
+    def logicalnot(self, a, out):
+        op = self.builder.create_unary_op(ir.Opcode.OP_LOGICALNOT, a, out)
+        self.builder.emit(self.ctx, op)
+        return op
+
+    def reciprocal(self, a, out):
+        op = self.builder.create_unary_op(ir.Opcode.OP_RECIPROCAL, a, out)
+        self.builder.emit(self.ctx, op)
+        return op
+
+    def abs(self, a, out):
+        op = self.builder.create_unary_op(ir.Opcode.OP_ABS, a, out)
+        self.builder.emit(self.ctx, op)
+        return op
+
+    def ln(self, a, out):
+        op = self.builder.create_unary_op(ir.Opcode.OP_LN, a, out)
+        self.builder.emit(self.ctx, op)
+        return op
+
+    # Binary operations (Tile, Tile -> Tile)
+    def sub(self, a, b, out):
+        op = self.builder.create_binary_op(ir.Opcode.OP_SUB, a, b, out)
+        self.builder.emit(self.ctx, op)
+        return op
+
+    def mul(self, a, b, out):
+        op = self.builder.create_binary_op(ir.Opcode.OP_MUL, a, b, out)
+        self.builder.emit(self.ctx, op)
+        return op
+
+    def div(self, a, b, out):
+        op = self.builder.create_binary_op(ir.Opcode.OP_DIV, a, b, out)
+        self.builder.emit(self.ctx, op)
+        return op
+
+    def min(self, a, b, out):
+        op = self.builder.create_binary_op(ir.Opcode.OP_MIN, a, b, out)
+        self.builder.emit(self.ctx, op)
+        return op
+
+    def max(self, a, b, out):
+        op = self.builder.create_binary_op(ir.Opcode.OP_MAX, a, b, out)
+        self.builder.emit(self.ctx, op)
+        return op
+
+    # Binary scalar mix operations (Tile, Scalar -> Tile)
     def adds(self, a, b, out):
         op = self.builder.create_binary_scalar_op(ir.Opcode.OP_ADDS, a, b, out)
         self.builder.emit(self.ctx, op)
         return op
 
+    def subs(self, a, b, out):
+        op = self.builder.create_binary_scalar_op(ir.Opcode.OP_SUBS, a, b, out)
+        self.builder.emit(self.ctx, op)
+        return op
+
     def muls(self, a, b, out):
         op = self.builder.create_binary_scalar_op(ir.Opcode.OP_MULS, a, b, out)
+        self.builder.emit(self.ctx, op)
+        return op
+
+    def divs(self, a, b, out):
+        op = self.builder.create_binary_scalar_op(ir.Opcode.OP_DIVS, a, b, out)
+        self.builder.emit(self.ctx, op)
+        return op
+
+    def mins(self, a, b, out):
+        op = self.builder.create_binary_scalar_op(ir.Opcode.OP_MINS, a, b, out)
+        self.builder.emit(self.ctx, op)
+        return op
+
+    def maxs(self, a, b, out):
+        op = self.builder.create_binary_scalar_op(ir.Opcode.OP_MAXS, a, b, out)
         self.builder.emit(self.ctx, op)
         return op

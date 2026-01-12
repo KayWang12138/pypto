@@ -205,3 +205,184 @@ def test_control_flow():
     builder.create_return(ctx, [constant0])
 
     ctx.pop_scope()  # function-body
+
+
+def test_unary_operations():
+    """Test all unary operations: exp, neg, rsqrt, sqrt, logicalnot, reciprocal, abs, ln"""
+    module = ir.module("test_unary")
+    builder = ir.IrBuilder()
+    ctx = ir.IrBuilderContext()
+
+    # Setup
+    tile_shape = [128, 128]
+    batch = ir.Scalar(ir.DataType.int32, None, "batch")
+    constant128 = ir.Scalar(ir.DataType.int64, 128, "const_128")
+    tensor_shape = [batch, constant128]
+    input_tensor = ir.Tensor(tensor_shape, ir.DataType.float, "input", ir.Format.ND)
+    output_tensor = ir.Tensor(tensor_shape, ir.DataType.float, "output", ir.Format.ND)
+
+    sig = ir.FunctionSignature()
+    sig.arguments = [input_tensor]
+    sig.returns = [output_tensor]
+
+    func = builder.create_function("test_unary", ir.FunctionKind.DataFlow, sig)
+    module.add_function(func)
+    module.entry = func
+
+    builder.enter_function(ctx, func)
+
+    # Create input tile inside function scope
+    input_tile = builder.create_tile(ctx, tile_shape, ir.DataType.float, "input_tile")
+
+    # Test all unary operations
+    res_exp = builder.create_tile(ctx, tile_shape, ir.DataType.float, "res_exp")
+    op_exp = builder.create_unary_op(ir.Opcode.OP_EXP, input_tile, res_exp)
+    builder.emit(ctx, op_exp)
+
+    res_neg = builder.create_tile(ctx, tile_shape, ir.DataType.float, "res_neg")
+    op_neg = builder.create_unary_op(ir.Opcode.OP_NEG, input_tile, res_neg)
+    builder.emit(ctx, op_neg)
+
+    res_rsqrt = builder.create_tile(ctx, tile_shape, ir.DataType.float, "res_rsqrt")
+    op_rsqrt = builder.create_unary_op(ir.Opcode.OP_RSQRT, input_tile, res_rsqrt)
+    builder.emit(ctx, op_rsqrt)
+
+    res_sqrt = builder.create_tile(ctx, tile_shape, ir.DataType.float, "res_sqrt")
+    op_sqrt = builder.create_unary_op(ir.Opcode.OP_SQRT, input_tile, res_sqrt)
+    builder.emit(ctx, op_sqrt)
+
+    res_logicalnot = builder.create_tile(ctx, tile_shape, ir.DataType.float, "res_logicalnot")
+    op_logicalnot = builder.create_unary_op(ir.Opcode.OP_LOGICALNOT, input_tile, res_logicalnot)
+    builder.emit(ctx, op_logicalnot)
+
+    res_reciprocal = builder.create_tile(ctx, tile_shape, ir.DataType.float, "res_reciprocal")
+    op_reciprocal = builder.create_unary_op(ir.Opcode.OP_RECIPROCAL, input_tile, res_reciprocal)
+    builder.emit(ctx, op_reciprocal)
+
+    res_abs = builder.create_tile(ctx, tile_shape, ir.DataType.float, "res_abs")
+    op_abs = builder.create_unary_op(ir.Opcode.OP_ABS, input_tile, res_abs)
+    builder.emit(ctx, op_abs)
+
+    res_ln = builder.create_tile(ctx, tile_shape, ir.DataType.float, "res_ln")
+    op_ln = builder.create_unary_op(ir.Opcode.OP_LN, input_tile, res_ln)
+    builder.emit(ctx, op_ln)
+
+    builder.create_return(ctx, [res_ln])
+    ctx.pop_scope()
+
+    print(f"Unary operations test completed: {module}")
+
+
+def test_binary_operations():
+    """Test all binary operations: sub, mul, div, min, max"""
+    module = ir.module("test_binary")
+    builder = ir.IrBuilder()
+    ctx = ir.IrBuilderContext()
+
+    # Setup
+    tile_shape = [128, 128]
+    batch = ir.Scalar(ir.DataType.int32, None, "batch")
+    constant128 = ir.Scalar(ir.DataType.int64, 128, "const_128")
+    tensor_shape = [batch, constant128]
+    input_x_tensor = ir.Tensor(tensor_shape, ir.DataType.float, "input_x", ir.Format.ND)
+    input_y_tensor = ir.Tensor(tensor_shape, ir.DataType.float, "input_y", ir.Format.ND)
+    output_tensor = ir.Tensor(tensor_shape, ir.DataType.float, "output", ir.Format.ND)
+
+    sig = ir.FunctionSignature()
+    sig.arguments = [input_x_tensor, input_y_tensor]
+    sig.returns = [output_tensor]
+
+    func = builder.create_function("test_binary", ir.FunctionKind.DataFlow, sig)
+    module.add_function(func)
+    module.entry = func
+
+    builder.enter_function(ctx, func)
+
+    # Create input tiles inside function scope
+    input_x = builder.create_tile(ctx, tile_shape, ir.DataType.float, "input_x")
+    input_y = builder.create_tile(ctx, tile_shape, ir.DataType.float, "input_y")
+
+    # Test all binary operations
+    res_sub = builder.create_tile(ctx, tile_shape, ir.DataType.float, "res_sub")
+    op_sub = builder.create_binary_op(ir.Opcode.OP_SUB, input_x, input_y, res_sub)
+    builder.emit(ctx, op_sub)
+
+    res_mul = builder.create_tile(ctx, tile_shape, ir.DataType.float, "res_mul")
+    op_mul = builder.create_binary_op(ir.Opcode.OP_MUL, input_x, input_y, res_mul)
+    builder.emit(ctx, op_mul)
+
+    res_div = builder.create_tile(ctx, tile_shape, ir.DataType.float, "res_div")
+    op_div = builder.create_binary_op(ir.Opcode.OP_DIV, input_x, input_y, res_div)
+    builder.emit(ctx, op_div)
+
+    res_min = builder.create_tile(ctx, tile_shape, ir.DataType.float, "res_min")
+    op_min = builder.create_binary_op(ir.Opcode.OP_MIN, input_x, input_y, res_min)
+    builder.emit(ctx, op_min)
+
+    res_max = builder.create_tile(ctx, tile_shape, ir.DataType.float, "res_max")
+    op_max = builder.create_binary_op(ir.Opcode.OP_MAX, input_x, input_y, res_max)
+    builder.emit(ctx, op_max)
+
+    builder.create_return(ctx, [res_max])
+    ctx.pop_scope()
+
+    print(f"Binary operations test completed: {module}")
+
+
+def test_binary_scalar_mix_operations():
+    """Test all binary scalar mix operations: adds, subs, muls, divs, mins, maxs"""
+    module = ir.module("test_binary_scalar")
+    builder = ir.IrBuilder()
+    ctx = ir.IrBuilderContext()
+
+    # Setup
+    tile_shape = [128, 128]
+    batch = ir.Scalar(ir.DataType.int32, None, "batch")
+    constant128 = ir.Scalar(ir.DataType.int64, 128, "const_128")
+    tensor_shape = [batch, constant128]
+    input_tensor = ir.Tensor(tensor_shape, ir.DataType.float, "input", ir.Format.ND)
+    scale = ir.Scalar(ir.DataType.float, None, "scale")
+    output_tensor = ir.Tensor(tensor_shape, ir.DataType.float, "output", ir.Format.ND)
+
+    sig = ir.FunctionSignature()
+    sig.arguments = [input_tensor, scale]
+    sig.returns = [output_tensor]
+
+    func = builder.create_function("test_binary_scalar", ir.FunctionKind.DataFlow, sig)
+    module.add_function(func)
+    module.entry = func
+
+    builder.enter_function(ctx, func)
+
+    # Create input tile inside function scope
+    input_tile = builder.create_tile(ctx, tile_shape, ir.DataType.float, "input_tile")
+
+    # Test all binary scalar mix operations
+    res_adds = builder.create_tile(ctx, tile_shape, ir.DataType.float, "res_adds")
+    op_adds = builder.create_binary_scalar_op(ir.Opcode.OP_ADDS, input_tile, scale, res_adds)
+    builder.emit(ctx, op_adds)
+
+    res_subs = builder.create_tile(ctx, tile_shape, ir.DataType.float, "res_subs")
+    op_subs = builder.create_binary_scalar_op(ir.Opcode.OP_SUBS, input_tile, scale, res_subs)
+    builder.emit(ctx, op_subs)
+
+    res_muls = builder.create_tile(ctx, tile_shape, ir.DataType.float, "res_muls")
+    op_muls = builder.create_binary_scalar_op(ir.Opcode.OP_MULS, input_tile, scale, res_muls)
+    builder.emit(ctx, op_muls)
+
+    res_divs = builder.create_tile(ctx, tile_shape, ir.DataType.float, "res_divs")
+    op_divs = builder.create_binary_scalar_op(ir.Opcode.OP_DIVS, input_tile, scale, res_divs)
+    builder.emit(ctx, op_divs)
+
+    res_mins = builder.create_tile(ctx, tile_shape, ir.DataType.float, "res_mins")
+    op_mins = builder.create_binary_scalar_op(ir.Opcode.OP_MINS, input_tile, scale, res_mins)
+    builder.emit(ctx, op_mins)
+
+    res_maxs = builder.create_tile(ctx, tile_shape, ir.DataType.float, "res_maxs")
+    op_maxs = builder.create_binary_scalar_op(ir.Opcode.OP_MAXS, input_tile, scale, res_maxs)
+    builder.emit(ctx, op_maxs)
+
+    builder.create_return(ctx, [res_maxs])
+    ctx.pop_scope()
+
+    print(f"Binary scalar mix operations test completed: {module}")

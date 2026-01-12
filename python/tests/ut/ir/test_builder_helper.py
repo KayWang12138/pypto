@@ -190,6 +190,149 @@ def test_control_flow_closure():
     print(f"Module: {module}\nEntry: {module.entry}\nFunctions: {module.functions}")
 
 
+def test_unary_operations():
+    """Test all unary operations: exp, neg, rsqrt, sqrt, logicalnot, reciprocal, abs, ln"""
+    module = ir.module("test_unary")
+    builder = ir.IrBuilder()
+    ctx = ir.IrBuilderContext()
+    block = BlockBuilderHelper(builder, ctx)
+
+    # Setup
+    tile_shape = [128, 128]
+    input_tile = ir.Tile(tile_shape, ir.DataType.float, "input")
+    output_tile = ir.Tile(tile_shape, ir.DataType.float, "output")
+
+    sig = ir.FunctionSignature()
+    sig.arguments = [input_tile]
+    sig.returns = [output_tile]
+
+    func = block.create_function("test_unary", ir.FunctionKind.DataFlow, sig)
+    module.add_function(func)
+    module.entry = func
+
+    with block.function_scope(func):
+        # Test all unary operations
+        res_exp = block.Tile(tile_shape, ir.DataType.float, "res_exp")
+        block.exp(input_tile, out=res_exp)
+
+        res_neg = block.Tile(tile_shape, ir.DataType.float, "res_neg")
+        block.neg(input_tile, out=res_neg)
+
+        res_rsqrt = block.Tile(tile_shape, ir.DataType.float, "res_rsqrt")
+        block.rsqrt(input_tile, out=res_rsqrt)
+
+        res_sqrt = block.Tile(tile_shape, ir.DataType.float, "res_sqrt")
+        block.sqrt(input_tile, out=res_sqrt)
+
+        res_logicalnot = block.Tile(tile_shape, ir.DataType.float, "res_logicalnot")
+        block.logicalnot(input_tile, out=res_logicalnot)
+
+        res_reciprocal = block.Tile(tile_shape, ir.DataType.float, "res_reciprocal")
+        block.reciprocal(input_tile, out=res_reciprocal)
+
+        res_abs = block.Tile(tile_shape, ir.DataType.float, "res_abs")
+        block.abs(input_tile, out=res_abs)
+
+        res_ln = block.Tile(tile_shape, ir.DataType.float, "res_ln")
+        block.ln(input_tile, out=res_ln)
+
+        block.create_return([res_ln])
+
+    print(f"Unary operations test completed: {module}")
+
+
+def test_binary_operations():
+    """Test all binary operations: sub, mul, div, min, max"""
+    module = ir.module("test_binary")
+    builder = ir.IrBuilder()
+    ctx = ir.IrBuilderContext()
+    block = BlockBuilderHelper(builder, ctx)
+
+    # Setup
+    tile_shape = [128, 128]
+    input_x = ir.Tile(tile_shape, ir.DataType.float, "input_x")
+    input_y = ir.Tile(tile_shape, ir.DataType.float, "input_y")
+    output_tile = ir.Tile(tile_shape, ir.DataType.float, "output")
+
+    sig = ir.FunctionSignature()
+    sig.arguments = [input_x, input_y]
+    sig.returns = [output_tile]
+
+    func = block.create_function("test_binary", ir.FunctionKind.DataFlow, sig)
+    module.add_function(func)
+    module.entry = func
+
+    with block.function_scope(func):
+        # Test all binary operations
+        res_sub = block.Tile(tile_shape, ir.DataType.float, "res_sub")
+        block.sub(input_x, input_y, out=res_sub)
+
+        res_mul = block.Tile(tile_shape, ir.DataType.float, "res_mul")
+        block.mul(input_x, input_y, out=res_mul)
+
+        res_div = block.Tile(tile_shape, ir.DataType.float, "res_div")
+        block.div(input_x, input_y, out=res_div)
+
+        res_min = block.Tile(tile_shape, ir.DataType.float, "res_min")
+        block.min(input_x, input_y, out=res_min)
+
+        res_max = block.Tile(tile_shape, ir.DataType.float, "res_max")
+        block.max(input_x, input_y, out=res_max)
+
+        block.create_return([res_max])
+
+    print(f"Binary operations test completed: {module}")
+
+
+def test_binary_scalar_mix_operations():
+    """Test all binary scalar mix operations: adds, subs, muls, divs, mins, maxs"""
+    module = ir.module("test_binary_scalar")
+    builder = ir.IrBuilder()
+    ctx = ir.IrBuilderContext()
+    block = BlockBuilderHelper(builder, ctx)
+
+    # Setup
+    tile_shape = [128, 128]
+    input_tile = ir.Tile(tile_shape, ir.DataType.float, "input")
+    scale = ir.Scalar(ir.DataType.float, None, "scale")
+    output_tile = ir.Tile(tile_shape, ir.DataType.float, "output")
+
+    sig = ir.FunctionSignature()
+    sig.arguments = [input_tile, scale]
+    sig.returns = [output_tile]
+
+    func = block.create_function("test_binary_scalar", ir.FunctionKind.DataFlow, sig)
+    module.add_function(func)
+    module.entry = func
+
+    with block.function_scope(func):
+        # Test all binary scalar mix operations
+        res_adds = block.Tile(tile_shape, ir.DataType.float, "res_adds")
+        block.adds(input_tile, scale, out=res_adds)
+
+        res_subs = block.Tile(tile_shape, ir.DataType.float, "res_subs")
+        block.subs(input_tile, scale, out=res_subs)
+
+        res_muls = block.Tile(tile_shape, ir.DataType.float, "res_muls")
+        block.muls(input_tile, scale, out=res_muls)
+
+        res_divs = block.Tile(tile_shape, ir.DataType.float, "res_divs")
+        block.divs(input_tile, scale, out=res_divs)
+
+        res_mins = block.Tile(tile_shape, ir.DataType.float, "res_mins")
+        block.mins(input_tile, scale, out=res_mins)
+
+        res_maxs = block.Tile(tile_shape, ir.DataType.float, "res_maxs")
+        block.maxs(input_tile, scale, out=res_maxs)
+
+        block.create_return([res_maxs])
+
+    print(f"Binary scalar mix operations test completed: {module}")
+
+
 if __name__ == "__main__":
     test_control_flow()
     test_control_flow_closure()
+    test_unary_operations()
+    test_binary_operations()
+    test_binary_scalar_mix_operations()
