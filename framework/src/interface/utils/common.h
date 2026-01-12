@@ -133,7 +133,9 @@ enum OperandType {
     BUF_DDR = 7,
     BUF_REG = 8,
     SCALAR = 9,
-    TOTAL_BUF_TYPE = 9
+    BUF_L0AMX = 10,
+    BUF_L0BMX = 11,
+    TOTAL_BUF_TYPE = 12
 };
 
 inline std::string OperandTypeToStr(OperandType t) {
@@ -148,6 +150,8 @@ inline std::string OperandTypeToStr(OperandType t) {
         {BUF_REG,    "REG"},
         { SCALAR, "SCALAR"},
         { BUF_BT, "BiasTable"},
+        {BUF_L0AMX,"L0A_MX"},
+        {BUF_L0BMX,"L0B_MX"},
     };
 
     if (strMap.count(t)) {
