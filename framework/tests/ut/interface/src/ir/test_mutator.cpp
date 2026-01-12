@@ -330,7 +330,7 @@ public:
 TEST(IRMutatorTest, TestBasicMutate) {
   // 创建简单的IR程序
   auto module = std::make_shared<ProgramModule>("main");
-  IRBuilder builder(module);
+  IRBuilder builder;
   IRBuilderContext ctx;
 
   FunctionSignature sig;
@@ -339,7 +339,8 @@ TEST(IRMutatorTest, TestBasicMutate) {
   auto outputTensor = std::make_shared<TileValue>(tileShape, DataType::FP32, "output");
   sig.arguments = { inputTensor, outputTensor };
 
-  auto func = builder.CreateFunction("test_func", FunctionKind::Kernel, sig, /*setAsEntry=*/true);
+  auto func = builder.CreateFunction("test_func", FunctionKind::Kernel, sig);
+  module->AddFunction(func);
   builder.EnterFunctionBody(ctx, func);
 
   auto c2 = builder.CreateConst(ctx, 2.0, "c2");
@@ -371,7 +372,7 @@ TEST(IRMutatorTest, TestBasicMutate) {
 TEST(IRMutatorTest, TestIdentityMutate) {
   // 测试identity mutator（不修改任何内容）
   auto module = std::make_shared<ProgramModule>("main");
-  IRBuilder builder(module);
+  IRBuilder builder;
   IRBuilderContext ctx;
 
   FunctionSignature sig;
@@ -379,7 +380,9 @@ TEST(IRMutatorTest, TestIdentityMutate) {
   auto input = std::make_shared<TileValue>(tileShape, DataType::FP32, "input");
   sig.arguments = { input };
 
-  auto func = builder.CreateFunction("test_identity", FunctionKind::Kernel, sig, /*setAsEntry=*/true);
+  auto func = builder.CreateFunction("test_identity", FunctionKind::Kernel, sig);
+  module->AddFunction(func);
+  module->SetProgramEntry(func);
   builder.EnterFunctionBody(ctx, func);
 
   auto c1 = builder.CreateConst(ctx, 1.0, "c1");
@@ -404,7 +407,7 @@ TEST(IRMutatorTest, TestIdentityMutate) {
 TEST(IRMutatorTest, TestDefaultVisitMethods) {
   // 测试 DefaultVisit 方法的行为
   auto module = std::make_shared<ProgramModule>("main");
-  IRBuilder builder(module);
+  IRBuilder builder;
   IRBuilderContext ctx;
 
   FunctionSignature sig;
@@ -413,7 +416,8 @@ TEST(IRMutatorTest, TestDefaultVisitMethods) {
   auto output = std::make_shared<TileValue>(tileShape, DataType::FP32, "output");
   sig.arguments = { input, output };
 
-  auto func = builder.CreateFunction("test_default_visit_mutate", FunctionKind::Kernel, sig, /*setAsEntry=*/true);
+  auto func = builder.CreateFunction("test_default_visit_mutate", FunctionKind::Kernel, sig);
+  module->AddFunction(func);
   builder.EnterFunctionBody(ctx, func);
 
   auto c1 = builder.CreateConst(ctx, 1.0, "c1");
@@ -465,7 +469,7 @@ TEST(IRMutatorTest, TestDefaultVisitMethods) {
 TEST(IRMutatorTest, TestConstantReplacement) {
   // 创建包含常量的IR程序
   auto module = std::make_shared<ProgramModule>("main");
-  IRBuilder builder(module);
+  IRBuilder builder;
   IRBuilderContext ctx;
 
   FunctionSignature sig;
@@ -473,7 +477,8 @@ TEST(IRMutatorTest, TestConstantReplacement) {
   auto input = std::make_shared<TileValue>(tileShape, DataType::FP32, "input");
   sig.arguments = { input };
 
-  auto func = builder.CreateFunction("test_replace", FunctionKind::Kernel, sig, /*setAsEntry=*/true);
+  auto func = builder.CreateFunction("test_replace", FunctionKind::Kernel, sig);
+  module->AddFunction(func);
   builder.EnterFunctionBody(ctx, func);
 
   auto originalConst = builder.CreateConst(ctx, 3.14, "original_const");
@@ -534,7 +539,7 @@ TEST(IRMutatorTest, TestNullHandling) {
 TEST(IRMutatorTest, TestControlFlowMutate) {
   // 创建包含控制流的IR程序
   auto module = std::make_shared<ProgramModule>("main");
-  IRBuilder builder(module);
+  IRBuilder builder;
   IRBuilderContext ctx;
 
   FunctionSignature sig;
@@ -549,7 +554,9 @@ TEST(IRMutatorTest, TestControlFlowMutate) {
 
   sig.arguments = { inputX, scale1, resultX };
 
-  auto func = builder.CreateFunction("test_control_mutate", FunctionKind::ControlFlow, sig, /*setAsEntry=*/true);
+  auto func = builder.CreateFunction("test_control_mutate", FunctionKind::ControlFlow, sig);
+  module->AddFunction(func);
+  module->SetProgramEntry(func);
   builder.EnterFunctionBody(ctx, func);
 
   // for i = 0 to batch step 1
@@ -603,7 +610,7 @@ TEST(IRMutatorTest, TestControlFlowMutate) {
 TEST(IRMutatorTest, TestMultipleMutations) {
   // 测试多次连续变换
   auto module = std::make_shared<ProgramModule>("main");
-  IRBuilder builder(module);
+  IRBuilder builder;
   IRBuilderContext ctx;
 
   FunctionSignature sig;
@@ -611,7 +618,8 @@ TEST(IRMutatorTest, TestMultipleMutations) {
   auto input = std::make_shared<TileValue>(tileShape, DataType::FP32, "input");
   sig.arguments = { input };
 
-  auto func = builder.CreateFunction("test_multiple", FunctionKind::Kernel, sig, /*setAsEntry=*/true);
+  auto func = builder.CreateFunction("test_multiple", FunctionKind::Kernel, sig);
+  module->AddFunction(func);
   builder.EnterFunctionBody(ctx, func);
 
   auto c1 = builder.CreateConst(ctx, 1.0, "c1");
