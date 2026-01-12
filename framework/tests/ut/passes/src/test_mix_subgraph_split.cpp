@@ -481,7 +481,7 @@ TEST_F(MixSubgraphSplitTest, TestDependencyRebuilding) {
 
     // ==================== 第二部分：在root function中创建CallOp ====================
     // 创建一个函数来构建线性参数列表
-    auto createLinearArgListForTensor = [&](const std::shared_ptr<LogicalTensor>& tensor) {
+    auto createLinearArgListForTensor = [&]() {
         std::vector<SymbolicScalar> args;
         args.push_back(SymbolicScalar(1)); 
         // 第一维
