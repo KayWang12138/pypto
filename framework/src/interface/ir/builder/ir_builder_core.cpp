@@ -36,7 +36,13 @@ std::shared_ptr<Function> IRBuilder::CreateFunction(
         throw std::runtime_error("IRBuilder::CreateFunction: module is null");
     }
 
-    auto fn = std::make_shared<Function>(std::move(name), kind, std::move(sig));
+    std::shared_ptr<Function> fn;
+    if (kind == FunctionKind::Block) {
+        fn = std::make_shared<BlockFunction>(std::move(name), std::move(sig));
+    } else {
+        fn = std::make_shared<Function>(std::move(name), kind, std::move(sig));
+    }
+
     module_->AddFunction(fn);
 
     if (setAsEntry) {
