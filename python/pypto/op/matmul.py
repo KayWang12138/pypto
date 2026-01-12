@@ -145,6 +145,41 @@ def matmul(
         )
 
 
+@op_wrapper
+def matmul(
+    input,
+    input_scale,
+    mat2,
+    mat2_scale,
+    out_dtype,
+    *,
+    a_trans=False,
+    a_scale_trans=False,
+    b_trans=False,
+    b_scale_trans=False,
+    c_matrix_nz=False,
+    extend_params=None
+) -> Tensor:
+    __validate_inputs(input, mat2, out_dtype, [a_trans, b_trans, c_matrix_nz, extend_params])
+    if input.Dim() != 2:
+        raise RuntimeError(
+            "Tensor dimension mismatch. Expect input_dim == 2, "
+            f"got input_dim: {input.Dim()}."
+        )
+    if extend_params is not None:
+        extend_params = pypto_impl.MatmulExtendParam(
+            **__convert_matmul_extend_params(extend_params)
+        )
+        return pypto_impl.MatmulMX(
+            out_dtype, input, input_scale, mat2, mat2_scale, a_trans, a_scale_trans, b_trans, b_scale_trans,
+            c_matrix_nz, extend_params
+        )
+    else:
+        return pypto_impl.MatmulMX(
+            out_dtype, input, input_scale, mat2, mat2_scale, a_trans, a_scale_trans, b_trans, b_scale_trans, c_matrix_nz
+        )
+
+
 def __validate_type(value: Any, expect_type: Type, arg_name: str = "input") -> None:
     if value is None:
         return
