@@ -391,9 +391,6 @@ public:
                 ASSERT(std::dynamic_pointer_cast<ConvertOpAttribute>(opAttribute_) != nullptr);
                 break;
             }
-            case Opcode::OP_L0C_TO_L1:
-                ASSERT(std::dynamic_pointer_cast<CopyOpAttribute>(opAttribute_) != nullptr);
-                break;
             default: ASSERT(opAttribute_ == nullptr);
         }
     }
