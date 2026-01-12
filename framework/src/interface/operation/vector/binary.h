@@ -168,6 +168,7 @@ LogicalTensorPtr TensorBinaryOperation(Function &function, const Tensor &operand
 template <BinaryOpType T>
 LogicalTensorPtr TensorBinaryOperationScalar(Function &function, LogicalTensorPtr operand1, const Element &value) {
     auto opName = GetBinaryOpName<T>();
+    CheckTensorDType(operand1, opName);
     CheckTensorShape(operand1, opName);
     auto result =
         std::make_shared<LogicalTensor>(function, operand1->Datatype(), operand1->shape, operand1->GetDynValidShape());

@@ -58,6 +58,7 @@ struct Input {
 };
 
 void CheckTensorShape(const LogicalTensorPtr &tensor, const std::string &op);
+void CheckTensorDType(const LogicalTensorPtr &tensor, const std::string &op);
 std::vector<int> GetBroadCastShape(LogicalTensorPtr &operand1, LogicalTensorPtr &operand2);
 std::vector<int> GetBroadcastAxes(const Shape &shape1, const Shape &shape2);
 
