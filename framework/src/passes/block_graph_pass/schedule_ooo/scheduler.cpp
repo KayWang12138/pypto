@@ -713,7 +713,7 @@ Status OoOScheduler::GenSpillSchedule() {
         }
     }
     APASS_LOG_DEBUG_F(Elements::Operation, "=========> End GenSpillSchedule.");
-    InitOpConsumerAndProducer()
+    InitOpConsumerAndProducer();
     InitBufRefCount();
     // 更新依赖关系
     if (InitDependencies() != SUCCESS) { 
