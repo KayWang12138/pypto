@@ -199,18 +199,24 @@ def test_unary_operations():
 
     # Setup
     tile_shape = [128, 128]
-    input_tile = ir.Tile(tile_shape, ir.DataType.float, "input")
-    output_tile = ir.Tile(tile_shape, ir.DataType.float, "output")
+    batch = ir.Scalar(ir.DataType.int32, None, "batch")
+    constant128 = ir.Scalar(ir.DataType.int64, 128, "const_128")
+    tensor_shape = [batch, constant128]
+    input_tensor = ir.Tensor(tensor_shape, ir.DataType.float, "input", ir.Format.ND)
+    output_tensor = ir.Tensor(tensor_shape, ir.DataType.float, "output", ir.Format.ND)
 
     sig = ir.FunctionSignature()
-    sig.arguments = [input_tile]
-    sig.returns = [output_tile]
+    sig.arguments = [input_tensor]
+    sig.returns = [output_tensor]
 
     func = block.create_function("test_unary", ir.FunctionKind.DataFlow, sig)
     module.add_function(func)
     module.entry = func
 
     with block.function_scope(func):
+        # Create input tile inside function scope
+        input_tile = block.Tile(tile_shape, ir.DataType.float, "input_tile")
+        
         # Test all unary operations
         res_exp = block.Tile(tile_shape, ir.DataType.float, "res_exp")
         block.exp(input_tile, out=res_exp)
@@ -250,19 +256,26 @@ def test_binary_operations():
 
     # Setup
     tile_shape = [128, 128]
-    input_x = ir.Tile(tile_shape, ir.DataType.float, "input_x")
-    input_y = ir.Tile(tile_shape, ir.DataType.float, "input_y")
-    output_tile = ir.Tile(tile_shape, ir.DataType.float, "output")
+    batch = ir.Scalar(ir.DataType.int32, None, "batch")
+    constant128 = ir.Scalar(ir.DataType.int64, 128, "const_128")
+    tensor_shape = [batch, constant128]
+    input_x_tensor = ir.Tensor(tensor_shape, ir.DataType.float, "input_x", ir.Format.ND)
+    input_y_tensor = ir.Tensor(tensor_shape, ir.DataType.float, "input_y", ir.Format.ND)
+    output_tensor = ir.Tensor(tensor_shape, ir.DataType.float, "output", ir.Format.ND)
 
     sig = ir.FunctionSignature()
-    sig.arguments = [input_x, input_y]
-    sig.returns = [output_tile]
+    sig.arguments = [input_x_tensor, input_y_tensor]
+    sig.returns = [output_tensor]
 
     func = block.create_function("test_binary", ir.FunctionKind.DataFlow, sig)
     module.add_function(func)
     module.entry = func
 
     with block.function_scope(func):
+        # Create input tiles inside function scope
+        input_x = block.Tile(tile_shape, ir.DataType.float, "input_x")
+        input_y = block.Tile(tile_shape, ir.DataType.float, "input_y")
+        
         # Test all binary operations
         res_sub = block.Tile(tile_shape, ir.DataType.float, "res_sub")
         block.sub(input_x, input_y, out=res_sub)
@@ -293,19 +306,25 @@ def test_binary_scalar_mix_operations():
 
     # Setup
     tile_shape = [128, 128]
-    input_tile = ir.Tile(tile_shape, ir.DataType.float, "input")
+    batch = ir.Scalar(ir.DataType.int32, None, "batch")
+    constant128 = ir.Scalar(ir.DataType.int64, 128, "const_128")
+    tensor_shape = [batch, constant128]
+    input_tensor = ir.Tensor(tensor_shape, ir.DataType.float, "input", ir.Format.ND)
     scale = ir.Scalar(ir.DataType.float, None, "scale")
-    output_tile = ir.Tile(tile_shape, ir.DataType.float, "output")
+    output_tensor = ir.Tensor(tensor_shape, ir.DataType.float, "output", ir.Format.ND)
 
     sig = ir.FunctionSignature()
-    sig.arguments = [input_tile, scale]
-    sig.returns = [output_tile]
+    sig.arguments = [input_tensor, scale]
+    sig.returns = [output_tensor]
 
     func = block.create_function("test_binary_scalar", ir.FunctionKind.DataFlow, sig)
     module.add_function(func)
     module.entry = func
 
     with block.function_scope(func):
+        # Create input tile inside function scope
+        input_tile = block.Tile(tile_shape, ir.DataType.float, "input_tile")
+        
         # Test all binary scalar mix operations
         res_adds = block.Tile(tile_shape, ir.DataType.float, "res_adds")
         block.adds(input_tile, scale, out=res_adds)
