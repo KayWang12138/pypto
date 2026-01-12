@@ -1091,7 +1091,7 @@ void TensorIndexPut(Function &function, const LogicalTensorPtr &self, const Logi
     function.UpdateTensorDataUsage(op);
 }
 
-Tensor IndexPut_(Tensor &self, const std::vector<Tensor> &indices, const Tensor &values, bool accumulate) {
+void IndexPut_(Tensor &self, const std::vector<Tensor> &indices, const Tensor &values, bool accumulate) {
     DECLARE_TRACER();
     
     std::vector<LogicalTensorPtr> indicesLogical;

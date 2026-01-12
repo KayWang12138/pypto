@@ -94,7 +94,7 @@ static void IndexPut_OperationExeFunc2Dims(
                 {std::min(indicesSecondDim - bIdx * viewShape, viewShape)}, {bIdx * viewShape});
             std::vector<Tensor> viewIndices = {viewIndices1, viewIndices2};
             TileShape::Current().SetVecTile(args->tileShape_);
-            IndexPut_(inputs[0], viewIndices, viewValues, args->accumulate_);
+            IndexPut_(outputs[0], viewIndices, viewValues, args->accumulate_);
         }
     }
 }
@@ -130,7 +130,7 @@ static void IndexPut_OperationExeFunc3Dims(
                 {std::min(indicesThirdDim - bIdx * viewShape, viewShape)}, {bIdx * viewShape});
             std::vector<Tensor> viewIndices = {viewIndices1, viewIndices2, viewIndices3};
             TileShape::Current().SetVecTile(args->tileShape_);
-            IndexPut_(inputs[0], viewIndices, viewValues, args->accumulate_);
+            IndexPut_(outputs[0], viewIndices, viewValues, args->accumulate_);
         }
     }
 }
@@ -169,7 +169,7 @@ static void IndexPut_OperationExeFunc4Dims(
                 {std::min(indicesForthDim - bIdx * viewShape, viewShape)}, {bIdx * viewShape});
             std::vector<Tensor> viewIndices = {viewIndices1, viewIndices2, viewIndices3, viewIndices4};
             TileShape::Current().SetVecTile(args->tileShape_);
-            IndexPut_(inputs[0], viewIndices, viewValues, args->accumulate_);
+            IndexPut_(outputs[0], viewIndices, viewValues, args->accumulate_);
         }
     }
 }
