@@ -49,6 +49,7 @@ enum DataType {
     DT_UINT64 = 14,
     DT_BOOL = 15,
     DT_DOUBLE = 16,
+    DT_UNKNOWN = 17,
     DT_BOTTOM
 };
 

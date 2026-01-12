@@ -367,7 +367,7 @@ void *Function::GetParamAddress(int index) {
 
 bool Function::HasCallOperation() {
     for (const auto &op : Operations()) {
-        if (op.GetOpcode() == Opcode::OP_CALL) {
+        if (op.GetOpcode() == Opcode::OP_CALL || op.GetOpcode() == Opcode::OP_BLOCK_CALL) {
             return true;
         }
     }
@@ -1566,6 +1566,7 @@ std::vector<Function *> Function::GetCalleeFunctionList() const {
         ASSERT(calleeFunc) << callopAttr->GetCalleeMagicName() << " is not in functionmap!";
         calleeFuncList.push_back(calleeFunc);
     }
+    printf("calleeFuncList size is %zu\n", calleeFuncList.size());
     return calleeFuncList;
 }
 
@@ -3298,12 +3299,18 @@ void Function::SetCallOpSlot() {
     if (!isAllCallOp) {
         return;
     }
+    printf("1111111111\n");
     std::vector<Function *> calleeList = GetCalleeFunctionList();
+    printf("2222222222\n");
     for (auto callee: calleeList) {
+        if (callee == nullptr) {
+            continue;
+        }
         const std::shared_ptr<TensorSlotScope> calleeScope = callee->GetSlotScope();
         // callee incast -> call op iOperand, callee outcast -> call op oOperand
         UpdateOriIocastSlot(calleeScope);
     }
+    printf("33333333333\n");
     return;
 }
 

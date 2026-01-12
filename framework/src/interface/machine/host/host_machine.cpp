@@ -170,6 +170,7 @@ void HostMachine::CompileFunction(Function* func) const {
     auto &backend = Backend::GetBackend();
     if (!func->HasCallOperation() && backend.runPass) {
         ALOG_INFO_F("RunPass function %s", func->GetMagicName().c_str());
+        printf("Strategy is %s\n", config::GetPassStrategy().c_str());
         ASSERT(backend.runPass(Program::GetInstance(), *func, config::GetPassStrategy())) << "Run pass failed.";
     }
     if (func->IsFunctionType(FunctionType::DYNAMIC) || func->IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::TILE_GRAPH)) {

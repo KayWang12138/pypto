@@ -281,7 +281,7 @@ OpcodeManager::OpcodeManager() {
     // Special
     registerInfo(Opcode::OP_CALL, OpCoreType::ANY, "CALL", {}, {}, {}, OpCalcType::SYS);
     registerInfo(Opcode::OP_PRINT, OpCoreType::ANY, "OP_DUMP", {}, {}, {}, OpCalcType::SYS, {});
-    registerInfo(Opcode::OP_CALL_NOT_EXPAND, OpCoreType::ANY, "CALL_NOT_EXPAND", {}, {}, {}, OpCalcType::SYS);
+    registerInfo(Opcode::OP_BLOCK_CALL, OpCoreType::ANY, "CALL_NOT_EXPAND", {}, {}, {}, OpCalcType::SYS);
     // Begin: add for TOPK and ArgSort
     registerInfo(Opcode::OP_BITSORT, OpCoreType::ANY, "BITSORT", {MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::BitSort", PIPE_S, PIPE_V, CoreType::AIV}, OpCalcType::OTHER, {OP_ATTR_PREFIX + "axis", OP_ATTR_PREFIX + "order", OP_ATTR_PREFIX + "offset"}, TileShapeVerifier::Verify);
     registerInfo(Opcode::OP_MRGSORT, OpCoreType::ANY, "MRGSORT", {MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::MrgSort", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER, {OP_ATTR_PREFIX + "axis", OP_ATTR_PREFIX + "order", OP_ATTR_PREFIX + "kvalue"}, TileShapeVerifier::Verify);
