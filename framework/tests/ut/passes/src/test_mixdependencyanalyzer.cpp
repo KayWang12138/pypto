@@ -133,8 +133,8 @@ TEST_F(MixDependencyAnalyzerTest, UTest2) {
     EXPECT_EQ(allIncasts[kNum1].size(), kNum0); // 由内部依赖实现
     EXPECT_EQ(allOutcasts[kNum1].size(), kNum1); // outcast0
     EXPECT_EQ(allIncasts[kNum2].size(), kNum2); // incast0, incast1
-    EXPECT_EQ(allOutcasts[kNum2].size(), kNum1); // outcast1
-    EXPECT_EQ(allIncasts[kNum3].size(), kNum2); // incast0, incast2
+    EXPECT_EQ(allOutcasts[kNum2].size(), kNum0); // outcast1
+    EXPECT_EQ(allIncasts[kNum3].size(), kNum1); // incast2
     EXPECT_EQ(allOutcasts[kNum3].size(), kNum1); // outcast1
     EXPECT_EQ(allIncasts[kNum4].size(), kNum2); // incast1, incast2
     EXPECT_EQ(allOutcasts[kNum4].size(), kNum1); // outcast1
