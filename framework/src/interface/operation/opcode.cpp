@@ -465,8 +465,12 @@ void OpcodeManager::RegisterCube() {
         {"L1_ALLOC", PIPE_S, PIPE_S, CoreType::AIC}, OpCalcType::SYS);
     RegisterInfo(Opcode::OP_L0A_ALLOC, OpCoreType::AIC, "L0A_ALLOC", {}, {MemoryType::MEM_L0A},
         {"L0A_ALLOC", PIPE_S, PIPE_S, CoreType::AIC}, OpCalcType::SYS);
+    RegisterInfo(Opcode::OP_L0AMX_ALLOC, OpCoreType::AIC, "L0AMX_ALLOC", {}, {MemoryType::MEM_L0AMX},
+        {"L0AMX_ALLOC", PIPE_S, PIPE_S, CoreType::AIC}, OpCalcType::SYS);
     RegisterInfo(Opcode::OP_L0B_ALLOC, OpCoreType::AIC, "L0B_ALLOC", {}, {MemoryType::MEM_L0B},
         {"L0B_ALLOC", PIPE_S, PIPE_S, CoreType::AIC}, OpCalcType::SYS);
+    RegisterInfo(Opcode::OP_L0BMX_ALLOC, OpCoreType::AIC, "L0BMX_ALLOC", {}, {MemoryType::MEM_L0BMX},
+        {"L0BMX_ALLOC", PIPE_S, PIPE_S, CoreType::AIC}, OpCalcType::SYS);
     RegisterInfo(Opcode::OP_L0C_ALLOC, OpCoreType::AIC, "L0C_ALLOC", {}, {MemoryType::MEM_L0C},
         {"L0C_ALLOC", PIPE_S, PIPE_S, CoreType::AIC}, OpCalcType::SYS);
     RegisterInfo(Opcode::OP_FIX_ALLOC, OpCoreType::AIC, "FIX_ALLOC", {}, {},
@@ -543,6 +547,14 @@ void OpcodeManager::RegisterCube() {
     RegisterInfo(Opcode::OP_GATHER_IN_L1, OpCoreType::ANY, "GATHER_IN_L1",
         {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR}, {MemoryType::MEM_L1},
         {"TileOp::GatherInL1", PIPE_MTE2, PIPE_MTE2, CoreType::AIC}, OpCalcType::OTHER, {OpAttributeKey::startOffset});
+    RegisterInfo(Opcode::OP_L1_COPY_IN_A_SCALE, OpCoreType::AIC, "L1_COPY_IN_A_SCALE", {MemoryType::MEM_DEVICE_DDR},
+        {MemoryType::MEM_L1}, {"TileOp::TLoadAMX", PIPE_MTE2, PIPE_MTE2, CoreType::AIC}, OpCalcType::MOVE_IN);
+    RegisterInfo(Opcode::OP_L1_COPY_IN_B_SCALE, OpCoreType::AIC, "L1_COPY_IN_B_SCALE", {MemoryType::MEM_DEVICE_DDR},
+        {MemoryType::MEM_L1}, {"TileOp::TLoadAMX", PIPE_MTE2, PIPE_MTE2, CoreType::AIC}, OpCalcType::MOVE_IN);
+    RegisterInfo(Opcode::OP_L1_TO_L0A_SCALE, OpCoreType::AIC, "L1_TO_L0A_SCALE", {MemoryType::MEM_L1},
+        {MemoryType::MEM_L0AMX}, {"TileOp::TEXtractMX", PIPE_MTE1, PIPE_MTE1, CoreType::AIC}, OpCalcType::MOVE_LOCAL);
+    RegisterInfo(Opcode::OP_L1_TO_L0B_SCALE, OpCoreType::AIC, "L1_TO_L0B_SCALE", {MemoryType::MEM_L1},
+        {MemoryType::MEM_L0BMX}, {"TileOp::TEXtractMX", PIPE_MTE1, PIPE_MTE1, CoreType::AIC}, OpCalcType::MOVE_LOCAL);
 }
 
 void OpcodeManager::RegisterDistribute() {
@@ -748,7 +760,7 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {           Opcode::OP_WHERE_ST,       "TWhereST"},
     {           Opcode::OP_WHERE_SS,       "TWhereSS"},
     {                Opcode::OP_CMP,       "TCompare"},
- 	{               Opcode::OP_CMPS,       "TCompare"},  
+ 	{               Opcode::OP_CMPS,       "TCompare"},
     {               Opcode::OP_ADDS,          "TAddS"},
     {               Opcode::OP_SUBS,          "TSubS"},
     {               Opcode::OP_MAXS,          "TMaxS"},
@@ -770,6 +782,10 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {            Opcode::OP_VEC_DUP,        "TVecDup"},
     {              Opcode::OP_RANGE,         "TRange"},
     {               Opcode::OP_BRCB,          "Tbrcb"},
+    { Opcode::OP_L1_COPY_IN_A_SCALE,       "TLoadAMX"},
+    { Opcode::OP_L1_COPY_IN_B_SCALE,       "TLoadBMX"},
+    {    Opcode::OP_L1_TO_L0A_SCALE,     "TExtractMX"},
+    {    Opcode::OP_L1_TO_L0B_SCALE,     "TExtractMX"},
 };
 
 std::unordered_set<Opcode> SUPPORT_VF_FUSE_OPS{
