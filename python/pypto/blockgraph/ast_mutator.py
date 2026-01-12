@@ -457,3 +457,57 @@ class AstMutator(ast.NodeTransformer):
         source = ast.unparse(func_node)
         with open(dump_path, 'w') as f:
             f.write(source)
+
+
+def ast_to_ir(metadata=None, closure_vars=None):
+    """
+    Decorator that transforms a function's AST and returns an IR function.
+    
+    Args:
+        metadata: Dictionary containing function metadata (name, function_kind, etc.)
+        closure_vars: Dictionary of closure variables needed by the function (e.g., tensor_shape, block, etc.)
+    
+    Returns:
+        The IR function (ir.Function) instead of the original Python function.
+    """
+    # Capture the parameters to avoid closure issues
+    provided_metadata = metadata
+    provided_closure_vars = closure_vars or {}
+    
+    def decorator(func):
+        # Get transformed AST (without executing)
+        transformed_ast = AstMutator.mutate_ast(func)
+        module_ast = ast.Module(body=[transformed_ast], type_ignores=[])
+        ast.fix_missing_locations(module_ast)
+        print("unparsed:\n", ast.unparse(module_ast))
+
+        code = compile(module_ast, filename='<ast>', mode='exec')
+
+        # Get the closure variables from the function
+        func_closure_vars = inspect.getclosurevars(func)
+        
+        # The transformed function needs access to:
+        # - Module-level globals (ir, BlockBuilderHelper, etc.) from func.__globals__
+        # - Closure variables (explicitly provided + those from function closure)
+        exec_namespace = {
+            **func.__globals__,  # Include global imports (ir, BlockBuilderHelper, etc.)
+            **func_closure_vars.nonlocals,  # Include closure vars from function
+            **provided_closure_vars,  # Include explicitly provided closure vars
+        }
+        
+        exec(code, exec_namespace)
+        my_kernel_transformed = exec_namespace[func.__name__]
+        
+        # Use provided metadata or default
+        if provided_metadata is None:
+            func_metadata = {
+                "name": func.__name__,
+                "function_kind": ir.FunctionKind.ControlFlow
+            }
+        else:
+            func_metadata = provided_metadata
+        
+        func_ir = my_kernel_transformed(func_metadata)
+        return func_ir
+    
+    return decorator
