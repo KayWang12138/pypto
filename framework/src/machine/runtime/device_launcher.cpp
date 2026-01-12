@@ -17,6 +17,7 @@
 #include "machine/runtime/device_launcher_binding.h"
 #include "machine/host/backend.h"
 #include "machine/runtime/host_prof.h"
+#include "machine/runtime/perf_analysis.h"
 namespace npu::tile_fwk::dynamic {
 namespace {
     constexpr uint32_t kMinDefaultDim = 20;
@@ -127,11 +128,14 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
         rtStream_t aicpuStream, rtStream_t aicoreStream, bool streamSynchronize, CachedOperator *cachedOperator,
         const DeviceLauncherConfig &config) {
     bool isCapture = false;
-    std::cout << "!!! Kernel Launch " << "\n";
+    //std::cout << "!!! Kernel Launch " << "\n";
     config::SetRunDataOption(KEY_RUNTYPE, "npu");
     if (function != nullptr && function->GetDyndevAttribute() != nullptr) {
         DeviceRunner::SetBinData(function->GetDyndevAttribute()->kernelBinary);
     }
+
+    HOST_PERF_TRACE(TracePhase::RUN_DEV_INIT);
+
     /* 1.Add stream to capture model*/
     int rc = SetCaptureStream(aicoreStream, aicpuStream, isCapture);
     if (rc < 0) {
@@ -142,6 +146,9 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
         ChangeCaptureMode();
     }
     DeviceRunner::Get().SetCaptureFlag(isCapture);
+
+    HOST_PERF_TRACE(TracePhase::RUN_DEV_SET_CAPTURE);
+
     DeviceRunner::Get().GetHostProfInstance().SetProfFunction(function);
     rc = aclInit(nullptr);
     if (rc != 0 && rc != ACL_ERROR_REPEAT_INITIALIZE) {
@@ -159,15 +166,27 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
     CheckDeviceId();
     AstKernelArgs kArgs;
     DeviceLauncherConfigFillDeviceInfo(config);
+
+    HOST_PERF_TRACE(TracePhase::RUN_DEV_ENV_READY);
+
     DeviceInitTilingData(DeviceMemoryUtils(), kArgs, function->GetDyndevAttribute()->devProgBinary, config, cachedOperator);
+
+    HOST_PERF_TRACE(TracePhase::RUN_DEV_INIT_TILING_DATA);
+
     DeviceRunCacheKernelSet(function, (uint8_t *)kArgs.cfgdata);
     DeviceInitKernelInOuts(DeviceMemoryUtils(), kArgs, inputList, outputList,
         function->GetDyndevAttribute()->disableL2List, config.isGETensorList);
+
+    HOST_PERF_TRACE(TracePhase::RUN_DEV_INIT_INOUT_TENSOR);
+
     rc = DeviceRunner::Get().RegisterKernelBin(&(*reinterpret_cast<rtBinHandle *>(CachedOperator::GetBinHandleHolder(cachedOperator))));
     if (rc < 0) {
         ALOG_ERROR_F("Register kernel bin failed.");
         return rc;
     }
+
+    HOST_PERF_TRACE(TracePhase::RUN_DEV_REG_KERNEL_BIN);
+
     rc = DeviceRunner::Get().DynamicLaunch(aicpuStream, nullptr, aicoreStream, 0, &kArgs, config.blockdim, config.aicpuNum);
     if (rc < 0) {
         return rc;
