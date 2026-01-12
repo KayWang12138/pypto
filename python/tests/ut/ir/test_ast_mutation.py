@@ -301,6 +301,107 @@ def test_if_without_else():
     # (The helper function checks for if_else_scope only if it exists in source)
 
 
+def test_if_with_python_bool_constant():
+    """Test if statement with Python bool constant (True/False) is not transformed."""
+    builder = ir.IrBuilder()
+    ctx = ir.IrBuilderContext()
+    block = BlockBuilderHelper(builder, ctx)
+
+    batch = ir.Scalar(ir.DataType.int32, None, "batch")
+    constant128 = ir.Scalar(ir.DataType.int64, 128, "const_128")
+    tensor_shape = [batch, constant128]
+    tile_shape = [128, 128]
+
+    def my_kernel(
+        input_x: ir.Tensor(tensor_shape, ir.DataType.float, "inputX", ir.Format.ND),
+    ) -> (ir.Scalar(ir.DataType.int32, None),):
+        constant0 = block.Const(0, "const_0")
+        res = block.Tile(tile_shape, ir.DataType.float, "output")
+        if True:
+            block.adds(res, input_x, out=res)
+        return (constant0,)
+
+    transformed_ast = AstMutator.mutate_ast(my_kernel, dump_source=_get_dump_path("test_if_with_python_bool_constant"))
+    
+    # Verify transformed AST
+    _verify_transformed_ast(transformed_ast, "my_kernel")
+    
+    # Check that Python bool constant is NOT transformed
+    source = ast.unparse(transformed_ast)
+    # Should NOT have block.if_then_scope for Python bool constant
+    assert "block.if_then_scope" not in source, "Python bool constant should not be transformed"
+    assert "block.IfNode" not in source, "Python bool constant should not be transformed"
+    # Should still have the original if True pattern
+    assert "if True:" in source, "Original if True should remain"
+
+
+def test_if_with_python_bool_variable():
+    """Test if statement with Python bool variable is not transformed."""
+    builder = ir.IrBuilder()
+    ctx = ir.IrBuilderContext()
+    block = BlockBuilderHelper(builder, ctx)
+
+    batch = ir.Scalar(ir.DataType.int32, None, "batch")
+    constant128 = ir.Scalar(ir.DataType.int64, 128, "const_128")
+    tensor_shape = [batch, constant128]
+    tile_shape = [128, 128]
+
+    def my_kernel(
+        input_x: ir.Tensor(tensor_shape, ir.DataType.float, "inputX", ir.Format.ND),
+    ) -> (ir.Scalar(ir.DataType.int32, None),):
+        constant0 = block.Const(0, "const_0")
+        res = block.Tile(tile_shape, ir.DataType.float, "output")
+        x = True  # Python bool variable
+        if x:
+            block.adds(res, input_x, out=res)
+        return (constant0,)
+
+    transformed_ast = AstMutator.mutate_ast(my_kernel, dump_source=_get_dump_path("test_if_with_python_bool_variable"))
+    
+    # Verify transformed AST
+    _verify_transformed_ast(transformed_ast, "my_kernel")
+    
+    # Check that Python bool variable is NOT transformed
+    source = ast.unparse(transformed_ast)
+    # Should NOT have block.if_then_scope for Python bool variable
+    assert "block.if_then_scope" not in source, "Python bool variable should not be transformed"
+    assert "block.IfNode" not in source, "Python bool variable should not be transformed"
+    # Should still have the original if x pattern
+    assert "if x:" in source, "Original if x should remain"
+
+
+def test_if_with_ir_scalar_still_transformed():
+    """Test that if statement with ir.Scalar condition is still transformed."""
+    builder = ir.IrBuilder()
+    ctx = ir.IrBuilderContext()
+    block = BlockBuilderHelper(builder, ctx)
+
+    batch = ir.Scalar(ir.DataType.int32, None, "batch")
+    constant128 = ir.Scalar(ir.DataType.int64, 128, "const_128")
+    tensor_shape = [batch, constant128]
+    tile_shape = [128, 128]
+
+    def my_kernel(
+        input_x: ir.Tensor(tensor_shape, ir.DataType.float, "inputX", ir.Format.ND),
+        cond: ir.Scalar(ir.DataType.bool, None, "cond"),
+    ) -> (ir.Scalar(ir.DataType.int32, None),):
+        constant0 = block.Const(0, "const_0")
+        res = block.Tile(tile_shape, ir.DataType.float, "output")
+        if cond:
+            block.adds(res, input_x, out=res)
+        return (constant0,)
+
+    transformed_ast = AstMutator.mutate_ast(my_kernel, dump_source=_get_dump_path("test_if_with_ir_scalar_still_transformed"))
+    
+    # Verify transformed AST
+    _verify_transformed_ast(transformed_ast, "my_kernel")
+    
+    # Check that ir.Scalar condition IS transformed
+    source = ast.unparse(transformed_ast)
+    assert "block.if_then_scope" in source, "ir.Scalar condition should be transformed"
+    assert "block.IfNode" in source, "ir.Scalar condition should be transformed"
+
+
 if __name__ == "__main__":
     tests = [
         ("test_ast_transform", test_ast_transform),
@@ -309,6 +410,9 @@ if __name__ == "__main__":
         ("test_for_with_nested_if", test_for_with_nested_if),
         ("test_if_with_nested_for", test_if_with_nested_for),
         ("test_if_without_else", test_if_without_else),
+        ("test_if_with_python_bool_constant", test_if_with_python_bool_constant),
+        ("test_if_with_python_bool_variable", test_if_with_python_bool_variable),
+        ("test_if_with_ir_scalar_still_transformed", test_if_with_ir_scalar_still_transformed),
     ]
     
     passed = 0

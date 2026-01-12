@@ -20,6 +20,8 @@ class AstMutator(ast.NodeTransformer):
         super().__init__()
         self.if_counter = 0  # Counter for unique if node variable names
         self.for_counter = 0  # Counter for unique for node variable names
+        self.loop_vars = set()  # Track loop variables (ir.Scalar) created from block.loop
+        self.func_params = {}  # Track function parameters and their types from annotations
     
     @classmethod
     def mutate_ast(cls, func, dump_source: Optional[str] = None) -> ast.FunctionDef:
@@ -61,6 +63,26 @@ class AstMutator(ast.NodeTransformer):
         
         return wrapper
     
+    def _is_scalar_annotation(self, annotation: ast.AST) -> bool:
+        """
+        Check if an annotation is ir.Scalar(...).
+        
+        Args:
+            annotation: AST node representing the type annotation
+            
+        Returns:
+            True if the annotation is ir.Scalar(...), False otherwise
+        """
+        if isinstance(annotation, ast.Call):
+            func = annotation.func
+            if isinstance(func, ast.Attribute):
+                # Check for ir.Scalar(...)
+                if (isinstance(func.value, ast.Name) and 
+                    func.value.id == 'ir' and 
+                    func.attr == 'Scalar'):
+                    return True
+        return False
+    
     def _transform_statement(self, stmt: ast.AST) -> List[ast.AST]:
         """Transform a statement, potentially returning multiple statements."""
         if isinstance(stmt, ast.For):
@@ -99,6 +121,10 @@ class AstMutator(ast.NodeTransformer):
                     value=arg.annotation
                 ))
                 arg_names.append(ast.Name(id=arg.arg, ctx=ast.Load()))
+                
+                # Track if this parameter is an ir.Scalar
+                if self._is_scalar_annotation(arg.annotation):
+                    self.func_params[arg.arg] = True
         
         # Extract return types from return annotation
         return_types = []
@@ -232,6 +258,9 @@ class AstMutator(ast.NodeTransformer):
         # Extract loop variable name
         loop_var_name = node.target.id if isinstance(node.target, ast.Name) else 'i'
         
+        # Track this loop variable as an ir.Scalar
+        self.loop_vars.add(loop_var_name)
+        
         # Extract arguments from block.loop(start, end, step, **kwargs)
         loop_args = node.iter.args
         loop_kwargs = {kw.arg: kw.value for kw in node.iter.keywords}
@@ -317,6 +346,45 @@ class AstMutator(ast.NodeTransformer):
         
         return [scalar_assign, fornode_assign, with_stmt]
     
+    def _is_scalar_condition(self, test: ast.AST) -> bool:
+        """
+        Check if the condition in an if statement is an ir.Scalar.
+        
+        Only transforms when we're certain it's an ir.Scalar:
+        - Loop variables (from block.loop)
+        - Function parameters that are ir.Scalar (from type annotations)
+        
+        Does NOT transform:
+        - Python bool constants (True/False)
+        - Other variables (assumed to be Python bools unless proven otherwise)
+        
+        Args:
+            test: AST node representing the condition
+            
+        Returns:
+            True if the condition is definitely an ir.Scalar, False otherwise
+        """
+        # If it's a Python constant (True/False), it's not an ir.Scalar
+        if isinstance(test, ast.Constant):
+            if isinstance(test.value, bool):
+                return False
+        
+        # If it's a Name, only transform if it's a known ir.Scalar
+        if isinstance(test, ast.Name):
+            # Check if it's a loop variable (ir.Scalar)
+            if test.id in self.loop_vars:
+                return True
+            # Check if it's a function parameter that's ir.Scalar
+            if test.id in self.func_params:
+                return True
+            # Otherwise, assume it's a Python bool and don't transform
+            return False
+        
+        # For other cases (attribute access, function calls, etc.), 
+        # be conservative and don't transform unless we're certain
+        # This prevents transforming Python bool expressions
+        return False
+    
     def _transform_if(self, node: ast.If) -> List[ast.AST]:
         """
         Transform: if cond: ... else: ...
@@ -327,7 +395,14 @@ class AstMutator(ast.NodeTransformer):
             with block.if_else_scope(ifs):
                 ...
             block.exit_if(ifs)
+        
+        Only transforms when cond is an ir.Scalar, not a Python bool.
         """
+        # Check if condition is an ir.Scalar
+        if not self._is_scalar_condition(node.test):
+            # It's a Python bool, don't transform - just visit normally
+            return [self.generic_visit(node)]
+        
         # Generate unique variable name for if node
         if_var_name = f'ifs_{self.if_counter}'
         self.if_counter += 1
