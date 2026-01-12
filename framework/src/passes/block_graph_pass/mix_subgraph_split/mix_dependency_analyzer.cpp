@@ -314,7 +314,7 @@ void MixDependencyAnalyzer::EliminateRedundantDependencies(std::unordered_map<in
     // 消除冗余incast
     EliminateRedundantOuterDeps(innerDeps, allIncasts);
     // 消除冗余outcast
-    EliminateRedundantOuterDeps(Transpose(innerDeps), allIncasts);
+    EliminateRedundantOuterDeps(Transpose(innerDeps), allOutcasts);
     // 消除冗余内部依赖
     EliminateRedundantInnerDeps(innerDeps, internalDeps);
 }
