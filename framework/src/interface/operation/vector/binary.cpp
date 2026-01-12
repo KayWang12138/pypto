@@ -52,9 +52,8 @@ void CheckBinOpOperandsValid(const LogicalTensorPtr &operand1, const LogicalTens
     }
 }
 
-void CheckBinaryInputTensors(const LogicalTensorPtr &tensor1, const LogicalTensorPtr &tensor2, std::string &op) {
-    CheckTensorShape(tensor1, op);
-    CheckTensorShape(tensor2, op);
+void CheckBinaryInputTensors(const LogicalTensorPtr &tensor1, const LogicalTensorPtr &tensor2, const Opcode op) {
+    OpInputsChecker::GetInstance(op).Check({tensor1, tensor2});
     CheckBinOpOperandsValid(tensor1, tensor2);
     if (tensor1->Datatype() != tensor2->Datatype()) {
         ASSERT(false && "The dtype of input tensors are not same.");
@@ -134,8 +133,7 @@ void TiledBinaryOperation(Function &function, const TileShape &tileShape, Logica
     LogicalTensorPtr operand2, const LogicalTensorPtr &result) {
     CheckBinOpOperandsValid(operand1, operand2);
     bool withBrc = CallBrcBinOp(operand1, operand2) &&
-                   (function.paramConfigs_.forceCombineAxis ||
-                       function.paramConfigs_.combineAxis);
+                   (function.paramConfigs_.forceCombineAxis || function.paramConfigs_.combineAxis);
     // nolast brc will be inline
     if (!withBrc) {
         if (operand1->shape != result->shape) {

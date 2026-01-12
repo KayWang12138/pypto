@@ -57,7 +57,6 @@ struct Input {
     TileInfo tileInfo;
 };
 
-void CheckTensorShape(const LogicalTensorPtr &tensor, const std::string &op);
 std::vector<int> GetBroadCastShape(LogicalTensorPtr &operand1, LogicalTensorPtr &operand2);
 std::vector<int> GetBroadcastAxes(const Shape &shape1, const Shape &shape2);
 void CheckAxisRange(const Tensor &tensor, int &axis);
@@ -89,13 +88,11 @@ private:
     std::unordered_map<Opcode, TiledFuncType> tiledFuncs_;
 };
 
-#define REGISTER_OPERATION_TILED_FUNC(OpCoreStr, OpType, FuncName)                \
-    class OpCoreStr##TiledRegister {                                              \
-    public:                                                                       \
-        OpCoreStr##TiledRegister() {                                              \
-            TiledFuncRegistry::GetInstance().RegisterTiledFunc(OpType, FuncName); \
-        }                                                                         \
-    };                                                                            \
+#define REGISTER_OPERATION_TILED_FUNC(OpCoreStr, OpType, FuncName)                                           \
+    class OpCoreStr##TiledRegister {                                                                         \
+    public:                                                                                                  \
+        OpCoreStr##TiledRegister() { TiledFuncRegistry::GetInstance().RegisterTiledFunc(OpType, FuncName); } \
+    };                                                                                                       \
     static OpCoreStr##TiledRegister OpCoreStr##_tiled_register
 
 class OpSyncQueue {

@@ -320,6 +320,8 @@ LogicalTensorPtr TensorWhereOperation(
     auto inputT1 = input.GetStorage();
     auto otherT2 = other.GetStorage();
 
+    OpInputsChecker::GetInstance(Opcode::OP_WHERE_TT).Check({conditionT0, inputT1, otherT2});
+
     std::vector<int64_t> resultShape;
     if (condition.GetStorage()->Datatype() == DT_BOOL) {
         resultShape = GetBroadCastShape(conditionT0, inputT1, otherT2);
@@ -359,6 +361,8 @@ LogicalTensorPtr TensorWhereOperation(
     auto conditionT0 = condition.GetStorage();
     auto inputT1 = input.GetStorage();
 
+    OpInputsChecker::GetInstance(Opcode::OP_WHERE_TS).Check({conditionT0, inputT1});
+
     std::vector<int64_t> resultShape;
     if (condition.GetStorage()->Datatype() == DT_BOOL) {
         resultShape = GetBroadCastShapeReturnInt64_t(conditionT0, inputT1);
@@ -397,6 +401,8 @@ LogicalTensorPtr TensorWhereOperation(
     auto otherT1 = other.GetStorage();
     std::vector<int64_t> resultShape;
 
+    OpInputsChecker::GetInstance(Opcode::OP_WHERE_ST).Check({conditionT0, otherT1});
+
     if (condition.GetStorage()->Datatype() == DT_BOOL) {
         resultShape = GetBroadCastShapeReturnInt64_t(conditionT0, otherT1);
         conditionT0 = BinaryOperationUnsqueeze(conditionT0, resultShape);
@@ -424,6 +430,8 @@ LogicalTensorPtr TensorWhereOperation(
         << "The shape size of condition and offset must be equal";
     auto conditionT0 = condition.GetStorage();
     std::vector<int64_t> resultShape = {};
+
+    OpInputsChecker::GetInstance(Opcode::OP_WHERE_SS).Check({conditionT0});
 
     if (condition.GetStorage()->Datatype() == DT_BOOL) {
         resultShape = GetBroadCastShapeReturnInt64_t(conditionT0, conditionT0);

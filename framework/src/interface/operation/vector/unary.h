@@ -72,11 +72,10 @@ void UnaryOperationOperandCheck(
 
 template <UnaryOpType T>
 LogicalTensorPtr TensorUnaryOperation(Function &function, LogicalTensorPtr operand) {
-    auto opName = GetUnaryOpName<T>();
-    CheckTensorShape(operand, opName);
+    OpInputsChecker::GetInstance(GetUnaryOpNameCode<T>()).Check({operand});
     auto result = std::make_shared<LogicalTensor>(
         function, operand->tensor->datatype, operand->shape, operand->GetDynValidShape(), operand->Format());
-    function.AddOperation(GetUnaryOpNameCode<T>(), {operand}, {result});
+    function.AddOperation(opcode, {operand}, {result});
     return result;
 }
 
