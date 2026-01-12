@@ -17,10 +17,43 @@
 #include "machine/runtime/device_launcher_binding.h"
 #include "machine/host/backend.h"
 #include "machine/runtime/host_prof.h"
-namespace npu::tile_fwk::dynamic {
+#include <chrono>
+#include "interface/utils/log.h"
+
 namespace {
     constexpr uint32_t kMinDefaultDim = 20;
+    
+    // Helper function to get microseconds timestamp
+    static inline uint64_t GetTimeUs() {
+        auto now = std::chrono::high_resolution_clock::now();
+        auto duration = now.time_since_epoch();
+        return std::chrono::duration_cast<std::chrono::microseconds>(duration).count();
+    }
+    
+    // Unified timing macro for RT operations
+    #define RT_TIMING_WRAP(func_call, func_name, result_var) \
+        do { \
+            uint64_t _rt_start_ = GetTimeUs(); \
+            result_var = func_call; \
+            uint64_t _rt_end_ = GetTimeUs(); \
+            ALOG_INFO_F("[TIMING] RT:%s elapsed=%lu us, ret=%d", func_name, _rt_end_ - _rt_start_, result_var); \
+        } while(0)
+    
+    // RAII helper for function timing (unified format)
+    class FuncTimer {
+    public:
+        FuncTimer(const char* func_name) : func_name_(func_name), start_time_(GetTimeUs()) {}
+        ~FuncTimer() {
+            uint64_t end_time = GetTimeUs();
+            ALOG_INFO_F("[TIMING] FUNC:%s elapsed=%lu us", func_name_, end_time - start_time_);
+        }
+    private:
+        const char* func_name_;
+        uint64_t start_time_;
+    };
 }
+
+namespace npu::tile_fwk::dynamic {
 int GetCfgBlockdim() {
 #ifdef BUILD_WITH_CANN
     auto blk = Platform::Instance().GetSoc().GetAICoreNum();
@@ -90,7 +123,8 @@ int DeviceLauncher::SetCaptureStream(rtStream_t aicoreStream, rtStream_t aicpuSt
             ALOG_ERROR_F("rtModel is null!");
             return -1;;
         }
-        rtError_t ret = rtStreamAddToModel(aicpuStream, rtModel);
+        rtError_t ret;
+        RT_TIMING_WRAP(rtStreamAddToModel(aicpuStream, rtModel), "rtStreamAddToModel_SetCaptureStream", ret);
         if (ret != 0) {
             ALOG_ERROR_F("rtStreamAddToModel failed, return[%d]", ret);
             return -1;
@@ -126,6 +160,7 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
         Function *function, const std::vector<DeviceTensorData> &inputList, const std::vector<DeviceTensorData> &outputList,
         rtStream_t aicpuStream, rtStream_t aicoreStream, bool streamSynchronize, CachedOperator *cachedOperator,
         const DeviceLauncherConfig &config) {
+    FuncTimer _timer(__func__);
     bool isCapture = false;
     std::cout << "!!! Kernel Launch " << "\n";
     config::SetRunDataOption(KEY_RUNTYPE, "npu");
