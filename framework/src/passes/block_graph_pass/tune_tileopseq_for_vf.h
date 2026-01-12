@@ -32,6 +32,7 @@ public:
 
 private:
     void ChangeOpSeq(std::vector<Operation *> &opList, PipeSync &ps, bool isAIV1);
+    std::vector<std::vector<Operation *>> mergedOps;
 };
 }
 #endif // TUNE_TILEOPSEQ_FOR_VF_H

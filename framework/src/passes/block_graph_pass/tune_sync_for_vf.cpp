@@ -286,10 +286,12 @@ Status TuneSyncForVF::ChangeOpSeq(Function *subGraphFunc, bool isAIV1) {
             }
         }
         if (groupNum == -1) {
-            // 将vecTileop1和vecTileop1添加到mergedOps中
+            // 将vecTileop0和vecTileop1添加到mergedOps中
             std::vector<Operation *> newOp = {opList_[left], opList_[right]};
             mergedOps.emplace_back(newOp);
             groupNum = mergedOps.size() - 1;
+        } else {
+            mergedOps[groupNum].emplace_back(opList_[right]);
         }
         // 进行调整
         if (AdjustSetWaitFlag(subGraphFunc, setFlagList, waitFlagList, left, right, groupNum) != SUCCESS) {
