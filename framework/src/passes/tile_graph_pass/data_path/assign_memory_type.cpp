@@ -201,22 +201,23 @@ void AssignMemoryType::ProcessAssemblewithSpecificMem(Operation &operation) {
     if (input->GetMemoryTypeOriginal() != MemoryType::MEM_L0C) {
         return;
     }
-    for (const auto &consumerOp : output->GetConsumers()){
-        auto consumerOpcode = consumerOp->GetOpcode();
-        if (consumerOpcode != Opcode::OP_VIEW) {
-            // 加一个output的origin为MEM_L1时，强制刷assemble的input为从l0c到l1的操作
-            if (consumerOpcode == Opcode::OP_L1_TO_L0A || consumerOpcode == Opcode::OP_L1_TO_L0B|| consumerOpcode == Opcode::OP_L1_TO_L0B || consumerOpcode == Opcode::OP_L1_TO_L0_BT) {
-                output->SetMemoryTypeOriginal(MemoryType::MEM_L1, true);
-                inserter.UpdateTensorTobeMap(input, operation, MemoryType::MEM_L0C);
-            }
-            return;
-        }
+    for (auto &consumerOp : output->GetConsumers()) {
         auto consumerOpAttribute = dynamic_cast<ViewOpAttribute *>(consumerOp->GetOpAttribute().get());
-        if (consumerOpAttribute->GetTo() != MemoryType::MEM_L1) {
-            return;
+        if (consumerOpAttribute != nullptr) {
+            // 后接view但非大包搬运
+            if (consumerOpAttribute->GetTo() != MemoryType::MEM_L1) {
+                return;
+            }
+        } else {
+            // 后不接view(非大包搬运)且consumerOp不要求L1输入
+            const auto &inputsMemType = OpcodeManager::Inst().GetInputsMemType(consumerOp->GetOpcode());
+            if (!inputsMemType.empty() && inputsMemType[0] != MemoryType::MEM_L1) {
+                return;
+            }
         }
     }
     output->SetMemoryTypeOriginal(MemoryType::MEM_L1, true);
+    inserter.UpdateTensorTobeMap(input, operation, MemoryType::MEM_L0C);
     for(const auto &consumerOp : output->GetConsumers()) {
         inserter.UpdateTensorTobeMap(output, *consumerOp,MemoryType::MEM_L1);
     }
@@ -492,7 +493,6 @@ void AssignMemoryType::ProcesSmallTileToLargeTile(Function &function) {
         auto iOperand = op.GetIOperands().front();
         if(iOperand->GetMemoryTypeOriginal() == MEM_L0C) {
             if (!IsDimMultiple(oOperand->GetShape(), iOperand->GetShape())){
-                APASS_LOG_WARN_F(Elements::Operation, "ZSQ oOperand magic: %d", oOperand->magic);
                 oOperand->SetMemoryTypeOriginal(MEM_DEVICE_DDR, true);
             }
         }
