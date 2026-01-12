@@ -130,6 +130,7 @@ _dtype_dict = {
     "torch.hifloat8": DataType.DT_HF8,
     "torch.float8_e4m3fn": DataType.DT_FP8E4M3,
     "torch.float8_e5m2": DataType.DT_FP8E5M2,
+    "torch.float8_e8m0fnu": DataType.DT_FP8E8M0,
 }
 
 
@@ -180,7 +181,7 @@ def _torch_dtype_from(dtype: DataType) -> "torch.dtype":
 
 def _gen_pto_tensor(input_tensors):
     import torch
-    
+
     torch_tensors = []
     pto_tensors = []
     for t in input_tensors:
