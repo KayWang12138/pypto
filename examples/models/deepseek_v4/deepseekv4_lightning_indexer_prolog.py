@@ -272,7 +272,7 @@ def do_test_lighting_indexer_prolog(case_name, configs):
 
     x=inputs_data["token_x"].npu().reshape(t, h)
     q_norm=inputs_data["q_norm"].npu().reshape(t, q_lora_rank)
-    w_qb=torch_npu.npu_format_cast(inputs_data["w_idx_qb"].npu().contiguous(), torch_npu.Format.FRACTAL_NZ)
+    w_qb=inputs_data["w_idx_qb"].npu()
     w_proj=torch_npu.npu_format_cast(
         inputs_data["w_idx_proj"].npu().contiguous(), torch_npu.Format.FRACTAL_NZ)
     cos_idx_rope=inputs_data["cos_idx_rope"].npu().reshape(t, rope_head_dim)
