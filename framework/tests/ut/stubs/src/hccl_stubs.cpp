@@ -13,7 +13,6 @@
  * \brief
  */
 
-#include "hccl/hccl.h"
 #include "hcom.h"
 
 extern "C" {
