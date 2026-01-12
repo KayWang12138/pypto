@@ -59,10 +59,6 @@ Status MixSubgraphSplit::GatherSubGraphInfo(Function &function, std::vector<MixS
         }
         // 从全局缓存中获取function
         auto cacheValue = Program::GetInstance().TryHitCahce(calleeHash);
-        if (!cacheValue || !cacheValue->cacheFunction) {
-            ALOG_WARN_F("Hash not found in cache, skip");
-            continue;
-        }
         Function* cacheFunc = cacheValue->cacheFunction;
         // 检查是否是Mix子图
         if (!IsMixSubgraph(*cacheFunc)) {
@@ -70,9 +66,6 @@ Status MixSubgraphSplit::GatherSubGraphInfo(Function &function, std::vector<MixS
         }
         // 分析内部组件
         auto components = AnalyzeInternalComponents(*cacheFunc);
-        if (components.size() <= 1) {
-            continue; // 不是Mix子图
-        }
         // 确定programID（仅在当前function中查找）
         uint64_t localProgramID = INVALID_PROGRAM_ID;
         bool isInCurrentFunc = false;
@@ -156,11 +149,7 @@ Status MixSubgraphSplit::ExecuteSplit(Function &function, std::vector<MixSubgrap
             auto it = mixSubgraphNewIDs.find(mixInfo.programID);
             if (it != mixSubgraphNewIDs.end()) {
                 newProgramIDs = it->second;
-            } else {
-                ALOG_ERROR_F("No programIDs allocated for local mix subgraph %lu", 
-                            mixInfo.programID);
-                return FAILED;
-            }
+            } 
         } else {
             // 跨function：创建虚拟的programID（不添加到programs中）
             static uint64_t tempIDBase = 0xFFFFFFFF00000000ULL;
@@ -175,11 +164,6 @@ Status MixSubgraphSplit::ExecuteSplit(Function &function, std::vector<MixSubgrap
                                          newProgramIDs, 
                                          mixInfo.originalCallOps, 
                                          splitResults);
-        if (status != SUCCESS) {
-            ALOG_ERROR_F("ProcessLeafFunction failed for hash %lu", 
-                        mixInfo.hashValue.GetHash());
-            return status;
-        }
     }
     // 删除原始Mix子图的callOp
     DeleteOriginalMixCallOps(*rootFunc, callOpsToDelete);
