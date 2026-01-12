@@ -114,18 +114,18 @@ public:
     }
 
     void InitOpConsumerAndProducer() {
-        std::unordered_set<Operation*> operationSet;
+        std::unordered_set<Operation*> operationList;
         for (auto op : operations) {
-            operationSet.insert(op);
+            operationList.insert(op);
         }
         for (auto op : operations) {
             for (auto consumer : op->ConsumerOps()) {
-                if (operationSet.find(consumer) != operationSet.end()) {
+                if (operationList.find(consumer) != operationList.end()) {
                     opConsumers[op].emplace_back(consumer);
                 }
             }
             for (auto producer : op->ProducerOps()) {
-                if (operationSet.find(producer) != operationSet.end()) {
+                if (operationList.find(producer) != operationList.end()) {
                     opProducers[op].emplace_back(producer);
                 }
             }
