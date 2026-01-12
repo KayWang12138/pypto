@@ -30,18 +30,24 @@ class DistributedSTestAccelerate(STestAccelerate):
         return "Distributed-STest"
 
     @staticmethod
-    def main() -> bool:
-        """分布式主处理流程"""
-        parser = argparse.ArgumentParser(description="Distributed STest Execute Accelerate", epilog="Best Regards!")
-        DistributedSTestAccelerate.reg_args(parser=parser)
-        # 继承父类的device参数
-        parser.add_argument("-d", "--device", nargs="?", type=int, action="append",
-                            help="Specific parallel accelerate device, "
-                                "If this parameter is not specified, 0 device will be used by default.")
-        # 只保留rank_size参数
+    def reg_args(parser: argparse.ArgumentParser):
+        """注册分布式STest参数
+        先调用父类(STestAccelerate)的参数注册，再添加分布式特有参数
+        """
+        STestAccelerate.reg_args(parser)
         parser.add_argument("--rank_size", type=int, required=True,
                             help="Number of devices per test group")
 
+    @staticmethod
+    def main() -> bool:
+        """分布式主处理流程"""
+        parser = argparse.ArgumentParser(
+            description="Distributed STest Execute Accelerate",
+            epilog="Best Regards!"
+        )
+
+        # 使用自己的reg_args方法
+        DistributedSTestAccelerate.reg_args(parser=parser)
         args = parser.parse_args()
 
         # 获取设备列表（继承父类的逻辑）
