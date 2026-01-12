@@ -987,19 +987,19 @@ Status OoOScheduler::CheckOpBufferSize(Operation *op) {
 }
 
 void OoOScheduler::InitOpConsumerAndProducer() {
-    std::unordered_set<IssueEntryPtr> issueEntriesSet;
+    std::unordered_set<Operation*> operationSet;
     for (auto issue : issueEntries) {
-        issueEntriesSet.insert(issue);
+        operationSet.insert(&issue->tileOp);
     }
     for (auto issue : issueEntries) {
         for (auto consumer : issue->tileOp.ConsumerOps()) {
-            if (issueEntriesSet.find(consumer) != issueEntriesSet.end()) {
-                opConsumers[*issue->tileOp].insert(consumer);
+            if (operationSet.find(consumer) != operationSet.end()) {
+                opConsumers[&issue->tileOp].insert(consumer);
             }
         }
         for (auto producer : issue->tileOp.ProducerOps()) {
-            if (issueEntriesSet.find(producer) != issueEntriesSet.end()) {
-                opProducers[*issue->tileOp].insert(producer);
+            if (operationSet.find(producer) != operationSet.end()) {
+                opProducers[&issue->tileOp].insert(producer);
             }
         }
     }
