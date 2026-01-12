@@ -45,8 +45,7 @@ def test_control_flow():
     sig.returns = [ir.Scalar(ir.DataType.int32, None)]
 
     # ===== Function =====
-    func = builder.create_function(
-        "test_control", ir.FunctionKind.ControlFlow, sig)
+    func = block.create_function("test_control", ir.FunctionKind.ControlFlow, sig)
     module.add_function(func)
     module.entry = func  # NOTE: now runs until here
 
@@ -54,39 +53,26 @@ def test_control_flow():
     with block.function_scope(func):
 
         # for i = 0 to batch step 1
-        i = builder.create_scalar(ctx, ir.DataType.int32, "i")
-        constant0 = builder.create_const(ctx, 0, "const_0")
-        constant1 = builder.create_const(ctx, 1, "const_1")
-        fs = builder.create_for(ctx, i, constant0, batch, constant1)
-
-        # Test for attribute
-        fs.properties()["unroll"] = "4"
+        i = block.Scalar(ir.DataType.int32, "i")
+        constant0 = block.Const(0, "const_0")
+        constant1 = block.Const(1, "const_1")
+        fs = block.ForNode(i, constant0, batch, constant1, unroll=4)
         with block.for_scope(fs):
 
-            res_loop_x = builder.create_tile(
-                ctx, tile_shape, ir.DataType.float, "outputX")
+            res_loop_x = block.Tile(tile_shape, ir.DataType.float, "outputX")
             # Note: create_op used as CreateBinaryOp placeholder
-            add_op_x = builder.create_binary_scalar_op(
-                ir.Opcode.OP_ADDS, res_loop_x, scale1, res_loop_x)
-            # add_op_x setup would occur here (opcode, inputs, outputs)
-            builder.emit(ctx, add_op_x)
+            add_op_x = block.adds(res_loop_x, scale1, out=res_loop_x)
 
-            res_loop_y = builder.create_tile(
-                ctx, tile_shape, ir.DataType.float, "outputY")
-            add_op_y = builder.create_binary_scalar_op(
-                ir.Opcode.OP_ADDS, res_loop_y, scale2, res_loop_y)
-            builder.emit(ctx, add_op_y)
+            res_loop_y = block.Tile(tile_shape, ir.DataType.float, "outputY")
+            add_op_y = block.adds(res_loop_y, scale2, out=res_loop_y)
 
             # if i then outputX = mul(outputX, scale1) else outputY = mul(outputY, scale2)
-            ifs = builder.create_if(ctx, i)
+            ifs = block.IfNode(i)
 
             # --- IF THEN ---
             with block.if_then_scope(ifs):
-                res_if_x = builder.create_tile(
-                    ctx, tile_shape, ir.DataType.float, "outputX")
-                mul_op_x = builder.create_binary_scalar_op(
-                    ir.Opcode.OP_MULS, res_loop_x, scale1, res_if_x)
-                builder.emit(ctx, mul_op_x)
+                res_if_x = block.Tile(tile_shape, ir.DataType.float, "outputX")
+                mul_op_x = block.muls(res_loop_x, scale1, out=res_if_x)
 
                 # test compound remove value (Assuming remove_var exists in binding)
                 then_comp = ifs.then_stmts()
@@ -94,13 +80,10 @@ def test_control_flow():
 
             # --- IF ELSE ---
             with block.if_else_scope(ifs):
-                res_if_y = builder.create_tile(
-                    ctx, tile_shape, ir.DataType.float, "outputY")
-                mul_op_y = builder.create_binary_scalar_op(
-                    ir.Opcode.OP_MULS, res_loop_y, scale2, res_if_y)
-                builder.emit(ctx, mul_op_y)
+                res_if_y = block.Tile(tile_shape, ir.DataType.float, "outputY")
+                mul_op_y = block.muls(res_loop_y, scale2, out=res_if_y)
 
-            builder.exit_if(ctx, ifs)
+            block.exit_if(ifs)
 
             # Check yields
             then_yield = then_comp.stmts()[-1]
@@ -119,7 +102,7 @@ def test_control_flow():
         ifs_in_for = fs.stmts().stmts()[1]
         # assert set(ifs_in_for.results()) == set(fs.yield().values())
 
-        builder.create_return(ctx, [constant0])
+        block.create_return([constant0])
 
 
 if __name__ == "__main__":
