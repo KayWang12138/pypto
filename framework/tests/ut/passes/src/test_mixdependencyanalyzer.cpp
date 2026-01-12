@@ -111,16 +111,23 @@ TEST_F(MixDependencyAnalyzerTest, UTest1) {
 
 TEST_F(MixDependencyAnalyzerTest, UTest2) {
     MixDependencyAnalyzer analyzer;
+    std::unordered_map<int, std::vector<SimpleTensorParam>> allIncasts;
+    std::unordered_map<int, std::vector<SimpleTensorParam>> allOutcasts;
     std::vector<InternalDependencyInfo> internalDeps;
     auto dependencies = GenerateDependencies();
     auto components = GenerateInternalComponent();
     analyzer.ComputeDependencyClosure(dependencies);
+    GenerateAllTensors(allIncasts, allOutcasts);
+    analyzer.PropagateExternalDependenciesWithClosure(dependencies, allIncasts, allOutcasts);
     analyzer.CollectInternalDependencies(dependencies, components, internalDeps);
     EXPECT_EQ(internalDeps.size(), kNum4);
     EXPECT_TRUE(CheckPath(kNum0, kNum1, internalDeps));
     EXPECT_TRUE(CheckPath(kNum0, kNum4, internalDeps));
     EXPECT_TRUE(CheckPath(kNum1, kNum4, internalDeps));
     EXPECT_TRUE(CheckPath(kNum2, kNum3, internalDeps));
+
+    analyzer.EliminateRedundantDependencies(allIncasts, allOutcasts, internalDeps);
+    EXPECT_EQ(internalDeps.size(), kNum3); // 边数下降1
 }
 } // namespace tile_fwk
 } // namespace npu
