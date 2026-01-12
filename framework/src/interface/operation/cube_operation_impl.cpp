@@ -490,13 +490,12 @@ void SetAMulBAttr(const MatmulGraphNodes &tensorGraphNodes, const MatmulAttrPara
     }
 }
 
-void SetTensorGraphAttr(Operation &op, const MatmulExtendParam &param, bool gmAccumulationFlag, const MatmulAttrParam &attrParam)
-{
+void SetTensorGraphAttr(
+    Operation &op, const MatmulExtendParam &param, bool gmAccumulationFlag, const MatmulAttrParam &attrParam) {
     op.SetAttribute(A_MUL_B_GM_ACC, gmAccumulationFlag);
     op.SetAttribute(A_MUL_B_TRANS_A, attrParam.transA);
     op.SetAttribute(A_MUL_B_TRANS_B, attrParam.transB);
     op.SetAttribute(A_MUL_B_BIAS_ATTR, (param.biasTensor.GetStorage() != nullptr));
-    op.SetAttribute(A_MUL_B_RELU_ATTR, static_cast<int64_t>(param.reluType));
     // means perchannel
     if (param.scaleTensor.GetStorage() != nullptr) {
         op.SetAttribute(A_MUL_B_VECTOR_QUANT_FLAG, true);
@@ -506,6 +505,13 @@ void SetTensorGraphAttr(Operation &op, const MatmulExtendParam &param, bool gmAc
         uint32_t scaleValueTmp = 0;
         memcpy_s(&scaleValueTmp, sizeof(scaleValueTmp), &param.scaleValue, sizeof(param.scaleValue));
         op.SetAttribute(A_MUL_B_SCALE_ATTR, Element(DataType::DT_UINT64, static_cast<uint64_t>(scaleValueTmp)));
+    }
+    // mx matmul
+    if (attrParam.hasMXScale) {
+        op.SetAttribute(A_MUL_B_SCALE_A_COPY_IN_MODE,
+            attrParam.transAScale ? static_cast<int64_t>(CopyInMode::DN2NZ) : static_cast<int64_t>(CopyInMode::ND2NZ));
+        op.SetAttribute(A_MUL_B_SCALE_B_COPY_IN_MODE,
+            attrParam.transBScale ? static_cast<int64_t>(CopyInMode::DN2NZ) : static_cast<int64_t>(CopyInMode::ND2NZ));
     }
 
     auto matrixSize = TileShape::Current().GetMatrixSize();
@@ -530,21 +536,28 @@ void SetMatmulAttrParam(const Operation &op, MatmulAttrParam &param)
                                                         : Element(DataType::DT_UINT64, 0).GetUnsignedData();
     param.hasBias = (op.HasAttr(A_MUL_B_BIAS_ATTR)) ? op.GetBoolAttribute(A_MUL_B_BIAS_ATTR) : false;
     param.hasScale = (op.HasAttr(A_MUL_B_VECTOR_QUANT_FLAG)) ? op.GetBoolAttribute(A_MUL_B_VECTOR_QUANT_FLAG) : false;
+    param.hasMXScale = (op.HasAttr(A_MUL_B_SCALE_A_COPY_IN_MODE)) ? true : false;
     param.transA = (op.HasAttr(A_MUL_B_TRANS_A)) ? op.GetBoolAttribute(A_MUL_B_TRANS_A) : false;
     param.transB = (op.HasAttr(A_MUL_B_TRANS_B)) ? op.GetBoolAttribute(A_MUL_B_TRANS_B) : false;
     param.gmAccumulationFlag = (op.HasAttr(A_MUL_B_GM_ACC)) ? op.GetBoolAttribute(A_MUL_B_GM_ACC) : false;
+    if (param.hasMXScale) {
+        param.transAScale = op.GetIntAttribute(A_MUL_B_SCALE_A_COPY_IN_MODE) == static_cast<int64_t>(CopyInMode::DN2NZ);
+        param.transBScale = op.GetIntAttribute(A_MUL_B_SCALE_B_COPY_IN_MODE) == static_cast<int64_t>(CopyInMode::DN2NZ);
+    }
 }
 
 void SetTensorGraphNodes(const std::vector<LogicalTensorPtr> &operandVec, const LogicalTensorPtr &cTensorPtr,
-                         const MatmulAttrParam &param, MatmulGraphNodes &tensorGraphNodes)
-{
-    size_t operandVecSize = SHAPE_DIM2 + static_cast<size_t>(param.hasScale + param.hasBias + param.gmAccumulationFlag);
+    const MatmulAttrParam &param, MatmulGraphNodes &tensorGraphNodes) {
+    size_t mxScaleSize = static_cast<size_t>(param.hasMXScale) * SHAPE_DIM2;
+    size_t operandVecSize =
+        SHAPE_DIM2 + static_cast<size_t>(param.hasScale + param.hasBias + param.gmAccumulationFlag) + mxScaleSize;
     OP_CHECK(true, {
-            ASSERT(operandVec.size() == operandVecSize)
-        << "Operand vector size mismatch: "
-        << "Expected size: " << operandVecSize << ", actual size: " << operandVec.size()
-        << ", SHAPE_DIM2: " << SHAPE_DIM2 << ", hasScale: " << param.hasScale << ", hasBias: " << param.hasBias
-        << ", gmAccumulationFlag: " << param.gmAccumulationFlag << std::endl;
+        ASSERT(operandVec.size() == operandVecSize)
+            << "Operand vector size mismatch: "
+            << "Expected size: " << operandVecSize << ", actual size: " << operandVec.size()
+            << ", SHAPE_DIM2: " << SHAPE_DIM2 << ", hasScale: " << param.hasScale << ", hasBias: " << param.hasBias
+            << ", gmAccumulationFlag: " << param.gmAccumulationFlag << ", hasMXScale: " << param.hasMXScale
+            << std::endl;
     });
 
     tensorGraphNodes.aTensorPtr = operandVec[0];
@@ -558,21 +571,25 @@ void SetTensorGraphNodes(const std::vector<LogicalTensorPtr> &operandVec, const 
 
     size_t extraDim = static_cast<size_t>(param.hasScale) | (static_cast<size_t>(param.hasBias) << 1) |
                       (static_cast<size_t>(param.gmAccumulationFlag) << 2);  // 2含义：编码偏移
+    if (param.hasMXScale) {
+        tensorGraphNodes.aScaleTensorPtr = operandVec[SHAPE_DIM2];
+        tensorGraphNodes.bScaleTensorPtr = operandVec[SHAPE_DIM3];
+    }
     switch (extraDim) {
         case 0:  // 无bias，无scale, 无gmTensor
             break;
         case 1:  // 有scale
-            tensorGraphNodes.scaleTensorPtr = operandVec[SHAPE_DIM2];
+            tensorGraphNodes.scaleTensorPtr = operandVec[mxScaleSize + SHAPE_DIM2];
             break;
         case 2:  // 2含义：有bias
-            tensorGraphNodes.biasTensorPtr = operandVec[SHAPE_DIM2];
+            tensorGraphNodes.biasTensorPtr = operandVec[mxScaleSize + SHAPE_DIM2];
             break;
         case 3:  // 3含义：有bias, 有scale
-            tensorGraphNodes.biasTensorPtr = operandVec[SHAPE_DIM2];
-            tensorGraphNodes.scaleTensorPtr = operandVec[SHAPE_DIM3];
+            tensorGraphNodes.biasTensorPtr = operandVec[mxScaleSize + SHAPE_DIM2];
+            tensorGraphNodes.scaleTensorPtr = operandVec[mxScaleSize + SHAPE_DIM3];
             break;
         case 4:  // 4含义：有gmTensor
-            tensorGraphNodes.gmAccumulationTensorPtr = operandVec[SHAPE_DIM2];
+            tensorGraphNodes.gmAccumulationTensorPtr = operandVec[mxScaleSize + SHAPE_DIM2];
             break;
         default:
             OP_CHECK(true, { ASSERT(false) << "Invalid tensor graph\n";});
@@ -629,15 +646,15 @@ void CheckOperandShape(const Tensor &operand1, const Tensor &operand2)
     }
 }
 
-void CheckL1L0Tile(const int64_t L0Tile, const int64_t L1Tile, const std::string L0TileName, const std::string L1TileName) 
+void CheckL1L0Tile(const int64_t L0Tile, const int64_t L1Tile, const std::string L0TileName, const std::string L1TileName)
 {
     OP_CHECK(true, {
-        ASSERT(L0Tile != 0) 
+        ASSERT(L0Tile != 0)
             << "Current " << L0TileName << ": " << L0Tile
             << ", Requirement: " << L0TileName << " cannot be zero." << std::endl;
     });
     OP_CHECK(true, {
-        ASSERT(L0Tile <= L1Tile && L1Tile % L0Tile == 0) 
+        ASSERT(L0Tile <= L1Tile && L1Tile % L0Tile == 0)
             << "Current " << L0TileName << ": " << L0Tile << ", " << L1TileName << ": " << L1Tile
             << ", Requirement: " << L0TileName << " <= " << L1TileName << " && "
             << L1TileName << " % " << L0TileName << " == 0" << std::endl;
@@ -954,6 +971,57 @@ void CheckMatmulOperands(DataType outType, const Tensor &operand1, const Tensor 
     CheckFixpipeParam(operand1.GetDataType(), outType, param);
 }
 
+void CheckMXMatmulOperands(const Tensor &aTensor, const Tensor &aScaleTensor, const Tensor &bTensor,
+    const Tensor &bScaleTensor, const MatmulAttrParam &attrParam) {
+    OP_CHECK(true, {
+        ASSERT(aScaleTensor.GetDataType() == bScaleTensor.GetDataType())
+            << "input scale dataType must be consistent. "
+            << "aScaleTensor dataType: " << DataType2String(aScaleTensor.GetDataType())
+            << ", bScaleTensor dataType: " << DataType2String(bScaleTensor.GetDataType()) << std::endl;
+    });
+    DataType inDType = aTensor.GetDataType();
+    DataType inScaleDType = aScaleTensor.GetDataType();
+    OP_CHECK(true, {
+        ASSERT(inDType == DataType::DT_FP8E4M3 || inDType == DataType::DT_FP8E5M2)
+            << "Unsupported input data type. Only DT_FP8E4M3, DT_FP8E5M2 are supported.";
+    });
+    OP_CHECK(true, {
+        ASSERT(inScaleDType == DataType::DT_FP8E8M0)
+            << "Unsupported inputScale data type. Only DT_FP8E8M0 are supported.";
+    });
+
+    int64_t mSize = attrParam.transA ? aTensor.GetShape()[1] : aTensor.GetShape()[0];
+    int64_t kSize = attrParam.transA ? aTensor.GetShape()[0] : aTensor.GetShape()[1];
+    int64_t nSize = attrParam.transB ? bTensor.GetShape()[0] : bTensor.GetShape()[1];
+
+    int64_t mScaleSize = attrParam.transAScale ? aScaleTensor.GetShape()[1] : aScaleTensor.GetShape()[0];
+    int64_t kAScaleSize = attrParam.transAScale ? aScaleTensor.GetShape()[0] : aScaleTensor.GetShape()[1];
+    int64_t kBScaleSize = attrParam.transBScale ? bScaleTensor.GetShape()[1] : bScaleTensor.GetShape()[0];
+    int64_t nScaleSize = attrParam.transBScale ? bScaleTensor.GetShape()[0] : bScaleTensor.GetShape()[1];
+
+    OP_CHECK(true, {
+        ASSERT(kAScaleSize == kBScaleSize) << "Scale Matrix K dimemsion mismatch, kAScaleSize: " << kAScaleSize
+                                           << ", kBScaleSize: " << kBScaleSize << std::endl;
+    });
+    OP_CHECK(true, {
+        ASSERT(mSize == mScaleSize) << "Scale Matrix M dimemsion mismatch, mScaleSize: " << mScaleSize
+                                    << ", mSize: " << mSize << std::endl;
+    });
+    OP_CHECK(true, {
+        ASSERT(nSize == nScaleSize) << "Scale Matrix N dimemsion mismatch, nScaleSize: " << nScaleSize
+                                    << ", nSize: " << nSize << std::endl;
+    });
+    OP_CHECK(true, {
+        ASSERT(kSize % (ALIGN_SIZE_32 * SHAPE_DIM2) == 0)
+            << "Current kSize: " << (kSize) << " , kL0 must be aligned to 32 element when using MX Matmul" << std::endl;
+    });
+    OP_CHECK(true, {
+        ASSERT(kAScaleSize == kSize / ALIGN_SIZE_32)
+            << "Matrix K dimemsion is not a multiple of 32 of the Scale Matrix K dimemsion, kAScaleSize: "
+            << kAScaleSize << ", kSize: " << kSize << std::endl;
+    });
+}
+
 void SetMatmulTileInfo(const TileShape &tileShape, const MatmulAttrParam &attrParam,
     const MatmulGraphNodes &tensorGraphNodes, MatmulTileInfo &tileInfo) {
     OP_CHECK(true, {
@@ -1121,16 +1189,91 @@ LogicalTensorPtr LinkTensorB(Function &function, const MatmulGraphNodes &tensorG
     return bL0TensorPtr;
 }
 
+LogicalTensorPtr LinkTensorAScale(Function &function, const MatmulGraphNodes &tensorGraphNodes,
+    const MatmulAttrParam &attrParam, const MatmulTileInfo &tileInfo, const MatmulIterInfo &iterInfo,
+    LogicalTensorPtr &aScaleL1TensorPtr) {
+    int64_t tileKAScaleL1Size = iterInfo.kAL1Size / ALIGN_SIZE_32;
+    int64_t tileKAScaleL0Size = iterInfo.kL0Size / ALIGN_SIZE_32;
+    int64_t kAScaleOffset = iterInfo.kOffset / ALIGN_SIZE_32;
+    int64_t copyInMode =
+        attrParam.transAScale ? static_cast<int64_t>(CopyInMode::DN2NZ) : static_cast<int64_t>(CopyInMode::ND2NZ);
+    if (iterInfo.kOffset % tileInfo.tileKAL1 == 0) {
+        std::vector<int64_t> aScaleL1Shape = attrParam.transAScale
+                                                 ? std::vector<int64_t>{tileKAScaleL1Size, iterInfo.mL0Size}
+                                                 : std::vector<int64_t>{iterInfo.mL0Size, tileKAScaleL1Size};
+        std::vector<int64_t> aScaleL1Offset = attrParam.transAScale
+                                                  ? std::vector<int64_t>{kAScaleOffset, iterInfo.mOffset}
+                                                  : std::vector<int64_t>{iterInfo.mOffset, kAScaleOffset};
+        MatmulTensorInfo aScaleL1TensorInfo{
+            "aScaleL1Tensor", tensorGraphNodes.aScaleTensorPtr->Datatype(), aScaleL1Shape,      aScaleL1Offset,
+            NodeType::LOCAL,  tensorGraphNodes.aScaleTensorPtr->Format(),   MemoryType::MEM_L1, attrParam.transAScale};
+        aScaleL1TensorPtr = AddOpView<int64_t>(function, tensorGraphNodes.aScaleTensorPtr, aScaleL1TensorInfo,
+                                               {{A_MUL_B_COPY_IN_MODE, copyInMode}});
+    }
+    std::vector<int64_t> aScaleL0Shape = std::vector<int64_t>{iterInfo.mL0Size, tileKAScaleL0Size};
+    std::vector<int64_t> aScaleL0Offset = std::vector<int64_t>{0, iterInfo.kOffset % tileInfo.tileKAL1 / ALIGN_SIZE_32};
+    MatmulTensorInfo aScaleL0TensorInfo{"aScaleL0Tensor", tensorGraphNodes.aScaleTensorPtr->Datatype(), aScaleL0Shape,
+        aScaleL0Offset, NodeType::LOCAL, tensorGraphNodes.aScaleTensorPtr->Format(), MemoryType::MEM_L0AMX};
+    std::vector<SymbolicScalar> l1ToL0Offset = SymbolicScalar::FromConcrete(aScaleL0Offset);
+    std::vector<SymbolicScalar> l1ToL0Tile = SymbolicScalar::FromConcrete(aScaleL0Shape);
+    LogicalTensorPtr aScaleL0TensorPtr =
+        AddOpView<std::vector<SymbolicScalar>>(function, aScaleL1TensorPtr, aScaleL0TensorInfo,
+            {{L1_TO_L0_OFFSET, l1ToL0Offset}, {L1_TO_L0_TILE, l1ToL0Tile}});
+    return aScaleL0TensorPtr;
+}
+
+LogicalTensorPtr LinkTensorBScale(Function &function, const MatmulGraphNodes &tensorGraphNodes,
+    const MatmulAttrParam &attrParam, const MatmulTileInfo &tileInfo, const MatmulIterInfo &iterInfo,
+    LogicalTensorPtr &bScaleL1TensorPtr) {
+    int64_t tileKBScaleL1Size = iterInfo.kBL1Size / ALIGN_SIZE_32;
+    int64_t tileKBScaleL0Size = iterInfo.kL0Size / ALIGN_SIZE_32;
+    int64_t kBScaleOffset = iterInfo.kOffset / ALIGN_SIZE_32;
+    int64_t copyInMode =
+        attrParam.transBScale ? static_cast<int64_t>(CopyInMode::DN2NZ) : static_cast<int64_t>(CopyInMode::ND2NZ);
+    if (iterInfo.kOffset % tileInfo.tileKBL1 == 0) {
+        std::vector<int64_t> bScaleL1Shape = attrParam.transBScale
+                                                 ? std::vector<int64_t>{iterInfo.nL0Size, tileKBScaleL1Size}
+                                                 : std::vector<int64_t>{tileKBScaleL1Size, iterInfo.nL0Size};
+        std::vector<int64_t> bScaleL1Offset = attrParam.transBScale
+                                                  ? std::vector<int64_t>{iterInfo.nOffset, kBScaleOffset}
+                                                  : std::vector<int64_t>{kBScaleOffset, iterInfo.nOffset};
+        MatmulTensorInfo bScaleL1TensorInfo{
+            "bScaleL1Tensor", tensorGraphNodes.bScaleTensorPtr->Datatype(), bScaleL1Shape,      bScaleL1Offset,
+            NodeType::LOCAL,  tensorGraphNodes.bScaleTensorPtr->Format(),   MemoryType::MEM_L1, attrParam.transBScale};
+        bScaleL1TensorPtr = AddOpView<int64_t>(function, tensorGraphNodes.bScaleTensorPtr, bScaleL1TensorInfo,
+                                               {{A_MUL_B_COPY_IN_MODE, copyInMode}});
+    }
+    std::vector<int64_t> bScaleL0Shape = std::vector<int64_t>{tileKBScaleL0Size, iterInfo.nL0Size};
+    std::vector<int64_t> bScaleL0Offset = std::vector<int64_t>{iterInfo.kOffset % tileInfo.tileKBL1 / ALIGN_SIZE_32, 0};
+    MatmulTensorInfo bScaleL0TensorInfo{"bScaleL0Tensor", tensorGraphNodes.bScaleTensorPtr->Datatype(), bScaleL0Shape,
+        bScaleL0Offset, NodeType::LOCAL, tensorGraphNodes.bScaleTensorPtr->Format(), MemoryType::MEM_L0BMX};
+    std::vector<SymbolicScalar> l1ToL0Offset = SymbolicScalar::FromConcrete(bScaleL0Offset);
+    std::vector<SymbolicScalar> l1ToL0Tile = SymbolicScalar::FromConcrete(bScaleL0Shape);
+    LogicalTensorPtr bScaleL0TensorPtr =
+        AddOpView<std::vector<SymbolicScalar>>(function, bScaleL1TensorPtr, bScaleL0TensorInfo,
+            {{L1_TO_L0_OFFSET, l1ToL0Offset}, {L1_TO_L0_TILE, l1ToL0Tile}});
+    return bScaleL0TensorPtr;
+}
+
 void LinkAMulB(Function &function, const MatmulGraphNodes &tensorGraphNodes, const MatmulAttrParam &attrParam,
     const MatmulIterInfo &iterInfo, MatmulGraphNodes &tileGraphNodes) {
     OP_CHECK(true, {
         ASSERT(tileGraphNodes.aTensorPtr != nullptr && tileGraphNodes.bTensorPtr != nullptr &&
-               tileGraphNodes.outTensorPtr != nullptr)
-            << "Inputs must be non-nullptr." << std::endl;
+               tileGraphNodes.outTensorPtr != nullptr) << "Inputs must be non-nullptr." << std::endl;
     });
     std::vector<LogicalTensorPtr> aMulBInputs;
     std::vector<LogicalTensorPtr> aMulBOutputs;
     const std::string matmulOpStr = iterInfo.isFirstK ? "TILE_A_MUL_B" : "TILE_A_MULACC_B";
+    if (iterInfo.isFirstK) {
+        aMulBInputs = {tileGraphNodes.aTensorPtr, tileGraphNodes.bTensorPtr};
+    } else {
+        aMulBInputs = {tileGraphNodes.aTensorPtr, tileGraphNodes.bTensorPtr, tileGraphNodes.cL0PartialSumPtr};
+    }
+    // MX matmul 场景
+    if (attrParam.hasMXScale) {
+        aMulBInputs.push_back(tileGraphNodes.aScaleTensorPtr);
+        aMulBInputs.push_back(tileGraphNodes.bScaleTensorPtr);
+    }
     if (attrParam.gmAccumulationFlag) {
         // GM 累加场景
         OP_CHECK(true, {
@@ -1140,25 +1283,16 @@ void LinkAMulB(Function &function, const MatmulGraphNodes &tensorGraphNodes, con
         });
         tileGraphNodes.gmAccumulationTensorPtr = tensorGraphNodes.gmAccumulationTensorPtr->View(
             function, {iterInfo.mL0Size, iterInfo.nL0Size}, {iterInfo.mOffset, iterInfo.nOffset});
-        if (iterInfo.isFirstK) {
-            aMulBInputs = {
-                tileGraphNodes.aTensorPtr, tileGraphNodes.bTensorPtr, tileGraphNodes.gmAccumulationTensorPtr};
-        } else {
-            aMulBInputs = {tileGraphNodes.aTensorPtr, tileGraphNodes.bTensorPtr, tileGraphNodes.cL0PartialSumPtr,
-                tileGraphNodes.gmAccumulationTensorPtr};
-        }
+        aMulBInputs.push_back(tileGraphNodes.gmAccumulationTensorPtr);
     } else {
         // 普通场景
         if (iterInfo.isFirstK) {
-            aMulBInputs = {tileGraphNodes.aTensorPtr, tileGraphNodes.bTensorPtr};
             if (tileGraphNodes.biasTensorPtr != nullptr) {
                 aMulBInputs.push_back(tileGraphNodes.biasTensorPtr);
             }
             if (tileGraphNodes.scaleTensorPtr != nullptr) {
                 aMulBInputs.push_back(tileGraphNodes.scaleTensorPtr);
             }
-        } else {
-            aMulBInputs = {tileGraphNodes.aTensorPtr, tileGraphNodes.bTensorPtr, tileGraphNodes.cL0PartialSumPtr};
         }
     }
     if (iterInfo.isLastK) {
@@ -1205,7 +1339,8 @@ void ConstructTileGraph(Function &function, const TileShape &tileShape, const st
     MatmulGraphNodes tileGraphNodes;
 
     auto &cubeTile = tileShape.GetCubeTile();
-    if (!cubeTile.enableMultiDataLoad) {
+    // 非MultiDataLoad并且非MX Matmul场景分支
+    if (!cubeTile.enableMultiDataLoad && !attrParam.hasMXScale) {
         Deprecate::TiledInnerAMulB(function, tileShape, operandVec, cTensorPtr, attrParam);
         return;
     }
@@ -1224,36 +1359,47 @@ void ConstructTileGraph(Function &function, const TileShape &tileShape, const st
                 cTensorPtr->View(function, {iterInfo.mL0Size, iterInfo.nL0Size}, {iterInfo.mOffset, iterInfo.nOffset});
             LogicalTensorPtr aL1TensorPtr = nullptr;
             LogicalTensorPtr bL1TensorPtr = nullptr;
+            LogicalTensorPtr aScaleL1TensorPtr = nullptr;
+            LogicalTensorPtr bScaleL1TensorPtr = nullptr;
             for (iterInfo.kOffset = 0; iterInfo.kOffset < tileInfo.kView; iterInfo.kOffset += tileInfo.tileKL0) {
                 UpdateIterInfo(tileInfo, iterInfo);
                 tileGraphNodes.aTensorPtr =
                     LinkTensorA(function, tensorGraphNodes, attrParam, tileInfo, iterInfo, aL1TensorPtr);
                 tileGraphNodes.bTensorPtr =
                     LinkTensorB(function, tensorGraphNodes, attrParam, tileInfo, iterInfo, bL1TensorPtr);
+                if (attrParam.hasMXScale) {
+                    tileGraphNodes.aScaleTensorPtr =
+                        LinkTensorAScale(function, tensorGraphNodes, attrParam, tileInfo, iterInfo, aScaleL1TensorPtr);
+                    tileGraphNodes.bScaleTensorPtr =
+                        LinkTensorBScale(function, tensorGraphNodes, attrParam, tileInfo, iterInfo, bScaleL1TensorPtr);
+                }
                 LinkAMulB(function, tensorGraphNodes, attrParam, iterInfo, tileGraphNodes);
             }
         }
     }
 }
 
-void AddAMulBNode(const LogicalTensorPtr &aTensorPtr, const LogicalTensorPtr &bTensorPtr,
-    const LogicalTensorPtr &cTensorPtr, const LogicalTensorPtr &gmTensorPtr, const MatmulAttrParam &attrParam,
+void AddAMulBNode(const MatmulGraphNodes &tensorGraphNodes, const MatmulAttrParam &attrParam,
     const MatmulExtendParam &extendParam = {}) {
-    if (CheckValidShape(aTensorPtr) && CheckValidShape(bTensorPtr)) {
-        SymbolicScalar mSizeDyn =
-            attrParam.transA ? aTensorPtr->GetDynValidShape()[1] : aTensorPtr->GetDynValidShape()[0];
-        SymbolicScalar kSizeDyn =
-            attrParam.transA ? aTensorPtr->GetDynValidShape()[0] : aTensorPtr->GetDynValidShape()[1];
-        SymbolicScalar nSizeDyn =
-            attrParam.transB ? bTensorPtr->GetDynValidShape()[0] : bTensorPtr->GetDynValidShape()[1];
-        OP_CHECK(true, { ASSERT(cTensorPtr != nullptr) << "cTensorPtr is nullptr." << std::endl; });
-        cTensorPtr->UpdateDynValidShape({mSizeDyn, nSizeDyn});
+    if (CheckValidShape(tensorGraphNodes.aTensorPtr) && CheckValidShape(tensorGraphNodes.bTensorPtr)) {
+        SymbolicScalar mSizeDyn = attrParam.transA ? tensorGraphNodes.aTensorPtr->GetDynValidShape()[1] :
+                                                     tensorGraphNodes.aTensorPtr->GetDynValidShape()[0];
+        SymbolicScalar kSizeDyn = attrParam.transA ? tensorGraphNodes.aTensorPtr->GetDynValidShape()[0] :
+                                                     tensorGraphNodes.aTensorPtr->GetDynValidShape()[1];
+        SymbolicScalar nSizeDyn = attrParam.transB ? tensorGraphNodes.bTensorPtr->GetDynValidShape()[0] :
+                                                     tensorGraphNodes.bTensorPtr->GetDynValidShape()[1];
+        OP_CHECK(true, { ASSERT(tensorGraphNodes.outTensorPtr != nullptr) << "cTensorPtr is nullptr." << std::endl; });
+        tensorGraphNodes.outTensorPtr->UpdateDynValidShape({mSizeDyn, nSizeDyn});
     }
 
-    std::vector<LogicalTensorPtr> operandVec = {aTensorPtr, bTensorPtr};
+    std::vector<LogicalTensorPtr> operandVec = {tensorGraphNodes.aTensorPtr, tensorGraphNodes.bTensorPtr};
     bool gmAccumulationFlag = false;
-    if (gmTensorPtr != nullptr) {
-        operandVec.push_back(gmTensorPtr);
+    if (attrParam.hasMXScale) {
+        operandVec.push_back(tensorGraphNodes.aScaleTensorPtr);
+        operandVec.push_back(tensorGraphNodes.bScaleTensorPtr);
+    }
+    if (tensorGraphNodes.gmAccumulationTensorPtr != nullptr) {
+        operandVec.push_back(tensorGraphNodes.gmAccumulationTensorPtr);
         gmAccumulationFlag = true;
     }
     if (extendParam.biasTensor.GetStorage() != nullptr) {
@@ -1265,16 +1411,32 @@ void AddAMulBNode(const LogicalTensorPtr &aTensorPtr, const LogicalTensorPtr &bT
     Function *functionPtr = Program::GetInstance().GetCurrentFunction();
 
     OP_CHECK(true, { ASSERT(functionPtr != nullptr) << "functionPtr is nullptr." << std::endl; });
-    auto &op = functionPtr->AddOperation(Opcode::OP_A_MUL_B, operandVec, {cTensorPtr});
+    auto &op = functionPtr->AddOperation(Opcode::OP_A_MUL_B, operandVec, {tensorGraphNodes.outTensorPtr});
     SetTensorGraphAttr(op, extendParam, gmAccumulationFlag, attrParam);
 }
 
-Tensor ConstructTensorGraph(DataType dataType, const Tensor &aMatrix, const Tensor &bMatrix, const Tensor &gmMatrix,
-    const MatmulAttrParam &attrParam, const MatmulExtendParam &param = {}) {
-    int64_t mSize = attrParam.transA ? aMatrix.GetShape()[1] : aMatrix.GetShape()[0];
-    int64_t kSizeA = attrParam.transA ? aMatrix.GetShape()[0] : aMatrix.GetShape()[1];
-    int64_t kSizeB = attrParam.transB ? bMatrix.GetShape()[1] : bMatrix.GetShape()[0];
-    int64_t nSize = attrParam.transB ? bMatrix.GetShape()[0] : bMatrix.GetShape()[1];
+Tensor ConstructTensorGraph(DataType dataType, MatmulGraphNodes &tensorGraphNodes, const MatmulAttrParam &attrParam,
+    const MatmulExtendParam &param = {}) {
+    OP_CHECK(true, { ASSERT(tensorGraphNodes.aTensorPtr != nullptr) << "aTensorPtr is nullptr." << std::endl; });
+    OP_CHECK(true, { ASSERT(tensorGraphNodes.bTensorPtr != nullptr) << "bTensorPtr is nullptr." << std::endl; });
+    OP_CHECK(true, {
+        ASSERT(tensorGraphNodes.aTensorPtr->GetShape().size() >= SHAPE_DIM2)
+            << "The dimension of aTensor must be larger than 2! The dimensin of aTensor:"
+            << tensorGraphNodes.aTensorPtr->GetShape().size() << std::endl;
+    });
+    OP_CHECK(true, {
+        ASSERT(tensorGraphNodes.bTensorPtr->GetShape().size() >= SHAPE_DIM2)
+            << "The dimension of bTensor must be larger than 2! The dimensin of bTensor:"
+            << tensorGraphNodes.bTensorPtr->GetShape().size() << std::endl;
+    });
+    int64_t mSize =
+        attrParam.transA ? tensorGraphNodes.aTensorPtr->GetShape()[1] : tensorGraphNodes.aTensorPtr->GetShape()[0];
+    int64_t kSizeA =
+        attrParam.transA ? tensorGraphNodes.aTensorPtr->GetShape()[0] : tensorGraphNodes.aTensorPtr->GetShape()[1];
+    int64_t kSizeB =
+        attrParam.transB ? tensorGraphNodes.bTensorPtr->GetShape()[1] : tensorGraphNodes.bTensorPtr->GetShape()[0];
+    int64_t nSize =
+        attrParam.transB ? tensorGraphNodes.bTensorPtr->GetShape()[0] : tensorGraphNodes.bTensorPtr->GetShape()[1];
 
     OP_CHECK(true, {
         ASSERT(kSizeA == kSizeB) << "Matrix K dimemsion mismatch, kSizeA: " << kSizeA << ", kSizeB: " << kSizeB
@@ -1289,8 +1451,8 @@ Tensor ConstructTensorGraph(DataType dataType, const Tensor &aMatrix, const Tens
         int64_t c0Size = dataType == DataType::DT_INT32 ? ALIGN_SIZE_16 : ALIGN_SIZE_32 / BytesOf(dataType);
         cMatrix = Tensor(dataType, {mSize, CeilAlign(nSize, c0Size)}, "TensorC", TileOpFormat::TILEOP_NZ);
     }
-    AddAMulBNode(
-        aMatrix.GetStorage(), bMatrix.GetStorage(), cMatrix.GetStorage(), gmMatrix.GetStorage(), attrParam, param);
+    tensorGraphNodes.outTensorPtr = cMatrix.GetStorage();
+    AddAMulBNode(tensorGraphNodes, attrParam, param);
     return cMatrix;
 }
 
@@ -1346,7 +1508,9 @@ static Tensor ConstructGmAccumulationTensorGraph(
         } else {
             tensorB = View(bMatrix, {kL1Size, nSize}, {kValidshape, nValidShape}, {kL1Size * kIdx, 0});
         }
-        Tensor gmPartialSum = ConstructTensorGraph(outType, tensorA, tensorB, gmAccumulationTensor, attrParam);
+        MatmulGraphNodes tensorGraphNodes(
+            aMatrix.GetStorage(), bMatrix.GetStorage(), gmAccumulationTensor.GetStorage());
+        Tensor gmPartialSum = ConstructTensorGraph(outType, tensorGraphNodes, attrParam);
         gmPartialSums.emplace_back(gmPartialSum);
     }
     gmAccumulationTensor = npu::tile_fwk::Reduce(gmPartialSums, ReduceMode::ATOMIC_ADD);
@@ -1358,22 +1522,53 @@ Tensor Matmul(
     DataType outType, const Tensor &aMatrix, const Tensor &bMatrix, bool isATrans, bool isBTrans, bool isCMatrixNZ) {
     MatmulAttrParam attrParam(isATrans, isBTrans, isCMatrixNZ);
     CheckMatmulOperands(outType, aMatrix, bMatrix, attrParam);
+    MatmulGraphNodes tensorGraphNodes(aMatrix.GetStorage(), bMatrix.GetStorage());
     auto &cubeTile = TileShape::Current().GetCubeTile();
     if (cubeTile.enableSplitK) {
         return ConstructGmAccumulationTensorGraph(outType, aMatrix, bMatrix, attrParam);
     }
-    return ConstructTensorGraph(outType, aMatrix, bMatrix, Tensor(), attrParam);
+    return ConstructTensorGraph(outType, tensorGraphNodes, attrParam);
 }
 
 Tensor Matmul(DataType outType, const Tensor &aMatrix, const Tensor &bMatrix, const MatmulExtendParam &param,
     bool isATrans, bool isBTrans, bool isCMatrixNZ) {
     MatmulAttrParam attrParam(isATrans, isBTrans, isCMatrixNZ);
     CheckMatmulOperands(outType, aMatrix, bMatrix, attrParam, param);
+    MatmulGraphNodes tensorGraphNodes(aMatrix.GetStorage(), bMatrix.GetStorage());
     auto &cubeTile = TileShape::Current().GetCubeTile();
     if (cubeTile.enableSplitK) {
         return ConstructGmAccumulationTensorGraph(outType, aMatrix, bMatrix, attrParam);
     }
-    return ConstructTensorGraph(outType, aMatrix, bMatrix, Tensor(), attrParam, param);
+    return ConstructTensorGraph(outType, tensorGraphNodes, attrParam, param);
+}
+
+Tensor MatmulMX(DataType outType, const Tensor &aMatrix, const Tensor &aScale, const Tensor &bMatrix,
+    const Tensor &bScale, bool isATrans, bool isAScaleTrans, bool isBTrans, bool isBScaleTrans, bool isCMatrixNZ) {
+    MatmulAttrParam attrParam(isATrans, isAScaleTrans, isBTrans, isBScaleTrans, isCMatrixNZ);
+    CheckMatmulOperands(outType, aMatrix, bMatrix, attrParam);
+    CheckMXMatmulOperands(aMatrix, aScale, bMatrix, bScale, attrParam);
+    MatmulGraphNodes tensorGraphNodes(
+        aMatrix.GetStorage(), aScale.GetStorage(), bMatrix.GetStorage(), bScale.GetStorage());
+    auto &cubeTile = TileShape::Current().GetCubeTile();
+    if (cubeTile.enableSplitK) {
+        return ConstructGmAccumulationTensorGraph(outType, aMatrix, bMatrix, attrParam);
+    }
+    return ConstructTensorGraph(outType, tensorGraphNodes, attrParam);
+}
+
+Tensor MatmulMX(DataType outType, const Tensor &aMatrix, const Tensor &aScale, const Tensor &bMatrix,
+    const Tensor &bScale, const MatmulExtendParam &param, bool isATrans, bool isAScaleTrans, bool isBTrans,
+    bool isBScaleTrans, bool isCMatrixNZ) {
+    MatmulAttrParam attrParam(isATrans, isAScaleTrans, isBTrans, isBScaleTrans, isCMatrixNZ);
+    CheckMatmulOperands(outType, aMatrix, bMatrix, attrParam, param);
+    CheckMXMatmulOperands(aMatrix, aScale, bMatrix, bScale, attrParam);
+    MatmulGraphNodes tensorGraphNodes(
+        aMatrix.GetStorage(), aScale.GetStorage(), bMatrix.GetStorage(), bScale.GetStorage());
+    auto &cubeTile = TileShape::Current().GetCubeTile();
+    if (cubeTile.enableSplitK) {
+        return ConstructGmAccumulationTensorGraph(outType, aMatrix, bMatrix, attrParam);
+    }
+    return ConstructTensorGraph(outType, tensorGraphNodes, attrParam, param);
 }
 
 Tensor ABatchMulB3D(
@@ -1416,7 +1611,9 @@ Tensor ABatchMulB3D(
         auto tensorA = operand2D1.GetStorage()->View(curFunc, {firstDimA, secondDimA}, {offsetA, 0});
         auto tensorB = operand2D2.GetStorage()->View(curFunc, {firstDimB, secondDimB}, {offsetB, 0});
         auto tensorC = result.GetStorage()->View(curFunc, {orgM, orgN}, {offsetC, 0});
-        AddAMulBNode(tensorA, tensorB, tensorC, nullptr, attrParam);
+        MatmulGraphNodes tensorGraphNodes(tensorA, tensorB);
+        tensorGraphNodes.outTensorPtr = tensorC;
+        AddAMulBNode(tensorGraphNodes, attrParam);
     }
     return Reshape(result, {batchSize, orgM, orgN});
 };
@@ -1482,7 +1679,9 @@ Tensor ABatchMulB4D(
             auto tensorA = operand2D1.GetStorage()->View(curFunc, {firstDimA, secondDimA}, {offsetA, 0});
             auto tensorB = operand2D2.GetStorage()->View(curFunc, {firstDimB, secondDimB}, {offsetB, 0});
             auto tensorC = result.GetStorage()->View(curFunc, {orgM, orgN}, {offsetC, 0});
-            AddAMulBNode(tensorA, tensorB, tensorC, nullptr, attrParam);
+            MatmulGraphNodes tensorGraphNodes(tensorA, tensorB);
+            tensorGraphNodes.outTensorPtr = tensorC;
+            AddAMulBNode(tensorGraphNodes, attrParam);
             offsetC += orgM;
             offsetA += strideA;
             offsetB += strideB;
@@ -1547,7 +1746,9 @@ Tensor TransposedBatchMatmul(DataType dataType, const Tensor &aMatrix, const Ten
         Tensor bTensor = Reshape(bTensorSingleBatch, {kbSize, nSize});
         Tensor cTensor(dataType, {mSize, nSize}, "TensorC");
         MatmulAttrParam attrParam(false, false, false);
-        AddAMulBNode(aTensor.GetStorage(), bTensor.GetStorage(), cTensor.GetStorage(), nullptr, attrParam);
+        MatmulGraphNodes tensorGraphNodes(aTensor.GetStorage(), bTensor.GetStorage());
+        tensorGraphNodes.outTensorPtr = cTensor.GetStorage();
+        AddAMulBNode(tensorGraphNodes, attrParam);
         Assemble(cTensor, {0, bIdx * nSize}, cMatrix);
     }
     return Reshape(cMatrix, {mSize, batchSizeA, nSize});
