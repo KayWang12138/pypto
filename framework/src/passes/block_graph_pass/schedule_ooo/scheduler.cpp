@@ -862,7 +862,7 @@ void OoOScheduler::AddDependency(IssueEntryPtr preIssue, IssueEntryPtr postIssue
 }
 
 void OoOScheduler::FindDependencies(IssueEntryPtr issue, std::map<Operation*, IssueEntryPtr> op2IssueEntryMap) {
-    for (auto &producer : opProducers[issue->tileOp]) {
+    for (auto &producer : opProducers[*issue->tileOp]) {
         if (IsViewOp(*producer)) {
             for (auto viewProducer : opProducers[producer]) {
                 Operation* lastView = SkipViewChain(viewProducer, true);
@@ -875,7 +875,7 @@ void OoOScheduler::FindDependencies(IssueEntryPtr issue, std::map<Operation*, Is
             AddDependency(prodIssue, issue, false);
         }
     }
-    for (auto &consumer : opConsumers[issue->tileOp]) {
+    for (auto &consumer : opConsumers[*issue->tileOp]) {
         if (IsViewOp(*consumer)) {
             for (auto viewConsumer : opConsumers[consumer]) {
                 Operation* lastView = SkipViewChain(viewConsumer, false);
@@ -986,7 +986,7 @@ Status OoOScheduler::CheckOpBufferSize(Operation *op) {
     return SUCCESS;
 }
 
-void OoOScheduler::InitOpConsumerAndProducer() {
+void OoOScheduler::InitOpConsumerAndProducer(const std::vector<Operation *> &operations) {
     std::unordered_set<Operation*> operationSet;
     for (auto op : operations) {
         operationSet.insert(op);
@@ -1012,7 +1012,7 @@ Status OoOScheduler::Init(const std::vector<Operation *> &operations) {
 
     // 初始化芯片各buffer大小
     InitMemorySize();
-    InitOpConsumerAndProducer();
+    InitOpConsumerAndProducer(operations);
     // 校验并初始化issueEntry
     for (const auto &op : operations) {
         if (IsViewOp(*op)) {
@@ -1079,7 +1079,7 @@ Status OoOScheduler::Schedule(const std::vector<Operation *> &operations) {
     PrintOpList(operations);
     if (Init(operations) != SUCCESS) { 
         APASS_LOG_ERROR_F(Elements::Operation, "Init failed!"); 
-        return FAILED; 
+        return FAILED;
     }
     // 生成spill指令
     if (GenSpillSchedule() != SUCCESS) { 
