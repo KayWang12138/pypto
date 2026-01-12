@@ -17,20 +17,20 @@
 
 namespace npu::tile_fwk {
 
-inline const std::vector<size_t> &GetShapeLenLimit(const std::string &op) {
+inline const std::vector<size_t> &GetShapeLenLimit(const Opcode op) {
     // if the limit of op is not [1, 4], should add here
-    static std::unordered_map<std::string, const std::vector<size_t>> op_shape_len_limit = {
-        {    "ADD", {1, 4}},
-        {   "CAST", {1, 4}},
-        {"DEFAULT", {1, 4}}
+    static std::unordered_map<const Opcode, const std::vector<size_t>> op_shape_len_limit = {
+        {    Opcode::OP_ADD, {1, 4}},
+        {   Opcode::OP_CAST, {1, 4}},
+        {Opcode::OP_UNKNOWN, {1, 4}}
     };
     if (op_shape_len_limit.find(op) == op_shape_len_limit.end()) {
-        return op_shape_len_limit.at("DEFAULT");
+        return op_shape_len_limit.at(Opcode::OP_UNKNOWN);
     }
     return op_shape_len_limit.at(op);
 }
 
-void CheckTensorShape(const LogicalTensorPtr &tensor, const std::string &op) {
+void CheckTensorShape(const LogicalTensorPtr &tensor, const Opcode op) {
     auto shape = tensor->shape;
     // valid input dims must in [1, 4]
     auto shape_len_limit = GetShapeLenLimit(op);
@@ -47,6 +47,132 @@ void CheckTensorShape(const LogicalTensorPtr &tensor, const std::string &op) {
             ASSERT(false && "The shape size of tensor must less than or equal to INT32_MAX(2,147,483,647)");
         }
     }
+}
+
+using InputsDTypeSet = std::vector<std::vector<DataType>>;
+using DTypeCheckSet = std::tuple<const InputsDTypeSet, const std::vector<std::vector<int>>>;
+inline const DTypeCheckSet &GetSupportDTypeSet(const Opcode op) {
+    static const dtype_b = {DT_BOOL};
+    static const dtype_8 = {DT_INT8, DT_UINT8};
+    static const dtype_16 = {DT_INT16, DT_UINT16};
+    static const dtype_32 = {DT_INT16, DT_UINT16};
+    static const dtype_i_32_16 = {DT_INT32, DT_INT16};
+    static const dtype_base = {DT_FP32, DT_FP16, DT_BF16};
+    static const dtype_binary = dtype_base + dtype_i_32_16;
+    static const dtype_32_16 = dtype_base + dtype_32 + dtype_16;
+    static const dtype_u8_b = {DT_UINT8, DT_BOOL};
+    static const dtype_i_64_32_16 = {DT_INT64, DT_INT32, DT_INT16};
+    static const dtype_i = {DT_INT64, DT_INT32, DT_INT16, DT_INT8};
+    static const dtype_fp32 = {DT_FP32};
+    static const dtype_i64_32 = {DT_INT64, DT_INT32};
+    static const dtype_logical = {DT_FP32, DT_FP16, DT_BF16, DT_UINT8, DT_INT8, DT_BOOL};
+    static const dtype_base_i32 = {DT_FP32, DT_FP16, DT_BF16, DT_INT32};
+    static const dtype_base_i32_16 = {DT_FP32, DT_FP16, DT_BF16, DT_INT32, DT_INT16};
+    static const dtype_base_i32_16_8 = {DT_FP32, DT_FP16, DT_BF16, DT_INT32, DT_INT16, DT_INT8};
+    static const dtype_base_i_u = dtype_base + dtype_32 + dtype_16 + dtype_8;
+    static const dtype_base_i_u_b = dtype_base + dtype_32 + dtype_16 + dtype_8 + dtype_b;
+    // inputs dtypes..., input dtype consistent, output dtypes..., output dtype consistent with first input
+    static const std::unordered_map<const Opcode, const DTypeCheckSet> op_2_dtype = {
+        // unary
+        {                Opcode::OP_ABS,                                             DTypeCheckSet({dtype_base},       {})},
+        {                Opcode::OP_EXP,                                             DTypeCheckSet({dtype_base},       {})},
+        {                 Opcode::OP_LN,                                             DTypeCheckSet({dtype_base},       {})},
+        {               Opcode::OP_SQRT,                                             DTypeCheckSet({dtype_base},       {})},
+        {              Opcode::OP_RSQRT,                                             DTypeCheckSet({dtype_base},       {})},
+        // one input
+        {               Opcode::OP_CAST,                                         DTypeCheckSet({dtype_base_i32},       {})},
+        {            Opcode::OP_BITSORT,                                             DTypeCheckSet({dtype_fp32},       {})},
+        {            Opcode::OP_EXTRACT,                                             DTypeCheckSet({dtype_fp32},       {})},
+        {            Opcode::OP_MRGSORT,                                             DTypeCheckSet({dtype_fp32},       {})},
+        {                Opcode::OP_NEG,                                      DTypeCheckSet({dtype_base_i32_16},       {})},
+        {      Opcode::OP_ROWMAX_SINGLE,                                             DTypeCheckSet({dtype_base},       {})},
+        {      Opcode::OP_ROWMIN_SINGLE,                                             DTypeCheckSet({dtype_base},       {})},
+        {      Opcode::OP_ROWSUM_SINGLE,                                             DTypeCheckSet({dtype_base},       {})},
+        {         Opcode::OP_ROWMAXLINE,                                           DTypeCheckSet({dtype_binary},       {})},
+        {         Opcode::OP_ROWMINLINE,                                           DTypeCheckSet({dtype_binary},       {})},
+        {         Opcode::OP_ROWSUMLINE,                                           DTypeCheckSet({dtype_binary},       {})},
+        {               Opcode::OP_TOPK,                                             DTypeCheckSet({dtype_fp32},       {})},
+        {   Opcode::OP_TRANSPOSE_MOVEIN,                                            DTypeCheckSet({dtype_32_16},       {})},
+        {  Opcode::OP_TRANSPOSE_MOVEOUT,                                            DTypeCheckSet({dtype_32_16},       {})},
+        {Opcode::OP_TRANSPOSE_VNCHWCONV,                                            DTypeCheckSet({dtype_32_16},       {})},
+        // binary
+        {                Opcode::OP_ADD,                             DTypeCheckSet({dtype_binary, dtype_binary}, {{0, 1}})},
+        {                Opcode::OP_SUB,                             DTypeCheckSet({dtype_binary, dtype_binary}, {{0, 1}})},
+        {                Opcode::OP_MUL,                             DTypeCheckSet({dtype_binary, dtype_binary}, {{0, 1}})},
+        {                Opcode::OP_DIV,                                 DTypeCheckSet({dtype_base, dtype_base}, {{0, 1}})},
+        {               Opcode::OP_ADDS,                             DTypeCheckSet({dtype_binary, dtype_binary}, {{0, 1}})},
+        {               Opcode::OP_SUBS,                             DTypeCheckSet({dtype_binary, dtype_binary}, {{0, 1}})},
+        {               Opcode::OP_MULS,                             DTypeCheckSet({dtype_binary, dtype_binary}, {{0, 1}})},
+        {               Opcode::OP_DIVS,                             DTypeCheckSet({dtype_binary, dtype_binary}, {{0, 1}})},
+        {               Opcode::OP_MAXS,                             DTypeCheckSet({dtype_binary, dtype_binary}, {{0, 1}})},
+        {               Opcode::OP_MINS,                             DTypeCheckSet({dtype_binary, dtype_binary}, {{0, 1}})},
+        {            Opcode::OP_MAXIMUM,                             DTypeCheckSet({dtype_binary, dtype_binary}, {{0, 1}})},
+        {            Opcode::OP_MINIMUM,                             DTypeCheckSet({dtype_binary, dtype_binary}, {{0, 1}})},
+        // two input
+        {                Opcode::OP_CMP,                                 DTypeCheckSet({dtype_base, dtype_base},   {0, 1})},
+        {               Opcode::OP_CMPS,                                 DTypeCheckSet({dtype_base, dtype_base},   {0, 1})},
+        {             Opcode::OP_GATHER,                  DTypeCheckSet({dtype_base_i32_16_8, dtype_i_64_32_16},       {})},
+        {     Opcode::OP_GATHER_ELEMENT,                        DTypeCheckSet({dtype_base_i32_16, dtype_i64_32},       {})},
+        // {Opcode::OP_VEC_DUP, DTypeCheckSet({dtype_base, scalar_dtype}, false, {dtype_base}, true)},
+        {            Opcode::OP_SCATTER,                   DTypeCheckSet({dtype_base, dtype_i64_32, dtype_base},   {0, 2})},
+        {    Opcode::OP_SCATTER_ELEMENT,                               DTypeCheckSet({dtype_base, dtype_i64_32},       {})},
+        {      Opcode::OP_INDEX_OUTCAST, DTypeCheckSet({dtype_base_i32_16, dtype_i_64_32_16, dtype_base_i32_16},   {0, 2})},
+        {           Opcode::OP_WHERE_TT,                     DTypeCheckSet({dtype_u8_b, dtype_base, dtype_base},   {1, 2})},
+        {           Opcode::OP_WHERE_TS,                     DTypeCheckSet({dtype_u8_b, dtype_base, dtype_base},   {1, 2})},
+        {           Opcode::OP_WHERE_ST,                     DTypeCheckSet({dtype_u8_b, dtype_base, dtype_base},   {1, 2})},
+        {           Opcode::OP_WHERE_SS,                     DTypeCheckSet({dtype_u8_b, dtype_base, dtype_base},   {1, 2})},
+        {         Opcode::OP_LOGICALAND,                           DTypeCheckSet({dtype_logical, dtype_logical},   {0, 1})},
+        {         Opcode::OP_LOGICALNOT,                                          DTypeCheckSet({dtype_logical},       {})},
+        {              Opcode::OP_RANGE,               DTypeCheckSet({dtype_binary, dtype_binary, dtype_binary},       {})},
+        {      Opcode::OP_REGISTER_COPY,               DTypeCheckSet({dtype_base_i32_16_8, dtype_base_i32_16_8},   {0, 1})},
+        {             Opcode::OP_EXPAND,                                       DTypeCheckSet({dtype_base_i_u_b},       {})},
+        {          Opcode::OP_INDEX_ADD,     DTypeCheckSet({dtype_base_i32_16, dtype_base_i32_16, dtype_i64_32},   {0, 1})},
+        {             Opcode::OP_ONEHOT,                         DTypeCheckSet({dtype_i_64_32_16, dtype_i64_32},       {})},
+        {          Opcode::OP_INDEX_PUT,                         DTypeCheckSet({dtype_base_i_u, dtype_base_i_u}, {{0, 1}})},
+        {            Opcode::OP_CUM_SUM,                               DTypeCheckSet({dtype_base, dtype_i64_32},       {})},
+    };
+    if (op_2_dtype.find(op) == op_2_dtype.end()) {
+        ASSERT(false) << "Operation " << OpcodeManager::Inst().GetOpcodeStr(opCode)
+                      << " has not set dtype checker yet.";
+    }
+    return op_2_dtype.at(op);
+}
+
+inline const std::vector<DataType> &GetInputSupportDtype(const Opcode op, size_t index = 0) {
+    const auto &inputs_dtype = std::get<0>(GetSupportDTypeSet(op));
+    auto size = inputs_dtype.size();
+    ASSERT(size > index) << "Expect [0, " << size << "), but got " << index << ".";
+    return inputs_dtype[index];
+}
+
+void CheckTensorDType(const LogicalTensorPtr &tensor, const std::vector<DataType> &dtypes) {
+    const auto dtype = tensor->GetRawTensor()->GetDataType();
+    if (std::find(dtypes.begin(), dtypes.end(), dtype) == dtypes.end()) {
+        ASSERT(false) << DataType2String(dtype) << " is not supported.";
+    }
+}
+
+void CheckInputDTypConstraint(const std::vector<LogicalTensorPtr> &inputs, const std::vector<int> &cons) {
+    if (cons.empty()) {
+        return;
+    }
+    const auto dtype = inputs[cons.front()]->GetRawTensor()->GetDataType();
+    std::for_each(cons.begin() + 1, cons.end(), [&inputs, dtype](auto &con) {
+        const dt = inputs[con]->GetRawTensor()->GetDataType();
+        if (dtype != dt) {
+            ASSERT(false) << "The dtype of input[" + con + "] should be " + DataType2String(dtype) + " but got " +
+                                 DataType2String(dt);
+        }
+    });
+}
+
+void CheckOperationDType(const std::vector<LogicalTensorPtr> &inputs, const Opcode op) {
+    for (size_t index = 0; index < inputs.size(); ++index) {
+        CheckTensorDType(inputs[index], GetInputSupportDtype(op, index));
+    }
+    auto consReq = std::get<1>(GetSupportDTypeSet(op));
+    std::for_each(inputs.begin(), inputs.end(),
+        [&inputs](const std::vector<int> &cons) { CheckInputDTypConstraint(inputs, cons); });
 }
 
 std::vector<int> GetBroadCastShape(LogicalTensorPtr &operand1, LogicalTensorPtr &operand2) {
@@ -83,4 +209,4 @@ std::vector<int> GetBroadcastAxes(const Shape &shape1, const Shape &shape2) {
     }
     return result;
 }
-}
+} // namespace npu::tile_fwk
