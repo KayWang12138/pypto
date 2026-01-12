@@ -59,32 +59,43 @@ class AstMutator(ast.NodeTransformer):
         if dump_source:
             mutator._dump_source(wrapper, dump_source)
         
-        # Compile and return the transformed function
+        # Compile the transformed code (but don't execute yet)
         module_ast = ast.Module(body=[wrapper], type_ignores=[])
         ast.fix_missing_locations(module_ast)
         code = compile(module_ast, filename='<ast>', mode='exec')
         
-        # Prepare namespace with closure variables
-        namespace = {}
-        # Copy globals
-        namespace.update(func.__globals__)
-        # Inject closure variables if they exist
-        if func.__closure__:
-            closure_vars = {}
-            for i, cell in enumerate(func.__closure__):
-                if cell.cell_contents is not None:
-                    # Try to get variable name from code object (approximation)
-                    # For now, we'll rely on the globals and let the caller inject closure vars
+        # Extract closure variables to be injected when the factory function is called
+        closure_dict = {}
+        if func.__closure__ is not None:
+            code_obj = func.__code__
+            for var_name, cell in zip(code_obj.co_freevars, func.__closure__):
+                try:
+                    closure_dict[var_name] = cell.cell_contents
+                except ValueError:
+                    # cell_contents may raise ValueError if the cell is empty
                     pass
-            namespace.update(closure_vars)
         
-        exec(code, namespace, namespace)
-        transformed_func = namespace[wrapper.name]
+        # Return a factory function that will execute the code when called
+        # This ensures closure variables are available when the transformed function executes
+        def factory_function(metadata):
+            """Factory function that creates and calls the transformed function when invoked."""
+            # Prepare namespace with closure variables at execution time
+            namespace = {}
+            # Copy globals from the original function
+            namespace.update(func.__globals__)
+            # Inject closure variables
+            namespace.update(closure_dict)
+            
+            # Now execute the compiled code to create the transformed wrapper function
+            exec(code, namespace)
+            transformed_wrapper = namespace[wrapper.name]
+            
+            # Call the wrapper function with metadata to get the IR function
+            ir_function = transformed_wrapper(metadata)
+            
+            return ir_function
         
-        # Inject closure variables into the transformed function's closure
-        # This is a workaround - the closure variables should be available via the globals
-        # when the function is called, as long as they're in the same scope
-        return transformed_func
+        return factory_function
     
     def _transform_statement(self, stmt: ast.AST) -> List[ast.AST]:
         """Transform a statement, potentially returning multiple statements."""
@@ -109,6 +120,9 @@ class AstMutator(ast.NodeTransformer):
         """
         # Create wrapper function body
         wrapper_body = []
+        
+        # Note: Closure variables are injected into the namespace before exec,
+        # so they'll be available in __globals__ when the function executes
         
         # Create argument variables from annotations (they are constructor calls)
         arg_names = []

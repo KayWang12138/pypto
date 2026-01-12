@@ -5,7 +5,7 @@ from pypto.blockgraph.builder_helper import BlockBuilderHelper
 from pypto.blockgraph.ast_mutator import AstMutator
 
 # Global switch to control dumping transformed source code
-DUMP_TRANSFORMED_SOURCE = True
+DUMP_TRANSFORMED_SOURCE = False  # set to True to understand parser behavior
 DUMP_DIR = "./temp"
 
 
@@ -256,9 +256,30 @@ def test_if_without_else():
 
 
 if __name__ == "__main__":
-    test_ast_transform()
-    test_nested_for_loops()
-    test_nested_if_statements()
-    test_for_with_nested_if()
-    test_if_with_nested_for()
-    test_if_without_else()
+    tests = [
+        ("test_ast_transform", test_ast_transform),
+        ("test_nested_for_loops", test_nested_for_loops),
+        ("test_nested_if_statements", test_nested_if_statements),
+        ("test_for_with_nested_if", test_for_with_nested_if),
+        ("test_if_with_nested_for", test_if_with_nested_for),
+        ("test_if_without_else", test_if_without_else),
+    ]
+    
+    passed = 0
+    failed = 0
+    
+    for test_name, test_func in tests:
+        try:
+            print(f"Running {test_name}...")
+            test_func()
+            print(f"✓ {test_name} passed\n")
+            passed += 1
+        except Exception as e:
+            print(f"✗ {test_name} failed: {e}\n")
+            import traceback
+            traceback.print_exc()
+            failed += 1
+    
+    print(f"\nSummary: {passed} passed, {failed} failed")
+    if failed > 0:
+        exit(1)
