@@ -211,6 +211,7 @@ public:
         // Update Type with new shape
         type_ = std::make_shared<TileType>(GetDataType(), newShape);
     }
+    void SetValidShape(const std::vector<ScalarValuePtr>& newValidShape) { validShapes_ = newValidShape; }
     void SetStrides(const std::vector<int64_t>& newStrides) { strides_ = newStrides; }
     void SetStartOffset(const ScalarValuePtr newStartOffset) { startOffset_ = newStartOffset; }
     void SetMemory(const std::shared_ptr<Memory> newMem) { mem_ = newMem; }
