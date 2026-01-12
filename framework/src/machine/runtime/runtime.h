@@ -129,6 +129,10 @@ inline constexpr uint32_t ONG_GB_HUGE_PAGE_FLAGS = RT_MEMORY_HBM | RT_MEMORY_POL
 inline constexpr size_t ONT_GB_SIZE = 1024 * 1024 * 1024;
 inline constexpr uint32_t TWO_MB_HUGE_PAGE_FLAGS = RT_MEMORY_HBM | RT_MEMORY_POLICY_HUGE_PAGE_FIRST;
 
+// Forward declaration
+class RuntimeAgent;
+class RuntimeAgentStream;
+
 class RuntimeAgentMemory {
 public:
     void AllocDevAddr(uint8_t **devAddr, uint64_t size) {
@@ -169,15 +173,15 @@ public:
     }
 
     static void CopyToDev(uint8_t *devDstAddr, uint8_t *hostSrcAddr, uint64_t size) {
-        rtMemcpyAsync(devDstAddr, size, hostSrcAddr, size, RT_MEMCPY_HOST_TO_DEVICE, GetAgent()->GetScheStream());
-        rtStreamSynchronize(GetAgent()->GetScheStream());
+        rtMemcpyAsync(devDstAddr, size, hostSrcAddr, size, RT_MEMCPY_HOST_TO_DEVICE, reinterpret_cast<rtStream_t>(RuntimeAgent::GetAgent()->GetScheStream()));
+        rtStreamSynchronize(reinterpret_cast<rtStream_t>(RuntimeAgent::GetAgent()->GetScheStream()));
         ALOG_DEBUG_F("RuntimeAgent::CopyToDev for src %lx to dst %lx with size %u", reinterpret_cast<uint64_t>(hostSrcAddr),
             reinterpret_cast<uint64_t>(devDstAddr), size);
     }
 
     static void CopyFromDev(uint8_t *hostDstAddr, uint8_t *devSrcAddr, uint64_t size) {
-        rtMemcpyAsync(hostDstAddr, size, devSrcAddr, size, RT_MEMCPY_DEVICE_TO_HOST, GetAgent()->GetScheStream());
-        rtStreamSynchronize(GetAgent()->GetScheStream());
+        rtMemcpyAsync(hostDstAddr, size, devSrcAddr, size, RT_MEMCPY_DEVICE_TO_HOST, reinterpret_cast<rtStream_t>(RuntimeAgent::GetAgent()->GetScheStream()));
+        rtStreamSynchronize(reinterpret_cast<rtStream_t>(RuntimeAgent::GetAgent()->GetScheStream()));
     }
 
     int GetAicoreRegInfo(std::vector<int64_t> &aic, std::vector<int64_t> &aiv, const int &addrType);
@@ -274,8 +278,8 @@ public:
 #ifdef RUN_WITH_ASCEND_CAMODEL
         rtMemcpy(hostDstAddr, size, devSrcAddr, size, RT_MEMCPY_DEVICE_TO_HOST);
 #else
-        rtMemcpyAsync(hostDstAddr, size, devSrcAddr, size, RT_MEMCPY_DEVICE_TO_HOST, GetScheStream());
-        rtStreamSynchronize(GetScheStream());
+        rtMemcpyAsync(hostDstAddr, size, devSrcAddr, size, RT_MEMCPY_DEVICE_TO_HOST, reinterpret_cast<rtStream_t>(GetScheStream()));
+        rtStreamSynchronize(reinterpret_cast<rtStream_t>(GetScheStream()));
 #endif
     }
 
