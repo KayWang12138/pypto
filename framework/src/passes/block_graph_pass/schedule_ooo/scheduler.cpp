@@ -994,12 +994,12 @@ void OoOScheduler::InitOpConsumerAndProducer(const std::vector<Operation *> &ope
     for (auto op : operations) {
         for (auto consumer : op->ConsumerOps()) {
             if (operationSet.find(consumer) != operationSet.end()) {
-                opConsumers[op].emplace_back(consumer);
+                opConsumers[op].insert(consumer);
             }
         }
         for (auto producer : op->ProducerOps()) {
             if (operationSet.find(producer) != operationSet.end()) {
-                opProducers[op].emplace_back(producer);
+                opProducers[op].insert(producer);
             }
         }
     }

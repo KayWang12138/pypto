@@ -121,12 +121,12 @@ public:
         for (auto op : operations) {
             for (auto consumer : op->ConsumerOps()) {
                 if (operationList.find(consumer) != operationList.end()) {
-                    opConsumers[op].emplace_back(consumer);
+                    opConsumers[op].insert(consumer);
                 }
             }
             for (auto producer : op->ProducerOps()) {
                 if (operationList.find(producer) != operationList.end()) {
-                    opProducers[op].emplace_back(producer);
+                    opProducers[op].insert(producer);
                 }
             }
         }
