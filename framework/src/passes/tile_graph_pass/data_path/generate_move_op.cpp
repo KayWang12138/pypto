@@ -170,6 +170,19 @@ void GenerateMoveOp::CreateMoveOpForAssemble(Operation &op) const {
     auto outputMemtype = op.oOperand.front()->GetMemoryTypeOriginal();
     if (inputMemtype == MemoryType::MEM_L0C && outputMemtype == MemoryType::MEM_L1) {
         SetOpcodeByMemPath(op, inputMemtype, outputMemtype);
+        std::vector<SymbolicScalar> validShape;
+        for (auto dim : op.GetIOperands()[0]->GetShape()) {
+            SymbolicScalar scal = SymbolicScalar(dim);
+            validShape.push_back(scal);
+        }
+        auto copyAttr = std::make_shared<CopyOpAttribute>(ASSEMBLE_in->GetMemoryTypeOriginal(),
+            OpImmediate::Specified(assembleOpAttribute->GetToTensorOffset()),
+            OpImmediate::Specified(op.iOperand.front()->shape),
+            OpImmediate::Specified(op.oOperand.front()->tensor->GetDynRawShape()),
+            OpImmediate::Specified(validShape));
+        copyAttr->SetFromOffset(OpImmediate::Specified({0, 0}));
+        copyAttr->SetToDynValidShape(OpImmediate::Specified(validShape));
+        op.SetOpAttribute(copyAttr);
         return;
     }
     if (inputMemtype == MemoryType::MEM_DEVICE_DDR || outputMemtype != MemoryType::MEM_DEVICE_DDR ||
