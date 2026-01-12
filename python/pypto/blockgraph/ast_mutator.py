@@ -22,16 +22,16 @@ class AstMutator(ast.NodeTransformer):
         self.for_counter = 0  # Counter for unique for node variable names
     
     @classmethod
-    def mutate(cls, func, dump_source: Optional[str] = None):
+    def mutate_ast(cls, func, dump_source: Optional[str] = None) -> ast.FunctionDef:
         """
-        Transform a function to use low-level block API calls.
+        Transform a function AST to use low-level block API calls.
         
         Args:
             func: The function to transform
             dump_source: Optional path to dump transformed source code
             
         Returns:
-            A transformed function that accepts metadata and returns the IR function
+            The transformed AST wrapper function node
         """
         # Get source code and parse AST
         source = inspect.getsource(func)
@@ -58,6 +58,23 @@ class AstMutator(ast.NodeTransformer):
         # Dump transformed source if requested
         if dump_source:
             mutator._dump_source(wrapper, dump_source)
+        
+        return wrapper
+    
+    @classmethod
+    def mutated_entry(cls, func, dump_source: Optional[str] = None):
+        """
+        Transform a function to use low-level block API calls and return a factory function.
+        
+        Args:
+            func: The function to transform
+            dump_source: Optional path to dump transformed source code
+            
+        Returns:
+            A transformed function that accepts metadata and returns the IR function
+        """
+        # Get the transformed AST
+        wrapper = cls.mutate_ast(func, dump_source)
         
         # Compile the transformed code (but don't execute yet)
         module_ast = ast.Module(body=[wrapper], type_ignores=[])
@@ -96,6 +113,20 @@ class AstMutator(ast.NodeTransformer):
             return ir_function
         
         return factory_function
+    
+    @classmethod
+    def mutate(cls, func, dump_source: Optional[str] = None):
+        """
+        Backward compatibility alias for mutated_entry.
+        
+        Args:
+            func: The function to transform
+            dump_source: Optional path to dump transformed source code
+            
+        Returns:
+            A transformed function that accepts metadata and returns the IR function
+        """
+        return cls.mutated_entry(func, dump_source)
     
     def _transform_statement(self, stmt: ast.AST) -> List[ast.AST]:
         """Transform a statement, potentially returning multiple statements."""
@@ -490,15 +521,7 @@ class AstMutator(ast.NodeTransformer):
     
     def _dump_source(self, func_node: ast.FunctionDef, dump_path: str):
         """Dump transformed source code to file for inspection."""
-        # Assume Python 3.9+ is available (has ast.unparse)
-        try:
-            source = ast.unparse(func_node)
-            with open(dump_path, 'w') as f:
-                f.write(source)
-        except AttributeError:
-            # Python < 3.9 doesn't have ast.unparse
-            import sys
-            print(f"Error: ast.unparse requires Python 3.9+, but current version is {sys.version_info.major}.{sys.version_info.minor}", 
-                  file=sys.stderr)
-            raise RuntimeError(f"ast.unparse not available. Python 3.9+ required, got {sys.version_info.major}.{sys.version_info.minor}")
+        source = ast.unparse(func_node)
+        with open(dump_path, 'w') as f:
+            f.write(source)
 
