@@ -57,7 +57,8 @@ struct Input {
     TileInfo tileInfo;
 };
 
-void CheckTensorShape(const LogicalTensorPtr &tensor, const std::string &op);
+void CheckTensorShape(const LogicalTensorPtr &tensor, const Opcode op);
+void CheckOperationDType(const std::vector<LogicalTensorPtr> &inputs, const Opcode op);
 std::vector<int> GetBroadCastShape(LogicalTensorPtr &operand1, LogicalTensorPtr &operand2);
 std::vector<int> GetBroadcastAxes(const Shape &shape1, const Shape &shape2);
 
