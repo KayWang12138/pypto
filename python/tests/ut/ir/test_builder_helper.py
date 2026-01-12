@@ -129,10 +129,13 @@ def test_control_flow_closure():
     tile_shape = [128, 128]
 
     # NOTE: shape parameter `tensor_shape`, `tile_shape`, `batch` are passed via closure
+    # NOTE: use `metadata` kwarg so we reserve positional args for input arguments in pre-transformed ast
     def create_function(
-        block=block,
-        name="test_control",
-        function_kind=ir.FunctionKind.ControlFlow
+        metadata=dict(
+            block=block,
+            name="test_control",
+            function_kind=ir.FunctionKind.ControlFlow
+        )
     ):
         input_x = ir.Tensor(tensor_shape, ir.DataType.float,
                             "inputX", ir.Format.ND)
