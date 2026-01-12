@@ -53,6 +53,8 @@ void CheckBinOpOperandsValid(const LogicalTensorPtr &operand1, const LogicalTens
 }
 
 void CheckBinaryInputTensors(const LogicalTensorPtr &tensor1, const LogicalTensorPtr &tensor2, std::string &op) {
+    CheckTensorDType(tensor1, op);
+    CheckTensorDType(tensor2, op);
     CheckTensorShape(tensor1, op);
     CheckTensorShape(tensor2, op);
     CheckBinOpOperandsValid(tensor1, tensor2);

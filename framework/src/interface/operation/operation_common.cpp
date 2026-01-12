@@ -49,6 +49,132 @@ void CheckTensorShape(const LogicalTensorPtr &tensor, const std::string &op) {
     }
 }
 
+using DTypeCheckSet = std::tuple<std::vector<std::vector<DataType>>, bool, std::vector<std::vector<DataType>>, bool>;
+inline const DTypeCheckSet &GetSupportDTypeSet(const std::string &op) {
+    static const common_support_dtype = {DT_FP32, DT_FP16, DT_BF16};
+    static const scalar_dtype = {DT_DOUBLE, DT_FP32, DT_INT32, DT_BOOL};
+    // inputs dtypes..., input dtype consistent, output dtypes..., output dtype consistent with first input
+    static const std::unordered_map<std::string, DTypeCheckSet> op_2_dtype = {
+        {"ADD", ({common_support_dtype, common_support_dtype}, true, {common_support_dtype}, true)},
+        {"SUB", ({common_support_dtype, common_support_dtype}, true, {common_support_dtype}, true)},
+        {"MUL", ({common_support_dtype, common_support_dtype}, true, {common_support_dtype}, true)},
+        {"DIV", ({common_support_dtype, common_support_dtype}, true, {common_support_dtype}, true)},
+        {"ADDS", ({common_support_dtype, scalar_dtype}, false, {common_support_dtype}, true)},
+        {"SUBS", ({common_support_dtype, scalar_dtype}, false, {common_support_dtype}, true)},
+        {"MULS", ({common_support_dtype, scalar_dtype}, false, {common_support_dtype}, true)},
+        {"DIVS", ({common_support_dtype, scalar_dtype}, false, {common_support_dtype}, true)},
+        {"VEC_DUP", ({common_support_dtype, scalar_dtype}, false, {common_support_dtype}, true)},
+        {"CAST",
+         ({{DT_FP32, DT_INT32, DT_FP16, DT_BF16}}, false, {{DT_FP32, DT_INT32, DT_FP16, DT_BF16, DT_INT8}}, false)},
+        {"SQRT", ({common_support_dtype}, false, {common_support_dtype}, true)},
+        {"RSQRT", ({common_support_dtype}, false, {common_support_dtype}, true)},
+        {"EXP", ({common_support_dtype}, false, {common_support_dtype}, true)},
+        {"ROWMAX_SINGLE", ({common_support_dtype}, false, {common_support_dtype}, true)},
+        {"ROWMIN_SINGLE", ({common_support_dtype}, false, {common_support_dtype}, true)},
+        {"ROWSUM_SINGLE", ({{DT_FP32}}, false, {{DT_FP32}}, true)},
+        {"TOPK", ({{DT_FP32}}, false, {{DT_FP32}}, true)},
+        {"SCATTER", ({common_support_dtype, common_support_dtype}, true, {common_support_dtype}, true)},
+        {"SCATTER_ELEMENT", ({common_support_dtype, common_support_dtype}, true, {common_support_dtype}, true)},
+        {"SCATTER_UPDATE", ({common_support_dtype, common_support_dtype}, true, {common_support_dtype}, true)},
+        {"TRANSPOSE_MOVEIN", ({common_support_dtype}, false, {common_support_dtype}, false)},
+        {"TRANSPOSE_MOVEOUT", ({common_support_dtype}, false, {common_support_dtype}, false)},
+        {"TRANSPOSE_VNCHWCONV", ({common_support_dtype}, false, {common_support_dtype}, false)},
+        {"WHERE_TT",
+         ({common_support_dtype, common_support_dtype, common_support_dtype}, false, {common_support_dtype}, false)},
+        {"WHERE_TS",
+         ({common_support_dtype, common_support_dtype, common_support_dtype}, false, {common_support_dtype}, false)},
+        {"WHERE_ST",
+         ({common_support_dtype, common_support_dtype, common_support_dtype}, false, {common_support_dtype}, false)},
+        {"WHERE_SS",
+         ({common_support_dtype, common_support_dtype, common_support_dtype}, false, {common_support_dtype}, false)},
+        {"LN", ({common_support_dtype}, false, {common_support_dtype}, true)},
+        {"LOGICALAND", ({{DT_FP32, DT_FP16, DT_BF16, DT_BOOL, DT_INT8, DT_UINT8},
+                            {DT_FP32, DT_FP16, DT_BF16, DT_BOOL, DT_INT8, DT_UINT8}},
+         false, {{DT_BOOL}}, false)},
+        {"LOGICALNOT", ({{DT_FP32, DT_FP16, DT_BF16, DT_BOOL, DT_INT8, DT_UINT8}}, false, {{DT_BOOL}}, false)},
+        {"RANGE",
+         ({{DT_UINT64, DT_UINT32}, {DT_FP32, DT_INT32, DT_FP16, DT_BF16}, {DT_FP32, DT_INT32, DT_FP16, DT_BF16}},
+         false, {{DT_FP32, DT_INT32, DT_FP16, DT_BF16}}, false)},
+        {"CMP", ({common_support_dtype, common_support_dtype}, true, {{DT_BOOL}}, false)},
+        {"NEG", ({{DT_FP32, DT_INT32, DT_FP16, DT_BF16, DT_INT16}}, false,
+         {{DT_FP32, DT_INT32, DT_FP16, DT_BF16, DT_INT16}}, true)},
+        {"ABS", ({common_support_dtype}, false, {common_support_dtype}, true)},
+        {"GATHER", ({{DT_FP32, DT_INT32, DT_FP16, DT_BF16, DT_INT16}, {DT_FP32, DT_INT32, DT_FP16, DT_BF16, DT_INT16}},
+         true, {{DT_FP32, DT_INT32, DT_FP16, DT_BF16, DT_INT16}}, true)},
+        {"GATHERELEMENT",
+         ({{DT_FP32, DT_INT32, DT_FP16, DT_BF16, DT_INT16}, {DT_FP32, DT_INT32, DT_FP16, DT_BF16, DT_INT16}}, true,
+         {{DT_FP32, DT_INT32, DT_FP16, DT_BF16, DT_INT16}}, true)},
+        {"MAXIMUM", ({{DT_FP32, DT_INT32, DT_FP16, DT_BF16, DT_INT16}, {DT_FP32, DT_INT32, DT_FP16, DT_BF16, DT_INT16}},
+         true, {{DT_FP32, DT_INT32, DT_FP16, DT_BF16, DT_INT16}}, true)},
+        {"MINIMUM", ({{DT_FP32, DT_INT32, DT_FP16, DT_BF16, DT_INT16}, {DT_FP32, DT_INT32, DT_FP16, DT_BF16, DT_INT16}},
+         true, {{DT_FP32, DT_INT32, DT_FP16, DT_BF16, DT_INT16}}, true)},
+        {"MAXS", ({{DT_FP32, DT_INT32, DT_FP16, DT_BF16, DT_INT16}, {DT_FP32, DT_INT32, DT_FP16, DT_BF16, DT_INT16}},
+         true, {{DT_FP32, DT_INT32, DT_FP16, DT_BF16, DT_INT16}}, true)},
+        {"MINS", ({{DT_FP32, DT_INT32, DT_FP16, DT_BF16, DT_INT16}, {DT_FP32, DT_INT32, DT_FP16, DT_BF16, DT_INT16}},
+         true, {{DT_FP32, DT_INT32, DT_FP16, DT_BF16, DT_INT16}}, true)},
+        {"CONCAT", ({{DT_FP32, DT_FP16, DT_BF16, DT_INT16, DT_INT8}, {DT_FP32, DT_FP16, DT_BF16, DT_INT16, DT_INT8}},
+         true, {{DT_FP32, DT_FP16, DT_BF16, DT_INT16, DT_INT8}}, true)},
+        {"EXPAND", {DT_FP32, DT_INT32, DT_UINT32, DT_FP16, DT_BF16, DT_INT16, DT_UINT16, DT_UINT8, DT_INT8}},
+        {"EXPAND",
+         ({{DT_FP32, DT_INT32, DT_UINT32, DT_FP16, DT_BF16, DT_INT16, DT_UINT16, DT_UINT8, DT_INT8},
+                 {DT_UINT64, DT_UINT32}},
+         false, {{DT_FP32, DT_INT32, DT_UINT32, DT_FP16, DT_BF16, DT_INT16, DT_UINT16, DT_UINT8, DT_INT8}},
+         true)},
+        // {"INDEX_ADD", {DT_FP32, DT_INT32, DT_FP16, DT_BF16, DT_INT16, DT_INT8}},
+        // {"ONEHOT", {DT_INT64, DT_INT32, DT_INT16, DT_INT8}},
+        // {"INDEX_PUT", {DT_FP32, DT_INT32, DT_FP16, DT_INT16}},
+    };
+    if (op_2_dtype.find(op) == op_2_dtype.end()) {
+        ASSERT(false) << "Operation " + op + " has not set dtype checker yet.";
+    }
+    return op_2_dtype.at(op);
+}
+
+inline const std::vector<DataType> &GetInputDtype(const std::string &op, size_t index = 0) {
+    const auto &inputs_dtype = std::get<0>(GetSupportDTypeSet(op));
+    auto size = inputs_dtype.size();
+    ASSERT(size > index) << "Expect [0, " + std::to_string(size) + "), but got " + std::to_string(index);
+    return inputs_dtype[index];
+}
+
+inline const std::vector<DataType> &GetOutputDtype(const std::string &op, size_t index = 0) {
+    const auto &outputs_dtype = std::get<2>(GetSupportDTypeSet(op));
+    auto size = outputs_dtype.size();
+    ASSERT(size > index) << "Expect [0, " + std::to_string(size) + "), but got " + std::to_string(index);
+    return outputs_dtype[index];
+}
+
+inline bool NeedInputDTypeSame(const std::string &op) {
+    return std::get<1>(GetSupportDTypeSet(op));
+}
+
+inline bool NeedFirstOutputDTypeSameFirstInput(const std::string &op) {
+    return std::get<3>(GetSupportDTypeSet(op));
+}
+
+void CheckTensorDType(const LogicalTensorPtr &tensor, const std::vector<DataType> &dtypes) {
+    const auto dtype = tensor->GetRawTensor()->GetDataType();
+    if (std::find(dtypes.begin(), dtypes.end(), dtype) == dtypes.end()) {
+        ASSERT(false) << "Operation " + op + " not support " + DataType2String(dtype) + " yet.";
+    }
+}
+
+void CheckOperationInputsDType(const std::vector<LogicalTensorPtr> &inputs, const std::string &op) {
+    for (size_t index = 0; index < inputs.size(); ++index) {
+        CheckTensorDType(inputs[index], GetInputDtype(op, index));
+        if (NeedInputDTypeSame(op) &&
+            inputs[index]->GetRawTensor()->GetDataType() != inputs[0]->GetRawTensor()->GetDataType()) {
+            ASSERT(false) << "Operation " + op + " inputs dtype check fail.";
+        }
+    }
+}
+
+void CheckOperationOutputsDType(const std::vector<LogicalTensorPtr> &outputs, const std::string &op) {
+    for (size_t index = 0; index < outputs.size(); ++index) {
+        CheckTensorDType(outputs[index], GetOutputDtype(op, index));
+    }
+}
+
 std::vector<int> GetBroadCastShape(LogicalTensorPtr &operand1, LogicalTensorPtr &operand2) {
     std::vector<int64_t> opShape1(operand1->shape);
     std::vector<int64_t> opShape2(operand2->shape);
@@ -83,4 +209,4 @@ std::vector<int> GetBroadcastAxes(const Shape &shape1, const Shape &shape2) {
     }
     return result;
 }
-}
+} // namespace npu::tile_fwk

@@ -73,6 +73,7 @@ void UnaryOperationOperandCheck(
 template <UnaryOpType T>
 LogicalTensorPtr TensorUnaryOperation(Function &function, LogicalTensorPtr operand) {
     auto opName = GetUnaryOpName<T>();
+    CheckTensorDType(operand, opName);
     CheckTensorShape(operand, opName);
     auto result = std::make_shared<LogicalTensor>(
         function, operand->tensor->datatype, operand->shape, operand->GetDynValidShape(), operand->Format());
