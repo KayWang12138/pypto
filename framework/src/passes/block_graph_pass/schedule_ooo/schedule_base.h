@@ -75,6 +75,8 @@ public:
     std::unordered_map<MemoryType, int64_t> localMemSize; //内存剩余情况
     std::unordered_map<MemoryType, int64_t> localMemoryCurrentSize;
     std::unordered_map<int, LocalBufferPtr> localBufferMap; //memid:local
+    std::map<const Operation*, std::vector<Operation*>> opConsumers;
+    std::map<const Operation*, std::vector<Operation*>> opProducers;
 
     //  初始依赖的list序列
     std::vector<Operation*> operations;
@@ -109,6 +111,25 @@ public:
         localMemSize.insert({MemoryType::MEM_FIX_QUANT_PRE,
             Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_FIX_QUANT_PRE)});
         localMemoryCurrentSize = localMemSize;
+    }
+
+    void InitOpConsumerAndProducer() {
+        std::unordered_set<Operation*> operationSet;
+        for (auto op : operations) {
+            operationSet.insert(op);
+        }
+        for (auto op : operations) {
+            for (auto consumer : op->ConsumerOps()) {
+                if (operationSet.find(consumer) != operationSet.end()) {
+                    opConsumers[op].emplace_back(consumer);
+                }
+            }
+            for (auto producer : op->ProducerOps()) {
+                if (operationSet.find(producer) != operationSet.end()) {
+                    opProducers[op].emplace_back(producer);
+                }
+            }
+        }
     }
 
     void InitLocalBuffer(LogicalTensorPtr operand, int memId) {
@@ -404,6 +425,7 @@ public:
         // 初始化芯片各buffer大小
         InitMemorySize();
         operations = opList;
+        InitOpConsumerAndProducer();
         for (auto& op : operations) {
             if (CheckOpBufferSize(op) != SUCCESS) {
                 APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] checkOpBufferSize failed! %s",
