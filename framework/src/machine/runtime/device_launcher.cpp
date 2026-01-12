@@ -17,10 +17,14 @@
 #include "machine/runtime/device_launcher_binding.h"
 #include "machine/host/backend.h"
 #include "machine/runtime/host_prof.h"
-namespace npu::tile_fwk::dynamic {
+#include "machine/runtime/runtime_timing.h"
+
 namespace {
+    using namespace npu::tile_fwk;
     constexpr uint32_t kMinDefaultDim = 20;
 }
+
+namespace npu::tile_fwk::dynamic {
 int GetCfgBlockdim() {
 #ifdef BUILD_WITH_CANN
     auto blk = Platform::Instance().GetSoc().GetAICoreNum();
@@ -90,7 +94,8 @@ int DeviceLauncher::SetCaptureStream(rtStream_t aicoreStream, rtStream_t aicpuSt
             ALOG_ERROR_F("rtModel is null!");
             return -1;;
         }
-        rtError_t ret = rtStreamAddToModel(aicpuStream, rtModel);
+        rtError_t ret;
+        RT_TIMING_WRAP(rtStreamAddToModel(aicpuStream, rtModel), "rtStreamAddToModel_SetCaptureStream", ret);
         if (ret != 0) {
             ALOG_ERROR_F("rtStreamAddToModel failed, return[%d]", ret);
             return -1;
@@ -126,6 +131,7 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
         Function *function, const std::vector<DeviceTensorData> &inputList, const std::vector<DeviceTensorData> &outputList,
         rtStream_t aicpuStream, rtStream_t aicoreStream, bool streamSynchronize, CachedOperator *cachedOperator,
         const DeviceLauncherConfig &config) {
+    FuncTimer _timer(__func__);
     bool isCapture = false;
     std::cout << "!!! Kernel Launch " << "\n";
     config::SetRunDataOption(KEY_RUNTYPE, "npu");
@@ -189,6 +195,7 @@ int DeviceLauncher::DeviceSynchronize(rtStream_t aicpuStream, rtStream_t aicoreS
 #endif
 
 int DeviceLauncher::DeviceRunOnce(Function *function, const DeviceLauncherConfig &config) {
+    FuncTimer _timer(__func__);
 #ifdef BUILD_WITH_CANN
     auto &inputDataList = ProgramData::GetInstance().GetInputDataList();
     auto &outputDataList = ProgramData::GetInstance().GetOutputDataList();
