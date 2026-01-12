@@ -67,6 +67,8 @@ def test_ast_to_ir_explicit():
         "function_kind": ir.FunctionKind.ControlFlow
     }
     func_ir = my_kernel_transformed(metadata)
+    module.add_function(func_ir)
+    module.entry = func_ir
 
     assert isinstance(func_ir, ir.Function)
     print("obtained ir.Function from ast!")
@@ -122,10 +124,11 @@ def test_ast_to_ir_decorator():
 
         return (constant0,)
 
+    module.add_function(my_kernel)
+    module.entry = my_kernel
     assert isinstance(my_kernel, ir.Function)
     print("obtained ir.Function from ast!")
     # TODO: assert more information in `ir.Function` structure
-
 
 if __name__ == "__main__":
     test_ast_to_ir_explicit()
