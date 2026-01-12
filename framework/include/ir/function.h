@@ -77,12 +77,28 @@ public:
     // Convenience to append a top-level statement.
     void AddStatement(StatementPtr stmt);
 
-    // Pretty-print a standalone function in PTO-IR-like syntax.
-    void Print(std::ostream& os, int indent = 0) const;
-
     // stack workspace size for function
     int GetStackWorkspaceSize() const { return stackWorkspaceSize_; }
     void SetStackWorkspaceSize(int stackWorkspaceSize) { stackWorkspaceSize_ = stackWorkspaceSize; }
+
+    // Compute hash value for this function using bottom-up approach (always recomputes and updates cachedHash_)
+    // Function hash contains Statement hashes, which contain Operation hashes
+    uint64_t ComputeHash();
+
+    // Get function hash value
+    uint64_t GetFunctionHash() const { return functionHash_; }    
+
+    // check if value is from in cast
+    bool isFromInCast(const ValuePtr &value) const;
+    // check if value is from out cast
+    bool isFromOutCast(const ValuePtr &value) const;
+    // get index of in cast
+    int GetIncastIndex(const ValuePtr &value) const;
+    // get index of out cast
+    int GetOutcastIndex(const ValuePtr &value) const;
+
+    // Pretty-print a standalone function in PTO-IR-like syntax.
+    void Print(std::ostream& os, int indent = 0) const;
 
 protected:
     FunctionKind kind_;
@@ -90,7 +106,9 @@ protected:
     CompoundStatementPtr inputCompound_; // Scope holding function arguments (inputs)
     CompoundStatementPtr compound_;  // Scope for Data objects and statements created in this function
 
+private:
     int stackWorkspaceSize_{0};
+    uint64_t functionHash_{0};
 };
 
 class BlockFunction : public Function {
