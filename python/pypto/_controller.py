@@ -31,6 +31,7 @@ __all__ = [
     "get_vec_tile_shapes",
     "set_cube_tile_shapes",
     "get_cube_tile_shapes",
+    "set_dist_tile_shapes",
     "set_matrix_size",
 
     "function",
@@ -185,6 +186,9 @@ def get_cube_tile_shapes() -> Tuple[List[int], List[int], List[int], bool, bool]
     cube_tile = scope.get_cube_tile_shapes()
     return tuple([cube_tile.m, cube_tile.k, cube_tile.n, cube_tile.enableMultiDataLoad, cube_tile.enableSplitK])
 
+
+def set_dist_tile_shapes(row: List[int], col: List[int], rank: List[int]):
+ 	pypto_impl.SetDistTile(row, col, rank)
 
 def set_matrix_size(size: List[int]):
     pypto_impl.SetScope({"matrix_size": size})

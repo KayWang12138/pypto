@@ -95,20 +95,24 @@ if (BUILD_WITH_CANN)
                 $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN_SUB}>:${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/runtime/runtime>>
                 $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN_SUB}>:${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/profiling>>
     )
-    if (NOT BUILD_WITH_CANN_SUB)
+    if (ENABLE_UTEST)
         # stub hccl
-        add_library(hccl SHARED)
-        target_sources(hccl
+        add_library(hccl_stubs SHARED)
+        target_sources(hccl_stubs
                 PRIVATE
                     src/hccl_stubs.cpp
         )
-        target_link_libraries(hccl
+        target_link_libraries(hccl_stubs
                 PRIVATE
                     intf_pub_cxx17
                     tile_fwk_intf_pub
                     c_sec
         )
-        target_include_directories(hccl
+        target_compile_definitions(hccl_stubs
+                PRIVATE
+                    $<$<BOOL:${BUILD_WITH_CANN_SUB}>:BUILD_WITH_CANN_SUB>
+        )
+        target_include_directories(hccl_stubs
                 PRIVATE  # 使用 CANN 场景依赖
                     $<BUILD_INTERFACE:$<$<BOOL:${BUILD_OPEN_PROJECT}>:${ASCEND_CANN_PACKAGE_PATH}/include>>
                 PRIVATE  # 使用 CANN 整包
@@ -140,7 +144,7 @@ if (BUILD_WITH_CANN)
             src/prof_stub.cpp
             src/runtime_stubs.cpp
     )
-    if (NOT BUILD_WITH_CANN_SUB)
+    if (BUILD_WITH_CANN)
         list(APPEND src/hccl_stubs.cpp)
     endif ()
 
