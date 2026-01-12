@@ -523,7 +523,7 @@ Status ReplaceTensor::ForwardProcess(Function &function) {
                 if (ForwardCopyOut(consumerOp, rootTensor, function) == FAILED) {
                     return FAILED;
                 }
-            } else if (consumerOp->GetOpcode() == Opcode::OP_INPUT_IDX && consumerOp->HasAttribute(OpAttributeKey::inplaceIdx)) {
+            } else if (consumerOp->GetOpcode() == Opcode::OP_INDEX_PUT && consumerOp->HasAttribute(OpAttributeKey::inplaceIdx)) {
                 if (ForwardInputIdx(consumerOp, rootTensor, function) == FAILED) {
                     return FAILED;
                 }

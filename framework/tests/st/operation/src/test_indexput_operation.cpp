@@ -61,8 +61,7 @@ static void IndexPut_OperationExeFunc1Dims(
                 {std::min(indicesFirstDim - bIdx * viewShape, viewShape)}, {bIdx * viewShape});
             std::vector<Tensor> viewIndices = {viewIndices1};
             TileShape::Current().SetVecTile(args->tileShape_);
-            Tensor dst = IndexPut_(inputs[0], viewIndices, viewValues, args->accumulate_);
-            Assemble(dst, std::vector<SymbolicScalar>(inputs[0].GetShape().size(), 0), outputs[0]);
+            IndexPut_(outputs[0], viewIndices, viewValues, args->accumulate_);
         }
     }
 }
@@ -95,8 +94,7 @@ static void IndexPut_OperationExeFunc2Dims(
                 {std::min(indicesSecondDim - bIdx * viewShape, viewShape)}, {bIdx * viewShape});
             std::vector<Tensor> viewIndices = {viewIndices1, viewIndices2};
             TileShape::Current().SetVecTile(args->tileShape_);
-            Tensor dst = IndexPut_(inputs[0], viewIndices, viewValues, args->accumulate_);
-            Assemble(dst, std::vector<SymbolicScalar>(inputs[0].GetShape().size(), 0), outputs[0]);
+            IndexPut_(inputs[0], viewIndices, viewValues, args->accumulate_);
         }
     }
 }
@@ -132,8 +130,7 @@ static void IndexPut_OperationExeFunc3Dims(
                 {std::min(indicesThirdDim - bIdx * viewShape, viewShape)}, {bIdx * viewShape});
             std::vector<Tensor> viewIndices = {viewIndices1, viewIndices2, viewIndices3};
             TileShape::Current().SetVecTile(args->tileShape_);
-            Tensor dst = IndexPut_(inputs[0], viewIndices, viewValues, args->accumulate_);
-            Assemble(dst, std::vector<SymbolicScalar>(inputs[0].GetShape().size(), 0), outputs[0]);
+            IndexPut_(inputs[0], viewIndices, viewValues, args->accumulate_);
         }
     }
 }
@@ -172,8 +169,7 @@ static void IndexPut_OperationExeFunc4Dims(
                 {std::min(indicesForthDim - bIdx * viewShape, viewShape)}, {bIdx * viewShape});
             std::vector<Tensor> viewIndices = {viewIndices1, viewIndices2, viewIndices3, viewIndices4};
             TileShape::Current().SetVecTile(args->tileShape_);
-            Tensor dst = IndexPut_(inputs[0], viewIndices, viewValues, args->accumulate_);
-            Assemble(dst, std::vector<SymbolicScalar>(inputs[0].GetShape().size(), 0), outputs[0]);
+            IndexPut_(inputs[0], viewIndices, viewValues, args->accumulate_);
         }
     }
 }

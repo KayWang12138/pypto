@@ -744,7 +744,7 @@ Tensor DeepseekV2MoE::MoeInfer(Tensor x, Tensor topkIds, Tensor topkWeight, Tens
     // (b*s*num_experts_per_tok, h)
     TileShape::Current().SetVecTile(NUM_16);
     auto newIdxs = Reshape(idxs, {idxs.GetShape(0)});
-    newX = IndexPut_(newX, {newIdxs}, outs);
+    IndexPut_(newX, {newIdxs}, outs);
 
     int newXSize = std::accumulate(
         newX.GetShape().begin(), newX.GetShape().end(), 1, [](const int &a, const int &b) { return a * b; });
@@ -969,7 +969,7 @@ Tensor DeepseekV2MoE::MoeInfer(Tensor x, Tensor topkIds, Tensor topkWeight, Tens
     // (b*s*numExpertsPerTok, h)
     auto newIdxs = Reshape(idxs, {idxs.GetShape(0)});
     TileShape::Current().SetVecTile(NUM_16);
-    newX = IndexPut_(newX, {newIdxs}, outs);
+    IndexPut_(newX, {newIdxs}, outs);
 
     int newXSize = std::accumulate(
         newX.GetShape().begin(), newX.GetShape().end(), 1, [](const int &a, const int &b) { return a * b; });
@@ -1052,7 +1052,7 @@ Tensor DeepseekV2MoE::MoeInfer(Tensor x, Tensor topkIds, Tensor topkWeight, int 
     // (b*s*numExpertsPerTok, h)
     auto newIdxs = Reshape(idxs, {idxs.GetShape(0)});
     TileShape::Current().SetVecTile(NUM_8);
-    newX = IndexPut_(newX, {newIdxs}, outs);
+    IndexPut_(newX, {newIdxs}, outs);
 
     int newXSize = std::accumulate(
         newX.GetShape().begin(), newX.GetShape().end(), 1, [](const int &a, const int &b) { return a * b; });

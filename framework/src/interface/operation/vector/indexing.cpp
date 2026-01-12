@@ -1031,6 +1031,7 @@ void TiledIndexPut(Function &function, const TileShape &tileShape, const Logical
             inputsTile.push_back(inputIndicesTileTemp);
         }
         auto &newOp = function.AddOperation(Opcode::OP_INDEX_PUT, inputsTile, {result});
+        newOp.SetAttribute(OpAttributeKey::inplaceIdx, 0);
         newOp.SetAttribute(OP_ATTR_PREFIX + "accumulate", accumulate);
         newOp.SetAttribute(OP_ATTR_PREFIX + "indicesSize", static_cast<int>(inputIndices.size()));
     }
@@ -1084,12 +1085,13 @@ void TensorIndexPut(Function &function, const LogicalTensorPtr &self, const Logi
     LogicalTensors iOperands = indices;
     iOperands.insert(iOperands.begin(), {self, values});
     auto &op = function.AddOperation(Opcode::OP_INDEX_PUT, iOperands, {dst});
+    op.SetAttribute(OpAttributeKey::inplaceIdx, 0);
     op.SetAttribute(OP_ATTR_PREFIX + "accumulate", accumulate);
     op.SetAttribute(OP_ATTR_PREFIX + "indicesSize", static_cast<int>(indicesSize));
     function.UpdateTensorDataUsage(op);
 }
 
-Tensor IndexPut_(const Tensor &self, const std::vector<Tensor> &indices, const Tensor &values, bool accumulate) {
+Tensor IndexPut_(Tensor &self, const std::vector<Tensor> &indices, const Tensor &values, bool accumulate) {
     DECLARE_TRACER();
     
     std::vector<LogicalTensorPtr> indicesLogical;
@@ -1099,7 +1101,8 @@ Tensor IndexPut_(const Tensor &self, const std::vector<Tensor> &indices, const T
     Tensor dst(self.GetDataType(), self.GetShape());
     CALL(IndexPut, *Program::GetInstance().GetCurrentFunction(),
         self.GetStorage(), indicesLogical, values.GetStorage(), dst.GetStorage(), accumulate);
-    return dst;
+    Program::GetInstance().GetCurrentFunction()->SetSameMemId(self.GetStorage(), dst.GetStorage());
+    self = dst;
 }
 
 template <typename T, DataType dataType>
