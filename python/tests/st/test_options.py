@@ -30,7 +30,7 @@ def layer_norm_func():
 
 
 # jit scope 1
-@pypto.jit(host_options={"only_codegen": True},
+@pypto.jit(host_options={"compile_stage": 3},
         pass_options={"mg_copyin_upper_bound": 1048},
         )
 def set_scope_options(a, c, tiling=None):
@@ -56,7 +56,7 @@ def set_scope_options(a, c, tiling=None):
 
         # 显式 scope
         with pypto.options("scope2",
-                            host_options={"only_codegen": True},
+                            host_options={"compile_stage": 3},
                             pass_options={"cube_l1_reuse_mode": 1,
                                           "pg_upper_bound": 100,
                                           "cube_nbuffer_setting": {3: 4}},
