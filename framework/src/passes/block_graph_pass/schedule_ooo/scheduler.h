@@ -145,9 +145,6 @@ private:
     std::map<PipeType, IssueQueue> issueQueues;
     std::unordered_map<MemoryType, int64_t> localMemorySize;
 
-    std::map<Operation*, std::unordered_set<Operation*>> opConsumers;
-    std::map<Operation*, std::unordered_set<Operation*>> opProducers;
-
     Function &function_;
     int issueId{0};
     uint64_t spillIssueCnt{0};
@@ -175,7 +172,6 @@ private:
     // scheduler
     Status Init(const std::vector<Operation *> &operations);
     void InitMemorySize();
-    void InitOpConsumerAndProducer(const std::vector<Operation *> &operations);
     Status CheckOpBufferSize(Operation *op);
     std::string dumpOpInfo(Operation &op);
     void CalcBufferSize(LogicalTensors tensors, std::map<MemoryType, int64_t> &bufferSize, std::set<int> &memIdMap);

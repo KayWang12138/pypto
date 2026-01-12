@@ -862,11 +862,11 @@ void OoOScheduler::AddDependency(IssueEntryPtr preIssue, IssueEntryPtr postIssue
 }
 
 void OoOScheduler::FindDependencies(IssueEntryPtr issue, std::map<Operation*, IssueEntryPtr> op2IssueEntryMap) {
-    for (auto &producer : opProducers[&issue->tileOp]) {
+    for (auto &producer : issue->tileOp.ProducerOps()) {
         if (IsViewOp(*producer)) {
-            for (auto viewProducer : opProducers[producer]) {
+            for (auto viewProducer : producer->ProducerOps()) {
                 Operation* lastView = SkipViewChain(viewProducer, true);
-                Operation* realProd = (lastView != nullptr) ? *opProducers[lastView].begin() : viewProducer;
+                Operation* realProd = (lastView != nullptr) ? *lastView->ProducerOps().begin() : viewProducer;
                 auto viewProdIssue = op2IssueEntryMap[realProd];
                 AddDependency(viewProdIssue, issue, false);
             }
@@ -875,11 +875,11 @@ void OoOScheduler::FindDependencies(IssueEntryPtr issue, std::map<Operation*, Is
             AddDependency(prodIssue, issue, false);
         }
     }
-    for (auto &consumer : opConsumers[&issue->tileOp]) {
+    for (auto &consumer : issue->tileOp.ConsumerOps()) {
         if (IsViewOp(*consumer)) {
-            for (auto viewConsumer : opConsumers[consumer]) {
+            for (auto viewConsumer : consumer->ConsumerOps()) {
                 Operation* lastView = SkipViewChain(viewConsumer, false);
-                Operation* realCon = (lastView != nullptr) ? *opConsumers[lastView].begin() : viewConsumer;
+                Operation* realCon = (lastView != nullptr) ? *lastView->ConsumerOps().begin() : viewConsumer;
                 auto viewConIssue = op2IssueEntryMap[realCon];
                 AddDependency(issue, viewConIssue, false);
             }
@@ -986,24 +986,6 @@ Status OoOScheduler::CheckOpBufferSize(Operation *op) {
     return SUCCESS;
 }
 
-void OoOScheduler::InitOpConsumerAndProducer(const std::vector<Operation *> &operations) {
-    std::unordered_set<Operation*> operationSet;
-    for (auto op : operations) {
-        operationSet.insert(op);
-    }
-    for (auto op : operations) {
-        for (auto consumer : op->ConsumerOps()) {
-            if (operationSet.find(consumer) != operationSet.end()) {
-                opConsumers[op].insert(consumer);
-            }
-        }
-        for (auto producer : op->ProducerOps()) {
-            if (operationSet.find(producer) != operationSet.end()) {
-                opProducers[op].insert(producer);
-            }
-        }
-    }
-}
 
 Status OoOScheduler::Init(const std::vector<Operation *> &operations) {
     issueEntries.clear();
@@ -1012,7 +994,6 @@ Status OoOScheduler::Init(const std::vector<Operation *> &operations) {
 
     // 初始化芯片各buffer大小
     InitMemorySize();
-    InitOpConsumerAndProducer(operations);
     // 校验并初始化issueEntry
     for (const auto &op : operations) {
         if (IsViewOp(*op)) {

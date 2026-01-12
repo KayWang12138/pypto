@@ -75,8 +75,6 @@ public:
     std::unordered_map<MemoryType, int64_t> localMemSize; //内存剩余情况
     std::unordered_map<MemoryType, int64_t> localMemoryCurrentSize;
     std::unordered_map<int, LocalBufferPtr> localBufferMap; //memid:local
-    std::map<Operation*, std::unordered_set<Operation*>> opConsumers;
-    std::map<Operation*, std::unordered_set<Operation*>> opProducers;
 
     //  初始依赖的list序列
     std::vector<Operation*> operations;
@@ -111,25 +109,6 @@ public:
         localMemSize.insert({MemoryType::MEM_FIX_QUANT_PRE,
             Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_FIX_QUANT_PRE)});
         localMemoryCurrentSize = localMemSize;
-    }
-
-    void InitOpConsumerAndProducer() {
-        std::unordered_set<Operation*> operationList;
-        for (auto op : operations) {
-            operationList.insert(op);
-        }
-        for (auto op : operations) {
-            for (auto consumer : op->ConsumerOps()) {
-                if (operationList.find(consumer) != operationList.end()) {
-                    opConsumers[op].insert(consumer);
-                }
-            }
-            for (auto producer : op->ProducerOps()) {
-                if (operationList.find(producer) != operationList.end()) {
-                    opProducers[op].insert(producer);
-                }
-            }
-        }
     }
 
     void InitLocalBuffer(LogicalTensorPtr operand, int memId) {
@@ -252,18 +231,18 @@ public:
     }
 
     void FindDependencies(Operation* op) {
-        for (auto &producer : opProducers[op]) {
+        for (auto &producer : op->ProducerOps()) {
             if (producer->GetOpcode() == Opcode::OP_VIEW) {
-                for (auto viewProducer : opProducers[producer]) {
+                for (auto viewProducer : producer->ProducerOps()) {
                     AddDependency(viewProducer, op, false);
                 }
                 continue;
             }
             AddDependency(producer, op, false);
         }
-        for (auto &consumer : opConsumers[op]) {
+        for (auto &consumer : op->ConsumerOps()) {
             if (consumer->GetOpcode() == Opcode::OP_VIEW) {
-                for (auto viewConsumer : opConsumers[consumer]) {
+                for (auto viewConsumer : consumer->ConsumerOps()) {
                     AddDependency(op, viewConsumer, false);
                 }
             }
@@ -419,7 +398,6 @@ public:
         // 初始化芯片各buffer大小
         InitMemorySize();
         operations = opList;
-        InitOpConsumerAndProducer();
         for (auto& op : operations) {
             if (CheckOpBufferSize(op) != SUCCESS) {
                 APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] checkOpBufferSize failed! %s",
