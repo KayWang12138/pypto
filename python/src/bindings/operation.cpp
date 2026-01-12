@@ -134,7 +134,7 @@ void bind_operation(py::module &m) {
     m.def(
         "IndexPut_",
         [](const Tensor &self, std::vector<Tensor> indices, const Tensor &values, bool accumulate) {
-            return npu::tile_fwk::IndexPut_(self, indices, values, accumulate);
+            npu::tile_fwk::IndexPut_(self, indices, values, accumulate);
         },
         "Tensor indexput_.");
     m.def(

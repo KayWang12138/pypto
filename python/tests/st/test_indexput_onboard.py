@@ -53,8 +53,8 @@ def indexput_comm_test_body(indexput_para, test_func):
                                         pypto.min(pypto.symbolic_scalar(indices_shape[0]) - b_idx * view_shape[0],
                                                 pypto.symbolic_scalar(view_shape[0]))])
             tmp_dst_tensor = pypto.tensor()
-            tmp_dst_tensor.move(test_func(self_tensor, (view_indices0, ), view_values, accumulate=accumulate))
-            pypto.assemble(tmp_dst_tensor, [0, 0], dst_tensor)
+            test_func(self_tensor, (view_indices0, ), view_values, accumulate=accumulate)
+            # pypto.assemble(tmp_dst_tensor, [0, 0], dst_tensor)
             del view_values, view_indices0, tmp_dst_tensor
     assert isinstance(dst_tensor, pypto.tensor)
 

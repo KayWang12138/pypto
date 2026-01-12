@@ -106,7 +106,7 @@ def index_add(
 @op_wrapper
 def index_put_(
     input: Tensor, indices: tuple, values: Tensor, accumulate: bool = False
-    ) -> Tensor:
+    ) -> None:
     """
     Puts values from the tensor `values` into the tensor `input` using the 
     indices specified in `indices`(which is a tuple of Tensors).
@@ -167,7 +167,7 @@ def index_put_(
                [3 3]]
     """
     indices_list = list(indices)
-    return pypto_impl.IndexPut_(input, indices_list, values, accumulate)
+    pypto_impl.IndexPut_(input, indices_list, values, accumulate)
 
 
 @op_wrapper
