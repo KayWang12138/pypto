@@ -293,6 +293,18 @@ void bind_operation(py::module &m) {
         },
         py::arg("out_type"), py::arg("tensor_a"), py::arg("tensor_b"), py::arg("a_trans") = false,
         py::arg("b_trans") = false, py::arg("c_matrix_nz") = false, "Matrix multiply.");
+    m.def(
+        "MatmulMX",
+        [](DataType out_type, const Tensor &tensor_a, const Tensor &tensor_a_scale, const Tensor &tensor_b,
+            const Tensor &tensor_b_scale, bool a_trans, bool a_scale_trans, bool b_trans, bool b_scale_trans,
+            bool c_matrix_nz) {
+            Matrix::MatmulMX(out_type, tensor_a, tensor_a_scale, tensor_b, tensor_b_scale, a_trans,
+                             a_scale_trans, b_trans, b_scale_trans, c_matrix_nz);
+        },
+        py::arg("out_type"), py::arg("tensor_a"), py::arg("tensor_a_scale"), py::arg("tensor_b"),
+        py::arg("tensor_b_scale"), py::arg("a_trans") = false, py::arg("a_scale_trans") = false,
+        py::arg("b_trans") = false, py::arg("b_scale_trans") = false, py::arg("c_matrix_nz") = false,
+        "Matrix multiply with extend param.");
 
     py::class_<Matrix::MatmulExtendParam>(m, "MatmulExtendParam")
         .def(py::init<>())
@@ -309,7 +321,18 @@ void bind_operation(py::module &m) {
         py::arg("b_trans") = false, py::arg("c_matrix_nz") = false, py::arg("extend_params"),
         "Matrix multiply with extend param.");
     m.def(
-        "BatchMatmul",
+        "MatmulMX",
+        [](DataType out_type, const Tensor &tensor_a, const Tensor &tensor_a_scale, const Tensor &tensor_b,
+            const Tensor &tensor_b_scale, bool a_trans, bool a_scale_trans, bool b_trans, bool b_scale_trans,
+            bool c_matrix_nz, const Matrix::MatmulExtendParam &extendParam) {
+            Matrix::MatmulMX(out_type, tensor_a, tensor_a_scale, tensor_b, tensor_b_scale, a_trans,
+                             a_scale_trans, b_trans, b_scale_trans, c_matrix_nz);
+        },
+        py::arg("out_type"), py::arg("tensor_a"), py::arg("tensor_a_scale"), py::arg("tensor_b"),
+        py::arg("tensor_b_scale"), py::arg("a_trans") = false, py::arg("a_scale_trans") = false,
+        py::arg("b_trans") = false, py::arg("b_scale_trans") = false, py::arg("c_matrix_nz") = false,
+        py::arg("extend_params"), "Matrix multiply with extend param.");
+    m.def(
         [](DataType out_type, const Tensor &tensor_a, const Tensor &tensor_b, bool a_trans, bool b_trans,
             bool c_matrix_nz) {
             return Matrix::BatchMatmul(out_type, tensor_a, tensor_b, a_trans, b_trans, c_matrix_nz);
@@ -317,20 +340,6 @@ void bind_operation(py::module &m) {
         py::arg("out_type"), py::arg("a"), py::arg("b"), py::arg("a_trans") = false, py::arg("b_trans") = false,
         py::arg("c_matrix_nz") = false, "Batch matrix multiply.");
     m.def(
-        "gather_in_l1",
-        [](const Tensor &src, const Tensor &indices, const Tensor &blockTable, int blockSize, int size,
-            bool is_b_matrix, bool is_trans) {
-            if (!is_b_matrix && !is_trans) {
-                std::cout << " gather in l1 m def" << std::endl;
-                return experimental::GatherInL1<false, false>(src, indices, blockTable, blockSize, size);
-            } else if (!is_b_matrix && is_trans) {
-                return experimental::GatherInL1<false, true>(src, indices, blockTable, blockSize, size);
-            } else if (is_b_matrix && !is_trans) {
-                return experimental::GatherInL1<true, false>(src, indices, blockTable, blockSize, size);
-            } else {
-                return experimental::GatherInL1<true, true>(src, indices, blockTable, blockSize, size);
-            }
-        },
         py::arg("src"), py::arg("indices"), py::arg("blockTable"), py::arg("blockSize"), py::arg("size"),
         py::arg("is_b_matrix"), py::arg("is_trans"), "gather load L1.");
     m.def(
