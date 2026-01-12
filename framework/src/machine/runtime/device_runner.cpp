@@ -131,6 +131,35 @@ void DeviceRunner::SetPmuEventType(int32_t &profPmuType) {
     }
 }
 
+void DeviceRunner::SetPmuEventType_DAV3510(int32_t &profPmuType) {
+    // 按照环境变量设置的数值，获取pmu事件类型
+    switch (profPmuType) {
+        case  ARITHMETIC_UTILIZATION:
+            pmuEvtType_ = {0x323, 0x324, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
+            break;
+        case PIPE_UTILIZATION:
+            pmuEvtType_ = {0x501, 0x301, 0x1, 0x701, 0x202, 0x203, 0x34, 0x35, 0x714, 0x0};
+            break;
+        case MEMORY:
+            pmuEvtType_ = {0x0, 0x0, 0x400, 0x401, 0x56f, 0x571, 0x570, 0x572, 0x707, 0x709};
+            break;
+        case MEMORY_L0:
+            pmuEvtType_ = {0x304, 0x703, 0x306, 0x705, 0x712, 0x30a, 0x308, 0x0, 0x0, 0x0};
+            break;
+        case RESOURCE_CONFLICT_RATION:
+            pmuEvtType_ = {0x3556, 0x3540, 0x3502, 0x3528, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
+            break;
+        case MEMORY_UB:
+            pmuEvtType_ = {0x3, 0x5, 0x70c, 0x206, 0x204, 0x571, 0x572, 0x0, 0x0, 0x0};
+            break;
+        case L2_CACHE:
+            pmuEvtType_ = {0x424, 0x425, 0x426, 0x42a, 0x42b, 0x42c, 0x0, 0x0, 0x0, 0x0};
+            break;
+        default:
+            ALOG_WARN_F("Invalid profPmuType %d, only support [1,2,4,5,6,7,8].\n", profPmuType);
+    }
+}
+
 void DeviceRunner::GetPmuEventType() {
     // 获取pmu事件类型环境变量获取方式
     std::string eventTypeStr = GetEnvVar("PROF_PMU_EVENT_TYPE");
@@ -220,7 +249,7 @@ int DeviceRunner::InitDeviceArgs(DeviceArgs &args) {
     args.startArgsAddr = shmAddr;
     args.taskCtrl = shmAddr + dynamic::DEV_ARGS_SIZE;
     args.taskQueue = shmAddr + dynamic::DEV_ARGS_SIZE + dynamic::DEVICE_TASK_CTRL_SIZE;
-    pmuEvtType_.resize(PMU_EVENT_TYPE_MAX, 0x0);
+    pmuEvtType_.resize(PMU_EVENT_TYPE_MAX_DAV_2201, 0x0);
     args.pmuEventAddr = reinterpret_cast<uint64_t>(DevAlloc(pmuEvtType_.size() * sizeof(int64_t)));
 
     if (args.sharedBuffer == 0 || args.coreRegAddr == 0 || args.corePmuAddr == 0 || args.corePmuRegAddr == 0) {

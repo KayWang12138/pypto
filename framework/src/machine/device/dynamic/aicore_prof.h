@@ -51,7 +51,7 @@ constexpr bool GLB_PMU_EN = true;
 constexpr bool USER_PMU_MODE_EN = (GLB_PMU_EN && true);
 constexpr bool SAMPLE_PMU_MODE_EN = (GLB_PMU_EN && USER_PMU_MODE_EN);
 constexpr bool DUAL_PAGE_EN = false; // 双页表是否使能，如何感知？？？通过runtime？
-constexpr uint32_t MAX_PMU_CNT = 8;
+constexpr uint32_t MAX_PMU_CNT = 10;
 
 constexpr int32_t PMU_CYCLE = 80; // 记录按照了20MHZ的时钟周期，单位归一按照1600MHZ的时钟周期进行统一，所以80
 typedef enum AiCoreProfLevel {
@@ -72,30 +72,60 @@ typedef enum AiCoreProfDataType {
     PROF_DATATYPE_EXE = 5
 } AiCoreProfDataType;
 
+// typedef enum AiCoreRegister {
+//     PMU_CTRL_0 = 0x200,
+//     PMU_CNT0 = 0x210,
+//     PMU_CNT1 = 0x218,
+//     PMU_CNT2 = 0x220,
+//     PMU_CNT3 = 0x228,
+//     PMU_CNT4 = 0x230,
+//     PMU_CNT5 = 0x238,
+//     PMU_CNT6 = 0x240,
+//     PMU_CNT7 = 0x248,
+//     PMU_CNT8 = 0x250,
+//     PMU_CNT9 = 0x254,
+//     PMU_CNT0_IDX = 0x1280,
+//     PMU_CNT1_IDX = 0x1284,
+//     PMU_CNT2_IDX = 0x1288,
+//     PMU_CNT3_IDX = 0x128C,
+//     PMU_CNT4_IDX = 0x1290,
+//     PMU_CNT5_IDX = 0x1294,
+//     PMU_CNT6_IDX = 0x1298,
+//     PMU_CNT7_IDX = 0x129C,
+//     PMU_START_CNT_CYC_0 = 0x2A0,
+//     PMU_START_CNT_CYC_1 = 0x2A4,
+//     PMU_STOP_CNT_CYC_0 = 0x2A8,
+//     PMU_STOP_CNT_CYC_1 = 0x2AC,
+// } AiCoreRegister;
 typedef enum AiCoreRegister {
-    PMU_CTRL_0 = 0x200,
-    PMU_CNT0 = 0x210,
-    PMU_CNT1 = 0x218,
-    PMU_CNT2 = 0x220,
-    PMU_CNT3 = 0x228,
-    PMU_CNT4 = 0x230,
-    PMU_CNT5 = 0x238,
-    PMU_CNT6 = 0x240,
-    PMU_CNT7 = 0x248,
-    PMU_CNT8 = 0x250,
-    PMU_CNT9 = 0x254,
-    PMU_CNT0_IDX = 0x1280,
-    PMU_CNT1_IDX = 0x1284,
-    PMU_CNT2_IDX = 0x1288,
-    PMU_CNT3_IDX = 0x128C,
-    PMU_CNT4_IDX = 0x1290,
-    PMU_CNT5_IDX = 0x1294,
-    PMU_CNT6_IDX = 0x1298,
-    PMU_CNT7_IDX = 0x129C,
-    PMU_START_CNT_CYC_0 = 0x2A0,
-    PMU_START_CNT_CYC_1 = 0x2A4,
-    PMU_STOP_CNT_CYC_0 = 0x2A8,
-    PMU_STOP_CNT_CYC_1 = 0x2AC,
+    PMU_CTRL_0 = 0x4200,
+    PMU_CTRL_1 = 0X2400,
+    PMU_CNT0 = 0x4210,
+    PMU_CNT1 = 0x4218,
+    PMU_CNT2 = 0x4220,
+    PMU_CNT3 = 0x4228,
+    PMU_CNT4 = 0x4230,
+    PMU_CNT5 = 0x4238,
+    PMU_CNT6 = 0x4240,
+    PMU_CNT7 = 0x4248,
+    PMU_CNT8 = 0x4250,
+    PMU_CNT9 = 0x4254,
+    PMU_CNT_TOTAL0 = 0x4260,
+    PMU_CNT_TOTAL1 = 0x4264,
+    PMU_CNT0_IDX = 0x2500,
+    PMU_CNT1_IDX = 0x2504,
+    PMU_CNT2_IDX = 0x2508,
+    PMU_CNT3_IDX = 0x250C,
+    PMU_CNT4_IDX = 0x2510,
+    PMU_CNT5_IDX = 0x2514,
+    PMU_CNT6_IDX = 0x2518,
+    PMU_CNT7_IDX = 0x251C,
+    PMU_CNT8_IDX = 0x2520,
+    PMU_CNT9_IDX = 0x2524,
+    PMU_START_CNT_CYC_0 = 0x42A0,
+    PMU_START_CNT_CYC_1 = 0x42A4,
+    PMU_STOP_CNT_CYC_0 = 0x42A8,
+    PMU_STOP_CNT_CYC_1 = 0x42AC,
 } AiCoreRegister;
 
 typedef enum AiCorePmuEvent {
@@ -152,6 +182,19 @@ const uint16_t AIC_EVENT_LIST[MAX_PMU_CNT] = {
     L2_R0_MISS_ALLOC_CNT,
 };
 
+// struct MsprofAicpuAstPmuData {
+//     uint32_t seqNo{0};
+//     uint32_t taskId{0};
+//     uint64_t totalCyc{0};
+//     uint32_t pmuCnt0{0}; // 单个task不能超过3s, 按50MHZ计算
+//     uint32_t pmuCnt1{0};
+//     uint32_t pmuCnt2{0};
+//     uint32_t pmuCnt3{0};
+//     uint32_t pmuCnt4{0};
+//     uint32_t pmuCnt5{0};
+//     uint32_t pmuCnt6{0};
+//     uint32_t pmuCnt7{0};
+// };
 struct MsprofAicpuAstPmuData {
     uint32_t seqNo{0};
     uint32_t taskId{0};
@@ -164,6 +207,8 @@ struct MsprofAicpuAstPmuData {
     uint32_t pmuCnt5{0};
     uint32_t pmuCnt6{0};
     uint32_t pmuCnt7{0};
+    uint32_t pmuCnt8{0};
+    uint32_t pmuCnt9{0};
 };
 
 // !!注意和 TaskStat 前面的数据区保持一致
@@ -261,6 +306,8 @@ private:
     std::vector<volatile uint32_t *> pmuCnt7Plain_;
     std::vector<volatile uint32_t *> pmuCnt8Plain_;
     std::vector<volatile uint32_t *> pmuCnt9Plain_;
+    std::vector<volatile uint32_t *> pmuCntTotal0Plain_;
+    std::vector<volatile uint32_t *> pmuCntTotal1Plain_;
 
     // pmu data
     uint32_t pmuDataMaxNum_ = 4;
