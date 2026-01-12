@@ -68,7 +68,7 @@ def matmul_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu") -> torch.
         raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
     
     @pypto.frontend.jit(
-    host_options={"only_codegen": True}, runtime_options={"run_mode": mode}
+    host_options={"compile_stage": 3}, runtime_options={"run_mode": mode}
     )
     def matmul_kernel(
         a: pypto.Tensor(a_shape, pypto.DT_FP32),
@@ -113,7 +113,7 @@ def matmul_batch_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu", dyn
         raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
         
     @pypto.frontend.jit(
-    host_options={"only_codegen": True}, runtime_options={"run_mode": mode}
+    host_options={"compile_stage": 3}, runtime_options={"run_mode": mode}
     )
     def matmul_batch_kernel(
         a: pypto.Tensor(a_shape, pypto.DT_FP32),
@@ -159,7 +159,7 @@ def matmul_broadcast_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu",
         raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
     
     @pypto.frontend.jit(
-    host_options={"only_codegen": True}, runtime_options={"run_mode": mode}
+    host_options={"compile_stage": 3}, runtime_options={"run_mode": mode}
     )
     def matmul_broadcast_kernel(
         a: pypto.Tensor(a.shape, pypto.DT_FP32),
@@ -204,7 +204,7 @@ def matmul_trans_right_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu
         raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
 
     @pypto.frontend.jit(
-    host_options={"only_codegen": True}, runtime_options={"run_mode": mode}
+    host_options={"compile_stage": 3}, runtime_options={"run_mode": mode}
     )
     def matmul_trans_right_kernel(
         a: pypto.Tensor(a_shape, pypto.DT_FP32),
@@ -229,7 +229,7 @@ def matmul_trans_left_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu"
         raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
 
     @pypto.frontend.jit(
-    host_options={"only_codegen": True}, runtime_options={"run_mode": mode}
+    host_options={"compile_stage": 3}, runtime_options={"run_mode": mode}
     )
     def matmul_trans_left_kernel(
         a: pypto.Tensor(a_shape, pypto.DT_FP32),
@@ -315,7 +315,7 @@ def matmul_bias_op(a: torch.Tensor, b: torch.Tensor, bias: torch.Tensor, run_mod
         raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
     
     @pypto.frontend.jit(
-        host_options={"only_codegen": True}, runtime_options={"run_mode": mode}
+        host_options={"compile_stage": 3}, runtime_options={"run_mode": mode}
     )
     def matmul_bias_kernel(
         a: pypto.Tensor(a_shape, pypto.DT_FP32),
