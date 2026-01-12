@@ -56,7 +56,7 @@ def check_args(
 @pypto.jit(
     runtime_options={
     "stitch_cfgcache_size": 2500000},
-    host_options={"only_codegen": True},
+    host_options={"compile_stage": 3},
 )
 def select_experts_mm_kernel(hidden_states, mm_weight, router_logits_out):
     """

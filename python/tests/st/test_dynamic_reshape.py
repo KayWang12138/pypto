@@ -160,7 +160,7 @@ def test_reshape_validshape2():
 
 
 @pypto.jit(
-    host_options={"only_codegen": True}
+    host_options={"compile_stage": 3}
 )
 def reshape_kernel(in_tensor, out_tensor):
     b = 3

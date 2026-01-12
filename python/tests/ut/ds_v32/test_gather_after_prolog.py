@@ -17,7 +17,7 @@ import pypto
 
 
 def set_config():
-    pypto.set_host_options(only_codegen=True)
+    pypto.set_host_options(compile_stage=3)
 
 
 @dataclass

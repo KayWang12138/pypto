@@ -89,7 +89,7 @@ def softmax_core(input_tensor: pypto.Tensor) -> pypto.Tensor:
 def softmax_wrapper(shape, cost_model_enable):
     
     @pypto.frontend.jit(
-        host_options={"only_codegen": True},
+        host_options={"compile_stage": 3},
         runtime_options={"stitch_cfgcache_size": 2100000,
                          "run_mode": pypto.RunMode.SIM}
     )
