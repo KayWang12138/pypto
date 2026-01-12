@@ -28,15 +28,24 @@ class STestAccelerate(GTestAccelerate):
         return "STest"
 
     @staticmethod
+    def reg_args(parser: argparse.ArgumentParser):
+        """注册STest加速器参数
+
+        先调用父类(GTestAccelerate)的参数注册, 再添加STest特有参数
+        """
+        GTestAccelerate.reg_args(parser)
+        parser.add_argument("-d", "--device", nargs="?", type=int, action="append",
+                            help="Specific parallel accelerate device, "
+                                 "If this parameter is not specified, 0 device will be used by default.")
+
+    @staticmethod
     def main() -> bool:
         """主处理流程
         """
         # 参数注册
-        parser = argparse.ArgumentParser(description=f"STest Execute Accelerate", epilog="Best Regards!")
+        parser = argparse.ArgumentParser(description="STest Execute Accelerate", epilog="Best Regards!")
         STestAccelerate.reg_args(parser=parser)
-        parser.add_argument("-d", "--device", nargs="?", type=int, action="append",
-                            help="Specific parallel accelerate device, "
-                                 "If this parameter is not specified, 0 device will be used by default.")
+
         # 流程处理
         args = parser.parse_args()
         params = []
