@@ -292,7 +292,6 @@ constexpr int COA_INDEX_DIM_BASE = 1;
 class CallOpAttribute : public OpAttribute {
 public:
     CallOpAttribute() = default;
-
     CallOpAttribute(const FunctionHash &calleeHash, const std::vector<std::vector<SymbolicScalar>> &argList,
         const std::string &calleMagicName = "", const std::map<int, SymbolicScalar> &outIndexToExpr = {},
         const std::vector<SymbolicScalar> &linearArgList = {});
