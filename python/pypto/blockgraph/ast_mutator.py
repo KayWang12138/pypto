@@ -52,12 +52,16 @@ class AstMutator(ast.NodeTransformer):
         # Create wrapper function that accepts metadata
         wrapper = mutator._create_wrapper(func_node)
         
+        # Fix missing locations for AST nodes (required for ast.unparse and compilation)
+        ast.fix_missing_locations(wrapper)
+        
         # Dump transformed source if requested
         if dump_source:
             mutator._dump_source(wrapper, dump_source)
         
         # Compile and return the transformed function
         module_ast = ast.Module(body=[wrapper], type_ignores=[])
+        ast.fix_missing_locations(module_ast)
         code = compile(module_ast, filename='<ast>', mode='exec')
         
         # Prepare namespace with closure variables
