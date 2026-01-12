@@ -21,10 +21,13 @@
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
-class DynamicCastTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
+class DynamicCastTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {
+    void SetUp() override {
+        config::SetHostOption(COMPILE_STAGE, GEN_KERNEL_CODE);
+    }
+};
 
 TEST_F(DynamicCastTest, testDynCastUnalign) {
-    config::SetHostOption(COMPILE_STAGE, GEN_KERNEL_CODE);
     TileShape::Current().SetVecTile(1, 16);
 
     int b = 1;
@@ -84,7 +87,6 @@ TEST_F(DynamicCastTest, testDynCastUnalign) {
 }
 
 TEST_F(DynamicCastTest, testDynCastUnalignForGE) {
-    config::SetHostOption(COMPILE_STAGE, GEN_KERNEL_CODE);
     TileShape::Current().SetVecTile(1, 16);
 
     int b = 1;
@@ -147,7 +149,6 @@ TEST_F(DynamicCastTest, testDynCastUnalignForGE) {
 
 TEST_F(DynamicCastTest, testDynCastDevSeparate) {
 #ifdef BUILD_WITH_NEW_CANN
-    config::SetHostOption(COMPILE_STAGE, GEN_KERNEL_CODE);
     TileShape::Current().SetVecTile(1, 16);
 
     int b = 1;
