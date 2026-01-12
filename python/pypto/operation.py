@@ -282,4 +282,4 @@ def view(
     elif valid_shape is None:
         return pypto_impl.View(input, shape, offsets)
     else:
-        return pypto_impl.View(input, shape, to_syms(valid_shape), to_syms(offsets))
+        return pypto_impl.View(input, shape, to_syms(valid_shape), to_syms(offsets)) 
