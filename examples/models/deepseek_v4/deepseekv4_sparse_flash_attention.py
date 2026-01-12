@@ -107,8 +107,7 @@ def compute_attention_no_flash(input_data, params, s2_tile):
                 # 当前b&s1&s2 topk_index  --->  kvCache的offset
                 offset = torch.zeros([s2_tile_cur], dtype=torch.int32)
                 for cur_s2_idx in range(s2_tile_cur):
-                    s2_idx_tmp = s2_start + cur_s2_idx
-                    topk_index = topk_indices_tmp[s2_idx_tmp]
+                    topk_index = topk_indices_tmp[cur_s2_idx]
                     block_idx_in_batch = topk_index // block_size
                     slc_block_idx = block_table[b_idx, block_idx_in_batch]
                     tail = topk_index % block_size
@@ -282,18 +281,18 @@ def do_test_sparse_attention_func(bn1n2s1, actual_seq, input_params, input_data,
         tile_config = SaTileShapeConfig(
             g_tile=128,
             s_kv_tile=2048,
-            c1_tile_shape=[128, 128, 128, 128, 128, 128],
-            v1_tile_shape=[8, 2048],
-            c2_tile_shape=[128, 128, 128, 128, 128, 128], # C1的N轴与C2的K轴一致
+            c1_tile_shape=[128, 128, 128, 512, 128, 128],
+            v1_tile_shape=[32, 512],
+            c2_tile_shape=[128, 128, 128, 512, 128, 128], # C1的N轴与C2的K轴一致
             v2_tile_shape=[64, 128]
         )
     else:
         tile_config = SaTileShapeConfig(
             g_tile=128,
             s_kv_tile=2048,
-            c1_tile_shape=[128, 128, 128, 128, 128, 128],
-            v1_tile_shape=[8, 2048],
-            c2_tile_shape=[128, 128, 128, 128, 128, 128],
+            c1_tile_shape=[128, 128, 128, 512, 128, 128],
+            v1_tile_shape=[32, 512],
+            c2_tile_shape=[128, 128, 128, 512, 128, 128],
             v2_tile_shape=[64, 128]
         )
 
