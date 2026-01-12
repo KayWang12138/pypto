@@ -306,7 +306,7 @@ void MixDependencyAnalyzer::EliminateRedundantDependencies(std::unordered_map<in
                                                            std::vector<InternalDependencyInfo> &internalDeps) {
     ALOG_INFO_F("Eliminating redundant dependencies...");
     // 生成内部依赖的可达阵
-    std::vector<std::vector<bool>> innerDeps(maxComponent, std::vector<bool>(maxComponent, false));
+    std::vector<std::vector<bool>> innerDeps(maxComponent + 1, std::vector<bool>(maxComponent + 1, false));
     for (const auto& dep : internalDeps) {
         innerDeps[dep.srcComp][dep.dstComp] = true;
     }
