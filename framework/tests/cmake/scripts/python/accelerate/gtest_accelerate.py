@@ -745,7 +745,6 @@ class GTestAccelerate(ABC):
         env_vars['TILE_FWK_STEST_GOLDEN_PATH'] = self.golden_path
         if ctx.exec_param.get_envs():
             env_vars.update(ctx.exec_param.get_envs())
-        print("env_vars==============", env_vars)
         
         # 构建mpirun命令
         command = [
