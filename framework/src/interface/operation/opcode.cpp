@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -389,16 +389,24 @@ OpcodeManager::OpcodeManager() {
     registerInfo(Opcode::OP_BIND_TENSOR, OpCoreType::ANY, "BIND_TENSOR",
         {}, {MemoryType::MEM_DEVICE_DDR}, {"TileOp::Distributed::ShmemGet", PIPE_S, PIPE_S, CoreType::AIV},
         OpCalcType::DISTRIBUTED, {OP_ATTR_PREFIX + "BindTensor"});
-    registerInfo(Opcode::OP_SHMEM_MOE_COMBINE_SEND, OpCoreType::ANY, "SHMEM_MOE_COMBINE_SEND",
-        {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR},
+    registerInfo(
+        Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND,
+        OpCoreType::ANY,
+        "MOE_DISTRIBUTED_COMBINE_SEND",
+        {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR},
         {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB},
-        {"TileOp::Distributed::ShmemMoeCombineSend", PIPE_S, PIPE_S, CoreType::AIV},
-        OpCalcType::DISTRIBUTED, {OpAttributeKey::requiresBoundaryCopy});
-    registerInfo(Opcode::OP_SHMEM_MOE_COMBINE_RECEIVE, OpCoreType::ANY, "SHMEM_MOE_COMBINE_RECEIVE",
+        {"TileOp::Distributed::MoeDistributedCombineSend", PIPE_S, PIPE_S, CoreType::AIV},
+        OpCalcType::DISTRIBUTED,
+        {OpAttributeKey::requiresBoundaryCopy});
+    registerInfo(
+        Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE,
+        OpCoreType::ANY,
+        "MOE_DISTRIBUTED_COMBINE_RECEIVE",
         {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR},
         {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB},
-        {"TileOp::Distributed::ShmemMoeCombineReceive", PIPE_S, PIPE_S, CoreType::AIV},
-        OpCalcType::DISTRIBUTED, {OpAttributeKey::requiresBoundaryCopy});
+        {"TileOp::Distributed::MoeDistributedCombineReceive", PIPE_S, PIPE_S, CoreType::AIV},
+        OpCalcType::DISTRIBUTED,
+        {OpAttributeKey::requiresBoundaryCopy});
 
     registerInfo(Opcode::OP_AICPU_CALL_AIC, OpCoreType::ANY, "AICPU_CALL_AIC", {}, {}, {"TileOp::AicpuCall", PIPE_S, PIPE_S, CoreType::AIC}, OpCalcType::SYS);
     registerInfo(Opcode::OP_AICPU_CALL_AIV, OpCoreType::ANY, "AICPU_CALL_AIV", {}, {}, {"TileOp::AicpuCall", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::SYS);
@@ -458,6 +466,7 @@ OpcodeManager::OpcodeManager() {
         {         Opcode::OP_ROWMINLINE,    "TRowMinLine"},
         {           Opcode::OP_WHERE_TT,         "TWhere"},
         {               Opcode::OP_ADDS,          "TAddS"},
+        {               Opcode::OP_SUBS,          "TSubS"},
         {               Opcode::OP_MULS,          "TMulS"},
         {               Opcode::OP_DIVS,          "TDivS"},
         {              Opcode::OP_RSQRT,         "TRsqrt"},
@@ -468,6 +477,7 @@ OpcodeManager::OpcodeManager() {
         {            Opcode::OP_PAIRSUM,       "TPairSum"},
         {            Opcode::OP_PAIRMAX,       "TPairMax"},
         {            Opcode::OP_PAIRMIN,       "TPairMin"},
+        {             Opcode::OP_ONEHOT,        "TOneHot"},
         {        Opcode::OP_L0C_COPY_UB,       "TExtract"},
         {            Opcode::OP_VEC_DUP,        "TVecDup"},
         {            Opcode::OP_RANGE,        "TRange"},
