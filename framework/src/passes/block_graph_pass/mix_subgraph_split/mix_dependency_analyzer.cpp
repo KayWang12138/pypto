@@ -44,7 +44,7 @@ std::unordered_map<int, std::set<int>> MixDependencyAnalyzer::AnalyzeComponentDe
                 // 记录进一步切分后的依赖关系
                 int consumerID = consumer->GetInternalSubgraphID();
                 if (producerInternalID != consumerID) {
-                    dependencies[producerInternalID].push_back(consumerID);
+                    dependencies[producerInternalID].insert(consumerID);
                 }
             }
         }
@@ -68,11 +68,11 @@ void MixDependencyAnalyzer::InitDependencies(std::unordered_map<int, std::set<in
     }
     // 确保所有组件索引都在closure中
     for (int i = 0; i <= maxComponent; i++) {
-        closure[i]; // 确保存在，即使没有依赖关系
+        dependencies[i]; // 确保存在，即使没有依赖关系
     }
 }
 
-void MixDependencyAnalyzer::WarshallAlgorithm(std::vector<std::vector<int>> &matrix) {
+void MixDependencyAnalyzer::WarshallAlgorithm(std::vector<std::vector<bool>> &matrix) {
     size_t n = matrix.size();
     for (size_t k = 0; k < n; ++k) {
         for (size_t i = 0; i < n; ++i) {
@@ -144,11 +144,11 @@ bool MixDependencyAnalyzer::ContainsTensor(const std::vector<SimpleTensorParam> 
 }
 
 
-void MixDependencyAnalyzer::PropagateExternalDependenciesWithClosure(const std::unorderd_map<int, std::set<int>> &dependencies,
+void MixDependencyAnalyzer::PropagateExternalDependenciesWithClosure(const std::unordered_map<int, std::set<int>> &dependencyClosure, 
                                                                     std::unordered_map<int, std::vector<SimpleTensorParam>> &allIncasts,
                                                                     std::unordered_map<int, std::vector<SimpleTensorParam>> &allOutcasts) {
     // 基于传递闭包传播依赖
-    for (const auto &[sourceComp, targets] : dependencies) {
+    for (const auto &[sourceComp, targets] : dependencyClosure) {
         // 传播incast：source的incast传播给所有依赖它的target
         auto incastIt = allIncasts.find(sourceComp);
         if (incastIt != allIncasts.end()) {
@@ -174,7 +174,7 @@ void MixDependencyAnalyzer::PropagateExternalDependenciesWithClosure(const std::
     }
 }
 
-void MixDependencyAnalyzer::CollectInternalDependencies(const std::unorderd_map<int, std::set<int>> &dependencyClosure,
+void MixDependencyAnalyzer::CollectInternalDependencies(const std::unordered_map<int, std::set<int>> &dependencyClosure,
                                                         const std::vector<InternalComponentInfo> &components,
                                                         std::vector<InternalDependencyInfo> &internalDeps) {
     // 遍历传递闭包中的每个依赖关系
@@ -268,7 +268,7 @@ void MixDependencyAnalyzer::EliminateRedundantOuterDeps(const std::vector<std::v
         for (const auto &compId : isRedundant) {
             auto& tensors = allTensors[compId];       
             auto newEnd = std::remove_if(tensors.begin(), tensors.end(),
-                [&](const SimpleIncastParam& param) {
+                [&](const SimpleTensorParam& param) {
                     return param.tensor == pair.first;
                 });
             incasts.erase(newEnd, incasts.end());
@@ -278,7 +278,7 @@ void MixDependencyAnalyzer::EliminateRedundantOuterDeps(const std::vector<std::v
     }
 }
 
-std::vector<std::vector<int>> MixDependencyAnalyzer::Transpose(const std::vector<std::vector<bool>> &matrix) {
+std::vector<std::vector<bool>> MixDependencyAnalyzer::Transpose(const std::vector<std::vector<bool>> &matrix) {
     size_t n = matrix.size();
     std::vector<std::vector<int>> ret(n, std::vector<int>(n));
     for (size_t i = 0; i < n; ++i) {

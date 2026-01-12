@@ -30,6 +30,12 @@
 
 namespace npu {
 namespace tile_fwk {  
+enum class ComponentType {
+    UNKNOWN = 0,
+    C_SCOPE = 1,    // C类型scope
+    V_SCOPE = 2,    // V类型scope
+};
+
 // Mix子图内部独立子图的信息
 struct InternalComponentInfo {
     int internalSubgraphID;  // mix子图内部的子图ID(cube/vector组件ID)

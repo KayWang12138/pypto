@@ -95,12 +95,6 @@ struct CallOpCreationInfo {
     Operation* createdCallOp = nullptr;
 };
 
-enum class ComponentType {
-    UNKNOWN = 0,
-    C_SCOPE = 1,    // C类型scope
-    V_SCOPE = 2,    // V类型scope
-};
-
 class MixSubgraphSplit : public Pass {
 public:
     MixSubgraphSplit() : Pass("MixSubgraphSplit"), nextWrapId_(0), nextMixId_(0) {

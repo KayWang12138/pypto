@@ -14,7 +14,7 @@
   * */
 #include <gtest/gtest.h>
 #include "computational_graph_builder.h"
-#include "passes/block_graph_pass/mix_dependency_analyzer.h"
+#include "passes/block_graph_pass/mix_subgraph_split/mix_dependency_analyzer.h"
 
 namespace npu {
 namespace tile_fwk {

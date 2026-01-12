@@ -53,7 +53,7 @@ public:
     // 看SRS-2依赖重建
     // 传递结果记录在allIncast上
     // key->component， value: 哪些incast
-    void PropagateExternalDependenciesWithClosure(const std::unorderd_map<int, std::set<int>> &dependencyClosure, 
+    void PropagateExternalDependenciesWithClosure(const std::unordered_map<int, std::set<int>> &dependencyClosure, 
                                                 std::unordered_map<int, std::vector<SimpleTensorParam>> &allIncasts,
                                                 std::unordered_map<int, std::vector<SimpleTensorParam>> &allOutcasts);
     // 5.收集内部依赖(C-C, V-V)
@@ -61,7 +61,7 @@ public:
     // 需要分析同类型的依赖有哪些
     // 最后转成控制边的依赖internalDeps
     // 先识别cube/vector, component先标上
-    void CollectInternalDependencies(const std::unorderd_map<int, std::set<int>> &dependencyClosure,
+    void CollectInternalDependencies(const std::unordered_map<int, std::set<int>> &dependencyClosure,
                                     const std::vector<InternalComponentInfo> &components,
                                     std::vector<InternalDependencyInfo> &internalDeps);
     // 6.消除冗余依赖
@@ -95,7 +95,7 @@ private:
     // 完成闭包信息的初始化处理
     void InitDependencies(std::unordered_map<int, std::set<int>> &dependencies);
     // 使用Warshall算法
-    void WarshallAlgorithm(std::vector<std::vector<int>> &matrix);
+    void WarshallAlgorithm(std::vector<std::vector<bool>> &matrix);
     // 使用Warshall算法更新依赖关系
     void UpdateDependencies(std::unordered_map<int, std::set<int>> &dependencies);
     // 将可达阵退化为最小邻接阵
@@ -103,7 +103,7 @@ private:
     // 判断是否包含对应tensor
     bool ContainsTensor(const std::vector<SimpleTensorParam> &tensors, const LogicalTensorPtr &tensor) const;
     // 构建可达阵的转置（即反向的可达阵）
-    std::vector<std::vector<int>> Transpose(const std::vector<std::vector<bool>> &matrix);
+    std::vector<std::vector<bool>> Transpose(const std::vector<std::vector<bool>> &matrix);
 
     int maxComponent;
 }
