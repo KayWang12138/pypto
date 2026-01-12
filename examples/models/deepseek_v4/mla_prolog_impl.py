@@ -307,8 +307,8 @@ def mla_prolog_v4_compute(x, wq_a, wq_b, wkv, rmsnorm_gamma_cq, rmsnorm_gamma_ck
         pypto.set_semantic_label("q-rmsnorm with weight")
         pypto.set_vec_tile_shapes(8, q_lora_rank)
         qr = rms_norm(q, attrs.eps)
-        gamma_cq_2d = pypto.cast(gamma_cq_2d, pypto.DataType.DT_FP32)
-        qr = pypto.mul(qr, gamma_cq_2d)
+        gamma_cq_2d_fp32 = pypto.cast(gamma_cq_2d, pypto.DataType.DT_FP32)
+        qr = pypto.mul(qr, gamma_cq_2d_fp32)
         qr = pypto.cast(qr, pypto.DataType.DT_BF16)
         pypto.assemble(qr, [tIdx, 0], qr_out)
 
@@ -334,8 +334,8 @@ def mla_prolog_v4_compute(x, wq_a, wq_b, wkv, rmsnorm_gamma_cq, rmsnorm_gamma_ck
         kv = pypto.matmul(x_tile, wkv, pypto.DataType.DT_BF16)
         pypto.set_vec_tile_shapes(4, 64)
         kv_norm = rms_norm(kv, attrs.eps)
-        gamma_ckv_2d = pypto.cast(gamma_ckv_2d, pypto.DataType.DT_FP32)
-        kv_norm = pypto.mul(kv_norm, gamma_ckv_2d)
+        gamma_ckv_2d_fp32 = pypto.cast(gamma_ckv_2d, pypto.DataType.DT_FP32)
+        kv_norm = pypto.mul(kv_norm, gamma_ckv_2d_fp32)
         kv_norm = pypto.cast(kv_norm, pypto.DataType.DT_BF16)
 
         kv_norm_nope = pypto.view(kv_norm, [t_tile, head_dim-rope_dim], [0, 0], valid_shape=[t_tile, head_dim-rope_dim])
