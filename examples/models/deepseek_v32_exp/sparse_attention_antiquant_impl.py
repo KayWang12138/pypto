@@ -258,7 +258,7 @@ def sparse_attention_antiquant_compute(query_nope, query_rope, nope_cache, topk_
         "stitch_function_outcast_memory": 128,
         "device_sched_mode": 3
     },
-    host_options={"only_codegen": True}
+    host_options={"compile_stage": pypto.CompStage.CODEGEN}
 )
 def sparse_attention_antiquant_d(query_nope, query_rope, nope_cache, topk_indices, 
                                             block_table, kv_act_seqs, attention_out, 
@@ -314,7 +314,7 @@ def sparse_attention_antiquant_d(query_nope, query_rope, nope_cache, topk_indice
         "stitch_function_outcast_memory": 32,
         "stitch_function_num_initial": 128
     },
-    host_options={"only_codegen": True}
+    host_options={"compile_stage": pypto.CompStage.CODEGEN}
 )
 def sparse_attention_antiquant_p(query_nope, query_rope, nope_cache, topk_indices, 
                                             block_table, kv_act_seqs, attention_out, 

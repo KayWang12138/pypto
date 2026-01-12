@@ -14,7 +14,7 @@
 ## 函数原型
 
 ```python
-set_host_options(*, compile_stage: int = 0) -> None
+set_host_options(*, compile_stage: CompStage = pypto.CompStage.ALL) -> None
 ```
 
 ## 参数说明
@@ -22,7 +22,7 @@ set_host_options(*, compile_stage: int = 0) -> None
 
 | 参数名          | 输入/输出 | 说明                                                                 |
 |-----------------|-----------|----------------------------------------------------------------------|
-| compile_stage    | 输入      | 含义：控制编译执行的阶段 <br> 说明：<br> 0: 不控制编译执行阶段，完整执行；<br> 1: 生成TensorGraph后，终止执行；<br> 2: 仅完成Host编译，不执行Codegen编译; <br> 3: 执行完Codegen生成kernel代码后，忽略静态的上板流程，终止执行;<br> 类型: int <br> 取值范围: 0或1或2或3 <br> 默认值: 0 |
+| compile_stage    | 输入      | 含义：控制编译执行的阶段 <br> 说明：<br> ALL: 不控制编译执行阶段，完整执行；<br> CODEGEN: 执行完Codegen生成kernel代码后，忽略静态的上板流程，终止后续执行; <br> HOST: 仅完成Host编译，不执行Codegen编译，且终止后续执行; <br> TENSOR: 生成TensorGraph后，终止后续执行；<br> 类型: Enum <br> 取值范围: CompStage (ALL/CODEGEN/HOST/TENSOR) <br> 默认值: ALL |
 
 ## 返回值说明
 
@@ -36,6 +36,6 @@ void：Set方法无返回值。设置操作成功即生效。
 ## 调用示例
 
 ```python
-pypto.set_host_options(compile_stage=0)
+pypto.set_host_options(compile_stage=pypto.CompStage.ALL)
 ```
 
