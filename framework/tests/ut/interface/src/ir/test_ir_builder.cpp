@@ -219,7 +219,7 @@ TEST(IRTEST, TestControlFlow) {
 TEST(IRTEST, TestStaticForLoop) {
     // ===== Module =====
     auto module = std::make_shared<ProgramModule>("main");
-    IRBuilder builder(module);
+    IRBuilder builder;
     IRBuilderContext ctx;
 
     // ===== Signature =====
@@ -236,7 +236,8 @@ TEST(IRTEST, TestStaticForLoop) {
     sig.results.push_back(std::make_shared<ScalarValue>(DataType::INT32));
 
     // ===== Function =====
-    auto func = builder.CreateFunction("test_static_for", FunctionKind::ControlFlow, sig, /*setAsEntry=*/true);
+    auto func = builder.CreateFunction("test_static_for", FunctionKind::ControlFlow, sig);
+    module->AddFunction(func);
     builder.EnterFunctionBody(ctx, func);
 
     // buf = Tile() - create a new tile value for buf
