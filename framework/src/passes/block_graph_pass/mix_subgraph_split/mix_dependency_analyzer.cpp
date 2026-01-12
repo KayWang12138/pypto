@@ -85,7 +85,7 @@ void MixDependencyAnalyzer::WarshallAlgorithm(std::vector<std::vector<bool>> &ma
 
 void MixDependencyAnalyzer::UpdateDependencies(std::unordered_map<int, std::set<int>> &dependencies) {
     size_t n = dependencies.size();
-    std::vector<std::vector<bool>> matrix(n, std::vector<int>(n, false));
+    std::vector<std::vector<bool>> matrix(n, std::vector<bool>(n, false));
     for (const auto& pair : dependencies) {
         int fromId = pair.first;
         for (int toId : pair.second) {
@@ -189,7 +189,7 @@ void MixDependencyAnalyzer::CollectInternalDependencies(const std::unordered_map
                 ALOG_DEBUG_F("Skip self-dependency: component %d -> %d", srcComp, dstComp);
                 continue;    
             }
-            ComponentType dstType = componentTypes[dstComp]
+            ComponentType dstType = components[dstComp].componentType;
             // 只添加同类型scope间的依赖（C-C、V-V）   
             if (srcType == dstType && dstType != ComponentType::UNKNOWN) {
                 // 添加这两个组件间的tensor依赖
@@ -280,7 +280,7 @@ void MixDependencyAnalyzer::EliminateRedundantOuterDeps(const std::vector<std::v
 
 std::vector<std::vector<bool>> MixDependencyAnalyzer::Transpose(const std::vector<std::vector<bool>> &matrix) {
     size_t n = matrix.size();
-    std::vector<std::vector<int>> ret(n, std::vector<int>(n));
+    std::vector<std::vector<bool>> ret(n, std::vector<bool>(n));
     for (size_t i = 0; i < n; ++i) {
         for (size_t j = 0; j < n; ++j) {
             ret[j][i] = matrix[i][j];

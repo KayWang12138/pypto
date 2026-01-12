@@ -35,7 +35,7 @@ struct SimpleTensorParam {
     int opMagic;
     int operandIdx;
 
-    SimpleIncastParam(LogicalTensorPtr t, int magic, int idx)
+    SimpleTensorParam(LogicalTensorPtr t, int magic, int idx)
         : tensor(t), opMagic(magic), operandIdx(idx) {}
 };
 
@@ -106,7 +106,7 @@ private:
     std::vector<std::vector<bool>> Transpose(const std::vector<std::vector<bool>> &matrix);
 
     int maxComponent;
-}
+};
 } // namespace tile_fwk
 } // namespace npu
 

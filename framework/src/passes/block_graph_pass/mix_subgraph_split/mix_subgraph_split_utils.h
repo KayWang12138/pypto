@@ -42,12 +42,13 @@ struct InternalComponentInfo {
     std::vector<Operation*> operations; // 包含的op
     std::string suffix;
     AIVCore aivCore;
+    ComponentType componentType;
     
     InternalComponentInfo(int id, const std::string& suf = "")
-        : internalSubgraphID(id), suffix(suf), aivCore(AIVCore::UNSPECIFIED) {}
+        : internalSubgraphID(id), suffix(suf), aivCore(AIVCore::UNSPECIFIED), componentType(ComponentType::UNKNOWN) {}
         
     InternalComponentInfo(int id, const std::string& suf, AIVCore aiv)
-        : internalSubgraphID(id), suffix(suf), aivCore(aiv) {}
+        : internalSubgraphID(id), suffix(suf), aivCore(aiv), componentType(ComponentType::UNKNOWN) {}
 };
 
 // 内部依赖信息结构
