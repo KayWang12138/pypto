@@ -147,6 +147,43 @@ def matmul(
             "input dim and mat dim must equals, which only support 2-D/3-D/4-D currently"
         )
 
+@op_wrapper
+def matmul(
+    input,
+    input_scale,
+    mat2,
+    mat2_scale,
+    out_dtype,
+    *,
+    a_trans=False,
+    a_scale_trans=False,
+    b_trans=False,
+    b_scale_trans=False,
+    c_matrix_nz=False,
+    extend_params=None
+) -> Tensor:
+    input_dim = input.Dim()
+    mat2_dim = mat2.Dim()
+    check_data_valid(input, mat2, c_matrix_nz)
+    if input_dim == mat2_dim == 2:
+        if (extend_params is None) or (not extend_params):
+            return pypto_impl.MatmulMX(
+                out_dtype, input, input_scale, mat2, mat2_scale, a_trans, a_scale_trans, b_trans, b_scale_trans,
+                c_matrix_nz
+            )
+        else:
+            extend_params = pypto_impl.MatmulExtendParam(
+                **convert_matmul_extend_params(extend_params)
+            )
+            return pypto_impl.MatmulMX(
+                out_dtype, input, input_scale, mat2, mat2_scale, a_trans, a_scale_trans, b_trans, b_scale_trans,
+                c_matrix_nz, extend_params
+            )
+    else:
+        raise RuntimeError(
+            "input dim and mat dim must equals, which only support 2-D/3-D/4-D currently"
+        )
+
 
 def check_data_valid(input_tensor1, input_tensor2, is_out_nz):
     if is_out_nz:
