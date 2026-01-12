@@ -17,6 +17,7 @@
 #include "machine/runtime/device_launcher_binding.h"
 #include "machine/host/backend.h"
 #include "machine/runtime/host_prof.h"
+#include "machine/runtime/perf_analysis.h"
 namespace npu::tile_fwk::dynamic {
 namespace {
     constexpr uint32_t kMinDefaultDim = 20;
@@ -127,11 +128,14 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
         rtStream_t aicpuStream, rtStream_t aicoreStream, bool streamSynchronize, CachedOperator *cachedOperator,
         const DeviceLauncherConfig &config) {
     bool isCapture = false;
-    std::cout << "!!! Kernel Launch " << "\n";
+    //std::cout << "!!! Kernel Launch " << "\n";
     config::SetRunDataOption(KEY_RUNTYPE, "npu");
     if (function != nullptr && function->GetDyndevAttribute() != nullptr) {
         DeviceRunner::SetBinData(function->GetDyndevAttribute()->kernelBinary);
     }
+
+    HOST_PERF_TRACE(TracePhase::RUN_DEV_INIT);
+
     /* 1.Add stream to capture model*/
     int rc = SetCaptureStream(aicoreStream, aicpuStream, isCapture);
     if (rc < 0) {
@@ -142,6 +146,9 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
         ChangeCaptureMode();
     }
     DeviceRunner::Get().SetCaptureFlag(isCapture);
+
+    HOST_PERF_TRACE(TracePhase::RUN_DEV_SET_CAPTURE);
+
     DeviceRunner::Get().GetHostProfInstance().SetProfFunction(function);
     rc = aclInit(nullptr);
     if (rc != 0 && rc != ACL_ERROR_REPEAT_INITIALIZE) {
@@ -157,18 +164,64 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
         }
     }
     CheckDeviceId();
-    AstKernelArgs kArgs;
     DeviceLauncherConfigFillDeviceInfo(config);
-    DeviceInitTilingData(DeviceMemoryUtils(), kArgs, function->GetDyndevAttribute()->devProgBinary, config, cachedOperator);
-    DeviceRunCacheKernelSet(function, (uint8_t *)kArgs.cfgdata);
-    DeviceInitKernelInOuts(DeviceMemoryUtils(), kArgs, inputList, outputList,
-        function->GetDyndevAttribute()->disableL2List, config.isGETensorList);
+
+    HOST_PERF_TRACE(TracePhase::RUN_DEV_ENV_READY);
+
+    // Optimized staged launch: prepare and launch kArgs separately for each stage to improve performance
+    // Step 1: Prepare kArgs for launchDynamicAiCpuInit (only what's needed for Init)
+    AstKernelArgs kArgsInit;
+    PrepareKArgsForAiCpuInit(DeviceMemoryUtils(), kArgsInit, function->GetDyndevAttribute()->devProgBinary, config, cachedOperator);
+    DeviceRunCacheKernelSet(function, (uint8_t *)kArgsInit.cfgdata);
+
+    HOST_PERF_TRACE(TracePhase::RUN_DEV_INIT_TILING_DATA);
+
     rc = DeviceRunner::Get().RegisterKernelBin(&(*reinterpret_cast<rtBinHandle *>(CachedOperator::GetBinHandleHolder(cachedOperator))));
     if (rc < 0) {
         ALOG_ERROR_F("Register kernel bin failed.");
         return rc;
     }
-    rc = DeviceRunner::Get().DynamicLaunch(aicpuStream, nullptr, aicoreStream, 0, &kArgs, config.blockdim, config.aicpuNum);
+
+    HOST_PERF_TRACE(TracePhase::RUN_DEV_REG_KERNEL_BIN);
+
+    // Step 2: Launch Init stage (only needs cfgdata, opMetaAddrs, workspace, toSubMachineConfig, machineConfig)
+    // Init stage doesn't need inputs/outputs, so we can launch it early and prepare inputs/outputs in parallel
+    rc = DeviceRunner::Get().DynamicLaunchInit(aicpuStream, &kArgsInit, config.blockdim, config.aicpuNum);
+    if (rc < 0) {
+        ALOG_ERROR_F("launch aicpu init failed %d\n", rc);
+        return rc;
+    }
+
+    HOST_PERF_TRACE(TracePhase::RUN_DEV_KERNEL_LAUNCH_AICPU_INIT);
+
+    // Step 3: Prepare kArgs for launchDynamicAiCpu (adds inputs/outputs while Init is running)
+    AstKernelArgs kArgsAiCpu = kArgsInit;  // Copy base args from Init
+    PrepareKArgsForAiCpu(DeviceMemoryUtils(), kArgsAiCpu, inputList, outputList,
+        function->GetDyndevAttribute()->disableL2List, config.isGETensorList);
+
+    HOST_PERF_TRACE(TracePhase::RUN_DEV_INIT_INOUT_TENSOR);
+
+    // Step 4: Launch AiCpu stage (needs full kArgs with inputs/outputs)
+    rc = DeviceRunner::Get().DynamicLaunchAiCpu(aicpuStream, &kArgsAiCpu);
+    if (rc < 0) {
+        ALOG_ERROR_F("launch aicpu failed %d\n", rc);
+        return rc;
+    }
+
+    HOST_PERF_TRACE(TracePhase::RUN_DEV_KERNEL_LAUNCH_AICPU_RUN);
+
+    // Step 5: Launch AiCore stage (only needs cfgdata, already prepared in Init)
+    AstKernelArgs kArgsAiCore = kArgsInit;  // Only need cfgdata from Init
+    rc = DeviceRunner::Get().DynamicLaunchAiCore(aicoreStream, &kArgsAiCore, config.blockdim);
+    if (rc < 0) {
+        ALOG_ERROR_F("launch aicore failed %d\n", rc);
+        return rc;
+    }
+
+    HOST_PERF_TRACE(TracePhase::RUN_DEV_KERNEL_LAUNCH_AICORE);
+
+    // Step 6: Run post-sync operations
+    rc = DeviceRunner::Get().RunPost(aicpuStream, aicoreStream);
     if (rc < 0) {
         return rc;
     }
