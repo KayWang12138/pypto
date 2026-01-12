@@ -17,7 +17,7 @@ import os
 
 from enum import Enum
 from . import pypto_impl
-from .converter import _dtype_from, from_torch
+from .converter import _dtype_from, from_torch, _gen_pto_tensor
 
 __all__ = [
     "_device_init",
@@ -38,7 +38,7 @@ class RunMode(Enum):
     SIM = 1
 
 
-class CachedVerifyData:
+class _CachedVerifyData:
 
     def __init__(self):
         self._data = []
@@ -52,7 +52,7 @@ class CachedVerifyData:
     def get_data(self):
         return self._data
 
-_pto_verify_datas = CachedVerifyData()
+_pto_verify_datas = _CachedVerifyData()
 
 
 def _set_device(device: int):
@@ -96,13 +96,26 @@ def _device_run_once_data_from_host(*args):
         _pto_to_tensor_data(in_out_tensors), [])
 
 
+def _compute_tensor_hash(tensors, tensor_data):
+    if (len(tensors) != len(tensor_data)):
+        raise RuntimeError("The number of tensors does not match the number of tensor_data.")
+    hash_list = []
+    for tensor, t_data in zip(tensors, tensor_data):
+        shape = tuple([dim if isinstance(dim, int) else -1 for dim in tensor.shape])
+        real_shape = tuple(t_data.GetShape())
+        dtype = tensor.dtype
+        hash_list.append(tuple([shape, real_shape, dtype]))
+    comupted_hash = tuple(hash_list)
+    return comupted_hash
+
+
 class _JIT:
     def __init__(self, dyn_func, codegen_options=None, host_options=None,
                  pass_options=None, runtime_options=None, verify_options=None, debug_options=None):
         self.dyn_func = dyn_func
         self._is_compiled: bool = False
         self._handler = None
-        self._cached_shapes = None
+        self._handler_cache = {}
         self.codegen_options = codegen_options
         self.host_options = host_options
         self.pass_options = pass_options
@@ -115,10 +128,11 @@ class _JIT:
         in_out_tensors = [item for item in args if isinstance(item, pypto.Tensor)]
 
         if isinstance(self.verify_options, dict) and self.verify_options.get("enable_pass_verify"):
-            verify_inputs = _pto_to_tensor_data(in_out_tensors)
-            if in_out_tensors and in_out_tensors[0].device != "cpu":
-                verify_inputs = [pypto_impl.CopyToHost(t) for t in verify_inputs]
-            pypto_impl.SetVerifyData(verify_inputs, [], _pto_verify_datas.get_data())
+            host_pto_tensors, _ = _gen_pto_tensor(in_out_tensors)
+            host_pto_t_datas = _pto_to_tensor_data(host_pto_tensors)
+            for i, dev_tensor in enumerate(_pto_to_tensor_data(in_out_tensors)):
+                pypto_impl.CopyToHost(dev_tensor, host_pto_t_datas[i])
+            pypto_impl.SetVerifyData(host_pto_t_datas, [], _pto_verify_datas.get_data())
 
         handler = pypto_impl.OperatorBegin()
         with pypto.options("jit_scope"):
@@ -218,16 +232,17 @@ class _JIT:
 
         # Convert tensors to tensor data before compile, as compile turns tensor shapes into symbolic scalars.
         in_out_tensors_data = _pto_to_tensor_data(in_out_tensors)
-        real_shapes = [t.GetShape() for t in in_out_tensors_data]
+        input_hash = _compute_tensor_hash(in_out_tensors, in_out_tensors_data)
 
         self.set_run_mode()
-        if not self._is_compiled or not self._hit_cache(real_shapes):
+        if not self._is_compiled or not self._hit_cache(input_hash):
             self.compile(*args, **kwargs)
-            self._cached_shapes = real_shapes
+            self._handler_cache[input_hash] = self._handler
             pypto_impl.BuildCache(self._handler, in_out_tensors_data, [])
         else:
             pypto_impl.ResetLog()
             self._set_config_option()
+            self._handler = self._handler_cache.get(input_hash)
         # dispatch run mode based on ASCEND_HOME_PATH or run_mode
         '''
           if run_mode is not config, use ASCEND_HOME_PATH
@@ -264,15 +279,10 @@ class _JIT:
         if isinstance(self.debug_options, dict):
             pypto.set_debug_options(**self.debug_options)
 
-    def _hit_cache(self, shapes):
-        if None in [self._handler, self._cached_shapes]:
+    def _hit_cache(self, input_hash):
+        if self._handler is None or len(self._handler_cache) == 0:
             return False
-        if len(shapes) != len(self._cached_shapes):
-            raise RuntimeError("Tensor count mismatch, please check inputs and outputs")
-        for shape1, shape2 in zip(shapes, self._cached_shapes):
-            if shape1 != shape2:
-                return False
-        return True
+        return self._handler_cache.get(input_hash) is not None
 
 
 @overload

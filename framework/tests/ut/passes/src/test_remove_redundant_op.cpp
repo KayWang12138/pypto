@@ -48,6 +48,21 @@ void PrintGraphInfoRemoveRedundantOp(Function* func) {
     }
 }
 
+void SetUpPassStrategy() {
+    PassManager &passManager = PassManager::Instance();
+    passManager.RegisterStrategy(
+        "RemoveRedundantOpTestStrategy", {
+                                             {"RemoveRedundantReshape",  PassName::REMOVE_REDUNDANT_RESHAPE},
+                                             {   "InferMemoryConflict",     PassName::INFER_MEMORY_CONFLICT},
+                                             {        "ExpandFunction",           PassName::EXPAND_FUNCTION},
+                                             {           "DuplicateOp",              PassName::DUPLICATE_OP},
+                                             {     "MergeViewAssemble",       PassName::MERGE_VIEW_ASSEMBLE},
+                                             {      "AssignMemoryType",        PassName::ASSIGN_MEMORY_TYPE},
+                                             {"SplitLargeFanoutTensor", PassName::SPLIT_LARGE_FANOUT_TENSOR},
+                                             {          "SplitReshape",             PassName::SPLIT_RESHAPE},
+    });
+}
+
 class RemoveRedundantOpTest : public testing::Test {
 public:
     static void SetUpTestCase() {}
@@ -59,7 +74,7 @@ public:
         config::Reset();
         config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
         config::SetHostConfig(KEY_STRATEGY, "RemoveRedundantOpTestStrategy");
-        config::SetPlatformConfig("ENABLE_COST_MODEL", false);
+        config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
     }
     void TearDown() override {}
 };
@@ -71,17 +86,7 @@ TEST_F(RemoveRedundantOpTest, TestIntermediateOutcast) {
     int d = 128;
     std::vector<int64_t> shape{bs, n, d};
     std::vector<int64_t> resShape{bs, n, d};
-    PassManager &passManager = PassManager::Instance();
-    passManager.RegisterStrategy("RemoveRedundantOpTestStrategy", {
-    {   "RemoveRedundantReshape",   "RemoveRedundantReshape"},
-    {      "InferMemoryConflict",      "InferMemoryConflict"},
-    {           "ExpandFunction",           "ExpandFunction"},
-    {              "DuplicateOp",              "DuplicateOp"},
-    {        "MergeViewAssemble",        "MergeViewAssemble"},
-    {         "AssignMemoryType",         "AssignMemoryType"},
-    {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor"},
-    {             "SplitReshape",             "SplitReshape"},
-    });
+    SetUpPassStrategy();
     ConfigManager::Instance();
 
     Tensor input(DataType::DT_FP32, shape, "input");
@@ -140,17 +145,7 @@ TEST_F(RemoveRedundantOpTest, TestInternalAssembleView) {
     int d = 128;
     std::vector<int64_t> shape{bs, n, d};
     std::vector<int64_t> resShape{bs, n, d};
-    PassManager &passManager = PassManager::Instance();
-    passManager.RegisterStrategy("RemoveRedundantOpTestStrategy", {
-    {   "RemoveRedundantReshape",   "RemoveRedundantReshape"},
-    {      "InferMemoryConflict",      "InferMemoryConflict"},
-    {           "ExpandFunction",           "ExpandFunction"},
-    {              "DuplicateOp",              "DuplicateOp"},
-    {        "MergeViewAssemble",        "MergeViewAssemble"},
-    {         "AssignMemoryType",         "AssignMemoryType"},
-    {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor"},
-    {             "SplitReshape",             "SplitReshape"},
-    });
+    SetUpPassStrategy();
     ConfigManager::Instance();
 
     Tensor input(DataType::DT_FP32, shape, "input");

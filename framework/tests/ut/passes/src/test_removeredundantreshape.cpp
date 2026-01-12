@@ -53,7 +53,7 @@ public:
         config::Reset();
         config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
         config::SetHostConfig(KEY_STRATEGY, "ExpandFunctionTestStrategy");
-        config::SetPlatformConfig("ENABLE_COST_MODEL", false);
+        config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
     }
     void TearDown() override {}
 };
@@ -281,7 +281,7 @@ TEST_F(TestRemoveRedundantReshapePass, RemoveRedundantReshapeSTest1) {
     EXPECT_EQ(func->Operations().size(), kSizeThirteen);
 
     passManager.RegisterStrategy("RemoveRedundantReshapeTestStrategy", {
-        {   "RemoveRedundantReshape",   "RemoveRedundantReshape"},
+        {"RemoveRedundantReshape", PassName::REMOVE_REDUNDANT_RESHAPE},
     });
     EXPECT_EQ(passManager.RunPass(Program::GetInstance(), *func, "RemoveRedundantReshapeTestStrategy"), SUCCESS);
 

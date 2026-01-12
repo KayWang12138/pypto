@@ -13,10 +13,7 @@
  * \brief
  */
 
-#include "tilefwk/tilefwk.h"
-
 #include <sstream>
-#include <stdexcept>
 #include <iostream>
 #include <fstream>
 #include <unordered_set>
@@ -30,10 +27,7 @@
 #include "interface/function/function.h"
 #include "interface/interpreter/flow_verifier.h"
 #include "interface/machine/host/host_machine.h"
-#include "tilefwk/tilefwk.h"
-#include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
-#include "passes/pass_mgr/pass_manager.h"
 #include "interface/configs/config_manager_ng.h"
 
 namespace npu::tile_fwk {
@@ -167,6 +161,18 @@ void Program::UpdateCompileTask() {
     HostMachine::GetInstance().SubAllStashedTask();
 }
 
+void Program::ClearEmptyHiddenFunction() {
+    std::vector<std::string> funcNames;
+    for (auto &[name, func] : functionmap_) {
+        if (func->IsHiddenFunction() && func->Operations(false).IsEmpty()) {
+            funcNames.push_back(name);
+        }
+    }
+    for (auto &name : funcNames) {
+        functionmap_.erase(name);
+    }
+}
+
 void SetParamConfig(Function* currentFunctionPtr_) {
     std::shared_ptr<ConfigScope> currentScope = ConfigManagerNg::GetInstance().CurrentScope();
     currentFunctionPtr_->paramConfigs_.l1ReuseNum = currentScope->GetPassConfig<int>(CUBE_L1_REUSE_MODE);
@@ -190,7 +196,7 @@ void SetParamConfig(Function* currentFunctionPtr_) {
 
 #if ENABLE_HIDDENLOOP
 void Program::BeginHiddenLoop(Function *func, const FunctionType &funcType, const std::string funcName) {
-    if (func->GetGraphType() == GraphType::TENSOR_GRAPH 
+    if (func->GetGraphType() == GraphType::TENSOR_GRAPH
         && func->GetFunctionType() == funcType
         && !func->IsHiddenFunction()) {
         BeginFunction(funcName, FunctionType::DYNAMIC_LOOP_PATH, GraphType::TENSOR_GRAPH, {}, true);
@@ -198,9 +204,9 @@ void Program::BeginHiddenLoop(Function *func, const FunctionType &funcType, cons
 }
 
 void Program::EndHiddenLoop(Function *func, bool generateCall) {
-    if (func->GetGraphType() == GraphType::TENSOR_GRAPH 
-        && func->GetFunctionType() == FunctionType::DYNAMIC_LOOP_PATH 
-        && func->IsHiddenFunction() 
+    if (func->GetGraphType() == GraphType::TENSOR_GRAPH
+        && func->GetFunctionType() == FunctionType::DYNAMIC_LOOP_PATH
+        && func->IsHiddenFunction()
         && !func->Parent().IsHiddenFunction()) {
         func->Parent().SetHiddenFunction(true);
         EndFunction(func->GetRawName(), generateCall);
@@ -294,7 +300,7 @@ Operation *Program::FinishCurrentFunction(const std::shared_ptr<TensorSlotScope>
 
 // Helper function: Dump tensor graph if needed
 void Program::DumpTensorGraphIfNeeded(Function *result) {
-    if (config::GetPassDefaultConfig("print_graph", false) &&
+    if (config::GetPassDefaultConfig(KEY_PRINT_GRAPH, false) &&
         result->IsGraphType(GraphType::TENSOR_GRAPH)) {
         result->DumpJsonFile(config::LogTensorGraphFolder() + "/" + result->GetRawName() + ".json");
         result->DumpFile(config::LogTensorGraphFolder() + "/" + result->GetRawName() + ".tifwkgr");
@@ -309,7 +315,6 @@ void Program::HandleTaskSubmission(Function *result) {
                 HostMachine::GetInstance().StashTask(result);
             } else {
                 ALOG_INFO("Empty function: ", result->GetRawName(), ", skip stashing and removed");
-                functionmap_.erase(result->GetMagicName());
                 auto &scopes = GetTensorSlotManager()->scopeList;
                 scopes.erase(std::remove_if(scopes.begin(), scopes.end(),
                                  [result](const std::shared_ptr<TensorSlotScope> &scope) {
@@ -436,8 +441,8 @@ void TraverAndDumpParent(Function *func, Json &progDump) {
 Json Program::DumpJson(Function *mainFunc) const {
     Json progDump;
     progDump["version"] = T_VERSION;
-    progDump["pass_thread_num"] = config::GetPassGlobalConfig("pass_thread_num", 1);
-    progDump["enable_cvfuse"] = config::GetPassGlobalConfig("enable_cv_fuse", false);
+    progDump["pass_thread_num"] = config::GetPassGlobalConfig(KEY_PASS_THREAD_NUM, 1);
+    progDump["enable_cvfuse"] = config::GetPassGlobalConfig(KEY_ENABLE_CV_FUSE, false);
     if (mainFunc == nullptr) {
         std::shared_ptr<npu::tile_fwk::Function> dyndevFunc = nullptr;
         std::vector<std::shared_ptr<npu::tile_fwk::Function>> rootFuncs;

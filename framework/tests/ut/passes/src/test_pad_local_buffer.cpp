@@ -43,7 +43,7 @@ public:
         Program::GetInstance().Reset();
         config::Reset();
         config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
-        config::SetPlatformConfig("ENABLE_COST_MODEL", false);
+        config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
     }
     void TearDown() override {
     }
@@ -956,26 +956,28 @@ TEST_F(TestPadLocalBuffer, axiscombine) {
     EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {4,127}, MemoryType::MEM_UB, "t3"), true);
     EXPECT_EQ(graph.AddOp(Opcode::OP_ADD, {"t1","t2"}, {"t3"}, "add", true), true);
     auto *rootFuncPtr = graph.GetFunction();
-    config::SetOperationConfig("COMBINE_AXIS", true);
+    config::SetOperationConfig(KEY_COMBINE_AXIS, true);
     AxisCombine pass;
     EXPECT_EQ(pass.RunOnFunction(*rootFuncPtr), SUCCESS);
     PadLocalBuffer padLocalBufferTest;
     padLocalBufferTest.RunOnFunction(*rootFuncPtr);
     // ================== Verify Pass Effect ==================
-    auto updatedOperations = rootFuncPtr->Operations();
+    auto updatedOps = rootFuncPtr->Operations();
     int64_t cnt = 0;
-    for (const auto &op : updatedOperations) {
+    for (const auto &op : updatedOps) {
         if (op.GetOpcode() == Opcode::OP_BRCB) {
             ++cnt;
-            if (op.HasAttr(OpAttributeKey::brcbIdx)) {
-                auto idx = op.GetIntAttribute(OpAttributeKey::brcbIdx) - 1;
-                auto tensor = op.GetIOperands()[idx];
-                EXPECT_TRUE(tensor != nullptr);
-                EXPECT_EQ(tensor->shape[0], K_4);
-                EXPECT_EQ(tensor->shape[1], K_8);
-                EXPECT_EQ(tensor->GetRawTensor()->GetRawShape()[0], K_8);
-                EXPECT_EQ(tensor->GetRawTensor()->GetRawShape()[1], K_8);
-            }
+            auto outputTensor = op.GetOOperands()[0];
+            EXPECT_TRUE(outputTensor->GetConsumers().size() != 0);
+        }
+        if (op.HasAttr(OpAttributeKey::brcbIdx)) {
+            auto idx = op.GetIntAttribute(OpAttributeKey::brcbIdx) - 1;
+            auto tensor = op.GetIOperands()[idx];
+            EXPECT_TRUE(tensor != nullptr);
+            EXPECT_EQ(tensor->shape[0], K_4);
+            EXPECT_EQ(tensor->shape[1], K_8);
+            EXPECT_EQ(tensor->GetRawTensor()->GetRawShape()[0], K_8);
+            EXPECT_EQ(tensor->GetRawTensor()->GetRawShape()[1], K_8);
         }
     }
     EXPECT_EQ(cnt, K_1);
@@ -989,7 +991,7 @@ TEST_F(TestPadLocalBuffer, axiscombine2) {
     EXPECT_EQ(graph.AddOp(Opcode::OP_DIV, {"t1","t2"}, {"t3"}, "div", true), true);
     EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {32,4,1,1}, MemoryType::MEM_UB, "t4"), true);
     EXPECT_EQ(graph.AddOp(Opcode::OP_RESHAPE, {"t3"}, {"t4"}, "reshape", true), true);
-    config::SetOperationConfig("COMBINE_AXIS", true);
+    config::SetOperationConfig(KEY_COMBINE_AXIS, true);
     auto *rootFuncPtr = graph.GetFunction();
     AxisCombine axisCombineTest;
     EXPECT_EQ(axisCombineTest.RunOnFunction(*rootFuncPtr), SUCCESS);

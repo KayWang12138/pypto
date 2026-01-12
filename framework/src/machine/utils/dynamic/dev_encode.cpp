@@ -36,7 +36,6 @@ using namespace npu::tile_fwk;
 namespace npu::tile_fwk {
 namespace dynamic {
 #define ONFILLCONTENT if (fillContent)
-#define DYN_DEVICE_TASK_EXT_SIZE 0x300
 #ifndef PAGE_SIZE
 #define PAGE_SIZE       4096
 #endif
@@ -47,6 +46,7 @@ constexpr int32_t DEFAULT_CORE_NUM = 75;
 constexpr int32_t SLOTS_NEED_ALLOC_SIZE = 2;
 constexpr int64_t MAX_SHAPE_WARN_THRESHOLE = 512 * 512;
 constexpr int32_t ALLOC_NUM_ONE_SLAB = 4;
+constexpr int64_t DEFAULT_CACHE_DEVICE_TASK_NUM = 10000;
 static constexpr uint64_t GENERAL_METADATA_SIZE_MIN = 4 * MEBI;
 constexpr uint32_t FRIENDLY_CACHE_ALIGN_U64_SIZE = 2; // 友好的cache对齐是2个u64
 
@@ -218,7 +218,7 @@ static int64_t GetShapeSizeSafe(const std::vector<int64_t> &shape) {
 }
 
 static void EncodeRawShape(const SymbolicExpressionTable *expressionTable, DevAscendRawTensor *encoded,
-        std::shared_ptr<RawTensor> rawTensor, bool needIndependentlyAlloc, const std::string rawName = "") {
+        std::shared_ptr<RawTensor> rawTensor, bool needIndependentlyAlloc, const std::string rootName = "") {
     std::vector<SymInt> shape;
     bool isDyn = false;
     for (auto x : rawTensor->GetDynRawShape()) {
@@ -242,7 +242,7 @@ static void EncodeRawShape(const SymbolicExpressionTable *expressionTable, DevAs
     encoded->maxStaticMemReq = AlignUp(nelm * BytesOf(rawTensor->GetDataType()), TENSOR_ADDR_ALIGNMENT);
     if (nelm > MAX_SHAPE_WARN_THRESHOLE) {
         ALOG_WARN_F("Root=[%s], symbol=[%s]: staticMemReq=[%lu] is too larger, which might indicate an error",
-            rawName.c_str(), rawTensor->symbol.c_str(), encoded->maxStaticMemReq);
+            rootName.c_str(), rawTensor->symbol.c_str(), encoded->maxStaticMemReq);
     }
 }
 
@@ -304,7 +304,8 @@ void DevAscendFunction::InitRawTensorAndMemoryRequirement(
             // inplace (basically reshape) need to drop budget
             bool isInplace = param.devRoot->outIncastLinkMap.count(rawTensor);
             isInplace |= rawTensor->actualRawmagic != -1 && rawTensor->actualRawmagic != rawTensor->rawmagic;
-            EncodeRawShape(expressionTable, &encoded, rawTensor, !dropBudget && !isInplace);
+            EncodeRawShape(expressionTable, &encoded, rawTensor, !dropBudget && !isInplace,
+                param.devRoot->GetRawName());
         }
         for (size_t idx = 0; idx < rawList.size(); idx++) {
             const auto &rawTensor = rawList[idx];
@@ -358,27 +359,23 @@ void DevAscendFunction::InitRawTensorAndMemoryRequirement(
 
         for (size_t i = 0; i < rawList.size(); i++) {
             const auto &rawTensor = rawList[i];
-            std::unordered_map<DataType, int> viewTypeTable = {{DT_INT8, 1}, {DT_BF16, 2}, {DT_FP16, 2}, {DT_FP32, 4}};
             if (rawTensor->actualRawmagic != -1 && rawTensor->actualRawmagic != rawTensor->rawmagic) {
                 auto it = rawMagicToRawTensor.find(rawTensor->actualRawmagic);
                 ASSERT(it != rawMagicToRawTensor.end()) << "rawMagic is not found in rawMagicToRawTensor: " <<
                        rawTensor->actualRawmagic;
                 auto &actualRaw = it->second;
-                auto rawTensorRawShape = rawTensor->GetRawShape();
-                bool isDynamicShape = false;
-                for (auto dimShape : rawTensorRawShape) {
-                    if (dimShape < 0) {
-                        isDynamicShape = true;
-                    }
-                }
+                const auto &rawTensorRawShape = rawTensor->GetRawShape();
+                bool isDynamicShape = std::find_if(rawTensorRawShape.begin(), rawTensorRawShape.end(),
+                    [](int64_t dimShape) { return dimShape < 0; }) != rawTensorRawShape.end();
                 if (isDynamicShape) continue;
+
                 auto fromType = rawTensor->datatype;
                 auto toType = actualRaw->datatype;
                 if (fromType != toType) {
-                    auto inEntry = viewTypeTable.find(fromType);
-                    auto outEntry = viewTypeTable.find(toType);
-                    int inSize = inEntry->second;
-                    int outSize = outEntry->second;
+                    int inSize = BytesOf(fromType);
+                    int outSize = BytesOf(toType);
+                    ASSERT(inSize != 0 && outSize != 0) << "Detected zero byte size data type, fromType: "
+                           << static_cast<int>(fromType) << ", toType: " << static_cast<int>(toType);
                     if (inSize > outSize) {
                         ASSERT((rawTensor->GetRawShapeSize() * (inSize / outSize)) == actualRaw->GetRawShapeSize())
                                << "Shape size mismatch: expected " << rawTensor->GetRawShapeSize() * (inSize / outSize)
@@ -848,6 +845,7 @@ struct EncodeDevAscendFunctionInfo {
     uint64_t totalZeroPredAIC{0};
     uint64_t totalZeroPredHub{0};
     uint64_t totalZeroPredAicpu{0};
+    uint32_t hubOpCount{0};
 
     std::unordered_map<Operation *, uint64_t> callOpPredDict;
     std::unordered_map<Operation *, OrderedSet<Operation *>> callOpSuccDict;
@@ -1333,111 +1331,82 @@ struct EncodeDevAscendFunctionInfo {
         }
     }
 
-    EncodeDevAscendFunctionInfo(
-            Function *dyndev,
-            const std::unordered_map<uint64_t, int> &tHashIndexDict,
-            const std::vector<CceCodeInfo> &tCceCodeInfoList,
-            const SymbolicExpressionTable *tExpressionTable,
-            Function *tdevRoot)
-            : devRoot(tdevRoot),
-              calleeHashIndexDict(tHashIndexDict),
-              cceCodeInfoList(tCceCodeInfoList),
-              expressionTable(tExpressionTable) {
-        (void)dyndev;
-        ASSERT(dyndev->GetDyndevAttribute()->rootTileDict.count(devRoot)) << "devRoot: " << devRoot << " not found in rootTileDict of dyndev";
-        devTile = dyndev->GetDyndevAttribute()->rootTileDict[devRoot];
-        if (dyndev->GetDyndevAttribute()->valueDependDescDict.count(devTile)) {
-            valueDependDesc = dyndev->GetDyndevAttribute()->valueDependDescDict[devTile];
-        }
-
-        std::unordered_map<std::shared_ptr<LogicalTensor>, OrderedSet<Operation *>> consumerDict;
-        std::unordered_map<Operation *, int> callopIndexDict;
-
-        rawName = devRoot->GetRawName();
-
-        incastList = devRoot->GetIncast();
-        outcastList = devRoot->GetOutcast();
-
-        incastSet.insert(incastList.begin(), incastList.end());
-        outcastSet.insert(outcastList.begin(), outcastList.end());
-
-        std::vector<Operation *> callopList;
-        for (auto &op : devRoot->Operations()) {
-            if (op.GetOpcode() == Opcode::OP_CALL) {
-                callopIndexDict[&op] = callopList.size();
-                callopList.push_back(&op);
-
-                for (auto &i : op.GetIOperands()) {
-                    tensorList.Insert(i);
-                    RecordRawTensor(i);
-                    consumerDict[i].Insert(&op);
-                }
-                for (auto &j : op.GetOOperands()) {
-                    tensorList.Insert(j);
-                    RecordRawTensor(j);
-                }
+     void AddDependOperandsToColorGraph(std::vector<Operation *> &callopList, std::unordered_map<Operation *, int> &callopIndexDict) {
+        std::unordered_map<std::shared_ptr<LogicalTensor>, OrderedSet<Operation *>> producerDict;
+        for (auto &op : callopList) {
+            for (auto &i : op->GetOOperands()) {
+                producerDict[i].Insert(op);
             }
         }
-        for (auto &op : callopList) {
-            callOpPredDict[op] = 0;
-            callOpSuccDict[op].clear();
-        }
 
-        FunctionCache &cache = Program::GetInstance().GetFunctionCache();
-        std::unordered_map<Operation *, std::unordered_map<Operation *, int>> producerConsumerOOperandIndexDict;
         for (auto &op : callopList) {
-            Function *devLeafFunc = cache.GetCacheFunction(op->GetCalleeHash());
-            std::shared_ptr<LeafFuncAttribute> leafAttr = devLeafFunc != nullptr ? devLeafFunc->GetLeafFuncAttribute() : nullptr;
-
-            for (auto &o : op->GetOOperands()) {
-                for (auto &consumer : consumerDict[o]) {
-                    if (consumer->GetOpcode() != Opcode::OP_CALL) {
-                        // This should be prevented from the above: only call op is considered as consumer
-                        continue;
-                    }
-                    if (op == consumer) {
+            for (auto &o : op->GetDependOperands()) {
+                for (auto &producer : producerDict[o]) {
+                    if (op == producer) {
                         // Consumer and producer can not be the same.
                         continue;
                     }
-                    // Index for callop to its ooperand's consumer callop index list
-                    colorOutGraph[callopIndexDict[op]].push_back(callopIndexDict[consumer]);
-
-                    if (producerConsumerOOperandIndexDict.count(op) && producerConsumerOOperandIndexDict[op].count(consumer)) {
-                        // There might be multiple ooperand of op that is consumed by the same consumer. So when
-                        // it happens, we need to select the ooperand with the biggest counter.
-                        int currIndex = producerConsumerOOperandIndexDict[op][consumer];
-                        int oIndex = op->GetOOperandIndex(o);
-                        if (leafAttr != nullptr && leafAttr->outcastCopyOutResolveCounterList.size() != 0) {
-                            // When there is leaf, and the root is marked as resolve, the leafAttr records the biggest counter.
-                            int currCounter = leafAttr->outcastCopyOutResolveCounterList[currIndex];
-                            int oCounter = leafAttr->outcastCopyOutResolveCounterList[oIndex];
-                            if (oCounter > currCounter) {
-                                producerConsumerOOperandIndexDict[op][consumer] = oIndex;
-                            }
-                        } else {
-                            // Otherwise, we use any, which is the first
-                        }
-                    } else {
-                        producerConsumerOOperandIndexDict[op][consumer] = op->GetOOperandIndex(o);
-                    }
+                    // Index for callop from its depend operand's producer callop index list
+                    colorOutGraph[callopIndexDict[producer]].push_back(callopIndexDict[op]);
                 }
             }
         }
-        for (size_t index = 0; index < callopList.size(); index++) {
-            std::sort(colorOutGraph[index].begin(), colorOutGraph[index].end());
-            // remove repeated index in ooperand's consumer callop index list
-            colorOutGraph[index].resize(std::unique(colorOutGraph[index].begin(), colorOutGraph[index].end()) -
-                                colorOutGraph[index].begin());
+    }
+
+    void EncodeZeroPredCount(std::vector<Operation *>& callopList) {
+        std::unordered_map<Operation *, int> callopCoreTypeDict;
+        for (auto &op : callopList) {
+            auto callOpAttr = std::static_pointer_cast<CallOpAttribute>(op->GetOpAttribute());
+            auto calleeHash = callOpAttr->GetCalleeHash().GetHash();
+            ASSERT(calleeHashIndexDict.count(calleeHash)) << "calleeHash 0x" << std::hex << calleeHash << " is not found in calleeHashIndexDict";
+            int cceIndex = calleeHashIndexDict.find(calleeHash)->second;
+            ASSERT(cceIndex < static_cast<int>(cceCodeInfoList.size())) << "cceIndex " << cceIndex << " exceeds cceCodeInfoList size: " << cceCodeInfoList.size();
+
+            uint32_t coreType = cceCodeInfoList[cceIndex].coreType;
+            ASSERT(coreType == static_cast<uint32_t>(CoreType::AIV) || coreType == static_cast<uint32_t>(CoreType::AIC) ||
+                   coreType == static_cast<uint32_t>(CoreType::HUB) || coreType == static_cast<uint32_t>(CoreType::AICPU)) <<
+                   "invalid coreType " << coreType << " for op " << op;
+            callopCoreTypeDict[op] = coreType;
         }
-        PrintColorGraph(callopList.size());
-        EraseRedundantColorEdges(callopList);
-        PrintColorGraph(callopList.size());
 
-        RemoveDeadHubCall(callopList);
-        ReplaceSuccessorWithHub(callopList, 10); // add dummp op at least 10 depends can be reduced
+        std::sort(callopList.begin(), callopList.end(), [&](Operation *lhs, Operation *rhs) {
+            if (callOpPredDict[lhs] != callOpPredDict[rhs]) {
+                return callOpPredDict[lhs] < callOpPredDict[rhs];
+            }
+            ASSERT(callopCoreTypeDict.count(lhs)) << "lhs operation " << lhs << " is not found in callopCoreTypeDict";
+            ASSERT(callopCoreTypeDict.count(rhs)) << "rhs operation " << rhs << " is not found in callopCoreTypeDict";
+            return callopCoreTypeDict[lhs] < callopCoreTypeDict[rhs];
+        });
 
-        AddDummyCallsAtBeginningAndEnding(callopList);
+        totalZeroPred = callopList.size();
+        for (size_t index = 0; index < callopList.size(); index++) {
+            if (callOpPredDict[callopList[index]] != 0) {
+                totalZeroPred = index;
+                break;
+            }
+        }
+        for (size_t index = totalZeroPred; index < callopList.size(); index++) {
+            ASSERT(callOpPredDict[callopList[index]] != 0) << "callOpPredDict[callopList[" << index << "]] is zero, callopList[" << index <<
+                   "] = " << callopList[index];
+        }
 
+        for (uint32_t index = 0; index < totalZeroPred; index++) {
+            if (callopCoreTypeDict[callopList[index]] == static_cast<uint32_t>(CoreType::AIV)) {
+                totalZeroPredAIV++;
+            } else if (callopCoreTypeDict[callopList[index]] == static_cast<uint32_t>(CoreType::AIC)) {
+                totalZeroPredAIC++;
+            } else if (callopCoreTypeDict[callopList[index]] == static_cast<uint32_t>(CoreType::HUB)) {
+                totalZeroPredHub++;
+            } else if (callopCoreTypeDict[callopList[index]] == static_cast<uint32_t>(CoreType::AICPU)) {
+                totalZeroPredAicpu++;
+            } else {
+                ASSERT(false) << "Invalid coreType for callopList[" << index << "], op : " << callopList[index];
+            }
+        }
+    }
+
+    void EncodeCopyOutReslove(std::unordered_map<Operation *, std::unordered_map<Operation *, int>>& producerConsumerOOperandIndexDict) {
+        FunctionCache &cache = Program::GetInstance().GetFunctionCache();
         for (auto &[callop, succSet] : callOpSuccDict) {
             Function *devLeafFunc = cache.GetCacheFunction(callop->GetCalleeHash());
             if (devLeafFunc == nullptr) {
@@ -1489,56 +1458,130 @@ struct EncodeDevAscendFunctionInfo {
 
             copyOutResolveSuccIndexListDict[callop] = copyOutResolveSuccIndexList;
         }
+    }
 
-        std::unordered_map<Operation *, int> callopCoreTypeDict;
-        for (auto &op : callopList) {
-            auto callOpAttr = std::static_pointer_cast<CallOpAttribute>(op->GetOpAttribute());
-            auto calleeHash = callOpAttr->GetCalleeHash().GetHash();
-            ASSERT(calleeHashIndexDict.count(calleeHash)) << "calleeHash 0x" << std::hex << calleeHash << " is not found in calleeHashIndexDict";
-            int cceIndex = calleeHashIndexDict.find(calleeHash)->second;
-            ASSERT(cceIndex < static_cast<int>(cceCodeInfoList.size())) << "cceIndex " << cceIndex << " exceeds cceCodeInfoList size: " << cceCodeInfoList.size();
-
-            uint32_t coreType = cceCodeInfoList[cceIndex].coreType;
-            ASSERT(coreType == static_cast<uint32_t>(CoreType::AIV) || coreType == static_cast<uint32_t>(CoreType::AIC) ||
-                   coreType == static_cast<uint32_t>(CoreType::HUB) || coreType == static_cast<uint32_t>(CoreType::AICPU)) <<
-                   "invalid coreType " << coreType << " for op " << op;
-            callopCoreTypeDict[op] = coreType;
-        }
-
-        std::sort(callopList.begin(), callopList.end(), [&](Operation *lhs, Operation *rhs) {
-            if (callOpPredDict[lhs] != callOpPredDict[rhs]) {
-                return callOpPredDict[lhs] < callOpPredDict[rhs];
-            }
-            ASSERT(callopCoreTypeDict.count(lhs)) << "lhs operation " << lhs << " is not found in callopCoreTypeDict";
-            ASSERT(callopCoreTypeDict.count(rhs)) << "rhs operation " << rhs << " is not found in callopCoreTypeDict";
-            return callopCoreTypeDict[lhs] < callopCoreTypeDict[rhs];
-        });
-
-        totalZeroPred = callopList.size();
-        for (size_t index = 0; index < callopList.size(); index++) {
-            if (callOpPredDict[callopList[index]] != 0) {
-                totalZeroPred = index;
-                break;
-            }
-        }
-        for (size_t index = totalZeroPred; index < callopList.size(); index++) {
-            ASSERT(callOpPredDict[callopList[index]] != 0) << "callOpPredDict[callopList[" << index << "]] is zero, callopList[" << index <<
-                   "] = " << callopList[index];
-        }
-
-        for (uint32_t index = 0; index < totalZeroPred; index++) {
-            if (callopCoreTypeDict[callopList[index]] == static_cast<uint32_t>(CoreType::AIV)) {
-                totalZeroPredAIV++;
-            } else if (callopCoreTypeDict[callopList[index]] == static_cast<uint32_t>(CoreType::AIC)) {
-                totalZeroPredAIC++;
-            } else if (callopCoreTypeDict[callopList[index]] == static_cast<uint32_t>(CoreType::HUB)) {
-                totalZeroPredHub++;
-            } else if (callopCoreTypeDict[callopList[index]] == static_cast<uint32_t>(CoreType::AICPU)) {
-                totalZeroPredAicpu++;
+    void InsertProducerConsmerOOperandIndexDict(std::shared_ptr<LeafFuncAttribute> leafAttr, Operation *op, Operation *consumer, std::shared_ptr<LogicalTensor> o,
+        std::unordered_map<Operation *, std::unordered_map<Operation *, int>>& producerConsumerOOperandIndexDict) {
+            if (producerConsumerOOperandIndexDict.count(op) && producerConsumerOOperandIndexDict[op].count(consumer)) {
+                // There might be multiple ooperand of op that is consumed by the same consumer. So when
+                // it happens, we need to select the ooperand with the biggest counter.
+                int currIndex = producerConsumerOOperandIndexDict[op][consumer];
+                int oIndex = op->GetOOperandIndex(o);
+                if (leafAttr != nullptr && leafAttr->outcastCopyOutResolveCounterList.size() != 0) {
+                    // When there is leaf, and the root is marked as resolve, the leafAttr records the biggest counter.
+                    int currCounter = leafAttr->outcastCopyOutResolveCounterList[currIndex];
+                    int oCounter = leafAttr->outcastCopyOutResolveCounterList[oIndex];
+                    if (oCounter > currCounter) {
+                        producerConsumerOOperandIndexDict[op][consumer] = oIndex;
+                    }
+                } else {
+                    // Otherwise, we use any, which is the first
+                }
             } else {
-                ASSERT(false) << "Invalid coreType for callopList[" << index << "], op : " << callopList[index];
+                producerConsumerOOperandIndexDict[op][consumer] = op->GetOOperandIndex(o);
+            }
+    }
+
+    void BuildColorOutGraphAndProducerConsumerOOperandDict(std::vector<Operation *>& callopList,
+        std::unordered_map<std::shared_ptr<LogicalTensor>, OrderedSet<Operation *>>& consumerDict,
+        std::unordered_map<Operation *, int>& callopIndexDict,
+        std::unordered_map<Operation *, std::unordered_map<Operation *, int>>& producerConsumerOOperandIndexDict) {
+        FunctionCache &cache = Program::GetInstance().GetFunctionCache();
+        for (auto &op : callopList) {
+            Function *devLeafFunc = cache.GetCacheFunction(op->GetCalleeHash());
+            std::shared_ptr<LeafFuncAttribute> leafAttr = devLeafFunc != nullptr ? devLeafFunc->GetLeafFuncAttribute() : nullptr;
+
+            for (auto &o : op->GetOOperands()) {
+                for (auto &consumer : consumerDict[o]) {
+                    if (consumer->GetOpcode() != Opcode::OP_CALL) {
+                        // This should be prevented from the above: only call op is considered as consumer
+                        continue;
+                    }
+                    if (op == consumer) {
+                        // Consumer and producer can not be the same.
+                        continue;
+                    }
+                    // Index for callop to its ooperand's consumer callop index list
+                    colorOutGraph[callopIndexDict[op]].push_back(callopIndexDict[consumer]);
+                    InsertProducerConsmerOOperandIndexDict(leafAttr, op, consumer, o, producerConsumerOOperandIndexDict);
+                }
             }
         }
+        AddDependOperandsToColorGraph(callopList, callopIndexDict);
+        for (size_t idx = 0; idx < callopList.size(); idx++) {
+            std::sort(colorOutGraph[idx].begin(), colorOutGraph[idx].end());
+            // remove repeated idx in ooperand's consumer callop idx list
+            colorOutGraph[idx].resize(std::unique(colorOutGraph[idx].begin(), colorOutGraph[idx].end()) -
+                                colorOutGraph[idx].begin());
+        }
+    }
+
+    void BuildCallopList(std::vector<Operation *>& callopList, std::unordered_map<Operation *, int>& callopIndexDict,
+        std::unordered_map<std::shared_ptr<LogicalTensor>, OrderedSet<Operation *>>& consumerDict) {
+        for (auto &op : devRoot->Operations()) {
+            if (op.GetOpcode() == Opcode::OP_CALL) {
+                callopIndexDict[&op] = callopList.size();
+                callopList.push_back(&op);
+
+                for (auto &i : op.GetIOperands()) {
+                    tensorList.Insert(i);
+                    RecordRawTensor(i);
+                    consumerDict[i].Insert(&op);
+                }
+                for (auto &o : op.GetOOperands()) {
+                    tensorList.Insert(o);
+                    RecordRawTensor(o);
+                }
+            }
+        }
+        for (auto &op : callopList) {
+            callOpPredDict[op] = 0;
+            callOpSuccDict[op].clear();
+        }
+    }
+
+    EncodeDevAscendFunctionInfo(
+            Function *dyndev,
+            const std::unordered_map<uint64_t, int> &tHashIndexDict,
+            const std::vector<CceCodeInfo> &tCceCodeInfoList,
+            const SymbolicExpressionTable *tExpressionTable,
+            Function *tdevRoot)
+            : devRoot(tdevRoot),
+              calleeHashIndexDict(tHashIndexDict),
+              cceCodeInfoList(tCceCodeInfoList),
+              expressionTable(tExpressionTable) {
+        (void)dyndev;
+        ASSERT(dyndev->GetDyndevAttribute()->rootTileDict.count(devRoot)) << "devRoot: " << devRoot << " not found in rootTileDict of dyndev";
+        devTile = dyndev->GetDyndevAttribute()->rootTileDict[devRoot];
+        if (dyndev->GetDyndevAttribute()->valueDependDescDict.count(devTile)) {
+            valueDependDesc = dyndev->GetDyndevAttribute()->valueDependDescDict[devTile];
+        }
+
+        std::unordered_map<std::shared_ptr<LogicalTensor>, OrderedSet<Operation *>> consumerDict;
+        std::unordered_map<Operation *, int> callopIndexDict;
+        std::vector<Operation *> callopList;
+        std::unordered_map<Operation *, std::unordered_map<Operation *, int>> producerConsumerOOperandIndexDict;
+
+        rawName = devRoot->GetRawName();
+        incastList = devRoot->GetIncast();
+        outcastList = devRoot->GetOutcast();
+        incastSet.insert(incastList.begin(), incastList.end());
+        outcastSet.insert(outcastList.begin(), outcastList.end());
+
+        BuildCallopList(callopList, callopIndexDict, consumerDict);
+        BuildColorOutGraphAndProducerConsumerOOperandDict(callopList, consumerDict, callopIndexDict, producerConsumerOOperandIndexDict);
+
+        PrintColorGraph(callopList.size());
+        EraseRedundantColorEdges(callopList);
+        PrintColorGraph(callopList.size());
+
+        RemoveDeadHubCall(callopList);
+        ReplaceSuccessorWithHub(callopList, 10); // add dummp op at least 10 depends can be reduced
+
+        AddDummyCallsAtBeginningAndEnding(callopList);
+
+        EncodeCopyOutReslove(producerConsumerOOperandIndexDict);
+        EncodeZeroPredCount(callopList);
 
         for (auto &op : callopList) {
             callList.Insert(op);
@@ -1552,6 +1595,10 @@ struct EncodeDevAscendFunctionInfo {
             if (!copyOutResolveSuccIndexListDict.count(op)) {
                 copyOutResolveSuccIndexListDict[op] = std::vector<int>({0});
             }
+
+            if (GetCoreType(op) == static_cast<int>(CoreType::HUB)) {
+                hubOpCount++;
+            }
         }
     }
 
@@ -1562,6 +1609,7 @@ struct EncodeDevAscendFunctionInfo {
         devFunc->sourceFunc = nullptr;
         devFunc->getInputDataCount = valueDependDesc.getInputDataCount;
         devFunc->getTensorDataCount = valueDependDesc.getTensorDataCount;
+        devFunc->hubOpCount_ = hubOpCount;
         devFunc->InitIncastOutcastAttr(initOffset, incastList, outcastList, fillContent);
         devFunc->InitOperationDynamicField(initOffset, predInfo, outcastStitchCount, calleeHashIndexDict,
             expressionTable, callList, incastList, outcastList, callOpSuccDict, fillContent);
@@ -1849,10 +1897,6 @@ void DevAscendProgram::InitControlFlowCache(
         bool fillContent) {
     (void)fillContent;
 
-    uint64_t leafElementCount = config::GetRuntimeOption<int64_t>(CFGCACHE_LEAF_TASK_NUM);
-    uint64_t rootElementCount = config::GetRuntimeOption<int64_t>(CFGCACHE_ROOT_TASK_NUM);
-    uint64_t deviceElementCount = config::GetRuntimeOption<int64_t>(CFGCACHE_DEVICE_TASK_NUM);
-
     uint64_t maxDuppedDataAllocSize = 0;
     uint64_t maxIncastOutcastCount = 0;
     for (size_t index = 0; index < dyndevAttr->devEncodeList.size(); index++) {
@@ -1867,25 +1911,7 @@ void DevAscendProgram::InitControlFlowCache(
             maxIncastOutcastCount = incastOutcastCount;
         }
     }
-    ControlFlowCacheFactor factorList[] = {
-        {"actualDupped",        0, maxDuppedDataAllocSize, 0},
-        {"actualDeviceTask",    sizeof(DynDeviceTaskBase) + DYN_DEVICE_TASK_EXT_SIZE, 0, 0},
-        {"actualStitch",        0, 0, sizeof(DevAscendFunctionDuppedStitch)},
-        {"actualDynFuncData",   sizeof(DynFuncHeader), sizeof(DynFuncData), 0},
-        {"actualReadyQueue",    sizeof(ReadyCoreFunctionQueue) * READY_QUEUE_SIZE, 0, sizeof(taskid_t) * READY_QUEUE_SIZE},
-        {"backupPredCount",     0, 0, sizeof(predcount_t)},
-        {"backupReadyQueue",    sizeof(ReadyQueueCache), 0, sizeof(taskid_t) * READY_QUEUE_SIZE},
-        {"backupIncastOutcast", 0, sizeof(uint64_t) * maxIncastOutcastCount, 0},
-    };
-    uint64_t deviceTotalFactor = 0;
-    uint64_t rootTotalFactor = 0;
-    uint64_t leafTotalFactor = 0;
-    for (auto &factor : factorList) {
-        deviceTotalFactor += factor.deviceElementFactor;
-        rootTotalFactor += factor.rootElementFactor;
-        leafTotalFactor += factor.leafElementFactor;
-    }
-    uint64_t totalSize = deviceTotalFactor * deviceElementCount + rootTotalFactor * rootElementCount + leafTotalFactor * leafElementCount;
+    uint64_t totalSize = config::GetRuntimeOption<int64_t>(STITCH_CFGCACHE_SIZE);
 
     initOffset = ALIGN_UP(initOffset, alignof(DevTensorData));
     controlFlowCache.inputTensorDataList.HostInitDataSizeOffset(initOffset, dyndevAttr->startArgsInputTensorList.size());
@@ -1895,10 +1921,10 @@ void DevAscendProgram::InitControlFlowCache(
     controlFlowCache.runtimeBackup.workspace.tensorAllocators.slottedOutcastsBlockList.HostInitDataSizeOffset(initOffset, slottedCount);
 
     controlFlowCache.runtimeBackup.slotContext.slotList.HostInitDataSizeOffset(initOffset, slotSize);
-    controlFlowCache.runtimeBackup.slotContext.slotRefCntList.HostInitDataSizeOffset(initOffset, slotSize);
+    controlFlowCache.runtimeBackup.workspace.runtimeOutcastTensorPool.HostInitDataSizeOffset(initOffset, runtimeOutcastPoolSize);
 
     initOffset = ALIGN_UP(initOffset, alignof(DynFuncHeader *));
-    controlFlowCache.deviceTaskCacheList.HostInitDataSizeOffset(initOffset, config::GetRuntimeOption<int64_t>(CFGCACHE_DEVICE_TASK_NUM));
+    controlFlowCache.deviceTaskCacheList.HostInitDataSizeOffset(initOffset, DEFAULT_CACHE_DEVICE_TASK_NUM);//10000
     controlFlowCache.cacheData.HostInitDataSizeOffset(initOffset, totalSize);
     controlFlowCache.isRecording = false;
     controlFlowCache.isRecordingStopped= false;
@@ -1923,6 +1949,7 @@ struct EncodeDevAscendProgramInfo {
     void Init(DevAscendProgram *devProg, bool fillContent) {
         uintdevptr_t initOffset = reinterpret_cast<uintdevptr_t>(devProg->data);
         devProg->slotSize = dyndevAttr->inoutLink.totalSlot;
+        devProg->runtimeOutcastPoolSize = dyndevAttr->inoutLink.totalSlot * (MAX_CACHED_FUNC_NUM + 1);
         devProg->assembleSlotSize = dyndevAttr->inoutLink.assembleSlotIndexList.size();
         devProg->InitSymbolTable(initOffset, &dyndevAttr->symbolTable, fillContent);
         devProg->InitExpressionTableBinary(initOffset, dyndevAttr->expressionTableBinaryList, fillContent);
@@ -1975,6 +2002,8 @@ struct TensorWorkspaceResult {
     uint64_t devTaskBoundaryOutcastNum{0};
     uint64_t perCoreSpilledMem{0};
     SymbolicScalar maxDynamicAssembleOutcastMem;
+    uint64_t totalExclusiveOutcastSlot{0};
+    uint64_t totalAssembleOutcastSlot{0};
 };
 
 struct SlotInfo {
@@ -2106,75 +2135,102 @@ static SymbolicScalar GetDynRawTensorSize(Function *dynFunc, int funcKey, int id
     return size;
 }
 
-static TensorWorkspaceResult CalcTensorWorkspace(Function *func,DevAscendProgram &devProg) {
+// Helper: process assemble outcast branch for a single outcast
+static void ProcessAssembleOutcast(Function *func, DevAscendFunction *devFunc, size_t outIdx, std::vector<SlotInfo> &slots,
+                                   uint64_t staticMemReq) {
+    SymbolicScalar dynMemReq;
+    // memoryRequirement == 0 means dynamic memory requirement
+    if (devFunc->GetOutcastRawTensor(outIdx)->memoryRequirement == 0) {
+        dynMemReq = GetDynRawTensorSize(func, devFunc->funcKey, outIdx);
+    }
+    auto &toSlotList = devFunc->GetOutcast(outIdx).toSlotList;
+    for (size_t j = 0; j < toSlotList.size(); j++) {
+        int slotIdx = devFunc->At(toSlotList, j);
+        if (dynMemReq.IsValid() || slots[slotIdx].dynMemReq.IsValid()) {
+            if (!dynMemReq.IsValid()) {
+                dynMemReq = staticMemReq;
+            }
+            if (!slots[slotIdx].dynMemReq.IsValid()) {
+                slots[slotIdx].dynMemReq = slots[slotIdx].maxAssembleDstMemReq;
+                slots[slotIdx].maxAssembleDstMemReq = 0;
+            }
+            slots[slotIdx].dynMemReq = std::max(dynMemReq, slots[slotIdx].dynMemReq);
+        } else {
+            slots[slotIdx].maxAssembleDstMemReq = std::max(slots[slotIdx].maxAssembleDstMemReq, staticMemReq);
+        }
+    }
+}
+
+// Helper: process exclusive outcast branch for a single outcast
+static void ProcessExclusiveOutcast(DevAscendFunction *devFunc, size_t outIdx, std::vector<SlotInfo> &slots) {
+    auto &toSlotList = devFunc->GetOutcast(outIdx).toSlotList;
+    for (size_t j = 0; j < toSlotList.size(); j++) {
+        int slotIdx = devFunc->At(toSlotList, j);
+        // No output slot
+        slots[slotIdx].asWriteSlot = true;
+    }
+}
+
+// Helper: process a single DevAscendFunction's outcasts and update slot/memory accumulators
+static void ProcessDevFunctionOutcasts(Function *func, DevAscendFunction *devFunc, std::vector<SlotInfo> &slots,
+                                       uint64_t &maxExclusiveOutcastMem, uint64_t &maxRootInnerMem,
+                                       uint64_t &maxDevTaskInnerExclusiveOutcastMem, uint64_t &maxPerCoreSpilledMem) {
+    for (size_t i = 0; i < devFunc->GetOutcastSize(); i++) {
+        if (IsInputOutputSlot(slots, devFunc, i)) {
+            continue;
+        }
+
+        // maxStaticMemReq could be 0 when no need of independent allocation
+        uint64_t staticMemReq = devFunc->GetOutcastRawTensor(i)->maxStaticMemReq;
+        if (IsAssembleSlot(slots, devFunc, i)) {
+            ProcessAssembleOutcast(func, devFunc, i, slots, staticMemReq);
+        } else {
+            ProcessExclusiveOutcast(devFunc, i, slots);
+            maxExclusiveOutcastMem = std::max(maxExclusiveOutcastMem, staticMemReq);
+        }
+    }
+
+    int unroll = ParseUnrollTimes(devFunc->GetRawName());
+    uint64_t funcRootInnerMem = CalcUnrolledRootBudget(
+        devFunc->rootInnerTensorWsMemoryRequirement, unroll, WorkspaceRecyclePeriod());
+    uint64_t funcDevTaskInnerExclusiveOutcastMem = CalcUnrolledRootBudget(
+        devFunc->exclusiveOutcastWsMemoryRequirement, unroll, EstimatedStitchingCount());
+
+    maxRootInnerMem = std::max(maxRootInnerMem, funcRootInnerMem);
+    maxDevTaskInnerExclusiveOutcastMem = std::max(maxDevTaskInnerExclusiveOutcastMem, funcDevTaskInnerExclusiveOutcastMem);
+    maxPerCoreSpilledMem = std::max(maxPerCoreSpilledMem, static_cast<uint64_t>(devFunc->stackWorkSpaceSize));
+}
+
+// Helper: compute assemble-outcast memory aggregates from slots
+static std::pair<uint64_t, SymbolicScalar> ComputeAssembleOutcastMem(const std::vector<SlotInfo> &slots) {
+    uint64_t maxStaticAssembleOutcastMem = std::accumulate(slots.begin(), slots.end(), UINT64_C(0),
+        [](uint64_t acc, const SlotInfo &slot) {
+            return std::max(acc, (slot.kindSet.Count(RuntimeSlotKind::ASSEMBLE_OUTCAST) ? slot.maxAssembleDstMemReq : 0));
+        });
+
+    SymbolicScalar maxDynamicAssembleOutcastMem = std::accumulate(slots.begin(), slots.end(),
+        SymbolicScalar(0), [](SymbolicScalar acc, const SlotInfo &slot) {
+            return std::max(acc, slot.dynMemReq.IsValid() ? slot.dynMemReq : SymbolicScalar(0));
+        });
+
+    return {maxStaticAssembleOutcastMem, maxDynamicAssembleOutcastMem};
+}
+
+static TensorWorkspaceResult CalcTensorWorkspace(Function *func, DevAscendProgram &devProg) {
     std::vector<SlotInfo> slots = MarkInputOutputAssembleSlots(devProg);
 
     uint64_t maxRootInnerMem = 0;
     uint64_t maxDevTaskInnerExclusiveOutcastMem = 0;
     uint64_t maxExclusiveOutcastMem = 0;
     uint64_t maxPerCoreSpilledMem = 0;
+
     for (auto &&devEncodeData : devProg.devEncodeList) {
         DevAscendFunction *devFunc = reinterpret_cast<DevAscendFunction *>(devEncodeData.Data());
-        for (size_t i = 0; i < devFunc->GetOutcastSize(); i++) {
-            if (IsInputOutputSlot(slots, devFunc, i)) {
-                continue;
-            }
-
-            auto &toSlotList = devFunc->GetOutcast(i).toSlotList;
-            if (IsAssembleSlot(slots, devFunc, i)) {
-                SymbolicScalar dynMemReq;
-                auto staticMemReq = devFunc->GetOutcastRawTensor(i)->maxStaticMemReq;
-                if (staticMemReq == 0) {
-                    dynMemReq = GetDynRawTensorSize(func, devFunc->funcKey, i);
-                }
-                for (size_t j = 0; j < toSlotList.size(); j++) {
-                    int slotIdx = devFunc->At(toSlotList, j);
-                    if (dynMemReq.IsValid() || slots[slotIdx].dynMemReq.IsValid()) {
-                        if (!dynMemReq.IsValid()) {
-                            dynMemReq = staticMemReq;
-                        }
-                        if (!slots[slotIdx].dynMemReq.IsValid()) {
-                            slots[slotIdx].dynMemReq = slots[slotIdx].maxAssembleDstMemReq;
-                            slots[slotIdx].maxAssembleDstMemReq = 0;
-                        }
-                        slots[slotIdx].dynMemReq = std::max(dynMemReq, slots[slotIdx].dynMemReq);
-                    } else {
-                        slots[slotIdx].maxAssembleDstMemReq = std::max(
-                            slots[slotIdx].maxAssembleDstMemReq,
-                            devFunc->GetOutcastRawTensor(i)->maxStaticMemReq);
-                    }
-                }
-            } else {
-                for (size_t j = 0; j < toSlotList.size(); j++) {
-                    int slotIdx = devFunc->At(toSlotList, j);
-                    // No output slot
-                    slots[slotIdx].asWriteSlot = true;
-                }
-                maxExclusiveOutcastMem = std::max(
-                    maxExclusiveOutcastMem,
-                    devFunc->GetOutcastRawTensor(i)->maxStaticMemReq);
-            }
-        }
-
-        int unroll = ParseUnrollTimes(devFunc->GetRawName());
-        uint64_t funcRootInnerMem = CalcUnrolledRootBudget(
-            devFunc->rootInnerTensorWsMemoryRequirement, unroll, WorkspaceRecyclePeriod());
-        uint64_t funcDevTaskInnerExclusiveOutcastMem = CalcUnrolledRootBudget(
-            devFunc->exclusiveOutcastWsMemoryRequirement, unroll, EstimatedStitchingCount());
-
-        maxRootInnerMem = std::max(maxRootInnerMem, funcRootInnerMem);
-        maxDevTaskInnerExclusiveOutcastMem = std::max(maxDevTaskInnerExclusiveOutcastMem, funcDevTaskInnerExclusiveOutcastMem);
-        maxPerCoreSpilledMem = std::max(maxPerCoreSpilledMem, static_cast<uint64_t>(devFunc->stackWorkSpaceSize));
+        ProcessDevFunctionOutcasts(func, devFunc, slots, maxExclusiveOutcastMem, maxRootInnerMem,
+                                   maxDevTaskInnerExclusiveOutcastMem, maxPerCoreSpilledMem);
     }
 
-    uint64_t maxStaticAssembleOutcastMem = std::accumulate(slots.begin(), slots.end(), UINT64_C(0),
-        [](uint64_t acc, const SlotInfo &slot) {
-            return std::max(acc, (slot.kindSet.Count(RuntimeSlotKind::ASSEMBLE_OUTCAST) ? slot.maxAssembleDstMemReq : 0));
-        });
-    SymbolicScalar maxDynamicAssembleOutcastMem = std::accumulate(slots.begin(), slots.end(),
-        SymbolicScalar(0), [](SymbolicScalar acc, const SlotInfo &slot) {
-            return std::max(acc, slot.dynMemReq.IsValid() ? slot.dynMemReq : SymbolicScalar(0));
-        });
+    auto [maxStaticAssembleOutcastMem, maxDynamicAssembleOutcastMem] = ComputeAssembleOutcastMem(slots);
 
     TensorWorkspaceResult res;
     res.maxStaticOutcastMem = std::max(maxExclusiveOutcastMem, maxStaticAssembleOutcastMem);
@@ -2182,14 +2238,14 @@ static TensorWorkspaceResult CalcTensorWorkspace(Function *func,DevAscendProgram
     res.devTaskInnerExclusiveOutcastMem = maxDevTaskInnerExclusiveOutcastMem;
     res.maxDynamicAssembleOutcastMem = maxDynamicAssembleOutcastMem;
 
-    size_t totalExclusiveOutcastSlot = std::count_if(slots.begin(), slots.end(), [](const SlotInfo &slot) {
+    res.totalExclusiveOutcastSlot = std::count_if(slots.begin(), slots.end(), [](const SlotInfo &slot) {
         return slot.kindSet.Count(RuntimeSlotKind::EXCLUSIVE_OUTCAST);
     });
-    size_t totalAssembleOutcastSlot = std::count_if(slots.begin(), slots.end(), [](const SlotInfo &slot) {
+    res.totalAssembleOutcastSlot = std::count_if(slots.begin(), slots.end(), [](const SlotInfo &slot) {
         return slot.kindSet.Count(RuntimeSlotKind::ASSEMBLE_OUTCAST);
     });
-    res.devTaskBoundaryOutcastNum = totalExclusiveOutcastSlot * SLOTS_NEED_ALLOC_SIZE +
-        totalAssembleOutcastSlot * std::min(EstimatedStitchingCount(), (int)MAX_CACHED_FUNC_NUM);
+    res.devTaskBoundaryOutcastNum = res.totalExclusiveOutcastSlot * SLOTS_NEED_ALLOC_SIZE +
+        res.totalAssembleOutcastSlot * std::min(EstimatedStitchingCount(), (int)MAX_CACHED_FUNC_NUM);
 
     res.perCoreSpilledMem = AlignUp(maxPerCoreSpilledMem, TENSOR_ADDR_ALIGNMENT);
 
@@ -2260,6 +2316,8 @@ void EncodeDevAscendProgram(Function *func, uint64_t &offset, DevAscendProgram *
 
         // Calc workspace size
         TensorWorkspaceResult tensorWsRes = CalcTensorWorkspace(func, *base);
+
+        base->slottableOutcastSlotSize = tensorWsRes.totalExclusiveOutcastSlot + tensorWsRes.totalAssembleOutcastSlot;
 
         base->memBudget.tensor.rootInner = tensorWsRes.rootInnerMem;
         base->memBudget.tensor.devTaskInnerExclusiveOutcasts = tensorWsRes.devTaskInnerExclusiveOutcastMem;

@@ -184,9 +184,7 @@ def process_main_loop_interation(
     runtime_options={"stitch_function_num_initial": 128,
     "stitch_function_outcast_memory": 128,
     "stitch_function_inner_memory": 128,
-    "cfgcache_device_task_num": 100,
-    "cfgcache_root_task_num": 1000,
-    "cfgcache_leaf_task_num": 10000},
+    "stitch_cfgcache_size": 2500000},
     host_options={"only_codegen": True},
 )
 def select_experts_kernel(logits_input, e_score_bias_input, weight_k, ids_k,
@@ -299,7 +297,6 @@ def test_select_experts():
         with torch.npu.graph(g):
             select_experts_kernel(*pto_inputs, *pto_outputs, renormalize, topk_group, num_expert_group)
         g.replay()
-        pypto.runtime._device_synchronize()#内部接口，不推荐使用
 
         # 5. 与PyTorch参考实现对比
         router_logits_fp32 = router_logits.to(torch.float)
@@ -409,7 +406,6 @@ def select_experts(router_logits: torch.Tensor,
     pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
     pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
     select_experts_kernel(*pto_inputs, *pto_outputs, renormalize, topk_group, num_expert_group)
-    pypto.runtime._device_synchronize()#内部接口，不推荐使用
 
 
 def main():
