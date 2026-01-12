@@ -35,6 +35,18 @@ enum class FunctionKind {
 // Signature of a function: arguments and results.
 // Arguments are Data objects where the name field stores the argument name (e.g. "%A").
 struct FunctionSignature {
+    FunctionSignature() {}
+    FunctionSignature(const std::vector<TileValuePtr> &inputArgs,
+                      const std::vector<TileValuePtr> &outputArgs) 
+    {
+        for (auto &inArg : inputArgs) {
+            arguments.emplace_back(inArg);
+        }
+
+        for (auto &outArg : outputArgs) {
+            arguments.emplace_back(outArg);
+        }
+    }
     std::vector<ValuePtr> arguments; // argument types with names stored in Value::name
     std::vector<ValuePtr> results;  // return types
 };
