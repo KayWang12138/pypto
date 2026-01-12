@@ -168,6 +168,7 @@ void HostMachine::DestroyThread() {
 
 void HostMachine::CompileFunction(Function* func) const {
     auto &backend = Backend::GetBackend();
+    printf("Strategy is %s\n", config::GetPassStrategy().c_str());
     if (!func->HasCallOperation() && backend.runPass) {
         ALOG_INFO_F("RunPass function %s", func->GetMagicName().c_str());
         ASSERT(backend.runPass(Program::GetInstance(), *func, config::GetPassStrategy())) << "Run pass failed.";
