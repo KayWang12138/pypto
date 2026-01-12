@@ -57,7 +57,7 @@ TEST_F(IRTest, TestClass) {
 
 TEST_F(IRTest, TestIRBuilder) {
     auto module = std::make_shared<ProgramModule>("main");
-    IRBuilder builder(module);
+    IRBuilder builder;
     IRBuilderContext ctx;
 
     auto func = builder.CreateFunction("bbb", FunctionKind::Block, FunctionSignature());

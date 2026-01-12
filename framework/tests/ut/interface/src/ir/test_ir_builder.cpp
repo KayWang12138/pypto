@@ -34,7 +34,7 @@ namespace pto{
 TEST(IRTEST, TestBuilder) {
     // ===== Module =====
     auto module = std::make_shared<ProgramModule>("main");
-    IRBuilder builder(module);
+    IRBuilder builder;
     IRBuilderContext ctx;
 
     // ===== Signature =====
@@ -99,7 +99,7 @@ TEST(IRTEST, TestBuilder) {
 TEST(IRTEST, TestControlFlow) {
     // ===== Module =====
     auto module = std::make_shared<ProgramModule>("main");
-    IRBuilder builder(module);
+    IRBuilder builder;
     IRBuilderContext ctx;
 
     // ===== Signature =====

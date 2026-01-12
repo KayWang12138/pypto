@@ -393,7 +393,7 @@ TEST(IRTEST, TestStringToValueType) {
 TEST(IRTEST, TestTypeCompleteProgram) {
     // ===== 创建一个完整的程序，只使用 Tile 和 Scalar 操作，不涉及 Tensor =====
     auto module = std::make_shared<ProgramModule>("test_type_program");
-    IRBuilder builder(module);
+    IRBuilder builder;
     IRBuilderContext ctx;
 
     // ===== 函数签名 =====

@@ -32,7 +32,7 @@ namespace pto{
 TEST(IRTEST, TestTensorOperation){
     // ===== Program module =====
     auto module = std::make_shared<ProgramModule>("main");
-    IRBuilder builder(module);
+    IRBuilder builder;
     IRBuilderContext ctx;
 
     // ===== Function signature =====

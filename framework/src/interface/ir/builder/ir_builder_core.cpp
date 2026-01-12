@@ -20,33 +20,17 @@
 
 namespace pto {
 
-IRBuilder::IRBuilder(std::shared_ptr<ProgramModule> module) : module_(module) {}
-
-void IRBuilder::SetModule(std::shared_ptr<ProgramModule> m) {
-    module_ = std::move(m);
-}
-
 std::shared_ptr<Function> IRBuilder::CreateFunction(
     std::string name,
     FunctionKind kind,
     FunctionSignature sig,
     bool setAsEntry) {
 
-    if (!module_) {
-        throw std::runtime_error("IRBuilder::CreateFunction: module is null");
-    }
-
     std::shared_ptr<Function> fn;
     if (kind == FunctionKind::Block) {
         fn = std::make_shared<BlockFunction>(std::move(name), std::move(sig));
     } else {
         fn = std::make_shared<Function>(std::move(name), kind, std::move(sig));
-    }
-    
-    module_->AddFunction(fn);
-
-    if (setAsEntry) {
-        module_->SetProgramEntry(fn);
     }
 
     return fn;
