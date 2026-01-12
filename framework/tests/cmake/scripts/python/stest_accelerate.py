@@ -40,9 +40,7 @@ class STestAccelerate(GTestAccelerate):
         # 流程处理
         args = parser.parse_args()
         params = []
-        device_list = [0]
-        if args.device is not None:
-            device_list = [int(d) for d in list(set(args.device)) if d is not None and str(d) != ""]
+        device_list = STestAccelerate.init_device_list(args)
         for _id in device_list:
             p = GTestAccelerate.ExecParam(cntr_id=_id, envs_func=STestAccelerate.set_device_id_envs)
             params.append(p)
@@ -55,6 +53,22 @@ class STestAccelerate(GTestAccelerate):
         self = p
         return {"TILE_FWK_DEVICE_ID": f"{self.cntr_id}"}
 
+    @staticmethod
+    def init_device_list(args) -> List[int]:
+        """初始化设备列表 - 抽取公共逻辑
+
+        :param args: 命令行参数
+        :return: 设备ID列表
+        """
+        device_list = [0]  # 默认设备
+
+        if args.device is not None:
+            # 去重并过滤空值
+            device_list = [int(d) for d in list(set(args.device))
+                          if d is not None and str(d) != ""]
+
+        logging.debug("Initialized device list: %s", device_list)
+        return device_list
 
 if __name__ == "__main__":
     logging.basicConfig(
