@@ -1,4 +1,4 @@
-# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
 # This file is a part of the CANN Open Software.
 # Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pypto"
-version = "0.1.0"
+version = "0.1.1"
 authors = [
     { name = "PyPTO Team", email = "pto@cann.osinfra.cn" }
 ]
@@ -28,7 +28,7 @@ requires-python = ">=3.9"
 dependencies = [
 ]
 keywords = ["python", "pto", "tile", "tile-centric"]
-classifiers = [  # 分类器，PyPI 用于分类筛选（必填多个合理分类）
+classifiers = [  # 分类器, PyPI 用于分类筛选(必填多个合理分类)
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Topic :: Software Development :: Compilers",
