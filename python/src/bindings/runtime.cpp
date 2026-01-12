@@ -20,6 +20,7 @@
 #include "interface/interpreter/raw_tensor_data.h"
 #include "machine/runtime/device_launcher_binding.h"
 #include "machine/runtime/emulation_launcher.h"
+#include "machine/runtime/perf_analysis.h"
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
@@ -108,6 +109,10 @@ std::string DeviceRunOnceDataFromHost(
 std::string OperatorDeviceRunOnceDataFromDevice([[maybe_unused]] py::int_ pythonOperatorPython,
     [[maybe_unused]] const std::vector<DeviceTensorData> &inputs, [[maybe_unused]] const std::vector<DeviceTensorData> &outputs,
     [[maybe_unused]] py::int_ incomingStreamPython, [[maybe_unused]] py::int_ workspaceData) {
+
+    PerfAnalysis::Get().TraceInit();
+    HOST_PERF_EVT_BEGIN(EventPhase::RUN_DEV);
+
 #ifdef BUILD_WITH_CANN
     auto opAddr = static_cast<uintptr_t>(pythonOperatorPython);
     if (opAddr == 0) {
@@ -154,6 +159,8 @@ std::string OperatorDeviceRunOnceDataFromDevice([[maybe_unused]] py::int_ python
         return "device run failed";
     }
 #endif
+
+    HOST_PERF_EVT_END(EventPhase::RUN_DEV);
     return "";
 }
 
@@ -190,6 +197,9 @@ void DeviceFini() {
 }
 
 uintptr_t OperatorBegin() {
+    PerfAnalysis::Get().TraceInit();
+    HOST_PERF_EVT_BEGIN(EventPhase::COMPILE);
+
     ExportedOperator *op = ExportedOperatorBegin();
     auto opAddr = reinterpret_cast<uintptr_t>(op);
     return opAddr;
@@ -199,12 +209,16 @@ std::string OperatorEnd(uintptr_t opAddr) {
     ExportedOperator *op = reinterpret_cast<ExportedOperator *>(opAddr);
     ExportedOperatorEnd(op);
 
+    HOST_PERF_EVT_END(EventPhase::COMPILE);
     return "";
 }
 
 std::string BuildCache(uintptr_t opAddr, const std::vector<DeviceTensorData> &inputList,
         const std::vector<DeviceTensorData> &outputList) {
     ExportedOperator *op = reinterpret_cast<ExportedOperator *>(opAddr);
+
+    PerfAnalysis::Get().TraceInit();
+    HOST_PERF_EVT_BEGIN(EventPhase::BUILD_CTRL_CACHE);
 
     if (config::GetRuntimeOption<int64_t>(STITCH_CFGCACHE_SIZE) != 0) {
         DeviceLauncherConfig config;
@@ -214,6 +228,7 @@ std::string BuildCache(uintptr_t opAddr, const std::vector<DeviceTensorData> &in
         }
     }
 
+    HOST_PERF_EVT_END(EventPhase::BUILD_CTRL_CACHE);
     return "";
 }
 
