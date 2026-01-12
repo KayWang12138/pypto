@@ -242,18 +242,18 @@ void MixDependencyAnalyzer::EliminateRedundantOuterDeps(const std::vector<std::v
     for (const auto &pair : tensorToComponents) {
         isRedundant.clear();
         // 用于记录当前的连接关系
-        for (size_t i = 0; i < maxComponent; ++i) {
+        for (int i = 0; i < maxComponent; ++i) {
             outerDeps[i] = false;
         }
         for (const auto &compId : pair.second) {
             outerDeps[compId] = true;
         }
         // 若tensor可达i且i可达j，则移除tensor到j的可达关系
-        for (size_t i = 0; i < maxComponent; ++i) {
+        for (int i = 0; i < maxComponent; ++i) {
             if (!outerDeps[i]) {
                 continue;
             }
-            for (size_t j = 0; j < maxComponent; ++j) {
+            for (int j = 0; j < maxComponent; ++j) {
                 if (i == j) {
                     continue;
                 }
@@ -271,7 +271,7 @@ void MixDependencyAnalyzer::EliminateRedundantOuterDeps(const std::vector<std::v
                 [&](const SimpleTensorParam& param) {
                     return param.tensor == pair.first;
                 });
-            incasts.erase(newEnd, incasts.end());
+            tensors.erase(newEnd, tensors.end());
             ALOG_DEBUG_F("Removed redundant incast for tensor %d from component %d",
                         pair.first->GetRawMagic(), compId);
         }
