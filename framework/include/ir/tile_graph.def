@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2025 - 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -58,7 +58,6 @@ DEF_OP(
     INPUT(Tile, Input),
     OUTPUT(Tile, Output),
     OUTPUT(Tile, TempTensor),
-    ATTR(int, CombineAxis)
 )
 
 DEF_OP(
@@ -105,7 +104,6 @@ DEF_OP(
     ),
     INPUT(Tile, Input),
     OUTPUT(Tile, Output),
-    ATTR(int, CombineAxis, -1),
     ATTR(CastMode, Mode)
 )
 
@@ -119,7 +117,6 @@ DEF_OP(
     INPUT(Scalar, STEP),
     INPUT(Scalar, Size),
     OUTPUT(Tile, Output),
-    ATTR(int, CombineAxis)
 )
 
 DEF_OP(
@@ -131,8 +128,7 @@ DEF_OP(
     INPUT(Tile, Input),
     OUTPUT(Tile, Output),
     INPUT(Scalar, Axis),
-    ATTR(int, CombineAxis),
-    ATTR(bool, Flag)
+    ATTR(bool, Flag)           //////////////////////
 )
 
 DEF_OP(
@@ -151,7 +147,6 @@ DEF_OP(
         OP_S_DIV,
         OP_S_MAX,
         OP_S_MIN,
-        OP_LOGICALAND,
         OP_PAD
     ),
     INPUT(Tile, Lhs),
@@ -159,8 +154,6 @@ DEF_OP(
     OUTPUT(Tile, Output),
     ATTR(int, CombineAxis, -1),
     ATTR(bool, ReverseOperand, false),
-    ATTR(int, InputCombineAxis),                 // 输入合并轴
- 	ATTR(int, OutputCombineAxis)                 // 输出合并轴
 )
 
 DEF_OP(
@@ -175,8 +168,6 @@ DEF_OP(
     OUTPUT(Tile, TempTensor),
     ATTR(int, CombineAxis, -1),
     ATTR(bool, ReverseOperand, false),
-    ATTR(int, InputCombineAxis),                 // 输入合并轴
- 	ATTR(int, OutputCombineAxis)                 // 输出合并轴
 )
 
 DEF_OP(
@@ -192,7 +183,6 @@ DEF_OP(
     ATTR(int, CombineAxis),
     ATTR(int, Axis),    // scatterelements/scatter 指定轴
     ATTR(int, ScatterMode),  // scatterelements/scatter reduce 类型
-    ATTR(int, Accumulate)   // index put 是否累加
 )
 
 DEF_OP(
@@ -208,7 +198,6 @@ DEF_OP(
     ATTR(int, CombineAxis),
     ATTR(int, Axis),    //  指定轴
     ATTR(int, ScatterMode),  // reduce 类型
-    ATTR(int, Accumulate)   // index put 是否累加
 )
 
 DEF_OP(
@@ -251,10 +240,7 @@ DEF_OP(
     ),
     INPUT(Tile, Lhs),
     INPUT(Scalar, Rhs),
-    OUTPUT(Tile, Output),
-    ATTR(int, InputCombineAxis),                 // 输入合并轴
- 	ATTR(int, OutputCombineAxis),                // 输出合并轴
- 	ATTR(bool, ExcludeBufferReuse)               // 是否排除buffer复用
+    OUTPUT(Tile, Output)
 )
 
 DEF_OP(
@@ -268,8 +254,7 @@ DEF_OP(
     INPUT(Tile, Lhs),
     INPUT(Tile, Rhs),
     OUTPUT(Tile, Output),
-    ATTR(int, Axis),                             // 操作的轴
-    ATTR(bool, ExcludeBufferReuse)               // 是否排除buffer复用（GATHER_FROM_UB/GATHER_ELEMENT使用）
+    ATTR(int, Axis)
 )
 
 DEF_OP(
@@ -348,9 +333,6 @@ DEF_OP(
     ),
     INPUT(Tile, Lhs),
     OUTPUT(Tile, Output),
-    ATTR(int, inputCombineAxis),   // OP_COPY_OUT
-    ATTR(int, outputCombineAxis),  // OP_COPY_IN
-    ATTR(int, excludeBufferReuse)  // OP_COPY_IN, OP_COPY_OUT
 )
 
 DEF_OP(
@@ -390,7 +372,6 @@ DEF_OP(
     INPUT(Tile, Lhs),
     INPUT(Tile, Rhs),
     OUTPUT(Tile, Output),
-    ATTR(int, ExcludeBufferReuse)  // OP_UB_COPY_IN, OP_UB_COPY_OUT
 )
 
 DEF_OP(
