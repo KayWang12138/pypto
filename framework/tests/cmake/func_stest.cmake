@@ -497,6 +497,7 @@ function(PTO_Fwk_STest_Distributed_RunExe)
                 if (PyEnvLines)
                     list(APPEND _Args "--env" "${PyEnvLines}")
                 endif ()
+                list(APPEND _Args "--rank_size" "${MaxRankSize}")
                 get_filename_component(ParallelPy    "${PTO_FWK_SRC_ROOT}/framework/tests/cmake/scripts/python/distributed_stest_accelerate.py" REALPATH)
                 get_filename_component(ParallelPyCwd "${PTO_FWK_SRC_ROOT}/framework/tests/cmake/scripts/python" REALPATH)
                 add_custom_command(
