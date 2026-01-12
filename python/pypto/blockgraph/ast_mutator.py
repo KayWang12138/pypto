@@ -61,73 +61,6 @@ class AstMutator(ast.NodeTransformer):
         
         return wrapper
     
-    @classmethod
-    def mutated_entry(cls, func, dump_source: Optional[str] = None):
-        """
-        Transform a function to use low-level block API calls and return a factory function.
-        
-        Args:
-            func: The function to transform
-            dump_source: Optional path to dump transformed source code
-            
-        Returns:
-            A transformed function that accepts metadata and returns the IR function
-        """
-        # Get the transformed AST
-        wrapper = cls.mutate_ast(func, dump_source)
-        
-        # Compile the transformed code (but don't execute yet)
-        module_ast = ast.Module(body=[wrapper], type_ignores=[])
-        ast.fix_missing_locations(module_ast)
-        code = compile(module_ast, filename='<ast>', mode='exec')
-        
-        # Extract closure variables to be injected when the factory function is called
-        closure_dict = {}
-        if func.__closure__ is not None:
-            code_obj = func.__code__
-            for var_name, cell in zip(code_obj.co_freevars, func.__closure__):
-                try:
-                    closure_dict[var_name] = cell.cell_contents
-                except ValueError:
-                    # cell_contents may raise ValueError if the cell is empty
-                    pass
-        
-        # Return a factory function that will execute the code when called
-        # This ensures closure variables are available when the transformed function executes
-        def factory_function(metadata):
-            """Factory function that creates and calls the transformed function when invoked."""
-            # Prepare namespace with closure variables at execution time
-            namespace = {}
-            # Copy globals from the original function
-            namespace.update(func.__globals__)
-            # Inject closure variables
-            namespace.update(closure_dict)
-            
-            # Now execute the compiled code to create the transformed wrapper function
-            exec(code, namespace)
-            transformed_wrapper = namespace[wrapper.name]
-            
-            # Call the wrapper function with metadata to get the IR function
-            ir_function = transformed_wrapper(metadata)
-            
-            return ir_function
-        
-        return factory_function
-    
-    @classmethod
-    def mutate(cls, func, dump_source: Optional[str] = None):
-        """
-        Backward compatibility alias for mutated_entry.
-        
-        Args:
-            func: The function to transform
-            dump_source: Optional path to dump transformed source code
-            
-        Returns:
-            A transformed function that accepts metadata and returns the IR function
-        """
-        return cls.mutated_entry(func, dump_source)
-    
     def _transform_statement(self, stmt: ast.AST) -> List[ast.AST]:
         """Transform a statement, potentially returning multiple statements."""
         if isinstance(stmt, ast.For):
@@ -524,4 +457,3 @@ class AstMutator(ast.NodeTransformer):
         source = ast.unparse(func_node)
         with open(dump_path, 'w') as f:
             f.write(source)
-
