@@ -29,6 +29,8 @@
 #include "interface/machine/host/host_machine.h"
 #include "interface/program/program.h"
 #include "interface/configs/config_manager_ng.h"
+#include "machine/runtime/perf_analysis.h"
+
 
 namespace npu::tile_fwk {
 const std::string PROGRAM_ENTRY_FUNCTION_NAME = "PROGRAM_ENTRY";
@@ -68,6 +70,8 @@ Program::Program() : currentFunctionPtr_(nullptr) {
 }
 
 Program::~Program() {
+    PerfAnalysis::Get().Dump(true, "/tmp/pypto_perf_stats.txt");
+    PerfAnalysis::Get().Dump(false);
     HostMachine::GetInstance().Destroy();
 }
 
