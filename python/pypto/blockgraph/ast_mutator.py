@@ -52,8 +52,6 @@ class AstMutator(ast.NodeTransformer):
 
         # Transform AST
         mutator = cls()
-        # Don't visit the function yet - we'll transform the body in the wrapper
-        # transformed_func = mutator.visit(func_node)
 
         # Create wrapper function that accepts metadata
         wrapper = mutator._create_wrapper(func_node)
@@ -121,7 +119,7 @@ class AstMutator(ast.NodeTransformer):
         for arg in func_node.args.args:
             if arg.annotation:
                 # The annotation is a constructor call like ir.Tensor(...)
-                # Create: arg_name = annotation
+                # NOTE: insert code: `arg_name = annotation``
                 wrapper_body.append(
                     ast.Assign(
                         targets=[ast.Name(id=arg.arg, ctx=ast.Store())],
@@ -304,7 +302,7 @@ class AstMutator(ast.NodeTransformer):
         )
         step = self.visit(loop_args[2]) if len(loop_args) > 2 else ast.Constant(value=1)
 
-        # Create: i = block.Scalar(ir.DataType.int32, "i")
+        # NOTE: insert code `i = block.Scalar(ir.DataType.int32, "i")`
         scalar_assign = ast.Assign(
             targets=[ast.Name(id=loop_var_name, ctx=ast.Store())],
             value=ast.Call(
@@ -333,7 +331,7 @@ class AstMutator(ast.NodeTransformer):
         for_var_name = f"fs_{self.for_counter}"
         self.for_counter += 1
 
-        # Create: fs = block.ForNode(i, start, end, step, **kwargs)
+        # NOTE: insert code `fs = block.ForNode(i, start, end, step, **kwargs)`
         fornode_kwargs = []
         for key, value in loop_kwargs.items():
             fornode_kwargs.append(ast.keyword(arg=key, value=self.visit(value)))
@@ -441,7 +439,7 @@ class AstMutator(ast.NodeTransformer):
         # Transform condition
         cond = self.visit(node.test)
 
-        # Create: ifs = block.IfNode(cond)
+        # NOTE: Insert code `ifs = block.IfNode(cond)`
         ifnode_assign = ast.Assign(
             targets=[ast.Name(id=if_var_name, ctx=ast.Store())],
             value=ast.Call(
@@ -506,7 +504,7 @@ class AstMutator(ast.NodeTransformer):
             )
             statements.append(else_with)
 
-        # Create: block.exit_if(ifs)
+        # NOTE: insert code `block.exit_if(ifs)``
         exit_if = ast.Expr(
             value=ast.Call(
                 func=ast.Attribute(
