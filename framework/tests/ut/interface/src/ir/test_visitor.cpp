@@ -160,7 +160,7 @@ public:
 TEST(IRVisitorTest, TestBasicTraversal) {
   // 创建简单的IR程序
   auto module = std::make_shared<ProgramModule>("main");
-  IRBuilder builder(module);
+  IRBuilder builder;
   IRBuilderContext ctx;
 
   FunctionSignature sig;
@@ -169,7 +169,8 @@ TEST(IRVisitorTest, TestBasicTraversal) {
   auto outputTensor = std::make_shared<TileValue>(tileShape, DataType::FP32, "output");
   sig.arguments = { inputTensor, outputTensor };
 
-  auto func = builder.CreateFunction("test_func", FunctionKind::Kernel, sig, /*setAsEntry=*/true);
+  auto func = builder.CreateFunction("test_func", FunctionKind::Kernel, sig);
+  module->AddFunction(func);
   builder.EnterFunctionBody(ctx, func);
 
   auto c2 = builder.CreateConst(ctx, 2.0, "c2");
@@ -202,7 +203,7 @@ TEST(IRVisitorTest, TestBasicTraversal) {
 TEST(IRVisitorTest, TestValueCollection) {
   // 创建包含多个值的IR程序
   auto module = std::make_shared<ProgramModule>("main");
-  IRBuilder builder(module);
+  IRBuilder builder;
   IRBuilderContext ctx;
 
   FunctionSignature sig;
@@ -211,7 +212,8 @@ TEST(IRVisitorTest, TestValueCollection) {
   auto in2 = std::make_shared<TileValue>(tileShape, DataType::FP32, "in2");
   sig.arguments = { in1, in2 };
 
-  auto func = builder.CreateFunction("test_collect", FunctionKind::Kernel, sig, /*setAsEntry=*/true);
+  auto func = builder.CreateFunction("test_collect", FunctionKind::Kernel, sig);
+  module->AddFunction(func);
   builder.EnterFunctionBody(ctx, func);
 
   auto c1 = builder.CreateConst(ctx, 1.0, "c1");
@@ -256,7 +258,7 @@ TEST(IRVisitorTest, TestValueCollection) {
 TEST(IRVisitorTest, TestControlFlowTraversal) {
   // 创建包含控制流的IR程序
   auto module = std::make_shared<ProgramModule>("main");
-  IRBuilder builder(module);
+  IRBuilder builder;
   IRBuilderContext ctx;
 
   FunctionSignature sig;
@@ -271,7 +273,8 @@ TEST(IRVisitorTest, TestControlFlowTraversal) {
 
   sig.arguments = { inputX, scale1, resultX };
 
-  auto func = builder.CreateFunction("test_control", FunctionKind::ControlFlow, sig, /*setAsEntry=*/true);
+  auto func = builder.CreateFunction("test_control", FunctionKind::ControlFlow, sig);
+  module->AddFunction(func);
   builder.EnterFunctionBody(ctx, func);
 
   // for i = 0 to batch step 1
@@ -428,7 +431,7 @@ public:
 TEST(IRVisitorTest, TestDefaultTraversal) {
   // 测试默认遍历行为
   auto module = std::make_shared<ProgramModule>("main");
-  IRBuilder builder(module);
+  IRBuilder builder;
   IRBuilderContext ctx;
 
   FunctionSignature sig;
@@ -436,7 +439,8 @@ TEST(IRVisitorTest, TestDefaultTraversal) {
   auto input = std::make_shared<TileValue>(tileShape, DataType::FP32, "input");
   sig.arguments = { input };
 
-  auto func = builder.CreateFunction("test_default", FunctionKind::Kernel, sig, /*setAsEntry=*/true);
+  auto func = builder.CreateFunction("test_default", FunctionKind::Kernel, sig);
+  module->AddFunction(func);
   builder.EnterFunctionBody(ctx, func);
 
   auto c1 = builder.CreateConst(ctx, 1.0, "c1");
@@ -461,7 +465,7 @@ TEST(IRVisitorTest, TestDefaultTraversal) {
 TEST(IRVisitorTest, TestDefaultVisitMethods) {
   // 测试 DefaultVisit 方法的行为
   auto module = std::make_shared<ProgramModule>("main");
-  IRBuilder builder(module);
+  IRBuilder builder;
   IRBuilderContext ctx;
 
   FunctionSignature sig;
@@ -470,7 +474,8 @@ TEST(IRVisitorTest, TestDefaultVisitMethods) {
   auto output = std::make_shared<TileValue>(tileShape, DataType::FP32, "output");
   sig.arguments = { input, output };
 
-  auto func = builder.CreateFunction("test_default_visit", FunctionKind::Kernel, sig, /*setAsEntry=*/true);
+  auto func = builder.CreateFunction("test_default_visit", FunctionKind::Kernel, sig);
+  module->AddFunction(func);
   builder.EnterFunctionBody(ctx, func);
 
   auto c1 = builder.CreateConst(ctx, 1.0, "c1");
