@@ -49,6 +49,9 @@ struct InternalComponentInfo {
         
     InternalComponentInfo(int id, const std::string& suf, AIVCore aiv)
         : internalSubgraphID(id), suffix(suf), aivCore(aiv), componentType(ComponentType::UNKNOWN) {}
+
+    InternalComponentInfo(int id, const std::string& suf, AIVCore aiv, ComponentType compType)
+        : internalSubgraphID(id), suffix(suf), aivCore(aiv), componentType(compType) {}
 };
 
 // 内部依赖信息结构
