@@ -49,6 +49,41 @@ void CheckTensorShape(const LogicalTensorPtr &tensor, const std::string &op) {
     }
 }
 
+inline const std::vector<DataType> &GetSupportDType(const std::string &op) {
+    const std::unordered_map<const std::sring &, DataType> op_2_dtype = {
+        {         "CAST",                                                    {DT_FP32, DT_INT32, DT_FP16, DT_BF16}},
+        { "ROWSUMSINGLE",                                                                                {DT_FP32}},
+        {         "TOPK",                                                                                {DT_FP32}},
+        {        "RANGE",                                                    {DT_FP32, DT_INT32, DT_FP16, DT_BF16}},
+        {          "NEG",                                          {DT_FP32, DT_INT32, DT_FP16, DT_BF16, DT_INT16}},
+        {       "GATHER",                                          {DT_FP32, DT_INT32, DT_FP16, DT_BF16, DT_INT16}},
+        {"GATHERELEMENT",                                          {DT_FP32, DT_INT32, DT_FP16, DT_BF16, DT_INT16}},
+        {      "MAXIMUM",                                          {DT_FP32, DT_INT32, DT_FP16, DT_BF16, DT_INT16}},
+        {      "MINIMUM",                                          {DT_FP32, DT_INT32, DT_FP16, DT_BF16, DT_INT16}},
+        {   "LOGICALNOT",                                  {DT_FP32, DT_FP16, DT_BF16, DT_BOOL, DT_UINT8, DT_INT8}},
+        {   "LOGICALAND",                                  {DT_FP32, DT_FP16, DT_BF16, DT_BOOL, DT_UINT8, DT_INT8}},
+        {       "CONCAT",                                           {DT_FP32, DT_FP16, DT_BF16, DT_INT16, DT_INT8}},
+        {       "EXPAND", {DT_FP32, DT_INT32, DT_UINT32, DT_FP16, DT_BF16, DT_INT16, DT_UINT16, DT_UINT8, DT_INT8}},
+        {         "CLIP",                                          {DT_FP32, DT_INT32, DT_FP16, DT_BF16, DT_INT16}},
+        {     "INDEXADD",                                 {DT_FP32, DT_INT32, DT_FP16, DT_BF16, DT_INT16, DT_INT8}},
+        {       "ONEHOT",                                                  {DT_INT64, DT_INT32, DT_INT16, DT_INT8}},
+        {     "INDEXPUT",                                                   {DT_FP32, DT_INT32, DT_FP16, DT_INT16}},
+        {      "DEFAULT",                                                              {DT_FP32, DT_FP16, DT_BF16}},
+    };
+    if (op_2_dtype.find() == op_2_dtype.end()) {
+        return op_2_dtype.at("DEFAULT");
+    }
+    return op_2_dtype.at(op);
+}
+
+// void CheckTensorDType(const LogicalTensorPtr &tensor, const std::string &op) {
+//     const auto dtype = tensor->GetRawTensor()->GetDataType();
+//     const auto dtypes = GetSupportDType(op);
+//     if (std::find(dtypes.begin(), dtypes.end(), dtype) == dtypes.end()) {
+//         ASSERT(false && ("Operation " + op + " not support " + DataType2String(dtype) + " yet."));
+//     }
+// }
+
 std::vector<int> GetBroadCastShape(LogicalTensorPtr &operand1, LogicalTensorPtr &operand2) {
     std::vector<int64_t> opShape1(operand1->shape);
     std::vector<int64_t> opShape2(operand2->shape);
@@ -83,4 +118,4 @@ std::vector<int> GetBroadcastAxes(const Shape &shape1, const Shape &shape2) {
     }
     return result;
 }
-}
+} // namespace npu::tile_fwk
