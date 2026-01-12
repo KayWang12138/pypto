@@ -161,7 +161,9 @@ enum class Opcode {
     // Cube
     OP_L1_ALLOC,
     OP_L0A_ALLOC,
+    OP_L0AMX_ALLOC,
     OP_L0B_ALLOC,
+    OP_L0BMX_ALLOC,
     OP_L0C_ALLOC,
     OP_FIX_ALLOC,
     OP_BT_ALLOC,
@@ -193,6 +195,11 @@ enum class Opcode {
     OP_COPY_UB_TO_UB,
     OP_L0C_TO_L1,
     OP_UB_COPY_ND2NZ,
+    OP_L1_COPY_IN_A_SCALE,
+    OP_L1_COPY_IN_B_SCALE,
+    OP_L1_TO_L0A_SCALE,
+    OP_L1_TO_L0B_SCALE,
+
 
     // Scala
     OP_SYNC_SRC,
@@ -396,8 +403,10 @@ public:
     inline bool IsCopyIn(Opcode opCode) const {
         return opCode == Opcode::OP_COPY_IN || opCode == Opcode::OP_UB_COPY_IN || opCode == Opcode::OP_L1_COPY_IN ||
                opCode == Opcode::OP_TRANSPOSE_MOVEIN || opCode == Opcode::OP_RESHAPE_COPY_IN ||
-               opCode == Opcode::OP_L1_TO_FIX_QUANT_PRE || opCode == Opcode::OP_L1_TO_BT || 
-               opCode == Opcode::OP_SHMEM_GET_GM2UB;
+               opCode == Opcode::OP_L1_TO_FIX_QUANT_PRE || opCode == Opcode::OP_L1_TO_BT ||
+               opCode == Opcode::OP_SHMEM_GET_GM2UB ||
+               opCode == Opcode::OP_L1_TO_FIX_QUANT_PRE || opCode == Opcode::OP_L1_TO_BT ||
+               opCode == Opcode::OP_L1_COPY_IN_A_SCALE || opCode == Opcode::OP_L1_COPY_IN_B_SCALE;
     }
 
     inline bool IsCopyOut(Opcode opCode) const {
@@ -599,8 +608,10 @@ inline bool IsAllocOpCode(Opcode opCode) {
 
 inline bool IsCopyIn(const Opcode opCode) {
     return opCode == Opcode::OP_COPY_IN || opCode == Opcode::OP_UB_COPY_IN || opCode == Opcode::OP_L1_COPY_IN ||
-           opCode == Opcode::OP_TRANSPOSE_MOVEIN || opCode == Opcode::OP_RESHAPE_COPY_IN || 
-           opCode == Opcode::OP_SHMEM_GET_GM2UB;
+           opCode == Opcode::OP_TRANSPOSE_MOVEIN || opCode == Opcode::OP_RESHAPE_COPY_IN ||
+           opCode == Opcode::OP_SHMEM_GET_GM2UB ||
+           opCode == Opcode::OP_TRANSPOSE_MOVEIN || opCode == Opcode::OP_RESHAPE_COPY_IN ||
+           opCode == Opcode::OP_L1_COPY_IN_A_SCALE || opCode == Opcode::OP_L1_COPY_IN_B_SCALE;
 }
 
 inline bool IsCopyOut(const Opcode &op) {
