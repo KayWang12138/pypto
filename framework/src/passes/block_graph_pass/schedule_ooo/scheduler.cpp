@@ -986,20 +986,20 @@ Status OoOScheduler::CheckOpBufferSize(Operation *op) {
     return SUCCESS;
 }
 
-void OoOScheduler::InitOpConsumerAndProducer(const std::vector<Operation *> &operations) {
-    std::unordered_set<Operation*> operationSet;
-    for (auto op : operations) {
-        operationSet.insert(op);
+void OoOScheduler::InitOpConsumerAndProducer() {
+    std::unordered_set<IssueEntryPtr> issueEntriesSet;
+    for (auto issue : issueEntries) {
+        issueEntriesSet.insert(issue);
     }
-    for (auto op : operations) {
-        for (auto consumer : op->ConsumerOps()) {
-            if (operationSet.find(consumer) != operationSet.end()) {
-                opConsumers[op].insert(consumer);
+    for (auto issue : issueEntries) {
+        for (auto consumer : issue->tileOp.ConsumerOps()) {
+            if (issueEntriesSet.find(consumer) != issueEntriesSet.end()) {
+                opConsumers[*issue->tileOp].insert(consumer);
             }
         }
-        for (auto producer : op->ProducerOps()) {
-            if (operationSet.find(producer) != operationSet.end()) {
-                opProducers[op].insert(producer);
+        for (auto producer : issue->tileOp.ProducerOps()) {
+            if (issueEntriesSet.find(producer) != issueEntriesSet.end()) {
+                opProducers[*issue->tileOp].insert(producer);
             }
         }
     }
@@ -1012,7 +1012,6 @@ Status OoOScheduler::Init(const std::vector<Operation *> &operations) {
 
     // 初始化芯片各buffer大小
     InitMemorySize();
-    InitOpConsumerAndProducer(operations);
     // 校验并初始化issueEntry
     for (const auto &op : operations) {
         if (IsViewOp(*op)) {
@@ -1036,7 +1035,7 @@ Status OoOScheduler::Init(const std::vector<Operation *> &operations) {
         issueEntries.emplace_back(issue);
     }
     numTotalIssues = issueEntries.size();
-
+    InitOpConsumerAndProducer();
     InitBufRefCount();
     // 初始化issueEntry，构建依赖关系
     if (InitDependencies() != SUCCESS) {

@@ -175,7 +175,7 @@ private:
     // scheduler
     Status Init(const std::vector<Operation *> &operations);
     void InitMemorySize();
-    void InitOpConsumerAndProducer(const std::vector<Operation *> &operations);
+    void InitOpConsumerAndProducer();
     Status CheckOpBufferSize(Operation *op);
     std::string dumpOpInfo(Operation &op);
     void CalcBufferSize(LogicalTensors tensors, std::map<MemoryType, int64_t> &bufferSize, std::set<int> &memIdMap);
