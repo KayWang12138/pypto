@@ -230,7 +230,7 @@ void MixDependencyAnalyzer::EliminateRedundantOuterDeps(const std::vector<std::v
                                                         std::unordered_map<int, std::vector<SimpleTensorParam>> &allTensors) {
     // 初始化，构造tensor到compId的映射
     std::set<int> isRedundant;
-    std::vector<bool> outerDeps(maxComponent, false);
+    std::vector<bool> outerDeps(maxComponent + 1, false);
     std::unordered_map<LogicalTensorPtr, std::set<int>> tensorToComponents;
     for (const auto &[compId, incasts] : allTensors) {
         for (const auto& incast : incasts) {
@@ -242,18 +242,18 @@ void MixDependencyAnalyzer::EliminateRedundantOuterDeps(const std::vector<std::v
     for (const auto &pair : tensorToComponents) {
         isRedundant.clear();
         // 用于记录当前的连接关系
-        for (int i = 0; i < maxComponent; ++i) {
+        for (int i = 0; i <= maxComponent; ++i) {
             outerDeps[i] = false;
         }
         for (const auto &compId : pair.second) {
             outerDeps[compId] = true;
         }
         // 若tensor可达i且i可达j，则移除tensor到j的可达关系
-        for (int i = 0; i < maxComponent; ++i) {
+        for (int i = 0; i <= maxComponent; ++i) {
             if (!outerDeps[i]) {
                 continue;
             }
-            for (int j = 0; j < maxComponent; ++j) {
+            for (int j = 0; j <= maxComponent; ++j) {
                 if (i == j) {
                     continue;
                 }
