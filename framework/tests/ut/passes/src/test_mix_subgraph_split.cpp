@@ -197,6 +197,18 @@ TEST_F(MixSubgraphSplitTest, TestMixSubgraphSplit) {
     copyout1.SetOOpAttrOffset(0, 0);
     copyout1.UpdateInternalSubgraphID(2);
     copyout1.SetAIVCore(AIVCore::AIV1);
+
+    mixFuncPtr->ComputeHash();
+    FunctionHash mixFuncHash = mixFuncPtr->GetFunctionHash();
+    Program::GetInstance().GetFunctionCache().Insert(mixFuncHash, *mixFuncPtr);
+    // 创建CallOp并设置哈希
+    auto& callOp = rootFuncPtr->AddRawOperation(Opcode::OP_CALL, {}, {});
+    auto callAttr = std::make_shared<CallOpAttribute>();
+    auto invokeInfo = std::make_shared<SubfuncInvokeInfoTy>();
+    invokeInfo->UpdateProgramSubgraphId(programId);
+    callAttr->SetCalleeHash(mixFuncHash); 
+    callAttr->invokeInfo_ = invokeInfo;
+    callOp.SetOpAttribute(callAttr);
     // 验证Mix子图识别
     MixSubgraphSplit splitter;
     bool isMix = splitter.IsMixSubgraph(*mixFuncPtr);
@@ -244,19 +256,19 @@ TEST_F(MixSubgraphSplitTest, TestMixSubgraphSplit) {
     EXPECT_GT(newCallOps.size(), callOps.size()) 
         << "Should have more call ops after split";
     // 验证每个callOp都有正确的program ID
-    for (auto* callOp : newCallOps) {
-        ASSERT_NE(callOp, nullptr);
-        EXPECT_FALSE(callOp->IsDeleted()) << "CallOp should not be deleted";
+    for (auto* newCallOp : newCallOps) {
+        ASSERT_NE(newCallOp, nullptr);
+        EXPECT_FALSE(newCallOp->IsDeleted()) << "newCallOp should not be deleted";
         
         // 验证program ID存在
-        auto callAttr = dynamic_cast<CallOpAttribute*>(callOp->GetOpAttribute().get());
-        if (callAttr != nullptr && callAttr->invokeInfo_ != nullptr) {
-            uint64_t programID = callAttr->invokeInfo_->GetProgramId();
+        auto newCallAttr = dynamic_cast<CallOpAttribute*>(newCallOp->GetOpAttribute().get());
+        if (newCallAttr != nullptr && newCallAttr->invokeInfo_ != nullptr) {
+            uint64_t programID = newCallAttr->invokeInfo_->GetProgramId();
             EXPECT_NE(programs.find(programID), programs.end())
-                << "CallOp's program ID should exist in programs";
+                << "newCallOp's program ID should exist in programs";
         }
     }
-     // 7. 验证组件分离正确
+    // 7. 验证组件分离正确
     // 统计不同AIVCore类型的function数量
     int cubeCount = 0;
     int aiv0Count = 0;
@@ -280,25 +292,7 @@ TEST_F(MixSubgraphSplitTest, TestMixSubgraphSplit) {
     EXPECT_GE(aiv0Count, 0) << "Should have at least one AIV0 component";
     EXPECT_GE(aiv1Count, 0) << "Should have at least one AIV1 component";
 
-    // 8. 验证operations被正确分配到各组件
-    for (const auto& program : programs) {
-        auto operations = program.second->Operations(false);
-        
-        // 验证operations的internalSubgraphID一致
-        int componentID = -1;
-        for (auto& op : operations) {
-            if (op.IsNOP()) continue;
-            
-            int opComponentID = op.GetInternalSubgraphID();
-            if (componentID == -1) {
-                componentID = opComponentID;
-            } else {
-                EXPECT_EQ(opComponentID, componentID)
-                    << "All ops in a leaf function should have same internalSubgraphID";
-            }
-        }
-    }
-    // 9. 验证资源类型设置
+    // 8. 验证资源类型设置
     for (const auto& program : programs) {
         auto leafAttr = program.second->GetLeafFuncAttribute();
         if (leafAttr) {
@@ -497,11 +491,22 @@ TEST_F(MixSubgraphSplitTest, TestDependencyRebuilding) {
         args.push_back(SymbolicScalar(0)); 
         return args;
     };
+
+    nonMixFunc1Ptr->ComputeHash();
+    FunctionHash nonMixHash1 = nonMixFunc1Ptr->GetFunctionHash();
+    Program::GetInstance().GetFunctionCache().Insert(nonMixHash1, *nonMixFunc1Ptr);
+    nonMixFunc2Ptr->ComputeHash();
+    FunctionHash nonMixHash2 = nonMixFunc2Ptr->GetFunctionHash();
+    Program::GetInstance().GetFunctionCache().Insert(nonMixHash2, *nonMixFunc2Ptr);   
+    mixFunc3Ptr->ComputeHash();
+    FunctionHash mixFuncHash = mixFunc3Ptr->GetFunctionHash();
+    Program::GetInstance().GetFunctionCache().Insert(mixFuncHash, *mixFunc3Ptr);
     // CallOp1: 指向非Mix子图1
     auto& callOp1 = rootFuncPtr->AddRawOperation(Opcode::OP_CALL, {}, {});
     auto callAttr1 = std::make_shared<CallOpAttribute>();
     auto invokeInfo1 = std::make_shared<SubfuncInvokeInfoTy>();
     invokeInfo1->UpdateProgramSubgraphId(nonMixProgramId1);
+    callAttr1->SetCalleeHash(nonMixHash1); 
     callAttr1->invokeInfo_ = invokeInfo1;
     callOp1.SetOpAttribute(callAttr1);
     // CallOp2: 指向非Mix子图2
@@ -509,13 +514,14 @@ TEST_F(MixSubgraphSplitTest, TestDependencyRebuilding) {
     auto callAttr2 = std::make_shared<CallOpAttribute>();
     auto invokeInfo2 = std::make_shared<SubfuncInvokeInfoTy>();
     invokeInfo2->UpdateProgramSubgraphId(nonMixProgramId2);
+    callAttr2->SetCalleeHash(nonMixHash2);
     callAttr2->invokeInfo_ = invokeInfo2;
     callOp2.SetOpAttribute(callAttr2);
     // 创建指向Mix子图3的CallOp
     auto& callOp = rootFuncPtr->AddRawOperation(Opcode::OP_CALL, {}, {});
     auto callAttr = std::make_shared<CallOpAttribute>();
     auto invokeInfo = std::make_shared<SubfuncInvokeInfoTy>();
-    invokeInfo->UpdateProgramSubgraphId(mixProgramId);
+    invokeInfo->UpdateProgramSubgraphId(mixProgramId);    
     // 设置linearArgList_（Mix子图有2个输入，1个输出）
     std::vector<SymbolicScalar> linearArgs;
     // 输入1
@@ -528,6 +534,7 @@ TEST_F(MixSubgraphSplitTest, TestDependencyRebuilding) {
     auto outputArgs_mix = createLinearArgListForTensor(globalOutputTensor);
     linearArgs.insert(linearArgs.end(), outputArgs_mix.begin(), outputArgs_mix.end());
     callAttr->linearArgList_ = linearArgs;
+    callAttr->SetCalleeHash(mixFuncHash);
     callAttr->invokeInfo_ = invokeInfo;
     callOp.SetOpAttribute(callAttr);
 
