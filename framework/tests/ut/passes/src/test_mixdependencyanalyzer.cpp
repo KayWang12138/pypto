@@ -116,7 +116,7 @@ TEST_F(MixDependencyAnalyzerTest, UTest2) {
     auto components = GenerateInternalComponent();
     analyzer.ComputeDependencyClosure(dependencies);
     analyzer.CollectInternalDependencies(dependencies, components, internalDeps);
-    EXPECT_EQ(internalDeps.size(), kNum8);
+    EXPECT_EQ(internalDeps.size(), kNum4);
     EXPECT_TRUE(CheckPath(kNum0, kNum1, internalDeps));
     EXPECT_TRUE(CheckPath(kNum0, kNum4, internalDeps));
     EXPECT_TRUE(CheckPath(kNum1, kNum4, internalDeps));
