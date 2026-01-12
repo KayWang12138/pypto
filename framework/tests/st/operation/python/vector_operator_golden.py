@@ -106,7 +106,7 @@ def gen_op_golden(
     op: str, golden_func, output_path: Path, case_index: int = None
 ) -> bool:
     def generate_golden_files(golden_func, output_path: Path, config: dict) -> bool:
-        if config['operation'] in ["Matmul", "BatchMatmul", "MatmulVerify", "BatchMatmulVerify"]:
+        if config['operation'] in ["Matmul", "BatchMatmul", "MatmulVerify", "BatchMatmulVerify", "MXMatmul"]:
             return generate_matmul_golden_files(golden_func, output_path, config)
 
         input_tensors = []
@@ -148,7 +148,7 @@ def gen_op_golden(
             input_tensors.append(tensor)
 
         res = golden_func(input_tensors, config)
-        cube_op_list = ["Matmul", "BatchMatmul", "MatmulVerify", "BatchMatmulVerify"]
+        cube_op_list = ["Matmul", "BatchMatmul", "MatmulVerify", "BatchMatmulVerify", "MXMatmul"]
         for input_tensor, read_input in zip(input_tensors, config["input_tensors"]):
             if (
                 config.get("operation") in cube_op_list
@@ -179,6 +179,28 @@ def gen_op_golden(
     else:
         generate_golden_files(golden_func, output_path, test_configs[case_index])
     return True
+
+def generate_mx_matmul_scale_files(input_tensors: list, output_path: Path, config: dict):
+    index = 0
+    params = config.get("params")
+    scale_shape = []
+    for input_tensor in config["input_tensors"]:
+        tensor_shape = input_tensor["shape"]
+        tensor_type = get_dtype_by_name("fp8_e8m0fnu")
+        if index == 0:
+            if not params.get("transA"):
+                scale_shape = (tensor_shape[0], tensor_shape[1] / 32)
+            else:
+                scale_shape = (tensor_shape[0] / 32, tensor_shape[1])
+        if index == 1:
+            if not params.get("transB"):
+                scale_shape = (tensor_shape[0] / 32, tensor_shape[1])
+            else:
+                scale_shape = (tensor_shape[0], tensor_shape[1] / 32)
+        scale_mx_gm = np.random.uniform(127, 130, scale_shape).astype(np.uint8)
+        scale_mx = 2**(scale_mx_gm.astype(np.float64) - 127)
+        input_scale = scale_mx.astype(tensor_type)
+        input_tensors.append(input_scale)
 
 
 def generate_matmul_params_files(input_tensors: list, output_path: Path, config: dict):
@@ -225,7 +247,7 @@ def generate_matmul_golden_files(golden_func, output_path: Path, config: dict):
         "min": np.finfo(np.float32).min,
         "max": np.finfo(np.float32).max,
     }
-    cube_op_list = ["Matmul", "BatchMatmul", "MatmulVerify", "BatchMatmulVerify"]
+    cube_op_list = ["Matmul", "BatchMatmul", "MatmulVerify", "BatchMatmulVerify", "MXMatmul"]
     index = 0
     input_tensors = []
     for input_tensor in config["input_tensors"]:
@@ -235,24 +257,23 @@ def generate_matmul_golden_files(golden_func, output_path: Path, config: dict):
             input_min, str
         ), "Data range must be number when the min and max are not same."
         tensor_type = get_dtype_by_name(input_tensor["dtype"])
-        if input_tensor["dtype"] == "bf16":
-            tensor_type = bfloat16
-        tensor = np.random.uniform(input_min, input_max, input_tensor["shape"]).astype(
-            tensor_type
-        )
+        # if input_tensor["dtype"] == "bf16":
+        #     tensor_type = bfloat16
+        tensor = np.random.uniform(input_min, input_max, input_tensor["shape"]).astype(tensor_type)
         index += 1
         input_tensors.append(tensor)
+
+    if config.get("operation") == "MXMatmul":
+        generate_mx_matmul_scale_files(input_tensors, output_path, config)
 
     generate_matmul_params_files(input_tensors, output_path, config)
 
     res = golden_func(input_tensors, config)
     for idx in range(len(config["output_tensors"])):
         tensor_type = get_dtype_by_name(config["output_tensors"][idx]["dtype"])
-        if config["output_tensors"][idx]["dtype"] == "bf16":
-            tensor_type = bfloat16
-        res[idx].astype(tensor_type).tofile(
-            Path(output_path, config["output_tensors"][idx]["name"] + ".bin")
-        )
+        # if config["output_tensors"][idx]["dtype"] == "bf16":
+        #     tensor_type = bfloat16
+        res[idx].astype(tensor_type).tofile(Path(output_path, config["output_tensors"][idx]["name"] + ".bin"))
 
     for input_tensor, read_input in zip(input_tensors, config["input_tensors"]):
         if config.get("operation") in cube_op_list and read_input.get("format") == "NZ":
@@ -396,7 +417,7 @@ def gen_topk_op_golden(case_name: str, output: Path, case_index: int = None) -> 
     return True
 
 
-@TestCaseLoader.reg_params_handler(ops=["Matmul", "BatchMatmul", "MatmulVerify", "BatchMatmulVerify"])
+@TestCaseLoader.reg_params_handler(ops=["Matmul", "BatchMatmul", "MatmulVerify", "BatchMatmulVerify", "MXMatmul"])
 def matmul_params_func(params: dict):
     bias_params_func(params)
     fixpipe_params_func(params)
@@ -583,6 +604,7 @@ def l0c2l_golden_generate(inputs: list, config: dict):
 
 def matmul_golden_func(inputs: list, config: dict):
     params = config.get("params")
+    index_offset = 0
     if params.get("l0c2l1_tensor"):
         return l0c2l_golden_generate(inputs, config)
     tensor_a = (
@@ -595,6 +617,21 @@ def matmul_golden_func(inputs: list, config: dict):
         if not params.get("transB")
         else np.swapaxes(inputs[1], inputs[1].ndim - 2, inputs[1].ndim - 1)
     )
+    if config.get("operation") == "MXMatmul":
+        index_offset += 2
+        scale_a = (
+            inputs[2]
+            if not params.get("transA")
+            else np.swapaxes(inputs[2], inputs[2].ndim - 2, inputs[2].ndim - 1)
+        )
+        scale_b = (
+            inputs[3]
+            if not params.get("transB")
+            else np.swapaxes(inputs[3], inputs[3].ndim - 2, inputs[2].ndim - 1)
+        )
+        block_idx = inputs[2].shape[1].reshape(1, 128)
+        tensor_a = tensor_a * scale_a[:, block_idx[0]]
+        tensor_b = tensor_b * scale_b[block_idx[0], :]
     assert params.get("outDtype") in ("fp32", "fp16", "bf16", "int32")
     if params.get("outDtype") in ("fp32", "fp16", "bf16"):
         tensor_c = torch.matmul(
@@ -602,14 +639,14 @@ def matmul_golden_func(inputs: list, config: dict):
             torch.from_numpy(tensor_b.astype(np.float32)).to(torch.float32)
         ).to(torch.float32)
         if params.get("bias_info") is not None and params.get("bias_info") != "":
-            tensor_c = tensor_c + torch.from_numpy(inputs[3].astype(np.float32)).to(torch.float32)
+            tensor_c = tensor_c + torch.from_numpy(inputs[index_offset + 3].astype(np.float32)).to(torch.float32)
     else:
         tensor_c = torch.matmul(
             torch.from_numpy(tensor_a.astype(np.int32)).to(torch.int32),
             torch.from_numpy(tensor_b.astype(np.int32)).to(torch.int32)
         ).to(torch.int32)
         if params.get("bias_info") is not None and params.get("bias_info") != "":
-            tensor_c = tensor_c + torch.from_numpy(inputs[3].astype(np.int32)).to(torch.int32)
+            tensor_c = tensor_c + torch.from_numpy(inputs[index_offset + 3].astype(np.int32)).to(torch.int32)
 
     if params.get("relu_type") == 1:
         tensor_c = F.relu(tensor_c)
@@ -617,7 +654,7 @@ def matmul_golden_func(inputs: list, config: dict):
         tensor_c = tensor_c * params.get("scale_value")
     if params.get("quant_type") is not None and params.get("quant_type") == 2:
         # quant type中no quant为0, pertensor为1, perchannel为2.
-        tensor_c = tensor_c * inputs[2]
+        tensor_c = tensor_c * inputs[index_offset + 2]
     tensor_c = tensor_c.numpy()
     tensor_type = get_dtype_by_name(params.get("outDtype"))
     if params.get("outDtype") == "bf16":
@@ -668,7 +705,7 @@ def gen_expand_op_golden(case_name: str, output: Path, case_index: int = None) -
 @GoldenRegister.reg_golden_func(
     case_names=[
         "TestMatmul/MatmulOperationTest.TestMatmul",
-    ], 
+    ],
     version=0,
     timeout=0
 )
@@ -716,6 +753,17 @@ def gen_batchmatmulverify_op_golden(
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("BatchMatmulVerify", matmul_golden_func, output, case_index)
 
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestMXMatmul/MXMatmulOperationTest.TestMXMatmul",
+    ]
+)
+def gen_mxmatmul_op_golden(
+    case_name: str, output: Path, case_index: int = None
+) -> bool:
+    # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("MXMatmul", matmul_golden_func, output, case_index)
 
 @GoldenRegister.reg_golden_func(
     case_names=[
@@ -1416,7 +1464,7 @@ def cumsum_golden_func(inputs: list, config: dict):
     if inputs[0].dtype == bfloat16:
         res = res.to(torch.float32).numpy().astype(bfloat16)
         return [res]
-    
+
     return [res.numpy()]
 
 @GoldenRegister.reg_golden_func(
@@ -1458,7 +1506,7 @@ def indexadd_golden_func(inputs: list, config: dict):
     except (KeyError, ValueError, TypeError):
         alp = 1
     res = self.index_add(axis, indices, source, alpha=alp)
-    
+
     return [to_numpy(res)]
 
 

@@ -49,6 +49,9 @@ enum DataType {
     DT_UINT64 = 14,
     DT_BOOL = 15,
     DT_DOUBLE = 16,
+    DT_FP8_E4M3FN = 17,
+    DT_FP8_E5M2 = 18,
+    DT_FP8_E8M0 = 19,
     DT_BOTTOM
 };
 
@@ -86,6 +89,8 @@ enum MemoryType {
     MEM_FAR2 = 18,
     MEM_WORKSPACE = 19,
     MEM_VECTOR_REG = 20,
+    MEM_L0AMX = 21,
+    MEM_L0BMX = 22,
     MEM_UNKNOWN
 };
 
