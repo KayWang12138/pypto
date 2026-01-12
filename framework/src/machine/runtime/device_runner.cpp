@@ -40,6 +40,7 @@
 #include "machine/platform/platform_manager.h"
 #include "machine/runtime/device_error_tracking.h"
 #include "nlohmann/json.hpp"
+#include "machine/runtime/perf_analysis.h"
 
 using json = nlohmann::json;
 extern char _binary_kernel_o_start[];
@@ -575,13 +576,13 @@ int DeviceRunner::launchDynamicAiCpuInit(rtStream_t aicpuStream, AstKernelArgs *
 }
 
 int DeviceRunner::RunPrepare() {
-   for (uint32_t i = 0; i < args_.nrAic + args_.nrAiv; i++) {
-        rtMemcpy((reinterpret_cast<uint8_t *>(args_.sharedBuffer + sizeof(uint64_t) * SHAK_BUF_DFX_DATA_INDEX)) + i * SHARED_BUFFER_SIZE,
-            sizeof(uint64_t),
-            reinterpret_cast<uint8_t *>(&perfData_[i]),
-            sizeof(uint64_t),
-            RT_MEMCPY_HOST_TO_DEVICE);
-    }
+//    for (uint32_t i = 0; i < args_.nrAic + args_.nrAiv; i++) {
+//         rtMemcpy((reinterpret_cast<uint8_t *>(args_.sharedBuffer + sizeof(uint64_t) * SHAK_BUF_DFX_DATA_INDEX)) + i * SHARED_BUFFER_SIZE,
+//             sizeof(uint64_t),
+//             reinterpret_cast<uint8_t *>(&perfData_[i]),
+//             sizeof(uint64_t),
+//             RT_MEMCPY_HOST_TO_DEVICE);
+//     }
     if (isCapture_) {
         aclmdlRICaptureMode mode = ACL_MODEL_RI_CAPTURE_MODE_GLOBAL;
         aclmdlRICaptureThreadExchangeMode(&mode);
@@ -643,6 +644,8 @@ int DeviceRunner::DynamicKernelLaunch(rtStream_t aicpuStream, rtStream_t aicoreS
     }
     ReportHostProfInfo(startTime, 1, MSPROF_GE_TASK_TYPE_AI_CPU);
 
+    HOST_PERF_TRACE(TracePhase::RUN_DEV_KERNEL_LAUNCH_AICPU_INIT);
+
     startTime = MsprofSysCycleTime();
     rc = launchDynamicAiCpu(aicpuStream, kernelArgs);
     if (rc < 0) {
@@ -651,6 +654,8 @@ int DeviceRunner::DynamicKernelLaunch(rtStream_t aicpuStream, rtStream_t aicoreS
     }
     ReportHostProfInfo(startTime, aicpuNum_, MSPROF_GE_TASK_TYPE_AI_CPU);
 
+    HOST_PERF_TRACE(TracePhase::RUN_DEV_KERNEL_LAUNCH_AICPU_RUN);
+
     startTime = MsprofSysCycleTime();
     rc = launchDynamicAiCore(aicoreStream, kernelArgs);
     if (rc < 0) {
@@ -658,6 +663,8 @@ int DeviceRunner::DynamicKernelLaunch(rtStream_t aicpuStream, rtStream_t aicoreS
         return rc;
     }
     ReportHostProfInfo(startTime, blockdim, MSPROF_GE_TASK_TYPE_MIX_AIC, true);
+
+    HOST_PERF_TRACE(TracePhase::RUN_DEV_KERNEL_LAUNCH_AICORE);
     return rc;
 }
 
@@ -708,13 +715,20 @@ int DeviceRunner::DynamicSeparateLaunch(rtStream_t aicpuStream, rtStream_t ctrlS
     return rc;
 }
 
+
 int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, rtStream_t aicoreStream, int64_t taskId,
     AstKernelArgs *kernelArgs, int blockdim, int launchAicpuNum) {
     InitializeErrorCallback();
+    
+    HOST_PERF_TRACE(TracePhase::RUN_DEV_KERNEL_INIT_ERR_CALLBACK);
+
     if (!g_IsFirstInit) {
         InitAiCpuSoBin();
     }
     g_IsFirstInit = true;
+    
+    HOST_PERF_TRACE(TracePhase::RUN_DEV_KERNEL_INIT_AICPUSO);
+
     #ifdef BUILD_WITH_NEW_CANN
     if (!g_IsNullLaunched) {
         auto ret = LoadAicpuOp::GetInstance().LaunchBuiltInOp(aicpuStream, kernelArgs, 1, "PyptoNull");
@@ -745,15 +759,24 @@ int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, r
     localArgs.generalAddr = kernelArgs->opMetaAddrs.generalAddr;
     localArgs.stitchPoolAddr = kernelArgs->opMetaAddrs.stitchPoolAddr;
     localArgs.isGETensorList = kernelArgs->toSubMachineConfig.isGETensorList;
-    int rc = rtMemcpy(kernelArgs->cfgdata, sizeof(localArgs), &localArgs, sizeof(localArgs), RT_MEMCPY_HOST_TO_DEVICE);
+
+    HOST_PERF_TRACE(TracePhase::RUN_DEV_KERNEL_INIT_KERNEL_ARGS);
+
+    int rc = rtMemcpyAsync(kernelArgs->cfgdata, sizeof(localArgs), &localArgs, sizeof(localArgs), RT_MEMCPY_HOST_TO_DEVICE, aicpuStream);
     if (rc != 0) {
         ALOG_ERROR_F("Copy args failed %p rc %d\n", kernelArgs->cfgdata, rc);
         return rc;
     }
+
+    HOST_PERF_TRACE(TracePhase::RUN_DEV_KERNEL_INIT_H2D_MEMCPY);
+
     if (RunPrepare() < 0) {
         ALOG_ERROR_F("Prepare failed %d\n", rc);
         return rc;
     }
+
+    HOST_PERF_TRACE(TracePhase::RUN_DEV_KERNEL_INIT_RUN_PREPARE);
+
     if (ctrlStream == nullptr) {
         return DynamicKernelLaunch(aicpuStream, aicoreStream, kernelArgs, blockDim_);
     } else {
