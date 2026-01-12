@@ -862,7 +862,7 @@ void OoOScheduler::AddDependency(IssueEntryPtr preIssue, IssueEntryPtr postIssue
 }
 
 void OoOScheduler::FindDependencies(IssueEntryPtr issue, std::map<Operation*, IssueEntryPtr> op2IssueEntryMap) {
-    for (auto &producer : opProducers[*issue->tileOp]) {
+    for (auto &producer : opProducers[&issue->tileOp]) {
         if (IsViewOp(*producer)) {
             for (auto viewProducer : opProducers[producer]) {
                 Operation* lastView = SkipViewChain(viewProducer, true);
@@ -875,7 +875,7 @@ void OoOScheduler::FindDependencies(IssueEntryPtr issue, std::map<Operation*, Is
             AddDependency(prodIssue, issue, false);
         }
     }
-    for (auto &consumer : opConsumers[*issue->tileOp]) {
+    for (auto &consumer : opConsumers[&issue->tileOp]) {
         if (IsViewOp(*consumer)) {
             for (auto viewConsumer : opConsumers[consumer]) {
                 Operation* lastView = SkipViewChain(viewConsumer, false);
