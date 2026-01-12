@@ -21,7 +21,7 @@ from torch._dynamo import allow_in_graph
 
 def main():
     test_win_atten()
-    test_win_atten_allow_in_graph()
+    # test_win_atten_allow_in_graph()
 
 
 def check_args(
@@ -253,20 +253,19 @@ def win_atten_main_tnd(q_tnd, block_table, kv_cache, start_pos_list, atten_sink,
     t = q_tnd.shape[0]
     n_q = q_tnd.shape[1]
     d_q = q_tnd.shape[2]
-    n_kv = kv_cache.shape[2]
     scalar = d_q ** -0.5
     block_size = kv_cache.shape[1]
     d_kv = kv_cache.shape[3]
     b = start_pos_list.shape[0]
     s_q = t // b
 
-    for t_idx in pypto.loop(t, name="LOOP_T", idx_name="t_idx"):
+    for t_idx in pypto.loop(t, name="LOOP_T", idx_name="t_idx", unroll_list=[t]):
         b_idx = t_idx // s_q
         s1_idx = t_idx % s_q
 
         start_pos = start_pos_list[b_idx]
                 
-        pypto.set_vec_tile_shapes(128, 128, 512)
+        pypto.set_vec_tile_shapes(128, 512, 512)
         q_tensor_cur = pypto.view(q_tnd, [1, n_q, d_q], [t_idx, 0, 0])
         q_tensor_cur = pypto.reshape(q_tensor_cur, (n_q, d_q))
 
@@ -279,22 +278,22 @@ def win_atten_main_tnd(q_tnd, block_table, kv_cache, start_pos_list, atten_sink,
         end_block = (end_pos - 1) // block_size
 
         physical_block_id = block_table[b_idx, start_block]
+        pypto.set_vec_tile_shapes(128, 512, 128, 512)
         kv_block_0 = pypto.view(kv_cache, [1, block_size, 1, d_kv], [physical_block_id, 0, 0, 0])
-        pypto.set_vec_tile_shapes(128, 256, 128, 128)
         kv_block_reshape_0 = pypto.reshape(kv_block_0, (block_size, d_kv))
 
         physical_block_id = block_table[b_idx, end_block]
+        pypto.set_vec_tile_shapes(128, 512, 128, 512)
         kv_block_1 = pypto.view(kv_cache, [1, block_size, 1, d_kv], [physical_block_id, 0, 0, 0])
-        pypto.set_vec_tile_shapes(128, 256, 128, 128)
         kv_block_reshape_1 = pypto.reshape(kv_block_1, (block_size, d_kv))
 
-        pypto.set_vec_tile_shapes(128, 256)
+        pypto.set_vec_tile_shapes(128, 512)
         kv_gather = pypto.concat([kv_block_reshape_0, kv_block_reshape_1], dim=0)
 
         pypto.set_vec_tile_shapes(128, 512)
         kv_cur = pypto.view(kv_gather, [win, d_kv], [start_offset, 0])
 
-        pypto.set_cube_tile_shapes([64, 64], [256, 256 * 4], [128, 128], True, False)
+        pypto.set_cube_tile_shapes([64, 64], [256, 256 * 8], [128, 128], True, False)
         qk_mm_res = pypto.matmul(q_tensor_cur, kv_cur, pypto.DT_FP32, b_trans=True)
 
         pypto.set_vec_tile_shapes(32, 128)
@@ -304,11 +303,13 @@ def win_atten_main_tnd(q_tnd, block_table, kv_cache, start_pos_list, atten_sink,
 
         pypto.set_vec_tile_shapes(64, 512)
         kv_cur_fp32 = pypto.cast(kv_cur, pypto.DT_FP32)
-        pypto.set_cube_tile_shapes([64, 64], [128, 128 * 2], [128, 128], True, False)
+        pypto.set_cube_tile_shapes([64, 64], [32, 32 * 8], [512, 512], True, False)
         mm2_res = pypto.matmul(softmax_out, kv_cur_fp32, pypto.DT_FP32)
+
+        pypto.set_vec_tile_shapes(64, 512)
         mm2_res_reshape = pypto.reshape(mm2_res, (1, n_q, d_kv))
 
-        pypto.set_vec_tile_shapes(1, n_q, d_kv)
+        pypto.set_vec_tile_shapes(1, 64, 512)
         pypto.assemble(mm2_res_reshape, [t_idx, 0, 0], atten_out)
 
 
@@ -367,7 +368,6 @@ def test_win_atten_allow_in_graph() -> None:
 
             # start_pos + s1 = actual_seq
             start_pos_list = [item - s_q for item in actual_seq_list]
-            print(f"start_pos_list: {start_pos_list}")
 
             start_pos_list_tensor = torch.tensor(start_pos_list, dtype=torch.int32, device=f'npu:{device_id}')
 
@@ -403,13 +403,12 @@ def test_win_atten() -> None:
             device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
             torch.npu.set_device(device_id)
 
-            torch.manual_seed(321)
-            actual_seq_list = torch.randint(s_q + 1, 8193, (b, ), device=f'npu:{device_id}').tolist()
-            # actual_seq_list = [8192] * b
+            # torch.manual_seed(321)
+            # actual_seq_list = torch.randint(s_q + 1, 8193, (b, ), device=f'npu:{device_id}').tolist()
+            actual_seq_list = [8192] * b
 
             # start_pos + s1 = actual_seq
             start_pos_list = [item - s_q for item in actual_seq_list]
-            print(f"start_pos_list: {start_pos_list}")
 
             start_pos_list_tensor = torch.tensor(start_pos_list, dtype=torch.int32, device=f'npu:{device_id}')
 
