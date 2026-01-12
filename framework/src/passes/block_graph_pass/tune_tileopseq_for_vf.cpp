@@ -30,6 +30,7 @@ void TuneTileOpSeqForVF::ChangeOpSeq(std::vector<Operation *> &opList, PipeSync 
     }
 
     std::vector<size_t> pipeVIdx;
+    mergedOps.clear();
     for (size_t i = 0; i < opList.size(); i++) {
         auto opcfg = OpcodeManager::Inst().GetTileOpCfg(opList[i]->GetOpcode());
         if (opcfg.pipeIdStart_ == PipeType::PIPE_V && opList[i]->GetAIVCore() == coreType) {
@@ -47,18 +48,56 @@ void TuneTileOpSeqForVF::ChangeOpSeq(std::vector<Operation *> &opList, PipeSync 
         if (right == left + 1) {
             continue;
         }
-        bool hasDep = false;
-        for (size_t k = left + 1; k < right; k++) {
-            if (ps.HasDataDependency(*opList[left], *opList[k], left, k) || ps.HasDataDependency(*opList[k], *opList[right], k, right)) {
-                hasDep = true;
-                break;
+        bool canMerge = true;
+        bool moveBack = true;
+        // 先看vecTileop0是否已经在mergedOps中
+        int groupNum = -1;
+        for (size_t i = 0; i < mergedOps.size(); i++) {
+            for (size_t j = 0; j < mergedOps[i].size(); j++) {
+                if (mergedOps[i][j] == opList[left]) {
+                    groupNum = i;
+                    break;
+                }
             }
         }
-        // 存在依赖，不能融合
-        if (hasDep) {
-            continue;
+        for (size_t k = left + 1; k < right; k++) {
+            // 如果该op和vecTileop0和vecTileop1都存在依赖关系，则不能融合
+            if (ps.HasDataDependency(*opList[left], *opList[k], left, k) && ps.HasDataDependency(*opList[k], *opList[right], k, right)) {
+                canMerge = false;
+                continue;
+            }
+            // vecTileop0 op(set) vecTileop1(wait) 这种情况下两个vecTileop中间的op需要前移
+            if (ps.HasDataDependency(*opList[k], *opList[right], k, right)) {
+                // 需要进一步判断和vecTileop0 group中的op是否有依赖关系
+                if (groupNum == -1) {
+                    moveBack = false;
+                } else {
+                    size_t tempIdx = left;
+                    for (auto &groupOp : mergedOps[groupNum]) {
+                        if (ps.HasDataDependency(*groupOp, *opList[k], --tempIdx, k)) {
+                            canMerge = false;
+                            break;
+                        }
+                    }
+                    if (canMerge) {
+                        moveBack = false;
+                    } else {
+                        continue;
+                    }
+                }
+            }
+
         }
-        // 不存在依赖，可以融合
+        // 可以融合
+        // 将vecTileop0和vecTileop1添加到mergedOps中
+        if (groupNum == -1) {
+            // 将vecTileop0和vecTileop1添加到mergedOps中
+            std::vector<Operation *> newOp = {opList[left], opList[right]};
+            mergedOps.emplace_back(newOp);
+            groupNum = mergedOps.size() - 1;
+        } else {
+            mergedOps[groupNum].emplace_back(opList[right]);
+        }
         std::vector<Operation *> toMove;
         std::vector<size_t> toMoveIdx;
         for (size_t k = left + 1; k < right; k++) {
@@ -68,9 +107,16 @@ void TuneTileOpSeqForVF::ChangeOpSeq(std::vector<Operation *> &opList, PipeSync 
         for (auto it = toMoveIdx.rbegin(); it != toMoveIdx.rend(); it++) {
             opList.erase(opList.begin() + *it);
         }
-        // 删掉这些op后，right = left + 1, 在right右侧将删掉的op重新插入，即在left + 2的位置开始插入
-        auto insertPos = opList.begin() + left + 2;
-        opList.insert(insertPos, toMove.begin(), toMove.end());
+        // 如果moveBack为true, 向后移动
+        if (moveBack) {
+            // 删掉这些op后，right = left + 1, 在right右侧将删掉的op重新插入，即在left + 2的位置开始插入
+            auto insertPos = opList.begin() + left + 2;
+            opList.insert(insertPos, toMove.begin(), toMove.end());
+        } else {
+            // 在vecTileop0 group的左侧将删掉的op重新插入
+            auto insertPos = oplist.begin() + left - mergedOps[groupNum].size() + 1;
+            opList.insert(insertPos, toMove.begin(), toMove.end());
+        }
         // 由于移动，pipeVop的idx会发生变化，需要重新更新pipeVIdx
         pipeVIdx.clear();
         for (size_t i = 0; i < opList.size(); i++) {
