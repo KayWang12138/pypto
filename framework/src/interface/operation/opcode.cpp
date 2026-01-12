@@ -114,6 +114,7 @@ OpcodeManager::OpcodeManager() {
     registerInfo(Opcode::OP_ROWEXPMAX, OpCoreType::AIV, "ROWEXPMAX", {MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::Trowmaxexpand", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::REDUCE, {OpAttributeKey::excludeBufferReuse});
     registerInfo(Opcode::OP_ROWEXPSUM, OpCoreType::AIV, "ROWEXPSUM", {MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::Trowsumexpand", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::REDUCE, {OpAttributeKey::excludeBufferReuse});
     registerInfo(Opcode::OP_ADDS, OpCoreType::AIV, "ADDS", {MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::Tadds", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE, {OpAttributeKey::scalar, OP_ATTR_PREFIX + "reverseOperand", OP_ATTR_PREFIX + "reverseOperand", OpAttributeKey::inputCombineAxis, OpAttributeKey::outputCombineAxis}, TileShapeVerifier::Verify);
+    registerInfo(Opcode::OP_MODS, OpCoreType::AIV, "MODS", {MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::Tmods", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE, {OpAttributeKey::scalar, OP_ATTR_PREFIX + "reverseOperand", OP_ATTR_PREFIX + "reverseOperand", OpAttributeKey::inputCombineAxis, OpAttributeKey::outputCombineAxis}, TileShapeVerifier::Verify);
     registerInfo(Opcode::OP_SUBS, OpCoreType::AIV, "SUBS", {MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::Tsubs", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE, {OpAttributeKey::scalar, OP_ATTR_PREFIX + "reverseOperand", OP_ATTR_PREFIX + "reverseOperand", OpAttributeKey::inputCombineAxis, OpAttributeKey::outputCombineAxis}, TileShapeVerifier::Verify);
     registerInfo(Opcode::OP_MULS, OpCoreType::AIV, "MULS", {MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::Tmuls", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE, {OpAttributeKey::scalar, OP_ATTR_PREFIX + "reverseOperand", OP_ATTR_PREFIX + "reverseOperand", OpAttributeKey::inputCombineAxis, OpAttributeKey::outputCombineAxis}, TileShapeVerifier::Verify);
     registerInfo(Opcode::OP_DIVS, OpCoreType::AIV, "DIVS", {MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::Tdivs", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE, {OpAttributeKey::scalar, OP_ATTR_PREFIX + "reverseOperand", OP_ATTR_PREFIX + "reverseOperand", OpAttributeKey::inputCombineAxis, OpAttributeKey::outputCombineAxis}, TileShapeVerifier::Verify);
@@ -140,6 +141,7 @@ OpcodeManager::OpcodeManager() {
     registerInfo(Opcode::OP_SUB, OpCoreType::AIV, "SUB", {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::Tsub", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::BROADCAST, {OpAttributeKey::inputCombineAxis}, TileShapeVerifier::Verify);
     registerInfo(Opcode::OP_MUL, OpCoreType::AIV, "MUL", {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::Tmul", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::BROADCAST, {OpAttributeKey::inputCombineAxis}, TileShapeVerifier::Verify);
     registerInfo(Opcode::OP_DIV, OpCoreType::AIV, "DIV", {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::Tdiv", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::BROADCAST, {OpAttributeKey::inputCombineAxis}, TileShapeVerifier::Verify);
+    registerInfo(Opcode::OP_MOD, OpCoreType::AIV, "MOD", {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::Tmod", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::BROADCAST, {OpAttributeKey::inputCombineAxis}, TileShapeVerifier::Verify);
     registerInfo(Opcode::OP_S_ADD, OpCoreType::AIV, "S_ADD", {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::TSadd", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::BROADCAST, {OpAttributeKey::inputCombineAxis});
     registerInfo(Opcode::OP_S_SUB, OpCoreType::AIV, "S_SUB", {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::TSsub", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::BROADCAST, {OpAttributeKey::inputCombineAxis});
     registerInfo(Opcode::OP_S_MUL, OpCoreType::AIV, "S_MUL", {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {"TileOp::TSmul", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::BROADCAST, {OpAttributeKey::inputCombineAxis});
@@ -448,6 +450,7 @@ OpcodeManager::OpcodeManager() {
         {   Opcode::OP_TRANSPOSE_MOVEIN,   "TTransMoveIn"},
         {  Opcode::OP_TRANSPOSE_MOVEOUT,  "TTransMoveOut"},
         {                Opcode::OP_ADD,           "TAdd"},
+        {                Opcode::OP_ADD,           "TMod"},
         {                Opcode::OP_SUB,           "TSub"},
         {                Opcode::OP_DIV,           "TDiv"},
         {                Opcode::OP_MUL,           "TMul"},
@@ -466,6 +469,7 @@ OpcodeManager::OpcodeManager() {
         {         Opcode::OP_ROWMINLINE,    "TRowMinLine"},
         {           Opcode::OP_WHERE_TT,         "TWhere"},
         {               Opcode::OP_ADDS,          "TAddS"},
+        {               Opcode::OP_ADDS,          "TModS"},
         {               Opcode::OP_SUBS,          "TSubS"},
         {               Opcode::OP_MULS,          "TMulS"},
         {               Opcode::OP_DIVS,          "TDivS"},
