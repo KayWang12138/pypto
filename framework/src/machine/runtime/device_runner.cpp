@@ -40,6 +40,7 @@
 #include "machine/platform/platform_manager.h"
 #include "machine/runtime/device_error_tracking.h"
 #include "nlohmann/json.hpp"
+#include "machine/runtime/perf_analysis.h"
 
 using json = nlohmann::json;
 extern char _binary_kernel_o_start[];
@@ -575,13 +576,13 @@ int DeviceRunner::launchDynamicAiCpuInit(rtStream_t aicpuStream, AstKernelArgs *
 }
 
 int DeviceRunner::RunPrepare() {
-   for (uint32_t i = 0; i < args_.nrAic + args_.nrAiv; i++) {
-        rtMemcpy((reinterpret_cast<uint8_t *>(args_.sharedBuffer + sizeof(uint64_t) * SHAK_BUF_DFX_DATA_INDEX)) + i * SHARED_BUFFER_SIZE,
-            sizeof(uint64_t),
-            reinterpret_cast<uint8_t *>(&perfData_[i]),
-            sizeof(uint64_t),
-            RT_MEMCPY_HOST_TO_DEVICE);
-    }
+//    for (uint32_t i = 0; i < args_.nrAic + args_.nrAiv; i++) {
+//         rtMemcpy((reinterpret_cast<uint8_t *>(args_.sharedBuffer + sizeof(uint64_t) * SHAK_BUF_DFX_DATA_INDEX)) + i * SHARED_BUFFER_SIZE,
+//             sizeof(uint64_t),
+//             reinterpret_cast<uint8_t *>(&perfData_[i]),
+//             sizeof(uint64_t),
+//             RT_MEMCPY_HOST_TO_DEVICE);
+//     }
     if (isCapture_) {
         aclmdlRICaptureMode mode = ACL_MODEL_RI_CAPTURE_MODE_GLOBAL;
         aclmdlRICaptureThreadExchangeMode(&mode);
@@ -643,6 +644,8 @@ int DeviceRunner::DynamicKernelLaunch(rtStream_t aicpuStream, rtStream_t aicoreS
     }
     ReportHostProfInfo(startTime, 1, MSPROF_GE_TASK_TYPE_AI_CPU);
 
+    HOST_PERF_TRACE(TracePhase::RUN_DEV_KERNEL_LAUNCH_AICPU_INIT);
+
     startTime = MsprofSysCycleTime();
     rc = launchDynamicAiCpu(aicpuStream, kernelArgs);
     if (rc < 0) {
@@ -651,6 +654,8 @@ int DeviceRunner::DynamicKernelLaunch(rtStream_t aicpuStream, rtStream_t aicoreS
     }
     ReportHostProfInfo(startTime, aicpuNum_, MSPROF_GE_TASK_TYPE_AI_CPU);
 
+    HOST_PERF_TRACE(TracePhase::RUN_DEV_KERNEL_LAUNCH_AICPU_RUN);
+
     startTime = MsprofSysCycleTime();
     rc = launchDynamicAiCore(aicoreStream, kernelArgs);
     if (rc < 0) {
@@ -658,6 +663,8 @@ int DeviceRunner::DynamicKernelLaunch(rtStream_t aicpuStream, rtStream_t aicoreS
         return rc;
     }
     ReportHostProfInfo(startTime, blockdim, MSPROF_GE_TASK_TYPE_MIX_AIC, true);
+
+    HOST_PERF_TRACE(TracePhase::RUN_DEV_KERNEL_LAUNCH_AICORE);
     return rc;
 }
 
@@ -745,7 +752,7 @@ int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, r
     localArgs.generalAddr = kernelArgs->opMetaAddrs.generalAddr;
     localArgs.stitchPoolAddr = kernelArgs->opMetaAddrs.stitchPoolAddr;
     localArgs.isGETensorList = kernelArgs->toSubMachineConfig.isGETensorList;
-    int rc = rtMemcpy(kernelArgs->cfgdata, sizeof(localArgs), &localArgs, sizeof(localArgs), RT_MEMCPY_HOST_TO_DEVICE);
+    int rc = rtMemcpyAsync(kernelArgs->cfgdata, sizeof(localArgs), &localArgs, sizeof(localArgs), RT_MEMCPY_HOST_TO_DEVICE, aicpuStream);
     if (rc != 0) {
         ALOG_ERROR_F("Copy args failed %p rc %d\n", kernelArgs->cfgdata, rc);
         return rc;
@@ -754,6 +761,9 @@ int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, r
         ALOG_ERROR_F("Prepare failed %d\n", rc);
         return rc;
     }
+
+    HOST_PERF_TRACE(TracePhase::RUN_DEV_KERNEL_INIT);
+
     if (ctrlStream == nullptr) {
         return DynamicKernelLaunch(aicpuStream, aicoreStream, kernelArgs, blockDim_);
     } else {
@@ -786,6 +796,69 @@ int DeviceRunner::DynamicRun(rtStream_t aicpuStream, rtStream_t ctrlStream, rtSt
         return 0;
     }
     return DynamicLaunchSynchronize(aicpuStream, ctrlStream, aicoreStream);
+}
+
+int DeviceRunner::DynamicLaunchInit(rtStream_t aicpuStream, AstKernelArgs *kernelArgsInit, int blockdim, int launchAicpuNum) {
+    InitializeErrorCallback();
+    if (!g_IsFirstInit) {
+        InitAiCpuSoBin();
+    }
+    g_IsFirstInit = true;
+    #ifdef BUILD_WITH_NEW_CANN
+    if (!g_IsNullLaunched) {
+        auto ret = LoadAicpuOp::GetInstance().LaunchBuiltInOp(aicpuStream, kernelArgsInit, 1, "PyptoNull");
+        if (ret != 0) {
+            ALOG_ERROR_F("launch built null failed");
+            return ret;
+        }
+    }
+    g_IsNullLaunched = true;
+    #endif
+    auto localArgs = args_;
+    localArgs.taskId = 0;
+    localArgs.taskType = DEVICE_TASK_TYPE_DYN;
+    if (kernelArgsInit == nullptr) {
+        return -1;
+    }
+    lastLaunchToSubMachineConfig_ = kernelArgsInit->toSubMachineConfig;
+    localArgs.machineConfig = kernelArgsInit->machineConfig;
+    localArgs.toSubMachineConfig = kernelArgsInit->toSubMachineConfig;
+    localArgs.nrValidAic = blockdim;
+    localArgs.nrAicpu = launchAicpuNum;
+    blockDim_ = blockdim;
+    aicpuNum_ = launchAicpuNum;
+    localArgs.scheCpuNum = dynamic::CalcSchAicpuNumByBlockDim(blockdim, aicpuNum_);
+    localArgs.enableCtrl = 1;  // No ctrl stream for staged launch
+    localArgs.validGetPgMask = machine::GetRA()->GetValidGetPgMask();
+    localArgs.disableSync = config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_NO_DEVICE_TENSOR_DEPEND ? 1 : 0;
+    localArgs.generalAddr = kernelArgsInit->opMetaAddrs.generalAddr;
+    localArgs.stitchPoolAddr = kernelArgsInit->opMetaAddrs.stitchPoolAddr;
+    localArgs.isGETensorList = kernelArgsInit->toSubMachineConfig.isGETensorList;
+    int rc = rtMemcpyAsync(kernelArgsInit->cfgdata, sizeof(localArgs), &localArgs, sizeof(localArgs), RT_MEMCPY_HOST_TO_DEVICE, aicpuStream);
+    if (rc != 0) {
+        ALOG_ERROR_F("Copy args failed %p rc %d\n", kernelArgsInit->cfgdata, rc);
+        return rc;
+    }
+    if (RunPrepare() < 0) {
+        ALOG_ERROR_F("Prepare failed %d\n", rc);
+        return rc;
+    }
+    // Launch Init stage
+    return launchDynamicAiCpuInit(aicpuStream, kernelArgsInit);
+}
+
+int DeviceRunner::DynamicLaunchAiCpu(rtStream_t aicpuStream, AstKernelArgs *kernelArgsAiCpu) {
+    if (kernelArgsAiCpu == nullptr) {
+        return -1;
+    }
+    return launchDynamicAiCpu(aicpuStream, kernelArgsAiCpu);
+}
+
+int DeviceRunner::DynamicLaunchAiCore(rtStream_t aicoreStream, AstKernelArgs *kernelArgsAiCore, int blockdim) {
+    if (kernelArgsAiCore == nullptr) {
+        return -1;
+    }
+    return launchDynamicAiCore(aicoreStream, kernelArgsAiCore);
 }
 
 /**************************** DynamicFunction *****************************/
