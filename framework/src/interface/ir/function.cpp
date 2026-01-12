@@ -110,9 +110,6 @@ void Function::Print(std::ostream& os, int indent) const {
     os << "}\n";
 
     // Function attributes can be printed as separate lines following MLIR style.
-    // Example:
-    // func.attr private = true
-    // func.attr inline = true
     std::string attrPrefix;
     for (int i = 0; i < indent; ++i) {
         attrPrefix += "  ";
