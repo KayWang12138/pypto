@@ -128,15 +128,9 @@ def test_control_flow_closure():
     tensor_shape = [batch, constant128]
     tile_shape = [128, 128]
 
-    # NOTE: shape parameter `tensor_shape`, `tile_shape`, `batch` are passed via closure
+    # NOTE: `block` helper and shape parameter `tensor_shape`, `tile_shape`, `batch` are passed via closure
     # NOTE: use `metadata` kwarg so we reserve positional args for input arguments in pre-transformed ast
-    def create_function(
-        metadata=dict(
-            block=block,
-            name="test_control",
-            function_kind=ir.FunctionKind.ControlFlow
-        )
-    ):
+    def create_function(metadata=None):
         input_x = ir.Tensor(tensor_shape, ir.DataType.float,
                             "inputX", ir.Format.ND)
         input_y = ir.Tensor(tensor_shape, ir.DataType.float,
@@ -152,9 +146,9 @@ def test_control_flow_closure():
         sig.arguments = [input_x, input_y, scale1, scale2, result_x, result_y]
         sig.returns = [ir.Scalar(ir.DataType.int32, None)]
 
-        func = block.create_function(name, function_kind, sig)
+        assert isinstance(metadata, dict)
+        func = block.create_function(metadata["name"], metadata["function_kind"], sig)
         with block.function_scope(func):
-
             # for i = 0 to batch step 1
             i = block.Scalar(ir.DataType.int32, "i")
             constant0 = block.Const(0, "const_0")
@@ -182,10 +176,12 @@ def test_control_flow_closure():
 
         return func
 
-    func = create_function(
-        block,
+    metadata=dict(
         name="test_control",
         function_kind=ir.FunctionKind.ControlFlow
+    )
+    func = create_function(
+        metadata=metadata
     )
     module.add_function(func)
     module.entry = func
