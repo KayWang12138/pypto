@@ -36,7 +36,6 @@ using namespace npu::tile_fwk;
 namespace npu::tile_fwk {
 namespace dynamic {
 #define ONFILLCONTENT if (fillContent)
-#define DYN_DEVICE_TASK_EXT_SIZE 0x300
 #ifndef PAGE_SIZE
 #define PAGE_SIZE       4096
 #endif
@@ -47,6 +46,7 @@ constexpr int32_t DEFAULT_CORE_NUM = 75;
 constexpr int32_t SLOTS_NEED_ALLOC_SIZE = 2;
 constexpr int64_t MAX_SHAPE_WARN_THRESHOLE = 512 * 512;
 constexpr int32_t ALLOC_NUM_ONE_SLAB = 4;
+constexpr int64_t DEFAULT_CACHE_DEVICE_TASK_NUM = 10000;
 static constexpr uint64_t GENERAL_METADATA_SIZE_MIN = 4 * MEBI;
 constexpr uint32_t FRIENDLY_CACHE_ALIGN_U64_SIZE = 2; // 友好的cache对齐是2个u64
 
@@ -1331,6 +1331,28 @@ struct EncodeDevAscendFunctionInfo {
         }
     }
 
+     void AddDependOperandsToColorGraph(std::vector<Operation *> &callopList, std::unordered_map<Operation *, int> &callopIndexDict) {
+        std::unordered_map<std::shared_ptr<LogicalTensor>, OrderedSet<Operation *>> producerDict;
+        for (auto &op : callopList) {
+            for (auto &i : op->GetOOperands()) {
+                producerDict[i].Insert(op);
+            }
+        }
+
+        for (auto &op : callopList) {
+            for (auto &o : op->GetDependOperands()) {
+                for (auto &producer : producerDict[o]) {
+                    if (op == producer) {
+                        // Consumer and producer can not be the same.
+                        continue;
+                    }
+                    // Index for callop from its depend operand's producer callop index list
+                    colorOutGraph[callopIndexDict[producer]].push_back(callopIndexDict[op]);
+                }
+            }
+        }
+    }
+
     void EncodeZeroPredCount(std::vector<Operation *>& callopList) {
         std::unordered_map<Operation *, int> callopCoreTypeDict;
         for (auto &op : callopList) {
@@ -1485,11 +1507,12 @@ struct EncodeDevAscendFunctionInfo {
                 }
             }
         }
-        for (size_t index = 0; index < callopList.size(); index++) {
-            std::sort(colorOutGraph[index].begin(), colorOutGraph[index].end());
-            // remove repeated index in ooperand's consumer callop index list
-            colorOutGraph[index].resize(std::unique(colorOutGraph[index].begin(), colorOutGraph[index].end()) -
-                                colorOutGraph[index].begin());
+        AddDependOperandsToColorGraph(callopList, callopIndexDict);
+        for (size_t idx = 0; idx < callopList.size(); idx++) {
+            std::sort(colorOutGraph[idx].begin(), colorOutGraph[idx].end());
+            // remove repeated idx in ooperand's consumer callop idx list
+            colorOutGraph[idx].resize(std::unique(colorOutGraph[idx].begin(), colorOutGraph[idx].end()) -
+                                colorOutGraph[idx].begin());
         }
     }
 
@@ -1505,9 +1528,9 @@ struct EncodeDevAscendFunctionInfo {
                     RecordRawTensor(i);
                     consumerDict[i].Insert(&op);
                 }
-                for (auto &j : op.GetOOperands()) {
-                    tensorList.Insert(j);
-                    RecordRawTensor(j);
+                for (auto &o : op.GetOOperands()) {
+                    tensorList.Insert(o);
+                    RecordRawTensor(o);
                 }
             }
         }
@@ -1874,10 +1897,6 @@ void DevAscendProgram::InitControlFlowCache(
         bool fillContent) {
     (void)fillContent;
 
-    uint64_t leafElementCount = config::GetRuntimeOption<int64_t>(CFGCACHE_LEAF_TASK_NUM);
-    uint64_t rootElementCount = config::GetRuntimeOption<int64_t>(CFGCACHE_ROOT_TASK_NUM);
-    uint64_t deviceElementCount = config::GetRuntimeOption<int64_t>(CFGCACHE_DEVICE_TASK_NUM);
-
     uint64_t maxDuppedDataAllocSize = 0;
     uint64_t maxIncastOutcastCount = 0;
     for (size_t index = 0; index < dyndevAttr->devEncodeList.size(); index++) {
@@ -1892,25 +1911,7 @@ void DevAscendProgram::InitControlFlowCache(
             maxIncastOutcastCount = incastOutcastCount;
         }
     }
-    ControlFlowCacheFactor factorList[] = {
-        {"actualDupped",        0, maxDuppedDataAllocSize, 0},
-        {"actualDeviceTask",    sizeof(DynDeviceTaskBase) + DYN_DEVICE_TASK_EXT_SIZE, 0, 0},
-        {"actualStitch",        0, 0, sizeof(DevAscendFunctionDuppedStitch)},
-        {"actualDynFuncData",   sizeof(DynFuncHeader), sizeof(DynFuncData), 0},
-        {"actualReadyQueue",    sizeof(ReadyCoreFunctionQueue) * READY_QUEUE_SIZE, 0, sizeof(taskid_t) * READY_QUEUE_SIZE},
-        {"backupPredCount",     0, 0, sizeof(predcount_t)},
-        {"backupReadyQueue",    sizeof(ReadyQueueCache), 0, sizeof(taskid_t) * READY_QUEUE_SIZE},
-        {"backupIncastOutcast", 0, sizeof(uint64_t) * maxIncastOutcastCount, 0},
-    };
-    uint64_t deviceTotalFactor = 0;
-    uint64_t rootTotalFactor = 0;
-    uint64_t leafTotalFactor = 0;
-    for (auto &factor : factorList) {
-        deviceTotalFactor += factor.deviceElementFactor;
-        rootTotalFactor += factor.rootElementFactor;
-        leafTotalFactor += factor.leafElementFactor;
-    }
-    uint64_t totalSize = deviceTotalFactor * deviceElementCount + rootTotalFactor * rootElementCount + leafTotalFactor * leafElementCount;
+    uint64_t totalSize = config::GetRuntimeOption<int64_t>(STITCH_CFGCACHE_SIZE);
 
     initOffset = ALIGN_UP(initOffset, alignof(DevTensorData));
     controlFlowCache.inputTensorDataList.HostInitDataSizeOffset(initOffset, dyndevAttr->startArgsInputTensorList.size());
@@ -1923,7 +1924,7 @@ void DevAscendProgram::InitControlFlowCache(
     controlFlowCache.runtimeBackup.workspace.runtimeOutcastTensorPool.HostInitDataSizeOffset(initOffset, runtimeOutcastPoolSize);
 
     initOffset = ALIGN_UP(initOffset, alignof(DynFuncHeader *));
-    controlFlowCache.deviceTaskCacheList.HostInitDataSizeOffset(initOffset, config::GetRuntimeOption<int64_t>(CFGCACHE_DEVICE_TASK_NUM));
+    controlFlowCache.deviceTaskCacheList.HostInitDataSizeOffset(initOffset, DEFAULT_CACHE_DEVICE_TASK_NUM);//10000
     controlFlowCache.cacheData.HostInitDataSizeOffset(initOffset, totalSize);
     controlFlowCache.isRecording = false;
     controlFlowCache.isRecordingStopped= false;
