@@ -83,12 +83,14 @@ enum MemoryType {
     MEM_BT = 12,
     MEM_L2 = 13,
     MEM_L3 = 14,
-    MEM_DEVICE_DDR = 15,
-    MEM_HOST1 = 16,
-    MEM_FAR1 = 17,
-    MEM_FAR2 = 18,
-    MEM_WORKSPACE = 19,
-    MEM_VECTOR_REG = 20,
+    MEM_L0AMX = 15,
+    MEM_L0BMX = 16,
+    MEM_DEVICE_DDR = 17,
+    MEM_HOST1 = 18,
+    MEM_FAR1 = 19,
+    MEM_FAR2 = 20,
+    MEM_WORKSPACE = 21,
+    MEM_VECTOR_REG = 22,
     MEM_UNKNOWN
 };
 
