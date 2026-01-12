@@ -639,8 +639,8 @@ std::string CodeGenOpCloudNPU::PrintIndexPutDynamicUnaligned(const PrintIndexPut
     const std::vector<std::string> &dataTypeExpr = param.dataTypeExpr;
     size_t dstRank = param.gmShape.size();
     std::vector<int64_t> s1rs = NormalizeShape(param.src1RawShape, SHAPE_DIM4);
-    int dim = static_cast<int>(rawShape[ID1].size());
-    auto paramPack = GenParamIdxExprByIndex(ID1, dim, PREFIX_STR_RAW_SHAPE);
+    int dim = static_cast<int>(rawShape[ID0].size());
+    auto paramPack = GenParamIdxExprByIndex(ID0, dim, PREFIX_STR_RAW_SHAPE);
     FillIntVecWithDummyInHead<std::string>(paramPack, ID4 - dim, "1");
     bool accumulate = param.accumulate;
     
@@ -684,7 +684,7 @@ std::string CodeGenOpCloudNPU::GenIndexPutOp() const {
     bool accumulate = npu::tile_fwk::AnyCast<bool>(opAttrs.at(OP_ATTR_PREFIX + "accumulate"));
     int64_t indicesSize = npu::tile_fwk::AnyCast<int64_t>(opAttrs.at(OP_ATTR_PREFIX + "indicesSize"));
     // dst:gm, s0/self:gm, s1/values:ub, s2/indices:ub
-    std::string dstVar = GenGmParamVar(ID1);
+    std::string dstVar = GenGmParamVar(ID0);
     std::string s1Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID2]);
     std::vector<std::string> s2Var;
     for (int i = 0; i < indicesSize; i++) {
