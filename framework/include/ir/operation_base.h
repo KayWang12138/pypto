@@ -80,6 +80,9 @@ public:
         ooperands_.at(idx) = value;
     }
 
+    std::vector<ValuePtr> &GetIOperands() { return ioperands_; }
+    std::vector<ValuePtr> &GetOOperands() { return ooperands_; }
+
     size_t GetNumOutputScalarOperand() const { return oScalarIndex_; }
     ScalarValuePtr GetOutputScalarOperand(size_t idx) const { return std::static_pointer_cast<ScalarValue>(GetOutputOperand(oScalarIndex_ + idx)); }
     void SetOutputScalarOperand(size_t idx, ScalarValuePtr ptr) { SetOutputOperand(oScalarIndex_ + idx, ptr); }
@@ -110,16 +113,19 @@ public:
 using ScalarBaseOpPtr = std::shared_ptr<ScalarBaseOp>;
 
 class UnaryScalarBaseOp : public ScalarBaseOp {
+protected:
     UnaryScalarBaseOp(Opcode opcode, ScalarValuePtr in, ScalarValuePtr out)
         : ScalarBaseOp(opcode, std::vector<ScalarValuePtr>({in}), std::vector<ScalarValuePtr>({out})) {}
 };
 
 class BinaryScalarBaseOp : public ScalarBaseOp {
+protected:
     BinaryScalarBaseOp(Opcode opcode, ScalarValuePtr lhs, ScalarValuePtr rhs, ScalarValuePtr out)
         : ScalarBaseOp(opcode, std::vector<ScalarValuePtr>({lhs, rhs}), std::vector<ScalarValuePtr>({out})) {}
 };
 
 class CondScalarBaseOp : public ScalarBaseOp {
+protected:
     CondScalarBaseOp(Opcode opcode, ScalarValuePtr cond, ScalarValuePtr sat, ScalarValuePtr unsat, ScalarValuePtr out)
         : ScalarBaseOp(opcode, std::vector<ScalarValuePtr>({cond, sat, unsat}), std::vector<ScalarValuePtr>({out})) {}
 };

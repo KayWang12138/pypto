@@ -11,9 +11,9 @@
 """
 """
 import os
+import torch
 import pypto
 import pytest
-import torch
 import torch_npu
 import numpy as np
 from numpy.testing import assert_allclose
@@ -25,9 +25,7 @@ def main():
 
 @pypto.jit(
     host_options={"only_codegen": True},
-    runtime_options={"cfgcache_device_task_num": 100,
-                     "cfgcache_root_task_num": 1000,
-                     "cfgcache_leaf_task_num": 10000}
+    runtime_options={"stitch_cfgcache_size": 3100000}
 )
 def select_experts_glm(hidden_states, residual, weight, bias_input, mm_weight, e_score_bias_input,
                        weight_k, ids_k, row_idx, residual_out,
@@ -294,13 +292,11 @@ def select_experts(residual: torch.Tensor,
         select_experts_glm(*pto_inputs, *pto_outputs, renormalize, topk_group, num_expert_group,
                            row_ids_flag, input_norm_eps)
     g.replay()
-    torch_npu.npu.synchronize()
     return topk_weights, topk_ids, row_idx, output_residual
 
 
 def test_select_experts():
     # 1. 设置参数
-    bs = 8  # 4898
     ne = 160  # 160
     h_num = 5120  # 5120
     top_k = 8
@@ -313,12 +309,7 @@ def test_select_experts():
     torch.npu.set_device(device_id)
 
     # 2. 构造多种shape，测试动态case
-    for i in range(0, 3):
-        if (i == 1):
-            bs = 8192
-        if (i == 2):
-            bs = 16
-
+    for bs in [8, 8192, 16]:
         # 3. 准备测试数据
         torch.manual_seed(0)
         np.random.seed(0)

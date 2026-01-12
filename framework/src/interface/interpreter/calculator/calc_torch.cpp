@@ -14,6 +14,7 @@
  */
 
 #include <torch/torch.h>
+#include "tilefwk/error.h"
 #include "../calc_api.h"
 
 namespace npu::tile_fwk {
@@ -88,6 +89,13 @@ static torch::Tensor View(const torch::Tensor &self, const std::vector<int64_t> 
         storageOffset += self.stride(dim) * offset[dim];
     }
     return self.as_strided(shape, self.strides(), storageOffset);
+}
+
+static void LogicalView(LogicalTensorDataPtr out, LogicalTensorDataPtr self, Offset offset) {
+    auto shape = out->GetShape();
+    auto tself = From(self);
+    auto view = View(tself, shape, offset);
+    From(out) = view;
 }
 
 static bool AllClose(LogicalTensorDataPtr self, LogicalTensorDataPtr other, double atol, double rtol) {
@@ -246,8 +254,14 @@ static void MaxS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Elem
 }
 
 static void Range(LogicalTensorDataPtr out, const Element &start, const Element &end, const Element &step) {
+    auto tmp = torch::arange(From(start), From(end), From(step));
+    int64_t expected_numel = 1;
+    for (int64_t dim : out->GetShape()) {
+        expected_numel *= dim;
+    }
+    ASSERT(tmp.numel() == expected_numel) << "Range numel mismatch: generated " << tmp.numel() << ", expected " << expected_numel;
     auto tout = From(out);
-    torch::range_out(tout, From(start), From(end), From(step));
+    tout.copy_(tmp);
 }
 
 static void Compare(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other,
@@ -956,6 +970,7 @@ static struct CalcOps calcOps = {
     .ReduceAcc = ReduceAcc,
     .Copy = Copy,
     .ScatterUpdate = ScatterUpdate,
+    .LogicalView = LogicalView,
     .Scatter = Scatter,
     .FormatND2NZ = FormatND2NZ,
     .FormatNZ2ND = FormatNZ2ND,
