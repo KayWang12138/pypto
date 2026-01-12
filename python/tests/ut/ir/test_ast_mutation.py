@@ -69,7 +69,6 @@ def test_ast_transform():
     Test AST transformation without executing the transformed code.
     Checks that the transformed AST contains expected patterns.
     """
-    module = ir.module("main")
     builder = ir.IrBuilder()
     ctx = ir.IrBuilderContext()
     block = BlockBuilderHelper(builder, ctx)
@@ -124,7 +123,6 @@ def test_ast_transform():
 
 def test_nested_for_loops():
     """Test nested for loops transformation."""
-    module = ir.module("main")
     builder = ir.IrBuilder()
     ctx = ir.IrBuilderContext()
     block = BlockBuilderHelper(builder, ctx)
@@ -159,7 +157,6 @@ def test_nested_for_loops():
 
 def test_nested_if_statements():
     """Test nested if statements transformation."""
-    module = ir.module("main")
     builder = ir.IrBuilder()
     ctx = ir.IrBuilderContext()
     block = BlockBuilderHelper(builder, ctx)
@@ -201,7 +198,6 @@ def test_nested_if_statements():
 
 def test_for_with_nested_if():
     """Test for loop with nested if statement."""
-    module = ir.module("main")
     builder = ir.IrBuilder()
     ctx = ir.IrBuilderContext()
     block = BlockBuilderHelper(builder, ctx)
@@ -238,7 +234,6 @@ def test_for_with_nested_if():
 
 def test_if_with_nested_for():
     """Test if statement with nested for loop."""
-    module = ir.module("main")
     builder = ir.IrBuilder()
     ctx = ir.IrBuilderContext()
     block = BlockBuilderHelper(builder, ctx)
@@ -276,7 +271,6 @@ def test_if_with_nested_for():
 
 def test_if_without_else():
     """Test if statement without else block."""
-    module = ir.module("main")
     builder = ir.IrBuilder()
     ctx = ir.IrBuilderContext()
     block = BlockBuilderHelper(builder, ctx)
