@@ -57,11 +57,22 @@ def test_ast_to_ir():
     print("unparsed:\n", ast.unparse(module_ast))
 
     code = compile(module_ast, filename='<ast>', mode='exec')
-    namespace_global = globals()
-    print("global namespace:", namespace_global.keys())
-    namespace_local = locals()
-    print("local namespace:", namespace_local.keys())
-    func_ir = eval(code, namespace_global, namespace_local)
-    print("func_ir:", func_ir)
+
+    # The transformed function needs access to:
+    exec_namespace = {
+        **globals(),  # Include global imports (ir, BlockBuilderHelper, etc.)
+        **locals(),  # Include local vars `tensor_shape`, `tile_shape`, `batch`, `block`
+    }
+    exec(code, exec_namespace)
+    my_kernel_transformed = exec_namespace["my_kernel"]
+    metadata = {
+        "name": "my_kernel",
+        "function_kind": ir.FunctionKind.ControlFlow
+    }
+    func_ir = my_kernel_transformed(metadata)
+
+    assert isinstance(func_ir, ir.Function)
+    print("obtained ir.Function from ast!")
+    # TODO: assert more information in `ir.Function` structure
 
 test_ast_to_ir()
