@@ -21,7 +21,7 @@
 
 namespace npu {
 namespace tile_fwk {
-bool TuneSyncForVF::NeedAdjustSetFlag(Function *subGraphFunc, Operation *vecTileOp0, Operation *vecTileOp1, Operation *setFlag) {
+bool TuneSyncForVF::NeedAdjustSetFlag(Function *subGraphFunc, Operation *vecTileOp0, Operation *vecTileOp1, Operation *setFlag, size_t setSize) {
     PipeType pipeX = setFlag->syncQueue_.trigPipeId_;
     float tv = static_cast<float>(subGraphFunc->pipeEndTime[PipeType::PIPE_V]);
     float tx = static_cast<float>(subGraphFunc->pipeEndTime[pipeX]);
@@ -29,6 +29,12 @@ bool TuneSyncForVF::NeedAdjustSetFlag(Function *subGraphFunc, Operation *vecTile
     float t1 = static_cast<float>(vecTileOp0->cycleEnd);
     float t2 = static_cast<float>(vecTileOp1->cycleEnd);
     float ty = t0 + vfPrarm * vecTileOp0->GetLatency() + vfPrarm * vecTileOp1->GetLatency();
+    if (!subGraphFunc->setWaitOpMap.count(vecTileOp0)) {
+        if (setSize == 1) {
+            return true;
+        }
+        return false;
+    }
     Operation *tileOpZ = subGraphFunc->setWaitOpMap[vecTileOp0];
     float tb = static_cast<float>(tileOpZ->cycleStart);
     if (std::max(tv - t2 + ty, tx + std::max(static_cast<float>(0), (ty - std::max(t1, tb)))) < tv) {
@@ -37,12 +43,18 @@ bool TuneSyncForVF::NeedAdjustSetFlag(Function *subGraphFunc, Operation *vecTile
     return false;
 }
 
-bool TuneSyncForVF::NeedAdjustWaitFlag(Function *subGraphFunc, Operation *vecTileOp0, Operation *vecTileOp1, Operation *waitFlag) {
+bool TuneSyncForVF::NeedAdjustWaitFlag(Function *subGraphFunc, Operation *vecTileOp0, Operation *vecTileOp1, Operation *waitFlag, size_t waitSize) {
     PipeType pipeX = waitFlag->syncQueue_.pipeId_;
     float tv = static_cast<float>(subGraphFunc->pipeEndTime[PipeType::PIPE_V]);
     float tx = static_cast<float>(subGraphFunc->pipeEndTime[pipeX]);
     float t0 = static_cast<float>(vecTileOp0->cycleStart);
     float t2 = static_cast<float>(vecTileOp1->cycleEnd);
+    if (!subGraphFunc->waitSetOpMap.count(vecTileOp1)) {
+        if (waitSize == 1) {
+            return true;
+        }
+        return false;
+    }
     Operation *tileOpZ = subGraphFunc->waitSetOpMap[vecTileOp1];
     float tb = static_cast<float>(tileOpZ->cycleEnd);
     float ty = std::max(t0, tb) + vfPrarm * vecTileOp0->GetLatency() + vfPrarm * vecTileOp1->GetLatency();
@@ -128,6 +140,9 @@ Status TuneSyncForVF::AdjustSetWaitFlag(Function *subGraphFunc, std::vector<Oper
     for (auto &setFlag : setFlagList) {
         findFlag = false;
         auto pipeX = setFlag->syncQueue_.trigPipeId_;
+        if (!subGraphFunc->setWaitOpMap.count(vecTileOp0)) {
+            continue;
+        }
         auto &tileOpZ = subGraphFunc->setWaitOpMap[vecTileOp0];
         // 在pipeX的队列中找到tileopZ
         auto &pipeXops = pipeOpMap[pipeX];
@@ -155,6 +170,9 @@ Status TuneSyncForVF::AdjustSetWaitFlag(Function *subGraphFunc, std::vector<Oper
     for (auto &waitFlag : waitFlagList) {
         findFlag = false;
         auto pipeX = waitFlag->syncQueue_.pipeId_;
+        if (!subGraphFunc->waitSetOpMap.count(vecTileOp1)) {
+            continue;
+        }
         auto &tileOpZ = subGraphFunc->waitSetOpMap[vecTileOp1];
         // 在pipeX的队列中找到tileopZ
         auto &pipeXops = pipeOpMap[pipeX];
@@ -240,7 +258,7 @@ Status TuneSyncForVF::ChangeOpSeq(Function *subGraphFunc, bool isAIV1) {
         // 判断是否需要进行调整 （所有的SYNC_SRC和SYNC_DST中，只要有一个是有收益的，就进行融合）
         bool needAdjustSet = false;
         for (auto &setFlag : setFlagList) {
-            if (NeedAdjustSetFlag(subGraphFunc, opList_[left], opList_[right], setFlag)) {
+            if (NeedAdjustSetFlag(subGraphFunc, opList_[left], opList_[right], setFlag, setFlagList.size())) {
                 needAdjustSet = true;
                 break;
             }
@@ -248,7 +266,7 @@ Status TuneSyncForVF::ChangeOpSeq(Function *subGraphFunc, bool isAIV1) {
         if (!needAdjustSet) {
             bool needAdjustWait = false;
             for (auto &waitFlag : waitFlagList) {
-                if (NeedAdjustWaitFlag(subGraphFunc, opList_[left], opList_[right], waitFlag)) {
+                if (NeedAdjustWaitFlag(subGraphFunc, opList_[left], opList_[right], waitFlag, waitFlagList.size())) {
                     needAdjustWait = true;
                     break;
                 }
@@ -297,7 +315,14 @@ Status TuneSyncForVF::RunOnFunction(Function &function) {
         opList_ = opList;
         APASS_LOG_DEBUG_F(Elements::Function, "=======================function %d ======================", funcId);
         for (const auto &op : opList_) {
-            APASS_LOG_DEBUG_F(Elements::Operation, "Input Operation %d %s", op->GetOpMagic(), op->GetOpcodeStr().c_str());
+            if (op->GetOpcodeStr().find("SYNC_SRC") != std::string::npos || op->GetOpcodeStr().find("SYNC_DST") != std::string::npos
+                || op->GetOpcode() == Opcode::OP_BAR_V || op->GetOpcode() == Opcode::OP_BAR_M) {
+                APASS_LOG_DEBUG_F(Elements::Operation, "Input operation %d: %s, setpipe type: %s, setcore type: %s, waitpipe type: %s, waitcore type: %s, eventid: %d",
+                    op->GetOpMagic(), op->GetOpcodeStr().c_str(), GetPipeTypeDict().Find(op->syncQueue_.pipeId_).c_str(), GetCoreTypeDict().Find(op->syncQueue_.coreType_).c_str(),
+                    GetPipeTypeDict().Find(op->syncQueue_.trigPipeId_).c_str(), GetCoreTypeDict().Find(op->syncQueue_.trigCoreType_).c_str(), op->syncQueue_.eventId_);
+                continue;
+            }
+            APASS_LOG_DEBUG_F(Elements::Operation, "Input operation %d: %s", op->GetOpMagic(), op->GetOpcodeStr().c_str());
         }
         // AIV0和AIV1各调整一次
         if (ChangeOpSeq(program.second, false) != SUCCESS) {
@@ -312,7 +337,14 @@ Status TuneSyncForVF::RunOnFunction(Function &function) {
         program.second->ScheduleBy(opList_, true);
         APASS_LOG_DEBUG_F(Elements::Function, "---------------------------------------------------");
         for (const auto &op : opList_) {
-            APASS_LOG_DEBUG_F(Elements::Operation, "Output Operation %d %s", op->GetOpMagic(), op->GetOpcodeStr().c_str());
+            if (op->GetOpcodeStr().find("SYNC_SRC") != std::string::npos || op->GetOpcodeStr().find("SYNC_DST") != std::string::npos
+                || op->GetOpcode() == Opcode::OP_BAR_V || op->GetOpcode() == Opcode::OP_BAR_M) {
+                APASS_LOG_DEBUG_F(Elements::Operation, "Output operation %d: %s, setpipe type: %s, setcore type: %s, waitpipe type: %s, waitcore type: %s, eventid: %d",
+                    op->GetOpMagic(), op->GetOpcodeStr().c_str(), GetPipeTypeDict().Find(op->syncQueue_.pipeId_).c_str(), GetCoreTypeDict().Find(op->syncQueue_.coreType_).c_str(),
+                    GetPipeTypeDict().Find(op->syncQueue_.trigPipeId_).c_str(), GetCoreTypeDict().Find(op->syncQueue_.trigCoreType_).c_str(), op->syncQueue_.eventId_);
+                continue;
+            }
+            APASS_LOG_DEBUG_F(Elements::Operation, "Output operation %d: %s", op->GetOpMagic(), op->GetOpcodeStr().c_str());
         }
         funcId++;
     }

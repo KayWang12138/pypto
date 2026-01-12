@@ -32,8 +32,8 @@ public:
 
 private:
     Status ChangeOpSeq(Function *subGraphFunc, bool isAIV1);
-    bool NeedAdjustSetFlag(Function *subGraphFunc, Operation *vecTileOp0, Operation *vecTileOp1, Operation *setFlag);
-    bool NeedAdjustWaitFlag(Function *subGraphFunc, Operation *vecTileOp0, Operation *vecTileOp1, Operation *waitFlag);
+    bool NeedAdjustSetFlag(Function *subGraphFunc, Operation *vecTileOp0, Operation *vecTileOp1, Operation *setFlag, size_t setSize);
+    bool NeedAdjustWaitFlag(Function *subGraphFunc, Operation *vecTileOp0, Operation *vecTileOp1, Operation *waitFlag, size_t waitSize);
     Status AdjustSetWaitFlag(Function *subGraphFunc, std::vector<Operation *> &setFlagList, 
         std::vector<Operation *> &waitFlagList, size_t vecTileOp0Idx, size_t vecTileOp1Idx, int groupNum);
     void GenPipeOpMap(Function *subGraphFunc);
