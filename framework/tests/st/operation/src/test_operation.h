@@ -337,6 +337,9 @@ static DataType GetDataType(const std::string &name) {
         {"uint64", DataType::DT_UINT64},
         {  "bool",   DataType::DT_BOOL},
         {"double", DataType::DT_DOUBLE},
+        {"fp8_e8m0fnu", DataType::DT_FP8_E8M0},
+        {"fp8_e5m2", DataType::DT_FP8_E5M2},
+        {"fp8_e4m3fn", DataType::DT_FP8_E4M3FN},
     };
     if (name_to_dtype.find(name) == name_to_dtype.end()) {
         ALOG_ERROR << "Not support type " << name << " yet, return fp32 as default.";
@@ -377,6 +380,38 @@ static std::vector<Tensor> GetTensors(const nlohmann::json &json_data, bool is_i
             std::cout << "Create NZ Tensors" << std::endl;
             tensors.push_back(Tensor(dtype, shape, name, TileOpFormat::TILEOP_NZ));
         }
+    }
+    return tensors;
+}
+
+[[maybe_unused]] static std::vector<Tensor> GetMXMatmulTensors(const nlohmann::json &json_data, const std::string key) {
+    std::cout << "Create MXMatmul Tensors For " << json_data << std::endl;
+    std::vector<Tensor> tensors;
+    for (const auto &tensor_config : json_data.at(key)) {
+        auto shape = tensor_config.at("shape").get<std::vector<int64_t>>();
+        auto dtype = GetDataType(tensor_config.at("dtype").get<std::string>());
+        auto name = tensor_config.at("name").get<std::string>();
+        auto format = tensor_config.at("format").get<std::string>();
+        if (format == "ND") {
+            std::cout << "Create ND Tensors" << std::endl;
+            tensors.push_back(Tensor(dtype, shape, name));
+        } else {
+            std::cout << "Create NZ Tensors" << std::endl;
+            tensors.push_back(Tensor(dtype, shape, name, TileOpFormat::TILEOP_NZ));
+        }
+    }
+    int64_t index = 0;
+    for (const auto &tensor_config : json_data.at(key)) {
+        auto shape = tensor_config.at("shape").get<std::vector<int64_t>>();
+        if(index == 0) {
+            std::vector<int64_t> scaleShape = {shape[0], shape[1] / 32};
+            tensors.push_back(Tensor(DataType::DT_FP8_E8M0, scaleShape, "scale_tensor0"));
+        } else {
+            std::vector<int64_t> scaleShape = {shape[0] / 32, shape[1]};
+            tensors.push_back(Tensor(DataType::DT_FP8_E8M0, scaleShape, "scale_tensor1"));
+        }
+        std::cout << "Create Scale Tensors" << std::endl;
+        ++index;
     }
     return tensors;
 }

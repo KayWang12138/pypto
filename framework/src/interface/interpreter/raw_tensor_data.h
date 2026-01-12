@@ -56,6 +56,9 @@ struct RawTensorData : public std::vector<uint8_t> {
             case DT_UINT64: result = DATA_SIZE_LONG; break;
             case DT_BOOL: result = DATA_SIZE_BYTE; break;
             case DT_DOUBLE: result = DATA_SIZE_LONG; break;
+            case DT_FP8_E4M3FN: result = DATA_SIZE_BYTE; break;
+            case DT_FP8_E5M2: result = DATA_SIZE_BYTE; break;
+            case DT_FP8_E8M0: result = DATA_SIZE_BYTE; break;
             default: result = 0; break;
         }
         return result;
