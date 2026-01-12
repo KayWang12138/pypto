@@ -38,7 +38,6 @@ DEF_OP(
         OP_NEG,
         OP_RSQRT,
         OP_SQRT,
-        OP_LOGICALNOT,
         OP_RECIPROCAL,
         OP_ABS,
         OP_LN,
@@ -51,7 +50,7 @@ DEF_OP(
 
 DEF_OP(
     LogicalNotOp,
-    INHERIT(ElementWiseUnaryTileBaseOp),
+    INHERIT(LogicalNotTileBaseOp),
     OPCODE(
         OP_LOGICALNOT
     ),
@@ -127,8 +126,8 @@ DEF_OP(
     ),
     INPUT(Tile, Input),
     OUTPUT(Tile, Output),
-    INPUT(Scalar, Axis),
-    ATTR(bool, Flag)           //////////////////////
+    ATTR(int, Axis),
+    ATTR(bool, Flag)
 )
 
 DEF_OP(
@@ -158,7 +157,7 @@ DEF_OP(
 
 DEF_OP(
     BinaryOp,
-    INHERIT(ElementWiseBinaryTileBaseOp),
+    INHERIT(LogicalAndTileBaseOp),
     OPCODE(
         OP_LOGICALAND
     ),
@@ -233,6 +232,16 @@ DEF_OP(
 )
 
 DEF_OP(
+    VecDupOp,
+    INHERIT(VecDupTileBaseOp),
+    OPCODE(
+        OP_VEC_DUP
+    ),
+    INPUT(Scalar, Value),
+    OUTPUT(Tile, Output)
+)
+
+DEF_OP(
     PowOp,
     INHERIT(PowTileBaseOp),
     OPCODE(
@@ -259,7 +268,7 @@ DEF_OP(
 
 DEF_OP(
     BroadcastOp,
-    INHERIT(BroadcastTileBaseOp),
+    INHERIT(BroadcastWithTempTileBaseOp),
     OPCODE(
         OP_MAXIMUM,
         OP_MINIMUM,
@@ -288,8 +297,8 @@ DEF_OP(
 
 
 DEF_OP(
-    ReduceSingleOp,
-    INHERIT(ReduceTileBaseOp),
+    ReduceTempOp,
+    INHERIT(ReduceWithTempTileBaseOp),
     OPCODE(
         OP_ROWMAX_SINGLE,
         OP_ROWMIN_SINGLE,
@@ -300,7 +309,7 @@ DEF_OP(
         OP_ROWMAX,      //暂定无法确认是否有实现
  	    OP_ROWSUM,      //暂定无法确认是否有实现
  	    OP_ROWEXPMAX,   //暂定无法确认是否有实现 
- 	    OP_ROWEXPSUM   //暂定无法确认是否有实现  
+ 	    OP_ROWEXPSUM    //暂定无法确认是否有实现  
     ),
     INPUT(Tile, Input),
     OUTPUT(Tile, Output),
@@ -309,7 +318,7 @@ DEF_OP(
 )
 
 DEF_OP(
-    ReduceLineOp,
+    ReduceOp,
     INHERIT(ReduceTileBaseOp),
     OPCODE(
         OP_ROWMAXLINE,
@@ -331,7 +340,7 @@ DEF_OP(
  	    OP_VST,  //  只有注册的一行
  	    OP_DUPLICATE  // duplicate会转化为copyout
     ),
-    INPUT(Tile, Lhs),
+    INPUT(Tile, Input),
     OUTPUT(Tile, Output),
 )
 
