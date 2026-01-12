@@ -230,6 +230,7 @@ Status PassManager::RunPass(Program &program, Function &function, const std::str
     std::transform(strategyPasses.begin(), strategyPasses.end(), std::back_inserter(identifiers),
         [](const PassEntry &elem) { return elem.identifier; });
     ConfigManager::Instance().PassConfigsDebugInfo(strategy, identifiers);
+    printf("run pass by strategy %s\n", strategy.c_str());
     for (size_t i = startIdx; i < strategyPasses.size(); i++) {
         const auto &identifier = strategyPasses[i].identifier;
         const auto &passName = strategyPasses[i].passName;
@@ -238,6 +239,7 @@ Status PassManager::RunPass(Program &program, Function &function, const std::str
             ALOG_ERROR_F("Pass [%s] does not exist.", PassNameStr(passName));
             return FAILED;
         }
+        printf("run pass %s by strategy %s\n", PassNameStr(passName), strategy.c_str());
         std::string originLogOutPath = config::LogFile();
         std::string logFolder = pass->LogFolder(config::LogTopFolder(), i);
         std::string logfilePath = logFolder + "/" + (pass->GetName() + function.GetMagicName() + ".log");
