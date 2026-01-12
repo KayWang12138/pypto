@@ -46,7 +46,7 @@ public:
     // 2.计算依赖传递闭包
     void ComputeDependencyClosure(std::unordered_map<int, std::set<int>> &dependencies);
     // 3.提取外部依赖
-    void ExtractExternalDependencies(const SubgraphToFunction &subgraphToFunction, 
+    void ExtractExternalDependencies(const std::vector<SubfuncInvokeInfoTy> &subFuncInvokeInfos, 
                                     std::unordered_map<int, std::vector<SimpleTensorParam>> &allIncasts,
                                     std::unordered_map<int, std::vector<SimpleTensorParam>> &allOutcasts);
     // 4.传播外部依赖(基于传递闭包)
@@ -79,7 +79,7 @@ public:
                                 std::unordered_map<int, std::vector<SimpleTensorParam>> &allOutcasts);
 
     // 基于可达性移除冗余的外部依赖
-    void EliminateRedundantOuterDeps(const std::vector<std::vector<bool>> innerDeps, 
+    void EliminateRedundantOuterDeps(const std::vector<std::vector<bool>> &innerDeps, 
                                     std::unordered_map<int, std::vector<SimpleTensorParam>> &allTensors);
     // 基于可达性移除冗余的内部依赖
     void EliminateRedundantInnerDeps(std::vector<std::vector<bool>> &innerDeps,

@@ -109,11 +109,11 @@ void MixDependencyAnalyzer::ComputeDependencyClosure(std::unordered_map<int, std
     UpdateDependencies(dependencies);
 }
 
-void MixDependencyAnalyzer::ExtractExternalDependencies(const SubgraphToFunction &subgraphToFunction, 
+void MixDependencyAnalyzer::ExtractExternalDependencies(const std::vector<SubfuncInvokeInfoTy> &subFuncInvokeInfos, 
                                                         std::unordered_map<int, std::vector<SimpleTensorParam>> &allIncasts,
                                                         std::unordered_map<int, std::vector<SimpleTensorParam>> &allOutcasts) {
-    for (size_t i = 0; i < subgraphToFunction.subFuncInvokeInfos.size(); i++) {
-        const auto& invokeInfo = subgraphToFunction.subFuncInvokeInfos[i];
+    for (size_t i = 0; i < subFuncInvokeInfos.size(); i++) {
+        const auto& invokeInfo = subFuncInvokeInfos[i];
         // 提取incast
         for (const auto& incast : invokeInfo.GetIncastTensorParamList()) {
             allIncasts[i].emplace_back(incast.tensor, incast.opMagic, incast.operandIdx);
@@ -306,7 +306,7 @@ void MixDependencyAnalyzer::EliminateRedundantDependencies(std::unordered_map<in
                                                            std::vector<InternalDependencyInfo> &internalDeps) {
     ALOG_INFO_F("Eliminating redundant dependencies...");
     // 生成内部依赖的可达阵
-    std::vector<std::vector<bool>> innerDeps(maxComponent, std::vector<int>(maxComponent, false));
+    std::vector<std::vector<bool>> innerDeps(maxComponent, std::vector<bool>(maxComponent, false));
     for (const auto& dep : internalDeps) {
         innerDeps[dep.srcComp][dep.dstComp] = true;
     }
