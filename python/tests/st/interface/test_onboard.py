@@ -169,7 +169,7 @@ def test_device_run_data_from_device():
 
 # def dynamic function
 @pypto.jit(
-    host_options={"only_codegen": True}
+    host_options={"compile_stage": 3}
 )
 def matmul_add(in_tensor0, in_tensor1, in_tensor2, out_tensor, m, k, n, tiling=None):
     a = in_tensor0
