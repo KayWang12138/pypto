@@ -13,7 +13,8 @@
  * \brief
  */
 
-#pragma once
+#ifndef INSERT_OP_FOR_VIEWASSEMBLE_H
+#define INSERT_OP_FOR_VIEWASSEMBLE_H
 
 #include "interface/operation/opcode.h"
 #include "tilefwk/data_type.h"
@@ -47,3 +48,4 @@ private:
 };
 } // namespace tile_fwk
 } // namespace npu
+#endif // INSERT_OP_FOR_VIEWASSEMBLE_H
