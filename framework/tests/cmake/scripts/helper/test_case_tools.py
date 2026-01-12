@@ -67,10 +67,22 @@ def str_to_bool(input_str: str):
 def get_dtype_by_name(name: str, is_torch: bool = False, check: bool = True):
     if pkgutil.find_loader("ml_dtypes"):
         from ml_dtypes import bfloat16
+        from ml_dtypes import float8_e8m0fnu
+        from ml_dtypes import float8_e5m2
+        from ml_dtypes import float8_e4m3fn
     else:
         bfloat16 = None
+        float8_e8m0fnu = None
+        float8_e5m2 = None
+        float8_e4m3fn =None
 
     if check and name == "bf16" and bfloat16 is None:
+        raise TypeError("No module named 'ml_dtypes'.")
+    if check and name == "fp8e8m0" and float8_e8m0fnu is None:
+        raise TypeError("No module named 'ml_dtypes'.")
+    if check and name == "fp8e5m2" and float8_e5m2 is None:
+        raise TypeError("No module named 'ml_dtypes'.")
+    if check and name == "fp8e4m3" and float8_e4m3fn is None:
         raise TypeError("No module named 'ml_dtypes'.")
 
     str_to_dtype = {
@@ -90,6 +102,9 @@ def get_dtype_by_name(name: str, is_torch: bool = False, check: bool = True):
         "complex64": [np.complex64, torch.complex64],
         "complex128": [np.complex128, torch.complex64],
         "bf16": [bfloat16, torch.bfloat16],
+        "fp8e8m0": [float8_e8m0fnu, torch.float8_e8m0fnu],
+        "fp8e5m2": [float8_e5m2, torch.float8_e5m2],
+        "fp8e4m3": [float8_e4m3fn, torch.float8_e4m3fn],
     }
     return str_to_dtype.get(name, [np.float32, torch.float32])[is_torch]
 
