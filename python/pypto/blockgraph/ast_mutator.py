@@ -1,5 +1,6 @@
 import ast
 import inspect
+import textwrap
 from typing import Optional, List
 
 
@@ -34,6 +35,8 @@ class AstMutator(ast.NodeTransformer):
         """
         # Get source code and parse AST
         source = inspect.getsource(func)
+        # Dedent the source code to remove surrounding indentation
+        source = textwrap.dedent(source)
         tree = ast.parse(source)
         
         # Extract function definition (first statement should be the function)
