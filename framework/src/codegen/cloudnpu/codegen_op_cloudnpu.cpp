@@ -211,8 +211,8 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {Opcode::OP_SHMEM_GET, [this]() { return GenDistOp(); }},
           {Opcode::OP_SHMEM_GET_GM2UB, [this]() { return GenDistOp(); }},
           {Opcode::OP_SHMEM_REDUCE, [this]() { return GenDistOp(); }},
-          {Opcode::OP_SHMEM_MOE_COMBINE_SEND, [this]() { return GenDistOp(); }},
-          {Opcode::OP_SHMEM_MOE_COMBINE_RECEIVE, [this]() { return GenDistOp(); }},
+          {Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND, [this]() { return GenDistOp(); }},
+          {Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE, [this]() { return GenDistOp(); }},
       }),
       gatherScatterOps_({
           // gather/scatter op
@@ -318,6 +318,54 @@ void CodeGenOpCloudNPU::AppendLocalBufferVarOffset(
 
         var.append(" + ").append(std::to_string(resOffset));
     }
+}
+
+SymbolicScalar CodeGenOpCloudNPU::GetOperandStartOffset(int operandIdx) const {
+    std::vector varOffset = offset[operandIdx];
+    if (varOffset.empty()) {
+        return 0;
+    }
+
+    const auto &dynOffset = dynamicOffset[operandIdx];
+    if (!dynOffset.empty()) {
+        std::vector varRawShape = rawShape[operandIdx]; // 内部应该不能出现dynRawShape，所以这里用立即数即可
+        ASSERT(!varRawShape.empty()) << "varRawShape is empty!!";
+        ASSERT(dynOffset.size() == varRawShape.size())
+        << "dynOffset " << SymbolicVecToStr(dynOffset) << ", size " << dynOffset.size() << " vs varRawShape "
+        << IntVecToStr(varRawShape) << ", size " << varRawShape.size() << " is not equal!!";
+
+        SymbolicScalar resOffset = 0;
+        for (size_t i = 0; i < dynOffset.size(); i++) {
+            resOffset = resOffset * varRawShape[i];
+            resOffset = resOffset + dynOffset[i];
+        }
+
+        ASSERT(operandIdx < operandCnt) << "operandIdx: " << operandIdx << ", operandCnt: " << operandCnt;
+        ALOG_DEBUG_F(" varRawShape: %s", IntVecToStr(varRawShape).c_str());
+        ALOG_DEBUG_F(" varOffset: %s", SymbolicVecToStr(dynOffset).c_str());
+        ALOG_DEBUG_F(" resOffset: %s", resOffset.Dump().c_str());
+        if (resOffset.ConcreteValid()) {
+            return resOffset.Concrete();
+        }
+        return SymbolicExpressionTable::BuildExpression(resOffset);
+    }
+
+    std::vector varRawShape = rawShape[operandIdx];
+    ASSERT(!varRawShape.empty()) << "varRawShape is empty!!";
+    ASSERT(varOffset.size() == varRawShape.size())
+        << "varOffset " << IntVecToStr(varOffset) << ", size " << varOffset.size() << " vs varRawShape "
+        << IntVecToStr(varRawShape) << ", size " << varRawShape.size() << " is not equal!!";
+
+    int64_t resOffset = CalcLinearOffset(varRawShape, varOffset);
+    if (resOffset == 0) {
+        return 0;
+    }
+
+    ASSERT(operandIdx < operandCnt) << "operandIdx: " << operandIdx << ", operandCnt: " << operandCnt;
+    ALOG_DEBUG_F(" varRawShape: %s", IntVecToStr(varRawShape).c_str());
+    ALOG_DEBUG_F(" varOffset: %s", IntVecToStr(varOffset).c_str());
+    ALOG_DEBUG_F(" resOffset: %d", resOffset);
+    return resOffset;
 }
 
 std::string CodeGenOpCloudNPU::GenGmParamVar(unsigned gmParamIdx) const {
@@ -563,6 +611,16 @@ std::string CodeGenOpCloudNPU::PrintCoord(size_t dim, const std::string &coord) 
     std::string ret = COORD;
     ret.append(std::to_string(dim)).append(DIM).append(coord);
     return ret;
+}
+
+void CodeGenOpCloudNPU::FillParamWithFullShape(
+    std::vector<std::string> &paramList, const std::vector<int64_t> &input) const {
+    FillParamWithInput(paramList, input, 0, input.size());
+}
+
+void CodeGenOpCloudNPU::FillParamWithShapeExceptFirst(
+    std::vector<std::string> &paramList, const std::vector<int64_t> &input) const {
+    FillParamWithInput(paramList, input, 1, input.size());
 }
 
 } // namespace npu::tile_fwk

@@ -176,7 +176,18 @@ std::string CodeGenOpCloudNPU::GenBinaryOp() const {
 
     std::string s1Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID2]);
 
-    AppendLocalBufVarOffsetInOrder(dVar, s0Var, s1Var);
+    auto offset0 = GetOperandStartOffset(ID0);
+    auto offset1 = GetOperandStartOffset(ID1);
+    auto offset2 = GetOperandStartOffset(ID2);
+    if (!offset0.ConcreteValid() || offset0.Concrete() != 0) {
+        dVar += "+" + GetOperandStartOffset(ID0).Dump();
+    }
+    if (!offset1.ConcreteValid() || offset1.Concrete() != 0) {
+        s0Var += "+" + GetOperandStartOffset(ID1).Dump();
+    }
+    if (!offset2.ConcreteValid() || offset2.Concrete() != 0) {
+        s1Var += "+" + GetOperandStartOffset(ID2).Dump();
+    }
     return PrintBinary({s0Var, s1Var, dVar, src0DtypeStr, src1DtypeStr, dstDtypeStr});
 }
 
@@ -476,8 +487,6 @@ std::string CodeGenOpCloudNPU::PrintVectorScalarOpDynamicUnalign(const PrintUnar
 std::string CodeGenOpCloudNPU::GenVectorScalarOpByMode(VecScalMode mode) const {
     std::string s0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
     std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
-    ASSERT(shape[0] == shape[1]) << " shape between dst " << IntVecToStr(shape[ID0]) << " and src "
-                                 << IntVecToStr(shape[ID1]) << " is different";
 
     char buffer[BUFFER_SIZE_512] = "CG_ERROR";
     std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
@@ -492,7 +501,7 @@ std::string CodeGenOpCloudNPU::GenVectorScalarOpByMode(VecScalMode mode) const {
 
     if (mode == VecScalMode::SCALAR_MODE) {
         // Scalar op
-        return PrintBinaryScalar({s0Var, dVar, dstDtypeStr, dstDtypeStr, shape[0].size()});
+        return PrintBinaryScalar({s0Var, dVar, dstDtypeStr, dstDtypeStr, rawShape[0].size()});
     }
 
     if (opAttrs.count(npu::tile_fwk::OP_EMUOP_PREFIX + "opc")) {

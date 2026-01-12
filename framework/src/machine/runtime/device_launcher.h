@@ -44,8 +44,8 @@ public:
         config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true);
 #ifdef ENABLE_STEST_BINARY_CACHE
         // BinaryCache
-        oriEnableBinaryCache = config::GetHostConfig(KEY_ENABLE_BINARY_CACHE, oriEnableBinaryCache);
-        config::SetHostConfig(KEY_ENABLE_BINARY_CACHE, true);
+        oriEnableBinaryCache = config::GetPassGlobalConfig(KEY_ENABLE_BINARY_CACHE, oriEnableBinaryCache);
+        config::SetPassGlobalConfig(KEY_ENABLE_BINARY_CACHE, true);
 #endif
 #ifdef ENABLE_STEST_DUMP_JSsON
         oriEnableDumpJson = config::GetPassConfig(KEY_PRINT_GRAPH, oriEnableDumpJson);
@@ -62,7 +62,7 @@ public:
     void DeviceFini() {
         config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, oriEnableAihacBackend);
 #ifdef ENABLE_STEST_BINARY_CACHE
-        config::SetHostConfig(KEY_ENABLE_BINARY_CACHE, oriEnableBinaryCache);
+        config::SetPassGlobalConfig(KEY_ENABLE_BINARY_CACHE, oriEnableBinaryCache);
 #endif
 #ifdef ENABLE_STEST_DUMO_JSON
         config::SetHostConfig(KEY_PRINT_GRAPH, oriEnablePrintJson);
@@ -97,11 +97,17 @@ public:
         DeviceLauncherConfig &devConfig = const_cast<DeviceLauncherConfig &>(config);
 #ifdef BUILD_WITH_CANN
         int maxBlockDim = GetCfgBlockdim();
+        int maxAicpuNum = static_cast<int>(Platform::Instance().GetSoc().GetAICPUNum() - 1);
 #else
-        int maxBlockDim = 25;
+        int maxBlockDim = 25; // 25:maxblockDim
+        int maxAicpuNum = 5; // 5:maxaicpuNUm
 #endif
         if (devConfig.blockdim == 0 || devConfig.blockdim > maxBlockDim) {
             devConfig.blockdim = maxBlockDim;
+        }
+
+        if (devConfig.aicpuNum == 0 || devConfig.aicpuNum > maxAicpuNum) {
+            devConfig.aicpuNum = maxAicpuNum;
         }
     }
 
@@ -128,42 +134,43 @@ public:
         return;
     }
 
-    template<typename DeviceMemoryTy>
-    static void DeviceInitTilingData(DeviceMemoryTy devMem, AstKernelArgs &kArgs, const std::vector<uint8_t> &devProgData,
-        const DeviceLauncherConfig &config, CachedOperator *cachedOperator) {
-        DeviceLauncherConfig &launchConfig = const_cast<DeviceLauncherConfig &>(config);
-        ASSERT(launchConfig.blockdim != 0) << "Invalid blockdim: " << launchConfig.blockdim << ", must not be zero";
-        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
+    // Prepare device program scheduling and memory budget related args (keeps <= 50 lines)
+    static void PrepareDevProgArgs(DevAscendProgram *devProg, const DeviceLauncherConfig &config) {
         devProg->devArgs.nrAic = kDefaultAicNum;
         devProg->devArgs.nrAiv = kDefaultAivNum;
         devProg->devArgs.nrValidAic = config.blockdim;
         devProg->devArgs.archInfo = static_cast<ArchInfo>(Platform::Instance().GetSoc().GetNPUArch());
-        launchConfig.aicpuNum =  launchConfig.aicpuNum < static_cast<int>(Platform::Instance().GetSoc().GetAICPUNum()) - 1 ?
-            launchConfig.aicpuNum : static_cast<int>(Platform::Instance().GetSoc().GetAICPUNum()) - 1;
-        devProg->devArgs.scheCpuNum = CalcSchAicpuNumByBlockDim(launchConfig.blockdim, launchConfig.aicpuNum);
+        devProg->devArgs.scheCpuNum = CalcSchAicpuNumByBlockDim(config.blockdim, config.aicpuNum);
+        devProg->devArgs.nrAicpu = config.aicpuNum;
         devProg->devArgs.taskType = DEVICE_TASK_TYPE_DYN;
         devProg->devArgs.isGETensorList = config.isGETensorList ? 1 : 0;
+
         int minCpuNum = devProg->devArgs.scheCpuNum + 1;
-        if (config.aicpuNum < minCpuNum || config.aicpuNum > DEVICE_MAX_AICPU_NUM) {
-            launchConfig.aicpuNum = minCpuNum + 1;
-        }
-        devProg->devArgs.nrAicpu = config.aicpuNum;
-        ALOG_DEBUG_F("Set aicore blockdim:%d aicpu blockdim:%d.", config.blockdim, config.aicpuNum);
+        int effectiveAicpuNum = (config.aicpuNum < minCpuNum || config.aicpuNum > DEVICE_MAX_AICPU_NUM) ? (minCpuNum + 1) : config.aicpuNum;
+        devProg->devArgs.nrAicpu = effectiveAicpuNum;
+        ALOG_DEBUG_F("Set aicore blockdim:%d aicpu blockdim:%d.", config.blockdim, effectiveAicpuNum);
+
         devProg->devArgs.enableCtrl = 1; // need set 0 if use custom cpu launch ctrl cpu
         if (config.dynWorkspaceSize) {
-            ALOG_ERROR("[Deprecated] User provided dynamic workspace: ", config.dynWorkspaceSize);
+            ALOG_ERROR("[Deprecated] User provided dynamic workspace: %zu", config.dynWorkspaceSize);
             devProg->memBudget.tensor.maxDynamicAssembleOutcastMem = std::max(
                 static_cast<int64_t>(devProg->memBudget.tensor.maxDynamicAssembleOutcastMem),
                 AlignUp(config.dynWorkspaceSize, TENSOR_ADDR_ALIGNMENT));
         }
+
         devProg->workspaceSize = devProg->memBudget.Total();
         ALOG_INFO_F("workspaceSize=%lu, tensor=%lu, metadata=%lu, aicoreSpillen=%lu, debug.DumpTensor=%lu",
             devProg->workspaceSize, devProg->memBudget.tensor.Total(), devProg->memBudget.metadata.Total(),
             devProg->memBudget.aicoreSpilled, devProg->memBudget.debug.dumpTensor);
-        ALOG_INFO_F("Tensor:rootInner=%lu, dessembleDests=%lu, devTaskInnerOutCasts=%lu, slotted=%lux%lu(slots).",
-            devProg->memBudget.tensor.rootInner, devProg->memBudget.tensor.DAssembleDests(),
+        ALOG_INFO_F("Tensor:rootInner=%lu, devTaskInnerOutCasts=%lu, slotted=%lux%lu(slots).",
             devProg->memBudget.tensor.devTaskInnerExclusiveOutcasts, devProg->memBudget.tensor.MaxOutcastMem(),
             devProg->memBudget.tensor.devTaskBoundaryOutcastNum);
+    }
+
+    // Fill metadata and kArgs (templated because it uses DeviceMemoryTy) (keeps <= 50 lines)
+    template<typename DeviceMemoryTy>
+    static void FillKernelMeta(DeviceMemoryTy devMem, AstKernelArgs &kArgs, DevAscendProgram *devProg,
+            const std::vector<uint8_t> &devProgData, const DeviceLauncherConfig &config, CachedOperator *cachedOperator) {
         AssignMetaAddr(kArgs, devMem, devProg, cachedOperator);
         devProg->l2CacheOffset = devMem.GetL2Offset();
         ASSERT(devProg->commGroupNum == config.hcclContext.size()) << "commGroupNum mismatch. commGroupNum = " <<
@@ -197,7 +204,15 @@ public:
             kArgs.toSubMachineConfig.profConfig.Add(ProfConfig::AICORE_PMU);
         }
         kArgs.toSubMachineConfig.isGETensorList = config.isGETensorList ? 1 : 0;
-        return;
+    }
+
+    template<typename DeviceMemoryTy>
+    static void DeviceInitTilingData(DeviceMemoryTy devMem, AstKernelArgs &kArgs, const std::vector<uint8_t> &devProgData,
+        const DeviceLauncherConfig &config, CachedOperator *cachedOperator) {
+        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
+        PrepareDevProgArgs(devProg, config);
+        // Fill all metadata and kernel args
+        FillKernelMeta(devMem, kArgs, devProg, devProgData, config, cachedOperator);
     }
 
     template<typename DeviceMemoryTy>

@@ -13,7 +13,6 @@
  * \brief
  */
 
-#include "distributed_op_test_suite.h"
 #include "distributed_op_test_common.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
@@ -23,20 +22,20 @@
 
 namespace npu::tile_fwk {
 namespace Distributed {
-
-void TestAllGatherAttentionPostReducescatter(OpTestParam &testParam)
-{
-     constexpr size_t paramsSize = 7;
+std::tuple<Tensor, Tensor, Tensor, Tensor> InitializeTestData(OpTestParam &testParam) {
+    constexpr size_t paramsSize = 7;
     auto [b, s, n, kvLoraRank, vHeadDim, h, typeNum] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
     DataType dtype = GetDataTypeNum(typeNum);
 
     Shape agInShape = {b * n * s / testParam.rankSize, kvLoraRank};
     Shape wLoraShape = {n, kvLoraRank, vHeadDim};
     Shape wOutShape = {n * vHeadDim, h};
+    Shape outShape = {b * s / testParam.rankSize, h};
 
     Tensor agIn(dtype, agInShape, "agIn");
     Tensor wLora(dtype, wLoraShape, "wLora");
     Tensor wOut(dtype, wOutShape, "wOut");
+    Tensor out(dtype, outShape, "out");
 
     std::vector<bfloat16> agInPtr =
         ReadToVector<bfloat16>(GetGoldenDir() + "/ag_in_rank_" + std::to_string(testParam.rankId) + ".bin", agInShape);
@@ -45,22 +44,25 @@ void TestAllGatherAttentionPostReducescatter(OpTestParam &testParam)
     std::vector<bfloat16> wOutPtr =
         ReadToVector<bfloat16>(GetGoldenDir() + "/w_out_rank_" + std::to_string(testParam.rankId) + ".bin", wOutShape);
 
-    Shape outShape = {b * s / testParam.rankSize, h};
-    Tensor out(dtype, outShape, "out");
-
     ProgramData::GetInstance().AppendInputs({RawTensorData::CreateTensor<bfloat16>(agIn, agInPtr)});
     ProgramData::GetInstance().AppendInputs({RawTensorData::CreateTensor<bfloat16>(wLora, wLoraPtr)});
     ProgramData::GetInstance().AppendInputs({RawTensorData::CreateTensor<bfloat16>(wOut, wOutPtr)});
     ProgramData::GetInstance().AppendOutputs({RawTensorData::CreateTensorZero(out)});
+    return {agIn, wLora, wOut, out};
+}
+
+void TestAllGatherAttentionPostReducescatter(OpTestParam &testParam) {
+    constexpr size_t paramsSize = 7;
+    auto [b, s, n, kvLoraRank, vHeadDim, h, typeNum] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
+    DataType dtype = GetDataTypeNum(typeNum);
+    auto [agIn, wLora, wOut, out] = InitializeTestData(testParam);
 
     FUNCTION("ALLGATHER_ATTNPOST_REDUCESCATTER", {agIn, wLora, wOut}, {out}) {
         Tensor agOut(dtype, {b * n * s, kvLoraRank}, "agOut");
         LOOP("ALLGATHER", FunctionType::DYNAMIC_LOOP, unusedDynRankId, LoopRange(1)) {
             (void) unusedDynRankId;
-            TileShape::Current().SetDistTile({64, b * n * s / testParam.rankSize / 64, 0}, {kvLoraRank, 1, 0}, 
-                {1, testParam.rankSize, 0});
-            Tensor fakeBarrierDummy(DT_INT32, {1, 1}, "fakeBarrierDummy");
-            ShmemAllGather(agIn, fakeBarrierDummy, testParam.group, agOut);
+            TileShape::Current().SetVecTile({64, kvLoraRank});
+            AllGather(agIn, agIn, testParam.group, static_cast<uint32_t>(testParam.rankSize), agOut);
         }
         Tensor attnOut(dtype, {b * s, h}, "attnOut");
         LOOP("ATTNPOST", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(1)) {
@@ -87,9 +89,10 @@ void TestAllGatherAttentionPostReducescatter(OpTestParam &testParam)
         }
         LOOP("REDUCESCATTER", FunctionType::DYNAMIC_LOOP, unusedIndex, LoopRange(1)) {
             (void) unusedIndex;
-            TileShape::Current().SetDistTile({16, b * s / testParam.rankSize / 16, 0}, {h, 1, 0}, 
-                {1, testParam.rankSize, 0});
-            Distributed::ShmemReduceScatter(attnOut, testParam.group, DistReduceType::DIST_REDUCE_ADD, out);
+            Tensor predToken(DT_INT32, {1, 1}, "predToken");
+            TileShape::Current().SetVecTile({16, h});
+            Distributed::ReduceScatter(predToken, attnOut, testParam.group, static_cast<uint32_t>(testParam.rankSize),
+                DistReduceType::DIST_REDUCE_ADD, out);
         }
     }
     auto dynAttr = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();

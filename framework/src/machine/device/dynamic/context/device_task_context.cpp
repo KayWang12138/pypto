@@ -248,8 +248,6 @@ int DeviceTaskContext::BuildDynFuncData(DynDeviceTask *dyntask, uint32_t taskId,
 void DeviceTaskContext::ResolveEarlyDepends(DynDeviceTask *dyntask, size_t funcIndex, size_t opIdx) {
     size_t succSize;
 
-    dyntask->devTask.coreFunctionCnt--;
-
     auto cceBinary = dyntask->cceBinary;
     auto func = dyntask->dynFuncDataCacheList[funcIndex].devFunc;
     auto predList = dyntask->dynFuncDataCacheList[funcIndex].predCount;
@@ -474,7 +472,7 @@ int DeviceTaskContext::BuildDeviceTaskDataAndReadyQueue(DynDeviceTask *dyntask, 
     DEV_IF_DEBUG {
         int funcIdx = 0;
         for (auto &func : dyntask->stitchedList) {
-            DEV_DEBUG("func %d %s.", funcIdx, func.DumpDyn(funcIdx, dyntask->cceBinary).c_str());
+            DEV_DEBUG_SPLIT("func %d %s.", funcIdx, func.DumpDyn(funcIdx, dyntask->cceBinary).c_str());
             funcIdx++;
             (void)func;
         }

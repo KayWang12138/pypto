@@ -686,7 +686,6 @@ std::string CodeGenOpCloudNPU::GenMemCopyVar(bool isCopyLocalToGM, unsigned uf) 
     std::vector<int64_t> gmShape = this->rawShape[gmIdx];
     ALOG_INFO_F("gmShape is %s", IntVecToStr(gmShape).c_str());
     std::vector<int64_t> tileShapeForMT = GetTileShapeForMemTransfer(localType, gmShape, localIdx);
-    ALOG_INFO_F("========dst shape is %s", IntVecToStr(shape[ID0]).c_str());
     ALOG_INFO_F("========tileShapeForMT is %s", IntVecToStr(tileShapeForMT).c_str());
 
     std::vector<std::string> addrExpr(ID2);
@@ -735,6 +734,13 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL0CTileTensor(const PrintMemCopyW
     int64_t nzValue = 0;
     int64_t isAcc = 0;
     int64_t reluMode = 0;
+    int64_t outerValue = 0;
+    int64_t innerValue = 0;
+    auto ret = GetAttr("op_attr_curH", outerValue);
+    ret = GetAttr("op_attr_curW", innerValue);
+    auto gmShapeExprByIndex = GenParamIdxExprByIndex(param.gmIdx, SHAPE_DIM2, PREFIX_STR_RAW_SHAPE);
+    std::string outerValueStr = outerValue == 0 ? gmShapeExprByIndex[0] : std::to_string(outerValue);
+    std::string innerValueStr = innerValue == 0 ? gmShapeExprByIndex[1] : std::to_string(innerValue);
     GetAttr(OP_ATTR_PREFIX + "atomic_add", isAcc);
     GetAttr("op_attr_is_nz", nzValue);
     GetAttr(OP_ATTR_PREFIX + "relu_type", reluMode);
@@ -745,8 +751,8 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL0CTileTensor(const PrintMemCopyW
     if (!isAcc) {
         GetAttr(OP_ATTR_PREFIX + "scale_value", scaleValue);
     }
-    std::vector<std::string> tileOpParamList = {
-        dstTensor, srcTensor, src1Tensor, coord, std::to_string(scaleValue.GetUnsignedData())};
+    std::vector<std::string> tileOpParamList = {dstTensor, srcTensor, src1Tensor, coord, outerValueStr, innerValueStr,
+        std::to_string(scaleValue.GetUnsignedData())};
     std::ostringstream oss;
     oss << tileOpName << "<" << "TileOp::TStoreConfig" << storeConfig << ">";
     oss << PrintParams({"(", ")"}, tileOpParamList, ", ");
@@ -890,7 +896,15 @@ std::string CodeGenOpCloudNPU::PrintL1CopyInTileTensor(const PrintMemCopyWithL1P
     std::string gmVarName = GenGmParamVar(param.gmIdx);
     std::string dstTensor = PrintTensorForCopyBetweenGM(ToUnderlying(MISOIdx::DST_IDX), param.gmIdx, gmVarName);
     std::string srcTensor = PrintTensorForCopyBetweenGM(ToUnderlying(MISOIdx::SRC0_IDX), param.gmIdx, gmVarName);
-    std::vector<std::string> tileOpParamList = {dstTensor, srcTensor, coord};
+    int64_t outerValue = 0;
+    int64_t innerValue = 0;
+    auto ret = GetAttr("op_attr_outer_value", outerValue);
+    ret = GetAttr("op_attr_inner_value", innerValue);
+    auto gmShapeExprByIndex = GenParamIdxExprByIndex(param.gmIdx, SHAPE_DIM2, PREFIX_STR_RAW_SHAPE);
+    std::string outerValueStr = outerValue == 0 ? gmShapeExprByIndex[0] : std::to_string(outerValue);
+    std::string innerValueStr = innerValue == 0 ? gmShapeExprByIndex[1] : std::to_string(innerValue);
+
+    std::vector<std::string> tileOpParamList = {dstTensor, srcTensor, coord, outerValueStr, innerValueStr};
     int64_t copyInMode = -1;
     std::string cpModeStr = "";
     const int64_t ND2ND = 0;
@@ -899,7 +913,7 @@ std::string CodeGenOpCloudNPU::PrintL1CopyInTileTensor(const PrintMemCopyWithL1P
         copyInMode = npu::tile_fwk::AnyCast<int64_t>(opAttrs.at(OP_ATTR_PREFIX + "copy_in_mode"));
     }
     int64_t nzValue = 0;
-    auto ret = GetAttr(OP_ATTR_PREFIX + "is_nz", nzValue);
+    ret = GetAttr(OP_ATTR_PREFIX + "is_nz", nzValue);
     if (copyInMode == ND2ND) {
         cpModeStr = "CopyInMode::ND2ND";
     } else if (copyInMode == ND2NZ) {
@@ -1059,23 +1073,26 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL1Dynamic(const PrintMemCopyWithL
     return oss.str();
 }
 
+// When ub tensor spilling to GM occurred, the spilling unit is entire raw shape of ub tensor.
+// So ub offset is always zero under this scene, do not need to calculate anymore.
 std::string CodeGenOpCloudNPU::PrintMemCopyWithUB(PrintMemCopyWithUBParam &param) const {
     unsigned localIdx = param.localIdx;
     std::vector<std::string> &addrExpr = param.addrExpr;
-    // When ub tensor spilling to GM occurred, the spilling unit is entire raw shape of ub tensor.
-    // So ub offset is always zero under this scene, do not need to calculate anymore.
-    AppendLocalBufferVarOffset({
-        {localIdx, std::ref(addrExpr[localIdx])}
-    });
     if (isSupportLayout) {
         return PrintMemCopyWithUBTileTensor(param);
     }
     if (isSupportDynamicAligned) {
+        AppendLocalBufferVarOffset({
+            {localIdx, addrExpr[localIdx]}
+        });
         return PrintMemCopyWithUBDynamic(param);
     }
     if (isDynamicFunction) {
         return PrintMemCopyWithUBDynamicSupportUnaligned(param);
     }
+    AppendLocalBufferVarOffset({
+        {localIdx, addrExpr[localIdx]}
+    });
     return PrintMemCopyWithUBStatic(param);
 }
 
@@ -1176,6 +1193,9 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithUBDynamicSupportUnaligned(const P
     for (int i = 1; i < MAX_DIM; ++i) {
         paramList.emplace_back(std::to_string(localRawShape[i]));
     }
+    if (isPartialMem[localIdx]) {
+        paramList.emplace_back("true");
+    }
     std::string templateParam = JoinString(paramList, CONN_COMMA);
 
     paramList.clear();
@@ -1187,6 +1207,10 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithUBDynamicSupportUnaligned(const P
         paramList.emplace_back(SymbolicExpressionTable::BuildExpression(ts));
     }
     paramList.insert(paramList.end(), paramPack.paramList.begin(), paramPack.paramList.end());
+    auto startOffset = GetOperandStartOffset(localIdx);
+    if (!startOffset.ConcreteValid() || startOffset.Concrete() != 0) {
+        paramList.emplace_back(startOffset.Dump());
+    }
 
     std::string tiloOpCallParam = JoinString(paramList, CONN_COMMA);
     os << tileOpName.c_str() << "<" << templateParam << ">"

@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------------------------------------
-# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
 # CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -17,6 +17,8 @@ file(GLOB _Interface_Srcs
         function/*.cpp
         interpreter/*.cpp
         utils/*.cpp
+        ir/*.cpp
+        ir/builder/*.cpp
 
         # Operation
         operation/*.cpp
@@ -49,7 +51,6 @@ target_link_libraries(tile_fwk_interface
         PRIVATE
             intf_pub_cxx17
             tile_fwk_intf_pub
-            $<$<BOOL:${ENABLE_UTEST}>:tile_fwk_passes>
 
             dl
             Threads::Threads

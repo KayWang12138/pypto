@@ -41,8 +41,7 @@ class ArgsGTestFilterListAction(argparse.Action):
     def parse_all_cases(binary: str) -> List[str]:
         """获取gtest ut测试用例
         """
-        result = subprocess.run([binary, '--gtest_list_tests'],
-                            capture_output=True, text=True)
+        result = subprocess.run([binary, '--gtest_list_tests'], capture_output=True, text=True)
         cases = []
         current_suite = ""
         for line in result.stdout.split('\n'):
@@ -59,7 +58,7 @@ class ArgsGTestFilterListAction(argparse.Action):
     def __call__(self, parser: argparse.ArgumentParser, namespace: argparse.Namespace, values: List[str],
                  option_string: Optional[str] = None) -> None:
         # 解析每个字符串，按冒号分隔并展平
-        case_list: List[str] = []
+        case_list = []
 
         target = getattr(namespace, 'target')
         if (len(values) == 1 and values[0] == "*"):
