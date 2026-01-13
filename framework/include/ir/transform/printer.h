@@ -27,9 +27,10 @@ public:
   explicit IRPrinter(std::ostream& os)
       : os_(os) {}
 
-  // Bring in all VisitStmt_ overloads from the base class to prevent hiding
+  // Bring in all overloads from the base class to prevent hiding
   using IRVisitor::VisitStmt_;
-  using IRVisitor::DefaultVisitStmt;
+  using IRVisitor::VisitOp_;
+  using IRVisitor::VisitValue_;
   
   // ===== program =====
   void VisitProgram_(ProgramModulePtr& pm) override;
@@ -44,14 +45,14 @@ public:
   void VisitStmt_(YieldStatementPtr& ys) override;
   void VisitStmt_(ReturnStatementPtr& rs) override;
 
+  // ===== operations =====
+  void VisitOp_(OperationPtr& op) override;
+
   // ===== values =====
   void VisitValue_(ScalarValuePtr& value) override;
   void VisitValue_(TileValuePtr& value) override;
   void VisitValue_(TensorValuePtr& value) override;
   void VisitValue_(ValuePtr& value) override;
-  
-protected:
-  void DefaultVisitOp(OperationPtr& op) override;
 
 private:
   // ===== helpers =====
