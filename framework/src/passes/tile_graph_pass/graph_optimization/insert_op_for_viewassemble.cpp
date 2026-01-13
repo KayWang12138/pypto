@@ -75,10 +75,6 @@ bool InsertOpForViewAssemble::NeedInsertCopy(LogicalTensorPtr &assembleOut) {
             isNeedInsert = true;
             continue;
         }
-        if (assembleAttr->GetToDynOffset() != viewAttr->GetFromDynOffset()) {
-            isNeedInsert = true;
-            continue;
-        }
         auto viewIn = prodOp->GetIOperands()[0];
         auto inShape = viewIn->GetShape();
         auto outShape = assembleOut->GetShape();
