@@ -18,6 +18,11 @@ from functools import wraps
 from . import pypto_impl
 
 
+class CompStage(enum.Enum):
+    ALL = 0
+    CODEGEN = 1
+    HOST = 2
+    TENSOR = 3
 
 
 def set_print_options(*,

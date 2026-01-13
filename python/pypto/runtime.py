@@ -246,11 +246,11 @@ class _JIT:
               when ASCEND_HONE_PATH is config, run on with npu
               when ASCEND_HONE_PATH is not config, run on with simulator
 
-              if run_mode is configed, use run_mode
-              if run_mode is npu , check env, than run with differnet tensor type (support cpu or npu)
-              if run_mode is simulator, dont check env, change all tensor to cpu, and run
-            '''
-            self.dispatch_with_run_mode(in_out_tensors, [], device)
+          if run_mode is configed, use run_mode
+          if run_mode is npu , check env, than run with differnet tensor type (support cpu or npu)
+          if run_mode is simulator, dont check env, change all tensor to cpu, and run
+        '''
+        self.dispatch_with_run_mode(in_out_tensors, [], device)
 
     @property
     def handler(self):
@@ -357,7 +357,7 @@ def verify(func, inputs, outputs, goldens, *args,
     pypto_impl.DeviceInit()
 
     if host_options is None:
-        host_options = {"only_codegen": True}
+        host_options = {"compile_stage": pypto.CompStage.ALL}
     pypto.set_host_options(**host_options)
 
     if pass_options is None:

@@ -54,7 +54,7 @@ def get_token_acc_table(group_list):
 
 
 @pypto.jit(
-    host_options={"only_codegen": True},
+    host_options={"compile_stage": pypto.CompStage.CODEGEN},
 )
 def moe_group_list_cumsum(group_list, group_list_cumsum):
     """
