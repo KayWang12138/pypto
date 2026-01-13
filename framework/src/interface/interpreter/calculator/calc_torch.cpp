@@ -919,6 +919,41 @@ static void Scatter(LogicalTensorDataPtr out, LogicalTensorDataPtr self, Logical
     }
 }
 
+static void Brcb(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+    auto tout = From(out);
+    auto tself = From(self);
+    
+    int64_t ndim = tself.dim();
+    
+    if (ndim < 2) {
+        tout.copy_(tself.expand_as(tout));
+        return;
+    }
+    
+    int64_t col_dim = ndim - 1;
+    int64_t row_dim = ndim - 2; 
+    
+    int64_t out_rows = tout.size(row_dim);
+    int64_t out_cols = tout.size(col_dim);
+    int64_t self_rows = tself.size(row_dim);
+    int64_t self_cols = tself.size(col_dim);
+    
+    if (self_cols != 1) {
+        tout.copy_(tself.expand_as(tout));
+        return;
+    }
+    
+    if (out_rows != self_rows) {
+        tout.copy_(tself.expand_as(tout));
+        return;
+    }
+    
+    std::vector<int64_t> repeat_counts(ndim, 1);
+    repeat_counts[col_dim] = out_cols; 
+    
+    tout.copy_(tself.repeat(repeat_counts));
+}
+
 static struct CalcOps calcOps = {
     .Random = Random,
     .AllClose = AllClose,
@@ -928,6 +963,7 @@ static struct CalcOps calcOps = {
     .Rsqrt = Rsqrt,
     .Sqrt = Sqrt,
     .Abs = Abs,
+    .Brcb = Brcb,
     .WhereTT = WhereTT,
     .WhereTS = WhereTS,
     .WhereST = WhereST,
