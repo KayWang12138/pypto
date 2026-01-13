@@ -187,6 +187,10 @@ DEFINE_BINARY_S_OPS(AddS, add_out)
 DEFINE_BINARY_S_OPS(SubS, sub_out)
 DEFINE_BINARY_S_OPS(MulS, mul_out)
 DEFINE_BINARY_S_OPS(DivS, div_out)
+DEFINE_BINARY_S_OPS(BitwiseRightShiftS, bitwise_right_shift_out)
+DEFINE_BINARY_S_OPS(BitwiseLeftShiftS, bitwise_left_shift_out)
+DEFINE_BINARY_S_OPS(SBitwiseRightShift, bitwise_right_shift_out)
+DEFINE_BINARY_S_OPS(SBitwiseLeftShift, bitwise_left_shift_out)
 
 static void Add(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
     auto tself = From(self);
@@ -302,6 +306,16 @@ static void Div(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTens
     } else {
         torch::div_out(tout, tself, tother);
     }
+}
+
+static void BitwiseRightShift(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+    auto tout = From(out);
+    torch::bitwise_right_shift_out(tout, From(self), From(other));
+}
+
+static void BitwiseLeftShift(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+    auto tout = From(out);
+    torch::bitwise_left_shift_out(tout, From(self), From(other));
 }
 
 static void Cast(LogicalTensorDataPtr out, LogicalTensorDataPtr self, CastMode mode) {
@@ -1157,6 +1171,12 @@ static struct CalcOps calcOps = {
     .Topk = Topk,
     .Gather = Gather,
     .GatherINUB = GatherINUB,
+    .BitwiseRightShift = BitwiseRightShift,
+    .BitwiseLeftShift = BitwiseLeftShift,
+    .BitwiseRightShiftS = BitwiseRightShiftS,
+    .BitwiseLeftShiftS = BitwiseLeftShiftS,
+    .SBitwiseRightShift = SBitwiseRightShift,
+    .SBitwiseLeftShift = SBitwiseLeftShift,
 };
 
 extern "C" struct CalcOps *GetCalcOps() {
