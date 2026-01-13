@@ -81,6 +81,8 @@ public:
     std::string GenCubeOpMatmul() const;
     std::string GenCubeOpMatmulAcc() const;
 
+    std::string GenBitwiseShiftOp() const;
+
     std::string GenCastOp() const;
 
     std::string GenDupOp() const;
@@ -373,6 +375,7 @@ private:
     std::string PrintCmpTileTensor() const;
     std::string PrintLogicalAndTileTensor() const;
     std::string PrintLogicalNotTileTensor() const;
+    std::string PrintBitwiseShiftTensor() const;
 
     void InitOpsGenMap();
     void InitScalaOpsMap();
