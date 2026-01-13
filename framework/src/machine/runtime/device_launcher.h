@@ -135,24 +135,33 @@ public:
     }
 
     // Prepare device program scheduling and memory budget related args (keeps <= 50 lines)
-    static void PrepareDevProgArgs(DevAscendProgram *devProg, const DeviceLauncherConfig &config) {
+    static void PrepareDevProgArgs(DevAscendProgram *devProg, DeviceLauncherConfig &config) {
+        ASSERT(config.blockdim != 0) << "Invalid blockdim: " << config.blockdim << ", must not be zero";
+
         devProg->devArgs.nrAic = kDefaultAicNum;
         devProg->devArgs.nrAiv = kDefaultAivNum;
         devProg->devArgs.nrValidAic = config.blockdim;
         devProg->devArgs.archInfo = static_cast<ArchInfo>(Platform::Instance().GetSoc().GetNPUArch());
+        devProg->devArgs.taskType = DEVICE_TASK_TYPE_DYN;
+        devProg->devArgs.isGETensorList = config.isGETensorList ? 1 : 0;
+
+        config.aicpuNum = std::min(config.aicpuNum,
+            static_cast<int>(Platform::Instance().GetSoc().GetAICPUNum()) - 1);
         devProg->devArgs.scheCpuNum = CalcSchAicpuNumByBlockDim(config.blockdim, config.aicpuNum);
-        devProg->devArgs.nrAicpu = config.aicpuNum;
+
         devProg->devArgs.taskType = DEVICE_TASK_TYPE_DYN;
         devProg->devArgs.isGETensorList = config.isGETensorList ? 1 : 0;
 
         int minCpuNum = devProg->devArgs.scheCpuNum + 1;
-        int effectiveAicpuNum = (config.aicpuNum < minCpuNum || config.aicpuNum > DEVICE_MAX_AICPU_NUM) ? (minCpuNum + 1) : config.aicpuNum;
-        devProg->devArgs.nrAicpu = effectiveAicpuNum;
-        ALOG_DEBUG_F("Set aicore blockdim:%d aicpu blockdim:%d.", config.blockdim, effectiveAicpuNum);
+        if (config.aicpuNum < minCpuNum || config.aicpuNum > DEVICE_MAX_AICPU_NUM) {
+            config.aicpuNum = minCpuNum + 1;
+        }
+        devProg->devArgs.nrAicpu = config.aicpuNum;
+        ALOG_DEBUG_F("Set aicore blockdim:%d aicpu blockdim:%d.", config.blockdim, config.aicpuNum);
 
         devProg->devArgs.enableCtrl = 1; // need set 0 if use custom cpu launch ctrl cpu
         if (config.dynWorkspaceSize) {
-            ALOG_ERROR("[Deprecated] User provided dynamic workspace: %zu", config.dynWorkspaceSize);
+            ALOG_ERROR_F("[Deprecated] User provided dynamic workspace: %zu", config.dynWorkspaceSize);
             devProg->memBudget.tensor.maxDynamicAssembleOutcastMem = std::max(
                 static_cast<int64_t>(devProg->memBudget.tensor.maxDynamicAssembleOutcastMem),
                 AlignUp(config.dynWorkspaceSize, TENSOR_ADDR_ALIGNMENT));
@@ -208,9 +217,10 @@ public:
 
     template<typename DeviceMemoryTy>
     static void DeviceInitTilingData(DeviceMemoryTy devMem, DeviceKernelArgs &kArgs, const std::vector<uint8_t> &devProgData,
-        const DeviceLauncherConfig &config, CachedOperator *cachedOperator) {
+            const DeviceLauncherConfig &config, CachedOperator *cachedOperator) {
+        auto &mutableConfig = const_cast<DeviceLauncherConfig &>(config);
         auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
-        PrepareDevProgArgs(devProg, config);
+        PrepareDevProgArgs(devProg, mutableConfig);
         // Fill all metadata and kernel args
         FillKernelMeta(devMem, kArgs, devProg, devProgData, config, cachedOperator);
     }

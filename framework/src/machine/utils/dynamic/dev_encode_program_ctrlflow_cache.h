@@ -15,6 +15,7 @@
 
 #pragma once
 
+#include <cinttypes>
 #include "machine/utils/dynamic/dev_encode_types.h"
 #include "machine/utils/dynamic/dev_encode_function.h"
 #include "machine/utils/dynamic/dev_encode_function_dupped_data.h"
@@ -706,26 +707,37 @@ struct DevProgramControlFlowCache {
             ItemPool<RuntimeOutcastTensor>::ItemBlock *backupRtOutcastPool = runtimeBackup.workspace.runtimeOutcastTensorPool.Data();
             uint64_t size = slotList.size();
             for (uint64_t k = 0; k < size; k++) {
-                static_assert(sizeof(AddressDescriptor) == sizeof(uintdevptr_t));
+                static_assert(sizeof(AddressDescriptor) == sizeof(uintdevptr_t),
+                    "Please review the following logics when the condition does not hold anymore.");
                 if (devStartArgs == nullptr) {
                     // Host: addr uses backup
-                    if (base[k].rtOutcastIter == ITEM_POOL_INVALID_INDEX) {
-                        continue;
-                    }
+                    if (base[k].rtOutcastIter == ITEM_POOL_INVALID_INDEX) { continue; }
                     auto &rtOutcast = backupRtOutcastPool[base[k].rtOutcastIter].Item();
+                    if (--rtOutcast.refCnt != 0) { continue; } // To avoid duplicate reloc
+
                     uintdevptr_t addr = rtOutcast.addr;
                     AddressDescriptor *desc = reinterpret_cast<AddressDescriptor *>(&rtOutcast.addr);
                     *desc = AddressDescriptor::MakeFromAddress(addr);
                     RelocDescToCache(*desc, relocWorkspace, cacheInputOutputDict);
                 } else {
                     // Device: addr uses actual
-                    if (runtimeSlotList[k].rtOutcastIter == ITEM_POOL_INVALID_INDEX) {
-                        continue;
-                    }
+                    if (runtimeSlotList[k].rtOutcastIter == ITEM_POOL_INVALID_INDEX) { continue; }
                     auto &rtOutcast = runtimeOutcastTensorPool[runtimeSlotList[k].rtOutcastIter].Item();
+                    if (rtOutcast.refCnt++ != 0) { continue; } // Restore refCnt
+
                     AddressDescriptor *desc = reinterpret_cast<AddressDescriptor *>(&rtOutcast.addr);
                     RelocDescFromCache(*desc, relocWorkspace, devStartArgs);
                     rtOutcast.addr = desc->GetAddressValue();
+                }
+            }
+            if (devStartArgs == nullptr) {
+                // Host: Check all RuntimeOutcastTensor in slot list have been relocated
+                for (uint64_t k = 0; k < size; k++) {
+                    if (base[k].rtOutcastIter == ITEM_POOL_INVALID_INDEX) { continue; }
+                    auto &rtOutcast = backupRtOutcastPool[base[k].rtOutcastIter].Item();
+                    DEV_ASSERT_MSG(rtOutcast.refCnt == 0,
+                        "RuntimeOutcastTensor addr relocation incomplete: slot %" PRIu64 ", rtOutcastIter %" PRId64 ", refCnt %u",
+                        k, base[k].rtOutcastIter, rtOutcast.refCnt);
                 }
             }
         }
