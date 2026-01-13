@@ -284,6 +284,13 @@ class Tensor:
         return out
 
     @property
+    def valid_shape(self) -> List[SymInt]:
+        """
+        Return the valid shape of the tensor, debug purpose only.
+        """
+        return [SymbolicScalar.from_base(n) for n in self._base.GetValidShape()]
+
+    @property
     def dim(self) -> int:
         return self._base.Dim()
 
