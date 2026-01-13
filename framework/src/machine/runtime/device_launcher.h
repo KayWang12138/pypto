@@ -171,6 +171,7 @@ public:
             devProg->workspaceSize, devProg->memBudget.tensor.Total(), devProg->memBudget.metadata.Total(),
             devProg->memBudget.aicoreSpilled, devProg->memBudget.debug.dumpTensor);
         ALOG_INFO_F("Tensor:rootInner=%lu, devTaskInnerOutCasts=%lu, slotted=%lux%lu(slots).",
+            devProg->memBudget.tensor.rootInner,
             devProg->memBudget.tensor.devTaskInnerExclusiveOutcasts, devProg->memBudget.tensor.MaxOutcastMem(),
             devProg->memBudget.tensor.devTaskBoundaryOutcastNum);
     }

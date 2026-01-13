@@ -147,6 +147,80 @@ def win_atten_main_tnd(q_tnd, block_table, kv_cache, start_pos_list, atten_sink,
         pypto.assemble(mm2_res_reshape, [t_idx, 0, 0], atten_out)
 
 
+@pypto.jit(
+    host_options={"only_codegen": True},
+    runtime_options={"device_sched_mode": 1},
+    debug_options={"runtime_debug_mode": 1},
+)
+def win_atten_main_tnd_decode(q_tnd, block_table, kv_cache, start_pos_list, atten_sink, atten_out, win):
+    pypto.experimental.set_operation_config(combine_axis=True)
+    t = q_tnd.shape[0]
+    n_q = q_tnd.shape[1]
+    d_q = q_tnd.shape[2]
+    scalar = d_q ** -0.5
+    block_size = kv_cache.shape[1]
+    d_kv = kv_cache.shape[3]
+    b = start_pos_list.shape[0]
+    s_q = t // b
+
+    for t_idx in pypto.loop(t, name="LOOP_T", idx_name="t_idx", unroll_list=[t]):
+        b_idx = t_idx // s_q
+        s1_idx = t_idx % s_q
+
+        start_pos = start_pos_list[b_idx]
+                
+        pypto.set_vec_tile_shapes(128, 512, 512)
+        q_tensor_cur = pypto.view(q_tnd, [1, n_q, d_q], [t_idx, 0, 0])
+        q_tensor_cur = pypto.reshape(q_tensor_cur, (n_q, d_q))
+
+        cur_loc = start_pos + s1_idx + 1
+
+        # valid_len = pypto.min(cur_loc, win)
+        actual_win_size = pypto.min(start_pos + 1, win)
+
+        cur_start_pos = cur_loc - actual_win_size
+        end_pos = cur_loc
+
+        start_block = cur_start_pos // block_size
+        start_offset = s1_idx
+        end_block = (end_pos - 1) // block_size
+
+        physical_block_id = block_table[b_idx, start_block]
+        pypto.set_vec_tile_shapes(128, 512, 128, 512)
+        kv_block_0 = pypto.view(kv_cache, [1, block_size, 1, d_kv], [physical_block_id, 0, 0, 0])
+        kv_block_reshape_0 = pypto.reshape(kv_block_0, (block_size, d_kv))
+
+        physical_block_id = block_table[b_idx, end_block]
+        pypto.set_vec_tile_shapes(128, 512, 128, 512)
+        kv_block_1 = pypto.view(kv_cache, [1, block_size, 1, d_kv], [physical_block_id, 0, 0, 0])
+        kv_block_reshape_1 = pypto.reshape(kv_block_1, (block_size, d_kv))
+
+        pypto.set_vec_tile_shapes(128, 512)
+        kv_gather = pypto.concat([kv_block_reshape_0, kv_block_reshape_1], dim=0)
+
+        pypto.set_vec_tile_shapes(128, 512)
+        kv_cur = pypto.view(kv_gather, [win, d_kv], [start_offset, 0], valid_shape=[actual_win_size, d_kv])
+
+        pypto.set_cube_tile_shapes([64, 64], [256, 256 * 8], [128, 128], True, False)
+        qk_mm_res = pypto.matmul(q_tensor_cur, kv_cur, pypto.DT_FP32, b_trans=True)
+
+        pypto.set_vec_tile_shapes(32, 128)
+        qk_ele_res = pypto.mul(qk_mm_res, scalar)
+        # softmax_out = softmax_pto(qk_ele_res, -1)
+        softmax_out = softmax_atten_sink_pto(qk_ele_res, -1, atten_sink)
+
+        pypto.set_vec_tile_shapes(64, 512)
+        kv_cur_fp32 = pypto.cast(kv_cur, pypto.DT_FP32)
+        pypto.set_cube_tile_shapes([64, 64], [32, 32 * 8], [512, 512], True, False)
+        mm2_res = pypto.matmul(softmax_out, kv_cur_fp32, pypto.DT_FP32)
+
+        pypto.set_vec_tile_shapes(64, 512)
+        mm2_res_reshape = pypto.reshape(mm2_res, (1, n_q, d_kv))
+
+        pypto.set_vec_tile_shapes(1, 64, 512)
+        pypto.assemble(mm2_res_reshape, [t_idx, 0, 0], atten_out)
+
+
 @allow_in_graph
 def deepseekv4_win_atten(q_tnd: torch.Tensor,
                         block_table: torch.Tensor,
@@ -154,7 +228,8 @@ def deepseekv4_win_atten(q_tnd: torch.Tensor,
                         start_pos_list: torch.Tensor,
                         atten_sink: torch.Tensor,
                         atten_out: torch.Tensor,
-                        win_size: int
+                        win_size: int,
+                        is_decode: bool
 ) -> None:
     """
     """
@@ -173,5 +248,8 @@ def deepseekv4_win_atten(q_tnd: torch.Tensor,
     pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
     pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
 
-    win_atten_main_tnd(*pto_inputs, *pto_outputs, win_size)
+    if is_decode:
+        win_atten_main_tnd_decode(*pto_inputs, *pto_outputs, win_size)
+    else:
+        win_atten_main_tnd(*pto_inputs, *pto_outputs, win_size)
     pypto.runtime._device_synchronize()
