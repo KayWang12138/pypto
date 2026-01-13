@@ -13,6 +13,7 @@
 import argparse
 import logging
 import subprocess
+import os
 from typing import List, Any, Optional, Dict
 
 from stest_accelerate import STestAccelerate
@@ -152,7 +153,7 @@ class DistributedSTestAccelerate(STestAccelerate):
         if rank_size > 1:
             # 多卡模式：使用mpirun执行
             device_group = param.custom.get("device_group", [param.cntr_id])
-            return DistributedSTestAccelerate._run_multi_device_case(ctx, device_group, rank_size)
+            return self._run_multi_device_case(ctx, device_group, rank_size)
         else:
             # 回退到单卡模式
             logging.error("No custom config found, run distribute case failed")
