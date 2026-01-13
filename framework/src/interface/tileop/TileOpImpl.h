@@ -54,6 +54,7 @@
 #include "vector/vector_dup.h"
 #include "vector/range.h"
 #include "vector/onehot.h"
+#include "vector/bitwise_shift.h"
 #endif
 
 #endif
