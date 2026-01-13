@@ -220,7 +220,7 @@ void AssignMemoryType::ProcessAssemblewithSpecificMem(Operation &operation) {
     for(const auto &consumerOp : output->GetConsumers()) {
         inserter.UpdateTensorTobeMap(output, *consumerOp,MemoryType::MEM_L1);
     }
-    APASS_LOG_DEBUG_F(Elements::Operation, "Set assemble Op[%d]'s input[%d] tobeMap as MEM_L0C and output[%d] origin and tobeMap as MEM_L1.".
+    APASS_LOG_DEBUG_F(Elements::Operation, "Set assemble Op[%d]'s input[%d] tobeMap as MEM_L0C and output[%d] origin and tobeMap as MEM_L1.",
         operation.GetOpMagic(), input->magic, output->magic);
 }
 
