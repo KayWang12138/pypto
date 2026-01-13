@@ -115,6 +115,30 @@ def test_b4_s64k2_nd_bf16_hc_post():
     compare(y_out.cpu(), y.cpu(), 'y', 0.0001, 0.0078125,
             0.005)
 
+def test_b4_s64k2_nd_bf16_hc_post_large_case():
+    '''
+    hc post测试函数
+    '''
+    prep_env()
+    params = {
+        'b': 1024 * 16,
+        's': 2,
+        'hc': 4,
+        'd': 4096,
+    }
+    b = params.get('b')
+    s = params.get('s')
+    hc = params.get('hc')
+    d = params.get('d')
+    dtypes = torch.bfloat16
+    x, residual, post, comb = gen_hc_post_input_data(params, dtypes)
+    input_tensors = [x, residual, post, comb]
+    y = hc_post_commpute(input_tensors, params)
+
+    y_out = npu_hc_post(x.npu(), residual.npu(), post.npu(), comb.npu())
+    compare(y_out.cpu(), y.cpu(), 'y', 0.0001, 0.0078125,
+            0.005)
+
 
 @pytest.mark.skip(reason="large shape")
 def test_b4_s64k2_nd_bf16_hc_post_graph():
