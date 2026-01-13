@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2025 - 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -73,9 +73,6 @@ class ElementWiseScalarMixTernaryTileBaseOp : public ElementWiseTileBaseOp {
 class SortTileOp : public TileOp {
 };
 
-class DataCopyTileOp : public TileOp {
-};
-
 class ReduceTileBaseOp : public TileBaseOp {
 public:
     ReduceTileBaseOp(Opcode opcode, TileValuePtr Src0, TileValuePtr Src1, TileValuePtr output)
@@ -89,11 +86,17 @@ public:
                                             {ValueCast<Value>(output), ValueCast<Value>(TempTensor)}) {}
 };
 
-class LogicalAndTileBaseOp : public TileBaseOp {
+class ElementWiseBinaryWithTempTileBaseOp : public TileBaseOp {
 public:
-    LogicalAndTileBaseOp(Opcode opcode, TileValuePtr lhs, TileValuePtr rhs, ScalarValuePtr output, TileValuePtr TempTensor)
-        : TileBaseOp(opcode, {ValueCast<Value>(lhs), ValueCast<Value>(rhs)}, 
+    ElementWiseBinaryWithTempTileBaseOp(Opcode opcode, TileValuePtr lhs, TileValuePtr rhs, TileValuePtr output, TileValuePtr TempTensor)
+        : ElementWiseTileBaseOp(opcode, {ValueCast<Value>(lhs), ValueCast<Value>(rhs)}, 
                                         {ValueCast<Value>(output), ValueCast<Value>(TempTensor)}) {}
+};
+
+class ElementWiseUnaryWithTempTileBaseOp : public TileBaseOp {
+public:
+    ElementWiseUnaryWithTempTileBaseOp(Opcode opcode, TileValuePtr input, TileValuePtr output, TileValuePtr TempTensor)
+        : ElementWiseTileBaseOp(opcode, {ValueCast<Value>(input)}, {ValueCast<Value>(output), ValueCast<Value>(TempTensor)}) {}
 };
 
 class CastTileBaseOp : public TileBaseOp {
@@ -103,11 +106,13 @@ class VecDupTileBaseOp : public TileBaseOp {
 public:
     VecDupTileBaseOp(Opcode opcode, ScalarValuePtr Scalar, TileValuePtr output)
         : TileBaseOp(opcode, {ValueCast<Value>(Scalar)}, {ValueCast<Value>(output)}) {}
+        : TileBaseOp(opcode, {ValueCast<Value>(Scalar)}, {ValueCast<Value>(output)}) {}
 };
 
 class RangeTileBaseOp : public TileBaseOp {
 public:
     RangeTileBaseOp(Opcode opcode, ScalarValuePtr START, ScalarValuePtr STEP, ScalarValuePtr SIZE, TileValuePtr output)
+        : TileBaseOp(opcode, {ValueCast<Value>(START), ValueCast<Value>(STEP),ValueCast<Value>(SIZE)},
         : TileBaseOp(opcode, {ValueCast<Value>(START), ValueCast<Value>(STEP),ValueCast<Value>(SIZE)},
                                     {ValueCast<Value>(output)}) {}
 };
@@ -116,11 +121,13 @@ class ScatterTileBaseOp : public TileBaseOp {
 public:
     ScatterTileBaseOp(Opcode opcode, TileValuePtr Src0, TileValuePtr Src1, TileValuePtr Src2, TileValuePtr output)
         : TileBaseOp(opcode, {ValueCast<Value>(Src0), ValueCast<Value>(Src1), ValueCast<Value>(Src2)}, {ValueCast<Value>(output)}) {}
+        : TileBaseOp(opcode, {ValueCast<Value>(Src0), ValueCast<Value>(Src1), ValueCast<Value>(Src2)}, {ValueCast<Value>(output)}) {}
 };
 
 class ScatetrElementsTileBaseOp : public TileBaseOp {
 public:
     ScatetrElementsTileBaseOp(Opcode opcode, TileValuePtr Src0, TileValuePtr Src1, ScalarValuePtr Scatter, TileValuePtr output)
+        : TileBaseOp(opcode, {ValueCast<Value>(Src0), ValueCast<Value>(Src1), ValueCast<Value>(Scatter)}, {ValueCast<Value>(output)}) {}
         : TileBaseOp(opcode, {ValueCast<Value>(Src0), ValueCast<Value>(Src1), ValueCast<Value>(Scatter)}, {ValueCast<Value>(output)}) {}
 };
 
@@ -146,6 +153,7 @@ class CumSumTileBaseOp : public TileBaseOp {
 public:
     CumSumTileBaseOp(Opcode opcode, TileValuePtr input, TileValuePtr output)
         : TileBaseOp(opcode, {ValueCast<Value>(input)}, {ValueCast<Value>(output)}) {}
+        : TileBaseOp(opcode, {ValueCast<Value>(input)}, {ValueCast<Value>(output)}) {}
 };
 
 class SortTileBaseOp : public TileBaseOp {
@@ -161,6 +169,10 @@ class BroadcastTileBaseOp : public TileBaseOp {
 };
 
 class BroadcastWithTempTileBaseOp : public TileBaseOp {
+public:
+    BroadcastWithTempTileBaseOp(Opcode opcode, TileValuePtr lhs, TileValuePtr rhs, TileValuePtr output, TileValuePtr TempTensor)
+        : TileBaseOp(opcode, {ValueCast<Value>(lhs), ValueCast<Value>(rhs)}, 
+                                        {ValueCast<Value>(output), ValueCast<Value>(TempTensor)}) {}
 };
 
 class BroadcastBinaryTileOp : public TileBaseOp {
@@ -168,6 +180,8 @@ class BroadcastBinaryTileOp : public TileBaseOp {
 
 class DataCopyTileBaseOp : public TileBaseOp {
 public:
+    DataCopyTileBaseOp(Opcode opcode, TileValuePtr input, TileValuePtr output)
+        : TileBaseOp(opcode, {ValueCast<Value>(input)}, {ValueCast<Value>(output)}) {}
     DataCopyTileBaseOp(Opcode opcode, TileValuePtr input, TileValuePtr output)
         : TileBaseOp(opcode, {ValueCast<Value>(input)}, {ValueCast<Value>(output)}) {}
 };
