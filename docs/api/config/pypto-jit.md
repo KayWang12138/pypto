@@ -55,7 +55,7 @@ def func(tensor1, tensor2, tensor3):
 
 ```python
 @pypto.jit(
-    host_options={"only_codegen": True},
+    host_options={"compile_stage": pypto.CompStage.CODEGEN},
     codegen_options={"support_dynamic_aligned": True}
 )
 def func(tensor1, tensor2, tensor3):
