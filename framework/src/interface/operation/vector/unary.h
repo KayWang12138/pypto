@@ -25,6 +25,7 @@ namespace npu::tile_fwk {
 
 enum class UnaryOpType {
     EXP,
+    ROUND,
     RSQRT,
     SQRT,
     RECIPROCAL,
@@ -38,6 +39,7 @@ template <UnaryOpType T>
 std::string GetUnaryOpName() {
     switch (T) {
         case UnaryOpType::EXP: return "EXP";
+        case UnaryOpType::ROUND: return "ROUND";
         case UnaryOpType::RSQRT: return "RSQRT";
         case UnaryOpType::SQRT: return "SQRT";
         case UnaryOpType::RECIPROCAL: return "RECIPROCAL";
