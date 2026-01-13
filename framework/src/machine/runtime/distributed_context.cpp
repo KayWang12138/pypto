@@ -25,6 +25,7 @@ extern "C" HcclResult HcclAllocComResourceByTiling(HcclComm comm, void* stream, 
 #endif
 namespace {  
 TileOp::HcclCombinOpParam g_hostAddr[DIST_COMM_GROUP_NUM];
+std::unordered_map<std::string, std::pair<uint64_t, uint64_t>> g_context; //key: groupname value: deviceContext,hostContext
 
 #pragma pack(push, 8)
 struct Mc2ServerCfg {
@@ -101,14 +102,20 @@ namespace npu::tile_fwk::dynamic {
 std::vector<uint64_t> DistributedContext::GetHcclContextToHost(const std::vector<std::string> &groupNames) {
 #ifdef BUILD_WITH_CANN
     std::vector<uint64_t> devAddrs = GetHcclContext(groupNames);
-    std::vector<uint64_t> hosts;
+    std::vector<uint64_t> host_context;
     ASSERT(groupNames.size() <= DIST_COMM_GROUP_NUM);
-    for (size_t i = 0; i < groupNames.size(); i++) {
-        (void)rtMemcpy(&g_hostAddr[i], sizeof(g_hostAddr[i]), (uint8_t *)devAddrs[0], sizeof(g_hostAddr[i]),
+    for (size_t groupIndex = 0; groupIndex < groupNames.size(); groupIndex++) {
+        auto groupName = groupNames[groupIndex];
+        if (g_context.find(groupName) != g_context.end()) {
+            host_context[groupIndex] = g_context[groupName].second;
+            continue;
+        }
+        (void)rtMemcpy(&g_hostAddr[groupIndex], sizeof(g_hostAddr[groupIndex]), (uint8_t *)devAddrs[0], sizeof(g_hostAddr[groupIndex]),
             RT_MEMCPY_DEVICE_TO_HOST);
-        hosts.push_back((uint64_t)(&g_hostAddr[i]));
+        host_context.push_back((uint64_t)(&g_hostAddr[groupIndex]));
+        g_context[groupName].second = host_context[groupIndex];
     }
-    return hosts;
+    return host_context;
 #endif
     (void)groupNames;
     return {};
@@ -122,6 +129,10 @@ std::vector<uint64_t> DistributedContext::GetHcclContext(const std::vector<std::
     ASSERT(groupNames.size() <= DIST_COMM_GROUP_NUM);
     for (size_t groupIndex = 0; groupIndex < groupNames.size(); ++groupIndex) {
         auto groupName = groupNames[groupIndex];
+        if (g_context.find(groupName) != g_context.end()) {
+            hcclContext[groupIndex] = g_context[groupName].first;
+            continue;
+        }
         HcclComm commHandle = nullptr;
         HcclResult ret = HcomGetCommHandleByGroup(groupName.c_str(), &commHandle);
         ASSERT(ret == 0);
@@ -132,6 +143,7 @@ std::vector<uint64_t> DistributedContext::GetHcclContext(const std::vector<std::
         ASSERT((ret == 0) && (hcclContext[groupIndex] != 0UL));
         ALOG_INFO_F("groupIndex=%u, groupName=%s, hcclContext=%lu", groupIndex, groupName.c_str(),
             hcclContext[groupIndex]);
+        g_context[groupName].first = hcclContext[groupIndex];
     }
     return hcclContext;
 #endif
