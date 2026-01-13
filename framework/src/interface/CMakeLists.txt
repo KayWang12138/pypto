@@ -20,6 +20,7 @@ file(GLOB _Interface_Srcs
         ir/*.cpp
         ir/builder/*.cpp
         ir/transform/*.cpp
+        ir/verifier/*.cpp
 
         # Operation
         operation/*.cpp
