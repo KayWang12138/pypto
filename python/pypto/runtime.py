@@ -139,7 +139,7 @@ class _JIT:
                  debug_options=None, infer_controlflow_shape=None):
         self.dyn_func = dyn_func
         self.codegen_options = codegen_options
-        self.host_options = host_options
+        self.host_options = {"compile_stage": pypto.CompStage.CODEGEN} if host_options is None else host_options
         self.pass_options = pass_options
         self.runtime_options = runtime_options or {}
         self.verify_options = verify_options
@@ -393,7 +393,7 @@ def verify(func, inputs, outputs, goldens, *args,
     pypto_impl.DeviceInit()
 
     if host_options is None:
-        host_options = {"only_codegen": True}
+        host_options = {"compile_stage": pypto.CompStage.CODEGEN}
     pypto.set_host_options(**host_options)
 
     if pass_options is None:
