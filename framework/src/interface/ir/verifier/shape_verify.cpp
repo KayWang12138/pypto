@@ -72,7 +72,7 @@ void TileOpShapeVisitor::VisitOp_(OperationPtr &op) {
 
 // ---- Concrete ops (auto-generated from *.def) ----
 #define DEFOP(name, inherit, opcode, ...)                             \
-    void TileOpShapeVisitor::VisitOp_(name##Ptr &op) {                         \
+    void TileOpShapeVisitor::VisitOp_(name##Ptr &op) {                \
         OperationPtr opPtr = std::static_pointer_cast<Operation>(op); \
         VisitOp_(opPtr);                                              \
     }

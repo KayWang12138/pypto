@@ -26,6 +26,7 @@ void TileValueSSAVisitor::VisitOp_(OperationPtr &op) {
         if (outputOperand) {
             auto countTile = std::dynamic_pointer_cast<TileValue>(outputOperand);
             if (countTile) {
+                // If outputOperand is not a TileValue, countTile will be nullptr
                 (*tileInputCountMap_)[countTile.get()]++;
             }
         }
