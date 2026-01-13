@@ -45,6 +45,13 @@ public:
 namespace {
 
 TEST_F(DynamicBlockTest, VectorCube) {
+
+    auto codeGenUseIR = [&](const std::string &filepath, const std::string &source) -> std::string {
+        (void)filepath;
+        return source;
+    };
+    PluginManager::GetInstance().AddPluginCodegenSrc("AddPrefix", codeGenUseIR);
+
     int tiling = 32;
     TileShape::Current().SetVecTile(tiling, tiling);
     TileShape::Current().SetCubeTile({tiling, tiling}, {tiling, tiling}, {tiling, tiling});
