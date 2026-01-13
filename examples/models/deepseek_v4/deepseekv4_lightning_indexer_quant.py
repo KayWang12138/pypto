@@ -321,7 +321,7 @@ def lightning_indexer(case_name: str) -> bool:
     torch.npu.set_device(device_id)
 
     # 基础参数配置
-    n1, d = 64, 128  # query头数和维度
+    n1, d = 32, 128  # query头数和维度
     n2 = 1  # key头数
     block_size = 128  # 块大小
     dtype = torch.float16  # 数据类型
