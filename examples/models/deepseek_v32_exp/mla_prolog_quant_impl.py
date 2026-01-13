@@ -711,8 +711,7 @@ def mla_prolog_quant_compute(
     pass_options={"vec_nbuffer_mode": 1,
                 "cube_l1_reuse_mode": 4,
                 "cube_l1_reuse_setting": {3: 4},
-                "mg_copyin_upper_bound": 2 * 1024 * 1024},
-    host_options={"only_codegen": True}
+                "mg_copyin_upper_bound": 2 * 1024 * 1024}
 )
 def mla_prolog_quant_p(
     token_x: pypto.Tensor,
@@ -792,8 +791,7 @@ def mla_prolog_quant_p(
     pass_options={"vec_nbuffer_mode": 1,
                 "cube_l1_reuse_mode": 4,
                 "cube_l1_reuse_setting": {3: 4},
-                "mg_copyin_upper_bound": 2 * 1024 * 1024},
-    host_options={"only_codegen": True}
+                "mg_copyin_upper_bound": 2 * 1024 * 1024}
 )
 def mla_prolog_quant_d(
     token_x: pypto.Tensor,

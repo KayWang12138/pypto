@@ -199,7 +199,7 @@ class JitCallableWrapper:
         self._codegen_options = (
             None if codegen_options is None else dict(codegen_options)
         )
-        self._host_options = None if host_options is None else dict(host_options)
+        self._host_options = {"compile_stage": pypto.CompStage.CODEGEN} if host_options is None else dict(host_options)
         self._runtime_options = (
             None if runtime_options is None else dict(runtime_options)
         )
