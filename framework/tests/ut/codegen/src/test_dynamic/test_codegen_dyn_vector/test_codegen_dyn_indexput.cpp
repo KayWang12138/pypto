@@ -65,7 +65,7 @@ TEST_F(TestCodegenDynIndexPut, DynIndexPutUnaligned) {
     FUNCTION(funcName, {input, values, indices1}, {output}) {
         LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
             (void)i;
-            output = IndexPut_(input, {indices1}, values);
+            IndexPut_(input, {indices1}, values);
         }
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + "_hiddenfunc0");

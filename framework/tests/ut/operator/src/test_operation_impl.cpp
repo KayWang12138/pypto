@@ -474,7 +474,7 @@ TEST_F(OperationImplTest, TestIndexPut_) {
     bool accumulate = false;
     Tensor result;
     FUNCTION("TestIndexPut_") {
-        result = IndexPut_(self, indices, values, accumulate);
+        IndexPut_(self, indices, values, accumulate);
     }
 }
 
