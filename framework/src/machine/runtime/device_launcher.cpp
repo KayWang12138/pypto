@@ -18,6 +18,13 @@
 #include "machine/host/backend.h"
 #include "machine/runtime/host_prof.h"
 #include "machine/runtime/perf_analysis.h"
+#include "interface/inner/config.h"
+#include "cost_model/simulation/cost_model_launcher.h"
+#include <thread>
+#include <atomic>
+#include <unistd.h>
+#include <pthread.h>
+#include "machine/device/dynamic/device_common.h"
 namespace npu::tile_fwk::dynamic {
 namespace {
     constexpr uint32_t kMinDefaultDim = 20;
@@ -229,6 +236,10 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
     if (rc < 0) {
         return rc;
     }
+    
+    // When runtime_debug_mode=1, enable RunTestMode for aicpu simulation
+    RunTestMode(function, inputList, outputList, config);
+    
     if (streamSynchronize) {
         rc = DeviceRunner::Get().DynamicLaunchSynchronize(aicpuStream, nullptr, aicoreStream);
     }
@@ -382,4 +393,26 @@ void CopyDevToHost(const DeviceTensorData &devTensor, DeviceTensorData &hostTens
 #endif
 }
 
+void DeviceLauncher::RunTestMode(Function *function, const std::vector<DeviceTensorData> &inputList,
+        const std::vector<DeviceTensorData> &outputList, const DeviceLauncherConfig &config) {
+    if (config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) != CFG_DEBUG_ALL) {
+        return;
+    }
+    
+    if (function == nullptr || function->GetDyndevAttribute() == nullptr) {
+        return;
+    }
+    
+    // Build AstKernelArgs for test mode (using host memory)
+    AstKernelArgs kArgsTest;
+    DeviceLauncherConfig testConfig = config;
+    testConfig.onBoard = false;
+    DeviceLauncherConfigFillDeviceInfo(testConfig);
+    CostModelLauncher::MemoryHelper memoryHelper(true);
+    DeviceInitTilingData(memoryHelper, kArgsTest, function->GetDyndevAttribute()->devProgBinary, testConfig, nullptr);
+    DeviceInitKernelInOuts(memoryHelper, kArgsTest, inputList, outputList,
+        function->GetDyndevAttribute()->disableL2List, config.isGETensorList);
+    std::cout << "Run TestModel (aicpu simulation) " << "\n";
+    CostModelLauncher::RunTestMode(&kArgsTest);
+}
 }
