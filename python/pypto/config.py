@@ -16,6 +16,7 @@ from enum import IntEnum
 from functools import wraps
 
 from . import pypto_impl
+from .runtime import DebugMode
 
 
 class _CachedOptions:
@@ -316,19 +317,23 @@ def get_verify_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]]
 
 
 def set_debug_options(*,
-                      compile_debug_mode: Optional[int] = None,
-                      runtime_debug_mode: Optional[int] = None
+                      compile_debug_mode: Optional[Union[int, DebugMode]] = None,
+                      runtime_debug_mode: Optional[Union[int, DebugMode]] = None
                       ) -> None:
     """
     Set debug options.
 
     Parameters
     ---------
-    compile_debug_mode : int
+    compile_debug_mode : int or DebugMode
         Whether to enable debug mode during compilation stage.
+        Can be DebugMode.NONE (0) or DebugMode.ALL (1).
 
-    runtime_debug_mode : int
+    runtime_debug_mode : int or DebugMode
         Whether to enable debug mode during execution stage.
+        Can be DebugMode.NONE (0) or DebugMode.ALL (1).
+        When set to DebugMode.ALL (1), enables swimlane graph,
+        aicpu simulation, and memory check.
     """
     options_dict = {k: v for k, v in locals().items() if v is not None}
     set_options(debug_options=options_dict)
