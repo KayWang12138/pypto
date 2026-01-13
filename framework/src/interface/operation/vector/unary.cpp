@@ -18,6 +18,8 @@
 #include "tensor_transformation.h"
 #include "interface/utils/operator_tracer.h"
 
+#include <cmath>
+
 namespace npu::tile_fwk {
 
 void UnaryOperationOperandCheck(
