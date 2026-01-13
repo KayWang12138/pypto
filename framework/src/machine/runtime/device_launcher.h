@@ -211,7 +211,7 @@ public:
         kArgs.toSubMachineConfig.isGETensorList = config.isGETensorList ? 1 : 0;
     }
 
-    static void PrepareHcclContext(const std::vector<uint64_t> hcclContext, const std::vector<uint8_t> &devProgData) {
+    static void PrepareHcclContext(const std::vector<uint64_t> &hcclContext, const std::vector<uint8_t> &devProgData) {
         auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
         ASSERT(devProg->commGroupNum == hcclContext.size()) 
             << "commGroupNum mismatch. commGroupNum = " 
