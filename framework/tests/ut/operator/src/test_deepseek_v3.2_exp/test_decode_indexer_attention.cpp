@@ -196,11 +196,6 @@ void TestDecodeIndexerAttentionSTest(DSIASimpleParams &params) {
 }
 
 TEST_F_WITH_COST(DecodeIndexerAttentionUtest, utest_decode_indexer_attention, 154) {
-//     static bool __attribute__((used)) _cost_reg = []() -> bool {
-//         TestCostRegistry::registerTest("DecodeIndexerAttentionUtest", "utest_decode_indexer_attention", 154.81);
-//         return true;
-//     }();
-//     (void)_cost_reg;
     int paramsSize = 7;
     std::vector<int> inputParams(paramsSize);
     auto params = DSIASimpleParams::getDecodeParams();
