@@ -122,7 +122,7 @@ void MixDependencyAnalyzer::ExtractExternalDependencies(const std::vector<Subfun
         for (const auto& outcast : invokeInfo.GetOutcastTensorParamList()) {
             allOutcasts[i].emplace_back(outcast.tensor, outcast.opMagic, outcast.operandIdx);
         }
-        // 提取global tensor作为输出
+        // 提取global tensor作为输入输出
         for (const auto& tensorParam : invokeInfo.GetTensorParamList()) {
             if (tensorParam.isOutputToGM) {
                 allOutcasts[i].emplace_back(tensorParam.tensor, tensorParam.opMagic, tensorParam.operandIdx);
@@ -310,11 +310,10 @@ void MixDependencyAnalyzer::EliminateRedundantDependencies(std::unordered_map<in
     for (const auto& dep : internalDeps) {
         innerDeps[dep.srcComp][dep.dstComp] = true;
     }
-    WarshallAlgorithm(innerDeps);
     // 消除冗余incast
     EliminateRedundantOuterDeps(innerDeps, allIncasts);
     // 消除冗余outcast
-    EliminateRedundantOuterDeps(Transpose(innerDeps), allIncasts);
+    EliminateRedundantOuterDeps(Transpose(innerDeps), allOutcasts);
     // 消除冗余内部依赖
     EliminateRedundantInnerDeps(innerDeps, internalDeps);
 }
@@ -394,7 +393,9 @@ void MixDependencyAnalyzer::ApplyFinalDependencies(const std::vector<Function*> 
     ALOG_INFO_F("Applying final dependencies to %zu leaf functions", newFunctions.size());
     for (size_t i = 0; i < newFunctions.size(); i++) {
         Function* leafFunc = newFunctions[i];
-        if (!leafFunc) continue;        
+        if (!leafFunc) {
+            continue;
+        }        
         // 应用incast依赖
         auto incastIt = allIncasts.find(i);
         if (incastIt != allIncasts.end()) {

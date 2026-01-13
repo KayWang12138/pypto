@@ -36,6 +36,8 @@ enum class ComponentType {
     V_SCOPE = 2,    // V类型scope
 };
 
+int GetStartIndex(const std::vector<Operation *> &opList, Operation* startOp);
+
 // Mix子图内部独立子图的信息
 struct InternalComponentInfo {
     int internalSubgraphID;  // mix子图内部的子图ID(cube/vector组件ID)
@@ -49,7 +51,7 @@ struct InternalComponentInfo {
         
     InternalComponentInfo(int id, const std::string& suf, AIVCore aiv)
         : internalSubgraphID(id), suffix(suf), aivCore(aiv), componentType(ComponentType::UNKNOWN) {}
-
+    
     InternalComponentInfo(int id, const std::string& suf, AIVCore aiv, ComponentType compType)
         : internalSubgraphID(id), suffix(suf), aivCore(aiv), componentType(compType) {}
 };
