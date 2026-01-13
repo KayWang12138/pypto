@@ -38,7 +38,6 @@ TEST(IRTEST, TestRuleVerifySSASingleInput_ValidProgram) {
 
     auto func = builder.CreateFunction("test_func", FunctionKind::Kernel, sig);
     module->AddFunction(func);
-    module->SetProgramEntry(func);
     builder.EnterFunctionBody(ctx, func);
 
     // Create a simple operation: output = input (using unary op as identity)
@@ -50,7 +49,6 @@ TEST(IRTEST, TestRuleVerifySSASingleInput_ValidProgram) {
     ctx.PopScope();
 
     VerifyResult result = RuleVerifySSASingleInput(module);
-    std::cout << "result: " << result.errorMsg << std::endl;
     EXPECT_TRUE(result.passed) << "Valid program should pass SSA verification";
 }
 
@@ -66,7 +64,6 @@ TEST(IRTEST, TestRuleVerifySSASingleInput_InvalidProgram_MultipleUses) {
 
     auto func = builder.CreateFunction("test_func", FunctionKind::Kernel, sig);
     module->AddFunction(func);
-    module->SetProgramEntry(func);
     builder.EnterFunctionBody(ctx, func);
 
     // Use inputTile in multiple operations (violates SSA)
@@ -98,7 +95,6 @@ TEST(IRTEST, TestRuleVerifyOpShape_ValidUnaryOp) {
 
     auto func = builder.CreateFunction("test_func", FunctionKind::Kernel, sig);
     module->AddFunction(func);
-    module->SetProgramEntry(func);
     builder.EnterFunctionBody(ctx, func);
 
     // UnaryOp with matching shapes
@@ -126,7 +122,6 @@ TEST(IRTEST, TestRuleVerifyOpShape_InvalidUnaryOp_MismatchedShapes) {
 
     auto func = builder.CreateFunction("test_func", FunctionKind::Kernel, sig);
     module->AddFunction(func);
-    module->SetProgramEntry(func);
     builder.EnterFunctionBody(ctx, func);
 
     // UnaryOp with mismatched shapes
@@ -156,7 +151,6 @@ TEST(IRTEST, TestRuleVerifyOpShape_ValidBinaryOp_MatchingShapes) {
 
     auto func = builder.CreateFunction("test_func", FunctionKind::Kernel, sig);
     module->AddFunction(func);
-    module->SetProgramEntry(func);
     builder.EnterFunctionBody(ctx, func);
 
     // BinaryOp with all matching shapes
@@ -186,7 +180,6 @@ TEST(IRTEST, TestRuleVerifyOpShape_ValidBinaryOp_Broadcast) {
 
     auto func = builder.CreateFunction("test_func", FunctionKind::Kernel, sig);
     module->AddFunction(func);
-    module->SetProgramEntry(func);
     builder.EnterFunctionBody(ctx, func);
 
     // BinaryOp with broadcastable shape (one input has dimension 1)
@@ -216,7 +209,6 @@ TEST(IRTEST, TestRuleVerifyOpShape_InvalidBinaryOp_IncompatibleShapes) {
 
     auto func = builder.CreateFunction("test_func", FunctionKind::Kernel, sig);
     module->AddFunction(func);
-    module->SetProgramEntry(func);
     builder.EnterFunctionBody(ctx, func);
 
     // BinaryOp with incompatible shapes
@@ -246,7 +238,6 @@ TEST(IRTEST, TestRuleVerifyOpShape_ValidBinaryScalarMixOp) {
 
     auto func = builder.CreateFunction("test_func", FunctionKind::Kernel, sig);
     module->AddFunction(func);
-    module->SetProgramEntry(func);
     builder.EnterFunctionBody(ctx, func);
 
     // BinaryScalarMixOp with matching shapes
@@ -275,7 +266,6 @@ TEST(IRTEST, TestRuleVerifyOpShape_InvalidBinaryScalarMixOp_MismatchedShapes) {
 
     auto func = builder.CreateFunction("test_func", FunctionKind::Kernel, sig);
     module->AddFunction(func);
-    module->SetProgramEntry(func);
     builder.EnterFunctionBody(ctx, func);
 
     // BinaryScalarMixOp with mismatched shapes
@@ -304,7 +294,6 @@ TEST(IRTEST, TestRuleVerifyOpShape_MixedOperations) {
 
     auto func = builder.CreateFunction("test_func", FunctionKind::Kernel, sig);
     module->AddFunction(func);
-    module->SetProgramEntry(func);
     builder.EnterFunctionBody(ctx, func);
 
     // Mix of valid operations

@@ -99,9 +99,7 @@ void IRVisitor::DefaultVisitProgram(ProgramModulePtr& program) {
   // Visit all functions
   for (auto func : program->GetFunctions()) {
     FunctionPtr funcPtr = func;
-    if(funcPtr!=program->GetProgramEntry()) {
-      VisitFunction(funcPtr);
-    }
+    VisitFunction(funcPtr);
   }
 }
 
