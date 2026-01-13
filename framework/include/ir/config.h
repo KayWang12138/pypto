@@ -240,23 +240,8 @@ constexpr int ComputeConfigKeyHashImpl(const char* str, int hash = 5381) {
                 registry.Register(#keyName, defaultValue, static_cast<pto::ConfigKey>(pto::ComputeConfigKeyHashImpl(#keyName))); \
             } \
         }; \
-        /* Use function static to ensure initialization order */ \
-        /* This ensures the registrar is initialized on first access, not during global static init */ \
-        inline ConfigRegistrar_##keyName& GetConfigRegistrar_##keyName() { \
-            static ConfigRegistrar_##keyName instance; \
-            return instance; \
-        } \
-        /* Force initialization at global scope by calling the function */ \
-        /* This ensures initialization happens in a controlled order */ \
-        static const ConfigRegistrar_##keyName& g_configRegistrar_##keyName = GetConfigRegistrar_##keyName(); \
+        static ConfigRegistrar_##keyName g_configRegistrar_##keyName; \
     } \
     namespace pto { \
         inline const ConfigKey CONFIG_##keyName = static_cast<ConfigKey>(ComputeConfigKeyHashImpl(#keyName)); \
-        /* Helper function to force initialization of this config item */ \
-        /* This function re-registers the config to ensure it's initialized */ \
-        /* Safe to call multiple times - Register checks for existing registration */ \
-        inline void EnsureConfig_##keyName##_Initialized() { \
-            auto& registry = ConfigRegistry::GetInstance(); \
-            registry.Register<decltype(defaultValue)>(#keyName, defaultValue, CONFIG_##keyName); \
-        } \
     }
