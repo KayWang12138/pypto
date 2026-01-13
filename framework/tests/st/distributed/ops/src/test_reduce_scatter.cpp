@@ -26,15 +26,16 @@ namespace Distributed {
 template<typename T>
 void TestShmemReduceScatter(OpTestParam &testParam)
 {
+    std::string goldenDir = GetColdenDirPath(testData);
     constexpr size_t paramsSize = 5;
-    auto [row, col, typeNum, tileRow, tileCol] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
+    auto [row, col, typeNum, tileRow, tileCol] = GetParams<paramsSize>(goldenDir + "/params.bin");
     int rowOut = row / testParam.rankSize;
     DataType dType = GetDataTypeNum(typeNum);
     Tensor in(dType, {row, col}, "in");
     Tensor out(dType, {rowOut, col}, "out");
 
     std::vector<T> inData = ReadToVector<T>(
-        GetGoldenDir() + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", {row, col});
+       goldenDir + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", {row, col});
 
     FUNCTION("ShmemReduceScatter", {in}, {out}) {
         LOOP("LOOP", FunctionType::DYNAMIC_LOOP, idx, LoopRange(1)) {
@@ -58,7 +59,7 @@ void TestShmemReduceScatter(OpTestParam &testParam)
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), config);
 
     auto outPut = ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, "/output_rank_", rowOut * col, outPut->GetDevPtr(), testParam));
+    EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, goldenDir + "/output_rank_", rowOut * col, outPut->GetDevPtr(), testParam));
 }
 
 template void TestShmemReduceScatter<int32_t>(OpTestParam &testParam);

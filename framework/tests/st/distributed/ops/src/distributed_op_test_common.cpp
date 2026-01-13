@@ -35,5 +35,21 @@ Tensor CreateTensorFromFile(std::vector<int64_t>& shape, DataType dtype, std::st
     return tensor;
 }
 
+std::string GetGoldenDirPath(const nlohman::json& testData)
+{
+    std::string goldenDir = GetGoldenDir();
+    size_t pos = goldenDir.find_last_of("/\\");
+    if(pos != std::string::npos) {
+        goldenDir = goldenDir.substr(0, pos);
+    }
+    pos = goldenDir.find_last_of("/\\");
+    if(pos != std::string::npos) {
+        goldenDir = goldenDir.substr(0, pos);
+    }
+    goldenDir += "/" + testData["operation"].get<std::string>();
+    goldenDir += "/" + testData["case_name"].get<std::string>();
+    return goldenDir;
+}
+
 } // namespace Distributed
 } // namespace npu::tile_fwk

@@ -23,6 +23,13 @@ def is_number(input_str: str):
         return False
 
 
+def is_special_number(input_str: str):
+    input_str = input_str.strip().lower()
+    if input_str in ["nan", "inf", "-inf"]:
+        return True
+    return False
+
+
 def parse_list_str(input_str: str):
     if input_str is None:
         raise ValueError("Can't convert None to list.")
@@ -45,6 +52,8 @@ def parse_list_str(input_str: str):
                 ret_list.append(sub_str)
             elif "." in sub_str or "e" in sub_str or "E" in sub_str:
                 ret_list.append(float(sub_str))
+            elif is_special_number(sub_str):
+                ret_list.append(sub_str)
             else:
                 ret_list.append(int(sub_str))
     return ret_list

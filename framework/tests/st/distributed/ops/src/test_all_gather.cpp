@@ -24,10 +24,11 @@ namespace npu::tile_fwk {
 namespace Distributed {
 
 template<typename T>
-void TestDynAllGather(OpTestParam &testParam)
+void TestDynAllGather(OpTestParam &testParam, const nlohmann::json& testData)
 {
+    std::string goldenDir = GetColdenDirPath(testData);
     constexpr size_t paramsSize = 5;
-    auto [row, col, typeNum, tileRow, tileCol] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
+    auto [row, col, typeNum, tileRow, tileCol] = GetParams<paramsSize>(goldenDir + "/params.bin");
 
     DataType dType = GetDataTypeNum(typeNum);
 
@@ -40,7 +41,7 @@ void TestDynAllGather(OpTestParam &testParam)
     Tensor barrierDummy(DT_INT32, {1, 1}, "barrierDummy");
     Tensor out(dType, outShape, "out");
 
-    std::vector<T> inPtr = ReadToVector<T>(GetGoldenDir() + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", shape);
+    std::vector<T> inPtr = ReadToVector<T>(goldenDir + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", shape);
     
     FUNCTION("ALLGATHER", {in, predToken}, {out}) {
         TileShape::Current().SetVecTile({tileRow, tileCol});
@@ -60,7 +61,7 @@ void TestDynAllGather(OpTestParam &testParam)
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), config);
 
     auto outPtr = ProgramData::GetInstance().GetOutputData(0)->GetDevPtr();
-    EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, "/output_rank_", outSize, outPtr, testParam));
+    EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, goldenDir + "/output_rank_", outSize, outPtr, testParam));
 }
 template void TestDynAllGather<int32_t>(OpTestParam &testParam);
 template void TestDynAllGather<float>(OpTestParam &testParam);

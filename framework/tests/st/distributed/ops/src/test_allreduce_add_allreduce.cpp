@@ -127,15 +127,16 @@ void FuncAllReduceAddAllReduce(const Tensor& in, Tensor& out, const OpTestParam&
 template<typename T>
 void TestShmemAllReduceAddAllReduce(OpTestParam &testParam)
 {
+    std::string goldenDir = GetColdenDirPath(testData);
     constexpr size_t paramsSize = 3;
-    auto [row, col, typeNum] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
+    auto [row, col, typeNum] = GetParams<paramsSize>(goldenDir + "/params.bin");
 
     Shape shape{row, col};
     DataType dType = GetDataTypeNum(typeNum);
     Tensor in(dType, shape, "in");
     Tensor out(dType, shape, "out");
 
-    std::vector<T> inPtr = ReadToVector<T>(GetGoldenDir() + "/input_rank_" + std::to_string(testParam.rankId) + ".bin",
+    std::vector<T> inPtr = ReadToVector<T>(goldenDir + "/input_rank_" + std::to_string(testParam.rankId) + ".bin",
         shape);
 
     ProgramData::GetInstance().AppendInputs({RawTensorData::CreateTensor<T>(in, inPtr)});
