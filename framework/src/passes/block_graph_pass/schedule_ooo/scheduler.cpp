@@ -989,6 +989,8 @@ Status OoOScheduler::CheckOpBufferSize(Operation *op) {
 
 void OoOScheduler::InitOpConsumerAndProducer() {
     std::unordered_set<Operation*> operationSet;
+    opConsumers.clear();
+    opProducers.clear();
     for (auto issue : issueEntries) {
         operationSet.insert(&issue->tileOp);
     }
