@@ -21,7 +21,10 @@
 
 namespace npu {
 namespace tile_fwk {
-bool TuneSyncForVF::NeedAdjustSetFlag(Function *subGraphFunc, Operation *vecTileOp0, Operation *vecTileOp1, Operation *setFlag, size_t setSize) {
+bool TuneSyncForVF::NeedAdjustSetFlag(Function *subGraphFunc, Operation *vecTileOp0, Operation *vecTileOp1, Operation *setFlag) {
+    if (!subGraphFunc->setWaitOpMap.count(vecTileOp0)) {
+        return true;
+    }
     PipeType pipeX = setFlag->syncQueue_.trigPipeId_;
     float tv = static_cast<float>(subGraphFunc->pipeEndTime[PipeType::PIPE_V]);
     float tx = static_cast<float>(subGraphFunc->pipeEndTime[pipeX]);
@@ -29,12 +32,6 @@ bool TuneSyncForVF::NeedAdjustSetFlag(Function *subGraphFunc, Operation *vecTile
     float t1 = static_cast<float>(vecTileOp0->cycleEnd);
     float t2 = static_cast<float>(vecTileOp1->cycleEnd);
     float ty = t0 + vfPrarm * vecTileOp0->GetLatency() + vfPrarm * vecTileOp1->GetLatency();
-    if (!subGraphFunc->setWaitOpMap.count(vecTileOp0)) {
-        if (setSize == 1) {
-            return true;
-        }
-        return false;
-    }
     Operation *tileOpZ = subGraphFunc->setWaitOpMap[vecTileOp0];
     float tb = static_cast<float>(tileOpZ->cycleStart);
     if (std::max(tv - t2 + ty, tx + std::max(static_cast<float>(0), (ty - std::max(t1, tb)))) < tv) {
@@ -43,18 +40,15 @@ bool TuneSyncForVF::NeedAdjustSetFlag(Function *subGraphFunc, Operation *vecTile
     return false;
 }
 
-bool TuneSyncForVF::NeedAdjustWaitFlag(Function *subGraphFunc, Operation *vecTileOp0, Operation *vecTileOp1, Operation *waitFlag, size_t waitSize) {
+bool TuneSyncForVF::NeedAdjustWaitFlag(Function *subGraphFunc, Operation *vecTileOp0, Operation *vecTileOp1, Operation *waitFlag) {
+    if (!subGraphFunc->waitSetOpMap.count(vecTileOp1)) {
+        return true;
+    }
     PipeType pipeX = waitFlag->syncQueue_.pipeId_;
     float tv = static_cast<float>(subGraphFunc->pipeEndTime[PipeType::PIPE_V]);
     float tx = static_cast<float>(subGraphFunc->pipeEndTime[pipeX]);
     float t0 = static_cast<float>(vecTileOp0->cycleStart);
     float t2 = static_cast<float>(vecTileOp1->cycleEnd);
-    if (!subGraphFunc->waitSetOpMap.count(vecTileOp1)) {
-        if (waitSize == 1) {
-            return true;
-        }
-        return false;
-    }
     Operation *tileOpZ = subGraphFunc->waitSetOpMap[vecTileOp1];
     float tb = static_cast<float>(tileOpZ->cycleEnd);
     float ty = std::max(t0, tb) + vfPrarm * vecTileOp0->GetLatency() + vfPrarm * vecTileOp1->GetLatency();
@@ -258,7 +252,7 @@ Status TuneSyncForVF::ChangeOpSeq(Function *subGraphFunc, bool isAIV1) {
         // 判断是否需要进行调整 （所有的SYNC_SRC和SYNC_DST中，只要有一个是有收益的，就进行融合）
         bool needAdjustSet = false;
         for (auto &setFlag : setFlagList) {
-            if (NeedAdjustSetFlag(subGraphFunc, opList_[left], opList_[right], setFlag, setFlagList.size())) {
+            if (NeedAdjustSetFlag(subGraphFunc, opList_[left], opList_[right], setFlag)) {
                 needAdjustSet = true;
                 break;
             }
@@ -266,7 +260,7 @@ Status TuneSyncForVF::ChangeOpSeq(Function *subGraphFunc, bool isAIV1) {
         if (!needAdjustSet) {
             bool needAdjustWait = false;
             for (auto &waitFlag : waitFlagList) {
-                if (NeedAdjustWaitFlag(subGraphFunc, opList_[left], opList_[right], waitFlag, waitFlagList.size())) {
+                if (NeedAdjustWaitFlag(subGraphFunc, opList_[left], opList_[right], waitFlag)) {
                     needAdjustWait = true;
                     break;
                 }
