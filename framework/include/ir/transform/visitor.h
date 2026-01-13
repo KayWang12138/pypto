@@ -58,26 +58,6 @@ public:
   void VisitValue_(TileValuePtr& value) override;
   void VisitValue_(TensorValuePtr& value) override;
   void VisitValue_(ValuePtr& value) override;
-
-protected:
-  // ---- Default traversal helpers (callable by subclasses) ----
-  virtual void DefaultVisitProgram(ProgramModulePtr& program);
-  virtual void DefaultVisitFunction(FunctionPtr& func);
-
-  virtual void DefaultVisitStmt(CompoundStatementPtr& stmt);
-  virtual void DefaultVisitStmt(OpStatementPtr& stmt);
-  virtual void DefaultVisitStmt(ForStatementPtr& stmt);
-  virtual void DefaultVisitStmt(IfStatementPtr& stmt);
-  virtual void DefaultVisitStmt(YieldStatementPtr& stmt);
-  virtual void DefaultVisitStmt(ReturnStatementPtr& stmt);
-  virtual void DefaultVisitStmt(StatementPtr& stmt);
-  
-  virtual void DefaultVisitOp(OperationPtr& op);
-
-  virtual void DefaultVisitValue(ScalarValuePtr& value);
-  virtual void DefaultVisitValue(TileValuePtr& value);
-  virtual void DefaultVisitValue(TensorValuePtr& value);
-  virtual void DefaultVisitValue(ValuePtr& value);
 };
 
 } // namespace pto
