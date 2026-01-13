@@ -22,12 +22,6 @@ namespace pto {
 void IRVisitor::VisitProgram_(ProgramModulePtr& program) {
   if (!program) return;
 
-  // Visit program entry
-  if (auto entry = program->GetProgramEntry()) {
-    FunctionPtr entryPtr = entry;
-    VisitFunction(entryPtr);
-  }
-
   // Visit all functions
   for (auto func : program->GetFunctions()) {
     FunctionPtr funcPtr = func;
