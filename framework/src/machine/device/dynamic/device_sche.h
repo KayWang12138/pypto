@@ -23,6 +23,22 @@
 #include "tilefwk/aicore_print.h"
 
 namespace npu::tile_fwk::dynamic {
+constexpr uint32_t MAX_MANAGER_AIV_NUM = 72;
+const uint32_t READY_ID_FIX_CACHE_NUM = 512;
+
+struct SchduleContext {
+    uint64_t waitTaskCnt_[AICORE_TYPE_NUM]{0,0};
+    uint32_t corePendReadyCnt_[AICORE_TYPE_NUM]{0,0};
+    uint32_t coreRunReadyCnt_[AICORE_TYPE_NUM]{0,0};
+    uint32_t runReadyCoreIdx_[AICORE_TYPE_NUM][MAX_MANAGER_AIV_NUM];
+    uint32_t lastPendReadyCoreIdx_[AICORE_TYPE_NUM]{0,0};
+    uint64_t resolveHubCnt_{0};
+
+    uint32_t readyIds[AICORE_TYPE_NUM][READY_ID_FIX_CACHE_NUM];
+    uint32_t readyCount[AICORE_TYPE_NUM]{0,0};
+    uint32_t sendCnt_[AICORE_TYPE_NUM]{0,0};
+};
+
 struct AicoreLogManager {
     AicoreLogManager() {
         data_ = aligned_alloc(PAGE_SIZE, MAX_AICORE_NUM * PRINT_BUFFER_SIZE);
@@ -46,6 +62,10 @@ public:
         }
     }
 
+    void SetStachSchduleContext(int threadIdx, SchduleContext* context) {
+        aicoreManager_[threadIdx]->SetSchduleContext(context);
+    }
+    
     bool CheckAndResetReg(){
         return aicoreManager_[0]->CheckAndResetReg();
     }
