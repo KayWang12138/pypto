@@ -94,7 +94,7 @@
             "support_dynamic_aligned": false,
             "fixed_output_path": false,
             "force_overwrite": true,
-            "codegen_support_tile_tensor": true,
+            "codegen_support_tile_tensor": false,
             "codegen_need_compile": true
         },
         "operation": {
