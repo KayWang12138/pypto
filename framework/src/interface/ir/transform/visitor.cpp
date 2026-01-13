@@ -17,77 +17,9 @@
 
 namespace pto {
 
-// ----------------- Public Visit* entrypoints (default to DefaultVisit*) -----------------
+// ----------------- Public Visit* entrypoints -----------------
 
 void IRVisitor::VisitProgram_(ProgramModulePtr& program) {
-  DefaultVisitProgram(program);
-}
-
-void IRVisitor::VisitFunction_(FunctionPtr& func) {
-  DefaultVisitFunction(func);
-}
-
-void IRVisitor::VisitStmt_(CompoundStatementPtr& stmt) {
-  DefaultVisitStmt(stmt);
-}
-
-void IRVisitor::VisitStmt_(OpStatementPtr& stmt) {
-  DefaultVisitStmt(stmt);
-}
-
-void IRVisitor::VisitStmt_(ForStatementPtr& stmt) {
-  DefaultVisitStmt(stmt);
-}
-
-void IRVisitor::VisitStmt_(IfStatementPtr& stmt) {
-  DefaultVisitStmt(stmt);
-}
-
-void IRVisitor::VisitStmt_(YieldStatementPtr& stmt) {
-  DefaultVisitStmt(stmt);
-}
-
-void IRVisitor::VisitStmt_(ReturnStatementPtr& stmt) {
-  DefaultVisitStmt(stmt);
-}
-
-void IRVisitor::VisitStmt_(StatementPtr& stmt) {
-  DefaultVisitStmt(stmt);
-}
-
-// ---- Concrete ops (auto-generated from *.def) ----
-#define DEFOP(name, inherit, opcode, ...)            \
-  void IRVisitor::VisitOp_(name##Ptr& op) {          \
-    OperationPtr opPtr = std::static_pointer_cast<Operation>(op); \
-    DefaultVisitOp(opPtr);                           \
-  }
-#include "ir/operation.def"
-#include "ir/tile_graph.def"
-#undef DEFOP
-
-void IRVisitor::VisitOp_(OperationPtr& op) {
-  DefaultVisitOp(op);
-}
-
-void IRVisitor::VisitValue_(ScalarValuePtr& value) {
-  DefaultVisitValue(value);
-}
-
-void IRVisitor::VisitValue_(TileValuePtr& value) {
-  DefaultVisitValue(value);
-}
-
-void IRVisitor::VisitValue_(TensorValuePtr& value) {
-  DefaultVisitValue(value);
-}
-
-void IRVisitor::VisitValue_(ValuePtr& value) {
-  DefaultVisitValue(value);
-}
-
-// ----------------- Default traversal implementations -----------------
-
-void IRVisitor::DefaultVisitProgram(ProgramModulePtr& program) {
   if (!program) return;
 
   // Visit program entry
@@ -103,7 +35,7 @@ void IRVisitor::DefaultVisitProgram(ProgramModulePtr& program) {
   }
 }
 
-void IRVisitor::DefaultVisitFunction(FunctionPtr& func) {
+void IRVisitor::VisitFunction_(FunctionPtr& func) {
   if (!func) return;
 
   // Visit signature arguments
@@ -132,7 +64,7 @@ void IRVisitor::DefaultVisitFunction(FunctionPtr& func) {
   }
 }
 
-void IRVisitor::DefaultVisitStmt(CompoundStatementPtr& stmt) {
+void IRVisitor::VisitStmt_(CompoundStatementPtr& stmt) {
   if (!stmt) return;
 
   for (size_t i = 0; i < stmt->GetStatementsNum(); ++i) {
@@ -141,7 +73,7 @@ void IRVisitor::DefaultVisitStmt(CompoundStatementPtr& stmt) {
   }
 }
 
-void IRVisitor::DefaultVisitStmt(OpStatementPtr& stmt) {
+void IRVisitor::VisitStmt_(OpStatementPtr& stmt) {
   if (!stmt) return;
 
   const auto& ops = stmt->Operations();
@@ -151,7 +83,7 @@ void IRVisitor::DefaultVisitStmt(OpStatementPtr& stmt) {
   }
 }
 
-void IRVisitor::DefaultVisitStmt(ForStatementPtr& stmt) {
+void IRVisitor::VisitStmt_(ForStatementPtr& stmt) {
   if (!stmt) return;
 
   // Visit iteration variable
@@ -203,7 +135,7 @@ void IRVisitor::DefaultVisitStmt(ForStatementPtr& stmt) {
   }
 }
 
-void IRVisitor::DefaultVisitStmt(IfStatementPtr& stmt) {
+void IRVisitor::VisitStmt_(IfStatementPtr& stmt) {
   if (!stmt) return;
 
   // Visit condition
@@ -232,7 +164,7 @@ void IRVisitor::DefaultVisitStmt(IfStatementPtr& stmt) {
   }
 }
 
-void IRVisitor::DefaultVisitStmt(YieldStatementPtr& stmt) {
+void IRVisitor::VisitStmt_(YieldStatementPtr& stmt) {
   if (!stmt) return;
 
   const auto& values = stmt->Values();
@@ -242,7 +174,7 @@ void IRVisitor::DefaultVisitStmt(YieldStatementPtr& stmt) {
   }
 }
 
-void IRVisitor::DefaultVisitStmt(ReturnStatementPtr& stmt) {
+void IRVisitor::VisitStmt_(ReturnStatementPtr& stmt) {
   if (!stmt) return;
 
   const auto& values = stmt->Values();
@@ -252,12 +184,22 @@ void IRVisitor::DefaultVisitStmt(ReturnStatementPtr& stmt) {
   }
 }
 
-void IRVisitor::DefaultVisitStmt(StatementPtr& stmt) {
+void IRVisitor::VisitStmt_(StatementPtr& stmt) {
   // Fallback for unknown statement types: no children to visit.
   (void)stmt;
 }
 
-void IRVisitor::DefaultVisitOp(OperationPtr& op) {
+// ---- Concrete ops (auto-generated from *.def) ----
+#define DEFOP(name, inherit, opcode, ...)            \
+  void IRVisitor::VisitOp_(name##Ptr& op) {          \
+    OperationPtr opPtr = std::static_pointer_cast<Operation>(op); \
+    VisitOp_(opPtr);                                 \
+  }
+#include "ir/operation.def"
+#include "ir/tile_graph.def"
+#undef DEFOP
+
+void IRVisitor::VisitOp_(OperationPtr& op) {
   if (!op) return;
 
   // Visit input operands
@@ -273,17 +215,17 @@ void IRVisitor::DefaultVisitOp(OperationPtr& op) {
   }
 }
 
-void IRVisitor::DefaultVisitValue(ScalarValuePtr& value) {
+void IRVisitor::VisitValue_(ScalarValuePtr& value) {
   // ScalarValue is a leaf node
   (void)value;
 }
 
-void IRVisitor::DefaultVisitValue(TileValuePtr& value) {
+void IRVisitor::VisitValue_(TileValuePtr& value) {
   // TileValue treated as leaf in this IR
   (void)value;
 }
 
-void IRVisitor::DefaultVisitValue(TensorValuePtr& value) {
+void IRVisitor::VisitValue_(TensorValuePtr& value) {
   if (!value) return;
 
   const auto& shape = value->GetShape();
@@ -293,7 +235,7 @@ void IRVisitor::DefaultVisitValue(TensorValuePtr& value) {
   }
 }
 
-void IRVisitor::DefaultVisitValue(ValuePtr& value) {
+void IRVisitor::VisitValue_(ValuePtr& value) {
   // Fallback for unknown value types
   (void)value;
 }
