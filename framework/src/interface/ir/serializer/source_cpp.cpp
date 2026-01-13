@@ -29,7 +29,11 @@ static inline std::string Indent(int indent) {
 
 static void SerializeNodeHead(IRBuffer &buffer, const std::shared_ptr<SourceCppASTNode> &node, int indent) {
     if (node->GetName() != "") {
-        buffer << Indent(indent) << node->GetName() << "(" << node->GetArgList() << ")";
+        if (node->GetName().find_first_of('#') != std::string::npos && node->GetArgList().size() == 0) {
+            buffer << Indent(indent) << node->GetName();
+        } else {
+            buffer << Indent(indent) << node->GetName() << "(" << node->GetArgList() << ")";
+        }
     }
 }
 
@@ -244,6 +248,7 @@ struct SerializeContext {
     OrderedSet<TensorValuePtr> tensorValueList;
     std::unordered_map<TensorTypePtr, std::string> tensorTypeNameDict;
     std::unordered_map<TileTypePtr, std::string> tileTypeNameDict;
+    std::unordered_map<TileTypePtr, MemSpaceKind> tileTypeMemDict;
 
     struct TileTensorDepend {
         std::vector<TileValuePtr> tileValueList;
@@ -565,26 +570,33 @@ static void SerializeFunctionFindValue(SerializeContext &ctx, const FunctionPtr 
 }
 
 static void SerializeFunctionDeclTypeList(SerializeContext &ctx, SourceCppASTNodePtr &funcNode) {
-    OrderedSet<TypePtr> tileTypeList;
-    OrderedSet<TypePtr> tensorTypeList;
+    OrderedSet<TileTypePtr> tileTypeList;
+    OrderedSet<TensorTypePtr> tensorTypeList;
     for (auto tile : ctx.tileValueList) {
-        auto tileType = tile->GetType();
+        auto tileType = ObjectCast<TileType>(tile->GetType());
         tileTypeList.Insert(tileType);
     }
     for (auto tensor : ctx.tensorValueList) {
-        auto tensorType = tensor->GetType();
+        auto tensorType = ObjectCast<TensorType>(tensor->GetType());
         tensorTypeList.Insert(tensorType);
     }
     for (auto tile : ctx.tileValueList) {
-        auto tileType = tile->GetType();
-        ctx.tileTypeNameDict[ObjectCast<TileType>(tileType)] = "RT_L" + std::to_string(tileTypeList.GetIndex(tileType));
+        auto tileType = ObjectCast<TileType>(tile->GetType());
+        ctx.tileTypeNameDict[tileType] = "RT_L" + std::to_string(tileTypeList.GetIndex(tileType));
+        if (ctx.tileTypeMemDict.count(tileType)) {
+            ASSERT(ctx.tileTypeMemDict[tileType] == tile->GetMemory()->GetSpace())
+                << "Mismatch mem: " << GetMemSpaceKindName(ctx.tileTypeMemDict[tileType]) << " " << GetMemSpaceKindName(tile->GetMemory()->GetSpace());
+        } else {
+            ctx.tileTypeMemDict[tileType] = tile->GetMemory()->GetSpace();
+        }
+
     }
     for (auto tensor : ctx.tensorValueList) {
-        auto tensorType = tensor->GetType();
+        auto tensorType = ObjectCast<TensorType>(tensor->GetType());
         ctx.tensorTypeNameDict[ObjectCast<TensorType>(tensorType)] = "RT_G" + std::to_string(tensorTypeList.GetIndex(tensorType));
     }
     for (auto &[tileType, name] : ctx.tileTypeNameDict) {
-        funcNode->push_back(rtDeclTypeTile(name, SerializeDataType(tileType), tileType->GetShape()));
+        funcNode->push_back(rtDeclTypeTile(name, SerializeDataType(tileType), tileType->GetShape().size(), GetMemSpaceKindName(ctx.tileTypeMemDict[tileType]), tileType->GetShape()));
     }
     for (auto &[tensorType, name] : ctx.tensorTypeNameDict) {
         funcNode->push_back(rtDeclTypeTensor(name, SerializeDataType(tensorType), tensorType->GetDimNum()));
@@ -642,6 +654,9 @@ static SourceCppASTNodePtr SerializeFunction(const FunctionPtr &func) {
 
 static SourceCppASTNodePtr SerializeProgram(const ProgramModulePtr &prog) {
     SourceCppASTNodePtr progNode = std::make_shared<SourceCppASTNode>(std::string(), std::vector<std::string>());
+    progNode->push_back(std::make_shared<SourceCppASTNode>("#define __TILE_FWK_AICORE__ 1"));
+    progNode->push_back(std::make_shared<SourceCppASTNode>("#include \"../kernel_aicpu/expression_0.h\""));
+    progNode->push_back(std::make_shared<SourceCppASTNode>("#include \"TileOpImpl.h\""));
     for (auto func : prog->GetFunctions()) {
         progNode->push_back(SerializeFunction(func));
     }

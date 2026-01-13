@@ -335,7 +335,7 @@ INLINE uint64_t RUNTIME_Ne(uint64_t input1, uint64_t input2) {
 }
 
 INLINE uint32_t GetTensorDataInt32(CoreFuncParam *ctx, uint64_t address) {
-    dcci((__gm__ uint32_t *)address, ENTIRE_DATA_CACHE, CACHELINE_OUT); 
+    dcci((__gm__ uint32_t *)address, ENTIRE_DATA_CACHE, CACHELINE_OUT);
     return *(__gm__ uint32_t *)(address);
 }
 #define RUNTIME_GetTensorDataInt32Dim1(index, ioType, ioTypeIndex, address, ...)    GetTensorDataInt32(param, address)
@@ -389,5 +389,50 @@ INLINE uint32_t GetTensorDataInt32(CoreFuncParam *ctx, uint64_t address) {
     } while(0)
 
 #define RUNTIME_GetSymbol(idx)          (param->exprTbl[idx])
+
+
+
+#define IR_SOURCE_CPP_FUNCTION                  "FUNCTION"
+#define IR_SOURCE_CPP_OPERATION                 "OPERATION"
+#define IR_SOURCE_CPP_DECL_TYPE_TILE            "DECL_TYPE_TILE"
+#define IR_SOURCE_CPP_DECL_TYPE_TENSOR          "DECL_TYPE_TENSOR"
+#define IR_SOURCE_CPP_DECL_VALUE_SCALAR         "DECL_VALUE_SCALAR"
+#define IR_SOURCE_CPP_DECL_VALUE_TILE           "DECL_VALUE_TILE"
+#define IR_SOURCE_CPP_DECL_VALUE_TENSOR         "DECL_VALUE_TENSOR"
+#define IR_SOURCE_CPP_INIT_VALUE_TILE           "INIT_VALUE_TILE"
+#define IR_SOURCE_CPP_INIT_VALUE_TENSOR         "INIT_VALUE_TENSOR"
+#define IR_SOURCE_CPP_INIT_ADDR                 "INIT_ADDR"
+#define IR_SOURCE_CPP_STMT_OP                   "STMT_OP"
+#define IR_SOURCE_CPP_STMT_IF                   "STMT_IF"
+#define IR_SOURCE_CPP_STMT_ELSE                 "STMT_ELSE"
+#define IR_SOURCE_CPP_STMT_FOR                  "STMT_FOR"
+#define IR_SOURCE_CPP_STMT_YIELD                "STMT_YIELD"
+#define IR_SOURCE_CPP_STMT_RETURN               "STMT_RETURN"
+#define IR_SOURCE_CPP_STMT_YIELD_LOOP_BEGIN     "LOOP_BEGIN"
+#define IR_SOURCE_CPP_STMT_YIELD_LOOP_ITER      "LOOP_ITER"
+#define IR_SOURCE_CPP_STMT_YIELD_LOOP_ASSIGN    "LOOP_ASSIGN"
+#define IR_SOURCE_CPP_STMT_YIELD_IF_ASSIGN      "IF_ASSIGN"
+
+
+#define RT_FUNCTION(name)                       extern "C" [aicore] void name(CoreFuncParam *param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo *oriAddrParam)
+#define RT_OPERATION()
+#define RT_DECL_TYPE_TILE(name, type, mem, dim, ...) using name = TileTensor<type, LocalLayout##dim##Dim<__VA_ARGS__>, mem>
+#define RT_DECL_TYPE_TENSOR(name, type, dim)    using name = TileTensor<__gm__ type, DynLayout##dim##Dim, Hardware::GM>
+#define RT_DECL_VALUE_SCALAR()
+#define RT_DECL_VALUE_TILE()
+#define RT_DECL_VALUE_TENSOR()
+#define RT_INIT_VALUE_TILE()
+#define RT_INIT_VALUE_TENSOR()
+#define RT_INIT_ADDR()
+#define RT_STMT_OP()
+#define RT_STMT_IF()
+#define RT_STMT_ELSE()
+#define RT_STMT_FOR()
+#define RT_STMT_YIELD()
+#define RT_STMT_RETURN()
+#define RT_LOOP_BEGIN()
+#define RT_LOOP_ITER()
+#define RT_LOOP_ASSIGN()
+#define RT_IF_ASSIGN()
 
 #endif // AST_RUNTIME_H
