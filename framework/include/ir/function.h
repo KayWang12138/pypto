@@ -149,10 +149,6 @@ private:
 };
 
 using FunctionPtr = std::shared_ptr<Function>;
-
-// Helper for convenient streaming: std::cout << func;
-std::ostream& operator<<(std::ostream& os, const Function& func);
-
 } // namespace pto
 
 
