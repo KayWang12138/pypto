@@ -97,13 +97,14 @@ def interleaved_rope_3d(x: pypto.Tensor, cos: pypto.Tensor, sin: pypto.Tensor, r
 
     Note:
         The function broadcasts cos and sin to match the head dimension,
-        then applies rotation: x_rotated = x * cos + rotate_half(x) * sin
+        then applies rotation: x_rotated = x * cos + rotate_half(x) * (-sin)
     """
     assert (len(x.shape) == SHAPE_DIM_3 and len(cos.shape) == SHAPE_DIM_2 and len(sin.shape) == SHAPE_DIM_2)
 
     pypto.set_vec_tile_shapes(*rope_3d_config.two_dim_tile) # (1, 64)
     cast_cos = pypto.cast(cos, pypto.DataType.DT_FP32)
     cast_sin = pypto.cast(sin, pypto.DataType.DT_FP32)
+    cast_sin = cast_sin * (-1.0)
 
     pypto.set_vec_tile_shapes(*rope_3d_config.three_dim_tile) # (1, 64, 64)
     cast_x = pypto.cast(x, pypto.DataType.DT_FP32)
@@ -116,7 +117,12 @@ def interleaved_rope_3d(x: pypto.Tensor, cos: pypto.Tensor, sin: pypto.Tensor, r
     x_re_second = pypto.reshape(x_trans, x.shape)
     x_embed = x_re_second * cast_cos + rotate_half(x_re_second) * cast_sin
 
-    return pypto.cast(x_embed, x.dtype)
+    x_embed_cast = pypto.cast(x_embed, x.dtype)
+    x_embed_reshape = pypto.reshape(x_embed_cast, [x_embed_cast.shape[0], x_embed_cast.shape[1], 2, x_embed_cast.shape[2] // 2])
+    x_embed_trans = pypto.transpose(x_embed_reshape, 2, 3)
+    x_embed_res = pypto.reshape(x_embed_trans, x_embed_cast.shape)
+
+    return x_embed_res
 
 
 def attention_post_compute(attn_res: pypto.Tensor, cos: pypto.Tensor, sin: pypto.Tensor,

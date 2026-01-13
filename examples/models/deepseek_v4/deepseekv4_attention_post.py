@@ -87,10 +87,13 @@ def apply_rotary_pos_emb(q, cos, sin):
     q = q.reshape(t, n, d // 2, 2).permute(0, 1, 3, 2).reshape(t, n, d)
 
     # (t, n_q, rope_dim), (t, 1, rope_dim) = (t, n_q, rope_dim)
-    q_embed = (q * cos) + (rotate_half(q) * sin)
+    q_embed = (q * cos) + (rotate_half(q) * -sin)
 
     if input_dtype != torch.float32:
         q_embed = q_embed.to(input_dtype)
+
+    q_embed = q_embed.unflatten(-1, (2, d // 2)).transpose(-1, -2).flatten(-2, -1)
+
     return q_embed
 
 
