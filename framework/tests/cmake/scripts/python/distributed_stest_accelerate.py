@@ -12,11 +12,11 @@
 """
 import argparse
 import logging
+import subprocess
 from typing import List, Any, Optional, Dict
 
 from stest_accelerate import STestAccelerate
 from accelerate.gtest_accelerate import GTestAccelerate
-
 
 class DistributedSTestAccelerate(STestAccelerate):
     """分布式STest执行加速
@@ -118,6 +118,97 @@ class DistributedSTestAccelerate(STestAccelerate):
             "TILE_FWK_DEVICE_ID_LIST": device_list_str,  # 多卡设备列表
         }
 
+    def __init__(self, args, params: List[GTestAccelerate.ExecParam], cntr_name: str = "DeviceGroup"):
+        # 先调用父类初始化
+        super().__init__(args, params, cntr_name)
+        
+        # 只在多卡模式下需要提取golden路径
+        self.golden_path = self._extract_golden_path_from_envs(args.envs)
+    
+    def _extract_golden_path_from_envs(self, envs: Dict[str, str]) -> str:
+        """从环境变量中提取golden路径 - 多卡模式专用"""
+        golden_path = envs.get('TILE_FWK_STEST_GOLDEN_PATH')
+        
+        if not golden_path:
+            golden_path = os.environ.get('TILE_FWK_STEST_GOLDEN_PATH')
+        if not golden_path:
+            logging.warning("TILE_FWK_STEST_GOLDEN_PATH not found in environment, using default path")
+            # 可以设置一个合理的默认路径，或者抛出异常
+            golden_path = "/home/l00852563/pypto_golden"
+        
+        logging.info("Distributed mode using golden path: %s", golden_path)
+        return golden_path
+
+    def _execute_case(self, ctx: GTestAccelerate.CaseContext, param: GTestAccelerate.ExecParam, gtest_filter: str):
+        """多卡模式执行 - 重写父类方法"""
+        # 安全检查：确保custom参数存在
+        if not hasattr(param, 'custom') or param.custom is None:
+            logging.error("No custom config found, run distribute case failed")
+            return super()._execute_case(ctx, param, gtest_filter)
+        
+        # 获取执行模式配置
+        rank_size = param.custom.get("rank_size", 1)
+        
+        if rank_size > 1:
+            # 多卡模式：使用mpirun执行
+            device_group = param.custom.get("device_group", [param.cntr_id])
+            return DistributedSTestAccelerate._run_multi_device_case(ctx, device_group, rank_size)
+        else:
+            # 回退到单卡模式
+            logging.error("No custom config found, run distribute case failed")
+
+
+    def _run_multi_device_case(self, ctx: GTestAccelerate.CaseContext, device_group: List[int], rank_size: int):
+        """执行多卡分布式测试用例
+        
+        :param ctx: Case上下文
+        :param device_group: 设备组列表
+        :param rank_size: 设备组大小
+        :return: 执行结果，命令行，错误信息
+        """
+        # 准备环境变量
+        env_vars = os.environ.copy()
+        env_vars['TILE_FWK_STEST_GOLDEN_PATH'] = self.golden_path
+        if ctx.exec_param.get_envs():
+            env_vars.update(ctx.exec_param.get_envs())
+        
+        # 构建mpirun命令
+        command = [
+            'mpirun', '-n', str(rank_size),
+            str(self.exe.file),
+            f'--gtest_filter={ctx.gtest_filter}'
+        ]
+        
+        device_info = f"DeviceGroup{device_group}"
+        logging.info("Executing %s on %s with rank_size %d", ctx.gtest_filter, device_info, rank_size)
+        
+        try:
+            # 执行MPI命令
+            process = subprocess.Popen(
+                command,
+                env=env_vars,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
+            )
+            
+            # 实时输出（可选）
+            stdout, stderr = process.communicate()
+            return_code = process.returncode
+            
+            # 构建返回对象，保持与原有接口兼容
+            class Result:
+                def __init__(self, returncode, stdout, stderr):
+                    self.returncode = returncode
+                    self.stdout = stdout
+                    self.stderr = stderr
+                    
+            return Result(return_code, stdout, stderr), ' '.join(command), None
+            
+        except Exception as e:
+            # 执行异常处理
+            logging.error("MPI execution failed for %s: %s", ctx.gtest_filter, str(e))
+            raise
 
 if __name__ == "__main__":
     logging.basicConfig(

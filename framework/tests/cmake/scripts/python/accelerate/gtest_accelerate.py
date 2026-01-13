@@ -299,7 +299,6 @@ class GTestAccelerate(ABC):
         self.cntr_exit_count = Value('i', 0)  # DFX, 统计 Container 退出进度
 
         # 其他
-        self.golden_path = self._extract_golden_path_from_envs(args.envs)
         if self.cntr_num == 0:
             raise ValueError("ExecParams is empty, won't run any task.")
         if len(params) > self.case_num:
@@ -675,6 +674,11 @@ class GTestAccelerate(ABC):
         ctx.exit_code = process.exitcode
         logging.info("%s Recv Case[%s] upload terminate event.", self._get_process_desc(), gtest_filter)
         return False
+    
+    def _execute_case(self, ctx: CaseContext, param: ExecParam, gtest_filter: str):
+        """统一的用例执行入口 - 由子类重写此方法实现不同模式"""
+        # 默认单卡实现
+        return self.exe.run(gtest_filter=gtest_filter, envs=param.get_envs())
 
     def _case(self, cntr_id: int, param: ExecParam, gtest_filter: str):
         """具体用例执行进程
@@ -689,21 +693,9 @@ class GTestAccelerate(ABC):
         run_desc = f"Run {self.mark}{self.exe.brief} GTestFilter({gtest_filter})"
         try:
             logging.info("%s[%s] [BGN] %s", self.cntr_name, cntr_id, run_desc)
-            
-            rank_size = 1  # 默认单卡模式
-            device_group = [param.cntr_id]  # 默认单设备组
-            
-            # 检查是否存在custom数据且包含rank_size
-            if hasattr(param, 'custom') and param.custom is not None:
-                rank_size = param.custom.get("rank_size", 1)
-                    
-            if rank_size > 1:
-                # 多卡模式：使用mpirun执行4卡分布式测试
-                device_group = param.custom.get("device_group", [param.cntr_id])
-                ret, cmd, _ = self._run_multi_device_case(ctx, device_group, rank_size)
-            else:
-                # 单卡模式：保持原有执行逻辑
-                ret, cmd, _ = self.exe.run(gtest_filter=ctx.gtest_filter, envs=ctx.exec_param.get_envs())
+
+            # 统一调用入口，具体实现由子类重写
+            ret, cmd, _ = self._execute_case(ctx, param, gtest_filter)
             
             if ret.returncode:
                 self._case_exception_exit(cntr_id=cntr_id, cmd=cmd,
@@ -720,69 +712,6 @@ class GTestAccelerate(ABC):
         except KeyboardInterrupt:
             self._put_case_terminate_info(info=ctx.brief)  # 强制终止时, 主动退出执行, 上报已运行时长
             logging.info("%s Recv terminate event download, stop running.", self._get_process_desc())
-
-    def _extract_golden_path_from_envs(self, envs: Dict[str, str]) -> str:
-        """从环境变量中提取 golden 路径"""
-        golden_path = envs.get('TILE_FWK_STEST_GOLDEN_PATH')
-        
-        if not golden_path:
-            golden_path = os.environ.get('TILE_FWK_STEST_GOLDEN_PATH')
-        if not golden_path:
-            logging.error("TILE_FWK_STEST_GOLDEN_PATH not found in environment, using default: %s", golden_path)
-        return golden_path
-
-
-    def _run_multi_device_case(self, ctx: CaseContext, device_group: List[int], rank_size: int):
-        """执行多卡分布式测试用例
-        
-        :param ctx: Case上下文
-        :param device_group: 设备组列表
-        :param rank_size: 设备组大小
-        :return: 执行结果，命令行，错误信息
-        """
-        # 准备环境变量
-        env_vars = os.environ.copy()
-        env_vars['TILE_FWK_STEST_GOLDEN_PATH'] = self.golden_path
-        if ctx.exec_param.get_envs():
-            env_vars.update(ctx.exec_param.get_envs())
-        
-        # 构建mpirun命令
-        command = [
-            'mpirun', '-n', str(rank_size),
-            str(self.exe.file),
-            f'--gtest_filter={ctx.gtest_filter}'
-        ]
-        
-        device_info = f"DeviceGroup{device_group}"
-        logging.info("Executing %s on %s with rank_size %d", ctx.gtest_filter, device_info, rank_size)
-        
-        try:
-            # 执行MPI命令
-            process = subprocess.Popen(
-                command,
-                env=env_vars,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True
-            )
-            
-            # 实时输出（可选）
-            stdout, stderr = process.communicate()
-            return_code = process.returncode
-            
-            # 构建返回对象，保持与原有接口兼容
-            class Result:
-                def __init__(self, returncode, stdout, stderr):
-                    self.returncode = returncode
-                    self.stdout = stdout
-                    self.stderr = stderr
-                    
-            return Result(return_code, stdout, stderr), ' '.join(command), None
-            
-        except Exception as e:
-            # 执行异常处理
-            logging.error("MPI execution failed for %s: %s", ctx.gtest_filter, str(e))
-            raise
 
 
     def _case_exception_exit(self, cntr_id: int, cmd: str, ret_code: int,
