@@ -157,13 +157,8 @@ Status MixSubgraphSplit::ExecuteSplit(Function &function, std::vector<MixSubgrap
                 newProgramIDs.push_back(tempIDBase++);
             }
         }
-        auto status = ProcessLeafFunction(*rootFunc, 
-                                         mixInfo.programID, 
-                                         mixInfo.function, 
-                                         mixInfo.components, 
-                                         newProgramIDs, 
-                                         mixInfo.originalCallOps, 
-                                         splitResults);
+        ProcessLeafFunction(*rootFunc, mixInfo.programID, mixInfo.function, mixInfo.components, 
+                            newProgramIDs, mixInfo.originalCallOps, splitResults);
     }
     // 删除原始Mix子图的callOp
     DeleteOriginalMixCallOps(*rootFunc, callOpsToDelete);
