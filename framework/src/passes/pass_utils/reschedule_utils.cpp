@@ -187,9 +187,13 @@ unsigned long RescheduleUtils::ComputeOperationHash(const Operation *op) {
     return result;
 }
 
-void RescheduleUtils::FindOtherGraphOp(Operation *op, Function *funcPtr, std::unordered_set<Operation*> &otherGraphOp) {
-    if (op->BelongTo() != funcPtr) {
-        otherGraphOp.insert(op);
+static void RemoveOpsInFunc(std::unordered_set<Operation*> &ops, Function *funcPtr) {
+    for (auto it = ops.begin(); it != ops.end();) {
+        if ((*it)->BelongTo() == funcPtr) {
+            it = ops.erase(it);
+        } else {
+            ++it;
+        }
     }
 }
 
@@ -197,46 +201,18 @@ void RescheduleUtils::ClearInputConsProd(Operation &op, Function *funcPtr,
     std::unordered_set<LogicalTensorPtr> incastSet) {
     for (auto &inOperand : op.GetIOperands()) {
         if (incastSet.count(inOperand) == 0) {
-            std::unordered_set<Operation*> otherGraphOp;
-            for (auto prod : inOperand->GetProducers()) {
-                FindOtherGraphOp(prod, funcPtr, otherGraphOp);
-            }
-            inOperand->GetProducers().clear();
-            for (auto otherOp : otherGraphOp) {
-                inOperand->AddProducer(otherOp);
-            }
+            RemoveOpsInFunc(inOperand->GetProducers(), funcPtr);
         }
-        std::unordered_set<Operation*> otherGraphOps;
-        for (auto cons : inOperand->GetConsumers()) {
-            FindOtherGraphOp(cons, funcPtr, otherGraphOps);
-        }
-        inOperand->GetConsumers().clear();
-        for (auto otherOp : otherGraphOps) {
-            inOperand->AddConsumer(otherOp);
-        }
+        RemoveOpsInFunc(inOperand->GetConsumers(), funcPtr);
     }
 }
 
 void RescheduleUtils::ClearOutputConsProd(Operation &op, Function *funcPtr,
     std::unordered_set<LogicalTensorPtr> outcastSet) {
     for (auto &outOperand : op.GetOOperands()) {
-        std::unordered_set<Operation*> otherGraphOp;
-        for (auto prod : outOperand->GetProducers()) {
-            FindOtherGraphOp(prod, funcPtr, otherGraphOp);
-        }
-        outOperand->GetProducers().clear();
-        for (auto otherOp : otherGraphOp) {
-            outOperand->AddProducer(otherOp);
-        }
+        RemoveOpsInFunc(outOperand->GetProducers(), funcPtr);
         if (outcastSet.count(outOperand) == 0) {
-            std::unordered_set<Operation*> otherGraphOps;
-            for (auto cons : outOperand->GetConsumers()) {
-                FindOtherGraphOp(cons, funcPtr, otherGraphOps);
-            }
-            outOperand->GetConsumers().clear();
-            for (auto otherOp : otherGraphOps) {
-                outOperand->AddConsumer(otherOp);
-            }
+            RemoveOpsInFunc(outOperand->GetConsumers(), funcPtr);
         }
     }
 }
