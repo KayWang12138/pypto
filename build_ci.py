@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # coding: utf-8
-# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
 # CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional, List, Dict, Tuple, Any, Union
+from typing import Optional, List, Dict, Tuple, Any
 from importlib import metadata
 from packaging import requirements
 
@@ -158,6 +158,7 @@ class BuildParam(CMakeParam):
     ubsan: bool = False  # 使能 UndefinedBehaviorSanitizer
     gcov: bool = False  # 使能 GNU Coverage
     clang_install_path: Optional[Path] = None  # Clang 安装位置
+    compile_dependency_check: bool = False  # 使能编译依赖关系检查
     # Build
     targets: Optional[List[str]] = None  # 编译目标
     job_num: Optional[int] = None  # 编译阶段使用核数
@@ -173,6 +174,7 @@ class BuildParam(CMakeParam):
         self.ubsan = args.ubsan
         self.gcov = args.gcov
         self.clang_install_path = self._get_clang_install_path(opt=args.clang)
+        self.compile_dependency_check = args.compile_dependency_check
 
     def __str__(self):
         desc = f"\nBuild"
@@ -186,6 +188,7 @@ class BuildParam(CMakeParam):
         desc += f"\n                      UbSan : {self.ubsan}"
         desc += f"\n                       GCov : {self.gcov}"
         desc += f"\n           ClangInstallPath : {self.clang_install_path}"
+        desc += f"\n            CompileDepCheck : {self.compile_dependency_check}"
         desc += f"\n        Build"
         desc += f"\n                    Targets : {self.targets}"
         desc += f"\n                    Job Num : {self.job_num}"
@@ -211,6 +214,8 @@ class BuildParam(CMakeParam):
                             help="Enable GNU Coverage Instrumentation Tool.")
         parser.add_argument("--clang", nargs="?", type=str, default="",
                             help="Specify clang install path, such as /usr/bin/clang")
+        parser.add_argument("--compile_dependency_check", action="store_true", default=False,
+                            help="Enable compile dependency relation check.")
         # Build
         parser.add_argument("-t", "--targets", nargs="?", type=str, action="append",
                             help="targets, specific build targets, "
@@ -278,6 +283,9 @@ class BuildParam(CMakeParam):
             if not ret:
                 raise RuntimeError(f"Clang({self.clang_install_path}) not complete.")
             cmd += clang_cmd
+
+        # Others
+        cmd += self._cfg_require(opt="ENABLE_COMPILE_DEPENDENCY_CHECK", ctr=self.compile_dependency_check)
         return cmd
 
     def get_build_cmd_lst(self, cmake: Path, binary_path: Path) -> List[str]:
@@ -386,7 +394,7 @@ class TestsFilterParam(CMakeParam):
             cmd += self._cfg_require(opt=f"{self.cmake_option}", ctr=self.enable, tv=f"{self.filter_str}")
         return cmd
 
-    def get_filter_str(self, def_filter: str):
+    def get_filter_str(self, def_filter: str) -> str:
         if not self.enable:
             return ""
         if self.filter_str not in ["ON"]:
@@ -742,7 +750,7 @@ class ModelParam(CMakeParam):
     def _gen_simulation_json_pvmodel(self, cfg: Dict[Any, Any]):
         if self.pvmodel:
             cfg["global_configs"]["platform_configs"]["enable_cost_model"] = True
-            cfg["global_configs"]["simulation_configs"]["pv_level"] = 2
+            cfg["global_configs"]["simulation_configs"]["pv_run_level"] = 2
             cfg["global_configs"]["simulation_configs"]["args"] = [
                 "Model.statisticReportToFile=true",
                 "Model.deviceArch=910B",
@@ -1264,7 +1272,7 @@ class SubCommandMgr:
 
 if __name__ == "__main__":
     logging.basicConfig(format='%(asctime)s - %(filename)s:%(lineno)d - %(levelname)s: %(message)s', level=logging.INFO)
-    ts = datetime.now(tz=timezone.utc)
+    g_ts = datetime.now(tz=timezone.utc)
     BuildCtrl.main()
-    duration = int((datetime.now(tz=timezone.utc) - ts).seconds)
-    logging.info("Build[CI] Success, duration %s secs.", duration)
+    g_duration = int((datetime.now(tz=timezone.utc) - g_ts).seconds)
+    logging.info("Build[CI] Success, duration %s secs.", g_duration)

@@ -233,21 +233,25 @@ TEST_F(TestConfigManager, GlobalConfig) {
     res = ConfigManagerNg::GetGlobalConfig<std::string>("platform.device_platform");
     EXPECT_EQ(res, "test");
 
-    ConfigManagerNg::SetGlobalConfig("simulation.execute_cycle_threshold", 10);
-    long res_int = ConfigManagerNg::GetGlobalConfig<long>("simulation.execute_cycle_threshold");
+    ConfigManagerNg::SetGlobalConfig("simulation.timeout_threshold", 10);
+    long res_int = ConfigManagerNg::GetGlobalConfig<long>("simulation.timeout_threshold");
     EXPECT_EQ(res_int, 10);
 
     ConfigManagerNg::SetGlobalConfig("codegen.codegen_support_tile_tensor", true);
     bool res_bool = ConfigManagerNg::GetGlobalConfig<bool>("codegen.codegen_support_tile_tensor");
     EXPECT_EQ(res_bool, true);
 
-    // python pybind interface
+    // // add code for coverage, python pybind interface
     std::map<std::string, Any> config_values = {
-        {"simulation.execute_cycle_threshold", 10}
+        {"simulation.timeout_threshold", 10}
     };
     ConfigManagerNg::GetInstance().SetGlobalConfig(std::move(config_values), "default", 1);
     ConfigManagerNg::GetInstance().GlobalScope();
 
     std::map<std::string, Any> empty_values = {};
     ConfigManagerNg::GetInstance().SetGlobalConfig(std::move(empty_values), "default", 1);
+
+    // add code for coverage
+    auto values = std::vector<std::string>{"value"};
+    config::experimental::SetOption("key", std::move(values));
 }

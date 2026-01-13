@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -466,16 +466,19 @@ OpcodeManager::OpcodeManager() {
         {         Opcode::OP_ROWMINLINE,    "TRowMinLine"},
         {           Opcode::OP_WHERE_TT,         "TWhere"},
         {               Opcode::OP_ADDS,          "TAddS"},
+        {               Opcode::OP_SUBS,          "TSubS"},
         {               Opcode::OP_MULS,          "TMulS"},
         {               Opcode::OP_DIVS,          "TDivS"},
         {              Opcode::OP_RSQRT,         "TRsqrt"},
         {               Opcode::OP_SQRT,          "TSqrt"},
         {                Opcode::OP_EXP,           "TExp"},
+        {                Opcode::OP_ABS,           "TAbs"},
         {            Opcode::OP_MAXIMUM,           "TMax"},
         {            Opcode::OP_MINIMUM,           "TMin"},
         {            Opcode::OP_PAIRSUM,       "TPairSum"},
         {            Opcode::OP_PAIRMAX,       "TPairMax"},
         {            Opcode::OP_PAIRMIN,       "TPairMin"},
+        {             Opcode::OP_ONEHOT,        "TOneHot"},
         {        Opcode::OP_L0C_COPY_UB,       "TExtract"},
         {            Opcode::OP_VEC_DUP,        "TVecDup"},
     };

@@ -65,24 +65,20 @@
             "enable_prof_aicore_pmu": false
         },
         "host": {
-            "strategy": "PVC2_OOO",
-            "enable_binary_cache": false,
-            "stitch_function_inner_memory": 10,
-            "stitch_function_outcast_memory": 50,
-            "only_codegen":false
+            "strategy": "PVC2_OOO"
         },
         "device": {},
         "core": {},
         "simulation": {
             "debug_single_func": false,
-            "debug_single_funcname": "DEBUG_LEAF_FUNC",
+            "leaf_function": "DEBUG_LEAF_FUNC",
             "draw_function_graph": true,
             "build_task_based_topo": true,
             "sim_mode": 0,
             "accuracy_level": 2,
-            "pv_level": 0,
+            "pv_run_level": 0,
             "log_level": 3,
-            "execute_cycle_threshold": -1,
+            "timeout_threshold": -1,
             "json_path": "",
             "agent_json_path": "",
             "args" : [
@@ -91,8 +87,7 @@
                 "Model.useOOOPassSeq=true",
                 "Core.logLabelMode=0",
                 "Core.bufferBackPressure=false"
-            ],
-            "leaf_function": "DEBUG_LEAF_FUNC"
+            ]
         },
         "codegen": {
             "parallel_compile" : 8,
@@ -106,9 +101,9 @@
             "force_combine_axis" : false,
             "combine_axis" : false
         },
-
         "distributed": {},
         "pass": {
+            "enable_binary_cache": false,
             "enable_pass_configs": true,
             "enable_cv_fuse": false,
             "pass_thread_num": 1,
