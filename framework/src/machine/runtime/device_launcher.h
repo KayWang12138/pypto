@@ -352,6 +352,8 @@ public:
     static int GetStreamCaptureInfo(rtStream_t aicoreStream, aclmdlRI &rtModel, bool &isCapture);
     static int SetCaptureStream(rtStream_t aicoreStream, rtStream_t aicpuStream, bool &isCapture);
     static int RunWithProfile(rtStream_t aicoreStream, rtStream_t aicpuStream);
+    static void RunTestModeIfEnabled(Function *function, const std::vector<DeviceTensorData> &inputList,
+            const std::vector<DeviceTensorData> &outputList, const DeviceLauncherConfig &config);
     static int DeviceLaunchOnceWithDeviceTensorData(
             Function *function, const std::vector<DeviceTensorData> &inputList, const std::vector<DeviceTensorData> &outputList,
             rtStream_t aicpuStream, rtStream_t aicoreStream, bool streamSynchronize, CachedOperator *cachedOperator,
