@@ -38,6 +38,12 @@ class RunMode(Enum):
     SIM = 1
 
 
+class DebugMode(IntEnum):
+    """Debug mode enumeration for both compile and runtime stages."""
+    NONE = 0  # Default: no debug mode enabled
+    ALL = 1   # Enable all debug features
+
+
 class _CachedVerifyData:
 
     def __init__(self):
