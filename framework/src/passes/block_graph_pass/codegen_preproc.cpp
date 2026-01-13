@@ -168,21 +168,16 @@ inline bool IsUBCopy(Operation& op) {
     return false;
 }
 
-void ProcessRduce(LogicalTensorPtr &tensor) {
-    auto producers = tensor->GetProducers();
-    if (producers.size() != 1) {
-        return;
+bool checkReduce(Operation &op) {
+    if (OpcodeManager::Inst().GetOpCalcType(op.GetOpcode()) != OpCalcType::REDUCE) {
+        return true;
     }
-    auto p = *producers.begin();
-    if (OpcodeManager::Inst().GetOpCalcType(p->GetOpcode()) == OpCalcType::REDUCE) {
-        std::vector<bool> reduceOutputCombineAxis;
-        p->GetAttr(OpAttributeKey::outputCombineAxis, reduceOutputCombineAxis);
-        int idx = p->GetOOperandIndex(tensor);
-        if (!reduceOutputCombineAxis[idx]) {
-            reduceOutputCombineAxis[idx] = true;
-        }
-        p->SetAttr(OpAttributeKey::outputCombineAxis, reduceOutputCombineAxis);
+    if (op.GetOpcode() == Opcode::OP_ROWSUMLINE) {
+        auto axis = op.GetIntAttribute(OP_ATTR_PREFIX + "AXIS");
+        int64_t shapeSize = static_cast<int64_t>(op.GetIOperands().front()->shape.size());
+        return shapeSize >= 2 && axis != (shapeSize - 2);
     }
+    return false;
 }
 
 Status CodegenPreproc::ForceCombineAxisForAxisCombine(Function &func) const {
@@ -197,7 +192,6 @@ Status CodegenPreproc::ForceCombineAxisForAxisCombine(Function &func) const {
             for (size_t i = 0; i < operands.size(); ++i) {
                 if (operands[i]->tensor->rawshape.back() == 1 && skipInputCombineOps.count(op.GetOpcode()) == 0) {
                     inputCombineAxis.push_back(true);
-                    ProcessRduce(operands[i]);
                 } else {
                     inputCombineAxis.push_back(false);
                 }
@@ -206,8 +200,7 @@ Status CodegenPreproc::ForceCombineAxisForAxisCombine(Function &func) const {
             std::vector<bool> outputCombineAxis;
             operands = op.GetOOperands();
             for (size_t i = 0; i < operands.size(); ++i) {
-                if (operands[i]->tensor->rawshape.back() == 1 &&
-                    OpcodeManager::Inst().GetOpCalcType(op.GetOpcode()) != OpCalcType::REDUCE) {
+                if (operands[i]->tensor->rawshape.back() == 1 && checkReduce(op)) {
                     outputCombineAxis.push_back(true);
                 } else {
                     outputCombineAxis.push_back(false);
