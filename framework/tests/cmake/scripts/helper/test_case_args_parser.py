@@ -12,6 +12,7 @@
 import argparse
 import logging
 import os
+from pathlib import Path
 
 
 class TestCaseArgsParser:
@@ -38,6 +39,8 @@ class TestCaseArgsParser:
 
     @staticmethod
     def update_default_value(args):
+        if args.op == "distributed_op":
+            args.distributed_op = True
         if not args.distributed_op:
             op_path = f"{os.getcwd()}/framework/tests/st/operation"
             default_golden = f"{op_path}/python/vector_operator_golden.py"
@@ -51,7 +54,8 @@ class TestCaseArgsParser:
         if args.golden_script is None:
             args.golden_script = default_golden
         if args.json_path is None:
-            args.json_path = f"{op_path}/test_case/"
+            csv_path = Path(args.input_file)
+            args.json_path = csv_path.with_suffix(".json")
 
     def add_test_case_args(self):
         # 参数注册
