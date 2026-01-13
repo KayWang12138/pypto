@@ -433,6 +433,22 @@ inline bool SuperNodeGraphBuilder::L1CopyInCombine(const std::shared_ptr<Operati
     if (i < 0 || i > static_cast<int32_t>(opList.size())) {
         return false;
     }
+    if ((opList[i]->GetOpcode() == Opcode::OP_VIEW || opList[i]->GetOpcode() == Opcode::OP_ASSEMBLE) &&
+        opList[i]->GetOOperands().size() > 0 && opList[i]->GetIOperands().size() > 0 &&
+        opList[i]->GetIOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_L0C &&
+        opList[i]->GetOOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
+        for (auto outNode : operationInfo->outGraph_[i]) {
+            mergePair.emplace_back(outNode, i);
+            APASS_LOG_DEBUG_F(Elements::Operation, "Combine %d and %d(outNode) for L1 CopyIn in building SuperNode.",
+                opList[i]->GetOpMagic(), opList[outNode]->GetOpMagic());
+        }        
+        for (auto inNode : operationInfo->inGraph_[i]) {
+            mergePair.emplace_back(inNode, i);
+            APASS_LOG_DEBUG_F(Elements::Operation, "Combine %d and %d(inNode) for L1 CopyIn in building SuperNode.",
+                opList[i]->GetOpMagic(), opList[inNode]->GetOpMagic());
+        }
+        return true;
+    }
     if (opList[i]->GetOOperands().size() > 0 &&
         (opList[i]->GetOOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_L1 ||
          opList[i]->GetOOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_BT ||
