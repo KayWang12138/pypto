@@ -47,6 +47,7 @@ struct CalcOps {
     void (*Cast)(LogicalTensorDataPtr, LogicalTensorDataPtr, CastMode);
     void (*Exp)(LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*Neg)(LogicalTensorDataPtr, LogicalTensorDataPtr);
+    void (*Round)(LogicalTensorDataPtr, LogicalTensorDataPtr, int);
     void (*Rsqrt)(LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*Sqrt)(LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*Abs)(LogicalTensorDataPtr, LogicalTensorDataPtr);

@@ -183,6 +183,17 @@ REGISTER_CALC_OP(OP_SQRT, Opcode::OP_SQRT, ExecuteOpUnary<Opcode::OP_SQRT>);
 REGISTER_CALC_OP(OP_ABS, Opcode::OP_ABS, ExecuteOpUnary<Opcode::OP_ABS>);
 REGISTER_CALC_OP(OP_LN, Opcode::OP_LN, ExecuteOpUnary<Opcode::OP_LN>);
 
+void ExecuteOpRound(ExecuteOperationContext *ctx) {
+    ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
+    ASSERT(ctx->ioperandDataViewList->size() == 1);
+    auto &output = ctx->ooperandInplaceDataViewList->at(0);
+    auto &input = ctx->ioperandDataViewList->at(0);
+
+    int decimals = ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "decimals");
+    calc::Round(output, input, decimals);
+}
+REGISTER_CALC_OP(OP_ROUND, Opcode::OP_ROUND, ExecuteOpRound);
+
 void ExecuteOpOneHot(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
     ASSERT(ctx->ioperandDataViewList->size() == 1);

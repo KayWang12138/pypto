@@ -163,6 +163,10 @@ void OpcodeManager::RegisterVectorUnary() {
     RegisterInfo(Opcode::OP_RECIPROCAL, OpCoreType::AIV, "RECIPROCAL", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
         {"TileOp::Trec", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE,
         {OpAttributeKey::inputCombineAxis, OpAttributeKey::outputCombineAxis});
+    RegisterInfo(Opcode::OP_ROUND, OpCoreType::AIV, "ROUND", {MemoryType::MEM_UB},
+        {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::Tround", PIPE_V, PIPE_V, CoreType::AIV},
+        OpCalcType::ELMWISE, {OP_ATTR_PREFIX + "powDecimals", OpAttributeKey::excludeBufferReuse},
+        TileShapeVerifier::Verify);
     RegisterInfo(Opcode::OP_RSQRT, OpCoreType::AIV, "RSQRT", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
         {"TileOp::Trsqrt", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE,
         {OpAttributeKey::inputCombineAxis, OpAttributeKey::outputCombineAxis}, TileShapeVerifier::Verify);
@@ -775,6 +779,7 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {               Opcode::OP_SUBS,          "TSubS"},
     {               Opcode::OP_MULS,          "TMulS"},
     {               Opcode::OP_DIVS,          "TDivS"},
+    {              Opcode::OP_ROUND,         "TRound"},
     {              Opcode::OP_RSQRT,         "TRsqrt"},
     {               Opcode::OP_SQRT,          "TSqrt"},
     {                Opcode::OP_EXP,           "TExp"},
