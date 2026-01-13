@@ -43,7 +43,7 @@
                         "en": "..."
                     },
                     "minimum": 0,
-                    "maximum": 2147483647
+                    "maximum": 2
                 },
                 "cube_l1_reuse_setting": {
                     "type": "object",
@@ -52,7 +52,7 @@
                         "zh": "...",
                         "en": "..."
                     },
-                    "key_minimum": 0,
+                    "key_minimum": -1,
                     "key_maximum": 2147483647,
                     "value_minimum": 0,
                     "value_maximum": 2147483647
