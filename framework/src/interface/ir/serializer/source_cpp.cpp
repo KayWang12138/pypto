@@ -29,7 +29,11 @@ static inline std::string Indent(int indent) {
 
 static void SerializeNodeHead(IRBuffer &buffer, const std::shared_ptr<SourceCppASTNode> &node, int indent) {
     if (node->GetName() != "") {
-        buffer << Indent(indent) << node->GetName() << "(" << node->GetArgList() << ")";
+        if (node->GetName().find_first_of('#') != std::string::npos && node->GetArgList().size() == 0) {
+            buffer << Indent(indent) << node->GetName();
+        } else {
+            buffer << Indent(indent) << node->GetName() << "(" << node->GetArgList() << ")";
+        }
     }
 }
 
@@ -642,6 +646,9 @@ static SourceCppASTNodePtr SerializeFunction(const FunctionPtr &func) {
 
 static SourceCppASTNodePtr SerializeProgram(const ProgramModulePtr &prog) {
     SourceCppASTNodePtr progNode = std::make_shared<SourceCppASTNode>(std::string(), std::vector<std::string>());
+    progNode->push_back(std::make_shared<SourceCppASTNode>("#define __TILE_FWK_AICORE__ 1"));
+    progNode->push_back(std::make_shared<SourceCppASTNode>("#include \"../kernel_aicpu/expression_0.h\""));
+    progNode->push_back(std::make_shared<SourceCppASTNode>("#include \"TileOpImpl.h\""));
     for (auto func : prog->GetFunctions()) {
         progNode->push_back(SerializeFunction(func));
     }
