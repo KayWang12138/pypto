@@ -2069,17 +2069,18 @@ static bool IsAssembleSlot(std::vector<SlotInfo> &slots, DevAscendFunction *func
 };
 
 static int ParseUnrollTimes(const std::string &rawName) {
-    static const std::string UNROLL_MARK = "_Unroll";
-
-    auto unrollPos = rawName.rfind(UNROLL_MARK);
-    if (unrollPos == std::string::npos) {
-        return 1;
+    const static std::string UNROLL_MARKS[2] = {"_LoopUnroll", "_Unroll"};
+    for (auto& unroll_mask : UNROLL_MARKS) {
+        auto unrollPos = rawName.rfind(unroll_mask);
+        if (unrollPos == std::string::npos) {
+            continue;
+        }
+        std::string suffix = rawName.substr(unrollPos + unroll_mask.length());
+        if (std::isdigit(suffix.front())) {
+            return std::stoi(suffix);
+        }
     }
-    std::string suffix = rawName.substr(unrollPos + UNROLL_MARK.length());
-    if (!std::isdigit(suffix.front())) {
-        return 1;
-    }
-    return std::stoi(suffix);
+    return 1;
 }
 
 static uint64_t CalcUnrolledRootBudget(uint64_t budget, int unrollTimes, int configMultiplier) {
