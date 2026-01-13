@@ -381,6 +381,53 @@ void OoOScheduler::GetIssueIdx(IssueEntryPtr issue, size_t &index) {
     }
 }
 
+size_t OoOScheduler::RegisterIssueEntriesVersion(const std::vector<IssueEntryPtr> &entries) {
+    issueEntriesVersions.push_back(std::make_shared<std::vector<IssueEntryPtr>>(entries));
+    return issueEntriesVersions.size() - 1;
+}
+
+const std::vector<IssueEntryPtr> &OoOScheduler::GetIssueEntriesVersion(size_t versionId) const {
+    return *issueEntriesVersions[versionId];
+}
+
+std::shared_ptr<BufRefSnapshot> OoOScheduler::CreateBufRefSnapshot(const std::vector<int> &changedMemIds) {
+    if (changedMemIds.empty()) {
+        return currentBufRefSnapshot;
+    }
+    auto snapshot = std::make_shared<BufRefSnapshot>();
+    snapshot->prev = currentBufRefSnapshot;
+    std::unordered_set<int> visited;
+    snapshot->updates.reserve(changedMemIds.size());
+    for (int memId : changedMemIds) {
+        if (visited.insert(memId).second) {
+            snapshot->updates.emplace_back(memId, bufRefCount[memId]);
+        }
+    }
+    currentBufRefSnapshot = snapshot;
+    return snapshot;
+}
+
+std::unordered_map<int, int> OoOScheduler::MaterializeBufRefCount(const std::shared_ptr<BufRefSnapshot> &snapshot) {
+    if (!snapshot) {
+        return {};
+    }
+    std::vector<std::shared_ptr<BufRefSnapshot>> chain;
+    auto cur = snapshot;
+    while (cur && !cur->isMaterialized) {
+        chain.push_back(cur);
+        cur = cur->prev;
+    }
+    std::unordered_map<int, int> base = cur ? cur->materialized : std::unordered_map<int, int>{};
+    for (auto it = chain.rbegin(); it != chain.rend(); ++it) {
+        for (const auto &kv : (*it)->updates) {
+            base[kv.first] = kv.second;
+        }
+        (*it)->materialized = base;
+        (*it)->isMaterialized = true;
+    }
+    return base;
+}
+
 // rollBackIssue 和 backTraceIssue 是否存在前后序依赖
 bool OoOScheduler::HasDependency(IssueEntryPtr rollBackIssue,  IssueEntryPtr backIssue) {
     size_t n = issueEntries.size();
@@ -456,9 +503,10 @@ void OoOScheduler::GetListToAdvance(size_t rollBackIndex, size_t backTraceIndex,
 Status OoOScheduler::RollBack(size_t &startIndex,
     std::vector<IssueEntryPtr> &curIssueEntries, std::unordered_map<MemoryType, int64_t> &curMemoryMap) {
     APASS_LOG_DEBUG_F(Elements::Operation, "=====> Start RollBack.");
-    curIssueEntries = backTraceIssueEntries[backTraceIssue].second;
+    const auto &snapshot = backTraceIssueEntries[backTraceIssue];
+    curIssueEntries = GetIssueEntriesVersion(snapshot.versionId);
     MemoryType memType = recordIssueBuffer[backTraceIssue];
-    size_t backTraceIndex = backTraceIssueEntries[backTraceIssue].first + 1;
+    size_t backTraceIndex = snapshot.startIndex + 1;
     backTraceIssue = curIssueEntries[backTraceIndex];
     size_t rollBackIndex = backTraceIndex;
     APASS_LOG_DEBUG_F(Elements::Operation, "backTraceIssue: %s, backTraceIndex: %d, memType: %d",
@@ -478,6 +526,7 @@ Status OoOScheduler::RollBack(size_t &startIndex,
         std::set<size_t> advanceIndexList;
         GetListToAdvance(rollBackIndex, backTraceIndex, curIssueEntries, advanceIndexList);
         ReplaceIndex(curIssueEntries, advanceIndexList, rollBackIndex);
+        currentEntriesVersion = RegisterIssueEntriesVersion(curIssueEntries);
         startIndex = rollBackIndex;
         APASS_LOG_DEBUG_F(Elements::Operation, "RollBack==>change startIndex: %d", startIndex);
         if (rollBackIndex != 0) {
@@ -491,6 +540,9 @@ Status OoOScheduler::RollBack(size_t &startIndex,
             visitedIssue[issue] = false;
         }
         InitBufRefCount();
+        currentBufRefSnapshot = std::make_shared<BufRefSnapshot>();
+        currentBufRefSnapshot->materialized = bufRefCount;
+        currentBufRefSnapshot->isMaterialized = true;
         return SUCCESS;
     }
     APASS_LOG_ERROR_F(Elements::Operation, "RollBack Failed");
@@ -568,13 +620,21 @@ Status OoOScheduler::UpdateOOperandPreDependence(size_t startIndex, std::vector<
         index++;
     }
     ReorderIssue(preIssue, curIssueEntries, startIndex);
+    currentEntriesVersion = RegisterIssueEntriesVersion(curIssueEntries);
     return SUCCESS;
 }
 
 // 回溯后，将队列 startIndex 位置之后的 issue 的 visitedIssue 状态还原回 false
 void OoOScheduler::RecoverSymbol(size_t startIndex, std::vector<IssueEntryPtr> curIssueEntries) {
     APASS_LOG_DEBUG_F(Elements::Operation, "RecoverSymbol  startIdx: %d, curIssue: %s", startIndex, curIssueEntries[startIndex]->GetOpInfo().c_str());
-    bufRefCount = recordBufRefCount[curIssueEntries[startIndex]];
+    auto it = recordBufRefCount.find(curIssueEntries[startIndex]);
+    if (it != recordBufRefCount.end()) {
+        bufRefCount = MaterializeBufRefCount(it->second);
+        currentBufRefSnapshot = it->second;
+    } else {
+        bufRefCount.clear();
+        currentBufRefSnapshot.reset();
+    }
     for (size_t i = 0; i < curIssueEntries.size(); i++) {
         if (i > startIndex) {
             visitedIssue[curIssueEntries[i]] = false;
@@ -598,8 +658,9 @@ void OoOScheduler::GetStackTop(size_t &startIndex, std::vector<IssueEntryPtr> &c
     std::unordered_map<MemoryType, int64_t> &curMemoryMap) {
     auto topNode = needFreeIssueStack.top();
     needFreeIssueStack.pop();
-    curIssueEntries = recordIssueEntries[topNode.first].second;
-    startIndex = recordIssueEntries[topNode.first].first;
+    const auto &snapshot = recordIssueEntries[topNode.first];
+    curIssueEntries = GetIssueEntriesVersion(snapshot.versionId);
+    startIndex = snapshot.startIndex;
     curMemoryMap = recordBufferAllocate[topNode.first];
 }
 
@@ -712,11 +773,14 @@ Status OoOScheduler::RetireIssueBuffer(std::unordered_map<MemoryType, int64_t> &
 }
 
 void OoOScheduler::issueMemoryUpdate(IssueEntryPtr issue, size_t startIndex, const std::vector<IssueEntryPtr> &curIssueEntries,
-    const std::unordered_map<MemoryType, int64_t> &curMemoryMap) {
-    recordIssueEntries[issue] = std::make_pair(startIndex, curIssueEntries);
-    recordBufferAllocate[issue] = curMemoryMap;
+    const std::unordered_map<MemoryType, int64_t> &curMemoryMap, bool finalize) {
+    static_cast<void>(curIssueEntries);
+    recordIssueEntries[issue] = {startIndex, currentEntriesVersion};
     recordIssueBuffer[issue] = issue->tileOp.GetOutputOperand(0)->GetMemoryTypeOriginal();
-    recordBufRefCount[issue] = bufRefCount;
+    if (finalize) {
+        recordBufferAllocate[issue] = curMemoryMap;
+        recordBufRefCount[issue] = CreateBufRefSnapshot(issue->reqMemIds);
+    }
 }
 
 Status OoOScheduler::AllocExecute(IssueEntryPtr issue, std::vector<IssueEntryPtr> &curIssueEntries,
@@ -730,7 +794,7 @@ Status OoOScheduler::AllocExecute(IssueEntryPtr issue, std::vector<IssueEntryPtr
         backTraceIssueEntries = recordIssueEntries;
         backTraceBufRefCount = recordBufRefCount;
         APASS_LOG_DEBUG_F(Elements::Operation, "backTraceIssue: %s, backTraceIndex: %d, memType: %d",
-            backTraceIssue->GetOpInfo().c_str(), backTraceIssueEntries[backTraceIssue].first, recordIssueBuffer[backTraceIssue]);
+            backTraceIssue->GetOpInfo().c_str(), backTraceIssueEntries[backTraceIssue].startIndex, recordIssueBuffer[backTraceIssue]);
         APASS_LOG_DEBUG_F(Elements::Operation, "=====> Need backtrace.");
         if (BacktraceOnMemoryExceeded(startIndex, curIssueEntries, curMemoryMap) != SUCCESS) {
             if (RollBack(startIndex, curIssueEntries, curMemoryMap) != SUCCESS) {
@@ -754,7 +818,7 @@ Status OoOScheduler::IssueEntriesExecute(std::vector<IssueEntryPtr> &curIssueEnt
     }
     while (startIndex < curIssueEntries.size()) {
         auto issue = curIssueEntries[startIndex];
-        issueMemoryUpdate(issue, startIndex, curIssueEntries, curMemoryMap);
+        issueMemoryUpdate(issue, startIndex, curIssueEntries, curMemoryMap, false);
         APASS_LOG_DEBUG_F(Elements::Operation, "execute issue: %s, index: %d", issue->GetOpInfo().c_str(), startIndex);
         if (issue->isAlloc) {
             bool isContinue = false;
@@ -773,12 +837,11 @@ Status OoOScheduler::IssueEntriesExecute(std::vector<IssueEntryPtr> &curIssueEnt
             }
         }
         visitedIssue[issue] = true;
-        issueMemoryUpdate(issue, startIndex, curIssueEntries, curMemoryMap);
         if (RetireIssueBuffer(curMemoryMap, issue) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "RetireIssue failed! %s", GetFormatBacktrace(issue->tileOp).c_str());
             return FAILED;
         }
-        issueMemoryUpdate(issue, startIndex, curIssueEntries, curMemoryMap);
+        issueMemoryUpdate(issue, startIndex, curIssueEntries, curMemoryMap, true);
         startIndex += 1;
     }
     issueFinish = true;
@@ -793,6 +856,11 @@ Status OoOScheduler::ExecuteIssue() {
     for (auto &issue : issueEntries) {
         visitedIssue[issue] = false;
     }
+    issueEntriesVersions.clear();
+    currentEntriesVersion = RegisterIssueEntriesVersion(issueEntries);
+    currentBufRefSnapshot = std::make_shared<BufRefSnapshot>();
+    currentBufRefSnapshot->materialized = bufRefCount;
+    currentBufRefSnapshot->isMaterialized = true;
     while(!issueFinish) {
         if (IssueEntriesExecute(curIssueEntries, curMemoryMap, startIndex) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "IssueEntriesExecute failed.");

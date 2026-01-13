@@ -131,6 +131,18 @@ struct SpillInfo {
     LogicalTensorPtr ddrTensor_;
 };
 
+struct IssueEntriesSnapshot {
+    size_t startIndex{0};
+    size_t versionId{0};
+};
+
+struct BufRefSnapshot {
+    std::shared_ptr<BufRefSnapshot> prev;
+    std::vector<std::pair<int, int>> updates;
+    std::unordered_map<int, int> materialized;
+    bool isMaterialized{false};
+};
+
 class OoOScheduler {
 private:
     std::vector<IssueEntryPtr> issueEntries;
@@ -154,17 +166,20 @@ private:
     std::vector<Operation *> operations_;
 
     bool issueFinish{false};
+    std::vector<std::shared_ptr<std::vector<IssueEntryPtr>>> issueEntriesVersions;
+    size_t currentEntriesVersion{0};
     std::map<IssueEntryPtr, std::unordered_map<MemoryType, int64_t>> recordBufferAllocate;
-    std::map<IssueEntryPtr, std::pair<size_t, std::vector<IssueEntryPtr>>> recordIssueEntries;
+    std::map<IssueEntryPtr, IssueEntriesSnapshot> recordIssueEntries;
     std::map<IssueEntryPtr, MemoryType> recordIssueBuffer;
     std::stack<std::pair<IssueEntryPtr, MemoryType>> needFreeIssueStack;
     std::map<IssueEntryPtr, bool> visitedIssue;
-    std::map<IssueEntryPtr, std::unordered_map<int, int>> recordBufRefCount;
+    std::map<IssueEntryPtr, std::shared_ptr<BufRefSnapshot>> recordBufRefCount;
+    std::shared_ptr<BufRefSnapshot> currentBufRefSnapshot;
     // 回溯点位置,当前执行issue的全部信息,用于后期回退
     IssueEntryPtr backTraceIssue{nullptr};
     std::map<IssueEntryPtr, std::unordered_map<MemoryType, int64_t>> backTraceBufferAllocate;
-    std::map<IssueEntryPtr, std::pair<size_t, std::vector<IssueEntryPtr>>> backTraceIssueEntries;
-    std::map<IssueEntryPtr, std::unordered_map<int, int>> backTraceBufRefCount;
+    std::map<IssueEntryPtr, IssueEntriesSnapshot> backTraceIssueEntries;
+    std::map<IssueEntryPtr, std::shared_ptr<BufRefSnapshot>> backTraceBufRefCount;
     std::unordered_map<IssueEntryPtr, int> depthCache_;
     // 回退点,防止死循环
     IssueEntryPtr rollBackNodeIssue{nullptr};
@@ -263,12 +278,16 @@ private:
     Status ModifyBuffer(std::unordered_map<MemoryType, int64_t> &curMemoryMap, MemoryType memType, int64_t size, bool isAdd);
     Status RetireIssueBuffer(std::unordered_map<MemoryType, int64_t> &curMemoryMap, IssueEntryPtr issue);
     void issueMemoryUpdate(IssueEntryPtr issue, size_t startIndex, const std::vector<IssueEntryPtr> &curIssueEntries,
-        const std::unordered_map<MemoryType, int64_t> &curMemoryMap);
+        const std::unordered_map<MemoryType, int64_t> &curMemoryMap, bool finalize);
     Status AllocExecute(IssueEntryPtr issue, std::vector<IssueEntryPtr> &curIssueEntries,
         std::unordered_map<MemoryType, int64_t> &curMemoryMap, size_t &startIndex, bool &isContinue);
     Status IssueEntriesExecute(std::vector<IssueEntryPtr> &curIssueEntries,
         std::unordered_map<MemoryType, int64_t> &curMemoryMap, size_t &startIndex);
     Status ExecuteIssue();
+    size_t RegisterIssueEntriesVersion(const std::vector<IssueEntryPtr> &entries);
+    const std::vector<IssueEntryPtr> &GetIssueEntriesVersion(size_t versionId) const;
+    std::shared_ptr<BufRefSnapshot> CreateBufRefSnapshot(const std::vector<int> &changedMemIds);
+    std::unordered_map<int, int> MaterializeBufRefCount(const std::shared_ptr<BufRefSnapshot> &snapshot);
 
     // gen spill
     Status GenSpillOp(LocalBufferPtr allocBuffer, size_t &pcIdx);
