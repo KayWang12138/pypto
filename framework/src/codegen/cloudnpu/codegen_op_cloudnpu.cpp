@@ -105,6 +105,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {Opcode::OP_SUB, [this]() { return GenBinaryOp(); }},
           {Opcode::OP_MUL, [this]() { return GenBinaryOp(); }},
           {Opcode::OP_DIV, [this]() { return GenBinaryOp(); }},
+          {Opcode::OP_MOD, [this]() { return GenBinaryOp(); }},
           {Opcode::OP_MAXIMUM, [this]() { return GenBinaryOp(); }},
           {Opcode::OP_MINIMUM, [this]() { return GenBinaryOp(); }},
           {Opcode::OP_PAIRSUM, [this]() { return GenBinaryOp(); }},
@@ -122,6 +123,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
 
           // binary op: vector scalar
           {Opcode::OP_ADDS, [this]() { return GenVectorScalarOp(); }},
+          {Opcode::OP_MODS, [this]() { return GenVectorScalarOp(); }},
           {Opcode::OP_SUBS, [this]() { return GenVectorScalarOp(); }},
           {Opcode::OP_MULS, [this]() { return GenVectorScalarOp(); }},
           {Opcode::OP_DIVS, [this]() { return GenVectorScalarOp(); }},
