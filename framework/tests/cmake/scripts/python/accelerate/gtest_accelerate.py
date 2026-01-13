@@ -693,10 +693,8 @@ class GTestAccelerate(ABC):
         run_desc = f"Run {self.mark}{self.exe.brief} GTestFilter({gtest_filter})"
         try:
             logging.info("%s[%s] [BGN] %s", self.cntr_name, cntr_id, run_desc)
-
             # 统一调用入口，具体实现由子类重写
             ret, cmd, _ = self._execute_case(ctx, param, gtest_filter)
-            
             if ret.returncode:
                 self._case_exception_exit(cntr_id=cntr_id, cmd=cmd,
                                           ret_code=ret.returncode, out=ret.stdout, err=ret.stderr)
@@ -712,7 +710,6 @@ class GTestAccelerate(ABC):
         except KeyboardInterrupt:
             self._put_case_terminate_info(info=ctx.brief)  # 强制终止时, 主动退出执行, 上报已运行时长
             logging.info("%s Recv terminate event download, stop running.", self._get_process_desc())
-
 
     def _case_exception_exit(self, cntr_id: int, cmd: str, ret_code: int,
                              out: Optional[str] = None, err: Optional[str] = None):
