@@ -17,8 +17,6 @@
 #include "vector.h"
 #include "mte_dyn.h"
 #include <array>
-#include "cube.h"
-
 #include <type_traits>
 
 #ifndef TILE_FWK_VECTOR_DYN_H
@@ -3112,7 +3110,7 @@ TILEOP void DynTgatherFromUB_(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *sr
 }
 
 template <typename T, bool accumulate>
-TILEOP void indexPutCopyOutBase(__gm__ T *dst, __ubuf__ T *src, uint16_t nBurst, uint32_t lenBurst) {
+TILEOP void IndexPutCopyOutBase(__gm__ T *dst, __ubuf__ T *src, uint16_t nBurst, uint32_t lenBurst) {
     if constexpr (accumulate) {
         SetAtomicAdd<T>();
     }
@@ -3142,7 +3140,7 @@ TILEOP void indexPutCopyOutBase(__gm__ T *dst, __ubuf__ T *src, uint16_t nBurst,
  */
 template <typename T, typename T2, unsigned dstRank, unsigned src1RawShape1, unsigned src1RawShape2,
     unsigned src1RawShape3, bool accumulate>
-TILEOP void DynTindexPut(__gm__ T *dst, __ubuf__ T *src1, __ubuf__ T2 *src2Dim0, unsigned TShape0,
+TILEOP void DynTIndexPut(__gm__ T *dst, __ubuf__ T *src1, __ubuf__ T2 *src2Dim0, unsigned TShape0,
     unsigned GmShape0, unsigned GmShape1, unsigned GmShape2, unsigned GmShape3) {
     for (auto i = 0; i < TShape0; i++) {
         set_flag(PIPE_MTE3, PIPE_S, EVENT_ID7);
@@ -3162,14 +3160,14 @@ TILEOP void DynTindexPut(__gm__ T *dst, __ubuf__ T *src1, __ubuf__ T2 *src2Dim0,
             src1[0] = src1[i];
             set_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
             wait_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
-            TileOp::indexPutCopyOutBase<T, accumulate>(
+            TileOp::IndexPutCopyOutBase<T, accumulate>(
                 dst + dstOffset, src1, nBurst, lenBurst);
         } else if constexpr (dstRank == 2) {
             dstOffset = indexDim0 * GmShape3;
             ubNum = src1RawShape3;
             src1Offset = i * ubNum;
             lenBurst = GmShape3;
-            TileOp::indexPutCopyOutBase<T, accumulate>(
+            TileOp::IndexPutCopyOutBase<T, accumulate>(
                 dst + dstOffset, src1 + src1Offset, nBurst, lenBurst);
         } else if constexpr (dstRank == 3) {
             dstOffset = indexDim0 * GmShape3 * GmShape2;
@@ -3177,7 +3175,7 @@ TILEOP void DynTindexPut(__gm__ T *dst, __ubuf__ T *src1, __ubuf__ T2 *src2Dim0,
             src1Offset = i * ubNum;
             nBurst = GmShape2;
             lenBurst = GmShape3;
-            TileOp::indexPutCopyOutBase<T, accumulate>(
+            TileOp::IndexPutCopyOutBase<T, accumulate>(
                 dst + dstOffset, src1 + src1Offset, nBurst, lenBurst);
         } else if constexpr (dstRank == 4) {
             dstOffset = indexDim0 * GmShape3 * GmShape2 * GmShape1;
@@ -3185,7 +3183,7 @@ TILEOP void DynTindexPut(__gm__ T *dst, __ubuf__ T *src1, __ubuf__ T2 *src2Dim0,
             src1Offset = i * ubNum;
             nBurst = GmShape1 * GmShape2;
             lenBurst = GmShape3;
-            TileOp::indexPutCopyOutBase<T, accumulate>(
+            TileOp::IndexPutCopyOutBase<T, accumulate>(
                 dst + dstOffset, src1 + src1Offset, nBurst, lenBurst);
         }
     }
@@ -3194,7 +3192,7 @@ TILEOP void DynTindexPut(__gm__ T *dst, __ubuf__ T *src1, __ubuf__ T2 *src2Dim0,
 /* indicesSize = 2 */
 template <typename T, typename T2, unsigned dstRank, unsigned src1RawShape1, unsigned src1RawShape2,
     unsigned src1RawShape3, bool accumulate>
-TILEOP void DynTindexPut(__gm__ T *dst, __ubuf__ T *src1, __ubuf__ T2 *src2Dim0, __ubuf__ T2 *src2Dim1,
+TILEOP void DynTIndexPut(__gm__ T *dst, __ubuf__ T *src1, __ubuf__ T2 *src2Dim0, __ubuf__ T2 *src2Dim1,
     unsigned TShape0, unsigned GmShape0, unsigned GmShape1, unsigned GmShape2, unsigned GmShape3) {
     for (int i = 0; i < TShape0; i++) {
         set_flag(PIPE_MTE3, PIPE_S, EVENT_ID7);
@@ -3215,7 +3213,7 @@ TILEOP void DynTindexPut(__gm__ T *dst, __ubuf__ T *src1, __ubuf__ T2 *src2Dim0,
             src1[0] = src1[i];
             set_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
             wait_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
-            TileOp::indexPutCopyOutBase<T, accumulate>(
+            TileOp::IndexPutCopyOutBase<T, accumulate>(
                 dst + dstOffset, src1, nBurst, lenBurst);
         } else if constexpr (dstRank == 3) {
             dstOffset = indexDim0 * GmShape3 * GmShape2 + 
@@ -3223,7 +3221,7 @@ TILEOP void DynTindexPut(__gm__ T *dst, __ubuf__ T *src1, __ubuf__ T2 *src2Dim0,
             ubNum = src1RawShape3;
             src1Offset = i * ubNum;
             lenBurst = GmShape3;
-            TileOp::indexPutCopyOutBase<T, accumulate>(
+            TileOp::IndexPutCopyOutBase<T, accumulate>(
                 dst + dstOffset, src1 + src1Offset, nBurst, lenBurst);
         } else if constexpr (dstRank == 4) {
             dstOffset = indexDim0 * GmShape3 * GmShape2 * GmShape1 + 
@@ -3232,7 +3230,7 @@ TILEOP void DynTindexPut(__gm__ T *dst, __ubuf__ T *src1, __ubuf__ T2 *src2Dim0,
             src1Offset = i * ubNum;
             nBurst = GmShape2;
             lenBurst = GmShape3;
-            TileOp::indexPutCopyOutBase<T, accumulate>(
+            TileOp::IndexPutCopyOutBase<T, accumulate>(
                 dst + dstOffset, src1 + src1Offset, nBurst, lenBurst);
         }
     }
@@ -3241,7 +3239,7 @@ TILEOP void DynTindexPut(__gm__ T *dst, __ubuf__ T *src1, __ubuf__ T2 *src2Dim0,
 /* indicesSize = 3 */
 template <typename T, typename T2, unsigned dstRank, unsigned src1RawShape1, unsigned src1RawShape2,
     unsigned src1RawShape3, bool accumulate>
-TILEOP void DynTindexPut(__gm__ T *dst, __ubuf__ T *src1, __ubuf__ T2 *src2Dim0, __ubuf__ T2 *src2Dim1,
+TILEOP void DynTIndexPut(__gm__ T *dst, __ubuf__ T *src1, __ubuf__ T2 *src2Dim0, __ubuf__ T2 *src2Dim1,
     __ubuf__ T2 *src2Dim2, unsigned TShape0, unsigned GmShape0, unsigned GmShape1, unsigned GmShape2,
     unsigned GmShape3) {
     for (int i = 0; i < TShape0; i++) {
@@ -3265,7 +3263,7 @@ TILEOP void DynTindexPut(__gm__ T *dst, __ubuf__ T *src1, __ubuf__ T2 *src2Dim0,
             src1[0] = src1[i];
             set_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
             wait_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
-            TileOp::indexPutCopyOutBase<T, accumulate>(
+            TileOp::IndexPutCopyOutBase<T, accumulate>(
                 dst + dstOffset, src1, nBurst, lenBurst);
         } else if constexpr (dstRank == 4) {
             dstOffset = indexDim0 * GmShape3 * GmShape2 * GmShape1 +
@@ -3273,7 +3271,7 @@ TILEOP void DynTindexPut(__gm__ T *dst, __ubuf__ T *src1, __ubuf__ T2 *src2Dim0,
             ubNum = src1RawShape3;
             src1Offset = i * ubNum;
             lenBurst = GmShape3;
-            TileOp::indexPutCopyOutBase<T, accumulate>(
+            TileOp::IndexPutCopyOutBase<T, accumulate>(
                 dst + dstOffset, src1 + src1Offset, nBurst, lenBurst);
         }
     }
@@ -3282,7 +3280,7 @@ TILEOP void DynTindexPut(__gm__ T *dst, __ubuf__ T *src1, __ubuf__ T2 *src2Dim0,
 /* indicesSize = 4 */
 template <typename T, typename T2, unsigned dstRank, unsigned src1RawShape1, unsigned src1RawShape2,
     unsigned src1RawShape3, bool accumulate>
-TILEOP void DynTindexPut(__gm__ T *dst, __ubuf__ T *src1, __ubuf__ T2 *src2Dim0, __ubuf__ T2 *src2Dim1,
+TILEOP void DynTIndexPut(__gm__ T *dst, __ubuf__ T *src1, __ubuf__ T2 *src2Dim0, __ubuf__ T2 *src2Dim1,
     __ubuf__ T2 *src2Dim2, __ubuf__ T2 *src2Dim3, unsigned TShape0, unsigned GmShape0, unsigned GmShape1,
     unsigned GmShape2, unsigned GmShape3) {
     for (int i = 0; i < TShape0; i++) {
@@ -3300,7 +3298,7 @@ TILEOP void DynTindexPut(__gm__ T *dst, __ubuf__ T *src1, __ubuf__ T2 *src2Dim0,
         uint64_t ubNum = 1;
         uint16_t nBurst = 1;
         uint32_t lenBurst = 1;
-        TileOp::indexPutCopyOutBase<T, accumulate>(
+        TileOp::IndexPutCopyOutBase<T, accumulate>(
             dst + dstOffset, src1, nBurst, lenBurst);
     }
 }
