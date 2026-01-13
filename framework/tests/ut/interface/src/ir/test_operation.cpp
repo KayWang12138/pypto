@@ -26,7 +26,7 @@
 #include "ir/value.h"
 #include "ir/builder/ir_builder.h"
 #include "ir/builder/ir_context.h"
-#include "ir/transform/ir_printer.h"
+#include "ir/transform/printer.h"
 namespace pto{
 
 TEST(IRTEST, TestTensorOperation){
