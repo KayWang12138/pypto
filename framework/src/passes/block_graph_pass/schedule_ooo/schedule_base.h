@@ -253,20 +253,10 @@ public:
 
     void FindDependencies(Operation* op) {
         for (auto &producer : opProducers[op]) {
-            if (producer->GetOpcode() == Opcode::OP_VIEW) {
-                for (auto viewProducer : opProducers[producer]) {
-                    AddDependency(viewProducer, op, false);
-                }
-                continue;
-            }
             AddDependency(producer, op, false);
         }
         for (auto &consumer : opConsumers[op]) {
-            if (consumer->GetOpcode() == Opcode::OP_VIEW) {
-                for (auto viewConsumer : opConsumers[consumer]) {
-                    AddDependency(op, viewConsumer, false);
-                }
-            }
+            AddDependency(op, consumer, false);
         }
     }
 
