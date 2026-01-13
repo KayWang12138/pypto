@@ -94,14 +94,16 @@ const std::map<PipeType, std::string> PIPE_ID{
 };
 
 const std::map<OperandType, std::string> BUFFER_TYPE_TO_PREFIX = {
-    { OperandType::BUF_UB,   "UB"},
-    { OperandType::BUF_L1,   "L1"},
-    {OperandType::BUF_L0A,  "L0A"},
-    {OperandType::BUF_L0B,  "L0B"},
-    {OperandType::BUF_L0C,  "L0C"},
-    {OperandType::BUF_FIX, "FIXBUF"},
-    { OperandType::BUF_BT, "BIAS"},
-    {OperandType::BUF_DDR,   "GM"},
+    {   OperandType::BUF_UB,     "UB"},
+    {   OperandType::BUF_L1,     "L1"},
+    {  OperandType::BUF_L0A,    "L0A"},
+    {  OperandType::BUF_L0B,    "L0B"},
+    {  OperandType::BUF_L0C,    "L0C"},
+    {  OperandType::BUF_FIX, "FIXBUF"},
+    {   OperandType::BUF_BT,   "BIAS"},
+    {  OperandType::BUF_DDR,     "GM"},
+    {OperandType::BUF_L0AMX, "L0A_MX"},
+    {OperandType::BUF_L0BMX, "L0B_MX"},
 };
 
 // lowercase version
@@ -117,6 +119,14 @@ const std::map<OperandType, std::string> BUFFER_TYPE_TO_PREFIX_LC = {
 };
 
 enum class VecScalMode { VEC_MODE, SCALAR_MODE };
+
+enum class CopyInMode : int {
+    COPY_MOD_INVALID = -1,
+    COPY_MOD_ND2ND = 0,
+    COPY_MOD_ND2NZ,
+    COPY_MOD_NZ2NZ,
+    COPY_MOD_DN2NZ
+};
 
 struct CodeGenCtx {
     std::string includePath;
@@ -152,20 +162,22 @@ struct TiledSortParam {
 };
 
 const std::map<MemoryType, OperandType> OPERAND_TYPE_TO_MEMORY_TYPE{
-    {            MemoryType::MEM_UB,  BUF_UB},
-    {            MemoryType::MEM_L1,  BUF_L1},
-    {           MemoryType::MEM_L0A, BUF_L0A},
-    {           MemoryType::MEM_L0B, BUF_L0B},
-    {           MemoryType::MEM_L0C, BUF_L0C},
-    {    MemoryType::MEM_DEVICE_DDR, BUF_DDR},
-    {            MemoryType::MEM_BT,  BUF_BT},
-    {           MemoryType::MEM_FIX, BUF_FIX},
-    { MemoryType::MEM_FIX_QUANT_PRE, BUF_FIX},
-    {  MemoryType::MEM_FIX_RELU_PRE, BUF_FIX},
-    { MemoryType::MEM_FIX_RELU_POST, BUF_FIX},
-    {MemoryType::MEM_FIX_QUANT_POST, BUF_FIX},
-    { MemoryType::MEM_FIX_ELT_ANTIQ, BUF_FIX},
-    {MemoryType::MEM_FIX_MTE2_ANTIQ, BUF_FIX},
+    {            MemoryType::MEM_UB,    BUF_UB},
+    {            MemoryType::MEM_L1,    BUF_L1},
+    {           MemoryType::MEM_L0A,   BUF_L0A},
+    {           MemoryType::MEM_L0B,   BUF_L0B},
+    {           MemoryType::MEM_L0C,   BUF_L0C},
+    {    MemoryType::MEM_DEVICE_DDR,   BUF_DDR},
+    {            MemoryType::MEM_BT,    BUF_BT},
+    {           MemoryType::MEM_FIX,   BUF_FIX},
+    { MemoryType::MEM_FIX_QUANT_PRE,   BUF_FIX},
+    {  MemoryType::MEM_FIX_RELU_PRE,   BUF_FIX},
+    { MemoryType::MEM_FIX_RELU_POST,   BUF_FIX},
+    {MemoryType::MEM_FIX_QUANT_POST,   BUF_FIX},
+    { MemoryType::MEM_FIX_ELT_ANTIQ,   BUF_FIX},
+    {MemoryType::MEM_FIX_MTE2_ANTIQ,   BUF_FIX},
+    {         MemoryType::MEM_L0AMX, BUF_L0AMX},
+    {         MemoryType::MEM_L0BMX, BUF_L0BMX},
 };
 
 struct FloatSaturateStatus {
