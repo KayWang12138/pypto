@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -66,7 +66,7 @@ private:
     int nextKeyValue_ = static_cast<int>(ConfigKey::CONFIG_INVALID) + 1;
     
     // Helper to compute hash for key name (same algorithm as macro)
-    static int ComputeKeyHash(const std::string& keyName);
+    static size_t ComputeKeyHash(const std::string& keyName);
 };
 
 // Configuration container class using type erasure
@@ -222,9 +222,11 @@ const T& Config::Get(ConfigKey key) const {
 // This ensures the same name always generates the same enum value
 // Returns a value >= 1 (CONFIG_INVALID is 0)
 // Using recursive constexpr function
-constexpr int ComputeConfigKeyHashImpl(const char* str, int hash = 5381) {
-    return (*str == '\0') ? ((hash % 1000000) + 1)
-                          : ComputeConfigKeyHashImpl(str + 1, hash * 33 + *str);
+constexpr size_t ComputeConfigKeyHashImpl(const char* str, size_t hash = 5381) {
+    for(size_t i = 0; str[i] != '\0'; i++) {
+        hash = hash * 33 + (unsigned char)str[i];
+    }
+    return hash % 999983 + 1;
 }
 
 } // namespace pto
@@ -240,7 +242,7 @@ constexpr int ComputeConfigKeyHashImpl(const char* str, int hash = 5381) {
                 registry.Register(#keyName, defaultValue, static_cast<pto::ConfigKey>(pto::ComputeConfigKeyHashImpl(#keyName))); \
             } \
         }; \
-        static ConfigRegistrar_##keyName g_configRegistrar_##keyName; \
+        ConfigRegistrar_##keyName g_configRegistrar_##keyName; \
     } \
     namespace pto { \
         inline const ConfigKey CONFIG_##keyName = static_cast<ConfigKey>(ComputeConfigKeyHashImpl(#keyName)); \
