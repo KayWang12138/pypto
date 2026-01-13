@@ -89,6 +89,8 @@ enum MemoryType {
     MEM_FAR2 = 18,
     MEM_WORKSPACE = 19,
     MEM_VECTOR_REG = 20,
+    MEM_L0AMX = 21,
+    MEM_L0BMX = 22,
     MEM_UNKNOWN
 };
 

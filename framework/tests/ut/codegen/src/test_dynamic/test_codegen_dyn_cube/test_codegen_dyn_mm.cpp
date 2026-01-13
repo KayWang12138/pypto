@@ -100,4 +100,53 @@ TEST_F(TestCodegenDynMM, TestDynMatmulTileTensor) {
 )!!!";
 }
 
+TEST_F(TestCodegenDynMM, TestMatmulMXTileTensor) {
+    config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
+    config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
+
+    std::vector<int64_t> mxShape = {64, 64};
+    std::vector<int64_t> shapeBias = {1, 64};
+    TileShape::Current().SetVecTile(mxShape);
+    TileShape::Current().SetCubeTile({64, 64}, {64, 64}, {64, 64});
+    Tensor inputA(DT_FP16, mxShape, "A");
+    Tensor inputB(DT_FP16, mxShape, "B");
+    Tensor output(DT_FP16, mxShape, "C");
+
+    std::string funcName = "TestMatmulMXTileTensor";
+    FUNCTION(funcName, {inputA, inputB, output}) {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            output = Add(inputA, inputB);
+        }
+    }
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
+    function->SetUnderDynamicFunction(true);
+    std::vector<SymbolicScalar> dynValidShape = {64, 64};
+    auto localTensorAMX = CreateLogicalTensor({*function, DataType::DT_FP16, MemoryType::MEM_L0AMX, mxShape, dynValidShape});
+    auto localTensorBMX = CreateLogicalTensor({*function, DataType::DT_FP16, MemoryType::MEM_L0BMX, mxShape, dynValidShape});
+    auto localTensorBias =
+        CreateLogicalTensor({*function, DataType::DT_FP16, MemoryType::MEM_BT, shapeBias, dynValidShape});
+    auto localOutTensor =
+        CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_L0C, mxShape, dynValidShape});
+
+    auto &op =
+        function->AddOperation(Opcode::OP_A_MUL_B, {localTensorAMX, localTensorBMX, localTensorBias}, {localOutTensor});
+    op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
+    op.SetAttribute(OP_ATTR_PREFIX + "has_bias", true);
+
+    function->GetTensorMap().inverseMap_[localTensorAMX->GetMagic()] = localTensorAMX;
+    function->GetTensorMap().inverseMap_[localTensorBMX->GetMagic()] = localTensorBMX;
+    function->GetTensorMap().inverseMap_[localTensorBias->GetMagic()] = localTensorBias;
+    function->GetTensorMap().inverseMap_[localOutTensor->GetMagic()] = localOutTensor;
+
+    std::shared_ptr<SymbolManager> symbolManagerMX = std::make_shared<SymbolManager>();
+    CodeGenCtx ctx;
+    CodeGenCloudNPU cga(ctx);
+    cga.GenAllocForLocalBuffer(op, symbolManagerMX);
+    CodeGenOpCloudNPU cop({symbolManagerMX, *function, *function->rootFunc_->programs_[0], op, {}});
+
+    cop.GenOpCode();
+}
+
 } // namespace npu::tile_fwk
