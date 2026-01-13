@@ -8,12 +8,12 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
-"""Args处理辅助.
+"""Args处理辅助（适配自定义参数--gtest_list_tests_with_meta）
 """
 import argparse
 import subprocess
-from typing import Sequence, Optional, Any, List
-
+from typing import Sequence, Optional, Any, List, Dict
+import re
 
 class ArgsEnvDictAction(argparse.Action):
     """解析命令行参数传入的环境变量字段(env)
@@ -28,7 +28,7 @@ class ArgsEnvDictAction(argparse.Action):
 
 
 class ArgsGTestFilterListAction(argparse.Action):
-    """解析命令行参数传入的 GTestFilter 字段
+    """解析命令行参数传入的 GTestFilter 字段（适配自定义元信息参数）
     """
 
     def __init__(self, option_strings: Sequence[str], dest: str, nargs: Optional[int] = None, **kwargs: Any) -> None:
@@ -38,22 +38,81 @@ class ArgsGTestFilterListAction(argparse.Action):
         super().__init__(option_strings, dest, nargs=nargs, **kwargs)
 
     @staticmethod
-    def parse_all_cases(binary: str) -> List[str]:
-        """获取gtest ut测试用例
+    def get_test_costs(binary: str) -> Dict[str, float]:
         """
-        result = subprocess.run([binary, '--gtest_list_tests'], capture_output=True, text=True)
+        获取所有带耗时信息的测试用例（通过自定义参数--gtest_list_tests_with_meta）
+        返回格式: { "TestCaseName.TestName": cost_seconds, ... }
+        """
+        cost_map = {}
+        try:
+            # 调用自定义参数，获取带耗时的测试列表
+            result = subprocess.run(
+                [binary, '--gtest_list_tests_with_meta'],
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+
+            # 仅解析stdout（格式：TestCaseName.TestName|cost_seconds）
+            pattern = re.compile(r'^([\w\.]+)\|(\d+\.?\d*)$', re.MULTILINE)
+            matches = pattern.findall(result.stdout)
+            for test_name, cost_str in matches:
+                cost_map[test_name.strip()] = float(cost_str.strip())
+
+        except subprocess.TimeoutExpired:
+            print(f"[WARNING] Timeout when getting cost info from {binary}")
+        except Exception as e:
+            print(f"[WARNING] Failed to get test cost info from {binary}: {e}")
+
+        return cost_map
+
+    @staticmethod
+    def parse_all_cases(binary: str) -> List[str]:
+        """
+        获取 gtest ut 测试用例列表，并重排序：
+          - 有耗时信息的排在前面
+          - 无耗时信息的排在后面
+        """
+        # 1. 通过自定义参数获取带耗时的测试列表
+        cost_map = ArgsGTestFilterListAction.get_test_costs(binary)
+
+        # 2. 获取原生测试列表（无耗时的用例）
         cases = []
-        current_suite = ""
-        for line in result.stdout.split('\n'):
-            line = line.rstrip()
-            if not line or "GoogleTestVerification" in line:
-                continue
-            if line.endswith('.'):
-                current_suite = line[:-1]
-            elif line.startswith('  '):
-                test_name = line.strip()
-                cases.append(f"{current_suite}.{test_name}")
-        return cases
+        try:
+            result = subprocess.run([binary, '--gtest_list_tests'], capture_output=True, text=True)
+            current_suite = ""
+            for line in result.stdout.split('\n'):
+                line = line.rstrip()
+                if not line or line.startswith('#') or "GoogleTestVerification" in line:
+                    continue
+                if line.endswith('.'):
+                    current_suite = line[:-1]
+                elif line.startswith('  '):
+                    test_name = line.strip()
+                    full_name = f"{current_suite}.{test_name}"
+                    cases.append(full_name)
+        except Exception as e:
+            print(f"[WARNING] Failed to get test list from {binary}: {e}")
+            return []
+
+        # 3. 分类重排序
+        cost_tests = []
+        no_cost_tests = []
+        for test in cases:
+            if test in cost_map:
+                cost_tests.append(test)
+            else:
+                no_cost_tests.append(test)
+
+        cost_tests_sorted = sorted(cost_tests, key=lambda x: cost_map[x])
+
+        # 4. 日志输出
+        print(f"[INFO] Found {len(cost_tests_sorted)} tests with cost info, {len(no_cost_tests)} tests without.")
+        if cost_tests_sorted:
+            print(f"[INFO] First few cost-aware tests (desc order): {cost_tests_sorted}")
+
+        # 5. 合并重排序后的测试列表
+        return  no_cost_tests + cost_tests_sorted
 
     def __call__(self, parser: argparse.ArgumentParser, namespace: argparse.Namespace, values: List[str],
                  option_string: Optional[str] = None) -> None:

@@ -15,7 +15,7 @@
 
 #include "gtest/gtest.h"
 #include "tilefwk/tilefwk_op.h"
-
+#include "interface/utils/test_cost_macro.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/tensor/logical_tensor.h"
@@ -64,7 +64,7 @@ TEST_F(DynamicGenGatedScoreUtest, utest_gen_gated_score_plus_dyn) {
     }
 }
 
-TEST_F(DynamicGenGatedScoreUtest, utest_gen_gated_score_dyn) {
+TEST_F_WITH_COST(DynamicGenGatedScoreUtest, utest_gen_gated_score_dyn, 81) {
     std::vector<int64_t> bnsh = {4, 128, 4, 7168};
     config::SetHostOption(ONLY_CODEGEN, true);
 
