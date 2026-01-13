@@ -835,7 +835,7 @@ void OoOScheduler::InitBufRefCount() {
     }
 }
 
-Status OoOScheduler::InitAllocDependencies(IssueEntryPtr issue, std::unordered_map<int, IssueEntryPtr> &tensor2AllocMap) {
+Status OoOScheduler::InitAllocDependencies(IssueEntryPtr issue, std::unordered_map<int, IssueEntryPtr> tensor2AllocMap) {
     for (auto &tensor : issue->tileOp.GetOOperands()) {
         int memId = tensor->memoryrange.memId;
         if (tensor->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
