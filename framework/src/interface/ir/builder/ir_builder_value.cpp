@@ -31,9 +31,9 @@ ValuePtr IRBuilder::AddToCompound(IRBuilderContext& ctx, ValuePtr v) {
 
 std::shared_ptr<TensorValue> IRBuilder::CreateTensor(
     IRBuilderContext& ctx,
-    const std::vector<ScalarValuePtr>& shape, const std::vector<ScalarValuePtr> &stride, DataType dt, std::string name) {
+    const std::vector<ScalarValuePtr>& shape, DataType dt, std::string name) {
 
-    auto t = std::make_shared<TensorValue>(shape, stride, dt, std::move(name));
+    auto t = std::make_shared<TensorValue>(shape, dt, std::move(name));
     AddToCompound(ctx, t);
     return t;
 }
