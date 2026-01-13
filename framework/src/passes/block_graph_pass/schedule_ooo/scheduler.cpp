@@ -230,7 +230,7 @@ Status OoOScheduler::DelBufRefCount(const int memId) {
 void OoOScheduler::PrintOpList(std::vector<Operation *> operations) {
     APASS_LOG_INFO_F(Elements::Operation, "==================== OP_LIST =====================");
     for (auto &op : operations) {
-        bool isCubeComponent = op->HasAttr(OpAttributeKey::isCube) && op->GetAttr<bool>(OpAttributeKey::isCube);
+        bool isCubeComponent = op->HasAttribute(OpAttributeKey::isCube) && op->GetBoolAttribute(OpAttributeKey::isCube);
         if (!isCubeComponent) {
             op->SetAIVCore(AIVCore::AIV0);
         }
@@ -855,6 +855,9 @@ Status OoOScheduler::InitAllocDependencies(IssueEntryPtr issue, std::map<int, Is
 }
 
 void OoOScheduler::AddDependency(IssueEntryPtr preIssue, IssueEntryPtr postIssue, bool isAlloc) {
+    if (preIssue == nullptr || postIssue == nullptr) {
+        return;
+    }
     if (isAlloc || (!preIssue->isAlloc && !postIssue->isAlloc)) {
         preIssue->successors.insert(postIssue->id);
         postIssue->predecessors.insert(preIssue->id);
