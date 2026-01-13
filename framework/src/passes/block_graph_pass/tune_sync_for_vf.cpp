@@ -228,9 +228,8 @@ Status TuneSyncForVF::ChangeOpSeq(Function *subGraphFunc, bool isAIV1) {
     for (size_t idx = 0; idx + 1 < pipeVIdx.size(); idx++) {
         size_t left = pipeVIdx[idx];
         size_t right = pipeVIdx[idx + 1];
-        if (right == left + 1) {
-            continue;
-        }
+        APASS_LOG_DEBUG_F(Elements::Operation, "Try to merge %d %s and %d %s", opList_[left]->GetOpMagic(), opList_[left]->GetOpcodeStr().c_str(),
+            opList_[right]->GetOpMagic(), opList_[right]->GetOpcodeStr().c_str());
         // 判断两个pipeV op间是否有SYNC_SRC或者SYNC_DST或者既不是SYNC_SRC也不是SYNC_DST
         std::vector<Operation *> setFlagList;
         std::vector<Operation *> waitFlagList;
@@ -246,11 +245,14 @@ Status TuneSyncForVF::ChangeOpSeq(Function *subGraphFunc, bool isAIV1) {
             }
         }
         // 两个pipeV的op间的op如果有一个既不是SYNC_SRC也不是SYNC_DST,则说明这两个pipeV op不能合并
-        if (hasNonSetWaitOp || (setFlagList.empty() && waitFlagList.empty())) {
+        if (hasNonSetWaitOp) {
             continue;
         }
         // 判断是否需要进行调整 （所有的SYNC_SRC和SYNC_DST中，只要有一个是有收益的，就进行融合）
         bool needAdjustSet = false;
+        if (setFlagList.empty() && waitFlagList.empty()) {
+            needAdjustSet = true;
+        }
         for (auto &setFlag : setFlagList) {
             if (NeedAdjustSetFlag(subGraphFunc, opList_[left], opList_[right], setFlag)) {
                 needAdjustSet = true;
@@ -270,6 +272,7 @@ Status TuneSyncForVF::ChangeOpSeq(Function *subGraphFunc, bool isAIV1) {
             }
         }
         // 此时vecTileop1和vecTileop2需要融合，先看vecTileop0是否已经在mergedOps中
+        APASS_LOG_DEBUG_F(Elements::Operation, "Need merge.");
         int groupNum = -1;
         for (size_t i = 0; i < mergedOps.size(); i++) {
             for (size_t j = 0; j < mergedOps[i].size(); j++) {
