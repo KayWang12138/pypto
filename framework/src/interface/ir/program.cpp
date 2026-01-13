@@ -15,6 +15,7 @@
 
 #include "ir/program.h"
 #include "ir/utils.h"
+#include "ir/config.h"
 
 #include "ir/function.h"
 
@@ -25,10 +26,16 @@ ProgramModule::ProgramModule(std::string name)
 
 void ProgramModule::SetProgramEntry(const std::shared_ptr<Function>& programEntry) {
     programEntry_ = programEntry;
+    if (programEntry) {
+        programEntry->SetParentModule(shared_from_this());
+    }
 }
 
 void ProgramModule::AddFunction(const std::shared_ptr<Function>& function) {
     functions_.push_back(function);
+    if (function) {
+        function->SetParentModule(shared_from_this());
+    }
 }
 
 void PrintAttributes(std::ostream& os, const AttributeMap& attrs, int indent) {
@@ -66,6 +73,18 @@ void ProgramModule::Print(std::ostream& os, int indent) const {
 std::ostream& operator<<(std::ostream& os, const ProgramModule& module) {
     module.Print(os, 0);
     return os;
+}
+
+Config& ProgramModule::GetConfig() {
+    return config_;
+}
+
+const Config& ProgramModule::GetConfig() const {
+    return config_;
+}
+
+bool ProgramModule::HasConfig() const {
+    return config_.IsInitialized();
 }
 
 } // namespace pto
