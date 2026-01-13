@@ -316,29 +316,29 @@
         "verify": {
             "type": "object",
             "label": {
-                "zh": "...",
-                "en": "..."
+                "zh": "使能框架自检功能。在主机 CPU 模拟计算流并基于计算结果校验计算流正确性。当前支持对 Pass 各阶段进行检测。",
+                "en": "Enable the framework self-check function. The host CPU simulates the compute flow and verifies the correctness based on the calculation results. Currently supports Pass check."
             },
             "properties": {
                 "enable_pass_verify": {
                     "type": "boolean",
                     "label": {
-                        "zh": "...",
-                        "en": "..."
+                        "zh": "Pass 检测使能开关，决定所有 *pass_verify_* 选项、接口是否有效。",
+                        "en": "Pass verify enable switch, which determines where all *pass_verify_* options and APIs are valid."
                     }
                 },
                 "pass_verify_save_tensor": {
                     "type": "boolean",
                     "label": {
-                        "zh": "...",
-                        "en": "..."
+                        "zh": "配置是否将模拟计算数据存盘。",
+                        "en": "Specifies whether to save the simulation calculation data to the disk."
                     }
                 },
                 "pass_verify_save_tensor_dir": {
                     "type": "string",
                     "label": {
-                        "zh": "...",
-                        "en": "..."
+                        "zh": "配置检测结果及数据的保存路径。",
+                        "en": "Set the path for saving the detection results and data."
                     }
                 },
                 "pass_verify_pass_filter": {
@@ -347,8 +347,8 @@
                         "type": "string"
                     },
                     "label": {
-                        "zh": "...",
-                        "en": "..."
+                        "zh": "配置待自检的 Pass 名称列表。",
+                        "en": "Specifies the list of pass names to be self-checked."
                     }
                 }
             }
