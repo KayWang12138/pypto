@@ -22,6 +22,7 @@
 #include <string>
 #include <sys/syscall.h>
 #include "tilefwk/aicpu_common.h"
+#include "tilefwk/platform.h"
 
 extern "C" {
 __attribute__((weak)) int32_t AdprofReportAdditionalInfo(uint32_t agingFlag, const void *data, uint32_t length);
@@ -72,31 +73,34 @@ typedef enum AiCoreProfDataType {
     PROF_DATATYPE_EXE = 5
 } AiCoreProfDataType;
 
-// typedef enum AiCoreRegister {
-//     PMU_CTRL_0 = 0x200,
-//     PMU_CNT0 = 0x210,
-//     PMU_CNT1 = 0x218,
-//     PMU_CNT2 = 0x220,
-//     PMU_CNT3 = 0x228,
-//     PMU_CNT4 = 0x230,
-//     PMU_CNT5 = 0x238,
-//     PMU_CNT6 = 0x240,
-//     PMU_CNT7 = 0x248,
-//     PMU_CNT8 = 0x250,
-//     PMU_CNT9 = 0x254,
-//     PMU_CNT0_IDX = 0x1280,
-//     PMU_CNT1_IDX = 0x1284,
-//     PMU_CNT2_IDX = 0x1288,
-//     PMU_CNT3_IDX = 0x128C,
-//     PMU_CNT4_IDX = 0x1290,
-//     PMU_CNT5_IDX = 0x1294,
-//     PMU_CNT6_IDX = 0x1298,
-//     PMU_CNT7_IDX = 0x129C,
-//     PMU_START_CNT_CYC_0 = 0x2A0,
-//     PMU_START_CNT_CYC_1 = 0x2A4,
-//     PMU_STOP_CNT_CYC_0 = 0x2A8,
-//     PMU_STOP_CNT_CYC_1 = 0x2AC,
-// } AiCoreRegister;
+// 旧硬件（DAV_2201）的寄存器地址
+namespace DAV_2201_REG {
+    constexpr uint32_t PMU_CTRL_0 = 0x200;
+    constexpr uint32_t PMU_CNT0 = 0x210;
+    constexpr uint32_t PMU_CNT1 = 0x218;
+    constexpr uint32_t PMU_CNT2 = 0x220;
+    constexpr uint32_t PMU_CNT3 = 0x228;
+    constexpr uint32_t PMU_CNT4 = 0x230;
+    constexpr uint32_t PMU_CNT5 = 0x238;
+    constexpr uint32_t PMU_CNT6 = 0x240;
+    constexpr uint32_t PMU_CNT7 = 0x248;
+    constexpr uint32_t PMU_CNT8 = 0x250;
+    constexpr uint32_t PMU_CNT9 = 0x254;
+    constexpr uint32_t PMU_CNT0_IDX = 0x1280;
+    constexpr uint32_t PMU_CNT1_IDX = 0x1284;
+    constexpr uint32_t PMU_CNT2_IDX = 0x1288;
+    constexpr uint32_t PMU_CNT3_IDX = 0x128C;
+    constexpr uint32_t PMU_CNT4_IDX = 0x1290;
+    constexpr uint32_t PMU_CNT5_IDX = 0x1294;
+    constexpr uint32_t PMU_CNT6_IDX = 0x1298;
+    constexpr uint32_t PMU_CNT7_IDX = 0x129C;
+    constexpr uint32_t PMU_START_CNT_CYC_0 = 0x2A0;
+    constexpr uint32_t PMU_START_CNT_CYC_1 = 0x2A4;
+    constexpr uint32_t PMU_STOP_CNT_CYC_0 = 0x2A8;
+    constexpr uint32_t PMU_STOP_CNT_CYC_1 = 0x2AC;
+}
+
+// 新硬件（DAV_3510）的寄存器地址
 typedef enum AiCoreRegister {
     PMU_CTRL_0 = 0x4200,
     PMU_CTRL_1 = 0X2400,
@@ -182,19 +186,22 @@ const uint16_t AIC_EVENT_LIST[MAX_PMU_CNT] = {
     L2_R0_MISS_ALLOC_CNT,
 };
 
-// struct MsprofAicpuPyPtoPmuData {
-//     uint32_t seqNo{0};
-//     uint32_t taskId{0};
-//     uint64_t totalCyc{0};
-//     uint32_t pmuCnt0{0}; // 单个task不能超过3s, 按50MHZ计算
-//     uint32_t pmuCnt1{0};
-//     uint32_t pmuCnt2{0};
-//     uint32_t pmuCnt3{0};
-//     uint32_t pmuCnt4{0};
-//     uint32_t pmuCnt5{0};
-//     uint32_t pmuCnt6{0};
-//     uint32_t pmuCnt7{0};
-// };
+// 旧硬件（DAV_2201）的PMU数据结构
+struct MsprofAicpuAstPmuData {
+    uint32_t seqNo{0};
+    uint32_t taskId{0};
+    uint64_t totalCyc{0};
+    uint32_t pmuCnt0{0}; // 单个task不能超过3s, 按50MHZ计算
+    uint32_t pmuCnt1{0};
+    uint32_t pmuCnt2{0};
+    uint32_t pmuCnt3{0};
+    uint32_t pmuCnt4{0};
+    uint32_t pmuCnt5{0};
+    uint32_t pmuCnt6{0};
+    uint32_t pmuCnt7{0};
+};
+
+// 新硬件（DAV_3510）的PMU数据结构
 struct MsprofAicpuPyPtoPmuData {
     uint32_t seqNo{0};
     uint32_t taskId{0};
@@ -253,7 +260,9 @@ struct AiCpuTaskStat {
 
 class AiCoreProf {
 public:
-    explicit AiCoreProf(AiCoreManager &aicoreMng) : hostAicoreMng_(aicoreMng) {}
+    explicit AiCoreProf(AiCoreManager &aicoreMng) 
+        : hostAicoreMng_(aicoreMng), 
+          npuArch_(Platform::Instance().GetSoc().GetNPUArch()) {}
     ~AiCoreProf() {}
 
     void ProfInit([[maybe_unused]]int64_t *regAddrs, [[maybe_unused]]int64_t *pmuEventAddrs, ProfConfig profConfig);
@@ -284,6 +293,8 @@ private:
     inline void ProfStopPmu();
     void FillPmuData(MsprofAicpuPyPtoPmuData &data, int32_t &coreIdx, uint32_t &subGraphId, uint32_t &taskId,
         const struct TaskStat *taskStat) const;
+    void FillPmuData(MsprofAicpuAstPmuData &data, int32_t &coreIdx, uint32_t &subGraphId, uint32_t &taskId,
+        const struct TaskStat *taskStat) const;
     inline void ProfGetPmu(int32_t coreIdx, uint32_t subGraphId, uint32_t taskId, const struct TaskStat *taskStat);
     inline bool ProfCheckLevel(uint64_t feature) const;
     inline uint64_t ProfGetCurCpuTimestamp();
@@ -294,6 +305,7 @@ private:
     uint64_t taskCnt_ = 0;
     int64_t *regAddrs_{nullptr};
     int64_t *pmuEventAddrs_{nullptr};
+    NPUArch npuArch_{NPUArch::DAV_2201}; // 平台架构信息，用于动态隔离
 
     // PMU_CNT0 ~ PMU_CNT7 共计8个cnt寄存器,32位寄存器,用来获取对应读数,单位为cycle
     std::vector<volatile uint32_t *> pmuCnt0Plain_;
