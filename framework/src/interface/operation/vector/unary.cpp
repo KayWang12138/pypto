@@ -18,6 +18,8 @@
 #include "tensor_transformation.h"
 #include "interface/utils/operator_tracer.h"
 
+#include <cmath>
+
 namespace npu::tile_fwk {
 
 void UnaryOperationOperandCheck(
@@ -116,10 +118,55 @@ Tensor Duplicate(const Tensor &operand) {
         UnaryOperation<UnaryOpType::DUPLICATE>, *Program::GetInstance().GetCurrentFunction(), operand.GetStorage());
 }
 
+Tensor Round(const Tensor &self, const int &decimals) {
+    DECLARE_TRACER();
+
+    auto shapeSize = self.GetShape().size();
+    auto dataType = self.GetDataType();
+
+    ASSERT(SHAPE_DIM2 <= shapeSize && shapeSize <= SHAPE_DIM4) << "The shape.size() only support 2~4";
+    std::vector<DataType> ROUND_SUPPORT_DATATYPES = {
+        DataType::DT_FP32, DataType::DT_FP16, DataType::DT_BF16, DataType::DT_INT32, DataType::DT_INT16};
+    ASSERT(std::find(ROUND_SUPPORT_DATATYPES.begin(), ROUND_SUPPORT_DATATYPES.end(), dataType) !=
+           ROUND_SUPPORT_DATATYPES.end())
+        << "The datatype is not supported";
+
+    auto floatSelf = self.GetStorage();
+    if (self.GetDataType() != DataType::DT_FP32) {
+        floatSelf = CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(),
+            self.GetStorage(), DataType::DT_FP32, CastMode::CAST_NONE);
+    }
+
+    float powDecimals = pow(10.0f, static_cast<float>(decimals));
+    auto powDecimalsTensor =
+        CALL(FullOperation, *Program::GetInstance().GetCurrentFunction(), Element(DataType::DT_FP32, powDecimals),
+            SymbolicScalar(), DataType::DT_FP32, self.GetShape(), self.GetStorage()->GetDynValidShape());
+
+    auto mulSelf = CALL(
+        BinaryOperation<BinaryOpType::MUL>, *Program::GetInstance().GetCurrentFunction(), floatSelf, powDecimalsTensor);
+    auto roundSelf = CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(),
+        mulSelf.GetStorage(), DataType::DT_FP32, CastMode::CAST_ROUND);
+
+    auto result = CALL(
+        BinaryOperation<BinaryOpType::DIV>, *Program::GetInstance().GetCurrentFunction(), roundSelf, powDecimalsTensor);
+    if (self.GetDataType() != DataType::DT_FP32) {
+        RETURN_CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(), result,
+            self.GetDataType(), CastMode::CAST_NONE);
+    }
+    return result;
+}
+
 void ExpOperationTileFunc(Function &function, const TileShape &tileShape, const std::vector<LogicalTensorPtr> &iOperand,
     const std::vector<LogicalTensorPtr> &oOperand, [[maybe_unused]] const Operation &op) {
     UnaryOperationOperandCheck(iOperand, oOperand);
     return TiledUnaryOperation<UnaryOpType::EXP>(function, tileShape, iOperand[0], oOperand[0]);
+}
+
+void RoundOperationTileFunc(Function &function, const TileShape &tileShape,
+    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand,
+    [[maybe_unused]] const Operation &op) {
+    UnaryOperationOperandCheck(iOperand, oOperand);
+    return TiledUnaryOperation<UnaryOpType::ROUND>(function, tileShape, {iOperand[0], oOperand[0]});
 }
 
 void RsqrtOperationTileFunc(Function &function, const TileShape &tileShape,
@@ -162,6 +209,7 @@ void HubOperationTileFunc(Function &function, const TileShape &tileShape, const 
 }
 
 REGISTER_OPERATION_TILED_FUNC(OP_EXP, Opcode::OP_EXP, ExpOperationTileFunc);
+REGISTER_OPERATION_TILED_FUNC(OP_ROUND, Opcode::OP_ROUND, RoundOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_RSQRT, Opcode::OP_RSQRT, RsqrtOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_SQRT, Opcode::OP_SQRT, SqrtOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_RECIPROCAL, Opcode::OP_RECIPROCAL, ReciprocalOperationTileFunc);
