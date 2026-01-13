@@ -45,7 +45,7 @@ public:
 class ElementWiseUnaryTileBaseOp : public ElementWiseTileBaseOp {
 public:
     ElementWiseUnaryTileBaseOp(Opcode opcode, TileValuePtr input, TileValuePtr output)
-        : ElementWiseTileBaseOp(opcode, {ValueCast<Value>(input)}, {ValueCast<Value>(output)}) {}
+        : ElementWiseTileBaseOp(opcode, {ObjectCast<Value>(input)}, {ObjectCast<Value>(output)}) {}
 };
 
 class ElementWiseBinaryTileBaseOp : public ElementWiseTileBaseOp {
@@ -152,7 +152,7 @@ public:
 class ElementWiseBinaryWithTempTileBaseOp : public ElementWiseTileBaseOp {
 public:
     ElementWiseBinaryWithTempTileBaseOp(Opcode opcode, TileValuePtr lhs, TileValuePtr rhs, TileValuePtr output, TileValuePtr TempTensor)
-        : ElementWiseTileBaseOp(opcode, {ValueCast<Value>(lhs), ValueCast<Value>(rhs)}, 
+        : ElementWiseTileBaseOp(opcode, {ValueCast<Value>(lhs), ValueCast<Value>(rhs)},
                                         {ValueCast<Value>(output), ValueCast<Value>(TempTensor)}) {}
 };
 
@@ -251,7 +251,7 @@ public:
 class BroadcastWithTempTileBaseOp : public TileBaseOp {
 public:
     BroadcastWithTempTileBaseOp(Opcode opcode, TileValuePtr lhs, TileValuePtr rhs, TileValuePtr output, TileValuePtr TempTensor)
-        : TileBaseOp(opcode, {ValueCast<Value>(lhs), ValueCast<Value>(rhs)}, 
+        : TileBaseOp(opcode, {ValueCast<Value>(lhs), ValueCast<Value>(rhs)},
                                         {ValueCast<Value>(output), ValueCast<Value>(TempTensor)}) {}
 };
 
@@ -330,7 +330,7 @@ public:
 class MatmulTileBaseOp : public TileBaseOp {
 public:
     MatmulTileBaseOp(Opcode opcode, TileValuePtr input, std::vector<ScalarValuePtr> offsets, TileValuePtr output)
-        : TileBaseOp(opcode, {ValueCast<Value>(input)}, {ValueCast<Value>(output)}),  offsets_(offsets) {}
+        : TileBaseOp(opcode, {ObjectCast<Value>(input)}, {ObjectCast<Value>(output)}),  offsets_(offsets) {}
 
     ScalarValuePtr GetOffset(size_t index) const;
 
@@ -347,12 +347,16 @@ public:
         : TileBaseOp(opcode, {lhs, rhs}, {out}) {
     }
 };
-
-class SysBaseOp : public ScalarBaseOp {
+class DataCopyInTileBaseOp : public DataCopyTileBaseOp {
 public:
-    std::string GetName() const;
-private:
-    std::string name_;
+    DataCopyInTileBaseOp(Opcode opcode, TensorValuePtr src, std::vector<ScalarValuePtr> offset, TileValuePtr dst)
+      : DataCopyTileBaseOp(opcode, ObjectCast<Value>(src), offset, ObjectCast<Value>(dst)) {}
+};
+
+class DataCopyOutTileBaseOp : public DataCopyTileBaseOp {
+public:
+    DataCopyOutTileBaseOp(Opcode opcode, TileValuePtr src, std::vector<ScalarValuePtr> offset, TensorValuePtr dst)
+      : DataCopyTileBaseOp(opcode, ObjectCast<Value>(src), offset, ObjectCast<Value>(dst)) {}
 };
 
 class CustomTileBaseOp : public TileBaseOp {

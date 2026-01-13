@@ -47,7 +47,47 @@ TEST(PluginTest, Basic) {
 
     manager.ClearPlugin();
     EXPECT_EQ(0, manager.GetPlugin<PluginCodegenSrc>().size());
+<<<<<<< HEAD
 
     std::string code2 = manager.RunPluginCodegenSrc("1", "2");
     EXPECT_EQ("2", code2);
 }
+=======
+}
+
+TEST(PluginTest, Codegen) {
+    TileShape::Current().SetVecTile(32, 32);
+    TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
+
+    std::vector<int> opList;
+    auto addLinePrefix = [&](const std::string &filepath, const std::string &source) {
+        (void)filepath;
+        opList.push_back(0);
+        return source;
+    };
+    PluginManager::GetInstance().AddPluginCodegenSrc("AddPrefix", addLinePrefix);
+
+    int n = 8;
+    int s = 32;
+
+    Tensor t0(DT_FP32, {n * s, s}, "t0");  // [32*8, 32]
+    Tensor t1(DT_FP32, {n * s, s}, "t1");  // [32, 32]
+    Tensor t2(DT_FP32, {s, s}, "t2");  // [32, 32]
+    Tensor out(DT_FP32, {n * s, s}, "out");
+
+    FUNCTION("main", {t0, t1, t2}, {out}) {
+        Tensor s0Out;
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, _, LoopRange(1)) {
+            (void)_;
+            s0Out = Sub(t1, t0);
+        }
+        LOOP("L1", FunctionType::DYNAMIC_LOOP, i, LoopRange(n)) {
+            Tensor t0s = View(s0Out, {s, s}, {i * s, 0});
+            Tensor t3 = Add(t0s, t2);
+            Assemble(t3, {i * s, 0}, out);
+        }
+    }
+    EXPECT_EQ(2, opList.size());
+    PluginManager::GetInstance().ClearPlugin();
+}
+>>>>>>> e93b3b6... feat(codegen): Add source_cpp ir serializer as codegen
