@@ -9,13 +9,15 @@
  */
 
 /*!
- * \file ir_printer.cpp
+ * \file printer.cpp
  * \brief Implementation of IR printer
  */
 
-#include "ir/transform/ir_printer.h"
+#include "ir/transform/printer.h"
 #include "ir/opcode.h"
 #include "ir/function.h"
+#include "ir/value.h"
+#include "ir/utils.h"
 
 #include <unordered_set>
 
@@ -83,7 +85,7 @@ void IRPrinter::VisitFunction_(FunctionPtr& func) {
   for (size_t i = 0; i < signature.arguments.size(); ++i) {
     const auto& arg = signature.arguments[i];
     if (arg) {
-      arg->PrintValue(os_);
+      PrintValue(arg);
     }
     if (i + 1 < signature.arguments.size()) {
       os_ << ", ";
@@ -95,7 +97,7 @@ void IRPrinter::VisitFunction_(FunctionPtr& func) {
     os_ << " -> (";
     for (size_t i = 0; i < signature.results.size(); ++i) {
       if (signature.results[i]) {
-        signature.results[i]->PrintType(os_);
+        PrintType(signature.results[i]);
       }
       if (i + 1 < signature.results.size()) {
         os_ << ", ";
@@ -158,7 +160,7 @@ void IRPrinter::VisitStmt_(IfStatementPtr& is) {
   if (!results.empty()) {
     for (size_t i = 0; i < results.size(); ++i) {
       if (results[i]) {
-        results[i]->PrintSSAName(os_);
+        PrintSSAName(results[i]);
       }
       if (i + 1 < results.size()) {
         os_ << ", ";
@@ -169,7 +171,7 @@ void IRPrinter::VisitStmt_(IfStatementPtr& is) {
 
   os_ << "statement.if ";
   if (auto cond = is->GetCondition()) {
-    cond->PrintSSAName(os_);
+    PrintSSAName(cond);
   }
   os_ << " {\n";
 
@@ -203,7 +205,7 @@ void IRPrinter::VisitStmt_(ForStatementPtr& fs) {
   if (!results.empty()) {
     for (size_t i = 0; i < results.size(); ++i) {
       if (results[i]) {
-        results[i]->PrintSSAName(os_);
+        PrintSSAName(results[i]);
       }
       if (i + 1 < results.size()) {
         os_ << ", ";
@@ -214,24 +216,24 @@ void IRPrinter::VisitStmt_(ForStatementPtr& fs) {
 
   os_ << "statement.for ";
   if (auto iv = fs->GetIterationVar()) {
-    iv->PrintSSAName(os_);
+    PrintSSAName(iv);
   } else {
     os_ << "<null>";
   }
 
   os_ << " = ";
   if (auto range = fs->GetRange()) {
-    if (auto start = range->GetStart()) start->PrintSSAName(os_);
+    if (auto start = range->GetStart()) PrintSSAName(start);
     else os_ << "<null>";
 
     os_ << " to ";
 
-    if (auto end = range->GetEnd()) end->PrintSSAName(os_);
+    if (auto end = range->GetEnd()) PrintSSAName(end);
     else os_ << "<null>";
 
     os_ << " step ";
 
-    if (auto step = range->GetStep()) step->PrintSSAName(os_);
+    if (auto step = range->GetStep()) PrintSSAName(step);
     else os_ << "<null>";
   } else {
     os_ << "<null> to <null> step <null>";
@@ -244,16 +246,15 @@ void IRPrinter::VisitStmt_(ForStatementPtr& fs) {
     os_ << "iter_args(";
     for (size_t i = 0; i < iterArgs.size(); ++i) {
       const auto& arg = iterArgs[i];
-
       if (arg.value) {
-        arg.value->PrintSSAName(os_);
+        PrintSSAName(arg.value);
         os_ << " = ";
       } else {
         os_ << "<no-value> = ";
       }
 
       if (arg.initValue) {
-        arg.initValue->PrintValue(os_);
+        PrintValue(arg.initValue);
       } else {
         os_ << "<null> : <unknown>";
       }
@@ -322,7 +323,7 @@ void IRPrinter::DefaultVisitOp(OperationPtr& op) {
   // ===== results =====
   if (op->GetNumOutputOperand()) {
     for (size_t i = 0; i < op->GetNumOutputOperand(); ++i) {
-      op->GetOutputOperand(i)->PrintSSAName(os_);
+      PrintSSAName(op->GetOutputOperand(i));
       if (i + 1 < op->GetNumOutputOperand()) {
         os_ << ", ";
       }
@@ -352,7 +353,7 @@ void IRPrinter::DefaultVisitOp(OperationPtr& op) {
   // ===== operands =====
   os_ << " ";
   for (size_t i = 0; i < op->GetNumInputOperand(); ++i) {
-    op->GetInputOperand(i)->PrintSSAName(os_);
+    PrintSSAName(op->GetInputOperand(i));
     if (i + 1 < op->GetNumInputOperand()) {
       os_ << ", ";
     }
@@ -361,7 +362,7 @@ void IRPrinter::DefaultVisitOp(OperationPtr& op) {
   // ===== type signature =====
   os_ << " : (";
   for (size_t i = 0; i < op->GetNumInputOperand(); ++i) {
-    op->GetInputOperand(i)->PrintType(os_);
+    PrintType(op->GetInputOperand(i));
     if (i + 1 < op->GetNumInputOperand()) {
       os_ << ", ";
     }
@@ -370,11 +371,11 @@ void IRPrinter::DefaultVisitOp(OperationPtr& op) {
 
   os_ << " -> ";
   if (op->GetNumOutputOperand() == 1) {
-    op->GetOutputOperand(0)->PrintType(os_);
+    PrintType(op->GetOutputOperand(0));
   } else {
     os_ << "(";
     for (size_t i = 0; i < op->GetNumOutputOperand(); ++i) {
-      op->GetOutputOperand(i)->PrintType(os_);
+      PrintType(op->GetOutputOperand(i));
       if (i + 1 < op->GetNumOutputOperand()) {
         os_ << ", ";
       }
@@ -384,6 +385,28 @@ void IRPrinter::DefaultVisitOp(OperationPtr& op) {
 
   os_ << "\n";
 }
+
+// ===== values =====
+void IRPrinter::VisitValue_(ScalarValuePtr& value) {
+  if (!value) return;
+  PrintValue(value);
+}
+
+void IRPrinter::VisitValue_(TileValuePtr& value) {
+  if (!value) return;
+  PrintValue(value);
+}
+
+void IRPrinter::VisitValue_(TensorValuePtr& value) {
+  if (!value) return;
+  PrintValue(value);
+}
+
+void IRPrinter::VisitValue_(ValuePtr& value) {
+  if (!value) return;
+  PrintValue(value);
+}
+
 
 // ===== helpers =====
 void IRPrinter::PrintIndent() {
@@ -401,7 +424,7 @@ void IRPrinter::PrintValueList(const std::vector<ValuePtr>& vals) {
   for (size_t i = 0; i < vals.size(); ++i) {
     if (i > 0) os_ << ", ";
     if (vals[i]) {
-      vals[i]->PrintSSAName(os_);
+      PrintSSAName(vals[i]);
     } else {
       os_ << "<null>";
     }
@@ -420,6 +443,97 @@ const char* IRPrinter::ToString(FunctionKind kind) {
     case FunctionKind::DataFlow:    return "data_flow";
     case FunctionKind::Kernel:      return "kernel";
     default:                        return "unknown";
+  }
+}
+
+// ===== value printing methods =====
+void IRPrinter::PrintSSAName(ValuePtr value) {
+  if (!value) return;
+  
+  if (auto scalar = std::dynamic_pointer_cast<ScalarValue>(value)) {
+    switch (scalar->GetScalarValueKind()) {
+    case ScalarValueKind::Immediate:
+      // For immediate values, print the actual constant value
+      std::visit([this](const auto& val) {
+        os_ << val;
+      }, scalar->GetImmediateValue());
+      break;
+    case ScalarValueKind::Symbolic:
+      os_ << scalar->GetSSAName();
+      break;
+    default:
+      os_ << "Unknown ScalarValue";
+    }
+  } else if (auto tensor = std::dynamic_pointer_cast<TensorValue>(value)) {
+    os_ << tensor->GetSSAName();
+  } else if (auto tile = std::dynamic_pointer_cast<TileValue>(value)) {
+    os_ << tile->GetSSAName();
+  } else {
+    os_ << value->GetSSAName();
+  }
+}
+
+void IRPrinter::PrintValue(ValuePtr value) {
+  if (!value) return;
+  PrintSSAName(value);
+  os_ << ": ";
+  PrintType(value);
+}
+
+void IRPrinter::PrintType(ValuePtr value) {
+  if (!value) return;
+  
+  if (auto scalar = std::dynamic_pointer_cast<ScalarValue>(value)) {
+    if (auto type = scalar->GetType()) {
+      type->Print(os_);
+    } else {
+      os_ << "unknown";
+    }
+  } else if (auto tensor = std::dynamic_pointer_cast<TensorValue>(value)) {
+    os_ << "tensor<";
+    // ====== shape ======
+    os_ << "[";
+    const auto& shape = tensor->GetShape();
+    for (size_t i = 0; i < shape.size(); ++i) {
+      PrintSSAName(shape[i]);
+      if (i + 1 < shape.size()) {
+        os_ << ", ";
+      }
+    }
+    os_ << "]";
+    // ====== type ======
+    os_ << ", ";
+    os_ << DTypeInfoOf(tensor->GetDataType()).name;
+    os_ << ">";
+  } else if (auto tile = std::dynamic_pointer_cast<TileValue>(value)) {
+    os_ << "tile<[";
+    // ====== valid shape ======
+    const auto& validShapes = tile->GetValidShape();
+    const auto& shape = tile->GetShape();
+    for (size_t i = 0; i < validShapes.size(); ++i) {
+      PrintSSAName(validShapes[i]);
+      if (i + 1 < shape.size()) {
+        os_ << ", ";
+      }
+    }
+    os_ << "], [";
+    // ====== tile shapes ======
+    for (size_t i = 0; i < shape.size(); ++i) {
+      os_ << shape[i];
+      if (i + 1 < shape.size()) {
+        os_ << ", ";
+      }
+    }
+    os_ << "], ";
+    // ====== type ======
+    os_ << DTypeInfoOf(tile->GetDataType()).name;
+    os_ << ">";
+  } else {
+    if (auto type = value->GetType()) {
+      type->Print(os_);
+    } else {
+      os_ << "unknown";
+    }
   }
 }
 
