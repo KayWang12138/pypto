@@ -51,6 +51,7 @@
 #include "vector/vector_dup.h"
 #include "vector/range.h"
 #include "vector/onehot.h"
+#include "cube/cube_pto.h"
 #endif
 
 #endif
