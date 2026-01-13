@@ -161,19 +161,20 @@ public:
 };
 
 class CastTileBaseOp : public TileBaseOp {
+public:
+    CastTileBaseOp(Opcode opcode, TileValuePtr input, TileValuePtr output)
+        : TileBaseOp(opcode, {ValueCast<Value>(input)}, {ValueCast<Value>(output)}) {}
 };
 
 class VecDupTileBaseOp : public TileBaseOp {
 public:
     VecDupTileBaseOp(Opcode opcode, ScalarValuePtr Scalar, TileValuePtr output)
         : TileBaseOp(opcode, {ValueCast<Value>(Scalar)}, {ValueCast<Value>(output)}) {}
-        : TileBaseOp(opcode, {ValueCast<Value>(Scalar)}, {ValueCast<Value>(output)}) {}
 };
 
 class RangeTileBaseOp : public TileBaseOp {
 public:
     RangeTileBaseOp(Opcode opcode, ScalarValuePtr START, ScalarValuePtr STEP, ScalarValuePtr SIZE, TileValuePtr output)
-        : TileBaseOp(opcode, {ValueCast<Value>(START), ValueCast<Value>(STEP),ValueCast<Value>(SIZE)},
         : TileBaseOp(opcode, {ValueCast<Value>(START), ValueCast<Value>(STEP),ValueCast<Value>(SIZE)},
                                     {ValueCast<Value>(output)}) {}
 };
@@ -193,21 +194,45 @@ public:
 };
 
 class GatherTileBaseOp : public TileBaseOp {
+public:
+    // 对应 GatherOp 和 GatherExtendedOp
+    GatherTileBaseOp(Opcode opcode, TileValuePtr lhs, TileValuePtr rhs, TileValuePtr output)
+        : TileBaseOp(opcode, {ValueCast<Value>(lhs), ValueCast<Value>(rhs)}, {ValueCast<Value>(output)}) {}
 };
 
 class ExpandTileBaseOp : public TileBaseOp {
+public:
+    // 对应 ExpandOp
+    ExpandTileBaseOp(Opcode opcode, TileValuePtr input, TileValuePtr output)
+        : TileBaseOp(opcode, {ValueCast<Value>(input)}, {ValueCast<Value>(output)}) {}
 };
 
 class OnehotTileBaseOp : public TileBaseOp {
+public:
+    // 对应 OnehotOp
+    OnehotTileBaseOp(Opcode opcode, TileValuePtr input, TileValuePtr output)
+        : TileBaseOp(opcode, {ValueCast<Value>(input)}, {ValueCast<Value>(output)}) {}
 };
 
 class ConcatTileBaseOp : public TileBaseOp {
+public:
+    // Concat通常输入是列表，这里假设用vector传入
+    ConcatTileBaseOp(Opcode opcode, std::vector<ValuePtr> inputs, TileValuePtr output)
+        : TileBaseOp(opcode, inputs, {ValueCast<Value>(output)}) {}
 };
 
 class TransposeTileBaseOp : public TileBaseOp {
+public:
+    // 对应 TransposeOp 和 TransposeVnchwConvOp
+    TransposeTileBaseOp(Opcode opcode, TileValuePtr input, TileValuePtr output)
+        : TileBaseOp(opcode, {ValueCast<Value>(input)}, {ValueCast<Value>(output)}) {}
 };
 
 class PowTileBaseOp : public TileBaseOp {
+public:
+    // 对应 PowOp (Input: Tile, Scalar)
+    PowTileBaseOp(Opcode opcode, TileValuePtr lhs, ScalarValuePtr rhs, TileValuePtr output)
+        : TileBaseOp(opcode, {ValueCast<Value>(lhs), ValueCast<Value>(rhs)}, {ValueCast<Value>(output)}) {}
 };
 
 class CumSumTileBaseOp : public TileBaseOp {
@@ -218,12 +243,17 @@ public:
 };
 
 class CompareScalarTileBaseOp : public TileBaseOp {
+public:
+    // 对应 CompareScalarOp: Input(Tile, Scalar) -> Output(Tile, Tile)
+    CompareScalarTileBaseOp(Opcode opcode, TileValuePtr in1, ScalarValuePtr in2, TileValuePtr output, TileValuePtr temp)
+        : TileBaseOp(opcode, {ValueCast<Value>(in1), ValueCast<Value>(in2)}, {ValueCast<Value>(output), ValueCast<Value>(temp)}) {}
 };
 
 class CompareTileBaseOp : public TileBaseOp {
-};
-
-class BroadcastTileBaseOp : public TileBaseOp {
+public:
+    // 对应 CompareOp: Input(Tile, Tile) -> Output(Tile, Tile)
+    CompareTileBaseOp(Opcode opcode, TileValuePtr in1, TileValuePtr in2, TileValuePtr output, TileValuePtr temp)
+        : TileBaseOp(opcode, {ValueCast<Value>(in1), ValueCast<Value>(in2)}, {ValueCast<Value>(output), ValueCast<Value>(temp)}) {}
 };
 
 class BroadcastWithTempTileBaseOp : public TileBaseOp {
@@ -233,7 +263,11 @@ public:
                                         {ValueCast<Value>(output), ValueCast<Value>(TempTensor)}) {}
 };
 
-class BroadcastBinaryTileOp : public TileBaseOp {
+class BroadcastTileBaseOp : public TileBaseOp {
+public:
+    // 假设类似于普通Binary: Tile, Tile -> Tile
+    BroadcastTileBaseOp(Opcode opcode, TileValuePtr lhs, TileValuePtr rhs, TileValuePtr output)
+        : TileBaseOp(opcode, {ValueCast<Value>(lhs), ValueCast<Value>(rhs)}, {ValueCast<Value>(output)}) {}
 };
 
 class DataCopyTileBaseOp : public TileBaseOp {
@@ -260,15 +294,15 @@ public:
         : DataCopyTileBaseOp(opcode, {ValueCast<Value>(input)}, {ValueCast<Value>(output)}) {}
 };
 
-class LoadStoreTileOp : public DataCopyTileBaseOp {
+class LoadTileOp : public DataCopyTileBaseOp {
 public:
-    LoadStoreTileOp(Opcode opcode, TileValuePtr input1, TileValuePtr input2, TileValuePtr output)
+    LoadTileOp(Opcode opcode, TileValuePtr input1, TileValuePtr input2, TileValuePtr output)
         : DataCopyTileBaseOp(opcode, {ValueCast<Value>(input1), ValueCast<Value>(input2)}, {ValueCast<Value>(output)}) {}
 };
 
-class UBMoveTileOp : public DataCopyTileBaseOp {
+class LoadStoreTileOp : public DataCopyTileBaseOp {
 public:
-    UBMoveTileOp(Opcode opcode, TileValuePtr input1, TileValuePtr input2, TileValuePtr output)
+    LoadStoreTileOp(Opcode opcode, TileValuePtr input1, TileValuePtr input2, TileValuePtr output)
         : DataCopyTileBaseOp(opcode, {ValueCast<Value>(input1), ValueCast<Value>(input2)}, {ValueCast<Value>(output)}) {}
 };
 
@@ -299,7 +333,7 @@ public:
 class IndexAddTileOp : public TileBaseOp {
 public:
     IndexAddTileOp(Opcode opcode, TileValuePtr input1, TileValuePtr input2, TileValuePtr input3, ScalarValuePtr Alpha, TileValuePtr output)
-        : DataCopyTileBaseOp(opcode, {ValueCast<Value>(input1), ValueCast<Value>(input2), ValueCast<Value>(input3), ValueCast<Value>(Alpha)}, {ValueCast<Value>(output)}) {}
+        : TileBaseOp(opcode, {ValueCast<Value>(input1), ValueCast<Value>(input2), ValueCast<Value>(input3), ValueCast<Value>(Alpha)}, {ValueCast<Value>(output)}) {}
 };
 
 class MatmulTileBaseOp : public TileBaseOp {
