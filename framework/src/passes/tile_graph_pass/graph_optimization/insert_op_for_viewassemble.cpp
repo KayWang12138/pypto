@@ -65,6 +65,7 @@ bool InsertOpForViewAssemble::NeedInsertCopy(LogicalTensorPtr &assembleOut) {
             continue;
         }
         recordOpPair_.push_back(std::make_pair(prodOp, assOp));
+        if (isNeedInsert) continue;
         auto assembleAttr = std::static_pointer_cast<AssembleOpAttribute>(assOp->GetOpAttribute());
         auto viewAttr = std::static_pointer_cast<ViewOpAttribute>(prodOp->GetOpAttribute());
         if (assembleAttr == nullptr || viewAttr == nullptr) {
@@ -74,6 +75,12 @@ bool InsertOpForViewAssemble::NeedInsertCopy(LogicalTensorPtr &assembleOut) {
         if (assembleAttr->GetToOffset() != viewAttr->GetFromOffset()) {
             isNeedInsert = true;
             continue;
+        }
+        for (size_t i = 0; i < assembleAttr->GetToDynOffset().size(); i++) {
+            if (assembleAttr->GetToDynOffset()[i].Dump() != viewAttr->GetFromDynOffset()[i].Dump()) {
+                isNeedInsert = true;
+                break;
+            }
         }
         auto viewIn = prodOp->GetIOperands()[0];
         auto inShape = viewIn->GetShape();
