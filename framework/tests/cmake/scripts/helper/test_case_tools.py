@@ -41,6 +41,8 @@ def parse_list_str(input_str: str):
             ret_list.append(parse_list_str(sub_str))
     else:
         for sub_str in input_str.split(","):
+            print("sub_str mengziyu ")
+            print(sub_str)
             if not is_number(sub_str):
                 ret_list.append(sub_str)
             elif "." in sub_str or "e" in sub_str or "E" in sub_str:
