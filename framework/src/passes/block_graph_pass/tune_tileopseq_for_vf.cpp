@@ -45,9 +45,8 @@ void TuneTileOpSeqForVF::ChangeOpSeq(std::vector<Operation *> &opList, PipeSync 
     for (size_t idx = 0; idx + 1 < pipeVIdx.size(); idx++) {
         size_t left = pipeVIdx[idx];
         size_t right = pipeVIdx[idx + 1];
-        if (right == left + 1) {
-            continue;
-        }
+        APASS_LOG_DEBUG_F(Elements::Operation, "Try to merge %d %s and %d %s", opList[left]->GetOpMagic(), opList[left]->GetOpcodeStr().c_str(),
+            opList[right]->GetOpMagic(), opList[right]->GetOpcodeStr().c_str());
         bool canMerge = true;
         bool moveBack = true;
         // 先看vecTileop0是否已经在mergedOps中
@@ -92,6 +91,7 @@ void TuneTileOpSeqForVF::ChangeOpSeq(std::vector<Operation *> &opList, PipeSync 
         }
         // 可以融合
         // 将vecTileop0和vecTileop1添加到mergedOps中
+        APASS_LOG_DEBUG_F(Elements::Operation, "Need merge.");
         if (groupNum == -1) {
             // 将vecTileop0和vecTileop1添加到mergedOps中
             std::vector<Operation *> newOp = {opList[left], opList[right]};
