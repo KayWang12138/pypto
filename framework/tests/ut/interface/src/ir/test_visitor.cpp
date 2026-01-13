@@ -169,7 +169,7 @@ TEST(IRVisitorTest, TestBasicTraversal) {
   auto outputTensor = std::make_shared<TileValue>(tileShape, DataType::FP32, "output");
   sig.arguments = { inputTensor, outputTensor };
 
-  auto func = builder.CreateFunction("test_func", FunctionKind::Kernel, sig);
+  auto func = builder.CreateFunction("test_func", FunctionKind::Block, sig);
   module->AddFunction(func);
   builder.EnterFunctionBody(ctx, func);
 
@@ -212,7 +212,7 @@ TEST(IRVisitorTest, TestValueCollection) {
   auto in2 = std::make_shared<TileValue>(tileShape, DataType::FP32, "in2");
   sig.arguments = { in1, in2 };
 
-  auto func = builder.CreateFunction("test_collect", FunctionKind::Kernel, sig);
+  auto func = builder.CreateFunction("test_collect", FunctionKind::Block, sig);
   module->AddFunction(func);
   builder.EnterFunctionBody(ctx, func);
 
@@ -435,7 +435,7 @@ TEST(IRVisitorTest, TestDefaultTraversal) {
   auto input = std::make_shared<TileValue>(tileShape, DataType::FP32, "input");
   sig.arguments = { input };
 
-  auto func = builder.CreateFunction("test_default", FunctionKind::Kernel, sig);
+  auto func = builder.CreateFunction("test_default", FunctionKind::Block, sig);
   module->AddFunction(func);
   builder.EnterFunctionBody(ctx, func);
 
@@ -470,7 +470,7 @@ TEST(IRVisitorTest, TestDefaultVisitMethods) {
   auto output = std::make_shared<TileValue>(tileShape, DataType::FP32, "output");
   sig.arguments = { input, output };
 
-  auto func = builder.CreateFunction("test_default_visit", FunctionKind::Kernel, sig);
+  auto func = builder.CreateFunction("test_default_visit", FunctionKind::Block, sig);
   module->AddFunction(func);
   builder.EnterFunctionBody(ctx, func);
 

@@ -148,10 +148,6 @@ private:
     std::shared_ptr<npu::tile_fwk::LeafFuncAttribute> leafFuncAttr_;
 };
 
-
-// Helper for convenient streaming: std::cout << func;
-std::ostream& operator<<(std::ostream& os, const Function& func);
-
 } // namespace pto
 
 
