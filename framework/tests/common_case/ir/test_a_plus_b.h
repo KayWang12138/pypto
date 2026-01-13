@@ -40,7 +40,7 @@ ProgramModulePtr CreateAdd() {
     FunctionSignature sig;
 
     // ===== Function =====
-    auto func = builder.CreateFunction("test_control", FunctionKind::ControlFlow, sig, /*setAsEntry=*/true);
+    auto func = builder.CreateFunction("TENSOR_L0_Unroll1_PATH0_hiddenfunc0_8_0_4503599627370496", FunctionKind::ControlFlow, sig, /*setAsEntry=*/true);
     prog->SetProgramEntry(func);
         // 进入函数体作用域
     builder.EnterFunctionBody(ctx, func);
@@ -53,31 +53,31 @@ ProgramModulePtr CreateAdd() {
     auto eventID0 = builder.CreateScalar(ctx, DataType::INT32, "EVENT_ID0");
     auto voidValue = builder.CreateScalar(ctx, DataType::INT32, "_");
 
-    auto sym_72_dim_0 = builder.CreateScalar(ctx, DataType::INT64, "sym_72_dim_0");
-    auto sym_72_dim_1 = builder.CreateScalar(ctx, DataType::INT64, "sym_72_dim_1");
-    auto sym_876_dim_0 = builder.CreateScalar(ctx, DataType::INT64, "sym_876_dim_0");
-    auto sym_876_dim_1 = builder.CreateScalar(ctx, DataType::INT64, "sym_876_dim_1");
+    auto sym_72_dim_0 = builder.CreateScalar(ctx, DataType::UINT64, "sym_72_dim_0");
+    auto sym_72_dim_1 = builder.CreateScalar(ctx, DataType::UINT64, "sym_72_dim_1");
+    auto sym_876_dim_0 = builder.CreateScalar(ctx, DataType::UINT64, "sym_876_dim_0");
+    auto sym_876_dim_1 = builder.CreateScalar(ctx, DataType::UINT64, "sym_876_dim_1");
 
-    auto gmt5Addr = builder.CreateScalar(ctx, DataType::INT64, "gmt5Addr");
-    auto gmt5Rawshape_0 = builder.CreateScalar(ctx, DataType::INT64, "gmt5Rawshape_0");
-    auto gmt5Rawshape_1 = builder.CreateScalar(ctx, DataType::INT64, "gmt5Rawshape_1");
-    auto gmt5Stride_0 = builder.CreateScalar(ctx, DataType::INT64, "gmt5Stride_0");
-    auto gmt5Stride_1 = builder.CreateScalar(ctx, DataType::INT64, "gmt5Stride_1");
+    auto gmt5Addr = builder.CreateScalar(ctx, DataType::UINT64, "_MACRO_gmt5Addr");
+    auto gmt5Rawshape_0 = builder.CreateScalar(ctx, DataType::UINT64, "_MACRO_gmt5Rawshape_0");
+    auto gmt5Rawshape_1 = builder.CreateScalar(ctx, DataType::UINT64, "_MACRO_gmt5Rawshape_1");
+    auto gmt5Stride_0 = builder.CreateScalar(ctx, DataType::UINT64, "_MACRO_gmt5Stride_0");
+    auto gmt5Stride_1 = builder.CreateScalar(ctx, DataType::UINT64, "_MACRO_gmt5Stride_1");
 
-    auto gmt1Addr = builder.CreateScalar(ctx, DataType::INT64, "gmt1Addr");
-    auto gmt1Rawshape_0 = builder.CreateScalar(ctx, DataType::INT64, "gmt1Rawshape_0");
-    auto gmt1Rawshape_1 = builder.CreateScalar(ctx, DataType::INT64, "gmt1Rawshape_1");
-    auto gmt1Stride_0 = builder.CreateScalar(ctx, DataType::INT64, "gmt1Stride_0");
-    auto gmt1Stride_1 = builder.CreateScalar(ctx, DataType::INT64, "gmt1Stride_1");
+    auto gmt1Addr = builder.CreateScalar(ctx, DataType::UINT64, "_MACRO_gmt1Addr");
+    auto gmt1Rawshape_0 = builder.CreateScalar(ctx, DataType::UINT64, "_MACRO_gmt1Rawshape_0");
+    auto gmt1Rawshape_1 = builder.CreateScalar(ctx, DataType::UINT64, "_MACRO_gmt1Rawshape_1");
+    auto gmt1Stride_0 = builder.CreateScalar(ctx, DataType::UINT64, "_MACRO_gmt1Stride_0");
+    auto gmt1Stride_1 = builder.CreateScalar(ctx, DataType::UINT64, "_MACRO_gmt1Stride_1");
 
-    auto copyInOffset_0 = builder.CreateScalar(ctx, DataType::INT64, "copyInOffset_0");
-    auto copyInOffset_1 = builder.CreateScalar(ctx, DataType::INT64, "copyInOffset_1");
+    auto copyInOffset_0 = builder.CreateScalar(ctx, DataType::UINT64, "_MACRO_copyInOffset_0");
+    auto copyInOffset_1 = builder.CreateScalar(ctx, DataType::UINT64, "_MACRO_copyInOffset_1");
 
-    auto copyOutOffset_0 = builder.CreateScalar(ctx, DataType::INT64, "copyOutOffset_0");
-    auto copyOutOffset_1 = builder.CreateScalar(ctx, DataType::INT64, "copyOutOffset_1");
+    auto copyOutOffset_0 = builder.CreateScalar(ctx, DataType::UINT64, "_MACRO_copyOutOffset_0");
+    auto copyOutOffset_1 = builder.CreateScalar(ctx, DataType::UINT64, "_MACRO_copyOutOffset_1");
 
-    auto gmt5 = builder.CreateTensor(ctx, {gmt5Rawshape_0, gmt5Rawshape_1}, {gmt5Stride_0, gmt5Stride_1}, DataType::FP32, "gmt5");
-    auto gmt1 = builder.CreateTensor(ctx, {gmt1Rawshape_0, gmt1Rawshape_1}, {gmt1Stride_0, gmt1Stride_1}, DataType::FP32, "gmt1");
+    auto gmt5 = builder.CreateTensor(ctx, {gmt5Rawshape_0, gmt5Rawshape_1}, DataType::FP32, "_MACRO_gmt5");
+    auto gmt1 = builder.CreateTensor(ctx, {gmt1Rawshape_0, gmt1Rawshape_1}, DataType::FP32, "_MACRO_gmt1");
     auto ubt0 = builder.CreateTile(ctx, {32, 32}, DataType::FP32, "ubt0");
     ubt0->SetValidShapes({sym_72_dim_0, sym_72_dim_1});
 
@@ -95,11 +95,9 @@ ProgramModulePtr CreateAdd() {
         Opcode::OP_SCALAR_CALL_5, param, createConst(1), createConst(10), createConst(2), createConst(1), gmt5Rawshape_1,
         "GET_PARAM_RAWSHAPE_BY_IDX"));
     builder.Emit(ctx, builder.CreateCall5ScalarOp(
-        Opcode::OP_SCALAR_CALL_5, param, createConst(1), createConst(10), createConst(2), createConst(0), gmt5Stride_0,
-        "GET_PARAM_STRIDE_BY_IDX"));
-    builder.Emit(ctx, builder.CreateCall5ScalarOp(
-        Opcode::OP_SCALAR_CALL_5, param, createConst(1), createConst(10), createConst(2), createConst(1), gmt5Stride_1,
-        "GET_PARAM_STRIDE_BY_IDX"));
+        Opcode::OP_SCALAR_CALL_5, param, createConst(1), createConst(10), createConst(2), createConst(1), gmt5Stride_0,
+        "GET_PARAM_RAWSHAPE_BY_IDX"));
+    builder.Emit(ctx, builder.CreateUnaryScalarOp(Opcode::OP_SCALAR_ASSIGN, createConst(1), gmt5Stride_1));
 
     builder.Emit(ctx, builder.CreateCall3ScalarOp(
         Opcode::OP_SCALAR_CALL_3, param, createConst(0), createConst(1), gmt1Addr,
@@ -111,11 +109,9 @@ ProgramModulePtr CreateAdd() {
         Opcode::OP_SCALAR_CALL_5, param, createConst(0), createConst(1), createConst(2), createConst(1), gmt1Rawshape_1,
         "GET_PARAM_RAWSHAPE_BY_IDX"));
     builder.Emit(ctx, builder.CreateCall5ScalarOp(
-        Opcode::OP_SCALAR_CALL_5, param, createConst(0), createConst(1), createConst(2), createConst(0), gmt1Stride_0,
-        "GET_PARAM_STRIDE_BY_IDX"));
-    builder.Emit(ctx, builder.CreateCall5ScalarOp(
-        Opcode::OP_SCALAR_CALL_5, param, createConst(0), createConst(1), createConst(2), createConst(1), gmt1Stride_1,
-        "GET_PARAM_STRIDE_BY_IDX"));
+        Opcode::OP_SCALAR_CALL_5, param, createConst(0), createConst(1), createConst(2), createConst(1), gmt1Stride_0,
+        "GET_PARAM_RAWSHAPE_BY_IDX"));
+    builder.Emit(ctx, builder.CreateUnaryScalarOp(Opcode::OP_SCALAR_ASSIGN, createConst(1), gmt1Stride_1));
 
     builder.Emit(ctx, builder.CreateCall5ScalarOp(
         Opcode::OP_SCALAR_CALL_5, createConst(1), createConst(32), createConst(2), createConst(1), createConst(0), sym_72_dim_0,
