@@ -184,7 +184,7 @@ TEST_F(TestInsertCopyPass, TestInsert) {
     auto midTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, midShape);
     midTensor0->SetMemoryTypeOriginal(MemoryType::MEM_UB, true); 
     auto midTensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, midShape);
-    midTensor0->SetMemoryTypeOriginal(MemoryType::MEM_UB, true); 
+    midTensor2->SetMemoryTypeOriginal(MemoryType::MEM_UB, true); 
 
     auto &viewOp0 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inTensor}, {midTensor0});
     viewOp0.SetOpAttribute(std::make_shared<ViewOpAttribute>(offset0, MemoryType::MEM_UB));
