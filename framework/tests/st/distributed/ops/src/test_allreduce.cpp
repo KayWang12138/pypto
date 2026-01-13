@@ -24,10 +24,11 @@ namespace npu::tile_fwk {
 namespace Distributed {
 
 template<typename T>
-void TestShmemAllReduce(OpTestParam &testParam)
+void TestShmemAllReduce(OpTestParam &testParam, const nlohmann::json& testData)
 {
+    std::string goldenDir = GetGoldenDirPath(testData);
     constexpr size_t paramsSize = 6;
-    auto [row, col, typeNum, tileRow, tileCol, useTwoShot] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
+    auto [row, col, typeNum, tileRow, tileCol, useTwoShot] = GetParams<paramsSize>(goldenDir + "/params.bin");
     DataType dType = GetDataTypeNum(typeNum);
 
     int32_t outSize = row * col;
@@ -38,7 +39,7 @@ void TestShmemAllReduce(OpTestParam &testParam)
     Tensor predToken(DT_INT32, {1, 1}, "predToken");
 
     std::vector<T> inPtr = ReadToVector<T>(
-        GetGoldenDir() + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", {row, col});
+        goldenDir + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", {row, col});
 
     ProgramData::GetInstance().AppendInputs({
         RawTensorData::CreateTensor<T>(in, inPtr),
@@ -59,12 +60,12 @@ void TestShmemAllReduce(OpTestParam &testParam)
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), config);
 
     auto output = ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, "/output_rank_", outSize, output->GetDevPtr(), testParam));
+    EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, goldenDir + "/output_rank_", outSize, output->GetDevPtr(), testParam));
 }
-template void TestShmemAllReduce<int32_t>(OpTestParam &testParam);
-template void TestShmemAllReduce<float>(OpTestParam &testParam);
-template void TestShmemAllReduce<float16>(OpTestParam &testParam);
-template void TestShmemAllReduce<bfloat16>(OpTestParam &testParam);
+template void TestShmemAllReduce<int32_t>(OpTestParam &testParam, const nlohmann::json& testData);
+template void TestShmemAllReduce<float>(OpTestParam &testParam, const nlohmann::json& testData);
+template void TestShmemAllReduce<float16>(OpTestParam &testParam, const nlohmann::json& testData);
+template void TestShmemAllReduce<bfloat16>(OpTestParam &testParam, const nlohmann::json& testData);
 
 } // namespace Distributed 
 } // namespace npu::tile_fwk

@@ -14,6 +14,7 @@ import os
 from pathlib import Path
 import sys
 from typing import NoReturn
+import logging
 
 helper_path: Path = Path(
     Path(__file__).parent.parent.parent.parent.parent, "cmake/scripts/helper"
@@ -23,6 +24,7 @@ if str(helper_path) not in sys.path:
 from test_case_desc import TensorDesc
 from test_case_runner import TestCaseRunner
 from test_case_shell_actuator import TestCaseShellActuator
+import shutil
 
 
 class OperationTestCaseRunner(TestCaseRunner):
@@ -36,7 +38,7 @@ class OperationTestCaseRunner(TestCaseRunner):
             test_case_info.get("params"),
         )
         self._index = test_case_info.get("index")
-        self._name = test_case_info.get("name")
+        self._name = test_case_info.get("case_name")
         self._op = test_case_info.get("operation")
         self._params = test_case_info.get("params")
         self._rank_size = self._params.get("rank_size")
@@ -52,6 +54,7 @@ class OperationTestCaseRunner(TestCaseRunner):
             Path(__file__).parent.parent.parent.parent.parent.parent.parent
         ).resolve()
         self._log_file = test_case_info.get("log_file")
+        self._save_data = test_case_info.get("save_data")
 
     def input_tensors(self):
         return self._input_tensors
@@ -76,14 +79,21 @@ class OperationTestCaseRunner(TestCaseRunner):
 
     def tear_down(self) -> NoReturn:
         os.chdir(f"{str(self._root_path)}")
+        golden_path = os.getenv("TILE_FWK_STEST_GOLDEN_PATH")
+        if not golden_path:
+            return
+        golden_path = Path(golden_path)
+        if golden_path.is_dir():
+            golden_path = golden_path / "TestDistributedOps" / "DistributedTest.TestOps"
+        else:
+            golden_path = golden_path / "TestDistributedOps" / "DistributedTest.TestOps" / str(self._index)
+        if not self._save_data and golden_path.exists():
+            shutil.rmtree(golden_path)
 
     def run_on_device(self, inputs: list) -> list:
-        test_case = (
-            f"Test{self._op}/DistributedTest.Test{self._op}/{self._index}"
-        )
-        cmd = (
-            f"mpirun -n {self._rank_size} ./tile_fwk_stest_distributed run "
-            f"--gtest_filter={test_case} --frontend=cpp 2>&1 | tee {self._log_file}"
-        )
+        test_case = f"TestDistributedOps/DistributedTest.TestOps/{self._index}"
+        cmd = f"mpirun -n {self._rank_size} ./tile_fwk_stest_distributed run "
+        cmd += f"--gtest_filter={test_case} --frontend=cpp 2>&1 | tee {self._log_file}"
         TestCaseShellActuator.run(cmd)
+        logging.info("Execution finished for test case '%s' of operation '%s'.", self._name, self._op)
         return None
