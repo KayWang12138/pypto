@@ -81,6 +81,15 @@ include(cmake/third_party/nlohmann_json/nlohmann_json.cmake)
 include(cmake/third_party/libboundscheck/libboundscheck.cmake)
 include(cmake/third_party/googletest/googletest.cmake)
 
+########################################################################################################################
+# TraCR: Instrumentation Library
+########################################################################################################################
+
+set(BUILD_TRACR OFF CACHE BOOL "Enable TraCR")
+
+if (BUILD_TRACR)
+    include(cmake/third_party/tracr/tracr.cmake)
+endif()
 
 ########################################################################################################################
 # 编译流程

@@ -1,0 +1,29 @@
+# cmake/third_party/tracr/tracr.cmake
+
+function(tracr_enable target)
+    if (NOT TARGET ${target})
+        message(FATAL_ERROR "Target '${target}' does not exist.")
+    endif()
+
+    # --- include the directories ---
+    target_include_directories(${target} PRIVATE
+        ${CMAKE_SOURCE_DIR}/cmake/third_party/tracr/include
+    )
+
+    # --- compiler flags of TraCR ---
+    if (BUILD_TRACR)
+        # Flag to enable/disable TraCR calls at compile time
+        target_compile_definitions(${target} PRIVATE ENABLE_TRACR)
+
+        # TraCR threads capacity (default is 1<<20 ~= 1 million traces per thread = ~17MB per thread buffer size)
+        # target_compile_definitions(${target} PRIVATE TRACR_CAPACITY="(1<<20)")
+
+        # TraCR full size buffer modes:
+        # default (none):            Abort if buffer is full
+        # TRACR_POLICY_PERIODIC:     If buffer is full, overwrite from the beginning
+        # TRACR_POLICY_STOP_IF_FULL: If buffer is full, ignore incoming traces
+        target_compile_definitions(${target} PRIVATE TRACR_POLICY_PERIODIC)
+
+        # Flag to enable TraCR debugging prints (Not yet working)
+        # target_compile_definitions(${target} PRIVATE ENABLE_TRACR_DEBUG)
+    endif()
