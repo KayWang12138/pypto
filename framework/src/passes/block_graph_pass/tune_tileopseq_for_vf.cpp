@@ -33,6 +33,7 @@ void TuneTileOpSeqForVF::ChangeOpSeq(std::vector<Operation *> &opList, PipeSync 
     mergedOps.clear();
     for (size_t i = 0; i < opList.size(); i++) {
         auto opcfg = OpcodeManager::Inst().GetTileOpCfg(opList[i]->GetOpcode());
+        ps.AdjustOpCfg(opcfg, *opList[i]);
         if (opcfg.pipeIdStart_ == PipeType::PIPE_V && opList[i]->GetAIVCore() == coreType) {
             pipeVIdx.emplace_back(i);
         }
@@ -123,6 +124,7 @@ void TuneTileOpSeqForVF::ChangeOpSeq(std::vector<Operation *> &opList, PipeSync 
         pipeVIdx.clear();
         for (size_t i = 0; i < opList.size(); i++) {
             auto opcfg = OpcodeManager::Inst().GetTileOpCfg(opList[i]->GetOpcode());
+            ps.AdjustOpCfg(opcfg, *opList[i]);
             if (opcfg.pipeIdStart_ == PipeType::PIPE_V && opList[i]->GetAIVCore() == coreType) {
                 pipeVIdx.emplace_back(i);
             }
