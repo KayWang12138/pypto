@@ -35,5 +35,14 @@ Tensor CreateTensorFromFile(std::vector<int64_t>& shape, DataType dtype, std::st
     return tensor;
 }
 
+std::string GetGoldenDirPath(const nlohmann::json& testData)
+{
+    std::filesystem::path goldenDir = GetGoldenDir();
+    goldenDir = goldenDir.parent_path().parent_path();
+    goldenDir += "/" + testData["operation"].get<std::string>();
+    goldenDir += "/" + testData["case_name"].get<std::string>();
+    return goldenDir.string();
+}
+
 } // namespace Distributed
 } // namespace npu::tile_fwk
