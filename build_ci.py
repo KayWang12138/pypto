@@ -104,8 +104,7 @@ class FeatureParam(CMakeParam):
         self.whl_plat_name = f"{args.plat_name}_{CMakeParam.get_system_processor()}" if args.plat_name else ""
         self.whl_isolation = args.isolation
         self.whl_editable = args.editable
-        self.whl_sdist = args.sdist
-        self.tracr = args.tracr
+        self.tracr = args.tracr # TraCR instrumentation
 
     def __str__(self):
         desc = ""
@@ -139,7 +138,7 @@ class FeatureParam(CMakeParam):
         parser.add_argument("-b", "--backend", nargs="?", type=str, default="npu",
                             choices=["npu", "cost_model"],
                             help="backend, such as npu/cost_model etc.")
-        parser.add_argument("--tracr", action="store_true", help="Enable TraCR insturentation")
+        parser.add_argument("--tracr", action="store_true", help="Enable TraCR insturentation") # TraCR: Internal Profiler
 
     def get_cfg_cmd(self, ext: Optional[Any] = None) -> str:
         cmd = ""
@@ -178,6 +177,7 @@ class BuildParam(CMakeParam):
         self.gcov = args.gcov
         self.clang_install_path = self._get_clang_install_path(opt=args.clang)
         self.compile_dependency_check = args.compile_dependency_check
+        self.tracr = args.tracr
 
     def __str__(self):
         desc = f"\nBuild"
@@ -261,6 +261,15 @@ class BuildParam(CMakeParam):
         cmd += self._cfg_require(opt="ENABLE_ASAN", ctr=self.asan)
         cmd += self._cfg_require(opt="ENABLE_UBSAN", ctr=self.ubsan)
         cmd += self._cfg_require(opt="ENABLE_GCOV", ctr=self.gcov)
+
+        # TraCR Instrumentation (for the cpp Frontend?)
+        logging.info("CMake TraCR enabled in get_cfg_cmd? %d", self.tracr)
+        cmd += self._cfg_require(opt="BUILD_TRACR", ctr=self.tracr)
+
+        # if self.tracr:
+        #     cmd += " -DBUILD_TRACR=ON"
+        # else:
+        #     cmd += " -DBUILD_TRACR=OFF"
 
         def _check_clang_toolchain(_opt: str, _b: str) -> Tuple[bool, str]:
             _p = Path(self.clang_install_path, _b)
@@ -1085,7 +1094,7 @@ class BuildCtrl(CMakeParam):
         cmd += self.build.get_cfg_cmd()
         cmd += self.tests.get_cfg_cmd()
 
-        # TraCR Instrumentation
+        # TraCR Instrumentation (for the cpp Frontend?)
         logging.info("CMake TraCR enabled? %d", self.feature.tracr)
 
         if self.feature.tracr:
