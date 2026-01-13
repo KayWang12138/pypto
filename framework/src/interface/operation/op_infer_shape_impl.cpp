@@ -478,7 +478,7 @@ void LoadL0C2L1InferFunc(Operation* op,
         }
     }
     std::vector<SymbolicScalar> outShape;
-    for (size_t i = 0U; i < inputShapes.size(); i++) {
+    for (size_t i = 0; i < inputShapes.size(); i++) {
         auto inputShape = inputShapes[i].GetSpecifiedValue();
         auto offset = offsets[i].GetSpecifiedValue();
         SymbolicScalar actualDim = std::max(outDynShape[i], (inputShape + offset) * (inputShape != 0));

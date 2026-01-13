@@ -532,7 +532,7 @@ bool AssignMemoryType::IsDimMultiple(const Shape &shape1, const Shape &shape2) {
         return false;
     }
     for (size_t i = 0; i < shape1.size(); ++i) {
-        if (shape2[i] == 0 || shape1[i] % shape2[i] != 0) {
+        if (shape1[i] <= 0 || shape2[i] <= 0 || shape1[i] % shape2[i] != 0) {
             return false;
         }
     }
