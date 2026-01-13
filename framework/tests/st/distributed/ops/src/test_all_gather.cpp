@@ -26,6 +26,7 @@ namespace Distributed {
 template<typename T>
 void TestDynAllGather(OpTestParam &testParam)
 {
+    std::cout << "allgather mengziyu" << std::endl;
     constexpr size_t paramsSize = 5;
     auto [row, col, typeNum, tileRow, tileCol] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
 
