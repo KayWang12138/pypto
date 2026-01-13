@@ -106,6 +106,7 @@ class FeatureParam(CMakeParam):
         self.whl_isolation = args.isolation
         self.whl_editable = args.editable
         self.whl_sdist = args.sdist
+        self.tracr = args.tracr
 
     def __str__(self):
         desc = ""
@@ -142,6 +143,7 @@ class FeatureParam(CMakeParam):
         parser.add_argument("-b", "--backend", nargs="?", type=str, default="npu",
                             choices=["npu", "cost_model"],
                             help="backend, such as npu/cost_model etc.")
+        parser.add_argument("--tracr", action="store_true", help="Enable TraCR insturentation")
 
     def get_cfg_cmd(self, ext: Optional[Any] = None) -> str:
         cmd = ""
@@ -1086,6 +1088,15 @@ class BuildCtrl(CMakeParam):
         cmd += self.feature.get_cfg_cmd()
         cmd += self.build.get_cfg_cmd()
         cmd += self.tests.get_cfg_cmd()
+
+        # TraCR Instrumentation
+        logging.info("CMake TraCR enabled? %d", self.feature.tracr)
+
+        if self.feature.tracr:
+            cmd += " -DBUILD_TRACR=ON"
+        else:
+            cmd += " -DBUILD_TRACR=OFF"
+
         # 执行
         update_env = self.get_cfg_update_env()
         logging.info("CMake Configure, Cmd: %s", cmd)
