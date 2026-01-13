@@ -243,10 +243,13 @@ def rope_2d(
     x_trans = pypto.transpose(x_view, 1, 2)
     x_re_second = pypto.reshape(x_trans, [seq_size, d_r])
 
-    pypto.set_vec_tile_shapes(16, 64)
     x_embded = x_re_second * cast_cos + rotate_half(x_re_second) * cast_sin
+    x_embed_cast = pypto.cast(x_embded, x.dtype)
+    x_embed_reshape = pypto.reshape(x_embed_cast, [x_embed_cast.shape[0], 2, x_embed_cast.shape[1] // 2])
+    x_embed_trans = pypto.transpose(x_embed_reshape, 1, 2)
+    x_embed_res = pypto.reshape(x_embed_trans, x_embed_cast.shape)
 
-    return pypto.cast(x_embded, x.dtype)
+    return x_embed_res
 
 
 def rope_3d(x: pypto.Tensor, cos: pypto.Tensor, sin: pypto.Tensor) -> pypto.Tensor:
@@ -284,7 +287,12 @@ def rope_3d(x: pypto.Tensor, cos: pypto.Tensor, sin: pypto.Tensor) -> pypto.Tens
     x_re_second = pypto.reshape(x_trans, x.shape)
     x_embed = x_re_second * cast_cos + rotate_half(x_re_second) * cast_sin
 
-    return pypto.cast(x_embed, x.dtype)
+    x_embed_cast = pypto.cast(x_embed, x.dtype)
+    x_embed_reshape = pypto.reshape(x_embed_cast, [x_embed_cast.shape[0], x_embed_cast.shape[1], 2, x_embed_cast.shape[2] // 2])
+    x_embed_trans = pypto.transpose(x_embed_reshape, 2, 3)
+    x_embed_res = pypto.reshape(x_embed_trans, x_embed_cast.shape)
+
+    return x_embed_res
 
 def mla_prolog_v4_compute(x, wq_a, wq_b, wkv, rmsnorm_gamma_cq, rmsnorm_gamma_ckv, cos, sin, q_out, kv_out, qr_out, attrs, configs):
     t = x.shape[0]
@@ -295,6 +303,9 @@ def mla_prolog_v4_compute(x, wq_a, wq_b, wkv, rmsnorm_gamma_cq, rmsnorm_gamma_ck
     rope_dim = cos.shape[1]
     gamma_cq_2d = pypto.reshape(rmsnorm_gamma_cq, [1, rmsnorm_gamma_cq.shape[0]], inplace=True)
     gamma_ckv_2d = pypto.reshape(rmsnorm_gamma_ckv, [1, rmsnorm_gamma_ckv.shape[0]], inplace=True)
+    pypto.set_vec_tile_shapes(4, q_lora_rank)
+    gamma_cq_2d_fp32 = pypto.cast(gamma_cq_2d, pypto.DataType.DT_FP32)
+    gamma_ckv_2d_fp32 = pypto.cast(gamma_ckv_2d, pypto.DataType.DT_FP32)
 
     unroll_list = configs.unroll_list
     for tIdx, unrollLength in pypto.loop_unroll(0, t, 1, name="MLA_BS_LOOP", idx_name="bs_offset",
@@ -307,7 +318,6 @@ def mla_prolog_v4_compute(x, wq_a, wq_b, wkv, rmsnorm_gamma_cq, rmsnorm_gamma_ck
         pypto.set_semantic_label("q-rmsnorm with weight")
         pypto.set_vec_tile_shapes(8, q_lora_rank)
         qr = rms_norm(q, attrs.eps)
-        gamma_cq_2d_fp32 = pypto.cast(gamma_cq_2d, pypto.DataType.DT_FP32)
         qr = pypto.mul(qr, gamma_cq_2d_fp32)
         qr = pypto.cast(qr, pypto.DataType.DT_BF16)
         pypto.assemble(qr, [tIdx, 0], qr_out)
@@ -334,7 +344,6 @@ def mla_prolog_v4_compute(x, wq_a, wq_b, wkv, rmsnorm_gamma_cq, rmsnorm_gamma_ck
         kv = pypto.matmul(x_tile, wkv, pypto.DataType.DT_BF16)
         pypto.set_vec_tile_shapes(4, 64)
         kv_norm = rms_norm(kv, attrs.eps)
-        gamma_ckv_2d_fp32 = pypto.cast(gamma_ckv_2d, pypto.DataType.DT_FP32)
         kv_norm = pypto.mul(kv_norm, gamma_ckv_2d_fp32)
         kv_norm = pypto.cast(kv_norm, pypto.DataType.DT_BF16)
 
