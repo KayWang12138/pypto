@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -24,12 +24,8 @@ ConfigRegistry& ConfigRegistry::GetInstance() {
     return instance;
 }
 
-int ConfigRegistry::ComputeKeyHash(const std::string& keyName) {
-    int hash = 5381;
-    for (char c : keyName) {
-        hash = hash * 33 + c;
-    }
-    return (hash % 1000000) + 1;  // Returns value >= 1 (CONFIG_INVALID is 0)
+size_t ConfigRegistry::ComputeKeyHash(const std::string& keyName) {
+    return ComputeConfigKeyHashImpl(keyName.c_str());
 }
 
 bool ConfigRegistry::IsRegistered(ConfigKey key) const {
