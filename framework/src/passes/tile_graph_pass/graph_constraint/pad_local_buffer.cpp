@@ -508,7 +508,7 @@ void ProcessReduceForAxisCombine(Operation &op, LogicalTensorPtr &in, size_t pad
     auto axis = op.GetIntAttribute(OP_ATTR_PREFIX + "AXIS");
     int64_t sz = static_cast<int64_t>(in->shape.size());
     int64_t lastIdx = sz - 1;
-    if (sz > 2 && axis == static_cast<int64_t>(lastIdx) - 1) {
+    if (sz == 1 || axis == sz - 2) {
         AlignedRawTensorIfNeed(in, lastIdx, paddingValue);
         return;
     }
