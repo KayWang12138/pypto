@@ -15,7 +15,7 @@
 
 #include "gtest/gtest.h"
 #include "tilefwk/tilefwk_op.h"
-
+#include "interface/utils/test_cost_macro.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "operator/models/deepseek/deepseek_mla.h"
@@ -1124,7 +1124,7 @@ TEST_F(FunctionTest, TestPad) {
     ALOG_INFO(Program::GetInstance().Dump());
 }
 
-TEST_F(FunctionTest, Test_quantMM) {
+TEST_F_WITH_COST(FunctionTest, Test_quantMM, 93) {
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
     std::vector<int64_t> vecTileShape  = {32, 512};
