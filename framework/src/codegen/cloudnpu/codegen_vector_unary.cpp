@@ -353,6 +353,58 @@ std::string CodeGenOpCloudNPU::PrintExpand(const std::string &s0Var, const std::
     return buffer;
 }
 
+std::string CodeGenOpCloudNPU::PrintRoundLayout() const {
+    std::string dstTensor =QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
+    std::string srcTensor =QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
+    std::ostringstream oss;
+    oss << tileOpName << "(" << dstTensor <<","<< srcTensor << ");\n";
+    return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::PrintRound(const PrintUnaryParam &param) const {
+    if (isSupportLayout) {
+        return PrintRoundLayout();
+    }
+
+    const std::string &srcDtypeStr = param.srcDtypeStr;
+    const std::string &dVar = param.dVar;
+    const std::string &s0Var = param.s0Var;
+
+    std::vector<int64_t> ds = NormalizeShape(rawShape[0], SHAPE_DIM4);
+    std::ostringstream os;
+    std::vector<std::string> paramList;
+    paramList.emplace_back(srcDtypeStr);
+    paramList.emplace_back("/*DS*/");
+    paramList.emplace_back(std::to_string(ds[SHAPE_DIM1]));
+    paramList.emplace_back(std::to_string(ds[SHAPE_DIM2]));
+
+    float powDecimals{0.0f};
+    auto powRes = opAttrs.at(OP_ATTR_PREFIX + "powDecimals");
+    if (powRes.HasValue()) {
+        powDecimals = AnyCast<float>(powRes);
+    }
+    paramList.emplace_back(std::to_string(powDecimals));
+    std::string templateParam = JoinString(paramList, CONN_COMMA);
+    paramList.clear();
+
+    std::string dst = "(__ubuf__ int64_t*)" + dVar;
+    std::string src0 = "(__ubuf__ " + srcDtypeStr + "*)" + s0Var;
+    paramList.emplace_back(dst);
+    paramList.emplace_back(src0);
+
+    auto dynSrcShape = dynamicValidShape[1];
+    FillIntVecWithDummyInHead<SymbolicScalar>(dynSrcShape, SHAPE_DIM3 - dynSrcShape.size(), 1);
+    for (auto dynShape : dynSrcShape) {
+        paramList.emplace_back(SymbolicExpressionTable::BuildExpression(dynShape));
+    }
+
+    std::string tiloOpCallParam = JoinString(paramList, CONN_COMMA);
+    os << tileOpName.c_str() << "_<" << templateParam << ">"
+       << "(" << tiloOpCallParam << ");\n";
+
+    return os.str();
+}
+
 std::string CodeGenOpCloudNPU::PrintOneHotLayout() const {
     std::string dstTensor =QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
     std::string srcTensor =QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
@@ -526,7 +578,8 @@ std::string CodeGenOpCloudNPU::GenUnaryOp() const {
         return PrintRowMaxline({s0Var, dVar, srcDtypeStr, dstDtypeStr});
     } else if (opCode == Opcode::OP_EXP || opCode == Opcode::OP_SQRT || opCode == Opcode::OP_ABS ||
                opCode == Opcode::OP_RECIPROCAL || opCode == Opcode::OP_NEG || opCode == Opcode::OP_RSQRT ||
-               opCode == Opcode::OP_LN || opCode == Opcode::OP_LOGICALNOT || opCode == Opcode::OP_BRCB) {
+               opCode == Opcode::OP_LN || opCode == Opcode::OP_LOGICALNOT || opCode == Opcode::OP_BRCB ||
+               opCode == Opcode::OP_ROUND) {
         return PrintUnary({s0Var, dVar, srcDtypeStr, dstDtypeStr});
     } else if (opCode == Opcode::OP_COPY_UB_TO_UB) {
         return PrintVcopy({s0Var, dVar, srcDtypeStr, dstDtypeStr});
