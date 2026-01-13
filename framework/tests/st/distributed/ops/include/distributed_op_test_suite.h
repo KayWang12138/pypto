@@ -15,6 +15,7 @@
 
 #ifndef DISTRIBUTED_OP_TEST_SUITE_H
 #define DISTRIBUTED_OP_TEST_SUITE_H
+#include <nlohmann/json.hpp>
 
 namespace npu::tile_fwk {
 namespace Distributed {
@@ -26,17 +27,17 @@ struct OpTestParam {
 };
 
 template<typename T>
-void TestMoeDistributedCombine(OpTestParam &testParam);
-void TestAllGatherAttentionPostReducescatter(OpTestParam &testParam);
+void TestMoeDistributedCombine(OpTestParam &testParam, const nlohmann::json& testData);
+void TestAllGatherAttentionPostReducescatter(OpTestParam &testParam, const nlohmann::json& testData);
 template<typename T>
-void TestAllGather(OpTestParam &testParam);
+void TestAllGather(OpTestParam &testParam, const nlohmann::json& testData);
 template<typename T>
-void TestReduceScatter(OpTestParam &testParam);
+void TestReduceScatter(OpTestParam &testParam, const nlohmann::json& testData);
 template<typename T>
-void TestAllReduce(OpTestParam &testParam);
-void TestShmemMoeDispatch(OpTestParam &testParam);
+void TestAllReduce(OpTestParam &testParam, const nlohmann::json& testData);
+void TestShmemMoeDispatch(OpTestParam &testParam, const nlohmann::json& testData);
 template<typename T>
-void TestAllReduceAddAllReduce(OpTestParam &testParam);
+void TestAllReduceAddAllReduce(OpTestParam &testParam, const nlohmann::json& testData);
 } // namespace Distributed
 } // namespace npu::tile_fwk
 
