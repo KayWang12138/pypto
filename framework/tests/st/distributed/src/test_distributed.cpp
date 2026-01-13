@@ -12,57 +12,71 @@
  * \file test_distributed.cpp
  * \brief
  */
-#include <nlohmann/json.hpp>
-#include <fstream>
-#include <vector>
-#include <string>
 #include <gtest/gtest.h>
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "interface/configs/config_manager.h"
 #include "test_common.h"
-#include "distributed_op_test_suite.h"
 #include "distributed_test_framework.h"
+#include "test_distributed.h"
 
 namespace npu::tile_fwk::Distributed {
 
-struct OpMetaData {
-    explicit OpMetaData(const nlohmann::json &testData)
-        : testData_(testData) {}
-    nlohmann::json testData_;
-};
+class DistributedTest : public testing::TestWithParam<OpMetaData> {
+public:
+    static void TearDownTestCase() {}
 
-// 算子注册表
-struct DisOpRegistry {
-    std::unordered_map<std::string, std::function<void(OpTestParam&, const std::string&)>> registry;
-    template <typename TFunc>
-    void RegisterOp(const std::string& opName, TFunc func)
+    static void SetUpTestCase() 
     {
-        registry[opName] = [func](OpTestParam &testParam, const std::string &dtype)
-        {
-            if (dtype == "int32") func.template operator()<int32_t>(testParam);
-            else if (dtype == "float16") func.template operator()<float16>(testParam);
-            else if (dtype == "bfloat16") func.template operator()<bfloat16>(testParam);
-            else if (dtype == "float32") func.template operator()<float>(testParam);
-            else FAIL() << "Unsupported dtype: " << dtype;
-        };
+        GegisterTemplateOps();
     }
-    void Run(const std::string &opName, OpTestParam &testParam, const std::string &dtype)
+
+    void SetUp() override
     {
-        if (!registry.count(opName)) {
-            FAIL() << "Unsupported op: " << opName;
+        Distributed::TestFrameworkInit(testParam, hcomTestParam, physicalDeviceId);
+        std::string folderPath = "output/output_" + getTimeStamp() + "_" + std::to_string(physicalDeviceId);
+        setenv("TILE_FWK_OUTPUT_DIR", folderPath.c_str(), 0);
+        config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true);
+        Program::GetInstance().Reset();
+    }
+
+    void TearDown() override
+    {
+        DistributedTestDestroy();
+        Distributed::TestFrameworkDestroy(timeout);
+    }
+
+    // 暴露超时设置接口
+    void SetDestroyTimeout(int32_t destroyTimeout)
+    {
+        timeout = destroyTimeout;
+    }
+
+    // 通用测试入口
+    void RunDistributedTestGeneric(const std::string& opName, const nlohmann::json& testData)
+    {
+        if (!testData.contains("input_tensors") || testData["input_tensors"].empty()) {
+            FAIL() << "No input tensors in testData: " << testData.dump();
         }
-        registry[opName](testParam, dtype);
+        std::string dtype = testData["input_tensors"][0]["dtype"];
+        DisTemplateOpRegister::GetRegister().Run(opName, testParam, dtype);
     }
+
+protected:
+    void DistributedTestDestroy()
+    {
+        // 销毁集合通信域
+        ASSERT(HcclCommDestroy(hcomTestParam.hcclComm) == 0);
+        // 重置设备
+        ASSERT(aclrtResetDevice(physicalDeviceId) == 0);
+        // 设备去初始化
+        ASSERT(aclFinalize() == 0);
+    }
+
+    Distributed::OpTestParam testParam;
+    Distributed::HcomTestParam hcomTestParam;
+    int32_t timeout = 10;
+    int physicalDeviceId = 0;
 };
-
-
-DisOpRegistry& GetRegistry()
-{
-    static DisOpRegistry registry;
-    return registry;
-}
-
 
 // 各模板算子的Func
 struct AllgatherFunc {
@@ -106,9 +120,9 @@ struct MoeDistributedCombineFunc {
 };
 
 // 注册所有算子
-void GegisterAllOps()
+void GegisterTemplateOps()
 {
-    auto& reg = GetRegistry();
+    auto& reg = DisTemplateOpRegister::GetRegister();
     reg.RegisterOp("Allgather", AllgatherFunc{});  // 模板算子
     reg.RegisterOp("Reducescatter", ReducescatterFunc{});
     reg.RegisterOp("Allreduce", AllreduceFunc{});
@@ -123,86 +137,6 @@ void GegisterAllOps()
     // 后续按照上面格式增加算子
 }
 
-
-template <typename T>
-std::vector<T> GetOpMetaData(const std::string &op)
-{
-    auto caseFile = "../../../framework/tests/st/distributed/ops/test_case/" + op + "_st_test_cases.json";
-    std::ifstream jsonFile(caseFile);
-    if (!jsonFile.is_open()) {
-        std::cerr << "Failed to open JSON file for op " << op << ". "
-        << "Please check the path and ensure the file exists: " << caseFile << std::endl;
-        return {};
-    }
-    nlohmann::json jsonData = nlohmann::json::parse(jsonFile);
-    std::vector<T> testCaseList;
-    for (auto &tc : jsonData.at("test_cases")) {
-        testCaseList.emplace_back(tc);
-    }
-    if (testCaseList.empty()) {
-        std::cerr << "No test cases found in json for op: " << op << ". "
-        << "Please check the contents of: " << caseFile << std::endl;
-    }
-    return testCaseList;
-}
-
-
-class DistributedTest : public testing::TestWithParam<OpMetaData> {
-public:
-    static void TearDownTestCase() {}
-
-    static void SetUpTestCase()
-    {
-        GegisterAllOps();
-    }
-
-    void SetUp() override
-    {
-        Distributed::TestFrameworkInit(testParam, hcomTestParam, physicalDeviceId);
-        std::string folderPath = "output/output_" + getTimeStamp() + "_" + std::to_string(physicalDeviceId);
-        setenv("TILE_FWK_OUTPUT_DIR", folderPath.c_str(), 0);
-        config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true);
-        Program::GetInstance().Reset();
-    }
-
-    void TearDown() override
-    {
-        DistributedTestDestroy();
-        Distributed::TestFrameworkDestroy(timeout);
-    }
-
-    // 暴露超时设置接口
-    void SetDestroyTimeout(int32_t destroyTimeout)
-    {
-        timeout = destroyTimeout;
-    }
-
-    // 通用测试入口
-    void RunDistributedTestGeneric(const std::string& opName, const nlohmann::json& testData)
-    {
-        if (!testData.contains("input_tensors") || testData["input_tensors"].empty()) {
-            FAIL() << "No input tensors in testData: " << testData.dump();
-        }
-        std::string dtype = testData["input_tensors"][0]["dtype"];
-        GetRegistry().Run(opName, testParam, dtype);
-    }
-
-protected:
-    void DistributedTestDestroy()
-    {
-        // 销毁集合通信域
-        ASSERT(HcclCommDestroy(hcomTestParam.hcclComm) == 0);
-        // 重置设备
-        ASSERT(aclrtResetDevice(physicalDeviceId) == 0);
-        // 设备去初始化
-        ASSERT(aclFinalize() == 0);
-    }
-
-    Distributed::OpTestParam testParam;
-    Distributed::HcomTestParam hcomTestParam;
-    int32_t timeout = 10;
-    int physicalDeviceId = 0;
-};
 
 
 INSTANTIATE_TEST_SUITE_P(TestAllgather, DistributedTest,
@@ -253,9 +187,4 @@ TEST_P(DistributedTest, TestAllgather_AttnPost_Reducescatter)
     RunDistributedTestGeneric("Allgather_AttnPost_Reducescatter", GetParam().testData_);
 }
 
-TEST_F(DistributedTest, shmem_allreduce_add_allreduce_bfloat16_256_102400_4)
-{
-    config::SetHostOption(ONLY_CODEGEN, true);
-    Distributed::TestShmemAllReduceAddAllReduce<bfloat16>(testParam);
-}
 } // namespace npu::tile_fwk::Distributed

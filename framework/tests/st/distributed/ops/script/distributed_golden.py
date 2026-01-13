@@ -163,18 +163,44 @@ def save_tensor_list(tensors: List[torch.Tensor], save_dir: Path, filename_prefi
         save_tensor(tensor, save_dir / f'{filename_prefix}_rank_{rank}.bin')
 
 
+# def generate_random_tensor(
+#     shape: Tuple[int, ...], dtype: torch.dtype, value_range: ValueRange
+# ) -> torch.Tensor:
+#     if dtype in (torch.int32, torch.int16, torch.int8):
+#         return torch.randint(
+#             low=value_range.min_val, 
+#             high=value_range.max_val, 
+#             size=shape, 
+#             dtype=dtype
+#         )
+#     else:
+#         return torch.randn(shape, dtype=dtype)
+
 def generate_random_tensor(
     shape: Tuple[int, ...], dtype: torch.dtype, value_range: ValueRange
 ) -> torch.Tensor:
+    spec_value_map = {
+        'nan': np.nan,
+        'inf': np.inf,
+        '-inf': -np.inf
+    }
+    if value_range.min_val in spec_value_map:
+        return torch.full(
+            shape, 
+            spec_value_map[value_range.min_val],
+            dtype=dtype)
     if dtype in (torch.int32, torch.int16, torch.int8):
         return torch.randint(
-            low=value_range.min_val, 
-            high=value_range.max_val, 
+            low=int(value_range.min_val), 
+            high=int(value_range.max_val), 
             size=shape, 
             dtype=dtype
         )
     else:
         return torch.randn(shape, dtype=dtype)
+        # tensor = np.random.uniform(value_range.min_val, value_range.max_val, shape)
+        # return torch.tensor(tensor, dtype=dtype)
+        # 一个可以正太分布取值，一个可以在范围内均匀取值
 
 
 def generate_random_tensor_list(gen_tensor_case: GenTensorCase) -> List[torch.Tensor]:
@@ -529,11 +555,6 @@ def gen_op_golden(op: str, golden_func, output_path: Path, case_index: int = Non
     return True
 
 
-@GoldenRegister.reg_golden_func(
-    case_names=[
-        'TestAllgather/DistributedTest.TestAllgather',
-    ]
-)
 def generate_all_gather_golden(case_name: str, output: Path, case_index: int = None) -> bool:
     def golden_func(config: dict):
         case = parse_base_case(config)
@@ -549,11 +570,6 @@ def generate_all_gather_golden(case_name: str, output: Path, case_index: int = N
     return gen_op_golden('Allgather', golden_func, output, case_index)
 
 
-@GoldenRegister.reg_golden_func(
-    case_names=[
-        'TestReducescatter/DistributedTest.TestReducescatter',
-    ]
-)
 def generate_reduce_scatter_golden(case_name: str, output: Path, case_index: int = None) -> bool:
     def golden_func(config: dict):
         case = parse_base_case(config)
@@ -575,11 +591,6 @@ def generate_reduce_scatter_golden(case_name: str, output: Path, case_index: int
     return gen_op_golden('Reducescatter', golden_func, output, case_index)
 
 
-@GoldenRegister.reg_golden_func(
-    case_names=[
-        'TestAllreduce/DistributedTest.TestAllreduce',
-    ]
-)
 def generate_all_reduce_golden(case_name: str, output: Path, case_index: int = None) -> bool:
     def golden_func(config: dict):
         case = parse_base_case(config)
@@ -603,11 +614,6 @@ def generate_all_reduce_golden(case_name: str, output: Path, case_index: int = N
     return gen_op_golden('Allreduce', golden_func, output, case_index)
 
 
-@GoldenRegister.reg_golden_func(
-    case_names=[
-        'TestAllreduce_Add_Allreduce/DistributedTest.TestAllreduce_Add_Allreduce',
-    ]
-)
 def generate_allreduce_add_allreduce_golden(case_name: str, output: Path, case_index: int = None) -> bool:
     def golden_func(config: dict):
         case = parse_base_case(config)
@@ -634,11 +640,6 @@ def generate_moe_dispatch_golden(case_name: str, output: Path, case_index: int =
     return gen_op_golden('MoeDispatch', golden_func, output, case_index)
 
 
-@GoldenRegister.reg_golden_func(
-    case_names=[
-        'TestMoeDistributedCombine/DistributedTest.TestMoeDistributedCombine',
-    ]
-)
 def generate_moe_distributed_combine_golden(case_name: str, output: Path, case_index: int = None) -> bool:
     def golden_func(config: dict):
         case = parse_moe_case(config)
@@ -652,11 +653,6 @@ def generate_moe_distributed_combine_golden(case_name: str, output: Path, case_i
     return gen_op_golden('MoeDistributedCombine', golden_func, output, case_index)
 
 
-@GoldenRegister.reg_golden_func(
-    case_names=[
-        'TestAllgather_AttnPost_Reducescatter/DistributedTest.TestAllgather_AttnPost_Reducescatter',
-    ]
-)
 def gen_allgather_attnpost_reducescatter_case(case_name: str, output: Path, case_index: int = None) -> bool:
     def golden_func(config: dict):
         case = generate_allgather_attn_post_reducescatter_case(config)
@@ -710,3 +706,40 @@ def gen_allgather_attnpost_reducescatter_case(case_name: str, output: Path, case
         reduce_scatter_and_save(reduce_scatter_inputs, case.batch_size * case.seq_len, case.rank_size, output, 'rs_out') 
     logging.debug('Case(%s), Golden creating...', case_name)
     return gen_op_golden('Allgather_AttnPost_Reducescatter', golden_func, output, case_index)
+
+
+OPERATOR_DISPATCHERS = [
+    ('Allgather', generate_all_gather_golden),
+    ('Reducescatter', generate_reduce_scatter_golden),
+    ('Allreduce', generate_all_reduce_golden),
+    ('MoeDispatch', generate_moe_dispatch_golden),
+    ('MoeDistributedCombine', generate_moe_distributed_combine_golden),
+    ('Allreduce_Add_Allreduce', generate_allreduce_add_allreduce_golden),
+    ('Allgather_AttnPost_Reducescatter', gen_allgather_attnpost_reducescatter_case),
+]
+
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        'TestAllgather/DistributedTest.TestAllgather',
+        'TestReducescatter/DistributedTest.TestReducescatter',
+        'TestAllreduce/DistributedTest.TestAllreduce',
+        'TestMoeDistributedCombine/DistributedTest.TestMoeDistributedCombine',
+        'TestAllreduce_Add_Allreduce/DistributedTest.TestAllreduce_Add_Allreduce',
+        'TestAllgather_AttnPost_Reducescatter/DistributedTest.TestAllgather_AttnPost_Reducescatter',
+    ]
+)
+def generate_golden_case(case_name: str, output: Path, case_index: int = None) -> bool:
+    handler = None
+    str = case_name.split('/')[1].split('.')[-1]
+    for keyword, func in OPERATOR_DISPATCHERS:
+        if 'Test' + keyword == str:
+            handler = func
+            break
+
+    if handler is None:
+        raise ValueError(f"Can't find handler for case {case_name}")
+
+    handler(case_name, output, case_index)
+    logging.info('Generate golden success for %s', case_name)
+    return True

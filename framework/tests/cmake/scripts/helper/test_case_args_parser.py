@@ -37,7 +37,17 @@ class TestCaseArgsParser:
         logging.info("Is distributed op : %s", args.distributed_op)
 
     @staticmethod
+    def extract_op_from_filepath(file_path):
+        filename = os.path.splitext(os.path.basename(file_path))[0]
+        if filename.endswith("_st_test_cases"):
+            return filename[:-len("_st_test_cases")]
+        raise ValueError(f"Unable to extract op name from file path '{file_path}'.")
+
+    @staticmethod
     def update_default_value(args):
+        if args.op == "distributed_op" and args.input_file:
+            args.distributed_op = True
+            args.op = TestCaseArgsParser.extract_op_from_filepath(args.input_file)
         if not args.distributed_op:
             op_path = f"{os.getcwd()}/framework/tests/st/operation"
             default_golden = f"{op_path}/python/vector_operator_golden.py"
