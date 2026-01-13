@@ -65,7 +65,6 @@ void IRPrinter::VisitProgram_(ProgramModulePtr& pm) {
     VisitFunction_(f);
     os_ << "\n";
   }
-
   Dedent();
 
   // Closing brace
@@ -443,7 +442,7 @@ const char* IRPrinter::ToString(FunctionKind kind) {
   switch (kind) {
     case FunctionKind::ControlFlow: return "control_flow";
     case FunctionKind::DataFlow:    return "data_flow";
-    case FunctionKind::Kernel:      return "kernel";
+    case FunctionKind::Block:      return "block";
     default:                        return "unknown";
   }
 }
