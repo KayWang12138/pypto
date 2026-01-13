@@ -68,6 +68,12 @@ TILEOP void BinaryComputeImpl(T0 dst, T1 src0, T2 src1) {
             pto::TROWEXPANDMIN(dst, src0, src1);
         }
     }
+
+    if constexpr (op == BinaryOp::MOD) {
+        pto::TDIV(dst, src0, src1);
+        pto::TMUL(dst, dst, src1);
+        pto::TSUB(dst, src0, dst);
+    }
 }
 
 template <BinaryOp op, TileOp::BroadcastOperand operand, typename T0, typename T1, typename T2>
@@ -138,5 +144,10 @@ TILEOP void TMax(T0 dst, T1 src0, T2 src1) {
 template <TileOp::BroadcastOperand operand = TileOp::BroadcastOperand::NONE, typename T0, typename T1, typename T2>
 TILEOP void TMin(T0 dst, T1 src0, T2 src1) {
     BinaryCompute<BinaryOp::MIN, operand>(dst, src0, src1);
+}
+
+template <typename T0, typename T1, typename T2>
+TILEOP void TMod(T0 dst, T1 src0, T2 src1) {
+    BinaryCompute<BinaryOp::MOD>(dst, src0, src1);
 }
 #endif
