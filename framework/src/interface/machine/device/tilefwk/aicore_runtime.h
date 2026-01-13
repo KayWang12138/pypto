@@ -335,7 +335,7 @@ INLINE uint64_t RUNTIME_Ne(uint64_t input1, uint64_t input2) {
 }
 
 INLINE uint32_t GetTensorDataInt32(CoreFuncParam *ctx, uint64_t address) {
-    dcci((__gm__ uint32_t *)address, ENTIRE_DATA_CACHE, CACHELINE_OUT); 
+    dcci((__gm__ uint32_t *)address, ENTIRE_DATA_CACHE, CACHELINE_OUT);
     return *(__gm__ uint32_t *)(address);
 }
 #define RUNTIME_GetTensorDataInt32Dim1(index, ioType, ioTypeIndex, address, ...)    GetTensorDataInt32(param, address)
@@ -389,5 +389,69 @@ INLINE uint32_t GetTensorDataInt32(CoreFuncParam *ctx, uint64_t address) {
     } while(0)
 
 #define RUNTIME_GetSymbol(idx)          (param->exprTbl[idx])
+
+
+
+#define IR_SOURCE_CPP_FUNCTION                  "FUNCTION"
+#define IR_SOURCE_CPP_OPERATION                 "OPERATION"
+#define IR_SOURCE_CPP_DECL_TYPE_TILE            "DECL_TYPE_TILE"
+#define IR_SOURCE_CPP_DECL_TYPE_TENSOR          "DECL_TYPE_TENSOR"
+#define IR_SOURCE_CPP_DECL_VALUE_SCALAR         "DECL_VALUE_SCALAR"
+#define IR_SOURCE_CPP_DECL_VALUE_TILE           "DECL_VALUE_TILE"
+#define IR_SOURCE_CPP_DECL_VALUE_TENSOR         "DECL_VALUE_TENSOR"
+#define IR_SOURCE_CPP_INIT_VALUE_TILE           "INIT_VALUE_TILE"
+#define IR_SOURCE_CPP_INIT_VALUE_TENSOR         "INIT_VALUE_TENSOR"
+#define IR_SOURCE_CPP_INIT_ADDR                 "INIT_ADDR"
+#define IR_SOURCE_CPP_STMT_OP                   "STMT_OP"
+#define IR_SOURCE_CPP_STMT_IF                   "STMT_IF"
+#define IR_SOURCE_CPP_STMT_ELSE                 "STMT_ELSE"
+#define IR_SOURCE_CPP_STMT_FOR                  "STMT_FOR"
+#define IR_SOURCE_CPP_STMT_YIELD                "STMT_YIELD"
+#define IR_SOURCE_CPP_STMT_RETURN               "STMT_RETURN"
+#define IR_SOURCE_CPP_STMT_YIELD_LOOP_BEGIN     "LOOP_BEGIN"
+#define IR_SOURCE_CPP_STMT_YIELD_LOOP_ITER      "LOOP_ITER"
+#define IR_SOURCE_CPP_STMT_YIELD_LOOP_ASSIGN    "LOOP_ASSIGN"
+#define IR_SOURCE_CPP_STMT_YIELD_IF_ASSIGN      "IF_ASSIGN"
+
+#define RT_float32 float
+#define RT_UB __ubuf__
+
+#define RT_FUNCTION(name)                       extern "C" [aicore] void name(CoreFuncParam *param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo *oriAddrParam)
+#define RT_OPERATION(opcode, ...)               RT_OPERATION_##opcode(__VA_ARGS__)
+#define RT_DECL_TYPE_TILE(name, type, space, dim, ...) using name = TileTensor<RT_##type, LocalLayout##dim##Dim<__VA_ARGS__>, mem>;
+#define RT_DECL_TYPE_TENSOR(name, type, dim)    using name = TileTensor<__gm__ RT_##type, DynLayout##dim##Dim, Hardware::GM>;
+#define RT_DECL_VALUE_SCALAR(name, type)        type name;
+#define RT_DECL_VALUE_TILE(name, type)          type name;
+#define RT_DECL_VALUE_TENSOR(name, type)        type name;
+#define RT_INIT_VALUE_TILE(name, type, dim, addr, ...) name = type((uint64_t)addr, Shape##dim##Dim(__VA_ARGS__));
+
+#define RT_INIT_VALUE_TENSOR_1(shape0, stride0) \
+        DynLayout1Dim(Shape1Dim(shape0), \
+                      Stride1Dim(stride0))
+#define RT_INIT_VALUE_TENSOR_2(shape0, shape1, stride0, stride1) \
+        DynLayout2Dim(Shape2Dim(shape0, shape1), \
+                      Stride2Dim(stride0, stride1))
+#define RT_INIT_VALUE_TENSOR_3(shape0, shape1, shape2, stride0, stride1, stride2) \
+        DynLayout3Dim(Shape3Dim(shape0, shape1, shape2), \
+                      Stride3Dim(stride0, stride1, stride2))
+#define RT_INIT_VALUE_TENSOR_4(shape0, shape1, shape2, shape3, stride0, stride1, stride2, stride3) \
+        DynLayout4Dim(Shape4Dim(shape0, shape1, shape2, shape3), \
+                      Stride4Dim(stride0, stride1, stride2, stride3))
+#define RT_INIT_VALUE_TENSOR_5(shape0, shape1, shape2, shape3, shape4, stride0, stride1, stride2, stride3, stride4) \
+        DynLayout5Dim(Shape5Dim(shape0, shape1, shape2, shape3, shape4), \
+                      Stride5Dim(stride0, stride1, stride2, stride3, stride4))
+#define RT_INIT_VALUE_TENSOR(name, type, dim, addr, ...) name = type(addr, RT_INIT_VALUE_TENSOR_##dim(__VA_ARGS__));
+#define RT_INIT_ADDR(name, start, end, space, type) type *name = (type *)get_imm(start); \
+                                                type RT_##space *name = (type RT_##space *)get_imm(start);
+#define RT_STMT_OP()
+#define RT_STMT_IF()
+#define RT_STMT_ELSE()
+#define RT_STMT_FOR()
+#define RT_STMT_YIELD()
+#define RT_STMT_RETURN()
+#define RT_LOOP_BEGIN()
+#define RT_LOOP_ITER()
+#define RT_LOOP_ASSIGN()
+#define RT_IF_ASSIGN()
 
 #endif // AST_RUNTIME_H
