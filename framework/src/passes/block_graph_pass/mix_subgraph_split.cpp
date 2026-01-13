@@ -307,10 +307,6 @@ void MixSubgraphSplit::ProcessUnassignedOperations(
     // 报告未分配的op
     if (!remainingOps.empty()) {
         ALOG_ERROR_F("Found %d unexpected unassigned operations after first step:", remainingOps.size());
-        for (auto* op : remainingOps) {
-            ALOG_DEBUG_F("  Unassigned: %s %d", 
-                        op->GetOpcodeStr().c_str(), op->GetOpMagic());
-        }
     }
 }
 
@@ -579,12 +575,6 @@ AIVCore MixSubgraphSplit::DetermineComponentAIVCore(const std::vector<Operation*
             firstNonSyncOp = op;
             break;
         }
-    }
-    
-    if (firstNonSyncOp == nullptr) {
-        ALOG_ERROR_F("Component %d has only sync operations, cannot determine type",
-                    operations[0]->GetInternalSubgraphID());
-        return AIVCore::UNSPECIFIED;
     }
     
     // 使用第一个非同步op的isCube属性
