@@ -145,23 +145,22 @@ enum class MemSpaceKind {
 
 class Memory : public Object {
 public:
-    Memory(uint64_t byteSize, MemSpaceKind kind = MemSpaceKind::UNKNOWN) : Object(ObjectType::Memory), byteSize_(byteSize),
-         space_(kind), addr_(0) {}
+    Memory(uint64_t byteSize, MemSpaceKind kind = MemSpaceKind::UNKNOWN,
+           std::optional<uint64_t> addr = std::nullopt, uint32_t alignment = 1)
+        : Object(ObjectType::Memory), byteSize_(byteSize), space_(kind), addr_(addr), alignment_(alignment) {}
 
     ObjectType GetObjectType() const override { return ObjectType::Memory; }
 
     uint64_t GetSize() const { return byteSize_; }
     MemSpaceKind GetSpace() const { return space_; }
-    uint64_t GetAddr() const { return addr_; }
-
-    void SetSize(const uint64_t newSize) { byteSize_ = newSize; }
-    void SetSpace(const MemSpaceKind kind) { space_ = kind; }
-    void SetAddr(const uint64_t newAddr) { addr_ = newAddr; }
+    std::optional<uint64_t> GetAddr() const { return addr_; }
+    uint32_t GetAlignment() const { return alignment_; }
 
 private:
     uint64_t byteSize_;
     MemSpaceKind space_;
-    uint64_t addr_;
+    std::optional<uint64_t> addr_;
+    uint32_t alignment_;
 };
 
 using MemoryPtr = std::shared_ptr<Memory>;
