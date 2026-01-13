@@ -202,7 +202,7 @@ public:
         }
     }
 
-    Status InitAllocDependencies(Operation* op, const std::map<int, Operation*> &tensor2AllocMap) {
+    Status InitAllocDependencies(Operation* op, std::map<int, Operation*> tensor2AllocMap) {
         for (auto &tensor : op->GetOOperands()) {
             int memId = tensor->memoryrange.memId;
             if (tensor->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
