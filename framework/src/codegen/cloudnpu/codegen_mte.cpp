@@ -736,8 +736,8 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL0CTileTensor(const PrintMemCopyW
     int64_t reluMode = 0;
     int64_t outerValue = 0;
     int64_t innerValue = 0;
-    auto ret = GetAttr("op_attr_curH", outerValue);
-    ret = GetAttr("op_attr_curW", innerValue);
+    GetAttr("op_attr_curH", outerValue);
+    GetAttr("op_attr_curW", innerValue);
     auto gmShapeExprByIndex = GenParamIdxExprByIndex(param.gmIdx, SHAPE_DIM2, PREFIX_STR_RAW_SHAPE);
     std::string outerValueStr = outerValue == 0 ? gmShapeExprByIndex[0] : std::to_string(outerValue);
     std::string innerValueStr = innerValue == 0 ? gmShapeExprByIndex[1] : std::to_string(innerValue);
@@ -898,8 +898,8 @@ std::string CodeGenOpCloudNPU::PrintL1CopyInTileTensor(const PrintMemCopyWithL1P
     std::string srcTensor = PrintTensorForCopyBetweenGM(ToUnderlying(MISOIdx::SRC0_IDX), param.gmIdx, gmVarName);
     int64_t outerValue = 0;
     int64_t innerValue = 0;
-    auto ret = GetAttr("op_attr_outer_value", outerValue);
-    ret = GetAttr("op_attr_inner_value", innerValue);
+    GetAttr("op_attr_outer_value", outerValue);
+    GetAttr("op_attr_inner_value", innerValue);
     auto gmShapeExprByIndex = GenParamIdxExprByIndex(param.gmIdx, SHAPE_DIM2, PREFIX_STR_RAW_SHAPE);
     std::string outerValueStr = outerValue == 0 ? gmShapeExprByIndex[0] : std::to_string(outerValue);
     std::string innerValueStr = innerValue == 0 ? gmShapeExprByIndex[1] : std::to_string(innerValue);
@@ -913,7 +913,7 @@ std::string CodeGenOpCloudNPU::PrintL1CopyInTileTensor(const PrintMemCopyWithL1P
         copyInMode = npu::tile_fwk::AnyCast<int64_t>(opAttrs.at(OP_ATTR_PREFIX + "copy_in_mode"));
     }
     int64_t nzValue = 0;
-    ret = GetAttr(OP_ATTR_PREFIX + "is_nz", nzValue);
+    auto ret = GetAttr(OP_ATTR_PREFIX + "is_nz", nzValue);
     if (copyInMode == ND2ND) {
         cpModeStr = "CopyInMode::ND2ND";
     } else if (copyInMode == ND2NZ) {
@@ -1193,8 +1193,10 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithUBDynamicSupportUnaligned(const P
     for (int i = 1; i < MAX_DIM; ++i) {
         paramList.emplace_back(std::to_string(localRawShape[i]));
     }
-    if (isPartialMem[localIdx]) {
-        paramList.emplace_back("true");
+    if (localIdx == 0) { // means op is COPY_IN
+        if (isPartialMem[localIdx]) {
+            paramList.emplace_back("true");
+        }
     }
     std::string templateParam = JoinString(paramList, CONN_COMMA);
 
