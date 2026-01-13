@@ -38,18 +38,36 @@ if (TARGET ${PTO_Fwk_STestNamePrefix}_python)
 endif ()
 
 # 用例可执行程序(执行)
-set(_DistributedGTestCaseFilterConfig 
-        "TestAllgather/DistributedTest.TestAllgather/0" "4"
-        "TestAllreduce/DistributedTest.TestAllreduce/0" "4"
-        "TestAllreduce/DistributedTest.TestAllreduce/1" "4"
-        "TestMoeDistributedCombine/DistributedTest.TestMoeDistributedCombine/0" "4"
-        "TestMoeDistributedCombine/DistributedTest.TestMoeDistributedCombine/1" "4"
-        "TestReducescatter/DistributedTest.TestReducescatter/0" "4"
-        "TestReducescatter/DistributedTest.TestReducescatter/1" "4"
-        "TestReducescatter/DistributedTest.TestReducescatter/2" "4"
-        "TestAllgather_AttnPost_Reducescatter/DistributedTest.TestAllgather_AttnPost_Reducescatter/0" "4"
-        "TestAllreduce_Add_Allreduce/DistributedTest.TestAllreduce_Add_Allreduce/0" "4"
+if(FALSE)
+        set(_DistributedGTestCaseFilterConfig 
+                "TestDistributedOps/DistributedTest.TestOps/0" "4"
+                "TestDistributedOps/DistributedTest.TestOps/1" "4"
+                "TestDistributedOps/DistributedTest.TestOps/2" "4"
+                "TestDistributedOps/DistributedTest.TestOps/3" "4"
+                "TestDistributedOps/DistributedTest.TestOps/4" "4"
+                "TestDistributedOps/DistributedTest.TestOps/5" "4"
+                "TestDistributedOps/DistributedTest.TestOps/6" "4"
+                "TestDistributedOps/DistributedTest.TestOps/7" "4"
+                "TestDistributedOps/DistributedTest.TestOps/8" "4"
+                "TestDistributedOps/DistributedTest.TestOps/9" "4"
+        )
+endif()
+
+set(_num_ranks "4")
+set(_num_cases "9")
+set(_DistributedGTestCaseFilterConfig "")
+forrach(i RANGE 0 ${_num_cases})
+    list(APPEND _DistributedGTestCaseFilterConfig 
+        "TestDistributedOps/DistributedTest.TestOps/${i}" "${_num_ranks}"
+    )
+endforeach()
+
+set(TEST_CASE_DIR "${PTO_FWK_SRC_ROOT}/framework/tests/st/distributed/ops/daily_test_case")
+ 	 
+target_compile_definitions(${_Target} PRIVATE 
+    TEST_CASE_DIR="${TEST_CASE_DIR}"
 )
+
 set(_LdLibrariesExt
         tile_fwk_compiler
         ${PTO_Fwk_STestNamePrefix}_distributed_framework
