@@ -837,55 +837,6 @@ class BuildCtrl(CMakeParam):
         return None
 
     @staticmethod
-    def run_build_cmd(cmd: str, update_env: Optional[Dict[str, str]] = None, check: bool = False,
-                      timeout: Optional[int] = None) -> Optional[subprocess.CompletedProcess]:
-        """执行具体 build 命令行
-
-        因以下原因, 设置本函数, 而非调用原生 subprocess.run
-            1. 支持多 target 构建, 各 target 构建时长共享公共 timeout 配置;
-            2. UTest/STest 并行执行场景下, 执行时进程调用关系为:
-                   build_ci.py(主进程) -> 进程1(CMake) -> 进程2(CMake Generator, make/ninja) -> 进程3(Python)-> 进程4(exe)
-               此时若 进程1 超时, 需要触发其子/孙进程感知, 进而结束
-
-        :param cmd: Build 命令行
-        :param update_env: 环境变量(额外更新内容)
-        :param check: 检查返回值
-        :param timeout: 执行超时时长
-        """
-
-        def _stop_pg(_msg: str, _p: subprocess.Popen):
-            """通过 SIGINT 信号通知所有子/孙进程结束, python 并行脚本内会捕获该信号进行结算处理
-            """
-            _pgid = os.getpgid(_p.pid)
-            logging.info("%s. Send terminate event to CMake[%s]", _msg, _pgid)
-            os.killpg(_pgid, signal.SIGINT)
-
-        stdout = None
-        stderr = None
-        env = os.environ.copy()
-        env.update(update_env if update_env else {})
-        with subprocess.Popen(shlex.split(cmd), env=env, text=True, encoding='utf-8',
-                              start_new_session=True) as process:
-            try:
-                stdout, stderr = process.communicate(timeout=timeout)
-            except subprocess.TimeoutExpired:
-                _stop_pg(_msg="Timeout", _p=process)
-                raise
-            except KeyboardInterrupt:
-                # 一般为用户主动触发, 不需再上报错误
-                _stop_pg(_msg="KeyboardInterrupt", _p=process)
-            except Exception:
-                process.kill()
-                raise
-            finally:
-                stdout = stdout or ""
-                stderr = stderr or ""
-            ret_code = process.poll()
-            if check and ret_code:
-                raise subprocess.CalledProcessError(ret_code, process.args, output=stdout, stderr=stderr)
-        return subprocess.CompletedProcess(process.args, ret_code, stdout, stderr)
-
-    @staticmethod
     def find_match_whl(name: str, path: Path) -> Optional[Path]:
         """在指定路径下, 查找对应匹配的 whl 包文件
 
@@ -948,26 +899,6 @@ class BuildCtrl(CMakeParam):
             ctrl.cmake_build()
 
     @classmethod
-    def pip_uninstall(cls, name: str, path: Optional[Path] = None):
-        """卸载对应 whl 包
-
-        :param name: 包名
-        :param path: 指定安装路径(可选), 如果指定对应路径, 仅会在对应路径尝试卸载
-        """
-        if path:
-            del_lst = [Path(f) for f in path.glob(pattern=f"{name}-*.dist-info")]
-            pkg_dir = Path(path, name)
-            if pkg_dir.exists() and pkg_dir.is_dir():
-                del_lst.append(pkg_dir)
-            for p in del_lst:
-                shutil.rmtree(p)
-        else:
-            cmd = f"{sys.executable} -m pip uninstall -v -y {name}"
-            ret = cls.run_build_cmd(cmd=cmd, check=True)
-            ret.check_returncode()
-        logging.info("Success uninstall %s package%s", name, f" from {path}" if path else "")
-
-    @classmethod
     def check_pip_dependencies(cls, deps: Dict[str, str], raise_err: bool = False, log_err: bool = True) -> bool:
         info_lst = []
         for pkg, ver in deps.items():
@@ -999,6 +930,60 @@ class BuildCtrl(CMakeParam):
             info_lst.append(f"package {pkg} check fail {e}")
         return info_lst
 
+    def run_build_cmd(self, cmd: str, update_env: Optional[Dict[str, str]] = None,
+                      check: bool = False, pg_desc: str = "CMake") -> Tuple[subprocess.CompletedProcess, str]:
+        """执行具体 build 命令行
+
+        因以下原因, 设置本函数, 而非调用原生 subprocess.run
+            1. 支持多 target 构建, 各 target 构建时长共享公共 timeout 配置;
+            2. UTest/STest 并行执行场景下, 执行时进程调用关系为:
+                   build_ci.py(主进程) -> 进程1(CMake) -> 进程2(CMake Generator, make/ninja) -> 进程3(Python)-> 进程4(exe)
+               此时若 进程1 超时, 需要触发其子/孙进程感知, 进而结束
+
+        本函数内支持 timeout 重计算, 仅执行成功时会进行重计算
+
+        :param cmd: Build 命令行
+        :param update_env: 环境变量(额外更新内容)
+        :param check: 检查返回值
+        :param pg_desc: Process Group Desc, 进程组描述
+        """
+
+        def _stop_pg(_msg: str, _p: subprocess.Popen):
+            """通过 SIGINT 信号通知所有子/孙进程结束, python 并行脚本内会捕获该信号进行结算处理
+            """
+            _pgid = os.getpgid(_p.pid)
+            logging.info("%s. Send terminate event to %s[%s]", _msg, pg_desc, _pgid)
+            os.killpg(_pgid, signal.SIGINT)
+
+        ts = datetime.now(tz=timezone.utc)
+        stdout = None
+        stderr = None
+        env = os.environ.copy()
+        env.update(update_env if update_env else {})
+        with subprocess.Popen(shlex.split(cmd), env=env, text=True, encoding='utf-8',
+                              start_new_session=True) as process:
+            try:
+                stdout, stderr = process.communicate(timeout=self.build.timeout)
+            except subprocess.TimeoutExpired:
+                _stop_pg(_msg="Timeout", _p=process)
+                raise
+            except KeyboardInterrupt:
+                # 一般为用户主动触发, 不需再上报错误
+                _stop_pg(_msg="KeyboardInterrupt", _p=process)
+            except Exception:
+                process.kill()
+                raise
+            finally:
+                stdout = stdout or ""
+                stderr = stderr or ""
+            ret_code = process.poll()
+            if check and ret_code:
+                raise subprocess.CalledProcessError(ret_code, process.args, output=stdout, stderr=stderr)
+        # 超时时长更新
+        duration, duration_str = self._duration(ts=ts)
+        self.build.timeout = self.build.timeout - duration if self.build.timeout else self.build.timeout
+        return subprocess.CompletedProcess(process.args, ret_code, stdout, stderr), duration_str
+
     def get_cfg_cmd(self, ext: Optional[Any] = None) -> str:
         cmd = self._cfg_require(opt=f"PYPTO_THIRD_PARTY_PATH", ctr=bool(self.third_party_path),
                                 tv=f"{self.third_party_path}")
@@ -1017,17 +1002,34 @@ class BuildCtrl(CMakeParam):
         :param whl: 包文件
         :param dest: 安装路径(可选), 未指定时会安装在默认路径
         :param opt: 额外安装参数
-        :param update_env:
+        :param update_env: 环境变量(额外更新内容)
         """
-        ts = datetime.now(tz=timezone.utc)
         edit_str = "-e " if self.feature.whl_editable else ""
         cmd = f"{sys.executable} -m pip install {edit_str}" + f"{whl} {opt}" + (" -vvv " if self.verbose else "")
         cmd += f" --target={dest}" if dest else ""
         logging.info("Begin install %s, cmd: %s", whl, cmd)
-        ret = self.run_build_cmd(cmd=cmd, check=True, update_env=update_env)
+        ret, duration = self.run_build_cmd(cmd=cmd, check=True, update_env=update_env, pg_desc="pip")
         ret.check_returncode()
-        duration = int((datetime.now(tz=timezone.utc) - ts).seconds)
         logging.info("Success install %s%s, Duration %s sec", whl, f" to {dest}" if dest else "", duration)
+
+    def pip_uninstall(self, name: str, path: Optional[Path] = None):
+        """卸载对应 whl 包
+
+        :param name: 包名
+        :param path: 指定安装路径(可选), 如果指定对应路径, 仅会在对应路径尝试卸载
+        """
+        if path:
+            del_lst = [Path(f) for f in path.glob(pattern=f"{name}-*.dist-info")]
+            pkg_dir = Path(path, name)
+            if pkg_dir.exists() and pkg_dir.is_dir():
+                del_lst.append(pkg_dir)
+            for p in del_lst:
+                shutil.rmtree(p)
+        else:
+            cmd = f"{sys.executable} -m pip uninstall -v -y {name}"
+            ret, _ = self.run_build_cmd(cmd=cmd, check=True, pg_desc="pip")
+            ret.check_returncode()
+        logging.info("Success uninstall %s package%s", name, f" from {path}" if path else "")
 
     def cmake_clean(self):
         """清理中间结果, 清理内容包括构建树, 安装树全部内容.
@@ -1084,7 +1086,7 @@ class BuildCtrl(CMakeParam):
         # 执行
         update_env = self.get_cfg_update_env()
         logging.info("CMake Configure, Cmd: %s", cmd)
-        ret = self.run_build_cmd(cmd=cmd, update_env=update_env, check=True)
+        ret, _ = self.run_build_cmd(cmd=cmd, update_env=update_env, check=True)
         ret.check_returncode()
 
     def cmake_build(self):
@@ -1098,11 +1100,10 @@ class BuildCtrl(CMakeParam):
             update_env["PYPTO_UTEST_PARALLEL_NUM"] = str(self.build.job_num)
         cmd_list = self.build.get_build_cmd_lst(cmake=self.cmake, binary_path=self.build_root)
         for i, c in enumerate(cmd_list, start=1):
-            ts = datetime.now(tz=timezone.utc)
             c += " --verbose" if self.verbose else ""
             logging.info("CMake Build(%s/%s), Cmd: %s", i, len(cmd_list), c)
             try:
-                ret = self.run_build_cmd(cmd=c, update_env=update_env, check=True, timeout=self.build.timeout)
+                ret, duration = self.run_build_cmd(cmd=c, update_env=update_env, check=True)
             except subprocess.CalledProcessError as e:
                 logging.info(f"Run cmd {c} failed, ERROR CODE: {e.returncode}")
                 # 一键绘图
@@ -1110,11 +1111,7 @@ class BuildCtrl(CMakeParam):
                     wf.work_flow_plot(self.build_root, self.model.prof, self.model.pe)
                 raise
             ret.check_returncode()
-            duration = int((datetime.now(tz=timezone.utc) - ts).seconds)
-            duration_str = f"{duration}/{self.build.timeout}" if self.build.timeout else f"{duration}"
-            logging.info("CMake Build(%s/%s), Cmd: %s, Duration %s sec", i, len(cmd_list), c, duration_str)
-            # 超时时长更新, 当指定多 target 时, 各 target 共享总超时时长
-            self.build.timeout = self.build.timeout - duration if self.build.timeout else self.build.timeout
+            logging.info("CMake Build(%s/%s), Cmd: %s, Duration %s sec", i, len(cmd_list), c, duration)
         # 一键绘图
         if self.model.prof == 1 or self.model.prof == 2:
             wf.work_flow_plot(self.build_root, self.model.prof, self.model.pe)
@@ -1154,13 +1151,10 @@ class BuildCtrl(CMakeParam):
             cmd = f"{sys.executable} -m build --outdir={self.install_root}"
             cmd += f" --no-isolation" if not self.feature.whl_isolation else ""
             cmd += f" {self._get_setuptools_bdist_wheel_config_setting()}"
-            ts = datetime.now(tz=timezone.utc)
             logging.info("Begin Build whl, Cmd: %s", cmd)
-            ret = self.run_build_cmd(cmd=cmd, update_env=update_env, check=True, timeout=self.build.timeout)
+            ret, duration = self.run_build_cmd(cmd=cmd, update_env=update_env, check=True, pg_desc="build")
             ret.check_returncode()
-            duration = int((datetime.now(tz=timezone.utc) - ts).seconds)
-            duration_str = f"{duration}/{self.build.timeout}" if self.build.timeout else f"{duration}"
-            logging.info("Success Build whl, Cmd: %s, Duration %s sec", cmd, duration_str)
+            logging.info("Success Build whl, Cmd: %s, Duration %s sec", cmd, duration)
 
     def py_tests(self):
         if not self.tests.utest.enable and not self.tests.stest.enable and not self.tests.example.enable:
@@ -1223,11 +1217,9 @@ class BuildCtrl(CMakeParam):
             ori_env_python_path = origin_env.get(self._PYTHONPATH, "")
             act_env_python_path = f"{dist}:{ori_env_python_path}" if ori_env_python_path else f"{dist}"
             update_env.update({self._PYTHONPATH: act_env_python_path})
-        ts = datetime.now(tz=timezone.utc)
         logging.info("pytest run, Cmd: %s", cmd)
-        ret = self.run_build_cmd(cmd=cmd, check=True, update_env=update_env)
+        ret, duration = self.run_build_cmd(cmd=cmd, check=True, update_env=update_env, pg_desc="pytest")
         ret.check_returncode()
-        duration = int((datetime.now(tz=timezone.utc) - ts).seconds)
         logging.info("pytest run, Cmd: %s, Duration %s sec", cmd, duration)
 
     def _tests_enable(self) -> bool:
@@ -1261,6 +1253,10 @@ class BuildCtrl(CMakeParam):
             cmd += f" build_ext {ext}"
         cmd = f" --config-setting=--build-option='{cmd}'"
         return cmd
+
+    def _duration(self, ts: datetime) -> Tuple[int, str]:
+        duration = int((datetime.now(tz=timezone.utc) - ts).seconds)
+        return duration, f"{duration}/{self.build.timeout}" if self.build.timeout else f"{duration}"
 
 
 class SubCommandMgr:
