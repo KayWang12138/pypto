@@ -193,9 +193,8 @@ void AssignMemoryType::ProcessViewwithSpecificMem(Operation &operation) {
         }
     }
 }
-// 适配L0C2L1
+// 适配L0C2L1: assemble的输入来源时l0c且输出预期l1时，不再插convert而是assemble后续转为l0c2l1
 void AssignMemoryType::ProcessAssemblewithSpecificMem(Operation &operation) {
-    // 当assemble的input的original是L0C，output的consumer都是op_view且toAttr为L1时，将assemble的output的MemoryType刷为L1
     auto input =operation.iOperand.front();
     auto output =operation.oOperand.front();
     if (input->GetMemoryTypeOriginal() != MemoryType::MEM_L0C) {
@@ -203,13 +202,13 @@ void AssignMemoryType::ProcessAssemblewithSpecificMem(Operation &operation) {
     }
     for (auto &consumerOp : output->GetConsumers()) {
         auto consumerOpAttribute = dynamic_cast<ViewOpAttribute *>(consumerOp->GetOpAttribute().get());
+        // 大包搬运场景：assemble后接view且view的toAttr为L1
+        // 非大包搬运场景：assemble后的op预期输入为L1
         if (consumerOpAttribute != nullptr) {
-            // 后接view但非大包搬运
             if (consumerOpAttribute->GetTo() != MemoryType::MEM_L1) {
                 return;
             }
         } else {
-            // 后不接view(非大包搬运)且consumerOp不要求L1输入
             const auto &inputsMemType = OpcodeManager::Inst().GetInputsMemType(consumerOp->GetOpcode());
             if (!inputsMemType.empty() && inputsMemType[0] != MemoryType::MEM_L1) {
                 return;
@@ -221,6 +220,8 @@ void AssignMemoryType::ProcessAssemblewithSpecificMem(Operation &operation) {
     for(const auto &consumerOp : output->GetConsumers()) {
         inserter.UpdateTensorTobeMap(output, *consumerOp,MemoryType::MEM_L1);
     }
+    APASS_LOG_DEBUG_F(Elements::Operation, "Set assemble Op[%d]'s input[%d] tobeMap as MEM_L0C and output[%d] origin and tobeMap as MEM_L1.".
+        operation.GetOpMagic(), input->magic, output->magic);
 }
 
 void AssignMemoryType::AssignMemtypeForSplitReshape(Operation &op, const LogicalTensorPtr &input, const LogicalTensorPtr &output) {

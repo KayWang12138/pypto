@@ -104,9 +104,13 @@ Status GenerateMoveOp::CreateMoveOpForView(Function &function, Operation &op) co
         Status status = SetOpcodeByMemPath(op,from,to);
         if(op.GetOpcode() == Opcode::OP_UB_COPY_L1) {
             ProcessUB2L1(function, op);
-        } 
+        }
         if(status != SUCCESS) {return status;}
-        SetCopyAttr(op,viewOpAttribute);
+        if(op.GetOpcode() == Opcode::OP_L0C_TO_L1) {
+            SetL0C2L1CopyAttr(op, op.GetOOperands()[0]->GetShape(), OpImmediate::Specified(viewOpAttribute->GetFromTensorOffset()), OpImmediate::Specified(ZERO_OFFSET));
+        } else {
+            SetCopyAttr(op,viewOpAttribute);
+        }
     }
     return SUCCESS;
 }
@@ -118,33 +122,25 @@ void GenerateMoveOp::SetCopyAttr(Operation &op,ViewOpAttribute *viewOpAttribute)
         OpImmediate::Specified(viewOpAttribute->GetToDynValidShape())
     );
     op.GetOOperands()[0]->UpdateDynValidShape(viewOpAttribute->GetToDynValidShape());
-    if (op.iOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_L0C && op.oOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
-        copyAttr->SetToOffset(OpImmediate::Specified({0, 0}));
-        std::vector<SymbolicScalar> validShape;
-        for (auto dim : op.GetOOperands()[0]->GetShape()) {
-            SymbolicScalar scal = SymbolicScalar(dim);
-            validShape.push_back(scal);
-        }
-        copyAttr->SetToDynValidShape(OpImmediate::Specified(validShape));
-    }
     op.SetOpAttribute(copyAttr);
 }
 
-void GenerateMoveOp::SetCopyAttr(Operation &op) const {
+void GenerateMoveOp::SetL0C2L1CopyAttr(Operation &op, const Shape realShape, std::vector<OpImmediate> fromOffset, std::vector<OpImmediate> toOffset) const {
     std::vector<SymbolicScalar> validShape;
-    for (auto dim : op.GetOOperands()[0]->GetShape()) {
+    for (auto dim : realShape) {
         SymbolicScalar scal = SymbolicScalar(dim);
         validShape.push_back(scal);
     }
     auto copyAttr = std::make_shared<CopyOpAttribute>(
-        OpImmediate::Specified({0, 0}),
-        op.oOperand.front()->GetMemoryTypeOriginal(), OpImmediate::Specified(op.oOperand.front()->shape),
+        fromOffset,
+        op.oOperand.front()->GetMemoryTypeOriginal(),
+        OpImmediate::Specified(realShape),
         OpImmediate::Specified(op.iOperand.front()->tensor->GetDynRawShape()),
         OpImmediate::Specified(validShape)
     );
-    copyAttr->SetToOffset(OpImmediate::Specified({0, 0}));
+    copyAttr->SetToOffset(toOffset);
     op.SetOpAttribute(copyAttr);
-}
+} 
 
 Status GenerateMoveOp::SetOpcodeByMemPath(Operation &op,MemoryType from,MemoryType to) const {
     std::pair<MemoryType,MemoryType> memPathPair = {from,to};
@@ -170,19 +166,7 @@ void GenerateMoveOp::CreateMoveOpForAssemble(Operation &op) const {
     auto outputMemtype = op.oOperand.front()->GetMemoryTypeOriginal();
     if (inputMemtype == MemoryType::MEM_L0C && outputMemtype == MemoryType::MEM_L1) {
         SetOpcodeByMemPath(op, inputMemtype, outputMemtype);
-        std::vector<SymbolicScalar> validShape;
-        for (auto dim : op.GetIOperands()[0]->GetShape()) {
-            SymbolicScalar scal = SymbolicScalar(dim);
-            validShape.push_back(scal);
-        }
-        auto copyAttr = std::make_shared<CopyOpAttribute>(ASSEMBLE_in->GetMemoryTypeOriginal(),
-            OpImmediate::Specified(assembleOpAttribute->GetToTensorOffset()),
-            OpImmediate::Specified(op.iOperand.front()->shape),
-            OpImmediate::Specified(op.oOperand.front()->tensor->GetDynRawShape()),
-            OpImmediate::Specified(validShape));
-        copyAttr->SetFromOffset(OpImmediate::Specified({0, 0}));
-        copyAttr->SetToDynValidShape(OpImmediate::Specified(validShape));
-        op.SetOpAttribute(copyAttr);
+        SetL0C2L1CopyAttr(op, op.GetIOperands()[0]->GetShape(), OpImmediate::Specified(ZERO_OFFSET), OpImmediate::Specified(assembleOpAttribute->GetToTensorOffset()));
         return;
     }
     if (inputMemtype == MemoryType::MEM_DEVICE_DDR || outputMemtype != MemoryType::MEM_DEVICE_DDR ||
@@ -208,7 +192,7 @@ Status GenerateMoveOp::CreateMoveOpForConvert(Function &function, Operation &op)
         ProcessUB2L1(function, op);
     }
     if (op.GetOpcode() == Opcode::OP_L0C_TO_L1) {
-        SetCopyAttr(op);
+        SetL0C2L1CopyAttr(op, op.GetOOperands()[0]->GetShape(), OpImmediate::Specified(ZERO_OFFSET), OpImmediate::Specified(ZERO_OFFSET));
     }
     if(status != SUCCESS) {return status;}
     auto childOp = *op.oOperand.front()->GetConsumers().begin();

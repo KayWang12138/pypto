@@ -42,6 +42,7 @@ const std::map<std::pair<MemoryType, MemoryType>,Opcode> platformPathMap = {
     {{MEM_L0C, MEM_UB},Opcode::OP_L0C_COPY_UB},
     {{MEM_UB, MEM_L1},Opcode::OP_UB_COPY_L1},
 };
+const Offset ZERO_OFFSET = {0, 0};
 
 class GenerateMoveOp : public Pass {
 public:
@@ -53,7 +54,7 @@ private:
     Status RunOnFunction(Function &function) override;
     Status CreateMoveOp(Function &function) const;
     void SetCopyAttr(Operation &op,ViewOpAttribute *viewOpAttribute) const;
-    void SetCopyAttr(Operation &op) const;
+    void SetL0C2L1CopyAttr(Operation &op, const Shape realShape, std::vector<OpImmediate> fromOffset, std::vector<OpImmediate> toOffset) const;
     Status SetOpcodeByMemPath(Operation &op,MemoryType from,MemoryType to) const;
     bool HasSpecificConsumer(const Operation &op) const;
     void ConvertViewToCopyInWhenInputGm(Operation &op, ViewOpAttribute *viewOpAttribute) const;
