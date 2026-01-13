@@ -22,24 +22,48 @@
 
 namespace npu::tile_fwk::Distributed {
 
-void TestShmemMoeDispatch(OpTestParam &testParam)
+struct MoeDispatchTestConfig {
+    DataType inDtype;
+    DataType outDtype;
+    int32_t batchSize;
+    int32_t hiddenSize;
+    int32_t routedNum;
+    int32_t topK;
+};
+
+MoeDispatchTestConfig ParseMoeDispatchConfig(const nlohmann::json& testData)
 {
-    constexpr size_t paramsSize = 5;
-    auto [batchSize, hiddenSize, routedNum, topK, typeNum] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
-    DataType dType = GetDataTypeNum(typeNum);
-    int32_t totalExpertNum = routedNum;
+    MoeDispatchTestConfig caseInfo;
+    auto inTensor = testData["input_tensors"][0];
+    auto outTensor = testData["output_tensors"][0];
+    caseInfo.inDtype = GetDataTypeNum(GetDtypeNum(inTensor["dtype"].get<std::string>()));
+    caseInfo.outDtype = GetDataTypeNum(GetDtypeNum(outTensor["dtype"].get<std::string>()));
+    auto params = testData["params"];
+    caseInfo.batchSize = params["batch_size"].get<int32_t>();
+    caseInfo.hiddenSize = params["hidden_size"].get<int32_t>();
+    caseInfo.routedNum = params["routed_expert_num"].get<int32_t>();
+    caseInfo.topK = params["top_k"].get<int32_t>();
+    return caseInfo;
+}
+
+void TestShmemMoeDispatch(OpTestParam &testParam, const nlohmann::json& testData)
+{
+    std::string goldenDir = GetGoldenDirPath(testData);
+    auto caseInfo = ParseMoeDispatchConfig(testData);
+
+    int32_t totalExpertNum = caseInfo.routedNum;
     int32_t expertNumPerRank = totalExpertNum / testParam.rankSize;
-    Shape tokenTensorShape{batchSize, hiddenSize};
-    Shape tokenExpertTableShape{batchSize, topK};
-    int32_t expandXRowShape = std::min(static_cast<int32_t>(batchSize) *
-        static_cast<int32_t>(topK) * testParam.rankSize, static_cast<int32_t>(batchSize) * totalExpertNum);
-    Shape expandXShape{expandXRowShape, hiddenSize};
+    Shape tokenTensorShape{caseInfo.batchSize, caseInfo.hiddenSize};
+    Shape tokenExpertTableShape{caseInfo.batchSize, caseInfo.topK};
+    int32_t expandXRowShape = std::min(static_cast<int32_t>(caseInfo.batchSize) * 
+        static_cast<int32_t>(caseInfo.topK) * testParam.rankSize, static_cast<int32_t>(caseInfo.batchSize) * totalExpertNum);
+    Shape expandXShape{expandXRowShape, caseInfo.hiddenSize};
     Shape validCntShape{expertNumPerRank};
     Shape combineInfoShape{expandXRowShape, 3};
-    Tensor tokenTensor(dType, tokenTensorShape, "tokenTensor");
+    Tensor tokenTensor(caseInfo.inDtype, tokenTensorShape, "tokenTensor");
     Tensor tokenExpertTable(DataType::DT_INT32, tokenExpertTableShape, "tokenExpertTable");
     Tensor validCnt(DataType::DT_INT32, validCntShape, "validCnt");
-    Tensor expandX(dType, expandXShape, "expandX");
+    Tensor expandX(caseInfo.inDtype, expandXShape, "expandX");
     Tensor combineInfo(DataType::DT_INT32, combineInfoShape, "combineInfo");
     int64_t expandXEleNum = expandXShape[0] * expandXShape[1];
     int64_t validCntEleNum = validCntShape[0];
@@ -47,12 +71,12 @@ void TestShmemMoeDispatch(OpTestParam &testParam)
 
     using T = npu::tile_fwk::bfloat16;
 
-    std::string xPath = GetGoldenDir() + "/x_rank_" + std::to_string(testParam.rankId) + ".bin";
+    std::string xPath = goldenDir + "/x_rank_" + std::to_string(testParam.rankId) + ".bin";
     std::vector<T> tokenTensorPtr = ReadToVector<T>(xPath, tokenTensorShape);
-    std::string expertIdsPath = GetGoldenDir() + "/expert_ids_rank_" + std::to_string(testParam.rankId) + ".bin";
+    std::string expertIdsPath = goldenDir + "/expert_ids_rank_" + std::to_string(testParam.rankId) + ".bin";
     std::vector<int32_t> tokenExpertTablePtr = ReadToVector<int32_t>(expertIdsPath, tokenExpertTableShape);
 
-    MoeConfig moeConfig{routedNum, expertNumPerRank, testParam.rankSize};
+    MoeConfig moeConfig{caseInfo.routedNum, expertNumPerRank, testParam.rankSize};
     FUNCTION("MoeDispatch", {tokenTensor, tokenExpertTable}, {expandX, validCnt, combineInfo}) {
         Distributed::MoeDispatch(tokenTensor, tokenExpertTable, expandX, validCnt, combineInfo, testParam.group, moeConfig);
     }
@@ -72,11 +96,11 @@ void TestShmemMoeDispatch(OpTestParam &testParam)
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), config);
 
     auto expandXOutPut = ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(CompareWithGolden<uint8_t *>(dType, "/y_rank_", expandXEleNum, expandXOutPut->GetDevPtr(), testParam));
+    EXPECT_TRUE(CompareWithGolden<uint8_t *>(caseInfo.inDtype, goldenDir + "/y_rank_", expandXEleNum, expandXOutPut->GetDevPtr(), testParam));
     auto validCntOutPut = ProgramData::GetInstance().GetOutputData(1);
-    EXPECT_TRUE(CompareWithGolden<uint8_t *>(DataType::DT_INT32, "/valid_count_rank_", validCntEleNum, validCntOutPut->GetDevPtr(), testParam));
+    EXPECT_TRUE(CompareWithGolden<uint8_t *>(DataType::DT_INT32, goldenDir + "/valid_count_rank_", validCntEleNum, validCntOutPut->GetDevPtr(), testParam));
     auto combineInfoOutPut = ProgramData::GetInstance().GetOutputData(2);
-    EXPECT_TRUE(CompareWithGolden<uint8_t *>(DataType::DT_INT32, "/combine_info_rank_", combineInfoEleNum, combineInfoOutPut->GetDevPtr(), testParam));
+    EXPECT_TRUE(CompareWithGolden<uint8_t *>(DataType::DT_INT32, goldenDir + "/combine_info_rank_", combineInfoEleNum, combineInfoOutPut->GetDevPtr(), testParam));
 }
 
 } // namespace npu::tile_fwk::Distributed

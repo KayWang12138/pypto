@@ -23,21 +23,49 @@
 namespace npu::tile_fwk {
 namespace Distributed {
 
-template<typename T>
-void TestAllReduce(OpTestParam& testParam)
-{
-    constexpr size_t paramsSize = 6;
-    auto [row, col, typeNum, tileRow, tileCol, useTwoShot] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
-    DataType dType = GetDataTypeNum(typeNum);
+struct AllReduceTestConfig {
+    DataType inDtype;
+    DataType outDtype;
+    TileOpFormat inFormat;
+    TileOpFormat outFormat;
+    Shape inShape;
+    Shape outShape;
+    Shape tileShape;
+    bool useTwoShot;
+};
 
+AllReduceTestConfig ParseAllReduceConfig(const nlohmann::json& testData)
+{
+    AllReduceTestConfig caseInfo;
+    auto inTensor = testData["input_tensors"][0];
+    auto outTensor = testData["output_tensors"][0];
+    caseInfo.inShape = inTensor["shape"].get<Shape>();
+    caseInfo.outShape = outTensor["shape"].get<Shape>();
+    caseInfo.inDtype = GetDataTypeNum(GetDtypeNum(inTensor["dtype"].get<std::string>()));
+    caseInfo.outDtype = GetDataTypeNum(GetDtypeNum(outTensor["dtype"].get<std::string>()));
+    caseInfo.inFormat = StringToTileOpFormat(inTensor["format"].get<std::string>());
+    caseInfo.outFormat = StringToTileOpFormat(outTensor["format"].get<std::string>());
+    caseInfo.tileShape = testData["tile_shape"].get<Shape>();
+    auto params = testData["params"];
+    caseInfo.useTwoShot = params["use_two_shot"].get<bool>();
+    return caseInfo;
+}
+
+template<typename T>
+void TestAllReduce(OpTestParam &testParam, const nlohmann::json& testData)
+{
+    std::string goldenDir = GetGoldenDirPath(testData);
+    auto caseInfo = ParseAllReduceConfig(testData);
+
+    int32_t row = caseInfo.inShape[0];
+    int32_t col = caseInfo.inShape[1];
     int32_t outSize = row * col;
 
-    Shape shape{row, col};
-    Tensor in(dType, shape, "in");
-    Tensor out(dType, shape, "out");
+    Tensor in(caseInfo.inDtype, caseInfo.inShape, "in", caseInfo.inFormat);
+    Tensor out(caseInfo.outDtype, caseInfo.outShape, "out", caseInfo.outFormat);
 
     std::vector<T> inPtr = ReadToVector<T>(
-        GetGoldenDir() + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", {row, col});
+        goldenDir + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", caseInfo.inShape);
 
     ProgramData::GetInstance().AppendInputs({
         RawTensorData::CreateTensor<T>(in, inPtr),
@@ -47,13 +75,13 @@ void TestAllReduce(OpTestParam& testParam)
     });
     int32_t rowPerRank = row;
     Shape shmemDataShape{1, rowPerRank, col};
-    if (useTwoShot) {
+    if (caseInfo.useTwoShot) {
         ASSERT(testParam.rankSize > 0) << "testParam.rankSize must be > 0, but got: " << testParam.rankSize;
         rowPerRank /= testParam.rankSize;
         shmemDataShape = {testParam.rankSize, rowPerRank, col};
     }
     FUNCTION("ALLREDUCE", {in}, {out}) {
-        TileShape::Current().SetVecTile({tileRow, tileCol});
+        TileShape::Current().SetVecTile(caseInfo.tileShape);
         Tensor shmemData;
         Tensor shmemSignal;
         DataType shmemDataType = in.GetDataType();
@@ -65,7 +93,7 @@ void TestAllReduce(OpTestParam& testParam)
             CreateShmemData(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemData);
             CreateShmemSignal(testParam.group, shmemData, shmemSignal);
         }
-        if (useTwoShot) {
+        if (caseInfo.useTwoShot) {
             TwoShotAllReduce(in, in, testParam.group, shmemData, shmemSignal, out);
         } else {
             OneShotAllReduce(in, in, testParam.group, shmemData, shmemSignal, out);
@@ -73,13 +101,11 @@ void TestAllReduce(OpTestParam& testParam)
     }
     RunTest();
     auto output = ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, "/output_rank_", outSize, output->GetDevPtr(), testParam));
-
+    EXPECT_TRUE(CompareWithGolden<uint8_t*>(caseInfo.outDtype, goldenDir + "/output_rank_", outSize, output->GetDevPtr(), testParam));
 }
-
-template void TestAllReduce<int32_t>(OpTestParam& testParam);
-template void TestAllReduce<float>(OpTestParam& testParam);
-template void TestAllReduce<float16>(OpTestParam& testParam);
-template void TestAllReduce<bfloat16>(OpTestParam& testParam);
+template void TestAllReduce<int32_t>(OpTestParam &testParam, const nlohmann::json& testData);
+template void TestAllReduce<float>(OpTestParam &testParam, const nlohmann::json& testData);
+template void TestAllReduce<float16>(OpTestParam &testParam, const nlohmann::json& testData);
+template void TestAllReduce<bfloat16>(OpTestParam &testParam, const nlohmann::json& testData);
 } // namespace Distributed 
 } // namespace npu::tile_fwk

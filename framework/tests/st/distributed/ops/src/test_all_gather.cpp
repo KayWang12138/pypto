@@ -23,31 +23,53 @@
 namespace npu::tile_fwk {
 namespace Distributed {
 
-template<typename T>
-void TestAllGather(OpTestParam& testParam)
+struct AllGatherTestConfig {
+    DataType inDtype;
+    DataType outDtype;
+    TileOpFormat inFormat;
+    TileOpFormat outFormat;
+    Shape inShape;
+    Shape outShape;
+    Shape tileShape;
+};
+
+AllGatherTestConfig ParseAllGatherConfig(const nlohmann::json& testData)
 {
-    constexpr size_t paramsSize = 5;
-    auto [row, col, typeNum, tileRow, tileCol] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
+    AllGatherTestConfig caseInfo;
+    auto inTensor = testData["input_tensors"][0];
+    auto outTensor = testData["output_tensors"][0];
+    caseInfo.inShape = inTensor["shape"].get<Shape>();
+    caseInfo.outShape = outTensor["shape"].get<Shape>();
+    caseInfo.inDtype = GetDataTypeNum(GetDtypeNum(inTensor["dtype"].get<std::string>()));
+    caseInfo.outDtype = GetDataTypeNum(GetDtypeNum(outTensor["dtype"].get<std::string>()));
+    caseInfo.inFormat = StringToTileOpFormat(inTensor["format"].get<std::string>());
+    caseInfo.outFormat = StringToTileOpFormat(outTensor["format"].get<std::string>());
+    caseInfo.tileShape = testData["tile_shape"].get<Shape>();
+    return caseInfo;
+}
 
-    DataType dType = GetDataTypeNum(typeNum);
-
+template<typename T>
+void TestAllGather(OpTestParam &testParam, const nlohmann::json& testData)
+{
+    std::string goldenDir = GetGoldenDirPath(testData);
+    auto caseInfo = ParseAllGatherConfig(testData);
+    int32_t row = caseInfo.inShape[0];
+    int32_t col = caseInfo.inShape[1];
     int32_t outSize = row * col * testParam.rankSize;
 
-    Shape shape{row, col};
-    Shape outShape{testParam.rankSize * row, col};
-    Tensor in(dType, shape, "in");
-    Tensor out(dType, outShape, "out");
+    Tensor in(caseInfo.inDtype, caseInfo.inShape, "in", caseInfo.inFormat);
+    Tensor out(caseInfo.outDtype, caseInfo.outShape, "out", caseInfo.outFormat);
 
-    std::vector<T> inPtr = ReadToVector<T>(GetGoldenDir() + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", shape);
+    std::vector<T> inPtr = ReadToVector<T>(goldenDir + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", caseInfo.inShape);
     
     Shape shmemDataShape{testParam.rankSize, row, col};
     FUNCTION("ALLGATHER", {in}, {out}) {
-        TileShape::Current().SetVecTile({tileRow, tileCol});
+        TileShape::Current().SetVecTile(caseInfo.tileShape);
         Tensor shmemData;
         Tensor shmemSignal;
         LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
             (void)index;
-            CreateShmemData(testParam.group, testParam.rankSize, dType, shmemDataShape, shmemData);
+            CreateShmemData(testParam.group, testParam.rankSize, caseInfo.inDtype, shmemDataShape, shmemData);
             CreateShmemSignal(testParam.group, shmemData, shmemSignal);
         }
         AllGather(in, in, testParam.group, shmemData, shmemSignal, out);
@@ -62,14 +84,12 @@ void TestAllGather(OpTestParam& testParam)
 
     RunTest();
     auto outPtr = ProgramData::GetInstance().GetOutputData(0)->GetDevPtr();
-    EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, "/output_rank_", outSize, outPtr, testParam));
-
+    EXPECT_TRUE(CompareWithGolden<uint8_t*>(caseInfo.outDtype, goldenDir + "/output_rank_", outSize, outPtr, testParam));
 }
-
-template void TestAllGather<int32_t>(OpTestParam& testParam);
-template void TestAllGather<float>(OpTestParam& testParam);
-template void TestAllGather<float16>(OpTestParam& testParam);
-template void TestAllGather<bfloat16>(OpTestParam& testParam);
+template void TestAllGather<int32_t>(OpTestParam &testParam, const nlohmann::json& testData);
+template void TestAllGather<float>(OpTestParam &testParam, const nlohmann::json& testData);
+template void TestAllGather<float16>(OpTestParam &testParam, const nlohmann::json& testData);
+template void TestAllGather<bfloat16>(OpTestParam &testParam, const nlohmann::json& testData);
 
 } // namespace Distributed
 } // namespace npu::tile_fwk
