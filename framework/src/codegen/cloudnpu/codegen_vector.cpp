@@ -1782,4 +1782,23 @@ std::string CodeGenOpCloudNPU::GenTopKExtractOp() const {
     os << tileOpName.c_str() << "<" << templateParam << ">" << "(" << tileOpParam << ");\n";
     return os.str();
 }
+
+std::string CodeGenOpCloudNPU::PrintBitwiseShiftTensor() const {
+    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::DST_IDX));
+    std::string tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::TMP_IDX));
+    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::SRC0_IDX));
+    std::string src1Tensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::SRC1_IDX));
+    std::vector<std::string> paramList = {dstTensor, srcTensor, src1Tensor, tmpTensor};
+    std::ostringstream oss;
+    oss << tileOpName;
+    oss << WrapParamByParentheses(paramList) << ";\n";
+    return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::GenBitwiseShiftOp() const {
+    ASSERT(isSupportLayout) << "Bitwiseshift only support tile tensor";
+    if (isSupportLayout) {
+        return PrintBitwiseShiftTensor();
+    }
+}
 } // namespace npu::tile_fwk

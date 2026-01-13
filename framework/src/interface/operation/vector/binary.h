@@ -21,6 +21,7 @@
 #include "interface/function/function.h"
 #include "interface/program/program.h"
 #include "interface/configs/config_manager.h"
+#include "tensor_transformation.h"
 
 namespace npu::tile_fwk {
 
@@ -47,6 +48,8 @@ enum class BinaryOpType {
     MAXIMUM,
     MINIMUM,
     CMP,
+    BITWISERIGHTSHIFT,
+    BITWISELEFTSHIFT,
 };
 
 template <BinaryOpType T>
@@ -61,6 +64,8 @@ std::string GetBinaryOpName() {
         case BinaryOpType::MAXIMUM: return "MAXIMUM";
         case BinaryOpType::MINIMUM: return "MINIMUM";
         case BinaryOpType::POW: return "POW";
+        case BinaryOpType::BITWISERIGHTSHIFT: return "BITWISERIGHTSHIFT";
+        case BinaryOpType::BITWISELEFTSHIFT: return "BITWISELEFTSHIFT";
         default: ASSERT(false && "unknown binary op type"); return "";
     }
 }
@@ -77,6 +82,8 @@ Opcode GetBinaryOpNameCode() {
             CASE(DIV);
             CASE(MAX);
             CASE(MIN);
+            CASE(BITWISERIGHTSHIFT);
+            CASE(BITWISELEFTSHIFT);
             CASE(S_ADD);
             CASE(S_SUB);
             CASE(S_MUL);
@@ -110,6 +117,8 @@ Opcode GetBinaryOpNameCode() {
         CASE(SUB);
         CASE(MUL);
         CASE(DIV);
+        CASE(BITWISERIGHTSHIFT);
+        CASE(BITWISELEFTSHIFT);
         CASE(S_ADD);
         CASE(S_SUB);
         CASE(S_MUL);
