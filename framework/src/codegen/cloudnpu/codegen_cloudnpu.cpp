@@ -555,6 +555,7 @@ std::pair<int, std::string> CodeGenCloudNPU::CompileCCE(
     ASSERT(ret == 0) << "CheckInjectStr failed. errCode = " << ret;
 
     ret = std::system(ccecCmd.c_str());
+    ALOG_ERROR("!!! ", ccecCmd);
     if (ret != 0) {
         ALOG_ERROR_F("CompileCce ccec failed %d: %s", ret, ccecCmd.c_str());
     }
