@@ -89,11 +89,17 @@ public:
                                             {ValueCast<Value>(output), ValueCast<Value>(TempTensor)}) {}
 };
 
-class LogicalAndTileBaseOp : public TileBaseOp {
+class ElementWiseBinaryWithTempTileBaseOp : public TileBaseOp {
 public:
-    LogicalAndTileBaseOp(Opcode opcode, TileValuePtr lhs, TileValuePtr rhs, ScalarValuePtr output, TileValuePtr TempTensor)
-        : TileBaseOp(opcode, {ValueCast<Value>(lhs), ValueCast<Value>(rhs)}, 
+    ElementWiseBinaryWithTempTileBaseOp(Opcode opcode, TileValuePtr lhs, TileValuePtr rhs, TileValuePtr output, TileValuePtr TempTensor)
+        : ElementWiseTileBaseOp(opcode, {ValueCast<Value>(lhs), ValueCast<Value>(rhs)}, 
                                         {ValueCast<Value>(output), ValueCast<Value>(TempTensor)}) {}
+};
+
+class ElementWiseUnaryWithTempTileBaseOp : public TileBaseOp {
+public:
+    ElementWiseUnaryWithTempTileBaseOp(Opcode opcode, TileValuePtr input, TileValuePtr output, TileValuePtr TempTensor)
+        : ElementWiseTileBaseOp(opcode, {ValueCast<Value>(input)}, {ValueCast<Value>(output), ValueCast<Value>(TempTensor)}) {}
 };
 
 class CastTileBaseOp : public TileBaseOp {

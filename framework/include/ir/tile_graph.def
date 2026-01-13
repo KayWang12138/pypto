@@ -49,8 +49,8 @@ DEF_OP(
 )
 
 DEF_OP(
-    LogicalNotOp,
-    INHERIT(LogicalNotTileBaseOp),
+    UnaryWithTempOp,
+    INHERIT(ElementWiseUnaryWithTempTileBaseOp),
     OPCODE(
         OP_LOGICALNOT
     ),
@@ -156,8 +156,8 @@ DEF_OP(
 )
 
 DEF_OP(
-    BinaryOp,
-    INHERIT(LogicalAndTileBaseOp),
+    BinaryWithTempOp,
+    INHERIT(ElementWiseBinaryWithTempTileBaseOp),
     OPCODE(
         OP_LOGICALAND
     ),
@@ -314,7 +314,8 @@ DEF_OP(
     INPUT(Tile, Input),
     OUTPUT(Tile, Output),
     OUTPUT(Tile, TempTensor),
-    ATTR(int, Axis)
+    ATTR(int, Axis),
+    ATTR(bool, excludeBufferReuse)
 )
 
 DEF_OP(
@@ -342,6 +343,7 @@ DEF_OP(
     ),
     INPUT(Tile, Input),
     OUTPUT(Tile, Output),
+    ATTR(bool, excludeBufferReuse)
 )
 
 DEF_OP(
