@@ -11,13 +11,18 @@
 """
 """
 import sys
+import enum
 from typing import List, Union, Dict, Optional
-from enum import IntEnum
 from functools import wraps
 
 from . import pypto_impl
 
 
+class CompStage(enum.Enum):
+    ALL = 0
+    CODEGEN = 1
+    HOST = 2
+    TENSOR = 3
 
 
 def set_print_options(*,
@@ -132,13 +137,13 @@ def get_pass_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]]]:
 
 
 
-def set_host_options(*, only_codegen: Optional[bool] = None) -> None:
+def set_host_options(*, compile_stage: Optional[CompStage] = None) -> None:
     """
     Set host options.
 
     Parameters
     ---------
-    only_codegen : bool
+    compile_stage : CompStage
         Shield the static on-board process.
     """
     options_dict = {k: v for k, v in locals().items() if v is not None}

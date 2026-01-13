@@ -712,7 +712,7 @@ def mla_prolog_quant_compute(
                 "cube_l1_reuse_mode": 4,
                 "cube_l1_reuse_setting": {3: 4},
                 "mg_copyin_upper_bound": 2 * 1024 * 1024},
-    host_options={"only_codegen": True}
+    host_options={"compile_stage": pypto.CompStage.CODEGEN}
 )
 def mla_prolog_quant_p(
     token_x: pypto.Tensor,
@@ -793,7 +793,7 @@ def mla_prolog_quant_p(
                 "cube_l1_reuse_mode": 4,
                 "cube_l1_reuse_setting": {3: 4},
                 "mg_copyin_upper_bound": 2 * 1024 * 1024},
-    host_options={"only_codegen": True}
+    host_options={"compile_stage": pypto.CompStage.CODEGEN}
 )
 def mla_prolog_quant_d(
     token_x: pypto.Tensor,
