@@ -194,7 +194,7 @@ void RescheduleUtils::FindOtherGraphOp(Operation *op, Function *funcPtr, std::un
 }
 
 void RescheduleUtils::ClearInputConsProd(Operation &op, Function *funcPtr, 
-    const std::unordered_set<LogicalTensorPtr> &incastSet) {
+    std::unordered_set<LogicalTensorPtr> incastSet) {
     for (auto &inOperand : op.GetIOperands()) {
         if (incastSet.count(inOperand) == 0) {
             std::unordered_set<Operation*> otherGraphOp;
@@ -218,7 +218,7 @@ void RescheduleUtils::ClearInputConsProd(Operation &op, Function *funcPtr,
 }
 
 void RescheduleUtils::ClearOutputConsProd(Operation &op, Function *funcPtr,
-    const std::unordered_set<LogicalTensorPtr> &outcastSet) {
+    std::unordered_set<LogicalTensorPtr> outcastSet) {
     for (auto &outOperand : op.GetOOperands()) {
         std::unordered_set<Operation*> otherGraphOp;
         for (auto prod : outOperand->GetProducers()) {
