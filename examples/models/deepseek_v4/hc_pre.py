@@ -62,11 +62,7 @@ def gen_hc_pre(x, hc_fn, hc_scale, hc_base):
     x = x_16.to(torch.float32)
 
     hc_fn = hc_fn.to(torch.float32)
-
     res = torch.matmul(x, hc_fn.transpose(0, 1)) # (t, hc*d) @ (mix_hc, hc*d)^t = (t, mix_hc)
-    # mm_res = res
-
-    res = res.to(torch.bfloat16).to(torch.float32)
 
     res = res / gen_rms_norm_denom(x) # (t, mix_hc) / (t, 1) = (t, mix_hc)
     mm_res = res
@@ -89,7 +85,7 @@ def gen_hc_pre_data(t = 16):
     # print("comb", comb.shape, comb)
     return x, hc_fn, hc_scale, hc_base, res, post, comb, mm_res
 
-pyptolib = torch.library.Library("pypto", "FRAGMENT") 
+pyptolib = torch.library.Library("pypto", "FRAGMENT")
 pyptolib.define("hc_pre(Tensor x, Tensor hc_fn, Tensor hc_scale, Tensor hc_base) -> (Tensor, Tensor, Tensor)")
 
 @torch.library.impl(pyptolib, "hc_pre", "Meta")
@@ -116,10 +112,10 @@ def test_hc_pre_inmodel(t = 16):
     print("gen golden success !!!")
 
     ### to device
-    x = x.to(device=f'npu:{device_id}')
-    hc_fn = hc_fn.to(device=f'npu:{device_id}')
-    hc_scale = hc_scale.to(device=f'npu:{device_id}')
-    hc_base = hc_base.to(device=f'npu:{device_id}')
+    x = x.npu()
+    hc_fn = hc_fn.npu()
+    hc_scale = hc_scale.npu()
+    hc_base = hc_base.npu()
 
     import torchair as tng
     from torchair.configs.compiler_config import CompilerConfig
@@ -146,16 +142,15 @@ def test_hc_pre(t = 16):
     x, hc_fn, hc_scale, hc_base, y_gd, post_gd, comb_gd, mm_res_gd = gen_hc_pre_data(t)
     print("gen golden success !!!")
 
-    y = torch.zeros_like(y_gd).to(device=f'npu:{device_id}')
-    post = torch.zeros_like(post_gd).to(device=f'npu:{device_id}')
-    comb = torch.zeros_like(comb_gd).to(device=f'npu:{device_id}')
-    # mm_res = torch.zeros_like(mm_res_gd).to(device=f'npu:{device_id}')
+    y = torch.zeros_like(y_gd).npu()
+    post = torch.zeros_like(post_gd).npu()
+    comb = torch.zeros_like(comb_gd).npu()
 
     in_outs = {
-        x.to(device=f'npu:{device_id}'): [0],
-        hc_fn.to(device=f'npu:{device_id}'): None,
-        hc_scale.to(device=f'npu:{device_id}'): None,
-        hc_base.to(device=f'npu:{device_id}'): None,
+        x.npu(): [0],
+        hc_fn.npu(): None,
+        hc_scale.npu(): None,
+        hc_base.npu(): None,
         y:[0],
         post:[0],
         comb:[0],
@@ -165,17 +160,9 @@ def test_hc_pre(t = 16):
     hc_pre_kernel(*pto_in_outs)
     torch_npu.npu.synchronize()
 
-    # mm_res = mm_res.cpu()
     y = y.cpu()
     post = post.cpu()
     comb = comb.cpu()
-
-    # print("y", y.shape, y)
-    # print("post", post.shape, post)
-    # print("comb", comb.shape, comb)
-
-    # compare(mm_res, mm_res_gd, "mm_res", atol=0.0001, rtol=0.0078125)
-    # print("mm_res compare success!!!")
 
     compare(y, y_gd, "y", atol=0.0001, rtol=0.0078125)
     print("y compare success!!!")

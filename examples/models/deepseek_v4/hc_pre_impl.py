@@ -20,7 +20,6 @@ from torch._dynamo import allow_in_graph
 
 def rms_norm_denom(x: pypto.Tensor) -> pypto.Tensor:
     norm_eps = 1e-6
-    print("rms_norm_denom input shape ", x.shape)
     # Compute RMS: sqrt(mean(x^2) + eps)
     squared = x * x
     mean_sq = pypto.sum(squared, dim=-1, keepdim=True)
@@ -38,21 +37,17 @@ def sigmoid(x: pypto.Tensor) -> pypto.Tensor:
     return sigmoid
 
 
-def hc_split_sinkhorn(x: pypto.Tensor, hc_scale: pypto.Tensor, hc_base: pypto.Tensor, hc, hc_eps) \
+def hc_split_sinkhorn(comb_flag: pypto.Tensor, hc_eps) \
     -> tuple[pypto.Tensor, pypto.Tensor, pypto.Tensor]:
     sinkhorn_iters = 20
-    tile_t, _ = x.shape # (tile_t, 24)
-    print("x.shape ", x.shape)
-
-    comb_flag = (x[:, 2*hc: ] * (hc_scale[2:3].reshape([1, 1]).expand_clone([tile_t, 1])) + hc_base[:, 2*hc: ])
-    comb_flag = comb_flag.reshape([tile_t, hc, hc]) # (tile_t, 4, 4)
+    tile_t, _, _= comb_flag.shape # (tile_t, 4, 4)
 
     if tile_t <= 20:
-        pypto.set_vec_tile_shapes(1, 16, 16)
+        pypto.set_vec_tile_shapes(1, 16, 32)
     elif tile_t <= 64:
-        pypto.set_vec_tile_shapes(4, 16, 16)
+        pypto.set_vec_tile_shapes(4, 16, 32)
     else:
-        pypto.set_vec_tile_shapes(128, 16, 16)
+        pypto.set_vec_tile_shapes(128, 16, 32)
 
     row_max = pypto.amax(comb_flag, -1, True)   # (tile_t, 4, 1)
     comb_flag = pypto.exp(comb_flag - row_max)    # (tile_t, 4, 4)
@@ -69,19 +64,68 @@ def hc_split_sinkhorn(x: pypto.Tensor, hc_scale: pypto.Tensor, hc_base: pypto.Te
         comb_flag = comb_flag / (col_sum + hc_eps) # (tile_t, 4, 4)
     return comb_flag
 
+def hc_split_sinkhorn_2(x: pypto.Tensor, hc_scale: pypto.Tensor, hc_base: pypto.Tensor, hc, hc_eps) \
+    -> tuple[pypto.Tensor, pypto.Tensor, pypto.Tensor]:
+    sinkhorn_iters = 20
+    tile_t, _ = x.shape # (tile_t, 24)
+
+    comb_flag = (x[:, 2*hc: ] * (hc_scale[2:3].reshape([1, 1]).expand_clone([tile_t, 1])) + hc_base[:, 2*hc: ]) # (tile_t, 4*4)
+    comb_flag = comb_flag.reshape([tile_t, hc, hc]) # (tile_t, 4, 4)
+
+    tile_shape = 1
+    if tile_t <= 20:
+        tile_shape = 1
+    elif tile_t <= 64:
+        tile_shape = 4
+    else:
+        tile_shape = 128
+
+    pypto.set_vec_tile_shapes(tile_shape, hc, 8)
+    comb_flag = comb_flag.reshape([tile_t * hc, hc]) # (tile_t, 4, 4)
+    pypto.set_vec_tile_shapes(tile_shape * hc, 8)
+
+    row_max = pypto.amax(comb_flag, -1, True)   # (tile_t*4, 1)
+    comb_flag = pypto.exp(comb_flag - row_max)    # (tile_t*4, 4)
+
+    for i in range(sinkhorn_iters):
+        row_sum = comb_flag.sum(-1, keepdim=True) # (tile_t*4, 1)
+        if i == 0:
+            comb_flag = comb_flag / row_sum + hc_eps # (tile_t*4, 4)
+        else:
+            comb_flag = comb_flag / (row_sum + hc_eps) # (tile_t*4, 4)
+
+        comb_flag = comb_flag.reshape([tile_t, hc, hc]) # (tile_t, 4, 4)
+        pypto.set_vec_tile_shapes(tile_shape, hc, 8)
+        col_sum = comb_flag.sum(-2, keepdim=True) # (tile_t, 1, 4)
+
+        pypto.set_vec_tile_shapes(tile_shape, hc, 8)
+        comb_flag = comb_flag / (col_sum + hc_eps) # (tile_t, 4, 4)
+        comb_flag = comb_flag.reshape([tile_t * hc, hc]) # (tile_t*4, 4)
+        pypto.set_vec_tile_shapes(tile_shape * hc, 8)
+
+    comb_flag = comb_flag.reshape([tile_t, hc, hc]) # (tile_t, 4, 4)
+    pypto.set_vec_tile_shapes(tile_shape, hc, 8)
+    return comb_flag
+
 
 @pypto.jit(
-    host_options={"only_codegen": True}
-    # for acl graph
-    # runtime_options={
-    #    "stitch_cfgcache_size": 2500000                 
-    # }
+    pass_options={
+        "vec_nbuffer_mode": 1,
+    },
+    runtime_options={
+        "stitch_function_inner_memory": 128,
+        "stitch_function_outcast_memory": 128,
+        "device_sched_mode": 0,
+        # for acl graph
+        "stitch_cfgcache_size": 2500000
+    },
 )
-def hc_pre_kernel(x: pypto.Tensor, hc_fn: pypto.Tensor, hc_scale: pypto.Tensor, hc_base_: pypto.Tensor,
+def hc_pre_kernel(x: pypto.Tensor, hc_fn: pypto.Tensor, hc_scale_: pypto.Tensor, hc_base_: pypto.Tensor,
                 y: pypto.Tensor, post: pypto.Tensor, comb: pypto.Tensor,
 ):
     # pypto.set_debug_options(runtime_debug_mode=1)
     # pypto.set_debug_options(runtime_debug_mode=2)   ## for acl graph
+    # pypto.experimental.set_operation_config(combine_axis=True)
 
     t = x.shape[0]
     hc = x.shape[1]
@@ -93,7 +137,7 @@ def hc_pre_kernel(x: pypto.Tensor, hc_fn: pypto.Tensor, hc_scale: pypto.Tensor, 
     assert hc == 4, f"hc is {hc}, expected 4"
     assert d == 4096, f"d is {d}, expected 4096"
     assert mix_hc == hc_fn.shape[0], f"mix_hc is {hc_fn.shape[0]}, expected 24"
-    assert hc_scale.shape[0] == 3, f"hc_scale.shape[0] is {hc_scale.shape[0]}, expected 3"
+    assert hc_scale_.shape[0] == 3, f"hc_scale.shape[0] is {hc_scale_.shape[0]}, expected 3"
 
     # unroll_list = [16, 1]
     unroll_list=[1024, 256, 64, 16, 4, 1]
@@ -101,19 +145,17 @@ def hc_pre_kernel(x: pypto.Tensor, hc_fn: pypto.Tensor, hc_scale: pypto.Tensor, 
     for _ in pypto.loop(1):
         x_2d = pypto.reshape(x, [t, hc*d], inplace=True)
         hc_base= pypto.reshape(hc_base_, [1, mix_hc], inplace=True)
-    print("t in kernel is ", t)
+        hc_scale= pypto.reshape(hc_scale_, [3, 1], inplace=True)
     for t_idx, unrollLength in pypto.loop_unroll(0, t, 1, name="t_loop", idx_name="t_idx", unroll_list=unroll_list):
         tile_t = unrollLength
-        print("========================= tile_t: ", tile_t)
-        print("========================= t_idx: ", t_idx)
-
         pypto.set_cube_tile_shapes([16, 16], [256, 512], [128, 128])
         tile_shapes_1 = [16, 512]
         tile_shape_2 = 64
         if tile_t <= 16:
-            tile_shapes_1 = [2, 1024]
-            tile_shape_2 = 128
-            pypto.set_cube_tile_shapes([8, 8], [1024, 1024], [128, 128])
+            tile_shapes_1 = [1, 4*1024]
+            tile_shape_2 = 1
+            # pypto.set_cube_tile_shapes([16, 16], [1024, 2*1024], [128, 128], set_l1_tile = True, enable_split_k = True)
+            pypto.set_cube_tile_shapes([16, 16], [1024, 1024], [128, 128])
         elif tile_t <= 64:
             tile_shapes_1 = [8, 1024]
             tile_shape_2 = 32
@@ -127,30 +169,36 @@ def hc_pre_kernel(x: pypto.Tensor, hc_fn: pypto.Tensor, hc_scale: pypto.Tensor, 
         x_fp32 = pypto.cast(x_view, pypto.DT_FP32)
         rms_res = rms_norm_denom(x_fp32)    ## (t, hc*d) -> (t, 1)
 
-        pypto.set_vec_tile_shapes(tile_shape_2, 16)
-        mm_res = pypto.matmul(x_view, hc_fn, pypto.DT_BF16, b_trans=True)   # (t, hc*d) @ (mix_hc, hc*d)^t = (t, mix_hc)
-        mm_res = pypto.cast(mm_res, pypto.DT_FP32)
+        pypto.set_vec_tile_shapes(tile_shape_2, 32)
+        mm_res = pypto.matmul(x_view, hc_fn, pypto.DT_FP32, b_trans=True)   # (t, hc*d) @ (mix_hc, hc*d)^t = (t, mix_hc)
 
         rms_res = mm_res / rms_res  ## t, mix_hc
+        hc_scale_hc = hc_scale.expand_clone([3, hc])
 
-        pre = rms_res[:, :hc] * (hc_scale[0:1].reshape([1, 1]).expand_clone([tile_t, 1])) + hc_base[:, :hc] # (tile_t, 4)
+        pre = rms_res[:, :hc] * (hc_scale_hc[0:1, :]) + hc_base[:, :hc] # (tile_t, 4)
         pre = sigmoid(pre) + hc_eps # (tile_t, 4)
 
-        pre_3d = pre.reshape([tile_t, hc, 1])
-        x_fp32_3d = x_fp32.reshape([tile_t, hc, d])
-        pypto.set_vec_tile_shapes(tile_shape_2, 16, 16)
-
+        pre_3d = pre.reshape([tile_t, hc, 1], inplace=True)
+        x_fp32_3d = x_fp32.reshape([tile_t, hc, d]) # (tile_t, hc, d)
+        pypto.set_vec_tile_shapes(tile_shapes_1[0], 4, tile_shapes_1[1] // 4)
         mul_res = pre_3d * x_fp32_3d
-        res_fp32 = pypto.sum(mul_res, dim=-2)
+        res_fp32 = pypto.sum(mul_res, dim=-2) # [16,4,8] -> [16,8]
+        pypto.set_vec_tile_shapes(tile_shapes_1[0], tile_shapes_1[1] // 4)
         res_bf16 = pypto.cast(res_fp32, pypto.DT_BF16)
         pypto.assemble(res_bf16, [t_idx, 0], y)
 
-        post_ = rms_res[:, hc: 2*hc] * (hc_scale[1:2].reshape([1, 1]).expand_clone([tile_t, 1])) + hc_base[:, hc: 2*hc] # (tile_t, 4)
+        pypto.set_vec_tile_shapes(tile_shape_2, 32)
+        post_ = rms_res[:, hc: 2*hc] * (hc_scale_hc[1:2, :]) + hc_base[:, hc: 2*hc] # (tile_t, 4)
         post_ = sigmoid(post_) * 2.0 # (tile_t, 4)
         pypto.assemble(post_, [t_idx, 0], post)
 
-        comb_ = hc_split_sinkhorn(rms_res, hc_scale, hc_base, hc, hc_eps)   # (tile_t, hc), (tile_t, hc), (tile_t, hc, hc)
+        hc_scale_hc = hc_scale.expand_clone([3, 4*hc])
+        comb_flag = (rms_res[:, 2*hc: ] * (hc_scale_hc[2:3, :]) + hc_base[:, 2*hc: ])
+        comb_flag = comb_flag.reshape([tile_t, hc, hc]) # (tile_t, 4, 4)
+
+        comb_ = hc_split_sinkhorn(comb_flag, hc_eps)   # (tile_t, hc), (tile_t, hc), (tile_t, hc, hc)
         pypto.assemble(comb_, [t_idx, 0, 0], comb)
+
 
 def check_input_output_shape_dtype(x: torch.Tensor, hc_fn: torch.Tensor, hc_scale: torch.Tensor, hc_base: torch.Tensor):
     assert x.dim() == 3 and x.size(1) == 4 and x.size(2) == 4096,\
@@ -169,7 +217,6 @@ def check_input_output_shape_dtype(x: torch.Tensor, hc_fn: torch.Tensor, hc_scal
 @allow_in_graph
 def npu_hc_pre(x: torch.Tensor, hc_fn: torch.Tensor, hc_scale: torch.Tensor, hc_base: torch.Tensor)\
         -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    print("x.shape in npu_hc_pre", x.shape)
     ### check dtype
     check_input_output_shape_dtype(x, hc_fn, hc_scale, hc_base)
 
