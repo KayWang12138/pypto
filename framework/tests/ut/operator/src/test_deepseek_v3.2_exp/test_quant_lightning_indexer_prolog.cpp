@@ -44,7 +44,7 @@ TEST_F(DynamicQuantLightningIndexerPrologUtest, b4_s1_2_s2_64k) {
     configs.kLinear = {16, 16, 128, 128, 128, 128};
     configs.wLinear = {16, 16, 128, 128, 128, 128};
 
-    config::SetHostOption(ONLY_CODEGEN, true);
+    config::SetHostOption(COMPILE_STAGE, GEN_KERNEL_CODE);
 
     int64_t s2 = 64 * 1024;
     int64_t b = 4;
