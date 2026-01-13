@@ -251,7 +251,7 @@ Status PassManager::RunPass(Program &program, Function &function, const std::str
             passDfxCfg.dumpGraph = true;
         }
         pass->SetPassConfigs(passDfxCfg);
-        ALOG_INFO_F("[PassManager] Apply pass <%s> on function: %s.", identifier.c_str(), function.GetMagicName().c_str());
+        ALOG_ERROR_F("[PassManager] Apply pass <%s> on function: %s.", identifier.c_str(), function.GetMagicName().c_str());
         auto start = std::chrono::high_resolution_clock::now();
         if (pass->Run(function, strategy, identifier, i) != SUCCESS) {
             ALOG_ERROR_F("Run pass <%s> failed.", identifier.c_str());
@@ -260,7 +260,7 @@ Status PassManager::RunPass(Program &program, Function &function, const std::str
         if (passDfxCfg.dumpPassTimeCost) {
             auto end = std::chrono::high_resolution_clock::now();
             auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-            ALOG_INFO_F("Runtime of pass %s for program %s function %s is %ld us.", identifier.c_str(), program.Name().c_str(),
+            ALOG_ERROR_F("Runtime of pass %s for program %s function %s is %ld us.", identifier.c_str(), program.Name().c_str(),
                 function.GetMagicName().c_str(), duration.count());
         }
         if (config::GetVerifyOption<bool>(KEY_ENABLE_PASS_VERIFY)) {

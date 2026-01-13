@@ -71,6 +71,7 @@ Status OoOSchedule::A23Schedule(std::vector<Operation*> &opList, Function &funct
     std::pair<uint64_t, Function*> &program, int &maxWorkeSpaceSize) {
     // 直接对oplist进行GenSpill和mainLoop
     OoOScheduler oooSchedule(*program.second, ConfigManager::Instance().GetOperationConfig(KEY_COMBINE_AXIS, false));
+    APASS_LOG_ERROR_F(Elements::Operation, "Subgraph[%d] OOOSchedule start.opList size:%ld", program.first, opList.size());
     if (oooSchedule.Schedule(opList) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "Non-mixGraph schedule failed.");
         return FAILED;

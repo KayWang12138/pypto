@@ -193,49 +193,60 @@ void RescheduleUtils::FindOtherGraphOp(Operation *op, Function *funcPtr, std::un
     }
 }
 
+
 void RescheduleUtils::ClearInputConsProd(Operation &op, Function *funcPtr, 
-    std::unordered_set<LogicalTensorPtr> incastSet) {
+    std:: unordered_set<LogicalTensorPtr> incastSet) {
     for (auto &inOperand : op.GetIOperands()) {
+        // 处理 Producers：移除属于当前函数的
         if (incastSet.count(inOperand) == 0) {
-            std::unordered_set<Operation*> otherGraphOp;
+            std::vector<Operation*> toRemoveProducers;
             for (auto prod : inOperand->GetProducers()) {
-                FindOtherGraphOp(prod, funcPtr, otherGraphOp);
+                if (prod->BelongTo() == funcPtr) {
+                    toRemoveProducers.push_back(prod);
+                }
             }
-            inOperand->GetProducers().clear();
-            for (auto otherOp : otherGraphOp) {
-                inOperand->AddProducer(otherOp);
+            for (auto prod :  toRemoveProducers) {
+                inOperand->RemoveProducer(*prod);
             }
         }
-        std::unordered_set<Operation*> otherGraphOps;
+        
+        // 处理 Consumers：移除属于当前函数的
+        std::vector<Operation*> toRemoveConsumers;
         for (auto cons : inOperand->GetConsumers()) {
-            FindOtherGraphOp(cons, funcPtr, otherGraphOps);
+            if (cons->BelongTo() == funcPtr) {
+                toRemoveConsumers.push_back(cons);
+            }
         }
-        inOperand->GetConsumers().clear();
-        for (auto otherOp : otherGraphOps) {
-            inOperand->AddConsumer(otherOp);
+        for (auto cons : toRemoveConsumers) {
+            inOperand->RemoveConsumer(*cons);
         }
     }
 }
-
+ 
 void RescheduleUtils::ClearOutputConsProd(Operation &op, Function *funcPtr,
     std::unordered_set<LogicalTensorPtr> outcastSet) {
     for (auto &outOperand : op.GetOOperands()) {
-        std::unordered_set<Operation*> otherGraphOp;
+        // 处理 Producers：移除属于当前函数的
+        std::vector<Operation*> toRemoveProducers;
         for (auto prod : outOperand->GetProducers()) {
-            FindOtherGraphOp(prod, funcPtr, otherGraphOp);
-        }
-        outOperand->GetProducers().clear();
-        for (auto otherOp : otherGraphOp) {
-            outOperand->AddProducer(otherOp);
-        }
-        if (outcastSet.count(outOperand) == 0) {
-            std::unordered_set<Operation*> otherGraphOps;
-            for (auto cons : outOperand->GetConsumers()) {
-                FindOtherGraphOp(cons, funcPtr, otherGraphOps);
+            if (prod->BelongTo() == funcPtr) {
+                toRemoveProducers.push_back(prod);
             }
-            outOperand->GetConsumers().clear();
-            for (auto otherOp : otherGraphOps) {
-                outOperand->AddConsumer(otherOp);
+        }
+        for (auto prod : toRemoveProducers) {
+            outOperand->RemoveProducer(*prod);
+        }
+        
+        // 处理 Consumers：移除属于当前函数的
+        if (outcastSet.count(outOperand) == 0) {
+            std::vector<Operation*> toRemoveConsumers;
+            for (auto cons : outOperand->GetConsumers()) {
+                if (cons->BelongTo() == funcPtr) {
+                    toRemoveConsumers.push_back(cons);
+                }
+            }
+            for (auto cons : toRemoveConsumers) {
+                outOperand->RemoveConsumer(*cons);
             }
         }
     }

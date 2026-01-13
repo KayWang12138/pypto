@@ -178,7 +178,7 @@ private:
     Status InitDependencies();
     void FindDependencies(IssueEntryPtr issue, std::map<Operation*, IssueEntryPtr> op2IssueEntryMap);
     void AddDependency(IssueEntryPtr preIssue, IssueEntryPtr postIssue, bool isAlloc);
-    Status InitAllocDependencies(IssueEntryPtr issue, std::map<int, IssueEntryPtr> tensor2AllocMap);
+    Status InitAllocDependencies(IssueEntryPtr issue, std::unordered_map<int, IssueEntryPtr>& tensor2AllocMap);
     void InitLocalBuffer(LogicalTensorPtr oOperand, int memId);
     void InitLocalBufferForAxisCombine(LogicalTensorPtr oOperand, int memId);
     void InitBufRefCount();
