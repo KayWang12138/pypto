@@ -13,11 +13,11 @@
  * \brief
  */
 
-#include <gtest/gtest.h>
 #include <cstdint>
 #include "tilefwk/tilefwk_op.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
+#include "interface/utils/test_cost_macro.h"
 #include "interface/tensor/logical_tensor.h"
 #include "interface/tensor/raw_tensor.h"
 #include "interface/interpreter/raw_tensor_data.h"
@@ -98,7 +98,7 @@ TEST_F(DynamicGatherSlcFlashAttnUtest, dsa_gather_slc_attn_bf16_b32_s4) {
     TestSaUT(input_param, tileConfig);
 }
 
-TEST_F(DynamicGatherSlcFlashAttnUtest, dsa_gather_slc_attn_bf16_b32_s4_int8) {
+TEST_F_WITH_COST(DynamicGatherSlcFlashAttnUtest, dsa_gather_slc_attn_bf16_b32_s4_int8, 61) {
     SaTileShapeConfig tileConfig = GetDefaultSaTileShapeConfig(128, 2048);
     std::vector<int64_t> input_param = {32, 4, 128, 1, 8192, 512, 64, 32, 128, 2048, 1};
     TestSaUT(input_param, tileConfig);

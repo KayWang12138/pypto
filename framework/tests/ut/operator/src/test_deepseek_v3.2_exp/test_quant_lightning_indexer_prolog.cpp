@@ -12,10 +12,10 @@
 \file test_quant_lightning_indexer_prolog.cpp
 \brief
 */
-#include <gtest/gtest.h>
 #include "tilefwk/tilefwk_op.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
+#include "interface/utils/test_cost_macro.h"
 #include "operator/models/deepseek_v3.2_exp/quant_lightning_indexer_prolog.h"
 
 using namespace npu::tile_fwk;
@@ -37,7 +37,7 @@ public:
 };
 namespace {
 
-TEST_F(DynamicQuantLightningIndexerPrologUtest, b4_s1_2_s2_64k) {
+TEST_F_WITH_COST(DynamicQuantLightningIndexerPrologUtest, b4_s1_2_s2_64k, 115) {
     QuantIndexerConfigs configs;
     configs.qLinear = {16, 16, 128, 128, 128, 128};
     configs.qHd = {16, 16, 128, 128, 128, 128};
