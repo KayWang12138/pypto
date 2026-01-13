@@ -157,15 +157,15 @@
         "runtime": {
             "type": "object",
             "label": {
-                "zh": "...",
-                "en": "..."
+                "zh": "设置运行时优化参数信息",
+                "en": "Setting Runtime Optimization Parameters"
             },
             "properties": {
                 "device_sched_mode": {
                     "type": "integer",
                     "label": {
-                        "zh": "...",
-                        "en": "..."
+                        "zh": "设置计算子图的调度模式",
+                        "en": "Represents the default schedule mode"
                     },
                     "minimum": 0,
                     "maximum": 3,
@@ -173,29 +173,29 @@
                         {
                             "value": 0,
                             "label": {
-                                "zh": "...",
-                                "en": "..."
+                                "zh": "代表默认调度模式",
+                                "en": "Represents the default schedule mode"
                             }
                         },
                         {
                             "value": 1,
                             "label": {
-                                "zh": "...",
-                                "en": "..."
+                                "zh": "L2cache亲和调度模式，选择最新依赖ready的子图优先下，达到复用L2cache的效果",
+                                "en": "L2 cache affinity schedule mode prioritizes the selection of the latest dependency-ready subgraphs to achieve L2 cache reuse"
                             }
                         },
                         {
                             "value": 2,
                             "label": {
-                                "zh": "...",
-                                "en": "..."
+                                "zh": "公平调度模式，下发子图时尽量控制多线程间的公平性，但会带来额外的调度开销",
+                                "en": "Fair schedule mode aims to maintain fairness among multiple threads when dispatching subgraphs, but may introduce additional schedule overhead"
                             }
                         },
                         {
                             "value": 3,
                             "label": {
-                                "zh": "...",
-                                "en": "..."
+                                "zh": "同时开启L2cache亲和调度模式以及公平调度模式",
+                                "en": "Simultaneously enable both the L2 cache affinity schedule mode and the fair schedule mode"
                             }
                         }
                     ]
@@ -203,7 +203,7 @@
                 "stitch_function_inner_memory": {
                     "type": "integer",
                     "label": {
-                        "zh": "...",
+                        "zh": "控制用于管理root function中间计算结果（non-outcast）的内存池大小的参数，该数值越大能提高stitch batch并行度",
                         "en": "..."
                     },
                     "minimum": 1,
@@ -212,7 +212,7 @@
                 "stitch_function_outcast_memory": {
                     "type": "integer",
                     "label": {
-                        "zh": "...",
+                        "zh": "控制用于管理stitch batch中间计算结果（devitask内部rootfunction的outcast）的内存池大小的参数，该数值越大devtask下发的rootfunction越多",
                         "en": "..."
                     },
                     "minimum": 1,
@@ -221,7 +221,7 @@
                 "stitch_function_num_initial": {
                     "type": "integer",
                     "label": {
-                        "zh": "...",
+                        "zh": "运行时ctrlflow aicpu里控制首个提交给schedule aicpu处理的stitch task的计算任务量，进而控制头开销大小",
                         "en": "..."
                     },
                     "minimum": 1,
@@ -230,7 +230,7 @@
                 "stitch_function_num_step": {
                     "type": "integer",
                     "label": {
-                        "zh": "...",
+                        "zh": "运行时ctrlflow aicpu里控制非首次stitch task的处理loop的计算量",
                         "en": "..."
                     },
                     "minimum": 0,
@@ -239,7 +239,7 @@
                 "stitch_cfgcache_size": {
                     "type": "integer",
                     "label": {
-                        "zh": "...",
+                        "zh": "指定生成控制流缓存的大小",
                         "en": "..."
                     },
                     "minimum": 0,
@@ -248,7 +248,7 @@
                 "stitch_function_size": {
                     "type": "integer",
                     "label": {
-                        "zh": "...",
+                        "zh": "运行时ctrlflow aicpu里控制stitch task处理最大Callop计算量",
                         "en": "..."
                     },
                     "minimum": 1,
@@ -257,7 +257,7 @@
                 "run_mode": {
                     "type": "integer",
                     "label": {
-                        "zh": "...",
+                        "zh": "设置计算子图的执行设备",
                         "en": "..."
                     },
                     "minimum": 0,
@@ -266,14 +266,14 @@
                         {
                             "value": 0,
                             "label": {
-                                "zh": "...",
+                                "zh": "表示在NPU上执行",
                                 "en": "..."
                             }
                         },
                         {
                             "value": 1,
                             "label": {
-                                "zh": "...",
+                                "zh": "表示在模拟器上执行",
                                 "en": "..."
                             }
                         }
