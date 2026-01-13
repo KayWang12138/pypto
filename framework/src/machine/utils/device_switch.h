@@ -39,13 +39,13 @@ namespace npu::tile_fwk {
 #endif
 
 // When enabled, logs will be written to the /tmp directory.
-#define ENABLE_TMP_LOG 0
+#define ENABLE_TMP_LOG 1
 
 // If enabled, performance evt statistics are recorded in the log.
 #define ENABLE_PERF_EVT 0
 
 // If enabled, performance trace statistics are recorded in the log.
-#define ENABLE_PERF_TRACE 0
+#define ENABLE_PERF_TRACE 1
 
 /* When enabled, verbose log will be compiled.Because verbose logging is so extensive, having it compiled into the code
    can hurt performance, even when the logging feature is turned off.
