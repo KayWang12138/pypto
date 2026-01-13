@@ -14,15 +14,22 @@
  */
 #include <gtest/gtest.h>
 #include "test_suite_stest_ops.h"
+#include "interface/plugin/plugin.h"
+#include "interface/utils/string_utils.h"
 #include "interface/interpreter/raw_tensor_data.h"
 #include "operator/models/deepseek/page_attention.h"
 #include "machine/utils/dynamic/dev_encode.h"
 #include "machine/runtime/device_launcher.h"
 #include "machine/runtime/emulation_launcher.h"
 
+#include "../../../../common_case/ir/test_a_plus_b.h"
+
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
 using namespace npu::tile_fwk::machine;
+
+using pto::serializer::MemoryIRBuffer;
+using pto::serializer::SourceCppIRSerializer;
 
 static constexpr int tiling32 = 32;
 
@@ -45,6 +52,17 @@ public:
 namespace {
 
 TEST_F(DynamicBlockTest, VectorCube) {
+
+    auto codeGenUseIR = [&](const std::string &filepath, const std::string &source) -> std::string {
+        auto prog = pto::CreateAdd();
+        SourceCppIRSerializer serializer;
+
+        MemoryIRBuffer buf;
+        serializer.Serialize(buf, prog);
+        return buf.GetRawBuffer();
+    };
+    PluginManager::GetInstance().AddPluginCodegenSrc("AddPrefix", codeGenUseIR);
+
     int tiling = 32;
     TileShape::Current().SetVecTile(tiling, tiling);
     TileShape::Current().SetCubeTile({tiling, tiling}, {tiling, tiling}, {tiling, tiling});
