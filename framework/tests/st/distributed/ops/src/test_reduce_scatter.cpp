@@ -23,19 +23,45 @@
 namespace npu::tile_fwk {
 namespace Distributed {
 
-template<typename T>
-void TestReduceScatter(OpTestParam& testParam)
+struct ReduceScatterTestConfig {
+    DataType inDtype;
+    DataType outDtype;
+    TileOpFormat inFormat;
+    TileOpFormat outFormat;
+    Shape inShape;
+    Shape outShape;
+    Shape tileShape;
+};
+
+ReduceScatterTestConfig ParseReduceScatterConfig(const nlohmann::json& testData)
 {
-    constexpr size_t paramsSize = 5;
-    auto [row, col, typeNum, tileRow, tileCol] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
+   ReduceScatterTestConfig caseInfo;
+    auto inTensor = testData["input_tensors"][0];
+    auto outTensor = testData["output_tensors"][0];
+    caseInfo.inShape = inTensor["shape"].get<Shape>();
+    caseInfo.outShape = outTensor["shape"].get<Shape>();
+    caseInfo.inDtype = GetDataTypeNum(GetDtypeNum(inTensor["dtype"].get<std::string>()));
+    caseInfo.outDtype = GetDataTypeNum(GetDtypeNum(outTensor["dtype"].get<std::string>()));
+    caseInfo.inFormat = StringToTileOpFormat(inTensor["format"].get<std::string>());
+    caseInfo.outFormat = StringToTileOpFormat(outTensor["format"].get<std::string>());
+    caseInfo.tileShape = testData["tile_shape"].get<Shape>();
+    return caseInfo;
+}
+
+template<typename T>
+void TestReduceScatter(OpTestParam& testParam, const nlohmann::json& testData)
+{
+    std::string goldenDir = GetGoldenDirPath(testData);
+    auto caseInfo = ParseReduceScatterConfig(testData);
+    int32_t row = caseInfo.inShape[0];
+    int32_t col = caseInfo.inShape[1];
     ASSERT(testParam.rankSize > 0) << "testParam.rankSize must be > 0, but got: " << testParam.rankSize;
-    int rowOut = row / testParam.rankSize;
-    DataType dType = GetDataTypeNum(typeNum);
-    Tensor in(dType, {row, col}, "in");
-    Tensor out(dType, {rowOut, col}, "out");
+    int32_t rowOut = row / testParam.rankSize;
+    Tensor in(caseInfo.inDtype, caseInfo.inShape, "in", caseInfo.inFormat);
+    Tensor out(caseInfo.outDtype, caseInfo.outShape, "out", caseInfo.outFormat);
 
     std::vector<T> inData = ReadToVector<T>(
-        GetGoldenDir() + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", {row, col});
+       goldenDir + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", caseInfo.inShape);
 
     Shape shmemDataShape {1, rowOut, col};
     FUNCTION("ShmemReduceScatter", {in}, {out}) {
@@ -48,7 +74,7 @@ void TestReduceScatter(OpTestParam& testParam)
             CreateShmemData(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemData);
             CreateShmemSignal(testParam.group, shmemData, shmemSignal);
         }
-        TileShape::Current().SetVecTile({tileRow, tileCol});
+        TileShape::Current().SetVecTile(caseInfo.tileShape);
         ReduceScatter(in, in, testParam.group, shmemData, shmemSignal, DistReduceType::DIST_REDUCE_ADD, out);
     }
 
@@ -60,12 +86,12 @@ void TestReduceScatter(OpTestParam& testParam)
     });
     RunTest();
     auto outPut = ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, "/output_rank_", rowOut * col, outPut->GetDevPtr(), testParam));
+    EXPECT_TRUE(CompareWithGolden<uint8_t*>(caseInfo.inDtype, goldenDir + "/output_rank_", rowOut * col, outPut->GetDevPtr(), testParam));
 }
 
-template void TestReduceScatter<int32_t>(OpTestParam& testParam);
-template void TestReduceScatter<float>(OpTestParam& testParam);
-template void TestReduceScatter<float16>(OpTestParam& testParam);
-template void TestReduceScatter<bfloat16>(OpTestParam& testParam);
+template void TestReduceScatter<int32_t>(OpTestParam& testParam, const nlohmann::json& testData);
+template void TestReduceScatter<float>(OpTestParam& testParam, const nlohmann::json& testData);
+template void TestReduceScatter<float16>(OpTestParam& testParam, const nlohmann::json& testData);
+template void TestReduceScatter<bfloat16>(OpTestParam& testParam, const nlohmann::json& testData);
 } // namespace Distributed
 } // namespace npu::tile_fwk

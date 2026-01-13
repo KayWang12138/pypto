@@ -49,6 +49,30 @@ inline DataType GetDataTypeNum(const int64_t typeNum)
     return static_cast<DataType>(typeNum);
 }
 
+inline int32_t GetDtypeNum(const std::string &dtype)
+{
+    static const std::unordered_map<std::string, int32_t> dtypeMap = {
+        {"int32_t", 3},
+        {"float16", 6},
+        {"float32", 7},
+        {"bfloat16", 8}
+    };
+    auto it = dtypeMap.find(dtype);
+    if (it != dtypeMap.end()) {
+        return it->second;
+    }
+    throw std::invalid_argument("Unknown dtype: " + dtype);
+}
+
+inline TileOpFormat StringToTileOpFormat(const std::string &formatStr)
+{
+    if (formatStr == "ND") {
+        return TileOpFormat::TILEOP_ND;
+    } else {
+        throw std::invalid_argument("Unknown TileOpFormat: " + formatStr);
+    }
+}
+
 template <typename T>
 std::vector<T> ReadToVector(const std::string &filePath, const std::vector<int64_t> &shape)
 {
@@ -77,7 +101,7 @@ bool DoCompare(const std::string &goldenFilename, const uint64_t outSize, const 
         }
     }
     // 读取Golden数据并比较
-    readInput<T>(GetGoldenDir() + goldenFilename + std::to_string(testParam.rankId) + ".bin", resGolden);
+    readInput<T>(goldenFilename + std::to_string(testParam.rankId) + ".bin", resGolden);
     return resultCmp<T>(resGolden, res, threshold);
 }
 
@@ -176,6 +200,8 @@ std::vector<uint64_t> GetHcclContext(const std::vector<std::string> &groupNames)
 int64_t GetEleNumFromShape(std::vector<int64_t>& shape);
 
 Tensor CreateTensorFromFile(std::vector<int64_t>& shape, DataType dtype, std::string& file, std::string tname = "");
+
+std::string GetGoldenDirPath(const nlohmann::json& testData);
 
 } // namespace Distributed
 } // namespace npu::tile_fwk

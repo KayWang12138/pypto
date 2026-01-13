@@ -24,6 +24,25 @@
 
 namespace npu::tile_fwk::Distributed {
 
+struct ReduceAddAllReduceTestConfig {
+    DataType inDtype;
+    DataType outDtype;
+    Shape inShape;
+    Shape outShape;
+};
+
+ReduceAddAllReduceTestConfig ParseReduceAddAllReduceConfig(const nlohmann::json& testData)
+{
+    ReduceAddAllReduceTestConfig caseInfo;
+    auto inTensor = testData["input_tensors"][0];
+    auto outTensor = testData["output_tensors"][0];
+    caseInfo.inShape = inTensor["shape"].get<Shape>();
+    caseInfo.outShape = outTensor["shape"].get<Shape>();
+    caseInfo.inDtype = GetDataTypeNum(GetDtypeNum(inTensor["dtype"].get<std::string>()));
+    caseInfo.outDtype = GetDataTypeNum(GetDtypeNum(outTensor["dtype"].get<std::string>()));
+    return caseInfo;
+}
+
 Tensor Nop(const std::vector<Tensor>& inTensors)
 {
     auto& function = *Program::GetInstance().GetCurrentFunction();
@@ -135,18 +154,20 @@ void FuncAllReduceAddAllReduce(const Tensor& in, Tensor& out, const OpTestParam&
 }
 
 template<typename T>
-void TestAllReduceAddAllReduce(OpTestParam &testParam)
+void TestAllReduceAddAllReduce(OpTestParam &testParam, const nlohmann::json& testData)
 {
-    constexpr size_t paramsSize = 3;
-    auto [row, col, typeNum] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
 
-    Shape shape{row, col};
-    DataType dType = GetDataTypeNum(typeNum);
-    Tensor in(dType, shape, "in");
-    Tensor out(dType, shape, "out");
+    std::string goldenDir = GetGoldenDirPath(testData);
+    auto caseInfo = ParseReduceAddAllReduceConfig(testData);
 
-    std::vector<T> inPtr = ReadToVector<T>(GetGoldenDir() + "/input_rank_" + std::to_string(testParam.rankId) + ".bin",
-        shape);
+    Tensor in(caseInfo.inDtype, caseInfo.inShape, "in");
+    Tensor out(caseInfo.outDtype, caseInfo.outShape, "out");
+
+    int32_t row = caseInfo.inShape[0];
+    int32_t col = caseInfo.inShape[1];
+
+    std::vector<T> inPtr = ReadToVector<T>(goldenDir + "/input_rank_" + std::to_string(testParam.rankId) + ".bin",
+        caseInfo.inShape);
 
     ProgramData::GetInstance().AppendInputs({RawTensorData::CreateTensor<T>(in, inPtr)});
     ProgramData::GetInstance().AppendOutputs({RawTensorData::CreateTensorZero(out)});
@@ -156,12 +177,12 @@ void TestAllReduceAddAllReduce(OpTestParam &testParam)
     RunTest();
     auto output = ProgramData::GetInstance().GetOutputData(0);
     int32_t outSize = row * col;
-    EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, "/out_rank_", outSize, output->GetDevPtr(), testParam));
+    EXPECT_TRUE(CompareWithGolden<uint8_t*>(caseInfo.outDType, goldenDir + "/out_rank_", outSize, output->GetDevPtr(), testParam));
 }
 
-template void TestAllReduceAddAllReduce<int32_t>(OpTestParam& testParam);
-template void TestAllReduceAddAllReduce<float>(OpTestParam& testParam);
-template void TestAllReduceAddAllReduce<float16>(OpTestParam& testParam);
-template void TestAllReduceAddAllReduce<bfloat16>(OpTestParam& testParam);
+template void TestAllReduceAddAllReduce<int32_t>(OpTestParam& testParam, const nlohmann::json& testData);
+template void TestAllReduceAddAllReduce<float>(OpTestParam& testParam, const nlohmann::json& testData);
+template void TestAllReduceAddAllReduce<float16>(OpTestParam& testParam, const nlohmann::json& testData);
+template void TestAllReduceAddAllReduce<bfloat16>(OpTestParam& testParam, const nlohmann::json& testData);
 
 } // namespace npu::tile_fwk::Distributed
