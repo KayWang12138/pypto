@@ -77,7 +77,7 @@ bool DoCompare(const std::string &goldenFilename, const uint64_t outSize, const 
         }
     }
     // 读取Golden数据并比较
-    readInput<T>(GetGoldenDir() + goldenFilename + std::to_string(testParam.rankId) + ".bin", resGolden);
+    readInput<T>(goldenFilename + std::to_string(testParam.rankId) + ".bin", resGolden);
     return resultCmp<T>(resGolden, res, threshold);
 }
 
@@ -176,6 +176,8 @@ std::vector<uint64_t> GetHcclContext(const std::vector<std::string> &groupNames)
 int64_t GetEleNumFromShape(std::vector<int64_t>& shape);
 
 Tensor CreateTensorFromFile(std::vector<int64_t>& shape, DataType dtype, std::string& file, std::string tname = "");
+
+std::string GetGoldenDirPath(const nlohmann::json& testData);
 
 } // namespace Distributed
 } // namespace npu::tile_fwk
