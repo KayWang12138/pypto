@@ -304,6 +304,36 @@ static void Div(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTens
     }
 }
 
+static void BitwiseRightShift(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+    auto tout = From(out);
+    torch::bitwise_right_shift_out(tout, From(self), From(other));
+}
+
+static void BitwiseLeftShift(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+    auto tout = From(out);
+    torch::bitwise_left_shift_out(tout, From(self), From(other));
+}
+
+static void BitwiseRightShiftS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar) {
+    auto tout = From(out);
+    torch::bitwise_right_shift_out(tout, From(self), From(scalar));
+}
+
+static void BitwiseLeftShiftS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar) {
+    auto tout = From(out);
+    torch::bitwise_left_shift_out(tout, From(self), From(scalar));
+}
+
+static void SBitwiseRightShift(LogicalTensorDataPtr out, const Element &scalar, LogicalTensorDataPtr other) {
+    auto tout = From(out);
+    torch::bitwise_right_shift_out(tout, From(scalar), From(other));
+}
+
+static void SBitwiseLeftShift(LogicalTensorDataPtr out, const Element &scalar, LogicalTensorDataPtr other) {
+    auto tout = From(out);
+    torch::bitwise_left_shift_out(tout, From(scalar), From(other));
+}
+
 static void Cast(LogicalTensorDataPtr out, LogicalTensorDataPtr self, CastMode mode) {
     if (mode == CastMode::CAST_ROUND) {
         From(out) = From(self).round();
@@ -1157,6 +1187,12 @@ static struct CalcOps calcOps = {
     .Topk = Topk,
     .Gather = Gather,
     .GatherINUB = GatherINUB,
+    .BitwiseRightShift = BitwiseRightShift,
+    .BitwiseLeftShift = BitwiseLeftShift,
+    .BitwiseRightShiftS = BitwiseRightShiftS,
+    .BitwiseLeftShiftS = BitwiseLeftShiftS,
+    .SBitwiseRightShift = SBitwiseRightShift,
+    .SBitwiseLeftShift = SBitwiseLeftShift,
 };
 
 extern "C" struct CalcOps *GetCalcOps() {
