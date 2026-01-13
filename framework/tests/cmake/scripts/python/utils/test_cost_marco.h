@@ -1,0 +1,2 @@
+#ifndef GTEST_COST_MINIMAL_H
+#define GTEST_COST_MINIMAL_H
