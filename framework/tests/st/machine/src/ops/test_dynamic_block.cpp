@@ -14,6 +14,8 @@
  */
 #include <gtest/gtest.h>
 #include "test_suite_stest_ops.h"
+#include "interface/plugin/plugin.h"
+#include "interface/utils/string_utils.h"
 #include "interface/interpreter/raw_tensor_data.h"
 #include "operator/models/deepseek/page_attention.h"
 #include "machine/utils/dynamic/dev_encode.h"
@@ -45,6 +47,13 @@ public:
 namespace {
 
 TEST_F(DynamicBlockTest, VectorCube) {
+
+    auto codeGenUseIR = [&](const std::string &filepath, const std::string &source) -> std::string {
+        (void)filepath;
+        return source;
+    };
+    PluginManager::GetInstance().AddPluginCodegenSrc("AddPrefix", codeGenUseIR);
+
     int tiling = 32;
     TileShape::Current().SetVecTile(tiling, tiling);
     TileShape::Current().SetCubeTile({tiling, tiling}, {tiling, tiling}, {tiling, tiling});
