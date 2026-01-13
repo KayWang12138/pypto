@@ -50,6 +50,8 @@ public:
     SourceCppASTNode(const std::string &name, const std::vector<std::string> &argList)
       : std::vector<std::shared_ptr<SourceCppASTNode>>(), name_(name), argList_(argList) {}
 
+    SourceCppASTNode(const std::string &name) : SourceCppASTNode(name, std::vector<std::string>()) {}
+
     const std::string &GetName() const { return name_; }
     const std::vector<std::string> &GetArgList() const { return argList_; }
 
