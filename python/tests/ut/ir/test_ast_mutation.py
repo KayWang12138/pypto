@@ -67,11 +67,11 @@ def _verify_transformed_ast(transformed_ast: ast.FunctionDef, func_name: str):
     # Check for control flow transformations if present in the source
     # (These are optional depending on the test case)
     if "block.for_scope" in source:
-        assert "block.ForNode" in source, "Expected block.ForNode call"
-        assert "block.Scalar" in source, "Expected block.Scalar call for loop variable"
+        assert "block.for_node" in source, "Expected block.for_node call"
+        assert "block.scalar" in source, "Expected block.scalar call for loop variable"
 
     if "block.if_then_scope" in source:
-        assert "block.IfNode" in source, "Expected block.IfNode call"
+        assert "block.if_node" in source, "Expected block.if_node call"
         assert "block.exit_if" in source, "Expected block.exit_if call"
 
     if "block.if_else_scope" in source:
@@ -105,21 +105,21 @@ def test_ast_transform():
     ) -> (ir.Scalar(ir.DataType.int32, None),):
         # NOTE: original low-level example does not use input_x/y to compute result_x/y
         #       will fix accordingly after the low-level example is fixed
-        constant0 = block.Const(0, "const_0")
-        constant1 = block.Const(1, "const_1")
+        constant0 = block.const(0, "const_0")
+        constant1 = block.const(1, "const_1")
         for i in block.loop(constant0, batch, constant1, unroll=4):
-            res_loop_x = block.Tile(tile_shape, ir.DataType.float, "outputX")
+            res_loop_x = block.tile(tile_shape, ir.DataType.float, "outputX")
             block.adds(res_loop_x, scale1, out=res_loop_x)
 
-            res_loop_y = block.Tile(tile_shape, ir.DataType.float, "outputY")
+            res_loop_y = block.tile(tile_shape, ir.DataType.float, "outputY")
             block.adds(res_loop_y, scale2, out=res_loop_y)
 
             if i:
-                res_if_x = block.Tile(tile_shape, ir.DataType.float, "outputX")
+                res_if_x = block.tile(tile_shape, ir.DataType.float, "outputX")
                 block.muls(res_loop_x, scale1, out=res_if_x)
 
             else:
-                res_if_y = block.Tile(tile_shape, ir.DataType.float, "outputY")
+                res_if_y = block.tile(tile_shape, ir.DataType.float, "outputY")
                 block.muls(res_loop_y, scale2, out=res_if_y)
 
         return (constant0,)
@@ -157,11 +157,11 @@ def test_nested_for_loops():
     def my_kernel(
         input_x: ir.Tensor(tensor_shape, ir.DataType.float, "inputX", ir.Format.ND),
     ) -> (ir.Scalar(ir.DataType.int32, None),):
-        constant0 = block.Const(0, "const_0")
-        constant1 = block.Const(1, "const_1")
+        constant0 = block.const(0, "const_0")
+        constant1 = block.const(1, "const_1")
         for i in block.loop(constant0, batch, constant1):
             for j in block.loop(constant0, constant128, constant1):
-                res = block.Tile(tile_shape, ir.DataType.float, "output")
+                res = block.tile(tile_shape, ir.DataType.float, "output")
                 block.adds(res, input_x, out=res)
         return (constant0,)
 
@@ -195,16 +195,16 @@ def test_nested_if_statements():
         cond1: ir.Scalar(ir.DataType.bool, None, "cond1"),
         cond2: ir.Scalar(ir.DataType.bool, None, "cond2"),
     ) -> (ir.Scalar(ir.DataType.int32, None),):
-        constant0 = block.Const(0, "const_0")
+        constant0 = block.const(0, "const_0")
         if cond1:
-            res1 = block.Tile(tile_shape, ir.DataType.float, "output1")
+            res1 = block.tile(tile_shape, ir.DataType.float, "output1")
             if cond2:
-                res2 = block.Tile(tile_shape, ir.DataType.float, "output2")
+                res2 = block.tile(tile_shape, ir.DataType.float, "output2")
                 block.adds(res1, res2, out=res1)
             else:
                 block.adds(res1, input_x, out=res1)
         else:
-            res3 = block.Tile(tile_shape, ir.DataType.float, "output3")
+            res3 = block.tile(tile_shape, ir.DataType.float, "output3")
         return (constant0,)
 
     transformed_ast = AstMutator.mutate_ast(
@@ -240,10 +240,10 @@ def test_for_with_nested_if():
     def my_kernel(
         input_x: ir.Tensor(tensor_shape, ir.DataType.float, "inputX", ir.Format.ND),
     ) -> (ir.Scalar(ir.DataType.int32, None),):
-        constant0 = block.Const(0, "const_0")
-        constant1 = block.Const(1, "const_1")
+        constant0 = block.const(0, "const_0")
+        constant1 = block.const(1, "const_1")
         for i in block.loop(constant0, batch, constant1):
-            res = block.Tile(tile_shape, ir.DataType.float, "output")
+            res = block.tile(tile_shape, ir.DataType.float, "output")
             if i:
                 block.adds(res, input_x, out=res)
             else:
@@ -283,14 +283,14 @@ def test_if_with_nested_for():
         input_x: ir.Tensor(tensor_shape, ir.DataType.float, "inputX", ir.Format.ND),
         cond: ir.Scalar(ir.DataType.bool, None, "cond"),
     ) -> (ir.Scalar(ir.DataType.int32, None),):
-        constant0 = block.Const(0, "const_0")
-        constant1 = block.Const(1, "const_1")
+        constant0 = block.const(0, "const_0")
+        constant1 = block.const(1, "const_1")
         if cond:
             for i in block.loop(constant0, batch, constant1):
-                res = block.Tile(tile_shape, ir.DataType.float, "output")
+                res = block.tile(tile_shape, ir.DataType.float, "output")
                 block.adds(res, input_x, out=res)
         else:
-            res = block.Tile(tile_shape, ir.DataType.float, "output")
+            res = block.tile(tile_shape, ir.DataType.float, "output")
         return (constant0,)
 
     transformed_ast = AstMutator.mutate_ast(
@@ -326,8 +326,8 @@ def test_if_without_else():
         input_x: ir.Tensor(tensor_shape, ir.DataType.float, "inputX", ir.Format.ND),
         cond: ir.Scalar(ir.DataType.bool, None, "cond"),
     ) -> (ir.Scalar(ir.DataType.int32, None),):
-        constant0 = block.Const(0, "const_0")
-        res = block.Tile(tile_shape, ir.DataType.float, "output")
+        constant0 = block.const(0, "const_0")
+        res = block.tile(tile_shape, ir.DataType.float, "output")
         if cond:
             block.adds(res, input_x, out=res)
         return (constant0,)
@@ -362,8 +362,8 @@ def test_if_with_python_bool_constant():
     def my_kernel(
         input_x: ir.Tensor(tensor_shape, ir.DataType.float, "inputX", ir.Format.ND),
     ) -> (ir.Scalar(ir.DataType.int32, None),):
-        constant0 = block.Const(0, "const_0")
-        res = block.Tile(tile_shape, ir.DataType.float, "output")
+        constant0 = block.const(0, "const_0")
+        res = block.tile(tile_shape, ir.DataType.float, "output")
         if True:
             block.adds(res, input_x, out=res)
         return (constant0,)
@@ -382,7 +382,7 @@ def test_if_with_python_bool_constant():
         "block.if_then_scope" not in source
     ), "Python bool constant should not be transformed"
     assert (
-        "block.IfNode" not in source
+        "block.if_node" not in source
     ), "Python bool constant should not be transformed"
     # Should still have the original if True pattern
     assert "if True:" in source, "Original if True should remain"
@@ -402,8 +402,8 @@ def test_if_with_python_bool_variable():
     def my_kernel(
         input_x: ir.Tensor(tensor_shape, ir.DataType.float, "inputX", ir.Format.ND),
     ) -> (ir.Scalar(ir.DataType.int32, None),):
-        constant0 = block.Const(0, "const_0")
-        res = block.Tile(tile_shape, ir.DataType.float, "output")
+        constant0 = block.const(0, "const_0")
+        res = block.tile(tile_shape, ir.DataType.float, "output")
         x = True  # Python bool variable
         if x:
             block.adds(res, input_x, out=res)
@@ -423,7 +423,7 @@ def test_if_with_python_bool_variable():
         "block.if_then_scope" not in source
     ), "Python bool variable should not be transformed"
     assert (
-        "block.IfNode" not in source
+        "block.if_node" not in source
     ), "Python bool variable should not be transformed"
     # Should still have the original if x pattern
     assert "if x:" in source, "Original if x should remain"
@@ -444,8 +444,8 @@ def test_if_with_ir_scalar_still_transformed():
         input_x: ir.Tensor(tensor_shape, ir.DataType.float, "inputX", ir.Format.ND),
         cond: ir.Scalar(ir.DataType.bool, None, "cond"),
     ) -> (ir.Scalar(ir.DataType.int32, None),):
-        constant0 = block.Const(0, "const_0")
-        res = block.Tile(tile_shape, ir.DataType.float, "output")
+        constant0 = block.const(0, "const_0")
+        res = block.tile(tile_shape, ir.DataType.float, "output")
         if cond:
             block.adds(res, input_x, out=res)
         return (constant0,)
@@ -461,7 +461,7 @@ def test_if_with_ir_scalar_still_transformed():
     # Check that ir.Scalar condition IS transformed
     source = ast.unparse(transformed_ast)
     assert "block.if_then_scope" in source, "ir.Scalar condition should be transformed"
-    assert "block.IfNode" in source, "ir.Scalar condition should be transformed"
+    assert "block.if_node" in source, "ir.Scalar condition should be transformed"
 
 
 if __name__ == "__main__":

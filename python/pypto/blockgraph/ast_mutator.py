@@ -273,8 +273,8 @@ class AstMutator(ast.NodeTransformer):
         """
         Transform: for i in block.loop(start, end, step, **kwargs):
         To:
-            i = block.Scalar(ir.DataType.int32, "i")
-            fs = block.ForNode(i, start, end, step, **kwargs)
+            i = block.scalar(ir.DataType.int32, "i")
+            fs = block.for_node(i, start, end, step, **kwargs)
             with block.for_scope(fs):
                 ...
         """
@@ -314,13 +314,13 @@ class AstMutator(ast.NodeTransformer):
         )
         step = self.visit(loop_args[2]) if len(loop_args) > 2 else ast.Constant(value=1)
 
-        # NOTE: insert code `i = block.Scalar(ir.DataType.int32, "i")`
+        # NOTE: insert code `i = block.scalar(ir.DataType.int32, "i")`
         scalar_assign = ast.Assign(
             targets=[ast.Name(id=loop_var_name, ctx=ast.Store())],
             value=ast.Call(
                 func=ast.Attribute(
                     value=ast.Name(id="block", ctx=ast.Load()),
-                    attr="Scalar",
+                    attr="scalar",
                     ctx=ast.Load(),
                 ),
                 args=[
@@ -343,7 +343,7 @@ class AstMutator(ast.NodeTransformer):
         for_var_name = f"fs_{self.for_counter}"
         self.for_counter += 1
 
-        # NOTE: insert code `fs = block.ForNode(i, start, end, step, **kwargs)`
+        # NOTE: insert code `fs = block.for_node(i, start, end, step, **kwargs)`
         fornode_kwargs = []
         for key, value in loop_kwargs.items():
             fornode_kwargs.append(ast.keyword(arg=key, value=self.visit(value)))
@@ -353,7 +353,7 @@ class AstMutator(ast.NodeTransformer):
             value=ast.Call(
                 func=ast.Attribute(
                     value=ast.Name(id="block", ctx=ast.Load()),
-                    attr="ForNode",
+                    attr="for_node",
                     ctx=ast.Load(),
                 ),
                 args=[ast.Name(id=loop_var_name, ctx=ast.Load()), start, end, step],
@@ -430,7 +430,7 @@ class AstMutator(ast.NodeTransformer):
         """
         Transform: if cond: ... else: ...
         To:
-            ifs = block.IfNode(cond)
+            ifs = block.if_node(cond)
             with block.if_then_scope(ifs):
                 ...
             with block.if_else_scope(ifs):
@@ -451,13 +451,13 @@ class AstMutator(ast.NodeTransformer):
         # Transform condition
         cond = self.visit(node.test)
 
-        # NOTE: Insert code `ifs = block.IfNode(cond)`
+        # NOTE: Insert code `ifs = block.if_node(cond)`
         ifnode_assign = ast.Assign(
             targets=[ast.Name(id=if_var_name, ctx=ast.Store())],
             value=ast.Call(
                 func=ast.Attribute(
                     value=ast.Name(id="block", ctx=ast.Load()),
-                    attr="IfNode",
+                    attr="if_node",
                     ctx=ast.Load(),
                 ),
                 args=[cond],

@@ -54,25 +54,25 @@ def test_control_flow():
     with block.function_scope(func):
 
         # for i = 0 to batch step 1
-        i = block.Scalar(ir.DataType.int32, "i")
-        constant0 = block.Const(0, "const_0")
-        constant1 = block.Const(1, "const_1")
-        fs = block.ForNode(i, constant0, batch, constant1, unroll=4)
+        i = block.scalar(ir.DataType.int32, "i")
+        constant0 = block.const(0, "const_0")
+        constant1 = block.const(1, "const_1")
+        fs = block.for_node(i, constant0, batch, constant1, unroll=4)
         with block.for_scope(fs):
 
-            res_loop_x = block.Tile(tile_shape, ir.DataType.float, "outputX")
+            res_loop_x = block.tile(tile_shape, ir.DataType.float, "outputX")
             # Note: create_op used as CreateBinaryOp placeholder
             add_op_x = block.adds(res_loop_x, scale1, out=res_loop_x)
 
-            res_loop_y = block.Tile(tile_shape, ir.DataType.float, "outputY")
+            res_loop_y = block.tile(tile_shape, ir.DataType.float, "outputY")
             add_op_y = block.adds(res_loop_y, scale2, out=res_loop_y)
 
             # if i then outputX = mul(outputX, scale1) else outputY = mul(outputY, scale2)
-            ifs = block.IfNode(i)
+            ifs = block.if_node(i)
 
             # --- IF THEN ---
             with block.if_then_scope(ifs):
-                res_if_x = block.Tile(tile_shape, ir.DataType.float, "outputX")
+                res_if_x = block.tile(tile_shape, ir.DataType.float, "outputX")
                 mul_op_x = block.muls(res_loop_x, scale1, out=res_if_x)
 
                 # test compound remove value (Assuming remove_var exists in binding)
@@ -81,7 +81,7 @@ def test_control_flow():
 
             # --- IF ELSE ---
             with block.if_else_scope(ifs):
-                res_if_y = block.Tile(tile_shape, ir.DataType.float, "outputY")
+                res_if_y = block.tile(tile_shape, ir.DataType.float, "outputY")
                 mul_op_y = block.muls(res_loop_y, scale2, out=res_if_y)
 
             block.exit_if(ifs)
@@ -142,24 +142,24 @@ def test_control_flow_closure():
         func = block.create_function(metadata["name"], metadata["function_kind"], sig)
         with block.function_scope(func):
             # for i = 0 to batch step 1
-            i = block.Scalar(ir.DataType.int32, "i")
-            constant0 = block.Const(0, "const_0")
-            constant1 = block.Const(1, "const_1")
-            fs = block.ForNode(i, constant0, batch, constant1, unroll=4)
+            i = block.scalar(ir.DataType.int32, "i")
+            constant0 = block.const(0, "const_0")
+            constant1 = block.const(1, "const_1")
+            fs = block.for_node(i, constant0, batch, constant1, unroll=4)
             with block.for_scope(fs):
-                res_loop_x = block.Tile(tile_shape, ir.DataType.float, "outputX")
+                res_loop_x = block.tile(tile_shape, ir.DataType.float, "outputX")
                 add_op_x = block.adds(res_loop_x, scale1, out=res_loop_x)
 
-                res_loop_y = block.Tile(tile_shape, ir.DataType.float, "outputY")
+                res_loop_y = block.tile(tile_shape, ir.DataType.float, "outputY")
                 add_op_y = block.adds(res_loop_y, scale2, out=res_loop_y)
 
-                ifs = block.IfNode(i)
+                ifs = block.if_node(i)
                 with block.if_then_scope(ifs):
-                    res_if_x = block.Tile(tile_shape, ir.DataType.float, "outputX")
+                    res_if_x = block.tile(tile_shape, ir.DataType.float, "outputX")
                     mul_op_x = block.muls(res_loop_x, scale1, out=res_if_x)
 
                 with block.if_else_scope(ifs):
-                    res_if_y = block.Tile(tile_shape, ir.DataType.float, "outputY")
+                    res_if_y = block.tile(tile_shape, ir.DataType.float, "outputY")
                     mul_op_y = block.muls(res_loop_y, scale2, out=res_if_y)
 
                 block.exit_if(ifs)
@@ -202,31 +202,31 @@ def test_unary_operations():
 
     with block.function_scope(func):
         # Create input tile inside function scope
-        input_tile = block.Tile(tile_shape, ir.DataType.float, "input_tile")
+        input_tile = block.tile(tile_shape, ir.DataType.float, "input_tile")
 
         # Test all unary operations
-        res_exp = block.Tile(tile_shape, ir.DataType.float, "res_exp")
+        res_exp = block.tile(tile_shape, ir.DataType.float, "res_exp")
         block.exp(input_tile, out=res_exp)
 
-        res_neg = block.Tile(tile_shape, ir.DataType.float, "res_neg")
+        res_neg = block.tile(tile_shape, ir.DataType.float, "res_neg")
         block.neg(input_tile, out=res_neg)
 
-        res_rsqrt = block.Tile(tile_shape, ir.DataType.float, "res_rsqrt")
+        res_rsqrt = block.tile(tile_shape, ir.DataType.float, "res_rsqrt")
         block.rsqrt(input_tile, out=res_rsqrt)
 
-        res_sqrt = block.Tile(tile_shape, ir.DataType.float, "res_sqrt")
+        res_sqrt = block.tile(tile_shape, ir.DataType.float, "res_sqrt")
         block.sqrt(input_tile, out=res_sqrt)
 
-        res_logicalnot = block.Tile(tile_shape, ir.DataType.float, "res_logicalnot")
+        res_logicalnot = block.tile(tile_shape, ir.DataType.float, "res_logicalnot")
         block.logicalnot(input_tile, out=res_logicalnot)
 
-        res_reciprocal = block.Tile(tile_shape, ir.DataType.float, "res_reciprocal")
+        res_reciprocal = block.tile(tile_shape, ir.DataType.float, "res_reciprocal")
         block.reciprocal(input_tile, out=res_reciprocal)
 
-        res_abs = block.Tile(tile_shape, ir.DataType.float, "res_abs")
+        res_abs = block.tile(tile_shape, ir.DataType.float, "res_abs")
         block.abs(input_tile, out=res_abs)
 
-        res_ln = block.Tile(tile_shape, ir.DataType.float, "res_ln")
+        res_ln = block.tile(tile_shape, ir.DataType.float, "res_ln")
         block.ln(input_tile, out=res_ln)
 
         block.create_return([res_ln])
@@ -260,23 +260,23 @@ def test_binary_operations():
 
     with block.function_scope(func):
         # Create input tiles inside function scope
-        input_x = block.Tile(tile_shape, ir.DataType.float, "input_x")
-        input_y = block.Tile(tile_shape, ir.DataType.float, "input_y")
+        input_x = block.tile(tile_shape, ir.DataType.float, "input_x")
+        input_y = block.tile(tile_shape, ir.DataType.float, "input_y")
 
         # Test all binary operations
-        res_sub = block.Tile(tile_shape, ir.DataType.float, "res_sub")
+        res_sub = block.tile(tile_shape, ir.DataType.float, "res_sub")
         block.sub(input_x, input_y, out=res_sub)
 
-        res_mul = block.Tile(tile_shape, ir.DataType.float, "res_mul")
+        res_mul = block.tile(tile_shape, ir.DataType.float, "res_mul")
         block.mul(input_x, input_y, out=res_mul)
 
-        res_div = block.Tile(tile_shape, ir.DataType.float, "res_div")
+        res_div = block.tile(tile_shape, ir.DataType.float, "res_div")
         block.div(input_x, input_y, out=res_div)
 
-        res_min = block.Tile(tile_shape, ir.DataType.float, "res_min")
+        res_min = block.tile(tile_shape, ir.DataType.float, "res_min")
         block.min(input_x, input_y, out=res_min)
 
-        res_max = block.Tile(tile_shape, ir.DataType.float, "res_max")
+        res_max = block.tile(tile_shape, ir.DataType.float, "res_max")
         block.max(input_x, input_y, out=res_max)
 
         block.create_return([res_max])
@@ -310,25 +310,25 @@ def test_binary_scalar_mix_operations():
 
     with block.function_scope(func):
         # Create input tile inside function scope
-        input_tile = block.Tile(tile_shape, ir.DataType.float, "input_tile")
+        input_tile = block.tile(tile_shape, ir.DataType.float, "input_tile")
 
         # Test all binary scalar mix operations
-        res_adds = block.Tile(tile_shape, ir.DataType.float, "res_adds")
+        res_adds = block.tile(tile_shape, ir.DataType.float, "res_adds")
         block.adds(input_tile, scale, out=res_adds)
 
-        res_subs = block.Tile(tile_shape, ir.DataType.float, "res_subs")
+        res_subs = block.tile(tile_shape, ir.DataType.float, "res_subs")
         block.subs(input_tile, scale, out=res_subs)
 
-        res_muls = block.Tile(tile_shape, ir.DataType.float, "res_muls")
+        res_muls = block.tile(tile_shape, ir.DataType.float, "res_muls")
         block.muls(input_tile, scale, out=res_muls)
 
-        res_divs = block.Tile(tile_shape, ir.DataType.float, "res_divs")
+        res_divs = block.tile(tile_shape, ir.DataType.float, "res_divs")
         block.divs(input_tile, scale, out=res_divs)
 
-        res_mins = block.Tile(tile_shape, ir.DataType.float, "res_mins")
+        res_mins = block.tile(tile_shape, ir.DataType.float, "res_mins")
         block.mins(input_tile, scale, out=res_mins)
 
-        res_maxs = block.Tile(tile_shape, ir.DataType.float, "res_maxs")
+        res_maxs = block.tile(tile_shape, ir.DataType.float, "res_maxs")
         block.maxs(input_tile, scale, out=res_maxs)
 
         block.create_return([res_maxs])

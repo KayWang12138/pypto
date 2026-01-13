@@ -60,7 +60,7 @@ class BlockBuilderHelper:
 
     # ===== Control Flow Statements =====
 
-    def ForNode(self, var, start, end, step, **kwargs):
+    def for_node(self, var, start, end, step, **kwargs):
         fs = self.builder.create_for(self.ctx, var, start, end, step)
         if kwargs:
             props = fs.properties()
@@ -68,7 +68,7 @@ class BlockBuilderHelper:
                 props[key] = str(value)
         return fs
 
-    def IfNode(self, cond):
+    def if_node(self, cond):
         return self.builder.create_if(self.ctx, cond)
 
     def exit_if(self, if_node):
@@ -84,13 +84,13 @@ class BlockBuilderHelper:
 
     # ===== Value Creation =====
 
-    def Scalar(self, dtype, name):
+    def scalar(self, dtype, name):
         return self.builder.create_scalar(self.ctx, dtype, name)
 
-    def Const(self, value, name):
+    def const(self, value, name):
         return self.builder.create_const(self.ctx, value, name)
 
-    def Tile(self, shape, dtype, name):
+    def tile(self, shape, dtype, name):
         return self.builder.create_tile(self.ctx, shape, dtype, name)
 
     # ===== Operations =====

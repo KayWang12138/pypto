@@ -45,21 +45,21 @@ def ast_to_ir_demo():
     ) -> (ir.Scalar(ir.DataType.int32, None),):
         # NOTE: original low-level example does not use input_x/y to compute result_x/y
         #       will fix accordingly after the low-level example is fixed
-        constant0 = block.Const(0, "const_0")
-        constant1 = block.Const(1, "const_1")
+        constant0 = block.const(0, "const_0")
+        constant1 = block.const(1, "const_1")
         for i in block.loop(constant0, batch, constant1, unroll=4):
-            res_loop_x = block.Tile(tile_shape, ir.DataType.float, "outputX")
+            res_loop_x = block.tile(tile_shape, ir.DataType.float, "outputX")
             block.adds(res_loop_x, scale1, out=res_loop_x)
 
-            res_loop_y = block.Tile(tile_shape, ir.DataType.float, "outputY")
+            res_loop_y = block.tile(tile_shape, ir.DataType.float, "outputY")
             block.adds(res_loop_y, scale2, out=res_loop_y)
 
             if i:
-                res_if_x = block.Tile(tile_shape, ir.DataType.float, "outputX")
+                res_if_x = block.tile(tile_shape, ir.DataType.float, "outputX")
                 block.muls(res_loop_x, scale1, out=res_if_x)
 
             else:
-                res_if_y = block.Tile(tile_shape, ir.DataType.float, "outputY")
+                res_if_y = block.tile(tile_shape, ir.DataType.float, "outputY")
                 block.muls(res_loop_y, scale2, out=res_if_y)
 
         return (constant0,)
