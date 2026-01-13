@@ -30,7 +30,7 @@
 #include "ir/function.h"
 #include "ir/value.h"
 #include "ir/utils.h"
-#include "ir/transform/ir_printer.h"
+#include "ir/transform/printer.h"
 namespace pto {
 
 TEST(IRTEST, TestScalarType) {

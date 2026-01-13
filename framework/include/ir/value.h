@@ -55,15 +55,6 @@ public:
     TypePtr GetType() const { return type_; }
     DataType GetDataType() const { return type_ ? type_->GetDataType() : DataType::UNKNOWN; }
 
-    // Print only the SSA name (no indentation).
-    virtual void PrintSSAName(std::ostream& os) const = 0;
-
-    // Print the full value in format "ssaname: type".
-    virtual void PrintValue(std::ostream& os, int indent = 0) const = 0;
-
-    // Print only the type (no indentation).
-    virtual void PrintType(std::ostream& os) const = 0;
-
 protected:
     ValueKind valueKind_;
     TypePtr type_;
@@ -115,11 +106,6 @@ public:
 
     // Get immediate value as int64_t. Only valid when HasImmediateValue() is true.
     int64_t GetInt64Value() const;
-
-    void PrintSSAName(std::ostream& os) const override;
-    void PrintValue(std::ostream& os, int indent = 0) const override;
-    void PrintType(std::ostream& os) const override;
-
 private:
     ScalarValueKind valueKind_;     // Kind of scalar value: immediate, symbolic
     ImmediateType immediateValue_;   // Immediate value storage
@@ -216,11 +202,6 @@ public:
     void SetMemory(const std::shared_ptr<Memory> newMem) { mem_ = newMem; }
     void SetValidShapes(const std::vector<ScalarValuePtr> &validShapes) { validShapes_ = validShapes; }
 
-    void PrintSSAName(std::ostream& os) const override;
-    void PrintValue(std::ostream& os, int indent = 0) const override;
-    void PrintType(std::ostream& os) const override;
-
-
 private:
     std::vector<ScalarValuePtr> validShapes_;
     std::vector<int64_t> strides_;
@@ -266,9 +247,6 @@ public:
     Format GetFormat() const { return format_; }
     void SetFormat(Format format) { format_ = format; }
 
-    void PrintSSAName(std::ostream& os) const override;
-    void PrintValue(std::ostream& os, int indent = 0) const override;
-    void PrintType(std::ostream& os) const override;
 private:
     std::vector<ScalarValuePtr> shape_;
     Format format_;
