@@ -53,7 +53,7 @@ TEST(IRTEST, TestTensorOperation){
     sig.arguments.push_back(outputTensor);
 
     // ===== Function =====
-    auto func = builder.CreateFunction("test_all_ops", FunctionKind::ControlFlow, sig);
+    auto func = builder.CreateFunction("test_all_ops", FunctionKind::Block, sig);
     module->AddFunction(func);
     module->SetProgramEntry(func);
 

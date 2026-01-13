@@ -79,7 +79,6 @@ TEST(IRTEST, TestBuilder) {
 
     ctx.PopScope();
 
-
     ASSERT_EQ(ctx.func, nullptr);
     ASSERT_EQ(ctx.compound, nullptr);
     ASSERT_EQ(ctx.activeOpStmt, nullptr);
