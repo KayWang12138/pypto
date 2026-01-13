@@ -129,8 +129,7 @@ void CodeGenOp::UpdateShapeFromAttr(const std::vector<OpImmediate> &toValidShape
     std::vector<SymbolicScalar> validShape(toValidShape.size());
     for (size_t i = 0; i < toValidShape.size(); ++i) {
         if (toValidShape[i].IsSpecified()) {
-            auto val = toValidShape[i].GetSpecifiedValue();
-            validShape[i] = val;
+            validShape[i] = toValidShape[i].GetSpecifiedValue();
         }
     }
     dynValidShapeFromOpAttr[operandIdx] = validShape;
