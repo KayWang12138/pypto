@@ -24,10 +24,11 @@ namespace npu::tile_fwk {
 namespace Distributed {
 
 template<typename T>
-void TestAllReduce(OpTestParam& testParam)
+void TestAllReduce(OpTestParam &testParam, const nlohmann::json& testData)
 {
+    std::string goldenDir = GetGoldenDirPath(testData);
     constexpr size_t paramsSize = 6;
-    auto [row, col, typeNum, tileRow, tileCol, useTwoShot] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
+    auto [row, col, typeNum, tileRow, tileCol, useTwoShot] = GetParams<paramsSize>(goldenDir + "/params.bin");
     DataType dType = GetDataTypeNum(typeNum);
 
     int32_t outSize = row * col;
@@ -37,7 +38,7 @@ void TestAllReduce(OpTestParam& testParam)
     Tensor out(dType, shape, "out");
 
     std::vector<T> inPtr = ReadToVector<T>(
-        GetGoldenDir() + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", {row, col});
+        goldenDir + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", {row, col});
 
     ProgramData::GetInstance().AppendInputs({
         RawTensorData::CreateTensor<T>(in, inPtr),
@@ -73,13 +74,11 @@ void TestAllReduce(OpTestParam& testParam)
     }
     RunTest();
     auto output = ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, "/output_rank_", outSize, output->GetDevPtr(), testParam));
-
+    EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, goldenDir + "/output_rank_", outSize, output->GetDevPtr(), testParam));
 }
-
-template void TestAllReduce<int32_t>(OpTestParam& testParam);
-template void TestAllReduce<float>(OpTestParam& testParam);
-template void TestAllReduce<float16>(OpTestParam& testParam);
-template void TestAllReduce<bfloat16>(OpTestParam& testParam);
+template void TestAllReduce<int32_t>(OpTestParam &testParam, const nlohmann::json& testData);
+template void TestAllReduce<float>(OpTestParam &testParam, const nlohmann::json& testData);
+template void TestAllReduce<float16>(OpTestParam &testParam, const nlohmann::json& testData);
+template void TestAllReduce<bfloat16>(OpTestParam &testParam, const nlohmann::json& testData);
 } // namespace Distributed 
 } // namespace npu::tile_fwk
