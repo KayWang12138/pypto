@@ -110,6 +110,12 @@ static void Neg(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     torch::neg_out(tout, From(self));
 }
 
+static void Round(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int decimals) {
+    auto ret = From(out);
+    auto src = From(self);
+    ret.copy_(torch::round(src, decimals));
+}
+
 static void Rsqrt(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     auto tout = From(out);
     torch::rsqrt_out(tout, From(self));
@@ -1239,6 +1245,7 @@ static struct CalcOps calcOps = {
     .Cast = Cast,
     .Exp = Exp,
     .Neg = Neg,
+    .Round = Round,
     .Rsqrt = Rsqrt,
     .Sqrt = Sqrt,
     .Abs = Abs,
