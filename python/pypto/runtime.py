@@ -187,7 +187,10 @@ class _JIT:
 
     def dispatch_with_run_mode(self, in_tensor_data, out_tensor_data, device):
         cann_is_configed: bool = bool(os.environ.get("ASCEND_HOME_PATH"))
-        run_mode = pypto.get_runtime_options().get('run_mode', 0)
+        run_mode = pypto.get_host_options().get('run_mode', 0)
+        if pypto.get_host_options().get('compile_stage', 0) > pypto.CompStage.CODEGEN.value:
+            return
+
         if run_mode == 0:
             if cann_is_configed == False:
                 raise RuntimeError("Please source cann environment while run mode is NPU.")
@@ -357,7 +360,7 @@ def verify(func, inputs, outputs, goldens, *args,
     pypto_impl.DeviceInit()
 
     if host_options is None:
-        host_options = {"only_codegen": True}
+        host_options = {"compile_stage": pypto.CompStage.ALL}
     pypto.set_host_options(**host_options)
 
     if pass_options is None:
