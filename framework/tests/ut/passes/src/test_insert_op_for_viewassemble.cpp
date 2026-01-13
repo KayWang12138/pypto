@@ -182,7 +182,7 @@ TEST_F(TestInsertCopyPass, TestInsert) {
     auto midTensor0 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, midShape);
     midTensor0->SetMemoryTypeOriginal(MemoryType::MEM_UB, true); 
     auto midTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, midShape);
-    midTensor0->SetMemoryTypeOriginal(MemoryType::MEM_UB, true); 
+    midTensor1->SetMemoryTypeOriginal(MemoryType::MEM_UB, true); 
     auto midTensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, midShape);
     midTensor2->SetMemoryTypeOriginal(MemoryType::MEM_UB, true); 
 
