@@ -24,17 +24,18 @@ namespace npu::tile_fwk {
 namespace Distributed {
 
 template<typename T>
-void TestShmemReduceScatter(OpTestParam &testParam)
+void TestShmemReduceScatter(OpTestParam &testParam, const nlohmann::json& testData)
 {
+    std::string goldenDir = GetGoldenDirPath(testData);
     constexpr size_t paramsSize = 5;
-    auto [row, col, typeNum, tileRow, tileCol] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
+    auto [row, col, typeNum, tileRow, tileCol] = GetParams<paramsSize>(goldenDir + "/params.bin");
     int rowOut = row / testParam.rankSize;
     DataType dType = GetDataTypeNum(typeNum);
     Tensor in(dType, {row, col}, "in");
     Tensor out(dType, {rowOut, col}, "out");
 
     std::vector<T> inData = ReadToVector<T>(
-        GetGoldenDir() + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", {row, col});
+       goldenDir + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", {row, col});
 
     FUNCTION("ShmemReduceScatter", {in}, {out}) {
         LOOP("LOOP", FunctionType::DYNAMIC_LOOP, idx, LoopRange(1)) {
@@ -58,12 +59,12 @@ void TestShmemReduceScatter(OpTestParam &testParam)
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), config);
 
     auto outPut = ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, "/output_rank_", rowOut * col, outPut->GetDevPtr(), testParam));
+    EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, goldenDir + "/output_rank_", rowOut * col, outPut->GetDevPtr(), testParam));
 }
 
-template void TestShmemReduceScatter<int32_t>(OpTestParam &testParam);
-template void TestShmemReduceScatter<float>(OpTestParam &testParam);
-template void TestShmemReduceScatter<float16>(OpTestParam &testParam);
-template void TestShmemReduceScatter<bfloat16>(OpTestParam &testParam);
+template void TestShmemReduceScatter<int32_t>(OpTestParam &testParam, const nlohmann::json& testData);
+template void TestShmemReduceScatter<float>(OpTestParam &testParam, const nlohmann::json& testData);
+template void TestShmemReduceScatter<float16>(OpTestParam &testParam, const nlohmann::json& testData);
+template void TestShmemReduceScatter<bfloat16>(OpTestParam &testParam, const nlohmann::json& testData);
 } // namespace Distributed
 } // namespace npu::tile_fwk
