@@ -89,17 +89,19 @@ def apply_rotary_pos_emb_v2(q, k, cos, sin, unsqueeze_dim=1):
     logging.debug("expand sin.shape: %s", sin.shape)
     logging.debug("expand cos.shape: %s", cos.shape)
 
-    t, h, d = q.shape
-    q = q.reshape(t, h, d // 2, 2).permute(0, 1, 3, 2).reshape(t, h, d)  # [t,n,qk_d]
+    t, hq, d = q.shape
+    q = q.reshape(t, hq, d // 2, 2).permute(0, 1, 3, 2).reshape(t, hq, d)  # [t,n,qk_d]
 
-    t, h, d = k.shape
-    k = k.reshape(t, h, d // 2, 2).permute(0, 1, 3, 2).reshape(t, h, d)  # [t,1,qk_d]
+    t, hk, d = k.shape
+    k = k.reshape(t, hk, d // 2, 2).permute(0, 1, 3, 2).reshape(t, hk, d)  # [t,1,qk_d]
 
     q_embed = (q * cos) + (rotate_half(q) * sin)
     k_embed = (k * cos) + (rotate_half(k) * sin)
 
     if input_dtype != torch.float32:
         q_embed, k_embed = q_embed.to(input_dtype), k_embed.to(input_dtype)
+    q_embed = q_embed.reshape(t, hq, 2, d // 2).transpose(2, 3).reshape(t, hq, d)
+    k_embed = k_embed.reshape(t, hk, 2, d // 2).transpose(1, 2).reshape(t, d)
     return q_embed, k_embed
 
 
@@ -154,9 +156,9 @@ def mla_prolog_compute(inputs):
     k_pe_r = k_pe.reshape(t, 1, qk_rope_head_dim)
 
     q_embed, k_embed = apply_rotary_pos_emb_v2(q_pe, k_pe_r, cos, sin, 1)
-    k_embed_r = k_embed.reshape(t, qk_rope_head_dim)
+
     q_out = torch.concat([q_reshape[:, :, :-qk_rope_head_dim], q_embed], -1)
-    kv_out = torch.concat([kv_reshape[:, :-qk_rope_head_dim], k_embed_r], -1)
+    kv_out = torch.concat([kv_reshape[:, :-qk_rope_head_dim], k_embed], -1)
 
     return q_out, kv_out, q_a_layernorm
 
