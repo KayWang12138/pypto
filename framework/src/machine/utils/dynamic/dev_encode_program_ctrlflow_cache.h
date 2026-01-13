@@ -713,7 +713,7 @@ struct DevProgramControlFlowCache {
                         continue;
                     }
                     auto &rtOutcast = backupRtOutcastPool[base[k].rtOutcastIter].Item();
-                    if (rtOutcast.isCache) { continue; } // To avoid duplicate reloc
+                    if (--rtOutcast.refCnt != 0) { continue; } // To avoid duplicate reloc
                     uintdevptr_t addr = rtOutcast.addr;
                     AddressDescriptor *desc = reinterpret_cast<AddressDescriptor *>(&rtOutcast.addr);
                     *desc = AddressDescriptor::MakeFromAddress(addr);
@@ -724,7 +724,7 @@ struct DevProgramControlFlowCache {
                         continue;
                     }
                     auto &rtOutcast = runtimeOutcastTensorPool[runtimeSlotList[k].rtOutcastIter].Item();
-                    if (!rtOutcast.isCache) { continue; } // To avoid duplicate reloc
+                    if (++rtOutcast.refCnt != 0) { continue; } // To avoid duplicate reloc
                     AddressDescriptor *desc = reinterpret_cast<AddressDescriptor *>(&rtOutcast.addr);
                     RelocDescFromCache(*desc, relocWorkspace, devStartArgs);
                     rtOutcast.addr = desc->GetAddressValue();
