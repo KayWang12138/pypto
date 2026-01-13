@@ -198,6 +198,8 @@ enum class Opcode {
     OP_L0C_COPY_OUT,
     OP_L1_TO_L0_AT,
     OP_L1_TO_L0_BT,
+    OP_L1_TO_L0A_SCALE,
+    OP_L1_TO_L0B_SCALE,
     OP_L1_TO_FIX,
     OP_L1_TO_FIX_QUANT_PRE,
     OP_L1_TO_FIX_RELU_PRE,
