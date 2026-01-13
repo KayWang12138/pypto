@@ -94,12 +94,10 @@ ProgramModulePtr CreateAdd() {
     builder.Emit(ctx, builder.CreateCall5ScalarOp(
         Opcode::OP_SCALAR_CALL_5, param, createConst(1), createConst(10), createConst(2), createConst(1), gmt5Rawshape_1,
         "GET_PARAM_RAWSHAPE_BY_IDX"));
+    builder.Emit(ctx, builder.CreateUnaryScalarOp(Opcode::OP_SCALAR_ASSIGN, createConst(1), gmt5Stride_0));
     builder.Emit(ctx, builder.CreateCall5ScalarOp(
-        Opcode::OP_SCALAR_CALL_5, param, createConst(1), createConst(10), createConst(2), createConst(0), gmt5Stride_0,
-        "GET_PARAM_STRIDE_BY_IDX"));
-    builder.Emit(ctx, builder.CreateCall5ScalarOp(
-        Opcode::OP_SCALAR_CALL_5, param, createConst(1), createConst(10), createConst(2), createConst(1), gmt5Stride_1,
-        "GET_PARAM_STRIDE_BY_IDX"));
+        Opcode::OP_SCALAR_CALL_5, param, createConst(1), createConst(10), createConst(2), createConst(0), gmt5Stride_1,
+        "GET_PARAM_RAWSHAPE_BY_IDX"));
 
     builder.Emit(ctx, builder.CreateCall3ScalarOp(
         Opcode::OP_SCALAR_CALL_3, param, createConst(0), createConst(1), gmt1Addr,
@@ -110,12 +108,10 @@ ProgramModulePtr CreateAdd() {
     builder.Emit(ctx, builder.CreateCall5ScalarOp(
         Opcode::OP_SCALAR_CALL_5, param, createConst(0), createConst(1), createConst(2), createConst(1), gmt1Rawshape_1,
         "GET_PARAM_RAWSHAPE_BY_IDX"));
+    builder.Emit(ctx, builder.CreateUnaryScalarOp(Opcopde::OP_SCALAR_ASSIGN, createConst(1), gmt1Stride_0));
     builder.Emit(ctx, builder.CreateCall5ScalarOp(
-        Opcode::OP_SCALAR_CALL_5, param, createConst(0), createConst(1), createConst(2), createConst(0), gmt1Stride_0,
-        "GET_PARAM_STRIDE_BY_IDX"));
-    builder.Emit(ctx, builder.CreateCall5ScalarOp(
-        Opcode::OP_SCALAR_CALL_5, param, createConst(0), createConst(1), createConst(2), createConst(1), gmt1Stride_1,
-        "GET_PARAM_STRIDE_BY_IDX"));
+        Opcode::OP_SCALAR_CALL_5, param, createConst(0), createConst(1), createConst(2), createConst(0), gmt1Stride_1,
+        "GET_PARAM_RAWSHAPE_BY_IDX"));
 
     builder.Emit(ctx, builder.CreateCall5ScalarOp(
         Opcode::OP_SCALAR_CALL_5, createConst(1), createConst(32), createConst(2), createConst(1), createConst(0), sym_72_dim_0,
