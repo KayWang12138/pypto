@@ -29,7 +29,7 @@
 #include "interface/inner/tilefwk.h"
 #include "tilefwk/data_type.h"
 #include "interface/interpreter/raw_tensor_data.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_manager_ng.h"
 #include "tilefwk/platform.h"
 
 namespace npu::tile_fwk::dynamic {

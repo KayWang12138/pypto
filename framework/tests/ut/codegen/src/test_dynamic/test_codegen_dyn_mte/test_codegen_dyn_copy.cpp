@@ -20,6 +20,7 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/configs/config_manager.h"
+#include "interface/configs/config_manager_ng.h"
 #include "interface/operation/operation.h"
 #include "tilefwk/data_type.h"
 #include "codegen/symbol_mgr/codegen_symbol.h"

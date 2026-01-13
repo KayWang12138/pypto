@@ -111,67 +111,6 @@ inline void SetOption(const std::string &key, const char *value) {
 }
 
 /**
- * \brief Set pass options
- *
- * \param key config option key
- *  - pg_upper_bound:
- *      upper bound of schedule cycles for each subgraph
- *      default: 512
- *  - pg_lower_bound:
- *      lower bound of schedule cycles for each subgraph
- *      default: 10000
- * \param value config option value
- */
-template <typename T>
-void SetPassOption(const std::string &key, const T &value) {
-    SetOption("pass." + key, value);
-}
-
-/**
- * \brief Set codegen options
- *
- * \param key config option key
- * \param value config option value
- */
-template <typename T>
-void SetCodeGenOption(const std::string &key, const T &value) {
-    SetOption("codegen." + key, value);
-}
-
-/**
- * \brief Set runtime options
- *
- * \param key config option key
- * \param value config option value
- */
-template <typename T>
-void SetRuntimeOption(const std::string &key, const T &value) {
-    SetOption("runtime." + key, value);
-}
-
-/**
- * \brief Set host options
- *
- * \param key config option key
- * \param value config option value
- */
-template <typename T>
-void SetHostOption(const std::string &key, const T &value) {
-    SetOption("host." + key, value);
-}
-
-/**
- * \brief Set host options
- *
- * \param key config option key
- * \param value config option value
- */
-template <typename T>
-void SetVerifyOption(const std::string &key, const T &value) {
-    SetOption("verify." + key, value);
-}
-
-/**
  * \brief Set tensor print options
  *
  * \param edgeItems print max items in tensor head and tail

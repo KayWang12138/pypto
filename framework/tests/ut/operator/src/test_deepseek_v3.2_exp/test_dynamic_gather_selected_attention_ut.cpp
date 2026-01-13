@@ -22,6 +22,7 @@
 #include "interface/tensor/raw_tensor.h"
 #include "interface/interpreter/raw_tensor_data.h"
 #include "operator/models/deepseek_v3.2_exp/gather_selected_attention.h"
+#include "interface/configs/config_manager_ng.h"
 
 using namespace npu::tile_fwk;
 

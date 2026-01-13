@@ -20,6 +20,7 @@
 #include "tilefwk/tilefwk_op.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/configs/config_manager.h"
+#include "interface/configs/config_manager_ng.h"
 
 namespace npu::tile_fwk {
 

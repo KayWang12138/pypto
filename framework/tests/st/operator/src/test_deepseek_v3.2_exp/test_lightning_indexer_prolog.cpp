@@ -25,6 +25,7 @@
 #include "machine/utils/dynamic/dev_encode.h"
 #include "operator/models/deepseek_v3.2_exp/lightning_indexer_prolog.h"
 #include "operator/models/deepseek_v3.2_exp/dsia_common.h"
+#include "interface/configs/config_manager_ng.h"
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;

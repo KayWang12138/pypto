@@ -20,6 +20,7 @@
 #include "lightning_indexer_topk.h"
 #include "gather_after_prolog.h"
 #include "gather_selected_attention.h"
+#include "interface/configs/config_manager_ng.h"
 
 namespace npu::tile_fwk {
 

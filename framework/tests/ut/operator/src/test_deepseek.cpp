@@ -20,6 +20,7 @@
 #include "interface/inner/tilefwk.h"
 #include "operator/models/deepseek/deepseek_mla.h"
 #include "interface/configs/config_manager.h"
+#include "interface/configs/config_manager_ng.h"
 #include "operator/models/llama/llama_def.h"
 #include "operator/models/deepseek/deepseek_spec.h"
 #include "operator/models/deepseek/page_attention.h"

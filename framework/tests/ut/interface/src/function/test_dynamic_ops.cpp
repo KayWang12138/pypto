@@ -15,6 +15,7 @@
 
 #include <gtest/gtest.h>
 #include "interface/configs/config_manager.h"
+#include "interface/configs/config_manager_ng.h"
 #include "interface/interpreter/raw_tensor_data.h"
 #include "interface/interpreter/calc.h"
 #include "tilefwk/tilefwk_op.h"

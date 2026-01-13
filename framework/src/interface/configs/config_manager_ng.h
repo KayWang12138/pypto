@@ -149,12 +149,18 @@ public:
      */
     void AddValue(const std::string &key, Any value);
 
+    void UpdateValueWithAny(const std::string &key, Any value);
+
     /**
      * \brief update a config value for the given key.
      * \param key The config key.
      * \param value The config value to set.
      */
-    void UpdateValue(const std::string &key, Any value);
+    template <typename T>
+    void UpdateValue(const std::string &key, T RawValue) {
+        Any value = ConvertTtoAny(RawValue);
+        UpdateValueWithAny(key, value);
+    }
 
     /**
      * \brief clear the config in Scope
@@ -191,6 +197,19 @@ private:
     int begin_lino_{0};
     std::string end_file_;
     int end_lino_{0};
+
+    template <typename T>
+    Any ConvertTtoAny(T value) {
+        if constexpr (std::is_same_v<T, bool>) {
+            return Any(value);
+        } else if constexpr (std::is_integral_v<T>) {
+            return Any(static_cast<int64_t>(value));
+        } else if constexpr (std::is_same_v<T, const char*>) {
+            return Any(std::string(value));
+        } else {
+            return Any(value);
+        }
+    }
 };
 
 class ConfigManagerNg {
@@ -277,7 +296,7 @@ public:
      */
     template <typename T>
     static void SetGlobalConfig(const std::string &key, T value) {
-        return GetInstance().globalScope->AddValue("global." + key, value);
+        return GetInstance().globalScope->UpdateValue("global." + key, value);
     }
 
     /**
@@ -297,5 +316,84 @@ private:
     std::unique_ptr<ConfigManagerImpl> impl_;
     ConfigScopePtr globalScope;
 };
+
+namespace config {
+    /**
+    * \brief Set pass options
+    *
+    * \param key config option key
+    *  - pg_upper_bound:
+    *      upper bound of schedule cycles for each subgraph
+    *      default: 512
+    *  - pg_lower_bound:
+    *      lower bound of schedule cycles for each subgraph
+    *      default: 10000
+    * \param value config option value
+    */
+    template <typename T>
+    void SetPassOption(const std::string &key, const T &value) {
+        ConfigManagerNg::CurrentScope()->UpdateValue("pass." + key, value);
+    }
+
+
+    /**
+    * \brief Set codegen options
+    *
+    * \param key config option key
+    * \param value config option value
+    */
+    template <typename T>
+    void SetCodeGenOption(const std::string &key, const T &value) {
+        ConfigManagerNg::CurrentScope()->UpdateValue("codegen." + key, value);
+    }
+
+    /**
+    * \brief Set runtime options
+    *
+    * \param key config option key
+    * \param value config option value
+    */
+    template <typename T>
+    void SetRuntimeOption(const std::string &key, const T &value) {
+        ConfigManagerNg::CurrentScope()->UpdateValue("runtime." + key, value);
+    }
+
+    /**
+    * \brief Set host options
+    *
+    * \param key config option key
+    * \param value config option value
+    */
+    template <typename T>
+    void SetHostOption(const std::string &key, const T &value) {
+        ConfigManagerNg::CurrentScope()->UpdateValue("host." + key, value);
+    }
+
+    /**
+    * \brief Set host options
+    *
+    * \param key config option key
+    * \param value config option value
+    */
+    template <typename T>
+    void SetVerifyOption(const std::string &key, const T &value) {
+        ConfigManagerNg::CurrentScope()->UpdateValue("verify." + key, value);
+    }
+
+#define DEFINE_CONFIG_GROUP(group, prefix)                   \
+template <typename T>                                    \
+inline T Get##group##Option(const std::string &key) {    \
+    return ConfigManagerNg::CurrentScope()->GetConfigAllType<T>(prefix "." + key); \
+}
+
+DEFINE_CONFIG_GROUP(CodeGen, "codegen")
+DEFINE_CONFIG_GROUP(Pass, "pass")
+DEFINE_CONFIG_GROUP(Runtime, "runtime")
+DEFINE_CONFIG_GROUP(Host, "host")
+DEFINE_CONFIG_GROUP(Verify, "verify")
+DEFINE_CONFIG_GROUP(Debug, "debug")
+
+} // namespace config
+
 } // namespace npu::tile_fwk
 #endif // CONFIG_MANAGER_NG_H
