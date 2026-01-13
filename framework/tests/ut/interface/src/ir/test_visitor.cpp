@@ -49,7 +49,7 @@ public:
   int tileValueCount = 0;
   int tensorValueCount = 0;
 
-  // 引入父类的通用方法以避免 overloaded-virtual 警告
+  // Bring in base class methods to avoid overloaded-virtual warnings
   using IRVisitor::VisitStmt_;
   using IRVisitor::VisitOp_;
   using IRVisitor::VisitValue_;
@@ -132,7 +132,7 @@ class ValueCollectorVisitor : public IRVisitor {
 public:
   std::unordered_set<ValuePtr> visitedValues;
 
-  // 引入父类的通用方法以避免 overloaded-virtual 警告
+  // Bring in base class methods to avoid overloaded-virtual warnings
   using IRVisitor::VisitValue_;
 
   void VisitValue_(ScalarValuePtr& value) override {
@@ -158,7 +158,7 @@ public:
 };
 
 TEST(IRVisitorTest, TestBasicTraversal) {
-  // 创建简单的IR程序
+  // Create a simple IR program
   auto module = std::make_shared<ProgramModule>("main");
   IRBuilder builder;
   IRBuilderContext ctx;
@@ -169,7 +169,7 @@ TEST(IRVisitorTest, TestBasicTraversal) {
   auto outputTensor = std::make_shared<TileValue>(tileShape, DataType::FP32, "output");
   sig.arguments = { inputTensor, outputTensor };
 
-  auto func = builder.CreateFunction("test_func", FunctionKind::Kernel, sig);
+  auto func = builder.CreateFunction("test_func", FunctionKind::Block, sig);
   module->AddFunction(func);
   builder.EnterFunctionBody(ctx, func);
 
@@ -182,26 +182,26 @@ TEST(IRVisitorTest, TestBasicTraversal) {
 
   ctx.PopScope();
 
-  // 使用 CountingVisitor 遍历
+  // Traverse using CountingVisitor
   CountingVisitor visitor;
   ProgramModulePtr modulePtr = module;
   visitor.VisitProgram(modulePtr);
 
-  // 验证访问计数
+  // Verify visit counts
   ASSERT_EQ(visitor.programCount, 1);
-  // DefaultVisitProgram 会先访问 entry function，然后再访问 functions 列表中的所有函数
+  // VisitProgram_ first visits the entry function, then all functions in the functions list
   ASSERT_GE(visitor.functionCount, 1);
-  ASSERT_GE(visitor.compoundStmtCount, 1);  // 至少有一个compound statement
-  ASSERT_GE(visitor.opStmtCount, 1);  // 至少有一个op statement
-  // return statement 也会因为函数被访问两次而被访问两次
+  ASSERT_GE(visitor.compoundStmtCount, 1);  // at least one compound statement
+  ASSERT_GE(visitor.opStmtCount, 1);  // at least one op statement
+  // return statement will also be visited twice if the function is visited twice
   ASSERT_GE(visitor.returnStmtCount, 1);
-  ASSERT_GE(visitor.operationCount, 1);  // 至少有一个operation
-  ASSERT_GE(visitor.scalarValueCount, 1);  // 至少有一个scalar value (常量c2)
+  ASSERT_GE(visitor.operationCount, 1);  // at least one operation
+  ASSERT_GE(visitor.scalarValueCount, 1);  // at least one scalar value (constant c2)
   ASSERT_GE(visitor.tileValueCount, 3);  // inputTensor, outputTensor, mulRes
 }
 
 TEST(IRVisitorTest, TestValueCollection) {
-  // 创建包含多个值的IR程序
+  // Create an IR program with multiple values
   auto module = std::make_shared<ProgramModule>("main");
   IRBuilder builder;
   IRBuilderContext ctx;
@@ -212,7 +212,7 @@ TEST(IRVisitorTest, TestValueCollection) {
   auto in2 = std::make_shared<TileValue>(tileShape, DataType::FP32, "in2");
   sig.arguments = { in1, in2 };
 
-  auto func = builder.CreateFunction("test_collect", FunctionKind::Kernel, sig);
+  auto func = builder.CreateFunction("test_collect", FunctionKind::Block, sig);
   module->AddFunction(func);
   builder.EnterFunctionBody(ctx, func);
 
@@ -228,7 +228,7 @@ TEST(IRVisitorTest, TestValueCollection) {
   auto mulOp = builder.CreateBinaryScalarMixOp(Opcode::OP_MULS, addRes, c2, mulRes);
   builder.Emit(ctx, mulOp);
 
-  // 使用 c3 以确保它被访问
+  // Use c3 to ensure it is visited
   ctx.ResetInsertionPoint();
   auto finalRes = builder.CreateTile(ctx, tileShape, DataType::FP32, "final_res");
   auto finalOp = builder.CreateBinaryScalarMixOp(Opcode::OP_MULS, mulRes, c3, finalRes);
@@ -238,12 +238,12 @@ TEST(IRVisitorTest, TestValueCollection) {
 
   ctx.PopScope();
 
-  // 使用 ValueCollectorVisitor 收集所有值
+  // Collect all values using ValueCollectorVisitor
   ValueCollectorVisitor collector;
   ProgramModulePtr modulePtr = module;
   collector.VisitProgram(modulePtr);
 
-  // 验证收集到的值
+  // Verify collected values
   ASSERT_GT(collector.visitedValues.size(), 0);
   ASSERT_TRUE(collector.visitedValues.find(in1) != collector.visitedValues.end());
   ASSERT_TRUE(collector.visitedValues.find(in2) != collector.visitedValues.end());
@@ -256,7 +256,7 @@ TEST(IRVisitorTest, TestValueCollection) {
 }
 
 TEST(IRVisitorTest, TestControlFlowTraversal) {
-  // 创建包含控制流的IR程序
+  // Create an IR program with control flow
   auto module = std::make_shared<ProgramModule>("main");
   IRBuilder builder;
   IRBuilderContext ctx;
@@ -307,48 +307,44 @@ TEST(IRVisitorTest, TestControlFlowTraversal) {
   builder.CreateReturn(ctx, {constant0});
   ctx.PopScope();  // function-body
 
-  // 使用 CountingVisitor 遍历
+  // Traverse using CountingVisitor
   CountingVisitor visitor;
   ProgramModulePtr modulePtr = module;
   visitor.VisitProgram(modulePtr);
 
-  // 验证控制流节点被访问
+  // Verify control flow nodes are visited
   ASSERT_EQ(visitor.programCount, 1);
-  // DefaultVisitProgram 会先访问 entry function，然后再访问 functions 列表中的所有函数
-  // 如果 entry function 也在 functions 列表中，会被访问两次
+  // VisitProgram_ first visits the entry function, then all functions in the functions list
+  // If the entry function is also in the functions list, it will be visited twice
   ASSERT_GE(visitor.functionCount, 1);
-  ASSERT_GE(visitor.forStmtCount, 1);  // 至少有一个for statement
-  ASSERT_GE(visitor.ifStmtCount, 1);   // 至少有一个if statement
+  ASSERT_GE(visitor.forStmtCount, 1);  // at least one for statement
+  ASSERT_GE(visitor.ifStmtCount, 1);   // at least one if statement
   ASSERT_GE(visitor.compoundStmtCount, 3);  // function body, for body, if branches
-  ASSERT_GE(visitor.operationCount, 2);  // addOpX 和 mulOpX
+  ASSERT_GE(visitor.operationCount, 2);  // addOpX and mulOpX
 }
 
 /**
- * @brief Test visitor for DefaultVisit methods
+ * @brief Test visitor for default traversal methods
  */
 class DefaultVisitTester : public IRVisitor {
 public:
   int visitedCount = 0;
   std::unordered_set<void*> visitedNodes;
 
-  // 使用 using 声明引入受保护方法以便测试
-  using IRVisitor::DefaultVisitProgram;
-  using IRVisitor::DefaultVisitFunction;
-  using IRVisitor::DefaultVisitStmt;
-  using IRVisitor::DefaultVisitOp;
-  using IRVisitor::DefaultVisitValue;
+  // Bring in base class methods to avoid overloaded-virtual warnings
+  using IRVisitor::VisitProgram_;
   using IRVisitor::VisitFunction_;
   using IRVisitor::VisitStmt_;
   using IRVisitor::VisitOp_;
   using IRVisitor::VisitValue_;
 
-  // 覆盖 VisitXXX_ 方法来追踪访问，但调用 DefaultVisit
+  // Override VisitXXX_ methods to track visits, but call base class default implementation
   void VisitFunction_(FunctionPtr& func) override {
     if (func) {
       visitedNodes.insert(func.get());
       visitedCount++;
     }
-    DefaultVisitFunction(func);
+    IRVisitor::VisitFunction_(func);
   }
 
   void VisitStmt_(CompoundStatementPtr& stmt) override {
@@ -356,7 +352,7 @@ public:
       visitedNodes.insert(stmt.get());
       visitedCount++;
     }
-    DefaultVisitStmt(stmt);
+    IRVisitor::VisitStmt_(stmt);
   }
 
   void VisitStmt_(OpStatementPtr& stmt) override {
@@ -364,7 +360,7 @@ public:
       visitedNodes.insert(stmt.get());
       visitedCount++;
     }
-    DefaultVisitStmt(stmt);
+    IRVisitor::VisitStmt_(stmt);
   }
 
   void VisitStmt_(ForStatementPtr& stmt) override {
@@ -372,7 +368,7 @@ public:
       visitedNodes.insert(stmt.get());
       visitedCount++;
     }
-    DefaultVisitStmt(stmt);
+    IRVisitor::VisitStmt_(stmt);
   }
 
   void VisitStmt_(IfStatementPtr& stmt) override {
@@ -380,7 +376,7 @@ public:
       visitedNodes.insert(stmt.get());
       visitedCount++;
     }
-    DefaultVisitStmt(stmt);
+    IRVisitor::VisitStmt_(stmt);
   }
 
   void VisitOp_(OperationPtr& op) override {
@@ -388,7 +384,7 @@ public:
       visitedNodes.insert(op.get());
       visitedCount++;
     }
-    DefaultVisitOp(op);
+    IRVisitor::VisitOp_(op);
   }
 
   void VisitValue_(ScalarValuePtr& value) override {
@@ -396,7 +392,7 @@ public:
       visitedNodes.insert(value.get());
       visitedCount++;
     }
-    DefaultVisitValue(value);
+    IRVisitor::VisitValue_(value);
   }
 
   void VisitValue_(TileValuePtr& value) override {
@@ -404,7 +400,7 @@ public:
       visitedNodes.insert(value.get());
       visitedCount++;
     }
-    DefaultVisitValue(value);
+    IRVisitor::VisitValue_(value);
   }
 
   void VisitValue_(TensorValuePtr& value) override {
@@ -412,7 +408,7 @@ public:
       visitedNodes.insert(value.get());
       visitedCount++;
     }
-    DefaultVisitValue(value);
+    IRVisitor::VisitValue_(value);
   }
 };
 
@@ -421,7 +417,7 @@ public:
  */
 class NullHandlingVisitor : public IRVisitor {
 public:
-  // 使用 using 声明引入受保护方法以便测试
+  // Use using declarations to bring in protected methods for testing
   using IRVisitor::VisitFunction_;
   using IRVisitor::VisitStmt_;
   using IRVisitor::VisitOp_;
@@ -429,7 +425,7 @@ public:
 };
 
 TEST(IRVisitorTest, TestDefaultTraversal) {
-  // 测试默认遍历行为
+  // Test default traversal behavior
   auto module = std::make_shared<ProgramModule>("main");
   IRBuilder builder;
   IRBuilderContext ctx;
@@ -439,7 +435,7 @@ TEST(IRVisitorTest, TestDefaultTraversal) {
   auto input = std::make_shared<TileValue>(tileShape, DataType::FP32, "input");
   sig.arguments = { input };
 
-  auto func = builder.CreateFunction("test_default", FunctionKind::Kernel, sig);
+  auto func = builder.CreateFunction("test_default", FunctionKind::Block, sig);
   module->AddFunction(func);
   builder.EnterFunctionBody(ctx, func);
 
@@ -452,18 +448,18 @@ TEST(IRVisitorTest, TestDefaultTraversal) {
 
   ctx.PopScope();
 
-  // 使用默认的 IRVisitor（不覆盖任何方法）
+  // Use default IRVisitor (without overriding any methods)
   IRVisitor visitor;
   ProgramModulePtr modulePtr = module;
   visitor.VisitProgram(modulePtr);
 
-  // 默认访问器应该能够遍历所有节点而不崩溃
-  // 虽然没有计数，但应该能正常完成遍历
-  ASSERT_TRUE(true);  // 如果到达这里，说明遍历成功
+  // Default visitor should be able to traverse all nodes without crashing
+  // Although there's no counting, it should complete traversal normally
+  ASSERT_TRUE(true);  // If we reach here, traversal succeeded
 }
 
 TEST(IRVisitorTest, TestDefaultVisitMethods) {
-  // 测试 DefaultVisit 方法的行为
+  // Test default traversal method behavior
   auto module = std::make_shared<ProgramModule>("main");
   IRBuilder builder;
   IRBuilderContext ctx;
@@ -474,7 +470,7 @@ TEST(IRVisitorTest, TestDefaultVisitMethods) {
   auto output = std::make_shared<TileValue>(tileShape, DataType::FP32, "output");
   sig.arguments = { input, output };
 
-  auto func = builder.CreateFunction("test_default_visit", FunctionKind::Kernel, sig);
+  auto func = builder.CreateFunction("test_default_visit", FunctionKind::Block, sig);
   module->AddFunction(func);
   builder.EnterFunctionBody(ctx, func);
 
@@ -486,57 +482,52 @@ TEST(IRVisitorTest, TestDefaultVisitMethods) {
   builder.CreateReturn(ctx, {});
   ctx.PopScope();
 
-  // 使用 DefaultVisitTester，它会调用 DefaultVisit 方法
+  // Use DefaultVisitTester, which calls default Visit*_ methods
   DefaultVisitTester tester;
   ProgramModulePtr modulePtr = module;
-  tester.DefaultVisitProgram(modulePtr);
+  tester.VisitProgram_(modulePtr);
 
-  // 验证 DefaultVisitProgram 正确遍历了所有子节点
-  // 它应该访问了 function, statements, operations, values
+  // Verify VisitProgram_ correctly traverses all child nodes
+  // It should have visited functions, statements, operations, values
   ASSERT_GT(tester.visitedCount, 0);
   ASSERT_NE(tester.visitedNodes.find(func.get()), tester.visitedNodes.end());
   
-  // 验证 DefaultVisitFunction 被调用
+  // Verify VisitFunction_ is called
   FunctionPtr funcPtr = func;
-  tester.DefaultVisitFunction(funcPtr);
-  // 应该访问了 function 的参数、结果、body 等
+  tester.VisitFunction_(funcPtr);
+  // Should have visited function arguments, results, body, etc.
 
-  // 验证 DefaultVisitOp 被调用
+  // Verify VisitOp_ is called
   OperationPtr opPtr = addOp;
-  tester.DefaultVisitOp(opPtr);
-  // 应该访问了 operation 的 operands
+  tester.VisitOp_(opPtr);
+  // Should have visited operation operands
 
-  // 验证 DefaultVisitValue 被调用
+  // Verify VisitValue_ is called
   ScalarValuePtr c1Ptr = c1;
-  tester.DefaultVisitValue(c1Ptr);
+  tester.VisitValue_(c1Ptr);
   
   TileValuePtr inputPtr = input;
-  tester.DefaultVisitValue(inputPtr);
+  tester.VisitValue_(inputPtr);
   
-  // 验证 DefaultVisitStmt 被调用
+  // Verify VisitStmt_ is called
   auto compound = func->GetCompound();
   CompoundStatementPtr compoundPtr = compound;
-  tester.DefaultVisitStmt(compoundPtr);
-  // 应该访问了 compound 中的所有 statements
+  tester.VisitStmt_(compoundPtr);
+  // Should have visited all statements in compound
 }
 
 TEST(IRVisitorTest, TestNullHandling) {
-  // 测试空指针处理
   NullHandlingVisitor visitor;
 
-  // 测试空 Function - DefaultVisitFunction 会检查 nullptr
   FunctionPtr nullFunc = nullptr;
   visitor.VisitFunction_(nullFunc); 
 
-  // 测试空 Statement - DefaultVisitStmt 会检查 nullptr
   CompoundStatementPtr nullCompound = nullptr;
   visitor.VisitStmt_(nullCompound); 
 
-  // 测试空 Operation - DefaultVisitOp 会检查 nullptr
   OperationPtr nullOp = nullptr;
   visitor.VisitOp_(nullOp); 
 
-  // 测试空 Value - DefaultVisitValue 会检查 nullptr
   ScalarValuePtr nullScalar = nullptr;
   visitor.VisitValue_(nullScalar); 
 
@@ -546,7 +537,7 @@ TEST(IRVisitorTest, TestNullHandling) {
   TensorValuePtr nullTensor = nullptr;
   visitor.VisitValue_(nullTensor); 
 
-  ASSERT_TRUE(true);  // 如果到达这里，说明空指针处理正常
+  ASSERT_TRUE(true);
 }
 
 } // namespace pto

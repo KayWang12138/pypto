@@ -26,7 +26,7 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional, List, Dict, Tuple, Any, Union
+from typing import Optional, List, Dict, Tuple, Any
 from importlib import metadata
 from packaging import requirements
 
@@ -394,7 +394,7 @@ class TestsFilterParam(CMakeParam):
             cmd += self._cfg_require(opt=f"{self.cmake_option}", ctr=self.enable, tv=f"{self.filter_str}")
         return cmd
 
-    def get_filter_str(self, def_filter: str):
+    def get_filter_str(self, def_filter: str) -> str:
         if not self.enable:
             return ""
         if self.filter_str not in ["ON"]:
@@ -517,7 +517,7 @@ class STestToolsParam(CMakeParam):
 
 class TestsParam(CMakeParam):
 
-    def __init__(self, args, build: BuildParam):
+    def __init__(self, args):
         self.exec: TestsExecuteParam = TestsExecuteParam(args=args)
         self.golden: TestsGoldenParam = TestsGoldenParam(args=args)
         self.utest: TestsFilterParam = TestsFilterParam(argv=args.utest, opt="ENABLE_UTEST")
@@ -772,7 +772,7 @@ class BuildCtrl(CMakeParam):
         self.install_root: Path = Path(self.build_root.parent, "build_out")
         self.feature: FeatureParam = FeatureParam(args=args)
         self.build: BuildParam = BuildParam(args=args)
-        self.tests: TestsParam = TestsParam(args=args, build=self.build)
+        self.tests: TestsParam = TestsParam(args=args)
         self.model: ModelParam = ModelParam(args=args)
         self.third_party_path: Optional[Path] = Path(args.third_party_path).resolve() if args.third_party_path else None
         self.verbose: bool = args.verbose
@@ -1272,7 +1272,7 @@ class SubCommandMgr:
 
 if __name__ == "__main__":
     logging.basicConfig(format='%(asctime)s - %(filename)s:%(lineno)d - %(levelname)s: %(message)s', level=logging.INFO)
-    ts = datetime.now(tz=timezone.utc)
+    g_ts = datetime.now(tz=timezone.utc)
     BuildCtrl.main()
-    duration = int((datetime.now(tz=timezone.utc) - ts).seconds)
-    logging.info("Build[CI] Success, duration %s secs.", duration)
+    g_duration = int((datetime.now(tz=timezone.utc) - g_ts).seconds)
+    logging.info("Build[CI] Success, duration %s secs.", g_duration)

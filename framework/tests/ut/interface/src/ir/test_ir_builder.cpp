@@ -44,9 +44,11 @@ TEST(IRTEST, TestBuilder) {
     std::vector<int64_t> tileShape = { 128, 128 };
 
     auto inputTensor  = std::make_shared<TileValue>(tileShape, DataType::FP32, "input");
+    inputTensor->Attributes()["io"] = "in";
     auto scale1       = std::make_shared<ScalarValue>(DataType::FP32, "scale1", ScalarValueKind::Symbolic);
-
+    scale1->Attributes()["io"] = "in";
     auto result = std::make_shared<TileValue>(tileShape, DataType::FP32, "output");
+    result->Attributes()["io"] = "out";
 
     sig.arguments = { inputTensor, scale1, result };
 
@@ -77,7 +79,6 @@ TEST(IRTEST, TestBuilder) {
     ASSERT_EQ(ctx.activeOpStmt, func->GetCompound()->GetStatement(0));
 
     ctx.PopScope();
-
 
     ASSERT_EQ(ctx.func, nullptr);
     ASSERT_EQ(ctx.compound, nullptr);
@@ -111,12 +112,18 @@ TEST(IRTEST, TestControlFlow) {
     std::vector<int64_t> tileShape = { 128, 128 };
 
     auto inputX = std::make_shared<TensorValue>(tensorShape, DataType::FP32, "inputX");
+    inputX->Attributes()["io"] = "in";
     auto inputY = std::make_shared<TensorValue>(tensorShape, DataType::FP32, "inputY");
+    inputY->Attributes()["io"] = "in";
     auto scale1 = std::make_shared<ScalarValue>(DataType::FP32, "scale1", ScalarValueKind::Symbolic);
+    scale1->Attributes()["io"] = "in";
     auto scale2 = std::make_shared<ScalarValue>(DataType::FP32, "scale2", ScalarValueKind::Symbolic);
+    scale2->Attributes()["io"] = "in";
 
     auto resultX = std::make_shared<TensorValue>(tensorShape, DataType::FP32, "outputX");
+    resultX->Attributes()["io"] = "out";
     auto resultY = std::make_shared<TensorValue>(tensorShape, DataType::FP32, "outputY");
+    resultY->Attributes()["io"] = "out";
 
     sig.arguments = { inputX, inputY, scale1, scale2, resultX, resultY };
 
@@ -238,6 +245,7 @@ TEST(IRTEST, TestStaticForLoop) {
     // ===== Function =====
     auto func = builder.CreateFunction("test_static_for", FunctionKind::ControlFlow, sig);
     module->AddFunction(func);
+    module->SetProgramEntry(func);
     builder.EnterFunctionBody(ctx, func);
 
     // buf = Tile() - create a new tile value for buf

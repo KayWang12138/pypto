@@ -39,6 +39,47 @@ void Function::AddStatement(StatementPtr stmt) {
     compound_->AddStatement(std::move(stmt));
 }
 
+uint64_t Function::ComputeHash() {
+    // wait for IRVisitor to implement
+    return 0;
+}
+
+bool Function::isFromInCast(const ValuePtr &value) const {
+    for (auto arg : signature_.arguments) {
+        if (arg == value && arg->Attributes().at("io") == "in") {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool Function::isFromOutCast(const ValuePtr &value) const {
+    for (auto result : signature_.arguments) {
+        if (result == value && result->Attributes().at("io") == "out") {
+            return true;
+        }
+    }
+    return false;
+}
+
+int Function::GetIncastIndex(const ValuePtr &value) const {
+    for (size_t i = 0; i < signature_.arguments.size(); i++) {
+        if (signature_.arguments[i] == value && signature_.arguments[i]->Attributes().at("io") == "in") {
+            return i;
+        }
+    }
+    return -1;
+}
+
+int Function::GetOutcastIndex(const ValuePtr &value) const {
+    for (size_t i = 0; i < signature_.arguments.size(); i++) {
+        if (signature_.arguments[i] == value && signature_.arguments[i]->Attributes().at("io") == "out") {
+            return i;
+        }
+    }
+    return -1;
+}
+
 } // namespace pto
 
 
