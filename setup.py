@@ -206,12 +206,7 @@ class CMakeUserOption:
             cmake_file = Path(cmake_str).resolve()
             if not cmake_file.exists() or not cmake_file.is_file():
                 continue
-            if cmake_file.stat().st_size <= 4:  # 下文读取前 4 字节判断文件是否是 ELF 文件
-                continue
-            with open(cmake_file, 'rb') as fh:
-                header = fh.read(4)  # 前 4 字节是 ELF 文件标识
-            if header != b'\x7fELF':
-                continue
+
             return cmake_file
         return None
 
