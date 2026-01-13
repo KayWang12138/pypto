@@ -45,6 +45,6 @@ private:
     void CheckBinaryScalarMixOpShape(BinaryScalarMixOpPtr &binaryScalarMixOp, OperationPtr &op);
 };
 
-VerifyResult RuleVerifyOpShape(ProgramModulePtr program);
+VerifyResult VerifyOpShape(ProgramModulePtr program);
 
 } // namespace pto

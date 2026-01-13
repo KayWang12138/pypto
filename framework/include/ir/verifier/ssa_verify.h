@@ -25,7 +25,7 @@ namespace pto {
 
 class TileValueSSAVisitor : public IRVisitor {
 public:
-    explicit TileValueSSAVisitor(std::map<const TileValue *, size_t> *inputCountMap) : inputCountMap_(inputCountMap) {}
+    explicit TileValueSSAVisitor(std::map<const TileValue *, size_t> *inputCountMap) : tileInputCountMap_(inputCountMap) {}
 
     void VisitOp_(OperationPtr &op) override;
 
@@ -33,13 +33,13 @@ public:
 // with the same name but different parameters; otherwise, a warning will be issued, and in the current version, all
 // warnings are treated as errors.
 #define DEFOP(name, inherit, opcode, ...) void VisitOp_(name##Ptr &op) override;
-#include "ir/operation.def"
-#include "ir/tile_graph.def"
+    #include "ir/operation.def"
+    #include "ir/tile_graph.def"
 #undef DEFOP
 private:
-    std::map<const TileValue *, size_t> *inputCountMap_;
+    std::map<const TileValue *, size_t> *tileInputCountMap_;
 };
 
-VerifyResult RuleVerifySSASingleInput(ProgramModulePtr program);
+VerifyResult VerifySSA(ProgramModulePtr program);
 
 } // namespace pto

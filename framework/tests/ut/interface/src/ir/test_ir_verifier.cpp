@@ -26,7 +26,7 @@ using namespace pto;
 
 // ===== Verifier Class Tests =====
 
-TEST(IRTEST, TestRuleVerifySSASingleInput_ValidProgram) {
+TEST(IRTEST, TestVerifySSASingleInput_ValidProgram) {
     auto module = std::make_shared<ProgramModule>("main");
     IRBuilder builder;
     IRBuilderContext ctx;
@@ -48,11 +48,11 @@ TEST(IRTEST, TestRuleVerifySSASingleInput_ValidProgram) {
     builder.CreateReturn(ctx, {});
     ctx.PopScope();
 
-    VerifyResult result = RuleVerifySSASingleInput(module);
+    VerifyResult result = VerifySSA(module);
     EXPECT_TRUE(result.passed) << "Valid program should pass SSA verification";
 }
 
-TEST(IRTEST, TestRuleVerifySSASingleInput_InvalidProgram_MultipleUses) {
+TEST(IRTEST, TestVerifySSASingleInput_InvalidProgram_MultipleDefinitions) {
     auto module = std::make_shared<ProgramModule>("main");
     IRBuilder builder;
     IRBuilderContext ctx;
@@ -66,24 +66,26 @@ TEST(IRTEST, TestRuleVerifySSASingleInput_InvalidProgram_MultipleUses) {
     module->AddFunction(func);
     builder.EnterFunctionBody(ctx, func);
 
-    // Use inputTile in multiple operations (violates SSA)
-    auto output1 = builder.CreateTile(ctx, tileShape, DataType::FP32, "output1");
-    auto op1 = builder.CreateUnaryOp(Opcode::OP_NEG, inputTile, output1);
+    // Create a TileValue that will be used as output multiple times (violates SSA)
+    auto outputTile = builder.CreateTile(ctx, tileShape, DataType::FP32, "output");
+    
+    // First definition: output = neg(input)
+    auto op1 = builder.CreateUnaryOp(Opcode::OP_NEG, inputTile, outputTile);
     builder.Emit(ctx, op1);
 
-    auto output2 = builder.CreateTile(ctx, tileShape, DataType::FP32, "output2");
-    auto op2 = builder.CreateUnaryOp(Opcode::OP_ABS, inputTile, output2);
+    // Second definition: output = abs(input) - violates SSA (same TileValue defined twice)
+    auto op2 = builder.CreateUnaryOp(Opcode::OP_ABS, inputTile, outputTile);
     builder.Emit(ctx, op2);
 
     builder.CreateReturn(ctx, {});
     ctx.PopScope();
 
-    VerifyResult result = RuleVerifySSASingleInput(module);
-    EXPECT_FALSE(result.passed) << "Program with multiple uses of same TileValue should fail";
+    VerifyResult result = VerifySSA(module);
+    EXPECT_FALSE(result.passed) << "Program with multiple definitions of same TileValue should fail";
     EXPECT_FALSE(result.errorMsg.empty());
 }
 
-TEST(IRTEST, TestRuleVerifyOpShape_ValidUnaryOp) {
+TEST(IRTEST, TestVerifyOpShape_ValidUnaryOp) {
     auto module = std::make_shared<ProgramModule>("main");
     IRBuilder builder;
     IRBuilderContext ctx;
@@ -105,11 +107,11 @@ TEST(IRTEST, TestRuleVerifyOpShape_ValidUnaryOp) {
     builder.CreateReturn(ctx, {});
     ctx.PopScope();
 
-    VerifyResult result = RuleVerifyOpShape(module);
+    VerifyResult result = VerifyOpShape(module);
     EXPECT_TRUE(result.passed) << "Valid UnaryOp should pass shape verification";
 }
 
-TEST(IRTEST, TestRuleVerifyOpShape_InvalidUnaryOp_MismatchedShapes) {
+TEST(IRTEST, TestVerifyOpShape_InvalidUnaryOp_MismatchedShapes) {
     auto module = std::make_shared<ProgramModule>("main");
     IRBuilder builder;
     IRBuilderContext ctx;
@@ -132,13 +134,13 @@ TEST(IRTEST, TestRuleVerifyOpShape_InvalidUnaryOp_MismatchedShapes) {
     builder.CreateReturn(ctx, {});
     ctx.PopScope();
 
-    VerifyResult result = RuleVerifyOpShape(module);
+    VerifyResult result = VerifyOpShape(module);
     EXPECT_FALSE(result.passed) << "UnaryOp with mismatched shapes should fail";
     EXPECT_FALSE(result.errorMsg.empty());
     EXPECT_NE(result.errorMsg.find("UnaryOp"), std::string::npos);
 }
 
-TEST(IRTEST, TestRuleVerifyOpShape_ValidBinaryOp_MatchingShapes) {
+TEST(IRTEST, TestVerifyOpShape_ValidBinaryOp_MatchingShapes) {
     auto module = std::make_shared<ProgramModule>("main");
     IRBuilder builder;
     IRBuilderContext ctx;
@@ -161,11 +163,11 @@ TEST(IRTEST, TestRuleVerifyOpShape_ValidBinaryOp_MatchingShapes) {
     builder.CreateReturn(ctx, {});
     ctx.PopScope();
 
-    VerifyResult result = RuleVerifyOpShape(module);
+    VerifyResult result = VerifyOpShape(module);
     EXPECT_TRUE(result.passed) << "BinaryOp with matching shapes should pass";
 }
 
-TEST(IRTEST, TestRuleVerifyOpShape_ValidBinaryOp_Broadcast) {
+TEST(IRTEST, TestVerifyOpShape_ValidBinaryOp_Broadcast) {
     auto module = std::make_shared<ProgramModule>("main");
     IRBuilder builder;
     IRBuilderContext ctx;
@@ -190,11 +192,11 @@ TEST(IRTEST, TestRuleVerifyOpShape_ValidBinaryOp_Broadcast) {
     builder.CreateReturn(ctx, {});
     ctx.PopScope();
 
-    VerifyResult result = RuleVerifyOpShape(module);
+    VerifyResult result = VerifyOpShape(module);
     EXPECT_TRUE(result.passed) << "BinaryOp with broadcastable shape should pass";
 }
 
-TEST(IRTEST, TestRuleVerifyOpShape_InvalidBinaryOp_IncompatibleShapes) {
+TEST(IRTEST, TestVerifyOpShape_InvalidBinaryOp_IncompatibleShapes) {
     auto module = std::make_shared<ProgramModule>("main");
     IRBuilder builder;
     IRBuilderContext ctx;
@@ -219,13 +221,13 @@ TEST(IRTEST, TestRuleVerifyOpShape_InvalidBinaryOp_IncompatibleShapes) {
     builder.CreateReturn(ctx, {});
     ctx.PopScope();
 
-    VerifyResult result = RuleVerifyOpShape(module);
+    VerifyResult result = VerifyOpShape(module);
     EXPECT_FALSE(result.passed) << "BinaryOp with incompatible shapes should fail";
     EXPECT_FALSE(result.errorMsg.empty());
     EXPECT_NE(result.errorMsg.find("BinaryOp"), std::string::npos);
 }
 
-TEST(IRTEST, TestRuleVerifyOpShape_ValidBinaryScalarMixOp) {
+TEST(IRTEST, TestVerifyOpShape_ValidBinaryScalarMixOp) {
     auto module = std::make_shared<ProgramModule>("main");
     IRBuilder builder;
     IRBuilderContext ctx;
@@ -248,11 +250,11 @@ TEST(IRTEST, TestRuleVerifyOpShape_ValidBinaryScalarMixOp) {
     builder.CreateReturn(ctx, {});
     ctx.PopScope();
 
-    VerifyResult result = RuleVerifyOpShape(module);
+    VerifyResult result = VerifyOpShape(module);
     EXPECT_TRUE(result.passed) << "Valid BinaryScalarMixOp should pass shape verification";
 }
 
-TEST(IRTEST, TestRuleVerifyOpShape_InvalidBinaryScalarMixOp_MismatchedShapes) {
+TEST(IRTEST, TestVerifyOpShape_InvalidBinaryScalarMixOp_MismatchedShapes) {
     auto module = std::make_shared<ProgramModule>("main");
     IRBuilder builder;
     IRBuilderContext ctx;
@@ -276,13 +278,13 @@ TEST(IRTEST, TestRuleVerifyOpShape_InvalidBinaryScalarMixOp_MismatchedShapes) {
     builder.CreateReturn(ctx, {});
     ctx.PopScope();
 
-    VerifyResult result = RuleVerifyOpShape(module);
+    VerifyResult result = VerifyOpShape(module);
     EXPECT_FALSE(result.passed) << "BinaryScalarMixOp with mismatched shapes should fail";
     EXPECT_FALSE(result.errorMsg.empty());
     EXPECT_NE(result.errorMsg.find("BinaryScalarMixOp"), std::string::npos);
 }
 
-TEST(IRTEST, TestRuleVerifyOpShape_MixedOperations) {
+TEST(IRTEST, TestVerifyOpShape_MixedOperations) {
     auto module = std::make_shared<ProgramModule>("main");
     IRBuilder builder;
     IRBuilderContext ctx;
@@ -313,6 +315,6 @@ TEST(IRTEST, TestRuleVerifyOpShape_MixedOperations) {
     builder.CreateReturn(ctx, {});
     ctx.PopScope();
 
-    VerifyResult result = RuleVerifyOpShape(module);
+    VerifyResult result = VerifyOpShape(module);
     EXPECT_TRUE(result.passed) << "Program with valid mixed operations should pass";
 }

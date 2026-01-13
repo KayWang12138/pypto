@@ -120,8 +120,7 @@ void TileOpShapeVisitor::CheckBinaryOpShape(BinaryOpPtr &binaryOp, OperationPtr 
         const auto &rhsShape = rhs->GetShape();
         const auto &outputShape = output->GetShape();
 
-        // Rule: "输入和输出的 shape 一致，或仅有一个输入的 shape 中仅有维数是1的维 shape 与输出不一致"
-        // This means: both inputs match output, OR only one input differs and only in dimensions that are 1
+        // Rule: "both inputs match output, OR only one input differs and only in dimensions that are 1"
         bool lhsMatches = (lhsShape == outputShape);
         bool rhsMatches = (rhsShape == outputShape);
         bool bothMatch = lhsMatches && rhsMatches;
@@ -191,7 +190,7 @@ void TileOpShapeVisitor::CheckBinaryScalarMixOpShape(BinaryScalarMixOpPtr &binar
     }
 }
 
-VerifyResult RuleVerifyOpShape(ProgramModulePtr program) {
+VerifyResult VerifyOpShape(ProgramModulePtr program) {
     if (!program) {
         return {false, "ProgramModule is null, cannot verify operation shapes"};
     }

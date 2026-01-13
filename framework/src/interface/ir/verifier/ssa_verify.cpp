@@ -20,15 +20,13 @@ void TileValueSSAVisitor::VisitOp_(OperationPtr &op) {
     if (!op)
         return;
 
-    // Count how many times each TileValue is used as input in this operation
-    for (size_t i = 0; i < op->GetNumInputOperand(); ++i) {
-        ValuePtr input = op->GetInputOperand(i);
-        if (input) {
-            auto tileInput = std::dynamic_pointer_cast<TileValue>(input);
-            if (tileInput) {
-                // Use the raw pointer as key to identify unique TileValue instances
-                const TileValue *tilePtr = tileInput.get();
-                (*inputCountMap_)[tilePtr]++;
+    // Count the number of times each TileValue is used as output operand of this operation
+    for (size_t i = 0; i < op->GetNumOutputOperand(); ++i) {
+        ValuePtr outputOperand = op->GetOutputOperand(i);
+        if (outputOperand) {
+            auto countTile = std::dynamic_pointer_cast<TileValue>(outputOperand);
+            if (countTile) {
+                (*tileInputCountMap_)[countTile.get()]++;
             }
         }
     }
@@ -44,20 +42,20 @@ void TileValueSSAVisitor::VisitOp_(OperationPtr &op) {
 #include "ir/tile_graph.def"
 #undef DEFOP
 
-VerifyResult RuleVerifySSASingleInput(ProgramModulePtr program) {
+VerifyResult VerifySSA(ProgramModulePtr program) {
     if (!program) {
-        return {false, "ProgramModule is null, cannot verify SSA single input"};
+        return {false, "ProgramModule is null, cannot verify SSA."};
     }
 
-    std::map<const TileValue *, size_t> inputCountMap;
-    TileValueSSAVisitor visitor(&inputCountMap);
+    std::map<const TileValue *, size_t> tileSSACountMap;
+    TileValueSSAVisitor visitor(&tileSSACountMap);
     ProgramModulePtr programPtr = program;
     visitor.VisitProgram(programPtr);
     std::vector<std::string> violations;
 
-    // Check each TileValue
-    for (const auto &[tilePtr, count] : inputCountMap) {
-        if (count != 1) {
+    // Check each TileValue that has more than one definition
+    for (const auto &[tilePtr, count] : tileSSACountMap) {
+        if (count > 1) {
             std::string tileInfo = "TileValue";
             if (tilePtr) {
                 std::string ssaName = tilePtr->GetSSAName();
@@ -66,14 +64,14 @@ VerifyResult RuleVerifySSASingleInput(ProgramModulePtr program) {
                 }
                 tileInfo += " (ID: " + std::to_string(tilePtr->GetID()) + ")";
             }
-            tileInfo += " has " + std::to_string(count) + " input(s), expected exactly 1";
+            tileInfo += " has " + std::to_string(count) + " definitions, expected at most 1.";
             violations.push_back(tileInfo);
         }
     }
 
     if (!violations.empty()) {
         std::string errorMsg = "SSA semantics violation - " + std::to_string(violations.size()) +
-                               " TileValue(s) have incorrect input count:\n";
+                               " TileValue(s) have more than one definition:\n";
         for (size_t i = 0; i < violations.size(); ++i) {
             errorMsg += "  " + std::to_string(i + 1) + ". " + violations[i];
             if (i + 1 < violations.size()) {
