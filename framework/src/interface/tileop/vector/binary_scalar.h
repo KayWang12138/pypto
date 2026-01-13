@@ -38,6 +38,12 @@ TILEOP void BinaryScalarComputeImpl(T0 dst, T1 src0, Scalar src1) {
     if constexpr (op == BinaryScalarOp::DIV) {
         pto::TDIVS(dst, src0, src1);
     }
+
+    if constexpr (op == BinaryScalarOp::MOD) {
+        pto::TDIVS(dst, src0, src1);
+        pto::TMULS(dst, dst, src1);
+        pto::TSUB(dst, src0, dst);
+    }
 }
 
 template <BinaryScalarOp op, typename T0, typename T1, typename Scalar>
@@ -82,5 +88,10 @@ TILEOP void TMulS(T0 dst, T1 src0, Scalar src1) {
 template <typename Scalar, typename T0, typename T1>
 TILEOP void TDivS(T0 dst, T1 src0, Scalar src1) {
     BinaryScalarCompute<BinaryScalarOp::DIV>(dst, src0, src1);
+}
+
+template <typename Scalar, typename T0, typename T1>
+TILEOP void TModS(T0 dst, T1 src0, Scalar src1) {
+    BinaryScalarCompute<BinaryScalarOp::MOD>(dst, src0, src1);
 }
 #endif
