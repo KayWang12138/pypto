@@ -116,7 +116,7 @@ void TuneTileOpSeqForVF::ChangeOpSeq(std::vector<Operation *> &opList, PipeSync 
             opList.insert(insertPos, toMove.begin(), toMove.end());
         } else {
             // 在vecTileop0 group的左侧将删掉的op重新插入
-            auto insertPos = oplist.begin() + left - mergedOps[groupNum].size() + 1;
+            auto insertPos = opList.begin() + left - mergedOps[groupNum].size() + 1;
             opList.insert(insertPos, toMove.begin(), toMove.end());
         }
         // 由于移动，pipeVop的idx会发生变化，需要重新更新pipeVIdx
