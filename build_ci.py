@@ -1212,6 +1212,7 @@ class BuildCtrl(CMakeParam):
         if not self.tests.exec.auto_execute:
             return
         # filter 处理
+        # test
         filter_str = filter_str.replace(',', ' ')
         # cmd 拼接
         cmd = f"{sys.executable} -m pytest {filter_str} -v --durations=0 -s --capture=no"
