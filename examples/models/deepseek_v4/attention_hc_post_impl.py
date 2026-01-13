@@ -210,7 +210,7 @@ def attention_hc_post_compute(
         pypto.assemble(pypto.clone(x_nope), [0, 0, 0], tmp_tensor)
 
         # apply rope to tmp_tensor
-        pypto.set_semantic_label("attn-post-nope")
+        pypto.set_semantic_label("attn-post-rope")
         x_rope = pypto.view(
             x, [tile_t, n_q, rope_dim], [t_idx, 0, nope_dim]
         )  # rope: (tile_t, n_q, d - rope_dim)
@@ -293,7 +293,7 @@ def attention_hc_post_kernel(
     y: pypto.Tensor,
     tile_config: AttnHcPostConfig,
 ):
-    """JIT-compiled attention hc post for decode phase.
+    """JIT-compiled attention hc post phase.
 
     Args:
 
@@ -382,10 +382,10 @@ def npu_attention_hc_post(
     if isinstance(x, FakeTensor):
         return x
 
-    y = torch.empty([x.size(0), post.size(1), residual.size(2)], dtype=x.dtype, device=x.device)
+    y = torch.zeros([x.shape[0], post.shape[1], residual.shape[2]]).to(x.dtype).npu()
 
     check_input_shape_dtype(x, cos, sin, wo_a, wo_b, residual, post, comb)
-    # mark dynamic_axis
+    # notice mark dynamic_axis
     x_pto = pypto.from_torch(x, dynamic_axis=[0], name="x")
     cos_pto = pypto.from_torch(cos, dynamic_axis=[0], name="cos")
     sin_pto = pypto.from_torch(sin, dynamic_axis=[0], name="sin")

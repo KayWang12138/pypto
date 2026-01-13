@@ -255,6 +255,9 @@ def do_attention_hc_post_func_torch_graph(inputs, params, golden_list):
     INPUT 7	    comb	       DT_FP32	 (t, hc, hc)	                    ND
     OUTPUT 0	y              DT_BF16	 (t, hc, h)	                        ND
     """
+    import torchair as tng
+    from torchair.configs.compiler_config import CompilerConfig
+
     torch_npu.npu.config.allow_internal_format = True
     device_id = int(os.environ.get("TILE_FWK_DEVICE_ID", 0))
     torch.npu.set_device(device_id)
@@ -274,8 +277,7 @@ def do_attention_hc_post_func_torch_graph(inputs, params, golden_list):
     hc = params.get("hc", 4)
     attn_dtype = params.get("attn_dtype", torch.bfloat16)
 
-    import torchair as tng
-    from torchair.configs.compiler_config import CompilerConfig
+
     compiler_config = CompilerConfig()
     compiler_config.mode = "reduce-overhead"
     npu_backend = tng.get_npu_backend(compiler_config=compiler_config)
