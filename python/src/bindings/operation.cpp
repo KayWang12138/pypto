@@ -133,7 +133,7 @@ void bind_operation(py::module &m) {
     m.def("Compact", [](const Tensor &operand) { return npu::tile_fwk::Compact(operand); }, "Tensor compact.");
     m.def(
         "IndexPut_",
-        [](const Tensor &self, std::vector<Tensor> indices, const Tensor &values, bool accumulate) {
+        [](Tensor &self, std::vector<Tensor> indices, const Tensor &values, bool accumulate) {
             npu::tile_fwk::IndexPut_(self, indices, values, accumulate);
         },
         "Tensor indexput_.");
