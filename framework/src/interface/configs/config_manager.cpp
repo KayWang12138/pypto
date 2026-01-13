@@ -70,6 +70,7 @@ Status ConfigManager::Initialize() {
     }
 
     config::SetRunDataOption(KEY_PTO_CONFIG_FILE, jsonFilePath);
+    config::SetRunDataOption(KEY_RUNTYPE, "npu");
     ASLOGI("Start to parse op_json_file %s", jsonFilePath.c_str());
     if (!ReadJsonFile(jsonFilePath, json_)) {
         ASLOGE("ReadJsonFile failed.");
