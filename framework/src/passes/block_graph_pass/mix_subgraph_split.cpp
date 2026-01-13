@@ -1255,7 +1255,9 @@ int MixSubgraphSplit::FindOriginalOffsetInMixFunction(LogicalTensorPtr tensor, F
             rawMagic, originalMixFunc->GetRawName().c_str());
     auto operations = originalMixFunc->Operations(false);
     for (auto& op : operations) {
-        if (op.IsNOP()) continue;
+        if (op.IsNOP()) {
+            continue;
+        }
         auto iOperands = op.GetIOperands();
         for (size_t i = 0; i < iOperands.size(); i++) {
             auto inputTensor = iOperands[i];
