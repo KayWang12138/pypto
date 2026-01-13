@@ -44,16 +44,18 @@ public:
 
 class ElementWiseUnaryTileBaseOp : public ElementWiseTileBaseOp {
 public:
+    // using TileValuePtr = std::shared_ptr<TileValue>;
     ElementWiseUnaryTileBaseOp(Opcode opcode, TileValuePtr input, TileValuePtr output)
         : ElementWiseTileBaseOp(opcode, {ValueCast<Value>(input)}, {ValueCast<Value>(output)}) {}
 };
 
 class ElementWiseBinaryTileBaseOp : public ElementWiseTileBaseOp {
 public:
+    // using ValuePtr = std::shared_ptr<Value>;
     ElementWiseBinaryTileBaseOp(Opcode opcode,
-                                ValuePtr lhs,
-                                ValuePtr rhs,
-                                ValuePtr out)
+                                TileValuePtr lhs,
+                                TileValuePtr rhs,
+                                TileValuePtr out)
         : ElementWiseTileBaseOp(opcode, {lhs, rhs}, {out}) {
     }
 };
@@ -64,20 +66,79 @@ public:
         : ElementWiseTileBaseOp(opcode, {ValueCast<Value>(lhs), ValueCast<Value>(rhs)}, {ValueCast<Value>(output)}) {}
 };
 
-class ElementWiseTernaryTileBaseOp : public ElementWiseTileBaseOp {
+class WhereTTTileOp : public ElementWiseTileBaseOp {
+public:
+    WhereTTTileOp(Opcode opcode, TileValuePtr Condition, TileValuePtr input, TileValuePtr other, TileValuePtr output, TileValuePtr TempTensor)
+        : ElementWiseTileBaseOp(opcode, {ValueCast<Value>(Condition), ValueCast<Value>(input), ValueCast<Value>(other)}, {ValueCast<Value>(output), ValueCast<Value>(TempTensor)}) {}
 };
 
-class ElementWiseScalarMixTernaryTileBaseOp : public ElementWiseTileBaseOp {
+class WhereTSTileOp : public ElementWiseTileBaseOp {
+public:
+    WhereTSTileOp(Opcode opcode, TileValuePtr Condition, TileValuePtr input, ScalarValuePtr other, TileValuePtr output, TileValuePtr TempTensor)
+        : ElementWiseTileBaseOp(opcode, {ValueCast<Value>(Condition), ValueCast<Value>(input), ValueCast<Value>(other)}, {ValueCast<Value>(output), ValueCast<Value>(TempTensor)}) {}
 };
 
-class SortTileOp : public TileOp {
+class WhereSTTileOp : public ElementWiseTileBaseOp {
+public:
+    WhereSTTileOp(Opcode opcode, TileValuePtr Condition, ScalarValuePtr input, TileValuePtr other, TileValuePtr output, TileValuePtr TempTensor)
+        : ElementWiseTileBaseOp(opcode, {ValueCast<Value>(Condition), ValueCast<Value>(input), ValueCast<Value>(other)}, {ValueCast<Value>(output), ValueCast<Value>(TempTensor)}) {}
+};
+
+class WhereSSTileOp : public ElementWiseTileBaseOp {
+public:
+    WhereSSTileOp(Opcode opcode, TileValuePtr Condition, ScalarValuePtr input, ScalarValuePtr other, TileValuePtr output, TileValuePtr TempTensor)
+        : ElementWiseTileBaseOp(opcode, {ValueCast<Value>(Condition), ValueCast<Value>(input), ValueCast<Value>(other)}, {ValueCast<Value>(output), ValueCast<Value>(TempTensor)}) {}
+};
+
+class SortTileOp : public TileBaseOp {
+public:
+    SortTileOp(Opcode opcode, std::vector<ValuePtr> iops, std::vector<ValuePtr> oops)
+     : TileBaseOp(opcode, iops, oops) {}
+};
+
+class TopKTileOp : public SortTileOp {
+public:
+    TopKTileOp(Opcode opcode, TileValuePtr input, TileValuePtr output1, TileValuePtr output2)
+        : SortTileOp(opcode, {ValueCast<Value>(input)}, {ValueCast<Value>(output1), ValueCast<Value>(output2)}) {}
+};
+
+class BitSortTileOp : public SortTileOp {
+public:
+    BitSortTileOp(Opcode opcode, TileValuePtr input, TileValuePtr output)
+        : SortTileOp(opcode, {ValueCast<Value>(input)}, {ValueCast<Value>(output)}) {}
+};
+
+class MrgSortTileOp : public SortTileOp {
+public:
+    MrgSortTileOp(Opcode opcode, TileValuePtr input, TileValuePtr output)
+        : SortTileOp(opcode, {ValueCast<Value>(input)}, {ValueCast<Value>(output)}) {}
+};
+
+class ArgSortTileOp : public SortTileOp {
+public:
+    ArgSortTileOp(Opcode opcode, TileValuePtr input, TileValuePtr output)
+        : SortTileOp(opcode, {ValueCast<Value>(input)}, {ValueCast<Value>(output)}) {}
+};
+
+class ExtractSortTileOp : public SortTileOp {
+public:
+    ExtractSortTileOp(Opcode opcode, TileValuePtr input, TileValuePtr output)
+        : SortTileOp(opcode, {ValueCast<Value>(input)}, {ValueCast<Value>(output)}) {}
+};
+
+class TiledMrgSortTileOp : public SortTileOp {
+public:
+    TiledMrgSortTileOp(Opcode opcode, TileValuePtr input1, TileValuePtr input2, TileValuePtr input3, TileValuePtr input4,
+                        TileValuePtr output, TileValuePtr temp)
+        : SortTileOp(opcode, {ValueCast<Value>(input1), ValueCast<Value>(input2), ValueCast<Value>(input3), ValueCast<Value>(input4)},
+                    {ValueCast<Value>(output), ValueCast<Value>(Temp)}) {}
 };
 
 class ReduceTileBaseOp : public TileBaseOp {
 public:
     ReduceTileBaseOp(Opcode opcode, TileValuePtr Src0, TileValuePtr Src1, TileValuePtr output)
         : TileBaseOp(opcode, {ValueCast<Value>(Src0), ValueCast<Value>(Src1)}, {ValueCast<Value>(output)}) {}
-};
+}
 
 class ReduceWithTempTileBaseOp : public TileBaseOp {
 public:
@@ -156,9 +217,6 @@ public:
         : TileBaseOp(opcode, {ValueCast<Value>(input)}, {ValueCast<Value>(output)}) {}
 };
 
-class SortTileBaseOp : public TileBaseOp {
-};
-
 class CompareScalarTileBaseOp : public TileBaseOp {
 };
 
@@ -180,10 +238,68 @@ class BroadcastBinaryTileOp : public TileBaseOp {
 
 class DataCopyTileBaseOp : public TileBaseOp {
 public:
-    DataCopyTileBaseOp(Opcode opcode, TileValuePtr input, TileValuePtr output)
-        : TileBaseOp(opcode, {ValueCast<Value>(input)}, {ValueCast<Value>(output)}) {}
-    DataCopyTileBaseOp(Opcode opcode, TileValuePtr input, TileValuePtr output)
-        : TileBaseOp(opcode, {ValueCast<Value>(input)}, {ValueCast<Value>(output)}) {}
+    DataCopyTileBaseOp(Opcode opcode, std::vector<ValuePtr> iops, std::vector<ValuePtr> oops)
+     : TileBaseOp(opcode, iops, oops) {}
+};
+
+class ConvertTileOp : public DataCopyTileBaseOp {
+public:
+    ConvertTileOp(Opcode opcode, TileValuePtr input, TileValuePtr output)
+        : DataCopyTileBaseOp(opcode, {ValueCast<Value>(input)}, {ValueCast<Value>(output)}) {}
+};
+
+class CopyInOutTileOp : public DataCopyTileBaseOp {
+public:
+    CopyInOutTileOp(Opcode opcode, TileValuePtr input, TileValuePtr output)
+        : DataCopyTileBaseOp(opcode, {ValueCast<Value>(input)}, {ValueCast<Value>(output)}) {}
+};
+
+class DuplicateTileOp : public DataCopyTileBaseOp {
+public:
+    DuplicateTileOp(Opcode opcode, TileValuePtr input, TileValuePtr output)
+        : DataCopyTileBaseOp(opcode, {ValueCast<Value>(input)}, {ValueCast<Value>(output)}) {}
+};
+
+class LoadStoreTileOp : public DataCopyTileBaseOp {
+public:
+    LoadStoreTileOp(Opcode opcode, TileValuePtr input1, TileValuePtr input2, TileValuePtr output)
+        : DataCopyTileBaseOp(opcode, {ValueCast<Value>(input1), ValueCast<Value>(input2)}, {ValueCast<Value>(output)}) {}
+};
+
+class UBMoveTileOp : public DataCopyTileBaseOp {
+public:
+    UBMoveTileOp(Opcode opcode, TileValuePtr input1, TileValuePtr input2, TileValuePtr output)
+        : DataCopyTileBaseOp(opcode, {ValueCast<Value>(input1), ValueCast<Value>(input2)}, {ValueCast<Value>(output)}) {}
+};
+
+class GatherInUBTileOp : public DataCopyTileBaseOp {
+public:
+    GatherInUBTileOp(Opcode opcode, TileValuePtr input1, TileValuePtr input2, TileValuePtr input3, TileValuePtr output)
+        : DataCopyTileBaseOp(opcode, {ValueCast<Value>(input1), ValueCast<Value>(input2), ValueCast<Value>(input3)}, {ValueCast<Value>(output)}) {}
+};
+
+class GatherInL1TileOp : public DataCopyTileBaseOp {
+public:
+    GatherInL1TileOp(Opcode opcode, TileValuePtr input1, TileValuePtr input2, TileValuePtr input3, TileValuePtr output)
+        : DataCopyTileBaseOp(opcode, {ValueCast<Value>(input1), ValueCast<Value>(input2), ValueCast<Value>(input3)}, {ValueCast<Value>(output)}) {}
+};
+
+class AnyDataCopyTileOp : public DataCopyTileBaseOp {
+public:
+    AnyDataCopyTileOp(Opcode opcode, TileValuePtr input, TileValuePtr output)
+        : DataCopyTileBaseOp(opcode, {ValueCast<Value>(input)}, {ValueCast<Value>(output)}) {}
+};
+
+class IndexOutCastTileOp : public TileBaseOp {
+public:
+    IndexOutCastTileOp(Opcode opcode, TileValuePtr Src, TileValuePtr Index, TileValuePtr Dst, TileValuePtr output)
+        : TileBaseOp(opcode, {ValueCast<Value>(Src), ValueCast<Value>(Index), ValueCast<Value>(Dst)}, {ValueCast<Value>(output)}) {}
+};
+
+class IndexAddTileOp : public TileBaseOp {
+public:
+    IndexAddTileOp(Opcode opcode, TileValuePtr input1, TileValuePtr input2, TileValuePtr input3, ScalarValuePtr Alpha, TileValuePtr output)
+        : DataCopyTileBaseOp(opcode, {ValueCast<Value>(input1), ValueCast<Value>(input2), ValueCast<Value>(input3), ValueCast<Value>(Alpha)}, {ValueCast<Value>(output)}) {}
 };
 
 class MatmulTileBaseOp : public TileBaseOp {
