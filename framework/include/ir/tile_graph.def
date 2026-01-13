@@ -71,17 +71,27 @@ DEF_OP(
 )
 
 DEF_OP(
-    TransposeOp,
+    TransposeOp, 
     INHERIT(TransposeTileBaseOp),
     OPCODE(
         OP_TRANSPOSE_MOVEIN,
- 	    OP_TRANSPOSE_MOVEOUT,
- 	    OP_TRANSPOSE_VNCHWCONV
+        OP_TRANSPOSE_MOVEOUT
     ),
     INPUT(Tile, Input),
     OUTPUT(Tile, Output),
-    ATTR(std::vector<int64_t>, shape),          // 形状信息，用于TRANSPOSE系列
- 	ATTR(bool, excludeBufferReuse)               // 是否排除buffer复用，用于TRANSPOSE_VNCHWCONV/ONEHOT/ROWMAX/ROWEXPMAX/ROWEXPSUM
+    ATTR(std::vector<int64_t>, shape)
+)
+
+DEF_OP(
+    TransposeVnchwConvOp,
+    INHERIT(TransposeTileBaseOp),
+    OPCODE(
+        OP_TRANSPOSE_VNCHWCONV
+    ),
+    INPUT(Tile, Input),
+    OUTPUT(Tile, Output),
+    ATTR(std::vector<int64_t>, shape),
+    ATTR(bool, excludeBufferReuse)
 )
 
 DEF_OP(
@@ -256,14 +266,26 @@ DEF_OP(
     GatherOp,
     INHERIT(GatherTileBaseOp),
     OPCODE(
-        OP_GATHER_FROM_UB,
-        OP_GATHER,
-        OP_GATHER_ELEMENT
+        OP_GATHER
     ),
     INPUT(Tile, Lhs),
     INPUT(Tile, Rhs),
     OUTPUT(Tile, Output),
     ATTR(int, Axis)
+)
+
+DEF_OP(
+    GatherExtendedOp,
+    INHERIT(GatherTileBaseOp),
+    OPCODE(
+        OP_GATHER_FROM_UB,
+        OP_GATHER_ELEMENT
+    ),
+    INPUT(Tile, Lhs),
+    INPUT(Tile, Rhs),
+    OUTPUT(Tile, Output),
+    ATTR(int, Axis),
+    ATTR(bool, excludeBufferReuse)
 )
 
 DEF_OP(
@@ -306,10 +328,6 @@ DEF_OP(
         OP_ROWSUMLINE
         OP_ROWMAXLINE,
         OP_ROWMINLINE,
-        OP_ROWMAX,      //暂定无法确认是否有实现
- 	    OP_ROWSUM,      //暂定无法确认是否有实现
- 	    OP_ROWEXPMAX,   //暂定无法确认是否有实现 
- 	    OP_ROWEXPSUM    //暂定无法确认是否有实现  
     ),
     INPUT(Tile, Input),
     OUTPUT(Tile, Output),

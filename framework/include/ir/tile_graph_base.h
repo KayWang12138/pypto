@@ -78,21 +78,21 @@ class DataCopyTileOp : public TileOp {
 
 class ReduceTileBaseOp : public TileBaseOp {
 public:
-    ReduceWithTempTileBaseOp(Opcode opcode, TileValuePtr Src0, TileValuePtr Src1, TileValuePtr output)
-        : ReduceWithTempTileBaseOp(opcode, {ValueCast<Value>(Src0), ValueCast<Value>(Src1)}, {ValueCast<Value>(output)}) {}
+    ReduceTileBaseOp(Opcode opcode, TileValuePtr Src0, TileValuePtr Src1, TileValuePtr output)
+        : TileBaseOp(opcode, {ValueCast<Value>(Src0), ValueCast<Value>(Src1)}, {ValueCast<Value>(output)}) {}
 };
 
 class ReduceWithTempTileBaseOp : public TileBaseOp {
 public:
     ReduceWithTempTileBaseOp(Opcode opcode, TileValuePtr Src0, TileValuePtr Src1, TileValuePtr output, TileValuePtr TempTensor)
-        : ReduceWithTempTileBaseOp(opcode, {ValueCast<Value>(Src0), ValueCast<Value>(Src1)},
+        : TileBaseOp(opcode, {ValueCast<Value>(Src0), ValueCast<Value>(Src1)},
                                             {ValueCast<Value>(output), ValueCast<Value>(TempTensor)}) {}
 };
 
 class LogicalAndTileBaseOp : public TileBaseOp {
 public:
     LogicalAndTileBaseOp(Opcode opcode, TileValuePtr lhs, TileValuePtr rhs, ScalarValuePtr output, TileValuePtr TempTensor)
-        : LogicalAndTileBaseOp(opcode, {ValueCast<Value>(lhs), ValueCast<Value>(rhs)}, 
+        : TileBaseOp(opcode, {ValueCast<Value>(lhs), ValueCast<Value>(rhs)}, 
                                         {ValueCast<Value>(output), ValueCast<Value>(TempTensor)}) {}
 };
 
@@ -102,26 +102,26 @@ class CastTileBaseOp : public TileBaseOp {
 class VecDupTileBaseOp : public TileBaseOp {
 public:
     VecDupTileBaseOp(Opcode opcode, ScalarValuePtr Scalar, TileValuePtr output)
-        : VecDupTileBaseOp(opcode, {ValueCast<Value>(Scalar)}, {ValueCast<Value>(output)}) {}
+        : TileBaseOp(opcode, {ValueCast<Value>(Scalar)}, {ValueCast<Value>(output)}) {}
 };
 
 class RangeTileBaseOp : public TileBaseOp {
 public:
     RangeTileBaseOp(Opcode opcode, ScalarValuePtr START, ScalarValuePtr STEP, ScalarValuePtr SIZE, TileValuePtr output)
-        : RangeTileBaseOp(opcode, {ValueCast<Value>(START), ValueCast<Value>(STEP),ValueCast<Value>(SIZE)},
+        : TileBaseOp(opcode, {ValueCast<Value>(START), ValueCast<Value>(STEP),ValueCast<Value>(SIZE)},
                                     {ValueCast<Value>(output)}) {}
 };
 
 class ScatterTileBaseOp : public TileBaseOp {
 public:
     ScatterTileBaseOp(Opcode opcode, TileValuePtr Src0, TileValuePtr Src1, TileValuePtr Src2, TileValuePtr output)
-        : ScatterTileBaseOp(opcode, {ValueCast<Value>(Src0), ValueCast<Value>(Src1), ValueCast<Value>(Src2)}, {ValueCast<Value>(output)}) {}
+        : TileBaseOp(opcode, {ValueCast<Value>(Src0), ValueCast<Value>(Src1), ValueCast<Value>(Src2)}, {ValueCast<Value>(output)}) {}
 };
 
 class ScatetrElementsTileBaseOp : public TileBaseOp {
 public:
     ScatetrElementsTileBaseOp(Opcode opcode, TileValuePtr Src0, TileValuePtr Src1, ScalarValuePtr Scatter, TileValuePtr output)
-        : ScatetrElementsTileBaseOp(opcode, {ValueCast<Value>(Src0), ValueCast<Value>(Src1), ValueCast<Value>(Scatter)}, {ValueCast<Value>(output)}) {}
+        : TileBaseOp(opcode, {ValueCast<Value>(Src0), ValueCast<Value>(Src1), ValueCast<Value>(Scatter)}, {ValueCast<Value>(output)}) {}
 };
 
 class GatherTileBaseOp : public TileBaseOp {
@@ -145,7 +145,7 @@ class PowTileBaseOp : public TileBaseOp {
 class CumSumTileBaseOp : public TileBaseOp {
 public:
     CumSumTileBaseOp(Opcode opcode, TileValuePtr input, TileValuePtr output)
-        : CumSumTileBaseOp(opcode, {ValueCast<Value>(input)}, {ValueCast<Value>(output)}) {}
+        : TileBaseOp(opcode, {ValueCast<Value>(input)}, {ValueCast<Value>(output)}) {}
 };
 
 class SortTileBaseOp : public TileBaseOp {
@@ -168,8 +168,8 @@ class BroadcastBinaryTileOp : public TileBaseOp {
 
 class DataCopyTileBaseOp : public TileBaseOp {
 public:
-    VecDupTileBaseOp(Opcode opcode, TileValuePtr input, TileValuePtr output)
-        : VecDupTileBaseOp(opcode, {ValueCast<Value>(input)}, {ValueCast<Value>(output)}) {}
+    DataCopyTileBaseOp(Opcode opcode, TileValuePtr input, TileValuePtr output)
+        : TileBaseOp(opcode, {ValueCast<Value>(input)}, {ValueCast<Value>(output)}) {}
 };
 
 class MatmulTileBaseOp : public TileBaseOp {
