@@ -181,10 +181,13 @@ static void IrBindValue(py::module &m) {
         });
 
     py::class_<Memory, Object, std::shared_ptr<Memory>>(m, "Memory")
-        .def(py::init<uint64_t, MemSpaceKind>(), py::arg("size"), py::arg("kind"))
-        .def_property("size", &Memory::GetSize, &Memory::SetSize)
-        .def_property("kind", &Memory::GetSpace, &Memory::SetSpace)
-        .def_property("addr", &Memory::GetAddr, &Memory::SetAddr);
+        .def(py::init<uint64_t, MemSpaceKind, std::optional<uint64_t>, uint32_t>(),
+             py::arg("size"), py::arg("kind") = MemSpaceKind::UNKNOWN,
+             py::arg("addr") = std::nullopt, py::arg("alignment") = 1)
+        .def_property_readonly("size", &Memory::GetSize)
+        .def_property_readonly("kind", &Memory::GetSpace)
+        .def_property_readonly("addr", &Memory::GetAddr)
+        .def_property_readonly("alignment", &Memory::GetAlignment);
 
     py::class_<TileValue, Value, std::shared_ptr<TileValue>>(m, "Tile")
         .def(py::init<std::string, std::vector<ScalarValuePtr>, std::vector<int64_t>, std::vector<int64_t>,

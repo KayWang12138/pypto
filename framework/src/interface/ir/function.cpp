@@ -14,6 +14,8 @@
  */
 
 #include "ir/function.h"
+#include "ir/program.h"
+#include "ir/config.h"
 
 namespace pto {
 
@@ -168,6 +170,26 @@ int Function::GetOutcastIndex(const ValuePtr &value) const {
         }
     }
     return -1;
+}
+
+Config& Function::GetConfig() {
+    return config_;
+}
+
+const Config& Function::GetConfig() const {
+    return config_;
+}
+
+bool Function::HasConfig() const {
+    return config_.IsInitialized();
+}
+
+void Function::SetParentModule(std::shared_ptr<ProgramModule> module) {
+    parentModule_ = module;
+}
+
+std::shared_ptr<ProgramModule> Function::GetParentModule() const {
+    return parentModule_.lock();
 }
 
 } // namespace pto

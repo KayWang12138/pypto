@@ -18,6 +18,8 @@
 #include "ir/statement.h"
 #include "ir/value.h"
 #include "ir/utils.h"
+#include "ir/config.h"
+#include "ir/program.h"
 #include "interface/function/function.h"
 
 #include <ostream>
@@ -112,6 +114,39 @@ public:
     // Pretty-print a standalone function in PTO-IR-like syntax.
     void Print(std::ostream& os, int indent = 0) const;
 
+    // Configuration access
+    Config& GetConfig();
+    const Config& GetConfig() const;
+    bool HasConfig() const;
+
+    // Parent module access
+    void SetParentModule(std::shared_ptr<ProgramModule> module);
+    std::shared_ptr<ProgramModule> GetParentModule() const;
+
+    // Get config value with cascade lookup (Function -> ProgramModule -> error)
+    template<typename T>
+    const T& GetConfigValue(ConfigKey key) const {
+        // First try Function's config
+        if (config_.Has(key)) {
+            return config_.Get<T>(key);
+        }
+
+        // Then try ProgramModule's config
+        auto parentModule = parentModule_.lock();
+        if (parentModule && parentModule->HasConfig()) {
+            const Config& moduleConfig = parentModule->GetConfig();
+            if (moduleConfig.Has(key)) {
+                return moduleConfig.Get<T>(key);
+            }
+        }
+
+        // Not found, throw exception
+        auto& registry = ConfigRegistry::GetInstance();
+        std::string keyName = registry.GetKeyName(key);
+        throw std::runtime_error("Config key '" + keyName + 
+            "' not found in Function or ProgramModule config");
+    }
+
 protected:
     FunctionKind kind_;
     FunctionSignature signature_;
@@ -121,6 +156,8 @@ protected:
 private:
     int stackWorkspaceSize_{0};
     uint64_t functionHash_{0};
+    Config config_;
+    std::weak_ptr<ProgramModule> parentModule_;
 };
 
 class BlockFunction : public Function {

@@ -16,6 +16,7 @@
 #pragma once
 
 #include "ir/object.h"
+#include "ir/config.h"
 
 #include <memory>
 #include <ostream>
@@ -27,7 +28,7 @@ namespace pto {
 class Function;
 
 // Represents the top-level program.module container.
-class ProgramModule : public Object {
+class ProgramModule : public Object, public std::enable_shared_from_this<ProgramModule> {
 public:
     explicit ProgramModule(std::string name);
 
@@ -44,9 +45,15 @@ public:
     // Pretty-print to a textual PTO-IR-like form.
     void Print(std::ostream& os, int indent = 0) const;
 
+    // Configuration access
+    Config& GetConfig();
+    const Config& GetConfig() const;
+    bool HasConfig() const;
+
 private:
     std::shared_ptr<Function> programEntry_;
     std::vector<std::shared_ptr<Function>> functions_;
+    Config config_;
 };
 
 using ProgramModulePtr = std::shared_ptr<ProgramModule>;
