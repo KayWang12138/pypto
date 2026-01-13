@@ -70,9 +70,13 @@ bool InsertOpForViewAssemble::NeedInsertCopy(LogicalTensorPtr &assembleOut) {
         auto viewAttr = std::static_pointer_cast<ViewOpAttribute>(prodOp->GetOpAttribute());
         if (assembleAttr == nullptr || viewAttr == nullptr) {
             APASS_LOG_ERROR_F(Elements::Operation, "View or Assemble attribute is nullptr, NeedInsertCopy Failed.");
-            return FAILED;
+            return false;
         }
         if (assembleAttr->GetToOffset() != viewAttr->GetFromOffset()) {
+            isNeedInsert = true;
+            continue;
+        }
+        if (assembleAttr->GetToDynOffset().size() != viewAttr->GetFromDynOffset().size()) {
             isNeedInsert = true;
             continue;
         }
