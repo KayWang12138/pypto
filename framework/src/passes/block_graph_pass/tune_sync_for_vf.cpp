@@ -60,6 +60,7 @@ bool TuneSyncForVF::NeedAdjustWaitFlag(Function *subGraphFunc, Operation *vecTil
 
 void TuneSyncForVF::GenPipeOpMap(Function *subGraphFunc) {
     PipeSync ps;
+    pipeOpMap.clear();
     std::vector<Operation *> oriOpList = subGraphFunc->oriOpList;
     for (auto &op : oriOpList) {
         auto opcfg = OpcodeManager::Inst().GetTileOpCfg(op->GetOpcode());
@@ -97,7 +98,6 @@ Status TuneSyncForVF::AdjustSetWaitFlag(Function *subGraphFunc, std::vector<Oper
     opList_.insert(insertPos2, setFlagList.begin(), setFlagList.end());
 
     // 更新各pipe上op的时间戳
-    GenPipeOpMap(subGraphFunc);
     // pipe_v
     int curVFStartTime = mergedOps[groupNum][0]->cycleStart; // 当前vf融合op开始时间
     int prevEndTime = curVFStartTime;
@@ -213,8 +213,10 @@ Status TuneSyncForVF::ChangeOpSeq(Function *subGraphFunc, bool isAIV1) {
     }
 
     std::vector<size_t> pipeVIdx;
+    PipeSync ps;
     for (size_t i = 0; i < opList_.size(); i++) {
         auto opcfg = OpcodeManager::Inst().GetTileOpCfg(opList_[i]->GetOpcode());
+        ps.AdjustOpCfg(opcfg, *opList_[i]);
         if (opcfg.pipeIdStart_ == PipeType::PIPE_V && opList_[i]->GetAIVCore() == coreType) {
             pipeVIdx.emplace_back(i);
         }
@@ -299,6 +301,7 @@ Status TuneSyncForVF::ChangeOpSeq(Function *subGraphFunc, bool isAIV1) {
         pipeVIdx.clear();
         for (size_t i = 0; i < opList_.size(); i++) {
             auto opcfg = OpcodeManager::Inst().GetTileOpCfg(opList_[i]->GetOpcode());
+            ps.AdjustOpCfg(opcfg, *opList_[i]);
             if (opcfg.pipeIdStart_ == PipeType::PIPE_V && opList_[i]->GetAIVCore() == coreType) {
                 pipeVIdx.emplace_back(i);
             }
@@ -323,6 +326,7 @@ Status TuneSyncForVF::RunOnFunction(Function &function) {
             }
             APASS_LOG_DEBUG_F(Elements::Operation, "Input operation %d: %s", op->GetOpMagic(), op->GetOpcodeStr().c_str());
         }
+        GenPipeOpMap(program.second);
         // AIV0和AIV1各调整一次
         if (ChangeOpSeq(program.second, false) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Function, "RunOnFunction failed at function ChangeOpSeq.");
