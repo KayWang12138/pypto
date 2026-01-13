@@ -280,6 +280,133 @@ std::string CodeGenOpCloudNPU::PrintCompact(const PrintUnaryTmpBuffParam &param)
     return PrintCompactStatic(param);
 }
 
+std::string CodeGenOpCloudNPU::PrintRoundLayout(float powDecimals) const {
+    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::DST_IDX));
+    std::string tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::TMP_IDX));
+    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::SRC0_IDX));
+    std::string scalarTmpBuffer = FormatFloat(powDecimals);
+
+    std::ostringstream oss;
+    oss << tileOpName.c_str() << "<float>" << "(" << dstTensor << ", " << tmpTensor << ", " << srcTensor << ", "
+        << scalarTmpBuffer << ");\n";
+    return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::PrintRoundDynamicUnaligned(
+    const PrintUnaryTmpBuffParam &param, float powDecimals) const {
+    const std::string &dstDtypeStr = param.dstDtypeStr;
+    const std::string &tmpDtypeStr = param.tmpDtypeStr;
+    const std::string &srcDtypeStr = param.srcDtypeStr;
+    const std::string &dVar = param.dVar;
+    const std::string &tVar = param.tmpVar;
+    const std::string &s0Var = param.s0Var;
+
+    std::vector<int64_t> ss = NormalizeShape(rawShape[2], SHAPE_DIM4);
+    std::vector<int64_t> ts = NormalizeShape(rawShape[1], SHAPE_DIM4);
+    std::vector<int64_t> ds = NormalizeShape(rawShape[0], SHAPE_DIM4);
+
+    std::ostringstream os;
+    std::vector<std::string> paramList;
+    paramList.emplace_back(dstDtypeStr);
+    paramList.emplace_back("/*DS*/");
+    for (int i = 1; i < SHAPE_DIM4; ++i) {
+        paramList.emplace_back(std::to_string(ds[i]));
+    }
+    paramList.emplace_back("/*TS*/");
+    for (int i = 1; i < SHAPE_DIM4; ++i) {
+        paramList.emplace_back(std::to_string(ts[i]));
+    }
+    paramList.emplace_back("/*SS*/");
+    for (int i = 1; i < SHAPE_DIM4; ++i) {
+        paramList.emplace_back(std::to_string(ss[i]));
+    }
+    paramList.emplace_back(std::to_string(powDecimals));
+    std::string templateParam = JoinString(paramList, CONN_COMMA);
+    paramList.clear();
+    std::string dst = "(__ubuf__ " + dstDtypeStr + "*)" + dVar;
+    std::string tmp = "(__ubuf__ " + srcDtypeStr + "*)" + tVar;
+    std::string src0 = "(__ubuf__ " + srcDtypeStr + "*)" + s0Var;
+    paramList.emplace_back(dst);
+    paramList.emplace_back(tmp);
+    paramList.emplace_back(src0);
+
+    auto dynSrcShape = dynamicValidShape[2];
+    FillIntVecWithDummyInHead<SymbolicScalar>(dynSrcShape, SHAPE_DIM4 - dynamicValidShape[1].size(), 1);
+    for (auto dynShape : dynSrcShape) {
+        paramList.emplace_back(SymbolicExpressionTable::BuildExpression(dynShape));
+    }
+    std::string tiloOpCallParam = JoinString(paramList, CONN_COMMA);
+    os << tileOpName.c_str() << "_<" << templateParam << ">"
+       << "(" << tiloOpCallParam << ");\n";
+
+    return os.str();
+}
+
+std::string CodeGenOpCloudNPU::PrintRoundStatic(const PrintUnaryTmpBuffParam &param, float powDecimals) const {
+    const std::string &dstDtypeStr = param.dstDtypeStr;
+    const std::string &tmpDtypeStr = param.tmpDtypeStr;
+    const std::string &srcDtypeStr = param.srcDtypeStr;
+    const std::string &dVar = param.dVar;
+    const std::string &tVar = param.tmpVar;
+    const std::string &s0Var = param.s0Var;
+    std::vector<int64_t> os0 = NormalizeShape(originShape[2], SHAPE_DIM4);
+    std::vector<int64_t> ss = NormalizeShape(rawShape[2], SHAPE_DIM4);
+    std::vector<int64_t> ts = NormalizeShape(rawShape[1], SHAPE_DIM4);
+    std::vector<int64_t> ds = NormalizeShape(rawShape[0], SHAPE_DIM4);
+
+    std::ostringstream os;
+    std::vector<std::string> paramList;
+    paramList.emplace_back(dstDtypeStr);
+    paramList.emplace_back("/*OS*/");
+    for (int i = 0; i < SHAPE_DIM4; ++i) {
+        paramList.emplace_back(std::to_string(os0[i]));
+    }
+    paramList.emplace_back("/*DS*/");
+    for (int i = 1; i < SHAPE_DIM4; ++i) {
+        paramList.emplace_back(std::to_string(ds[i]));
+    }
+    paramList.emplace_back("/*TS*/");
+    for (int i = 1; i < SHAPE_DIM4; ++i) {
+        paramList.emplace_back(std::to_string(ts[i]));
+    }
+    paramList.emplace_back("/*SS*/");
+    for (int i = 1; i < SHAPE_DIM4; ++i) {
+        paramList.emplace_back(std::to_string(ss[i]));
+    }
+    paramList.emplace_back(std::to_string(powDecimals));
+    std::string templateParam = JoinString(paramList, CONN_COMMA);
+
+    paramList.clear();
+    std::string dst = "(__ubuf__ " + dstDtypeStr + "*)" + dVar;
+    std::string tmp = "(__ubuf__ " + srcDtypeStr + "*)" + tVar;
+    std::string src0 = "(__ubuf__ " + srcDtypeStr + "*)" + s0Var;
+    paramList.emplace_back(dst);
+    paramList.emplace_back(tmp);
+    paramList.emplace_back(src0);
+
+    std::string tiloOpCallParam = JoinString(paramList, CONN_COMMA);
+    os << tileOpName.c_str() << "_<" << templateParam << ">"
+       << "(" << tiloOpCallParam << ");\n";
+
+    return os.str();
+}
+
+std::string CodeGenOpCloudNPU::PrintRound(const PrintUnaryTmpBuffParam &param) const {
+    float powDecimals{0.0f};
+    auto scalar = opAttrs.at(OP_ATTR_PREFIX + "powDecimals");
+    if (scalar.HasValue()) {
+        powDecimals = npu::tile_fwk::AnyCast<Element>(scalar).Cast<float>();
+    }
+
+    if (isSupportLayout) {
+        return PrintRoundLayout(powDecimals);
+    }
+    if (isDynamicFunction) {
+        return PrintRoundDynamicUnaligned(param, powDecimals);
+    }
+    return PrintRoundStatic(param, powDecimals);
+}
+
 std::string CodeGenOpCloudNPU::PrintRowSumlineStatic(const PrintUnaryTmpBuffParam &param) const {
     int reduceAxis{-1};
     auto axis = opAttrs.at(OP_ATTR_PREFIX + "AXIS");
@@ -422,6 +549,10 @@ std::string CodeGenOpCloudNPU::GenUnaryOpWithTmpBuff() const {
     if (opCode == Opcode::OP_TRANSPOSE_VNCHWCONV) {
         return PrintVnchwconv({s0Var, tmpVar, dVar, srcDtypeStr, tmpDtypeStr, dstDtypeStr});
     }
+
+    if (opCode == Opcode::OP_ROUND) {
+        return PrintRound({s0Var, tmpVar, dVar, srcDtypeStr, tmpDtypeStr, dstDtypeStr});
+    } 
 
     if (opCode == Opcode::OP_ROWSUMLINE) {
         return PrintRowSumline({s0Var, tmpVar, dVar, srcDtypeStr, tmpDtypeStr, dstDtypeStr});
