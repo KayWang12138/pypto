@@ -3295,11 +3295,18 @@ void Function::SetCallOpSlot() {
         [](const auto& op) {
             return op->GetOpcode() == Opcode::OP_CALL;
         });
+    for (auto &ele : operations_) {
+        ALOG_ERROR_F("op  %d %s in function %s %d %d", ele->GetOpMagic(), ele->GetOpcodeStr().c_str(), 
+            this->GetMagicName().c_str(), this->GetFunctionType(), this->GetGraphType());
+    }
     if (!isAllCallOp) {
         return;
     }
     std::vector<Function *> calleeList = GetCalleeFunctionList();
     for (auto callee: calleeList) {
+        if (callee == nullptr) {
+            continue;
+        }
         const std::shared_ptr<TensorSlotScope> calleeScope = callee->GetSlotScope();
         // callee incast -> call op iOperand, callee outcast -> call op oOperand
         UpdateOriIocastSlot(calleeScope);

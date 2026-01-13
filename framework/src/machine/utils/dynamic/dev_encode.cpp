@@ -1577,19 +1577,15 @@ struct EncodeDevAscendFunctionInfo {
 
         RemoveDeadHubCall(callopList);
         ReplaceSuccessorWithHub(callopList, 10); // add dummp op at least 10 depends can be reduced
-
         AddDummyCallsAtBeginningAndEnding(callopList);
-
         EncodeCopyOutReslove(producerConsumerOOperandIndexDict);
         EncodeZeroPredCount(callopList);
-
         for (auto &op : callopList) {
             callList.Insert(op);
         }
 
         EncodeIncasts();
         EncodeOutCasts();
-
         // dummy op might be inserted in EncodeOutcast, add dummy copy out resolve.
         for (auto &op : callList) {
             if (!copyOutResolveSuccIndexListDict.count(op)) {
@@ -1622,14 +1618,13 @@ struct EncodeDevAscendFunctionInfo {
                 noPredOpList, noSuccOpList, copyOutResolveSuccIndexListDict, fillContent);
 #ifdef SUPPORT_MIX_SUBGRAPH_SCHE
         devFunc->InitWrapInfo(initOffset, callList, fillContent);
-#endif
+#endif  
         devFunc->InitIncastOutcast(initOffset, incastList, outcastList, tensorList, incastOpAttrDict, outcastOpAttrDict, param, rawName, fillContent);
     }
 };
 
 void EncodeDevAscendFunction(Function *dyndev, const EncodeDevAscendFunctionParam &param, uint64_t &offset, DevAscendFunction *base) {
     EncodeDevAscendFunctionInfo encodeInfo(dyndev, param.calleeHashIndexDict, param.cceCodeInfoList, param.expressionTable, param.devRoot);
-
     if (base == nullptr) {
         DevAscendFunction devfunc;
         encodeInfo.Init(&devfunc, param, false);
