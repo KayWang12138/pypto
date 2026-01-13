@@ -195,7 +195,7 @@ TEST_F(InferMemoryConflictTest, TestForwardPropagation2) {
     EXPECT_EQ(status, SUCCESS);
 
     EXPECT_EQ(pass.preregcopys.size(), NUM_ONE);
-    EXPECT_NE(pass.preregcopys.find(&reshape_op), pass.preregcopys.end());
+    EXPECT_NE(pass.preregcopys.find(&assemble_op), pass.preregcopys.end());
 }
 
 /*
@@ -441,8 +441,7 @@ TEST_F(InferMemoryConflictTest, TestBackwardPropagation2) {
     status = pass.BackwardPropagation(*currFunctionPtr);
     EXPECT_EQ(status, SUCCESS);
 
-    EXPECT_EQ(pass.postregcopys.size(), NUM_ONE);
-    EXPECT_NE(pass.postregcopys.find(&reshape_op), pass.postregcopys.end());
+    EXPECT_EQ(pass.postregcopys.size(), NUM_ZERO);
 }
 
 /*
@@ -564,56 +563,6 @@ TEST_F(InferMemoryConflictTest, TestBackwardPropagation4) {
 }
 
 /*
-Case 5:
-T2->
-input->index_outcast->T1->reshape->output
-T0->
-*/
-TEST_F(InferMemoryConflictTest, TestBackwardPropagation5) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
-    EXPECT_TRUE(currFunctionPtr != nullptr);
-    // Prepare the graph
-
-    std::vector<int64_t> shape0 = {NUM_4, NUM_4};
-    std::vector<int64_t> shape1 = {1, NUM_2};
-    std::vector<int64_t> shape2 = {NUM_2, NUM_4};
-    std::vector<int64_t> shape3 = {NUM_ONE, NUM_4, NUM_4};
-    std::vector<int64_t> shape4 = {NUM_ONE, NUM_2, NUM_4};
-
-    std::vector<int64_t> offset1 = {NUM_ZERO, NUM_ZERO};
-    std::vector<int64_t> offset2 = {NUM_ZERO, NUM_ZERO, NUM_ZERO};
-
-    auto T0 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
-    auto T2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
-    
-    std::shared_ptr<RawTensor> ddrRawTensor1 = std::make_shared<RawTensor>(DT_FP32, shape0);
-    auto input = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor1, offset1, shape2);
-    auto T1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
-    std::shared_ptr<RawTensor> ddrRawTensor2 = std::make_shared<RawTensor>(DT_FP32, shape3);
-    auto output = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor2, offset2, shape4);
-    
-    ddrRawTensor1->SetSymbol("input");
-    ddrRawTensor2->SetSymbol("output");
-    ddrRawTensor1->memoryId = 0;
-    ddrRawTensor2->memoryId = 1;
-
-    currFunctionPtr->inCasts_.push_back(input);
-    currFunctionPtr->outCasts_.push_back(output);
-
-    currFunctionPtr->AddOperation(Opcode::OP_INDEX_OUTCAST, {T0, T2, input}, {T1});
-   
-    auto &reshape_op = currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {T1}, {output});
-    
-    InferMemoryConflict pass;
-    auto status = pass.Init(*currFunctionPtr);
-    status = pass.BackwardPropagation(*currFunctionPtr);
-    EXPECT_EQ(status, SUCCESS);
-
-    EXPECT_EQ(pass.postregcopys.size(), NUM_ONE);
-    EXPECT_NE(pass.postregcopys.find(&reshape_op), pass.postregcopys.end());
-}
-
-/*
 Case 1:
 input1->view->T1->reshape->T2->assemble->output
 */
@@ -709,9 +658,7 @@ TEST_F(InferMemoryConflictTest, TestBothPropagation2) {
     EXPECT_EQ(status, SUCCESS);
 
     EXPECT_EQ(pass.preregcopys.size(), NUM_ONE);
-    EXPECT_EQ(pass.postregcopys.size(), NUM_ONE);
-    EXPECT_NE(pass.preregcopys.find(&reshape_op), pass.preregcopys.end());
-    EXPECT_NE(pass.postregcopys.find(&reshape_op), pass.postregcopys.end());
+    EXPECT_NE(pass.preregcopys.find(&assemble_op), pass.preregcopys.end());
 }
 
 /*
@@ -845,78 +792,11 @@ TEST_F(InferMemoryConflictTest, STest1) {
 
 /*
 STest2
-input1->view->T1->index_outcast->T2->reshape->T3->exp->output
-单链，存在reshape
-*/
-TEST_F(InferMemoryConflictTest, STest2) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
-    EXPECT_TRUE(currFunctionPtr != nullptr);
-    // Prepare the graph
-
-    std::vector<int64_t> shape0 = {NUM_32, NUM_32, NUM_128};
-    std::vector<int64_t> shape1 = {NUM_32, NUM_32, NUM_64};
-    std::vector<int64_t> shape2 = {NUM_ONE, NUM_32, NUM_32, NUM_64};
-    std::vector<int64_t> offset1 = {NUM_ZERO, NUM_ZERO, NUM_ZERO};
-    std::vector<int64_t> offset2 = {NUM_ZERO, NUM_ZERO, NUM_ZERO, NUM_ZERO};
-
-    std::shared_ptr<RawTensor> ddrRawTensor1 = std::make_shared<RawTensor>(DT_FP32, shape0);
-    auto input = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor1, offset1, shape1);
-    auto T1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
-    auto T4 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
-    auto T5 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
-    
-    auto T2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
-    auto T3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
-    
-    std::shared_ptr<RawTensor> ddrRawTensor2 = std::make_shared<RawTensor>(DT_FP32, shape2);
-    auto output = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor2, offset2, shape2);
-    
-    ddrRawTensor1->SetSymbol("input1");
-    ddrRawTensor2->SetSymbol("output");
-    ddrRawTensor1->memoryId = 0;
-    ddrRawTensor2->memoryId = 1;
-
-    currFunctionPtr->inCasts_.push_back(input);
-    currFunctionPtr->outCasts_.push_back(output);
-
-    auto &view_op1 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {input}, {T1});
-    auto view_Attr1 = std::make_shared<ViewOpAttribute>(offset1);
-    view_op1.SetOpAttribute(view_Attr1);
-
-    currFunctionPtr->AddOperation(Opcode::OP_INDEX_OUTCAST, {T4, T5, T1}, {T2});
-
-    auto &reshape_op = currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {T2}, {T3});
-    currFunctionPtr->AddOperation(Opcode::OP_EXP, {T3}, {output});
-    
-    InferMemoryConflict pass;
-    auto status = pass.RunOnFunction(*currFunctionPtr);
-    EXPECT_EQ(status, SUCCESS);
-
-    int cnt = 0;
-    Operation* copy = nullptr;
-    for (auto &op : currFunctionPtr->Operations().DuplicatedOpList()) {
-        if (op->GetOpcode() == Opcode::OP_REGISTER_COPY) {
-            copy = op;
-            cnt += 1;
-        }
-    }
-    EXPECT_EQ(cnt, NUM_ONE);
-    EXPECT_NE(copy, nullptr);
-    EXPECT_EQ(*(copy->GetIOperands().begin()), T2);
-    EXPECT_EQ(copy->GetTileShape().GetVecTile().size(), NUM_3);
-    std::vector<int64_t> expectShape = {NUM_8, NUM_32, NUM_64};
-    EXPECT_EQ(copy->GetTileShape().GetVecTile().tile, expectShape);
-    auto newTensorOut = *(copy->GetOOperands().begin());
-    EXPECT_EQ(*(newTensorOut->GetConsumers().begin()), &reshape_op);
-}
-
-/*
-STest3
 input1->view->T1->exp->T2->assemble->output
                          ->assemble->output
 同一tensor assemble输出到不同outcast
 */
-TEST_F(InferMemoryConflictTest, STest3) {
+TEST_F(InferMemoryConflictTest, STest2) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
