@@ -21,6 +21,7 @@
 #include "interface/function/function.h"
 #include "interface/program/program.h"
 #include "interface/configs/config_manager.h"
+#include "tensor_transformation.h"
 
 namespace npu::tile_fwk {
 

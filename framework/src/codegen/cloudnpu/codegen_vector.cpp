@@ -1740,4 +1740,76 @@ std::string CodeGenOpCloudNPU::GenTopKExtractOp() const {
     os << tileOpName.c_str() << "<" << templateParam << ">" << "(" << tileOpParam << ");\n";
     return os.str();
 }
+
+std::string CodeGenOpCloudNPU::PrintBitwiseShiftTensor() const {
+    std::string dstTensor = QueryTileTensorNameByIdx(operandWithMagic[ToUnderlying(MIMOIdx::DST_IDX)]);
+    std::string tmpTensor = QueryTileTensorNameByIdx(operandWithMagic[ToUnderlying(MIMOIdx::TMP_IDX)]);
+    std::string srcTensor = QueryTileTensorNameByIdx(operandWithMagic[ToUnderlying(MIMOIdx::SRC0_IDX)]);
+    std::string src1Tensor = QueryTileTensorNameByIdx(operandWithMagic[ToUnderlying(MIMOIdx::SRC1_IDX)]);
+    std::vector<std::string> paramList = {dstTensor, srcTensor, src1Tensor, tmpTensor};
+    std::ostringstream oss;
+    oss << tileOpName;
+    oss << WrapParamByParentheses(paramList) << ";\n";
+    return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::GenBitwiseShiftOp() const {
+    if (isSupportLayout) {
+        return PrintBitwiseShiftTensor();
+    }
+    enum class OpIdx : int { resIdx = 0, tmpIdx, srcIdx0, srcIdx1 };
+
+    std::string dstVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(OpIdx::resIdx)]);
+    std::string tmpVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(OpIdx::tmpIdx)]);
+    std::string srcVar0 = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(OpIdx::srcIdx0)]);
+    std::string srcVar1 = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(OpIdx::srcIdx1)]);
+
+    std::vector dstShape = this->rawShape[ToUnderlying(OpIdx::resIdx)];
+    std::vector srcShape0 = this->rawShape[ToUnderlying(OpIdx::srcIdx0)];
+    std::vector srcShape1 = this->rawShape[ToUnderlying(OpIdx::srcIdx1)];
+
+    std::string dstDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(OpIdx::resIdx)]);
+    std::string tmpDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(OpIdx::tmpIdx)]);
+    std::string srcDtypeStr0 = DataType2CCEStr(operandDtype[ToUnderlying(OpIdx::srcIdx0)]);
+    std::string srcDtypeStr1 = DataType2CCEStr(operandDtype[ToUnderlying(OpIdx::srcIdx1)]);
+
+    AppendLocalBufVarOffsetInOrder(dstVar, tmpVar, srcVar0, srcVar1);
+
+    std::ostringstream os;
+    std::vector<std::string> paramList;
+    paramList.emplace_back(srcDtypeStr0);
+    paramList.emplace_back(srcDtypeStr1);
+
+    int dim = dstShape.size(); // 输入输出Tensor维度相同
+    for (auto i = 1; i < dim; i++) {
+        paramList.emplace_back(std::to_string(dstShape[i]));
+    }
+    for (auto i = 1; i < dim; i++) {
+        paramList.emplace_back(std::to_string(srcShape0[i]));
+    }
+    for (auto i = 1; i < dim; i++) {
+        paramList.emplace_back(std::to_string(srcShape1[i]));
+    }
+
+    std::string templateParam = JoinString(paramList, CONN_COMMA);
+
+    paramList.clear();
+
+    std::string addrType = GetAddrTypeByOperandType(BUF_UB);
+    paramList.emplace_back("(" + addrType + " " + dstDtypeStr + "*)" + dstVar);
+    paramList.emplace_back("(" + addrType + " " + srcDtypeStr0 + "*)" + srcVar0);
+    paramList.emplace_back("(" + addrType + " " + srcDtypeStr1 + "*)" + srcVar1);
+    paramList.emplace_back("(" + addrType + " " + tmpDtypeStr + "*)" + tmpVar);
+
+    auto dynSrcShape = dynamicValidShape[ToUnderlying(OpIdx::srcIdx0)];
+    for (auto dyn : dynSrcShape) {
+        paramList.emplace_back(SymbolicExpressionTable::BuildExpression(dyn));
+    }
+    std::string tiloOpCallParam = JoinString(paramList, CONN_COMMA);
+
+    os << tileOpName.c_str() << "<" << templateParam << ">"
+       << "(" << tiloOpCallParam << ");\n";
+
+    return os.str();
+}
 } // namespace npu::tile_fwk

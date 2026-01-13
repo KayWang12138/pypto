@@ -127,6 +127,20 @@ REGISTER_INFER_SHAPE_FUNC(OP_SCATTER_ELEMENT, Opcode::OP_SCATTER_ELEMENT, Elewis
 REGISTER_INFER_SHAPE_FUNC(OP_SCATTER, Opcode::OP_SCATTER, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_CMP, Opcode::OP_CMP, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_CMPS, Opcode::OP_CMPS, ElewiseInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_BITWISERIGHTSHIFTS, Opcode::OP_BITWISERIGHTSHIFTS, ElewiseInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_BITWISELEFTSHIFTS, Opcode::OP_BITWISELEFTSHIFTS, ElewiseInferFunc);
+void BitwiseShiftInferFunc(Operation* op,
+                        std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
+    ElewiseInferFunc(op, outValidShapes);
+    std::vector<SymbolicScalar> outValidShape = outValidShapes.back();
+    std::vector<SymbolicScalar> tmpValidShape = (outValidShape.size() > NUM2) ?
+                     std::vector<SymbolicScalar>(outValidShape.end() - NUM2, outValidShape.end()) : outValidShape;
+    outValidShapes.pop_back();
+    outValidShapes.push_back(tmpValidShape);
+}
+REGISTER_INFER_SHAPE_FUNC(OP_BITWISERIGHTSHIFT, Opcode::OP_BITWISERIGHTSHIFT, BitwiseShiftInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_BITWISELEFTSHIFT, Opcode::OP_BITWISELEFTSHIFT, BitwiseShiftInferFunc);
+
 void IndexOutCastInferFunc(Operation* op,
                       std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
     std::vector<SymbolicScalar> outValidShape;
