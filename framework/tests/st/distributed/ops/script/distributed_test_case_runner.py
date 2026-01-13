@@ -79,7 +79,7 @@ class OperationTestCaseRunner(TestCaseRunner):
 
     def run_on_device(self, inputs: list) -> list:
         test_case = (
-            f"Test{self._op}/DistributedTest.Test{self._op}/{self._index}"
+            f"TestDistributedOps/DistributedTest.TestOps/{self._index}"
         )
         cmd = (
             f"mpirun -n {self._rank_size} ./tile_fwk_stest_distributed run "

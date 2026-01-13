@@ -15,6 +15,7 @@ import json
 from typing import Callable, Dict, List, Union
 from dataclasses import dataclass
 import pandas as pd
+from pathlib import Path
 
 from test_case_desc import TensorDesc, TestCaseDesc
 from test_case_tools import parse_list_str, str_to_bool
@@ -266,8 +267,6 @@ class JsonWriter:
     def run(self) -> list:
         if len(self._data) == 0:
             return []
-        if not os.path.exists(self._json):
-            os.makedirs(self._json, exist_ok=True)
 
         test_cases = []
         for index, row_data in self._data.iterrows():
@@ -276,7 +275,12 @@ class JsonWriter:
             case_info["test_case"]["index"] = index
             test_cases.append(case_info["test_case"])
         test_cases.sort(key=lambda x: (x["operation"], x["case_index"]))
-        json_file = f"{self._json}/{test_cases[0]['operation']}_st_test_cases.json"
+        path = Path(self._json)
+        if path.suffix == "":
+            path.mkdir(parents=True, exist_ok=True)
+            json_file = path / f"{test_cases[0]['operation']}_st_test_cases.json"
+        else:
+            json_file = path
         row_data = {"test_cases": test_cases}
         with open(json_file, "w", encoding="utf-8") as outfile:
             json.dump(row_data, outfile, ensure_ascii=False, indent=4)
