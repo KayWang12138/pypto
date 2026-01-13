@@ -73,9 +73,6 @@ public:
     TypePtr GetType() const { return type_; }
     DataType GetDataType() const { return type_ ? type_->GetDataType() : DataType::UNKNOWN; }
 
-    // Pretty-print the type with the given indentation.
-    virtual void Print(std::ostream& os, int indent = 0) const = 0;
-
 protected:
     ValueKind valueKind_;
     TypePtr type_;
@@ -127,9 +124,6 @@ public:
 
     // Get immediate value as int64_t. Only valid when HasImmediateValue() is true.
     int64_t GetInt64Value() const;
-
-    void Print(std::ostream& os, int indent = 0) const override;
-
 private:
     ScalarValueKind valueKind_;     // Kind of scalar value: immediate, symbolic
     ImmediateType immediateValue_;   // Immediate value storage
@@ -222,8 +216,6 @@ public:
     void SetStartOffset(const ScalarValuePtr newStartOffset) { startOffset_ = newStartOffset; }
     void SetMemory(const std::shared_ptr<Memory> newMem) { mem_ = newMem; }
 
-    void Print(std::ostream& os, int indent = 0) const override;
-
 private:
     std::vector<ScalarValuePtr> validShapes_;
     std::vector<int64_t> strides_;
@@ -269,7 +261,6 @@ public:
     Format GetFormat() const { return format_; }
     void SetFormat(Format format) { format_ = format; }
 
-    void Print(std::ostream& os, int indent) const override;
 private:
     std::vector<ScalarValuePtr> shape_;
     Format format_;
