@@ -23,9 +23,11 @@
 namespace pto {
 namespace serializer {
 
+#define IR_SOURCE_CPP_MACRO                     "_MACRO_"
 #define IR_SOURCE_CPP_PREFIX                    "RT_"
 #define IR_SOURCE_CPP_FUNCTION                  "FUNCTION"
 #define IR_SOURCE_CPP_OPERATION                 "OPERATION"
+#define IR_SOURCE_CPP_OPERATION_MACRO           "OPERATION_MACRO"
 #define IR_SOURCE_CPP_DECL_TYPE_TILE            "DECL_TYPE_TILE"
 #define IR_SOURCE_CPP_DECL_TYPE_TENSOR          "DECL_TYPE_TENSOR"
 #define IR_SOURCE_CPP_DECL_VALUE_SCALAR         "DECL_VALUE_SCALAR"
@@ -49,6 +51,8 @@ class SourceCppASTNode : public std::vector<std::shared_ptr<SourceCppASTNode>> {
 public:
     SourceCppASTNode(const std::string &name, const std::vector<std::string> &argList)
       : std::vector<std::shared_ptr<SourceCppASTNode>>(), name_(name), argList_(argList) {}
+
+    SourceCppASTNode(const std::string &name) : SourceCppASTNode(name, std::vector<std::string>()) {}
 
     const std::string &GetName() const { return name_; }
     const std::vector<std::string> &GetArgList() const { return argList_; }
