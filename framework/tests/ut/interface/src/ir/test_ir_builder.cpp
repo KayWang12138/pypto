@@ -245,6 +245,7 @@ TEST(IRTEST, TestStaticForLoop) {
     // ===== Function =====
     auto func = builder.CreateFunction("test_static_for", FunctionKind::ControlFlow, sig);
     module->AddFunction(func);
+    module->SetProgramEntry(func);
     builder.EnterFunctionBody(ctx, func);
 
     // buf = Tile() - create a new tile value for buf
