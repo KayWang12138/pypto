@@ -17,6 +17,7 @@
 #define SRC_MACHINE_DEVICE_LAUNCHER_H
 
 #include <cstdint>
+#include <cinttypes>
 
 #include "machine/runtime/device_launcher_binding.h"
 #include "interface/configs/config_manager.h"
@@ -160,8 +161,8 @@ public:
         ALOG_DEBUG_F("Set aicore blockdim:%d aicpu blockdim:%d.", config.blockdim, config.aicpuNum);
 
         devProg->devArgs.enableCtrl = 1; // need set 0 if use custom cpu launch ctrl cpu
-        if (config.dynWorkspaceSize) {
-            ALOG_ERROR_F("[Deprecated] User provided dynamic workspace: %zu", config.dynWorkspaceSize);
+        if (config.dynWorkspaceSize != 0) {
+            ALOG_ERROR_F("[Deprecated] User provided dynamic workspace: %" PRId64, config.dynWorkspaceSize);
             devProg->memBudget.tensor.maxDynamicAssembleOutcastMem = std::max(
                 static_cast<int64_t>(devProg->memBudget.tensor.maxDynamicAssembleOutcastMem),
                 AlignUp(config.dynWorkspaceSize, TENSOR_ADDR_ALIGNMENT));
@@ -172,6 +173,7 @@ public:
             devProg->workspaceSize, devProg->memBudget.tensor.Total(), devProg->memBudget.metadata.Total(),
             devProg->memBudget.aicoreSpilled, devProg->memBudget.debug.dumpTensor);
         ALOG_INFO_F("Tensor:rootInner=%lu, devTaskInnerOutCasts=%lu, slotted=%lux%lu(slots).",
+            devProg->memBudget.tensor.rootInner,
             devProg->memBudget.tensor.devTaskInnerExclusiveOutcasts, devProg->memBudget.tensor.MaxOutcastMem(),
             devProg->memBudget.tensor.devTaskBoundaryOutcastNum);
     }
