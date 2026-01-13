@@ -119,7 +119,8 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {Opcode::OP_PAIRMAX, [this]() { return GenBinaryOp(); }},
           {Opcode::OP_PAIRMIN, [this]() { return GenBinaryOp(); }},
           {Opcode::OP_POW, [this]() { return GenBinaryOp(); }},
-
+          {Opcode::OP_BITWISERIGHTSHIFT, [this]() { return GenBitwiseShiftOp(); }},
+          {Opcode::OP_BITWISELEFTSHIFT, [this]() { return GenBitwiseShiftOp(); }},
           // binary op: broadcast associated vector
           {Opcode::OP_ADD_BRC, [this]() { return GenBinaryWithBrc(); }},
           {Opcode::OP_SUB_BRC, [this]() { return GenBinaryWithBrc(); }},
@@ -135,7 +136,10 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {Opcode::OP_DIVS, [this]() { return GenVectorScalarOp(); }},
           {Opcode::OP_MAXS, [this]() { return GenVectorScalarOp(); }},
           {Opcode::OP_MINS, [this]() { return GenVectorScalarOp(); }},
-
+          {Opcode::OP_BITWISERIGHTSHIFTS, [this]() { return GenVectorScalarOp(); }},
+          {Opcode::OP_BITWISELEFTSHIFTS, [this]() { return GenVectorScalarOp(); }},
+          {Opcode::OP_SBITWISERIGHTSHIFT, [this]() { return GenBitwiseShiftScalarOp(); }},
+          {Opcode::OP_SBITWISELEFTSHIFT, [this]() { return GenBitwiseShiftScalarOp(); }},
           // binary op: vector scalar, scalar mode
           {Opcode::OP_S_ADDS, [this]() { return GenVectorScalarOpScalarMode(); }},
           {Opcode::OP_S_SUBS, [this]() { return GenVectorScalarOpScalarMode(); }},
