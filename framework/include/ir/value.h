@@ -268,7 +268,6 @@ public:
     }
 
     const std::vector<ScalarValuePtr>& GetShape() const { return shape_; }
-    const std::vector<ScalarValuePtr>& GetStride() const { return stride_; }
 
     Format GetFormat() const { return format_; }
     void SetFormat(Format format) { format_ = format; }
