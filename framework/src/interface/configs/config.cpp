@@ -37,7 +37,7 @@ static std::map<std::string, ValueType> g_passConfig = {
     {SG_PARALLEL_NUM, 20L},
     {SG_PG_UPPER_BOUND, 10000L},
     {SG_PG_LOWER_BOUND, 512L},
-    {CUBE_L1_REUSE_MODE, 0L},
+    {CUBE_L1_REUSE_MODE, 1L},
     {CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{}},
     {CUBE_NBUFFER_MODE, 0L},
     {CUBE_NBUFFER_SETTING, std::map<int64_t, int64_t>{}},
