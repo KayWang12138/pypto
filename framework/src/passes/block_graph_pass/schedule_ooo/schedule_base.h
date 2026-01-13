@@ -299,7 +299,7 @@ public:
         }
     }
 
-    std::string dumpOpInfo(Operation &op) {
+    std::string DumpOpInfo(Operation &op) {
         std::ostringstream os;
         os << "op: " << op.GetOpcodeStr().c_str() << "[" << op.GetOpMagic() << "] | ";
         os << "inputs: { ";
@@ -344,13 +344,13 @@ public:
                     if (producer == op) {
                         continue;
                     }
-                    APASS_LOG_ERROR_F(Elements::Operation, "      %s.", dumpOpInfo(*producer).c_str());
+                    APASS_LOG_ERROR_F(Elements::Operation, "      %s.", DumpOpInfo(*producer).c_str());
                 }
             } else {
                 APASS_LOG_ERROR_F(Elements::Operation, "OP %s[%d] in/output total size [%ld] exceeds %s size [%d]!",
                     op->GetOpcodeStr().c_str(), op->GetOpMagic(), bufferPair.second, MemoryTypeToString(bufferPair.first).c_str(),
                     localMemSize[bufferPair.first]);
-                APASS_LOG_ERROR_F(Elements::Operation, " %s.", dumpOpInfo(*op).c_str());
+                APASS_LOG_ERROR_F(Elements::Operation, " %s.", DumpOpInfo(*op).c_str());
             }
             return FAILED;
         }

@@ -993,6 +993,9 @@ void OoOScheduler::InitOpConsumerAndProducer() {
     opProducers.clear();
     for (auto issue : issueEntries) {
         operationSet.insert(&issue->tileOp);
+        for (auto viewOp : issue->viewOps) {
+            operationSet.insert(viewOp);
+        }
     }
     for (auto issue : issueEntries) {
         for (auto consumer : issue->tileOp.ConsumerOps()) {
