@@ -68,9 +68,6 @@ void TileOpShapeVisitor::VisitOp_(OperationPtr &op) {
     else if (auto binaryScalarMixOp = std::dynamic_pointer_cast<BinaryScalarMixOp>(op)) {
         CheckBinaryScalarMixOpShape(binaryScalarMixOp, op);
     }
-
-    // Continue traversal
-    DefaultVisitOp(op);
 }
 
 // ---- Concrete ops (auto-generated from *.def) ----

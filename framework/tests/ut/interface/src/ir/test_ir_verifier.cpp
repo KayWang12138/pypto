@@ -36,7 +36,7 @@ TEST(IRTEST, TestRuleVerifySSASingleInput_ValidProgram) {
     auto inputTile = std::make_shared<TileValue>(tileShape, DataType::FP32, "input");
     sig.arguments = {inputTile};
 
-    auto func = builder.CreateFunction("test_func", FunctionKind::Kernel, sig);
+    auto func = builder.CreateFunction("test_func", FunctionKind::Block, sig);
     module->AddFunction(func);
     builder.EnterFunctionBody(ctx, func);
 
@@ -62,7 +62,7 @@ TEST(IRTEST, TestRuleVerifySSASingleInput_InvalidProgram_MultipleUses) {
     auto inputTile = std::make_shared<TileValue>(tileShape, DataType::FP32, "input");
     sig.arguments = {inputTile};
 
-    auto func = builder.CreateFunction("test_func", FunctionKind::Kernel, sig);
+    auto func = builder.CreateFunction("test_func", FunctionKind::Block, sig);
     module->AddFunction(func);
     builder.EnterFunctionBody(ctx, func);
 
@@ -93,7 +93,7 @@ TEST(IRTEST, TestRuleVerifyOpShape_ValidUnaryOp) {
     auto inputTile = std::make_shared<TileValue>(tileShape, DataType::FP32, "input");
     sig.arguments = {inputTile};
 
-    auto func = builder.CreateFunction("test_func", FunctionKind::Kernel, sig);
+    auto func = builder.CreateFunction("test_func", FunctionKind::Block, sig);
     module->AddFunction(func);
     builder.EnterFunctionBody(ctx, func);
 
@@ -120,7 +120,7 @@ TEST(IRTEST, TestRuleVerifyOpShape_InvalidUnaryOp_MismatchedShapes) {
     auto inputTile = std::make_shared<TileValue>(inputShape, DataType::FP32, "input");
     sig.arguments = {inputTile};
 
-    auto func = builder.CreateFunction("test_func", FunctionKind::Kernel, sig);
+    auto func = builder.CreateFunction("test_func", FunctionKind::Block, sig);
     module->AddFunction(func);
     builder.EnterFunctionBody(ctx, func);
 
@@ -149,7 +149,7 @@ TEST(IRTEST, TestRuleVerifyOpShape_ValidBinaryOp_MatchingShapes) {
     auto input2 = std::make_shared<TileValue>(tileShape, DataType::FP32, "input2");
     sig.arguments = {input1, input2};
 
-    auto func = builder.CreateFunction("test_func", FunctionKind::Kernel, sig);
+    auto func = builder.CreateFunction("test_func", FunctionKind::Block, sig);
     module->AddFunction(func);
     builder.EnterFunctionBody(ctx, func);
 
@@ -178,7 +178,7 @@ TEST(IRTEST, TestRuleVerifyOpShape_ValidBinaryOp_Broadcast) {
     auto input2 = std::make_shared<TileValue>(rhsShape, DataType::FP32, "input2");
     sig.arguments = {input1, input2};
 
-    auto func = builder.CreateFunction("test_func", FunctionKind::Kernel, sig);
+    auto func = builder.CreateFunction("test_func", FunctionKind::Block, sig);
     module->AddFunction(func);
     builder.EnterFunctionBody(ctx, func);
 
@@ -207,7 +207,7 @@ TEST(IRTEST, TestRuleVerifyOpShape_InvalidBinaryOp_IncompatibleShapes) {
     auto input2 = std::make_shared<TileValue>(rhsShape, DataType::FP32, "input2");
     sig.arguments = {input1, input2};
 
-    auto func = builder.CreateFunction("test_func", FunctionKind::Kernel, sig);
+    auto func = builder.CreateFunction("test_func", FunctionKind::Block, sig);
     module->AddFunction(func);
     builder.EnterFunctionBody(ctx, func);
 
@@ -236,7 +236,7 @@ TEST(IRTEST, TestRuleVerifyOpShape_ValidBinaryScalarMixOp) {
     auto scalar = std::make_shared<ScalarValue>(DataType::FP32, "scale", ScalarValueKind::Symbolic);
     sig.arguments = {inputTile, scalar};
 
-    auto func = builder.CreateFunction("test_func", FunctionKind::Kernel, sig);
+    auto func = builder.CreateFunction("test_func", FunctionKind::Block, sig);
     module->AddFunction(func);
     builder.EnterFunctionBody(ctx, func);
 
@@ -264,7 +264,7 @@ TEST(IRTEST, TestRuleVerifyOpShape_InvalidBinaryScalarMixOp_MismatchedShapes) {
     auto scalar = std::make_shared<ScalarValue>(DataType::FP32, "scale", ScalarValueKind::Symbolic);
     sig.arguments = {inputTile, scalar};
 
-    auto func = builder.CreateFunction("test_func", FunctionKind::Kernel, sig);
+    auto func = builder.CreateFunction("test_func", FunctionKind::Block, sig);
     module->AddFunction(func);
     builder.EnterFunctionBody(ctx, func);
 
@@ -292,7 +292,7 @@ TEST(IRTEST, TestRuleVerifyOpShape_MixedOperations) {
     auto inputTile = std::make_shared<TileValue>(tileShape, DataType::FP32, "input");
     sig.arguments = {inputTile};
 
-    auto func = builder.CreateFunction("test_func", FunctionKind::Kernel, sig);
+    auto func = builder.CreateFunction("test_func", FunctionKind::Block, sig);
     module->AddFunction(func);
     builder.EnterFunctionBody(ctx, func);
 

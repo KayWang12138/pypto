@@ -1,0 +1,719 @@
+2026-01-13 16:54:38,438 - build_ci.py:935 - INFO: 
+Environ
+    Python3                 : /data/miniconda3/envs/py310/bin/python3 (3.10.19)
+    pip3                    : 25.2
+Path
+    Source  Dir             : /data/y00955915/pypto-ir-0112-3
+    Build   Dir             : /data/y00955915/pypto-ir-0112-3/build
+    Install Dir             : /data/y00955915/pypto-ir-0112-3/build_out
+    3rd     Dir             : None
+Flag
+    Verbose                 : False
+Feature
+    Frontend                : cpp
+    Backend                 : cost_model
+Build
+    Clean                   : False
+    Timeout                 : None
+    CMake
+        Configure
+                  Generator : 
+                  BuildType : Release
+                       ASan : False
+                      UbSan : False
+                       GCov : False
+           ClangInstallPath : None
+            CompileDepCheck : False
+        Build
+                    Targets : None
+                    Job Num : 48
+Tests
+    Execute
+               Changed File : None
+                       Auto : True
+                   Parallel : False
+    Utest
+                     Enable : True
+                     Filter : IRTEST.TestBuilder:IRTEST.TestControlFlow:IRTEST.TestRuleVerifyOpShape_InvalidBinaryOp_IncompatibleShapes:IRTEST.TestRuleVerifyOpShape_InvalidBinaryScalarMixOp_MismatchedShapes:IRTEST.TestRuleVerifyOpShape_InvalidUnaryOp_MismatchedShapes:IRTEST.TestRuleVerifyOpShape_MixedOperations:IRTEST.TestRuleVerifyOpShape_ValidBinaryOp_Broadcast:IRTEST.TestRuleVerifyOpShape_ValidBinaryOp_MatchingShapes:IRTEST.TestRuleVerifyOpShape_ValidBinaryScalarMixOp:IRTEST.TestRuleVerifyOpShape_ValidUnaryOp:IRTEST.TestRuleVerifySSASingleInput_InvalidProgram_MultipleUses:IRTEST.TestRuleVerifySSASingleInput_ValidProgram:IRTEST.TestScalarType:IRTEST.TestStaticForLoop:IRTEST.TestStringToValueType:IRTEST.TestTensorOperation:IRTEST.TestTensorType:IRTEST.TestTileType:IRTEST.TestTypeAllDataTypes:IRTEST.TestTypeCompleteProgram:IRTEST.TestTypeEdgeCases:IRTEST.TestTypePolymorphism
+
+2026-01-13 16:54:38,439 - build_ci.py:942 - INFO: Front-end(cpp), start process with CMake
+2026-01-13 16:54:38,439 - build_ci.py:1086 - INFO: CMake Configure, Cmd: /usr/bin/cmake -S /data/y00955915/pypto-ir-0112-3 -B /data/y00955915/pypto-ir-0112-3/build -DPython3_EXECUTABLE=/data/miniconda3/envs/py310/bin/python3 -DENABLE_FEATURE_PYTHON_FRONT_END=OFF -DBUILD_WITH_CANN=OFF -DCMAKE_BUILD_TYPE=Release -DENABLE_ASAN=OFF -DENABLE_UBSAN=OFF -DENABLE_GCOV=OFF -DENABLE_COMPILE_DEPENDENCY_CHECK=OFF -DENABLE_UTEST=IRTEST.TestBuilder:IRTEST.TestControlFlow:IRTEST.TestRuleVerifyOpShape_InvalidBinaryOp_IncompatibleShapes:IRTEST.TestRuleVerifyOpShape_InvalidBinaryScalarMixOp_MismatchedShapes:IRTEST.TestRuleVerifyOpShape_InvalidUnaryOp_MismatchedShapes:IRTEST.TestRuleVerifyOpShape_MixedOperations:IRTEST.TestRuleVerifyOpShape_ValidBinaryOp_Broadcast:IRTEST.TestRuleVerifyOpShape_ValidBinaryOp_MatchingShapes:IRTEST.TestRuleVerifyOpShape_ValidBinaryScalarMixOp:IRTEST.TestRuleVerifyOpShape_ValidUnaryOp:IRTEST.TestRuleVerifySSASingleInput_InvalidProgram_MultipleUses:IRTEST.TestRuleVerifySSASingleInput_ValidProgram:IRTEST.TestScalarType:IRTEST.TestStaticForLoop:IRTEST.TestStringToValueType:IRTEST.TestTensorOperation:IRTEST.TestTensorType:IRTEST.TestTileType:IRTEST.TestTypeAllDataTypes:IRTEST.TestTypeCompleteProgram:IRTEST.TestTypeEdgeCases:IRTEST.TestTypePolymorphism -DENABLE_STEST=OFF -DENABLE_STEST_DISTRIBUTED=OFF -DENABLE_TESTS_EXECUTE=ON -DENABLE_TESTS_EXECUTE_PARALLEL=OFF -DENABLE_TESTS_EXECUTE_CHANGED_FILE=OFF -DENABLE_UTEST_MODULE=OFF
+-- PTO_FWK_SRC_ROOT=/data/y00955915/pypto-ir-0112-3
+-- PTO_FWK_BIN_ROOT=/data/y00955915/pypto-ir-0112-3/build
+-- Python3_EXECUTABLE=/data/miniconda3/envs/py310/bin/python3
+-- PYTHON3_VERSION_ID=3.10
+-- PY3_MOD_PYBIND11_CMAKE_DIR=/data/miniconda3/envs/py310/lib/python3.10/site-packages/pybind11/share/cmake/pybind11
+-- PY3_MOD_TORCH_VERSION=2.6.0+cpu
+-- PY3_MOD_TORCH_ROOT_PATH=/data/miniconda3/envs/py310/lib/python3.10/site-packages/torch
+-- PY3_MOD_TORCH_CMAKE_DIR=/data/miniconda3/envs/py310/lib/python3.10/site-packages/torch/share/cmake
+-- PY3_MOD_TORCH_C_GLIBCXX_USE_CXX11_ABI=1
+-- ASCEND_CANN_PACKAGE_PATH=
+-- BUILD_WITH_CANN=OFF
+-- BUILD_WITH_CANN_SUB=OFF
+CMake Warning at cmake/config.cmake:96 (message):
+  PYPTO_THIRD_PARTY_PATH is not specified,
+  /data/y00955915/pypto-ir-0112-3/third_party_path will be used as its
+  default value.  It is necessary to confirm that the relevant software
+  already exists in this path or that the network can be accessed normally so
+  that CMake can automatically download the corresponding software.
+Call Stack (most recent call first):
+  CMakeLists.txt:78 (include)
+
+
+-- PYPTO_THIRD_PARTY_PATH=/data/y00955915/pypto-ir-0112-3/third_party_path
+-- CMAKE_GENERATOR=Unix Makefiles
+-- CMAKE_BUILD_TYPE=Release
+-- Use ccache, CCACHE_BASEDIR=
+-- CMAKE_INSTALL_PREFIX=/data/y00955915/pypto-ir-0112-3/output
+-- Use nlohmann_json from binary, nlohmann_json_DIR=/data/y00955915/pypto-ir-0112-3/third_party_path/Release/share/cmake/nlohmann_json
+-- Use c_sec from binary, c_sec_Install_Prefix=/data/y00955915/pypto-ir-0112-3/third_party_path/Release
+-- Use GTest from binary, GTest_DIR=/data/y00955915/pypto-ir-0112-3/third_party_path/Release/lib64/cmake/GTest
+-- UTest Add module(operator)
+-- UTest Add module(interface)
+-- UTest Add module(passes)
+-- UTest Add module(simulation)
+WARNING:root:jsonschema module not found, ignore the schema validation
+-- Run GTest(tile_fwk_utest), XSAN(ASAN:OFF UBSAN:OFF), GTestFilter(22)=IRTEST.TestBuilder:IRTEST.TestControlFlow:IRTEST.TestRuleVerifyOpShape_InvalidBinaryOp_IncompatibleShapes:IRTEST.TestRuleVerifyOpShape_InvalidBinaryScalarMixOp_MismatchedShapes:IRTEST.TestRuleVerifyOpShape_InvalidUnaryOp_MismatchedShapes:IRTEST.TestRuleVerifyOpShape_MixedOperations:IRTEST.TestRuleVerifyOpShape_ValidBinaryOp_Broadcast:IRTEST.TestRuleVerifyOpShape_ValidBinaryOp_MatchingShapes:IRTEST.TestRuleVerifyOpShape_ValidBinaryScalarMixOp:IRTEST.TestRuleVerifyOpShape_ValidUnaryOp:IRTEST.TestRuleVerifySSASingleInput_InvalidProgram_MultipleUses:IRTEST.TestRuleVerifySSASingleInput_ValidProgram:IRTEST.TestScalarType:IRTEST.TestStaticForLoop:IRTEST.TestStringToValueType:IRTEST.TestTensorOperation:IRTEST.TestTensorType:IRTEST.TestTileType:IRTEST.TestTypeAllDataTypes:IRTEST.TestTypeCompleteProgram:IRTEST.TestTypeEdgeCases:IRTEST.TestTypePolymorphism
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /data/y00955915/pypto-ir-0112-3/build
+2026-01-13 16:54:40,279 - build_ci.py:1103 - INFO: CMake Build(1/1), Cmd: /usr/bin/cmake --build /data/y00955915/pypto-ir-0112-3/build -j 48
+Consolidate compiler generated dependencies of target tile_fwk_simulation_platform
+Consolidate compiler generated dependencies of target tile_fwk_simulation_pv
+Consolidate compiler generated dependencies of target tile_fwk_simulation_ca
+[  1%] Built target tile_fwk_simulation_platform
+[  2%] Built target tile_fwk_simulation_pv
+[  3%] Built target tile_fwk_simulation_ca
+Consolidate compiler generated dependencies of target tile_fwk_compiler
+Consolidate compiler generated dependencies of target tile_fwk_codegen
+[  5%] Built target tile_fwk_compiler
+Consolidate compiler generated dependencies of target tile_fwk_utest_simulation
+Consolidate compiler generated dependencies of target tile_fwk_runtime
+Consolidate compiler generated dependencies of target tile_fwk_runtime_stub
+[  9%] Built target tile_fwk_codegen
+[ 10%] Built target tile_fwk_utest_simulation
+Consolidate compiler generated dependencies of target tile_fwk_calculator
+Consolidate compiler generated dependencies of target tile_fwk_utest_interface
+[ 16%] Built target tile_fwk_runtime
+[ 21%] Built target tile_fwk_runtime_stub
+Consolidate compiler generated dependencies of target tile_fwk_simulation
+Consolidate compiler generated dependencies of target tile_fwk_utest_operator
+Consolidate compiler generated dependencies of target tile_fwk_operator
+[ 27%] Built target tile_fwk_utest_interface
+[ 35%] Built target tile_fwk_simulation
+[ 42%] Built target tile_fwk_utest_operator
+[ 42%] Built target tile_fwk_calculator
+[ 51%] Built target tile_fwk_operator
+Consolidate compiler generated dependencies of target tile_fwk_utest_passes
+[ 63%] Built target tile_fwk_utest_passes
+Consolidate compiler generated dependencies of target tile_fwk_interface
+[ 64%] Building CXX object framework/src/interface/CMakeFiles/tile_fwk_interface.dir/ir/verifier/shape_verify.cpp.o
+[ 64%] Linking CXX shared library ../../../output/lib/libtile_fwk_interface.so
+[100%] Built target tile_fwk_interface
+Consolidate compiler generated dependencies of target tile_fwk_utest
+[100%] Building CXX object framework/tests/ut/CMakeFiles/tile_fwk_utest.dir/tile_fwk_utest_main_stub.cpp.o
+[100%] Linking CXX executable ../../../output/bin/tile_fwk_utest
+Soft link of configs(*.json) has been created at /data/y00955915/pypto-ir-0112-3/build/output/lib/configs
+Soft link of scripts has been created at /data/y00955915/pypto-ir-0112-3/build/output/lib/scripts
+Soft link of include directory has been created at /data/y00955915/pypto-ir-0112-3/build/output/include
+Soft link of library include directory has been created at /data/y00955915/pypto-ir-0112-3/build/output/lib/include
+Run GTest(tile_fwk_utest), XSAN(ASAN:OFF UBSAN:OFF) With Parallel Execute Accelerate
+2026-01-13 16:54:42,290 - gtest_accelerate.py:308 - PID[953706] - INFO: 
+
+UTest Accelerate Args:
++-----------------+----------------------------------------------------------------------------------------------------------------------------------+
+| Python3         | /data/miniconda3/envs/py310/bin/python3 (3.10.19)                                                                                |
++-----------------+----------------------------------------------------------------------------------------------------------------------------------+
+| Timeout         | None                                                                                                                             |
++-----------------+----------------------------------------------------------------------------------------------------------------------------------+
+| HaltOnError     | True                                                                                                                             |
++-----------------+----------------------------------------------------------------------------------------------------------------------------------+
+| CntrNum         | 16                                                                                                                               |
++-----------------+----------------------------------------------------------------------------------------------------------------------------------+
+| CntrList        | [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]                                                                           |
++-----------------+----------------------------------------------------------------------------------------------------------------------------------+
+| CaseNum         | 22                                                                                                                               |
++-----------------+----------------------------------------------------------------------------------------------------------------------------------+
+| CaseTimeout     | None                                                                                                                             |
++-----------------+----------------------------------------------------------------------------------------------------------------------------------+
+| Executable      | /data/y00955915/pypto-ir-0112-3/build/output/bin/tile_fwk_utest                                                                  |
++-----------------+----------------------------------------------------------------------------------------------------------------------------------+
+| LD_LIBRARY_PATH | /data/y00955915/pypto-ir-0112-3/build/output/lib:/opt/openEuler/llvm-toolset-18/root/usr/lib64:/usr/local/Ascend/ascend-toolkit/ |
++-----------------+----------------------------------------------------------------------------------------------------------------------------------+
+2026-01-13 16:54:44,302 - gtest_accelerate.py:690 - PID[953864] - INFO: Cntr[1] [BGN] Run UTest(tile_fwk_utest) XSAN(ASAN:OFF UBSAN:OFF) GTestFilter(IRTEST.TestBuilder)
+2026-01-13 16:54:44,302 - gtest_accelerate.py:690 - PID[953865] - INFO: Cntr[0] [BGN] Run UTest(tile_fwk_utest) XSAN(ASAN:OFF UBSAN:OFF) GTestFilter(IRTEST.TestControlFlow)
+2026-01-13 16:54:44,303 - gtest_accelerate.py:690 - PID[953866] - INFO: Cntr[2] [BGN] Run UTest(tile_fwk_utest) XSAN(ASAN:OFF UBSAN:OFF) GTestFilter(IRTEST.TestRuleVerifyOpShape_InvalidBinaryOp_IncompatibleShapes)
+2026-01-13 16:54:44,304 - gtest_accelerate.py:690 - PID[953867] - INFO: Cntr[3] [BGN] Run UTest(tile_fwk_utest) XSAN(ASAN:OFF UBSAN:OFF) GTestFilter(IRTEST.TestRuleVerifyOpShape_InvalidBinaryScalarMixOp_MismatchedShapes)
+2026-01-13 16:54:44,305 - gtest_accelerate.py:690 - PID[953868] - INFO: Cntr[4] [BGN] Run UTest(tile_fwk_utest) XSAN(ASAN:OFF UBSAN:OFF) GTestFilter(IRTEST.TestRuleVerifyOpShape_InvalidUnaryOp_MismatchedShapes)
+2026-01-13 16:54:44,305 - gtest_accelerate.py:690 - PID[953871] - INFO: Cntr[6] [BGN] Run UTest(tile_fwk_utest) XSAN(ASAN:OFF UBSAN:OFF) GTestFilter(IRTEST.TestRuleVerifyOpShape_MixedOperations)
+2026-01-13 16:54:44,305 - gtest_accelerate.py:690 - PID[953872] - INFO: Cntr[5] [BGN] Run UTest(tile_fwk_utest) XSAN(ASAN:OFF UBSAN:OFF) GTestFilter(IRTEST.TestRuleVerifyOpShape_ValidBinaryOp_Broadcast)
+2026-01-13 16:54:44,309 - gtest_accelerate.py:690 - PID[953875] - INFO: Cntr[7] [BGN] Run UTest(tile_fwk_utest) XSAN(ASAN:OFF UBSAN:OFF) GTestFilter(IRTEST.TestRuleVerifyOpShape_ValidBinaryOp_MatchingShapes)
+2026-01-13 16:54:44,310 - gtest_accelerate.py:690 - PID[953879] - INFO: Cntr[8] [BGN] Run UTest(tile_fwk_utest) XSAN(ASAN:OFF UBSAN:OFF) GTestFilter(IRTEST.TestRuleVerifyOpShape_ValidBinaryScalarMixOp)
+2026-01-13 16:54:44,310 - gtest_accelerate.py:690 - PID[953880] - INFO: Cntr[10] [BGN] Run UTest(tile_fwk_utest) XSAN(ASAN:OFF UBSAN:OFF) GTestFilter(IRTEST.TestRuleVerifyOpShape_ValidUnaryOp)
+2026-01-13 16:54:44,310 - gtest_accelerate.py:690 - PID[953881] - INFO: Cntr[9] [BGN] Run UTest(tile_fwk_utest) XSAN(ASAN:OFF UBSAN:OFF) GTestFilter(IRTEST.TestRuleVerifySSASingleInput_InvalidProgram_MultipleUses)
+2026-01-13 16:54:44,312 - gtest_accelerate.py:690 - PID[953883] - INFO: Cntr[11] [BGN] Run UTest(tile_fwk_utest) XSAN(ASAN:OFF UBSAN:OFF) GTestFilter(IRTEST.TestRuleVerifySSASingleInput_ValidProgram)
+2026-01-13 16:54:44,312 - gtest_accelerate.py:690 - PID[953884] - INFO: Cntr[12] [BGN] Run UTest(tile_fwk_utest) XSAN(ASAN:OFF UBSAN:OFF) GTestFilter(IRTEST.TestScalarType)
+2026-01-13 16:54:44,313 - gtest_accelerate.py:690 - PID[953886] - INFO: Cntr[13] [BGN] Run UTest(tile_fwk_utest) XSAN(ASAN:OFF UBSAN:OFF) GTestFilter(IRTEST.TestStaticForLoop)
+2026-01-13 16:54:44,313 - gtest_accelerate.py:690 - PID[953888] - INFO: Cntr[14] [BGN] Run UTest(tile_fwk_utest) XSAN(ASAN:OFF UBSAN:OFF) GTestFilter(IRTEST.TestStringToValueType)
+2026-01-13 16:54:44,369 - gtest_accelerate.py:690 - PID[953895] - INFO: Cntr[15] [BGN] Run UTest(tile_fwk_utest) XSAN(ASAN:OFF UBSAN:OFF) GTestFilter(IRTEST.TestTensorOperation)
+2026-01-13 16:54:44,869 - gtest_accelerate.py:697 - PID[953872] - INFO: Cntr[5] [END] Run UTest(tile_fwk_utest) XSAN(ASAN:OFF UBSAN:OFF) GTestFilter(IRTEST.TestRuleVerifyOpShape_ValidBinaryOp_Broadcast) CaseProgress[1/22 4.55%] Output Below:
+Note: Google Test filter = IRTEST.TestRuleVerifyOpShape_ValidBinaryOp_Broadcast
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from IRTEST
+[ RUN      ] IRTEST.TestRuleVerifyOpShape_ValidBinaryOp_Broadcast
+[       OK ] IRTEST.TestRuleVerifyOpShape_ValidBinaryOp_Broadcast (0 ms)
+[----------] 1 test from IRTEST (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+
+
+2026-01-13 16:54:44,869 - gtest_accelerate.py:697 - PID[953868] - INFO: Cntr[4] [END] Run UTest(tile_fwk_utest) XSAN(ASAN:OFF UBSAN:OFF) GTestFilter(IRTEST.TestRuleVerifyOpShape_InvalidUnaryOp_MismatchedShapes) CaseProgress[2/22 9.09%] Output Below:
+Note: Google Test filter = IRTEST.TestRuleVerifyOpShape_InvalidUnaryOp_MismatchedShapes
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from IRTEST
+[ RUN      ] IRTEST.TestRuleVerifyOpShape_InvalidUnaryOp_MismatchedShapes
+[       OK ] IRTEST.TestRuleVerifyOpShape_InvalidUnaryOp_MismatchedShapes (0 ms)
+[----------] 1 test from IRTEST (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+
+
+2026-01-13 16:54:44,874 - gtest_accelerate.py:697 - PID[953865] - INFO: Cntr[0] [END] Run UTest(tile_fwk_utest) XSAN(ASAN:OFF UBSAN:OFF) GTestFilter(IRTEST.TestControlFlow) CaseProgress[3/22 13.64%] Output Below:
+Note: Google Test filter = IRTEST.TestControlFlow
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from IRTEST
+[ RUN      ] IRTEST.TestControlFlow
+program.module @main {
+  program.entry @test_control
+  func.func @test_control(%inputX_3: tensor<[%batch_1, 128], float32>, %inputY_4: tensor<[%batch_1, 128], float32>, %scale1_5: float32, %scale2_6: float32, %outputX_7: tensor<[%batch_1, 128], float32>, %outputY_8: tensor<[%batch_1, 128], float32>) -> (int32) {
+    statement.for %i_10 = 0 to %batch_1 step 1
+        iter_args(%outputY_31 = %outputY_8: tensor<[%batch_1, 128], float32>, %outputX_32 = %outputX_7: tensor<[%batch_1, 128], float32>)
+        attributes {unroll = 4} {
+      statement.op {
+        %outputX_13 = tile.OP_ADDS %outputX_13, %scale1_5 : (tile<[128, 128], [128, 128], float32>, float32) -> tile<[128, 128], [128, 128], float32>
+        %outputY_16 = tile.OP_ADDS %outputY_16, %scale2_6 : (tile<[128, 128], [128, 128], float32>, float32) -> tile<[128, 128], [128, 128], float32>
+      }
+      %outputY_25, %outputX_28 = statement.if %i_10 {
+        statement.op {
+          %outputX_19 = tile.OP_MULS %outputX_13, %scale1_5 : (tile<[128, 128], [128, 128], float32>, float32) -> tile<[128, 128], [128, 128], float32>
+        }
+        statement.yield %outputY_16, %outputX_19
+      } else {
+        statement.op {
+          %outputY_22 = tile.OP_MULS %outputY_16, %scale2_6 : (tile<[128, 128], [128, 128], float32>, float32) -> tile<[128, 128], [128, 128], float32>
+        }
+        statement.yield %outputY_22, %outputX_13
+      }
+      statement.yield %outputY_25, %outputX_28
+    }
+    statement.return 0
+  }
+  // func.kind = control_flow
+
+}
+
+[       OK ] IRTEST.TestControlFlow (0 ms)
+[----------] 1 test from IRTEST (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+
+
+2026-01-13 16:54:44,875 - gtest_accelerate.py:697 - PID[953886] - INFO: Cntr[13] [END] Run UTest(tile_fwk_utest) XSAN(ASAN:OFF UBSAN:OFF) GTestFilter(IRTEST.TestStaticForLoop) CaseProgress[4/22 18.18%] Output Below:
+Note: Google Test filter = IRTEST.TestStaticForLoop
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from IRTEST
+[ RUN      ] IRTEST.TestStaticForLoop
+program.module @main {
+  program.entry @test_static_for
+  func.func @test_static_for(%in1_1: tile<[16, 32], [16, 32], float32>, %in2_4: float32, %out_5: tile<[16, 32], [16, 32], float32>) -> (int32) {
+    statement.op {
+      %buf_9 = tile.OP_ADDS %in1_1, 0 : (tile<[16, 32], [16, 32], float32>, float64) -> tile<[16, 32], [16, 32], float32>
+    }
+    %buf_29 = statement.for %i_13 = 0 to 5 step 1
+        iter_args(%buf_26 = %buf_9: tile<[16, 32], [16, 32], float32>) {
+      statement.op {
+        %tmp1_17 = tile.OP_MULS %buf_26, %in2_4 : (tile<[16, 32], [16, 32], float32>, float32) -> tile<[16, 32], [16, 32], float32>
+        %tmp2_20 = tile.OP_ADDS %tmp1_17, %in2_4 : (tile<[16, 32], [16, 32], float32>, float32) -> tile<[16, 32], [16, 32], float32>
+        %buf_23 = tile.OP_EXP %tmp2_20 : (tile<[16, 32], [16, 32], float32>) -> tile<[16, 32], [16, 32], float32>
+      }
+      statement.yield %buf_23
+    }
+    statement.op {
+      %out_5 = tile.OP_ADDS %buf_29, 0 : (tile<[16, 32], [16, 32], float32>, float64) -> tile<[16, 32], [16, 32], float32>
+    }
+    statement.return 0
+  }
+  // func.kind = control_flow
+
+}
+
+[       OK ] IRTEST.TestStaticForLoop (0 ms)
+[----------] 1 test from IRTEST (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+
+
+2026-01-13 16:54:44,881 - gtest_accelerate.py:690 - PID[954043] - INFO: Cntr[5] [BGN] Run UTest(tile_fwk_utest) XSAN(ASAN:OFF UBSAN:OFF) GTestFilter(IRTEST.TestTensorType)
+2026-01-13 16:54:44,881 - gtest_accelerate.py:690 - PID[954042] - INFO: Cntr[4] [BGN] Run UTest(tile_fwk_utest) XSAN(ASAN:OFF UBSAN:OFF) GTestFilter(IRTEST.TestTileType)
+2026-01-13 16:54:44,884 - gtest_accelerate.py:697 - PID[953871] - INFO: Cntr[6] [END] Run UTest(tile_fwk_utest) XSAN(ASAN:OFF UBSAN:OFF) GTestFilter(IRTEST.TestRuleVerifyOpShape_MixedOperations) CaseProgress[5/22 22.73%] Output Below:
+Note: Google Test filter = IRTEST.TestRuleVerifyOpShape_MixedOperations
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from IRTEST
+[ RUN      ] IRTEST.TestRuleVerifyOpShape_MixedOperations
+[       OK ] IRTEST.TestRuleVerifyOpShape_MixedOperations (0 ms)
+[----------] 1 test from IRTEST (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+
+
+2026-01-13 16:54:44,884 - gtest_accelerate.py:690 - PID[954045] - INFO: Cntr[13] [BGN] Run UTest(tile_fwk_utest) XSAN(ASAN:OFF UBSAN:OFF) GTestFilter(IRTEST.TestTypeCompleteProgram)
+2026-01-13 16:54:44,884 - gtest_accelerate.py:690 - PID[954044] - INFO: Cntr[0] [BGN] Run UTest(tile_fwk_utest) XSAN(ASAN:OFF UBSAN:OFF) GTestFilter(IRTEST.TestTypeAllDataTypes)
+2026-01-13 16:54:44,886 - gtest_accelerate.py:697 - PID[953864] - INFO: Cntr[1] [END] Run UTest(tile_fwk_utest) XSAN(ASAN:OFF UBSAN:OFF) GTestFilter(IRTEST.TestBuilder) CaseProgress[6/22 27.27%] Output Below:
+Note: Google Test filter = IRTEST.TestBuilder
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from IRTEST
+[ RUN      ] IRTEST.TestBuilder
+program.module @main {
+  program.entry @test_value
+  attr arch = "PTOv2"
+  attr enable_debug = true
+  attr tile_default = { M=16, N=16, K=16 }
+  func.func @test_value(%input_1: tile<[128, 128], [128, 128], float32>, %scale1_4: float32, %output_5: tile<[128, 128], [128, 128], float32>) {
+    statement.op {
+      %mul1_res_8 = tile.OP_MULS %input_1, %scale1_4 : (tile<[128, 128], [128, 128], float32>, float32) -> tile<[128, 128], [128, 128], float32>
+      %output_12 = tile.OP_MULS %mul1_res_8, 3.14 : (tile<[128, 128], [128, 128], float32>, float64) -> tile<[128, 128], [128, 128], float32>
+    }
+    statement.return
+  }
+  // func.kind = control_flow
+
+}
+
+[       OK ] IRTEST.TestBuilder (0 ms)
+[----------] 1 test from IRTEST (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+
+
+2026-01-13 16:54:44,893 - gtest_accelerate.py:697 - PID[953875] - INFO: Cntr[7] [END] Run UTest(tile_fwk_utest) XSAN(ASAN:OFF UBSAN:OFF) GTestFilter(IRTEST.TestRuleVerifyOpShape_ValidBinaryOp_MatchingShapes) CaseProgress[7/22 31.82%] Output Below:
+Note: Google Test filter = IRTEST.TestRuleVerifyOpShape_ValidBinaryOp_MatchingShapes
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from IRTEST
+[ RUN      ] IRTEST.TestRuleVerifyOpShape_ValidBinaryOp_MatchingShapes
+[       OK ] IRTEST.TestRuleVerifyOpShape_ValidBinaryOp_MatchingShapes (0 ms)
+[----------] 1 test from IRTEST (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+
+
+2026-01-13 16:54:44,892 - gtest_accelerate.py:690 - PID[954052] - INFO: Cntr[6] [BGN] Run UTest(tile_fwk_utest) XSAN(ASAN:OFF UBSAN:OFF) GTestFilter(IRTEST.TestTypeEdgeCases)
+2026-01-13 16:54:44,894 - gtest_accelerate.py:697 - PID[953888] - INFO: Cntr[14] [END] Run UTest(tile_fwk_utest) XSAN(ASAN:OFF UBSAN:OFF) GTestFilter(IRTEST.TestStringToValueType) CaseProgress[8/22 36.36%] Output Below:
+Note: Google Test filter = IRTEST.TestStringToValueType
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from IRTEST
+[ RUN      ] IRTEST.TestStringToValueType
+[       OK ] IRTEST.TestStringToValueType (0 ms)
+[----------] 1 test from IRTEST (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+
+
+2026-01-13 16:54:44,894 - gtest_accelerate.py:697 - PID[953867] - INFO: Cntr[3] [END] Run UTest(tile_fwk_utest) XSAN(ASAN:OFF UBSAN:OFF) GTestFilter(IRTEST.TestRuleVerifyOpShape_InvalidBinaryScalarMixOp_MismatchedShapes) CaseProgress[9/22 40.91%] Output Below:
+Note: Google Test filter = IRTEST.TestRuleVerifyOpShape_InvalidBinaryScalarMixOp_MismatchedShapes
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from IRTEST
+[ RUN      ] IRTEST.TestRuleVerifyOpShape_InvalidBinaryScalarMixOp_MismatchedShapes
+[       OK ] IRTEST.TestRuleVerifyOpShape_InvalidBinaryScalarMixOp_MismatchedShapes (0 ms)
+[----------] 1 test from IRTEST (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+
+
+2026-01-13 16:54:44,894 - gtest_accelerate.py:697 - PID[953884] - INFO: Cntr[12] [END] Run UTest(tile_fwk_utest) XSAN(ASAN:OFF UBSAN:OFF) GTestFilter(IRTEST.TestScalarType) CaseProgress[10/22 45.45%] Output Below:
+Note: Google Test filter = IRTEST.TestScalarType
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from IRTEST
+[ RUN      ] IRTEST.TestScalarType
+[       OK ] IRTEST.TestScalarType (0 ms)
+[----------] 1 test from IRTEST (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+
+
+2026-01-13 16:54:44,894 - gtest_accelerate.py:697 - PID[953881] - INFO: Cntr[9] [END] Run UTest(tile_fwk_utest) XSAN(ASAN:OFF UBSAN:OFF) GTestFilter(IRTEST.TestRuleVerifySSASingleInput_InvalidProgram_MultipleUses) CaseProgress[11/22 50.00%] Output Below:
+Note: Google Test filter = IRTEST.TestRuleVerifySSASingleInput_InvalidProgram_MultipleUses
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from IRTEST
+[ RUN      ] IRTEST.TestRuleVerifySSASingleInput_InvalidProgram_MultipleUses
+[       OK ] IRTEST.TestRuleVerifySSASingleInput_InvalidProgram_MultipleUses (0 ms)
+[----------] 1 test from IRTEST (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+
+
+2026-01-13 16:54:44,895 - gtest_accelerate.py:697 - PID[953879] - INFO: Cntr[8] [END] Run UTest(tile_fwk_utest) XSAN(ASAN:OFF UBSAN:OFF) GTestFilter(IRTEST.TestRuleVerifyOpShape_ValidBinaryScalarMixOp) CaseProgress[12/22 54.55%] Output Below:
+Note: Google Test filter = IRTEST.TestRuleVerifyOpShape_ValidBinaryScalarMixOp
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from IRTEST
+[ RUN      ] IRTEST.TestRuleVerifyOpShape_ValidBinaryScalarMixOp
+[       OK ] IRTEST.TestRuleVerifyOpShape_ValidBinaryScalarMixOp (0 ms)
+[----------] 1 test from IRTEST (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+
+
+2026-01-13 16:54:44,895 - gtest_accelerate.py:697 - PID[953883] - INFO: Cntr[11] [END] Run UTest(tile_fwk_utest) XSAN(ASAN:OFF UBSAN:OFF) GTestFilter(IRTEST.TestRuleVerifySSASingleInput_ValidProgram) CaseProgress[13/22 59.09%] Output Below:
+Note: Google Test filter = IRTEST.TestRuleVerifySSASingleInput_ValidProgram
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from IRTEST
+[ RUN      ] IRTEST.TestRuleVerifySSASingleInput_ValidProgram
+[       OK ] IRTEST.TestRuleVerifySSASingleInput_ValidProgram (0 ms)
+[----------] 1 test from IRTEST (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+
+
+2026-01-13 16:54:44,895 - gtest_accelerate.py:697 - PID[953866] - INFO: Cntr[2] [END] Run UTest(tile_fwk_utest) XSAN(ASAN:OFF UBSAN:OFF) GTestFilter(IRTEST.TestRuleVerifyOpShape_InvalidBinaryOp_IncompatibleShapes) CaseProgress[14/22 63.64%] Output Below:
+Note: Google Test filter = IRTEST.TestRuleVerifyOpShape_InvalidBinaryOp_IncompatibleShapes
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from IRTEST
+[ RUN      ] IRTEST.TestRuleVerifyOpShape_InvalidBinaryOp_IncompatibleShapes
+[       OK ] IRTEST.TestRuleVerifyOpShape_InvalidBinaryOp_IncompatibleShapes (0 ms)
+[----------] 1 test from IRTEST (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+
+
+2026-01-13 16:54:44,896 - gtest_accelerate.py:690 - PID[954053] - INFO: Cntr[1] [BGN] Run UTest(tile_fwk_utest) XSAN(ASAN:OFF UBSAN:OFF) GTestFilter(IRTEST.TestTypePolymorphism)
+2026-01-13 16:54:44,900 - gtest_accelerate.py:697 - PID[953880] - INFO: Cntr[10] [END] Run UTest(tile_fwk_utest) XSAN(ASAN:OFF UBSAN:OFF) GTestFilter(IRTEST.TestRuleVerifyOpShape_ValidUnaryOp) CaseProgress[15/22 68.18%] Output Below:
+Note: Google Test filter = IRTEST.TestRuleVerifyOpShape_ValidUnaryOp
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from IRTEST
+[ RUN      ] IRTEST.TestRuleVerifyOpShape_ValidUnaryOp
+[       OK ] IRTEST.TestRuleVerifyOpShape_ValidUnaryOp (0 ms)
+[----------] 1 test from IRTEST (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+
+
+2026-01-13 16:54:44,900 - gtest_accelerate.py:612 - PID[953727] - INFO: CntrProcess(Cntr[14]) Send terminate event upload.
+2026-01-13 16:54:44,901 - gtest_accelerate.py:613 - PID[953727] - INFO: CntrProcess(Cntr[14]) Exist[0] CntrProgress[1/16 6.25%] CaseProgress[15/22 68.18%]
+2026-01-13 16:54:44,901 - gtest_accelerate.py:612 - PID[953720] - INFO: CntrProcess(Cntr[7]) Send terminate event upload.
+2026-01-13 16:54:44,902 - gtest_accelerate.py:613 - PID[953720] - INFO: CntrProcess(Cntr[7]) Exist[0] CntrProgress[2/16 12.50%] CaseProgress[15/22 68.18%]
+2026-01-13 16:54:44,902 - gtest_accelerate.py:612 - PID[953716] - INFO: CntrProcess(Cntr[3]) Send terminate event upload.
+2026-01-13 16:54:44,903 - gtest_accelerate.py:613 - PID[953716] - INFO: CntrProcess(Cntr[3]) Exist[0] CntrProgress[3/16 18.75%] CaseProgress[15/22 68.18%]
+2026-01-13 16:54:44,903 - gtest_accelerate.py:612 - PID[953724] - INFO: CntrProcess(Cntr[11]) Send terminate event upload.
+2026-01-13 16:54:44,904 - gtest_accelerate.py:613 - PID[953724] - INFO: CntrProcess(Cntr[11]) Exist[0] CntrProgress[4/16 25.00%] CaseProgress[15/22 68.18%]
+2026-01-13 16:54:44,903 - gtest_accelerate.py:612 - PID[953722] - INFO: CntrProcess(Cntr[9]) Send terminate event upload.
+2026-01-13 16:54:44,905 - gtest_accelerate.py:613 - PID[953722] - INFO: CntrProcess(Cntr[9]) Exist[0] CntrProgress[5/16 31.25%] CaseProgress[15/22 68.18%]
+2026-01-13 16:54:44,904 - gtest_accelerate.py:612 - PID[953721] - INFO: CntrProcess(Cntr[8]) Send terminate event upload.
+2026-01-13 16:54:44,907 - gtest_accelerate.py:613 - PID[953721] - INFO: CntrProcess(Cntr[8]) Exist[0] CntrProgress[6/16 37.50%] CaseProgress[15/22 68.18%]
+2026-01-13 16:54:44,904 - gtest_accelerate.py:612 - PID[953725] - INFO: CntrProcess(Cntr[12]) Send terminate event upload.
+2026-01-13 16:54:44,908 - gtest_accelerate.py:613 - PID[953725] - INFO: CntrProcess(Cntr[12]) Exist[0] CntrProgress[7/16 43.75%] CaseProgress[15/22 68.18%]
+2026-01-13 16:54:44,907 - gtest_accelerate.py:612 - PID[953715] - INFO: CntrProcess(Cntr[2]) Send terminate event upload.
+2026-01-13 16:54:44,908 - gtest_accelerate.py:613 - PID[953715] - INFO: CntrProcess(Cntr[2]) Exist[0] CntrProgress[8/16 50.00%] CaseProgress[15/22 68.18%]
+2026-01-13 16:54:44,908 - gtest_accelerate.py:612 - PID[953723] - INFO: CntrProcess(Cntr[10]) Send terminate event upload.
+2026-01-13 16:54:44,909 - gtest_accelerate.py:613 - PID[953723] - INFO: CntrProcess(Cntr[10]) Exist[0] CntrProgress[9/16 56.25%] CaseProgress[15/22 68.18%]
+2026-01-13 16:54:44,953 - gtest_accelerate.py:697 - PID[953895] - INFO: Cntr[15] [END] Run UTest(tile_fwk_utest) XSAN(ASAN:OFF UBSAN:OFF) GTestFilter(IRTEST.TestTensorOperation) CaseProgress[16/22 72.73%] Output Below:
+Note: Google Test filter = IRTEST.TestTensorOperation
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from IRTEST
+[ RUN      ] IRTEST.TestTensorOperation
+program.module @main {
+  program.entry @test_all_ops
+  func.func @test_all_ops(%input_2: tile<[128, 128], [128, 128], float32>, %output_5: tile<[128, 128], [128, 128], float32>) {
+    statement.op {
+      %tensorAdd_10 = tile.OP_ADDS %input_2, 2 : (tile<[128, 128], [128, 128], float32>, float64) -> tile<[128, 128], [128, 128], float32>
+      %tensorSub_13 = tile.OP_SUBS %tensorAdd_10, 3 : (tile<[128, 128], [128, 128], float32>, float64) -> tile<[128, 128], [128, 128], float32>
+      %tensorMul_16 = tile.OP_MULS %tensorSub_13, 2 : (tile<[128, 128], [128, 128], float32>, float64) -> tile<[128, 128], [128, 128], float32>
+      %output_19 = tile.OP_DIVS %tensorMul_16, 2 : (tile<[128, 128], [128, 128], float32>, float64) -> tile<[128, 128], [128, 128], float32>
+    }
+    statement.return
+  }
+  // func.kind = block
+
+}
+
+[       OK ] IRTEST.TestTensorOperation (0 ms)
+[----------] 1 test from IRTEST (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+
+
+2026-01-13 16:54:44,957 - gtest_accelerate.py:612 - PID[953729] - INFO: CntrProcess(Cntr[15]) Send terminate event upload.
+2026-01-13 16:54:44,958 - gtest_accelerate.py:613 - PID[953729] - INFO: CntrProcess(Cntr[15]) Exist[0] CntrProgress[10/16 62.50%] CaseProgress[16/22 72.73%]
+2026-01-13 16:54:45,408 - gtest_accelerate.py:697 - PID[954043] - INFO: Cntr[5] [END] Run UTest(tile_fwk_utest) XSAN(ASAN:OFF UBSAN:OFF) GTestFilter(IRTEST.TestTensorType) CaseProgress[17/22 77.27%] Output Below:
+Note: Google Test filter = IRTEST.TestTensorType
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from IRTEST
+[ RUN      ] IRTEST.TestTensorType
+[       OK ] IRTEST.TestTensorType (0 ms)
+[----------] 1 test from IRTEST (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+
+
+2026-01-13 16:54:45,427 - gtest_accelerate.py:612 - PID[953718] - INFO: CntrProcess(Cntr[5]) Send terminate event upload.
+2026-01-13 16:54:45,428 - gtest_accelerate.py:613 - PID[953718] - INFO: CntrProcess(Cntr[5]) Exist[0] CntrProgress[11/16 68.75%] CaseProgress[17/22 77.27%]
+2026-01-13 16:54:45,432 - gtest_accelerate.py:697 - PID[954045] - INFO: Cntr[13] [END] Run UTest(tile_fwk_utest) XSAN(ASAN:OFF UBSAN:OFF) GTestFilter(IRTEST.TestTypeCompleteProgram) CaseProgress[18/22 81.82%] Output Below:
+Note: Google Test filter = IRTEST.TestTypeCompleteProgram
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from IRTEST
+[ RUN      ] IRTEST.TestTypeCompleteProgram
+========== Complete Type Test Program IR (Tile & Scalar Only) ==========
+program.module @test_type_program {
+  program.entry @test_type_complete
+  attr arch = "PTOv2"
+  attr enable_debug = true
+  attr test_type = "tile_scalar_only"
+  attr tile_default = { M=16, N=16, K=16 }
+  func.func @test_type_complete(%input_tile_1: tile<[16, 32], [16, 32], float32>, %scale_4: float32, %output_tile_5: tile<[16, 32], [16, 32], float32>) -> (float64) {
+    statement.op {
+      %tile_mul_11 = tile.OP_MULS %input_tile_1, %scale_4 : (tile<[16, 32], [16, 32], float32>, float32) -> tile<[16, 32], [16, 32], float32>
+      %tile_add_14 = tile.OP_ADDS %tile_mul_11, 2 : (tile<[16, 32], [16, 32], float32>, float64) -> tile<[16, 32], [16, 32], float32>
+      %tile_sub_17 = tile.OP_SUBS %tile_add_14, 3 : (tile<[16, 32], [16, 32], float32>, float64) -> tile<[16, 32], [16, 32], float32>
+      %output_tile_20 = tile.OP_DIVS %tile_sub_17, %scale_4 : (tile<[16, 32], [16, 32], float32>, float32) -> tile<[16, 32], [16, 32], float32>
+      %scalar_add_25 = tensor.OP_SCALAR_ADD 10.5, 5.2 : (float64, float64) -> float64
+      %scalar_mul_26 = tensor.OP_SCALAR_MUL %scalar_add_25, 2 : (float64, float64) -> float64
+    }
+    statement.return %scalar_mul_26
+  }
+  // func.kind = control_flow
+
+}
+
+=======================================================================
+[       OK ] IRTEST.TestTypeCompleteProgram (0 ms)
+[----------] 1 test from IRTEST (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+
+
+2026-01-13 16:54:45,437 - gtest_accelerate.py:612 - PID[953726] - INFO: CntrProcess(Cntr[13]) Send terminate event upload.
+2026-01-13 16:54:45,438 - gtest_accelerate.py:613 - PID[953726] - INFO: CntrProcess(Cntr[13]) Exist[0] CntrProgress[12/16 75.00%] CaseProgress[18/22 81.82%]
+2026-01-13 16:54:45,444 - gtest_accelerate.py:697 - PID[954044] - INFO: Cntr[0] [END] Run UTest(tile_fwk_utest) XSAN(ASAN:OFF UBSAN:OFF) GTestFilter(IRTEST.TestTypeAllDataTypes) CaseProgress[19/22 86.36%] Output Below:
+Note: Google Test filter = IRTEST.TestTypeAllDataTypes
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from IRTEST
+[ RUN      ] IRTEST.TestTypeAllDataTypes
+[       OK ] IRTEST.TestTypeAllDataTypes (0 ms)
+[----------] 1 test from IRTEST (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+
+
+2026-01-13 16:54:45,449 - gtest_accelerate.py:612 - PID[953713] - INFO: CntrProcess(Cntr[0]) Send terminate event upload.
+2026-01-13 16:54:45,450 - gtest_accelerate.py:613 - PID[953713] - INFO: CntrProcess(Cntr[0]) Exist[0] CntrProgress[13/16 81.25%] CaseProgress[19/22 86.36%]
+2026-01-13 16:54:45,453 - gtest_accelerate.py:697 - PID[954053] - INFO: Cntr[1] [END] Run UTest(tile_fwk_utest) XSAN(ASAN:OFF UBSAN:OFF) GTestFilter(IRTEST.TestTypePolymorphism) CaseProgress[20/22 90.91%] Output Below:
+Note: Google Test filter = IRTEST.TestTypePolymorphism
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from IRTEST
+[ RUN      ] IRTEST.TestTypePolymorphism
+[       OK ] IRTEST.TestTypePolymorphism (0 ms)
+[----------] 1 test from IRTEST (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+
+
+2026-01-13 16:54:45,453 - gtest_accelerate.py:697 - PID[954042] - INFO: Cntr[4] [END] Run UTest(tile_fwk_utest) XSAN(ASAN:OFF UBSAN:OFF) GTestFilter(IRTEST.TestTileType) CaseProgress[21/22 95.45%] Output Below:
+Note: Google Test filter = IRTEST.TestTileType
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from IRTEST
+[ RUN      ] IRTEST.TestTileType
+[       OK ] IRTEST.TestTileType (0 ms)
+[----------] 1 test from IRTEST (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+
+
+2026-01-13 16:54:45,458 - gtest_accelerate.py:612 - PID[953714] - INFO: CntrProcess(Cntr[1]) Send terminate event upload.
+2026-01-13 16:54:45,459 - gtest_accelerate.py:613 - PID[953714] - INFO: CntrProcess(Cntr[1]) Exist[0] CntrProgress[14/16 87.50%] CaseProgress[21/22 95.45%]
+2026-01-13 16:54:45,458 - gtest_accelerate.py:612 - PID[953717] - INFO: CntrProcess(Cntr[4]) Send terminate event upload.
+2026-01-13 16:54:45,459 - gtest_accelerate.py:613 - PID[953717] - INFO: CntrProcess(Cntr[4]) Exist[0] CntrProgress[15/16 93.75%] CaseProgress[21/22 95.45%]
+2026-01-13 16:54:45,464 - gtest_accelerate.py:697 - PID[954052] - INFO: Cntr[6] [END] Run UTest(tile_fwk_utest) XSAN(ASAN:OFF UBSAN:OFF) GTestFilter(IRTEST.TestTypeEdgeCases) CaseProgress[22/22 100.00%] Output Below:
+Note: Google Test filter = IRTEST.TestTypeEdgeCases
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from IRTEST
+[ RUN      ] IRTEST.TestTypeEdgeCases
+[       OK ] IRTEST.TestTypeEdgeCases (0 ms)
+[----------] 1 test from IRTEST (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+
+
+2026-01-13 16:54:45,468 - gtest_accelerate.py:612 - PID[953719] - INFO: CntrProcess(Cntr[6]) Send terminate event upload.
+2026-01-13 16:54:45,469 - gtest_accelerate.py:613 - PID[953719] - INFO: CntrProcess(Cntr[6]) Exist[0] CntrProgress[16/16 100.00%] CaseProgress[22/22 100.00%]
+2026-01-13 16:54:46,371 - gtest_accelerate.py:374 - PID[953709] - INFO: MoveProcess(CaseExecution) Exist, Move 22 elements.
+2026-01-13 16:54:46,371 - gtest_accelerate.py:374 - PID[953710] - INFO: MoveProcess(CaseException) Exist, Move 0 elements.
+2026-01-13 16:54:46,372 - gtest_accelerate.py:374 - PID[953711] - INFO: MoveProcess(CaseTerminate) Exist, Move 0 elements.
+2026-01-13 16:54:46,372 - gtest_accelerate.py:374 - PID[953712] - INFO: MoveProcess(CntrExecution) Exist, Move 16 elements.
+2026-01-13 16:54:46,374 - gtest_accelerate.py:411 - PID[953706] - INFO: UTest, HaltOnError(True), Duration 4.08 secs, Revenue(Act/Ori, 4.08/44.86) 998.92%
+
+Cntr Execution Brief:
++------+-------+---------+--------+----------+
+| Cntr | Total | Success | Failed | Duration |
++======+=======+=========+========+==========+
+| 0    | 2     | 2       | 0      | 3.15     |
++------+-------+---------+--------+----------+
+| 1    | 2     | 2       | 0      | 3.16     |
++------+-------+---------+--------+----------+
+| 2    | 1     | 1       | 0      | 2.60     |
++------+-------+---------+--------+----------+
+| 3    | 1     | 1       | 0      | 2.60     |
++------+-------+---------+--------+----------+
+| 4    | 2     | 2       | 0      | 3.16     |
++------+-------+---------+--------+----------+
+| 5    | 2     | 2       | 0      | 3.13     |
++------+-------+---------+--------+----------+
+| 6    | 2     | 2       | 0      | 3.17     |
++------+-------+---------+--------+----------+
+| 7    | 1     | 1       | 0      | 2.60     |
++------+-------+---------+--------+----------+
+| 8    | 1     | 1       | 0      | 2.60     |
++------+-------+---------+--------+----------+
+| 9    | 1     | 1       | 0      | 2.60     |
++------+-------+---------+--------+----------+
+| 10   | 1     | 1       | 0      | 2.60     |
++------+-------+---------+--------+----------+
+| 11   | 1     | 1       | 0      | 2.59     |
++------+-------+---------+--------+----------+
+| 12   | 1     | 1       | 0      | 2.60     |
++------+-------+---------+--------+----------+
+| 13   | 2     | 2       | 0      | 3.13     |
++------+-------+---------+--------+----------+
+| 14   | 1     | 1       | 0      | 2.59     |
++------+-------+---------+--------+----------+
+| 15   | 1     | 1       | 0      | 2.59     |
++------+-------+---------+--------+----------+
+
+Case Execution Brief:
++-------+---------+--------+-----------+-----------+
+| Total | Success | Failed | Terminate | Remaining |
++=======+=========+========+===========+===========+
+| 22    | 22      | 0      | 0         | 0         |
++-------+---------+--------+-----------+-----------+
+
+Case Duration Brief:
++------+------------------------------------------------------------------------+----------+------------------+------------------+
+| Cntr |                                CaseName                                | Duration |   Ratio(Cntr)    |   Ratio(Total)   |
++======+========================================================================+==========+==================+==================+
+| 2    | IRTEST.TestRuleVerifyOpShape_InvalidBinaryOp_IncompatibleShapes        | 0.59     | 0.59/2.60 22.75% | 0.59/4.08 14.52% |
++------+------------------------------------------------------------------------+----------+------------------+------------------+
+| 3    | IRTEST.TestRuleVerifyOpShape_InvalidBinaryScalarMixOp_MismatchedShapes | 0.59     | 0.59/2.60 22.70% | 0.59/4.08 14.47% |
++------+------------------------------------------------------------------------+----------+------------------+------------------+
+| 10   | IRTEST.TestRuleVerifyOpShape_ValidUnaryOp                              | 0.59     | 0.59/2.60 22.68% | 0.59/4.08 14.45% |
++------+------------------------------------------------------------------------+----------+------------------+------------------+
+| 7    | IRTEST.TestRuleVerifyOpShape_ValidBinaryOp_MatchingShapes              | 0.59     | 0.59/2.60 22.55% | 0.59/4.08 14.34% |
++------+------------------------------------------------------------------------+----------+------------------+------------------+
+| 8    | IRTEST.TestRuleVerifyOpShape_ValidBinaryScalarMixOp                    | 0.59     | 0.59/2.60 22.53% | 0.59/4.08 14.34% |
++------+------------------------------------------------------------------------+----------+------------------+------------------+
+| 1    | IRTEST.TestBuilder                                                     | 0.58     | 0.58/3.16 18.50% | 0.58/4.08 14.32% |
++------+------------------------------------------------------------------------+----------+------------------+------------------+
+| 9    | IRTEST.TestRuleVerifySSASingleInput_InvalidProgram_MultipleUses        | 0.58     | 0.58/2.60 22.50% | 0.58/4.08 14.31% |
++------+------------------------------------------------------------------------+----------+------------------+------------------+
+| 15   | IRTEST.TestTensorOperation                                             | 0.58     | 0.58/2.59 22.54% | 0.58/4.08 14.31% |
++------+------------------------------------------------------------------------+----------+------------------+------------------+
+| 11   | IRTEST.TestRuleVerifySSASingleInput_ValidProgram                       | 0.58     | 0.58/2.59 22.50% | 0.58/4.08 14.30% |
++------+------------------------------------------------------------------------+----------+------------------+------------------+
+| 12   | IRTEST.TestScalarType                                                  | 0.58     | 0.58/2.60 22.43% | 0.58/4.08 14.26% |
++------+------------------------------------------------------------------------+----------+------------------+------------------+
+| 14   | IRTEST.TestStringToValueType                                           | 0.58     | 0.58/2.59 22.45% | 0.58/4.08 14.24% |
++------+------------------------------------------------------------------------+----------+------------------+------------------+
+| 6    | IRTEST.TestRuleVerifyOpShape_MixedOperations                           | 0.58     | 0.58/3.17 18.29% | 0.58/4.08 14.18% |
++------+------------------------------------------------------------------------+----------+------------------+------------------+
+| 6    | IRTEST.TestTypeEdgeCases                                               | 0.57     | 0.57/3.17 18.10% | 0.57/4.08 14.04% |
++------+------------------------------------------------------------------------+----------+------------------+------------------+
+| 0    | IRTEST.TestControlFlow                                                 | 0.57     | 0.57/3.15 18.17% | 0.57/4.08 14.03% |
++------+------------------------------------------------------------------------+----------+------------------+------------------+
+| 4    | IRTEST.TestTileType                                                    | 0.57     | 0.57/3.16 18.13% | 0.57/4.08 14.02% |
++------+------------------------------------------------------------------------+----------+------------------+------------------+
+| 4    | IRTEST.TestRuleVerifyOpShape_InvalidUnaryOp_MismatchedShapes           | 0.57     | 0.57/3.16 17.91% | 0.57/4.08 13.85% |
++------+------------------------------------------------------------------------+----------+------------------+------------------+
+| 5    | IRTEST.TestRuleVerifyOpShape_ValidBinaryOp_Broadcast                   | 0.57     | 0.57/3.13 18.08% | 0.57/4.08 13.85% |
++------+------------------------------------------------------------------------+----------+------------------+------------------+
+| 13   | IRTEST.TestStaticForLoop                                               | 0.56     | 0.56/3.13 17.98% | 0.56/4.08 13.78% |
++------+------------------------------------------------------------------------+----------+------------------+------------------+
+| 0    | IRTEST.TestTypeAllDataTypes                                            | 0.56     | 0.56/3.15 17.78% | 0.56/4.08 13.73% |
++------+------------------------------------------------------------------------+----------+------------------+------------------+
+| 1    | IRTEST.TestTypePolymorphism                                            | 0.56     | 0.56/3.16 17.65% | 0.56/4.08 13.66% |
++------+------------------------------------------------------------------------+----------+------------------+------------------+
+| 13   | IRTEST.TestTypeCompleteProgram                                         | 0.55     | 0.55/3.13 17.53% | 0.55/4.08 13.43% |
++------+------------------------------------------------------------------------+----------+------------------+------------------+
+| 5    | IRTEST.TestTensorType                                                  | 0.53     | 0.53/3.13 17.01% | 0.53/4.08 13.03% |
++------+------------------------------------------------------------------------+----------+------------------+------------------+
+
+Case Terminate Brief(0):
+None
+
+Case Exception Brief(0):
+None
+2026-01-13 16:54:46,374 - gtest_accelerate.py:412 - PID[953706] - INFO: Use 16 Cntr | Exec 22 case | Revenue(Act/Ori, 4.08/44.86) 998.92% | Latency(Max/Min/Diff, 3.17/2.59/0.58) 22.25%
+[100%] Built target tile_fwk_utest
+2026-01-13 16:54:46,414 - build_ci.py:1115 - INFO: CMake Build(1/1), Cmd: /usr/bin/cmake --build /data/y00955915/pypto-ir-0112-3/build -j 48, Duration 6 sec
+2026-01-13 16:54:46,414 - build_ci.py:1278 - INFO: Build[CI] Success, duration 7 secs.
