@@ -353,6 +353,112 @@ std::string CodeGenOpCloudNPU::PrintExpand(const std::string &s0Var, const std::
     return buffer;
 }
 
+std::string CodeGenOpCloudNPU::PrintRoundLayout(float powDecimals) const {
+    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
+    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
+    std::string scalarTmpBuffer = FormatFloat(powDecimals);
+
+    std::ostringstream oss;
+    oss << tileOpName << "(" << dstTensor << ", " << srcTensor << ", " << scalarTmpBuffer << ");\n";
+    return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::PrintRoundDynamicUnaligned(const PrintUnaryParam &param, float powDecimals) const {
+    const std::string &dstDtypeStr = param.dstDtypeStr;
+    const std::string &srcDtypeStr = param.srcDtypeStr;
+    const std::string &dVar = param.dVar;
+    const std::string &s0Var = param.s0Var;
+
+    std::vector<int64_t> ss = NormalizeShape(rawShape[1], SHAPE_DIM4);
+    std::vector<int64_t> ds = NormalizeShape(rawShape[0], SHAPE_DIM4);
+
+    std::ostringstream os;
+    std::vector<std::string> paramList;
+    paramList.emplace_back(dstDtypeStr);
+    paramList.emplace_back("/*DS*/");
+    for (int i = 1; i < SHAPE_DIM4; ++i) {
+        paramList.emplace_back(std::to_string(ds[i]));
+    }
+    paramList.emplace_back("/*SS*/");
+    for (int i = 1; i < SHAPE_DIM4; ++i) {
+        paramList.emplace_back(std::to_string(ss[i]));
+    }
+    paramList.emplace_back(std::to_string(powDecimals));
+    std::string templateParam = JoinString(paramList, CONN_COMMA);
+    paramList.clear();
+    std::string dst = "(__ubuf__ " + dstDtypeStr + "*)" + dVar;
+    std::string src0 = "(__ubuf__ " + srcDtypeStr + "*)" + s0Var;
+    paramList.emplace_back(dst);
+    paramList.emplace_back(src0);
+
+    auto dynSrcShape = dynamicValidShape[1];
+    FillIntVecWithDummyInHead<SymbolicScalar>(dynSrcShape, SHAPE_DIM4 - dynamicValidShape[1].size(), 1);
+    for (auto dynShape : dynSrcShape) {
+        paramList.emplace_back(SymbolicExpressionTable::BuildExpression(dynShape));
+    }
+    std::string tiloOpCallParam = JoinString(paramList, CONN_COMMA);
+    os << tileOpName.c_str() << "_<" << templateParam << ">"
+       << "(" << tiloOpCallParam << ");\n";
+
+    return os.str();
+}
+
+std::string CodeGenOpCloudNPU::PrintRoundStatic(const PrintUnaryParam &param, float powDecimals) const {
+    const std::string &dstDtypeStr = param.dstDtypeStr;
+    const std::string &srcDtypeStr = param.srcDtypeStr;
+    const std::string &dVar = param.dVar;
+    const std::string &s0Var = param.s0Var;
+    std::vector<int64_t> os0 = NormalizeShape(originShape[1], SHAPE_DIM4);
+    std::vector<int64_t> ss = NormalizeShape(rawShape[1], SHAPE_DIM4);
+    std::vector<int64_t> ds = NormalizeShape(rawShape[0], SHAPE_DIM4);
+
+    std::ostringstream os;
+    std::vector<std::string> paramList;
+    paramList.emplace_back(dstDtypeStr);
+    paramList.emplace_back("/*OS*/");
+    for (int i = 0; i < SHAPE_DIM4; ++i) {
+        paramList.emplace_back(std::to_string(os0[i]));
+    }
+    paramList.emplace_back("/*DS*/");
+    for (int i = 1; i < SHAPE_DIM4; ++i) {
+        paramList.emplace_back(std::to_string(ds[i]));
+    }
+    paramList.emplace_back("/*SS*/");
+    for (int i = 1; i < SHAPE_DIM4; ++i) {
+        paramList.emplace_back(std::to_string(ss[i]));
+    }
+    paramList.emplace_back(std::to_string(powDecimals));
+    std::string templateParam = JoinString(paramList, CONN_COMMA);
+
+    paramList.clear();
+    std::string dst = "(__ubuf__ " + dstDtypeStr + "*)" + dVar;
+    std::string src0 = "(__ubuf__ " + srcDtypeStr + "*)" + s0Var;
+    paramList.emplace_back(dst);
+    paramList.emplace_back(src0);
+
+    std::string tiloOpCallParam = JoinString(paramList, CONN_COMMA);
+    os << tileOpName.c_str() << "_<" << templateParam << ">"
+       << "(" << tiloOpCallParam << ");\n";
+
+    return os.str();
+}
+
+std::string CodeGenOpCloudNPU::PrintRound(const PrintUnaryParam &param) const {
+    float powDecimals{0.0f};
+    auto scalar = opAttrs.at(OP_ATTR_PREFIX + "powDecimals");
+    if (scalar.HasValue()) {
+        powDecimals = npu::tile_fwk::AnyCast<Element>(scalar).Cast<float>();
+    }
+
+    if (isSupportLayout) {
+        return PrintRoundLayout(powDecimals);
+    }
+    if (isDynamicFunction) {
+        return PrintRoundDynamicUnaligned(param, powDecimals);
+    }
+    return PrintRoundStatic(param, powDecimals);
+}
+
 std::string CodeGenOpCloudNPU::PrintOneHotLayout() const {
     std::string dstTensor =QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
     std::string srcTensor =QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
@@ -520,6 +626,8 @@ std::string CodeGenOpCloudNPU::GenUnaryOp() const {
         return PrintExpand(s0Var, dVar, srcDtypeStr, dstDtypeStr);
     } else if (opCode == Opcode::OP_ONEHOT) {
         return PrintOneHot({s0Var, dVar, srcDtypeStr, dstDtypeStr});
+    } else if (opCode == Opcode::OP_ROUND) {
+        return PrintRound({s0Var, dVar, srcDtypeStr, dstDtypeStr});
     } else if (opCode == Opcode::OP_ROWMAX || opCode == Opcode::OP_ROWEXPMAX || opCode == Opcode::OP_ROWEXPSUM) {
         return PrintReduceEx({s0Var, dVar, srcDtypeStr, dstDtypeStr});
     } else if (opCode == Opcode::OP_ROWMAXLINE || opCode == Opcode::OP_ROWMINLINE) {

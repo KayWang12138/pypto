@@ -138,4 +138,79 @@ template <typename T0, typename T1>
 TILEOP void TAbs(T0 dst, T1 src) {
     UnaryCompute<UnaryOp::ABS>(dst, src);
 }
+
+template <typename Ttemp, typename T0, typename T1, typename Scalar>
+TILEOP void RoundComputeImpl(T0 dst, T1 src, Scalar powDecimals) {
+//     auto srcfloatTile = PtoTile<Ttemp>().Tile();
+//     if constexpr (IsSameType<T1, float>::value) {
+//         pto::TASSIGN(srcfloatTile, (uint64_t)src.GetAddr());
+//     } else if constexpr (IsSameType<T1, half>::value || IsSameType<T1, bfloat16_t>::value) {
+//         pto::TCVT(srcfloatTile, src, pto::RoundMode::CAST_NONE);
+//     } else if constexpr (IsSameType<T1, int16_t>::value || IsSameType<T1, int32_t>::value) {
+//         pto::TCVT(srcfloatTile, src, pto::RoundMode::CAST_RINT);
+//     }
+// #ifdef __DAV_V220
+//     pipe_barrier(PIPE_V);
+// #endif
+
+//     pto::TMULS(srcfloatTile, srcfloatTile, powDecimals);
+// #ifdef __DAV_V220
+//     pipe_barrier(PIPE_V);
+// #endif
+
+//     pto::TCVT(srcfloatTile, srcfloatTile, pto::RoundMode::CAST_ROUND);
+// #ifdef __DAV_V220
+//     pipe_barrier(PIPE_V);
+// #endif
+
+//     if constexpr (IsSameType<T1, float>::value) {
+//         pto::TDIVS(dst, srcfloatTile, powDecimals);
+//     } else {
+//         pto::TDIVS(srcfloatTile, srcfloatTile, powDecimals);
+// #ifdef __DAV_V220
+//         pipe_barrier(PIPE_V);
+// #endif
+//         if constexpr (IsSameType<T1, half>::value) {
+//             pto::TCVT(dst, srcfloatTile, pto::RoundMode::CAST_NONE);
+//         } else {
+//             pto::TCVT(dst, srcfloatTile, pto::RoundMode::CAST_RINT);
+//         }
+//     }
+
+    pto::TMULS(dst, src, powDecimals);
+    pipe_barrier(PIPE_V);
+    pto::TCVT(dst, dst, pto::RoundMode::CAST_ROUND);
+    pipe_barrier(PIPE_V);
+    pto::TDIVS(dst, dst, powDecimals);
+}
+
+#define OP_TILE_OP_ROUND TRound
+template <typename Scalar, typename T0, typename T1>
+TILEOP void TRound(T0 dst, T1 src, Scalar powDecimals) {
+    if constexpr (TileOp::IsConstContinous<T0, T1>() == true) {
+        auto dstTile = PtoTile<T0, pto::BLayout::RowMajor, true>().Data();
+        auto srcTile = PtoTile<T1, pto::BLayout::RowMajor, true>().Data();
+        pto::TASSIGN(dstTile, (uint64_t)dst.GetAddr());
+        pto::TASSIGN(srcTile, (uint64_t)src.GetAddr());
+        RoundComputeImpl<float>(dstTile, srcTile, powDecimals);
+        return;
+    }
+    const auto dstLayout = dst.GetLayout();
+    auto shape0 = dstLayout.template GetShapeDim<DIM_1ST, MAX_DIMS>();
+    auto shape1 = dstLayout.template GetShapeDim<DIM_2ND, MAX_DIMS>();
+    auto shape2 = dstLayout.template GetShapeDim<DIM_3RD, MAX_DIMS>();
+
+    auto dstTile = PtoTile<T0>(dst);
+    auto srcTile = PtoTile<T1>(src);
+    for (size_t n0Index = 0; n0Index < shape0; ++n0Index) {
+        for (size_t n1Index = 0; n1Index < shape1; ++n1Index) {
+            for (size_t n2Index = 0; n2Index < shape2; ++n2Index) {
+                auto tileOffsets = TileOffset(n0Index, n1Index, n2Index);
+                dstTile.Assign(dst, tileOffsets);
+                srcTile.Assign(src, tileOffsets);
+                RoundComputeImpl<float>(dstTile.Data(), srcTile.Data(), powDecimals);
+            }
+        }
+    }
+}
 #endif
