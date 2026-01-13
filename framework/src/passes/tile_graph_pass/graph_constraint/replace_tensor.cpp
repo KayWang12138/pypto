@@ -363,12 +363,6 @@ Status ReplaceTensor::ForwardAssemble(Operation *op, LogicalTensorPtr &rootTenso
             return SUCCESS;
         }
         assembleOut->tensor = assembleIn->tensor;
-        for (auto prodOp : assembleOut->GetProducers()) {
-            if (prodOp->GetOpMagic() != op->GetOpMagic()) {
-                backRoots.push(assembleOut);
-                return SUCCESS;
-            }
-        }
         return SUCCESS;
     } else {
         backRoots.push(assembleOut);
@@ -716,8 +710,90 @@ std::unordered_map<LogicalTensorPtr, int> ReplaceTensor::BuildTensorOrderIndexMa
     return tensorToOrderIndex;
 }
 
+
+void AddCopyUBOp(Function &function, Operation *cons, LogicalTensorPtr &input) {
+    auto copyShape = input->GetShape();
+    auto copyoffset = input->GetOffset();
+    auto rawTensorCopyOutOut = std::make_shared<RawTensor>(input->Datatype(), copyShape);
+    auto logicalCopyOutOut = std::make_shared<LogicalTensor>(function, rawTensorCopyOutOut, copyoffset, copyShape);
+    logicalCopyOutOut->SetMemoryTypeBoth(MEM_DEVICE_DDR, true);
+    auto &copyOutOp = function.AddOperation(Opcode::OP_COPY_OUT, {input}, {logicalCopyOutOut});
+    copyOutOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
+        input->GetMemoryTypeOriginal(),
+        OpImmediate::Specified({0, 0}),
+        OpImmediate::Specified(copyShape),
+        OpImmediate::Specified(copyShape)
+    ));
+    copyOutOp.UpdateSubgraphID(cons->GetSubgraphID());
+
+    auto rawTensorCopyInOut = std::make_shared<RawTensor>(input->Datatype(), copyShape);
+    auto logicalCopyInOut = std::make_shared<LogicalTensor>(function, rawTensorCopyInOut, copyoffset, copyShape);
+    logicalCopyInOut->SetMemoryTypeBoth(MEM_UB, true);
+    auto &copyInOp = function.AddOperation(Opcode::OP_COPY_IN, {logicalCopyOutOut}, {logicalCopyInOut});
+    copyInOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
+        OpImmediate::Specified({0, 0}),
+        input->GetMemoryTypeOriginal(),
+        OpImmediate::Specified(copyShape),
+        OpImmediate::Specified(copyShape)
+    ));
+    copyInOp.UpdateSubgraphID(cons->GetSubgraphID());
+
+    cons->ReplaceInput(logicalCopyInOut, input);
+}
+
+void AddCopyDDROp(Function &function, Operation *cons, LogicalTensorPtr &input) {
+    auto copyShape = input->GetShape();
+    auto copyoffset = input->GetOffset();
+
+    auto rawTensorCopyInOut = std::make_shared<RawTensor>(input->Datatype(), copyShape);
+    auto logicalCopyInOut = std::make_shared<LogicalTensor>(function, rawTensorCopyInOut, copyoffset, copyShape);
+    logicalCopyInOut->SetMemoryTypeBoth(MEM_UB, true);
+    auto &copyInOp = function.AddOperation(Opcode::OP_COPY_IN, {input}, {logicalCopyInOut});
+    copyInOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
+        OpImmediate::Specified(copyoffset),
+        input->GetMemoryTypeOriginal(),
+        OpImmediate::Specified(copyShape),
+        OpImmediate::Specified(copyShape)
+    ));
+    copyInOp.UpdateSubgraphID(cons->GetSubgraphID());
+
+    auto rawTensorCopyOutOut = std::make_shared<RawTensor>(input->Datatype(), copyShape);
+    auto logicalCopyOutOut = std::make_shared<LogicalTensor>(function, rawTensorCopyOutOut, copyoffset, copyShape);
+    logicalCopyOutOut->SetMemoryTypeBoth(MEM_DEVICE_DDR, true);
+    auto &copyOutOp = function.AddOperation(Opcode::OP_COPY_OUT, {logicalCopyInOut}, {logicalCopyOutOut});
+    copyOutOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
+        input->GetMemoryTypeOriginal(),
+        OpImmediate::Specified({0, 0}),
+        OpImmediate::Specified(copyShape),
+        OpImmediate::Specified(copyShape)
+    ));
+    copyOutOp.UpdateSubgraphID(cons->GetSubgraphID());
+
+    cons->ReplaceInput(logicalCopyOutOut, input);
+}
+
+void InsertAssembleCopy(Function &function) {
+    auto opsBeforeAdd = function.Operations();
+    for (auto &op : opsBeforeAdd) {
+        if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
+            auto assIn = op.GetIOperands()[0];
+            auto consumers1 = assIn->GetConsumers();
+            for (auto &cons : consumers1) {
+                if (cons->GetOpMagic() != op.GetOpMagic() && cons->GetOpcode() == Opcode::OP_ASSEMBLE) {
+                    if (assIn->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
+                        AddCopyUBOp(function, cons, assIn);
+                    } else if (assIn->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
+                        AddCopyDDROp(function, cons, assIn);
+                    }
+                }
+            }
+        }
+    }
+}
+
 Status ReplaceTensor::RunOnFunction(Function &function) {
     APASS_LOG_INFO_F(Elements::Operation, "===> Start ReplaceTensor.");
+    InsertAssembleCopy(function);
     auto tensorToOrderIndex = BuildTensorOrderIndexMap(function);
     UnionFind uf(tensorToOrderIndex);
     UniteTensor(function, uf);
