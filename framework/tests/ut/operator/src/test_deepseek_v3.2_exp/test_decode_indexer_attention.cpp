@@ -18,6 +18,7 @@
 
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
+#include "interface/utils/test_cost_macro.h"
 #include "interface/tensor/logical_tensor.h"
 #include "interface/tensor/raw_tensor.h"
 #include "interface/interpreter/raw_tensor_data.h"
@@ -194,7 +195,12 @@ void TestDecodeIndexerAttentionSTest(DSIASimpleParams &params) {
         params);
 }
 
-TEST_F(DecodeIndexerAttentionUtest, utest_decode_indexer_attention) {
+TEST_F_WITH_COST(DecodeIndexerAttentionUtest, utest_decode_indexer_attention, 154) {
+//     static bool __attribute__((used)) _cost_reg = []() -> bool {
+//         TestCostRegistry::registerTest("DecodeIndexerAttentionUtest", "utest_decode_indexer_attention", 154.81);
+//         return true;
+//     }();
+//     (void)_cost_reg;
     int paramsSize = 7;
     std::vector<int> inputParams(paramsSize);
     auto params = DSIASimpleParams::getDecodeParams();
