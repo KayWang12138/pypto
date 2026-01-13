@@ -52,7 +52,7 @@ public:
 
     // Optional convenience: create values (explicit creation only)
     std::shared_ptr<TensorValue> CreateTensor(IRBuilderContext& ctx,
-        const std::vector<ScalarValuePtr>& shape, const std::vector<ScalarValuePtr> &stride, DataType dt, std::string name = "");
+        const std::vector<ScalarValuePtr>& shape, DataType dt, std::string name = "");
     std::shared_ptr<TileValue> CreateTile(IRBuilderContext& ctx,
         const std::vector<int64_t>& shape, DataType dt, std::string name = "");
     std::shared_ptr<ScalarValue> CreateScalar(IRBuilderContext& ctx,
