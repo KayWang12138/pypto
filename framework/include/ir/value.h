@@ -250,9 +250,9 @@ enum class Format {
 class TensorValue : public Value {
 public:
     // Construct tensor from a vector of Scalar dimensions.
-    TensorValue(const std::vector<ScalarValuePtr>& shape, const std::vector<ScalarValuePtr>& stride, DataType type, std::string name="",
+    TensorValue(const std::vector<ScalarValuePtr>& shape, DataType type, std::string name="",
             Format format = Format::ND) :
-        Value(ValueKind::Tensor, std::make_shared<TensorType>(type, shape.size()), name), shape_(shape), stride_(stride), format_(format) {}
+        Value(ValueKind::Tensor, std::make_shared<TensorType>(type, shape.size()), name), shape_(shape), format_(format) {}
 
     // Convenience constructor for static integer shapes.
     // This is mainly used by Python bindings where shapes are passed as ints.
@@ -268,7 +268,6 @@ public:
     }
 
     const std::vector<ScalarValuePtr>& GetShape() const { return shape_; }
-    const std::vector<ScalarValuePtr>& GetStride() const { return stride_; }
 
     Format GetFormat() const { return format_; }
     void SetFormat(Format format) { format_ = format; }
@@ -276,7 +275,6 @@ public:
     void Print(std::ostream& os, int indent) const override;
 private:
     std::vector<ScalarValuePtr> shape_;
-    std::vector<ScalarValuePtr> stride_;
     Format format_;
 };
 
