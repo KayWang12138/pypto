@@ -17,6 +17,7 @@
 #include "tilefwk/error.h"
 #include "ir/utils.h"
 #include "interface/utils/common.h"
+#include "interface/utils/string_utils.h"
 
 using namespace npu::tile_fwk;
 
@@ -29,7 +30,11 @@ static inline std::string Indent(int indent) {
 
 static void SerializeNodeHead(IRBuffer &buffer, const std::shared_ptr<SourceCppASTNode> &node, int indent) {
     if (node->GetName() != "") {
-        buffer << Indent(indent) << node->GetName() << "(" << node->GetArgList() << ")";
+        if (node->GetName().find_first_of('#') != std::string::npos && node->GetArgList().size() == 0) {
+            buffer << Indent(indent) << node->GetName();
+        } else {
+            buffer << Indent(indent) << node->GetName() << "(" << node->GetArgList() << ")";
+        }
     }
 }
 
@@ -116,19 +121,22 @@ IRBuffer &operator>>(IRBuffer &buf, std::shared_ptr<SourceCppASTNode> &node) {
 
 class SerializeCommand {
 public:
-    SerializeCommand(const std::string &name) : polishName_(IR_SOURCE_CPP_PREFIX + name) {}
+    SerializeCommand(const std::string &name) : runtimeName_(IR_SOURCE_CPP_PREFIX + name) {}
 
     template<typename ...TyArgs>
     SourceCppASTNodePtr operator()(TyArgs ...args) {
         std::vector<std::string> argumentList = SerializeUtils::List(args...);
-        return std::make_shared<SourceCppASTNode>(polishName_, argumentList);
+        return std::make_shared<SourceCppASTNode>(runtimeName_, argumentList);
     }
+
+    const std::string &GetRuntimeName() { return runtimeName_; }
 private:
-    std::string polishName_;
+    std::string runtimeName_;
 };
 
 static SerializeCommand rtFunction(IR_SOURCE_CPP_FUNCTION);
 static SerializeCommand rtOperation(IR_SOURCE_CPP_OPERATION);
+static SerializeCommand rtOperationMacro(IR_SOURCE_CPP_OPERATION_MACRO);
 static SerializeCommand rtDeclTypeTile(IR_SOURCE_CPP_DECL_TYPE_TILE);
 static SerializeCommand rtDeclTypeTensor(IR_SOURCE_CPP_DECL_TYPE_TENSOR);
 static SerializeCommand rtDeclValueScalar(IR_SOURCE_CPP_DECL_VALUE_SCALAR);
@@ -186,10 +194,6 @@ static std::string SerializeValue(const ValuePtr &value) {
     return result;
 }
 
-static std::string SerializeDataType(const TypePtr &type) {
-    return DTypeInfoOf(type->GetDataType()).name;
-}
-
 static bool SerializeIsSymbol(const ScalarValuePtr &ptr) {
     return !ptr->HasImmediateValue();
 }
@@ -238,21 +242,48 @@ static std::vector<std::string> SerializeGetScalarArgument(const TensorValuePtr 
     return argList;
 }
 
+static std::string SerializeValueName(const ScalarValuePtr &scalar) {
+    return scalar->GetName();
+}
+static std::string SerializeValueName(const TileValuePtr &tile) {
+    return tile->GetName();
+}
+static std::string SerializeValueName(const TensorValuePtr &tensor) {
+    return tensor->GetName();
+}
+static std::string SerializeTypeName(const TileValuePtr &tile) {
+    return SerializeValueName(tile) + "Type";
+}
+static std::string SerializeTypeName(const TensorValuePtr &tensor) {
+    return SerializeValueName(tensor) + "Type";
+}
+static std::string SerializeMemoryName(const TileValuePtr &tile) {
+    auto memory = tile->GetMemory();
+    return SerializeValueName(tile) + "Memory_S" + std::to_string(memory->GetAddr()) + "_E" + std::to_string(memory->GetAddr() + memory->GetSize());
+}
+static std::string SerializePrimType(const ScalarValuePtr &scalar) {
+    return DTypeInfoOf(scalar->GetType()->GetDataType()).name;
+}
+static std::string SerializePrimType(const TileValuePtr &tile) {
+    return DTypeInfoOf(tile->GetType()->GetDataType()).name;
+}
+static std::string SerializePrimType(const TensorValuePtr &tensor) {
+    return DTypeInfoOf(tensor->GetType()->GetDataType()).name;
+}
+static std::string SerializeSpace(const TileValuePtr &tile) {
+    return GetMemSpaceKindName(tile->GetMemory()->GetSpace());
+}
+
 struct SerializeContext {
     OrderedSet<ScalarValuePtr> scalarValueList;
     OrderedSet<TileValuePtr> tileValueList;
     OrderedSet<TensorValuePtr> tensorValueList;
-    std::unordered_map<TensorTypePtr, std::string> tensorTypeNameDict;
-    std::unordered_map<TileTypePtr, std::string> tileTypeNameDict;
 
     struct TileTensorDepend {
         std::vector<TileValuePtr> tileValueList;
         std::vector<TensorValuePtr> tensorValueList;
     };
     std::unordered_map<ScalarValuePtr, TileTensorDepend> dependDict;
-
-    OrderedSet<MemoryPtr> memList;
-    std::unordered_map<MemoryPtr, std::string> memNameDict;
 
     struct State {
         std::unordered_map<TileValuePtr, int> tilePredDict;
@@ -262,14 +293,50 @@ struct SerializeContext {
 
 static void SerializeInitValue(SerializeContext &ctx, SourceCppASTNodePtr &stmtOpNode, const TileValuePtr &tile) {
     (void)ctx;
-    auto initNode = rtInitValueTile(tile->GetName(), tile->GetValidShape().size(), ctx.memNameDict[tile->GetMemory()], SerializeGetScalarArgument(tile));
+    auto initNode = rtInitValueTile(SerializeValueName(tile), SerializeTypeName(tile), SerializeMemoryName(tile), tile->GetShape().size(), SerializeGetScalarArgument(tile));
     stmtOpNode->push_back(initNode);
 }
 
 static void SerializeInitValue(SerializeContext &ctx, SourceCppASTNodePtr &stmtOpNode, const TensorValuePtr &tensor) {
     (void)ctx;
-    auto initNode = rtInitValueTensor(tensor->GetName(), tensor->GetShape().size(), SerializeGetScalarArgument(tensor));
+    auto initNode = rtInitValueTensor(SerializeValueName(tensor), SerializeTypeName(tensor), SerializePrimType(tensor), tensor->GetName() + "Addr", tensor->GetShape().size(), SerializeGetScalarArgument(tensor));
     stmtOpNode->push_back(initNode);
+}
+
+static bool SerializeOperationIsMacro(const ScalarValuePtr &scalar) {
+    auto scalarName = SerializeValueName(scalar);
+    return StringUtils::StartsWith(scalarName, IR_SOURCE_CPP_MACRO);
+}
+
+static bool SerializeOperationByMacro(const OperationPtr &op) {
+    if (op->GetNumOutputOperand() != 1) {
+        return false;
+    }
+    auto out = op->GetOutputOperand(0);
+    if (out->GetValueKind() != ValueKind::Scalar) {
+        return false;
+    }
+
+    if (!SerializeOperationIsMacro(ObjectCast<ScalarValue>(out))) {
+        return false;
+    }
+    return true;
+}
+
+static void SerializeOperationAssign(SourceCppASTNodePtr &stmtOpNode, const std::vector<std::string> &argList) {
+    auto opNode = rtOperation(argList);
+    stmtOpNode->push_back(opNode);
+}
+
+static void SerializeOperationMacro(SourceCppASTNodePtr &stmtOpNode, const std::vector<std::string> &argList) {
+    std::ostringstream oss;
+    oss << "#define " << argList[1] << " " << rtOperationMacro.GetRuntimeName() << "(" << argList[0];
+    for (size_t k = 2; k < argList.size(); k++) {
+        oss << ", " << argList[k];
+    }
+    oss << ")";
+    auto opNode = std::make_shared<SourceCppASTNode>(oss.str());
+    stmtOpNode->push_back(opNode);
 }
 
 static void SerializeOperation(SerializeContext &ctx, SourceCppASTNodePtr &stmtOpNode, const OperationPtr &op) {
@@ -356,8 +423,12 @@ static void SerializeOperation(SerializeContext &ctx, SourceCppASTNodePtr &stmtO
             ASSERT(false) << "Unknown attribute: " << kv.GetName();
         }
     }
-    auto opNode = rtOperation(argList);
-    stmtOpNode->push_back(opNode);
+
+    if (SerializeOperationByMacro(op)) {
+        SerializeOperationMacro(stmtOpNode, argList);
+    } else {
+        SerializeOperationAssign(stmtOpNode, argList);
+    }
 
     for (auto readyTile : readyTileList) {
         SerializeInitValue(ctx, stmtOpNode, readyTile);
@@ -467,11 +538,11 @@ static void SerializeStatement(SerializeContext &ctx, SourceCppASTNodePtr &paren
 
 static void SerializeFunctionFindValue(SerializeContext &ctx, const FunctionPtr &func) {
     struct Visit {
-        static void VisitValue(const ValuePtr value, SerializeContext &ctx) {
+        static void VisitValue(const ValuePtr value, SerializeContext &ctx, bool skipScalar) {
             switch(value->GetValueKind()) {
                 case ValueKind::Scalar: {
                     auto scalar = ObjectCast<ScalarValue>(value);
-                    if (SerializeIsSymbol(scalar)) {
+                    if (SerializeIsSymbol(scalar) && !skipScalar) {
                         ctx.scalarValueList.Insert(scalar);
                     }
                     break;
@@ -513,13 +584,13 @@ static void SerializeFunctionFindValue(SerializeContext &ctx, const FunctionPtr 
                 }
                 case StatementKind::For: {
                     ForStatementPtr stmtFor = ObjectCast<ForStatement>(stmt);
-                    VisitValue(stmtFor->GetIterationVar(), ctx);
+                    VisitValue(stmtFor->GetIterationVar(), ctx, false);
                     for (size_t k = 0; k < stmtFor->Results().size(); k++) {
-                        VisitValue(stmtFor->GetIterValue(k), ctx);
+                        VisitValue(stmtFor->GetIterValue(k), ctx, false);
                     }
                     VisitStmt(stmtFor->GetCompound(), ctx);
                     for (size_t k = 0; k < stmtFor->Results().size(); k++) {
-                        VisitValue(stmtFor->Results()[k], ctx);
+                        VisitValue(stmtFor->Results()[k], ctx, false);
                     }
                     break;
                 }
@@ -537,14 +608,17 @@ static void SerializeFunctionFindValue(SerializeContext &ctx, const FunctionPtr 
         }
         static void VisitOp(const OperationPtr &op, SerializeContext &ctx) {
             for (size_t k = 0; k < op->GetNumOutputOperand(); k++) {
-                VisitValue(op->GetOutputOperand(k), ctx);
+                VisitValue(op->GetOutputOperand(k), ctx, false);
             }
             for (size_t k = 0; k < op->GetNumInputOperand(); k++) {
-                VisitValue(op->GetInputOperand(k), ctx);
+                VisitValue(op->GetInputOperand(k), ctx, true);
             }
         }
     };
     Visit::VisitFunc(func, ctx);
+
+    std::vector<ValuePtr> arguments; // argument types with names stored in Value::name
+    std::vector<ValuePtr> results;  // return types
 
     for (auto tile : ctx.tileValueList) {
         // Force Init 0
@@ -565,53 +639,32 @@ static void SerializeFunctionFindValue(SerializeContext &ctx, const FunctionPtr 
 }
 
 static void SerializeFunctionDeclTypeList(SerializeContext &ctx, SourceCppASTNodePtr &funcNode) {
-    OrderedSet<TypePtr> tileTypeList;
-    OrderedSet<TypePtr> tensorTypeList;
-    for (auto tile : ctx.tileValueList) {
-        auto tileType = tile->GetType();
-        tileTypeList.Insert(tileType);
+    for (auto &tile : ctx.tileValueList) {
+        funcNode->push_back(rtDeclTypeTile(SerializeTypeName(tile), SerializePrimType(tile), SerializeSpace(tile), tile->GetShape().size(), tile->GetShape()));
     }
-    for (auto tensor : ctx.tensorValueList) {
-        auto tensorType = tensor->GetType();
-        tensorTypeList.Insert(tensorType);
-    }
-    for (auto tile : ctx.tileValueList) {
-        auto tileType = tile->GetType();
-        ctx.tileTypeNameDict[ObjectCast<TileType>(tileType)] = "RT_L" + std::to_string(tileTypeList.GetIndex(tileType));
-    }
-    for (auto tensor : ctx.tensorValueList) {
-        auto tensorType = tensor->GetType();
-        ctx.tensorTypeNameDict[ObjectCast<TensorType>(tensorType)] = "RT_G" + std::to_string(tensorTypeList.GetIndex(tensorType));
-    }
-    for (auto &[tileType, name] : ctx.tileTypeNameDict) {
-        funcNode->push_back(rtDeclTypeTile(name, SerializeDataType(tileType), tileType->GetShape()));
-    }
-    for (auto &[tensorType, name] : ctx.tensorTypeNameDict) {
-        funcNode->push_back(rtDeclTypeTensor(name, SerializeDataType(tensorType), tensorType->GetDimNum()));
+    for (auto &tensor : ctx.tensorValueList) {
+        funcNode->push_back(rtDeclTypeTensor(SerializeTypeName(tensor), SerializePrimType(tensor), tensor->GetShape().size()));
     }
 }
 
 static void SerializeFunctionDeclValueList(const SerializeContext &ctx, SourceCppASTNodePtr &funcNode) {
     for (auto scalar : ctx.scalarValueList) {
-        funcNode->push_back(rtDeclValueScalar(scalar->GetName(), SerializeDataType(scalar->GetType())));
+        if (!SerializeOperationIsMacro(scalar)) {
+            funcNode->push_back(rtDeclValueScalar(SerializeValueName(scalar), SerializePrimType(scalar)));
+        }
     }
     for (auto tile : ctx.tileValueList) {
-        funcNode->push_back(rtDeclValueTile(tile->GetName(), ctx.tileTypeNameDict.find(ObjectCast<TileType>(tile->GetType()))->second));
+        funcNode->push_back(rtDeclValueTile(SerializeValueName(tile), SerializeTypeName(tile)));
     }
     for (auto tensor : ctx.tensorValueList) {
-        funcNode->push_back(rtDeclValueTensor(tensor->GetName(), ctx.tensorTypeNameDict.find(ObjectCast<TensorType>(tensor->GetType()))->second));
+        funcNode->push_back(rtDeclValueTensor(SerializeValueName(tensor), SerializeTypeName(tensor)));
     }
 }
 
 static void SerializeFunctionInitAddr(SerializeContext &ctx, SourceCppASTNodePtr &funcNode) {
     for (auto tile : ctx.tileValueList) {
-        ctx.memList.Insert(tile->GetMemory());
-    }
-    for (auto mem : ctx.memList) {
-        ctx.memNameDict[mem] = "RT_S" + std::to_string(mem->GetAddr()) + "_E" + std::to_string(mem->GetAddr() + mem->GetSize()) +  "_" + std::to_string(ctx.memList.GetIndex(mem));
-    }
-    for (auto mem : ctx.memList) {
-        funcNode->push_back(rtInitAddr(ctx.memNameDict[mem], mem->GetAddr(), mem->GetSize(), GetMemSpaceKindName(mem->GetSpace())));
+        auto mem = tile->GetMemory();
+        funcNode->push_back(rtInitAddr(SerializeMemoryName(tile), SerializePrimType(tile), SerializeSpace(tile), mem->GetAddr(), mem->GetSize()));
     }
 }
 
@@ -642,6 +695,9 @@ static SourceCppASTNodePtr SerializeFunction(const FunctionPtr &func) {
 
 static SourceCppASTNodePtr SerializeProgram(const ProgramModulePtr &prog) {
     SourceCppASTNodePtr progNode = std::make_shared<SourceCppASTNode>(std::string(), std::vector<std::string>());
+    progNode->push_back(std::make_shared<SourceCppASTNode>("#define __TILE_FWK_AICORE__ 1"));
+    progNode->push_back(std::make_shared<SourceCppASTNode>("#include \"../kernel_aicpu/expression_0.h\""));
+    progNode->push_back(std::make_shared<SourceCppASTNode>("#include \"TileOpImpl.h\""));
     for (auto func : prog->GetFunctions()) {
         progNode->push_back(SerializeFunction(func));
     }
