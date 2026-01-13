@@ -27,7 +27,7 @@
 #include "ir/statement.h"
 #include "ir/value.h"
 #include "ir/operation_base.h"
-#include "ir/transform/ir_printer.h"
+#include "ir/transform/printer.h"
 
 namespace pto{
 

@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file ir_printer.h
+ * \file printer.h
  * \brief
  */
 
@@ -27,7 +27,7 @@ public:
   explicit IRPrinter(std::ostream& os)
       : os_(os) {}
 
-  // 引入基类的所有 VisitStmt_ 重载，避免隐藏
+  // Bring in all VisitStmt_ overloads from the base class to prevent hiding
   using IRVisitor::VisitStmt_;
   using IRVisitor::DefaultVisitStmt;
   
@@ -44,6 +44,12 @@ public:
   void VisitStmt_(YieldStatementPtr& ys) override;
   void VisitStmt_(ReturnStatementPtr& rs) override;
 
+  // ===== values =====
+  void VisitValue_(ScalarValuePtr& value) override;
+  void VisitValue_(TileValuePtr& value) override;
+  void VisitValue_(TensorValuePtr& value) override;
+  void VisitValue_(ValuePtr& value) override;
+  
 protected:
   void DefaultVisitOp(OperationPtr& op) override;
 
@@ -55,6 +61,12 @@ private:
   void Dedent();
   void PrintValueList(const std::vector<ValuePtr>& vals);
   void PrintAttributes(const AttributeMap& attrs, const std::string& prefix);
+  
+  // ===== value printing methods =====
+  void PrintSSAName(ValuePtr value);
+  void PrintValue(ValuePtr value);
+  void PrintType(ValuePtr value);
+
   const char* ToString(FunctionKind kind);
 
 private:
