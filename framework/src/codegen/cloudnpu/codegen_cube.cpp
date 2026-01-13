@@ -19,23 +19,46 @@
 #include "securec.h"
 
 namespace npu::tile_fwk {
-std::string CodeGenOpCloudNPU::PrintMatmulTileTensor(bool isAcc) const {
-    std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::DST_IDX)]);
-    std::string src0Tensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::SRC0_IDX)]);
-    std::string src1Tensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::SRC1_IDX)]);
-
+std::string CodeGenOpCloudNPU::PrintMatmulTileTensor(
+    bool isAcc, std::unordered_map<OperandType, std::string> &tensorWithMemType) const {
     std::ostringstream oss;
-    if (opAttrs.count(OP_ATTR_PREFIX + "has_bias")) {
-        bool hasBias = npu::tile_fwk::AnyCast<bool>(opAttrs.at(OP_ATTR_PREFIX + "has_bias"));
-        if (hasBias) {
-            std::string biasTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::SRC2_IDX)]);
-            oss << tileOpName << "(" << dstTensor << ", " << src0Tensor << ", " << src1Tensor << ", " << biasTensor
-                << ");\n";
-            return oss.str();
-        }
+    bool hasBias = tensorWithMemType.count(OperandType::BUF_BT);
+    std::vector<std::string> paramList = {tensorWithMemType[OperandType::BUF_L0C],
+        tensorWithMemType[OperandType::BUF_L0A], tensorWithMemType[OperandType::BUF_L0B]};
+    oss << tileOpName;
+    if (hasBias) {
+        paramList.emplace_back(tensorWithMemType[OperandType::BUF_BT]);
+        oss << WrapParamByParentheses(paramList) << ";\n";
+        return oss.str();
     }
-    oss << tileOpName << "<" << std::to_string(isAcc) << ">" << "(" << dstTensor << ", " << src0Tensor << ", "
-        << src1Tensor << ");\n";
+    oss << WrapParamByAngleBrackets({std::to_string(isAcc)});
+    oss << WrapParamByParentheses(paramList) << ";\n";
+    return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::PrintMatmulTileTensor(bool isAcc) const {
+    std::unordered_map<OperandType, std::string> tensorWithMemType;
+    for (size_t i = 0; i < operandCnt; i++) {
+        tensorWithMemType.emplace(operandType[i], sm->QueryTileTensorByMagic(operandWithMagic[i]));
+    }
+    bool hasBias = tensorWithMemType.count(OperandType::BUF_BT);
+    bool isMXMad = tensorWithMemType.count(OperandType::BUF_L0AMX) || tensorWithMemType.count(OperandType::BUF_L0BMX);
+    if(!isMXMad){
+        return PrintMatmulTileTensor(isAcc, tensorWithMemType);
+    }
+    tileOpName = "MatMulMX";
+    std::ostringstream oss;
+    std::vector<std::string> mxParamList = {tensorWithMemType[OperandType::BUF_L0C],
+        tensorWithMemType[OperandType::BUF_L0A], tensorWithMemType[OperandType::BUF_L0AMX],
+        tensorWithMemType[OperandType::BUF_L0B], tensorWithMemType[OperandType::BUF_L0BMX]};
+    oss << tileOpName;
+    if (hasBias) {
+        mxParamList.emplace_back(tensorWithMemType[OperandType::BUF_BT]);
+        oss << WrapParamByParentheses(mxParamList) << ";\n";
+        return oss.str();
+    }
+    oss << WrapParamByAngleBrackets({std::to_string(isAcc)});
+    oss << WrapParamByParentheses(mxParamList) << ";\n";
     return oss.str();
 }
 
