@@ -187,6 +187,8 @@ static void AddOperationExeFunc4Dims(
                         }
                         TileShape::Current().SetVecTile(args->tileShape_);
                         auto res = Add(tileTensor0, tileTensor1);
+                        auto res2 = Sub(tileTensor0, tileTensor1);
+                        auto res3 = Mul(res, res2);
                         Assemble(res,
                             {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape,
                                 nIdx * fourthViewShape},
