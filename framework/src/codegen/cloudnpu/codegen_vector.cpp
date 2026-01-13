@@ -632,7 +632,7 @@ std::string CodeGenOpCloudNPU::GenGatherElementOp() const {
     return PrintGatherElementStatic({gatherEleAxis, dVar, s0Var, s1Var, dos, ds, s0s, s1s, dataTypeExpr});
 }
 
- std::string CodeGenOpCloudNPU::PrintRangeTileTensor(std::string startVal, std::string stepVal, std::string &tileIdxExpr) const {
+ std::string CodeGenOpCloudNPU::PrintRangeTileTensor(const std::string& startVal, const std::string& stepVal, const std::string& tileIdxExpr) const {
  	     std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::DST_IDX)]);
  	     auto dstValidShape = dynamicValidShape[ToUnderlying(MISOIdx::DST_IDX)];
  	     std::vector<std::string> paramList = {
