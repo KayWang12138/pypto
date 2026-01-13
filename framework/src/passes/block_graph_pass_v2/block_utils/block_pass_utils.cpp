@@ -19,9 +19,9 @@
 namespace npu::tile_fwk {
 
 std::vector<pto::OperationPtr> BlockPassUtils::GetBlockFunctionOperations(pto::Function &function) {
-    for (auto statement : function.GetCompound()->GetStatements()) {
-        if (statement->GetKind() == pto::StatementKind::Op) {
-            auto opStatement = std::dynamic_pointer_cast<pto::OpStatement>(statement);
+    for (size_t index = 0; index < function.BodyStmtsNum(); index++) {
+        if (function.GetBodyStatement(index) -> GetKind() == pto::StatementKind::Op) {
+            auto opStatement = std::dynamic_pointer_cast<pto::OpStatement>(function.GetBodyStatement(index));
             return opStatement->Operations();
         }
     }
