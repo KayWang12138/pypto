@@ -26,7 +26,7 @@
 #include "ir/value.h"
 #include "ir/builder/ir_builder.h"
 #include "ir/builder/ir_context.h"
-
+#include "ir/transform/printer.h"
 namespace pto{
 
 TEST(IRTEST, TestTensorOperation){
@@ -43,16 +43,17 @@ TEST(IRTEST, TestTensorOperation){
     std::vector<int64_t> tileShape = { 128, 128 };
     auto inputTensor =
         std::make_shared<TileValue>(tileShape, DataType::FP32, "input");
-
+    inputTensor->Attributes()["io"] = "in";
     sig.arguments.push_back(inputTensor);
 
     // Output tensor
     auto outputTensor =
         std::make_shared<TileValue>(tileShape, DataType::FP32, "output");
+    outputTensor->Attributes()["io"] = "out";
     sig.arguments.push_back(outputTensor);
 
     // ===== Function =====
-    auto func = builder.CreateFunction("test_all_ops", FunctionKind::ControlFlow, sig);
+    auto func = builder.CreateFunction("test_all_ops", FunctionKind::Block, sig);
     module->AddFunction(func);
     module->SetProgramEntry(func);
 
@@ -88,7 +89,10 @@ TEST(IRTEST, TestTensorOperation){
 
     ASSERT_EQ(func->GetCompound()->FindValue("output"), tensorDiv);
 
-    std::cout << *module << std::endl;
+    std::stringstream ss;
+    IRPrinter printer(ss);
+    printer.VisitProgram(module);
+    std::cout << ss.str() << std::endl;
 }
 
 };

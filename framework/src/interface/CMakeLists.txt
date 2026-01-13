@@ -19,6 +19,8 @@ file(GLOB _Interface_Srcs
         utils/*.cpp
         ir/*.cpp
         ir/builder/*.cpp
+        ir/transform/*.cpp
+        ir/verifier/*.cpp
 
         # Operation
         operation/*.cpp

@@ -87,9 +87,7 @@ public:
     ScalarValuePtr GetOutputScalarOperand(size_t idx) const { return std::static_pointer_cast<ScalarValue>(GetOutputOperand(oScalarIndex_ + idx)); }
     void SetOutputScalarOperand(size_t idx, ScalarValuePtr ptr) { SetOutputOperand(oScalarIndex_ + idx, ptr); }
 
-    // Pretty-print with the given indentation (in spaces).
-    void Print(std::ostream& os, int indent = 0) const;
-public:
+protected:
     std::vector<ValuePtr> ioperands_;
     std::vector<ValuePtr> ooperands_;
     Opcode opcode_;

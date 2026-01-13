@@ -51,8 +51,6 @@ public:
 
     virtual StatementKind GetKind() const = 0;
 
-    // Pretty-print with the given indentation (in spaces).
-    virtual void Print(std::ostream& os, int indent) const = 0;
 };
 
 using StatementPtr = std::shared_ptr<Statement>;
@@ -68,8 +66,6 @@ public:
     explicit CompoundStatement(std::shared_ptr<CompoundStatement> parent) : parent_(parent) {}
 
     StatementKind GetKind() const override { return StatementKind::Compound; }
-
-    void Print(std::ostream& os, [[maybe_unused]] int indent) const override { os << "Not impl CompundStatement.Print() now!!!" << std::endl; }
 
     // Get the parent scope (nullptr if this is a root scope).
     std::weak_ptr<CompoundStatement> GetParent() const { return parent_; }
@@ -111,10 +107,18 @@ public:
     std::unordered_map<std::string, ValuePtr>& GetEnvTable() { return envTable_; }
     const std::unordered_map<std::string, ValuePtr>& GetEnvTable() const { return envTable_; }
 
+    // Get the values index table for this scope
+    std::unordered_map<int, ValuePtr>& GetValuesIndexTable() { return valuesIndexTable_; }
+    const std::unordered_map<int, ValuePtr>& GetValuesIndexTable() const { return valuesIndexTable_; }
+
+    // Add a value to the values index table
+    void AddValue(ValuePtr value) { valuesIndexTable_[value->GetID()] = value; }
+
 private:
-    std::weak_ptr<CompoundStatement> parent_{};                         // Pointer to parent scope (nullptr for root)
-    std::vector<StatementPtr> statements_;  // Statements in this scope
+    std::weak_ptr<CompoundStatement> parent_{};           // Pointer to parent scope (nullptr for root)
+    std::vector<StatementPtr> statements_;                // Statements in this scope
     std::unordered_map<std::string, ValuePtr> envTable_;  // Environment table: variable name -> latest SSA Value
+    std::unordered_map<int, ValuePtr> valuesIndexTable_;  // Index table: index -> ValuePtr 
 };
 
 using CompoundStatementPtr = std::shared_ptr<CompoundStatement>;
@@ -127,8 +131,6 @@ public:
     // Free-form textual operations representing concrete IR ops.
     std::vector<OperationPtr>& Operations() { return operations_; }
     const std::vector<OperationPtr>& Operations() const { return operations_; }
-
-    void Print(std::ostream& os, int indent) const override;
 
 private:
     std::vector<OperationPtr> operations_;
@@ -143,8 +145,6 @@ public:
 
     std::vector<ValuePtr>& Values() { return values_; }
     const std::vector<ValuePtr>& Values() const { return values_; }
-
-    void Print(std::ostream& os, int indent) const override;
 
 private:
     std::vector<ValuePtr> values_;
@@ -220,8 +220,6 @@ public:
     CompoundStatementPtr GetCompound() { return compound_; }
     const CompoundStatementPtr GetCompound() const { return compound_; }
 
-    void Print(std::ostream& os, int indent) const override;
-
 private:
     ScalarValuePtr iterationVar_;
     std::shared_ptr<LoopRange> range_;
@@ -271,8 +269,6 @@ public:
     std::vector<ValuePtr>& Results() { return results_; }
     const std::vector<ValuePtr>& Results() const { return results_; }
 
-    void Print(std::ostream& os, int indent) const override;
-
 private:
     ScalarValuePtr condition_;
     CompoundStatementPtr thenCompound_;  // Scope for Data objects and statements created in the then branch
@@ -289,8 +285,6 @@ public:
 
     std::vector<ValuePtr>& Values() { return values_; }
     const std::vector<ValuePtr>& Values() const { return values_; }
-
-    void Print(std::ostream& os, int indent) const override;
 
 private:
     std::vector<ValuePtr> values_;
