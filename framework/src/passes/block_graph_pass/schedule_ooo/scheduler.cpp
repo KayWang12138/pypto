@@ -987,6 +987,21 @@ Status OoOScheduler::CheckOpBufferSize(Operation *op) {
     return SUCCESS;
 }
 
+void OoOScheduler::InitViewConsumerAndProducer(IssueEntryPtr issue, std::unordered_set<Operation*> operationSet) {
+    for (auto viewOp : issue->viewOps) {
+        for (auto consumer : viewOp->ConsumerOps()) {
+            if (operationSet.find(consumer) != operationSet.end()) {
+                opConsumers[viewOp].insert(consumer);
+            }
+        }
+        for (auto producer : viewOp->ProducerOps()) {
+            if (operationSet.find(producer) != operationSet.end()) {
+                opProducers[viewOp].insert(producer);
+            }
+        }
+    }
+}
+
 void OoOScheduler::InitOpConsumerAndProducer() {
     std::unordered_set<Operation*> operationSet;
     opConsumers.clear();
@@ -1008,6 +1023,7 @@ void OoOScheduler::InitOpConsumerAndProducer() {
                 opProducers[&issue->tileOp].insert(producer);
             }
         }
+        InitViewConsumerAndProducer(issue, operationSet);
     }
 }
 

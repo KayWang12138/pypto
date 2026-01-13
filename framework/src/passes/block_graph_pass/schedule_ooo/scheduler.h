@@ -175,6 +175,7 @@ private:
     // scheduler
     Status Init(const std::vector<Operation *> &operations);
     void InitMemorySize();
+    void InitViewConsumerAndProducer(IssueEntryPtr issue, std::unordered_set<Operation*> operationSet);
     void InitOpConsumerAndProducer();
     Status CheckOpBufferSize(Operation *op);
     std::string dumpOpInfo(Operation &op);
