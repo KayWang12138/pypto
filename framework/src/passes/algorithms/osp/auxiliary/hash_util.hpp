@@ -13,10 +13,12 @@
 * \brief
 */
 
-#pragma once
+#ifndef OSP_HASH_UTIL_H
+#define OSP_HASH_UTIL_H
 
 #include <cstddef>
 
+namespace npu::tile_fwk {
 namespace osp {
 
 template<class T>
@@ -28,3 +30,5 @@ void HashCombine(std::size_t &seed, const T &v) {
     seed ^= hasher(v) + magicNumber_ + (seed << magicNumberSix_) + (seed >> magicNumberTwo_);
 }
 } // namespace osp
+} // namespace npu::tile_fwk
+#endif // OSP_HASH_UTIL_H
