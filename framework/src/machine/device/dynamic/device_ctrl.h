@@ -217,7 +217,8 @@ class DeviceCtrlMachine {
         
         PerfBegin(PERF_EVT_EXEC_DYN);
         PerfBegin(PERF_EVT_CONTROL_FLOW_CALL);
-                // Execute Controlflow - in BuildCache mode, tasks are recorded but not actually scheduled
+        
+        // Execute Controlflow - in BuildCache mode, tasks are recorded but not actually scheduled
         ret = ctx.GELaunch(devStartArgs, [this, isRecording](DynDeviceTask *dynTask, DeviceExecuteContext *exeCtx) {
             if (unlikely(inspectorEntry_ != nullptr)) {
                 inspectorEntry_(inspector_, exeCtx, dynTask);
@@ -233,25 +234,25 @@ class DeviceCtrlMachine {
                 DEV_DEBUG("BuildCache mode: task recorded but not pushed to queue");
             }
         });
+        
         PerfEnd(PERF_EVT_CONTROL_FLOW_CALL);
         if (ret != DEVICE_MACHINE_OK) {
             PerfEnd(PERF_EVT_EXEC_DYN);
             return ret;
-        }
         }
         DEV_INFO("end control flow.");
         
         // In BuildCache mode, skip AiCoreManager operations (no tasks were pushed, nothing to sync)
         if (!isRecording) {
             PerfBegin(PERF_EVT_STAGE_STOP_AICORE);
-        StopAicoreManager();
-        PerfEnd(PERF_EVT_STAGE_STOP_AICORE);
-        DEV_INFO("aicore manager stopped");
-        PerfBegin(PERF_EVT_STAGE_TASK_SYNC);
-        ret = SyncTask(&ctx.taskContext);
-        devStartArgs->syncFlag = 0;
-        PerfMtTrace(PERF_TRACE_WAIT_ALL_DEV_TASK_FINISH, CTRL_CPU_THREAD_IDX);
-        PerfEnd(PERF_EVT_STAGE_TASK_SYNC);
+            StopAicoreManager();
+            PerfEnd(PERF_EVT_STAGE_STOP_AICORE);
+            DEV_INFO("aicore manager stopped");
+            PerfBegin(PERF_EVT_STAGE_TASK_SYNC);
+            ret = SyncTask(&ctx.taskContext);
+            devStartArgs->syncFlag = 0;
+            PerfMtTrace(PERF_TRACE_WAIT_ALL_DEV_TASK_FINISH, CTRL_CPU_THREAD_IDX);
+            PerfEnd(PERF_EVT_STAGE_TASK_SYNC);
         } else {
             DEV_INFO("BuildCache mode: skipping AiCoreManager stop and sync (no tasks pushed)");
         }

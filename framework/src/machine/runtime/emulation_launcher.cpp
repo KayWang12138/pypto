@@ -47,7 +47,6 @@ static int EmulationLaunchOnce(DeviceKernelArgs &kArgs) {
 
     // Multi-thread mode for normal execution
     constexpr int threadNum = 6;
-    std::cout << "[EmulationLaunchOnce] Using multi-thread mode, creating " << devProg->devArgs.nrAicpu << " threads" << std::endl;
     std::thread aicpuThreadList[threadNum];
     int aicpuResultList[threadNum] = {0};
     std::atomic<int> idx{0};
@@ -110,24 +109,19 @@ int EmulationLauncher::BuildControlFlowCacheWithEmulationTensorData(
         const DeviceLauncherConfig &config) {
     (void)cachedOperator;
     std::cout << "!!! Emulation ControlFlowCache\n";
-    
     std::vector<uint8_t> &devProgData = DeviceLauncher::GetDevProg(function);
     DevAscendProgram *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
-    
     devProg->controlFlowCache.isRecording = true;
     devProg->controlFlowCache.deviceTaskCount = 0;
     devProg->controlFlowCache.cacheDataOffset = 0;
-    
     DeviceKernelArgs kArgs;
     DeviceLauncher::DeviceInitTilingData(EmulationMemoryUtils(), kArgs, devProgData, config, nullptr);
     DeviceLauncher::DeviceInitKernelInOuts(EmulationMemoryUtils(), kArgs, inputList, outputList,
         function->GetDyndevAttribute()->disableL2List, config.isGETensorList);
-    
     int rc = EmulationLaunchOnce(kArgs);
-    
+
     devProg->controlFlowCache.isRecording = false;
     uint64_t contextWorkspaceAddr = devProg->controlFlowCache.contextWorkspaceAddr;
-    
     devProg->controlFlowCache.IncastOutcastAddrReloc(contextWorkspaceAddr, 0, nullptr);
     devProg->controlFlowCache.RuntimeAddrRelocWorkspace(contextWorkspaceAddr, 0, nullptr, nullptr, nullptr);
     devProg->controlFlowCache.RuntimeAddrRelocProgram(reinterpret_cast<uint64_t>(devProg), 0);
@@ -135,13 +129,6 @@ int EmulationLauncher::BuildControlFlowCacheWithEmulationTensorData(
     devProg->controlFlowCache.TaskAddrRelocProgram(reinterpret_cast<uint64_t>(devProg), 0);
     devProg->ResetFromLaunch();
     devProg->controlFlowCache.isActivated = true;
-    std::cout << "  Cache Statistics:" << std::endl;
-    std::cout << "    DeviceTaskCount: " << devProg->controlFlowCache.deviceTaskCount << std::endl;
-    std::cout << "    RootTaskCount: " << devProg->controlFlowCache.rootTaskCount << std::endl;
-    std::cout << "    DeviceTaskSkippedCount: " << devProg->controlFlowCache.deviceTaskSkippedCount << std::endl;
-    std::cout << "    CacheDataOffset: " << devProg->controlFlowCache.cacheDataOffset << " bytes" << std::endl;
-    std::cout << "================================================\n" << std::endl;
-    
     return rc;
 }
 
