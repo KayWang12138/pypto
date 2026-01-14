@@ -29,7 +29,8 @@
 #include <runtime/rt.h>
 #include <acl/acl_rt.h>
 #include "machine/utils/machine_ws_intf.h"
-constexpr int PMU_EVENT_TYPE_MAX = 8;
+constexpr int PMU_EVENT_TYPE_MAX_DAV2201 = 8;
+constexpr int PMU_EVENT_TYPE_MAX_DAV3510 = 10;
 constexpr int CORE_DEFAULT_NUM = 70;
 namespace npu::tile_fwk {
 struct FileLock {
@@ -85,8 +86,9 @@ private:
     int LaunchAiCore(rtStream_t aicoreStream, int taskType);
     void Dump();
     void AllocDfxMetricMemory();
-    void SetPmuEventType(int32_t &profPmuType);
-    void GetPmuEventType();
+    void SetPmuEventType_DAV2201(int32_t &profPmuType);
+    void SetPmuEventType_DAV3510(int32_t &profPmuType);
+    void GetPmuEventType(DeviceArgs &args);
     /**************DynamicFunction**************/
     int launchDynamicAiCore(rtStream_t aicoreStream, DeviceKernelArgs *kernelArgs);
     int launchDynamicAiCpu(rtStream_t aicpuStream, DeviceKernelArgs *kArgs);
