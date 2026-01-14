@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 from enum import Enum
 import functools
 from typing import Any, Dict, Optional, Type, TypeVar, Union, overload
@@ -18,19 +17,21 @@ class DataTypeKind(Enum):
     Float = "float"
 
 
-@dataclass(frozen=True)
 class DataTypeInfo(tl.dtype):
-    name: str
-    kind: DataTypeKind
-    bitwidth: int
-    as_numpy: Optional[Type[numpy.generic]]
-    as_pypto: Optional[pypto.DataType]
-    as_torch: Optional[torch.dtype]
-    as_triton: Optional[tl.dtype]
 
-    def __post_init__(self):
-        # Comply with triton.language.dtype
-        object.__setattr__(self, "element_ty", self.as_triton)
+    def __init__(self, name: str, kind: DataTypeKind, bitwidth: int, as_numpy: Optional[Type[numpy.generic]],
+                 as_pypto: Optional[pypto.DataType], as_torch: Optional[torch.dtype], as_triton: Optional[tl.dtype]):
+        self.name = name
+        self.kind = kind
+        self.bitwidth = bitwidth
+        self.as_numpy = as_numpy
+        self.as_pypto = as_pypto
+        self.as_torch = as_torch
+        self.as_triton = as_triton
+        self.element_ty = self.as_triton  # Comply with triton.language.dtype
+
+    def __hash__(self) -> int:
+        return hash(f"DataTypeInfo-{self.name}")
 
     def __eq__(self, other: Any) -> bool:
         return self.name == to_str(other, required=False)
@@ -104,7 +105,12 @@ def to_str(any_dtype: AnyDataType, required: bool = True):
     if isinstance(any_dtype, torch.dtype):
         return str(any_dtype)[len("torch."):]
     if isinstance(any_dtype, tl.dtype):
-        return any_dtype.name
+        name = any_dtype.name
+        remap = {
+            "fp16": "float16",
+            "fp32": "float32",
+        }
+        return remap.get(name, name)
     if required:
         raise RuntimeError(f"Unsupported dtype: no str for {any_dtype!r}")
     return None

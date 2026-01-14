@@ -158,7 +158,7 @@ def auto_vec_tile(target_shape: Iterable[int], dtype: dtypes.AnyDataType, buf_nu
     alloc_bytes = dtype_size * math.prod(shape_list)
     new_shape = reduce_shape(shape_list, buffer_size, dtype_size) if alloc_bytes > buffer_size else shape_list
 
-    set_vec_tile_shapes(*new_shape)
+    set_vec_tile_shapes(*map(int, new_shape))
 
 
 @functools.wraps(pypto.tensor.__repr__)
