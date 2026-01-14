@@ -39,7 +39,7 @@ DEFOP(
     ),
     INPUT(Tile, Input),
     OUTPUT(Tile, Output),
-    OUTPUT(Tile, TempTensor),
+    OUTPUT(Tile, TempTensor)
 )
 
 DEFOP(
@@ -96,7 +96,7 @@ DEFOP(
     ),
     INPUT(Tile, Input),
     OUTPUT(Tile, Output),
-    ATTR(CastMode, Mode, 0)
+    ATTR(CastMode, Mode, CastMode::CAST_NONE)
 )
 
 DEFOP(
@@ -180,7 +180,7 @@ DEFOP(
 
 DEFOP(
     ScatterOp,
-    INHERIT(ScatetrTileBaseOp),
+    INHERIT(ScatterTileBaseOp),
     OPCODE(
         OP_SCATTER
     ),
@@ -214,8 +214,7 @@ DEFOP(
     INPUT(Tile, Lhs),
     INPUT(Scalar, Rhs),
     OUTPUT(Tile, Output),
-    ATTR(int, CombineAxis, -1),
-    ATTR(bool, ReverseOperand, false)
+    ATTR(int, CombineAxis, -1)
 )
 
 DEFOP(
@@ -470,7 +469,7 @@ DEFOP(
     ),
     INPUT(Tile, Lhs),
     INPUT(Tile, Rhs),
-    OUTPUT(Tile, Output),
+    OUTPUT(Tile, Output)
 )
 
 DEFOP(
@@ -537,7 +536,7 @@ DEFOP(
     INPUT(Tile, Input2),
     INPUT(Tile, Input3),
     INPUT(Scalar, Alpha),
-    OUTPUT(Tile, Output)
+    OUTPUT(Tile, Output),
     ATTR(int, Axis, -1)
 )
 
@@ -682,8 +681,8 @@ DEFOP(
     INPUT(Tile, Input2),
     OUTPUT(Tile, Output),
     OUTPUT(Tile, TempTensor),
-    ATTR(CmpOperationType, CmpOperation, 0),
-    ATTR(CmpModeType, CmpMode, 0)
+    ATTR(CmpOperationType, CmpOperation, CmpOperationType::EQ),
+    ATTR(CmpModeType, CmpMode, CmpModeType::BOOL)
 )
 
 DEFOP(
@@ -696,6 +695,6 @@ DEFOP(
     INPUT(Scalar, Input2),
     OUTPUT(Tile, Output),
     OUTPUT(Tile, TempTensor),
-    ATTR(CmpOperationType, CmpOperation, 0),
-    ATTR(CmpModeType, CmpMode, 0)
+    ATTR(CmpOperationType, CmpOperation, CmpOperationType::EQ),
+    ATTR(CmpModeType, CmpMode, CmpModeType::BOOL)
 )
