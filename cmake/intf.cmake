@@ -15,7 +15,7 @@ target_include_directories(tile_fwk_intf_pub
             ${PTO_FWK_SRC_ROOT}/framework/src
             ${PTO_FWK_SRC_ROOT}/framework/src/interface
             ${PTO_FWK_SRC_ROOT}/framework/src/interface/machine/device
-            $<$<BOOL:${BUILD_OPEN_PROJECT}>:${ASCEND_CANN_PACKAGE_PATH}/include>
+            $<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<BOOL:${BUILD_WITH_CANN}>>:${ASCEND_CANN_PACKAGE_PATH}/include>
 )
 target_compile_options(tile_fwk_intf_pub
         INTERFACE
@@ -44,7 +44,7 @@ target_compile_options(tile_fwk_intf_pub
             -Wtype-limits
             -Wshift-negative-value
             -Wswitch-default
-            $<$<CXX_COMPILER_ID:GNU>:$<$<OR:$<BOOL:${ENABLE_ASAN}>,$<BOOL:${ENABLE_UBSAN}>>:--param max-gcse-memory=1000000000>>
+            $<$<CXX_COMPILER_ID:GNU>:$<$<OR:$<BOOL:${ENABLE_ASAN}>,$<BOOL:${ENABLE_UBSAN}>,$<BOOL:${ENABLE_GCOV}>>:--param max-gcse-memory=1000000000>>
             -Wframe-larger-than=$<IF:$<OR:$<BOOL:${ENABLE_ASAN}>,$<BOOL:${ENABLE_UBSAN}>>,131072,32768>
             -Woverloaded-virtual
             -Wnon-virtual-dtor
@@ -61,7 +61,7 @@ target_compile_options(tile_fwk_intf_pub
             $<$<CXX_COMPILER_ID:GNU>:-Wsuggest-attribute=format>
             $<$<COMPILE_LANGUAGE:C>:-Wnested-externs>
             $<$<CXX_COMPILER_ID:GNU>:-Wduplicated-branches>
-            # -Wmissing-include-dirs
+            -Wmissing-include-dirs
             $<$<CXX_COMPILER_ID:GNU>:-Wformat-signedness>
             $<$<CXX_COMPILER_ID:GNU>:-Wreturn-local-addr>
             -Wredundant-decls
