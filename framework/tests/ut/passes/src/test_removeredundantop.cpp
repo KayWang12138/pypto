@@ -977,13 +977,13 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest18) {
     EXPECT_EQ(removeredundantpass.RunOnFunction(*currFunctionPtr), SUCCESS);
     EXPECT_EQ(removeredundantpass.PostCheck(*currFunctionPtr), SUCCESS);
 
-    uint32_t assemble_num = kNumZero;
+    uint32_t assembleNum = kNumZero;
     for (auto &op : currFunctionPtr->Operations()) {
         if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
-            ++assemble_num;
+            ++assembleNum;
         }
     }
-    EXPECT_EQ(assemble_num, kNumTwo);
+    EXPECT_EQ(assembleNum, kNumTwo);
 }
 }
 }
