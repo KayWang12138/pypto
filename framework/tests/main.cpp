@@ -14,8 +14,6 @@
  */
 
 #include <gtest/gtest.h>
-#include <string>
-#include <unordered_map>
 #include <iostream>
 #include "test_cost_macro.h"
 

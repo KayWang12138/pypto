@@ -8,7 +8,7 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
-"""Args处理辅助（适配自定义参数--gtest_list_tests_with_meta）
+"""Args处理辅助(适配自定义参数--gtest_list_tests_with_meta)
 """
 import argparse
 import subprocess
@@ -58,7 +58,7 @@ class ArgsGTestFilterListAction(argparse.Action):
     @staticmethod
     def get_test_costs(binary: str) -> Dict[str, float]:
         """
-        获取所有带耗时信息的测试用例（通过自定义参数--gtest_list_tests_with_meta）
+        获取所有带耗时信息的测试用例(通过自定义参数--gtest_list_tests_with_meta)
         返回格式: { "TestCaseName.TestName": cost_seconds, ... }
         """
         cost_map = {}
@@ -70,7 +70,7 @@ class ArgsGTestFilterListAction(argparse.Action):
             encoding='utf-8'
         )
 
-        # 仅解析stdout（格式：TestCaseName.TestName|cost_seconds）
+        # 仅解析stdout(格式:TestCaseName.TestName|cost_seconds)
         pattern = re.compile(r'^([\w\.]+)\|(\d+\.?\d*)$', re.MULTILINE)
         matches = pattern.findall(result.stdout)
         for test_name, cost_str in matches:
@@ -88,7 +88,7 @@ class ArgsGTestFilterListAction(argparse.Action):
         # 1. 通过自定义参数获取带耗时的测试列表
         cost_map = ArgsGTestFilterListAction.get_test_costs(binary)
 
-        # 2. 获取原生测试列表（无耗时的用例）
+        # 2. 获取原生测试列表(无耗时的用例)
         cases = []
         result = subprocess.run([binary, '--gtest_list_tests'], capture_output=True, text=True)
         current_suite = ""
