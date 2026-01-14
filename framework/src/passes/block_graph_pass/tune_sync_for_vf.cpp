@@ -134,10 +134,11 @@ Status TuneSyncForVF::AdjustSetWaitFlag(Function *subGraphFunc, std::vector<Oper
     for (auto &setFlag : setFlagList) {
         findFlag = false;
         auto pipeX = setFlag->syncQueue_.trigPipeId_;
-        if (!subGraphFunc->setWaitOpMap.count(vecTileOp0)) {
-            continue;
-        }
-        auto &tileOpZ = subGraphFunc->setWaitOpMap[vecTileOp0];
+        // if (!subGraphFunc->setWaitOpMap.count(vecTileOp0)) {
+        //     continue;
+        // }
+        // auto &tileOpZ = subGraphFunc->setWaitOpMap[vecTileOp0];
+        auto &tileOpZ = subGraphFunc->setOpMap[setFlag];
         // 在pipeX的队列中找到tileopZ
         auto &pipeXops = pipeOpMap[pipeX];
         for (size_t k = 0; k < pipeXops.size(); k++) {
@@ -164,10 +165,11 @@ Status TuneSyncForVF::AdjustSetWaitFlag(Function *subGraphFunc, std::vector<Oper
     for (auto &waitFlag : waitFlagList) {
         findFlag = false;
         auto pipeX = waitFlag->syncQueue_.pipeId_;
-        if (!subGraphFunc->waitSetOpMap.count(vecTileOp1)) {
-            continue;
-        }
-        auto &tileOpZ = subGraphFunc->waitSetOpMap[vecTileOp1];
+        // if (!subGraphFunc->waitSetOpMap.count(vecTileOp1)) {
+        //     continue;
+        // }
+        // auto &tileOpZ = subGraphFunc->waitSetOpMap[vecTileOp1];
+        auto &tileOpZ = subGraphFunc->waitOpMap[waitFlag];
         // 在pipeX的队列中找到tileopZ
         auto &pipeXops = pipeOpMap[pipeX];
         for (size_t k = 0; k < pipeXops.size(); k++) {
