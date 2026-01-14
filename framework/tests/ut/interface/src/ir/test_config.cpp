@@ -286,4 +286,74 @@ TEST_F(ConfigTest, TestMakeConfigEntryHelper) {
     EXPECT_TRUE(config.Get<bool>(CONFIG_test_bool));
 }
 
+TEST_F(ConfigTest, TestFunctionGetConfigConst) {
+    FunctionSignature sig;
+    auto func = std::make_shared<Function>("test_func", FunctionKind::ControlFlow, sig);
+    
+    // Initialize config using non-const GetConfig()
+    func->GetConfig().Initialize({
+        {CONFIG_test_int32, std::any(int32_t(700))},
+        {CONFIG_test_bool, std::any(false)},
+        {CONFIG_test_uint8, std::any(uint8_t(99))}
+    });
+    
+    // Test const GetConfig() - should return const reference
+    const Function& constFunc = *func;
+    const Config& constConfig = constFunc.GetConfig();
+    
+    // Verify const Config can be used for read operations
+    EXPECT_TRUE(constConfig.IsInitialized());
+    EXPECT_TRUE(constConfig.Has(CONFIG_test_int32));
+    EXPECT_TRUE(constConfig.Has(CONFIG_test_bool));
+    EXPECT_TRUE(constConfig.Has(CONFIG_test_uint8));
+    EXPECT_FALSE(constConfig.Has(CONFIG_test_uint16));
+    
+    // Test Get() method on const Config
+    EXPECT_EQ(700, constConfig.Get<int32_t>(CONFIG_test_int32));
+    EXPECT_FALSE(constConfig.Get<bool>(CONFIG_test_bool));
+    EXPECT_EQ(99, constConfig.Get<uint8_t>(CONFIG_test_uint8));
+    
+    // Verify const Config reference points to the same object
+    EXPECT_EQ(&constConfig, &func->GetConfig());
+}
+
+// Test Function::GetParentModule() method
+TEST_F(ConfigTest, TestFunctionGetParentModule) {
+    FunctionSignature sig;
+    auto func = std::make_shared<Function>("test_func", FunctionKind::ControlFlow, sig);
+    
+    // Initially, function should have no parent module
+    EXPECT_EQ(nullptr, func->GetParentModule());
+    
+    // Create a module and set it as parent using SetParentModule()
+    auto module = std::make_shared<ProgramModule>("test_module");
+    func->SetParentModule(module);
+    
+    // GetParentModule() should return the parent module
+    auto parentModule = func->GetParentModule();
+    EXPECT_NE(nullptr, parentModule);
+    EXPECT_EQ(module, parentModule);
+    EXPECT_EQ("test_module", parentModule->GetName());
+    
+    // Test with AddFunction() which also sets parent module
+    auto module2 = std::make_shared<ProgramModule>("test_module2");
+    auto func2 = std::make_shared<Function>("test_func2", FunctionKind::ControlFlow, sig);
+    module2->AddFunction(func2);
+    
+    // GetParentModule() should return the parent module set by AddFunction()
+    auto parentModule2 = func2->GetParentModule();
+    EXPECT_NE(nullptr, parentModule2);
+    EXPECT_EQ(module2, parentModule2);
+    EXPECT_EQ("test_module2", parentModule2->GetName());
+    
+    // Test weak_ptr behavior: when parent module is released, GetParentModule() should return nullptr
+    auto module3 = std::make_shared<ProgramModule>("test_module3");
+    auto func3 = std::make_shared<Function>("test_func3", FunctionKind::ControlFlow, sig);
+    func3->SetParentModule(module3);
+    EXPECT_NE(nullptr, func3->GetParentModule());
+    
+    module3.reset(); // Release the shared_ptr
+    EXPECT_EQ(nullptr, func3->GetParentModule()); // Should return nullptr after parent is released
+}
+
 } // namespace pto
