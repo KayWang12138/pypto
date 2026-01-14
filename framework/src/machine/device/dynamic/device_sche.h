@@ -21,8 +21,20 @@
 #include "machine/utils/machine_ws_intf.h"
 #include "machine/utils/device_log.h"
 #include "tilefwk/aicore_print.h"
+#include "machine/device/dynamic/aicore_prof.h"
 
 namespace npu::tile_fwk::dynamic {
+
+bool IsOpenProf(DeviceArgs *deviceArgs) {
+    auto profLevel = CreateProfLevel(deviceArgs->toSubMachineConfig.profConfig);
+    DEV_DEBUG("Pypto config prof level is %d", profLevel);
+    if ((ProfCheckLevel(PROF_TASK_TIME_L2) == true) ||
+        (profLevel == PROF_LEVEL_FUNC_LOG) || (profLevel == PROF_LEVEL_FUNC_LOG_PMU)) {
+        return true;
+    }
+    return false;
+}
+
 struct AicoreLogManager {
     AicoreLogManager() {
         data_ = aligned_alloc(PAGE_SIZE, MAX_AICORE_NUM * PRINT_BUFFER_SIZE);
