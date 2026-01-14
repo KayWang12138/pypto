@@ -318,7 +318,7 @@ TEST_F(ConfigTest, TestFunctionGetConfigConst) {
 }
 
 // Test Function::GetParentModule() method
-TEST_F(ConfigTest, TestFunctionGetParentModule) {
+TEST_F(ConfigTest, TestFunctionGetParentModule) { 
     FunctionSignature sig;
     auto func = std::make_shared<Function>("test_func", FunctionKind::ControlFlow, sig);
     
