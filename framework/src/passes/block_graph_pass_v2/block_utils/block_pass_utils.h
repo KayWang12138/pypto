@@ -17,11 +17,18 @@
 
 #include "ir/function.h"
 #include "ir/operation.h"
+#include "ir/value.h"
+#include <unordered_set>
 
 namespace npu::tile_fwk {
 
 class BlockPassUtils {
 public:
     static std::vector<pto::OperationPtr> GetBlockFunctionOperations(pto::Function &function);
+    static bool IsCopyInOrOut(const pto::Opcode &opcode);
+    static bool IsCopyIn(const pto::Opcode &opcode);
+    static bool IsCopyOut(const pto::Opcode &opcode);
+    static std::unordered_set<pto::Operation *> GetProducerOps(const pto::Operation &op, const std::vector<pto::OperationPtr> &allOps);
+    static std::unordered_set<pto::Operation *> GetConsumerOps(const pto::Operation &op, const std::vector<pto::OperationPtr> &allOps);
 };
 }
