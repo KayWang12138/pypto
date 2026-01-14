@@ -451,6 +451,45 @@ def rsqrt(input: Tensor) -> Tensor:
 
 
 @op_wrapper
+def ceil(input: Tensor) -> Tensor:
+    """Computes the element-wise ceiling of `input` (upward rounding to the nearest integer)
+
+    This function calculates the formula: `out = ceil(input)`.
+    The ceiling of a number is the smallest integer greater than or equal to the number.
+
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor containing numerical values to be ceiling-rounded.
+
+    Returns
+    -------
+    Tensor
+        A new tensor with the ceiling value of each element of the input tensor.
+
+    Raises
+    ------
+    TODO
+
+    See Also
+    --------
+    floor : floor rounding (downward to the nearest integer)
+    round : rounding to the nearest integer (half up)
+
+    Examples
+    --------
+    x = pypto.tensor([2.1, -2.1, 5.0, 3.9], pypto.DT_FP32)
+    y = pypto.ceil(x)
+
+    Input x: [[1.2  4.7],
+              [-1.1  9.0]]
+    Output y:[[2.0  5.0],
+              [-1.0  9.0]]
+    """
+    return pypto_impl.Ceil(input)
+
+
+@op_wrapper
 def sqrt(input: Tensor) -> Tensor:
     """Computes the element-wise squareroot of `input`.
 

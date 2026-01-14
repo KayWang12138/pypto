@@ -40,6 +40,7 @@ std::string GetUnaryOpName() {
         case UnaryOpType::EXP: return "EXP";
         case UnaryOpType::RSQRT: return "RSQRT";
         case UnaryOpType::SQRT: return "SQRT";
+        case UnaryOpType::CEIL: return "CEIL";
         case UnaryOpType::RECIPROCAL: return "RECIPROCAL";
         case UnaryOpType::DUPLICATE: return "DUPLICATE";
         case UnaryOpType::ABS: return "ABS";
