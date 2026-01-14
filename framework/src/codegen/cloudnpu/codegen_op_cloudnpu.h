@@ -358,6 +358,7 @@ private:
     std::string PrintIndexAddDynamicUnaligned(const PrintIndexAddParam &param) const;
 
     std::string PrintIndexPut(const PrintIndexPutParam &param) const;
+    std::string PrintIndexPutLayout(size_t indicesSize, bool accumulate) const;
     std::string PrintIndexPutDynamicUnaligned(const PrintIndexPutParam &param) const;
 
     std::string PrintCumSumDynamicUnaligned(const PrintCumSumParam &param) const;
