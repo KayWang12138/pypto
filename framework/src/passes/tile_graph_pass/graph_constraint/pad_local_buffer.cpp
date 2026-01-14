@@ -496,7 +496,7 @@ int64_t PadLocalBuffer::ProcessBroadcastForAxisCombine(Operation &op, LogicalTen
     }
     for (const auto &in : op.iOperand) {
         if (in != inTensor) {
-            if (in->shape.back() != 1 && in->shape.back() % paddingValue == 0) {
+            if (in->shape.back() != 1 && in->shape.back() % blockPadding == 0) {
                 return (dimSize - LAST_SECOND_AXIS);
             }
         }
@@ -549,7 +549,7 @@ void PadLocalBuffer::PadVectorForAxisCombine(Operation &op, LogicalTensorPtr &in
         }
     }
     if (calcType == OpCalcType::BROADCAST) {
-        auto dimIdx = ProcessBroadcastForAxisCombine(op, paddingValue);
+        auto dimIdx = ProcessBroadcastForAxisCombine(op, in, paddingValue);
         AlignedRawTensorIfNeed(in, dimIdx, paddingValue);
         return;
     }
