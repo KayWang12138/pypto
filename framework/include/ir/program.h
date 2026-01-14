@@ -45,6 +45,9 @@ private:
     std::shared_ptr<Function> programEntry_;
     std::vector<std::shared_ptr<Function>> functions_;
 };
+
+using ProgramModulePtr = std::shared_ptr<ProgramModule>;
+
 } // namespace pto
 
 
