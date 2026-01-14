@@ -103,12 +103,12 @@ public:
     Status ProcessAssembleOrder(Operation &op, std::vector<Operation *> &opLog, std::unordered_map<Operation *, Operation *> &changeMap);
     Status ProcessViewAssembleOrder(std::vector<Operation *> &opLog, std::vector<Operation *> &opListNew);
     std::vector<Operation *> GetOriOpList() { return oriOpList_; }
-    std::unordered_map<Operation *, Operation *> setWaitOpMap;
-    std::unordered_map<Operation *, Operation *> waitSetOpMap;
+    // std::unordered_map<Operation *, Operation *> setWaitOpMap;
+    // std::unordered_map<Operation *, Operation *> waitSetOpMap;
     std::unordered_map<Operation *, Operation *> setOpMap;
-    std::unordered_map<Operation *, Operation *> opSetMap;
+    // std::unordered_map<Operation *, Operation *> opSetMap;
     std::unordered_map<Operation *, Operation *> waitOpMap;
-    std::unordered_map<Operation *, Operation *> opWaitMap;
+    // std::unordered_map<Operation *, Operation *> opWaitMap;
 
 private:
     friend class TuneTileOpSeqForVF;
