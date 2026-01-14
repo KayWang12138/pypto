@@ -136,22 +136,23 @@ std::string GetMemSpaceKindName(MemSpaceKind kind);
 
 class Memory : public Object {
 public:
-    Memory(uint64_t byteSize, MemSpaceKind kind = MemSpaceKind::UNKNOWN,
-           std::optional<uint64_t> addr = std::nullopt, uint32_t alignment = 1)
-        : Object(ObjectType::Memory), byteSize_(byteSize), space_(kind), addr_(addr), alignment_(alignment) {}
+    Memory(uint64_t byteSize, MemSpaceKind kind = MemSpaceKind::UNKNOWN) : Object(ObjectType::Memory), byteSize_(byteSize),
+         space_(kind), addr_(0) {}
 
     ObjectType GetObjectType() const override { return ObjectType::Memory; }
 
     uint64_t GetSize() const { return byteSize_; }
     MemSpaceKind GetSpace() const { return space_; }
-    std::optional<uint64_t> GetAddr() const { return addr_; }
-    uint32_t GetAlignment() const { return alignment_; }
+    uint64_t GetAddr() const { return addr_; }
+
+    void SetSize(const uint64_t newSize) { byteSize_ = newSize; }
+    void SetSpace(const MemSpaceKind kind) { space_ = kind; }
+    void SetAddr(const uint64_t newAddr) { addr_ = newAddr; }
 
 private:
     uint64_t byteSize_;
     MemSpaceKind space_;
-    std::optional<uint64_t> addr_;
-    uint32_t alignment_;
+    uint64_t addr_;
 };
 
 using MemoryPtr = std::shared_ptr<Memory>;
