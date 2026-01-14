@@ -229,27 +229,26 @@ def rope_2d(
         rotation to optimize memory access patterns.
     """
     assert len(x.shape) == 2 and len(cos.shape) == 2 and len(sin.shape) == 2
-    seq_size = x.shape[0]
-    d_r = x.shape[1]
-    x_dtype = x.dtype
+    input_dtype = x.dtype
+    pypto.set_vec_tile_shapes(1, 64, 128)
+    y = pypto.clone(x)
+    y_cast = pypto.cast(y, pypto.DT_FP32)
+    x_view = pypto.reshape(x, [x.shape[0], x.shape[1]//2, 2])
+    x_trans = pypto.transpose(x_view, 1, 2)
+    x_re_second = pypto.reshape(x_trans, x.shape)
+    x_t = rotate_half(x_re_second)
+    x_new = pypto.reshape(x_t, [x.shape[0], 2, x.shape[1]//2])
+    x_new_trans = pypto.transpose(x_new, 1, 2)
+    x_new_r = pypto.reshape(x_new_trans, x.shape)
+    x_new_cast = pypto.cast(x_new_r, pypto.DT_FP32)
 
-    pypto.set_vec_tile_shapes(16, 64)
-    cast_x = pypto.cast(x, pypto.DT_FP32)
+    pypto.set_vec_tile_shapes(1, 64)
     cast_cos = pypto.cast(cos, pypto.DT_FP32)
     cast_sin = pypto.cast(sin, pypto.DT_FP32)
 
-    pypto.set_vec_tile_shapes(16, 64, 64)
-    x_view = pypto.reshape(cast_x, [seq_size, d_r // 2, 2])
-    x_trans = pypto.transpose(x_view, 1, 2)
-    x_re_second = pypto.reshape(x_trans, [seq_size, d_r])
-
-    x_embded = x_re_second * cast_cos + rotate_half(x_re_second) * cast_sin
-    x_embed_cast = pypto.cast(x_embded, x.dtype)
-    x_embed_reshape = pypto.reshape(x_embed_cast, [x_embed_cast.shape[0], 2, x_embed_cast.shape[1] // 2])
-    x_embed_trans = pypto.transpose(x_embed_reshape, 1, 2)
-    x_embed_res = pypto.reshape(x_embed_trans, x_embed_cast.shape)
-
-    return x_embed_res
+    pypto.set_vec_tile_shapes(1, 64, 64)
+    x_embed = y_cast * cast_cos + x_new_cast * cast_sin
+    return pypto.cast(x_embed, input_dtype)
 
 
 def rope_3d(x: pypto.Tensor, cos: pypto.Tensor, sin: pypto.Tensor) -> pypto.Tensor:
@@ -271,28 +270,29 @@ def rope_3d(x: pypto.Tensor, cos: pypto.Tensor, sin: pypto.Tensor) -> pypto.Tens
         then applies rotation: x_rotated = x * cos + rotate_half(x) * sin
     """
     assert len(x.shape) == 3 and len(cos.shape) == 2 and len(sin.shape) == 2
+    input_dtype = x.dtype
+    pypto.set_vec_tile_shapes(1, 64, 128, 128)
+    y = pypto.clone(x)
+    y_cast = pypto.cast(y, pypto.DT_FP32)
+    x_view = pypto.reshape(x, [x.shape[0], x.shape[1], x.shape[2]//2, 2])
+    x_trans = pypto.transpose(x_view, 2, 3)
+    x_re_second = pypto.reshape(x_trans, x.shape)
+    x_t = rotate_half(x_re_second)
+    x_new = pypto.reshape(x_t, [x.shape[0], x.shape[1], 2, x.shape[2]//2])
+    x_new_trans = pypto.transpose(x_new, 2, 3)
+    x_new_r = pypto.reshape(x_new_trans, x.shape)
+    x_new_cast = pypto.cast(x_new_r, pypto.DT_FP32)
 
     pypto.set_vec_tile_shapes(1, 64)
     cast_cos = pypto.cast(cos, pypto.DT_FP32)
     cast_sin = pypto.cast(sin, pypto.DT_FP32)
 
     pypto.set_vec_tile_shapes(1, 64, 64)
-    cast_x = pypto.cast(x, pypto.DT_FP32)
     cast_cos = pypto.reshape(cast_cos, [x.shape[0], 1, x.shape[2]])
     cast_sin = pypto.reshape(cast_sin, [x.shape[0], 1, x.shape[2]])
 
-    pypto.set_vec_tile_shapes(1, 64, 128, 128)
-    x_view = pypto.reshape(cast_x, [x.shape[0], x.shape[1], x.shape[2] // 2, 2])
-    x_trans = pypto.transpose(x_view, 2, 3)
-    x_re_second = pypto.reshape(x_trans, x.shape)
-    x_embed = x_re_second * cast_cos + rotate_half(x_re_second) * cast_sin
-
-    x_embed_cast = pypto.cast(x_embed, x.dtype)
-    x_embed_reshape = pypto.reshape(x_embed_cast, [x_embed_cast.shape[0], x_embed_cast.shape[1], 2, x_embed_cast.shape[2] // 2])
-    x_embed_trans = pypto.transpose(x_embed_reshape, 2, 3)
-    x_embed_res = pypto.reshape(x_embed_trans, x_embed_cast.shape)
-
-    return x_embed_res
+    x_embed = y_cast * cast_cos + x_new_cast * cast_sin
+    return pypto.cast(x_embed, input_dtype)
 
 def mla_prolog_v4_compute(x, wq_a, wq_b, wkv, rmsnorm_gamma_cq, rmsnorm_gamma_ckv, cos, sin, q_out, kv_out, qr_out, attrs, configs):
     t = x.shape[0]
