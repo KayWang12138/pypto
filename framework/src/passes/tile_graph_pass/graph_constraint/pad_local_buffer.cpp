@@ -475,27 +475,31 @@ inline bool IsCopyIn(Operation& op) {
     return true;
 }
 
-int64_t PadLocalBuffer::ProcessBroadcastForAxisCombine(Operation &op, size_t blockPadding) {
-    int64_t maxLastAxis = 0;
-    size_t dimSize = 0;
-    bool existLargeBlock = true;
-    for (const auto &in : op.iOperand) {
-        dimSize = std::max(dimSize, in->shape.size());
-        if (in->shape.back() < static_cast<int>(blockPadding)) {
-            existLargeBlock = false;
+int64_t PadLocalBuffer::ProcessBroadcastForAxisCombine(Operation &op, LogicalTensorPtr &inTensor, size_t blockPadding) {
+    int dimSize = inTensor->GetShape().size();
+    if (inTensor->shape.back() != 1) {
+        return (dimSize - 1);
+    }
+    bool isAllInputShapeSame{true};
+    auto inputShape = inTensor->GetShape();
+    for (uint16_t i = 1; i < op.GetIOperands().size(); i++) {
+        if (op.GetIOperands()[i]->shape != inputShape) {
+            isAllInputShapeSame = false;
+            break;
         }
-        maxLastAxis = std::max(maxLastAxis, in->shape.back());
     }
-    if (maxLastAxis == 1 && dimSize > 1) {
-        return (dimSize - LAST_SECOND_AXIS);
-    }
-    if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510) {
-        if (!existLargeBlock && dimSize > 1) {
+    if (isAllInputShapeSame) {
+        if (dimSize > 1) {
             return (dimSize - LAST_SECOND_AXIS);
         }
+        return (dimSize - 1);
     }
-    if (existLargeBlock) {
-        return -1;
+    for (const auto &in : op.iOperand) {
+        if (in != inTensor) {
+            if (in->shape.back() != 1 && in->shape.back() % paddingValue == 0) {
+                return (dimSize - LAST_SECOND_AXIS);
+            }
+        }
     }
     return (dimSize - 1);
 }
