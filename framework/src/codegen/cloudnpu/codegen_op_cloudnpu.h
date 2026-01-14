@@ -150,6 +150,8 @@ public:
     void UpdateSaturateStatus(FloatSaturateStatus &fs);
 
 private:
+    std::string QueryTileTensorByMagic(int magic);
+
     std::string GenTemplateParamsForPutAndGet() const;
     std::string GenTemplateParamsForSignal() const;
     std::string GenTemplateParamsForMoeDistributedCombineSend() const;
