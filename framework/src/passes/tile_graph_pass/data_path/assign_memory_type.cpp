@@ -343,7 +343,7 @@ void AssignMemoryType::AssignMoveOpForAssemble(Operation &operation) {
         auto &tensor = operation.oOperand[i];
         // Only change original type
         MemoryType fromType = inserter.GetMemoryTypeFromTensorTobeMap(operation.iOperand.front(), operation);
-        for (auto &outputProducer : tensor->GetProducers()) {
+        for (const auto &outputProducer : tensor->GetProducers()) {
             if (fromType != MEM_DEVICE_DDR && outputProducer->iOperand.front()->GetMemoryTypeOriginal() != fromType) {
                 fromType = MEM_DEVICE_DDR;
             }
