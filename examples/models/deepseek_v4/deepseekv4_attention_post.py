@@ -76,23 +76,23 @@ def apply_rotary_pos_emb(q, cos, sin):
     sin: (t, rope_dim), bf16
     """
     input_dtype = q.dtype
-    q = q.to(torch.float32)
+    q_new = q.to(torch.float32)
     cos = cos.to(torch.float32)
     sin = sin.to(torch.float32)
 
     cos = torch.unsqueeze(cos, dim=1)  # [t, 1, rope_dim]
     sin = torch.unsqueeze(sin, dim=1)  # [t, 1, rope_dim]
 
-    t, n, d = q.shape
-    q = q.reshape(t, n, d // 2, 2).permute(0, 1, 3, 2).reshape(t, n, d)
+    t, n, d = q_new.shape
+    q_re = q_new.reshape(t, n, d // 2, 2).permute(0, 1, 3, 2).reshape(t, n, d)
+
+    q_rotary = rotate_half(q_re).reshape((t, n, 2, d//2)).permute(0, 1, 3, 2).reshape((t, n, d))
 
     # (t, n_q, rope_dim), (t, 1, rope_dim) = (t, n_q, rope_dim)
-    q_embed = (q * cos) + (rotate_half(q) * -sin)
+    q_embed = (q_new * cos) + (q_rotary * -sin)
 
     if input_dtype != torch.float32:
         q_embed = q_embed.to(input_dtype)
-
-    q_embed = q_embed.unflatten(-1, (2, d // 2)).transpose(-1, -2).flatten(-2, -1)
 
     return q_embed
 
@@ -144,8 +144,8 @@ def gen_attention_post_v4_golden(dtype, params):
     attn_res = gen_uniform_data([t, n_q, d], -1, 1, dtype)
     cos = gen_uniform_data([t, rope_dim], -1, 1, dtype)
     sin = gen_uniform_data([t, rope_dim], -1, 1, dtype)
-    wo_a = gen_uniform_data([n_g, n_q * d // n_g, o_lora_rank], -1, 1, dtype)
-    wo_b = gen_uniform_data([n_g * o_lora_rank, h], -1, 1, dtype)
+    wo_a = gen_uniform_data([n_g, n_q * d // n_g, o_lora_rank], -0.1, 0.1, dtype)
+    wo_b = gen_uniform_data([n_g * o_lora_rank, h], -0.1, 0.1, dtype)
     hidden_states = torch.zeros([t, h]).to(dtype)
     inputs = [attn_res, cos, sin, wo_a, wo_b, hidden_states]
     rope_res, bmm_res, mm_res, nope_res = compute_attention_post(inputs, params)

@@ -81,23 +81,8 @@ def rotate_half(input_tensor: pypto.Tensor) -> pypto.Tensor:
     return pypto.concat([x2 * (-1.0), x1 + 0.0], -1)
 
 
-def interleaved_rope_3d(x: pypto.Tensor, cos: pypto.Tensor, sin: pypto.Tensor, rope_3d_config: Rope3dTileConfig) -> pypto.Tensor:
-    """Apply 3D Rotary Position Embedding (RoPE).
-
-    Implements RoPE transformation for 3D tensors with shape (batch, heads, dim).
-    The RoPE is applied independently to each head using broadcasted cos/sin values.
-
-    Args:
-        x: Input tensor of shape (batch, heads, rope_dim)
-        cos: Cosine values for RoPE, shape (batch, rope_dim)
-        sin: Sine values for RoPE, shape (batch, rope_dim)
-
-    Returns:
-        Tensor with RoPE applied, same shape as input x
-
-    Note:
-        The function broadcasts cos and sin to match the head dimension,
-        then applies rotation: x_rotated = x * cos + rotate_half(x) * (-sin)
+def inverse_rope_3d(x: pypto.Tensor, cos: pypto.Tensor, sin: pypto.Tensor, rope_3d_config: Rope3dTileConfig) -> pypto.Tensor:
+    """Apply inverse 3D Rotary Position Embedding.
     """
     assert (len(x.shape) == SHAPE_DIM_3 and len(cos.shape) == SHAPE_DIM_2 and len(sin.shape) == SHAPE_DIM_2)
 
@@ -111,18 +96,30 @@ def interleaved_rope_3d(x: pypto.Tensor, cos: pypto.Tensor, sin: pypto.Tensor, r
     cast_cos = pypto.reshape(cast_cos, [x.shape[0], 1, x.shape[2]])
     cast_sin = pypto.reshape(cast_sin, [x.shape[0], 1, x.shape[2]])
 
-    pypto.set_vec_tile_shapes(*rope_3d_config.four_dim_tile)  # (1, 64, 128, 128)
     x_view = pypto.reshape(cast_x, [x.shape[0], x.shape[1], x.shape[2] // 2, 2])
+    pypto.set_vec_tile_shapes(*rope_3d_config.four_dim_tile)  # (1, 64, 128, 128)
     x_trans = pypto.transpose(x_view, 2, 3)
     x_re_second = pypto.reshape(x_trans, x.shape)
-    x_embed = x_re_second * cast_cos + rotate_half(x_re_second) * cast_sin
+    pypto.set_vec_tile_shapes(*rope_3d_config.three_dim_tile)
+    x_rotate = rotate_half(x_re_second)
 
+    # add two extra transpose to avoid last axis unalign transpose
+    # origin calc flow: reshape(1,64,2,32)->transpose(1,64,32,2)->reshape(1,64,64)
+    # new calc flow: transpose(1,64,64)->reshape(1,2,32,64)->transpose(1,32,2,64)->reshape(1,64,64)->transpose(1,64,64)
+    x_rotate_trs_1 = pypto.transpose(x_rotate, 1, 2) # [1, 64.., 64]
+    x_rotate_reshape_1 = pypto.reshape(x_rotate_trs_1, [
+        x_rotate_trs_1.shape[0], 2, x_rotate_trs_1.shape[1] // 2, x_rotate_trs_1.shape[2]]) # [1, 2, 32, 64]
+    pypto.set_vec_tile_shapes(*rope_3d_config.four_dim_tile)
+    x_rotate_trs_2 = pypto.transpose(x_rotate_reshape_1, 1, 2) # [1, 32, 2, 64]
+    x_rotate_reshape_2 = pypto.reshape(x_rotate_trs_2, x_rotate.shape) # [1, 64.., 64]
+    pypto.set_vec_tile_shapes(*rope_3d_config.three_dim_tile)
+    x_rotate_res = pypto.transpose(x_rotate_reshape_2, 1, 2) # [1, 64, 64..]
+
+    pypto.set_vec_tile_shapes(*rope_3d_config.three_dim_tile) # (1, 64, 64)
+    x_embed = cast_x * cast_cos + x_rotate_res * cast_sin
     x_embed_cast = pypto.cast(x_embed, x.dtype)
-    x_embed_reshape = pypto.reshape(x_embed_cast, [x_embed_cast.shape[0], x_embed_cast.shape[1], 2, x_embed_cast.shape[2] // 2])
-    x_embed_trans = pypto.transpose(x_embed_reshape, 2, 3)
-    x_embed_res = pypto.reshape(x_embed_trans, x_embed_cast.shape)
 
-    return x_embed_res
+    return x_embed_cast
 
 
 def attention_post_compute(attn_res: pypto.Tensor, cos: pypto.Tensor, sin: pypto.Tensor,
@@ -180,7 +177,7 @@ def attention_post_compute(attn_res: pypto.Tensor, cos: pypto.Tensor, sin: pypto
         atten_res_rope = pypto.view(attn_res, [tile_t, n_q, rope_dim], [t_idx, 0, nope_dim]) # rope: (tile_t, n_q, 64)
         cos_in = pypto.view(cos, [tile_t, rope_dim], [t_idx, 0])
         sin_in = pypto.view(sin, [tile_t, rope_dim], [t_idx, 0])
-        rope_result = interleaved_rope_3d(atten_res_rope, cos_in, sin_in, rope3d_tile_config)
+        rope_result = inverse_rope_3d(atten_res_rope, cos_in, sin_in, rope3d_tile_config)
         pypto.assemble(rope_result, [0, 0, nope_dim], tmp_tensor) # (tile_t, n_q, d)
 
         # bmm1 left transpose: (tile_t, n_q, d) -> (n_g, tile_t, n_q * d / n_g)
