@@ -17,6 +17,7 @@ DEFOP(
     UnaryOp,
     INHERIT(ElementWiseUnaryTileBaseOp),
     OPCODE(
+        OP_ASSIGN,
         OP_EXP,
         OP_NEG,
         OP_RSQRT,
