@@ -15,7 +15,7 @@ from typing import List, overload
 import pypto
 import os
 
-from enum import Enum
+from enum import IntEnum
 from . import pypto_impl
 from .converter import _dtype_from, from_torch, _gen_pto_tensor
 
@@ -33,9 +33,14 @@ _device_init = pypto_impl.DeviceInit
 _device_fini = pypto_impl.DeviceFini
 
 
-class RunMode(Enum):
+class RunMode(IntEnum):
     NPU = 0
     SIM = 1
+
+
+class DebugMode(IntEnum):
+    NONE = 0
+    ALL = 1
 
 
 class _CachedVerifyData:

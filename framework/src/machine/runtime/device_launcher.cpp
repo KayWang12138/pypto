@@ -17,6 +17,7 @@
 #include "machine/runtime/device_launcher_binding.h"
 #include "machine/host/backend.h"
 #include "machine/runtime/host_prof.h"
+#include "cost_model/simulation/cost_model_launcher.h"
 namespace npu::tile_fwk::dynamic {
 namespace {
     constexpr uint32_t kMinDefaultDim = 20;
@@ -176,6 +177,13 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
     if (rc < 0) {
         return rc;
     }
+
+    // When runtime_debug_mode=1, enable RunTestMode for aicpu simulation
+    int64_t runtime_debug_mode = config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE);
+    if (runtime_debug_mode == CFG_DEBUG_ALL) {
+        RunTestMode(function, inputList, outputList, config);
+    }
+
     if (streamSynchronize) {
         rc = DeviceRunner::Get().DynamicLaunchSynchronize(aicpuStream, nullptr, aicoreStream);
     }
@@ -328,6 +336,30 @@ void CopyDevToHost(const DeviceTensorData &devTensor, DeviceTensorData &hostTens
     (void)devTensor;
     (void)hostTensor;
 #endif
+}
+
+void DeviceLauncher::RunTestMode(Function *function, const std::vector<DeviceTensorData> &inputList,
+        const std::vector<DeviceTensorData> &outputList, const DeviceLauncherConfig &config) {
+    int64_t runtime_debug_mode = config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE);
+    if (runtime_debug_mode != CFG_DEBUG_ALL) {
+        return;
+    }
+
+    if (function == nullptr || function->GetDyndevAttribute() == nullptr) {
+        return;
+    }
+
+    // Build DeviceKernelArgs for test mode (using host memory)
+    DeviceKernelArgs kArgsTest;
+    DeviceLauncherConfig testConfig = config;
+    testConfig.onBoard = false;
+    DeviceLauncherConfigFillDeviceInfo(testConfig);
+    CostModelLauncher::MemoryHelper memoryHelper(true);
+    DeviceInitTilingData(memoryHelper, kArgsTest, function->GetDyndevAttribute()->devProgBinary, testConfig, nullptr);
+    DeviceInitKernelInOuts(memoryHelper, kArgsTest, inputList, outputList,
+        function->GetDyndevAttribute()->disableL2List, config.isGETensorList);
+    std::cout << "Run TestModel (aicpu simulation) " << "\n";
+    CostModelLauncher::RunTestMode(&kArgsTest);
 }
 
 }

@@ -316,19 +316,24 @@ def get_verify_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]]
 
 
 def set_debug_options(*,
-                      compile_debug_mode: Optional[int] = None,
-                      runtime_debug_mode: Optional[int] = None
+                      compile_debug_mode: Optional[Union[int, "DebugMode"]] = None,
+                      runtime_debug_mode: Optional[Union[int, "DebugMode"]] = None
                       ) -> None:
     """
     Set debug options.
 
     Parameters
     ---------
-    compile_debug_mode : int
+    compile_debug_mode : int or DebugMode
         Whether to enable debug mode during compilation stage.
+        Can be 0/1 or DebugMode.NONE/DebugMode.ALL.
 
-    runtime_debug_mode : int
+    runtime_debug_mode : int or DebugMode
         Whether to enable debug mode during execution stage.
+        Can be 0/1 or DebugMode.NONE/DebugMode.ALL.
+        When set to 1 (or DebugMode.ALL), enables:
+        - Swimlane graph (performance profiling)
+        - AICPU simulation via RunTestMode
     """
     options_dict = {k: v for k, v in locals().items() if v is not None}
     set_options(debug_options=options_dict)

@@ -422,6 +422,10 @@ using aclmdlRI = void *;
     static bool DeviceRunCacheKernelEnable(Function *func);
     static void DeviceRunCacheKernelSet(Function *func, uint8_t *devProg);
     static uint8_t *DeviceRunCacheKernelGet(Function *func);
+
+    // RunTestMode for aicpu simulation (calls CostModelLauncher::RunTestMode)
+    static void RunTestMode(Function *function, const std::vector<DeviceTensorData> &inputList,
+            const std::vector<DeviceTensorData> &outputList, const DeviceLauncherConfig &config);
 };
 }
 #endif//SRC_MACHINE_DEVICE_LAUNCHER_H
