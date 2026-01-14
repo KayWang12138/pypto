@@ -24,7 +24,7 @@
 namespace pto {
 
 // ===== program =====
-void IRPrinter::VisitProgram_(ProgramModulePtr &pm) {
+void IRPrinter::VisitImplProgram(ProgramModulePtr &pm) {
     if (!pm)
         return;
 
@@ -54,7 +54,7 @@ void IRPrinter::VisitProgram_(ProgramModulePtr &pm) {
     if (auto entry = pm->GetProgramEntry()) {
         if (visited.insert(entry.get()).second) {
             FunctionPtr f = entry;
-            VisitFunction_(f);
+            VisitImplFunction(f);
             os_ << "\n";
         }
     }
@@ -65,7 +65,7 @@ void IRPrinter::VisitProgram_(ProgramModulePtr &pm) {
         if (!visited.insert(func.get()).second)
             continue;
         FunctionPtr f = func;
-        VisitFunction_(f);
+        VisitImplFunction(f);
         os_ << "\n";
     }
     Dedent();
@@ -76,7 +76,7 @@ void IRPrinter::VisitProgram_(ProgramModulePtr &pm) {
 }
 
 // ===== function =====
-void IRPrinter::VisitFunction_(FunctionPtr &func) {
+void IRPrinter::VisitImplFunction(FunctionPtr &func) {
     if (!func)
         return;
 
@@ -113,8 +113,7 @@ void IRPrinter::VisitFunction_(FunctionPtr &func) {
     // Print function body statements
     Indent();
     if (auto compound = func->GetCompound()) {
-        StatementPtr st = std::static_pointer_cast<Statement>(compound);
-        VisitStmt(st); // will go to VisitStmt_(CompoundStatementPtr&)
+        VisitImplStmt(compound);
     }
     Dedent();
 
@@ -133,7 +132,7 @@ void IRPrinter::VisitFunction_(FunctionPtr &func) {
 
 // ===== statements =====
 
-void IRPrinter::VisitStmt_(OpStatementPtr &st) {
+void IRPrinter::VisitImplStmt(OpStatementPtr &st) {
     if (!st)
         return;
 
@@ -156,7 +155,7 @@ void IRPrinter::VisitStmt_(OpStatementPtr &st) {
     os_ << "}\n";
 }
 
-void IRPrinter::VisitStmt_(IfStatementPtr &is) {
+void IRPrinter::VisitImplStmt(IfStatementPtr &is) {
     if (!is)
         return;
 
@@ -183,8 +182,7 @@ void IRPrinter::VisitStmt_(IfStatementPtr &is) {
 
     Indent();
     if (auto thenCompound = is->GetThenCompound()) {
-        StatementPtr thenSt = std::static_pointer_cast<Statement>(thenCompound);
-        VisitStmt(thenSt);
+        VisitImplStmt(thenCompound);
     }
     Dedent();
 
@@ -193,8 +191,7 @@ void IRPrinter::VisitStmt_(IfStatementPtr &is) {
 
     Indent();
     if (auto elseCompound = is->GetElseCompound()) {
-        StatementPtr elseSt = std::static_pointer_cast<Statement>(elseCompound);
-        VisitStmt(elseSt);
+        VisitImplStmt(elseCompound);
     }
     Dedent();
 
@@ -202,7 +199,7 @@ void IRPrinter::VisitStmt_(IfStatementPtr &is) {
     os_ << "}\n";
 }
 
-void IRPrinter::VisitStmt_(ForStatementPtr &fs) {
+void IRPrinter::VisitImplStmt(ForStatementPtr &fs) {
     if (!fs)
         return;
 
@@ -298,8 +295,7 @@ void IRPrinter::VisitStmt_(ForStatementPtr &fs) {
 
     Indent();
     if (auto compound = fs->GetCompound()) {
-        StatementPtr body = std::static_pointer_cast<Statement>(compound);
-        VisitStmt(body);
+        VisitImplStmt(compound);
     }
     Dedent();
 
@@ -307,7 +303,7 @@ void IRPrinter::VisitStmt_(ForStatementPtr &fs) {
     os_ << "}\n";
 }
 
-void IRPrinter::VisitStmt_(YieldStatementPtr &ys) {
+void IRPrinter::VisitImplStmt(YieldStatementPtr &ys) {
     if (!ys)
         return;
 
@@ -321,7 +317,7 @@ void IRPrinter::VisitStmt_(YieldStatementPtr &ys) {
     os_ << "\n";
 }
 
-void IRPrinter::VisitStmt_(ReturnStatementPtr &rs) {
+void IRPrinter::VisitImplStmt(ReturnStatementPtr &rs) {
     if (!rs)
         return;
 
@@ -335,7 +331,7 @@ void IRPrinter::VisitStmt_(ReturnStatementPtr &rs) {
     os_ << "\n";
 }
 
-void IRPrinter::VisitOp_(OperationPtr &op) {
+void IRPrinter::VisitImplOp(OperationPtr &op) {
     if (!op)
         return;
 
@@ -406,25 +402,25 @@ void IRPrinter::VisitOp_(OperationPtr &op) {
 }
 
 // ===== values =====
-void IRPrinter::VisitValue_(ScalarValuePtr &value) {
+void IRPrinter::VisitImplValue(ScalarValuePtr &value) {
     if (!value)
         return;
     PrintValue(value);
 }
 
-void IRPrinter::VisitValue_(TileValuePtr &value) {
+void IRPrinter::VisitImplValue(TileValuePtr &value) {
     if (!value)
         return;
     PrintValue(value);
 }
 
-void IRPrinter::VisitValue_(TensorValuePtr &value) {
+void IRPrinter::VisitImplValue(TensorValuePtr &value) {
     if (!value)
         return;
     PrintValue(value);
 }
 
-void IRPrinter::VisitValue_(ValuePtr &value) {
+void IRPrinter::VisitImplValue(ValuePtr &value) {
     if (!value)
         return;
     PrintValue(value);

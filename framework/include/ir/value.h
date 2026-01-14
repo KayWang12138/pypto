@@ -268,4 +268,6 @@ static inline std::vector<ValuePtr> CastScalarToValue(const std::vector<ScalarVa
     return valueList;
 }
 
+using TensorValuePtr = std::shared_ptr<TensorValue>;
+
 } // namespace pto
