@@ -17,8 +17,7 @@
 #include <memory>
 #include <unordered_set>
 #include "gtest/gtest.h"
-
-
+#include "ir/block_call.h"
 #include "ir/builder/ir_builder.h"
 #include "ir/builder/ir_context.h"
 #include "ir/opcode.h"
@@ -27,30 +26,36 @@
 #include "ir/statement.h"
 #include "ir/value.h"
 
-
+#include "tilefwk/tilefwk.h"
+#include "interface/inner/tilefwk.h"
+using namespace npu::tile_fwk;
 namespace pto{
 
 TEST(IRTEST, TestBuilder) {
     // ===== Module =====
     auto module = std::make_shared<ProgramModule>("main");
-    IRBuilder builder(module);
+    IRBuilder builder;
     IRBuilderContext ctx;
 
     // ===== Signature =====
     FunctionSignature sig;
 
     // tensor<[b, 128], fp32>
-    std::vector<uint64_t> tileShape = { 128, 128 };
+    std::vector<int64_t> tileShape = { 128, 128 };
 
     auto inputTensor  = std::make_shared<TileValue>(tileShape, DataType::FP32, "input");
+    inputTensor->Attributes()["io"] = "in";
     auto scale1       = std::make_shared<ScalarValue>(DataType::FP32, "scale1", ScalarValueKind::Symbolic);
-
+    scale1->Attributes()["io"] = "in";
     auto result = std::make_shared<TileValue>(tileShape, DataType::FP32, "output");
+    result->Attributes()["io"] = "out";
 
     sig.arguments = { inputTensor, scale1, result };
 
     // ===== Function =====
-    auto func = builder.CreateFunction("test_value", FunctionKind::ControlFlow, sig, /*setAsEntry=*/true);
+    auto func = builder.CreateFunction("test_value", FunctionKind::ControlFlow, sig);
+    module->AddFunction(func);
+    module->SetProgramEntry(func);
 
     // enter func scope + create an initial block as insertion point
     builder.EnterFunctionBody(ctx, func);
@@ -75,7 +80,6 @@ TEST(IRTEST, TestBuilder) {
 
     ctx.PopScope();
 
-
     ASSERT_EQ(ctx.func, nullptr);
     ASSERT_EQ(ctx.compound, nullptr);
     ASSERT_EQ(ctx.activeOpStmt, nullptr);
@@ -91,7 +95,7 @@ TEST(IRTEST, TestBuilder) {
 TEST(IRTEST, TestControlFlow) {
     // ===== Module =====
     auto module = std::make_shared<ProgramModule>("main");
-    IRBuilder builder(module);
+    IRBuilder builder;
     IRBuilderContext ctx;
 
     // ===== Signature =====
@@ -102,24 +106,31 @@ TEST(IRTEST, TestControlFlow) {
     auto constant128 = std::make_shared<ScalarValue>(int64_t(128), "const_128");
     std::vector<ScalarValuePtr> tensorShape = { batch, constant128 };
 
-    std::vector<uint64_t> tileShape = { 128, 128 };
+    std::vector<int64_t> tileShape = { 128, 128 };
 
     auto inputX = std::make_shared<TensorValue>(tensorShape, DataType::FP32, "inputX");
+    inputX->Attributes()["io"] = "in";
     auto inputY = std::make_shared<TensorValue>(tensorShape, DataType::FP32, "inputY");
+    inputY->Attributes()["io"] = "in";
     auto scale1 = std::make_shared<ScalarValue>(DataType::FP32, "scale1", ScalarValueKind::Symbolic);
+    scale1->Attributes()["io"] = "in";
     auto scale2 = std::make_shared<ScalarValue>(DataType::FP32, "scale2", ScalarValueKind::Symbolic);
+    scale2->Attributes()["io"] = "in";
 
     auto resultX = std::make_shared<TensorValue>(tensorShape, DataType::FP32, "outputX");
+    resultX->Attributes()["io"] = "out";
     auto resultY = std::make_shared<TensorValue>(tensorShape, DataType::FP32, "outputY");
+    resultY->Attributes()["io"] = "out";
 
     sig.arguments = { inputX, inputY, scale1, scale2, resultX, resultY };
 
     sig.results.push_back(std::make_shared<ScalarValue>(DataType::INT32));
 
     // ===== Function =====
-    auto func = builder.CreateFunction("test_control", FunctionKind::ControlFlow, sig, /*setAsEntry=*/false);
+    auto func = builder.CreateFunction("test_control", FunctionKind::ControlFlow, sig);
+    module->AddFunction(func);
     module->SetProgramEntry(func);
-        // 进入函数体作用域
+        // 进入函数体作用域 
     builder.EnterFunctionBody(ctx, func);
 
     // for i = 0 to batch step 1
@@ -206,4 +217,48 @@ TEST(IRTEST, TestControlFlow) {
     std::cout << *module << std::endl;
 }
 
+std::shared_ptr<Function> TestBlockFunction(
+    const std::vector<TileValuePtr> &inputArgs,
+    const std::vector<TileValuePtr> &outputArgs,
+    [[maybe_unused]]const std::vector<ScalarValuePtr> &indices) 
+{
+    IRBuilderContext ctx;
+    IRBuilder builder;
+    FunctionSignature sig = FunctionSignature(inputArgs, outputArgs);
+    sig.results.push_back(std::make_shared<ScalarValue>(DataType::INT32));
+
+    auto func = builder.CreateFunction("test_all_ops", FunctionKind::ControlFlow, sig);
+    builder.EnterFunctionBody(ctx, func);
+
+    // tensorAdd = add(input[0], input[1])
+    auto tileAdd = builder.CreateTile(ctx, inputArgs[0]->GetShape(), DataType::FP32, "tensorAdd");
+    auto addOp = builder.CreateBinaryOp(Opcode::OP_ADD, inputArgs[0], inputArgs[1], tileAdd);
+    builder.Emit(ctx, addOp);
+
+    auto divOp = builder.CreateBinaryOp(Opcode::OP_DIV, inputArgs[0], tileAdd, outputArgs[0]);
+    builder.Emit(ctx, divOp);
+
+    builder.CreateReturn(ctx, {});
+
+    ctx.PopScope();
+
+    return func;
+}
+
+TEST(IRTEST, TestDynControlFlow)
+{
+    constexpr int LOOP_ITERATION = 8;
+    std::vector<int64_t> shape = {64, 64 * LOOP_ITERATION};
+    std::vector<int64_t> shapeTemp = {64, 64};
+    Tensor inputA(DT_FP32, shape, "A");
+    Tensor inputB(DT_FP32, shape, "B");
+    Tensor output(DT_FP32, shape, "C");
+
+    std::string funcName = "TestNewIR";
+    FUNCTION(funcName, {inputA, inputB}, {output}) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, npu::tile_fwk::LoopRange(LOOP_ITERATION)) {
+            CallBlock(TestBlockFunction, {inputA, inputB}, {output}, {i});
+        }
+    }
+}
 } // namespace pto

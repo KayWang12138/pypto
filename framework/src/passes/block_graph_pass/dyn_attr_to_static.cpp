@@ -121,7 +121,7 @@ struct IsConstMetric {
     void MarkNotConst() {isConst = 0;}
     int GetIsConst() {return isConst;}
     int GetAttrValue() {return attrValue;}
-    bool UpdateValue(int newValue) {
+    bool TryInitAndCheckEqual(int newValue) {
         if (attrValue == -1) {
             attrValue = newValue;
             return true;
@@ -131,7 +131,7 @@ struct IsConstMetric {
             isConst = 0;
             return false;
         }
-        return false;
+        return true;
     }
 };
 
@@ -273,12 +273,15 @@ Status DynAttrToStatic::BuildNewCoa(
     
     // 2. 遍历不同caller下的取值，确认是否是常数
     IsConstMetric scalarValue;
-    for (auto argList : callopArglistOneDim) {
-        auto callopAttr = argList[coaIndex];
+    for (auto& argList : callopArglistOneDim) {
+        auto& callopAttr = argList[coaIndex];
         if (!callopAttr.IsImmediate()) {
             scalarValue.MarkNotConst();
+            break;
         } else {
-            scalarValue.UpdateValue(callopAttr.Concrete());
+            if (!scalarValue.TryInitAndCheckEqual(callopAttr.Concrete())) {
+                break;
+            }
         }
     }
 
@@ -300,7 +303,7 @@ inline int GetCoaIndex(const DynParamInfo &paramInfo) {
 
 void ReplaceCommonSymbol(Function *leafFunc, std::vector<std::vector<SymbolicScalar>> &callopArglistOneDim) {
     VectorParamConsistencyChecker checker;
-    for (auto argList : callopArglistOneDim) {
+    for (auto& argList : callopArglistOneDim) {
         checker.RegisterCall(argList);
     }
     auto allRes1 = checker.GetAllConsistentIndexGroups();
@@ -330,8 +333,12 @@ void ReplaceCommonSymbol(Function *leafFunc, std::vector<std::vector<SymbolicSca
             if (index2BaseSymbol.find(index2GroupId[coaIdx]) == index2BaseSymbol.end()) {
                 leafFunc->GetMutableDynParam(symbolStr).isBaseParam = true;
                 index2BaseSymbol[index2GroupId[coaIdx]] = symbolStr;
+                APASS_LOG_INFO_F(Elements::Operation, "Mark coaIndex[%d] groupId[%zu] symbolStr[%s] as baseParam",
+                    coaIdx, index2GroupId[coaIdx], symbolStr.c_str());
             } else {
                 leafFunc->GetMutableDynParam(symbolStr).replacedSymbol = index2BaseSymbol[index2GroupId[coaIdx]];
+                APASS_LOG_INFO_F(Elements::Operation, "Replace coaIndex[%d] groupId[%zu] symbolStr[%s] with baseParam[%s]", 
+                    coaIdx, index2GroupId[coaIdx], symbolStr.c_str(), index2BaseSymbol[index2GroupId[coaIdx]]);
             }
         }
     }
@@ -368,7 +375,7 @@ void ReBuildConcreteParam(Function *leafFunc, std::vector<std::vector<SymbolicSc
                 if (!callopAttr.IsImmediate()) {
                     return false;
                 }
-                if (!scalarValue.UpdateValue(callopAttr.Concrete())) {
+                if (!scalarValue.TryInitAndCheckEqual(callopAttr.Concrete())) {
                     return false; 
                 }
             }

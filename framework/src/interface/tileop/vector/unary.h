@@ -33,6 +33,10 @@ TILEOP void UnaryComputeImpl(T0 dst, T1 src) {
         pto::TSQRT(dst, src);
         return;
     }
+    if constexpr (op == UnaryOp::ABS) {
+        pto::TABS(dst, src);
+        return;
+    }
 }
 
 template <UnaryOp op, typename T0, typename T1>
@@ -64,18 +68,26 @@ TILEOP void UnaryCompute(T0 dst, T1 src) {
     }
 }
 
+#define OP_TILE_OP_EXP TExp
 template <typename T0, typename T1>
 TILEOP void TExp(T0 dst, T1 src) {
     UnaryCompute<UnaryOp::EXP>(dst, src);
 }
 
+#define OP_TILE_OP_RSQRT TRsqrt
 template <typename T0, typename T1>
 TILEOP void TRsqrt(T0 dst, T1 src) {
     UnaryCompute<UnaryOp::RSQRT>(dst, src);
 }
 
+#define OP_TILE_OP_SQRT TSqrt
 template <typename T0, typename T1>
 TILEOP void TSqrt(T0 dst, T1 src) {
     UnaryCompute<UnaryOp::SQRT>(dst, src);
+}
+
+template <typename T0, typename T1>
+TILEOP void TAbs(T0 dst, T1 src) {
+    UnaryCompute<UnaryOp::ABS>(dst, src);
 }
 #endif

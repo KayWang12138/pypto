@@ -87,7 +87,6 @@ static std::map<std::string, ValueType> g_debugConfig = {
 };
 
 static std::map<std::string, ValueType> g_globalConfig = {
-    {PROFILE_ENABLE, false},
     {COST_MODEL_ENABLE, false},
 };
 
@@ -364,6 +363,7 @@ void experimental::SetOption(const std::string &key, const std::vector<int64_t> 
 }
 
 void experimental::SetOption(const std::string &key, const std::vector<std::string> &value) {
+    ConfigManagerNg::CurrentScope()->UpdateValue(key, value);
     g_rwlock.lock();
     g_config.options[StringUtils::ToLower(key)] = value;
     g_rwlock.unlock();
@@ -411,6 +411,22 @@ void Restore(std::shared_ptr<ConfigScope> config) {
     ConfigManagerNg::GetInstance().PushScope(config);
     g_rwlock.unlock();
 }
+
+template <typename T>
+void SetOptionsNg(const std::string &key, const T &value){
+    ConfigManagerNg::CurrentScope()->UpdateValue(key, value);
+}
+
+template void SetOptionsNg<bool>(const std::string &key, const bool &value);
+template void SetOptionsNg<int>(const std::string &key, const int &value);
+template void SetOptionsNg<double>(const std::string &key, const double &value);
+template void SetOptionsNg<std::string>(const std::string &key, const std::string &value);
+template void SetOptionsNg<long>(const std::string &key, const long &value);
+template void SetOptionsNg<uint8_t>(const std::string &key, const uint8_t &value);
+template void SetOptionsNg<std::map<int, int>>(const std::string &key, const std::map<int, int> &value);
+template void SetOptionsNg<std::map<long, long>>(const std::string &key, const std::map<long, long> &value);
+template void SetOptionsNg<std::vector<int>>(const std::string &key, const std::vector<int> &value);
+template void SetOptionsNg<std::vector<std::string>>(const std::string &key, const std::vector<std::string> &value);
 
 } // namespace config
 } // namespace npu::tile_fwk

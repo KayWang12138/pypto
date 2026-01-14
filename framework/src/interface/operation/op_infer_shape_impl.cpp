@@ -473,8 +473,9 @@ void Load2L1InferFunc(Operation* op,
     }
 }
 REGISTER_INFER_SHAPE_FUNC(OP_L0C_TO_L1, Opcode::OP_L0C_TO_L1, Load2L1InferFunc);
-REGISTER_INFER_SHAPE_FUNC(UB_COPY_L1, Opcode::OP_UB_COPY_L1, Load2L1InferFunc);
-REGISTER_INFER_SHAPE_FUNC(UB_COPY_ND2NZ, Opcode::OP_UB_COPY_ND2NZ, Load2L1InferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_UB_COPY_L1, Opcode::OP_UB_COPY_L1, Load2L1InferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_UB_COPY_ND2NZ, Opcode::OP_UB_COPY_ND2NZ, Load2L1InferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_L0C_COPY_UB, Opcode::OP_L0C_COPY_UB, Load2L1InferFunc);
 
 // MTE infer shape func
 template <bool isTrans = false>
@@ -727,7 +728,7 @@ void ViewInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outV
             OpImmediate::NormalizeValue(inputValidShape, 0, shapeImm, 0, false);
         }
         auto newDynValidShape = GetViewValidShape(inputValidShape, viewOpAttribute->GetFromOffset(),
-                                                    viewOpAttribute->GetFromDynOffset(), op->GetOOperands()[0]->GetShape());
+                                                    viewOpAttribute->GetFromDynOffset(), op->GetOOperands()[0]->oriShape);
         for (auto output : op->GetOOperands()) {
             outValidShapes.push_back(newDynValidShape);
         }

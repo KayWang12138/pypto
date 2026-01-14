@@ -377,17 +377,14 @@ struct MatmulExtendParam {
     MatmulExtendParam() = default;
 };
 
-template <bool isATrans = false, bool isBTrans = false, bool isCMatrixNZ = false>
-Tensor Matmul(DataType outType, const Tensor &aMatrix, const Tensor &bMatrix);
+Tensor Matmul(DataType outType, const Tensor &aMatrix, const Tensor &bMatrix, bool isATrans = false,
+    bool isBTrans = false, bool isCMatrixNZ = false);
 
-template <bool isATrans = false, bool isBTrans = false, bool isCMatrixNZ = false>
-Tensor Matmul(DataType outType, const Tensor &aMatrix, const Tensor &bMatrix, const Tensor &cMatrix);
+Tensor Matmul(DataType outType, const Tensor &aMatrix, const Tensor &bMatrix, const MatmulExtendParam &extendParam,
+    bool isATrans = false, bool isBTrans = false, bool isCMatrixNZ = false);
 
-template <bool isATrans = false, bool isBTrans = false, bool isCMatrixNZ = false>
-Tensor Matmul(DataType outType, const Tensor &aMatrix, const Tensor &bMatrix, const MatmulExtendParam &extendParam);
-
-template <bool isATrans = false, bool isBTrans = false, bool isCMatrixNZ = false>
-Tensor BatchMatmul(DataType dataType, const Tensor &aMatrix, const Tensor &bMatrix);
+Tensor BatchMatmul(DataType dataType, const Tensor &aMatrix, const Tensor &bMatrix, bool isATrans = false,
+    bool isBTrans = false, bool isCMatrixNZ = false);
 
 Tensor QuantMM(const Tensor &operand1, const Tensor &operand2, const Tensor &dequantScaleW);
 } // namespace Matrix
@@ -408,15 +405,17 @@ struct MoeConfig {
 void MoeDispatch(const Tensor& tokenTensor, const Tensor& tokenExpertTable, Tensor& expandX, Tensor& validCnt,
     Tensor& combineInfo, const char *group, const MoeConfig& moeConfig);
 void AllGather(const Tensor& predToken, const Tensor& in, const char* group, uint32_t worldSize, Tensor& out);
-void ShmemBarrier(const Tensor& predToken, Tensor& shmemSignal, const char* group, Tensor& out);
-Tensor ShmemSet(const Tensor& predToken, const Tensor& shmemTensor);
+void ShmemBarrier(const Tensor& predToken, Tensor& shmemSignal, const char* group, uint32_t worldSize, Tensor& out);
+Tensor ShmemDataSet(const Tensor& predToken, const Tensor& shmemData);
+Tensor ShmemSignalSet(const Tensor& predToken, const Tensor& shmemSignal);
 void ReduceScatter(const Tensor& predToken, const Tensor& in, const char* group, uint32_t worldSize, DistReduceType reduceType, Tensor& out);
 void OneShotAllReduce(const Tensor& predToken, const Tensor& in, const char* group, uint32_t worldSize, Tensor& out);
 void OneShotAllReduce(const Tensor& predToken, const Tensor& in, const Tensor& shmemData, const Tensor& shmemSignal,
     const char* group, uint32_t worldSize, Tensor& out);
 void TwoShotAllReduce(const Tensor& predToken, const Tensor& in, const char* group, uint32_t worldSize, Tensor& out);
-void ShmemMoeCombine(const Tensor& in, const Tensor& combineInfo, const Tensor& scale, const char* group,
-    int32_t rankSize, int32_t totalExpertNum, Tensor& out);
+void MoeDistributedCombine(const Tensor& expandX, const Tensor& assistInfoForCombine, const Tensor& recvCounts,
+    const Tensor& expertScales, const char* group, uint32_t epWorldSize, uint32_t moeExpertNum,
+    uint32_t sharedExpertNum, uint32_t sharedExpertRankNum, Tensor& out);
 void CreateShmemData(const char *group, int64_t worldSize, DataType dataType,
     const Shape &shape, Tensor &shmemTensor, uint64_t memType = 0);
 void CreateShmemSignal(const char *group, Tensor &shmemData, Tensor &shmemSignal);
