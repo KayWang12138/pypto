@@ -18,7 +18,6 @@
 #include "ir/program.h"
 #include "ir/function.h"
 
-using namespace pto;
 
 // Register test config items
 REGISTER_CONFIG(test_int32, int32_t(100));
@@ -27,6 +26,7 @@ REGISTER_CONFIG(test_uint8, uint8_t(42));
 REGISTER_CONFIG(test_uint16, uint16_t(1000));
 REGISTER_CONFIG(test_map, (std::map<int64_t, int64_t>{{1, 2}, {3, 4}}));
 
+namespace pto {
 class ConfigTest : public testing::Test {
 public:
     void SetUp() override {
@@ -286,3 +286,4 @@ TEST_F(ConfigTest, TestMakeConfigEntryHelper) {
     EXPECT_TRUE(config.Get<bool>(CONFIG_test_bool));
 }
 
+} // namespace pto
