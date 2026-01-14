@@ -490,6 +490,17 @@ Status OptimizeSort::RebuildStateToIndex(const std::vector<Operation*> &curOpLis
     return SUCCESS;
 }
 
+Status OptimizeSort::UndoAndStepBack(size_t &startIndex, std::vector<Operation*> &curOpList,
+    std::map<MemoryType, int64_t> &curMemoryMap) {
+    Operation* prevOp = curOpList[startIndex];
+    if (UndoOpEffects(prevOp, curMemoryMap) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "Backtrace undo failed for %s", GetOpInfo(prevOp).c_str());
+        return FAILED;
+    }
+    startIndex--;
+    return SUCCESS;
+}
+
 uint64_t OptimizeSort::MakeBacktraceKey(size_t startIndex, MemoryType memType,
     const std::vector<Operation*> &curOpList) const {
     uint64_t key = 1469598103934665603ULL;
@@ -515,6 +526,43 @@ uint64_t OptimizeSort::MakeBacktraceKey(size_t startIndex, MemoryType memType,
     return key;
 }
 
+bool OptimizeSort::IsBacktraceRepeat(size_t startIndex, MemoryType memType, const std::vector<Operation*> &curOpList) {
+    uint64_t key = MakeBacktraceKey(startIndex, memType, curOpList);
+    if (!backtraceSeen.insert(key).second) {
+        APASS_LOG_ERROR_F(Elements::Operation, "Backtrace detected repeat state at index %d, memType %d",
+            startIndex, memType);
+        return true;
+    }
+    return false;
+}
+
+bool OptimizeSort::TryReorderAtIndex(size_t startIndex, MemoryType memType, std::vector<Operation*> &curOpList,
+    std::map<MemoryType, int64_t> &curMemoryMap) {
+    auto op = curOpList[startIndex];
+    if (!backtraceStack.empty() && backtraceStack.top().op == op) {
+        APASS_LOG_DEBUG_F(Elements::Operation, "Having traversed %s, the stack needs to be popped", GetOpInfo(op).c_str());
+        return false;
+    }
+    if (op->GetOutputOperand(0)->GetMemoryTypeOriginal() != memType || IsOpAlloc(op)) {
+        return false;
+    }
+    APASS_LOG_DEBUG_F(Elements::Operation, "===>start to find unvisited consumer");
+    APASS_LOG_DEBUG_F(Elements::Operation, "current index： %d", startIndex);
+    std::vector<Operation*> consumersGroup;
+    GetConsumerGroup(outGraph[op], consumersGroup);
+    if (consumersGroup.empty()) {
+        return false;
+    }
+    APASS_LOG_DEBUG_F(Elements::Operation, "push %s to stack", GetOpInfo(op).c_str());
+    backtraceStack.push({op, memType, MakeCheckpoint(startIndex, curOpList, curMemoryMap)});
+    if (UpdateOOperandPreDependence(startIndex, curOpList, consumersGroup) != SUCCESS) {
+        backtraceStack.pop();
+        APASS_LOG_DEBUG_F(Elements::Operation, "UpdateOOperandPreDependence failed.");
+        return false;
+    }
+    return true;
+}
+
 // 找未被执行的 consumer
 void OptimizeSort::GetConsumerGroup(std::set<Operation*> consumers, std::vector<Operation*> &consumersGroup) {
     for (auto op : consumers) {
@@ -537,45 +585,21 @@ Status OptimizeSort::BacktraceOnMemoryExceeded(size_t &startIndex,
     std::vector<Operation*> &curOpList, std::map<MemoryType, int64_t> &curMemoryMap) {
     APASS_LOG_DEBUG_F(Elements::Tensor, "=====> Start Backtrace.");
     MemoryType memType = curOpList[startIndex]->GetOutputOperand(0)->GetMemoryTypeOriginal();
-    uint64_t key = MakeBacktraceKey(startIndex, memType, curOpList);
-    if (!backtraceSeen.insert(key).second) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Backtrace detected repeat state at index %d, memType %d",
-            startIndex, memType);
+    if (IsBacktraceRepeat(startIndex, memType, curOpList)) {
         return FAILED;
     }
-    std::vector<Operation*> consumersGroup;
     while (startIndex < curOpList.size() && startIndex > 0) {
-        Operation* prevOp = curOpList[startIndex];
-        if (UndoOpEffects(prevOp, curMemoryMap) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Backtrace undo failed for %s", GetOpInfo(prevOp).c_str());
+        if (UndoAndStepBack(startIndex, curOpList, curMemoryMap) != SUCCESS) {
             return FAILED;
         }
-        startIndex--;
-        auto op = curOpList[startIndex];
-        if (!backtraceStack.empty() && backtraceStack.top().op == op) {
-            APASS_LOG_DEBUG_F(Elements::Operation, "Having traversed %s, the stack needs to be popped", GetOpInfo(op).c_str());
+        if (TryReorderAtIndex(startIndex, memType, curOpList, curMemoryMap)) {
+            startIndex++;
+            APASS_LOG_DEBUG_F(Elements::Operation, "Backtrace==>change startIndex: %d", startIndex);
+            return SUCCESS;
+        }
+        if (!backtraceStack.empty() && backtraceStack.top().op == curOpList[startIndex]) {
             break;
         }
-        if (op->GetOutputOperand(0)->GetMemoryTypeOriginal() != memType || IsOpAlloc(op)) {
-            continue;
-        }
-        APASS_LOG_DEBUG_F(Elements::Operation, "===>start to find unvisited consumer");
-        APASS_LOG_DEBUG_F(Elements::Operation, "current index： %d", startIndex);
-        consumersGroup.clear();
-        GetConsumerGroup(outGraph[op], consumersGroup);
-        if (consumersGroup.empty()) {
-            continue;
-        }
-        APASS_LOG_DEBUG_F(Elements::Operation, "push %s to stack", GetOpInfo(op).c_str());
-        backtraceStack.push({op, memType, MakeCheckpoint(startIndex, curOpList, curMemoryMap)});
-        if (UpdateOOperandPreDependence(startIndex, curOpList, consumersGroup) != SUCCESS) {
-            backtraceStack.pop();
-            APASS_LOG_DEBUG_F(Elements::Operation, "UpdateOOperandPreDependence failed.");
-            continue;
-        }
-        startIndex++;
-        APASS_LOG_DEBUG_F(Elements::Operation, "Backtrace==>change startIndex: %d", startIndex);
-        return SUCCESS;
     }
     if (backtraceStack.empty()) {
         APASS_LOG_WARN_F(Elements::Tensor, "Stack is empty. Start to rollback.");

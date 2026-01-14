@@ -122,6 +122,11 @@ public:
     void UpdateVisitedByIndex(const std::vector<Operation*> &curOpList, size_t startIndex, bool startIndexExecuted);
     Status RebuildStateToIndex(const std::vector<Operation*> &curOpList, size_t endIndex,
         std::map<MemoryType, int64_t> &curMemoryMap);
+    Status UndoAndStepBack(size_t &startIndex, std::vector<Operation*> &curOpList,
+        std::map<MemoryType, int64_t> &curMemoryMap);
+    bool IsBacktraceRepeat(size_t startIndex, MemoryType memType, const std::vector<Operation*> &curOpList);
+    bool TryReorderAtIndex(size_t startIndex, MemoryType memType, std::vector<Operation*> &curOpList,
+        std::map<MemoryType, int64_t> &curMemoryMap);
 
 
 };
