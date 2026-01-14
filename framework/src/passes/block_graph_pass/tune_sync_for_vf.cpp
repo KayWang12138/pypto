@@ -22,9 +22,6 @@
 namespace npu {
 namespace tile_fwk {
 bool TuneSyncForVF::NeedAdjustSetFlag(Function *subGraphFunc, Operation *vecTileOp0, Operation *vecTileOp1, Operation *setFlag) {
-    // if (!subGraphFunc->setWaitOpMap.count(vecTileOp0)) {
-    //     return true;
-    // }
     PipeType pipeX = setFlag->syncQueue_.trigPipeId_;
     float tv = static_cast<float>(subGraphFunc->pipeEndTime[PipeType::PIPE_V]);
     float tx = static_cast<float>(subGraphFunc->pipeEndTime[pipeX]);
@@ -41,9 +38,6 @@ bool TuneSyncForVF::NeedAdjustSetFlag(Function *subGraphFunc, Operation *vecTile
 }
 
 bool TuneSyncForVF::NeedAdjustWaitFlag(Function *subGraphFunc, Operation *vecTileOp0, Operation *vecTileOp1, Operation *waitFlag) {
-    // if (!subGraphFunc->waitSetOpMap.count(vecTileOp1)) {
-    //     return true;
-    // }
     PipeType pipeX = waitFlag->syncQueue_.pipeId_;
     float tv = static_cast<float>(subGraphFunc->pipeEndTime[PipeType::PIPE_V]);
     float tx = static_cast<float>(subGraphFunc->pipeEndTime[pipeX]);
@@ -78,7 +72,6 @@ void TuneSyncForVF::GenPipeOpMap(Function *subGraphFunc) {
 
 Status TuneSyncForVF::AdjustSetWaitFlag(Function *subGraphFunc, std::vector<Operation *> &setFlagList, 
         std::vector<Operation *> &waitFlagList, size_t vecTileOp0Idx, size_t vecTileOp1Idx, int groupNum) {
-    auto vecTileOp0 = opList_[vecTileOp0Idx];
     auto vecTileOp1 = opList_[vecTileOp1Idx];
     // 改变opList执行顺序
     // 先将setwaitflag删掉
@@ -134,10 +127,6 @@ Status TuneSyncForVF::AdjustSetWaitFlag(Function *subGraphFunc, std::vector<Oper
     for (auto &setFlag : setFlagList) {
         findFlag = false;
         auto pipeX = setFlag->syncQueue_.trigPipeId_;
-        // if (!subGraphFunc->setWaitOpMap.count(vecTileOp0)) {
-        //     continue;
-        // }
-        // auto &tileOpZ = subGraphFunc->setWaitOpMap[vecTileOp0];
         auto &tileOpZ = subGraphFunc->setOpMap[setFlag];
         // 在pipeX的队列中找到tileopZ
         auto &pipeXops = pipeOpMap[pipeX];
@@ -150,7 +139,6 @@ Status TuneSyncForVF::AdjustSetWaitFlag(Function *subGraphFunc, std::vector<Oper
                 } else {
                     preOpEndTime = pipeXops[k-1]->cycleEnd;
                 }
-                auto preOpEndTime = pipeXops[k-1]->cycleEnd;
                 auto tileOpZNewStartTime = std::max(preOpEndTime, curVecTileOp1EndTime);
                 int moveDist = tileOpZ->cycleStart - tileOpZNewStartTime;
                 for (size_t j = k; j < pipeXops.size(); j++) {
@@ -171,10 +159,6 @@ Status TuneSyncForVF::AdjustSetWaitFlag(Function *subGraphFunc, std::vector<Oper
     for (auto &waitFlag : waitFlagList) {
         findFlag = false;
         auto pipeX = waitFlag->syncQueue_.pipeId_;
-        // if (!subGraphFunc->waitSetOpMap.count(vecTileOp1)) {
-        //     continue;
-        // }
-        // auto &tileOpZ = subGraphFunc->waitSetOpMap[vecTileOp1];
         auto &tileOpZ = subGraphFunc->waitOpMap[waitFlag];
         // 在pipeX的队列中找到tileopZ
         auto &pipeXops = pipeOpMap[pipeX];
