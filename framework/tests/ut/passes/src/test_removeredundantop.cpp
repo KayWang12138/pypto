@@ -978,7 +978,7 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest18) {
     EXPECT_EQ(removeredundantpass.PostCheck(*currFunctionPtr), SUCCESS);
 
     uint32_t assembleNum = kNumZero;
-    for (auto &op : currFunctionPtr->Operations()) {
+    for (const auto &op : currFunctionPtr->Operations()) {
         if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
             ++assembleNum;
         }
