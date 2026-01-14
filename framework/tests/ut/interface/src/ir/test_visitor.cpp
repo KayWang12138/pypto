@@ -50,78 +50,78 @@ public:
     int tensorValueCount = 0;
 
     // Bring in base class methods to avoid overloaded-virtual warnings
-    using IRVisitor::VisitOp_;
-    using IRVisitor::VisitStmt_;
-    using IRVisitor::VisitValue_;
+    using IRVisitor::VisitImplOp;
+    using IRVisitor::VisitImplStmt;
+    using IRVisitor::VisitImplValue;
 
-    void VisitProgram_(ProgramModulePtr &program) override {
+    void VisitImplProgram(ProgramModulePtr &program) override {
         programCount++;
-        IRVisitor::VisitProgram_(program);
+        IRVisitor::VisitImplProgram(program);
     }
 
-    void VisitFunction_(FunctionPtr &func) override {
+    void VisitImplFunction(FunctionPtr &func) override {
         functionCount++;
-        IRVisitor::VisitFunction_(func);
+        IRVisitor::VisitImplFunction(func);
     }
 
-    void VisitStmt_(CompoundStatementPtr &stmt) override {
+    void VisitImplStmt(CompoundStatementPtr &stmt) override {
         compoundStmtCount++;
-        IRVisitor::VisitStmt_(stmt);
+        IRVisitor::VisitImplStmt(stmt);
     }
 
-    void VisitStmt_(OpStatementPtr &stmt) override {
+    void VisitImplStmt(OpStatementPtr &stmt) override {
         opStmtCount++;
-        IRVisitor::VisitStmt_(stmt);
+        IRVisitor::VisitImplStmt(stmt);
     }
 
-    void VisitStmt_(ForStatementPtr &stmt) override {
+    void VisitImplStmt(ForStatementPtr &stmt) override {
         forStmtCount++;
-        IRVisitor::VisitStmt_(stmt);
+        IRVisitor::VisitImplStmt(stmt);
     }
 
-    void VisitStmt_(IfStatementPtr &stmt) override {
+    void VisitImplStmt(IfStatementPtr &stmt) override {
         ifStmtCount++;
-        IRVisitor::VisitStmt_(stmt);
+        IRVisitor::VisitImplStmt(stmt);
     }
 
-    void VisitStmt_(YieldStatementPtr &stmt) override {
+    void VisitImplStmt(YieldStatementPtr &stmt) override {
         yieldStmtCount++;
-        IRVisitor::VisitStmt_(stmt);
+        IRVisitor::VisitImplStmt(stmt);
     }
 
-    void VisitStmt_(ReturnStatementPtr &stmt) override {
+    void VisitImplStmt(ReturnStatementPtr &stmt) override {
         returnStmtCount++;
-        IRVisitor::VisitStmt_(stmt);
+        IRVisitor::VisitImplStmt(stmt);
     }
 
     // ---- operations ----
 #define DEFOP(name, inherit, opcode, ...)   \
-    void VisitOp_(name##Ptr &op) override { \
+    void VisitImplOp(name##Ptr &op) override { \
         operationCount++;                   \
-        IRVisitor::VisitOp_(op);            \
+        IRVisitor::VisitImplOp(op);            \
     }
 #include "ir/operation.def"
 #include "ir/tile_graph.def"
 #undef DEFOP
 
-    void VisitOp_(OperationPtr &op) override {
+    void VisitImplOp(OperationPtr &op) override {
         operationCount++;
-        IRVisitor::VisitOp_(op);
+        IRVisitor::VisitImplOp(op);
     }
 
-    void VisitValue_(ScalarValuePtr &value) override {
+    void VisitImplValue(ScalarValuePtr &value) override {
         scalarValueCount++;
-        IRVisitor::VisitValue_(value);
+        IRVisitor::VisitImplValue(value);
     }
 
-    void VisitValue_(TileValuePtr &value) override {
+    void VisitImplValue(TileValuePtr &value) override {
         tileValueCount++;
-        IRVisitor::VisitValue_(value);
+        IRVisitor::VisitImplValue(value);
     }
 
-    void VisitValue_(TensorValuePtr &value) override {
+    void VisitImplValue(TensorValuePtr &value) override {
         tensorValueCount++;
-        IRVisitor::VisitValue_(value);
+        IRVisitor::VisitImplValue(value);
     }
 };
 
@@ -133,27 +133,27 @@ public:
     std::unordered_set<ValuePtr> visitedValues;
 
     // Bring in base class methods to avoid overloaded-virtual warnings
-    using IRVisitor::VisitValue_;
+    using IRVisitor::VisitImplValue;
 
-    void VisitValue_(ScalarValuePtr &value) override {
+    void VisitImplValue(ScalarValuePtr &value) override {
         if (value) {
             visitedValues.insert(value);
         }
-        IRVisitor::VisitValue_(value);
+        IRVisitor::VisitImplValue(value);
     }
 
-    void VisitValue_(TileValuePtr &value) override {
+    void VisitImplValue(TileValuePtr &value) override {
         if (value) {
             visitedValues.insert(value);
         }
-        IRVisitor::VisitValue_(value);
+        IRVisitor::VisitImplValue(value);
     }
 
-    void VisitValue_(TensorValuePtr &value) override {
+    void VisitImplValue(TensorValuePtr &value) override {
         if (value) {
             visitedValues.insert(value);
         }
-        IRVisitor::VisitValue_(value);
+        IRVisitor::VisitImplValue(value);
     }
 };
 
@@ -189,7 +189,7 @@ TEST(IRVisitorTest, TestBasicTraversal) {
 
     // Verify visit counts
     ASSERT_EQ(visitor.programCount, 1);
-    // VisitProgram_ first visits the entry function, then all functions in the functions list
+    // VisitImplProgram first visits the entry function, then all functions in the functions list
     ASSERT_GE(visitor.functionCount, 1);
     ASSERT_GE(visitor.compoundStmtCount, 1); // at least one compound statement
     ASSERT_GE(visitor.opStmtCount, 1);       // at least one op statement
@@ -314,7 +314,7 @@ TEST(IRVisitorTest, TestControlFlowTraversal) {
 
     // Verify control flow nodes are visited
     ASSERT_EQ(visitor.programCount, 1);
-    // VisitProgram_ first visits the entry function, then all functions in the functions list
+    // VisitImplProgram first visits the entry function, then all functions in the functions list
     // If the entry function is also in the functions list, it will be visited twice
     ASSERT_GE(visitor.functionCount, 1);
     ASSERT_GE(visitor.forStmtCount, 1);      // at least one for statement
@@ -332,83 +332,83 @@ public:
     std::unordered_set<void *> visitedNodes;
 
     // Bring in base class methods to avoid overloaded-virtual warnings
-    using IRVisitor::VisitFunction_;
-    using IRVisitor::VisitOp_;
-    using IRVisitor::VisitProgram_;
-    using IRVisitor::VisitStmt_;
-    using IRVisitor::VisitValue_;
+    using IRVisitor::VisitImplFunction;
+    using IRVisitor::VisitImplOp;
+    using IRVisitor::VisitImplProgram;
+    using IRVisitor::VisitImplStmt;
+    using IRVisitor::VisitImplValue;
 
-    // Override VisitXXX_ methods to track visits, but call base class default implementation
-    void VisitFunction_(FunctionPtr &func) override {
+    // Override VisitImplXXX methods to track visits, but call base class default implementation
+    void VisitImplFunction(FunctionPtr &func) override {
         if (func) {
             visitedNodes.insert(func.get());
             visitedCount++;
         }
-        IRVisitor::VisitFunction_(func);
+        IRVisitor::VisitImplFunction(func);
     }
 
-    void VisitStmt_(CompoundStatementPtr &stmt) override {
+    void VisitImplStmt(CompoundStatementPtr &stmt) override {
         if (stmt) {
             visitedNodes.insert(stmt.get());
             visitedCount++;
         }
-        IRVisitor::VisitStmt_(stmt);
+        IRVisitor::VisitImplStmt(stmt);
     }
 
-    void VisitStmt_(OpStatementPtr &stmt) override {
+    void VisitImplStmt(OpStatementPtr &stmt) override {
         if (stmt) {
             visitedNodes.insert(stmt.get());
             visitedCount++;
         }
-        IRVisitor::VisitStmt_(stmt);
+        IRVisitor::VisitImplStmt(stmt);
     }
 
-    void VisitStmt_(ForStatementPtr &stmt) override {
+    void VisitImplStmt(ForStatementPtr &stmt) override {
         if (stmt) {
             visitedNodes.insert(stmt.get());
             visitedCount++;
         }
-        IRVisitor::VisitStmt_(stmt);
+        IRVisitor::VisitImplStmt(stmt);
     }
 
-    void VisitStmt_(IfStatementPtr &stmt) override {
+    void VisitImplStmt(IfStatementPtr &stmt) override {
         if (stmt) {
             visitedNodes.insert(stmt.get());
             visitedCount++;
         }
-        IRVisitor::VisitStmt_(stmt);
+        IRVisitor::VisitImplStmt(stmt);
     }
 
-    void VisitOp_(OperationPtr &op) override {
+    void VisitImplOp(OperationPtr &op) override {
         if (op) {
             visitedNodes.insert(op.get());
             visitedCount++;
         }
-        IRVisitor::VisitOp_(op);
+        IRVisitor::VisitImplOp(op);
     }
 
-    void VisitValue_(ScalarValuePtr &value) override {
+    void VisitImplValue(ScalarValuePtr &value) override {
         if (value) {
             visitedNodes.insert(value.get());
             visitedCount++;
         }
-        IRVisitor::VisitValue_(value);
+        IRVisitor::VisitImplValue(value);
     }
 
-    void VisitValue_(TileValuePtr &value) override {
+    void VisitImplValue(TileValuePtr &value) override {
         if (value) {
             visitedNodes.insert(value.get());
             visitedCount++;
         }
-        IRVisitor::VisitValue_(value);
+        IRVisitor::VisitImplValue(value);
     }
 
-    void VisitValue_(TensorValuePtr &value) override {
+    void VisitImplValue(TensorValuePtr &value) override {
         if (value) {
             visitedNodes.insert(value.get());
             visitedCount++;
         }
-        IRVisitor::VisitValue_(value);
+        IRVisitor::VisitImplValue(value);
     }
 };
 
@@ -418,10 +418,10 @@ public:
 class NullHandlingVisitor : public IRVisitor {
 public:
     // Use using declarations to bring in protected methods for testing
-    using IRVisitor::VisitFunction_;
-    using IRVisitor::VisitOp_;
-    using IRVisitor::VisitStmt_;
-    using IRVisitor::VisitValue_;
+    using IRVisitor::VisitImplFunction;
+    using IRVisitor::VisitImplOp;
+    using IRVisitor::VisitImplStmt;
+    using IRVisitor::VisitImplValue;
 };
 
 TEST(IRVisitorTest, TestDefaultTraversal) {
@@ -485,34 +485,34 @@ TEST(IRVisitorTest, TestDefaultVisitMethods) {
     // Use DefaultVisitTester, which calls default Visit*_ methods
     DefaultVisitTester tester;
     ProgramModulePtr modulePtr = module;
-    tester.VisitProgram_(modulePtr);
+    tester.VisitImplProgram(modulePtr);
 
-    // Verify VisitProgram_ correctly traverses all child nodes
+    // Verify VisitImplProgram correctly traverses all child nodes
     // It should have visited functions, statements, operations, values
     ASSERT_GT(tester.visitedCount, 0);
     ASSERT_NE(tester.visitedNodes.find(func.get()), tester.visitedNodes.end());
 
-    // Verify VisitFunction_ is called
+    // Verify VisitImplFunction is called
     FunctionPtr funcPtr = func;
-    tester.VisitFunction_(funcPtr);
+    tester.VisitImplFunction(funcPtr);
     // Should have visited function arguments, results, body, etc.
 
-    // Verify VisitOp_ is called
+    // Verify VisitImplOp is called
     OperationPtr opPtr = addOp;
-    tester.VisitOp_(opPtr);
+    tester.VisitImplOp(opPtr);
     // Should have visited operation operands
 
-    // Verify VisitValue_ is called
+    // Verify VisitImplValue is called
     ScalarValuePtr c1Ptr = c1;
-    tester.VisitValue_(c1Ptr);
+    tester.VisitImplValue(c1Ptr);
 
     TileValuePtr inputPtr = input;
-    tester.VisitValue_(inputPtr);
+    tester.VisitImplValue(inputPtr);
 
-    // Verify VisitStmt_ is called
+    // Verify VisitImplStmt is called
     auto compound = func->GetCompound();
     CompoundStatementPtr compoundPtr = compound;
-    tester.VisitStmt_(compoundPtr);
+    tester.VisitImplStmt(compoundPtr);
     // Should have visited all statements in compound
 }
 
@@ -520,22 +520,22 @@ TEST(IRVisitorTest, TestNullHandling) {
     NullHandlingVisitor visitor;
 
     FunctionPtr nullFunc = nullptr;
-    visitor.VisitFunction_(nullFunc);
+    visitor.VisitImplFunction(nullFunc);
 
     CompoundStatementPtr nullCompound = nullptr;
-    visitor.VisitStmt_(nullCompound);
+    visitor.VisitImplStmt(nullCompound);
 
     OperationPtr nullOp = nullptr;
-    visitor.VisitOp_(nullOp);
+    visitor.VisitImplOp(nullOp);
 
     ScalarValuePtr nullScalar = nullptr;
-    visitor.VisitValue_(nullScalar);
+    visitor.VisitImplValue(nullScalar);
 
     TileValuePtr nullTile = nullptr;
-    visitor.VisitValue_(nullTile);
+    visitor.VisitImplValue(nullTile);
 
     TensorValuePtr nullTensor = nullptr;
-    visitor.VisitValue_(nullTensor);
+    visitor.VisitImplValue(nullTensor);
 
     ASSERT_TRUE(true);
 }

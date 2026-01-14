@@ -120,6 +120,8 @@ private:
     uint64_t functionHash_{0};
 };
 
+using FunctionPtr = std::shared_ptr<Function>;
+
 class BlockFunction : public Function {
 public:
     BlockFunction(std::string name, FunctionSignature signature) : Function(name, FunctionKind::Block, signature) {}

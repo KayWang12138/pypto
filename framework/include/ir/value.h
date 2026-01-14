@@ -288,4 +288,6 @@ private:
     }
 };
 
+using TensorValuePtr = std::shared_ptr<TensorValue>;
+
 } // namespace pto
