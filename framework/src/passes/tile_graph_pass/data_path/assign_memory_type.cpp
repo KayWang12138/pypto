@@ -201,10 +201,10 @@ void AssignMemoryType::ProcessAssemblewithSpecificMem(Operation &operation) {
         return;
     }
     for (auto &consumerOp : output->GetConsumers()) {
-        auto consumerOpAttribute = dynamic_cast<ViewOpAttribute *>(consumerOp->GetOpAttribute().get());
+        auto consumerOpAttribute = std::dynamic_pointer_cast<ViewOpAttribute>(consumerOp->GetOpAttribute());
         // 大包搬运场景：assemble后接view且view的toAttr为L1
         // 非大包搬运场景：assemble后的op预期输入为L1
-        if (consumerOpAttribute != nullptr) {
+        if (consumerOpAttribute) {
             if (consumerOpAttribute->GetTo() != MemoryType::MEM_L1) {
                 return;
             }
@@ -388,7 +388,7 @@ void AssignMemoryType::AssignMoveOpForAssemble(Operation &operation) {
             continue;
         }
         tensor->SetMemoryTypeOriginal(fromType, true);
-        auto assembleOpAttribute = dynamic_cast<AssembleOpAttribute *>(operation.GetOpAttribute().get());
+        auto assembleOpAttribute = std::dynamic_pointer_cast<AssembleOpAttribute>(operation.GetOpAttribute());
         assembleOpAttribute->SetFromType(fromType);
     }
 }

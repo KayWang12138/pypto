@@ -126,7 +126,8 @@ void GenerateMoveOp::SetCopyAttr(Operation &op,ViewOpAttribute *viewOpAttribute)
     op.SetOpAttribute(copyAttr);
 }
 
-void GenerateMoveOp::SetL0C2L1CopyAttr(Operation &op, const Shape realShape, std::vector<OpImmediate> fromOffset, std::vector<OpImmediate> toOffset) const {
+void GenerateMoveOp::SetL0C2L1CopyAttr(Operation &op, const Shape &realShape,
+    const std::vector<OpImmediate> &fromOffset, const std::vector<OpImmediate> &toOffset) const {
     std::vector<SymbolicScalar> validShape;
     for (auto dim : realShape) {
         SymbolicScalar scal = SymbolicScalar(dim);
