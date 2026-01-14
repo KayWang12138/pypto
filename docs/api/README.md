@@ -34,6 +34,7 @@
 -   [pypto.Tensor.scatter\_update](tensor/pypto-Tensor-scatter_update.md)
 -   [pypto.Tensor.shape](tensor/pypto-Tensor-shape.md)
 -   [pypto.Tensor.rsqrt](tensor/pypto-Tensor-rsqrt.md)
+-   [pypto.Tensor.ceil](tensor/pypto-Tensor-ceil.md)
 -   [pypto.Tensor.sigmoid](tensor/pypto-Tensor-sigmoid.md)
 -   [pypto.Tensor.sin](tensor/pypto-Tensor-sin.md)
 -   [pypto.Tensor.softmax](tensor/pypto-Tensor-softmax.md)
