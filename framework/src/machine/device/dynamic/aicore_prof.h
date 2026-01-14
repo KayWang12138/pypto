@@ -29,6 +29,9 @@ __attribute__((weak)) int32_t AdprofCheckFeatureIsOn(uint64_t feature);
 };
 
 namespace npu::tile_fwk::dynamic {
+inline bool ProfCheckLevel(uint64_t feature) const;
+AiCoreProfLevel CreateProfLevel(ProfConfig profConfig);
+
 class AiCoreManager;
 struct PyPtoMsprofAdditionalInfo { // for MsprofReportAdditionalInfo buffer data
     uint16_t magicNumber = 0x5A5AU;
@@ -226,7 +229,6 @@ public:
     void ProInitAiCpuTaskStat();
     void ProInitHandShake();
     bool ProfIsEnable() { return profLevel_ != PROF_LEVEL_OFF; }
-    AiCoreProfLevel CreateProfLevel(ProfConfig profConfig);
     
 private:
     inline void ProfInitLog();
@@ -240,7 +242,6 @@ private:
     void FillPmuData(MsprofAicpuPyPtoPmuData &data, int32_t &coreIdx, uint32_t &subGraphId, uint32_t &taskId,
         const struct TaskStat *taskStat) const;
     inline void ProfGetPmu(int32_t coreIdx, uint32_t subGraphId, uint32_t taskId, const struct TaskStat *taskStat);
-    inline bool ProfCheckLevel(uint64_t feature) const;
     inline uint64_t ProfGetCurCpuTimestamp();
 
 private:
