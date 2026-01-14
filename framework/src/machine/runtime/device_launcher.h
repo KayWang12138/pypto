@@ -273,20 +273,20 @@ public:
             return DeviceInitTensorLists(devMem, kArgs, inputList, outputList);
         }
         size_t l2InfoSize = disableL2List.size();
-        auto buildInouts = [&](const std::vector<DeviceTensorData> &tensorDataList, uint8_t* data, size_t size,
+        auto buildInouts = [&](const std::vector<DeviceTensorData> &tensorDataList, DevTensorData* data,
             size_t &tensorIdx) {
-            std::vector<DevTensorData> tensors;
-            for (size_t k = 0; k < tensorDataList.size(); k++) {
+            for (size_t k = 0; k < tensorDataList.size(); ++k) {
                 auto &tensorData = tensorDataList[k];
                 uint64_t addr = 0;
                 if (tensorData.GetAddr() != 0) {
                     addr = (uint64_t)tensorData.GetAddr();
                 }
-                if (addr != 0 && tensorIdx < l2InfoSize && disableL2List[tensorIdx] == 1) {
+                if (unlikely(disableL2List[tensorIdx] == 1 && addr != 0 && tensorIdx < l2InfoSize)) {
                     ALOG_INFO_F("Tneosr[%zu] ori:%lx, l2offset[%lu].", tensorIdx, addr, devMem.GetL2Offset());
                     addr += devMem.GetL2Offset();
                 }
-                tensors.emplace_back(DevAscendTensorDataCreator::Create(addr, tensorData.GetShape()));
+                DevAscendTensorDataCreator::Init(data, addr, tensorData.GetShape().data(), tensorData.GetShape().size());
+                data++;
                 tensorIdx++;
             }
             (void)memcpy_s(data, size, tensors.data(), size);
@@ -295,18 +295,17 @@ public:
         size_t inputSize = inputList.size() * sizeof(DevTensorData);
         size_t outputSize = outputList.size() * sizeof(DevTensorData);
         size_t allSize = inputSize + outputSize + 2 * sizeof(uint64_t);
-        std::vector<int64_t> tensorInfo(allSize);
-        auto* data = tensorInfo.data();
+        std::vector<uint8_t> tensorInfo(allSize);
+        auto data = reinterpret_cast<uint64_t*>(tensorInfo.data());
         *data = inputList.size();
         data++;
         *data = outputList.size();
         data++;
-        uint8_t* dataPtr = reinterpret_cast<uint8_t*>(data);
+        auto dataPtr = reinterpret_cast<DevTensorData*>(data);
         size_t tensorIdx = 0;
-        buildInouts(inputList, dataPtr, inputSize, tensorIdx);
-        dataPtr += inputSize;
-        buildInouts(outputList, dataPtr, outputSize, tensorIdx);
-        dataPtr += outputSize;
+        buildInouts(inputList, dataPtr, tensorIdx);
+        dataPtr += inputList.size();
+        buildInouts(outputList, dataPtr, tensorIdx);
         kArgs.inputs = devMem.CopyToDev(tensorInfo, nullptr);
         kArgs.outputs = kArgs.inputs + 1;
         ALOG_INFO_F("Inputs %p outputs %p workspace %p cfgdata %p", kArgs.inputs, kArgs.outputs, kArgs.workspace,
