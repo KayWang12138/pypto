@@ -864,7 +864,7 @@ void OoOScheduler::AddDependency(IssueEntryPtr preIssue, IssueEntryPtr postIssue
     }
 }
 
-void OoOScheduler::FindDependencies(IssueEntryPtr issue, std::map<Operation*, IssueEntryPtr> op2IssueEntryMap) {
+void OoOScheduler::FindDependencies(IssueEntryPtr issue, std::unordered_map<Operation*, IssueEntryPtr> &op2IssueEntryMap) {
     for (auto &producer : issue->tileOp.ProducerOps()) {
         if (IsViewOp(*producer)) {
             for (auto viewProducer : producer->ProducerOps()) {

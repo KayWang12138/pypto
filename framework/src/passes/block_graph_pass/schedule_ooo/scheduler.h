@@ -176,7 +176,7 @@ private:
     std::string dumpOpInfo(Operation &op);
     void CalcBufferSize(LogicalTensors tensors, std::map<MemoryType, int64_t> &bufferSize, std::set<int> &memIdMap);
     Status InitDependencies();
-    void FindDependencies(IssueEntryPtr issue, std::map<Operation*, IssueEntryPtr> op2IssueEntryMap);
+    void FindDependencies(IssueEntryPtr issue, std::unordered_map<Operation*, IssueEntryPtr> &op2IssueEntryMap);
     void AddDependency(IssueEntryPtr preIssue, IssueEntryPtr postIssue, bool isAlloc);
     Status InitAllocDependencies(IssueEntryPtr issue, std::unordered_map<int, IssueEntryPtr> tensor2AllocMap);
     void InitLocalBuffer(LogicalTensorPtr oOperand, int memId);
