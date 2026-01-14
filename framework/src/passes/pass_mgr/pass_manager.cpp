@@ -44,6 +44,7 @@
 #include "passes/block_graph_pass/schedule_ooo/schedule.h"
 #include "passes/block_graph_pass/codegen_preproc.h"
 #include "passes/block_graph_pass/infer_param_index.h"
+#include "passes/block_graph_pass/pairsum_replacement.h"
 #include "passes/block_graph_pass/copy_out_resolve.h"
 #include "passes/block_graph_pass/dyn_attr_to_static.h"
 #include "passes/block_graph_pass/mix_subgraph_split.h"
@@ -85,6 +86,7 @@ void RegPass() {
     REG_PASS(SplitK);
     REG_PASS(InferDynShape);
     REG_PASS(InferParamIndex);
+    REG_PASS(PairSumReplacementPass);
     REG_PASS(AddAlloc);
     REG_PASS(RemoveAlloc);
     REG_PASS(CopyOutResolve);
@@ -131,6 +133,7 @@ void PassManager::RegDefaultStrategy() {
             {            "InferDynShape",               PassName::INFER_DYN_SHAPE},
             {       "SubgraphToFunction",          PassName::SUBGRAPH_TO_FUNCTION},
             {          "InferParamIndex",             PassName::INFER_PARAM_INDEX},
+            {   "PairSumReplacementPass",           PassName::PAIRSUM_REPLACEMENT},
             {        "SrcDstBufferMerge",          PassName::SRC_DST_BUFFER_MERGE},
             {                 "AddAlloc",                     PassName::ADD_ALLOC},
             {              "OoOSchedule",                  PassName::OOO_SCHEDULE},
