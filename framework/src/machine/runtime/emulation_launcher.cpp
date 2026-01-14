@@ -20,19 +20,36 @@
 
 extern "C" int DynTileFwkBackendKernelServer(void *targ);
 extern "C" int DynTileFwkBackendKernelServerInit(void *targ);
+extern "C" int PyptoKernelCtrlServerInit(void *targ);
+extern "C" int PyptoKernelCtrlServer(void *targ);
 
 namespace npu::tile_fwk::dynamic {
 
 static int EmulationLaunchOnce(DeviceKernelArgs &kArgs) {
-    constexpr int threadNum = 6;
-    std::thread aicpuThreadList[threadNum];
-    int aicpuResultList[threadNum] = {0};
-    std::atomic<int> idx{0};
     auto *devProg = (DevAscendProgram *)(kArgs.cfgdata);
+    
+    // For BuildControlFlowCache, only execute Controlflow logic, skip AiCoreManager
+    if (devProg->controlFlowCache.IsRecording()) {
+        // Single thread mode for Controlflow cache building
+        // Directly call PyptoKernelCtrlServer to execute only Controlflow, without AiCoreManager
+        auto rc = PyptoKernelCtrlServerInit(static_cast<void*>(&kArgs));
+        if (rc != 0) {
+            return rc;
+        }
+        return PyptoKernelCtrlServer(static_cast<void*>(&kArgs));
+    }
+    
+    // Normal execution mode: use DynTileFwkBackendKernelServer (includes AiCoreManager)
     auto rc = DynTileFwkBackendKernelServerInit(&kArgs);
     if (rc != 0) {
         return rc;
     }
+
+    // Multi-thread mode for normal execution
+    constexpr int threadNum = 6;
+    std::thread aicpuThreadList[threadNum];
+    int aicpuResultList[threadNum] = {0};
+    std::atomic<int> idx{0};
     for (int i = 0; i < static_cast<int>(devProg->devArgs.nrAicpu); i++) {
         aicpuThreadList[i] = std::thread([&](int threadIndex) {
             int tidx = idx++;
