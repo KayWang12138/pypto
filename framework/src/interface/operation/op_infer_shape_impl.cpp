@@ -467,7 +467,7 @@ void LoadL0C2L1InferFunc(Operation* op,
     } else {
         ALOG_WARN_F("%s[%d] has no copy out attr, set output valid shape same as input.",
             op->GetOpcodeStr().c_str(), op->GetOpMagic());
-        outValidShapes.push_back(op->GetIOperands()[0]->GetDynValidShape());
+        outValidShapes.emplace_back(op->GetIOperands()[0]->GetDynValidShape());
         return;
     }
     auto offsets = copyAttr->GetToOffset();
@@ -481,10 +481,10 @@ void LoadL0C2L1InferFunc(Operation* op,
         auto inputShape = inputShapes[i].GetSpecifiedValue();
         auto offset = offsets[i].GetSpecifiedValue();
         SymbolicScalar actualDim = std::max(outDynShape[i], (inputShape + offset) * (inputShape != 0));
-        outShape.push_back(actualDim);
+        outShape.emplace_back(actualDim);
     }
     for (auto output : op->GetOOperands()) {
-        outValidShapes.push_back(outShape);
+        outValidShapes.emplace_back(outShape);
     }
 }
 REGISTER_INFER_SHAPE_FUNC(OP_L0C_TO_L1, Opcode::OP_L0C_TO_L1, LoadL0C2L1InferFunc);
