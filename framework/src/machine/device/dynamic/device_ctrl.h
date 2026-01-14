@@ -211,23 +211,39 @@ class DeviceCtrlMachine {
         DeviceExecuteContext ctx(devStartArgs);
         ctx.costModelData = reinterpret_cast<CostModel::ModelData*>(args->costmodeldata);
         ctx.aicoreModel = args->aicoreModel;
+        
+        // Check if in BuildCache recording mode
+        bool isRecording = devProg->controlFlowCache.IsRecording();
+        
         PerfBegin(PERF_EVT_EXEC_DYN);
         PerfBegin(PERF_EVT_CONTROL_FLOW_CALL);
-        ret = ctx.GELaunch(devStartArgs, [this](DynDeviceTask *dynTask, DeviceExecuteContext *exeCtx) {
+                // Execute Controlflow - in BuildCache mode, tasks are recorded but not actually scheduled
+        ret = ctx.GELaunch(devStartArgs, [this, isRecording](DynDeviceTask *dynTask, DeviceExecuteContext *exeCtx) {
             if (unlikely(inspectorEntry_ != nullptr)) {
                 inspectorEntry_(inspector_, exeCtx, dynTask);
             }
             DEV_IF_DEBUG {
                 DumpTask(dynTask->GetIndex(), (DeviceTask *)dynTask, true);
             }
-            PushTask(DEVICE_TASK_TYPE_DYN, dynTask, exeCtx);
+            // In BuildCache recording mode, tasks are recorded in controlFlowCache but not pushed to queue
+            // In normal mode, push tasks to AiCoreManager queue for execution
+            if (!isRecording) {
+                PushTask(DEVICE_TASK_TYPE_DYN, dynTask, exeCtx);
+            } else {
+                DEV_DEBUG("BuildCache mode: task recorded but not pushed to queue");
+            }
         });
         PerfEnd(PERF_EVT_CONTROL_FLOW_CALL);
         if (ret != DEVICE_MACHINE_OK) {
+            PerfEnd(PERF_EVT_EXEC_DYN);
             return ret;
         }
+        }
         DEV_INFO("end control flow.");
-        PerfBegin(PERF_EVT_STAGE_STOP_AICORE);
+        
+        // In BuildCache mode, skip AiCoreManager operations (no tasks were pushed, nothing to sync)
+        if (!isRecording) {
+            PerfBegin(PERF_EVT_STAGE_STOP_AICORE);
         StopAicoreManager();
         PerfEnd(PERF_EVT_STAGE_STOP_AICORE);
         DEV_INFO("aicore manager stopped");
@@ -236,6 +252,10 @@ class DeviceCtrlMachine {
         devStartArgs->syncFlag = 0;
         PerfMtTrace(PERF_TRACE_WAIT_ALL_DEV_TASK_FINISH, CTRL_CPU_THREAD_IDX);
         PerfEnd(PERF_EVT_STAGE_TASK_SYNC);
+        } else {
+            DEV_INFO("BuildCache mode: skipping AiCoreManager stop and sync (no tasks pushed)");
+        }
+        
         PerfEnd(PERF_EVT_EXEC_DYN);
 #if ENABLE_PERF_EVT
         ctx.ShowStats();
