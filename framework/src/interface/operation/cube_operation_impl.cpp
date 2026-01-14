@@ -84,6 +84,9 @@ void SetBiasAndScaleAttr(
     if (matmulInputs.biasTensorPtr != nullptr && isFirstTile) {
         op.SetAttribute(A_MUL_B_BIAS_ATTR, true);
     }
+    if(matmulInputs.scaleTensorPtr != nullptr && isFirstTile){
+        op.SetAttribute(A_MUL_B_VECTOR_QUANT_FLAG, true);
+    }
     if (isFirstTile) {
         op.SetAttribute(A_MUL_B_RELU_ATTR, static_cast<int64_t>(matmulAttrParam.reluType));
     }
@@ -486,6 +489,7 @@ void SetAMulBAttr(const MatmulGraphNodes &tensorGraphNodes, const MatmulAttrPara
     if (op.GetOpcode() == Opcode::OP_A_MUL_B) {
         op.SetAttribute(A_MUL_B_BIAS_ATTR, tensorGraphNodes.biasTensorPtr != nullptr);
         op.SetAttribute(A_MUL_B_RELU_ATTR, static_cast<int64_t>(attrParam.reluType));
+        op.SetAttribute(A_MUL_B_VECTOR_QUANT_FLAG,  tensorGraphNodes.scaleTensorPtr != nullptr);
         op.SetAttribute(A_MUL_B_SCALE_ATTR, Element(DataType::DT_UINT64, attrParam.scaleValue));
     }
 }
@@ -497,6 +501,7 @@ void SetTensorGraphAttr(Operation &op, const MatmulExtendParam &param, bool gmAc
     op.SetAttribute(A_MUL_B_TRANS_B, attrParam.transB);
     op.SetAttribute(A_MUL_B_BIAS_ATTR, (param.biasTensor.GetStorage() != nullptr));
     op.SetAttribute(A_MUL_B_RELU_ATTR, static_cast<int64_t>(param.reluType));
+    op.SetAttribute(A_MUL_B_VECTOR_QUANT_FLAG, (param.scaleTensor.GetStorage() != nullptr));
     // means perchannel
     if (param.scaleTensor.GetStorage() != nullptr) {
         op.SetAttribute(A_MUL_B_VECTOR_QUANT_FLAG, true);
