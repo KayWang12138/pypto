@@ -331,8 +331,8 @@ SymbolicScalar CodeGenOpCloudNPU::GetOperandStartOffset(int operandIdx) const {
         std::vector varRawShape = rawShape[operandIdx]; // 内部应该不能出现dynRawShape，所以这里用立即数即可
         ASSERT(!varRawShape.empty()) << "varRawShape is empty!!";
         ASSERT(dynOffset.size() == varRawShape.size())
-        << "dynOffset " << SymbolicVecToStr(dynOffset) << ", size " << dynOffset.size() << " vs varRawShape "
-        << IntVecToStr(varRawShape) << ", size " << varRawShape.size() << " is not equal!!";
+            << "dynOffset " << SymbolicVecToStr(dynOffset) << ", size " << dynOffset.size() << " vs varRawShape "
+            << IntVecToStr(varRawShape) << ", size " << varRawShape.size() << " is not equal!!";
 
         SymbolicScalar resOffset = 0;
         for (size_t i = 0; i < dynOffset.size(); i++) {
@@ -495,6 +495,8 @@ std::vector<std::string> CodeGenOpCloudNPU::BuildStride(const std::vector<int64_
 
 void CodeGenOpCloudNPU::UpdateTileTensorShapeAndStride(int paramIdx, TileTensor &tileTensor, bool isSpillToGm) {
     tileTensor.rawShape = rawShape[paramIdx];
+    tileTensor.originShape = originShape[paramIdx];
+    tileTensor.dynValidShape = dynamicValidShape[paramIdx];
 
     // ---- static ----
     if (functionType == FunctionType::STATIC) {
@@ -531,9 +533,9 @@ TileTensor CodeGenOpCloudNPU::BuildTileTensor(int paramIdx, const std::string &u
     bool isSpillToGm = operand[paramIdx] == SYMBOL_STACK_BASE;
 
     TileTensor tileTensor;
+    tileTensor.isStatic = functionType == FunctionType::STATIC;
     tileTensor.magic = operandWithMagic[paramIdx];
-    tileTensor.dim =
-        functionType == FunctionType::STATIC ? originShape[paramIdx].size() : dynamicValidShape[paramIdx].size();
+    tileTensor.dim = tileTensor.isStatic ? originShape[paramIdx].size() : dynamicValidShape[paramIdx].size();
     tileTensor.dtype = operandDtype[paramIdx];
     tileTensor.bufType = operandType[paramIdx];
 
@@ -549,7 +551,7 @@ TileTensor CodeGenOpCloudNPU::BuildTileTensor(int paramIdx, const std::string &u
 
     UpdateTileTensorShapeAndStride(paramIdx, tileTensor, isSpillToGm);
     tileTensor.localBufOffset = offset[paramIdx];
-    tileTensor.isStatic = functionType == FunctionType::STATIC;
+
     return tileTensor;
 }
 
@@ -621,6 +623,27 @@ void CodeGenOpCloudNPU::FillParamWithFullShape(
 void CodeGenOpCloudNPU::FillParamWithShapeExceptFirst(
     std::vector<std::string> &paramList, const std::vector<int64_t> &input) const {
     FillParamWithInput(paramList, input, 1, input.size());
+}
+
+std::string CodeGenOpCloudNPU::QueryTileTensorNameByIdx(int paramIdx) {
+    std::vector<TileTensor> res = sm->QueryTileTensorByMagic(operandWithMagic[paramIdx]);
+    if (res.size() == 1) {
+        return res[0].tensorName;
+    }
+
+    for (const auto &tileTensor : res) {
+        if (tileTensor.rawShape != rawShape[paramIdx]) {
+            continue;
+        }
+
+        if ((tileTensor.isStatic && tileTensor.originShape == originShape[paramIdx]) ||
+            (!tileTensor.isStatic && tileTensor.dynValidShape == dynamicValidShape[paramIdx])) {
+            return tileTensor.tensorName;
+        }
+    }
+
+    ASSERT(false) << "paramIdx " << paramIdx << ", tensor magic " << magic << " is not found !!! ";
+    return "";
 }
 
 } // namespace npu::tile_fwk
