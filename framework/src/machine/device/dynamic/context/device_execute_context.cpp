@@ -160,7 +160,7 @@ void DeviceExecuteContext::ShowStats() {
     workspace.DumpMemoryUsage("End ExecDyn");
 }
 
-void DeviceExecuteContext::GELaunchRunCached(DevStartArgs *startArgs, PushTaskEntry tPushTask) {
+void DeviceExecuteContext::DeviceLaunchRunCached(DevStartArgs *startArgs, PushTaskEntry tPushTask) {
     PerfBegin(PERF_EVT_CONTROL_FLOW_INIT);
     this->pushTask = tPushTask;
     this->args = startArgs;
@@ -203,7 +203,7 @@ int DeviceExecuteContext::RunControlFlow(DevStartArgs *startArgs) {
     return DEVICE_MACHINE_OK;
 }
 
-int DeviceExecuteContext::GELaunchFullCacheRunControlFlow(DevStartArgs *startArgs, PushTaskEntry tPushTask) {
+int DeviceExecuteContext::DeviceLaunchFullCacheRunControlFlow(DevStartArgs *startArgs, PushTaskEntry tPushTask) {
     int ret = DEVICE_MACHINE_OK;
     ret = RunInit(startArgs, tPushTask);
     if (unlikely(ret != DEVICE_MACHINE_OK)) {
@@ -216,36 +216,35 @@ int DeviceExecuteContext::GELaunchFullCacheRunControlFlow(DevStartArgs *startArg
     return ret;
 }
 
-void DeviceExecuteContext::GELaunchFullCache(DevStartArgs *startArgs, PushTaskEntry tPushTask) {
+void DeviceExecuteContext::DeviceLaunchFullCache(DevStartArgs *startArgs, PushTaskEntry tPushTask) {
     if (devProg->controlFlowCache.IsActivatedFullCache(startArgs)) {
         DEV_TRACE_DEBUG(CtrlEvent(none(), ControlFlowCacheFullRunCache()));
-        GELaunchRunCached(startArgs, tPushTask);
+        DeviceLaunchRunCached(startArgs, tPushTask);
     } else {
         DEV_TRACE_DEBUG(CtrlEvent(none(), ControlFlowCacheFullRunControl()));
-        GELaunchFullCacheRunControlFlow(startArgs, tPushTask);
+        DeviceLaunchFullCacheRunControlFlow(startArgs, tPushTask);
     }
 }
 
-int DeviceExecuteContext::GELaunch(DevStartArgs *startArgs, PushTaskEntry tPushTask) {
+int DeviceExecuteContext::DeviceLaunch(DevStartArgs *startArgs, PushTaskEntry tPushTask) {
     int ret = DEVICE_MACHINE_OK;
     if (devProg->controlFlowCache.IsRecording()) {
         devProg->controlFlowCache.InitInputOutput(startArgs);
     }
-    ret = GELaunchPartialCache(startArgs, tPushTask);
+    ret = DeviceLaunchPartialCache(startArgs, tPushTask);
     if (unlikely(ret != DEVICE_MACHINE_OK)) {
         return DEVICE_MACHINE_ERROR;
     }
     return DEVICE_MACHINE_OK;
 }
 
-int DeviceExecuteContext::GELaunchPartialCache(DevStartArgs *startArgs, PushTaskEntry tPushTask) {
-    int ret = DEVICE_MACHINE_OK;
+int DeviceExecuteContext::DeviceLaunchPartialCache(DevStartArgs *startArgs, PushTaskEntry tPushTask) {
     DEV_TRACE_DEBUG(CtrlEvent(none(), Workspace(Range(startArgs->contextWorkspaceAddr, startArgs->contextWorkspaceAddr + startArgs->contextWorkspaceSize))));
 
     if (devProg->controlFlowCache.IsActivatedPartialCache(startArgs)) {
         controlFlowCacheActivated = true;
         DEV_TRACE_DEBUG(CtrlEvent(none(), ControlFlowCachePartRunCache(devProg->controlFlowCache.deviceTaskCount, devProg->controlFlowCache.rootTaskCount)));
-        GELaunchRunCached(startArgs, tPushTask);
+        DeviceLaunchRunCached(startArgs, tPushTask);
     }
 DEV_IF_DEVICE {
     uint64_t start = GetCycles();
@@ -257,15 +256,7 @@ DEV_IF_DEVICE {
     }
 }
     DEV_TRACE_DEBUG(CtrlEvent(none(), ControlFlowCacheFullRunControl()));
-    ret = RunInit(startArgs, tPushTask);
-    if (unlikely(ret != DEVICE_MACHINE_OK)) {
-        return DEVICE_MACHINE_ERROR;
-    }
-    ret = RunControlFlow(startArgs);
-    if (unlikely(ret != DEVICE_MACHINE_OK)) {
-        return DEVICE_MACHINE_ERROR;
-    }
-    return ret;
+    return DeviceExecuteContext::DeviceLaunchFullCacheRunControlFlow(DevStartArgs *startArgs, PushTaskEntry tPushTask);
 }
 
 bool DeviceExecuteContext::AiCoreFree() {

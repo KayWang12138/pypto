@@ -82,17 +82,17 @@ struct DeviceExecuteContext {
 
     void PushTask(DynDeviceTask *dynTask);
 
-    void GELaunchRunCached(DevStartArgs *startArgs, PushTaskEntry tPushTask);
+    void DeviceLaunchRunCached(DevStartArgs *startArgs, PushTaskEntry tPushTask);
 
     int RunControlFlow(DevStartArgs *startArgs);
 
-    int GELaunchFullCacheRunControlFlow(DevStartArgs *startArgs, PushTaskEntry tPushTask);
+    int DeviceLaunchFullCacheRunControlFlow(DevStartArgs *startArgs, PushTaskEntry tPushTask);
 
-    void GELaunchFullCache(DevStartArgs *startArgs, PushTaskEntry tPushTask);
+    void DeviceLaunchFullCache(DevStartArgs *startArgs, PushTaskEntry tPushTask);
 
-    int GELaunchPartialCache(DevStartArgs *startArgs, PushTaskEntry tPushTask);
+    int DeviceLaunchPartialCache(DevStartArgs *startArgs, PushTaskEntry tPushTask);
 
-    int GELaunch(DevStartArgs *startArgs, PushTaskEntry tPushTask);
+    int DeviceLaunch(DevStartArgs *startArgs, PushTaskEntry tPushTask);
 
     bool AiCoreFree();
 
