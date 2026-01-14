@@ -64,6 +64,7 @@ void CodeGenOp::CombineAxis(const Operation &oper, int operandIdx, bool isInput,
     if (((isInput && oper.GetAttr(OpAttributeKey::inputCombineAxis, needCombineIOIdx)) ||
             (!isInput && oper.GetAttr(OpAttributeKey::outputCombineAxis, needCombineIOIdx))) &&
         needCombineIOIdx[ioIdx]) {
+        operandForceCombineAxes[operandIdx] = true;
         ALOG_INFO_F("needCombineIOIdx is %s", IntVecToStr(needCombineIOIdx).c_str());
         CombineLastTwoAxis(shape[operandIdx], dim);
         CombineLastTwoAxis(rawShape[operandIdx], dim);

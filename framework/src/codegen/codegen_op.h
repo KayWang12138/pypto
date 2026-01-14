@@ -129,6 +129,7 @@ protected:
     bool isUnderDynamicFunction{false};
     int operandCnt{0};
     bool isMainBlock{false};
+    bool operandForceCombineAxes[MAX_OPERANDS] = {};
 
 private:
     void UpdateCodegenOpInfoByTensor(const Operation &ops, bool isInput, const std::shared_ptr<LogicalTensor> &tensor,
