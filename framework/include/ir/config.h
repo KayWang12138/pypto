@@ -240,7 +240,7 @@ constexpr int ComputeConfigKeyHashImpl(const char* str, int hash = 5381) {
                 registry.Register(#keyName, defaultValue, static_cast<pto::ConfigKey>(pto::ComputeConfigKeyHashImpl(#keyName))); \
             } \
         }; \
-        static ConfigRegistrar_##keyName g_configRegistrar_##keyName; \
+        ConfigRegistrar_##keyName g_configRegistrar_##keyName; \
     } \
     namespace pto { \
         inline const ConfigKey CONFIG_##keyName = static_cast<ConfigKey>(ComputeConfigKeyHashImpl(#keyName)); \
