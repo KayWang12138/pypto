@@ -11,12 +11,14 @@
 /*!
 * \file graph_traits.hpp
 * \brief
+
 */
 
-#pragma once
+#ifndef OSP_GRAPH_TRAITS_H
+#define OSP_GRAPH_TRAITS_H
 
 #include "iterator_concepts.hpp"
-#include "passes/tile_graph_pass/graph_partition/osp/auxiliary/hash_util.hpp"
+#include "osp/auxiliary/hash_util.hpp"
 
 /**
  * @file graph_traits.hpp
@@ -28,6 +30,7 @@
  * ensuring that graph implementations conform to the expected interfaces.
  */
 
+namespace npu::tile_fwk {
 namespace osp {
 
 /**
@@ -36,59 +39,66 @@ namespace osp {
  * These structs inherit from `std::true_type` if the specified member type exists in `T`,
  * otherwise they inherit from `std::false_type`.
  */
-template<typename T, typename = void>
-struct has_vertex_idx_tmember : std::false_type {};
-template<typename T>
-struct has_vertex_idx_tmember<T, std::void_t<typename T::vertex_idx>> : std::true_type {};
+template <typename T, typename = void>
+struct HasVertexIdxTmember : std::false_type {};
 
-template<typename T, typename = void>
-struct has_edge_desc_tmember : std::false_type {};
-template<typename T>
-struct has_edge_desc_tmember<T, std::void_t<typename T::directed_edge_descriptor>> : std::true_type {};
+template <typename T>
+struct HasVertexIdxTmember<T, std::void_t<typename T::VertexIdx>> : std::true_type {};
 
-template<typename T, typename = void>
-struct has_vertex_work_weight_tmember : std::false_type {};
-template<typename T>
-struct has_vertex_work_weight_tmember<T, std::void_t<typename T::vertex_work_weight_type>> : std::true_type {};
+template <typename T, typename = void>
+struct HasEdgeDescTmember : std::false_type {};
 
-template<typename T, typename = void>
-struct has_vertex_comm_weight_tmember : std::false_type {};
-template<typename T>
-struct has_vertex_comm_weight_tmember<T, std::void_t<typename T::vertex_comm_weight_type>> : std::true_type {};
+template <typename T>
+struct HasEdgeDescTmember<T, std::void_t<typename T::DirectedEdgeDescriptor>> : std::true_type {};
 
-template<typename T, typename = void>
-struct has_vertex_mem_weight_tmember : std::false_type {};
-template<typename T>
-struct has_vertex_mem_weight_tmember<T, std::void_t<typename T::vertex_mem_weight_type>> : std::true_type {};
+template <typename T, typename = void>
+struct HasVertexWorkWeightTmember : std::false_type {};
 
-template<typename T, typename = void>
-struct has_vertex_type_tmember : std::false_type {};
-template<typename T>
-struct has_vertex_type_tmember<T, std::void_t<typename T::vertex_type_type>> : std::true_type {};
+template <typename T>
+struct HasVertexWorkWeightTmember<T, std::void_t<typename T::VertexWorkWeightType>> : std::true_type {};
 
-template<typename T, typename = void>
-struct has_edge_comm_weight_tmember : std::false_type {};
-template<typename T>
-struct has_edge_comm_weight_tmember<T, std::void_t<typename T::edge_comm_weight_type>> : std::true_type {};
+template <typename T, typename = void>
+struct HasVertexCommWeightTmember : std::false_type {};
+
+template <typename T>
+struct HasVertexCommWeightTmember<T, std::void_t<typename T::VertexCommWeightType>> : std::true_type {};
+
+template <typename T, typename = void>
+struct HasVertexMemWeightTmember : std::false_type {};
+
+template <typename T>
+struct HasVertexMemWeightTmember<T, std::void_t<typename T::VertexMemWeightType>> : std::true_type {};
+
+template <typename T, typename = void>
+struct HasVertexTypeTmember : std::false_type {};
+
+template <typename T>
+struct HasVertexTypeTmember<T, std::void_t<typename T::VertexTypeType>> : std::true_type {};
+
+template <typename T, typename = void>
+struct HasEdgeCommWeightTmember : std::false_type {};
+
+template <typename T>
+struct HasEdgeCommWeightTmember<T, std::void_t<typename T::EdgeCommWeightType>> : std::true_type {};
 
 /**
  * @brief Core traits for any directed graph type.
  *
- * Requires that the graph type `T` defines a `vertex_idx` type member.
+ * Requires that the graph type `T` defines a `VertexIdx` type member.
  *
  * @tparam T The graph type.
  */
-template<typename T>
-struct directed_graph_traits {
-    static_assert(has_vertex_idx_tmember<T>::value, "graph must have vertex_idx");
-    using vertex_idx = typename T::vertex_idx;
+template <typename T>
+struct DirectedGraphTraits {
+    static_assert(HasVertexIdxTmember<T>::value, "graph must have VertexIdx");
+    using VertexIdx = typename T::VertexIdx;
 };
 
 /**
  * @brief Alias to easily access the vertex index type of a graph.
  */
-template<typename T>
-using vertex_idx_t = typename directed_graph_traits<T>::vertex_idx;
+template <typename T>
+using VertexIdxT = typename DirectedGraphTraits<T>::VertexIdx;
 
 /**
  * @brief A default edge descriptor for directed graphs.
@@ -96,23 +106,26 @@ using vertex_idx_t = typename directed_graph_traits<T>::vertex_idx;
  * This struct is used when the graph type does not provide its own edge descriptor.
  * It simply holds the source and target vertex indices.
  *
- * @tparam Graph_t The graph type.
+ * @tparam GraphT The graph type.
  */
-template<typename Graph_t>
-struct directed_edge {
-    vertex_idx_t<Graph_t> source;
-    vertex_idx_t<Graph_t> target;
+template <typename GraphT>
+struct DirectedEdge {
+    VertexIdxT<GraphT> source_;
+    VertexIdxT<GraphT> target_;
 
-    bool operator==(const directed_edge &other) const { return source == other.source && target == other.target; }
-    bool operator!=(const directed_edge &other) const { return !(*this == other); }
-    directed_edge() : source(0), target(0) {}
-    directed_edge(const directed_edge &other) = default;
-    directed_edge(directed_edge &&other) = default;
-    directed_edge &operator=(const directed_edge &other) = default;
-    directed_edge &operator=(directed_edge &&other) = default;
-    ~directed_edge() = default;
+    bool operator==(const DirectedEdge &other) const { return source_ == other.source_ && target_ == other.target_; }
 
-    directed_edge(vertex_idx_t<Graph_t> src, vertex_idx_t<Graph_t> tgt) : source(src), target(tgt) {}
+    bool operator!=(const DirectedEdge &other) const { return !(*this == other); }
+
+    DirectedEdge() : source_(0), target_(0) {}
+
+    DirectedEdge(const DirectedEdge &other) = default;
+    DirectedEdge(DirectedEdge &&other) = default;
+    DirectedEdge &operator=(const DirectedEdge &other) = default;
+    DirectedEdge &operator=(DirectedEdge &&other) = default;
+    ~DirectedEdge() = default;
+
+    DirectedEdge(VertexIdxT<GraphT> src, VertexIdxT<GraphT> tgt) : source_(src), target_(tgt) {}
 };
 
 /**
@@ -120,90 +133,90 @@ struct directed_edge {
  *
  * If the graph defines `directed_edge_descriptor`, it is extracted; otherwise, `directed_edge` is used as a default implementation.
  */
-template<typename T, bool has_edge>
-struct directed_graph_edge_desc_traits_helper {
-    using directed_edge_descriptor = directed_edge<T>;
+template <typename T, bool hasEdge>
+struct DirectedGraphEdgeDescTraitsHelper {
+    using DirectedEdgeDescriptor = DirectedEdge<T>;
 };
 
-template<typename T>
-struct directed_graph_edge_desc_traits_helper<T, true> {
-    using directed_edge_descriptor = typename T::directed_edge_descriptor;
+template <typename T>
+struct DirectedGraphEdgeDescTraitsHelper<T, true> {
+    using DirectedEdgeDescriptor = typename T::DirectedEdgeDescriptor;
 };
 
-template<typename T>
-struct directed_graph_edge_desc_traits {
-    using directed_edge_descriptor =
-        typename directed_graph_edge_desc_traits_helper<T, has_edge_desc_tmember<T>::value>::directed_edge_descriptor;
+template <typename T>
+struct DirectedGraphEdgeDescTraits {
+    using DirectedEdgeDescriptor =
+        typename DirectedGraphEdgeDescTraitsHelper<T, HasEdgeDescTmember<T>::value>::DirectedEdgeDescriptor;
 };
 
-template<typename T>
-using edge_desc_t = typename directed_graph_edge_desc_traits<T>::directed_edge_descriptor;
+template <typename T>
+using EdgeDescT = typename DirectedGraphEdgeDescTraits<T>::DirectedEdgeDescriptor;
 
 /**
  * @brief Traits for computational Directed Acyclic Graphs (DAGs).
  *
  * Computational DAGs extend basic graphs by adding requirements for weight types:
- * - `vertex_work_weight_type`: Represents computational cost of a task.
- * - `vertex_comm_weight_type`: Represents data size/communication cost.
- * - `vertex_mem_weight_type`: Represents memory usage of a task.
+ * - `VertexWorkWeightType`: Represents computational cost of a task.
+ * - `VertexCommWeightType`: Represents data size/communication cost.
+ * - `VertexMemWeightType`: Represents memory usage of a task.
  *
  * @tparam T The computational DAG type.
  */
-template<typename T>
-struct computational_dag_traits {
-    static_assert(has_vertex_work_weight_tmember<T>::value, "cdag must have vertex work weight type");
-    static_assert(has_vertex_comm_weight_tmember<T>::value, "cdag must have vertex comm weight type");
-    static_assert(has_vertex_mem_weight_tmember<T>::value, "cdag must have vertex mem weight type");
+template <typename T>
+struct ComputationalDagTraits {
+    static_assert(HasVertexWorkWeightTmember<T>::value, "cdag must have vertex work weight type");
+    static_assert(HasVertexCommWeightTmember<T>::value, "cdag must have vertex comm weight type");
+    static_assert(HasVertexMemWeightTmember<T>::value, "cdag must have vertex mem weight type");
 
-    using vertex_work_weight_type = typename T::vertex_work_weight_type;
-    using vertex_comm_weight_type = typename T::vertex_comm_weight_type;
-    using vertex_mem_weight_type = typename T::vertex_mem_weight_type;
+    using VertexWorkWeightType = typename T::VertexWorkWeightType;
+    using VertexCommWeightType = typename T::VertexCommWeightType;
+    using VertexMemWeightType = typename T::VertexMemWeightType;
 };
 
-template<typename T>
-using v_workw_t = typename computational_dag_traits<T>::vertex_work_weight_type;
+template <typename T>
+using VWorkwT = typename ComputationalDagTraits<T>::VertexWorkWeightType;
 
-template<typename T>
-using v_commw_t = typename computational_dag_traits<T>::vertex_comm_weight_type;
+template <typename T>
+using VCommwT = typename ComputationalDagTraits<T>::VertexCommWeightType;
 
-template<typename T>
-using v_memw_t = typename computational_dag_traits<T>::vertex_mem_weight_type;
+template <typename T>
+using VMemwT = typename ComputationalDagTraits<T>::VertexMemWeightType;
 
 /**
  * @brief Traits to extract the vertex type of a computational DAG, if defined.
  *
- * If the DAG defines `vertex_type_type`, it is extracted; otherwise, `void` is used.
+ * If the DAG defines `VertexTypeType`, it is extracted; otherwise, `void` is used.
  */
-template<typename T, typename = void>
-struct computational_dag_typed_vertices_traits {
-    using vertex_type_type = void;
+template <typename T, typename = void>
+struct ComputationalDagTypedVerticesTraits {
+    using VertexTypeType = void;
 };
 
-template<typename T>
-struct computational_dag_typed_vertices_traits<T, std::void_t<typename T::vertex_type_type>> {
-    using vertex_type_type = typename T::vertex_type_type;
+template <typename T>
+struct ComputationalDagTypedVerticesTraits<T, std::void_t<typename T::VertexTypeType>> {
+    using VertexTypeType = typename T::VertexTypeType;
 };
 
-template<typename T>
-using v_type_t = typename computational_dag_typed_vertices_traits<T>::vertex_type_type;
+template <typename T>
+using VTypeT = typename ComputationalDagTypedVerticesTraits<T>::VertexTypeType;
 
 /**
  * @brief Traits to extract the edge communication weight type of a computational DAG, if defined.
  *
  * If the DAG defines `edge_comm_weight_type`, it is extracted; otherwise, `void` is used.
  */
-template<typename T, typename = void>
-struct computational_dag_edge_desc_traits {
-    using edge_comm_weight_type = void;
+template <typename T, typename = void>
+struct ComputationalDagEdgeDescTraits {
+    using EdgeCommWeightType = void;
 };
 
-template<typename T>
-struct computational_dag_edge_desc_traits<T, std::void_t<typename T::edge_comm_weight_type>> {
-    using edge_comm_weight_type = typename T::edge_comm_weight_type;
+template <typename T>
+struct ComputationalDagEdgeDescTraits<T, std::void_t<typename T::EdgeCommWeightType>> {
+    using EdgeCommWeightType = typename T::EdgeCommWeightType;
 };
 
-template<typename T>
-using e_commw_t = typename computational_dag_edge_desc_traits<T>::edge_comm_weight_type;
+template <typename T>
+using ECommwT = typename ComputationalDagEdgeDescTraits<T>::EdgeCommWeightType;
 
 // -----------------------------------------------------------------------------
 // Property Traits
@@ -211,32 +224,36 @@ using e_commw_t = typename computational_dag_edge_desc_traits<T>::edge_comm_weig
 
 /**
  * @brief Check if a graph guarantees vertices are stored/iterated in topological order.
- * It allows a graph implementation to notify algorithms that vertices are stored/iterated in topological order which can be used to optimize the algorithm.
+ * It allows a graph implementation to notify algorithms that vertices are stored/iterated in topological order which can be used
+ * to optimize the algorithm.
  */
-template<typename T, typename = void>
-struct has_vertices_in_top_order_trait : std::false_type {};
+template <typename T, typename = void>
+struct HasVerticesInTopOrderTrait : std::false_type {};
 
-template<typename T>
-struct has_vertices_in_top_order_trait<T, std::void_t<decltype(T::vertices_in_top_order)>>
-    : std::bool_constant<std::is_same_v<decltype(T::vertices_in_top_order), const bool> && T::vertices_in_top_order> {};
+template <typename T>
+struct HasVerticesInTopOrderTrait<T, std::void_t<decltype(T::verticesInTopOrder_)>>
+    : std::bool_constant<std::is_same_v<decltype(T::verticesInTopOrder_), const bool> && T::verticesInTopOrder_> {};
 
-template<typename T>
-inline constexpr bool has_vertices_in_top_order_v = has_vertices_in_top_order_trait<T>::value;
+template <typename T>
+inline constexpr bool hasVerticesInTopOrderV = HasVerticesInTopOrderTrait<T>::value;
 
-} // namespace osp
+}    // namespace osp
+}    // namespace npu::tile_fwk
 
 /**
  * @brief Specialization of std::hash for osp::directed_edge.
  *
- * This specialization provides a hash function for osp::directed_edge, which is used in hash-based containers like std::unordered_set and std::unordered_map.
+ * This specialization provides a hash function for osp::directed_edge, which is used in hash-based containers like
+ * std::unordered_set and std::unordered_map.
  */
-template<typename Graph_t>
-struct std::hash<osp::directed_edge<Graph_t>> {
-    std::size_t operator()(const osp::directed_edge<Graph_t> &p) const noexcept {
+template <typename GraphT>
+struct std::hash<osp::DirectedEdge<GraphT>> {
+    std::size_t operator()(const osp::DirectedEdge<GraphT> &p) const noexcept {
         // Combine hashes of source and target
-        std::size_t h1 = std::hash<osp::vertex_idx_t<Graph_t>>{}(p.source);
-        std::size_t h2 = std::hash<osp::vertex_idx_t<Graph_t>>{}(p.target);
-        osp::hash_combine(h1, h2);
+        std::size_t h1 = std::hash<osp::VertexIdxT<GraphT>>{}(p.source_);
+        std::size_t h2 = std::hash<osp::VertexIdxT<GraphT>>{}(p.target_);
+        osp::HashCombine(h1, h2);
         return h1;
     }
 };
+#endif // OSP_GRAPH_TRAITS_H
