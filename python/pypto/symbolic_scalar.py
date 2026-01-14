@@ -175,11 +175,13 @@ class SymbolicScalar:
                 out = SymbolicScalar(bop(self.concrete(), other))
             else:
                 out = self.from_base(sym_bop(self._base, other))
-        else:
+        elif isinstance(other, SymbolicScalar):
             if self.is_concrete() and other.is_concrete():
                 out = SymbolicScalar(bop(self.concrete(), other.concrete()))
             else:
                 out = self.from_base(sym_bop(self._base, other._base))
+        else:
+            return NotImplemented
 
         return out
 
