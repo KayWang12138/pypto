@@ -67,6 +67,7 @@ constexpr int32_t TIME_OUT_THRESHOLD = 1000000; // 超时阈值 1s
 constexpr int32_t DFX_TIME_OUT_THRESHOLD = 50000000; // 超时阈值 50s
 constexpr uint32_t CTRL_CPU_THREAD_IDX = 0;
 constexpr int32_t START_AICPU_NUM = 3;
+constexpr uint32_t CTRL_CPU_THREAD_IDX = 0;
 constexpr uint64_t NUM_FIFTY = 50;
 constexpr uint64_t US_PER_SEC = 1000000;
 constexpr uint64_t NSEC_PER_USEC = 1000;

@@ -169,11 +169,19 @@ TEST_F(TestDynamicDeviceRunner, test_dump_device_perf) {
     metr->perfTrace[0][0] = 1;
     metr->taskCount = 1;
 
+    MetricPerf aicpuMetPer;
+    aicpuMetPer.perfAicpuTraceDevTask[0][0][0] = 1;
+    aicpuMetPer.perfAicpuTraceDevTask[1][0][0] = 2;
+    aicpuMetPer.perfAicpuTraceDevTask[2][0][0] = 3;
+    devKernelArgs.aicpuPerfAddr = npu::tile_fwk::dynamic::PtrToValue(static_cast<void*>(&aicpuMetPer));
+
     for (uint64_t i = 0; i < devKernelArgs.nrAic + devKernelArgs.nrAiv; i++) {
         perfData.push_back(static_cast<void*>(metr));
     }
     npu::tile_fwk::dynamic::DumpAicoreTaskExectInfo(devKernelArgs, perfData);
     free(metr);
     std::string jsonPath = npu::tile_fwk::config::LogTopFolder() + "/tilefwk_L1_prof_data.json";
+    EXPECT_EQ(IsPathExist(jsonPath), true);
+    jsonPath = npu::tile_fwk::config::LogTopFolder() + "/machine_runtime_operator_trace.json";
     EXPECT_EQ(IsPathExist(jsonPath), true);
 }

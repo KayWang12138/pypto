@@ -29,6 +29,7 @@ __attribute__((weak)) int32_t AdprofCheckFeatureIsOn(uint64_t feature);
 };
 
 namespace npu::tile_fwk::dynamic {
+
 class AiCoreManager;
 struct PyPtoMsprofAdditionalInfo { // for MsprofReportAdditionalInfo buffer data
     uint16_t magicNumber = 0x5A5AU;
