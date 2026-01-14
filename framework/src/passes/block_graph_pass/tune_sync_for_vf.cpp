@@ -22,9 +22,9 @@
 namespace npu {
 namespace tile_fwk {
 bool TuneSyncForVF::NeedAdjustSetFlag(Function *subGraphFunc, Operation *vecTileOp0, Operation *vecTileOp1, Operation *setFlag) {
-    if (!subGraphFunc->setWaitOpMap.count(vecTileOp0)) {
-        return true;
-    }
+    // if (!subGraphFunc->setWaitOpMap.count(vecTileOp0)) {
+    //     return true;
+    // }
     PipeType pipeX = setFlag->syncQueue_.trigPipeId_;
     float tv = static_cast<float>(subGraphFunc->pipeEndTime[PipeType::PIPE_V]);
     float tx = static_cast<float>(subGraphFunc->pipeEndTime[pipeX]);
@@ -32,7 +32,7 @@ bool TuneSyncForVF::NeedAdjustSetFlag(Function *subGraphFunc, Operation *vecTile
     float t1 = static_cast<float>(vecTileOp0->cycleEnd);
     float t2 = static_cast<float>(vecTileOp1->cycleEnd);
     float ty = t0 + vfPrarm * vecTileOp0->GetLatency() + vfPrarm * vecTileOp1->GetLatency();
-    Operation *tileOpZ = subGraphFunc->setWaitOpMap[vecTileOp0];
+    Operation *tileOpZ = subGraphFunc->setOpMap[setFlag];
     float tb = static_cast<float>(tileOpZ->cycleStart);
     if (std::max(tv - t2 + ty, tx + std::max(static_cast<float>(0), (ty - std::max(t1, tb)))) < tv) {
         return true;
@@ -41,15 +41,15 @@ bool TuneSyncForVF::NeedAdjustSetFlag(Function *subGraphFunc, Operation *vecTile
 }
 
 bool TuneSyncForVF::NeedAdjustWaitFlag(Function *subGraphFunc, Operation *vecTileOp0, Operation *vecTileOp1, Operation *waitFlag) {
-    if (!subGraphFunc->waitSetOpMap.count(vecTileOp1)) {
-        return true;
-    }
+    // if (!subGraphFunc->waitSetOpMap.count(vecTileOp1)) {
+    //     return true;
+    // }
     PipeType pipeX = waitFlag->syncQueue_.pipeId_;
     float tv = static_cast<float>(subGraphFunc->pipeEndTime[PipeType::PIPE_V]);
     float tx = static_cast<float>(subGraphFunc->pipeEndTime[pipeX]);
     float t0 = static_cast<float>(vecTileOp0->cycleStart);
     float t2 = static_cast<float>(vecTileOp1->cycleEnd);
-    Operation *tileOpZ = subGraphFunc->waitSetOpMap[vecTileOp1];
+    Operation *tileOpZ = subGraphFunc->waitOpMap[waitFlag];
     float tb = static_cast<float>(tileOpZ->cycleEnd);
     float ty = std::max(t0, tb) + vfPrarm * vecTileOp0->GetLatency() + vfPrarm * vecTileOp1->GetLatency();
     if (std::max(tv - t2 + ty, tx) < tv) {
@@ -96,9 +96,6 @@ Status TuneSyncForVF::AdjustSetWaitFlag(Function *subGraphFunc, std::vector<Oper
     size_t mergedSize = mergedOps[groupNum].size();
     auto insertPos2 = opList_.begin() + vecTileOp0Idx - mergedSize + 1;
     opList_.insert(insertPos2, setFlagList.begin(), setFlagList.end());
-
-    //setwaitflag移动后需要同步更新setopmap waitopmap setwaitopmap
-
 
     // 更新各pipe上op的时间戳
     // pipe_v
