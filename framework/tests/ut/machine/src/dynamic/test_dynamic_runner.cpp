@@ -28,6 +28,8 @@
 #include "machine/dump/kernel_dump_utils.h"
 #include "interface/program/program.h"
 #include "interface/utils/file_utils.h"
+#include "tilefwk/aicpu_common.h"
+#include "machine/device/dynamic/device_utils.h"
 #define private public
 using namespace npu::tile_fwk;
 
@@ -149,4 +151,26 @@ TEST_F(TestDynamicDeviceRunner, test_kernel_dump) {
     kernelDump.WriteFatbinJson(binJsonPath, jsonFilePath, binFileName);
     auto ret = IsPathExist(jsonFilePath);
     EXPECT_EQ(ret, false);
+}
+
+TEST_F(TestDynamicDeviceRunner, test_dump_device_pref) {
+    DeviceArgs devKernelArgs;
+    devKernelArgs.nrAic = 1;
+    devKernelArgs.nrAiv = 2;
+    devKernelArgs.nrValidAic = 1;
+    AicpuMetrPer aicpuMetPer;
+    aicpuMetPer[0][0][0] = 1;
+    aicpuMetPer[1][0][0] = 2;
+    aicpuMetPer[2][0][0] = 3;
+    devKernelArgs.aicpuPerAddr = static_cast<uint64_t>(&aicpuMetPer);
+    std::vector<void *> perfData;
+    Metrics metr;
+    TaskStat taskStat;
+    metr.taskCount = 1;
+    metr.tasks[0] = taskStat;
+    metr.perfTrace[0][0] = 1;
+    for (uint64_t i = 0; i < args.nrAic + args.nrAiv; i++) {
+        perfData.push_back(static_cast<void*>(&metr));
+    }
+    DumpAicoreTaskExectInfo(devKernelArgs, perfData);
 }
