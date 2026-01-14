@@ -954,7 +954,7 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest18) {
     // Prepare the graph
     std::vector<int64_t> shape = {kNumEight, kNumExpFour};
     auto inCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
-    auto outCast= std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape,
+    auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape,
         TileOpFormat::TILEOP_ND, "outCast", NodeType::OUTCAST);
     outCast->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
     auto ubTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
