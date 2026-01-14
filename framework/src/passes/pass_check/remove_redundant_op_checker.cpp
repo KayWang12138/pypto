@@ -142,6 +142,10 @@ Status RemoveRedundantOpChecker::PostCheckAssemble(const Operation &op) {
         op.GetOpMagic(), op.GetOpMagic(), GetFormatBacktrace(op).c_str());
         return FAILED;
     }
+    if (assemble_out->GetProducers().size() > 1) {
+        APASS_LOG_DEBUG_F(Elements::Operation, "AssembleOut[%d] has more than one producer, skip checking.", assemble_out->GetMagic());
+        return SUCCESS;
+    }
     if (assemble_in->shape == assemble_out->shape) {
         if (assemble_in->GetMemoryTypeOriginal() == MemoryType::MEM_UB &&
             assemble_out->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
