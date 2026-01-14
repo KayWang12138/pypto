@@ -66,7 +66,7 @@ private:
     int nextKeyValue_ = static_cast<int>(ConfigKey::CONFIG_INVALID) + 1;
     
     // Helper to compute hash for key name (same algorithm as macro)
-    static int ComputeKeyHash(const std::string& keyName);
+    static size_t ComputeKeyHash(const std::string& keyName);
 };
 
 // Configuration container class using type erasure
@@ -222,9 +222,11 @@ const T& Config::Get(ConfigKey key) const {
 // This ensures the same name always generates the same enum value
 // Returns a value >= 1 (CONFIG_INVALID is 0)
 // Using recursive constexpr function
-constexpr int ComputeConfigKeyHashImpl(const char* str, int hash = 5381) {
-    return (*str == '\0') ? ((hash % 1000000) + 1)
-                          : ComputeConfigKeyHashImpl(str + 1, hash * 33 + *str);
+constexpr size_t ComputeConfigKeyHashImpl(const char* str, size_t hash = 5381) {
+    for(size_t i = 0; str[i] != '\0'; i++) {
+        hash = hash * 33 + (unsigned char)str[i];
+    }
+    return hash % 999983 + 1;
 }
 
 } // namespace pto

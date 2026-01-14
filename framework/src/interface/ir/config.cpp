@@ -24,7 +24,7 @@ ConfigRegistry& ConfigRegistry::GetInstance() {
     return instance;
 }
 
-int ConfigRegistry::ComputeKeyHash(const std::string& keyName) {
+size_t ConfigRegistry::ComputeKeyHash(const std::string& keyName) {
     return ComputeConfigKeyHashImpl(keyName.c_str());
 }
 
