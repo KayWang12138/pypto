@@ -47,6 +47,7 @@ inline std::string GetLayoutType(BufferType bufType, int dim, bool isStatic) {
 // UBTileTensorFP32Dim2 ubTile_0((__ubuf__ float*)UB_S0_E16384, DimLayout2(Shape<int, int>(sym_18_dim_0, sym_18_dim_1),
 // Stride<int, int>(64, 1)));
 struct TileTensor {
+    bool isStatic;
     int magic; // tensor magic numbuer
     int dim;
     DataType dtype;
@@ -57,8 +58,9 @@ struct TileTensor {
     std::vector<std::string> shape; // valid shape
     std::vector<std::string> stride;
     std::vector<int64_t> rawShape;
+    std::vector<int64_t> originShape; // for static functionType
+    std::vector<SymbolicScalar> dynValidShape; // for dynamic functionType
     std::vector<int64_t> localBufOffset;
-    bool isStatic;
 
     bool operator==(const TileTensor &other) const {
         return dim == other.dim && bufVar == other.bufVar && shape == other.shape && dtype == other.dtype &&
@@ -246,8 +248,8 @@ private:
     std::unordered_map<int, std::shared_ptr<LogicalTensor>> tensorMap_;
     //<TileTensor, tensorName>
     std::unordered_map<TileTensor, std::string, TileTensorHash> tileTensor_;
-    //<tensor magic, tensorName>
-    std::unordered_map<int, std::string> tileTensorByMagic_;
+    //<tensor magic, TileTensor>
+    std::multimap<int, TileTensor> tileTensorByMagic_;
     //<using type, TileTensorUsing>
     std::unordered_map<std::string, TileTensorUsing> tileTensorUsing_;
 };
