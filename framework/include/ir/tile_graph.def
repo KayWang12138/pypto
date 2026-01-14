@@ -72,7 +72,7 @@ DEFOP(
     OPCODE(
         OP_L1_COPY_IN
     ),
-    INPUT(Tile, Input),
+    INPUT(Tensor, Input),
     INPUT(ScalarList, Offsets),
     OUTPUT(Tile, Output),
     // 0:ND2ND, 1:ND2NZ, 2:NZ2NZ
@@ -126,13 +126,12 @@ DEFOP(
     ),
     INPUT(Tile, Input),
     INPUT(ScalarList, Offsets),
-    OUTPUT(Tile, Output),
-    // 0:NZ2ND, 1:NZ2NZ
-    ATTR(int, CopyOutMode, 0),
+    OUTPUT(Tensor, Output),
     // 0:no_relu, 1:relue
     ATTR(int, ReluMode, 0),
     // 0:no_acc, 1:enable_acc
     ATTR(bool, EnableGmAcc, false)
+    ATTR(int, QuantScaleValue, 0)
 )
 
 DEFOP(
