@@ -937,6 +937,7 @@ class BuildCtrl(CMakeParam):
         cmd += self.tests.get_cfg_cmd()
         # 执行
         update_env = self.get_cfg_update_env()
+        update_env["CCACHE_BASEDIR"] = str(self.src_root)
         logging.info("CMake Configure, Cmd: %s", cmd)
         ret, _ = self.run_build_cmd(cmd=cmd, update_env=update_env, check=True)
         ret.check_returncode()
@@ -948,6 +949,7 @@ class BuildCtrl(CMakeParam):
         update_env = {}
         if self.build.job_num:
             update_env["PYPTO_UTEST_PARALLEL_NUM"] = str(self.build.job_num)
+        update_env["CCACHE_BASEDIR"] = str(self.src_root)
         cmd_list = self.build.get_build_cmd_lst(cmake=self.cmake, binary_path=self.build_root)
         for i, c in enumerate(cmd_list, start=1):
             c += " --verbose" if self.verbose else ""
