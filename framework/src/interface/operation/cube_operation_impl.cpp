@@ -669,6 +669,11 @@ void CheckCubeTiling(const Tensor &operand1, const Tensor &operand2) {
             << " bytes, the length must be aligned to 32 bytes" << std::endl;
     });
     OP_CHECK(true, {
+        ASSERT(kL0 % ALIGN_SIZE_16 == 0)
+            << "Current element count of kL0: " << kL0
+            << ", the element count must be aligned to 16" << std::endl;
+    });
+    OP_CHECK(true, {
         ASSERT(nL0 * BytesOf(operand2.GetDataType()) % ALIGN_SIZE_32 == 0)
             << "Current length of nL0: " << (kL0 * BytesOf(operand1.GetDataType()))
             << " bytes, the length must be aligned to 32 bytes" << std::endl;
