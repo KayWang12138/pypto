@@ -714,6 +714,7 @@ OpcodeManager::OpcodeManager() {
 
 // NEXTNEXT: delete after tile op register has supported tile tensor
 std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
+    {      Opcode::OP_INDEX_OUTCAST,  "TIndexOutcast"},
     {         Opcode::OP_UB_COPY_IN,          "TLoad"},
     {        Opcode::OP_UB_COPY_OUT,         "TStore"},
     {Opcode::OP_TRANSPOSE_VNCHWCONV,         "TTrans"},
