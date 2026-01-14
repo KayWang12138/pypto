@@ -101,7 +101,7 @@ def apply_rotary_pos_emb_v2(q, k, cos, sin, unsqueeze_dim=1):
     if input_dtype != torch.float32:
         q_embed, k_embed = q_embed.to(input_dtype), k_embed.to(input_dtype)
     q_embed = q_embed.reshape(t, hq, 2, d // 2).transpose(2, 3).reshape(t, hq, d)
-    k_embed = k_embed.reshape(t, hk, 2, d // 2).transpose(1, 2).reshape(t, d)
+    k_embed = k_embed.reshape(t, hk, 2, d // 2).transpose(2, 3).reshape(t, d)
     return q_embed, k_embed
 
 
