@@ -33,14 +33,14 @@ namespace osp {
  */
 template <typename T>
 class IntegralRange {
-    static_assert(std::is_integral<T>::value, "integral_range requires an integral type");
+    static_assert(std::is_integral<T>::value, "IntegralRange requires an integral type");
 
     T start_;
     T finish_;
 
   public:
     /**
-     * @brief Iterator for the integral_range.
+     * @brief Iterator for the IntegralRange.
      *
      * This iterator satisfies the RandomAccessIterator concept.
      */
