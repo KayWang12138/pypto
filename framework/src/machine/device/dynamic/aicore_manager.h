@@ -67,6 +67,10 @@ public:
         logger_ = logger;
     }
 
+    bool IsOpenProf() {
+        return aicoreProf_.ProfIsEnable();
+    }
+
     void SendDevTaskModel(DeviceTask *devTask) {
         int64_t funcdata;
         auto dyntask = (DynDeviceTask *)devTask;

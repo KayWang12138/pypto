@@ -79,6 +79,10 @@ public:
         return ret;
     }
 
+    bool IsEnabelProf() {
+        return aicoreManager_[0]->IsOpenProf();
+    }
+
     void ResetRegAll() {
       sleep(1);
       DEV_ERROR("ResetRegAll");

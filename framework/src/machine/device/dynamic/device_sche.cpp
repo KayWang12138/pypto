@@ -225,6 +225,16 @@ void SigAct(int signum, siginfo_t* info, void* act) {
     (void)raise(signum);
     return;
 }
+void DumpPrefTrace(DeviceArgs *devArgs) {
+    PerfMtTrace(PERF_TRACE_EXIT, g_machine_mgr.LastFinishThreadIdx_);
+    DEV_ERROR("Begin dump machine perf trace: with device addr: %lu", devArgs->aicpuPerAddr);
+    PerfEvtMgr::Instance().DumpPerfTrace(devArgs->scheCpuNum,
+                                            "/tmp/tile_fwk_aicpu_perftrace.json", devArgs->aicpuPerAddr);
+    DEV_IF_DEVICE {
+        g_machine_mgr.machine_.DumpAicorePerfTrace("tmp/tile_fwk_aicore_perftrace.json");
+    }
+    DEV_ERROR("Finish dump machine perf trace.");
+}
 }
 
 
@@ -242,13 +252,11 @@ extern "C" __attribute__((visibility("default"))) int DynTileFwkBackendKernelSer
         DEV_INFO("All schedule exited, destroy the machine.");
         g_machine_mgr.DeInit();
 #if ENABLE_PERF_TRACE
-        PerfMtTrace(PERF_TRACE_EXIT, g_machine_mgr.LastFinishThreadIdx_);
-        DEV_ERROR("Begin dump machine perf trace:");
-        PerfEvtMgr::Instance().DumpPerfTrace(devArgs->scheCpuNum, "/tmp/tile_fwk_aicpu_perftrace.json");
-        DEV_IF_DEVICE {
-            g_machine_mgr.machine_.DumpAicorePerfTrace("tmp/tile_fwk_aicore_perftrace.json");
-        }
-        DEV_ERROR("Finish dump machine perf trace.");
+        DumpPrefTrace(devArgs);
+#else
+    if (g_machine_mgr.machine_.IsEnabelProf()) {
+        DumpPrefTrace(devArgs);
+    }
 #endif
         return DEVICE_MACHINE_OK;
     }
