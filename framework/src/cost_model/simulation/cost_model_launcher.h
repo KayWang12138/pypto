@@ -16,6 +16,7 @@
 #pragma once
 
 #include <thread>
+#include <atomic>
 #include <cstdint>
 #include <unistd.h>
 #include "interface/interpreter/raw_tensor_data.h"
@@ -307,7 +308,8 @@ private:
         costModelAgent.TerminateCostModel();
     }
 
-    void RunTestMode(DeviceKernelArgs *kArgs) {
+    // RunTestMode for aicpu simulation (can be called from DeviceLauncher)
+    static void RunTestMode(DeviceKernelArgs *kArgs) {
         (void) kArgs;
         std::thread aicpus[DEVICE_MAX_AICPU_NUM];
         std::atomic<int> idx{0};
