@@ -99,6 +99,7 @@ public:
     std::string GenIndexAddOp() const;
 
     std::string GenIndexOutCastOp() const;
+    std::string PrintIndexOutCastTileTensopr() const;
 
     std::string GenCumSumOp() const;
     std::string PrintGatherDynamicUnaligned() const;
