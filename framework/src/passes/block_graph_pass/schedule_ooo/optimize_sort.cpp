@@ -269,10 +269,14 @@ void OptimizeSort::GetListToAdvance(size_t rollBackIndex, size_t backTraceIndex,
 Status OptimizeSort::RollBack(size_t &startIndex,
     std::vector<Operation*> &curOpList, std::map<MemoryType, int64_t> &curMemoryMap) {
     APASS_LOG_DEBUG_F(Elements::Operation, "=====> Start RollBack.");
-    curOpList = backTraceOpList[backTraceOp].second;
-    MemoryType memType = recordOpBuffer[backTraceOp];
-    size_t backTraceIndex = backTraceOpList[backTraceOp].first + 1;
+    RestoreCheckpoint(backTraceCheckpoint, startIndex, curOpList, curMemoryMap);
+    size_t backTraceIndex = startIndex + 1;
+    if (backTraceIndex >= curOpList.size()) {
+        APASS_LOG_ERROR_F(Elements::Operation, "RollBack invalid backTraceIndex: %d", backTraceIndex);
+        return FAILED;
+    }
     backTraceOp = curOpList[backTraceIndex];
+    MemoryType memType = backTraceOp->GetOutputOperand(0)->GetMemoryTypeOriginal();
     size_t rollBackIndex = backTraceIndex;
     APASS_LOG_DEBUG_F(Elements::Operation, "backTraceOp: %s, backTraceIndex: %d, memType: %d",
         GetOpInfo(backTraceOp).c_str(), backTraceIndex, memType);
@@ -280,23 +284,24 @@ Status OptimizeSort::RollBack(size_t &startIndex,
     while (rollBackIndex < curOpList.size() && rollBackIndex > 0) {
         rollBackIndex--;
         Operation* rollBackOp = curOpList[rollBackIndex];
-        if (recordOpBuffer[rollBackOp] != memType || !(IsOpAlloc(rollBackOp)) || HasDependency(rollBackOp, backTraceOp)) {
+        if (rollBackOp->GetOutputOperand(0)->GetMemoryTypeOriginal() != memType || !(IsOpAlloc(rollBackOp)) ||
+            HasDependency(rollBackOp, backTraceOp)) {
             continue;
         }
         rollBackNodeOp = rollBackOp;
         APASS_LOG_DEBUG_F(Elements::Operation, "Select rollBackOp: %s, rollBackIndex: %d",
             GetOpInfo(rollBackOp).c_str(), rollBackIndex);
-        recordBufferAllocate = backTraceBufferAllocate;
-        recordOpList = backTraceOpList;
-        recordBufRefCount = backTraceBufRefCount;
         advanceIndexList.clear();
         GetListToAdvance(rollBackIndex, backTraceIndex, curOpList, advanceIndexList);
         ReplaceIndex(curOpList, advanceIndexList, rollBackIndex);
         startIndex = rollBackIndex;
         APASS_LOG_DEBUG_F(Elements::Operation, "RollBack==>change startIndex: %d", startIndex);
         if (rollBackIndex != 0) {
-            curMemoryMap = recordBufferAllocate[curOpList[rollBackIndex-1]];
-            RecoverSymbol(startIndex - 1, curOpList);
+            if (RebuildStateToIndex(curOpList, rollBackIndex - 1, curMemoryMap) != SUCCESS) {
+                APASS_LOG_ERROR_F(Elements::Operation, "RollBack rebuild failed.");
+                return FAILED;
+            }
+            UpdateVisitedByIndex(curOpList, startIndex - 1, true);
             return SUCCESS;
         }
         curMemoryMap = {{MemoryType::MEM_L0A, 0}, {MemoryType::MEM_L0B, 0}, {MemoryType::MEM_L0C, 0}};
@@ -305,6 +310,7 @@ Status OptimizeSort::RollBack(size_t &startIndex,
             visitedOp[op] = false;
         }
         InitBufRefCount();
+        opDeltas.clear();
         return SUCCESS;
     }
     APASS_LOG_ERROR_F(Elements::Operation, "RollBack Failed");
@@ -384,17 +390,103 @@ Status OptimizeSort::UpdateOOperandPreDependence(size_t startIndex, std::vector<
     return SUCCESS;
 }
 
-// 回溯后，将队列后面 op 的 visitedOp 状态还原回 false，并对应修改 refcount
-void OptimizeSort::RecoverSymbol(size_t startIndex, std::vector<Operation*> curOpList) {
-    APASS_LOG_DEBUG_F(Elements::Operation, "RecoverSymbol  startIdx: %d, curOp: %s", startIndex, GetOpInfo(curOpList[startIndex]).c_str());
-    bufRefCount = recordBufRefCount[curOpList[startIndex]];
+void OptimizeSort::UpdateVisitedByIndex(const std::vector<Operation*> &curOpList, size_t startIndex,
+    bool startIndexExecuted) {
     for (size_t i = 0; i < curOpList.size(); i++) {
-        if (i > startIndex) {
-            visitedOp[curOpList[i]] = false;
-            continue;
-        }
-        visitedOp[curOpList[i]] = true;
+        visitedOp[curOpList[i]] = startIndexExecuted ? (i <= startIndex) : (i < startIndex);
     }
+}
+
+OptimizeSort::Checkpoint OptimizeSort::MakeCheckpoint(size_t startIndex, const std::vector<Operation*> &curOpList,
+    const std::map<MemoryType, int64_t> &curMemoryMap, bool startIndexExecuted) {
+    Checkpoint checkpoint;
+    checkpoint.startIndex = startIndex;
+    checkpoint.startIndexExecuted = startIndexExecuted;
+    checkpoint.opList = curOpList;
+    checkpoint.memoryMap = curMemoryMap;
+    checkpoint.bufRefCount = bufRefCount;
+    checkpoint.opDeltas = opDeltas;
+    return checkpoint;
+}
+
+void OptimizeSort::RestoreCheckpoint(const Checkpoint &checkpoint, size_t &startIndex, std::vector<Operation*> &curOpList,
+    std::map<MemoryType, int64_t> &curMemoryMap) {
+    startIndex = checkpoint.startIndex;
+    curOpList = checkpoint.opList;
+    curMemoryMap = checkpoint.memoryMap;
+    bufRefCount = checkpoint.bufRefCount;
+    opDeltas = checkpoint.opDeltas;
+    UpdateVisitedByIndex(curOpList, startIndex, checkpoint.startIndexExecuted);
+}
+
+Status OptimizeSort::UndoOpEffects(Operation* op, std::map<MemoryType, int64_t> &curMemoryMap) {
+    if (!visitedOp[op]) {
+        return SUCCESS;
+    }
+    auto it = opDeltas.find(op);
+    if (it == opDeltas.end()) {
+        APASS_LOG_ERROR_F(Elements::Operation, "UndoOpEffects cannot find delta for %s", GetOpInfo(op).c_str());
+        return FAILED;
+    }
+    const OpDelta &delta = it->second;
+    for (const auto &freed : delta.freedBuffers) {
+        if (ModifyBuffer(curMemoryMap, freed.memType, freed.size, true) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Tensor, "UndoOpEffects failed to restore memory for tensor[%d]", freed.memId);
+            return FAILED;
+        }
+    }
+    for (auto tensor : GetInOutOperand(op)) {
+        int memId = tensor->memoryrange.memId;
+        auto iter = bufRefCount.find(memId);
+        if (iter == bufRefCount.end()) {
+            APASS_LOG_ERROR_F(Elements::Tensor, "UndoOpEffects cannot find Tensor[%d] refcount.", memId);
+            return FAILED;
+        }
+        iter->second++;
+    }
+    if (delta.allocApplied) {
+        if (ModifyBuffer(curMemoryMap, delta.allocMemType, delta.allocSize, false) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Tensor, "UndoOpEffects failed to revert alloc for %s", GetOpInfo(op).c_str());
+            return FAILED;
+        }
+    }
+    visitedOp[op] = false;
+    return SUCCESS;
+}
+
+Status OptimizeSort::RebuildStateToIndex(const std::vector<Operation*> &curOpList, size_t endIndex,
+    std::map<MemoryType, int64_t> &curMemoryMap) {
+    ScheduleBase::operations = curOpList;
+    InitBufRefCount();
+    curMemoryMap = {{MemoryType::MEM_L0A, 0}, {MemoryType::MEM_L0B, 0}, {MemoryType::MEM_L0C, 0}};
+    for (size_t i = 0; i <= endIndex; i++) {
+        Operation* op = curOpList[i];
+        OpDelta delta;
+        if (IsOpAlloc(op)) {
+            auto tensor = op->GetOutputOperand(0);
+            delta.allocApplied = true;
+            delta.allocMemType = tensor->GetMemoryTypeOriginal();
+            delta.allocSize = ShapeCeilAlign(tensor->GetShape(), tensor->Datatype());
+            if (ModifyBuffer(curMemoryMap, delta.allocMemType, delta.allocSize, true) != SUCCESS) {
+                APASS_LOG_ERROR_F(Elements::Tensor, "RebuildStateToIndex alloc failed for %s", GetOpInfo(op).c_str());
+                return FAILED;
+            }
+        }
+        std::vector<FreedBuffer> freedBuffers;
+        if (RetireOpBuffer(curMemoryMap, op, freedBuffers) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Operation, "RebuildStateToIndex retire failed for %s", GetOpInfo(op).c_str());
+            return FAILED;
+        }
+        delta.freedBuffers = std::move(freedBuffers);
+        opDeltas[op] = std::move(delta);
+        visitedOp[op] = true;
+    }
+    if (endIndex + 1 < curOpList.size()) {
+        for (size_t i = endIndex + 1; i < curOpList.size(); i++) {
+            visitedOp[curOpList[i]] = false;
+        }
+    }
+    return SUCCESS;
 }
 
 // 找未被执行的 consumer
@@ -410,11 +502,9 @@ void OptimizeSort::GetConsumerGroup(std::set<Operation*> consumers, std::vector<
 
 void OptimizeSort::GetStackTop(size_t &startIndex, std::vector<Operation*> &curOpList,
     std::map<MemoryType, int64_t> &curMemoryMap) {
-    auto topNode = needFreeOpStack.top();
-    needFreeOpStack.pop();
-    curOpList = recordOpList[topNode.first].second;
-    startIndex = recordOpList[topNode.first].first;
-    curMemoryMap = recordBufferAllocate[topNode.first];
+    auto topFrame = backtraceStack.top();
+    backtraceStack.pop();
+    RestoreCheckpoint(topFrame.checkpoint, startIndex, curOpList, curMemoryMap);
 }
 
 Status OptimizeSort::BacktraceOnMemoryExceeded(size_t &startIndex,
@@ -423,13 +513,18 @@ Status OptimizeSort::BacktraceOnMemoryExceeded(size_t &startIndex,
     MemoryType memType = curOpList[startIndex]->GetOutputOperand(0)->GetMemoryTypeOriginal();
     std::vector<Operation*> consumersGroup;
     while (startIndex < curOpList.size() && startIndex > 0) {
+        Operation* prevOp = curOpList[startIndex];
+        if (UndoOpEffects(prevOp, curMemoryMap) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Operation, "Backtrace undo failed for %s", GetOpInfo(prevOp).c_str());
+            return FAILED;
+        }
         startIndex--;
         auto op = curOpList[startIndex];
-        if (!needFreeOpStack.empty() && needFreeOpStack.top().first == curOpList[startIndex]) {
-            APASS_LOG_DEBUG_F(Elements::Operation, "Having traversed %s, the stack needs to be popped", GetOpInfo(curOpList[startIndex]).c_str());
+        if (!backtraceStack.empty() && backtraceStack.top().op == op) {
+            APASS_LOG_DEBUG_F(Elements::Operation, "Having traversed %s, the stack needs to be popped", GetOpInfo(op).c_str());
             break;
         }
-        if (recordOpBuffer[op] != memType || IsOpAlloc(op)) {
+        if (op->GetOutputOperand(0)->GetMemoryTypeOriginal() != memType || IsOpAlloc(op)) {
             continue;
         }
         APASS_LOG_DEBUG_F(Elements::Operation, "===>start to find unvisited consumer");
@@ -439,13 +534,10 @@ Status OptimizeSort::BacktraceOnMemoryExceeded(size_t &startIndex,
         if (consumersGroup.empty()) {
             continue;
         }
-        RecoverSymbol(startIndex, curOpList);
-        GetConsumerGroup(outGraph[op], consumersGroup);
         APASS_LOG_DEBUG_F(Elements::Operation, "push %s to stack", GetOpInfo(op).c_str());
-        curMemoryMap = recordBufferAllocate[op];
-        needFreeOpStack.push(make_pair(op, recordOpBuffer[op]));
+        backtraceStack.push({op, memType, MakeCheckpoint(startIndex, curOpList, curMemoryMap)});
         if (UpdateOOperandPreDependence(startIndex, curOpList, consumersGroup) != SUCCESS) {
-            needFreeOpStack.pop();
+            backtraceStack.pop();
             APASS_LOG_DEBUG_F(Elements::Operation, "UpdateOOperandPreDependence failed.");
             continue;
         }
@@ -453,12 +545,11 @@ Status OptimizeSort::BacktraceOnMemoryExceeded(size_t &startIndex,
         APASS_LOG_DEBUG_F(Elements::Operation, "Backtrace==>change startIndex: %d", startIndex);
         return SUCCESS;
     }
-    if (needFreeOpStack.empty()) {
+    if (backtraceStack.empty()) {
         APASS_LOG_WARN_F(Elements::Tensor, "Stack is empty. Start to rollback.");
         return FAILED;
     }
     GetStackTop(startIndex, curOpList, curMemoryMap);
-    RecoverSymbol(startIndex, curOpList);
     APASS_LOG_DEBUG_F(Elements::Operation, "pop %s from stack", GetOpInfo(curOpList[startIndex]).c_str());
     if (BacktraceOnMemoryExceeded(startIndex, curOpList, curMemoryMap) != SUCCESS) {
         APASS_LOG_WARN_F(Elements::Tensor, "BacktraceOnMemoryExceeded Failed");
@@ -506,7 +597,9 @@ Status OptimizeSort::ModifyBuffer(std::map<MemoryType, int64_t> &curMemoryMap, M
 }
 
 // 释放内存 notTaskOp需要减去bufRefCount
-Status OptimizeSort::RetireOpBuffer(std::map<MemoryType, int64_t> &curMemoryMap, Operation* op) {
+Status OptimizeSort::RetireOpBuffer(std::map<MemoryType, int64_t> &curMemoryMap, Operation* op,
+    std::vector<FreedBuffer> &freedBuffers) {
+    freedBuffers.clear();
     for (auto tensor : GetInOutOperand(op)) {
         auto memId = tensor->memoryrange.memId;
         if (DelBufRefCount(memId) != SUCCESS) {
@@ -515,21 +608,15 @@ Status OptimizeSort::RetireOpBuffer(std::map<MemoryType, int64_t> &curMemoryMap,
         }
         if (bufRefCount[memId] == 0) {
             APASS_LOG_DEBUG_F(Elements::Operation, "Start to free memory:");
-            if (ModifyBuffer(curMemoryMap, tensor->GetMemoryTypeOriginal(), ShapeCeilAlign(tensor->GetShape(), tensor->Datatype()), false) != SUCCESS) {
+            int64_t size = ShapeCeilAlign(tensor->GetShape(), tensor->Datatype());
+            if (ModifyBuffer(curMemoryMap, tensor->GetMemoryTypeOriginal(), size, false) != SUCCESS) {
                 APASS_LOG_ERROR_F(Elements::Tensor, "Free tensor[%d] failed.", memId);
                 return FAILED;
             }
+            freedBuffers.push_back({tensor->GetMemoryTypeOriginal(), size, memId});
         }
     }
     return SUCCESS;
-}
-
-void OptimizeSort::OpMemoryUpdate(Operation* op, size_t startIndex, std::vector<Operation*> curOpList,
-    std::map<MemoryType, int64_t> curMemoryMap) {
-    recordOpList[op] = make_pair(startIndex, curOpList);
-    recordBufferAllocate[op] = curMemoryMap;
-    recordOpBuffer[op] = op->GetOutputOperand(0)->GetMemoryTypeOriginal();
-    recordBufRefCount[op] = bufRefCount;
 }
 
 Status OptimizeSort::AllocExecute(Operation* op, std::vector<Operation*> &curOpList,
@@ -539,11 +626,10 @@ Status OptimizeSort::AllocExecute(Operation* op, std::vector<Operation*> &curOpL
     if (IsBufferFull(curMemoryMap, tensor->GetMemoryTypeOriginal(), ShapeCeilAlign(tensor->GetShape(), tensor->Datatype()))) {
         APASS_LOG_DEBUG_F(Elements::Operation, "The memory of %s needs to be released", std::to_string(tensor->GetMemoryTypeOriginal()).c_str());
         backTraceOp = curOpList[startIndex];
-        backTraceBufferAllocate = recordBufferAllocate;
-        backTraceOpList = recordOpList;
-        backTraceBufRefCount = recordBufRefCount;
+        backTraceCheckpoint = MakeCheckpoint(startIndex, curOpList, curMemoryMap, false);
         APASS_LOG_DEBUG_F(Elements::Operation, "backTraceOp: %s, backTraceIndex: %d, memType: %d",
-            GetOpInfo(backTraceOp).c_str(), backTraceOpList[backTraceOp].first, recordOpBuffer[backTraceOp]);
+            GetOpInfo(backTraceOp).c_str(), backTraceCheckpoint.startIndex,
+            backTraceOp->GetOutputOperand(0)->GetMemoryTypeOriginal());
         APASS_LOG_DEBUG_F(Elements::Operation, "=====> Need backtrace.");
         if (BacktraceOnMemoryExceeded(startIndex, curOpList, curMemoryMap) != SUCCESS) {
             if (RollBack(startIndex, curOpList, curMemoryMap) != SUCCESS) {
@@ -567,8 +653,8 @@ Status OptimizeSort::OpListExecute(std::vector<Operation*> &curOpList,
     }
     while (startIndex < curOpList.size()) {
         auto op = curOpList[startIndex];
-        OpMemoryUpdate(op, startIndex, curOpList, curMemoryMap);
         APASS_LOG_DEBUG_F(Elements::Operation, "execute op: %s, index: %d", GetOpInfo(op).c_str(), startIndex);
+        OpDelta delta;
         if (IsOpAlloc(op)) {
             bool isContinue = false;
             if (AllocExecute(op, curOpList, curMemoryMap,  startIndex, isContinue) != SUCCESS) {
@@ -579,18 +665,22 @@ Status OptimizeSort::OpListExecute(std::vector<Operation*> &curOpList,
                 return SUCCESS;
             }
             auto tensor = op->GetOutputOperand(0);
-            if (ModifyBuffer(curMemoryMap, tensor->GetMemoryTypeOriginal(), ShapeCeilAlign(tensor->GetShape(), tensor->Datatype()), true) != SUCCESS) {
+            delta.allocApplied = true;
+            delta.allocMemType = tensor->GetMemoryTypeOriginal();
+            delta.allocSize = ShapeCeilAlign(tensor->GetShape(), tensor->Datatype());
+            if (ModifyBuffer(curMemoryMap, delta.allocMemType, delta.allocSize, true) != SUCCESS) {
                 APASS_LOG_ERROR_F(Elements::Tensor, "Allocate tensor[%u] failed.", tensor->GetMagic());
                 return FAILED;
             }
         }
         visitedOp[op] = true;
-        OpMemoryUpdate(op, startIndex, curOpList, curMemoryMap);
-        if (RetireOpBuffer(curMemoryMap, op) != SUCCESS) {
+        std::vector<FreedBuffer> freedBuffers;
+        if (RetireOpBuffer(curMemoryMap, op, freedBuffers) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "RetireOp failed! %s", GetOpInfo(op).c_str());
             return FAILED;
         }
-        OpMemoryUpdate(op, startIndex, curOpList, curMemoryMap);
+        delta.freedBuffers = std::move(freedBuffers);
+        opDeltas[op] = std::move(delta);
         startIndex += 1;
     }
     opFinish = true;
@@ -602,6 +692,10 @@ Status OptimizeSort::ExecuteOp() {
     std::map<MemoryType, int64_t> curMemoryMap = {{MemoryType::MEM_L0A, 0}, {MemoryType::MEM_L0B, 0},
         {MemoryType::MEM_L0C, 0}};
     size_t startIndex{0};
+    opDeltas.clear();
+    while (!backtraceStack.empty()) {
+        backtraceStack.pop();
+    }
     for (auto &op : operations) {
         visitedOp[op] = false;
     }

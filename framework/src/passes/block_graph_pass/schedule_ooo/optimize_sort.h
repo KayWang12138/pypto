@@ -29,18 +29,37 @@ public:
     Function &function_;
 
     bool opFinish{false};
-    std::map<Operation*, std::map<MemoryType, int64_t>> recordBufferAllocate;
-    std::map<Operation*, std::pair<size_t, std::vector<Operation*>>> recordOpList;
-    std::map<Operation*, MemoryType> recordOpBuffer;
-    std::stack<std::pair<Operation*, MemoryType>> needFreeOpStack;
     std::map<Operation*, bool> visitedOp;
-    std::map<Operation*, std::unordered_map<int, int>> recordBufRefCount;
+    struct FreedBuffer {
+        MemoryType memType;
+        int64_t size;
+        int memId;
+    };
+    struct OpDelta {
+        bool allocApplied{false};
+        MemoryType allocMemType{MemoryType::MEM_L0A};
+        int64_t allocSize{0};
+        std::vector<FreedBuffer> freedBuffers;
+    };
+    struct Checkpoint {
+        size_t startIndex{0};
+        bool startIndexExecuted{true};
+        std::vector<Operation*> opList;
+        std::map<MemoryType, int64_t> memoryMap;
+        std::unordered_map<int, int> bufRefCount;
+        std::unordered_map<Operation*, OpDelta> opDeltas;
+    };
+    struct BacktraceFrame {
+        Operation* op{nullptr};
+        MemoryType memType{MemoryType::MEM_L0A};
+        Checkpoint checkpoint;
+    };
+    std::unordered_map<Operation*, OpDelta> opDeltas;
+    std::stack<BacktraceFrame> backtraceStack;
 
     // 回溯点位置,当前执行op的全部信息,用于后期回退
     Operation* backTraceOp{nullptr};
-    std::map<Operation*, std::map<MemoryType, int64_t>> backTraceBufferAllocate;
-    std::map<Operation*, std::pair<size_t, std::vector<Operation*>>> backTraceOpList;
-    std::map<Operation*, std::unordered_map<int, int>> backTraceBufRefCount;
+    Checkpoint backTraceCheckpoint;
     // 回退点,防止死循环
     Operation* rollBackNodeOp{nullptr};
 
@@ -76,9 +95,8 @@ public:
         std::map<MemoryType, int64_t> &curMemoryMap);
     bool IsBufferFull(std::map<MemoryType, int64_t> curMemoryMap, MemoryType memType, int64_t size);
     Status ModifyBuffer(std::map<MemoryType, int64_t> &curMemoryMap, MemoryType memType, int64_t size, bool isAdd);
-    Status RetireOpBuffer(std::map<MemoryType, int64_t> &curMemoryMap, Operation* op);
-    void OpMemoryUpdate(Operation* op, size_t startIndex, std::vector<Operation*> curOpList,
-        std::map<MemoryType, int64_t> curMemoryMap);
+    Status RetireOpBuffer(std::map<MemoryType, int64_t> &curMemoryMap, Operation* op,
+        std::vector<FreedBuffer> &freedBuffers);
     Status AllocExecute(Operation* op, std::vector<Operation*> &curOpList,
         std::map<MemoryType, int64_t> &curMemoryMap, size_t &startIndex, bool &isContinue);
     Status OpListExecute(std::vector<Operation*> &curOpList, std::map<MemoryType, int64_t> &curMemoryMap,
@@ -92,6 +110,14 @@ public:
     void GetListToAdvance(size_t rollBackIndex, size_t backTraceIndex,
         std::vector<Operation*> curOpList, std::set<size_t> &advanceIndexList);
     Status RollBack(size_t &startIndex, std::vector<Operation*> &curOpList,
+        std::map<MemoryType, int64_t> &curMemoryMap);
+    Checkpoint MakeCheckpoint(size_t startIndex, const std::vector<Operation*> &curOpList,
+        const std::map<MemoryType, int64_t> &curMemoryMap, bool startIndexExecuted = true);
+    void RestoreCheckpoint(const Checkpoint &checkpoint, size_t &startIndex, std::vector<Operation*> &curOpList,
+        std::map<MemoryType, int64_t> &curMemoryMap);
+    Status UndoOpEffects(Operation* op, std::map<MemoryType, int64_t> &curMemoryMap);
+    void UpdateVisitedByIndex(const std::vector<Operation*> &curOpList, size_t startIndex, bool startIndexExecuted);
+    Status RebuildStateToIndex(const std::vector<Operation*> &curOpList, size_t endIndex,
         std::map<MemoryType, int64_t> &curMemoryMap);
 
 
