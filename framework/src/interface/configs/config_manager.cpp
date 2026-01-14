@@ -70,6 +70,7 @@ Status ConfigManager::Initialize() {
     }
 
     config::SetRunDataOption(KEY_PTO_CONFIG_FILE, jsonFilePath);
+    config::SetRunDataOption(KEY_RUNTYPE, "npu");
     ASLOGI("Start to parse op_json_file %s", jsonFilePath.c_str());
     if (!ReadJsonFile(jsonFilePath, json_)) {
         ASLOGE("ReadJsonFile failed.");
@@ -169,9 +170,14 @@ const std::string &ConfigManager::LogFile() {
     return globalConfigs_.logFile;
 }
 
-void ConfigManager::ResetLog() {
+void ConfigManager::ResetLog(const std::string &path) {
     globalConfigs_.logTopFolder = CreateLogTopFolder();
-    std::string newLogFile = LogTopFolder() + "/run.log";
+    std::string newLogFile;
+    if (path.empty()) {
+        newLogFile = LogTopFolder() + "/run.log";
+    } else {
+        newLogFile = path + "/run.log";
+    }
     LoggerManager::FileLoggerReplace(globalConfigs_.logFile, newLogFile, true);
     globalConfigs_.logFile = std::move(newLogFile);
 }
