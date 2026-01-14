@@ -57,6 +57,7 @@ enum class PassName {
     INFER_DYN_SHAPE,
     SUBGRAPH_TO_FUNCTION,
     INFER_PARAM_INDEX,
+    PAIRSUM_REPLACEMENT,
     SRC_DST_BUFFER_MERGE,
     ADD_ALLOC,
     OOO_SCHEDULE,
@@ -103,6 +104,7 @@ inline constexpr const char *PassNameStr(PassName name){
         case PassName::INFER_DYN_SHAPE: return "InferDynShape";
         case PassName::SUBGRAPH_TO_FUNCTION: return "SubgraphToFunction";
         case PassName::INFER_PARAM_INDEX: return "InferParamIndex";
+        case PassName::PAIRSUM_REPLACEMENT: return "PairSumReplacementPass";
         case PassName::SRC_DST_BUFFER_MERGE: return "SrcDstBufferMerge";
         case PassName::ADD_ALLOC: return "AddAlloc";
         case PassName::OOO_SCHEDULE: return "OoOSchedule";
