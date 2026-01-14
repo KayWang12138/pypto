@@ -17,6 +17,7 @@
 
 #include <cstdint>
 #include <string>
+#include "tilefwk/aicpu_common.h"
 
 namespace npu::tile_fwk::dynamic {
 struct PerfettoMgr {
@@ -204,10 +205,32 @@ struct PerfEvtMgr {
         perfTrace[tid][type] = cycle == 0 ? static_cast<uint64_t>(GetCycles()) : cycle;
     }
 
-    void DumpPerfTrace(std::string file = "") {
+    void PrintPerfTrace(const std::ostringstream &oss, const std::string &file) {
+        const std::string& str = oss.str();
+        uint32_t totalLength = str.length();
+        uint32_t startPos = 0;
+        uint32_t batchSize = 600;
+        while (startPos < totalLength) {
+            uint32_t endPos = std::min(startPos + batchSize, totalLength);
+            std::string batch = str.substr(startPos, endPos - startPos);
+            DEV_ERROR("tile_fwk aicpu prof:%s", batch.c_str());
+            startPos = endPos;
+        }
+
+        if (file != "") {
+            std::ofstream os(file);
+            os << "[";
+            os << oss.str();
+            os << "]";
+        }
+        ResetPerfTrace();
+    }
+
+    void DumpPerfTrace(std::string file = "", uint64_t perfAicpu = 0) {
         (void)file;
+        [[maybe_unused]]auto aicpuPer = (AicpuMetrPer*)perfAicpu;
 #if ENABLE_PERF_TRACE
-        auto devTaskPerfFormatFunc = [this](std::ostringstream &oss, uint32_t tid, uint32_t type) -> void {
+        auto devTaskPerfFormatFunc = [this, &aicpuPer](std::ostringstream &oss, uint32_t tid, uint32_t type) -> void {
             for (uint32_t i = 0; i < perfTraceDevTaskCnt[tid][DEVTASK_PERF_ARRY_INDEX(type)]; i++) {
                 if (type == PERF_TRACE_DEV_TASK_SEND_FIRST_CALLOP_TASK) {
                     oss << "{\"name\":\"" << PerfTraceName[type] << "\",";
@@ -215,6 +238,10 @@ struct PerfEvtMgr {
                     oss << "{\"name\":\"" << PerfTraceName[type] << "(" << i << ")\",";
                 }
                 oss << "\"end\":" << perfTraceDevTask[tid][DEVTASK_PERF_ARRY_INDEX(type)][i] << "},";
+                if (unlikely(aicpuPer != nullptr)) {
+                    aicpuPer->perfAicpuTraceDevTaskCnt[tid][DEVTASK_PERF_ARRY_INDEX(type)] = perfTraceDevTaskCnt[tid][DEVTASK_PERF_ARRY_INDEX(type)];
+                    aicpuPer->perfAicpuTraceDevTask[tid][DEVTASK_PERF_ARRY_INDEX(type)][i] = perfTraceDevTask[tid][DEVTASK_PERF_ARRY_INDEX(type)][i];
+                }
             }
         };
 
@@ -236,30 +263,17 @@ struct PerfEvtMgr {
                 if (perfTrace[tid][type] == 0) {
                     continue;
                 }
+
+                if (unlikely(aicpuPer != 0)) {
+                    aicpuPer->perfAicpuTrace[tid][type] = perfTrace[tid][type];
+                }
+                
                 oss << "{\"name\":\"" << PerfTraceName[type] << "\",\"end\":" << perfTrace[tid][type]
                     << "}" << (type == PERF_TRACE_MAX - 1 ? "" : ",");
             }
             oss << "]}" << (tid == MAX_USED_AICPU_NUM - 1 ? "" : ",");
         }
-
-        const std::string& str = oss.str();
-        uint32_t totalLength = str.length();
-        uint32_t startPos = 0;
-        uint32_t batchSize = 600;
-        while (startPos < totalLength) {
-            uint32_t endPos = std::min(startPos + batchSize, totalLength);
-            std::string batch = str.substr(startPos, endPos - startPos);
-            DEV_ERROR("tile_fwk aicpu prof:%s", batch.c_str());
-            startPos = endPos;
-        }
-
-        if (file != "") {
-            std::ofstream os(file);
-            os << "[";
-            os << oss.str();
-            os << "]";
-        }
-        ResetPerfTrace();
+        PrintPerfTrace(oss, file);
 #endif
         return;
     }
