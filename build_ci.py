@@ -254,11 +254,6 @@ class BuildParam(CMakeParam):
         logging.info("CMake TraCR enabled in get_cfg_cmd? %d", self.tracr)
         cmd += self._cfg_require(opt="BUILD_TRACR", ctr=self.tracr)
 
-        # if self.tracr:
-        #     cmd += " -DBUILD_TRACR=ON"
-        # else:
-        #     cmd += " -DBUILD_TRACR=OFF"
-
         def _check_clang_toolchain(_opt: str, _b: str) -> Tuple[bool, str]:
             _p = Path(self.clang_install_path, _b)
             if _p.exists():
@@ -949,12 +944,12 @@ class BuildCtrl(CMakeParam):
         cmd += self.tests.get_cfg_cmd()
 
         # TraCR Instrumentation (for the cpp Frontend?)
-        logging.info("CMake TraCR enabled? %d", self.feature.tracr)
+        # logging.info("CMake TraCR enabled? %d", self.feature.tracr)
 
-        if self.feature.tracr:
-            cmd += " -DBUILD_TRACR=ON"
-        else:
-            cmd += " -DBUILD_TRACR=OFF"
+        # if self.feature.tracr:
+        #     cmd += " -DBUILD_TRACR=ON"
+        # else:
+        #     cmd += " -DBUILD_TRACR=OFF"
 
         # 执行
         update_env = self.get_cfg_update_env()

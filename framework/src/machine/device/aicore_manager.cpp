@@ -13,6 +13,10 @@
  * \brief
  */
 
+#ifdef ENABLE_TRACR
+    #include <tracr/tracr.hpp>
+#endif
+
 #include "aicore_manager.h"
 
 namespace npu::tile_fwk {
