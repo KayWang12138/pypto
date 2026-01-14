@@ -27,37 +27,37 @@ namespace pto {
  */
 class IRVisitor : public IRFunctor<void, void, void, void, void> {
 public:
-  virtual ~IRVisitor() = default;
+    virtual ~IRVisitor() = default;
 
-  // Program visitor methods
-  void VisitProgram_(ProgramModulePtr& program) override;
+    // Program visitor methods
+    void VisitImplProgram(ProgramModulePtr &program) override;
 
-  // Function visitor methods
-  void VisitFunction_(FunctionPtr& func) override;
+    // Function visitor methods
+    void VisitImplFunction(FunctionPtr &func) override;
 
-  // Statement visitor methods
-  void VisitStmt_(CompoundStatementPtr& stmt) override;
-  void VisitStmt_(OpStatementPtr& stmt) override;
-  void VisitStmt_(ForStatementPtr& stmt) override;
-  void VisitStmt_(IfStatementPtr& stmt) override;
-  void VisitStmt_(YieldStatementPtr& stmt) override;
-  void VisitStmt_(ReturnStatementPtr& stmt) override;
-  void VisitStmt_(StatementPtr& stmt) override;
+    // Statement visitor methods
+    void VisitImplStmt(CompoundStatementPtr &stmt) override;
+    void VisitImplStmt(OpStatementPtr &stmt) override;
+    void VisitImplStmt(ForStatementPtr &stmt) override;
+    void VisitImplStmt(IfStatementPtr &stmt) override;
+    void VisitImplStmt(YieldStatementPtr &stmt) override;
+    void VisitImplStmt(ReturnStatementPtr &stmt) override;
+    void VisitImplStmt(StatementPtr &stmt) override;
 
-  // Operation visitor methods
-  // Concrete ops (auto-generated from *.def)
-  #define DEFOP(name, inherit, opcode, ...) void VisitOp_(name##Ptr& op) override;
-  #include "ir/operation.def"
-  #include "ir/tile_graph.def"
-  #undef DEFOP
-  
-  void VisitOp_(OperationPtr& op) override;
+// Operation visitor methods
+// Concrete ops (auto-generated from *.def)
+#define DEFOP(name, inherit, opcode, ...) void VisitImplOp(name##Ptr &op) override;
+#include "ir/operation.def"
+#include "ir/tile_graph.def"
+#undef DEFOP
 
-  // Value visitor methods
-  void VisitValue_(ScalarValuePtr& value) override;
-  void VisitValue_(TileValuePtr& value) override;
-  void VisitValue_(TensorValuePtr& value) override;
-  void VisitValue_(ValuePtr& value) override;
+    void VisitImplOp(OperationPtr &op) override;
+
+    // Value visitor methods
+    void VisitImplValue(ScalarValuePtr &value) override;
+    void VisitImplValue(TileValuePtr &value) override;
+    void VisitImplValue(TensorValuePtr &value) override;
+    void VisitImplValue(ValuePtr &value) override;
 };
 
 } // namespace pto

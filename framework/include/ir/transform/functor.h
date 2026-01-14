@@ -29,61 +29,49 @@
 
 namespace pto {
 
-// Forward declarations
-class ProgramModule;
-class Function;
-class Statement;
-class Operation;
-class Value;
-
-// Type aliases for functor parameters
-using ProgramModulePtr = std::shared_ptr<ProgramModule>;
-using FunctionPtr = std::shared_ptr<Function>;
-using TensorValuePtr = std::shared_ptr<TensorValue>;
-
 /**
  * @brief Base template for program functors
  *
  * Provides a visitor-like interface for operating on IR programs.
- * Subclasses implement specific operations by overriding VisitProgram_ methods.
+ * Subclasses implement specific operations by overriding VisitImplProgram methods.
  *
- * @tparam R Return type of the visit operations
+ * @tparam RetTy Return type of the visit operations
  * @tparam Args Additional arguments passed to visit methods
  */
-template <typename R, typename... Args>
+template <typename RetTy, typename... Args>
 class ProgramFunctor {
- public:
-  virtual ~ProgramFunctor() = default;
+public:
+    virtual ~ProgramFunctor() = default;
 
-  /**
-   * @brief Dispatcher for program types
-   *
-   * Uses dynamic_cast to determine concrete type and dispatch to appropriate handler.
-   *
-   * @param program Program pointer (non-null)
-   * @param args Additional arguments
-   * @return Result of visiting the program
-   */
-  virtual R VisitProgram(ProgramModulePtr& program, Args... args);
+    /**
+     * @brief Dispatcher for program types
+     *
+     * Uses dynamic_cast to determine concrete type and dispatch to appropriate handler.
+     *
+     * @param program Program pointer (non-null)
+     * @param args Additional arguments
+     * @return Result of visiting the program
+     */
+    virtual RetTy VisitProgram(ProgramModulePtr &program, Args... args);
 
- protected:
-  // Program types
-  virtual R VisitProgram_(ProgramModulePtr& program, Args... args) = 0;
+protected:
+    // Program types
+    virtual RetTy VisitImplProgram(ProgramModulePtr &program, Args... args) = 0;
 };
 
 // Macro to dispatch based on program type
-#define PROGRAM_FUNCTOR_DISPATCH(OpType)                            \
-  if (auto op = std::dynamic_pointer_cast<OpType>(program)) { \
-    return VisitProgram_(op, std::forward<Args>(args)...);          \
-  }
+#define PROGRAM_FUNCTOR_DISPATCH(OpType)                        \
+    if (auto op = std::dynamic_pointer_cast<OpType>(program)) { \
+        return VisitImplProgram(op, std::forward<Args>(args)...);  \
+    }
 
-template <typename R, typename... Args>
-R ProgramFunctor<R, Args...>::VisitProgram(ProgramModulePtr& program, Args... args) {
-  // Dispatch to concrete program types
-  PROGRAM_FUNCTOR_DISPATCH(ProgramModule);
+template <typename RetTy, typename... Args>
+RetTy ProgramFunctor<RetTy, Args...>::VisitProgram(ProgramModulePtr &program, Args... args) {
+    // Dispatch to concrete program types
+    PROGRAM_FUNCTOR_DISPATCH(ProgramModule);
 
-  // Should never reach here if all types are handled
-  throw std::runtime_error("Unknown program type in ProgramFunctor::VisitProgram");
+    // Should never reach here if all types are handled
+    throw std::runtime_error("Unknown program type in ProgramFunctor::VisitProgram");
 }
 
 #undef PROGRAM_FUNCTOR_DISPATCH
@@ -92,45 +80,45 @@ R ProgramFunctor<R, Args...>::VisitProgram(ProgramModulePtr& program, Args... ar
  * @brief Base template for function functors
  *
  * Provides a visitor-like interface for operating on IR functions.
- * Subclasses implement specific operations by overriding VisitFunction_ methods.
+ * Subclasses implement specific operations by overriding VisitImplFunction methods.
  *
- * @tparam R Return type of the visit operations
+ * @tparam RetTy Return type of the visit operations
  * @tparam Args Additional arguments passed to visit methods
  */
-template <typename R, typename... Args>
+template <typename RetTy, typename... Args>
 class FunctionFunctor {
- public:
-  virtual ~FunctionFunctor() = default;
+public:
+    virtual ~FunctionFunctor() = default;
 
-  /**
-   * @brief Dispatcher for function types
-   *
-   * Uses dynamic_cast to determine concrete type and dispatch to appropriate handler.
-   *
-   * @param func Function pointer (non-null)
-   * @param args Additional arguments
-   * @return Result of visiting the function
-   */
-  virtual R VisitFunction(FunctionPtr& func, Args... args);
+    /**
+     * @brief Dispatcher for function types
+     *
+     * Uses dynamic_cast to determine concrete type and dispatch to appropriate handler.
+     *
+     * @param func Function pointer (non-null)
+     * @param args Additional arguments
+     * @return Result of visiting the function
+     */
+    virtual RetTy VisitFunction(FunctionPtr &func, Args... args);
 
- protected:
-  // Function types
-  virtual R VisitFunction_(FunctionPtr& func, Args... args) = 0;
+protected:
+    // Function types
+    virtual RetTy VisitImplFunction(FunctionPtr &func, Args... args) = 0;
 };
 
 // Macro to dispatch based on function type
-#define FUNCTION_FUNCTOR_DISPATCH(OpType)                            \
-  if (auto op = std::dynamic_pointer_cast<OpType>(func)) { \
-    return VisitFunction_(op, std::forward<Args>(args)...);          \
-  }
+#define FUNCTION_FUNCTOR_DISPATCH(OpType)                       \
+    if (auto op = std::dynamic_pointer_cast<OpType>(func)) {    \
+        return VisitImplFunction(op, std::forward<Args>(args)...); \
+    }
 
-template <typename R, typename... Args>
-R FunctionFunctor<R, Args...>::VisitFunction(FunctionPtr& func, Args... args) {
-  // Dispatch to concrete function types
-  FUNCTION_FUNCTOR_DISPATCH(Function);
+template <typename RetTy, typename... Args>
+RetTy FunctionFunctor<RetTy, Args...>::VisitFunction(FunctionPtr &func, Args... args) {
+    // Dispatch to concrete function types
+    FUNCTION_FUNCTOR_DISPATCH(Function);
 
-  // Should never reach here if all types are handled
-  throw std::runtime_error("Unknown function type in FunctionFunctor::VisitFunction");
+    // Should never reach here if all types are handled
+    throw std::runtime_error("Unknown function type in FunctionFunctor::VisitFunction");
 }
 
 #undef FUNCTION_FUNCTOR_DISPATCH
@@ -139,57 +127,57 @@ R FunctionFunctor<R, Args...>::VisitFunction(FunctionPtr& func, Args... args) {
  * @brief Base template for statement functors
  *
  * Provides a visitor-like interface for operating on IR statements.
- * Subclasses implement specific operations by overriding VisitStmt_ methods.
+ * Subclasses implement specific operations by overriding VisitImplStmt methods.
  *
- * @tparam R Return type of the visit operations
+ * @tparam RetTy Return type of the visit operations
  * @tparam Args Additional arguments passed to visit methods
  */
-template <typename R, typename... Args>
+template <typename RetTy, typename... Args>
 class StatementFunctor {
- public:
-  virtual ~StatementFunctor() = default;
+public:
+    virtual ~StatementFunctor() = default;
 
-  /**
-   * @brief Dispatcher for statement types
-   *
-   * Uses dynamic_cast to determine concrete type and dispatch to appropriate handler.
-   *
-   * @param stmt Statement pointer (non-null)
-   * @param args Additional arguments
-   * @return Result of visiting the statement
-   */
-  virtual R VisitStmt(StatementPtr& stmt, Args... args);
+    /**
+     * @brief Dispatcher for statement types
+     *
+     * Uses dynamic_cast to determine concrete type and dispatch to appropriate handler.
+     *
+     * @param stmt Statement pointer (non-null)
+     * @param args Additional arguments
+     * @return Result of visiting the statement
+     */
+    virtual RetTy VisitStmt(StatementPtr &stmt, Args... args);
 
- protected:
-  // Statement types
-  virtual R VisitStmt_(CompoundStatementPtr& op, Args... args) = 0;
-  virtual R VisitStmt_(OpStatementPtr& op, Args... args) = 0;
-  virtual R VisitStmt_(ForStatementPtr& op, Args... args) = 0;
-  virtual R VisitStmt_(IfStatementPtr& op, Args... args) = 0;
-  virtual R VisitStmt_(YieldStatementPtr& op, Args... args) = 0;
-  virtual R VisitStmt_(ReturnStatementPtr& op, Args... args) = 0;
-  virtual R VisitStmt_(StatementPtr& op, Args... args) = 0;
+protected:
+    // Statement types
+    virtual RetTy VisitImplStmt(CompoundStatementPtr &op, Args... args) = 0;
+    virtual RetTy VisitImplStmt(OpStatementPtr &op, Args... args) = 0;
+    virtual RetTy VisitImplStmt(ForStatementPtr &op, Args... args) = 0;
+    virtual RetTy VisitImplStmt(IfStatementPtr &op, Args... args) = 0;
+    virtual RetTy VisitImplStmt(YieldStatementPtr &op, Args... args) = 0;
+    virtual RetTy VisitImplStmt(ReturnStatementPtr &op, Args... args) = 0;
+    virtual RetTy VisitImplStmt(StatementPtr &op, Args... args) = 0;
 };
 
 // Macro to dispatch based on statement type
-#define STMT_FUNCTOR_DISPATCH(OpType)                            \
-  if (auto op = std::dynamic_pointer_cast<OpType>(stmt)) { \
-    return VisitStmt_(op, std::forward<Args>(args)...);          \
-  }
+#define STMT_FUNCTOR_DISPATCH(OpType)                        \
+    if (auto op = std::dynamic_pointer_cast<OpType>(stmt)) { \
+        return VisitImplStmt(op, std::forward<Args>(args)...);  \
+    }
 
-template <typename R, typename... Args>
-R StatementFunctor<R, Args...>::VisitStmt(StatementPtr& stmt, Args... args) {
-  // Dispatch to concrete statement types
-  STMT_FUNCTOR_DISPATCH(CompoundStatement);
-  STMT_FUNCTOR_DISPATCH(OpStatement);
-  STMT_FUNCTOR_DISPATCH(ForStatement);
-  STMT_FUNCTOR_DISPATCH(IfStatement);
-  STMT_FUNCTOR_DISPATCH(YieldStatement);
-  STMT_FUNCTOR_DISPATCH(ReturnStatement);
-  STMT_FUNCTOR_DISPATCH(Statement);
+template <typename RetTy, typename... Args>
+RetTy StatementFunctor<RetTy, Args...>::VisitStmt(StatementPtr &stmt, Args... args) {
+    // Dispatch to concrete statement types
+    STMT_FUNCTOR_DISPATCH(CompoundStatement);
+    STMT_FUNCTOR_DISPATCH(OpStatement);
+    STMT_FUNCTOR_DISPATCH(ForStatement);
+    STMT_FUNCTOR_DISPATCH(IfStatement);
+    STMT_FUNCTOR_DISPATCH(YieldStatement);
+    STMT_FUNCTOR_DISPATCH(ReturnStatement);
+    STMT_FUNCTOR_DISPATCH(Statement);
 
-  // Should never reach here if all types are handled
-  throw std::runtime_error("Unknown statement type in StatementFunctor::VisitStmt");
+    // Should never reach here if all types are handled
+    throw std::runtime_error("Unknown statement type in StatementFunctor::VisitStmt");
 }
 
 #undef STMT_FUNCTOR_DISPATCH
@@ -198,122 +186,119 @@ R StatementFunctor<R, Args...>::VisitStmt(StatementPtr& stmt, Args... args) {
  * @brief Base template for operation functors
  *
  * Provides a visitor-like interface for operating on IR operations.
- * Subclasses implement specific operations by overriding VisitOp_ methods.
+ * Subclasses implement specific operations by overriding VisitImplOp methods.
  *
- * @tparam R Return type of the visit operations
+ * @tparam RetTy Return type of the visit operations
  * @tparam Args Additional arguments passed to visit methods
  */
-template <typename R, typename... Args>
+template <typename RetTy, typename... Args>
 class OperationFunctor {
 public:
-  virtual ~OperationFunctor() = default;
+    virtual ~OperationFunctor() = default;
 
-  /**
-  * @brief Dispatcher for operation types
-  *
-  * Uses dynamic_cast to determine concrete type and dispatch to appropriate handler.
-  *
-  * @param op Operation pointer (non-null)
-  * @param args Additional arguments
-  * @return Result of visiting the operation
-  */
-  virtual R VisitOp(OperationPtr& op, Args... args);
+    /**
+     * @brief Dispatcher for operation types
+     *
+     * Uses dynamic_cast to determine concrete type and dispatch to appropriate handler.
+     *
+     * @param op Operation pointer (non-null)
+     * @param args Additional arguments
+     * @return Result of visiting the operation
+     */
+    virtual RetTy VisitOp(OperationPtr &op, Args... args);
 
 protected:
-  // ---- Concrete op hooks (auto-generated from *.def) ----
-  // Subclasses may override any concrete op type. If you only care about generic
-  // traversal, override VisitOp_(OperationPtr&) instead.
-#define DEFOP(name, inherit, opcode, ...) virtual R VisitOp_(name##Ptr& op, Args... args) = 0;
+    // ---- Concrete op hooks (auto-generated from *.def) ----
+    // Subclasses may override any concrete op type. If you only care about generic
+    // traversal, override VisitImplOp(OperationPtr&) instead.
+#define DEFOP(name, inherit, opcode, ...) virtual RetTy VisitImplOp(name##Ptr &op, Args... args) = 0;
 #include "ir/operation.def"
 #include "ir/tile_graph.def"
 #undef DEFOP
 
-virtual R VisitOp_(OperationPtr& op, Args... args) = 0;
-
+    virtual RetTy VisitImplOp(OperationPtr &op, Args... args) = 0;
 };
 
-template <typename R, typename... Args>
-R OperationFunctor<R, Args...>::VisitOp(OperationPtr& op, Args... args) {
-  if (!op) {
-    throw std::runtime_error("Null operation in OperationFunctor::VisitOp");
-  }
-
-  // 1) Prefer dispatch by opcode for DEFOP-generated concrete ops.
-  switch (op->GetOpcode()) {
-#define PTO_OP_CASE(OPCLASS, OPC)                                             \
-    case Opcode::OPC: {                                                       \
-      auto casted = std::dynamic_pointer_cast<OPCLASS>(op);                   \
-      if (!casted) {                                                          \
-        throw std::runtime_error("Opcode/type mismatch in OperationFunctor::VisitOp"); \
-      }                                                                       \
-      OPCLASS##Ptr typed = casted;                                            \
-      return VisitOp_(typed, std::forward<Args>(args)...);                    \
+template <typename RetTy, typename... Args>
+RetTy OperationFunctor<RetTy, Args...>::VisitOp(OperationPtr &op, Args... args) {
+    if (!op) {
+        throw std::runtime_error("Null operation in OperationFunctor::VisitOp");
     }
 
-#define DEFOP(OPCLASS, inherit, opcode_token, ...) \
-    PTO_DEFOP_SWITCH(OPCLASS, opcode_token, PTO_OP_CASE)
+    // 1) Prefer dispatch by opcode for DEFOP-generated concrete ops.
+    switch (op->GetOpcode()) {
+#define PTO_OP_CASE(OPCLASS, OPC)                                                          \
+    case Opcode::OPC: {                                                                    \
+        auto casted = std::dynamic_pointer_cast<OPCLASS>(op);                              \
+        if (!casted) {                                                                     \
+            throw std::runtime_error("Opcode/type mismatch in OperationFunctor::VisitOp"); \
+        }                                                                                  \
+        OPCLASS##Ptr typed = casted;                                                       \
+        return VisitImplOp(typed, std::forward<Args>(args)...);                               \
+    }
+
+#define DEFOP(OPCLASS, inherit, opcode_token, ...) PTO_DEFOP_SWITCH(OPCLASS, opcode_token, PTO_OP_CASE)
 #include "ir/operation.def"
 #include "ir/tile_graph.def"
 #undef DEFOP
- 
+
 #undef PTO_OP_CASE
-    default:
-      break;
-  }
-  return VisitOp_(op, std::forward<Args>(args)...);
+        default: break;
+    }
+    return VisitImplOp(op, std::forward<Args>(args)...);
 }
- 
+
 #undef OP_FUNCTOR_DISPATCH
 
 /**
  * @brief Base template for value functors
  *
  * Provides a visitor-like interface for operating on IR values.
- * Subclasses implement specific operations by overriding VisitValue_ methods.
+ * Subclasses implement specific operations by overriding VisitImplValue methods.
  *
- * @tparam R Return type of the visit operations
+ * @tparam RetTy Return type of the visit operations
  * @tparam Args Additional arguments passed to visit methods
  */
-template <typename R, typename... Args>
+template <typename RetTy, typename... Args>
 class ValueFunctor {
- public:
-  virtual ~ValueFunctor() = default;
+public:
+    virtual ~ValueFunctor() = default;
 
-  /**
-   * @brief Dispatcher for value types
-   *
-   * Uses dynamic_cast to determine concrete type and dispatch to appropriate handler.
-   *
-   * @param value Value pointer (non-null)
-   * @param args Additional arguments
-   * @return Result of visiting the value
-   */
-  virtual R VisitValue(ValuePtr& value, Args... args);
+    /**
+     * @brief Dispatcher for value types
+     *
+     * Uses dynamic_cast to determine concrete type and dispatch to appropriate handler.
+     *
+     * @param value Value pointer (non-null)
+     * @param args Additional arguments
+     * @return Result of visiting the value
+     */
+    virtual RetTy VisitValue(ValuePtr &value, Args... args);
 
- protected:
-  // Value types
-  virtual R VisitValue_(ScalarValuePtr& op, Args... args) = 0;
-  virtual R VisitValue_(TileValuePtr& op, Args... args) = 0;
-  virtual R VisitValue_(TensorValuePtr& op, Args... args) = 0;
-  virtual R VisitValue_(ValuePtr& op, Args... args) = 0;
+protected:
+    // Value types
+    virtual RetTy VisitImplValue(ScalarValuePtr &op, Args... args) = 0;
+    virtual RetTy VisitImplValue(TileValuePtr &op, Args... args) = 0;
+    virtual RetTy VisitImplValue(TensorValuePtr &op, Args... args) = 0;
+    virtual RetTy VisitImplValue(ValuePtr &op, Args... args) = 0;
 };
 
 // Macro to dispatch based on value type
-#define VALUE_FUNCTOR_DISPATCH(OpType)                            \
-  if (auto op = std::dynamic_pointer_cast<OpType>(value)) { \
-    return VisitValue_(op, std::forward<Args>(args)...);          \
-  }
+#define VALUE_FUNCTOR_DISPATCH(OpType)                        \
+    if (auto op = std::dynamic_pointer_cast<OpType>(value)) { \
+        return VisitImplValue(op, std::forward<Args>(args)...);  \
+    }
 
-template <typename R, typename... Args>
-R ValueFunctor<R, Args...>::VisitValue(ValuePtr& value, Args... args) {
-  // Dispatch to concrete value types
-  VALUE_FUNCTOR_DISPATCH(ScalarValue);
-  VALUE_FUNCTOR_DISPATCH(TileValue);
-  VALUE_FUNCTOR_DISPATCH(TensorValue);
-  VALUE_FUNCTOR_DISPATCH(Value);
+template <typename RetTy, typename... Args>
+RetTy ValueFunctor<RetTy, Args...>::VisitValue(ValuePtr &value, Args... args) {
+    // Dispatch to concrete value types
+    VALUE_FUNCTOR_DISPATCH(ScalarValue);
+    VALUE_FUNCTOR_DISPATCH(TileValue);
+    VALUE_FUNCTOR_DISPATCH(TensorValue);
+    VALUE_FUNCTOR_DISPATCH(Value);
 
-  // Should never reach here if all types are handled
-  throw std::runtime_error("Unknown value type in ValueFunctor::VisitValue");
+    // Should never reach here if all types are handled
+    throw std::runtime_error("Unknown value type in ValueFunctor::VisitValue");
 }
 
 #undef VALUE_FUNCTOR_DISPATCH
@@ -332,16 +317,15 @@ R ValueFunctor<R, Args...>::VisitValue(ValuePtr& value, Args... args) {
  * @tparam RValue Return type for ValueFunctor visit operations
  * @tparam Args Additional arguments passed to visit methods
  */
-template <typename RProgram, typename RFunction, typename RStatement,
-          typename ROperation, typename RValue, typename... Args>
+template <typename RProgram, typename RFunction, typename RStatement, typename ROperation, typename RValue,
+    typename... Args>
 class IRFunctor : public ProgramFunctor<RProgram, Args...>,
                   public FunctionFunctor<RFunction, Args...>,
                   public StatementFunctor<RStatement, Args...>,
                   public OperationFunctor<ROperation, Args...>,
                   public ValueFunctor<RValue, Args...> {
- public:
-  virtual ~IRFunctor() = default;
+public:
+    virtual ~IRFunctor() = default;
 };
 
 } // namespace pto
-

@@ -24,55 +24,54 @@ namespace pto {
 
 class IRPrinter : public IRVisitor {
 public:
-  explicit IRPrinter(std::ostream& os)
-      : os_(os) {}
+    explicit IRPrinter(std::ostream &os) : os_(os) {}
 
-  // Bring in all overloads from the base class to prevent hiding
-  using IRVisitor::VisitStmt_;
-  using IRVisitor::VisitOp_;
-  using IRVisitor::VisitValue_;
-  
-  // ===== program =====
-  void VisitProgram_(ProgramModulePtr& pm) override;
+    // Bring in all overloads from the base class to prevent hiding
+    using IRVisitor::VisitImplOp;
+    using IRVisitor::VisitImplStmt;
+    using IRVisitor::VisitImplValue;
 
-  // ===== function =====
-  void VisitFunction_(FunctionPtr& func) override;
+    // ===== program =====
+    void VisitImplProgram(ProgramModulePtr &pm) override;
 
-  // ===== statements =====
-  void VisitStmt_(OpStatementPtr& st) override;
-  void VisitStmt_(IfStatementPtr& is) override;
-  void VisitStmt_(ForStatementPtr& fs) override;
-  void VisitStmt_(YieldStatementPtr& ys) override;
-  void VisitStmt_(ReturnStatementPtr& rs) override;
+    // ===== function =====
+    void VisitImplFunction(FunctionPtr &func) override;
 
-  // ===== operations =====
-  void VisitOp_(OperationPtr& op) override;
+    // ===== statements =====
+    void VisitImplStmt(OpStatementPtr &st) override;
+    void VisitImplStmt(IfStatementPtr &is) override;
+    void VisitImplStmt(ForStatementPtr &fs) override;
+    void VisitImplStmt(YieldStatementPtr &ys) override;
+    void VisitImplStmt(ReturnStatementPtr &rs) override;
 
-  // ===== values =====
-  void VisitValue_(ScalarValuePtr& value) override;
-  void VisitValue_(TileValuePtr& value) override;
-  void VisitValue_(TensorValuePtr& value) override;
-  void VisitValue_(ValuePtr& value) override;
+    // ===== operations =====
+    void VisitImplOp(OperationPtr &op) override;
 
-private:
-  // ===== helpers =====
-  void PrintIndent();
-  void PrintIndentWithExtra(int extra);
-  void Indent();
-  void Dedent();
-  void PrintValueList(const std::vector<ValuePtr>& vals);
-  void PrintAttributes(const AttributeMap& attrs, const std::string& prefix);
-  
-  // ===== value printing methods =====
-  void PrintSSAName(ValuePtr value);
-  void PrintValue(ValuePtr value);
-  void PrintType(ValuePtr value);
-
-  const char* ToString(FunctionKind kind);
+    // ===== values =====
+    void VisitImplValue(ScalarValuePtr &value) override;
+    void VisitImplValue(TileValuePtr &value) override;
+    void VisitImplValue(TensorValuePtr &value) override;
+    void VisitImplValue(ValuePtr &value) override;
 
 private:
-  std::ostream& os_;
-  int indent_{0};
+    // ===== helpers =====
+    void PrintIndent();
+    void PrintIndentWithExtra(int extra);
+    void Indent();
+    void Dedent();
+    void PrintValueList(const std::vector<ValuePtr> &vals);
+    void PrintAttributes(const AttributeMap &attrs, const std::string &prefix);
+
+    // ===== value printing methods =====
+    void PrintSSAName(ValuePtr value);
+    void PrintValue(ValuePtr value);
+    void PrintType(ValuePtr value);
+
+    const char *ToString(FunctionKind kind);
+
+private:
+    std::ostream &os_;
+    int indent_{0};
 };
 
 } // namespace pto
