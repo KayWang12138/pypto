@@ -99,8 +99,8 @@ INLINE void TLoadND2NZ(T &dst, U &src, const int64_t &offset0, const int64_t &of
 
 // Copy data from DDR to L1 with NZ -> NZ format
 template <typename T, typename U>
-INLINE void TLoadNZ2NZ(T &dst, U &src, const int64_t &offset0, const int64_t &offset1, const int64_t &curH,
-    const int64_t &curW) {
+INLINE void TLoadNZ2NZ(
+    T &dst, U &src, const int64_t &offset0, const int64_t &offset1, const int64_t &curH, const int64_t &curW) {
     constexpr int64_t c0Size = BLOCK_ALIGN_BYTE / sizeof(typename U::Type);
     constexpr auto shapeSize = Std::tuple_size<typename T::Shape>::value;
     int64_t srcShape0 = curH;
@@ -139,7 +139,7 @@ INLINE void TLoadND2ND(T &dst, U &src, const int64_t &offset0, const int64_t &of
     using shapeDim2 = pto::Shape<1, 1, 1, -1, -1>;
     using strideDim2 = pto::Stride<1, 1, 1, -1, -1>;
     using globalData = pto::GlobalTensor<typename U::Type, shapeDim2, strideDim2, pto::Layout::ND>;
-    //目前场景,ND2ND只搬运bias和fixpipe，大小均为1 * N，offset0默认均为0
+    // 目前场景,ND2ND只搬运bias和fixpipe，大小均为1 * N，offset0默认均为0
     int64_t gmOffset = offset1 + offset0 * srcShape1;
     globalData src0Global((__gm__ typename U::Type *)(src.GetAddr() + gmOffset),
         pto::Shape<1, 1, 1, -1, -1>(staticL1H, staticL1W), pto::Stride<1, 1, 1, -1, -1>(srcStride0, srcStride1));
@@ -374,7 +374,7 @@ TILEOP void Matmul(T &c, U &a, V &b) {
     tileL0ATensor l0a(validM, validK);
     tileL0BTensor l0b(validK, validN);
     tileL0CTensor l0c(validM, validN);
-    if (std::is_same<typename tileL0ATensor::DType, float>::value){
+    if (std::is_same<typename tileL0ATensor::DType, float>::value) {
         l0a.SetKAligned(true);
     }
 
@@ -407,13 +407,17 @@ TILEOP void Matmul(T0 &c, T1 &a, T2 &b, T3 &bias) {
     using tileL0ATensor = pto::TileLeft<typename T1::Type, staticL0AH, staticL0AW>;
     using tileL0BTensor = pto::TileRight<typename T2::Type, staticL0BH, staticL0BW>;
     using tileL0CTensor = pto::TileAcc<typename T0::Type, staticL0CH, staticL0CW>;
-    using tileBiasTensor =
-        pto::Tile<TileType::Bias, typename T3::Type, 1, staticL0BW, BLayout::RowMajor, 1, staticL0BW>;
+    using tileBiasTensor = pto::Tile<TileType::Bias, typename T3::Type, 1, staticL0BW, BLayout::RowMajor, -1, -1>;
 
-    tileL0ATensor l0a;
-    tileL0BTensor l0b;
-    tileL0CTensor l0c;
-    tileBiasTensor biasT;
+    int64_t validM = GetShape<0>(a);
+    int64_t validK = GetShape<1>(a);
+    int64_t validN = GetShape<1>(b);
+
+    validM = (validM + BLOCK_CUBE_M_N - 1) / BLOCK_CUBE_M_N * BLOCK_CUBE_M_N;
+    tileL0ATensor l0a(validM, validK);
+    tileL0BTensor l0b(validK, validN);
+    tileL0CTensor l0c(validM, validN);
+    tileBiasTensor biasT(1, validN);
 
     pto::TASSIGN(l0a, (uint64_t)a.GetAddr());
     pto::TASSIGN(l0b, (uint64_t)b.GetAddr());
@@ -427,24 +431,27 @@ INLINE void TStoreExecute(globalData dstGlobal, tileData srcL0C, uint64_t scaleV
     if constexpr (std::is_same<typename tileData::DType, int32_t>::value &&
                   std::is_same<typename globalData::DType, __gm__ half>::value) {
         if (scaleValue != 0) {
-            pto::TSTORE<tileData, globalData, config::kIsAcc ? AtomicType::AtomicAdd : AtomicType::AtomicNone>(
-                dstGlobal, srcL0C, scaleValue);
+            pto::TSTORE<tileData, globalData, config::kIsAcc ? AtomicType::AtomicAdd : AtomicType::AtomicNone,
+                config::kReluMode == 0 ? ReluPreMode::NoRelu : ReluPreMode::NormalRelu>(dstGlobal, srcL0C, scaleValue);
         } else {
             // fixpipe perchannle 临时方案
             // 通过传入validShape(0,0)，让TSTORE规避set_fpc()，TileShape不会使用，传入不被拦截的值即可
             using fpTileData = pto::Tile<pto::TileType::Scaling, uint64_t, 32, 32, pto::BLayout::RowMajor, 0, 0>;
             fpTileData fpData;
-            pto::TSTORE<tileData, globalData, fpTileData,
-                config::kIsAcc ? AtomicType::AtomicAdd : AtomicType::AtomicNone>(dstGlobal, srcL0C, fpData);
+            pto::TSTORE_FP<tileData, globalData, fpTileData,
+                config::kIsAcc ? AtomicType::AtomicAdd : AtomicType::AtomicNone,
+                config::kReluMode == 0 ? ReluPreMode::NoRelu : ReluPreMode::NormalRelu>(dstGlobal, srcL0C, fpData);
         }
     } else {
-        pto::TSTORE<tileData, globalData, config::kIsAcc ? AtomicType::AtomicAdd : AtomicType::AtomicNone>(dstGlobal, srcL0C);
+        pto::TSTORE<tileData, globalData, config::kIsAcc ? AtomicType::AtomicAdd : AtomicType::AtomicNone>(
+            dstGlobal, srcL0C);
     }
 }
 
 // Copy data from L0C to DDR with NZ -> ND format
-template <typename config, typename T, typename U>
-INLINE void TStoreNZ2ND(T &dst, U &src, const int64_t &offset0, const int64_t &offset1, uint64_t scaleValue = 0) {
+template <typename config, typename T, typename U, typename V>
+INLINE void TStoreNZ2ND(
+    T &dst, U &src, V &fixbuf, const int64_t &offset0, const int64_t &offset1, uint64_t scaleValue = 0) {
     constexpr auto shapeSize = Std::tuple_size<typename T::Shape>::value;
     int64_t srcShape0 = GetShape<0>(src);
     int64_t srcShape1 = GetShape<1>(src);
@@ -466,13 +473,13 @@ INLINE void TStoreNZ2ND(T &dst, U &src, const int64_t &offset0, const int64_t &o
         pto::Shape<1, 1, 1, -1, -1>(srcShape0, srcShape1), pto::Stride<1, 1, 1, -1, -1>(dstStride0, dstStride1));
     tileData srcL0C(srcShape0, srcShape1);
     pto::TASSIGN(srcL0C, (uint64_t)src.GetAddr());
-    TStoreExecute<config, globalData, tileData>(dstGlobal, srcL0C, scaleValue);
+    TStoreExecute<config, globalData, tileData>(dstGlobal, srcL0C, fixbuf, scaleValue);
     return;
 }
 
 // Copy data from L0C to DDR with NZ -> NZ format
-template <typename config, typename T, typename U>
-INLINE void TStoreNZ2NZ(T &dst, U &src, const int64_t &offset0, const int64_t &offset1, const int64_t &curH,
+template <typename config, typename T, typename U, typename V>
+INLINE void TStoreNZ2NZ(T &dst, U &src, V &fixbuf, const int64_t &offset0, const int64_t &offset1, const int64_t &curH,
     const int64_t &curW, uint64_t scaleValue = 0) {
     constexpr auto shapeSize = Std::tuple_size<typename T::Shape>::value;
     constexpr int64_t c0Size =
@@ -496,23 +503,23 @@ INLINE void TStoreNZ2NZ(T &dst, U &src, const int64_t &offset0, const int64_t &o
         SLayout::RowMajor, TileConfig::fractalCSize, PadValue::Null, CompactMode::Normal>;
     tileData srcL0C(srcShape0, srcShape1);
     pto::TASSIGN(srcL0C, (uint64_t)src.GetAddr());
-    TStoreExecute<config, globalData, tileData>(dstGlobal, srcL0C, scaleValue);
+    TStoreExecute<config, globalData, tileData>(dstGlobal, srcL0C, fixbuf, scaleValue);
     return;
 }
 
 // Copy data from L0C to DDR with quantization ability
 template <typename config, typename Coord, typename T, typename U, typename V>
-TILEOP void TStore(T &dst, U &src, V &fixbuf, const Coord &coord, const int64_t &curH, const int64_t &curW,
-    uint64_t scaleValue = 0) {
+TILEOP void TStore(
+    T &dst, U &src, V &fixbuf, const Coord &coord, const int64_t &curH, const int64_t &curW, uint64_t scaleValue = 0) {
     constexpr auto shapeSize = Std::tuple_size<typename T::Shape>::value;
     static_assert(shapeSize == SHAPE_DIM2 && Std::tuple_size<Coord>::value == SHAPE_DIM2, "Shape Size should be 2 Dim");
     uint16_t offset0 = coord.GetValue();
     uint16_t offset1 = static_cast<const Std::tuple<size_t> &>(coord).GetValue();
     if constexpr (U::FORMAT == Hardware::L0C && T::FORMAT == Hardware::GM) {
         if constexpr (config::kMode == CopyOutMode::NZ2ND) {
-            TStoreNZ2ND<config>(dst, src, offset0, offset1, scaleValue);
+            TStoreNZ2ND<config>(dst, src, fixbuf, offset0, offset1, scaleValue);
         } else {
-            TStoreNZ2NZ<config>(dst, src, offset0, offset1, curH, curW, scaleValue);
+            TStoreNZ2NZ<config>(dst, src, fixbuf, offset0, offset1, curH, curW, scaleValue);
         }
     }
 }
