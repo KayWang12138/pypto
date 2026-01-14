@@ -15,7 +15,7 @@ list(APPEND _Sources ${PTO_FWK_SRC_ROOT}/framework/src/machine/device/dynamic/ai
 list(APPEND _Sources ${PTO_FWK_SRC_ROOT}/framework/src/machine/device/device_machine.cpp)
 list(APPEND _Sources ${PTO_FWK_SRC_ROOT}/framework/src/machine/device/distributed/shmem_wait_until.cpp)
 list(APPEND _Sources ${PTO_FWK_SRC_ROOT}/framework/src/machine/device/machine_interface/pypto_aicpu_interface.cpp)
-set(_Include "include")
+set(_Include ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 PTO_Fwk_UTest_AddCaseLib(
         TARGET ${_Target}
