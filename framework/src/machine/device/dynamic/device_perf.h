@@ -17,6 +17,7 @@
 
 #include <cstdint>
 #include <string>
+#include "tilefwk/aicpu_common.h"
 
 namespace npu::tile_fwk::dynamic {
 struct PerfettoMgr {
@@ -204,10 +205,12 @@ struct PerfEvtMgr {
         perfTrace[tid][type] = cycle == 0 ? static_cast<uint64_t>(GetCycles()) : cycle;
     }
 
-    void DumpPerfTrace(std::string file = "") {
+    void DumpPerfTrace(std::string file = "", uint64_t perfAicpu = 0) {
         (void)file;
+        auto aicpuPer = (AicpuMetrPer*)perfAicpu;//PtrToPtr<void, AicpuMetrPer>(ValueToPtr(perfAicpu));
+        DEV_ERROR("=======aicpuper addr: %p", aicpuPer);
 #if ENABLE_PERF_TRACE
-        auto devTaskPerfFormatFunc = [this](std::ostringstream &oss, uint32_t tid, uint32_t type) -> void {
+        auto devTaskPerfFormatFunc = [this, &aicpuPer](std::ostringstream &oss, uint32_t tid, uint32_t type) -> void {
             for (uint32_t i = 0; i < perfTraceDevTaskCnt[tid][DEVTASK_PERF_ARRY_INDEX(type)]; i++) {
                 if (type == PERF_TRACE_DEV_TASK_SEND_FIRST_CALLOP_TASK) {
                     oss << "{\"name\":\"" << PerfTraceName[type] << "\",";
@@ -215,6 +218,10 @@ struct PerfEvtMgr {
                     oss << "{\"name\":\"" << PerfTraceName[type] << "(" << i << ")\",";
                 }
                 oss << "\"end\":" << perfTraceDevTask[tid][DEVTASK_PERF_ARRY_INDEX(type)][i] << "},";
+                if (unlikely(aicpuPer != nullptr)) {
+                    aicpuPer->perfAicpuTraceDevTaskCnt[tid][DEVTASK_PERF_ARRY_INDEX(type)] = perfTraceDevTaskCnt[tid][DEVTASK_PERF_ARRY_INDEX(type)];
+                    aicpuPer->perfAicpuTraceDevTask[tid][DEVTASK_PERF_ARRY_INDEX(type)][i] = perfTraceDevTask[tid][DEVTASK_PERF_ARRY_INDEX(type)][i];
+                }
             }
         };
 
@@ -236,6 +243,11 @@ struct PerfEvtMgr {
                 if (perfTrace[tid][type] == 0) {
                     continue;
                 }
+
+                if (unlikely(aicpuPer != 0)) {
+                    aicpuPer->perfAicpuTrace[tid][type] = perfTrace[tid][type];
+                }
+                
                 oss << "{\"name\":\"" << PerfTraceName[type] << "\",\"end\":" << perfTrace[tid][type]
                     << "}" << (type == PERF_TRACE_MAX - 1 ? "" : ",");
             }

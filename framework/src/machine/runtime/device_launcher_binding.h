@@ -58,7 +58,7 @@ struct DeviceLauncherConfig {
     int aicpuNum{5};
     int64_t dynWorkspaceSize{0};
     int64_t repeatNum{1};
-    bool runModel{true};
+    bool runModel{false};
     std::vector<uint64_t> hcclContext;
     bool controlFlowCache{false};
     bool cpuSeparate{false};
