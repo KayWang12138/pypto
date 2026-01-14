@@ -13,8 +13,8 @@
 * \brief
 */
 
-#ifndef OSP_INTEGRAL_RANGE_H
-#define OSP_INTEGRAL_RANGE_H
+#ifndef OSP_INTEGRAL_RANGE_HPP
+#define OSP_INTEGRAL_RANGE_HPP
 
 #include <iterator>
 #include <type_traits>
@@ -209,4 +209,4 @@ class IntegralRange {
 
 }    // namespace osp
 }    // namespace npu::tile_fwk
-#endif // OSP_INTEGRAL_RANGE_H
+#endif // OSP_INTEGRAL_RANGE_HPP

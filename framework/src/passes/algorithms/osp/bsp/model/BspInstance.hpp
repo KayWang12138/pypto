@@ -13,8 +13,8 @@
 * \brief
 */
 
-#ifndef OSP_BSP_INSTANCE_H
-#define OSP_BSP_INSTANCE_H
+#ifndef OSP_BSP_INSTANCE_HPP
+#define OSP_BSP_INSTANCE_HPP
 
 #include <iostream>
 
@@ -308,4 +308,4 @@ class BspInstance {
 
 }    // namespace osp
 }    // namespace npu::tile_fwk
-#endif // OSP_BSP_INSTANCE_H
+#endif // OSP_BSP_INSTANCE_HPP

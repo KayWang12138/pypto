@@ -13,8 +13,8 @@
 * \brief
 */
 
-#ifndef OSP_BSP_ARCHITECTURE_H
-#define OSP_BSP_ARCHITECTURE_H
+#ifndef OSP_BSP_ARCHITECTURE_HPP
+#define OSP_BSP_ARCHITECTURE_HPP
 
 #include <algorithm>
 #include <cmath>
@@ -576,4 +576,4 @@ class BspArchitecture {
 
 }    // namespace osp
 }    // namespace npu::tile_fwk
-#endif // OSP_BSP_ARCHITECTURE_H
+#endif // OSP_BSP_ARCHITECTURE_HPP

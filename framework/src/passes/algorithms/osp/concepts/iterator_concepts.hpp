@@ -13,8 +13,8 @@
 * \brief
 */
 
-#ifndef OSP_ITERATOR_CONCEPTS_H
-#define OSP_ITERATOR_CONCEPTS_H
+#ifndef OSP_ITERATOR_CONCEPTS_HPP
+#define OSP_ITERATOR_CONCEPTS_HPP
 
 #include <iterator>
 #include <type_traits>
@@ -130,4 +130,4 @@ inline constexpr bool isInputRangeOfV = IsInputRangeOf<T, ValueType>::value;
 
 }    // namespace osp
 }    // namespace npu::tile_fwk
-#endif // OSP_ITERATOR_CONCEPTS_H
+#endif // OSP_ITERATOR_CONCEPTS_HPP

@@ -14,8 +14,8 @@
 
 */
 
-#ifndef OSP_GRAPH_TRAITS_H
-#define OSP_GRAPH_TRAITS_H
+#ifndef OSP_GRAPH_TRAITS_HPP
+#define OSP_GRAPH_TRAITS_HPP
 
 #include "iterator_concepts.hpp"
 #include "passes/algorithms/osp/auxiliary/hash_util.hpp"
@@ -256,4 +256,4 @@ struct std::hash<osp::DirectedEdge<GraphT>> {
         return h1;
     }
 };
-#endif // OSP_GRAPH_TRAITS_H
+#endif // OSP_GRAPH_TRAITS_HPP

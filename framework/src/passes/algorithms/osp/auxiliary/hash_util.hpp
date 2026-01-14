@@ -13,8 +13,8 @@
 * \brief
 */
 
-#ifndef OSP_HASH_UTIL_H
-#define OSP_HASH_UTIL_H
+#ifndef OSP_HASH_UTIL_HPP
+#define OSP_HASH_UTIL_HPP
 
 #include <cstddef>
 
@@ -31,4 +31,4 @@ void HashCombine(std::size_t &seed, const T &v) {
 }
 } // namespace osp
 } // namespace npu::tile_fwk
-#endif // OSP_HASH_UTIL_H
+#endif // OSP_HASH_UTIL_HPP
