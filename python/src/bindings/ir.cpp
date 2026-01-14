@@ -219,6 +219,20 @@ static void IrBindOperation(py::module &m) {
 
     py::class_<UnaryScalarOp, Operation, std::shared_ptr<UnaryScalarOp>>(m, "UnaryScalarOp");
     py::class_<BinaryScalarOp, Operation, std::shared_ptr<BinaryScalarOp>>(m, "BinaryScalarOp");
+
+    py::class_<MatmulLoadOp, Operation, std::shared_ptr<MatmulLoadOp>>(m, "MatmulLoadOp")
+        .def_property("copy_in_mode", &MatmulLoadOp::GetCopyInMode, &MatmulLoadOp::SetCopyInMode);
+    py::class_<MatmulExtractOp, Operation, std::shared_ptr<MatmulExtractOp>>(m, "MatmulExtractOp");
+    py::class_<MatmulMmadOp, Operation, std::shared_ptr<MatmulMmadOp>>(m, "MatmulMmadOp")
+        .def_property("has_bias", &MatmulMmadOp::GetHasBias, &MatmulMmadOp::SetHasBias);
+    py::class_<MatmulAccOp, Operation, std::shared_ptr<MatmulAccOp>>(m, "MatmulAccOp")
+        .def_property("has_bias", &MatmulAccOp::GetHasBias, &MatmulAccOp::SetHasBias);
+    py::class_<MatmulStoreOp, Operation, std::shared_ptr<MatmulStoreOp>>(m, "MatmulStoreOp")
+        .def_property("copy_out_mode", &MatmulStoreOp::GetCopyOutMode, &MatmulStoreOp::SetCopyOutMode)
+        .def_property("relu_mode", &MatmulStoreOp::GetReluMode, &MatmulStoreOp::SetReluMode)
+        .def_property("enable_gm_acc", &MatmulStoreOp::GetEnableGmAcc, &MatmulStoreOp::SetEnableGmAcc);
+    py::class_<MatmulBiasOp, Operation, std::shared_ptr<MatmulBiasOp>>(m, "MatmulBiasOp");
+    py::class_<MatmulQuantOp, Operation, std::shared_ptr<MatmulQuantOp>>(m, "MatmulQuantOp");
 }
 
 static void IrBindStatement(py::module &m) {
@@ -333,7 +347,49 @@ static void IrBuilderBindOp(py::class_<IRBuilder> &irBuilder) {
             [](IRBuilder &self, Opcode opcode, TileValuePtr lhs, ScalarValuePtr rhs, TileValuePtr out) {
                 return self.CreateBinaryScalarMixOp(opcode, lhs, rhs, out);
             },
-            py::arg("opcode"), py::arg("lhs"), py::arg("scalar"), py::arg("out"));
+            py::arg("opcode"), py::arg("lhs"), py::arg("scalar"), py::arg("out"))
+        .def(
+            "create_matmul_load_op",
+            [](IRBuilder &self, Opcode opcode, TileValuePtr input, const std::vector<ScalarValuePtr> &offsets, TileValuePtr output, int copy_in_mode = 1) {
+                return self.CreateMatmulLoadOp(opcode, input, offsets, output, copy_in_mode);
+            },
+            py::arg("opcode"), py::arg("input"), py::arg("offsets"), py::arg("output"), py::arg("copy_in_mode") = 1)
+        .def(
+            "create_matmul_extract_op",
+            [](IRBuilder &self, Opcode opcode, TileValuePtr input, const std::vector<ScalarValuePtr> &offsets, TileValuePtr output) {
+                return self.CreateMatmulExtractOp(opcode, input, offsets, output);
+            },
+            py::arg("opcode"), py::arg("input"), py::arg("offsets"), py::arg("output"))
+        .def(
+            "create_matmul_mmad_op",
+            [](IRBuilder &self, Opcode opcode, TileValuePtr lhs, TileValuePtr rhs, TileValuePtr output, bool has_bias = false) {
+                return self.CreateMatmulMmadOp(opcode, lhs, rhs, output, has_bias);
+            },
+            py::arg("opcode"), py::arg("lhs"), py::arg("rhs"), py::arg("output"), py::arg("has_bias") = false)
+        .def(
+            "create_matmul_acc_op",
+            [](IRBuilder &self, Opcode opcode, TileValuePtr lhs, TileValuePtr rhs, TileValuePtr output, bool has_bias = false) {
+                return self.CreateMatmulAccOp(opcode, lhs, rhs, output, has_bias);
+            },
+            py::arg("opcode"), py::arg("lhs"), py::arg("rhs"), py::arg("output"), py::arg("has_bias") = false)
+        .def(
+            "create_matmul_store_op",
+            [](IRBuilder &self, Opcode opcode, TileValuePtr input, const std::vector<ScalarValuePtr> &offsets, TileValuePtr output, int copy_out_mode = 0, int relu_mode = 0, bool enable_gm_acc = false) {
+                return self.CreateMatmulStoreOp(opcode, input, offsets, output, copy_out_mode, relu_mode, enable_gm_acc);
+            },
+            py::arg("opcode"), py::arg("input"), py::arg("offsets"), py::arg("output"), py::arg("copy_out_mode") = 0, py::arg("relu_mode") = 0, py::arg("enable_gm_acc") = false)
+        .def(
+            "create_matmul_bias_op",
+            [](IRBuilder &self, Opcode opcode, TileValuePtr input, const std::vector<ScalarValuePtr> &offsets, TileValuePtr output) {
+                return self.CreateMatmulBiasOp(opcode, input, offsets, output);
+            },
+            py::arg("opcode"), py::arg("input"), py::arg("offsets"), py::arg("output"))
+        .def(
+            "create_matmul_quant_op",
+            [](IRBuilder &self, Opcode opcode, TileValuePtr input, const std::vector<ScalarValuePtr> &offsets, TileValuePtr output) {
+                return self.CreateMatmulQuantOp(opcode, input, offsets, output);
+            },
+            py::arg("opcode"), py::arg("input"), py::arg("offsets"), py::arg("output"));
 }
 
 static void IrBindBuilder(py::module &m) {

@@ -16,7 +16,11 @@ from pypto.pypto_impl import ir
 
 
 class BlockBuilderHelper:
-    def __init__(self, builder, ctx):
+    def __init__(self, builder=None, ctx=None):
+        if builder is None:
+            builder = ir.IrBuilder()
+        if ctx is None:
+            ctx = ir.IrBuilderContext()
         self.builder = builder
         self.ctx = ctx
 
@@ -190,5 +194,67 @@ class BlockBuilderHelper:
 
     def maxs(self, a, b, out):
         op = self.builder.create_binary_scalar_op(ir.Opcode.OP_MAXS, a, b, out)
+        self.builder.emit(self.ctx, op)
+        return op
+
+    # Matmul operations
+    def matmul_load(self, input_tile, offsets, output, copy_in_mode=1):
+        op = self.builder.create_matmul_load_op(
+            ir.Opcode.OP_L1_COPY_IN, input_tile, offsets, output, copy_in_mode=copy_in_mode
+        )
+        self.builder.emit(self.ctx, op)
+        return op
+
+    def matmul_extract(self, input_tile, offsets, output, extract_mode=ir.Opcode.OP_L1_TO_L0A):
+        """
+        Extract operation with different modes:
+        - OP_L1_TO_L0A: extract to L0A
+        - OP_L1_TO_L0B: extract to L0B
+        - OP_L1_TO_L0_AT: extract to L0A transposed
+        - OP_L1_TO_L0_BT: extract to L0B transposed
+        """
+        op = self.builder.create_matmul_extract_op(extract_mode, input_tile, offsets, output)
+        self.builder.emit(self.ctx, op)
+        return op
+
+    def matmul_mmad(self, lhs, rhs, output, has_bias=False):
+        op = self.builder.create_matmul_mmad_op(
+            ir.Opcode.OP_A_MUL_B, lhs, rhs, output, has_bias=has_bias
+        )
+        self.builder.emit(self.ctx, op)
+        return op
+
+    def matmul_acc(self, lhs, rhs, output, has_bias=False):
+        op = self.builder.create_matmul_acc_op(
+            ir.Opcode.OP_A_MULACC_B, lhs, rhs, output, has_bias=has_bias
+        )
+        self.builder.emit(self.ctx, op)
+        return op
+
+    def matmul_store(self, input_tile, offsets, output, copy_out_mode=0, relu_mode=0, enable_gm_acc=False):
+        """
+        Store operation with different modes:
+        - copy_out_mode: 0=NZ2ND, 1=NZ2NZ
+        - relu_mode: 0=no_relu, 1=relu
+        - enable_gm_acc: enable global memory accumulation
+        """
+        op = self.builder.create_matmul_store_op(
+            ir.Opcode.OP_L0C_COPY_OUT, input_tile, offsets, output,
+            copy_out_mode=copy_out_mode, relu_mode=relu_mode, enable_gm_acc=enable_gm_acc
+        )
+        self.builder.emit(self.ctx, op)
+        return op
+
+    def matmul_bias(self, input_tile, offsets, output):
+        op = self.builder.create_matmul_bias_op(
+            ir.Opcode.OP_L1_TO_BT, input_tile, offsets, output
+        )
+        self.builder.emit(self.ctx, op)
+        return op
+
+    def matmul_quant(self, input_tile, offsets, output):
+        op = self.builder.create_matmul_quant_op(
+            ir.Opcode.OP_L1_TO_FIX_QUANT_PRE, input_tile, offsets, output
+        )
         self.builder.emit(self.ctx, op)
         return op

@@ -401,3 +401,100 @@ def test_binary_scalar_mix_operations():
     ctx.pop_scope()
 
     print(f"Binary scalar mix operations test completed: {module}")
+
+
+def test_matmul_operations():
+    """Test all matmul operations: load, extract, mmad, acc, store, bias, quant"""
+    module = ir.module("test_matmul")
+    builder = ir.IrBuilder()
+    ctx = ir.IrBuilderContext()
+
+    # Setup
+    tile_shape = [128, 128]
+    batch = ir.Scalar(ir.DataType.int32, None, "batch")
+    constant128 = ir.Scalar(ir.DataType.int64, 128, "const_128")
+    tensor_shape = [batch, constant128]
+    input_tensor = ir.Tensor(tensor_shape, ir.DataType.float, "input", ir.Format.ND)
+    output_tensor = ir.Tensor(tensor_shape, ir.DataType.float, "output", ir.Format.ND)
+
+    sig = ir.FunctionSignature()
+    sig.arguments = [input_tensor]
+    sig.returns = [output_tensor]
+
+    func = builder.create_function("test_matmul", ir.FunctionKind.DataFlow, sig)
+    module.add_function(func)
+    module.entry = func
+
+    builder.enter_function(ctx, func)
+
+    # Create input tiles and scalars inside function scope
+    input_tile = builder.create_tile(ctx, tile_shape, ir.DataType.float, "input_tile")
+    output_tile = builder.create_tile(ctx, tile_shape, ir.DataType.float, "output_tile")
+    
+    # Create offset scalars for operations that need them
+    offset0 = builder.create_scalar(ctx, ir.DataType.int32, "offset0")
+    offset1 = builder.create_scalar(ctx, ir.DataType.int32, "offset1")
+    offsets = [offset0, offset1]
+
+    # Test MatmulLoadOp
+    load_output = builder.create_tile(ctx, tile_shape, ir.DataType.float, "load_output")
+    op_load = builder.create_matmul_load_op(
+        ir.Opcode.OP_L1_COPY_IN, input_tile, offsets, load_output, copy_in_mode=1
+    )
+    builder.emit(ctx, op_load)
+    assert op_load.copy_in_mode == 1
+
+    # Test MatmulExtractOp
+    extract_output = builder.create_tile(ctx, tile_shape, ir.DataType.float, "extract_output")
+    op_extract = builder.create_matmul_extract_op(
+        ir.Opcode.OP_L1_TO_L0A, load_output, offsets, extract_output
+    )
+    builder.emit(ctx, op_extract)
+
+    # Test MatmulMmadOp
+    lhs_tile = builder.create_tile(ctx, tile_shape, ir.DataType.float, "lhs_tile")
+    rhs_tile = builder.create_tile(ctx, tile_shape, ir.DataType.float, "rhs_tile")
+    mmad_output = builder.create_tile(ctx, tile_shape, ir.DataType.float, "mmad_output")
+    op_mmad = builder.create_matmul_mmad_op(
+        ir.Opcode.OP_A_MUL_B, lhs_tile, rhs_tile, mmad_output, has_bias=False
+    )
+    builder.emit(ctx, op_mmad)
+    assert op_mmad.has_bias == False
+
+    # Test MatmulAccOp
+    acc_output = builder.create_tile(ctx, tile_shape, ir.DataType.float, "acc_output")
+    op_acc = builder.create_matmul_acc_op(
+        ir.Opcode.OP_A_MULACC_B, lhs_tile, rhs_tile, acc_output, has_bias=True
+    )
+    builder.emit(ctx, op_acc)
+    assert op_acc.has_bias == True
+
+    # Test MatmulStoreOp
+    store_output = builder.create_tile(ctx, tile_shape, ir.DataType.float, "store_output")
+    op_store = builder.create_matmul_store_op(
+        ir.Opcode.OP_L0C_COPY_OUT, acc_output, offsets, store_output,
+        copy_out_mode=0, relu_mode=0, enable_gm_acc=False
+    )
+    builder.emit(ctx, op_store)
+    assert op_store.copy_out_mode == 0
+    assert op_store.relu_mode == 0
+    assert op_store.enable_gm_acc == False
+
+    # Test MatmulBiasOp
+    bias_output = builder.create_tile(ctx, tile_shape, ir.DataType.float, "bias_output")
+    op_bias = builder.create_matmul_bias_op(
+        ir.Opcode.OP_L1_TO_BT, input_tile, offsets, bias_output
+    )
+    builder.emit(ctx, op_bias)
+
+    # Test MatmulQuantOp
+    quant_output = builder.create_tile(ctx, tile_shape, ir.DataType.float, "quant_output")
+    op_quant = builder.create_matmul_quant_op(
+        ir.Opcode.OP_L1_TO_FIX_QUANT_PRE, input_tile, offsets, quant_output
+    )
+    builder.emit(ctx, op_quant)
+
+    builder.create_return(ctx, [store_output])
+    ctx.pop_scope()
+
+    print(f"Matmul operations test completed: {module}")

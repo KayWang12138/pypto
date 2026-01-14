@@ -22,9 +22,7 @@ def test_control_flow():
 
     # ===== Module =====
     module = ir.module("main")
-    builder = ir.IrBuilder()
-    ctx = ir.IrBuilderContext()
-    block = BlockBuilderHelper(builder, ctx)
+    block = BlockBuilderHelper()
 
     # ===== Signature =====
     sig = ir.FunctionSignature()
@@ -117,9 +115,7 @@ def test_control_flow_closure():
     Further ast transforms will work on `create_function` level, not module level.
     """
     module = ir.module("main")
-    builder = ir.IrBuilder()
-    ctx = ir.IrBuilderContext()
-    block = BlockBuilderHelper(builder, ctx)
+    block = BlockBuilderHelper()
 
     batch = ir.Scalar(ir.DataType.int32, None, "batch")
     constant128 = ir.Scalar(ir.DataType.int64, 128, "const_128")
@@ -182,9 +178,7 @@ def test_control_flow_closure():
 def test_unary_operations():
     """Test all unary operations: exp, neg, rsqrt, sqrt, logicalnot, reciprocal, abs, ln"""
     module = ir.module("test_unary")
-    builder = ir.IrBuilder()
-    ctx = ir.IrBuilderContext()
-    block = BlockBuilderHelper(builder, ctx)
+    block = BlockBuilderHelper()
 
     # Setup
     tile_shape = [128, 128]
@@ -239,9 +233,7 @@ def test_unary_operations():
 def test_binary_operations():
     """Test all binary operations: sub, mul, div, min, max"""
     module = ir.module("test_binary")
-    builder = ir.IrBuilder()
-    ctx = ir.IrBuilderContext()
-    block = BlockBuilderHelper(builder, ctx)
+    block = BlockBuilderHelper()
 
     # Setup
     tile_shape = [128, 128]
@@ -289,9 +281,7 @@ def test_binary_operations():
 def test_binary_scalar_mix_operations():
     """Test all binary scalar mix operations: adds, subs, muls, divs, mins, maxs"""
     module = ir.module("test_binary_scalar")
-    builder = ir.IrBuilder()
-    ctx = ir.IrBuilderContext()
-    block = BlockBuilderHelper(builder, ctx)
+    block = BlockBuilderHelper()
 
     # Setup
     tile_shape = [128, 128]
@@ -338,9 +328,90 @@ def test_binary_scalar_mix_operations():
     print(f"Binary scalar mix operations test completed: {module}")
 
 
+def test_matmul_operations():
+    """Test all matmul operations: load, extract, mmad, acc, store, bias, quant"""
+    module = ir.module("test_matmul")
+    block = BlockBuilderHelper()
+
+    # Setup
+    tile_shape = [128, 128]
+    batch = ir.Scalar(ir.DataType.int32, None, "batch")
+    constant128 = ir.Scalar(ir.DataType.int64, 128, "const_128")
+    tensor_shape = [batch, constant128]
+    input_tensor = ir.Tensor(tensor_shape, ir.DataType.float, "input", ir.Format.ND)
+    output_tensor = ir.Tensor(tensor_shape, ir.DataType.float, "output", ir.Format.ND)
+
+    sig = ir.FunctionSignature()
+    sig.arguments = [input_tensor]
+    sig.returns = [output_tensor]
+
+    func = block.create_function("test_matmul", ir.FunctionKind.DataFlow, sig)
+    module.add_function(func)
+    module.entry = func
+
+    with block.function_scope(func):
+        # Create input tiles and scalars inside function scope
+        input_tile = block.tile(tile_shape, ir.DataType.float, "input_tile")
+        output_tile = block.tile(tile_shape, ir.DataType.float, "output_tile")
+        
+        # Create offset scalars for operations that need them
+        offset0 = block.scalar(ir.DataType.int32, "offset0")
+        offset1 = block.scalar(ir.DataType.int32, "offset1")
+        offsets = [offset0, offset1]
+
+        # Test MatmulLoadOp
+        load_output = block.tile(tile_shape, ir.DataType.float, "load_output")
+        op_load = block.matmul_load(input_tile, offsets, load_output, copy_in_mode=1)
+        assert op_load.copy_in_mode == 1
+
+        # Test MatmulExtractOp
+        extract_output = block.tile(tile_shape, ir.DataType.float, "extract_output")
+        op_extract = block.matmul_extract(load_output, offsets, extract_output)
+        # Test with different extract mode
+        extract_output2 = block.tile(tile_shape, ir.DataType.float, "extract_output2")
+        op_extract2 = block.matmul_extract(
+            load_output, offsets, extract_output2, extract_mode=ir.Opcode.OP_L1_TO_L0B
+        )
+
+        # Test MatmulMmadOp
+        lhs_tile = block.tile(tile_shape, ir.DataType.float, "lhs_tile")
+        rhs_tile = block.tile(tile_shape, ir.DataType.float, "rhs_tile")
+        mmad_output = block.tile(tile_shape, ir.DataType.float, "mmad_output")
+        op_mmad = block.matmul_mmad(lhs_tile, rhs_tile, mmad_output, has_bias=False)
+        assert op_mmad.has_bias == False
+
+        # Test MatmulAccOp
+        acc_output = block.tile(tile_shape, ir.DataType.float, "acc_output")
+        op_acc = block.matmul_acc(lhs_tile, rhs_tile, acc_output, has_bias=True)
+        assert op_acc.has_bias == True
+
+        # Test MatmulStoreOp
+        store_output = block.tile(tile_shape, ir.DataType.float, "store_output")
+        op_store = block.matmul_store(
+            acc_output, offsets, store_output,
+            copy_out_mode=0, relu_mode=0, enable_gm_acc=False
+        )
+        assert op_store.copy_out_mode == 0
+        assert op_store.relu_mode == 0
+        assert op_store.enable_gm_acc == False
+
+        # Test MatmulBiasOp
+        bias_output = block.tile(tile_shape, ir.DataType.float, "bias_output")
+        op_bias = block.matmul_bias(input_tile, offsets, bias_output)
+
+        # Test MatmulQuantOp
+        quant_output = block.tile(tile_shape, ir.DataType.float, "quant_output")
+        op_quant = block.matmul_quant(input_tile, offsets, quant_output)
+
+        block.create_return([store_output])
+
+    print(f"Matmul operations test completed: {module}")
+
+
 if __name__ == "__main__":
     test_control_flow()
     test_control_flow_closure()
     test_unary_operations()
     test_binary_operations()
     test_binary_scalar_mix_operations()
+    test_matmul_operations()
