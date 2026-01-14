@@ -316,13 +316,10 @@ Status OoOScheduler::SpillOnBlock() {
         APASS_LOG_ERROR_F(Elements::Operation, "Buffer[L0A/B/C] is Full. Please check tile shape and OOO spill failed info."); 
         return FAILED; 
     }
-    bool rearrangeUBBF16{false};
-    if (RearrangeBuffers(allocIssueQueue[spillMemType].Front(), false, rearrangeUBBF16) != SUCCESS) {
-        APASS_LOG_WARN_F(Elements::Operation, "SpillOnBlock failed at RearrangeBuffers. Try GenBufferSpill.");
-        if (GenBufferSpill(allocIssueQueue[spillMemType].Front()) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "SpillOnBlock failed at GenBufferSpill.");
-            return FAILED;
-        }
+
+    if (GenBufferSpill(allocIssueQueue[spillMemType].Front()) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "SpillOnBlock failed at GenBufferSpill.");
+        return FAILED;
     }
     return SUCCESS;
 }
@@ -669,12 +666,6 @@ Status OoOScheduler::ExecuteAllocIssue(IssueEntryPtr issue, size_t &pcIdx) {
             APASS_LOG_WARN_F(Elements::Operation, "GenSpillOp failed, start trying buffer rearrangement.");
             if (bufferManagerMap[allocBuffer->memType].IsFullWithoutRearrange(allocBuffer->size)) {
                 APASS_LOG_ERROR_F(Elements::Operation, "GenSpillOp failed and there is no enough buffer space for rearrangement. %s", GetFormatBacktrace(issueEntries[pcIdx]->tileOp).c_str());
-                return FAILED;
-            }
-            // 如果内存剩余空间 > 需要alloc空间, 进行内存重排
-            bool rearrangeUBBF16{false};
-            if (RearrangeBuffers(issue, true, rearrangeUBBF16) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Operation, "ExecuteAllocIssue failed at RearrangeBuffers! %s", GetFormatBacktrace(issue->tileOp).c_str());
                 return FAILED;
             }
         }
@@ -1087,7 +1078,7 @@ Status OoOScheduler::Schedule(const std::vector<Operation *> &operations) {
 // UpdateRemainOpBufId函数不能直接用
 Status OoOScheduler::UpdateMemId(int oldMemId, int newMemId) {
     if (bufRefCount.find(oldMemId) == bufRefCount.end()) {
-        APASS_LOG_ERROR_F(Elements::Tensor, "bufRefCount cannot find Tensor[%d]", oldMemId);
+        APASS_LOG_WARN_F(Elements::Tensor, "bufRefCount cannot find Tensor[%d]", oldMemId);
         return FAILED;
     }
     bufRefCount[newMemId] = 0;
@@ -1109,7 +1100,7 @@ Status OoOScheduler::UpdateMemId(int oldMemId, int newMemId) {
         }
     }
     if (bufRefCount[oldMemId] != 0) {
-        APASS_LOG_ERROR_F(Elements::Tensor, "oldMemId %d bufRefCount is not 0, UpdateMemId failed.", oldMemId);
+        APASS_LOG_WARN_F(Elements::Tensor, "oldMemId %d bufRefCount is not 0, UpdateMemId failed.", oldMemId);
         return FAILED;
     }
     return SUCCESS;
@@ -1163,7 +1154,7 @@ Status OoOScheduler::FindMoveFromTensor(Operation &occupyOp, int oldMemId, Memor
     }
     // 如果moveFrom Tensor是UB且数据类型为bf16, rearrange失败
     if (memType == MemoryType::MEM_UB && moveFromTensor->Datatype() == DataType::DT_BF16) {
-        APASS_LOG_ERROR_F(Elements::Tensor, "Cannot rearrange UB tensor with datatype bf16, do schedulemainloop spill.");
+        APASS_LOG_WARN_F(Elements::Tensor, "Cannot rearrange UB tensor with datatype bf16, do schedulemainloop spill.");
         rearrangeUBBF16 = true;
     }
     return SUCCESS;
