@@ -228,68 +228,65 @@ def win_atten_main_tnd_decode(q_tnd, block_table, kv_cache, start_pos_list, atte
 )
 def win_atten_main_c128(q, block_table, kv_cache, actual_seq_list, atten_sink, atten_out, win):
     pypto.experimental.set_operation_config(combine_axis=True)
-    t = q.shape[0]
-    n_q = q.shape[1]
-    d_q = q.shape[2]
+    b = q.shape[0]
+    s_q = q.shape[1]
+    n_q = q.shape[2]
+    d_q = q.shape[3]
     scalar = d_q ** -0.5
     block_size = kv_cache.shape[1]
     d_kv = kv_cache.shape[3]
-    b = actual_seq_list.shape[0]
-    s_q = t // b
 
-    for t_idx in pypto.loop(t, name="LOOP_T", idx_name="t_idx"):
-        b_idx = t_idx // s_q
-        s1_idx = t_idx % s_q
+    for b_idx in pypto.loop(b, name="LOOP_b", idx_name="b_idx"):
+        for s1_idx in pypto.loop(s_q, name="LOOP_s1", idx_name="s1_idx"):
+            actual_seq = actual_seq_list[b_idx]
+                    
+            pypto.set_vec_tile_shapes(128, 128, 512, 512)
+            q_tensor_cur = pypto.view(q, [1, 1, n_q, d_q], [b_idx, s1_idx, 0, 0])
+            q_tensor_cur = pypto.reshape(q_tensor_cur, (n_q, d_q))
 
-        actual_seq = actual_seq_list[b_idx]
-                
-        pypto.set_vec_tile_shapes(128, 512, 512)
-        q_tensor_cur = pypto.view(q, [1, n_q, d_q], [t_idx, 0, 0])
-        q_tensor_cur = pypto.reshape(q_tensor_cur, (n_q, d_q))
+            actual_win_size = pypto.min(actual_seq, win)
+            start_offset = s1_idx
 
-        actual_win_size = pypto.min(actual_seq, win)
-        start_offset = s1_idx
+            physical_block_id = block_table[b_idx, 0]
+            pypto.set_vec_tile_shapes(128, 512, 128, 512)
+            kv_block = pypto.view(kv_cache, [1, block_size, 1, d_kv], [physical_block_id, 0, 0, 0])
+            kv_cur = pypto.reshape(kv_block, (block_size, d_kv))
 
-        physical_block_id = block_table[b_idx, 0]
-        pypto.set_vec_tile_shapes(128, 512, 128, 512)
-        kv_block = pypto.view(kv_cache, [1, block_size, 1, d_kv], [physical_block_id, 0, 0, 0])
-        kv_cur = pypto.reshape(kv_block, (block_size, d_kv))
+            pypto.set_vec_tile_shapes(128, 512)
+            kv_cur = pypto.view(kv_cur, [win, d_kv], [start_offset, 0], valid_shape=[actual_win_size, d_kv])
 
-        pypto.set_vec_tile_shapes(128, 512)
-        kv_cur = pypto.view(kv_cur, [win, d_kv], [start_offset, 0], valid_shape=[actual_win_size, d_kv])
+            sum_exp = pypto.full([64, 1], float(0), dtype=pypto.DT_FP32)
+            acc_o = pypto.full([64, 512], float(0), dtype=pypto.DT_FP32)
+            scores_max = pypto.full([64, 1], float("-inf"), dtype=pypto.DT_FP32)
 
-        sum_exp = pypto.full([64, 1], float(0), dtype=pypto.DT_FP32)
-        acc_o = pypto.full([64, 512], float(0), dtype=pypto.DT_FP32)
-        scores_max = pypto.full([64, 1], float("-inf"), dtype=pypto.DT_FP32)
+            # 以下为block循环部分
+            pypto.set_cube_tile_shapes([64, 64], [256, 256 * 8], [128, 128], True, False)
+            acc_s = pypto.matmul(q_tensor_cur, kv_cur, pypto.DT_FP32, b_trans=True)
 
-        # 以下为block循环部分
-        pypto.set_cube_tile_shapes([64, 64], [256, 256 * 8], [128, 128], True, False)
-        acc_s = pypto.matmul(q_tensor_cur, kv_cur, pypto.DT_FP32, b_trans=True)
+            pypto.set_vec_tile_shapes(64, 128)
+            acc_s = pypto.mul(acc_s, scalar)
+            scores_max_prev = scores_max
+            scores_max = pypto.amax(acc_s, -1, True)
+            sub_res = pypto.sub(scores_max_prev, scores_max)
+            scores_scale = pypto.exp(sub_res)
+            sub_res = pypto.sub(acc_s, scores_max)
+            acc_s = pypto.exp(sub_res)
+            scores_sum = pypto.sum(acc_s, -1, True)
+            mul_res = pypto.mul(sum_exp, scores_scale)
+            sum_exp = pypto.add(scores_sum, mul_res)
+            acc_o = pypto.mul(acc_o, scores_scale)
+            kv_cur_fp32 = pypto.cast(kv_cur, pypto.DT_FP32)
+            matmul_res = pypto.matmul(acc_s, kv_cur_fp32, pypto.DT_FP32)
+            acc_o = pypto.add(acc_o, matmul_res)
+            atten_sink = pypto.reshape(atten_sink, [atten_sink.shape[0], 1])
+            sub_res = pypto.sub(atten_sink, scores_max)
+            exp_res = pypto.exp(sub_res)
+            sum_exp = pypto.add(sum_exp, exp_res)
+            acc_o = pypto.div(acc_o, sum_exp)
+            acc_o_reshape = pypto.reshape(acc_o, (1, 1, n_q, d_kv))
 
-        pypto.set_vec_tile_shapes(64, 128)
-        acc_s = pypto.mul(acc_s, scalar)
-        scores_max_prev = scores_max
-        scores_max = pypto.amax(acc_s, -1, True)
-        sub_res = pypto.sub(scores_max_prev, scores_max)
-        scores_scale = pypto.exp(sub_res)
-        sub_res = pypto.sub(acc_s, scores_max)
-        acc_s = pypto.exp(sub_res)
-        scores_sum = pypto.sum(acc_s, -1, True)
-        mul_res = pypto.mul(sum_exp, scores_scale)
-        sum_exp = pypto.add(scores_sum, mul_res)
-        acc_o = pypto.mul(acc_o, scores_scale)
-        kv_cur_fp32 = pypto.cast(kv_cur, pypto.DT_FP32)
-        matmul_res = pypto.matmul(acc_s, kv_cur_fp32, pypto.DT_FP32)
-        acc_o = pypto.add(acc_o, matmul_res)
-        atten_sink = pypto.reshape(atten_sink, [atten_sink.shape[0], 1])
-        sub_res = pypto.sub(atten_sink, scores_max)
-        exp_res = pypto.exp(sub_res)
-        sum_exp = pypto.add(sum_exp, exp_res)
-        acc_o = pypto.div(acc_o, sum_exp)
-        acc_o_reshape = pypto.reshape(acc_o, (1, n_q, d_kv))
-
-        pypto.set_vec_tile_shapes(1, 64, 512)
-        pypto.assemble(acc_o_reshape, [t_idx, 0, 0], atten_out)
+            pypto.set_vec_tile_shapes(1, 1, 64, 512)
+            pypto.assemble(acc_o_reshape, [b_idx, s1_idx, 0, 0], atten_out)
 
 
 @allow_in_graph
@@ -320,7 +317,7 @@ def deepseekv4_win_atten(q: torch.Tensor,
     pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
 
     if is_c128:
-        print("Using C128 kernel")
+        print("Using C128A kernel")
         win_atten_main_c128(*pto_inputs, *pto_outputs, win_size)
     elif is_decode:
         win_atten_main_tnd_decode(*pto_inputs, *pto_outputs, win_size)
