@@ -40,6 +40,7 @@
 #include "machine/platform/platform_manager.h"
 #include "machine/runtime/device_error_tracking.h"
 #include "nlohmann/json.hpp"
+#include "dump_device_pref.h"
 
 using json = nlohmann::json;
 extern char _binary_kernel_o_start[];
@@ -161,6 +162,44 @@ void DeviceRunner::ResetPerData() {
     }
 }
 
+int DeviceRunner::ConstrutDeviceArgs(DeviceArgs &args, const std::vector<int64_t> &regs, const std::vector<int64_t> &regsPmu) {
+    uint32_t totalCoreCount = regs.size();
+    uint32_t aicCount = totalCoreCount / SUB_CORE;
+    uint32_t aivCount = aicCount * AIV_PER_AICORE;
+    args.nrAic = aicCount;
+    args.nrAiv = aivCount;
+    blockDim_ = dynamic::GetCfgBlockdim();
+    args.nrValidAic = blockDim_;
+    args.nrAicpu = aicpuNum_;
+    int nrCore = regs.size();
+    args.sharedBuffer = reinterpret_cast<uint64_t>(DevAlloc(nrCore * SHARED_BUFFER_SIZE));
+    args.coreRegAddr = reinterpret_cast<uint64_t>(DevAlloc(nrCore * sizeof(uint64_t)));
+    args.corePmuRegAddr = reinterpret_cast<uint64_t>(DevAlloc(nrCore * sizeof(uint64_t)));
+    args.corePmuAddr = reinterpret_cast<uint64_t>(DevAlloc(nrCore * PMU_BUFFER_SIZE));
+    args.taskWastTime = static_cast<uint64_t>(reinterpret_cast<uintptr_t>(DevAlloc(sizeof(uint64_t))));
+    size_t shmSize = dynamic::DEVICE_SHM_SIZE + dynamic::DEVICE_TASK_QUEUE_SIZE * aicpuNum_;
+    uint64_t shmAddr = static_cast<uint64_t>(reinterpret_cast<uintptr_t>(DevAlloc(shmSize)));
+    args.startArgsAddr = shmAddr;
+    args.taskCtrl = shmAddr + dynamic::DEV_ARGS_SIZE;
+    args.taskQueue = shmAddr + dynamic::DEV_ARGS_SIZE + dynamic::DEVICE_TASK_CTRL_SIZE;
+    pmuEvtType_.resize(PMU_EVENT_TYPE_MAX, 0x0);
+    args.pmuEventAddr = reinterpret_cast<uint64_t>(DevAlloc(pmuEvtType_.size() * sizeof(int64_t)));
+
+    if (args.sharedBuffer == 0 || args.coreRegAddr == 0 || args.corePmuAddr == 0 || args.corePmuRegAddr == 0) {
+        return -1;
+    }
+    GetPmuEventType();
+    size_t size = nrCore * sizeof(uint64_t);
+    rtMemcpy(reinterpret_cast<void *>(args.coreRegAddr), size, regs.data(), size, RT_MEMCPY_HOST_TO_DEVICE);
+    rtMemcpy(reinterpret_cast<void *>(args.corePmuRegAddr), size, regsPmu.data(), size, RT_MEMCPY_HOST_TO_DEVICE);
+    size = pmuEvtType_.size() * sizeof(int64_t);
+    rtMemcpy(reinterpret_cast<void *>(args.pmuEventAddr), size, pmuEvtType_.data(), size, RT_MEMCPY_HOST_TO_DEVICE);
+    ALOG_INFO_F("aic %u aiv %u  blockDim_ %d sharedBuffer %lx coreRegAddr %lx corePmuRegAddr %lx\n", args.nrAic,
+        args.nrAiv, blockDim_, args.sharedBuffer, args.coreRegAddr, args.corePmuRegAddr);
+    InitDynamicArgs(args);
+    return 0;
+}
+
 int DeviceRunner::InitDeviceArgs(DeviceArgs &args) {
     addressMappingTable_[ArchInfo::DAV_2201] = [&args](std::vector<int64_t>& regs, std::vector<int64_t>& regsPmu) {
         std::vector<int64_t> aiv;
@@ -199,42 +238,7 @@ int DeviceRunner::InitDeviceArgs(DeviceArgs &args) {
             return -1;
         }
     }
-
-    uint32_t totalCoreCount = regs.size();
-    uint32_t aicCount = totalCoreCount / SUB_CORE;
-    uint32_t aivCount = aicCount * AIV_PER_AICORE;
-    args.nrAic = aicCount;
-    args.nrAiv = aivCount;
-    blockDim_ = dynamic::GetCfgBlockdim();
-    args.nrValidAic = blockDim_;
-    args.nrAicpu = aicpuNum_;
-    int nrCore = regs.size();
-    args.sharedBuffer = reinterpret_cast<uint64_t>(DevAlloc(nrCore * SHARED_BUFFER_SIZE));
-    args.coreRegAddr = reinterpret_cast<uint64_t>(DevAlloc(nrCore * sizeof(uint64_t)));
-    args.corePmuRegAddr = reinterpret_cast<uint64_t>(DevAlloc(nrCore * sizeof(uint64_t)));
-    args.corePmuAddr = reinterpret_cast<uint64_t>(DevAlloc(nrCore * PMU_BUFFER_SIZE));
-    args.taskWastTime = static_cast<uint64_t>(reinterpret_cast<uintptr_t>(DevAlloc(sizeof(uint64_t))));
-    size_t shmSize = dynamic::DEVICE_SHM_SIZE + dynamic::DEVICE_TASK_QUEUE_SIZE * aicpuNum_;
-    uint64_t shmAddr = static_cast<uint64_t>(reinterpret_cast<uintptr_t>(DevAlloc(shmSize)));
-    args.startArgsAddr = shmAddr;
-    args.taskCtrl = shmAddr + dynamic::DEV_ARGS_SIZE;
-    args.taskQueue = shmAddr + dynamic::DEV_ARGS_SIZE + dynamic::DEVICE_TASK_CTRL_SIZE;
-    pmuEvtType_.resize(PMU_EVENT_TYPE_MAX, 0x0);
-    args.pmuEventAddr = reinterpret_cast<uint64_t>(DevAlloc(pmuEvtType_.size() * sizeof(int64_t)));
-
-    if (args.sharedBuffer == 0 || args.coreRegAddr == 0 || args.corePmuAddr == 0 || args.corePmuRegAddr == 0) {
-        return -1;
-    }
-    GetPmuEventType();
-    size_t size = nrCore * sizeof(uint64_t);
-    rtMemcpy(reinterpret_cast<void *>(args.coreRegAddr), size, regs.data(), size, RT_MEMCPY_HOST_TO_DEVICE);
-    rtMemcpy(reinterpret_cast<void *>(args.corePmuRegAddr), size, regsPmu.data(), size, RT_MEMCPY_HOST_TO_DEVICE);
-    size = pmuEvtType_.size() * sizeof(int64_t);
-    rtMemcpy(reinterpret_cast<void *>(args.pmuEventAddr), size, pmuEvtType_.data(), size, RT_MEMCPY_HOST_TO_DEVICE);
-    ALOG_INFO_F("aic %u aiv %u  blockDim_ %d sharedBuffer %lx coreRegAddr %lx corePmuRegAddr %lx\n", args.nrAic,
-        args.nrAiv, blockDim_, args.sharedBuffer, args.coreRegAddr, args.corePmuRegAddr);
-    InitDynamicArgs(args);
-    return 0;
+    return ConstrutDeviceArgs(args, regs, regsPmu);
 }
 
 uint64_t DeviceRunner::GetTasksTime() const {
@@ -418,61 +422,7 @@ void DeviceRunner::Dump() {
 
 /**************************** DynamicFunction *****************************/
 void DeviceRunner::DumpAiCoreExecutionTimeData() {
-    json root_taskStats = json::array();
-    uint32_t block_num_ = args_.GetBlockNum();
-    ALOG_INFO("GetBlockNum : %d",  block_num_);
-    for (uint32_t i = 0; i < block_num_; i++) {
-        void* devPtr = perfData_[i];
-        size_t dataSize = MAX_DFX_TASK_NUM_PER_CORE * sizeof(TaskStat) + sizeof(Metrics);
-        std::vector<uint8_t> hostBuffer(dataSize);
-        rtMemcpy(hostBuffer.data(), dataSize, devPtr, dataSize, RT_MEMCPY_DEVICE_TO_HOST);
-        Metrics *metric = reinterpret_cast<Metrics*>(hostBuffer.data());
-        if (metric->taskCount > MAX_DFX_TASK_NUM_PER_CORE) {metric->taskCount = MAX_DFX_TASK_NUM_PER_CORE;} // Limit to the maximum value 
-        TaskStat* taskStats = metric->tasks;
-        size_t numTasks = metric->taskCount;
-        std::string coreType = (i < args_.nrValidAic) ? "AIC" : "AIV";
-        json coreObj;
-        coreObj["blockIdx"] = i;
-        coreObj["coreType"] = coreType;
-        json tasksArr = json::array();
-        for (size_t j = 0; j < numTasks; ++j) {
-            if (taskStats[j].execEnd != 0) {
-                json taskObj;
-                taskObj["seqNo"] = taskStats[j].seqNo;
-                taskObj["subGraphId"] = taskStats[j].subGraphId;
-                taskObj["taskId"] = taskStats[j].taskId;
-                taskObj["execStart"] = taskStats[j].execStart;
-                taskObj["execEnd"] = taskStats[j].execEnd;
-                tasksArr.push_back(taskObj);
-            }
-        }
-        coreObj["tasks"] = tasksArr;
-        if (!tasksArr.empty()) {
-            root_taskStats.push_back(coreObj);
-        }
-    }
-    std::string jsonFilePath = config::LogTopFolder() + "/tilefwk_L1_prof_data.json";
-    std::ofstream jsonFile(jsonFilePath);
-    jsonFile << root_taskStats << std::endl;
-    jsonFile.close();
-    ALOG_INFO("tilefwk_L1_prof_data have saved in: %s",  jsonFilePath);
-    std::string topo_txt_path = config::LogTopFolder() + "/dyn_topo.txt";
-    std::string program_json_path = config::LogTopFolder() + "/program.json";
-    std::string draw_swim_lane_py_path = GetCurrentSharedLibPath() + "/scripts/draw_swim_lane.py";
-    config::SetRunDataOption(KEY_SWIM_GRAPH_PATH, config::GetAbsoluteTopFolder() + "/merged_swimlane.json");        
-
-    if (FileExist(program_json_path) && FileExist(topo_txt_path)) {
-        ALOG_INFO("The files program.json and dyn_topo.txt exist. Start merging the swimlane.");
-        std::string command = "python3 "+ draw_swim_lane_py_path + " \""
-                                + jsonFilePath + "\" \""
-                                + topo_txt_path + "\" \""
-                                + program_json_path + "\" --label_type=1 --time_convert_denominator=50";
-        if (system(command.c_str()) != 0) {
-           ALOG_WARN("Failed to execute draw_swim_lane.py. Stop merging the swimlane.");
-        }
-    } else {
-        ALOG_WARN("program.json or dyn_topo.txt missing. Stop merging the swimlane.");
-    }
+    npu::tile_fwk::dynamic::DumpAicoreTaskExectInfo(args_, perfData_);
 }
 
 void DeviceRunner::DumpAiCorePmuData() {
@@ -575,19 +525,26 @@ int DeviceRunner::launchDynamicAiCpuInit(rtStream_t aicpuStream, DeviceKernelArg
 }
 
 int DeviceRunner::RunPrepare() {
+    int ret = 0;
    for (uint32_t i = 0; i < args_.nrAic + args_.nrAiv; i++) {
-        rtMemcpy((reinterpret_cast<uint8_t *>(args_.sharedBuffer + sizeof(uint64_t) * SHAK_BUF_DFX_DATA_INDEX)) + i * SHARED_BUFFER_SIZE,
-            sizeof(uint64_t),
-            reinterpret_cast<uint8_t *>(&perfData_[i]),
-            sizeof(uint64_t),
-            RT_MEMCPY_HOST_TO_DEVICE);
+        ret = rtMemcpy((reinterpret_cast<uint8_t *>(args_.sharedBuffer + sizeof(uint64_t) * SHAK_BUF_DFX_DATA_INDEX)) + i * SHARED_BUFFER_SIZE,
+                sizeof(uint64_t),
+                reinterpret_cast<uint8_t *>(&perfData_[i]),
+                sizeof(uint64_t),
+                RT_MEMCPY_HOST_TO_DEVICE);
     }
     if (isCapture_) {
         aclmdlRICaptureMode mode = ACL_MODEL_RI_CAPTURE_MODE_GLOBAL;
         aclmdlRICaptureThreadExchangeMode(&mode);
         ALOG_INFO_F("captureMode is: %d", mode);
     }
-    return 0;
+    if (config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_ALL) {
+        args_.aicpuPerAddr = npu::tile_fwk::dynamic::PtrToValue(DevAlloc(sizeof(AicpuMetrPer)));
+        if (args_.aicpuPerAddr == 0) {
+            ALOG_WARN_F("Aicpu per addr malloc failed");
+        }
+    }
+    return ret;
 }
 
 int DeviceRunner::RunPreSync(rtStream_t aicpuStream, rtStream_t aicoreStream) {
@@ -708,8 +665,29 @@ int DeviceRunner::DynamicSeparateLaunch(rtStream_t aicpuStream, rtStream_t ctrlS
     return rc;
 }
 
+void DeviceRunner::PrepareLaunchArgs(DeviceArgs &localArgs, DeviceKernelArgs *kernelArgs, int64_t taskId, int blockdim, int launchAicpuNum) {
+    localArgs.taskId = taskId;
+    localArgs.taskType = DEVICE_TASK_TYPE_DYN;
+    lastLaunchToSubMachineConfig_ = kernelArgs->toSubMachineConfig;
+    localArgs.machineConfig = kernelArgs->machineConfig;
+    localArgs.toSubMachineConfig = kernelArgs->toSubMachineConfig;
+    localArgs.nrValidAic = blockdim;
+    localArgs.nrAicpu = launchAicpuNum;
+    blockDim_ = blockdim;
+    aicpuNum_ = launchAicpuNum;
+    localArgs.scheCpuNum = dynamic::CalcSchAicpuNumByBlockDim(blockdim, aicpuNum_);
+    localArgs.validGetPgMask = machine::GetRA()->GetValidGetPgMask();
+    localArgs.disableSync = config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_NO_DEVICE_TENSOR_DEPEND ? 1 : 0;
+    localArgs.generalAddr = kernelArgs->opMetaAddrs.generalAddr;
+    localArgs.stitchPoolAddr = kernelArgs->opMetaAddrs.stitchPoolAddr;
+    localArgs.isGETensorList = kernelArgs->toSubMachineConfig.isGETensorList;
+}
+
 int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, rtStream_t aicoreStream, int64_t taskId,
     DeviceKernelArgs *kernelArgs, int blockdim, int launchAicpuNum) {
+    if (kernelArgs == nullptr) {
+        return -1;
+    }
     InitializeErrorCallback();
     if (!g_IsFirstInit) {
         InitAiCpuSoBin();
@@ -725,33 +703,17 @@ int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, r
     }
     g_IsNullLaunched = true;
     #endif
-    auto localArgs = args_;
-    localArgs.taskId = taskId;
-    localArgs.taskType = DEVICE_TASK_TYPE_DYN;
-    if (kernelArgs == nullptr) {
-        return -1;
-    }
-    lastLaunchToSubMachineConfig_ = kernelArgs->toSubMachineConfig;
-    localArgs.machineConfig = kernelArgs->machineConfig;
-    localArgs.toSubMachineConfig = kernelArgs->toSubMachineConfig;
-    localArgs.nrValidAic = blockdim;
-    localArgs.nrAicpu = launchAicpuNum;
-    blockDim_ = blockdim;
-    aicpuNum_ = launchAicpuNum;
-    localArgs.scheCpuNum = dynamic::CalcSchAicpuNumByBlockDim(blockdim, aicpuNum_);
-    localArgs.enableCtrl = ctrlStream == nullptr ? 1 : 0; // need set 0 if use custom cpu launch ctrl cpu
-    localArgs.validGetPgMask = machine::GetRA()->GetValidGetPgMask();
-    localArgs.disableSync = config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_NO_DEVICE_TENSOR_DEPEND ? 1 : 0;
-    localArgs.generalAddr = kernelArgs->opMetaAddrs.generalAddr;
-    localArgs.stitchPoolAddr = kernelArgs->opMetaAddrs.stitchPoolAddr;
-    localArgs.isGETensorList = kernelArgs->toSubMachineConfig.isGETensorList;
-    int rc = rtMemcpy(kernelArgs->cfgdata, sizeof(localArgs), &localArgs, sizeof(localArgs), RT_MEMCPY_HOST_TO_DEVICE);
-    if (rc != 0) {
-        ALOG_ERROR_F("Copy args failed %p rc %d\n", kernelArgs->cfgdata, rc);
+    int rc = RunPrepare();
+    if (rc < 0) {
+        ALOG_ERROR_F("Prepare failed %d\n", rc);
         return rc;
     }
-    if (RunPrepare() < 0) {
-        ALOG_ERROR_F("Prepare failed %d\n", rc);
+    auto localArgs = args_;
+    localArgs.enableCtrl = ctrlStream == nullptr ? 1 : 0; // need set 0 if use custom cpu launch ctrl cpu
+    PrepareLaunchArgs(localArgs, kernelArgs, taskId, blockdim, launchAicpuNum);
+    rc = rtMemcpy(kernelArgs->cfgdata, sizeof(localArgs), &localArgs, sizeof(localArgs), RT_MEMCPY_HOST_TO_DEVICE);
+    if (rc != 0) {
+        ALOG_ERROR_F("Copy args failed %p rc %d\n", kernelArgs->cfgdata, rc);
         return rc;
     }
     if (ctrlStream == nullptr) {

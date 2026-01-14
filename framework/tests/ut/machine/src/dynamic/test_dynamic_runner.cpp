@@ -28,6 +28,9 @@
 #include "machine/dump/kernel_dump_utils.h"
 #include "interface/program/program.h"
 #include "interface/utils/file_utils.h"
+#include "tilefwk/aicpu_common.h"
+#include "machine/device/dynamic/device_utils.h"
+#include "machine/runtime/dump_device_pref.h"
 #define private public
 using namespace npu::tile_fwk;
 
@@ -149,4 +152,31 @@ TEST_F(TestDynamicDeviceRunner, test_kernel_dump) {
     kernelDump.WriteFatbinJson(binJsonPath, jsonFilePath, binFileName);
     auto ret = IsPathExist(jsonFilePath);
     EXPECT_EQ(ret, false);
+}
+
+TEST_F(TestDynamicDeviceRunner, test_dump_device_pref) {
+    DeviceArgs devKernelArgs;
+    devKernelArgs.nrAic = 1;
+    devKernelArgs.nrAiv = 2;
+    devKernelArgs.nrValidAic = 1;
+    devKernelArgs.nrAicpu = 3;
+    AicpuMetrPer aicpuMetPer;
+    aicpuMetPer.perfAicpuTraceDevTask[0][0][0] = 1;
+    aicpuMetPer.perfAicpuTraceDevTask[1][0][0] = 2;
+    aicpuMetPer.perfAicpuTraceDevTask[2][0][0] = 3;
+    devKernelArgs.aicpuPerAddr = npu::tile_fwk::dynamic::PtrToValue(static_cast<void*>(aicpuMetPer));
+    std::vector<void *> perfData;
+    Metrics metr;
+    TaskStat taskStat;
+    taskStat.execEnd =1;
+    metr.taskCount = 1;
+    metr.tasks[0] = taskStat;
+    metr.perfTrace[0][0] = 1;
+    for (uint64_t i = 0; i < devKernelArgs.nrAic + devKernelArgs.nrAiv; i++) {
+        perfData.push_back(static_cast<void*>(&metr));
+    }
+    npu::tile_fwk::dynamic::DumpAicoreTaskExectInfo(devKernelArgs, perfData);
+    std::string jsonPath = npu::tile_fwk::config::LogTopFolder() + "/aicpu_dev_pref.json";
+    EXPECT_EQ(IsPathExist(jsonPath), true);
+
 }
