@@ -226,12 +226,20 @@ public:
 
      static void DeviceInitDistributedContextToHost(const std::vector<std::string> &groupNames,
         const std::vector<uint8_t> &devProgData) {
+        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
+        if (devProg->hcclContext[0] != 0) {
+            return;
+        }
         auto hcclContext = DistributedContext::GetHcclContextToHost(groupNames);
         PrepareHcclContext(hcclContext, devProgData);
     }
 
     static void DeviceInitDistributedContext(const std::vector<std::string> &groupNames,
         const std::vector<uint8_t> &devProgData) {
+        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
+        if (devProg->hcclContext[0] != 0) {
+            return;
+        }
  	    auto hcclContext = DistributedContext::GetHcclContext(groupNames);
         PrepareHcclContext(hcclContext, devProgData);
     }
