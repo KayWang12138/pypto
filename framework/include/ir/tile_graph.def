@@ -39,7 +39,7 @@ DEFOP(
     ),
     INPUT(Tile, Input),
     OUTPUT(Tile, Output),
-    OUTPUT(Tile, TempTensor),
+    OUTPUT(Tile, TempTensor)
 )
 
 DEFOP(
