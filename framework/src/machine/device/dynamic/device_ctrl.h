@@ -213,7 +213,7 @@ class DeviceCtrlMachine {
         ctx.aicoreModel = args->aicoreModel;
         PerfBegin(PERF_EVT_EXEC_DYN);
         PerfBegin(PERF_EVT_CONTROL_FLOW_CALL);
-        ret = ctx.GELaunch(devStartArgs, [this](DynDeviceTask *dynTask, DeviceExecuteContext *exeCtx) {
+        ret = ctx.DeviceLaunch(devStartArgs, [this](DynDeviceTask *dynTask, DeviceExecuteContext *exeCtx) {
             if (unlikely(inspectorEntry_ != nullptr)) {
                 inspectorEntry_(inspector_, exeCtx, dynTask);
             }
