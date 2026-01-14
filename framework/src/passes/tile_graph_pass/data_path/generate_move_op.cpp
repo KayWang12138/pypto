@@ -26,6 +26,7 @@
 namespace npu::tile_fwk {
 constexpr int64_t INNER_PAD_VALUE = 32;
 constexpr int64_t OUTER_PAD_VALUE = 16;
+const Offset ZERO_OFFSET = {0, 0};
 
 int64_t GenerateMoveOp::PadUB(int64_t dim, int64_t padValue) {
     ASSERT (padValue >0);
@@ -102,10 +103,10 @@ Status GenerateMoveOp::CreateMoveOpForView(Function &function, Operation &op) co
             return SUCCESS;
         }
         Status status = SetOpcodeByMemPath(op,from,to);
+        if(status != SUCCESS) {return status;}
         if(op.GetOpcode() == Opcode::OP_UB_COPY_L1) {
             ProcessUB2L1(function, op);
         }
-        if(status != SUCCESS) {return status;}
         if(op.GetOpcode() == Opcode::OP_L0C_TO_L1) {
             SetL0C2L1CopyAttr(op, op.GetOOperands()[0]->GetShape(), OpImmediate::Specified(viewOpAttribute->GetFromTensorOffset()), OpImmediate::Specified(ZERO_OFFSET));
         } else {

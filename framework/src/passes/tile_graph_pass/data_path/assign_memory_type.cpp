@@ -169,7 +169,7 @@ void AssignMemoryType::ProcessViewwithSpecificMem(Operation &operation) {
     auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(operation.GetOpAttribute().get());
     MemoryType attrToType = viewOpAttribute->GetTo();
     auto out = operation.GetOOperands().front();
-    auto in =operation.iOperand.front();
+    auto in = operation.iOperand.front();
     if(attrToType == MemoryType::MEM_UNKNOWN) {
         //跳过前端没有指定mem类型的view
         //适配L0C2L1通路，优先选择将view转化为L0C2L1，不满足场景后续转为ddr
@@ -383,7 +383,8 @@ void AssignMemoryType::AssignMoveOpForAssemble(Operation &operation) {
         APASS_LOG_DEBUG_F(Elements::Operation, "%s[%d] output %d mem original %s --> %s.", operation.GetOpcodeStr().c_str(),
             operation.GetOpMagic(), tensor->magic, BriefMemoryTypeToString(tensor->GetMemoryTypeOriginal()).c_str(),
             BriefMemoryTypeToString(fromType).c_str());
-        if (operation.iOperand.front()->GetMemoryTypeOriginal() == MEM_L0C && tensor->GetMemoryTypeOriginal() == MEM_L1){
+        if (operation.iOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_L0C &&
+            tensor->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
             continue;
         }
         tensor->SetMemoryTypeOriginal(fromType, true);

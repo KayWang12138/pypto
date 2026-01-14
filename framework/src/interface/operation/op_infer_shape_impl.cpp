@@ -465,7 +465,8 @@ void LoadL0C2L1InferFunc(Operation* op,
         auto fromValidShape = op->GetIOperands()[0]->GetDynValidShape();
         copyAttr->SetFromDynValidShape(OpImmediate::Specified(fromValidShape));
     } else {
-        ALOG_WARN_F("L0C_TO_L1 [%d] has no copy out attr, set output valid shape same as input.", op->GetOpMagic());
+        ALOG_WARN_F("%s[%d] has no copy out attr, set output valid shape same as input.",
+            op->GetOpcodeStr().c_str(), op->GetOpMagic());
         outValidShapes.push_back(op->GetIOperands()[0]->GetDynValidShape());
         return;
     }
@@ -473,9 +474,7 @@ void LoadL0C2L1InferFunc(Operation* op,
     auto inputShapes = copyAttr->GetToDynValidShape();
     std::vector<SymbolicScalar> outDynShape = op->GetOOperands()[0]->GetDynValidShape();
     if (outDynShape.empty()) {
-        for (size_t i = 0; i < op->GetOOperands()[0]->GetShape().size(); ++i) {
-            outDynShape.push_back(SymbolicScalar(0));
-        }
+        outDynShape.resize(op->GetOOperands()[0]->GetShape().size(), SymbolicScalar(0));
     }
     std::vector<SymbolicScalar> outShape;
     for (size_t i = 0; i < inputShapes.size(); i++) {

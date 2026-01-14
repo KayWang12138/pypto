@@ -42,7 +42,6 @@ const std::map<std::pair<MemoryType, MemoryType>,Opcode> platformPathMap = {
     {{MEM_L0C, MEM_UB},Opcode::OP_L0C_COPY_UB},
     {{MEM_UB, MEM_L1},Opcode::OP_UB_COPY_L1},
 };
-const Offset ZERO_OFFSET = {0, 0};
 
 class GenerateMoveOp : public Pass {
 public:
