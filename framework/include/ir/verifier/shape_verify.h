@@ -39,10 +39,10 @@ public:
 #undef DEFOP
 
 private:
-    bool IsShapeCompatibleForBinaryOp(const std::vector<int64_t> &inputShape, const std::vector<int64_t> &outputShape);
-    void CheckUnaryOpShape(UnaryOpPtr &unaryOp, OperationPtr &op);
-    void CheckBinaryOpShape(BinaryOpPtr &binaryOp, OperationPtr &op);
-    void CheckBinaryScalarMixOpShape(BinaryScalarMixOpPtr &binaryScalarMixOp, OperationPtr &op);
+    bool IsShapeCompatibleForBinaryOp(const TileValuePtr &inputTile, const TileValuePtr &outputTile);
+    void CheckUnaryOpShape(UnaryOpPtr &unaryOp);
+    void CheckBinaryOpShape(BinaryOpPtr &binaryOp);
+    void CheckBinaryScalarMixOpShape(BinaryScalarMixOpPtr &binaryScalarMixOp);
 };
 
 VerifyResult VerifyOpShape(ProgramModulePtr program);

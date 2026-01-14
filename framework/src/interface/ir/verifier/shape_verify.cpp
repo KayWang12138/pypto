@@ -17,8 +17,21 @@
 
 namespace pto {
 
-bool TileOpShapeVisitor::IsShapeCompatibleForBinaryOp(
-    const std::vector<int64_t> &inputShape, const std::vector<int64_t> &outputShape) {
+bool TileOpShapeVisitor::IsShapeCompatibleForBinaryOp(const TileValuePtr &inputTile, const TileValuePtr &outputTile) {
+    if (!inputTile || !outputTile) {
+        return false;
+    }
+
+    // Validate validShape size matches shape size
+    const auto &inputValidShape = inputTile->GetValidShape();
+    const auto &inputShape = inputTile->GetShape();
+    const auto &outputValidShape = outputTile->GetValidShape();
+    const auto &outputShape = outputTile->GetShape();
+
+    if (inputValidShape.size() != inputShape.size() || outputValidShape.size() != outputShape.size()) {
+        return false;
+    }
+
     // If shapes are exactly the same, they are compatible
     if (inputShape == outputShape) {
         return true;
@@ -35,7 +48,6 @@ bool TileOpShapeVisitor::IsShapeCompatibleForBinaryOp(
     }
 
     // Check if input can broadcast to output
-    // Start from the rightmost dimension
     for (size_t i = 0; i < inputDims; ++i) {
         size_t inputIdx = inputDims - 1 - i;
         size_t outputIdx = outputDims - 1 - i;
@@ -58,15 +70,15 @@ void TileOpShapeVisitor::VisitOp_(OperationPtr &op) {
 
     // Check UnaryOp
     if (auto unaryOp = std::dynamic_pointer_cast<UnaryOp>(op)) {
-        CheckUnaryOpShape(unaryOp, op);
+        CheckUnaryOpShape(unaryOp);
     }
     // Check BinaryOp
     else if (auto binaryOp = std::dynamic_pointer_cast<BinaryOp>(op)) {
-        CheckBinaryOpShape(binaryOp, op);
+        CheckBinaryOpShape(binaryOp);
     }
     // Check BinaryScalarMixOp
     else if (auto binaryScalarMixOp = std::dynamic_pointer_cast<BinaryScalarMixOp>(op)) {
-        CheckBinaryScalarMixOpShape(binaryScalarMixOp, op);
+        CheckBinaryScalarMixOpShape(binaryScalarMixOp);
     }
 }
 
@@ -80,7 +92,7 @@ void TileOpShapeVisitor::VisitOp_(OperationPtr &op) {
 #include "ir/tile_graph.def"
 #undef DEFOP
 
-void TileOpShapeVisitor::CheckUnaryOpShape(UnaryOpPtr &unaryOp, OperationPtr &op) {
+void TileOpShapeVisitor::CheckUnaryOpShape(UnaryOpPtr &unaryOp) {
     auto input = std::dynamic_pointer_cast<TileValue>(unaryOp->GetInputOperand(0));
     auto output = std::dynamic_pointer_cast<TileValue>(unaryOp->GetOutputOperand(0));
 
@@ -89,7 +101,7 @@ void TileOpShapeVisitor::CheckUnaryOpShape(UnaryOpPtr &unaryOp, OperationPtr &op
         const auto &outputShape = output->GetShape();
 
         if (inputShape != outputShape) {
-            std::string opName = GetOpcodeName(op->GetOpcode());
+            std::string opName = GetOpcodeName(unaryOp->GetOpcode());
             std::string msg = "UnaryOp '" + opName + "': input shape [";
             if (!inputShape.empty()) {
                 msg += std::to_string(inputShape[0]);
@@ -110,7 +122,7 @@ void TileOpShapeVisitor::CheckUnaryOpShape(UnaryOpPtr &unaryOp, OperationPtr &op
     }
 }
 
-void TileOpShapeVisitor::CheckBinaryOpShape(BinaryOpPtr &binaryOp, OperationPtr &op) {
+void TileOpShapeVisitor::CheckBinaryOpShape(BinaryOpPtr &binaryOp) {
     auto lhs = std::dynamic_pointer_cast<TileValue>(binaryOp->GetInputOperand(0));
     auto rhs = std::dynamic_pointer_cast<TileValue>(binaryOp->GetInputOperand(1));
     auto output = std::dynamic_pointer_cast<TileValue>(binaryOp->GetOutputOperand(0));
@@ -126,13 +138,13 @@ void TileOpShapeVisitor::CheckBinaryOpShape(BinaryOpPtr &binaryOp, OperationPtr 
         bool bothMatch = lhsMatches && rhsMatches;
 
         // Check if only one input differs and only in dimensions that are 1
-        bool lhsCompatible = IsShapeCompatibleForBinaryOp(lhsShape, outputShape);
-        bool rhsCompatible = IsShapeCompatibleForBinaryOp(rhsShape, outputShape);
+        bool lhsCompatible = IsShapeCompatibleForBinaryOp(lhs, output);
+        bool rhsCompatible = IsShapeCompatibleForBinaryOp(rhs, output);
         bool onlyOneDiffers =
             (lhsMatches && !rhsMatches && rhsCompatible) || (!lhsMatches && rhsMatches && lhsCompatible);
 
         if (!bothMatch && !onlyOneDiffers) {
-            std::string opName = GetOpcodeName(op->GetOpcode());
+            std::string opName = GetOpcodeName(binaryOp->GetOpcode());
             std::string msg = "BinaryOp '" + opName + "': lhs shape [";
             if (!lhsShape.empty()) {
                 msg += std::to_string(lhsShape[0]);
@@ -160,7 +172,7 @@ void TileOpShapeVisitor::CheckBinaryOpShape(BinaryOpPtr &binaryOp, OperationPtr 
     }
 }
 
-void TileOpShapeVisitor::CheckBinaryScalarMixOpShape(BinaryScalarMixOpPtr &binaryScalarMixOp, OperationPtr &op) {
+void TileOpShapeVisitor::CheckBinaryScalarMixOpShape(BinaryScalarMixOpPtr &binaryScalarMixOp) {
     auto input = std::dynamic_pointer_cast<TileValue>(binaryScalarMixOp->GetInputOperand(0));
     auto output = std::dynamic_pointer_cast<TileValue>(binaryScalarMixOp->GetOutputOperand(0));
 
@@ -169,7 +181,7 @@ void TileOpShapeVisitor::CheckBinaryScalarMixOpShape(BinaryScalarMixOpPtr &binar
         const auto &outputShape = output->GetShape();
 
         if (lhsShape != outputShape) {
-            std::string opName = GetOpcodeName(op->GetOpcode());
+            std::string opName = GetOpcodeName(binaryScalarMixOp->GetOpcode());
             std::string msg = "BinaryScalarMixOp '" + opName + "': input Tile shape [";
             if (!lhsShape.empty()) {
                 msg += std::to_string(lhsShape[0]);
