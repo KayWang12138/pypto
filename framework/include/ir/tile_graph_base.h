@@ -134,15 +134,14 @@ public:
 
 class ReduceTileBaseOp : public TileBaseOp {
 public:
-    ReduceTileBaseOp(Opcode opcode, TileValuePtr Src0, TileValuePtr Src1, TileValuePtr output)
-        : TileBaseOp(opcode, {ValueCast<Value>(Src0), ValueCast<Value>(Src1)}, {ValueCast<Value>(output)}) {}
+    ReduceTileBaseOp(Opcode opcode, TileValuePtr input, TileValuePtr output)
+        : TileBaseOp(opcode, {ValueCast<Value>(input)}, {ValueCast<Value>(output)}) {}
 };
 
 class ReduceWithTempTileBaseOp : public TileBaseOp {
 public:
-    ReduceWithTempTileBaseOp(Opcode opcode, TileValuePtr Src0, TileValuePtr Src1, TileValuePtr output, TileValuePtr TempTensor)
-        : TileBaseOp(opcode, {ValueCast<Value>(Src0), ValueCast<Value>(Src1)},
-                                            {ValueCast<Value>(output), ValueCast<Value>(TempTensor)}) {}
+    ReduceWithTempTileBaseOp(Opcode opcode, TileValuePtr input, TileValuePtr output, TileValuePtr TempTensor)
+        : TileBaseOp(opcode, {ValueCast<Value>(input)}, {ValueCast<Value>(output), ValueCast<Value>(TempTensor)}) {}
 };
 
 class ElementWiseBinaryWithTempTileBaseOp : public ElementWiseTileBaseOp {
