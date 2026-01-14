@@ -25,11 +25,7 @@ ConfigRegistry& ConfigRegistry::GetInstance() {
 }
 
 int ConfigRegistry::ComputeKeyHash(const std::string& keyName) {
-    int hash = 5381;
-    for (char c : keyName) {
-        hash = hash * 33 + c;
-    }
-    return (hash % 1000000) + 1;  // Returns value >= 1 (CONFIG_INVALID is 0)
+    return ComputeConfigKeyHashImpl(keyName.c_str());
 }
 
 bool ConfigRegistry::IsRegistered(ConfigKey key) const {
