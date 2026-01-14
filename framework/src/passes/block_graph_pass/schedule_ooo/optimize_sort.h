@@ -18,6 +18,7 @@
 
 #include "schedule_base.h"
 #include <vector>
+#include <unordered_set>
 
 namespace npu::tile_fwk {
 class OptimizeSort : public ScheduleBase {
@@ -56,6 +57,7 @@ public:
     };
     std::unordered_map<Operation*, OpDelta> opDeltas;
     std::stack<BacktraceFrame> backtraceStack;
+    std::unordered_set<uint64_t> backtraceSeen;
 
     // 回溯点位置,当前执行op的全部信息,用于后期回退
     Operation* backTraceOp{nullptr};
@@ -111,6 +113,7 @@ public:
         std::vector<Operation*> curOpList, std::set<size_t> &advanceIndexList);
     Status RollBack(size_t &startIndex, std::vector<Operation*> &curOpList,
         std::map<MemoryType, int64_t> &curMemoryMap);
+    uint64_t MakeBacktraceKey(size_t startIndex, MemoryType memType, const std::vector<Operation*> &curOpList) const;
     Checkpoint MakeCheckpoint(size_t startIndex, const std::vector<Operation*> &curOpList,
         const std::map<MemoryType, int64_t> &curMemoryMap, bool startIndexExecuted = true);
     void RestoreCheckpoint(const Checkpoint &checkpoint, size_t &startIndex, std::vector<Operation*> &curOpList,

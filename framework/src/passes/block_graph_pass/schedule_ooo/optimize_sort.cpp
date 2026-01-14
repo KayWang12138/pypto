@@ -490,6 +490,31 @@ Status OptimizeSort::RebuildStateToIndex(const std::vector<Operation*> &curOpLis
     return SUCCESS;
 }
 
+uint64_t OptimizeSort::MakeBacktraceKey(size_t startIndex, MemoryType memType,
+    const std::vector<Operation*> &curOpList) const {
+    uint64_t key = 1469598103934665603ULL;
+    auto mix = [&key](uint64_t v) {
+        key ^= v + 0x9e3779b97f4a7c15ULL + (key << 6) + (key >> 2);
+    };
+    mix(static_cast<uint64_t>(startIndex));
+    mix(static_cast<uint64_t>(memType));
+    mix(static_cast<uint64_t>(curOpList.size()));
+    if (curOpList.empty()) {
+        return key;
+    }
+    size_t indices[] = {0, curOpList.size() / 2, curOpList.size() - 1};
+    for (size_t idx : indices) {
+        mix(static_cast<uint64_t>(curOpList[idx]->GetOpMagic()));
+    }
+    if (startIndex < curOpList.size()) {
+        mix(static_cast<uint64_t>(curOpList[startIndex]->GetOpMagic()));
+    }
+    if (startIndex + 1 < curOpList.size()) {
+        mix(static_cast<uint64_t>(curOpList[startIndex + 1]->GetOpMagic()));
+    }
+    return key;
+}
+
 // 找未被执行的 consumer
 void OptimizeSort::GetConsumerGroup(std::set<Operation*> consumers, std::vector<Operation*> &consumersGroup) {
     for (auto op : consumers) {
@@ -512,6 +537,12 @@ Status OptimizeSort::BacktraceOnMemoryExceeded(size_t &startIndex,
     std::vector<Operation*> &curOpList, std::map<MemoryType, int64_t> &curMemoryMap) {
     APASS_LOG_DEBUG_F(Elements::Tensor, "=====> Start Backtrace.");
     MemoryType memType = curOpList[startIndex]->GetOutputOperand(0)->GetMemoryTypeOriginal();
+    uint64_t key = MakeBacktraceKey(startIndex, memType, curOpList);
+    if (!backtraceSeen.insert(key).second) {
+        APASS_LOG_ERROR_F(Elements::Operation, "Backtrace detected repeat state at index %d, memType %d",
+            startIndex, memType);
+        return FAILED;
+    }
     std::vector<Operation*> consumersGroup;
     while (startIndex < curOpList.size() && startIndex > 0) {
         Operation* prevOp = curOpList[startIndex];
@@ -694,6 +725,7 @@ Status OptimizeSort::ExecuteOp() {
         {MemoryType::MEM_L0C, 0}};
     size_t startIndex{0};
     opDeltas.clear();
+    backtraceSeen.clear();
     while (!backtraceStack.empty()) {
         backtraceStack.pop();
     }
