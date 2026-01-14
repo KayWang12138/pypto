@@ -22,6 +22,7 @@
 #include <string>
 #include <sys/syscall.h>
 #include "tilefwk/aicpu_common.h"
+#include "tilefwk/platform.h"
 
 extern "C" {
 __attribute__((weak)) int32_t AdprofReportAdditionalInfo(uint32_t agingFlag, const void *data, uint32_t length);
@@ -98,6 +99,37 @@ typedef enum AiCoreRegister {
     PMU_STOP_CNT_CYC_1 = 0x2AC,
 } AiCoreRegister;
 
+namespace DAV_3510 {
+    const uint32_t PMU_CTRL_0 = 0x4200;
+    const uint32_t PMU_CTRL_1 = 0X2400;
+    const uint32_t PMU_CNT0 = 0x4210;
+    const uint32_t PMU_CNT1 = 0x4218;
+    const uint32_t PMU_CNT2 = 0x4220;
+    const uint32_t PMU_CNT3 = 0x4228;
+    const uint32_t PMU_CNT4 = 0x4230;
+    const uint32_t PMU_CNT5 = 0x4238;
+    const uint32_t PMU_CNT6 = 0x4240;
+    const uint32_t PMU_CNT7 = 0x4248;
+    const uint32_t PMU_CNT8 = 0x4250;
+    const uint32_t PMU_CNT9 = 0x4254;
+    const uint32_t PMU_CNT_TOTAL0 = 0x4260;
+    const uint32_t PMU_CNT_TOTAL1 = 0x4264;
+    const uint32_t PMU_CNT0_IDX = 0x2500;
+    const uint32_t PMU_CNT1_IDX = 0x2504;
+    const uint32_t PMU_CNT2_IDX = 0x2508;
+    const uint32_t PMU_CNT3_IDX = 0x250C;
+    const uint32_t PMU_CNT4_IDX = 0x2510;
+    const uint32_t PMU_CNT5_IDX = 0x2514;
+    const uint32_t PMU_CNT6_IDX = 0x2518;
+    const uint32_t PMU_CNT7_IDX = 0x251C;
+    const uint32_t PMU_CNT8_IDX = 0x2520;
+    const uint32_t PMU_CNT9_IDX = 0x2524;
+    const uint32_t PMU_START_CNT_CYC_0 = 0x42A0;
+    const uint32_t PMU_START_CNT_CYC_1 = 0x42A4;
+    const uint32_t PMU_STOP_CNT_CYC_0 = 0x42A8;
+    const uint32_t PMU_STOP_CNT_CYC_1 = 0x42AC;
+};
+
 typedef enum AiCorePmuEvent {
     VEC_BUSY_CYCLE = 0x8,
     SU_BUSY_CYCLE = 0x9,
@@ -152,7 +184,7 @@ const uint16_t AIC_EVENT_LIST[MAX_PMU_CNT] = {
     L2_R0_MISS_ALLOC_CNT,
 };
 
-struct MsprofAicpuPyPtoPmuData {
+struct MsprofAicpuPyPtoPmuDataDAV2201 {
     uint32_t seqNo{0};
     uint32_t taskId{0};
     uint64_t totalCyc{0};
@@ -164,6 +196,22 @@ struct MsprofAicpuPyPtoPmuData {
     uint32_t pmuCnt5{0};
     uint32_t pmuCnt6{0};
     uint32_t pmuCnt7{0};
+};
+
+struct MsprofAicpuPyPtoPmuDataDAV3510 {
+    uint32_t seqNo{0};
+    uint32_t taskId{0};
+    uint64_t totalCyc{0};
+    uint32_t pmuCnt0{0}; // 单个task不能超过3s, 按50MHZ计算
+    uint32_t pmuCnt1{0};
+    uint32_t pmuCnt2{0};
+    uint32_t pmuCnt3{0};
+    uint32_t pmuCnt4{0};
+    uint32_t pmuCnt5{0};
+    uint32_t pmuCnt6{0};
+    uint32_t pmuCnt7{0};
+    uint32_t pmuCnt8{0};
+    uint32_t pmuCnt9{0};
 };
 
 // !!注意和 TaskStat 前面的数据区保持一致
@@ -208,7 +256,9 @@ struct AiCpuTaskStat {
 
 class AiCoreProf {
 public:
-    explicit AiCoreProf(AiCoreManager &aicoreMng) : hostAicoreMng_(aicoreMng) {}
+    explicit AiCoreProf(AiCoreManager &aicoreMng) 
+        : hostAicoreMng_(aicoreMng),
+          archInfo_(Platform::Instance().GetSoc().GetNPUArch()) {}
     ~AiCoreProf() {}
 
     void ProfInit([[maybe_unused]]int64_t *regAddrs, [[maybe_unused]]int64_t *pmuEventAddrs, ProfConfig profConfig);
@@ -237,7 +287,9 @@ private:
     inline void SetPmuEvents(void *mapBase, const int32_t coreIdx) const;
     inline void ProfStartPmu();
     inline void ProfStopPmu();
-    void FillPmuData(MsprofAicpuPyPtoPmuData &data, int32_t &coreIdx, uint32_t &subGraphId, uint32_t &taskId,
+    void FillPmuData(MsprofAicpuPyPtoPmuDataDAV2201 &data, int32_t &coreIdx, uint32_t &subGraphId, uint32_t &taskId,
+        const struct TaskStat *taskStat) const;
+    void FillPmuData(MsprofAicpuPyPtoPmuDataDAV3510 &data, int32_t &coreIdx, uint32_t &subGraphId, uint32_t &taskId,
         const struct TaskStat *taskStat) const;
     inline void ProfGetPmu(int32_t coreIdx, uint32_t subGraphId, uint32_t taskId, const struct TaskStat *taskStat);
     inline bool ProfCheckLevel(uint64_t feature) const;
@@ -249,6 +301,7 @@ private:
     uint64_t taskCnt_ = 0;
     int64_t *regAddrs_{nullptr};
     int64_t *pmuEventAddrs_{nullptr};
+    NPUArch archInfo_{NPUArch::DAV_2201};
 
     // PMU_CNT0 ~ PMU_CNT7 共计8个cnt寄存器,32位寄存器,用来获取对应读数,单位为cycle
     std::vector<volatile uint32_t *> pmuCnt0Plain_;
@@ -261,6 +314,8 @@ private:
     std::vector<volatile uint32_t *> pmuCnt7Plain_;
     std::vector<volatile uint32_t *> pmuCnt8Plain_;
     std::vector<volatile uint32_t *> pmuCnt9Plain_;
+    std::vector<volatile uint32_t *> pmuCntTotal0Plain_;
+    std::vector<volatile uint32_t *> pmuCntTotal1Plain_;
 
     // pmu data
     uint32_t pmuDataMaxNum_ = 4;
