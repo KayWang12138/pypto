@@ -18,7 +18,7 @@
 #define OSP_GRAPH_TRAITS_H
 
 #include "iterator_concepts.hpp"
-#include "osp/auxiliary/hash_util.hpp"
+#include "passes/algorithms/osp/auxiliary/hash_util.hpp"
 
 /**
  * @file graph_traits.hpp

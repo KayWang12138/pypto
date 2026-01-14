@@ -13,10 +13,13 @@
 * \brief
 */
 
-#pragma once
+#ifndef OSP_DIRECTED_GRAPH_CONCEPT_HPP
+#define OSP_DIRECTED_GRAPH_CONCEPT_HPP
 
 #include "graph_traits.hpp"
 #include "iterator_concepts.hpp"
+
+namespace npu::tile_fwk {
 namespace osp {
 
 /**
@@ -29,15 +32,15 @@ namespace osp {
  *
  * A type `T` satisfies `is_directed_graph` if it provides the following API:
  *
- * - **vertices()**: Returns a range of all vertices in the graph.
- * - **num_vertices()**: Returns the total number of vertices as an integral type.
- * - **num_edges()**: Returns the total number of edges as an integral type.
+ * - **Vertices()**: Returns a range of all vertices in the graph.
+ * - **NumVertices()**: Returns the total number of vertices as an integral type.
+ * - **NumEdges()**: Returns the total number of edges as an integral type.
  * - **parents(v)**: Returns a range of parent vertices for a given vertex `v`.
- *   - `v` must be of type `vertex_idx_t<T>`.
+ *   - `v` must be of type `VertexIdxT<T>`.
  * - **children(v)**: Returns a range of child vertices for a given vertex `v`.
- *   - `v` must be of type `vertex_idx_t<T>`.
- * - **in_degree(v)**: Returns the number of incoming edges for vertex `v` as an integral type.
- * - **out_degree(v)**: Returns the number of outgoing edges for vertex `v` as an integral type.
+ *   - `v` must be of type `VertexIdxT<T>`.
+ * - **InDegree(v)**: Returns the number of incoming edges for vertex `v` as an integral type.
+ * - **OutDegree(v)**: Returns the number of outgoing edges for vertex `v` as an integral type.
  *
  * This concept ensures that any graph implementation passed to OSP algorithms exposes
  * the necessary structural information for processing.
@@ -47,29 +50,30 @@ namespace osp {
  *
  * @tparam T The graph type to check against the concept.
  */
-template<typename T, typename = void>
-struct is_directed_graph : std::false_type {};
+template <typename T, typename = void>
+struct IsDirectedGraph : std::false_type {};
 
-template<typename T>
-struct is_directed_graph<
-    T, std::void_t<typename directed_graph_traits<T>::vertex_idx,
-                   decltype(std::declval<T>().vertices()),
-                   decltype(std::declval<T>().num_vertices()),
-                   decltype(std::declval<T>().num_edges()),
-                   decltype(std::declval<T>().parents(std::declval<vertex_idx_t<T>>())),
-                   decltype(std::declval<T>().children(std::declval<vertex_idx_t<T>>())),
-                   decltype(std::declval<T>().in_degree(std::declval<vertex_idx_t<T>>())),
-                   decltype(std::declval<T>().out_degree(std::declval<vertex_idx_t<T>>()))>>
-    : std::conjunction<
-          is_forward_range_of<decltype(std::declval<T>().vertices()), vertex_idx_t<T>>,
-          std::is_integral<decltype(std::declval<T>().num_vertices())>,
-          std::is_integral<decltype(std::declval<T>().num_edges())>,
-          is_input_range_of<decltype(std::declval<T>().parents(std::declval<vertex_idx_t<T>>())), vertex_idx_t<T>>,
-          is_input_range_of<decltype(std::declval<T>().children(std::declval<vertex_idx_t<T>>())), vertex_idx_t<T>>,
-          std::is_integral<decltype(std::declval<T>().in_degree(std::declval<vertex_idx_t<T>>()))>,
-          std::is_integral<decltype(std::declval<T>().out_degree(std::declval<vertex_idx_t<T>>()))>> {};
+template <typename T>
+struct IsDirectedGraph<T,
+                       std::void_t<typename DirectedGraphTraits<T>::VertexIdx,
+                                   decltype(std::declval<T>().Vertices()),
+                                   decltype(std::declval<T>().NumVertices()),
+                                   decltype(std::declval<T>().NumEdges()),
+                                   decltype(std::declval<T>().Parents(std::declval<VertexIdxT<T>>())),
+                                   decltype(std::declval<T>().Children(std::declval<VertexIdxT<T>>())),
+                                   decltype(std::declval<T>().InDegree(std::declval<VertexIdxT<T>>())),
+                                   decltype(std::declval<T>().OutDegree(std::declval<VertexIdxT<T>>()))>>
+    : std::conjunction<IsForwardRangeOf<decltype(std::declval<T>().Vertices()), VertexIdxT<T>>,
+                       std::is_integral<decltype(std::declval<T>().NumVertices())>,
+                       std::is_integral<decltype(std::declval<T>().NumEdges())>,
+                       IsInputRangeOf<decltype(std::declval<T>().Parents(std::declval<VertexIdxT<T>>())), VertexIdxT<T>>,
+                       IsInputRangeOf<decltype(std::declval<T>().Children(std::declval<VertexIdxT<T>>())), VertexIdxT<T>>,
+                       std::is_integral<decltype(std::declval<T>().InDegree(std::declval<VertexIdxT<T>>()))>,
+                       std::is_integral<decltype(std::declval<T>().OutDegree(std::declval<VertexIdxT<T>>()))>> {};
 
-template<typename T>
-inline constexpr bool is_directed_graph_v = is_directed_graph<T>::value;
+template <typename T>
+inline constexpr bool isDirectedGraphV = IsDirectedGraph<T>::value;
 
-} // namespace osp
+}    // namespace osp
+}    // namespace npu::tile_fwk
+#endif // OSP_DIRECTED_GRAPH_CONCEPT_HPP
