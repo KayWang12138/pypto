@@ -599,6 +599,7 @@ class TestsParam(CMakeParam):
                 cmd += self.stest_tools.get_cfg_cmd()
         return cmd
 
+
 class BuildCtrl(CMakeParam):
     """构建过程控制.
 
