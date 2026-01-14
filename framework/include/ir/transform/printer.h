@@ -27,31 +27,31 @@ public:
     explicit IRPrinter(std::ostream &os) : os_(os) {}
 
     // Bring in all overloads from the base class to prevent hiding
-    using IRVisitor::VisitOp_;
-    using IRVisitor::VisitStmt_;
-    using IRVisitor::VisitValue_;
+    using IRVisitor::VisitImplOp;
+    using IRVisitor::VisitImplStmt;
+    using IRVisitor::VisitImplValue;
 
     // ===== program =====
-    void VisitProgram_(ProgramModulePtr &pm) override;
+    void VisitImplProgram(ProgramModulePtr &pm) override;
 
     // ===== function =====
-    void VisitFunction_(FunctionPtr &func) override;
+    void VisitImplFunction(FunctionPtr &func) override;
 
     // ===== statements =====
-    void VisitStmt_(OpStatementPtr &st) override;
-    void VisitStmt_(IfStatementPtr &is) override;
-    void VisitStmt_(ForStatementPtr &fs) override;
-    void VisitStmt_(YieldStatementPtr &ys) override;
-    void VisitStmt_(ReturnStatementPtr &rs) override;
+    void VisitImplStmt(OpStatementPtr &st) override;
+    void VisitImplStmt(IfStatementPtr &is) override;
+    void VisitImplStmt(ForStatementPtr &fs) override;
+    void VisitImplStmt(YieldStatementPtr &ys) override;
+    void VisitImplStmt(ReturnStatementPtr &rs) override;
 
     // ===== operations =====
-    void VisitOp_(OperationPtr &op) override;
+    void VisitImplOp(OperationPtr &op) override;
 
     // ===== values =====
-    void VisitValue_(ScalarValuePtr &value) override;
-    void VisitValue_(TileValuePtr &value) override;
-    void VisitValue_(TensorValuePtr &value) override;
-    void VisitValue_(ValuePtr &value) override;
+    void VisitImplValue(ScalarValuePtr &value) override;
+    void VisitImplValue(TileValuePtr &value) override;
+    void VisitImplValue(TensorValuePtr &value) override;
+    void VisitImplValue(ValuePtr &value) override;
 
 private:
     // ===== helpers =====

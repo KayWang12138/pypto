@@ -19,7 +19,7 @@ namespace pto {
 
 // ----------------- Public Visit* entrypoints -----------------
 
-void IRVisitor::VisitProgram_(ProgramModulePtr &program) {
+void IRVisitor::VisitImplProgram(ProgramModulePtr &program) {
     if (!program)
         return;
 
@@ -30,7 +30,7 @@ void IRVisitor::VisitProgram_(ProgramModulePtr &program) {
     }
 }
 
-void IRVisitor::VisitFunction_(FunctionPtr &func) {
+void IRVisitor::VisitImplFunction(FunctionPtr &func) {
     if (!func)
         return;
 
@@ -49,18 +49,16 @@ void IRVisitor::VisitFunction_(FunctionPtr &func) {
 
     // Visit input compound
     if (auto inputCompound = func->GetInputCompound()) {
-        StatementPtr inputPtr = std::static_pointer_cast<Statement>(inputCompound);
-        VisitStmt(inputPtr);
+        VisitImplStmt(inputCompound);
     }
 
     // Visit function body compound
     if (auto compound = func->GetCompound()) {
-        StatementPtr compoundPtr = std::static_pointer_cast<Statement>(compound);
-        VisitStmt(compoundPtr);
+        VisitImplStmt(compound);
     }
 }
 
-void IRVisitor::VisitStmt_(CompoundStatementPtr &stmt) {
+void IRVisitor::VisitImplStmt(CompoundStatementPtr &stmt) {
     if (!stmt)
         return;
 
@@ -70,7 +68,7 @@ void IRVisitor::VisitStmt_(CompoundStatementPtr &stmt) {
     }
 }
 
-void IRVisitor::VisitStmt_(OpStatementPtr &stmt) {
+void IRVisitor::VisitImplStmt(OpStatementPtr &stmt) {
     if (!stmt)
         return;
 
@@ -81,29 +79,25 @@ void IRVisitor::VisitStmt_(OpStatementPtr &stmt) {
     }
 }
 
-void IRVisitor::VisitStmt_(ForStatementPtr &stmt) {
+void IRVisitor::VisitImplStmt(ForStatementPtr &stmt) {
     if (!stmt)
         return;
 
     // Visit iteration variable
     if (auto iterVar = stmt->GetIterationVar()) {
-        ValuePtr iterVarPtr = std::static_pointer_cast<Value>(iterVar);
-        VisitValue(iterVarPtr);
+        VisitImplValue(iterVar);
     }
 
     // Visit range values
     if (auto range = stmt->GetRange()) {
         if (auto start = range->GetStart()) {
-            ValuePtr startPtr = std::static_pointer_cast<Value>(start);
-            VisitValue(startPtr);
+            VisitImplValue(start);
         }
         if (auto end = range->GetEnd()) {
-            ValuePtr endPtr = std::static_pointer_cast<Value>(end);
-            VisitValue(endPtr);
+            VisitImplValue(end);
         }
         if (auto step = range->GetStep()) {
-            ValuePtr stepPtr = std::static_pointer_cast<Value>(step);
-            VisitValue(stepPtr);
+            VisitImplValue(step);
         }
     }
 
@@ -122,8 +116,7 @@ void IRVisitor::VisitStmt_(ForStatementPtr &stmt) {
 
     // Visit loop body compound
     if (auto compound = stmt->GetCompound()) {
-        StatementPtr compoundPtr = std::static_pointer_cast<Statement>(compound);
-        VisitStmt(compoundPtr);
+        VisitImplStmt(compound);
     }
 
     // Visit results
@@ -134,26 +127,23 @@ void IRVisitor::VisitStmt_(ForStatementPtr &stmt) {
     }
 }
 
-void IRVisitor::VisitStmt_(IfStatementPtr &stmt) {
+void IRVisitor::VisitImplStmt(IfStatementPtr &stmt) {
     if (!stmt)
         return;
 
     // Visit condition
     if (auto condition = stmt->GetCondition()) {
-        ValuePtr conditionPtr = std::static_pointer_cast<Value>(condition);
-        VisitValue(conditionPtr);
+        VisitImplValue(condition);
     }
 
     // Visit then branch
     if (auto thenCompound = stmt->GetThenCompound()) {
-        StatementPtr thenPtr = std::static_pointer_cast<Statement>(thenCompound);
-        VisitStmt(thenPtr);
+        VisitImplStmt(thenCompound);
     }
 
     // Visit else branch
     if (auto elseCompound = stmt->GetElseCompound()) {
-        StatementPtr elsePtr = std::static_pointer_cast<Statement>(elseCompound);
-        VisitStmt(elsePtr);
+        VisitImplStmt(elseCompound);
     }
 
     // Visit results
@@ -164,7 +154,7 @@ void IRVisitor::VisitStmt_(IfStatementPtr &stmt) {
     }
 }
 
-void IRVisitor::VisitStmt_(YieldStatementPtr &stmt) {
+void IRVisitor::VisitImplStmt(YieldStatementPtr &stmt) {
     if (!stmt)
         return;
 
@@ -175,7 +165,7 @@ void IRVisitor::VisitStmt_(YieldStatementPtr &stmt) {
     }
 }
 
-void IRVisitor::VisitStmt_(ReturnStatementPtr &stmt) {
+void IRVisitor::VisitImplStmt(ReturnStatementPtr &stmt) {
     if (!stmt)
         return;
 
@@ -186,22 +176,22 @@ void IRVisitor::VisitStmt_(ReturnStatementPtr &stmt) {
     }
 }
 
-void IRVisitor::VisitStmt_(StatementPtr &stmt) {
+void IRVisitor::VisitImplStmt(StatementPtr &stmt) {
     // Fallback for unknown statement types: no children to visit.
     (void)stmt;
 }
 
 // ---- Concrete ops (auto-generated from *.def) ----
 #define DEFOP(name, inherit, opcode, ...)                             \
-    void IRVisitor::VisitOp_(name##Ptr &op) {                         \
+    void IRVisitor::VisitImplOp(name##Ptr &op) {                         \
         OperationPtr opPtr = std::static_pointer_cast<Operation>(op); \
-        VisitOp_(opPtr);                                              \
+        VisitImplOp(opPtr);                                              \
     }
 #include "ir/operation.def"
 #include "ir/tile_graph.def"
 #undef DEFOP
 
-void IRVisitor::VisitOp_(OperationPtr &op) {
+void IRVisitor::VisitImplOp(OperationPtr &op) {
     if (!op)
         return;
 
@@ -218,17 +208,17 @@ void IRVisitor::VisitOp_(OperationPtr &op) {
     }
 }
 
-void IRVisitor::VisitValue_(ScalarValuePtr &value) {
+void IRVisitor::VisitImplValue(ScalarValuePtr &value) {
     // ScalarValue is a leaf node
     (void)value;
 }
 
-void IRVisitor::VisitValue_(TileValuePtr &value) {
+void IRVisitor::VisitImplValue(TileValuePtr &value) {
     // TileValue treated as leaf in this IR
     (void)value;
 }
 
-void IRVisitor::VisitValue_(TensorValuePtr &value) {
+void IRVisitor::VisitImplValue(TensorValuePtr &value) {
     if (!value)
         return;
 
@@ -239,7 +229,7 @@ void IRVisitor::VisitValue_(TensorValuePtr &value) {
     }
 }
 
-void IRVisitor::VisitValue_(ValuePtr &value) {
+void IRVisitor::VisitImplValue(ValuePtr &value) {
     // Fallback for unknown value types
     (void)value;
 }
