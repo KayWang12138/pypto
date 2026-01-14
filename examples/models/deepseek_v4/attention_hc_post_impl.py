@@ -277,8 +277,8 @@ def attention_hc_post_compute(
         "pg_parallel_lower_bound": 40,
     },
     runtime_options={
-        "stitch_function_inner_memory": 128,
-        "stitch_function_outcast_memory": 128,
+        "stitch_function_inner_memory": 1024,
+        "stitch_function_outcast_memory": 1024,
     },
 )
 def attention_hc_post_kernel(
