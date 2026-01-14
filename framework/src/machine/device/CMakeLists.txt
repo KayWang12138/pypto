@@ -44,11 +44,6 @@ add_library(tile_fwk_server SHARED)
 message(WARNING "building TraCR? '${BUILD_TRACR}' for tile_fwk_server")
 if (BUILD_TRACR)
     tracr_enable(tile_fwk_server)
-    
-    # C++17 is required for TraCR!
-    set(CMAKE_CXX_STANDARD 17)
-    set(CMAKE_CXX_STANDARD_REQUIRED ON)
-    set(CMAKE_CXX_EXTENSIONS OFF)
 endif()
 ###
 
