@@ -275,8 +275,9 @@ Status OptimizeSort::RollBack(size_t &startIndex,
         APASS_LOG_ERROR_F(Elements::Operation, "RollBack invalid backTraceIndex: %d", backTraceIndex);
         return FAILED;
     }
+    Operation* allocOp = curOpList[startIndex];
+    MemoryType memType = allocOp->GetOutputOperand(0)->GetMemoryTypeOriginal();
     backTraceOp = curOpList[backTraceIndex];
-    MemoryType memType = backTraceOp->GetOutputOperand(0)->GetMemoryTypeOriginal();
     size_t rollBackIndex = backTraceIndex;
     APASS_LOG_DEBUG_F(Elements::Operation, "backTraceOp: %s, backTraceIndex: %d, memType: %d",
         GetOpInfo(backTraceOp).c_str(), backTraceIndex, memType);
