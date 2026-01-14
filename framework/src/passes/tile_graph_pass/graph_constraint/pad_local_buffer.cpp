@@ -489,6 +489,11 @@ int64_t PadLocalBuffer::ProcessBroadcastForAxisCombine(Operation &op, size_t blo
     if (maxLastAxis == 1 && dimSize > 1) {
         return (dimSize - LAST_SECOND_AXIS);
     }
+    if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510) {
+        if (!existLargeBlock && dimSize > 1) {
+            return (dimSize - LAST_SECOND_AXIS);
+        }
+    }
     if (existLargeBlock) {
         return -1;
     }
