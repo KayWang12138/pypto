@@ -41,10 +41,16 @@ list(REMOVE_ITEM _Device_Srcs ${_Stub_Srcs})
 add_library(tile_fwk_server SHARED)
 
 ### Including TraCR if enabled
-message(WARNING "building TraCR? '${BUILD_TRACR}'")
+message(WARNING "building TraCR? '${BUILD_TRACR}' for tile_fwk_server")
 if (BUILD_TRACR)
     tracr_enable(tile_fwk_server)
+    
+    # C++17 is required for TraCR!
+    set(CMAKE_CXX_STANDARD 17)
+    set(CMAKE_CXX_STANDARD_REQUIRED ON)
+    set(CMAKE_CXX_EXTENSIONS OFF)
 endif()
+###
 
 target_sources(tile_fwk_server PRIVATE ${_Device_Srcs})
 target_compile_options(tile_fwk_server
