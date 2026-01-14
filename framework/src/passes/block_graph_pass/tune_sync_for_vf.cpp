@@ -97,6 +97,9 @@ Status TuneSyncForVF::AdjustSetWaitFlag(Function *subGraphFunc, std::vector<Oper
     auto insertPos2 = opList_.begin() + vecTileOp0Idx - mergedSize + 1;
     opList_.insert(insertPos2, setFlagList.begin(), setFlagList.end());
 
+    //setwaitflag移动后需要同步更新setopmap waitopmap setwaitopmap
+
+
     // 更新各pipe上op的时间戳
     // pipe_v
     int curVFStartTime = mergedOps[groupNum][0]->cycleStart; // 当前vf融合op开始时间
@@ -144,6 +147,12 @@ Status TuneSyncForVF::AdjustSetWaitFlag(Function *subGraphFunc, std::vector<Oper
         for (size_t k = 0; k < pipeXops.size(); k++) {
             if (pipeXops[k]->GetOpMagic() == tileOpZ->GetOpMagic()) {
                 findFlag = true;
+                int preOpEndTime;
+                if (k == 0) {
+                    preOpEndTime = pipeXops[0]->cycleStart;
+                } else {
+                    preOpEndTime = pipeXops[k-1]->cycleEnd;
+                }
                 auto preOpEndTime = pipeXops[k-1]->cycleEnd;
                 auto tileOpZNewStartTime = std::max(preOpEndTime, curVecTileOp1EndTime);
                 int moveDist = tileOpZ->cycleStart - tileOpZNewStartTime;
