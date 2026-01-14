@@ -646,6 +646,11 @@ void CheckCubeTiling(const Tensor &operand1, const Tensor &operand2, const Matmu
             << " Requirement: kL0 > 0 && kL1a > 0 && mL0 > 0 && mL1 > 0 && nL0 > 0 && nL1 > 0" << std::endl;
     });
     OP_CHECK(true, {
+        ASSERT(mL0 % ALIGN_SIZE_16 == 0 && kL0 % ALIGN_SIZE_16 == 0 && nL0 % ALIGN_SIZE_16 == 0)
+            << "Current element count of mL0: " << mL0 << ", kL0: " << kL0 << ", nL0: " << nL0
+            << ", the element count must be aligned to 16" << std::endl;
+    });
+    OP_CHECK(true, {
         ASSERT(kL0 <= kL1a && kL1a % kL0 == 0) << "Current kL0: " << kL0 << ", kL1a: " << kL1a
                                                << ", Requirement: kL0 <= kL1a && kL1a % kL0 == 0" << std::endl;
     });
