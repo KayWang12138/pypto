@@ -632,6 +632,24 @@ std::string CodeGenOpCloudNPU::GenGatherElementOp() const {
     return PrintGatherElementStatic({gatherEleAxis, dVar, s0Var, s1Var, dos, ds, s0s, s1s, dataTypeExpr});
 }
 
+std::string CodeGenOpCloudNPU::PrintIndexPutLayout(size_t indicesSize, bool accumulate) const {
+    std::string gmVarName = GenGmParamVar(ID0);
+    std::string dstTensor = sm->QueryTileTensorByBufVarName(gmVarName);
+    std::string valuesTensor = sm->QueryTileTensorByMagic(operandWithMagic[ID2]);
+    std::vector<std::string> paramList = {dstTensor, valuesTensor};
+    for (size_t i = 0; i < 4; ++i) {
+        if (i < indicesSize) {
+            std::string indices = sm->QueryTileTensorByMagic(operandWithMagic[ID3 + i]);
+            paramList.push_back(indices);
+        } else {
+            paramList.push_back(paramList.back());
+        }
+    }
+    std::ostringstream oss;
+    oss << tileOpName << "<" << accumulate << ", " << indicesSize << ">" << WrapParamByParentheses(paramList) << ";\n";
+    return oss.str();
+}
+
 std::string CodeGenOpCloudNPU::PrintRangeTileTensor(std::string startVal, std::string stepVal) const {
     std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::DST_IDX)]);
     auto dstValidShape = dynamicValidShape[ToUnderlying(MISOIdx::DST_IDX)];

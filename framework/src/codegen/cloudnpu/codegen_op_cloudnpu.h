@@ -353,6 +353,8 @@ private:
 
     std::string PrintIndexAddDynamicUnaligned(const PrintIndexAddParam &param) const;
 
+    std::string CodeGenOpCloudNPU::PrintIndexPutLayout(size_t indicesSize, bool accumulate) const;
+
     std::string PrintCumSumDynamicUnaligned(const PrintCumSumParam &param) const;
 
     WhereParam PrepareWhereParam() const;
