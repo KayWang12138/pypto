@@ -241,6 +241,112 @@ def win_atten_calc_tnd_decode(input_params_win_attn, start_pos_list, atten_sink,
     return atten_out
 
 
+def win_atten_calc_c128(input_params_win_attn, start_pos_list, atten_sink, q_tnd, kv_cache, block_table, device_id):
+
+    t = input_params_win_attn[0]
+    n_q = input_params_win_attn[2]
+    d_q = input_params_win_attn[3]
+    win = input_params_win_attn[4]
+    scalar = input_params_win_attn[5]
+    atten_out_shape = [t, n_q, 512]
+    atten_out = torch.zeros(atten_out_shape, dtype=torch.float32, device=f'npu:{device_id}')
+    block_size = kv_cache.shape[1]
+    b = len(start_pos_list)
+    s_q = t // b
+    
+    # q_tnd [b, s_q, n_q, d_q]   kv_cache [block_num, block_size, n_kv, d_kv]
+    for t_index in range(t):
+        b_index = t_index // s_q
+        s1_index = t_index % s_q
+
+        start_pos = start_pos_list[b_index]
+        q_tensor_cur = q_tnd[t_index:(t_index + 1), :, :].reshape(n_q, d_q)
+
+        cur_loc = start_pos + s1_index + 1
+
+        actual_win_size = min(start_pos + 1, win)
+        cur_start_pos = cur_loc - actual_win_size
+        end_pos = cur_loc
+        start_block = cur_start_pos // block_size
+        start_offset = s1_index
+        end_block = (end_pos - 1) // block_size
+        kv_list = []
+
+        for block_idx in range(start_block, end_block + 1):
+            physical_block_id = block_table[b_index, block_idx]
+            kv_block = kv_cache[physical_block_id, :, 0, :]
+            kv_list.append(kv_block)
+
+        kv_cur = torch.cat(kv_list, axis=0)
+        kv_cur = kv_cur[start_offset : start_offset + actual_win_size, :]
+
+        sum_exp = torch.zeros([n_q, 1], dtype=torch.float32, device=f'npu:{device_id}')
+        acc_o = torch.zeros([n_q, d_q], dtype=torch.float32, device=f'npu:{device_id}')
+        scores_max = torch.full((n_q, 1), float('-inf'), device=f'npu:{device_id}')
+
+        acc_s = torch.matmul(q_tensor_cur.to(torch.float32), kv_cur.to(torch.float32).transpose(1, 0)) # [n_q, win_size]
+        acc_s = acc_s * scalar  # [n_q, win_size]
+        scores_max_prev = scores_max    #[n_q, 1]
+        scores_max = torch.max(acc_s, dim=-1, keepdims=True)[0] # [n_q, 1]
+        scores_scale = torch.exp(scores_max_prev - scores_max)  # [n_q, 1]
+        acc_s = torch.exp(acc_s - scores_max) # [n_q, win_size]
+        scores_sum = torch.sum(acc_s, dim=-1, keepdims=True) # [n_q, 1]
+        mul_res = sum_exp * scores_scale
+        sum_exp = mul_res + scores_sum
+        acc_o *= scores_scale # [n_q, d_q]
+        acc_o += torch.matmul(acc_s, kv_cur.to(torch.float32)) #[n_q, d]
+
+        sum_exp += torch.exp(atten_sink.reshape(n_q, 1) - scores_max)
+        acc_o /= sum_exp
+        atten_out[t_index:(t_index + 1), :, :] = acc_o
+
+    return atten_out
+
+
+def test_win_atten_c128() -> None:
+    
+    for b in [4]:
+        for s_q in [1]:
+            t = b * s_q
+            win = 128
+            n_q = 64
+            block_size = 128
+            n_kv = 1
+            dtypes = torch.bfloat16
+            head_dim = 512
+            d_q = head_dim
+            d_kv = head_dim
+            scalar = d_q ** -0.5
+            input_params_win_attn = [t, n_kv, n_q, d_q, win, scalar]
+
+            device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 12))
+            torch.npu.set_device(device_id)
+
+            torch.manual_seed(42)
+            actual_seq_list = torch.randint(s_q + 1, win + s_q, (b // 2, ), device=f'npu:{device_id}').tolist()
+            actual_seq_list += [win + s_q - 1] * (b - b // 2)
+            print("actual_seq_list:", actual_seq_list)
+
+            # start_pos + s1 = actual_seq
+            start_pos_list = [item - s_q for item in actual_seq_list]
+            start_pos_list_tensor = torch.tensor(start_pos_list, dtype=torch.int32, device=f'npu:{device_id}')
+
+            q_tnd, block_table, kv_cache, atten_sink, atten_out = gen_win_attn_data_tnd(t, n_q, d_q, n_kv, d_kv, block_size, start_pos_list_tensor, dtypes, device_id)
+
+            deepseekv4_win_atten(q_tnd, block_table, kv_cache, start_pos_list_tensor, atten_sink, atten_out, win, is_decode=True, is_c128=True)
+            
+            # model = torch.compile(MM(), backend="eager", dynamic=True)
+            # g = torch.npu.NPUGraph()
+            # with torch.npu.graph(g):
+            #     y = model(q_tnd, block_table, kv_cache, start_pos_list_tensor, atten_sink, atten_out, win)
+            # g.replay()
+
+            golden = win_atten_calc_c128(input_params_win_attn, start_pos_list, atten_sink, q_tnd, kv_cache, block_table, device_id)
+            from utils.np_compare import detailed_allclose_manual as compare
+            threhold = 5e-4
+            compare(golden, atten_out, "SWA decode atten_out", rtol=threhold, atol=threhold)
+
+
 def test_win_atten_decode() -> None:
     
     for b in [4]:
@@ -326,5 +432,6 @@ def test_win_atten() -> None:
 
 
 if __name__ == "__main__":
-    test_win_atten_decode()
+    test_win_atten_c128()
+    # test_win_atten_decode()
     # test_win_atten()
