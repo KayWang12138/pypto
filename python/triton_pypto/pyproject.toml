@@ -3,7 +3,7 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "triton_pto"
+name = "triton_pypto"
 version = "0.1.0"
 description = "PyPTO Triton executor"
 dependencies = ["numpy", "typing_extensions"]

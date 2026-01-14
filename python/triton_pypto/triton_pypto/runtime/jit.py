@@ -20,7 +20,7 @@ P = ParamSpec("P")
 AnyGrid: TypeAlias = Tuple[int, ...]
 Grid: TypeAlias = Tuple[int, int, int]
 
-logger = get_logger(f"triton_pypto.jit", "TRITON_PYPTO")
+logger = get_logger("triton_pypto.jit", "TRITON_PYPTO")
 
 
 @dataclass
