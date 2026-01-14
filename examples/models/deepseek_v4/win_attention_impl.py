@@ -226,54 +226,37 @@ def win_atten_main_tnd_decode(q_tnd, block_table, kv_cache, start_pos_list, atte
     runtime_options={"device_sched_mode": 1},
     debug_options={"runtime_debug_mode": 1},
 )
-def win_atten_main_c128(q_tnd, block_table, kv_cache, start_pos_list, atten_sink, atten_out, win):
+def win_atten_main_c128(q, block_table, kv_cache, actual_seq_list, atten_sink, atten_out, win):
     pypto.experimental.set_operation_config(combine_axis=True)
-    t = q_tnd.shape[0]
-    n_q = q_tnd.shape[1]
-    d_q = q_tnd.shape[2]
+    t = q.shape[0]
+    n_q = q.shape[1]
+    d_q = q.shape[2]
     scalar = d_q ** -0.5
     block_size = kv_cache.shape[1]
     d_kv = kv_cache.shape[3]
-    b = start_pos_list.shape[0]
+    b = actual_seq_list.shape[0]
     s_q = t // b
 
     for t_idx in pypto.loop(t, name="LOOP_T", idx_name="t_idx"):
         b_idx = t_idx // s_q
         s1_idx = t_idx % s_q
 
-        start_pos = start_pos_list[b_idx]
+        actual_seq = actual_seq_list[b_idx]
                 
         pypto.set_vec_tile_shapes(128, 512, 512)
-        q_tensor_cur = pypto.view(q_tnd, [1, n_q, d_q], [t_idx, 0, 0])
+        q_tensor_cur = pypto.view(q, [1, n_q, d_q], [t_idx, 0, 0])
         q_tensor_cur = pypto.reshape(q_tensor_cur, (n_q, d_q))
 
-        cur_loc = start_pos + s1_idx + 1
-
-        # valid_len = pypto.min(cur_loc, win)
-        actual_win_size = pypto.min(start_pos + 1, win)
-
-        cur_start_pos = cur_loc - actual_win_size
-        end_pos = cur_loc
-
-        start_block = cur_start_pos // block_size
+        actual_win_size = pypto.min(actual_seq, win)
         start_offset = s1_idx
-        end_block = (end_pos - 1) // block_size
 
-        physical_block_id = block_table[b_idx, start_block]
+        physical_block_id = block_table[b_idx, 0]
         pypto.set_vec_tile_shapes(128, 512, 128, 512)
-        kv_block_0 = pypto.view(kv_cache, [1, block_size, 1, d_kv], [physical_block_id, 0, 0, 0])
-        kv_block_reshape_0 = pypto.reshape(kv_block_0, (block_size, d_kv))
-
-        physical_block_id = block_table[b_idx, end_block]
-        pypto.set_vec_tile_shapes(128, 512, 128, 512)
-        kv_block_1 = pypto.view(kv_cache, [1, block_size, 1, d_kv], [physical_block_id, 0, 0, 0])
-        kv_block_reshape_1 = pypto.reshape(kv_block_1, (block_size, d_kv))
+        kv_block = pypto.view(kv_cache, [1, block_size, 1, d_kv], [physical_block_id, 0, 0, 0])
+        kv_cur = pypto.reshape(kv_block, (block_size, d_kv))
 
         pypto.set_vec_tile_shapes(128, 512)
-        kv_gather = pypto.concat([kv_block_reshape_0, kv_block_reshape_1], dim=0)
-
-        pypto.set_vec_tile_shapes(128, 512)
-        kv_cur = pypto.view(kv_gather, [win, d_kv], [start_offset, 0], valid_shape=[actual_win_size, d_kv])
+        kv_cur = pypto.view(kv_cur, [win, d_kv], [start_offset, 0], valid_shape=[actual_win_size, d_kv])
 
         sum_exp = pypto.full([64, 1], float(0), dtype=pypto.DT_FP32)
         acc_o = pypto.full([64, 512], float(0), dtype=pypto.DT_FP32)
@@ -310,11 +293,11 @@ def win_atten_main_c128(q_tnd, block_table, kv_cache, start_pos_list, atten_sink
 
 
 @allow_in_graph
-def deepseekv4_win_atten(q_tnd: torch.Tensor,
-                        block_table: torch.Tensor,
-                        kv_cache: torch.Tensor,
-                        start_pos_list: torch.Tensor,
-                        atten_sink: torch.Tensor,
+def deepseekv4_win_atten(q: torch.Tensor,
+                        ori_block_table: torch.Tensor,
+                        ori_kv: torch.Tensor,
+                        seqused_kv: torch.Tensor,
+                        attn_sinks: torch.Tensor,
                         atten_out: torch.Tensor,
                         win_size: int,
                         is_decode: bool,
@@ -323,21 +306,21 @@ def deepseekv4_win_atten(q_tnd: torch.Tensor,
     """
     """
     inputs = {
-        q_tnd: [],
-        block_table: [],
-        kv_cache: [],
-        start_pos_list: [],
-        atten_sink: [],
+        q: [],
+        ori_block_table: [],
+        ori_kv: [],
+        seqused_kv: [],
+        attn_sinks: [],
     }
     outputs = {
         atten_out: [],
     }
 
-    check_args(q_tnd, block_table, kv_cache, start_pos_list, atten_sink)
     pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
     pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
 
     if is_c128:
+        print("Using C128 kernel")
         win_atten_main_c128(*pto_inputs, *pto_outputs, win_size)
     elif is_decode:
         win_atten_main_tnd_decode(*pto_inputs, *pto_outputs, win_size)
