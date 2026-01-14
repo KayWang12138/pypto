@@ -184,7 +184,7 @@ def gen_win_attn_data_c128(t, n_q, d_q, n_kv, d_kv, block_size, actual_seq_list,
     s_kv_max = actual_seq_max
     shape_q = [t * n_q, d_q]
     shape_kv = [b, s_kv_max, n_kv, d_kv]
-    atten_out_shape = [t, n_q, d_kv]
+    atten_out_shape = [b, t // b, n_q, d_kv]
     block_num_per_batch = []
     block_num_min = 0
     block_num = 0
@@ -228,7 +228,7 @@ def gen_win_attn_data_c128(t, n_q, d_q, n_kv, d_kv, block_size, actual_seq_list,
                 kv_cache[kv_cache_blk_id, 0: kv_valid.shape[0], :, :] = kv_bsnd[b_idx, block_offset:(block_offset + block_size), :, :]
 
     atten_out = torch.zeros(atten_out_shape, dtype=torch.float32, device=f'npu:{device_id}')
-    return q_tnd, block_table, kv_cache, atten_sink, atten_out
+    return q_tnd.reshape(b, t // b, n_q, d_q), block_table, kv_cache, atten_sink, atten_out
 
 
 def win_atten_calc_tnd_decode(input_params_win_attn, start_pos_list, atten_sink, q_tnd, kv_cache, block_table, device_id):
@@ -297,57 +297,55 @@ def win_atten_calc_tnd_decode(input_params_win_attn, start_pos_list, atten_sink,
     return atten_out
 
 
-def win_atten_calc_c128(input_params_win_attn, actual_seq_list, atten_sink, q_tnd, kv_cache, block_table, device_id):
+def win_atten_calc_c128(input_params_win_attn, actual_seq_list, atten_sink, q, kv_cache, block_table, device_id):
 
     t = input_params_win_attn[0]
     n_q = input_params_win_attn[2]
     d_q = input_params_win_attn[3]
     win = input_params_win_attn[4]
     scalar = input_params_win_attn[5]
-    atten_out_shape = [t, n_q, 512]
-    atten_out = torch.zeros(atten_out_shape, dtype=torch.float32, device=f'npu:{device_id}')
     b = len(actual_seq_list)
     s_q = t // b
+    atten_out_shape = [b, s_q, n_q, 512]
+    atten_out = torch.zeros(atten_out_shape, dtype=torch.float32, device=f'npu:{device_id}')
     
-    # q_tnd [b, s_q, n_q, d_q]   kv_cache [block_num, block_size, n_kv, d_kv]
-    for t_index in range(t):
-        b_index = t_index // s_q
-        s1_index = t_index % s_q
+    for b_index in range(b):
+        for s1_index in range(s_q):
+            actual_seq = actual_seq_list[b_index]
+            q_tensor_cur = q[b_index, s1_index, :, :].reshape(n_q, d_q)
 
-        actual_seq = actual_seq_list[b_index]
-        q_tensor_cur = q_tnd[t_index:(t_index + 1), :, :].reshape(n_q, d_q)
+            actual_win_size = min(actual_seq, win)
+            start_offset = s1_index
 
-        actual_win_size = min(actual_seq, win)
-        start_offset = s1_index
+            physical_block_id = block_table[b_index, 0]
+            kv_cur = kv_cache[physical_block_id, :, 0, :]
+            kv_cur = kv_cur[start_offset : start_offset + actual_win_size, :]
 
-        physical_block_id = block_table[b_index, 0]
-        kv_cur = kv_cache[physical_block_id, :, 0, :]
-        kv_cur = kv_cur[start_offset : start_offset + actual_win_size, :]
+            sum_exp = torch.zeros([n_q, 1], dtype=torch.float32, device=f'npu:{device_id}')
+            acc_o = torch.zeros([n_q, d_q], dtype=torch.float32, device=f'npu:{device_id}')
+            scores_max = torch.full((n_q, 1), float('-inf'), device=f'npu:{device_id}')
 
-        sum_exp = torch.zeros([n_q, 1], dtype=torch.float32, device=f'npu:{device_id}')
-        acc_o = torch.zeros([n_q, d_q], dtype=torch.float32, device=f'npu:{device_id}')
-        scores_max = torch.full((n_q, 1), float('-inf'), device=f'npu:{device_id}')
+            acc_s = torch.matmul(q_tensor_cur.to(torch.float32), kv_cur.to(torch.float32).transpose(1, 0)) # [n_q, win_size]
+            acc_s = acc_s * scalar  # [n_q, win_size]
+            scores_max_prev = scores_max    #[n_q, 1]
+            scores_max = torch.max(acc_s, dim=-1, keepdims=True)[0] # [n_q, 1]
+            scores_scale = torch.exp(scores_max_prev - scores_max)  # [n_q, 1]
+            acc_s = torch.exp(acc_s - scores_max) # [n_q, win_size]
+            scores_sum = torch.sum(acc_s, dim=-1, keepdims=True) # [n_q, 1]
+            mul_res = sum_exp * scores_scale
+            sum_exp = mul_res + scores_sum
+            acc_o *= scores_scale # [n_q, d_q]
+            acc_o += torch.matmul(acc_s, kv_cur.to(torch.float32)) #[n_q, d]
 
-        acc_s = torch.matmul(q_tensor_cur.to(torch.float32), kv_cur.to(torch.float32).transpose(1, 0)) # [n_q, win_size]
-        acc_s = acc_s * scalar  # [n_q, win_size]
-        scores_max_prev = scores_max    #[n_q, 1]
-        scores_max = torch.max(acc_s, dim=-1, keepdims=True)[0] # [n_q, 1]
-        scores_scale = torch.exp(scores_max_prev - scores_max)  # [n_q, 1]
-        acc_s = torch.exp(acc_s - scores_max) # [n_q, win_size]
-        scores_sum = torch.sum(acc_s, dim=-1, keepdims=True) # [n_q, 1]
-        mul_res = sum_exp * scores_scale
-        sum_exp = mul_res + scores_sum
-        acc_o *= scores_scale # [n_q, d_q]
-        acc_o += torch.matmul(acc_s, kv_cur.to(torch.float32)) #[n_q, d]
+            sum_exp += torch.exp(atten_sink.reshape(n_q, 1) - scores_max)
+            acc_o /= sum_exp
 
-        sum_exp += torch.exp(atten_sink.reshape(n_q, 1) - scores_max)
-        acc_o /= sum_exp
-        atten_out[t_index:(t_index + 1), :, :] = acc_o
+            atten_out[b_index, s1_index, :, :] = acc_o
 
     return atten_out
 
 
-def test_win_atten_c128() -> None:
+def test_win_atten_bsnd_c128() -> None:
     
     for b in [4]:
         for s_q in [1]:
@@ -379,7 +377,7 @@ def test_win_atten_c128() -> None:
             golden = win_atten_calc_c128(input_params_win_attn, seqused_kv_list, attn_sinks, q, ori_kv, ori_block_table, device_id)
             from utils.np_compare import detailed_allclose_manual as compare
             threhold = 5e-4
-            compare(golden, atten_out, "SWA decode atten_out", rtol=threhold, atol=threhold)
+            compare(golden, atten_out, "SWA decode bnsd C128A版本", rtol=threhold, atol=threhold)
 
 
 def test_win_atten_decode() -> None:
@@ -464,4 +462,4 @@ def test_win_atten() -> None:
 
 
 if __name__ == "__main__":
-    test_win_atten_c128()
+    test_win_atten_bsnd_c128()
