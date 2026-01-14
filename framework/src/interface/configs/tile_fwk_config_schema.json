@@ -40,7 +40,7 @@
                     "type": "integer",
                     "label": {
                         "zh": "合图参数，用于配置结构相同且重复搬运同一GM数据的子图合并策略。该参数适用于含有CUBE计算的子图，避免同一数据被重复搬运次数过多。",
-                        "en": "Graph merging parameter, used to configure the merging strategy for subgraphs with identical structures that repeatedly transfer the same GM data. This parameter is applicable to subgraphs involving CUBE computation, and prevents excessive repeated transfer of the same data."
+                        "en": "Graph merging parameter, used to configure the merging strategy for subgraphs with identical structures that repeatedly transfer the same GM data. This parameter is applicable to subgraphs involving CUBE computation, and avoids excessive transfers of the same data."
                     },
                     "minimum": 0,
                     "maximum": 2147483647
@@ -83,7 +83,7 @@
                     "type": "integer",
                     "label": {
                         "zh": "合图参数，用于配置合图大小。该参数控制子图内搬运数据总量上界。当子图内数据搬运量大于该值则不再合并。",
-                        "en": "Graph merging parameter, used to configure the graph merging size. This parameter controls the upper limit of the total data transfer volume within a subgraph. Merging will not be performed if the data transfer volume within the subgraph exceeds this value."
+                        "en": "Graph merging parameter, used to configure the graph merging size. This parameter controls the upper limit of the total data transfer volume within a subgraph. Mergeing will not be performed if the data transfer volume within the subgraph exceeds this value."
                     },
                     "minimum": 0,
                     "maximum": 2147483647
@@ -147,7 +147,7 @@
                     "type": "integer",
                     "label": {
                         "zh": "手动控制合图参数。将operation赋予特定的scopeId，若相邻的operation具有相同的非-1的scopeId，则会被强制合并在一个子图之中，并且这个子图不会与其他子图合并。",
-                        "en": "Manual graph merging parameter control. Assign a specific scopeId to an operation; if adjacent operations have the same non-1 scopeId, they will be forcibly merged into one subgraph, and this subgraph will not be merged with any other subgraphs."
+                        "en": "Parameter for manual control of graph merging. Assign a specific scopeId to an operation; if adjacent operations have the same non-1 scopeId, they will be forcibly merged into one subgraph, and this subgraph will not be merged with any other subgraphs."
                     },
                     "minimum": -1,
                     "maximum": 2147483647
