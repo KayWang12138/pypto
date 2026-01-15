@@ -37,64 +37,15 @@ from typing import List
 
 from pypto import pypto_impl
 from pypto.operation import op_wrapper
+from lightning_indexer_prolog_quant_impl import rope_3d, prolog_quant
 
-SHAPE_DIM_2 = 2
-SHAPE_DIM_3 = 3
 
-NUM_0 = 0
-NUM_1 = 1
-NUM_2 = 2
-NUM_3 = 3
-NUM_7168 = 7168
-
-TILE_CUBE_DIM = 6
-Q_PARAM_DIM = 2
-NZ_DIM = 4
-COS_SIN_DIM = 2
 L0M_INDEX = 0
 L1M_INDEX = 1
 L0K_INDEX = 2
 L1K_INDEX = 3
 L0N_INDEX = 4
 L1N_INDEX = 5
-SCATTER_DIM = -2
-NZ_FIRST_DIM = 16
-NZ_B8_C0 = 32
-NZ_B16_C0 = 16
-
-VEC_TILE_256 = 256
-VEC_TILE_128 = 128
-VEC_TILE_64 = 64
-VEC_TILE_8 = 8
-VEC_TILE_4 = 4
-VEC_TILE_32 = 32
-
-
-@dataclass
-class IndexerPrologQuantInput:
-    x: torch.tensor  # BF16, (t, h)
-    q_norm: torch.tensor  # BF16, (t, qLoraRank)
-    q_norm_scale: torch.tensor  # FP32, (t, 1)
-    w_qb: torch.tensor  # INT8, (headNum * headDim // NZ_B8_C0, qLoraRank // NZ_FIRST_DIM, NZ_FIRST_DIM, NZ_B8_C0), NZ
-    w_qb_scale: torch.tensor  # FP32, (headNum * headDim, 1)
-    w_proj: torch.tensor  # BF16, (headNum // NZ_B16_C0, h // NZ_FIRST_DIM, NZ_FIRST_DIM, NZ_B16_C0), NZ
-    cos_idx_rope: torch.tensor  # BF16, (t, ropeHeadDim)
-    sin_idx_rope: torch.tensor  # BF16, (t, ropeHeadDim)
-    hadamard_q: torch.tensor  # BF16, (headDim, headDim)
-
-
-@dataclass
-class IndexerPrologQuantOutput:
-    q_int8: torch.tensor
-    q_scale: torch.tensor
-    weights: torch.tensor
-
-
-@dataclass
-class IndexerPrologQuantAttr:
-    eps: float
-    layerout_query: str
-    layerout_key: str
 
 
 @dataclass
@@ -112,242 +63,39 @@ class IndexerPrologQuantConfigs:
     t_sub_tile: int
     chunk_size: int
     vec_nbuffer_mode: int
-    
-
-@op_wrapper
-def scalar_div(tensor, other, is_reserve=False):
-    """Scalar division operation wrapper.
-
-    Performs element-wise division of input tensor by a scalar value.
-
-    Args:
-        tensor: Input tensor
-        other: Scalar divisor value
-        is_reserve: Whether to reserve (inverse) the operation
-
-    Returns:
-        Result tensor after scalar division
-    """
-    return pypto_impl.ScalarDivS(tensor, pypto_impl.Element(tensor.dtype, other), is_reserve)
 
 
-def quant_layer_norm(x: pypto.tensor, gamma: pypto.tensor, beta: pypto.tensor, dim: int, epsilon: float):
-    """Compute quantized LayerNorm operation.
-
-    Applies Layer Normalization with quantization support. The function normalizes
-    the input tensor along the specified dimension using mean and variance,
-    then applies learnable scale (gamma) and shift (beta) parameters.
-
-    Args:
-        x: Input tensor to normalize, shape depends on input
-        gamma: Scale parameter tensor, shape should match the normalization dimension
-        beta: Shift parameter tensor, shape should match the normalization dimension
-        dim: Dimension along which to normalize. Can be -1 (last dimension) or
-             len(x.shape) - 1 (last dimension explicitly)
-        epsilon: Small constant added to variance to avoid division by zero
-
-    Returns:
-        Normalized tensor with the same shape as input x, with scale and shift applied
-
-    Note:
-        The function performs normalization in FP32 precision to maintain numerical
-        stability, then casts back to the original dtype.
-    """
-    pypto.set_semantic_label("Key-LayerNorm")
-    assert ((dim == len(x.shape) - 1) or (dim == -1))
-    actual_dim = dim + len(x.shape) if dim < 0 else dim
-    x_dtype = x.dtype
-
-    x_fp32 = pypto.cast(x, pypto.DT_FP32)
-    # do division first to avoid overflow
-    x_scaled = x_fp32 * (1.0 / x.shape[actual_dim])
-    mean = pypto.sum(x_scaled, actual_dim, keepdim=True)
-
-    diff = x_fp32 - mean
-    squared_diff = diff * diff
-    squared_diff_scaled = squared_diff * (1.0 / x.shape[actual_dim])
-    var = pypto.sum(squared_diff_scaled, actual_dim, keepdim=True)
-    # add epsilon to avoid division by zero
-    var_eps = var + epsilon
-    std_var = pypto.sqrt(var_eps)
-    res32 = diff / std_var
-
-    gamma32 = pypto.cast(gamma, pypto.DT_FP32)
-    beta32 = pypto.cast(beta, pypto.DT_FP32)
-    return pypto.cast((res32 * gamma32) + beta32, x_dtype)
-
-
-def quant_rope_2d(x: pypto.tensor, cos: pypto.tensor, sin: pypto.tensor):
-    """Apply 2D Rotary Position Embedding (RoPE) to input tensor.
-
-    Implements RoPE transformation for 2D tensors. RoPE encodes positional
-    information by rotating the input tensor using cosine and sine values.
-
-    Args:
-        x: Input tensor of shape (t_tile, rope_dim), where t_tile is the
-           sequence length and rope_dim is the RoPE dimension
-        cos: Cosine values for RoPE, shape (t_tile, rope_dim)
-        sin: Sine values for RoPE, shape (t_tile, rope_dim)
-
-    Returns:
-        Tensor with RoPE applied, same shape as input x
-
-    Note:
-        The function performs rotation in FP32 precision for numerical stability,
-        then casts back to the original dtype.
-    """
-    pypto.set_semantic_label("Key-Rope2D")
-    key_rope_dim = 2
-    x_dtype = x.dtype
-    t_tile = x.shape[0]
-    rope_dim = x.shape[1]
-    assert (len(x.shape) == key_rope_dim and len(cos.shape) == COS_SIN_DIM and len(sin.shape) == COS_SIN_DIM)
-
-    pypto.set_vec_tile_shapes(t_tile, rope_dim)
-    cast_cos = pypto.cast(cos, pypto.DT_FP32)
-    cast_sin = pypto.cast(sin, pypto.DT_FP32)
-    x_view = pypto.cast(x, pypto.DT_FP32)
-
-    pypto.set_vec_tile_shapes(t_tile, rope_dim)
-    x_embed = (x_view * cast_cos) + ((rotate_half(x_view)) * cast_sin)
-    res = pypto.cast(x_embed, x_dtype)
-    return res
-
-
-def prolog_quant(input: pypto.tensor):
-    """Perform per-token quantization to INT8.
-
-    Quantizes the input tensor to INT8 format using dynamic quantization.
-    The quantization scale is computed per-token based on the maximum absolute
-    value, ensuring the full INT8 range [-127, 127] is utilized.
-
-    Args:
-        input: Input tensor to quantize, can be any shape. Quantization is
-               performed along the last dimension per token.
-
-    Returns:
-        Tuple of (quantized_tensor, dequant_scale):
-            - quantized_tensor: INT8 quantized tensor, same shape as input
-            - dequant_scale: FP32 scale factor for dequantization, shape matches
-                            input with last dimension reduced to 1
-
-    Note:
-        The quantization process:
-        1. Find per-token maximum absolute value
-        2. Compute scale = 127.0 / max_value
-        3. Quantize: int8 = round(input * scale)
-        4. Return dequantization scale = 1.0 / scale
-    """
-    pypto.set_semantic_label("Prolog-Quant")
-    s8_max_value = 127.0
-    s8_one_value = 1.0
-    input_fp32 = pypto.cast(input, pypto.DT_FP32, pypto.CastMode.CAST_NONE)
-
-    abs_res = pypto.abs(input_fp32)
-    max_value = pypto.amax(abs_res, dim=-1, keepdim=True)
-    temp127 = pypto.full(max_value.shape, s8_max_value, pypto.DT_FP32)
-
-    scale_quant = temp127 / max_value
-    out_fp32 = input_fp32 * scale_quant
-    out_int32 = pypto.cast(out_fp32, pypto.DT_INT32, pypto.CastMode.CAST_RINT)
-    out_half = pypto.cast(out_int32, pypto.DT_FP16, pypto.CastMode.CAST_ROUND)
-    out_int8 = pypto.cast(out_half, pypto.DT_INT8, pypto.CastMode.CAST_TRUNC)
-    temp1 = pypto.full(scale_quant.shape, s8_one_value, pypto.DT_FP32)
-    scale_dequant = temp1 / scale_quant
-    return (out_int8, scale_dequant)
-
-
-def rotate_half(input_tensor: pypto.tensor) -> pypto.tensor:
-    """Rotate half of the tensor dimensions for RoPE computation.
-
-    Splits the last dimension in half and applies rotation transformation:
-    [-x2, x1] where x1 is the first half and x2 is the second half.
-    This is a key component of RoPE (Rotary Position Embedding).
-
-    Args:
-        input_tensor: Input tensor with last dimension divisible by 2
-
-    Returns:
-        Rotated tensor with same shape as input, where the first half of
-        the last dimension is negated and swapped with the second half
-
-    Raises:
-        AssertionError: If the last dimension is not divisible by 2
-
-    Example:
-        If input is [a, b, c, d] along last dim, output is [-c, -d, a, b]
-    """
-    chunk_size = 2
-    shape = input_tensor.shape
-    shape_size = len(shape)
-    assert shape_size >= 1
-    assert shape[shape_size - 1] % chunk_size == 0
-    shape[shape_size - 1] //= chunk_size
-    offset1 = [0] * shape_size
-    offset2 = [0] * shape_size
-    offset2[shape_size - 1] = shape[shape_size - 1]
-    x1 = pypto.view(input_tensor, shape, offset1)
-    x2 = pypto.view(input_tensor, shape, offset2)
-    return pypto.concat([x2 * (-1.0), x1 + 0.0], -1)
-
-
-def rope_3d(x: pypto.tensor, cos: pypto.tensor, sin: pypto.tensor, configs: IndexerPrologQuantConfigs) -> pypto.tensor:
-    """Apply 3D Rotary Position Embedding (RoPE) to input tensor.
-
-    Implements RoPE transformation for 3D tensors with shape (t_tile, head_num, rope_dim).
-    The RoPE is applied independently to each head using the provided cosine and sine values.
-
-    Args:
-        x: Input tensor of shape (t_tile, head_num, rope_dim)
-        cos: Cosine values for RoPE, shape (t_tile, rope_dim)
-        sin: Sine values for RoPE, shape (t_tile, rope_dim)
-        configs: Configuration object containing tiling parameters:
-            - t_sub_tile: Sub-tile size for t dimension
-            - chunk_size: Chunk size for head dimension processing
-
-    Returns:
-        Tensor with RoPE applied, same shape as input x
-
-    Note:
-        The function broadcasts cos and sin to match the head dimension,
-        then applies rotation: x_rotated = x * cos + rotate_half(x) * sin
-    """
-    head_num_axis = 1
-    head_dim_axis = 2
-    assert (len(x.shape) == SHAPE_DIM_3 and len(cos.shape) == SHAPE_DIM_2 and len(sin.shape) == SHAPE_DIM_2)
-
-    x_dtype = x.dtype
-    t_tile = x.shape[0]
-    head_num = x.shape[head_num_axis]
-    rope_dim = x.shape[head_dim_axis]
-
-    pypto.set_vec_tile_shapes(1, rope_dim)
-    cast_cos = pypto.cast(cos, pypto.DT_FP32)
-    cast_sin = pypto.cast(sin, pypto.DT_FP32)
-
-    pypto.set_vec_tile_shapes(configs.t_sub_tile, head_num // configs.chunk_size, rope_dim)
-    x_view = pypto.cast(x, pypto.DT_FP32)
-    cast_cos = pypto.reshape(cast_cos, [t_tile, 1, rope_dim])
-    cast_sin = pypto.reshape(cast_sin, [t_tile, 1, rope_dim])
-
-    x_embed = (x_view * cast_cos) + ((rotate_half(x_view)) * cast_sin)
-    res = pypto.cast(x_embed, x_dtype)
-    return res
-
-
-def lightning_indexer_prolog_quant_compute(x_in, 
-                                           q_norm_in, 
-                                           q_norm_scale_in, 
-                                           w_qb_in,
-                                           w_qb_scale_in, 
-                                           w_proj_in,
-                                           cos_idx_rope_in, 
-                                           sin_idx_rope_in,
-                                           hadamard_q_in,
-                                           q_int8_out, 
-                                           q_scale_out,
-                                           weights_out, 
-                                           configs):
+def lightning_indexer_prolog_quant_fusion_compute(
+    x_in,
+    q_norm_in,
+    q_norm_scale_in,
+    w_qb_in,
+    w_qb_scale_in,
+    w_proj_in,
+    cos_idx_rope_in,
+    sin_idx_rope_in,
+    hadamard_q_in,
+    wkv,
+    wgate,
+    kv_state,
+    score_state,
+    ape,
+    weight_rms,
+    cos_kv,
+    sin_kv,
+    hadamard_kv,
+    kv_cache,
+    slots,
+    q_int8_out,
+    q_scale_out,
+    weights_out,
+    key,
+    key_scale,
+    ratio,
+    start_pos,
+    eps_rms,
+    configs
+):
     """Compute Lightning Indexer Prolog with quantization.
 
     Main computation function for Lightning Indexer Prolog quantization.
@@ -491,19 +239,37 @@ def lightning_indexer_prolog_quant_compute(x_in,
 
 
 @pypto.jit
-def lightning_indexer_quant_prolog(x_in,
-                            q_norm_in,
-                            q_norm_scale_in,
-                            w_qb_in,
-                            w_qb_scale_in,
-                            w_proj_in,
-                            cos_idx_rope_in,
-                            sin_idx_rope_in,
-                            hadamard_q_in,
-                            q_int8_out,
-                            q_scale_out,
-                            weights_out,
-                            configs):
+def lightning_indexer_quant_prolog_fusion(
+    x_in,
+    q_norm_in,
+    q_norm_scale_in,
+    w_qb_in,
+    w_qb_scale_in,
+    w_proj_in,
+    cos_idx_rope_in,
+    sin_idx_rope_in,
+    hadamard_q_in,
+    wkv,
+    wgate,
+    kv_state,
+    score_state,
+    ape,
+    weight_rms,
+    cos_kv,
+    sin_kv,
+    hadamard_kv,
+    kv_cache,
+    slots,
+    q_int8_out,
+    q_scale_out,
+    weights_out,
+    key,
+    key_scale,
+    ratio,
+    start_pos,
+    eps_rms,
+    configs
+):
     """JIT-compiled wrapper for Lightning Indexer Prolog quantization computation.
 
     This is the main entry point for the Lightning Indexer Prolog quantization operator.
@@ -543,16 +309,34 @@ def lightning_indexer_quant_prolog(x_in,
 
     pypto.set_runtime_options(device_sched_mode=1)
 
-    lightning_indexer_prolog_quant_compute(x_in,
-                                   q_norm_in,
-                                   q_norm_scale_in,
-                                   w_qb_in,
-                                   w_qb_scale_in,
-                                   w_proj_in,
-                                   cos_idx_rope_in,
-                                   sin_idx_rope_in,
-                                   hadamard_q_in,
-                                   q_int8_out,
-                                   q_scale_out,
-                                   weights_out,
-                                   configs)
+    lightning_indexer_prolog_quant_fusion_compute(
+        x_in,
+        q_norm_in,
+        q_norm_scale_in,
+        w_qb_in,
+        w_qb_scale_in,
+        w_proj_in,
+        cos_idx_rope_in,
+        sin_idx_rope_in,
+        hadamard_q_in,
+        wkv,
+        wgate,
+        kv_state,
+        score_state,
+        ape,
+        weight_rms,
+        cos_kv,
+        sin_kv,
+        hadamard_kv,
+        kv_cache,
+        slots,
+        q_int8_out,
+        q_scale_out,
+        weights_out,
+        key,
+        key_scale,
+        ratio,
+        start_pos,
+        eps_rms,
+        configs
+    )
