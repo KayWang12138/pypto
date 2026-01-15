@@ -22,10 +22,6 @@ from typing import List
 
 import random
 import numpy as np
-try:
-    from bfloat16 import bfloat16
-except:
-    bfloat = float
 import torch
 import torch.nn.functional as F
 import copy

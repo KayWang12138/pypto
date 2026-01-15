@@ -142,14 +142,14 @@ class TestCaseLauncher:
         sys.stderr = stderr
 
     def run(self):
-        # self.tear_up()
+        self.tear_up()
         test_case_info_list = TestCaseLoader(
             self.input_file, self.op, self.index, self.model, self.json_path
         ).run()
         if self.json_only:
             return
 
-        # self.compile_if_need()
+        self.compile_if_need()
         is_package_ready = self.python and pkgutil.find_loader("pypto")
         if not self.distributed_op:
             stest_exec_file = f"{self.work_path}/build/output/bin/tile_fwk_stest"
