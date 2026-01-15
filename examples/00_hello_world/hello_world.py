@@ -52,17 +52,35 @@ def create_add_kernel(shape: tuple, run_mode: str = "npu"):
         mode = pypto.RunMode.SIM
     else:
         raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-    
-    @pypto.frontend.jit(runtime_options={"run_mode": mode})
+    # 使用后端 JIT（@pypto.jit），函数参数是 PyPTO Tensor
+    @pypto.jit(runtime_options={"run_mode": mode})
     def add_kernel(
         x: pypto.Tensor(shape, pypto.DT_FP32),
         y: pypto.Tensor(shape, pypto.DT_FP32),
-    ) -> pypto.Tensor(shape, pypto.DT_FP32):
+        out: pypto.Tensor(shape, pypto.DT_FP32),
+    ):
         pypto.set_vec_tile_shapes(1, 4, 1, 64)
-        out = x + y
-        return out
+        out[:] = x + y
 
-    return add_kernel
+    # 对外仍然暴露 torch.Tensor 接口，内部做 torch<->PyPTO 转换
+    def wrapped_add_kernel(
+        x_torch: torch.Tensor,
+        y_torch: torch.Tensor,
+    ) -> torch.Tensor:
+        # 输入：torch.Tensor -> PyPTO.Tensor（共享内存）
+        x_pto = pypto.from_torch(x_torch, name="x")
+        y_pto = pypto.from_torch(y_torch, name="y")
+        # 打印底层数据地址，方便对比共享内存情况
+        print(f"x_torch.data_ptr = 0x{x_torch.data_ptr():x}, x_pto.data_ptr = 0x{x_pto.data_ptr:x}")
+        print(f"y_torch.data_ptr = 0x{y_torch.data_ptr():x}, y_pto.data_ptr = 0x{y_pto.data_ptr:x}")
+        # 输出 tensor 由调用侧分配，PyPTO 直接写回
+        out_torch = torch.empty_like(x_torch)
+        out_pto = pypto.from_torch(out_torch, name="out")
+        # 运行后端 JIT kernel
+        add_kernel(x_pto, y_pto, out_pto)
+        return out_torch
+
+    return wrapped_add_kernel
 
 
 def test_add_direct(device_id=None, run_mode: str = "npu") -> None:
