@@ -80,8 +80,8 @@ static void IndexPut_OperationExeFunc2Dims(
         for (int64_t vs : valuesShapes) {
             valuesValidShapes.emplace_back(vs);
         }
-        SymbolicScalar indicesFirstDim = inputs[2].GetShape()[0];
         SymbolicScalar indicesSecondDim = inputs[3].GetShape()[0];
+        SymbolicScalar indicesFirstDim = inputs[2].GetShape()[0];
         SymbolicScalar maxIndices = std::max({indicesFirstDim, indicesSecondDim});
         std::vector<SymbolicScalar> valuesNewOffsets(valuesShapes.size(), 0);
 
@@ -114,9 +114,9 @@ static void IndexPut_OperationExeFunc3Dims(
         for (int64_t vs : valuesShapes) {
             valuesValidShapes.emplace_back(vs);
         }
-        SymbolicScalar indicesFirstDim = inputs[2].GetShape()[0];
-        SymbolicScalar indicesSecondDim = inputs[3].GetShape()[0];
         SymbolicScalar indicesThirdDim = inputs[4].GetShape()[0];
+        SymbolicScalar indicesSecondDim = inputs[3].GetShape()[0];
+        SymbolicScalar indicesFirstDim = inputs[2].GetShape()[0];
         SymbolicScalar maxIndices = std::max({indicesFirstDim, indicesSecondDim, indicesThirdDim});
         std::vector<SymbolicScalar> valuesNewOffsets(valuesShapes.size(), 0);
 
@@ -151,10 +151,10 @@ static void IndexPut_OperationExeFunc4Dims(
         for (int64_t vs : valuesShapes) {
             valuesValidShapes.emplace_back(vs);
         }
-        SymbolicScalar indicesFirstDim = inputs[2].GetShape()[0];
-        SymbolicScalar indicesSecondDim = inputs[3].GetShape()[0];
-        SymbolicScalar indicesThirdDim = inputs[4].GetShape()[0];
         SymbolicScalar indicesForthDim = inputs[5].GetShape()[0];
+        SymbolicScalar indicesThirdDim = inputs[4].GetShape()[0];
+        SymbolicScalar indicesSecondDim = inputs[3].GetShape()[0];
+        SymbolicScalar indicesFirstDim = inputs[2].GetShape()[0];
         SymbolicScalar maxIndices = std::max({indicesFirstDim, indicesSecondDim, indicesThirdDim, indicesForthDim});
         std::vector<SymbolicScalar> valuesNewOffsets(valuesShapes.size(), 0);
         
