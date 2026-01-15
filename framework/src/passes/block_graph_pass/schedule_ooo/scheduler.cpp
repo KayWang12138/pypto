@@ -796,19 +796,6 @@ void OoOScheduler::InitLocalBuffer(LogicalTensorPtr oOperand, int memId) {
     }
     if (localBufferMap.find(memId) == localBufferMap.end()) {
         localBufferMap[memId] = std::make_shared<LocalBuffer>(
-            memId, ShapeCeilAlign(oOperand->GetShape(), oOperand->Datatype()), oOperand->GetMemoryTypeOriginal());
-    } else {
-        localBufferMap[memId]->size =
-            std::max(localBufferMap[memId]->size, ShapeCeilAlign(oOperand->GetShape(), oOperand->Datatype()));
-    }
-}
-
-void OoOScheduler::InitLocalBufferForAxisCombine(LogicalTensorPtr oOperand, int memId) {
-    if (oOperand->GetMemoryTypeOriginal() >= MemoryType::MEM_DEVICE_DDR) {
-        return;
-    }
-    if (localBufferMap.find(memId) == localBufferMap.end()) {
-        localBufferMap[memId] = std::make_shared<LocalBuffer>(
             memId, ShapeCeilAlign(oOperand->tensor->rawshape, oOperand->Datatype()), oOperand->GetMemoryTypeOriginal());
     } else {
         localBufferMap[memId]->size =
@@ -836,11 +823,7 @@ void OoOScheduler::InitBufRefCount() {
         for (auto &tensor : issue->tileOp.GetOOperands()) {
             UpdateBufRefCount(issue, tensor);
             int memId = tensor->memoryrange.memId;
-            if (isCombineAxis_) {
-               InitLocalBufferForAxisCombine(tensor, memId);
-            } else {
-                InitLocalBuffer(tensor, memId);
-            }
+            InitLocalBuffer(tensor, memId);
         }
     }
 }
@@ -1063,13 +1046,6 @@ Status OoOScheduler::Schedule(const std::vector<Operation *> &operations) {
     if (Init(operations) != SUCCESS) { 
         APASS_LOG_ERROR_F(Elements::Operation, "Init failed!"); 
         return FAILED; 
-    }
-    if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510 || !IsMixGraph(operations)) {
-        // op执行排序
-        if (SortOps() != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "SortOps failed!");
-            return FAILED;
-        }
     }
     // 生成spill指令
     if (GenSpillSchedule() != SUCCESS) { 
