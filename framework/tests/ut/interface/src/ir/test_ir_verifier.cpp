@@ -190,8 +190,8 @@ TEST_F(IRVerifierTest, TestVerifyOpShape_ValidBinaryOp_Broadcast) {
 TEST_F(IRVerifierTest, TestVerifyOpShape_InvalidBinaryOp_IncompatibleShapes) {
     FunctionSignature sig;
     std::vector<int64_t> lhsShape = {128, 32}; // Incompatible
-    std::vector<int64_t> rhsShape = {128, 64};
-    std::vector<int64_t> outputShape = {128, 64};
+    std::vector<int64_t> rhsShape = {64, 64};
+    std::vector<int64_t> outputShape = {64, 64};
     auto input1 = std::make_shared<TileValue>(lhsShape, DataType::FP32, "input1");
     auto input2 = std::make_shared<TileValue>(rhsShape, DataType::FP32, "input2");
     sig.arguments = {input1, input2};
@@ -200,7 +200,7 @@ TEST_F(IRVerifierTest, TestVerifyOpShape_InvalidBinaryOp_IncompatibleShapes) {
 
     // BinaryOp with incompatible shapes
     auto outputTile = builder_->CreateTile(*ctx_, outputShape, DataType::FP32, "output");
-    auto binaryOp = builder_->CreateBinaryOp(Opcode::OP_ADD, input1, input2, outputTile);
+    auto binaryOp = builder_->CreateBinaryOp(Opcode::OP_SUB, input1, input2, outputTile);
     builder_->Emit(*ctx_, binaryOp);
 
     FinishFunction();
