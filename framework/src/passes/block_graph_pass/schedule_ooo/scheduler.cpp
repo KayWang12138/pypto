@@ -58,7 +58,7 @@ inline Operation* SkipViewChain(Operation* start, bool followProducers) {
     while (op != nullptr && IsViewOp(*op)) {
         lastView = op;
         if (followProducers) {
-            const auto& nextOps = op->GetInputOperand(0)->GetProducers();
+            const auto &nextOps = op->GetInputOperand(0)->GetProducers();
             if (nextOps.size() != 1) break;
             op = *nextOps.begin();
         } else {
@@ -337,7 +337,7 @@ Status OoOScheduler::AllocViewTensorMemRange(Operation &operation) {
 }
 
 Status OoOScheduler::AllocTensorMemRange(IssueEntryPtr issue) {
-    for (auto& op : issue->viewOps) {
+    for (auto &op : issue->viewOps) {
         if (!IsViewOp(*op)) {
             APASS_LOG_ERROR_F(Elements::Operation, "op[%s] is not OP_VIEW.", op->GetOpMagic());
             return FAILED;
@@ -347,7 +347,7 @@ Status OoOScheduler::AllocTensorMemRange(IssueEntryPtr issue) {
             return FAILED;
         }
     }
-    for (auto& outTensor : issue->tileOp.GetOOperands()) {
+    for (auto &outTensor : issue->tileOp.GetOOperands()) {
         MemoryType memType = outTensor->GetMemoryTypeOriginal();
         if (memType == MemoryType::MEM_DEVICE_DDR) {
             continue;
@@ -387,7 +387,7 @@ Status OoOScheduler::LaunchIssueStage(int& nextCycle) {
         pipe.curIssue = issue;
         pipe.curOpRetireCycle = clock + issue->tileOp.GetLatency();
         oooCheck.pipeUsageCount[pipeType] += issue->tileOp.GetLatency();
-        for (auto& op : issue->viewOps) {
+        for (auto &op : issue->viewOps) {
             if (std::find(newOperations_.begin(), newOperations_.end(), op) != newOperations_.end()) {
                 continue;
             }
@@ -828,7 +828,7 @@ void OoOScheduler::InitBufRefCount() {
     }
 }
 
-Status OoOScheduler::InitAllocDependencies(IssueEntryPtr issue, std::map<int, IssueEntryPtr> tensor2AllocMap) {
+Status OoOScheduler::InitAllocDependencies(IssueEntryPtr issue, std::unordered_map<int, IssueEntryPtr> &tensor2AllocMap) {
     for (auto &tensor : issue->tileOp.GetOOperands()) {
         int memId = tensor->memoryrange.memId;
         if (tensor->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
@@ -852,7 +852,7 @@ void OoOScheduler::AddDependency(IssueEntryPtr preIssue, IssueEntryPtr postIssue
     }
 }
 
-void OoOScheduler::FindDependencies(IssueEntryPtr issue, std::map<Operation*, IssueEntryPtr> op2IssueEntryMap) {
+void OoOScheduler::FindDependencies(IssueEntryPtr issue, std::unordered_map<Operation*, IssueEntryPtr> &op2IssueEntryMap) {
     for (auto &producer : issue->tileOp.ProducerOps()) {
         if (IsViewOp(*producer)) {
             for (auto viewProducer : producer->ProducerOps()) {
@@ -879,14 +879,12 @@ void OoOScheduler::FindDependencies(IssueEntryPtr issue, std::map<Operation*, Is
 }
 
 Status OoOScheduler::InitDependencies() {
-    std::map<Operation*, IssueEntryPtr> op2IssueEntryMap;
+    std::unordered_map<Operation*, IssueEntryPtr> op2IssueEntryMap;
+    std::unordered_map<int, IssueEntryPtr> tensor2AllocMap;
     for (const auto &issue : issueEntries) {
         issue->predecessors.clear();
         issue->successors.clear();
         op2IssueEntryMap[&(issue->tileOp)] = issue;
-    }
-    std::map<int, IssueEntryPtr> tensor2AllocMap;
-    for (const auto &issue : issueEntries) {
         if (issue->isAlloc) {
             if (issue->tileOp.GetOOperands().size() != 1) {
                 APASS_LOG_ERROR_F(Elements::Operation, "Alloc[%d] oOperand must be 1.", issue->tileOp.GetOpMagic());
