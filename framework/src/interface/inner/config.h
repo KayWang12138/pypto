@@ -49,7 +49,6 @@ constexpr const char *STITCH_FUNCTION_INNER_MEMORY = "stitch_function_inner_memo
 constexpr const char *STITCH_FUNCTION_OUTCAST_MEMORY = "stitch_function_outcast_memory";
 constexpr const char *STITCH_FUNCTION_NUM_INITIAL = "stitch_function_num_initial";
 constexpr const char *STITCH_FUNCTION_NUM_STEP = "stitch_function_num_step";
-constexpr const char *PROFILE_ENABLE = "profile_enable";
 constexpr const char *COST_MODEL_ENABLE = "cost_model_enable";
 constexpr const char *STITCH_FUNCTION_SIZE = "stitch_function_size";
 constexpr const char *STITCH_CFGCACHE_SIZE = "stitch_cfgcache_size";
@@ -134,18 +133,7 @@ T GetOption(const std::string &key) {
     return val;
 }
 
-#define DEFINE_CONFIG_GROUP(group, prefix)                   \
-    template <typename T>                                    \
-    inline T Get##group##Option(const std::string &key) {    \
-        return ConfigManagerNg::CurrentScope()->GetConfigAllType<T>(prefix "." + key); \
-    }
 
-DEFINE_CONFIG_GROUP(CodeGen, "codegen")
-DEFINE_CONFIG_GROUP(Pass, "pass")
-DEFINE_CONFIG_GROUP(Runtime, "runtime")
-DEFINE_CONFIG_GROUP(Host, "host")
-DEFINE_CONFIG_GROUP(Verify, "verify")
-DEFINE_CONFIG_GROUP(Debug, "debug")
 
 std::shared_ptr<ConfigScope> Duplicate();
 void Restore(std::shared_ptr<ConfigScope> config);
