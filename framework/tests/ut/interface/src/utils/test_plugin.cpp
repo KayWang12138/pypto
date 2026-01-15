@@ -95,4 +95,6 @@ TEST(PluginTest, Codegen) {
     EXPECT_EQ(2, opList.size());
     EXPECT_NE(0, opList[0]);
     EXPECT_NE(0, opList[1]);
+
+    PluginManager::GetInstance().ClearPlugin();
 }
