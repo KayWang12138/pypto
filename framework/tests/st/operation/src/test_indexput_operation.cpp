@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -123,13 +123,13 @@ static void IndexPut_OperationExeFunc3Dims(
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, CeilDiv(maxIndices, viewShape), 1)) {
             valuesValidShapes[0] = std::min(valuesShapes[0] - bIdx * viewShape, viewShape);
             valuesNewOffsets[0] = bIdx * viewShape;
-            auto viewValues = View(inputs[1], valuesViewShapes, valuesValidShapes, valuesNewOffsets);
             auto viewIndices1 = View(inputs[2], {viewShape},
                 {std::min(indicesFirstDim - bIdx * viewShape, viewShape)}, {bIdx * viewShape});
             auto viewIndices2 = View(inputs[3], {viewShape},
                 {std::min(indicesSecondDim - bIdx * viewShape, viewShape)}, {bIdx * viewShape});
             auto viewIndices3 = View(inputs[4], {viewShape},
                 {std::min(indicesThirdDim - bIdx * viewShape, viewShape)}, {bIdx * viewShape});
+            auto viewValues = View(inputs[1], valuesViewShapes, valuesValidShapes, valuesNewOffsets);
             std::vector<Tensor> viewIndices = {viewIndices1, viewIndices2, viewIndices3};
             TileShape::Current().SetVecTile(args->tileShape_);
             IndexPut_(outputs[0], viewIndices, viewValues, args->accumulate_);
