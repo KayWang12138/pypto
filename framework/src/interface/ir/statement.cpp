@@ -21,17 +21,6 @@
 
 namespace pto {
 
-namespace {
-    // Attribute key registration for ForStatement.
-struct ForAttrRegistrar {
-    ForAttrRegistrar()
-    {
-        RegisterAttrKey<ForStatement>("unroll");
-    }
-};
-static ForAttrRegistrar g_forAttrRegistrar;
-} // namespace
-
 ValuePtr CompoundStatement::FindValue(const std::string& name) const {
     // Use GetEnvVar which already searches through the scope chain
     return GetEnvVar(name);

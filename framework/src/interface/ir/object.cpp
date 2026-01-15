@@ -14,9 +14,40 @@
  */
 
 #include "ir/object.h"
+#include "ir/program.h"
+#include "ir/value.h"
+#include "ir/statement.h"
 
 namespace pto {
 
 Object::AttributeRegistry Object::registry_;
+
+// Centralized attribute registration - all attribute registrations happen here
+void RegisterAllAttributes()
+{
+    // ProgramModule attributes
+    Object::RegisterAttrKey<ProgramModule, std::string>("arch");
+    Object::RegisterAttrKey<ProgramModule, std::string>("tile_default");
+    Object::RegisterAttrKey<ProgramModule, std::string>("enable_debug");
+    Object::RegisterAttrKey<ProgramModule, std::string>("test_type");
+
+    // Value attributes
+    Object::RegisterAttrKey<ScalarValue, std::string>("io");
+    Object::RegisterAttrKey<TileValue, std::string>("io");
+    Object::RegisterAttrKey<TensorValue, std::string>("io");
+
+    // ForStatement attributes
+    Object::RegisterAttrKey<ForStatement, int64_t>("unroll");
+}
+
+// Auto-registration: register all attributes during static initialization
+namespace {
+struct AttributeRegistrar {
+    AttributeRegistrar() {
+        RegisterAllAttributes();
+    }
+};
+static AttributeRegistrar g_attributeRegistrar;
+} // namespace
 
 } // namespace pto
