@@ -55,29 +55,9 @@ void LoopAdd(const Tensor& allReduceOut, Tensor& addOut)
     }
 }
 
-void LoopCreateShmemTensor(const Tensor& addOut, Tensor& shmemBarrier1ShmemSignal, Tensor& shmemBarrier2ShmemSignal,
-    Tensor& allReduce2ShmemData, Tensor& allReduce2ShmemSignal, const OpTestParam& testParam, int32_t row, int32_t col,
-    int32_t hcclGroupIndex)
-{
-    LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
-        (void)index;
-        uint32_t worldSize = static_cast<uint32_t>(testParam.rankSize);
-        CreateShmemData(testParam.group, worldSize, DT_INT32, Shape{1, 1, 1, 8}, shmemBarrier1ShmemSignal, 1);
-        CreateShmemData(testParam.group, worldSize, DT_INT32, Shape{1, 1, 1, 8}, shmemBarrier2ShmemSignal, 1);
-        TileShape::Current().SetVecTile(row, col);
-        Shape allReduce2ShmemDataShape = {1, addOut.GetShape(0), addOut.GetShape(1)};
-        DataType allReduce2ShmemDataType = addOut.GetDataType();
-        if ((allReduce2ShmemDataType == DT_BF16) || (allReduce2ShmemDataType == DT_FP16)) {
-            allReduce2ShmemDataType = DT_FP32;
-        }
-        CreateShmemData(testParam.group, worldSize, allReduce2ShmemDataType, allReduce2ShmemDataShape, allReduce2ShmemData);
-        CreateShmemSignal(testParam.group, allReduce2ShmemData, allReduce2ShmemSignal);
-    }
-}
-
 void LoopAllReduce2(const Tensor& addOut, Tensor& shmemBarrier1ShmemSignal, Tensor& shmemBarrier2ShmemSignal,
     Tensor& allReduce2ShmemData, Tensor& allReduce2ShmemSignal, Tensor& out, const OpTestParam& testParam, int32_t row,
-    int32_t col, int32_t hcclGroupIndex)
+    int32_t col)
 {
     LOOP("AllReduce2", FunctionType::DYNAMIC_LOOP, allReduce2Index, LoopRange(0, 1, 1)) {
         (void)allReduce2Index;
@@ -86,6 +66,7 @@ void LoopAllReduce2(const Tensor& addOut, Tensor& shmemBarrier1ShmemSignal, Tens
         Tensor memSetOut(DT_INT32, {addOut.GetShape(0), addOut.GetShape(1)}, "memSetOut");
         Tensor barrier2Out(DT_INT32, {addOut.GetShape(0), addOut.GetShape(1)}, "barrier2Out");
 
+        int32_t hcclGroupIndex = static_cast<int>(CommGroupRecorder::GetInstance().Input(std::string(testParam.group)));
         SymbolicScalar thisRank = GetHcclRankId(hcclGroupIndex);
         TileShape::Current().SetVecTile({1, 8});
         ShmemBarrier(addOut, shmemBarrier1ShmemSignal, testParam.group, static_cast<uint32_t>(testParam.rankSize), barrier1Out);
@@ -112,15 +93,20 @@ void FuncAllReduceAddAllReduce(const Tensor& in, Tensor& out, const OpTestParam&
         Tensor addOut(in.GetDataType(), in.GetShape(), "addOut");
         LoopAllReduce1(in, allReduceOut, testParam, row, col);
         LoopAdd(allReduceOut, addOut);
-        Tensor shmemBarrier1ShmemSignal;
-        Tensor shmemBarrier2ShmemSignal;
-        Tensor allReduce2ShmemData;
-        Tensor allReduce2ShmemSignal;
-        int32_t hcclGroupIndex = static_cast<int>(CommGroupRecorder::GetInstance().Input(std::string(testParam.group)));
-        LoopCreateShmemTensor(addOut, shmemBarrier1ShmemSignal, shmemBarrier2ShmemSignal, allReduce2ShmemData,
-            allReduce2ShmemSignal, testParam, row, col, hcclGroupIndex);
+        uint32_t worldSize = static_cast<uint32_t>(testParam.rankSize);
+        Tensor shmemBarrier1ShmemSignal = CreateShmemData(testParam.group, worldSize, DT_INT32, Shape{1, 1, 1, 8}, 1);
+        Tensor shmemBarrier2ShmemSignal = CreateShmemData(testParam.group, worldSize, DT_INT32, Shape{1, 1, 1, 8}, 1);
+        TileShape::Current().SetVecTile(row, col);
+        Shape allReduce2ShmemDataShape = {1, addOut.GetShape(0), addOut.GetShape(1)};
+        DataType allReduce2ShmemDataType = addOut.GetDataType();
+        if ((allReduce2ShmemDataType == DT_BF16) || (allReduce2ShmemDataType == DT_FP16)) {
+            allReduce2ShmemDataType = DT_FP32;
+        }
+        Tensor allReduce2ShmemData = CreateShmemData(testParam.group, worldSize, allReduce2ShmemDataType,
+            allReduce2ShmemDataShape);
+        Tensor allReduce2ShmemSignal = CreateShmemSignal(testParam.group, allReduce2ShmemData);
         LoopAllReduce2(addOut, shmemBarrier1ShmemSignal, shmemBarrier2ShmemSignal, allReduce2ShmemData,
-            allReduce2ShmemSignal, out, testParam, row, col, hcclGroupIndex);
+            allReduce2ShmemSignal, out, testParam, row, col);
     };
 }
 
