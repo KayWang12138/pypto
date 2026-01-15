@@ -220,13 +220,13 @@ const T& Config::Get(ConfigKey key) const {
 
 // Helper function to compute hash for config key name (outside namespace for macro use)
 // This ensures the same name always generates the same enum value
-// Returns a value >= 1 (CONFIG_INVALID is 0)
-// Using recursive constexpr function
-constexpr size_t ComputeConfigKeyHashImpl(const char* str, size_t hash = 5381) {
+constexpr size_t ComputeConfigKeyHashImpl(const char* str, size_t initHashValue = 5381) {
+    sizt_t hash = initHashValue;
     for(size_t i = 0; str[i] != '\0'; i++) {
         hash = hash * 33 + (unsigned char)str[i];
     }
-    return hash % 999983 + 1;
+    // CONFIG_INVALID is 0, so if the hash value we calculate is 0, we will replace it with the initial value.
+    return hash != 0 ? hash : initHashValue;
 }
 
 } // namespace pto
