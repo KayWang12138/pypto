@@ -19,8 +19,6 @@
 #include "interface/configs/config_manager.h"
 #include "interface/operation/operation.h"
 #include "tilefwk/data_type.h"
-#include "codegen/codegen.h"
-#include "codegen/symbol_mgr/codegen_symbol.h"
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
 #include "test_codegen_common.h"
 
@@ -65,10 +63,7 @@ TEST_F(TestCodegenDynIndexAdd, TestIndexadd) {
     ConfigManager::Instance();
     std::string funcName = "IndexAdd";
     FUNCTION(funcName, {inputSrc0, inputSrc1, inputIndex, output}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
-            (void)i;
-            output = IndexAdd_(inputSrc0, inputSrc1, inputIndex, axis, alphaVal);
-        }
+        output = IndexAdd_(inputSrc0, inputSrc1, inputIndex, axis, alphaVal);
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
     npu::tile_fwk::CodeGenCtx ctx;
