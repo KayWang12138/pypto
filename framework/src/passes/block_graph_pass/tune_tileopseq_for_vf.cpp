@@ -49,7 +49,6 @@ void TuneTileOpSeqForVF::ChangeOpSeq(std::vector<Operation *> &opList, PipeSync 
         APASS_LOG_DEBUG_F(Elements::Operation, "Try to merge %d %s and %d %s", opList[left]->GetOpMagic(), opList[left]->GetOpcodeStr().c_str(),
             opList[right]->GetOpMagic(), opList[right]->GetOpcodeStr().c_str());
         bool canMerge = true;
-        bool moveBack = true;
         // 先看vecTileop0是否已经在mergedOps中
         int groupNum = -1;
         for (size_t i = 0; i < mergedOps.size(); i++) {
@@ -61,6 +60,7 @@ void TuneTileOpSeqForVF::ChangeOpSeq(std::vector<Operation *> &opList, PipeSync 
             }
         }
         for (size_t k = left + 1; k < right; k++) {
+            std::unordered_set<Operation *> moveFrontOp;
             // 如果该op和vecTileop0和vecTileop1都存在依赖关系，则不能融合
             if (ps.HasDataDependency(*opList[left], *opList[k], left, k) && ps.HasDataDependency(*opList[k], *opList[right], k, right)) {
                 canMerge = false;
@@ -70,7 +70,7 @@ void TuneTileOpSeqForVF::ChangeOpSeq(std::vector<Operation *> &opList, PipeSync 
             if (ps.HasDataDependency(*opList[k], *opList[right], k, right)) {
                 // 需要进一步判断和vecTileop0 group中的op是否有依赖关系
                 if (groupNum == -1) {
-                    moveBack = false;
+                    moveFrontOp.insert(opList[k]);
                 } else {
                     size_t tempIdx = left;
                     for (auto &groupOp : mergedOps[groupNum]) {
@@ -80,7 +80,7 @@ void TuneTileOpSeqForVF::ChangeOpSeq(std::vector<Operation *> &opList, PipeSync 
                         }
                     }
                     if (canMerge) {
-                        moveBack = false;
+                        moveFrontOp.insert(opList[k]);
                     } else {
                         break;
                     }
@@ -101,25 +101,40 @@ void TuneTileOpSeqForVF::ChangeOpSeq(std::vector<Operation *> &opList, PipeSync 
         } else {
             mergedOps[groupNum].emplace_back(opList[right]);
         }
-        std::vector<Operation *> toMove;
+        std::vector<Operation *> moveLeft;
+        std::vector<Operation *> moveRight;
+        for (size_t k = left + 1; k < right; k++) {
+            if (moveFrontOp.contains(opList[k])) {
+                moveLeft.emplace_back(opList[k]);
+            } else {
+                moveRight.emplace_back(opList[k]);
+            }
+        }
+        // 删除left和right中间的op
         std::vector<size_t> toMoveIdx;
         for (size_t k = left + 1; k < right; k++) {
-            toMove.emplace_back(opList[k]);
             toMoveIdx.emplace_back(k);
         }
         for (auto it = toMoveIdx.rbegin(); it != toMoveIdx.rend(); it++) {
             opList.erase(opList.begin() + *it);
         }
-        // 如果moveBack为true, 向后移动
-        if (moveBack) {
-            // 删掉这些op后，right = left + 1, 在right右侧将删掉的op重新插入，即在left + 2的位置开始插入
-            auto insertPos = opList.begin() + left + 2;
-            opList.insert(insertPos, toMove.begin(), toMove.end());
-        } else {
-            // 在vecTileop0 group的左侧将删掉的op重新插入
-            auto insertPos = opList.begin() + left - mergedOps[groupNum].size() + 1;
-            opList.insert(insertPos, toMove.begin(), toMove.end());
-        }
+        // 在vecTileop1的右侧将moveRight的op插入
+        auto insertPosR = opList.begin() + left + 2;
+        opList.insert(insertPosR, moveRight.begin(), moveRight.end());
+        // 在vecTileop0 group的左侧将moveLeft的op插入
+        auto insertPosL = opList.begin() + left - mergedOps[groupNum].size() + 1;
+        opList.insert(insertPosL, moveLeft.begin(), moveLeft.end());
+
+        // // 如果moveBack为true, 向后移动
+        // if (moveBack) {
+        //     // 删掉这些op后，right = left + 1, 在right右侧将删掉的op重新插入，即在left + 2的位置开始插入
+        //     auto insertPos = opList.begin() + left + 2;
+        //     opList.insert(insertPos, toMove.begin(), toMove.end());
+        // } else {
+        //     // 在vecTileop0 group的左侧将删掉的op重新插入
+        //     auto insertPos = opList.begin() + left - mergedOps[groupNum].size() + 1;
+        //     opList.insert(insertPos, toMove.begin(), toMove.end());
+        // }
         // 由于移动，pipeVop的idx会发生变化，需要重新更新pipeVIdx
         pipeVIdx.clear();
         for (size_t i = 0; i < opList.size(); i++) {
