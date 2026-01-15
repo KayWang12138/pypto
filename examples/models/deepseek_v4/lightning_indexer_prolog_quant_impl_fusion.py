@@ -49,6 +49,12 @@ L1N_INDEX = 5
 
 
 @dataclass
+class Rope3dTileConfig:
+    # two_dim_tile: List[int]
+    three_dim_tile: List[int]
+    four_dim_tile: List[int]
+
+@dataclass
 class IndexerPrologQuantConfigs:
     q_linear: List[int]
     q_hd: List[int]
@@ -64,6 +70,94 @@ class IndexerPrologQuantConfigs:
     chunk_size: int
     vec_nbuffer_mode: int
 
+def scatter_update_3d(input, index, src):
+    input_shape = input.shape
+    d = src.shape[2]
+    pypto.set_vec_tile_shapes(1, 4, d)
+    src = pypto.reshape(src, [src.shape[0]*src.shape[1], src.shape[2]])
+    input = pypto.reshape(input, [input.shape[0]*input.shape[1], input.shape[2]])
+    pypto.set_vec_tile_shapes(64, 64)
+    index = pypto.reshape(index, [1, index.shape[0]*index.shape[1]])
+    pypto.set_vec_tile_shapes(1, d)
+    if (index.shape[0]*index.shape[1]) % 4 == 0:
+        pypto.set_vec_tile_shapes(4, d)
+    output = pypto.scatter_update(input, -2, index, src)
+    return pypto.reshape(output, input_shape)
+
+
+def scatter_update_4d(input, index, src):
+    input_shape = input.shape
+    d = src.shape[2]
+    pypto.set_vec_tile_shapes(1, 4, d)
+    src = pypto.reshape(src, [src.shape[0]*src.shape[1], src.shape[2]])
+    input = pypto.reshape(input, [input.shape[0]*input.shape[1], input.shape[2]*input.shape[3]])
+    pypto.set_vec_tile_shapes(64, 64)
+    index = pypto.reshape(index, [index.shape[0], 1])
+    pypto.set_vec_tile_shapes(1, d)
+    if (index.shape[0]*index.shape[1]) % 4 == 0:
+        pypto.set_vec_tile_shapes(4, d)
+    output = pypto.scatter_update(input, -2, index, src)
+    return pypto.reshape(output, input_shape)
+
+
+def softmax(x: pypto.Tensor, dim) -> pypto.Tensor:
+    xmax = pypto.amax(x, dim, keepdim=True)
+    xsub = pypto.sub(x, xmax)
+    xexp = pypto.exp(xsub)
+    xsum = pypto.sum(xexp, dim, keepdim=True)
+    xdiv = pypto.div(xexp, xsum)
+    return xdiv
+
+
+def rms_norm(input_tensor: pypto.Tensor, gamma: pypto.Tensor, epsilon=1e-6) -> pypto.Tensor:
+    input_fp32 = pypto.cast(input_tensor, pypto.DT_FP32)
+    dim = len(input_tensor.shape)
+    shape = [1] * dim
+    shape[dim - 1] = gamma.shape[0]
+    gamma_cast = pypto.reshape(gamma, shape)
+    gamma_fp32 = pypto.cast(gamma_cast, pypto.DT_FP32)
+    y = pypto.mul(input_fp32, input_fp32)
+    y = pypto.mul(y, 1.0 / input_tensor.shape[dim - 1])
+    y = pypto.sum(y, -1, keepdim = True)
+    y = pypto.add(y, epsilon)
+    y = pypto.sqrt(y)
+    ones_vector = pypto.full(y.shape, 1.0, pypto.DT_FP32)
+    y = pypto.div(ones_vector, y)
+    y = pypto.mul(input_fp32, y)
+    y = pypto.mul(gamma_fp32, y)
+    y = pypto.cast(y, input_tensor.dtype)
+    return y
+
+
+def rotate_half(input_tensor: pypto.Tensor) -> pypto.Tensor:
+    chunk_size = 2
+    shape = input_tensor.shape
+    shape_size = len(shape)
+    shape[shape_size - 1] //= chunk_size
+    offset1 = [0] * shape_size
+    offset2 = [0] * shape_size
+    offset2[shape_size - 1] = shape[shape_size - 1]
+    x1 = pypto.view(input_tensor, shape, offset1)
+    x2 = pypto.view(input_tensor, shape, offset2)
+    return pypto.concat([x2 * (-1.0), x1 + 0.0], -1)
+
+
+def interleaved_rope_3d(x: pypto.Tensor, cos: pypto.Tensor, sin: pypto.Tensor, rope_3d_config: Rope3dTileConfig) -> pypto.Tensor:
+    # pypto.set_vec_tile_shapes(*rope_3d_config.two_dim_tile) # (1, 64)
+    pypto.set_vec_tile_shapes(*rope_3d_config.three_dim_tile) # (1, 64, 64)
+    cast_x = pypto.cast(x, pypto.DataType.DT_FP32)
+    cast_cos = pypto.cast(cos, pypto.DataType.DT_FP32)
+    cast_sin = pypto.cast(sin, pypto.DataType.DT_FP32)
+    # cast_cos = pypto.reshape(cast_cos, [x.shape[0], 1, x.shape[2]])
+    # cast_sin = pypto.reshape(cast_sin, [x.shape[0], 1, x.shape[2]])
+
+    pypto.set_vec_tile_shapes(*rope_3d_config.four_dim_tile)  # (1, 64, 128, 128)
+    x_view = pypto.reshape(cast_x, [x.shape[0], x.shape[1], x.shape[2] // 2, 2])
+    x_trans = pypto.transpose(x_view, 2, 3)
+    x_re_second = pypto.reshape(x_trans, x.shape)
+    x_embed = x_re_second * cast_cos + rotate_half(x_re_second) * cast_sin
+
+    return pypto.cast(x_embed, x.dtype)
 
 def lightning_indexer_prolog_quant_fusion_compute(
     x_in,
@@ -79,6 +173,7 @@ def lightning_indexer_prolog_quant_fusion_compute(
     wgate,
     kv_state,
     score_state,
+    cache_index_2d,
     ape,
     weight_rms,
     cos_kv,
@@ -89,6 +184,8 @@ def lightning_indexer_prolog_quant_fusion_compute(
     q_int8_out,
     q_scale_out,
     weights_out,
+    kv_state_out,
+    score_state_out,
     key,
     key_scale,
     ratio,
@@ -165,7 +262,79 @@ def lightning_indexer_prolog_quant_fusion_compute(
     rope_head_dim = cos_idx_rope_in.shape[1]
     w_qb_scale = pypto.reshape(w_qb_scale_in, [1, head_num * head_dim], inplace=True)
 
+    overlap = (ratio == 4)
+    coff = 1 + overlap
+    d = wkv.shape[1] // coff
+    should_compress = ((start_pos + 1) % ratio == 0)
+    pos = start_pos % ratio
+
     unroll_list = configs.unroll_list
+    pypto.set_vec_tile_shapes(64, 64)
+    pypto.set_cube_tile_shapes([128, 128], [128, 128], [128, 128], True)
+    t_tile = 4
+    x_in_tmp = pypto.view(x_in, [t_tile, h], [0, 0])
+    x_kv = pypto.cast(x_in_tmp, pypto.DT_FP32) ## b,s,h
+    kv = pypto.matmul(x_kv, wkv, pypto.DT_FP32) ## b*s,2d
+    kv = pypto.reshape(kv, [t_tile, 1, wkv.shape[1]]) ## b,s,2d
+    score = pypto.matmul(x_kv, wgate, pypto.DT_FP32)
+    score = pypto.reshape(score, [t_tile, 1, wgate.shape[1]]) ## b,s,2d
+    
+    pypto.set_vec_tile_shapes(16, 1, 2*d)
+    score = pypto.add(score, ape[pos, :]) ## b,1,2d
+    if overlap:
+        index = pypto.view(cache_index_2d, [t_tile, 1], [0, ratio + pos])
+        kv_state = scatter_update_3d(kv_state, index, kv)
+        score_state = scatter_update_3d(score_state, index, score)
+        if should_compress:
+            pypto.set_vec_tile_shapes(1, 8, 2*d)
+            kv_state_tmp = pypto.concat([kv_state[:t_tile, :ratio, :d], kv_state[:t_tile, ratio:ratio+ratio, d:]], 1) ## b,8,d
+            score_state_tmp = pypto.concat([score_state[:t_tile, :ratio, :d], score_state[:t_tile, ratio:ratio+ratio, d:]], 1) ## b,8,d
+            kv = kv_state_tmp * softmax(score_state_tmp, 1) ## b,8,d
+            kv = pypto.sum(kv, 1, keepdim=True) ## b,1,d
+            
+            index = cache_index_2d[:t_tile, :ratio]
+            kv_state_view = kv_state[:t_tile, ratio:ratio+ratio, :]
+            score_state_view = score_state[:t_tile, ratio:ratio+ratio, :]
+            kv_state = scatter_update_3d(kv_state, index, kv_state_view)
+            score_state = scatter_update_3d(score_state, index, score_state_view)
+            
+    else:
+        index = pypto.view(cache_index_2d, [t_tile, 1], [0, pos])
+        kv_state = scatter_update_3d(kv_state, index, kv)
+        score_state = scatter_update_3d(score_state, index, score)
+        if should_compress:
+            pypto.set_vec_tile_shapes(1, 8, 2*d)
+            kv = kv_state[:t_tile, :, :] * softmax(score_state[:t_tile, :, :], 1) ## b,8,d
+            kv = pypto.sum(kv, 1, keepdim=True) ## b,1,d
+    
+
+    if should_compress:
+        pypto.set_vec_tile_shapes(1, 8, d)
+        kv = rms_norm(pypto.cast(kv, x_dtype), weight_rms, eps_rms) ## b,cut,d
+        
+        kv_nope = pypto.view(kv, [kv.shape[0], kv.shape[1], d-rope_head_dim], [0, 0, 0])
+        kv_rope = pypto.view(kv, [kv.shape[0], kv.shape[1], rope_head_dim], [0, 0, d-rope_head_dim])
+        sin_kv = pypto.view(sin_kv, kv_rope.shape, [0, 0, 0]) ## b, cut, 64
+        cos_kv = pypto.view(cos_kv, kv_rope.shape, [0, 0, 0]) ## b, cut, 64
+        rope3d_tile_config = Rope3dTileConfig(
+            [1, 64, 64],
+            [1, 64, 128, 128]
+        )
+        kv_rope = interleaved_rope_3d(kv_rope, cos_kv, sin_kv, rope3d_tile_config)
+        pypto.set_vec_tile_shapes(1, 8, d)
+        kv = pypto.concat([kv_nope, kv_rope], dim=-1) ## b,cut,d
+
+        kv = pypto.reshape(kv, [kv.shape[0]*kv.shape[1], d])
+        kv = pypto.matmul(kv, hadamard_kv, pypto.DT_FP32) ## b*cut,d
+        kv = pypto.reshape(kv, [t_tile, kv.shape[0]//t_tile, d]) ## b,cut,d
+        
+        # kv_cache = scatter_update_4d(kv_cache, slots, kv)
+        pypto.assemble(kv, [0, 0, 0], key)
+    # pypto.set_vec_tile_shapes(1, 128, 1, head_dim)
+    # key_res, key_scale_res = prolog_quant(kv_cache)
+    # pypto.assemble(key_res, [0, 0, 0, 0], key)
+    # pypto.assemble(key_scale_res, [0, 0, 0, 0], key_scale)
+
     for tIdx, unrollLength in pypto.loop_unroll(0, t, 1, name="IndexerPrologQuantQuantLoop", idx_name="tIdx",
                                                 unroll_list=unroll_list, ):
         t_tile = unrollLength
@@ -253,6 +422,7 @@ def lightning_indexer_quant_prolog_fusion(
     wgate,
     kv_state,
     score_state,
+    cache_index_2d,
     ape,
     weight_rms,
     cos_kv,
@@ -263,6 +433,8 @@ def lightning_indexer_quant_prolog_fusion(
     q_int8_out,
     q_scale_out,
     weights_out,
+    kv_state_out,
+    score_state_out,
     key,
     key_scale,
     ratio,
@@ -323,6 +495,7 @@ def lightning_indexer_quant_prolog_fusion(
         wgate,
         kv_state,
         score_state,
+        cache_index_2d,
         ape,
         weight_rms,
         cos_kv,
@@ -333,6 +506,8 @@ def lightning_indexer_quant_prolog_fusion(
         q_int8_out,
         q_scale_out,
         weights_out,
+        kv_state_out,
+        score_state_out,
         key,
         key_scale,
         ratio,
