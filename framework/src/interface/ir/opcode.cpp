@@ -13,13 +13,10 @@
  * \brief
  */
 
-#include <vector>
-#include <string>
-#include <map>
-#include <unordered_set>
-#include <unordered_map>
 #include "ir/opcode.h"
 #include "ir/utils_defop.h"
+#include "ir/operation.h"
+#include "ir/tile_graph.h"
 
 namespace pto {
 
@@ -38,6 +35,27 @@ std::string GetOpcodeName(Opcode opcode) {
     } else {
         return "";
     }
+}
+
+static std::unordered_map<std::type_index, OpClassInfo> opClassInfoTable = {
+
+#define DEFOP DEFOP_PROPERTY_DICT
+#include "ir/operation.def"
+#include "ir/tile_graph.def"
+#undef DEFOP
+
+};
+
+OpClassInfo GetOpClassInfo(OperationPtr op) {
+    if (!op) {
+        return OpClassInfo{};
+    }
+    auto ptr = op.get();
+    auto opClassInfo = opClassInfoTable.find(std::type_index(typeid(*ptr)));
+    if (opClassInfo != opClassInfoTable.end()) {
+        return opClassInfo->second;
+    }
+    return OpClassInfo{};
 }
 
 } // namespace pto

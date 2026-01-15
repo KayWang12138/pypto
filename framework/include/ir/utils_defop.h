@@ -176,7 +176,7 @@
 #define DEFOP_CLASS_PREFIX_OPERAND(n) DEFOP_CLASS_OPERAND_##n
 #define DEFOP_CLASS_PREFIX_ATTR(n) DEFOP_CLASS_ATTR_##n
 
-#define DEFOP_CLASS(name, inherit, opcode, ...) \
+#define DEFOP_CLASS(name, inherit, opcode, property, ...) \
     class name : public DEFOP_CLASS_##inherit { \
     public: \
         name(Opcode opc MAP(DEFOP_CLASS_PREFIX_CONSTRUCT_PARAM, __VA_ARGS__)) \
@@ -214,7 +214,25 @@
 #define DEFOP_IRBUILDER_PREFIX_CONSTRUCT_PARAM DEFOP_CLASS_PREFIX_CONSTRUCT_PARAM
 #define DEFOP_IRBUILDER_PREFIX_CONSTRUCT_INHERIT(n) DEFOP_IRBUILDER_CONSTRUCT_INHERIT_##n
 
-#define DEFOP_IRBUILDER(name, inherit, opcode, ...) \
+#define DEFOP_IRBUILDER(name, inherit, opcode, property, ...) \
     name##Ptr Create##name(Opcode opc MAP(DEFOP_IRBUILDER_PREFIX_CONSTRUCT_PARAM, __VA_ARGS__)) { \
         return std::make_shared<name>(opc  MAP(DEFOP_IRBUILDER_PREFIX_CONSTRUCT_INHERIT, __VA_ARGS__)); \
     }
+
+
+#define DEFOP_PROPERTY_DICT_PREFIX_MEM(kind) MemSpaceKind::kind,
+#define DEFOP_PROPERTY_DICT_INPUTS_MEM(...) \
+    std::vector<MemSpaceKind>{MAP(DEFOP_PROPERTY_DICT_PREFIX_MEM, __VA_ARGS__)}
+#define DEFOP_PROPERTY_DICT_OUTPUTS_MEM(...) \
+    std::vector<MemSpaceKind>{MAP(DEFOP_PROPERTY_DICT_PREFIX_MEM, __VA_ARGS__)}
+
+#define DEFOP_PROPERTY_DICT(name, inherit, opcode, property, ...) \
+    {std::type_index(typeid(name)), DEFOP_PROPERTY_DICT_##property},
+
+#define DEFOP_PROPERTY_DICT_PROPERTY(inputs_mem, outputs_mem, pipe_id_start, pipe_id_end, core_type, calc_type) \
+    {DEFOP_PROPERTY_DICT_##inputs_mem,                                    \
+     DEFOP_PROPERTY_DICT_##outputs_mem,                                   \
+     PipeType::pipe_id_start,                                             \
+     PipeType::pipe_id_end,                                               \
+     CoreType::core_type,                                                 \
+     OpCalcType::calc_type}
