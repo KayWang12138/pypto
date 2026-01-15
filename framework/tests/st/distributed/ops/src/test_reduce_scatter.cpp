@@ -67,7 +67,7 @@ void TestShmemReduceScatterParaWithShmem(OpTestParam &testParam)
     ASSERT(row % testParam.rankSize == 0) << "ReduceScatter constraint: row must be divisible by worldSize";
     int rowOut = row / testParam.rankSize;
     DataType dType = GetDataTypeNum(typeNum);
-    Shape shmemDataShape = {1, row, col};
+    Shape shmemDataShape = {1, rowOut, col};
     Tensor in(dType, {row, col}, "in");
     Tensor out(dType, {rowOut, col}, "out");
     std::vector<T> inData = ReadToVector<T>(
