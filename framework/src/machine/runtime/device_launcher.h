@@ -295,7 +295,7 @@ public:
     template<typename DeviceMemoryTy>
     static void DeviceInitKernelInOuts(DeviceMemoryTy devMem, DeviceKernelArgs &kArgs,
             const std::vector<DeviceTensorData> &inputList, const std::vector<DeviceTensorData> &outputList,
-            const std::vector<uint8_t>& disableL2List, bool isGETensorList) {
+            const std::vector<uint8_t>& disableL2List, bool isGETensorList, uint8_t **cachedTensorHolder) {
         if (isGETensorList) {
             return DeviceInitTensorLists(devMem, kArgs, inputList, outputList);
         }
@@ -334,7 +334,7 @@ public:
         dataPtr += inputSize;
         buildInouts(outputList, dataPtr, outputSize, tensorIdx);
         dataPtr += outputSize;
-        kArgs.inputs = devMem.CopyToDev(tensorInfo, nullptr);
+        kArgs.inputs = devMem.CopyToDev(tensorInfo, cachedTensorHolder);
         kArgs.outputs = kArgs.inputs + 1;
         ALOG_INFO_F("Inputs %p outputs %p workspace %p cfgdata %p", kArgs.inputs, kArgs.outputs, kArgs.workspace,
             kArgs.cfgdata);

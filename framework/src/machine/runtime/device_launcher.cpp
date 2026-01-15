@@ -162,7 +162,7 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
     DeviceInitTilingData(DeviceMemoryUtils(), kArgs, function->GetDyndevAttribute()->devProgBinary, config, cachedOperator);
     DeviceRunCacheKernelSet(function, (uint8_t *)kArgs.cfgdata);
     DeviceInitKernelInOuts(DeviceMemoryUtils(), kArgs, inputList, outputList,
-        function->GetDyndevAttribute()->disableL2List, config.isGETensorList);
+        function->GetDyndevAttribute()->disableL2List, config.isGETensorList, CachedOperator::GetTensorInfoAddrHolder(cachedOperator));
     rc = DeviceRunner::Get().RegisterKernelBin(&(*reinterpret_cast<rtBinHandle *>(CachedOperator::GetBinHandleHolder(cachedOperator))));
     if (rc < 0) {
         ALOG_ERROR_F("Register kernel bin failed.");
