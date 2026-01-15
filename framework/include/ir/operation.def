@@ -22,6 +22,14 @@ DEFOP(
         OP_SCALAR_NEG,
         OP_SCALAR_POS
     ),
+    PROPERTY(
+        INPUTS_MEM(UB),
+        OUTPUTS_MEM(UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
+    ),
     INPUT(Scalar, Input),
     OUTPUT(Scalar, Output)
 )
@@ -49,6 +57,14 @@ DEFOP(
         OP_SCALAR_MIN,
         OP_SCALAR_MAX
     ),
+    PROPERTY(
+        INPUTS_MEM(UB, UB),
+        OUTPUTS_MEM(UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
+    ),
     INPUT(Scalar, Lhs),
     INPUT(Scalar, Rhs),
     OUTPUT(Scalar, Output)
@@ -59,6 +75,14 @@ DEFOP(
     INHERIT(CondScalarBaseOp),
     OPCODE(
         OP_SCALAR_ITE
+    ),
+    PROPERTY(
+        INPUTS_MEM(UB, UB, UB),
+        OUTPUTS_MEM(UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        OTHER
     ),
     INPUT(Scalar, Cond),
     INPUT(Scalar, Sat),
