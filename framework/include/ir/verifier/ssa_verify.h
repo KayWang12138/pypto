@@ -27,12 +27,12 @@ class TileValueSSAVisitor : public IRVisitor {
 public:
     explicit TileValueSSAVisitor(std::map<const TileValue *, size_t> *inputCountMap) : tileInputCountMap_(inputCountMap) {}
 
-    void VisitOp_(OperationPtr &op) override;
+    void VisitImplOp(OperationPtr &op) override;
 
 // C++ requires that when a subclass redefines a virtual function, it must redefine all overloaded virtual functions
 // with the same name but different parameters; otherwise, a warning will be issued, and in the current version, all
 // warnings are treated as errors.
-#define DEFOP(name, inherit, opcode, ...) void VisitOp_(name##Ptr &op) override;
+#define DEFOP(name, inherit, opcode, ...) void VisitImplOp(name##Ptr &op) override;
     #include "ir/operation.def"
     #include "ir/tile_graph.def"
 #undef DEFOP

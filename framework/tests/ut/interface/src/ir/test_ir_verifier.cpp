@@ -26,7 +26,7 @@ using namespace pto;
 
 // ===== Verifier Class Tests =====
 
-TEST(IRTEST, TestVerifySSASingleInput_ValidProgram) {
+TEST(IRVerifierTest, TestVerifySSASingleInput_ValidProgram) {
     auto module = std::make_shared<ProgramModule>("main");
     IRBuilder builder;
     IRBuilderContext ctx;
@@ -52,7 +52,7 @@ TEST(IRTEST, TestVerifySSASingleInput_ValidProgram) {
     EXPECT_TRUE(result.passed) << "Valid program should pass SSA verification";
 }
 
-TEST(IRTEST, TestVerifySSASingleInput_InvalidProgram_MultipleDefinitions) {
+TEST(IRVerifierTest, TestVerifySSASingleInput_InvalidProgram_MultipleDefinitions) {
     auto module = std::make_shared<ProgramModule>("main");
     IRBuilder builder;
     IRBuilderContext ctx;
@@ -85,7 +85,7 @@ TEST(IRTEST, TestVerifySSASingleInput_InvalidProgram_MultipleDefinitions) {
     EXPECT_FALSE(result.errorMsg.empty());
 }
 
-TEST(IRTEST, TestVerifyOpShape_ValidUnaryOp) {
+TEST(IRVerifierTest, TestVerifyOpShape_ValidUnaryOp) {
     auto module = std::make_shared<ProgramModule>("main");
     IRBuilder builder;
     IRBuilderContext ctx;
@@ -111,7 +111,7 @@ TEST(IRTEST, TestVerifyOpShape_ValidUnaryOp) {
     EXPECT_TRUE(result.passed) << "Valid UnaryOp should pass shape verification";
 }
 
-TEST(IRTEST, TestVerifyOpShape_InvalidUnaryOp_MismatchedShapes) {
+TEST(IRVerifierTest, TestVerifyOpShape_InvalidUnaryOp_MismatchedShapes) {
     auto module = std::make_shared<ProgramModule>("main");
     IRBuilder builder;
     IRBuilderContext ctx;
@@ -140,7 +140,7 @@ TEST(IRTEST, TestVerifyOpShape_InvalidUnaryOp_MismatchedShapes) {
     EXPECT_NE(result.errorMsg.find("UnaryOp"), std::string::npos);
 }
 
-TEST(IRTEST, TestVerifyOpShape_ValidBinaryOp_MatchingShapes) {
+TEST(IRVerifierTest, TestVerifyOpShape_ValidBinaryOp_MatchingShapes) {
     auto module = std::make_shared<ProgramModule>("main");
     IRBuilder builder;
     IRBuilderContext ctx;
@@ -167,7 +167,7 @@ TEST(IRTEST, TestVerifyOpShape_ValidBinaryOp_MatchingShapes) {
     EXPECT_TRUE(result.passed) << "BinaryOp with matching shapes should pass";
 }
 
-TEST(IRTEST, TestVerifyOpShape_ValidBinaryOp_Broadcast) {
+TEST(IRVerifierTest, TestVerifyOpShape_ValidBinaryOp_Broadcast) {
     auto module = std::make_shared<ProgramModule>("main");
     IRBuilder builder;
     IRBuilderContext ctx;
@@ -196,7 +196,7 @@ TEST(IRTEST, TestVerifyOpShape_ValidBinaryOp_Broadcast) {
     EXPECT_TRUE(result.passed) << "BinaryOp with broadcastable shape should pass";
 }
 
-TEST(IRTEST, TestVerifyOpShape_InvalidBinaryOp_IncompatibleShapes) {
+TEST(IRVerifierTest, TestVerifyOpShape_InvalidBinaryOp_IncompatibleShapes) {
     auto module = std::make_shared<ProgramModule>("main");
     IRBuilder builder;
     IRBuilderContext ctx;
@@ -227,7 +227,7 @@ TEST(IRTEST, TestVerifyOpShape_InvalidBinaryOp_IncompatibleShapes) {
     EXPECT_NE(result.errorMsg.find("BinaryOp"), std::string::npos);
 }
 
-TEST(IRTEST, TestVerifyOpShape_ValidBinaryScalarMixOp) {
+TEST(IRVerifierTest, TestVerifyOpShape_ValidBinaryScalarMixOp) {
     auto module = std::make_shared<ProgramModule>("main");
     IRBuilder builder;
     IRBuilderContext ctx;
@@ -254,7 +254,7 @@ TEST(IRTEST, TestVerifyOpShape_ValidBinaryScalarMixOp) {
     EXPECT_TRUE(result.passed) << "Valid BinaryScalarMixOp should pass shape verification";
 }
 
-TEST(IRTEST, TestVerifyOpShape_InvalidBinaryScalarMixOp_MismatchedShapes) {
+TEST(IRVerifierTest, TestVerifyOpShape_InvalidBinaryScalarMixOp_MismatchedShapes) {
     auto module = std::make_shared<ProgramModule>("main");
     IRBuilder builder;
     IRBuilderContext ctx;
@@ -284,7 +284,7 @@ TEST(IRTEST, TestVerifyOpShape_InvalidBinaryScalarMixOp_MismatchedShapes) {
     EXPECT_NE(result.errorMsg.find("BinaryScalarMixOp"), std::string::npos);
 }
 
-TEST(IRTEST, TestVerifyOpShape_MixedOperations) {
+TEST(IRVerifierTest, TestVerifyOpShape_MixedOperations) {
     auto module = std::make_shared<ProgramModule>("main");
     IRBuilder builder;
     IRBuilderContext ctx;

@@ -16,7 +16,7 @@
 
 namespace pto {
 
-void TileValueSSAVisitor::VisitOp_(OperationPtr &op) {
+void TileValueSSAVisitor::VisitImplOp(OperationPtr &op) {
     if (!op)
         return;
 
@@ -35,9 +35,9 @@ void TileValueSSAVisitor::VisitOp_(OperationPtr &op) {
 
 // ---- Concrete ops (auto-generated from *.def) ----
 #define DEFOP(name, inherit, opcode, ...)                             \
-    void TileValueSSAVisitor::VisitOp_(name##Ptr &op) {               \
+    void TileValueSSAVisitor::VisitImplOp(name##Ptr &op) {               \
         OperationPtr opPtr = std::static_pointer_cast<Operation>(op); \
-        VisitOp_(opPtr);                                              \
+        VisitImplOp(opPtr);                                              \
     }
 #include "ir/operation.def"
 #include "ir/tile_graph.def"
