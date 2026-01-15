@@ -371,14 +371,13 @@ def test_win_atten_bsnd_c128() -> None:
             print("seqused_kv_list:", seqused_kv_list)
 
             q, ori_block_table, ori_kv, attn_sinks, atten_out = gen_win_attn_data_c128(t, n_q, d_q, n_kv, d_kv, block_size, seqused_kv_list_tensor, dtypes, device_id)
-            
             deepseekv4_win_atten(q, ori_block_table, ori_kv, seqused_kv_list_tensor, attn_sinks, atten_out, win_size, is_decode=True, is_c128=True)
-
-            golden = win_atten_calc_c128(input_params_win_attn, seqused_kv_list, attn_sinks, q, ori_kv, ori_block_table, device_id)
             from utils.np_compare import detailed_allclose_manual as compare
             threhold = 5e-4
-            compare(golden, atten_out, "SWA decode bnsd C128A版本", rtol=threhold, atol=threhold)
-
+            import utils.golden.attn_golden as attn_golden
+            golden = torch.zeros_like(q).to('npu')
+            attn_golden.ifa_golden(q, ori_kv, ori_kv, attn_sinks, ori_block_table, seqused_kv_list_tensor-s_q, golden, enable_flash=False, cmp_r=1, is_new_sink=True)
+            compare(golden, atten_out, "SWA decode atten_out", rtol=threhold, atol=threhold)
 
 def test_win_atten_decode() -> None:
     

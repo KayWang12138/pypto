@@ -249,6 +249,7 @@ def ifa_flash(q, k, v, attn_sink, block_table, start_pos, atten_out, cmp_r=1, un
                         oi_update[:] = oi_update * update_mul + oi_tmp
                     if pypto.cond(pypto.is_loop_end(s2_idx)):
                         attn_sink_tile = pypto.view(attn_sink_2d, [g_tile, 1], [0, 0])
+                        attn_sink_tile = pypto.exp(attn_sink_tile - max_update)
                         sum_local = pypto.add(sum_update, attn_sink_tile)
                         oi_final = pypto.div(oi_update, sum_local)
 
@@ -302,7 +303,7 @@ def test_ifa(enable_flash: bool, enable_high_perf: bool, enable_graph: bool, dev
     q = torch.empty(q_shape, **empty_kwargs).uniform_(-1, 1)
     k = torch.empty(kv_shape, **empty_kwargs).uniform_(-1, 1)
     v = torch.empty(kv_shape, **empty_kwargs).uniform_(-1, 1)
-    attn_sink = torch.empty(nq, dtype=torch.float32, device=device).uniform_(-1, 1)
+    attn_sink = torch.empty(nq, dtype=torch.float32, device=device).uniform_(-1, 1) + 50
 
     import utils.golden.attn_golden as attn_golden
     output = torch.zeros(q_shape, **empty_kwargs)
@@ -319,8 +320,8 @@ def test_ifa(enable_flash: bool, enable_high_perf: bool, enable_graph: bool, dev
     attention(q, k, v, attn_sink, blk_tbl, start_pos, out_npu, cmp_r, unroll_list, pg_upper_bound=pg_upper_bound)
     from utils.np_compare import detailed_allclose_manual as compare
 
-    attn_golden.ifa_golden(q, k, v, attn_sink, blk_tbl, start_pos, output, enable_flash=False, cmp_r=cmp_r)
-    attn_golden.ifa_golden(q, k, v, attn_sink, blk_tbl, start_pos, output_flash, enable_flash=True, cmp_r=cmp_r)
+    attn_golden.ifa_golden(q, k, v, attn_sink, blk_tbl, start_pos, output, enable_flash=False, cmp_r=cmp_r, is_new_sink=True)
+    attn_golden.ifa_golden(q, k, v, attn_sink, blk_tbl, start_pos, output_flash, enable_flash=True, cmp_r=cmp_r, is_new_sink=True)
     threhold = 5e-4
     compare(output, output_flash, "no flash golden vs flash golden", rtol=threhold, atol=threhold)
     compare(output_flash, out_npu, "golden vs npu", rtol=threhold, atol=threhold)
