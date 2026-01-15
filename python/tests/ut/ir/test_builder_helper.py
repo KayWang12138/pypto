@@ -22,9 +22,7 @@ def test_control_flow():
 
     # ===== Module =====
     module = ir.module("main")
-    builder = ir.IrBuilder()
-    ctx = ir.IrBuilderContext()
-    block = BlockBuilderHelper(builder, ctx)
+    block = BlockBuilderHelper()
 
     # ===== Signature =====
     sig = ir.FunctionSignature()
@@ -117,9 +115,7 @@ def test_control_flow_closure():
     Further ast transforms will work on `create_function` level, not module level.
     """
     module = ir.module("main")
-    builder = ir.IrBuilder()
-    ctx = ir.IrBuilderContext()
-    block = BlockBuilderHelper(builder, ctx)
+    block = BlockBuilderHelper()
 
     batch = ir.Scalar(ir.DataType.int32, None, "batch")
     constant128 = ir.Scalar(ir.DataType.int64, 128, "const_128")
@@ -180,11 +176,9 @@ def test_control_flow_closure():
 
 
 def test_unary_operations():
-    """Test all unary operations: exp, neg, rsqrt, sqrt, logicalnot, reciprocal, abs, ln"""
+    """Test all unary operations: assign, exp, neg, rsqrt, sqrt, reciprocal, abs, ln, compact"""
     module = ir.module("test_unary")
-    builder = ir.IrBuilder()
-    ctx = ir.IrBuilderContext()
-    block = BlockBuilderHelper(builder, ctx)
+    block = BlockBuilderHelper()
 
     # Setup
     tile_shape = [128, 128]
@@ -207,6 +201,9 @@ def test_unary_operations():
         input_tile = block.tile(tile_shape, ir.DataType.float, "input_tile")
 
         # Test all unary operations
+        res_assign = block.tile(tile_shape, ir.DataType.float, "res_assign")
+        block.assign(input_tile, out=res_assign)
+
         res_exp = block.tile(tile_shape, ir.DataType.float, "res_exp")
         block.exp(input_tile, out=res_exp)
 
@@ -231,17 +228,18 @@ def test_unary_operations():
         res_ln = block.tile(tile_shape, ir.DataType.float, "res_ln")
         block.ln(input_tile, out=res_ln)
 
-        block.create_return([res_ln])
+        res_compact = block.tile(tile_shape, ir.DataType.float, "res_compact")
+        block.compact(input_tile, out=res_compact)
+
+        block.create_return([res_compact])
 
     print(f"Unary operations test completed: {module}")
 
 
 def test_binary_operations():
-    """Test all binary operations: sub, mul, div, min, max"""
+    """Test all binary operations: add, sub, mul, div, min, max, s_add, s_sub, s_mul, s_div, s_min, s_max, pad"""
     module = ir.module("test_binary")
-    builder = ir.IrBuilder()
-    ctx = ir.IrBuilderContext()
-    block = BlockBuilderHelper(builder, ctx)
+    block = BlockBuilderHelper()
 
     # Setup
     tile_shape = [128, 128]
@@ -266,6 +264,9 @@ def test_binary_operations():
         input_y = block.tile(tile_shape, ir.DataType.float, "input_y")
 
         # Test all binary operations
+        res_add = block.tile(tile_shape, ir.DataType.float, "res_add")
+        block.add(input_x, input_y, out=res_add)
+
         res_sub = block.tile(tile_shape, ir.DataType.float, "res_sub")
         block.sub(input_x, input_y, out=res_sub)
 
@@ -281,17 +282,36 @@ def test_binary_operations():
         res_max = block.tile(tile_shape, ir.DataType.float, "res_max")
         block.max(input_x, input_y, out=res_max)
 
-        block.create_return([res_max])
+        res_s_add = block.tile(tile_shape, ir.DataType.float, "res_s_add")
+        block.s_add(input_x, input_y, out=res_s_add)
+
+        res_s_sub = block.tile(tile_shape, ir.DataType.float, "res_s_sub")
+        block.s_sub(input_x, input_y, out=res_s_sub)
+
+        res_s_mul = block.tile(tile_shape, ir.DataType.float, "res_s_mul")
+        block.s_mul(input_x, input_y, out=res_s_mul)
+
+        res_s_div = block.tile(tile_shape, ir.DataType.float, "res_s_div")
+        block.s_div(input_x, input_y, out=res_s_div)
+
+        res_s_min = block.tile(tile_shape, ir.DataType.float, "res_s_min")
+        block.s_min(input_x, input_y, out=res_s_min)
+
+        res_s_max = block.tile(tile_shape, ir.DataType.float, "res_s_max")
+        block.s_max(input_x, input_y, out=res_s_max)
+
+        res_pad = block.tile(tile_shape, ir.DataType.float, "res_pad")
+        block.pad(input_x, input_y, out=res_pad)
+
+        block.create_return([res_pad])
 
     print(f"Binary operations test completed: {module}")
 
 
 def test_binary_scalar_mix_operations():
-    """Test all binary scalar mix operations: adds, subs, muls, divs, mins, maxs"""
+    """Test all binary scalar mix operations: adds, subs, muls, divs, mins, maxs, s_adds, s_subs, s_muls, s_divs, s_mins, s_maxs"""
     module = ir.module("test_binary_scalar")
-    builder = ir.IrBuilder()
-    ctx = ir.IrBuilderContext()
-    block = BlockBuilderHelper(builder, ctx)
+    block = BlockBuilderHelper()
 
     # Setup
     tile_shape = [128, 128]
@@ -333,9 +353,626 @@ def test_binary_scalar_mix_operations():
         res_maxs = block.tile(tile_shape, ir.DataType.float, "res_maxs")
         block.maxs(input_tile, scale, out=res_maxs)
 
-        block.create_return([res_maxs])
+        res_s_adds = block.tile(tile_shape, ir.DataType.float, "res_s_adds")
+        block.s_adds(input_tile, scale, out=res_s_adds)
+
+        res_s_subs = block.tile(tile_shape, ir.DataType.float, "res_s_subs")
+        block.s_subs(input_tile, scale, out=res_s_subs)
+
+        res_s_muls = block.tile(tile_shape, ir.DataType.float, "res_s_muls")
+        block.s_muls(input_tile, scale, out=res_s_muls)
+
+        res_s_divs = block.tile(tile_shape, ir.DataType.float, "res_s_divs")
+        block.s_divs(input_tile, scale, out=res_s_divs)
+
+        res_s_mins = block.tile(tile_shape, ir.DataType.float, "res_s_mins")
+        block.s_mins(input_tile, scale, out=res_s_mins)
+
+        res_s_maxs = block.tile(tile_shape, ir.DataType.float, "res_s_maxs")
+        block.s_maxs(input_tile, scale, out=res_s_maxs)
+
+        block.create_return([res_s_maxs])
 
     print(f"Binary scalar mix operations test completed: {module}")
+
+
+def test_unary_with_temp_operations():
+    """Test unary operations with temp tensor: logicalnot"""
+    module = ir.module("test_unary_with_temp")
+    block = BlockBuilderHelper()
+
+    tile_shape = [128, 128]
+    batch = ir.Scalar(ir.DataType.int32, None, "batch")
+    constant128 = ir.Scalar(ir.DataType.int64, 128, "const_128")
+    tensor_shape = [batch, constant128]
+    input_tensor = ir.Tensor(tensor_shape, ir.DataType.float, "input", ir.Format.ND)
+    output_tensor = ir.Tensor(tensor_shape, ir.DataType.float, "output", ir.Format.ND)
+
+    sig = ir.FunctionSignature()
+    sig.arguments = [input_tensor]
+    sig.returns = [output_tensor]
+
+    func = block.create_function("test_unary_with_temp", ir.FunctionKind.DataFlow, sig)
+    module.add_function(func)
+    module.entry = func
+
+    with block.function_scope(func):
+        input_tile = block.tile(tile_shape, ir.DataType.float, "input_tile")
+        res_logicalnot = block.tile(tile_shape, ir.DataType.float, "res_logicalnot")
+        temp_tensor = block.tile(tile_shape, ir.DataType.float, "temp_tensor")
+        block.logicalnot_with_temp(input_tile, res_logicalnot, temp_tensor)
+
+        block.create_return([res_logicalnot])
+
+    print(f"Unary with temp operations test completed: {module}")
+
+
+def test_range_operations():
+    """Test range operation"""
+    module = ir.module("test_range")
+    block = BlockBuilderHelper()
+
+    tile_shape = [128]
+    batch = ir.Scalar(ir.DataType.int32, None, "batch")
+    constant128 = ir.Scalar(ir.DataType.int64, 128, "const_128")
+    tensor_shape = [constant128]
+    output_tensor = ir.Tensor(tensor_shape, ir.DataType.int32, "output", ir.Format.ND)
+
+    sig = ir.FunctionSignature()
+    sig.arguments = []
+    sig.returns = [output_tensor]
+
+    func = block.create_function("test_range", ir.FunctionKind.DataFlow, sig)
+    module.add_function(func)
+    module.entry = func
+
+    with block.function_scope(func):
+        start = block.const(0, "start")
+        step = block.const(1, "step")
+        size = block.const(128, "size")
+        output_tile = block.tile(tile_shape, ir.DataType.int32, "output_tile")
+        block.range_op(start, step, size, output_tile)
+
+        block.create_return([output_tile])
+
+    print(f"Range operations test completed: {module}")
+
+
+def test_vec_dup_operations():
+    """Test vector duplicate operation"""
+    module = ir.module("test_vec_dup")
+    block = BlockBuilderHelper()
+
+    tile_shape = [128, 128]
+    batch = ir.Scalar(ir.DataType.int32, None, "batch")
+    constant128 = ir.Scalar(ir.DataType.int64, 128, "const_128")
+    tensor_shape = [batch, constant128]
+    output_tensor = ir.Tensor(tensor_shape, ir.DataType.float, "output", ir.Format.ND)
+
+    sig = ir.FunctionSignature()
+    sig.arguments = []
+    sig.returns = [output_tensor]
+
+    func = block.create_function("test_vec_dup", ir.FunctionKind.DataFlow, sig)
+    module.add_function(func)
+    module.entry = func
+
+    with block.function_scope(func):
+        value = block.const(1.0, "value")
+        output_tile = block.tile(tile_shape, ir.DataType.float, "output_tile")
+        block.vec_dup(value, output_tile)
+
+        block.create_return([output_tile])
+
+    print(f"Vec dup operations test completed: {module}")
+
+
+def test_pow_operations():
+    """Test power operation"""
+    module = ir.module("test_pow")
+    block = BlockBuilderHelper()
+
+    tile_shape = [128, 128]
+    batch = ir.Scalar(ir.DataType.int32, None, "batch")
+    constant128 = ir.Scalar(ir.DataType.int64, 128, "const_128")
+    tensor_shape = [batch, constant128]
+    input_tensor = ir.Tensor(tensor_shape, ir.DataType.float, "input", ir.Format.ND)
+    output_tensor = ir.Tensor(tensor_shape, ir.DataType.float, "output", ir.Format.ND)
+
+    sig = ir.FunctionSignature()
+    sig.arguments = [input_tensor]
+    sig.returns = [output_tensor]
+
+    func = block.create_function("test_pow", ir.FunctionKind.DataFlow, sig)
+    module.add_function(func)
+    module.entry = func
+
+    with block.function_scope(func):
+        input_tile = block.tile(tile_shape, ir.DataType.float, "input_tile")
+        exponent = block.const(2.0, "exponent")
+        output_tile = block.tile(tile_shape, ir.DataType.float, "output_tile")
+        block.pow(input_tile, exponent, output_tile)
+
+        block.create_return([output_tile])
+
+    print(f"Pow operations test completed: {module}")
+
+
+def test_gather_operations():
+    """Test gather operations"""
+    module = ir.module("test_gather")
+    block = BlockBuilderHelper()
+
+    tile_shape = [128, 128]
+    batch = ir.Scalar(ir.DataType.int32, None, "batch")
+    constant128 = ir.Scalar(ir.DataType.int64, 128, "const_128")
+    tensor_shape = [batch, constant128]
+    input_tensor = ir.Tensor(tensor_shape, ir.DataType.float, "input", ir.Format.ND)
+    indices_tensor = ir.Tensor(tensor_shape, ir.DataType.int32, "indices", ir.Format.ND)
+    output_tensor = ir.Tensor(tensor_shape, ir.DataType.float, "output", ir.Format.ND)
+
+    sig = ir.FunctionSignature()
+    sig.arguments = [input_tensor, indices_tensor]
+    sig.returns = [output_tensor]
+
+    func = block.create_function("test_gather", ir.FunctionKind.DataFlow, sig)
+    module.add_function(func)
+    module.entry = func
+
+    with block.function_scope(func):
+        input_tile = block.tile(tile_shape, ir.DataType.float, "input_tile")
+        indices_tile = block.tile(tile_shape, ir.DataType.int32, "indices_tile")
+        output_tile = block.tile(tile_shape, ir.DataType.float, "output_tile")
+        block.gather(input_tile, indices_tile, output_tile)
+        block.gather_extended(input_tile, indices_tile, output_tile)
+        block.gather_element(input_tile, indices_tile, output_tile)
+
+        block.create_return([output_tile])
+
+    print(f"Gather operations test completed: {module}")
+
+
+def test_reduce_operations():
+    """Test reduce operations"""
+    module = ir.module("test_reduce")
+    block = BlockBuilderHelper()
+
+    tile_shape = [128, 128]
+    batch = ir.Scalar(ir.DataType.int32, None, "batch")
+    constant128 = ir.Scalar(ir.DataType.int64, 128, "const_128")
+    tensor_shape = [batch, constant128]
+    input_tensor = ir.Tensor(tensor_shape, ir.DataType.float, "input", ir.Format.ND)
+    output_tensor = ir.Tensor([batch], ir.DataType.float, "output", ir.Format.ND)
+
+    sig = ir.FunctionSignature()
+    sig.arguments = [input_tensor]
+    sig.returns = [output_tensor]
+
+    func = block.create_function("test_reduce", ir.FunctionKind.DataFlow, sig)
+    module.add_function(func)
+    module.entry = func
+
+    with block.function_scope(func):
+        input_tile = block.tile(tile_shape, ir.DataType.float, "input_tile")
+        output_tile = block.tile([128], ir.DataType.float, "output_tile")
+        block.reduce(input_tile, output_tile)
+        block.reduce_minline(input_tile, output_tile)
+
+        temp_tensor = block.tile(tile_shape, ir.DataType.float, "temp_tensor")
+        block.reduce_with_temp(input_tile, output_tile, temp_tensor)
+        block.reduce_min_with_temp(input_tile, output_tile, temp_tensor)
+        block.reduce_sum_with_temp(input_tile, output_tile, temp_tensor)
+        block.reduce_sumline_with_temp(input_tile, output_tile, temp_tensor)
+
+        block.create_return([output_tile])
+
+    print(f"Reduce operations test completed: {module}")
+
+
+def test_broadcast_operations():
+    """Test broadcast operations"""
+    module = ir.module("test_broadcast")
+    block = BlockBuilderHelper()
+
+    tile_shape = [128, 128]
+    batch = ir.Scalar(ir.DataType.int32, None, "batch")
+    constant128 = ir.Scalar(ir.DataType.int64, 128, "const_128")
+    tensor_shape = [batch, constant128]
+    input_x_tensor = ir.Tensor(tensor_shape, ir.DataType.float, "input_x", ir.Format.ND)
+    input_y_tensor = ir.Tensor(tensor_shape, ir.DataType.float, "input_y", ir.Format.ND)
+    output_tensor = ir.Tensor(tensor_shape, ir.DataType.float, "output", ir.Format.ND)
+
+    sig = ir.FunctionSignature()
+    sig.arguments = [input_x_tensor, input_y_tensor]
+    sig.returns = [output_tensor]
+
+    func = block.create_function("test_broadcast", ir.FunctionKind.DataFlow, sig)
+    module.add_function(func)
+    module.entry = func
+
+    with block.function_scope(func):
+        input_x = block.tile(tile_shape, ir.DataType.float, "input_x")
+        input_y = block.tile(tile_shape, ir.DataType.float, "input_y")
+        output_tile = block.tile(tile_shape, ir.DataType.float, "output_tile")
+        temp_tensor = block.tile(tile_shape, ir.DataType.float, "temp_tensor")
+        block.broadcast_with_temp(input_x, input_y, output_tile, temp_tensor)
+        block.broadcast_minimum(input_x, input_y, output_tile, temp_tensor)
+        block.broadcast_pairmax(input_x, input_y, output_tile, temp_tensor)
+        block.broadcast_pairmin(input_x, input_y, output_tile, temp_tensor)
+        block.broadcast_pairsum(input_x, input_y, output_tile, temp_tensor)
+
+        block.create_return([output_tile])
+
+    print(f"Broadcast operations test completed: {module}")
+
+
+def test_cast_operations():
+    """Test cast operation"""
+    module = ir.module("test_cast")
+    block = BlockBuilderHelper()
+
+    tile_shape = [128, 128]
+    batch = ir.Scalar(ir.DataType.int32, None, "batch")
+    constant128 = ir.Scalar(ir.DataType.int64, 128, "const_128")
+    tensor_shape = [batch, constant128]
+    input_tensor = ir.Tensor(tensor_shape, ir.DataType.float, "input", ir.Format.ND)
+    output_tensor = ir.Tensor(tensor_shape, ir.DataType.int32, "output", ir.Format.ND)
+
+    sig = ir.FunctionSignature()
+    sig.arguments = [input_tensor]
+    sig.returns = [output_tensor]
+
+    func = block.create_function("test_cast", ir.FunctionKind.DataFlow, sig)
+    module.add_function(func)
+    module.entry = func
+
+    with block.function_scope(func):
+        input_tile = block.tile(tile_shape, ir.DataType.float, "input_tile")
+        output_tile = block.tile(tile_shape, ir.DataType.int32, "output_tile")
+        block.cast(input_tile, output_tile)
+
+        block.create_return([output_tile])
+
+    print(f"Cast operations test completed: {module}")
+
+
+def test_where_operations():
+    """Test where/ternary operations"""
+    module = ir.module("test_where")
+    block = BlockBuilderHelper()
+
+    tile_shape = [128, 128]
+    batch = ir.Scalar(ir.DataType.int32, None, "batch")
+    constant128 = ir.Scalar(ir.DataType.int64, 128, "const_128")
+    tensor_shape = [batch, constant128]
+    condition_tensor = ir.Tensor(tensor_shape, ir.DataType.bool, "condition", ir.Format.ND)
+    input_tensor = ir.Tensor(tensor_shape, ir.DataType.float, "input", ir.Format.ND)
+    other_tensor = ir.Tensor(tensor_shape, ir.DataType.float, "other", ir.Format.ND)
+    output_tensor = ir.Tensor(tensor_shape, ir.DataType.float, "output", ir.Format.ND)
+
+    sig = ir.FunctionSignature()
+    sig.arguments = [condition_tensor, input_tensor, other_tensor]
+    sig.returns = [output_tensor]
+
+    func = block.create_function("test_where", ir.FunctionKind.DataFlow, sig)
+    module.add_function(func)
+    module.entry = func
+
+    with block.function_scope(func):
+        condition_tile = block.tile(tile_shape, ir.DataType.bool, "condition_tile")
+        input_tile = block.tile(tile_shape, ir.DataType.float, "input_tile")
+        other_tile = block.tile(tile_shape, ir.DataType.float, "other_tile")
+        output_tile = block.tile(tile_shape, ir.DataType.float, "output_tile")
+        temp_tensor = block.tile(tile_shape, ir.DataType.float, "temp_tensor")
+
+        block.where_tt(condition_tile, input_tile, other_tile, output_tile, temp_tensor)
+
+        scalar_other = block.const(0.0, "scalar_other")
+        block.where_ts(condition_tile, input_tile, scalar_other, output_tile, temp_tensor)
+
+        scalar_input = block.const(1.0, "scalar_input")
+        block.where_st(condition_tile, scalar_input, other_tile, output_tile, temp_tensor)
+
+        block.where_ss(condition_tile, scalar_input, scalar_other, output_tile, temp_tensor)
+
+        block.create_return([output_tile])
+
+    print(f"Where operations test completed: {module}")
+
+
+def test_compare_operations():
+    """Test compare operations"""
+    module = ir.module("test_compare")
+    block = BlockBuilderHelper()
+
+    tile_shape = [128, 128]
+    batch = ir.Scalar(ir.DataType.int32, None, "batch")
+    constant128 = ir.Scalar(ir.DataType.int64, 128, "const_128")
+    tensor_shape = [batch, constant128]
+    input_x_tensor = ir.Tensor(tensor_shape, ir.DataType.float, "input_x", ir.Format.ND)
+    input_y_tensor = ir.Tensor(tensor_shape, ir.DataType.float, "input_y", ir.Format.ND)
+    output_tensor = ir.Tensor(tensor_shape, ir.DataType.bool, "output", ir.Format.ND)
+
+    sig = ir.FunctionSignature()
+    sig.arguments = [input_x_tensor, input_y_tensor]
+    sig.returns = [output_tensor]
+
+    func = block.create_function("test_compare", ir.FunctionKind.DataFlow, sig)
+    module.add_function(func)
+    module.entry = func
+
+    with block.function_scope(func):
+        input_x = block.tile(tile_shape, ir.DataType.float, "input_x")
+        input_y = block.tile(tile_shape, ir.DataType.float, "input_y")
+        output_tile = block.tile(tile_shape, ir.DataType.bool, "output_tile")
+        temp_tensor = block.tile(tile_shape, ir.DataType.float, "temp_tensor")
+
+        block.compare(input_x, input_y, output_tile, temp_tensor)
+
+        scalar_y = block.const(0.0, "scalar_y")
+        block.compare_scalar(input_x, scalar_y, output_tile, temp_tensor)
+
+        block.create_return([output_tile])
+
+    print(f"Compare operations test completed: {module}")
+
+
+def test_matmul_operations():
+    """Test matmul operations"""
+    module = ir.module("test_matmul")
+    block = BlockBuilderHelper()
+
+    tile_shape = [128, 128]
+    batch = ir.Scalar(ir.DataType.int32, None, "batch")
+    constant128 = ir.Scalar(ir.DataType.int64, 128, "const_128")
+    tensor_shape = [batch, constant128]
+    input_tensor = ir.Tensor(tensor_shape, ir.DataType.float, "input", ir.Format.ND)
+    output_tensor = ir.Tensor(tensor_shape, ir.DataType.float, "output", ir.Format.ND)
+
+    sig = ir.FunctionSignature()
+    sig.arguments = [input_tensor]
+    sig.returns = [output_tensor]
+
+    func = block.create_function("test_matmul", ir.FunctionKind.DataFlow, sig)
+    module.add_function(func)
+    module.entry = func
+
+    with block.function_scope(func):
+        input_tile = block.tile(tile_shape, ir.DataType.float, "input_tile")
+        output_tile = block.tile(tile_shape, ir.DataType.float, "output_tile")
+        offsets = [block.const(0, "offset0"), block.const(0, "offset1")]
+
+        block.matmul_extract(input_tile, offsets, output_tile)
+        block.matmul_extract_l0b(input_tile, offsets, output_tile)
+        block.matmul_extract_l0at(input_tile, offsets, output_tile)
+        block.matmul_extract_l0bt(input_tile, offsets, output_tile)
+        block.matmul_extract_l0c_to_l1(input_tile, offsets, output_tile)
+
+        lhs_tile = block.tile(tile_shape, ir.DataType.float, "lhs_tile")
+        rhs_tile = block.tile(tile_shape, ir.DataType.float, "rhs_tile")
+        block.matmul_mmad(lhs_tile, rhs_tile, output_tile)
+        block.matmul_acc(lhs_tile, rhs_tile, output_tile)
+
+        block.create_return([output_tile])
+
+    print(f"Matmul operations test completed: {module}")
+
+
+def test_matmul_load_store_operations():
+    """Test matmul load and store operations with tensor inputs"""
+    module = ir.module("test_matmul_load_store")
+    block = BlockBuilderHelper()
+
+    tile_shape = [128, 128]
+    batch = ir.Scalar(ir.DataType.int32, None, "batch")
+    constant128 = ir.Scalar(ir.DataType.int64, 128, "const_128")
+    tensor_shape = [batch, constant128]
+    input_tensor = ir.Tensor(tensor_shape, ir.DataType.float, "input", ir.Format.ND)
+    output_tensor = ir.Tensor(tensor_shape, ir.DataType.float, "output", ir.Format.ND)
+
+    sig = ir.FunctionSignature()
+    sig.arguments = [input_tensor]
+    sig.returns = [output_tensor]
+
+    func = block.create_function("test_matmul_load_store", ir.FunctionKind.DataFlow, sig)
+    module.add_function(func)
+    module.entry = func
+
+    with block.function_scope(func):
+        # Create tensor using tensor method
+        tensor_shape_scalars = [batch, constant128]
+        input_tensor_value = block.tensor(tensor_shape_scalars, ir.DataType.float, "input_tensor")
+        output_tensor_value = block.tensor(tensor_shape_scalars, ir.DataType.float, "output_tensor")
+
+        # Create tiles for matmul operations
+        l1_tile = block.tile(tile_shape, ir.DataType.float, "l1_tile")
+        l0c_tile = block.tile(tile_shape, ir.DataType.float, "l0c_tile")
+
+        # Create offset scalars
+        offset0 = block.const(0, "offset0")
+        offset1 = block.const(0, "offset1")
+        offsets = [offset0, offset1]
+
+        # Test matmul load: tensor -> tile (L1 copy in)
+        block.matmul_load(input_tensor_value, offsets, l1_tile)
+
+        # Test matmul store: tile -> tensor (L0C copy out)
+        block.matmul_store(l0c_tile, offsets, output_tensor_value)
+
+        block.create_return([output_tensor_value])
+
+    print(f"Matmul load/store operations test completed: {module}")
+
+
+def test_transpose_operations():
+    """Test transpose operations"""
+    module = ir.module("test_transpose")
+    block = BlockBuilderHelper()
+
+    tile_shape = [128, 128]
+    batch = ir.Scalar(ir.DataType.int32, None, "batch")
+    constant128 = ir.Scalar(ir.DataType.int64, 128, "const_128")
+    tensor_shape = [batch, constant128]
+    input_tensor = ir.Tensor(tensor_shape, ir.DataType.float, "input", ir.Format.ND)
+    output_tensor = ir.Tensor(tensor_shape, ir.DataType.float, "output", ir.Format.ND)
+
+    sig = ir.FunctionSignature()
+    sig.arguments = [input_tensor]
+    sig.returns = [output_tensor]
+
+    func = block.create_function("test_transpose", ir.FunctionKind.DataFlow, sig)
+    module.add_function(func)
+    module.entry = func
+
+    with block.function_scope(func):
+        input_tile = block.tile(tile_shape, ir.DataType.float, "input_tile")
+        output_tile = block.tile(tile_shape, ir.DataType.float, "output_tile")
+        block.transpose_movein(input_tile, output_tile)
+        block.transpose_moveout(input_tile, output_tile)
+
+        block.create_return([output_tile])
+
+    print(f"Transpose operations test completed: {module}")
+
+
+def test_copy_operations():
+    """Test copy operations"""
+    module = ir.module("test_copy")
+    block = BlockBuilderHelper()
+
+    tile_shape = [128, 128]
+    batch = ir.Scalar(ir.DataType.int32, None, "batch")
+    constant128 = ir.Scalar(ir.DataType.int64, 128, "const_128")
+    tensor_shape = [batch, constant128]
+    input_tensor = ir.Tensor(tensor_shape, ir.DataType.float, "input", ir.Format.ND)
+    output_tensor = ir.Tensor(tensor_shape, ir.DataType.float, "output", ir.Format.ND)
+
+    sig = ir.FunctionSignature()
+    sig.arguments = [input_tensor]
+    sig.returns = [output_tensor]
+
+    func = block.create_function("test_copy", ir.FunctionKind.DataFlow, sig)
+    module.add_function(func)
+    module.entry = func
+
+    with block.function_scope(func):
+        input_tile = block.tile(tile_shape, ir.DataType.float, "input_tile")
+        output_tile = block.tile(tile_shape, ir.DataType.float, "output_tile")
+        block.copy_in(input_tile, output_tile)
+        block.copy_out(input_tile, output_tile)
+
+        block.create_return([output_tile])
+
+    print(f"Copy operations test completed: {module}")
+
+
+def test_ub_copy_operations():
+    """Test UB copy operations with tensor inputs"""
+    module = ir.module("test_ub_copy")
+    block = BlockBuilderHelper()
+
+    tile_shape = [128, 128]
+    batch = ir.Scalar(ir.DataType.int32, None, "batch")
+    constant128 = ir.Scalar(ir.DataType.int64, 128, "const_128")
+    tensor_shape = [batch, constant128]
+    input_tensor = ir.Tensor(tensor_shape, ir.DataType.float, "input", ir.Format.ND)
+    output_tensor = ir.Tensor(tensor_shape, ir.DataType.float, "output", ir.Format.ND)
+
+    sig = ir.FunctionSignature()
+    sig.arguments = [input_tensor]
+    sig.returns = [output_tensor]
+
+    func = block.create_function("test_ub_copy", ir.FunctionKind.DataFlow, sig)
+    module.add_function(func)
+    module.entry = func
+
+    with block.function_scope(func):
+        # Create tensor using tensor method
+        tensor_shape_scalars = [batch, constant128]
+        input_tensor_value = block.tensor(tensor_shape_scalars, ir.DataType.float, "input_tensor")
+        output_tensor_value = block.tensor(tensor_shape_scalars, ir.DataType.float, "output_tensor")
+
+        # Create tile for UB operations
+        ub_tile = block.tile(tile_shape, ir.DataType.float, "ub_tile")
+
+        # Create offset scalars
+        offset0 = block.const(0, "offset0")
+        offset1 = block.const(0, "offset1")
+        offsets = [offset0, offset1]
+
+        # Test UB copy in: tensor -> tile
+        block.ub_copy_in(input_tensor_value, offsets, ub_tile)
+
+        # Test UB copy out: tile -> tensor
+        block.ub_copy_out(ub_tile, offsets, output_tensor_value)
+
+        block.create_return([output_tensor_value])
+
+    print(f"UB copy operations test completed: {module}")
+
+
+def test_any_data_copy_operations():
+    """Test any data copy operations"""
+    module = ir.module("test_any_data_copy")
+    block = BlockBuilderHelper()
+
+    tile_shape = [128, 128]
+    batch = ir.Scalar(ir.DataType.int32, None, "batch")
+    constant128 = ir.Scalar(ir.DataType.int64, 128, "const_128")
+    tensor_shape = [batch, constant128]
+    input_tensor = ir.Tensor(tensor_shape, ir.DataType.float, "input", ir.Format.ND)
+    output_tensor = ir.Tensor(tensor_shape, ir.DataType.float, "output", ir.Format.ND)
+
+    sig = ir.FunctionSignature()
+    sig.arguments = [input_tensor]
+    sig.returns = [output_tensor]
+
+    func = block.create_function("test_any_data_copy", ir.FunctionKind.DataFlow, sig)
+    module.add_function(func)
+    module.entry = func
+
+    with block.function_scope(func):
+        input_tile = block.tile(tile_shape, ir.DataType.float, "input_tile")
+        output_tile = block.tile(tile_shape, ir.DataType.float, "output_tile")
+        block.vld(input_tile, output_tile)
+        block.vst(input_tile, output_tile)
+
+        block.create_return([output_tile])
+
+    print(f"Any data copy operations test completed: {module}")
+
+
+def test_binary_with_temp_operations():
+    """Test binary operations with temp tensor"""
+    module = ir.module("test_binary_with_temp")
+    block = BlockBuilderHelper()
+
+    tile_shape = [128, 128]
+    batch = ir.Scalar(ir.DataType.int32, None, "batch")
+    constant128 = ir.Scalar(ir.DataType.int64, 128, "const_128")
+    tensor_shape = [batch, constant128]
+    input_x_tensor = ir.Tensor(tensor_shape, ir.DataType.float, "input_x", ir.Format.ND)
+    input_y_tensor = ir.Tensor(tensor_shape, ir.DataType.float, "input_y", ir.Format.ND)
+    output_tensor = ir.Tensor(tensor_shape, ir.DataType.float, "output", ir.Format.ND)
+
+    sig = ir.FunctionSignature()
+    sig.arguments = [input_x_tensor, input_y_tensor]
+    sig.returns = [output_tensor]
+
+    func = block.create_function("test_binary_with_temp", ir.FunctionKind.DataFlow, sig)
+    module.add_function(func)
+    module.entry = func
+
+    with block.function_scope(func):
+        input_x = block.tile(tile_shape, ir.DataType.float, "input_x")
+        input_y = block.tile(tile_shape, ir.DataType.float, "input_y")
+        output_tile = block.tile(tile_shape, ir.DataType.float, "output_tile")
+        temp_tensor = block.tile(tile_shape, ir.DataType.float, "temp_tensor")
+        block.logicaland(input_x, input_y, output_tile, temp_tensor)
+
+        block.create_return([output_tile])
+
+    print(f"Binary with temp operations test completed: {module}")
 
 
 if __name__ == "__main__":
@@ -344,3 +981,20 @@ if __name__ == "__main__":
     test_unary_operations()
     test_binary_operations()
     test_binary_scalar_mix_operations()
+    test_unary_with_temp_operations()
+    test_range_operations()
+    test_vec_dup_operations()
+    test_pow_operations()
+    test_gather_operations()
+    test_reduce_operations()
+    test_broadcast_operations()
+    test_cast_operations()
+    test_where_operations()
+    test_compare_operations()
+    test_matmul_operations()
+    test_matmul_load_store_operations()
+    test_transpose_operations()
+    test_copy_operations()
+    test_ub_copy_operations()
+    test_any_data_copy_operations()
+    test_binary_with_temp_operations()
