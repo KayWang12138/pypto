@@ -415,8 +415,8 @@ def test_b1_s1_1():
 
 def test_b4_s1_4():
     configs = IndexerPrologQuantConfigs(
-        q_linear=[16, 16, 512, 512, 128, 128],
-        q_hd=[32, 32, 128, 128, 128, 128],
+        q_linear=[16, 16, 128, 256, 256, 256],
+        q_hd=[32, 32, 128, 128, 256, 256],
         w_linear=[16, 16, 1024, 1024, 32, 32],
         unroll_list=[32, 16, 8, 4, 2, 1],
         cube_l1_reuse_setting={1: 4},
@@ -453,7 +453,6 @@ def test_b2_s1_4k():
     configs = IndexerPrologQuantConfigs(
         q_linear=[16, 16, 128, 256, 256, 256],
         q_hd=[32, 32, 128, 128, 256, 256],
-        # k_linear=[16, 16, 512, 512, 64, 64],
         w_linear=[16, 16, 1024, 1024, 32, 32],
         unroll_list=[32, 16, 8, 4, 2, 1],
         cube_l1_reuse_setting={1: 4},
