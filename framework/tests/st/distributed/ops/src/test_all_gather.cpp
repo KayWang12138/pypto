@@ -63,7 +63,8 @@ void TestDynAllGather(OpTestParam &testParam)
     EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, "/output_rank_", outSize, outPtr, testParam));
 }
 
-void TestDynAllGather(OpTestParam &testParam)
+template<typename T>
+void TestDynAllGatherParaWithShmem(OpTestParam &testParam)
 {
     ASSERT(testParam.rankSize > 0) << "worldSize should be more than 0.";
     constexpr size_t paramsSize = 5;
@@ -85,7 +86,6 @@ void TestDynAllGather(OpTestParam &testParam)
         }
         Tensor shmemData;
         Tensor shmemSignal;
-        AllReduceValidate(predToken, in, shmemData, testParam.group, out);
         LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
             (void)index;
             CreateShmemData(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemData);
@@ -113,6 +113,10 @@ template void TestDynAllGather<int32_t>(OpTestParam &testParam);
 template void TestDynAllGather<float>(OpTestParam &testParam);
 template void TestDynAllGather<float16>(OpTestParam &testParam);
 template void TestDynAllGather<bfloat16>(OpTestParam &testParam);
+template void TestDynAllGatherParaWithShmem<int32_t>(OpTestParam &testParam);
+template void TestDynAllGatherParaWithShmem<float>(OpTestParam &testParam);
+template void TestDynAllGatherParaWithShmem<float16>(OpTestParam &testParam);
+template void TestDynAllGatherParaWithShmem<bfloat16>(OpTestParam &testParam);
 
 } // namespace Distributed
 } // namespace npu::tile_fwk

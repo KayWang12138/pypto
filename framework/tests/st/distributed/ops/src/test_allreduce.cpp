@@ -36,7 +36,6 @@ void TestShmemAllReduce(OpTestParam &testParam)
     Shape shape{row, col};
     Tensor in(dType, shape, "in");
     Tensor out(dType, shape, "out");
-    Tensor predToken(DT_INT32, {1, 1}, "predToken");
 
     std::vector<T> inPtr = ReadToVector<T>(
         GetGoldenDir() + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", {row, col});
@@ -50,9 +49,9 @@ void TestShmemAllReduce(OpTestParam &testParam)
     FUNCTION("ALLREDUCE", {in}, {out}) {
         TileShape::Current().SetVecTile({tileRow, tileCol});
         if (useTwoShot) {
-            TwoShotAllReduce(predToken, in, testParam.group, static_cast<uint32_t>(testParam.rankSize), out);
+            TwoShotAllReduce(in, in, testParam.group, static_cast<uint32_t>(testParam.rankSize), out);
         } else {
-            OneShotAllReduce(predToken, in, testParam.group, static_cast<uint32_t>(testParam.rankSize), out);
+            OneShotAllReduce(in, in, testParam.group, static_cast<uint32_t>(testParam.rankSize), out);
         }
     }
     DeviceLauncherConfig config;
@@ -64,7 +63,7 @@ void TestShmemAllReduce(OpTestParam &testParam)
 }
 
 template<typename T>
-void TestShmemAllReduce(OpTestParam &testParam)
+void TestShmemAllReduceParaWithShmem(OpTestParam &testParam)
 {
     ASSERT(testParam.rankSize > 0) << "worldSize should be more than 0.";
     constexpr size_t paramsSize = 6;
@@ -87,7 +86,7 @@ void TestShmemAllReduce(OpTestParam &testParam)
     if (useTwoShot) {
         ASSERT(row % testParam.rankSize == 0) << "Two_Shot_AllReduce constraint: row must be divisible by worldSize";
         rowPerRank /= testParam.rankSize;
-        shmemDataShape = {testParam.rankSize, rowPerRank, col}
+        shmemDataShape = {testParam.rankSize, rowPerRank, col};
     }
    
     FUNCTION("ALLREDUCE", {in}, {out}) {
@@ -116,10 +115,14 @@ void TestShmemAllReduce(OpTestParam &testParam)
     auto output = ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, "/output_rank_", outSize, output->GetDevPtr(), testParam));
 }
+
 template void TestShmemAllReduce<int32_t>(OpTestParam &testParam);
 template void TestShmemAllReduce<float>(OpTestParam &testParam);
 template void TestShmemAllReduce<float16>(OpTestParam &testParam);
 template void TestShmemAllReduce<bfloat16>(OpTestParam &testParam);
-
+template void TestShmemAllReduceParaWithShmem<int32_t>(OpTestParam &testParam);
+template void TestShmemAllReduceParaWithShmem<float>(OpTestParam &testParam);
+template void TestShmemAllReduceParaWithShmem<float16>(OpTestParam &testParam);
+template void TestShmemAllReduceParaWithShmem<bfloat16>(OpTestParam &testParam);
 } // namespace Distributed 
 } // namespace npu::tile_fwk

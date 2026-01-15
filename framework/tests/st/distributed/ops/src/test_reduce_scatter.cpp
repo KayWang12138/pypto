@@ -58,7 +58,8 @@ void TestShmemReduceScatter(OpTestParam &testParam)
     EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, "/output_rank_", rowOut * col, outPut->GetDevPtr(), testParam));
 }
 
-void TestShmemReduceScatter(OpTestParam &testParam)
+template<typename T>
+void TestShmemReduceScatterParaWithShmem(OpTestParam &testParam)
 {
     ASSERT(testParam.rankSize > 0) << "worldSize should be more than 0.";
     constexpr size_t paramsSize = 5;
@@ -105,5 +106,9 @@ template void TestShmemReduceScatter<int32_t>(OpTestParam &testParam);
 template void TestShmemReduceScatter<float>(OpTestParam &testParam);
 template void TestShmemReduceScatter<float16>(OpTestParam &testParam);
 template void TestShmemReduceScatter<bfloat16>(OpTestParam &testParam);
+template void TestShmemReduceScatterParaWithShmem<int32_t>(OpTestParam &testParam);
+template void TestShmemReduceScatterParaWithShmem<float>(OpTestParam &testParam);
+template void TestShmemReduceScatterParaWithShmem<float16>(OpTestParam &testParam);
+template void TestShmemReduceScatterParaWithShmem<bfloat16>(OpTestParam &testParam);
 } // namespace Distributed
 } // namespace npu::tile_fwk
