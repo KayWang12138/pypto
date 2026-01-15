@@ -343,7 +343,7 @@ def lighting_indexer_prolog_dyn(x: torch.tensor,
 
 def do_test_lighting_indexer_prolog(case_name, configs):
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
-    torch.npu.set_device(11)
+    torch.npu.set_device(device_id)
 
     print(f"=== run test case: {case_name} ===")
 
