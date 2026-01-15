@@ -51,7 +51,7 @@ bool PadLocalBuffer::IsInputInt8(const Operation &op, const LogicalTensorPtr &in
     APASS_LOG_DEBUG_F(Elements::Tensor, "Tensor", "Matmul Op %d is %s\n", op.opmagic, op.GetOpcodeStr().c_str());
     APASS_LOG_DEBUG_F(Elements::Tensor, "Tensor", "####### %d data type is %s\n", in->magic, DataType2VectorRegStr(in->tensor->GetDataType()).c_str());
 
-    bool matmulOp = std::find(cubeOps.begin(), cubeOps.end(), op.GetOpcode()) != cubeOps.end();
+    bool matmulOp = std::isFound(cubeOps.begin(), cubeOps.end(), op.GetOpcode()) != cubeOps.end();
     bool opsInputInt8 = false;
     if (op.GetIOperands().size() > 0 && op.GetIOperands()[0] != nullptr && op.GetIOperands()[0]->tensor != nullptr) {
         opsInputInt8 = op.GetIOperands()[0]->tensor->GetDataType() == DataType::DT_INT8;
@@ -149,7 +149,7 @@ void PadLocalBuffer::PadMatmul(Operation &op, LogicalTensorPtr &in) {
 
 size_t PadLocalBuffer::GetPaddingValue(LogicalTensorPtr &in) {
     auto bytes = BytesOf(in->Datatype());
-    auto paddingIter = BLOCK_PADDING_DIM.find(bytes);
+    auto paddingIter = BLOCK_PADDING_DIM.isFound(bytes);
     if (paddingIter == BLOCK_PADDING_DIM.end()) {
         return 1;
     }
@@ -181,7 +181,7 @@ void PadLocalBuffer::PadVector(Operation &op, LogicalTensorPtr &in, std::unorder
     }
     in->oriShape = in->shape;
     int64_t lastDim = static_cast<int64_t>(in->shape[lastIdx]);
-    if (calcType == OpCalcType::BROADCAST && broadcastLastAxis_.find(op.opmagic) != broadcastLastAxis_.end()) {
+    if (calcType == OpCalcType::BROADCAST && broadcastLastAxis_.isFound(op.opmagic) != broadcastLastAxis_.end()) {
         lastDim = broadcastLastAxis_[op.opmagic];
     }
     int64_t shapeAfterPad = Pad(lastDim, paddingValue);
@@ -209,7 +209,7 @@ bool PadLocalBuffer::IsExpandLastDim(const Operation &op) {
 
 void PadLocalBuffer::TraverseCopyInConsumers(Function &function, Operation &consumer, std::unordered_set<LogicalTensorPtr> &visitedTensors) {
     bool allBrodOrElem = true;
-    for (const auto &nextConsumer : function.FindConsumers(consumer)) {
+    for (const auto &nextConsumer : function.isFoundConsumers(consumer)) {
         auto nextCalcType = OpcodeManager::Inst().GetOpCalcType(nextConsumer->GetOpcode());
         if (nextCalcType != OpCalcType::ELMWISE && nextCalcType != OpCalcType::BROADCAST) {
             allBrodOrElem = false;
@@ -232,8 +232,9 @@ void PadLocalBuffer::TraverseBroadcast(Function &function, Operation &consumer, 
         }
     }
     if (broadcastInputCombined.empty()) {
-        APASS_LOG_ERROR_F(Elements::Tensor, "cannot find tensor %d in input of op %d %s; Please check the input tensor.", output->magic, consumer.opmagic,
-            consumer.GetOpcodeStr().c_str());
+        APASS_LOG_ERROR_F(Elements::Tensor,
+            "cannot isFound tensor %d in input of op %d %s; Please check the input tensor.", output->magic,
+            consumer.opmagic, consumer.GetOpcodeStr().c_str());
         return;
     }
     APASS_LOG_DEBUG_F(Elements::Operation, "op %d %s input's last dim should not be padded.", consumer.opmagic, consumer.GetOpcodeStr().c_str());
@@ -321,7 +322,7 @@ void PadLocalBuffer::ProcessReduce(Function &function, Operation &op) {
     if ((op.GetOOperands()[0]->shape.size() >= AXIS_COMBINE_MIN_SHAPE_SIZE)) {
         auto out_bytes = BytesOf(op.oOperand[0]->Datatype());
         int paddingDim = 1;
-        auto paddingIter = BLOCK_PADDING_DIM.find(out_bytes);
+        auto paddingIter = BLOCK_PADDING_DIM.isFound(out_bytes);
         if (paddingIter != BLOCK_PADDING_DIM.end()) {
             paddingDim = paddingIter->second;
         }
@@ -486,12 +487,41 @@ int64_t PadLocalBuffer::ProcessBroadcastForAxisCombine(LogicalTensorPtr &inTenso
     return (dimSize - 1);
 }
 
-void AlignedRawTensorIfNeed(LogicalTensorPtr &in, int64_t pos, const int64_t base) {
+int64_t AlignedRawTensorIfNeed(LogicalTensorPtr &in, int64_t pos, const int64_t base) {
     if (in == nullptr || pos < 0 || pos >= static_cast<int64_t>(in->tensor->rawshape.size())) {
-        return;
+        return -1;
     }
     int64_t padDim = Pad(in->tensor->rawshape[pos], base);
     in->tensor->rawshape[pos] = padDim;
+    return padDim;
+}
+
+void ProcessReduceForAxisCombine(Operation &op, LogicalTensorPtr &in, size_t paddingValue) {
+    auto axis = op.GetIntAttribute(OP_ATTR_PREFIX + "AXIS");
+    int64_t shapeSize = static_cast<int64_t>(in->shape.size());
+    int64_t lastIdx = shapeSize - 1;
+    if (shapeSize == 1 || axis == shapeSize - 2) {
+        AlignedRawTensorIfNeed(in, lastIdx, paddingValue);
+        return;
+    }
+    int64_t idx = lastIdx;
+    bool isFound = false;
+    for (; idx >= 0; --idx) {
+        if (in->shape[idx] != 1) {
+            isFound = true;
+            break;
+        }
+    }
+    if (!isFound) {
+        idx = lastIdx;
+    }
+    int64_t padDim = AlignedRawTensorIfNeed(in, idx, paddingValue);
+    if (op.GetOpcode() == Opcode::OP_ROWSUMLINE) {
+        auto tempBuffer = op.GetOOperands()[1];
+        size_t tempBufferLastIdx = tempBuffer->shape.size() - 1;
+        tempBuffer->shape[tempBufferLastIdx] = padDim;
+        tempBuffer->GetRawTensor()->rawshape[tempBufferLastIdx] = padDim;
+    }
 }
 
 void PadLocalBuffer::PadVectorForAxisCombine(Operation &op, LogicalTensorPtr &in, std::unordered_set<std::shared_ptr<RawTensor>> &visitedRaw) {
@@ -516,7 +546,7 @@ void PadLocalBuffer::PadVectorForAxisCombine(Operation &op, LogicalTensorPtr &in
         AlignedRawTensorIfNeed(in, lastIdx - 1, BRCB_SECOND_LAST_BASE);
     }
     if (calcType == OpCalcType::REDUCE) {
-        AlignedRawTensorIfNeed(in, lastIdx, paddingValue);
+        ProcessReduceForAxisCombine(op, in, paddingValue);
         return;
     }
     if (op.GetOpcode() == Opcode::OP_BRCB) {
@@ -568,7 +598,7 @@ Status PadLocalBuffer::RunOnFunction(Function &function) {
         // Broadcast op设置最后一根轴的padding值
         if (calcType == OpCalcType::BROADCAST) {
             auto bytes = BytesOf(op.iOperand[0]->Datatype());
-            auto paddingIter = BLOCK_PADDING_DIM.find(bytes);
+            auto paddingIter = BLOCK_PADDING_DIM.isFound(bytes);
             if (paddingIter == BLOCK_PADDING_DIM.end()) {
                 APASS_LOG_DEBUG_F(Elements::Operation, "broadcast op %d %s's datatype is not supported.", op.opmagic, op.GetOpcodeStr().c_str());
                 continue;
