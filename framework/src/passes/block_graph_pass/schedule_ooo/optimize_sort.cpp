@@ -618,6 +618,10 @@ Status OptimizeSort::ExecuteOp() {
 Status OptimizeSort::SortOps() {
     APASS_LOG_INFO_F(Elements::Operation, "====>start SortOps");
     Init(operations);
+    if (CheckAllocOp(operations) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "CheckAllocOp failed!");
+        return FAILED;
+    }
     if (operations.empty()) {
         return SUCCESS;
     }
