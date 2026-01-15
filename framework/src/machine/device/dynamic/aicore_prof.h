@@ -82,8 +82,8 @@ typedef enum AiCoreRegister {
     PMU_CNT5 = 0x238,
     PMU_CNT6 = 0x240,
     PMU_CNT7 = 0x248,
-    PMU_CNT8 = 0x250,
-    PMU_CNT9 = 0x254,
+    PMU_CNT_TOTAL0 = 0x250,
+    PMU_CNT_TOTAL1 = 0x254,
     PMU_CNT0_IDX = 0x1280,
     PMU_CNT1_IDX = 0x1284,
     PMU_CNT2_IDX = 0x1288,
@@ -97,6 +97,37 @@ typedef enum AiCoreRegister {
     PMU_STOP_CNT_CYC_0 = 0x2A8,
     PMU_STOP_CNT_CYC_1 = 0x2AC,
 } AiCoreRegister;
+
+namespace DAV_3510 {
+    const uint32_t PMU_CTRL_0 = 0x4200;
+    const uint32_t PMU_CTRL_1 = 0X2400;
+    const uint32_t PMU_CNT0 = 0x4210;
+    const uint32_t PMU_CNT1 = 0x4218;
+    const uint32_t PMU_CNT2 = 0x4220;
+    const uint32_t PMU_CNT3 = 0x4228;
+    const uint32_t PMU_CNT4 = 0x4230;
+    const uint32_t PMU_CNT5 = 0x4238;
+    const uint32_t PMU_CNT6 = 0x4240;
+    const uint32_t PMU_CNT7 = 0x4248;
+    const uint32_t PMU_CNT8 = 0x4250;
+    const uint32_t PMU_CNT9 = 0x4254;
+    const uint32_t PMU_CNT_TOTAL0 = 0x4260;
+    const uint32_t PMU_CNT_TOTAL1 = 0x4264;
+    const uint32_t PMU_CNT0_IDX = 0x2500;
+    const uint32_t PMU_CNT1_IDX = 0x2504;
+    const uint32_t PMU_CNT2_IDX = 0x2508;
+    const uint32_t PMU_CNT3_IDX = 0x250C;
+    const uint32_t PMU_CNT4_IDX = 0x2510;
+    const uint32_t PMU_CNT5_IDX = 0x2514;
+    const uint32_t PMU_CNT6_IDX = 0x2518;
+    const uint32_t PMU_CNT7_IDX = 0x251C;
+    const uint32_t PMU_CNT8_IDX = 0x2520;
+    const uint32_t PMU_CNT9_IDX = 0x2524;
+    const uint32_t PMU_START_CNT_CYC_0 = 0x42A0;
+    const uint32_t PMU_START_CNT_CYC_1 = 0x42A4;
+    const uint32_t PMU_STOP_CNT_CYC_0 = 0x42A8;
+    const uint32_t PMU_STOP_CNT_CYC_1 = 0x42AC;
+};
 
 typedef enum AiCorePmuEvent {
     VEC_BUSY_CYCLE = 0x8,
@@ -164,6 +195,8 @@ struct MsprofAicpuPyPtoPmuData {
     uint32_t pmuCnt5{0};
     uint32_t pmuCnt6{0};
     uint32_t pmuCnt7{0};
+    uint32_t pmuCnt8{0};
+    uint32_t pmuCnt9{0};
 };
 
 // !!注意和 TaskStat 前面的数据区保持一致
@@ -249,6 +282,7 @@ private:
     uint64_t taskCnt_ = 0;
     int64_t *regAddrs_{nullptr};
     int64_t *pmuEventAddrs_{nullptr};
+    ArchInfo archInfo_{ArchInfo::DAV_2201};
 
     // PMU_CNT0 ~ PMU_CNT7 共计8个cnt寄存器,32位寄存器,用来获取对应读数,单位为cycle
     std::vector<volatile uint32_t *> pmuCnt0Plain_;
@@ -259,9 +293,11 @@ private:
     std::vector<volatile uint32_t *> pmuCnt5Plain_;
     std::vector<volatile uint32_t *> pmuCnt6Plain_;
     std::vector<volatile uint32_t *> pmuCnt7Plain_;
+    std::vector<volatile uint32_t *> pmuCntTotal0Plain_;
+    std::vector<volatile uint32_t *> pmuCntTotal1Plain_;
+
     std::vector<volatile uint32_t *> pmuCnt8Plain_;
     std::vector<volatile uint32_t *> pmuCnt9Plain_;
-
     // pmu data
     uint32_t pmuDataMaxNum_ = 4;
     uint32_t pmuMsgSize_ = 0;
