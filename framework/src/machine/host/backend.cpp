@@ -355,7 +355,6 @@ static void SimplifySlots(DyndevFunctionAttribute *attr, std::unordered_map<int,
         ASSERT(inoutLink.ioslotDict.count(devTile))<<"Function pointer "<<devTile->GetMagicName()<<" not found in ioslotDict";
         IncastOutcastSlot &ioslot = inoutLink.ioslotDict[devTile];
         for (auto &outcastSlots : ioslot.outcastSlot) {
-            ALOG_ERROR_F("outcastSlots size is %zu for function %s", outcastSlots.size(), devTile->GetMagicName().c_str());
             ASSERT(!outcastSlots.empty()) << "devTile: " << devTile->GetMagicName();
             bool outcastSlotFound = false;
             for (auto &outcastSlot : outcastSlots) {
@@ -705,8 +704,14 @@ static void ConstructCodeInfo(struct EncodeDevAscendFunctionParam &encodeDevAsce
     for (auto &[hash, leaf] : irLeafDict) {
         encodeDevAscendFunctionParam.calleeHashIndexDict[hash] = leafIndex;
         attr->devLeafIndex2Hash[leafIndex] = hash;
-        attr->cceCodeInfo[leafIndex].coreType = static_cast<uint32_t>(CoreType::HUB); // TODO 补充leafFunctionAttribute
-        attr->cceCodeInfo[leafIndex].psgId = leaf->GetID();
+        auto blockLeaf = std::dynamic_pointer_cast<pto::BlockFunction>(leaf);
+        // attr->cceCodeInfo[leafIndex].coreType = static_cast<uint32_t>(CoreType::HUB);
+        if (blockLeaf == nullptr) {
+            ALOG_ERROR_F("block leaf is nullptr name %s", leaf->GetName().c_str());
+            continue;
+        }
+        attr->cceCodeInfo[leafIndex].coreType = static_cast<uint32_t>(blockLeaf->GetLeafFuncAttribute()->coreType);
+        attr->cceCodeInfo[leafIndex].psgId = blockLeaf->GetID();
         attr->cceCodeInfo[leafIndex].funcHash = hash;
         leafIndex++;
     }
@@ -815,7 +820,6 @@ static void CompileControlFlow(const std::string &aicpuDirPath,
 static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[maybe_unused]] const std::string &ccePath,
                                   std::string &kernelPath) {
     PassManager::Instance().RunPass(Program::GetInstance(), *function, "ExecuteGraph");
-
     std::shared_ptr<DyndevFunctionAttribute> attr = function->GetDyndevAttribute();
     ASSERT(attr != nullptr)<<"DyndevFunctionAttribute is nullptr\n";
     Linker linker(attr->symbolTable, attr->funcGroup, attr->exprTableDictGroup);
@@ -892,6 +896,7 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[ma
         ALOG_WARN_F("Arm64 target tool is not found.");
         attr->devControlFlowBinary = std::vector<uint8_t>{0xd4, 0x20, 0x00, 0x00};
     }
+
     AlignUpTo(attr->devControlFlowBinary, 0x8, 0);
     std::map<uint64_t, Function *> leafDict;
     std::map<uint64_t, std::shared_ptr<pto::Function>> irLeafDict;
@@ -919,6 +924,7 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[ma
                 auto leaf = devRoot->programModule_->GetFunctions()[i];
                 if (!irLeafDict.count(hash)) {
                     irLeafDict[hash] = leaf;
+                    ALOG_ERROR_F("leaf name is %s %d.", leaf->GetName().c_str(), leaf->GetID());
                     ALOG_INFO("Dyndev.codegen: ", leaf->GetName());
                 } else {
                     ALOG_ERROR("Duplicate func hash ", hash, " name ", leaf->GetName());
@@ -926,12 +932,9 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[ma
             }
         }
     }
-
     struct EncodeDevAscendFunctionParam encodeDevAscendFunctionParam = {};
     ConstructCodeInfo(encodeDevAscendFunctionParam, leafDict, irLeafDict, attr);
-
     encodeDevAscendFunctionParam.inoutLink = &attr->inoutLink;
-
 #ifdef BUILD_WITH_CANN
     if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) != CFG_RUN_MODE_SIM) {
         int ret = CompileAICoreKernel(leafDict, encodeDevAscendFunctionParam,
@@ -942,11 +945,11 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[ma
         }
     }
 #endif
-
     attr->kernelBinary = LoadFile(kernelPath);
     ALOG_DEBUG_F("KernelBinary size[%zu].", attr->kernelBinary.size());
 
     attr->devEncodeList.resize(attr->funcGroup.devRootList.size());
+
     for (auto &devRoot : attr->funcGroup.devRootList) {
         int devRootKey = attr->funcGroup.devRootList.GetIndex(devRoot);
         ALOG_INFO("Dyndev.encode: ", devRoot->GetRawName());
@@ -979,7 +982,6 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[ma
             OverCallOpMaxNum(devRoot,funcBin);
         }
     }
-
     for (size_t index = 0; index < attr->symbolTable.GetSymbolTable().size(); index++) {
         std::string name = attr->symbolTable.GetSymbolTable()[index];
         if (symbolHandlerIndexDict.count(name)) {

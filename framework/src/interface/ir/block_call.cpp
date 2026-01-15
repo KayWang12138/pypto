@@ -72,6 +72,12 @@ void CallBlock(BlockFunctionType blockFunction,
 
     // 2 Compute hash of program module
     FunctionHash hash = irFunc->ComputeHash();
+    auto &functionCache = npu::tile_fwk::Program::GetInstance().GetFunctionCache();
+    auto cacheValue = functionCache.Get(hash);
+    if (cacheValue == std::nullopt) {
+        functionCache.Insert(hash, irFunc.get());
+    }
+
     // IR block function hash
     // 3 Create Call op attribute
     std::vector<std::vector<SymbolicScalar>> argList;
