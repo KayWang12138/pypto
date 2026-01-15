@@ -61,6 +61,11 @@ private:
     bool IsTransposeB(Opcode opcode);
     std::vector<int64_t> GetTransposedShape(const std::vector<int64_t> &shape);
     
+    // Common matrix multiplication shape verification logic
+    void CheckMatmulShapeCommon(const TileValuePtr &lhs, const TileValuePtr &rhs, 
+                                const TileValuePtr &output, Opcode opcode, 
+                                bool transposeA, bool transposeB, const std::string &opTypeName);
+    
     std::string GetShapeStr(const std::vector<int64_t> &shape) const;
 };
 

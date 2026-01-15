@@ -42,4 +42,7 @@ private:
 
 VerifyResult VerifySSA(ProgramModulePtr program);
 
+// Helper function to format value information string
+std::string GetValueInfoString(const Value *valuePtr);
+
 } // namespace pto

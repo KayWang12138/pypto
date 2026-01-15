@@ -535,7 +535,7 @@ TEST_F(IRVerifierTest, TestVerifyOpShape_InvalidMatmulMmadOp_KDimensionMismatch)
     CreateTestFunction(sig);
 
     // MatmulMmadOp with K dimension mismatch
-    auto outputTile = builder_->CreateTile(*ctx_, outputShape, DataType::FP32, "output");
+    auto outputTile = builder_->CreateTile(*ctx_, outputShape, DataType::FP32, "outputTile");
     auto matmulMmadOp = builder_->CreateMatmulMmadOp(Opcode::OP_A_MUL_B, lhsTile, rhsTile, outputTile);
     builder_->Emit(*ctx_, matmulMmadOp);
 

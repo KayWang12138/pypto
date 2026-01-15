@@ -16,6 +16,36 @@
 
 namespace pto {
 
+std::string GetValueInfoString(const Value *valuePtr) {
+    std::string valueInfo;
+    if (valuePtr) {
+        // Determine the type name based on ValueKind
+        switch (valuePtr->GetValueKind()) {
+            case ValueKind::Tile:
+                valueInfo = "TileValue";
+                break;
+            case ValueKind::Scalar:
+                valueInfo = "ScalarValue";
+                break;
+            case ValueKind::Tensor:
+                valueInfo = "TensorValue";
+                break;
+            default:
+                valueInfo = "Value";
+                break;
+        }
+        
+        std::string ssaName = valuePtr->GetSSAName();
+        if (!ssaName.empty()) {
+            valueInfo += " '" + ssaName + "'";
+        }
+        valueInfo += " (ID: " + std::to_string(valuePtr->GetID()) + ")";
+    } else {
+        valueInfo = "Value";
+    }
+    return valueInfo;
+}
+
 void ValueSSAVisitor::VisitImplOp(OperationPtr &op) {
     if (!op)
         return;
@@ -53,32 +83,7 @@ VerifyResult VerifySSA(ProgramModulePtr program) {
     // Check each Value that has more than one definition
     for (const auto &[valuePtr, count] : valueSSACountMap) {
         if (count > 1) {
-            std::string valueInfo;
-            if (valuePtr) {
-                // Determine the type name based on ValueKind
-                switch (valuePtr->GetValueKind()) {
-                    case ValueKind::Tile:
-                        valueInfo = "TileValue";
-                        break;
-                    case ValueKind::Scalar:
-                        valueInfo = "ScalarValue";
-                        break;
-                    case ValueKind::Tensor:
-                        valueInfo = "TensorValue";
-                        break;
-                    default:
-                        valueInfo = "Value";
-                        break;
-                }
-                
-                std::string ssaName = valuePtr->GetSSAName();
-                if (!ssaName.empty()) {
-                    valueInfo += " '" + ssaName + "'";
-                }
-                valueInfo += " (ID: " + std::to_string(valuePtr->GetID()) + ")";
-            } else {
-                valueInfo = "Value";
-            }
+            std::string valueInfo = GetValueInfoString(valuePtr);
             valueInfo += " has " + std::to_string(count) + " definitions, expected at most 1.";
             violations.push_back(valueInfo);
         }

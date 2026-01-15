@@ -264,143 +264,101 @@ void TileOpShapeVisitor::CheckMatmulExtractOpShape(MatmulExtractOpPtr &op) {
     }
 }
 
+void TileOpShapeVisitor::CheckMatmulShapeCommon(const TileValuePtr &lhs, const TileValuePtr &rhs, 
+                                                 const TileValuePtr &output, Opcode opcode, 
+                                                 bool transposeA, bool transposeB, const std::string &opTypeName) {
+    if (!lhs || !rhs || !output) {
+        return;
+    }
+
+    const auto &lhsShape = lhs->GetShape();
+    const auto &rhsShape = rhs->GetShape();
+    const auto &outputShape = output->GetShape();
+
+    // Matrix multiplication: C = A * B
+    // If A is [M, K] and B is [K, N], then C is [M, N]
+    // If A is transposed: A^T is [K, M], B is [K, N], then C is [M, N]
+    // If B is transposed: A is [M, K], B^T is [N, K], then C is [M, N]
+    // If both are transposed: A^T is [K, M], B^T is [N, K], then C is [M, N]
+
+    if (lhsShape.size() < 2 || rhsShape.size() < 2 || outputShape.size() < 2) {
+        std::string opName = GetOpcodeName(opcode);
+        std::string msg = opTypeName + " '" + opName + "': operands must have at least 2 dimensions";
+        violations_.push_back(msg);
+        return;
+    }
+
+    // Get effective dimensions considering transpose
+    int64_t aM = transposeA ? lhsShape[lhsShape.size() - 1] : lhsShape[lhsShape.size() - 2];
+    int64_t aK = transposeA ? lhsShape[lhsShape.size() - 2] : lhsShape[lhsShape.size() - 1];
+    int64_t bK = transposeB ? rhsShape[rhsShape.size() - 1] : rhsShape[rhsShape.size() - 2];
+    int64_t bN = transposeB ? rhsShape[rhsShape.size() - 2] : rhsShape[rhsShape.size() - 1];
+
+    // Check K dimension matches
+    if (aK != bK) {
+        std::string opName = GetOpcodeName(opcode);
+        std::string msg = opTypeName + " '" + opName + "': K dimension mismatch, lhs K=" + std::to_string(aK) +
+                          ", rhs K=" + std::to_string(bK);
+        violations_.push_back(msg);
+        return;
+    }
+
+    // Check output shape: [M, N]
+    int64_t expectedM = aM;
+    int64_t expectedN = bN;
+
+    // Handle batch dimensions if present
+    std::vector<int64_t> expectedOutputShape;
+    if (lhsShape.size() > 2) {
+        // Has batch dimensions, copy them from lhs (assuming batch dimensions match)
+        expectedOutputShape = lhsShape;
+        expectedOutputShape[expectedOutputShape.size() - 2] = expectedM;
+        expectedOutputShape[expectedOutputShape.size() - 1] = expectedN;
+    } else {
+        expectedOutputShape = {expectedM, expectedN};
+    }
+
+    if (outputShape != expectedOutputShape) {
+        std::string opName = GetOpcodeName(opcode);
+        std::string msg = opTypeName + " '" + opName + "': expected output shape " + GetShapeStr(expectedOutputShape) +
+                          " but got " + GetShapeStr(outputShape) +
+                          " (lhs=" + GetShapeStr(lhsShape) + ", rhs=" + GetShapeStr(rhsShape) +
+                          ", transposeA=" + (transposeA ? "true" : "false") +
+                          ", transposeB=" + (transposeB ? "true" : "false") + ")";
+        violations_.push_back(msg);
+    }
+}
+
 void TileOpShapeVisitor::CheckMatmulMmadOpShape(MatmulMmadOpPtr &op) {
     auto lhs = op->GetInOperand(0);
     auto rhs = op->GetInOperand(1);
     auto output = op->GetOutOperand(0);
+    Opcode opcode = op->GetOpcode();
 
-    if (lhs && rhs && output) {
-        const auto &lhsShape = lhs->GetShape();
-        const auto &rhsShape = rhs->GetShape();
-        const auto &outputShape = output->GetShape();
-        Opcode opcode = op->GetOpcode();
+    // MatmulMmadOp only supports OP_A_MUL_B in tile_graph.def
+    // Transpose information may be in attributes, but for now we assume no transpose
+    // If transpose is needed, it should be handled at the MatmulExtractOp level
+    bool transposeA = false;
+    bool transposeB = false;
 
-        // MatmulMmadOp only supports OP_A_MUL_B in tile_graph.def
-        // Transpose information may be in attributes, but for now we assume no transpose
-        // If transpose is needed, it should be handled at the MatmulExtractOp level
-        bool transposeA = false;
-        bool transposeB = false;
-
-        // Matrix multiplication: C = A * B
-        // If A is [M, K] and B is [K, N], then C is [M, N]
-        // If A is transposed: A^T is [K, M], B is [K, N], then C is [M, N]
-        // If B is transposed: A is [M, K], B^T is [N, K], then C is [M, N]
-        // If both are transposed: A^T is [K, M], B^T is [N, K], then C is [M, N]
-
-        if (lhsShape.size() < 2 || rhsShape.size() < 2 || outputShape.size() < 2) {
-            std::string opName = GetOpcodeName(opcode);
-            std::string msg = "MatmulMmadOp '" + opName + "': operands must have at least 2 dimensions";
-            violations_.push_back(msg);
-            return;
-        }
-
-        // Get effective dimensions considering transpose
-        int64_t aM = transposeA ? lhsShape[lhsShape.size() - 1] : lhsShape[lhsShape.size() - 2];
-        int64_t aK = transposeA ? lhsShape[lhsShape.size() - 2] : lhsShape[lhsShape.size() - 1];
-        int64_t bK = transposeB ? rhsShape[rhsShape.size() - 1] : rhsShape[rhsShape.size() - 2];
-        int64_t bN = transposeB ? rhsShape[rhsShape.size() - 2] : rhsShape[rhsShape.size() - 1];
-
-        // Check K dimension matches
-        if (aK != bK) {
-            std::string opName = GetOpcodeName(opcode);
-            std::string msg = "MatmulMmadOp '" + opName + "': K dimension mismatch, lhs K=" + std::to_string(aK) +
-                              ", rhs K=" + std::to_string(bK);
-            violations_.push_back(msg);
-            return;
-        }
-
-        // Check output shape: [M, N]
-        int64_t expectedM = aM;
-        int64_t expectedN = bN;
-
-        // Handle batch dimensions if present
-        std::vector<int64_t> expectedOutputShape;
-        if (lhsShape.size() > 2) {
-            // Has batch dimensions, copy them from lhs (assuming batch dimensions match)
-            expectedOutputShape = lhsShape;
-            expectedOutputShape[expectedOutputShape.size() - 2] = expectedM;
-            expectedOutputShape[expectedOutputShape.size() - 1] = expectedN;
-        } else {
-            expectedOutputShape = {expectedM, expectedN};
-        }
-
-        if (outputShape != expectedOutputShape) {
-            std::string opName = GetOpcodeName(opcode);
-            std::string msg = "MatmulMmadOp '" + opName + "': expected output shape " + GetShapeStr(expectedOutputShape) +
-                              " but got " + GetShapeStr(outputShape) +
-                              " (lhs=" + GetShapeStr(lhsShape) + ", rhs=" + GetShapeStr(rhsShape) +
-                              ", transposeA=" + (transposeA ? "true" : "false") +
-                              ", transposeB=" + (transposeB ? "true" : "false") + ")";
-            violations_.push_back(msg);
-        }
-    }
+    CheckMatmulShapeCommon(lhs, rhs, output, opcode, transposeA, transposeB, "MatmulMmadOp");
 }
 
 void TileOpShapeVisitor::CheckMatmulAccOpShape(MatmulAccOpPtr &op) {
     auto lhs = op->GetInOperand(0);
     auto rhs = op->GetInOperand(1);
     auto output = op->GetOutOperand(0);
+    Opcode opcode = op->GetOpcode();
 
-    if (lhs && rhs && output) {
-        const auto &lhsShape = lhs->GetShape();
-        const auto &rhsShape = rhs->GetShape();
-        const auto &outputShape = output->GetShape();
-        Opcode opcode = op->GetOpcode();
+    // MatmulAccOp only supports OP_A_MULACC_B in tile_graph.def
+    // Transpose information may be in attributes, but for now we assume no transpose
+    // If transpose is needed, it should be handled at the MatmulExtractOp level
+    bool transposeA = false;
+    bool transposeB = false;
 
-        // MatmulAccOp only supports OP_A_MULACC_B in tile_graph.def
-        // Transpose information may be in attributes, but for now we assume no transpose
-        // If transpose is needed, it should be handled at the MatmulExtractOp level
-        bool transposeA = false;
-        bool transposeB = false;
-
-        // MatmulAccOp is similar to MatmulMmadOp but accumulates into output
-        // The output shape should match the result of matrix multiplication
-        if (lhsShape.size() < 2 || rhsShape.size() < 2 || outputShape.size() < 2) {
-            std::string opName = GetOpcodeName(opcode);
-            std::string msg = "MatmulAccOp '" + opName + "': operands must have at least 2 dimensions";
-            violations_.push_back(msg);
-            return;
-        }
-
-        // Get effective dimensions considering transpose
-        int64_t aM = transposeA ? lhsShape[lhsShape.size() - 1] : lhsShape[lhsShape.size() - 2];
-        int64_t aK = transposeA ? lhsShape[lhsShape.size() - 2] : lhsShape[lhsShape.size() - 1];
-        int64_t bK = transposeB ? rhsShape[rhsShape.size() - 1] : rhsShape[rhsShape.size() - 2];
-        int64_t bN = transposeB ? rhsShape[rhsShape.size() - 2] : rhsShape[rhsShape.size() - 1];
-
-        // Check K dimension matches
-        if (aK != bK) {
-            std::string opName = GetOpcodeName(opcode);
-            std::string msg = "MatmulAccOp '" + opName + "': K dimension mismatch, lhs K=" + std::to_string(aK) +
-                              ", rhs K=" + std::to_string(bK);
-            violations_.push_back(msg);
-            return;
-        }
-
-        // Check output shape: [M, N] (should match the accumulation target)
-        int64_t expectedM = aM;
-        int64_t expectedN = bN;
-
-        // Handle batch dimensions if present
-        std::vector<int64_t> expectedOutputShape;
-        if (lhsShape.size() > 2) {
-            expectedOutputShape = lhsShape;
-            expectedOutputShape[expectedOutputShape.size() - 2] = expectedM;
-            expectedOutputShape[expectedOutputShape.size() - 1] = expectedN;
-        } else {
-            expectedOutputShape = {expectedM, expectedN};
-        }
-
-        if (outputShape != expectedOutputShape) {
-            std::string opName = GetOpcodeName(opcode);
-            std::string msg = "MatmulAccOp '" + opName + "': expected output shape " + GetShapeStr(expectedOutputShape) +
-                              " but got " + GetShapeStr(outputShape) +
-                              " (lhs=" + GetShapeStr(lhsShape) + ", rhs=" + GetShapeStr(rhsShape) +
-                              ", transposeA=" + (transposeA ? "true" : "false") +
-                              ", transposeB=" + (transposeB ? "true" : "false") + ")";
-            violations_.push_back(msg);
-        }
-    }
+    // MatmulAccOp is similar to MatmulMmadOp but accumulates into output
+    // The output shape should match the result of matrix multiplication
+    CheckMatmulShapeCommon(lhs, rhs, output, opcode, transposeA, transposeB, "MatmulAccOp");
 }
 
 void TileOpShapeVisitor::CheckMatmulStoreOpShape(MatmulStoreOpPtr &op) {
