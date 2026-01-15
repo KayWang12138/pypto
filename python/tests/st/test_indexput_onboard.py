@@ -15,6 +15,7 @@ import torch
 import torch_npu
 import pypto
 
+
 class IndexaPutParamInfo:
     def __init__(self, accumulate, b1, s1, b2, vs, ts):
         self.self_shape = (b1, s1)
@@ -52,10 +53,8 @@ def indexput_comm_test_body(indexput_para, test_func):
                                     valid_shape=[
                                         pypto.min(pypto.symbolic_scalar(indices_shape[0]) - b_idx * view_shape[0],
                                                 pypto.symbolic_scalar(view_shape[0]))])
-            tmp_dst_tensor = pypto.tensor()
             test_func(self_tensor, (view_indices0, ), view_values, accumulate=accumulate)
-            # pypto.assemble(tmp_dst_tensor, [0, 0], dst_tensor)
-            del view_values, view_indices0, tmp_dst_tensor
+            del view_values, view_indices0
     assert isinstance(dst_tensor, pypto.tensor)
 
     self_input = torch.ones(self_shape, dtype=torch.float32) * (-1)

@@ -131,20 +131,18 @@ def index_put_(
         the same as the length of the 1-dimensional tensors in `indices`.
         All other dimensions must match `input`.
     accumulate : bool
-        Specify whether to accumulate into `input`. `accumulate = True` is
-        not currently supported. Specifically, when `indices` contain duplicate 
-        elements, the behavior is undefined.
+        Specify whether to accumulate into `input`. Specifically, when
+        `indices` contain duplicate elements, the behavior is undefined.
 
     Returns
     -------
-    Tensor
-        A new tensor sharing the same storage with the `input` tensor.
+    None
 
     Raises
     ------
     RuntimeError
         If any value in the i-th 1-dimensional tensor of `indices` exceed
-        the range [0, input.shape[i - 1].
+        the range [0, input.shape[i - 1]].
 
     Examples
     --------
@@ -152,7 +150,7 @@ def index_put_(
     indices = (pypto.tensor([3], pypto.DT_INT32), )
     values = pypto.tensor([3, 2], pypto.DT_FP32)
 
-    Input x:  [[0 0],
+    input x:  [[0 0],
                [0 0],
                [0 0],
                [0 0]]
@@ -161,7 +159,7 @@ def index_put_(
                [2 2],
                [3 3]]
 
-    Output y: [[1 1],
+    updated x: [[1 1],
                [2 2],
                [0 0],
                [3 3]]

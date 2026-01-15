@@ -72,9 +72,6 @@ static void IndexPut_OperationExeFunc2Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     FUNCTION("main", {inputs[0], inputs[1], inputs[2], inputs[3]}, {outputs[0]}) {
         const T *args = static_cast<const T *>(opArgs);
-        SymbolicScalar indicesFirstDim = inputs[2].GetShape()[0];
-        SymbolicScalar indicesSecondDim = inputs[3].GetShape()[0];
-        SymbolicScalar maxIndices = std::max({indicesFirstDim, indicesSecondDim});
         std::vector<int64_t> valuesShapes = inputs[1].GetShape();
         const int viewShape = args->viewShape_[0];
         std::vector<int64_t> valuesViewShapes = valuesShapes;
@@ -83,7 +80,11 @@ static void IndexPut_OperationExeFunc2Dims(
         for (int64_t vs : valuesShapes) {
             valuesValidShapes.emplace_back(vs);
         }
+        SymbolicScalar indicesFirstDim = inputs[2].GetShape()[0];
+        SymbolicScalar indicesSecondDim = inputs[3].GetShape()[0];
+        SymbolicScalar maxIndices = std::max({indicesFirstDim, indicesSecondDim});
         std::vector<SymbolicScalar> valuesNewOffsets(valuesShapes.size(), 0);
+
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, CeilDiv(maxIndices, viewShape), 1)) {
             valuesValidShapes[0] = std::min(valuesShapes[0] - bIdx * viewShape, viewShape);
             valuesNewOffsets[0] = bIdx * viewShape;
@@ -105,10 +106,6 @@ static void IndexPut_OperationExeFunc3Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     FUNCTION("main", {inputs[0], inputs[1], inputs[2], inputs[3], inputs[4]}, {outputs[0]}) {
         const T *args = static_cast<const T *>(opArgs);
-        SymbolicScalar indicesFirstDim = inputs[2].GetShape()[0];
-        SymbolicScalar indicesSecondDim = inputs[3].GetShape()[0];
-        SymbolicScalar indicesThirdDim = inputs[4].GetShape()[0];
-        SymbolicScalar maxIndices = std::max({indicesFirstDim, indicesSecondDim, indicesThirdDim});
         std::vector<int64_t> valuesShapes = inputs[1].GetShape();
         const int viewShape = args->viewShape_[0];
         std::vector<int64_t> valuesViewShapes = valuesShapes;
@@ -117,7 +114,12 @@ static void IndexPut_OperationExeFunc3Dims(
         for (int64_t vs : valuesShapes) {
             valuesValidShapes.emplace_back(vs);
         }
+        SymbolicScalar indicesFirstDim = inputs[2].GetShape()[0];
+        SymbolicScalar indicesSecondDim = inputs[3].GetShape()[0];
+        SymbolicScalar indicesThirdDim = inputs[4].GetShape()[0];
+        SymbolicScalar maxIndices = std::max({indicesFirstDim, indicesSecondDim, indicesThirdDim});
         std::vector<SymbolicScalar> valuesNewOffsets(valuesShapes.size(), 0);
+
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, CeilDiv(maxIndices, viewShape), 1)) {
             valuesValidShapes[0] = std::min(valuesShapes[0] - bIdx * viewShape, viewShape);
             valuesNewOffsets[0] = bIdx * viewShape;
@@ -141,11 +143,6 @@ static void IndexPut_OperationExeFunc4Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     FUNCTION("main", {inputs[0], inputs[1], inputs[2], inputs[3], inputs[4], inputs[5]}, {outputs[0]}) {
         const T *args = static_cast<const T *>(opArgs);
-        SymbolicScalar indicesFirstDim = inputs[2].GetShape()[0];
-        SymbolicScalar indicesSecondDim = inputs[3].GetShape()[0];
-        SymbolicScalar indicesThirdDim = inputs[4].GetShape()[0];
-        SymbolicScalar indicesForthDim = inputs[5].GetShape()[0];
-        SymbolicScalar maxIndices = std::max({indicesFirstDim, indicesSecondDim, indicesThirdDim, indicesForthDim});
         std::vector<int64_t> valuesShapes = inputs[1].GetShape();
         const int viewShape = args->viewShape_[0];
         std::vector<int64_t> valuesViewShapes = valuesShapes;
@@ -154,7 +151,13 @@ static void IndexPut_OperationExeFunc4Dims(
         for (int64_t vs : valuesShapes) {
             valuesValidShapes.emplace_back(vs);
         }
+        SymbolicScalar indicesFirstDim = inputs[2].GetShape()[0];
+        SymbolicScalar indicesSecondDim = inputs[3].GetShape()[0];
+        SymbolicScalar indicesThirdDim = inputs[4].GetShape()[0];
+        SymbolicScalar indicesForthDim = inputs[5].GetShape()[0];
+        SymbolicScalar maxIndices = std::max({indicesFirstDim, indicesSecondDim, indicesThirdDim, indicesForthDim});
         std::vector<SymbolicScalar> valuesNewOffsets(valuesShapes.size(), 0);
+        
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, CeilDiv(maxIndices, viewShape), 1)) {
             valuesValidShapes[0] = std::min(valuesShapes[0] - bIdx * viewShape, viewShape);
             valuesNewOffsets[0] = bIdx * viewShape;
