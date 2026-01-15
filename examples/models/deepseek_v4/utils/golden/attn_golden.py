@@ -81,7 +81,7 @@ def kv_cache_concat_bsnd(kr_cache_out, kv_cache_out, block_table, actual_seqs):
     return k_cache, v_cache
 
 
-def softmax(x, attn_sink, is_fp16=False):
+def softmax(x, attn_sink, is_fp16=False, is_new_sink = False):
     # 使用 torch 的 softmax 实现
     if is_fp16:
         original_dtype = x.dtype
@@ -91,7 +91,10 @@ def softmax(x, attn_sink, is_fp16=False):
     y = torch.exp(x_sub)
     x_sum = y.sum(dim=-1, keepdim=True)
     if attn_sink != None:
-        x_sum += attn_sink.unsqueeze(-1)
+        if not is_new_sink:
+            x_sum += attn_sink.unsqueeze(-1)
+        else:
+            x_sum += torch.exp(attn_sink.unsqueeze(-1) - x_max)
     ans = y / x_sum
     if is_fp16:
         ans = ans.to(original_dtype)
@@ -101,13 +104,15 @@ def softmax(x, attn_sink, is_fp16=False):
     return ans, x_max, x_sum
 
 
-def ifa_golden(q, k, v, attn_sink, block_table, start_pos, out, enable_flash=True, cmp_r=1):
+def ifa_golden(q, k, v, attn_sink, blk_cfa, start_pos, out, enable_flash=True, cmp_r=1, is_new_sink=False,
+                k_win=None, v_win=None, blk_win=None):
     if not enable_flash:
         fp64 = torch.float64
         q = q.to(fp64)
         k = k.to(fp64)
         v = v.to(fp64)
         b = start_pos.shape[0]
+        blk_size = k.shape[1]
         bs = q.shape[0]
         s1 = bs // b
         nkv = k.shape[2]
@@ -115,24 +120,34 @@ def ifa_golden(q, k, v, attn_sink, block_table, start_pos, out, enable_flash=Tru
         softmax_scale = d**-0.5
         original_actual_seqs = start_pos + s1
         compress_actual_seqs = original_actual_seqs // cmp_r
-        k_cache_bsnd, v_cache_bsnd = kv_cache_concat_bsnd(
-            k, v, block_table, compress_actual_seqs
+        k_bsnd, v_bsnd = kv_cache_concat_bsnd(
+            k, v, blk_cfa, compress_actual_seqs
         )
-
+        win_seq_len = 0
+        if k_win is not None and v_win is not None and blk_win is not None:
+            k_cfa_bsnd, v_cfa_bsnd = kv_cache_concat_bsnd(
+                    k, v, blk_cfa, original_actual_seqs * 0 + 128
+                )
+            k_win_bsnd, v_win_bsnd = kv_cache_concat_bsnd(
+                    k_win, v_win, blk_win, compress_actual_seqs
+                )
+            k_bsnd = torch.cat([k_win_bsnd, k_cfa_bsnd], dim=1)
+            v_bsnd = torch.cat([v_win_bsnd, v_cfa_bsnd], dim=1)
+            win_seq_len = blk_size
         for i in range(b):
             for j in range(s1):
                 for n2_idx in range(nkv):
-                    seq_len = (original_actual_seqs[i] - s1 + 1 + j) // cmp_r
+                    seq_len = win_seq_len + (original_actual_seqs[i] - s1 + 1 + j) // cmp_r
                     q_bs = q[i * s1 + j]
-                    k_bs = k_cache_bsnd[i, :seq_len, n2_idx : n2_idx + 1].reshape(
+                    k_bs = k_bsnd[i, :seq_len, n2_idx : n2_idx + 1].reshape(
                         seq_len, d
                     )
-                    v_bs = v_cache_bsnd[i, :seq_len, n2_idx : n2_idx + 1].reshape(
+                    v_bs = v_bsnd[i, :seq_len, n2_idx : n2_idx + 1].reshape(
                         seq_len, d
                     )
                     qk_bmm_res = torch.matmul(q_bs, k_bs.transpose(1, 0))
                     qk_ele_res = qk_bmm_res * softmax_scale
-                    softmax_res, _, _ = softmax(qk_ele_res, attn_sink, True)
+                    softmax_res, _, _ = softmax(qk_ele_res, attn_sink, True, is_new_sink=is_new_sink)
                     bmm2_res = torch.matmul(softmax_res, v_bs)
                     out[i * s1 + j] = bmm2_res
     else:
@@ -141,19 +156,48 @@ def ifa_golden(q, k, v, attn_sink, block_table, start_pos, out, enable_flash=Tru
             k=k,
             v=v,
             attn_sink=attn_sink,
-            block_table=block_table,
+            block_table=blk_cfa,
             start_pos=start_pos,
             out=out,
             cmp_r=cmp_r,
+            is_new_sink=is_new_sink,
+            k_win=k_win, v_win=v_win, blk_win=blk_win,
         )
 
 
 def matmul_proxy(left, right):
     fp32 = torch.float32
-    return torch.matmul(left.to(fp32), right.to(fp32))
+    return torch.matmul(left.to(fp32), right.to(fp32)).to(fp32)
 
+def get_block_kv(k_2d, v_2d, block_table, b_idx, s2_idx, block_size, cur_seq):
+    block_idx = block_table[b_idx][s2_idx]
+    actual_s2_tile = min(block_size, cur_seq - s2_idx * block_size)
+    kj_start = block_idx * block_size
+    kj_end = kj_start + actual_s2_tile
+    kj = k_2d[kj_start:kj_end, :]
+    vj = v_2d[kj_start:kj_end, :]
+    return kj, vj
 
-def ifa_flash_torch(q, k, v, attn_sink, block_table, start_pos, out, cmp_r=1):
+def flash_end(out, attn_sink, li_upd, mi_upd, oi_upd, n2g_ofs, g_tile, bs_ofs, dtype, is_new_sink=False):
+    li = li_upd.unsqueeze(-1)
+    if attn_sink != None:
+        if not is_new_sink:
+            li += attn_sink.unsqueeze(-1)
+        else:
+            li += torch.exp(attn_sink - mi_upd).unsqueeze(-1)
+    oi_final = oi_upd / li
+    oi_upd_3d = oi_final.unsqueeze(0)
+    attn_out_start = n2g_ofs
+    attn_out_end = n2g_ofs + g_tile
+    if attn_out_end > out.shape[1]:
+        attn_out_end = out.shape[1]
+        attn_out_start = attn_out_end - g_tile
+    out[bs_ofs : bs_ofs + 1, attn_out_start:attn_out_end, :] = (
+        oi_upd_3d.to(dtype)
+    )
+
+def ifa_flash_torch(q, k, v, attn_sink, block_table, start_pos, out, cmp_r=1, is_new_sink=False,
+                k_win=None, v_win=None, blk_win=None):
     """
     Args:
         q: Query [batch_size * s1, num_head, head_size]
@@ -188,26 +232,38 @@ def ifa_flash_torch(q, k, v, attn_sink, block_table, start_pos, out, cmp_r=1):
                 oi_upd = torch.zeros((g_tile, d), device=device, dtype=fp32)
                 li_upd = torch.zeros(g_tile, device=device, dtype=fp32)
                 mi_upd = torch.zeros(g_tile, device=device, dtype=fp32)
+                bs_ofs = b_idx * s1 + s1_idx
+                n2g_ofs = g_idx * g_tile
+                qi_start = bs_ofs * n1 + n2g_ofs
+                qi_end = qi_start + g_tile
+                qi = q_2d[qi_start:qi_end, :]
+                if k_win is not None and v_win is not None and blk_win is not None:
+                    k_win_2d = k_win.reshape(-1, d)
+                    v_win_2d = v_win.reshape(-1, d)
+                    cur_seq_win = min(block_size, original_actual_seqs[b_idx]) - (s1 - 1 - s1_idx)
+                    k_win, v_win = get_block_kv(k_win_2d, v_win_2d, blk_win, b_idx, s2_idx, block_size, cur_seq_win)
+                    mm1_win = matmul_proxy(qi, k_win.t())
+                    muls_win = mm1_win * (d**-0.5)
+                    tilda_mij_win, _ = torch.max(muls_win, dim=-1, keepdim=True)
+                    tsub = muls_win - tilda_mij_win
+                    tilda_pij_win = torch.exp(tsub)
+                    tilda_lij = torch.sum(tilda_pij_win, dim=-1, keepdim=True)
+                    oi_tmp = matmul_proxy(tilda_pij.to(dtype), v_win)
+                    oi_upd = oi_tmp
+                    li_upd = tilda_lij.squeeze(-1)
+                    mi_upd = tilda_mij.squeeze(-1)
+                    if s2_loop == 0:
+                         flash_end(out, attn_sink, li_upd, mi_upd, oi_upd, n2g_ofs, g_tile, bs_ofs, dtype, is_new_sink=False)
                 for s2_idx in range(s2_loop):
-                    block_idx = block_table[b_idx][s2_idx]
-                    bs_ofs = b_idx * s1 + s1_idx
-                    n2g_ofs = g_idx * g_tile
-                    actual_s2_tile = min(block_size, cur_seq - s2_idx * block_size)
-                    qi_start = bs_ofs * n1 + n2g_ofs
-                    qi_end = qi_start + g_tile
-                    qi = q_2d[qi_start:qi_end, :]
-                    kj_start = block_idx * block_size
-                    kj_end = kj_start + actual_s2_tile
-                    kj = k_2d[kj_start:kj_end, :]
-                    vj = v_2d[kj_start:kj_end, :]
-                    mm1 = matmul_proxy(qi, kj.t()).to(fp32)
+                    kj, vj = get_block_kv(k_2d, v_2d, block_table, b_idx, s2_idx, block_size, cur_seq)
+                    mm1 = matmul_proxy(qi, kj.t())
                     muls_res = mm1 * (d**-0.5)
                     tilda_mij, _ = torch.max(muls_res, dim=-1, keepdim=True)
-                    if s2_idx == 0:
+                    if s2_idx == 0 and k_win is None:
                         tsub = muls_res - tilda_mij
                         tilda_pij = torch.exp(tsub)
                         tilda_lij = torch.sum(tilda_pij, dim=-1, keepdim=True)
-                        oi_tmp = matmul_proxy(tilda_pij.to(dtype), vj).to(fp32)
+                        oi_tmp = matmul_proxy(tilda_pij.to(dtype), vj)
                         oi_upd = oi_tmp
                         li_upd = tilda_lij.squeeze(-1)
                         mi_upd = tilda_mij.squeeze(-1)
@@ -225,22 +281,10 @@ def ifa_flash_torch(q, k, v, attn_sink, block_table, start_pos, out, cmp_r=1):
                         li = li_upd.unsqueeze(-1)
                         sum_new = li * update_mul + tilda_lij
                         li_upd = sum_new.squeeze(-1)
-                        q1 = matmul_proxy(tilda_pij.to(dtype), vj).to(fp32)
+                        q1 = matmul_proxy(tilda_pij.to(dtype), vj)
                         oi_upd = oi_upd * update_mul + q1
                     if s2_idx == s2_loop - 1:
-                        li = li_upd.unsqueeze(-1)
-                        if attn_sink != None:
-                            li += attn_sink.unsqueeze(-1)
-                        oi_final = oi_upd / li
-                        oi_upd_3d = oi_final.unsqueeze(0)
-                        attn_out_start = n2g_ofs
-                        attn_out_end = n2g_ofs + g_tile
-                        if attn_out_end > out.shape[1]:
-                            attn_out_end = out.shape[1]
-                            attn_out_start = attn_out_end - g_tile
-                        out[bs_ofs : bs_ofs + 1, attn_out_start:attn_out_end, :] = (
-                            oi_upd_3d.to(dtype)
-                        )
+                        flash_end(out, attn_sink, li_upd, mi_upd, oi_upd, n2g_ofs, g_tile, bs_ofs, dtype, is_new_sink=is_new_sink)
     return out
 
 

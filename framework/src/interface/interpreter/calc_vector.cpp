@@ -343,6 +343,15 @@ void ExecuteOpGather(ExecuteOperationContext *ctx) {
     calc::Gather(output, parmas, indices, axis);
 }
 REGISTER_CALC_OP(OP_GATHER, Opcode::OP_GATHER, ExecuteOpGather);
+void ExecuteOpGatherINUB(ExecuteOperationContext *ctx) {
+    auto output = ctx->ooperandInplaceDataViewList->at(0);
+    auto parmas = ctx->ioperandDataViewList->at(0);
+    auto indices = ctx->ioperandDataViewList->at(1);
+    auto pageTable = ctx->ioperandDataViewList->at(2);
+    int blocksize = ctx->op->GetIntAttribute("op_attr_blocksize");
+    calc::GatherINUB(output, parmas, indices, pageTable, blocksize, -2);
+}
+REGISTER_CALC_OP(OP_GATHER_IN_UB, Opcode::OP_GATHER_IN_UB, ExecuteOpGatherINUB);
 
 void ExecuteOpIndexAdd(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
@@ -359,6 +368,17 @@ void ExecuteOpIndexAdd(ExecuteOperationContext *ctx) {
     calc::IndexAdd(ret, self, src, indices, axis, alpha);
 }
 REGISTER_CALC_OP(OP_INDEX_ADD, Opcode::OP_INDEX_ADD, ExecuteOpIndexAdd);
+
+void ExecuteOpCumSum(ExecuteOperationContext *ctx) {
+    ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
+    ASSERT(ctx->ioperandDataViewList->size() == 1);
+    auto &output = ctx->ooperandInplaceDataViewList->at(0);
+    auto &input = ctx->ioperandDataViewList->at(0);
+
+    int axis = ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "axis");
+    calc::CumSum(output, input, axis);
+}
+REGISTER_CALC_OP(OP_CUM_SUM, Opcode::OP_CUM_SUM, ExecuteOpCumSum);
 
 void ExecuteOpMrgSort(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ioperandDataViewList->size() == 1);

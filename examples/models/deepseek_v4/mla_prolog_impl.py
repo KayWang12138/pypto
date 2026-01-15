@@ -114,6 +114,34 @@ class MlaPrologV4Configs:
     chunk_size: int
     vec_nbuffer_mode: int
 
+
+def check_input_output_shape_dtype(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, 
+                                    output_q_data, output_kv_data, output_qr_data):
+    assert token_x.size(1) == 4096 and token_x.dim() == 2, f"expected token_x dim num 2, token_x axis1 4096"
+    assert wq_a.dim() == 2 and wq_a.size(0) == 4096 and wq_a.size(1) == 1024, f"expected wq_a dim num 2 residual axis0 4096, wq_a axis1 1024"
+    assert wq_b.dim() == 2 and wq_b.size(0) == 1024 and wq_b.size(1) == 32768, f"expected wq_b dim num 2, wq_b axis0 1024, wq_b axis1 32768"
+    assert wkv.dim() == 2 and wkv.size(0) == 4096 and wkv.size(1) == 512, f"expected wkv dim num 2, wkv axis0 4096, wkv axis1 512"
+    assert rope_cos.dim() == 2 and rope_cos.size(1) == 64, f"expected rope_cos dim num 2, rope_cos axis1 64"
+    assert rope_sin.dim() == 2 and rope_sin.size(1) == 64, f"expected rope_sin dim num 2, rope_sin axis1 64"
+    assert gamma_cq.dim() == 1 and gamma_cq.size(0) == 1024 , f"expected gamma_cq dim num 1, gamma_cq axis0 1024"
+    assert gamma_ckv.dim() == 1 and gamma_ckv.size(0) == 512, f"expected gamma_ckv dim num 1, gamma_ckv axis0 512"
+    assert output_q_data.dim() == 3 and output_q_data.size(1) == 64 and output_q_data.size(2) == 512, f"expected output_q_data dim num 3, output_q_data axis1 64, output_q_data axis2 512"
+    assert output_kv_data.dim() == 2 and output_kv_data.size(1) == 512, f"expected output_kv_data dim num 2, output_kv_data axis1 512"
+    assert output_qr_data.dim() == 2 and output_qr_data.size(1) == 1024, f"expected output_qr_data dim num 2, output_qr_data axis1 4096"
+
+    assert token_x.dtype == torch.bfloat16, f"token_x.dtype is {token_x.dtype}, expected torch.bfloat16"
+    assert wq_a.dtype == torch.bfloat16, f"wq_a.dtype is {wq_a.dtype}, expected torch.bfloat16"
+    assert wq_b.dtype == torch.bfloat16,  f"wq_b.dtype is {wq_b.dtype}, expected torch.bfloat16"
+    assert wkv.dtype == torch.bfloat16, f"wkv.dtype is {wkv.dtype}, expected torch.bfloat16"
+    assert rope_cos.dtype == torch.bfloat16, f"rope_cos.dtype is {rope_cos.dtype}, expected torch.bfloat16"
+    assert rope_sin.dtype == torch.bfloat16, f"rope_sin.dtype is {rope_sin.dtype}, expected torch.bfloat16"
+    assert gamma_cq.dtype == torch.bfloat16, f"gamma_cq.dtype is {gamma_cq.dtype}, expected torch.bfloat16"
+    assert gamma_ckv.dtype == torch.bfloat16,  f"gamma_ckv.dtype is {gamma_ckv.dtype}, expected torch.bfloat16"
+    assert output_q_data.dtype == torch.bfloat16, f"output_q_data.dtype is {output_q_data.dtype}, expected torch.bfloat16"
+    assert output_kv_data.dtype == torch.bfloat16, f"output_kv_data.dtype is {output_kv_data.dtype}, expected torch.bfloat16"
+    assert output_qr_data.dtype == torch.bfloat16, f"output_qr_data.dtype is {output_qr_data.dtype}, expected torch.bfloat16"
+
+
 def rms_norm(input_tensor: pypto.Tensor, epsilon: float) -> pypto.Tensor:
     """Compute RMS (Root Mean Square) normalization.
 
@@ -201,24 +229,26 @@ def rope_2d(
         rotation to optimize memory access patterns.
     """
     assert len(x.shape) == 2 and len(cos.shape) == 2 and len(sin.shape) == 2
-    seq_size = x.shape[0]
-    d_r = x.shape[1]
-    x_dtype = x.dtype
+    input_dtype = x.dtype
+    pypto.set_vec_tile_shapes(1, 64, 128)
+    y = pypto.clone(x)
+    y_cast = pypto.cast(y, pypto.DT_FP32)
+    x_view = pypto.reshape(x, [x.shape[0], x.shape[1]//2, 2])
+    x_trans = pypto.transpose(x_view, 1, 2)
+    x_re_second = pypto.reshape(x_trans, x.shape)
+    x_t = rotate_half(x_re_second)
+    x_new = pypto.reshape(x_t, [x.shape[0], 2, x.shape[1]//2])
+    x_new_trans = pypto.transpose(x_new, 1, 2)
+    x_new_r = pypto.reshape(x_new_trans, x.shape)
+    x_new_cast = pypto.cast(x_new_r, pypto.DT_FP32)
 
-    pypto.set_vec_tile_shapes(16, 64)
-    cast_x = pypto.cast(x, pypto.DT_FP32)
+    pypto.set_vec_tile_shapes(1, 64)
     cast_cos = pypto.cast(cos, pypto.DT_FP32)
     cast_sin = pypto.cast(sin, pypto.DT_FP32)
 
-    pypto.set_vec_tile_shapes(16, 64, 64)
-    x_view = pypto.reshape(cast_x, [seq_size, d_r // 2, 2])
-    x_trans = pypto.transpose(x_view, 1, 2)
-    x_re_second = pypto.reshape(x_trans, [seq_size, d_r])
-
-    pypto.set_vec_tile_shapes(16, 64)
-    x_embded = x_re_second * cast_cos + rotate_half(x_re_second) * cast_sin
-
-    return pypto.cast(x_embded, x.dtype)
+    pypto.set_vec_tile_shapes(1, 64, 64)
+    x_embed = y_cast * cast_cos + x_new_cast * cast_sin
+    return pypto.cast(x_embed, input_dtype)
 
 
 def rope_3d(x: pypto.Tensor, cos: pypto.Tensor, sin: pypto.Tensor) -> pypto.Tensor:
@@ -240,23 +270,29 @@ def rope_3d(x: pypto.Tensor, cos: pypto.Tensor, sin: pypto.Tensor) -> pypto.Tens
         then applies rotation: x_rotated = x * cos + rotate_half(x) * sin
     """
     assert len(x.shape) == 3 and len(cos.shape) == 2 and len(sin.shape) == 2
+    input_dtype = x.dtype
+    pypto.set_vec_tile_shapes(1, 64, 128, 128)
+    y = pypto.clone(x)
+    y_cast = pypto.cast(y, pypto.DT_FP32)
+    x_view = pypto.reshape(x, [x.shape[0], x.shape[1], x.shape[2]//2, 2])
+    x_trans = pypto.transpose(x_view, 2, 3)
+    x_re_second = pypto.reshape(x_trans, x.shape)
+    x_t = rotate_half(x_re_second)
+    x_new = pypto.reshape(x_t, [x.shape[0], x.shape[1], 2, x.shape[2]//2])
+    x_new_trans = pypto.transpose(x_new, 2, 3)
+    x_new_r = pypto.reshape(x_new_trans, x.shape)
+    x_new_cast = pypto.cast(x_new_r, pypto.DT_FP32)
 
     pypto.set_vec_tile_shapes(1, 64)
     cast_cos = pypto.cast(cos, pypto.DT_FP32)
     cast_sin = pypto.cast(sin, pypto.DT_FP32)
 
     pypto.set_vec_tile_shapes(1, 64, 64)
-    cast_x = pypto.cast(x, pypto.DT_FP32)
     cast_cos = pypto.reshape(cast_cos, [x.shape[0], 1, x.shape[2]])
     cast_sin = pypto.reshape(cast_sin, [x.shape[0], 1, x.shape[2]])
 
-    pypto.set_vec_tile_shapes(1, 64, 128, 128)
-    x_view = pypto.reshape(cast_x, [x.shape[0], x.shape[1], x.shape[2] // 2, 2])
-    x_trans = pypto.transpose(x_view, 2, 3)
-    x_re_second = pypto.reshape(x_trans, x.shape)
-    x_embed = x_re_second * cast_cos + rotate_half(x_re_second) * cast_sin
-
-    return pypto.cast(x_embed, x.dtype)
+    x_embed = y_cast * cast_cos + x_new_cast * cast_sin
+    return pypto.cast(x_embed, input_dtype)
 
 def mla_prolog_v4_compute(x, wq_a, wq_b, wkv, rmsnorm_gamma_cq, rmsnorm_gamma_ckv, cos, sin, q_out, kv_out, qr_out, attrs, configs):
     t = x.shape[0]
@@ -267,6 +303,9 @@ def mla_prolog_v4_compute(x, wq_a, wq_b, wkv, rmsnorm_gamma_cq, rmsnorm_gamma_ck
     rope_dim = cos.shape[1]
     gamma_cq_2d = pypto.reshape(rmsnorm_gamma_cq, [1, rmsnorm_gamma_cq.shape[0]], inplace=True)
     gamma_ckv_2d = pypto.reshape(rmsnorm_gamma_ckv, [1, rmsnorm_gamma_ckv.shape[0]], inplace=True)
+    pypto.set_vec_tile_shapes(4, q_lora_rank)
+    gamma_cq_2d_fp32 = pypto.cast(gamma_cq_2d, pypto.DataType.DT_FP32)
+    gamma_ckv_2d_fp32 = pypto.cast(gamma_ckv_2d, pypto.DataType.DT_FP32)
 
     unroll_list = configs.unroll_list
     for tIdx, unrollLength in pypto.loop_unroll(0, t, 1, name="MLA_BS_LOOP", idx_name="bs_offset",
@@ -279,8 +318,7 @@ def mla_prolog_v4_compute(x, wq_a, wq_b, wkv, rmsnorm_gamma_cq, rmsnorm_gamma_ck
         pypto.set_semantic_label("q-rmsnorm with weight")
         pypto.set_vec_tile_shapes(8, q_lora_rank)
         qr = rms_norm(q, attrs.eps)
-        gamma_cq_2d = pypto.cast(gamma_cq_2d, pypto.DataType.DT_FP32)
-        qr = pypto.mul(qr, gamma_cq_2d)
+        qr = pypto.mul(qr, gamma_cq_2d_fp32)
         qr = pypto.cast(qr, pypto.DataType.DT_BF16)
         pypto.assemble(qr, [tIdx, 0], qr_out)
 
@@ -306,8 +344,7 @@ def mla_prolog_v4_compute(x, wq_a, wq_b, wkv, rmsnorm_gamma_cq, rmsnorm_gamma_ck
         kv = pypto.matmul(x_tile, wkv, pypto.DataType.DT_BF16)
         pypto.set_vec_tile_shapes(4, 64)
         kv_norm = rms_norm(kv, attrs.eps)
-        gamma_ckv_2d = pypto.cast(gamma_ckv_2d, pypto.DataType.DT_FP32)
-        kv_norm = pypto.mul(kv_norm, gamma_ckv_2d)
+        kv_norm = pypto.mul(kv_norm, gamma_ckv_2d_fp32)
         kv_norm = pypto.cast(kv_norm, pypto.DataType.DT_BF16)
 
         kv_norm_nope = pypto.view(kv_norm, [t_tile, head_dim-rope_dim], [0, 0], valid_shape=[t_tile, head_dim-rope_dim])
@@ -317,19 +354,22 @@ def mla_prolog_v4_compute(x, wq_a, wq_b, wkv, rmsnorm_gamma_cq, rmsnorm_gamma_ck
         pypto.assemble(kv_norm, [tIdx, 0], kv_out)
 
 
-@pypto.jit(debug_options=dict(compile_debug_mode=1, runtime_debug_mode=1))
+@pypto.jit(runtime_options={"stitch_cfgcache_size": 300000})
 def mla_prolog_v4(x, wq_a, wq_b, wkv, rmsnorm_gamma_cq, rmsnorm_gamma_ckv, cos, sin, q_out, kv_out, qr_out, attrs, configs):
     mla_prolog_v4_compute(x, wq_a, wq_b, wkv, rmsnorm_gamma_cq, rmsnorm_gamma_ckv, cos, sin, q_out, kv_out, qr_out, attrs, configs)
 
 @allow_in_graph
-def mla_prolog_v4_in(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, 
-    output_q_data, output_kv_data, output_qr_data):
-
-    if isinstance(output_q_data, FakeTensor) or isinstance(output_kv_data, FakeTensor) or isinstance(output_qr_data, FakeTensor):
-        return output_q_data, output_kv_data, output_qr_data
-    out_q = pypto.from_torch(output_q_data, dynamic_axis=[0], name="output_q")
-    out_kv = pypto.from_torch(output_kv_data, dynamic_axis=[0], name="output_kv")
-    out_qr = pypto.from_torch(output_qr_data, dynamic_axis=[0], name="output_qr")
+def mla_prolog_v4_in(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv):
+    output_q_data = torch.zeros([token_x.size(0), wq_b.size(1) // gamma_ckv.size(0), gamma_ckv.size(0)], dtype=token_x.dtype, device=f'{token_x.device}')
+    output_kv_data = torch.zeros([token_x.size(0), gamma_ckv.size(0)], dtype=token_x.dtype, device=f'{token_x.device}')
+    output_qr_data = torch.zeros([token_x.size(0), gamma_cq.size(0)], dtype=token_x.dtype, device=f'{token_x.device}')
+    
+    check_input_output_shape_dtype(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, 
+                                    output_q_data, output_kv_data, output_qr_data)
+    if not isinstance(token_x, FakeTensor):
+        out_q = pypto.from_torch(output_q_data, dynamic_axis=[0], name="output_q")
+        out_kv = pypto.from_torch(output_kv_data, dynamic_axis=[0], name="output_kv")
+        out_qr = pypto.from_torch(output_qr_data, dynamic_axis=[0], name="output_qr")
 
     token_x_data = pypto.from_torch(token_x, dynamic_axis=[0], name="token_x")
     wq_a_data = pypto.from_torch(wq_a, name="wq_a")

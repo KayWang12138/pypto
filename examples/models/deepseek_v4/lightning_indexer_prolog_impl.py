@@ -187,8 +187,7 @@ def lightning_indexer_prolog_compute(x_in,
                                    sin_idx_rope_in,
                                    hadamard_q_in,
                                    q_bf16_out,
-                                   weights_out,
-                                   attrs, 
+                                   weights_out, 
                                    configs):
     """Compute Lightning Indexer Prolog.
 
@@ -304,7 +303,6 @@ def lightning_indexer_prolog(x_in,
                             hadamard_q_in,
                             q_bf16_out,
                             weights_out,
-                            attrs, 
                             configs):
     """JIT-compiled wrapper for Lightning Indexer Prolog computation.
 
@@ -322,7 +320,6 @@ def lightning_indexer_prolog(x_in,
         hadamard_q_in: Hadamard transformation matrix for query, shape (head_dim, head_dim), dtype BF16
         q_bf16_out: Output query tensor, shape (t, head_num, head_dim), dtype BF16
         weights_out: Output weights tensor, shape (t, head_num), dtype FP16
-        attrs: IndexerPrologAttr object containing operator attributes
         configs: IndexerPrologConfigs object containing optimization configurations
 
     Note:
@@ -346,5 +343,4 @@ def lightning_indexer_prolog(x_in,
                                    hadamard_q_in,
                                    q_bf16_out,
                                    weights_out,
-                                   attrs, 
                                    configs)

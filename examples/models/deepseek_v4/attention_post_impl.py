@@ -81,42 +81,45 @@ def rotate_half(input_tensor: pypto.Tensor) -> pypto.Tensor:
     return pypto.concat([x2 * (-1.0), x1 + 0.0], -1)
 
 
-def interleaved_rope_3d(x: pypto.Tensor, cos: pypto.Tensor, sin: pypto.Tensor, rope_3d_config: Rope3dTileConfig) -> pypto.Tensor:
-    """Apply 3D Rotary Position Embedding (RoPE).
-
-    Implements RoPE transformation for 3D tensors with shape (batch, heads, dim).
-    The RoPE is applied independently to each head using broadcasted cos/sin values.
-
-    Args:
-        x: Input tensor of shape (batch, heads, rope_dim)
-        cos: Cosine values for RoPE, shape (batch, rope_dim)
-        sin: Sine values for RoPE, shape (batch, rope_dim)
-
-    Returns:
-        Tensor with RoPE applied, same shape as input x
-
-    Note:
-        The function broadcasts cos and sin to match the head dimension,
-        then applies rotation: x_rotated = x * cos + rotate_half(x) * sin
+def inverse_rope_3d(x: pypto.Tensor, cos: pypto.Tensor, sin: pypto.Tensor, rope_3d_config: Rope3dTileConfig) -> pypto.Tensor:
+    """Apply inverse 3D Rotary Position Embedding.
     """
     assert (len(x.shape) == SHAPE_DIM_3 and len(cos.shape) == SHAPE_DIM_2 and len(sin.shape) == SHAPE_DIM_2)
 
     pypto.set_vec_tile_shapes(*rope_3d_config.two_dim_tile) # (1, 64)
     cast_cos = pypto.cast(cos, pypto.DataType.DT_FP32)
     cast_sin = pypto.cast(sin, pypto.DataType.DT_FP32)
+    cast_sin = cast_sin * (-1.0)
 
     pypto.set_vec_tile_shapes(*rope_3d_config.three_dim_tile) # (1, 64, 64)
     cast_x = pypto.cast(x, pypto.DataType.DT_FP32)
     cast_cos = pypto.reshape(cast_cos, [x.shape[0], 1, x.shape[2]])
     cast_sin = pypto.reshape(cast_sin, [x.shape[0], 1, x.shape[2]])
 
-    pypto.set_vec_tile_shapes(*rope_3d_config.four_dim_tile)  # (1, 64, 128, 128)
     x_view = pypto.reshape(cast_x, [x.shape[0], x.shape[1], x.shape[2] // 2, 2])
+    pypto.set_vec_tile_shapes(*rope_3d_config.four_dim_tile)  # (1, 64, 128, 128)
     x_trans = pypto.transpose(x_view, 2, 3)
     x_re_second = pypto.reshape(x_trans, x.shape)
-    x_embed = x_re_second * cast_cos + rotate_half(x_re_second) * cast_sin
+    pypto.set_vec_tile_shapes(*rope_3d_config.three_dim_tile)
+    x_rotate = rotate_half(x_re_second)
 
-    return pypto.cast(x_embed, x.dtype)
+    # add two extra transpose to avoid last axis unalign transpose
+    # origin calc flow: reshape(1,64,2,32)->transpose(1,64,32,2)->reshape(1,64,64)
+    # new calc flow: transpose(1,64,64)->reshape(1,2,32,64)->transpose(1,32,2,64)->reshape(1,64,64)->transpose(1,64,64)
+    x_rotate_trs_1 = pypto.transpose(x_rotate, 1, 2) # [1, 64.., 64]
+    x_rotate_reshape_1 = pypto.reshape(x_rotate_trs_1, [
+        x_rotate_trs_1.shape[0], 2, x_rotate_trs_1.shape[1] // 2, x_rotate_trs_1.shape[2]]) # [1, 2, 32, 64]
+    pypto.set_vec_tile_shapes(*rope_3d_config.four_dim_tile)
+    x_rotate_trs_2 = pypto.transpose(x_rotate_reshape_1, 1, 2) # [1, 32, 2, 64]
+    x_rotate_reshape_2 = pypto.reshape(x_rotate_trs_2, x_rotate.shape) # [1, 64.., 64]
+    pypto.set_vec_tile_shapes(*rope_3d_config.three_dim_tile)
+    x_rotate_res = pypto.transpose(x_rotate_reshape_2, 1, 2) # [1, 64, 64..]
+
+    pypto.set_vec_tile_shapes(*rope_3d_config.three_dim_tile) # (1, 64, 64)
+    x_embed = cast_x * cast_cos + x_rotate_res * cast_sin
+    x_embed_cast = pypto.cast(x_embed, x.dtype)
+
+    return x_embed_cast
 
 
 def attention_post_compute(attn_res: pypto.Tensor, cos: pypto.Tensor, sin: pypto.Tensor,
@@ -174,7 +177,7 @@ def attention_post_compute(attn_res: pypto.Tensor, cos: pypto.Tensor, sin: pypto
         atten_res_rope = pypto.view(attn_res, [tile_t, n_q, rope_dim], [t_idx, 0, nope_dim]) # rope: (tile_t, n_q, 64)
         cos_in = pypto.view(cos, [tile_t, rope_dim], [t_idx, 0])
         sin_in = pypto.view(sin, [tile_t, rope_dim], [t_idx, 0])
-        rope_result = interleaved_rope_3d(atten_res_rope, cos_in, sin_in, rope3d_tile_config)
+        rope_result = inverse_rope_3d(atten_res_rope, cos_in, sin_in, rope3d_tile_config)
         pypto.assemble(rope_result, [0, 0, nope_dim], tmp_tensor) # (tile_t, n_q, d)
 
         # bmm1 left transpose: (tile_t, n_q, d) -> (n_g, tile_t, n_q * d / n_g)
@@ -218,7 +221,8 @@ def attention_post_compute(attn_res: pypto.Tensor, cos: pypto.Tensor, sin: pypto
     },
     runtime_options={
         "stitch_function_inner_memory": 128,
-        "stitch_function_outcast_memory": 128
+        "stitch_function_outcast_memory": 128,
+        "stitch_cfgcache_size": 2500000
     }
 )
 def attention_post_decode(attn_res: pypto.Tensor, cos: pypto.Tensor, sin: pypto.Tensor,
@@ -233,15 +237,38 @@ def attention_post_decode(attn_res: pypto.Tensor, cos: pypto.Tensor, sin: pypto.
     """
     attention_post_compute(attn_res, cos, sin, wo_a, wo_b, hidden_states, tile_config)
 
+def check_input_output_shape_dtype(attn_res: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor,
+                            wo_a: torch.Tensor, wo_b: torch.Tensor, hidden_states: torch.Tensor):
+    assert attn_res.size(1) == 64 and attn_res.size(2) == 512 and attn_res.dim() == 3, f"expected attn_res dim num 3, attn_res axis1 64, attn_res axis2 512"
+    assert cos.size(1) == 64 and sin.size(1) == 64 and cos.dim() == 2 and sin.dim() == 2,\
+        f"expected cos dim num 2, sin dim num 2, cos axis1 64, sin axis1 64"
+    assert wo_a.size(0) == 8 and wo_a.size(1) == 4096 and wo_a.size(2) == 1024 and wo_a.dim() == 3,\
+        f"expected wo_a dim num 3, wo_a axis0 8, wo_a axis1 4096, wo_a axis2 1024"
+    assert wo_b.size(0) == 8 * 1024 and wo_b.size(1) == 4096 and wo_b.dim() == 2,\
+        f"expected wo_b dim num 2, wo_b axis0 8192, wo_b axis1 4096"
+    assert hidden_states.size(1) == 4096,\
+        f"expected hidden_states dim num 2, hidden_states axis1 4096"
+
+    assert attn_res.dtype == torch.bfloat16, f"attn_res.dtype is {attn_res.dtype}, expected torch.bfloat16"
+    assert cos.dtype == torch.bfloat16, f"cos.dtype is {cos.dtype}, expected torch.bfloat16"
+    assert sin.dtype == torch.bfloat16, f"sin.dtype is {sin.dtype}, expected torch.bfloat16"
+    assert wo_a.dtype == torch.bfloat16, f"wo_a.dtype  is {wo_a.dtype}, expected torch.bfloat16"
+    assert wo_b.dtype == torch.bfloat16, f"wo_b.dtype  is {wo_b.dtype}, expected torch.bfloat16"
+    assert hidden_states.dtype == torch.bfloat16, f"hidden_states.dtype is {hidden_states.dtype}, expected torch.bfloat16"
+    
 
 @allow_in_graph
 def npu_attention_post_v4(attn_res: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor,
-                          wo_a: torch.Tensor, wo_b: torch.Tensor, hidden_states: torch.Tensor):
+                          wo_a: torch.Tensor, wo_b: torch.Tensor):
     """
     torch npu graph interface
 
     """
     # mark dynamic_axis
+    # define npu outputs
+    hidden_states = torch.zeros([attn_res.size(0), wo_b.size(1)], dtype=attn_res.dtype, device=f'{attn_res.device}')
+
+    check_input_output_shape_dtype(attn_res, cos, sin, wo_a, wo_b, hidden_states)
     atten_res_pto = pypto.from_torch(attn_res, dynamic_axis=[0], name="attn_res")
     cos_pto = pypto.from_torch(cos, dynamic_axis=[0], name="cos")
     sin_pto = pypto.from_torch(sin, dynamic_axis=[0], name="sin")
@@ -266,3 +293,5 @@ def npu_attention_post_v4(attn_res: torch.Tensor, cos: torch.Tensor, sin: torch.
         pto_inputs = [atten_res_pto, cos_pto, sin_pto, wo_a_pto, wo_b_pto]
         pto_outputs = [hidden_states_pto]
         attention_post_decode(*pto_inputs, *pto_outputs, tile_config)
+        
+    return hidden_states

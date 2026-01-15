@@ -28,7 +28,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Any, Dict, Tuple
 
-from golden_register import GoldenRegister, GoldenRegInfo, GoldenParam
+from golden_register import GoldenRegister, GoldenRegInfo
 from python.utils.table import Table
 
 
@@ -54,7 +54,7 @@ class GoldenCtrl:
     @property
     def brief(self) -> List[Any]:
         ver = sys.version_info
-        datas: List[Any] = [
+        datas = [
             ["Python3", f"{sys.executable} ({ver.major}.{ver.minor}.{ver.micro})"],
             ["CaseNum", len(self.cases)],
             ["OutputDir", self.output],
@@ -105,8 +105,7 @@ class GoldenCtrl:
     def prepare(self) -> bool:
         """执行 Golden 生成任务前准备
         """
-        ret: bool = self.prepare_module()
-        return ret
+        return self.prepare_module()
 
     def prepare_module(self) -> bool:
         """执行 Golden 生成任务前准备
@@ -181,30 +180,26 @@ class GoldenCtrl:
             logging.info("Generate golden skip Idx[%s/%s] Case(%s).", idx, len(self.cases), c)
             return True
         try:
-            if reg_info.version == 0:
-                if case_idx is None:
-                    ret: bool = bool(reg_info.func(case_name=c, output=case_output))
-                else:
-                    ret: bool = bool(reg_info.func(case_name=c, output=case_output, case_index=case_idx))
+            if case_idx is None:
+                ret = bool(reg_info.func(case_name=c, output=case_output))
             else:
-                param: GoldenParam = GoldenParam(name=c, idx=case_idx, output=case_output)
-                ret: bool = bool(reg_info.func(case_param=param))
+                ret = bool(reg_info.func(case_name=c, output=case_output, case_index=case_idx))
         except Exception as e:
             raise RuntimeError(f"Error in Case[{c}]") from e
         if ret:
             self._dump_golden_desc(case_output=case_output, reg_info=reg_info)
 
-        msg: str = "success" if ret else "failed"
+        msg = "success" if ret else "failed"
         logging.info("Generate golden %s Idx[%s/%s] Case(%s) Duration %s secs.", msg, idx, len(self.cases), c,
                      (datetime.now(tz=timezone.utc) - ts).seconds)
         return ret
 
     def _prepare_output(self, case: str, reg_info: GoldenRegInfo) -> Tuple[Path, bool]:
-        case_output: Path = Path(self.output, case.replace("*", ""))
+        case_output = Path(self.output, case.replace("*", ""))
         # 获取原始控制信息(Version, TimeStamp)
-        ori_ver: int = 0
-        ori_time: float = time.time()
-        ver_file: Path = Path(case_output, self.json_file_name)
+        ori_ver = 0
+        ori_time = time.time()
+        ver_file = Path(case_output, self.json_file_name)
         if ver_file.exists():
             with open(ver_file, 'r', encoding='utf-8') as fh:
                 datas = json.load(fh)
@@ -212,9 +207,9 @@ class GoldenCtrl:
             ori_time = datas["timestamp"]
 
         # 若版本变化, 或已过期, 需要提前删除
-        now_time: float = time.time()
-        need_del_version: bool = reg_info.version > ori_ver
-        need_del_time: bool = False if reg_info.timeout is None else int(now_time - ori_time) > reg_info.timeout
+        now_time = time.time()
+        need_del_version = reg_info.version > ori_ver
+        need_del_time = False if reg_info.timeout is None else int(now_time - ori_time) > reg_info.timeout
         if (need_del_version or need_del_time) and case_output.exists():
             logging.info("Remove Case(%s)'s golden, VersionFlg(%s), TimeFlag(%s)",
                          case, need_del_version, need_del_time)
@@ -226,10 +221,9 @@ class GoldenCtrl:
 
     def _dump_golden_desc(self, case_output: Path, reg_info: GoldenRegInfo):
         # 刷新控制信息
-        now_time: float = time.time()
-        desc: Dict[str, Any] = {"version": reg_info.version,
-                                "timestamp": now_time}
-        ver_file: Path = Path(case_output, self.json_file_name)
+        now_time = time.time()
+        desc = {"version": reg_info.version, "timestamp": now_time}
+        ver_file = Path(case_output, self.json_file_name)
         with open(ver_file, 'w', encoding='utf-8') as fh:
             json.dump(desc, fh)
         return case_output

@@ -14,11 +14,14 @@
   * */
 #include <gtest/gtest.h>
 #include "passes/block_graph_pass/mix_subgraph_split.h"
+#include "computational_graph_builder.h"
 
 namespace npu {
 namespace tile_fwk {
 constexpr uint64_t programId = 100;
 constexpr int MS_NUM16 = 16;
+constexpr int MS_NUM3 = 3;
+constexpr int MS_NUM10005 = 10005;
 
 class MixSubgraphSplitTest : public ::testing::Test {
 public:
@@ -30,9 +33,9 @@ public:
         Program::GetInstance().Reset();
         config::Reset();
         config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
-        config::SetPlatformConfig("ENABLE_COST_MODEL", false);
+        config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
     }
-    
+
     void TearDown() override {}
 
 protected:
@@ -49,10 +52,10 @@ protected:
 
         // 添加callOp
         auto& callOp = rootFunc.AddRawOperation(
-            Opcode::OP_CALL, 
-            {incast1, incast2, incast3}, 
+            Opcode::OP_CALL,
+            {incast1, incast2, incast3},
             {outcast1, outcast2});
-        
+
         // 创建CallOpAttribute
         std::vector<std::vector<SymbolicScalar>> argList;
         for (int i = 0; i < 5; ++i) {
@@ -116,7 +119,7 @@ TEST_F(MixSubgraphSplitTest, TestMixSubgraphSplit) {
     mixFuncPtr->inCasts_.push_back(incast3);
     mixFuncPtr->outCasts_.push_back(outcast1);
     mixFuncPtr->outCasts_.push_back(outcast2);
-    
+
     // 创建OpImmediate
     auto shapeImme = OpImmediate::Specified(tensorShape);
     std::vector<int64_t> offsetVec = {0, 0};
@@ -213,7 +216,7 @@ TEST_F(MixSubgraphSplitTest, TestMixSubgraphSplit) {
 
     // 4. 执行MixSubgraphSplit
     Status status = splitter.RunOnFunction(*rootFuncPtr);
-    EXPECT_EQ(status, SUCCESS) << "MixSubgraphSplit should succeed"; 
+    EXPECT_EQ(status, SUCCESS) << "MixSubgraphSplit should succeed";
 
     // 5. 验证拆分结果
     // 检查programs数量变化
@@ -222,29 +225,29 @@ TEST_F(MixSubgraphSplitTest, TestMixSubgraphSplit) {
     // 检查新创建的programs
     for (const auto& program : programs) {
         ASSERT_NE(program.second, nullptr);
-        
+
         // 验证新function的名称包含后缀
         std::string funcName = program.second->GetRawName();
-        EXPECT_NE(funcName.find("leaf"), std::string::npos) 
+        EXPECT_NE(funcName.find("leaf"), std::string::npos)
             << "New function name should contain 'leaf' suffix";
-        
+
         // 验证function类型
         EXPECT_EQ(program.second->GetFunctionType(), FunctionType::STATIC);
         EXPECT_EQ(program.second->GetGraphType(), GraphType::BLOCK_GRAPH);
-        
+
         // 验证program ID在合理范围内
         EXPECT_EQ(program.second->GetProgramId(), program.first)
             << "Function's program ID should match map key";
     }
     // 6. 验证CallOps被正确更新
     auto newCallOps = rootFuncPtr->GetCallopList();
-    EXPECT_GT(newCallOps.size(), callOps.size()) 
+    EXPECT_GT(newCallOps.size(), callOps.size())
         << "Should have more call ops after split";
     // 验证每个callOp都有正确的program ID
     for (auto* callOp : newCallOps) {
         ASSERT_NE(callOp, nullptr);
         EXPECT_FALSE(callOp->IsDeleted()) << "CallOp should not be deleted";
-        
+
         // 验证program ID存在
         auto callAttr = dynamic_cast<CallOpAttribute*>(callOp->GetOpAttribute().get());
         if (callAttr != nullptr && callAttr->invokeInfo_ != nullptr) {
@@ -258,7 +261,7 @@ TEST_F(MixSubgraphSplitTest, TestMixSubgraphSplit) {
     int cubeCount = 0;
     int aiv0Count = 0;
     int aiv1Count = 0;
-    
+
     for (const auto& program : programs) {
         auto leafAttr = program.second->GetLeafFuncAttribute();
         if (leafAttr) {
@@ -271,7 +274,7 @@ TEST_F(MixSubgraphSplitTest, TestMixSubgraphSplit) {
             }
         }
     }
-    
+
     // 根据CreateMixSubgraphScenario的设置验证
     EXPECT_GE(cubeCount, 0) << "Should have at least one cube component";
     EXPECT_GE(aiv0Count, 0) << "Should have at least one AIV0 component";
@@ -280,12 +283,12 @@ TEST_F(MixSubgraphSplitTest, TestMixSubgraphSplit) {
     // 8. 验证operations被正确分配到各组件
     for (const auto& program : programs) {
         auto operations = program.second->Operations(false);
-        
+
         // 验证operations的internalSubgraphID一致
         int componentID = -1;
         for (auto& op : operations) {
             if (op.IsNOP()) continue;
-            
+
             int opComponentID = op.GetInternalSubgraphID();
             if (componentID == -1) {
                 componentID = opComponentID;
@@ -305,7 +308,68 @@ TEST_F(MixSubgraphSplitTest, TestMixSubgraphSplit) {
         }
     }
 }
+
+TEST_F(MixSubgraphSplitTest, TestDependOperand) {
+    // Build Graph
+    ComputationalGraphBuilder subGraph;
+    std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6"};
+    std::vector<MemoryType> tensorMemTypes{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB,
+        MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB};
+    std::vector<Opcode> opCodes{Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_COPY_IN,
+        Opcode::OP_COPY_IN, Opcode::OP_ADD};
+    std::vector<std::vector<std::string>> ioperands{{}, {}, {}, {}, {"t1"}, {"t2"}, {"t4", "t5"}};
+    std::vector<std::vector<std::string>> ooperands{{"t3"}, {"t4"}, {"t5"}, {"t6"}, {"t3", "t4"}, {"t5"}, {"t6"}};
+    std::vector<std::string> opNames{"Alloc1", "Alloc2", "Alloc3", "Alloc4", "Copyin1", "Copyin2", "Add1"};
+    EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {128, 128}, tensorMemTypes, tensorNames, 0), true);
+    EXPECT_EQ(subGraph.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
+    Function *function = subGraph.GetFunction();
+
+    // Add and check depend operand
+    Operation *copyin2 = subGraph.GetOp("Copyin2");
+    std::shared_ptr<LogicalTensor> tensor4 = subGraph.GetTensor("t4");
+    copyin2->AddDependOperand(tensor4);
+    Operation *add1 = subGraph.GetOp("Add1");
+    std::shared_ptr<LogicalTensor> tensor3 = subGraph.GetTensor("t3");
+    add1->AddDependOperand(tensor3);
+    EXPECT_EQ(copyin2->GetDependOperands().front()->GetMagic(), MS_NUM3);
+    EXPECT_EQ(copyin2->GetDependOperandSize(), 1);
+
+    // Check depend
+    tensor4->AddDependOp(copyin2);
+    tensor4->AddDependOp(copyin2);
+    EXPECT_EQ(tensor4->GetDependOps().size(), 1);
+    tensor3->AddDependOp(add1);
+    auto dependOp = *(tensor4->GetDependOps().begin());
+    EXPECT_EQ(dependOp->GetOpMagic(), MS_NUM10005);
+    EXPECT_EQ(tensor4->HasDependOp(copyin2), true);
+
+    // Sort Operations
+    function->SortOperations();
+    Operation *alloc2 = subGraph.GetOp("Alloc2");
+    auto sortedOpList = function->Operations().DuplicatedOpList();
+    auto alloc2Iter = std::find(sortedOpList.begin(), sortedOpList.end(), alloc2);
+    auto copyin2Iter = std::find(sortedOpList.begin(), sortedOpList.end(), copyin2);
+    EXPECT_EQ(alloc2Iter - sortedOpList.begin() < copyin2Iter - sortedOpList.begin(), true);
+
+    // Erase operands and depend Ops
+    copyin2->EraseDependTensor(tensor4);
+    add1->EraseDependTensor(tensor3);
+    tensor4->RemoveDependOp(copyin2);
+    tensor3->RemoveDependOp(add1);
+
+    //Sort Operations
+    function->SortOperations();
+    auto sortedOpList2 = function->Operations().DuplicatedOpList();
+    auto alloc2Iter2 = std::find(sortedOpList2.begin(), sortedOpList2.end(), alloc2);
+    auto copyin2Iter2 = std::find(sortedOpList2.begin(), sortedOpList2.end(), copyin2);
+    EXPECT_EQ(alloc2Iter2 - sortedOpList2.begin() > copyin2Iter2 - sortedOpList2.begin(), true);
+
+    // Erase Operations
+    copyin2->AddDependOperand(tensor4);
+    tensor4->AddDependOp(copyin2);
+    copyin2->SetAsDeleted();
+    function->EraseOperations();
+    EXPECT_EQ(tensor4->GetDependOps().size(), 0);
+}
 } // namespace tile_fwk
 } // namespace npu
-
-

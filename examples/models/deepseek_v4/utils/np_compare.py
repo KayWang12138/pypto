@@ -103,7 +103,7 @@ def detailed_allclose_manual(cpu, npu, name, rtol=1e-3, atol=1e-3, max_prints=50
 
     if abnormal_count > max_prints:
         print(f"\n注意: 只显示了前 {max_prints} 个异常，共有 {abnormal_count} 个异常元素")
-    # assert_allclose(cpu, npu, rtol, atol)
+    assert_allclose(cpu, npu, rtol, atol)
 
     return is_allclose
 

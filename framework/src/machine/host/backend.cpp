@@ -22,16 +22,16 @@
 #include "interface/configs/config_manager.h"
 #include "interface/utils/common.h"
 #include "interface/utils/file_utils.h"
+#include "interface/utils/op_info_manager.h"
 #include "machine/dump/kernel_dump_utils.h"
-#include "machine/host/machine_compiler.h"
+#include "machine/compile/machine_compiler.h"
 #include "machine/cache_manager/cache_manager.h"
 #include "machine/utils/dynamic/dev_encode.h"
 #include "machine/host/device_agent_task.h"
-#include "kernel/aicore_compiler.h"
-#include "interface/utils/op_info_manager.h"
+#include "machine/compile/aicore_compiler.h"
+#include "machine/compile/compile_control_bin.h"
 #include "tilefwk/comm_group_recorder.h"
 #include "passes/pass_mgr/pass_manager.h"
-#include "compile_control_bin.h"
 #include "tilefwk/op_registry.h"
 #include <dlfcn.h>
 
@@ -95,7 +95,6 @@ extern "C" int32_t Execute(MachineTask *task, FunctionCache &cache) {
         ALOG_INFO("draw graph switch enabled, push finish queue.");
         return 0;
     }
-    config::SetRunDataOption(KEY_RUNTYPE, "npu");
     auto deviceMachineTask = std::make_shared<MachineTask>(task->GetTaskId(), task->GetFunction());
     deviceMachineTask->SetCacheReuseType(task->GetCacheReuseType());
     deviceMachineTask->SetCacheKey(task->GetCacheKey());
@@ -103,7 +102,6 @@ extern "C" int32_t Execute(MachineTask *task, FunctionCache &cache) {
     auto function = deviceAgentTask->compileTask->GetFunction();
     deviceAgentTask->SetAsync(false);
     deviceAgentTask->SetOpOriginArgsInfo(function->GetOpOriginArgsInfo());
-    deviceAgentTask->compileInfo.distTilingManager = function->GetDistTilingManager();
     deviceAgentTask->compileInfo.commGroups = npu::tile_fwk::Distributed::CommGroupRecorder::GetInstance().Output();
     std::string kernelPath;
     // recover task info and bin
@@ -118,7 +116,6 @@ extern "C" int32_t Execute(MachineTask *task, FunctionCache &cache) {
             CalcFunctionInvokeWorkespace(nullptr, function, deviceAgentTask->compileInfo);
         }
 
-        deviceAgentTask->compileInfo.PrintDistributed();
         deviceAgentTask->compileInfo.workSpaceStackSize = function->GetStackWorkespaceSize();
 
         if (function->IsFunctionType(

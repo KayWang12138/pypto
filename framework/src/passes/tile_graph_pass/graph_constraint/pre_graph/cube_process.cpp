@@ -59,10 +59,6 @@ Status CubeProcess::AddL1CopyInAttr(
     if (L1CopyInOp->GetOpcode() == Opcode::OP_L0C_TO_L1) {
         return SUCCESS;
     }
-    if (L1CopyInOp->GetOpcode() != Opcode::OP_COPY_IN && L1CopyInOp->GetOpcode() != Opcode::OP_GATHER_IN_L1) {
-        APASS_LOG_ERROR_F(Elements::Operation, "L0 tesnor[%d] has invalid corresponding L1CopyInOp, please check. %s", input->magic, GetFormatBacktrace(L1CopyInOp).c_str());
-        return FAILED;
-    }
     L1CopyInOp->SetAttribute(COPY_IS_NZ, nzValue);
     APASS_LOG_DEBUG_F(Elements::Operation, "Update %s[%d] attr is_Nz: %d", L1CopyInOp->GetOpcodeStr().c_str(), L1CopyInOp->GetOpMagic(), nzValue);
     if (copyInOp->GetOpcode() == Opcode::OP_L1_TO_L0A) {
@@ -265,9 +261,6 @@ Status CubeProcess::AlignGMTensor(Function &function, std::vector<Operation *> &
             }
         }
     }
-    if (chainEndCopyOut == nullptr) {
-        return SUCCESS;
-    }
     for (auto &input : mulOp.GetIOperands()) {
         if (input->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
             continue;
@@ -275,6 +268,10 @@ Status CubeProcess::AlignGMTensor(Function &function, std::vector<Operation *> &
         if (function.IsFromInCast(input)) {
             APASS_LOG_WARN_F(Elements::Operation, "PreGraphProcess:CubeProcess::UpdateCubeOp::AlignGMTensor: OP_A_MUL_B iOperand tensor[%d] is incast.", input->GetMagic());
             continue;
+        }
+        if (chainEndCopyOut == nullptr) {
+            APASS_LOG_ERROR_F(Elements::Operation, "Cannot find chainEndCopyOut, AlignGMTensor failed.");
+            return FAILED;
         }
         auto finalOutput = chainEndCopyOut->GetOOperands().front();
         input->tensor = finalOutput->tensor;

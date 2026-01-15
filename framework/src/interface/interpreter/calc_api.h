@@ -18,6 +18,7 @@
 #include <cstdint>
 #include <ostream>
 #include "tilefwk/data_type.h"
+#include "tilefwk/tensor.h"
 #include "raw_tensor_data.h"
 namespace npu::tile_fwk {
 struct MatMulParam {
@@ -91,6 +92,7 @@ struct CalcOps {
     void (*Expand)(LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*GatherElements)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, int);
     void (*IndexAdd)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, int, const Element &);
+    void (*CumSum)(LogicalTensorDataPtr, LogicalTensorDataPtr, int);
 
     void (*Reshape)(LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*Permute)(LogicalTensorDataPtr, LogicalTensorDataPtr, const std::vector<int64_t> &);
@@ -99,6 +101,7 @@ struct CalcOps {
     void (*ReduceAcc)(LogicalTensorDataPtr, const std::vector<LogicalTensorDataPtr> &);
     void (*Copy)(LogicalTensorDataPtr, LogicalTensorDataPtr, bool);
     void (*ScatterUpdate)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, int, std::string, int);
+    void (*LogicalView)(LogicalTensorDataPtr, LogicalTensorDataPtr, Offset);
     void (*Scatter)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, const Element &, int, int);
     void (*FormatND2NZ)(LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*FormatNZ2ND)(LogicalTensorDataPtr, LogicalTensorDataPtr);
@@ -108,6 +111,8 @@ struct CalcOps {
     void (*Extract)(LogicalTensorDataPtr, LogicalTensorDataPtr, int, bool);
     void (*Topk)(LogicalTensorDataPtr, LogicalTensorDataPtr, int64_t, int64_t, bool);
     void (*Gather)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, int64_t);
+    void (*GatherINUB)(
+        LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, int64_t, int64_t);
 };
 
 extern "C" struct CalcOps *GetCalcOps();

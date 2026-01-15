@@ -46,7 +46,7 @@ public:
         config::Reset();
         config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
         config::SetHostConfig(KEY_STRATEGY, "GenerateMoveOpPassTestStrategy");
-        config::SetPlatformConfig("ENABLE_COST_MODEL", false);
+        config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
     }
     void TearDown() override {}
 };
@@ -61,15 +61,15 @@ TEST_F(GenerateMoveOpPassTest, AssembleViewToCopy) {
         Tensor output(DT_FP32, shape2, "output");
         PassManager &passManager = PassManager::Instance();
         passManager.RegisterStrategy("GenerateMoveOpPassTestStrategy", {
-            {   "RemoveRedundantReshape",   "RemoveRedundantReshape"},
-            {      "InferMemoryConflict",      "InferMemoryConflict"},
-            {           "ExpandFunction",           "ExpandFunction"},
-            {              "DuplicateOp",              "DuplicateOp"},
-            {        "MergeViewAssemble",        "MergeViewAssemble"},
-            {         "AssignMemoryType",         "AssignMemoryType"},
-            {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor"},
-            {             "SplitReshape",             "SplitReshape"},
-            {        "RemoveRedundantOp",        "RemoveRedundantOp"},
+            {   "RemoveRedundantReshape",   PassName::REMOVE_REDUNDANT_RESHAPE},
+            {      "InferMemoryConflict",      PassName::INFER_MEMORY_CONFLICT},
+            {           "ExpandFunction",           PassName::EXPAND_FUNCTION},
+            {              "DuplicateOp",              PassName::DUPLICATE_OP},
+            {        "MergeViewAssemble",        PassName::MERGE_VIEW_ASSEMBLE},
+            {         "AssignMemoryType",         PassName::ASSIGN_MEMORY_TYPE},
+            {   "SplitLargeFanoutTensor",   PassName::SPLIT_LARGE_FANOUT_TENSOR},
+            {             "SplitReshape",             PassName::SPLIT_RESHAPE},
+            {        "RemoveRedundantOp",        PassName::REMOVE_REDUNDANT_OP},
 
         });
         ConfigManager::Instance();
@@ -156,16 +156,16 @@ TEST_F(GenerateMoveOpPassTest, ConvertToCopy) {
         Tensor output(DT_FP32, shape2, "output");
         PassManager &passManager = PassManager::Instance();
         passManager.RegisterStrategy("GenerateMoveOpPassTestStrategy", {
-            {   "RemoveRedundantReshape",   "RemoveRedundantReshape"},
-            {      "InferMemoryConflict",      "InferMemoryConflict"},
-            {           "ExpandFunction",           "ExpandFunction"},
-            {              "DuplicateOp",              "DuplicateOp"},
-            {        "MergeViewAssemble",        "MergeViewAssemble"},
-            {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor"},
-            {             "SplitReshape",             "SplitReshape"},
-            {         "AssignMemoryType",         "AssignMemoryType"},
-            {        "RemoveRedundantOp",        "RemoveRedundantOp"},
-            {           "GenerateMoveOp",           "GenerateMoveOp"},
+            {   "RemoveRedundantReshape",   PassName::REMOVE_REDUNDANT_RESHAPE },
+            {      "InferMemoryConflict",      PassName::INFER_MEMORY_CONFLICT },
+            {           "ExpandFunction",           PassName::EXPAND_FUNCTION },
+            {              "DuplicateOp",              PassName::DUPLICATE_OP },
+            {        "MergeViewAssemble",        PassName::MERGE_VIEW_ASSEMBLE },
+            {   "SplitLargeFanoutTensor",   PassName::SPLIT_LARGE_FANOUT_TENSOR },
+            {             "SplitReshape",             PassName::SPLIT_RESHAPE },
+            {         "AssignMemoryType",         PassName::ASSIGN_MEMORY_TYPE },
+            {        "RemoveRedundantOp",        PassName::REMOVE_REDUNDANT_OP },
+            {           "GenerateMoveOp",           PassName::GENERATE_MOVE_OP },
         });
         ConfigManager::Instance();
 
@@ -233,15 +233,15 @@ TEST_F(GenerateMoveOpPassTest, Transpose) {
 
         PassManager &passManager = PassManager::Instance();
         passManager.RegisterStrategy("GenerateMoveOpPassTestStrategy", {
-            {   "RemoveRedundantReshape",   "RemoveRedundantReshape"},
-            {      "InferMemoryConflict",      "InferMemoryConflict"},
-            {           "ExpandFunction",           "ExpandFunction"},
-            {              "DuplicateOp",              "DuplicateOp"},
-            {        "MergeViewAssemble",        "MergeViewAssemble"},
-            {         "AssignMemoryType",         "AssignMemoryType"},
-            {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor"},
-            {             "SplitReshape",             "SplitReshape"},
-            {        "RemoveRedundantOp",        "RemoveRedundantOp"},
+            {   "RemoveRedundantReshape",   PassName::REMOVE_REDUNDANT_RESHAPE },
+            {      "InferMemoryConflict",      PassName::INFER_MEMORY_CONFLICT },
+            {           "ExpandFunction",           PassName::EXPAND_FUNCTION },
+            {              "DuplicateOp",              PassName::DUPLICATE_OP },
+            {        "MergeViewAssemble",        PassName::MERGE_VIEW_ASSEMBLE },
+            {         "AssignMemoryType",         PassName::ASSIGN_MEMORY_TYPE },
+            {   "SplitLargeFanoutTensor",   PassName::SPLIT_LARGE_FANOUT_TENSOR },
+            {             "SplitReshape",             PassName::SPLIT_RESHAPE },
+            {        "RemoveRedundantOp",        PassName::REMOVE_REDUNDANT_OP },
 
         });
         ConfigManager::Instance();
@@ -316,16 +316,15 @@ TEST_F(GenerateMoveOpPassTest, ScatterUpdate) {
 
         PassManager &passManager = PassManager::Instance();
         passManager.RegisterStrategy("GenerateMoveOpPassTestStrategy", {
-            {   "RemoveRedundantReshape",   "RemoveRedundantReshape"},
-            {      "InferMemoryConflict",      "InferMemoryConflict"},
-            {           "ExpandFunction",           "ExpandFunction"},
-            {              "DuplicateOp",              "DuplicateOp"},
-            {        "MergeViewAssemble",        "MergeViewAssemble"},
-            {         "AssignMemoryType",         "AssignMemoryType"},
-            {   "SplitLargeFanoutTensor",   "SplitLargeFanoutTensor"},
-            {             "SplitReshape",             "SplitReshape"},
-            {        "RemoveRedundantOp",        "RemoveRedundantOp"},
-
+            {"RemoveRedundantReshape",  PassName::REMOVE_REDUNDANT_RESHAPE},
+            {   "InferMemoryConflict",     PassName::INFER_MEMORY_CONFLICT},
+            {        "ExpandFunction",           PassName::EXPAND_FUNCTION},
+            {           "DuplicateOp",              PassName::DUPLICATE_OP},
+            {     "MergeViewAssemble",       PassName::MERGE_VIEW_ASSEMBLE},
+            {      "AssignMemoryType",        PassName::ASSIGN_MEMORY_TYPE},
+            {"SplitLargeFanoutTensor", PassName::SPLIT_LARGE_FANOUT_TENSOR},
+            {          "SplitReshape",             PassName::SPLIT_RESHAPE},
+            {     "RemoveRedundantOp",       PassName::REMOVE_REDUNDANT_OP},
         });
         ConfigManager::Instance();
 
@@ -625,6 +624,215 @@ TEST_F(GenerateMoveOpPassTest, ViewconnectAssemble) {
     }
     constexpr int expectedcheck = 1;
     EXPECT_EQ(check_Op_inputsMemType,expectedcheck) << "1 operation inputsMemType shoulde be OP_COPY_IN.";
+}
+
+// 辅助函数：构造测试用LogicalTensor
+std::shared_ptr<LogicalTensor> CreateTestLogicalTensor(
+    Function& func, MemoryType memType, TileOpFormat format, const std::vector<int64_t>& shape) {
+    auto rawTensor = std::make_shared<RawTensor>(DT_FP32, shape, format);
+    std::vector<int64_t> offset(shape.size(), 0);
+    auto logicalTensor = std::make_shared<LogicalTensor>(func, rawTensor, offset, shape);
+    logicalTensor->SetMemoryTypeBoth(memType);
+    return logicalTensor;
+}
+
+// 辅助函数：构造测试用Operation
+std::shared_ptr<Operation> CreateTestOperation(
+    Opcode opcode, Function& func,
+    const std::vector<std::shared_ptr<LogicalTensor>>& inputs,
+    const std::vector<std::shared_ptr<LogicalTensor>>& outputs) {
+    auto op = std::make_shared<Operation>(func,opcode);
+    op->iOperand = inputs;
+    op->oOperand = outputs;
+    op->opmagic = 1001;
+    return op;
+}
+// ========== 测试用例1：PadUB函数全覆盖 ==========
+TEST_F(GenerateMoveOpPassTest, PadUBFullCoverage) {
+    PROGRAM("PadUBFullCoverage") {
+        // 覆盖PadUB所有分支场景
+        // 场景1：刚好对齐
+        EXPECT_EQ(GenerateMoveOp::PadUB(32, 32), 32);
+        // 场景2：需要向上取整（33→64）
+        EXPECT_EQ(GenerateMoveOp::PadUB(33, 32), 64);
+        // 场景3：边界值（15→16）
+        EXPECT_EQ(GenerateMoveOp::PadUB(15, 16), 16);
+        // 场景4：dim=0
+        EXPECT_EQ(GenerateMoveOp::PadUB(0, 32), 0);
+        // 场景5：pad=1（最小有效值）
+        EXPECT_EQ(GenerateMoveOp::PadUB(5, 1), 5);
+
+        // 验证字节对齐场景（模拟DT_FLOAT=4字节）
+        int64_t dtypeBytes = 4;
+        EXPECT_EQ(GenerateMoveOp::PadUB(30, 32 / dtypeBytes), 32); // 30→32（8字节对齐）
+        EXPECT_EQ(GenerateMoveOp::PadUB(15, 16), 16); // 15→16（16字节对齐）
+    }
+}
+
+// ========== 测试用例2：ProcessUB2L1函数全覆盖（ND→NZ格式转换） ==========
+TEST_F(GenerateMoveOpPassTest, ProcessUB2L1FullCoverage) {
+    PROGRAM("ProcessUB2L1FullCoverage") {
+        std::vector<int64_t> ndShape{2, 30, 15}; // inner=30, outer=15（非对齐）
+        Tensor a(DT_FP32, ndShape, "a");
+        Tensor b(DT_FP32, ndShape, "b");
+
+        // 设置TileShape（模拟真实场景）
+        TileShape::Current().SetVecTile(2, 30, 15, 1);
+
+        // 注册基础Pass策略（模拟真实流程）
+        PassManager &passManager = PassManager::Instance();
+        passManager.RegisterStrategy("ProcessUB2L1Strategy", {
+            {"AssignMemoryType", PassName::ASSIGN_MEMORY_TYPE},
+            {"GenerateMoveOp", PassName::GENERATE_MOVE_OP}
+        });
+
+        FUNCTION("ProcessUB2L1Func") {
+            b = View(a, ndShape, {0,0,0}); // 构造VIEW OP作为基础
+        }
+
+        // 导出/导入JSON（模拟真实流程）
+        std::string jsonPath = "./config/pass/json/process_ub2l1.json";
+        auto programJson = Program::GetInstance().DumpJson();
+        DumpJsonFile(programJson, jsonPath);
+        Json readData = LoadJsonFile(jsonPath);
+        Program::GetInstance().LoadJson(readData);
+
+        // 获取Function并构造OP_UB_COPY_L1操作
+        Function* func = Program::GetInstance().GetCurrentFunction();
+        auto inputTensor = CreateTestLogicalTensor(*func, MEM_UB, TileOpFormat::TILEOP_ND, ndShape);
+        auto outputTensor = CreateTestLogicalTensor(*func, MEM_L1, TileOpFormat::TILEOP_NZ, ndShape);
+        auto ubCopyL1Op = CreateTestOperation(Opcode::OP_UB_COPY_L1, *func, {inputTensor}, {outputTensor});
+        ubCopyL1Op->UpdateSubgraphID(0);
+
+        // 调用ProcessUB2L1
+        GenerateMoveOp generateMoveOp;
+        generateMoveOp.ProcessUB2L1(*func, *ubCopyL1Op);
+
+        // ================== 验证核心逻辑 ==================
+
+        // 1. 验证插入OP_UB_COPY_ND2NZ节点
+        int ub2ubNum = 0;
+        for (const auto& op : func->Operations()) {
+            if (op.GetOpcode() == Opcode::OP_UB_COPY_ND2NZ) {
+                ub2ubNum++;
+                EXPECT_EQ(op.GetSubgraphID(), 0);
+                EXPECT_EQ(op.iOperand.front()->GetMemoryTypeOriginal(), MEM_UB);
+                EXPECT_EQ(op.iOperand.front()->Format(), TileOpFormat::TILEOP_ND);
+            }
+        }
+        EXPECT_EQ(ub2ubNum, 1) << "Must insert one OP_UB_COPY_ND2NZ op";
+
+        // 2. 验证新UB NZ Tensor的shape pad
+        auto newInputTensor = ubCopyL1Op->iOperand.front();
+        EXPECT_EQ(newInputTensor->Format(), TileOpFormat::TILEOP_NZ);
+        EXPECT_EQ(newInputTensor->shape[1], 32) << "inner dim 30→32 (8-byte align)"; // inner=shape.size()-2
+        EXPECT_EQ(newInputTensor->shape[2], 16) << "outer dim 15→16 (16-byte align)"; // outer=shape.size()-1
+
+        // 3. 验证rawshape同步更新
+        auto rawShape = newInputTensor->tensor->rawshape;
+        EXPECT_EQ(rawShape[1], 32);
+        EXPECT_EQ(rawShape[2], 16);
+    }
+}
+
+// ========== 测试用例3：CreateMoveOpForView触发OP_UB_COPY_L1（106行覆盖） ==========
+TEST_F(GenerateMoveOpPassTest, CreateMoveOpForViewUB2L1) {
+    PROGRAM("CreateMoveOpForViewUB2L1") {
+        std::vector<int64_t> shape{2, 30, 15};
+        Tensor a(DT_FP32, shape, "a");
+        Tensor b(DT_FP32, shape, "b");
+
+        TileShape::Current().SetVecTile(2, 30, 15, 1);
+
+        // 注册Pass策略
+        PassManager &passManager = PassManager::Instance();
+        passManager.RegisterStrategy("GenerateMoveOpViewStrategy", {
+            {"AssignMemoryType", PassName::ASSIGN_MEMORY_TYPE},
+            {"MergeViewAssemble", PassName::MERGE_VIEW_ASSEMBLE},
+            {"GenerateMoveOp", PassName::GENERATE_MOVE_OP}
+        });
+
+        FUNCTION("View2UBCopyL1Func") {
+            b = View(a, shape, {0,0,0}); // 构造VIEW OP
+        }
+
+        // 导出/导入JSON
+        std::string jsonPath = "./config/pass/json/view_ub2l1.json";
+        auto programJson = Program::GetInstance().DumpJson();
+        DumpJsonFile(programJson, jsonPath);
+        Json readData = LoadJsonFile(jsonPath);
+        Program::GetInstance().LoadJson(readData);
+
+        // 获取Function并修改VIEW OP的内存类型（UB→L1）
+        Function* func = Program::GetInstance().GetCurrentFunction();
+        Operation* viewOp = nullptr;
+        for (auto& op : func->Operations()) {
+            if (op.GetOpcode() == Opcode::OP_VIEW) {
+                viewOp = &op;
+                // 设置输入为UB，输出为L1（触发OP_UB_COPY_L1）
+                op.iOperand.front()->SetMemoryTypeBoth(MEM_UB);
+                op.oOperand.front()->SetMemoryTypeBoth(MEM_L1);
+                break;
+            }
+        }
+        ASSERT_NE(viewOp, nullptr) << "VIEW op not found";
+
+        // 执行CreateMoveOpForView
+        GenerateMoveOp generateMoveOp;
+        Status status = generateMoveOp.CreateMoveOpForView(*func, *viewOp);
+
+        // ================== 验证核心逻辑 ==================
+        EXPECT_EQ(status, SUCCESS);
+        EXPECT_EQ(viewOp->GetOpcode(), Opcode::OP_UB_COPY_L1) << "VIEW should convert to OP_UB_COPY_L1";
+
+        // 验证ProcessUB2L1被调用（ND→NZ格式转换）
+        auto inputTensor = viewOp->iOperand.front();
+        EXPECT_EQ(inputTensor->Format(), TileOpFormat::TILEOP_NZ);
+        EXPECT_EQ(inputTensor->shape[1], 32) << "inner dim pad to 32";
+        EXPECT_EQ(inputTensor->shape[2], 16) << "outer dim pad to 16";
+    }
+}
+
+// ========== 测试用例4：ProcessUB2L1非ND格式（无操作分支） ==========
+TEST_F(GenerateMoveOpPassTest, ProcessUB2L1NonNDFormat) {
+    PROGRAM("ProcessUB2L1NonNDFormat") {
+        std::vector<int64_t> nzShape{2, 32, 16};
+        Tensor a(DT_FP32, nzShape, "a");
+        Tensor b(DT_FP32, nzShape, "b");
+
+        TileShape::Current().SetVecTile(2, 32, 16, 1);
+
+        FUNCTION("ProcessUB2L1NonNDFunc") {
+            b = View(a, nzShape, {0,0,0});
+        }
+
+        // 导出/导入JSON
+        std::string jsonPath = "./config/pass/json/ub2l1_non_nd.json";
+        auto programJson = Program::GetInstance().DumpJson();
+        DumpJsonFile(programJson, jsonPath);
+        Json readData = LoadJsonFile(jsonPath);
+        Program::GetInstance().LoadJson(readData);
+
+        // 构造NZ格式UB Tensor的OP_UB_COPY_L1
+        Function* func = Program::GetInstance().GetCurrentFunction();
+        auto inputTensor = CreateTestLogicalTensor(*func, MEM_UB, TileOpFormat::TILEOP_NZ, nzShape);
+        auto outputTensor = CreateTestLogicalTensor(*func, MEM_L1, TileOpFormat::TILEOP_NZ, nzShape);
+        auto ubCopyL1Op = CreateTestOperation(Opcode::OP_UB_COPY_L1, *func, {inputTensor}, {outputTensor});
+
+        // 调用ProcessUB2L1
+        GenerateMoveOp generateMoveOp;
+        generateMoveOp.ProcessUB2L1(*func, *ubCopyL1Op);
+
+        // 验证：无新节点插入，Tensor格式不变
+        int ub2ubNum = 0;
+        for (const auto& op : func->Operations()) {
+            if (op.GetOpcode() == Opcode::OP_UB_COPY_ND2NZ) {
+                ub2ubNum++;
+            }
+        }
+        EXPECT_EQ(ub2ubNum, 0) << "No OP_UB_COPY_ND2NZ should be inserted for NZ format";
+        EXPECT_EQ(ubCopyL1Op->iOperand.front()->Format(), TileOpFormat::TILEOP_NZ);
+    }
 }
 }
 } // namespace npu::tile_fwk

@@ -29,6 +29,21 @@
 
 namespace npu {
 namespace tile_fwk {
+
+struct OperandCount {
+    constexpr static size_t VIEW_INPUT = 1;
+    constexpr static size_t VIEW_OUTPUT = 1;
+    constexpr static size_t ASSEMBLE_INPUT = 1;
+    constexpr static size_t ASSEMBLE_OUTPUT = 1;
+    constexpr static size_t RESHAPE_INPUT = 1;
+    constexpr static size_t RESHAPE_OUTPUT = 1;
+    constexpr static size_t INDEX_OUTCAST_INPUTS = 3;
+    constexpr static size_t INDEX_OUTCAST_OUTPUT = 1;
+    constexpr static size_t A_MULACC_B_MIN_INPUTS = 3;
+    constexpr static size_t A_MULACC_B_MAX_INPUTS = 4;
+    constexpr static size_t A_MULACC_B_OUTPUT = 1;
+};
+
 /*
 key: Opcode类型
 vaule: vector of pair, 每个pair记录了第几个输入和第几个输出存在inplace关系
@@ -36,18 +51,17 @@ vaule: vector of pair, 每个pair记录了第几个输入和第几个输出存�
 const std::unordered_map<Opcode, std::vector<std::pair<size_t, size_t>>> inplaceOpMap = {
     {   Opcode::OP_A_MULACC_B, {std::pair<size_t, size_t>{2, 0}}},
     {Opcode::OP_INDEX_OUTCAST, {std::pair<size_t, size_t>{2, 0}}},
-    {Opcode::OP_REMOTE_REDUCE, {std::pair<size_t, size_t>{0, 0}}},
 };
 
 const std::unordered_set<Opcode> inplaceOpSet = {Opcode::OP_VIEW, Opcode::OP_ASSEMBLE, Opcode::OP_RESHAPE, Opcode::OP_A_MULACC_B,
-                                                 Opcode::OP_INDEX_OUTCAST, Opcode::OP_REMOTE_REDUCE, Opcode::OP_VIEW_TYPE};
+                                                 Opcode::OP_INDEX_OUTCAST, Opcode::OP_VIEW_TYPE};
 
 class UnionFind {
 public:
-    explicit UnionFind(const LogicalTensors &objects) {
-        for (const auto &obj : objects) {
-            parentMap[obj] = obj;
-            rankMap[obj] = 1;
+    explicit UnionFind(std::unordered_map<LogicalTensorPtr, int> &tensorToOrderIndex) {
+        for (auto it = tensorToOrderIndex.begin(); it != tensorToOrderIndex.end(); it++) {
+            parentMap[it->first] = it->first;
+            rankMap[it->first] = 1;
         }
     }
 
@@ -111,11 +125,11 @@ private:
     bool CheckIndexOutcastConflict(const Operation& op);
     bool CheckReshapeConflict(const Operation& op);
     bool CheckAMulAccBConflict(const Operation& op);
-    bool CheckRemoteReduceConflict(const Operation& op);
     Status InplaceCheck(Function &function);
     bool CheckInplace(const Operation &op);
 
-    Status FindBaseTensor(Function &function, LogicalTensorPtr &baseTensor, LogicalTensors &group);
+    std::unordered_map<LogicalTensorPtr, int> BuildTensorOrderIndexMap(Function &function);
+    Status FindBaseTensor(Function &function, std::unordered_map<LogicalTensorPtr, int> &tensorToOderIndex, LogicalTensors &group, LogicalTensorPtr &baseTensor);
     Status ProcessHubOp(Function &function);
     void ProcessHubAssembleOp(Function &function, Operation &hubOp, Operation &assembleOp, 
                              std::shared_ptr<LogicalTensor> hubInput, std::shared_ptr<LogicalTensor> hubOutput);
@@ -145,6 +159,8 @@ private:
 
     Status ForUpdateView(Operation *op);
     Status BackUpdateAssemble(Operation *op);
+
+    Status MarkTensorAsPartialMem(Function &function);
 
     std::unordered_map<DataType, int> viewTypeTable = {{DT_INT8, 1}, {DT_BF16, 2}, {DT_FP16, 2}, {DT_FP32, 4}};
     std::queue<LogicalTensorPtr> backRoots;

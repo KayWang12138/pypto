@@ -16,17 +16,29 @@ import torch
 import torch_npu
 import pypto
 import logging
+import pytest
 import numpy as np
 from attention_post_impl import npu_attention_post_v4, attention_post_decode, AttnPostConfig, Rope3dTileConfig
 from utils.compare import compare
 
 
+pyptolib = torch.library.Library("pypto", "FRAGMENT")
+pyptolib.define("attn_post(Tensor atten_res, Tensor cos, Tensor sin, Tensor wo_a, Tensor wo_b) -> (Tensor)")
+
+@torch.library.impl(pyptolib, "attn_post", "Meta")
+def attn_post(atten_res, cos, sin, wo_a, wo_b):
+    y = torch.empty([atten_res.size(0), wo_b.size(1)], dtype=atten_res.dtype, device=atten_res.device)
+    return y
+
+@torch.library.impl(pyptolib, "attn_post", "NPU")
+def attn_post(atten_res, cos, sin, wo_a, wo_b):
+    return npu_attention_post_v4(atten_res, cos, sin, wo_a, wo_b)
+
 class AttentionPostV4(torch.nn.Module):
-    def forward(self, attn_res, cos, sin, wo_a, wo_b, hidden_states):
+    def forward(self, attn_res, cos, sin, wo_a, wo_b):
         for i in range(20):
             torch.add(attn_res, 0)
-        npu_attention_post_v4(attn_res, cos, sin, wo_a, wo_b, hidden_states)
-
+        return torch.ops.pypto.attn_post(attn_res, cos, sin, wo_a, wo_b)
 
 def gen_uniform_data(data_shape, min_value, max_value, dtype):
     """
@@ -64,21 +76,24 @@ def apply_rotary_pos_emb(q, cos, sin):
     sin: (t, rope_dim), bf16
     """
     input_dtype = q.dtype
-    q = q.to(torch.float32)
+    q_new = q.to(torch.float32)
     cos = cos.to(torch.float32)
     sin = sin.to(torch.float32)
 
     cos = torch.unsqueeze(cos, dim=1)  # [t, 1, rope_dim]
     sin = torch.unsqueeze(sin, dim=1)  # [t, 1, rope_dim]
 
-    t, n, d = q.shape
-    q = q.reshape(t, n, d // 2, 2).permute(0, 1, 3, 2).reshape(t, n, d)
+    t, n, d = q_new.shape
+    q_re = q_new.reshape(t, n, d // 2, 2).permute(0, 1, 3, 2).reshape(t, n, d)
+
+    q_rotary = rotate_half(q_re).reshape((t, n, 2, d//2)).permute(0, 1, 3, 2).reshape((t, n, d))
 
     # (t, n_q, rope_dim), (t, 1, rope_dim) = (t, n_q, rope_dim)
-    q_embed = (q * cos) + (rotate_half(q) * sin)
+    q_embed = (q_new * cos) + (q_rotary * -sin)
 
     if input_dtype != torch.float32:
         q_embed = q_embed.to(input_dtype)
+
     return q_embed
 
 
@@ -129,8 +144,8 @@ def gen_attention_post_v4_golden(dtype, params):
     attn_res = gen_uniform_data([t, n_q, d], -1, 1, dtype)
     cos = gen_uniform_data([t, rope_dim], -1, 1, dtype)
     sin = gen_uniform_data([t, rope_dim], -1, 1, dtype)
-    wo_a = gen_uniform_data([n_g, n_q * d // n_g, o_lora_rank], -1, 1, dtype)
-    wo_b = gen_uniform_data([n_g * o_lora_rank, h], -1, 1, dtype)
+    wo_a = gen_uniform_data([n_g, n_q * d // n_g, o_lora_rank], -0.1, 0.1, dtype)
+    wo_b = gen_uniform_data([n_g * o_lora_rank, h], -0.1, 0.1, dtype)
     hidden_states = torch.zeros([t, h]).to(dtype)
     inputs = [attn_res, cos, sin, wo_a, wo_b, hidden_states]
     rope_res, bmm_res, mm_res, nope_res = compute_attention_post(inputs, params)
@@ -222,19 +237,16 @@ def do_attention_post_func_torch_graph(inputs, params, golden_list):
     wo_a_npu = inputs[3].npu()
     wo_b_npu = inputs[4].npu()
     wo_b_nz = torch_npu.npu_format_cast(wo_b_npu, torch_npu.Format.FRACTAL_NZ)
-    # define npu outputs
-    hidden_states = torch.zeros([t, h]).to(torch.bfloat16).npu()
 
-    model = torch.compile(AttentionPostV4(), backend="eager", dynamic=True)
-
-    # capture model
-    g = torch.npu.NPUGraph()
-    with torch.npu.graph(g):
-        model(atten_res_npu, cos_npu, sin_npu, wo_a_npu, wo_b_nz, hidden_states)
-
-    for i in range(5):
-        g.replay()
-        pypto.runtime._device_synchronize() # 内部接口，不推荐使用
+    import torchair as tng
+    from torchair.configs.compiler_config import CompilerConfig
+    compiler_config = CompilerConfig()
+    compiler_config.mode = "reduce-overhead"
+    npu_backend = tng.get_npu_backend(compiler_config=compiler_config)
+    model = torch.compile(AttentionPostV4(), dynamic=False, fullgraph=True, backend=npu_backend)
+    
+    hidden_states = model(atten_res_npu, cos_npu, sin_npu, wo_a_npu, wo_b_nz)
+    pypto.runtime._device_synchronize()
 
     compare(hidden_states.cpu(), golden_list[2], "hidden_states", atol=0.0001, rtol=0.005)
 
