@@ -27,6 +27,7 @@ import torch
 import pypto
 import pytest
 import numpy as np
+import math
 import os
 from torch._subclasses.fake_tensor import FakeTensor
 from torch._dynamo import allow_in_graph
@@ -84,7 +85,7 @@ class AttentionConfig:
 
 def get_case_info(device="cpu"):
     b = 4
-    s1 = 4
+    s1 = 1
     s2 = 128 * 1024
     q_d = 512
     nq = 64
@@ -337,6 +338,70 @@ def test_ifa(enable_flash: bool, enable_high_perf: bool, enable_graph: bool, dev
         compare(output_flash, y, "golden vs graph npu", rtol=threhold, atol=threhold)
 
 
+@pytest.mark.skip(reason="large test case")
+def test_c128(enable_flash: bool, enable_high_perf: bool, enable_graph: bool, device_id: int, pg_upper_bound: int):
+    device_id = max(device_id, int(os.environ.get('DEVICE_ID', 0)))
+    device = f'npu:{device_id}'
+    attn_cfg = get_case_info(device=device)
+    torch_dtype = torch.bfloat16
+    b = attn_cfg.b
+    s1 = attn_cfg.s1
+    d = attn_cfg.q_d
+    nq = attn_cfg.n1
+    nkv = attn_cfg.n2
+    cmp_r = attn_cfg.cmp_r
+
+    block_size = attn_cfg.block_size
+    max_blocks = attn_cfg.max_blocks
+    orig_act_seq = attn_cfg.actual_seq
+
+    q_shape = [b * s1, nq, d]
+    kv_shape = [attn_cfg.kv_num_blocks, block_size, nkv, d]
+    blk_tbl_shape = [attn_cfg.block_table_batch, max_blocks]
+    max_actual_seq = max(orig_act_seq)
+    win_max_actual_seq = min(max_actual_seq, block_size + s1 -1)
+    win_max_blocks = math.ceil(win_max_actual_seq / block_size)
+    kv_win_shape = [b * win_max_blocks, block_size, nkv, d]
+    blk_win_shape = [b, win_max_blocks]
+
+    empty_kwargs = {"dtype": torch_dtype, "device": device}
+    q = torch.empty(q_shape, **empty_kwargs).uniform_(-1, 1)
+    k = torch.empty(kv_shape, **empty_kwargs).uniform_(-1, 1)
+    v = torch.empty(kv_shape, **empty_kwargs).uniform_(-1, 1)
+    attn_sink = torch.empty(nq, dtype=torch.float32, device=device).uniform_(-1, 1) + 50
+    k_win = torch.empty(kv_win_shape, **empty_kwargs).uniform_(-1, 1)
+    v_win = torch.empty(kv_win_shape, **empty_kwargs).uniform_(-1, 1)
+    blk_win = attn_golden.gen_block_table(orig_act_seq, block_size, blk_win_shape, cmp_r=cmp_r, enable_win=True, s1=s1)
+
+    
+    output = torch.zeros(q_shape, **empty_kwargs)
+    output_flash = torch.zeros(q_shape, **empty_kwargs)
+
+    blk_tbl = attn_golden.gen_block_table(orig_act_seq, block_size, blk_tbl_shape, cmp_r=cmp_r)
+    start_pos = orig_act_seq - s1
+    out_npu = torch.zeros(q_shape, **empty_kwargs)
+
+    unroll_list = [2, 1]
+    if enable_high_perf:
+        unroll_list = [2, 1]
+    # attention(q, k, v, attn_sink, blk_tbl, start_pos, out_npu, cmp_r, unroll_list, pg_upper_bound=pg_upper_bound)
+    attn_golden.ifa_golden(q, k, v, attn_sink, blk_tbl, start_pos, output, enable_flash=False, cmp_r=cmp_r, is_new_sink=True, k_win=k_win, v_win=v_win, blk_win=blk_win)
+    attn_golden.ifa_golden(q, k, v, attn_sink, blk_tbl, start_pos, output_flash, enable_flash=True, cmp_r=cmp_r, is_new_sink=True,k_win=k_win, v_win=v_win, blk_win=blk_win)
+    threhold = 5e-4
+    compare(output, output_flash, "no flash golden vs flash golden", rtol=threhold, atol=threhold)
+    compare(output_flash, out_npu, "golden vs npu", rtol=threhold, atol=threhold)
+
+    # acl graph
+    if enable_graph:
+        model = torch.compile(MM(), backend="eager", dynamic=True)
+        g = torch.npu.NPUGraph()
+        with torch.npu.graph(g):
+            y = model(q, k, v, attn_sink, blk_tbl, start_pos, out_npu, cmp_r, unroll_list)
+        g.replay()
+        pypto.runtime._device_synchronize()
+        compare(output_flash, y, "golden vs graph npu", rtol=threhold, atol=threhold)
+
+
 @allow_in_graph
 def attention(
         query: torch.Tensor,
@@ -401,7 +466,8 @@ def attention(
 
 if __name__ == "__main__":
     import argparse as ap
-
+    import utils.golden.attn_golden as attn_golden
+    from utils.np_compare import detailed_allclose_manual as compare
     p = ap.ArgumentParser(description="参数配置")
     p.add_argument("-f", "--enable-flash", action="store_true", help="开启flash模式")
     p.add_argument("-p", "--high-perf", action="store_true", help="启用高性能模式")
