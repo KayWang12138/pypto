@@ -73,9 +73,9 @@ TEST_F(TestCodegenDynIndexAdd, TestIndexAdd) {
 }
 
 TEST_F(TestCodegenDynIndexAdd, TestIndexAddLayout) {
-    constexpr const int S1 = 32;
-    constexpr const int D = 64;
-    constexpr const int S2 = 16;
+    constexpr const int S1 = 16;
+    constexpr const int D = 32;
+    constexpr const int S2 = 8;
     std::vector<int64_t> shape0 = {S1, D};
     std::vector<int64_t> shape1 = {S2, D};
     int axis = 0;
