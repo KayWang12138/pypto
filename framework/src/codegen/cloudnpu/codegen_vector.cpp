@@ -679,10 +679,10 @@ std::string CodeGenOpCloudNPU::PrintIndexPut(const PrintIndexPutParam &param) co
 }
 
 std::string CodeGenOpCloudNPU::GenIndexPutOp() const {
-    ASSERT(opAttrs.count(OP_ATTR_PREFIX + "accumulate")) << "cannot get accumulate attr";
-    ASSERT(opAttrs.count(OP_ATTR_PREFIX + "indicesSize")) << "cannot get indicesSize attr";
-    bool accumulate = npu::tile_fwk::AnyCast<bool>(opAttrs.at(OP_ATTR_PREFIX + "accumulate"));
-    int64_t indicesSize = npu::tile_fwk::AnyCast<int64_t>(opAttrs.at(OP_ATTR_PREFIX + "indicesSize"));
+    ASSERT(opAttrs.count(OpAttributeKey::accumulate)) << "cannot get accumulate attr";
+    ASSERT(opAttrs.count(OpAttributeKey::indicesSize)) << "cannot get indicesSize attr";
+    bool accumulate = npu::tile_fwk::AnyCast<bool>(opAttrs.at(OpAttributeKey::accumulate));
+    int64_t indicesSize = npu::tile_fwk::AnyCast<int64_t>(opAttrs.at(OpAttributeKey::indicesSize));
     // dst:gm, s0/self:gm, s1/values:ub, s2/indices:ub
     std::string dstVar = GenGmParamVar(ID0);
     std::string s1Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID2]);

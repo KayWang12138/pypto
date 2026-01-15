@@ -1032,8 +1032,8 @@ void TiledIndexPut(Function &function, const TileShape &tileShape, const Logical
         }
         auto &newOp = function.AddOperation(Opcode::OP_INDEX_PUT, inputsTile, {result});
         newOp.SetAttribute(OpAttributeKey::inplaceIdx, 0);
-        newOp.SetAttribute(OP_ATTR_PREFIX + "accumulate", accumulate);
-        newOp.SetAttribute(OP_ATTR_PREFIX + "indicesSize", static_cast<int>(inputIndices.size()));
+        newOp.SetAttribute(OpAttributeKey::accumulate, accumulate);
+        newOp.SetAttribute(OpAttributeKey::indicesSize, static_cast<int>(inputIndices.size()));
     }
 }
 
@@ -1086,8 +1086,8 @@ void TensorIndexPut(Function &function, const LogicalTensorPtr &self, const Logi
     iOperands.insert(iOperands.begin(), {self, values});
     auto &op = function.AddOperation(Opcode::OP_INDEX_PUT, iOperands, {dst});
     op.SetAttribute(OpAttributeKey::inplaceIdx, 0);
-    op.SetAttribute(OP_ATTR_PREFIX + "accumulate", accumulate);
-    op.SetAttribute(OP_ATTR_PREFIX + "indicesSize", static_cast<int>(indicesSize));
+    op.SetAttribute(OpAttributeKey::accumulate, accumulate);
+    op.SetAttribute(OpAttributeKey::indicesSize, static_cast<int>(indicesSize));
     function.UpdateTensorDataUsage(op);
 }
 
@@ -1324,7 +1324,7 @@ void IndexPutOperationTileFunc(Function &function, const TileShape &tileShape,
     std::vector<LogicalTensorPtr> indices = iOperand;
     constexpr size_t num2 = 2;
     indices.erase(indices.begin(), indices.begin() + num2);
-    bool accumulate = op.GetBoolAttribute(OP_ATTR_PREFIX + "accumulate");
+    bool accumulate = op.GetBoolAttribute(OpAttributeKey::accumulate);
     TiledIndexPut(function, tileShape, iOperand[0], iOperand[1], indices, oOperand[0], accumulate);
 }
 
