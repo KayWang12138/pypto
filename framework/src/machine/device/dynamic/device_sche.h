@@ -63,14 +63,15 @@ public:
         }
 
         DEV_INFO("thread %d start .", threadIdx);
-        if (static_cast<uint32_t>(threadIdx) >= MAX_SCHEDULE_AICPU_NUM) {
+        if (static_cast<uint32_t>(threadIdx) > MAX_SCHEDULE_AICPU_NUM) {
             DEV_INFO("thread start ignore ");
             return DEVICE_MACHINE_OK;
         }
+        int scheThreadIdx = threadIdx - 1;
 #if ENABLE_AICORE_PRINT
-        aicoreManager_[threadIdx]->InitLogger(logManager.logger);
+        aicoreManager_[scheThreadIdx]->InitLogger(logManager.logger);
 #endif
-        ret = aicoreManager_[threadIdx]->Run(threadIdx, args);
+        ret = aicoreManager_[scheThreadIdx]->Run(threadIdx, args);
         DEV_INFO("thread  %d end , ret = %d", threadIdx, ret);
         return ret;
     }
