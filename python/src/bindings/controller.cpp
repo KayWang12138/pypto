@@ -394,7 +394,6 @@ void bind_controller(py::module &m) {
     bind_controller_scope(m);
     bind_controller_scope_classes(m);
     bind_operation_config(m);
-
     // disable cpp mode
     SourceLocation::SetCppMode(false);
 }

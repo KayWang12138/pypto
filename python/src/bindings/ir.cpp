@@ -26,7 +26,7 @@
 #include "ir/utils.h"
 #include "ir/utils_defop.h"
 #include "ir/value.h"
-
+#include "ir/block_call.h"
 namespace py = pybind11;
 
 namespace pto {
@@ -398,6 +398,47 @@ static void IrBindBuilder(py::module &m) {
 
     IrBuilderBindOp(irBuilder);
 }
+
+void IrBindBlockCall(py::module &m) {
+    // 绑定 BlockRegistry 的 RegisterBlock (Python 侧注册)
+    m.def("register_block_func", [](const std::string& blockName, py::function blockFunc) {
+        // 将 Python 函数转换为 C++ std::function
+        auto cppFunc = [blockFunc](const std::vector<std::shared_ptr<TensorValue>>& inputArgs,
+                                  const std::vector<std::shared_ptr<TensorValue>>& outputArgs,
+                                  const std::vector<std::shared_ptr<ScalarValue>>& indices) {
+            // 转换为 Python 类型
+            py::list inputPy = py::cast(inputArgs);
+            py::list outputPy = py::cast(outputArgs);
+            py::list indicesPy = py::cast(indices);
+
+            // 调用 Python 函数
+            py::object result = blockFunc(inputPy, outputPy, indicesPy);
+
+            // 转换回 C++ 类型
+            return py::cast<std::shared_ptr<Function>>(result);
+        };
+        // 注册到 BlockRegistry
+        BlockRegistry::GetInstance().RegisterBlock(blockName, cppFunc);
+    }, "Register a Python block function by name (PascalCase).");
+
+    // 4. 绑定 CallBlock (Python 侧调用)
+    m.def("call_block", [](const std::string& blockName,
+                          const std::vector<npu::tile_fwk::Tensor>& inputTensors,
+                          const std::vector<npu::tile_fwk::Tensor>& outputTensors,
+                          const std::vector<npu::tile_fwk::SymbolicScalar>& indices) {
+        // 转换为 reference_wrapper
+        std::vector<std::reference_wrapper<const npu::tile_fwk::Tensor>> inputRefs;
+        std::vector<std::reference_wrapper<const npu::tile_fwk::Tensor>> outputRefs;
+        for (const auto& t : inputTensors) inputRefs.emplace_back(t);
+        for (const auto& t : outputTensors) outputRefs.emplace_back(t);
+        // 调用 C++ 的 CallBlock (通过 blockName)
+        CallBlock(blockName, inputRefs, outputRefs, indices);
+    }, py::arg("block_name"),
+        py::arg("input_tensors"),
+        py::arg("output_tensors"),
+        py::arg("indices"),
+        "Call a registered block by name (PascalCase).");
+}
 } // namespace pto
 
 namespace pypto {
@@ -412,5 +453,6 @@ void BindIr(py::module &m) {
     pto::IrBindFunction(ir);
     pto::IrBindModule(ir);
     pto::IrBindBuilder(ir);
+    pto::IrBindBlockCall(ir);
 }
 } // namespace pypto

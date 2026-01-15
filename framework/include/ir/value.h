@@ -268,6 +268,7 @@ private:
     std::vector<ScalarValuePtr> shape_;
     Format format_;
 };
+using TensorValuePtr = std::shared_ptr<TensorValue>;
 
 static inline std::vector<ValuePtr> CastScalarToValue(const std::vector<ScalarValuePtr> &scalarList) {
     std::vector<ValuePtr> valueList;
