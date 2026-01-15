@@ -299,8 +299,8 @@ void RescheduleUtils::PrintColorNode(Function &func) {
     }
 }
 
-bool RescheduleUtils::PrintColorNode(Function &func) {
-    for (auto &op : func.Operationss()) {
+bool RescheduleUtils::EnableCombineAxis(Function &func) {
+    for (auto &op : func.Operations()) {
         if (OpcodeManager::Inst().IsCopyIn(op.GetOpcode())) {
             if (op.GetOOperands()[0]->GetShape().back() == 1 && op.GetIOperands()[0]->GetShape().back() > 1) {
                 return false;

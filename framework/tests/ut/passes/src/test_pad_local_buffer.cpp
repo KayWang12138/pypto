@@ -1008,7 +1008,7 @@ TEST_F(TestPadLocalBuffer, axiscombineDisable) {
         }
         for (auto &inTensor : op.GetIOperands()) {
             if (inTensor->Symbol() == "t2") {
-                targetShape = {4, 8};
+                std::vector<int64_t> targetShape = {4, 8};
                 EXPECT_EQ(inTensor->GetRawTensor()->GetRawShape(), targetShape);
             }
         }
