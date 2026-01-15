@@ -20,6 +20,7 @@
 #include "ir/operation_base.h"
 #include "ir/tile_graph.h"
 
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -43,6 +44,7 @@ private:
     void CheckUnaryOpShape(UnaryOpPtr &unaryOp);
     void CheckBinaryOpShape(BinaryOpPtr &binaryOp);
     void CheckBinaryScalarMixOpShape(BinaryScalarMixOpPtr &binaryScalarMixOp);
+    std::string ToShapeStr(const std::vector<int64_t> &shape) const;
 };
 
 VerifyResult VerifyOpShape(ProgramModulePtr program);
