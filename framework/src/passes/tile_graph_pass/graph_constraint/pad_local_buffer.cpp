@@ -475,34 +475,13 @@ inline bool IsCopyIn(Operation& op) {
     return true;
 }
 
-int64_t PadLocalBuffer::ProcessBroadcastForAxisCombine(Operation &op, LogicalTensorPtr &inTensor, size_t blockPadding) {
+int64_t PadLocalBuffer::ProcessBroadcastForAxisCombine(LogicalTensorPtr &inTensor) {
     int dimSize = inTensor->GetShape().size();
-    if (blockPadding == 0) {
-        return -1;
-    }
     if (inTensor->shape.back() != 1) {
         return (dimSize - 1);
     }
-    bool isAllInputShapeSame{true};
-    auto inputShape = inTensor->GetShape();
-    for (uint16_t i = 1; i < op.GetIOperands().size(); i++) {
-        if (op.GetIOperands()[i]->shape != inputShape) {
-            isAllInputShapeSame = false;
-            break;
-        }
-    }
-    if (isAllInputShapeSame) {
-        if (dimSize > 1) {
-            return (dimSize - LAST_SECOND_AXIS);
-        }
-        return (dimSize - 1);
-    }
-    for (const auto &in : op.iOperand) {
-        if (in != inTensor) {
-            if (in->shape.back() != 1 && in->shape.back() % blockPadding == 0) {
-                return (dimSize - LAST_SECOND_AXIS);
-            }
-        }
+    if (dimSize > 1) {
+        return (dimSize - LAST_SECOND_AXIS);
     }
     return (dimSize - 1);
 }
@@ -552,7 +531,7 @@ void PadLocalBuffer::PadVectorForAxisCombine(Operation &op, LogicalTensorPtr &in
         }
     }
     if (calcType == OpCalcType::BROADCAST) {
-        auto dimIdx = ProcessBroadcastForAxisCombine(op, in, paddingValue);
+        auto dimIdx = ProcessBroadcastForAxisCombine(in);
         AlignedRawTensorIfNeed(in, dimIdx, paddingValue);
         return;
     }
