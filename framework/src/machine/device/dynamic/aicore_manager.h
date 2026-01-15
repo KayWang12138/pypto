@@ -37,6 +37,7 @@
 #include "machine/kernel/aicore.h"
 #include "machine/device/dynamic/aicore_prof.h"
 #include "machine/device/dynamic/aicore_hal.h"
+#include "machine/device/dynamic/aicore_dump.h"
 #include "machine/device/dynamic/aicpu_task_manager.h"
 #include "machine/device/dynamic/device_utils.h"
 #include "machine/device/dynamic/wrap_manager.h"
@@ -795,6 +796,11 @@ private:
         DEV_TRACE_DEBUG(LEvent(
             LUid(curTaskCtrl_->taskId, FuncID(newTask), GetRootIndex(newTask), TaskID(newTask), GetLeafIndex(newTask)),
             LActStart(coreIdx)));
+        // dump input tensor
+        DEV_IF_VERBOSE_DEBUG {
+            aicoreDump_.DumpInit(newTask, GetPhyIdByBlockId(coreIdx));
+            aicoreDump_.DoDump(curDevTask_, "input");
+        }
         aicoreHal_.SetReadyQueue(coreIdx, (newTask + 1) & 0xFFFFFFFF);
         pendingIds_[coreIdx] = newTask;
         pendingResolveIndexList_[coreIdx] = 0;
@@ -1334,6 +1340,11 @@ private:
         pendingResolveIndexList_.fill(0);
         taskDfxStatPos_.fill(REG_LOW_TASK_PING);
 
+        DEV_IF_VERBOSE_DEBUG {
+            aicoreDump_.SetHostPid(deviceArgs->hostPid);
+            aicoreDump_.SetDeviceId(deviceArgs->deviceId);
+        }
+
         if (deviceArgs->machineConfig != static_cast<uint8_t>(MachineScheduleConfig::DEFAULT_SCH)) {
             if (aicpuNum_ > 1) {
                 enableFairSch_ = static_cast<uint8_t>(deviceArgs->machineConfig) &
@@ -1644,6 +1655,10 @@ private:
 #endif
 
         DEV_IF_VERBOSE_DEBUG {
+            // dump tensor
+            aicoreDump_.DumpInit(taskId, GetPhyIdByBlockId(coreIdx), stat->execStart, stat->execEnd);
+            aicoreDump_.DoDump(curDevTask_, "output");
+
             recvFinTask_[coreIdx].push_back(TaskInfo(coreIdx, taskId));
         }
 
@@ -1712,6 +1727,7 @@ private:
     SPSCQueue<DeviceTaskCtrl *, DEFAULT_QUEUE_SIZE> *taskQueue_{nullptr};
     AicpuTaskManager &aicpuTaskManager_;
     AiCoreProf aicoreProf_;
+    AicoreDump aicoreDump_;
     int64_t dotStatus_{0};
 
     std::vector<TaskInfo> sendTask_[MAX_AICORE_NUM];

@@ -17,6 +17,10 @@
 #include "machine/runtime/device_launcher_binding.h"
 #include "machine/host/backend.h"
 #include "machine/runtime/host_prof.h"
+
+extern "C" __attribute__((weak)) int AdxDataDumpServerUnInit();
+extern "C" __attribute__((weak)) int AdxDataDumpServerInit();
+
 namespace npu::tile_fwk::dynamic {
 namespace {
     constexpr uint32_t kMinDefaultDim = 20;
@@ -168,6 +172,12 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
         ALOG_ERROR_F("Register kernel bin failed.");
         return rc;
     }
+    if (IsAstDataDumpEnabled()) {
+        int sf = AdxDataDumpServerInit();
+        if (sf != 0) {
+            printf("ERROR AdxDataDumpServerInit failed \n");
+        }
+    }
     rc = DeviceRunner::Get().DynamicLaunch(aicpuStream, nullptr, aicoreStream, 0, &kArgs, config.blockdim, config.aicpuNum);
     if (rc < 0) {
         return rc;
@@ -178,6 +188,13 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
     }
     if (streamSynchronize) {
         rc = DeviceRunner::Get().DynamicLaunchSynchronize(aicpuStream, nullptr, aicoreStream);
+    }
+    if (IsAstDataDumpEnabled()) {
+        ALOG_DEBUG_F("DataDumpServerInit is called \n");
+        int res = AdxDataDumpServerUnInit();
+        if (res != 0) {
+            ALOG_ERROR_F("AdxDataDumpServerUnInit is failed %d \n", rc);
+        }
     }
     return rc;
 }

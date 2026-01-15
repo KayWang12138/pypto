@@ -550,6 +550,7 @@ void DeviceRunner::InitAiCpuSoBin() {
     args_.aicpuSoBin = reinterpret_cast<uint64_t>(dAicpuData);
     args_.aicpuSoLen = buffer.size();
     args_.deviceId = GetLogDeviceId();
+    args_.hostPid = getpid();
 }
 
 int DeviceRunner::launchDynamicAiCpuInit(rtStream_t aicpuStream, AstKernelArgs *kArgs) {
