@@ -391,7 +391,7 @@ void ExecuteOpIndexPut(ExecuteOperationContext *ctx) {
         auto indicesTemp = ctx->ioperandDataViewList->at(i);
         indices.push_back(indicesTemp);
     }
-    bool accumulate = ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "accumulate");
+    bool accumulate = ctx->op->GetIntAttribute(OpAttributeKey::accumulate);
     calc::IndexPut(out, self, indices, values, accumulate);
 }
 REGISTER_CALC_OP(OP_INDEX_PUT, Opcode::OP_INDEX_PUT, ExecuteOpIndexPut);
