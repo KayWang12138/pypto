@@ -36,9 +36,19 @@ function(tracr_enable target)
         target_compile_definitions(${target} PRIVATE ENABLE_TRACR)
 
         # TraCR threads capacity (default is 1<<20 ~= 1 million traces per thread = ~17MB per thread buffer size)
-        # if (TRACR_CAPACITY)
-        #     target_compile_definitions(${target} PRIVATE TRACR_CAPACITY="(1<<20)")
-        # endif()
+        set(TRACR_CAPACITY "" CACHE STRING "Optional TraCR buffer capacity (empty = use internal default)")
+
+        if(NOT TRACR_CAPACITY STREQUAL "")
+            message(WARNING "TraCR adding capacity: ${TRACR_CAPACITY}")
+
+            if(NOT TRACR_CAPACITY MATCHES "^[0-9]+$")
+                message(FATAL_ERROR "TRACR_CAPACITY must be a positive integer")
+            endif()
+
+            target_compile_definitions(${target} PRIVATE
+                TRACR_CAPACITY=${TRACR_CAPACITY}
+            )
+        endif()
 
         # TraCR full size buffer modes:
         # default (none):            Abort if buffer is full
@@ -47,6 +57,27 @@ function(tracr_enable target)
         # if (TRACR_POLICY)
         #     target_compile_definitions(${target} PRIVATE TRACR_POLICY_PERIODIC)
         # endif()
+        set(TRACR_POLICY "" CACHE STRING "TraCR policy (empty = use C++ default)")
+
+        set_property(CACHE TRACR_POLICY PROPERTY STRINGS
+            ""  # allow empty (use C++ default)
+            TRACR_POLICY_PERIODIC
+            TRACR_POLICY_STOP_IF_FULL
+        )
+
+        if(NOT TRACR_POLICY STREQUAL "")
+            if(TRACR_POLICY STREQUAL "TRACR_POLICY_PERIODIC")
+                message(WARNING "TraCR adding policy: 'TRACR_POLICY_PERIODIC'")
+                target_compile_definitions(${target} PRIVATE TRACR_POLICY_PERIODIC)
+            elseif(TRACR_POLICY STREQUAL "TRACR_POLICY_STOP_IF_FULL")
+                message(WARNING "TraCR adding policy: 'TRACR_POLICY_STOP_IF_FULL'")
+                target_compile_definitions(${target} PRIVATE TRACR_POLICY_STOP_IF_FULL)
+            else()
+                message(FATAL_ERROR "Unknown TRACR_POLICY: ${TRACR_POLICY}")
+            endif()
+        else()
+            message(STATUS "No TraCR policy given: using C++ default")
+        endif()
 
         # Flag to enable TraCR debugging prints (TODO: Not yet working!)
         # if (TRACR_DEBUG)

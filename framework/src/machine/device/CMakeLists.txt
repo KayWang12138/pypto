@@ -42,9 +42,11 @@ add_library(tile_fwk_server SHARED)
 
 ### Including TraCR if enabled
 message(WARNING "building TraCR? '${BUILD_TRACR}' for tile_fwk_server")
-if (BUILD_TRACR)
-    tracr_enable(tile_fwk_server)
-endif()
+# if (BUILD_TRACR)
+#     tracr_enable(tile_fwk_server)
+# endif()
+
+tracr_enable(tile_fwk_server)
 ###
 
 target_sources(tile_fwk_server PRIVATE ${_Device_Srcs})
