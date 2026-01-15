@@ -77,19 +77,16 @@ void TestShmemReduceScatterParaWithShmem(OpTestParam &testParam)
 
     Shape shmemDataShape = {1, rowOut, col};
     FUNCTION("ShmemReduceScatter", {in}, {out}) {
-        TileShape::Current().SetVecTile({tileRow, tileCol});
+        DataType shmemDataType = in.GetDataType();
+        shmemDataType = (shmemDataType == DT_BF16) || (shmemDataType == DT_FP16) ? DT_FP32 : shmemDataType;
         Tensor shmemData;
         Tensor shmemSignal;
-        DataType shmemDataType = in.GetDataType();
-        if ((shmemDataType == DT_BF16) || (shmemDataType == DT_FP16)) {
-            shmemDataType = DT_FP32;
-        }
-        LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
-            (void)index;
-            CreateShmemData(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemData);
+        LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, unused, LoopRange(1)) {
+            (void)unused;
             CreateShmemSignal(testParam.group, shmemData, shmemSignal);
+            CreateShmemData(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemData);
         }
-        Tensor predToken(DT_INT32, {1, 1}, "predToken");
+        TileShape::Current().SetVecTile({tileRow, tileCol});
         ReduceScatter(in, in, testParam.group, shmemData, shmemSignal, DistReduceType::DIST_REDUCE_ADD, out);
     }
     DeviceLauncherConfig config;

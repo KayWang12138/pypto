@@ -266,7 +266,7 @@ Tensor ShmemSignalSet(const Tensor& predToken, const Tensor& shmemSignal)
 }
 
 void ProcessAllGatherForRank(const Tensor &predToken, const Tensor &in, Tensor &shmemData, Tensor &shmemSignal,
-    Tensor &out, int32_t row, int32_t col, const SymbolicScalar &thisRank, int32_t dynRankId)
+    Tensor &out, int32_t row, int32_t col, const SymbolicScalar &thisRank, const SymbolicScalar &dynRankId)
 {
     auto shmemDataTile = View(shmemData, {1, 1, row, col}, 
                             std::vector<SymbolicScalar>{dynRankId, thisRank, 0, 0});
@@ -482,8 +482,9 @@ void TwoShotAllReduce(const Tensor &predToken, const Tensor &in, const char *gro
     }
     int32_t row = in.GetShape(0);
     int32_t col = in.GetShape(1);
-    int32_t rowPerRank = row / worldSize;
+    ASSERT(worldSize > 0) << "AllReduce worldSize should be more than 0.";
     ASSERT(row % worldSize == 0) << "Two_Shot_AllReduce constraint: row must be divisible by worldSize";
+    int32_t rowPerRank = row / worldSize;
     Shape shmemDataShape = {1, rowPerRank, col};
     Tensor shmemData;
     Tensor shmemSignal;
