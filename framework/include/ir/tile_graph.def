@@ -26,6 +26,14 @@ DEFOP(
         OP_ABS,
         OP_LN
     ),
+    PROPERTY(
+        INPUTS_MEM(UB),
+        OUTPUTS_MEM(UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
+    ),
     INPUT(Tile, Input),
     OUTPUT(Tile, Output),
     ATTR(int, CombineAxis, -1)
@@ -41,6 +49,14 @@ DEFOP(
         OP_DIV,
         OP_MIN,
         OP_MAX
+    ),
+    PROPERTY(
+        INPUTS_MEM(UB, UB),
+        OUTPUTS_MEM(UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
     ),
     INPUT(Tile, Lhs),
     INPUT(Tile, Rhs),
@@ -59,6 +75,14 @@ DEFOP(
         OP_MINS,
         OP_MAXS
     ),
+    PROPERTY(
+        INPUTS_MEM(UB, UB),
+        OUTPUTS_MEM(UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
+    ),
     INPUT(Tile, Lhs),
     INPUT(Scalar, Rhs),
     OUTPUT(Tile, Output),
@@ -71,6 +95,14 @@ DEFOP(
     INHERIT(MatmulTileBaseOp),
     OPCODE(
         OP_L1_COPY_IN
+    ),
+    PROPERTY(
+        INPUTS_MEM(UB, UB),
+        OUTPUTS_MEM(UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
     ),
     INPUT(Tile, Input),
     INPUT(ScalarList, Offsets),
@@ -88,6 +120,14 @@ DEFOP(
  	    OP_L1_TO_L0_AT,
  	    OP_L1_TO_L0_BT
     ),
+    PROPERTY(
+        INPUTS_MEM(UB, UB),
+        OUTPUTS_MEM(UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
+    ),
     INPUT(Tile, Input),
     INPUT(ScalarList, Offsets),
     OUTPUT(Tile, Output)
@@ -98,6 +138,14 @@ DEFOP(
     INHERIT(MatmulMmadTileBaseOp),
     OPCODE(
         OP_A_MUL_B
+    ),
+    PROPERTY(
+        INPUTS_MEM(UB, UB),
+        OUTPUTS_MEM(UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
     ),
     INPUT(Tile, Lhs),
     INPUT(Tile, Rhs),
@@ -111,6 +159,14 @@ DEFOP(
     OPCODE(
  	    OP_A_MULACC_B
     ),
+    PROPERTY(
+        INPUTS_MEM(UB, UB),
+        OUTPUTS_MEM(UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
+    ),
     INPUT(Tile, Lhs),
     INPUT(Tile, Rhs),
     OUTPUT(Tile, Output),
@@ -123,6 +179,14 @@ DEFOP(
     OPCODE(
  	    OP_L0C_COPY_OUT,
         OP_L0C_TO_L1
+    ),
+    PROPERTY(
+        INPUTS_MEM(UB, UB),
+        OUTPUTS_MEM(UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
     ),
     INPUT(Tile, Input),
     INPUT(ScalarList, Offsets),
@@ -141,6 +205,14 @@ DEFOP(
     OPCODE(
  	    OP_L1_TO_BT
     ),
+    PROPERTY(
+        INPUTS_MEM(UB, UB),
+        OUTPUTS_MEM(UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
+    ),
     INPUT(Tile, Input),
     INPUT(ScalarList, Offsets),
     OUTPUT(Tile, Output)
@@ -151,6 +223,14 @@ DEFOP(
     INHERIT(MatmulTileBaseOp),
     OPCODE(
         OP_L1_TO_FIX_QUANT_PRE
+    ),
+    PROPERTY(
+        INPUTS_MEM(UB, UB),
+        OUTPUTS_MEM(UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
     ),
     INPUT(Tile, Input),
     INPUT(ScalarList, Offsets),
