@@ -113,7 +113,7 @@ void TestLightningIndexer(LightningIndexerConfigs &tileConfig) {
     std::vector<RawTensorDataPtr> inputDataList = {qData, qsData, kData, ksData, wData, sData, bData};
     std::vector<RawTensorDataPtr> outputDataList = {topkResData, firstMmData, mmData, topkValueData};
 
-    std::set<int> unrollList = {32, 16, 8, 4, 1};
+    std::set<int> unrollList = {128, 64, 32, 16, 8, 4, 1};
     FUNCTION(
         "LightningIndexer", {query, qScale, key, kScale, weights, actSeq, blockTable}, {topkRes, firstMm, mmOut, topkValue}) {
         LightningIndexerImpl(query, qScale, key, kScale, weights, actSeq, blockTable, selectedCount, topkRes,
@@ -139,9 +139,9 @@ void TestLightningIndexer(LightningIndexerConfigs &tileConfig) {
 TEST_F(LightningIndexerSTest, lightning_indexer_quant_4_b_2_s1_64k_s2) {
     LightningIndexerConfigs config;
     config.s1Tile = 2; // s1Tile = s1
-    config.topkTile = 8192;
-    config.c1Tile = {128, 128, 128, 128, 128, 128}; // (m, M), (k, K), (n, N)
-    config.c2Tile = {64, 64, 128, 128, 128, 128};   // (m, M), (k, K), (n, N)
+    config.topkTile = 16384;
+    config.c1Tile = {64, 64, 128, 128, 128, 128}; // (m, M), (k, K), (n, N)
+    config.c2Tile = {128, 128, 64, 64, 128, 128};   // (m, M), (k, K), (n, N)
     config.extendParam.reluType = npu::tile_fwk::Matrix::ReLuType::ReLu;
     float scale = 2048.0;
     config.extendParam.scaleValue = static_cast<uint64_t>(*reinterpret_cast<int32_t*>(&scale));
