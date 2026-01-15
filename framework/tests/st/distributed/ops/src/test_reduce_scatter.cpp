@@ -26,6 +26,7 @@ namespace Distributed {
 template<typename T>
 void TestShmemReduceScatter(OpTestParam &testParam)
 {
+    ASSERT(testParam.rankSize > 0) << "worldSize should be more than 0.";
     constexpr size_t paramsSize = 5;
     auto [row, col, typeNum, tileRow, tileCol] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
     int rowOut = row / testParam.rankSize;
@@ -37,13 +38,9 @@ void TestShmemReduceScatter(OpTestParam &testParam)
         GetGoldenDir() + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", {row, col});
 
     FUNCTION("ShmemReduceScatter", {in}, {out}) {
-        LOOP("LOOP", FunctionType::DYNAMIC_LOOP, idx, LoopRange(1)) {
-            (void)idx;
-            TileShape::Current().SetVecTile({tileRow, tileCol});
-            Tensor predToken(DT_INT32, {1, 1}, "predToken");
-            ReduceScatter(predToken, in, testParam.group, static_cast<uint32_t>(testParam.rankSize),
-                npu::tile_fwk::Distributed::DistReduceType::DIST_REDUCE_ADD, out);
-        }
+        TileShape::Current().SetVecTile({tileRow, tileCol});
+        ReduceScatter(in, in, testParam.group, static_cast<uint32_t>(testParam.rankSize),
+            npu::tile_fwk::Distributed::DistReduceType::DIST_REDUCE_ADD, out);
     }
 
     ProgramData::GetInstance().AppendInputs({
@@ -57,6 +54,49 @@ void TestShmemReduceScatter(OpTestParam &testParam)
     config.runModel = false;
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), config);
 
+    auto outPut = ProgramData::GetInstance().GetOutputData(0);
+    EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, "/output_rank_", rowOut * col, outPut->GetDevPtr(), testParam));
+}
+
+void TestShmemReduceScatter(OpTestParam &testParam)
+{
+    ASSERT(testParam.rankSize > 0) << "worldSize should be more than 0.";
+    constexpr size_t paramsSize = 5;
+    auto [row, col, typeNum, tileRow, tileCol] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
+    ASSERT(row % testParam.rankSize == 0) << "ReduceScatter constraint: row must be divisible by worldSize";
+    int rowOut = row / testParam.rankSize;
+    DataType dType = GetDataTypeNum(typeNum);
+    Shape shmemDataShape = {1, row, col};
+    Tensor in(dType, {row, col}, "in");
+    Tensor out(dType, {rowOut, col}, "out");
+    std::vector<T> inData = ReadToVector<T>(
+        GetGoldenDir() + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", {row, col});
+
+    FUNCTION("ShmemReduceScatter", {in}, {out}) {
+        TileShape::Current().SetVecTile({tileRow, tileCol});
+        Tensor shmemData;
+        Tensor shmemSignal;
+        DataType shmemDataType = in.GetDataType();
+        if ((shmemDataType == DT_BF16) || (shmemDataType == DT_FP16)) {
+            shmemDataType = DT_FP32;
+        }
+        LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
+            (void)index;
+            CreateShmemData(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemData);
+            CreateShmemSignal(testParam.group, shmemData, shmemSignal);
+        }
+        Tensor predToken(DT_INT32, {1, 1}, "predToken");
+        ReduceScatter(in, in, testParam.group, shmemData, shmemSignal, DistReduceType::DIST_REDUCE_ADD, out);
+    }
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateTensor<T>(in, inData),
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<T>(out, 0),
+    });
+    DeviceLauncherConfig config;
+    config.runModel = false;
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), config);
     auto outPut = ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, "/output_rank_", rowOut * col, outPut->GetDevPtr(), testParam));
 }

@@ -26,6 +26,7 @@ namespace Distributed {
 template<typename T>
 void TestDynAllGather(OpTestParam &testParam)
 {
+    ASSERT(testParam.rankSize > 0) << "worldSize should be more than 0.";
     constexpr size_t paramsSize = 5;
     auto [row, col, typeNum, tileRow, tileCol] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
 
@@ -37,7 +38,6 @@ void TestDynAllGather(OpTestParam &testParam)
     Shape outShape{testParam.rankSize * row, col};
     Tensor in(dType, shape, "in");
     Tensor predToken(DT_INT32, {1, 1}, "predToken");
-    Tensor barrierDummy(DT_INT32, {1, 1}, "barrierDummy");
     Tensor out(dType, outShape, "out");
 
     std::vector<T> inPtr = ReadToVector<T>(GetGoldenDir() + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", shape);
@@ -62,6 +62,53 @@ void TestDynAllGather(OpTestParam &testParam)
     auto outPtr = ProgramData::GetInstance().GetOutputData(0)->GetDevPtr();
     EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, "/output_rank_", outSize, outPtr, testParam));
 }
+
+void TestDynAllGather(OpTestParam &testParam)
+{
+    ASSERT(testParam.rankSize > 0) << "worldSize should be more than 0.";
+    constexpr size_t paramsSize = 5;
+    auto [row, col, typeNum, tileRow, tileCol] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
+    DataType dType = GetDataTypeNum(typeNum);
+    int32_t outSize = row * col * testParam.rankSize;
+    Shape shape{row, col};
+    Shape outShape{testParam.rankSize * row, col};
+    Shape shmemDataShape{testParam.rankSize * row, col};
+    Tensor in(dType, shape, "in");
+    Tensor predToken(DT_INT32, {1, 1}, "predToken");
+    Tensor out(dType, outShape, "out");
+    std::vector<T> inPtr = ReadToVector<T>(GetGoldenDir() + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", shape);
+    FUNCTION("ALLGATHER", {in, predToken}, {out}) {
+        TileShape::Current().SetVecTile({tileRow, tileCol});
+        DataType shmemDataType = in.GetDataType();
+        if ((shmemDataType == DT_BF16) || (shmemDataType == DT_FP16)) {
+            shmemDataType = DT_FP32;
+        }
+        Tensor shmemData;
+        Tensor shmemSignal;
+        AllReduceValidate(predToken, in, shmemData, testParam.group, out);
+        LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
+            (void)index;
+            CreateShmemData(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemData);
+            CreateShmemSignal(testParam.group, shmemData, shmemSignal);
+        }
+        AllGather(predToken, in, testParam.group, static_cast<uint32_t>(testParam.rankSize), out);
+    }
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateTensor<T>(in, inPtr),
+        RawTensorData::CreateTensorZero(predToken)
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateTensorZero(out)
+    });
+
+    DeviceLauncherConfig config;
+    config.runModel = false;
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), config);
+
+    auto outPtr = ProgramData::GetInstance().GetOutputData(0)->GetDevPtr();
+    EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, "/output_rank_", outSize, outPtr, testParam));
+}
+
 template void TestDynAllGather<int32_t>(OpTestParam &testParam);
 template void TestDynAllGather<float>(OpTestParam &testParam);
 template void TestDynAllGather<float16>(OpTestParam &testParam);

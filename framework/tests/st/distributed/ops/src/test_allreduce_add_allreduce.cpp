@@ -100,8 +100,7 @@ void LoopAllReduce2(const Tensor& addOut, Tensor& shmemBarrier1ShmemSignal, Tens
         TileShape::Current().SetVecTile({1, 8});
         ShmemBarrier(memSetOut, shmemBarrier2ShmemSignal, testParam.group, static_cast<uint32_t>(testParam.rankSize), barrier2Out);
         TileShape::Current().SetVecTile(row, col);
-        OneShotAllReduce(barrier2Out, addOut, allReduce2ShmemData, allReduce2ShmemSignal, testParam.group,
-            static_cast<uint32_t>(testParam.rankSize), out);
+        OneShotAllReduce(barrier2Out, addOut, testParam.group, allReduce2ShmemData, allReduce2ShmemSignal, out);
     }
 }
 

@@ -23,6 +23,7 @@
 #include "test_common.h"
 #include "distributed_op_test_suite.h"
 #include "tileop/distributed/hccl_context.h"
+#include "interface\operation\distributed\distributed_common.h"
 
 namespace npu::tile_fwk {
 namespace Distributed {
