@@ -59,8 +59,8 @@ void TuneTileOpSeqForVF::ChangeOpSeq(std::vector<Operation *> &opList, PipeSync 
                 }
             }
         }
+        std::unordered_set<Operation *> moveFrontOp;
         for (size_t k = left + 1; k < right; k++) {
-            std::unordered_set<Operation *> moveFrontOp;
             // 如果该op和vecTileop0和vecTileop1都存在依赖关系，则不能融合
             if (ps.HasDataDependency(*opList[left], *opList[k], left, k) && ps.HasDataDependency(*opList[k], *opList[right], k, right)) {
                 canMerge = false;
@@ -104,7 +104,7 @@ void TuneTileOpSeqForVF::ChangeOpSeq(std::vector<Operation *> &opList, PipeSync 
         std::vector<Operation *> moveLeft;
         std::vector<Operation *> moveRight;
         for (size_t k = left + 1; k < right; k++) {
-            if (moveFrontOp.contains(opList[k])) {
+            if (moveFrontOp.count(opList[k])) {
                 moveLeft.emplace_back(opList[k]);
             } else {
                 moveRight.emplace_back(opList[k]);
