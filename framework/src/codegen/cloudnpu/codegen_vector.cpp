@@ -695,7 +695,7 @@ std::string CodeGenOpCloudNPU::GenIndexPutOp() const {
     std::vector src1RawShape = this->rawShape[ID2];
 
     std::vector<std::string> dataTypeExpr;
-    for (int i = 0; i < ID4; i++) {
+    for (int i = 0; i < NUM4; i++) {
         dataTypeExpr.emplace_back(DataType2CCEStr(operandDtype[i]));
     }
 
