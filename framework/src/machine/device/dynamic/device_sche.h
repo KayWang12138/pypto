@@ -38,16 +38,16 @@ struct AicoreLogManager {
     AicoreLogger logger[MAX_AICORE_NUM];
 };
 
-class DeviceMachine {
+class DeviceSchedMachine {
 public:
-    DeviceMachine() {
+    DeviceSchedMachine() {
         for (uint32_t i = 0; i < MAX_SCHEDULE_AICPU_NUM; ++i) {
             aicoreManager_[i] = std::make_unique<AiCoreManager>(aicpuTaskManager_);
         }
     }
 
     void SetStachSchduleContext(int threadIdx, SchduleContext* context) {
-        aicoreManager_[threadIdx]->SetSchduleContext(context);
+        aicoreManager_[threadIdx - 1]->SetSchduleContext(context);
     }
     
     bool CheckAndResetReg(){
@@ -67,14 +67,15 @@ public:
         }
 
         DEV_INFO("thread %d start .", threadIdx);
-        if (static_cast<uint32_t>(threadIdx) >= args->scheCpuNum) {
+        if (static_cast<uint32_t>(threadIdx) > args->scheCpuNum) {
             DEV_INFO("thread start ignore ");
             return DEVICE_MACHINE_OK;
         }
+        int schedIdx = threadIdx - 1;
 #if ENABLE_AICORE_PRINT
-        aicoreManager_[threadIdx]->InitLogger(logManager.logger);
+        aicoreManager_[scheThreadIdx]->InitLogger(logManager.logger);
 #endif
-        ret = aicoreManager_[threadIdx]->Run(threadIdx, args);
+        ret = aicoreManager_[scheThreadIdx]->Run(threadIdx, args, schedIdx);
         DEV_INFO("thread  %d end , ret = %d", threadIdx, ret);
         return ret;
     }
