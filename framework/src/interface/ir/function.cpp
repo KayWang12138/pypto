@@ -71,8 +71,9 @@ void Function::Print(std::ostream& os, int indent) const {
             os << arg->GetSSAName() << ": ";
             arg->Print(os, 0);
         }
-        if (arg->Attributes().find("io") != arg->Attributes().end()) {
-            os << " #" << arg->Attributes().at("io");
+        std::string io;
+        if (arg->GetAttr("io", io)) {
+            os << " #" << io;
         }
         if (i + 1 < signature_.arguments.size()) {
             os << ", ";
@@ -139,7 +140,8 @@ uint64_t Function::ComputeHash() {
 
 bool Function::isFromInCast(const ValuePtr &value) const {
     for (auto arg : signature_.arguments) {
-        if (arg == value && arg->Attributes().at("io") == "in") {
+        std::string io;
+        if (arg == value && arg->GetAttr("io", io) && io == "in") {
             return true;
         }
     }
@@ -148,7 +150,8 @@ bool Function::isFromInCast(const ValuePtr &value) const {
 
 bool Function::isFromOutCast(const ValuePtr &value) const {
     for (auto result : signature_.arguments) {
-        if (result == value && result->Attributes().at("io") == "out") {
+        std::string io;
+        if (result == value && result->GetAttr("io", io) && io == "out") {
             return true;
         }
     }
@@ -157,8 +160,11 @@ bool Function::isFromOutCast(const ValuePtr &value) const {
 
 int Function::GetIncastIndex(const ValuePtr &value) const {
     for (size_t i = 0; i < signature_.arguments.size(); i++) {
-        if (signature_.arguments[i] == value && signature_.arguments[i]->Attributes().at("io") == "in") {
-            return i;
+        if (signature_.arguments[i] == value) {
+            std::string io;
+            if (signature_.arguments[i]->GetAttr("io", io) && io == "in") {
+                return i;
+            }
         }
     }
     return -1;
@@ -166,11 +172,36 @@ int Function::GetIncastIndex(const ValuePtr &value) const {
 
 int Function::GetOutcastIndex(const ValuePtr &value) const {
     for (size_t i = 0; i < signature_.arguments.size(); i++) {
-        if (signature_.arguments[i] == value && signature_.arguments[i]->Attributes().at("io") == "out") {
-            return i;
+        if (signature_.arguments[i] == value) {
+            std::string io;
+            if (signature_.arguments[i]->GetAttr("io", io) && io == "out") {
+                return i;
+            }
         }
     }
     return -1;
+}
+
+const std::vector<ValuePtr> Function::GetIncasts() const {
+    std::vector<ValuePtr> incasts;
+    for (auto arg : signature_.arguments) {
+        std::string io;
+        if (arg->GetAttr("io", io) && io == "in") {
+            incasts.push_back(arg);
+        }
+    }
+    return incasts;
+}
+
+const std::vector<ValuePtr> Function::GetOutcasts() const {
+    std::vector<ValuePtr> outcasts;
+    for (auto arg : signature_.arguments) {
+        std::string io;
+        if (arg->GetAttr("io", io) && io == "out") {
+            outcasts.push_back(arg);
+        }
+    }
+    return outcasts;
 }
 
 } // namespace pto

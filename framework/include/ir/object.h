@@ -15,6 +15,12 @@
 
 #pragma once
 
+#include <iostream>
+#include <typeindex>
+#include <unordered_map>
+#include <unordered_set>
+#include <variant>
+
 #include "ir/utils.h"
 
 namespace pto {
@@ -30,8 +36,18 @@ enum class ObjectType {
     Type,
 };
 
+// Attribute value supports multiple basic types.
+using AttributeValue = std::variant<std::string, int64_t, double, bool>;
+
 // Simple key/value attribute bag used across IR nodes.
-using AttributeMap = std::map<std::string, std::string>;
+using AttributeMap = std::map<std::string, AttributeValue>;
+
+// Helper: streaming for attribute values.
+inline std::ostream& operator<<(std::ostream& os, const AttributeValue& value)
+{
+    std::visit([&os](auto&& v) { os << v; }, value);
+    return os;
+}
 
 // Base class for all IR objects.
 class Object {
@@ -72,13 +88,73 @@ public:
     // Each derived class must specify its object type.
     virtual ObjectType GetObjectType() const = 0;
 
-    AttributeMap& Attributes() { return attributes_; }
-    const AttributeMap& Attributes() const { return attributes_; }
+    // Attribute registry API (per C++ derived type).
+    template <typename T>
+    static void RegisterAttrKey(const std::string& key)
+    {
+        auto& keySet = registry_[std::type_index(typeid(T))];
+        keySet.insert(key);
+    }
+
+    bool CanSetAttr(const std::string& key) const
+    {
+        auto itType = registry_.find(std::type_index(typeid(*this)));
+        if (itType == registry_.end()) {
+            return false;
+        }
+        const auto& keySet = itType->second;
+        return keySet.find(key) != keySet.end();
+    }
+
+    template <typename T>
+    bool SetAttr(const std::string& key, const T& value)
+    {
+        if (!CanSetAttr(key)) {
+            // 未注册的属性 key，打印日志并拒绝设置。
+            std::cerr << "Attempt to set unregistered attribute key '" << key
+                      << "' on type '" << typeid(*this).name() << "'" << std::endl;
+            return false;
+        }
+        attributes_[key] = AttributeValue{value};
+        return true;
+    }
+
+    // Attribute helpers.
+    bool HasAttr(const std::string& key) const
+    {
+        return attributes_.find(key) != attributes_.end();
+    }
+
+    template <typename T>
+    bool GetAttr(const std::string& key, T& value) const
+    {
+        auto it = attributes_.find(key);
+        if (it == attributes_.end()) {
+            return false;
+        }
+        if (const auto* p = std::get_if<T>(&it->second)) {
+            value = *p;
+            return true;
+        }
+        return false;
+    }
 
 protected:
     int id_;
     std::string name_;
     AttributeMap attributes_;
+
+private:
+    using AttributeKeySet = std::unordered_set<std::string>;
+    using AttributeRegistry = std::unordered_map<std::type_index, AttributeKeySet>;
+    
+    static AttributeRegistry registry_;
 };
+
+// Attribute registry API (per C++ derived type).
+template <typename T>
+void RegisterAttrKey(const std::string& key) {
+    Object::RegisterAttrKey<T>(key);
+}
 
 }

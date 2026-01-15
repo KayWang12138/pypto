@@ -43,13 +43,13 @@ TEST(IRTEST, TestTensorOperation){
     std::vector<int64_t> tileShape = { 128, 128 };
     auto inputTensor =
         std::make_shared<TileValue>(tileShape, DataType::FP32, "input");
-    inputTensor->Attributes()["io"] = "in";
+    ASSERT_TRUE(inputTensor->SetAttr("io", std::string("in")));
     sig.arguments.push_back(inputTensor);
 
     // Output tensor
     auto outputTensor =
         std::make_shared<TileValue>(tileShape, DataType::FP32, "output");
-    outputTensor->Attributes()["io"] = "out";
+    ASSERT_TRUE(outputTensor->SetAttr("io", std::string("out")));
     sig.arguments.push_back(outputTensor);
 
     // ===== Function =====
