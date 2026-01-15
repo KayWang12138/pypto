@@ -161,7 +161,6 @@ std::string CodeGenCloudNPU::GenFuncBody(Function &subFunc, Function &topFunc) c
         for (auto &c : op.GetCommentList()) {
             tileOpSourceRegion += "/*" + c + "*/\n";
         }
-        tileOpSourceRegion += "O" + std::to_string(operationList.GetOpPosition(op)) + ": ";
         tileOpSourceRegion += tileOpSourceCode;
 
         if (!allocSourceCode.empty()) {
