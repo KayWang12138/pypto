@@ -611,7 +611,8 @@ struct FunctionInterpreter {
         DumpFunctionHead(func);
         if (frame->inoutDataPair != nullptr) {
             for (size_t k = 0; k < func->GetIncast().size(); k++) {
-                std::string fileName = "tensor_Incast_" + std::to_string(k) + ".data";
+                auto rawMagic = func->GetIncast()[k]->GetRawTensor()->GetRawMagic(); 
+                std::string fileName = "tensor_Incast_" + std::to_string(rawMagic) + ".data";
                 DumpTensorBinary(frame->inoutDataPair->incastDataViewList[k], fileName);
                 frame->tensorDataBinDict[func->GetIncast()[k]] = fileName;
             }
