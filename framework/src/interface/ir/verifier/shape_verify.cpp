@@ -102,15 +102,12 @@ void TileOpShapeVisitor::VisitImplOp(OperationPtr &op) {
     else if (auto matmulQuant = std::dynamic_pointer_cast<MatmulQuantOp>(op)) {
         CheckMatmulQuantOpShape(matmulQuant);
     }
-    // Check UnaryOp
     else if (auto unaryOp = std::dynamic_pointer_cast<UnaryOp>(op)) {
         CheckUnaryOpShape(unaryOp);
     }
-    // Check BinaryOp
     else if (auto binaryOp = std::dynamic_pointer_cast<BinaryOp>(op)) {
         CheckBinaryOpShape(binaryOp);
     }
-    // Check BinaryScalarMixOp
     else if (auto binaryScalarMixOp = std::dynamic_pointer_cast<BinaryScalarMixOp>(op)) {
         CheckBinaryScalarMixOpShape(binaryScalarMixOp);
     }
