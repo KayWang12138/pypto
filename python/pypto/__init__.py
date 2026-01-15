@@ -77,6 +77,7 @@ from .runtime import jit, verify, set_verify_golden_data, RunMode
 from .symbolic_scalar import SymbolicScalar
 from .tensor import Tensor
 from .functions import Function, get_last_function, get_current_function
+from .converter import ir_from_tensor
 
 # Import frontend after all other imports to avoid circular imports
 from . import frontend
