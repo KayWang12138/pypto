@@ -138,10 +138,10 @@ public:
         }
         if (localBufferMap.find(memId) == localBufferMap.end()) {
             localBufferMap[memId] = std::make_shared<LocalBuffer>(
-                memId, ShapeCeilAlign(operand->tensor->rawshape, operand->Datatype()), operand->GetMemoryTypeOriginal());
+                memId, ShapeCeilAlign(operand->GetShape(), operand->Datatype()), operand->GetMemoryTypeOriginal());
         } else {
             localBufferMap[memId]->size =
-                std::max(localBufferMap[memId]->size, ShapeCeilAlign(operand->tensor->rawshape, operand->Datatype()));
+                std::max(localBufferMap[memId]->size, ShapeCeilAlign(operand->GetShape(), operand->Datatype()));
         }
     }
 
