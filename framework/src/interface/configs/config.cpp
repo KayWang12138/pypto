@@ -26,9 +26,6 @@
 #include "interface/utils/log.h"
 #include "interface/configs/config_manager_ng.h"
 
-
-using json = nlohmann::json;
-
 namespace npu::tile_fwk {
 
 using ValueType = std::variant<bool, int64_t, std::string, std::vector<int64_t>,
@@ -87,7 +84,6 @@ static std::map<std::string, ValueType> g_debugConfig = {
 };
 
 static std::map<std::string, ValueType> g_globalConfig = {
-    {PROFILE_ENABLE, false},
     {COST_MODEL_ENABLE, false},
 };
 
@@ -270,27 +266,6 @@ DEFINE_GET_OPTION(std::vector<std::string>)
 DEFINE_GET_OPTION(MapType)
 #undef DEFINE_GET_OPTION
 
-static json toJson(const std::string &prefix) {
-    json j;
-    std::shared_lock lock(g_rwlock);
-    for (auto &it : g_config.options) {
-        if (!StringUtils::StartsWith(it.first, prefix)) {
-            continue;
-        }
-        auto key = it.first.substr(prefix.size());
-        if (std::holds_alternative<int64_t>(it.second)) {
-            j[key] = std::get<int64_t>(it.second);
-        } else if (std::holds_alternative<std::string>(it.second)) {
-            j[key] = std::get<std::string>(it.second);
-        } else if (std::holds_alternative<std::vector<int64_t>>(it.second)) {
-            j[key] = std::get<std::vector<int64_t>>(it.second);
-        } else if (std::holds_alternative<MapType>(it.second)) {
-            j[key] = std::get<MapType>(it.second);
-        }
-    }
-    return j;
-}
-
 constexpr int LIMIT_DIR_NUM_BEFORE_CREATE = 127;
 constexpr const char *PREFIX_RUNDATA = "rundata_";
 constexpr const char *ENV_VAR_PYPTO_HOME = "PYPTO_HOME";
@@ -308,19 +283,16 @@ void CreateRunDataDir() {
     ASSERT(res) << "Failed to create directory: " << g_config.rundataDir.montage();
 }
 
-static void SetOptionPost(const std::string &key) {
-    if (StringUtils::StartsWith(key, "rundata.")) {
-        if (g_config.rundataDir.empty()) {
-            CreateRunDataDir();
-        }
-        auto value = toJson("rundata.").dump(2);
-        auto filename = g_config.rundataDir.montage() + "/rundata.json";
-        SaveFileSafe(filename, reinterpret_cast<uint8_t*>(value.data()), value.size());
-    } else {
-        std::ostringstream oss;
-        OptionToOss(oss, key, g_config.options[key]);
-        ALOG_DEBUG_F("Set option %s successfully.", oss.str().c_str());
+void SetRunDataOption(const std::string &key, const std::string &value) {
+    static nlohmann::json j;
+    std::shared_lock lock(g_rwlock);
+    j[key] = value;
+    auto dumpValue = j.dump(2);
+    if (g_config.rundataDir.empty()) {
+        CreateRunDataDir();
     }
+    auto filename = g_config.rundataDir.montage() + "/rundata.json";
+    SaveFileSafe(filename, reinterpret_cast<uint8_t*>(dumpValue.data()), dumpValue.size());
 }
 
 void experimental::SetOption(const std::string &key, int64_t value) {
@@ -328,7 +300,6 @@ void experimental::SetOption(const std::string &key, int64_t value) {
     g_rwlock.lock();
     g_config.options[StringUtils::ToLower(key)] = value;
     g_rwlock.unlock();
-    SetOptionPost(key);
 }
 
 void experimental::SetOption(const std::string &key, bool value) {
@@ -336,7 +307,6 @@ void experimental::SetOption(const std::string &key, bool value) {
     g_rwlock.lock();
     g_config.options[StringUtils::ToLower(key)] = value;
     g_rwlock.unlock();
-    SetOptionPost(key);
 }
 
 void experimental::SetOption(const std::string &key, const char *value) {
@@ -344,7 +314,6 @@ void experimental::SetOption(const std::string &key, const char *value) {
     g_rwlock.lock();
     g_config.options[StringUtils::ToLower(key)] = value;
     g_rwlock.unlock();
-    SetOptionPost(key);
 }
 
 void experimental::SetOption(const std::string &key, const std::string &value) {
@@ -352,7 +321,6 @@ void experimental::SetOption(const std::string &key, const std::string &value) {
     g_rwlock.lock();
     g_config.options[StringUtils::ToLower(key)] = value;
     g_rwlock.unlock();
-    SetOptionPost(key);
 }
 
 void experimental::SetOption(const std::string &key, const std::vector<int64_t> &value) {
@@ -360,7 +328,6 @@ void experimental::SetOption(const std::string &key, const std::vector<int64_t> 
     g_rwlock.lock();
     g_config.options[StringUtils::ToLower(key)] = value;
     g_rwlock.unlock();
-    SetOptionPost(key);
 }
 
 void experimental::SetOption(const std::string &key, const std::vector<std::string> &value) {
@@ -368,7 +335,6 @@ void experimental::SetOption(const std::string &key, const std::vector<std::stri
     g_rwlock.lock();
     g_config.options[StringUtils::ToLower(key)] = value;
     g_rwlock.unlock();
-    SetOptionPost(key);
 }
 
 void experimental::SetOption(const std::string &key, const std::map<int64_t, int64_t> &value) {
@@ -376,7 +342,6 @@ void experimental::SetOption(const std::string &key, const std::map<int64_t, int
     g_rwlock.lock();
     g_config.options[StringUtils::ToLower(key)] = value;
     g_rwlock.unlock();
-    SetOptionPost(key);
 }
 
 void SetPrintOptions(int edgeItems, int precision, int threshold, int linewidth) {
@@ -412,6 +377,22 @@ void Restore(std::shared_ptr<ConfigScope> config) {
     ConfigManagerNg::GetInstance().PushScope(config);
     g_rwlock.unlock();
 }
+
+template <typename T>
+void SetOptionsNg(const std::string &key, const T &value){
+    ConfigManagerNg::CurrentScope()->UpdateValue(key, value);
+}
+
+template void SetOptionsNg<bool>(const std::string &key, const bool &value);
+template void SetOptionsNg<int>(const std::string &key, const int &value);
+template void SetOptionsNg<double>(const std::string &key, const double &value);
+template void SetOptionsNg<std::string>(const std::string &key, const std::string &value);
+template void SetOptionsNg<long>(const std::string &key, const long &value);
+template void SetOptionsNg<uint8_t>(const std::string &key, const uint8_t &value);
+template void SetOptionsNg<std::map<int, int>>(const std::string &key, const std::map<int, int> &value);
+template void SetOptionsNg<std::map<long, long>>(const std::string &key, const std::map<long, long> &value);
+template void SetOptionsNg<std::vector<int>>(const std::string &key, const std::vector<int> &value);
+template void SetOptionsNg<std::vector<std::string>>(const std::string &key, const std::vector<std::string> &value);
 
 } // namespace config
 } // namespace npu::tile_fwk
