@@ -147,13 +147,13 @@ Status OoOSchedule::RecordLastUseMemory(Function &function) {
             }
         }
     }
-    std::unordered_map<Operation*, std::vector<bool>> opInpuIdxMap;
+    std::unordered_map<Operation*, std::vector<int>> opInpuIdxMap;
     for (auto &entry : lastUseMap_) {
         auto lastUseOp = entry.second;
         auto lastUseTensor = entry.first;
         if (opInpuIdxMap.find(lastUseOp) == opInpuIdxMap.end()) {
             int tensorSize = lastUseOp->GetIOperands().size() + lastUseOp->GetOOperands().size();
-            std::vector<bool> tensorIdxVec(tensorSize, false);
+            std::vector<int> tensorIdxVec(tensorSize, false);
             int inputIdx = lastUseOp->GetIOperandIndex(lastUseTensor) + lastUseOp->GetOOperands().size();
             tensorIdxVec[inputIdx] = true;
             opInpuIdxMap[lastUseOp] = tensorIdxVec;
@@ -164,7 +164,7 @@ Status OoOSchedule::RecordLastUseMemory(Function &function) {
         for (auto &prodOp : lastUseTensor->GetProducers()) {
             if (opInpuIdxMap.find(prodOp) == opInpuIdxMap.end()) {
                 int tensorSize = prodOp->GetIOperands().size() + prodOp->GetOOperands().size();
-                std::vector<bool> tensorIdxVec(tensorSize, false);
+                std::vector<int> tensorIdxVec(tensorSize, false);
                 int outputIdx = prodOp->GetOOperandIndex(lastUseTensor);
                 tensorIdxVec[outputIdx] = true;
             } else {
