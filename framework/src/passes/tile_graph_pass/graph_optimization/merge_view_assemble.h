@@ -89,8 +89,9 @@ private:
     Status Initialize();
 
     // Processing methods
-    Status ProcessViewOperations(Function &function);
-    Status ProcessAssembleOperations(Function &function);
+    Status ProcessOperations(Function &function);
+    Status ProcessViewOperations(Function &function, Operation& op);
+    Status ProcessAssembleOperations(Function &function, Operation& op);
 
     // Operation appending methods
     Status AppendMergedViewOperations(Function &function);
