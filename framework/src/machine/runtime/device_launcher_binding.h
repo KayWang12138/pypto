@@ -95,12 +95,15 @@ public:
     static void *GetBinHandleHolder(CachedOperator *cachedOperator) {
         return cachedOperator == nullptr ? nullptr : &cachedOperator->binHandle_;
     }
-
+    static uint8_t **GetTensorInfoAddrHolder(CachedOperator *cachedOperator) {
+        return cachedOperator == nullptr ? nullptr : &cachedOperator->tensorInfoAddr_;
+    }
 private:
     uint8_t *workspaceDevAddr_{nullptr};
     uint8_t *cfgDataDevAddr_{nullptr};
     uint8_t *metaDataDevAddr_{nullptr};
     void *binHandle_{nullptr};
+    uint8_t *tensorInfoAddr_{nullptr};
 };
 
 struct Evaluator {
