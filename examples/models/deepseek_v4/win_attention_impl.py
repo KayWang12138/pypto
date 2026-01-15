@@ -247,19 +247,19 @@ def win_atten_main_mtp(q, block_table, kv_cache, actual_seq_list, atten_sink, at
             end_block = valid_end_pos // block_size
 
             physical_block_id = block_table[b_idx, start_block]
-            pypto.set_vec_tile_shapes(128, 512, 128, 512)
+            pypto.set_vec_tile_shapes(128, 256, 128, 256)
             kv_block_0 = pypto.view(kv_cache, [1, block_size, 1, d_kv], [physical_block_id, 0, 0, 0])
             kv_block_reshape_0 = pypto.reshape(kv_block_0, (block_size, d_kv))
 
             physical_block_id = block_table[b_idx, end_block]
-            pypto.set_vec_tile_shapes(128, 512, 128, 512)
+            pypto.set_vec_tile_shapes(128, 256, 128, 256)
             kv_block_1 = pypto.view(kv_cache, [1, block_size, 1, d_kv], [physical_block_id, 0, 0, 0])
             kv_block_reshape_1 = pypto.reshape(kv_block_1, (block_size, d_kv))
 
-            pypto.set_vec_tile_shapes(128, 512)
+            pypto.set_vec_tile_shapes(128, 256)
             kv_gather = pypto.concat([kv_block_reshape_0, kv_block_reshape_1], dim=0)
 
-            pypto.set_vec_tile_shapes(128, 512)
+            pypto.set_vec_tile_shapes(128, 256)
             kv_cur = pypto.view(kv_gather, [win, d_kv], [valid_start_pos, 0], valid_shape=[valid_win_len, d_kv])
 
             sum_exp = pypto.full([64, 1], float(0), dtype=pypto.DT_FP32)
@@ -267,10 +267,10 @@ def win_atten_main_mtp(q, block_table, kv_cache, actual_seq_list, atten_sink, at
             scores_max = pypto.full([64, 1], float("-inf"), dtype=pypto.DT_FP32)
 
             # 以下为block循环部分
-            pypto.set_cube_tile_shapes([64, 64], [256, 256 * 8], [128, 128], True, False)
+            pypto.set_cube_tile_shapes([64, 64], [128, 128], [128, 128], False, True)
             acc_s = pypto.matmul(q_tensor_cur, kv_cur, pypto.DT_FP32, b_trans=True)
 
-            pypto.set_vec_tile_shapes(64, 128)
+            pypto.set_vec_tile_shapes(128, 128)
             acc_s = pypto.mul(acc_s, scalar)
             scores_max_prev = scores_max
             scores_max = pypto.amax(acc_s, -1, True)
@@ -283,6 +283,7 @@ def win_atten_main_mtp(q, block_table, kv_cache, actual_seq_list, atten_sink, at
             sum_exp = pypto.add(scores_sum, mul_res)
             acc_o = pypto.mul(acc_o, scores_scale)
             kv_cur_fp32 = pypto.cast(kv_cur, pypto.DT_FP32)
+            pypto.set_cube_tile_shapes([64, 64], [128, 128], [128, 128], False, True)
             matmul_res = pypto.matmul(acc_s, kv_cur_fp32, pypto.DT_FP32)
             acc_o = pypto.add(acc_o, matmul_res)
             atten_sink = pypto.reshape(atten_sink, [atten_sink.shape[0], 1])
