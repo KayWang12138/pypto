@@ -17,6 +17,8 @@
 
 #include "aicore_manager.h"
 
+std::atomic<uint32_t> tracr_finalize{npu::tile_fwk::dynamic::MAX_SCHEDULE_AICPU_NUM-1};
+
 namespace npu::tile_fwk {
 void SdmaPrefetch(DeviceTask *devTask) {
     if (devTask == nullptr || devTask->l2Info.prefetchNum == 0) {
@@ -81,6 +83,20 @@ int AiCoreManager::RunTask(DeviceTaskCtrl *taskCtrl) {
 }
 
 int AiCoreManager::Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *taskCtrl) {
+    
+    /* TraCR Instrumentation */
+    if (threadIdx == 0) {
+        DEV_INFO("[TraCR] TraCR enabled? %d", INSTRUMENTATION_ACTIVE);
+
+        INSTRUMENTATION_START("/tmp/");
+
+        INSTRUMENTATION_MARK_ADD(MARK_COLOR_GREEN, "Running a Task");
+    } else {
+        while (INSTRUMENTATION_IS_PROC_READY() == false) {}
+
+        INSTRUMENTATION_THREAD_INIT();
+    }
+    
     Init(threadIdx, deviceArgs);
 
     int ret = HandkShake();
@@ -103,6 +119,16 @@ int AiCoreManager::Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *ta
     NormalStop();
     DEV_DEBUG("Aicpu %d stop ret = %d, proc aic task cnt: %lu,  aiv task cnt: %lu.\n", aicpuIdx_, ret,
         procAicCoreFunctionCnt_, procAivCoreFunctionCnt_);
+
+    /* TraCR Instrumentation */
+    if (threadIdx == 0) {
+        INSTRUMENTATION_END();
+    } else {
+        --tracr_finalize;
+
+        INSTRUMENTATION_THREAD_FINALIZE();
+    }
+
     return ret;
 }
 
