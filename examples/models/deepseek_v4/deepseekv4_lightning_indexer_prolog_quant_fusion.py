@@ -17,7 +17,7 @@ import os
 import pytest
 import math
 import logging
-from lightning_indexer_prolog_quant_impl import (
+from lightning_indexer_prolog_quant_impl_fusion import (
     IndexerPrologQuantInput, IndexerPrologQuantOutput, IndexerPrologQuantAttr, IndexerPrologQuantConfigs,
     lightning_indexer_quant_prolog)
 from torch._subclasses.fake_tensor import FakeTensor
@@ -41,6 +41,13 @@ def gen_dims(params):
     dims["idx_head_dim"] = 128
     dims["idx_n_heads"] = 32
     dims["rope_head_dim"] = 64
+
+    dims["ratio"] = 4
+    dims["block_size"] = 128
+    dims["s2"] = 64*1024
+    dims["block_num"] = params["b"] * (dims["s2"] // dims["block_size"])
+    dims["start_pos"] = 3
+    dims["rms_eps"] = 1e-6
     return dims
 
 def quant_int8(input_t, is_pertoken: bool = True, has_smooth=False, smooth_cq=None):
@@ -70,6 +77,9 @@ def gen_inputs(dims, dtype=torch.bfloat16):
     h = dims["h"]
     q_lora_rank = dims["q_lora_rank"]
     rope_head_dim = dims["rope_head_dim"]
+    ratio = dims["ratio"]
+    block_num = dims["block_num"]
+    block_size = dims["block_size"]
 
     x = torch.empty((b, s, h), dtype=dtype).uniform_(-1, 1)
     q_norm = torch.empty((b, s, q_lora_rank), dtype=dtype).uniform_(-1, 1) # bf16
@@ -85,6 +95,20 @@ def gen_inputs(dims, dtype=torch.bfloat16):
 
     hadamard_q = torch.empty((d, d), dtype=dtype).uniform_(-1, 1)  # (128, 128)
 
+    overlap = (ratio == 4)
+    coff = 1 + overlap
+    kv_sin = torch.rand((t, 1, rope_head_dim), dtype=torch.bfloat16)
+    kv_cos = torch.rand((t, 1, rope_head_dim), dtype=torch.bfloat16)
+    wkv = torch.rand((h, coff*d), dtype=torch.float32)
+    wgate = torch.rand((h, coff*d), dtype=torch.float32)
+    ape = torch.rand((ratio, coff*d), dtype=torch.float32)
+    weight = torch.ones(d, dtype=torch.float32)
+    kv_state = torch.zeros((b, 128, coff*d), dtype=torch.float32)
+    score_state = torch.full((b, 128, coff*d), float("-inf"), dtype=torch.float32)
+    hadamard_kv = torch.rand((d, d), dtype=torch.bfloat16)*(d ** -0.5)
+    kv_cache = torch.rand((block_num, block_size, 1, d), dtype=torch.bfloat16)
+    slots = torch.randperm(block_num * block_size)[:b]
+
     return {
         "token_x": x,  # input0, bf16
         "q_norm": q_norm,  # input1, int8
@@ -95,6 +119,17 @@ def gen_inputs(dims, dtype=torch.bfloat16):
         "cos_idx_rope": cos,  # input9, bf16
         "sin_idx_rope": sin,  # input10, bf16
         "hadamard_q": hadamard_q,  # input11, bf16
+        "cos_idx_rope_of_kv": kv_cos,
+        "sin_idx_rope_of_kv": kv_sin,
+        "wkv": wkv,
+        "wgate": wgate,
+        "ape": ape,
+        "weight_rms": weight,
+        "kv_state": kv_state,
+        "score_state": score_state,
+        "hadamard_kv": hadamard_kv,
+        "kv_cache": kv_cache,
+        "slots": slots
     }
 
 
@@ -117,6 +152,77 @@ def single_rope(x, cos_in, sin_in):
     res = x_cast * cos_re + rotate_half(x_cast) * sin_re  # (b, s, n, d)
     return res.to(x_dtype)
 
+def apply_rotary_pos_emb_v2(x: torch.Tensor, sin: torch.Tensor, cos: torch.Tensor):
+    input_dtype = x.dtype
+    if input_dtype != torch.float32:
+        x = x.to(torch.float32)
+    if cos.dtype != torch.float32:
+        cos = cos.to(torch.float32)
+        sin = sin.to(torch.float32)
+    
+    b, s, d = x.shape
+    x = x.reshape(b, s, d // 2, 2).permute(0, 1, 3, 2).reshape(b, s, d)
+    
+    x1, x2 = x.chunk(2, dim=-1)
+    p = torch.cat((-x2, x1), dim=-1)
+    
+    x_embed = (x * cos) + (p * sin)
+    x_embed = x_embed.to(input_dtype)
+    return x_embed
+
+def RMSNorm(x, eps, weight):
+    dtype = x.dtype
+    x = x.float()
+    var = x.square().mean(-1, keepdim=True)
+    x = x * torch.rsqrt(var + eps)
+    return (weight * x).to(dtype)
+
+def compressor_golden(ratio, start_pos, eps, rope_head_dim, x, wkv, wgate, kv_state, score_state, ape, weight, cos, sin, hadamard, kv_cache, slots):
+    bsz, seqlen, _ = x.size()
+    overlap = (ratio == 4)
+    d = wkv.shape[1] // (1 + overlap)
+
+    dtype = x.dtype
+    x = x.float() ## b,s,h
+    kv = torch.matmul(x, wkv) ## b,s,2d
+    score = torch.matmul(x, wgate) ## b,s,2d
+
+    should_compress = (start_pos + 1) % ratio == 0
+    score += ape[start_pos % ratio]
+
+    if overlap:
+        kv_state[:bsz, ratio + start_pos % ratio] = kv.squeeze(1)
+        score_state[:bsz, ratio + start_pos % ratio] = score.squeeze(1)
+        if should_compress:
+            kv_state_temp = torch.cat([kv_state[:bsz, :ratio, :d], kv_state[:bsz, ratio:ratio+ratio, d:]], dim=1)
+            score_state_temp = torch.cat([score_state[:bsz, :ratio, :d], score_state[:bsz, ratio:ratio+ratio, d:]], dim=1)
+            kv = (kv_state_temp * score_state_temp.softmax(dim=1)).sum(dim=1, keepdim=True)
+            kv_state[:bsz, :ratio] = kv_state[:bsz, ratio:ratio+ratio]
+            score_state[:bsz, :ratio] = score_state[:bsz, ratio:ratio+ratio]
+    else:
+        kv_state[:bsz, start_pos % ratio] = kv.squeeze(1)
+        score_state[:bsz, start_pos % ratio] = score.squeeze(1)
+        if should_compress:
+            kv =  (kv_state[:bsz] * score_state[:bsz].softmax(dim=1)).sum(dim=1, keepdim=True)
+    
+    if should_compress:
+        kv = RMSNorm(kv.to(dtype), eps, weight) ## b,cut,d
+        kv_rope = kv[..., -rope_head_dim:].clone()
+        kv_new = kv.clone()
+        kv_new[..., -rope_head_dim:] = apply_rotary_pos_emb_v2(kv_rope, sin, cos)
+
+        kv = torch.matmul(kv_new.float(), hadamard.float()) ## b,cut,d
+
+        block_number, block_size, n2, head_size = kv_cache.shape
+        for bs_idx in range(bsz):
+            index = slots[bs_idx]
+            dim_0 = index // block_size
+            dim_1 = index % block_size
+            kv_cache[dim_0, dim_1, :] = kv[bs_idx][:]
+    
+    k_scale = (kv_cache.abs().max(dim=-1, keepdim=True).values / 127).to(dtype=torch.float16).maximum(torch.tensor(1e-3))
+    key = torch.round(kv_cache / k_scale).clip(-127, 127).to(dtype=torch.int8)
+    return key, k_scale
 
 def indexer_prolog(inputs: dict, dims: dict):
     # input
@@ -134,6 +240,24 @@ def indexer_prolog(inputs: dict, dims: dict):
     sin = inputs["sin_idx_rope"]  # (b, s, rope_head_dim)
     hadamard_q = inputs["hadamard_q"]  # (d, d)
     x_dtype = x.dtype
+
+    ratio = dims["ratio"]
+    start_pos = dims["start_pos"]
+    rms_eps = dims["rms_eps"]
+
+    wkv = inputs["wkv"]
+    wgate = inputs["wgate"]
+    kv_state = inputs["kv_state"]
+    score_state = inputs["score_state"]
+    cos_kv = inputs["cos_idx_rope_of_kv"]
+    sin_kv = inputs["sin_idx_rope_of_kv"]
+    
+    ape = inputs["ape"]
+    weight_rms = inputs["weight_rms"]
+   
+    hadamard_kv = inputs["hadamard_kv"]
+    kv_cache = inputs["kv_cache"]
+    slots = inputs["slots"]
 
     # calculate
     q = torch.matmul(q_norm.to(torch.int32), w_idx_qb.to(torch.int32))  # (b, s, n * d)
@@ -160,8 +284,10 @@ def indexer_prolog(inputs: dict, dims: dict):
     weights = weights * (n ** -0.5) * (d ** -0.5)
     weights = weights.to(torch.bfloat16)
 
+    key, k_scale = compressor_golden(ratio, start_pos, rms_eps, rope_head_dim, x, wkv, wgate, kv_state, score_state, ape, weight_rms, cos_kv, sin_kv, hadamard_kv, kv_cache, slots)
+
     # output dtype: int8, fp16, bf16
-    outputs = {"query": q_int8, "query_scale": q_scale, "weights": weights}
+    outputs = {"query": q_int8, "query_scale": q_scale, "weights": weights, "key": key, "key_scale": k_scale}
     return outputs
 
 
@@ -347,6 +473,10 @@ def do_test_lighting_indexer_prolog(case_name, configs):
     q_int8_golden = golden_data["query"].reshape(t, head_num, idx_head_dim)
     q_scale_golden = golden_data["query_scale"].reshape(t, head_num, 1)
     weights_golden = golden_data["weights"].reshape(t, head_num)
+    key_golden = golden_data["key"]
+    key_scale_golden = golden_data["key_scale"]
+    print(key_golden)
+    print(key_scale_golden)
 
 
     q_int8=gen_zero_tensor(q_int8_golden)
@@ -463,4 +593,4 @@ if __name__ == "__main__":
         format='%(asctime)s - %(filename)s:%(lineno)d - %(levelname)s: %(message)s',
         level=logging.INFO
     )
-    test_b4_s1_4()
+    test_b1_s1_1()
