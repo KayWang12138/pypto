@@ -37,35 +37,6 @@ extern "C" __attribute__((visibility("default"))) int PyptoKernelCtrlServerInit(
 extern "C" __attribute__((visibility("default"))) int PyptoKernelCtrlServer(void *targ);
 
 struct DynMachineManager {
-    int allocThreadIdx(int nrAicpu) {
-        if (schAicpuNum_ == 1) {
-            return threadIdx_++;
-        }
-        int cpu = sched_getcpu();
-        cpumask_.fetch_or(1 << cpu, std::memory_order_release);
-        while (__builtin_popcount(cpumask_.load(std::memory_order_acquire)) != nrAicpu) {
-            sched_yield();
-        }
-
-        auto maskval = cpumask_.load(std::memory_order_relaxed);
-        int cpuoff = 0;
-        int clus_id = -1;
-        for (int index = 0; index < static_cast<int>(sizeof(uint64_t)); ++index) {
-            int mask = (maskval >> cpuoff) & 0xF;
-            if (__builtin_popcount(static_cast<uint32_t>(mask)) >= schAicpuNum_) {
-                clus_id = index;
-                break;
-            }
-            cpuoff += CPUS_PER_CLUSTER;
-        }
-        if (clus_id == -1) {
-            return threadIdx_++;
-        }
-        if (cpu < cpuoff || cpu >= (cpuoff + CPUS_PER_CLUSTER)) {
-            return -1;
-        }
-        return threadIdx_++;
-    }
 
     void SignalReg() {
         DEV_INFO("Exception SignalReg.");
@@ -90,9 +61,13 @@ struct DynMachineManager {
             DEV_ERROR("Aicpu num[%u] less than sche num[%d].", devArgs->nrAicpu, schAicpuNum_);
             return npu::tile_fwk::dynamic::DEVICE_MACHINE_ERROR;
         }
-        int threadIdx = allocThreadIdx(devArgs->nrAicpu);
+        int threadIdx = threadIdx_++;
         uint64_t allocThreadCycle = GetCycles();
-        if ((threadIdx != -1) && threadIdx < schAicpuNum_) {
+        if (devArgs->enableCtrl == 1 && threadIdx == 0) {
+            CreateLogFile(LogType::LOG_TYPE_CONTROLLER, 0);
+            DEV_TRACE_DEBUG(schema::CtrlEvent(threadIdx, schema::ThreadStart()));
+            ret = PyptoKernelCtrlServer(static_cast<void*>(args));  
+        } else if (threadIdx > 0 && threadIdx <= schAicpuNum_) {
             CreateLogFile(LogType::LOG_TYPE_SCHEDULER, threadIdx);
             DEV_INFO("TaskType %d threadIdx %d aicNum %u aivNum %u aicpuNum %u validAicNum %u .",
                 static_cast<int>(devArgs->taskType), threadIdx, devArgs->nrAic,
@@ -100,20 +75,12 @@ struct DynMachineManager {
             DEV_INFO("devQueueAddr %lx, sharedBuffer %lx coreRegAddr %lx corePmuAdr %lx .", devArgs->devQueueAddr,
                 devArgs->sharedBuffer, devArgs->coreRegAddr, devArgs->corePmuAddr);
             DEV_TRACE_DEBUG(schema::ScheEvent(threadIdx, schema::ThreadStart()));
-            ret = machine_.Run(threadIdx, devArgs);
+            ret = machine_.Run(threadIdx - 1, devArgs);
             if (ret != DEVICE_MACHINE_OK) {
                 schRunFailed_ = true;
             }
         } else {
-            threadIdx = ctrlcpuIdx_.fetch_add(1);
-            DEV_INFO("TaskType %d.",  static_cast<int>(devArgs->taskType));
-            if (devArgs->enableCtrl == 1 && threadIdx == schAicpuNum_) {
-                CreateLogFile(LogType::LOG_TYPE_CONTROLLER, 0);
-                DEV_TRACE_DEBUG(schema::CtrlEvent(threadIdx, schema::ThreadStart()));
-                ret = PyptoKernelCtrlServer(static_cast<void*>(args));
-            } else {
-                SignalReg();
-            }
+            SignalReg();
         }
         PerfMtTrace(PERF_TRACE_BEGIN, threadIdx, args->taskWastTime);
         PerfMtTrace(PERF_TRACE_ALLOC_THREAD_ID, threadIdx, allocThreadCycle);
