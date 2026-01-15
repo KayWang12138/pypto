@@ -131,8 +131,11 @@ std::ostream& operator<<(std::ostream& os, const Function& func) {
 
 uint64_t Function::ComputeHash() {
     // wait for IRVisitor to implement
-    return 0;
-}
+    std::stringstream ss;
+    ss << GetName() << "_" << static_cast<int>(GetKind());
+    std::hash<std::string> hasher;
+    return hasher(ss.str());
+// attr->cceCodeInfo[leafIndex].coreType = static_cast<uint32_t>(CoreType::HUB);}
 
 bool Function::isFromInCast(const ValuePtr &value) const {
     for (auto arg : signature_.arguments) {
