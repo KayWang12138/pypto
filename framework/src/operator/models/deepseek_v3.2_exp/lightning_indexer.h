@@ -34,16 +34,15 @@ struct LightningIndexerConfigs {
     int mgCopyInUpperBound = 2 * 1024 * 1024;
     int pgUpperBound = 16 * 8192;
     std::map<int64_t, int64_t> cubeL1ReuseSetting = {
-        {0, 8},
-        {1, 8}
+        {0, 16}
     };
     int vecMergeMode = 2;
     std::map<int64_t, int64_t> vecNBufferSetting = {
-        {-1, 32}
+        {-1, 16}
     }; // set with max unrolls
     // stitch params
-    int maxRecyclePeriod = 2048;
-    int maxLoopNum = 2048;
+    int maxRecyclePeriod = 8192;
+    int maxLoopNum = 4096;
     // tile params
     int64_t s1Tile;
     int64_t topkTile;
