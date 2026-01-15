@@ -70,14 +70,21 @@ void TestDynAllGatherParaWithShmem(OpTestParam &testParam)
     constexpr size_t paramsSize = 5;
     auto [row, col, typeNum, tileRow, tileCol] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
     DataType dType = GetDataTypeNum(typeNum);
-    int32_t outSize = row * col * testParam.rankSize;
     Shape shape{row, col};
-    Shape outShape{testParam.rankSize * row, col};
-    Shape shmemDataShape{testParam.rankSize, row, col};
     Tensor in(dType, shape, "in");
+    std::vector<T> inPtr = ReadToVector<T>(GetGoldenDir() + "/input_rank_" +
+        std::to_string(testParam.rankId) + ".bin", shape);
     Tensor predToken(DT_INT32, {1, 1}, "predToken");
+    Shape outShape{testParam.rankSize * row, col};
     Tensor out(dType, outShape, "out");
-    std::vector<T> inPtr = ReadToVector<T>(GetGoldenDir() + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", shape);
+    
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateTensor<T>(in, inPtr),
+        RawTensorData::CreateTensorZero(predToken)
+    });
+    ProgramData::GetInstance().AppendOutputs({RawTensorData::CreateTensorZero(out)});
+
+    Shape shmemDataShape{testParam.rankSize, row, col};
     FUNCTION("ALLGATHER", {in, predToken}, {out}) {
         TileShape::Current().SetVecTile({tileRow, tileCol});
         DataType shmemDataType = in.GetDataType();
@@ -93,18 +100,11 @@ void TestDynAllGatherParaWithShmem(OpTestParam &testParam)
         }
         AllGather(predToken, in, testParam.group, shmemData, shmemSignal, out);
     }
-    ProgramData::GetInstance().AppendInputs({
-        RawTensorData::CreateTensor<T>(in, inPtr),
-        RawTensorData::CreateTensorZero(predToken)
-    });
-    ProgramData::GetInstance().AppendOutputs({
-        RawTensorData::CreateTensorZero(out)
-    });
 
     DeviceLauncherConfig config;
     config.runModel = false;
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), config);
-
+    int32_t outSize = row * col * testParam.rankSize;
     auto outPtr = ProgramData::GetInstance().GetOutputData(0)->GetDevPtr();
     EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, "/output_rank_", outSize, outPtr, testParam));
 }

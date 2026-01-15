@@ -265,6 +265,24 @@ Tensor ShmemSignalSet(const Tensor& predToken, const Tensor& shmemSignal)
     return out;
 }
 
+void ProcessAllGatherForRank(const Tensor &predToken, const Tensor &in, Tensor &shmemData, Tensor &shmemSignal,
+    Tensor &out, int32_t row, int32_t col, const SymbolicScalar &thisRank, int32_t dynRankId)
+{
+    auto shmemDataTile = View(shmemData, {1, 1, row, col}, 
+                            std::vector<SymbolicScalar>{dynRankId, thisRank, 0, 0});
+    auto shmemSignalTile = View(shmemSignal, {1, 1, 1, row, col}, 
+                              std::vector<SymbolicScalar>{dynRankId, dynRankId, thisRank, 0, 0});
+    auto dummy = ShmemPut(in, shmemDataTile, predToken);
+    auto dummySignal = ShmemSignal(dummy, shmemSignalTile, AtomicType::SET);
+    auto shmemDataLocal = View(shmemData, {1, 1, row, col}, 
+                             std::vector<SymbolicScalar>{thisRank, dynRankId, 0, 0});
+    auto shmemSignalLocal = View(shmemSignal, {1, 1, 1, row, col}, 
+                               std::vector<SymbolicScalar>{thisRank, thisRank, dynRankId, 0, 0});
+    auto dummyLocal = WaitUntil(dummySignal, shmemSignalLocal, 1);
+    auto tempOutTile = ShmemGet(dummyLocal, shmemDataLocal);
+    Assemble(tempOutTile, {dynRankId * row, 0}, out);
+}
+
 void AllGather(const Tensor &predToken, const Tensor &in, const char *group, Tensor &shmemData, Tensor &shmemSignal,
     Tensor &out)
 {
@@ -278,19 +296,7 @@ void AllGather(const Tensor &predToken, const Tensor &in, const char *group, Ten
     ValidateParams(predToken, in, out, shmemData.GetShape(), in.GetDataType());
 
     for(int32_t dynRankId = 0; dynRankId < shmemData.GetShape()[0]; ++dynRankId) {
-        auto shmemDataTile = View(shmemData, {1, 1, row, col}, std::vector<SymbolicScalar>{dynRankId, thisRank, 0, 0});
-        auto shmemSignalTile =
-            View(shmemSignal, {1, 1, 1, row, col}, std::vector<SymbolicScalar>{dynRankId, dynRankId, thisRank, 0, 0});
-
-        auto dummy = ShmemPut(in, shmemDataTile, predToken);
-        auto dummySignal = ShmemSignal(dummy, shmemSignalTile, AtomicType::SET);
-
-        auto shmemDataLocal = View(shmemData, {1, 1, row, col}, std::vector<SymbolicScalar>{thisRank, dynRankId, 0, 0});
-        auto shmemSignalLocal =
-            View(shmemSignal, {1, 1, 1, row, col}, std::vector<SymbolicScalar>{thisRank, thisRank, dynRankId, 0, 0});
-        auto dummyLocal = WaitUntil(dummySignal, shmemSignalLocal, 1);
-        auto tempOutTile = ShmemGet(dummyLocal, shmemDataLocal);
-        Assemble(tempOutTile, {dynRankId * row, 0}, out);
+        ProcessAllGatherForRank(predToken, in, shmemData, shmemSignal, out, row, col, thisRank, dynRankId);
     }
 }
 
@@ -322,19 +328,7 @@ void AllGather(const Tensor &predToken, const Tensor &in, const char *group, uin
         CreateShmemSignal(group, shmemData, shmemSignal);
     }
     LOOP("L0", FunctionType::DYNAMIC_LOOP, dynRankId, LoopRange(0, worldSize, 1)) {
-        auto shmemDataTile = View(shmemData, {1, 1, row, col}, std::vector<SymbolicScalar>{dynRankId, thisRank, 0, 0});
-        auto shmemSignalTile =
-            View(shmemSignal, {1, 1, 1, row, col}, std::vector<SymbolicScalar>{dynRankId, dynRankId, thisRank, 0, 0});
-
-        auto dummy = ShmemPut(in, shmemDataTile, predToken);
-        auto dummySignal = ShmemSignal(dummy, shmemSignalTile, AtomicType::SET);
-
-        auto shmemDataLocal = View(shmemData, {1, 1, row, col}, std::vector<SymbolicScalar>{thisRank, dynRankId, 0, 0});
-        auto shmemSignalLocal =
-            View(shmemSignal, {1, 1, 1, row, col}, std::vector<SymbolicScalar>{thisRank, thisRank, dynRankId, 0, 0});
-        auto dummyLocal = WaitUntil(dummySignal, shmemSignalLocal, 1);
-        auto tempOutTile = ShmemGet(dummyLocal, shmemDataLocal);
-        Assemble(tempOutTile, {dynRankId * row, 0}, out);
+        ProcessAllGatherForRank(predToken, in, shmemData, shmemSignal, out, row, col, thisRank, dynRankId);
     }
 }
 
@@ -482,16 +476,17 @@ void OneShotAllReduce(const Tensor &predToken, const Tensor &in, const char* gro
 
 void TwoShotAllReduce(const Tensor &predToken, const Tensor &in, const char *group, uint32_t worldSize, Tensor &out)
 {
-    int32_t row = in.GetShape(0);
-    int32_t col = in.GetShape(1);
-    int32_t rowPerRank = row / worldSize;
-    Shape shmemDataShape = {1, rowPerRank, col};
-    Tensor shmemData;
-    Tensor shmemSignal;
     DataType shmemDataType = in.GetDataType();
     if ((shmemDataType == DT_BF16) || (shmemDataType == DT_FP16)) {
         shmemDataType = DT_FP32;
     }
+    int32_t row = in.GetShape(0);
+    int32_t col = in.GetShape(1);
+    int32_t rowPerRank = row / worldSize;
+    ASSERT(row % worldSize == 0) << "Two_Shot_AllReduce constraint: row must be divisible by worldSize";
+    Shape shmemDataShape = {1, rowPerRank, col};
+    Tensor shmemData;
+    Tensor shmemSignal;
     LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
         (void)index;
         CreateShmemData(group, worldSize, shmemDataType, shmemDataShape, shmemData);

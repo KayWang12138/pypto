@@ -69,26 +69,18 @@ void TestShmemAllReduceParaWithShmem(OpTestParam &testParam)
     constexpr size_t paramsSize = 6;
     auto [row, col, typeNum, tileRow, tileCol, useTwoShot] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
     DataType dType = GetDataTypeNum(typeNum);
-    int32_t outSize = row * col;
     Shape shape{row, col};
     Tensor in(dType, shape, "in");
-    Tensor out(dType, shape, "out");
     std::vector<T> inPtr = ReadToVector<T>(
         GetGoldenDir() + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", {row, col});
-    ProgramData::GetInstance().AppendInputs({
-        RawTensorData::CreateTensor<T>(in, inPtr),
-    });
-    ProgramData::GetInstance().AppendOutputs({
-        RawTensorData::CreateTensorZero(out),
-    });
     int32_t rowPerRank = row;
     Shape shmemDataShape = {1, rowPerRank, col};
+    Tensor out(dType, shape, "out");
     if (useTwoShot) {
         ASSERT(row % testParam.rankSize == 0) << "Two_Shot_AllReduce constraint: row must be divisible by worldSize";
         rowPerRank /= testParam.rankSize;
         shmemDataShape = {testParam.rankSize, rowPerRank, col};
     }
-   
     FUNCTION("ALLREDUCE", {in}, {out}) {
         TileShape::Current().SetVecTile({tileRow, tileCol});
         Tensor shmemData;
@@ -108,12 +100,15 @@ void TestShmemAllReduceParaWithShmem(OpTestParam &testParam)
             OneShotAllReduce(in, in, testParam.group, shmemData, shmemSignal, out);
         }
     }
+    
+    ProgramData::GetInstance().AppendInputs({RawTensorData::CreateTensor<T>(in, inPtr)});
+    ProgramData::GetInstance().AppendOutputs({RawTensorData::CreateTensorZero(out)});
     DeviceLauncherConfig config;
     config.runModel = false;
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), config);
 
     auto output = ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, "/output_rank_", outSize, output->GetDevPtr(), testParam));
+    EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, "/output_rank_", row * col, output->GetDevPtr(), testParam));
 }
 
 template void TestShmemAllReduce<int32_t>(OpTestParam &testParam);
