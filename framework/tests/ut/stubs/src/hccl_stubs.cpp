@@ -13,38 +13,38 @@
  * \brief
  */
 
-// #include "hcom.h"
+#include "hcom.h"
 
-// extern "C" {
-// HcclResult HcomGetCommHandleByGroup(const char *group, HcclComm *commHandle)
-// {
-//     (void)group;
-//     (void)commHandle;
-//     return HCCL_SUCCESS;
-// }
+extern "C" {
+HcclResult HcomGetCommHandleByGroup(const char *group, HcclComm *commHandle)
+{
+    (void)group;
+    (void)commHandle;
+    return HCCL_SUCCESS;
+}
 
-// HcclResult HcclAllocComResourceByTiling(HcclComm comm, void *stream, void *Mc2Tiling, void **commContext)
-// {
-//     (void)comm;
-//     (void)stream;
-//     (void)Mc2Tiling;
-//     (void)commContext;
-//     return HCCL_SUCCESS;
-// }
+HcclResult HcclAllocComResourceByTiling(HcclComm comm, void *stream, void *Mc2Tiling, void **commContext)
+{
+    (void)comm;
+    (void)stream;
+    (void)Mc2Tiling;
+    (void)commContext;
+    return HCCL_SUCCESS;
+}
 
-// HcclResult HcclGetCommName(HcclComm comm, char* commName)
-// {
-//     (void)comm;
-//     (void)commName;
-//     return HCCL_SUCCESS;
-// }
+HcclResult HcclGetCommName(HcclComm comm, char* commName)
+{
+    (void)comm;
+    (void)commName;
+    return HCCL_SUCCESS;
+}
 
-// HcclResult HcclCommInitAll(uint32_t ndev, int32_t *devices, HcclComm *comms)
-// {
-//     (void)ndev;
-//     (void)devices;
-//     (void)comms;
-//     return HCCL_SUCCESS;
-// }
+HcclResult HcclCommInitAll(uint32_t ndev, int32_t *devices, HcclComm *comms)
+{
+    (void)ndev;
+    (void)devices;
+    (void)comms;
+    return HCCL_SUCCESS;
+}
 
-// }
+}
