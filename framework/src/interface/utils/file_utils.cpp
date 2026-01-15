@@ -211,9 +211,9 @@ bool ReadBytesFromFile(const std::string &filePath, std::vector<char> &buffer)
 
         buffer.resize(size);
         ifStream.read(&buffer[0], size);
-        ALOG_DEBUG("Release file(%s) handle.", realPath.c_str());
+        ALOG_DEBUG_F("Release file(%s) handle.", realPath.c_str());
         ifStream.close();
-        ALOG_DEBUG("Read size:%ld.", size);
+        ALOG_DEBUG_F("Read size:%ld.", size);
     } catch (const std::ifstream::failure& e) {
         ALOG_WARN("Fail to read file %s. Exception: %s.", filePath.c_str(), e.what());
         ifStream.close();
