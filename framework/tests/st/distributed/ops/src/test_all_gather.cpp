@@ -73,7 +73,7 @@ void TestDynAllGatherParaWithShmem(OpTestParam &testParam)
     int32_t outSize = row * col * testParam.rankSize;
     Shape shape{row, col};
     Shape outShape{testParam.rankSize * row, col};
-    Shape shmemDataShape{testParam.rankSize * row, col};
+    Shape shmemDataShape{testParam.rankSize, row, col};
     Tensor in(dType, shape, "in");
     Tensor predToken(DT_INT32, {1, 1}, "predToken");
     Tensor out(dType, outShape, "out");
@@ -91,7 +91,7 @@ void TestDynAllGatherParaWithShmem(OpTestParam &testParam)
             CreateShmemData(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemData);
             CreateShmemSignal(testParam.group, shmemData, shmemSignal);
         }
-        AllGather(predToken, in, testParam.group, static_cast<uint32_t>(testParam.rankSize), out);
+        AllGather(predToken, in, testParam.group, shmemData, shmemSignal, out);
     }
     ProgramData::GetInstance().AppendInputs({
         RawTensorData::CreateTensor<T>(in, inPtr),
