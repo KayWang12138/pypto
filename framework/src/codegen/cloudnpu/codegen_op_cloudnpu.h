@@ -354,6 +354,7 @@ private:
     std::string PrintScatterOpDynamicUnaligned(const PrintScatterParam &param) const;
 
     std::string PrintIndexAddDynamicUnaligned(const PrintIndexAddParam &param) const;
+    std::string PrintIndexAddTileTensor(const PrintIndexAddParam &param) const;
 
     std::string PrintCumSumDynamicUnaligned(const PrintCumSumParam &param) const;
 
