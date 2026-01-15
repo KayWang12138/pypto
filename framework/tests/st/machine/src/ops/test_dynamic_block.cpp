@@ -113,6 +113,8 @@ TEST_F(DynamicBlockTest, VectorCube) {
     auto outputResult = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(outputGolden, (float *)outputResult->data(), 0.001f));
 #endif
+
+    PluginManager::GetInstance().ClearPlugin();
 }
 
 }
