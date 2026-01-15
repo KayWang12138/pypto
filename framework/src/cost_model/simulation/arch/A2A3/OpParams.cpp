@@ -26,6 +26,16 @@ using npu::tile_fwk::Opcode;
 // Implementation of Calculators
 // ============================================================================
 
+// Pre-defined Strategy: Constant Latency
+class Constant : public LatencyCalculator {
+    int latency_;
+public:
+    Constant(int latency) : latency_(latency) {}
+    int Calculate(const npu::tile_fwk::Operation* op) const override {
+        return latency_;
+    }
+};
+
 // Pre-defined Strategy: Linear function of Total Elements (Shape)
 // y = k * shape_elements + b
 class LinearShape : public LatencyCalculator {
@@ -188,18 +198,11 @@ public:
 };
 
 // ============================================================================
-// Default Calculator Initialization
-// ============================================================================
-
-struct DefaultInitializer {
-    DefaultInitializer() {
-        OpRegistry::GetInstance().SetDefault(std::make_shared<LinearSize>(0.1f, 20.0f));
-    }
-} g_default_init;
-
-// ============================================================================
 // Registration
 // ============================================================================
+
+// Default
+OP_LATENCY_REGISTER_DEFAULT(Constant(1));
 
 // Binary
 OP_LATENCY_REGISTER(Opcode::OP_ADD, LinearSizeAligned(1.99f, 26.6f));

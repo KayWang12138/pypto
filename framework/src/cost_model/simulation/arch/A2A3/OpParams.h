@@ -74,6 +74,14 @@ private:
     CalculatorPtr defaultCalc_;
 };
 
+// Macro for Default Registration
+#define OP_LATENCY_REGISTER_DEFAULT(...) \
+    static const struct DefaultInitializer { \
+        DefaultInitializer() { \
+            OpRegistry::GetInstance().SetDefault(std::shared_ptr<CostModel::LatencyCalculator>(new __VA_ARGS__)); \
+        } \
+    } g_default_init;
+
 // Helper for Auto-Registration
 struct OpLatencyRegistrar {
     OpLatencyRegistrar(npu::tile_fwk::Opcode opcode, CalculatorPtr calc) {
