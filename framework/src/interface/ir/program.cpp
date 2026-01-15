@@ -44,13 +44,6 @@ void ProgramModule::AddFunction(const std::shared_ptr<Function>& function) {
     functions_.push_back(function);
 }
 
-void PrintAttributes(std::ostream& os, const AttributeMap& attrs, int indent) {
-    for (const auto& kv : attrs) {
-        PrintIndent(os, indent);
-        os << "attr " << kv.first << " = " << kv.second << "\n";
-    }
-}
-
 void ProgramModule::Print(std::ostream& os, int indent) const {
     // Print indentation for the module header.
     PrintIndent(os, indent);
@@ -61,7 +54,11 @@ void ProgramModule::Print(std::ostream& os, int indent) const {
     os << "program.entry " << programEntry_->GetPrefixedName() << "\n";
 
     // Program-level attributes.
-    PrintAttributes(os, attributes_, indent + 1);
+    auto attrKeys = GetSetAttrKeys();
+    for (const auto& key : attrKeys) {
+        PrintIndent(os, indent + 1);
+        os << "attr " << key << " = " << GetAttr(key) << "\n";
+    }
 
     // Functions.
     for (const auto& f : functions_) {

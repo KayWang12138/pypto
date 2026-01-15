@@ -96,6 +96,15 @@ public:
         keySet.insert(key);
     }
 
+    // Attribute unregister API (per C++ derived type).
+    template <typename T>
+    static void UnregisterAttrKey(const std::string& key)
+    {
+        auto& keySet = registry_[std::type_index(typeid(T))];
+        keySet.erase(key);
+    }
+
+    // Check if the attribute key can be set on this object.
     bool CanSetAttr(const std::string& key) const
     {
         auto itType = registry_.find(std::type_index(typeid(*this)));
@@ -106,11 +115,11 @@ public:
         return keySet.find(key) != keySet.end();
     }
 
+    // Set an attribute by key. Return false if the attribute key is not registered.
     template <typename T>
     bool SetAttr(const std::string& key, const T& value)
     {
         if (!CanSetAttr(key)) {
-            // 未注册的属性 key，打印日志并拒绝设置。
             std::cerr << "Attempt to set unregistered attribute key '" << key
                       << "' on type '" << typeid(*this).name() << "'" << std::endl;
             return false;
@@ -119,12 +128,13 @@ public:
         return true;
     }
 
-    // Attribute helpers.
+    // Check if the attribute key is set on this object.
     bool HasAttr(const std::string& key) const
     {
         return attributes_.find(key) != attributes_.end();
     }
 
+    // Get an attribute by key. Return false if the attribute key is not set.
     template <typename T>
     bool GetAttr(const std::string& key, T& value) const
     {
@@ -139,16 +149,43 @@ public:
         return false;
     }
 
+    AttributeValue GetAttr(const std::string& key) const
+    {
+        auto it = attributes_.find(key);
+        if (it == attributes_.end()) {
+            return AttributeValue{std::string("undefined")};
+        }
+        return it->second;
+    }
+
+    // Unset an attribute by key.
+    void UnsetAttr(const std::string& key)
+    {
+        attributes_.erase(key);
+    }
+
+    // Get all set attribute keys on this object.
+    std::vector<std::string> GetSetAttrKeys() const
+    {
+        std::vector<std::string> keys;
+        for (const auto& [key, value] : attributes_) {
+            if (value.index() != 0) {
+                keys.push_back(key);
+            }
+        }
+        return keys;
+    }
+
 protected:
     int id_;
     std::string name_;
-    AttributeMap attributes_;
 
 private:
     using AttributeKeySet = std::unordered_set<std::string>;
     using AttributeRegistry = std::unordered_map<std::type_index, AttributeKeySet>;
     
     static AttributeRegistry registry_;
+    AttributeMap attributes_;
 };
 
 // Attribute registry API (per C++ derived type).
