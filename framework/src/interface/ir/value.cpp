@@ -19,17 +19,6 @@
 #include <variant>
 
 namespace pto {
-    
-namespace {
-struct ValueAttrRegistrar {
-    ValueAttrRegistrar() {
-        RegisterAttrKey<ScalarValue>("io");
-        RegisterAttrKey<TileValue>("io");
-        RegisterAttrKey<TensorValue>("io");
-    }
-};
-static ValueAttrRegistrar g_valueAttrRegistrar;
-} // namespace
 
 // ========== Value System Implementation ==========
 
