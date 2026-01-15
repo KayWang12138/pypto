@@ -127,7 +127,7 @@ void GegisterAllOps()
 template <typename T>
 std::vector<T> GetOpMetaData(const std::string &op)
 {
-    auto caseFile = "../../../framework/tests/st/distributed/ops/test_case/" + op + "_st_test_cases.json";
+    auto caseFile = "/home/chenyi/pypto/framework/tests/st/distributed/ops/test_case/" + op + "_st_test_cases.json";
     std::ifstream jsonFile(caseFile);
     if (!jsonFile.is_open()) {
         std::cerr << "Failed to open JSON file for op " << op << ". "
