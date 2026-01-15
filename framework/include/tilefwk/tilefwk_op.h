@@ -383,6 +383,9 @@ Tensor Matmul(DataType outType, const Tensor &aMatrix, const Tensor &bMatrix, bo
 Tensor Matmul(DataType outType, const Tensor &aMatrix, const Tensor &bMatrix, const MatmulExtendParam &extendParam,
     bool isATrans = false, bool isBTrans = false, bool isCMatrixNZ = false);
 
+Tensor MatmulAtomicAdd(DataType outType, const Tensor &aTensor, const Tensor &bTensor, const Tensor &gmTensor,
+    bool isATrans = false, bool isBTrans = false, bool isCMatrixNZ = false);
+
 Tensor BatchMatmul(DataType dataType, const Tensor &aMatrix, const Tensor &bMatrix, bool isATrans = false,
     bool isBTrans = false, bool isCMatrixNZ = false);
 
@@ -420,7 +423,7 @@ void CreateShmemData(const char *group, int64_t worldSize, DataType dataType,
 void CreateShmemSignal(const char *group, Tensor &shmemData, Tensor &shmemSignal);
 } // namespace Distributed
 std::tuple<Tensor, Tensor> TopKSort(const Tensor &x, int idxStart);
-std::tuple<Tensor, Tensor> TopKSort(const Tensor &x, const SymbolicScalar &idxStart); 
+std::tuple<Tensor, Tensor> TopKSort(const Tensor &x, const SymbolicScalar &idxStart);
 Tensor TopKExtract(const Tensor &x, int k, bool isIndex);
 Tensor TopKMerge(const Tensor &x, int mergeSize);
 } // namespace npu::tile_fwk

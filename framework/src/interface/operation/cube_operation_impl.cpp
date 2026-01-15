@@ -488,6 +488,10 @@ void SetAMulBAttr(const MatmulGraphNodes &tensorGraphNodes, const MatmulAttrPara
         op.SetAttribute(A_MUL_B_RELU_ATTR, static_cast<int64_t>(attrParam.reluType));
         op.SetAttribute(A_MUL_B_SCALE_ATTR, Element(DataType::DT_UINT64, attrParam.scaleValue));
     }
+
+    if (attrParam.gmAccumulationFlag) {
+        op.SetAttribute(ACC_A_MUL_B, 1);
+    }
 }
 
 void SetTensorGraphAttr(Operation &op, const MatmulExtendParam &param, bool gmAccumulationFlag, const MatmulAttrParam &attrParam)
@@ -1366,6 +1370,19 @@ Tensor Matmul(DataType outType, const Tensor &aMatrix, const Tensor &bMatrix, co
         return ConstructGmAccumulationTensorGraph(outType, aMatrix, bMatrix, attrParam);
     }
     return ConstructTensorGraph(outType, aMatrix, bMatrix, Tensor(), attrParam, param);
+}
+
+Tensor MatmulAtomicAdd(DataType outType, const Tensor &aTensor, const Tensor &bTensor, const Tensor &gmTensor,
+    bool isATrans, bool isBTrans, bool isCMatrixNZ) {
+    int64_t mSize = isATrans ? aTensor.GetShape()[1] : aTensor.GetShape()[0];
+    int64_t kSizeA = isATrans ? aTensor.GetShape()[0] : aTensor.GetShape()[1];
+    int64_t kSizeB = isBTrans ? bTensor.GetShape()[1] : bTensor.GetShape()[0];
+    int64_t nSize = isBTrans ? bTensor.GetShape()[0] : bTensor.GetShape()[1];
+
+    Tensor cTensor(outType, {mSize, nSize}, "cTensor");
+    MatmulAttrParam attrParam(isATrans, isBTrans, isCMatrixNZ);
+    AddAMulBNode(aTensor.GetStorage(), bTensor.GetStorage(), cTensor.GetStorage(), gmTensor.GetStorage(), attrParam);
+    return cTensor;
 }
 
 Tensor ABatchMulB3D(

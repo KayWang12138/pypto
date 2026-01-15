@@ -354,6 +354,16 @@ void bind_operation(py::module &m) {
         py::arg("out_type"), py::arg("tensor_a"), py::arg("tensor_b"), py::arg("a_trans") = false,
         py::arg("b_trans") = false, py::arg("c_matrix_nz") = false, py::arg("extend_params"),
         "Matrix multiply with extend param.");
+
+    m.def(
+        "MatmulAtomicAdd",
+        [](DataType out_type, const Tensor &tensor_a, const Tensor &tensor_b, const Tensor &tensor_gm, bool a_trans,
+            bool b_trans, bool c_matrix_nz) {
+            return Matrix::MatmulAtomicAdd(out_type, tensor_a, tensor_b, tensor_gm, a_trans, b_trans, c_matrix_nz);
+        },
+        py::arg("out_type"), py::arg("tensor_a"), py::arg("tensor_b"), py::arg("tensor_gm"), py::arg("a_trans") = false,
+        py::arg("b_trans") = false, py::arg("c_matrix_nz") = false, "Matrix multiply and do atomic add.");
+
     m.def(
         "gather_in_l1",
         [](const Tensor &src, const Tensor &indices, const Tensor &blockTable, int blockSize, int size,
