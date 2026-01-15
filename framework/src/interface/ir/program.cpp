@@ -19,19 +19,6 @@
 #include "ir/function.h"
 
 namespace pto {
-    
-namespace {
-// Attribute registrar for ProgramModule (defined in program.cpp).
-struct ProgramAttrRegistrar {
-    ProgramAttrRegistrar() {
-        RegisterAttrKey<ProgramModule>("arch");
-        RegisterAttrKey<ProgramModule>("tile_default");
-        RegisterAttrKey<ProgramModule>("enable_debug");
-        RegisterAttrKey<ProgramModule>("test_type");
-    }
-};
-static ProgramAttrRegistrar g_programAttrRegistrar;
-} // namespace
 
 ProgramModule::ProgramModule(std::string name)
     : Object(ObjectType::Program, std::move(name)) {}

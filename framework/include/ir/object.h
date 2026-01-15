@@ -16,6 +16,7 @@
 #pragma once
 
 #include <iostream>
+#include <optional>
 #include <typeindex>
 #include <unordered_map>
 #include <unordered_set>
@@ -88,22 +89,6 @@ public:
     // Each derived class must specify its object type.
     virtual ObjectType GetObjectType() const = 0;
 
-    // Attribute registry API (per C++ derived type).
-    template <typename T>
-    static void RegisterAttrKey(const std::string& key)
-    {
-        auto& keySet = registry_[std::type_index(typeid(T))];
-        keySet.insert(key);
-    }
-
-    // Attribute unregister API (per C++ derived type).
-    template <typename T>
-    static void UnregisterAttrKey(const std::string& key)
-    {
-        auto& keySet = registry_[std::type_index(typeid(T))];
-        keySet.erase(key);
-    }
-
     // Check if the attribute key can be set on this object.
     bool CanSetAttr(const std::string& key) const
     {
@@ -111,20 +96,56 @@ public:
         if (itType == registry_.end()) {
             return false;
         }
-        const auto& keySet = itType->second;
-        return keySet.find(key) != keySet.end();
+        const auto& attrInfo = itType->second;
+        return attrInfo.find(key) != attrInfo.end();
     }
 
-    // Set an attribute by key. Return false if the attribute key is not registered.
+    // Get the expected type of an attribute key.
+    std::optional<std::type_index> GetAttrKeyType(const std::string& key) const
+    {
+        auto itType = registry_.find(std::type_index(typeid(*this)));
+        if (itType == registry_.end()) {
+            return std::nullopt;
+        }
+        const auto& attrInfo = itType->second;
+        auto it = attrInfo.find(key);
+        if (it == attrInfo.end()) {
+            return std::nullopt;
+        }
+        return it->second;
+    }
+
+    // Set an attribute by key. Return false if the attribute key is not registered or type mismatches.
     template <typename T>
     bool SetAttr(const std::string& key, const T& value)
     {
+        // Check if key is registered
         if (!CanSetAttr(key)) {
             std::cerr << "Attempt to set unregistered attribute key '" << key
                       << "' on type '" << typeid(*this).name() << "'" << std::endl;
             return false;
         }
+
+        // Get expected type
+        auto expectedType = GetAttrKeyType(key);
+        if (!expectedType.has_value()) {
+            return false;
+        }
+
+        // Get actual type index - no automatic conversion
+        std::type_index actualType = std::type_index(typeid(T));
+
+        // Verify type matches exactly
+        if (actualType != expectedType.value()) {
+            std::cerr << "Type mismatch: attribute key '" << key
+                      << "' expects type " << expectedType.value().name()
+                      << " but got type " << actualType.name() << std::endl;
+            return false;
+        }
+
+        // Set the attribute value
         attributes_[key] = AttributeValue{value};
+
         return true;
     }
 
@@ -181,17 +202,39 @@ protected:
     std::string name_;
 
 private:
-    using AttributeKeySet = std::unordered_set<std::string>;
-    using AttributeRegistry = std::unordered_map<std::type_index, AttributeKeySet>;
-    
+    // Attribute registry API (per C++ derived type) - only accessible by RegisterAllAttributes
+    template <typename T, typename ValueType>
+    static void RegisterAttrKey(const std::string& key)
+    {
+        // Check if ValueType is a supported type in AttributeValue variant
+        static_assert(
+            std::is_same_v<ValueType, std::string> ||
+            std::is_same_v<ValueType, int64_t> ||
+            std::is_same_v<ValueType, double> ||
+            std::is_same_v<ValueType, bool>,
+            "ValueType must be one of: std::string, int64_t, double, bool"
+        );
+
+        auto& attrInfo = registry_[std::type_index(typeid(T))];
+        auto it = attrInfo.find(key);
+        if (it != attrInfo.end()) {
+            std::cerr << "Attribute key '" << key << "' already registered for type '" << typeid(T).name() << "'" << std::endl;
+            return;
+        }
+        attrInfo.emplace(key, std::type_index(typeid(ValueType)));
+    }
+
+    // Friend function for centralized attribute registration
+    friend void RegisterAllAttributes();
+
+    using AttributeKeyTypeMap = std::unordered_map<std::string, std::type_index>;
+    using AttributeRegistry = std::unordered_map<std::type_index, AttributeKeyTypeMap>;
+
     static AttributeRegistry registry_;
     AttributeMap attributes_;
 };
 
-// Attribute registry API (per C++ derived type).
-template <typename T>
-void RegisterAttrKey(const std::string& key) {
-    Object::RegisterAttrKey<T>(key);
-}
+// Centralized attribute registration function - called once during initialization
+void RegisterAllAttributes();
 
 }
