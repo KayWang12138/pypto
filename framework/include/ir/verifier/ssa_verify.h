@@ -10,7 +10,7 @@
 
 /*!
  * \file verifier/ssa_verify.h
- * \brief SSA semantics verification for TileValue
+ * \brief SSA semantics verification for TileValue and ScalarValue
  */
 
 #pragma once
@@ -23,9 +23,9 @@
 
 namespace pto {
 
-class TileValueSSAVisitor : public IRVisitor {
+class ValueSSAVisitor : public IRVisitor {
 public:
-    explicit TileValueSSAVisitor(std::map<const TileValue *, size_t> *inputCountMap) : tileInputCountMap_(inputCountMap) {}
+    explicit ValueSSAVisitor(std::map<const Value *, size_t> *countMap) : valueCountMap_(countMap) {}
 
     void VisitImplOp(OperationPtr &op) override;
 
@@ -37,7 +37,7 @@ public:
     #include "ir/tile_graph.def"
 #undef DEFOP
 private:
-    std::map<const TileValue *, size_t> *tileInputCountMap_;
+    std::map<const Value *, size_t> *valueCountMap_;
 };
 
 VerifyResult VerifySSA(ProgramModulePtr program);

@@ -64,7 +64,7 @@ bool TileOpShapeVisitor::IsShapeCompatibleForBinaryOp(const TileValuePtr &inputT
     return true;
 }
 
-std::string TileOpShapeVisitor::ToShapeStr(const std::vector<int64_t> &shape) const {
+std::string TileOpShapeVisitor::GetShapeStr(const std::vector<int64_t> &shape) const {
     std::string result = "[";
     if (!shape.empty()) {
         result += std::to_string(shape[0]);
@@ -114,8 +114,8 @@ void TileOpShapeVisitor::CheckUnaryOpShape(UnaryOpPtr &unaryOp) {
 
         if (inputShape != outputShape) {
             std::string opName = GetOpcodeName(unaryOp->GetOpcode());
-            std::string msg = "UnaryOp '" + opName + "': input shape " + ToShapeStr(inputShape) +
-                              " != output shape " + ToShapeStr(outputShape);
+            std::string msg = "UnaryOp '" + opName + "': input shape " + GetShapeStr(inputShape) +
+                              " != output shape " + GetShapeStr(outputShape);
             violations_.push_back(msg);
         }
     }
@@ -144,9 +144,9 @@ void TileOpShapeVisitor::CheckBinaryOpShape(BinaryOpPtr &binaryOp) {
 
         if (!bothMatch && !onlyOneDiffers) {
             std::string opName = GetOpcodeName(binaryOp->GetOpcode());
-            std::string msg = "BinaryOp '" + opName + "': lhs shape " + ToShapeStr(lhsShape) +
-                              ", rhs shape " + ToShapeStr(rhsShape) +
-                              " incompatible with output shape " + ToShapeStr(outputShape);
+            std::string msg = "BinaryOp '" + opName + "': lhs shape " + GetShapeStr(lhsShape) +
+                              ", rhs shape " + GetShapeStr(rhsShape) +
+                              " incompatible with output shape " + GetShapeStr(outputShape);
             violations_.push_back(msg);
         }
     }
@@ -162,8 +162,8 @@ void TileOpShapeVisitor::CheckBinaryScalarMixOpShape(BinaryScalarMixOpPtr &binar
 
         if (lhsShape != outputShape) {
             std::string opName = GetOpcodeName(binaryScalarMixOp->GetOpcode());
-            std::string msg = "BinaryScalarMixOp '" + opName + "': input tile shape " + ToShapeStr(lhsShape) +
-                              " != output tile shape " + ToShapeStr(outputShape);
+            std::string msg = "BinaryScalarMixOp '" + opName + "': input tile shape " + GetShapeStr(lhsShape) +
+                              " != output tile shape " + GetShapeStr(outputShape);
             violations_.push_back(msg);
         }
     }

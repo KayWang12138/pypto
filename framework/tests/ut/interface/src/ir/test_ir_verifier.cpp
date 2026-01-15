@@ -104,6 +104,116 @@ TEST_F(IRVerifierTest, TestVerifySSASingleInput_InvalidProgram_MultipleDefinitio
     EXPECT_FALSE(result.errorMsg.empty());
 }
 
+TEST_F(IRVerifierTest, TestVerifySSA_ScalarValue_ValidProgram) {
+    FunctionSignature sig;
+    auto inputScalar = std::make_shared<ScalarValue>(DataType::FP32, "input", ScalarValueKind::Symbolic);
+    sig.arguments = {inputScalar};
+
+    CreateTestFunction(sig);
+
+    // Create a simple scalar operation: output = neg(input)
+    auto outputScalar = builder_->CreateScalar(*ctx_, DataType::FP32, "output");
+    auto unaryScalarOp = builder_->CreateUnaryScalarOp(Opcode::OP_SCALAR_NEG, inputScalar, outputScalar);
+    builder_->Emit(*ctx_, unaryScalarOp);
+
+    FinishFunction();
+
+    VerifyResult result = VerifySSA(module_);
+    EXPECT_TRUE(result.passed) << "Valid program with ScalarValue should pass SSA verification";
+}
+
+TEST_F(IRVerifierTest, TestVerifySSA_ScalarValue_InvalidProgram_MultipleDefinitions) {
+    FunctionSignature sig;
+    auto inputScalar = std::make_shared<ScalarValue>(DataType::FP32, "input", ScalarValueKind::Symbolic);
+    sig.arguments = {inputScalar};
+
+    CreateTestFunction(sig);
+
+    // Create a ScalarValue that will be used as output multiple times (violates SSA)
+    auto outputScalar = builder_->CreateScalar(*ctx_, DataType::FP32, "output");
+    
+    // First definition: output = neg(input)
+    auto op1 = builder_->CreateUnaryScalarOp(Opcode::OP_SCALAR_NEG, inputScalar, outputScalar);
+    builder_->Emit(*ctx_, op1);
+
+    // Second definition: output = pos(input) - violates SSA (same ScalarValue defined twice)
+    auto op2 = builder_->CreateUnaryScalarOp(Opcode::OP_SCALAR_POS, inputScalar, outputScalar);
+    builder_->Emit(*ctx_, op2);
+
+    FinishFunction();
+
+    VerifyResult result = VerifySSA(module_);
+    EXPECT_FALSE(result.passed) << "Program with multiple definitions of same ScalarValue should fail";
+    EXPECT_FALSE(result.errorMsg.empty());
+    EXPECT_NE(result.errorMsg.find("ScalarValue"), std::string::npos);
+}
+
+TEST_F(IRVerifierTest, TestVerifySSA_MixedTileAndScalar_ValidProgram) {
+    FunctionSignature sig;
+    std::vector<int64_t> tileShape = {128, 64};
+    auto inputTile = std::make_shared<TileValue>(tileShape, DataType::FP32, "input");
+    auto inputScalar = std::make_shared<ScalarValue>(DataType::FP32, "scale", ScalarValueKind::Symbolic);
+    sig.arguments = {inputTile, inputScalar};
+
+    CreateTestFunction(sig);
+
+    // Create Tile operations
+    auto tempTile = builder_->CreateTile(*ctx_, tileShape, DataType::FP32, "temp");
+    auto unaryOp = builder_->CreateUnaryOp(Opcode::OP_NEG, inputTile, tempTile);
+    builder_->Emit(*ctx_, unaryOp);
+
+    // Create Scalar operations
+    auto tempScalar = builder_->CreateScalar(*ctx_, DataType::FP32, "temp_scalar");
+    auto unaryScalarOp = builder_->CreateUnaryScalarOp(Opcode::OP_SCALAR_NEG, inputScalar, tempScalar);
+    builder_->Emit(*ctx_, unaryScalarOp);
+
+    // Create BinaryScalarMixOp
+    auto outputTile = builder_->CreateTile(*ctx_, tileShape, DataType::FP32, "output");
+    auto binaryScalarMixOp = builder_->CreateBinaryScalarMixOp(Opcode::OP_MULS, tempTile, tempScalar, outputTile);
+    builder_->Emit(*ctx_, binaryScalarMixOp);
+
+    FinishFunction();
+
+    VerifyResult result = VerifySSA(module_);
+    EXPECT_TRUE(result.passed) << "Valid program with mixed TileValue and ScalarValue should pass SSA verification";
+}
+
+TEST_F(IRVerifierTest, TestVerifySSA_MixedTileAndScalar_InvalidProgram) {
+    FunctionSignature sig;
+    std::vector<int64_t> tileShape = {128, 64};
+    auto inputTile = std::make_shared<TileValue>(tileShape, DataType::FP32, "input");
+    auto inputScalar = std::make_shared<ScalarValue>(DataType::FP32, "scale", ScalarValueKind::Symbolic);
+    sig.arguments = {inputTile, inputScalar};
+
+    CreateTestFunction(sig);
+
+    // Create a ScalarValue that will be used as output multiple times (violates SSA)
+    auto outputScalar = builder_->CreateScalar(*ctx_, DataType::FP32, "output");
+    
+    // First definition: output = neg(input)
+    auto op1 = builder_->CreateUnaryScalarOp(Opcode::OP_SCALAR_NEG, inputScalar, outputScalar);
+    builder_->Emit(*ctx_, op1);
+
+    // Second definition: output = pos(input) - violates SSA
+    auto op2 = builder_->CreateUnaryScalarOp(Opcode::OP_SCALAR_POS, inputScalar, outputScalar);
+    builder_->Emit(*ctx_, op2);
+
+    // Also create a TileValue with multiple definitions
+    auto outputTile = builder_->CreateTile(*ctx_, tileShape, DataType::FP32, "output_tile");
+    auto op3 = builder_->CreateUnaryOp(Opcode::OP_NEG, inputTile, outputTile);
+    builder_->Emit(*ctx_, op3);
+    auto op4 = builder_->CreateUnaryOp(Opcode::OP_ABS, inputTile, outputTile);
+    builder_->Emit(*ctx_, op4);
+
+    FinishFunction();
+
+    VerifyResult result = VerifySSA(module_);
+    EXPECT_FALSE(result.passed) << "Program with multiple definitions of both TileValue and ScalarValue should fail";
+    EXPECT_FALSE(result.errorMsg.empty());
+    EXPECT_NE(result.errorMsg.find("ScalarValue"), std::string::npos);
+    EXPECT_NE(result.errorMsg.find("TileValue"), std::string::npos);
+}
+
 TEST_F(IRVerifierTest, TestVerifyOpShape_ValidUnaryOp) {
     FunctionSignature sig;
     std::vector<int64_t> tileShape = {128, 64};

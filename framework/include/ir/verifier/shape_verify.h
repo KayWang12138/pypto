@@ -44,7 +44,7 @@ private:
     void CheckUnaryOpShape(UnaryOpPtr &unaryOp);
     void CheckBinaryOpShape(BinaryOpPtr &binaryOp);
     void CheckBinaryScalarMixOpShape(BinaryScalarMixOpPtr &binaryScalarMixOp);
-    std::string ToShapeStr(const std::vector<int64_t> &shape) const;
+    std::string GetShapeStr(const std::vector<int64_t> &shape) const;
 };
 
 VerifyResult VerifyOpShape(ProgramModulePtr program);

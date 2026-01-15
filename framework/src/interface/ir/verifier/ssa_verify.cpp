@@ -16,26 +16,22 @@
 
 namespace pto {
 
-void TileValueSSAVisitor::VisitImplOp(OperationPtr &op) {
+void ValueSSAVisitor::VisitImplOp(OperationPtr &op) {
     if (!op)
         return;
 
-    // Count the number of times each TileValue is used as output operand of this operation
+    // Count the number of times each Value is used as output operand of this operation
     for (size_t i = 0; i < op->GetNumOutputOperand(); ++i) {
         ValuePtr outputOperand = op->GetOutputOperand(i);
-        if (outputOperand) {
-            auto countTile = std::dynamic_pointer_cast<TileValue>(outputOperand);
-            if (countTile) {
-                // If outputOperand is not a TileValue, countTile will be nullptr
-                (*tileInputCountMap_)[countTile.get()]++;
-            }
+        if (outputOperand && valueCountMap_) {
+            (*valueCountMap_)[outputOperand.get()]++;
         }
     }
 }
 
 // ---- Concrete ops (auto-generated from *.def) ----
 #define DEFOP(name, inherit, opcode, ...)                             \
-    void TileValueSSAVisitor::VisitImplOp(name##Ptr &op) {            \
+    void ValueSSAVisitor::VisitImplOp(name##Ptr &op) {               \
         OperationPtr opPtr = std::static_pointer_cast<Operation>(op); \
         VisitImplOp(opPtr);                                           \
     }
@@ -48,31 +44,49 @@ VerifyResult VerifySSA(ProgramModulePtr program) {
         return {false, "ProgramModule is null, cannot verify SSA."};
     }
 
-    std::map<const TileValue *, size_t> tileSSACountMap;
-    TileValueSSAVisitor visitor(&tileSSACountMap);
+    std::map<const Value *, size_t> valueSSACountMap;
+    ValueSSAVisitor visitor(&valueSSACountMap);
     ProgramModulePtr programPtr = program;
     visitor.VisitProgram(programPtr);
     std::vector<std::string> violations;
 
-    // Check each TileValue that has more than one definition
-    for (const auto &[tilePtr, count] : tileSSACountMap) {
+    // Check each Value that has more than one definition
+    for (const auto &[valuePtr, count] : valueSSACountMap) {
         if (count > 1) {
-            std::string tileInfo = "TileValue";
-            if (tilePtr) {
-                std::string ssaName = tilePtr->GetSSAName();
-                if (!ssaName.empty()) {
-                    tileInfo += " '" + ssaName + "'";
+            std::string valueInfo;
+            if (valuePtr) {
+                // Determine the type name based on ValueKind
+                switch (valuePtr->GetValueKind()) {
+                    case ValueKind::Tile:
+                        valueInfo = "TileValue";
+                        break;
+                    case ValueKind::Scalar:
+                        valueInfo = "ScalarValue";
+                        break;
+                    case ValueKind::Tensor:
+                        valueInfo = "TensorValue";
+                        break;
+                    default:
+                        valueInfo = "Value";
+                        break;
                 }
-                tileInfo += " (ID: " + std::to_string(tilePtr->GetID()) + ")";
+                
+                std::string ssaName = valuePtr->GetSSAName();
+                if (!ssaName.empty()) {
+                    valueInfo += " '" + ssaName + "'";
+                }
+                valueInfo += " (ID: " + std::to_string(valuePtr->GetID()) + ")";
+            } else {
+                valueInfo = "Value";
             }
-            tileInfo += " has " + std::to_string(count) + " definitions, expected at most 1.";
-            violations.push_back(tileInfo);
+            valueInfo += " has " + std::to_string(count) + " definitions, expected at most 1.";
+            violations.push_back(valueInfo);
         }
     }
 
     if (!violations.empty()) {
         std::string errorMsg = "SSA semantics violation - " + std::to_string(violations.size()) +
-                               " TileValue(s) have more than one definition:\n";
+                               " Value(s) have more than one definition:\n";
         for (size_t i = 0; i < violations.size(); ++i) {
             errorMsg += "  " + std::to_string(i + 1) + ". " + violations[i];
             if (i + 1 < violations.size()) {
