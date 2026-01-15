@@ -17,6 +17,7 @@ import os
 import pytest
 import math
 import logging
+import copy
 from lightning_indexer_prolog_quant_impl_fusion import (IndexerPrologQuantConfigs, lightning_indexer_quant_prolog_fusion)
 from torch._subclasses.fake_tensor import FakeTensor
 from torch._dynamo import allow_in_graph
@@ -25,12 +26,12 @@ from utils.compare import compare
 
 class IP(torch.nn.Module):
     def forward(self, x, q_norm, q_norm_scale, w_qb, w_qb_scale, w_proj, cos_idx_rope, sin_idx_rope, hadamard_q, \
-                wkv, wgate, kv_state, score_state, ape, weight_rms, cos_kv, sin_kv, hadamard_kv, kv_cache, slots, \
-                q_int8, q_scale, weights, key, key_scale, ratio, start_pos, eps_rms):
+                wkv, wgate, kv_state, score_state, cache_index_2d, ape, weight_rms, cos_kv, sin_kv, hadamard_kv, kv_cache, slots, \
+                q_int8, q_scale, weights, kv_state_out, score_state_out, key, key_scale, ratio, start_pos, eps_rms):
         lighting_indexer_prolog_dyn(x, q_norm, q_norm_scale, w_qb, w_qb_scale, w_proj, cos_idx_rope, \
-                                    sin_idx_rope, hadamard_q, wkv, wgate, kv_state, score_state, ape, weight_rms, \
+                                    sin_idx_rope, hadamard_q, wkv, wgate, kv_state, score_state, cache_index_2d, ape, weight_rms, \
                                     cos_kv, sin_kv, hadamard_kv, kv_cache, slots, \
-                                    q_int8, q_scale, weights, key, key_scale, ratio, start_pos, eps_rms)
+                                    q_int8, q_scale, weights, kv_state_out, score_state_out, key, key_scale, ratio, start_pos, eps_rms)
 
 
 def gen_dims(params):
@@ -45,7 +46,7 @@ def gen_dims(params):
 
     dims["ratio"] = 4
     dims["block_size"] = 128
-    dims["s2"] = 64*1024
+    dims["s2"] = 8192
     dims["block_num"] = params["b"] * (dims["s2"] // dims["block_size"])
     dims["start_pos"] = 3
     dims["eps_rms"] = 1e-6
@@ -102,6 +103,7 @@ def gen_inputs(dims, dtype=torch.bfloat16):
     wgate = torch.rand((h, coff*d), dtype=torch.float32)
     kv_state = torch.zeros((b, 128, coff*d), dtype=torch.float32)
     score_state = torch.full((b, 128, coff*d), float("-inf"), dtype=torch.float32)
+    cache_index_2d = torch.arange(b*coff*ratio, dtype=torch.int32).reshape(b, coff*ratio)
     ape = torch.rand((ratio, coff*d), dtype=torch.float32)
     weight_rms = torch.ones(d, dtype=torch.float32)
     sin_kv = torch.rand((t, 1, rope_head_dim), dtype=torch.bfloat16)
@@ -125,6 +127,7 @@ def gen_inputs(dims, dtype=torch.bfloat16):
         "wgate": wgate,
         "kv_state": kv_state,
         "score_state": score_state,
+        "cache_index_2d": cache_index_2d,
         "ape": ape,
         "weight_rms": weight_rms,
         "cos_kv": cos_kv,
@@ -179,7 +182,7 @@ def RMSNorm(x, eps, weight):
     x = x * torch.rsqrt(var + eps)
     return (weight * x).to(dtype)
 
-def compressor_golden(ratio, start_pos, eps_rms, rope_head_dim, x, wkv, wgate, kv_state, score_state, ape, weight_rms, cos_kv, sin_kv, hadamard_kv, kv_cache, slots):
+def compressor_golden(ratio, start_pos, eps_rms, rope_head_dim, x, wkv, wgate, kv_state, score_state, ape, weight_rms, cos_kv, sin_kv, hadamard_kv, kv_cache, slots, kv_state_out, score_state_out):
     bsz, _, _ = x.size()
     overlap = (ratio == 4)
     d = wkv.shape[1] // (1 + overlap)
@@ -199,13 +202,13 @@ def compressor_golden(ratio, start_pos, eps_rms, rope_head_dim, x, wkv, wgate, k
             kv_state_temp = torch.cat([kv_state[:bsz, :ratio, :d], kv_state[:bsz, ratio:ratio+ratio, d:]], dim=1)
             score_state_temp = torch.cat([score_state[:bsz, :ratio, :d], score_state[:bsz, ratio:ratio+ratio, d:]], dim=1)
             kv = (kv_state_temp * score_state_temp.softmax(dim=1)).sum(dim=1, keepdim=True)
-            kv_state[:bsz, :ratio] = kv_state[:bsz, ratio:ratio+ratio]
-            score_state[:bsz, :ratio] = score_state[:bsz, ratio:ratio+ratio]
+            kv_state_out[:bsz, :ratio] = kv_state[:bsz, ratio:ratio+ratio]
+            score_state_out[:bsz, :ratio] = score_state[:bsz, ratio:ratio+ratio]
     else:
-        kv_state[:bsz, start_pos % ratio] = kv.squeeze(1)
-        score_state[:bsz, start_pos % ratio] = score.squeeze(1)
+        kv_state_out[:bsz, start_pos % ratio] = kv.squeeze(1)
+        score_state_out[:bsz, start_pos % ratio] = score.squeeze(1)
         if should_compress:
-            kv =  (kv_state[:bsz] * score_state[:bsz].softmax(dim=1)).sum(dim=1, keepdim=True)
+            kv = (kv_state_out[:bsz] * score_state_out[:bsz].softmax(dim=1)).sum(dim=1, keepdim=True)
     
     if should_compress:
         kv = RMSNorm(kv.to(dtype), eps_rms, weight_rms) ## b,cut,d
@@ -215,16 +218,16 @@ def compressor_golden(ratio, start_pos, eps_rms, rope_head_dim, x, wkv, wgate, k
 
         kv = torch.matmul(kv_new.float(), hadamard_kv.float()) ## b,cut,d
 
-        block_number, block_size, n2, head_size = kv_cache.shape
-        for bs_idx in range(bsz):
-            index = slots[bs_idx]
-            dim_0 = index // block_size
-            dim_1 = index % block_size
-            kv_cache[dim_0, dim_1, :] = kv[bs_idx][:]
+    # block_number, block_size, n2, head_size = kv_cache.shape
+    # for bs_idx in range(bsz):
+    #     index = slots[bs_idx]
+    #     dim_0 = index // block_size
+    #     dim_1 = index % block_size
+    #     kv_cache[dim_0, dim_1, :] = kv[bs_idx][:]
     
     k_scale = (kv_cache.abs().max(dim=-1, keepdim=True).values / 127).to(dtype=torch.float16).maximum(torch.tensor(1e-3))
-    key = torch.round(kv_cache / k_scale).clip(-127, 127).to(dtype=torch.int8)
-    return key, k_scale
+    # key = torch.round(kv_cache / k_scale).clip(-127, 127).to(dtype=torch.int8)
+    return kv, k_scale
 
 def indexer_prolog(inputs: dict, dims: dict):
     # input
@@ -283,11 +286,14 @@ def indexer_prolog(inputs: dict, dims: dict):
         w_idx_proj.to(torch.float32)).to(x_dtype).to(torch.float32)  # (b, s, n)
     weights = weights * (n ** -0.5) * (d ** -0.5)
     weights = weights.to(torch.bfloat16)
-
-    key, k_scale = compressor_golden(ratio, start_pos, eps_rms, rope_head_dim, x, wkv, wgate, kv_state, score_state, ape, weight_rms, cos_kv, sin_kv, hadamard_kv, kv_cache, slots)
+    
+    kv_state_out = copy.deepcopy(kv_state)
+    score_state_out = copy.deepcopy(score_state)
+    key_cache_out = copy.deepcopy(kv_cache)
+    key, key_scale = compressor_golden(ratio, start_pos, eps_rms, rope_head_dim, x, wkv, wgate, kv_state, score_state, ape, weight_rms, cos_kv, sin_kv, hadamard_kv, key_cache_out, slots, kv_state_out, score_state_out)
 
     # output dtype: int8, fp16, bf16
-    outputs = {"query": q_int8, "query_scale": q_scale, "weights": weights, "key": key, "key_scale": k_scale}
+    outputs = {"query": q_int8, "query_scale": q_scale, "weights": weights, "kv_state_out": kv_state_out, "score_state_out": score_state_out, "key": key, "key_scale": key_scale}
     return outputs
 
 
@@ -384,6 +390,7 @@ def lighting_indexer_prolog_dyn(
     wgate: torch.tensor,
     kv_state: torch.tensor,
     score_state: torch.tensor,
+    cache_index_2d: torch.tensor,
     ape: torch.tensor,
     weight_rms: torch.tensor,
     cos_kv: torch.tensor,
@@ -394,6 +401,8 @@ def lighting_indexer_prolog_dyn(
     q_int8: torch.tensor,
     q_scale: torch.tensor,
     weights: torch.tensor,
+    kv_state_out: torch.tensor,
+    score_state_out: torch.tensor,
     key: torch.tensor,
     key_scale: torch.tensor,
     ratio: int,
@@ -427,22 +436,25 @@ def lighting_indexer_prolog_dyn(
         hadamard_q: [],
         wkv: [],
         wgate: [],
-        kv_state: [0],
-        score_state: [0],
+        kv_state: [],
+        score_state: [],
+        cache_index_2d: [],
         ape: [],
         weight_rms: [],
-        cos_kv: [0],
-        sin_kv: [0],
+        cos_kv: [],
+        sin_kv: [],
         hadamard_kv: [],
-        kv_cache: [0],
-        slots: [0],
+        kv_cache: [],
+        slots: [],
     }
     output_tensors = {
         q_int8: [0],
         q_scale: [0],
         weights: [0],
-        key: [0],
-        key_scale: [0]
+        kv_state_out: [],
+        score_state_out: [],
+        key: [],
+        key_scale: []
     }
     if not isinstance(x, FakeTensor):
         pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in input_tensors.items()]
@@ -481,10 +493,11 @@ def do_test_lighting_indexer_prolog(case_name, configs):
     wgate = inputs_data["wgate"].npu()
     kv_state = inputs_data["kv_state"].npu()
     score_state = inputs_data["score_state"].npu()
+    cache_index_2d = inputs_data["cache_index_2d"].npu()
     ape = inputs_data["ape"].npu()
     weight_rms = inputs_data["weight_rms"].npu()
-    cos_kv = inputs_data["cos_kv"].npu().reshape(t, rope_head_dim)
-    sin_kv = inputs_data["sin_kv"].npu().reshape(t, rope_head_dim)
+    cos_kv = inputs_data["cos_kv"].npu()
+    sin_kv = inputs_data["sin_kv"].npu()
     hadamard_kv = inputs_data["hadamard_kv"].npu()
     kv_cache = inputs_data["kv_cache"].npu()
     slots = inputs_data["slots"].npu()
@@ -499,13 +512,14 @@ def do_test_lighting_indexer_prolog(case_name, configs):
     weights_golden = golden_data["weights"].reshape(t, head_num)
     key_golden = golden_data["key"]
     key_scale_golden = golden_data["key_scale"]
-    print(key_golden)
-    print(key_scale_golden)
-
+    kv_state_out_golden = golden_data["kv_state_out"]
+    score_state_out_golden = golden_data["score_state_out"]
 
     q_int8=gen_zero_tensor(q_int8_golden)
     q_scale=gen_zero_tensor(q_scale_golden)
     weights=gen_zero_tensor(weights_golden)
+    kv_state_out = copy.deepcopy(kv_state)
+    score_state_out = copy.deepcopy(score_state)
     key = gen_zero_tensor(key_golden)
     key_scale = gen_zero_tensor(key_scale_golden)
     model = torch.compile(IP(), backend="eager", dynamic=True)
@@ -514,8 +528,8 @@ def do_test_lighting_indexer_prolog(case_name, configs):
     g = torch.npu.NPUGraph()
     with torch.npu.graph(g):
         model(x, q_norm, q_norm_scale, w_qb, w_qb_scale, w_proj, cos_idx_rope, sin_idx_rope, hadamard_q, \
-        wkv, wgate, kv_state, score_state, ape, weight_rms, cos_kv, sin_kv, hadamard_kv, kv_cache, slots, \
-        q_int8, q_scale, weights, key, key_scale, ratio, start_pos, eps_rms)
+        wkv, wgate, kv_state, score_state, cache_index_2d, ape, weight_rms, cos_kv, sin_kv, hadamard_kv, kv_cache, slots, \
+        q_int8, q_scale, weights, kv_state_out, score_state_out, key, key_scale, ratio, start_pos, eps_rms)
 
     g.replay()
     pypto.runtime._device_synchronize()#内部接口，不推荐使用
@@ -523,6 +537,7 @@ def do_test_lighting_indexer_prolog(case_name, configs):
     compare(q_int8.cpu(), q_int8_golden, "q_int8", 1, 0, 0)
     compare(q_scale.cpu(), q_scale_golden, "q_scale", 0.000025, 0.005, 0.001)
     compare(weights.cpu(), weights_golden, "weights", 0.0001, 0.0078125, 0.001)
+    compare(key.cpu(), key_golden, "key", 0.0001, 0.0078125, 0.001)
 
     print(f"=== {case_name}: PASS ===")
 
