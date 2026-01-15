@@ -3112,7 +3112,7 @@ TILEOP void DynTgatherFromUB_(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *sr
 template <typename T, bool accumulate>
 TILEOP void IndexPutCopyOutBase(__gm__ T *dst, __ubuf__ T *src, uint16_t nBurst, uint32_t lenBurst) {
     if constexpr (accumulate) {
-        SetAtomicAdd<T>();
+        SetAtomicAddition<T>();
     }
     if constexpr (sizeof(T) == 2) {
         copy_ubuf_to_gm_align_b16(

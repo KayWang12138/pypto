@@ -154,7 +154,7 @@ struct IsSameType : public FalseType {};
 template <typename T>
 struct IsSameType<T, T> : public TrueType {};
 template <typename T>
-TILEOP void SetAtomicAdd() {
+TILEOP void SetAtomicAddition() {
     if constexpr (IsSameType<T, float>::value) {
         set_atomic_f32();
     } else if constexpr (IsSameType<T, half>::value) {

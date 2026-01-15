@@ -277,7 +277,7 @@ TILEOP void L0CCopyOut(__gm__ GMT *dst, __cc__ L0CT *src, int uf) { // NZ2ND
 template <typename GMT, typename L0CT, unsigned TShape0, unsigned TShape1, unsigned GmShape0, unsigned GmShape1,
     unsigned GmOffset0, unsigned GmOffset1, unsigned oriTShape0, unsigned oriTShape1, int isAcc>
 TILEOP void L0CCopyOut(__gm__ GMT *dst, __cc__ L0CT *src, int uf) {
-    SetAtomicAdd<GMT>();
+    SetAtomicAddition<GMT>();
     L0CCopyOut<GMT, L0CT, TShape0, TShape1, GmShape0, GmShape1, GmOffset0, GmOffset1, oriTShape0, oriTShape1>(
         dst, src, uf);
     if constexpr (isAcc == 1) {
