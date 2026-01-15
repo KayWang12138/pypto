@@ -391,3 +391,264 @@ TEST_F(IRVerifierTest, TestVerifyOpShape_MixedOperations) {
     VerifyResult result = VerifyOpShape(module_);
     EXPECT_TRUE(result.passed) << "Program with valid mixed operations should pass";
 }
+
+TEST_F(IRVerifierTest, TestVerifyOpShape_ValidMatmulLoadOp) {
+    FunctionSignature sig;
+    std::vector<int64_t> tileShape = {128, 64};
+    auto inputTile = std::make_shared<TileValue>(tileShape, DataType::FP32, "input");
+    sig.arguments = {inputTile};
+
+    CreateTestFunction(sig);
+
+    // MatmulLoadOp with matching input/output shapes
+    auto outputTile = builder_->CreateTile(*ctx_, tileShape, DataType::FP32, "output");
+    std::vector<ScalarValuePtr> offsets = {};
+    auto matmulLoadOp = builder_->CreateMatmulLoadOp(Opcode::OP_L1_COPY_IN, inputTile, offsets, outputTile);
+    builder_->Emit(*ctx_, matmulLoadOp);
+
+    FinishFunction();
+
+    VerifyResult result = VerifyOpShape(module_);
+    EXPECT_TRUE(result.passed) << "Valid MatmulLoadOp should pass shape verification";
+}
+
+TEST_F(IRVerifierTest, TestVerifyOpShape_InvalidMatmulLoadOp_MismatchedShapes) {
+    FunctionSignature sig;
+    std::vector<int64_t> inputShape = {128, 64};
+    std::vector<int64_t> outputShape = {64, 128}; // Different shape
+    auto inputTile = std::make_shared<TileValue>(inputShape, DataType::FP32, "input");
+    sig.arguments = {inputTile};
+
+    CreateTestFunction(sig);
+
+    // MatmulLoadOp with mismatched shapes
+    auto outputTile = builder_->CreateTile(*ctx_, outputShape, DataType::FP32, "output");
+    std::vector<ScalarValuePtr> offsets = {};
+    auto matmulLoadOp = builder_->CreateMatmulLoadOp(Opcode::OP_L1_COPY_IN, inputTile, offsets, outputTile);
+    builder_->Emit(*ctx_, matmulLoadOp);
+
+    FinishFunction();
+
+    VerifyResult result = VerifyOpShape(module_);
+    EXPECT_FALSE(result.passed) << "MatmulLoadOp with mismatched shapes should fail";
+    EXPECT_FALSE(result.errorMsg.empty());
+    EXPECT_NE(result.errorMsg.find("MatmulLoadOp"), std::string::npos);
+}
+
+TEST_F(IRVerifierTest, TestVerifyOpShape_ValidMatmulExtractOp_NoTranspose) {
+    FunctionSignature sig;
+    std::vector<int64_t> tileShape = {128, 64};
+    auto inputTile = std::make_shared<TileValue>(tileShape, DataType::FP32, "input");
+    sig.arguments = {inputTile};
+
+    CreateTestFunction(sig);
+
+    // MatmulExtractOp without transpose (OP_L1_TO_L0A)
+    auto outputTile = builder_->CreateTile(*ctx_, tileShape, DataType::FP32, "output");
+    std::vector<ScalarValuePtr> offsets = {};
+    auto matmulExtractOp = builder_->CreateMatmulExtractOp(Opcode::OP_L1_TO_L0A, inputTile, offsets, outputTile);
+    builder_->Emit(*ctx_, matmulExtractOp);
+
+    FinishFunction();
+
+    VerifyResult result = VerifyOpShape(module_);
+    EXPECT_TRUE(result.passed) << "Valid MatmulExtractOp without transpose should pass";
+}
+
+TEST_F(IRVerifierTest, TestVerifyOpShape_ValidMatmulExtractOp_WithTranspose) {
+    FunctionSignature sig;
+    std::vector<int64_t> inputShape = {128, 64};
+    std::vector<int64_t> outputShape = {64, 128}; // Transposed shape
+    auto inputTile = std::make_shared<TileValue>(inputShape, DataType::FP32, "input");
+    sig.arguments = {inputTile};
+
+    CreateTestFunction(sig);
+
+    // MatmulExtractOp with transpose (OP_L1_TO_L0_AT - transpose A)
+    auto outputTile = builder_->CreateTile(*ctx_, outputShape, DataType::FP32, "output");
+    std::vector<ScalarValuePtr> offsets = {};
+    auto matmulExtractOp = builder_->CreateMatmulExtractOp(Opcode::OP_L1_TO_L0_AT, inputTile, offsets, outputTile);
+    builder_->Emit(*ctx_, matmulExtractOp);
+
+    FinishFunction();
+
+    VerifyResult result = VerifyOpShape(module_);
+    EXPECT_TRUE(result.passed) << "Valid MatmulExtractOp with transpose should pass";
+}
+
+TEST_F(IRVerifierTest, TestVerifyOpShape_InvalidMatmulExtractOp_WrongTransposeShape) {
+    FunctionSignature sig;
+    std::vector<int64_t> inputShape = {128, 64};
+    std::vector<int64_t> outputShape = {128, 64}; // Should be {64, 128} for transpose
+    auto inputTile = std::make_shared<TileValue>(inputShape, DataType::FP32, "input");
+    sig.arguments = {inputTile};
+
+    CreateTestFunction(sig);
+
+    // MatmulExtractOp with transpose opcode but wrong output shape
+    auto outputTile = builder_->CreateTile(*ctx_, outputShape, DataType::FP32, "output");
+    std::vector<ScalarValuePtr> offsets = {};
+    auto matmulExtractOp = builder_->CreateMatmulExtractOp(Opcode::OP_L1_TO_L0_AT, inputTile, offsets, outputTile);
+    builder_->Emit(*ctx_, matmulExtractOp);
+
+    FinishFunction();
+
+    VerifyResult result = VerifyOpShape(module_);
+    EXPECT_FALSE(result.passed) << "MatmulExtractOp with wrong transpose shape should fail";
+    EXPECT_FALSE(result.errorMsg.empty());
+    EXPECT_NE(result.errorMsg.find("MatmulExtractOp"), std::string::npos);
+}
+
+TEST_F(IRVerifierTest, TestVerifyOpShape_ValidMatmulMmadOp) {
+    FunctionSignature sig;
+    // Matrix multiplication: A [M, K] * B [K, N] = C [M, N]
+    std::vector<int64_t> lhsShape = {128, 64};  // [M, K]
+    std::vector<int64_t> rhsShape = {64, 256};  // [K, N]
+    std::vector<int64_t> outputShape = {128, 256}; // [M, N]
+    auto lhsTile = std::make_shared<TileValue>(lhsShape, DataType::FP32, "lhs");
+    auto rhsTile = std::make_shared<TileValue>(rhsShape, DataType::FP32, "rhs");
+    sig.arguments = {lhsTile, rhsTile};
+
+    CreateTestFunction(sig);
+
+    // MatmulMmadOp with correct shapes
+    auto outputTile = builder_->CreateTile(*ctx_, outputShape, DataType::FP32, "output");
+    auto matmulMmadOp = builder_->CreateMatmulMmadOp(Opcode::OP_A_MUL_B, lhsTile, rhsTile, outputTile);
+    builder_->Emit(*ctx_, matmulMmadOp);
+
+    FinishFunction();
+
+    VerifyResult result = VerifyOpShape(module_);
+    EXPECT_TRUE(result.passed) << "Valid MatmulMmadOp should pass shape verification";
+}
+
+TEST_F(IRVerifierTest, TestVerifyOpShape_InvalidMatmulMmadOp_KDimensionMismatch) {
+    FunctionSignature sig;
+    // K dimension mismatch: A [M, K1] * B [K2, N] where K1 != K2
+    std::vector<int64_t> lhsShape = {128, 64};  // [M, K1=64]
+    std::vector<int64_t> rhsShape = {32, 256};  // [K2=32, N] - K mismatch!
+    std::vector<int64_t> outputShape = {128, 256};
+    auto lhsTile = std::make_shared<TileValue>(lhsShape, DataType::FP32, "lhs");
+    auto rhsTile = std::make_shared<TileValue>(rhsShape, DataType::FP32, "rhs");
+    sig.arguments = {lhsTile, rhsTile};
+
+    CreateTestFunction(sig);
+
+    // MatmulMmadOp with K dimension mismatch
+    auto outputTile = builder_->CreateTile(*ctx_, outputShape, DataType::FP32, "output");
+    auto matmulMmadOp = builder_->CreateMatmulMmadOp(Opcode::OP_A_MUL_B, lhsTile, rhsTile, outputTile);
+    builder_->Emit(*ctx_, matmulMmadOp);
+
+    FinishFunction();
+
+    VerifyResult result = VerifyOpShape(module_);
+    EXPECT_FALSE(result.passed) << "MatmulMmadOp with K dimension mismatch should fail";
+    EXPECT_FALSE(result.errorMsg.empty());
+    EXPECT_NE(result.errorMsg.find("K dimension mismatch"), std::string::npos);
+}
+
+TEST_F(IRVerifierTest, TestVerifyOpShape_InvalidMatmulMmadOp_WrongOutputShape) {
+    FunctionSignature sig;
+    std::vector<int64_t> lhsShape = {128, 64};
+    std::vector<int64_t> rhsShape = {64, 256};
+    std::vector<int64_t> outputShape = {64, 128}; // Wrong! Should be [128, 256]
+    auto lhsTile = std::make_shared<TileValue>(lhsShape, DataType::FP32, "lhs");
+    auto rhsTile = std::make_shared<TileValue>(rhsShape, DataType::FP32, "rhs");
+    sig.arguments = {lhsTile, rhsTile};
+
+    CreateTestFunction(sig);
+
+    // MatmulMmadOp with wrong output shape
+    auto outputTile = builder_->CreateTile(*ctx_, outputShape, DataType::FP32, "output");
+    auto matmulMmadOp = builder_->CreateMatmulMmadOp(Opcode::OP_A_MUL_B, lhsTile, rhsTile, outputTile);
+    builder_->Emit(*ctx_, matmulMmadOp);
+
+    FinishFunction();
+
+    VerifyResult result = VerifyOpShape(module_);
+    EXPECT_FALSE(result.passed) << "MatmulMmadOp with wrong output shape should fail";
+    EXPECT_FALSE(result.errorMsg.empty());
+    EXPECT_NE(result.errorMsg.find("MatmulMmadOp"), std::string::npos);
+}
+
+TEST_F(IRVerifierTest, TestVerifyOpShape_ValidMatmulAccOp) {
+    FunctionSignature sig;
+    std::vector<int64_t> lhsShape = {128, 64};
+    std::vector<int64_t> rhsShape = {64, 256};
+    std::vector<int64_t> outputShape = {128, 256};
+    auto lhsTile = std::make_shared<TileValue>(lhsShape, DataType::FP32, "lhs");
+    auto rhsTile = std::make_shared<TileValue>(rhsShape, DataType::FP32, "rhs");
+    sig.arguments = {lhsTile, rhsTile};
+
+    CreateTestFunction(sig);
+
+    // MatmulAccOp with correct shapes
+    auto outputTile = builder_->CreateTile(*ctx_, outputShape, DataType::FP32, "output");
+    auto matmulAccOp = builder_->CreateMatmulAccOp(Opcode::OP_A_MULACC_B, lhsTile, rhsTile, outputTile);
+    builder_->Emit(*ctx_, matmulAccOp);
+
+    FinishFunction();
+
+    VerifyResult result = VerifyOpShape(module_);
+    EXPECT_TRUE(result.passed) << "Valid MatmulAccOp should pass shape verification";
+}
+
+TEST_F(IRVerifierTest, TestVerifyOpShape_ValidMatmulStoreOp) {
+    FunctionSignature sig;
+    std::vector<int64_t> tileShape = {128, 64};
+    auto inputTile = std::make_shared<TileValue>(tileShape, DataType::FP32, "input");
+    sig.arguments = {inputTile};
+
+    CreateTestFunction(sig);
+
+    // MatmulStoreOp with matching shapes
+    auto outputTile = builder_->CreateTile(*ctx_, tileShape, DataType::FP32, "output");
+    std::vector<ScalarValuePtr> offsets = {};
+    auto matmulStoreOp = builder_->CreateMatmulStoreOp(Opcode::OP_L0C_COPY_OUT, inputTile, offsets, outputTile);
+    builder_->Emit(*ctx_, matmulStoreOp);
+
+    FinishFunction();
+
+    VerifyResult result = VerifyOpShape(module_);
+    EXPECT_TRUE(result.passed) << "Valid MatmulStoreOp should pass shape verification";
+}
+
+TEST_F(IRVerifierTest, TestVerifyOpShape_ValidMatmulBiasOp) {
+    FunctionSignature sig;
+    std::vector<int64_t> tileShape = {128, 64};
+    auto inputTile = std::make_shared<TileValue>(tileShape, DataType::FP32, "input");
+    sig.arguments = {inputTile};
+
+    CreateTestFunction(sig);
+
+    // MatmulBiasOp with matching shapes
+    auto outputTile = builder_->CreateTile(*ctx_, tileShape, DataType::FP32, "output");
+    std::vector<ScalarValuePtr> offsets = {};
+    auto matmulBiasOp = builder_->CreateMatmulBiasOp(Opcode::OP_L1_TO_BT, inputTile, offsets, outputTile);
+    builder_->Emit(*ctx_, matmulBiasOp);
+
+    FinishFunction();
+
+    VerifyResult result = VerifyOpShape(module_);
+    EXPECT_TRUE(result.passed) << "Valid MatmulBiasOp should pass shape verification";
+}
+
+TEST_F(IRVerifierTest, TestVerifyOpShape_ValidMatmulQuantOp) {
+    FunctionSignature sig;
+    std::vector<int64_t> tileShape = {128, 64};
+    auto inputTile = std::make_shared<TileValue>(tileShape, DataType::FP32, "input");
+    sig.arguments = {inputTile};
+
+    CreateTestFunction(sig);
+
+    // MatmulQuantOp with matching shapes
+    auto outputTile = builder_->CreateTile(*ctx_, tileShape, DataType::FP32, "output");
+    std::vector<ScalarValuePtr> offsets = {};
+    auto matmulQuantOp = builder_->CreateMatmulQuantOp(Opcode::OP_L1_TO_FIX_QUANT_PRE, inputTile, offsets, outputTile);
+    builder_->Emit(*ctx_, matmulQuantOp);
+
+    FinishFunction();
+
+    VerifyResult result = VerifyOpShape(module_);
+    EXPECT_TRUE(result.passed) << "Valid MatmulQuantOp should pass shape verification";
+}

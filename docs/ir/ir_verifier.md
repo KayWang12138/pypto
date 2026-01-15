@@ -102,6 +102,78 @@ auto binaryOp = builder.CreateBinaryOp(Opcode::OP_ADD, lhs, rhs, output);
 // 验证通过：rhs 的形状 [1, 64] 可以广播到 [128, 64]
 ```
 
+**矩阵乘法操作（Matmul Operations）验证示例：**
+
+形状验证支持以下矩阵乘法相关操作的验证：
+
+1. **MatmulLoadOp** - 数据加载操作，验证输入输出形状一致
+2. **MatmulExtractOp** - 数据提取操作，支持转置验证
+3. **MatmulMmadOp** - 矩阵乘法操作，验证矩阵维度兼容性
+4. **MatmulAccOp** - 累加矩阵乘法操作
+5. **MatmulStoreOp** - 数据存储操作
+6. **MatmulBiasOp** - 偏置操作
+7. **MatmulQuantOp** - 量化操作
+
+```cpp
+// 正确：MatmulLoadOp - 输入输出形状匹配
+std::vector<int64_t> tileShape = {128, 64};
+auto inputTile = std::make_shared<TileValue>(tileShape, DataType::FP32, "input");
+auto outputTile = std::make_shared<TileValue>(tileShape, DataType::FP32, "output");
+std::vector<ScalarValuePtr> offsets = {};
+auto matmulLoadOp = builder.CreateMatmulLoadOp(Opcode::OP_L1_COPY_IN, inputTile, offsets, outputTile);
+// 验证通过：输入输出形状一致
+```
+
+```cpp
+// 正确：MatmulExtractOp - 支持转置
+std::vector<int64_t> inputShape = {128, 64};
+std::vector<int64_t> outputShape = {64, 128};  // 转置后的形状
+auto inputTile = std::make_shared<TileValue>(inputShape, DataType::FP32, "input");
+auto outputTile = std::make_shared<TileValue>(outputShape, DataType::FP32, "output");
+std::vector<ScalarValuePtr> offsets = {};
+auto matmulExtractOp = builder.CreateMatmulExtractOp(Opcode::OP_L1_TO_L0_AT, inputTile, offsets, outputTile);
+// 验证通过：使用转置 opcode (OP_L1_TO_L0_AT)，输出形状是输入形状的转置
+```
+
+```cpp
+// 正确：MatmulMmadOp - 矩阵乘法 C = A * B
+// A: [M, K], B: [K, N], C: [M, N]
+std::vector<int64_t> lhsShape = {128, 64};   // [M=128, K=64]
+std::vector<int64_t> rhsShape = {64, 256};   // [K=64, N=256]
+std::vector<int64_t> outputShape = {128, 256}; // [M=128, N=256]
+auto lhsTile = std::make_shared<TileValue>(lhsShape, DataType::FP32, "lhs");
+auto rhsTile = std::make_shared<TileValue>(rhsShape, DataType::FP32, "rhs");
+auto outputTile = std::make_shared<TileValue>(outputShape, DataType::FP32, "output");
+auto matmulMmadOp = builder.CreateMatmulMmadOp(Opcode::OP_A_MUL_B, lhsTile, rhsTile, outputTile);
+// 验证通过：K 维度匹配 (64 == 64)，输出形状正确 [128, 256]
+```
+
+```cpp
+// 错误：MatmulMmadOp - K 维度不匹配
+std::vector<int64_t> lhsShape = {128, 64};   // K=64
+std::vector<int64_t> rhsShape = {32, 256};   // K=32 - 不匹配！
+std::vector<int64_t> outputShape = {128, 256};
+auto lhsTile = std::make_shared<TileValue>(lhsShape, DataType::FP32, "lhs");
+auto rhsTile = std::make_shared<TileValue>(rhsShape, DataType::FP32, "rhs");
+auto outputTile = std::make_shared<TileValue>(outputShape, DataType::FP32, "output");
+auto matmulMmadOp = builder.CreateMatmulMmadOp(Opcode::OP_A_MUL_B, lhsTile, rhsTile, outputTile);
+// 验证失败：错误信息类似 "K dimension mismatch, lhs K=64, rhs K=32"
+```
+
+**转置支持：**
+
+对于矩阵乘法操作，形状验证支持转置矩阵的验证：
+
+- **MatmulExtractOp** 通过 opcode 判断转置：
+  - `OP_L1_TO_L0_AT`: A 矩阵转置
+  - `OP_L1_TO_L0_BT`: B 矩阵转置
+  - 转置时，输出形状应为输入形状的转置（交换最后两个维度）
+
+- **MatmulMmadOp** 和 **MatmulAccOp** 支持矩阵转置：
+  - 如果 A 转置：A^T 形状为 [K, M]，B 形状为 [K, N]，输出为 [M, N]
+  - 如果 B 转置：A 形状为 [M, K]，B^T 形状为 [N, K]，输出为 [M, N]
+  - 如果 A 和 B 都转置：A^T 形状为 [K, M]，B^T 形状为 [N, K]，输出为 [M, N]
+
 ### 2. SSA 语义验证（SSA Semantics Verification）
 
 SSA 语义验证确保每个 TileValue 作为输入只被使用一次，符合 SSA（Static Single Assignment）形式的要求。
@@ -255,6 +327,11 @@ Visitor.VisitProgram(module)
 2. **性能考虑**：验证会遍历整个 IR，对于大型程序可能有性能开销
 3. **错误信息**：验证失败时，错误信息会包含详细的违反规则的位置和原因
 4. **扩展性**：可以通过注册自定义规则来扩展验证功能
+5. **矩阵乘法验证**：
+   - MatmulMmadOp 和 MatmulAccOp 会验证 K 维度是否匹配
+   - MatmulExtractOp 会根据 opcode 自动判断是否需要转置
+   - 转置操作会验证输出形状是否为输入形状的转置（交换最后两个维度）
+   - 支持批处理维度（batch dimensions）的验证
 
 ## API 参考
 

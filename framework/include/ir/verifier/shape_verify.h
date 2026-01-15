@@ -41,9 +41,26 @@ public:
 
 private:
     bool IsShapeCompatibleForBinaryOp(const TileValuePtr &inputTile, const TileValuePtr &outputTile);
+    // Vector operation shape verification
     void CheckUnaryOpShape(UnaryOpPtr &unaryOp);
     void CheckBinaryOpShape(BinaryOpPtr &binaryOp);
     void CheckBinaryScalarMixOpShape(BinaryScalarMixOpPtr &binaryScalarMixOp);
+    
+    // Matmul operation shape verification
+    void CheckMatmulLoadOpShape(MatmulLoadOpPtr &op);
+    void CheckMatmulExtractOpShape(MatmulExtractOpPtr &op);
+    void CheckMatmulMmadOpShape(MatmulMmadOpPtr &op);
+    void CheckMatmulAccOpShape(MatmulAccOpPtr &op);
+    void CheckMatmulStoreOpShape(MatmulStoreOpPtr &op);
+    void CheckMatmulBiasOpShape(MatmulBiasOpPtr &op);
+    void CheckMatmulQuantOpShape(MatmulQuantOpPtr &op);
+    
+    // Helper functions for matmul shape verification
+    bool IsTransposeOpcode(Opcode opcode);
+    bool IsTransposeA(Opcode opcode);
+    bool IsTransposeB(Opcode opcode);
+    std::vector<int64_t> GetTransposedShape(const std::vector<int64_t> &shape);
+    
     std::string GetShapeStr(const std::vector<int64_t> &shape) const;
 };
 

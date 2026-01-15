@@ -14,6 +14,7 @@
  */
 
 #include "ir/operation.h"
+#include "ir/tile_graph_base.h"
 
 namespace pto {
 
@@ -49,6 +50,32 @@ Operation::Operation(Opcode opcode,
             break;
         }
     }
+}
+
+// TileBaseOp implementation
+std::shared_ptr<TileValue> TileBaseOp::GetInOperand(size_t index) const {
+    return std::static_pointer_cast<TileValue>(GetInputOperand(index));
+}
+
+std::shared_ptr<TileValue> TileBaseOp::GetOutOperand(size_t index) const {
+    return std::static_pointer_cast<TileValue>(GetOutputOperand(index));
+}
+
+// ScalarBaseOp implementation
+ScalarValuePtr ScalarBaseOp::GetInOperand(size_t index) const {
+    return std::static_pointer_cast<ScalarValue>(GetInputOperand(index));
+}
+
+ScalarValuePtr ScalarBaseOp::GetOutOperand(size_t index) const {
+    return std::static_pointer_cast<ScalarValue>(GetOutputOperand(index));
+}
+
+// MatmulTileBaseOp implementation
+ScalarValuePtr MatmulTileBaseOp::GetOffset(size_t index) const {
+    if (index >= offsets_.size()) {
+        return nullptr;
+    }
+    return offsets_[index];
 }
 
 } // namespace pto
